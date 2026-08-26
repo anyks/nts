@@ -1,8 +1,8 @@
-[![ANYKS SSL](https://gitflic.ru/project/anyks/ssl/blob/raw?file=/img/banner.jpg)](https://anyks.com)
+[![ANYKS SSL](https://gitflic.ru/project/anyks/ssl/blob/raw?file=img%2Fbanner.jpg)](https://anyks.com)
 
 # ANYKS SSL
 
-[![LicenseRef ANYKS-SSL 1.0](https://img.shields.io/badge/license-AWH%201.0-blue.svg)](LICENSE)
+[![LicenseRef ANYKS-SSL 1.0](https://img.shields.io/badge/license-ANYKS-SSL%201.0-blue.svg)](LICENSE)
 
 Криптографическая библиотека и реализация TLS на C++ — самостоятельный проект,
 не зависящий ни от какого стороннего криптографического кода.
