@@ -2,7 +2,7 @@
 
 # ANYKS SSL
 
-[![LicenseRef ANYKS-SSL 1.0](https://img.shields.io/badge/license-ANYKS-SSL%201.0-blue.svg)](LICENSE)
+[![LicenseRef ANYKS-SSL 1.0](https://img.shields.io/badge/license-AnyksSSL%201.0-blue.svg)](LICENSE)
 
 Криптографическая библиотека и реализация TLS на C++ — самостоятельный проект,
 не зависящий ни от какого стороннего криптографического кода.
