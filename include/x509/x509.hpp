@@ -1,0 +1,812 @@
+/**
+ * @file x509.hpp
+ * @date 2026-08-27
+ *
+ * @license{LicenseRef-ANYKS-TLS-1.0}
+ *
+ * @author Yuriy Lobarev
+ *
+ * @telegram{forman}
+ * @phone{+7 (910) 983-95-90}
+ *
+ * @email forman@anyks.com
+ * @site https://anyks.com
+ *
+ * \~russian
+ * @brief Заголовочный файл модуля сертификатов X.509 — разбор записи сертификата,
+ *        имён, срока действия, сведений об открытом ключе и расширений
+ *
+ * \~english
+ * @brief Header file of the X.509 certificate module — parsing of the certificate
+ *        encoding, of the names, of the validity, of the public key info and of the extensions
+ *
+ * \~
+ *
+ * @copyright Copyright © 2026
+ *
+ */
+
+/**
+ * Экранируем повторную инициализацию модуля
+ */
+#ifndef __ANYKS_TLS_X509__
+#define __ANYKS_TLS_X509__
+
+/**
+ * Стандартные заголовочные файлы
+ */
+#include <string>
+#include <vector>
+#include <cstdint>
+#include <cstddef>
+
+/**
+ * Подключаем заголовочные файлы проекта
+ */
+#include <sys/global.hpp>
+#include <asn1/asn1.hpp>
+
+/**
+ * \~russian
+ * @brief Основное пространство имён
+ *
+ * \~english
+ * @brief Main namespace
+ *
+ * \~
+ *
+ */
+namespace anyks {
+	/**
+	 * Подписываемся на стандартное пространство имён
+	 */
+	using namespace std;
+
+	/**
+	 * \~russian
+	 * @brief Пространство имён модуля сертификатов X.509
+	 *
+	 * @details Разбор ведётся по RFC 5280 поверх модуля ASN.1 и, как и он, ничего не
+	 *          копирует сверх необходимого: двоичные поля отдаются просмотром внутрь
+	 *          разбираемой записи, и время жизни записи обязан обеспечить вызывающий.
+	 *
+	 *          Проверка подписи и построение цепочки доверия в этот модуль не входят:
+	 *          здесь только разбор записи и извлечение её полей.
+	 *
+	 * \~english
+	 * @brief Namespace of the X.509 certificate module
+	 * @details The parsing follows RFC 5280 on top of the ASN.1 module and, like it,
+	 *          copies nothing beyond the necessary: the binary fields are given out as
+	 *          views inside the encoding being parsed, and the lifetime of the encoding
+	 *          is up to the caller.
+	 *          The verification of the signature and the building of the chain of trust
+	 *          are not part of this module: it only parses the encoding and extracts its fields.
+	 *
+	 * \~
+	 *
+	 */
+	namespace x509 {
+		/**
+		 * \~russian
+		 * @brief Причина отказа разбора сертификата
+		 *
+		 * \~english
+		 * @brief Reason of a certificate parsing failure
+		 *
+		 * \~
+		 *
+		 */
+		enum class error_t : uint8_t {
+			NONE      = 0x00, // Отказа не произошло
+			ENCODING  = 0x01, // Запись не отвечает правилам кодировки DER
+			STRUCTURE = 0x02, // Состав записи не отвечает устройству сертификата
+			VERSION   = 0x03, // Издание сертификата не поддерживается либо записано неверно
+			SERIAL    = 0x04, // Порядковый номер сертификата записан неверно
+			NAME      = 0x05, // Имя записано неверно
+			VALIDITY  = 0x06, // Срок действия записан неверно
+			KEY       = 0x07, // Сведения об открытом ключе записаны неверно
+			EXTENSION = 0x08, // Расширение записано неверно
+			DUPLICATE = 0x09, // Расширение либо признак имени встретились дважды
+			MEMORY    = 0x0A  // Не удалось выделить память под разобранные сведения
+		};
+
+		/**
+		 * \~russian
+		 * @brief Издание сертификата
+		 *
+		 * \~english
+		 * @brief Version of a certificate
+		 *
+		 * \~
+		 *
+		 */
+		enum class version_t : uint8_t {
+			V1 = 0x00, // Первое издание, расширений не имеет
+			V2 = 0x01, // Второе издание, добавлены опознаватели издателя и владельца
+			V3 = 0x02  // Третье издание, добавлены расширения
+		};
+
+		/**
+		 * \~russian
+		 * @brief Вид имени в дополнительных именах владельца
+		 *
+		 * \~english
+		 * @brief Kind of a name in the subject alternative names
+		 *
+		 * \~
+		 *
+		 */
+		enum class kind_t : uint8_t {
+			OTHER     = 0x00, // Имя иного вида, отдаётся записью как есть
+			EMAIL     = 0x01, // Адрес электронной почты
+			DNS       = 0x02, // Доменное имя
+			DIRECTORY = 0x03, // Отличительное имя
+			URI       = 0x04, // Единый указатель ресурса
+			ADDRESS   = 0x05  // Адрес сети
+		};
+
+		/**
+		 * \~russian
+		 * @brief Назначение открытого ключа
+		 *
+		 * @details Значения отвечают разрядам строки битов расширения назначения ключа
+		 *          в порядке, заданном RFC 5280.
+		 *
+		 * \~english
+		 * @brief Purpose of the public key
+		 * @details The values correspond to the bits of the bit string of the key usage
+		 *          extension in the order given by RFC 5280.
+		 *
+		 * \~
+		 *
+		 */
+		enum class usage_t : uint16_t {
+			SIGNATURE  = 0x0080, // Проверка подписи
+			CONTENT    = 0x0040, // Неотрекаемость от содержимого
+			ENCIPHER   = 0x0020, // Шифрование ключа
+			DATA       = 0x0010, // Шифрование данных
+			AGREEMENT  = 0x0008, // Согласование ключа
+			CERTIFICATE= 0x0004, // Подписывание сертификатов
+			REVOCATION = 0x0002, // Подписывание списков отзыва
+			ENCIPHER_ONLY = 0x0001, // Только шифрование при согласовании ключа
+			DECIPHER_ONLY = 0x8000  // Только расшифровывание при согласовании ключа
+		};
+
+		/**
+		 * \~russian
+		 * @brief Признак имени
+		 *
+		 * \~english
+		 * @brief Attribute of a name
+		 *
+		 * \~
+		 *
+		 */
+		typedef struct __ANYKS_TLS_SHARED_EXPORT__ Attribute {
+			// Вид записи значения признака
+			asn1::tag_t type;
+			// Опознаватель признака
+			string oid;
+			// Значение признака в кодировке UTF-8
+			string value;
+			/**
+			 * \~russian
+			 * @brief Конструктор
+			 *
+			 *
+			 * \~english
+			 * @brief Constructor
+			 *
+			 * \~
+			 *
+			 */
+			Attribute() noexcept : type(asn1::tag_t::UTF8_STRING) {}
+		} attribute_t;
+
+		/**
+		 * \~russian
+		 * @brief Отличительное имя
+		 *
+		 * @details Имя состоит из набора составляющих, каждая из которых несёт один и
+		 *          более признаков. Составляющая из нескольких признаков применяется
+		 *          редко, но встречается, и сводить её к одному признаку нельзя:
+		 *          порядок признаков внутри составляющей значения не имеет, а порядок
+		 *          самих составляющих значим.
+		 *
+		 * \~english
+		 * @brief Distinguished name
+		 * @details A name consists of a set of parts, each of which carries one or more
+		 *          attributes. A part of several attributes is used rarely but does occur,
+		 *          and it cannot be reduced to a single attribute: the order of the
+		 *          attributes inside a part is insignificant, while the order of the
+		 *          parts themselves is significant.
+		 *
+		 * \~
+		 *
+		 */
+		typedef struct __ANYKS_TLS_SHARED_EXPORT__ Name {
+			// Просмотр записи имени целиком
+			view_t element;
+			// Набор составляющих имени
+			vector <vector <attribute_t>> parts;
+		} name_t;
+
+		/**
+		 * \~russian
+		 * @brief Дополнительное имя владельца
+		 *
+		 * \~english
+		 * @brief Alternative name of the subject
+		 *
+		 * \~
+		 *
+		 */
+		typedef struct __ANYKS_TLS_SHARED_EXPORT__ Alternative {
+			// Вид имени
+			kind_t kind;
+			// Значение имени
+			string value;
+			// Просмотр записи имени целиком
+			view_t element;
+			/**
+			 * \~russian
+			 * @brief Конструктор
+			 *
+			 *
+			 * \~english
+			 * @brief Constructor
+			 *
+			 * \~
+			 *
+			 */
+			Alternative() noexcept : kind(kind_t::OTHER) {}
+		} alternative_t;
+
+		/**
+		 * \~russian
+		 * @brief Расширение сертификата
+		 *
+		 * \~english
+		 * @brief Extension of a certificate
+		 *
+		 * \~
+		 *
+		 */
+		typedef struct __ANYKS_TLS_SHARED_EXPORT__ Extension {
+			// Признак обязательности расширения
+			bool critical;
+			// Опознаватель расширения
+			string oid;
+			// Просмотр содержимого расширения
+			view_t value;
+			/**
+			 * \~russian
+			 * @brief Конструктор
+			 *
+			 *
+			 * \~english
+			 * @brief Constructor
+			 *
+			 * \~
+			 *
+			 */
+			Extension() noexcept : critical(false) {}
+		} extension_t;
+
+		/**
+		 * \~russian
+		 * @brief Сведения об открытом ключе
+		 *
+		 * \~english
+		 * @brief Public key info
+		 *
+		 * \~
+		 *
+		 */
+		typedef struct __ANYKS_TLS_SHARED_EXPORT__ Key {
+			// Число неиспользуемых разрядов последнего байта ключа
+			uint8_t unused;
+			// Опознаватель алгоритма ключа
+			string algorithm;
+			// Просмотр записи настроек алгоритма ключа
+			view_t parameters;
+			// Просмотр записи открытого ключа
+			view_t key;
+			// Просмотр записи сведений об открытом ключе целиком
+			view_t element;
+			/**
+			 * \~russian
+			 * @brief Конструктор
+			 *
+			 *
+			 * \~english
+			 * @brief Constructor
+			 *
+			 * \~
+			 *
+			 */
+			Key() noexcept : unused(0) {}
+		} key_t;
+
+		/**
+		 * \~russian
+		 * @brief Сертификат X.509
+		 *
+		 * @details Объект хранит разобранные сведения сертификата и просмотры внутрь
+		 *          разбираемой записи. Запись обязана пережить объект.
+		 *
+		 * \~english
+		 * @brief X.509 certificate
+		 * @details The object keeps the parsed info of the certificate and the views
+		 *          inside the encoding being parsed. The encoding must outlive the object.
+		 *
+		 * \~
+		 *
+		 */
+		typedef class __ANYKS_TLS_SHARED_EXPORT__ Certificate {
+			private:
+				// Издание сертификата
+				version_t _version;
+			private:
+				// Причина последнего отказа
+				error_t _error;
+			private:
+				// Просмотр записи сертификата целиком
+				view_t _element;
+				// Просмотр подписываемой части сертификата
+				view_t _body;
+			private:
+				// Просмотр порядкового номера сертификата
+				view_t _serial;
+				// Просмотр записи подписи
+				view_t _signature;
+				// Число неиспользуемых разрядов последнего байта подписи
+				uint8_t _unused;
+			private:
+				// Просмотр опознавателя издателя
+				view_t _issuerUID;
+				// Просмотр опознавателя владельца
+				view_t _subjectUID;
+			private:
+				// Опознаватель алгоритма подписи внутри подписываемой части
+				string _algorithm;
+				// Опознаватель алгоритма подписи снаружи
+				string _outer;
+				// Просмотр записи настроек алгоритма подписи
+				view_t _parameters;
+			private:
+				// Имя издателя сертификата
+				name_t _issuer;
+				// Имя владельца сертификата
+				name_t _subject;
+			private:
+				// Начало срока действия сертификата
+				int64_t _before;
+				// Окончание срока действия сертификата
+				int64_t _after;
+			private:
+				// Сведения об открытом ключе
+				key_t _key;
+			private:
+				// Набор расширений сертификата
+				vector <extension_t> _extensions;
+			private:
+				/**
+				 * @brief Метод разбора отличительного имени
+				 *
+				 * @param element элемент записи имени
+				 * @param result  объект имени, в который производится разбор
+				 * @return        причина отказа либо error_t::NONE
+				 *
+				 */
+				error_t name(const asn1::element_t & element, name_t & result) noexcept;
+				/**
+				 * @brief Метод разбора опознавателя алгоритма
+				 *
+				 * @param element элемент записи опознавателя алгоритма
+				 * @param oid     строка, в которую помещается опознаватель алгоритма
+				 * @param params  просмотр, в который помещается запись настроек алгоритма
+				 * @return        причина отказа либо error_t::NONE
+				 *
+				 */
+				error_t identifier(const asn1::element_t & element, string & oid, view_t & params) noexcept;
+			public:
+				/**
+				 * \~russian
+				 * @brief Метод разбора записи сертификата
+				 *
+				 * @param data просмотр разбираемой записи сертификата
+				 * @return     причина отказа либо error_t::NONE
+				 *
+				 * @note Просмотры разобранных полей указывают внутрь переданной записи,
+				 *       поэтому запись обязана пережить объект сертификата
+				 *
+				 * \~english
+				 * @brief Method of parsing a certificate encoding
+				 * @param data the view of the certificate encoding being parsed
+				 * @return     the reason of the failure or error_t::NONE
+				 *
+				 * \~
+				 *
+				 */
+				error_t parse(const view_t & data) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод очистки разобранных сведений
+				 *
+				 * \~english
+				 * @brief Method of clearing the parsed info
+				 *
+				 * \~
+				 *
+				 */
+				void clear() noexcept;
+			public:
+				/**
+				 * \~russian
+				 * @brief Метод извлечения причины последнего отказа
+				 *
+				 * @return причина последнего отказа
+				 *
+				 * \~english
+				 * @brief Method of getting the reason of the last failure
+				 * @return the reason of the last failure
+				 *
+				 * \~
+				 *
+				 */
+				error_t err() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод извлечения издания сертификата
+				 *
+				 * @return издание сертификата
+				 *
+				 * \~english
+				 * @brief Method of getting the version of the certificate
+				 * @return the version of the certificate
+				 *
+				 * \~
+				 *
+				 */
+				version_t release() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод извлечения подписываемой части сертификата
+				 *
+				 * @return просмотр подписываемой части сертификата
+				 *
+				 * @note Подпись ставится под записью этой части, а не под её смыслом,
+				 *       поэтому проверять её надлежит по этому просмотру, а не по заново
+				 *       собранной записи разобранных полей
+				 *
+				 * \~english
+				 * @brief Method of getting the signed part of the certificate
+				 * @return the view of the signed part of the certificate
+				 *
+				 * \~
+				 *
+				 */
+				const view_t & body() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод извлечения порядкового номера сертификата
+				 *
+				 * @return просмотр порядкового номера сертификата
+				 *
+				 * \~english
+				 * @brief Method of getting the serial number of the certificate
+				 * @return the view of the serial number of the certificate
+				 *
+				 * \~
+				 *
+				 */
+				const view_t & number() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод извлечения подписи сертификата
+				 *
+				 * @param unused число неиспользуемых разрядов последнего байта подписи
+				 * @return       просмотр записи подписи
+				 *
+				 * \~english
+				 * @brief Method of getting the signature of the certificate
+				 * @param unused the number of unused bits in the last byte of the signature
+				 * @return       the view of the signature encoding
+				 *
+				 * \~
+				 *
+				 */
+				const view_t & sign(uint8_t & unused) const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод извлечения опознавателя алгоритма подписи
+				 *
+				 * @return опознаватель алгоритма подписи
+				 *
+				 * \~english
+				 * @brief Method of getting the identifier of the signature algorithm
+				 * @return the identifier of the signature algorithm
+				 *
+				 * \~
+				 *
+				 */
+				const string & algorithms() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод извлечения имени издателя сертификата
+				 *
+				 * @return имя издателя сертификата
+				 *
+				 * \~english
+				 * @brief Method of getting the name of the issuer of the certificate
+				 * @return the name of the issuer of the certificate
+				 *
+				 * \~
+				 *
+				 */
+				const name_t & issuers() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод извлечения имени владельца сертификата
+				 *
+				 * @return имя владельца сертификата
+				 *
+				 * \~english
+				 * @brief Method of getting the name of the subject of the certificate
+				 * @return the name of the subject of the certificate
+				 *
+				 * \~
+				 *
+				 */
+				const name_t & subjects() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод извлечения срока действия сертификата
+				 *
+				 * @param before начало срока действия в секундах от начала эпохи
+				 * @param after  окончание срока действия в секундах от начала эпохи
+				 *
+				 * \~english
+				 * @brief Method of getting the validity of the certificate
+				 * @param before the beginning of the validity in seconds since the epoch
+				 * @param after  the end of the validity in seconds since the epoch
+				 *
+				 * \~
+				 *
+				 */
+				void validity(int64_t & before, int64_t & after) const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод извлечения сведений об открытом ключе
+				 *
+				 * @return сведения об открытом ключе
+				 *
+				 * \~english
+				 * @brief Method of getting the public key info
+				 * @return the public key info
+				 *
+				 * \~
+				 *
+				 */
+				const key_t & key() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод извлечения набора расширений сертификата
+				 *
+				 * @return набор расширений сертификата
+				 *
+				 * \~english
+				 * @brief Method of getting the set of the extensions of the certificate
+				 * @return the set of the extensions of the certificate
+				 *
+				 * \~
+				 *
+				 */
+				const vector <extension_t> & extension() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод поиска расширения сертификата по опознавателю
+				 *
+				 * @param oid опознаватель разыскиваемого расширения
+				 * @return    расширение сертификата либо nullptr
+				 *
+				 * \~english
+				 * @brief Method of finding an extension of the certificate by its identifier
+				 * @param oid the identifier of the extension being sought
+				 * @return    the extension of the certificate or nullptr
+				 *
+				 * \~
+				 *
+				 */
+				const extension_t * extension(const string & oid) const noexcept;
+			public:
+				/**
+				 * \~russian
+				 * @brief Конструктор сертификата
+				 *
+				 * \~english
+				 * @brief Constructor of a certificate
+				 *
+				 * \~
+				 *
+				 */
+				Certificate() noexcept;
+				/**
+				 * \~russian
+				 * @brief Деструктор
+				 *
+				 *
+				 * \~english
+				 * @brief Destructor
+				 *
+				 * \~
+				 *
+				 */
+				~Certificate() noexcept {}
+		} certificate_t;
+
+		/**
+		 * \~russian
+		 * @brief Метод поиска признака имени по опознавателю
+		 *
+		 * @param name имя, в котором ведётся поиск
+		 * @param oid  опознаватель разыскиваемого признака
+		 * @return     признак имени либо nullptr
+		 *
+		 * @note Отдаётся первый признак: опознаватель вправе встретиться в имени не
+		 *       единожды, и выбор одного из нескольких — дело вызывающего
+		 *
+		 * \~english
+		 * @brief Method of finding an attribute of a name by its identifier
+		 * @param name the name the search is performed in
+		 * @param oid  the identifier of the attribute being sought
+		 * @return     the attribute of the name or nullptr
+		 *
+		 * \~
+		 *
+		 */
+		__ANYKS_TLS_SHARED_EXPORT__ const attribute_t * attribute(const name_t & name, const string & oid) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод сборки записи имени в виде строки
+		 *
+		 * @param name   имя, запись которого собирается
+		 * @param result строка, в которую помещается результат
+		 * @return       причина отказа либо error_t::NONE
+		 *
+		 * @note Запись собирается по RFC 4514 от последней составляющей к первой.
+		 *       Она предназначена для чтения человеком и для сличения имён негодна:
+		 *       сличение ведётся по разобранным признакам
+		 *
+		 * \~english
+		 * @brief Method of building the notation of a name as a string
+		 * @param name   the name whose notation is being built
+		 * @param result the string the result is put into
+		 * @return       the reason of the failure or error_t::NONE
+		 *
+		 * \~
+		 *
+		 */
+		__ANYKS_TLS_SHARED_EXPORT__ error_t text(const name_t & name, string & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод извлечения основных ограничений сертификата
+		 *
+		 * @param extension расширение основных ограничений
+		 * @param authority признак принадлежности сертификата удостоверяющему центру
+		 * @param depth     предельная глубина цепочки либо минус единица
+		 * @return          причина отказа либо error_t::NONE
+		 *
+		 * \~english
+		 * @brief Method of getting the basic constraints of a certificate
+		 * @param extension the extension of the basic constraints
+		 * @param authority the flag of the certificate belonging to a certification authority
+		 * @param depth     the maximum depth of the chain or minus one
+		 * @return          the reason of the failure or error_t::NONE
+		 *
+		 * \~
+		 *
+		 */
+		__ANYKS_TLS_SHARED_EXPORT__ error_t constraints(const extension_t & extension, bool & authority, int64_t & depth) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод извлечения назначения открытого ключа
+		 *
+		 * @param extension расширение назначения ключа
+		 * @param result    набор разрядов назначения ключа
+		 * @return          причина отказа либо error_t::NONE
+		 *
+		 * \~english
+		 * @brief Method of getting the usage of the public key
+		 * @param extension the extension of the key usage
+		 * @param result    the set of the bits of the key usage
+		 * @return          the reason of the failure or error_t::NONE
+		 *
+		 * \~
+		 *
+		 */
+		__ANYKS_TLS_SHARED_EXPORT__ error_t usage(const extension_t & extension, uint16_t & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод извлечения расширенного назначения открытого ключа
+		 *
+		 * @param extension расширение расширенного назначения ключа
+		 * @param result    набор опознавателей назначения ключа
+		 * @return          причина отказа либо error_t::NONE
+		 *
+		 * \~english
+		 * @brief Method of getting the extended usage of the public key
+		 * @param extension the extension of the extended key usage
+		 * @param result    the set of the identifiers of the key usage
+		 * @return          the reason of the failure or error_t::NONE
+		 *
+		 * \~
+		 *
+		 */
+		__ANYKS_TLS_SHARED_EXPORT__ error_t purpose(const extension_t & extension, vector <string> & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод извлечения дополнительных имён владельца
+		 *
+		 * @param extension расширение дополнительных имён
+		 * @param result    набор дополнительных имён
+		 * @return          причина отказа либо error_t::NONE
+		 *
+		 * @note Адрес сети отдаётся записью как есть, без приведения к строке: приведение
+		 *       это дело модуля работы с сетью, а не разборщика сертификата
+		 *
+		 * \~english
+		 * @brief Method of getting the alternative names of the subject
+		 * @param extension the extension of the alternative names
+		 * @param result    the set of the alternative names
+		 * @return          the reason of the failure or error_t::NONE
+		 *
+		 * \~
+		 *
+		 */
+		__ANYKS_TLS_SHARED_EXPORT__ error_t alternatives(const extension_t & extension, vector <alternative_t> & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод извлечения опознавателя ключа владельца
+		 *
+		 * @param extension расширение опознавателя ключа владельца
+		 * @param result    просмотр, в который помещается опознаватель ключа
+		 * @return          причина отказа либо error_t::NONE
+		 *
+		 * \~english
+		 * @brief Method of getting the subject key identifier
+		 * @param extension the extension of the subject key identifier
+		 * @param result    the view the key identifier is put into
+		 * @return          the reason of the failure or error_t::NONE
+		 *
+		 * \~
+		 *
+		 */
+		__ANYKS_TLS_SHARED_EXPORT__ error_t subjectKey(const extension_t & extension, view_t & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод извлечения опознавателя ключа издателя
+		 *
+		 * @param extension расширение опознавателя ключа издателя
+		 * @param result    просмотр, в который помещается опознаватель ключа
+		 * @return          причина отказа либо error_t::NONE
+		 *
+		 * @note Расширение несёт три необязательных поля, и опознаватель ключа среди них
+		 *       может отсутствовать вовсе. Его отсутствие отказом не считается: просмотр
+		 *       остаётся пустым
+		 *
+		 * \~english
+		 * @brief Method of getting the authority key identifier
+		 * @param extension the extension of the authority key identifier
+		 * @param result    the view the key identifier is put into
+		 * @return          the reason of the failure or error_t::NONE
+		 *
+		 * \~
+		 *
+		 */
+		__ANYKS_TLS_SHARED_EXPORT__ error_t authorityKey(const extension_t & extension, view_t & result) noexcept;
+	};
+};
+
+#endif // __ANYKS_TLS_X509__

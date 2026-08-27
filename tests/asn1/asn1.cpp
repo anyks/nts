@@ -2,7 +2,7 @@
  * @file asn1.cpp
  * @date 2026-08-26
  *
- * @license{LicenseRef-ANYKS-SSL-1.0}
+ * @license{LicenseRef-ANYKS-TLS-1.0}
  *
  * @author Yuriy Lobarev
  *
@@ -408,8 +408,10 @@ TEST(ASN1Test, TimeStrict) {
 		view_t(brief, sizeof(brief)), view_t(fraction, sizeof(fraction)),
 		view_t(month, sizeof(month)), view_t(day, sizeof(day)), view_t(hour, sizeof(hour))
 	};
-	// Выполняем обход набора записей времени
-	for(size_t i = 0; i < (sizeof(records) / sizeof(records[0])); i++) {
+	/**
+	 * Выполняем обход набора записей времени
+	 */
+	for(size_t i = 0; i < (sizeof(records) / sizeof(records[0])); i++){
 		// Создаём разборщик записи времени
 		asn1::reader_t reader(records[i].data, records[i].size);
 		// Объект разобранного элемента
@@ -477,8 +479,10 @@ TEST(ASN1Test, Text) {
 	const view_t records[] = {
 		view_t(overlong, sizeof(overlong)), view_t(surrogate, sizeof(surrogate)), view_t(cropped, sizeof(cropped))
 	};
-	// Выполняем обход набора неверных записей строк
-	for(size_t i = 0; i < (sizeof(records) / sizeof(records[0])); i++) {
+	/**
+	 * Выполняем обход набора неверных записей строк
+	 */
+	for(size_t i = 0; i < (sizeof(records) / sizeof(records[0])); i++){
 		// Создаём разборщик записи строки
 		asn1::reader_t reader(records[i].data, records[i].size);
 		// Выполняем разбор строки
@@ -576,8 +580,10 @@ TEST(ASN1Test, WriteBalance) {
 TEST(ASN1Test, RoundTrip) {
 	// Набор значений времени, проходящих запись и разбор
 	const int64_t moments[] = {915148800, 1787747696, -631152000, 2524607999, 0};
-	// Выполняем обход набора значений времени
-	for(size_t i = 0; i < (sizeof(moments) / sizeof(moments[0])); i++) {
+	/**
+	 * Выполняем обход набора значений времени
+	 */
+	for(size_t i = 0; i < (sizeof(moments) / sizeof(moments[0])); i++){
 		// Создаём записчик записи
 		asn1::writer_t writer;
 		// Определяем вид записи времени по промежутку, различаемому двузначным годом
@@ -599,8 +605,10 @@ TEST(ASN1Test, RoundTrip) {
 	}
 	// Набор значений целых чисел, проходящих запись и разбор
 	const int64_t numbers[] = {0, 1, -1, 127, 128, -128, -129, 255, 256, 65535, INT64_MAX, INT64_MIN};
-	// Выполняем обход набора значений целых чисел
-	for(size_t i = 0; i < (sizeof(numbers) / sizeof(numbers[0])); i++) {
+	/**
+	 * Выполняем обход набора значений целых чисел
+	 */
+	for(size_t i = 0; i < (sizeof(numbers) / sizeof(numbers[0])); i++){
 		// Создаём записчик записи
 		asn1::writer_t writer;
 		// Записываем целое число
@@ -622,10 +630,14 @@ TEST(ASN1Test, RoundTrip) {
 	const char * strings[] = {"", "anyks.com", "Проверка кодировки", "a.b-c(d)"};
 	// Набор видов строк, проходящих запись и разбор
 	const asn1::tag_t types[] = {asn1::tag_t::UTF8_STRING, asn1::tag_t::BMP_STRING, asn1::tag_t::UNIVERSAL_STRING};
-	// Выполняем обход набора видов строк
-	for(size_t i = 0; i < (sizeof(types) / sizeof(types[0])); i++) {
-		// Выполняем обход набора строк
-		for(size_t j = 0; j < (sizeof(strings) / sizeof(strings[0])); j++) {
+	/**
+	 * Выполняем обход набора видов строк
+	 */
+	for(size_t i = 0; i < (sizeof(types) / sizeof(types[0])); i++){
+		/**
+		 * Выполняем обход набора строк
+		 */
+		for(size_t j = 0; j < (sizeof(strings) / sizeof(strings[0])); j++){
 			// Создаём записчик записи
 			asn1::writer_t writer;
 			// Записываем строку

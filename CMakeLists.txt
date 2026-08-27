@@ -2,7 +2,7 @@
 cmake_minimum_required(VERSION 3.15)
 
 # Устанавливаем название проекта
-project(anyks-ssl LANGUAGES CXX)
+project(anyks-tls LANGUAGES CXX)
 
 # Устанавливаем полное название проекта
 SET(PROJECT_VENDOR_LONG "ANYKS - SSL")
@@ -99,23 +99,25 @@ endforeach()
 # Устанавливаем список исходных файлов библиотеки
 SET(SOURCE_FILES
     "${CMAKE_SOURCE_DIR}/src/asn1/asn1.cpp"
+    "${CMAKE_SOURCE_DIR}/src/x509/x509.cpp"
+    "${CMAKE_SOURCE_DIR}/src/digest/streebog.cpp"
 )
 
 # Устанавливаем имя библиотеки
-SET(SSL_LIB_NAME ${PROJECT_NAME})
+SET(TLS_LIB_NAME ${PROJECT_NAME})
 
 # Если нужно собрать динамическую библиотеку
 if (CMAKE_SHARED_BUILD_LIB)
     # Добавляем динамическую библиотеку
-    add_library(${SSL_LIB_NAME} SHARED ${SOURCE_FILES})
+    add_library(${TLS_LIB_NAME} SHARED ${SOURCE_FILES})
     # Выполняем экспорт методов доступных извне в динамических библиотеках
-    target_compile_definitions(${SSL_LIB_NAME} PRIVATE ANYKS_SSL_SHARED_LIBRARY_EXPORT)
+    target_compile_definitions(${TLS_LIB_NAME} PRIVATE ANYKS_TLS_SHARED_LIBRARY_EXPORT)
 # Если нужно собрать статическую библиотеку
 else (CMAKE_SHARED_BUILD_LIB)
     # Активируем сборку статической библиотеки
-    add_compile_definitions(ANYKS_SSL_STATICLIB)
+    add_compile_definitions(ANYKS_TLS_STATICLIB)
     # Добавляем статическую библиотеку
-    add_library(${SSL_LIB_NAME} STATIC ${SOURCE_FILES})
+    add_library(${TLS_LIB_NAME} STATIC ${SOURCE_FILES})
 endif (CMAKE_SHARED_BUILD_LIB)
 
 # Если необходимо собрать набор проверок
@@ -164,9 +166,9 @@ if (CMAKE_BUILD_TESTS)
      # попасть и в саму библиотеку: без этого покрытие считается по одним проверкам,
      # а обращения к памяти внутри библиотеки остаются без надзора
      ##
-    add_library(${SSL_LIB_NAME}_test STATIC ${SOURCE_FILES})
+    add_library(${TLS_LIB_NAME}_test STATIC ${SOURCE_FILES})
     # Включаем флаги компиляции проверок для библиотеки проверок
-    target_compile_options(${SSL_LIB_NAME}_test PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
+    target_compile_options(${TLS_LIB_NAME}_test PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
 
     ##
      # Каталог пакетов операционной системы добавляется к путям поиска
@@ -207,4 +209,4 @@ endif (CMAKE_BUILD_TESTS)
 install(DIRECTORY "${CMAKE_SOURCE_DIR}/include/" DESTINATION "${CMAKE_INSTALL_PREFIX}/include/${CMAKE_PROJECT_NAME}" FILES_MATCHING PATTERN "*.hpp")
 
 # Выполняем установку библиотеки
-install(TARGETS ${SSL_LIB_NAME} DESTINATION "${CMAKE_INSTALL_PREFIX}/lib")
+install(TARGETS ${TLS_LIB_NAME} DESTINATION "${CMAKE_INSTALL_PREFIX}/lib")

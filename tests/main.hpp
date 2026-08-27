@@ -2,7 +2,7 @@
  * @file main.hpp
  * @date 2026-08-26
  *
- * @license{LicenseRef-ANYKS-SSL-1.0}
+ * @license{LicenseRef-ANYKS-TLS-1.0}
  *
  * @author Yuriy Lobarev
  *
@@ -22,8 +22,8 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANYKS_SSL_TESTS__
-#define __ANYKS_SSL_TESTS__
+#ifndef __ANYKS_TLS_TESTS__
+#define __ANYKS_TLS_TESTS__
 
 /**
  * Отключаем поддержку POSIX регулярных выражений в Google Test
@@ -35,4 +35,4 @@
  */
 #include <gtest/gtest.h>
 
-#endif // __ANYKS_SSL_TESTS__
+#endif // __ANYKS_TLS_TESTS__

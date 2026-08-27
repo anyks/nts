@@ -1,8 +1,8 @@
-[![ANYKS SSL](https://gitflic.ru/project/anyks/ssl/blob/raw?file=img%2Fbanner.jpg)](https://anyks.com)
+[![ANYKS TLS](https://gitflic.ru/project/anyks/ssl/blob/raw?file=img%2Fbanner.jpg)](https://anyks.com)
 
-# ANYKS SSL
+# ANYKS TLS
 
-[![LicenseRef ANYKS-SSL 1.0](https://img.shields.io/badge/license-AnyksSSL%201.0-blue.svg)](LICENSE)
+[![LicenseRef ANYKS-TLS 1.0](https://img.shields.io/badge/license-AnyksTLS%201.0-blue.svg)](LICENSE)
 
 Криптографическая библиотека и реализация TLS на C++ — самостоятельный проект,
 не зависящий ни от какого стороннего криптографического кода.
@@ -66,10 +66,19 @@
 |---|---|
 | `include/sys` | Общие определения сборки |
 | `include/asn1`, `src/asn1` | Разбор и запись ASN.1 в кодировке DER |
+| `include/x509`, `src/x509` | Разбор сертификатов X.509 по RFC 5280 |
+| `include/digest`, `src/digest` | Хеширование: «Стрибог» по ГОСТ Р 34.11-2012 |
 | `src/internal` | Внутренние модули, наружу не вывозятся |
 
 Разделы добавляются по мере готовности. Порядок работ: ASN.1 и X.509, затем
 хеши и симметричные шифры, затем асимметрика, затем ход TLS.
+
+Постоянные величины криптографических преобразований переносятся из текста
+стандарта дословно и в исходном тексте не пересчитываются; всё производное от
+них вычисляется при сборке.
+
+Проверка подписи сертификата и построение цепочки доверия в `x509` не входят:
+там только разбор записи. Проверять подпись нечем, пока нет криптографии.
 
 ## Сборка
 
