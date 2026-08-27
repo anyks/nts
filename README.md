@@ -1,4 +1,4 @@
-[![ANYKS TLS](https://gitflic.ru/project/anyks/ssl/blob/raw?file=img%2Fbanner.jpg)](https://anyks.com)
+[![ANYKS TLS](https://gitflic.ru/project/anyks/tls/blob/raw?file=img%2Fbanner.jpg)](https://anyks.com)
 
 # ANYKS TLS
 
