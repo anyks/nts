@@ -1,0 +1,609 @@
+/**
+ * @file curve.cpp
+ * @date 2026-08-29
+ *
+ * @license{LicenseRef-ANYKS-TLS-1.0}
+ *
+ * @author Yuriy Lobarev
+ *
+ * @telegram{forman}
+ * @phone{+7 (910) 983-95-90}
+ *
+ * @email forman@anyks.com
+ * @site https://anyks.com
+ *
+ * @brief Исходный файл модуля арифметики точек эллиптической кривой над полем
+ *        простого порядка
+ *
+ * @note Сложение и удвоение точек выполняются в координатах Якоби: обращение по
+ *       модулю, стоящее сотен умножений, требуется лишь однажды при выводе
+ *       аффинных координат
+ *
+ * @copyright Copyright © 2026
+ *
+ */
+
+/**
+ * Стандартные заголовочные файлы
+ */
+#include <cstring>
+
+/**
+ * Подключаем заголовочные файлы проекта
+ */
+#include <curve/curve.hpp>
+
+/**
+ * Используем стандартное пространство имён
+ */
+using namespace std;
+
+/**
+ * @brief Внутренние служебные объекты
+ *
+ */
+namespace {
+	/**
+	 * Пространство имён библиотеки
+	 */
+	using namespace anyks;
+
+	/**
+	 * Пространство имён модуля
+	 */
+	using namespace anyks::curve;
+
+	/**
+	 * @brief Метод выбора одного из двух чисел наложением маски
+	 *
+	 * @param mask   маска выбора: единица выбирает первое число, ноль - второе
+	 * @param first  число, выбираемое при единичной маске
+	 * @param second число, выбираемое при нулевой маске
+	 * @param result место, в которое помещается выбранное число
+	 *
+	 */
+	static void select(const uint64_t mask, const math::number_t & first, const math::number_t & second, math::number_t & result) noexcept {
+		// Получаем маску выбора, растянутую на все разряды слова
+		const uint64_t value = (0 - (mask & 0x01));
+		/**
+		 * Выполняем перебор слов выбираемых чисел
+		 */
+		for(size_t i = 0; i < math::NUMBER_WORDS; i++)
+			// Выбираем очередное слово итога наложением маски
+			result.words[i] = (second.words[i] ^ (value & (second.words[i] ^ first.words[i])));
+	}
+	/**
+	 * @brief Метод выбора одной из двух точек наложением маски
+	 *
+	 * @param mask   маска выбора: единица выбирает первую точку, ноль - вторую
+	 * @param first  точка, выбираемая при единичной маске
+	 * @param second точка, выбираемая при нулевой маске
+	 * @param result место, в которое помещается выбранная точка
+	 *
+	 */
+	static void choose(const uint64_t mask, const point_t & first, const point_t & second, point_t & result) noexcept {
+		// Выбираем первую координату точки
+		select(mask, first.x, second.x, result.x);
+		// Выбираем вторую координату точки
+		select(mask, first.y, second.y, result.y);
+		// Выбираем третью координату точки
+		select(mask, first.z, second.z, result.z);
+	}
+};
+
+/**
+ * @brief Метод проверки готовности кривой к работе
+ *
+ * @return признак того, что кривая установлена
+ *
+ */
+bool anyks::curve::Curve::ready() const noexcept {
+	// Выводим признак того, что кривая установлена
+	return this->_ready;
+}
+/**
+ * @brief Метод получения размера координаты точки
+ *
+ * @return размер координаты точки в байтах
+ *
+ */
+size_t anyks::curve::Curve::size() const noexcept {
+	// Выводим размер координаты точки в байтах
+	return this->_field.size();
+}
+/**
+ * @brief Метод получения арифметики порядка подгруппы точек кривой
+ *
+ * @return арифметика порядка подгруппы точек кривой
+ *
+ */
+const anyks::math::modulus_t & anyks::curve::Curve::order() const noexcept {
+	// Выводим арифметику порядка подгруппы точек кривой
+	return this->_order;
+}
+/**
+ * @brief Метод установки параметров кривой
+ *
+ * @param modulus модуль поля кривой
+ * @param first   первый коэффициент уравнения кривой
+ * @param second  второй коэффициент уравнения кривой
+ * @param order   порядок подгруппы точек кривой
+ * @param x       первая координата образующей точки
+ * @param y       вторая координата образующей точки
+ *
+ * @return        признак успешности установки параметров кривой
+ *
+ */
+bool anyks::curve::Curve::start(const view_t & modulus, const view_t & first, const view_t & second, const view_t & order, const view_t & x, const view_t & y) noexcept {
+	// Выполняем сброс прежде установленных параметров кривой
+	this->clear();
+	// Если модуль поля кривой установить не удалось
+	if(!this->_field.start(modulus))
+		// Выводим отказ установки параметров кривой
+		return false;
+	// Если порядок подгруппы точек кривой установить не удалось
+	if(!this->_order.start(order)){
+		// Выполняем сброс установленных параметров кривой
+		this->clear();
+		// Выводим отказ установки параметров кривой
+		return false;
+	}
+	// Разбираемые коэффициенты уравнения кривой
+	math::number_t item;
+	// Если первый коэффициент уравнения кривой разобрать не удалось
+	if(!this->_field.load(first, item)){
+		// Выполняем сброс установленных параметров кривой
+		this->clear();
+		// Выводим отказ установки параметров кривой
+		return false;
+	}
+	// Выполняем приведение первого коэффициента в область Монтгомери
+	this->_field.enter(item, this->_first);
+	// Если второй коэффициент уравнения кривой разобрать не удалось
+	if(!this->_field.load(second, item)){
+		// Выполняем сброс установленных параметров кривой
+		this->clear();
+		// Выводим отказ установки параметров кривой
+		return false;
+	}
+	// Выполняем приведение второго коэффициента в область Монтгомери
+	this->_field.enter(item, this->_second);
+	// Устанавливаем признак того, что кривая установлена
+	this->_ready = true;
+	// Если образующую точку разобрать не удалось
+	if(!this->point(x, y, this->_base)){
+		// Выполняем сброс установленных параметров кривой
+		this->clear();
+		// Выводим отказ установки параметров кривой
+		return false;
+	}
+	// Выводим успешность установки параметров кривой
+	return true;
+}
+/**
+ * @brief Метод сброса установленных параметров кривой
+ *
+ */
+void anyks::curve::Curve::clear() noexcept {
+	// Выполняем сброс образующей точки подгруппы точек кривой
+	this->_base = point_t();
+	// Выполняем сброс второго коэффициента уравнения кривой
+	this->_second = math::number_t();
+	// Выполняем сброс первого коэффициента уравнения кривой
+	this->_first = math::number_t();
+	// Выполняем сброс порядка подгруппы точек кривой
+	this->_order.clear();
+	// Выполняем сброс модуля поля кривой
+	this->_field.clear();
+	// Снимаем признак того, что кривая установлена
+	this->_ready = false;
+}
+/**
+ * @brief Метод получения образующей точки подгруппы точек кривой
+ *
+ * @param result место, в которое помещается образующая точка
+ *
+ */
+void anyks::curve::Curve::base(point_t & result) const noexcept {
+	// Записываем образующую точку подгруппы точек кривой
+	result = this->_base;
+}
+/**
+ * @brief Метод разбора точки из координат
+ *
+ * @param x      первая координата разбираемой точки
+ * @param y      вторая координата разбираемой точки
+ * @param result место, в которое помещается разобранная точка
+ *
+ * @return       признак успешности разбора точки
+ *
+ */
+bool anyks::curve::Curve::point(const view_t & x, const view_t & y, point_t & result) const noexcept {
+	// Выполняем сброс разбираемой точки
+	result = point_t();
+	// Если кривая не установлена
+	if(!this->_ready)
+		// Выводим отказ разбора точки
+		return false;
+	// Разбираемые координаты точки
+	math::number_t first, second;
+	// Если координаты точки разобрать не удалось
+	if(!this->_field.load(x, first) || !this->_field.load(y, second))
+		// Выводим отказ разбора точки
+		return false;
+	// Выполняем приведение первой координаты точки в область Монтгомери
+	this->_field.enter(first, result.x);
+	// Выполняем приведение второй координаты точки в область Монтгомери
+	this->_field.enter(second, result.y);
+	// Записываем единицу третьей координатой аффинной точки
+	this->_field.word(1, first);
+	// Выполняем приведение третьей координаты точки в область Монтгомери
+	this->_field.enter(first, result.z);
+	// Левая и правая части уравнения кривой
+	math::number_t left, right;
+	// Выполняем возведение второй координаты точки в квадрат
+	this->_field.multiply(result.y, result.y, left);
+	// Выполняем возведение первой координаты точки в квадрат
+	this->_field.multiply(result.x, result.x, right);
+	// Выполняем возведение первой координаты точки в куб
+	this->_field.multiply(right, result.x, right);
+	// Выполняем умножение первой координаты точки на первый коэффициент уравнения
+	this->_field.multiply(result.x, this->_first, second);
+	// Складываем куб первой координаты с полученным произведением
+	this->_field.add(right, second, right);
+	// Складываем полученную сумму со вторым коэффициентом уравнения
+	this->_field.add(right, this->_second, right);
+	// Если части уравнения кривой не сошлись
+	if(!this->_field.equal(left, right)){
+		// Выполняем сброс разбираемой точки
+		result = point_t();
+		// Выводим отказ разбора точки
+		return false;
+	}
+	// Выводим успешность разбора точки
+	return true;
+}
+/**
+ * @brief Метод записи координат точки
+ *
+ * @param value записываемая точка
+ * @param x     место, в которое записывается первая координата точки
+ * @param y     место, в которое записывается вторая координата точки
+ * @param size  размер места, в которое записывается всякая координата
+ *
+ * @return      признак успешности записи координат точки
+ *
+ */
+bool anyks::curve::Curve::coordinates(const point_t & value, uint8_t * x, uint8_t * y, const size_t size) const noexcept {
+	// Если кривая не установлена либо точка бесконечно удалена
+	if(!this->_ready || this->infinity(value))
+		// Выводим отказ записи координат точки
+		return false;
+	// Обратное значение третьей координаты точки и его степени
+	math::number_t item, square, item2;
+	// Выполняем обращение третьей координаты точки
+	this->_field.invert(value.z, item);
+	// Выполняем возведение обратного значения в квадрат
+	this->_field.multiply(item, item, square);
+	// Выполняем умножение первой координаты точки на квадрат обратного значения
+	this->_field.multiply(value.x, square, item2);
+	// Выполняем вывод первой координаты точки из области Монтгомери
+	this->_field.leave(item2, item2);
+	// Если первую координату точки записать не удалось
+	if((x != nullptr) && !this->_field.store(item2, x, size))
+		// Выводим отказ записи координат точки
+		return false;
+	// Выполняем возведение обратного значения в куб
+	this->_field.multiply(square, item, square);
+	// Выполняем умножение второй координаты точки на куб обратного значения
+	this->_field.multiply(value.y, square, item2);
+	// Выполняем вывод второй координаты точки из области Монтгомери
+	this->_field.leave(item2, item2);
+	// Если вторую координату точки записать не удалось
+	if((y != nullptr) && !this->_field.store(item2, y, size))
+		// Выводим отказ записи координат точки
+		return false;
+	// Выводим успешность записи координат точки
+	return true;
+}
+/**
+ * @brief Метод проверки точки на бесконечную удалённость
+ *
+ * @param value проверяемая точка
+ *
+ * @return      признак бесконечной удалённости точки
+ *
+ */
+bool anyks::curve::Curve::infinity(const point_t & value) const noexcept {
+	// Выводим признак равенства третьей координаты точки нулю
+	return this->_field.zero(value.z);
+}
+/**
+ * @brief Метод удвоения точки кривой
+ *
+ * @param value  удваиваемая точка
+ * @param result место, в которое помещается удвоенная точка
+ *
+ */
+void anyks::curve::Curve::twice(const point_t & value, point_t & result) const noexcept {
+	// Квадрат второй координаты удваиваемой точки
+	math::number_t square;
+	// Промежуточное произведение первой координаты на квадрат второй
+	math::number_t product;
+	// Множитель уравнения касательной к кривой
+	math::number_t factor;
+	// Промежуточное значение степеней третьей координаты
+	math::number_t item;
+	// Первая координата удвоенной точки
+	math::number_t x;
+	// Вторая координата удвоенной точки
+	math::number_t y;
+	// Третья координата удвоенной точки
+	math::number_t z;
+	// Выполняем возведение второй координаты точки в квадрат
+	this->_field.multiply(value.y, value.y, square);
+	// Выполняем умножение первой координаты точки на квадрат второй
+	this->_field.multiply(value.x, square, product);
+	// Выполняем удвоение полученного произведения
+	this->_field.add(product, product, product);
+	// Выполняем повторное удвоение полученного произведения
+	this->_field.add(product, product, product);
+	// Выполняем возведение первой координаты точки в квадрат
+	this->_field.multiply(value.x, value.x, factor);
+	// Выполняем удвоение полученного квадрата первой координаты
+	this->_field.add(factor, factor, item);
+	// Складываем удвоенный квадрат с оставшимся его значением
+	this->_field.add(item, factor, factor);
+	// Выполняем возведение третьей координаты точки в квадрат
+	this->_field.multiply(value.z, value.z, item);
+	// Выполняем возведение третьей координаты точки в четвёртую степень
+	this->_field.multiply(item, item, item);
+	// Выполняем умножение полученной степени на первый коэффициент уравнения
+	this->_field.multiply(item, this->_first, item);
+	// Складываем утроенный квадрат первой координаты с полученным произведением
+	this->_field.add(factor, item, factor);
+	// Выполняем удвоение второй координаты точки
+	this->_field.add(value.y, value.y, item);
+	// Выполняем умножение удвоенной второй координаты на третью
+	this->_field.multiply(item, value.z, z);
+	// Выполняем возведение множителя уравнения касательной в квадрат
+	this->_field.multiply(factor, factor, x);
+	// Вычитаем из полученного квадрата учетверённое произведение
+	this->_field.subtract(x, product, x);
+	// Вычитаем оставшуюся часть учетверённого произведения
+	this->_field.subtract(x, product, x);
+	// Вычитаем полученную первую координату из учетверённого произведения
+	this->_field.subtract(product, x, y);
+	// Выполняем умножение разности на множитель уравнения касательной
+	this->_field.multiply(y, factor, y);
+	// Выполняем возведение квадрата второй координаты в квадрат
+	this->_field.multiply(square, square, square);
+	// Выполняем удвоение полученной четвёртой степени
+	this->_field.add(square, square, square);
+	// Выполняем повторное удвоение полученной четвёртой степени
+	this->_field.add(square, square, square);
+	// Выполняем третье удвоение полученной четвёртой степени
+	this->_field.add(square, square, square);
+	// Вычитаем восьмикратную четвёртую степень из произведения
+	this->_field.subtract(y, square, result.y);
+	// Записываем полученную третью координату удвоенной точки
+	result.z = z;
+	// Записываем полученную первую координату удвоенной точки
+	result.x = x;
+}
+/**
+ * @brief Метод сложения точек кривой без ветвления
+ *
+ * @param first  первое слагаемое
+ * @param second второе слагаемое
+ * @param result место, в которое помещается сумма точек
+ *
+ */
+void anyks::curve::Curve::attach(const point_t & first, const point_t & second, point_t & result) const noexcept {
+	// Приведённые первые координаты слагаемых
+	math::number_t u1, u2;
+	// Приведённые вторые координаты слагаемых
+	math::number_t s1, s2;
+	// Разности приведённых координат слагаемых
+	math::number_t h, r;
+	// Промежуточное значение степеней третьих координат
+	math::number_t item;
+	// Собираемая сумма точек
+	point_t value;
+	// Выполняем возведение третьей координаты второго слагаемого в квадрат
+	this->_field.multiply(second.z, second.z, item);
+	// Выполняем приведение первой координаты первого слагаемого
+	this->_field.multiply(first.x, item, u1);
+	// Выполняем возведение третьей координаты второго слагаемого в куб
+	this->_field.multiply(item, second.z, item);
+	// Выполняем приведение второй координаты первого слагаемого
+	this->_field.multiply(first.y, item, s1);
+	// Выполняем возведение третьей координаты первого слагаемого в квадрат
+	this->_field.multiply(first.z, first.z, item);
+	// Выполняем приведение первой координаты второго слагаемого
+	this->_field.multiply(second.x, item, u2);
+	// Выполняем возведение третьей координаты первого слагаемого в куб
+	this->_field.multiply(item, first.z, item);
+	// Выполняем приведение второй координаты второго слагаемого
+	this->_field.multiply(second.y, item, s2);
+	// Вычисляем разность приведённых первых координат слагаемых
+	this->_field.subtract(u2, u1, h);
+	// Вычисляем разность приведённых вторых координат слагаемых
+	this->_field.subtract(s2, s1, r);
+	// Квадрат и куб разности приведённых первых координат
+	math::number_t square, cube;
+	// Выполняем возведение разности первых координат в квадрат
+	this->_field.multiply(h, h, square);
+	// Выполняем возведение разности первых координат в куб
+	this->_field.multiply(square, h, cube);
+	// Выполняем умножение приведённой первой координаты на квадрат разности
+	this->_field.multiply(u1, square, u1);
+	// Выполняем возведение разности вторых координат в квадрат
+	this->_field.multiply(r, r, item);
+	// Вычитаем куб разности первых координат из полученного квадрата
+	this->_field.subtract(item, cube, item);
+	// Вычитаем полученное произведение из разности
+	this->_field.subtract(item, u1, item);
+	// Вычитаем оставшуюся часть произведения из разности
+	this->_field.subtract(item, u1, value.x);
+	// Вычитаем полученную первую координату из произведения
+	this->_field.subtract(u1, value.x, u1);
+	// Выполняем умножение разности на разность вторых координат
+	this->_field.multiply(u1, r, u1);
+	// Выполняем умножение приведённой второй координаты на куб разности
+	this->_field.multiply(s1, cube, cube);
+	// Вычитаем полученное произведение из разности
+	this->_field.subtract(u1, cube, value.y);
+	// Выполняем умножение третьих координат слагаемых
+	this->_field.multiply(first.z, second.z, item);
+	// Выполняем умножение полученного произведения на разность первых координат
+	this->_field.multiply(item, h, value.z);
+	/**
+	 * Бесконечно удалённое слагаемое обращает сумму в другое слагаемое: выбор ведётся
+	 * наложением маски, оттого удалённость слагаемого временем работы не выдаётся
+	 */
+	choose(this->infinity(second) ? 1 : 0, first, value, value);
+	// Выбираем сумму точек наложением маски удалённости первого слагаемого
+	choose(this->infinity(first) ? 1 : 0, second, value, result);
+}
+/**
+ * @brief Метод сложения точек кривой
+ *
+ * @param first  первое слагаемое
+ * @param second второе слагаемое
+ * @param result место, в которое помещается сумма точек
+ *
+ */
+void anyks::curve::Curve::add(const point_t & first, const point_t & second, point_t & result) const noexcept {
+	// Если первое слагаемое бесконечно удалено
+	if(this->infinity(first)){
+		// Записываем второе слагаемое суммой точек
+		result = second;
+		// Выходим из сложения точек
+		return;
+	}
+	// Если второе слагаемое бесконечно удалено
+	if(this->infinity(second)){
+		// Записываем первое слагаемое суммой точек
+		result = first;
+		// Выходим из сложения точек
+		return;
+	}
+	// Промежуточные значения сложения точек
+	math::number_t u1, u2, s1, s2, h, r, item;
+	// Выполняем возведение третьей координаты второго слагаемого в квадрат
+	this->_field.multiply(second.z, second.z, item);
+	// Выполняем приведение первой координаты первого слагаемого
+	this->_field.multiply(first.x, item, u1);
+	// Выполняем приведение второй координаты первого слагаемого
+	this->_field.multiply(item, second.z, item);
+	// Выполняем умножение второй координаты первого слагаемого
+	this->_field.multiply(first.y, item, s1);
+	// Выполняем возведение третьей координаты первого слагаемого в квадрат
+	this->_field.multiply(first.z, first.z, item);
+	// Выполняем приведение первой координаты второго слагаемого
+	this->_field.multiply(second.x, item, u2);
+	// Выполняем приведение второй координаты второго слагаемого
+	this->_field.multiply(item, first.z, item);
+	// Выполняем умножение второй координаты второго слагаемого
+	this->_field.multiply(second.y, item, s2);
+	// Вычисляем разность приведённых первых координат слагаемых
+	this->_field.subtract(u2, u1, h);
+	// Вычисляем разность приведённых вторых координат слагаемых
+	this->_field.subtract(s2, s1, r);
+	// Если приведённые первые координаты слагаемых совпали
+	if(this->_field.zero(h)){
+		// Если совпали и приведённые вторые координаты слагаемых
+		if(this->_field.zero(r))
+			// Выполняем удвоение первого слагаемого
+			this->twice(first, result);
+		// Если слагаемые оказались противоположны
+		else {
+			// Выполняем сброс суммы точек в бесконечно удалённую точку
+			result = point_t();
+		}
+		// Выходим из сложения точек
+		return;
+	}
+	// Промежуточные значения степеней разности координат
+	math::number_t square, cube, value;
+	// Выполняем возведение разности первых координат в квадрат
+	this->_field.multiply(h, h, square);
+	// Выполняем возведение разности первых координат в куб
+	this->_field.multiply(square, h, cube);
+	// Выполняем умножение приведённой первой координаты на квадрат разности
+	this->_field.multiply(u1, square, value);
+	// Выполняем возведение разности вторых координат в квадрат
+	this->_field.multiply(r, r, item);
+	// Вычитаем куб разности первых координат из полученного квадрата
+	this->_field.subtract(item, cube, item);
+	// Вычитаем полученное произведение из разности
+	this->_field.subtract(item, value, item);
+	// Вычитаем оставшуюся часть произведения из разности
+	this->_field.subtract(item, value, item);
+	// Вычитаем полученную первую координату из произведения
+	this->_field.subtract(value, item, value);
+	// Выполняем умножение разности на разность вторых координат
+	this->_field.multiply(value, r, value);
+	// Выполняем умножение приведённой второй координаты на куб разности
+	this->_field.multiply(s1, cube, cube);
+	// Вычитаем полученное произведение из разности
+	this->_field.subtract(value, cube, cube);
+	// Выполняем умножение третьих координат слагаемых
+	this->_field.multiply(first.z, second.z, value);
+	// Выполняем умножение полученного произведения на разность первых координат
+	this->_field.multiply(value, h, result.z);
+	// Записываем полученную вторую координату суммы точек
+	result.y = cube;
+	// Записываем полученную первую координату суммы точек
+	result.x = item;
+}
+/**
+ * @brief Метод умножения точки кривой на число
+ *
+ * @param value  умножаемая точка
+ * @param factor число, на которое умножается точка
+ * @param result место, в которое помещается произведение
+ *
+ */
+void anyks::curve::Curve::multiply(const point_t & value, const math::number_t & factor, point_t & result) const noexcept {
+	// Накапливаемое произведение точки на число
+	point_t item;
+	// Удвоенное накопленное произведение
+	point_t twice;
+	// Сумма удвоенного произведения с умножаемой точкой
+	point_t sum;
+	// Запоминаем умножаемую точку
+	const point_t base = value;
+	/**
+	 * Выполняем перебор разрядов множителя от старшего к младшему
+	 */
+	for(size_t i = (this->_order.size() * 8); i > 0; i--){
+		// Извлекаем очередной разряд множителя
+		const uint64_t bit = ((factor.words[(i - 1) / 64] >> ((i - 1) % 64)) & 0x01);
+		// Выполняем удвоение накопленного произведения
+		this->twice(item, twice);
+		/**
+		 * Выполняем сложение удвоенного произведения с умножаемой точкой: сложение
+		 * выполняется на всяком разряде множителя независимо от его значения
+		 */
+		this->attach(twice, base, sum);
+		// Выбираем накопленное произведение наложением маски разряда множителя
+		choose(bit, sum, twice, item);
+	}
+	// Записываем накопленное произведение
+	result = item;
+}
+/**
+ * @brief Конструктор
+ *
+ */
+anyks::curve::Curve::Curve() noexcept : _ready(false) {}
+/**
+ * @brief Деструктор
+ *
+ */
+anyks::curve::Curve::~Curve() noexcept {
+	// Выполняем сброс установленных параметров кривой
+	this->clear();
+}

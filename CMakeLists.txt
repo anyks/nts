@@ -100,7 +100,17 @@ endforeach()
 SET(SOURCE_FILES
     "${CMAKE_SOURCE_DIR}/src/asn1/asn1.cpp"
     "${CMAKE_SOURCE_DIR}/src/x509/x509.cpp"
+    "${CMAKE_SOURCE_DIR}/src/x509/signature.cpp"
     "${CMAKE_SOURCE_DIR}/src/digest/streebog.cpp"
+    "${CMAKE_SOURCE_DIR}/src/cipher/kuznyechik.cpp"
+    "${CMAKE_SOURCE_DIR}/src/cipher/magma.cpp"
+    "${CMAKE_SOURCE_DIR}/src/cipher/mode.cpp"
+    "${CMAKE_SOURCE_DIR}/src/cipher/mgm.cpp"
+    "${CMAKE_SOURCE_DIR}/src/math/number.cpp"
+    "${CMAKE_SOURCE_DIR}/src/entropy/entropy.cpp"
+    "${CMAKE_SOURCE_DIR}/src/curve/curve.cpp"
+    "${CMAKE_SOURCE_DIR}/src/curve/parameters.cpp"
+    "${CMAKE_SOURCE_DIR}/src/sign/gost.cpp"
 )
 
 # Устанавливаем имя библиотеки
@@ -119,6 +129,12 @@ else (CMAKE_SHARED_BUILD_LIB)
     # Добавляем статическую библиотеку
     add_library(${TLS_LIB_NAME} STATIC ${SOURCE_FILES})
 endif (CMAKE_SHARED_BUILD_LIB)
+
+# Если сборка ведётся под Windows
+if (WIN32)
+    # Источник случайности системы там живёт в отдельной библиотеке
+    target_link_libraries(${TLS_LIB_NAME} bcrypt)
+endif (WIN32)
 
 # Если необходимо собрать набор проверок
 if (CMAKE_BUILD_TESTS)
@@ -167,6 +183,11 @@ if (CMAKE_BUILD_TESTS)
      # а обращения к памяти внутри библиотеки остаются без надзора
      ##
     add_library(${TLS_LIB_NAME}_test STATIC ${SOURCE_FILES})
+    # Если сборка ведётся под Windows
+    if (WIN32)
+        # Источник случайности системы там живёт в отдельной библиотеке
+        target_link_libraries(${TLS_LIB_NAME}_test bcrypt)
+    endif (WIN32)
     # Включаем флаги компиляции проверок для библиотеки проверок
     target_compile_options(${TLS_LIB_NAME}_test PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
 

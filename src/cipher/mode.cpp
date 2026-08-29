@@ -1,0 +1,1213 @@
+/**
+ * @file mode.cpp
+ * @date 2026-08-29
+ *
+ * @license{LicenseRef-ANYKS-TLS-1.0}
+ *
+ * @author Yuriy Lobarev
+ *
+ * @telegram{forman}
+ * @phone{+7 (910) 983-95-90}
+ *
+ * @email forman@anyks.com
+ * @site https://anyks.com
+ *
+ * @brief Исходный файл модуля режимов работы блочных шифров — реализация по
+ *        ГОСТ Р 34.13-2015
+ *
+ * @note Величины s и m стандарт задаёт в разрядах, здесь же они задаются в байтах:
+ *       разрядная величина s потребовала бы сдвига всего потока на неполный байт,
+ *       чего ни один применяемый на деле протокол не просит. Все контрольные
+ *       примеры приложения А стандарта укладываются в целое число байтов
+ *
+ * @note Постоянного времени работы режимы не обеспечивают ровно в той мере, в
+ *       какой его не обеспечивает базовый алгоритм блочного шифрования: сами
+ *       режимы по секретным значениям не ветвятся и в память по ним не обращаются
+ *
+ * @copyright Copyright © 2026
+ *
+ */
+
+/**
+ * Стандартные заголовочные файлы
+ */
+#include <cstring>
+
+/**
+ * Подключаем заголовочные файлы проекта
+ */
+#include <cipher/mode.hpp>
+
+/**
+ * Используем стандартное пространство имён
+ */
+using namespace std;
+
+/**
+ * @brief Внутренние служебные объекты
+ *
+ */
+namespace {
+	/**
+	 * Пространство имён библиотеки
+	 */
+	using namespace anyks;
+
+	/**
+	 * Пространство имён модуля
+	 */
+	using namespace anyks::cipher;
+
+	/**
+	 * @brief Метод зашифрования блока шифром «Магма»
+	 *
+	 * @param cipher объект блочного шифра
+	 * @param source зашифровываемый блок
+	 * @param result место, в которое помещается зашифрованный блок
+	 *
+	 * @return       признак успешности зашифрования
+	 *
+	 */
+	static bool encryptMagma(const void * cipher, const uint8_t * source, uint8_t * result) noexcept {
+		// Выполняем зашифрование блока шифром «Магма»
+		return reinterpret_cast <const magma_t *> (cipher)->encrypt(source, result);
+	}
+	/**
+	 * @brief Метод расшифрования блока шифром «Магма»
+	 *
+	 * @param cipher объект блочного шифра
+	 * @param source расшифровываемый блок
+	 * @param result место, в которое помещается расшифрованный блок
+	 *
+	 * @return       признак успешности расшифрования
+	 *
+	 */
+	static bool decryptMagma(const void * cipher, const uint8_t * source, uint8_t * result) noexcept {
+		// Выполняем расшифрование блока шифром «Магма»
+		return reinterpret_cast <const magma_t *> (cipher)->decrypt(source, result);
+	}
+	/**
+	 * @brief Метод зашифрования блока шифром «Кузнечик»
+	 *
+	 * @param cipher объект блочного шифра
+	 * @param source зашифровываемый блок
+	 * @param result место, в которое помещается зашифрованный блок
+	 *
+	 * @return       признак успешности зашифрования
+	 *
+	 */
+	static bool encryptKuznyechik(const void * cipher, const uint8_t * source, uint8_t * result) noexcept {
+		// Выполняем зашифрование блока шифром «Кузнечик»
+		return reinterpret_cast <const kuznyechik_t *> (cipher)->encrypt(source, result);
+	}
+	/**
+	 * @brief Метод расшифрования блока шифром «Кузнечик»
+	 *
+	 * @param cipher объект блочного шифра
+	 * @param source расшифровываемый блок
+	 * @param result место, в которое помещается расшифрованный блок
+	 *
+	 * @return       признак успешности расшифрования
+	 *
+	 */
+	static bool decryptKuznyechik(const void * cipher, const uint8_t * source, uint8_t * result) noexcept {
+		// Выполняем расшифрование блока шифром «Кузнечик»
+		return reinterpret_cast <const kuznyechik_t *> (cipher)->decrypt(source, result);
+	}
+	/**
+	 * @brief Метод затирания области памяти
+	 *
+	 * @details Затирание ведётся через изменчивый указатель: обычное присваивание
+	 *          собиратель вправе выбросить, увидев, что записанное значение больше
+	 *          никем не читается, - и секрет остался бы в памяти
+	 *
+	 * @param data затираемая область памяти
+	 * @param size размер затираемой области памяти
+	 *
+	 */
+	static void wipe(void * data, const size_t size) noexcept {
+		// Получаем изменчивый указатель на затираемую область памяти
+		volatile uint8_t * item = static_cast <volatile uint8_t *> (data);
+		/**
+		 * Выполняем перебор байтов затираемой области памяти
+		 */
+		for(size_t i = 0; i < size; i++)
+			// Обнуляем очередной байт области памяти
+			item[i] = 0;
+	}
+	/**
+	 * @brief Метод проверки пригодности базового алгоритма блочного шифрования
+	 *
+	 * @param block проверяемый базовый алгоритм блочного шифрования
+	 *
+	 * @return      признак пригодности базового алгоритма блочного шифрования
+	 *
+	 */
+	static bool suitable(const block_t & block) noexcept {
+		// Выводим признак пригодности базового алгоритма блочного шифрования
+		return (
+			(block.cipher != nullptr) && (block.encrypt != nullptr) &&
+			(block.decrypt != nullptr) && (block.size > 0) && (block.size <= MODE_BLOCK)
+		);
+	}
+	/**
+	 * @brief Метод сдвига заполнения регистра
+	 *
+	 * @details Сдвиг ведётся в сторону разрядов с большими номерами, в разряды с
+	 *          меньшими номерами записывается переданное значение
+	 *
+	 * @param data   заполнение регистра сдвига
+	 * @param length длина регистра сдвига
+	 * @param value  записываемое в регистр значение
+	 * @param size   размер записываемого в регистр значения
+	 *
+	 */
+	static void shift(uint8_t * data, const size_t length, const uint8_t * value, const size_t size) noexcept {
+		// Если сдвиг не занимает регистр целиком
+		if(size < length)
+			// Выполняем сдвиг оставшегося заполнения регистра
+			::memmove(data, data + size, length - size);
+		// Записываем переданное значение в разряды регистра с меньшими номерами
+		::memcpy(data + (length - size), value, size);
+	}
+	/**
+	 * @brief Метод сложения блоков по модулю два
+	 *
+	 * @param first  первое слагаемое
+	 * @param second второе слагаемое
+	 * @param result место, в которое помещается сумма
+	 * @param size   размер складываемых блоков
+	 *
+	 */
+	static void add(const uint8_t * first, const uint8_t * second, uint8_t * result, const size_t size) noexcept {
+		/**
+		 * Выполняем перебор байтов складываемых блоков
+		 */
+		for(size_t i = 0; i < size; i++)
+			// Складываем очередные байты блоков по модулю два
+			result[i] = static_cast <uint8_t> (first[i] ^ second[i]);
+	}
+};
+
+/**
+ * @brief Конструктор
+ *
+ */
+anyks::cipher::Block::Block() noexcept :
+ size(0), cipher(nullptr), encrypt(nullptr), decrypt(nullptr) {}
+/**
+ * @brief Конструктор
+ *
+ * @param cipher объект блочного шифра «Магма»
+ *
+ */
+anyks::cipher::Block::Block(const magma_t & cipher) noexcept :
+ size(MAGMA_BLOCK), cipher(&cipher), encrypt(&encryptMagma), decrypt(&decryptMagma) {}
+/**
+ * @brief Конструктор
+ *
+ * @param cipher объект блочного шифра «Кузнечик»
+ *
+ */
+anyks::cipher::Block::Block(const kuznyechik_t & cipher) noexcept :
+ size(KUZNYECHIK_BLOCK), cipher(&cipher), encrypt(&encryptKuznyechik), decrypt(&decryptKuznyechik) {}
+/**
+ * @brief Метод проверки готовности режима к работе
+ *
+ * @return признак готовности режима к работе
+ *
+ */
+bool anyks::cipher::Codebook::ready() const noexcept {
+	// Выводим признак готовности режима к работе
+	return this->_ready;
+}
+/**
+ * @brief Метод запуска режима работы
+ *
+ * @param block базовый алгоритм блочного шифрования
+ *
+ * @return      признак успешности запуска режима работы
+ *
+ */
+bool anyks::cipher::Codebook::start(const block_t & block) noexcept {
+	// Выполняем сброс прежнего состояния режима работы
+	this->clear();
+	// Если базовый алгоритм блочного шифрования непригоден
+	if(!suitable(block))
+		// Выводим отказ запуска режима работы
+		return false;
+	// Запоминаем базовый алгоритм блочного шифрования
+	this->_block = block;
+	// Устанавливаем признак готовности режима к работе
+	this->_ready = true;
+	// Выводим успешность запуска режима работы
+	return true;
+}
+/**
+ * @brief Метод сброса состояния режима работы
+ *
+ */
+void anyks::cipher::Codebook::clear() noexcept {
+	// Сбрасываем базовый алгоритм блочного шифрования
+	this->_block = block_t();
+	// Снимаем признак готовности режима к работе
+	this->_ready = false;
+}
+/**
+ * @brief Метод зашифрования сообщения
+ *
+ * @param source зашифровываемое сообщение
+ * @param result место, в которое помещается шифртекст
+ *
+ * @return       признак успешности зашифрования
+ *
+ */
+bool anyks::cipher::Codebook::encrypt(const view_t & source, uint8_t * result) noexcept {
+	// Если режим не готов к работе либо места не переданы
+	if(!this->_ready || (source.data == nullptr) || (result == nullptr))
+		// Выводим отказ зашифрования
+		return false;
+	// Если длина сообщения не кратна длине блока шифра
+	if((source.size % this->_block.size) != 0)
+		// Выводим отказ зашифрования
+		return false;
+	/**
+	 * Выполняем перебор блоков зашифровываемого сообщения
+	 */
+	for(size_t offset = 0; offset < source.size; offset += this->_block.size){
+		// Выполняем зашифрование очередного блока сообщения
+		if(!this->_block.encrypt(this->_block.cipher, source.data + offset, result + offset))
+			// Выводим отказ зашифрования
+			return false;
+	}
+	// Выводим успешность зашифрования
+	return true;
+}
+/**
+ * @brief Метод расшифрования сообщения
+ *
+ * @param source расшифровываемый шифртекст
+ * @param result место, в которое помещается открытый текст
+ *
+ * @return       признак успешности расшифрования
+ *
+ */
+bool anyks::cipher::Codebook::decrypt(const view_t & source, uint8_t * result) noexcept {
+	// Если режим не готов к работе либо места не переданы
+	if(!this->_ready || (source.data == nullptr) || (result == nullptr))
+		// Выводим отказ расшифрования
+		return false;
+	// Если длина шифртекста не кратна длине блока шифра
+	if((source.size % this->_block.size) != 0)
+		// Выводим отказ расшифрования
+		return false;
+	/**
+	 * Выполняем перебор блоков расшифровываемого шифртекста
+	 */
+	for(size_t offset = 0; offset < source.size; offset += this->_block.size){
+		// Выполняем расшифрование очередного блока шифртекста
+		if(!this->_block.decrypt(this->_block.cipher, source.data + offset, result + offset))
+			// Выводим отказ расшифрования
+			return false;
+	}
+	// Выводим успешность расшифрования
+	return true;
+}
+/**
+ * @brief Конструктор
+ *
+ */
+anyks::cipher::Codebook::Codebook() noexcept : _ready(false) {}
+/**
+ * @brief Деструктор
+ *
+ */
+anyks::cipher::Codebook::~Codebook() noexcept {
+	// Выполняем сброс состояния режима работы
+	this->clear();
+}
+/**
+ * @brief Метод проверки готовности режима к работе
+ *
+ * @return признак готовности режима к работе
+ *
+ */
+bool anyks::cipher::Counter::ready() const noexcept {
+	// Выводим признак готовности режима к работе
+	return this->_ready;
+}
+/**
+ * @brief Метод запуска режима работы
+ *
+ * @param block базовый алгоритм блочного шифрования
+ * @param iv    синхропосылка длиной в половину блока шифра
+ * @param size  размер блока гаммы в байтах, ноль означает длину блока шифра
+ *
+ * @return      признак успешности запуска режима работы
+ *
+ */
+bool anyks::cipher::Counter::start(const block_t & block, const view_t & iv, const size_t size) noexcept {
+	// Выполняем сброс прежнего состояния режима работы
+	this->clear();
+	// Если базовый алгоритм блочного шифрования непригоден
+	if(!suitable(block))
+		// Выводим отказ запуска режима работы
+		return false;
+	// Определяем требуемый размер блока гаммы
+	const size_t gamma = (size > 0 ? size : block.size);
+	// Если размер блока гаммы превышает длину блока шифра
+	if(gamma > block.size)
+		// Выводим отказ запуска режима работы
+		return false;
+	// Если синхропосылка не занимает половину блока шифра
+	if((iv.data == nullptr) || (iv.size != (block.size / 2)))
+		// Выводим отказ запуска режима работы
+		return false;
+	// Запоминаем базовый алгоритм блочного шифрования
+	this->_block = block;
+	// Запоминаем размер блока гаммы
+	this->_size = gamma;
+	/**
+	 * Начальным значением счётчика служит синхропосылка, дополненная нулями до
+	 * длины блока шифра: это и есть процедура инициализации In раздела 5.2
+	 */
+	::memcpy(this->_counter, iv.data, iv.size);
+	// Устанавливаем признак готовности режима к работе
+	this->_ready = true;
+	// Выводим успешность запуска режима работы
+	return true;
+}
+/**
+ * @brief Метод сброса состояния режима работы
+ *
+ */
+void anyks::cipher::Counter::clear() noexcept {
+	// Выполняем затирание текущего блока гаммы шифра
+	wipe(this->_gamma, sizeof(this->_gamma));
+	// Выполняем затирание текущего значения счётчика
+	wipe(this->_counter, sizeof(this->_counter));
+	// Сбрасываем базовый алгоритм блочного шифрования
+	this->_block = block_t();
+	// Сбрасываем количество неизрасходованных байтов блока гаммы
+	this->_rest = 0;
+	// Сбрасываем размер блока гаммы
+	this->_size = 0;
+	// Снимаем признак готовности режима к работе
+	this->_ready = false;
+}
+/**
+ * @brief Метод зашифрования сообщения
+ *
+ * @param source зашифровываемое сообщение
+ * @param result место, в которое помещается шифртекст
+ *
+ * @return       признак успешности зашифрования
+ *
+ */
+bool anyks::cipher::Counter::encrypt(const view_t & source, uint8_t * result) noexcept {
+	// Если режим не готов к работе либо места не переданы
+	if(!this->_ready || ((source.size > 0) && ((source.data == nullptr) || (result == nullptr))))
+		// Выводим отказ зашифрования
+		return false;
+	// Количество уже обработанных байтов сообщения
+	size_t offset = 0;
+	/**
+	 * Выполняем обработку сообщения до его исчерпания
+	 */
+	while(offset < source.size){
+		// Если блок гаммы шифра израсходован
+		if(this->_rest == 0){
+			// Блок, в который помещается выход базового алгоритма блочного шифрования
+			uint8_t buffer[MODE_BLOCK];
+			// Выполняем зашифрование текущего значения счётчика
+			if(!this->_block.encrypt(this->_block.cipher, this->_counter, buffer))
+				// Выводим отказ зашифрования
+				return false;
+			// Выполняем усечение выхода шифра до размера блока гаммы
+			::memcpy(this->_gamma, buffer, this->_size);
+			// Выполняем затирание выхода базового алгоритма блочного шифрования
+			wipe(buffer, sizeof(buffer));
+			// Восстанавливаем количество неизрасходованных байтов блока гаммы
+			this->_rest = this->_size;
+			/**
+			 * Выполняем увеличение счётчика на единицу как числа, записанного от
+			 * старшего байта к младшему
+			 */
+			for(size_t i = this->_block.size; i > 0; i--){
+				// Если очередной байт счётчика переполнения не даёт
+				if(++this->_counter[i - 1] != 0)
+					// Выходим из увеличения счётчика
+					break;
+			}
+		}
+		// Определяем количество байтов, обрабатываемых текущим блоком гаммы
+		const size_t count = ((source.size - offset) < this->_rest ? (source.size - offset) : this->_rest);
+		// Выполняем сложение куска сообщения с гаммой шифра
+		add(source.data + offset, this->_gamma + (this->_size - this->_rest), result + offset, count);
+		// Уменьшаем количество неизрасходованных байтов блока гаммы
+		this->_rest -= count;
+		// Увеличиваем количество обработанных байтов сообщения
+		offset += count;
+	}
+	// Выводим успешность зашифрования
+	return true;
+}
+/**
+ * @brief Метод расшифрования сообщения
+ *
+ * @param source расшифровываемый шифртекст
+ * @param result место, в которое помещается открытый текст
+ *
+ * @return       признак успешности расшифрования
+ *
+ */
+bool anyks::cipher::Counter::decrypt(const view_t & source, uint8_t * result) noexcept {
+	// Выводим итог зашифрования: расшифрование от зашифрования в режиме гаммирования не отличается
+	return this->encrypt(source, result);
+}
+/**
+ * @brief Конструктор
+ *
+ */
+anyks::cipher::Counter::Counter() noexcept : _ready(false), _size(0), _rest(0) {
+	// Выполняем затирание текущего значения счётчика
+	wipe(this->_counter, sizeof(this->_counter));
+	// Выполняем затирание текущего блока гаммы шифра
+	wipe(this->_gamma, sizeof(this->_gamma));
+}
+/**
+ * @brief Деструктор
+ *
+ */
+anyks::cipher::Counter::~Counter() noexcept {
+	// Выполняем сброс состояния режима работы
+	this->clear();
+}
+/**
+ * @brief Метод проверки готовности режима к работе
+ *
+ * @return признак готовности режима к работе
+ *
+ */
+bool anyks::cipher::Output::ready() const noexcept {
+	// Выводим признак готовности режима к работе
+	return this->_ready;
+}
+/**
+ * @brief Метод запуска режима работы
+ *
+ * @param block базовый алгоритм блочного шифрования
+ * @param iv    синхропосылка длиной в целое число блоков шифра
+ * @param size  размер блока гаммы в байтах, ноль означает длину блока шифра
+ *
+ * @return      признак успешности запуска режима работы
+ *
+ */
+bool anyks::cipher::Output::start(const block_t & block, const view_t & iv, const size_t size) noexcept {
+	// Выполняем сброс прежнего состояния режима работы
+	this->clear();
+	// Если базовый алгоритм блочного шифрования непригоден
+	if(!suitable(block))
+		// Выводим отказ запуска режима работы
+		return false;
+	// Определяем требуемый размер блока гаммы
+	const size_t gamma = (size > 0 ? size : block.size);
+	// Если размер блока гаммы превышает длину блока шифра
+	if(gamma > block.size)
+		// Выводим отказ запуска режима работы
+		return false;
+	// Если синхропосылка не занимает целого числа блоков шифра
+	if((iv.data == nullptr) || (iv.size < block.size) || ((iv.size % block.size) != 0) || (iv.size > MODE_REGISTER))
+		// Выводим отказ запуска режима работы
+		return false;
+	// Запоминаем базовый алгоритм блочного шифрования
+	this->_block = block;
+	// Запоминаем размер блока гаммы
+	this->_size = gamma;
+	// Запоминаем длину регистра сдвига
+	this->_length = iv.size;
+	// Начальным заполнением регистра сдвига служит синхропосылка
+	::memcpy(this->_register, iv.data, iv.size);
+	// Устанавливаем признак готовности режима к работе
+	this->_ready = true;
+	// Выводим успешность запуска режима работы
+	return true;
+}
+/**
+ * @brief Метод сброса состояния режима работы
+ *
+ */
+void anyks::cipher::Output::clear() noexcept {
+	// Выполняем затирание текущего блока гаммы шифра
+	wipe(this->_gamma, sizeof(this->_gamma));
+	// Выполняем затирание заполнения регистра сдвига
+	wipe(this->_register, sizeof(this->_register));
+	// Сбрасываем базовый алгоритм блочного шифрования
+	this->_block = block_t();
+	// Сбрасываем длину регистра сдвига
+	this->_length = 0;
+	// Сбрасываем количество неизрасходованных байтов блока гаммы
+	this->_rest = 0;
+	// Сбрасываем размер блока гаммы
+	this->_size = 0;
+	// Снимаем признак готовности режима к работе
+	this->_ready = false;
+}
+/**
+ * @brief Метод зашифрования сообщения
+ *
+ * @param source зашифровываемое сообщение
+ * @param result место, в которое помещается шифртекст
+ *
+ * @return       признак успешности зашифрования
+ *
+ */
+bool anyks::cipher::Output::encrypt(const view_t & source, uint8_t * result) noexcept {
+	// Если режим не готов к работе либо места не переданы
+	if(!this->_ready || ((source.size > 0) && ((source.data == nullptr) || (result == nullptr))))
+		// Выводим отказ зашифрования
+		return false;
+	// Количество уже обработанных байтов сообщения
+	size_t offset = 0;
+	/**
+	 * Выполняем обработку сообщения до его исчерпания
+	 */
+	while(offset < source.size){
+		// Если блок гаммы шифра израсходован
+		if(this->_rest == 0){
+			// Блок, в который помещается выход базового алгоритма блочного шифрования
+			uint8_t buffer[MODE_BLOCK];
+			// Выполняем зашифрование старших разрядов регистра сдвига
+			if(!this->_block.encrypt(this->_block.cipher, this->_register, buffer))
+				// Выводим отказ зашифрования
+				return false;
+			// Выполняем усечение выхода шифра до размера блока гаммы
+			::memcpy(this->_gamma, buffer, this->_size);
+			// Записываем выход шифра в разряды регистра с меньшими номерами
+			shift(this->_register, this->_length, buffer, this->_block.size);
+			// Выполняем затирание выхода базового алгоритма блочного шифрования
+			wipe(buffer, sizeof(buffer));
+			// Восстанавливаем количество неизрасходованных байтов блока гаммы
+			this->_rest = this->_size;
+		}
+		// Определяем количество байтов, обрабатываемых текущим блоком гаммы
+		const size_t count = ((source.size - offset) < this->_rest ? (source.size - offset) : this->_rest);
+		// Выполняем сложение куска сообщения с гаммой шифра
+		add(source.data + offset, this->_gamma + (this->_size - this->_rest), result + offset, count);
+		// Уменьшаем количество неизрасходованных байтов блока гаммы
+		this->_rest -= count;
+		// Увеличиваем количество обработанных байтов сообщения
+		offset += count;
+	}
+	// Выводим успешность зашифрования
+	return true;
+}
+/**
+ * @brief Метод расшифрования сообщения
+ *
+ * @param source расшифровываемый шифртекст
+ * @param result место, в которое помещается открытый текст
+ *
+ * @return       признак успешности расшифрования
+ *
+ */
+bool anyks::cipher::Output::decrypt(const view_t & source, uint8_t * result) noexcept {
+	// Выводим итог зашифрования: гамма от содержимого сообщения не зависит
+	return this->encrypt(source, result);
+}
+/**
+ * @brief Конструктор
+ *
+ */
+anyks::cipher::Output::Output() noexcept : _ready(false), _size(0), _rest(0), _length(0) {
+	// Выполняем затирание заполнения регистра сдвига
+	wipe(this->_register, sizeof(this->_register));
+	// Выполняем затирание текущего блока гаммы шифра
+	wipe(this->_gamma, sizeof(this->_gamma));
+}
+/**
+ * @brief Деструктор
+ *
+ */
+anyks::cipher::Output::~Output() noexcept {
+	// Выполняем сброс состояния режима работы
+	this->clear();
+}
+/**
+ * @brief Метод проверки готовности режима к работе
+ *
+ * @return признак готовности режима к работе
+ *
+ */
+bool anyks::cipher::Chaining::ready() const noexcept {
+	// Выводим признак готовности режима к работе
+	return this->_ready;
+}
+/**
+ * @brief Метод запуска режима работы
+ *
+ * @param block базовый алгоритм блочного шифрования
+ * @param iv    синхропосылка длиной в целое число блоков шифра
+ *
+ * @return      признак успешности запуска режима работы
+ *
+ */
+bool anyks::cipher::Chaining::start(const block_t & block, const view_t & iv) noexcept {
+	// Выполняем сброс прежнего состояния режима работы
+	this->clear();
+	// Если базовый алгоритм блочного шифрования непригоден
+	if(!suitable(block))
+		// Выводим отказ запуска режима работы
+		return false;
+	// Если синхропосылка не занимает целого числа блоков шифра
+	if((iv.data == nullptr) || (iv.size < block.size) || ((iv.size % block.size) != 0) || (iv.size > MODE_REGISTER))
+		// Выводим отказ запуска режима работы
+		return false;
+	// Запоминаем базовый алгоритм блочного шифрования
+	this->_block = block;
+	// Запоминаем длину регистра сдвига
+	this->_length = iv.size;
+	// Начальным заполнением регистра сдвига служит синхропосылка
+	::memcpy(this->_register, iv.data, iv.size);
+	// Устанавливаем признак готовности режима к работе
+	this->_ready = true;
+	// Выводим успешность запуска режима работы
+	return true;
+}
+/**
+ * @brief Метод сброса состояния режима работы
+ *
+ */
+void anyks::cipher::Chaining::clear() noexcept {
+	// Выполняем затирание заполнения регистра сдвига
+	wipe(this->_register, sizeof(this->_register));
+	// Сбрасываем базовый алгоритм блочного шифрования
+	this->_block = block_t();
+	// Сбрасываем длину регистра сдвига
+	this->_length = 0;
+	// Снимаем признак готовности режима к работе
+	this->_ready = false;
+}
+/**
+ * @brief Метод зашифрования сообщения
+ *
+ * @param source зашифровываемое сообщение
+ * @param result место, в которое помещается шифртекст
+ *
+ * @return       признак успешности зашифрования
+ *
+ */
+bool anyks::cipher::Chaining::encrypt(const view_t & source, uint8_t * result) noexcept {
+	// Если режим не готов к работе либо места не переданы
+	if(!this->_ready || (source.data == nullptr) || (result == nullptr))
+		// Выводим отказ зашифрования
+		return false;
+	// Если длина сообщения не кратна длине блока шифра
+	if((source.size % this->_block.size) != 0)
+		// Выводим отказ зашифрования
+		return false;
+	/**
+	 * Выполняем перебор блоков зашифровываемого сообщения
+	 */
+	for(size_t offset = 0; offset < source.size; offset += this->_block.size){
+		// Блок, подаваемый базовому алгоритму блочного шифрования
+		uint8_t buffer[MODE_BLOCK];
+		// Складываем блок сообщения со старшими разрядами регистра сдвига
+		add(source.data + offset, this->_register, buffer, this->_block.size);
+		// Выполняем зашифрование полученного блока
+		if(!this->_block.encrypt(this->_block.cipher, buffer, buffer)){
+			// Выполняем затирание блока, подаваемого базовому алгоритму
+			wipe(buffer, sizeof(buffer));
+			// Выводим отказ зашифрования
+			return false;
+		}
+		// Записываем блок шифртекста в разряды регистра с меньшими номерами
+		shift(this->_register, this->_length, buffer, this->_block.size);
+		// Записываем блок шифртекста в место итога
+		::memcpy(result + offset, buffer, this->_block.size);
+		// Выполняем затирание блока, подаваемого базовому алгоритму
+		wipe(buffer, sizeof(buffer));
+	}
+	// Выводим успешность зашифрования
+	return true;
+}
+/**
+ * @brief Метод расшифрования сообщения
+ *
+ * @param source расшифровываемый шифртекст
+ * @param result место, в которое помещается открытый текст
+ *
+ * @return       признак успешности расшифрования
+ *
+ */
+bool anyks::cipher::Chaining::decrypt(const view_t & source, uint8_t * result) noexcept {
+	// Если режим не готов к работе либо места не переданы
+	if(!this->_ready || (source.data == nullptr) || (result == nullptr))
+		// Выводим отказ расшифрования
+		return false;
+	// Если длина шифртекста не кратна длине блока шифра
+	if((source.size % this->_block.size) != 0)
+		// Выводим отказ расшифрования
+		return false;
+	/**
+	 * Выполняем перебор блоков расшифровываемого шифртекста
+	 */
+	for(size_t offset = 0; offset < source.size; offset += this->_block.size){
+		// Блок, в который помещается выход базового алгоритма блочного шифрования
+		uint8_t buffer[MODE_BLOCK];
+		// Блок шифртекста, записываемый в регистр сдвига
+		uint8_t item[MODE_BLOCK];
+		/**
+		 * Запоминаем блок шифртекста: место итога вправе совпадать с местом
+		 * исходного сообщения, оттого к моменту сдвига регистра его уже не прочесть
+		 */
+		::memcpy(item, source.data + offset, this->_block.size);
+		// Выполняем расшифрование очередного блока шифртекста
+		if(!this->_block.decrypt(this->_block.cipher, item, buffer)){
+			// Выполняем затирание блока шифртекста
+			wipe(item, sizeof(item));
+			// Выполняем затирание выхода базового алгоритма блочного шифрования
+			wipe(buffer, sizeof(buffer));
+			// Выводим отказ расшифрования
+			return false;
+		}
+		// Складываем выход шифра со старшими разрядами регистра сдвига
+		add(buffer, this->_register, result + offset, this->_block.size);
+		// Записываем блок шифртекста в разряды регистра с меньшими номерами
+		shift(this->_register, this->_length, item, this->_block.size);
+		// Выполняем затирание блока шифртекста
+		wipe(item, sizeof(item));
+		// Выполняем затирание выхода базового алгоритма блочного шифрования
+		wipe(buffer, sizeof(buffer));
+	}
+	// Выводим успешность расшифрования
+	return true;
+}
+/**
+ * @brief Конструктор
+ *
+ */
+anyks::cipher::Chaining::Chaining() noexcept : _ready(false), _length(0) {
+	// Выполняем затирание заполнения регистра сдвига
+	wipe(this->_register, sizeof(this->_register));
+}
+/**
+ * @brief Деструктор
+ *
+ */
+anyks::cipher::Chaining::~Chaining() noexcept {
+	// Выполняем сброс состояния режима работы
+	this->clear();
+}
+/**
+ * @brief Метод проверки готовности режима к работе
+ *
+ * @return признак готовности режима к работе
+ *
+ */
+bool anyks::cipher::Feedback::ready() const noexcept {
+	// Выводим признак готовности режима к работе
+	return this->_ready;
+}
+/**
+ * @brief Метод запуска режима работы
+ *
+ * @param block базовый алгоритм блочного шифрования
+ * @param iv    синхропосылка длиной не менее длины блока шифра
+ * @param size  размер блока гаммы в байтах, ноль означает длину блока шифра
+ *
+ * @return      признак успешности запуска режима работы
+ *
+ */
+bool anyks::cipher::Feedback::start(const block_t & block, const view_t & iv, const size_t size) noexcept {
+	// Выполняем сброс прежнего состояния режима работы
+	this->clear();
+	// Если базовый алгоритм блочного шифрования непригоден
+	if(!suitable(block))
+		// Выводим отказ запуска режима работы
+		return false;
+	// Определяем требуемый размер блока гаммы
+	const size_t gamma = (size > 0 ? size : block.size);
+	// Если размер блока гаммы превышает длину блока шифра
+	if(gamma > block.size)
+		// Выводим отказ запуска режима работы
+		return false;
+	// Если синхропосылка короче длины блока шифра
+	if((iv.data == nullptr) || (iv.size < block.size) || (iv.size > MODE_REGISTER))
+		// Выводим отказ запуска режима работы
+		return false;
+	// Запоминаем базовый алгоритм блочного шифрования
+	this->_block = block;
+	// Запоминаем размер блока гаммы
+	this->_size = gamma;
+	// Запоминаем длину регистра сдвига
+	this->_length = iv.size;
+	// Начальным заполнением регистра сдвига служит синхропосылка
+	::memcpy(this->_register, iv.data, iv.size);
+	// Устанавливаем признак готовности режима к работе
+	this->_ready = true;
+	// Выводим успешность запуска режима работы
+	return true;
+}
+/**
+ * @brief Метод сброса состояния режима работы
+ *
+ */
+void anyks::cipher::Feedback::clear() noexcept {
+	// Выполняем затирание накапливаемого блока шифртекста обратной связи
+	wipe(this->_feedback, sizeof(this->_feedback));
+	// Выполняем затирание текущего блока гаммы шифра
+	wipe(this->_gamma, sizeof(this->_gamma));
+	// Выполняем затирание заполнения регистра сдвига
+	wipe(this->_register, sizeof(this->_register));
+	// Сбрасываем базовый алгоритм блочного шифрования
+	this->_block = block_t();
+	// Сбрасываем длину регистра сдвига
+	this->_length = 0;
+	// Сбрасываем количество неизрасходованных байтов блока гаммы
+	this->_rest = 0;
+	// Сбрасываем размер блока гаммы
+	this->_size = 0;
+	// Снимаем признак готовности режима к работе
+	this->_ready = false;
+}
+/**
+ * @brief Метод зашифрования сообщения
+ *
+ * @param source зашифровываемое сообщение
+ * @param result место, в которое помещается шифртекст
+ *
+ * @return       признак успешности зашифрования
+ *
+ */
+bool anyks::cipher::Feedback::encrypt(const view_t & source, uint8_t * result) noexcept {
+	// Если режим не готов к работе либо места не переданы
+	if(!this->_ready || ((source.size > 0) && ((source.data == nullptr) || (result == nullptr))))
+		// Выводим отказ зашифрования
+		return false;
+	/**
+	 * Выполняем перебор байтов зашифровываемого сообщения
+	 */
+	for(size_t offset = 0; offset < source.size; offset++){
+		// Если блок гаммы шифра израсходован
+		if(this->_rest == 0){
+			// Блок, в который помещается выход базового алгоритма блочного шифрования
+			uint8_t buffer[MODE_BLOCK];
+			// Выполняем зашифрование старших разрядов регистра сдвига
+			if(!this->_block.encrypt(this->_block.cipher, this->_register, buffer))
+				// Выводим отказ зашифрования
+				return false;
+			// Выполняем усечение выхода шифра до размера блока гаммы
+			::memcpy(this->_gamma, buffer, this->_size);
+			// Выполняем затирание выхода базового алгоритма блочного шифрования
+			wipe(buffer, sizeof(buffer));
+			// Восстанавливаем количество неизрасходованных байтов блока гаммы
+			this->_rest = this->_size;
+		}
+		// Определяем место очередного байта внутри блока гаммы
+		const size_t index = (this->_size - this->_rest);
+		// Складываем очередной байт сообщения с гаммой шифра
+		const uint8_t item = static_cast <uint8_t> (source.data[offset] ^ this->_gamma[index]);
+		// Запоминаем байт шифртекста для обратной связи
+		this->_feedback[index] = item;
+		// Записываем байт шифртекста в место итога
+		result[offset] = item;
+		// Уменьшаем количество неизрасходованных байтов блока гаммы
+		this->_rest--;
+		// Если блок шифртекста собран целиком
+		if(this->_rest == 0)
+			// Записываем блок шифртекста в разряды регистра с меньшими номерами
+			shift(this->_register, this->_length, this->_feedback, this->_size);
+	}
+	// Выводим успешность зашифрования
+	return true;
+}
+/**
+ * @brief Метод расшифрования сообщения
+ *
+ * @param source расшифровываемый шифртекст
+ * @param result место, в которое помещается открытый текст
+ *
+ * @return       признак успешности расшифрования
+ *
+ */
+bool anyks::cipher::Feedback::decrypt(const view_t & source, uint8_t * result) noexcept {
+	// Если режим не готов к работе либо места не переданы
+	if(!this->_ready || ((source.size > 0) && ((source.data == nullptr) || (result == nullptr))))
+		// Выводим отказ расшифрования
+		return false;
+	/**
+	 * Выполняем перебор байтов расшифровываемого шифртекста
+	 */
+	for(size_t offset = 0; offset < source.size; offset++){
+		// Если блок гаммы шифра израсходован
+		if(this->_rest == 0){
+			// Блок, в который помещается выход базового алгоритма блочного шифрования
+			uint8_t buffer[MODE_BLOCK];
+			// Выполняем зашифрование старших разрядов регистра сдвига
+			if(!this->_block.encrypt(this->_block.cipher, this->_register, buffer))
+				// Выводим отказ расшифрования
+				return false;
+			// Выполняем усечение выхода шифра до размера блока гаммы
+			::memcpy(this->_gamma, buffer, this->_size);
+			// Выполняем затирание выхода базового алгоритма блочного шифрования
+			wipe(buffer, sizeof(buffer));
+			// Восстанавливаем количество неизрасходованных байтов блока гаммы
+			this->_rest = this->_size;
+		}
+		// Определяем место очередного байта внутри блока гаммы
+		const size_t index = (this->_size - this->_rest);
+		// Запоминаем байт шифртекста для обратной связи
+		this->_feedback[index] = source.data[offset];
+		// Складываем очередной байт шифртекста с гаммой шифра
+		result[offset] = static_cast <uint8_t> (this->_feedback[index] ^ this->_gamma[index]);
+		// Уменьшаем количество неизрасходованных байтов блока гаммы
+		this->_rest--;
+		// Если блок шифртекста собран целиком
+		if(this->_rest == 0)
+			// Записываем блок шифртекста в разряды регистра с меньшими номерами
+			shift(this->_register, this->_length, this->_feedback, this->_size);
+	}
+	// Выводим успешность расшифрования
+	return true;
+}
+/**
+ * @brief Конструктор
+ *
+ */
+anyks::cipher::Feedback::Feedback() noexcept : _ready(false), _size(0), _rest(0), _length(0) {
+	// Выполняем затирание заполнения регистра сдвига
+	wipe(this->_register, sizeof(this->_register));
+	// Выполняем затирание текущего блока гаммы шифра
+	wipe(this->_gamma, sizeof(this->_gamma));
+	// Выполняем затирание накапливаемого блока шифртекста обратной связи
+	wipe(this->_feedback, sizeof(this->_feedback));
+}
+/**
+ * @brief Деструктор
+ *
+ */
+anyks::cipher::Feedback::~Feedback() noexcept {
+	// Выполняем сброс состояния режима работы
+	this->clear();
+}
+/**
+ * @brief Метод проверки готовности режима к работе
+ *
+ * @return признак готовности режима к работе
+ *
+ */
+bool anyks::cipher::Imitation::ready() const noexcept {
+	// Выводим признак готовности режима к работе
+	return this->_ready;
+}
+/**
+ * @brief Метод запуска режима работы
+ *
+ * @param block базовый алгоритм блочного шифрования
+ *
+ * @return      признак успешности запуска режима работы
+ *
+ */
+bool anyks::cipher::Imitation::start(const block_t & block) noexcept {
+	// Выполняем сброс прежнего состояния режима работы
+	this->clear();
+	// Если базовый алгоритм блочного шифрования непригоден
+	if(!suitable(block))
+		// Выводим отказ запуска режима работы
+		return false;
+	/**
+	 * Константа Bn задана стандартом лишь для блоков длиной 64 и 128 разрядов, для
+	 * прочих длин её пришлось бы искать перебором примитивных многочленов
+	 */
+	uint8_t constant = 0;
+	/**
+	 * Выполняем выбор константы Bn по длине блока шифра
+	 */
+	switch(block.size){
+		// Если длина блока шифра составляет 64 разряда
+		case 8:
+			// Устанавливаем младшие разряды константы B64
+			constant = 0x1B;
+		break;
+		// Если длина блока шифра составляет 128 разрядов
+		case 16:
+			// Устанавливаем младшие разряды константы B128
+			constant = 0x87;
+		break;
+		// Если длина блока шифра иная
+		default:
+			// Выводим отказ запуска режима работы
+			return false;
+	}
+	// Промежуточное значение R выработки вспомогательных ключей
+	uint8_t buffer[MODE_BLOCK];
+	// Выполняем затирание промежуточного значения выработки вспомогательных ключей
+	wipe(buffer, sizeof(buffer));
+	// Выполняем зашифрование нулевого блока
+	if(!block.encrypt(block.cipher, buffer, buffer)){
+		// Выполняем затирание промежуточного значения выработки вспомогательных ключей
+		wipe(buffer, sizeof(buffer));
+		// Выводим отказ запуска режима работы
+		return false;
+	}
+	/**
+	 * Выполняем выработку обоих вспомогательных ключей: каждый следующий получается
+	 * сдвигом предыдущего на один разряд влево со сложением с константой Bn, если
+	 * старший разряд сдвигаемого значения был единичным
+	 */
+	for(size_t i = 0; i < 2; i++){
+		// Запоминаем старший разряд сдвигаемого значения
+		const uint8_t senior = static_cast <uint8_t> (buffer[0] >> 7);
+		/**
+		 * Выполняем сдвиг значения на один разряд влево
+		 */
+		for(size_t j = 0; j < block.size; j++){
+			// Сдвигаем очередной байт значения, перенося старший разряд следующего байта
+			buffer[j] = static_cast <uint8_t> ((buffer[j] << 1) | ((j + 1) < block.size ? (buffer[j + 1] >> 7) : 0));
+		}
+		// Если старший разряд сдвигаемого значения был единичным
+		if(senior != 0)
+			// Складываем сдвинутое значение с константой Bn
+			buffer[block.size - 1] = static_cast <uint8_t> (buffer[block.size - 1] ^ constant);
+		// Запоминаем выработанный вспомогательный ключ
+		::memcpy((i == 0 ? this->_first : this->_second), buffer, block.size);
+	}
+	// Выполняем затирание промежуточного значения выработки вспомогательных ключей
+	wipe(buffer, sizeof(buffer));
+	// Запоминаем базовый алгоритм блочного шифрования
+	this->_block = block;
+	// Устанавливаем признак готовности режима к работе
+	this->_ready = true;
+	// Выводим успешность запуска режима работы
+	return true;
+}
+/**
+ * @brief Метод сброса состояния режима работы
+ *
+ */
+void anyks::cipher::Imitation::clear() noexcept {
+	// Выполняем затирание результата зашифрования на предыдущем шаге
+	wipe(this->_state, sizeof(this->_state));
+	// Выполняем затирание накопленного блока сообщения
+	wipe(this->_buffer, sizeof(this->_buffer));
+	// Выполняем затирание второго вспомогательного ключа
+	wipe(this->_second, sizeof(this->_second));
+	// Выполняем затирание первого вспомогательного ключа
+	wipe(this->_first, sizeof(this->_first));
+	// Сбрасываем базовый алгоритм блочного шифрования
+	this->_block = block_t();
+	// Сбрасываем количество накопленных байтов текущего блока сообщения
+	this->_size = 0;
+	// Снимаем признак готовности режима к работе
+	this->_ready = false;
+}
+/**
+ * @brief Метод добавления куска сообщения
+ *
+ * @param source добавляемый кусок сообщения
+ *
+ * @return       признак успешности добавления куска сообщения
+ *
+ */
+bool anyks::cipher::Imitation::update(const view_t & source) noexcept {
+	// Если режим не готов к работе либо кусок сообщения не передан
+	if(!this->_ready || ((source.size > 0) && (source.data == nullptr)))
+		// Выводим отказ добавления куска сообщения
+		return false;
+	// Количество уже добавленных байтов куска сообщения
+	size_t offset = 0;
+	/**
+	 * Выполняем добавление куска сообщения до его исчерпания
+	 */
+	while(offset < source.size){
+		/**
+		 * Накопленный блок обрабатывается лишь тогда, когда за ним пришли ещё байты:
+		 * последний блок сообщения обрабатывается иначе и до вызова finish о том,
+		 * последний ли он, узнать неоткуда
+		 */
+		if(this->_size == this->_block.size){
+			// Складываем накопленный блок с результатом зашифрования на предыдущем шаге
+			add(this->_buffer, this->_state, this->_buffer, this->_block.size);
+			// Выполняем зашифрование полученного блока
+			if(!this->_block.encrypt(this->_block.cipher, this->_buffer, this->_state))
+				// Выводим отказ добавления куска сообщения
+				return false;
+			// Сбрасываем количество накопленных байтов текущего блока сообщения
+			this->_size = 0;
+		}
+		// Определяем количество байтов, добавляемых в накопленный блок сообщения
+		const size_t count = ((source.size - offset) < (this->_block.size - this->_size) ? (source.size - offset) : (this->_block.size - this->_size));
+		// Добавляем очередные байты куска сообщения в накопленный блок
+		::memcpy(this->_buffer + this->_size, source.data + offset, count);
+		// Увеличиваем количество накопленных байтов текущего блока сообщения
+		this->_size += count;
+		// Увеличиваем количество добавленных байтов куска сообщения
+		offset += count;
+	}
+	// Выводим успешность добавления куска сообщения
+	return true;
+}
+/**
+ * @brief Метод снятия имитовставки
+ *
+ * @param result место, в которое помещается имитовставка
+ * @param size   требуемая длина имитовставки в байтах
+ *
+ * @return       признак успешности снятия имитовставки
+ *
+ */
+bool anyks::cipher::Imitation::finish(uint8_t * result, const size_t size) noexcept {
+	// Если режим не готов к работе либо место итога не передано
+	if(!this->_ready || (result == nullptr) || (size == 0) || (size > this->_block.size))
+		// Выводим отказ снятия имитовставки
+		return false;
+	// Если последний блок сообщения оказался неполным
+	if(this->_size < this->_block.size){
+		/**
+		 * Выполняем дополнение последнего блока по процедуре 3 раздела 4.1.3: за
+		 * последним байтом сообщения ставится единичный разряд, а остаток блока
+		 * заполняется нулями
+		 */
+		this->_buffer[this->_size] = 0x80;
+		// Заполняем нулями остаток последнего блока сообщения
+		::memset(this->_buffer + this->_size + 1, 0, this->_block.size - this->_size - 1);
+		// Складываем последний блок со вторым вспомогательным ключом
+		add(this->_buffer, this->_second, this->_buffer, this->_block.size);
+	// Если последний блок сообщения оказался полным
+	} else
+		// Складываем последний блок с первым вспомогательным ключом
+		add(this->_buffer, this->_first, this->_buffer, this->_block.size);
+	// Складываем последний блок с результатом зашифрования на предыдущем шаге
+	add(this->_buffer, this->_state, this->_buffer, this->_block.size);
+	// Выполняем зашифрование последнего блока сообщения
+	if(!this->_block.encrypt(this->_block.cipher, this->_buffer, this->_state))
+		// Выводим отказ снятия имитовставки
+		return false;
+	// Выполняем усечение выхода шифра до требуемой длины имитовставки
+	::memcpy(result, this->_state, size);
+	// Выводим успешность снятия имитовставки
+	return true;
+}
+/**
+ * @brief Конструктор
+ *
+ */
+anyks::cipher::Imitation::Imitation() noexcept : _ready(false), _size(0) {
+	// Выполняем затирание первого вспомогательного ключа
+	wipe(this->_first, sizeof(this->_first));
+	// Выполняем затирание второго вспомогательного ключа
+	wipe(this->_second, sizeof(this->_second));
+	// Выполняем затирание накопленного блока сообщения
+	wipe(this->_buffer, sizeof(this->_buffer));
+	// Выполняем затирание результата зашифрования на предыдущем шаге
+	wipe(this->_state, sizeof(this->_state));
+}
+/**
+ * @brief Деструктор
+ *
+ */
+anyks::cipher::Imitation::~Imitation() noexcept {
+	// Выполняем сброс состояния режима работы
+	this->clear();
+}

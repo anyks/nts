@@ -1,0 +1,420 @@
+/**
+ * @file mgm.cpp
+ * @date 2026-08-29
+ *
+ * @license{LicenseRef-ANYKS-TLS-1.0}
+ *
+ * @author Yuriy Lobarev
+ *
+ * @telegram{forman}
+ * @phone{+7 (910) 983-95-90}
+ *
+ * @email forman@anyks.com
+ * @site https://anyks.com
+ *
+ * @brief Исходный файл проверок модуля режима шифрования с проверкой целостности MGM
+ *
+ * @note Контрольные примеры взяты из приложения А RFC 9058: оба примера для шифра
+ *       «Кузнечик» и оба примера для шифра «Магма»
+ *
+ * @copyright Copyright © 2026
+ *
+ */
+
+/**
+ * Подключаем заголовочные файлы проекта
+ */
+#include <string>
+#include <cstring>
+#include <main.hpp>
+#include <cipher/mgm.hpp>
+
+/**
+ * Используем пространство имён проекта
+ */
+using namespace anyks;
+
+/**
+ * @brief Метод разбора записи шестнадцатеричными знаками
+ *
+ * @param text разбираемая запись
+ * @param data место, в которое помещаются разобранные байты
+ *
+ * @return     число разобранных байтов
+ *
+ */
+static size_t bytes(const char * text, uint8_t * data) {
+	// Число разобранных байтов
+	size_t result = 0;
+	/**
+	 * Выполняем перебор пар знаков разбираемой записи
+	 */
+	for(size_t i = 0; text[i * 2] != '\0'; i++){
+		// Собираемое значение байта
+		uint8_t value = 0;
+		/**
+		 * Выполняем перебор знаков очередной пары
+		 */
+		for(size_t j = 0; j < 2; j++){
+			// Извлекаем очередной знак записи
+			const char letter = text[(i * 2) + j];
+			// Дополняем значение байта очередным знаком записи
+			value = static_cast <uint8_t> ((value << 4) | ((letter <= '9') ? (letter - '0') : ((letter - 'a') + 10)));
+		}
+		// Записываем разобранный байт
+		data[result++] = value;
+	}
+	// Выводим число разобранных байтов
+	return result;
+}
+/**
+ * @brief Метод сборки записи шестнадцатеричными знаками
+ *
+ * @param data собираемые байты
+ * @param size число собираемых байтов
+ *
+ * @return     собранная запись
+ *
+ */
+static std::string text(const uint8_t * data, const size_t size) {
+	// Собираемая запись
+	std::string result;
+	// Набор шестнадцатеричных знаков
+	static const char * letters = "0123456789abcdef";
+	/**
+	 * Выполняем перебор собираемых байтов
+	 */
+	for(size_t i = 0; i < size; i++){
+		// Записываем старший знак очередного байта
+		result.append(1, letters[(data[i] >> 4) & 0x0F]);
+		// Записываем младший знак очередного байта
+		result.append(1, letters[data[i] & 0x0F]);
+	}
+	// Выводим собранную запись
+	return result;
+}
+
+/**
+ * @brief Проверка первого контрольного примера на шифре «Кузнечик»
+ *
+ */
+TEST(GaloisTest, KuznyechikFirst) {
+	// Ключ шифрования
+	uint8_t secret[32];
+	// Начальное заполнение счётчика
+	uint8_t nonce[16];
+	// Связанные данные
+	uint8_t associated[41];
+	// Открытый текст, шифртекст и расшифрованный текст
+	uint8_t plain[67], cipher[67], back[67];
+	// Метка целостности
+	uint8_t tag[16];
+	// Выполняем разбор ключа шифрования
+	bytes("8899aabbccddeeff0011223344556677fedcba98765432100123456789abcdef", secret);
+	// Выполняем разбор начального заполнения счётчика
+	bytes("1122334455667700ffeeddccbbaa9988", nonce);
+	// Выполняем разбор связанных данных
+	const size_t length = bytes("0202020202020202010101010101010104040404040404040303030303030303ea0505050505050505", associated);
+	// Выполняем разбор открытого текста
+	const size_t size = bytes(
+		"1122334455667700ffeeddccbbaa9988"
+		"00112233445566778899aabbcceeff0a"
+		"112233445566778899aabbcceeff0a00"
+		"2233445566778899aabbcceeff0a0011"
+		"aabbcc", plain);
+	// Объект блочного шифра
+	cipher::kuznyechik_t base;
+	// Выполняем установку ключа шифрования
+	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
+	// Объект режима шифрования с проверкой целостности
+	cipher::galois_t mode;
+	// Выполняем запуск режима работы
+	ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(nonce, sizeof(nonce))));
+	// Выполняем зашифрование открытого текста
+	ASSERT_TRUE(mode.encrypt(view_t(associated, length), view_t(plain, size), cipher, tag));
+	// Сличаем полученный шифртекст с контрольным примером
+	ASSERT_EQ(text(cipher, size), std::string(
+		"a9757b8147956e9055b8a33de89f42fc"
+		"8075d2212bf9fd5bd3f7069aadc16b39"
+		"497ab15915a6ba85936b5d0ea9f6851c"
+		"c60c14d4d3f883d0ab94420695c76deb"
+		"2c7552"
+	));
+	// Сличаем полученную метку целостности с контрольным примером
+	ASSERT_EQ(text(tag, sizeof(tag)), std::string("cf5d656f40c34f5c46e8bb0e29fcdb4c"));
+	// Выполняем расшифрование шифртекста
+	ASSERT_TRUE(mode.decrypt(view_t(associated, length), view_t(cipher, size), back, view_t(tag, sizeof(tag))));
+	// Сличаем расшифрованный текст с исходным
+	ASSERT_EQ(::memcmp(back, plain, size), 0);
+}
+/**
+ * @brief Проверка второго контрольного примера на шифре «Кузнечик»
+ *
+ */
+TEST(GaloisTest, KuznyechikSecond) {
+	// Ключ шифрования
+	uint8_t secret[32];
+	// Начальное заполнение счётчика
+	uint8_t nonce[16];
+	// Связанные данные
+	uint8_t associated[16];
+	// Метка целостности
+	uint8_t tag[16];
+	// Выполняем разбор ключа шифрования
+	bytes("99aabbccddeeff0011223344556677fedcba98765432100123456789abcdef88", secret);
+	// Выполняем разбор начального заполнения счётчика
+	bytes("1122334455667700ffeeddccbbaa9988", nonce);
+	// Выполняем разбор связанных данных
+	const size_t length = bytes("01010101010101010101010101010101", associated);
+	// Объект блочного шифра
+	cipher::kuznyechik_t base;
+	// Выполняем установку ключа шифрования
+	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
+	// Объект режима шифрования с проверкой целостности
+	cipher::galois_t mode;
+	// Выполняем запуск режима работы
+	ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(nonce, sizeof(nonce))));
+	// Выполняем выработку метки целостности без зашифрования сообщения
+	ASSERT_TRUE(mode.encrypt(view_t(associated, length), view_t(), nullptr, tag));
+	// Сличаем полученную метку целостности с контрольным примером
+	ASSERT_EQ(text(tag, sizeof(tag)), std::string("7901e9ea2085cd247ed249695f9f8a85"));
+	// Выполняем проверку метки целостности
+	ASSERT_TRUE(mode.decrypt(view_t(associated, length), view_t(), nullptr, view_t(tag, sizeof(tag))));
+}
+/**
+ * @brief Проверка первого контрольного примера на шифре «Магма»
+ *
+ */
+TEST(GaloisTest, MagmaFirst) {
+	// Ключ шифрования
+	uint8_t secret[32];
+	// Начальное заполнение счётчика
+	uint8_t nonce[8];
+	// Связанные данные
+	uint8_t associated[41];
+	// Открытый текст, шифртекст и расшифрованный текст
+	uint8_t plain[67], cipher[67], back[67];
+	// Метка целостности
+	uint8_t tag[8];
+	// Выполняем разбор ключа шифрования
+	bytes("ffeeddccbbaa99887766554433221100f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff", secret);
+	// Выполняем разбор начального заполнения счётчика
+	bytes("12def06b3c130a59", nonce);
+	// Выполняем разбор связанных данных
+	const size_t length = bytes("01010101010101010202020202020202030303030303030304040404040404040505050505050505ea", associated);
+	// Выполняем разбор открытого текста
+	const size_t size = bytes(
+		"ffeeddccbbaa9988"
+		"1122334455667700"
+		"8899aabbcceeff0a"
+		"0011223344556677"
+		"99aabbcceeff0a00"
+		"1122334455667788"
+		"aabbcceeff0a0011"
+		"2233445566778899"
+		"aabbcc", plain);
+	// Объект блочного шифра
+	cipher::magma_t base;
+	// Выполняем установку ключа шифрования
+	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
+	// Объект режима шифрования с проверкой целостности
+	cipher::galois_t mode;
+	// Выполняем запуск режима работы
+	ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(nonce, sizeof(nonce))));
+	// Выполняем зашифрование открытого текста
+	ASSERT_TRUE(mode.encrypt(view_t(associated, length), view_t(plain, size), cipher, tag));
+	// Сличаем полученный шифртекст с контрольным примером
+	ASSERT_EQ(text(cipher, size), std::string(
+		"c795066c5f9ea03b"
+		"85113342459185ae"
+		"1f2e00d6bf2b785d"
+		"940470b8bb9c8e7d"
+		"9a5dd3731f7ddc70"
+		"ec27cb0ace6fa576"
+		"70f65c646abb75d5"
+		"47aa37c3bcb5c34e"
+		"03bb9c"
+	));
+	// Сличаем полученную метку целостности с контрольным примером
+	ASSERT_EQ(text(tag, sizeof(tag)), std::string("a7928069aa10fd10"));
+	// Выполняем расшифрование шифртекста
+	ASSERT_TRUE(mode.decrypt(view_t(associated, length), view_t(cipher, size), back, view_t(tag, sizeof(tag))));
+	// Сличаем расшифрованный текст с исходным
+	ASSERT_EQ(::memcmp(back, plain, size), 0);
+}
+/**
+ * @brief Проверка второго контрольного примера на шифре «Магма»
+ *
+ */
+TEST(GaloisTest, MagmaSecond) {
+	// Ключ шифрования
+	uint8_t secret[32];
+	// Начальное заполнение счётчика
+	uint8_t nonce[8];
+	// Открытый текст, шифртекст и расшифрованный текст
+	uint8_t plain[8], cipher[8], back[8];
+	// Метка целостности
+	uint8_t tag[8];
+	// Выполняем разбор ключа шифрования
+	bytes("99aabbccddeeff0011223344556677fedcba98765432100123456789abcdef88", secret);
+	// Выполняем разбор начального заполнения счётчика
+	bytes("0077665544332211", nonce);
+	// Выполняем разбор открытого текста
+	const size_t size = bytes("22334455667700ff", plain);
+	// Объект блочного шифра
+	cipher::magma_t base;
+	// Выполняем установку ключа шифрования
+	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
+	// Объект режима шифрования с проверкой целостности
+	cipher::galois_t mode;
+	// Выполняем запуск режима работы
+	ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(nonce, sizeof(nonce))));
+	// Выполняем зашифрование открытого текста без связанных данных
+	ASSERT_TRUE(mode.encrypt(view_t(), view_t(plain, size), cipher, tag));
+	// Сличаем полученный шифртекст с контрольным примером
+	ASSERT_EQ(text(cipher, size), std::string("6a95e1426b259d4e"));
+	// Сличаем полученную метку целостности с контрольным примером
+	ASSERT_EQ(text(tag, sizeof(tag)), std::string("334ee270450bec9e"));
+	// Выполняем расшифрование шифртекста
+	ASSERT_TRUE(mode.decrypt(view_t(), view_t(cipher, size), back, view_t(tag, sizeof(tag))));
+	// Сличаем расшифрованный текст с исходным
+	ASSERT_EQ(::memcmp(back, plain, size), 0);
+}
+/**
+ * @brief Проверка отказа расшифрования при порче сообщения
+ *
+ */
+TEST(GaloisTest, Forgery) {
+	// Ключ шифрования
+	uint8_t secret[32];
+	// Начальное заполнение счётчика
+	uint8_t nonce[16];
+	// Связанные данные
+	uint8_t associated[16];
+	// Открытый текст, шифртекст и расшифрованный текст
+	uint8_t plain[32], cipher[32], back[32];
+	// Метка целостности
+	uint8_t tag[16];
+	// Выполняем разбор ключа шифрования
+	bytes("8899aabbccddeeff0011223344556677fedcba98765432100123456789abcdef", secret);
+	// Выполняем разбор начального заполнения счётчика
+	bytes("1122334455667700ffeeddccbbaa9988", nonce);
+	// Выполняем разбор связанных данных
+	const size_t length = bytes("01010101010101010101010101010101", associated);
+	// Выполняем разбор открытого текста
+	const size_t size = bytes("1122334455667700ffeeddccbbaa998800112233445566778899aabbcceeff0a", plain);
+	// Объект блочного шифра
+	cipher::kuznyechik_t base;
+	// Выполняем установку ключа шифрования
+	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
+	// Объект режима шифрования с проверкой целостности
+	cipher::galois_t mode;
+	// Выполняем запуск режима работы
+	ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(nonce, sizeof(nonce))));
+	// Выполняем зашифрование открытого текста
+	ASSERT_TRUE(mode.encrypt(view_t(associated, length), view_t(plain, size), cipher, tag));
+	/**
+	 * Выполняем перебор байтов шифртекста
+	 */
+	for(size_t i = 0; i < size; i++){
+		// Выполняем порчу очередного байта шифртекста
+		cipher[i] = static_cast <uint8_t> (cipher[i] ^ 0x01);
+		// Проверяем отказ расшифрования испорченного шифртекста
+		ASSERT_FALSE(mode.decrypt(view_t(associated, length), view_t(cipher, size), back, view_t(tag, sizeof(tag)))) << "Место порчи: " << i;
+		// Выполняем восстановление очередного байта шифртекста
+		cipher[i] = static_cast <uint8_t> (cipher[i] ^ 0x01);
+	}
+	/**
+	 * Выполняем перебор байтов связанных данных
+	 */
+	for(size_t i = 0; i < length; i++){
+		// Выполняем порчу очередного байта связанных данных
+		associated[i] = static_cast <uint8_t> (associated[i] ^ 0x01);
+		// Проверяем отказ расшифрования при порче связанных данных
+		ASSERT_FALSE(mode.decrypt(view_t(associated, length), view_t(cipher, size), back, view_t(tag, sizeof(tag)))) << "Место порчи: " << i;
+		// Выполняем восстановление очередного байта связанных данных
+		associated[i] = static_cast <uint8_t> (associated[i] ^ 0x01);
+	}
+	/**
+	 * Выполняем перебор байтов метки целостности
+	 */
+	for(size_t i = 0; i < sizeof(tag); i++){
+		// Выполняем порчу очередного байта метки целостности
+		tag[i] = static_cast <uint8_t> (tag[i] ^ 0x01);
+		// Проверяем отказ расшифрования при порче метки целостности
+		ASSERT_FALSE(mode.decrypt(view_t(associated, length), view_t(cipher, size), back, view_t(tag, sizeof(tag)))) << "Место порчи: " << i;
+		// Выполняем восстановление очередного байта метки целостности
+		tag[i] = static_cast <uint8_t> (tag[i] ^ 0x01);
+	}
+	// Проверяем успешность расшифрования восстановленного шифртекста
+	ASSERT_TRUE(mode.decrypt(view_t(associated, length), view_t(cipher, size), back, view_t(tag, sizeof(tag))));
+	// Сличаем расшифрованный текст с исходным
+	ASSERT_EQ(::memcmp(back, plain, size), 0);
+}
+/**
+ * @brief Проверка отказов режима работы
+ *
+ */
+TEST(GaloisTest, Failures) {
+	// Ключ шифрования
+	uint8_t secret[32];
+	// Начальное заполнение счётчика
+	uint8_t nonce[16];
+	// Открытый текст и шифртекст
+	uint8_t plain[16], cipher[16];
+	// Метка целостности
+	uint8_t tag[16];
+	// Выполняем разбор ключа шифрования
+	bytes("8899aabbccddeeff0011223344556677fedcba98765432100123456789abcdef", secret);
+	// Выполняем разбор начального заполнения счётчика
+	bytes("1122334455667700ffeeddccbbaa9988", nonce);
+	// Выполняем разбор открытого текста
+	const size_t size = bytes("1122334455667700ffeeddccbbaa9988", plain);
+	// Объект блочного шифра
+	cipher::kuznyechik_t base;
+	// Выполняем установку ключа шифрования
+	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
+	// Объект режима шифрования с проверкой целостности
+	cipher::galois_t mode;
+	// Проверяем отказ работы режима до его запуска
+	ASSERT_FALSE(mode.ready());
+	// Проверяем отказ зашифрования до запуска режима работы
+	ASSERT_FALSE(mode.encrypt(view_t(), view_t(plain, size), cipher, tag));
+	// Проверяем отказ запуска режима работы с непригодным базовым алгоритмом
+	ASSERT_FALSE(mode.start(cipher::block_t(), view_t(nonce, sizeof(nonce))));
+	// Проверяем отказ запуска режима работы с меткой целостности короче наименьшей
+	ASSERT_FALSE(mode.start(cipher::block_t(base), view_t(nonce, sizeof(nonce)), cipher::MGM_TAG - 1));
+	// Проверяем отказ запуска режима работы с меткой целостности длиннее блока шифра
+	ASSERT_FALSE(mode.start(cipher::block_t(base), view_t(nonce, sizeof(nonce)), 17));
+	// Проверяем отказ запуска режима работы с начальным заполнением не в блок шифра
+	ASSERT_FALSE(mode.start(cipher::block_t(base), view_t(nonce, 8)));
+	// Выполняем установку единичного старшего разряда начального заполнения счётчика
+	nonce[0] = static_cast <uint8_t> (nonce[0] | 0x80);
+	// Проверяем отказ запуска режима работы с занятым старшим разрядом заполнения
+	ASSERT_FALSE(mode.start(cipher::block_t(base), view_t(nonce, sizeof(nonce))));
+	// Выполняем снятие единичного старшего разряда начального заполнения счётчика
+	nonce[0] = static_cast <uint8_t> (nonce[0] & 0x7F);
+	// Выполняем запуск режима работы с укороченной меткой целостности
+	ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(nonce, sizeof(nonce)), cipher::MGM_TAG));
+	// Проверяем длину метки целостности
+	ASSERT_EQ(mode.size(), cipher::MGM_TAG);
+	// Выполняем зашифрование открытого текста
+	ASSERT_TRUE(mode.encrypt(view_t(), view_t(plain, size), cipher, tag));
+	// Место, в которое помещается полная метка целостности
+	uint8_t full[16];
+	// Объект режима шифрования с полной меткой целостности
+	cipher::galois_t whole;
+	// Выполняем запуск режима работы с полной меткой целостности
+	ASSERT_TRUE(whole.start(cipher::block_t(base), view_t(nonce, sizeof(nonce))));
+	// Выполняем зашифрование открытого текста
+	ASSERT_TRUE(whole.encrypt(view_t(), view_t(plain, size), cipher, full));
+	/**
+	 * Укороченная метка целостности снимается со старших байтов полной, оттого её
+	 * начало обязано совпадать с началом полной метки
+	 */
+	ASSERT_EQ(::memcmp(tag, full, cipher::MGM_TAG), 0);
+	// Проверяем отказ проверки метки целостности иной длины
+	ASSERT_FALSE(mode.decrypt(view_t(), view_t(cipher, size), plain, view_t(tag, sizeof(tag))));
+	// Проверяем отказ зашифрования при пустых связанных данных и пустом сообщении
+	ASSERT_FALSE(mode.encrypt(view_t(), view_t(), nullptr, tag));
+}
