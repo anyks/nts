@@ -69,6 +69,8 @@ namespace {
 		const char * x;
 		// Вторая координата образующей точки
 		const char * y;
+		// Отношение порядка группы точек кривой к порядку подгруппы
+		uint64_t cofactor;
 	} sample_t;
 
 	/**
@@ -138,7 +140,9 @@ namespace {
 			"fd60611262cd838dc6b60aa7eee804e28bc849977fac33b4b530f1b120248a9a",
 			// Вторая координата образующей точки
 			"2bb312a43bd2ce6e0d020613c857acddcfbf061e91e5f2c3f32447c259f39b2c"
-			"83ab156d77f1496bf7eb3351e1ee4e43dc1a18b91b24640b6dbb92cb1add371e"
+			"83ab156d77f1496bf7eb3351e1ee4e43dc1a18b91b24640b6dbb92cb1add371e",
+			// Кофактор кривой
+			1
 		},
 		{
 			// Набор параметров id-GostR3410-2001-TestParamSet
@@ -153,7 +157,9 @@ namespace {
 			// Первая координата образующей точки
 			"02",
 			// Вторая координата образующей точки
-			"08e2a8a0e65147d4bd6316030e16d19c85c97f0a9ca267122b96abbcea7e8fc8"
+			"08e2a8a0e65147d4bd6316030e16d19c85c97f0a9ca267122b96abbcea7e8fc8",
+			// Кофактор кривой
+			1
 		},
 		{
 			// Набор параметров id-tc26-gost-3410-2012-256-paramSetA
@@ -168,7 +174,9 @@ namespace {
 			// Первая координата образующей точки
 			"91e38443a5e82c0d880923425712b2bb658b9196932e02c78b2582fe742daa28",
 			// Вторая координата образующей точки
-			"32879423ab1a0375895786c4bb46e9565fde0b5344766740af268adb32322e5c"
+			"32879423ab1a0375895786c4bb46e9565fde0b5344766740af268adb32322e5c",
+			// Кофактор кривой, заданной в скрученной форме Эдвардса
+			4
 		},
 		{
 			// Набор параметров id-GostR3410-2001-CryptoPro-A-ParamSet, он же id-tc26-gost-3410-2012-256-paramSetB
@@ -183,7 +191,9 @@ namespace {
 			// Первая координата образующей точки
 			"01",
 			// Вторая координата образующей точки
-			"8d91e471e0989cda27df505a453f2b7635294f2ddf23e3b122acc99c9e9f1e14"
+			"8d91e471e0989cda27df505a453f2b7635294f2ddf23e3b122acc99c9e9f1e14",
+			// Кофактор кривой
+			1
 		},
 		{
 			// Набор параметров id-GostR3410-2001-CryptoPro-B-ParamSet, он же id-tc26-gost-3410-2012-256-paramSetC
@@ -198,7 +208,9 @@ namespace {
 			// Первая координата образующей точки
 			"01",
 			// Вторая координата образующей точки
-			"3fa8124359f96680b83d1c3eb2c070e5c545c9858d03ecfb744bf8d717717efc"
+			"3fa8124359f96680b83d1c3eb2c070e5c545c9858d03ecfb744bf8d717717efc",
+			// Кофактор кривой
+			1
 		},
 		{
 			// Набор параметров id-GostR3410-2001-CryptoPro-C-ParamSet, он же id-tc26-gost-3410-2012-256-paramSetD
@@ -213,7 +225,9 @@ namespace {
 			// Первая координата образующей точки
 			"00",
 			// Вторая координата образующей точки
-			"41ece55743711a8c3cbf3783cd08c0ee4d4dc440d4641a8f366e550dfdb3bb67"
+			"41ece55743711a8c3cbf3783cd08c0ee4d4dc440d4641a8f366e550dfdb3bb67",
+			// Кофактор кривой
+			1
 		},
 		{
 			// Набор параметров id-tc26-gost-3410-12-512-paramSetA
@@ -233,7 +247,9 @@ namespace {
 			"03",
 			// Вторая координата образующей точки
 			"7503cfe87a836ae3a61b8816e25450e6ce5e1c93acf1abc1778064fdcbefa921"
-			"df1626be4fd036e93d75e6a50e3a41e98028fe5fc235f5b889a589cb5215f2a4"
+			"df1626be4fd036e93d75e6a50e3a41e98028fe5fc235f5b889a589cb5215f2a4",
+			// Кофактор кривой
+			1
 		},
 		{
 			// Набор параметров id-tc26-gost-3410-12-512-paramSetB
@@ -253,7 +269,9 @@ namespace {
 			"02",
 			// Вторая координата образующей точки
 			"1a8f7eda389b094c2c071e3647a8940f3c123b697578c213be6dd9e6c8ec7335"
-			"dcb228fd1edf4a39152cbcaaf8c0398828041055f94ceeec7e21340780fe41bd"
+			"dcb228fd1edf4a39152cbcaaf8c0398828041055f94ceeec7e21340780fe41bd",
+			// Кофактор кривой
+			1
 		},
 		{
 			// Набор параметров id-tc26-gost-3410-2012-512-paramSetC
@@ -274,7 +292,9 @@ namespace {
 			"a27272a7ae602bf2a7b9033db9ed3610c6fb85487eae97aac5bc7928c1950148",
 			// Вторая координата образующей точки
 			"f5ce40d95b5eb899abbccff5911cb8577939804d6527378b8c108c3d2090ff9b"
-			"e18e2d33e3021ed2ef32d85822423b6304f726aa854bae07d0396e9a9addc40f"
+			"e18e2d33e3021ed2ef32d85822423b6304f726aa854bae07d0396e9a9addc40f",
+			// Кофактор кривой, заданной в скрученной форме Эдвардса
+			4
 		}
 	};
 
@@ -330,7 +350,8 @@ bool anyks::curve::parameters(const string & oid, curve_t & result) noexcept {
 			view_t(second, bytes(sample.second, second)),
 			view_t(order, bytes(sample.order, order)),
 			view_t(x, bytes(sample.x, x)),
-			view_t(y, bytes(sample.y, y))
+			view_t(y, bytes(sample.y, y)),
+			sample.cofactor
 		);
 	}
 	// Выводим отказ установки кривой: набор параметров неизвестен

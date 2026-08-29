@@ -541,7 +541,7 @@ void anyks::digest::Streebog::update(const view_t & data) noexcept {
  * @return признак успешности снятия хеша
  *
  */
-bool anyks::digest::Streebog::finish(uint8_t * result, const size_t size) noexcept {
+bool anyks::digest::Streebog::finish(uint8_t * result, const size_t size, const order_t order) noexcept {
 	// Определяем длину вырабатываемого хеша в байтах
 	const size_t length = static_cast <size_t> (this->_type);
 	// Если хеш уже снят, длина его не установлена либо место под него мало
@@ -575,14 +575,17 @@ bool anyks::digest::Streebog::finish(uint8_t * result, const size_t size) noexce
 	// Выполняем сжатие контрольной суммы разобранных блоков сообщения
 	compress(this->_hash, zero, this->_sum);
 	/**
-	 * Хеш выдаётся от старшего байта вектора к младшему, а хеш длиной 256 разрядов
-	 * берётся старшей половиной вектора - оттого обоим длинам отвечает один обход
+	 * Вектор записывается от старшего байта к младшему, а хеш длиной 256 разрядов
+	 * берётся старшей половиной вектора - оттого обоим длинам отвечает один обход.
+	 * Строка же байтов, какой хеш передают протоколы, есть тот же вектор наоборот
 	 */
 	for(size_t i = 0; i < length; i++){
 		// Определяем номер байта вектора, отвечающего очередному байту хеша
 		const size_t offset = (63 - i);
+		// Определяем место очередного байта внутри выработанного хеша
+		const size_t index = (order == order_t::VECTOR ? i : (length - i - 1));
 		// Записываем очередной байт выработанного хеша
-		result[i] = static_cast <uint8_t> ((this->_hash[offset / 8] >> ((offset % 8) * 8)) & 0xFF);
+		result[index] = static_cast <uint8_t> ((this->_hash[offset / 8] >> ((offset % 8) * 8)) & 0xFF);
 	}
 	// Устанавливаем признак того, что хеш снят
 	this->_finished = true;
@@ -606,15 +609,16 @@ anyks::digest::Streebog::Streebog(const type_t type) noexcept {
  * @param data   хешируемое сообщение
  * @param result место, в которое помещается выработанный хеш
  * @param size   размер места, в которое помещается хеш
+ * @param order  порядок записи выработанного хеша
  *
  * @return признак успешности выработки хеша
  *
  */
-bool anyks::digest::streebog(const type_t type, const view_t & data, uint8_t * result, const size_t size) noexcept {
+bool anyks::digest::streebog(const type_t type, const view_t & data, uint8_t * result, const size_t size, const order_t order) noexcept {
 	// Создаём объект хеширования
 	streebog_t hash(type);
 	// Выполняем подачу хешируемого сообщения
 	hash.update(data);
 	// Выводим итог выработки хеша
-	return hash.finish(result, size);
+	return hash.finish(result, size, order);
 }

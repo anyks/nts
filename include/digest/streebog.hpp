@@ -116,6 +116,37 @@ namespace anyks {
 		 *
 		 * \~
 		 */
+		/**
+		 * \~russian
+		 * @brief Порядок записи выработанного хеша
+		 *
+		 * @details Стандарт толкует хеш вектором и записывает его от старшего разряда,
+		 *          тогда как протоколы передают его строкой байтов в обратном порядке.
+		 *          Расхождение это - самое частое место ошибок, оттого порядок задан
+		 *          явно, а не выбран за потребителя.
+		 *
+		 * @note Умолчанием взят порядок протоколов: обычное хеширование данных совпадает
+		 *       с прочими реализациями, а запись вектором нужна лишь там, где хеш идёт
+		 *       числом в криптографию - в подписи по ГОСТ Р 34.10-2012
+		 *
+		 * \~english
+		 * @brief Order of the writing of the produced hash
+		 * @details The standard treats the hash as a vector and writes it from the senior bit,
+		 *          whereas the protocols transfer it as a string of bytes in the reverse order.
+		 *          This difference is the most frequent place of the errors, therefore the order
+		 *          is given explicitly and is not chosen for the consumer.
+		 * @note The order of the protocols is taken as the default: an ordinary hashing of the
+		 *       data coincides with the rest of the implementations, while the writing as a vector
+		 *       is needed only there where the hash goes as a number into the cryptography - in the
+		 *       signature according to GOST R 34.10-2012
+		 *
+		 * \~
+		 */
+		enum class order_t : uint8_t {
+			STREAM = 0x01, // Строка байтов, как её передают протоколы
+			VECTOR = 0x02  // Вектор, как его записывает стандарт
+		};
+
 		typedef class __ANYKS_TLS_SHARED_EXPORT__ Streebog {
 			private:
 				// Длина вырабатываемого хеша
@@ -202,7 +233,7 @@ namespace anyks {
 				 *
 				 * \~
 				 */
-				bool finish(uint8_t * result, const size_t size) noexcept;
+				bool finish(uint8_t * result, const size_t size, const order_t order = order_t::STREAM) noexcept;
 			public:
 				/**
 				 * \~russian
@@ -251,7 +282,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ bool streebog(const type_t type, const view_t & data, uint8_t * result, const size_t size) noexcept;
+		__ANYKS_TLS_SHARED_EXPORT__ bool streebog(const type_t type, const view_t & data, uint8_t * result, const size_t size, const order_t order = order_t::STREAM) noexcept;
 	};
 };
 

@@ -98,10 +98,13 @@ endforeach()
 
 # Устанавливаем список исходных файлов библиотеки
 SET(SOURCE_FILES
+    "${CMAKE_SOURCE_DIR}/src/field/field.cpp"
     "${CMAKE_SOURCE_DIR}/src/asn1/asn1.cpp"
     "${CMAKE_SOURCE_DIR}/src/x509/x509.cpp"
     "${CMAKE_SOURCE_DIR}/src/x509/signature.cpp"
     "${CMAKE_SOURCE_DIR}/src/digest/streebog.cpp"
+    "${CMAKE_SOURCE_DIR}/src/digest/hmac.cpp"
+    "${CMAKE_SOURCE_DIR}/src/digest/kdf.cpp"
     "${CMAKE_SOURCE_DIR}/src/cipher/kuznyechik.cpp"
     "${CMAKE_SOURCE_DIR}/src/cipher/magma.cpp"
     "${CMAKE_SOURCE_DIR}/src/cipher/mode.cpp"
@@ -111,6 +114,14 @@ SET(SOURCE_FILES
     "${CMAKE_SOURCE_DIR}/src/curve/curve.cpp"
     "${CMAKE_SOURCE_DIR}/src/curve/parameters.cpp"
     "${CMAKE_SOURCE_DIR}/src/sign/gost.cpp"
+    "${CMAKE_SOURCE_DIR}/src/agreement/vko.cpp"
+    "${CMAKE_SOURCE_DIR}/src/record/record.cpp"
+    "${CMAKE_SOURCE_DIR}/src/protect/protect.cpp"
+    "${CMAKE_SOURCE_DIR}/src/handshake/handshake.cpp"
+    "${CMAKE_SOURCE_DIR}/src/schedule/schedule.cpp"
+    "${CMAKE_SOURCE_DIR}/src/hello/hello.cpp"
+    "${CMAKE_SOURCE_DIR}/src/extension/extension.cpp"
+    "${CMAKE_SOURCE_DIR}/src/message/message.cpp"
 )
 
 # Устанавливаем имя библиотеки
@@ -225,6 +236,153 @@ if (CMAKE_BUILD_TESTS)
     # Выполняем подключение набора проверок
     add_subdirectory(tests)
 endif (CMAKE_BUILD_TESTS)
+
+# Указываем что нужно собрать образцы работы с библиотекой
+option(CMAKE_BUILD_SAMPLES "Build library samples" OFF)
+
+# Если необходимо собрать образцы работы с библиотекой
+if (${CMAKE_BUILD_SAMPLES})
+    # Указываем каталог для ВСЕХ исполняемых файлов образцов
+    SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/samples)
+
+    ##
+     # Функция создания образца
+     #
+     # Аргументы:
+     #  name - имя исполняемого файла образца
+     #  src  - исходный файл образца
+     #  dir  - каталог, в который кладётся исполняемый файл
+     ##
+    function(add_sample name src dir)
+        # Выполняем создание приложения образца
+        add_executable(${name} ${src})
+        # Выполняем подключение библиотеки к приложению образца
+        target_link_libraries(${name} ${TLS_LIB_NAME})
+        # Указываем каталог для исполняемого файла образца
+        set_target_properties(${name} PROPERTIES
+            RUNTIME_OUTPUT_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${dir}
+        )
+    endfunction()
+
+    # Устанавливаем имя приложения работы с хешем «Стрибог»
+    SET(DIGEST_APP_NAME digest-streebog)
+    # Указываем что нужно собрать приложение работы с хешем «Стрибог»
+    option(CMAKE_BUILD_DIGEST_APP_SAMPLE "Build Streebog app sample" ON)
+
+    # Устанавливаем имя приложения работы с блочным шифром «Кузнечик»
+    SET(CIPHER_APP_NAME cipher-kuznyechik)
+    # Указываем что нужно собрать приложение работы с блочным шифром «Кузнечик»
+    option(CMAKE_BUILD_CIPHER_APP_SAMPLE "Build Kuznyechik app sample" ON)
+
+    # Устанавливаем имя приложения работы с электронной подписью
+    SET(SIGN_APP_NAME sign-gost)
+    # Указываем что нужно собрать приложение работы с электронной подписью
+    option(CMAKE_BUILD_SIGN_APP_SAMPLE "Build signature app sample" ON)
+
+    # Устанавливаем имя приложения работы со слоем записей
+    SET(RECORD_APP_NAME record-layer)
+    # Указываем что нужно собрать приложение работы со слоем записей
+    option(CMAKE_BUILD_RECORD_APP_SAMPLE "Build record layer app sample" ON)
+
+    # Устанавливаем имя приложения работы с защитой записей
+    SET(PROTECT_APP_NAME record-protect)
+    # Указываем что нужно собрать приложение работы с защитой записей
+    option(CMAKE_BUILD_PROTECT_APP_SAMPLE "Build record protection app sample" ON)
+
+    # Устанавливаем имя приложения работы с приветствиями рукопожатия
+    SET(HELLO_APP_NAME handshake-hello)
+    # Указываем что нужно собрать приложение работы с приветствиями рукопожатия
+    option(CMAKE_BUILD_HELLO_APP_SAMPLE "Build handshake hello app sample" ON)
+
+    # Если нужно собрать образец работы с хешем «Стрибог»
+    if (${CMAKE_BUILD_DIGEST_APP_SAMPLE})
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample DIGEST: Yes")
+        # Выполняем создание приложения работы с хешем «Стрибог»
+        add_sample(${DIGEST_APP_NAME} sample/digest/streebog.cpp digest)
+    # Если образец работы с хешем «Стрибог» собирать не нужно
+    else()
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample DIGEST: No")
+    endif (${CMAKE_BUILD_DIGEST_APP_SAMPLE})
+
+    # Если нужно собрать образец работы с блочным шифром «Кузнечик»
+    if (${CMAKE_BUILD_CIPHER_APP_SAMPLE})
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample CIPHER: Yes")
+        # Выполняем создание приложения работы с блочным шифром «Кузнечик»
+        add_sample(${CIPHER_APP_NAME} sample/cipher/kuznyechik.cpp cipher)
+    # Если образец работы с блочным шифром собирать не нужно
+    else()
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample CIPHER: No")
+    endif (${CMAKE_BUILD_CIPHER_APP_SAMPLE})
+
+    # Если нужно собрать образец работы с электронной подписью
+    if (${CMAKE_BUILD_SIGN_APP_SAMPLE})
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample SIGN: Yes")
+        # Выполняем создание приложения работы с электронной подписью
+        add_sample(${SIGN_APP_NAME} sample/sign/gost.cpp sign)
+    # Если образец работы с электронной подписью собирать не нужно
+    else()
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample SIGN: No")
+    endif (${CMAKE_BUILD_SIGN_APP_SAMPLE})
+
+    # Если нужно собрать образец работы со слоем записей
+    if (${CMAKE_BUILD_RECORD_APP_SAMPLE})
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample RECORD: Yes")
+        # Выполняем создание приложения работы со слоем записей
+        add_sample(${RECORD_APP_NAME} sample/record/record.cpp record)
+    # Если образец работы со слоем записей собирать не нужно
+    else()
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample RECORD: No")
+    endif (${CMAKE_BUILD_RECORD_APP_SAMPLE})
+
+    # Если нужно собрать образец работы с защитой записей
+    if (${CMAKE_BUILD_PROTECT_APP_SAMPLE})
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample PROTECT: Yes")
+        # Выполняем создание приложения работы с защитой записей
+        add_sample(${PROTECT_APP_NAME} sample/protect/protect.cpp record)
+    # Если образец работы с защитой записей собирать не нужно
+    else()
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample PROTECT: No")
+    endif (${CMAKE_BUILD_PROTECT_APP_SAMPLE})
+
+    # Устанавливаем имя приложения работы с подтверждением подлинности
+    SET(MESSAGE_APP_NAME handshake-message)
+    # Указываем что нужно собрать приложение работы с подтверждением подлинности
+    option(CMAKE_BUILD_MESSAGE_APP_SAMPLE "Build handshake authentication app sample" ON)
+
+    # Если нужно собрать образец работы с приветствиями рукопожатия
+    if (${CMAKE_BUILD_HELLO_APP_SAMPLE})
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample HELLO: Yes")
+        # Выполняем создание приложения работы с приветствиями рукопожатия
+        add_sample(${HELLO_APP_NAME} sample/hello/hello.cpp handshake)
+    # Если образец работы с приветствиями собирать не нужно
+    else()
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample HELLO: No")
+    endif (${CMAKE_BUILD_HELLO_APP_SAMPLE})
+
+    # Если нужно собрать образец работы с подтверждением подлинности
+    if (${CMAKE_BUILD_MESSAGE_APP_SAMPLE})
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample MESSAGE: Yes")
+        # Выполняем создание приложения работы с подтверждением подлинности
+        add_sample(${MESSAGE_APP_NAME} sample/message/message.cpp handshake)
+    # Если образец работы с подтверждением подлинности собирать не нужно
+    else()
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample MESSAGE: No")
+    endif (${CMAKE_BUILD_MESSAGE_APP_SAMPLE})
+endif (${CMAKE_BUILD_SAMPLES})
 
 # Выполняем установку заголовочных файлов проекта
 install(DIRECTORY "${CMAKE_SOURCE_DIR}/include/" DESTINATION "${CMAKE_INSTALL_PREFIX}/include/${CMAKE_PROJECT_NAME}" FILES_MATCHING PATTERN "*.hpp")

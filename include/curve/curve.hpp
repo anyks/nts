@@ -145,6 +145,9 @@ namespace anyks {
 				// Второй коэффициент уравнения кривой
 				math::number_t _second;
 			private:
+				// Отношение порядка группы точек кривой к порядку подгруппы
+				uint64_t _cofactor;
+			private:
 				// Образующая точка подгруппы точек кривой
 				point_t _base;
 			private:
@@ -206,6 +209,28 @@ namespace anyks {
 				size_t size() const noexcept;
 				/**
 				 * \~russian
+				 * @brief Метод получения кофактора кривой
+				 *
+				 * @return отношение порядка группы точек кривой к порядку подгруппы
+				 *
+				 * @details Кофактор участвует в выработке общего ключа: раздел 4.3 RFC 7836
+				 *          множит секретное значение на отношение порядка группы к порядку
+				 *          подгруппы. У кривых, заданных в скрученной форме Эдвардса, он
+				 *          равен четырём, у прочих наборов - единице
+				 *
+				 * \~english
+				 * @brief Method of getting the cofactor of the curve
+				 * @return the ratio of the order of the group of the points of the curve to the order of the subgroup
+				 * @details The cofactor takes part in the production of a shared key: the section 4.3
+				 *          of RFC 7836 multiplies the secret value by the ratio of the order of the
+				 *          group to the order of the subgroup. At the curves given in the twisted
+				 *          Edwards form it equals four, at the rest of the sets it equals one
+				 *
+				 * \~
+				 */
+				uint64_t cofactor() const noexcept;
+				/**
+				 * \~russian
 				 * @brief Метод получения арифметики порядка подгруппы точек кривой
 				 *
 				 * @return арифметика порядка подгруппы точек кривой
@@ -225,8 +250,9 @@ namespace anyks {
 				 * @param first   первый коэффициент уравнения кривой
 				 * @param second  второй коэффициент уравнения кривой
 				 * @param order   порядок подгруппы точек кривой
-				 * @param x       первая координата образующей точки
-				 * @param y       вторая координата образующей точки
+				 * @param x        первая координата образующей точки
+				 * @param y        вторая координата образующей точки
+				 * @param cofactor отношение порядка группы точек кривой к порядку подгруппы
 				 *
 				 * @return признак успешности установки параметров кривой
 				 *
@@ -238,14 +264,15 @@ namespace anyks {
 				 * @param first   the first coefficient of the equation of the curve
 				 * @param second  the second coefficient of the equation of the curve
 				 * @param order   the order of the subgroup of the points of the curve
-				 * @param x       the first coordinate of the generating point
-				 * @param y       the second coordinate of the generating point
+				 * @param x        the first coordinate of the generating point
+				 * @param y        the second coordinate of the generating point
+				 * @param cofactor the ratio of the order of the group of the points of the curve to the order of the subgroup
 				 * @return the flag of the success of the setting of the parameters of the curve
 				 * @note The generating point is checked for the belonging to the curve
 				 *
 				 * \~
 				 */
-				bool start(const view_t & modulus, const view_t & first, const view_t & second, const view_t & order, const view_t & x, const view_t & y) noexcept;
+				bool start(const view_t & modulus, const view_t & first, const view_t & second, const view_t & order, const view_t & x, const view_t & y, const uint64_t cofactor = 1) noexcept;
 				/**
 				 * \~russian
 				 * @brief Метод сброса установленных параметров кривой

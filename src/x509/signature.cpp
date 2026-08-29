@@ -284,8 +284,11 @@ bool anyks::x509::verify(const view_t & body, const view_t & signature, const st
 	 * опознавателем алгоритма подписи
 	 */
 	const digest::type_t type = (size == 32 ? digest::type_t::SHORT : digest::type_t::LONG);
-	// Если хеш подписанной записи выработать не удалось
-	if(!digest::streebog(type, body, digest, size))
+	/**
+	 * Хеш берётся записью вектором: подпись по ГОСТ Р 34.10-2012 толкует его числом,
+	 * а не строкой байтов, и запись эта задана самим стандартом
+	 */
+	if(!digest::streebog(type, body, digest, size, digest::order_t::VECTOR))
 		// Выводим отказ проверки подписи
 		return false;
 	// Место, в которое помещается подпись в порядке выработки

@@ -1,0 +1,308 @@
+/**
+ * @file record.cpp
+ * @date 2026-08-29
+ *
+ * @license{LicenseRef-ANYKS-TLS-1.0}
+ *
+ * @author Yuriy Lobarev
+ *
+ * @telegram{forman}
+ * @phone{+7 (910) 983-95-90}
+ *
+ * @email forman@anyks.com
+ * @site https://anyks.com
+ *
+ * @brief Исходный файл проверок модуля слоя записей протокола TLS
+ *
+ * @note Разбор входящих записей проверяется на нескольких размерах куска подряд: слой
+ *       записей обязан вести себя одинаково и когда запись приходит целиком, и когда
+ *       она приходит по одному байту
+ *
+ * @copyright Copyright © 2026
+ *
+ */
+
+/**
+ * Подключаем заголовочные файлы проекта
+ */
+#include <vector>
+#include <cstring>
+#include <main.hpp>
+#include <record/record.hpp>
+
+/**
+ * Используем пространство имён проекта
+ */
+using namespace anyks;
+
+/**
+ * @brief Метод нарезки потока байтов на записи кусками заданной длины
+ *
+ * @param stream разбираемый поток байтов
+ * @param chunk  длина куска, которым подаётся поток байтов
+ * @param result перечень собранных записей
+ *
+ * @return       отказ, которым завершился разбор потока байтов
+ *
+ */
+static record::error_t assemble(const vector <uint8_t> & stream, const size_t chunk, vector <pair <record::header_t, vector <uint8_t>>> & result) noexcept {
+	// Объект сборщика входящих записей
+	record::reader_t reader;
+	// Выполняем сброс перечня собранных записей
+	result.clear();
+	/**
+	 * Выполняем подачу потока байтов кусками заданной длины
+	 */
+	for(size_t offset = 0; offset < stream.size(); offset += chunk){
+		// Определяем длину очередного подаваемого куска
+		const size_t size = ((stream.size() - offset) < chunk ? (stream.size() - offset) : chunk);
+		// Если очередной кусок подать не удалось
+		if(reader.push(view_t(stream.data() + offset, size)) != record::error_t::NONE)
+			// Выводим отказ подачи куска потока байтов
+			return record::error_t::MEMORY;
+		// Заголовок очередной собранной записи
+		record::header_t header;
+		// Содержимое очередной собранной записи
+		view_t payload;
+		// Отказ получения очередной собранной записи
+		record::error_t error = record::error_t::NONE;
+		/**
+		 * Выполняем выборку всех собранных на этот миг записей
+		 */
+		while((error = reader.next(header, payload)) == record::error_t::NONE)
+			// Добавляем очередную собранную запись в перечень
+			result.push_back(make_pair(header, vector <uint8_t> (payload.data, payload.data + payload.size)));
+		// Если разбор завершился не нехваткой данных
+		if(error != record::error_t::HUNGRY)
+			// Выводим отказ, которым завершился разбор потока байтов
+			return error;
+	}
+	// Выводим успешность разбора потока байтов
+	return record::error_t::NONE;
+}
+
+/**
+ * Проверка разбора и записи заголовка записи
+ */
+TEST(RecordTest, Header){
+	// Заголовок разбираемой записи
+	record::header_t header;
+	// Разбираемый заголовок записи рукопожатия длиной в три байта
+	const uint8_t data[] = {0x16, 0x03, 0x03, 0x00, 0x03, 0x01, 0x02, 0x03};
+	// Выполняем разбор заголовка записи
+	ASSERT_EQ(record::parse(view_t(data, sizeof(data)), header), record::error_t::NONE);
+	// Проверяем вид содержимого разобранной записи
+	ASSERT_EQ(header.type, record::type_t::HANDSHAKE);
+	// Проверяем версию протокола разобранной записи
+	ASSERT_EQ(header.version, record::version_t::TLS12);
+	// Проверяем длину содержимого разобранной записи
+	ASSERT_EQ(header.size, static_cast <size_t> (3));
+	// Место, в которое записывается заголовок записи
+	uint8_t buffer[record::RECORD_HEADER];
+	// Выполняем обратную запись разобранного заголовка
+	ASSERT_EQ(record::build(header, buffer), record::error_t::NONE);
+	// Проверяем схождение записанного заголовка с разобранным
+	ASSERT_EQ(::memcmp(buffer, data, record::RECORD_HEADER), 0);
+}
+
+/**
+ * Проверка отказов разбора заголовка записи
+ */
+TEST(RecordTest, Reject){
+	// Заголовок разбираемой записи
+	record::header_t header;
+	// Разбираемый заголовок записи неизвестного вида содержимого
+	const uint8_t type[] = {0x19, 0x03, 0x03, 0x00, 0x01};
+	// Проверяем отказ разбора записи неизвестного вида содержимого
+	ASSERT_EQ(record::parse(view_t(type, sizeof(type)), header), record::error_t::TYPE);
+	// Разбираемый заголовок записи неизвестной версии протокола
+	const uint8_t version[] = {0x16, 0x03, 0x05, 0x00, 0x01};
+	// Проверяем отказ разбора записи неизвестной версии протокола
+	ASSERT_EQ(record::parse(view_t(version, sizeof(version)), header), record::error_t::VERSION);
+	// Разбираемый заголовок записи длиной сверх предела протокола
+	const uint8_t length[] = {0x16, 0x03, 0x03, 0xFF, 0xFF};
+	// Проверяем отказ разбора записи длиной сверх предела протокола
+	ASSERT_EQ(record::parse(view_t(length, sizeof(length)), header), record::error_t::LENGTH);
+	// Разбираемый заголовок пустой записи рукопожатия
+	const uint8_t empty[] = {0x16, 0x03, 0x03, 0x00, 0x00};
+	// Проверяем отказ разбора пустой записи рукопожатия
+	ASSERT_EQ(record::parse(view_t(empty, sizeof(empty)), header), record::error_t::EMPTY);
+	// Разбираемый недобранный заголовок записи
+	const uint8_t hungry[] = {0x16, 0x03, 0x03};
+	// Проверяем отказ разбора недобранного заголовка записи
+	ASSERT_EQ(record::parse(view_t(hungry, sizeof(hungry)), header), record::error_t::HUNGRY);
+	// Разбираемый заголовок пустой записи прикладных данных
+	const uint8_t application[] = {0x17, 0x03, 0x03, 0x00, 0x00};
+	// Проверяем успешность разбора пустой записи прикладных данных
+	ASSERT_EQ(record::parse(view_t(application, sizeof(application)), header), record::error_t::NONE);
+	// Проверяем длину содержимого пустой записи прикладных данных
+	ASSERT_EQ(header.size, static_cast <size_t> (0));
+}
+
+/**
+ * Проверка независимости разбора от нарезки потока на куски
+ */
+TEST(RecordTest, Independence){
+	// Объект нарезчика исходящих записей
+	record::writer_t writer;
+	// Первое нарезаемое на записи сообщение
+	const uint8_t first[] = {0x01, 0x00, 0x00, 0x04, 0x0A, 0x0B, 0x0C, 0x0D};
+	// Второе нарезаемое на записи сообщение
+	const uint8_t second[] = {0x14, 0x00, 0x00, 0x01, 0xFF};
+	// Выполняем нарезку первого сообщения на записи
+	ASSERT_EQ(writer.push(record::type_t::HANDSHAKE, record::version_t::TLS12, view_t(first, sizeof(first))), record::error_t::NONE);
+	// Выполняем нарезку извещения о смене набора шифрования
+	ASSERT_EQ(writer.push(record::type_t::CHANGE, record::version_t::TLS12, view_t(second, 1)), record::error_t::NONE);
+	// Выполняем нарезку второго сообщения на записи
+	ASSERT_EQ(writer.push(record::type_t::HANDSHAKE, record::version_t::TLS13, view_t(second, sizeof(second))), record::error_t::NONE);
+	// Получаем готовый поток нарезанных записей
+	const view_t data = writer.data();
+	// Поток байтов, подаваемый сборщику входящих записей
+	const vector <uint8_t> stream(data.data, data.data + data.size);
+	// Перечень записей, собранных подачей потока целиком
+	vector <pair <record::header_t, vector <uint8_t>>> sample;
+	// Выполняем сборку записей подачей потока целиком
+	ASSERT_EQ(assemble(stream, stream.size(), sample), record::error_t::NONE);
+	// Проверяем число собранных записей
+	ASSERT_EQ(sample.size(), static_cast <size_t> (3));
+	// Проверяем вид содержимого первой собранной записи
+	ASSERT_EQ(sample[0].first.type, record::type_t::HANDSHAKE);
+	// Проверяем содержимое первой собранной записи
+	ASSERT_EQ(::memcmp(sample[0].second.data(), first, sizeof(first)), 0);
+	// Проверяем вид содержимого второй собранной записи
+	ASSERT_EQ(sample[1].first.type, record::type_t::CHANGE);
+	// Проверяем версию протокола третьей собранной записи
+	ASSERT_EQ(sample[2].first.version, record::version_t::TLS13);
+	/**
+	 * Выполняем перебор размеров куска, которым подаётся поток байтов
+	 */
+	for(size_t chunk = 1; chunk <= stream.size(); chunk++){
+		// Перечень записей, собранных подачей потока кусками
+		vector <pair <record::header_t, vector <uint8_t>>> result;
+		// Выполняем сборку записей подачей потока кусками
+		ASSERT_EQ(assemble(stream, chunk, result), record::error_t::NONE);
+		// Проверяем схождение числа собранных записей с образцом
+		ASSERT_EQ(result.size(), sample.size());
+		/**
+		 * Выполняем перебор собранных записей
+		 */
+		for(size_t i = 0; i < result.size(); i++){
+			// Проверяем схождение вида содержимого записи с образцом
+			ASSERT_EQ(result[i].first.type, sample[i].first.type);
+			// Проверяем схождение версии протокола записи с образцом
+			ASSERT_EQ(result[i].first.version, sample[i].first.version);
+			// Проверяем схождение содержимого записи с образцом
+			ASSERT_EQ(result[i].second, sample[i].second);
+		}
+	}
+}
+
+/**
+ * Проверка нарезки данных на несколько записей
+ */
+TEST(RecordTest, Fragment){
+	// Объект нарезчика исходящих записей
+	record::writer_t writer;
+	// Устанавливаем предел длины содержимого нарезаемой записи
+	ASSERT_TRUE(writer.limit(64));
+	// Проверяем отказ поднятия предела сверх дозволенного протоколом
+	ASSERT_FALSE(writer.limit(record::RECORD_PLAINTEXT + 1));
+	// Нарезаемые на записи данные
+	vector <uint8_t> source(150, 0);
+	/**
+	 * Выполняем заполнение нарезаемых на записи данных
+	 */
+	for(size_t i = 0; i < source.size(); i++)
+		// Записываем очередной байт нарезаемых данных
+		source[i] = static_cast <uint8_t> (i & 0xFF);
+	// Выполняем нарезку данных на записи
+	ASSERT_EQ(writer.push(record::type_t::APPLICATION, record::version_t::TLS12, view_t(source.data(), source.size())), record::error_t::NONE);
+	// Проверяем объём нарезанных записей: три заголовка и все данные
+	ASSERT_EQ(writer.pending(), (source.size() + (3 * record::RECORD_HEADER)));
+	// Получаем готовый поток нарезанных записей
+	const view_t data = writer.data();
+	// Поток байтов, подаваемый сборщику входящих записей
+	const vector <uint8_t> stream(data.data, data.data + data.size);
+	// Перечень собранных записей
+	vector <pair <record::header_t, vector <uint8_t>>> result;
+	// Выполняем сборку записей подачей потока кусками по семь байтов
+	ASSERT_EQ(assemble(stream, 7, result), record::error_t::NONE);
+	// Проверяем число собранных записей
+	ASSERT_EQ(result.size(), static_cast <size_t> (3));
+	// Проверяем длину содержимого первой собранной записи
+	ASSERT_EQ(result[0].second.size(), static_cast <size_t> (64));
+	// Проверяем длину содержимого последней собранной записи
+	ASSERT_EQ(result[2].second.size(), static_cast <size_t> (22));
+	// Собранные из записей данные
+	vector <uint8_t> assembled;
+	/**
+	 * Выполняем перебор собранных записей
+	 */
+	for(auto & item : result)
+		// Выполняем склейку содержимого очередной собранной записи
+		assembled.insert(assembled.end(), item.second.begin(), item.second.end());
+	// Проверяем схождение собранных данных с нарезанными
+	ASSERT_EQ(assembled, source);
+}
+
+/**
+ * Проверка снятия переданных байтов записей
+ */
+TEST(RecordTest, Consume){
+	// Объект нарезчика исходящих записей
+	record::writer_t writer;
+	// Нарезаемое на записи сообщение
+	const uint8_t source[] = {0x01, 0x02, 0x03, 0x04};
+	// Выполняем нарезку сообщения на записи
+	ASSERT_EQ(writer.push(record::type_t::HANDSHAKE, record::version_t::TLS12, view_t(source, sizeof(source))), record::error_t::NONE);
+	// Проверяем объём нарезанных записей
+	ASSERT_EQ(writer.pending(), (sizeof(source) + record::RECORD_HEADER));
+	// Проверяем отказ снятия большего объёма, чем нарезано
+	ASSERT_FALSE(writer.consume(writer.pending() + 1));
+	// Выполняем снятие переданной части записи
+	ASSERT_TRUE(writer.consume(3));
+	// Проверяем объём оставшихся записей
+	ASSERT_EQ(writer.pending(), (sizeof(source) + record::RECORD_HEADER - 3));
+	// Получаем оставшиеся готовые записи
+	const view_t data = writer.data();
+	// Проверяем, что просмотр начинается с младшего байта длины содержимого
+	ASSERT_EQ(data.data[0], static_cast <uint8_t> (0x00));
+	// Выполняем снятие остатка записи
+	ASSERT_TRUE(writer.consume(writer.pending()));
+	// Проверяем опустошение накопителя нарезчика
+	ASSERT_EQ(writer.pending(), static_cast <size_t> (0));
+	// Проверяем пустоту просмотра опустошённого накопителя
+	ASSERT_EQ(writer.data().data, nullptr);
+}
+
+/**
+ * Проверка предела длины содержимого принимаемой записи
+ */
+TEST(RecordTest, Limit){
+	// Объект сборщика входящих записей
+	record::reader_t reader;
+	// Проверяем предел длины содержимого записи, взятый умолчанием
+	ASSERT_EQ(reader.limit(), record::RECORD_CIPHERTEXT);
+	// Устанавливаем предел длины содержимого принимаемой записи
+	ASSERT_TRUE(reader.limit(16));
+	// Проверяем отказ установки предела сверх дозволенного протоколом
+	ASSERT_FALSE(reader.limit(record::RECORD_PROTECTED + 1));
+	// Проверяем отказ установки нулевого предела
+	ASSERT_FALSE(reader.limit(0));
+	// Разбираемая запись длиной сверх принятого связью предела
+	const uint8_t source[] = {0x17, 0x03, 0x03, 0x00, 0x20};
+	// Выполняем подачу заголовка разбираемой записи
+	ASSERT_EQ(reader.push(view_t(source, sizeof(source))), record::error_t::NONE);
+	// Заголовок собранной записи
+	record::header_t header;
+	// Содержимое собранной записи
+	view_t payload;
+	// Проверяем отказ приёма записи длиной сверх принятого связью предела
+	ASSERT_EQ(reader.next(header, payload), record::error_t::LENGTH);
+	// Проверяем, что отказ разбора накопитель сборщика не сбросил
+	ASSERT_EQ(reader.pending(), sizeof(source));
+	// Выполняем сброс состояния сборщика
+	reader.clear();
+	// Проверяем опустошение накопителя сборщика
+	ASSERT_EQ(reader.pending(), static_cast <size_t> (0));
+}

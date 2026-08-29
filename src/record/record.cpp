@@ -1,0 +1,558 @@
+/**
+ * @file record.cpp
+ * @date 2026-08-29
+ *
+ * @license{LicenseRef-ANYKS-TLS-1.0}
+ *
+ * @author Yuriy Lobarev
+ *
+ * @telegram{forman}
+ * @phone{+7 (910) 983-95-90}
+ *
+ * @email forman@anyks.com
+ * @site https://anyks.com
+ *
+ * @brief Исходный файл модуля слоя записей протокола TLS
+ *
+ * @section Намеренные решения
+ *
+ * 1. Сборщик не хранит границы поданных кусков, а нарезчик - границы поданных вызовов.
+ *    Раздел 6.2.1 RFC 5246 прямо дозволяет и слияние соседних сообщений в одну запись, и
+ *    разрыв одного сообщения на несколько записей: границы сообщений слою записей не
+ *    принадлежат, их восстанавливает слой выше.
+ *
+ * 2. Разбор одного заголовка сличает длину с самым широким пределом протокола, а сборщик -
+ *    с пределом, принятым связью. Заголовок разбирается и в отрыве от связи, где принятого
+ *    предела попросту нет, а обратное разделение вынудило бы разборщик знать издание
+ *    протокола раньше, чем оно согласовано.
+ *
+ * 3. Отказ разбора не сбрасывает накопитель. Отказ слоя записей смертелен для связи, и
+ *    единственное, что после него делают, - составляют извещение об отказе; содержимое
+ *    накопителя при этом остаётся доступным для разбора причины.
+ *
+ * 4. Содержимое накопителей затирается при сбросе и при разрушении. Через слой записей
+ *    проходит открытое содержимое рукопожатия, и оставлять его в освобождённой памяти
+ *    нечего.
+ *
+ * @copyright Copyright © 2026
+ *
+ */
+
+/**
+ * Стандартные заголовочные файлы
+ */
+#include <new>
+#include <cstring>
+
+/**
+ * Подключаем заголовочные файлы проекта
+ */
+#include <record/record.hpp>
+
+/**
+ * Используем стандартное пространство имён
+ */
+using namespace std;
+
+/**
+ * @brief Внутренние служебные объекты
+ *
+ */
+namespace {
+	/**
+	 * Пространство имён библиотеки
+	 */
+	using namespace anyks;
+
+	/**
+	 * Пространство имён модуля
+	 */
+	using namespace anyks::record;
+
+	/**
+	 * @brief Метод затирания области памяти
+	 *
+	 * @details Затирание ведётся через изменчивый указатель: обычное присваивание
+	 *          собиратель вправе выбросить, увидев, что записанное значение больше
+	 *          никем не читается
+	 *
+	 * @param data затираемая область памяти
+	 * @param size размер затираемой области памяти
+	 *
+	 */
+	static void wipe(void * data, const size_t size) noexcept {
+		// Если затираемая область памяти передана
+		if((data != nullptr) && (size > 0)){
+			// Получаем изменчивый указатель на затираемую область памяти
+			volatile uint8_t * item = static_cast <volatile uint8_t *> (data);
+			/**
+			 * Выполняем перебор байтов затираемой области памяти
+			 */
+			for(size_t i = 0; i < size; i++)
+				// Обнуляем очередной байт области памяти
+				item[i] = 0;
+		}
+	}
+	/**
+	 * @brief Метод проверки известности версии протокола
+	 *
+	 * @param version проверяемая версия протокола
+	 *
+	 * @return        признак того, что версия протокола определена
+	 *
+	 */
+	static bool suitable(const version_t version) noexcept {
+		/**
+		 * Выполняем определение версии протокола
+		 */
+		switch(static_cast <uint16_t> (version)){
+			// Если это одно из известных изданий протокола
+			case static_cast <uint16_t> (version_t::SSL30):
+			case static_cast <uint16_t> (version_t::TLS10):
+			case static_cast <uint16_t> (version_t::TLS11):
+			case static_cast <uint16_t> (version_t::TLS12):
+			case static_cast <uint16_t> (version_t::TLS13):
+				// Выводим признак известности версии протокола
+				return true;
+		}
+		// Выводим признак того, что версия протокола неизвестна
+		return false;
+	}
+};
+
+/**
+ * @brief Метод проверки известности вида содержимого записи
+ *
+ * @param type проверяемый вид содержимого записи
+ *
+ * @return     признак того, что вид содержимого определён протоколом
+ *
+ */
+bool anyks::record::known(const type_t type) noexcept {
+	/**
+	 * Выполняем определение вида содержимого записи
+	 */
+	switch(static_cast <uint8_t> (type)){
+		// Если это один из известных видов содержимого записи
+		case static_cast <uint8_t> (type_t::CHANGE):
+		case static_cast <uint8_t> (type_t::ALERT):
+		case static_cast <uint8_t> (type_t::HANDSHAKE):
+		case static_cast <uint8_t> (type_t::APPLICATION):
+			// Выводим признак известности вида содержимого записи
+			return true;
+	}
+	// Выводим признак того, что вид содержимого записи неизвестен
+	return false;
+}
+/**
+ * @brief Метод проверки допустимости пустого содержимого записи
+ *
+ * @param type проверяемый вид содержимого записи
+ *
+ * @return     признак того, что запись этого вида вправе быть пустой
+ *
+ */
+bool anyks::record::empty(const type_t type) noexcept {
+	// Выводим признак того, что пустой вправе быть только запись прикладных данных
+	return (type == type_t::APPLICATION);
+}
+/**
+ * @brief Метод разбора заголовка записи
+ *
+ * @param data   разбираемая область байтов
+ * @param result заголовок записи, в который помещается итог разбора
+ *
+ * @return       отказ разбора заголовка записи
+ *
+ */
+error_t anyks::record::parse(const view_t & data, header_t & result) noexcept {
+	// Если разбираемая область байтов заголовок записи не вмещает
+	if((data.data == nullptr) || (data.size < RECORD_HEADER))
+		// Выводим отказ нехватки данных для разбора
+		return error_t::HUNGRY;
+	// Получаем вид содержимого записи
+	const type_t type = static_cast <type_t> (data.data[0]);
+	// Если вид содержимого записи протоколом не определён
+	if(!known(type))
+		// Выводим отказ неизвестности вида содержимого записи
+		return error_t::TYPE;
+	// Получаем версию протокола, указанную в записи
+	const version_t version = static_cast <version_t> ((static_cast <uint16_t> (data.data[1]) << 8) | static_cast <uint16_t> (data.data[2]));
+	// Если версия протокола неизвестна
+	if(!suitable(version))
+		// Выводим отказ неизвестности версии протокола
+		return error_t::VERSION;
+	// Получаем длину содержимого записи
+	const size_t size = ((static_cast <size_t> (data.data[3]) << 8) | static_cast <size_t> (data.data[4]));
+	// Если длина содержимого записи превышает предел протокола
+	if(size > RECORD_PROTECTED)
+		// Выводим отказ превышения дозволенной длины содержимого записи
+		return error_t::LENGTH;
+	// Если запись этого вида содержимого пустой быть не вправе
+	if((size == 0) && !empty(type))
+		// Выводим отказ недопустимости пустого содержимого записи
+		return error_t::EMPTY;
+	// Устанавливаем вид содержимого записи
+	result.type = type;
+	// Устанавливаем версию протокола, указанную в записи
+	result.version = version;
+	// Устанавливаем длину содержимого записи
+	result.size = size;
+	// Выводим успешность разбора заголовка записи
+	return error_t::NONE;
+}
+/**
+ * @brief Метод записи заголовка записи
+ *
+ * @param header записываемый заголовок записи
+ * @param result место, в которое помещается заголовок записи
+ *
+ * @return       отказ записи заголовка записи
+ *
+ */
+error_t anyks::record::build(const header_t & header, uint8_t * result) noexcept {
+	// Если место для заголовка записи не передано
+	if(result == nullptr)
+		// Выводим отказ нехватки места под заголовок записи
+		return error_t::HUNGRY;
+	// Если вид содержимого записи протоколом не определён
+	if(!known(header.type))
+		// Выводим отказ неизвестности вида содержимого записи
+		return error_t::TYPE;
+	// Если версия протокола неизвестна
+	if(!suitable(header.version))
+		// Выводим отказ неизвестности версии протокола
+		return error_t::VERSION;
+	// Если длина содержимого записи превышает предел протокола
+	if(header.size > RECORD_PROTECTED)
+		// Выводим отказ превышения дозволенной длины содержимого записи
+		return error_t::LENGTH;
+	// Если запись этого вида содержимого пустой быть не вправе
+	if((header.size == 0) && !empty(header.type))
+		// Выводим отказ недопустимости пустого содержимого записи
+		return error_t::EMPTY;
+	// Записываем вид содержимого записи
+	result[0] = static_cast <uint8_t> (header.type);
+	// Записываем старший байт версии протокола
+	result[1] = static_cast <uint8_t> (static_cast <uint16_t> (header.version) >> 8);
+	// Записываем младший байт версии протокола
+	result[2] = static_cast <uint8_t> (static_cast <uint16_t> (header.version) & 0xFF);
+	// Записываем старший байт длины содержимого записи
+	result[3] = static_cast <uint8_t> ((header.size >> 8) & 0xFF);
+	// Записываем младший байт длины содержимого записи
+	result[4] = static_cast <uint8_t> (header.size & 0xFF);
+	// Выводим успешность записи заголовка записи
+	return error_t::NONE;
+}
+/**
+ * @brief Метод получения предела длины содержимого принимаемой записи
+ *
+ * @return предел длины содержимого записи в байтах
+ *
+ */
+size_t anyks::record::Reader::limit() const noexcept {
+	// Выводим предел длины содержимого принимаемой записи
+	return this->_limit;
+}
+/**
+ * @brief Метод установки предела длины содержимого принимаемой записи
+ *
+ * @param limit устанавливаемый предел длины содержимого записи в байтах
+ *
+ * @return      признак успешности установки предела
+ *
+ */
+bool anyks::record::Reader::limit(const size_t limit) noexcept {
+	// Если предел длины содержимого записи протоколом не дозволен
+	if((limit == 0) || (limit > RECORD_PROTECTED))
+		// Выводим отказ установки предела
+		return false;
+	// Устанавливаем предел длины содержимого принимаемой записи
+	this->_limit = limit;
+	// Выводим успешность установки предела
+	return true;
+}
+/**
+ * @brief Метод получения объёма ещё не разобранных данных
+ *
+ * @return объём ещё не разобранных данных в байтах
+ *
+ */
+size_t anyks::record::Reader::pending() const noexcept {
+	// Выводим объём ещё не разобранных данных накопителя
+	return (this->_buffer.size() - this->_offset);
+}
+/**
+ * @brief Метод сброса состояния сборщика
+ *
+ */
+void anyks::record::Reader::clear() noexcept {
+	// Если накопитель сборщика не пустой
+	if(!this->_buffer.empty())
+		// Выполняем затирание содержимого накопителя
+		wipe(this->_buffer.data(), this->_buffer.size());
+	// Выполняем сброс накопителя сборщика
+	this->_buffer.clear();
+	// Выполняем сброс смещения начала неразобранных данных
+	this->_offset = 0;
+}
+/**
+ * @brief Метод подачи принятого куска данных
+ *
+ * @param data подаваемый кусок данных
+ *
+ * @return     отказ подачи куска данных
+ *
+ */
+error_t anyks::record::Reader::push(const view_t & data) noexcept {
+	// Если кусок данных не передан
+	if((data.data == nullptr) || (data.size == 0))
+		// Выводим успешность подачи куска данных
+		return error_t::NONE;
+	/**
+	 * Выполняем перехват ошибок работы с памятью
+	 */
+	try {
+		// Если разобранные данные в накопителе есть
+		if(this->_offset > 0){
+			// Выполняем затирание уже разобранных данных накопителя
+			wipe(this->_buffer.data(), this->_offset);
+			// Выполняем снятие разобранных данных с начала накопителя
+			this->_buffer.erase(this->_buffer.begin(), this->_buffer.begin() + static_cast <ptrdiff_t> (this->_offset));
+			// Выполняем сброс смещения начала неразобранных данных
+			this->_offset = 0;
+		}
+		// Выполняем добавление принятого куска данных в накопитель
+		this->_buffer.insert(this->_buffer.end(), data.data, data.data + data.size);
+	/**
+	 * Если памяти под накопитель не хватило
+	 */
+	} catch(const std::bad_alloc &) {
+		// Выводим отказ нехватки памяти
+		return error_t::MEMORY;
+	}
+	// Выводим успешность подачи куска данных
+	return error_t::NONE;
+}
+/**
+ * @brief Метод получения очередной собранной записи
+ *
+ * @param header  заголовок, в который помещается заголовок собранной записи
+ * @param payload просмотр, в который помещается содержимое собранной записи
+ *
+ * @return        отказ получения собранной записи
+ *
+ */
+error_t anyks::record::Reader::next(header_t & header, view_t & payload) noexcept {
+	// Получаем объём ещё не разобранных данных накопителя
+	const size_t pending = this->pending();
+	// Если данных для заголовка записи ещё не набралось
+	if(pending < RECORD_HEADER)
+		// Выводим отказ нехватки данных для целой записи
+		return error_t::HUNGRY;
+	// Получаем указатель на начало неразобранных данных накопителя
+	const uint8_t * data = (this->_buffer.data() + this->_offset);
+	// Выполняем разбор заголовка очередной записи
+	const error_t error = anyks::record::parse(view_t(data, pending), header);
+	// Если заголовок записи разобрать не удалось
+	if(error != error_t::NONE)
+		// Выводим отказ разбора заголовка записи
+		return error;
+	// Если длина содержимого записи превышает предел, принятый связью
+	if(header.size > this->_limit)
+		// Выводим отказ превышения дозволенной длины содержимого записи
+		return error_t::LENGTH;
+	// Если содержимое записи набралось ещё не целиком
+	if(pending < (RECORD_HEADER + header.size))
+		// Выводим отказ нехватки данных для целой записи
+		return error_t::HUNGRY;
+	// Устанавливаем просмотр содержимого собранной записи
+	payload = view_t((data + RECORD_HEADER), header.size);
+	// Сдвигаем начало неразобранных данных за собранную запись
+	this->_offset += (RECORD_HEADER + header.size);
+	// Выводим успешность получения собранной записи
+	return error_t::NONE;
+}
+/**
+ * @brief Конструктор
+ *
+ */
+anyks::record::Reader::Reader() noexcept : _offset(0), _limit(RECORD_CIPHERTEXT) {}
+/**
+ * @brief Деструктор
+ *
+ */
+anyks::record::Reader::~Reader() noexcept {
+	// Выполняем сброс состояния сборщика
+	this->clear();
+}
+/**
+ * @brief Метод получения предела длины содержимого нарезаемой записи
+ *
+ * @return предел длины содержимого записи в байтах
+ *
+ */
+size_t anyks::record::Writer::limit() const noexcept {
+	// Выводим предел длины содержимого нарезаемой записи
+	return this->_limit;
+}
+/**
+ * @brief Метод установки предела длины содержимого нарезаемой записи
+ *
+ * @param limit устанавливаемый предел длины содержимого записи в байтах
+ *
+ * @return      признак успешности установки предела
+ *
+ */
+bool anyks::record::Writer::limit(const size_t limit) noexcept {
+	// Если предел длины содержимого записи протоколом не дозволен
+	if((limit == 0) || (limit > RECORD_PLAINTEXT))
+		// Выводим отказ установки предела
+		return false;
+	// Устанавливаем предел длины содержимого нарезаемой записи
+	this->_limit = limit;
+	// Выводим успешность установки предела
+	return true;
+}
+/**
+ * @brief Метод получения объёма ещё не снятых записей
+ *
+ * @return объём ещё не снятых записей в байтах
+ *
+ */
+size_t anyks::record::Writer::pending() const noexcept {
+	// Выводим объём готовых, но ещё не снятых записей
+	return (this->_buffer.size() - this->_offset);
+}
+/**
+ * @brief Метод получения готовых записей
+ *
+ * @return просмотр готовых, но ещё не снятых записей
+ *
+ */
+view_t anyks::record::Writer::data() const noexcept {
+	// Если готовых записей в накопителе нет
+	if(this->_buffer.size() == this->_offset)
+		// Выводим пустой просмотр готовых записей
+		return view_t();
+	// Выводим просмотр готовых, но ещё не снятых записей
+	return view_t((this->_buffer.data() + this->_offset), (this->_buffer.size() - this->_offset));
+}
+/**
+ * @brief Метод снятия переданных байтов записей
+ *
+ * @param size объём снимаемых байтов
+ *
+ * @return     признак успешности снятия байтов
+ *
+ */
+bool anyks::record::Writer::consume(const size_t size) noexcept {
+	// Если снимается больше байтов, чем в накопителе есть
+	if(size > this->pending())
+		// Выводим отказ снятия байтов записей
+		return false;
+	// Сдвигаем начало ещё не снятых записей на снятый объём
+	this->_offset += size;
+	// Если снятыми оказались все готовые записи
+	if(this->_offset == this->_buffer.size())
+		// Выполняем сброс состояния нарезчика
+		this->clear();
+	// Выводим успешность снятия байтов записей
+	return true;
+}
+/**
+ * @brief Метод сброса состояния нарезчика
+ *
+ */
+void anyks::record::Writer::clear() noexcept {
+	// Если накопитель нарезчика не пустой
+	if(!this->_buffer.empty())
+		// Выполняем затирание содержимого накопителя
+		wipe(this->_buffer.data(), this->_buffer.size());
+	// Выполняем сброс накопителя нарезчика
+	this->_buffer.clear();
+	// Выполняем сброс смещения начала ещё не снятых записей
+	this->_offset = 0;
+}
+/**
+ * @brief Метод нарезки данных на записи
+ *
+ * @param type    вид содержимого нарезаемых данных
+ * @param version версия протокола, указываемая в записях
+ * @param data    нарезаемые на записи данные
+ *
+ * @return        отказ нарезки данных на записи
+ *
+ */
+error_t anyks::record::Writer::push(const type_t type, const version_t version, const view_t & data) noexcept {
+	// Если вид содержимого записи протоколом не определён
+	if(!known(type))
+		// Выводим отказ неизвестности вида содержимого записи
+		return error_t::TYPE;
+	// Если версия протокола неизвестна
+	if(!suitable(version))
+		// Выводим отказ неизвестности версии протокола
+		return error_t::VERSION;
+	// Получаем объём нарезаемых на записи данных
+	const size_t total = ((data.data != nullptr) ? data.size : 0);
+	// Если данных нет, а запись этого вида содержимого пустой быть не вправе
+	if((total == 0) && !empty(type))
+		// Выводим отказ недопустимости пустого содержимого записи
+		return error_t::EMPTY;
+	// Заголовок очередной нарезанной записи
+	header_t header;
+	// Устанавливаем вид содержимого очередной записи
+	header.type = type;
+	// Устанавливаем версию протокола очередной записи
+	header.version = version;
+	// Место, в которое записывается заголовок очередной записи
+	uint8_t buffer[RECORD_HEADER];
+	// Число уже нарезанных на записи байтов данных
+	size_t offset = 0;
+	/**
+	 * Выполняем перехват ошибок работы с памятью
+	 */
+	try {
+		/**
+		 * Выполняем нарезку данных на записи дозволенной длины
+		 */
+		do {
+			// Определяем длину содержимого очередной записи
+			header.size = (((total - offset) < this->_limit) ? (total - offset) : this->_limit);
+			// Если заголовок очередной записи составить не удалось
+			if(anyks::record::build(header, buffer) != error_t::NONE)
+				// Выводим отказ нарезки данных на записи
+				return error_t::LENGTH;
+			// Выполняем добавление заголовка очередной записи в накопитель
+			this->_buffer.insert(this->_buffer.end(), buffer, buffer + RECORD_HEADER);
+			// Если содержимое у очередной записи есть
+			if(header.size > 0)
+				// Выполняем добавление содержимого очередной записи в накопитель
+				this->_buffer.insert(this->_buffer.end(), (data.data + offset), (data.data + offset + header.size));
+			// Увеличиваем число уже нарезанных на записи байтов данных
+			offset += header.size;
+		// Выполняем нарезку до тех пор, пока данные не кончатся
+		} while(offset < total);
+	/**
+	 * Если памяти под накопитель не хватило
+	 */
+	} catch(const std::bad_alloc &) {
+		// Выводим отказ нехватки памяти
+		return error_t::MEMORY;
+	}
+	// Выводим успешность нарезки данных на записи
+	return error_t::NONE;
+}
+/**
+ * @brief Конструктор
+ *
+ */
+anyks::record::Writer::Writer() noexcept : _offset(0), _limit(RECORD_PLAINTEXT) {}
+/**
+ * @brief Деструктор
+ *
+ */
+anyks::record::Writer::~Writer() noexcept {
+	// Выполняем сброс состояния нарезчика
+	this->clear();
+}

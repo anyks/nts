@@ -112,6 +112,16 @@ size_t anyks::curve::Curve::size() const noexcept {
 	return this->_field.size();
 }
 /**
+ * @brief Метод получения кофактора кривой
+ *
+ * @return отношение порядка группы точек кривой к порядку подгруппы
+ *
+ */
+uint64_t anyks::curve::Curve::cofactor() const noexcept {
+	// Выводим кофактор кривой
+	return this->_cofactor;
+}
+/**
  * @brief Метод получения арифметики порядка подгруппы точек кривой
  *
  * @return арифметика порядка подгруппы точек кривой
@@ -128,15 +138,22 @@ const anyks::math::modulus_t & anyks::curve::Curve::order() const noexcept {
  * @param first   первый коэффициент уравнения кривой
  * @param second  второй коэффициент уравнения кривой
  * @param order   порядок подгруппы точек кривой
- * @param x       первая координата образующей точки
- * @param y       вторая координата образующей точки
+ * @param x        первая координата образующей точки
+ * @param y        вторая координата образующей точки
+ * @param cofactor отношение порядка группы точек кривой к порядку подгруппы
  *
- * @return        признак успешности установки параметров кривой
+ * @return         признак успешности установки параметров кривой
  *
  */
-bool anyks::curve::Curve::start(const view_t & modulus, const view_t & first, const view_t & second, const view_t & order, const view_t & x, const view_t & y) noexcept {
+bool anyks::curve::Curve::start(const view_t & modulus, const view_t & first, const view_t & second, const view_t & order, const view_t & x, const view_t & y, const uint64_t cofactor) noexcept {
 	// Выполняем сброс прежде установленных параметров кривой
 	this->clear();
+	// Если кофактор кривой не передан
+	if(cofactor == 0)
+		// Выводим отказ установки параметров кривой
+		return false;
+	// Запоминаем кофактор кривой
+	this->_cofactor = cofactor;
 	// Если модуль поля кривой установить не удалось
 	if(!this->_field.start(modulus))
 		// Выводим отказ установки параметров кривой
@@ -185,6 +202,8 @@ bool anyks::curve::Curve::start(const view_t & modulus, const view_t & first, co
  *
  */
 void anyks::curve::Curve::clear() noexcept {
+	// Сбрасываем кофактор кривой
+	this->_cofactor = 1;
 	// Выполняем сброс образующей точки подгруппы точек кривой
 	this->_base = point_t();
 	// Выполняем сброс второго коэффициента уравнения кривой
@@ -598,7 +617,7 @@ void anyks::curve::Curve::multiply(const point_t & value, const math::number_t &
  * @brief Конструктор
  *
  */
-anyks::curve::Curve::Curve() noexcept : _ready(false) {}
+anyks::curve::Curve::Curve() noexcept : _ready(false), _cofactor(1) {}
 /**
  * @brief Деструктор
  *
