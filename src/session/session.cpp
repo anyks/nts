@@ -35,6 +35,7 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
+#include <digest/hmac.hpp>
 #include <session/session.hpp>
 
 /**
@@ -102,6 +103,30 @@ namespace {
 	static const char * UPDATE = "traffic upd";
 
 	/**
+	 * @brief Метка вывода значения возобновления связи
+	 *
+	 */
+	static const char * RESUMPTION = "res master";
+
+	/**
+	 * @brief Метка вывода ключа билета возобновления связи
+	 *
+	 */
+	static const char * TICKET = "resumption";
+
+	/**
+	 * @brief Метка вывода ключа привязки заранее разделённого ключа
+	 *
+	 */
+	static const char * BINDER = "res binder";
+
+	/**
+	 * @brief Метка вывода значения упреждающих данных связи
+	 *
+	 */
+	static const char * EARLY = "c e traffic";
+
+	/**
 	 * @brief Метод затирания области памяти
 	 *
 	 * @param data затираемая область памяти
@@ -142,7 +167,7 @@ namespace {
 	 * @return       признак успешности перехода к следующей ступени
 	 *
 	 */
-	static bool advance(const uint8_t * secret, uint8_t * result) noexcept {
+	static bool stepping(const uint8_t * secret, uint8_t * result) noexcept {
 		// Хеш пустой переписки рукопожатия
 		uint8_t empty[schedule::SCHEDULE_SECRET];
 		// Если хеш пустой переписки выработать не удалось
@@ -216,6 +241,38 @@ error_t anyks::session::Transcript::digest(uint8_t * result) const noexcept {
 	return error_t::NONE;
 }
 /**
+ * @brief Метод получения хеша переписки рукопожатия с довеском
+ *
+ * @param suffix довесок, дописываемый к переписке лишь на этот хеш
+ * @param result место, в которое помещается хеш переписки с довеском
+ *
+ * @return       отказ получения хеша переписки с довеском
+ *
+ */
+error_t anyks::session::Transcript::digest(const view_t & suffix, uint8_t * result) const noexcept {
+	// Если место для хеша переписки не передано
+	if(result == nullptr)
+		// Выводим отказ отсутствия обязательного довода
+		return error_t::EMPTY;
+	// Если довесок переписки не передан
+	if((suffix.data == nullptr) || (suffix.size == 0))
+		// Выводим итог получения хеша переписки без довеска
+		return this->digest(result);
+	/**
+	 * Снимаем состояние хеширования переписки рукопожатия: довесок ложится на снятое
+	 * состояние, а сама переписка остаётся нетронутой
+	 */
+	digest::streebog_t hash = this->_hash;
+	// Выполняем подачу довеска снятому состоянию хеширования
+	hash.update(suffix);
+	// Если хеш переписки с довеском выработать не удалось
+	if(!hash.finish(result, static_cast <size_t> (digest::type_t::SHORT)))
+		// Выводим отказ хеширования переписки рукопожатия
+		return error_t::DIGEST;
+	// Выводим успешность получения хеша переписки с довеском
+	return error_t::NONE;
+}
+/**
  * @brief Метод замены накопленной переписки её хешем
  *
  * @return отказ замены накопленной переписки
@@ -277,6 +334,10 @@ void anyks::session::Secrets::clear() noexcept {
 	wipe(this->_client, sizeof(this->_client));
 	// Выполняем затирание значения направления связи от сервера
 	wipe(this->_server, sizeof(this->_server));
+	// Выполняем затирание значения возобновления связи
+	wipe(this->_resumption, sizeof(this->_resumption));
+	// Выполняем затирание значения упреждающих данных связи
+	wipe(this->_early, sizeof(this->_early));
 	// Выполняем сброс пройденной ступени расписания ключей
 	this->_stage = stage_t::NONE;
 }
@@ -330,7 +391,7 @@ error_t anyks::session::Secrets::handshake(const view_t & shared, const view_t &
 	// Значение перехода к ступени рукопожатия
 	uint8_t derived[schedule::SCHEDULE_SECRET];
 	// Если значение перехода к ступени рукопожатия вывести не удалось
-	if(!advance(this->_secret, derived)){
+	if(!stepping(this->_secret, derived)){
 		// Выполняем затирание значения перехода к ступени
 		wipe(derived, sizeof(derived));
 		// Выводим отказ вывода значения расписания ключей
@@ -378,7 +439,7 @@ error_t anyks::session::Secrets::application(const view_t & transcript) noexcept
 	// Значение перехода к ступени прикладных данных
 	uint8_t derived[schedule::SCHEDULE_SECRET];
 	// Если значение перехода к ступени вывести не удалось
-	if(!advance(this->_secret, derived)){
+	if(!stepping(this->_secret, derived)){
 		// Выполняем затирание значения перехода к ступени
 		wipe(derived, sizeof(derived));
 		// Выводим отказ вывода значения расписания ключей
@@ -444,6 +505,41 @@ error_t anyks::session::Secrets::traffic(const side_t side, uint8_t * result) co
  * @return       отказ вывода ключевого материала направления связи
  *
  */
+error_t anyks::session::material(const view_t & traffic, const protect::suite_t suite, uint8_t * key, uint8_t * vector) noexcept {
+	// Если значение направления связи не передано
+	if((traffic.data == nullptr) || (traffic.size != schedule::SCHEDULE_SECRET))
+		// Выводим отказ отсутствия обязательного довода
+		return error_t::EMPTY;
+	// Получаем длину вектора замены набора шифрования
+	const size_t size = protect::block(suite);
+	// Если набор шифрования протоколом не определён
+	if(size == 0)
+		// Выводим отказ неизвестности набора шифрования
+		return error_t::SUITE;
+	// Если место для ключевого материала не передано
+	if((key == nullptr) || (vector == nullptr))
+		// Выводим отказ отсутствия обязательного довода
+		return error_t::EMPTY;
+	// Признак успешности вывода ключевого материала направления
+	bool ok = schedule::derive(traffic, ::label("key"), view_t(nullptr, 0), key, protect::PROTECT_KEY);
+	// Если корневой ключ направления связи выведен
+	if(ok)
+		// Выполняем вывод вектора замены направления связи
+		ok = schedule::derive(traffic, ::label("iv"), view_t(nullptr, 0), vector, size);
+	// Выводим отказ вывода ключевого материала направления связи
+	return (ok ? error_t::NONE : error_t::SCHEDULE);
+}
+/**
+ * @brief Метод вывода ключевого материала направления связи
+ *
+ * @param side   сторона, чьё направление связи запрашивается
+ * @param suite  набор шифрования, которым защищаются записи
+ * @param key    место, в которое помещается корневой ключ направления
+ * @param vector место, в которое помещается вектор замены направления
+ *
+ * @return       отказ вывода ключевого материала направления связи
+ *
+ */
 error_t anyks::session::Secrets::material(const side_t side, const protect::suite_t suite, uint8_t * key, uint8_t * vector) const noexcept {
 	// Значение запрашиваемого направления связи
 	uint8_t traffic[schedule::SCHEDULE_SECRET];
@@ -453,32 +549,54 @@ error_t anyks::session::Secrets::material(const side_t side, const protect::suit
 	if(error != error_t::NONE)
 		// Выводим отказ вывода ключевого материала направления
 		return error;
-	// Получаем длину вектора замены набора шифрования
-	const size_t size = protect::block(suite);
-	// Если набор шифрования протоколом не определён
-	if(size == 0){
-		// Выполняем затирание значения направления связи
-		wipe(traffic, sizeof(traffic));
-		// Выводим отказ неизвестности набора шифрования
-		return error_t::SUITE;
-	}
-	// Если место для ключевого материала не передано
-	if((key == nullptr) || (vector == nullptr)){
-		// Выполняем затирание значения направления связи
-		wipe(traffic, sizeof(traffic));
-		// Выводим отказ отсутствия обязательного довода
-		return error_t::EMPTY;
-	}
-	// Признак успешности вывода ключевого материала направления
-	bool ok = schedule::derive(view_t(traffic, sizeof(traffic)), ::label("key"), view_t(nullptr, 0), key, protect::PROTECT_KEY);
-	// Если корневой ключ направления связи выведен
-	if(ok)
-		// Выполняем вывод вектора замены направления связи
-		ok = schedule::derive(view_t(traffic, sizeof(traffic)), ::label("iv"), view_t(nullptr, 0), vector, size);
+	// Выполняем вывод ключевого материала из значения направления связи
+	const error_t outcome = anyks::session::material(view_t(traffic, sizeof(traffic)), suite, key, vector);
 	// Выполняем затирание значения направления связи
 	wipe(traffic, sizeof(traffic));
 	// Выводим отказ вывода ключевого материала направления связи
-	return (ok ? error_t::NONE : error_t::SCHEDULE);
+	return outcome;
+}
+/**
+ * @brief Метод вывода значения упреждающих данных связи
+ *
+ * @param transcript хеш переписки рукопожатия на миг вывода
+ *
+ * @return           отказ вывода значения упреждающих данных
+ *
+ */
+error_t anyks::session::Secrets::early(const view_t & transcript) noexcept {
+	// Если начальная ступень расписания ключей ещё не заведена
+	if(this->_stage != stage_t::EARLY)
+		// Выводим отказ нарушения порядка вывода значений
+		return error_t::STATE;
+	// Если хеш переписки рукопожатия не передан
+	if((transcript.data == nullptr) || (transcript.size == 0))
+		// Выводим отказ отсутствия обязательного довода
+		return error_t::EMPTY;
+	// Если значение упреждающих данных вывести не удалось
+	if(!schedule::secret(view_t(this->_secret, sizeof(this->_secret)), ::label(EARLY), transcript, this->_early))
+		// Выводим отказ вывода значения расписания ключей
+		return error_t::SCHEDULE;
+	// Выводим успешность вывода значения упреждающих данных
+	return error_t::NONE;
+}
+/**
+ * @brief Метод получения значения упреждающих данных связи
+ *
+ * @param result место, в которое помещается значение упреждающих данных
+ *
+ * @return       отказ получения значения упреждающих данных
+ *
+ */
+error_t anyks::session::Secrets::early(uint8_t * result) const noexcept {
+	// Если место для значения упреждающих данных не передано
+	if(result == nullptr)
+		// Выводим отказ отсутствия обязательного довода
+		return error_t::EMPTY;
+	// Записываем значение упреждающих данных связи
+	::memcpy(result, this->_early, schedule::SCHEDULE_SECRET);
+	// Выводим успешность получения значения упреждающих данных
+	return error_t::NONE;
 }
 /**
  * @brief Метод вывода ключа завершения рукопожатия
@@ -511,6 +629,108 @@ error_t anyks::session::Secrets::finished(const side_t side, uint8_t * result) c
 	wipe(traffic, sizeof(traffic));
 	// Выводим отказ вывода ключа завершения рукопожатия
 	return (ok ? error_t::NONE : error_t::SCHEDULE);
+}
+/**
+ * @brief Метод вывода значения возобновления связи
+ *
+ * @param transcript хеш переписки рукопожатия на миг вывода
+ *
+ * @return           отказ вывода значения возобновления связи
+ *
+ */
+error_t anyks::session::Secrets::resumption(const view_t & transcript) noexcept {
+	// Если ступень прикладных данных расписания ключей ещё не пройдена
+	if(this->_stage != stage_t::APPLICATION)
+		// Выводим отказ нарушения порядка вывода значений
+		return error_t::STATE;
+	// Если хеш переписки рукопожатия не передан
+	if((transcript.data == nullptr) || (transcript.size == 0))
+		// Выводим отказ отсутствия обязательного довода
+		return error_t::EMPTY;
+	// Если значение возобновления связи вывести не удалось
+	if(!schedule::secret(view_t(this->_secret, sizeof(this->_secret)), ::label(RESUMPTION), transcript, this->_resumption))
+		// Выводим отказ вывода значения расписания ключей
+		return error_t::SCHEDULE;
+	// Выводим успешность вывода значения возобновления связи
+	return error_t::NONE;
+}
+/**
+ * @brief Метод вывода ключа билета возобновления связи
+ *
+ * @param nonce  неповторимое значение билета, назначенное сервером
+ * @param result место, в которое помещается ключ билета
+ *
+ * @return       отказ вывода ключа билета возобновления связи
+ *
+ */
+error_t anyks::session::Secrets::ticket(const view_t & nonce, uint8_t * result) const noexcept {
+	// Если ступень прикладных данных расписания ключей ещё не пройдена
+	if(this->_stage != stage_t::APPLICATION)
+		// Выводим отказ нарушения порядка вывода значений
+		return error_t::STATE;
+	// Если место для ключа билета не передано
+	if(result == nullptr)
+		// Выводим отказ отсутствия обязательного довода
+		return error_t::EMPTY;
+	// Если ключ билета возобновления связи вывести не удалось
+	if(!schedule::derive(view_t(this->_resumption, sizeof(this->_resumption)), ::label(TICKET), nonce, result, schedule::SCHEDULE_SECRET))
+		// Выводим отказ вывода значения расписания ключей
+		return error_t::SCHEDULE;
+	// Выводим успешность вывода ключа билета возобновления связи
+	return error_t::NONE;
+}
+/**
+ * @brief Метод выработки привязки заранее разделённого ключа
+ *
+ * @param transcript хеш усечённого приветствия клиента
+ * @param result     место, в которое помещается привязка ключа
+ *
+ * @return           отказ выработки привязки заранее разделённого ключа
+ *
+ */
+error_t anyks::session::Secrets::binder(const view_t & transcript, uint8_t * result) const noexcept {
+	// Если начальная ступень расписания ключей ещё не заведена
+	if(this->_stage != stage_t::EARLY)
+		// Выводим отказ нарушения порядка вывода значений
+		return error_t::STATE;
+	// Если хеш усечённого приветствия либо место итога не переданы
+	if((transcript.data == nullptr) || (transcript.size == 0) || (result == nullptr))
+		// Выводим отказ отсутствия обязательного довода
+		return error_t::EMPTY;
+	// Хеш пустой переписки, идущий выводу ключа привязки
+	uint8_t empty[schedule::SCHEDULE_SECRET];
+	// Если хеш пустой переписки выработать не удалось
+	if(!digest::streebog(digest::type_t::SHORT, view_t(nullptr, 0), empty, sizeof(empty)))
+		// Выводим отказ вывода значения расписания ключей
+		return error_t::SCHEDULE;
+	// Значение привязки заранее разделённого ключа
+	uint8_t secret[schedule::SCHEDULE_SECRET];
+	// Если значение привязки ключа вывести не удалось
+	if(!schedule::secret(view_t(this->_secret, sizeof(this->_secret)), ::label(BINDER), view_t(empty, sizeof(empty)), secret)){
+		// Выполняем затирание значения привязки ключа
+		wipe(secret, sizeof(secret));
+		// Выводим отказ вывода значения расписания ключей
+		return error_t::SCHEDULE;
+	}
+	// Ключ выработки привязки заранее разделённого ключа
+	uint8_t key[schedule::SCHEDULE_SECRET];
+	// Если ключ выработки привязки вывести не удалось
+	if(!schedule::derive(view_t(secret, sizeof(secret)), ::label("finished"), view_t(nullptr, 0), key, sizeof(key))){
+		// Выполняем затирание ключа выработки привязки
+		wipe(key, sizeof(key));
+		// Выполняем затирание значения привязки ключа
+		wipe(secret, sizeof(secret));
+		// Выводим отказ вывода значения расписания ключей
+		return error_t::SCHEDULE;
+	}
+	// Признак успешности выработки привязки заранее разделённого ключа
+	const bool ok = digest::hmac(digest::type_t::SHORT, view_t(key, sizeof(key)), transcript, result, schedule::SCHEDULE_SECRET);
+	// Выполняем затирание ключа выработки привязки
+	wipe(key, sizeof(key));
+	// Выполняем затирание значения привязки ключа
+	wipe(secret, sizeof(secret));
+	// Выводим итог выработки привязки заранее разделённого ключа
+	return (ok ? error_t::NONE : error_t::DIGEST);
 }
 /**
  * @brief Метод смены значения направления связи
@@ -554,6 +774,10 @@ anyks::session::Secrets::Secrets() noexcept : _stage(stage_t::NONE) {
 	::memset(this->_client, 0, sizeof(this->_client));
 	// Выполняем обнуление значения направления связи от сервера
 	::memset(this->_server, 0, sizeof(this->_server));
+	// Выполняем обнуление значения возобновления связи
+	::memset(this->_resumption, 0, sizeof(this->_resumption));
+	// Выполняем обнуление значения упреждающих данных связи
+	::memset(this->_early, 0, sizeof(this->_early));
 }
 /**
  * @brief Деструктор

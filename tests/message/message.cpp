@@ -283,3 +283,53 @@ TEST(MessageTest, Update){
 	// Проверяем отказ разбора тела с лишними байтами
 	ASSERT_EQ(message::parse(view_t(trailing, sizeof(trailing)), update), message::error_t::TRAILING);
 }
+
+/**
+ * Проверка разбора и составления билета возобновления связи
+ */
+TEST(MessageTest, Ticket){
+	// Неповторимое значение составляемого билета
+	const uint8_t nonce[4] = {0x00, 0x00, 0x00, 0x01};
+	// Тело составляемого билета возобновления связи
+	const uint8_t body[6] = {0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF};
+	// Составляемый билет возобновления связи
+	message::ticket_t ticket;
+	// Устанавливаем срок жизни составляемого билета
+	ticket.lifetime = 7200;
+	// Устанавливаем добавку к возрасту составляемого билета
+	ticket.age = 0x01020304;
+	// Устанавливаем неповторимое значение составляемого билета
+	ticket.nonce = view_t(nonce, sizeof(nonce));
+	// Устанавливаем тело составляемого билета
+	ticket.data = view_t(body, sizeof(body));
+	// Накопитель, в который складывается тело сообщения билета
+	vector <uint8_t> result;
+	// Выполняем составление тела сообщения билета
+	ASSERT_EQ(message::build(ticket, result), message::error_t::NONE);
+	// Разбираемый билет возобновления связи
+	message::ticket_t parsed;
+	// Выполняем разбор составленного тела сообщения
+	ASSERT_EQ(message::parse(view_t(result.data(), result.size()), parsed), message::error_t::NONE);
+	// Проверяем разобранный срок жизни билета
+	ASSERT_EQ(parsed.lifetime, static_cast <uint32_t> (7200));
+	// Проверяем разобранную добавку к возрасту билета
+	ASSERT_EQ(parsed.age, static_cast <uint32_t> (0x01020304));
+	// Проверяем длину разобранного неповторимого значения билета
+	ASSERT_EQ(parsed.nonce.size, sizeof(nonce));
+	// Проверяем схождение разобранного неповторимого значения с составленным
+	ASSERT_EQ(::memcmp(parsed.nonce.data, nonce, sizeof(nonce)), 0);
+	// Проверяем длину разобранного тела билета
+	ASSERT_EQ(parsed.data.size, sizeof(body));
+	// Проверяем схождение разобранного тела билета с составленным
+	ASSERT_EQ(::memcmp(parsed.data.data, body, sizeof(body)), 0);
+	// Проверяем отсутствие расширений разобранного билета
+	ASSERT_TRUE(parsed.extensions.empty());
+	// Билет с пустым телом составлению не подлежит
+	message::ticket_t empty;
+	// Устанавливаем неповторимое значение билета с пустым телом
+	empty.nonce = view_t(nonce, sizeof(nonce));
+	// Проверяем отказ составления билета с пустым телом
+	ASSERT_EQ(message::build(empty, result), message::error_t::EMPTY);
+	// Проверяем отказ разбора тела сообщения, оборванного посреди поля
+	ASSERT_EQ(message::parse(view_t(result.data(), 3), parsed), message::error_t::HUNGRY);
+}

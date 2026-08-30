@@ -418,3 +418,78 @@ TEST(GaloisTest, Failures) {
 	// Проверяем отказ зашифрования при пустых связанных данных и пустом сообщении
 	ASSERT_FALSE(mode.encrypt(view_t(), view_t(), nullptr, tag));
 }
+
+/**
+ * Проверка обратимости шифрования при всякой длине сообщения
+ *
+ * @note Умножение в поле приводится по многочлену дважды, и второе приведение
+ *       затрагивает лишь семь старших разрядов: длины, при которых оно и случается,
+ *       контрольными примерами RFC 9058 не покрыты вовсе
+ */
+TEST(GaloisTest, Lengths) {
+	// Ключ шифрования
+	uint8_t secret[32];
+	// Начальное заполнение счётчика
+	uint8_t nonce[16];
+	// Открытый текст, шифртекст и расшифрованный текст
+	uint8_t plain[128], sealed[128], back[128];
+	// Связанные данные
+	uint8_t associated[64];
+	// Метка целостности
+	uint8_t tag[16];
+	// Выполняем разбор ключа шифрования
+	bytes("8899aabbccddeeff0011223344556677fedcba98765432100123456789abcdef", secret);
+	// Выполняем разбор начального заполнения счётчика
+	bytes("1122334455667700ffeeddccbbaa9988", nonce);
+	/**
+	 * Выполняем заполнение открытого текста и связанных данных
+	 */
+	for(size_t i = 0; i < sizeof(plain); i++){
+		// Записываем очередной байт открытого текста
+		plain[i] = static_cast <uint8_t> ((i * 37) + 11);
+		// Если очередной байт связанных данных ещё не заполнен
+		if(i < sizeof(associated))
+			// Записываем очередной байт связанных данных
+			associated[i] = static_cast <uint8_t> ((i * 53) + 7);
+	}
+	// Объект блочного шифра «Кузнечик»
+	cipher::kuznyechik_t base;
+	// Выполняем установку ключа шифрования
+	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
+	// Объект блочного шифра «Магма»
+	cipher::magma_t small;
+	// Выполняем установку ключа шифрования
+	ASSERT_TRUE(small.key(view_t(secret, sizeof(secret))));
+	/**
+	 * Выполняем перебор блочных шифров режима работы
+	 */
+	for(size_t item = 0; item < 2; item++){
+		// Получаем описание базового алгоритма блочного шифрования
+		const cipher::block_t block = ((item == 0) ? cipher::block_t(base) : cipher::block_t(small));
+		/**
+		 * Выполняем перебор длин шифруемого сообщения
+		 */
+		for(size_t size = 0; size <= sizeof(plain); size += 3){
+			// Получаем длину связанных данных сообщения
+			const size_t length = ((size / 3) % (sizeof(associated) + 1));
+			// Если ни сообщения, ни связанных данных не осталось
+			if((size == 0) && (length == 0))
+				// Переходим к следующей длине шифруемого сообщения
+				continue;
+			// Объект режима шифрования с проверкой целостности
+			cipher::galois_t mode;
+			// Выполняем запуск режима работы
+			ASSERT_TRUE(mode.start(block, view_t(nonce, block.size))) << "длина " << size;
+			// Выполняем зашифрование открытого текста
+			ASSERT_TRUE(mode.encrypt(view_t(associated, length), view_t(plain, size), sealed, tag)) << "длина " << size;
+			// Объект режима расшифрования с проверкой целостности
+			cipher::galois_t back_mode;
+			// Выполняем запуск режима работы
+			ASSERT_TRUE(back_mode.start(block, view_t(nonce, block.size))) << "длина " << size;
+			// Выполняем расшифрование шифртекста
+			ASSERT_TRUE(back_mode.decrypt(view_t(associated, length), view_t(sealed, size), back, view_t(tag, block.size))) << "длина " << size;
+			// Проверяем схождение расшифрованного текста с исходным
+			ASSERT_EQ(::memcmp(back, plain, size), 0) << "длина " << size;
+		}
+	}
+}

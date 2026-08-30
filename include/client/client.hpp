@@ -218,6 +218,65 @@ namespace anyks {
 				 * \~
 				 */
 				const vector <vector <uint8_t>> & peer() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения прикладного протокола связи
+				 *
+				 * @return прикладной протокол, выбранный сторонами связи
+				 *
+				 * @details Раздел 3.2 RFC 7301: протокол выбирается сервером из предложенного
+				 *          клиентом, и объявляется он под защитой рукопожатия
+				 *
+				 * @note Пустое название значит, что протокол сторонами не выбирался вовсе:
+				 *       предлагать его связи никто не поручал
+				 *
+				 * \~english
+				 * @brief Method of getting the application protocol of the connection
+				 * @return the application protocol chosen by the sides of the connection
+				 * @details The section 3.2 of RFC 7301: the protocol is chosen by the server out of the one
+				 *          offered by the client, and it is declared under the protection of the handshake
+				 * @note An empty name means that the protocol was not chosen by the sides at all: nobody
+				 *       instructed the connection to offer it
+				 *
+				 * \~
+				 */
+				const string & protocol() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения билетов возобновления связи
+				 *
+				 * @return билеты возобновления связи, принятые от сервера
+				 *
+				 * @note Билет и ключ к нему хранит тот, кто связь ведёт: связь их лишь выдаёт,
+				 *       а держать их между связями ей негде
+				 *
+				 * \~english
+				 * @brief Method of getting the tickets of the resumption of the connection
+				 * @return the tickets of the resumption of the connection received from the server
+				 * @note The ticket and the key to it are kept by the one who leads the connection: the connection
+				 *       only outputs them, and it has nowhere to keep them between the connections
+				 *
+				 * \~
+				 */
+				const vector <context::ticket_t> & tickets() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод проверки возобновления связи билетом
+				 *
+				 * @return признак того, что связь возобновлена заранее разделённым ключом
+				 *
+				 * @note При возобновлении цепочки сертификатов не бывает вовсе: подлинность
+				 *       сторон подтверждена билетом, а не сертификатом
+				 *
+				 * \~english
+				 * @brief Method of checking the resumption of the connection by a ticket
+				 * @return the flag of the connection being resumed by a pre-shared key
+				 * @note At a resumption there is no chain of the certificates at all: the authenticity of the
+				 *       sides is confirmed by the ticket and not by a certificate
+				 *
+				 * \~
+				 */
+				bool shared() const noexcept;
 			public:
 				/**
 				 * \~russian
@@ -287,6 +346,98 @@ namespace anyks {
 				 * \~
 				 */
 				void name(const string & name) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод установки предлагаемых прикладных протоколов
+				 *
+				 * @param protocols устанавливаемые прикладные протоколы
+				 *
+				 * @details Раздел 3.1 RFC 7301: порядок перечня объявляет предпочтение стороны,
+				 *          а выбор из него делает сервер
+				 *
+				 * @note Пустой перечень отключает выбор прикладного протокола вовсе
+				 *
+				 * \~english
+				 * @brief Method of setting the offered application protocols
+				 * @param protocols the application protocols being set
+				 * @details The section 3.1 of RFC 7301: the order of the list declares the preference of the
+				 *          side, and the choice out of it is made by the server
+				 * @note An empty list disables the choice of the application protocol at all
+				 *
+				 * \~
+				 */
+				void protocols(const vector <string> & protocols) noexcept;
+			public:
+				/**
+				 * \~russian
+				 * @brief Метод предъявления билета возобновления связи
+				 *
+				 * @param ticket предъявляемый серверу билет возобновления связи
+				 *
+				 * @details Раздел 2.2 RFC 8446: билетом связь возобновляется без подлинности
+				 *          сервера - стороны опознали друг друга прошлой связью, а билет тому
+				 *          доказательством. Ключ кривой при этом всё равно вырабатывается.
+				 *
+				 * @note Сервер вправе билет и не признать: тогда связь идёт полным рукопожатием,
+				 *       и признак возобновления это покажет
+				 *
+				 * \~english
+				 * @brief Method of the presentation of a ticket of the resumption of a connection
+				 * @param ticket the ticket of the resumption of the connection presented to the server
+				 * @details The section 2.2 of RFC 8446: by a ticket a connection is resumed without the
+				 *          authenticity of the server — the sides identified each other by a past connection,
+				 *          and the ticket is the proof of it. A key of a curve is produced all the same.
+				 * @note The server is entitled not to recognize the ticket: then the connection goes by a full
+				 *       handshake, and the flag of the resumption will show it
+				 *
+				 * \~
+				 */
+				void resume(const context::ticket_t & ticket) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод установки предложения упреждающих данных серверу
+				 *
+				 * @param advance предлагаются ли упреждающие данные
+				 *
+				 * @details Раздел 2.3 RFC 8446: упреждающие данные уходят вместе с приветствием
+				 *          клиента, не дожидаясь ответа сервера, и защищены ключами, выведенными
+				 *          из одного лишь билета возобновления связи.
+				 *
+				 * @note Повтор упреждающих данных протоколом не отсекается: та же запись, посланная
+				 *       злоумышленником заново, будет принята повторно, и заслон этому ставит тот,
+				 *       кто связь ведёт, - повторяемые запросы упреждающими данными не слать
+				 *
+				 * \~english
+				 * @brief Method of setting the offer of the early data to the server
+				 * @param advance whether the early data is offered
+				 * @details The section 2.3 of RFC 8446: the early data goes together with the greeting of the
+				 *          client without waiting for the answer of the server, and it is protected by the keys
+				 *          derived from the ticket of the resumption of the connection alone.
+				 * @note A repetition of the early data is not cut off by the protocol: the same record sent
+				 *       anew by an attacker will be accepted repeatedly, and the barrier to it is set by the
+				 *       one who leads the connection — not to send repeatable requests by the early data
+				 *
+				 * \~
+				 */
+				void advance(const bool advance) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод проверки приёма упреждающих данных сервером
+				 *
+				 * @return признак того, что упреждающие данные сервером приняты
+				 *
+				 * @note Отвергнутые упреждающие данные пропадают безвозвратно: послать их заново
+				 *       по установленной связи - дело того, кто связь ведёт
+				 *
+				 * \~english
+				 * @brief Method of checking the acceptance of the early data by the server
+				 * @return the flag of the early data being accepted by the server
+				 * @note The rejected early data disappears irretrievably: to send it anew by the established
+				 *       connection is the business of the one who leads the connection
+				 *
+				 * \~
+				 */
+				bool accepted() const noexcept;
 			public:
 				/**
 				 * \~russian

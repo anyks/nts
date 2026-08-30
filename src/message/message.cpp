@@ -396,6 +396,171 @@ error_t anyks::message::build(const verify_t & message, vector <uint8_t> & resul
 	return error_t::NONE;
 }
 /**
+ * @brief Метод разбора тела сообщения билета возобновления связи
+ *
+ * @param data   разбираемое тело сообщения
+ * @param result билет, в который помещается итог разбора
+ *
+ * @return       отказ разбора тела сообщения
+ *
+ */
+error_t anyks::message::parse(const view_t & data, ticket_t & result) noexcept {
+	// Объект разборщика полей тела сообщения
+	field::scanner_t scanner;
+	// Устанавливаем разбираемое тело сообщения
+	scanner.start(data);
+	// Срок жизни билета возобновления связи
+	uint32_t lifetime = 0;
+	// Если срок жизни билета прочитать не удалось
+	if(scanner.number(lifetime, 4) != field::error_t::NONE)
+		// Выводим отказ обрыва тела сообщения
+		return error_t::HUNGRY;
+	// Добавка к возрасту билета возобновления связи
+	uint32_t age = 0;
+	// Если добавку к возрасту билета прочитать не удалось
+	if(scanner.number(age, 4) != field::error_t::NONE)
+		// Выводим отказ обрыва тела сообщения
+		return error_t::HUNGRY;
+	// Неповторимое значение билета возобновления связи
+	view_t nonce;
+	// Если неповторимое значение билета прочитать не удалось
+	if(scanner.vector(nonce, 1) != field::error_t::NONE)
+		// Выводим отказ обрыва тела сообщения
+		return error_t::HUNGRY;
+	// Тело билета возобновления связи
+	view_t body;
+	// Если тело билета прочитать не удалось
+	if(scanner.vector(body, 2) != field::error_t::NONE)
+		// Выводим отказ обрыва тела сообщения
+		return error_t::HUNGRY;
+	// Перечень расширений билета возобновления связи
+	view_t list;
+	// Если перечень расширений билета прочитать не удалось
+	if(scanner.vector(list, 2) != field::error_t::NONE)
+		// Выводим отказ обрыва тела сообщения
+		return error_t::HUNGRY;
+	// Если за телом сообщения идут лишние байты
+	if(scanner.left() > 0)
+		// Выводим отказ лишних байтов за телом сообщения
+		return error_t::TRAILING;
+	/**
+	 * Пустое тело билета отвергается: опознать по нему связь выдавшему билет
+	 * серверу всё равно нечем
+	 */
+	if(body.size == 0)
+		// Выводим отказ пустого обязательного поля
+		return error_t::EMPTY;
+	// Выполняем разбор перечня расширений билета
+	const error_t error = extensions(list, result.extensions);
+	// Если перечень расширений билета разобрать не удалось
+	if(error != error_t::NONE)
+		// Выводим отказ разбора перечня расширений
+		return error;
+	// Устанавливаем срок жизни билета возобновления связи
+	result.lifetime = lifetime;
+	// Устанавливаем добавку к возрасту билета возобновления связи
+	result.age = age;
+	// Устанавливаем неповторимое значение билета возобновления связи
+	result.nonce = nonce;
+	// Устанавливаем тело билета возобновления связи
+	result.data = body;
+	// Выводим успешность разбора тела сообщения
+	return error_t::NONE;
+}
+/**
+ * @brief Метод составления тела сообщения билета возобновления связи
+ *
+ * @param ticket составляемый билет возобновления связи
+ * @param result накопитель, в который складывается тело сообщения
+ *
+ * @return       отказ составления тела сообщения
+ *
+ */
+error_t anyks::message::build(const ticket_t & ticket, vector <uint8_t> & result) noexcept {
+	// Если тело билета возобновления связи пустое
+	if((ticket.data.data == nullptr) || (ticket.data.size == 0))
+		// Выводим отказ пустого обязательного поля
+		return error_t::EMPTY;
+	// Объект составителя полей тела сообщения
+	field::builder_t builder;
+	// Если срок жизни билета записать не удалось
+	if(builder.number(ticket.lifetime, 4) != field::error_t::NONE)
+		// Выводим отказ невхождения поля в свою длину
+		return error_t::LENGTH;
+	// Если добавку к возрасту билета записать не удалось
+	if(builder.number(ticket.age, 4) != field::error_t::NONE)
+		// Выводим отказ невхождения поля в свою длину
+		return error_t::LENGTH;
+	// Если место под неповторимое значение билета занять не удалось
+	if(builder.open(1) != field::error_t::NONE)
+		// Выводим отказ невхождения поля в свою длину
+		return error_t::LENGTH;
+	// Если неповторимое значение билета записать не удалось
+	if(builder.bytes(ticket.nonce) != field::error_t::NONE)
+		// Выводим отказ невхождения поля в свою длину
+		return error_t::LENGTH;
+	// Если длину неповторимого значения проставить не удалось
+	if(builder.close() != field::error_t::NONE)
+		// Выводим отказ невхождения поля в свою длину
+		return error_t::LENGTH;
+	// Если место под тело билета занять не удалось
+	if(builder.open(2) != field::error_t::NONE)
+		// Выводим отказ невхождения поля в свою длину
+		return error_t::LENGTH;
+	// Если тело билета записать не удалось
+	if(builder.bytes(ticket.data) != field::error_t::NONE)
+		// Выводим отказ невхождения поля в свою длину
+		return error_t::LENGTH;
+	// Если длину тела билета проставить не удалось
+	if(builder.close() != field::error_t::NONE)
+		// Выводим отказ невхождения поля в свою длину
+		return error_t::LENGTH;
+	// Если место под перечень расширений билета занять не удалось
+	if(builder.open(2) != field::error_t::NONE)
+		// Выводим отказ невхождения поля в свою длину
+		return error_t::LENGTH;
+	/**
+	 * Выполняем перебор расширений составляемого билета
+	 */
+	for(size_t i = 0; i < ticket.extensions.size(); i++){
+		// Если вид расширения билета записать не удалось
+		if(builder.number(ticket.extensions[i].type, 2) != field::error_t::NONE)
+			// Выводим отказ невхождения поля в свою длину
+			return error_t::LENGTH;
+		// Если место под тело расширения занять не удалось
+		if(builder.open(2) != field::error_t::NONE)
+			// Выводим отказ невхождения поля в свою длину
+			return error_t::LENGTH;
+		// Если тело расширения записать не удалось
+		if(builder.bytes(ticket.extensions[i].data) != field::error_t::NONE)
+			// Выводим отказ невхождения поля в свою длину
+			return error_t::LENGTH;
+		// Если длину тела расширения проставить не удалось
+		if(builder.close() != field::error_t::NONE)
+			// Выводим отказ невхождения поля в свою длину
+			return error_t::LENGTH;
+	}
+	// Если длину перечня расширений проставить не удалось
+	if(builder.close() != field::error_t::NONE)
+		// Выводим отказ невхождения поля в свою длину
+		return error_t::LENGTH;
+	// Получаем составленное тело сообщения билета
+	const view_t data = builder.data();
+	/**
+	 * Выполняем перенос составленного тела сообщения
+	 */
+	try {
+		// Выполняем перенос составленного тела сообщения в накопитель
+		result.assign(data.data, data.data + data.size);
+	// Если памяти под итог не хватило
+	} catch(const bad_alloc &) {
+		// Выводим отказ нехватки памяти
+		return error_t::MEMORY;
+	}
+	// Выводим успешность составления тела сообщения
+	return error_t::NONE;
+}
+/**
  * @brief Метод разбора тела сообщения смены ключевого материала
  *
  * @param data   разбираемое тело сообщения

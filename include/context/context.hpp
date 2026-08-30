@@ -114,7 +114,8 @@ namespace anyks {
 			SIGNATURE   = 0x0E, /*!< \~russian Подпись владения ключом не сошлась \~english The signature of the possession of the key has not matched \~ */
 			COMPLETION  = 0x0F, /*!< \~russian Завершение рукопожатия собеседника не сошлось \~english The completion of the handshake of the interlocutor has not matched \~ */
 			ALERT       = 0x10, /*!< \~russian Собеседник оборвал связь извещением \~english The interlocutor has torn the connection by an alert \~ */
-			CLOSED      = 0x11  /*!< \~russian Связь уже закрыта \~english The connection is already closed \~ */
+			CLOSED      = 0x11, /*!< \~russian Связь уже закрыта \~english The connection is already closed \~ */
+			PROTOCOL    = 0x12  /*!< \~russian Общего прикладного протокола у сторон не нашлось \~english The sides have not found a common application protocol \~ */
 		};
 
 		/**
@@ -160,6 +161,51 @@ namespace anyks {
 			// Цепочка сертификатов своей стороны
 			vector <vector <uint8_t>> chain;
 		} credential_t;
+		/**
+		 * \~russian
+		 * @brief Билет возобновления связи
+		 *
+		 * @details Раздел 4.6.1 RFC 8446: сервер выдаёт билет за рукопожатием, а клиент
+		 *          предъявляет его будущей связи. Тело билета серверу назначать самому: по
+		 *          нему он и опознаёт, какой связи билет принадлежит.
+		 *
+		 * @note Ключ билета связь выводит сама, а вот хранение пары «тело и ключ» ей не
+		 *       принадлежит: где её держать и как её беречь - решает тот, кто связь ведёт
+		 *
+		 * \~english
+		 * @brief Ticket of the resumption of a connection
+		 * @details The section 4.6.1 of RFC 8446: the server issues a ticket after the handshake, and the
+		 *          client presents it to a future connection. The body of the ticket is for the server to
+		 *          appoint itself: by it it identifies which connection the ticket belongs to.
+		 * @note The connection derives the key of the ticket itself, while the storage of the pair of «the
+		 *       body and the key» does not belong to it: where to keep it and how to guard it is decided by
+		 *       the one who leads the connection
+		 *
+		 * \~
+		 */
+		typedef struct __ANYKS_TLS_SHARED_EXPORT__ Ticket {
+			// Набор шифрования связи, выдавшей билет
+			protect::suite_t suite;
+			// Срок жизни билета в секундах
+			uint32_t lifetime;
+			// Добавка к возрасту билета, скрывающая его от посторонних
+			uint32_t age;
+			// Тело билета, опознающее связь для выдавшего его сервера
+			vector <uint8_t> identity;
+			// Ключ билета, выведенный из значения возобновления связи
+			vector <uint8_t> secret;
+			/**
+			 * \~russian
+			 * @brief Конструктор
+			 *
+			 *
+			 * \~english
+			 * @brief Constructor
+			 *
+			 * \~
+			 */
+			Ticket() noexcept : suite(protect::suite_t::NONE), lifetime(0), age(0) {}
+		} ticket_t;
 	};
 };
 

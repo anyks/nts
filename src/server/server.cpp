@@ -118,6 +118,56 @@ const vector <vector <uint8_t>> & anyks::server::Context::peer() const noexcept 
 	return (this->_engine != nullptr ? this->_engine->peer() : chain);
 }
 /**
+ * @brief Метод получения имени узла, запрошенного клиентом
+ *
+ * @return имя узла, за которым клиент пришёл
+ *
+ */
+const string & anyks::server::Context::name() const noexcept {
+	// Имя, выводимое при незаведённом ведении связи
+	static const string empty;
+	// Выводим имя узла, запрошенное клиентом у сервера
+	return (this->_engine != nullptr ? this->_engine->name() : empty);
+}
+/**
+ * @brief Метод получения прикладного протокола связи
+ *
+ * @return прикладной протокол, выбранный сторонами связи
+ *
+ */
+const string & anyks::server::Context::protocol() const noexcept {
+	// Название, выводимое при незаведённом ведении связи
+	static const string empty;
+	// Выводим прикладной протокол, выбранный сторонами связи
+	return (this->_engine != nullptr ? this->_engine->protocol() : empty);
+}
+/**
+ * @brief Метод получения билетов возобновления связи
+ *
+ * @return билеты возобновления связи
+ *
+ */
+const vector <context::ticket_t> & anyks::server::Context::tickets() const noexcept {
+	// Билеты, выводимые при незаведённом ведении связи
+	static const vector <context::ticket_t> tickets;
+	// Выводим билеты возобновления связи
+	return (this->_engine != nullptr ? this->_engine->tickets() : tickets);
+}
+/**
+ * @brief Метод выдачи билета возобновления связи клиенту
+ *
+ * @return отказ выдачи билета возобновления связи
+ *
+ */
+context::error_t anyks::server::Context::issue() noexcept {
+	// Если ведение связи не заведено
+	if(this->_engine == nullptr)
+		// Выводим отказ нехватки памяти
+		return context::error_t::MEMORY;
+	// Выводим итог выдачи билета возобновления связи
+	return this->_engine->issue();
+}
+/**
  * @brief Метод установки предлагаемых наборов шифрования
  *
  * @param suites устанавливаемые наборы шифрования
@@ -154,6 +204,18 @@ void anyks::server::Context::credential(const context::credential_t & credential
 		this->_engine->credential(credential);
 }
 /**
+ * @brief Метод установки предлагаемых прикладных протоколов
+ *
+ * @param protocols устанавливаемые прикладные протоколы
+ *
+ */
+void anyks::server::Context::protocols(const vector <string> & protocols) noexcept {
+	// Если ведение связи заведено
+	if(this->_engine != nullptr)
+		// Выполняем установку предлагаемых прикладных протоколов
+		this->_engine->protocols(protocols);
+}
+/**
  * @brief Метод установки требования подлинности клиента
  *
  * @param request устанавливаемое требование подлинности клиента
@@ -164,6 +226,40 @@ void anyks::server::Context::request(const bool request) noexcept {
 	if(this->_engine != nullptr)
 		// Выполняем установку требования подлинности клиента
 		this->_engine->request(request);
+}
+/**
+ * @brief Метод установки признаваемых билетов возобновления связи
+ *
+ * @param tickets признаваемые билеты возобновления связи
+ *
+ */
+void anyks::server::Context::resume(const vector <context::ticket_t> & tickets) noexcept {
+	// Если ведение связи заведено
+	if(this->_engine != nullptr)
+		// Выполняем установку билетов возобновления связи
+		this->_engine->resume(tickets);
+}
+/**
+ * @brief Метод проверки возобновления связи билетом
+ *
+ * @return признак того, что связь возобновлена заранее разделённым ключом
+ *
+ */
+bool anyks::server::Context::shared() const noexcept {
+	// Выводим признак возобновления связи заранее разделённым ключом
+	return (this->_engine != nullptr ? this->_engine->shared() : false);
+}
+/**
+ * @brief Метод установки предложения упреждающих данных
+ *
+ * @param advance предлагаются либо принимаются ли упреждающие данные
+ *
+ */
+void anyks::server::Context::advance(const bool advance) noexcept {
+	// Если ведение связи заведено
+	if(this->_engine != nullptr)
+		// Выполняем установку предложения упреждающих данных
+		this->_engine->advance(advance);
 }
 /**
  * @brief Метод заведения связи

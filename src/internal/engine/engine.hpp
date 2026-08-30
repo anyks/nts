@@ -150,6 +150,41 @@ namespace anyks {
 				// Имя узла, запрашиваемое клиентом у сервера
 				string _name;
 			private:
+				// Прикладные протоколы, предлагаемые связью
+				vector <string> _protocols;
+				// Прикладной протокол, выбранный сторонами связи
+				string _protocol;
+			private:
+				// Признак того, что связь возобновлена заранее разделённым ключом
+				bool _shared;
+			private:
+				// Место выбранного сервером ключа в предложении клиента
+				uint16_t _chosen;
+			private:
+				// Признак того, что упреждающие данные связью предлагаются либо принимаются
+				bool _advance;
+				// Признак того, что упреждающие данные идут прямо сейчас
+				bool _earlying;
+				// Признак того, что упреждающие данные приняты собеседником
+				bool _accepted;
+			private:
+				// Набор шифрования билета, из которого выводятся ключи упреждения
+				protect::suite_t _ticket;
+			private:
+				// Число записей, пропущенных отвергнутыми упреждающими данными
+				size_t _skipped;
+			private:
+				// Защита записей упреждающих данных связи
+				protect::protection_t _early;
+			private:
+				// Билет, предъявляемый клиентом на возобновление связи
+				context::ticket_t _resume;
+				// Билеты, признаваемые сервером на возобновление связи
+				vector <context::ticket_t> _store;
+			private:
+				// Билеты возобновления связи, выданные либо принятые
+				vector <context::ticket_t> _tickets;
+			private:
 				// Цепочка сертификатов собеседника
 				vector <vector <uint8_t>> _peer;
 			private:
@@ -209,7 +244,14 @@ namespace anyks {
 				 * @return отказ вывода ключей прикладных данных
 				 *
 				 */
-				context::error_t advance() noexcept;
+				context::error_t mature() noexcept;
+				/**
+				 * @brief Метод заведения защиты записей упреждающих данных
+				 *
+				 * @return отказ заведения защиты записей упреждающих данных
+				 *
+				 */
+				context::error_t earliest() noexcept;
 			private:
 				/**
 				 * @brief Метод выработки мимолётной пары ключей своей стороны
@@ -264,6 +306,16 @@ namespace anyks {
 				 *
 				 */
 				context::error_t handle(const handshake::type_t type, const view_t & body, const view_t & message) noexcept;
+				/**
+				 * @brief Метод разбора предложения заранее разделённых ключей клиента
+				 *
+				 * @param extensions перечень расширений принятого приветствия клиента
+				 * @param message    принятое приветствие клиента вместе с обвязкой
+				 *
+				 * @return           отказ разбора предложения заранее разделённых ключей
+				 *
+				 */
+				context::error_t offered(const vector <hello::extension_t> & extensions, const view_t & message) noexcept;
 				/**
 				 * @brief Метод разбора принятого приветствия клиента
 				 *
@@ -330,6 +382,22 @@ namespace anyks {
 				 */
 				context::error_t renew(const view_t & body) noexcept;
 				/**
+				 * @brief Метод вывода значения возобновления связи
+				 *
+				 * @return отказ вывода значения возобновления связи
+				 *
+				 */
+				context::error_t keeping() noexcept;
+				/**
+				 * @brief Метод разбора принятого билета возобновления связи
+				 *
+				 * @param body тело принятого сообщения билета
+				 *
+				 * @return     отказ разбора билета возобновления связи
+				 *
+				 */
+				context::error_t accept(const view_t & body) noexcept;
+				/**
 				 * @brief Метод разбора принятого извещения
 				 *
 				 * @param data принятое извещение
@@ -374,6 +442,20 @@ namespace anyks {
 				 *
 				 */
 				const vector <vector <uint8_t>> & peer() const noexcept;
+				/**
+				 * @brief Метод получения имени узла связи
+				 *
+				 * @return имя узла, запрошенное клиентом у сервера
+				 *
+				 */
+				const string & name() const noexcept;
+				/**
+				 * @brief Метод получения прикладного протокола связи
+				 *
+				 * @return прикладной протокол, выбранный сторонами связи
+				 *
+				 */
+				const string & protocol() const noexcept;
 			public:
 				/**
 				 * @brief Метод установки предлагаемых наборов шифрования
@@ -403,6 +485,48 @@ namespace anyks {
 				 *
 				 */
 				void name(const string & name) noexcept;
+				/**
+				 * @brief Метод установки предлагаемых прикладных протоколов
+				 *
+				 * @param protocols устанавливаемые прикладные протоколы
+				 *
+				 */
+				void protocols(const vector <string> & protocols) noexcept;
+				/**
+				 * @brief Метод установки билета возобновления связи клиентом
+				 *
+				 * @param ticket предъявляемый билет возобновления связи
+				 *
+				 */
+				void resume(const context::ticket_t & ticket) noexcept;
+				/**
+				 * @brief Метод установки билетов, признаваемых сервером
+				 *
+				 * @param tickets признаваемые билеты возобновления связи
+				 *
+				 */
+				void resume(const vector <context::ticket_t> & tickets) noexcept;
+				/**
+				 * @brief Метод проверки возобновления связи заранее разделённым ключом
+				 *
+				 * @return признак того, что связь возобновлена билетом
+				 *
+				 */
+				bool shared() const noexcept;
+				/**
+				 * @brief Метод установки предложения упреждающих данных
+				 *
+				 * @param advance устанавливаемое предложение упреждающих данных
+				 *
+				 */
+				void advance(const bool advance) noexcept;
+				/**
+				 * @brief Метод проверки приёма упреждающих данных собеседником
+				 *
+				 * @return признак того, что упреждающие данные приняты
+				 *
+				 */
+				bool accepted() const noexcept;
 				/**
 				 * @brief Метод установки требования подлинности клиента
 				 *
@@ -475,6 +599,20 @@ namespace anyks {
 				 *
 				 */
 				context::error_t update(const bool request) noexcept;
+				/**
+				 * @brief Метод выдачи билета возобновления связи
+				 *
+				 * @return отказ выдачи билета возобновления связи
+				 *
+				 */
+				context::error_t issue() noexcept;
+				/**
+				 * @brief Метод получения билетов возобновления связи
+				 *
+				 * @return выданные либо принятые билеты возобновления связи
+				 *
+				 */
+				const vector <context::ticket_t> & tickets() const noexcept;
 				/**
 				 * @brief Метод закрытия связи
 				 *

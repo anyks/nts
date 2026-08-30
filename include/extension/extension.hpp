@@ -36,6 +36,7 @@
 /**
  * Стандартные заголовочные файлы
  */
+#include <string>
 #include <vector>
 #include <cstdint>
 #include <cstddef>
@@ -102,7 +103,9 @@ namespace anyks {
 			NAME      = 0x0000, /*!< \~russian Имя запрашиваемого узла \~english The name of the requested host \~ */
 			GROUPS    = 0x000A, /*!< \~russian Поддерживаемые группы обмена ключами \~english The supported groups of the exchange of the keys \~ */
 			SCHEMES   = 0x000D, /*!< \~russian Поддерживаемые схемы подписи \~english The supported signature schemes \~ */
+			PROTOCOLS = 0x0010, /*!< \~russian Перечень прикладных протоколов связи \~english The list of the application protocols of a connection \~ */
 			SECRET    = 0x0029, /*!< \~russian Заранее разделённый ключ \~english The pre-shared key \~ */
+			EARLY     = 0x002A, /*!< \~russian Упреждающие данные связи \~english The early data of a connection \~ */
 			COOKIE    = 0x002C, /*!< \~russian Метка возврата состояния сервера \~english The label of the return of the state of the server \~ */
 			VERSIONS  = 0x002B, /*!< \~russian Поддерживаемые издания протокола \~english The supported editions of the protocol \~ */
 			MODES     = 0x002D, /*!< \~russian Способы обмена с заранее разделённым ключом \~english The modes of the exchange with a pre-shared key \~ */
@@ -241,6 +244,58 @@ namespace anyks {
 			 */
 			Share(const group_t group, const view_t & key) noexcept : group(group), key(key) {}
 		} share_t;
+
+		/**
+		 * \~russian
+		 * @brief Опознаватель заранее разделённого ключа
+		 *
+		 * @details Раздел 4.2.11 RFC 8446: опознавателем ключа клиент предъявляет билет,
+		 *          выданный сервером прошлой связи, а добавка к возрасту скрывает от
+		 *          посторонних, давно ли билет выдан
+		 *
+		 * @note Опознаватель смотрит внутрь разобранного тела расширения
+		 *
+		 * \~english
+		 * @brief Identifier of a pre-shared key
+		 * @details The section 4.2.11 of RFC 8446: by the identifier of a key the client presents the
+		 *          ticket issued by the server of a past connection, and the addition to the age hides
+		 *          from the outsiders how long ago the ticket was issued
+		 * @note The identifier looks inside the parsed body of the extension
+		 *
+		 * \~
+		 */
+		typedef struct __ANYKS_TLS_SHARED_EXPORT__ Identity {
+			// Опознаватель заранее разделённого ключа
+			view_t identity;
+			// Скрытый возраст билета, выдавшего ключ
+			uint32_t age;
+			/**
+			 * \~russian
+			 * @brief Конструктор
+			 *
+			 *
+			 * \~english
+			 * @brief Constructor
+			 *
+			 * \~
+			 */
+			Identity() noexcept : age(0) {}
+			/**
+			 * \~russian
+			 * @brief Конструктор
+			 *
+			 * @param identity опознаватель заранее разделённого ключа
+			 * @param age      скрытый возраст билета, выдавшего ключ
+			 *
+			 * \~english
+			 * @brief Constructor
+			 * @param identity the identifier of the pre-shared key
+			 * @param age      the hidden age of the ticket which issued the key
+			 *
+			 * \~
+			 */
+			Identity(const view_t & identity, const uint32_t age) noexcept : identity(identity), age(age) {}
+		} identity_t;
 
 		/**
 		 * \~russian
@@ -701,6 +756,233 @@ namespace anyks {
 		 * \~
 		 */
 		__ANYKS_TLS_SHARED_EXPORT__ error_t name(const view_t & name, vector <uint8_t> & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод разбора перечня прикладных протоколов
+		 *
+		 * @param data   разбираемое тело расширения
+		 * @param result перечень, в который помещаются названия прикладных протоколов
+		 *
+		 * @return       отказ разбора тела расширения
+		 *
+		 * @details Раздел 3.1 RFC 7301: перечень названий прикладных протоколов, идущий от
+		 *          более желаемого протокола к менее желаемому
+		 *
+		 * @note Пустое название протокола разделом 3.1 RFC 7301 запрещено и даёт отказ
+		 *
+		 * \~english
+		 * @brief Method of the parsing of the list of the application protocols
+		 * @param data   the body of the extension being parsed
+		 * @param result the list the names of the application protocols are put into
+		 * @return       the failure of the parsing of the body of the extension
+		 * @details The section 3.1 of RFC 7301: a list of the names of the application protocols going
+		 *          from a more desired protocol to a less desired one
+		 * @note An empty name of a protocol is forbidden by the section 3.1 of RFC 7301 and gives a failure
+		 *
+		 * \~
+		 */
+		__ANYKS_TLS_SHARED_EXPORT__ error_t protocols(const view_t & data, vector <string> & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод составления перечня прикладных протоколов
+		 *
+		 * @param protocols составляемый перечень названий прикладных протоколов
+		 * @param result    накопитель, в конец которого дописывается тело расширения
+		 *
+		 * @return          отказ составления тела расширения
+		 *
+		 * @note Порядок перечня значим: он объявляет предпочтение стороны связи
+		 *
+		 * \~english
+		 * @brief Method of the composition of the list of the application protocols
+		 * @param protocols the list of the names of the application protocols being composed
+		 * @param result    the accumulator the body of the extension is appended to the end of
+		 * @return          the failure of the composition of the body of the extension
+		 * @note The order of the list is significant: it declares the preference of the side of the connection
+		 *
+		 * \~
+		 */
+		__ANYKS_TLS_SHARED_EXPORT__ error_t protocols(const vector <string> & protocols, vector <uint8_t> & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод разбора выбранного прикладного протокола
+		 *
+		 * @param data   разбираемое тело расширения
+		 * @param result название, в которое помещается выбранный прикладной протокол
+		 *
+		 * @return       отказ разбора тела расширения
+		 *
+		 * @details Раздел 3.1 RFC 7301: сервер отвечает тем же перечнем, но кладёт в него
+		 *          ровно один протокол — тот, которым связь и пойдёт
+		 *
+		 * \~english
+		 * @brief Method of the parsing of the chosen application protocol
+		 * @param data   the body of the extension being parsed
+		 * @param result the name the chosen application protocol is put into
+		 * @return       the failure of the parsing of the body of the extension
+		 * @details The section 3.1 of RFC 7301: the server answers by the same list but puts exactly
+		 *          one protocol into it — the one the connection will go by
+		 *
+		 * \~
+		 */
+		__ANYKS_TLS_SHARED_EXPORT__ error_t protocol(const view_t & data, string & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод составления выбранного прикладного протокола
+		 *
+		 * @param protocol составляемое название выбранного прикладного протокола
+		 * @param result   накопитель, в конец которого дописывается тело расширения
+		 *
+		 * @return         отказ составления тела расширения
+		 *
+		 * \~english
+		 * @brief Method of the composition of the chosen application protocol
+		 * @param protocol the name of the chosen application protocol being composed
+		 * @param result   the accumulator the body of the extension is appended to the end of
+		 * @return         the failure of the composition of the body of the extension
+		 *
+		 * \~
+		 */
+		__ANYKS_TLS_SHARED_EXPORT__ error_t protocol(const string & protocol, vector <uint8_t> & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод разбора предложения заранее разделённых ключей
+		 *
+		 * @param data       разбираемое тело расширения приветствия клиента
+		 * @param result     перечень, в который помещаются опознаватели ключей
+		 * @param binders    перечень, в который помещаются привязки ключей
+		 * @param truncation место, в которое помещается длина приветствия без привязок
+		 *
+		 * @return           отказ разбора тела расширения
+		 *
+		 * @details Раздел 4.2.11.2 RFC 8446: привязка всякого ключа берётся от приветствия,
+		 *          усечённого перед перечнем привязок, и длина этого усечения выводится здесь
+		 *          же - иначе её пришлось бы искать разбором приветствия заново
+		 *
+		 * @note Длина усечения выводится от начала разбираемого тела расширения: чтобы
+		 *       получить её от начала сообщения, к ней прибавляется место тела в сообщении
+		 *
+		 * \~english
+		 * @brief Method of the parsing of an offer of the pre-shared keys
+		 * @param data       the body of the extension of the greeting of the client being parsed
+		 * @param result     the list the identifiers of the keys are put into
+		 * @param binders    the list the binders of the keys are put into
+		 * @param truncation the place the length of the greeting without the binders is put into
+		 * @return           the failure of the parsing of the body of the extension
+		 * @details The section 4.2.11.2 of RFC 8446: the binder of every key is taken from the greeting
+		 *          truncated before the list of the binders, and the length of this truncation is output
+		 *          here as well — otherwise it would have to be searched for by parsing the greeting anew
+		 * @note The length of the truncation is output from the beginning of the parsed body of the
+		 *       extension: to get it from the beginning of the message the place of the body in the
+		 *       message is added to it
+		 *
+		 * \~
+		 */
+		__ANYKS_TLS_SHARED_EXPORT__ error_t identities(const view_t & data, vector <identity_t> & result, vector <view_t> & binders, size_t & truncation) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод составления предложения заранее разделённых ключей
+		 *
+		 * @param identities составляемый перечень опознавателей ключей
+		 * @param binders    составляемый перечень привязок ключей
+		 * @param result     накопитель, в конец которого дописывается тело расширения
+		 *
+		 * @return           отказ составления тела расширения
+		 *
+		 * @note Число привязок обязано совпадать с числом опознавателей: всякому ключу
+		 *       отвечает своя привязка, и разошедшиеся перечни сервер отвергнет
+		 *
+		 * \~english
+		 * @brief Method of the composition of an offer of the pre-shared keys
+		 * @param identities the list of the identifiers of the keys being composed
+		 * @param binders    the list of the binders of the keys being composed
+		 * @param result     the accumulator the body of the extension is appended to the end of
+		 * @return           the failure of the composition of the body of the extension
+		 * @note The number of the binders is obliged to coincide with the number of the identifiers: every
+		 *       key corresponds to its own binder, and the server will reject the diverged lists
+		 *
+		 * \~
+		 */
+		__ANYKS_TLS_SHARED_EXPORT__ error_t identities(const vector <identity_t> & identities, const vector <view_t> & binders, vector <uint8_t> & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод разбора выбранного сервером заранее разделённого ключа
+		 *
+		 * @param data   разбираемое тело расширения приветствия сервера
+		 * @param result место, в которое помещается место выбранного ключа в предложении
+		 *
+		 * @return       отказ разбора тела расширения
+		 *
+		 * \~english
+		 * @brief Method of the parsing of the pre-shared key chosen by the server
+		 * @param data   the body of the extension of the greeting of the server being parsed
+		 * @param result the place the position of the chosen key in the offer is put into
+		 * @return       the failure of the parsing of the body of the extension
+		 *
+		 * \~
+		 */
+		__ANYKS_TLS_SHARED_EXPORT__ error_t chosen(const view_t & data, uint16_t & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод составления выбранного сервером заранее разделённого ключа
+		 *
+		 * @param chosen место выбранного ключа в предложении клиента
+		 * @param result накопитель, в конец которого дописывается тело расширения
+		 *
+		 * @return       отказ составления тела расширения
+		 *
+		 * \~english
+		 * @brief Method of the composition of the pre-shared key chosen by the server
+		 * @param chosen the position of the chosen key in the offer of the client
+		 * @param result the accumulator the body of the extension is appended to the end of
+		 * @return       the failure of the composition of the body of the extension
+		 *
+		 * \~
+		 */
+		__ANYKS_TLS_SHARED_EXPORT__ error_t chosen(const uint16_t chosen, vector <uint8_t> & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод разбора предела упреждающих данных билета
+		 *
+		 * @param data   разбираемое тело расширения билета возобновления связи
+		 * @param result место, в которое помещается предел упреждающих данных в байтах
+		 *
+		 * @return       отказ разбора тела расширения
+		 *
+		 * @details Раздел 4.2.10 RFC 8446: пределом сервер объявляет, сколько упреждающих
+		 *          данных он примет по этому билету. В приветствии же и в защищённых
+		 *          расширениях тело этого расширения пусто.
+		 *
+		 * \~english
+		 * @brief Method of the parsing of the limit of the early data of a ticket
+		 * @param data   the body of the extension of the ticket of the resumption being parsed
+		 * @param result the place the limit of the early data in bytes is put into
+		 * @return       the failure of the parsing of the body of the extension
+		 * @details The section 4.2.10 of RFC 8446: by the limit the server declares how much early data it
+		 *          will accept by this ticket. In a greeting and in the encrypted extensions the body of this
+		 *          extension is empty.
+		 *
+		 * \~
+		 */
+		__ANYKS_TLS_SHARED_EXPORT__ error_t early(const view_t & data, uint32_t & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод составления предела упреждающих данных билета
+		 *
+		 * @param limit  объявляемый предел упреждающих данных в байтах
+		 * @param result накопитель, в конец которого дописывается тело расширения
+		 *
+		 * @return       отказ составления тела расширения
+		 *
+		 * \~english
+		 * @brief Method of the composition of the limit of the early data of a ticket
+		 * @param limit  the limit of the early data in bytes being declared
+		 * @param result the accumulator the body of the extension is appended to the end of
+		 * @return       the failure of the composition of the body of the extension
+		 *
+		 * \~
+		 */
+		__ANYKS_TLS_SHARED_EXPORT__ error_t early(const uint32_t limit, vector <uint8_t> & result) noexcept;
 	};
 };
 

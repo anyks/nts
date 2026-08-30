@@ -136,6 +136,35 @@ namespace anyks {
 
 		/**
 		 * \~russian
+		 * @brief Метод вывода ключевого материала из значения направления связи
+		 *
+		 * @param traffic значение направления связи, из которого выводится материал
+		 * @param suite   набор шифрования, которым защищаются записи
+		 * @param key     место, в которое помещается корневой ключ направления
+		 * @param vector  место, в которое помещается вектор замены направления
+		 *
+		 * @return        отказ вывода ключевого материала направления связи
+		 *
+		 * @details Раздел 7.3 RFC 8446: ключ и вектор замены выводятся из значения направления
+		 *          метками «key» и «iv», и порядок этот один на все ступени расписания
+		 *
+		 * \~english
+		 * @brief Method of the derivation of the key material from a value of a direction of a connection
+		 * @param traffic the value of the direction of the connection the material is derived from
+		 * @param suite   the cipher suite the records are protected by
+		 * @param key     the place the root key of the direction is put into
+		 * @param vector  the place the vector of the replacement of the direction is put into
+		 * @return        the failure of the derivation of the key material of the direction
+		 * @details The section 7.3 of RFC 8446: the key and the vector of the replacement are derived from
+		 *          the value of the direction by the «key» and «iv» labels, and this order is one for all
+		 *          the stages of the schedule
+		 *
+		 * \~
+		 */
+		__ANYKS_TLS_SHARED_EXPORT__ error_t material(const view_t & traffic, const protect::suite_t suite, uint8_t * key, uint8_t * vector) noexcept;
+
+		/**
+		 * \~russian
 		 * @brief Переписка рукопожатия
 		 *
 		 * @details Раздел 4.4.1 RFC 8446: хеш переписки берётся от всех сообщений рукопожатия
@@ -233,6 +262,35 @@ namespace anyks {
 				error_t digest(uint8_t * result) const noexcept;
 				/**
 				 * \~russian
+				 * @brief Метод получения хеша переписки рукопожатия с довеском
+				 *
+				 * @param suffix довесок, дописываемый к переписке лишь на этот хеш
+				 * @param result место, в которое помещается хеш переписки с довеском
+				 *
+				 * @return       отказ получения хеша переписки с довеском
+				 *
+				 * @details Раздел 4.2.11.2 RFC 8446: привязка заранее разделённого ключа берётся
+				 *          от переписки с усечённым приветствием, которое сообщением ещё не стало,
+				 *          - вот на этот случай довесок и нужен
+				 *
+				 * @note Довесок в переписку не добавляется: она остаётся такой, какой была до
+				 *       этого вызова
+				 *
+				 * \~english
+				 * @brief Method of getting the hash of the transcript of the handshake with an appendage
+				 * @param suffix the appendage appended to the transcript only for this hash
+				 * @param result the place the hash of the transcript with the appendage is put into
+				 * @return       the failure of getting the hash of the transcript with the appendage
+				 * @details The section 4.2.11.2 of RFC 8446: the binder of a pre-shared key is taken from the
+				 *          transcript with a truncated greeting which has not become a message yet — it is for
+				 *          this case that the appendage is needed
+				 * @note The appendage is not added to the transcript: it stays such as it was before this call
+				 *
+				 * \~
+				 */
+				error_t digest(const view_t & suffix, uint8_t * result) const noexcept;
+				/**
+				 * \~russian
 				 * @brief Метод замены накопленной переписки её хешем
 				 *
 				 * @return отказ замены накопленной переписки
@@ -303,6 +361,12 @@ namespace anyks {
 			private:
 				// Значение направления связи от сервера
 				uint8_t _server[schedule::SCHEDULE_SECRET];
+			private:
+				// Значение возобновления связи
+				uint8_t _resumption[schedule::SCHEDULE_SECRET];
+			private:
+				// Значение упреждающих данных связи
+				uint8_t _early[schedule::SCHEDULE_SECRET];
 			public:
 				/**
 				 * \~russian
@@ -502,6 +566,134 @@ namespace anyks {
 				 * \~
 				 */
 				error_t renew(const side_t side) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод вывода значения возобновления связи
+				 *
+				 * @param transcript хеш переписки рукопожатия на миг вывода
+				 *
+				 * @return           отказ вывода значения возобновления связи
+				 *
+				 * @details Раздел 7.1 RFC 8446: значение выводится меткою «res master» от переписки,
+				 *          дошедшей до завершения рукопожатия клиентом, и из него выводятся ключи
+				 *          билетов, выдаваемых сервером на будущую связь
+				 *
+				 * \~english
+				 * @brief Method of the derivation of the value of the resumption of the connection
+				 * @param transcript the hash of the transcript of the handshake at the moment of the derivation
+				 * @return           the failure of the derivation of the value of the resumption of the connection
+				 * @details The section 7.1 of RFC 8446: the value is derived by the «res master» label from the
+				 *          transcript which has reached the completion of the handshake by the client, and the
+				 *          keys of the tickets issued by the server for a future connection are derived from it
+				 *
+				 * \~
+				 */
+				error_t resumption(const view_t & transcript) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод вывода ключа билета возобновления связи
+				 *
+				 * @param nonce  неповторимое значение билета, назначенное сервером
+				 * @param result место, в которое помещается ключ билета
+				 *
+				 * @return       отказ вывода ключа билета возобновления связи
+				 *
+				 * @details Раздел 4.6.1 RFC 8446: всякому билету отвечает свой ключ, и неповторимое
+				 *          значение билета их и разводит - иначе все билеты одной связи вышли бы
+				 *          одинаковыми
+				 *
+				 * @note Место итога обязано вмещать SCHEDULE_SECRET байтов
+				 *
+				 * \~english
+				 * @brief Method of the derivation of the key of a ticket of the resumption of the connection
+				 * @param nonce  the unique value of the ticket appointed by the server
+				 * @param result the place the key of the ticket is put into
+				 * @return       the failure of the derivation of the key of the ticket of the resumption
+				 * @details The section 4.6.1 of RFC 8446: every ticket corresponds to its own key, and the unique
+				 *          value of the ticket is what separates them — otherwise all the tickets of one connection
+				 *          would come out identical
+				 * @note The place of the outcome is obliged to hold SCHEDULE_SECRET bytes
+				 *
+				 * \~
+				 */
+				error_t ticket(const view_t & nonce, uint8_t * result) const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод выработки привязки заранее разделённого ключа
+				 *
+				 * @param transcript хеш усечённого приветствия клиента
+				 * @param result     место, в которое помещается привязка ключа
+				 *
+				 * @return           отказ выработки привязки заранее разделённого ключа
+				 *
+				 * @details Раздел 4.2.11.2 RFC 8446: привязка есть имитовставка усечённого
+				 *          приветствия на ключе, выведенном из начальной ступени расписания
+				 *          меткою «res binder». Ею клиент и доказывает владение ключом билета.
+				 *
+				 * @note Привязка вырабатывается на начальной ступени расписания ключей: на ней
+				 *       заранее разделённый ключ уже вложен, а ключей обмена ещё нет
+				 *
+				 * \~english
+				 * @brief Method of the production of the binder of a pre-shared key
+				 * @param transcript the hash of the truncated greeting of the client
+				 * @param result     the place the binder of the key is put into
+				 * @return           the failure of the production of the binder of the pre-shared key
+				 * @details The section 4.2.11.2 of RFC 8446: the binder is the authentication code of the
+				 *          truncated greeting under the key derived from the initial stage of the schedule by
+				 *          the «res binder» label. By it the client proves the possession of the key of the ticket.
+				 * @note The binder is produced at the initial stage of the schedule of the keys: at it the
+				 *       pre-shared key is already put in, and the keys of the exchange are not there yet
+				 *
+				 * \~
+				 */
+				error_t binder(const view_t & transcript, uint8_t * result) const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод вывода значения упреждающих данных связи
+				 *
+				 * @param transcript хеш переписки рукопожатия на миг вывода
+				 *
+				 * @return           отказ вывода значения упреждающих данных
+				 *
+				 * @details Раздел 7.1 RFC 8446: значение выводится из начальной ступени расписания
+				 *          меткою «c e traffic» от одного лишь приветствия клиента - ответа сервера
+				 *          на этот миг ещё нет вовсе
+				 *
+				 * @note Упреждающие данные идут одним лишь направлением от клиента: ответить на
+				 *       них сервер вправе не раньше, чем ключами рукопожатия
+				 *
+				 * \~english
+				 * @brief Method of the derivation of the value of the early data of the connection
+				 * @param transcript the hash of the transcript of the handshake at the moment of the derivation
+				 * @return           the failure of the derivation of the value of the early data
+				 * @details The section 7.1 of RFC 8446: the value is derived from the initial stage of the
+				 *          schedule by the «c e traffic» label from the greeting of the client alone — there is
+				 *          no answer of the server at this moment at all
+				 * @note The early data goes by one direction only, from the client: the server is not entitled
+				 *       to answer it earlier than by the keys of the handshake
+				 *
+				 * \~
+				 */
+				error_t early(const view_t & transcript) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения значения упреждающих данных связи
+				 *
+				 * @param result место, в которое помещается значение упреждающих данных
+				 *
+				 * @return       отказ получения значения упреждающих данных
+				 *
+				 * @note Место итога обязано вмещать SCHEDULE_SECRET байтов
+				 *
+				 * \~english
+				 * @brief Method of getting the value of the early data of the connection
+				 * @param result the place the value of the early data is put into
+				 * @return       the failure of getting the value of the early data
+				 * @note The place of the outcome is obliged to hold SCHEDULE_SECRET bytes
+				 *
+				 * \~
+				 */
+				error_t early(uint8_t * result) const noexcept;
 			public:
 				/**
 				 * \~russian

@@ -126,10 +126,73 @@ SET(SOURCE_FILES
     "${CMAKE_SOURCE_DIR}/src/session/session.cpp"
     "${CMAKE_SOURCE_DIR}/src/flow/flow.cpp"
     "${CMAKE_SOURCE_DIR}/src/alert/alert.cpp"
+    "${CMAKE_SOURCE_DIR}/src/trust/trust.cpp"
+    "${CMAKE_SOURCE_DIR}/src/pem/pem.cpp"
     "${CMAKE_SOURCE_DIR}/src/internal/engine/engine.cpp"
     "${CMAKE_SOURCE_DIR}/src/client/client.cpp"
     "${CMAKE_SOURCE_DIR}/src/server/server.cpp"
 )
+
+##
+ # Указываем что берётся машинное умножение без переносов
+ #
+ # @note Ключ добавляет собирателю признак наличия у машины команд умножения без
+ #       переносов. Включать его дозволено лишь тогда, когда команды эти у целевой
+ #       машины есть: собранное с ним не пойдёт там, где их нет. У Apple Silicon
+ #       собиратель объявляет их сам, и ключ там не нужен
+ ##
+option(CMAKE_CIPHER_CARRYLESS "Build with the carry-less multiplication instructions" OFF)
+
+# Если берётся машинное умножение без переносов
+if (CMAKE_CIPHER_CARRYLESS)
+    # Подключаем проверку пригодности ключей собирателя
+    include(CheckCXXCompilerFlag)
+
+    # Если сборка ведётся под ARM64
+    if (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64|ARM64")
+        # Выполняем проверку пригодности ключа расширения команд
+        check_cxx_compiler_flag("-march=armv8-a+crypto" CARRYLESS_ARM_FLAG)
+        # Если ключ расширения команд собирателем принят
+        if (CARRYLESS_ARM_FLAG)
+            # Добавляем ключ расширения команд
+            add_compile_options(-march=armv8-a+crypto)
+            # Выводим сообщение о машинном умножении без переносов
+            message(STATUS "Carry-less multiplication: PMULL\n")
+        endif (CARRYLESS_ARM_FLAG)
+    # Если сборка ведётся под x86-64
+    elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64|AMD64")
+        # Выполняем проверку пригодности ключа расширения команд
+        check_cxx_compiler_flag("-mpclmul" CARRYLESS_X86_FLAG)
+        # Если ключ расширения команд собирателем принят
+        if (CARRYLESS_X86_FLAG)
+            # Добавляем ключ расширения команд
+            add_compile_options(-mpclmul)
+            # Выводим сообщение о машинном умножении без переносов
+            message(STATUS "Carry-less multiplication: PCLMULQDQ\n")
+        endif (CARRYLESS_X86_FLAG)
+    endif (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64|ARM64")
+endif (CMAKE_CIPHER_CARRYLESS)
+
+##
+ # Указываем что блочный шифр собирается малыми таблицами
+ #
+ # @note Развёрнутые таблицы преобразования занимают 128 КБ памяти на весь ход работы и
+ #       дают восьмикратную скорость; малые занимают 4 КБ и годятся там, где памяти
+ #       считанные килобайты, а скорость шифрования не решает
+ ##
+option(CMAKE_CIPHER_COMPACT "Build the block cipher with the compact tables" OFF)
+
+# Если блочный шифр собирается малыми таблицами
+if (CMAKE_CIPHER_COMPACT)
+    # Объявляем сборке блочного шифра работу малыми таблицами
+    add_compile_definitions(ANYKS_TLS_CIPHER_COMPACT)
+    # Выводим сообщение о способе сборки блочного шифра
+    message(STATUS "Block cipher tables: compact\n")
+# Если блочный шифр собирается развёрнутыми таблицами
+else (CMAKE_CIPHER_COMPACT)
+    # Выводим сообщение о способе сборки блочного шифра
+    message(STATUS "Block cipher tables: spread\n")
+endif (CMAKE_CIPHER_COMPACT)
 
 # Устанавливаем имя библиотеки
 SET(TLS_LIB_NAME ${PROJECT_NAME})
@@ -243,6 +306,52 @@ if (CMAKE_BUILD_TESTS)
     # Выполняем подключение набора проверок
     add_subdirectory(tests)
 endif (CMAKE_BUILD_TESTS)
+
+##
+ # Указываем что нужно собрать набор замеров
+ #
+ # @note Замеры собираются только сборкой Release: отладочная сборка замедляет всё разом
+ #       и ровно, изображая точечную просадку там, где её нет
+ ##
+option(CMAKE_BUILD_BENCHMARKS "Build library benchmarks" OFF)
+
+# Если необходимо собрать набор замеров
+if (${CMAKE_BUILD_BENCHMARKS})
+    # Указываем что замеры нужно сличать с эталоном OpenSSL
+    option(CMAKE_BENCHMARK_OPENSSL "Compare benchmarks against the OpenSSL reference" ON)
+
+    # Выполняем создание приложения набора замеров
+    add_executable(bench "${CMAKE_SOURCE_DIR}/bench/bench.cpp")
+
+    # Подключаем каталог общих заголовочных файлов набора проверок
+    target_include_directories(bench PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+
+    # Выполняем подключение библиотеки к приложению набора замеров
+    target_link_libraries(bench ${TLS_LIB_NAME})
+
+    # Указываем каталог для исполняемого файла набора замеров
+    set_target_properties(bench PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bench)
+
+    # Если замеры нужно сличать с эталоном OpenSSL
+    if (${CMAKE_BENCHMARK_OPENSSL})
+        # Выполняем поиск эталона OpenSSL
+        find_package(OpenSSL)
+
+        # Если эталон OpenSSL в системе найден
+        if (OPENSSL_FOUND)
+            # Выводим сообщение о сличении замеров с эталоном
+            message(STATUS "Benchmark reference OpenSSL: Yes")
+            # Объявляем сборке набора замеров наличие эталона
+            target_compile_definitions(bench PRIVATE ANYKS_TLS_BENCH_OPENSSL)
+            # Выполняем подключение эталона к приложению набора замеров
+            target_link_libraries(bench OpenSSL::Crypto)
+        # Если эталона OpenSSL в системе нет
+        else()
+            # Выводим сообщение о сличении замеров с эталоном
+            message(STATUS "Benchmark reference OpenSSL: No")
+        endif (OPENSSL_FOUND)
+    endif (${CMAKE_BENCHMARK_OPENSSL})
+endif (${CMAKE_BUILD_BENCHMARKS})
 
 # Указываем что нужно собрать образцы работы с библиотекой
 option(CMAKE_BUILD_SAMPLES "Build library samples" OFF)
@@ -391,6 +500,21 @@ if (${CMAKE_BUILD_SAMPLES})
     # Указываем что нужно собрать приложение работы с фасадами связи
     option(CMAKE_BUILD_CONTEXT_APP_SAMPLE "Build connection facades app sample" ON)
 
+    # Устанавливаем имя приложения работы с доверием цепочке сертификатов
+    SET(TRUST_APP_NAME trust-chain)
+    # Указываем что нужно собрать приложение работы с доверием цепочке
+    option(CMAKE_BUILD_TRUST_APP_SAMPLE "Build certificate chain trust app sample" ON)
+
+    # Устанавливаем имя приложения выбора прикладного протокола
+    SET(PROTOCOL_APP_NAME alpn-choice)
+    # Указываем что нужно собрать приложение выбора прикладного протокола
+    option(CMAKE_BUILD_PROTOCOL_APP_SAMPLE "Build application protocol choice app sample" ON)
+
+    # Устанавливаем имя приложения работы с записями в виде PEM
+    SET(PEM_APP_NAME pem-storage)
+    # Указываем что нужно собрать приложение работы с записями в виде PEM
+    option(CMAKE_BUILD_PEM_APP_SAMPLE "Build PEM storage app sample" ON)
+
     # Если нужно собрать образец работы с приветствиями рукопожатия
     if (${CMAKE_BUILD_HELLO_APP_SAMPLE})
         # Выводим сообщение о сборке образца
@@ -474,6 +598,42 @@ if (${CMAKE_BUILD_SAMPLES})
         # Выводим сообщение о сборке образца
         message(STATUS "Build sample CONTEXT: No")
     endif (${CMAKE_BUILD_CONTEXT_APP_SAMPLE})
+
+    # Если нужно собрать образец работы с доверием цепочке сертификатов
+    if (${CMAKE_BUILD_TRUST_APP_SAMPLE})
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample TRUST: Yes")
+        # Выполняем создание приложения работы с доверием цепочке
+        add_sample(${TRUST_APP_NAME} sample/trust/trust.cpp trust)
+    # Если образец работы с доверием цепочке собирать не нужно
+    else()
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample TRUST: No")
+    endif (${CMAKE_BUILD_TRUST_APP_SAMPLE})
+
+    # Если нужно собрать образец работы с записями в виде PEM
+    if (${CMAKE_BUILD_PEM_APP_SAMPLE})
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample PEM: Yes")
+        # Выполняем создание приложения работы с записями в виде PEM
+        add_sample(${PEM_APP_NAME} sample/pem/pem.cpp pem)
+    # Если образец работы с записями в виде PEM собирать не нужно
+    else()
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample PEM: No")
+    endif (${CMAKE_BUILD_PEM_APP_SAMPLE})
+
+    # Если нужно собрать образец выбора прикладного протокола
+    if (${CMAKE_BUILD_PROTOCOL_APP_SAMPLE})
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample PROTOCOL: Yes")
+        # Выполняем создание приложения выбора прикладного протокола
+        add_sample(${PROTOCOL_APP_NAME} sample/protocol/protocol.cpp protocol)
+    # Если образец выбора прикладного протокола собирать не нужно
+    else()
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample PROTOCOL: No")
+    endif (${CMAKE_BUILD_PROTOCOL_APP_SAMPLE})
 endif (${CMAKE_BUILD_SAMPLES})
 
 # Выполняем установку заголовочных файлов проекта

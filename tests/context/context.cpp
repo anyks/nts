@@ -660,3 +660,682 @@ TEST(ContextTest, Rotation){
 	// Проверяем отказ смены ключевого материала до рукопожатия
 	ASSERT_EQ(client.update(false), context::error_t::STATE);
 }
+
+/**
+ * Проверка выдачи билетов возобновления связи
+ */
+TEST(ContextTest, Ticket){
+	// Подлинность стороны сервера
+	context::credential_t credentials;
+	// Выполняем выработку подлинности стороны сервера
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Связь стороны клиента
+	client::context_t client;
+	// Связь стороны сервера
+	server::context_t server;
+	// Устанавливаем подлинность стороны сервера
+	server.credential(credentials);
+	// Выполняем заведение связи стороны сервера
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	// Выполняем заведение связи стороны клиента
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	// Выполняем проведение рукопожатия сторон связи
+	handshake(client, server);
+	// Проверяем установленность связи обеими сторонами
+	ASSERT_TRUE(client.established() && server.established());
+	// Проверяем отсутствие билетов до их выдачи сервером
+	ASSERT_TRUE(client.tickets().empty());
+	// Выполняем выдачу первого билета возобновления связи
+	ASSERT_EQ(server.issue(), context::error_t::NONE);
+	// Выполняем выдачу второго билета возобновления связи
+	ASSERT_EQ(server.issue(), context::error_t::NONE);
+	// Выполняем передачу байтов между сторонами связи
+	pump(client, server);
+	// Проверяем число билетов, принятых клиентом
+	ASSERT_EQ(client.tickets().size(), static_cast <size_t> (2));
+	// Проверяем число билетов, выданных сервером
+	ASSERT_EQ(server.tickets().size(), static_cast <size_t> (2));
+	/**
+	 * Выполняем перебор билетов возобновления связи
+	 */
+	for(size_t i = 0; i < client.tickets().size(); i++){
+		// Проверяем схождение тела принятого билета с выданным
+		ASSERT_EQ(client.tickets()[i].identity, server.tickets()[i].identity);
+		/**
+		 * Ключ билета выводится обеими сторонами самостоятельно и по связи не
+		 * передаётся вовсе: сходятся они лишь потому, что выведены из одного значения
+		 */
+		ASSERT_EQ(client.tickets()[i].secret, server.tickets()[i].secret);
+		// Проверяем длину ключа принятого билета
+		ASSERT_EQ(client.tickets()[i].secret.size(), static_cast <size_t> (32));
+		// Проверяем схождение срока жизни принятого билета с выданным
+		ASSERT_EQ(client.tickets()[i].lifetime, server.tickets()[i].lifetime);
+		// Проверяем схождение добавки к возрасту билета с выданной
+		ASSERT_EQ(client.tickets()[i].age, server.tickets()[i].age);
+	}
+	/**
+	 * Ключи двух билетов одной связи расходятся: неповторимое значение билета для
+	 * того в вывод ключа и подаётся
+	 */
+	ASSERT_NE(client.tickets()[0].secret, client.tickets()[1].secret);
+	// Проверяем расхождение тел двух билетов одной связи
+	ASSERT_NE(client.tickets()[0].identity, client.tickets()[1].identity);
+	// Прикладные данные, отправляемые за выдачей билетов
+	const string request = "Данные после выдачи билетов";
+	// Выполняем отправку прикладных данных клиентом
+	ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
+	// Выполняем передачу байтов между сторонами связи
+	pump(client, server);
+	// Накопитель, в который помещаются принятые прикладные данные
+	vector <uint8_t> received;
+	// Выполняем получение принятых сервером прикладных данных
+	ASSERT_EQ(server.read(received), context::error_t::NONE);
+	// Проверяем схождение принятых данных с отправленными
+	ASSERT_EQ(string(received.begin(), received.end()), request);
+}
+
+/**
+ * Проверка отвержения выдачи билета не в свой черёд
+ */
+TEST(ContextTest, Issue){
+	// Связь стороны сервера
+	server::context_t server;
+	// Проверяем отказ выдачи билета до заведения связи
+	ASSERT_EQ(server.issue(), context::error_t::STATE);
+	// Подлинность стороны сервера
+	context::credential_t credentials;
+	// Выполняем выработку подлинности стороны сервера
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Устанавливаем подлинность стороны сервера
+	server.credential(credentials);
+	// Выполняем заведение связи стороны сервера
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	// Проверяем отказ выдачи билета до рукопожатия
+	ASSERT_EQ(server.issue(), context::error_t::STATE);
+}
+
+/**
+ * Проверка возобновления связи выданным билетом
+ */
+TEST(ContextTest, Resume){
+	// Подлинность стороны сервера
+	context::credential_t credentials;
+	// Выполняем выработку подлинности стороны сервера
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Билеты возобновления связи, выданные первой связью
+	vector <context::ticket_t> issued;
+	/**
+	 * Ведём первую связь: она пройдёт полным рукопожатием и выдаст билет
+	 */
+	{
+		// Связь стороны клиента
+		client::context_t client;
+		// Связь стороны сервера
+		server::context_t server;
+		// Устанавливаем подлинность стороны сервера
+		server.credential(credentials);
+		// Выполняем заведение связи стороны сервера
+		ASSERT_EQ(server.start(), context::error_t::NONE);
+		// Выполняем заведение связи стороны клиента
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		// Выполняем проведение рукопожатия сторон связи
+		handshake(client, server);
+		// Проверяем установленность связи обеими сторонами
+		ASSERT_TRUE(client.established() && server.established());
+		// Проверяем, что первая связь билетом не возобновлялась
+		ASSERT_FALSE(client.shared());
+		// Выполняем выдачу билета возобновления связи
+		ASSERT_EQ(server.issue(), context::error_t::NONE);
+		// Выполняем передачу билета возобновления связи клиенту
+		pump(client, server);
+		// Проверяем приём билета возобновления связи клиентом
+		ASSERT_EQ(client.tickets().size(), static_cast <size_t> (1));
+		// Запоминаем билеты, выданные первой связью
+		issued = server.tickets();
+		// Проверяем схождение принятого билета с выданным
+		ASSERT_EQ(client.tickets()[0].secret, issued[0].secret);
+		// Запоминаем принятый клиентом билет возобновления связи
+		issued.push_back(client.tickets()[0]);
+	}
+	// Связь стороны клиента, возобновляющая прошлую
+	client::context_t client;
+	// Связь стороны сервера, признающая выданный билет
+	server::context_t server;
+	// Устанавливаем подлинность стороны сервера
+	server.credential(credentials);
+	// Устанавливаем билеты, признаваемые сервером
+	server.resume(vector <context::ticket_t> {issued[0]});
+	// Предъявляем серверу билет, принятый прошлой связью
+	client.resume(issued[1]);
+	// Выполняем заведение связи стороны сервера
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	// Выполняем заведение связи стороны клиента
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	// Выполняем проведение рукопожатия сторон связи
+	handshake(client, server);
+	// Проверяем установленность связи обеими сторонами
+	ASSERT_TRUE(client.established());
+	// Проверяем установленность связи стороной сервера
+	ASSERT_TRUE(server.established());
+	// Проверяем возобновление связи заранее разделённым ключом
+	ASSERT_TRUE(client.shared());
+	// Проверяем возобновление связи стороной сервера
+	ASSERT_TRUE(server.shared());
+	/**
+	 * При возобновлении связи цепочки сертификатов не бывает вовсе: подлинность
+	 * сторон подтверждена билетом, а не сертификатом
+	 */
+	ASSERT_TRUE(client.peer().empty());
+	// Прикладные данные, отправляемые по возобновлённой связи
+	const string request = "Данные возобновлённой связи";
+	// Выполняем отправку прикладных данных клиентом
+	ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
+	// Выполняем передачу байтов между сторонами связи
+	pump(client, server);
+	// Накопитель, в который помещаются принятые прикладные данные
+	vector <uint8_t> received;
+	// Выполняем получение принятых сервером прикладных данных
+	ASSERT_EQ(server.read(received), context::error_t::NONE);
+	// Проверяем схождение принятых данных с отправленными
+	ASSERT_EQ(string(received.begin(), received.end()), request);
+}
+
+/**
+ * Проверка отвержения билета, сервером не признанного
+ */
+TEST(ContextTest, Unknown){
+	// Подлинность стороны сервера
+	context::credential_t credentials;
+	// Выполняем выработку подлинности стороны сервера
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Связь стороны клиента
+	client::context_t client;
+	// Связь стороны сервера
+	server::context_t server;
+	// Устанавливаем подлинность стороны сервера
+	server.credential(credentials);
+	// Предъявляемый серверу билет возобновления связи
+	context::ticket_t ticket;
+	// Устанавливаем тело предъявляемого билета
+	ticket.identity.assign(32, 0x11);
+	// Устанавливаем ключ предъявляемого билета
+	ticket.secret.assign(32, 0x22);
+	// Предъявляем серверу билет, которого он не выдавал
+	client.resume(ticket);
+	// Выполняем заведение связи стороны сервера
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	// Выполняем заведение связи стороны клиента
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	// Выполняем проведение рукопожатия сторон связи
+	handshake(client, server);
+	/**
+	 * Непризнанный билет связи не рвёт: она идёт полным рукопожатием, будто билета
+	 * и не предъявлялось вовсе
+	 */
+	ASSERT_TRUE(client.established() && server.established());
+	// Проверяем, что связь билетом не возобновлена
+	ASSERT_FALSE(client.shared());
+	// Проверяем, что сервер связь билетом не возобновлял
+	ASSERT_FALSE(server.shared());
+	// Проверяем предъявление сервером цепочки сертификатов
+	ASSERT_EQ(client.peer().size(), static_cast <size_t> (1));
+}
+
+/**
+ * Проверка отвержения билета с испорченной привязкой
+ */
+TEST(ContextTest, Binder){
+	// Подлинность стороны сервера
+	context::credential_t credentials;
+	// Выполняем выработку подлинности стороны сервера
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Билет, признаваемый сервером
+	context::ticket_t known;
+	// Устанавливаем тело признаваемого билета
+	known.identity.assign(32, 0x33);
+	// Устанавливаем ключ признаваемого билета
+	known.secret.assign(32, 0x44);
+	// Билет, предъявляемый клиентом
+	context::ticket_t offered = known;
+	/**
+	 * Портим ключ предъявляемого билета: тело его сервером признаётся, а вот
+	 * привязка, выработанная на ином ключе, не сойдётся
+	 */
+	offered.secret.assign(32, 0x55);
+	// Связь стороны клиента
+	client::context_t client;
+	// Связь стороны сервера
+	server::context_t server;
+	// Устанавливаем подлинность стороны сервера
+	server.credential(credentials);
+	// Устанавливаем билеты, признаваемые сервером
+	server.resume(vector <context::ticket_t> {known});
+	// Предъявляем серверу билет с испорченным ключом
+	client.resume(offered);
+	// Выполняем заведение связи стороны сервера
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	// Выполняем заведение связи стороны клиента
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	// Выполняем проведение рукопожатия сторон связи
+	handshake(client, server);
+	// Проверяем обрыв связи стороной сервера
+	ASSERT_EQ(server.state(), context::state_t::FAILED);
+	// Проверяем отказ, которым связь оборвана
+	ASSERT_EQ(server.error(), context::error_t::SIGNATURE);
+	// Проверяем извещение, которым связь оборвана
+	ASSERT_EQ(server.alert().description, alert::description_t::DECRYPT);
+}
+
+/**
+ * Проверка возобновления связи с просьбою о повторе приветствия
+ */
+TEST(ContextTest, Retried){
+	// Подлинность стороны сервера
+	context::credential_t credentials;
+	// Выполняем выработку подлинности стороны сервера
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Билеты возобновления связи, выданные первой связью
+	vector <context::ticket_t> issued;
+	// Билет, принятый клиентом первой связи
+	context::ticket_t accepted;
+	/**
+	 * Ведём первую связь: она пройдёт полным рукопожатием и выдаст билет
+	 */
+	{
+		// Связь стороны клиента
+		client::context_t client;
+		// Связь стороны сервера
+		server::context_t server;
+		// Устанавливаем подлинность стороны сервера
+		server.credential(credentials);
+		// Выполняем заведение связи стороны сервера
+		ASSERT_EQ(server.start(), context::error_t::NONE);
+		// Выполняем заведение связи стороны клиента
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		// Выполняем проведение рукопожатия сторон связи
+		handshake(client, server);
+		// Проверяем установленность связи обеими сторонами
+		ASSERT_TRUE(client.established() && server.established());
+		// Выполняем выдачу билета возобновления связи
+		ASSERT_EQ(server.issue(), context::error_t::NONE);
+		// Выполняем передачу билета возобновления связи клиенту
+		pump(client, server);
+		// Проверяем приём билета возобновления связи клиентом
+		ASSERT_EQ(client.tickets().size(), static_cast <size_t> (1));
+		// Запоминаем билеты, признаваемые будущим сервером
+		issued = server.tickets();
+		// Запоминаем билет, принятый клиентом первой связи
+		accepted = client.tickets()[0];
+	}
+	// Связь стороны клиента, возобновляющая прошлую
+	client::context_t client;
+	// Связь стороны сервера, признающая выданный билет
+	server::context_t server;
+	// Устанавливаем подлинность стороны сервера
+	server.credential(credentials);
+	// Устанавливаем билеты, признаваемые сервером
+	server.resume(issued);
+	// Предъявляем серверу билет, принятый прошлой связью
+	client.resume(accepted);
+	/**
+	 * Клиент объявляет две кривые обмена ключами, а открытую часть ключа шлёт лишь
+	 * для первой из них: второй кривой сервер и попросит повторить приветствие
+	 */
+	client.groups({extension::group_t::GC256B, extension::group_t::GC512C});
+	// Устанавливаем единственную кривую обмена ключами сервера
+	server.groups({extension::group_t::GC512C});
+	// Выполняем заведение связи стороны сервера
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	// Выполняем заведение связи стороны клиента
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	// Выполняем проведение рукопожатия сторон связи
+	handshake(client, server);
+	// Проверяем установленность связи обеими сторонами
+	ASSERT_TRUE(client.established() && server.established());
+	/**
+	 * Просьба о повторе приветствия возобновлению не мешает: привязка билета
+	 * вырабатывается заново, уже от переписки с просьбою о повторе
+	 */
+	ASSERT_TRUE(client.shared());
+	// Проверяем возобновление связи стороной сервера
+	ASSERT_TRUE(server.shared());
+	// Проверяем отсутствие цепочки сертификатов при возобновлении
+	ASSERT_TRUE(client.peer().empty());
+	// Прикладные данные, отправляемые по возобновлённой связи
+	const string request = "Данные связи, возобновлённой с повтором приветствия";
+	// Выполняем отправку прикладных данных клиентом
+	ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
+	// Выполняем передачу байтов между сторонами связи
+	pump(client, server);
+	// Накопитель, в который помещаются принятые прикладные данные
+	vector <uint8_t> received;
+	// Выполняем получение принятых сервером прикладных данных
+	ASSERT_EQ(server.read(received), context::error_t::NONE);
+	// Проверяем схождение принятых данных с отправленными
+	ASSERT_EQ(string(received.begin(), received.end()), request);
+}
+
+/**
+ * @brief Служебные объекты проверок упреждающих данных
+ *
+ */
+namespace {
+	/**
+	 * @brief Метод проведения связи, выдающей билет возобновления
+	 *
+	 * @param credentials подлинность стороны сервера
+	 * @param issued      перечень, в который помещается билет, признаваемый сервером
+	 * @param accepted    билет, в который помещается принятый клиентом
+	 *
+	 * @return            признак успешности выдачи билета возобновления связи
+	 *
+	 */
+	bool granted(const context::credential_t & credentials, vector <context::ticket_t> & issued, context::ticket_t & accepted) noexcept {
+		// Связь стороны клиента
+		client::context_t client;
+		// Связь стороны сервера
+		server::context_t server;
+		// Устанавливаем подлинность стороны сервера
+		server.credential(credentials);
+		// Если связь стороны сервера завести не удалось
+		if(server.start() != context::error_t::NONE)
+			// Выводим отказ выдачи билета возобновления связи
+			return false;
+		// Если связь стороны клиента завести не удалось
+		if(client.start() != context::error_t::NONE)
+			// Выводим отказ выдачи билета возобновления связи
+			return false;
+		// Выполняем проведение рукопожатия сторон связи
+		handshake(client, server);
+		// Если рукопожатие сторонами связи не пройдено
+		if(!client.established() || !server.established())
+			// Выводим отказ выдачи билета возобновления связи
+			return false;
+		// Если билет возобновления связи выдать не удалось
+		if(server.issue() != context::error_t::NONE)
+			// Выводим отказ выдачи билета возобновления связи
+			return false;
+		// Выполняем передачу билета возобновления связи клиенту
+		pump(client, server);
+		// Если билет возобновления связи клиентом не принят
+		if(client.tickets().empty())
+			// Выводим отказ выдачи билета возобновления связи
+			return false;
+		// Запоминаем билеты, признаваемые будущим сервером
+		issued = server.tickets();
+		// Запоминаем билет, принятый клиентом связи
+		accepted = client.tickets()[0];
+		// Выводим успешность выдачи билета возобновления связи
+		return true;
+	}
+};
+
+/**
+ * Проверка упреждающих данных, принятых сервером
+ */
+TEST(ContextTest, Advance){
+	// Подлинность стороны сервера
+	context::credential_t credentials;
+	// Выполняем выработку подлинности стороны сервера
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Билеты, признаваемые сервером возобновляемой связи
+	vector <context::ticket_t> issued;
+	// Билет, принятый клиентом прошлой связи
+	context::ticket_t accepted;
+	// Выполняем проведение связи, выдающей билет возобновления
+	ASSERT_TRUE(granted(credentials, issued, accepted));
+	// Связь стороны клиента, возобновляющая прошлую
+	client::context_t client;
+	// Связь стороны сервера, признающая выданный билет
+	server::context_t server;
+	// Устанавливаем подлинность стороны сервера
+	server.credential(credentials);
+	// Устанавливаем билеты, признаваемые сервером
+	server.resume(issued);
+	// Устанавливаем приём упреждающих данных сервером
+	server.advance(true);
+	// Предъявляем серверу билет, принятый прошлой связью
+	client.resume(accepted);
+	// Устанавливаем предложение упреждающих данных сервером
+	client.advance(true);
+	// Выполняем заведение связи стороны сервера
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	// Выполняем заведение связи стороны клиента
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	// Прикладные данные, отправляемые вместе с приветствием клиента
+	const string request = "Упреждающие данные, посланные до ответа сервера";
+	/**
+	 * Отправляем прикладные данные, не дождавшись ответа сервера: связь на этот миг
+	 * ещё не установлена, и ключи их выведены из одного лишь билета
+	 */
+	ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
+	// Проверяем, что связь на миг отправки ещё не установлена
+	ASSERT_FALSE(client.established());
+	// Выполняем проведение рукопожатия сторон связи
+	handshake(client, server);
+	// Проверяем установленность связи обеими сторонами
+	ASSERT_TRUE(client.established() && server.established());
+	// Проверяем возобновление связи заранее разделённым ключом
+	ASSERT_TRUE(client.shared() && server.shared());
+	// Проверяем приём упреждающих данных сервером
+	ASSERT_TRUE(client.accepted());
+	// Накопитель, в который помещаются принятые прикладные данные
+	vector <uint8_t> received;
+	// Выполняем получение принятых сервером прикладных данных
+	ASSERT_EQ(server.read(received), context::error_t::NONE);
+	// Проверяем схождение принятых упреждающих данных с отправленными
+	ASSERT_EQ(string(received.begin(), received.end()), request);
+	// Прикладные данные, отправляемые по установленной связи
+	const string answer = "Ответ по установленной связи";
+	// Выполняем отправку прикладных данных сервером
+	ASSERT_EQ(server.write(view_t(reinterpret_cast <const uint8_t *> (answer.data()), answer.size())), context::error_t::NONE);
+	// Выполняем передачу байтов между сторонами связи
+	pump(client, server);
+	// Выполняем получение принятых клиентом прикладных данных
+	ASSERT_EQ(client.read(received), context::error_t::NONE);
+	// Проверяем схождение принятых данных с отправленными
+	ASSERT_EQ(string(received.begin(), received.end()), answer);
+}
+
+/**
+ * Проверка упреждающих данных, сервером отвергнутых
+ */
+TEST(ContextTest, Rejected){
+	// Подлинность стороны сервера
+	context::credential_t credentials;
+	// Выполняем выработку подлинности стороны сервера
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Билеты, признаваемые сервером возобновляемой связи
+	vector <context::ticket_t> issued;
+	// Билет, принятый клиентом прошлой связи
+	context::ticket_t accepted;
+	// Выполняем проведение связи, выдающей билет возобновления
+	ASSERT_TRUE(granted(credentials, issued, accepted));
+	// Связь стороны клиента, возобновляющая прошлую
+	client::context_t client;
+	// Связь стороны сервера, признающая выданный билет
+	server::context_t server;
+	// Устанавливаем подлинность стороны сервера
+	server.credential(credentials);
+	// Устанавливаем билеты, признаваемые сервером
+	server.resume(issued);
+	/**
+	 * Приём упреждающих данных сервером не объявляется: связь пройдёт возобновлением,
+	 * а посланное упреждением пропадёт
+	 */
+	server.advance(false);
+	// Предъявляем серверу билет, принятый прошлой связью
+	client.resume(accepted);
+	// Устанавливаем предложение упреждающих данных сервером
+	client.advance(true);
+	// Выполняем заведение связи стороны сервера
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	// Выполняем заведение связи стороны клиента
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	// Прикладные данные, отправляемые вместе с приветствием клиента
+	const string request = "Упреждающие данные, которые сервер не примет";
+	// Выполняем отправку упреждающих данных клиентом
+	ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
+	// Выполняем проведение рукопожатия сторон связи
+	handshake(client, server);
+	/**
+	 * Отвергнутые упреждающие данные связи не рвут: их записи сервер пропускает, а
+	 * рукопожатие идёт своим чередом
+	 */
+	ASSERT_TRUE(client.established() && server.established());
+	// Проверяем возобновление связи заранее разделённым ключом
+	ASSERT_TRUE(client.shared() && server.shared());
+	// Проверяем отвержение упреждающих данных сервером
+	ASSERT_FALSE(client.accepted());
+	// Накопитель, в который помещаются принятые прикладные данные
+	vector <uint8_t> received;
+	// Выполняем получение принятых сервером прикладных данных
+	ASSERT_EQ(server.read(received), context::error_t::NONE);
+	// Проверяем, что отвергнутые упреждающие данные сервера не достигли
+	ASSERT_TRUE(received.empty());
+	// Прикладные данные, отправляемые по установленной связи
+	const string repeated = "Те же данные, посланные заново по установленной связи";
+	// Выполняем отправку прикладных данных клиентом
+	ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (repeated.data()), repeated.size())), context::error_t::NONE);
+	// Выполняем передачу байтов между сторонами связи
+	pump(client, server);
+	// Выполняем получение принятых сервером прикладных данных
+	ASSERT_EQ(server.read(received), context::error_t::NONE);
+	// Проверяем схождение принятых данных с отправленными
+	ASSERT_EQ(string(received.begin(), received.end()), repeated);
+}
+
+/**
+ * Проверка отвержения упреждающих данных вне возобновления связи
+ */
+TEST(ContextTest, Untimely){
+	// Связь стороны клиента
+	client::context_t client;
+	// Устанавливаем предложение упреждающих данных сервером
+	client.advance(true);
+	// Выполняем заведение связи стороны клиента
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	/**
+	 * Без билета возобновления связи упреждающих данных не бывает: ключи их выводить
+	 * не из чего, и отправка их отвергается состоянием связи
+	 */
+	ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> ("test"), 4)), context::error_t::STATE);
+}
+
+/**
+ * Проверка выбора прикладного протокола и приёма имени узла сервером
+ */
+TEST(ContextTest, Protocol){
+	// Подлинность стороны сервера
+	context::credential_t credentials;
+	// Выполняем выработку подлинности стороны сервера
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Связь стороны клиента
+	client::context_t client;
+	// Связь стороны сервера
+	server::context_t server;
+	// Устанавливаем подлинность стороны сервера
+	server.credential(credentials);
+	// Устанавливаем имя узла, за которым идёт клиент
+	client.name("anyks.com");
+	// Устанавливаем прикладные протоколы, предлагаемые клиентом
+	client.protocols({"http/1.1", "h2"});
+	/**
+	 * Порядок сервера обратен порядку клиента: раздел 3.2 RFC 7301 отдаёт выбор
+	 * серверу, и выбран должен быть протокол, стоящий первым именно у него
+	 */
+	server.protocols({"h2", "http/1.1"});
+	// Выполняем заведение связи стороны сервера
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	// Выполняем заведение связи стороны клиента
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	// Выполняем проведение рукопожатия сторон связи
+	handshake(client, server);
+	// Проверяем установленность связи стороной клиента
+	ASSERT_TRUE(client.established());
+	// Проверяем установленность связи стороной сервера
+	ASSERT_TRUE(server.established());
+	// Проверяем выбор прикладного протокола сервером
+	ASSERT_EQ(server.protocol(), "h2");
+	// Проверяем схождение прикладного протокола сторон связи
+	ASSERT_EQ(client.protocol(), server.protocol());
+	// Проверяем приём сервером имени узла, за которым пришёл клиент
+	ASSERT_EQ(server.name(), "anyks.com");
+}
+
+/**
+ * Проверка обрыва связи при отсутствии общего прикладного протокола
+ */
+TEST(ContextTest, Mismatch){
+	// Подлинность стороны сервера
+	context::credential_t credentials;
+	// Выполняем выработку подлинности стороны сервера
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Связь стороны клиента
+	client::context_t client;
+	// Связь стороны сервера
+	server::context_t server;
+	// Устанавливаем подлинность стороны сервера
+	server.credential(credentials);
+	// Устанавливаем прикладные протоколы, предлагаемые клиентом
+	client.protocols({"http/1.1"});
+	// Устанавливаем прикладные протоколы, признаваемые сервером
+	server.protocols({"h2"});
+	// Выполняем заведение связи стороны сервера
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	// Выполняем заведение связи стороны клиента
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	// Выполняем проведение рукопожатия сторон связи
+	handshake(client, server);
+	// Проверяем обрыв связи стороной сервера
+	ASSERT_EQ(server.error(), context::error_t::PROTOCOL);
+	/**
+	 * Раздел 3.2 RFC 7301: отсутствие общего протокола объявляется извещением
+	 * «no_application_protocol» с числом 120
+	 */
+	ASSERT_EQ(server.alert().description, alert::description_t::PROTOCOL);
+	// Проверяем неустановленность связи стороной клиента
+	ASSERT_FALSE(client.established());
+	// Проверяем, что прикладного протокола связь не выбрала
+	ASSERT_TRUE(server.protocol().empty());
+}
+
+/**
+ * Проверка отвержения клиентом протокола, которого он не предлагал
+ */
+TEST(ContextTest, Foreign){
+	// Подлинность стороны сервера
+	context::credential_t credentials;
+	// Выполняем выработку подлинности стороны сервера
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Связь стороны клиента
+	client::context_t client;
+	// Связь стороны сервера
+	server::context_t server;
+	// Устанавливаем подлинность стороны сервера
+	server.credential(credentials);
+	// Устанавливаем прикладные протоколы, предлагаемые клиентом
+	client.protocols({"h2"});
+	// Устанавливаем прикладные протоколы, признаваемые сервером
+	server.protocols({"h2"});
+	// Выполняем заведение связи стороны сервера
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	// Выполняем заведение связи стороны клиента
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	/**
+	 * Приветствие клиента составлено заведением связи и уже лежит в накопителе: сменив
+	 * перечень теперь, мы получаем сервер, отвечающий протоколом, которого связь клиента
+	 * не предлагала, - именно этот случай раздел 3.2 RFC 7301 и запрещает принимать
+	 */
+	client.protocols({"http/1.1"});
+	// Выполняем проведение рукопожатия сторон связи
+	handshake(client, server);
+	// Проверяем обрыв связи стороной клиента
+	ASSERT_EQ(client.error(), context::error_t::PROTOCOL);
+	// Проверяем извещение, которым связь оборвана клиентом
+	ASSERT_EQ(client.alert().description, alert::description_t::PROTOCOL);
+	// Проверяем неустановленность связи стороной клиента
+	ASSERT_FALSE(client.established());
+	// Проверяем, что прикладного протокола клиент не принял
+	ASSERT_TRUE(client.protocol().empty());
+}

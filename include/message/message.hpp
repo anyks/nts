@@ -183,6 +183,47 @@ namespace anyks {
 
 		/**
 		 * \~russian
+		 * @brief Билет возобновления связи
+		 *
+		 * @details Раздел 4.6.1 RFC 8446: сервер выдаёт билет за рукопожатием, а клиент
+		 *          предъявляет его будущей связи вместо полного обмена ключами
+		 *
+		 * @note Значения билета смотрят внутрь разобранного сообщения
+		 *
+		 * \~english
+		 * @brief Ticket of the resumption of a connection
+		 * @details The section 4.6.1 of RFC 8446: the server issues a ticket after the handshake, and the
+		 *          client presents it to a future connection instead of a full key exchange
+		 * @note The values of the ticket look inside the parsed message
+		 *
+		 * \~
+		 */
+		typedef struct __ANYKS_TLS_SHARED_EXPORT__ Ticket {
+			// Срок жизни билета в секундах
+			uint32_t lifetime;
+			// Добавка к возрасту билета, скрывающая его от посторонних
+			uint32_t age;
+			// Неповторимое значение билета, разводящее ключи билетов одной связи
+			view_t nonce;
+			// Тело билета, опознающее связь для выдавшего его сервера
+			view_t data;
+			// Перечень расширений билета
+			vector <hello::extension_t> extensions;
+			/**
+			 * \~russian
+			 * @brief Конструктор
+			 *
+			 *
+			 * \~english
+			 * @brief Constructor
+			 *
+			 * \~
+			 */
+			Ticket() noexcept : lifetime(0), age(0) {}
+		} ticket_t;
+
+		/**
+		 * \~russian
 		 * @brief Виды смены ключевого материала связи
 		 *
 		 * @details Раздел 4.6.3 RFC 8446: перечисление KeyUpdateRequest
@@ -429,6 +470,48 @@ namespace anyks {
 		 * \~
 		 */
 		__ANYKS_TLS_SHARED_EXPORT__ error_t build(const update_t update, vector <uint8_t> & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод разбора тела сообщения билета возобновления связи
+		 *
+		 * @param data   разбираемое тело сообщения
+		 * @param result билет, в который помещается итог разбора
+		 *
+		 * @return       отказ разбора тела сообщения
+		 *
+		 * \~english
+		 * @brief Method of the parsing of the body of the message of a ticket of the resumption
+		 * @param data   the body of the message being parsed
+		 * @param result the ticket the outcome of the parsing is put into
+		 * @return       the failure of the parsing of the body of the message
+		 *
+		 * \~
+		 */
+		__ANYKS_TLS_SHARED_EXPORT__ error_t parse(const view_t & data, ticket_t & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод составления тела сообщения билета возобновления связи
+		 *
+		 * @param ticket составляемый билет возобновления связи
+		 * @param result накопитель, в который складывается тело сообщения
+		 *
+		 * @return       отказ составления тела сообщения
+		 *
+		 * @note Пустое тело билета отвергается: раздел 4.6.1 RFC 8446 велит билету занимать
+		 *       хотя бы один байт, а опознать связь по пустому билету всё равно нечем
+		 *
+		 * \~english
+		 * @brief Method of the composition of the body of the message of a ticket of the resumption
+		 * @param ticket the ticket of the resumption being composed
+		 * @param result the accumulator the body of the message is put into
+		 * @return       the failure of the composition of the body of the message
+		 * @note An empty body of a ticket is rejected: the section 4.6.1 of RFC 8446 orders a ticket to
+		 *       occupy at least one byte, and there is nothing to identify a connection by an empty
+		 *       ticket anyway
+		 *
+		 * \~
+		 */
+		__ANYKS_TLS_SHARED_EXPORT__ error_t build(const ticket_t & ticket, vector <uint8_t> & result) noexcept;
 	};
 };
 

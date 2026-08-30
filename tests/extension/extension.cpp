@@ -343,3 +343,144 @@ TEST(ExtensionTest, Reject){
 	// Проверяем схождение содержимого разобранной метки с составленной
 	ASSERT_EQ(::memcmp(cookie.data, sample, cookie.size), 0);
 }
+
+/**
+ * Проверка разбора и составления предложения заранее разделённых ключей
+ */
+TEST(ExtensionTest, Identities){
+	// Опознаватели предлагаемых заранее разделённых ключей
+	const uint8_t first[4] = {0x01, 0x02, 0x03, 0x04}, second[3] = {0x0A, 0x0B, 0x0C};
+	// Привязки предлагаемых заранее разделённых ключей
+	uint8_t binder[32], element[32];
+	// Выполняем заполнение привязки первого ключа
+	::memset(binder, 0x11, sizeof(binder));
+	// Выполняем заполнение привязки второго ключа
+	::memset(element, 0x22, sizeof(element));
+	// Составляемый перечень опознавателей ключей
+	const vector <extension::identity_t> identities = {
+		extension::identity_t(view_t(first, sizeof(first)), 0x01020304),
+		extension::identity_t(view_t(second, sizeof(second)), 0x05060708)
+	};
+	// Составляемый перечень привязок ключей
+	const vector <view_t> binders = {view_t(binder, sizeof(binder)), view_t(element, sizeof(element))};
+	// Накопитель, в который складывается тело расширения
+	vector <uint8_t> body;
+	// Выполняем составление предложения заранее разделённых ключей
+	ASSERT_EQ(extension::identities(identities, binders, body), extension::error_t::NONE);
+	// Разбираемый перечень опознавателей ключей
+	vector <extension::identity_t> parsed;
+	// Разбираемый перечень привязок ключей
+	vector <view_t> items;
+	// Длина усечения приветствия от начала тела расширения
+	size_t truncation = 0;
+	// Выполняем разбор составленного предложения ключей
+	ASSERT_EQ(extension::identities(view_t(body.data(), body.size()), parsed, items, truncation), extension::error_t::NONE);
+	// Проверяем число разобранных опознавателей ключей
+	ASSERT_EQ(parsed.size(), static_cast <size_t> (2));
+	// Проверяем число разобранных привязок ключей
+	ASSERT_EQ(items.size(), static_cast <size_t> (2));
+	/**
+	 * Длина усечения отсчитывается до перечня привязок: за нею идут два байта длины
+	 * перечня и сами привязки, длиною в байт и тридцать два байта всякая
+	 */
+	ASSERT_EQ(truncation, body.size() - (2 + (2 * (1 + 32))));
+	// Проверяем длину первого разобранного опознавателя ключа
+	ASSERT_EQ(parsed[0].identity.size, sizeof(first));
+	// Проверяем схождение первого разобранного опознавателя с составленным
+	ASSERT_EQ(::memcmp(parsed[0].identity.data, first, sizeof(first)), 0);
+	// Проверяем скрытый возраст первого разобранного билета
+	ASSERT_EQ(parsed[0].age, static_cast <uint32_t> (0x01020304));
+	// Проверяем схождение второго разобранного опознавателя с составленным
+	ASSERT_EQ(::memcmp(parsed[1].identity.data, second, sizeof(second)), 0);
+	// Проверяем скрытый возраст второго разобранного билета
+	ASSERT_EQ(parsed[1].age, static_cast <uint32_t> (0x05060708));
+	// Проверяем схождение первой разобранной привязки с составленной
+	ASSERT_EQ(::memcmp(items[0].data, binder, sizeof(binder)), 0);
+	// Проверяем схождение второй разобранной привязки с составленной
+	ASSERT_EQ(::memcmp(items[1].data, element, sizeof(element)), 0);
+	// Проверяем отказ составления предложения с пустым перечнем ключей
+	ASSERT_EQ(extension::identities(vector <extension::identity_t> (), binders, body), extension::error_t::EMPTY);
+	// Проверяем отказ составления предложения без привязок ключей
+	ASSERT_EQ(extension::identities(identities, vector <view_t> (), body), extension::error_t::EMPTY);
+}
+
+/**
+ * Проверка разбора и составления выбранного сервером ключа
+ */
+TEST(ExtensionTest, Chosen){
+	// Накопитель, в который складывается тело расширения
+	vector <uint8_t> body;
+	// Выполняем составление выбранного сервером ключа
+	ASSERT_EQ(extension::chosen(static_cast <uint16_t> (1), body), extension::error_t::NONE);
+	// Проверяем длину составленного тела расширения
+	ASSERT_EQ(body.size(), static_cast <size_t> (2));
+	// Место выбранного ключа в предложении клиента
+	uint16_t chosen = 0;
+	// Выполняем разбор составленного тела расширения
+	ASSERT_EQ(extension::chosen(view_t(body.data(), body.size()), chosen), extension::error_t::NONE);
+	// Проверяем разобранное место выбранного ключа
+	ASSERT_EQ(chosen, static_cast <uint16_t> (1));
+}
+
+/**
+ * Проверка разбора и составления перечня прикладных протоколов
+ */
+TEST(ExtensionTest, Protocols){
+	// Накопитель, в который складывается тело расширения
+	vector <uint8_t> body;
+	// Перечень составляемых прикладных протоколов
+	const vector <string> offer = {"h2", "http/1.1"};
+	// Выполняем составление перечня прикладных протоколов
+	ASSERT_EQ(extension::protocols(offer, body), extension::error_t::NONE);
+	// Проверяем длину составленного тела расширения
+	ASSERT_EQ(body.size(), static_cast <size_t> (2 + 1 + 2 + 1 + 8));
+	// Проверяем длину перечня прикладных протоколов
+	ASSERT_EQ(static_cast <size_t> ((body[0] << 8) | body[1]), body.size() - 2);
+	// Перечень разобранных прикладных протоколов
+	vector <string> protocols;
+	// Выполняем разбор составленного тела расширения
+	ASSERT_EQ(extension::protocols(view_t(body.data(), body.size()), protocols), extension::error_t::NONE);
+	// Проверяем схождение разобранного перечня с составленным
+	ASSERT_EQ(protocols, offer);
+	// Проверяем отказ составления перечня из пустого набора протоколов
+	ASSERT_EQ(extension::protocols(vector <string> (), body), extension::error_t::EMPTY);
+	// Проверяем отказ составления перечня с пустым названием протокола
+	ASSERT_EQ(extension::protocols(vector <string> (1, string()), body), extension::error_t::EMPTY);
+	// Тело расширения с пустым названием прикладного протокола
+	const uint8_t empty[3] = {0x00, 0x01, 0x00};
+	// Выполняем сброс перечня разобранных прикладных протоколов
+	protocols.clear();
+	// Проверяем отказ разбора пустого названия прикладного протокола
+	ASSERT_EQ(extension::protocols(view_t(empty, sizeof(empty)), protocols), extension::error_t::EMPTY);
+	// Тело расширения, оборванное посреди названия протокола
+	const uint8_t torn[4] = {0x00, 0x03, 0x04, 0x68};
+	// Проверяем отказ разбора оборванного тела расширения
+	ASSERT_EQ(extension::protocols(view_t(torn, sizeof(torn)), protocols), extension::error_t::HUNGRY);
+}
+
+/**
+ * Проверка разбора и составления выбранного прикладного протокола
+ */
+TEST(ExtensionTest, Protocol){
+	// Накопитель, в который складывается тело расширения
+	vector <uint8_t> body;
+	// Выполняем составление выбранного прикладного протокола
+	ASSERT_EQ(extension::protocol(string("h2"), body), extension::error_t::NONE);
+	// Название разобранного прикладного протокола
+	string protocol;
+	// Выполняем разбор составленного тела расширения
+	ASSERT_EQ(extension::protocol(view_t(body.data(), body.size()), protocol), extension::error_t::NONE);
+	// Проверяем схождение разобранного протокола с составленным
+	ASSERT_EQ(protocol, "h2");
+	// Проверяем отказ составления пустого названия протокола
+	ASSERT_EQ(extension::protocol(string(), body), extension::error_t::EMPTY);
+	// Выполняем сброс накопителя тела расширения
+	body.clear();
+	// Выполняем составление перечня из двух прикладных протоколов
+	ASSERT_EQ(extension::protocols(vector <string> {"h2", "http/1.1"}, body), extension::error_t::NONE);
+	/**
+	 * Раздел 3.1 RFC 7301: ответом сервера идёт ровно один протокол, и перечень из
+	 * двух в ответе - это уже не выбор
+	 */
+	ASSERT_EQ(extension::protocol(view_t(body.data(), body.size()), protocol), extension::error_t::LENGTH);
+}

@@ -172,6 +172,73 @@ namespace {
 		return true;
 	}
 	/**
+	 * @brief Метод извлечения тела расширения из записи перечня расширений
+	 *
+	 * @param data   разбираемая запись перечня расширений
+	 * @param type   разыскиваемый вид расширения
+	 * @param result просмотр, в который помещается тело найденного расширения
+	 *
+	 * @return       признак того, что расширение в перечне объявлено
+	 *
+	 */
+	static bool announced(const view_t & data, const uint16_t type, view_t & result) noexcept {
+		// Объект разборщика записи перечня расширений
+		field::scanner_t scanner;
+		// Устанавливаем разбираемую запись перечня расширений
+		scanner.start(data);
+		// Содержимое перечня расширений
+		view_t body;
+		// Если перечень расширений прочитать не удалось
+		if(scanner.vector(body, 2) != field::error_t::NONE)
+			// Выводим признак того, что расширение не объявлено
+			return false;
+		// Объект разборщика записей перечня расширений
+		field::scanner_t reader;
+		// Устанавливаем разбираемое содержимое перечня расширений
+		reader.start(body);
+		/**
+		 * Выполняем перебор объявленных расширений перечня
+		 */
+		while(reader.left() > 0){
+			// Вид очередного расширения перечня
+			uint32_t item = 0;
+			// Если вид расширения прочитать не удалось
+			if(reader.number(item, 2) != field::error_t::NONE)
+				// Выводим признак того, что расширение не объявлено
+				return false;
+			// Тело очередного расширения перечня
+			view_t content;
+			// Если тело расширения прочитать не удалось
+			if(reader.vector(content, 2) != field::error_t::NONE)
+				// Выводим признак того, что расширение не объявлено
+				return false;
+			// Если вид расширения совпал с разыскиваемым
+			if(static_cast <uint16_t> (item) == type){
+				// Устанавливаем тело найденного расширения
+				result = content;
+				// Выводим признак того, что расширение объявлено
+				return true;
+			}
+		}
+		// Выводим признак того, что расширение не объявлено
+		return false;
+	}
+	/**
+	 * @brief Метод разыскания расширения в записи перечня расширений
+	 *
+	 * @param data разбираемая запись перечня расширений
+	 * @param type разыскиваемый вид расширения
+	 *
+	 * @return     признак того, что расширение в перечне объявлено
+	 *
+	 */
+	static bool declared(const view_t & data, const uint16_t type) noexcept {
+		// Тело разыскиваемого расширения перечня
+		view_t content;
+		// Выводим признак того, что расширение в перечне объявлено
+		return announced(data, type, content);
+	}
+	/**
 	 * @brief Метод поиска схемы подписи по опознавателю набора параметров кривой
 	 *
 	 * @param oid    опознаватель набора параметров кривой открытого ключа
@@ -243,8 +310,21 @@ context::error_t anyks::internal::Engine::emit(const record::type_t type, const 
 	 * Выполняем складывание записи в накопитель
 	 */
 	try {
+		/**
+		 * Записи упреждающих данных защищаются своими ключами: сервер о них ещё
+		 * ничего не ответил, и ключей рукопожатия у клиента на этот миг нет вовсе
+		 */
+		if(!this->_server && this->_earlying){
+			// Накопитель, в который складывается защищённая запись
+			vector <uint8_t> sealed;
+			// Если наложить защиту упреждающих данных на запись не удалось
+			if(this->_early.seal(type, data, sealed) != protect::error_t::NONE)
+				// Выводим отказ наложения защиты на запись
+				return context::error_t::PROTECTION;
+			// Выполняем складывание защищённой записи в накопитель
+			this->_wire.insert(this->_wire.end(), sealed.begin(), sealed.end());
 		// Если записи своей стороны защищены ключами связи
-		if(this->_machine.epoch(side) != flow::epoch_t::PLAIN){
+		} else if(this->_machine.epoch(side) != flow::epoch_t::PLAIN){
 			// Накопитель, в который складывается защищённая запись
 			vector <uint8_t> sealed;
 			// Если наложить защиту на запись не удалось
@@ -374,8 +454,11 @@ context::error_t anyks::internal::Engine::derive(const view_t & key) noexcept {
 	uint8_t transcript[schedule::SCHEDULE_SECRET];
 	// Признак успешности вывода ключей рукопожатия связи
 	bool ok = (this->_transcript.digest(transcript) == session::error_t::NONE);
-	// Если хеш переписки рукопожатия получен
-	if(ok)
+	/**
+	 * Начальная ступень расписания ключей заводится лишь тогда, когда её ещё нет:
+	 * при возобновлении связи билетом в неё уже вложен заранее разделённый ключ
+	 */
+	if(ok && (this->_secrets.stage() == session::stage_t::NONE))
 		// Выполняем заведение начальной ступени расписания ключей
 		ok = (this->_secrets.start(view_t(nullptr, 0)) == session::error_t::NONE);
 	// Если начальная ступень расписания ключей заведена
@@ -435,7 +518,7 @@ context::error_t anyks::internal::Engine::derive(const view_t & key) noexcept {
  * @return отказ вывода ключей прикладных данных
  *
  */
-context::error_t anyks::internal::Engine::advance() noexcept {
+context::error_t anyks::internal::Engine::mature() noexcept {
 	// Место, в которое помещается хеш переписки рукопожатия
 	uint8_t transcript[schedule::SCHEDULE_SECRET];
 	// Если хеш переписки рукопожатия получить не удалось
@@ -458,6 +541,62 @@ context::error_t anyks::internal::Engine::advance() noexcept {
 			return context::error_t::SCHEDULE;
 	}
 	// Выводим успешность вывода ключей прикладных данных связи
+	return context::error_t::NONE;
+}
+/**
+ * @brief Метод заведения защиты записей упреждающих данных
+ *
+ * @return отказ заведения защиты записей упреждающих данных
+ *
+ */
+context::error_t anyks::internal::Engine::earliest() noexcept {
+	/**
+	 * Ключи упреждающих данных выводятся набором шифрования билета, а не набором
+	 * этой связи: раздел 4.2.10 RFC 8446 велит брать тот, каким билет выдан, - иного
+	 * согласования на этот миг ещё и не было
+	 */
+	if(protect::block(this->_ticket) == 0)
+		// Выводим отказ неизвестности набора шифрования билета
+		return context::error_t::SUITE;
+	// Место, в которое помещается хеш переписки рукопожатия
+	uint8_t transcript[schedule::SCHEDULE_SECRET];
+	// Если хеш переписки рукопожатия получить не удалось
+	if(this->_transcript.digest(transcript) != session::error_t::NONE)
+		// Выводим отказ ведения переписки рукопожатия
+		return context::error_t::SCHEDULE;
+	// Если значение упреждающих данных вывести не удалось
+	if(this->_secrets.early(view_t(transcript, sizeof(transcript))) != session::error_t::NONE)
+		// Выводим отказ вывода значения расписания ключей
+		return context::error_t::SCHEDULE;
+	// Значение упреждающих данных связи
+	uint8_t traffic[schedule::SCHEDULE_SECRET];
+	// Если значение упреждающих данных получить не удалось
+	if(this->_secrets.early(traffic) != session::error_t::NONE)
+		// Выводим отказ вывода значения расписания ключей
+		return context::error_t::SCHEDULE;
+	// Место, в которое помещается корневой ключ упреждающих данных
+	uint8_t material[protect::PROTECT_KEY];
+	// Место, в которое помещается вектор замены упреждающих данных
+	uint8_t element[protect::PROTECT_VECTOR];
+	// Признак успешности вывода ключевого материала упреждающих данных
+	bool ok = (session::material(view_t(traffic, sizeof(traffic)), this->_ticket, material, element) == session::error_t::NONE);
+	// Если ключевой материал упреждающих данных выведен
+	if(ok)
+		// Выполняем установку ключевого материала упреждающих данных
+		ok = this->_early.start(this->_ticket, view_t(material, sizeof(material)), view_t(element, protect::block(this->_ticket)));
+	// Выполняем затирание вектора замены упреждающих данных
+	wipe(element, sizeof(element));
+	// Выполняем затирание корневого ключа упреждающих данных
+	wipe(material, sizeof(material));
+	// Выполняем затирание значения упреждающих данных связи
+	wipe(traffic, sizeof(traffic));
+	// Если ключевой материал упреждающих данных установить не удалось
+	if(!ok)
+		// Выводим отказ установки ключевого материала
+		return context::error_t::SCHEDULE;
+	// Запоминаем, что упреждающие данные идут прямо сейчас
+	this->_earlying = true;
+	// Выводим успешность заведения защиты записей упреждающих данных
 	return context::error_t::NONE;
 }
 /**
@@ -525,7 +664,7 @@ context::error_t anyks::internal::Engine::greeting() noexcept {
 		// Добавляем очередной набор шифрования в приветствие
 		greeting.suites.push_back(static_cast <uint16_t> (this->_suites[i]));
 	// Накопители, в которых лежат тела расширений приветствия
-	vector <uint8_t> versions, groups, schemes, shares, name;
+	vector <uint8_t> versions, groups, schemes, shares, name, protocols;
 	// Если перечень изданий протокола составить не удалось
 	if(extension::versions(vector <uint16_t> {0x0304}, versions) != extension::error_t::NONE)
 		// Выводим отказ составления расширения приветствия
@@ -563,14 +702,128 @@ context::error_t anyks::internal::Engine::greeting() noexcept {
 		// Добавляем расширение имени запрашиваемого узла
 		greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::NAME), view_t(name.data(), name.size())));
 	}
+	// Если прикладные протоколы связью предлагаются
+	if(!this->_protocols.empty()){
+		// Если перечень прикладных протоколов составить не удалось
+		if(extension::protocols(this->_protocols, protocols) != extension::error_t::NONE)
+			// Выводим отказ составления расширения приветствия
+			return context::error_t::MESSAGE;
+		// Добавляем расширение перечня прикладных протоколов
+		greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::PROTOCOLS), view_t(protocols.data(), protocols.size())));
+	}
+	// Накопители, в которых лежат тела расширений возобновления связи
+	vector <uint8_t> modes, secret;
+	// Место, в которое помещается пустая привязка предъявляемого билета
+	uint8_t empty[schedule::SCHEDULE_SECRET];
+	// Признак того, что билет возобновления связи предъявляется серверу
+	const bool resume = !this->_resume.identity.empty();
+	// Если билет возобновления связи предъявляется серверу
+	if(resume)
+		// Запоминаем набор шифрования предъявляемого билета
+		this->_ticket = this->_resume.suite;
+	// Если билет возобновления связи предъявляется серверу
+	if(resume){
+		// Способы обмена, при которых билет годен связи
+		const vector <extension::mode_t> list = {extension::mode_t::SHARED};
+		// Если перечень способов обмена составить не удалось
+		if(extension::modes(list, modes) != extension::error_t::NONE)
+			// Выводим отказ составления расширения приветствия
+			return context::error_t::MESSAGE;
+		// Добавляем расширение способов обмена заранее разделённым ключом
+		greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::MODES), view_t(modes.data(), modes.size())));
+		// Выполняем обнуление привязки предъявляемого билета
+		::memset(empty, 0, sizeof(empty));
+		// Если упреждающие данные связью предлагаются
+		if(this->_advance)
+			/**
+			 * Расширение упреждающих данных в приветствии пусто: раздел 4.2.10 RFC 8446
+			 * велит объявлять им лишь само намерение, а предел объявлен билетом
+			 */
+			greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::EARLY), view_t(nullptr, 0)));
+		// Опознаватель предъявляемого билета возобновления связи
+		const extension::identity_t identity(view_t(this->_resume.identity.data(), this->_resume.identity.size()), this->_resume.age);
+		// Привязка предъявляемого билета возобновления связи
+		const vector <view_t> binders = {view_t(empty, sizeof(empty))};
+		// Если предложение заранее разделённых ключей составить не удалось
+		if(extension::identities(vector <extension::identity_t> {identity}, binders, secret) != extension::error_t::NONE)
+			// Выводим отказ составления расширения приветствия
+			return context::error_t::MESSAGE;
+		/**
+		 * Расширение заранее разделённых ключей идёт последним: раздел 4.2.11 RFC 8446
+		 * велит ставить его в самый конец, ибо привязка покрывает всё, что идёт до неё
+		 */
+		greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::SECRET), view_t(secret.data(), secret.size())));
+	}
 	// Накопитель, в который складывается тело приветствия клиента
 	vector <uint8_t> body;
 	// Если тело приветствия клиента составить не удалось
 	if(hello::build(greeting, body) != hello::error_t::NONE)
 		// Выводим отказ составления приветствия клиента
 		return context::error_t::MESSAGE;
-	// Выводим итог отправки приветствия клиента
-	return this->send(handshake::type_t::CLIENT, view_t(body.data(), body.size()));
+	// Если билет возобновления связи серверу не предъявляется
+	if(!resume)
+		// Выводим итог отправки приветствия клиента
+		return this->send(handshake::type_t::CLIENT, view_t(body.data(), body.size()));
+	// Объект составителя отправляемых сообщений рукопожатия
+	handshake::writer_t writer;
+	// Если приветствие клиента составить не удалось
+	if(writer.push(handshake::type_t::CLIENT, view_t(body.data(), body.size())) != handshake::error_t::NONE)
+		// Выводим отказ составления приветствия клиента
+		return context::error_t::MESSAGE;
+	// Получаем составленное приветствие клиента
+	const view_t data = writer.data();
+	// Накопитель, в котором приветствие клиента правится привязкой билета
+	vector <uint8_t> message;
+	/**
+	 * Выполняем перенос составленного приветствия клиента
+	 */
+	try {
+		// Выполняем перенос составленного приветствия в накопитель
+		message.assign(data.data, data.data + data.size);
+	// Если памяти под приветствие не хватило
+	} catch(const bad_alloc &) {
+		// Выводим отказ нехватки памяти
+		return context::error_t::MEMORY;
+	}
+	/**
+	 * Приветствие усекается перед перечнем привязок: два байта длины перечня, байт
+	 * длины привязки и сама привязка себя же покрывать не вправе
+	 */
+	const size_t truncation = (message.size() - (sizeof(empty) + 3));
+	// Если начальную ступень расписания ключей завести не удалось
+	if(this->_secrets.start(view_t(this->_resume.secret.data(), this->_resume.secret.size())) != session::error_t::NONE)
+		// Выводим отказ вывода ключевого материала связи
+		return context::error_t::SCHEDULE;
+	// Место, в которое помещается хеш усечённого приветствия клиента
+	uint8_t transcript[schedule::SCHEDULE_SECRET];
+	// Если хеш усечённого приветствия получить не удалось
+	if(this->_transcript.digest(view_t(message.data(), truncation), transcript) != session::error_t::NONE)
+		// Выводим отказ ведения переписки рукопожатия
+		return context::error_t::MESSAGE;
+	// Если привязку предъявляемого билета выработать не удалось
+	if(this->_secrets.binder(view_t(transcript, sizeof(transcript)), message.data() + (message.size() - sizeof(empty))) != session::error_t::NONE)
+		// Выводим отказ выработки привязки билета
+		return context::error_t::SCHEDULE;
+	// Выполняем складывание приветствия клиента в накопитель отправляемых байтов
+	const context::error_t error = this->emit(record::type_t::HANDSHAKE, view_t(message.data(), message.size()));
+	// Если приветствие клиента отправить не удалось
+	if(error != context::error_t::NONE)
+		// Выводим отказ отправки приветствия клиента
+		return error;
+	// Если приветствие в переписку рукопожатия добавить не удалось
+	if(this->_transcript.update(view_t(message.data(), message.size())) != session::error_t::NONE)
+		// Выводим отказ ведения переписки рукопожатия
+		return context::error_t::MESSAGE;
+	// Если приветствие клиента ходу рукопожатия объявить не удалось
+	if(this->_machine.accept(handshake::type_t::CLIENT, session::side_t::CLIENT) != flow::error_t::NONE)
+		// Выводим отказ объявления сообщения не в свой черёд
+		return context::error_t::ORDER;
+	// Если упреждающие данные связью не предлагаются
+	if(!this->_advance)
+		// Выводим успешность отправки приветствия клиента
+		return context::error_t::NONE;
+	// Выводим итог заведения защиты записей упреждающих данных
+	return this->earliest();
 }
 /**
  * @brief Метод отправки приветствия сервера
@@ -626,6 +879,17 @@ context::error_t anyks::internal::Engine::answer(const vector <uint8_t> & sessio
 	answer.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::VERSIONS), view_t(version.data(), version.size())));
 	// Добавляем расширение открытой части ключа обмена
 	answer.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::SHARE), view_t(share.data(), share.size())));
+	// Накопитель, в котором лежит тело расширения выбранного ключа
+	vector <uint8_t> selected;
+	// Если связь возобновляется заранее разделённым ключом
+	if(this->_shared && !retry){
+		// Если выбранный заранее разделённый ключ составить не удалось
+		if(extension::chosen(this->_chosen, selected) != extension::error_t::NONE)
+			// Выводим отказ составления расширения приветствия
+			return context::error_t::MESSAGE;
+		// Добавляем расширение выбранного заранее разделённого ключа
+		answer.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::SECRET), view_t(selected.data(), selected.size())));
+	}
 	// Накопитель, в который складывается тело приветствия сервера
 	vector <uint8_t> body;
 	// Если тело приветствия сервера составить не удалось
@@ -904,6 +1168,134 @@ context::error_t anyks::internal::Engine::confirm(const view_t & body) noexcept 
 	return context::error_t::NONE;
 }
 /**
+ * @brief Метод разбора предложения заранее разделённых ключей клиента
+ *
+ * @param extensions перечень расширений принятого приветствия клиента
+ * @param message    принятое приветствие клиента вместе с обвязкой
+ *
+ * @return           отказ разбора предложения заранее разделённых ключей
+ *
+ */
+context::error_t anyks::internal::Engine::offered(const vector <hello::extension_t> & extensions, const view_t & message) noexcept {
+	// Разыскиваем расширение заранее разделённых ключей клиента
+	const hello::extension_t * offer = hello::extension(extensions, static_cast <uint16_t> (extension::type_t::SECRET));
+	// Если заранее разделённых ключей клиент не предлагает либо признавать их нечем
+	if((offer == nullptr) || this->_store.empty())
+		// Выводим успешность разбора предложения заранее разделённых ключей
+		return context::error_t::NONE;
+	// Разыскиваем расширение способов обмена заранее разделённым ключом
+	const hello::extension_t * item = hello::extension(extensions, static_cast <uint16_t> (extension::type_t::MODES));
+	// Если способы обмена заранее разделённым ключом клиент не объявил
+	if(item == nullptr)
+		// Выводим отказ отсутствия обязательного расширения
+		return this->abort(context::error_t::MESSAGE, alert::description_t::MISSING);
+	// Способы обмена, объявленные клиентом
+	vector <extension::mode_t> modes;
+	// Если способы обмена разобрать не удалось
+	if(extension::modes(item->data, modes) != extension::error_t::NONE)
+		// Выводим отказ разбора расширения приветствия
+		return this->abort(context::error_t::MESSAGE, alert::description_t::DECODE);
+	// Признак того, что обмен ключом кривой вместе с билетом клиентом объявлен
+	bool suitable = false;
+	/**
+	 * Выполняем перебор способов обмена, объявленных клиентом
+	 */
+	for(size_t i = 0; (i < modes.size()) && !suitable; i++)
+		// Запоминаем объявление обмена ключом кривой вместе с билетом
+		suitable = (modes[i] == extension::mode_t::SHARED);
+	/**
+	 * Обмен одним лишь билетом связью не ведётся: без ключа кривой хищение билета
+	 * выдаёт всё, что этим билетом когда-либо защищено
+	 */
+	if(!suitable)
+		// Выводим успешность разбора предложения заранее разделённых ключей
+		return context::error_t::NONE;
+	// Перечень опознавателей заранее разделённых ключей клиента
+	vector <extension::identity_t> identities;
+	// Перечень привязок заранее разделённых ключей клиента
+	vector <view_t> binders;
+	// Длина усечения приветствия от начала тела расширения
+	size_t truncation = 0;
+	// Если предложение заранее разделённых ключей разобрать не удалось
+	if(extension::identities(offer->data, identities, binders, truncation) != extension::error_t::NONE)
+		// Выводим отказ разбора расширения приветствия
+		return this->abort(context::error_t::MESSAGE, alert::description_t::DECODE);
+	// Место найденного билета в перечне признаваемых
+	size_t found = this->_store.size();
+	// Место предъявленного ключа в предложении клиента
+	size_t chosen = 0;
+	/**
+	 * Выполняем перебор опознавателей ключей, предложенных клиентом
+	 */
+	for(size_t i = 0; (i < identities.size()) && (found == this->_store.size()); i++){
+		/**
+		 * Выполняем перебор билетов, признаваемых сервером
+		 */
+		for(size_t j = 0; j < this->_store.size(); j++){
+			// Если длина опознавателя с длиной признаваемого билета не совпала
+			if(identities[i].identity.size != this->_store[j].identity.size())
+				// Переходим к следующему признаваемому билету
+				continue;
+			// Если опознаватель совпал с признаваемым билетом
+			if(::memcmp(identities[i].identity.data, this->_store[j].identity.data(), identities[i].identity.size) == 0){
+				// Запоминаем место найденного билета в перечне признаваемых
+				found = j;
+				// Запоминаем место предъявленного ключа в предложении клиента
+				chosen = i;
+				// Прекращаем перебор признаваемых билетов
+				break;
+			}
+		}
+	}
+	// Если ни один из предложенных ключей сервером не признан
+	if(found == this->_store.size())
+		// Выводим успешность разбора предложения: связь идёт полным рукопожатием
+		return context::error_t::NONE;
+	// Если начальную ступень расписания ключей завести не удалось
+	if(this->_secrets.start(view_t(this->_store[found].secret.data(), this->_store[found].secret.size())) != session::error_t::NONE)
+		// Выводим отказ вывода ключевого материала связи
+		return this->abort(context::error_t::SCHEDULE, alert::description_t::INTERNAL);
+	/**
+	 * Длина усечения отсчитывается от начала сообщения: тело расширения лежит внутри
+	 * него, и место его начала к длине усечения и прибавляется
+	 */
+	const size_t offset = (static_cast <size_t> (offer->data.data - message.data) + truncation);
+	// Если длина усечения за приветствие вышла
+	if(offset > message.size)
+		// Выводим отказ разбора расширения приветствия
+		return this->abort(context::error_t::MESSAGE, alert::description_t::DECODE);
+	// Место, в которое помещается хеш усечённого приветствия клиента
+	uint8_t transcript[schedule::SCHEDULE_SECRET];
+	// Если хеш усечённого приветствия получить не удалось
+	if(this->_transcript.digest(view_t(message.data, offset), transcript) != session::error_t::NONE)
+		// Выводим отказ ведения переписки рукопожатия
+		return this->abort(context::error_t::MESSAGE, alert::description_t::INTERNAL);
+	// Место, в которое помещается ожидаемая привязка билета
+	uint8_t expected[schedule::SCHEDULE_SECRET];
+	// Если ожидаемую привязку билета выработать не удалось
+	if(this->_secrets.binder(view_t(transcript, sizeof(transcript)), expected) != session::error_t::NONE)
+		// Выводим отказ выработки привязки билета
+		return this->abort(context::error_t::SCHEDULE, alert::description_t::INTERNAL);
+	/**
+	 * Привязка сличается за постоянное время: по времени сличения восстанавливается
+	 * ожидаемая привязка, а с нею и подделка владения билетом
+	 */
+	if(!message::compare(binders[chosen], view_t(expected, sizeof(expected)))){
+		// Выполняем сброс значений расписания ключей связи
+		this->_secrets.clear();
+		// Выводим отказ схождения привязки предъявленного билета
+		return this->abort(context::error_t::SIGNATURE, alert::description_t::DECRYPT);
+	}
+	// Запоминаем набор шифрования признанного билета
+	this->_ticket = this->_store[found].suite;
+	// Запоминаем место выбранного ключа в предложении клиента
+	this->_chosen = static_cast <uint16_t> (chosen);
+	// Запоминаем возобновление связи заранее разделённым ключом
+	this->_shared = true;
+	// Выводим успешность разбора предложения заранее разделённых ключей
+	return context::error_t::NONE;
+}
+/**
  * @brief Метод разбора принятого приветствия клиента
  *
  * @param body    тело принятого приветствия клиента
@@ -919,14 +1311,6 @@ context::error_t anyks::internal::Engine::incoming(const view_t & body, const vi
 	if(hello::parse(body, greeting) != hello::error_t::NONE)
 		// Выводим отказ разбора приветствия клиента
 		return this->abort(context::error_t::MESSAGE, alert::description_t::DECODE);
-	// Если приветствие клиента в переписку рукопожатия добавить не удалось
-	if(this->_transcript.update(message) != session::error_t::NONE)
-		// Выводим отказ ведения переписки рукопожатия
-		return this->abort(context::error_t::MESSAGE, alert::description_t::INTERNAL);
-	// Если приветствие клиента ходу рукопожатия объявить не удалось
-	if(this->_machine.accept(handshake::type_t::CLIENT, session::side_t::CLIENT) != flow::error_t::NONE)
-		// Выводим отказ объявления сообщения не в свой черёд
-		return this->abort(context::error_t::ORDER, alert::description_t::UNEXPECTED);
 	// Разыскиваем расширение перечня изданий протокола
 	const hello::extension_t * extension = hello::extension(greeting.extensions, static_cast <uint16_t> (extension::type_t::VERSIONS));
 	// Если перечень изданий протокола приветствием не объявлен
@@ -974,6 +1358,122 @@ context::error_t anyks::internal::Engine::incoming(const view_t & body, const vi
 	if(!suitable)
 		// Выводим отказ отсутствия общего набора шифрования
 		return this->abort(context::error_t::SUITE, alert::description_t::HANDSHAKE);
+	// Разыскиваем расширение имени запрашиваемого узла
+	extension = hello::extension(greeting.extensions, static_cast <uint16_t> (extension::type_t::NAME));
+	// Если имя запрашиваемого узла приветствием объявлено
+	if(extension != nullptr){
+		// Имя узла, запрошенное клиентом у сервера
+		view_t host;
+		// Если имя запрашиваемого узла разобрать не удалось
+		if(extension::name(extension->data, host) != extension::error_t::NONE)
+			// Выводим отказ разбора расширения приветствия
+			return this->abort(context::error_t::MESSAGE, alert::description_t::DECODE);
+		/**
+		 * Выполняем перехват ошибок работы с памятью
+		 */
+		try {
+			/**
+			 * Имя узла сервером лишь принимается: раздел 3 RFC 6066 велит выбирать по нему
+			 * подлинность своей стороны, а выбор этот принадлежит потребителю, который
+			 * подлинность и устанавливает
+			 */
+			this->_name.assign(reinterpret_cast <const char *> (host.data), host.size);
+		/**
+		 * Если памяти под имя запрашиваемого узла не хватило
+		 */
+		} catch(const std::bad_alloc &) {
+			// Выводим отказ нехватки памяти
+			return this->abort(context::error_t::MEMORY, alert::description_t::INTERNAL);
+		}
+	}
+	// Если прикладные протоколы сервером признаются
+	if(!this->_protocols.empty()){
+		// Разыскиваем расширение перечня прикладных протоколов
+		extension = hello::extension(greeting.extensions, static_cast <uint16_t> (extension::type_t::PROTOCOLS));
+		// Если прикладные протоколы приветствием объявлены
+		if(extension != nullptr){
+			// Перечень прикладных протоколов, предложенных клиентом
+			vector <string> offer;
+			// Если перечень прикладных протоколов разобрать не удалось
+			if(extension::protocols(extension->data, offer) != extension::error_t::NONE)
+				// Выводим отказ разбора расширения приветствия
+				return this->abort(context::error_t::MESSAGE, alert::description_t::DECODE);
+			/**
+			 * Выполняем перехват ошибок работы с памятью
+			 */
+			try {
+				/**
+				 * Выбор идёт порядком сервера, а не клиента: раздел 3.2 RFC 7301 велит
+				 * выбирать протокол серверу, и порядок его перечня - это и есть его
+				 * предпочтение
+				 */
+				for(size_t i = 0; (i < this->_protocols.size()) && this->_protocol.empty(); i++){
+					/**
+					 * Выполняем перебор прикладных протоколов, предложенных клиентом
+					 */
+					for(size_t j = 0; (j < offer.size()) && this->_protocol.empty(); j++){
+						// Если прикладной протокол предложен обеими сторонами
+						if(offer[j].compare(this->_protocols[i]) == 0)
+							// Запоминаем выбранный сторонами прикладной протокол
+							this->_protocol = this->_protocols[i];
+					}
+				}
+			/**
+			 * Если памяти под название протокола не хватило
+			 */
+			} catch(const std::bad_alloc &) {
+				// Выводим отказ нехватки памяти
+				return this->abort(context::error_t::MEMORY, alert::description_t::INTERNAL);
+			}
+			// Если общего прикладного протокола у сторон не нашлось
+			if(this->_protocol.empty())
+				// Выводим отказ отсутствия общего прикладного протокола
+				return this->abort(context::error_t::PROTOCOL, alert::description_t::PROTOCOL);
+		}
+	}
+	// Выполняем разбор предложения заранее разделённых ключей клиента
+	const context::error_t offered = this->offered(greeting.extensions, message);
+	// Если предложение заранее разделённых ключей разобрать не удалось
+	if(offered != context::error_t::NONE)
+		// Выводим отказ разбора предложения заранее разделённых ключей
+		return offered;
+	/**
+	 * Приветствие ложится в переписку лишь теперь: привязка билета берётся от
+	 * переписки без него, и добавь его раньше - привязка не сошлась бы
+	 */
+	if(this->_transcript.update(message) != session::error_t::NONE)
+		// Выводим отказ ведения переписки рукопожатия
+		return this->abort(context::error_t::MESSAGE, alert::description_t::INTERNAL);
+	// Если приветствие клиента ходу рукопожатия объявить не удалось
+	if(this->_machine.accept(handshake::type_t::CLIENT, session::side_t::CLIENT) != flow::error_t::NONE)
+		// Выводим отказ объявления сообщения не в свой черёд
+		return this->abort(context::error_t::ORDER, alert::description_t::UNEXPECTED);
+	// Если упреждающие данные клиентом предложены
+	if(hello::extension(greeting.extensions, static_cast <uint16_t> (extension::type_t::EARLY)) != nullptr){
+		/**
+		 * Упреждающие данные принимаются лишь при возобновлении связи билетом: ключи
+		 * их выводятся из заранее разделённого ключа, которого при полном рукопожатии
+		 * попросту нет
+		 */
+		if(this->_advance && this->_shared){
+			/**
+			 * Ключи упреждающих данных выводятся от переписки с одним лишь приветствием
+			 * клиента: ответа сервера в ней на этот миг ещё нет, и завестись им надо
+			 * прежде вывода ключей рукопожатия
+			 */
+			const context::error_t outcome = this->earliest();
+			// Если защиту записей упреждающих данных завести не удалось
+			if(outcome != context::error_t::NONE)
+				// Выводим отказ заведения защиты записей
+				return this->abort(outcome, alert::description_t::INTERNAL);
+			// Запоминаем приём упреждающих данных клиента
+			this->_accepted = true;
+		/**
+		 * Отвергнутые упреждающие данные прочесть нечем, и записи их пропускаются:
+		 * число пропусков ограничено, иначе им открылся бы бесконечный поток
+		 */
+		} else this->_skipped = 16;
+	}
 	// Разыскиваем расширение открытых частей ключей обмена
 	extension = hello::extension(greeting.extensions, static_cast <uint16_t> (extension::type_t::SHARE));
 	// Перечень открытых частей ключей обмена, объявленных клиентом
@@ -1092,10 +1592,38 @@ context::error_t anyks::internal::Engine::incoming(const view_t & body, const vi
 	if(error != context::error_t::NONE)
 		// Выводим отказ вывода ключей рукопожатия связи
 		return this->abort(error, alert::description_t::HANDSHAKE);
-	// Тело сообщения защищённых расширений с пустым перечнем
-	const uint8_t extensions[2] = {0x00, 0x00};
+	// Перечень расширений, объявляемых сервером под защитой
+	vector <hello::extension_t> items;
+	// Накопитель, в котором лежит тело расширения прикладного протокола
+	vector <uint8_t> protocol;
+	// Если упреждающие данные клиента приняты
+	if(this->_accepted)
+		// Объявляем клиенту приём упреждающих данных
+		items.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::EARLY), view_t(nullptr, 0)));
+	/**
+	 * Имя узла подтверждается пустым расширением: раздел 3 RFC 6066 велит серверу лишь
+	 * объявить, что имя принято, а самого имени в ответ не возвращать
+	 */
+	if(!this->_name.empty())
+		// Объявляем клиенту приём имени запрашиваемого узла
+		items.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::NAME), view_t(nullptr, 0)));
+	// Если прикладной протокол сторонами выбран
+	if(!this->_protocol.empty()){
+		// Если выбранный прикладной протокол составить не удалось
+		if(extension::protocol(this->_protocol, protocol) != extension::error_t::NONE)
+			// Выводим отказ составления сообщения защищённых расширений
+			return this->abort(context::error_t::MESSAGE, alert::description_t::INTERNAL);
+		// Объявляем клиенту выбранный прикладной протокол
+		items.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::PROTOCOLS), view_t(protocol.data(), protocol.size())));
+	}
+	// Накопитель, в который складывается тело защищённых расширений
+	vector <uint8_t> extensions;
+	// Если тело сообщения защищённых расширений составить не удалось
+	if(!block(items, extensions))
+		// Выводим отказ составления сообщения защищённых расширений
+		return this->abort(context::error_t::MESSAGE, alert::description_t::INTERNAL);
 	// Выполняем отправку защищённых расширений сервера
-	error = this->send(handshake::type_t::EXTENSIONS, view_t(extensions, sizeof(extensions)));
+	error = this->send(handshake::type_t::EXTENSIONS, view_t(extensions.data(), extensions.size()));
 	// Если защищённые расширения отправить не удалось
 	if(error != context::error_t::NONE)
 		// Выводим отказ отправки защищённых расширений
@@ -1111,23 +1639,23 @@ context::error_t anyks::internal::Engine::incoming(const view_t & body, const vi
 		// Накопитель, в который складывается тело расширения схем подписи
 		vector <uint8_t> schemes;
 		// Перечень предлагаемых схем подписи
-		vector <extension::scheme_t> list(SCHEMES, SCHEMES + (sizeof(SCHEMES) / sizeof(extension::scheme_t)));
+		const vector <extension::scheme_t> offer(SCHEMES, SCHEMES + (sizeof(SCHEMES) / sizeof(extension::scheme_t)));
 		// Если перечень схем подписи составить не удалось
-		if(extension::schemes(list, schemes) != extension::error_t::NONE)
+		if(extension::schemes(offer, schemes) != extension::error_t::NONE)
 			// Выводим отказ составления запроса подлинности клиента
 			return this->abort(context::error_t::MESSAGE, alert::description_t::INTERNAL);
 		// Перечень расширений запроса подлинности клиента
-		vector <hello::extension_t> items;
+		vector <hello::extension_t> list;
 		// Добавляем расширение перечня схем подписи
-		items.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::SCHEMES), view_t(schemes.data(), schemes.size())));
+		list.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::SCHEMES), view_t(schemes.data(), schemes.size())));
 		// Накопитель, в который складывается запись перечня расширений
-		vector <uint8_t> extensions;
+		vector <uint8_t> record;
 		// Если запись перечня расширений составить не удалось
-		if(!block(items, extensions))
+		if(!block(list, record))
 			// Выводим отказ составления запроса подлинности клиента
 			return this->abort(context::error_t::MESSAGE, alert::description_t::INTERNAL);
 		// Если запись перечня расширений в тело запроса добавить не удалось
-		if(builder.bytes(view_t(extensions.data(), extensions.size())) != field::error_t::NONE)
+		if(builder.bytes(view_t(record.data(), record.size())) != field::error_t::NONE)
 			// Выводим отказ составления запроса подлинности клиента
 			return this->abort(context::error_t::MESSAGE, alert::description_t::INTERNAL);
 		// Получаем составленное тело запроса подлинности клиента
@@ -1139,12 +1667,19 @@ context::error_t anyks::internal::Engine::incoming(const view_t & body, const vi
 			// Выводим отказ отправки запроса подлинности клиента
 			return this->abort(error, alert::description_t::INTERNAL);
 	}
-	// Выполняем отправку подтверждения подлинности сервера
-	error = this->authenticate();
-	// Если подтверждение подлинности сервера отправить не удалось
-	if(error != context::error_t::NONE)
-		// Выводим отказ отправки подтверждения подлинности
-		return this->abort(error, alert::description_t::INTERNAL);
+	/**
+	 * Подлинность сервера предъявляется лишь вне возобновления связи: раздел 2.2
+	 * RFC 8446 велит при возобновлении опираться на заранее разделённый ключ, которым
+	 * стороны уже опознали друг друга прошлой связью
+	 */
+	if(!this->_shared){
+		// Выполняем отправку подтверждения подлинности сервера
+		error = this->authenticate();
+		// Если подтверждение подлинности сервера отправить не удалось
+		if(error != context::error_t::NONE)
+			// Выводим отказ отправки подтверждения подлинности
+			return this->abort(error, alert::description_t::INTERNAL);
+	}
 	// Выполняем отправку завершения рукопожатия сервером
 	error = this->complete();
 	// Если завершение рукопожатия сервером отправить не удалось
@@ -1152,7 +1687,7 @@ context::error_t anyks::internal::Engine::incoming(const view_t & body, const vi
 		// Выводим отказ отправки завершения рукопожатия
 		return this->abort(error, alert::description_t::INTERNAL);
 	// Выполняем вывод ключей прикладных данных связи
-	error = this->advance();
+	error = this->mature();
 	// Если ключи прикладных данных вывести не удалось
 	if(error != context::error_t::NONE)
 		// Выводим отказ вывода ключей прикладных данных
@@ -1265,6 +1800,32 @@ context::error_t anyks::internal::Engine::outgoing(const view_t & body, const vi
 		return this->abort(context::error_t::SUITE, alert::description_t::PARAMETER);
 	// Запоминаем выбранный сервером набор шифрования
 	this->_suite = static_cast <protect::suite_t> (answer.suite);
+	// Разыскиваем расширение выбранного заранее разделённого ключа
+	const hello::extension_t * selected = hello::extension(answer.extensions, static_cast <uint16_t> (extension::type_t::SECRET));
+	// Если сервер выбрал заранее разделённый ключ клиента
+	if(selected != nullptr){
+		// Место выбранного сервером ключа в предложении клиента
+		uint16_t chosen = 0;
+		// Если выбранный сервером ключ разобрать не удалось
+		if(extension::chosen(selected->data, chosen) != extension::error_t::NONE)
+			// Выводим отказ разбора расширения приветствия
+			return this->abort(context::error_t::MESSAGE, alert::description_t::DECODE);
+		/**
+		 * Клиент предлагает единственный ключ, и всякое иное его место есть выбор
+		 * того, чего клиент не предлагал вовсе
+		 */
+		if((chosen != 0) || this->_resume.identity.empty())
+			// Выводим отказ несовпадения заранее разделённого ключа
+			return this->abort(context::error_t::MESSAGE, alert::description_t::PARAMETER);
+		// Запоминаем возобновление связи заранее разделённым ключом
+		this->_shared = true;
+	/**
+	 * Сервер вправе билет и не признать: тогда связь идёт полным рукопожатием, а
+	 * начальная ступень расписания заводится заново - уже без ключа билета
+	 */
+	} else if(this->_secrets.stage() != session::stage_t::NONE)
+		// Выполняем сброс значений расписания ключей связи
+		this->_secrets.clear();
 	// Открытая часть ключа обмена сервера
 	extension::share_t share;
 	// Если открытую часть ключа обмена сервера разобрать не удалось
@@ -1370,6 +1931,85 @@ context::error_t anyks::internal::Engine::renew(const view_t & body) noexcept {
 	return context::error_t::NONE;
 }
 /**
+ * @brief Метод вывода значения возобновления связи
+ *
+ * @return отказ вывода значения возобновления связи
+ *
+ */
+context::error_t anyks::internal::Engine::keeping() noexcept {
+	// Место, в которое помещается хеш переписки рукопожатия
+	uint8_t transcript[schedule::SCHEDULE_SECRET];
+	// Если хеш переписки рукопожатия получить не удалось
+	if(this->_transcript.digest(transcript) != session::error_t::NONE)
+		// Выводим отказ ведения переписки рукопожатия
+		return context::error_t::SCHEDULE;
+	// Если значение возобновления связи вывести не удалось
+	if(this->_secrets.resumption(view_t(transcript, sizeof(transcript))) != session::error_t::NONE)
+		// Выводим отказ вывода значения расписания ключей
+		return context::error_t::SCHEDULE;
+	// Выводим успешность вывода значения возобновления связи
+	return context::error_t::NONE;
+}
+/**
+ * @brief Метод разбора принятого билета возобновления связи
+ *
+ * @param body тело принятого сообщения билета
+ *
+ * @return     отказ разбора билета возобновления связи
+ *
+ */
+context::error_t anyks::internal::Engine::accept(const view_t & body) noexcept {
+	// Если связь ещё не установлена
+	if(this->_state != context::state_t::ESTABLISHED)
+		// Выводим отказ прихода билета не в свой черёд
+		return this->abort(context::error_t::ORDER, alert::description_t::UNEXPECTED);
+	// Разбираемый билет возобновления связи
+	message::ticket_t ticket;
+	// Если билет возобновления связи разобрать не удалось
+	if(message::parse(body, ticket) != message::error_t::NONE)
+		// Выводим отказ разбора билета возобновления связи
+		return this->abort(context::error_t::MESSAGE, alert::description_t::DECODE);
+	// Если билет ходу рукопожатия объявить не удалось
+	if(this->_machine.accept(handshake::type_t::TICKET, session::side_t::SERVER) != flow::error_t::NONE)
+		// Выводим отказ объявления сообщения не в свой черёд
+		return this->abort(context::error_t::ORDER, alert::description_t::UNEXPECTED);
+	// Принятый билет возобновления связи
+	context::ticket_t item;
+	// Устанавливаем набор шифрования связи, выдавшей билет
+	item.suite = this->_suite;
+	// Устанавливаем срок жизни принятого билета
+	item.lifetime = ticket.lifetime;
+	// Устанавливаем добавку к возрасту принятого билета
+	item.age = ticket.age;
+	// Место, в которое помещается ключ принятого билета
+	uint8_t secret[schedule::SCHEDULE_SECRET];
+	// Если ключ принятого билета вывести не удалось
+	if(this->_secrets.ticket(ticket.nonce, secret) != session::error_t::NONE)
+		// Выводим отказ вывода ключа билета возобновления связи
+		return this->abort(context::error_t::SCHEDULE, alert::description_t::INTERNAL);
+	/**
+	 * Выполняем складывание принятого билета возобновления связи
+	 */
+	try {
+		// Переносим тело принятого билета возобновления связи
+		item.identity.assign(ticket.data.data, ticket.data.data + ticket.data.size);
+		// Переносим ключ принятого билета возобновления связи
+		item.secret.assign(secret, secret + sizeof(secret));
+		// Добавляем принятый билет в перечень билетов связи
+		this->_tickets.push_back(item);
+	// Если памяти под билет не хватило
+	} catch(const bad_alloc &) {
+		// Выполняем затирание ключа принятого билета
+		wipe(secret, sizeof(secret));
+		// Выводим отказ нехватки памяти
+		return context::error_t::MEMORY;
+	}
+	// Выполняем затирание ключа принятого билета
+	wipe(secret, sizeof(secret));
+	// Выводим успешность разбора билета возобновления связи
+	return context::error_t::NONE;
+}
+/**
  * @brief Метод разбора принятого извещения
  *
  * @param data принятое извещение
@@ -1418,6 +2058,10 @@ context::error_t anyks::internal::Engine::notice(const view_t & data) noexcept {
 context::error_t anyks::internal::Engine::handle(const handshake::type_t type, const view_t & body, const view_t & message) noexcept {
 	// Получаем сторону связи собеседника
 	const session::side_t side = (this->_server ? session::side_t::CLIENT : session::side_t::SERVER);
+	// Если принят билет возобновления связи
+	if(type == handshake::type_t::TICKET)
+		// Выводим итог разбора билета возобновления связи
+		return (this->_server ? this->abort(context::error_t::ORDER, alert::description_t::UNEXPECTED) : this->accept(body));
 	// Если принята смена ключевого материала собеседника
 	if(type == handshake::type_t::UPDATE)
 		// Выводим итог разбора смены ключевого материала
@@ -1437,7 +2081,69 @@ context::error_t anyks::internal::Engine::handle(const handshake::type_t type, c
 	 */
 	switch(static_cast <uint8_t> (type)){
 		// Если приняты защищённые расширения сервера
-		case static_cast <uint8_t> (handshake::type_t::EXTENSIONS): break;
+		case static_cast <uint8_t> (handshake::type_t::EXTENSIONS): {
+			/**
+			 * Приём упреждающих данных сервер объявляет расширением: раздел 4.2.10
+			 * RFC 8446 велит объявлять его именно здесь, а не приветствием
+			 */
+			this->_accepted = (this->_earlying && declared(body, static_cast <uint16_t> (extension::type_t::EARLY)));
+			/**
+			 * Отвергнутые упреждающие данные пропали: связь возвращается к ключам
+			 * рукопожатия, а посланное ими сервер не прочтёт вовсе
+			 */
+			if(!this->_accepted)
+				// Прекращаем ход упреждающих данных связи
+				this->_earlying = false;
+			// Тело расширения выбранного сервером прикладного протокола
+			view_t chosen;
+			// Если прикладной протокол сервером объявлен
+			if(announced(body, static_cast <uint16_t> (extension::type_t::PROTOCOLS), chosen)){
+				// Название прикладного протокола, выбранного сервером
+				string selected;
+				// Если выбранный сервером прикладной протокол разобрать не удалось
+				if(extension::protocol(chosen, selected) != extension::error_t::NONE)
+					// Выводим отказ разбора защищённых расширений сервера
+					return this->abort(context::error_t::MESSAGE, alert::description_t::DECODE);
+				// Признак того, что выбранный протокол связью предлагался
+				bool suitable = false;
+				/**
+				 * Выполняем перебор прикладных протоколов, предложенных связью
+				 */
+				for(size_t i = 0; (i < this->_protocols.size()) && !suitable; i++)
+					// Запоминаем, предлагался ли выбранный сервером протокол связью
+					suitable = (selected.compare(this->_protocols[i]) == 0);
+				/**
+				 * Раздел 3.2 RFC 7301: сервер выбирает лишь из того, что ему предложено,
+				 * и протокол вне предложения принимать нельзя - им связь пошла бы
+				 * протоколом, которого сторона не понимает
+				 */
+				if(!suitable)
+					// Выводим отказ отсутствия общего прикладного протокола
+					return this->abort(context::error_t::PROTOCOL, alert::description_t::PROTOCOL);
+				/**
+				 * Выполняем перехват ошибок работы с памятью
+				 */
+				try {
+					// Запоминаем выбранный сторонами прикладной протокол
+					this->_protocol = ::move(selected);
+				/**
+				 * Если памяти под название протокола не хватило
+				 */
+				} catch(const std::bad_alloc &) {
+					// Выводим отказ нехватки памяти
+					return this->abort(context::error_t::MEMORY, alert::description_t::INTERNAL);
+				}
+			}
+		} break;
+		// Если принят конец упреждающих данных клиента
+		case static_cast <uint8_t> (handshake::type_t::EARLY): {
+			// Если связь ведётся стороной клиента
+			if(!this->_server)
+				// Выводим отказ прихода сообщения не от той стороны
+				return this->abort(context::error_t::ORDER, alert::description_t::UNEXPECTED);
+			// Прекращаем приём упреждающих данных клиента
+			this->_earlying = false;
+		} break;
 		// Если принят запрос подлинности клиента
 		case static_cast <uint8_t> (handshake::type_t::REQUEST): {
 			// Запоминаем, что подлинность клиента запрошена сервером
@@ -1494,7 +2200,7 @@ context::error_t anyks::internal::Engine::handle(const handshake::type_t type, c
 	// Если связь ведётся стороной клиента
 	if(!this->_server){
 		// Выполняем вывод ключей прикладных данных связи
-		error = this->advance();
+		error = this->mature();
 		// Если ключи прикладных данных вывести не удалось
 		if(error != context::error_t::NONE)
 			// Выводим отказ вывода ключей прикладных данных
@@ -1505,6 +2211,20 @@ context::error_t anyks::internal::Engine::handle(const handshake::type_t type, c
 		if(error != context::error_t::NONE)
 			// Выводим отказ согласования ключевого материала
 			return this->abort(error, alert::description_t::INTERNAL);
+		// Если упреждающие данные связи приняты сервером
+		if(this->_earlying){
+			/**
+			 * Конец упреждающих данных уходит их же ключами: раздел 4.5 RFC 8446 велит
+			 * закрывать поток теми ключами, какими он и шёл
+			 */
+			error = this->send(handshake::type_t::EARLY, view_t(nullptr, 0));
+			// Если конец упреждающих данных отправить не удалось
+			if(error != context::error_t::NONE)
+				// Выводим отказ отправки конца упреждающих данных
+				return this->abort(error, alert::description_t::INTERNAL);
+			// Прекращаем ход упреждающих данных связи
+			this->_earlying = false;
+		}
 		// Если подлинность клиента запрошена сервером
 		if(this->_requested){
 			// Выполняем отправку подтверждения подлинности клиента
@@ -1520,6 +2240,12 @@ context::error_t anyks::internal::Engine::handle(const handshake::type_t type, c
 		if(error != context::error_t::NONE)
 			// Выводим отказ отправки завершения рукопожатия
 			return this->abort(error, alert::description_t::INTERNAL);
+		// Выполняем вывод значения возобновления связи
+		error = this->keeping();
+		// Если значение возобновления связи вывести не удалось
+		if(error != context::error_t::NONE)
+			// Выводим отказ вывода значения возобновления связи
+			return this->abort(error, alert::description_t::INTERNAL);
 	// Если связь ведётся стороной сервера
 	} else {
 		// Выполняем согласование ключевого материала защиты записей
@@ -1527,6 +2253,12 @@ context::error_t anyks::internal::Engine::handle(const handshake::type_t type, c
 		// Если ключевой материал защиты записей согласовать не удалось
 		if(error != context::error_t::NONE)
 			// Выводим отказ согласования ключевого материала
+			return this->abort(error, alert::description_t::INTERNAL);
+		// Выполняем вывод значения возобновления связи
+		error = this->keeping();
+		// Если значение возобновления связи вывести не удалось
+		if(error != context::error_t::NONE)
+			// Выводим отказ вывода значения возобновления связи
 			return this->abort(error, alert::description_t::INTERNAL);
 	}
 	// Если рукопожатие связи завершено обеими сторонами
@@ -1587,6 +2319,26 @@ const vector <vector <uint8_t>> & anyks::internal::Engine::peer() const noexcept
 	return this->_peer;
 }
 /**
+ * @brief Метод получения имени узла связи
+ *
+ * @return имя узла, запрошенное клиентом у сервера
+ *
+ */
+const string & anyks::internal::Engine::name() const noexcept {
+	// Выводим имя узла, запрошенное клиентом у сервера
+	return this->_name;
+}
+/**
+ * @brief Метод получения прикладного протокола связи
+ *
+ * @return прикладной протокол, выбранный сторонами связи
+ *
+ */
+const string & anyks::internal::Engine::protocol() const noexcept {
+	// Выводим прикладной протокол, выбранный сторонами связи
+	return this->_protocol;
+}
+/**
  * @brief Метод установки предлагаемых наборов шифрования
  *
  * @param suites устанавливаемые наборы шифрования
@@ -1629,6 +2381,66 @@ void anyks::internal::Engine::credential(const context::credential_t & credentia
 void anyks::internal::Engine::name(const string & name) noexcept {
 	// Запоминаем имя узла, запрашиваемое у сервера
 	this->_name = name;
+}
+/**
+ * @brief Метод установки предлагаемых прикладных протоколов
+ *
+ * @param protocols устанавливаемые прикладные протоколы
+ *
+ */
+void anyks::internal::Engine::protocols(const vector <string> & protocols) noexcept {
+	// Запоминаем предлагаемые прикладные протоколы связи
+	this->_protocols = protocols;
+}
+/**
+ * @brief Метод установки билета возобновления связи клиентом
+ *
+ * @param ticket предъявляемый билет возобновления связи
+ *
+ */
+void anyks::internal::Engine::resume(const context::ticket_t & ticket) noexcept {
+	// Запоминаем билет, предъявляемый на возобновление связи
+	this->_resume = ticket;
+}
+/**
+ * @brief Метод установки билетов, признаваемых сервером
+ *
+ * @param tickets признаваемые билеты возобновления связи
+ *
+ */
+void anyks::internal::Engine::resume(const vector <context::ticket_t> & tickets) noexcept {
+	// Запоминаем билеты, признаваемые на возобновление связи
+	this->_store = tickets;
+}
+/**
+ * @brief Метод проверки возобновления связи заранее разделённым ключом
+ *
+ * @return признак того, что связь возобновлена билетом
+ *
+ */
+bool anyks::internal::Engine::shared() const noexcept {
+	// Выводим признак возобновления связи билетом
+	return this->_shared;
+}
+/**
+ * @brief Метод установки предложения упреждающих данных
+ *
+ * @param advance устанавливаемое предложение упреждающих данных
+ *
+ */
+void anyks::internal::Engine::advance(const bool advance) noexcept {
+	// Запоминаем предложение упреждающих данных связи
+	this->_advance = advance;
+}
+/**
+ * @brief Метод проверки приёма упреждающих данных собеседником
+ *
+ * @return признак того, что упреждающие данные приняты
+ *
+ */
+bool anyks::internal::Engine::accepted() const noexcept {
+	// Выводим признак приёма упреждающих данных собеседником
+	return this->_accepted;
 }
 /**
  * @brief Метод установки требования подлинности клиента
@@ -1715,6 +2527,18 @@ void anyks::internal::Engine::clear() noexcept {
 	this->_requested = false;
 	// Выполняем сброс признака повтора приветствия клиента
 	this->_retried = false;
+	// Выполняем сброс признака возобновления связи билетом
+	this->_shared = false;
+	// Выполняем сброс признака хода упреждающих данных
+	this->_earlying = false;
+	// Выполняем сброс набора шифрования билета возобновления связи
+	this->_ticket = protect::suite_t::NONE;
+	// Выполняем сброс признака приёма упреждающих данных
+	this->_accepted = false;
+	// Выполняем сброс числа пропущенных записей упреждающих данных
+	this->_skipped = 0;
+	// Выполняем сброс защиты записей упреждающих данных
+	this->_early.clear();
 	// Выполняем сброс хода рукопожатия связи
 	this->_machine.clear();
 	// Выполняем сброс переписки рукопожатия связи
@@ -1757,6 +2581,23 @@ void anyks::internal::Engine::clear() noexcept {
 	this->_wire.clear();
 	// Выполняем сброс цепочки сертификатов собеседника
 	this->_peer.clear();
+	// Выполняем сброс прикладного протокола, выбранного сторонами
+	this->_protocol.clear();
+	/**
+	 * Имя узла сбрасывается лишь стороной сервера: у клиента оно объявляет, за каким
+	 * узлом он идёт, и настройкой этой связь распоряжаться не вправе
+	 */
+	if(this->_server)
+		// Выполняем сброс имени узла, запрошенного клиентом
+		this->_name.clear();
+	/**
+	 * Выполняем перебор билетов возобновления связи
+	 */
+	for(size_t i = 0; i < this->_tickets.size(); i++)
+		// Выполняем затирание ключа очередного билета возобновления связи
+		wipe(this->_tickets[i].secret.data(), this->_tickets[i].secret.size());
+	// Выполняем сброс билетов возобновления связи
+	this->_tickets.clear();
 	// Выполняем сброс опознавателя связи
 	this->_session.clear();
 	// Выполняем затирание случайного значения своего приветствия
@@ -1801,12 +2642,36 @@ context::error_t anyks::internal::Engine::push(const view_t & data) noexcept {
 		vector <uint8_t> opened;
 		// Просмотр открытого содержимого принятой записи
 		view_t content = payload;
-		// Если записи собеседника защищены ключами связи
-		if(this->_machine.epoch(side) != flow::epoch_t::PLAIN){
-			// Если снять защиту с принятой записи не удалось
-			if(this->_input.open(header, payload, type, opened) != protect::error_t::NONE)
+		// Если принимаются упреждающие данные клиента
+		if(this->_server && this->_earlying){
+			// Если снять защиту упреждающих данных с принятой записи не удалось
+			if(this->_early.open(header, payload, type, opened) != protect::error_t::NONE)
 				// Выводим отказ снятия защиты с принятой записи
 				return this->abort(context::error_t::PROTECTION, alert::description_t::MAC);
+			// Получаем открытое содержимое принятой записи
+			content = view_t(opened.data(), opened.size());
+		// Если записи собеседника защищены ключами связи
+		} else if(this->_machine.epoch(side) != flow::epoch_t::PLAIN){
+			// Если снять защиту с принятой записи не удалось
+			if(this->_input.open(header, payload, type, opened) != protect::error_t::NONE){
+				/**
+				 * Упреждающие данные, сервером отвергнутые, прочесть нечем: раздел 4.2.10
+				 * RFC 8446 велит такие записи пропускать, а не рвать по ним связь
+				 */
+				if(this->_server && (this->_skipped > 0)){
+					// Уменьшаем число записей, дозволенных к пропуску
+					this->_skipped--;
+					// Переходим к следующей принятой записи связи
+					continue;
+				}
+				// Выводим отказ снятия защиты с принятой записи
+				return this->abort(context::error_t::PROTECTION, alert::description_t::MAC);
+			}
+			/**
+			 * Первая прочтённая запись закрывает пропуск отвергнутых упреждающих
+			 * данных: за нею идут записи, защищённые ключами рукопожатия
+			 */
+			this->_skipped = 0;
 			// Получаем открытое содержимое принятой записи
 			content = view_t(opened.data(), opened.size());
 		}
@@ -1849,8 +2714,13 @@ context::error_t anyks::internal::Engine::push(const view_t & data) noexcept {
 			} break;
 			// Если приняты прикладные данные собеседника
 			case static_cast <uint8_t> (record::type_t::APPLICATION): {
-				// Если связь ещё не установлена
-				if(this->_state != context::state_t::ESTABLISHED)
+				/**
+				 * Упреждающие данные приходят до установления связи: тем они и
+				 * упреждающие, что посланы, не дождавшись ответа сервера
+				 */
+				const bool early = (this->_server && this->_earlying);
+				// Если связь ещё не установлена и упреждающие данные не идут
+				if(!early && (this->_state != context::state_t::ESTABLISHED))
 					// Выводим отказ прихода прикладных данных не в свой черёд
 					return this->abort(context::error_t::ORDER, alert::description_t::UNEXPECTED);
 				/**
@@ -1905,8 +2775,13 @@ void anyks::internal::Engine::consume(const size_t size) noexcept {
  *
  */
 context::error_t anyks::internal::Engine::write(const view_t & data) noexcept {
-	// Если связь ещё не установлена
-	if(this->_state != context::state_t::ESTABLISHED)
+	/**
+	 * Упреждающие данные уходят до установления связи: тем они и упреждающие, что
+	 * посылаются, не дождавшись ответа сервера
+	 */
+	const bool early = (!this->_server && this->_earlying && (this->_state == context::state_t::HANDSHAKE));
+	// Если связь ещё не установлена и упреждающие данные не идут
+	if(!early && (this->_state != context::state_t::ESTABLISHED))
 		// Выводим отказ негодного состояния связи
 		return context::error_t::STATE;
 	// Если отправляемые прикладные данные не переданы
@@ -2009,6 +2884,136 @@ context::error_t anyks::internal::Engine::update(const bool request) noexcept {
 	return this->rotate(side);
 }
 /**
+ * @brief Метод выдачи билета возобновления связи
+ *
+ * @return отказ выдачи билета возобновления связи
+ *
+ */
+context::error_t anyks::internal::Engine::issue() noexcept {
+	// Если связь ведётся стороной клиента
+	if(!this->_server)
+		// Выводим отказ негодной стороны связи: билеты выдаёт сервер
+		return context::error_t::STATE;
+	// Если связь ещё не установлена
+	if(this->_state != context::state_t::ESTABLISHED)
+		// Выводим отказ негодного состояния связи
+		return context::error_t::STATE;
+	// Выдаваемый билет возобновления связи
+	context::ticket_t item;
+	// Устанавливаем набор шифрования связи, выдавшей билет
+	item.suite = this->_suite;
+	// Устанавливаем срок жизни выдаваемого билета
+	item.lifetime = 7200;
+	/**
+	 * Неповторимое значение билета берётся числом выданных билетов: раздел 4.6.1
+	 * RFC 8446 велит разводить ключи билетов одной связи именно им
+	 */
+	const uint8_t nonce[4] = {
+		static_cast <uint8_t> ((this->_tickets.size() >> 24) & 0xFF),
+		static_cast <uint8_t> ((this->_tickets.size() >> 16) & 0xFF),
+		static_cast <uint8_t> ((this->_tickets.size() >> 8) & 0xFF),
+		static_cast <uint8_t> (this->_tickets.size() & 0xFF)
+	};
+	// Место, в которое помещается тело выдаваемого билета
+	uint8_t identity[32];
+	// Если тело выдаваемого билета выработать не удалось
+	if(!entropy::bytes(identity, sizeof(identity)))
+		// Выводим отказ выработки тела билета
+		return context::error_t::SETTINGS;
+	// Место, в которое помещается добавка к возрасту билета
+	uint8_t addition[4];
+	// Если добавку к возрасту билета выработать не удалось
+	if(!entropy::bytes(addition, sizeof(addition)))
+		// Выводим отказ выработки добавки к возрасту билета
+		return context::error_t::SETTINGS;
+	// Устанавливаем добавку к возрасту выдаваемого билета
+	item.age = ((static_cast <uint32_t> (addition[0]) << 24) | (static_cast <uint32_t> (addition[1]) << 16) | (static_cast <uint32_t> (addition[2]) << 8) | static_cast <uint32_t> (addition[3]));
+	// Место, в которое помещается ключ выдаваемого билета
+	uint8_t secret[schedule::SCHEDULE_SECRET];
+	// Если ключ выдаваемого билета вывести не удалось
+	if(this->_secrets.ticket(view_t(nonce, sizeof(nonce)), secret) != session::error_t::NONE)
+		// Выводим отказ вывода ключа билета возобновления связи
+		return context::error_t::SCHEDULE;
+	// Составляемый билет возобновления связи
+	message::ticket_t ticket;
+	// Устанавливаем срок жизни составляемого билета
+	ticket.lifetime = item.lifetime;
+	// Устанавливаем добавку к возрасту составляемого билета
+	ticket.age = item.age;
+	// Устанавливаем неповторимое значение составляемого билета
+	ticket.nonce = view_t(nonce, sizeof(nonce));
+	// Устанавливаем тело составляемого билета
+	ticket.data = view_t(identity, sizeof(identity));
+	// Накопитель, в который складывается тело сообщения билета
+	vector <uint8_t> body;
+	// Если тело сообщения билета составить не удалось
+	if(message::build(ticket, body) != message::error_t::NONE){
+		// Выполняем затирание ключа выдаваемого билета
+		wipe(secret, sizeof(secret));
+		// Выводим отказ составления сообщения билета
+		return context::error_t::MESSAGE;
+	}
+	// Объект составителя отправляемых сообщений рукопожатия
+	handshake::writer_t writer;
+	// Если сообщение билета возобновления связи составить не удалось
+	if(writer.push(handshake::type_t::TICKET, view_t(body.data(), body.size())) != handshake::error_t::NONE){
+		// Выполняем затирание ключа выдаваемого билета
+		wipe(secret, sizeof(secret));
+		// Выводим отказ составления сообщения билета
+		return context::error_t::MESSAGE;
+	}
+	// Выполняем складывание сообщения билета в накопитель отправляемых байтов
+	const context::error_t error = this->emit(record::type_t::HANDSHAKE, writer.data());
+	// Если сообщение билета отправить не удалось
+	if(error != context::error_t::NONE){
+		// Выполняем затирание ключа выдаваемого билета
+		wipe(secret, sizeof(secret));
+		// Выводим отказ отправки сообщения билета
+		return error;
+	}
+	/**
+	 * Сообщения, идущие за рукопожатием, в переписку не добавляются: значение
+	 * возобновления связи выведено и от них уже не зависит
+	 */
+	if(this->_machine.accept(handshake::type_t::TICKET, session::side_t::SERVER) != flow::error_t::NONE){
+		// Выполняем затирание ключа выдаваемого билета
+		wipe(secret, sizeof(secret));
+		// Выводим отказ объявления сообщения не в свой черёд
+		return this->abort(context::error_t::ORDER, alert::description_t::UNEXPECTED);
+	}
+	/**
+	 * Выполняем складывание выданного билета возобновления связи
+	 */
+	try {
+		// Переносим тело выданного билета возобновления связи
+		item.identity.assign(identity, identity + sizeof(identity));
+		// Переносим ключ выданного билета возобновления связи
+		item.secret.assign(secret, secret + sizeof(secret));
+		// Добавляем выданный билет в перечень билетов связи
+		this->_tickets.push_back(item);
+	// Если памяти под билет не хватило
+	} catch(const bad_alloc &) {
+		// Выполняем затирание ключа выданного билета
+		wipe(secret, sizeof(secret));
+		// Выводим отказ нехватки памяти
+		return context::error_t::MEMORY;
+	}
+	// Выполняем затирание ключа выданного билета
+	wipe(secret, sizeof(secret));
+	// Выводим успешность выдачи билета возобновления связи
+	return context::error_t::NONE;
+}
+/**
+ * @brief Метод получения билетов возобновления связи
+ *
+ * @return выданные либо принятые билеты возобновления связи
+ *
+ */
+const vector <context::ticket_t> & anyks::internal::Engine::tickets() const noexcept {
+	// Выводим выданные либо принятые билеты возобновления связи
+	return this->_tickets;
+}
+/**
  * @brief Метод закрытия связи
  *
  * @return отказ закрытия связи
@@ -2047,7 +3052,8 @@ context::error_t anyks::internal::Engine::close() noexcept {
 anyks::internal::Engine::Engine(const bool server) noexcept :
  _server(server), _request(false), _requested(false), _retried(false),
  _state(context::state_t::NONE), _error(context::error_t::NONE),
- _suite(protect::suite_t::NONE), _group(extension::group_t::NONE) {
+ _suite(protect::suite_t::NONE), _group(extension::group_t::NONE),
+ _shared(false), _chosen(0), _advance(false), _earlying(false), _accepted(false), _ticket(protect::suite_t::NONE), _skipped(0) {
 	// Выполняем сброс поры ключей записей клиента
 	this->_epoch[0] = flow::epoch_t::PLAIN;
 	// Выполняем сброс поры ключей записей сервера

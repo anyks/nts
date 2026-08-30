@@ -461,3 +461,102 @@ TEST(SessionTest, Renew){
 	// Проверяем смену значения направления связи повторно
 	ASSERT_NE(::memcmp(third, fourth, sizeof(third)), 0);
 }
+
+/**
+ * Проверка вывода ключей билетов возобновления связи
+ */
+TEST(SessionTest, Resumption){
+	// Значения расписания ключей связи
+	session::secrets_t secrets;
+	// Неповторимые значения билетов возобновления связи
+	const uint8_t first[4] = {0x00, 0x00, 0x00, 0x00}, second[4] = {0x00, 0x00, 0x00, 0x01};
+	// Место, в которое помещается ключ билета возобновления связи
+	uint8_t key[32];
+	// Проверяем отказ вывода ключа билета до заведения расписания ключей
+	ASSERT_EQ(secrets.ticket(view_t(first, sizeof(first)), key), session::error_t::STATE);
+	// Выполняем заведение начальной ступени расписания ключей
+	ASSERT_EQ(secrets.start(view_t(nullptr, 0)), session::error_t::NONE);
+	// Общее значение обмена ключами связи
+	uint8_t shared[32];
+	// Выполняем заполнение общего значения обмена ключами
+	::memset(shared, 0x3C, sizeof(shared));
+	// Хеш переписки рукопожатия связи
+	uint8_t transcript[32];
+	// Выполняем заполнение хеша переписки рукопожатия
+	::memset(transcript, 0xC3, sizeof(transcript));
+	// Выполняем вывод ступени рукопожатия расписания ключей
+	ASSERT_EQ(secrets.handshake(view_t(shared, sizeof(shared)), view_t(transcript, sizeof(transcript))), session::error_t::NONE);
+	// Проверяем отказ вывода значения возобновления на ступени рукопожатия
+	ASSERT_EQ(secrets.resumption(view_t(transcript, sizeof(transcript))), session::error_t::STATE);
+	// Выполняем вывод ступени прикладных данных расписания ключей
+	ASSERT_EQ(secrets.application(view_t(transcript, sizeof(transcript))), session::error_t::NONE);
+	// Выполняем вывод значения возобновления связи
+	ASSERT_EQ(secrets.resumption(view_t(transcript, sizeof(transcript))), session::error_t::NONE);
+	// Выполняем вывод ключа первого билета возобновления связи
+	ASSERT_EQ(secrets.ticket(view_t(first, sizeof(first)), key), session::error_t::NONE);
+	// Место, в которое помещается ключ второго билета
+	uint8_t element[32];
+	// Выполняем вывод ключа второго билета возобновления связи
+	ASSERT_EQ(secrets.ticket(view_t(second, sizeof(second)), element), session::error_t::NONE);
+	/**
+	 * Ключи билетов расходятся неповторимым значением билета: без него все билеты
+	 * одной связи вышли бы одинаковыми
+	 */
+	ASSERT_NE(::memcmp(key, element, sizeof(key)), 0);
+	// Место, в которое помещается ключ билета, выведенный повторно
+	uint8_t repeated[32];
+	// Выполняем повторный вывод ключа первого билета
+	ASSERT_EQ(secrets.ticket(view_t(first, sizeof(first)), repeated), session::error_t::NONE);
+	// Проверяем повторимость вывода ключа билета возобновления связи
+	ASSERT_EQ(::memcmp(key, repeated, sizeof(key)), 0);
+}
+
+/**
+ * Проверка выработки привязки заранее разделённого ключа
+ */
+TEST(SessionTest, Binder){
+	// Значения расписания ключей связи
+	session::secrets_t secrets;
+	// Хеш усечённого приветствия клиента
+	uint8_t transcript[32];
+	// Выполняем заполнение хеша усечённого приветствия
+	::memset(transcript, 0x7E, sizeof(transcript));
+	// Место, в которое помещается привязка заранее разделённого ключа
+	uint8_t binder[32];
+	// Проверяем отказ выработки привязки до заведения расписания ключей
+	ASSERT_EQ(secrets.binder(view_t(transcript, sizeof(transcript)), binder), session::error_t::STATE);
+	// Заранее разделённый ключ связи
+	uint8_t secret[32];
+	// Выполняем заполнение заранее разделённого ключа
+	::memset(secret, 0x1F, sizeof(secret));
+	// Выполняем заведение начальной ступени расписания ключей
+	ASSERT_EQ(secrets.start(view_t(secret, sizeof(secret))), session::error_t::NONE);
+	// Выполняем выработку привязки заранее разделённого ключа
+	ASSERT_EQ(secrets.binder(view_t(transcript, sizeof(transcript)), binder), session::error_t::NONE);
+	// Значения расписания ключей встречной стороны связи
+	session::secrets_t opposite;
+	// Выполняем заведение начальной ступени расписания ключей
+	ASSERT_EQ(opposite.start(view_t(secret, sizeof(secret))), session::error_t::NONE);
+	// Место, в которое помещается привязка встречной стороны
+	uint8_t element[32];
+	// Выполняем выработку привязки встречной стороной связи
+	ASSERT_EQ(opposite.binder(view_t(transcript, sizeof(transcript)), element), session::error_t::NONE);
+	// Проверяем схождение привязок сторон связи
+	ASSERT_EQ(::memcmp(binder, element, sizeof(binder)), 0);
+	// Значения расписания ключей с иным заранее разделённым ключом
+	session::secrets_t alien;
+	// Портим заранее разделённый ключ связи
+	secret[0] ^= 0x01;
+	// Выполняем заведение начальной ступени расписания ключей
+	ASSERT_EQ(alien.start(view_t(secret, sizeof(secret))), session::error_t::NONE);
+	// Выполняем выработку привязки на ином заранее разделённом ключе
+	ASSERT_EQ(alien.binder(view_t(transcript, sizeof(transcript)), element), session::error_t::NONE);
+	// Проверяем расхождение привязок при ином заранее разделённом ключе
+	ASSERT_NE(::memcmp(binder, element, sizeof(binder)), 0);
+	// Портим хеш усечённого приветствия клиента
+	transcript[0] ^= 0x01;
+	// Выполняем выработку привязки по иному усечённому приветствию
+	ASSERT_EQ(secrets.binder(view_t(transcript, sizeof(transcript)), element), session::error_t::NONE);
+	// Проверяем расхождение привязок при ином усечённом приветствии
+	ASSERT_NE(::memcmp(binder, element, sizeof(binder)), 0);
+}

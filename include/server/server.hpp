@@ -218,6 +218,88 @@ namespace anyks {
 				 * \~
 				 */
 				const vector <vector <uint8_t>> & peer() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения прикладного протокола связи
+				 *
+				 * @return прикладной протокол, выбранный сторонами связи
+				 *
+				 * @details Раздел 3.2 RFC 7301: протокол выбирается сервером из предложенного
+				 *          клиентом, и объявляется он под защитой рукопожатия
+				 *
+				 * @note Пустое название значит, что протокол сторонами не выбирался вовсе:
+				 *       предлагать его связи никто не поручал
+				 *
+				 * \~english
+				 * @brief Method of getting the application protocol of the connection
+				 * @return the application protocol chosen by the sides of the connection
+				 * @details The section 3.2 of RFC 7301: the protocol is chosen by the server out of the one
+				 *          offered by the client, and it is declared under the protection of the handshake
+				 * @note An empty name means that the protocol was not chosen by the sides at all: nobody
+				 *       instructed the connection to offer it
+				 *
+				 * \~
+				 */
+				const string & protocol() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения имени узла, запрошенного клиентом
+				 *
+				 * @return имя узла, за которым клиент пришёл
+				 *
+				 * @details Раздел 3 RFC 6066: по этому имени сервер и выбирает, какой
+				 *          подлинностью отвечать клиенту
+				 *
+				 * @note Связь имя лишь принимает: выбор подлинности по нему принадлежит тому,
+				 *       кто связь ведёт, - подлинность устанавливает он
+				 *
+				 * \~english
+				 * @brief Method of getting the name of the host requested by the client
+				 * @return the name of the host the client came for
+				 * @details The section 3 of RFC 6066: by this name the server chooses which authenticity to
+				 *          answer the client by
+				 * @note The connection only accepts the name: the choice of the authenticity by it belongs
+				 *       to the one who leads the connection — they set the authenticity
+				 *
+				 * \~
+				 */
+				const string & name() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения билетов возобновления связи
+				 *
+				 * @return билеты возобновления связи, выданные клиенту
+				 *
+				 * @note Билет и ключ к нему хранит тот, кто связь ведёт: связь их лишь выдаёт,
+				 *       а держать их между связями ей негде
+				 *
+				 * \~english
+				 * @brief Method of getting the tickets of the resumption of the connection
+				 * @return the tickets of the resumption of the connection issued to the client
+				 * @note The ticket and the key to it are kept by the one who leads the connection: the connection
+				 *       only outputs them, and it has nowhere to keep them between the connections
+				 *
+				 * \~
+				 */
+				const vector <context::ticket_t> & tickets() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод проверки возобновления связи билетом
+				 *
+				 * @return признак того, что связь возобновлена заранее разделённым ключом
+				 *
+				 * @note При возобновлении цепочки сертификатов не бывает вовсе: подлинность
+				 *       сторон подтверждена билетом, а не сертификатом
+				 *
+				 * \~english
+				 * @brief Method of checking the resumption of the connection by a ticket
+				 * @return the flag of the connection being resumed by a pre-shared key
+				 * @note At a resumption there is no chain of the certificates at all: the authenticity of the
+				 *       sides is confirmed by the ticket and not by a certificate
+				 *
+				 * \~
+				 */
+				bool shared() const noexcept;
 			public:
 				/**
 				 * \~russian
@@ -271,6 +353,27 @@ namespace anyks {
 				void credential(const context::credential_t & credential) noexcept;
 				/**
 				 * \~russian
+				 * @brief Метод установки предлагаемых прикладных протоколов
+				 *
+				 * @param protocols устанавливаемые прикладные протоколы
+				 *
+				 * @details Раздел 3.1 RFC 7301: порядок перечня объявляет предпочтение стороны,
+				 *          а выбор из него делает сервер
+				 *
+				 * @note Пустой перечень отключает выбор прикладного протокола вовсе
+				 *
+				 * \~english
+				 * @brief Method of setting the offered application protocols
+				 * @param protocols the application protocols being set
+				 * @details The section 3.1 of RFC 7301: the order of the list declares the preference of the
+				 *          side, and the choice out of it is made by the server
+				 * @note An empty list disables the choice of the application protocol at all
+				 *
+				 * \~
+				 */
+				void protocols(const vector <string> & protocols) noexcept;
+				/**
+				 * \~russian
 				 * @brief Метод установки требования подлинности клиента
 				 *
 				 * @param request устанавливаемое требование подлинности клиента
@@ -293,6 +396,58 @@ namespace anyks {
 				 * \~
 				 */
 				void request(const bool request) noexcept;
+			public:
+				/**
+				 * \~russian
+				 * @brief Метод установки признаваемых билетов возобновления связи
+				 *
+				 * @param tickets признаваемые билеты возобновления связи
+				 *
+				 * @details Раздел 4.6.1 RFC 8446: билеты сервер выдал сам прошлыми связями, а
+				 *          хранил их между связями тот, кто связь ведёт: связи их и подавать
+				 *
+				 * @note Предъявленный билет признаётся лишь тогда, когда сошлась его привязка:
+				 *       ею клиент и доказывает владение ключом билета, а не одним его телом
+				 *
+				 * \~english
+				 * @brief Method of setting the recognized tickets of the resumption of a connection
+				 * @param tickets the recognized tickets of the resumption of the connection
+				 * @details The section 4.6.1 of RFC 8446: the tickets were issued by the server itself by the
+				 *          past connections, and they were kept between the connections by the one who leads
+				 *          the connection: it is for them to give them to the connection
+				 * @note A presented ticket is recognized only when its binder has converged: by it the client
+				 *       proves the possession of the key of the ticket and not of its body alone
+				 *
+				 * \~
+				 */
+				void resume(const vector <context::ticket_t> & tickets) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод установки приёма упреждающих данных клиента
+				 *
+				 * @param advance принимаются ли упреждающие данные
+				 *
+				 * @details Раздел 2.3 RFC 8446: упреждающие данные уходят вместе с приветствием
+				 *          клиента, не дожидаясь ответа сервера, и защищены ключами, выведенными
+				 *          из одного лишь билета возобновления связи.
+				 *
+				 * @note Повтор упреждающих данных протоколом не отсекается: та же запись, посланная
+				 *       злоумышленником заново, будет принята повторно, и заслон этому ставит тот,
+				 *       кто связь ведёт, - повторяемые запросы упреждающими данными не принимать
+				 *
+				 * \~english
+				 * @brief Method of setting the acceptance of the early data of the client
+				 * @param advance whether the early data is accepted
+				 * @details The section 2.3 of RFC 8446: the early data goes together with the greeting of the
+				 *          client without waiting for the answer of the server, and it is protected by the keys
+				 *          derived from the ticket of the resumption of the connection alone.
+				 * @note A repetition of the early data is not cut off by the protocol: the same record sent
+				 *       anew by an attacker will be accepted repeatedly, and the barrier to it is set by the
+				 *       one who leads the connection — not to accept repeatable requests by the early data
+				 *
+				 * \~
+				 */
+				void advance(const bool advance) noexcept;
 			public:
 				/**
 				 * \~russian
@@ -427,6 +582,32 @@ namespace anyks {
 				 * \~
 				 */
 				context::error_t read(vector <uint8_t> & result) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод выдачи билета возобновления связи клиенту
+				 *
+				 * @return отказ выдачи билета возобновления связи
+				 *
+				 * @details Раздел 4.6.1 RFC 8446: билет выдаётся за рукопожатием и годится клиенту
+				 *          на будущую связь. Число выдаваемых билетов сервер выбирает сам, и всякому
+				 *          из них отвечает свой ключ.
+				 *
+				 * @note Тело выданного билета назначается связью случайно: опознавать по нему связь
+				 *       - дело того, кто связь ведёт, и запись эта принадлежит ему
+				 *
+				 * \~english
+				 * @brief Method of the issue of a ticket of the resumption of the connection to the client
+				 * @return the failure of the issue of the ticket of the resumption of the connection
+				 * @details The section 4.6.1 of RFC 8446: a ticket is issued after the handshake and is suitable
+				 *          for the client for a future connection. The number of the issued tickets is chosen by
+				 *          the server itself, and every one of them corresponds to its own key.
+				 * @note The body of an issued ticket is appointed by the connection at random: to identify the
+				 *       connection by it is the business of the one who leads the connection, and this record
+				 *       belongs to them
+				 *
+				 * \~
+				 */
+				context::error_t issue() noexcept;
 				/**
 				 * \~russian
 				 * @brief Метод смены ключевого материала своего направления связи

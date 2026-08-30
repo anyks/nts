@@ -293,7 +293,14 @@ error_t anyks::flow::Machine::accept(const handshake::type_t type, const session
 				if(outcome == error_t::NONE)
 					// Устанавливаем ожидание подписи владения ключом клиента
 					this->_stage = stage_t::CONFIRMING;
-			}
+			/**
+			 * Раздел 4.5 RFC 8446: конец упреждающих данных объявляется клиентом перед
+			 * своим ответом рукопожатию, и хода рукопожатия он не подвигает - лишь
+			 * закрывает поток данных, ушедших ключами упреждения
+			 */
+			} else if(type == handshake::type_t::EARLY)
+				// Проверяем принадлежность конца упреждающих данных стороне связи
+				outcome = ::belongs(session::side_t::CLIENT, side);
 		} break;
 		// Если ожидается подпись владения ключом клиента
 		case static_cast <uint8_t> (stage_t::CONFIRMING): {
@@ -337,7 +344,14 @@ error_t anyks::flow::Machine::accept(const handshake::type_t type, const session
 					// Отправив завершение, клиент переходит к ключам прикладных данных
 					this->_client = epoch_t::APPLICATION;
 				}
-			}
+			/**
+			 * Раздел 4.5 RFC 8446: конец упреждающих данных объявляется клиентом перед
+			 * своим ответом рукопожатию, и хода рукопожатия он не подвигает - лишь
+			 * закрывает поток данных, ушедших ключами упреждения
+			 */
+			} else if(type == handshake::type_t::EARLY)
+				// Проверяем принадлежность конца упреждающих данных стороне связи
+				outcome = ::belongs(session::side_t::CLIENT, side);
 		} break;
 		// Если рукопожатие завершено и связь установлена
 		case static_cast <uint8_t> (stage_t::ESTABLISHED): {
