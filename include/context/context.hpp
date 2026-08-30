@@ -115,7 +115,9 @@ namespace anyks {
 			COMPLETION  = 0x0F, /*!< \~russian Завершение рукопожатия собеседника не сошлось \~english The completion of the handshake of the interlocutor has not matched \~ */
 			ALERT       = 0x10, /*!< \~russian Собеседник оборвал связь извещением \~english The interlocutor has torn the connection by an alert \~ */
 			CLOSED      = 0x11, /*!< \~russian Связь уже закрыта \~english The connection is already closed \~ */
-			PROTOCOL    = 0x12  /*!< \~russian Общего прикладного протокола у сторон не нашлось \~english The sides have not found a common application protocol \~ */
+			PROTOCOL    = 0x12, /*!< \~russian Общего прикладного протокола у сторон не нашлось \~english The sides have not found a common application protocol \~ */
+			LIMIT       = 0x13, /*!< \~russian Упреждающие данные вышли за объявленный билетом предел \~english The early data has gone beyond the limit declared by the ticket \~ */
+			SCHEME      = 0x14  /*!< \~russian Схема подписи собеседника связью не предлагалась \~english The signature scheme of the interlocutor was not offered by the connection \~ */
 		};
 
 		/**
@@ -172,6 +174,12 @@ namespace anyks {
 		 * @note Ключ билета связь выводит сама, а вот хранение пары «тело и ключ» ей не
 		 *       принадлежит: где её держать и как её беречь - решает тот, кто связь ведёт
 		 *
+		 * @note Раздел 8 RFC 8446 велит беречь упреждающие данные от повторной подачи, и
+		 *       беречь их приходится тому же, кому принадлежат билеты: связь одна о
+		 *       повторе не судит, ибо второй раз билет предъявляется уже другой связи.
+		 *       Простейший заслон - выдавать всякий билет к одному употреблению, снимая
+		 *       его из запаса тотчас по возобновлении
+		 *
 		 * \~english
 		 * @brief Ticket of the resumption of a connection
 		 * @details The section 4.6.1 of RFC 8446: the server issues a ticket after the handshake, and the
@@ -186,8 +194,12 @@ namespace anyks {
 		typedef struct __ANYKS_TLS_SHARED_EXPORT__ Ticket {
 			// Набор шифрования связи, выдавшей билет
 			protect::suite_t suite;
+			// Миг выдачи билета в секундах, ноль означает неизвестный миг
+			int64_t moment;
 			// Срок жизни билета в секундах
 			uint32_t lifetime;
+			// Предел упреждающих данных билета в байтах, ноль запрещает их вовсе
+			uint32_t advance;
 			// Добавка к возрасту билета, скрывающая его от посторонних
 			uint32_t age;
 			// Тело билета, опознающее связь для выдавшего его сервера
@@ -204,7 +216,7 @@ namespace anyks {
 			 *
 			 * \~
 			 */
-			Ticket() noexcept : suite(protect::suite_t::NONE), lifetime(0), age(0) {}
+			Ticket() noexcept : suite(protect::suite_t::NONE), moment(0), lifetime(0), advance(0), age(0) {}
 		} ticket_t;
 	};
 };

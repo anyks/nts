@@ -91,6 +91,107 @@ namespace {
 			item[i] = 0;
 	}
 	/**
+	 * @brief Метод затирания области памяти словами
+	 *
+	 * @note Имя у него своё, а не общее с побайтовым затиранием: перегрузка по виду
+	 *       указателя молча увела бы к нему всякий вызов, где затирается число, а
+	 *       размер подан в байтах
+	 *
+	 * @param data  затираемая область памяти
+	 * @param count число затираемых слов области памяти
+	 *
+	 * @note Затирание словами дешевле побайтового ровно во столько раз, сколько байтов
+	 *       в слове: числа лежат словами, и байтовый перебор здесь ничего не даёт
+	 *
+	 */
+	static void clean(uint64_t * data, const size_t count) noexcept {
+		// Получаем изменчивый указатель на затираемую область памяти
+		volatile uint64_t * item = static_cast <volatile uint64_t *> (data);
+		/**
+		 * Выполняем перебор слов затираемой области памяти
+		 */
+		for(size_t i = 0; i < count; i++)
+			// Обнуляем очередное слово области памяти
+			item[i] = 0;
+	}
+	/**
+	 * @brief Метод умножения Монтгомери для модуля известного числа слов
+	 *
+	 * @param first   первый сомножитель
+	 * @param second  второй сомножитель
+	 * @param modulus модуль поля
+	 * @param factor  множитель приведения по модулю
+	 * @param result  место, в которое помещается произведение
+	 *
+	 * @return        старшее слово переноса произведения
+	 *
+	 */
+	template <size_t WORDS>
+	static uint64_t montgomery(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, const uint64_t factor, uint64_t * result) noexcept {
+		// Слова накапливаемого произведения
+		uint64_t buffer[WORDS + 1] = {};
+		/**
+		 * Выполняем перебор слов второго сомножителя от младшего к старшему
+		 */
+		for(size_t i = 0; i < WORDS; i++){
+			// Получаем очередное слово второго сомножителя
+			const uint64_t word = second[i];
+			// Перенос из очередного слова накапливаемого произведения
+			uint64_t carry = 0;
+			/**
+			 * Выполняем умножение первого сомножителя на очередное слово второго
+			 */
+			for(size_t j = 0; j < WORDS; j++){
+				// Складываем накопленное слово с произведением слов и переносом
+				const double_t item = (static_cast <double_t> (first[j]) * word + buffer[j] + carry);
+				// Записываем младшую половину полученного значения
+				buffer[j] = static_cast <uint64_t> (item);
+				// Запоминаем перенос в следующее слово
+				carry = static_cast <uint64_t> (item >> 64);
+			}
+			// Складываем старшее слово произведения с переносом
+			const double_t item = (static_cast <double_t> (buffer[WORDS]) + carry);
+			// Записываем младшую половину полученного значения
+			buffer[WORDS] = static_cast <uint64_t> (item);
+			// Запоминаем перенос в дополнительное слово произведения
+			const uint64_t extra = static_cast <uint64_t> (item >> 64);
+			/**
+			 * Выработанный множитель обращает младшее слово накопленного произведения
+			 * в ноль: тем приведение по модулю и сводится к сдвигу на слово
+			 */
+			const uint64_t reducer = (buffer[0] * factor);
+			// Складываем младшее слово произведения с произведением множителя на модуль
+			const double_t value = (static_cast <double_t> (reducer) * modulus[0] + buffer[0]);
+			// Запоминаем перенос из младшего слова произведения
+			carry = static_cast <uint64_t> (value >> 64);
+			/**
+			 * Выполняем приведение произведения по модулю со сдвигом на слово
+			 */
+			for(size_t j = 1; j < WORDS; j++){
+				// Складываем накопленное слово с произведением множителя на модуль
+				const double_t step = (static_cast <double_t> (reducer) * modulus[j] + buffer[j] + carry);
+				// Записываем младшую половину полученного значения со сдвигом на слово
+				buffer[j - 1] = static_cast <uint64_t> (step);
+				// Запоминаем перенос в следующее слово
+				carry = static_cast <uint64_t> (step >> 64);
+			}
+			// Складываем старшее слово произведения с переносом
+			const double_t last = (static_cast <double_t> (buffer[WORDS]) + carry);
+			// Записываем младшую половину полученного значения со сдвигом на слово
+			buffer[WORDS - 1] = static_cast <uint64_t> (last);
+			// Складываем дополнительное слово произведения с переносом
+			buffer[WORDS] = static_cast <uint64_t> (extra + (last >> 64));
+		}
+		/**
+		 * Выполняем перебор слов накопленного произведения
+		 */
+		for(size_t i = 0; i < WORDS; i++)
+			// Записываем очередное слово произведения
+			result[i] = buffer[i];
+		// Выводим старшее слово переноса произведения
+		return buffer[WORDS];
+	}
+	/**
 	 * @brief Метод выбора одного из двух слов наложением маски
 	 *
 	 * @param mask   маска выбора: все разряды единичны либо все нулевые
@@ -190,7 +291,7 @@ namespace {
 			// Выбираем очередное слово итога наложением маски
 			value[i] = select(mask, buffer[i], value[i]);
 		// Выполняем затирание итога вычитания модуля
-		wipe(buffer, sizeof(buffer));
+		clean(buffer, size);
 	}
 };
 
@@ -340,7 +441,7 @@ bool anyks::math::Modulus::load(const view_t & data, number_t & result) const no
 	// Выполняем вычитание модуля из разобранного числа
 	const uint64_t borrow = decrease(result.words, this->_modulus.words, buffer, this->_words);
 	// Выполняем затирание итога вычитания модуля
-	wipe(buffer, sizeof(buffer));
+	clean(buffer, this->_words);
 	// Если разобранное число оказалось не меньше модуля
 	if(borrow == 0){
 		// Выполняем обнуление разобранного числа
@@ -533,7 +634,7 @@ void anyks::math::Modulus::subtract(const number_t & first, const number_t & sec
 		// Выбираем очередное слово итога наложением маски заёма
 		result.words[i] = select(0 - borrow, buffer[i], result.words[i]);
 	// Выполняем затирание суммы разности с модулем
-	wipe(buffer, sizeof(buffer));
+	clean(buffer, this->_words);
 }
 /**
  * @brief Метод умножения чисел по модулю
@@ -544,10 +645,32 @@ void anyks::math::Modulus::subtract(const number_t & first, const number_t & sec
  *
  */
 void anyks::math::Modulus::multiply(const number_t & first, const number_t & second, number_t & result) const noexcept {
+	/**
+	 * Кривые протокола имеют модуль в четыре либо в восемь слов, и оба этих числа
+	 * заложены в тело умножения постоянными: собиратель разворачивает тогда циклы и
+	 * держит накопитель в регистрах, а не в памяти. Прочие числа слов идут общим путём
+	 */
+	if((this->_words == 4) || (this->_words == 8)){
+		// Старшее слово переноса полученного произведения
+		const uint64_t carry = ((this->_words == 4) ?
+			montgomery <4> (first.words, second.words, this->_modulus.words, this->_factor, result.words) :
+			montgomery <8> (first.words, second.words, this->_modulus.words, this->_factor, result.words)
+		);
+		// Выполняем приведение произведения по модулю
+		lessen(result.words, this->_modulus.words, carry, this->_words);
+		// Выходим из умножения чисел
+		return;
+	}
 	// Накапливаемое произведение с двумя дополнительными словами переноса
 	uint64_t buffer[NUMBER_WORDS + 2];
-	// Выполняем обнуление накапливаемого произведения
-	::memset(buffer, 0, sizeof(buffer));
+	// Число слов накапливаемого произведения, идущих в дело
+	const size_t total = (this->_words + 2);
+	/**
+	 * Обнуляется лишь та часть накопителя, которая идёт в дело: у кривой на 256
+	 * разрядов это шесть слов из десяти, и обнуление всех десяти было бы работой,
+	 * никому не нужной
+	 */
+	::memset(buffer, 0, total * sizeof(uint64_t));
 	/**
 	 * Выполняем перебор слов второго сомножителя от младшего к старшему
 	 */
@@ -613,7 +736,7 @@ void anyks::math::Modulus::multiply(const number_t & first, const number_t & sec
 	// Выполняем приведение произведения по модулю
 	lessen(result.words, this->_modulus.words, buffer[this->_words], this->_words);
 	// Выполняем затирание накопленного произведения
-	wipe(buffer, sizeof(buffer));
+	clean(buffer, total);
 }
 /**
  * @brief Метод возведения числа в степень по модулю

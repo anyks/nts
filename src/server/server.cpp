@@ -216,6 +216,42 @@ void anyks::server::Context::protocols(const vector <string> & protocols) noexce
 		this->_engine->protocols(protocols);
 }
 /**
+ * @brief Метод установки метки возврата состояния сервера
+ *
+ * @param cookie устанавливаемая метка возврата состояния
+ *
+ */
+void anyks::server::Context::cookie(const vector <uint8_t> & cookie) noexcept {
+	// Если ведение связи заведено
+	if(this->_engine != nullptr)
+		// Выполняем установку метки возврата состояния сервера
+		this->_engine->cookie(cookie);
+}
+/**
+ * @brief Метод получения метки возврата состояния сервера
+ *
+ * @return метка возврата состояния, повторённая клиентом
+ *
+ */
+const vector <uint8_t> & anyks::server::Context::cookie() const noexcept {
+	// Пустая метка возврата состояния, выдаваемая до заведения связи
+	static const vector <uint8_t> empty;
+	// Выводим метку возврата состояния, повторённую клиентом
+	return (this->_engine != nullptr ? this->_engine->cookie() : empty);
+}
+/**
+ * @brief Метод установки мига, которым судятся сроки билетов
+ *
+ * @param moment устанавливаемый миг в секундах
+ *
+ */
+void anyks::server::Context::moment(const int64_t moment) noexcept {
+	// Если ведение связи заведено
+	if(this->_engine != nullptr)
+		// Выполняем установку мига суждения о сроках билетов
+		this->_engine->moment(moment);
+}
+/**
  * @brief Метод установки требования подлинности клиента
  *
  * @param request устанавливаемое требование подлинности клиента
@@ -255,11 +291,11 @@ bool anyks::server::Context::shared() const noexcept {
  * @param advance предлагаются либо принимаются ли упреждающие данные
  *
  */
-void anyks::server::Context::advance(const bool advance) noexcept {
+void anyks::server::Context::advance(const bool advance, const uint32_t limit) noexcept {
 	// Если ведение связи заведено
 	if(this->_engine != nullptr)
 		// Выполняем установку предложения упреждающих данных
-		this->_engine->advance(advance);
+		this->_engine->advance(advance, limit);
 }
 /**
  * @brief Метод заведения связи

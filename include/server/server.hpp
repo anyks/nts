@@ -374,6 +374,83 @@ namespace anyks {
 				void protocols(const vector <string> & protocols) noexcept;
 				/**
 				 * \~russian
+				 * @brief Метод установки метки возврата состояния сервера
+				 *
+				 * @param cookie устанавливаемая метка возврата состояния
+				 *
+				 * @details Раздел 4.2.2 RFC 8446: меткой сервер возвращает себе своё состояние,
+				 *          не храня его у себя между приветствиями клиента
+				 *
+				 * @note Содержимое метки складывает потребитель: связь несёт её дословно и
+				 *       ничего в ней не разбирает. Метка уходит лишь просьбой о повторе
+				 *       приветствия, а пустая метка отключает её выдачу вовсе
+				 *
+				 * \~english
+				 * @brief Method of setting the label of the return of the state of the server
+				 * @param cookie the label of the return of the state being set
+				 * @details The section 4.2.2 of RFC 8446: by the label the server returns its state
+				 *          to itself without storing it at itself between the greetings of the client
+				 * @note The content of the label is composed by the consumer: the connection carries
+				 *       it verbatim and parses nothing in it. The label goes only with the request of
+				 *       the repetition of the greeting, and an empty label disables its issuing at all
+				 *
+				 * \~
+				 */
+				void cookie(const vector <uint8_t> & cookie) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения метки возврата состояния сервера
+				 *
+				 * @return метка возврата состояния, повторённая клиентом
+				 *
+				 * @note Пустая метка означает, что клиент её не повторил: судит о том, годна
+				 *       ли метка и та ли она вовсе, сам потребитель
+				 *
+				 * \~english
+				 * @brief Method of getting the label of the return of the state of the server
+				 * @return the label of the return of the state repeated by the client
+				 * @note An empty label means that the client has not repeated it: the consumer
+				 *       itself judges whether the label is suitable and whether it is the same one
+				 *
+				 * \~
+				 */
+				const vector <uint8_t> & cookie() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод установки мига, которым судятся сроки билетов
+				 *
+				 * @param moment устанавливаемый миг в секундах
+				 *
+				 * @details Раздел 4.6.1 RFC 8446: билет годен не дольше объявленного срока,
+				 *          а раздел 4.2.10 велит сличать объявленный возраст билета с
+				 *          наблюдаемым, прежде чем принимать упреждающие данные
+				 *
+				 * @note Часов связь не читает: миг подаётся ей доводом, оттого ход её
+				 *       повторим и проверяем. Нулевой миг сроки судить запрещает вовсе -
+				 *       билет тогда идёт в дело как есть
+				 *
+				 * @note Повторную подачу упреждающих данных этот миг не ловит: второй раз
+				 *       билет предъявляется уже другой связи, и заслон от повтора ставит
+				 *       тот, кому принадлежат билеты
+				 *
+				 * \~english
+				 * @brief Method of setting the moment the terms of the tickets are judged by
+				 * @param moment the moment being set in the seconds
+				 * @details The section 4.6.1 of RFC 8446: a ticket is valid no longer than the declared term,
+				 *          and the section 4.2.10 orders to compare the declared age of a ticket against the
+				 *          observed one before accepting the early data
+				 * @note The connection does not read the clock: the moment is given to it by an argument, so
+				 *       its course is repeatable and checkable. A zero moment forbids judging the terms at
+				 *       all — a ticket then goes into the work as it is
+				 * @note This moment does not catch the repeated submission of the early data: the second time
+				 *       a ticket is presented to a different connection already, and the guard against the
+				 *       repetition is set by the one the tickets belong to
+				 *
+				 * \~
+				 */
+				void moment(const int64_t moment) noexcept;
+				/**
+				 * \~russian
 				 * @brief Метод установки требования подлинности клиента
 				 *
 				 * @param request устанавливаемое требование подлинности клиента
@@ -426,6 +503,7 @@ namespace anyks {
 				 * @brief Метод установки приёма упреждающих данных клиента
 				 *
 				 * @param advance принимаются ли упреждающие данные
+				 * @param limit   предел упреждающих данных в байтах, объявляемый билетом
 				 *
 				 * @details Раздел 2.3 RFC 8446: упреждающие данные уходят вместе с приветствием
 				 *          клиента, не дожидаясь ответа сервера, и защищены ключами, выведенными
@@ -438,6 +516,7 @@ namespace anyks {
 				 * \~english
 				 * @brief Method of setting the acceptance of the early data of the client
 				 * @param advance whether the early data is accepted
+				 * @param limit   the limit of the early data in the bytes declared by a ticket
 				 * @details The section 2.3 of RFC 8446: the early data goes together with the greeting of the
 				 *          client without waiting for the answer of the server, and it is protected by the keys
 				 *          derived from the ticket of the resumption of the connection alone.
@@ -447,7 +526,7 @@ namespace anyks {
 				 *
 				 * \~
 				 */
-				void advance(const bool advance) noexcept;
+				void advance(const bool advance, const uint32_t limit = 16384) noexcept;
 			public:
 				/**
 				 * \~russian

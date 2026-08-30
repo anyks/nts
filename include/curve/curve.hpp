@@ -142,6 +142,8 @@ namespace anyks {
 			private:
 				// Первый коэффициент уравнения кривой
 				math::number_t _first;
+				// Признак того, что первый коэффициент равен модулю без трёх
+				bool _shortened;
 				// Второй коэффициент уравнения кривой
 				math::number_t _second;
 			private:
@@ -429,6 +431,41 @@ namespace anyks {
 				 * \~
 				 */
 				void multiply(const point_t & value, const math::number_t & factor, point_t & result) const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод счёта суммы двух произведений точек кривой на числа
+				 *
+				 * @param first  первая умножаемая точка
+				 * @param single число, на которое умножается первая точка
+				 * @param second вторая умножаемая точка
+				 * @param pair   число, на которое умножается вторая точка
+				 * @param result место, в которое помещается сумма произведений
+				 *
+				 * @details Оба произведения считаются разом единым перебором разрядов: удвоения
+				 *          у них общие, и обходится сумма вдвое дешевле двух умножений порознь.
+				 *
+				 * @warning Время работы здесь зависит от чисел, и для секретных чисел метод
+				 *          негоден вовсе: он положен лишь сличению подписи, где и числа, и
+				 *          точки открыты обеим сторонам и подслушивающему
+				 *
+				 * \~english
+				 * @brief Method of the computation of the sum of two products of points of the curve by numbers
+				 * @param first  the first point being multiplied
+				 * @param single the number the first point is multiplied by
+				 * @param second the second point being multiplied
+				 * @param pair the number the second point is multiplied by
+				 * @param result the place the sum of the products is put into
+				 * @details Both products are computed at once by a single traversal of the bits: their
+				 *          doublings are common, and the sum costs twice as little as two separate
+				 *          multiplications.
+				 * @warning The time of the work here depends on the numbers, and the method is not
+				 *          suitable for secret numbers at all: it is intended only for the check of a
+				 *          signature, where both the numbers and the points are open to both sides and
+				 *          to an eavesdropper
+				 *
+				 * \~
+				 */
+				void combine(const point_t & first, const math::number_t & single, const point_t & second, const math::number_t & pair, point_t & result) const noexcept;
 			public:
 				/**
 				 * \~russian

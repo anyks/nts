@@ -150,6 +150,21 @@ namespace anyks {
 				// Имя узла, запрашиваемое клиентом у сервера
 				string _name;
 			private:
+				// Миг, которым связь судит сроки билетов возобновления
+				int64_t _moment;
+			private:
+				// Предел упреждающих данных, объявляемый сервером билетом
+				uint32_t _limit;
+				// Размер упреждающих данных, прошедших через связь
+				uint32_t _passed;
+			private:
+				// Виды расширений, предложенных клиентом приветствием
+				vector <uint16_t> _offered;
+				// Метка возврата состояния сервера, повторяемая приветствием
+				vector <uint8_t> _cookie;
+				// Метка возврата состояния, принятая сервером от клиента
+				vector <uint8_t> _label;
+			private:
 				// Прикладные протоколы, предлагаемые связью
 				vector <string> _protocols;
 				// Прикладной протокол, выбранный сторонами связи
@@ -493,6 +508,27 @@ namespace anyks {
 				 */
 				void protocols(const vector <string> & protocols) noexcept;
 				/**
+				 * @brief Метод установки метки возврата состояния сервера
+				 *
+				 * @param cookie устанавливаемая метка возврата состояния
+				 *
+				 */
+				void cookie(const vector <uint8_t> & cookie) noexcept;
+				/**
+				 * @brief Метод получения метки возврата состояния сервера
+				 *
+				 * @return метка возврата состояния, принятая от собеседника
+				 *
+				 */
+				const vector <uint8_t> & cookie() const noexcept;
+				/**
+				 * @brief Метод установки мига, которым судятся сроки билетов
+				 *
+				 * @param moment устанавливаемый миг в секундах
+				 *
+				 */
+				void moment(const int64_t moment) noexcept;
+				/**
 				 * @brief Метод установки билета возобновления связи клиентом
 				 *
 				 * @param ticket предъявляемый билет возобновления связи
@@ -519,7 +555,7 @@ namespace anyks {
 				 * @param advance устанавливаемое предложение упреждающих данных
 				 *
 				 */
-				void advance(const bool advance) noexcept;
+				void advance(const bool advance, const uint32_t limit) noexcept;
 				/**
 				 * @brief Метод проверки приёма упреждающих данных собеседником
 				 *

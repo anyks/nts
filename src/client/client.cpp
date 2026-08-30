@@ -202,6 +202,18 @@ void anyks::client::Context::protocols(const vector <string> & protocols) noexce
 		this->_engine->protocols(protocols);
 }
 /**
+ * @brief Метод установки мига, которым судятся сроки билетов
+ *
+ * @param moment устанавливаемый миг в секундах
+ *
+ */
+void anyks::client::Context::moment(const int64_t moment) noexcept {
+	// Если ведение связи заведено
+	if(this->_engine != nullptr)
+		// Выполняем установку мига суждения о сроках билетов
+		this->_engine->moment(moment);
+}
+/**
  * @brief Метод предъявления билета возобновления связи
  *
  * @param ticket предъявляемый серверу билет возобновления связи
@@ -229,11 +241,11 @@ bool anyks::client::Context::shared() const noexcept {
  * @param advance предлагаются либо принимаются ли упреждающие данные
  *
  */
-void anyks::client::Context::advance(const bool advance) noexcept {
+void anyks::client::Context::advance(const bool advance, const uint32_t limit) noexcept {
 	// Если ведение связи заведено
 	if(this->_engine != nullptr)
 		// Выполняем установку предложения упреждающих данных
-		this->_engine->advance(advance);
+		this->_engine->advance(advance, limit);
 }
 /**
  * @brief Метод проверки приёма упреждающих данных сервером

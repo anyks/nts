@@ -77,6 +77,19 @@ namespace {
 	/**
 	 * Случайное значение приветствия сервера, объявляющее просьбу о повторе
 	 */
+	/**
+	 * Заслоны понижения издания протокола
+	 *
+	 * @details Раздел 4.1.3 RFC 8446: сервер, знающий издание 1.3, но выбравший
+	 *          издание пониже, кладёт эти восемь байтов в хвост своего случайного
+	 *          значения - и клиент, знающий издание 1.3, обязан на них оборваться
+	 *
+	 */
+	static const uint8_t DOWNGRADE[2][8] = {
+		{0x44, 0x4F, 0x57, 0x4E, 0x47, 0x52, 0x44, 0x01},
+		{0x44, 0x4F, 0x57, 0x4E, 0x47, 0x52, 0x44, 0x00}
+	};
+
 	static const uint8_t RETRY[32] = {
 		0xCF, 0x21, 0xAD, 0x74, 0xE5, 0x9A, 0x61, 0x11,
 		0xBE, 0x1D, 0x8C, 0x02, 0x1E, 0x65, 0xB8, 0x91,
@@ -172,6 +185,43 @@ namespace {
 		return true;
 	}
 	/**
+	 * Окно расхождения объявленного возраста билета с наблюдаемым в миллисекундах
+	 *
+	 * @details Раздел 4.2.10 RFC 8446 велит сличать объявленный клиентом возраст билета
+	 *          с наблюдаемым и отвергать упреждающие данные при расхождении: сеть даёт
+	 *          задержку, оттого сличение и ведётся окном, а не точным равенством
+	 *
+	 */
+	static constexpr int64_t WINDOW = 10000;
+	/**
+	 * @brief Предел срока жизни билета возобновления связи в секундах
+	 *
+	 * @note Раздел 4.6.1 RFC 8446 кладёт сроку билета семь суток
+	 *
+	 */
+	static constexpr uint32_t LIFETIME = 604800;
+
+	/**
+	 * @brief Метод проверки того, что срок билета возобновления связи вышел
+	 *
+	 * @param ticket проверяемый билет возобновления связи
+	 * @param moment миг, которым судится срок билета
+	 *
+	 * @return       признак того, что срок билета вышел
+	 *
+	 * @note Часов связь не читает: миг подаётся ей настройкой. Не заданный миг судить
+	 *       сроки не позволяет вовсе, и билет тогда идёт в дело как есть
+	 *
+	 */
+	static bool expired(const context::ticket_t & ticket, const int64_t moment) noexcept {
+		// Если миг суждения либо миг выдачи билета не задан
+		if((moment == 0) || (ticket.moment == 0))
+			// Выводим признак того, что срок билета не вышел
+			return false;
+		// Выводим признак того, что срок билета вышел
+		return ((moment < ticket.moment) || ((moment - ticket.moment) > static_cast <int64_t> (ticket.lifetime)));
+	}
+	/**
 	 * @brief Метод извлечения тела расширения из записи перечня расширений
 	 *
 	 * @param data   разбираемая запись перечня расширений
@@ -237,6 +287,65 @@ namespace {
 		view_t content;
 		// Выводим признак того, что расширение в перечне объявлено
 		return announced(data, type, content);
+	}
+	/**
+	 * @brief Метод перечисления видов расширений записи перечня расширений
+	 *
+	 * @param data   разбираемая запись перечня расширений
+	 * @param result перечень, в который помещаются виды объявленных расширений
+	 *
+	 * @return       признак успешности разбора перечня расширений
+	 *
+	 * @note Тела расширений здесь не читаются: перечисляются лишь их виды
+	 *
+	 */
+	static bool enumerate(const view_t & data, vector <uint16_t> & result) noexcept {
+		// Объект разборщика записи перечня расширений
+		field::scanner_t scanner;
+		// Устанавливаем разбираемую запись перечня расширений
+		scanner.start(data);
+		// Содержимое перечня расширений
+		view_t body;
+		// Если перечень расширений прочитать не удалось
+		if(scanner.vector(body, 2) != field::error_t::NONE)
+			// Выводим признак неуспешности разбора перечня расширений
+			return false;
+		// Объект разборщика записей перечня расширений
+		field::scanner_t reader;
+		// Устанавливаем разбираемое содержимое перечня расширений
+		reader.start(body);
+		/**
+		 * Выполняем перехват ошибок работы с памятью
+		 */
+		try {
+			/**
+			 * Выполняем перебор объявленных расширений перечня
+			 */
+			while(reader.left() > 0){
+				// Вид очередного расширения перечня
+				uint32_t item = 0;
+				// Если вид расширения прочитать не удалось
+				if(reader.number(item, 2) != field::error_t::NONE)
+					// Выводим признак неуспешности разбора перечня расширений
+					return false;
+				// Тело очередного расширения перечня
+				view_t content;
+				// Если тело расширения прочитать не удалось
+				if(reader.vector(content, 2) != field::error_t::NONE)
+					// Выводим признак неуспешности разбора перечня расширений
+					return false;
+				// Добавляем вид расширения в перечень объявленных
+				result.push_back(static_cast <uint16_t> (item));
+			}
+		/**
+		 * Если памяти под перечень видов расширений не хватило
+		 */
+		} catch(const std::bad_alloc &) {
+			// Выводим признак неуспешности разбора перечня расширений
+			return false;
+		}
+		// Выводим признак успешности разбора перечня расширений
+		return true;
 	}
 	/**
 	 * @brief Метод поиска схемы подписи по опознавателю набора параметров кривой
@@ -711,12 +820,19 @@ context::error_t anyks::internal::Engine::greeting() noexcept {
 		// Добавляем расширение перечня прикладных протоколов
 		greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::PROTOCOLS), view_t(protocols.data(), protocols.size())));
 	}
+	// Если метка возврата состояния сервера связью получена
+	if(!this->_cookie.empty())
+		// Повторяем метку возврата состояния сервера дословно
+		greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::COOKIE), view_t(this->_cookie.data(), this->_cookie.size())));
 	// Накопители, в которых лежат тела расширений возобновления связи
 	vector <uint8_t> modes, secret;
 	// Место, в которое помещается пустая привязка предъявляемого билета
 	uint8_t empty[schedule::SCHEDULE_SECRET];
-	// Признак того, что билет возобновления связи предъявляется серверу
-	const bool resume = !this->_resume.identity.empty();
+	/**
+	 * Билет с вышедшим сроком серверу не предъявляется вовсе: раздел 4.6.1 RFC 8446
+	 * велит держать его не дольше объявленного срока, и связь идёт полным рукопожатием
+	 */
+	const bool resume = (!this->_resume.identity.empty() && !expired(this->_resume, this->_moment));
 	// Если билет возобновления связи предъявляется серверу
 	if(resume)
 		// Запоминаем набор шифрования предъявляемого билета
@@ -733,15 +849,24 @@ context::error_t anyks::internal::Engine::greeting() noexcept {
 		greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::MODES), view_t(modes.data(), modes.size())));
 		// Выполняем обнуление привязки предъявляемого билета
 		::memset(empty, 0, sizeof(empty));
-		// Если упреждающие данные связью предлагаются
-		if(this->_advance)
+		// Если упреждающие данные связью предлагаются и дозволены билетом
+		if(this->_advance && (this->_resume.advance > 0))
 			/**
 			 * Расширение упреждающих данных в приветствии пусто: раздел 4.2.10 RFC 8446
 			 * велит объявлять им лишь само намерение, а предел объявлен билетом
 			 */
 			greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::EARLY), view_t(nullptr, 0)));
+		/**
+		 * Возраст билета объявляется скрытым: раздел 4.2.11 RFC 8446 велит складывать
+		 * наблюдаемый возраст в миллисекундах с добавкой, назначенной сервером
+		 */
+		uint32_t age = this->_resume.age;
+		// Если сроки билетов связи судить дозволено
+		if((this->_moment != 0) && (this->_resume.moment != 0))
+			// Складываем наблюдаемый возраст билета с добавкой сервера
+			age = static_cast <uint32_t> ((static_cast <uint64_t> (this->_moment - this->_resume.moment) * 1000) + static_cast <uint64_t> (this->_resume.age));
 		// Опознаватель предъявляемого билета возобновления связи
-		const extension::identity_t identity(view_t(this->_resume.identity.data(), this->_resume.identity.size()), this->_resume.age);
+		const extension::identity_t identity(view_t(this->_resume.identity.data(), this->_resume.identity.size()), age);
 		// Привязка предъявляемого билета возобновления связи
 		const vector <view_t> binders = {view_t(empty, sizeof(empty))};
 		// Если предложение заранее разделённых ключей составить не удалось
@@ -753,6 +878,25 @@ context::error_t anyks::internal::Engine::greeting() noexcept {
 		 * велит ставить его в самый конец, ибо привязка покрывает всё, что идёт до неё
 		 */
 		greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::SECRET), view_t(secret.data(), secret.size())));
+	}
+	/**
+	 * Выполняем перехват ошибок работы с памятью
+	 */
+	try {
+		// Выполняем сброс прежнего перечня предложенных расширений
+		this->_offered.clear();
+		/**
+		 * Выполняем перебор расширений составленного приветствия клиента
+		 */
+		for(size_t i = 0; i < greeting.extensions.size(); i++)
+			// Запоминаем вид очередного расширения, предложенного связью
+			this->_offered.push_back(greeting.extensions[i].type);
+	/**
+	 * Если памяти под перечень предложенных расширений не хватило
+	 */
+	} catch(const std::bad_alloc &) {
+		// Выводим отказ нехватки памяти
+		return context::error_t::MEMORY;
 	}
 	// Накопитель, в который складывается тело приветствия клиента
 	vector <uint8_t> body;
@@ -860,6 +1004,8 @@ context::error_t anyks::internal::Engine::answer(const vector <uint8_t> & sessio
 	if(extension::version(0x0304, version) != extension::error_t::NONE)
 		// Выводим отказ составления расширения приветствия
 		return context::error_t::MESSAGE;
+	// Накопитель, в котором лежит тело расширения метки возврата состояния
+	vector <uint8_t> label;
 	// Если отправляется просьба о повторе приветствия
 	if(retry){
 		// Если выбранную кривую обмена ключами составить не удалось
@@ -879,6 +1025,18 @@ context::error_t anyks::internal::Engine::answer(const vector <uint8_t> & sessio
 	answer.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::VERSIONS), view_t(version.data(), version.size())));
 	// Добавляем расширение открытой части ключа обмена
 	answer.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::SHARE), view_t(share.data(), share.size())));
+	/**
+	 * Метка возврата состояния идёт лишь просьбой о повторе: раздел 4.2.2 RFC 8446
+	 * велит сервером, состояния у себя не держащим, возвращать его этой меткой
+	 */
+	if(retry && !this->_cookie.empty()){
+		// Если метку возврата состояния составить не удалось
+		if(extension::cookie(view_t(this->_cookie.data(), this->_cookie.size()), label) != extension::error_t::NONE)
+			// Выводим отказ составления расширения приветствия
+			return context::error_t::MESSAGE;
+		// Добавляем расширение метки возврата состояния сервера
+		answer.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::COOKIE), view_t(label.data(), label.size())));
+	}
 	// Накопитель, в котором лежит тело расширения выбранного ключа
 	vector <uint8_t> selected;
 	// Если связь возобновляется заранее разделённым ключом
@@ -1062,6 +1220,22 @@ context::error_t anyks::internal::Engine::chain(const view_t & body) noexcept {
 		// Выводим отказ разбора сообщения цепочки сертификатов
 		return context::error_t::MESSAGE;
 	/**
+	 * Раздел 4.4.2 RFC 8446 велит серверу оставлять опознаватель запроса пустым, а
+	 * клиенту - повторять им опознаватель принятого запроса подлинности. Модуль шлёт
+	 * запрос подлинности с пустым опознавателем всегда, оттого пустым обязан быть и
+	 * повтор: опознаватель, набитый содержимым, отвечает не тому запросу
+	 */
+	if(certificate.context.size > 0)
+		// Выводим отказ непустого опознавателя запроса подлинности
+		return context::error_t::MESSAGE;
+	/**
+	 * Раздел 4.4.2 RFC 8446 велит серверу присылать цепочку непустой: пустая цепочка
+	 * означает отказ от подлинности, а он серверу не дозволен вовсе
+	 */
+	if(!this->_server && certificate.entries.empty())
+		// Выводим отказ отсутствия сертификатов в цепочке сервера
+		return context::error_t::CERTIFICATE;
+	/**
 	 * Выполняем перенос цепочки сертификатов собеседника
 	 */
 	try {
@@ -1109,6 +1283,26 @@ context::error_t anyks::internal::Engine::possession(const view_t & body) noexce
 	if(leaf.parse(view_t(this->_peer[0].data(), this->_peer[0].size())) != x509::error_t::NONE)
 		// Выводим отказ разбора сертификата собеседника
 		return context::error_t::CERTIFICATE;
+	// Опознаватель набора параметров кривой ключа собеседника
+	string identifier;
+	// Если опознаватель набора параметров кривой извлечь не удалось
+	if(!x509::identifier(leaf.key(), identifier))
+		// Выводим отказ разбора сертификата собеседника
+		return context::error_t::CERTIFICATE;
+	// Получаем опознаватель кривой, отвечающей объявленной схеме подписи
+	const char * declared = extension::curve(verify.scheme);
+	/**
+	 * Раздел 4.4.3 RFC 8446 велит схеме подписи отвечать ключу сертификата: подпись
+	 * по кривой, которой в сертификате нет, проверялась бы не тем ключом, которым
+	 * объявлена, и объявление схемы не значило бы ничего вовсе
+	 *
+	 * Сличения схемы с предложением связи здесь нет намеренно: связь предлагает все
+	 * схемы, какие модуль знает, и неизвестная схема кривой не имеет вовсе - её
+	 * отвергает это же сличение
+	 */
+	if((declared == nullptr) || (identifier.compare(declared) != 0))
+		// Выводим отказ несоответствия схемы подписи ключу сертификата
+		return context::error_t::SCHEME;
 	// Место, в которое помещается хеш переписки рукопожатия
 	uint8_t transcript[schedule::SCHEDULE_SECRET];
 	// Если хеш переписки рукопожатия получить не удалось
@@ -1236,8 +1430,20 @@ context::error_t anyks::internal::Engine::offered(const vector <hello::extension
 			if(identities[i].identity.size != this->_store[j].identity.size())
 				// Переходим к следующему признаваемому билету
 				continue;
+			// Если опознаватель с признаваемым билетом не совпал
+			if(::memcmp(identities[i].identity.data, this->_store[j].identity.data(), identities[i].identity.size) != 0)
+				// Переходим к следующему признаваемому билету
+				continue;
+			/**
+			 * Билет с вышедшим сроком в дело не идёт: раздел 4.6.1 RFC 8446 велит
+			 * серверу и клиенту держать его не дольше объявленного срока, и связь
+			 * с таким билетом идёт полным рукопожатием
+			 */
+			if(expired(this->_store[j], this->_moment))
+				// Переходим к следующему признаваемому билету
+				continue;
 			// Если опознаватель совпал с признаваемым билетом
-			if(::memcmp(identities[i].identity.data, this->_store[j].identity.data(), identities[i].identity.size) == 0){
+			{
 				// Запоминаем место найденного билета в перечне признаваемых
 				found = j;
 				// Запоминаем место предъявленного ключа в предложении клиента
@@ -1251,6 +1457,21 @@ context::error_t anyks::internal::Engine::offered(const vector <hello::extension
 	if(found == this->_store.size())
 		// Выводим успешность разбора предложения: связь идёт полным рукопожатием
 		return context::error_t::NONE;
+	/**
+	 * Объявленный возраст билета сличается с наблюдаемым: раздел 4.2.10 RFC 8446 велит
+	 * отвергать упреждающие данные при расхождении, а самому возобновлению связи
+	 * расхождение это не мешает - для него довольно совпадения привязки
+	 */
+	if((this->_moment != 0) && (this->_store[found].moment != 0)){
+		// Получаем объявленный клиентом возраст билета в миллисекундах
+		const int64_t declared = static_cast <int64_t> (static_cast <uint32_t> (identities[chosen].age - this->_store[found].age));
+		// Получаем наблюдаемый сервером возраст билета в миллисекундах
+		const int64_t observed = ((this->_moment - this->_store[found].moment) * 1000);
+		// Если объявленный возраст с наблюдаемым разошёлся шире окна
+		if(((declared - observed) > WINDOW) || ((observed - declared) > WINDOW))
+			// Прекращаем ход упреждающих данных связи
+			this->_advance = false;
+	}
 	// Если начальную ступень расписания ключей завести не удалось
 	if(this->_secrets.start(view_t(this->_store[found].secret.data(), this->_store[found].secret.size())) != session::error_t::NONE)
 		// Выводим отказ вывода ключевого материала связи
@@ -1311,6 +1532,49 @@ context::error_t anyks::internal::Engine::incoming(const view_t & body, const vi
 	if(hello::parse(body, greeting) != hello::error_t::NONE)
 		// Выводим отказ разбора приветствия клиента
 		return this->abort(context::error_t::MESSAGE, alert::description_t::DECODE);
+	/**
+	 * Способ сжатия у издания 1.3 остался один и тот же - никакого: раздел 4.1.2
+	 * RFC 8446 велит оборвать связь, если клиент объявил иное
+	 */
+	if((greeting.methods.size() != 1) || (greeting.methods[0] != 0x00))
+		// Выводим отказ негодного перечня способов сжатия
+		return this->abort(context::error_t::MESSAGE, alert::description_t::PARAMETER);
+	/**
+	 * Заранее разделённые ключи идут последним расширением приветствия: раздел 4.2.11
+	 * RFC 8446 велит класть их именно туда, ибо привязка их считается по переписке,
+	 * усечённой ровно до начала этого расширения
+	 */
+	if(!greeting.extensions.empty() && (hello::extension(greeting.extensions, static_cast <uint16_t> (extension::type_t::SECRET)) != nullptr) && (greeting.extensions.back().type != static_cast <uint16_t> (extension::type_t::SECRET)))
+		// Выводим отказ места расширения заранее разделённых ключей
+		return this->abort(context::error_t::MESSAGE, alert::description_t::PARAMETER);
+	// Разыскиваем расширение метки возврата состояния сервера
+	const hello::extension_t * returned = hello::extension(greeting.extensions, static_cast <uint16_t> (extension::type_t::COOKIE));
+	// Если метка возврата состояния приветствием повторена
+	if(returned != nullptr){
+		/**
+		 * Метку сервер судит сам: раздел 4.2.2 RFC 8446 не кладёт на её содержимое
+		 * никаких правил, ибо складывал её тот же сервер, что её и читает
+		 */
+		// Тело принятой метки возврата состояния сервера
+		view_t label;
+		// Если метку возврата состояния разобрать не удалось
+		if(extension::cookie(returned->data, label) != extension::error_t::NONE)
+			// Выводим отказ разбора расширения приветствия
+			return this->abort(context::error_t::MESSAGE, alert::description_t::DECODE);
+		/**
+		 * Выполняем перехват ошибок работы с памятью
+		 */
+		try {
+			// Переносим принятую метку возврата состояния сервера
+			this->_label.assign(label.data, label.data + label.size);
+		/**
+		 * Если памяти под метку возврата состояния не хватило
+		 */
+		} catch(const std::bad_alloc &) {
+			// Выводим отказ нехватки памяти
+			return this->abort(context::error_t::MEMORY, alert::description_t::INTERNAL);
+		}
+	}
 	// Разыскиваем расширение перечня изданий протокола
 	const hello::extension_t * extension = hello::extension(greeting.extensions, static_cast <uint16_t> (extension::type_t::VERSIONS));
 	// Если перечень изданий протокола приветствием не объявлен
@@ -1484,6 +1748,38 @@ context::error_t anyks::internal::Engine::incoming(const view_t & body, const vi
 		if(extension::shares(extension->data, shares) != extension::error_t::NONE)
 			// Выводим отказ разбора расширения приветствия
 			return this->abort(context::error_t::MESSAGE, alert::description_t::DECODE);
+		// Разыскиваем расширение перечня кривых обмена ключами
+		const hello::extension_t * declared = hello::extension(greeting.extensions, static_cast <uint16_t> (extension::type_t::GROUPS));
+		// Если перечень кривых обмена ключами приветствием объявлен
+		if(declared != nullptr){
+			// Перечень кривых обмена ключами, поддерживаемых клиентом
+			vector <extension::group_t> supported;
+			// Если перечень кривых обмена ключами разобрать не удалось
+			if(extension::groups(declared->data, supported) != extension::error_t::NONE)
+				// Выводим отказ разбора расширения приветствия
+				return this->abort(context::error_t::MESSAGE, alert::description_t::DECODE);
+			/**
+			 * Выполняем перебор открытых частей ключей обмена клиента
+			 */
+			for(size_t i = 0; i < shares.size(); i++){
+				// Признак того, что кривая ключа объявлена клиентом поддержанной
+				bool known = false;
+				/**
+				 * Выполняем перебор кривых обмена ключами, поддерживаемых клиентом
+				 */
+				for(size_t j = 0; (j < supported.size()) && !known; j++)
+					// Запоминаем совпадение кривой ключа с поддержанной клиентом
+					known = (shares[i].group == supported[j]);
+				/**
+				 * Ключ по кривой, которой клиент не объявил поддержанной, в дело не
+				 * идёт: раздел 4.2.8 RFC 8446 велит оборвать связь, ибо приветствие
+				 * само себе противоречит
+				 */
+				if(!known)
+					// Выводим отказ кривой ключа вне объявленной поддержки
+					return this->abort(context::error_t::GROUP, alert::description_t::PARAMETER);
+			}
+		}
 	}
 	// Открытая часть ключа обмена, выбранная сервером
 	const extension::share_t * selected = nullptr;
@@ -1717,6 +2013,65 @@ context::error_t anyks::internal::Engine::outgoing(const view_t & body, const vi
 	if(hello::parse(body, answer) != hello::error_t::NONE)
 		// Выводим отказ разбора приветствия сервера
 		return this->abort(context::error_t::MESSAGE, alert::description_t::DECODE);
+	/**
+	 * Опознаватель связи сервер обязан вернуть тем же, каким его прислал клиент:
+	 * раздел 4.1.3 RFC 8446 велит оборвать связь, если он вернулся иным
+	 */
+	if((answer.session.size() != this->_session.size()) || (!answer.session.empty() && (::memcmp(answer.session.data(), this->_session.data(), answer.session.size()) != 0)))
+		// Выводим отказ несовпадения опознавателя связи
+		return this->abort(context::error_t::MESSAGE, alert::description_t::PARAMETER);
+	// Если приветствие сервера просьбой о повторе не является
+	if(!hello::retry(answer)){
+		/**
+		 * Выполняем перебор заслонов понижения издания протокола
+		 */
+		for(size_t i = 0; i < (sizeof(DOWNGRADE) / sizeof(DOWNGRADE[0])); i++){
+			/**
+			 * Заслон лежит в хвосте случайного значения сервера: раздел 4.1.3 RFC 8446
+			 * велит клиенту, знающему издание 1.3, оборваться на нём, а не понижать
+			 * издание вслед за сервером
+			 */
+			if(::memcmp(answer.random + (sizeof(answer.random) - sizeof(DOWNGRADE[i])), DOWNGRADE[i], sizeof(DOWNGRADE[i])) == 0)
+				// Выводим отказ понижения издания протокола
+				return this->abort(context::error_t::VERSION, alert::description_t::PARAMETER);
+		}
+	}
+	/**
+	 * Выполняем перебор расширений, объявленных приветствием сервера
+	 */
+	for(size_t i = 0; i < answer.extensions.size(); i++){
+		/**
+		 * Выполняем определение вида объявленного расширения
+		 */
+		switch(answer.extensions[i].type){
+			// Если объявлено издание протокола либо открытая часть ключа обмена
+			case static_cast <uint16_t> (extension::type_t::VERSIONS):
+			case static_cast <uint16_t> (extension::type_t::SHARE): break;
+			// Если объявлен выбранный заранее разделённый ключ
+			case static_cast <uint16_t> (extension::type_t::SECRET): {
+				/**
+				 * Выбранный ключ идёт лишь в самом приветствии: просьба о повторе
+				 * приветствия ключа ещё не выбирает
+				 */
+				if(hello::retry(answer))
+					// Выводим отказ объявления расширения не в своём сообщении
+					return this->abort(context::error_t::MESSAGE, alert::description_t::EXTENSION);
+			} break;
+			// Если объявлена метка возврата состояния сервера
+			case static_cast <uint16_t> (extension::type_t::COOKIE): {
+				// Если метка объявлена самим приветствием сервера
+				if(!hello::retry(answer))
+					// Выводим отказ объявления расширения не в своём сообщении
+					return this->abort(context::error_t::MESSAGE, alert::description_t::EXTENSION);
+			} break;
+			/**
+			 * Раздел 4.1.3 RFC 8446 кладёт приветствию сервера всего три расширения, а
+			 * просьбе о повторе - три своих: всё прочее принадлежит защищённым
+			 * расширениям и открытым приветствием идти не вправе
+			 */
+			default: return this->abort(context::error_t::MESSAGE, alert::description_t::EXTENSION);
+		}
+	}
 	// Разыскиваем расширение открытой части ключа обмена
 	const hello::extension_t * extension = hello::extension(answer.extensions, static_cast <uint16_t> (extension::type_t::SHARE));
 	// Если открытая часть ключа обмена приветствием не объявлена
@@ -1734,6 +2089,48 @@ context::error_t anyks::internal::Engine::outgoing(const view_t & body, const vi
 		if(extension::selected(extension->data, group) != extension::error_t::NONE)
 			// Выводим отказ разбора расширения приветствия
 			return this->abort(context::error_t::MESSAGE, alert::description_t::DECODE);
+		/**
+		 * Просить повтора сервер вправе лишь на кривой, которую клиент предложил и
+		 * ключа по которой ещё не прислал: раздел 4.1.4 RFC 8446 запрещает и просьбу
+		 * о кривой вне предложения, и просьбу о той, ключ по которой уже отправлен
+		 */
+		if(group == this->_group)
+			// Выводим отказ просьбы о кривой, ключ по которой уже отправлен
+			return this->abort(context::error_t::GROUP, alert::description_t::PARAMETER);
+		// Признак того, что выбранная сервером кривая связью предложена
+		bool offered = false;
+		/**
+		 * Выполняем перебор кривых обмена ключами, предлагаемых связью
+		 */
+		for(size_t i = 0; (i < this->_groups.size()) && !offered; i++)
+			// Запоминаем совпадение выбранной кривой с предложенной
+			offered = (group == this->_groups[i]);
+		// Если сервер попросил повтора на кривой, связью не предложенной
+		if(!offered)
+			// Выводим отказ просьбы о кривой вне предложения связи
+			return this->abort(context::error_t::GROUP, alert::description_t::PARAMETER);
+		// Разыскиваем расширение метки возврата состояния сервера
+		const hello::extension_t * label = hello::extension(answer.extensions, static_cast <uint16_t> (extension::type_t::COOKIE));
+		// Если метка возврата состояния сервера просьбой объявлена
+		if(label != nullptr){
+			/**
+			 * Выполняем перехват ошибок работы с памятью
+			 */
+			try {
+				/**
+				 * Раздел 4.2.2 RFC 8446 велит клиенту повторить метку в новом
+				 * приветствии дословно: ею сервер возвращает себе состояние, которого
+				 * он у себя не держал, и без неё повторное приветствие бесполезно
+				 */
+				this->_cookie.assign(label->data.data, label->data.data + label->data.size);
+			/**
+			 * Если памяти под метку возврата состояния не хватило
+			 */
+			} catch(const std::bad_alloc &) {
+				// Выводим отказ нехватки памяти
+				return this->abort(context::error_t::MEMORY, alert::description_t::INTERNAL);
+			}
+		}
 		/**
 		 * Переписка рукопожатия заменяется хешем приветствия клиента: раздел 4.4.1
 		 * RFC 8446 велит поступать так всякий раз при просьбе о повторе приветствия
@@ -1973,12 +2370,35 @@ context::error_t anyks::internal::Engine::accept(const view_t & body) noexcept {
 	if(this->_machine.accept(handshake::type_t::TICKET, session::side_t::SERVER) != flow::error_t::NONE)
 		// Выводим отказ объявления сообщения не в свой черёд
 		return this->abort(context::error_t::ORDER, alert::description_t::UNEXPECTED);
+	/**
+	 * Раздел 4.6.1 RFC 8446 кладёт сроку билета предел в семь суток и запрещает
+	 * держать билет дольше: билет с большим сроком означает сервер, зовущий связь
+	 * возобновляться ключом, которому давно вышел срок
+	 */
+	if(ticket.lifetime > LIFETIME)
+		// Выводим отказ выхода срока билета за дозволенный предел
+		return this->abort(context::error_t::MESSAGE, alert::description_t::PARAMETER);
 	// Принятый билет возобновления связи
 	context::ticket_t item;
 	// Устанавливаем набор шифрования связи, выдавшей билет
 	item.suite = this->_suite;
+	// Устанавливаем миг выдачи принятого билета
+	item.moment = this->_moment;
 	// Устанавливаем срок жизни принятого билета
 	item.lifetime = ticket.lifetime;
+	/**
+	 * Выполняем перебор расширений принятого билета
+	 */
+	for(size_t i = 0; i < ticket.extensions.size(); i++){
+		// Если расширение билета предела упреждающих данных не объявляет
+		if(ticket.extensions[i].type != static_cast <uint16_t> (extension::type_t::EARLY))
+			// Переходим к следующему расширению билета
+			continue;
+		// Если предел упреждающих данных разобрать не удалось
+		if(extension::early(ticket.extensions[i].data, item.advance) != extension::error_t::NONE)
+			// Выводим отказ разбора билета возобновления связи
+			return this->abort(context::error_t::MESSAGE, alert::description_t::DECODE);
+	}
 	// Устанавливаем добавку к возрасту принятого билета
 	item.age = ticket.age;
 	// Место, в которое помещается ключ принятого билета
@@ -2082,6 +2502,37 @@ context::error_t anyks::internal::Engine::handle(const handshake::type_t type, c
 	switch(static_cast <uint8_t> (type)){
 		// Если приняты защищённые расширения сервера
 		case static_cast <uint8_t> (handshake::type_t::EXTENSIONS): {
+			// Если связь ведётся стороной сервера
+			if(this->_server)
+				// Выводим отказ прихода сообщения не от той стороны
+				return this->abort(context::error_t::ORDER, alert::description_t::UNEXPECTED);
+			// Перечень видов расширений, объявленных сервером
+			vector <uint16_t> types;
+			// Если перечень защищённых расширений сервера разобрать не удалось
+			if(!enumerate(body, types))
+				// Выводим отказ разбора защищённых расширений сервера
+				return this->abort(context::error_t::MESSAGE, alert::description_t::DECODE);
+			/**
+			 * Выполняем перебор расширений, объявленных сервером
+			 */
+			for(size_t i = 0; i < types.size(); i++){
+				// Признак того, что объявленное сервером расширение связью предлагалось
+				bool suitable = false;
+				/**
+				 * Выполняем перебор расширений, предложенных связью приветствием
+				 */
+				for(size_t j = 0; (j < this->_offered.size()) && !suitable; j++)
+					// Запоминаем, предлагалось ли объявленное сервером расширение связью
+					suitable = (types[i] == this->_offered[j]);
+				/**
+				 * Раздел 4.2 RFC 8446 велит клиенту оборваться на расширении, которого
+				 * он не просил, извещением «unsupported_extension»: ответ на
+				 * непрошенное означает, что сервер отвечает не тому приветствию
+				 */
+				if(!suitable)
+					// Выводим отказ объявления непрошенного расширения
+					return this->abort(context::error_t::MESSAGE, alert::description_t::EXTENSION);
+			}
 			/**
 			 * Приём упреждающих данных сервер объявляет расширением: раздел 4.2.10
 			 * RFC 8446 велит объявлять его именно здесь, а не приветствием
@@ -2167,8 +2618,11 @@ context::error_t anyks::internal::Engine::handle(const handshake::type_t type, c
 			error = this->possession(body);
 			// Если подпись владения ключом не сошлась
 			if(error != context::error_t::NONE)
-				// Выводим отказ проверки подписи владения ключом
-				return this->abort(error, alert::description_t::DECRYPT);
+				/**
+				 * Раздел 4.4.3 RFC 8446: несошедшаяся подпись объявляется извещением
+				 * «decrypt_error», а непригодная схема подписи - «illegal_parameter»
+				 */
+				return this->abort(error, ((error == context::error_t::SCHEME) ? alert::description_t::PARAMETER : alert::description_t::DECRYPT));
 		} break;
 		// Если принято завершение рукопожатия собеседником
 		case static_cast <uint8_t> (handshake::type_t::FINISHED): {
@@ -2393,6 +2847,39 @@ void anyks::internal::Engine::protocols(const vector <string> & protocols) noexc
 	this->_protocols = protocols;
 }
 /**
+ * @brief Метод установки метки возврата состояния сервера
+ *
+ * @param cookie устанавливаемая метка возврата состояния
+ *
+ */
+void anyks::internal::Engine::cookie(const vector <uint8_t> & cookie) noexcept {
+	// Запоминаем метку возврата состояния, выдаваемую просьбой о повторе
+	this->_cookie = cookie;
+}
+/**
+ * @brief Метод получения метки возврата состояния сервера
+ *
+ * @return метка возврата состояния, принятая от собеседника
+ *
+ */
+const vector <uint8_t> & anyks::internal::Engine::cookie() const noexcept {
+	/**
+	 * Сервер получает метку повтором приветствия клиента, а клиент - самой просьбой
+	 * о повторе: сторонам возвращается то, что каждая из них приняла
+	 */
+	return (this->_server ? this->_label : this->_cookie);
+}
+/**
+ * @brief Метод установки мига, которым судятся сроки билетов
+ *
+ * @param moment устанавливаемый миг в секундах
+ *
+ */
+void anyks::internal::Engine::moment(const int64_t moment) noexcept {
+	// Запоминаем миг, которым связь судит сроки билетов
+	this->_moment = moment;
+}
+/**
  * @brief Метод установки билета возобновления связи клиентом
  *
  * @param ticket предъявляемый билет возобновления связи
@@ -2428,9 +2915,11 @@ bool anyks::internal::Engine::shared() const noexcept {
  * @param advance устанавливаемое предложение упреждающих данных
  *
  */
-void anyks::internal::Engine::advance(const bool advance) noexcept {
+void anyks::internal::Engine::advance(const bool advance, const uint32_t limit) noexcept {
 	// Запоминаем предложение упреждающих данных связи
 	this->_advance = advance;
+	// Запоминаем предел упреждающих данных связи
+	this->_limit = limit;
 }
 /**
  * @brief Метод проверки приёма упреждающих данных собеседником
@@ -2537,6 +3026,12 @@ void anyks::internal::Engine::clear() noexcept {
 	this->_accepted = false;
 	// Выполняем сброс числа пропущенных записей упреждающих данных
 	this->_skipped = 0;
+	// Выполняем сброс размера прошедших упреждающих данных
+	this->_passed = 0;
+	// Выполняем сброс перечня расширений, предложенных приветствием
+	this->_offered.clear();
+	// Выполняем сброс метки возврата состояния, принятой от собеседника
+	this->_label.clear();
 	// Выполняем сброс защиты записей упреждающих данных
 	this->_early.clear();
 	// Выполняем сброс хода рукопожатия связи
@@ -2591,6 +3086,14 @@ void anyks::internal::Engine::clear() noexcept {
 		// Выполняем сброс имени узла, запрошенного клиентом
 		this->_name.clear();
 	/**
+	 * Метка возврата состояния сбрасывается лишь стороной клиента: у сервера она
+	 * настройка, которой связь распоряжаться не вправе, а у клиента - состояние,
+	 * доставшееся от просьбы о повторе приветствия
+	 */
+	if(!this->_server)
+		// Выполняем сброс метки возврата состояния сервера
+		this->_cookie.clear();
+	/**
 	 * Выполняем перебор билетов возобновления связи
 	 */
 	for(size_t i = 0; i < this->_tickets.size(); i++)
@@ -2629,11 +3132,34 @@ context::error_t anyks::internal::Engine::push(const view_t & data) noexcept {
 	/**
 	 * Выполняем перебор принятых записей связи
 	 */
-	while(this->_records.next(header, payload) == record::error_t::NONE){
+	while(true){
+		// Выполняем сборку очередной принятой записи связи
+		const record::error_t taken = this->_records.next(header, payload);
+		// Если данных для целой записи ещё не набралось
+		if(taken == record::error_t::HUNGRY)
+			// Прекращаем перебор принятых записей связи
+			break;
+		/**
+		 * Негодная запись прежде молча оставалась в накопителе, и связь на ней
+		 * замирала: раздел 5.1 RFC 8446 велит отвечать на неё извещением, а слишком
+		 * длинной записи - именно извещением «record_overflow»
+		 */
+		if(taken != record::error_t::NONE)
+			// Выводим отказ разбора принятой записи связи
+			return this->abort(context::error_t::RECORD, ((taken == record::error_t::LENGTH) ? alert::description_t::OVERSIZE : alert::description_t::UNEXPECTED));
 		// Если принята запись смены набора шифрования
-		if(header.type == record::type_t::CHANGE)
+		if(header.type == record::type_t::CHANGE){
+			/**
+			 * Раздел 5 RFC 8446 велит пропускать эту запись лишь по ходу рукопожатия и
+			 * лишь с единственным дозволенным значением: за установленной связью она
+			 * не значит ничего, а иное её содержимое - это уже не она
+			 */
+			if((this->_state == context::state_t::ESTABLISHED) || (payload.size != 1) || (payload.data[0] != 0x01))
+				// Выводим отказ прихода записи смены набора не в свой черёд
+				return this->abort(context::error_t::RECORD, alert::description_t::UNEXPECTED);
 			// Пропускаем запись, доставшуюся от предыдущих изданий протокола
 			continue;
+		}
 		// Получаем сторону связи собеседника
 		const session::side_t side = (this->_server ? session::side_t::CLIENT : session::side_t::SERVER);
 		// Вид содержимого принятой записи связи
@@ -2675,6 +3201,22 @@ context::error_t anyks::internal::Engine::push(const view_t & data) noexcept {
 			// Получаем открытое содержимое принятой записи
 			content = view_t(opened.data(), opened.size());
 		}
+		/**
+		 * Раздел 5.1 RFC 8446 запрещает перемежать сообщения рукопожатия записями
+		 * иного содержимого: недособранное сообщение, разорванное чужой записью,
+		 * означает собеседника, складывающего поток не по правилам
+		 */
+		if((type != record::type_t::HANDSHAKE) && (this->_messages.pending() > 0))
+			// Выводим отказ разрыва сообщения рукопожатия чужой записью
+			return this->abort(context::error_t::MESSAGE, alert::description_t::UNEXPECTED);
+		/**
+		 * Раздел 5.2 RFC 8446 кладёт открытому содержимому записи предел в 16384 байта:
+		 * защита вправе раздуть запись набивкой, и предел этот стережёт уже вскрытое
+		 * содержимое, а не пришедшую запись
+		 */
+		if(content.size > record::RECORD_PLAINTEXT)
+			// Выводим отказ выхода открытого содержимого за дозволенный предел
+			return this->abort(context::error_t::RECORD, alert::description_t::OVERSIZE);
 		// Отказ разбора открытого содержимого принятой записи
 		context::error_t error = context::error_t::NONE;
 		/**
@@ -2723,6 +3265,18 @@ context::error_t anyks::internal::Engine::push(const view_t & data) noexcept {
 				if(!early && (this->_state != context::state_t::ESTABLISHED))
 					// Выводим отказ прихода прикладных данных не в свой черёд
 					return this->abort(context::error_t::ORDER, alert::description_t::UNEXPECTED);
+				// Если упреждающие данные связью принимаются
+				if(early){
+					// Считаем размер прошедших через связь упреждающих данных
+					this->_passed += static_cast <uint32_t> (content.size);
+					/**
+					 * Предел упреждающих данных объявлен билетом: раздел 4.2.10 RFC 8446
+					 * велит серверу оборвать связь, если клиент за него вышел
+					 */
+					if(this->_passed > this->_limit)
+						// Выводим отказ выхода за предел упреждающих данных
+						return this->abort(context::error_t::LIMIT, alert::description_t::UNEXPECTED);
+				}
 				/**
 				 * Выполняем складывание принятых прикладных данных в накопитель
 				 */
@@ -2784,10 +3338,21 @@ context::error_t anyks::internal::Engine::write(const view_t & data) noexcept {
 	if(!early && (this->_state != context::state_t::ESTABLISHED))
 		// Выводим отказ негодного состояния связи
 		return context::error_t::STATE;
+	/**
+	 * Предел упреждающих данных объявлен билетом: раздел 4.2.10 RFC 8446 велит клиенту
+	 * за него не выходить, а сервер за выход обрывает связь
+	 */
+	if(early && ((static_cast <uint64_t> (this->_passed) + data.size) > static_cast <uint64_t> (this->_resume.advance)))
+		// Выводим отказ выхода за предел упреждающих данных
+		return context::error_t::LIMIT;
 	// Если отправляемые прикладные данные не переданы
 	if((data.data == nullptr) || (data.size == 0))
 		// Выводим успешность отправки прикладных данных
 		return context::error_t::NONE;
+	// Если упреждающие данные связью отправляются
+	if(early)
+		// Считаем размер прошедших через связь упреждающих данных
+		this->_passed += static_cast <uint32_t> (data.size);
 	// Размер отправленных прикладных данных
 	size_t offset = 0;
 	/**
@@ -2902,8 +3467,18 @@ context::error_t anyks::internal::Engine::issue() noexcept {
 	context::ticket_t item;
 	// Устанавливаем набор шифрования связи, выдавшей билет
 	item.suite = this->_suite;
+	// Устанавливаем миг выдачи билета
+	item.moment = this->_moment;
 	// Устанавливаем срок жизни выдаваемого билета
 	item.lifetime = 7200;
+	/**
+	 * Предел упреждающих данных объявляется билетом: раздел 4.6.1 RFC 8446 велит
+	 * объявлять его расширением билета, а не приветствием, - и клиент по нему судит,
+	 * дозволено ли ему упреждение вовсе и сколько его дозволено
+	 */
+	if(this->_advance)
+		// Устанавливаем предел упреждающих данных выдаваемого билета
+		item.advance = this->_limit;
 	/**
 	 * Неповторимое значение билета берётся числом выданных билетов: раздел 4.6.1
 	 * RFC 8446 велит разводить ключи билетов одной связи именно им
@@ -2944,6 +3519,20 @@ context::error_t anyks::internal::Engine::issue() noexcept {
 	ticket.nonce = view_t(nonce, sizeof(nonce));
 	// Устанавливаем тело составляемого билета
 	ticket.data = view_t(identity, sizeof(identity));
+	// Накопитель, в который складывается тело расширения упреждающих данных
+	vector <uint8_t> advance;
+	// Если упреждающие данные билетом дозволяются
+	if(item.advance > 0){
+		// Если предел упреждающих данных составить не удалось
+		if(extension::early(item.advance, advance) != extension::error_t::NONE){
+			// Выполняем затирание ключа выдаваемого билета
+			wipe(secret, sizeof(secret));
+			// Выводим отказ составления сообщения билета
+			return context::error_t::MESSAGE;
+		}
+		// Добавляем расширение предела упреждающих данных
+		ticket.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::EARLY), view_t(advance.data(), advance.size())));
+	}
 	// Накопитель, в который складывается тело сообщения билета
 	vector <uint8_t> body;
 	// Если тело сообщения билета составить не удалось
@@ -3053,6 +3642,7 @@ anyks::internal::Engine::Engine(const bool server) noexcept :
  _server(server), _request(false), _requested(false), _retried(false),
  _state(context::state_t::NONE), _error(context::error_t::NONE),
  _suite(protect::suite_t::NONE), _group(extension::group_t::NONE),
+ _moment(0), _limit(0), _passed(0),
  _shared(false), _chosen(0), _advance(false), _earlying(false), _accepted(false), _ticket(protect::suite_t::NONE), _skipped(0) {
 	// Выполняем сброс поры ключей записей клиента
 	this->_epoch[0] = flow::epoch_t::PLAIN;

@@ -410,6 +410,11 @@ int main(int argc, char * argv[]) noexcept {
 	server.credential(credentials);
 	// Устанавливаем имя узла, запрашиваемого клиентом у сервера
 	client.name("anyks.com");
+	/**
+	 * Упреждающие данные дозволяются билетом: раздел 4.6.1 RFC 8446 велит объявлять их
+	 * предел расширением билета, и без него будущая связь упреждения не предложит
+	 */
+	server.advance(true, 4096);
 	// Если связь стороны сервера завести не удалось
 	if(server.start() != context::error_t::NONE){
 		// Выводим сообщение об отказе заведения связи
@@ -523,7 +528,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Если билет возобновления связи клиентом принят
 	if(!client.tickets().empty())
 		// Выводим сведения о принятом билете возобновления связи
-		cout << "Билет возобновления: тело " << client.tickets()[0].identity.size() << " байт, ключ " << client.tickets()[0].secret.size() << " байт, срок " << client.tickets()[0].lifetime << " секунд" << endl;
+		cout << "Билет возобновления: тело " << client.tickets()[0].identity.size() << " байт, ключ " << client.tickets()[0].secret.size() << " байт, срок " << client.tickets()[0].lifetime << " секунд, упреждение до " << client.tickets()[0].advance << " байт" << endl;
 	// Выполняем закрытие связи стороной клиента
 	client.close();
 	// Выполняем передачу байтов между сторонами связи
