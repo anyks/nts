@@ -42,6 +42,7 @@
  */
 #include <sys/global.hpp>
 #include <x509/x509.hpp>
+#include <curve/curve.hpp>
 
 /**
  * \~russian
@@ -134,6 +135,81 @@ namespace anyks {
 		 * \~
 		 */
 		__ANYKS_TLS_SHARED_EXPORT__ bool verify(const view_t & body, const view_t & signature, const string & algorithm, const key_t & key) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод извлечения опознавателя набора параметров кривой ключа
+		 *
+		 * @param key    сведения об открытом ключе, набор параметров которого извлекается
+		 * @param result строка, в которую помещается опознаватель набора параметров
+		 *
+		 * @return       признак успешности извлечения опознавателя
+		 *
+		 * \~english
+		 * @brief Method of the extraction of the identifier of the set of the parameters of the curve of a key
+		 * @param key    the info of the public key the set of the parameters of which is extracted
+		 * @param result the string the identifier of the set of the parameters is put into
+		 * @return       the flag of the success of the extraction of the identifier
+		 *
+		 * \~
+		 */
+		__ANYKS_TLS_SHARED_EXPORT__ bool identifier(const key_t & key, string & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод заведения кривой открытого ключа
+		 *
+		 * @param key    сведения об открытом ключе, кривая которого заводится
+		 * @param result кривая, в которую помещается набор параметров ключа
+		 *
+		 * @return       признак успешности заведения кривой открытого ключа
+		 *
+		 * @details Набор параметров кривой объявлен настройками алгоритма ключа: раздел
+		 *          2.1 RFC 9215
+		 *
+		 * \~english
+		 * @brief Method of the establishment of the curve of a public key
+		 * @param key    the info of the public key the curve of which is established
+		 * @param result the curve the set of the parameters of the key is put into
+		 * @return       the flag of the success of the establishment of the curve of the public key
+		 * @details The set of the parameters of the curve is declared by the settings of the algorithm
+		 *          of the key: the section 2.1 of RFC 9215
+		 *
+		 * \~
+		 */
+		__ANYKS_TLS_SHARED_EXPORT__ bool parameters(const key_t & key, curve::curve_t & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод проверки подписи содержимого открытым ключом
+		 *
+		 * @param key       сведения об открытом ключе подписавшей стороны
+		 * @param content   подписанное содержимое
+		 * @param signature проверяемая подпись, записанная числами r и s подряд
+		 *
+		 * @return          признак того, что подпись содержимого сошлась
+		 *
+		 * @details Тем же ключом, что и сертификат, сторона подписывает и владение им: длина
+		 *          хеша содержимого берётся из размера координаты кривой открытого ключа
+		 *
+		 * @note Подпись подаётся тем порядком, каким её выдаёт выработка, - сперва число r,
+		 *       затем число s. Порядок записи подписи в сертификате и в протоколе от этого
+		 *       отличается, и разворот делает тот, кто подпись оттуда извлёк
+		 *
+		 * \~english
+		 * @brief Method of the check of the signature of a content by a public key
+		 * @param key       the info of the public key of the side that signed
+		 * @param content   the signed content
+		 * @param signature the signature being checked written by the numbers r and s in a row
+		 * @return          the flag of the signature of the content having converged
+		 * @details By the same key as the certificate a side signs the possession of it as well: the
+		 *          length of the hash of the content is taken from the size of the coordinate of the
+		 *          curve of the public key
+		 * @note The signature is given by the same order the production outputs it — first the number r,
+		 *       then the number s. The order of the writing of the signature in a certificate and in the
+		 *       protocol differs from it, and the reversal is done by the one who extracted the signature
+		 *       from there
+		 *
+		 * \~
+		 */
+		__ANYKS_TLS_SHARED_EXPORT__ bool check(const key_t & key, const view_t & content, const view_t & signature) noexcept;
 	};
 };
 

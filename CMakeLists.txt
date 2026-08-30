@@ -115,6 +115,7 @@ SET(SOURCE_FILES
     "${CMAKE_SOURCE_DIR}/src/curve/parameters.cpp"
     "${CMAKE_SOURCE_DIR}/src/sign/gost.cpp"
     "${CMAKE_SOURCE_DIR}/src/agreement/vko.cpp"
+    "${CMAKE_SOURCE_DIR}/src/agreement/ecdhe.cpp"
     "${CMAKE_SOURCE_DIR}/src/record/record.cpp"
     "${CMAKE_SOURCE_DIR}/src/protect/protect.cpp"
     "${CMAKE_SOURCE_DIR}/src/handshake/handshake.cpp"
@@ -122,6 +123,12 @@ SET(SOURCE_FILES
     "${CMAKE_SOURCE_DIR}/src/hello/hello.cpp"
     "${CMAKE_SOURCE_DIR}/src/extension/extension.cpp"
     "${CMAKE_SOURCE_DIR}/src/message/message.cpp"
+    "${CMAKE_SOURCE_DIR}/src/session/session.cpp"
+    "${CMAKE_SOURCE_DIR}/src/flow/flow.cpp"
+    "${CMAKE_SOURCE_DIR}/src/alert/alert.cpp"
+    "${CMAKE_SOURCE_DIR}/src/internal/engine/engine.cpp"
+    "${CMAKE_SOURCE_DIR}/src/client/client.cpp"
+    "${CMAKE_SOURCE_DIR}/src/server/server.cpp"
 )
 
 # Устанавливаем имя библиотеки
@@ -359,6 +366,31 @@ if (${CMAKE_BUILD_SAMPLES})
     # Указываем что нужно собрать приложение работы с подтверждением подлинности
     option(CMAKE_BUILD_MESSAGE_APP_SAMPLE "Build handshake authentication app sample" ON)
 
+    # Устанавливаем имя приложения работы с состоянием связи
+    SET(SESSION_APP_NAME session-state)
+    # Указываем что нужно собрать приложение работы с состоянием связи
+    option(CMAKE_BUILD_SESSION_APP_SAMPLE "Build session state app sample" ON)
+
+    # Устанавливаем имя приложения работы с полным рукопожатием
+    SET(FLOW_APP_NAME handshake-flow)
+    # Указываем что нужно собрать приложение работы с полным рукопожатием
+    option(CMAKE_BUILD_FLOW_APP_SAMPLE "Build full handshake app sample" ON)
+
+    # Устанавливаем имя приложения работы с извещениями
+    SET(ALERT_APP_NAME alert-notice)
+    # Указываем что нужно собрать приложение работы с извещениями
+    option(CMAKE_BUILD_ALERT_APP_SAMPLE "Build alert app sample" ON)
+
+    # Устанавливаем имя приложения работы с обменом мимолётными ключами
+    SET(ECDHE_APP_NAME agreement-ecdhe)
+    # Указываем что нужно собрать приложение работы с обменом мимолётными ключами
+    option(CMAKE_BUILD_ECDHE_APP_SAMPLE "Build ephemeral key exchange app sample" ON)
+
+    # Устанавливаем имя приложения работы с фасадами связи
+    SET(CONTEXT_APP_NAME tls-connection)
+    # Указываем что нужно собрать приложение работы с фасадами связи
+    option(CMAKE_BUILD_CONTEXT_APP_SAMPLE "Build connection facades app sample" ON)
+
     # Если нужно собрать образец работы с приветствиями рукопожатия
     if (${CMAKE_BUILD_HELLO_APP_SAMPLE})
         # Выводим сообщение о сборке образца
@@ -382,6 +414,66 @@ if (${CMAKE_BUILD_SAMPLES})
         # Выводим сообщение о сборке образца
         message(STATUS "Build sample MESSAGE: No")
     endif (${CMAKE_BUILD_MESSAGE_APP_SAMPLE})
+
+    # Если нужно собрать образец работы с состоянием связи
+    if (${CMAKE_BUILD_SESSION_APP_SAMPLE})
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample SESSION: Yes")
+        # Выполняем создание приложения работы с состоянием связи
+        add_sample(${SESSION_APP_NAME} sample/session/session.cpp session)
+    # Если образец работы с состоянием связи собирать не нужно
+    else()
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample SESSION: No")
+    endif (${CMAKE_BUILD_SESSION_APP_SAMPLE})
+
+    # Если нужно собрать образец работы с полным рукопожатием
+    if (${CMAKE_BUILD_FLOW_APP_SAMPLE})
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample FLOW: Yes")
+        # Выполняем создание приложения работы с полным рукопожатием
+        add_sample(${FLOW_APP_NAME} sample/flow/flow.cpp handshake)
+    # Если образец работы с полным рукопожатием собирать не нужно
+    else()
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample FLOW: No")
+    endif (${CMAKE_BUILD_FLOW_APP_SAMPLE})
+
+    # Если нужно собрать образец работы с извещениями
+    if (${CMAKE_BUILD_ALERT_APP_SAMPLE})
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample ALERT: Yes")
+        # Выполняем создание приложения работы с извещениями
+        add_sample(${ALERT_APP_NAME} sample/alert/alert.cpp alert)
+    # Если образец работы с извещениями собирать не нужно
+    else()
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample ALERT: No")
+    endif (${CMAKE_BUILD_ALERT_APP_SAMPLE})
+
+    # Если нужно собрать образец работы с обменом мимолётными ключами
+    if (${CMAKE_BUILD_ECDHE_APP_SAMPLE})
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample ECDHE: Yes")
+        # Выполняем создание приложения работы с обменом мимолётными ключами
+        add_sample(${ECDHE_APP_NAME} sample/agreement/ecdhe.cpp agreement)
+    # Если образец работы с обменом мимолётными ключами собирать не нужно
+    else()
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample ECDHE: No")
+    endif (${CMAKE_BUILD_ECDHE_APP_SAMPLE})
+
+    # Если нужно собрать образец работы с фасадами связи
+    if (${CMAKE_BUILD_CONTEXT_APP_SAMPLE})
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample CONTEXT: Yes")
+        # Выполняем создание приложения работы с фасадами связи
+        add_sample(${CONTEXT_APP_NAME} sample/context/context.cpp context)
+    # Если образец работы с фасадами связи собирать не нужно
+    else()
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample CONTEXT: No")
+    endif (${CMAKE_BUILD_CONTEXT_APP_SAMPLE})
 endif (${CMAKE_BUILD_SAMPLES})
 
 # Выполняем установку заголовочных файлов проекта

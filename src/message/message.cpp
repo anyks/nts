@@ -396,6 +396,65 @@ error_t anyks::message::build(const verify_t & message, vector <uint8_t> & resul
 	return error_t::NONE;
 }
 /**
+ * @brief Метод разбора тела сообщения смены ключевого материала
+ *
+ * @param data   разбираемое тело сообщения
+ * @param result вид смены, в который помещается итог разбора
+ *
+ * @return       отказ разбора тела сообщения
+ *
+ */
+error_t anyks::message::parse(const view_t & data, update_t & result) noexcept {
+	// Если тело сообщения не передано
+	if((data.data == nullptr) || (data.size == 0))
+		// Выводим отказ обрыва тела сообщения
+		return error_t::HUNGRY;
+	// Если за видом смены ключевого материала идут лишние байты
+	if(data.size > 1)
+		// Выводим отказ лишних байтов за телом сообщения
+		return error_t::TRAILING;
+	/**
+	 * Выполняем определение вида смены ключевого материала
+	 */
+	switch(data.data[0]){
+		// Если сторона сменила ключи своего направления связи
+		case static_cast <uint8_t> (update_t::NOTIFY):
+		// Если сторона просит собеседника сменить свои ключи в ответ
+		case static_cast <uint8_t> (update_t::REQUEST): {
+			// Запоминаем разобранный вид смены ключевого материала
+			result = static_cast <update_t> (data.data[0]);
+			// Выводим успешность разбора тела сообщения
+			return error_t::NONE;
+		}
+	}
+	// Выводим отказ неизвестности вида смены ключевого материала
+	return error_t::EMPTY;
+}
+/**
+ * @brief Метод составления тела сообщения смены ключевого материала
+ *
+ * @param update составляемый вид смены ключевого материала
+ * @param result накопитель, в который складывается тело сообщения
+ *
+ * @return       отказ составления тела сообщения
+ *
+ */
+error_t anyks::message::build(const update_t update, vector <uint8_t> & result) noexcept {
+	/**
+	 * Выполняем составление тела сообщения смены ключевого материала
+	 */
+	try {
+		// Записываем вид смены ключевого материала связи
+		result.assign(1, static_cast <uint8_t> (update));
+	// Если памяти под итог не хватило
+	} catch(const bad_alloc &) {
+		// Выводим отказ нехватки памяти
+		return error_t::MEMORY;
+	}
+	// Выводим успешность составления тела сообщения
+	return error_t::NONE;
+}
+/**
  * @brief Метод обращения записи подписи владения ключом
  *
  * @param signature обращаемая подпись владения ключом

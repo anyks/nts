@@ -183,6 +183,23 @@ namespace anyks {
 
 		/**
 		 * \~russian
+		 * @brief Виды смены ключевого материала связи
+		 *
+		 * @details Раздел 4.6.3 RFC 8446: перечисление KeyUpdateRequest
+		 *
+		 * \~english
+		 * @brief Types of the change of the key material of a connection
+		 * @details The section 4.6.3 of RFC 8446: the KeyUpdateRequest enumeration
+		 *
+		 * \~
+		 */
+		enum class update_t : uint8_t {
+			NOTIFY  = 0x00, /*!< \~russian Сторона сменила ключи своего направления связи \~english The side has changed the keys of its direction of the connection \~ */
+			REQUEST = 0x01  /*!< \~russian Сторона просит собеседника сменить свои ключи в ответ \~english The side asks the interlocutor to change their keys in return \~ */
+		};
+
+		/**
+		 * \~russian
 		 * @brief Метод разбора тела сообщения цепочки сертификатов
 		 *
 		 * @param data   разбираемое тело сообщения
@@ -371,6 +388,47 @@ namespace anyks {
 		 * \~
 		 */
 		__ANYKS_TLS_SHARED_EXPORT__ bool compare(const view_t & first, const view_t & second) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод разбора тела сообщения смены ключевого материала
+		 *
+		 * @param data   разбираемое тело сообщения
+		 * @param result вид смены, в который помещается итог разбора
+		 *
+		 * @return       отказ разбора тела сообщения
+		 *
+		 * @note Вид смены, протоколом не определённый, отвергается: раздел 4.6.3 RFC 8446
+		 *       велит рвать по нему связь, а не толковать его наугад
+		 *
+		 * \~english
+		 * @brief Method of the parsing of the body of the message of the change of the key material
+		 * @param data   the body of the message being parsed
+		 * @param result the type of the change the outcome of the parsing is put into
+		 * @return       the failure of the parsing of the body of the message
+		 * @note A type of the change not defined by the protocol is rejected: the section 4.6.3 of
+		 *       RFC 8446 orders to tear the connection by it and not to interpret it by a guess
+		 *
+		 * \~
+		 */
+		__ANYKS_TLS_SHARED_EXPORT__ error_t parse(const view_t & data, update_t & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод составления тела сообщения смены ключевого материала
+		 *
+		 * @param update составляемый вид смены ключевого материала
+		 * @param result накопитель, в который складывается тело сообщения
+		 *
+		 * @return       отказ составления тела сообщения
+		 *
+		 * \~english
+		 * @brief Method of the composition of the body of the message of the change of the key material
+		 * @param update the type of the change of the key material being composed
+		 * @param result the accumulator the body of the message is put into
+		 * @return       the failure of the composition of the body of the message
+		 *
+		 * \~
+		 */
+		__ANYKS_TLS_SHARED_EXPORT__ error_t build(const update_t update, vector <uint8_t> & result) noexcept;
 	};
 };
 

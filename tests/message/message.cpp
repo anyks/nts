@@ -253,3 +253,33 @@ TEST(MessageTest, Content){
 	// Проверяем отказ составления содержимого без хеша переписки
 	ASSERT_EQ(message::content(view_t(nullptr, 0), true, client), message::error_t::EMPTY);
 }
+
+/**
+ * Проверка разбора и составления сообщения смены ключевого материала
+ */
+TEST(MessageTest, Update){
+	// Накопитель, в который складывается тело сообщения
+	vector <uint8_t> body;
+	// Выполняем составление тела сообщения смены ключевого материала
+	ASSERT_EQ(message::build(message::update_t::REQUEST, body), message::error_t::NONE);
+	// Проверяем длину составленного тела сообщения
+	ASSERT_EQ(body.size(), static_cast <size_t> (1));
+	// Проверяем записанный вид смены ключевого материала
+	ASSERT_EQ(body[0], 0x01);
+	// Разбираемый вид смены ключевого материала
+	message::update_t update = message::update_t::NOTIFY;
+	// Выполняем разбор составленного тела сообщения
+	ASSERT_EQ(message::parse(view_t(body.data(), body.size()), update), message::error_t::NONE);
+	// Проверяем разобранный вид смены ключевого материала
+	ASSERT_EQ(update, message::update_t::REQUEST);
+	// Тело сообщения с видом смены, протоколом не определённым
+	const uint8_t unknown[1] = {0x02};
+	// Проверяем отказ разбора неизвестного вида смены ключей
+	ASSERT_EQ(message::parse(view_t(unknown, sizeof(unknown)), update), message::error_t::EMPTY);
+	// Тело сообщения, оборванное до вида смены ключей
+	ASSERT_EQ(message::parse(view_t(), update), message::error_t::HUNGRY);
+	// Тело сообщения с лишними байтами за видом смены ключей
+	const uint8_t trailing[2] = {0x00, 0x00};
+	// Проверяем отказ разбора тела с лишними байтами
+	ASSERT_EQ(message::parse(view_t(trailing, sizeof(trailing)), update), message::error_t::TRAILING);
+}

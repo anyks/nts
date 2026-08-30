@@ -244,7 +244,7 @@ bool anyks::x509::verify(const view_t & body, const view_t & signature, const st
 	// Опознаватель набора параметров кривой
 	string oid;
 	// Если опознаватель набора параметров кривой извлечь не удалось
-	if(!identifier(key.parameters, oid))
+	if(!::identifier(key.parameters, oid))
 		// Выводим отказ проверки подписи
 		return false;
 	// Эллиптическая кривая проверки подписи
@@ -304,6 +304,104 @@ bool anyks::x509::verify(const view_t & body, const view_t & signature, const st
 	::memcpy(buffer + half, signature.data, half);
 	// Выводим итог проверки подписи записи
 	return gost.check(view_t(digest, size), view_t(buffer, signature.size));
+}
+/**
+ * @brief Метод извлечения опознавателя набора параметров кривой ключа
+ *
+ * @param key    сведения об открытом ключе, набор параметров которого извлекается
+ * @param result строка, в которую помещается опознаватель набора параметров
+ *
+ * @return       признак успешности извлечения опознавателя
+ *
+ */
+bool anyks::x509::identifier(const key_t & key, string & result) noexcept {
+	// Если алгоритм открытого ключа непригоден
+	if(!suitable(key.algorithm))
+		// Выводим отказ извлечения опознавателя набора параметров
+		return false;
+	// Выводим итог извлечения опознавателя набора параметров кривой
+	return ::identifier(key.parameters, result);
+}
+/**
+ * @brief Метод заведения кривой открытого ключа
+ *
+ * @param key    сведения об открытом ключе, кривая которого заводится
+ * @param result кривая, в которую помещается набор параметров ключа
+ *
+ * @return       признак успешности заведения кривой открытого ключа
+ *
+ */
+bool anyks::x509::parameters(const key_t & key, curve::curve_t & result) noexcept {
+	// Если алгоритм открытого ключа непригоден
+	if(!suitable(key.algorithm))
+		// Выводим отказ заведения кривой открытого ключа
+		return false;
+	// Опознаватель набора параметров кривой
+	string oid;
+	// Если опознаватель набора параметров кривой извлечь не удалось
+	if(!anyks::x509::identifier(key, oid))
+		// Выводим отказ заведения кривой открытого ключа
+		return false;
+	// Выводим итог заведения кривой по опознавателю набора параметров
+	return curve::parameters(oid, result);
+}
+/**
+ * @brief Метод проверки подписи содержимого открытым ключом
+ *
+ * @param key       сведения об открытом ключе подписавшей стороны
+ * @param content   подписанное содержимое
+ * @param signature проверяемая подпись, записанная числами r и s подряд
+ *
+ * @return          признак того, что подпись содержимого сошлась
+ *
+ */
+bool anyks::x509::check(const key_t & key, const view_t & content, const view_t & signature) noexcept {
+	// Если подписанное содержимое либо подпись не переданы
+	if((content.data == nullptr) || (content.size == 0) || (signature.data == nullptr))
+		// Выводим отказ проверки подписи содержимого
+		return false;
+	// Эллиптическая кривая проверки подписи
+	curve::curve_t curve;
+	// Если кривую открытого ключа завести не удалось
+	if(!anyks::x509::parameters(key, curve))
+		// Выводим отказ проверки подписи содержимого
+		return false;
+	// Если подпись не занимает двух чисел длиной в порядок подгруппы точек кривой
+	if(signature.size != (curve.order().size() * 2))
+		// Выводим отказ проверки подписи содержимого
+		return false;
+	// Места, в которые помещаются координаты открытого ключа
+	uint8_t x[math::NUMBER_SIZE], y[math::NUMBER_SIZE];
+	// Если координаты открытого ключа извлечь не удалось
+	if(!coordinates(key.key, curve.size(), x, y))
+		// Выводим отказ проверки подписи содержимого
+		return false;
+	// Объект модуля электронной подписи
+	sign::gost_t gost;
+	// Если эллиптическую кривую установить не удалось
+	if(!gost.start(curve))
+		// Выводим отказ проверки подписи содержимого
+		return false;
+	// Если открытый ключ подписавшей стороны установить не удалось
+	if(!gost.key(view_t(x, curve.size()), view_t(y, curve.size())))
+		// Выводим отказ проверки подписи содержимого
+		return false;
+	// Место, в которое помещается хеш подписанного содержимого
+	uint8_t digest[64];
+	/**
+	 * Длина хеша содержимого берётся размером координаты кривой открытого ключа:
+	 * ключу длиной 256 разрядов отвечает хеш той же длины
+	 */
+	const digest::type_t type = (curve.size() == 32 ? digest::type_t::SHORT : digest::type_t::LONG);
+	/**
+	 * Хеш берётся записью вектором: подпись по ГОСТ Р 34.10-2012 толкует его числом,
+	 * а не строкой байтов, и запись эта задана самим стандартом
+	 */
+	if(!digest::streebog(type, content, digest, curve.size(), digest::order_t::VECTOR))
+		// Выводим отказ проверки подписи содержимого
+		return false;
+	// Выводим итог проверки подписи содержимого
+	return gost.check(view_t(digest, curve.size()), signature);
 }
 /**
  * @brief Метод проверки подписи сертификата
