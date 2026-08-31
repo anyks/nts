@@ -2,7 +2,7 @@
  * @file magma.hpp
  * @date 2026-08-29
  *
- * @license{LicenseRef-ANYKS-TLS-1.0}
+ * @license{LicenseRef-ANTS-1.0}
  *
  * @author Yuriy Lobarev
  *
@@ -29,8 +29,8 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANYKS_TLS_MAGMA__
-#define __ANYKS_TLS_MAGMA__
+#ifndef __ANTS_MAGMA__
+#define __ANTS_MAGMA__
 
 /**
  * Стандартные заголовочные файлы
@@ -106,7 +106,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		typedef class __ANYKS_TLS_SHARED_EXPORT__ Magma {
+		typedef class __ANTS_SHARED_EXPORT__ Magma {
 			private:
 				// Признак того, что ключ установлен
 				bool _ready;
@@ -223,4 +223,4 @@ namespace anyks {
 	};
 };
 
-#endif // __ANYKS_TLS_MAGMA__
+#endif // __ANTS_MAGMA__

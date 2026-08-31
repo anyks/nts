@@ -2,7 +2,7 @@
  * @file server.hpp
  * @date 2026-08-30
  *
- * @license{LicenseRef-ANYKS-TLS-1.0}
+ * @license{LicenseRef-ANTS-1.0}
  *
  * @author Yuriy Lobarev
  *
@@ -27,8 +27,8 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANYKS_TLS_SERVER__
-#define __ANYKS_TLS_SERVER__
+#ifndef __ANTS_SERVER__
+#define __ANTS_SERVER__
 
 /**
  * Стандартные заголовочные файлы
@@ -118,7 +118,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		typedef class __ANYKS_TLS_SHARED_EXPORT__ Context {
+		typedef class __ANTS_SHARED_EXPORT__ Context {
 			private:
 				// Объект ведения связи протокола
 				internal::Engine * _engine;
@@ -790,4 +790,4 @@ namespace anyks {
 	};
 };
 
-#endif // __ANYKS_TLS_SERVER__
+#endif // __ANTS_SERVER__

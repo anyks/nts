@@ -2,7 +2,7 @@
  * @file hello.hpp
  * @date 2026-08-29
  *
- * @license{LicenseRef-ANYKS-TLS-1.0}
+ * @license{LicenseRef-ANTS-1.0}
  *
  * @author Yuriy Lobarev
  *
@@ -30,8 +30,8 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANYKS_TLS_HELLO__
-#define __ANYKS_TLS_HELLO__
+#ifndef __ANTS_HELLO__
+#define __ANTS_HELLO__
 
 /**
  * Стандартные заголовочные файлы
@@ -147,7 +147,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		typedef struct __ANYKS_TLS_SHARED_EXPORT__ Extension {
+		typedef struct __ANTS_SHARED_EXPORT__ Extension {
 			// Вид расширения приветствия
 			uint16_t type;
 			// Тело расширения приветствия
@@ -192,7 +192,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		typedef struct __ANYKS_TLS_SHARED_EXPORT__ Client {
+		typedef struct __ANTS_SHARED_EXPORT__ Client {
 			// Версия протокола, доставшаяся от предыдущих изданий
 			uint16_t version;
 			// Случайное значение приветствия
@@ -230,7 +230,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		typedef struct __ANYKS_TLS_SHARED_EXPORT__ Server {
+		typedef struct __ANTS_SHARED_EXPORT__ Server {
 			// Версия протокола, доставшаяся от предыдущих изданий
 			uint16_t version;
 			// Случайное значение приветствия
@@ -273,7 +273,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ const extension_t * extension(const vector <extension_t> & extensions, const uint16_t type) noexcept;
+		__ANTS_SHARED_EXPORT__ const extension_t * extension(const vector <extension_t> & extensions, const uint16_t type) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод проверки того, что приветствие сервера есть просьба о повторе
@@ -296,7 +296,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ bool retry(const server_t & hello) noexcept;
+		__ANTS_SHARED_EXPORT__ bool retry(const server_t & hello) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод разбора тела приветствия клиента
@@ -317,7 +317,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t parse(const view_t & data, client_t & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t parse(const view_t & data, client_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод разбора тела приветствия сервера
@@ -338,7 +338,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t parse(const view_t & data, server_t & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t parse(const view_t & data, server_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод составления тела приветствия клиента
@@ -356,7 +356,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t build(const client_t & hello, vector <uint8_t> & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t build(const client_t & hello, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод составления тела приветствия сервера
@@ -374,8 +374,8 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t build(const server_t & hello, vector <uint8_t> & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t build(const server_t & hello, vector <uint8_t> & result) noexcept;
 	};
 };
 
-#endif // __ANYKS_TLS_HELLO__
+#endif // __ANTS_HELLO__

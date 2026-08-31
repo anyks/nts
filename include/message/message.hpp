@@ -2,7 +2,7 @@
  * @file message.hpp
  * @date 2026-08-29
  *
- * @license{LicenseRef-ANYKS-TLS-1.0}
+ * @license{LicenseRef-ANTS-1.0}
  *
  * @author Yuriy Lobarev
  *
@@ -30,8 +30,8 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANYKS_TLS_MESSAGE__
-#define __ANYKS_TLS_MESSAGE__
+#ifndef __ANTS_MESSAGE__
+#define __ANTS_MESSAGE__
 
 /**
  * Стандартные заголовочные файлы
@@ -118,7 +118,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		typedef struct __ANYKS_TLS_SHARED_EXPORT__ Entry {
+		typedef struct __ANTS_SHARED_EXPORT__ Entry {
 			// Тело сертификата записи цепочки
 			view_t data;
 			// Перечень расширений записи цепочки
@@ -137,7 +137,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		typedef struct __ANYKS_TLS_SHARED_EXPORT__ Certificate {
+		typedef struct __ANTS_SHARED_EXPORT__ Certificate {
 			// Привязка цепочки к запросу сертификата собеседником
 			view_t context;
 			// Записи цепочки сертификатов
@@ -163,7 +163,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		typedef struct __ANYKS_TLS_SHARED_EXPORT__ Verify {
+		typedef struct __ANTS_SHARED_EXPORT__ Verify {
 			// Схема подписи владения ключом сертификата
 			extension::scheme_t scheme;
 			// Значение подписи владения ключом сертификата
@@ -198,7 +198,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		typedef struct __ANYKS_TLS_SHARED_EXPORT__ Ticket {
+		typedef struct __ANTS_SHARED_EXPORT__ Ticket {
 			// Срок жизни билета в секундах
 			uint32_t lifetime;
 			// Добавка к возрасту билета, скрывающая его от посторонних
@@ -256,7 +256,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t parse(const view_t & data, certificate_t & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t parse(const view_t & data, certificate_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод составления тела сообщения цепочки сертификатов
@@ -274,7 +274,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t build(const certificate_t & message, vector <uint8_t> & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t build(const certificate_t & message, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод разбора тела сообщения подписи владения ключом
@@ -292,7 +292,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t parse(const view_t & data, verify_t & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t parse(const view_t & data, verify_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод составления тела сообщения подписи владения ключом
@@ -310,7 +310,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t build(const verify_t & message, vector <uint8_t> & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t build(const verify_t & message, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод обращения записи подписи владения ключом
@@ -341,7 +341,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t reverse(const view_t & signature, uint8_t * result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t reverse(const view_t & signature, uint8_t * result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод составления подписываемого содержимого владения ключом
@@ -372,7 +372,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t content(const view_t & transcript, const bool server, vector <uint8_t> & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t content(const view_t & transcript, const bool server, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод выработки тела сообщения завершения рукопожатия
@@ -403,7 +403,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t finished(const view_t & secret, const view_t & transcript, uint8_t * result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t finished(const view_t & secret, const view_t & transcript, uint8_t * result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод сличения тел сообщений завершения рукопожатия
@@ -428,7 +428,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ bool compare(const view_t & first, const view_t & second) noexcept;
+		__ANTS_SHARED_EXPORT__ bool compare(const view_t & first, const view_t & second) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод разбора тела сообщения смены ключевого материала
@@ -451,7 +451,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t parse(const view_t & data, update_t & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t parse(const view_t & data, update_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод составления тела сообщения смены ключевого материала
@@ -469,7 +469,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t build(const update_t update, vector <uint8_t> & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t build(const update_t update, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод разбора тела сообщения билета возобновления связи
@@ -487,7 +487,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t parse(const view_t & data, ticket_t & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t parse(const view_t & data, ticket_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод составления тела сообщения билета возобновления связи
@@ -511,8 +511,8 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t build(const ticket_t & ticket, vector <uint8_t> & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t build(const ticket_t & ticket, vector <uint8_t> & result) noexcept;
 	};
 };
 
-#endif // __ANYKS_TLS_MESSAGE__
+#endif // __ANTS_MESSAGE__

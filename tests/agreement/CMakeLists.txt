@@ -11,7 +11,7 @@ target_compile_options(${TEST_VKO_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
 target_include_directories(${TEST_VKO_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/tests")
 
 # Выполняем подключение зависимостей цели проверок
-target_link_libraries(${TEST_VKO_NAME} ${TLS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
+target_link_libraries(${TEST_VKO_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
 
 # Регистрируем цель проверок
 add_test(NAME ${TEST_VKO_NAME} COMMAND ${TEST_VKO_NAME})
@@ -29,7 +29,7 @@ target_compile_options(${TEST_ECDHE_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
 target_include_directories(${TEST_ECDHE_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/tests")
 
 # Выполняем подключение зависимостей цели проверок
-target_link_libraries(${TEST_ECDHE_NAME} ${TLS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
+target_link_libraries(${TEST_ECDHE_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
 
 # Регистрируем цель проверок
 add_test(NAME ${TEST_ECDHE_NAME} COMMAND ${TEST_ECDHE_NAME})

@@ -2,7 +2,7 @@
  * @file kuznyechik.cpp
  * @date 2026-08-29
  *
- * @license{LicenseRef-ANYKS-TLS-1.0}
+ * @license{LicenseRef-ANTS-1.0}
  *
  * @author Yuriy Lobarev
  *
@@ -366,7 +366,7 @@ namespace {
 	/**
 	 * Если шифр работает развёрнутыми таблицами преобразования
 	 */
-	#if !defined(ANYKS_TLS_CIPHER_COMPACT)
+	#if !defined(ANTS_CIPHER_COMPACT)
 		/**
 		 * @brief Развёрнутая таблица преобразования блока
 		 *
@@ -508,7 +508,7 @@ namespace {
 			// Переносим старшую половину итога преобразования
 			::memcpy(block + sizeof(low), &high, sizeof(high));
 		}
-	#endif // ANYKS_TLS_CIPHER_COMPACT
+	#endif // ANTS_CIPHER_COMPACT
 
 	/**
 	 * @brief Метод сложения блока с ключом
@@ -661,7 +661,7 @@ bool anyks::cipher::Kuznyechik::encrypt(const uint8_t * source, uint8_t * result
 	/**
 	 * Если шифр работает развёрнутыми таблицами преобразования
 	 */
-	#if !defined(ANYKS_TLS_CIPHER_COMPACT)
+	#if !defined(ANTS_CIPHER_COMPACT)
 		// Получаем развёрнутую таблицу прямого преобразования
 		const spread_t & table = forward();
 		/**
@@ -688,7 +688,7 @@ bool anyks::cipher::Kuznyechik::encrypt(const uint8_t * source, uint8_t * result
 			// Выполняем линейное преобразование блока
 			spread(block);
 		}
-	#endif // ANYKS_TLS_CIPHER_COMPACT
+	#endif // ANTS_CIPHER_COMPACT
 	// Складываем блок с последним раундовым ключом
 	add(block, this->_keys[9]);
 	// Переносим зашифрованный блок
@@ -719,7 +719,7 @@ bool anyks::cipher::Kuznyechik::decrypt(const uint8_t * source, uint8_t * result
 	/**
 	 * Если шифр работает развёрнутыми таблицами преобразования
 	 */
-	#if !defined(ANYKS_TLS_CIPHER_COMPACT)
+	#if !defined(ANTS_CIPHER_COMPACT)
 		// Получаем развёрнутую таблицу обратного преобразования
 		const spread_t & table = backward();
 		/**
@@ -752,7 +752,7 @@ bool anyks::cipher::Kuznyechik::decrypt(const uint8_t * source, uint8_t * result
 			// Выполняем обратную подстановку байтов блока
 			unsubstitute(block);
 		}
-	#endif // ANYKS_TLS_CIPHER_COMPACT
+	#endif // ANTS_CIPHER_COMPACT
 	// Складываем блок с первым раундовым ключом
 	add(block, this->_keys[0]);
 	// Переносим расшифрованный блок

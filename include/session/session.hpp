@@ -2,7 +2,7 @@
  * @file session.hpp
  * @date 2026-08-30
  *
- * @license{LicenseRef-ANYKS-TLS-1.0}
+ * @license{LicenseRef-ANTS-1.0}
  *
  * @author Yuriy Lobarev
  *
@@ -29,8 +29,8 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANYKS_TLS_SESSION__
-#define __ANYKS_TLS_SESSION__
+#ifndef __ANTS_SESSION__
+#define __ANTS_SESSION__
 
 /**
  * Стандартные заголовочные файлы
@@ -161,7 +161,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t material(const view_t & traffic, const protect::suite_t suite, uint8_t * key, uint8_t * vector) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t material(const view_t & traffic, const protect::suite_t suite, uint8_t * key, uint8_t * vector) noexcept;
 
 		/**
 		 * \~russian
@@ -189,7 +189,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		typedef class __ANYKS_TLS_SHARED_EXPORT__ Transcript {
+		typedef class __ANTS_SHARED_EXPORT__ Transcript {
 			private:
 				// Объект хеширования переписки рукопожатия
 				digest::streebog_t _hash;
@@ -348,7 +348,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		typedef class __ANYKS_TLS_SHARED_EXPORT__ Secrets {
+		typedef class __ANTS_SHARED_EXPORT__ Secrets {
 			private:
 				// Пройденная ступень расписания ключей
 				stage_t _stage;
@@ -721,4 +721,4 @@ namespace anyks {
 	};
 };
 
-#endif // __ANYKS_TLS_SESSION__
+#endif // __ANTS_SESSION__

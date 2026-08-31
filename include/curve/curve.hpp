@@ -2,7 +2,7 @@
  * @file curve.hpp
  * @date 2026-08-29
  *
- * @license{LicenseRef-ANYKS-TLS-1.0}
+ * @license{LicenseRef-ANTS-1.0}
  *
  * @author Yuriy Lobarev
  *
@@ -29,8 +29,8 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANYKS_TLS_CURVE__
-#define __ANYKS_TLS_CURVE__
+#ifndef __ANTS_CURVE__
+#define __ANTS_CURVE__
 
 /**
  * Стандартные заголовочные файлы
@@ -98,7 +98,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		typedef struct __ANYKS_TLS_SHARED_EXPORT__ Point {
+		typedef struct __ANTS_SHARED_EXPORT__ Point {
 			// Первая координата точки
 			math::number_t x;
 			// Вторая координата точки
@@ -130,7 +130,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		typedef class __ANYKS_TLS_SHARED_EXPORT__ Curve {
+		typedef class __ANTS_SHARED_EXPORT__ Curve {
 			private:
 				// Признак того, что кривая установлена
 				bool _ready;
@@ -493,4 +493,4 @@ namespace anyks {
 	};
 };
 
-#endif // __ANYKS_TLS_CURVE__
+#endif // __ANTS_CURVE__

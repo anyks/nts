@@ -2,7 +2,7 @@
  * @file context.hpp
  * @date 2026-08-30
  *
- * @license{LicenseRef-ANYKS-TLS-1.0}
+ * @license{LicenseRef-ANTS-1.0}
  *
  * @author Yuriy Lobarev
  *
@@ -29,8 +29,8 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANYKS_TLS_CONTEXT__
-#define __ANYKS_TLS_CONTEXT__
+#ifndef __ANTS_CONTEXT__
+#define __ANTS_CONTEXT__
 
 /**
  * Стандартные заголовочные файлы
@@ -157,7 +157,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		typedef struct __ANYKS_TLS_SHARED_EXPORT__ Credential {
+		typedef struct __ANTS_SHARED_EXPORT__ Credential {
 			// Секретный ключ своего сертификата
 			vector <uint8_t> secret;
 			// Цепочка сертификатов своей стороны
@@ -191,7 +191,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		typedef struct __ANYKS_TLS_SHARED_EXPORT__ Ticket {
+		typedef struct __ANTS_SHARED_EXPORT__ Ticket {
 			// Набор шифрования связи, выдавшей билет
 			protect::suite_t suite;
 			// Миг выдачи билета в секундах, ноль означает неизвестный миг
@@ -221,4 +221,4 @@ namespace anyks {
 	};
 };
 
-#endif // __ANYKS_TLS_CONTEXT__
+#endif // __ANTS_CONTEXT__

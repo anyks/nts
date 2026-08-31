@@ -2,7 +2,7 @@
  * @file number.cpp
  * @date 2026-08-29
  *
- * @license{LicenseRef-ANYKS-TLS-1.0}
+ * @license{LicenseRef-ANTS-1.0}
  *
  * @author Yuriy Lobarev
  *
@@ -292,6 +292,110 @@ namespace {
 			value[i] = select(mask, buffer[i], value[i]);
 		// Выполняем затирание итога вычитания модуля
 		clean(buffer, size);
+	}
+	/**
+	 * @brief Метод сложения чисел по модулю известного числа слов
+	 *
+	 * @param first   первое слагаемое
+	 * @param second  второе слагаемое
+	 * @param modulus модуль поля
+	 * @param result  место, в которое помещается сумма
+	 *
+	 * @note Число слов заложено в тело постоянной по той же причине, что и у
+	 *       умножения: собиратель разворачивает тогда циклы и держит слова в регистрах
+	 *
+	 */
+	template <size_t WORDS>
+	static void addition(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, uint64_t * result) noexcept {
+		// Перенос из очередного слова суммы
+		uint64_t carry = 0;
+		/**
+		 * Выполняем перебор складываемых слов от младшего к старшему
+		 */
+		for(size_t i = 0; i < WORDS; i++){
+			// Складываем очередные слова с переносом
+			const double_t item = (static_cast <double_t> (first[i]) + second[i] + carry);
+			// Записываем младшую половину суммы
+			result[i] = static_cast <uint64_t> (item);
+			// Запоминаем перенос в следующее слово
+			carry = static_cast <uint64_t> (item >> 64);
+		}
+		// Итог вычитания модуля из полученной суммы
+		uint64_t buffer[WORDS];
+		// Заём из старшего слова разности
+		uint64_t borrow = 0;
+		/**
+		 * Выполняем вычитание модуля из полученной суммы
+		 */
+		for(size_t i = 0; i < WORDS; i++){
+			// Вычитаем очередное слово модуля с заёмом
+			const double_t item = (static_cast <double_t> (result[i]) - modulus[i] - borrow);
+			// Записываем младшую половину разности
+			buffer[i] = static_cast <uint64_t> (item);
+			// Запоминаем заём из следующего слова
+			borrow = static_cast <uint64_t> ((item >> 64) & 0x01);
+		}
+		/**
+		 * Модуль вычитается, когда сумма его не меньше: либо вычитание прошло без
+		 * заёма, либо сумма и без того вышла за разрядность своих слов
+		 */
+		const uint64_t mask = (0 - (carry | (borrow ^ 0x01)));
+		/**
+		 * Выполняем перебор слов полученной суммы
+		 */
+		for(size_t i = 0; i < WORDS; i++)
+			// Выбираем очередное слово итога наложением маски
+			result[i] = select(mask, buffer[i], result[i]);
+		// Выполняем затирание итога вычитания модуля
+		clean(buffer, WORDS);
+	}
+	/**
+	 * @brief Метод вычитания чисел по модулю известного числа слов
+	 *
+	 * @param first   уменьшаемое
+	 * @param second  вычитаемое
+	 * @param modulus модуль поля
+	 * @param result  место, в которое помещается разность
+	 *
+	 */
+	template <size_t WORDS>
+	static void subtraction(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, uint64_t * result) noexcept {
+		// Заём из очередного слова разности
+		uint64_t borrow = 0;
+		/**
+		 * Выполняем перебор вычитаемых слов от младшего к старшему
+		 */
+		for(size_t i = 0; i < WORDS; i++){
+			// Вычитаем очередные слова с заёмом
+			const double_t item = (static_cast <double_t> (first[i]) - second[i] - borrow);
+			// Записываем младшую половину разности
+			result[i] = static_cast <uint64_t> (item);
+			// Запоминаем заём из следующего слова
+			borrow = static_cast <uint64_t> ((item >> 64) & 0x01);
+		}
+		// Сумма разности с модулем, применяемая при заёме из старшего слова
+		uint64_t buffer[WORDS];
+		// Перенос из очередного слова суммы
+		uint64_t carry = 0;
+		/**
+		 * Выполняем сложение полученной разности с модулем
+		 */
+		for(size_t i = 0; i < WORDS; i++){
+			// Складываем очередные слова с переносом
+			const double_t item = (static_cast <double_t> (result[i]) + modulus[i] + carry);
+			// Записываем младшую половину суммы
+			buffer[i] = static_cast <uint64_t> (item);
+			// Запоминаем перенос в следующее слово
+			carry = static_cast <uint64_t> (item >> 64);
+		}
+		/**
+		 * Выполняем перебор слов полученной разности
+		 */
+		for(size_t i = 0; i < WORDS; i++)
+			// Выбираем очередное слово итога наложением маски заёма
+			result[i] = select(0 - borrow, buffer[i], result[i]);
+		// Выполняем затирание суммы разности с модулем
+		clean(buffer, WORDS);
 	}
 };
 
@@ -607,6 +711,19 @@ void anyks::math::Modulus::leave(const number_t & value, number_t & result) cons
  *
  */
 void anyks::math::Modulus::add(const number_t & first, const number_t & second, number_t & result) const noexcept {
+	// Если модуль поля укладывается в четыре слова
+	if(this->_words == 4){
+		// Выполняем сложение слагаемых развёрнутым способом
+		addition <4> (first.words, second.words, this->_modulus.words, result.words);
+		// Выходим из сложения чисел
+		return;
+	// Если модуль поля укладывается в восемь слов
+	} else if(this->_words == 8) {
+		// Выполняем сложение слагаемых развёрнутым способом
+		addition <8> (first.words, second.words, this->_modulus.words, result.words);
+		// Выходим из сложения чисел
+		return;
+	}
 	// Выполняем сложение слагаемых
 	const uint64_t carry = increase(first.words, second.words, result.words, this->_words);
 	// Выполняем приведение суммы по модулю
@@ -621,6 +738,19 @@ void anyks::math::Modulus::add(const number_t & first, const number_t & second, 
  *
  */
 void anyks::math::Modulus::subtract(const number_t & first, const number_t & second, number_t & result) const noexcept {
+	// Если модуль поля укладывается в четыре слова
+	if(this->_words == 4){
+		// Выполняем вычитание развёрнутым способом
+		subtraction <4> (first.words, second.words, this->_modulus.words, result.words);
+		// Выходим из вычитания чисел
+		return;
+	// Если модуль поля укладывается в восемь слов
+	} else if(this->_words == 8) {
+		// Выполняем вычитание развёрнутым способом
+		subtraction <8> (first.words, second.words, this->_modulus.words, result.words);
+		// Выходим из вычитания чисел
+		return;
+	}
 	// Выполняем вычитание вычитаемого из уменьшаемого
 	const uint64_t borrow = decrease(first.words, second.words, result.words, this->_words);
 	// Сумма разности с модулем, применяемая при заёме из старшего слова

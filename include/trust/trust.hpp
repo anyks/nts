@@ -2,7 +2,7 @@
  * @file trust.hpp
  * @date 2026-08-30
  *
- * @license{LicenseRef-ANYKS-TLS-1.0}
+ * @license{LicenseRef-ANTS-1.0}
  *
  * @author Yuriy Lobarev
  *
@@ -29,8 +29,8 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANYKS_TLS_TRUST__
-#define __ANYKS_TLS_TRUST__
+#ifndef __ANTS_TRUST__
+#define __ANTS_TRUST__
 
 /**
  * Стандартные заголовочные файлы
@@ -142,7 +142,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		typedef class __ANYKS_TLS_SHARED_EXPORT__ Store {
+		typedef class __ANTS_SHARED_EXPORT__ Store {
 			private:
 				// Записи доверенных сертификатов запаса
 				vector <vector <uint8_t>> _chain;
@@ -263,7 +263,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t verify(const vector <vector <uint8_t>> & chain, const store_t & store, const int64_t moment) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t verify(const vector <vector <uint8_t>> & chain, const store_t & store, const int64_t moment) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод сличения имени узла с именами сертификата
@@ -292,8 +292,8 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t belongs(const view_t & certificate, const string & name) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t belongs(const view_t & certificate, const string & name) noexcept;
 	};
 };
 
-#endif // __ANYKS_TLS_TRUST__
+#endif // __ANTS_TRUST__

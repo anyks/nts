@@ -2,7 +2,7 @@
  * @file pem.hpp
  * @date 2026-08-30
  *
- * @license{LicenseRef-ANYKS-TLS-1.0}
+ * @license{LicenseRef-ANTS-1.0}
  *
  * @author Yuriy Lobarev
  *
@@ -30,8 +30,8 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANYKS_TLS_PEM__
-#define __ANYKS_TLS_PEM__
+#ifndef __ANTS_PEM__
+#define __ANTS_PEM__
 
 /**
  * Стандартные заголовочные файлы
@@ -170,7 +170,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		typedef struct __ANYKS_TLS_SHARED_EXPORT__ Block {
+		typedef struct __ANTS_SHARED_EXPORT__ Block {
 			// Метка вида записи
 			string label;
 			// Тело записи в кодировке DER
@@ -199,7 +199,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t decode(const string & text, vector <block_t> & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t decode(const string & text, vector <block_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод разбора записей заданного вида
@@ -223,7 +223,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t decode(const string & text, const string & label, vector <vector <uint8_t>> & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t decode(const string & text, const string & label, vector <vector <uint8_t>> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод записи одной записи
@@ -241,7 +241,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t encode(const block_t & block, string & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t encode(const block_t & block, string & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод записи набора записей
@@ -262,7 +262,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t encode(const vector <block_t> & blocks, string & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t encode(const vector <block_t> & blocks, string & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод извлечения цепочки сертификатов
@@ -287,7 +287,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t certificates(const string & text, vector <vector <uint8_t>> & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t certificates(const string & text, vector <vector <uint8_t>> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод извлечения секретного ключа
@@ -332,7 +332,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t secret(const string & text, vector <uint8_t> & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t secret(const string & text, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод получения названия отказа
@@ -348,8 +348,8 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ const char * name(const error_t error) noexcept;
+		__ANTS_SHARED_EXPORT__ const char * name(const error_t error) noexcept;
 	};
 };
 
-#endif // __ANYKS_TLS_PEM__
+#endif // __ANTS_PEM__

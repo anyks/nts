@@ -2,7 +2,7 @@
  * @file kdf.hpp
  * @date 2026-08-29
  *
- * @license{LicenseRef-ANYKS-TLS-1.0}
+ * @license{LicenseRef-ANTS-1.0}
  *
  * @author Yuriy Lobarev
  *
@@ -28,8 +28,8 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANYKS_TLS_KDF__
-#define __ANYKS_TLS_KDF__
+#ifndef __ANTS_KDF__
+#define __ANTS_KDF__
 
 /**
  * Стандартные заголовочные файлы
@@ -128,8 +128,8 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ bool kdf(const view_t & key, const view_t & label, const view_t & seed, uint8_t * result) noexcept;
+		__ANTS_SHARED_EXPORT__ bool kdf(const view_t & key, const view_t & label, const view_t & seed, uint8_t * result) noexcept;
 	};
 };
 
-#endif // __ANYKS_TLS_KDF__
+#endif // __ANTS_KDF__

@@ -2,7 +2,7 @@
  * @file number.hpp
  * @date 2026-08-29
  *
- * @license{LicenseRef-ANYKS-TLS-1.0}
+ * @license{LicenseRef-ANTS-1.0}
  *
  * @author Yuriy Lobarev
  *
@@ -29,8 +29,8 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANYKS_TLS_NUMBER__
-#define __ANYKS_TLS_NUMBER__
+#ifndef __ANTS_NUMBER__
+#define __ANTS_NUMBER__
 
 /**
  * Стандартные заголовочные файлы
@@ -128,7 +128,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		typedef struct __ANYKS_TLS_SHARED_EXPORT__ Number {
+		typedef struct __ANTS_SHARED_EXPORT__ Number {
 			// Слова числа от младшего к старшему
 			uint64_t words[NUMBER_WORDS];
 			/**
@@ -168,7 +168,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		typedef class __ANYKS_TLS_SHARED_EXPORT__ Modulus {
+		typedef class __ANTS_SHARED_EXPORT__ Modulus {
 			private:
 				// Признак того, что модуль установлен
 				bool _ready;
@@ -524,4 +524,4 @@ namespace anyks {
 	};
 };
 
-#endif // __ANYKS_TLS_NUMBER__
+#endif // __ANTS_NUMBER__

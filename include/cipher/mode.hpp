@@ -2,7 +2,7 @@
  * @file mode.hpp
  * @date 2026-08-29
  *
- * @license{LicenseRef-ANYKS-TLS-1.0}
+ * @license{LicenseRef-ANTS-1.0}
  *
  * @author Yuriy Lobarev
  *
@@ -29,8 +29,8 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANYKS_TLS_MODE__
-#define __ANYKS_TLS_MODE__
+#ifndef __ANTS_MODE__
+#define __ANTS_MODE__
 
 /**
  * Стандартные заголовочные файлы
@@ -121,7 +121,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		typedef struct __ANYKS_TLS_SHARED_EXPORT__ Block {
+		typedef struct __ANTS_SHARED_EXPORT__ Block {
 			// Размер блока базового алгоритма блочного шифрования
 			size_t size;
 			// Объект базового алгоритма блочного шифрования
@@ -188,7 +188,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		typedef class __ANYKS_TLS_SHARED_EXPORT__ Codebook {
+		typedef class __ANTS_SHARED_EXPORT__ Codebook {
 			private:
 				// Признак того, что режим готов к работе
 				bool _ready;
@@ -331,7 +331,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		typedef class __ANYKS_TLS_SHARED_EXPORT__ Counter {
+		typedef class __ANTS_SHARED_EXPORT__ Counter {
 			private:
 				// Признак того, что режим готов к работе
 				bool _ready;
@@ -478,7 +478,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		typedef class __ANYKS_TLS_SHARED_EXPORT__ Output {
+		typedef class __ANTS_SHARED_EXPORT__ Output {
 			private:
 				// Признак того, что режим готов к работе
 				bool _ready;
@@ -627,7 +627,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		typedef class __ANYKS_TLS_SHARED_EXPORT__ Chaining {
+		typedef class __ANTS_SHARED_EXPORT__ Chaining {
 			private:
 				// Признак того, что режим готов к работе
 				bool _ready;
@@ -773,7 +773,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		typedef class __ANYKS_TLS_SHARED_EXPORT__ Feedback {
+		typedef class __ANTS_SHARED_EXPORT__ Feedback {
 			private:
 				// Признак того, что режим готов к работе
 				bool _ready;
@@ -929,7 +929,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		typedef class __ANYKS_TLS_SHARED_EXPORT__ Imitation {
+		typedef class __ANTS_SHARED_EXPORT__ Imitation {
 			private:
 				// Признак того, что режим готов к работе
 				bool _ready;
@@ -1054,4 +1054,4 @@ namespace anyks {
 	};
 };
 
-#endif // __ANYKS_TLS_MODE__
+#endif // __ANTS_MODE__

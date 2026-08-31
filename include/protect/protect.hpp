@@ -2,7 +2,7 @@
  * @file protect.hpp
  * @date 2026-08-29
  *
- * @license{LicenseRef-ANYKS-TLS-1.0}
+ * @license{LicenseRef-ANTS-1.0}
  *
  * @author Yuriy Lobarev
  *
@@ -29,8 +29,8 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANYKS_TLS_PROTECT__
-#define __ANYKS_TLS_PROTECT__
+#ifndef __ANTS_PROTECT__
+#define __ANTS_PROTECT__
 
 /**
  * Стандартные заголовочные файлы
@@ -176,7 +176,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ size_t block(const suite_t suite) noexcept;
+		__ANTS_SHARED_EXPORT__ size_t block(const suite_t suite) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод получения наибольшего порядкового номера записи набора шифрования
@@ -197,7 +197,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ uint64_t limit(const suite_t suite) noexcept;
+		__ANTS_SHARED_EXPORT__ uint64_t limit(const suite_t suite) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод выработки ключа записи построением TLSTREE
@@ -231,7 +231,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ bool tree(const suite_t suite, const view_t & key, const uint64_t sequence, uint8_t * result) noexcept;
+		__ANTS_SHARED_EXPORT__ bool tree(const suite_t suite, const view_t & key, const uint64_t sequence, uint8_t * result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Защита записей одного направления связи
@@ -254,7 +254,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		typedef class __ANYKS_TLS_SHARED_EXPORT__ Protection {
+		typedef class __ANTS_SHARED_EXPORT__ Protection {
 			private:
 				// Признак того, что ключевой материал установлен
 				bool _ready;
@@ -494,4 +494,4 @@ namespace anyks {
 	};
 };
 
-#endif // __ANYKS_TLS_PROTECT__
+#endif // __ANTS_PROTECT__

@@ -2,7 +2,7 @@
  * @file mgm.hpp
  * @date 2026-08-29
  *
- * @license{LicenseRef-ANYKS-TLS-1.0}
+ * @license{LicenseRef-ANTS-1.0}
  *
  * @author Yuriy Lobarev
  *
@@ -29,8 +29,8 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANYKS_TLS_MGM__
-#define __ANYKS_TLS_MGM__
+#ifndef __ANTS_MGM__
+#define __ANTS_MGM__
 
 /**
  * Стандартные заголовочные файлы
@@ -113,7 +113,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		typedef class __ANYKS_TLS_SHARED_EXPORT__ Galois {
+		typedef class __ANTS_SHARED_EXPORT__ Galois {
 			private:
 				// Признак того, что режим готов к работе
 				bool _ready;
@@ -267,4 +267,4 @@ namespace anyks {
 	};
 };
 
-#endif // __ANYKS_TLS_MGM__
+#endif // __ANTS_MGM__

@@ -2,7 +2,7 @@
  * @file bench.cpp
  * @date 2026-08-30
  *
- * @license{LicenseRef-ANYKS-TLS-1.0}
+ * @license{LicenseRef-ANTS-1.0}
  *
  * @author Yuriy Lobarev
  *
@@ -59,14 +59,14 @@
 /**
  * Если сличение с эталоном OpenSSL включено
  */
-#ifdef ANYKS_TLS_BENCH_OPENSSL
+#ifdef ANTS_BENCH_OPENSSL
 	/**
 	 * Подключаем заголовочные файлы эталона
 	 */
 	#include <openssl/evp.h>
 	#include <openssl/ec.h>
 	#include <openssl/rand.h>
-#endif // ANYKS_TLS_BENCH_OPENSSL
+#endif // ANTS_BENCH_OPENSSL
 
 /**
  * Используем стандартное пространство имён
@@ -474,7 +474,7 @@ int main(int argc, char * argv[]) noexcept {
 	/**
 	 * Если сличение с эталоном OpenSSL включено
 	 */
-	#ifdef ANYKS_TLS_BENCH_OPENSSL
+	#ifdef ANTS_BENCH_OPENSSL
 		// Выводим заголовок замеров работы эталона
 		cout << endl << "Замеры эталона OpenSSL " << OPENSSL_VERSION_TEXT << endl << endl;
 		// Выполняем замер полосы хеширования SHA-256
@@ -607,7 +607,7 @@ int main(int argc, char * argv[]) noexcept {
 		(void) checking;
 		// Не используем замер обмена ключами при отключённом сличении
 		(void) exchange;
-	#endif // ANYKS_TLS_BENCH_OPENSSL
+	#endif // ANTS_BENCH_OPENSSL
 	// Выходим из приложения с признаком успеха
 	return EXIT_SUCCESS;
 }

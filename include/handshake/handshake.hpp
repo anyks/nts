@@ -2,7 +2,7 @@
  * @file handshake.hpp
  * @date 2026-08-29
  *
- * @license{LicenseRef-ANYKS-TLS-1.0}
+ * @license{LicenseRef-ANTS-1.0}
  *
  * @author Yuriy Lobarev
  *
@@ -30,8 +30,8 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANYKS_TLS_HANDSHAKE__
-#define __ANYKS_TLS_HANDSHAKE__
+#ifndef __ANTS_HANDSHAKE__
+#define __ANTS_HANDSHAKE__
 
 /**
  * Стандартные заголовочные файлы
@@ -163,7 +163,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		typedef struct __ANYKS_TLS_SHARED_EXPORT__ Header {
+		typedef struct __ANTS_SHARED_EXPORT__ Header {
 			// Вид сообщения рукопожатия
 			type_t type;
 			// Длина тела сообщения рукопожатия в байтах
@@ -198,7 +198,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t parse(const view_t & data, header_t & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t parse(const view_t & data, header_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод записи обвязки сообщения рукопожатия
@@ -219,7 +219,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t build(const header_t & header, uint8_t * result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t build(const header_t & header, uint8_t * result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод проверки известности вида сообщения рукопожатия
@@ -235,7 +235,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ bool known(const type_t type) noexcept;
+		__ANTS_SHARED_EXPORT__ bool known(const type_t type) noexcept;
 		/**
 		 * \~russian
 		 * @brief Сборщик входящих сообщений рукопожатия
@@ -252,7 +252,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		typedef class __ANYKS_TLS_SHARED_EXPORT__ Reader {
+		typedef class __ANTS_SHARED_EXPORT__ Reader {
 			private:
 				// Смещение начала неразобранных данных в накопителе
 				size_t _offset;
@@ -425,7 +425,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		typedef class __ANYKS_TLS_SHARED_EXPORT__ Writer {
+		typedef class __ANTS_SHARED_EXPORT__ Writer {
 			private:
 				// Накопитель составленных сообщений
 				vector <uint8_t> _buffer;
@@ -515,4 +515,4 @@ namespace anyks {
 	};
 };
 
-#endif // __ANYKS_TLS_HANDSHAKE__
+#endif // __ANTS_HANDSHAKE__

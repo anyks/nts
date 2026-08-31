@@ -2,7 +2,7 @@
  * @file identity.hpp
  * @date 2026-08-30
  *
- * @license{LicenseRef-ANYKS-TLS-1.0}
+ * @license{LicenseRef-ANTS-1.0}
  *
  * @author Yuriy Lobarev
  *
@@ -29,8 +29,8 @@
 /**
  * Экранируем повторную инициализацию заголовочного файла
  */
-#ifndef __ANYKS_TLS_TESTS_IDENTITY__
-#define __ANYKS_TLS_TESTS_IDENTITY__
+#ifndef __ANTS_TESTS_IDENTITY__
+#define __ANTS_TESTS_IDENTITY__
 
 /**
  * Стандартные заголовочные файлы
@@ -342,4 +342,4 @@ namespace {
 	}
 };
 
-#endif // __ANYKS_TLS_TESTS_IDENTITY__
+#endif // __ANTS_TESTS_IDENTITY__

@@ -2,7 +2,7 @@
  * @file mgm.cpp
  * @date 2026-08-29
  *
- * @license{LicenseRef-ANYKS-TLS-1.0}
+ * @license{LicenseRef-ANTS-1.0}
  *
  * @author Yuriy Lobarev
  *
@@ -48,7 +48,7 @@
 #include <cipher/mgm.hpp>
 
 /**
- * @note Признак ANYKS_TLS_NO_CARRYLESS отключает машинное умножение принудительно:
+ * @note Признак ANTS_NO_CARRYLESS отключает машинное умножение принудительно:
  *       переносимый путь работает на большинстве машин матрицы, и прогонять его надо
  *       и там, где машина умножать без переносов умеет
  */
@@ -56,7 +56,7 @@
 /**
  * Если машина умножает без переносов командой PMULL
  */
-#if defined(__aarch64__) && defined(__ARM_FEATURE_AES) && !defined(ANYKS_TLS_NO_CARRYLESS)
+#if defined(__aarch64__) && defined(__ARM_FEATURE_AES) && !defined(ANTS_NO_CARRYLESS)
 	/**
 	 * Подключаем заголовочный файл команд ARM
 	 */
@@ -65,11 +65,11 @@
 	/**
 	 * Объявляем наличие машинного умножения без переносов
 	 */
-	#define __ANYKS_TLS_CARRYLESS__ 1
+	#define __ANTS_CARRYLESS__ 1
 /**
  * Если машина умножает без переносов командой PCLMULQDQ
  */
-#elif defined(__x86_64__) && defined(__PCLMUL__) && !defined(ANYKS_TLS_NO_CARRYLESS)
+#elif defined(__x86_64__) && defined(__PCLMUL__) && !defined(ANTS_NO_CARRYLESS)
 	/**
 	 * Подключаем заголовочный файл команд x86-64
 	 */
@@ -78,7 +78,7 @@
 	/**
 	 * Объявляем наличие машинного умножения без переносов
 	 */
-	#define __ANYKS_TLS_CARRYLESS__ 1
+	#define __ANTS_CARRYLESS__ 1
 #endif // __aarch64__ && __ARM_FEATURE_AES
 
 /**
@@ -149,7 +149,7 @@ namespace {
 	/**
 	 * Если машина умножает без переносов своей командой
 	 */
-	#if defined(__ANYKS_TLS_CARRYLESS__)
+	#if defined(__ANTS_CARRYLESS__)
 		/**
 		 * @brief Метод умножения чисел без переносов машинной командой
 		 *
@@ -185,7 +185,7 @@ namespace {
 				hi = static_cast <uint64_t> (_mm_extract_epi64(value, 1));
 			#endif // __aarch64__
 		}
-	#endif // __ANYKS_TLS_CARRYLESS__
+	#endif // __ANTS_CARRYLESS__
 
 	/**
 	 * @brief Метод чтения числа из восьми байтов записи
@@ -244,7 +244,7 @@ namespace {
 		/**
 		 * Если умножение без переносов делает сама машина
 		 */
-		#if defined(__ANYKS_TLS_CARRYLESS__)
+		#if defined(__ANTS_CARRYLESS__)
 			// Выполняем умножение без переносов машинной командой
 			carryless(first, second, hi, lo);
 		/**
@@ -270,7 +270,7 @@ namespace {
 			lo = low;
 			// Записываем собранную старшую половину произведения
 			hi = high;
-		#endif // __ANYKS_TLS_CARRYLESS__
+		#endif // __ANTS_CARRYLESS__
 	}
 	/**
 	 * @brief Метод умножения блоков длиной 128 разрядов в поле GF(2^128)

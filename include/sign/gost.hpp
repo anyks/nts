@@ -2,7 +2,7 @@
  * @file gost.hpp
  * @date 2026-08-29
  *
- * @license{LicenseRef-ANYKS-TLS-1.0}
+ * @license{LicenseRef-ANTS-1.0}
  *
  * @author Yuriy Lobarev
  *
@@ -29,8 +29,8 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANYKS_TLS_GOST__
-#define __ANYKS_TLS_GOST__
+#ifndef __ANTS_GOST__
+#define __ANTS_GOST__
 
 /**
  * Стандартные заголовочные файлы
@@ -98,7 +98,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		typedef class __ANYKS_TLS_SHARED_EXPORT__ Gost {
+		typedef class __ANTS_SHARED_EXPORT__ Gost {
 			private:
 				// Признак того, что ключ подписи установлен
 				bool _secret;
@@ -331,4 +331,4 @@ namespace anyks {
 	};
 };
 
-#endif // __ANYKS_TLS_GOST__
+#endif // __ANTS_GOST__

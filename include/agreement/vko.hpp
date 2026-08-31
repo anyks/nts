@@ -2,7 +2,7 @@
  * @file vko.hpp
  * @date 2026-08-29
  *
- * @license{LicenseRef-ANYKS-TLS-1.0}
+ * @license{LicenseRef-ANTS-1.0}
  *
  * @author Yuriy Lobarev
  *
@@ -27,8 +27,8 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANYKS_TLS_VKO__
-#define __ANYKS_TLS_VKO__
+#ifndef __ANTS_VKO__
+#define __ANTS_VKO__
 
 /**
  * Стандартные заголовочные файлы
@@ -118,8 +118,8 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ bool vko(const curve::curve_t & curve, const view_t & secret, const view_t & x, const view_t & y, const view_t & ukm, uint8_t * result, const size_t size) noexcept;
+		__ANTS_SHARED_EXPORT__ bool vko(const curve::curve_t & curve, const view_t & secret, const view_t & x, const view_t & y, const view_t & ukm, uint8_t * result, const size_t size) noexcept;
 	};
 };
 
-#endif // __ANYKS_TLS_VKO__
+#endif // __ANTS_VKO__

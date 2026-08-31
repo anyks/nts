@@ -2,7 +2,7 @@
  * @file entropy.hpp
  * @date 2026-08-29
  *
- * @license{LicenseRef-ANYKS-TLS-1.0}
+ * @license{LicenseRef-ANTS-1.0}
  *
  * @author Yuriy Lobarev
  *
@@ -27,8 +27,8 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANYKS_TLS_ENTROPY__
-#define __ANYKS_TLS_ENTROPY__
+#ifndef __ANTS_ENTROPY__
+#define __ANTS_ENTROPY__
 
 /**
  * Стандартные заголовочные файлы
@@ -105,7 +105,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ bool bytes(uint8_t * data, const size_t size) noexcept;
+		__ANTS_SHARED_EXPORT__ bool bytes(uint8_t * data, const size_t size) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод получения случайного числа по модулю
@@ -132,8 +132,8 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ bool number(const math::modulus_t & modulus, math::number_t & result) noexcept;
+		__ANTS_SHARED_EXPORT__ bool number(const math::modulus_t & modulus, math::number_t & result) noexcept;
 	};
 };
 
-#endif // __ANYKS_TLS_ENTROPY__
+#endif // __ANTS_ENTROPY__

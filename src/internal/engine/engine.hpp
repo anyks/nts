@@ -2,7 +2,7 @@
  * @file engine.hpp
  * @date 2026-08-30
  *
- * @license{LicenseRef-ANYKS-TLS-1.0}
+ * @license{LicenseRef-ANTS-1.0}
  *
  * @author Yuriy Lobarev
  *
@@ -25,8 +25,8 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANYKS_TLS_ENGINE__
-#define __ANYKS_TLS_ENGINE__
+#ifndef __ANTS_ENGINE__
+#define __ANTS_ENGINE__
 
 /**
  * Стандартные заголовочные файлы
@@ -673,4 +673,4 @@ namespace anyks {
 	};
 };
 
-#endif // __ANYKS_TLS_ENGINE__
+#endif // __ANTS_ENGINE__

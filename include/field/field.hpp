@@ -2,7 +2,7 @@
  * @file field.hpp
  * @date 2026-08-29
  *
- * @license{LicenseRef-ANYKS-TLS-1.0}
+ * @license{LicenseRef-ANTS-1.0}
  *
  * @author Yuriy Lobarev
  *
@@ -30,8 +30,8 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANYKS_TLS_FIELD__
-#define __ANYKS_TLS_FIELD__
+#ifndef __ANTS_FIELD__
+#define __ANTS_FIELD__
 
 /**
  * Стандартные заголовочные файлы
@@ -124,7 +124,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		typedef class __ANYKS_TLS_SHARED_EXPORT__ Scanner {
+		typedef class __ANTS_SHARED_EXPORT__ Scanner {
 			private:
 				// Разбираемая область байтов
 				view_t _data;
@@ -292,7 +292,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		typedef class __ANYKS_TLS_SHARED_EXPORT__ Builder {
+		typedef class __ANTS_SHARED_EXPORT__ Builder {
 			private:
 				// Накопитель составляемой записи
 				vector <uint8_t> _buffer;
@@ -448,4 +448,4 @@ namespace anyks {
 	};
 };
 
-#endif // __ANYKS_TLS_FIELD__
+#endif // __ANTS_FIELD__

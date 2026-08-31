@@ -2,7 +2,7 @@
  * @file alert.hpp
  * @date 2026-08-30
  *
- * @license{LicenseRef-ANYKS-TLS-1.0}
+ * @license{LicenseRef-ANTS-1.0}
  *
  * @author Yuriy Lobarev
  *
@@ -29,8 +29,8 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANYKS_TLS_ALERT__
-#define __ANYKS_TLS_ALERT__
+#ifndef __ANTS_ALERT__
+#define __ANTS_ALERT__
 
 /**
  * Стандартные заголовочные файлы
@@ -184,7 +184,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		typedef struct __ANYKS_TLS_SHARED_EXPORT__ Alert {
+		typedef struct __ANTS_SHARED_EXPORT__ Alert {
 			// Уровень извещения
 			level_t level;
 			// Описание извещения
@@ -241,7 +241,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t parse(const view_t & data, alert_t & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t parse(const view_t & data, alert_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод записи извещения
@@ -262,7 +262,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t build(const alert_t & alert, uint8_t * result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t build(const alert_t & alert, uint8_t * result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод проверки известности описания извещения
@@ -278,7 +278,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ bool known(const description_t description) noexcept;
+		__ANTS_SHARED_EXPORT__ bool known(const description_t description) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод проверки смертельности извещения
@@ -301,7 +301,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ bool fatal(const alert_t & alert) noexcept;
+		__ANTS_SHARED_EXPORT__ bool fatal(const alert_t & alert) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод получения названия описания извещения
@@ -323,8 +323,8 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ const char * name(const description_t description) noexcept;
+		__ANTS_SHARED_EXPORT__ const char * name(const description_t description) noexcept;
 	};
 };
 
-#endif // __ANYKS_TLS_ALERT__
+#endif // __ANTS_ALERT__

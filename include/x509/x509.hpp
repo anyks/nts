@@ -2,7 +2,7 @@
  * @file x509.hpp
  * @date 2026-08-27
  *
- * @license{LicenseRef-ANYKS-TLS-1.0}
+ * @license{LicenseRef-ANTS-1.0}
  *
  * @author Yuriy Lobarev
  *
@@ -29,8 +29,8 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANYKS_TLS_X509__
-#define __ANYKS_TLS_X509__
+#ifndef __ANTS_X509__
+#define __ANTS_X509__
 
 /**
  * Стандартные заголовочные файлы
@@ -182,7 +182,7 @@ namespace anyks {
 		 * \~
 		 *
 		 */
-		typedef struct __ANYKS_TLS_SHARED_EXPORT__ Attribute {
+		typedef struct __ANTS_SHARED_EXPORT__ Attribute {
 			// Вид записи значения признака
 			asn1::tag_t type;
 			// Опознаватель признака
@@ -224,7 +224,7 @@ namespace anyks {
 		 * \~
 		 *
 		 */
-		typedef struct __ANYKS_TLS_SHARED_EXPORT__ Name {
+		typedef struct __ANTS_SHARED_EXPORT__ Name {
 			// Просмотр записи имени целиком
 			view_t element;
 			// Набор составляющих имени
@@ -241,7 +241,7 @@ namespace anyks {
 		 * \~
 		 *
 		 */
-		typedef struct __ANYKS_TLS_SHARED_EXPORT__ Alternative {
+		typedef struct __ANTS_SHARED_EXPORT__ Alternative {
 			// Вид имени
 			kind_t kind;
 			// Значение имени
@@ -272,7 +272,7 @@ namespace anyks {
 		 * \~
 		 *
 		 */
-		typedef struct __ANYKS_TLS_SHARED_EXPORT__ Extension {
+		typedef struct __ANTS_SHARED_EXPORT__ Extension {
 			// Признак обязательности расширения
 			bool critical;
 			// Опознаватель расширения
@@ -303,7 +303,7 @@ namespace anyks {
 		 * \~
 		 *
 		 */
-		typedef struct __ANYKS_TLS_SHARED_EXPORT__ Key {
+		typedef struct __ANTS_SHARED_EXPORT__ Key {
 			// Число неиспользуемых разрядов последнего байта ключа
 			uint8_t unused;
 			// Опознаватель алгоритма ключа
@@ -343,7 +343,7 @@ namespace anyks {
 		 * \~
 		 *
 		 */
-		typedef class __ANYKS_TLS_SHARED_EXPORT__ Certificate {
+		typedef class __ANTS_SHARED_EXPORT__ Certificate {
 			private:
 				// Издание сертификата
 				version_t _version;
@@ -666,7 +666,7 @@ namespace anyks {
 		 * \~
 		 *
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ const attribute_t * attribute(const name_t & name, const string & oid) noexcept;
+		__ANTS_SHARED_EXPORT__ const attribute_t * attribute(const name_t & name, const string & oid) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод сборки записи имени в виде строки
@@ -688,7 +688,7 @@ namespace anyks {
 		 * \~
 		 *
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t text(const name_t & name, string & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t text(const name_t & name, string & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод извлечения основных ограничений сертификата
@@ -708,7 +708,7 @@ namespace anyks {
 		 * \~
 		 *
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t constraints(const extension_t & extension, bool & authority, int64_t & depth) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t constraints(const extension_t & extension, bool & authority, int64_t & depth) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод извлечения назначения открытого ключа
@@ -726,7 +726,7 @@ namespace anyks {
 		 * \~
 		 *
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t usage(const extension_t & extension, uint16_t & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t usage(const extension_t & extension, uint16_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод извлечения расширенного назначения открытого ключа
@@ -744,7 +744,7 @@ namespace anyks {
 		 * \~
 		 *
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t purpose(const extension_t & extension, vector <string> & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t purpose(const extension_t & extension, vector <string> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод извлечения дополнительных имён владельца
@@ -765,7 +765,7 @@ namespace anyks {
 		 * \~
 		 *
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t alternatives(const extension_t & extension, vector <alternative_t> & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t alternatives(const extension_t & extension, vector <alternative_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод извлечения опознавателя ключа владельца
@@ -783,7 +783,7 @@ namespace anyks {
 		 * \~
 		 *
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t subjectKey(const extension_t & extension, view_t & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t subjectKey(const extension_t & extension, view_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод извлечения опознавателя ключа издателя
@@ -805,8 +805,8 @@ namespace anyks {
 		 * \~
 		 *
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t authorityKey(const extension_t & extension, view_t & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t authorityKey(const extension_t & extension, view_t & result) noexcept;
 	};
 };
 
-#endif // __ANYKS_TLS_X509__
+#endif // __ANTS_X509__

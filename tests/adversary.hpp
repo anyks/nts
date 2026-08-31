@@ -2,7 +2,7 @@
  * @file adversary.hpp
  * @date 2026-08-30
  *
- * @license{LicenseRef-ANYKS-TLS-1.0}
+ * @license{LicenseRef-ANTS-1.0}
  *
  * @author Yuriy Lobarev
  *
@@ -34,8 +34,8 @@
 /**
  * Экранируем повторную инициализацию заголовочного файла
  */
-#ifndef __ANYKS_TLS_TESTS_ADVERSARY__
-#define __ANYKS_TLS_TESTS_ADVERSARY__
+#ifndef __ANTS_TESTS_ADVERSARY__
+#define __ANTS_TESTS_ADVERSARY__
 
 /**
  * Стандартные заголовочные файлы
@@ -1151,4 +1151,4 @@ namespace {
 	}
 };
 
-#endif // __ANYKS_TLS_TESTS_ADVERSARY__
+#endif // __ANTS_TESTS_ADVERSARY__

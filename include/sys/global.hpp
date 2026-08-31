@@ -2,7 +2,7 @@
  * @file global.hpp
  * @date 2026-08-26
  *
- * @license{LicenseRef-ANYKS-TLS-1.0}
+ * @license{LicenseRef-ANTS-1.0}
  *
  * @author Yuriy Lobarev
  *
@@ -29,8 +29,8 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANYKS_TLS_GLOBAL__
-#define __ANYKS_TLS_GLOBAL__
+#ifndef __ANTS_GLOBAL__
+#define __ANTS_GLOBAL__
 
 /**
  * Стандартные заголовочные файлы
@@ -46,38 +46,38 @@
 	/**
 	 * Экспорт символов из динамической библиотеки
 	 */
-	#define __ANYKS_TLS_DECL_EXPORT__ __declspec(dllexport)
+	#define __ANTS_DECL_EXPORT__ __declspec(dllexport)
 	/**
 	 * Импорт символов из динамической библиотеки
 	 */
-	#define __ANYKS_TLS_DECL_IMPORT__ __declspec(dllimport)
+	#define __ANTS_DECL_IMPORT__ __declspec(dllimport)
 #else
 	/**
 	 * Экспорт символов из динамической библиотеки
 	 */
-	#define __ANYKS_TLS_DECL_EXPORT__ __attribute__((visibility("default")))
+	#define __ANTS_DECL_EXPORT__ __attribute__((visibility("default")))
 	/**
 	 * Импорт символов из динамической библиотеки
 	 */
-	#define __ANYKS_TLS_DECL_IMPORT__ __attribute__((visibility("default")))
+	#define __ANTS_DECL_IMPORT__ __attribute__((visibility("default")))
 #endif
 
 /**
  * Если библиотека собирается статически
  */
-#if defined(ANYKS_TLS_STATICLIB)
+#if defined(ANTS_STATICLIB)
 	/**
 	 * Обозначение символов, доступных снаружи библиотеки
 	 */
-	#define __ANYKS_TLS_SHARED_EXPORT__
+	#define __ANTS_SHARED_EXPORT__
 /**
  * Если производится сборка самой динамической библиотеки
  */
-#elif defined(ANYKS_TLS_SHARED_LIBRARY_EXPORT)
+#elif defined(ANTS_SHARED_LIBRARY_EXPORT)
 	/**
 	 * Обозначение символов, доступных снаружи библиотеки
 	 */
-	#define __ANYKS_TLS_SHARED_EXPORT__ __ANYKS_TLS_DECL_EXPORT__
+	#define __ANTS_SHARED_EXPORT__ __ANTS_DECL_EXPORT__
 /**
  * Если динамическая библиотека подключается потребителем
  */
@@ -85,7 +85,7 @@
 	/**
 	 * Обозначение символов, доступных снаружи библиотеки
 	 */
-	#define __ANYKS_TLS_SHARED_EXPORT__ __ANYKS_TLS_DECL_IMPORT__
+	#define __ANTS_SHARED_EXPORT__ __ANTS_DECL_IMPORT__
 #endif
 
 /**
@@ -120,7 +120,7 @@ namespace anyks {
 	 * \~
 	 *
 	 */
-	typedef struct __ANYKS_TLS_SHARED_EXPORT__ View {
+	typedef struct __ANTS_SHARED_EXPORT__ View {
 		// Указатель на начало области байтов
 		const uint8_t * data;
 		// Размер области байтов
@@ -156,4 +156,4 @@ namespace anyks {
 	} view_t;
 };
 
-#endif // __ANYKS_TLS_GLOBAL__
+#endif // __ANTS_GLOBAL__

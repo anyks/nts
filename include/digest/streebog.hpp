@@ -2,7 +2,7 @@
  * @file streebog.hpp
  * @date 2026-08-27
  *
- * @license{LicenseRef-ANYKS-TLS-1.0}
+ * @license{LicenseRef-ANTS-1.0}
  *
  * @author Yuriy Lobarev
  *
@@ -29,8 +29,8 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANYKS_TLS_STREEBOG__
-#define __ANYKS_TLS_STREEBOG__
+#ifndef __ANTS_STREEBOG__
+#define __ANTS_STREEBOG__
 
 /**
  * Стандартные заголовочные файлы
@@ -147,7 +147,7 @@ namespace anyks {
 			VECTOR = 0x02  // Вектор, как его записывает стандарт
 		};
 
-		typedef class __ANYKS_TLS_SHARED_EXPORT__ Streebog {
+		typedef class __ANTS_SHARED_EXPORT__ Streebog {
 			private:
 				// Длина вырабатываемого хеша
 				type_t _type;
@@ -217,6 +217,7 @@ namespace anyks {
 				 *
 				 * @param result место, в которое помещается выработанный хеш
 				 * @param size   размер места, в которое помещается хеш
+				 * @param order  порядок записи выработанного хеша
 				 *
 				 * @return признак успешности снятия хеша
 				 *
@@ -227,6 +228,7 @@ namespace anyks {
 				 * @brief Method of taking the produced hash
 				 * @param result the place the produced hash is put into
 				 * @param size   the size of the place the hash is put into
+				 * @param order  the order of the writing of the produced hash
 				 * @return the flag of the success of the taking of the hash
 				 * @note A failure is answered to an insufficient size of the place, to an unset length
 				 *       of the hash and to a repeated taking
@@ -269,6 +271,7 @@ namespace anyks {
 		 * @param data   хешируемое сообщение
 		 * @param result место, в которое помещается выработанный хеш
 		 * @param size   размер места, в которое помещается хеш
+		 * @param order  порядок записи выработанного хеша
 		 *
 		 * @return признак успешности выработки хеша
 		 *
@@ -278,12 +281,13 @@ namespace anyks {
 		 * @param data   the message being hashed
 		 * @param result the place the produced hash is put into
 		 * @param size   the size of the place the hash is put into
+		 * @param order  the order of the writing of the produced hash
 		 * @return the flag of the success of the production of the hash
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ bool streebog(const type_t type, const view_t & data, uint8_t * result, const size_t size, const order_t order = order_t::STREAM) noexcept;
+		__ANTS_SHARED_EXPORT__ bool streebog(const type_t type, const view_t & data, uint8_t * result, const size_t size, const order_t order = order_t::STREAM) noexcept;
 	};
 };
 
-#endif // __ANYKS_TLS_STREEBOG__
+#endif // __ANTS_STREEBOG__

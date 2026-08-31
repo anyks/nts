@@ -2,7 +2,7 @@
  * @file extension.hpp
  * @date 2026-08-29
  *
- * @license{LicenseRef-ANYKS-TLS-1.0}
+ * @license{LicenseRef-ANTS-1.0}
  *
  * @author Yuriy Lobarev
  *
@@ -30,8 +30,8 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANYKS_TLS_EXTENSION__
-#define __ANYKS_TLS_EXTENSION__
+#ifndef __ANTS_EXTENSION__
+#define __ANTS_EXTENSION__
 
 /**
  * Стандартные заголовочные файлы
@@ -212,7 +212,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		typedef struct __ANYKS_TLS_SHARED_EXPORT__ Share {
+		typedef struct __ANTS_SHARED_EXPORT__ Share {
 			// Группа обмена ключами, которой принадлежит открытая часть ключа
 			group_t group;
 			// Открытая часть ключа обмена
@@ -264,7 +264,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		typedef struct __ANYKS_TLS_SHARED_EXPORT__ Identity {
+		typedef struct __ANTS_SHARED_EXPORT__ Identity {
 			// Опознаватель заранее разделённого ключа
 			view_t identity;
 			// Скрытый возраст билета, выдавшего ключ
@@ -318,7 +318,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ const char * curve(const group_t group) noexcept;
+		__ANTS_SHARED_EXPORT__ const char * curve(const group_t group) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод получения опознавателя кривой схемы подписи
@@ -339,7 +339,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ const char * curve(const scheme_t scheme) noexcept;
+		__ANTS_SHARED_EXPORT__ const char * curve(const scheme_t scheme) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод получения длины ключа схемы подписи
@@ -355,7 +355,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ size_t length(const scheme_t scheme) noexcept;
+		__ANTS_SHARED_EXPORT__ size_t length(const scheme_t scheme) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод разбора перечня поддерживаемых изданий протокола
@@ -376,7 +376,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t versions(const view_t & data, vector <uint16_t> & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t versions(const view_t & data, vector <uint16_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод составления перечня поддерживаемых изданий протокола
@@ -394,7 +394,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t versions(const vector <uint16_t> & versions, vector <uint8_t> & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t versions(const vector <uint16_t> & versions, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод разбора выбранного издания протокола
@@ -415,7 +415,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t version(const view_t & data, uint16_t & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t version(const view_t & data, uint16_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод составления выбранного издания протокола
@@ -433,7 +433,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t version(const uint16_t version, vector <uint8_t> & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t version(const uint16_t version, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод разбора перечня поддерживаемых групп обмена ключами
@@ -454,7 +454,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t groups(const view_t & data, vector <group_t> & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t groups(const view_t & data, vector <group_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод составления перечня поддерживаемых групп обмена ключами
@@ -472,7 +472,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t groups(const vector <group_t> & groups, vector <uint8_t> & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t groups(const vector <group_t> & groups, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод разбора перечня поддерживаемых схем подписи
@@ -493,7 +493,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t schemes(const view_t & data, vector <scheme_t> & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t schemes(const view_t & data, vector <scheme_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод составления перечня поддерживаемых схем подписи
@@ -511,7 +511,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t schemes(const vector <scheme_t> & schemes, vector <uint8_t> & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t schemes(const vector <scheme_t> & schemes, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод разбора перечня открытых частей ключей обмена
@@ -534,7 +534,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t shares(const view_t & data, vector <share_t> & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t shares(const view_t & data, vector <share_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод составления перечня открытых частей ключей обмена
@@ -552,7 +552,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t shares(const vector <share_t> & shares, vector <uint8_t> & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t shares(const vector <share_t> & shares, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод разбора открытой части ключа обмена сервера
@@ -575,7 +575,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t share(const view_t & data, share_t & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t share(const view_t & data, share_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод составления открытой части ключа обмена сервера
@@ -593,7 +593,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t share(const share_t & share, vector <uint8_t> & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t share(const share_t & share, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод разбора выбранной сервером группы обмена ключами
@@ -616,7 +616,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t selected(const view_t & data, group_t & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t selected(const view_t & data, group_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод составления выбранной сервером группы обмена ключами
@@ -634,7 +634,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t selected(const group_t group, vector <uint8_t> & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t selected(const group_t group, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод разбора перечня способов обмена с заранее разделённым ключом
@@ -655,7 +655,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t modes(const view_t & data, vector <mode_t> & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t modes(const view_t & data, vector <mode_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод составления перечня способов обмена с заранее разделённым ключом
@@ -673,7 +673,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t modes(const vector <mode_t> & modes, vector <uint8_t> & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t modes(const vector <mode_t> & modes, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод разбора метки возврата состояния сервера
@@ -696,7 +696,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t cookie(const view_t & data, view_t & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t cookie(const view_t & data, view_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод составления метки возврата состояния сервера
@@ -714,7 +714,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t cookie(const view_t & cookie, vector <uint8_t> & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t cookie(const view_t & cookie, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод разбора имени запрашиваемого узла
@@ -737,7 +737,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t name(const view_t & data, view_t & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t name(const view_t & data, view_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод составления имени запрашиваемого узла
@@ -755,7 +755,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t name(const view_t & name, vector <uint8_t> & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t name(const view_t & name, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод разбора перечня прикладных протоколов
@@ -781,7 +781,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t protocols(const view_t & data, vector <string> & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t protocols(const view_t & data, vector <string> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод составления перечня прикладных протоколов
@@ -802,7 +802,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t protocols(const vector <string> & protocols, vector <uint8_t> & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t protocols(const vector <string> & protocols, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод разбора выбранного прикладного протокола
@@ -825,7 +825,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t protocol(const view_t & data, string & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t protocol(const view_t & data, string & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод составления выбранного прикладного протокола
@@ -843,7 +843,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t protocol(const string & protocol, vector <uint8_t> & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t protocol(const string & protocol, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод разбора предложения заранее разделённых ключей
@@ -878,7 +878,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t identities(const view_t & data, vector <identity_t> & result, vector <view_t> & binders, size_t & truncation) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t identities(const view_t & data, vector <identity_t> & result, vector <view_t> & binders, size_t & truncation) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод составления предложения заранее разделённых ключей
@@ -903,7 +903,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t identities(const vector <identity_t> & identities, const vector <view_t> & binders, vector <uint8_t> & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t identities(const vector <identity_t> & identities, const vector <view_t> & binders, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод разбора выбранного сервером заранее разделённого ключа
@@ -921,7 +921,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t chosen(const view_t & data, uint16_t & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t chosen(const view_t & data, uint16_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод составления выбранного сервером заранее разделённого ключа
@@ -939,7 +939,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t chosen(const uint16_t chosen, vector <uint8_t> & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t chosen(const uint16_t chosen, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод разбора предела упреждающих данных билета
@@ -964,7 +964,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t early(const view_t & data, uint32_t & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t early(const view_t & data, uint32_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод составления предела упреждающих данных билета
@@ -982,8 +982,8 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t early(const uint32_t limit, vector <uint8_t> & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t early(const uint32_t limit, vector <uint8_t> & result) noexcept;
 	};
 };
 
-#endif // __ANYKS_TLS_EXTENSION__
+#endif // __ANTS_EXTENSION__

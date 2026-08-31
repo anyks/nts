@@ -2,7 +2,7 @@
  * @file flow.hpp
  * @date 2026-08-30
  *
- * @license{LicenseRef-ANYKS-TLS-1.0}
+ * @license{LicenseRef-ANTS-1.0}
  *
  * @author Yuriy Lobarev
  *
@@ -30,8 +30,8 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANYKS_TLS_FLOW__
-#define __ANYKS_TLS_FLOW__
+#ifndef __ANTS_FLOW__
+#define __ANTS_FLOW__
 
 /**
  * Стандартные заголовочные файлы
@@ -190,7 +190,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		typedef class __ANYKS_TLS_SHARED_EXPORT__ Machine {
+		typedef class __ANTS_SHARED_EXPORT__ Machine {
 			private:
 				// Роль стороны, ведущей ход рукопожатия
 				role_t _role;
@@ -388,4 +388,4 @@ namespace anyks {
 	};
 };
 
-#endif // __ANYKS_TLS_FLOW__
+#endif // __ANTS_FLOW__

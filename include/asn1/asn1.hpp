@@ -2,7 +2,7 @@
  * @file asn1.hpp
  * @date 2026-08-26
  *
- * @license{LicenseRef-ANYKS-TLS-1.0}
+ * @license{LicenseRef-ANTS-1.0}
  *
  * @author Yuriy Lobarev
  *
@@ -29,8 +29,8 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANYKS_TLS_ASN1__
-#define __ANYKS_TLS_ASN1__
+#ifndef __ANTS_ASN1__
+#define __ANTS_ASN1__
 
 /**
  * Стандартные заголовочные файлы
@@ -190,7 +190,7 @@ namespace anyks {
 		 * \~
 		 *
 		 */
-		typedef struct __ANYKS_TLS_SHARED_EXPORT__ Element {
+		typedef struct __ANTS_SHARED_EXPORT__ Element {
 			// Признак составного вида метки
 			bool constructed;
 			// Класс метки
@@ -232,7 +232,7 @@ namespace anyks {
 		 * \~
 		 *
 		 */
-		typedef class __ANYKS_TLS_SHARED_EXPORT__ Reader {
+		typedef class __ANTS_SHARED_EXPORT__ Reader {
 			private:
 				// Просмотр разбираемой области данных
 				view_t _view;
@@ -419,7 +419,7 @@ namespace anyks {
 		 * \~
 		 *
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t boolean(const element_t & element, bool & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t boolean(const element_t & element, bool & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод извлечения целого числа
@@ -441,7 +441,7 @@ namespace anyks {
 		 * \~
 		 *
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t integer(const element_t & element, int64_t & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t integer(const element_t & element, int64_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод извлечения целого числа произвольной разрядности
@@ -463,7 +463,7 @@ namespace anyks {
 		 * \~
 		 *
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t integer(const element_t & element, view_t & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t integer(const element_t & element, view_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод извлечения строки битов
@@ -483,7 +483,7 @@ namespace anyks {
 		 * \~
 		 *
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t bits(const element_t & element, view_t & result, uint8_t & unused) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t bits(const element_t & element, view_t & result, uint8_t & unused) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод извлечения опознавателя объекта
@@ -501,7 +501,7 @@ namespace anyks {
 		 * \~
 		 *
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t oid(const element_t & element, string & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t oid(const element_t & element, string & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод извлечения времени
@@ -529,7 +529,7 @@ namespace anyks {
 		 * \~
 		 *
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t time(const element_t & element, const tag_t type, int64_t & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t time(const element_t & element, const tag_t type, int64_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод извлечения строки
@@ -555,7 +555,7 @@ namespace anyks {
 		 * \~
 		 *
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ error_t text(const element_t & element, const tag_t type, string & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t text(const element_t & element, const tag_t type, string & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Записчик данных в кодировке DER
@@ -580,7 +580,7 @@ namespace anyks {
 		 * \~
 		 *
 		 */
-		typedef class __ANYKS_TLS_SHARED_EXPORT__ Writer {
+		typedef class __ANTS_SHARED_EXPORT__ Writer {
 			private:
 				// Буфер собираемой записи
 				vector <uint8_t> _buffer;
@@ -884,4 +884,4 @@ namespace anyks {
 	};
 };
 
-#endif // __ANYKS_TLS_ASN1__
+#endif // __ANTS_ASN1__

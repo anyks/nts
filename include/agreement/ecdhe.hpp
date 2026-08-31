@@ -2,7 +2,7 @@
  * @file ecdhe.hpp
  * @date 2026-08-30
  *
- * @license{LicenseRef-ANYKS-TLS-1.0}
+ * @license{LicenseRef-ANTS-1.0}
  *
  * @author Yuriy Lobarev
  *
@@ -31,8 +31,8 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANYKS_TLS_ECDHE__
-#define __ANYKS_TLS_ECDHE__
+#ifndef __ANTS_ECDHE__
+#define __ANTS_ECDHE__
 
 /**
  * Стандартные заголовочные файлы
@@ -104,7 +104,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ bool generate(const curve::curve_t & curve, uint8_t * secret, uint8_t * key) noexcept;
+		__ANTS_SHARED_EXPORT__ bool generate(const curve::curve_t & curve, uint8_t * secret, uint8_t * key) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод выработки общего значения обмена мимолётными ключами
@@ -140,8 +140,8 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ bool ecdhe(const curve::curve_t & curve, const view_t & secret, const view_t & key, uint8_t * result) noexcept;
+		__ANTS_SHARED_EXPORT__ bool ecdhe(const curve::curve_t & curve, const view_t & secret, const view_t & key, uint8_t * result) noexcept;
 	};
 };
 
-#endif // __ANYKS_TLS_ECDHE__
+#endif // __ANTS_ECDHE__

@@ -2,7 +2,7 @@
  * @file schedule.hpp
  * @date 2026-08-29
  *
- * @license{LicenseRef-ANYKS-TLS-1.0}
+ * @license{LicenseRef-ANTS-1.0}
  *
  * @author Yuriy Lobarev
  *
@@ -29,8 +29,8 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANYKS_TLS_SCHEDULE__
-#define __ANYKS_TLS_SCHEDULE__
+#ifndef __ANTS_SCHEDULE__
+#define __ANTS_SCHEDULE__
 
 /**
  * Стандартные заголовочные файлы
@@ -137,7 +137,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ bool extract(const view_t & salt, const view_t & key, uint8_t * result) noexcept;
+		__ANTS_SHARED_EXPORT__ bool extract(const view_t & salt, const view_t & key, uint8_t * result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод растяжения значения расписания ключей
@@ -166,7 +166,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ bool expand(const view_t & secret, const view_t & info, uint8_t * result, const size_t size) noexcept;
+		__ANTS_SHARED_EXPORT__ bool expand(const view_t & secret, const view_t & info, uint8_t * result, const size_t size) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод вывода значения по метке назначения
@@ -196,7 +196,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ bool derive(const view_t & secret, const view_t & label, const view_t & context, uint8_t * result, const size_t size) noexcept;
+		__ANTS_SHARED_EXPORT__ bool derive(const view_t & secret, const view_t & label, const view_t & context, uint8_t * result, const size_t size) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод вывода очередного значения расписания ключей
@@ -227,8 +227,8 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ bool secret(const view_t & secret, const view_t & label, const view_t & digest, uint8_t * result) noexcept;
+		__ANTS_SHARED_EXPORT__ bool secret(const view_t & secret, const view_t & label, const view_t & digest, uint8_t * result) noexcept;
 	};
 };
 
-#endif // __ANYKS_TLS_SCHEDULE__
+#endif // __ANTS_SCHEDULE__

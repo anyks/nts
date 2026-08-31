@@ -2,7 +2,7 @@
  * @file entropy.cpp
  * @date 2026-08-29
  *
- * @license{LicenseRef-ANYKS-TLS-1.0}
+ * @license{LicenseRef-ANTS-1.0}
  *
  * @author Yuriy Lobarev
  *
@@ -56,7 +56,7 @@
 		/**
 		 * Признак наличия вызова ядра, выдающего случайные байты
 		 */
-		#define __ANYKS_TLS_ENTROPY_CALL__ 1
+		#define __ANTS_ENTROPY_CALL__ 1
 		/**
 		 * Заголовочные файлы вызова ядра, выдающего случайные байты
 		 */
@@ -188,7 +188,7 @@ bool anyks::entropy::bytes(uint8_t * data, const size_t size) noexcept {
 		/**
 		 * Если вызова ядра, выдающего случайные байты, у системы нет
 		 */
-		#if !defined(__ANYKS_TLS_ENTROPY_CALL__)
+		#if !defined(__ANTS_ENTROPY_CALL__)
 			// Выводим итог чтения случайных байтов из устройства системы
 			return device(data, size);
 		#else

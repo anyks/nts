@@ -2,7 +2,7 @@
  * @file parameters.hpp
  * @date 2026-08-29
  *
- * @license{LicenseRef-ANYKS-TLS-1.0}
+ * @license{LicenseRef-ANTS-1.0}
  *
  * @author Yuriy Lobarev
  *
@@ -27,8 +27,8 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANYKS_TLS_PARAMETERS__
-#define __ANYKS_TLS_PARAMETERS__
+#ifndef __ANTS_PARAMETERS__
+#define __ANTS_PARAMETERS__
 
 /**
  * Стандартные заголовочные файлы
@@ -107,8 +107,8 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ bool parameters(const string & oid, curve_t & result) noexcept;
+		__ANTS_SHARED_EXPORT__ bool parameters(const string & oid, curve_t & result) noexcept;
 	};
 };
 
-#endif // __ANYKS_TLS_PARAMETERS__
+#endif // __ANTS_PARAMETERS__

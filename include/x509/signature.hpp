@@ -2,7 +2,7 @@
  * @file signature.hpp
  * @date 2026-08-29
  *
- * @license{LicenseRef-ANYKS-TLS-1.0}
+ * @license{LicenseRef-ANTS-1.0}
  *
  * @author Yuriy Lobarev
  *
@@ -27,8 +27,8 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANYKS_TLS_X509_SIGNATURE__
-#define __ANYKS_TLS_X509_SIGNATURE__
+#ifndef __ANTS_X509_SIGNATURE__
+#define __ANTS_X509_SIGNATURE__
 
 /**
  * Стандартные заголовочные файлы
@@ -107,7 +107,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ bool verify(const certificate_t & certificate, const key_t & key) noexcept;
+		__ANTS_SHARED_EXPORT__ bool verify(const certificate_t & certificate, const key_t & key) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод проверки подписи записи
@@ -134,7 +134,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ bool verify(const view_t & body, const view_t & signature, const string & algorithm, const key_t & key) noexcept;
+		__ANTS_SHARED_EXPORT__ bool verify(const view_t & body, const view_t & signature, const string & algorithm, const key_t & key) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод извлечения опознавателя набора параметров кривой ключа
@@ -152,7 +152,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ bool identifier(const key_t & key, string & result) noexcept;
+		__ANTS_SHARED_EXPORT__ bool identifier(const key_t & key, string & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод заведения кривой открытого ключа
@@ -175,7 +175,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ bool parameters(const key_t & key, curve::curve_t & result) noexcept;
+		__ANTS_SHARED_EXPORT__ bool parameters(const key_t & key, curve::curve_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод проверки подписи содержимого открытым ключом
@@ -209,8 +209,8 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ bool check(const key_t & key, const view_t & content, const view_t & signature) noexcept;
+		__ANTS_SHARED_EXPORT__ bool check(const key_t & key, const view_t & content, const view_t & signature) noexcept;
 	};
 };
 
-#endif // __ANYKS_TLS_X509_SIGNATURE__
+#endif // __ANTS_X509_SIGNATURE__

@@ -11,7 +11,7 @@ target_compile_options(${TEST_CIPHER_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS}
 target_include_directories(${TEST_CIPHER_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/tests")
 
 # Выполняем подключение зависимостей цели проверок
-target_link_libraries(${TEST_CIPHER_NAME} ${TLS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
+target_link_libraries(${TEST_CIPHER_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
 
 # Регистрируем цель проверок
 add_test(NAME ${TEST_CIPHER_NAME} COMMAND ${TEST_CIPHER_NAME})
@@ -29,7 +29,7 @@ target_compile_options(${TEST_MODE_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
 target_include_directories(${TEST_MODE_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/tests")
 
 # Выполняем подключение зависимостей цели проверок
-target_link_libraries(${TEST_MODE_NAME} ${TLS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
+target_link_libraries(${TEST_MODE_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
 
 # Регистрируем цель проверок
 add_test(NAME ${TEST_MODE_NAME} COMMAND ${TEST_MODE_NAME})
@@ -47,7 +47,7 @@ target_compile_options(${TEST_MGM_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
 target_include_directories(${TEST_MGM_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/tests")
 
 # Выполняем подключение зависимостей цели проверок
-target_link_libraries(${TEST_MGM_NAME} ${TLS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
+target_link_libraries(${TEST_MGM_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
 
 # Регистрируем цель проверок
 add_test(NAME ${TEST_MGM_NAME} COMMAND ${TEST_MGM_NAME})

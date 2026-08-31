@@ -2,10 +2,10 @@
 cmake_minimum_required(VERSION 3.15)
 
 # Устанавливаем название проекта
-project(anyks-tls LANGUAGES CXX)
+project(ants LANGUAGES CXX)
 
 # Устанавливаем полное название проекта
-SET(PROJECT_VENDOR_LONG "ANYKS - SSL")
+SET(PROJECT_VENDOR_LONG "ANYKS - Network Transport Security (ANTS)")
 
 # Опции сборки
 SET(PROJECT_COPYRIGHT "Copyright (c) ${CURRENT_YEAR} ${PROJECT_VENDOR_LONG}")
@@ -58,6 +58,79 @@ endif (NOT MSVC)
  ##
 SET(CMAKE_CXX_VISIBILITY_PRESET hidden)
 SET(CMAKE_VISIBILITY_INLINES_HIDDEN ON)
+
+# Находим Doxygen
+find_package(Doxygen QUIET)
+
+# Если Doxygen найден
+if(Doxygen_FOUND)
+    # Предположим, что Doxyfile лежит в корне исходников
+    SET(DOXYFILE_PATH ${CMAKE_SOURCE_DIR}/Doxyfile)
+
+    # Проверяем, что файл существует
+    if(EXISTS ${DOXYFILE_PATH})
+        # Выводим сообщение, что мы нашли файл для генерации документации Doxyfile
+        message(STATUS "Doxyfile found at ${DOXYFILE_PATH}\n")
+
+        # Языки, для которых собирается документация: суффикс файла настроек -> имя языка
+        SET(DOXYGEN_LANGUAGES ru en)
+
+        # Список целей по языкам, собираемый ниже для общей цели «doc»
+        SET(DOXYGEN_LANGUAGE_TARGETS)
+
+        # Перебираем все языки документации
+        foreach(DOXYGEN_LANGUAGE IN LISTS DOXYGEN_LANGUAGES)
+            # Формируем путь к файлу настроек конкретного языка
+            SET(DOXYFILE_LANGUAGE_PATH ${CMAKE_SOURCE_DIR}/Doxyfile.${DOXYGEN_LANGUAGE})
+
+            # Проверяем, что файл настроек языка существует
+            if(EXISTS ${DOXYFILE_LANGUAGE_PATH})
+                # Создаём цель сборки документации на конкретном языке
+                add_custom_target(doc-${DOXYGEN_LANGUAGE}
+                    # Каталог назначения создаём сами: Doxygen заводит лишь один уровень вложенности
+                    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_SOURCE_DIR}/doc/${DOXYGEN_LANGUAGE}
+                    COMMAND ${DOXYGEN_EXECUTABLE} ${DOXYFILE_LANGUAGE_PATH}
+                    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+                    COMMENT "Generating API documentation with Doxygen [${DOXYGEN_LANGUAGE}]"
+                    VERBATIM
+                )
+                # Запоминаем цель для общей сборки
+                LIST(APPEND DOXYGEN_LANGUAGE_TARGETS doc-${DOXYGEN_LANGUAGE})
+            # Если файл настроек языка не найден
+            else()
+                # Выводим сообщение об отсутствии файла настроек языка
+                message(STATUS "Doxyfile.${DOXYGEN_LANGUAGE} not found — doc-${DOXYGEN_LANGUAGE} target skipped\n")
+            # Конец проверки файла настроек языка
+            endif()
+        # Конец перебора языков документации
+        endforeach()
+
+        # Если хотя бы одна языковая цель создана
+        if(DOXYGEN_LANGUAGE_TARGETS)
+            # Создаём общую цель, собирающую документацию на всех языках
+            add_custom_target(doc DEPENDS ${DOXYGEN_LANGUAGE_TARGETS})
+        # Если языковых файлов настроек нет вовсе
+        else()
+            # Создаём кастомную цель на основе базового файла настроек
+            add_custom_target(doc
+                COMMAND ${DOXYGEN_EXECUTABLE} ${DOXYFILE_PATH}
+                WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+                COMMENT "Generating API documentation with Doxygen"
+                VERBATIM
+            )
+        # Конец проверки языковых целей
+        endif()
+    # Если файл не найден
+    else()
+        # Выводим сообщение об отсутствии Doxyfile
+        message(STATUS "Doxyfile not found at ${DOXYFILE_PATH} — doc target skipped\n")
+    # Конец проверки файла
+    endif()
+# Если Doxygen не найден
+else()
+    # Выводим сообщение об отсутствии Doxygen
+    message(STATUS "Doxygen not found — 'doc' target will not be available\n")
+endif()
 
 # Подключаем каталог заголовочных файлов проекта
 include_directories(${CMAKE_SOURCE_DIR}/include)
@@ -185,7 +258,7 @@ option(CMAKE_CIPHER_COMPACT "Build the block cipher with the compact tables" OFF
 # Если блочный шифр собирается малыми таблицами
 if (CMAKE_CIPHER_COMPACT)
     # Объявляем сборке блочного шифра работу малыми таблицами
-    add_compile_definitions(ANYKS_TLS_CIPHER_COMPACT)
+    add_compile_definitions(ANTS_CIPHER_COMPACT)
     # Выводим сообщение о способе сборки блочного шифра
     message(STATUS "Block cipher tables: compact\n")
 # Если блочный шифр собирается развёрнутыми таблицами
@@ -195,26 +268,26 @@ else (CMAKE_CIPHER_COMPACT)
 endif (CMAKE_CIPHER_COMPACT)
 
 # Устанавливаем имя библиотеки
-SET(TLS_LIB_NAME ${PROJECT_NAME})
+SET(ANTS_LIB_NAME ${PROJECT_NAME})
 
 # Если нужно собрать динамическую библиотеку
 if (CMAKE_SHARED_BUILD_LIB)
     # Добавляем динамическую библиотеку
-    add_library(${TLS_LIB_NAME} SHARED ${SOURCE_FILES})
+    add_library(${ANTS_LIB_NAME} SHARED ${SOURCE_FILES})
     # Выполняем экспорт методов доступных извне в динамических библиотеках
-    target_compile_definitions(${TLS_LIB_NAME} PRIVATE ANYKS_TLS_SHARED_LIBRARY_EXPORT)
+    target_compile_definitions(${ANTS_LIB_NAME} PRIVATE ANTS_SHARED_LIBRARY_EXPORT)
 # Если нужно собрать статическую библиотеку
 else (CMAKE_SHARED_BUILD_LIB)
     # Активируем сборку статической библиотеки
-    add_compile_definitions(ANYKS_TLS_STATICLIB)
+    add_compile_definitions(ANTS_STATICLIB)
     # Добавляем статическую библиотеку
-    add_library(${TLS_LIB_NAME} STATIC ${SOURCE_FILES})
+    add_library(${ANTS_LIB_NAME} STATIC ${SOURCE_FILES})
 endif (CMAKE_SHARED_BUILD_LIB)
 
 # Если сборка ведётся под Windows
 if (WIN32)
     # Источник случайности системы там живёт в отдельной библиотеке
-    target_link_libraries(${TLS_LIB_NAME} bcrypt)
+    target_link_libraries(${ANTS_LIB_NAME} bcrypt)
 endif (WIN32)
 
 # Если необходимо собрать набор проверок
@@ -263,14 +336,14 @@ if (CMAKE_BUILD_TESTS)
      # попасть и в саму библиотеку: без этого покрытие считается по одним проверкам,
      # а обращения к памяти внутри библиотеки остаются без надзора
      ##
-    add_library(${TLS_LIB_NAME}_test STATIC ${SOURCE_FILES})
+    add_library(${ANTS_LIB_NAME}_test STATIC ${SOURCE_FILES})
     # Если сборка ведётся под Windows
     if (WIN32)
         # Источник случайности системы там живёт в отдельной библиотеке
-        target_link_libraries(${TLS_LIB_NAME}_test bcrypt)
+        target_link_libraries(${ANTS_LIB_NAME}_test bcrypt)
     endif (WIN32)
     # Включаем флаги компиляции проверок для библиотеки проверок
-    target_compile_options(${TLS_LIB_NAME}_test PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
+    target_compile_options(${ANTS_LIB_NAME}_test PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
 
     ##
      # Каталог пакетов операционной системы добавляется к путям поиска
@@ -327,7 +400,7 @@ if (${CMAKE_BUILD_BENCHMARKS})
     target_include_directories(bench PRIVATE "${CMAKE_SOURCE_DIR}/tests")
 
     # Выполняем подключение библиотеки к приложению набора замеров
-    target_link_libraries(bench ${TLS_LIB_NAME})
+    target_link_libraries(bench ${ANTS_LIB_NAME})
 
     # Указываем каталог для исполняемого файла набора замеров
     set_target_properties(bench PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bench)
@@ -342,7 +415,7 @@ if (${CMAKE_BUILD_BENCHMARKS})
             # Выводим сообщение о сличении замеров с эталоном
             message(STATUS "Benchmark reference OpenSSL: Yes")
             # Объявляем сборке набора замеров наличие эталона
-            target_compile_definitions(bench PRIVATE ANYKS_TLS_BENCH_OPENSSL)
+            target_compile_definitions(bench PRIVATE ANTS_BENCH_OPENSSL)
             # Выполняем подключение эталона к приложению набора замеров
             target_link_libraries(bench OpenSSL::Crypto)
         # Если эталона OpenSSL в системе нет
@@ -373,7 +446,7 @@ if (${CMAKE_BUILD_SAMPLES})
         # Выполняем создание приложения образца
         add_executable(${name} ${src})
         # Выполняем подключение библиотеки к приложению образца
-        target_link_libraries(${name} ${TLS_LIB_NAME})
+        target_link_libraries(${name} ${ANTS_LIB_NAME})
         # Указываем каталог для исполняемого файла образца
         set_target_properties(${name} PROPERTIES
             RUNTIME_OUTPUT_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${dir}
@@ -640,4 +713,4 @@ endif (${CMAKE_BUILD_SAMPLES})
 install(DIRECTORY "${CMAKE_SOURCE_DIR}/include/" DESTINATION "${CMAKE_INSTALL_PREFIX}/include/${CMAKE_PROJECT_NAME}" FILES_MATCHING PATTERN "*.hpp")
 
 # Выполняем установку библиотеки
-install(TARGETS ${TLS_LIB_NAME} DESTINATION "${CMAKE_INSTALL_PREFIX}/lib")
+install(TARGETS ${ANTS_LIB_NAME} DESTINATION "${CMAKE_INSTALL_PREFIX}/lib")

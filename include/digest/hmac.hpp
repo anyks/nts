@@ -2,7 +2,7 @@
  * @file hmac.hpp
  * @date 2026-08-29
  *
- * @license{LicenseRef-ANYKS-TLS-1.0}
+ * @license{LicenseRef-ANTS-1.0}
  *
  * @author Yuriy Lobarev
  *
@@ -29,8 +29,8 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANYKS_TLS_HMAC__
-#define __ANYKS_TLS_HMAC__
+#ifndef __ANTS_HMAC__
+#define __ANTS_HMAC__
 
 /**
  * Стандартные заголовочные файлы
@@ -103,7 +103,7 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ bool hmac(const type_t type, const view_t & key, const view_t & data, uint8_t * result, const size_t size) noexcept;
+		__ANTS_SHARED_EXPORT__ bool hmac(const type_t type, const view_t & key, const view_t & data, uint8_t * result, const size_t size) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод выработки порождающей последовательности протокола TLS
@@ -138,8 +138,8 @@ namespace anyks {
 		 *
 		 * \~
 		 */
-		__ANYKS_TLS_SHARED_EXPORT__ bool prf(const type_t type, const view_t & key, const view_t & label, const view_t & seed, uint8_t * result, const size_t size) noexcept;
+		__ANTS_SHARED_EXPORT__ bool prf(const type_t type, const view_t & key, const view_t & label, const view_t & seed, uint8_t * result, const size_t size) noexcept;
 	};
 };
 
-#endif // __ANYKS_TLS_HMAC__
+#endif // __ANTS_HMAC__
