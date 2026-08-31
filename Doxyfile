@@ -301,7 +301,7 @@ TAB_SIZE               = 4
 # сборщиков адресов. Обозначитель лицензии остаётся в исходниках, а не переезжает
 # сюда, потому что раздел 2.1 самой лицензии требует сохранять извещение в шапке файла.
 
-ALIASES                = "license{1}=\par License^^\ref ants_license \"\1\"" \
+ALIASES                = "license{1}=\par License^^\ref nts_license \"\1\"" \
                          "telegram{1}=\par Telegram^^<a href=\"https://t.me/\1\">\1</a>" \
                          "phone{1}=\par Phone^^\htmlonly<a href=\"tel:\1\">\endhtmlonly\1\htmlonly</a>\endhtmlonly" \
                          "email=\par E-mail^^" \

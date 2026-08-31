@@ -4,7 +4,7 @@
            SPDX short identifier: LicenseRef-A-NTS-1.0
 
   Copyright (c) 2026 Yuriy Lobarev (ANYKS). All rights reserved.
-  Project repository: https://gitflic.ru/project/anyks/ants
+  Project repository: https://gitflic.ru/project/anyks/nts
 
   A-NTS is free to use, including in commercial and closed-source
   products, provided that the author is credited and that the Library is
@@ -19,11 +19,11 @@
    "Library" means the software project A-NTS, taken as a whole,
    including its source code, header files, build system and
    documentation, as published by the Licensor at
-   https://gitflic.ru/project/anyks/ants
+   https://gitflic.ru/project/anyks/nts
 
    "Library Build" means a complete binary artifact produced from the
-   Library as a whole, such as libants.a, libants.so,
-   libants.dylib, libants.dll or ants.lib, ants.dll,
+   Library as a whole, such as libnts.a, libnts.so,
+   libnts.dylib, libnts.dll or nts.lib, nts.dll,
    together with the corresponding public header files.
 
    "Component" means any part of the Library taken in isolation: an
@@ -50,7 +50,7 @@
        of installations, users, servers, cores or instances;
 
    (b) link the Library into Your Product as a whole, either statically
-       (libants.a, ants.lib) or dynamically (libants.so, libants.dylib, ants.dll);
+       (libnts.a, nts.lib) or dynamically (libnts.so, libnts.dylib, nts.dll);
 
    (c) reproduce and distribute the Library and Library Builds, in
        whole, whether standalone, bundled with Your Product, or as part
@@ -86,7 +86,7 @@
        notice:
 
            This product uses A-NTS by Yuriy Lobarev (ANYKS).
-           https://gitflic.ru/project/anyks/ants
+           https://gitflic.ru/project/anyks/nts
 
        The repository address must be reproduced verbatim and, in any
        medium that supports hyperlinks, must be presented as a working
@@ -262,7 +262,7 @@ SUMMARY (informative, not part of the License)
                 sources private.
 
   YOU MUST:     credit "A-NTS by Yuriy Lobarev (ANYKS)" and the link
-                https://gitflic.ru/project/anyks/ants in a place
+                https://gitflic.ru/project/anyks/nts in a place
                 visible to your users, and keep all notices intact.
 
   YOU MAY NOT:  take A-NTS apart - no copying its files, classes or

@@ -16,7 +16,7 @@ OUTPUT_DIRECTORY = ./doc/ru
  # здесь переопределяются только их названия, исходники этого не касается
  ##
 
-ALIASES = "license{1}=\par Лицензия^^\ref ants_license \"\1\"" \
+ALIASES = "license{1}=\par Лицензия^^\ref nts_license \"\1\"" \
           "telegram{1}=\par Телеграм^^<a href=\"https://t.me/\1\">\1</a>" \
           "phone{1}=\par Телефон^^\htmlonly<a href=\"tel:\1\">\endhtmlonly\1\htmlonly</a>\endhtmlonly" \
           "email=\par Почта^^" \
