@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 3.15)
 project(ants LANGUAGES CXX)
 
 # Устанавливаем полное название проекта
-SET(PROJECT_VENDOR_LONG "ANYKS - Network Transport Security (ANTS)")
+SET(PROJECT_VENDOR_LONG "ANYKS - Network Transport Security (A-NTS)")
 
 # Опции сборки
 SET(PROJECT_COPYRIGHT "Copyright (c) ${CURRENT_YEAR} ${PROJECT_VENDOR_LONG}")
