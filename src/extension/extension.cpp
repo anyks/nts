@@ -58,6 +58,18 @@ namespace {
 	using namespace nts::extension;
 
 	/**
+	 * @brief Отказы работы модуля
+	 *
+	 * @note Имя заведено своё намеренно: у glibc есть собственный error_t в глобальном
+	 *       пространстве имён (расширение GNU в <errno.h>), а помощники лежат в
+	 *       безымянном пространстве, откуда поиск имени уходит сразу в глобальное - и
+	 *       всякое обращение к error_t выходит там двусмысленным. Своё имя поиск
+	 *       находит прежде глобального, и двусмысленности не возникает
+	 *
+	 */
+	typedef extension::error_t error_t;
+
+	/**
 	 * @brief Описание группы обмена ключами
 	 *
 	 */
@@ -203,8 +215,12 @@ namespace {
 	 *
 	 * @return       отказ составления поля переменной длины
 	 *
+	 * @note Имя «single» здесь не годится: у Solaris оно занято под вид числа с
+	 *       плавающей запятой в глобальном пространстве имён, и обращение к помощнику
+	 *       из безымянного пространства выходит там двусмысленным
+	 *
 	 */
-	static error_t single(const view_t & data, const size_t width, vector <uint8_t> & result) noexcept {
+	static error_t alone(const view_t & data, const size_t width, vector <uint8_t> & result) noexcept {
 		// Объект составителя полей тела расширения
 		field::builder_t builder;
 		/**
@@ -307,7 +323,7 @@ size_t nts::extension::length(const scheme_t scheme) noexcept {
  * @return       отказ разбора тела расширения
  *
  */
-error_t nts::extension::versions(const view_t & data, vector <uint16_t> & result) noexcept {
+nts::extension::error_t nts::extension::versions(const view_t & data, vector <uint16_t> & result) noexcept {
 	// Прочитанный перечень изданий протокола
 	vector <uint32_t> values;
 	// Выполняем разбор перечня изданий протокола
@@ -345,7 +361,7 @@ error_t nts::extension::versions(const view_t & data, vector <uint16_t> & result
  * @return         отказ составления тела расширения
  *
  */
-error_t nts::extension::versions(const vector <uint16_t> & versions, vector <uint8_t> & result) noexcept {
+nts::extension::error_t nts::extension::versions(const vector <uint16_t> & versions, vector <uint8_t> & result) noexcept {
 	// Составляемый перечень изданий протокола
 	vector <uint32_t> values;
 	/**
@@ -377,7 +393,7 @@ error_t nts::extension::versions(const vector <uint16_t> & versions, vector <uin
  * @return       отказ разбора тела расширения
  *
  */
-error_t nts::extension::version(const view_t & data, uint16_t & result) noexcept {
+nts::extension::error_t nts::extension::version(const view_t & data, uint16_t & result) noexcept {
 	// Объект разборщика полей тела расширения
 	field::scanner_t scanner;
 	// Устанавливаем разбираемое тело расширения
@@ -406,7 +422,7 @@ error_t nts::extension::version(const view_t & data, uint16_t & result) noexcept
  * @return        отказ составления тела расширения
  *
  */
-error_t nts::extension::version(const uint16_t version, vector <uint8_t> & result) noexcept {
+nts::extension::error_t nts::extension::version(const uint16_t version, vector <uint8_t> & result) noexcept {
 	/**
 	 * Выполняем перехват ошибок работы с памятью
 	 */
@@ -434,7 +450,7 @@ error_t nts::extension::version(const uint16_t version, vector <uint8_t> & resul
  * @return       отказ разбора тела расширения
  *
  */
-error_t nts::extension::groups(const view_t & data, vector <group_t> & result) noexcept {
+nts::extension::error_t nts::extension::groups(const view_t & data, vector <group_t> & result) noexcept {
 	// Прочитанный перечень групп обмена ключами
 	vector <uint32_t> values;
 	// Выполняем разбор перечня групп обмена ключами
@@ -472,7 +488,7 @@ error_t nts::extension::groups(const view_t & data, vector <group_t> & result) n
  * @return       отказ составления тела расширения
  *
  */
-error_t nts::extension::groups(const vector <group_t> & groups, vector <uint8_t> & result) noexcept {
+nts::extension::error_t nts::extension::groups(const vector <group_t> & groups, vector <uint8_t> & result) noexcept {
 	// Составляемый перечень групп обмена ключами
 	vector <uint32_t> values;
 	/**
@@ -504,7 +520,7 @@ error_t nts::extension::groups(const vector <group_t> & groups, vector <uint8_t>
  * @return       отказ разбора тела расширения
  *
  */
-error_t nts::extension::schemes(const view_t & data, vector <scheme_t> & result) noexcept {
+nts::extension::error_t nts::extension::schemes(const view_t & data, vector <scheme_t> & result) noexcept {
 	// Прочитанный перечень схем подписи
 	vector <uint32_t> values;
 	// Выполняем разбор перечня схем подписи
@@ -542,7 +558,7 @@ error_t nts::extension::schemes(const view_t & data, vector <scheme_t> & result)
  * @return        отказ составления тела расширения
  *
  */
-error_t nts::extension::schemes(const vector <scheme_t> & schemes, vector <uint8_t> & result) noexcept {
+nts::extension::error_t nts::extension::schemes(const vector <scheme_t> & schemes, vector <uint8_t> & result) noexcept {
 	// Составляемый перечень схем подписи
 	vector <uint32_t> values;
 	/**
@@ -574,7 +590,7 @@ error_t nts::extension::schemes(const vector <scheme_t> & schemes, vector <uint8
  * @return       отказ разбора тела расширения
  *
  */
-error_t nts::extension::shares(const view_t & data, vector <share_t> & result) noexcept {
+nts::extension::error_t nts::extension::shares(const view_t & data, vector <share_t> & result) noexcept {
 	// Объект разборщика полей тела расширения
 	field::scanner_t scanner;
 	// Устанавливаем разбираемое тело расширения
@@ -635,7 +651,7 @@ error_t nts::extension::shares(const view_t & data, vector <share_t> & result) n
  * @return       отказ составления тела расширения
  *
  */
-error_t nts::extension::shares(const vector <share_t> & shares, vector <uint8_t> & result) noexcept {
+nts::extension::error_t nts::extension::shares(const vector <share_t> & shares, vector <uint8_t> & result) noexcept {
 	// Объект составителя полей тела расширения
 	field::builder_t builder;
 	/**
@@ -686,7 +702,7 @@ error_t nts::extension::shares(const vector <share_t> & shares, vector <uint8_t>
  * @return       отказ разбора тела расширения
  *
  */
-error_t nts::extension::share(const view_t & data, share_t & result) noexcept {
+nts::extension::error_t nts::extension::share(const view_t & data, share_t & result) noexcept {
 	// Объект разборщика полей тела расширения
 	field::scanner_t scanner;
 	// Устанавливаем разбираемое тело расширения
@@ -723,7 +739,7 @@ error_t nts::extension::share(const view_t & data, share_t & result) noexcept {
  * @return       отказ составления тела расширения
  *
  */
-error_t nts::extension::share(const share_t & share, vector <uint8_t> & result) noexcept {
+nts::extension::error_t nts::extension::share(const share_t & share, vector <uint8_t> & result) noexcept {
 	// Объект составителя полей тела расширения
 	field::builder_t builder;
 	/**
@@ -763,7 +779,7 @@ error_t nts::extension::share(const share_t & share, vector <uint8_t> & result) 
  * @return       отказ разбора тела расширения
  *
  */
-error_t nts::extension::early(const view_t & data, uint32_t & result) noexcept {
+nts::extension::error_t nts::extension::early(const view_t & data, uint32_t & result) noexcept {
 	// Объект разборщика полей тела расширения
 	field::scanner_t scanner;
 	// Устанавливаем разбираемое тело расширения
@@ -792,7 +808,7 @@ error_t nts::extension::early(const view_t & data, uint32_t & result) noexcept {
  * @return       отказ составления тела расширения
  *
  */
-error_t nts::extension::early(const uint32_t limit, vector <uint8_t> & result) noexcept {
+nts::extension::error_t nts::extension::early(const uint32_t limit, vector <uint8_t> & result) noexcept {
 	// Объект составителя полей тела расширения
 	field::builder_t builder;
 	// Если предел упреждающих данных записать не удалось
@@ -826,7 +842,7 @@ error_t nts::extension::early(const uint32_t limit, vector <uint8_t> & result) n
  * @return       отказ разбора тела расширения
  *
  */
-error_t nts::extension::protocols(const view_t & data, vector <string> & result) noexcept {
+nts::extension::error_t nts::extension::protocols(const view_t & data, vector <string> & result) noexcept {
 	// Объект разборщика полей тела расширения
 	field::scanner_t scanner;
 	// Устанавливаем разбираемое тело расширения
@@ -891,7 +907,7 @@ error_t nts::extension::protocols(const view_t & data, vector <string> & result)
  * @return          отказ составления тела расширения
  *
  */
-error_t nts::extension::protocols(const vector <string> & protocols, vector <uint8_t> & result) noexcept {
+nts::extension::error_t nts::extension::protocols(const vector <string> & protocols, vector <uint8_t> & result) noexcept {
 	// Если составляемый перечень прикладных протоколов пуст
 	if(protocols.empty())
 		// Выводим отказ пустого перечня прикладных протоколов
@@ -950,7 +966,7 @@ error_t nts::extension::protocols(const vector <string> & protocols, vector <uin
  * @return       отказ разбора тела расширения
  *
  */
-error_t nts::extension::protocol(const view_t & data, string & result) noexcept {
+nts::extension::error_t nts::extension::protocol(const view_t & data, string & result) noexcept {
 	// Перечень названий прикладных протоколов
 	vector <string> protocols;
 	// Выполняем разбор перечня прикладных протоколов
@@ -990,7 +1006,7 @@ error_t nts::extension::protocol(const view_t & data, string & result) noexcept 
  * @return         отказ составления тела расширения
  *
  */
-error_t nts::extension::protocol(const string & protocol, vector <uint8_t> & result) noexcept {
+nts::extension::error_t nts::extension::protocol(const string & protocol, vector <uint8_t> & result) noexcept {
 	// Если составляемое название прикладного протокола пусто
 	if(protocol.empty())
 		// Выводим отказ пустого названия прикладного протокола
@@ -1020,7 +1036,7 @@ error_t nts::extension::protocol(const string & protocol, vector <uint8_t> & res
  * @return           отказ разбора тела расширения
  *
  */
-error_t nts::extension::identities(const view_t & data, vector <identity_t> & result, vector <view_t> & binders, size_t & truncation) noexcept {
+nts::extension::error_t nts::extension::identities(const view_t & data, vector <identity_t> & result, vector <view_t> & binders, size_t & truncation) noexcept {
 	// Объект разборщика полей тела расширения
 	field::scanner_t scanner;
 	// Устанавливаем разбираемое тело расширения
@@ -1128,7 +1144,7 @@ error_t nts::extension::identities(const view_t & data, vector <identity_t> & re
  * @return           отказ составления тела расширения
  *
  */
-error_t nts::extension::identities(const vector <identity_t> & identities, const vector <view_t> & binders, vector <uint8_t> & result) noexcept {
+nts::extension::error_t nts::extension::identities(const vector <identity_t> & identities, const vector <view_t> & binders, vector <uint8_t> & result) noexcept {
 	// Если перечень опознавателей ключей пуст
 	if(identities.empty())
 		// Выводим отказ пустого обязательного поля
@@ -1220,7 +1236,7 @@ error_t nts::extension::identities(const vector <identity_t> & identities, const
  * @return       отказ разбора тела расширения
  *
  */
-error_t nts::extension::chosen(const view_t & data, uint16_t & result) noexcept {
+nts::extension::error_t nts::extension::chosen(const view_t & data, uint16_t & result) noexcept {
 	// Выводим итог разбора выбранного заранее разделённого ключа
 	return nts::extension::version(data, result);
 }
@@ -1233,7 +1249,7 @@ error_t nts::extension::chosen(const view_t & data, uint16_t & result) noexcept 
  * @return       отказ составления тела расширения
  *
  */
-error_t nts::extension::chosen(const uint16_t chosen, vector <uint8_t> & result) noexcept {
+nts::extension::error_t nts::extension::chosen(const uint16_t chosen, vector <uint8_t> & result) noexcept {
 	// Выводим итог составления выбранного заранее разделённого ключа
 	return nts::extension::version(chosen, result);
 }
@@ -1246,7 +1262,7 @@ error_t nts::extension::chosen(const uint16_t chosen, vector <uint8_t> & result)
  * @return       отказ разбора тела расширения
  *
  */
-error_t nts::extension::selected(const view_t & data, group_t & result) noexcept {
+nts::extension::error_t nts::extension::selected(const view_t & data, group_t & result) noexcept {
 	// Выбранная сервером группа обмена ключами
 	uint16_t group = 0;
 	// Выполняем разбор выбранной группы обмена ключами
@@ -1267,7 +1283,7 @@ error_t nts::extension::selected(const view_t & data, group_t & result) noexcept
  * @return       отказ составления тела расширения
  *
  */
-error_t nts::extension::selected(const group_t group, vector <uint8_t> & result) noexcept {
+nts::extension::error_t nts::extension::selected(const group_t group, vector <uint8_t> & result) noexcept {
 	// Выводим итог составления выбранной группы обмена ключами
 	return nts::extension::version(static_cast <uint16_t> (group), result);
 }
@@ -1280,7 +1296,7 @@ error_t nts::extension::selected(const group_t group, vector <uint8_t> & result)
  * @return       отказ разбора тела расширения
  *
  */
-error_t nts::extension::modes(const view_t & data, vector <mode_t> & result) noexcept {
+nts::extension::error_t nts::extension::modes(const view_t & data, vector <mode_t> & result) noexcept {
 	// Прочитанный перечень способов обмена
 	vector <uint32_t> values;
 	// Выполняем разбор перечня способов обмена
@@ -1318,7 +1334,7 @@ error_t nts::extension::modes(const view_t & data, vector <mode_t> & result) noe
  * @return       отказ составления тела расширения
  *
  */
-error_t nts::extension::modes(const vector <mode_t> & modes, vector <uint8_t> & result) noexcept {
+nts::extension::error_t nts::extension::modes(const vector <mode_t> & modes, vector <uint8_t> & result) noexcept {
 	// Составляемый перечень способов обмена
 	vector <uint32_t> values;
 	/**
@@ -1350,7 +1366,7 @@ error_t nts::extension::modes(const vector <mode_t> & modes, vector <uint8_t> & 
  * @return       отказ разбора тела расширения
  *
  */
-error_t nts::extension::cookie(const view_t & data, view_t & result) noexcept {
+nts::extension::error_t nts::extension::cookie(const view_t & data, view_t & result) noexcept {
 	// Объект разборщика полей тела расширения
 	field::scanner_t scanner;
 	// Устанавливаем разбираемое тело расширения
@@ -1383,13 +1399,13 @@ error_t nts::extension::cookie(const view_t & data, view_t & result) noexcept {
  * @return       отказ составления тела расширения
  *
  */
-error_t nts::extension::cookie(const view_t & cookie, vector <uint8_t> & result) noexcept {
+nts::extension::error_t nts::extension::cookie(const view_t & cookie, vector <uint8_t> & result) noexcept {
 	// Если составляемая метка возврата состояния пуста
 	if((cookie.data == nullptr) || (cookie.size == 0))
 		// Выводим отказ пустой метки возврата состояния
 		return error_t::EMPTY;
 	// Выводим итог составления метки возврата состояния
-	return single(cookie, 2, result);
+	return alone(cookie, 2, result);
 }
 /**
  * @brief Метод разбора имени запрашиваемого узла
@@ -1400,7 +1416,7 @@ error_t nts::extension::cookie(const view_t & cookie, vector <uint8_t> & result)
  * @return       отказ разбора тела расширения
  *
  */
-error_t nts::extension::name(const view_t & data, view_t & result) noexcept {
+nts::extension::error_t nts::extension::name(const view_t & data, view_t & result) noexcept {
 	// Объект разборщика полей тела расширения
 	field::scanner_t scanner;
 	// Устанавливаем разбираемое тело расширения
@@ -1463,7 +1479,7 @@ error_t nts::extension::name(const view_t & data, view_t & result) noexcept {
  * @return       отказ составления тела расширения
  *
  */
-error_t nts::extension::name(const view_t & name, vector <uint8_t> & result) noexcept {
+nts::extension::error_t nts::extension::name(const view_t & name, vector <uint8_t> & result) noexcept {
 	// Если составляемое имя запрашиваемого узла пусто
 	if((name.data == nullptr) || (name.size == 0))
 		// Выводим отказ пустого имени запрашиваемого узла

@@ -60,6 +60,18 @@ namespace {
 	using namespace nts::flow;
 
 	/**
+	 * @brief Отказы работы модуля
+	 *
+	 * @note Имя заведено своё намеренно: у glibc есть собственный error_t в глобальном
+	 *       пространстве имён (расширение GNU в <errno.h>), а помощники лежат в
+	 *       безымянном пространстве, откуда поиск имени уходит сразу в глобальное - и
+	 *       всякое обращение к error_t выходит там двусмысленным. Своё имя поиск
+	 *       находит прежде глобального, и двусмысленности не возникает
+	 *
+	 */
+	typedef flow::error_t error_t;
+
+	/**
 	 * @brief Метод проверки принадлежности сообщения стороне связи
 	 *
 	 * @param side ожидаемая сторона, отправляющая сообщение
@@ -167,7 +179,7 @@ void nts::flow::Machine::clear() noexcept {
  * @return     отказ объявления сообщения рукопожатия
  *
  */
-error_t nts::flow::Machine::accept(const handshake::type_t type, const session::side_t side) noexcept {
+nts::flow::error_t nts::flow::Machine::accept(const handshake::type_t type, const session::side_t side) noexcept {
 	// Если ход рукопожатия не заведён либо уже прерван
 	if((this->_stage == stage_t::NONE) || (this->_stage == stage_t::FAILED))
 		// Выводим отказ негодного состояния хода рукопожатия
@@ -378,7 +390,7 @@ error_t nts::flow::Machine::accept(const handshake::type_t type, const session::
  * @return отказ объявления просьбы о повторе приветствия
  *
  */
-error_t nts::flow::Machine::retry() noexcept {
+nts::flow::error_t nts::flow::Machine::retry() noexcept {
 	// Если ход рукопожатия не заведён либо уже прерван
 	if((this->_stage == stage_t::NONE) || (this->_stage == stage_t::FAILED))
 		// Выводим отказ негодного состояния хода рукопожатия

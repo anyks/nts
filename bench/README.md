@@ -44,4 +44,24 @@ OPENSSL_armcap=0 ./build-release/bench/bench                      # ARM
 OPENSSL_ia32cap=~0x200000200000000 ./build-release/bench/bench    # x86-64
 ```
 
+## Сличение с ГОСТ у эталона
+
+На стенде Astra Linux у OpenSSL подключён провайдер `gostprov` — там эталон несёт ровно
+наши алгоритмы, и сличается одно и то же, а не работа одного рода. Хеши и шифры меряются
+самим `openssl speed`:
+
+```bash
+openssl speed -provider gostprov -provider default -evp md_gost12_256
+```
+
+Подписи `openssl speed` не знает, и для неё рядом лежит щуп [gostbench.c](gostbench.c):
+
+```bash
+gcc -O2 -o gostbench gostbench.c -lcrypto && ./gostbench
+```
+
+Щуп подписывает готовый хеш через `EVP_PKEY_sign` — ту же работу, что мерит набор.
+Обмен ключами он не меряет: провайдер ведёт его как VKO и требует UKM, установить
+который не вышло ни через `ctrl`, ни через `OSSL_PARAM`.
+
 Итоги сличения лежат в [COMPARISON.md](COMPARISON.md).

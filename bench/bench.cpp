@@ -50,6 +50,7 @@
 #include <cipher/mode.hpp>
 #include <agreement/ecdhe.hpp>
 #include <cipher/kuznyechik.hpp>
+#include <cipher/magma.hpp>
 #include <digest/streebog.hpp>
 #include <entropy/entropy.hpp>
 #include <curve/parameters.hpp>
@@ -285,7 +286,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Место, в которое помещается итог работы над областью байтов
 	vector <uint8_t> result(VOLUME, 0);
 	// Выводим заголовок замеров своей работы
-	cout << "Замеры ANYKS TLS" << endl << endl;
+	cout << "Замеры ANTS" << endl << endl;
 	// Место, в которое помещается хеш области байтов
 	uint8_t hash[64];
 	/**
@@ -373,6 +374,58 @@ int main(int argc, char * argv[]) noexcept {
 		galois.start(block, view_t(seed, sizeof(seed)));
 		// Выполняем шифрование области байтов с проверкой целостности
 		galois.encrypt(view_t(nullptr, 0), view_t(data.data(), data.size()), result.data(), tag);
+	});
+	// Объект блочного шифра «Магма»
+	cipher::magma_t magma;
+	// Если ключ блочного шифра «Магма» установить не удалось
+	if(!magma.key(view_t(key, sizeof(key)))){
+		// Выводим сообщение об отказе установки ключа
+		cout << "Установить ключ блочного шифра «Магма» не удалось" << endl;
+		// Выходим из приложения с признаком отказа
+		return EXIT_FAILURE;
+	}
+	// Описание базового алгоритма блочного шифрования «Магма»
+	const cipher::block_t little(magma);
+	// Объект режима гаммирования на шифре «Магма»
+	cipher::counter_t sequence;
+	/**
+	 * Вектор замены режима гаммирования занимает половину блока, оттого шифру с
+	 * блоком в 64 разряда подаётся вчетверо короче прежнего
+	 */
+	if(!sequence.start(little, view_t(nonce, cipher::MAGMA_BLOCK / 2)) || !sequence.encrypt(view_t(data.data(), data.size()), result.data())){
+		// Выводим сообщение об отказе поточного шифрования
+		cout << "Выполнить поточное шифрование «Магма» не удалось" << endl;
+		// Выходим из приложения с признаком отказа
+		return EXIT_FAILURE;
+	}
+	// Выполняем замер полосы поточного шифрования «Магма»
+	band("Магма-CTR", 8, VOLUME, [&sequence, &data, &result]() noexcept -> void {
+		// Выполняем поточное шифрование области байтов
+		sequence.encrypt(view_t(data.data(), data.size()), result.data());
+	});
+	// Начальное заполнение счётчика шифрования с проверкой целостности на шифре «Магма»
+	uint8_t grain[cipher::MAGMA_BLOCK];
+	// Выполняем выработку начального заполнения счётчика
+	entropy::bytes(grain, sizeof(grain));
+	/**
+	 * Раздел 4.2 RFC 9058 велит держать старший разряд начального заполнения нулевым
+	 */
+	grain[0] &= 0x7F;
+	// Объект режима шифрования с проверкой целостности на шифре «Магма»
+	cipher::galois_t assurance;
+	// Если режим шифрования с проверкой целостности завести не удалось
+	if(!assurance.start(little, view_t(grain, sizeof(grain))) || !assurance.encrypt(view_t(nullptr, 0), view_t(data.data(), data.size()), result.data(), tag)){
+		// Выводим сообщение об отказе шифрования с проверкой целостности
+		cout << "Завести шифрование с проверкой целостности «Магма» не удалось" << endl;
+		// Выходим из приложения с признаком отказа
+		return EXIT_FAILURE;
+	}
+	// Выполняем замер полосы шифрования с проверкой целостности на шифре «Магма»
+	band("Магма-MGM", 8, VOLUME, [&assurance, &little, &grain, &data, &result, &tag]() noexcept -> void {
+		// Выполняем заведение режима шифрования с проверкой целостности
+		assurance.start(little, view_t(grain, sizeof(grain)));
+		// Выполняем шифрование области байтов с проверкой целостности
+		assurance.encrypt(view_t(nullptr, 0), view_t(data.data(), data.size()), result.data(), tag);
 	});
 	// Эллиптическая кривая подписи и обмена ключами
 	curve::curve_t curve;

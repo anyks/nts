@@ -91,7 +91,14 @@ namespace {
 		LIFETIME  = 0x06, // Билет возобновления связи объявлен сроком свыше семи суток
 		INTERLEAVE = 0x07, // Сообщение рукопожатия разорвано записью извещения
 		COOKIE    = 0x08, // Просьба о повторе приветствия несёт метку возврата состояния
-		GREETING  = 0x09  // Приветствие сервера несёт расширение не своего сообщения
+		GREETING  = 0x09, // Приветствие сервера несёт расширение не своего сообщения
+		METHOD    = 0x0A, // Приветствие сервера объявляет способ сжатия, отличный от нуля
+		PROPOSAL  = 0x0B, // Просьба о повторе приветствия без метки возврата состояния
+		PROPOSED  = 0x0C, // Приветствие за просьбой о повторе меняет набор шифрования
+		DISCORD   = 0x0D, // Приветствие клиента объявляет схемы подписи чужой кривой
+		SILENT    = 0x0E, // Запрос подлинности клиента не объявляет схем подписи
+		ADORNED   = 0x0F, // Запись цепочки сертификатов несёт непрошенное расширение
+		FAREWELL  = 0x10  // Клиент шлёт конец упреждающих данных, которых не посылал
 	};
 	/**
 	 * @brief Заранее назначенное случайное значение просьбы о повторе приветствия
@@ -348,10 +355,14 @@ namespace {
 		answer.version = 0x0303;
 		// Устанавливаем опознаватель связи, повторяемый за приветствием клиента
 		answer.session = greeting.session;
-		// Устанавливаем набор шифрования, первым предложенный клиентом
-		answer.suite = greeting.suites[0];
+		/**
+		 * Набор шифрования берётся первым из предложенных клиентом, а искажением
+		 * PROPOSED - вторым: им враждебный сервер меняет набор между просьбой о
+		 * повторе приветствия и самим приветствием
+		 */
+		answer.suite = (((distortion == distortion_t::PROPOSED) && (greeting.suites.size() > 1)) ? greeting.suites[1] : greeting.suites[0]);
 		// Устанавливаем выбранный способ сжатия
-		answer.method = 0x00;
+		answer.method = ((distortion == distortion_t::METHOD) ? 0x01 : 0x00);
 		/**
 		 * Выполняем набивку случайного значения приветствия враждебного сервера
 		 */
@@ -376,8 +387,8 @@ namespace {
 		vector <uint8_t> selected;
 		// Метка возврата состояния, объявляемая просьбой о повторе
 		const vector <uint8_t> label = {0x00, 0x04, 0xDE, 0xAD, 0xBE, 0xEF};
-		// Если враждебный сервер просит повтора приветствия с меткой
-		if(distortion == distortion_t::COOKIE){
+		// Если враждебный сервер просит повтора приветствия
+		if((distortion == distortion_t::COOKIE) || (distortion == distortion_t::PROPOSAL)){
 			// Переносим случайное значение просьбы о повторе приветствия
 			::memcpy(answer.random, RETRY, sizeof(RETRY));
 			/**
@@ -389,8 +400,10 @@ namespace {
 				return false;
 			// Добавляем расширение выбранной кривой обмена ключами
 			answer.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::SHARE), view_t(selected.data(), selected.size())));
-			// Добавляем расширение метки возврата состояния сервера
-			answer.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::COOKIE), view_t(label.data(), label.size())));
+			// Если просьба о повторе объявляет метку возврата состояния сервера
+			if(distortion == distortion_t::COOKIE)
+				// Добавляем расширение метки возврата состояния сервера
+				answer.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::COOKIE), view_t(label.data(), label.size())));
 		// Если враждебный сервер отвечает самим приветствием
 		} else {
 			// Добавляем расширение открытой части ключа обмена
@@ -429,7 +442,8 @@ namespace {
 		// Накопитель, в который складывается ответ враждебного сервера
 		vector <uint8_t> answered(plaintext.data, plaintext.data + plaintext.size);
 		// Если враждебный сервер искажает само приветствие
-		if((distortion == distortion_t::COOKIE) || (distortion == distortion_t::GREETING)){
+		if((distortion == distortion_t::COOKIE) || (distortion == distortion_t::GREETING) ||
+		   (distortion == distortion_t::METHOD) || (distortion == distortion_t::PROPOSAL) || (distortion == distortion_t::PROPOSED)){
 			// Выполняем подачу приветствия враждебного сервера клиенту
 			client.push(view_t(answered.data(), answered.size()));
 			// Выводим успешность ответа враждебного сервера
@@ -568,12 +582,49 @@ namespace {
 		if(!deliver(protection, transcript, handshake::type_t::EXTENSIONS, view_t(extensions.data(), extensions.size()), answered))
 			// Выводим отказ ответа враждебного сервера
 			return false;
+		// Если враждебный сервер шлёт запрос подлинности без схем подписи
+		if(distortion == distortion_t::SILENT){
+			// Объект составителя тела запроса подлинности клиента
+			field::builder_t builder;
+			// Если пустой опознаватель запроса записать не удалось
+			if(builder.number(0, 1) != field::error_t::NONE)
+				// Выводим отказ ответа враждебного сервера
+				return false;
+			// Если пустой перечень расширений запроса записать не удалось
+			if(builder.number(0, 2) != field::error_t::NONE)
+				// Выводим отказ ответа враждебного сервера
+				return false;
+			// Получаем составленное тело запроса подлинности клиента
+			const view_t request = builder.data();
+			// Если запрос подлинности враждебного сервера отправить не удалось
+			if(!deliver(protection, transcript, handshake::type_t::REQUEST, request, answered))
+				// Выводим отказ ответа враждебного сервера
+				return false;
+			// Выполняем подачу ответа враждебного сервера клиенту
+			client.push(view_t(answered.data(), answered.size()));
+			// Выводим успешность ответа враждебного сервера
+			return true;
+		}
 		// Опознаватель запроса подлинности, набиваемый враждебным сервером
 		const uint8_t identifier[] = {0x0A, 0x0B, 0x0C, 0x0D};
 		// Если враждебный сервер искажает цепочку сертификатов
-		if((distortion == distortion_t::CONTEXT) || (distortion == distortion_t::EMPTINESS)){
+		if((distortion == distortion_t::CONTEXT) || (distortion == distortion_t::EMPTINESS) || (distortion == distortion_t::ADORNED)){
 			// Составляемая цепочка сертификатов враждебного сервера
 			message::certificate_t certificate;
+			// Если запись цепочки несёт расширение, клиентом не предлагавшееся
+			if(distortion == distortion_t::ADORNED){
+				// Запись цепочки сертификатов враждебного сервера
+				message::entry_t entry;
+				// Устанавливаем тело сертификата записи цепочки
+				entry.data = view_t(identifier, sizeof(identifier));
+				/**
+				 * Расширение запроса состояния сертификата клиент приветствием не
+				 * предлагает: раздел 4.4.2 RFC 8446 велит ему на нём оборваться
+				 */
+				entry.extensions.push_back(hello::extension_t(0x0005, view_t(nullptr, 0)));
+				// Добавляем запись в цепочку сертификатов
+				certificate.entries.push_back(entry);
+			}
 			// Если цепочка сертификатов несёт непустой опознаватель запроса
 			if(distortion == distortion_t::CONTEXT){
 				// Устанавливаем непустой опознаватель запроса подлинности
@@ -876,13 +927,23 @@ namespace {
 			return false;
 		// Добавляем расширение перечня кривых обмена ключами
 		greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::GROUPS), view_t(bodies[1].data(), bodies[1].size())));
-		// Схемы подписи, предлагаемые враждебным клиентом
-		const vector <extension::scheme_t> schemes = {
-			extension::scheme_t::S256A, extension::scheme_t::S256B,
-			extension::scheme_t::S256C, extension::scheme_t::S256D,
-			extension::scheme_t::S512A, extension::scheme_t::S512B,
-			extension::scheme_t::S512C
-		};
+		/**
+		 * Схемы подписи, предлагаемые враждебным клиентом: искажением DISCORD в
+		 * перечне остаются одни схемы длинной кривой, тогда как сертификат сервера
+		 * выдан на короткой
+		 */
+		const vector <extension::scheme_t> schemes = ((distortion == distortion_t::DISCORD) ?
+			vector <extension::scheme_t> {
+				extension::scheme_t::S512A, extension::scheme_t::S512B,
+				extension::scheme_t::S512C
+			} :
+			vector <extension::scheme_t> {
+				extension::scheme_t::S256A, extension::scheme_t::S256B,
+				extension::scheme_t::S256C, extension::scheme_t::S256D,
+				extension::scheme_t::S512A, extension::scheme_t::S512B,
+				extension::scheme_t::S512C
+			}
+		);
 		// Если перечень схем подписи составить не удалось
 		if(extension::schemes(schemes, bodies[2]) != extension::error_t::NONE)
 			// Выводим отказ рукопожатия враждебного клиента
@@ -1085,6 +1146,17 @@ namespace {
 			return false;
 		// Накопитель, в который складывается ответ враждебного клиента
 		vector <uint8_t> answered;
+		// Если враждебный клиент шлёт конец упреждающих данных, которых не посылал
+		if(distortion == distortion_t::FAREWELL){
+			// Если конец упреждающих данных враждебного клиента отправить не удалось
+			if(!deliver(protection, transcript, handshake::type_t::EARLY, view_t(nullptr, 0), answered))
+				// Выводим отказ рукопожатия враждебного клиента
+				return false;
+			// Выполняем подачу ответа враждебного клиента серверу
+			server.push(view_t(answered.data(), answered.size()));
+			// Выводим успешность рукопожатия враждебного клиента
+			return true;
+		}
 		// Если враждебный клиент предъявляет свою подлинность
 		if(distortion == distortion_t::CONTEXT){
 			// Если подлинность враждебного клиента проверкой не задана

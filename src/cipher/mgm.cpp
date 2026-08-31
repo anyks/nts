@@ -181,8 +181,13 @@ namespace {
 				const __m128i value = _mm_clmulepi64_si128(_mm_set_epi64x(0, static_cast <long long> (first)), _mm_set_epi64x(0, static_cast <long long> (second)), 0x00);
 				// Записываем младшую половину произведения
 				lo = static_cast <uint64_t> (_mm_cvtsi128_si64(value));
-				// Записываем старшую половину произведения
-				hi = static_cast <uint64_t> (_mm_extract_epi64(value, 1));
+				/**
+				 * Старшая половина снимается перестановкой, а не извлечением по месту:
+				 * извлечение потребовало бы набора команд SSE4.1, тогда как самому
+				 * умножению без переносов довольно SSE2, и лишний набор сузил бы круг
+				 * машин, на которых собирается быстрый путь
+				 */
+				hi = static_cast <uint64_t> (_mm_cvtsi128_si64(_mm_unpackhi_epi64(value, value)));
 			#endif // __aarch64__
 		}
 	#endif // __ANTS_CARRYLESS__
@@ -386,8 +391,11 @@ namespace {
 	 * @param result место, в которое помещается произведение
 	 * @param size   размер перемножаемых блоков
 	 *
+	 * @note Обозначение __ANTS_INLINE__ здесь нужно по делу: умножение зовётся на всякий
+	 *       блок, и оставленное вызовом оно стоит полосе около пяти сотых доли
+	 *
 	 */
-	static void multiply(const uint8_t * first, const uint8_t * second, uint8_t * result, const size_t size) noexcept {
+	static __ANTS_INLINE__ void multiply(const uint8_t * first, const uint8_t * second, uint8_t * result, const size_t size) noexcept {
 		// Если перемножаются блоки длиной 128 разрядов
 		if(size == 16)
 			// Выполняем умножение блоков в поле GF(2^128)

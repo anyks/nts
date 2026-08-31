@@ -74,6 +74,18 @@ namespace {
 	using namespace nts::trust;
 
 	/**
+	 * @brief Отказы работы модуля
+	 *
+	 * @note Имя заведено своё намеренно: у glibc есть собственный error_t в глобальном
+	 *       пространстве имён (расширение GNU в <errno.h>), а помощники лежат в
+	 *       безымянном пространстве, откуда поиск имени уходит сразу в глобальное - и
+	 *       всякое обращение к error_t выходит там двусмысленным. Своё имя поиск
+	 *       находит прежде глобального, и двусмысленности не возникает
+	 *
+	 */
+	typedef trust::error_t error_t;
+
+	/**
 	 * Опознаватель расширения основных ограничений сертификата
 	 */
 	static const char * CONSTRAINTS = "2.5.29.19";
@@ -315,7 +327,7 @@ void nts::trust::Store::clear() noexcept {
  * @return       отказ доверия цепочке сертификатов
  *
  */
-error_t nts::trust::verify(const vector <vector <uint8_t>> & chain, const store_t & store, const int64_t moment) noexcept {
+nts::trust::error_t nts::trust::verify(const vector <vector <uint8_t>> & chain, const store_t & store, const int64_t moment) noexcept {
 	// Если проверяемая цепочка сертификатов пуста
 	if(chain.empty())
 		// Выводим отказ пустой цепочки сертификатов
@@ -449,7 +461,7 @@ error_t nts::trust::verify(const vector <vector <uint8_t>> & chain, const store_
  * @return            отказ сличения имени узла
  *
  */
-error_t nts::trust::belongs(const view_t & certificate, const string & name) noexcept {
+nts::trust::error_t nts::trust::belongs(const view_t & certificate, const string & name) noexcept {
 	// Если имя узла не передано
 	if(name.empty())
 		// Выводим отказ несовпадения имени узла

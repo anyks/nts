@@ -59,6 +59,18 @@ namespace {
 	using namespace nts::handshake;
 
 	/**
+	 * @brief Отказы работы модуля
+	 *
+	 * @note Имя заведено своё намеренно: у glibc есть собственный error_t в глобальном
+	 *       пространстве имён (расширение GNU в <errno.h>), а помощники лежат в
+	 *       безымянном пространстве, откуда поиск имени уходит сразу в глобальное - и
+	 *       всякое обращение к error_t выходит там двусмысленным. Своё имя поиск
+	 *       находит прежде глобального, и двусмысленности не возникает
+	 *
+	 */
+	typedef handshake::error_t error_t;
+
+	/**
 	 * @brief Метод затирания области памяти
 	 *
 	 * @param data затираемая область памяти
@@ -120,7 +132,7 @@ bool nts::handshake::known(const type_t type) noexcept {
  * @return       отказ разбора обвязки сообщения
  *
  */
-error_t nts::handshake::parse(const view_t & data, header_t & result) noexcept {
+nts::handshake::error_t nts::handshake::parse(const view_t & data, header_t & result) noexcept {
 	// Если разбираемая область байтов обвязки сообщения не вмещает
 	if((data.data == nullptr) || (data.size < HANDSHAKE_HEADER))
 		// Выводим отказ нехватки данных для разбора
@@ -147,7 +159,7 @@ error_t nts::handshake::parse(const view_t & data, header_t & result) noexcept {
  * @return       отказ записи обвязки сообщения
  *
  */
-error_t nts::handshake::build(const header_t & header, uint8_t * result) noexcept {
+nts::handshake::error_t nts::handshake::build(const header_t & header, uint8_t * result) noexcept {
 	// Если место для обвязки сообщения не передано
 	if(result == nullptr)
 		// Выводим отказ нехватки места под обвязку сообщения
@@ -247,7 +259,7 @@ void nts::handshake::Reader::clear() noexcept {
  * @return     отказ подачи содержимого записи
  *
  */
-error_t nts::handshake::Reader::push(const view_t & data) noexcept {
+nts::handshake::error_t nts::handshake::Reader::push(const view_t & data) noexcept {
 	// Если содержимое записи рукопожатия не передано
 	if((data.data == nullptr) || (data.size == 0))
 		// Выводим успешность подачи содержимого записи
@@ -288,7 +300,7 @@ error_t nts::handshake::Reader::push(const view_t & data) noexcept {
  * @return        отказ получения собранного сообщения
  *
  */
-error_t nts::handshake::Reader::next(header_t & header, view_t & payload) noexcept {
+nts::handshake::error_t nts::handshake::Reader::next(header_t & header, view_t & payload) noexcept {
 	// Получаем объём ещё не разобранных данных накопителя
 	const size_t pending = this->pending();
 	// Если данных для обвязки сообщения ещё не набралось
@@ -378,7 +390,7 @@ void nts::handshake::Writer::clear() noexcept {
  * @return     отказ составления сообщения рукопожатия
  *
  */
-error_t nts::handshake::Writer::push(const type_t type, const view_t & data) noexcept {
+nts::handshake::error_t nts::handshake::Writer::push(const type_t type, const view_t & data) noexcept {
 	// Обвязка составляемого сообщения рукопожатия
 	header_t header;
 	// Устанавливаем вид составляемого сообщения рукопожатия

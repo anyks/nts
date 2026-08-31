@@ -1067,6 +1067,13 @@ context::error_t nts::internal::Engine::authenticate() noexcept {
 	// Составляемое сообщение цепочки сертификатов
 	message::certificate_t certificate;
 	/**
+	 * Раздел 4.4.2 RFC 8446: сервер шлёт опознаватель запроса пустым, а клиент
+	 * повторяет им опознаватель принятого запроса подлинности дословно
+	 */
+	if(!this->_server && !this->_binding.empty())
+		// Устанавливаем опознаватель принятого запроса подлинности
+		certificate.context = view_t(this->_binding.data(), this->_binding.size());
+	/**
 	 * Выполняем перебор сертификатов цепочки своей стороны
 	 */
 	for(size_t i = 0; i < this->_credential.chain.size(); i++){
@@ -1114,6 +1121,22 @@ context::error_t nts::internal::Engine::authenticate() noexcept {
 	if(!scheme(oid, item))
 		// Выводим отказ подбора схемы подписи
 		return context::error_t::CERTIFICATE;
+	// Признак того, что схема подписи собеседником признаётся
+	bool suitable = false;
+	/**
+	 * Выполняем перебор схем подписи, признаваемых собеседником
+	 */
+	for(size_t i = 0; (i < this->_schemes.size()) && !suitable; i++)
+		// Запоминаем совпадение схемы подписи с признаваемой собеседником
+		suitable = (item == this->_schemes[i]);
+	/**
+	 * Раздел 4.4.3 RFC 8446 велит подписывать владение ключом лишь той схемой, какую
+	 * собеседник объявил признаваемой: подписи схемой, ему неведомой, он не сличит, и
+	 * оборвётся рукопожатие тогда у него - позже и невнятнее, чем здесь
+	 */
+	if(!suitable)
+		// Выводим отказ непризнания схемы подписи собеседником
+		return context::error_t::SCHEME;
 	// Эллиптическая кривая подписи владения ключом
 	curve::curve_t curve;
 	// Если кривую своего ключа завести не удалось
@@ -1205,6 +1228,91 @@ context::error_t nts::internal::Engine::complete() noexcept {
 	return this->send(handshake::type_t::FINISHED, view_t(completion, sizeof(completion)));
 }
 /**
+ * @brief Метод разбора принятого запроса подлинности клиента
+ *
+ * @param body тело принятого сообщения запроса подлинности
+ *
+ * @return     отказ разбора запроса подлинности
+ *
+ */
+context::error_t nts::internal::Engine::requesting(const view_t & body) noexcept {
+	// Объект разборщика тела запроса подлинности клиента
+	field::scanner_t scanner;
+	// Устанавливаем разбираемое тело запроса подлинности клиента
+	scanner.start(body);
+	// Опознаватель запроса подлинности клиента
+	view_t binding;
+	// Если опознаватель запроса подлинности прочитать не удалось
+	if(scanner.vector(binding, 1) != field::error_t::NONE)
+		// Выводим отказ разбора запроса подлинности клиента
+		return context::error_t::MESSAGE;
+	// Перечень расширений запроса подлинности клиента
+	view_t extensions;
+	// Если перечень расширений запроса прочитать не удалось
+	if(scanner.vector(extensions, 2) != field::error_t::NONE)
+		// Выводим отказ разбора запроса подлинности клиента
+		return context::error_t::MESSAGE;
+	// Если за телом запроса подлинности идут лишние байты
+	if(scanner.left() > 0)
+		// Выводим отказ разбора запроса подлинности клиента
+		return context::error_t::MESSAGE;
+	// Объект разборщика записей перечня расширений запроса
+	field::scanner_t reader;
+	// Устанавливаем разбираемое содержимое перечня расширений
+	reader.start(extensions);
+	// Тело расширения схем подписи, признаваемых сервером
+	view_t offer(nullptr, 0);
+	/**
+	 * Выполняем перебор расширений, объявленных запросом подлинности
+	 */
+	while(reader.left() > 0){
+		// Вид очередного расширения запроса подлинности
+		uint32_t type = 0;
+		// Если вид расширения прочитать не удалось
+		if(reader.number(type, 2) != field::error_t::NONE)
+			// Выводим отказ разбора запроса подлинности клиента
+			return context::error_t::MESSAGE;
+		// Тело очередного расширения запроса подлинности
+		view_t content;
+		// Если тело расширения прочитать не удалось
+		if(reader.vector(content, 2) != field::error_t::NONE)
+			// Выводим отказ разбора запроса подлинности клиента
+			return context::error_t::MESSAGE;
+		// Если объявлено расширение схем подписи
+		if(type == static_cast <uint32_t> (extension::type_t::SCHEMES))
+			// Запоминаем тело расширения схем подписи
+			offer = content;
+	}
+	/**
+	 * Раздел 4.3.2 RFC 8446 велит запросу подлинности нести схемы подписи всегда:
+	 * без них клиенту нечем узнать, какую подпись сервер сличить сумеет
+	 */
+	if(offer.data == nullptr)
+		// Выводим отказ отсутствия схем подписи в запросе подлинности
+		return context::error_t::SCHEME;
+	// Если схемы подписи, признаваемые сервером, разобрать не удалось
+	if(extension::schemes(offer, this->_schemes) != extension::error_t::NONE)
+		// Выводим отказ разбора запроса подлинности клиента
+		return context::error_t::MESSAGE;
+	/**
+	 * Выполняем перехват ошибок работы с памятью
+	 */
+	try {
+		/**
+		 * Раздел 4.4.2 RFC 8446 велит клиенту повторить опознаватель принятого запроса
+		 * своей цепочкой сертификатов дословно: им сервер и опознаёт, какому запросу
+		 * цепочка отвечает
+		 */
+		this->_binding.assign(binding.data, binding.data + binding.size);
+	// Если памяти под опознаватель запроса не хватило
+	} catch(const bad_alloc &) {
+		// Выводим отказ нехватки памяти
+		return context::error_t::MEMORY;
+	}
+	// Выводим успешность разбора запроса подлинности клиента
+	return context::error_t::NONE;
+}
+/**
  * @brief Метод разбора принятой цепочки сертификатов собеседника
  *
  * @param body тело принятого сообщения цепочки сертификатов
@@ -1235,6 +1343,34 @@ context::error_t nts::internal::Engine::chain(const view_t & body) noexcept {
 	if(!this->_server && certificate.entries.empty())
 		// Выводим отказ отсутствия сертификатов в цепочке сервера
 		return context::error_t::CERTIFICATE;
+	/**
+	 * Выполняем перебор записей принятой цепочки сертификатов
+	 */
+	for(size_t i = 0; i < certificate.entries.size(); i++){
+		/**
+		 * Выполняем перебор расширений очередной записи цепочки
+		 */
+		for(size_t j = 0; j < certificate.entries[i].extensions.size(); j++){
+			// Признак того, что расширение записи цепочки связью предлагалось
+			bool suitable = false;
+			/**
+			 * Выполняем перебор расширений, предложенных связью приветствием
+			 */
+			for(size_t k = 0; (k < this->_offered.size()) && !suitable; k++)
+				// Запоминаем, предлагалось ли расширение записи цепочки связью
+				suitable = (certificate.entries[i].extensions[j].type == this->_offered[k]);
+			/**
+			 * Раздел 4.4.2 RFC 8446 велит расширениям записи цепочки отвечать
+			 * предложенным: клиент судит их по своему приветствию, а сервер - по
+			 * запросу подлинности, в котором расширений, годных записи цепочки, нет
+			 * вовсе. Оттого у сервера перечень предложенных пуст, и всякое расширение
+			 * записи он отвергает
+			 */
+			if(!suitable)
+				// Выводим отказ объявления непрошенного расширения записи цепочки
+				return context::error_t::EXTENSION;
+		}
+	}
 	/**
 	 * Выполняем перенос цепочки сертификатов собеседника
 	 */
@@ -1509,6 +1645,17 @@ context::error_t nts::internal::Engine::offered(const vector <hello::extension_t
 	}
 	// Запоминаем набор шифрования признанного билета
 	this->_ticket = this->_store[found].suite;
+	/**
+	 * Выполняем перехват ошибок работы с памятью
+	 */
+	try {
+		// Запоминаем прикладной протокол связи, выдавшей признанный билет
+		this->_previous = this->_store[found].protocol;
+	// Если памяти под прикладной протокол не хватило
+	} catch(const bad_alloc &) {
+		// Выводим отказ нехватки памяти
+		return this->abort(context::error_t::MEMORY, alert::description_t::INTERNAL);
+	}
 	// Запоминаем место выбранного ключа в предложении клиента
 	this->_chosen = static_cast <uint16_t> (chosen);
 	// Запоминаем возобновление связи заранее разделённым ключом
@@ -1695,12 +1842,30 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 				return this->abort(context::error_t::PROTOCOL, alert::description_t::PROTOCOL);
 		}
 	}
+	// Разыскиваем расширение схем подписи, признаваемых клиентом
+	extension = hello::extension(greeting.extensions, static_cast <uint16_t> (extension::type_t::SCHEMES));
+	// Если схемы подписи приветствием клиента объявлены
+	if(extension != nullptr){
+		// Если схемы подписи, признаваемые клиентом, разобрать не удалось
+		if(extension::schemes(extension->data, this->_schemes) != extension::error_t::NONE)
+			// Выводим отказ разбора расширения приветствия
+			return this->abort(context::error_t::MESSAGE, alert::description_t::DECODE);
+	}
 	// Выполняем разбор предложения заранее разделённых ключей клиента
 	const context::error_t offered = this->offered(greeting.extensions, message);
 	// Если предложение заранее разделённых ключей разобрать не удалось
 	if(offered != context::error_t::NONE)
 		// Выводим отказ разбора предложения заранее разделённых ключей
 		return offered;
+	/**
+	 * Раздел 9.2 RFC 8446 велит клиенту объявлять схемы подписи всякий раз, когда
+	 * сервер подтверждает подлинность сертификатом: без них сервер подписать владение
+	 * ключом не вправе ничем. Возобновление заранее разделённым ключом сертификата не
+	 * требует, и там расширение это не нужно вовсе
+	 */
+	if(this->_schemes.empty() && !this->_shared)
+		// Выводим отказ отсутствия схем подписи в приветствии клиента
+		return this->abort(context::error_t::MESSAGE, alert::description_t::MISSING);
 	/**
 	 * Приветствие ложится в переписку лишь теперь: привязка билета берётся от
 	 * переписки без него, и добавь его раньше - привязка не сошлась бы
@@ -1718,8 +1883,22 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 		 * Упреждающие данные принимаются лишь при возобновлении связи билетом: ключи
 		 * их выводятся из заранее разделённого ключа, которого при полном рукопожатии
 		 * попросту нет
+		 *
+		 * Раздел 4.2.10 RFC 8446 кладёт приёму ещё два условия: признанным обязан быть
+		 * первый из предложенных клиентом ключей, а набор шифрования связи - совпасть с
+		 * тем, каким выдан билет. Клиент шлёт упреждающие данные до ответа сервера и
+		 * шифрует их набором билета, ибо иного на тот миг не знает; выбери сервер иной
+		 * набор и прими данные - он читал бы их набором, о котором клиент не уславливался.
+		 * Третьим условием идёт прикладной протокол: упреждающие данные сложены по тому
+		 * протоколу, каким шла выдавшая билет связь, и разойдись он с протоколом новой -
+		 * сервер разобрал бы их не тем разборщиком
+		 *
+		 * Условие о первом ключе своим клиентом не задевается вовсе: он предлагает
+		 * один-единственный билет, и место выбранного ключа у него всегда нулевое.
+		 * Задеть это условие способен лишь собеседник, предлагающий несколько билетов
+		 * разом, оттого закреплённой проверки на него и нет
 		 */
-		if(this->_advance && this->_shared){
+		if(this->_advance && this->_shared && (this->_chosen == 0) && (this->_suite == this->_ticket) && (this->_protocol == this->_previous)){
 			/**
 			 * Ключи упреждающих данных выводятся от переписки с одним лишь приветствием
 			 * клиента: ответа сервера в ней на этот миг ещё нет, и завестись им надо
@@ -1973,8 +2152,11 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 		error = this->authenticate();
 		// Если подтверждение подлинности сервера отправить не удалось
 		if(error != context::error_t::NONE)
-			// Выводим отказ отправки подтверждения подлинности
-			return this->abort(error, alert::description_t::INTERNAL);
+			/**
+			 * Раздел 4.4.3 RFC 8446: отсутствие схемы подписи, признаваемой обеими
+			 * сторонами, есть несхождение сторон, а не внутренний отказ
+			 */
+			return this->abort(error, ((error == context::error_t::SCHEME) ? alert::description_t::HANDSHAKE : alert::description_t::INTERNAL));
 	}
 	// Выполняем отправку завершения рукопожатия сервером
 	error = this->complete();
@@ -2020,6 +2202,37 @@ context::error_t nts::internal::Engine::outgoing(const view_t & body, const view
 	if((answer.session.size() != this->_session.size()) || (!answer.session.empty() && (::memcmp(answer.session.data(), this->_session.data(), answer.session.size()) != 0)))
 		// Выводим отказ несовпадения опознавателя связи
 		return this->abort(context::error_t::MESSAGE, alert::description_t::PARAMETER);
+	/**
+	 * Способ сжатия достался изданию 1.3 от предыдущих и назначения в нём не имеет:
+	 * раздел 4.1.3 RFC 8446 велит серверу слать нуль, а всякое иное значение выдаёт
+	 * собеседника, ведущего иное издание протокола под видом нынешнего
+	 */
+	if(answer.method != 0x00)
+		// Выводим отказ негодного способа сжатия
+		return this->abort(context::error_t::MESSAGE, alert::description_t::PARAMETER);
+	// Признак того, что выбранный сервером набор шифрования связью предложен
+	bool suitable = false;
+	/**
+	 * Выполняем перебор наборов шифрования, предлагаемых связью
+	 */
+	for(size_t i = 0; (i < this->_suites.size()) && !suitable; i++)
+		// Запоминаем совпадение выбранного набора шифрования с предложенным
+		suitable = (answer.suite == static_cast <uint16_t> (this->_suites[i]));
+	// Если сервер выбрал набор шифрования, связью не предложенный
+	if(!suitable)
+		// Выводим отказ несовпадения набора шифрования
+		return this->abort(context::error_t::SUITE, alert::description_t::PARAMETER);
+	/**
+	 * За просьбой о повторе сервер обязан выбрать тот же набор шифрования, каким
+	 * объявил самоё просьбу: раздел 4.1.4 RFC 8446 менять его между просьбой и
+	 * приветствием запрещает. Заслон этот не украшение: переписка рукопожатия
+	 * хешируется набором, и сменой его сервер развёл бы стороны по разным хешам
+	 */
+	if(this->_retried && (answer.suite != static_cast <uint16_t> (this->_suite)))
+		// Выводим отказ смены набора шифрования за просьбой о повторе
+		return this->abort(context::error_t::SUITE, alert::description_t::PARAMETER);
+	// Запоминаем выбранный сервером набор шифрования
+	this->_suite = static_cast <protect::suite_t> (answer.suite);
 	// Если приветствие сервера просьбой о повторе не является
 	if(!hello::retry(answer)){
 		/**
@@ -2183,20 +2396,6 @@ context::error_t nts::internal::Engine::outgoing(const view_t & body, const view
 	if(version != 0x0304)
 		// Выводим отказ несовпадения издания протокола
 		return this->abort(context::error_t::VERSION, alert::description_t::VERSION);
-	// Признак того, что выбранный сервером набор шифрования связью предложен
-	bool suitable = false;
-	/**
-	 * Выполняем перебор наборов шифрования, предлагаемых связью
-	 */
-	for(size_t i = 0; (i < this->_suites.size()) && !suitable; i++)
-		// Запоминаем совпадение выбранного набора шифрования с предложенным
-		suitable = (answer.suite == static_cast <uint16_t> (this->_suites[i]));
-	// Если сервер выбрал набор шифрования, связью не предложенный
-	if(!suitable)
-		// Выводим отказ несовпадения набора шифрования
-		return this->abort(context::error_t::SUITE, alert::description_t::PARAMETER);
-	// Запоминаем выбранный сервером набор шифрования
-	this->_suite = static_cast <protect::suite_t> (answer.suite);
 	// Разыскиваем расширение выбранного заранее разделённого ключа
 	const hello::extension_t * selected = hello::extension(answer.extensions, static_cast <uint16_t> (extension::type_t::SECRET));
 	// Если сервер выбрал заранее разделённый ключ клиента
@@ -2411,6 +2610,8 @@ context::error_t nts::internal::Engine::accept(const view_t & body) noexcept {
 	 * Выполняем складывание принятого билета возобновления связи
 	 */
 	try {
+		// Запоминаем прикладной протокол связи, принявшей билет
+		item.protocol = this->_protocol;
 		// Переносим тело принятого билета возобновления связи
 		item.identity.assign(ticket.data.data, ticket.data.data + ticket.data.size);
 		// Переносим ключ принятого билета возобновления связи
@@ -2531,7 +2732,7 @@ context::error_t nts::internal::Engine::handle(const handshake::type_t type, con
 				 */
 				if(!suitable)
 					// Выводим отказ объявления непрошенного расширения
-					return this->abort(context::error_t::MESSAGE, alert::description_t::EXTENSION);
+					return this->abort(context::error_t::EXTENSION, alert::description_t::EXTENSION);
 			}
 			/**
 			 * Приём упреждающих данных сервер объявляет расширением: раздел 4.2.10
@@ -2592,11 +2793,37 @@ context::error_t nts::internal::Engine::handle(const handshake::type_t type, con
 			if(!this->_server)
 				// Выводим отказ прихода сообщения не от той стороны
 				return this->abort(context::error_t::ORDER, alert::description_t::UNEXPECTED);
+			/**
+			 * Раздел 4.5 RFC 8446: конец упреждающих данных закрывает поток, идущий
+			 * ключами упреждения, и слать его клиенту дозволено лишь тогда, когда
+			 * сервер упреждающие данные принял. Не принял - потока нет, закрывать
+			 * нечего, а сообщение это идёт уже ключами рукопожатия и означает
+			 * собеседника, ведущего свой счёт ходу связи
+			 */
+			if(!this->_earlying)
+				// Выводим отказ прихода конца упреждающих данных не в свой черёд
+				return this->abort(context::error_t::ORDER, alert::description_t::UNEXPECTED);
+			/**
+			 * Раздел 4.5 RFC 8446 кладёт концу упреждающих данных пустое тело: всё,
+			 * что за ним идёт, объявляется извещением «decode_error»
+			 */
+			if(body.size > 0)
+				// Выводим отказ лишних байтов за телом сообщения
+				return this->abort(context::error_t::MESSAGE, alert::description_t::DECODE);
 			// Прекращаем приём упреждающих данных клиента
 			this->_earlying = false;
 		} break;
 		// Если принят запрос подлинности клиента
 		case static_cast <uint8_t> (handshake::type_t::REQUEST): {
+			// Выполняем разбор запроса подлинности клиента
+			error = this->requesting(body);
+			// Если запрос подлинности клиента разобрать не удалось
+			if(error != context::error_t::NONE)
+				/**
+				 * Раздел 4.3.2 RFC 8446: отсутствие схем подписи объявляется извещением
+				 * «missing_extension», а негодная запись запроса - «decode_error»
+				 */
+				return this->abort(error, ((error == context::error_t::SCHEME) ? alert::description_t::MISSING : alert::description_t::DECODE));
 			// Запоминаем, что подлинность клиента запрошена сервером
 			this->_requested = true;
 		} break;
@@ -2606,8 +2833,11 @@ context::error_t nts::internal::Engine::handle(const handshake::type_t type, con
 			error = this->chain(body);
 			// Если цепочку сертификатов собеседника разобрать не удалось
 			if(error != context::error_t::NONE)
-				// Выводим отказ разбора цепочки сертификатов
-				return this->abort(error, alert::description_t::BADCERT);
+				/**
+				 * Раздел 4.2 RFC 8446: непрошенное расширение объявляется извещением
+				 * «unsupported_extension», а негодная цепочка - «bad_certificate»
+				 */
+				return this->abort(error, ((error == context::error_t::EXTENSION) ? alert::description_t::EXTENSION : alert::description_t::BADCERT));
 		} break;
 		// Если принята подпись владения ключом собеседника
 		case static_cast <uint8_t> (handshake::type_t::VERIFY): {
@@ -2685,8 +2915,11 @@ context::error_t nts::internal::Engine::handle(const handshake::type_t type, con
 			error = this->authenticate();
 			// Если подтверждение подлинности клиента отправить не удалось
 			if(error != context::error_t::NONE)
-				// Выводим отказ отправки подтверждения подлинности
-				return this->abort(error, alert::description_t::INTERNAL);
+				/**
+				 * Раздел 4.4.3 RFC 8446: отсутствие схемы подписи, признаваемой обеими
+				 * сторонами, есть несхождение сторон, а не внутренний отказ
+				 */
+				return this->abort(error, ((error == context::error_t::SCHEME) ? alert::description_t::HANDSHAKE : alert::description_t::INTERNAL));
 		}
 		// Выполняем отправку завершения рукопожатия клиентом
 		error = this->complete();
@@ -3032,6 +3265,12 @@ void nts::internal::Engine::clear() noexcept {
 	this->_offered.clear();
 	// Выполняем сброс метки возврата состояния, принятой от собеседника
 	this->_label.clear();
+	// Выполняем сброс схем подписи, признаваемых собеседником
+	this->_schemes.clear();
+	// Выполняем сброс опознавателя принятого запроса подлинности
+	this->_binding.clear();
+	// Выполняем сброс прикладного протокола связи, выдавшей билет
+	this->_previous.clear();
 	// Выполняем сброс защиты записей упреждающих данных
 	this->_early.clear();
 	// Выполняем сброс хода рукопожатия связи
@@ -3574,6 +3813,8 @@ context::error_t nts::internal::Engine::issue() noexcept {
 	 * Выполняем складывание выданного билета возобновления связи
 	 */
 	try {
+		// Запоминаем прикладной протокол связи, выдающей билет
+		item.protocol = this->_protocol;
 		// Переносим тело выданного билета возобновления связи
 		item.identity.assign(identity, identity + sizeof(identity));
 		// Переносим ключ выданного билета возобновления связи

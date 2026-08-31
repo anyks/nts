@@ -62,6 +62,18 @@ namespace {
 	using namespace nts::message;
 
 	/**
+	 * @brief Отказы работы модуля
+	 *
+	 * @note Имя заведено своё намеренно: у glibc есть собственный error_t в глобальном
+	 *       пространстве имён (расширение GNU в <errno.h>), а помощники лежат в
+	 *       безымянном пространстве, откуда поиск имени уходит сразу в глобальное - и
+	 *       всякое обращение к error_t выходит там двусмысленным. Своё имя поиск
+	 *       находит прежде глобального, и двусмысленности не возникает
+	 *
+	 */
+	typedef message::error_t error_t;
+
+	/**
 	 * @brief Число пробелов подписываемого содержимого владения ключом
 	 *
 	 */
@@ -143,7 +155,7 @@ namespace {
  * @return       отказ разбора тела сообщения
  *
  */
-error_t nts::message::parse(const view_t & data, certificate_t & result) noexcept {
+nts::message::error_t nts::message::parse(const view_t & data, certificate_t & result) noexcept {
 	// Объект разборщика полей тела сообщения
 	field::scanner_t scanner;
 	// Устанавливаем разбираемое тело сообщения
@@ -237,7 +249,7 @@ error_t nts::message::parse(const view_t & data, certificate_t & result) noexcep
  * @return        отказ составления тела сообщения
  *
  */
-error_t nts::message::build(const certificate_t & message, vector <uint8_t> & result) noexcept {
+nts::message::error_t nts::message::build(const certificate_t & message, vector <uint8_t> & result) noexcept {
 	// Объект составителя полей тела сообщения
 	field::builder_t builder;
 	/**
@@ -319,7 +331,7 @@ error_t nts::message::build(const certificate_t & message, vector <uint8_t> & re
  * @return       отказ разбора тела сообщения
  *
  */
-error_t nts::message::parse(const view_t & data, verify_t & result) noexcept {
+nts::message::error_t nts::message::parse(const view_t & data, verify_t & result) noexcept {
 	// Объект разборщика полей тела сообщения
 	field::scanner_t scanner;
 	// Устанавливаем разбираемое тело сообщения
@@ -360,7 +372,7 @@ error_t nts::message::parse(const view_t & data, verify_t & result) noexcept {
  * @return        отказ составления тела сообщения
  *
  */
-error_t nts::message::build(const verify_t & message, vector <uint8_t> & result) noexcept {
+nts::message::error_t nts::message::build(const verify_t & message, vector <uint8_t> & result) noexcept {
 	// Если значение подписи владения ключом пустое
 	if((message.signature.data == nullptr) || (message.signature.size == 0))
 		// Выводим отказ пустого обязательного поля
@@ -404,7 +416,7 @@ error_t nts::message::build(const verify_t & message, vector <uint8_t> & result)
  * @return       отказ разбора тела сообщения
  *
  */
-error_t nts::message::parse(const view_t & data, ticket_t & result) noexcept {
+nts::message::error_t nts::message::parse(const view_t & data, ticket_t & result) noexcept {
 	// Объект разборщика полей тела сообщения
 	field::scanner_t scanner;
 	// Устанавливаем разбираемое тело сообщения
@@ -476,7 +488,7 @@ error_t nts::message::parse(const view_t & data, ticket_t & result) noexcept {
  * @return       отказ составления тела сообщения
  *
  */
-error_t nts::message::build(const ticket_t & ticket, vector <uint8_t> & result) noexcept {
+nts::message::error_t nts::message::build(const ticket_t & ticket, vector <uint8_t> & result) noexcept {
 	// Если тело билета возобновления связи пустое
 	if((ticket.data.data == nullptr) || (ticket.data.size == 0))
 		// Выводим отказ пустого обязательного поля
@@ -569,7 +581,7 @@ error_t nts::message::build(const ticket_t & ticket, vector <uint8_t> & result) 
  * @return       отказ разбора тела сообщения
  *
  */
-error_t nts::message::parse(const view_t & data, update_t & result) noexcept {
+nts::message::error_t nts::message::parse(const view_t & data, update_t & result) noexcept {
 	// Если тело сообщения не передано
 	if((data.data == nullptr) || (data.size == 0))
 		// Выводим отказ обрыва тела сообщения
@@ -604,7 +616,7 @@ error_t nts::message::parse(const view_t & data, update_t & result) noexcept {
  * @return       отказ составления тела сообщения
  *
  */
-error_t nts::message::build(const update_t update, vector <uint8_t> & result) noexcept {
+nts::message::error_t nts::message::build(const update_t update, vector <uint8_t> & result) noexcept {
 	/**
 	 * Выполняем составление тела сообщения смены ключевого материала
 	 */
@@ -628,7 +640,7 @@ error_t nts::message::build(const update_t update, vector <uint8_t> & result) no
  * @return          отказ обращения записи подписи
  *
  */
-error_t nts::message::reverse(const view_t & signature, uint8_t * result) noexcept {
+nts::message::error_t nts::message::reverse(const view_t & signature, uint8_t * result) noexcept {
 	// Если обращаемая подпись владения ключом не передана
 	if((signature.data == nullptr) || (signature.size == 0) || (result == nullptr))
 		// Выводим отказ пустого обязательного поля
@@ -665,7 +677,7 @@ error_t nts::message::reverse(const view_t & signature, uint8_t * result) noexce
  * @return           отказ составления подписываемого содержимого
  *
  */
-error_t nts::message::content(const view_t & transcript, const bool server, vector <uint8_t> & result) noexcept {
+nts::message::error_t nts::message::content(const view_t & transcript, const bool server, vector <uint8_t> & result) noexcept {
 	// Если хеш переписки рукопожатия не передан
 	if((transcript.data == nullptr) || (transcript.size == 0))
 		// Выводим отказ пустого обязательного поля
@@ -708,7 +720,7 @@ error_t nts::message::content(const view_t & transcript, const bool server, vect
  * @return           отказ выработки тела сообщения
  *
  */
-error_t nts::message::finished(const view_t & secret, const view_t & transcript, uint8_t * result) noexcept {
+nts::message::error_t nts::message::finished(const view_t & secret, const view_t & transcript, uint8_t * result) noexcept {
 	// Если ключ выработки завершения либо хеш переписки не переданы
 	if((secret.data == nullptr) || (transcript.data == nullptr) || (result == nullptr))
 		// Выводим отказ пустого обязательного поля

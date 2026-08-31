@@ -75,6 +75,86 @@ namespace {
 		{0x01, 0x07, 0x0E, 0x0D, 0x00, 0x05, 0x08, 0x03, 0x04, 0x0F, 0x0A, 0x06, 0x09, 0x0C, 0x0B, 0x02}
 	};
 	/**
+	 * Способ раундового преобразования выбирается ключом сборки
+	 */
+	#if !defined(ANTS_CIPHER_COMPACT)
+	/**
+	 * @brief Таблица совмещённого раундового преобразования
+	 *
+	 */
+	typedef struct Tables {
+		// Слагаемые преобразования по номеру байта и его значению
+		uint32_t values[4][256];
+	} tables_t;
+	/**
+	 * @brief Метод вычисления таблицы совмещённого раундового преобразования
+	 *
+	 * @details Подстановка полубайтов и круговой сдвиг сводятся в одну таблицу. Байт
+	 *          слова несёт два полубайта, каждому из которых отвечает своя подстановка,
+	 *          а круговой сдвиг переносится на слагаемое: сдвиг этот - перестановка
+	 *          разрядов, и слагаемые от разных байтов остаются несовпадающими после
+	 *          него ровно так же, как были до
+	 *
+	 * @return вычисленная таблица преобразования
+	 *
+	 */
+	static constexpr tables_t compute() noexcept {
+		// Вычисляемая таблица преобразования
+		tables_t result = {};
+		/**
+		 * Выполняем перебор номеров байтов внутри слова
+		 */
+		for(size_t i = 0; i < 4; i++){
+			/**
+			 * Выполняем перебор возможных значений байта
+			 */
+			for(size_t j = 0; j < 256; j++){
+				// Выполняем подстановку обоих полубайтов значения
+				const uint32_t item = (static_cast <uint32_t> (PI[i * 2][j & 0x0F]) |
+				                       (static_cast <uint32_t> (PI[(i * 2) + 1][(j >> 4) & 0x0F]) << 4));
+				// Ставим подставленный байт на его место в слове
+				const uint32_t value = (item << (i * 8));
+				// Запоминаем слагаемое преобразования вместе с круговым сдвигом
+				result.values[i][j] = ((value << 11) | (value >> 21));
+			}
+		}
+		// Выводим вычисленную таблицу преобразования
+		return result;
+	}
+	/**
+	 * @brief Таблица совмещённого раундового преобразования
+	 *
+	 */
+	static constexpr tables_t TABLES = compute();
+	/**
+	 * @brief Метод раундового преобразования
+	 *
+	 * @details Функция g по разделу 4.2 ГОСТ Р 34.12-2015: сложение с раундовым
+	 *          ключом по модулю два в степени 32, подстановка полубайтов и
+	 *          круговой сдвиг на одиннадцать разрядов влево
+	 *
+	 * @param value преобразуемое слово
+	 * @param key   раундовый ключ
+	 *
+	 * @return      итог раундового преобразования
+	 *
+	 * @note Подстановка с круговым сдвигом взяты таблицей по месту байта: тем же
+	 *       порядком, каким взято преобразование LS у «Кузнечика». Таблица читается по
+	 *       секретному значению, и постоянства времени работы, как и у «Кузнечика», не
+	 *       даёт; прежний способ полубайтами его не давал равно, ибо и он читал
+	 *       подстановку по секретному полубайту. Разница между ними в размере читаемого
+	 *       по секрету: было 128 байтов, стало 4 КБ
+	 *
+	 */
+	static __ANTS_INLINE__ uint32_t round(const uint32_t value, const uint32_t key) noexcept {
+		// Выполняем сложение преобразуемого слова с раундовым ключом
+		const uint32_t item = (value + key);
+		// Выводим итог преобразования, собранный из слагаемых по байтам слова
+		return (TABLES.values[0][item & 0xFF] ^ TABLES.values[1][(item >> 8) & 0xFF] ^
+		        TABLES.values[2][(item >> 16) & 0xFF] ^ TABLES.values[3][(item >> 24) & 0xFF]);
+	}
+	#else
+	/**
 	 * @brief Метод подстановки полубайтов слова
 	 *
 	 * @details Преобразование t по разделу 4.2 ГОСТ Р 34.12-2015
@@ -84,7 +164,7 @@ namespace {
 	 * @return      слово с подставленными полубайтами
 	 *
 	 */
-	static uint32_t substitute(const uint32_t value) noexcept {
+	static __ANTS_INLINE__ uint32_t substitute(const uint32_t value) noexcept {
 		// Собираемое слово итога подстановки
 		uint32_t result = 0;
 		/**
@@ -109,12 +189,13 @@ namespace {
 	 * @return      итог раундового преобразования
 	 *
 	 */
-	static uint32_t round(const uint32_t value, const uint32_t key) noexcept {
+	static __ANTS_INLINE__ uint32_t round(const uint32_t value, const uint32_t key) noexcept {
 		// Выполняем подстановку полубайтов суммы слова и раундового ключа
 		const uint32_t item = substitute(value + key);
 		// Выводим итог кругового сдвига подставленного слова
 		return ((item << 11) | (item >> 21));
 	}
+	#endif // ANTS_CIPHER_COMPACT
 	/**
 	 * @brief Метод разбора слова из потока байтов
 	 *
@@ -123,7 +204,7 @@ namespace {
 	 * @return     разобранное слово
 	 *
 	 */
-	static uint32_t load(const uint8_t * data) noexcept {
+	static __ANTS_INLINE__ uint32_t load(const uint8_t * data) noexcept {
 		// Выводим слово, собранное от старшего байта к младшему
 		return ((static_cast <uint32_t> (data[0]) << 24) | (static_cast <uint32_t> (data[1]) << 16) |
 		        (static_cast <uint32_t> (data[2]) << 8) | static_cast <uint32_t> (data[3]));
@@ -135,7 +216,7 @@ namespace {
 	 * @param data  место, в которое записывается слово
 	 *
 	 */
-	static void store(const uint32_t value, uint8_t * data) noexcept {
+	static __ANTS_INLINE__ void store(const uint32_t value, uint8_t * data) noexcept {
 		// Записываем старший байт слова
 		data[0] = static_cast <uint8_t> ((value >> 24) & 0xFF);
 		// Записываем второй байт слова
@@ -178,7 +259,7 @@ namespace {
 	 * @param result  место, в которое помещается преобразованный блок
 	 *
 	 */
-	static void process(const uint32_t * keys, const uint8_t * source, uint8_t * result) noexcept {
+	static __ANTS_INLINE__ void process(const uint32_t * keys, const uint8_t * source, uint8_t * result) noexcept {
 		// Разбираем старшую половину преобразуемого блока
 		uint32_t high = load(source);
 		// Разбираем младшую половину преобразуемого блока

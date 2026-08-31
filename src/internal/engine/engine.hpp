@@ -165,6 +165,13 @@ namespace nts {
 				// Метка возврата состояния, принятая сервером от клиента
 				vector <uint8_t> _label;
 			private:
+				// Схемы подписи, признаваемые собеседником
+				vector <extension::scheme_t> _schemes;
+				// Опознаватель принятого запроса подлинности, повторяемый цепочкой
+				vector <uint8_t> _binding;
+				// Прикладной протокол связи, выдавшей признанный сервером билет
+				string _previous;
+			private:
 				// Прикладные протоколы, предлагаемые связью
 				vector <string> _protocols;
 				// Прикладной протокол, выбранный сторонами связи
@@ -351,6 +358,15 @@ namespace nts {
 				 *
 				 */
 				context::error_t outgoing(const view_t & body, const view_t & message) noexcept;
+				/**
+				 * @brief Метод разбора принятого запроса подлинности клиента
+				 *
+				 * @param body тело принятого сообщения запроса подлинности
+				 *
+				 * @return     отказ разбора запроса подлинности
+				 *
+				 */
+				context::error_t requesting(const view_t & body) noexcept;
 				/**
 				 * @brief Метод разбора принятой цепочки сертификатов собеседника
 				 *

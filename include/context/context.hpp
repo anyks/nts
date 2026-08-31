@@ -117,7 +117,8 @@ namespace nts {
 			CLOSED      = 0x11, /*!< \~russian Связь уже закрыта \~english The connection is already closed \~ */
 			PROTOCOL    = 0x12, /*!< \~russian Общего прикладного протокола у сторон не нашлось \~english The sides have not found a common application protocol \~ */
 			LIMIT       = 0x13, /*!< \~russian Упреждающие данные вышли за объявленный билетом предел \~english The early data has gone beyond the limit declared by the ticket \~ */
-			SCHEME      = 0x14  /*!< \~russian Схема подписи собеседника связью не предлагалась \~english The signature scheme of the interlocutor was not offered by the connection \~ */
+			SCHEME      = 0x14, /*!< \~russian Схема подписи собеседника связью не предлагалась \~english The signature scheme of the interlocutor was not offered by the connection \~ */
+			EXTENSION   = 0x15  /*!< \~russian Собеседник объявил расширение, связью не предлагавшееся \~english The interlocutor announced an extension that was not offered by the connection \~ */
 		};
 
 		/**
@@ -171,6 +172,10 @@ namespace nts {
 		 *          предъявляет его будущей связи. Тело билета серверу назначать самому: по
 		 *          нему он и опознаёт, какой связи билет принадлежит.
 		 *
+		 * @note Прикладной протокол связи хранится в билете затем, что раздел 4.2.10 RFC 8446
+		 *       велит отвергать упреждающие данные, когда протокол новой связи разошёлся с
+		 *       протоколом той, что билет выдала
+		 *
 		 * @note Ключ билета связь выводит сама, а вот хранение пары «тело и ключ» ей не
 		 *       принадлежит: где её держать и как её беречь - решает тот, кто связь ведёт
 		 *
@@ -185,6 +190,9 @@ namespace nts {
 		 * @details The section 4.6.1 of RFC 8446: the server issues a ticket after the handshake, and the
 		 *          client presents it to a future connection. The body of the ticket is for the server to
 		 *          appoint itself: by it it identifies which connection the ticket belongs to.
+		 * @note The application protocol of the connection is kept in the ticket because the section 4.2.10
+		 *       of RFC 8446 orders to reject the early data when the protocol of the new connection has
+		 *       diverged from the protocol of the one which issued the ticket
 		 * @note The connection derives the key of the ticket itself, while the storage of the pair of «the
 		 *       body and the key» does not belong to it: where to keep it and how to guard it is decided by
 		 *       the one who leads the connection
@@ -202,6 +210,8 @@ namespace nts {
 			uint32_t advance;
 			// Добавка к возрасту билета, скрывающая его от посторонних
 			uint32_t age;
+			// Прикладной протокол связи, выдавшей билет
+			string protocol;
 			// Тело билета, опознающее связь для выдавшего его сервера
 			vector <uint8_t> identity;
 			// Ключ билета, выведенный из значения возобновления связи
@@ -216,7 +226,7 @@ namespace nts {
 			 *
 			 * \~
 			 */
-			Ticket() noexcept : suite(protect::suite_t::NONE), moment(0), lifetime(0), advance(0), age(0) {}
+			Ticket() noexcept;
 		} ticket_t;
 	};
 };

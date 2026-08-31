@@ -27,6 +27,11 @@
  *       линейного преобразования и величины итераций перенесены дословно, а
  *       производная от них таблица преобразования LPS вычисляется при сборке
  *
+ * @note Обозначение __ANTS_INLINE__ у преобразования LPS не украшение: преобразование
+ *       зовётся двадцать пять раз на всякий блок сообщения, и оставленное вызовом оно
+ *       гоняет через стек по 64 байта состояния на всякий вызов. Замер 31.08.2026:
+ *       284 МБ/с без встраивания против 375 МБ/с с ним
+ *
  * @copyright Copyright © 2026
  *
  */
@@ -294,7 +299,7 @@ namespace {
 	 * @param result вектор, в который помещается итог преобразования
 	 *
 	 */
-	static void transform(const uint64_t * first, const uint64_t * second, uint64_t * result) noexcept {
+	static __ANTS_INLINE__ void transform(const uint64_t * first, const uint64_t * second, uint64_t * result) noexcept {
 		// Сумма слагаемых по исключающему ИЛИ
 		uint64_t value[8];
 		/**
@@ -398,7 +403,7 @@ namespace {
 	 * @param addend прибавляемый вектор
 	 *
 	 */
-	static void increase(uint64_t * value, const uint64_t * addend) noexcept {
+	static __ANTS_INLINE__ void increase(uint64_t * value, const uint64_t * addend) noexcept {
 		// Перенос из младшего слова в старшее
 		uint64_t carry = 0;
 		/**
@@ -424,7 +429,7 @@ namespace {
 	 * @param result вектор, в который помещаются разобранные слова
 	 *
 	 */
-	static void load(const uint8_t * data, uint64_t * result) noexcept {
+	static __ANTS_INLINE__ void load(const uint8_t * data, uint64_t * result) noexcept {
 		/**
 		 * Выполняем перебор слов разбираемого блока сообщения
 		 */
@@ -506,6 +511,24 @@ void nts::digest::Streebog::update(const view_t & data) noexcept {
 	 * Выполняем разбор куска сообщения по блокам
 	 */
 	while(offset < data.size){
+		/**
+		 * Если накопитель блока пуст, а подаваемого куска достаёт на целый блок,
+		 * блок разбирается прямо из куска: перенос его в накопитель здесь лишний
+		 */
+		if((this->_size == 0) && ((data.size - offset) >= sizeof(this->_block))){
+			// Выполняем разбор блока сообщения прямо из подаваемого куска
+			load(data.data + offset, message);
+			// Выполняем сжатие блока сообщения
+			compress(this->_hash, this->_count, message);
+			// Увеличиваем число разобранных разрядов сообщения
+			increase(this->_count, width);
+			// Дополняем контрольную сумму разобранных блоков сообщения
+			increase(this->_sum, message);
+			// Сдвигаем место разбора куска сообщения
+			offset += sizeof(this->_block);
+			// Переходим к разбору следующего блока сообщения
+			continue;
+		}
 		// Определяем число байтов, которых недостаёт блоку
 		const size_t need = (sizeof(this->_block) - this->_size);
 		// Определяем число переносимых байтов куска сообщения

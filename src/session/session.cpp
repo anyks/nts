@@ -59,6 +59,18 @@ namespace {
 	using namespace nts::session;
 
 	/**
+	 * @brief Отказы работы модуля
+	 *
+	 * @note Имя заведено своё намеренно: у glibc есть собственный error_t в глобальном
+	 *       пространстве имён (расширение GNU в <errno.h>), а помощники лежат в
+	 *       безымянном пространстве, откуда поиск имени уходит сразу в глобальное - и
+	 *       всякое обращение к error_t выходит там двусмысленным. Своё имя поиск
+	 *       находит прежде глобального, и двусмысленности не возникает
+	 *
+	 */
+	typedef session::error_t error_t;
+
+	/**
 	 * @brief Вид сообщения, несущего хеш приветствия клиента
 	 *
 	 * @details Раздел 4.4.1 RFC 8446: значение message_hash перечисления видов сообщений
@@ -203,7 +215,7 @@ void nts::session::Transcript::clear() noexcept {
  * @return        отказ добавления сообщения в переписку
  *
  */
-error_t nts::session::Transcript::update(const view_t & message) noexcept {
+nts::session::error_t nts::session::Transcript::update(const view_t & message) noexcept {
 	// Если добавляемое сообщение не передано
 	if((message.data == nullptr) || (message.size == 0))
 		// Выводим отказ отсутствия обязательного довода
@@ -221,7 +233,7 @@ error_t nts::session::Transcript::update(const view_t & message) noexcept {
  * @return       отказ получения хеша переписки
  *
  */
-error_t nts::session::Transcript::digest(uint8_t * result) const noexcept {
+nts::session::error_t nts::session::Transcript::digest(uint8_t * result) const noexcept {
 	// Если место для хеша переписки не передано
 	if(result == nullptr)
 		// Выводим отказ отсутствия обязательного довода
@@ -249,7 +261,7 @@ error_t nts::session::Transcript::digest(uint8_t * result) const noexcept {
  * @return       отказ получения хеша переписки с довеском
  *
  */
-error_t nts::session::Transcript::digest(const view_t & suffix, uint8_t * result) const noexcept {
+nts::session::error_t nts::session::Transcript::digest(const view_t & suffix, uint8_t * result) const noexcept {
 	// Если место для хеша переписки не передано
 	if(result == nullptr)
 		// Выводим отказ отсутствия обязательного довода
@@ -278,7 +290,7 @@ error_t nts::session::Transcript::digest(const view_t & suffix, uint8_t * result
  * @return отказ замены накопленной переписки
  *
  */
-error_t nts::session::Transcript::replace() noexcept {
+nts::session::error_t nts::session::Transcript::replace() noexcept {
 	// Хеш накопленной переписки рукопожатия
 	uint8_t digest[schedule::SCHEDULE_SECRET];
 	// Выполняем получение хеша накопленной переписки рукопожатия
@@ -349,7 +361,7 @@ void nts::session::Secrets::clear() noexcept {
  * @return       отказ заведения начальной ступени
  *
  */
-error_t nts::session::Secrets::start(const view_t & secret) noexcept {
+nts::session::error_t nts::session::Secrets::start(const view_t & secret) noexcept {
 	// Выполняем сброс прежних значений расписания ключей
 	this->clear();
 	// Нули, идущие на место отсутствующего ключевого материала
@@ -379,7 +391,7 @@ error_t nts::session::Secrets::start(const view_t & secret) noexcept {
  * @return           отказ вывода ступени рукопожатия
  *
  */
-error_t nts::session::Secrets::handshake(const view_t & shared, const view_t & transcript) noexcept {
+nts::session::error_t nts::session::Secrets::handshake(const view_t & shared, const view_t & transcript) noexcept {
 	// Если начальная ступень расписания ключей ещё не пройдена
 	if(this->_stage != stage_t::EARLY)
 		// Выводим отказ нарушения порядка вывода значений
@@ -427,7 +439,7 @@ error_t nts::session::Secrets::handshake(const view_t & shared, const view_t & t
  * @return           отказ вывода ступени прикладных данных
  *
  */
-error_t nts::session::Secrets::application(const view_t & transcript) noexcept {
+nts::session::error_t nts::session::Secrets::application(const view_t & transcript) noexcept {
 	// Если ступень рукопожатия расписания ключей ещё не пройдена
 	if(this->_stage != stage_t::HANDSHAKE)
 		// Выводим отказ нарушения порядка вывода значений
@@ -480,7 +492,7 @@ error_t nts::session::Secrets::application(const view_t & transcript) noexcept {
  * @return       отказ получения значения направления связи
  *
  */
-error_t nts::session::Secrets::traffic(const side_t side, uint8_t * result) const noexcept {
+nts::session::error_t nts::session::Secrets::traffic(const side_t side, uint8_t * result) const noexcept {
 	// Если значения направлений связи ещё не выведены
 	if((this->_stage != stage_t::HANDSHAKE) && (this->_stage != stage_t::APPLICATION))
 		// Выводим отказ нарушения порядка вывода значений
@@ -505,7 +517,7 @@ error_t nts::session::Secrets::traffic(const side_t side, uint8_t * result) cons
  * @return       отказ вывода ключевого материала направления связи
  *
  */
-error_t nts::session::material(const view_t & traffic, const protect::suite_t suite, uint8_t * key, uint8_t * vector) noexcept {
+nts::session::error_t nts::session::material(const view_t & traffic, const protect::suite_t suite, uint8_t * key, uint8_t * vector) noexcept {
 	// Если значение направления связи не передано
 	if((traffic.data == nullptr) || (traffic.size != schedule::SCHEDULE_SECRET))
 		// Выводим отказ отсутствия обязательного довода
@@ -540,7 +552,7 @@ error_t nts::session::material(const view_t & traffic, const protect::suite_t su
  * @return       отказ вывода ключевого материала направления связи
  *
  */
-error_t nts::session::Secrets::material(const side_t side, const protect::suite_t suite, uint8_t * key, uint8_t * vector) const noexcept {
+nts::session::error_t nts::session::Secrets::material(const side_t side, const protect::suite_t suite, uint8_t * key, uint8_t * vector) const noexcept {
 	// Значение запрашиваемого направления связи
 	uint8_t traffic[schedule::SCHEDULE_SECRET];
 	// Выполняем получение значения запрашиваемого направления связи
@@ -564,7 +576,7 @@ error_t nts::session::Secrets::material(const side_t side, const protect::suite_
  * @return           отказ вывода значения упреждающих данных
  *
  */
-error_t nts::session::Secrets::early(const view_t & transcript) noexcept {
+nts::session::error_t nts::session::Secrets::early(const view_t & transcript) noexcept {
 	// Если начальная ступень расписания ключей ещё не заведена
 	if(this->_stage != stage_t::EARLY)
 		// Выводим отказ нарушения порядка вывода значений
@@ -588,7 +600,7 @@ error_t nts::session::Secrets::early(const view_t & transcript) noexcept {
  * @return       отказ получения значения упреждающих данных
  *
  */
-error_t nts::session::Secrets::early(uint8_t * result) const noexcept {
+nts::session::error_t nts::session::Secrets::early(uint8_t * result) const noexcept {
 	// Если место для значения упреждающих данных не передано
 	if(result == nullptr)
 		// Выводим отказ отсутствия обязательного довода
@@ -607,7 +619,7 @@ error_t nts::session::Secrets::early(uint8_t * result) const noexcept {
  * @return       отказ вывода ключа завершения рукопожатия
  *
  */
-error_t nts::session::Secrets::finished(const side_t side, uint8_t * result) const noexcept {
+nts::session::error_t nts::session::Secrets::finished(const side_t side, uint8_t * result) const noexcept {
 	// Значение запрашиваемого направления связи
 	uint8_t traffic[schedule::SCHEDULE_SECRET];
 	// Выполняем получение значения запрашиваемого направления связи
@@ -638,7 +650,7 @@ error_t nts::session::Secrets::finished(const side_t side, uint8_t * result) con
  * @return           отказ вывода значения возобновления связи
  *
  */
-error_t nts::session::Secrets::resumption(const view_t & transcript) noexcept {
+nts::session::error_t nts::session::Secrets::resumption(const view_t & transcript) noexcept {
 	// Если ступень прикладных данных расписания ключей ещё не пройдена
 	if(this->_stage != stage_t::APPLICATION)
 		// Выводим отказ нарушения порядка вывода значений
@@ -663,7 +675,7 @@ error_t nts::session::Secrets::resumption(const view_t & transcript) noexcept {
  * @return       отказ вывода ключа билета возобновления связи
  *
  */
-error_t nts::session::Secrets::ticket(const view_t & nonce, uint8_t * result) const noexcept {
+nts::session::error_t nts::session::Secrets::ticket(const view_t & nonce, uint8_t * result) const noexcept {
 	// Если ступень прикладных данных расписания ключей ещё не пройдена
 	if(this->_stage != stage_t::APPLICATION)
 		// Выводим отказ нарушения порядка вывода значений
@@ -688,7 +700,7 @@ error_t nts::session::Secrets::ticket(const view_t & nonce, uint8_t * result) co
  * @return           отказ выработки привязки заранее разделённого ключа
  *
  */
-error_t nts::session::Secrets::binder(const view_t & transcript, uint8_t * result) const noexcept {
+nts::session::error_t nts::session::Secrets::binder(const view_t & transcript, uint8_t * result) const noexcept {
 	// Если начальная ступень расписания ключей ещё не заведена
 	if(this->_stage != stage_t::EARLY)
 		// Выводим отказ нарушения порядка вывода значений
@@ -740,7 +752,7 @@ error_t nts::session::Secrets::binder(const view_t & transcript, uint8_t * resul
  * @return     отказ смены значения направления связи
  *
  */
-error_t nts::session::Secrets::renew(const side_t side) noexcept {
+nts::session::error_t nts::session::Secrets::renew(const side_t side) noexcept {
 	// Если ступень прикладных данных расписания ключей ещё не пройдена
 	if(this->_stage != stage_t::APPLICATION)
 		// Выводим отказ нарушения порядка вывода значений

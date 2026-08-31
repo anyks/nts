@@ -65,6 +65,18 @@ namespace {
 	using namespace nts::protect;
 
 	/**
+	 * @brief Отказы работы модуля
+	 *
+	 * @note Имя заведено своё намеренно: у glibc есть собственный error_t в глобальном
+	 *       пространстве имён (расширение GNU в <errno.h>), а помощники лежат в
+	 *       безымянном пространстве, откуда поиск имени уходит сразу в глобальное - и
+	 *       всякое обращение к error_t выходит там двусмысленным. Своё имя поиск
+	 *       находит прежде глобального, и двусмысленности не возникает
+	 *
+	 */
+	typedef protect::error_t error_t;
+
+	/**
 	 * @brief Метки ярусов выработки ключа записи
 	 *
 	 */
@@ -239,7 +251,7 @@ bool nts::protect::tree(const suite_t suite, const view_t & key, const uint64_t 
  * @return         отказ подготовки базового шифра
  *
  */
-error_t nts::protect::Protection::prepare(const uint64_t sequence, cipher::block_t & block) noexcept {
+nts::protect::error_t nts::protect::Protection::prepare(const uint64_t sequence, cipher::block_t & block) noexcept {
 	// Выполняем поиск описания набора шифрования
 	const Sample * sample = search(this->_suite);
 	// Если набор шифрования неизвестен
@@ -430,7 +442,7 @@ void nts::protect::Protection::clear() noexcept {
  * @return        отказ наложения защиты на запись
  *
  */
-error_t nts::protect::Protection::seal(const record::type_t type, const view_t & data, vector <uint8_t> & result, const size_t padding) noexcept {
+nts::protect::error_t nts::protect::Protection::seal(const record::type_t type, const view_t & data, vector <uint8_t> & result, const size_t padding) noexcept {
 	// Если ключевой материал направления связи ещё не установлен
 	if(!this->_ready)
 		// Выводим отказ наложения защиты на запись
@@ -541,7 +553,7 @@ error_t nts::protect::Protection::seal(const record::type_t type, const view_t &
  * @return       отказ снятия защиты с записи
  *
  */
-error_t nts::protect::Protection::open(const record::header_t & header, const view_t & data, record::type_t & type, vector <uint8_t> & result) noexcept {
+nts::protect::error_t nts::protect::Protection::open(const record::header_t & header, const view_t & data, record::type_t & type, vector <uint8_t> & result) noexcept {
 	// Если ключевой материал направления связи ещё не установлен
 	if(!this->_ready)
 		// Выводим отказ снятия защиты с записи

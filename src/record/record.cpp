@@ -70,6 +70,18 @@ namespace {
 	using namespace nts::record;
 
 	/**
+	 * @brief Отказы работы модуля
+	 *
+	 * @note Имя заведено своё намеренно: у glibc есть собственный error_t в глобальном
+	 *       пространстве имён (расширение GNU в <errno.h>), а помощники лежат в
+	 *       безымянном пространстве, откуда поиск имени уходит сразу в глобальное - и
+	 *       всякое обращение к error_t выходит там двусмысленным. Своё имя поиск
+	 *       находит прежде глобального, и двусмысленности не возникает
+	 *
+	 */
+	typedef record::error_t error_t;
+
+	/**
 	 * @brief Метод затирания области памяти
 	 *
 	 * @details Затирание ведётся через изменчивый указатель: обычное присваивание
@@ -165,7 +177,7 @@ bool nts::record::empty(const type_t type) noexcept {
  * @return       отказ разбора заголовка записи
  *
  */
-error_t nts::record::parse(const view_t & data, header_t & result) noexcept {
+nts::record::error_t nts::record::parse(const view_t & data, header_t & result) noexcept {
 	// Если разбираемая область байтов заголовок записи не вмещает
 	if((data.data == nullptr) || (data.size < RECORD_HEADER))
 		// Выводим отказ нехватки данных для разбора
@@ -210,7 +222,7 @@ error_t nts::record::parse(const view_t & data, header_t & result) noexcept {
  * @return       отказ записи заголовка записи
  *
  */
-error_t nts::record::build(const header_t & header, uint8_t * result) noexcept {
+nts::record::error_t nts::record::build(const header_t & header, uint8_t * result) noexcept {
 	// Если место для заголовка записи не передано
 	if(result == nullptr)
 		// Выводим отказ нехватки места под заголовок записи
@@ -304,7 +316,7 @@ void nts::record::Reader::clear() noexcept {
  * @return     отказ подачи куска данных
  *
  */
-error_t nts::record::Reader::push(const view_t & data) noexcept {
+nts::record::error_t nts::record::Reader::push(const view_t & data) noexcept {
 	// Если кусок данных не передан
 	if((data.data == nullptr) || (data.size == 0))
 		// Выводим успешность подачи куска данных
@@ -343,7 +355,7 @@ error_t nts::record::Reader::push(const view_t & data) noexcept {
  * @return        отказ получения собранной записи
  *
  */
-error_t nts::record::Reader::next(header_t & header, view_t & payload) noexcept {
+nts::record::error_t nts::record::Reader::next(header_t & header, view_t & payload) noexcept {
 	// Получаем объём ещё не разобранных данных накопителя
 	const size_t pending = this->pending();
 	// Если данных для заголовка записи ещё не набралось
@@ -484,7 +496,7 @@ void nts::record::Writer::clear() noexcept {
  * @return        отказ нарезки данных на записи
  *
  */
-error_t nts::record::Writer::push(const type_t type, const version_t version, const view_t & data) noexcept {
+nts::record::error_t nts::record::Writer::push(const type_t type, const version_t version, const view_t & data) noexcept {
 	// Если вид содержимого записи протоколом не определён
 	if(!known(type))
 		// Выводим отказ неизвестности вида содержимого записи

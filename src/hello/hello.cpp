@@ -64,6 +64,18 @@ namespace {
 	using namespace nts::hello;
 
 	/**
+	 * @brief Отказы работы модуля
+	 *
+	 * @note Имя заведено своё намеренно: у glibc есть собственный error_t в глобальном
+	 *       пространстве имён (расширение GNU в <errno.h>), а помощники лежат в
+	 *       безымянном пространстве, откуда поиск имени уходит сразу в глобальное - и
+	 *       всякое обращение к error_t выходит там двусмысленным. Своё имя поиск
+	 *       находит прежде глобального, и двусмысленности не возникает
+	 *
+	 */
+	typedef hello::error_t error_t;
+
+	/**
 	 * @brief Случайное значение просьбы о повторе приветствия клиента
 	 *
 	 * @details Раздел 4.1.3 RFC 8446: значение назначено заранее и есть хеш строки
@@ -231,7 +243,7 @@ bool nts::hello::retry(const server_t & hello) noexcept {
  * @return       отказ разбора приветствия клиента
  *
  */
-error_t nts::hello::parse(const view_t & data, client_t & result) noexcept {
+nts::hello::error_t nts::hello::parse(const view_t & data, client_t & result) noexcept {
 	// Объект разборщика полей тела приветствия
 	field::scanner_t scanner;
 	// Устанавливаем разбираемое тело приветствия клиента
@@ -337,7 +349,7 @@ error_t nts::hello::parse(const view_t & data, client_t & result) noexcept {
  * @return       отказ разбора приветствия сервера
  *
  */
-error_t nts::hello::parse(const view_t & data, server_t & result) noexcept {
+nts::hello::error_t nts::hello::parse(const view_t & data, server_t & result) noexcept {
 	// Объект разборщика полей тела приветствия
 	field::scanner_t scanner;
 	// Устанавливаем разбираемое тело приветствия сервера
@@ -429,7 +441,7 @@ error_t nts::hello::parse(const view_t & data, server_t & result) noexcept {
  * @return       отказ составления приветствия клиента
  *
  */
-error_t nts::hello::build(const client_t & hello, vector <uint8_t> & result) noexcept {
+nts::hello::error_t nts::hello::build(const client_t & hello, vector <uint8_t> & result) noexcept {
 	// Если опознаватель связи длиннее дозволенного протоколом
 	if(hello.session.size() > HELLO_SESSION)
 		// Выводим отказ недозволенной длины опознавателя связи
@@ -510,7 +522,7 @@ error_t nts::hello::build(const client_t & hello, vector <uint8_t> & result) noe
  * @return       отказ составления приветствия сервера
  *
  */
-error_t nts::hello::build(const server_t & hello, vector <uint8_t> & result) noexcept {
+nts::hello::error_t nts::hello::build(const server_t & hello, vector <uint8_t> & result) noexcept {
 	// Если опознаватель связи длиннее дозволенного протоколом
 	if(hello.session.size() > HELLO_SESSION)
 		// Выводим отказ недозволенной длины опознавателя связи

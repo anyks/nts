@@ -199,6 +199,7 @@ SET(SOURCE_FILES
     "${CMAKE_SOURCE_DIR}/src/session/session.cpp"
     "${CMAKE_SOURCE_DIR}/src/flow/flow.cpp"
     "${CMAKE_SOURCE_DIR}/src/alert/alert.cpp"
+    "${CMAKE_SOURCE_DIR}/src/context/context.cpp"
     "${CMAKE_SOURCE_DIR}/src/trust/trust.cpp"
     "${CMAKE_SOURCE_DIR}/src/pem/pem.cpp"
     "${CMAKE_SOURCE_DIR}/src/internal/engine/engine.cpp"
