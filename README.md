@@ -1,8 +1,8 @@
-[![ANYKS - Network Transport Security](https://gitflic.ru/project/anyks/tls/blob/raw?file=img%2Fbanner.jpg)](https://anyks.com)
+[![ANYKS - Network Transport Security](https://gitflic.ru/project/anyks/ants/blob/raw?file=img%2Fbanner.jpg)](https://anyks.com)
 
 # ANYKS - Network Transport Security (ANTS)
 
-[![LicenseRef ANTS 1.0](https://img.shields.io/badge/license-AnyksTLS%201.0-blue.svg)](LICENSE)
+[![LicenseRef ANTS 1.0](https://img.shields.io/badge/license-ANTS%201.0-blue.svg)](LICENSE)
 
 Криптографическая библиотека и реализация TLS на C++ — самостоятельный проект,
 не зависящий ни от какого стороннего криптографического кода.
