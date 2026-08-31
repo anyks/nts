@@ -66,12 +66,12 @@ namespace {
 	/**
 	 * Пространство имён библиотеки
 	 */
-	using namespace anyks;
+	using namespace nts;
 
 	/**
 	 * Пространство имён модуля
 	 */
-	using namespace anyks::trust;
+	using namespace nts::trust;
 
 	/**
 	 * Опознаватель расширения основных ограничений сертификата
@@ -241,7 +241,7 @@ namespace {
  * @return число доверенных сертификатов запаса
  *
  */
-size_t anyks::trust::Store::size() const noexcept {
+size_t nts::trust::Store::size() const noexcept {
 	// Выводим число доверенных сертификатов запаса
 	return this->_chain.size();
 }
@@ -253,7 +253,7 @@ size_t anyks::trust::Store::size() const noexcept {
  * @return      запись запрашиваемого сертификата
  *
  */
-view_t anyks::trust::Store::get(const size_t index) const noexcept {
+view_t nts::trust::Store::get(const size_t index) const noexcept {
 	// Если запрашиваемого сертификата в запасе нет
 	if(index >= this->_chain.size())
 		// Выводим пустую запись сертификата
@@ -269,7 +269,7 @@ view_t anyks::trust::Store::get(const size_t index) const noexcept {
  * @return            признак успешности добавления сертификата
  *
  */
-bool anyks::trust::Store::add(const view_t & certificate) noexcept {
+bool nts::trust::Store::add(const view_t & certificate) noexcept {
 	// Если запись добавляемого сертификата не передана
 	if((certificate.data == nullptr) || (certificate.size == 0))
 		// Выводим отказ добавления сертификата в запас
@@ -301,7 +301,7 @@ bool anyks::trust::Store::add(const view_t & certificate) noexcept {
  * @brief Метод сброса запаса доверенных сертификатов
  *
  */
-void anyks::trust::Store::clear() noexcept {
+void nts::trust::Store::clear() noexcept {
 	// Выполняем сброс запаса доверенных сертификатов
 	this->_chain.clear();
 }
@@ -315,7 +315,7 @@ void anyks::trust::Store::clear() noexcept {
  * @return       отказ доверия цепочке сертификатов
  *
  */
-error_t anyks::trust::verify(const vector <vector <uint8_t>> & chain, const store_t & store, const int64_t moment) noexcept {
+error_t nts::trust::verify(const vector <vector <uint8_t>> & chain, const store_t & store, const int64_t moment) noexcept {
 	// Если проверяемая цепочка сертификатов пуста
 	if(chain.empty())
 		// Выводим отказ пустой цепочки сертификатов
@@ -449,7 +449,7 @@ error_t anyks::trust::verify(const vector <vector <uint8_t>> & chain, const stor
  * @return            отказ сличения имени узла
  *
  */
-error_t anyks::trust::belongs(const view_t & certificate, const string & name) noexcept {
+error_t nts::trust::belongs(const view_t & certificate, const string & name) noexcept {
 	// Если имя узла не передано
 	if(name.empty())
 		// Выводим отказ несовпадения имени узла

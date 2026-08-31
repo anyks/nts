@@ -76,7 +76,7 @@ namespace {
 	/**
 	 * Подписываемся на пространство имён проекта
 	 */
-	using namespace anyks;
+	using namespace nts;
 	/**
 	 * @brief Искажения, вносимые враждебным сервером
 	 *

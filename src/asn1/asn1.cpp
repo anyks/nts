@@ -55,12 +55,12 @@ namespace {
 	/**
 	 * Пространство имён библиотеки
 	 */
-	using namespace anyks;
+	using namespace nts;
 
 	/**
 	 * Пространство имён модуля
 	 */
-	using namespace anyks::asn1;
+	using namespace nts::asn1;
 
 	/**
 	 * @brief Метод перевода даты в число суток от начала эпохи
@@ -315,7 +315,7 @@ namespace {
  * @return        признак успешности разбора
  *
  */
-bool anyks::asn1::Reader::next(element_t & element) noexcept {
+bool nts::asn1::Reader::next(element_t & element) noexcept {
 	// Сбрасываем причину прошлого отказа
 	this->_error = error_t::NONE;
 	// Если разбирать больше нечего
@@ -493,7 +493,7 @@ bool anyks::asn1::Reader::next(element_t & element) noexcept {
  * @return        признак успешности разбора
  *
  */
-bool anyks::asn1::Reader::next(const tag_t tag, element_t & element) noexcept {
+bool nts::asn1::Reader::next(const tag_t tag, element_t & element) noexcept {
 	// Выполняем разбор очередного элемента
 	if(!this->next(element))
 		// Выводим отказ разбора
@@ -516,7 +516,7 @@ bool anyks::asn1::Reader::next(const tag_t tag, element_t & element) noexcept {
  * @return        разборщик содержимого составного элемента
  *
  */
-anyks::asn1::Reader anyks::asn1::Reader::enter(const element_t & element) const noexcept {
+nts::asn1::Reader nts::asn1::Reader::enter(const element_t & element) const noexcept {
 	// Создаём разборщик содержимого составного элемента
 	Reader result(element.content);
 	// Если элемент имеет простой вид метки
@@ -533,7 +533,7 @@ anyks::asn1::Reader anyks::asn1::Reader::enter(const element_t & element) const 
  * @return причина последнего отказа
  *
  */
-anyks::asn1::error_t anyks::asn1::Reader::err() const noexcept {
+nts::asn1::error_t nts::asn1::Reader::err() const noexcept {
 	// Выводим причину последнего отказа
 	return this->_error;
 }
@@ -544,7 +544,7 @@ anyks::asn1::error_t anyks::asn1::Reader::err() const noexcept {
  * @return признак наличия неразобранных данных
  *
  */
-bool anyks::asn1::Reader::empty() const noexcept {
+bool nts::asn1::Reader::empty() const noexcept {
 	// Выводим признак наличия неразобранных данных
 	return (this->_offset >= this->_view.size);
 }
@@ -555,7 +555,7 @@ bool anyks::asn1::Reader::empty() const noexcept {
  * @return размер ещё не разобранных данных в байтах
  *
  */
-size_t anyks::asn1::Reader::size() const noexcept {
+size_t nts::asn1::Reader::size() const noexcept {
 	// Выводим размер ещё не разобранных данных
 	return (this->_offset < this->_view.size ? (this->_view.size - this->_offset) : 0);
 }
@@ -564,7 +564,7 @@ size_t anyks::asn1::Reader::size() const noexcept {
  * @brief Конструктор пустого разборщика
  *
  */
-anyks::asn1::Reader::Reader() noexcept : _offset(0), _error(error_t::NONE) {}
+nts::asn1::Reader::Reader() noexcept : _offset(0), _error(error_t::NONE) {}
 
 /**
  * @brief Конструктор разборщика области данных
@@ -572,7 +572,7 @@ anyks::asn1::Reader::Reader() noexcept : _offset(0), _error(error_t::NONE) {}
  * @param view просмотр разбираемой области данных
  *
  */
-anyks::asn1::Reader::Reader(const view_t & view) noexcept : _view(view), _offset(0), _error(error_t::NONE) {}
+nts::asn1::Reader::Reader(const view_t & view) noexcept : _view(view), _offset(0), _error(error_t::NONE) {}
 
 /**
  * @brief Конструктор разборщика области данных
@@ -581,7 +581,7 @@ anyks::asn1::Reader::Reader(const view_t & view) noexcept : _view(view), _offset
  * @param size размер разбираемой области данных
  *
  */
-anyks::asn1::Reader::Reader(const uint8_t * data, const size_t size) noexcept : _view(data, size), _offset(0), _error(error_t::NONE) {}
+nts::asn1::Reader::Reader(const uint8_t * data, const size_t size) noexcept : _view(data, size), _offset(0), _error(error_t::NONE) {}
 
 /**
  * @brief Метод извлечения логического значения
@@ -591,7 +591,7 @@ anyks::asn1::Reader::Reader(const uint8_t * data, const size_t size) noexcept : 
  * @return        причина отказа либо error_t::NONE
  *
  */
-anyks::asn1::error_t anyks::asn1::boolean(const element_t & element, bool & result) noexcept {
+nts::asn1::error_t nts::asn1::boolean(const element_t & element, bool & result) noexcept {
 	// Если элемент имеет составной вид метки
 	if(element.constructed)
 		// Выводим причину отказа
@@ -631,7 +631,7 @@ anyks::asn1::error_t anyks::asn1::boolean(const element_t & element, bool & resu
  * @return        причина отказа либо error_t::NONE
  *
  */
-anyks::asn1::error_t anyks::asn1::integer(const element_t & element, view_t & result) noexcept {
+nts::asn1::error_t nts::asn1::integer(const element_t & element, view_t & result) noexcept {
 	// Если элемент имеет составной вид метки
 	if(element.constructed)
 		// Выводим причину отказа
@@ -668,7 +668,7 @@ anyks::asn1::error_t anyks::asn1::integer(const element_t & element, view_t & re
  * @return        причина отказа либо error_t::NONE
  *
  */
-anyks::asn1::error_t anyks::asn1::integer(const element_t & element, int64_t & result) noexcept {
+nts::asn1::error_t nts::asn1::integer(const element_t & element, int64_t & result) noexcept {
 	// Просмотр содержимого числа
 	view_t view;
 	// Выполняем извлечение содержимого числа
@@ -704,7 +704,7 @@ anyks::asn1::error_t anyks::asn1::integer(const element_t & element, int64_t & r
  * @return        причина отказа либо error_t::NONE
  *
  */
-anyks::asn1::error_t anyks::asn1::bits(const element_t & element, view_t & result, uint8_t & unused) noexcept {
+nts::asn1::error_t nts::asn1::bits(const element_t & element, view_t & result, uint8_t & unused) noexcept {
 	// Если элемент имеет составной вид метки
 	if(element.constructed)
 		// Выводим причину отказа
@@ -749,7 +749,7 @@ anyks::asn1::error_t anyks::asn1::bits(const element_t & element, view_t & resul
  * @return        причина отказа либо error_t::NONE
  *
  */
-anyks::asn1::error_t anyks::asn1::oid(const element_t & element, string & result) noexcept {
+nts::asn1::error_t nts::asn1::oid(const element_t & element, string & result) noexcept {
 	// Если элемент имеет составной вид метки
 	if(element.constructed)
 		// Выводим причину отказа
@@ -852,7 +852,7 @@ anyks::asn1::error_t anyks::asn1::oid(const element_t & element, string & result
  * @return        причина отказа либо error_t::NONE
  *
  */
-anyks::asn1::error_t anyks::asn1::time(const element_t & element, const tag_t type, int64_t & result) noexcept {
+nts::asn1::error_t nts::asn1::time(const element_t & element, const tag_t type, int64_t & result) noexcept {
 	// Если элемент имеет составной вид метки
 	if(element.constructed)
 		// Выводим причину отказа
@@ -931,7 +931,7 @@ anyks::asn1::error_t anyks::asn1::time(const element_t & element, const tag_t ty
  * @return        причина отказа либо error_t::NONE
  *
  */
-anyks::asn1::error_t anyks::asn1::text(const element_t & element, const tag_t type, string & result) noexcept {
+nts::asn1::error_t nts::asn1::text(const element_t & element, const tag_t type, string & result) noexcept {
 	// Если элемент имеет составной вид метки
 	if(element.constructed)
 		// Выводим причину отказа
@@ -1081,7 +1081,7 @@ anyks::asn1::error_t anyks::asn1::text(const element_t & element, const tag_t ty
  * @param tag         номер метки внутри своего класса
  *
  */
-void anyks::asn1::Writer::identifier(const cls_t cls, const bool constructed, const uint32_t tag) noexcept {
+void nts::asn1::Writer::identifier(const cls_t cls, const bool constructed, const uint32_t tag) noexcept {
 	// Собираем первый байт метки из класса и вида метки
 	uint8_t first = static_cast <uint8_t> ((static_cast <uint8_t> (cls) << 6) | (constructed ? 0x20 : 0x00));
 	// Если номер метки умещается в короткую запись
@@ -1116,7 +1116,7 @@ void anyks::asn1::Writer::identifier(const cls_t cls, const bool constructed, co
  * @param length длина содержимого
  *
  */
-void anyks::asn1::Writer::length(const size_t offset, const size_t length) noexcept {
+void nts::asn1::Writer::length(const size_t offset, const size_t length) noexcept {
 	// Если длина умещается в короткую запись
 	if(length < 0x80){
 		// Вставляем единственный байт записи длины
@@ -1154,7 +1154,7 @@ void anyks::asn1::Writer::length(const size_t offset, const size_t length) noexc
  * @return причина последнего отказа
  *
  */
-anyks::asn1::error_t anyks::asn1::Writer::err() const noexcept {
+nts::asn1::error_t nts::asn1::Writer::err() const noexcept {
 	// Выводим причину последнего отказа
 	return this->_error;
 }
@@ -1165,7 +1165,7 @@ anyks::asn1::error_t anyks::asn1::Writer::err() const noexcept {
  * @return просмотр собранной записи
  *
  */
-anyks::view_t anyks::asn1::Writer::data() const noexcept {
+nts::view_t nts::asn1::Writer::data() const noexcept {
 	/**
 	 * Незакрытый составной элемент означает, что записи ещё нет: длина его не
 	 * проставлена, и отдавать такую запись наружу нельзя
@@ -1181,7 +1181,7 @@ anyks::view_t anyks::asn1::Writer::data() const noexcept {
  * @brief Метод очистки собранной записи
  *
  */
-void anyks::asn1::Writer::clear() noexcept {
+void nts::asn1::Writer::clear() noexcept {
 	// Очищаем буфер собираемой записи
 	this->_buffer.clear();
 	// Очищаем места начала содержимого открытых элементов
@@ -1198,7 +1198,7 @@ void anyks::asn1::Writer::clear() noexcept {
  * @return    признак успешности записи
  *
  */
-bool anyks::asn1::Writer::open(const cls_t cls, const uint32_t tag) noexcept {
+bool nts::asn1::Writer::open(const cls_t cls, const uint32_t tag) noexcept {
 	// Если запись уже завершилась отказом
 	if(this->_error != error_t::NONE)
 		// Выводим отказ записи
@@ -1232,7 +1232,7 @@ bool anyks::asn1::Writer::open(const cls_t cls, const uint32_t tag) noexcept {
  * @return    признак успешности записи
  *
  */
-bool anyks::asn1::Writer::open(const tag_t tag) noexcept {
+bool nts::asn1::Writer::open(const tag_t tag) noexcept {
 	// Выполняем открытие составного элемента универсального класса
 	return this->open(cls_t::UNIVERSAL, static_cast <uint32_t> (tag));
 }
@@ -1243,7 +1243,7 @@ bool anyks::asn1::Writer::open(const tag_t tag) noexcept {
  * @return признак успешности записи
  *
  */
-bool anyks::asn1::Writer::close() noexcept {
+bool nts::asn1::Writer::close() noexcept {
 	// Если запись уже завершилась отказом
 	if(this->_error != error_t::NONE)
 		// Выводим отказ записи
@@ -1289,7 +1289,7 @@ bool anyks::asn1::Writer::close() noexcept {
  * @return            признак успешности записи
  *
  */
-bool anyks::asn1::Writer::element(const cls_t cls, const bool constructed, const uint32_t tag, const view_t & content) noexcept {
+bool nts::asn1::Writer::element(const cls_t cls, const bool constructed, const uint32_t tag, const view_t & content) noexcept {
 	// Если запись уже завершилась отказом
 	if(this->_error != error_t::NONE)
 		// Выводим отказ записи
@@ -1327,7 +1327,7 @@ bool anyks::asn1::Writer::element(const cls_t cls, const bool constructed, const
  * @return      признак успешности записи
  *
  */
-bool anyks::asn1::Writer::boolean(const bool value) noexcept {
+bool nts::asn1::Writer::boolean(const bool value) noexcept {
 	// Собираем содержимое логического значения
 	const uint8_t content = (value ? 0xFF : 0x00);
 	// Выполняем запись логического значения
@@ -1340,7 +1340,7 @@ bool anyks::asn1::Writer::boolean(const bool value) noexcept {
  * @return признак успешности записи
  *
  */
-bool anyks::asn1::Writer::nothing() noexcept {
+bool nts::asn1::Writer::nothing() noexcept {
 	// Выполняем запись отсутствия значения
 	return this->element(cls_t::UNIVERSAL, false, static_cast <uint32_t> (tag_t::NOTHING), view_t());
 }
@@ -1352,7 +1352,7 @@ bool anyks::asn1::Writer::nothing() noexcept {
  * @return      признак успешности записи
  *
  */
-bool anyks::asn1::Writer::integer(const int64_t value) noexcept {
+bool nts::asn1::Writer::integer(const int64_t value) noexcept {
 	// Собираемое содержимое целого числа
 	uint8_t content[sizeof(int64_t)];
 	// Получаем двоичное представление числа в дополнительном коде
@@ -1385,7 +1385,7 @@ bool anyks::asn1::Writer::integer(const int64_t value) noexcept {
  * @return      признак успешности записи
  *
  */
-bool anyks::asn1::Writer::octets(const view_t & value) noexcept {
+bool nts::asn1::Writer::octets(const view_t & value) noexcept {
 	// Выполняем запись строки байтов
 	return this->element(cls_t::UNIVERSAL, false, static_cast <uint32_t> (tag_t::OCTET_STRING), value);
 }
@@ -1398,7 +1398,7 @@ bool anyks::asn1::Writer::octets(const view_t & value) noexcept {
  * @return       признак успешности записи
  *
  */
-bool anyks::asn1::Writer::bits(const view_t & value, const uint8_t unused) noexcept {
+bool nts::asn1::Writer::bits(const view_t & value, const uint8_t unused) noexcept {
 	// Если запись уже завершилась отказом
 	if(this->_error != error_t::NONE)
 		// Выводим отказ записи
@@ -1452,7 +1452,7 @@ bool anyks::asn1::Writer::bits(const view_t & value, const uint8_t unused) noexc
  * @return      признак успешности записи
  *
  */
-bool anyks::asn1::Writer::oid(const string & value) noexcept {
+bool nts::asn1::Writer::oid(const string & value) noexcept {
 	// Если запись уже завершилась отказом
 	if(this->_error != error_t::NONE)
 		// Выводим отказ записи
@@ -1567,7 +1567,7 @@ bool anyks::asn1::Writer::oid(const string & value) noexcept {
  * @return      признак успешности записи
  *
  */
-bool anyks::asn1::Writer::time(const tag_t type, const int64_t value) noexcept {
+bool nts::asn1::Writer::time(const tag_t type, const int64_t value) noexcept {
 	// Если запись уже завершилась отказом
 	if(this->_error != error_t::NONE)
 		// Выводим отказ записи
@@ -1651,7 +1651,7 @@ bool anyks::asn1::Writer::time(const tag_t type, const int64_t value) noexcept {
  * @return      признак успешности записи
  *
  */
-bool anyks::asn1::Writer::text(const tag_t type, const string & value) noexcept {
+bool nts::asn1::Writer::text(const tag_t type, const string & value) noexcept {
 	// Если запись уже завершилась отказом
 	if(this->_error != error_t::NONE)
 		// Выводим отказ записи
@@ -1785,4 +1785,4 @@ bool anyks::asn1::Writer::text(const tag_t type, const string & value) noexcept 
  * @brief Конструктор записчика
  *
  */
-anyks::asn1::Writer::Writer() noexcept : _error(error_t::NONE) {}
+nts::asn1::Writer::Writer() noexcept : _error(error_t::NONE) {}

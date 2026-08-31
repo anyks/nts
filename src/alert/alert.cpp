@@ -55,12 +55,12 @@ namespace {
 	/**
 	 * Пространство имён библиотеки
 	 */
-	using namespace anyks;
+	using namespace nts;
 
 	/**
 	 * Пространство имён модуля
 	 */
-	using namespace anyks::alert;
+	using namespace nts::alert;
 
 	/**
 	 * @brief Метод проверки известности уровня извещения
@@ -95,7 +95,7 @@ namespace {
  * @return       отказ разбора извещения
  *
  */
-alert::error_t anyks::alert::parse(const view_t & data, alert_t & result) noexcept {
+alert::error_t nts::alert::parse(const view_t & data, alert_t & result) noexcept {
 	// Если разбираемая область байтов не передана
 	if((data.data == nullptr) || (data.size < ALERT_LENGTH))
 		// Выводим отказ о том, что данных для целого извещения не набралось
@@ -126,7 +126,7 @@ alert::error_t anyks::alert::parse(const view_t & data, alert_t & result) noexce
  * @return       отказ записи извещения
  *
  */
-alert::error_t anyks::alert::build(const alert_t & alert, uint8_t * result) noexcept {
+alert::error_t nts::alert::build(const alert_t & alert, uint8_t * result) noexcept {
 	// Если место для записи извещения не передано
 	if(result == nullptr)
 		// Выводим отказ о непереданном месте записи
@@ -150,7 +150,7 @@ alert::error_t anyks::alert::build(const alert_t & alert, uint8_t * result) noex
  * @return            признак того, что описание определено протоколом
  *
  */
-bool anyks::alert::known(const description_t description) noexcept {
+bool nts::alert::known(const description_t description) noexcept {
 	/**
 	 * Выполняем определение описания извещения
 	 */
@@ -199,7 +199,7 @@ bool anyks::alert::known(const description_t description) noexcept {
  * @return      признак того, что связь после извещения продолжена быть не вправе
  *
  */
-bool anyks::alert::fatal(const alert_t & alert) noexcept {
+bool nts::alert::fatal(const alert_t & alert) noexcept {
 	/**
 	 * Выполняем определение описания извещения
 	 */
@@ -221,7 +221,7 @@ bool anyks::alert::fatal(const alert_t & alert) noexcept {
  * @return            название описания извещения из перечисления протокола
  *
  */
-const char * anyks::alert::name(const description_t description) noexcept {
+const char * nts::alert::name(const description_t description) noexcept {
 	/**
 	 * Выполняем определение описания извещения
 	 */

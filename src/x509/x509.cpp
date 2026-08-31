@@ -53,12 +53,12 @@ namespace {
 	/**
 	 * Пространство имён библиотеки
 	 */
-	using namespace anyks;
+	using namespace nts;
 
 	/**
 	 * Пространство имён модуля
 	 */
-	using namespace anyks::x509;
+	using namespace nts::x509;
 
 	/**
 	 * @brief Метод получения короткого обозначения признака имени
@@ -120,7 +120,7 @@ namespace {
  * @return        причина отказа либо error_t::NONE
  *
  */
-anyks::x509::error_t anyks::x509::Certificate::identifier(const asn1::element_t & element, string & oid, view_t & params) noexcept {
+nts::x509::error_t nts::x509::Certificate::identifier(const asn1::element_t & element, string & oid, view_t & params) noexcept {
 	// Если запись опознавателя алгоритма имеет простой вид метки
 	if(!element.constructed)
 		// Выводим причину отказа
@@ -165,7 +165,7 @@ anyks::x509::error_t anyks::x509::Certificate::identifier(const asn1::element_t 
  * @return        причина отказа либо error_t::NONE
  *
  */
-anyks::x509::error_t anyks::x509::Certificate::name(const asn1::element_t & element, name_t & result) noexcept {
+nts::x509::error_t nts::x509::Certificate::name(const asn1::element_t & element, name_t & result) noexcept {
 	// Если запись имени имеет простой вид метки
 	if(!element.constructed)
 		// Выводим причину отказа
@@ -262,7 +262,7 @@ anyks::x509::error_t anyks::x509::Certificate::name(const asn1::element_t & elem
  * @return     причина отказа либо error_t::NONE
  *
  */
-anyks::x509::error_t anyks::x509::Certificate::parse(const view_t & data) noexcept {
+nts::x509::error_t nts::x509::Certificate::parse(const view_t & data) noexcept {
 	// Выполняем очистку разобранных сведений
 	this->clear();
 	/**
@@ -668,7 +668,7 @@ anyks::x509::error_t anyks::x509::Certificate::parse(const view_t & data) noexce
  * @brief Метод очистки разобранных сведений
  *
  */
-void anyks::x509::Certificate::clear() noexcept {
+void nts::x509::Certificate::clear() noexcept {
 	// Сбрасываем издание сертификата
 	this->_version = version_t::V1;
 	// Сбрасываем причину последнего отказа
@@ -704,7 +704,7 @@ void anyks::x509::Certificate::clear() noexcept {
  * @return причина последнего отказа
  *
  */
-anyks::x509::error_t anyks::x509::Certificate::err() const noexcept {
+nts::x509::error_t nts::x509::Certificate::err() const noexcept {
 	// Выводим причину последнего отказа
 	return this->_error;
 }
@@ -715,7 +715,7 @@ anyks::x509::error_t anyks::x509::Certificate::err() const noexcept {
  * @return издание сертификата
  *
  */
-anyks::x509::version_t anyks::x509::Certificate::release() const noexcept {
+nts::x509::version_t nts::x509::Certificate::release() const noexcept {
 	// Выводим издание сертификата
 	return this->_version;
 }
@@ -726,7 +726,7 @@ anyks::x509::version_t anyks::x509::Certificate::release() const noexcept {
  * @return просмотр подписываемой части сертификата
  *
  */
-const anyks::view_t & anyks::x509::Certificate::body() const noexcept {
+const nts::view_t & nts::x509::Certificate::body() const noexcept {
 	// Выводим подписываемую часть сертификата
 	return this->_body;
 }
@@ -737,7 +737,7 @@ const anyks::view_t & anyks::x509::Certificate::body() const noexcept {
  * @return просмотр порядкового номера сертификата
  *
  */
-const anyks::view_t & anyks::x509::Certificate::number() const noexcept {
+const nts::view_t & nts::x509::Certificate::number() const noexcept {
 	// Выводим порядковый номер сертификата
 	return this->_serial;
 }
@@ -749,7 +749,7 @@ const anyks::view_t & anyks::x509::Certificate::number() const noexcept {
  * @return       просмотр записи подписи
  *
  */
-const anyks::view_t & anyks::x509::Certificate::sign(uint8_t & unused) const noexcept {
+const nts::view_t & nts::x509::Certificate::sign(uint8_t & unused) const noexcept {
 	// Запоминаем число неиспользуемых разрядов последнего байта подписи
 	unused = this->_unused;
 	// Выводим подпись сертификата
@@ -762,7 +762,7 @@ const anyks::view_t & anyks::x509::Certificate::sign(uint8_t & unused) const noe
  * @return опознаватель алгоритма подписи
  *
  */
-const string & anyks::x509::Certificate::algorithms() const noexcept {
+const string & nts::x509::Certificate::algorithms() const noexcept {
 	// Выводим опознаватель алгоритма подписи
 	return this->_algorithm;
 }
@@ -773,7 +773,7 @@ const string & anyks::x509::Certificate::algorithms() const noexcept {
  * @return имя издателя сертификата
  *
  */
-const anyks::x509::name_t & anyks::x509::Certificate::issuers() const noexcept {
+const nts::x509::name_t & nts::x509::Certificate::issuers() const noexcept {
 	// Выводим имя издателя сертификата
 	return this->_issuer;
 }
@@ -784,7 +784,7 @@ const anyks::x509::name_t & anyks::x509::Certificate::issuers() const noexcept {
  * @return имя владельца сертификата
  *
  */
-const anyks::x509::name_t & anyks::x509::Certificate::subjects() const noexcept {
+const nts::x509::name_t & nts::x509::Certificate::subjects() const noexcept {
 	// Выводим имя владельца сертификата
 	return this->_subject;
 }
@@ -796,7 +796,7 @@ const anyks::x509::name_t & anyks::x509::Certificate::subjects() const noexcept 
  * @param after  окончание срока действия в секундах от начала эпохи
  *
  */
-void anyks::x509::Certificate::validity(int64_t & before, int64_t & after) const noexcept {
+void nts::x509::Certificate::validity(int64_t & before, int64_t & after) const noexcept {
 	// Запоминаем начало срока действия сертификата
 	before = this->_before;
 	// Запоминаем окончание срока действия сертификата
@@ -809,7 +809,7 @@ void anyks::x509::Certificate::validity(int64_t & before, int64_t & after) const
  * @return сведения об открытом ключе
  *
  */
-const anyks::x509::key_t & anyks::x509::Certificate::key() const noexcept {
+const nts::x509::key_t & nts::x509::Certificate::key() const noexcept {
 	// Выводим сведения об открытом ключе
 	return this->_key;
 }
@@ -820,7 +820,7 @@ const anyks::x509::key_t & anyks::x509::Certificate::key() const noexcept {
  * @return набор расширений сертификата
  *
  */
-const vector <anyks::x509::extension_t> & anyks::x509::Certificate::extension() const noexcept {
+const vector <nts::x509::extension_t> & nts::x509::Certificate::extension() const noexcept {
 	// Выводим набор расширений сертификата
 	return this->_extensions;
 }
@@ -832,7 +832,7 @@ const vector <anyks::x509::extension_t> & anyks::x509::Certificate::extension() 
  * @return    расширение сертификата либо nullptr
  *
  */
-const anyks::x509::extension_t * anyks::x509::Certificate::extension(const string & oid) const noexcept {
+const nts::x509::extension_t * nts::x509::Certificate::extension(const string & oid) const noexcept {
 	/**
 	 * Выполняем обход набора расширений сертификата
 	 */
@@ -850,7 +850,7 @@ const anyks::x509::extension_t * anyks::x509::Certificate::extension(const strin
  * @brief Конструктор сертификата
  *
  */
-anyks::x509::Certificate::Certificate() noexcept :
+nts::x509::Certificate::Certificate() noexcept :
  _version(version_t::V1), _error(error_t::NONE), _unused(0), _before(0), _after(0) {}
 
 /**
@@ -861,7 +861,7 @@ anyks::x509::Certificate::Certificate() noexcept :
  * @return     признак имени либо nullptr
  *
  */
-const anyks::x509::attribute_t * anyks::x509::attribute(const name_t & name, const string & oid) noexcept {
+const nts::x509::attribute_t * nts::x509::attribute(const name_t & name, const string & oid) noexcept {
 	/**
 	 * Выполняем обход составляющих имени
 	 */
@@ -888,7 +888,7 @@ const anyks::x509::attribute_t * anyks::x509::attribute(const name_t & name, con
  * @return       причина отказа либо error_t::NONE
  *
  */
-anyks::x509::error_t anyks::x509::text(const name_t & name, string & result) noexcept {
+nts::x509::error_t nts::x509::text(const name_t & name, string & result) noexcept {
 	/**
 	 * Сборка записи выделяет память, и нехватка её обязана дойти до вызывающего
 	 * причиной отказа, а не завершить процесс
@@ -985,7 +985,7 @@ anyks::x509::error_t anyks::x509::text(const name_t & name, string & result) noe
  * @return          причина отказа либо error_t::NONE
  *
  */
-anyks::x509::error_t anyks::x509::constraints(const extension_t & extension, bool & authority, int64_t & depth) noexcept {
+nts::x509::error_t nts::x509::constraints(const extension_t & extension, bool & authority, int64_t & depth) noexcept {
 	// Сбрасываем признак принадлежности сертификата удостоверяющему центру
 	authority = false;
 	// Сбрасываем предельную глубину цепочки
@@ -1067,7 +1067,7 @@ anyks::x509::error_t anyks::x509::constraints(const extension_t & extension, boo
  * @return          причина отказа либо error_t::NONE
  *
  */
-anyks::x509::error_t anyks::x509::usage(const extension_t & extension, uint16_t & result) noexcept {
+nts::x509::error_t nts::x509::usage(const extension_t & extension, uint16_t & result) noexcept {
 	// Сбрасываем набор разрядов назначения ключа
 	result = 0;
 	// Создаём разборщик содержимого расширения
@@ -1115,7 +1115,7 @@ anyks::x509::error_t anyks::x509::usage(const extension_t & extension, uint16_t 
  * @return          причина отказа либо error_t::NONE
  *
  */
-anyks::x509::error_t anyks::x509::purpose(const extension_t & extension, vector <string> & result) noexcept {
+nts::x509::error_t nts::x509::purpose(const extension_t & extension, vector <string> & result) noexcept {
 	/**
 	 * Сборка набора опознавателей выделяет память, и нехватка её обязана дойти до
 	 * вызывающего причиной отказа, а не завершить процесс
@@ -1179,7 +1179,7 @@ anyks::x509::error_t anyks::x509::purpose(const extension_t & extension, vector 
  * @return          причина отказа либо error_t::NONE
  *
  */
-anyks::x509::error_t anyks::x509::alternatives(const extension_t & extension, vector <alternative_t> & result) noexcept {
+nts::x509::error_t nts::x509::alternatives(const extension_t & extension, vector <alternative_t> & result) noexcept {
 	/**
 	 * Сборка набора имён выделяет память, и нехватка её обязана дойти до
 	 * вызывающего причиной отказа, а не завершить процесс
@@ -1293,7 +1293,7 @@ anyks::x509::error_t anyks::x509::alternatives(const extension_t & extension, ve
  * @return          причина отказа либо error_t::NONE
  *
  */
-anyks::x509::error_t anyks::x509::subjectKey(const extension_t & extension, view_t & result) noexcept {
+nts::x509::error_t nts::x509::subjectKey(const extension_t & extension, view_t & result) noexcept {
 	// Сбрасываем просмотр опознавателя ключа
 	result = view_t();
 	// Создаём разборщик содержимого расширения
@@ -1322,7 +1322,7 @@ anyks::x509::error_t anyks::x509::subjectKey(const extension_t & extension, view
  * @return          причина отказа либо error_t::NONE
  *
  */
-anyks::x509::error_t anyks::x509::authorityKey(const extension_t & extension, view_t & result) noexcept {
+nts::x509::error_t nts::x509::authorityKey(const extension_t & extension, view_t & result) noexcept {
 	// Сбрасываем просмотр опознавателя ключа
 	result = view_t();
 	// Создаём разборщик содержимого расширения

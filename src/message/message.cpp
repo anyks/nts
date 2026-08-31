@@ -54,12 +54,12 @@ namespace {
 	/**
 	 * Пространство имён библиотеки
 	 */
-	using namespace anyks;
+	using namespace nts;
 
 	/**
 	 * Пространство имён модуля
 	 */
-	using namespace anyks::message;
+	using namespace nts::message;
 
 	/**
 	 * @brief Число пробелов подписываемого содержимого владения ключом
@@ -143,7 +143,7 @@ namespace {
  * @return       отказ разбора тела сообщения
  *
  */
-error_t anyks::message::parse(const view_t & data, certificate_t & result) noexcept {
+error_t nts::message::parse(const view_t & data, certificate_t & result) noexcept {
 	// Объект разборщика полей тела сообщения
 	field::scanner_t scanner;
 	// Устанавливаем разбираемое тело сообщения
@@ -237,7 +237,7 @@ error_t anyks::message::parse(const view_t & data, certificate_t & result) noexc
  * @return        отказ составления тела сообщения
  *
  */
-error_t anyks::message::build(const certificate_t & message, vector <uint8_t> & result) noexcept {
+error_t nts::message::build(const certificate_t & message, vector <uint8_t> & result) noexcept {
 	// Объект составителя полей тела сообщения
 	field::builder_t builder;
 	/**
@@ -319,7 +319,7 @@ error_t anyks::message::build(const certificate_t & message, vector <uint8_t> & 
  * @return       отказ разбора тела сообщения
  *
  */
-error_t anyks::message::parse(const view_t & data, verify_t & result) noexcept {
+error_t nts::message::parse(const view_t & data, verify_t & result) noexcept {
 	// Объект разборщика полей тела сообщения
 	field::scanner_t scanner;
 	// Устанавливаем разбираемое тело сообщения
@@ -360,7 +360,7 @@ error_t anyks::message::parse(const view_t & data, verify_t & result) noexcept {
  * @return        отказ составления тела сообщения
  *
  */
-error_t anyks::message::build(const verify_t & message, vector <uint8_t> & result) noexcept {
+error_t nts::message::build(const verify_t & message, vector <uint8_t> & result) noexcept {
 	// Если значение подписи владения ключом пустое
 	if((message.signature.data == nullptr) || (message.signature.size == 0))
 		// Выводим отказ пустого обязательного поля
@@ -404,7 +404,7 @@ error_t anyks::message::build(const verify_t & message, vector <uint8_t> & resul
  * @return       отказ разбора тела сообщения
  *
  */
-error_t anyks::message::parse(const view_t & data, ticket_t & result) noexcept {
+error_t nts::message::parse(const view_t & data, ticket_t & result) noexcept {
 	// Объект разборщика полей тела сообщения
 	field::scanner_t scanner;
 	// Устанавливаем разбираемое тело сообщения
@@ -476,7 +476,7 @@ error_t anyks::message::parse(const view_t & data, ticket_t & result) noexcept {
  * @return       отказ составления тела сообщения
  *
  */
-error_t anyks::message::build(const ticket_t & ticket, vector <uint8_t> & result) noexcept {
+error_t nts::message::build(const ticket_t & ticket, vector <uint8_t> & result) noexcept {
 	// Если тело билета возобновления связи пустое
 	if((ticket.data.data == nullptr) || (ticket.data.size == 0))
 		// Выводим отказ пустого обязательного поля
@@ -569,7 +569,7 @@ error_t anyks::message::build(const ticket_t & ticket, vector <uint8_t> & result
  * @return       отказ разбора тела сообщения
  *
  */
-error_t anyks::message::parse(const view_t & data, update_t & result) noexcept {
+error_t nts::message::parse(const view_t & data, update_t & result) noexcept {
 	// Если тело сообщения не передано
 	if((data.data == nullptr) || (data.size == 0))
 		// Выводим отказ обрыва тела сообщения
@@ -604,7 +604,7 @@ error_t anyks::message::parse(const view_t & data, update_t & result) noexcept {
  * @return       отказ составления тела сообщения
  *
  */
-error_t anyks::message::build(const update_t update, vector <uint8_t> & result) noexcept {
+error_t nts::message::build(const update_t update, vector <uint8_t> & result) noexcept {
 	/**
 	 * Выполняем составление тела сообщения смены ключевого материала
 	 */
@@ -628,7 +628,7 @@ error_t anyks::message::build(const update_t update, vector <uint8_t> & result) 
  * @return          отказ обращения записи подписи
  *
  */
-error_t anyks::message::reverse(const view_t & signature, uint8_t * result) noexcept {
+error_t nts::message::reverse(const view_t & signature, uint8_t * result) noexcept {
 	// Если обращаемая подпись владения ключом не передана
 	if((signature.data == nullptr) || (signature.size == 0) || (result == nullptr))
 		// Выводим отказ пустого обязательного поля
@@ -665,7 +665,7 @@ error_t anyks::message::reverse(const view_t & signature, uint8_t * result) noex
  * @return           отказ составления подписываемого содержимого
  *
  */
-error_t anyks::message::content(const view_t & transcript, const bool server, vector <uint8_t> & result) noexcept {
+error_t nts::message::content(const view_t & transcript, const bool server, vector <uint8_t> & result) noexcept {
 	// Если хеш переписки рукопожатия не передан
 	if((transcript.data == nullptr) || (transcript.size == 0))
 		// Выводим отказ пустого обязательного поля
@@ -708,7 +708,7 @@ error_t anyks::message::content(const view_t & transcript, const bool server, ve
  * @return           отказ выработки тела сообщения
  *
  */
-error_t anyks::message::finished(const view_t & secret, const view_t & transcript, uint8_t * result) noexcept {
+error_t nts::message::finished(const view_t & secret, const view_t & transcript, uint8_t * result) noexcept {
 	// Если ключ выработки завершения либо хеш переписки не переданы
 	if((secret.data == nullptr) || (transcript.data == nullptr) || (result == nullptr))
 		// Выводим отказ пустого обязательного поля
@@ -729,7 +729,7 @@ error_t anyks::message::finished(const view_t & secret, const view_t & transcrip
  * @return       признак схождения сличаемых тел сообщений
  *
  */
-bool anyks::message::compare(const view_t & first, const view_t & second) noexcept {
+bool nts::message::compare(const view_t & first, const view_t & second) noexcept {
 	// Если сличаемые тела сообщений не переданы
 	if((first.data == nullptr) || (second.data == nullptr))
 		// Выводим признак расхождения сличаемых тел сообщений

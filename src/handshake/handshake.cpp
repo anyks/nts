@@ -51,12 +51,12 @@ namespace {
 	/**
 	 * Пространство имён библиотеки
 	 */
-	using namespace anyks;
+	using namespace nts;
 
 	/**
 	 * Пространство имён модуля
 	 */
-	using namespace anyks::handshake;
+	using namespace nts::handshake;
 
 	/**
 	 * @brief Метод затирания области памяти
@@ -88,7 +88,7 @@ namespace {
  * @return     признак того, что вид сообщения определён протоколом
  *
  */
-bool anyks::handshake::known(const type_t type) noexcept {
+bool nts::handshake::known(const type_t type) noexcept {
 	/**
 	 * Выполняем определение вида сообщения рукопожатия
 	 */
@@ -120,7 +120,7 @@ bool anyks::handshake::known(const type_t type) noexcept {
  * @return       отказ разбора обвязки сообщения
  *
  */
-error_t anyks::handshake::parse(const view_t & data, header_t & result) noexcept {
+error_t nts::handshake::parse(const view_t & data, header_t & result) noexcept {
 	// Если разбираемая область байтов обвязки сообщения не вмещает
 	if((data.data == nullptr) || (data.size < HANDSHAKE_HEADER))
 		// Выводим отказ нехватки данных для разбора
@@ -147,7 +147,7 @@ error_t anyks::handshake::parse(const view_t & data, header_t & result) noexcept
  * @return       отказ записи обвязки сообщения
  *
  */
-error_t anyks::handshake::build(const header_t & header, uint8_t * result) noexcept {
+error_t nts::handshake::build(const header_t & header, uint8_t * result) noexcept {
 	// Если место для обвязки сообщения не передано
 	if(result == nullptr)
 		// Выводим отказ нехватки места под обвязку сообщения
@@ -177,7 +177,7 @@ error_t anyks::handshake::build(const header_t & header, uint8_t * result) noexc
  * @return предел длины тела сообщения в байтах
  *
  */
-size_t anyks::handshake::Reader::limit() const noexcept {
+size_t nts::handshake::Reader::limit() const noexcept {
 	// Выводим предел длины тела принимаемого сообщения
 	return this->_limit;
 }
@@ -189,7 +189,7 @@ size_t anyks::handshake::Reader::limit() const noexcept {
  * @return      признак успешности установки предела
  *
  */
-bool anyks::handshake::Reader::limit(const size_t limit) noexcept {
+bool nts::handshake::Reader::limit(const size_t limit) noexcept {
 	// Если предел длины тела сообщения протоколом не дозволен
 	if((limit == 0) || (limit > HANDSHAKE_LIMIT))
 		// Выводим отказ установки предела
@@ -205,7 +205,7 @@ bool anyks::handshake::Reader::limit(const size_t limit) noexcept {
  * @return объём ещё не разобранных данных в байтах
  *
  */
-size_t anyks::handshake::Reader::pending() const noexcept {
+size_t nts::handshake::Reader::pending() const noexcept {
 	// Выводим объём ещё не разобранных данных накопителя
 	return (this->_buffer.size() - this->_offset);
 }
@@ -215,7 +215,7 @@ size_t anyks::handshake::Reader::pending() const noexcept {
  * @return просмотр собранного сообщения вместе с его обвязкой
  *
  */
-view_t anyks::handshake::Reader::message() const noexcept {
+view_t nts::handshake::Reader::message() const noexcept {
 	// Если сообщения ещё не выдавалось
 	if(this->_length == 0)
 		// Выводим пустой просмотр собранного сообщения
@@ -227,7 +227,7 @@ view_t anyks::handshake::Reader::message() const noexcept {
  * @brief Метод сброса состояния сборщика
  *
  */
-void anyks::handshake::Reader::clear() noexcept {
+void nts::handshake::Reader::clear() noexcept {
 	// Если накопитель сборщика не пустой
 	if(!this->_buffer.empty())
 		// Выполняем затирание содержимого накопителя
@@ -247,7 +247,7 @@ void anyks::handshake::Reader::clear() noexcept {
  * @return     отказ подачи содержимого записи
  *
  */
-error_t anyks::handshake::Reader::push(const view_t & data) noexcept {
+error_t nts::handshake::Reader::push(const view_t & data) noexcept {
 	// Если содержимое записи рукопожатия не передано
 	if((data.data == nullptr) || (data.size == 0))
 		// Выводим успешность подачи содержимого записи
@@ -288,7 +288,7 @@ error_t anyks::handshake::Reader::push(const view_t & data) noexcept {
  * @return        отказ получения собранного сообщения
  *
  */
-error_t anyks::handshake::Reader::next(header_t & header, view_t & payload) noexcept {
+error_t nts::handshake::Reader::next(header_t & header, view_t & payload) noexcept {
 	// Получаем объём ещё не разобранных данных накопителя
 	const size_t pending = this->pending();
 	// Если данных для обвязки сообщения ещё не набралось
@@ -298,7 +298,7 @@ error_t anyks::handshake::Reader::next(header_t & header, view_t & payload) noex
 	// Получаем указатель на начало неразобранных данных накопителя
 	const uint8_t * data = (this->_buffer.data() + this->_offset);
 	// Выполняем разбор обвязки очередного сообщения
-	const error_t error = anyks::handshake::parse(view_t(data, pending), header);
+	const error_t error = nts::handshake::parse(view_t(data, pending), header);
 	// Если обвязку сообщения разобрать не удалось
 	if(error != error_t::NONE)
 		// Выводим отказ разбора обвязки сообщения
@@ -324,12 +324,12 @@ error_t anyks::handshake::Reader::next(header_t & header, view_t & payload) noex
  * @brief Конструктор
  *
  */
-anyks::handshake::Reader::Reader() noexcept : _offset(0), _length(0), _limit(HANDSHAKE_LIMIT) {}
+nts::handshake::Reader::Reader() noexcept : _offset(0), _length(0), _limit(HANDSHAKE_LIMIT) {}
 /**
  * @brief Деструктор
  *
  */
-anyks::handshake::Reader::~Reader() noexcept {
+nts::handshake::Reader::~Reader() noexcept {
 	// Выполняем сброс состояния сборщика
 	this->clear();
 }
@@ -339,7 +339,7 @@ anyks::handshake::Reader::~Reader() noexcept {
  * @return объём составленных сообщений в байтах
  *
  */
-size_t anyks::handshake::Writer::pending() const noexcept {
+size_t nts::handshake::Writer::pending() const noexcept {
 	// Выводим объём составленных сообщений
 	return this->_buffer.size();
 }
@@ -349,7 +349,7 @@ size_t anyks::handshake::Writer::pending() const noexcept {
  * @return просмотр составленных сообщений
  *
  */
-view_t anyks::handshake::Writer::data() const noexcept {
+view_t nts::handshake::Writer::data() const noexcept {
 	// Если составленных сообщений в накопителе нет
 	if(this->_buffer.empty())
 		// Выводим пустой просмотр составленных сообщений
@@ -361,7 +361,7 @@ view_t anyks::handshake::Writer::data() const noexcept {
  * @brief Метод сброса накопителя составленных сообщений
  *
  */
-void anyks::handshake::Writer::clear() noexcept {
+void nts::handshake::Writer::clear() noexcept {
 	// Если накопитель составителя не пустой
 	if(!this->_buffer.empty())
 		// Выполняем затирание содержимого накопителя
@@ -378,7 +378,7 @@ void anyks::handshake::Writer::clear() noexcept {
  * @return     отказ составления сообщения рукопожатия
  *
  */
-error_t anyks::handshake::Writer::push(const type_t type, const view_t & data) noexcept {
+error_t nts::handshake::Writer::push(const type_t type, const view_t & data) noexcept {
 	// Обвязка составляемого сообщения рукопожатия
 	header_t header;
 	// Устанавливаем вид составляемого сообщения рукопожатия
@@ -388,7 +388,7 @@ error_t anyks::handshake::Writer::push(const type_t type, const view_t & data) n
 	// Место, в которое записывается обвязка составляемого сообщения
 	uint8_t buffer[HANDSHAKE_HEADER];
 	// Выполняем запись обвязки составляемого сообщения
-	const error_t error = anyks::handshake::build(header, buffer);
+	const error_t error = nts::handshake::build(header, buffer);
 	// Если обвязку сообщения составить не удалось
 	if(error != error_t::NONE)
 		// Выводим отказ составления сообщения рукопожатия
@@ -417,12 +417,12 @@ error_t anyks::handshake::Writer::push(const type_t type, const view_t & data) n
  * @brief Конструктор
  *
  */
-anyks::handshake::Writer::Writer() noexcept {}
+nts::handshake::Writer::Writer() noexcept {}
 /**
  * @brief Деструктор
  *
  */
-anyks::handshake::Writer::~Writer() noexcept {
+nts::handshake::Writer::~Writer() noexcept {
 	// Выполняем сброс накопителя составленных сообщений
 	this->clear();
 }

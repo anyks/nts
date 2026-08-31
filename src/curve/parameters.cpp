@@ -46,7 +46,7 @@ namespace {
 	/**
 	 * Пространство имён библиотеки
 	 */
-	using namespace anyks;
+	using namespace nts;
 
 	/**
 	 * @brief Набор значений параметров эллиптической кривой
@@ -328,7 +328,7 @@ namespace {
  * @return       признак того, что набор параметров известен и кривая установлена
  *
  */
-bool anyks::curve::parameters(const string & oid, curve_t & result) noexcept {
+bool nts::curve::parameters(const string & oid, curve_t & result) noexcept {
 	/**
 	 * Выполняем перебор известных опознавателей наборов параметров
 	 */

@@ -50,7 +50,7 @@ namespace {
 	/**
 	 * Пространство имён библиотеки
 	 */
-	using namespace anyks;
+	using namespace nts;
 
 	/**
 	 * @brief Наибольшая ширина записи числа либо длины поля в байтах
@@ -65,7 +65,7 @@ namespace {
  * @param data устанавливаемая разбираемая область байтов
  *
  */
-void anyks::field::Scanner::start(const view_t & data) noexcept {
+void nts::field::Scanner::start(const view_t & data) noexcept {
 	// Устанавливаем разбираемую область байтов
 	this->_data = data;
 	// Устанавливаем место чтения на начало разбираемой области
@@ -75,7 +75,7 @@ void anyks::field::Scanner::start(const view_t & data) noexcept {
  * @brief Метод сброса состояния разборщика
  *
  */
-void anyks::field::Scanner::clear() noexcept {
+void nts::field::Scanner::clear() noexcept {
 	// Выполняем сброс разбираемой области байтов
 	this->_data = view_t();
 	// Выполняем сброс места чтения в разбираемой области
@@ -87,7 +87,7 @@ void anyks::field::Scanner::clear() noexcept {
  * @return место чтения в разбираемой области в байтах
  *
  */
-size_t anyks::field::Scanner::offset() const noexcept {
+size_t nts::field::Scanner::offset() const noexcept {
 	// Выводим место чтения в разбираемой области
 	return this->_offset;
 }
@@ -97,7 +97,7 @@ size_t anyks::field::Scanner::offset() const noexcept {
  * @return объём ещё не прочитанной части области в байтах
  *
  */
-size_t anyks::field::Scanner::left() const noexcept {
+size_t nts::field::Scanner::left() const noexcept {
 	// Выводим объём ещё не прочитанной части разбираемой области
 	return (this->_data.size - this->_offset);
 }
@@ -110,7 +110,7 @@ size_t anyks::field::Scanner::left() const noexcept {
  * @return       отказ чтения числа
  *
  */
-anyks::field::error_t anyks::field::Scanner::number(uint32_t & result, const size_t size) noexcept {
+nts::field::error_t nts::field::Scanner::number(uint32_t & result, const size_t size) noexcept {
 	// Если ширина читаемого числа протоколом не задана
 	if((size == 0) || (size > WIDTH))
 		// Выводим отказ неверной ширины числа
@@ -143,7 +143,7 @@ anyks::field::error_t anyks::field::Scanner::number(uint32_t & result, const siz
  * @return       отказ чтения области байтов
  *
  */
-anyks::field::error_t anyks::field::Scanner::bytes(view_t & result, const size_t size) noexcept {
+nts::field::error_t nts::field::Scanner::bytes(view_t & result, const size_t size) noexcept {
 	// Если область заданной длины в оставшейся части не помещается
 	if(this->left() < size)
 		// Выводим отказ нехватки данных для чтения области
@@ -164,7 +164,7 @@ anyks::field::error_t anyks::field::Scanner::bytes(view_t & result, const size_t
  * @return       отказ чтения поля переменной длины
  *
  */
-anyks::field::error_t anyks::field::Scanner::vector(view_t & result, const size_t width) noexcept {
+nts::field::error_t nts::field::Scanner::vector(view_t & result, const size_t width) noexcept {
 	// Если ширина записи длины поля протоколом не задана
 	if((width == 0) || (width > 3))
 		// Выводим отказ неверной ширины длины поля
@@ -196,7 +196,7 @@ anyks::field::error_t anyks::field::Scanner::vector(view_t & result, const size_
  * @return       отказ чтения оставшейся части области
  *
  */
-anyks::field::error_t anyks::field::Scanner::rest(view_t & result) noexcept {
+nts::field::error_t nts::field::Scanner::rest(view_t & result) noexcept {
 	// Выводим итог чтения всей оставшейся части области
 	return this->bytes(result, this->left());
 }
@@ -204,14 +204,14 @@ anyks::field::error_t anyks::field::Scanner::rest(view_t & result) noexcept {
  * @brief Конструктор
  *
  */
-anyks::field::Scanner::Scanner() noexcept : _offset(0) {}
+nts::field::Scanner::Scanner() noexcept : _offset(0) {}
 /**
  * @brief Метод получения объёма составленной записи
  *
  * @return объём составленной записи в байтах
  *
  */
-size_t anyks::field::Builder::pending() const noexcept {
+size_t nts::field::Builder::pending() const noexcept {
 	// Выводим объём составленной записи
 	return this->_buffer.size();
 }
@@ -221,7 +221,7 @@ size_t anyks::field::Builder::pending() const noexcept {
  * @return число ещё не закрытых полей переменной длины
  *
  */
-size_t anyks::field::Builder::nesting() const noexcept {
+size_t nts::field::Builder::nesting() const noexcept {
 	// Выводим число ещё не закрытых полей переменной длины
 	return this->_marks.size();
 }
@@ -231,7 +231,7 @@ size_t anyks::field::Builder::nesting() const noexcept {
  * @return просмотр составленной записи
  *
  */
-view_t anyks::field::Builder::data() const noexcept {
+view_t nts::field::Builder::data() const noexcept {
 	// Если составленная запись пустая
 	if(this->_buffer.empty())
 		// Выводим пустой просмотр составленной записи
@@ -243,7 +243,7 @@ view_t anyks::field::Builder::data() const noexcept {
  * @brief Метод сброса накопителя составляемой записи
  *
  */
-void anyks::field::Builder::clear() noexcept {
+void nts::field::Builder::clear() noexcept {
 	// Выполняем сброс накопителя составляемой записи
 	this->_buffer.clear();
 	// Выполняем сброс мест отложенных длин полей переменной длины
@@ -258,7 +258,7 @@ void anyks::field::Builder::clear() noexcept {
  * @return      отказ записи числа
  *
  */
-anyks::field::error_t anyks::field::Builder::number(const uint32_t value, const size_t size) noexcept {
+nts::field::error_t nts::field::Builder::number(const uint32_t value, const size_t size) noexcept {
 	// Если ширина записи числа протоколом не задана
 	if((size == 0) || (size > WIDTH))
 		// Выводим отказ неверной ширины числа
@@ -295,7 +295,7 @@ anyks::field::error_t anyks::field::Builder::number(const uint32_t value, const 
  * @return     отказ записи области байтов
  *
  */
-anyks::field::error_t anyks::field::Builder::bytes(const view_t & data) noexcept {
+nts::field::error_t nts::field::Builder::bytes(const view_t & data) noexcept {
 	// Если записываемая область байтов не передана
 	if((data.data == nullptr) || (data.size == 0))
 		// Выводим успешность записи области байтов
@@ -324,7 +324,7 @@ anyks::field::error_t anyks::field::Builder::bytes(const view_t & data) noexcept
  * @return      отказ открытия поля переменной длины
  *
  */
-anyks::field::error_t anyks::field::Builder::open(const size_t width) noexcept {
+nts::field::error_t nts::field::Builder::open(const size_t width) noexcept {
 	// Если ширина записи длины поля протоколом не задана
 	if((width == 0) || (width > 3))
 		// Выводим отказ неверной ширины длины поля
@@ -361,7 +361,7 @@ anyks::field::error_t anyks::field::Builder::open(const size_t width) noexcept {
  * @return отказ закрытия поля переменной длины
  *
  */
-anyks::field::error_t anyks::field::Builder::close() noexcept {
+nts::field::error_t nts::field::Builder::close() noexcept {
 	// Если закрываемого поля переменной длины нет
 	if(this->_marks.empty())
 		// Выводим отказ отсутствия закрываемого поля
@@ -389,12 +389,12 @@ anyks::field::error_t anyks::field::Builder::close() noexcept {
  * @brief Конструктор
  *
  */
-anyks::field::Builder::Builder() noexcept {}
+nts::field::Builder::Builder() noexcept {}
 /**
  * @brief Деструктор
  *
  */
-anyks::field::Builder::~Builder() noexcept {
+nts::field::Builder::~Builder() noexcept {
 	// Выполняем сброс накопителя составляемой записи
 	this->clear();
 }

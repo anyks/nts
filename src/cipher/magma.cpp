@@ -50,12 +50,12 @@ namespace {
 	/**
 	 * Пространство имён библиотеки
 	 */
-	using namespace anyks;
+	using namespace nts;
 
 	/**
 	 * Пространство имён модуля
 	 */
-	using namespace anyks::cipher;
+	using namespace nts::cipher;
 
 	/**
 	 * @brief Набор нелинейных биективных преобразований
@@ -207,7 +207,7 @@ namespace {
  * @return признак того, что ключ установлен
  *
  */
-bool anyks::cipher::Magma::ready() const noexcept {
+bool nts::cipher::Magma::ready() const noexcept {
 	// Выводим признак того, что ключ установлен
 	return this->_ready;
 }
@@ -219,7 +219,7 @@ bool anyks::cipher::Magma::ready() const noexcept {
  * @return    признак успешности установки ключа
  *
  */
-bool anyks::cipher::Magma::key(const view_t & key) noexcept {
+bool nts::cipher::Magma::key(const view_t & key) noexcept {
 	// Выполняем затирание прежних раундовых ключей
 	this->clear();
 	// Если ключ шифрования не той длины
@@ -251,7 +251,7 @@ bool anyks::cipher::Magma::key(const view_t & key) noexcept {
  * @brief Метод затирания раундовых ключей
  *
  */
-void anyks::cipher::Magma::clear() noexcept {
+void nts::cipher::Magma::clear() noexcept {
 	// Выполняем затирание раундовых ключей
 	wipe(this->_keys, sizeof(this->_keys));
 	// Снимаем признак того, что ключ установлен
@@ -266,7 +266,7 @@ void anyks::cipher::Magma::clear() noexcept {
  * @return       признак успешности зашифрования
  *
  */
-bool anyks::cipher::Magma::encrypt(const uint8_t * source, uint8_t * result) const noexcept {
+bool nts::cipher::Magma::encrypt(const uint8_t * source, uint8_t * result) const noexcept {
 	// Если ключ не установлен либо места не переданы
 	if(!this->_ready || (source == nullptr) || (result == nullptr))
 		// Выводим отказ зашифрования
@@ -285,7 +285,7 @@ bool anyks::cipher::Magma::encrypt(const uint8_t * source, uint8_t * result) con
  * @return       признак успешности расшифрования
  *
  */
-bool anyks::cipher::Magma::decrypt(const uint8_t * source, uint8_t * result) const noexcept {
+bool nts::cipher::Magma::decrypt(const uint8_t * source, uint8_t * result) const noexcept {
 	// Если ключ не установлен либо места не переданы
 	if(!this->_ready || (source == nullptr) || (result == nullptr))
 		// Выводим отказ расшифрования
@@ -309,7 +309,7 @@ bool anyks::cipher::Magma::decrypt(const uint8_t * source, uint8_t * result) con
  * @brief Конструктор
  *
  */
-anyks::cipher::Magma::Magma() noexcept : _ready(false) {
+nts::cipher::Magma::Magma() noexcept : _ready(false) {
 	// Выполняем затирание раундовых ключей
 	wipe(this->_keys, sizeof(this->_keys));
 }
@@ -317,7 +317,7 @@ anyks::cipher::Magma::Magma() noexcept : _ready(false) {
  * @brief Деструктор
  *
  */
-anyks::cipher::Magma::~Magma() noexcept {
+nts::cipher::Magma::~Magma() noexcept {
 	// Выполняем затирание раундовых ключей
 	this->clear();
 }

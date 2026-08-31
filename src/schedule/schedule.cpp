@@ -47,7 +47,7 @@ namespace {
 	/**
 	 * Пространство имён библиотеки
 	 */
-	using namespace anyks;
+	using namespace nts;
 
 	/**
 	 * @brief Приставка меток назначения протокола
@@ -87,7 +87,7 @@ namespace {
  * @return       признак успешности извлечения значения
  *
  */
-bool anyks::schedule::extract(const view_t & salt, const view_t & key, uint8_t * result) noexcept {
+bool nts::schedule::extract(const view_t & salt, const view_t & key, uint8_t * result) noexcept {
 	// Если место для извлечённого значения не передано
 	if(result == nullptr)
 		// Выводим отказ извлечения значения расписания ключей
@@ -106,7 +106,7 @@ bool anyks::schedule::extract(const view_t & salt, const view_t & key, uint8_t *
  * @return       признак успешности растяжения значения
  *
  */
-bool anyks::schedule::expand(const view_t & secret, const view_t & info, uint8_t * result, const size_t size) noexcept {
+bool nts::schedule::expand(const view_t & secret, const view_t & info, uint8_t * result, const size_t size) noexcept {
 	// Если место для растянутого значения не передано
 	if((result == nullptr) || (size == 0))
 		// Выводим отказ растяжения значения расписания ключей
@@ -185,7 +185,7 @@ bool anyks::schedule::expand(const view_t & secret, const view_t & info, uint8_t
  * @return        признак успешности вывода значения
  *
  */
-bool anyks::schedule::derive(const view_t & secret, const view_t & label, const view_t & context, uint8_t * result, const size_t size) noexcept {
+bool nts::schedule::derive(const view_t & secret, const view_t & label, const view_t & context, uint8_t * result, const size_t size) noexcept {
 	// Если метка назначения выводимого значения не передана
 	if((label.data == nullptr) || (label.size == 0) || (label.size > SCHEDULE_LABEL))
 		// Выводим отказ вывода значения расписания ключей
@@ -226,7 +226,7 @@ bool anyks::schedule::derive(const view_t & secret, const view_t & label, const 
 		offset += context.size;
 	}
 	// Выполняем растяжение значения расписания ключей
-	const bool ok = anyks::schedule::expand(secret, view_t(info, offset), result, size);
+	const bool ok = nts::schedule::expand(secret, view_t(info, offset), result, size);
 	// Выполняем затирание описания назначения выводимого значения
 	wipe(info, sizeof(info));
 	// Выводим признак успешности вывода значения расписания ключей
@@ -243,7 +243,7 @@ bool anyks::schedule::derive(const view_t & secret, const view_t & label, const 
  * @return       признак успешности вывода значения
  *
  */
-bool anyks::schedule::secret(const view_t & secret, const view_t & label, const view_t & digest, uint8_t * result) noexcept {
+bool nts::schedule::secret(const view_t & secret, const view_t & label, const view_t & digest, uint8_t * result) noexcept {
 	// Выводим итог вывода очередного значения расписания ключей
-	return anyks::schedule::derive(secret, label, digest, result, SCHEDULE_SECRET);
+	return nts::schedule::derive(secret, label, digest, result, SCHEDULE_SECRET);
 }

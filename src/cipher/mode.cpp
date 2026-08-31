@@ -51,12 +51,12 @@ namespace {
 	/**
 	 * Пространство имён библиотеки
 	 */
-	using namespace anyks;
+	using namespace nts;
 
 	/**
 	 * Пространство имён модуля
 	 */
-	using namespace anyks::cipher;
+	using namespace nts::cipher;
 
 	/**
 	 * @brief Метод зашифрования блока шифром «Магма»
@@ -193,7 +193,7 @@ namespace {
  * @brief Конструктор
  *
  */
-anyks::cipher::Block::Block() noexcept :
+nts::cipher::Block::Block() noexcept :
  size(0), cipher(nullptr), encrypt(nullptr), decrypt(nullptr) {}
 /**
  * @brief Конструктор
@@ -201,7 +201,7 @@ anyks::cipher::Block::Block() noexcept :
  * @param cipher объект блочного шифра «Магма»
  *
  */
-anyks::cipher::Block::Block(const magma_t & cipher) noexcept :
+nts::cipher::Block::Block(const magma_t & cipher) noexcept :
  size(MAGMA_BLOCK), cipher(&cipher), encrypt(&encryptMagma), decrypt(&decryptMagma) {}
 /**
  * @brief Конструктор
@@ -209,7 +209,7 @@ anyks::cipher::Block::Block(const magma_t & cipher) noexcept :
  * @param cipher объект блочного шифра «Кузнечик»
  *
  */
-anyks::cipher::Block::Block(const kuznyechik_t & cipher) noexcept :
+nts::cipher::Block::Block(const kuznyechik_t & cipher) noexcept :
  size(KUZNYECHIK_BLOCK), cipher(&cipher), encrypt(&encryptKuznyechik), decrypt(&decryptKuznyechik) {}
 /**
  * @brief Метод проверки готовности режима к работе
@@ -217,7 +217,7 @@ anyks::cipher::Block::Block(const kuznyechik_t & cipher) noexcept :
  * @return признак готовности режима к работе
  *
  */
-bool anyks::cipher::Codebook::ready() const noexcept {
+bool nts::cipher::Codebook::ready() const noexcept {
 	// Выводим признак готовности режима к работе
 	return this->_ready;
 }
@@ -229,7 +229,7 @@ bool anyks::cipher::Codebook::ready() const noexcept {
  * @return      признак успешности запуска режима работы
  *
  */
-bool anyks::cipher::Codebook::start(const block_t & block) noexcept {
+bool nts::cipher::Codebook::start(const block_t & block) noexcept {
 	// Выполняем сброс прежнего состояния режима работы
 	this->clear();
 	// Если базовый алгоритм блочного шифрования непригоден
@@ -247,7 +247,7 @@ bool anyks::cipher::Codebook::start(const block_t & block) noexcept {
  * @brief Метод сброса состояния режима работы
  *
  */
-void anyks::cipher::Codebook::clear() noexcept {
+void nts::cipher::Codebook::clear() noexcept {
 	// Сбрасываем базовый алгоритм блочного шифрования
 	this->_block = block_t();
 	// Снимаем признак готовности режима к работе
@@ -262,7 +262,7 @@ void anyks::cipher::Codebook::clear() noexcept {
  * @return       признак успешности зашифрования
  *
  */
-bool anyks::cipher::Codebook::encrypt(const view_t & source, uint8_t * result) noexcept {
+bool nts::cipher::Codebook::encrypt(const view_t & source, uint8_t * result) noexcept {
 	// Если режим не готов к работе либо места не переданы
 	if(!this->_ready || (source.data == nullptr) || (result == nullptr))
 		// Выводим отказ зашифрования
@@ -292,7 +292,7 @@ bool anyks::cipher::Codebook::encrypt(const view_t & source, uint8_t * result) n
  * @return       признак успешности расшифрования
  *
  */
-bool anyks::cipher::Codebook::decrypt(const view_t & source, uint8_t * result) noexcept {
+bool nts::cipher::Codebook::decrypt(const view_t & source, uint8_t * result) noexcept {
 	// Если режим не готов к работе либо места не переданы
 	if(!this->_ready || (source.data == nullptr) || (result == nullptr))
 		// Выводим отказ расшифрования
@@ -317,12 +317,12 @@ bool anyks::cipher::Codebook::decrypt(const view_t & source, uint8_t * result) n
  * @brief Конструктор
  *
  */
-anyks::cipher::Codebook::Codebook() noexcept : _ready(false) {}
+nts::cipher::Codebook::Codebook() noexcept : _ready(false) {}
 /**
  * @brief Деструктор
  *
  */
-anyks::cipher::Codebook::~Codebook() noexcept {
+nts::cipher::Codebook::~Codebook() noexcept {
 	// Выполняем сброс состояния режима работы
 	this->clear();
 }
@@ -332,7 +332,7 @@ anyks::cipher::Codebook::~Codebook() noexcept {
  * @return признак готовности режима к работе
  *
  */
-bool anyks::cipher::Counter::ready() const noexcept {
+bool nts::cipher::Counter::ready() const noexcept {
 	// Выводим признак готовности режима к работе
 	return this->_ready;
 }
@@ -346,7 +346,7 @@ bool anyks::cipher::Counter::ready() const noexcept {
  * @return      признак успешности запуска режима работы
  *
  */
-bool anyks::cipher::Counter::start(const block_t & block, const view_t & iv, const size_t size) noexcept {
+bool nts::cipher::Counter::start(const block_t & block, const view_t & iv, const size_t size) noexcept {
 	// Выполняем сброс прежнего состояния режима работы
 	this->clear();
 	// Если базовый алгоритм блочного шифрования непригоден
@@ -381,7 +381,7 @@ bool anyks::cipher::Counter::start(const block_t & block, const view_t & iv, con
  * @brief Метод сброса состояния режима работы
  *
  */
-void anyks::cipher::Counter::clear() noexcept {
+void nts::cipher::Counter::clear() noexcept {
 	// Выполняем затирание текущего блока гаммы шифра
 	wipe(this->_gamma, sizeof(this->_gamma));
 	// Выполняем затирание текущего значения счётчика
@@ -404,7 +404,7 @@ void anyks::cipher::Counter::clear() noexcept {
  * @return       признак успешности зашифрования
  *
  */
-bool anyks::cipher::Counter::encrypt(const view_t & source, uint8_t * result) noexcept {
+bool nts::cipher::Counter::encrypt(const view_t & source, uint8_t * result) noexcept {
 	// Если режим не готов к работе либо места не переданы
 	if(!this->_ready || ((source.size > 0) && ((source.data == nullptr) || (result == nullptr))))
 		// Выводим отказ зашифрования
@@ -461,7 +461,7 @@ bool anyks::cipher::Counter::encrypt(const view_t & source, uint8_t * result) no
  * @return       признак успешности расшифрования
  *
  */
-bool anyks::cipher::Counter::decrypt(const view_t & source, uint8_t * result) noexcept {
+bool nts::cipher::Counter::decrypt(const view_t & source, uint8_t * result) noexcept {
 	// Выводим итог зашифрования: расшифрование от зашифрования в режиме гаммирования не отличается
 	return this->encrypt(source, result);
 }
@@ -469,7 +469,7 @@ bool anyks::cipher::Counter::decrypt(const view_t & source, uint8_t * result) no
  * @brief Конструктор
  *
  */
-anyks::cipher::Counter::Counter() noexcept : _ready(false), _size(0), _rest(0) {
+nts::cipher::Counter::Counter() noexcept : _ready(false), _size(0), _rest(0) {
 	// Выполняем затирание текущего значения счётчика
 	wipe(this->_counter, sizeof(this->_counter));
 	// Выполняем затирание текущего блока гаммы шифра
@@ -479,7 +479,7 @@ anyks::cipher::Counter::Counter() noexcept : _ready(false), _size(0), _rest(0) {
  * @brief Деструктор
  *
  */
-anyks::cipher::Counter::~Counter() noexcept {
+nts::cipher::Counter::~Counter() noexcept {
 	// Выполняем сброс состояния режима работы
 	this->clear();
 }
@@ -489,7 +489,7 @@ anyks::cipher::Counter::~Counter() noexcept {
  * @return признак готовности режима к работе
  *
  */
-bool anyks::cipher::Output::ready() const noexcept {
+bool nts::cipher::Output::ready() const noexcept {
 	// Выводим признак готовности режима к работе
 	return this->_ready;
 }
@@ -503,7 +503,7 @@ bool anyks::cipher::Output::ready() const noexcept {
  * @return      признак успешности запуска режима работы
  *
  */
-bool anyks::cipher::Output::start(const block_t & block, const view_t & iv, const size_t size) noexcept {
+bool nts::cipher::Output::start(const block_t & block, const view_t & iv, const size_t size) noexcept {
 	// Выполняем сброс прежнего состояния режима работы
 	this->clear();
 	// Если базовый алгоритм блочного шифрования непригоден
@@ -537,7 +537,7 @@ bool anyks::cipher::Output::start(const block_t & block, const view_t & iv, cons
  * @brief Метод сброса состояния режима работы
  *
  */
-void anyks::cipher::Output::clear() noexcept {
+void nts::cipher::Output::clear() noexcept {
 	// Выполняем затирание текущего блока гаммы шифра
 	wipe(this->_gamma, sizeof(this->_gamma));
 	// Выполняем затирание заполнения регистра сдвига
@@ -562,7 +562,7 @@ void anyks::cipher::Output::clear() noexcept {
  * @return       признак успешности зашифрования
  *
  */
-bool anyks::cipher::Output::encrypt(const view_t & source, uint8_t * result) noexcept {
+bool nts::cipher::Output::encrypt(const view_t & source, uint8_t * result) noexcept {
 	// Если режим не готов к работе либо места не переданы
 	if(!this->_ready || ((source.size > 0) && ((source.data == nullptr) || (result == nullptr))))
 		// Выводим отказ зашифрования
@@ -611,7 +611,7 @@ bool anyks::cipher::Output::encrypt(const view_t & source, uint8_t * result) noe
  * @return       признак успешности расшифрования
  *
  */
-bool anyks::cipher::Output::decrypt(const view_t & source, uint8_t * result) noexcept {
+bool nts::cipher::Output::decrypt(const view_t & source, uint8_t * result) noexcept {
 	// Выводим итог зашифрования: гамма от содержимого сообщения не зависит
 	return this->encrypt(source, result);
 }
@@ -619,7 +619,7 @@ bool anyks::cipher::Output::decrypt(const view_t & source, uint8_t * result) noe
  * @brief Конструктор
  *
  */
-anyks::cipher::Output::Output() noexcept : _ready(false), _size(0), _rest(0), _length(0) {
+nts::cipher::Output::Output() noexcept : _ready(false), _size(0), _rest(0), _length(0) {
 	// Выполняем затирание заполнения регистра сдвига
 	wipe(this->_register, sizeof(this->_register));
 	// Выполняем затирание текущего блока гаммы шифра
@@ -629,7 +629,7 @@ anyks::cipher::Output::Output() noexcept : _ready(false), _size(0), _rest(0), _l
  * @brief Деструктор
  *
  */
-anyks::cipher::Output::~Output() noexcept {
+nts::cipher::Output::~Output() noexcept {
 	// Выполняем сброс состояния режима работы
 	this->clear();
 }
@@ -639,7 +639,7 @@ anyks::cipher::Output::~Output() noexcept {
  * @return признак готовности режима к работе
  *
  */
-bool anyks::cipher::Chaining::ready() const noexcept {
+bool nts::cipher::Chaining::ready() const noexcept {
 	// Выводим признак готовности режима к работе
 	return this->_ready;
 }
@@ -652,7 +652,7 @@ bool anyks::cipher::Chaining::ready() const noexcept {
  * @return      признак успешности запуска режима работы
  *
  */
-bool anyks::cipher::Chaining::start(const block_t & block, const view_t & iv) noexcept {
+bool nts::cipher::Chaining::start(const block_t & block, const view_t & iv) noexcept {
 	// Выполняем сброс прежнего состояния режима работы
 	this->clear();
 	// Если базовый алгоритм блочного шифрования непригоден
@@ -678,7 +678,7 @@ bool anyks::cipher::Chaining::start(const block_t & block, const view_t & iv) no
  * @brief Метод сброса состояния режима работы
  *
  */
-void anyks::cipher::Chaining::clear() noexcept {
+void nts::cipher::Chaining::clear() noexcept {
 	// Выполняем затирание заполнения регистра сдвига
 	wipe(this->_register, sizeof(this->_register));
 	// Сбрасываем базовый алгоритм блочного шифрования
@@ -697,7 +697,7 @@ void anyks::cipher::Chaining::clear() noexcept {
  * @return       признак успешности зашифрования
  *
  */
-bool anyks::cipher::Chaining::encrypt(const view_t & source, uint8_t * result) noexcept {
+bool nts::cipher::Chaining::encrypt(const view_t & source, uint8_t * result) noexcept {
 	// Если режим не готов к работе либо места не переданы
 	if(!this->_ready || (source.data == nullptr) || (result == nullptr))
 		// Выводим отказ зашифрования
@@ -740,7 +740,7 @@ bool anyks::cipher::Chaining::encrypt(const view_t & source, uint8_t * result) n
  * @return       признак успешности расшифрования
  *
  */
-bool anyks::cipher::Chaining::decrypt(const view_t & source, uint8_t * result) noexcept {
+bool nts::cipher::Chaining::decrypt(const view_t & source, uint8_t * result) noexcept {
 	// Если режим не готов к работе либо места не переданы
 	if(!this->_ready || (source.data == nullptr) || (result == nullptr))
 		// Выводим отказ расшифрования
@@ -787,7 +787,7 @@ bool anyks::cipher::Chaining::decrypt(const view_t & source, uint8_t * result) n
  * @brief Конструктор
  *
  */
-anyks::cipher::Chaining::Chaining() noexcept : _ready(false), _length(0) {
+nts::cipher::Chaining::Chaining() noexcept : _ready(false), _length(0) {
 	// Выполняем затирание заполнения регистра сдвига
 	wipe(this->_register, sizeof(this->_register));
 }
@@ -795,7 +795,7 @@ anyks::cipher::Chaining::Chaining() noexcept : _ready(false), _length(0) {
  * @brief Деструктор
  *
  */
-anyks::cipher::Chaining::~Chaining() noexcept {
+nts::cipher::Chaining::~Chaining() noexcept {
 	// Выполняем сброс состояния режима работы
 	this->clear();
 }
@@ -805,7 +805,7 @@ anyks::cipher::Chaining::~Chaining() noexcept {
  * @return признак готовности режима к работе
  *
  */
-bool anyks::cipher::Feedback::ready() const noexcept {
+bool nts::cipher::Feedback::ready() const noexcept {
 	// Выводим признак готовности режима к работе
 	return this->_ready;
 }
@@ -819,7 +819,7 @@ bool anyks::cipher::Feedback::ready() const noexcept {
  * @return      признак успешности запуска режима работы
  *
  */
-bool anyks::cipher::Feedback::start(const block_t & block, const view_t & iv, const size_t size) noexcept {
+bool nts::cipher::Feedback::start(const block_t & block, const view_t & iv, const size_t size) noexcept {
 	// Выполняем сброс прежнего состояния режима работы
 	this->clear();
 	// Если базовый алгоритм блочного шифрования непригоден
@@ -853,7 +853,7 @@ bool anyks::cipher::Feedback::start(const block_t & block, const view_t & iv, co
  * @brief Метод сброса состояния режима работы
  *
  */
-void anyks::cipher::Feedback::clear() noexcept {
+void nts::cipher::Feedback::clear() noexcept {
 	// Выполняем затирание накапливаемого блока шифртекста обратной связи
 	wipe(this->_feedback, sizeof(this->_feedback));
 	// Выполняем затирание текущего блока гаммы шифра
@@ -880,7 +880,7 @@ void anyks::cipher::Feedback::clear() noexcept {
  * @return       признак успешности зашифрования
  *
  */
-bool anyks::cipher::Feedback::encrypt(const view_t & source, uint8_t * result) noexcept {
+bool nts::cipher::Feedback::encrypt(const view_t & source, uint8_t * result) noexcept {
 	// Если режим не готов к работе либо места не переданы
 	if(!this->_ready || ((source.size > 0) && ((source.data == nullptr) || (result == nullptr))))
 		// Выводим отказ зашифрования
@@ -931,7 +931,7 @@ bool anyks::cipher::Feedback::encrypt(const view_t & source, uint8_t * result) n
  * @return       признак успешности расшифрования
  *
  */
-bool anyks::cipher::Feedback::decrypt(const view_t & source, uint8_t * result) noexcept {
+bool nts::cipher::Feedback::decrypt(const view_t & source, uint8_t * result) noexcept {
 	// Если режим не готов к работе либо места не переданы
 	if(!this->_ready || ((source.size > 0) && ((source.data == nullptr) || (result == nullptr))))
 		// Выводим отказ расшифрования
@@ -975,7 +975,7 @@ bool anyks::cipher::Feedback::decrypt(const view_t & source, uint8_t * result) n
  * @brief Конструктор
  *
  */
-anyks::cipher::Feedback::Feedback() noexcept : _ready(false), _size(0), _rest(0), _length(0) {
+nts::cipher::Feedback::Feedback() noexcept : _ready(false), _size(0), _rest(0), _length(0) {
 	// Выполняем затирание заполнения регистра сдвига
 	wipe(this->_register, sizeof(this->_register));
 	// Выполняем затирание текущего блока гаммы шифра
@@ -987,7 +987,7 @@ anyks::cipher::Feedback::Feedback() noexcept : _ready(false), _size(0), _rest(0)
  * @brief Деструктор
  *
  */
-anyks::cipher::Feedback::~Feedback() noexcept {
+nts::cipher::Feedback::~Feedback() noexcept {
 	// Выполняем сброс состояния режима работы
 	this->clear();
 }
@@ -997,7 +997,7 @@ anyks::cipher::Feedback::~Feedback() noexcept {
  * @return признак готовности режима к работе
  *
  */
-bool anyks::cipher::Imitation::ready() const noexcept {
+bool nts::cipher::Imitation::ready() const noexcept {
 	// Выводим признак готовности режима к работе
 	return this->_ready;
 }
@@ -1009,7 +1009,7 @@ bool anyks::cipher::Imitation::ready() const noexcept {
  * @return      признак успешности запуска режима работы
  *
  */
-bool anyks::cipher::Imitation::start(const block_t & block) noexcept {
+bool nts::cipher::Imitation::start(const block_t & block) noexcept {
 	// Выполняем сброс прежнего состояния режима работы
 	this->clear();
 	// Если базовый алгоритм блочного шифрования непригоден
@@ -1086,7 +1086,7 @@ bool anyks::cipher::Imitation::start(const block_t & block) noexcept {
  * @brief Метод сброса состояния режима работы
  *
  */
-void anyks::cipher::Imitation::clear() noexcept {
+void nts::cipher::Imitation::clear() noexcept {
 	// Выполняем затирание результата зашифрования на предыдущем шаге
 	wipe(this->_state, sizeof(this->_state));
 	// Выполняем затирание накопленного блока сообщения
@@ -1110,7 +1110,7 @@ void anyks::cipher::Imitation::clear() noexcept {
  * @return       признак успешности добавления куска сообщения
  *
  */
-bool anyks::cipher::Imitation::update(const view_t & source) noexcept {
+bool nts::cipher::Imitation::update(const view_t & source) noexcept {
 	// Если режим не готов к работе либо кусок сообщения не передан
 	if(!this->_ready || ((source.size > 0) && (source.data == nullptr)))
 		// Выводим отказ добавления куска сообщения
@@ -1157,7 +1157,7 @@ bool anyks::cipher::Imitation::update(const view_t & source) noexcept {
  * @return       признак успешности снятия имитовставки
  *
  */
-bool anyks::cipher::Imitation::finish(uint8_t * result, const size_t size) noexcept {
+bool nts::cipher::Imitation::finish(uint8_t * result, const size_t size) noexcept {
 	// Если режим не готов к работе либо место итога не передано
 	if(!this->_ready || (result == nullptr) || (size == 0) || (size > this->_block.size))
 		// Выводим отказ снятия имитовставки
@@ -1193,7 +1193,7 @@ bool anyks::cipher::Imitation::finish(uint8_t * result, const size_t size) noexc
  * @brief Конструктор
  *
  */
-anyks::cipher::Imitation::Imitation() noexcept : _ready(false), _size(0) {
+nts::cipher::Imitation::Imitation() noexcept : _ready(false), _size(0) {
 	// Выполняем затирание первого вспомогательного ключа
 	wipe(this->_first, sizeof(this->_first));
 	// Выполняем затирание второго вспомогательного ключа
@@ -1207,7 +1207,7 @@ anyks::cipher::Imitation::Imitation() noexcept : _ready(false), _size(0) {
  * @brief Деструктор
  *
  */
-anyks::cipher::Imitation::~Imitation() noexcept {
+nts::cipher::Imitation::~Imitation() noexcept {
 	// Выполняем сброс состояния режима работы
 	this->clear();
 }

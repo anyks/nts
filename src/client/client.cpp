@@ -51,7 +51,7 @@ using namespace std;
 /**
  * Подписываемся на пространство имён библиотеки
  */
-using namespace anyks;
+using namespace nts;
 
 /**
  * @brief Метод получения состояния связи
@@ -59,7 +59,7 @@ using namespace anyks;
  * @return состояние связи
  *
  */
-context::state_t anyks::client::Context::state() const noexcept {
+context::state_t nts::client::Context::state() const noexcept {
 	// Выводим состояние связи
 	return (this->_engine != nullptr ? this->_engine->state() : context::state_t::NONE);
 }
@@ -69,7 +69,7 @@ context::state_t anyks::client::Context::state() const noexcept {
  * @return отказ, которым связь оборвана
  *
  */
-context::error_t anyks::client::Context::error() const noexcept {
+context::error_t nts::client::Context::error() const noexcept {
 	// Выводим отказ, которым связь оборвана
 	return (this->_engine != nullptr ? this->_engine->error() : context::error_t::MEMORY);
 }
@@ -79,7 +79,7 @@ context::error_t anyks::client::Context::error() const noexcept {
  * @return признак того, что рукопожатие пройдено обеими сторонами
  *
  */
-bool anyks::client::Context::established() const noexcept {
+bool nts::client::Context::established() const noexcept {
 	// Выводим признак установленности связи
 	return (this->state() == context::state_t::ESTABLISHED);
 }
@@ -89,7 +89,7 @@ bool anyks::client::Context::established() const noexcept {
  * @return извещение, которым связь оборвана
  *
  */
-const alert::alert_t & anyks::client::Context::alert() const noexcept {
+const alert::alert_t & nts::client::Context::alert() const noexcept {
 	// Извещение, выводимое при незаведённом ведении связи
 	static const alert::alert_t alert;
 	// Выводим извещение, которым связь оборвана
@@ -101,7 +101,7 @@ const alert::alert_t & anyks::client::Context::alert() const noexcept {
  * @return согласованный сторонами набор шифрования
  *
  */
-protect::suite_t anyks::client::Context::suite() const noexcept {
+protect::suite_t nts::client::Context::suite() const noexcept {
 	// Выводим согласованный сторонами набор шифрования
 	return (this->_engine != nullptr ? this->_engine->suite() : protect::suite_t::NONE);
 }
@@ -111,7 +111,7 @@ protect::suite_t anyks::client::Context::suite() const noexcept {
  * @return цепочка сертификатов, предъявленная собеседником
  *
  */
-const vector <vector <uint8_t>> & anyks::client::Context::peer() const noexcept {
+const vector <vector <uint8_t>> & nts::client::Context::peer() const noexcept {
 	// Цепочка, выводимая при незаведённом ведении связи
 	static const vector <vector <uint8_t>> chain;
 	// Выводим цепочку сертификатов, предъявленную собеседником
@@ -123,7 +123,7 @@ const vector <vector <uint8_t>> & anyks::client::Context::peer() const noexcept 
  * @return прикладной протокол, выбранный сторонами связи
  *
  */
-const string & anyks::client::Context::protocol() const noexcept {
+const string & nts::client::Context::protocol() const noexcept {
 	// Название, выводимое при незаведённом ведении связи
 	static const string empty;
 	// Выводим прикладной протокол, выбранный сторонами связи
@@ -135,7 +135,7 @@ const string & anyks::client::Context::protocol() const noexcept {
  * @return билеты возобновления связи
  *
  */
-const vector <context::ticket_t> & anyks::client::Context::tickets() const noexcept {
+const vector <context::ticket_t> & nts::client::Context::tickets() const noexcept {
 	// Билеты, выводимые при незаведённом ведении связи
 	static const vector <context::ticket_t> tickets;
 	// Выводим билеты возобновления связи
@@ -147,7 +147,7 @@ const vector <context::ticket_t> & anyks::client::Context::tickets() const noexc
  * @param suites устанавливаемые наборы шифрования
  *
  */
-void anyks::client::Context::suites(const vector <protect::suite_t> & suites) noexcept {
+void nts::client::Context::suites(const vector <protect::suite_t> & suites) noexcept {
 	// Если ведение связи заведено
 	if(this->_engine != nullptr)
 		// Выполняем установку предлагаемых наборов шифрования
@@ -159,7 +159,7 @@ void anyks::client::Context::suites(const vector <protect::suite_t> & suites) no
  * @param groups устанавливаемые кривые обмена ключами
  *
  */
-void anyks::client::Context::groups(const vector <extension::group_t> & groups) noexcept {
+void nts::client::Context::groups(const vector <extension::group_t> & groups) noexcept {
 	// Если ведение связи заведено
 	if(this->_engine != nullptr)
 		// Выполняем установку предлагаемых кривых обмена ключами
@@ -171,7 +171,7 @@ void anyks::client::Context::groups(const vector <extension::group_t> & groups) 
  * @param credential устанавливаемая подлинность своей стороны
  *
  */
-void anyks::client::Context::credential(const context::credential_t & credential) noexcept {
+void nts::client::Context::credential(const context::credential_t & credential) noexcept {
 	// Если ведение связи заведено
 	if(this->_engine != nullptr)
 		// Выполняем установку подлинности своей стороны связи
@@ -183,7 +183,7 @@ void anyks::client::Context::credential(const context::credential_t & credential
  * @param name устанавливаемое имя узла
  *
  */
-void anyks::client::Context::name(const string & name) noexcept {
+void nts::client::Context::name(const string & name) noexcept {
 	// Если ведение связи заведено
 	if(this->_engine != nullptr)
 		// Выполняем установку имени узла, запрашиваемого у сервера
@@ -195,7 +195,7 @@ void anyks::client::Context::name(const string & name) noexcept {
  * @param protocols устанавливаемые прикладные протоколы
  *
  */
-void anyks::client::Context::protocols(const vector <string> & protocols) noexcept {
+void nts::client::Context::protocols(const vector <string> & protocols) noexcept {
 	// Если ведение связи заведено
 	if(this->_engine != nullptr)
 		// Выполняем установку предлагаемых прикладных протоколов
@@ -207,7 +207,7 @@ void anyks::client::Context::protocols(const vector <string> & protocols) noexce
  * @param moment устанавливаемый миг в секундах
  *
  */
-void anyks::client::Context::moment(const int64_t moment) noexcept {
+void nts::client::Context::moment(const int64_t moment) noexcept {
 	// Если ведение связи заведено
 	if(this->_engine != nullptr)
 		// Выполняем установку мига суждения о сроках билетов
@@ -219,7 +219,7 @@ void anyks::client::Context::moment(const int64_t moment) noexcept {
  * @param ticket предъявляемый серверу билет возобновления связи
  *
  */
-void anyks::client::Context::resume(const context::ticket_t & ticket) noexcept {
+void nts::client::Context::resume(const context::ticket_t & ticket) noexcept {
 	// Если ведение связи заведено
 	if(this->_engine != nullptr)
 		// Выполняем установку билетов возобновления связи
@@ -231,7 +231,7 @@ void anyks::client::Context::resume(const context::ticket_t & ticket) noexcept {
  * @return признак того, что связь возобновлена заранее разделённым ключом
  *
  */
-bool anyks::client::Context::shared() const noexcept {
+bool nts::client::Context::shared() const noexcept {
 	// Выводим признак возобновления связи заранее разделённым ключом
 	return (this->_engine != nullptr ? this->_engine->shared() : false);
 }
@@ -241,7 +241,7 @@ bool anyks::client::Context::shared() const noexcept {
  * @param advance предлагаются либо принимаются ли упреждающие данные
  *
  */
-void anyks::client::Context::advance(const bool advance, const uint32_t limit) noexcept {
+void nts::client::Context::advance(const bool advance, const uint32_t limit) noexcept {
 	// Если ведение связи заведено
 	if(this->_engine != nullptr)
 		// Выполняем установку предложения упреждающих данных
@@ -253,7 +253,7 @@ void anyks::client::Context::advance(const bool advance, const uint32_t limit) n
  * @return признак того, что упреждающие данные сервером приняты
  *
  */
-bool anyks::client::Context::accepted() const noexcept {
+bool nts::client::Context::accepted() const noexcept {
 	// Выводим признак приёма упреждающих данных сервером
 	return (this->_engine != nullptr ? this->_engine->accepted() : false);
 }
@@ -263,7 +263,7 @@ bool anyks::client::Context::accepted() const noexcept {
  * @return отказ заведения связи
  *
  */
-context::error_t anyks::client::Context::start() noexcept {
+context::error_t nts::client::Context::start() noexcept {
 	// Если ведение связи не заведено
 	if(this->_engine == nullptr)
 		// Выводим отказ нехватки памяти
@@ -275,7 +275,7 @@ context::error_t anyks::client::Context::start() noexcept {
  * @brief Метод сброса состояния связи
  *
  */
-void anyks::client::Context::clear() noexcept {
+void nts::client::Context::clear() noexcept {
 	// Если ведение связи заведено
 	if(this->_engine != nullptr)
 		// Выполняем сброс состояния связи
@@ -289,7 +289,7 @@ void anyks::client::Context::clear() noexcept {
  * @return     отказ разбора принятых байтов
  *
  */
-context::error_t anyks::client::Context::push(const view_t & data) noexcept {
+context::error_t nts::client::Context::push(const view_t & data) noexcept {
 	// Если ведение связи не заведено
 	if(this->_engine == nullptr)
 		// Выводим отказ нехватки памяти
@@ -303,7 +303,7 @@ context::error_t anyks::client::Context::push(const view_t & data) noexcept {
  * @return накопленные байты, отправляемые собеседнику
  *
  */
-view_t anyks::client::Context::output() const noexcept {
+view_t nts::client::Context::output() const noexcept {
 	// Выводим накопленные байты, отправляемые собеседнику
 	return (this->_engine != nullptr ? this->_engine->output() : view_t());
 }
@@ -313,7 +313,7 @@ view_t anyks::client::Context::output() const noexcept {
  * @param size размер снимаемых байтов
  *
  */
-void anyks::client::Context::consume(const size_t size) noexcept {
+void nts::client::Context::consume(const size_t size) noexcept {
 	// Если ведение связи заведено
 	if(this->_engine != nullptr)
 		// Выполняем снятие отправленных байтов с накопителя
@@ -327,7 +327,7 @@ void anyks::client::Context::consume(const size_t size) noexcept {
  * @return     отказ отправки прикладных данных
  *
  */
-context::error_t anyks::client::Context::write(const view_t & data) noexcept {
+context::error_t nts::client::Context::write(const view_t & data) noexcept {
 	// Если ведение связи не заведено
 	if(this->_engine == nullptr)
 		// Выводим отказ нехватки памяти
@@ -343,7 +343,7 @@ context::error_t anyks::client::Context::write(const view_t & data) noexcept {
  * @return       отказ получения принятых прикладных данных
  *
  */
-context::error_t anyks::client::Context::read(vector <uint8_t> & result) noexcept {
+context::error_t nts::client::Context::read(vector <uint8_t> & result) noexcept {
 	// Если ведение связи не заведено
 	if(this->_engine == nullptr)
 		// Выводим отказ нехватки памяти
@@ -359,7 +359,7 @@ context::error_t anyks::client::Context::read(vector <uint8_t> & result) noexcep
  * @return        отказ смены ключевого материала своего направления
  *
  */
-context::error_t anyks::client::Context::update(const bool request) noexcept {
+context::error_t nts::client::Context::update(const bool request) noexcept {
 	// Если ведение связи не заведено
 	if(this->_engine == nullptr)
 		// Выводим отказ нехватки памяти
@@ -373,7 +373,7 @@ context::error_t anyks::client::Context::update(const bool request) noexcept {
  * @return отказ закрытия связи
  *
  */
-context::error_t anyks::client::Context::close() noexcept {
+context::error_t nts::client::Context::close() noexcept {
 	// Если ведение связи не заведено
 	if(this->_engine == nullptr)
 		// Выводим отказ нехватки памяти
@@ -385,7 +385,7 @@ context::error_t anyks::client::Context::close() noexcept {
  * @brief Конструктор
  *
  */
-anyks::client::Context::Context() noexcept : _engine(nullptr) {
+nts::client::Context::Context() noexcept : _engine(nullptr) {
 	/**
 	 * Выполняем заведение ведения связи
 	 */
@@ -402,7 +402,7 @@ anyks::client::Context::Context() noexcept : _engine(nullptr) {
  * @brief Деструктор
  *
  */
-anyks::client::Context::~Context() noexcept {
+nts::client::Context::~Context() noexcept {
 	// Если ведение связи заведено
 	if(this->_engine != nullptr)
 		// Выполняем удаление объекта ведения связи

@@ -46,7 +46,7 @@ namespace {
 	/**
 	 * Пространство имён библиотеки
 	 */
-	using namespace anyks;
+	using namespace nts;
 
 	/**
 	 * @brief Метод затирания области памяти
@@ -85,7 +85,7 @@ namespace {
  * @return       признак успешности выработки общего ключа
  *
  */
-bool anyks::agreement::vko(const curve::curve_t & curve, const view_t & secret, const view_t & x, const view_t & y, const view_t & ukm, uint8_t * result, const size_t size) noexcept {
+bool nts::agreement::vko(const curve::curve_t & curve, const view_t & secret, const view_t & x, const view_t & y, const view_t & ukm, uint8_t * result, const size_t size) noexcept {
 	// Если кривая не установлена либо место общего ключа не передано
 	if(!curve.ready() || (result == nullptr))
 		// Выводим отказ выработки общего ключа

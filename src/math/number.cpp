@@ -53,12 +53,12 @@ namespace {
 	/**
 	 * Пространство имён библиотеки
 	 */
-	using namespace anyks;
+	using namespace nts;
 
 	/**
 	 * Пространство имён модуля
 	 */
-	using namespace anyks::math;
+	using namespace nts::math;
 
 	/**
 	 * @brief Целое число двойной разрядности
@@ -403,14 +403,14 @@ namespace {
  * @brief Конструктор
  *
  */
-anyks::math::Number::Number() noexcept : words{} {}
+nts::math::Number::Number() noexcept : words{} {}
 /**
  * @brief Метод проверки готовности арифметики к работе
  *
  * @return признак того, что модуль установлен
  *
  */
-bool anyks::math::Modulus::ready() const noexcept {
+bool nts::math::Modulus::ready() const noexcept {
 	// Выводим признак того, что модуль установлен
 	return this->_ready;
 }
@@ -420,7 +420,7 @@ bool anyks::math::Modulus::ready() const noexcept {
  * @return размер модуля в байтах
  *
  */
-size_t anyks::math::Modulus::size() const noexcept {
+size_t nts::math::Modulus::size() const noexcept {
 	// Выводим размер модуля в байтах
 	return this->_size;
 }
@@ -432,7 +432,7 @@ size_t anyks::math::Modulus::size() const noexcept {
  * @return        признак успешности установки модуля
  *
  */
-bool anyks::math::Modulus::start(const view_t & modulus) noexcept {
+bool nts::math::Modulus::start(const view_t & modulus) noexcept {
 	// Выполняем сброс прежде установленного модуля
 	this->clear();
 	// Если модуль не передан либо не укладывается в разрядность числа
@@ -501,7 +501,7 @@ bool anyks::math::Modulus::start(const view_t & modulus) noexcept {
  * @brief Метод сброса установленного модуля
  *
  */
-void anyks::math::Modulus::clear() noexcept {
+void nts::math::Modulus::clear() noexcept {
 	// Выполняем затирание квадрата основания области Монтгомери
 	wipe(this->_square.words, sizeof(this->_square.words));
 	// Выполняем затирание значения модуля
@@ -524,7 +524,7 @@ void anyks::math::Modulus::clear() noexcept {
  * @return       признак успешности разбора числа
  *
  */
-bool anyks::math::Modulus::load(const view_t & data, number_t & result) const noexcept {
+bool nts::math::Modulus::load(const view_t & data, number_t & result) const noexcept {
 	// Выполняем обнуление разбираемого числа
 	result = number_t();
 	// Если модуль не установлен либо поток байтов не передан
@@ -565,7 +565,7 @@ bool anyks::math::Modulus::load(const view_t & data, number_t & result) const no
  * @return       признак успешности приведения потока байтов
  *
  */
-bool anyks::math::Modulus::reduce(const view_t & data, number_t & result) const noexcept {
+bool nts::math::Modulus::reduce(const view_t & data, number_t & result) const noexcept {
 	// Выполняем обнуление приводимого числа
 	result = number_t();
 	// Если модуль не установлен либо поток байтов не передан
@@ -603,7 +603,7 @@ bool anyks::math::Modulus::reduce(const view_t & data, number_t & result) const 
  * @return      признак успешности записи числа
  *
  */
-bool anyks::math::Modulus::store(const number_t & value, uint8_t * data, const size_t size) const noexcept {
+bool nts::math::Modulus::store(const number_t & value, uint8_t * data, const size_t size) const noexcept {
 	// Если модуль не установлен либо место записи не передано
 	if(!this->_ready || (data == nullptr) || (size == 0))
 		// Выводим отказ записи числа
@@ -629,7 +629,7 @@ bool anyks::math::Modulus::store(const number_t & value, uint8_t * data, const s
  * @param result место, в которое помещается полученное число
  *
  */
-void anyks::math::Modulus::word(const uint64_t value, number_t & result) const noexcept {
+void nts::math::Modulus::word(const uint64_t value, number_t & result) const noexcept {
 	// Выполняем обнуление получаемого числа
 	result = number_t();
 	// Записываем значение машинного слова в младшее слово числа
@@ -643,7 +643,7 @@ void anyks::math::Modulus::word(const uint64_t value, number_t & result) const n
  * @return      признак равенства числа нулю
  *
  */
-bool anyks::math::Modulus::zero(const number_t & value) const noexcept {
+bool nts::math::Modulus::zero(const number_t & value) const noexcept {
 	// Собираемое объединение слов проверяемого числа
 	uint64_t item = 0;
 	/**
@@ -664,7 +664,7 @@ bool anyks::math::Modulus::zero(const number_t & value) const noexcept {
  * @return       признак равенства сличаемых чисел
  *
  */
-bool anyks::math::Modulus::equal(const number_t & first, const number_t & second) const noexcept {
+bool nts::math::Modulus::equal(const number_t & first, const number_t & second) const noexcept {
 	// Собираемое расхождение сличаемых чисел
 	uint64_t item = 0;
 	/**
@@ -683,7 +683,7 @@ bool anyks::math::Modulus::equal(const number_t & first, const number_t & second
  * @param result место, в которое помещается приведённое число
  *
  */
-void anyks::math::Modulus::enter(const number_t & value, number_t & result) const noexcept {
+void nts::math::Modulus::enter(const number_t & value, number_t & result) const noexcept {
 	// Выполняем умножение числа на квадрат основания области Монтгомери
 	this->multiply(value, this->_square, result);
 }
@@ -694,7 +694,7 @@ void anyks::math::Modulus::enter(const number_t & value, number_t & result) cons
  * @param result место, в которое помещается выведенное число
  *
  */
-void anyks::math::Modulus::leave(const number_t & value, number_t & result) const noexcept {
+void nts::math::Modulus::leave(const number_t & value, number_t & result) const noexcept {
 	// Единица, на которую умножается выводимое число
 	number_t unit;
 	// Записываем значение единицы
@@ -710,7 +710,7 @@ void anyks::math::Modulus::leave(const number_t & value, number_t & result) cons
  * @param result место, в которое помещается сумма
  *
  */
-void anyks::math::Modulus::add(const number_t & first, const number_t & second, number_t & result) const noexcept {
+void nts::math::Modulus::add(const number_t & first, const number_t & second, number_t & result) const noexcept {
 	// Если модуль поля укладывается в четыре слова
 	if(this->_words == 4){
 		// Выполняем сложение слагаемых развёрнутым способом
@@ -737,7 +737,7 @@ void anyks::math::Modulus::add(const number_t & first, const number_t & second, 
  * @param result место, в которое помещается разность
  *
  */
-void anyks::math::Modulus::subtract(const number_t & first, const number_t & second, number_t & result) const noexcept {
+void nts::math::Modulus::subtract(const number_t & first, const number_t & second, number_t & result) const noexcept {
 	// Если модуль поля укладывается в четыре слова
 	if(this->_words == 4){
 		// Выполняем вычитание развёрнутым способом
@@ -774,7 +774,7 @@ void anyks::math::Modulus::subtract(const number_t & first, const number_t & sec
  * @param result место, в которое помещается произведение в области Монтгомери
  *
  */
-void anyks::math::Modulus::multiply(const number_t & first, const number_t & second, number_t & result) const noexcept {
+void nts::math::Modulus::multiply(const number_t & first, const number_t & second, number_t & result) const noexcept {
 	/**
 	 * Кривые протокола имеют модуль в четыре либо в восемь слов, и оба этих числа
 	 * заложены в тело умножения постоянными: собиратель разворачивает тогда циклы и
@@ -876,7 +876,7 @@ void anyks::math::Modulus::multiply(const number_t & first, const number_t & sec
  * @param result   место, в которое помещается степень в области Монтгомери
  *
  */
-void anyks::math::Modulus::power(const number_t & base, const number_t & exponent, number_t & result) const noexcept {
+void nts::math::Modulus::power(const number_t & base, const number_t & exponent, number_t & result) const noexcept {
 	// Накапливаемая степень основания
 	number_t value;
 	// Произведение накопленной степени на основание
@@ -920,7 +920,7 @@ void anyks::math::Modulus::power(const number_t & base, const number_t & exponen
  * @param result место, в которое помещается обратное число в области Монтгомери
  *
  */
-void anyks::math::Modulus::invert(const number_t & value, number_t & result) const noexcept {
+void nts::math::Modulus::invert(const number_t & value, number_t & result) const noexcept {
 	// Показатель степени обращения числа
 	number_t exponent;
 	// Двойка, вычитаемая из модуля
@@ -938,12 +938,12 @@ void anyks::math::Modulus::invert(const number_t & value, number_t & result) con
  * @brief Конструктор
  *
  */
-anyks::math::Modulus::Modulus() noexcept : _ready(false), _words(0), _size(0), _factor(0) {}
+nts::math::Modulus::Modulus() noexcept : _ready(false), _words(0), _size(0), _factor(0) {}
 /**
  * @brief Деструктор
  *
  */
-anyks::math::Modulus::~Modulus() noexcept {
+nts::math::Modulus::~Modulus() noexcept {
 	// Выполняем сброс установленного модуля
 	this->clear();
 }

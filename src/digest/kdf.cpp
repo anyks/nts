@@ -45,7 +45,7 @@ namespace {
 	/**
 	 * Пространство имён библиотеки
 	 */
-	using namespace anyks;
+	using namespace nts;
 
 	/**
 	 * @brief Метод затирания области памяти
@@ -77,7 +77,7 @@ namespace {
  * @return       признак успешности выработки производного ключа
  *
  */
-bool anyks::digest::kdf(const view_t & key, const view_t & label, const view_t & seed, uint8_t * result) noexcept {
+bool nts::digest::kdf(const view_t & key, const view_t & label, const view_t & seed, uint8_t * result) noexcept {
 	// Если место для производного ключа не передано
 	if(result == nullptr)
 		// Выводим отказ выработки производного ключа
@@ -113,7 +113,7 @@ bool anyks::digest::kdf(const view_t & key, const view_t & label, const view_t &
 	// Записываем младший байт длины вырабатываемого ключа в разрядах
 	buffer[offset++] = 0x00;
 	// Выполняем выработку производного ключа
-	const bool ok = anyks::digest::hmac(type_t::SHORT, key, view_t(buffer, offset), result, KDF_KEY);
+	const bool ok = nts::digest::hmac(type_t::SHORT, key, view_t(buffer, offset), result, KDF_KEY);
 	// Выполняем затирание слитной строки выработки ключа
 	wipe(buffer, sizeof(buffer));
 	// Выводим признак успешности выработки производного ключа

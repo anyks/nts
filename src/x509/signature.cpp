@@ -52,7 +52,7 @@ namespace {
 	/**
 	 * Пространство имён библиотеки
 	 */
-	using namespace anyks;
+	using namespace nts;
 
 	/**
 	 * @brief Соответствие опознавателя алгоритма подписи длине хеша
@@ -226,7 +226,7 @@ namespace {
  * @return          признак того, что подпись записи сошлась
  *
  */
-bool anyks::x509::verify(const view_t & body, const view_t & signature, const string & algorithm, const key_t & key) noexcept {
+bool nts::x509::verify(const view_t & body, const view_t & signature, const string & algorithm, const key_t & key) noexcept {
 	// Если подписанная запись либо подпись не переданы
 	if((body.data == nullptr) || (body.size == 0) || (signature.data == nullptr))
 		// Выводим отказ проверки подписи
@@ -314,7 +314,7 @@ bool anyks::x509::verify(const view_t & body, const view_t & signature, const st
  * @return       признак успешности извлечения опознавателя
  *
  */
-bool anyks::x509::identifier(const key_t & key, string & result) noexcept {
+bool nts::x509::identifier(const key_t & key, string & result) noexcept {
 	// Если алгоритм открытого ключа непригоден
 	if(!suitable(key.algorithm))
 		// Выводим отказ извлечения опознавателя набора параметров
@@ -331,7 +331,7 @@ bool anyks::x509::identifier(const key_t & key, string & result) noexcept {
  * @return       признак успешности заведения кривой открытого ключа
  *
  */
-bool anyks::x509::parameters(const key_t & key, curve::curve_t & result) noexcept {
+bool nts::x509::parameters(const key_t & key, curve::curve_t & result) noexcept {
 	// Если алгоритм открытого ключа непригоден
 	if(!suitable(key.algorithm))
 		// Выводим отказ заведения кривой открытого ключа
@@ -339,7 +339,7 @@ bool anyks::x509::parameters(const key_t & key, curve::curve_t & result) noexcep
 	// Опознаватель набора параметров кривой
 	string oid;
 	// Если опознаватель набора параметров кривой извлечь не удалось
-	if(!anyks::x509::identifier(key, oid))
+	if(!nts::x509::identifier(key, oid))
 		// Выводим отказ заведения кривой открытого ключа
 		return false;
 	// Выводим итог заведения кривой по опознавателю набора параметров
@@ -355,7 +355,7 @@ bool anyks::x509::parameters(const key_t & key, curve::curve_t & result) noexcep
  * @return          признак того, что подпись содержимого сошлась
  *
  */
-bool anyks::x509::check(const key_t & key, const view_t & content, const view_t & signature) noexcept {
+bool nts::x509::check(const key_t & key, const view_t & content, const view_t & signature) noexcept {
 	// Если подписанное содержимое либо подпись не переданы
 	if((content.data == nullptr) || (content.size == 0) || (signature.data == nullptr))
 		// Выводим отказ проверки подписи содержимого
@@ -363,7 +363,7 @@ bool anyks::x509::check(const key_t & key, const view_t & content, const view_t 
 	// Эллиптическая кривая проверки подписи
 	curve::curve_t curve;
 	// Если кривую открытого ключа завести не удалось
-	if(!anyks::x509::parameters(key, curve))
+	if(!nts::x509::parameters(key, curve))
 		// Выводим отказ проверки подписи содержимого
 		return false;
 	// Если подпись не занимает двух чисел длиной в порядок подгруппы точек кривой
@@ -412,7 +412,7 @@ bool anyks::x509::check(const key_t & key, const view_t & content, const view_t 
  * @return            признак того, что подпись сертификата сошлась
  *
  */
-bool anyks::x509::verify(const certificate_t & certificate, const key_t & key) noexcept {
+bool nts::x509::verify(const certificate_t & certificate, const key_t & key) noexcept {
 	// Число неиспользуемых разрядов последнего байта подписи
 	uint8_t unused = 0;
 	// Получаем подпись проверяемого сертификата
@@ -422,5 +422,5 @@ bool anyks::x509::verify(const certificate_t & certificate, const key_t & key) n
 		// Выводим отказ проверки подписи сертификата
 		return false;
 	// Выводим итог проверки подписи тела сертификата
-	return anyks::x509::verify(certificate.body(), signature, certificate.algorithms(), key);
+	return nts::x509::verify(certificate.body(), signature, certificate.algorithms(), key);
 }

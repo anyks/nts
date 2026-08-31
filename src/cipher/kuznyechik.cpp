@@ -57,12 +57,12 @@ namespace {
 	/**
 	 * Пространство имён библиотеки
 	 */
-	using namespace anyks;
+	using namespace nts;
 
 	/**
 	 * Пространство имён модуля
 	 */
-	using namespace anyks::cipher;
+	using namespace nts::cipher;
 
 	/**
 	 * @brief Нелинейное биективное преобразование множества двоичных векторов
@@ -556,7 +556,7 @@ namespace {
  * @return признак того, что ключ установлен
  *
  */
-bool anyks::cipher::Kuznyechik::ready() const noexcept {
+bool nts::cipher::Kuznyechik::ready() const noexcept {
 	// Выводим признак того, что ключ установлен
 	return this->_ready;
 }
@@ -568,7 +568,7 @@ bool anyks::cipher::Kuznyechik::ready() const noexcept {
  * @return    признак успешности установки ключа
  *
  */
-bool anyks::cipher::Kuznyechik::key(const view_t & key) noexcept {
+bool nts::cipher::Kuznyechik::key(const view_t & key) noexcept {
 	// Выполняем затирание прежних раундовых ключей
 	this->clear();
 	// Если ключ шифрования не той длины
@@ -634,7 +634,7 @@ bool anyks::cipher::Kuznyechik::key(const view_t & key) noexcept {
  * @brief Метод затирания раундовых ключей
  *
  */
-void anyks::cipher::Kuznyechik::clear() noexcept {
+void nts::cipher::Kuznyechik::clear() noexcept {
 	// Выполняем затирание раундовых ключей
 	wipe(this->_keys, sizeof(this->_keys));
 	// Снимаем признак того, что ключ установлен
@@ -649,7 +649,7 @@ void anyks::cipher::Kuznyechik::clear() noexcept {
  * @return       признак успешности зашифрования
  *
  */
-bool anyks::cipher::Kuznyechik::encrypt(const uint8_t * source, uint8_t * result) const noexcept {
+bool nts::cipher::Kuznyechik::encrypt(const uint8_t * source, uint8_t * result) const noexcept {
 	// Если ключ не установлен либо места не переданы
 	if(!this->_ready || (source == nullptr) || (result == nullptr))
 		// Выводим отказ зашифрования
@@ -707,7 +707,7 @@ bool anyks::cipher::Kuznyechik::encrypt(const uint8_t * source, uint8_t * result
  * @return       признак успешности расшифрования
  *
  */
-bool anyks::cipher::Kuznyechik::decrypt(const uint8_t * source, uint8_t * result) const noexcept {
+bool nts::cipher::Kuznyechik::decrypt(const uint8_t * source, uint8_t * result) const noexcept {
 	// Если ключ не установлен либо места не переданы
 	if(!this->_ready || (source == nullptr) || (result == nullptr))
 		// Выводим отказ расшифрования
@@ -766,7 +766,7 @@ bool anyks::cipher::Kuznyechik::decrypt(const uint8_t * source, uint8_t * result
  * @brief Конструктор
  *
  */
-anyks::cipher::Kuznyechik::Kuznyechik() noexcept : _ready(false) {
+nts::cipher::Kuznyechik::Kuznyechik() noexcept : _ready(false) {
 	// Выполняем затирание раундовых ключей
 	wipe(this->_keys, sizeof(this->_keys));
 }
@@ -774,7 +774,7 @@ anyks::cipher::Kuznyechik::Kuznyechik() noexcept : _ready(false) {
  * @brief Деструктор
  *
  */
-anyks::cipher::Kuznyechik::~Kuznyechik() noexcept {
+nts::cipher::Kuznyechik::~Kuznyechik() noexcept {
 	// Выполняем затирание раундовых ключей
 	this->clear();
 }

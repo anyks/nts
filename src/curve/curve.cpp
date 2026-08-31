@@ -46,12 +46,12 @@ namespace {
 	/**
 	 * Пространство имён библиотеки
 	 */
-	using namespace anyks;
+	using namespace nts;
 
 	/**
 	 * Пространство имён модуля
 	 */
-	using namespace anyks::curve;
+	using namespace nts::curve;
 
 	/**
 	 * @brief Метод выбора одного из двух чисел наложением маски
@@ -115,7 +115,7 @@ namespace {
  * @return признак того, что кривая установлена
  *
  */
-bool anyks::curve::Curve::ready() const noexcept {
+bool nts::curve::Curve::ready() const noexcept {
 	// Выводим признак того, что кривая установлена
 	return this->_ready;
 }
@@ -125,7 +125,7 @@ bool anyks::curve::Curve::ready() const noexcept {
  * @return размер координаты точки в байтах
  *
  */
-size_t anyks::curve::Curve::size() const noexcept {
+size_t nts::curve::Curve::size() const noexcept {
 	// Выводим размер координаты точки в байтах
 	return this->_field.size();
 }
@@ -135,7 +135,7 @@ size_t anyks::curve::Curve::size() const noexcept {
  * @return отношение порядка группы точек кривой к порядку подгруппы
  *
  */
-uint64_t anyks::curve::Curve::cofactor() const noexcept {
+uint64_t nts::curve::Curve::cofactor() const noexcept {
 	// Выводим кофактор кривой
 	return this->_cofactor;
 }
@@ -145,7 +145,7 @@ uint64_t anyks::curve::Curve::cofactor() const noexcept {
  * @return арифметика порядка подгруппы точек кривой
  *
  */
-const anyks::math::modulus_t & anyks::curve::Curve::order() const noexcept {
+const nts::math::modulus_t & nts::curve::Curve::order() const noexcept {
 	// Выводим арифметику порядка подгруппы точек кривой
 	return this->_order;
 }
@@ -163,7 +163,7 @@ const anyks::math::modulus_t & anyks::curve::Curve::order() const noexcept {
  * @return         признак успешности установки параметров кривой
  *
  */
-bool anyks::curve::Curve::start(const view_t & modulus, const view_t & first, const view_t & second, const view_t & order, const view_t & x, const view_t & y, const uint64_t cofactor) noexcept {
+bool nts::curve::Curve::start(const view_t & modulus, const view_t & first, const view_t & second, const view_t & order, const view_t & x, const view_t & y, const uint64_t cofactor) noexcept {
 	// Выполняем сброс прежде установленных параметров кривой
 	this->clear();
 	// Если кофактор кривой не передан
@@ -233,7 +233,7 @@ bool anyks::curve::Curve::start(const view_t & modulus, const view_t & first, co
  * @brief Метод сброса установленных параметров кривой
  *
  */
-void anyks::curve::Curve::clear() noexcept {
+void nts::curve::Curve::clear() noexcept {
 	// Сбрасываем кофактор кривой
 	this->_cofactor = 1;
 	// Выполняем сброс образующей точки подгруппы точек кривой
@@ -257,7 +257,7 @@ void anyks::curve::Curve::clear() noexcept {
  * @param result место, в которое помещается образующая точка
  *
  */
-void anyks::curve::Curve::base(point_t & result) const noexcept {
+void nts::curve::Curve::base(point_t & result) const noexcept {
 	// Записываем образующую точку подгруппы точек кривой
 	result = this->_base;
 }
@@ -271,7 +271,7 @@ void anyks::curve::Curve::base(point_t & result) const noexcept {
  * @return       признак успешности разбора точки
  *
  */
-bool anyks::curve::Curve::point(const view_t & x, const view_t & y, point_t & result) const noexcept {
+bool nts::curve::Curve::point(const view_t & x, const view_t & y, point_t & result) const noexcept {
 	// Выполняем сброс разбираемой точки
 	result = point_t();
 	// Если кривая не установлена
@@ -327,7 +327,7 @@ bool anyks::curve::Curve::point(const view_t & x, const view_t & y, point_t & re
  * @return      признак успешности записи координат точки
  *
  */
-bool anyks::curve::Curve::coordinates(const point_t & value, uint8_t * x, uint8_t * y, const size_t size) const noexcept {
+bool nts::curve::Curve::coordinates(const point_t & value, uint8_t * x, uint8_t * y, const size_t size) const noexcept {
 	// Если кривая не установлена либо точка бесконечно удалена
 	if(!this->_ready || this->infinity(value))
 		// Выводим отказ записи координат точки
@@ -367,7 +367,7 @@ bool anyks::curve::Curve::coordinates(const point_t & value, uint8_t * x, uint8_
  * @return      признак бесконечной удалённости точки
  *
  */
-bool anyks::curve::Curve::infinity(const point_t & value) const noexcept {
+bool nts::curve::Curve::infinity(const point_t & value) const noexcept {
 	// Выводим признак равенства третьей координаты точки нулю
 	return this->_field.zero(value.z);
 }
@@ -378,7 +378,7 @@ bool anyks::curve::Curve::infinity(const point_t & value) const noexcept {
  * @param result место, в которое помещается удвоенная точка
  *
  */
-void anyks::curve::Curve::twice(const point_t & value, point_t & result) const noexcept {
+void nts::curve::Curve::twice(const point_t & value, point_t & result) const noexcept {
 	// Квадрат второй координаты удваиваемой точки
 	math::number_t square;
 	// Промежуточное произведение первой координаты на квадрат второй
@@ -475,7 +475,7 @@ void anyks::curve::Curve::twice(const point_t & value, point_t & result) const n
  * @param result место, в которое помещается сумма точек
  *
  */
-void anyks::curve::Curve::attach(const point_t & first, const point_t & second, point_t & result) const noexcept {
+void nts::curve::Curve::attach(const point_t & first, const point_t & second, point_t & result) const noexcept {
 	// Приведённые первые координаты слагаемых
 	math::number_t u1, u2;
 	// Приведённые вторые координаты слагаемых
@@ -550,7 +550,7 @@ void anyks::curve::Curve::attach(const point_t & first, const point_t & second, 
  * @param result место, в которое помещается сумма точек
  *
  */
-void anyks::curve::Curve::add(const point_t & first, const point_t & second, point_t & result) const noexcept {
+void nts::curve::Curve::add(const point_t & first, const point_t & second, point_t & result) const noexcept {
 	// Если первое слагаемое бесконечно удалено
 	if(this->infinity(first)){
 		// Записываем второе слагаемое суммой точек
@@ -642,7 +642,7 @@ void anyks::curve::Curve::add(const point_t & first, const point_t & second, poi
  * @param result место, в которое помещается произведение
  *
  */
-void anyks::curve::Curve::multiply(const point_t & value, const math::number_t & factor, point_t & result) const noexcept {
+void nts::curve::Curve::multiply(const point_t & value, const math::number_t & factor, point_t & result) const noexcept {
 	/**
 	 * Разрядность окна, которым перебирается множитель
 	 *
@@ -719,7 +719,7 @@ void anyks::curve::Curve::multiply(const point_t & value, const math::number_t &
  * @warning Время работы зависит от чисел: метод положен лишь сличению подписи
  *
  */
-void anyks::curve::Curve::combine(const point_t & first, const math::number_t & single, const point_t & second, const math::number_t & pair, point_t & result) const noexcept {
+void nts::curve::Curve::combine(const point_t & first, const math::number_t & single, const point_t & second, const math::number_t & pair, point_t & result) const noexcept {
 	// Разрядность окна, которым перебираются оба множителя разом
 	static constexpr size_t WINDOW = 2;
 	// Число кратных, укладывающихся в окно одного множителя
@@ -800,12 +800,12 @@ void anyks::curve::Curve::combine(const point_t & first, const math::number_t & 
  * @brief Конструктор
  *
  */
-anyks::curve::Curve::Curve() noexcept : _ready(false), _shortened(false), _cofactor(1) {}
+nts::curve::Curve::Curve() noexcept : _ready(false), _shortened(false), _cofactor(1) {}
 /**
  * @brief Деструктор
  *
  */
-anyks::curve::Curve::~Curve() noexcept {
+nts::curve::Curve::~Curve() noexcept {
 	// Выполняем сброс установленных параметров кривой
 	this->clear();
 }

@@ -31,7 +31,7 @@
 /**
  * Используем пространство имён проекта
  */
-using namespace anyks;
+using namespace nts;
 
 /**
  * @brief Служебные объекты проверок

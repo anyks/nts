@@ -56,12 +56,12 @@ namespace {
 	/**
 	 * Пространство имён библиотеки
 	 */
-	using namespace anyks;
+	using namespace nts;
 
 	/**
 	 * Пространство имён модуля
 	 */
-	using namespace anyks::hello;
+	using namespace nts::hello;
 
 	/**
 	 * @brief Случайное значение просьбы о повторе приветствия клиента
@@ -108,7 +108,7 @@ namespace {
 			/**
 			 * Раздел 4.2 RFC 8446: расширение одного вида дважды объявлено быть не вправе
 			 */
-			if(anyks::hello::extension(result, static_cast <uint16_t> (type)) != nullptr)
+			if(nts::hello::extension(result, static_cast <uint16_t> (type)) != nullptr)
 				// Выводим отказ повторного объявления расширения
 				return error_t::EXTENSION;
 			/**
@@ -176,7 +176,7 @@ namespace {
  * @brief Конструктор
  *
  */
-anyks::hello::Client::Client() noexcept : version(0) {
+nts::hello::Client::Client() noexcept : version(0) {
 	// Выполняем обнуление случайного значения приветствия
 	::memset(this->random, 0, sizeof(this->random));
 }
@@ -184,7 +184,7 @@ anyks::hello::Client::Client() noexcept : version(0) {
  * @brief Конструктор
  *
  */
-anyks::hello::Server::Server() noexcept : version(0), suite(0), method(0) {
+nts::hello::Server::Server() noexcept : version(0), suite(0), method(0) {
 	// Выполняем обнуление случайного значения приветствия
 	::memset(this->random, 0, sizeof(this->random));
 }
@@ -197,7 +197,7 @@ anyks::hello::Server::Server() noexcept : version(0), suite(0), method(0) {
  * @return           найденное расширение либо nullptr
  *
  */
-const extension_t * anyks::hello::extension(const vector <extension_t> & extensions, const uint16_t type) noexcept {
+const extension_t * nts::hello::extension(const vector <extension_t> & extensions, const uint16_t type) noexcept {
 	/**
 	 * Выполняем перебор расширений приветствия
 	 */
@@ -218,7 +218,7 @@ const extension_t * anyks::hello::extension(const vector <extension_t> & extensi
  * @return      признак того, что сервер просит повторить приветствие клиента
  *
  */
-bool anyks::hello::retry(const server_t & hello) noexcept {
+bool nts::hello::retry(const server_t & hello) noexcept {
 	// Выводим признак схождения случайного значения с назначенным заранее
 	return (::memcmp(hello.random, RETRY, HELLO_RANDOM) == 0);
 }
@@ -231,7 +231,7 @@ bool anyks::hello::retry(const server_t & hello) noexcept {
  * @return       отказ разбора приветствия клиента
  *
  */
-error_t anyks::hello::parse(const view_t & data, client_t & result) noexcept {
+error_t nts::hello::parse(const view_t & data, client_t & result) noexcept {
 	// Объект разборщика полей тела приветствия
 	field::scanner_t scanner;
 	// Устанавливаем разбираемое тело приветствия клиента
@@ -337,7 +337,7 @@ error_t anyks::hello::parse(const view_t & data, client_t & result) noexcept {
  * @return       отказ разбора приветствия сервера
  *
  */
-error_t anyks::hello::parse(const view_t & data, server_t & result) noexcept {
+error_t nts::hello::parse(const view_t & data, server_t & result) noexcept {
 	// Объект разборщика полей тела приветствия
 	field::scanner_t scanner;
 	// Устанавливаем разбираемое тело приветствия сервера
@@ -429,7 +429,7 @@ error_t anyks::hello::parse(const view_t & data, server_t & result) noexcept {
  * @return       отказ составления приветствия клиента
  *
  */
-error_t anyks::hello::build(const client_t & hello, vector <uint8_t> & result) noexcept {
+error_t nts::hello::build(const client_t & hello, vector <uint8_t> & result) noexcept {
 	// Если опознаватель связи длиннее дозволенного протоколом
 	if(hello.session.size() > HELLO_SESSION)
 		// Выводим отказ недозволенной длины опознавателя связи
@@ -510,7 +510,7 @@ error_t anyks::hello::build(const client_t & hello, vector <uint8_t> & result) n
  * @return       отказ составления приветствия сервера
  *
  */
-error_t anyks::hello::build(const server_t & hello, vector <uint8_t> & result) noexcept {
+error_t nts::hello::build(const server_t & hello, vector <uint8_t> & result) noexcept {
 	// Если опознаватель связи длиннее дозволенного протоколом
 	if(hello.session.size() > HELLO_SESSION)
 		// Выводим отказ недозволенной длины опознавателя связи

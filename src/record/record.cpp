@@ -62,12 +62,12 @@ namespace {
 	/**
 	 * Пространство имён библиотеки
 	 */
-	using namespace anyks;
+	using namespace nts;
 
 	/**
 	 * Пространство имён модуля
 	 */
-	using namespace anyks::record;
+	using namespace nts::record;
 
 	/**
 	 * @brief Метод затирания области памяти
@@ -128,7 +128,7 @@ namespace {
  * @return     признак того, что вид содержимого определён протоколом
  *
  */
-bool anyks::record::known(const type_t type) noexcept {
+bool nts::record::known(const type_t type) noexcept {
 	/**
 	 * Выполняем определение вида содержимого записи
 	 */
@@ -152,7 +152,7 @@ bool anyks::record::known(const type_t type) noexcept {
  * @return     признак того, что запись этого вида вправе быть пустой
  *
  */
-bool anyks::record::empty(const type_t type) noexcept {
+bool nts::record::empty(const type_t type) noexcept {
 	// Выводим признак того, что пустой вправе быть только запись прикладных данных
 	return (type == type_t::APPLICATION);
 }
@@ -165,7 +165,7 @@ bool anyks::record::empty(const type_t type) noexcept {
  * @return       отказ разбора заголовка записи
  *
  */
-error_t anyks::record::parse(const view_t & data, header_t & result) noexcept {
+error_t nts::record::parse(const view_t & data, header_t & result) noexcept {
 	// Если разбираемая область байтов заголовок записи не вмещает
 	if((data.data == nullptr) || (data.size < RECORD_HEADER))
 		// Выводим отказ нехватки данных для разбора
@@ -210,7 +210,7 @@ error_t anyks::record::parse(const view_t & data, header_t & result) noexcept {
  * @return       отказ записи заголовка записи
  *
  */
-error_t anyks::record::build(const header_t & header, uint8_t * result) noexcept {
+error_t nts::record::build(const header_t & header, uint8_t * result) noexcept {
 	// Если место для заголовка записи не передано
 	if(result == nullptr)
 		// Выводим отказ нехватки места под заголовок записи
@@ -250,7 +250,7 @@ error_t anyks::record::build(const header_t & header, uint8_t * result) noexcept
  * @return предел длины содержимого записи в байтах
  *
  */
-size_t anyks::record::Reader::limit() const noexcept {
+size_t nts::record::Reader::limit() const noexcept {
 	// Выводим предел длины содержимого принимаемой записи
 	return this->_limit;
 }
@@ -262,7 +262,7 @@ size_t anyks::record::Reader::limit() const noexcept {
  * @return      признак успешности установки предела
  *
  */
-bool anyks::record::Reader::limit(const size_t limit) noexcept {
+bool nts::record::Reader::limit(const size_t limit) noexcept {
 	// Если предел длины содержимого записи протоколом не дозволен
 	if((limit == 0) || (limit > RECORD_PROTECTED))
 		// Выводим отказ установки предела
@@ -278,7 +278,7 @@ bool anyks::record::Reader::limit(const size_t limit) noexcept {
  * @return объём ещё не разобранных данных в байтах
  *
  */
-size_t anyks::record::Reader::pending() const noexcept {
+size_t nts::record::Reader::pending() const noexcept {
 	// Выводим объём ещё не разобранных данных накопителя
 	return (this->_buffer.size() - this->_offset);
 }
@@ -286,7 +286,7 @@ size_t anyks::record::Reader::pending() const noexcept {
  * @brief Метод сброса состояния сборщика
  *
  */
-void anyks::record::Reader::clear() noexcept {
+void nts::record::Reader::clear() noexcept {
 	// Если накопитель сборщика не пустой
 	if(!this->_buffer.empty())
 		// Выполняем затирание содержимого накопителя
@@ -304,7 +304,7 @@ void anyks::record::Reader::clear() noexcept {
  * @return     отказ подачи куска данных
  *
  */
-error_t anyks::record::Reader::push(const view_t & data) noexcept {
+error_t nts::record::Reader::push(const view_t & data) noexcept {
 	// Если кусок данных не передан
 	if((data.data == nullptr) || (data.size == 0))
 		// Выводим успешность подачи куска данных
@@ -343,7 +343,7 @@ error_t anyks::record::Reader::push(const view_t & data) noexcept {
  * @return        отказ получения собранной записи
  *
  */
-error_t anyks::record::Reader::next(header_t & header, view_t & payload) noexcept {
+error_t nts::record::Reader::next(header_t & header, view_t & payload) noexcept {
 	// Получаем объём ещё не разобранных данных накопителя
 	const size_t pending = this->pending();
 	// Если данных для заголовка записи ещё не набралось
@@ -353,7 +353,7 @@ error_t anyks::record::Reader::next(header_t & header, view_t & payload) noexcep
 	// Получаем указатель на начало неразобранных данных накопителя
 	const uint8_t * data = (this->_buffer.data() + this->_offset);
 	// Выполняем разбор заголовка очередной записи
-	const error_t error = anyks::record::parse(view_t(data, pending), header);
+	const error_t error = nts::record::parse(view_t(data, pending), header);
 	// Если заголовок записи разобрать не удалось
 	if(error != error_t::NONE)
 		// Выводим отказ разбора заголовка записи
@@ -377,12 +377,12 @@ error_t anyks::record::Reader::next(header_t & header, view_t & payload) noexcep
  * @brief Конструктор
  *
  */
-anyks::record::Reader::Reader() noexcept : _offset(0), _limit(RECORD_CIPHERTEXT) {}
+nts::record::Reader::Reader() noexcept : _offset(0), _limit(RECORD_CIPHERTEXT) {}
 /**
  * @brief Деструктор
  *
  */
-anyks::record::Reader::~Reader() noexcept {
+nts::record::Reader::~Reader() noexcept {
 	// Выполняем сброс состояния сборщика
 	this->clear();
 }
@@ -392,7 +392,7 @@ anyks::record::Reader::~Reader() noexcept {
  * @return предел длины содержимого записи в байтах
  *
  */
-size_t anyks::record::Writer::limit() const noexcept {
+size_t nts::record::Writer::limit() const noexcept {
 	// Выводим предел длины содержимого нарезаемой записи
 	return this->_limit;
 }
@@ -404,7 +404,7 @@ size_t anyks::record::Writer::limit() const noexcept {
  * @return      признак успешности установки предела
  *
  */
-bool anyks::record::Writer::limit(const size_t limit) noexcept {
+bool nts::record::Writer::limit(const size_t limit) noexcept {
 	// Если предел длины содержимого записи протоколом не дозволен
 	if((limit == 0) || (limit > RECORD_PLAINTEXT))
 		// Выводим отказ установки предела
@@ -420,7 +420,7 @@ bool anyks::record::Writer::limit(const size_t limit) noexcept {
  * @return объём ещё не снятых записей в байтах
  *
  */
-size_t anyks::record::Writer::pending() const noexcept {
+size_t nts::record::Writer::pending() const noexcept {
 	// Выводим объём готовых, но ещё не снятых записей
 	return (this->_buffer.size() - this->_offset);
 }
@@ -430,7 +430,7 @@ size_t anyks::record::Writer::pending() const noexcept {
  * @return просмотр готовых, но ещё не снятых записей
  *
  */
-view_t anyks::record::Writer::data() const noexcept {
+view_t nts::record::Writer::data() const noexcept {
 	// Если готовых записей в накопителе нет
 	if(this->_buffer.size() == this->_offset)
 		// Выводим пустой просмотр готовых записей
@@ -446,7 +446,7 @@ view_t anyks::record::Writer::data() const noexcept {
  * @return     признак успешности снятия байтов
  *
  */
-bool anyks::record::Writer::consume(const size_t size) noexcept {
+bool nts::record::Writer::consume(const size_t size) noexcept {
 	// Если снимается больше байтов, чем в накопителе есть
 	if(size > this->pending())
 		// Выводим отказ снятия байтов записей
@@ -464,7 +464,7 @@ bool anyks::record::Writer::consume(const size_t size) noexcept {
  * @brief Метод сброса состояния нарезчика
  *
  */
-void anyks::record::Writer::clear() noexcept {
+void nts::record::Writer::clear() noexcept {
 	// Если накопитель нарезчика не пустой
 	if(!this->_buffer.empty())
 		// Выполняем затирание содержимого накопителя
@@ -484,7 +484,7 @@ void anyks::record::Writer::clear() noexcept {
  * @return        отказ нарезки данных на записи
  *
  */
-error_t anyks::record::Writer::push(const type_t type, const version_t version, const view_t & data) noexcept {
+error_t nts::record::Writer::push(const type_t type, const version_t version, const view_t & data) noexcept {
 	// Если вид содержимого записи протоколом не определён
 	if(!known(type))
 		// Выводим отказ неизвестности вида содержимого записи
@@ -520,7 +520,7 @@ error_t anyks::record::Writer::push(const type_t type, const version_t version, 
 			// Определяем длину содержимого очередной записи
 			header.size = (((total - offset) < this->_limit) ? (total - offset) : this->_limit);
 			// Если заголовок очередной записи составить не удалось
-			if(anyks::record::build(header, buffer) != error_t::NONE)
+			if(nts::record::build(header, buffer) != error_t::NONE)
 				// Выводим отказ нарезки данных на записи
 				return error_t::LENGTH;
 			// Выполняем добавление заголовка очередной записи в накопитель
@@ -547,12 +547,12 @@ error_t anyks::record::Writer::push(const type_t type, const version_t version, 
  * @brief Конструктор
  *
  */
-anyks::record::Writer::Writer() noexcept : _offset(0), _limit(RECORD_PLAINTEXT) {}
+nts::record::Writer::Writer() noexcept : _offset(0), _limit(RECORD_PLAINTEXT) {}
 /**
  * @brief Деструктор
  *
  */
-anyks::record::Writer::~Writer() noexcept {
+nts::record::Writer::~Writer() noexcept {
 	// Выполняем сброс состояния нарезчика
 	this->clear();
 }

@@ -94,12 +94,12 @@ namespace {
 	/**
 	 * Пространство имён библиотеки
 	 */
-	using namespace anyks;
+	using namespace nts;
 
 	/**
 	 * Пространство имён модуля
 	 */
-	using namespace anyks::cipher;
+	using namespace nts::cipher;
 
 	/**
 	 * @brief Метод затирания области памяти
@@ -580,7 +580,7 @@ namespace {
  * @return признак готовности режима к работе
  *
  */
-bool anyks::cipher::Galois::ready() const noexcept {
+bool nts::cipher::Galois::ready() const noexcept {
 	// Выводим признак готовности режима к работе
 	return this->_ready;
 }
@@ -590,7 +590,7 @@ bool anyks::cipher::Galois::ready() const noexcept {
  * @return длина метки целостности в байтах
  *
  */
-size_t anyks::cipher::Galois::size() const noexcept {
+size_t nts::cipher::Galois::size() const noexcept {
 	// Выводим длину метки целостности
 	return this->_size;
 }
@@ -604,7 +604,7 @@ size_t anyks::cipher::Galois::size() const noexcept {
  * @return      признак успешности запуска режима работы
  *
  */
-bool anyks::cipher::Galois::start(const block_t & block, const view_t & nonce, const size_t size) noexcept {
+bool nts::cipher::Galois::start(const block_t & block, const view_t & nonce, const size_t size) noexcept {
 	// Выполняем сброс прежнего состояния режима работы
 	this->clear();
 	/**
@@ -645,7 +645,7 @@ bool anyks::cipher::Galois::start(const block_t & block, const view_t & nonce, c
  * @brief Метод сброса состояния режима работы
  *
  */
-void anyks::cipher::Galois::clear() noexcept {
+void nts::cipher::Galois::clear() noexcept {
 	// Выполняем затирание начального заполнения счётчика
 	wipe(this->_nonce, sizeof(this->_nonce));
 	// Сбрасываем базовый алгоритм блочного шифрования
@@ -666,7 +666,7 @@ void anyks::cipher::Galois::clear() noexcept {
  * @return           признак успешности зашифрования
  *
  */
-bool anyks::cipher::Galois::encrypt(const view_t & associated, const view_t & source, uint8_t * result, uint8_t * tag) noexcept {
+bool nts::cipher::Galois::encrypt(const view_t & associated, const view_t & source, uint8_t * result, uint8_t * tag) noexcept {
 	// Если режим не готов к работе либо место метки целостности не передано
 	if(!this->_ready || (tag == nullptr))
 		// Выводим отказ зашифрования
@@ -717,7 +717,7 @@ bool anyks::cipher::Galois::encrypt(const view_t & associated, const view_t & so
  * @return           признак успешности расшифрования
  *
  */
-bool anyks::cipher::Galois::decrypt(const view_t & associated, const view_t & source, uint8_t * result, const view_t & tag) noexcept {
+bool nts::cipher::Galois::decrypt(const view_t & associated, const view_t & source, uint8_t * result, const view_t & tag) noexcept {
 	// Если режим не готов к работе либо метка целостности передана неверно
 	if(!this->_ready || (tag.data == nullptr) || (tag.size != this->_size))
 		// Выводим отказ расшифрования
@@ -773,7 +773,7 @@ bool anyks::cipher::Galois::decrypt(const view_t & associated, const view_t & so
  * @brief Конструктор
  *
  */
-anyks::cipher::Galois::Galois() noexcept : _ready(false), _size(0) {
+nts::cipher::Galois::Galois() noexcept : _ready(false), _size(0) {
 	// Выполняем затирание начального заполнения счётчика
 	wipe(this->_nonce, sizeof(this->_nonce));
 }
@@ -781,7 +781,7 @@ anyks::cipher::Galois::Galois() noexcept : _ready(false), _size(0) {
  * @brief Деструктор
  *
  */
-anyks::cipher::Galois::~Galois() noexcept {
+nts::cipher::Galois::~Galois() noexcept {
 	// Выполняем сброс состояния режима работы
 	this->clear();
 }

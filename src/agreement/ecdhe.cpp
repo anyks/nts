@@ -56,7 +56,7 @@ namespace {
 	/**
 	 * Пространство имён библиотеки
 	 */
-	using namespace anyks;
+	using namespace nts;
 
 	/**
 	 * @brief Метод затирания области памяти
@@ -107,7 +107,7 @@ namespace {
  * @return       признак успешности выработки мимолётной пары ключей
  *
  */
-bool anyks::agreement::generate(const curve::curve_t & curve, uint8_t * secret, uint8_t * key) noexcept {
+bool nts::agreement::generate(const curve::curve_t & curve, uint8_t * secret, uint8_t * key) noexcept {
 	// Если кривая не установлена либо места ключей не переданы
 	if(!curve.ready() || (secret == nullptr) || (key == nullptr))
 		// Выводим отказ выработки мимолётной пары ключей
@@ -184,7 +184,7 @@ bool anyks::agreement::generate(const curve::curve_t & curve, uint8_t * secret, 
  * @return       признак успешности выработки общего значения
  *
  */
-bool anyks::agreement::ecdhe(const curve::curve_t & curve, const view_t & secret, const view_t & key, uint8_t * result) noexcept {
+bool nts::agreement::ecdhe(const curve::curve_t & curve, const view_t & secret, const view_t & key, uint8_t * result) noexcept {
 	// Если кривая не установлена либо место общего значения не передано
 	if(!curve.ready() || (result == nullptr))
 		// Выводим отказ выработки общего значения

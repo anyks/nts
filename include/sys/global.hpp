@@ -98,7 +98,7 @@
  * \~
  *
  */
-namespace anyks {
+namespace nts {
 	/**
 	 * \~russian
 	 * @brief Просмотр области байтов

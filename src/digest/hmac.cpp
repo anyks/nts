@@ -44,12 +44,12 @@ namespace {
 	/**
 	 * Пространство имён библиотеки
 	 */
-	using namespace anyks;
+	using namespace nts;
 
 	/**
 	 * Пространство имён модуля
 	 */
-	using namespace anyks::digest;
+	using namespace nts::digest;
 
 	/**
 	 * @brief Размер блока сжатия хеша в байтах
@@ -138,7 +138,7 @@ namespace {
  * @return       признак успешности выработки имитовставки
  *
  */
-bool anyks::digest::hmac(const type_t type, const view_t & key, const view_t & data, uint8_t * result, const size_t size) noexcept {
+bool nts::digest::hmac(const type_t type, const view_t & key, const view_t & data, uint8_t * result, const size_t size) noexcept {
 	// Определяем длину хеша выработки имитовставки
 	const size_t length = static_cast <size_t> (type);
 	// Если длина хеша не установлена либо место имитовставки не передано
@@ -209,7 +209,7 @@ bool anyks::digest::hmac(const type_t type, const view_t & key, const view_t & d
  * @return       признак успешности выработки последовательности
  *
  */
-bool anyks::digest::prf(const type_t type, const view_t & key, const view_t & label, const view_t & seed, uint8_t * result, const size_t size) noexcept {
+bool nts::digest::prf(const type_t type, const view_t & key, const view_t & label, const view_t & seed, uint8_t * result, const size_t size) noexcept {
 	// Определяем длину хеша выработки последовательности
 	const size_t length = static_cast <size_t> (type);
 	// Если длина хеша не установлена либо место последовательности не передано
@@ -253,7 +253,7 @@ bool anyks::digest::prf(const type_t type, const view_t & key, const view_t & la
 	 * Начальным промежуточным значением служит сама слитная строка метки и затравки:
 	 * так задано определение A(0) в разделе 5 RFC 5246
 	 */
-	if((ok = anyks::digest::hmac(type, key, view_t(buffer, total), item, length))){
+	if((ok = nts::digest::hmac(type, key, view_t(buffer, total), item, length))){
 		// Число уже выработанных байтов последовательности
 		size_t offset = 0;
 		/**
@@ -269,7 +269,7 @@ bool anyks::digest::prf(const type_t type, const view_t & key, const view_t & la
 			// Записываем слитную строку метки и затравки
 			::memcpy(block + length, buffer, total);
 			// Если очередную часть последовательности выработать не удалось
-			if(!(ok = anyks::digest::hmac(type, key, view_t(block, length + total), part, length)))
+			if(!(ok = nts::digest::hmac(type, key, view_t(block, length + total), part, length)))
 				// Выходим из выработки последовательности
 				break;
 			// Определяем размер переносимой части последовательности
@@ -279,7 +279,7 @@ bool anyks::digest::prf(const type_t type, const view_t & key, const view_t & la
 			// Увеличиваем число выработанных байтов последовательности
 			offset += count;
 			// Выполняем выработку следующего промежуточного значения
-			ok = anyks::digest::hmac(type, key, view_t(item, length), item, length);
+			ok = nts::digest::hmac(type, key, view_t(item, length), item, length);
 			// Выполняем затирание слитной строки промежуточного значения
 			wipe(block, sizeof(block));
 		}

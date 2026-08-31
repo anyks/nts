@@ -72,7 +72,7 @@ namespace {
 	/**
 	 * Пространство имён библиотеки
 	 */
-	using namespace anyks;
+	using namespace nts;
 
 	/**
 	 * Случайное значение приветствия сервера, объявляющее просьбу о повторе
@@ -385,7 +385,7 @@ namespace {
  * @return            отказ, которым связь оборвана
  *
  */
-context::error_t anyks::internal::Engine::abort(const context::error_t error, const alert::description_t description) noexcept {
+context::error_t nts::internal::Engine::abort(const context::error_t error, const alert::description_t description) noexcept {
 	// Составляем извещение об обрыве связи
 	const alert::alert_t alert(alert::level_t::FATAL, description);
 	// Место, в которое записывается извещение об обрыве связи
@@ -412,7 +412,7 @@ context::error_t anyks::internal::Engine::abort(const context::error_t error, co
  * @return     отказ складывания записи в накопитель
  *
  */
-context::error_t anyks::internal::Engine::emit(const record::type_t type, const view_t & data) noexcept {
+context::error_t nts::internal::Engine::emit(const record::type_t type, const view_t & data) noexcept {
 	// Получаем сторону связи, отправляющую запись
 	const session::side_t side = (this->_server ? session::side_t::SERVER : session::side_t::CLIENT);
 	/**
@@ -472,7 +472,7 @@ context::error_t anyks::internal::Engine::emit(const record::type_t type, const 
  * @return     отказ отправки сообщения рукопожатия
  *
  */
-context::error_t anyks::internal::Engine::send(const handshake::type_t type, const view_t & body) noexcept {
+context::error_t nts::internal::Engine::send(const handshake::type_t type, const view_t & body) noexcept {
 	// Получаем сторону связи, отправляющую сообщение
 	const session::side_t side = (this->_server ? session::side_t::SERVER : session::side_t::CLIENT);
 	// Объект составителя отправляемых сообщений рукопожатия
@@ -509,7 +509,7 @@ context::error_t anyks::internal::Engine::send(const handshake::type_t type, con
  * @return отказ согласования ключевого материала
  *
  */
-context::error_t anyks::internal::Engine::refresh() noexcept {
+context::error_t nts::internal::Engine::refresh() noexcept {
 	/**
 	 * Ключевой материал прикладных данных выводится за завершением рукопожатия
 	 * сервером, а пора ключей стороны переменяется самим этим завершением: до вывода
@@ -552,7 +552,7 @@ context::error_t anyks::internal::Engine::refresh() noexcept {
  * @return    отказ вывода ключей рукопожатия
  *
  */
-context::error_t anyks::internal::Engine::derive(const view_t & key) noexcept {
+context::error_t nts::internal::Engine::derive(const view_t & key) noexcept {
 	// Место, в которое помещается общее значение обмена мимолётными ключами
 	uint8_t shared[64];
 	// Если общее значение обмена мимолётными ключами выработать не удалось
@@ -627,7 +627,7 @@ context::error_t anyks::internal::Engine::derive(const view_t & key) noexcept {
  * @return отказ вывода ключей прикладных данных
  *
  */
-context::error_t anyks::internal::Engine::mature() noexcept {
+context::error_t nts::internal::Engine::mature() noexcept {
 	// Место, в которое помещается хеш переписки рукопожатия
 	uint8_t transcript[schedule::SCHEDULE_SECRET];
 	// Если хеш переписки рукопожатия получить не удалось
@@ -658,7 +658,7 @@ context::error_t anyks::internal::Engine::mature() noexcept {
  * @return отказ заведения защиты записей упреждающих данных
  *
  */
-context::error_t anyks::internal::Engine::earliest() noexcept {
+context::error_t nts::internal::Engine::earliest() noexcept {
 	/**
 	 * Ключи упреждающих данных выводятся набором шифрования билета, а не набором
 	 * этой связи: раздел 4.2.10 RFC 8446 велит брать тот, каким билет выдан, - иного
@@ -716,7 +716,7 @@ context::error_t anyks::internal::Engine::earliest() noexcept {
  * @return      отказ выработки мимолётной пары ключей
  *
  */
-context::error_t anyks::internal::Engine::exchange(const extension::group_t group) noexcept {
+context::error_t nts::internal::Engine::exchange(const extension::group_t group) noexcept {
 	// Получаем опознаватель набора параметров кривой обмена ключами
 	const char * oid = extension::curve(group);
 	// Если кривая обмена ключами протоколом не определена
@@ -755,7 +755,7 @@ context::error_t anyks::internal::Engine::exchange(const extension::group_t grou
  * @return отказ отправки приветствия клиента
  *
  */
-context::error_t anyks::internal::Engine::greeting() noexcept {
+context::error_t nts::internal::Engine::greeting() noexcept {
 	// Составляемое приветствие клиента
 	hello::client_t greeting;
 	// Устанавливаем версию протокола, доставшуюся от предыдущих изданий
@@ -978,7 +978,7 @@ context::error_t anyks::internal::Engine::greeting() noexcept {
  * @return        отказ отправки приветствия сервера
  *
  */
-context::error_t anyks::internal::Engine::answer(const vector <uint8_t> & session, const bool retry) noexcept {
+context::error_t nts::internal::Engine::answer(const vector <uint8_t> & session, const bool retry) noexcept {
 	// Составляемое приветствие сервера
 	hello::server_t answer;
 	// Устанавливаем версию протокола, доставшуюся от предыдущих изданий
@@ -1063,7 +1063,7 @@ context::error_t anyks::internal::Engine::answer(const vector <uint8_t> & sessio
  * @return отказ отправки подтверждения подлинности
  *
  */
-context::error_t anyks::internal::Engine::authenticate() noexcept {
+context::error_t nts::internal::Engine::authenticate() noexcept {
 	// Составляемое сообщение цепочки сертификатов
 	message::certificate_t certificate;
 	/**
@@ -1186,7 +1186,7 @@ context::error_t anyks::internal::Engine::authenticate() noexcept {
  * @return отказ отправки завершения рукопожатия
  *
  */
-context::error_t anyks::internal::Engine::complete() noexcept {
+context::error_t nts::internal::Engine::complete() noexcept {
 	// Получаем сторону связи, которую ведёт модуль
 	const session::side_t side = (this->_server ? session::side_t::SERVER : session::side_t::CLIENT);
 	// Место, в которое помещается хеш переписки рукопожатия
@@ -1212,7 +1212,7 @@ context::error_t anyks::internal::Engine::complete() noexcept {
  * @return     отказ разбора цепочки сертификатов
  *
  */
-context::error_t anyks::internal::Engine::chain(const view_t & body) noexcept {
+context::error_t nts::internal::Engine::chain(const view_t & body) noexcept {
 	// Разбираемое сообщение цепочки сертификатов
 	message::certificate_t certificate;
 	// Если сообщение цепочки сертификатов разобрать не удалось
@@ -1266,7 +1266,7 @@ context::error_t anyks::internal::Engine::chain(const view_t & body) noexcept {
  * @return     отказ проверки подписи владения ключом
  *
  */
-context::error_t anyks::internal::Engine::possession(const view_t & body) noexcept {
+context::error_t nts::internal::Engine::possession(const view_t & body) noexcept {
 	// Если цепочка сертификатов собеседника пуста
 	if(this->_peer.empty())
 		// Выводим отказ отсутствия сертификата собеседника
@@ -1336,7 +1336,7 @@ context::error_t anyks::internal::Engine::possession(const view_t & body) noexce
  * @return     отказ проверки завершения рукопожатия
  *
  */
-context::error_t anyks::internal::Engine::confirm(const view_t & body) noexcept {
+context::error_t nts::internal::Engine::confirm(const view_t & body) noexcept {
 	// Получаем сторону связи собеседника
 	const session::side_t side = (this->_server ? session::side_t::CLIENT : session::side_t::SERVER);
 	// Место, в которое помещается хеш переписки рукопожатия
@@ -1370,7 +1370,7 @@ context::error_t anyks::internal::Engine::confirm(const view_t & body) noexcept 
  * @return           отказ разбора предложения заранее разделённых ключей
  *
  */
-context::error_t anyks::internal::Engine::offered(const vector <hello::extension_t> & extensions, const view_t & message) noexcept {
+context::error_t nts::internal::Engine::offered(const vector <hello::extension_t> & extensions, const view_t & message) noexcept {
 	// Разыскиваем расширение заранее разделённых ключей клиента
 	const hello::extension_t * offer = hello::extension(extensions, static_cast <uint16_t> (extension::type_t::SECRET));
 	// Если заранее разделённых ключей клиент не предлагает либо признавать их нечем
@@ -1525,7 +1525,7 @@ context::error_t anyks::internal::Engine::offered(const vector <hello::extension
  * @return        отказ разбора приветствия клиента
  *
  */
-context::error_t anyks::internal::Engine::incoming(const view_t & body, const view_t & message) noexcept {
+context::error_t nts::internal::Engine::incoming(const view_t & body, const view_t & message) noexcept {
 	// Разбираемое приветствие клиента
 	hello::client_t greeting;
 	// Если приветствие клиента разобрать не удалось
@@ -2006,7 +2006,7 @@ context::error_t anyks::internal::Engine::incoming(const view_t & body, const vi
  * @return        отказ разбора приветствия сервера
  *
  */
-context::error_t anyks::internal::Engine::outgoing(const view_t & body, const view_t & message) noexcept {
+context::error_t nts::internal::Engine::outgoing(const view_t & body, const view_t & message) noexcept {
 	// Разбираемое приветствие сервера
 	hello::server_t answer;
 	// Если приветствие сервера разобрать не удалось
@@ -2260,7 +2260,7 @@ context::error_t anyks::internal::Engine::outgoing(const view_t & body, const vi
  * @return     отказ смены ключевого материала направления
  *
  */
-context::error_t anyks::internal::Engine::rotate(const session::side_t side) noexcept {
+context::error_t nts::internal::Engine::rotate(const session::side_t side) noexcept {
 	// Если значение направления связи сменить не удалось
 	if(this->_secrets.renew(side) != session::error_t::NONE)
 		// Выводим отказ смены значения направления связи
@@ -2297,7 +2297,7 @@ context::error_t anyks::internal::Engine::rotate(const session::side_t side) noe
  * @return     отказ разбора смены ключевого материала
  *
  */
-context::error_t anyks::internal::Engine::renew(const view_t & body) noexcept {
+context::error_t nts::internal::Engine::renew(const view_t & body) noexcept {
 	// Если связь ещё не установлена
 	if(this->_state != context::state_t::ESTABLISHED)
 		// Выводим отказ прихода смены ключей не в свой черёд
@@ -2333,7 +2333,7 @@ context::error_t anyks::internal::Engine::renew(const view_t & body) noexcept {
  * @return отказ вывода значения возобновления связи
  *
  */
-context::error_t anyks::internal::Engine::keeping() noexcept {
+context::error_t nts::internal::Engine::keeping() noexcept {
 	// Место, в которое помещается хеш переписки рукопожатия
 	uint8_t transcript[schedule::SCHEDULE_SECRET];
 	// Если хеш переписки рукопожатия получить не удалось
@@ -2355,7 +2355,7 @@ context::error_t anyks::internal::Engine::keeping() noexcept {
  * @return     отказ разбора билета возобновления связи
  *
  */
-context::error_t anyks::internal::Engine::accept(const view_t & body) noexcept {
+context::error_t nts::internal::Engine::accept(const view_t & body) noexcept {
 	// Если связь ещё не установлена
 	if(this->_state != context::state_t::ESTABLISHED)
 		// Выводим отказ прихода билета не в свой черёд
@@ -2437,7 +2437,7 @@ context::error_t anyks::internal::Engine::accept(const view_t & body) noexcept {
  * @return     отказ разбора принятого извещения
  *
  */
-context::error_t anyks::internal::Engine::notice(const view_t & data) noexcept {
+context::error_t nts::internal::Engine::notice(const view_t & data) noexcept {
 	// Разбираемое извещение собеседника
 	alert::alert_t alert;
 	// Если извещение собеседника разобрать не удалось
@@ -2475,7 +2475,7 @@ context::error_t anyks::internal::Engine::notice(const view_t & data) noexcept {
  * @return        отказ разбора сообщения рукопожатия
  *
  */
-context::error_t anyks::internal::Engine::handle(const handshake::type_t type, const view_t & body, const view_t & message) noexcept {
+context::error_t nts::internal::Engine::handle(const handshake::type_t type, const view_t & body, const view_t & message) noexcept {
 	// Получаем сторону связи собеседника
 	const session::side_t side = (this->_server ? session::side_t::CLIENT : session::side_t::SERVER);
 	// Если принят билет возобновления связи
@@ -2728,7 +2728,7 @@ context::error_t anyks::internal::Engine::handle(const handshake::type_t type, c
  * @return состояние связи
  *
  */
-context::state_t anyks::internal::Engine::state() const noexcept {
+context::state_t nts::internal::Engine::state() const noexcept {
 	// Выводим состояние связи
 	return this->_state;
 }
@@ -2738,7 +2738,7 @@ context::state_t anyks::internal::Engine::state() const noexcept {
  * @return отказ, которым связь оборвана
  *
  */
-context::error_t anyks::internal::Engine::error() const noexcept {
+context::error_t nts::internal::Engine::error() const noexcept {
 	// Выводим отказ, которым связь оборвана
 	return this->_error;
 }
@@ -2748,7 +2748,7 @@ context::error_t anyks::internal::Engine::error() const noexcept {
  * @return извещение, которым связь оборвана
  *
  */
-const alert::alert_t & anyks::internal::Engine::alert() const noexcept {
+const alert::alert_t & nts::internal::Engine::alert() const noexcept {
 	// Выводим извещение, которым связь оборвана
 	return this->_alert;
 }
@@ -2758,7 +2758,7 @@ const alert::alert_t & anyks::internal::Engine::alert() const noexcept {
  * @return согласованный сторонами набор шифрования
  *
  */
-protect::suite_t anyks::internal::Engine::suite() const noexcept {
+protect::suite_t nts::internal::Engine::suite() const noexcept {
 	// Выводим согласованный сторонами набор шифрования
 	return this->_suite;
 }
@@ -2768,7 +2768,7 @@ protect::suite_t anyks::internal::Engine::suite() const noexcept {
  * @return цепочка сертификатов, предъявленная собеседником
  *
  */
-const vector <vector <uint8_t>> & anyks::internal::Engine::peer() const noexcept {
+const vector <vector <uint8_t>> & nts::internal::Engine::peer() const noexcept {
 	// Выводим цепочку сертификатов, предъявленную собеседником
 	return this->_peer;
 }
@@ -2778,7 +2778,7 @@ const vector <vector <uint8_t>> & anyks::internal::Engine::peer() const noexcept
  * @return имя узла, запрошенное клиентом у сервера
  *
  */
-const string & anyks::internal::Engine::name() const noexcept {
+const string & nts::internal::Engine::name() const noexcept {
 	// Выводим имя узла, запрошенное клиентом у сервера
 	return this->_name;
 }
@@ -2788,7 +2788,7 @@ const string & anyks::internal::Engine::name() const noexcept {
  * @return прикладной протокол, выбранный сторонами связи
  *
  */
-const string & anyks::internal::Engine::protocol() const noexcept {
+const string & nts::internal::Engine::protocol() const noexcept {
 	// Выводим прикладной протокол, выбранный сторонами связи
 	return this->_protocol;
 }
@@ -2798,7 +2798,7 @@ const string & anyks::internal::Engine::protocol() const noexcept {
  * @param suites устанавливаемые наборы шифрования
  *
  */
-void anyks::internal::Engine::suites(const vector <protect::suite_t> & suites) noexcept {
+void nts::internal::Engine::suites(const vector <protect::suite_t> & suites) noexcept {
 	// Если предлагаемые наборы шифрования переданы
 	if(!suites.empty())
 		// Запоминаем предлагаемые наборы шифрования
@@ -2810,7 +2810,7 @@ void anyks::internal::Engine::suites(const vector <protect::suite_t> & suites) n
  * @param groups устанавливаемые кривые обмена ключами
  *
  */
-void anyks::internal::Engine::groups(const vector <extension::group_t> & groups) noexcept {
+void nts::internal::Engine::groups(const vector <extension::group_t> & groups) noexcept {
 	// Если предлагаемые кривые обмена ключами переданы
 	if(!groups.empty())
 		// Запоминаем предлагаемые кривые обмена ключами
@@ -2822,7 +2822,7 @@ void anyks::internal::Engine::groups(const vector <extension::group_t> & groups)
  * @param credential устанавливаемая подлинность своей стороны
  *
  */
-void anyks::internal::Engine::credential(const context::credential_t & credential) noexcept {
+void nts::internal::Engine::credential(const context::credential_t & credential) noexcept {
 	// Запоминаем подлинность своей стороны связи
 	this->_credential = credential;
 }
@@ -2832,7 +2832,7 @@ void anyks::internal::Engine::credential(const context::credential_t & credentia
  * @param name устанавливаемое имя узла
  *
  */
-void anyks::internal::Engine::name(const string & name) noexcept {
+void nts::internal::Engine::name(const string & name) noexcept {
 	// Запоминаем имя узла, запрашиваемое у сервера
 	this->_name = name;
 }
@@ -2842,7 +2842,7 @@ void anyks::internal::Engine::name(const string & name) noexcept {
  * @param protocols устанавливаемые прикладные протоколы
  *
  */
-void anyks::internal::Engine::protocols(const vector <string> & protocols) noexcept {
+void nts::internal::Engine::protocols(const vector <string> & protocols) noexcept {
 	// Запоминаем предлагаемые прикладные протоколы связи
 	this->_protocols = protocols;
 }
@@ -2852,7 +2852,7 @@ void anyks::internal::Engine::protocols(const vector <string> & protocols) noexc
  * @param cookie устанавливаемая метка возврата состояния
  *
  */
-void anyks::internal::Engine::cookie(const vector <uint8_t> & cookie) noexcept {
+void nts::internal::Engine::cookie(const vector <uint8_t> & cookie) noexcept {
 	// Запоминаем метку возврата состояния, выдаваемую просьбой о повторе
 	this->_cookie = cookie;
 }
@@ -2862,7 +2862,7 @@ void anyks::internal::Engine::cookie(const vector <uint8_t> & cookie) noexcept {
  * @return метка возврата состояния, принятая от собеседника
  *
  */
-const vector <uint8_t> & anyks::internal::Engine::cookie() const noexcept {
+const vector <uint8_t> & nts::internal::Engine::cookie() const noexcept {
 	/**
 	 * Сервер получает метку повтором приветствия клиента, а клиент - самой просьбой
 	 * о повторе: сторонам возвращается то, что каждая из них приняла
@@ -2875,7 +2875,7 @@ const vector <uint8_t> & anyks::internal::Engine::cookie() const noexcept {
  * @param moment устанавливаемый миг в секундах
  *
  */
-void anyks::internal::Engine::moment(const int64_t moment) noexcept {
+void nts::internal::Engine::moment(const int64_t moment) noexcept {
 	// Запоминаем миг, которым связь судит сроки билетов
 	this->_moment = moment;
 }
@@ -2885,7 +2885,7 @@ void anyks::internal::Engine::moment(const int64_t moment) noexcept {
  * @param ticket предъявляемый билет возобновления связи
  *
  */
-void anyks::internal::Engine::resume(const context::ticket_t & ticket) noexcept {
+void nts::internal::Engine::resume(const context::ticket_t & ticket) noexcept {
 	// Запоминаем билет, предъявляемый на возобновление связи
 	this->_resume = ticket;
 }
@@ -2895,7 +2895,7 @@ void anyks::internal::Engine::resume(const context::ticket_t & ticket) noexcept 
  * @param tickets признаваемые билеты возобновления связи
  *
  */
-void anyks::internal::Engine::resume(const vector <context::ticket_t> & tickets) noexcept {
+void nts::internal::Engine::resume(const vector <context::ticket_t> & tickets) noexcept {
 	// Запоминаем билеты, признаваемые на возобновление связи
 	this->_store = tickets;
 }
@@ -2905,7 +2905,7 @@ void anyks::internal::Engine::resume(const vector <context::ticket_t> & tickets)
  * @return признак того, что связь возобновлена билетом
  *
  */
-bool anyks::internal::Engine::shared() const noexcept {
+bool nts::internal::Engine::shared() const noexcept {
 	// Выводим признак возобновления связи билетом
 	return this->_shared;
 }
@@ -2915,7 +2915,7 @@ bool anyks::internal::Engine::shared() const noexcept {
  * @param advance устанавливаемое предложение упреждающих данных
  *
  */
-void anyks::internal::Engine::advance(const bool advance, const uint32_t limit) noexcept {
+void nts::internal::Engine::advance(const bool advance, const uint32_t limit) noexcept {
 	// Запоминаем предложение упреждающих данных связи
 	this->_advance = advance;
 	// Запоминаем предел упреждающих данных связи
@@ -2927,7 +2927,7 @@ void anyks::internal::Engine::advance(const bool advance, const uint32_t limit) 
  * @return признак того, что упреждающие данные приняты
  *
  */
-bool anyks::internal::Engine::accepted() const noexcept {
+bool nts::internal::Engine::accepted() const noexcept {
 	// Выводим признак приёма упреждающих данных собеседником
 	return this->_accepted;
 }
@@ -2937,7 +2937,7 @@ bool anyks::internal::Engine::accepted() const noexcept {
  * @param request устанавливаемое требование подлинности клиента
  *
  */
-void anyks::internal::Engine::request(const bool request) noexcept {
+void nts::internal::Engine::request(const bool request) noexcept {
 	// Запоминаем требование подлинности клиента
 	this->_request = request;
 }
@@ -2947,7 +2947,7 @@ void anyks::internal::Engine::request(const bool request) noexcept {
  * @return отказ заведения связи
  *
  */
-context::error_t anyks::internal::Engine::start() noexcept {
+context::error_t nts::internal::Engine::start() noexcept {
 	// Если связь уже заведена
 	if(this->_state != context::state_t::NONE)
 		// Выводим отказ негодного состояния связи
@@ -3007,7 +3007,7 @@ context::error_t anyks::internal::Engine::start() noexcept {
  * @brief Метод сброса состояния связи
  *
  */
-void anyks::internal::Engine::clear() noexcept {
+void nts::internal::Engine::clear() noexcept {
 	// Выполняем сброс состояния связи
 	this->_state = context::state_t::NONE;
 	// Выполняем сброс отказа, которым связь оборвана
@@ -3116,7 +3116,7 @@ void anyks::internal::Engine::clear() noexcept {
  * @return     отказ разбора принятых байтов
  *
  */
-context::error_t anyks::internal::Engine::push(const view_t & data) noexcept {
+context::error_t nts::internal::Engine::push(const view_t & data) noexcept {
 	// Если связь ещё не заведена либо уже оборвана
 	if((this->_state == context::state_t::NONE) || (this->_state == context::state_t::FAILED))
 		// Выводим отказ негодного состояния связи
@@ -3302,7 +3302,7 @@ context::error_t anyks::internal::Engine::push(const view_t & data) noexcept {
  * @return накопленные байты, отправляемые собеседнику
  *
  */
-view_t anyks::internal::Engine::output() const noexcept {
+view_t nts::internal::Engine::output() const noexcept {
 	// Выводим накопленные байты, отправляемые собеседнику
 	return view_t(this->_wire.data(), this->_wire.size());
 }
@@ -3312,7 +3312,7 @@ view_t anyks::internal::Engine::output() const noexcept {
  * @param size размер снимаемых байтов
  *
  */
-void anyks::internal::Engine::consume(const size_t size) noexcept {
+void nts::internal::Engine::consume(const size_t size) noexcept {
 	// Если снимается весь накопитель отправляемых байтов
 	if(size >= this->_wire.size())
 		// Выполняем сброс накопителя отправляемых байтов
@@ -3328,7 +3328,7 @@ void anyks::internal::Engine::consume(const size_t size) noexcept {
  * @return     отказ отправки прикладных данных
  *
  */
-context::error_t anyks::internal::Engine::write(const view_t & data) noexcept {
+context::error_t nts::internal::Engine::write(const view_t & data) noexcept {
 	/**
 	 * Упреждающие данные уходят до установления связи: тем они и упреждающие, что
 	 * посылаются, не дождавшись ответа сервера
@@ -3381,7 +3381,7 @@ context::error_t anyks::internal::Engine::write(const view_t & data) noexcept {
  * @return       отказ получения принятых прикладных данных
  *
  */
-context::error_t anyks::internal::Engine::read(vector <uint8_t> & result) noexcept {
+context::error_t nts::internal::Engine::read(vector <uint8_t> & result) noexcept {
 	/**
 	 * Выполняем перенос принятых прикладных данных
 	 */
@@ -3410,7 +3410,7 @@ context::error_t anyks::internal::Engine::read(vector <uint8_t> & result) noexce
  * @return        отказ смены ключевого материала своего направления
  *
  */
-context::error_t anyks::internal::Engine::update(const bool request) noexcept {
+context::error_t nts::internal::Engine::update(const bool request) noexcept {
 	// Если связь ещё не установлена
 	if(this->_state != context::state_t::ESTABLISHED)
 		// Выводим отказ негодного состояния связи
@@ -3454,7 +3454,7 @@ context::error_t anyks::internal::Engine::update(const bool request) noexcept {
  * @return отказ выдачи билета возобновления связи
  *
  */
-context::error_t anyks::internal::Engine::issue() noexcept {
+context::error_t nts::internal::Engine::issue() noexcept {
 	// Если связь ведётся стороной клиента
 	if(!this->_server)
 		// Выводим отказ негодной стороны связи: билеты выдаёт сервер
@@ -3598,7 +3598,7 @@ context::error_t anyks::internal::Engine::issue() noexcept {
  * @return выданные либо принятые билеты возобновления связи
  *
  */
-const vector <context::ticket_t> & anyks::internal::Engine::tickets() const noexcept {
+const vector <context::ticket_t> & nts::internal::Engine::tickets() const noexcept {
 	// Выводим выданные либо принятые билеты возобновления связи
 	return this->_tickets;
 }
@@ -3608,7 +3608,7 @@ const vector <context::ticket_t> & anyks::internal::Engine::tickets() const noex
  * @return отказ закрытия связи
  *
  */
-context::error_t anyks::internal::Engine::close() noexcept {
+context::error_t nts::internal::Engine::close() noexcept {
 	// Если связь уже закрыта либо оборвана
 	if((this->_state == context::state_t::CLOSED) || (this->_state == context::state_t::FAILED))
 		// Выводим отказ закрытия закрытой связи
@@ -3638,7 +3638,7 @@ context::error_t anyks::internal::Engine::close() noexcept {
  * @param server признак того, что связь ведётся стороной сервера
  *
  */
-anyks::internal::Engine::Engine(const bool server) noexcept :
+nts::internal::Engine::Engine(const bool server) noexcept :
  _server(server), _request(false), _requested(false), _retried(false),
  _state(context::state_t::NONE), _error(context::error_t::NONE),
  _suite(protect::suite_t::NONE), _group(extension::group_t::NONE),
@@ -3674,7 +3674,7 @@ anyks::internal::Engine::Engine(const bool server) noexcept :
  * @brief Деструктор
  *
  */
-anyks::internal::Engine::~Engine() noexcept {
+nts::internal::Engine::~Engine() noexcept {
 	// Выполняем сброс состояния связи
 	this->clear();
 }

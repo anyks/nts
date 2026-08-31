@@ -47,7 +47,7 @@ using namespace std;
 /**
  * Подписываемся на пространство имён библиотеки
  */
-using namespace anyks;
+using namespace nts;
 
 /**
  * @brief Пространство имён образца

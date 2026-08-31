@@ -34,7 +34,7 @@
 /**
  * Используем пространство имён проекта
  */
-using namespace anyks;
+using namespace nts;
 
 /**
  * @brief Контрольные значения проверок

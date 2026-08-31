@@ -52,12 +52,12 @@ namespace {
 	/**
 	 * Пространство имён библиотеки
 	 */
-	using namespace anyks;
+	using namespace nts;
 
 	/**
 	 * Пространство имён модуля
 	 */
-	using namespace anyks::flow;
+	using namespace nts::flow;
 
 	/**
 	 * @brief Метод проверки принадлежности сообщения стороне связи
@@ -80,7 +80,7 @@ namespace {
  * @return роль стороны связи
  *
  */
-role_t anyks::flow::Machine::role() const noexcept {
+role_t nts::flow::Machine::role() const noexcept {
 	// Выводим роль стороны, ведущей ход рукопожатия
 	return this->_role;
 }
@@ -90,7 +90,7 @@ role_t anyks::flow::Machine::role() const noexcept {
  * @return ступень хода рукопожатия
  *
  */
-stage_t anyks::flow::Machine::stage() const noexcept {
+stage_t nts::flow::Machine::stage() const noexcept {
 	// Выводим ступень, до которой дошло рукопожатие
 	return this->_stage;
 }
@@ -100,7 +100,7 @@ stage_t anyks::flow::Machine::stage() const noexcept {
  * @return признак того, что рукопожатие завершено и связь установлена
  *
  */
-bool anyks::flow::Machine::established() const noexcept {
+bool nts::flow::Machine::established() const noexcept {
 	// Выводим признак завершённости рукопожатия
 	return (this->_stage == stage_t::ESTABLISHED);
 }
@@ -112,7 +112,7 @@ bool anyks::flow::Machine::established() const noexcept {
  * @return     пора ключей записей, отправляемых этой стороной
  *
  */
-epoch_t anyks::flow::Machine::epoch(const session::side_t side) const noexcept {
+epoch_t nts::flow::Machine::epoch(const session::side_t side) const noexcept {
 	// Выводим пору ключей записей запрашиваемой стороны
 	return ((side == session::side_t::CLIENT) ? this->_client : this->_server);
 }
@@ -124,7 +124,7 @@ epoch_t anyks::flow::Machine::epoch(const session::side_t side) const noexcept {
  * @return     признак успешности заведения хода рукопожатия
  *
  */
-bool anyks::flow::Machine::start(const role_t role) noexcept {
+bool nts::flow::Machine::start(const role_t role) noexcept {
 	// Выполняем сброс прежнего хода рукопожатия
 	this->clear();
 	// Если роль стороны связи не установлена
@@ -142,7 +142,7 @@ bool anyks::flow::Machine::start(const role_t role) noexcept {
  * @brief Метод сброса хода рукопожатия
  *
  */
-void anyks::flow::Machine::clear() noexcept {
+void nts::flow::Machine::clear() noexcept {
 	// Выполняем сброс роли стороны, ведущей ход рукопожатия
 	this->_role = role_t::NONE;
 	// Выполняем сброс ступени хода рукопожатия
@@ -167,7 +167,7 @@ void anyks::flow::Machine::clear() noexcept {
  * @return     отказ объявления сообщения рукопожатия
  *
  */
-error_t anyks::flow::Machine::accept(const handshake::type_t type, const session::side_t side) noexcept {
+error_t nts::flow::Machine::accept(const handshake::type_t type, const session::side_t side) noexcept {
 	// Если ход рукопожатия не заведён либо уже прерван
 	if((this->_stage == stage_t::NONE) || (this->_stage == stage_t::FAILED))
 		// Выводим отказ негодного состояния хода рукопожатия
@@ -378,7 +378,7 @@ error_t anyks::flow::Machine::accept(const handshake::type_t type, const session
  * @return отказ объявления просьбы о повторе приветствия
  *
  */
-error_t anyks::flow::Machine::retry() noexcept {
+error_t nts::flow::Machine::retry() noexcept {
 	// Если ход рукопожатия не заведён либо уже прерван
 	if((this->_stage == stage_t::NONE) || (this->_stage == stage_t::FAILED))
 		// Выводим отказ негодного состояния хода рукопожатия
@@ -420,7 +420,7 @@ error_t anyks::flow::Machine::retry() noexcept {
  * @return признак того, что клиент подтвердил владение ключом сертификата
  *
  */
-bool anyks::flow::Machine::certified() const noexcept {
+bool nts::flow::Machine::certified() const noexcept {
 	// Выводим признак подтверждения подлинности клиентом
 	return this->_certified;
 }
@@ -428,4 +428,4 @@ bool anyks::flow::Machine::certified() const noexcept {
  * @brief Конструктор
  *
  */
-anyks::flow::Machine::Machine() noexcept : _role(role_t::NONE), _stage(stage_t::NONE), _retried(false), _requested(false), _certified(false), _client(epoch_t::PLAIN), _server(epoch_t::PLAIN) {}
+nts::flow::Machine::Machine() noexcept : _role(role_t::NONE), _stage(stage_t::NONE), _retried(false), _requested(false), _certified(false), _client(epoch_t::PLAIN), _server(epoch_t::PLAIN) {}

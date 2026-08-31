@@ -51,7 +51,7 @@
  *
  * \~
  */
-namespace anyks {
+namespace nts {
 	/**
 	 * Подписываемся на стандартное пространство имён
 	 */
@@ -68,7 +68,7 @@ namespace anyks {
 	 *
 	 * @note Пространство названо entropy, а не random: свободная функция random входит
 	 *       в POSIX, и одноимённое пространство имён сделало бы её вызов у потребителя,
-	 *       написавшего using namespace anyks, двусмысленным
+	 *       написавшего using namespace nts, двусмысленным
 	 *
 	 * \~english
 	 * @brief Namespace of the module of the source of the random values
@@ -78,7 +78,7 @@ namespace anyks {
 	 *          is one more place where the randomness degenerates unnoticed.
 	 * @note The namespace is named entropy and not random: the free function random is a part
 	 *       of POSIX, and a namespace of the same name would make its call ambiguous for a
-	 *       consumer who wrote using namespace anyks
+	 *       consumer who wrote using namespace nts
 	 *
 	 * \~
 	 */

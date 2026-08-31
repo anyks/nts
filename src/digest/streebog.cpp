@@ -54,12 +54,12 @@ namespace {
 	/**
 	 * Пространство имён библиотеки
 	 */
-	using namespace anyks;
+	using namespace nts;
 
 	/**
 	 * Пространство имён модуля
 	 */
-	using namespace anyks::digest;
+	using namespace nts::digest;
 
 	/**
 	 * @brief Нелинейное биективное преобразование множества двоичных векторов
@@ -449,7 +449,7 @@ namespace {
  * @return длина вырабатываемого хеша
  *
  */
-anyks::digest::type_t anyks::digest::Streebog::type() const noexcept {
+nts::digest::type_t nts::digest::Streebog::type() const noexcept {
 	// Выводим длину вырабатываемого хеша
 	return this->_type;
 }
@@ -459,7 +459,7 @@ anyks::digest::type_t anyks::digest::Streebog::type() const noexcept {
  * @param type длина вырабатываемого хеша
  *
  */
-void anyks::digest::Streebog::reset(const type_t type) noexcept {
+void nts::digest::Streebog::reset(const type_t type) noexcept {
 	// Запоминаем длину вырабатываемого хеша
 	this->_type = type;
 	// Снимаем признак того, что хеш уже снят
@@ -491,7 +491,7 @@ void anyks::digest::Streebog::reset(const type_t type) noexcept {
  * @param data подаваемый кусок сообщения
  *
  */
-void anyks::digest::Streebog::update(const view_t & data) noexcept {
+void nts::digest::Streebog::update(const view_t & data) noexcept {
 	// Если хеширование завершено либо кусок сообщения пустой
 	if(this->_finished || (this->_type == type_t::NONE) || (data.data == nullptr) || (data.size == 0))
 		// Выходим из метода
@@ -541,7 +541,7 @@ void anyks::digest::Streebog::update(const view_t & data) noexcept {
  * @return признак успешности снятия хеша
  *
  */
-bool anyks::digest::Streebog::finish(uint8_t * result, const size_t size, const order_t order) noexcept {
+bool nts::digest::Streebog::finish(uint8_t * result, const size_t size, const order_t order) noexcept {
 	// Определяем длину вырабатываемого хеша в байтах
 	const size_t length = static_cast <size_t> (this->_type);
 	// Если хеш уже снят, длина его не установлена либо место под него мало
@@ -598,7 +598,7 @@ bool anyks::digest::Streebog::finish(uint8_t * result, const size_t size, const 
  * @param type длина вырабатываемого хеша
  *
  */
-anyks::digest::Streebog::Streebog(const type_t type) noexcept {
+nts::digest::Streebog::Streebog(const type_t type) noexcept {
 	// Выполняем приведение объекта к началу хеширования
 	this->reset(type);
 }
@@ -614,7 +614,7 @@ anyks::digest::Streebog::Streebog(const type_t type) noexcept {
  * @return признак успешности выработки хеша
  *
  */
-bool anyks::digest::streebog(const type_t type, const view_t & data, uint8_t * result, const size_t size, const order_t order) noexcept {
+bool nts::digest::streebog(const type_t type, const view_t & data, uint8_t * result, const size_t size, const order_t order) noexcept {
 	// Создаём объект хеширования
 	streebog_t hash(type);
 	// Выполняем подачу хешируемого сообщения

@@ -57,12 +57,12 @@ namespace {
 	/**
 	 * Пространство имён библиотеки
 	 */
-	using namespace anyks;
+	using namespace nts;
 
 	/**
 	 * Пространство имён модуля
 	 */
-	using namespace anyks::protect;
+	using namespace nts::protect;
 
 	/**
 	 * @brief Метки ярусов выработки ключа записи
@@ -158,7 +158,7 @@ namespace {
  * @return      длина блока базового шифра в байтах, ноль у неизвестного набора
  *
  */
-size_t anyks::protect::block(const suite_t suite) noexcept {
+size_t nts::protect::block(const suite_t suite) noexcept {
 	// Выполняем поиск описания набора шифрования
 	const Sample * sample = search(suite);
 	// Выводим длину блока базового шифра набора шифрования
@@ -172,7 +172,7 @@ size_t anyks::protect::block(const suite_t suite) noexcept {
  * @return      наибольший порядковый номер записи, ноль у неизвестного набора
  *
  */
-uint64_t anyks::protect::limit(const suite_t suite) noexcept {
+uint64_t nts::protect::limit(const suite_t suite) noexcept {
 	// Выполняем поиск описания набора шифрования
 	const Sample * sample = search(suite);
 	// Выводим наибольший порядковый номер записи набора шифрования
@@ -189,7 +189,7 @@ uint64_t anyks::protect::limit(const suite_t suite) noexcept {
  * @return         признак успешности выработки ключа записи
  *
  */
-bool anyks::protect::tree(const suite_t suite, const view_t & key, const uint64_t sequence, uint8_t * result) noexcept {
+bool nts::protect::tree(const suite_t suite, const view_t & key, const uint64_t sequence, uint8_t * result) noexcept {
 	// Если место для ключа записи не передано
 	if(result == nullptr)
 		// Выводим отказ выработки ключа записи
@@ -239,7 +239,7 @@ bool anyks::protect::tree(const suite_t suite, const view_t & key, const uint64_
  * @return         отказ подготовки базового шифра
  *
  */
-error_t anyks::protect::Protection::prepare(const uint64_t sequence, cipher::block_t & block) noexcept {
+error_t nts::protect::Protection::prepare(const uint64_t sequence, cipher::block_t & block) noexcept {
 	// Выполняем поиск описания набора шифрования
 	const Sample * sample = search(this->_suite);
 	// Если набор шифрования неизвестен
@@ -259,7 +259,7 @@ error_t anyks::protect::Protection::prepare(const uint64_t sequence, cipher::blo
 		// Ключ защищаемой записи
 		uint8_t key[PROTECT_KEY];
 		// Если ключ записи выработать не удалось
-		if(!anyks::protect::tree(this->_suite, view_t(this->_key, PROTECT_KEY), sequence, key)){
+		if(!nts::protect::tree(this->_suite, view_t(this->_key, PROTECT_KEY), sequence, key)){
 			// Выполняем затирание ключа записи
 			wipe(key, sizeof(key));
 			// Выводим отказ подготовки базового шифра
@@ -298,7 +298,7 @@ error_t anyks::protect::Protection::prepare(const uint64_t sequence, cipher::blo
  * @param result   место, в которое помещается одноразовое значение
  *
  */
-void anyks::protect::Protection::nonce(const uint64_t sequence, uint8_t * result) const noexcept {
+void nts::protect::Protection::nonce(const uint64_t sequence, uint8_t * result) const noexcept {
 	// Записываем вектор замены направления связи
 	::memcpy(result, this->_vector, this->_size);
 	/**
@@ -318,7 +318,7 @@ void anyks::protect::Protection::nonce(const uint64_t sequence, uint8_t * result
  * @return признак того, что ключевой материал установлен
  *
  */
-bool anyks::protect::Protection::ready() const noexcept {
+bool nts::protect::Protection::ready() const noexcept {
 	// Выводим признак того, что ключевой материал установлен
 	return this->_ready;
 }
@@ -328,7 +328,7 @@ bool anyks::protect::Protection::ready() const noexcept {
  * @return набор шифрования направления связи
  *
  */
-suite_t anyks::protect::Protection::suite() const noexcept {
+suite_t nts::protect::Protection::suite() const noexcept {
 	// Выводим набор шифрования направления связи
 	return this->_suite;
 }
@@ -338,7 +338,7 @@ suite_t anyks::protect::Protection::suite() const noexcept {
  * @return порядковый номер очередной записи направления связи
  *
  */
-uint64_t anyks::protect::Protection::sequence() const noexcept {
+uint64_t nts::protect::Protection::sequence() const noexcept {
 	// Выводим порядковый номер очередной записи направления связи
 	return this->_sequence;
 }
@@ -352,7 +352,7 @@ uint64_t anyks::protect::Protection::sequence() const noexcept {
  * @return       признак успешности установки ключевого материала
  *
  */
-bool anyks::protect::Protection::start(const suite_t suite, const view_t & key, const view_t & vector) noexcept {
+bool nts::protect::Protection::start(const suite_t suite, const view_t & key, const view_t & vector) noexcept {
 	// Выполняем сброс прежнего ключевого материала
 	this->clear();
 	// Выполняем поиск описания набора шифрования
@@ -397,7 +397,7 @@ bool anyks::protect::Protection::start(const suite_t suite, const view_t & key, 
  * @brief Метод сброса ключевого материала направления связи
  *
  */
-void anyks::protect::Protection::clear() noexcept {
+void nts::protect::Protection::clear() noexcept {
 	// Выполняем затирание корневого ключа направления связи
 	wipe(this->_key, sizeof(this->_key));
 	// Выполняем затирание вектора замены направления связи
@@ -430,7 +430,7 @@ void anyks::protect::Protection::clear() noexcept {
  * @return        отказ наложения защиты на запись
  *
  */
-error_t anyks::protect::Protection::seal(const record::type_t type, const view_t & data, vector <uint8_t> & result, const size_t padding) noexcept {
+error_t nts::protect::Protection::seal(const record::type_t type, const view_t & data, vector <uint8_t> & result, const size_t padding) noexcept {
 	// Если ключевой материал направления связи ещё не установлен
 	if(!this->_ready)
 		// Выводим отказ наложения защиты на запись
@@ -541,7 +541,7 @@ error_t anyks::protect::Protection::seal(const record::type_t type, const view_t
  * @return       отказ снятия защиты с записи
  *
  */
-error_t anyks::protect::Protection::open(const record::header_t & header, const view_t & data, record::type_t & type, vector <uint8_t> & result) noexcept {
+error_t nts::protect::Protection::open(const record::header_t & header, const view_t & data, record::type_t & type, vector <uint8_t> & result) noexcept {
 	// Если ключевой материал направления связи ещё не установлен
 	if(!this->_ready)
 		// Выводим отказ снятия защиты с записи
@@ -651,7 +651,7 @@ error_t anyks::protect::Protection::open(const record::header_t & header, const 
  * @brief Конструктор
  *
  */
-anyks::protect::Protection::Protection() noexcept : _ready(false), _suite(suite_t::NONE), _size(0), _sequence(0), _limit(0), _derived(0) {
+nts::protect::Protection::Protection() noexcept : _ready(false), _suite(suite_t::NONE), _size(0), _sequence(0), _limit(0), _derived(0) {
 	// Выполняем обнуление корневого ключа направления связи
 	::memset(this->_key, 0, sizeof(this->_key));
 	// Выполняем обнуление вектора замены направления связи
@@ -661,7 +661,7 @@ anyks::protect::Protection::Protection() noexcept : _ready(false), _suite(suite_
  * @brief Деструктор
  *
  */
-anyks::protect::Protection::~Protection() noexcept {
+nts::protect::Protection::~Protection() noexcept {
 	// Выполняем сброс ключевого материала направления связи
 	this->clear();
 }

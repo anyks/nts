@@ -47,7 +47,7 @@ namespace {
 	/**
 	 * Пространство имён библиотеки
 	 */
-	using namespace anyks;
+	using namespace nts;
 
 	/**
 	 * @brief Наибольшее число попыток выработки подписи
@@ -113,7 +113,7 @@ namespace {
  * @return признак того, что кривая установлена
  *
  */
-bool anyks::sign::Gost::ready() const noexcept {
+bool nts::sign::Gost::ready() const noexcept {
 	// Выводим признак того, что кривая установлена
 	return (this->_curve != nullptr);
 }
@@ -123,7 +123,7 @@ bool anyks::sign::Gost::ready() const noexcept {
  * @return размер подписи в байтах
  *
  */
-size_t anyks::sign::Gost::size() const noexcept {
+size_t nts::sign::Gost::size() const noexcept {
 	// Если кривая не установлена
 	if(this->_curve == nullptr)
 		// Выводим нулевой размер подписи
@@ -139,7 +139,7 @@ size_t anyks::sign::Gost::size() const noexcept {
  * @return      признак успешности установки эллиптической кривой
  *
  */
-bool anyks::sign::Gost::start(const curve::curve_t & curve) noexcept {
+bool nts::sign::Gost::start(const curve::curve_t & curve) noexcept {
 	// Выполняем сброс прежнего состояния модуля
 	this->clear();
 	// Если устанавливаемая кривая к работе не готова
@@ -155,7 +155,7 @@ bool anyks::sign::Gost::start(const curve::curve_t & curve) noexcept {
  * @brief Метод сброса состояния модуля
  *
  */
-void anyks::sign::Gost::clear() noexcept {
+void nts::sign::Gost::clear() noexcept {
 	// Выполняем затирание ключа проверки подписи
 	wipe(&this->_point, sizeof(this->_point));
 	// Выполняем затирание ключа подписи
@@ -175,7 +175,7 @@ void anyks::sign::Gost::clear() noexcept {
  * @return       признак успешности установки ключа подписи
  *
  */
-bool anyks::sign::Gost::secret(const view_t & secret) noexcept {
+bool nts::sign::Gost::secret(const view_t & secret) noexcept {
 	// Если кривая не установлена
 	if(this->_curve == nullptr)
 		// Выводим отказ установки ключа подписи
@@ -213,7 +213,7 @@ bool anyks::sign::Gost::secret(const view_t & secret) noexcept {
  * @return  признак успешности установки ключа проверки подписи
  *
  */
-bool anyks::sign::Gost::key(const view_t & x, const view_t & y) noexcept {
+bool nts::sign::Gost::key(const view_t & x, const view_t & y) noexcept {
 	// Если кривая не установлена
 	if(this->_curve == nullptr)
 		// Выводим отказ установки ключа проверки подписи
@@ -241,7 +241,7 @@ bool anyks::sign::Gost::key(const view_t & x, const view_t & y) noexcept {
  * @return     признак успешности получения ключа проверки подписи
  *
  */
-bool anyks::sign::Gost::key(uint8_t * x, uint8_t * y, const size_t size) const noexcept {
+bool nts::sign::Gost::key(uint8_t * x, uint8_t * y, const size_t size) const noexcept {
 	// Если кривая не установлена либо ключ проверки подписи не установлен
 	if((this->_curve == nullptr) || !this->_public)
 		// Выводим отказ получения ключа проверки подписи
@@ -259,7 +259,7 @@ bool anyks::sign::Gost::key(uint8_t * x, uint8_t * y, const size_t size) const n
  * @return       признак успешности выработки подписи
  *
  */
-bool anyks::sign::Gost::make(const view_t & value, const view_t & random, uint8_t * result) const noexcept {
+bool nts::sign::Gost::make(const view_t & value, const view_t & random, uint8_t * result) const noexcept {
 	// Если кривая не установлена либо ключ подписи не установлен
 	if((this->_curve == nullptr) || !this->_secret || (result == nullptr))
 		// Выводим отказ выработки подписи
@@ -353,7 +353,7 @@ bool anyks::sign::Gost::make(const view_t & value, const view_t & random, uint8_
  * @return       признак успешности выработки подписи
  *
  */
-bool anyks::sign::Gost::make(const view_t & value, uint8_t * result) const noexcept {
+bool nts::sign::Gost::make(const view_t & value, uint8_t * result) const noexcept {
 	// Если кривая не установлена либо ключ подписи не установлен
 	if((this->_curve == nullptr) || !this->_secret || (result == nullptr))
 		// Выводим отказ выработки подписи
@@ -401,7 +401,7 @@ bool anyks::sign::Gost::make(const view_t & value, uint8_t * result) const noexc
  * @return          признак того, что подпись сошлась
  *
  */
-bool anyks::sign::Gost::check(const view_t & value, const view_t & signature) const noexcept {
+bool nts::sign::Gost::check(const view_t & value, const view_t & signature) const noexcept {
 	// Если кривая не установлена либо ключ проверки подписи не установлен
 	if((this->_curve == nullptr) || !this->_public)
 		// Выводим отказ проверки подписи
@@ -489,12 +489,12 @@ bool anyks::sign::Gost::check(const view_t & value, const view_t & signature) co
  * @brief Конструктор
  *
  */
-anyks::sign::Gost::Gost() noexcept : _secret(false), _public(false), _curve(nullptr) {}
+nts::sign::Gost::Gost() noexcept : _secret(false), _public(false), _curve(nullptr) {}
 /**
  * @brief Деструктор
  *
  */
-anyks::sign::Gost::~Gost() noexcept {
+nts::sign::Gost::~Gost() noexcept {
 	// Выполняем сброс состояния модуля
 	this->clear();
 }

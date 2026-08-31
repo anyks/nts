@@ -81,7 +81,7 @@ namespace {
 	/**
 	 * Пространство имён библиотеки
 	 */
-	using namespace anyks;
+	using namespace nts;
 
 	/**
 	 * @brief Наибольшее число попыток отбора случайного числа
@@ -164,7 +164,7 @@ namespace {
  * @return     признак успешности получения случайных байтов
  *
  */
-bool anyks::entropy::bytes(uint8_t * data, const size_t size) noexcept {
+bool nts::entropy::bytes(uint8_t * data, const size_t size) noexcept {
 	// Если место случайных байтов не передано
 	if(data == nullptr)
 		// Выводим отказ получения случайных байтов
@@ -229,7 +229,7 @@ bool anyks::entropy::bytes(uint8_t * data, const size_t size) noexcept {
  * @return        признак успешности получения случайного числа
  *
  */
-bool anyks::entropy::number(const math::modulus_t & modulus, math::number_t & result) noexcept {
+bool nts::entropy::number(const math::modulus_t & modulus, math::number_t & result) noexcept {
 	// Выполняем обнуление получаемого случайного числа
 	result = math::number_t();
 	// Если модуль не установлен
@@ -243,7 +243,7 @@ bool anyks::entropy::number(const math::modulus_t & modulus, math::number_t & re
 	 */
 	for(size_t i = 0; i < ATTEMPTS; i++){
 		// Если случайные байты получить не удалось
-		if(!anyks::entropy::bytes(buffer, modulus.size()))
+		if(!nts::entropy::bytes(buffer, modulus.size()))
 			// Выводим отказ получения случайного числа
 			return false;
 		/**

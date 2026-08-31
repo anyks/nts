@@ -69,12 +69,12 @@ namespace {
 	/**
 	 * Пространство имён библиотеки
 	 */
-	using namespace anyks;
+	using namespace nts;
 
 	/**
 	 * Пространство имён модуля
 	 */
-	using namespace anyks::pem;
+	using namespace nts::pem;
 
 	/**
 	 * Знаки основания 64 по разделу 4 RFC 4648
@@ -406,7 +406,7 @@ namespace {
  * @return       отказ разбора текста
  *
  */
-pem::error_t anyks::pem::decode(const string & text, vector <block_t> & result) noexcept {
+pem::error_t nts::pem::decode(const string & text, vector <block_t> & result) noexcept {
 	// Место, до которого разбор текста дошёл
 	size_t offset = 0;
 	/**
@@ -488,7 +488,7 @@ pem::error_t anyks::pem::decode(const string & text, vector <block_t> & result) 
  * @return       отказ разбора текста
  *
  */
-pem::error_t anyks::pem::decode(const string & text, const string & label, vector <vector <uint8_t>> & result) noexcept {
+pem::error_t nts::pem::decode(const string & text, const string & label, vector <vector <uint8_t>> & result) noexcept {
 	// Набор всех разобранных записей
 	vector <block_t> blocks;
 	// Выполняем разбор всех записей текста
@@ -535,7 +535,7 @@ pem::error_t anyks::pem::decode(const string & text, const string & label, vecto
  * @return       отказ записи
  *
  */
-pem::error_t anyks::pem::encode(const block_t & block, string & result) noexcept {
+pem::error_t nts::pem::encode(const block_t & block, string & result) noexcept {
 	// Если метка записи недопустима
 	if(!suitable(block.label))
 		// Выводим отказ о недопустимой метке записи
@@ -598,7 +598,7 @@ pem::error_t anyks::pem::encode(const block_t & block, string & result) noexcept
  * @return       отказ записи
  *
  */
-pem::error_t anyks::pem::encode(const vector <block_t> & blocks, string & result) noexcept {
+pem::error_t nts::pem::encode(const vector <block_t> & blocks, string & result) noexcept {
 	// Если набор записей пуст
 	if(blocks.empty())
 		// Выводим отказ об отсутствии записей
@@ -626,7 +626,7 @@ pem::error_t anyks::pem::encode(const vector <block_t> & blocks, string & result
  * @return       отказ извлечения цепочки сертификатов
  *
  */
-pem::error_t anyks::pem::certificates(const string & text, vector <vector <uint8_t>> & result) noexcept {
+pem::error_t nts::pem::certificates(const string & text, vector <vector <uint8_t>> & result) noexcept {
 	// Выводим итог разбора записей сертификатов
 	return pem::decode(text, PEM_CERTIFICATE, result);
 }
@@ -639,7 +639,7 @@ pem::error_t anyks::pem::certificates(const string & text, vector <vector <uint8
  * @return       отказ извлечения секретного ключа
  *
  */
-pem::error_t anyks::pem::secret(const string & text, vector <uint8_t> & result) noexcept {
+pem::error_t nts::pem::secret(const string & text, vector <uint8_t> & result) noexcept {
 	// Набор всех разобранных записей
 	vector <block_t> blocks;
 	// Выполняем разбор всех записей текста
@@ -677,7 +677,7 @@ pem::error_t anyks::pem::secret(const string & text, vector <uint8_t> & result) 
  * @return      название отказа
  *
  */
-const char * anyks::pem::name(const error_t error) noexcept {
+const char * nts::pem::name(const error_t error) noexcept {
 	/**
 	 * Выполняем определение отказа
 	 */

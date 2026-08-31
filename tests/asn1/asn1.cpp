@@ -29,7 +29,7 @@
 /**
  * Используем пространство имён проекта
  */
-using namespace anyks;
+using namespace nts;
 
 /**
  * @brief Проверка разбора набора значений
