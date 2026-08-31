@@ -1,4 +1,4 @@
-[![ANYKS - Network Transport Security](https://gitflic.ru/project/anyks/ants/blob/raw?file=img%2Fbanner.jpg)](https://anyks.com)
+[![ANYKS - Network Transport Security](https://gitflic.ru/project/anyks/nts/blob/raw?file=img%2Fbanner.jpg)](https://anyks.com)
 
 # ANYKS - Network Transport Security (A-NTS)
 
