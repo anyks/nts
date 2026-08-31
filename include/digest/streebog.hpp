@@ -2,7 +2,7 @@
  * @file streebog.hpp
  * @date 2026-08-27
  *
- * @license{LicenseRef-ANTS-1.0}
+ * @license{LicenseRef-A-NTS-1.0}
  *
  * @author Yuriy Lobarev
  *

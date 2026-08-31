@@ -2,7 +2,7 @@
  * @file kdf.hpp
  * @date 2026-08-29
  *
- * @license{LicenseRef-ANTS-1.0}
+ * @license{LicenseRef-A-NTS-1.0}
  *
  * @author Yuriy Lobarev
  *

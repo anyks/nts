@@ -2,7 +2,7 @@
  * @file pem.cpp
  * @date 2026-08-30
  *
- * @license{LicenseRef-ANTS-1.0}
+ * @license{LicenseRef-A-NTS-1.0}
  *
  * @author Yuriy Lobarev
  *
