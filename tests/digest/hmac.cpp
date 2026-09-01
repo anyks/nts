@@ -214,6 +214,14 @@ TEST(HmacTest, Failures) {
 	ASSERT_FALSE(digest::hmac(digest::type_t::SHORT, view_t(secret, 32), view_t(message, 16), result, 0));
 	// Проверяем отказ выработки имитовставки длиннее хеша
 	ASSERT_FALSE(digest::hmac(digest::type_t::SHORT, view_t(secret, 32), view_t(message, 16), result, 33));
+	/**
+	 * Непереданное место при ненулевой длине - это оплошность потребителя: длина
+	 * заявлена, а читать её не из чего. Пустой же ключ, у которого и длина нулевая,
+	 * законен, и заслон сверяет эти два случая РАЗНЫМИ половинами условия
+	 */
+	ASSERT_FALSE(digest::hmac(digest::type_t::SHORT, view_t(nullptr, 32), view_t(message, 16), result, 32));
+	// Проверяем отказ выработки имитовставки на непереданном сообщении
+	ASSERT_FALSE(digest::hmac(digest::type_t::SHORT, view_t(secret, 32), view_t(nullptr, 16), result, 32));
 	// Проверяем успешность выработки имитовставки с пустым ключом
 	ASSERT_TRUE(digest::hmac(digest::type_t::SHORT, view_t(), view_t(message, 16), result, 32));
 	// Проверяем успешность выработки имитовставки на пустом сообщении
@@ -231,6 +239,10 @@ TEST(HmacTest, Failures) {
 	 * поступать так, и отказом это быть не должно
 	 */
 	ASSERT_TRUE(digest::hmac(digest::type_t::SHORT, view_t(buffer, sizeof(buffer)), view_t(message, 16), result, 32));
+	// Проверяем отказ выработки последовательности на непереданной метке назначения
+	ASSERT_FALSE(digest::prf(digest::type_t::SHORT, view_t(secret, 32), view_t(nullptr, 8), view_t(message, 16), result, 32));
+	// Проверяем отказ выработки последовательности на непереданной затравке
+	ASSERT_FALSE(digest::prf(digest::type_t::SHORT, view_t(secret, 32), view_t(), view_t(nullptr, 16), result, 32));
 	// Проверяем отказ выработки последовательности без длины хеша
 	ASSERT_FALSE(digest::prf(digest::type_t::NONE, view_t(secret, 32), view_t(), view_t(message, 16), result, 32));
 	// Проверяем отказ выработки последовательности в непереданное место

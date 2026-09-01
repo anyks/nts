@@ -267,16 +267,42 @@ TEST(GostTest, Failures) {
 	::memset(zero, 0, sizeof(zero));
 	// Проверяем отказ установки нулевого ключа подписи
 	ASSERT_FALSE(gost.secret(view_t(zero, sizeof(zero))));
+	// Места, в которые помещаются координаты ключа проверки подписи
+	uint8_t x[32], y[32];
+	// Проверяем отказ выдачи координат ключа проверки до его установки
+	ASSERT_FALSE(gost.key(x, y, sizeof(x)));
 	// Проверяем отказ проверки подписи без ключа проверки
 	ASSERT_FALSE(gost.check(view_t(digest, bytes(DIGEST, digest)), view_t(signature, bytes(SIGNATURE, signature))));
+	// Проверяем отказ выработки подписи со своим случайным числом до ключа подписи
+	ASSERT_FALSE(gost.make(view_t(digest, sizeof(digest)), signature));
 	// Выполняем установку ключа подписи
 	ASSERT_TRUE(gost.secret(view_t(secret, sizeof(secret))));
 	// Проверяем отказ выработки подписи при нулевом случайном числе
 	ASSERT_FALSE(gost.make(view_t(digest, sizeof(digest)), view_t(zero, sizeof(zero)), signature));
 	// Проверяем отказ выработки подписи в непереданное место
 	ASSERT_FALSE(gost.make(view_t(digest, sizeof(digest)), view_t(secret, sizeof(secret)), nullptr));
+	// Проверяем отказ выработки подписи со своим случайным числом в непереданное место
+	ASSERT_FALSE(gost.make(view_t(digest, sizeof(digest)), nullptr));
 	// Проверяем отказ проверки подписи неверной длины
 	ASSERT_FALSE(gost.check(view_t(digest, sizeof(digest)), view_t(signature, 32)));
+	// Проверяем отказ проверки непереданной подписи
+	ASSERT_FALSE(gost.check(view_t(digest, sizeof(digest)), view_t(nullptr, sizeof(signature))));
+	// Возвращаем годную подпись контрольного примера на место
+	bytes(SIGNATURE, signature);
+	/**
+	 * Ноль отвергается у ВСЯКОЙ из двух частей подписи по отдельности. Обнуление
+	 * подписи целиком обращает в ноль обе части разом и вторую половину заслона не
+	 * трогает, оттого части обнуляются порознь
+	 */
+	::memset(signature, 0, (sizeof(signature) / 2));
+	// Проверяем отказ проверки подписи с нулевой первой частью
+	ASSERT_FALSE(gost.check(view_t(digest, sizeof(digest)), view_t(signature, sizeof(signature))));
+	// Возвращаем годную подпись контрольного примера на место
+	bytes(SIGNATURE, signature);
+	// Выполняем обнуление второй части проверяемой подписи
+	::memset((signature + (sizeof(signature) / 2)), 0, (sizeof(signature) / 2));
+	// Проверяем отказ проверки подписи с нулевой второй частью
+	ASSERT_FALSE(gost.check(view_t(digest, sizeof(digest)), view_t(signature, sizeof(signature))));
 	// Выполняем обнуление проверяемой подписи
 	::memset(signature, 0, sizeof(signature));
 	// Проверяем отказ проверки нулевой подписи

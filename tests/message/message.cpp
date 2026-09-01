@@ -432,3 +432,81 @@ TEST(MessageTest, Ticket){
 	// Проверяем отказ разбора тела сообщения, оборванного посреди поля
 	ASSERT_EQ(message::parse(view_t(result.data(), 3), parsed), message::error_t::HUNGRY);
 }
+
+/**
+ * Проверка отказов составления сообщений на пустые обязательные поля
+ */
+TEST(MessageTest, Refusals){
+	// Накопитель, в который складывается тело составленного сообщения
+	vector <uint8_t> result;
+	// Тело сертификата, годное составлению сообщения
+	const uint8_t body[] = {0x30, 0x03, 0x02, 0x01, 0x00};
+	// Составляемое сообщение цепочки сертификатов
+	message::certificate_t certificate;
+	// Запись цепочки, у которой тело сертификата не передано
+	message::entry_t entry;
+	// Добавляем запись цепочки в составляемое сообщение
+	certificate.entries.push_back(entry);
+	// Проверяем отказ составления цепочки с непереданным телом сертификата
+	ASSERT_EQ(message::build(certificate, result), message::error_t::EMPTY);
+	// Устанавливаем телу сертификата записи нулевую длину
+	certificate.entries[0].data = view_t(body, 0);
+	// Проверяем отказ составления цепочки с телом сертификата нулевой длины
+	ASSERT_EQ(message::build(certificate, result), message::error_t::EMPTY);
+	// Устанавливаем годное тело сертификата записи
+	certificate.entries[0].data = view_t(body, sizeof(body));
+	// Проверяем успешность составления цепочки с годным телом сертификата
+	ASSERT_EQ(message::build(certificate, result), message::error_t::NONE);
+	// Составляемое сообщение подписи владения ключом
+	message::verify_t verify;
+	// Устанавливаем схему подписи владения ключом
+	verify.scheme = extension::scheme_t::S256A;
+	// Проверяем отказ составления подписи с непереданным её значением
+	ASSERT_EQ(message::build(verify, result), message::error_t::EMPTY);
+	// Устанавливаем значению подписи нулевую длину
+	verify.signature = view_t(body, 0);
+	// Проверяем отказ составления подписи со значением нулевой длины
+	ASSERT_EQ(message::build(verify, result), message::error_t::EMPTY);
+	// Составляемое сообщение билета возобновления связи
+	message::ticket_t ticket;
+	// Устанавливаем срок жизни билета возобновления связи
+	ticket.lifetime = 3600;
+	// Проверяем отказ составления билета с непереданным его телом
+	ASSERT_EQ(message::build(ticket, result), message::error_t::EMPTY);
+	// Устанавливаем телу билета нулевую длину
+	ticket.data = view_t(body, 0);
+	// Проверяем отказ составления билета с телом нулевой длины
+	ASSERT_EQ(message::build(ticket, result), message::error_t::EMPTY);
+	// Место, в которое помещается обращённая подпись владения ключом
+	uint8_t reversed[64] = {0};
+	// Проверяем отказ обращения непереданной подписи владения ключом
+	ASSERT_EQ(message::reverse(view_t(nullptr, sizeof(reversed)), reversed), message::error_t::EMPTY);
+	// Проверяем отказ обращения подписи владения ключом нулевой длины
+	ASSERT_EQ(message::reverse(view_t(reversed, 0), reversed), message::error_t::EMPTY);
+	// Проверяем отказ обращения подписи в непереданное место
+	ASSERT_EQ(message::reverse(view_t(reversed, sizeof(reversed)), nullptr), message::error_t::EMPTY);
+	// Проверяем отказ составления подписываемого содержимого без хеша переписки
+	ASSERT_EQ(message::content(view_t(nullptr, sizeof(reversed)), true, result), message::error_t::EMPTY);
+	// Проверяем отказ составления подписываемого содержимого с хешем нулевой длины
+	ASSERT_EQ(message::content(view_t(reversed, 0), true, result), message::error_t::EMPTY);
+	// Место, в которое помещается имитовставка завершения рукопожатия
+	uint8_t ending[32] = {0};
+	// Проверяем отказ выработки завершения без ключа его выработки
+	ASSERT_EQ(message::finished(view_t(nullptr, sizeof(ending)), view_t(ending, sizeof(ending)), ending), message::error_t::EMPTY);
+	// Проверяем отказ выработки завершения без хеша переписки рукопожатия
+	ASSERT_EQ(message::finished(view_t(ending, sizeof(ending)), view_t(nullptr, sizeof(ending)), ending), message::error_t::EMPTY);
+	// Проверяем отказ выработки завершения в непереданное место
+	ASSERT_EQ(message::finished(view_t(ending, sizeof(ending)), view_t(ending, sizeof(ending)), nullptr), message::error_t::EMPTY);
+	/**
+	 * Сличение тел сообщений идёт за постоянное время и оттого отвечает расхождением,
+	 * а не отказом: непереданное тело сойтись не может ни с чем, включая другое
+	 * непереданное
+	 */
+	ASSERT_FALSE(message::compare(view_t(nullptr, sizeof(ending)), view_t(ending, sizeof(ending))));
+	// Проверяем расхождение сличения с непереданным вторым телом сообщения
+	ASSERT_FALSE(message::compare(view_t(ending, sizeof(ending)), view_t(nullptr, sizeof(ending))));
+	// Проверяем расхождение сличения двух непереданных тел сообщений
+	ASSERT_FALSE(message::compare(view_t(nullptr, 0), view_t(nullptr, 0)));
+	// Проверяем схождение сличения тела сообщения с самим собой
+	ASSERT_TRUE(message::compare(view_t(ending, sizeof(ending)), view_t(ending, sizeof(ending))));
+}

@@ -883,3 +883,73 @@ TEST(ModeTest, Failures) {
 	// Проверяем отказ добавления сообщения после сброса состояния режима работы
 	ASSERT_FALSE(imitation.update(view_t(plain, size)));
 }
+
+/**
+ * Проверка отказов заведения режимов неполным описателем шифра
+ */
+TEST(ModeTest, Descriptor) {
+	// Ключ шифрования
+	uint8_t secret[32];
+	// Выполняем разбор ключа шифрования
+	bytes(KUZNYECHIK_SECRET, secret);
+	// Объект блочного шифра
+	cipher::kuznyechik_t base;
+	// Выполняем установку ключа шифрования
+	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
+	// Годный описатель базового шифра, служащий образцом порчи
+	const cipher::block_t sample(base);
+	// Вектор замены, годный режимам работы
+	uint8_t iv[cipher::MODE_REGISTER + cipher::MODE_BLOCK];
+	// Выполняем заполнение вектора замены
+	::memset(iv, 0x44, sizeof(iv));
+	// Объект режима простой замены
+	cipher::codebook_t codebook;
+	/**
+	 * Пригодность описателя сверяется по ПЯТИ признакам сразу, и всякий из них
+	 * отвергает описатель в одиночку. Описатель, у которого недостаёт лишь одного
+	 * признака, трогает ровно ту часть заслона, что за него отвечает
+	 */
+	cipher::block_t undecipherable = sample;
+	// Убираем из описателя обращение к расшифрованию блока
+	undecipherable.decrypt = nullptr;
+	// Проверяем отказ заведения описателем без обращения к расшифрованию
+	ASSERT_FALSE(codebook.start(undecipherable));
+	// Описатель шифра, у которого не заполнено обращение к зашифрованию
+	cipher::block_t unencipherable = sample;
+	// Убираем из описателя обращение к зашифрованию блока
+	unencipherable.encrypt = nullptr;
+	// Проверяем отказ заведения описателем без обращения к зашифрованию
+	ASSERT_FALSE(codebook.start(unencipherable));
+	// Описатель шифра, у которого объявлен нулевой размер блока
+	cipher::block_t sizeless = sample;
+	// Обнуляем размер блока описателя шифра
+	sizeless.size = 0;
+	// Проверяем отказ заведения описателем с нулевым размером блока
+	ASSERT_FALSE(codebook.start(sizeless));
+	/**
+	 * Размер блока сверяется с наибольшим, какой режимы вмещают: описатель, объявивший
+	 * блок больше того, отвергается, ибо места под такой блок у режима нет
+	 */
+	cipher::block_t oversized = sample;
+	// Объявляем размер блока описателя шифра сверх вмещаемого режимами
+	oversized.size = (cipher::MODE_BLOCK + 1);
+	// Проверяем отказ заведения описателем с непомерным размером блока
+	ASSERT_FALSE(codebook.start(oversized));
+	// Проверяем успешность заведения годным описателем шифра
+	ASSERT_TRUE(codebook.start(sample));
+	// Объект режима гаммирования с зацеплением
+	cipher::chaining_t chaining;
+	/**
+	 * Вектор замены режимов с зацеплением занимает целое число блоков и целиком
+	 * умещается в сдвиговом регистре: длиннее регистра он быть не смеет
+	 */
+	ASSERT_FALSE(chaining.start(sample, view_t(iv, (cipher::MODE_REGISTER + cipher::MODE_BLOCK))));
+	// Проверяем успешность заведения вектором замены длиною в сдвиговый регистр
+	ASSERT_TRUE(chaining.start(sample, view_t(iv, cipher::MODE_REGISTER)));
+	// Объект режима обратной связи по выходу
+	cipher::feedback_t feedback;
+	// Проверяем отказ заведения вектором замены длиннее сдвигового регистра
+	ASSERT_FALSE(feedback.start(sample, view_t(iv, (cipher::MODE_REGISTER + cipher::MODE_BLOCK))));
+	// Проверяем успешность заведения вектором замены длиною в сдвиговый регистр
+	ASSERT_TRUE(feedback.start(sample, view_t(iv, cipher::MODE_REGISTER)));
+}

@@ -570,3 +570,61 @@ TEST(GaloisTest, Lengths) {
 		}
 	}
 }
+
+/**
+ * Проверка отказов MGM на неполный описатель шифра и негодные места
+ */
+TEST(MgmTest, Descriptor) {
+	// Ключ шифрования
+	uint8_t secret[32];
+	// Выполняем разбор ключа шифрования
+	bytes("8899aabbccddeeff0011223344556677fedcba98765432100123456789abcdef", secret);
+	// Объект блочного шифра
+	cipher::kuznyechik_t base;
+	// Выполняем установку ключа шифрования
+	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
+	// Годный описатель базового шифра, служащий образцом порчи
+	const cipher::block_t sample(base);
+	// Неповторимое значение, годное режиму работы
+	uint8_t nonce[cipher::KUZNYECHIK_BLOCK];
+	// Выполняем заполнение неповторимого значения
+	::memset(nonce, 0x11, sizeof(nonce));
+	// Снимаем старший разряд неповторимого значения, как того требует MGM
+	nonce[0] = static_cast <uint8_t> (nonce[0] & 0x7F);
+	// Объект режима шифрования с проверкой целостности
+	cipher::galois_t galois;
+	// Описатель шифра, у которого не заполнено обращение к зашифрованию
+	cipher::block_t unencipherable = sample;
+	// Убираем из описателя обращение к зашифрованию блока
+	unencipherable.encrypt = nullptr;
+	// Проверяем отказ заведения описателем без обращения к зашифрованию
+	ASSERT_FALSE(galois.start(unencipherable, view_t(nonce, sizeof(nonce))));
+	/**
+	 * Умножение в поле Галуа MGM определено лишь для блоков в шестьдесят четыре и сто
+	 * двадцать восемь разрядов: размер блока сверяется с ОБОИМИ по отдельности, и
+	 * описатель с иным размером трогает вторую из двух половин
+	 */
+	cipher::block_t alien = sample;
+	// Объявляем размер блока описателя шифра, полю Галуа не отвечающий
+	alien.size = 4;
+	// Проверяем отказ заведения описателем с размером блока не того поля
+	ASSERT_FALSE(galois.start(alien, view_t(nonce, sizeof(nonce))));
+	// Выполняем заведение режима работы годным описателем шифра
+	ASSERT_TRUE(galois.start(sample, view_t(nonce, sizeof(nonce))));
+	// Шифруемое содержимое и место, в которое складывается итог работы
+	uint8_t source[32], result[32], tag[cipher::KUZNYECHIK_BLOCK];
+	// Выполняем заполнение шифруемого содержимого
+	::memset(source, 0x33, sizeof(source));
+	// Выполняем наложение шифрования с проверкой целостности
+	ASSERT_TRUE(galois.encrypt(view_t(nullptr, 0), view_t(source, sizeof(source)), result, tag));
+	// Выполняем заведение режима работы стороны расшифрования
+	ASSERT_TRUE(galois.start(sample, view_t(nonce, sizeof(nonce))));
+	// Проверяем отказ расшифрования при непереданном месте итога
+	ASSERT_FALSE(galois.decrypt(view_t(nullptr, 0), view_t(result, sizeof(result)), nullptr, view_t(tag, sizeof(tag))));
+	// Проверяем отказ расшифрования при непереданном шифртексте
+	ASSERT_FALSE(galois.decrypt(view_t(nullptr, 0), view_t(nullptr, sizeof(result)), source, view_t(tag, sizeof(tag))));
+	// Проверяем отказ расшифрования при непереданных связанных данных
+	ASSERT_FALSE(galois.decrypt(view_t(nullptr, sizeof(source)), view_t(result, sizeof(result)), source, view_t(tag, sizeof(tag))));
+	// Проверяем успешность расшифрования годной подачей
+	ASSERT_TRUE(galois.decrypt(view_t(nullptr, 0), view_t(result, sizeof(result)), source, view_t(tag, sizeof(tag))));
+}

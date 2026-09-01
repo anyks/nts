@@ -225,6 +225,30 @@ TEST(StreebogTest, Refusal) {
 	uint8_t result[64];
 	// Создаём объект хеширования
 	digest::streebog_t hash(digest::type_t::LONG);
+	// Кусок сообщения, подаваемый хешированию
+	const uint8_t message[4] = {0x41, 0x4E, 0x54, 0x53};
+	/**
+	 * Непереданный кусок сообщения хеширование пропускает молча: подать нечего, а
+	 * отказывать не за что. Переданность и длина сверяются РАЗНЫМИ половинами
+	 * условия, и заявленная длина при непереданном месте куска не даёт
+	 */
+	hash.update(view_t(nullptr, sizeof(message)));
+	// Выполняем подачу куска сообщения нулевой длины
+	hash.update(view_t(message, 0));
+	// Место, в которое помещается хеш, снятый после пропущенных подач
+	uint8_t empty[64] = {0};
+	// Выполняем снятие хеша после пропущенных подач
+	ASSERT_TRUE(hash.finish(empty, sizeof(empty), digest::order_t::VECTOR));
+	// Приводим объект к началу хеширования
+	hash.reset(digest::type_t::LONG);
+	// Место, в которое помещается хеш, снятый вовсе без подач
+	uint8_t bare[64] = {0};
+	// Выполняем снятие хеша вовсе без подач
+	ASSERT_TRUE(hash.finish(bare, sizeof(bare), digest::order_t::VECTOR));
+	// Проверяем схождение хеша после пропущенных подач с хешем без подач
+	ASSERT_EQ(::memcmp(empty, bare, sizeof(empty)), 0);
+	// Приводим объект к началу хеширования
+	hash.reset(digest::type_t::LONG);
 	// Проверяем отказ снятия хеша в недостаточное место
 	ASSERT_FALSE(hash.finish(result, 63));
 	// Проверяем отказ снятия хеша в отсутствующее место
@@ -233,8 +257,20 @@ TEST(StreebogTest, Refusal) {
 	ASSERT_TRUE(hash.finish(result, sizeof(result), digest::order_t::VECTOR));
 	// Проверяем отказ повторного снятия хеша
 	ASSERT_FALSE(hash.finish(result, sizeof(result)));
+	/**
+	 * Подача после снятия хеша пропускается: хеширование завершено, и дописывать
+	 * в него уже нечего. Признак завершения и неустановленная длина хеша сверяются
+	 * РАЗНЫМИ половинами того же условия, что и переданность куска
+	 */
+	hash.update(view_t(message, sizeof(message)));
+	// Проверяем, что подача после завершения снятого хеша не изменила
+	ASSERT_FALSE(hash.finish(result, sizeof(result)));
 	// Приводим объект к началу хеширования
 	hash.reset(digest::type_t::NONE);
+	// Выполняем подачу куска сообщения при неустановленной длине хеша
+	hash.update(view_t(message, sizeof(message)));
+	// Проверяем отказ снятия хеша с неустановленной длиной после подачи
+	ASSERT_FALSE(hash.finish(result, sizeof(result)));
 	// Проверяем отказ снятия хеша с неустановленной длиной
 	ASSERT_FALSE(hash.finish(result, sizeof(result)));
 	// Проверяем длину вырабатываемого хеша

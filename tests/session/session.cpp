@@ -560,3 +560,88 @@ TEST(SessionTest, Binder){
 	// Проверяем расхождение привязок при ином усечённом приветствии
 	ASSERT_NE(::memcmp(binder, element, sizeof(binder)), 0);
 }
+
+/**
+ * Проверка отказов значений расписания ключей связи на негодные доводы
+ */
+TEST(SessionTest, Refusals){
+	// Объект переписки рукопожатия связи
+	session::transcript_t transcript;
+	// Заводим переписку рукопожатия связи
+	transcript.start();
+	// Добавляемое в переписку сообщение рукопожатия
+	const vector <uint8_t> message = decode(CLIENT);
+	// Проверяем отказ добавления непереданного сообщения
+	ASSERT_EQ(transcript.update(view_t(nullptr, message.size())), session::error_t::EMPTY);
+	// Проверяем отказ добавления сообщения нулевой длины
+	ASSERT_EQ(transcript.update(view_t(message.data(), 0)), session::error_t::EMPTY);
+	// Место, в которое помещается хеш переписки рукопожатия
+	uint8_t hash[32] = {0}, spare[32] = {0};
+	// Проверяем отказ получения хеша переписки без места под него
+	ASSERT_EQ(transcript.digest(nullptr), session::error_t::EMPTY);
+	// Проверяем отказ получения хеша переписки с довеском без места под него
+	ASSERT_EQ(transcript.digest(view_t(message.data(), message.size()), nullptr), session::error_t::EMPTY);
+	// Выполняем добавление сообщения в переписку рукопожатия
+	ASSERT_EQ(transcript.update(view_t(message.data(), message.size())), session::error_t::NONE);
+	// Выполняем получение хеша переписки рукопожатия без довеска
+	ASSERT_EQ(transcript.digest(hash), session::error_t::NONE);
+	/**
+	 * Непереданный довесок означает его отсутствие, и хеш с таким довеском обязан
+	 * сойтись с хешем переписки, взятым вовсе без довеска
+	 */
+	ASSERT_EQ(transcript.digest(view_t(nullptr, 7), spare), session::error_t::NONE);
+	// Проверяем схождение хеша с непереданным довеском с хешем без довеска
+	ASSERT_EQ(::memcmp(hash, spare, sizeof(hash)), 0);
+	// Проверяем схождение хеша с довеском нулевой длины с хешем без довеска
+	ASSERT_EQ(transcript.digest(view_t(message.data(), 0), spare), session::error_t::NONE);
+	// Проверяем схождение хеша с пустым довеском с хешем без довеска
+	ASSERT_EQ(::memcmp(hash, spare, sizeof(hash)), 0);
+	// Объект значений расписания ключей связи
+	session::secrets_t secrets;
+	// Получаем общее значение обмена ключами контрольного примера
+	const vector <uint8_t> shared = decode(SHARED);
+	// Получаем хеш переписки на миг вывода ключей рукопожатия
+	const vector <uint8_t> first = decode(FIRST);
+	// Выполняем заведение начальной ступени расписания ключей
+	ASSERT_EQ(secrets.start(view_t(nullptr, 0)), session::error_t::NONE);
+	// Проверяем отказ вывода ступени рукопожатия без общего значения обмена
+	ASSERT_EQ(secrets.handshake(view_t(nullptr, shared.size()), view_t(first.data(), first.size())), session::error_t::EMPTY);
+	// Проверяем отказ вывода ступени рукопожатия с общим значением нулевой длины
+	ASSERT_EQ(secrets.handshake(view_t(shared.data(), 0), view_t(first.data(), first.size())), session::error_t::EMPTY);
+	// Проверяем отказ вывода ступени рукопожатия без хеша переписки
+	ASSERT_EQ(secrets.handshake(view_t(shared.data(), shared.size()), view_t(nullptr, first.size())), session::error_t::EMPTY);
+	// Проверяем отказ вывода ступени рукопожатия с хешем переписки нулевой длины
+	ASSERT_EQ(secrets.handshake(view_t(shared.data(), shared.size()), view_t(first.data(), 0)), session::error_t::EMPTY);
+	// Проверяем отказ вывода значения упреждающих данных без хеша переписки
+	ASSERT_EQ(secrets.early(view_t(nullptr, first.size())), session::error_t::EMPTY);
+	// Проверяем отказ вывода значения упреждающих данных с хешем нулевой длины
+	ASSERT_EQ(secrets.early(view_t(first.data(), 0)), session::error_t::EMPTY);
+	// Выполняем вывод ступени рукопожатия расписания ключей
+	ASSERT_EQ(secrets.handshake(view_t(shared.data(), shared.size()), view_t(first.data(), first.size())), session::error_t::NONE);
+	// Проверяем отказ вывода ступени прикладных данных без хеша переписки
+	ASSERT_EQ(secrets.application(view_t(nullptr, first.size())), session::error_t::EMPTY);
+	// Проверяем отказ вывода ступени прикладных данных с хешем нулевой длины
+	ASSERT_EQ(secrets.application(view_t(first.data(), 0)), session::error_t::EMPTY);
+	// Выполняем вывод ступени прикладных данных расписания ключей
+	ASSERT_EQ(secrets.application(view_t(first.data(), first.size())), session::error_t::NONE);
+	// Проверяем отказ вывода значения возобновления без хеша переписки
+	ASSERT_EQ(secrets.resumption(view_t(nullptr, first.size())), session::error_t::EMPTY);
+	// Проверяем отказ вывода значения возобновления с хешем нулевой длины
+	ASSERT_EQ(secrets.resumption(view_t(first.data(), 0)), session::error_t::EMPTY);
+	// Место, в которое помещается ключевой материал направления связи
+	uint8_t key[protect::PROTECT_KEY] = {0}, replacement[protect::PROTECT_VECTOR] = {0};
+	// Место, в которое помещается значение направления связи
+	uint8_t traffic[32] = {0};
+	// Выполняем получение значения направления связи от сервера
+	ASSERT_EQ(secrets.traffic(session::side_t::SERVER, traffic), session::error_t::NONE);
+	// Проверяем отказ вывода ключевого материала без значения направления связи
+	ASSERT_EQ(session::material(view_t(nullptr, sizeof(traffic)), SUITE, key, replacement), session::error_t::EMPTY);
+	// Проверяем отказ вывода ключевого материала со значением направления не той длины
+	ASSERT_EQ(session::material(view_t(traffic, (sizeof(traffic) - 1)), SUITE, key, replacement), session::error_t::EMPTY);
+	// Проверяем отказ вывода ключевого материала на неизвестном наборе шифрования
+	ASSERT_EQ(session::material(view_t(traffic, sizeof(traffic)), protect::suite_t::NONE, key, replacement), session::error_t::SUITE);
+	// Проверяем отказ вывода ключевого материала без места под ключ
+	ASSERT_EQ(session::material(view_t(traffic, sizeof(traffic)), SUITE, nullptr, replacement), session::error_t::EMPTY);
+	// Проверяем отказ вывода ключевого материала без места под вектор замены
+	ASSERT_EQ(session::material(view_t(traffic, sizeof(traffic)), SUITE, key, nullptr), session::error_t::EMPTY);
+}

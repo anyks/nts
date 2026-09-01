@@ -308,11 +308,13 @@ namespace nts {
 				 * @param suites устанавливаемые наборы шифрования
 				 *
 				 * @note Наборы перечисляются от предпочтительного к запасному
+				 * @note Пустой список установку пропускает, сохраняя набор, установленный прежде
 				 *
 				 * \~english
 				 * @brief Method of setting the offered cipher suites
 				 * @param suites the cipher suites being set
 				 * @note The suites are listed from the preferable one to the spare one
+				 * @note An empty list skips the setting, keeping the set having been set before
 				 *
 				 * \~
 				 */
@@ -324,11 +326,13 @@ namespace nts {
 				 * @param groups устанавливаемые кривые обмена ключами
 				 *
 				 * @note Кривые перечисляются от предпочтительной к запасной
+				 * @note Пустой список установку пропускает, сохраняя набор, установленный прежде
 				 *
 				 * \~english
 				 * @brief Method of setting the offered curves of the key exchange
 				 * @param groups the curves of the key exchange being set
 				 * @note The curves are listed from the preferable one to the spare one
+				 * @note An empty list skips the setting, keeping the set having been set before
 				 *
 				 * \~
 				 */

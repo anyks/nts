@@ -645,6 +645,21 @@ TEST(TrustTest, Reject){
 	ASSERT_TRUE(make("anyks.com", "anyks root", subject, issuer.secret, expired, outdated));
 	// Проверяем отказ доверия сертификату с истёкшим сроком действия
 	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> {outdated}, store, MOMENT), trust::error_t::EXPIRED);
+	/**
+	 * Срок действия имеет две границы, и обе отвергают сертификат по отдельности:
+	 * сертификат, чей срок ещё не наступил, негоден ровно так же, как истёкший
+	 */
+	options_t upcoming;
+	// Устанавливаем начало срока действия сертификата позже проверяемого мига
+	upcoming.before = 1900000000;
+	// Устанавливаем окончание срока действия сертификата
+	upcoming.after = 2000000000;
+	// Запись сертификата, срок действия которого ещё не наступил
+	vector <uint8_t> premature;
+	// Выполняем выработку сертификата с ненаступившим сроком действия
+	ASSERT_TRUE(make("anyks.com", "anyks root", subject, issuer.secret, upcoming, premature));
+	// Проверяем отказ доверия сертификату с ненаступившим сроком действия
+	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> {premature}, store, MOMENT), trust::error_t::EXPIRED);
 	// Запись сертификата, изданного не тем издателем
 	vector <uint8_t> alien;
 	// Выполняем выработку сертификата с чужим именем издателя
@@ -797,4 +812,78 @@ TEST(TrustTest, Wildcard){
 	ASSERT_EQ(trust::belongs(view_t(common.data(), common.size()), "anyks.com"), trust::error_t::NONE);
 	// Проверяем отказ сличения чужого имени узла с общим именем владельца
 	ASSERT_EQ(trust::belongs(view_t(common.data(), common.size()), "example.com"), trust::error_t::NAME);
+}
+
+/**
+ * Проверка предела числа звеньев цепочки сертификатов
+ */
+TEST(TrustTest, Deepness){
+	// Ключевые пары корня, промежуточного звена и владельца цепочки
+	keys_t root, middle, subject;
+	// Выполняем выработку ключевой пары корня цепочки
+	ASSERT_TRUE(generate(root));
+	// Выполняем выработку ключевой пары промежуточного звена
+	ASSERT_TRUE(generate(middle));
+	// Выполняем выработку ключевой пары владельца цепочки
+	ASSERT_TRUE(generate(subject));
+	/**
+	 * Раздел 4.2.1.9 RFC 5280: предел числа звеньев считает промежуточные звенья под
+	 * сертификатом, и ноль его значит, что издавать корень вправе один лишь
+	 * сертификат владельца, но никак не другой удостоверяющий центр
+	 */
+	options_t strict;
+	// Наделяем корень правом издавать другие сертификаты
+	strict.authority = true;
+	// Объявляем пределом числа звеньев цепочки ноль
+	strict.depth = 0;
+	// Запись сертификата корня цепочки
+	vector <uint8_t> anchor;
+	// Выполняем выработку самоподписанного сертификата корня цепочки
+	ASSERT_TRUE(make("strict root", "strict root", root, vector <uint8_t> (), strict, anchor));
+	// Настройки промежуточного звена цепочки
+	options_t authorized;
+	// Наделяем промежуточное звено правом издавать другие сертификаты
+	authorized.authority = true;
+	// Запись сертификата промежуточного звена цепочки
+	vector <uint8_t> intermediate;
+	// Выполняем выработку сертификата промежуточного звена, изданного корнем
+	ASSERT_TRUE(make("strict middle", "strict root", middle, root.secret, authorized, intermediate));
+	// Запись сертификата владельца цепочки
+	vector <uint8_t> leaf;
+	// Выполняем выработку сертификата владельца, изданного промежуточным звеном
+	ASSERT_TRUE(make("anyks.com", "strict middle", subject, middle.secret, options_t (), leaf));
+	// Запас доверенных сертификатов
+	trust::store_t store;
+	// Выполняем добавление сертификата корня в запас доверенных
+	ASSERT_TRUE(store.add(view_t(anchor.data(), anchor.size())));
+	// Проверяем отказ доверия цепочке, вышедшей за предел числа звеньев
+	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> {leaf, intermediate, anchor}, store, MOMENT), trust::error_t::CONSTRAINT);
+	// Запись сертификата владельца, изданного корнем напрямую
+	vector <uint8_t> direct;
+	// Выполняем выработку сертификата владельца, изданного корнем
+	ASSERT_TRUE(make("anyks.com", "strict root", subject, root.secret, options_t (), direct));
+	// Проверяем доверие цепочке, в предел числа звеньев уложившейся
+	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> {direct, anchor}, store, MOMENT), trust::error_t::NONE);
+	// Настройки корня цепочки, дозволяющего одно промежуточное звено
+	options_t lenient;
+	// Наделяем корень правом издавать другие сертификаты
+	lenient.authority = true;
+	// Объявляем пределом числа звеньев цепочки единицу
+	lenient.depth = 1;
+	// Запись сертификата корня, дозволяющего промежуточное звено
+	vector <uint8_t> spacious;
+	// Выполняем выработку самоподписанного сертификата корня цепочки
+	ASSERT_TRUE(make("lenient root", "lenient root", root, vector <uint8_t> (), lenient, spacious));
+	// Запись сертификата промежуточного звена под просторным корнем
+	vector <uint8_t> linked;
+	// Выполняем выработку сертификата промежуточного звена
+	ASSERT_TRUE(make("lenient middle", "lenient root", middle, root.secret, authorized, linked));
+	// Запись сертификата владельца под просторным корнем
+	vector <uint8_t> issued;
+	// Выполняем выработку сертификата владельца
+	ASSERT_TRUE(make("anyks.com", "lenient middle", subject, middle.secret, options_t (), issued));
+	// Выполняем добавление просторного корня в запас доверенных
+	ASSERT_TRUE(store.add(view_t(spacious.data(), spacious.size())));
+	// Проверяем доверие цепочке, в дозволенное промежуточное звено уложившейся
+	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> {issued, linked, spacious}, store, MOMENT), trust::error_t::NONE);
 }

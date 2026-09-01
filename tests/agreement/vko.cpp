@@ -293,6 +293,18 @@ TEST(VkoTest, Failures) {
 	ASSERT_FALSE(agreement::vko(empty, view_t(first, 64), view_t(x, 64), view_t(y, 64), view_t(), key, 32));
 	// Проверяем отказ выработки общего ключа в непереданное место
 	ASSERT_FALSE(agreement::vko(curve, view_t(first, 64), view_t(x, 64), view_t(y, 64), view_t(), nullptr, 32));
+	/**
+	 * Непереданное добавочное значение означает его отсутствие, и выработка идёт по
+	 * единице на его месте. Переданность и длина сверяются РАЗНЫМИ половинами
+	 * условия, и заявленная длина при непереданном месте отсутствия не отменяет
+	 */
+	uint8_t bare[64] = {0}, hollow[64] = {0};
+	// Выполняем выработку общего ключа с непереданным добавочным значением
+	ASSERT_TRUE(agreement::vko(curve, view_t(first, 64), view_t(x, 64), view_t(y, 64), view_t(nullptr, 8), bare, 32));
+	// Выполняем выработку общего ключа вовсе без добавочного значения
+	ASSERT_TRUE(agreement::vko(curve, view_t(first, 64), view_t(x, 64), view_t(y, 64), view_t(), hollow, 32));
+	// Проверяем схождение выработки с непереданным добавочным значением с выработкой без него
+	ASSERT_EQ(::memcmp(bare, hollow, 32), 0);
 	// Проверяем отказ выработки общего ключа неподдерживаемой длины
 	ASSERT_FALSE(agreement::vko(curve, view_t(first, 64), view_t(x, 64), view_t(y, 64), view_t(), key, 48));
 	// Проверяем отказ выработки общего ключа при нулевом секретном ключе

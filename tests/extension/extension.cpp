@@ -449,10 +449,38 @@ TEST(ExtensionTest, Reject){
 	ASSERT_EQ(extension::name(view_t(foreign, sizeof(foreign)), name), extension::error_t::EMPTY);
 	// Проверяем отказ составления пустого имени запрашиваемого узла
 	ASSERT_EQ(extension::name(view_t(nullptr, 0), composed), extension::error_t::EMPTY);
+	/**
+	 * Непереданное место при заявленной длине - оплошность потребителя: длина есть,
+	 * а читать её не из чего. Переданность и длина сверяются РАЗНЫМИ половинами
+	 * условия, и всякая отвергает довод в одиночку
+	 */
+	ASSERT_EQ(extension::name(view_t(nullptr, 9), composed), extension::error_t::EMPTY);
+	// Проверяем отказ составления имени узла нулевой длины
+	ASSERT_EQ(extension::name(view_t(foreign, 0), composed), extension::error_t::EMPTY);
+	/**
+	 * Перечень имён узлов несёт имя вида «host_name» лишь однажды, а сверх него
+	 * может нести имена иных видов: разбор берёт ПЕРВОЕ имя своего вида и следующие
+	 * за ним уже не трогает
+	 */
+	const uint8_t twofold[] = {
+		0x00, 0x0C, 0x00, 0x00, 0x03, 0x61, 0x62, 0x63,
+		0x00, 0x00, 0x03, 0x64, 0x65, 0x66};
+	// Выполняем разбор перечня с двумя именами узлов своего вида
+	ASSERT_EQ(extension::name(view_t(twofold, sizeof(twofold)), name), extension::error_t::NONE);
+	// Проверяем длину разобранного имени запрашиваемого узла
+	ASSERT_EQ(name.size, static_cast <size_t> (3));
+	// Проверяем, что разобрано именно первое имя узла перечня
+	ASSERT_EQ(::memcmp(name.data, "abc", name.size), 0);
 	// Разобранная метка возврата состояния сервера
 	view_t cookie;
 	// Проверяем отказ разбора пустой метки возврата состояния
 	ASSERT_EQ(extension::cookie(view_t(empty, sizeof(empty)), cookie), extension::error_t::EMPTY);
+	// Накопитель, в который складывается составленная метка возврата
+	vector <uint8_t> stated;
+	// Проверяем отказ составления непереданной метки возврата состояния
+	ASSERT_EQ(extension::cookie(view_t(nullptr, 8), stated), extension::error_t::EMPTY);
+	// Проверяем отказ составления метки возврата состояния нулевой длины
+	ASSERT_EQ(extension::cookie(view_t(foreign, 0), stated), extension::error_t::EMPTY);
 	// Составляемая метка возврата состояния сервера
 	const uint8_t sample[] = {0xDE, 0xAD, 0xBE, 0xEF};
 	// Выполняем сброс накопителя составленного тела расширения

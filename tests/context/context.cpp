@@ -2208,6 +2208,15 @@ namespace {
 			return false;
 		// Получаем составленное сообщение приветствия клиента
 		const view_t message = writer.data();
+		/**
+		 * Предел длины ставится ДО заведения накопителя. Сборщик записей сверяет длину
+		 * содержимого сам, но сверка та идёт уже после того, как накопитель заведён по
+		 * сумме заголовка с длиной сообщения, - а сумма эта у непомерной длины
+		 * заворачивается за ноль, оставляя накопитель пустым под непомерный перенос
+		 */
+		if(message.size > record::RECORD_PLAINTEXT)
+			// Выводим отказ подачи приветствия серверу
+			return false;
 		// Заголовок записи, которой идёт приветствие клиента
 		record::header_t header;
 		// Устанавливаем вид записи приветствия клиента
@@ -2300,7 +2309,7 @@ TEST(ContextTest, Malformed){
 	/**
 	 * Выполняем перебор заслонов приветствия клиента
 	 */
-	for(size_t item = 0; item < 4; item++){
+	for(size_t item = 0; item < 5; item++){
 		// Связь стороны сервера
 		server::context_t server;
 		// Устанавливаем подлинность стороны сервера
@@ -2326,6 +2335,13 @@ TEST(ContextTest, Malformed){
 			case 0: greeting.extensions.push_back(greeting.extensions[0]); break;
 			// Если приветствие портится негодным способом сжатия
 			case 1: greeting.methods.assign(1, 0x01); break;
+			/**
+			 * Раздел 4.1.2 RFC 8446 велит перечню способов сжатия нести ровно ОДИН
+			 * способ. Число способов и значение единственного из них сверяются
+			 * разными половинами заслона, и перечень из двух способов, всякий из
+			 * которых сам по себе годен, трогает ту половину, что считает их число
+			 */
+			case 4: greeting.methods.assign(2, 0x00); break;
 			/**
 			 * Если приветствие портится ключом по кривой, поддержку которой клиент
 			 * не объявил
@@ -4197,6 +4213,33 @@ TEST(ContextTest, Changing){
 		ASSERT_EQ(server.alert().description, alert::description_t::UNEXPECTED);
 	}
 	/**
+	 * Составляем запись смены набора шифрования не той длины
+	 */
+	{
+		// Связь стороны сервера
+		server::context_t server;
+		// Устанавливаем подлинность стороны сервера
+		server.credential(credentials);
+		// Выполняем заведение связи стороны сервера
+		ASSERT_EQ(server.start(), context::error_t::NONE);
+		// Содержимое записи смены набора шифрования длиною в два байта
+		const uint8_t content[2] = {0x01, 0x01};
+		// Объект нарезчика отправляемых записей
+		record::writer_t writer;
+		// Выполняем нарезку записи смены набора шифрования
+		ASSERT_EQ(writer.push(record::type_t::CHANGE, record::version_t::TLS12, view_t(content, sizeof(content))), record::error_t::NONE);
+		// Выполняем подачу записи смены набора шифрования серверу
+		server.push(writer.data());
+		/**
+		 * Раздел 5 RFC 8446 отводит записи смены набора ровно один байт содержимого.
+		 * Длина её сверяется ОТДЕЛЬНОЙ половиной заслона от значения: запись из двух
+		 * дозволенных байтов негодна одной лишь своей длиной
+		 */
+		ASSERT_EQ(server.error(), context::error_t::RECORD);
+		// Проверяем извещение, которым связь оборвана сервером
+		ASSERT_EQ(server.alert().description, alert::description_t::UNEXPECTED);
+	}
+	/**
 	 * Подаём годную запись смены набора шифрования за установленной связью
 	 */
 	{
@@ -4556,4 +4599,152 @@ TEST(ContextTest, Stateless){
 	 * состояние назад, не храня его у себя между приветствиями
 	 */
 	ASSERT_EQ(server.cookie(), cookie);
+}
+
+/**
+ * Проверка отказов связи на нехватку настроек и негодное состояние
+ */
+TEST(ContextTest, Unprovisioned){
+	// Связь стороны клиента
+	client::context_t client;
+	/**
+	 * Пустой список установщики пропускают, сохраняя умолчания: опустошить наборы
+	 * шифрования либо кривых обмена ключами через общедоступный договор нельзя, и
+	 * заслон нехватки этих настроек оттого проверке не поддаётся
+	 */
+	client.groups({});
+	// Проверяем сохранность умолчаний после подачи пустого списка кривых
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	// Связь стороны сервера
+	server::context_t server;
+	/**
+	 * Сервер обязан иметь чем себя удостоверить: цепочка сертификатов и секретный ключ
+	 * к ней сверяются ОТДЕЛЬНЫМИ половинами заслона, и подлинность с одной лишь
+	 * цепочкой трогает ту половину, что стережёт ключ
+	 */
+	ASSERT_EQ(server.start(), context::error_t::SETTINGS);
+	// Подлинность стороны сервера
+	context::credential_t credentials;
+	// Выполняем выработку подлинности стороны сервера
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Подлинность, у которой оставлена одна лишь цепочка сертификатов
+	context::credential_t keyless;
+	// Переносим цепочку сертификатов в подлинность без секретного ключа
+	keyless.chain = credentials.chain;
+	// Устанавливаем подлинность без секретного ключа
+	server.credential(keyless);
+	// Проверяем отказ заведения связи сервера без секретного ключа
+	ASSERT_EQ(server.start(), context::error_t::SETTINGS);
+	// Подлинность, у которой оставлен один лишь секретный ключ
+	context::credential_t chainless;
+	// Переносим секретный ключ в подлинность без цепочки сертификатов
+	chainless.secret = credentials.secret;
+	// Устанавливаем подлинность без цепочки сертификатов
+	server.credential(chainless);
+	// Проверяем отказ заведения связи сервера без цепочки сертификатов
+	ASSERT_EQ(server.start(), context::error_t::SETTINGS);
+	// Устанавливаем полную подлинность стороны сервера
+	server.credential(credentials);
+	// Выполняем заведение связи стороны сервера
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	// Проверяем отказ повторного заведения уже заведённой связи
+	ASSERT_EQ(server.start(), context::error_t::STATE);
+}
+
+/**
+ * Проверка отправки и закрытия связи вне положенного состояния
+ */
+TEST(ContextTest, Premature){
+	// Подлинность стороны сервера
+	context::credential_t credentials;
+	// Выполняем выработку подлинности стороны сервера
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Связь стороны клиента
+	client::context_t client;
+	// Связь стороны сервера
+	server::context_t server;
+	// Устанавливаем подлинность стороны сервера
+	server.credential(credentials);
+	// Отправляемые прикладные данные связи
+	const uint8_t payload[] = {0x41, 0x4E, 0x54, 0x53};
+	// Проверяем отказ отправки прикладных данных до заведения связи
+	ASSERT_EQ(client.write(view_t(payload, sizeof(payload))), context::error_t::STATE);
+	// Выполняем заведение связи стороны сервера
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	// Выполняем заведение связи стороны клиента
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	// Проверяем отказ отправки прикладных данных до окончания рукопожатия
+	ASSERT_EQ(client.write(view_t(payload, sizeof(payload))), context::error_t::STATE);
+	// Выполняем проведение рукопожатия сторон связи
+	converse(client, server);
+	// Проверяем установленность связи стороной клиента
+	ASSERT_TRUE(client.established());
+	/**
+	 * Непереданные прикладные данные отправлять нечего, и отказом это не считается:
+	 * связь исправна, отправка пуста
+	 */
+	ASSERT_EQ(client.write(view_t(nullptr, sizeof(payload))), context::error_t::NONE);
+	// Проверяем успешность отправки прикладных данных нулевой длины
+	ASSERT_EQ(client.write(view_t(payload, 0)), context::error_t::NONE);
+	// Выполняем закрытие связи стороны клиента
+	ASSERT_EQ(client.close(), context::error_t::NONE);
+	// Проверяем отказ повторного закрытия уже закрытой связи
+	ASSERT_EQ(client.close(), context::error_t::CLOSED);
+	// Проверяем отказ отправки прикладных данных по закрытой связи
+	ASSERT_EQ(client.write(view_t(payload, sizeof(payload))), context::error_t::STATE);
+}
+
+/**
+ * Проверка возобновления связи билетом без метки времени выдачи
+ */
+TEST(ContextTest, Timeless){
+	// Подлинность стороны сервера
+	context::credential_t credentials;
+	// Выполняем выработку подлинности стороны сервера
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Билеты, признаваемые сервером возобновляемой связи
+	vector <context::ticket_t> issued;
+	// Билет, принятый клиентом прошлой связи
+	context::ticket_t accepted;
+	// Выполняем проведение связи, выдающей билет возобновления
+	ASSERT_TRUE(granted(credentials, issued, accepted));
+	/**
+	 * Метка времени выдачи билета необязательна: потребитель фреймворка волен
+	 * хранить билеты без неё, и тогда судить о сроке билета не по чему. Раздел
+	 * 4.6.1 RFC 8446 срок этот стороне выдачи и вручает, а без метки обе стороны
+	 * обязаны билет принимать, не оценивая возраста
+	 */
+	accepted.moment = 0;
+	// Выполняем обнуление метки времени выдачи билетов стороны сервера
+	for(auto & ticket : issued)
+		// Обнуляем метку времени выдачи очередного билета
+		ticket.moment = 0;
+	// Связь стороны клиента, возобновляющая прошлую
+	client::context_t client;
+	// Связь стороны сервера, признающая выданный билет
+	server::context_t server;
+	// Устанавливаем подлинность стороны сервера
+	server.credential(credentials);
+	// Устанавливаем билеты, признаваемые сервером
+	server.resume(issued);
+	// Предъявляем серверу билет, принятый прошлой связью
+	client.resume(accepted);
+	/**
+	 * Миг суждения о сроках сторонам задан, а вот метки выдачи у билетов нет:
+	 * заслон срока сверяет ОБА мига по отдельности, и обнулённая метка выдачи
+	 * трогает вторую его половину
+	 */
+	client.moment(1800000000);
+	// Устанавливаем миг суждения о сроках стороне сервера
+	server.moment(1800000000);
+	// Выполняем заведение связи стороны сервера
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	// Выполняем заведение связи стороны клиента
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	// Выполняем проведение рукопожатия сторон связи
+	converse(client, server);
+	// Проверяем установленность связи обеими сторонами
+	ASSERT_TRUE(client.established() && server.established());
+	// Проверяем возобновление связи заранее разделённым ключом
+	ASSERT_TRUE(client.shared() && server.shared());
 }

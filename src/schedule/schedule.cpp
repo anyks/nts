@@ -190,8 +190,16 @@ bool nts::schedule::derive(const view_t & secret, const view_t & label, const vi
 	if((label.data == nullptr) || (label.size == 0) || (label.size > SCHEDULE_LABEL))
 		// Выводим отказ вывода значения расписания ключей
 		return false;
+	/**
+	 * Объём привязки берётся у непереданного места нулевым, как то заведено по всей
+	 * библиотеке. Длина её попадает в описание назначения ОТДЕЛЬНЫМ байтом, и брать
+	 * её прямо из довода нельзя: у непереданного места байт этот заявил бы длину, за
+	 * которой не последовало бы ни одного байта. Описание вышло бы противоречивым, и
+	 * потребитель молча получил бы значение, невыводимое ни у одного согласного узла
+	 */
+	const size_t total = ((context.data != nullptr) ? context.size : 0);
 	// Если привязка выводимого значения длиннее дозволенного
-	if(context.size > 255)
+	if(total > 255)
 		// Выводим отказ вывода значения расписания ключей
 		return false;
 	// Если требуемая длина выведенного значения записи не поддаётся
@@ -217,13 +225,13 @@ bool nts::schedule::derive(const view_t & secret, const view_t & label, const vi
 	// Увеличиваем число записанных байтов описания назначения
 	offset += label.size;
 	// Записываем длину привязки выводимого значения
-	info[offset++] = static_cast <uint8_t> (context.size);
+	info[offset++] = static_cast <uint8_t> (total);
 	// Если привязка выводимого значения передана
-	if((context.data != nullptr) && (context.size > 0)){
+	if(total > 0){
 		// Записываем привязку выводимого значения
-		::memcpy(info + offset, context.data, context.size);
+		::memcpy(info + offset, context.data, total);
 		// Увеличиваем число записанных байтов описания назначения
-		offset += context.size;
+		offset += total;
 	}
 	// Выполняем растяжение значения расписания ключей
 	const bool ok = nts::schedule::expand(secret, view_t(info, offset), result, size);

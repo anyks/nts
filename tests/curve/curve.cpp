@@ -296,6 +296,73 @@ TEST(CurveTest, Failures) {
 	ASSERT_TRUE(curve.point(items[4], items[5], point));
 	// Проверяем, что разобранная точка бесконечно удалённой не считается
 	ASSERT_FALSE(curve.infinity(point));
+	/**
+	 * Координаты точки разбираются ОБЕ, и всякая из них отвергает точку в одиночку:
+	 * непереданная вторая координата при годной первой трогает ту половину заслона,
+	 * что отвечает за вторую
+	 */
+	ASSERT_FALSE(curve.point(items[4], view_t(nullptr, 32), point));
+	// Проверяем отказ разбора точки с непереданной первой координатой
+	ASSERT_FALSE(curve.point(view_t(nullptr, 32), items[5], point));
+	// Места, в которые помещаются выданные координаты точки
+	uint8_t left[32] = {0}, right[32] = {0};
+	/**
+	 * Выдача пишет координату во ВСЁ отведённое место, дополняя её ведущими нулями до
+	 * его длины, тогда как запись примера ведущих нулей не несёт. Ожидаемое потому
+	 * собирается дополнением записи, а не сличается с нею напрямую
+	 */
+	uint8_t expected[32] = {0}, awaited[32] = {0};
+	// Выполняем дополнение записи первой координаты ведущими нулями
+	::memcpy((expected + (sizeof(expected) - items[4].size)), items[4].data, items[4].size);
+	// Выполняем дополнение записи второй координаты ведущими нулями
+	::memcpy((awaited + (sizeof(awaited) - items[5].size)), items[5].data, items[5].size);
+	// Выполняем разбор точки кривой заново
+	ASSERT_TRUE(curve.point(items[4], items[5], point));
+	// Проверяем успешность выдачи обеих координат точки
+	ASSERT_TRUE(curve.coordinates(point, left, right, sizeof(left)));
+	// Сличаем выданную первую координату точки с её записью
+	ASSERT_EQ(::memcmp(left, expected, sizeof(left)), 0);
+	// Сличаем выданную вторую координату точки с её записью
+	ASSERT_EQ(::memcmp(right, awaited, sizeof(right)), 0);
+	/**
+	 * Непереданное место под координату означает, что она не нужна: заслон выдачи
+	 * сверяет переданность места ОТДЕЛЬНО для всякой координаты, и выдача одной
+	 * лишь второй отказом не является
+	 */
+	::memset(right, 0, sizeof(right));
+	// Выполняем выдачу одной лишь второй координаты точки
+	ASSERT_TRUE(curve.coordinates(point, nullptr, right, sizeof(right)));
+	// Сличаем выданную вторую координату точки с её записью
+	ASSERT_EQ(::memcmp(right, awaited, sizeof(right)), 0);
+	// Выполняем обнуление места первой координаты точки
+	::memset(left, 0, sizeof(left));
+	// Выполняем выдачу одной лишь первой координаты точки
+	ASSERT_TRUE(curve.coordinates(point, left, nullptr, sizeof(left)));
+	// Сличаем выданную первую координату точки с её записью
+	ASSERT_EQ(::memcmp(left, expected, sizeof(left)), 0);
+	// Проверяем отказ выдачи координат в место короче координаты
+	ASSERT_FALSE(curve.coordinates(point, left, right, 0));
+	/**
+	 * Запись всякой из координат отвергается своей половиной заслона. Отказ записи
+	 * первой из них до второй не доходит вовсе, оттого место под первую здесь не
+	 * передаётся: так отказ достаётся именно записи второй координаты
+	 */
+	ASSERT_FALSE(curve.coordinates(point, nullptr, right, 0));
+	/**
+	 * У бесконечно удалённой точки координат нет вовсе: третья её координата нулевая,
+	 * и обращать её было бы делением на ноль
+	 */
+	curve::point_t endless;
+	// Проверяем, что незаполненная точка бесконечно удалённой и считается
+	ASSERT_TRUE(curve.infinity(endless));
+	// Проверяем отказ выдачи координат бесконечно удалённой точки
+	ASSERT_FALSE(curve.coordinates(endless, left, right, sizeof(left)));
+	// Объект незаведённой эллиптической кривой
+	curve::curve_t bare;
+	// Проверяем отказ выдачи координат точки незаведённой кривой
+	ASSERT_FALSE(bare.coordinates(point, left, right, sizeof(left)));
+	// Проверяем отказ разбора точки незаведённой кривой
+	ASSERT_FALSE(bare.point(items[4], items[5], point));
 }
 
 /**

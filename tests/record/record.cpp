@@ -314,3 +314,58 @@ TEST(RecordTest, Limit){
 	// Проверяем опустошение накопителя сборщика
 	ASSERT_EQ(reader.pending(), static_cast <size_t> (0));
 }
+
+/**
+ * Проверка запрета пустого содержимого у записей, пустыми быть не вправе
+ */
+TEST(RecordTest, Hollow){
+	// Заголовок составляемой записи
+	record::header_t header;
+	// Устанавливаем издание протокола составляемой записи
+	header.version = record::version_t::TLS12;
+	// Устанавливаем нулевую длину содержимого составляемой записи
+	header.size = 0;
+	// Место, в которое записывается заголовок составляемой записи
+	uint8_t buffer[record::RECORD_HEADER];
+	/**
+	 * Раздел 5.1 RFC 8446: пустой вправе быть одна лишь запись прикладных данных.
+	 * Пустая запись рукопожатия либо извещения передавала бы нуль сообщений, и
+	 * поток таких записей стал бы средством измотать собеседника
+	 */
+	header.type = record::type_t::HANDSHAKE;
+	// Проверяем отказ составления пустой записи рукопожатия
+	ASSERT_EQ(record::build(header, buffer), record::error_t::EMPTY);
+	// Устанавливаем видом содержимого записи извещение
+	header.type = record::type_t::ALERT;
+	// Проверяем отказ составления пустого извещения
+	ASSERT_EQ(record::build(header, buffer), record::error_t::EMPTY);
+	// Устанавливаем видом содержимого записи смену набора шифрования
+	header.type = record::type_t::CHANGE;
+	// Проверяем отказ составления пустой записи смены набора шифрования
+	ASSERT_EQ(record::build(header, buffer), record::error_t::EMPTY);
+	// Устанавливаем видом содержимого записи прикладные данные
+	header.type = record::type_t::APPLICATION;
+	// Проверяем успешность составления пустой записи прикладных данных
+	ASSERT_EQ(record::build(header, buffer), record::error_t::NONE);
+	// Объект нарезчика отправляемых записей
+	record::writer_t writer;
+	// Проверяем отказ нарезки пустого содержимого рукопожатия
+	ASSERT_EQ(writer.push(record::type_t::HANDSHAKE, record::version_t::TLS12, view_t(nullptr, 0)), record::error_t::EMPTY);
+	// Проверяем отказ нарезки пустого извещения
+	ASSERT_EQ(writer.push(record::type_t::ALERT, record::version_t::TLS12, view_t(buffer, 0)), record::error_t::EMPTY);
+	/**
+	 * Пустые прикладные данные нарезаются успешностью: раздел 5.1 RFC 8446 их
+	 * дозволяет, и запись такая идёт средством скрыть поток передачи
+	 */
+	ASSERT_EQ(writer.push(record::type_t::APPLICATION, record::version_t::TLS12, view_t(nullptr, 0)), record::error_t::NONE);
+	// Проверяем, что пустая запись прикладных данных нарезана
+	ASSERT_EQ(writer.data().size, record::RECORD_HEADER);
+	// Объект нарезчика с пределом длины содержимого записи
+	record::writer_t limited;
+	// Проверяем отказ установки нулевого предела длины содержимого
+	ASSERT_FALSE(limited.limit(0));
+	// Проверяем отказ установки предела сверх открытой записи протокола
+	ASSERT_FALSE(limited.limit(record::RECORD_PLAINTEXT + 1));
+	// Проверяем успешность установки предела длиною в открытую запись протокола
+	ASSERT_TRUE(limited.limit(record::RECORD_PLAINTEXT));
+}

@@ -371,3 +371,67 @@ TEST(ProtectTest, Overpadded){
 	// Проверяем, что принятое дополнение вошло в длину защищённой записи
 	ASSERT_EQ(sealed.size(), (record::RECORD_HEADER + content.size() + 1 + 128 + protect::block(SAMPLES[0].suite)));
 }
+
+/**
+ * Проверка отказов защиты записей на негодные доводы
+ */
+TEST(ProtectTest, Refusals){
+	// Объект защиты записей связи
+	protect::protection_t protection;
+	// Получаем корневой ключ направления связи
+	const std::vector <uint8_t> key = decode(SAMPLES[0].key);
+	// Получаем вектор замены направления связи
+	const std::vector <uint8_t> vector = decode(SAMPLES[0].vector);
+	// Проверяем отказ установки ключевого материала на неизвестном наборе шифрования
+	ASSERT_FALSE(protection.start(protect::suite_t::NONE, view_t(key.data(), key.size()), view_t(vector.data(), vector.size())));
+	// Проверяем отказ установки ключевого материала без корневого ключа
+	ASSERT_FALSE(protection.start(SAMPLES[0].suite, view_t(nullptr, key.size()), view_t(vector.data(), vector.size())));
+	// Проверяем отказ установки ключевого материала с корневым ключом не той длины
+	ASSERT_FALSE(protection.start(SAMPLES[0].suite, view_t(key.data(), (key.size() - 1)), view_t(vector.data(), vector.size())));
+	// Проверяем отказ установки ключевого материала без вектора замены
+	ASSERT_FALSE(protection.start(SAMPLES[0].suite, view_t(key.data(), key.size()), view_t(nullptr, vector.size())));
+	// Проверяем отказ установки ключевого материала с вектором замены не той длины
+	ASSERT_FALSE(protection.start(SAMPLES[0].suite, view_t(key.data(), key.size()), view_t(vector.data(), (vector.size() - 1))));
+	// Накопитель, в который складывается защищённая запись
+	std::vector <uint8_t> sealed;
+	// Защищаемое содержимое записи
+	const std::vector <uint8_t> content(64, 0x41);
+	// Проверяем отказ наложения защиты до установки ключевого материала
+	ASSERT_EQ(protection.seal(record::type_t::APPLICATION, view_t(content.data(), content.size()), sealed), protect::error_t::STATE);
+	// Выполняем установку ключевого материала направления связи
+	ASSERT_TRUE(protection.start(SAMPLES[0].suite, view_t(key.data(), key.size()), view_t(vector.data(), vector.size())));
+	// Проверяем отказ наложения защиты на запись неизвестного вида содержимого
+	ASSERT_EQ(protection.seal(record::type_t::NONE, view_t(content.data(), content.size()), sealed), protect::error_t::TYPE);
+	// Проверяем отказ наложения защиты на содержимое сверх предела открытой записи
+	const std::vector <uint8_t> lengthy((record::RECORD_PLAINTEXT + 1), 0x3C);
+	// Проверяем отказ наложения защиты на непомерное содержимое записи
+	ASSERT_EQ(protection.seal(record::type_t::APPLICATION, view_t(lengthy.data(), lengthy.size()), sealed), protect::error_t::LENGTH);
+	// Выполняем наложение защиты на годную запись
+	ASSERT_EQ(protection.seal(record::type_t::APPLICATION, view_t(content.data(), content.size()), sealed), protect::error_t::NONE);
+	// Объект защиты записей принимающей стороны
+	protect::protection_t receiver;
+	// Выполняем установку ключевого материала принимающей стороны
+	ASSERT_TRUE(receiver.start(SAMPLES[0].suite, view_t(key.data(), key.size()), view_t(vector.data(), vector.size())));
+	// Заголовок принятой защищённой записи
+	record::header_t header;
+	// Устанавливаем вид содержимого принятой защищённой записи
+	header.type = record::type_t::APPLICATION;
+	// Устанавливаем издание протокола принятой защищённой записи
+	header.version = record::version_t::TLS12;
+	// Устанавливаем длину содержимого принятой защищённой записи
+	header.size = (sealed.size() - record::RECORD_HEADER);
+	// Истинный вид содержимого принятой записи
+	record::type_t type = record::type_t::NONE;
+	// Накопитель, в который складывается открытое содержимое записи
+	std::vector <uint8_t> opened;
+	// Проверяем отказ снятия защиты с непереданным содержимым записи
+	ASSERT_EQ(receiver.open(header, view_t(nullptr, header.size), type, opened), protect::error_t::LENGTH);
+	/**
+	 * Содержимое, не вмещающее ни метки целостности, ни байта истинного вида, снимать
+	 * нечем: длина его сверяется с длиной метки ОТДЕЛЬНОЙ половиной заслона, и длина
+	 * ровно в метку эту половину и трогает
+	 */
+	ASSERT_EQ(receiver.open(header, view_t(sealed.data() + record::RECORD_HEADER, protect::block(SAMPLES[0].suite)), type, opened), protect::error_t::LENGTH);
+	// Проверяем, что отвергнутая запись открытого содержимого не дала
+	ASSERT_TRUE(opened.empty());
+}

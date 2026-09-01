@@ -29,6 +29,7 @@
 #include <string>
 #include <cstring>
 #include <main.hpp>
+#include <asn1/asn1.hpp>
 #include <x509/signature.hpp>
 
 /**
@@ -292,4 +293,63 @@ TEST(SignatureTest, Failures) {
 	ASSERT_FALSE(x509::verify(certificate.body(), signature, certificate.algorithms(), item));
 	// Проверяем схождение подписи после восстановления всех значений
 	ASSERT_TRUE(x509::verify(certificate.body(), signature, certificate.algorithms(), key));
+}
+
+/**
+ * Проверка отказов проверки подписи на негодные доводы
+ */
+TEST(SignatureTest, Unsigned) {
+	// Подписанная запись, подпись которой проверяется
+	const vector <uint8_t> body(64, 0x41);
+	// Подпись, сходимость которой проверяется
+	const vector <uint8_t> signature(64, 0x3C);
+	// Ключ проверки подписи, оставленный незаполненным
+	x509::key_t key;
+	// Проверяем отказ проверки подписи без подписанной записи
+	ASSERT_FALSE(x509::verify(view_t(nullptr, body.size()), view_t(signature.data(), signature.size()), "1.2.643.7.1.1.3.2", key));
+	// Проверяем отказ проверки подписи с подписанной записью нулевой длины
+	ASSERT_FALSE(x509::verify(view_t(body.data(), 0), view_t(signature.data(), signature.size()), "1.2.643.7.1.1.3.2", key));
+	// Проверяем отказ проверки подписи без самой подписи
+	ASSERT_FALSE(x509::verify(view_t(body.data(), body.size()), view_t(nullptr, signature.size()), "1.2.643.7.1.1.3.2", key));
+	// Проверяем отказ проверки подписи на неизвестном алгоритме
+	ASSERT_FALSE(x509::verify(view_t(body.data(), body.size()), view_t(signature.data(), signature.size()), "1.2.3.4.5", key));
+	// Проверяем отказ проверки подписи содержимого без содержимого
+	ASSERT_FALSE(x509::check(key, view_t(nullptr, body.size()), view_t(signature.data(), signature.size())));
+	// Проверяем отказ проверки подписи содержимого с содержимым нулевой длины
+	ASSERT_FALSE(x509::check(key, view_t(body.data(), 0), view_t(signature.data(), signature.size())));
+	// Проверяем отказ проверки подписи содержимого без самой подписи
+	ASSERT_FALSE(x509::check(key, view_t(body.data(), body.size()), view_t(nullptr, signature.size())));
+	/**
+	 * Ключ, у которого настройки алгоритма не переданы вовсе, отвергается заслоном
+	 * извлечения опознавателя кривой: опознаватель тот берётся из настроек, и брать
+	 * его не из чего
+	 */
+	key.algorithm = "1.2.643.7.1.1.1.1";
+	// Проверяем отказ проверки подписи с непереданными настройками алгоритма ключа
+	ASSERT_FALSE(x509::check(key, view_t(body.data(), body.size()), view_t(signature.data(), signature.size())));
+	// Устанавливаем настройки алгоритма ключа нулевой длины
+	key.parameters = view_t(body.data(), 0);
+	// Проверяем отказ проверки подписи с настройками алгоритма нулевой длины
+	ASSERT_FALSE(x509::check(key, view_t(body.data(), body.size()), view_t(signature.data(), signature.size())));
+	// Создаём записчик записи настроек алгоритма ключа
+	asn1::writer_t parameters;
+	// Открываем последовательность настроек алгоритма ключа
+	parameters.open(asn1::tag_t::SEQUENCE);
+	// Записываем опознаватель набора параметров кривой
+	parameters.oid("1.2.643.7.1.2.1.1.1");
+	// Закрываем последовательность настроек алгоритма ключа
+	parameters.close();
+	// Проверяем успешность сборки записи настроек алгоритма ключа
+	ASSERT_EQ(parameters.err(), asn1::error_t::NONE);
+	// Устанавливаем составленные настройки алгоритма ключа
+	key.parameters = parameters.data();
+	/**
+	 * Настройки теперь годны, а вот запись открытого ключа не передана: отказ обязан
+	 * прийти уже от извлечения координат, а не от разбора настроек
+	 */
+	ASSERT_FALSE(x509::check(key, view_t(body.data(), body.size()), view_t(signature.data(), signature.size())));
+	// Устанавливаем запись открытого ключа нулевой длины
+	key.key = view_t(body.data(), 0);
+	// Проверяем отказ проверки подписи с записью открытого ключа нулевой длины
+	ASSERT_FALSE(x509::check(key, view_t(body.data(), body.size()), view_t(signature.data(), signature.size())));
 }

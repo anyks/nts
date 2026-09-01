@@ -282,6 +282,24 @@ TEST(EcdheTest, Reject){
 	ASSERT_TRUE(curve::parameters("1.2.643.2.2.35.1", curve));
 	// Проверяем отказ выработки общего значения без места итога
 	ASSERT_FALSE(agreement::ecdhe(curve, view_t(DC256, sizeof(DC256)), view_t(QS256, sizeof(QS256)), nullptr));
+	/**
+	 * Непереданное место при заявленной длине - оплошность потребителя: длина есть,
+	 * а читать её не из чего. Заслон сверяет переданность места и его длину РАЗНЫМИ
+	 * половинами условия, и длина верная тут ничему не помогает
+	 */
+	ASSERT_FALSE(agreement::ecdhe(curve, view_t(nullptr, sizeof(DC256)), view_t(QS256, sizeof(QS256)), result));
+	// Проверяем отказ выработки при непереданном открытом ключе встречной стороны
+	ASSERT_FALSE(agreement::ecdhe(curve, view_t(DC256, sizeof(DC256)), view_t(nullptr, sizeof(QS256)), result));
+	// Места, в которые помещается вырабатываемая ключевая пара
+	uint8_t secret[32] = {0}, opened[64] = {0};
+	// Объект незаведённой эллиптической кривой
+	curve::curve_t bare;
+	// Проверяем отказ выработки ключевой пары на незаведённой кривой
+	ASSERT_FALSE(agreement::generate(bare, secret, opened));
+	// Проверяем отказ выработки ключевой пары без места секретного ключа
+	ASSERT_FALSE(agreement::generate(curve, nullptr, opened));
+	// Проверяем отказ выработки ключевой пары без места открытого ключа
+	ASSERT_FALSE(agreement::generate(curve, secret, nullptr));
 	// Проверяем отказ выработки при секретном ключе длиной не в размер кривой
 	ASSERT_FALSE(agreement::ecdhe(curve, view_t(DC256, sizeof(DC256) - 1), view_t(QS256, sizeof(QS256)), result));
 	// Проверяем отказ выработки при открытом ключе длиной не в две координаты

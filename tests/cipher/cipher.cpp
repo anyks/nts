@@ -236,6 +236,8 @@ TEST(CipherTest, Refusal) {
 	::memset(block, 0, sizeof(block));
 	// Создаём объект шифра
 	cipher::kuznyechik_t engine;
+	// Проверяем отказ расшифрования незаведённым шифром
+	ASSERT_FALSE(engine.decrypt(block, block));
 	// Проверяем отказ установки ключа недостаточной длины
 	ASSERT_FALSE(engine.key(view_t(key, 31)));
 	// Проверяем отказ установки ключа избыточной длины
@@ -250,10 +252,45 @@ TEST(CipherTest, Refusal) {
 	ASSERT_FALSE(engine.encrypt(block, nullptr));
 	// Проверяем отказ зашифрования отсутствующего блока
 	ASSERT_FALSE(engine.encrypt(nullptr, block));
+	// Проверяем отказ расшифрования в отсутствующее место
+	ASSERT_FALSE(engine.decrypt(block, nullptr));
+	// Проверяем отказ расшифрования отсутствующего блока
+	ASSERT_FALSE(engine.decrypt(nullptr, block));
 	// Выполняем затирание раундовых ключей
 	engine.clear();
 	// Проверяем неготовность шифра после затирания ключей
 	ASSERT_FALSE(engine.ready());
 	// Проверяем отказ зашифрования после затирания ключей
 	ASSERT_FALSE(engine.encrypt(block, block));
+	/**
+	 * «Магма» стережёт свои доводы теми же заслонами, что и «Кузнечик», и заслоны эти
+	 * у неё СВОИ: сверять их у одного шифра и полагать проверенными у другого нельзя
+	 */
+	cipher::magma_t magma;
+	// Проверяем отказ установки непереданного ключа шифрования
+	ASSERT_FALSE(magma.key(view_t(nullptr, cipher::MAGMA_KEY)));
+	// Проверяем отказ установки ключа шифрования не той длины
+	ASSERT_FALSE(magma.key(view_t(key, (cipher::MAGMA_KEY - 1))));
+	// Проверяем неготовность шифра после отказа установки ключа
+	ASSERT_FALSE(magma.ready());
+	// Проверяем отказ зашифрования незаведённым шифром
+	ASSERT_FALSE(magma.encrypt(block, block));
+	// Проверяем отказ расшифрования незаведённым шифром
+	ASSERT_FALSE(magma.decrypt(block, block));
+	// Проверяем успешность установки ключа шифрования положенной длины
+	ASSERT_TRUE(magma.key(view_t(key, cipher::MAGMA_KEY)));
+	// Проверяем отказ зашифрования непереданного блока
+	ASSERT_FALSE(magma.encrypt(nullptr, block));
+	// Проверяем отказ зашифрования в непереданное место
+	ASSERT_FALSE(magma.encrypt(block, nullptr));
+	// Проверяем отказ расшифрования непереданного блока
+	ASSERT_FALSE(magma.decrypt(nullptr, block));
+	// Проверяем отказ расшифрования в непереданное место
+	ASSERT_FALSE(magma.decrypt(block, nullptr));
+	// Выполняем затирание раундовых ключей шифра
+	magma.clear();
+	// Проверяем неготовность шифра после затирания ключей
+	ASSERT_FALSE(magma.ready());
+	// Проверяем отказ расшифрования после затирания ключей
+	ASSERT_FALSE(magma.decrypt(block, block));
 }

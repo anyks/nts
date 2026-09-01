@@ -229,3 +229,69 @@ TEST(ScheduleTest, Expand){
 	// Проверяем отказ вывода значения нулевой длины
 	ASSERT_FALSE(schedule::derive(view_t(traffic.data(), traffic.size()), view_t(reinterpret_cast <const uint8_t *> (label), ::strlen(label)), view_t(nullptr, 0), sample, 0));
 }
+
+/**
+ * Проверка отказов расписания ключей на негодные доводы
+ */
+TEST(ScheduleTest, Refusals){
+	// Начальное значение, из которого ведётся вывод
+	const std::vector <uint8_t> secret(schedule::SCHEDULE_SECRET, 0x5A);
+	// Метка назначения выводимого значения
+	const std::vector <uint8_t> label = {0x6B, 0x65, 0x79};
+	// Место, в которое помещается выведенное значение
+	uint8_t result[64] = {0};
+	// Проверяем отказ растяжения без места под растянутое значение
+	ASSERT_FALSE(schedule::expand(view_t(secret.data(), secret.size()), view_t(nullptr, 0), nullptr, sizeof(result)));
+	// Проверяем отказ растяжения на нулевую длину
+	ASSERT_FALSE(schedule::expand(view_t(secret.data(), secret.size()), view_t(nullptr, 0), result, 0));
+	/**
+	 * Раздел 2.3 RFC 5869 держит число частей растянутого значения в пределах
+	 * двухсот пятидесяти пяти, оттого длина сверх того отвергается
+	 */
+	ASSERT_FALSE(schedule::expand(view_t(secret.data(), secret.size()), view_t(nullptr, 0), result, ((255 * schedule::SCHEDULE_SECRET) + 1)));
+	// Описание назначения длиннее того, что вмещает слитная строка выработки
+	const std::vector <uint8_t> lengthy((schedule::SCHEDULE_LABEL + 6 + 255 + 4), 0x3C);
+	// Проверяем отказ растяжения на непомерное описание назначения
+	ASSERT_FALSE(schedule::expand(view_t(secret.data(), secret.size()), view_t(lengthy.data(), lengthy.size()), result, sizeof(result)));
+	// Проверяем отказ вывода без метки назначения
+	ASSERT_FALSE(schedule::derive(view_t(secret.data(), secret.size()), view_t(nullptr, 0), view_t(nullptr, 0), result, sizeof(result)));
+	// Проверяем отказ вывода на пустую метку назначения
+	ASSERT_FALSE(schedule::derive(view_t(secret.data(), secret.size()), view_t(label.data(), 0), view_t(nullptr, 0), result, sizeof(result)));
+	// Проверяем отказ вывода на метку назначения сверх дозволенной длины
+	ASSERT_FALSE(schedule::derive(view_t(secret.data(), secret.size()), view_t(lengthy.data(), (schedule::SCHEDULE_LABEL + 1)), view_t(nullptr, 0), result, sizeof(result)));
+	// Проверяем отказ вывода на привязку сверх дозволенной длины
+	ASSERT_FALSE(schedule::derive(view_t(secret.data(), secret.size()), view_t(label.data(), label.size()), view_t(lengthy.data(), 256), result, sizeof(result)));
+	// Проверяем отказ вывода на нулевую длину выводимого значения
+	ASSERT_FALSE(schedule::derive(view_t(secret.data(), secret.size()), view_t(label.data(), label.size()), view_t(nullptr, 0), result, 0));
+	// Проверяем отказ вывода на длину выводимого значения сверх поля описания
+	ASSERT_FALSE(schedule::derive(view_t(secret.data(), secret.size()), view_t(label.data(), label.size()), view_t(nullptr, 0), result, 0x10000));
+	// Проверяем отказ вывода без места под выведенное значение
+	ASSERT_FALSE(schedule::derive(view_t(secret.data(), secret.size()), view_t(label.data(), label.size()), view_t(nullptr, 0), nullptr, sizeof(result)));
+}
+
+/**
+ * Проверка равенства непереданной привязки привязке пустой
+ */
+TEST(ScheduleTest, Unbound){
+	// Начальное значение, из которого ведётся вывод
+	const std::vector <uint8_t> secret(schedule::SCHEDULE_SECRET, 0x5A);
+	// Метка назначения выводимого значения
+	const std::vector <uint8_t> label = {0x6B, 0x65, 0x79};
+	// Значения, выведенные при разных заявленных длинах непереданной привязки
+	uint8_t empty[32] = {0}, five[32] = {0}, seven[32] = {0};
+	// Выполняем вывод значения с привязкой, переданной пустой
+	ASSERT_TRUE(schedule::derive(view_t(secret.data(), secret.size()), view_t(label.data(), label.size()), view_t(nullptr, 0), empty, sizeof(empty)));
+	// Выполняем вывод значения с непереданной привязкой, заявленной длиною в пять
+	ASSERT_TRUE(schedule::derive(view_t(secret.data(), secret.size()), view_t(label.data(), label.size()), view_t(nullptr, 5), five, sizeof(five)));
+	// Выполняем вывод значения с непереданной привязкой, заявленной длиною в семь
+	ASSERT_TRUE(schedule::derive(view_t(secret.data(), secret.size()), view_t(label.data(), label.size()), view_t(nullptr, 7), seven, sizeof(seven)));
+	/**
+	 * Все три вызова означают одно: привязки нет. Прежде длина привязки попадала в
+	 * описание назначения прямо из довода, не спросясь о переданности места, и байт
+	 * длины заявлял то, за чем не следовало ни одного байта. Описание выходило
+	 * противоречивым, а значения - тремя разными там, где им положено сойтись
+	 */
+	ASSERT_EQ(::memcmp(empty, five, sizeof(empty)), 0);
+	// Проверяем схождение значения с непереданной привязкой длиною в семь
+	ASSERT_EQ(::memcmp(empty, seven, sizeof(empty)), 0);
+}
