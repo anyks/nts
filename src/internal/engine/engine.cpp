@@ -1617,7 +1617,12 @@ context::error_t nts::internal::Engine::offered(const vector <hello::extension_t
 	 * него, и место его начала к длине усечения и прибавляется
 	 */
 	const size_t offset = (static_cast <size_t> (offer->data.data - message.data) + truncation);
-	// Если длина усечения за приветствие вышла
+	/**
+	 * Заслон этот оборонительный: длина усечения берётся смещением внутри тела
+	 * расширения, а тело лежит просмотром внутри самого приветствия - сумма их за
+	 * приветствие выйти не может, и через связь заслон недостижим. Стоит он на
+	 * случай, если тело расширения перестанет быть просмотром внутрь приветствия
+	 */
 	if(offset > message.size)
 		// Выводим отказ разбора расширения приветствия
 		return this->abort(context::error_t::MESSAGE, alert::description_t::DECODE);
@@ -2030,7 +2035,12 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 		if(error != context::error_t::NONE)
 			// Выводим отказ отправки просьбы о повторе приветствия
 			return this->abort(error, alert::description_t::INTERNAL);
-		// Если просьбу о повторе приветствия ходу рукопожатия объявить не удалось
+		/**
+		 * Повторность просьбы сличена выше собственным признаком связи, и второй раз
+		 * сюда управление не приходит: через связь заслон недостижим. Лежит он за
+		 * отправкой самой просьбы нарочно - объявление ходу идёт в паре с заменою
+		 * переписки, а не с составлением сообщения
+		 */
 		if(this->_machine.retry() != flow::error_t::NONE)
 			// Выводим отказ объявления просьбы не в свой черёд
 			return this->abort(context::error_t::ORDER, alert::description_t::UNEXPECTED);
@@ -2509,7 +2519,11 @@ context::error_t nts::internal::Engine::renew(const view_t & body) noexcept {
 	if(message::parse(body, update) != message::error_t::NONE)
 		// Выводим отказ разбора сообщения смены ключевого материала
 		return this->abort(context::error_t::MESSAGE, alert::description_t::PARAMETER);
-	// Если смену ключей собеседника ходу рукопожатия объявить не удалось
+	/**
+	 * Ход рукопожатия за установленной связью смену ключевого материала принимает от
+	 * всякой стороны, а состояние связи сличено выше: через связь заслон этот
+	 * недостижим и стоит обороною на случай расхождения состояния с ходом
+	 */
 	if(this->_machine.accept(handshake::type_t::UPDATE, side) != flow::error_t::NONE)
 		// Выводим отказ объявления сообщения не в свой черёд
 		return this->abort(context::error_t::ORDER, alert::description_t::UNEXPECTED);
@@ -2565,7 +2579,11 @@ context::error_t nts::internal::Engine::accept(const view_t & body) noexcept {
 	if(message::parse(body, ticket) != message::error_t::NONE)
 		// Выводим отказ разбора билета возобновления связи
 		return this->abort(context::error_t::MESSAGE, alert::description_t::DECODE);
-	// Если билет ходу рукопожатия объявить не удалось
+	/**
+	 * Сторона задана здесь постоянной, и ход рукопожатия за установленной связью
+	 * сличает её сам с собою: через связь заслон недостижим. Постоянная эта верна -
+	 * билет от сервера, и приход его серверу отвергается разбором раньше
+	 */
 	if(this->_machine.accept(handshake::type_t::TICKET, session::side_t::SERVER) != flow::error_t::NONE)
 		// Выводим отказ объявления сообщения не в свой черёд
 		return this->abort(context::error_t::ORDER, alert::description_t::UNEXPECTED);
@@ -3360,10 +3378,15 @@ context::error_t nts::internal::Engine::push(const view_t & data) noexcept {
 	if((this->_state == context::state_t::NONE) || (this->_state == context::state_t::FAILED))
 		// Выводим отказ негодного состояния связи
 		return context::error_t::STATE;
-	// Если принятые байты связи сборщику записей подать не удалось
+	/**
+	 * Сборщик записей отказывает единственно нехваткой памяти под накопитель: сам
+	 * разбор идёт позже, отдельным вызовом. Отвечать здесь извещением о переросшей
+	 * записи значило бы выдавать свою беду за оплошность собеседника, и раздел 6.2
+	 * RFC 8446 велит на свои беды отвечать извещением о внутреннем отказе
+	 */
 	if(this->_records.push(data) != record::error_t::NONE)
-		// Выводим отказ разбора принятых байтов
-		return this->abort(context::error_t::RECORD, alert::description_t::OVERSIZE);
+		// Выводим отказ нехватки памяти под накопитель записей
+		return this->abort(context::error_t::MEMORY, alert::description_t::INTERNAL);
 	// Заголовок принятой записи связи
 	record::header_t header;
 	// Содержимое принятой записи связи
@@ -3456,6 +3479,15 @@ context::error_t nts::internal::Engine::push(const view_t & data) noexcept {
 		if(content.size > record::RECORD_PLAINTEXT)
 			// Выводим отказ выхода открытого содержимого за дозволенный предел
 			return this->abort(context::error_t::RECORD, alert::description_t::OVERSIZE);
+		/**
+		 * Раздел 6.1 RFC 8446 велит пропускать всё, что пришло за извещением о
+		 * закрытии: собеседник свою передачу завершил, и пришедшее следом означает
+		 * либо его собственную оплошность, либо чужую подделку. Обрыв связи здесь был
+		 * бы неверен - стандарт велит именно пропускать
+		 */
+		if(this->_state == context::state_t::CLOSED)
+			// Переходим к следующей принятой записи
+			continue;
 		// Отказ разбора открытого содержимого принятой записи
 		context::error_t error = context::error_t::NONE;
 		/**
@@ -3473,24 +3505,55 @@ context::error_t nts::internal::Engine::push(const view_t & data) noexcept {
 			} break;
 			// Если приняты сообщения рукопожатия собеседника
 			case static_cast <uint8_t> (record::type_t::HANDSHAKE): {
-				// Если содержимое записи сборщику сообщений подать не удалось
+				/**
+				 * Сборщик сообщений отказывает единственно нехваткой памяти под
+				 * накопитель: сам разбор идёт позже, отдельным вызовом. Извещение о
+				 * негодном разборе выдало бы свою беду за оплошность собеседника
+				 */
 				if(this->_messages.push(content) != handshake::error_t::NONE)
-					// Выводим отказ разбора сообщений рукопожатия
-					return this->abort(context::error_t::MESSAGE, alert::description_t::DECODE);
+					// Выводим отказ нехватки памяти под накопитель сообщений
+					return this->abort(context::error_t::MEMORY, alert::description_t::INTERNAL);
 				// Заголовок принятого сообщения рукопожатия
 				handshake::header_t item;
 				// Тело принятого сообщения рукопожатия
 				view_t body;
+				// Отказ, которым сборщик ответил на выдачу очередного сообщения
+				handshake::error_t outcome = handshake::error_t::NONE;
 				/**
 				 * Выполняем перебор принятых сообщений рукопожатия
 				 */
-				while(this->_messages.next(item, body) == handshake::error_t::NONE){
+				while((outcome = this->_messages.next(item, body)) == handshake::error_t::NONE){
 					// Выполняем разбор принятого сообщения рукопожатия
 					error = this->handle(item.type, body, this->_messages.message());
 					// Если сообщение рукопожатия разобрать не удалось
 					if(error != context::error_t::NONE)
 						// Выводим отказ разбора сообщения рукопожатия
 						return error;
+				}
+				/**
+				 * Нехваткой данных круг разбора кончается законно: остаток дождётся
+				 * следующих записей. Прочие же отказы означают оплошность собеседника,
+				 * и молчать о них нельзя: сборщик неразобранного сообщения с места не
+				 * сдвигает, оттого связь после него не оборвалась бы, а замерла
+				 * навсегда, приняв всё дальнейшее рукопожатие и не разобрав ничего
+				 */
+				if(outcome != handshake::error_t::HUNGRY){
+					// Если сборщику довелось столкнуться с неведомым видом сообщения
+					if(outcome == handshake::error_t::TYPE)
+						// Выводим отказ неведомого вида сообщения рукопожатия
+						return this->abort(context::error_t::ORDER, alert::description_t::UNEXPECTED);
+					// Если памяти сборщику сообщений не хватило
+					else if(outcome == handshake::error_t::MEMORY)
+						// Выводим отказ нехватки памяти под накопитель сообщений
+						return this->abort(context::error_t::MEMORY, alert::description_t::INTERNAL);
+					/**
+					 * Превышение дозволенной длины тела сообщения: движок предела
+					 * сборщику не понижает, и его собственный предел равен наибольшему,
+					 * какой вмещает трёхбайтовое поле длины, - оттого через связь эта
+					 * ветвь недостижима. Стоит она ради потребителей фреймворка,
+					 * понижающих предел открытым методом limit()
+					 */
+					return this->abort(context::error_t::MESSAGE, alert::description_t::DECODE);
 				}
 			} break;
 			// Если приняты прикладные данные собеседника
@@ -3528,7 +3591,11 @@ context::error_t nts::internal::Engine::push(const view_t & data) noexcept {
 					return context::error_t::MEMORY;
 				}
 			} break;
-			// Если принято содержимое, связью не поддержанное
+			/**
+			 * Ветвь эта недостижима: разбор заголовка записи сличает вид содержимого
+			 * сам, и признаёт он ровно те четыре вида, что разобраны выше. Стоит она
+			 * обороною на случай, если перечни разойдутся
+			 */
 			default: return this->abort(context::error_t::RECORD, alert::description_t::UNEXPECTED);
 		}
 	}
@@ -3682,7 +3749,12 @@ context::error_t nts::internal::Engine::update(const bool request) noexcept {
 	 * закрыта завершениями сторон, и ключи из неё больше не выводятся
 	 */
 	if(this->_machine.accept(handshake::type_t::UPDATE, side) != flow::error_t::NONE)
-		// Выводим отказ объявления сообщения не в свой черёд
+		/**
+		 * Заслон недостижим тем же доводом, что и у приёма чужой смены ключей.
+		 * Лежит он нарочно за отправкой: раздел 4.6.3 RFC 8446 велит сменять ключи
+		 * отправки лишь после ухода самого сообщения, и объявление ходу идёт в паре
+		 * со сменою, а не с составлением
+		 */
 		return this->abort(context::error_t::ORDER, alert::description_t::UNEXPECTED);
 	// Выводим итог смены ключевого материала своего направления связи
 	return this->rotate(side);
@@ -3804,6 +3876,10 @@ context::error_t nts::internal::Engine::issue() noexcept {
 	 * возобновления связи выведено и от них уже не зависит
 	 */
 	if(this->_machine.accept(handshake::type_t::TICKET, session::side_t::SERVER) != flow::error_t::NONE){
+		/**
+		 * Сторона задана постоянной, и ход рукопожатия за установленной связью
+		 * сличает её сам с собою: заслон недостижим и стоит обороною
+		 */
 		// Выполняем затирание ключа выдаваемого билета
 		wipe(secret, sizeof(secret));
 		// Выводим отказ объявления сообщения не в свой черёд

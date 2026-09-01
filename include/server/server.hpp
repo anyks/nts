@@ -527,6 +527,38 @@ namespace nts {
 				 * \~
 				 */
 				void advance(const bool advance, const uint32_t limit = 16384) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод проверки приёма упреждающих данных связью
+				 *
+				 * @return признак того, что упреждающие данные связью приняты
+				 *
+				 * @note Упреждающие данные связь вправе и отвергнуть: расхождение объявленного
+				 *       возраста билета с наблюдаемым, иной набор шифрования либо иной прикладной
+				 *       протокол приёму их препятствуют. Отвергнутые записи связь пропускает молча,
+				 *       как и велит раздел 4.2.10 RFC 8446, и по пустоте прочитанного отказ приёма
+				 *       от их отсутствия неотличим - оттого о приёме и объявляется отдельно
+				 *
+				 * @note Принятые упреждающие данные могли быть поданы повторно: протокол повтора не
+				 *       отсекает, и знать о приёме нужно затем, чтобы решить, как с таким повтором
+				 *       обходиться
+				 *
+				 * \~english
+				 * @brief Method of checking the acceptance of the early data by the connection
+				 * @return the flag of the early data being accepted by the connection
+				 * @note The connection has the right to reject the early data as well: a divergence of the
+				 *       declared age of a ticket from the observed one, another cipher suite or another
+				 *       application protocol prevent its acceptance. The rejected records are skipped by the
+				 *       connection silently as the section 4.2.10 of RFC 8446 prescribes, and by the emptiness
+				 *       of what has been read a rejection is indistinguishable from an absence — that is why
+				 *       the acceptance is announced separately
+				 * @note The accepted early data could have been submitted repeatedly: the protocol does not cut
+				 *       off a repetition, and the acceptance needs to be known in order to decide how to deal
+				 *       with such a repetition
+				 *
+				 * \~
+				 */
+				bool accepted() const noexcept;
 			public:
 				/**
 				 * \~russian

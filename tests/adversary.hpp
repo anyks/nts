@@ -98,7 +98,49 @@ namespace {
 		DISCORD   = 0x0D, // Приветствие клиента объявляет схемы подписи чужой кривой
 		SILENT    = 0x0E, // Запрос подлинности клиента не объявляет схем подписи
 		ADORNED   = 0x0F, // Запись цепочки сертификатов несёт непрошенное расширение
-		FAREWELL  = 0x10  // Клиент шлёт конец упреждающих данных, которых не посылал
+		FAREWELL  = 0x10, // Клиент шлёт конец упреждающих данных, которых не посылал
+		AFTERCLOSE = 0x11, // Сервер шлёт прикладные данные за извещением о закрытии
+		REPEATED   = 0x12, // Просьба о повторе приветствия приходит второй раз за связь
+		ARCHAIC    = 0x13, // Приветствие клиента не объявляет перечня изданий протокола
+		OUTDATED   = 0x14, // Приветствие клиента предлагает лишь издания до TLS 1.3
+		ALIEN      = 0x15, // Приветствие клиента предлагает чужой набор шифрования
+		BARE       = 0x16, // Приветствие клиента не объявляет перечня кривых обмена
+		STRANGER   = 0x17, // Приветствие клиента предлагает кривую, сервером не признаваемую
+		HOLLOW     = 0x18, // Приветствие клиента несёт пустую открытую часть ключа обмена
+		SPEECHLESS = 0x19, // Приветствие сервера не объявляет издания протокола
+		REGRESSED  = 0x1A, // Приветствие сервера объявляет издание ниже TLS 1.3
+		KEYLESS    = 0x1B, // Приветствие сервера не объявляет открытой части ключа обмена
+		SWAPPED    = 0x1C, // Приветствие сервера объявляет кривую, о которой не просили
+		PRESUMED   = 0x1D, // Приветствие сервера выбирает ключ, клиентом не предложенный
+		MODELESS   = 0x1E, // Приветствие клиента предлагает ключ без способов обмена им
+		GARBLED    = 0x1F, // Приветствие клиента несёт негодные способы обмена ключом
+		SPURIOUS   = 0x20, // Приветствие клиента несёт негодное предложение ключа
+		MANGLED    = 0x21, // Защищённые расширения сервера несут негодное тело
+		TATTERED   = 0x22, // Билет возобновления связи несёт негодное тело
+		SCRAMBLED  = 0x23, // Смена ключевого материала несёт негодное тело
+		MALVERSION = 0x24, // Приветствие клиента несёт негодный перечень изданий
+		MALSHARE   = 0x25, // Приветствие клиента несёт негодный перечень долей обмена
+		MALGROUPS  = 0x26, // Приветствие клиента несёт негодный перечень кривых
+		MALCURVES  = 0x27, // То же, но доли обмена приветствием не объявлены вовсе
+		MALNAME    = 0x28, // Приветствие клиента несёт негодное имя запрашиваемого узла
+		MALPROTOCOL = 0x29, // Приветствие клиента несёт негодный перечень протоколов
+		ODDSUITE   = 0x2A, // Приветствие сервера выбирает набор шифрования вне предложения
+		PICKEDEARLY = 0x2B, // Просьба о повторе выбирает заранее разделённый ключ
+		LATECOOKIE = 0x2C, // Приветствие сервера несёт метку возврата состояния
+		MALSELECT  = 0x2D, // Просьба о повторе несёт негодную выбранную кривую
+		MALEDITION = 0x2E, // Приветствие сервера несёт негодное издание протокола
+		MALCHOSEN  = 0x2F, // Приветствие сервера несёт негодный выбор ключа
+		MALSHARING = 0x30, // Приветствие сервера несёт негодную открытую часть ключа
+		TWICE      = 0x31, // Приветствие клиента идёт дважды одною записью
+		DOUBLED    = 0x32, // Приветствие сервера идёт дважды одною записью
+		TWINNED    = 0x33, // Защищённые расширения сервера идут дважды
+		MALALPN    = 0x34, // Защищённые расширения несут негодный прикладной протокол
+		MALADVANCE = 0x35, // Билет несёт негодный предел упреждающих данных
+		UNSETTLED  = 0x36, // Доля обмена идёт по кривой, сервером не признаваемой
+		MALCOOKIE  = 0x37, // Приветствие клиента несёт негодную метку возврата состояния
+		RECURRENT  = 0x38, // За приветствием сервера тою же записью идёт просьба о повторе
+		LINGERING  = 0x39, // Конец упреждающих данных несёт тело, которого ему не положено
+		MISAGED    = 0x3A  // Возраст билета объявлен разошедшимся с наблюдаемым
 	};
 	/**
 	 * @brief Заранее назначенное случайное значение просьбы о повторе приветствия
@@ -360,7 +402,8 @@ namespace {
 		 * PROPOSED - вторым: им враждебный сервер меняет набор между просьбой о
 		 * повторе приветствия и самим приветствием
 		 */
-		answer.suite = (((distortion == distortion_t::PROPOSED) && (greeting.suites.size() > 1)) ? greeting.suites[1] : greeting.suites[0]);
+		answer.suite = ((distortion == distortion_t::ODDSUITE) ? 0x1301 :
+			(((distortion == distortion_t::PROPOSED) && (greeting.suites.size() > 1)) ? greeting.suites[1] : greeting.suites[0]));
 		// Устанавливаем выбранный способ сжатия
 		answer.method = ((distortion == distortion_t::METHOD) ? 0x01 : 0x00);
 		/**
@@ -370,44 +413,96 @@ namespace {
 			// Записываем очередной байт случайного значения приветствия
 			answer.random[i] = static_cast <uint8_t> (0x10 + i);
 		// Накопители, в которых лежат тела расширений приветствия
-		vector <uint8_t> version, share;
+		vector <uint8_t> version, share, elected;
+		/**
+		 * Негодное тело расширения: единственный байт объявляет длину свыше
+		 * собственного размера тела, и разбору оно не поддаётся
+		 */
+		const vector <uint8_t> spoiled = {0xFF};
 		// Если издание протокола составить не удалось
-		if(extension::version(0x0304, version) != extension::error_t::NONE)
+		if(extension::version(((distortion == distortion_t::REGRESSED) ? 0x0303 : 0x0304), version) != extension::error_t::NONE)
 			// Выводим отказ ответа враждебного сервера
 			return false;
 		// Открытая часть ключа обмена враждебного сервера
-		const extension::share_t item(shares[0].group, view_t(opened.data(), opened.size()));
+		/**
+		 * Кривая объявляемой доли: искажением SWAPPED объявляется кривая, о которой
+		 * клиент не просил, тогда как байты ключа остаются от кривой настоящей
+		 */
+		const extension::share_t item(((distortion == distortion_t::SWAPPED) ? extension::group_t::GC256A : shares[0].group), view_t(opened.data(), opened.size()));
 		// Если открытую часть ключа обмена составить не удалось
 		if(extension::share(item, share) != extension::error_t::NONE)
 			// Выводим отказ ответа враждебного сервера
 			return false;
-		// Добавляем расширение издания протокола
-		answer.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::VERSIONS), view_t(version.data(), version.size())));
+		// Если издание протокола приветствием объявляется
+		if(distortion != distortion_t::SPEECHLESS)
+			// Добавляем расширение издания протокола
+			answer.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::VERSIONS),
+				((distortion == distortion_t::MALEDITION) ? view_t(spoiled.data(), spoiled.size()) : view_t(version.data(), version.size()))));
 		// Накопитель, в котором лежит тело расширения просьбы о повторе
 		vector <uint8_t> selected;
 		// Метка возврата состояния, объявляемая просьбой о повторе
 		const vector <uint8_t> label = {0x00, 0x04, 0xDE, 0xAD, 0xBE, 0xEF};
 		// Если враждебный сервер просит повтора приветствия
-		if((distortion == distortion_t::COOKIE) || (distortion == distortion_t::PROPOSAL)){
+		if((distortion == distortion_t::COOKIE) || (distortion == distortion_t::PROPOSAL) || (distortion == distortion_t::REPEATED) ||
+		   (distortion == distortion_t::PICKEDEARLY) || (distortion == distortion_t::MALSELECT)){
 			// Переносим случайное значение просьбы о повторе приветствия
 			::memcpy(answer.random, RETRY, sizeof(RETRY));
 			/**
 			 * Просить повтора вправе лишь на кривой, которую клиент предложил и ключа
 			 * по которой ещё не прислал: берём вторую из предложенных
 			 */
-			if(extension::selected(extension::group_t::GC512A, selected) != extension::error_t::NONE)
+			/**
+			 * Искажением REPEATED враждебный сервер просит повтора второй раз за связь,
+			 * и звать он обязан кривую, отличную от той, о которой просил впервые:
+			 * иначе связь оборвётся заслоном просьбы о кривой с уже отправленным ключом,
+			 * а проверяется здесь заслон самой повторности просьбы
+			 */
+			if(extension::selected(((distortion == distortion_t::REPEATED) ? extension::group_t::GC256B : extension::group_t::GC512A), selected) != extension::error_t::NONE)
 				// Выводим отказ ответа враждебного сервера
 				return false;
 			// Добавляем расширение выбранной кривой обмена ключами
-			answer.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::SHARE), view_t(selected.data(), selected.size())));
+			answer.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::SHARE),
+				((distortion == distortion_t::MALSELECT) ? view_t(spoiled.data(), spoiled.size()) : view_t(selected.data(), selected.size()))));
+			// Если просьба о повторе выбирает заранее разделённый ключ клиента
+			if(distortion == distortion_t::PICKEDEARLY){
+				// Если выбор заранее разделённого ключа составить не удалось
+				if(extension::chosen(0, elected) != extension::error_t::NONE)
+					// Выводим отказ ответа враждебного сервера
+					return false;
+				// Добавляем расширение выбранного заранее разделённого ключа
+				answer.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::SECRET), view_t(elected.data(), elected.size())));
+			}
 			// Если просьба о повторе объявляет метку возврата состояния сервера
 			if(distortion == distortion_t::COOKIE)
 				// Добавляем расширение метки возврата состояния сервера
 				answer.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::COOKIE), view_t(label.data(), label.size())));
 		// Если враждебный сервер отвечает самим приветствием
 		} else {
-			// Добавляем расширение открытой части ключа обмена
-			answer.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::SHARE), view_t(share.data(), share.size())));
+			// Если открытая часть ключа обмена приветствием объявляется
+			if(distortion != distortion_t::KEYLESS)
+				// Добавляем расширение открытой части ключа обмена
+				answer.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::SHARE),
+					((distortion == distortion_t::MALSHARING) ? view_t(spoiled.data(), spoiled.size()) : view_t(share.data(), share.size()))));
+			// Если приветствие сервера несёт метку возврата состояния
+			if(distortion == distortion_t::LATECOOKIE)
+				// Добавляем расширение метки возврата состояния сервера
+				answer.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::COOKIE), view_t(label.data(), label.size())));
+			// Если приветствие сервера несёт негодный выбор заранее разделённого ключа
+			if(distortion == distortion_t::MALCHOSEN)
+				// Добавляем расширение выбранного заранее разделённого ключа
+				answer.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::SECRET), view_t(spoiled.data(), spoiled.size())));
+			// Если приветствие сервера выбирает заранее разделённый ключ клиента
+			if(distortion == distortion_t::PRESUMED){
+				/**
+				 * Клиент предлагает единственный ключ, и место первое: всякое иное
+				 * есть выбор того, чего он не предлагал вовсе
+				 */
+				if(extension::chosen(1, elected) != extension::error_t::NONE)
+					// Выводим отказ ответа враждебного сервера
+					return false;
+				// Добавляем расширение выбранного заранее разделённого ключа
+				answer.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::SECRET), view_t(elected.data(), elected.size())));
+			}
 			// Если приветствие сервера несёт расширение не своего сообщения
 			if(distortion == distortion_t::GREETING)
 				// Добавляем расширение, приветствию сервера не положенное
@@ -425,6 +520,48 @@ namespace {
 		if(writer.push(handshake::type_t::SERVER, view_t(greeted.data(), greeted.size())) != handshake::error_t::NONE)
 			// Выводим отказ ответа враждебного сервера
 			return false;
+		/**
+		 * Искажением DOUBLED приветствие идёт дважды, и непременно одною записью:
+		 * приветствием сервера пора ключей сменяется, и вторая запись открытой уже
+		 * не разобралась бы вовсе - заслон проверялся бы не тот
+		 */
+		if(distortion == distortion_t::DOUBLED){
+			// Если повторное приветствие враждебного сервера составить не удалось
+			if(writer.push(handshake::type_t::SERVER, view_t(greeted.data(), greeted.size())) != handshake::error_t::NONE)
+				// Выводим отказ ответа враждебного сервера
+				return false;
+		}
+		/**
+		 * Искажением RECURRENT за приветствием сервера тою же записью идёт просьба о
+		 * повторе: приветствием пора рукопожатия уже прошла, и просьба приходит
+		 * тогда, когда просить о повторе поздно
+		 */
+		if(distortion == distortion_t::RECURRENT){
+			// Составляемая просьба враждебного сервера о повторе приветствия
+			hello::server_t asking = answer;
+			// Переносим случайное значение просьбы о повторе приветствия
+			::memcpy(asking.random, RETRY, sizeof(RETRY));
+			// Выполняем сброс расширений составляемой просьбы о повторе
+			asking.extensions.clear();
+			// Добавляем расширение издания протокола
+			asking.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::VERSIONS), view_t(version.data(), version.size())));
+			// Если выбранную просьбою кривую обмена ключами составить не удалось
+			if(extension::selected(extension::group_t::GC512A, selected) != extension::error_t::NONE)
+				// Выводим отказ ответа враждебного сервера
+				return false;
+			// Добавляем расширение выбранной кривой обмена ключами
+			asking.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::SHARE), view_t(selected.data(), selected.size())));
+			// Накопитель, в который складывается тело просьбы о повторе
+			vector <uint8_t> pleaded;
+			// Если тело просьбы о повторе составить не удалось
+			if(hello::build(asking, pleaded) != hello::error_t::NONE)
+				// Выводим отказ ответа враждебного сервера
+				return false;
+			// Если просьбу о повторе враждебного сервера составить не удалось
+			if(writer.push(handshake::type_t::SERVER, view_t(pleaded.data(), pleaded.size())) != handshake::error_t::NONE)
+				// Выводим отказ ответа враждебного сервера
+				return false;
+		}
 		// Получаем составленное приветствие враждебного сервера
 		const view_t greeter = writer.data();
 		// Если приветствие сервера в переписку добавить не удалось
@@ -443,7 +580,15 @@ namespace {
 		vector <uint8_t> answered(plaintext.data, plaintext.data + plaintext.size);
 		// Если враждебный сервер искажает само приветствие
 		if((distortion == distortion_t::COOKIE) || (distortion == distortion_t::GREETING) ||
-		   (distortion == distortion_t::METHOD) || (distortion == distortion_t::PROPOSAL) || (distortion == distortion_t::PROPOSED)){
+		   (distortion == distortion_t::METHOD) || (distortion == distortion_t::PROPOSAL) ||
+		   (distortion == distortion_t::PROPOSED) || (distortion == distortion_t::REPEATED) ||
+		   (distortion == distortion_t::SPEECHLESS) || (distortion == distortion_t::REGRESSED) ||
+		   (distortion == distortion_t::KEYLESS) || (distortion == distortion_t::SWAPPED) ||
+		   (distortion == distortion_t::PRESUMED) || (distortion == distortion_t::ODDSUITE) ||
+		   (distortion == distortion_t::PICKEDEARLY) || (distortion == distortion_t::LATECOOKIE) ||
+		   (distortion == distortion_t::MALSELECT) || (distortion == distortion_t::MALEDITION) ||
+		   (distortion == distortion_t::MALCHOSEN) || (distortion == distortion_t::MALSHARING) ||
+		   (distortion == distortion_t::DOUBLED) || (distortion == distortion_t::RECURRENT)){
 			// Выполняем подачу приветствия враждебного сервера клиенту
 			client.push(view_t(answered.data(), answered.size()));
 			// Выводим успешность ответа враждебного сервера
@@ -489,6 +634,10 @@ namespace {
 			return false;
 		// Перечень расширений, объявляемых враждебным сервером
 		vector <hello::extension_t> items;
+		// Если защищённые расширения несут негодный прикладной протокол
+		if(distortion == distortion_t::MALALPN)
+			// Добавляем расширение прикладного протокола с негодным телом
+			items.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::PROTOCOLS), view_t(spoiled.data(), spoiled.size())));
 		// Если защищённые расширения несут непрошенное расширение
 		if(distortion == distortion_t::EXTENSION)
 			// Добавляем расширение, которого клиент не предлагал вовсе
@@ -578,10 +727,30 @@ namespace {
 			// Выводим успешность ответа враждебного сервера
 			return true;
 		}
+		/**
+		 * Тело защищённых расширений: искажением MANGLED оно объявляет длину перечня
+		 * свыше собственного размера, и разбору не поддаётся
+		 */
+		const vector <uint8_t> mangled = {0xFF, 0xFF};
 		// Если защищённые расширения враждебного сервера отправить не удалось
-		if(!deliver(protection, transcript, handshake::type_t::EXTENSIONS, view_t(extensions.data(), extensions.size()), answered))
+		if(!deliver(protection, transcript, handshake::type_t::EXTENSIONS,
+			((distortion == distortion_t::MANGLED) ? view_t(mangled.data(), mangled.size()) : view_t(extensions.data(), extensions.size())), answered))
 			// Выводим отказ ответа враждебного сервера
 			return false;
+		/**
+		 * Искажением TWINNED защищённые расширения идут вторым разом: поры ключей они
+		 * не сменяют, оттого вторая запись вскрывается и до заслона черёда доходит
+		 */
+		if(distortion == distortion_t::TWINNED){
+			// Если повторные защищённые расширения отправить не удалось
+			if(!deliver(protection, transcript, handshake::type_t::EXTENSIONS, view_t(extensions.data(), extensions.size()), answered))
+				// Выводим отказ ответа враждебного сервера
+				return false;
+			// Выполняем подачу ответа враждебного сервера клиенту
+			client.push(view_t(answered.data(), answered.size()));
+			// Выводим успешность ответа враждебного сервера
+			return true;
+		}
 		// Если враждебный сервер шлёт запрос подлинности без схем подписи
 		if(distortion == distortion_t::SILENT){
 			// Объект составителя тела запроса подлинности клиента
@@ -647,7 +816,10 @@ namespace {
 				// Выводим отказ ответа враждебного сервера
 				return false;
 		// Если враждебный сервер доводит рукопожатие до подписи владения ключом
-		} else if((distortion == distortion_t::SCHEME) || (distortion == distortion_t::FOREIGN) || (distortion == distortion_t::LIFETIME)) {
+		} else if((distortion == distortion_t::SCHEME) || (distortion == distortion_t::FOREIGN) ||
+		          (distortion == distortion_t::LIFETIME) || (distortion == distortion_t::AFTERCLOSE) ||
+		          (distortion == distortion_t::TATTERED) || (distortion == distortion_t::SCRAMBLED) ||
+		          (distortion == distortion_t::MALADVANCE)) {
 			// Если подлинность враждебного сервера проверкой не задана
 			if((credential == nullptr) || credential->chain.empty())
 				// Выводим отказ ответа враждебного сервера
@@ -700,7 +872,9 @@ namespace {
 				return false;
 		}
 		// Если враждебный сервер доводит рукопожатие до билета возобновления связи
-		if(distortion == distortion_t::LIFETIME){
+		if((distortion == distortion_t::LIFETIME) || (distortion == distortion_t::AFTERCLOSE) ||
+		   (distortion == distortion_t::TATTERED) || (distortion == distortion_t::SCRAMBLED) ||
+		   (distortion == distortion_t::MALADVANCE)){
 			// Место, в которое помещается ключ завершения рукопожатия сервера
 			uint8_t completion[schedule::SCHEDULE_SECRET];
 			// Если ключ завершения рукопожатия вывести не удалось
@@ -828,13 +1002,18 @@ namespace {
 			if(secrets.resumption(view_t(hash, sizeof(hash))) != session::error_t::NONE)
 				// Выводим отказ ответа враждебного сервера
 				return false;
+			// Если враждебный сервер выдаёт билет возобновления связи
+			if((distortion == distortion_t::LIFETIME) || (distortion == distortion_t::TATTERED) ||
+			   (distortion == distortion_t::MALADVANCE)){
 			// Составляемый билет возобновления связи враждебного сервера
 			message::ticket_t ticket;
 			/**
 			 * Срок билета объявляется свыше семи суток: раздел 4.6.1 RFC 8446 кладёт
-			 * сроку билета именно этот предел
+			 * сроку билета именно этот предел. Искажением MALADVANCE срок берётся
+			 * годным нарочно: заслон срока лежит раньше заслона предела упреждения,
+			 * и негодным сроком проверялся бы не тот заслон
 			 */
-			ticket.lifetime = 604801;
+			ticket.lifetime = ((distortion == distortion_t::MALADVANCE) ? 3600 : 604801);
 			// Устанавливаем добавку к возрасту составляемого билета
 			ticket.age = 0;
 			// Неповторимое значение составляемого билета
@@ -843,22 +1022,307 @@ namespace {
 			ticket.nonce = view_t(nonce, sizeof(nonce));
 			// Устанавливаем тело составляемого билета
 			ticket.data = view_t(identifier, sizeof(identifier));
+			// Если билет несёт негодный предел упреждающих данных
+			if(distortion == distortion_t::MALADVANCE)
+				// Добавляем расширение предела упреждающих данных с негодным телом
+				ticket.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::EARLY), view_t(spoiled.data(), spoiled.size())));
 			// Накопитель, в который складывается тело билета возобновления связи
 			vector <uint8_t> issued;
 			// Если тело билета возобновления связи составить не удалось
 			if(message::build(ticket, issued) != message::error_t::NONE)
 				// Выводим отказ ответа враждебного сервера
 				return false;
+			// Если враждебный сервер выдаёт билет с негодным телом
+			if(distortion == distortion_t::TATTERED)
+				// Устанавливаем негодное тело билета возобновления связи
+				issued = {0x00, 0x00};
 			// Выполняем сброс накопителя ответа враждебного сервера
 			answered.clear();
 			// Если билет возобновления связи отправить не удалось
 			if(!deliver(outgoing, transcript, handshake::type_t::TICKET, view_t(issued.data(), issued.size()), answered))
 				// Выводим отказ ответа враждебного сервера
 				return false;
+			}
+			// Если враждебный сервер шлёт негодную смену ключевого материала
+			if(distortion == distortion_t::SCRAMBLED){
+				/**
+				 * Раздел 4.6.3 RFC 8446 кладёт смене ключевого материала тело в один
+				 * байт: пустое тело разбору не поддаётся
+				 */
+				answered.clear();
+				// Если смену ключевого материала отправить не удалось
+				if(!deliver(outgoing, transcript, handshake::type_t::UPDATE, view_t(nullptr, 0), answered))
+					// Выводим отказ ответа враждебного сервера
+					return false;
+			}
+			// Если враждебный сервер шлёт прикладные данные за извещением о закрытии
+			if(distortion == distortion_t::AFTERCLOSE){
+				// Извещение о завершении передачи данных враждебным сервером
+				alert::alert_t notice;
+				// Устанавливаем уровень извещения о завершении передачи
+				notice.level = alert::level_t::WARNING;
+				// Устанавливаем описание извещения о завершении передачи
+				notice.description = alert::description_t::CLOSE;
+				// Место, в которое складывается тело составляемого извещения
+				uint8_t noticed[2];
+				// Если тело извещения составить не удалось
+				if(alert::build(notice, noticed) != alert::error_t::NONE)
+					// Выводим отказ ответа враждебного сервера
+					return false;
+				// Выполняем сброс накопителя ответа враждебного сервера
+				answered.clear();
+				// Накопитель, в который складывается запись извещения о закрытии
+				vector <uint8_t> closing;
+				// Если наложить защиту на извещение о закрытии не удалось
+				if(outgoing.seal(record::type_t::ALERT, view_t(noticed, sizeof(noticed)), closing) != protect::error_t::NONE)
+					// Выводим отказ ответа враждебного сервера
+					return false;
+				// Складываем защищённую запись извещения в ответ враждебного сервера
+				answered.insert(answered.end(), closing.begin(), closing.end());
+				// Прикладные данные, посылаемые вслед за извещением о закрытии
+				const uint8_t trailing[] = {0xDE, 0xAD, 0xBE, 0xEF};
+				// Накопитель, в который складывается запись прикладных данных
+				vector <uint8_t> tailing;
+				// Если наложить защиту на прикладные данные не удалось
+				if(outgoing.seal(record::type_t::APPLICATION, view_t(trailing, sizeof(trailing)), tailing) != protect::error_t::NONE)
+					// Выводим отказ ответа враждебного сервера
+					return false;
+				// Складываем защищённую запись данных в ответ враждебного сервера
+				answered.insert(answered.end(), tailing.begin(), tailing.end());
+			}
 		}
 		// Выполняем подачу ответа враждебного сервера клиенту
 		client.push(view_t(answered.data(), answered.size()));
 		// Выводим успешность ответа враждебного сервера
+		return true;
+	}
+	/**
+	 * @brief Метод возобновления связи враждебным клиентом с упреждающими данными
+	 *
+	 * @param server     связь стороны сервера
+	 * @param ticket     билет возобновления связи, принятый прошлой связью
+	 * @param distortion искажение, вносимое враждебным клиентом
+	 *
+	 * @return           признак успешности подачи упреждающих данных
+	 *
+	 * @details Приветствие складывается своё, привязка билета вырабатывается
+	 *          по-настоящему, и ключи упреждающих данных выводятся из билета - иначе
+	 *          сервер упреждения не примет и заслоны за ним останутся непроверенными
+	 *
+	 */
+	bool precursor(server::context_t & server, const context::ticket_t & ticket, const distortion_t distortion) noexcept {
+		// Кривая обмена ключами враждебного клиента
+		const extension::group_t group = extension::group_t::GC256B;
+		// Получаем опознаватель набора параметров кривой обмена ключами
+		const char * oid = extension::curve(group);
+		// Объект кривой обмена мимолётными ключами
+		curve::curve_t elliptic;
+		// Если кривую обмена мимолётными ключами завести не удалось
+		if((oid == nullptr) || !curve::parameters(oid, elliptic))
+			// Выводим отказ подачи упреждающих данных
+			return false;
+		// Секретный мимолётный ключ враждебного клиента
+		vector <uint8_t> secret(elliptic.size(), 0);
+		// Открытый мимолётный ключ враждебного клиента
+		vector <uint8_t> opened(elliptic.size() * 2, 0);
+		// Если мимолётную пару ключей враждебного клиента выработать не удалось
+		if(!agreement::generate(elliptic, secret.data(), opened.data()))
+			// Выводим отказ подачи упреждающих данных
+			return false;
+		// Составляемое приветствие враждебного клиента
+		hello::client_t greeting;
+		// Устанавливаем издание протокола, доставшееся от предыдущих изданий
+		greeting.version = 0x0303;
+		// Устанавливаем опознаватель связи приветствия
+		greeting.session.assign(hello::HELLO_SESSION, 0x55);
+		// Устанавливаем предлагаемый набор шифрования набором билета
+		greeting.suites.push_back(static_cast <uint16_t> (ticket.suite));
+		// Устанавливаем перечень способов сжатия
+		greeting.methods.assign(1, 0x00);
+		/**
+		 * Выполняем набивку случайного значения приветствия
+		 */
+		for(size_t i = 0; i < hello::HELLO_RANDOM; i++)
+			// Записываем очередной байт случайного значения приветствия
+			greeting.random[i] = static_cast <uint8_t> (0x60 + i);
+		// Накопители, в которых лежат тела расширений приветствия
+		vector <vector <uint8_t>> bodies(6);
+		// Если перечень изданий протокола составить не удалось
+		if(extension::versions(vector <uint16_t> (1, 0x0304), bodies[0]) != extension::error_t::NONE)
+			// Выводим отказ подачи упреждающих данных
+			return false;
+		// Добавляем расширение перечня изданий протокола
+		greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::VERSIONS), view_t(bodies[0].data(), bodies[0].size())));
+		// Если перечень кривых обмена ключами составить не удалось
+		if(extension::groups(vector <extension::group_t> (1, group), bodies[1]) != extension::error_t::NONE)
+			// Выводим отказ подачи упреждающих данных
+			return false;
+		// Добавляем расширение перечня кривых обмена ключами
+		greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::GROUPS), view_t(bodies[1].data(), bodies[1].size())));
+		// Если перечень схем подписи составить не удалось
+		if(extension::schemes(vector <extension::scheme_t> {extension::scheme_t::S256B}, bodies[2]) != extension::error_t::NONE)
+			// Выводим отказ подачи упреждающих данных
+			return false;
+		// Добавляем расширение перечня схем подписи
+		greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::SCHEMES), view_t(bodies[2].data(), bodies[2].size())));
+		// Если перечень открытых частей ключей обмена составить не удалось
+		if(extension::shares(vector <extension::share_t> (1, extension::share_t(group, view_t(opened.data(), opened.size()))), bodies[3]) != extension::error_t::NONE)
+			// Выводим отказ подачи упреждающих данных
+			return false;
+		// Добавляем расширение открытых частей ключей обмена
+		greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::SHARE), view_t(bodies[3].data(), bodies[3].size())));
+		// Если способы обмена заранее разделённым ключом составить не удалось
+		if(extension::modes(vector <extension::mode_t> {extension::mode_t::SHARED}, bodies[4]) != extension::error_t::NONE)
+			// Выводим отказ подачи упреждающих данных
+			return false;
+		// Добавляем расширение способов обмена заранее разделённым ключом
+		greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::MODES), view_t(bodies[4].data(), bodies[4].size())));
+		/**
+		 * Расширение упреждающих данных пусто: раздел 4.2.10 RFC 8446 велит объявлять
+		 * им лишь само намерение, а предел объявлен билетом
+		 */
+		greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::EARLY), view_t(nullptr, 0)));
+		// Место, в которое помещается пустая привязка предъявляемого билета
+		uint8_t empty[schedule::SCHEDULE_SECRET];
+		// Выполняем обнуление привязки предъявляемого билета
+		::memset(empty, 0, sizeof(empty));
+		// Опознаватель предъявляемого билета возобновления связи
+		/**
+		 * Возраст билета: искажением MISAGED он объявляется разошедшимся с наблюдаемым
+		 * на час, тогда как окно расхождения - десять секунд
+		 */
+		const extension::identity_t identity(view_t(ticket.identity.data(), ticket.identity.size()),
+			((distortion == distortion_t::MISAGED) ? static_cast <uint32_t> (ticket.age + 3600000) : ticket.age));
+		// Если предложение заранее разделённых ключей составить не удалось
+		if(extension::identities(vector <extension::identity_t> {identity}, vector <view_t> {view_t(empty, sizeof(empty))}, bodies[5]) != extension::error_t::NONE)
+			// Выводим отказ подачи упреждающих данных
+			return false;
+		/**
+		 * Расширение заранее разделённых ключей идёт последним: привязка покрывает
+		 * всё, что идёт до неё, и место ей раздел 4.2.11 RFC 8446 кладёт в конец
+		 */
+		greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::SECRET), view_t(bodies[5].data(), bodies[5].size())));
+		// Накопитель, в который складывается тело приветствия клиента
+		vector <uint8_t> body;
+		// Если тело приветствия враждебного клиента составить не удалось
+		if(hello::build(greeting, body) != hello::error_t::NONE)
+			// Выводим отказ подачи упреждающих данных
+			return false;
+		// Объект составителя отправляемых сообщений рукопожатия
+		handshake::writer_t writer;
+		// Если приветствие враждебного клиента составить не удалось
+		if(writer.push(handshake::type_t::CLIENT, view_t(body.data(), body.size())) != handshake::error_t::NONE)
+			// Выводим отказ подачи упреждающих данных
+			return false;
+		// Получаем составленное приветствие враждебного клиента
+		const view_t made = writer.data();
+		// Накопитель, в котором приветствие правится привязкой билета
+		vector <uint8_t> message(made.data, made.data + made.size);
+		/**
+		 * Приветствие усекается перед перечнем привязок: два байта длины перечня, байт
+		 * длины привязки и сама привязка себя же покрывать не вправе
+		 */
+		const size_t truncation = (message.size() - (sizeof(empty) + 3));
+		// Объект переписки рукопожатия враждебного клиента
+		session::transcript_t transcript;
+		// Заводим переписку рукопожатия враждебного клиента
+		transcript.start();
+		// Место, в которое помещается хеш усечённого приветствия
+		uint8_t digest[schedule::SCHEDULE_SECRET];
+		// Если хеш усечённого приветствия получить не удалось
+		if(transcript.digest(view_t(message.data(), truncation), digest) != session::error_t::NONE)
+			// Выводим отказ подачи упреждающих данных
+			return false;
+		// Объект значений расписания ключей враждебного клиента
+		session::secrets_t secrets;
+		// Если начальную ступень расписания ключей завести не удалось
+		if(secrets.start(view_t(ticket.secret.data(), ticket.secret.size())) != session::error_t::NONE)
+			// Выводим отказ подачи упреждающих данных
+			return false;
+		// Если привязку предъявляемого билета выработать не удалось
+		if(secrets.binder(view_t(digest, sizeof(digest)), message.data() + (message.size() - sizeof(empty))) != session::error_t::NONE)
+			// Выводим отказ подачи упреждающих данных
+			return false;
+		// Если приветствие в переписку рукопожатия добавить не удалось
+		if(transcript.update(view_t(message.data(), message.size())) != session::error_t::NONE)
+			// Выводим отказ подачи упреждающих данных
+			return false;
+		// Если хеш переписки рукопожатия получить не удалось
+		if(transcript.digest(digest) != session::error_t::NONE)
+			// Выводим отказ подачи упреждающих данных
+			return false;
+		// Если значение упреждающих данных вывести не удалось
+		if(secrets.early(view_t(digest, sizeof(digest))) != session::error_t::NONE)
+			// Выводим отказ подачи упреждающих данных
+			return false;
+		// Значение упреждающих данных связи
+		uint8_t traffic[schedule::SCHEDULE_SECRET];
+		// Если значение упреждающих данных получить не удалось
+		if(secrets.early(traffic) != session::error_t::NONE)
+			// Выводим отказ подачи упреждающих данных
+			return false;
+		// Место, в которое помещается корневой ключ упреждающих данных
+		uint8_t material[protect::PROTECT_KEY];
+		// Место, в которое помещается вектор замены упреждающих данных
+		uint8_t element[protect::PROTECT_VECTOR];
+		// Если ключевой материал упреждающих данных вывести не удалось
+		if(session::material(view_t(traffic, sizeof(traffic)), ticket.suite, material, element) != session::error_t::NONE)
+			// Выводим отказ подачи упреждающих данных
+			return false;
+		// Объект защиты упреждающих данных враждебного клиента
+		protect::protection_t protection;
+		// Если ключевой материал упреждающих данных установить не удалось
+		if(!protection.start(ticket.suite, view_t(material, sizeof(material)), view_t(element, protect::block(ticket.suite))))
+			// Выводим отказ подачи упреждающих данных
+			return false;
+		// Объект нарезчика отправляемых записей
+		record::writer_t plain;
+		// Если приветствие враждебного клиента на записи нарезать не удалось
+		if(plain.push(record::type_t::HANDSHAKE, record::version_t::TLS12, view_t(message.data(), message.size())) != record::error_t::NONE)
+			// Выводим отказ подачи упреждающих данных
+			return false;
+		// Получаем нарезанные записи приветствия враждебного клиента
+		const view_t plaintext = plain.data();
+		// Накопитель, в который складывается подача враждебного клиента
+		vector <uint8_t> answered(plaintext.data, plaintext.data + plaintext.size);
+		/**
+		 * Упреждающие данные идут перед концом своим: без них отказ приёма неотличим
+		 * от приёма, ибо сервер отвергнутые записи пропускает молча, как и велено
+		 */
+		const uint8_t advancing[8] = {0x41, 0x4E, 0x54, 0x53, 0x2D, 0x30, 0x52, 0x54};
+		// Накопитель, в который складывается запись упреждающих данных
+		vector <uint8_t> advanced;
+		// Если наложить защиту на упреждающие данные не удалось
+		if(protection.seal(record::type_t::APPLICATION, view_t(advancing, sizeof(advancing)), advanced) != protect::error_t::NONE)
+			// Выводим отказ подачи упреждающих данных
+			return false;
+		// Складываем защищённую запись в подачу враждебного клиента
+		answered.insert(answered.end(), advanced.begin(), advanced.end());
+		// Объект составителя конца упреждающих данных
+		handshake::writer_t ending;
+		/**
+		 * Раздел 4.5 RFC 8446 кладёт концу упреждающих данных пустое тело: искажением
+		 * LINGERING он несёт байт, которого ему не положено
+		 */
+		const uint8_t trailing[1] = {0x00};
+		// Если конец упреждающих данных составить не удалось
+		if(ending.push(handshake::type_t::EARLY, ((distortion == distortion_t::LINGERING) ? view_t(trailing, sizeof(trailing)) : view_t(nullptr, 0))) != handshake::error_t::NONE)
+			// Выводим отказ подачи упреждающих данных
+			return false;
+		// Накопитель, в который складывается запись конца упреждающих данных
+		vector <uint8_t> sealed;
+		// Если наложить защиту на конец упреждающих данных не удалось
+		if(protection.seal(record::type_t::HANDSHAKE, ending.data(), sealed) != protect::error_t::NONE)
+			// Выводим отказ подачи упреждающих данных
+			return false;
+		// Складываем защищённую запись в подачу враждебного клиента
+		answered.insert(answered.end(), sealed.begin(), sealed.end());
+		/**
+		 * Итог подачи не сличается: обрыв связи сервером и есть проверяемое, и отказом
+		 * оснастки он не является
+		 */
+		(void) server.push(view_t(answered.data(), answered.size()));
+		// Выводим успешность подачи упреждающих данных
 		return true;
 	}
 	/**
@@ -879,8 +1343,24 @@ namespace {
 	 *
 	 */
 	bool intruder(server::context_t & server, const distortion_t distortion, const context::credential_t * credential = nullptr) noexcept {
-		// Кривая обмена ключами враждебного клиента
-		const extension::group_t group = extension::group_t::GC256B;
+		/**
+		 * Кривая обмена ключами враждебного клиента: искажениями BARE и STRANGER
+		 * берётся кривая, в перечень сервера по умолчанию не входящая, - без этого
+		 * доля клиента сервером опознаётся и заслоны выбора кривой остаются в стороне
+		 */
+		const extension::group_t group = (((distortion == distortion_t::BARE) ||
+			(distortion == distortion_t::STRANGER) || (distortion == distortion_t::UNSETTLED)) ?
+			extension::group_t::GC256C : extension::group_t::GC256B);
+		/**
+		 * Перечень кривых, объявляемый враждебным клиентом: искажением UNSETTLED он
+		 * несёт обе - и ту, по которой идёт доля, и общую с сервером. Обе нужны:
+		 * доля вне объявленного перечня отвергается заслоном раньше, а без общей
+		 * кривой сервер оборвал бы связь вместо просьбы о повторе. Тем он и
+		 * понуждается просить повтора - общая кривая есть, а доли по ней нет
+		 */
+		const vector <extension::group_t> declared = ((distortion == distortion_t::UNSETTLED) ?
+			vector <extension::group_t> {extension::group_t::GC256C, extension::group_t::GC256B} :
+			vector <extension::group_t> {group});
 		// Получаем опознаватель набора параметров кривой обмена ключами
 		const char * oid = extension::curve(group);
 		// Объект кривой обмена мимолётными ключами
@@ -903,8 +1383,11 @@ namespace {
 		greeting.version = 0x0303;
 		// Устанавливаем опознаватель связи приветствия
 		greeting.session.assign(hello::HELLO_SESSION, 0x33);
-		// Устанавливаем предлагаемый набор шифрования
-		greeting.suites.push_back(static_cast <uint16_t> (protect::suite_t::MAGMA_MGM_L));
+		/**
+		 * Предлагаемый набор шифрования: искажением ALIEN предлагается набор чужой,
+		 * общего с сервером у сторон не находится вовсе
+		 */
+		greeting.suites.push_back((distortion == distortion_t::ALIEN) ? 0x1301 : static_cast <uint16_t> (protect::suite_t::MAGMA_MGM_L));
 		// Устанавливаем перечень способов сжатия
 		greeting.methods.assign(1, 0x00);
 		/**
@@ -914,19 +1397,36 @@ namespace {
 			// Записываем очередной байт случайного значения приветствия
 			greeting.random[i] = static_cast <uint8_t> (0x40 + i);
 		// Накопители, в которых лежат тела расширений приветствия
-		vector <vector <uint8_t>> bodies(4);
-		// Если перечень изданий протокола составить не удалось
-		if(extension::versions(vector <uint16_t> (1, 0x0304), bodies[0]) != extension::error_t::NONE)
+		vector <vector <uint8_t>> bodies(6);
+		/**
+		 * Негодное тело расширения: единственный байт объявляет длину перечня в
+		 * двести пятьдесят пять байтов, каковых за ним не идёт вовсе
+		 */
+		const vector <uint8_t> spoiled = {0xFF};
+		/**
+		 * Перечень изданий протокола: искажением OUTDATED предлагается лишь издание
+		 * предыдущее, а искажением ARCHAIC расширение не объявляется вовсе
+		 */
+		if(extension::versions(vector <uint16_t> (1, ((distortion == distortion_t::OUTDATED) ? 0x0303 : 0x0304)), bodies[0]) != extension::error_t::NONE)
 			// Выводим отказ рукопожатия враждебного клиента
 			return false;
-		// Добавляем расширение перечня изданий протокола
-		greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::VERSIONS), view_t(bodies[0].data(), bodies[0].size())));
+		// Если перечень изданий протокола приветствием объявляется
+		if(distortion != distortion_t::ARCHAIC)
+			// Добавляем расширение перечня изданий протокола
+			greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::VERSIONS),
+				((distortion == distortion_t::MALVERSION) ? view_t(spoiled.data(), spoiled.size()) : view_t(bodies[0].data(), bodies[0].size()))));
 		// Если перечень кривых обмена ключами составить не удалось
-		if(extension::groups(vector <extension::group_t> (1, group), bodies[1]) != extension::error_t::NONE)
+		if(extension::groups(declared, bodies[1]) != extension::error_t::NONE)
 			// Выводим отказ рукопожатия враждебного клиента
 			return false;
-		// Добавляем расширение перечня кривых обмена ключами
-		greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::GROUPS), view_t(bodies[1].data(), bodies[1].size())));
+		// Если перечень кривых обмена ключами приветствием объявляется
+		if(distortion != distortion_t::BARE){
+			// Признак того, что перечень кривых объявляется негодным
+			const bool spoil = ((distortion == distortion_t::MALGROUPS) || (distortion == distortion_t::MALCURVES));
+			// Добавляем расширение перечня кривых обмена ключами
+			greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::GROUPS),
+				(spoil ? view_t(spoiled.data(), spoiled.size()) : view_t(bodies[1].data(), bodies[1].size()))));
+		}
 		/**
 		 * Схемы подписи, предлагаемые враждебным клиентом: искажением DISCORD в
 		 * перечне остаются одни схемы длинной кривой, тогда как сертификат сервера
@@ -951,13 +1451,66 @@ namespace {
 		// Добавляем расширение перечня схем подписи
 		greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::SCHEMES), view_t(bodies[2].data(), bodies[2].size())));
 		// Если перечень открытых частей ключей обмена составить не удалось
-		if(extension::shares(vector <extension::share_t> (1, extension::share_t(group, view_t(opened.data(), opened.size()))), bodies[3]) != extension::error_t::NONE)
+		if(extension::shares(vector <extension::share_t> (1, extension::share_t(group, ((distortion == distortion_t::HOLLOW) ? view_t(nullptr, 0) : view_t(opened.data(), opened.size())))), bodies[3]) != extension::error_t::NONE)
 			// Выводим отказ рукопожатия враждебного клиента
 			return false;
-		// Добавляем расширение открытых частей ключей обмена
-		greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::SHARE), view_t(bodies[3].data(), bodies[3].size())));
+		/**
+		 * Доли обмена ключами: искажением MALCURVES расширение не объявляется вовсе,
+		 * ибо заслон негодного перечня кривых при опознанной доле лежит раньше того,
+		 * что проверяется, - разбор кривых идёт тогда иной ветвью
+		 */
+		if(distortion != distortion_t::MALCURVES)
+			// Добавляем расширение открытых частей ключей обмена
+			greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::SHARE),
+				((distortion == distortion_t::MALSHARE) ? view_t(spoiled.data(), spoiled.size()) : view_t(bodies[3].data(), bodies[3].size()))));
+		// Если приветствие клиента несёт негодную метку возврата состояния
+		if(distortion == distortion_t::MALCOOKIE)
+			// Добавляем расширение метки возврата состояния сервера
+			greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::COOKIE), view_t(spoiled.data(), spoiled.size())));
+		// Если приветствие клиента несёт негодное имя запрашиваемого узла
+		if(distortion == distortion_t::MALNAME)
+			// Добавляем расширение имени запрашиваемого узла
+			greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::NAME), view_t(spoiled.data(), spoiled.size())));
+		// Если приветствие клиента несёт негодный перечень прикладных протоколов
+		if(distortion == distortion_t::MALPROTOCOL)
+			// Добавляем расширение перечня прикладных протоколов
+			greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::PROTOCOLS), view_t(spoiled.data(), spoiled.size())));
+		/**
+		 * Предложение заранее разделённого ключа: сами байты предложения разбору
+		 * подлежат не всегда, ибо заслоны способов обмена стоят до него. Оттого
+		 * искажениями MODELESS и GARBLED тело предложения годным быть не обязано
+		 */
+		if((distortion == distortion_t::MODELESS) || (distortion == distortion_t::GARBLED) ||
+		   (distortion == distortion_t::SPURIOUS)){
+			// Устанавливаем негодное тело предложения заранее разделённого ключа
+			bodies[4] = {0x00, 0x05};
+			// Если способы обмена заранее разделённым ключом приветствием объявляются
+			if(distortion != distortion_t::MODELESS){
+				/**
+				 * Способы обмена: искажением GARBLED тело их негодно, а искажением
+				 * SPURIOUS годно и несёт обмен с обновлением мимолётных ключей
+				 */
+				if(distortion == distortion_t::GARBLED)
+					// Устанавливаем негодное тело способов обмена ключом
+					bodies[5] = {0x05};
+				// Если годные способы обмена ключом составить не удалось
+				else if(extension::modes(vector <extension::mode_t> {extension::mode_t::SHARED}, bodies[5]) != extension::error_t::NONE)
+					// Выводим отказ рукопожатия враждебного клиента
+					return false;
+				// Добавляем расширение способов обмена заранее разделённым ключом
+				greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::MODES), view_t(bodies[5].data(), bodies[5].size())));
+			}
+			/**
+			 * Предложение ключа идёт последним расширением приветствия: раздел 4.2.11
+			 * RFC 8446 иного места ему не отводит, ибо привязки считаются по всему
+			 * приветствию до него
+			 */
+			greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::SECRET), view_t(bodies[4].data(), bodies[4].size())));
+		}
 		// Накопитель, в который складывается тело приветствия клиента
 		vector <uint8_t> body;
+		// Признак того, что приветствие клиента идёт дважды одною записью
+		const bool twice = (distortion == distortion_t::TWICE);
 		// Если тело приветствия враждебного клиента составить не удалось
 		if(hello::build(greeting, body) != hello::error_t::NONE)
 			// Выводим отказ рукопожатия враждебного клиента
@@ -968,6 +1521,17 @@ namespace {
 		if(writer.push(handshake::type_t::CLIENT, view_t(body.data(), body.size())) != handshake::error_t::NONE)
 			// Выводим отказ рукопожатия враждебного клиента
 			return false;
+		/**
+		 * Искажением TWICE приветствие идёт дважды, и непременно одною записью: за
+		 * первым приветствием сервер отвечает своим, и вторая запись пришлась бы уже
+		 * на иную пору ключей
+		 */
+		if(twice){
+			// Если повторное приветствие враждебного клиента составить не удалось
+			if(writer.push(handshake::type_t::CLIENT, view_t(body.data(), body.size())) != handshake::error_t::NONE)
+				// Выводим отказ рукопожатия враждебного клиента
+				return false;
+		}
 		// Объект переписки рукопожатия враждебного клиента
 		session::transcript_t transcript;
 		// Заводим переписку рукопожатия враждебного клиента
@@ -1034,6 +1598,21 @@ namespace {
 		if(hello::parse(taken, answer) != hello::error_t::NONE)
 			// Выводим отказ рукопожатия враждебного клиента
 			return false;
+		/**
+		 * Искажением UNSETTLED сервер отвечает просьбою о повторе приветствия, и
+		 * враждебный клиент повторяет прежнее - то же, без доли по общей кривой.
+		 * Повтор этот сервер обязан оборвать: просить дважды он не вправе, а годной
+		 * доли ему так и не прислали
+		 */
+		if((distortion == distortion_t::UNSETTLED) && hello::retry(answer)){
+			/**
+			 * Итог подачи здесь не сличается: обрыв связи сервером и есть ожидаемое,
+			 * и отказом оснастки он не является
+			 */
+			(void) server.push(plain.data());
+			// Выводим успешность рукопожатия враждебного клиента
+			return true;
+		}
 		// Разыскиваем расширение открытой части ключа обмена сервера
 		const hello::extension_t * extension = hello::extension(answer.extensions, static_cast <uint16_t> (extension::type_t::SHARE));
 		// Если открытой части ключа обмена приветствие сервера не несёт

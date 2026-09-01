@@ -293,6 +293,129 @@ TEST(ExtensionTest, Bodies){
 }
 
 /**
+ * Проверка разбора усечённых и порченых тел расширений
+ *
+ * @note Проверка эта итога разбора не судит: усечённое тело вправе и не
+ *       разобраться, и разобраться в иное. Судит она лишь того, что всякий
+ *       разборщик выдерживает всякое тело - и своё, и чужое, и обрубленное, - не
+ *       валясь и за поданную область байтов не выходя. Смысл её раскрывается под
+ *       санитайзерами: без них она стережёт лишь отказ работы
+ */
+TEST(ExtensionTest, Ragged){
+	// Набор годных тел расширений, служащий основою порчи
+	vector <vector <uint8_t>> corpus(8);
+	// Открытая часть ключа обмена, кладомая в долю обмена
+	const vector <uint8_t> opened(64, 0x11);
+	// Если перечень изданий протокола составить не удалось
+	ASSERT_EQ(extension::versions(vector <uint16_t> {0x0304, 0x0303}, corpus[0]), extension::error_t::NONE);
+	// Если перечень кривых обмена ключами составить не удалось
+	ASSERT_EQ(extension::groups(vector <extension::group_t> {extension::group_t::GC256B, extension::group_t::GC512A}, corpus[1]), extension::error_t::NONE);
+	// Если перечень схем подписи составить не удалось
+	ASSERT_EQ(extension::schemes(vector <extension::scheme_t> {extension::scheme_t::S256B, extension::scheme_t::S512A}, corpus[2]), extension::error_t::NONE);
+	// Если перечень долей обмена ключами составить не удалось
+	ASSERT_EQ(extension::shares(vector <extension::share_t> {extension::share_t(extension::group_t::GC256B, view_t(opened.data(), opened.size()))}, corpus[3]), extension::error_t::NONE);
+	// Если способы обмена заранее разделённым ключом составить не удалось
+	ASSERT_EQ(extension::modes(vector <extension::mode_t> {extension::mode_t::SHARED}, corpus[4]), extension::error_t::NONE);
+	// Если перечень прикладных протоколов составить не удалось
+	ASSERT_EQ(extension::protocols(vector <string> {"h2", "http/1.1"}, corpus[5]), extension::error_t::NONE);
+	// Если метку возврата состояния составить не удалось
+	ASSERT_EQ(extension::cookie(view_t(opened.data(), 16), corpus[6]), extension::error_t::NONE);
+	// Если предел упреждающих данных составить не удалось
+	ASSERT_EQ(extension::early(static_cast <uint32_t> (16384), corpus[7]), extension::error_t::NONE);
+	/**
+	 * Выполняем перебор годных тел расширений
+	 */
+	for(size_t body = 0; body < corpus.size(); body++){
+		/**
+		 * Выполняем перебор длин усечения очередного тела
+		 */
+		for(size_t size = 0; size <= corpus[body].size(); size++){
+			/**
+			 * Выполняем перебор порчи очередного байта тела: нулевой круг порчи не
+			 * вносит вовсе, и им проверяется само усечение
+			 */
+			for(size_t place = 0; place <= size; place++){
+				// Выполняем перенос очередного годного тела расширения
+				vector <uint8_t> item(corpus[body].begin(), corpus[body].begin() + static_cast <ptrdiff_t> (size));
+				// Если очередной байт тела портится
+				if((place > 0) && (place <= item.size()))
+					// Выполняем обращение всех разрядов порченого байта
+					item[place - 1] = static_cast <uint8_t> (item[place - 1] ^ 0xFF);
+				// Просмотр разбираемого тела расширения
+				const view_t data(item.data(), item.size());
+				// Место, в которое помещается разобранный перечень изданий протокола
+				vector <uint16_t> versions;
+				// Место, в которое помещается разобранное издание протокола
+				uint16_t version = 0;
+				// Место, в которое помещается разобранный перечень кривых
+				vector <extension::group_t> groups;
+				// Место, в которое помещается разобранная выбранная кривая
+				extension::group_t group = extension::group_t::NONE;
+				// Место, в которое помещается разобранный перечень схем подписи
+				vector <extension::scheme_t> schemes;
+				// Место, в которое помещается разобранный перечень долей обмена
+				vector <extension::share_t> shares;
+				// Место, в которое помещается разобранная доля обмена
+				extension::share_t share(extension::group_t::NONE, view_t(nullptr, 0));
+				// Место, в которое помещается разобранный перечень способов обмена
+				vector <extension::mode_t> modes;
+				// Место, в которое помещается разобранный перечень протоколов
+				vector <string> protocols;
+				// Место, в которое помещается разобранный прикладной протокол
+				string protocol;
+				// Место, в которое помещается разобранная метка возврата состояния
+				view_t cookie;
+				// Место, в которое помещается разобранное имя запрашиваемого узла
+				view_t name;
+				// Место, в которое помещается разобранное место выбранного ключа
+				uint16_t chosen = 0;
+				// Место, в которое помещается разобранный предел упреждающих данных
+				uint32_t limit = 0;
+				// Место, в которое помещается разобранный перечень опознавателей
+				vector <extension::identity_t> identities;
+				// Место, в которое помещается разобранный перечень привязок
+				vector <view_t> binders;
+				// Место, в которое помещается длина усечения приветствия
+				size_t truncation = 0;
+				/**
+				 * Всякое тело подаётся всякому разборщику: чужое тело для разборщика
+				 * ничем не лучше порченого, и выдержать он обязан оба
+				 */
+				(void) extension::versions(data, versions);
+				// Выполняем разбор издания протокола
+				(void) extension::version(data, version);
+				// Выполняем разбор перечня кривых обмена ключами
+				(void) extension::groups(data, groups);
+				// Выполняем разбор выбранной кривой обмена ключами
+				(void) extension::selected(data, group);
+				// Выполняем разбор перечня схем подписи
+				(void) extension::schemes(data, schemes);
+				// Выполняем разбор перечня долей обмена ключами
+				(void) extension::shares(data, shares);
+				// Выполняем разбор доли обмена ключами
+				(void) extension::share(data, share);
+				// Выполняем разбор способов обмена заранее разделённым ключом
+				(void) extension::modes(data, modes);
+				// Выполняем разбор перечня прикладных протоколов
+				(void) extension::protocols(data, protocols);
+				// Выполняем разбор выбранного прикладного протокола
+				(void) extension::protocol(data, protocol);
+				// Выполняем разбор метки возврата состояния сервера
+				(void) extension::cookie(data, cookie);
+				// Выполняем разбор имени запрашиваемого узла
+				(void) extension::name(data, name);
+				// Выполняем разбор места выбранного заранее разделённого ключа
+				(void) extension::chosen(data, chosen);
+				// Выполняем разбор предела упреждающих данных
+				(void) extension::early(data, limit);
+				// Выполняем разбор предложения заранее разделённых ключей
+				(void) extension::identities(data, identities, binders, truncation);
+			}
+		}
+	}
+}
+
+/**
  * Проверка отказов разбора тел расширений
  */
 TEST(ExtensionTest, Reject){

@@ -670,6 +670,42 @@ TEST(TrustTest, Reject){
 }
 
 /**
+ * Проверка доверия издателю без объявленного назначения ключа
+ */
+TEST(TrustTest, Unstated){
+	// Ключевые пары издателя и владельца сертификатов
+	keys_t issuer, subject;
+	// Выполняем выработку ключевой пары издателя
+	ASSERT_TRUE(generate(issuer));
+	// Выполняем выработку ключевой пары владельца
+	ASSERT_TRUE(generate(subject));
+	// Настройки сертификата издателя с правом издавать сертификаты
+	options_t options;
+	// Объявляем принадлежность издателя удостоверяющему центру
+	options.authority = true;
+	// Отменяем объявление назначения открытого ключа сертификата
+	options.usage = false;
+	// Запись сертификата издателя цепочки
+	vector <uint8_t> root;
+	// Выполняем выработку самоподписанного сертификата издателя
+	ASSERT_TRUE(make("anyks root", "anyks root", issuer, vector <uint8_t> (), options, root));
+	// Запись сертификата владельца цепочки
+	vector <uint8_t> leaf;
+	// Выполняем выработку сертификата владельца, изданного издателем
+	ASSERT_TRUE(make("anyks.com", "anyks root", subject, issuer.secret, options_t (), leaf));
+	// Запас доверенных сертификатов
+	trust::store_t store;
+	// Выполняем добавление сертификата издателя в запас доверенных
+	ASSERT_TRUE(store.add(view_t(root.data(), root.size())));
+	/**
+	 * Раздел 4.2.1.3 RFC 5280 кладёт назначение открытого ключа расширением
+	 * необязательным: не объявив его, издатель ничего себе не запретил, и права
+	 * издавать сертификаты, данного основными ограничениями, оно не отменяет
+	 */
+	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> {leaf, root}, store, MOMENT), trust::error_t::NONE);
+}
+
+/**
  * Проверка права издавать другие сертификаты
  */
 TEST(TrustTest, Constraint){

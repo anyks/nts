@@ -124,6 +124,163 @@ static const char * MAGMA_PLAIN =
 	"8912409b17b57e41";
 
 /**
+ * @brief Проверка отказов режимов работы на негодных доводах
+ *
+ * @note Заслоны эти стерегут не подделку, а оплошность потребителя фреймворка:
+ *       непереданное место, длину не по размеру блока, вектор замены не той длины.
+ *       Пропущенный такой заслон обращает чужую оплошность в выход за память, оттого
+ *       проверяются они все, и смысл проверки раскрывается под санитайзерами
+ *
+ */
+TEST(ModeTest, Refusals) {
+	// Ключ шифрования
+	uint8_t secret[32];
+	// Выполняем разбор ключа шифрования
+	bytes(KUZNYECHIK_SECRET, secret);
+	// Объект блочного шифра
+	cipher::kuznyechik_t base;
+	// Выполняем установку ключа шифрования
+	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
+	// Место, в которое складывается итог работы режима
+	uint8_t result[64];
+	// Область байтов, подаваемая режимам работы
+	uint8_t source[64];
+	// Выполняем обнуление подаваемой области байтов
+	::memset(source, 0x33, sizeof(source));
+	// Вектор замены, годный режимам работы
+	uint8_t iv[32];
+	// Выполняем обнуление вектора замены
+	::memset(iv, 0x44, sizeof(iv));
+	// Размер блока применяемого шифра
+	const size_t size = cipher::KUZNYECHIK_BLOCK;
+	/**
+	 * Режим простой замены: заведения он требует одного лишь шифра, а работы -
+	 * переданных мест и длины, кратной размеру блока
+	 */
+	{
+		// Объект режима простой замены
+		cipher::codebook_t mode;
+		/**
+		 * Описатель шифра, ни на какой шифр не указывающий: заводить им режим работы
+		 * нельзя, ибо звать по такому описателю нечего
+		 */
+		ASSERT_FALSE(mode.start(cipher::block_t()));
+		// Проверяем отказ работы незаведённого режима
+		ASSERT_FALSE(mode.encrypt(view_t(source, size), result));
+		// Проверяем отказ снятия защиты незаведённым режимом
+		ASSERT_FALSE(mode.decrypt(view_t(source, size), result));
+		// Выполняем заведение режима простой замены
+		ASSERT_TRUE(mode.start(cipher::block_t(base)));
+		// Проверяем отказ работы при непереданной области байтов
+		ASSERT_FALSE(mode.encrypt(view_t(nullptr, size), result));
+		// Проверяем отказ работы при непереданном месте итога
+		ASSERT_FALSE(mode.encrypt(view_t(source, size), nullptr));
+		// Проверяем отказ снятия защиты при непереданной области байтов
+		ASSERT_FALSE(mode.decrypt(view_t(nullptr, size), result));
+		// Проверяем отказ снятия защиты при непереданном месте итога
+		ASSERT_FALSE(mode.decrypt(view_t(source, size), nullptr));
+		// Проверяем отказ работы при длине не по размеру блока
+		ASSERT_FALSE(mode.encrypt(view_t(source, size - 1), result));
+		// Проверяем отказ снятия защиты при длине не по размеру блока
+		ASSERT_FALSE(mode.decrypt(view_t(source, size - 1), result));
+	}
+	/**
+	 * Режим гаммирования: вектор замены ему нужен ровно в половину блока, и работа
+	 * его длины, кратной блоку, не требует
+	 */
+	{
+		// Объект режима гаммирования
+		cipher::counter_t mode;
+		// Проверяем отказ заведения незаполненным описателем шифра
+		ASSERT_FALSE(mode.start(cipher::block_t(), view_t(iv, size / 2)));
+		// Проверяем отказ работы незаведённого режима
+		ASSERT_FALSE(mode.encrypt(view_t(source, size), result));
+		// Проверяем отказ снятия защиты незаведённым режимом
+		ASSERT_FALSE(mode.decrypt(view_t(source, size), result));
+		// Проверяем отказ заведения при непереданном векторе замены
+		ASSERT_FALSE(mode.start(cipher::block_t(base), view_t(nullptr, size / 2)));
+		// Проверяем отказ заведения при векторе замены не той длины
+		ASSERT_FALSE(mode.start(cipher::block_t(base), view_t(iv, size)));
+		// Выполняем заведение режима гаммирования
+		ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(iv, size / 2)));
+		// Проверяем успешность работы при пустой области байтов
+		ASSERT_TRUE(mode.encrypt(view_t(nullptr, 0), result));
+		// Проверяем отказ работы при непереданной области байтов
+		ASSERT_FALSE(mode.encrypt(view_t(nullptr, size), result));
+		// Проверяем отказ работы при непереданном месте итога
+		ASSERT_FALSE(mode.encrypt(view_t(source, size), nullptr));
+	}
+	/**
+	 * Режимы обратной связи: вектор замены им нужен кратным размеру блока и не
+	 * короче его самого
+	 */
+	{
+		// Объект режима обратной связи по шифртексту
+		cipher::chaining_t chaining;
+		// Проверяем отказ заведения при непереданном векторе замены
+		ASSERT_FALSE(chaining.start(cipher::block_t(base), view_t(nullptr, size)));
+		// Проверяем отказ заведения при векторе замены короче блока
+		ASSERT_FALSE(chaining.start(cipher::block_t(base), view_t(iv, size - 1)));
+		// Проверяем отказ заведения при векторе замены не кратном блоку
+		ASSERT_FALSE(chaining.start(cipher::block_t(base), view_t(iv, size + 1)));
+		// Выполняем заведение режима обратной связи по шифртексту
+		ASSERT_TRUE(chaining.start(cipher::block_t(base), view_t(iv, size)));
+		// Проверяем отказ работы при длине не по размеру блока
+		ASSERT_FALSE(chaining.encrypt(view_t(source, size - 1), result));
+		// Объект режима обратной связи по гамме
+		cipher::feedback_t feedback;
+		// Проверяем отказ заведения при непереданном векторе замены
+		ASSERT_FALSE(feedback.start(cipher::block_t(base), view_t(nullptr, size)));
+		// Проверяем отказ заведения при векторе замены короче блока
+		ASSERT_FALSE(feedback.start(cipher::block_t(base), view_t(iv, size - 1)));
+		// Выполняем заведение режима обратной связи по гамме
+		ASSERT_TRUE(feedback.start(cipher::block_t(base), view_t(iv, size)));
+		// Проверяем отказ работы при непереданном месте итога
+		ASSERT_FALSE(feedback.encrypt(view_t(source, size), nullptr));
+		// Объект режима гаммирования с обратной связью по выходу
+		cipher::output_t output;
+		// Проверяем отказ заведения при векторе замены короче блока
+		ASSERT_FALSE(output.start(cipher::block_t(base), view_t(iv, size - 1)));
+		// Выполняем заведение режима гаммирования с обратной связью по выходу
+		ASSERT_TRUE(output.start(cipher::block_t(base), view_t(iv, size)));
+		// Проверяем отказ работы при непереданной области байтов
+		ASSERT_FALSE(output.encrypt(view_t(nullptr, size), result));
+		// Проверяем отказ снятия защиты при непереданном месте итога
+		ASSERT_FALSE(output.decrypt(view_t(source, size), nullptr));
+		// Проверяем отказ снятия защиты незаведённого режима обратной связи
+		ASSERT_FALSE(chaining.decrypt(view_t(source, size - 1), result));
+		// Проверяем отказ снятия защиты при непереданном месте итога
+		ASSERT_FALSE(feedback.decrypt(view_t(source, size), nullptr));
+	}
+	/**
+	 * Режим выработки имитовставки: длина её берётся не свыше размера блока, и
+	 * нулевой длины у неё не бывает
+	 */
+	{
+		// Объект режима выработки имитовставки
+		cipher::imitation_t mode;
+		// Проверяем отказ подачи байтов незаведённому режиму
+		ASSERT_FALSE(mode.update(view_t(source, size)));
+		// Выполняем заведение режима выработки имитовставки
+		ASSERT_TRUE(mode.start(cipher::block_t(base)));
+		// Проверяем успешность подачи пустой области байтов
+		ASSERT_TRUE(mode.update(view_t(nullptr, 0)));
+		// Проверяем отказ подачи непереданной области байтов
+		ASSERT_FALSE(mode.update(view_t(nullptr, size)));
+		// Выполняем подачу байтов режиму выработки имитовставки
+		ASSERT_TRUE(mode.update(view_t(source, size)));
+		// Проверяем отказ выдачи имитовставки в непереданное место
+		ASSERT_FALSE(mode.finish(nullptr, size));
+		// Проверяем отказ выдачи имитовставки нулевой длины
+		ASSERT_FALSE(mode.finish(result, 0));
+		// Проверяем отказ выдачи имитовставки длиною свыше блока
+		ASSERT_FALSE(mode.finish(result, size + 1));
+		// Проверяем успешность выдачи имитовставки
+		ASSERT_TRUE(mode.finish(result, size));
+	}
+}
+
+/**
  * @brief Проверка режима простой замены на шифре «Кузнечик»
  *
  */

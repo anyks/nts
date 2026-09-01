@@ -298,6 +298,16 @@ void nts::server::Context::advance(const bool advance, const uint32_t limit) noe
 		this->_engine->advance(advance, limit);
 }
 /**
+ * @brief Метод проверки приёма упреждающих данных связью
+ *
+ * @return признак того, что упреждающие данные связью приняты
+ *
+ */
+bool nts::server::Context::accepted() const noexcept {
+	// Выводим признак приёма упреждающих данных связью
+	return (this->_engine != nullptr ? this->_engine->accepted() : false);
+}
+/**
  * @brief Метод заведения связи
  *
  * @return отказ заведения связи

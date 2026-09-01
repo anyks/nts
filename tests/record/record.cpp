@@ -292,6 +292,14 @@ TEST(RecordTest, Limit){
 	// Разбираемая запись длиной сверх принятого связью предела
 	const uint8_t source[] = {0x17, 0x03, 0x03, 0x00, 0x20};
 	// Выполняем подачу заголовка разбираемой записи
+	/**
+	 * Пустой кусок подаётся сборщику успешностью: подать нечего, но и отказывать не
+	 * за что - собеседник вправе прислать запись и по одному байту
+	 */
+	ASSERT_EQ(reader.push(view_t(nullptr, 0)), record::error_t::NONE);
+	// Проверяем успешность подачи куска нулевой длины
+	ASSERT_EQ(reader.push(view_t(source, 0)), record::error_t::NONE);
+	// Выполняем подачу принятых байтов сборщику записей
 	ASSERT_EQ(reader.push(view_t(source, sizeof(source))), record::error_t::NONE);
 	// Заголовок собранной записи
 	record::header_t header;

@@ -32,6 +32,7 @@
 #include <string>
 #include <vector>
 #include <cstring>
+#include <limits>
 #include <main.hpp>
 #include <protect/protect.hpp>
 
@@ -327,4 +328,46 @@ TEST(ProtectTest, Reject){
 	header.type = record::type_t::HANDSHAKE;
 	// Проверяем отказ снятия защиты с записи неположенного вида содержимого
 	ASSERT_EQ(receiver.open(header, view_t(sealed.data() + record::RECORD_HEADER, header.size), type, opened), protect::error_t::TYPE);
+}
+
+/**
+ * Проверка отказа наложения защиты на запись с непомерным дополнением
+ */
+TEST(ProtectTest, Overpadded){
+	// Объект защиты записей отправляющей стороны
+	protect::protection_t sender;
+	// Получаем корневой ключ направления связи
+	const std::vector <uint8_t> key = decode(SAMPLES[0].key);
+	// Получаем вектор замены направления связи
+	const std::vector <uint8_t> vector = decode(SAMPLES[0].vector);
+	// Выполняем установку ключевого материала отправляющей стороны
+	ASSERT_TRUE(sender.start(SAMPLES[0].suite, view_t(key.data(), key.size()), view_t(vector.data(), vector.size())));
+	// Защищаемое содержимое записи
+	const std::vector <uint8_t> content(64, 0x41);
+	// Накопитель, в который складывается защищённая запись
+	std::vector <uint8_t> sealed;
+	// Проверяем отказ наложения защиты на запись с дополнением сверх предела записи
+	ASSERT_EQ(sender.seal(record::type_t::APPLICATION, view_t(content.data(), content.size()), sealed, record::RECORD_CIPHERTEXT + 1), protect::error_t::LENGTH);
+	// Проверяем, что отвергнутая запись в накопитель не попала
+	ASSERT_TRUE(sealed.empty());
+	/**
+	 * Дополнение, обращающее сумму слагаемых длины открытого текста в ноль. Прежде
+	 * заслон складывал слагаемые до сверки, и такая сумма его проходила: накопитель
+	 * открытого текста заводился пустым, а перенос содержимого шёл на весь его объём.
+	 * Величина эта берётся не наугад - она вычисляется из объёма содержимого так,
+	 * чтобы завернуть сумму ровно за ноль
+	 */
+	ASSERT_EQ(sender.seal(record::type_t::APPLICATION, view_t(content.data(), content.size()), sealed, (std::numeric_limits <size_t>::max() - content.size())), protect::error_t::LENGTH);
+	// Проверяем, что отвергнутая запись в накопитель не попала
+	ASSERT_TRUE(sealed.empty());
+	// Проверяем отказ наложения защиты с наибольшим возможным дополнением
+	ASSERT_EQ(sender.seal(record::type_t::APPLICATION, view_t(content.data(), content.size()), sealed, std::numeric_limits <size_t>::max()), protect::error_t::LENGTH);
+	// Проверяем, что отвергнутая запись в накопитель не попала
+	ASSERT_TRUE(sealed.empty());
+	// Проверяем, что порядковый номер записи ни один из отказов не сдвинул
+	ASSERT_EQ(sender.sequence(), static_cast <uint64_t> (0));
+	// Проверяем, что дополнение вплоть до предела записи по-прежнему принимается
+	ASSERT_EQ(sender.seal(record::type_t::APPLICATION, view_t(content.data(), content.size()), sealed, 128), protect::error_t::NONE);
+	// Проверяем, что принятое дополнение вошло в длину защищённой записи
+	ASSERT_EQ(sealed.size(), (record::RECORD_HEADER + content.size() + 1 + 128 + protect::block(SAMPLES[0].suite)));
 }

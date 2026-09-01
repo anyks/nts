@@ -153,6 +153,12 @@ TEST(HandshakeTest, Independence){
 			// Определяем длину очередного подаваемого куска
 			const size_t size = ((stream.size() - offset) < chunk ? (stream.size() - offset) : chunk);
 			// Выполняем подачу очередного куска переписки рукопожатия
+			/**
+			 * Пустой кусок подаётся сборщику успешностью: подать нечего, но и
+			 * отказывать не за что - записи вправе приходить и порожними
+			 */
+			ASSERT_EQ(reader.push(view_t(nullptr, 0)), handshake::error_t::NONE) << "кусок " << chunk;
+			// Выполняем подачу очередного куска сборщику сообщений
 			ASSERT_EQ(reader.push(view_t(stream.data() + offset, size)), handshake::error_t::NONE) << "кусок " << chunk;
 			// Обвязка очередного собранного сообщения
 			handshake::header_t header;

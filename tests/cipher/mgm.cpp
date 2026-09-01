@@ -95,6 +95,83 @@ static std::string text(const uint8_t * data, const size_t size) {
 }
 
 /**
+ * @brief Проверка отказов режима с проверкой целостности на негодных доводах
+ *
+ * @note Заслоны эти стерегут оплошность потребителя фреймворка: непереданное место,
+ *       неповторимое значение не по размеру блока, метку подлинности не той длины.
+ *       Отдельно проверяется отказ на пустой подаче: шифровать и заверять нечего,
+ *       и молча выдавать метку пустоты режим не вправе
+ *
+ */
+TEST(MgmTest, Refusals) {
+	// Ключ шифрования
+	uint8_t secret[32];
+	// Выполняем разбор ключа шифрования
+	bytes("8899aabbccddeeff0011223344556677fedcba98765432100123456789abcdef", secret);
+	// Объект блочного шифра
+	cipher::kuznyechik_t base;
+	// Выполняем установку ключа шифрования
+	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
+	// Размер блока применяемого шифра
+	const size_t size = cipher::KUZNYECHIK_BLOCK;
+	// Неповторимое значение, годное режиму работы
+	uint8_t nonce[cipher::KUZNYECHIK_BLOCK];
+	// Выполняем набивку неповторимого значения
+	::memset(nonce, 0x11, sizeof(nonce));
+	/**
+	 * Старший разряд неповторимого значения обнуляется: режим кладёт ему быть нулём
+	 */
+	nonce[0] &= 0x7F;
+	// Область байтов, подаваемая режиму работы
+	uint8_t source[32];
+	// Выполняем набивку подаваемой области байтов
+	::memset(source, 0x22, sizeof(source));
+	// Место, в которое складывается итог работы режима
+	uint8_t result[32];
+	// Место, в которое складывается метка подлинности
+	uint8_t tag[cipher::KUZNYECHIK_BLOCK];
+	// Объект режима шифрования с проверкой целостности
+	cipher::galois_t mode;
+	// Проверяем отказ работы незаведённого режима
+	ASSERT_FALSE(mode.encrypt(view_t(nullptr, 0), view_t(source, size), result, tag));
+	// Проверяем отказ заведения незаполненным описателем шифра
+	ASSERT_FALSE(mode.start(cipher::block_t(), view_t(nonce, sizeof(nonce))));
+	// Проверяем отказ заведения при непереданном неповторимом значении
+	ASSERT_FALSE(mode.start(cipher::block_t(base), view_t(nullptr, size)));
+	// Проверяем отказ заведения при неповторимом значении не по размеру блока
+	ASSERT_FALSE(mode.start(cipher::block_t(base), view_t(nonce, size - 1)));
+	// Выполняем заведение режима шифрования с проверкой целостности
+	ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(nonce, sizeof(nonce))));
+	// Проверяем отказ работы при непереданном месте метки подлинности
+	ASSERT_FALSE(mode.encrypt(view_t(nullptr, 0), view_t(source, size), result, nullptr));
+	// Проверяем отказ работы при непереданной области байтов
+	ASSERT_FALSE(mode.encrypt(view_t(nullptr, 0), view_t(nullptr, size), result, tag));
+	// Проверяем отказ работы при непереданном месте итога
+	ASSERT_FALSE(mode.encrypt(view_t(nullptr, 0), view_t(source, size), nullptr, tag));
+	// Проверяем отказ работы при непереданных связанных данных
+	ASSERT_FALSE(mode.encrypt(view_t(nullptr, size), view_t(source, size), result, tag));
+	/**
+	 * Пустая подача отвергается: ни шифровать, ни заверять нечего, а метка,
+	 * выданная на пустоту, заверяла бы отсутствие сообщения
+	 */
+	ASSERT_FALSE(mode.encrypt(view_t(nullptr, 0), view_t(nullptr, 0), result, tag));
+	// Выполняем зашифрование подаваемой области байтов
+	ASSERT_TRUE(mode.encrypt(view_t(nullptr, 0), view_t(source, size), result, tag));
+	// Выполняем заведение режима заново для снятия защиты
+	ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(nonce, sizeof(nonce))));
+	// Проверяем отказ снятия защиты при непереданной метке подлинности
+	ASSERT_FALSE(mode.decrypt(view_t(nullptr, 0), view_t(result, size), source, view_t(nullptr, size)));
+	// Проверяем отказ снятия защиты при метке подлинности не той длины
+	ASSERT_FALSE(mode.decrypt(view_t(nullptr, 0), view_t(result, size), source, view_t(tag, size - 1)));
+	// Проверяем отказ снятия защиты при непереданном месте итога
+	ASSERT_FALSE(mode.decrypt(view_t(nullptr, 0), view_t(result, size), nullptr, view_t(tag, size)));
+	// Проверяем отказ снятия защиты при непереданных связанных данных
+	ASSERT_FALSE(mode.decrypt(view_t(nullptr, size), view_t(result, size), source, view_t(tag, size)));
+	// Проверяем отказ снятия защиты при пустой подаче
+	ASSERT_FALSE(mode.decrypt(view_t(nullptr, 0), view_t(nullptr, 0), source, view_t(tag, size)));
+}
+
+/**
  * @brief Проверка первого контрольного примера на шифре «Кузнечик»
  *
  */
