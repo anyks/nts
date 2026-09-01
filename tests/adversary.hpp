@@ -140,7 +140,9 @@ namespace {
 		MALCOOKIE  = 0x37, // Приветствие клиента несёт негодную метку возврата состояния
 		RECURRENT  = 0x38, // За приветствием сервера тою же записью идёт просьба о повторе
 		LINGERING  = 0x39, // Конец упреждающих данных несёт тело, которого ему не положено
-		MISAGED    = 0x3A  // Возраст билета объявлен разошедшимся с наблюдаемым
+		MISAGED    = 0x3A, // Возраст билета объявлен разошедшимся с наблюдаемым
+		UNOFFERED  = 0x3B, // Приветствие сервера выбирает ключ у клиента, его не предлагавшего
+		WORDLESS   = 0x3C  // Приветствие клиента не объявляет схем подписи вовсе
 	};
 	/**
 	 * @brief Заранее назначенное случайное значение просьбы о повторе приветствия
@@ -491,6 +493,19 @@ namespace {
 			if(distortion == distortion_t::MALCHOSEN)
 				// Добавляем расширение выбранного заранее разделённого ключа
 				answer.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::SECRET), view_t(spoiled.data(), spoiled.size())));
+			/**
+			 * Искажением UNOFFERED сервер выбирает ПЕРВЫЙ заранее разделённый ключ у
+			 * клиента, не предлагавшего ни одного: место выбранного ключа и наличие
+			 * самого предложения сверяются РАЗНЫМИ половинами заслона клиента
+			 */
+			if(distortion == distortion_t::UNOFFERED){
+				// Если расширение выбранного заранее разделённого ключа составить не удалось
+				if(extension::chosen(0, elected) != extension::error_t::NONE)
+					// Выводим отказ ответа враждебного сервера
+					return false;
+				// Добавляем расширение выбранного заранее разделённого ключа
+				answer.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::SECRET), view_t(elected.data(), elected.size())));
+			}
 			// Если приветствие сервера выбирает заранее разделённый ключ клиента
 			if(distortion == distortion_t::PRESUMED){
 				/**
@@ -1448,8 +1463,14 @@ namespace {
 		if(extension::schemes(schemes, bodies[2]) != extension::error_t::NONE)
 			// Выводим отказ рукопожатия враждебного клиента
 			return false;
-		// Добавляем расширение перечня схем подписи
-		greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::SCHEMES), view_t(bodies[2].data(), bodies[2].size())));
+		/**
+		 * Искажением WORDLESS расширение схем подписи не объявляется вовсе: раздел 9.2
+		 * RFC 8446 велит клиенту объявлять их всякий раз, когда сервер подтверждает
+		 * подлинность сертификатом, а возобновление ключом сертификата не требует
+		 */
+		if(distortion != distortion_t::WORDLESS)
+			// Добавляем расширение перечня схем подписи
+			greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::SCHEMES), view_t(bodies[2].data(), bodies[2].size())));
 		// Если перечень открытых частей ключей обмена составить не удалось
 		if(extension::shares(vector <extension::share_t> (1, extension::share_t(group, ((distortion == distortion_t::HOLLOW) ? view_t(nullptr, 0) : view_t(opened.data(), opened.size())))), bodies[3]) != extension::error_t::NONE)
 			// Выводим отказ рукопожатия враждебного клиента

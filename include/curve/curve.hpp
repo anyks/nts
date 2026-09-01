@@ -153,6 +153,12 @@ namespace nts {
 				// Образующая точка подгруппы точек кривой
 				point_t _base;
 			private:
+				// Единица поля кривой в области Монтгомери
+				math::number_t _unit;
+			private:
+				// Заготовленные кратные точки основания либо nullptr у их отсутствия
+				const void * _multiples;
+			private:
 				/**
 				 * \~russian
 				 * @brief Метод сложения точек кривой без ветвления
@@ -431,6 +437,34 @@ namespace nts {
 				 * \~
 				 */
 				void multiply(const point_t & value, const math::number_t & factor, point_t & result) const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод умножения точки основания кривой на число
+				 *
+				 * @param factor число, на которое умножается точка основания
+				 * @param result место, в которое помещается произведение
+				 *
+				 * @note Точка основания у кривой одна и известна заранее, оттого кратные её
+				 *       заготавливаются при сборке библиотеки: умножение обращается в перебор
+				 *       заготовленного, и удвоений не остаётся вовсе
+				 *
+				 * @note У кривой, кратные которой не заготовлены, метод отступает к общему
+				 *       умножению точки на число, и итог от этого не меняется
+				 *
+				 * \~english
+				 * @brief Method of the multiplication of the base point of the curve by a number
+				 * @param factor the number the base point is multiplied by
+				 * @param result the place the product is put into
+				 * @note The base point of a curve is the only one and is known beforehand, therefore
+				 *       its multiples are precomputed at the build of the library: the multiplication
+				 *       turns into the scanning of the precomputed ones, and no doublings are left at all
+				 * @note At a curve the multiples of which are not precomputed the method falls back to
+				 *       the general multiplication of a point by a number, and the result does not
+				 *       change because of that
+				 *
+				 * \~
+				 */
+				void product(const math::number_t & factor, point_t & result) const noexcept;
 				/**
 				 * \~russian
 				 * @brief Метод счёта суммы двух произведений точек кривой на числа

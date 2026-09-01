@@ -32,6 +32,7 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <curve/curve.hpp>
+#include <internal/curve/tables.hpp>
 
 /**
  * Используем стандартное пространство имён
@@ -226,6 +227,19 @@ bool nts::curve::Curve::start(const view_t & modulus, const view_t & first, cons
 		// Выводим отказ установки параметров кривой
 		return false;
 	}
+	// Число один, приводимое в область Монтгомери
+	math::number_t one;
+	// Получаем число один в виде числа поля
+	this->_field.word(1, one);
+	// Выполняем приведение единицы поля в область Монтгомери
+	this->_field.enter(one, this->_unit);
+	/**
+	 * Разыскиваем заготовленные при сборке кратные точки основания. Опознаются они
+	 * самой точкой основания, а не опознавателем набора параметров: кривая, заведённая
+	 * теми же значениями напрямую, получает заготовленное наравне с заведённой по
+	 * опознавателю
+	 */
+	this->_multiples = precomputed(this->_base.x.words, this->_base.y.words, ((this->_order.size() + 7) / 8));
 	// Выводим успешность установки параметров кривой
 	return true;
 }
@@ -236,6 +250,10 @@ bool nts::curve::Curve::start(const view_t & modulus, const view_t & first, cons
 void nts::curve::Curve::clear() noexcept {
 	// Сбрасываем кофактор кривой
 	this->_cofactor = 1;
+	// Сбрасываем заготовленные кратные точки основания
+	this->_multiples = nullptr;
+	// Выполняем сброс единицы поля кривой
+	this->_unit = math::number_t();
 	// Выполняем сброс образующей точки подгруппы точек кривой
 	this->_base = point_t();
 	// Выполняем сброс второго коэффициента уравнения кривой
@@ -708,6 +726,80 @@ void nts::curve::Curve::multiply(const point_t & value, const math::number_t & f
 	result = item;
 }
 /**
+ * @brief Метод умножения точки основания кривой на число
+ *
+ * @param factor число, на которое умножается точка основания
+ * @param result место, в которое помещается произведение
+ *
+ */
+void nts::curve::Curve::product(const math::number_t & factor, point_t & result) const noexcept {
+	// Получаем заготовленные при сборке кратные точки основания
+	const precomputed_t * multiples = static_cast <const precomputed_t *> (this->_multiples);
+	// Если кратные точки основания этой кривой не заготовлены
+	if(multiples == nullptr){
+		// Выполняем общее умножение точки основания на число
+		this->multiply(this->_base, factor, result);
+		// Выходим из умножения точки основания
+		return;
+	}
+	// Накапливаемое произведение точки основания на число
+	point_t item;
+	// Кратное точки основания, выбранное значением окна
+	point_t chosen;
+	// Сумма накопленного произведения с выбранным кратным
+	point_t sum;
+	/**
+	 * Выполняем обход окон множителя от младшего к старшему: кратные заготовлены на
+	 * всякое окно отдельно, и удвоений между окнами не требуется вовсе
+	 */
+	for(size_t i = 0; i < multiples->positions; i++){
+		// Извлекаем значение очередного окна множителя
+		const uint64_t window = ((factor.words[(i * TABLES_WINDOW) / 64] >> ((i * TABLES_WINDOW) % 64)) & (TABLES_MULTIPLES));
+		// Получаем начало строки заготовленных кратных очередного окна
+		const uint64_t * row = (multiples->data + (i * TABLES_MULTIPLES * 2 * multiples->words));
+		// Выполняем обнуление выбираемого кратного точки основания
+		chosen = point_t();
+		/**
+		 * Выполняем перебор ВСЕЙ строки заготовленных кратных: выбор идёт наложением
+		 * маски совпадения, а не переходом, оттого время работы от значения окна не
+		 * зависит и о секретном множителе не говорит
+		 */
+		for(size_t j = 1; j <= TABLES_MULTIPLES; j++){
+			// Получаем маску совпадения значения окна с номером кратного
+			const uint64_t mask = (0 - equal(window, static_cast <uint64_t> (j)));
+			// Получаем место очередного кратного строки
+			const uint64_t * place = (row + ((j - 1) * 2 * multiples->words));
+			/**
+			 * Выполняем обход слов координат очередного кратного
+			 */
+			for(size_t w = 0; w < multiples->words; w++){
+				// Выбираем очередное слово первой координаты наложением маски
+				chosen.x.words[w] |= (place[w] & mask);
+				// Выбираем очередное слово второй координаты наложением маски
+				chosen.y.words[w] |= (place[multiples->words + w] & mask);
+			}
+		}
+		/**
+		 * Кратные заготовлены аффинными, и третья координата их равна единице. У
+		 * нулевого же окна кратного нет вовсе: место его занимает бесконечно
+		 * удалённая точка, а её признак есть нулевая третья координата
+		 */
+		const uint64_t living = (0 - (equal(window, 0) ^ 0x01));
+		/**
+		 * Выполняем сборку третьей координаты выбранного кратного
+		 */
+		for(size_t w = 0; w < math::NUMBER_WORDS; w++)
+			// Записываем очередное слово третьей координаты наложением маски
+			chosen.z.words[w] = (this->_unit.words[w] & living);
+		// Выполняем сложение накопленного произведения с выбранным кратным
+		this->attach(item, chosen, sum);
+		// Запоминаем накопленное произведение
+		item = sum;
+	}
+	// Записываем накопленное произведение итогом умножения
+	result = item;
+}
+/**
  * @brief Метод счёта суммы двух произведений точек кривой на числа
  *
  * @param first  первая умножаемая точка
@@ -800,7 +892,7 @@ void nts::curve::Curve::combine(const point_t & first, const math::number_t & si
  * @brief Конструктор
  *
  */
-nts::curve::Curve::Curve() noexcept : _ready(false), _shortened(false), _cofactor(1) {}
+nts::curve::Curve::Curve() noexcept : _ready(false), _shortened(false), _cofactor(1), _multiples(nullptr) {}
 /**
  * @brief Деструктор
  *

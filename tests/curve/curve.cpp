@@ -27,7 +27,9 @@
 #include <string>
 #include <cstring>
 #include <main.hpp>
+#include <vector>
 #include <curve/curve.hpp>
+#include <curve/parameters.hpp>
 
 /**
  * Используем пространство имён проекта
@@ -517,5 +519,115 @@ TEST(CurveTest, Combine){
 		ASSERT_EQ(first, third) << "пара " << item;
 		// Проверяем схождение вторых координат посчитанных сумм
 		ASSERT_EQ(second, fourth) << "пара " << item;
+	}
+}
+
+/**
+ * Проверка схождения умножения точки основания с общим умножением на точку
+ */
+TEST(CurveTest, Product) {
+	/**
+	 * Опознаватели наборов параметров всех кривых библиотеки: кратные точки основания
+	 * заготавливаются на всякий набор отдельно, и сличать надо всякий
+	 */
+	static const char * IDENTIFIERS[] = {
+		"1.2.643.7.1.2.1.2.0", "1.2.643.2.2.35.0", "1.2.643.7.1.2.1.1.1",
+		"1.2.643.2.2.35.1", "1.2.643.2.2.35.2", "1.2.643.2.2.35.3",
+		"1.2.643.7.1.2.1.2.1", "1.2.643.7.1.2.1.2.2", "1.2.643.7.1.2.1.2.3"
+	};
+	/**
+	 * Выполняем обход наборов параметров кривых библиотеки
+	 */
+	for(size_t item = 0; item < (sizeof(IDENTIFIERS) / sizeof(IDENTIFIERS[0])); item++){
+		// Объект эллиптической кривой очередного набора
+		curve::curve_t elliptic;
+		// Выполняем заведение кривой очередного набора параметров
+		ASSERT_TRUE(curve::parameters(IDENTIFIERS[item], elliptic)) << "набор " << IDENTIFIERS[item];
+		// Получаем длину координаты точки кривой
+		const size_t size = elliptic.size();
+		// Образующая точка подгруппы точек кривой
+		curve::point_t base;
+		// Получаем образующую точку подгруппы точек кривой
+		elliptic.base(base);
+		/**
+		 * Умножение точки основания идёт по заготовленным при сборке кратным, а общее
+		 * умножение - удвоениями и сложениями. Пути эти разные, а итог обязан быть
+		 * один, и сличение их и есть проверка заготовленного
+		 */
+		for(size_t i = 1; i <= 24; i++){
+			// Множитель, на который умножается точка основания
+			math::number_t factor;
+			/**
+			 * Выполняем обнуление множителя
+			 */
+			for(size_t w = 0; w < math::NUMBER_WORDS; w++)
+				// Обнуляем очередное слово множителя
+				factor.words[w] = 0;
+			/**
+			 * Множитель берётся не наугад: числа с единичными разрядами по всей
+			 * разрядной сетке трогают всякое окно перебора по отдельности
+			 */
+			for(size_t w = 0; w < ((size + 7) / 8); w++)
+				// Записываем очередное слово множителя
+				factor.words[w] = ((static_cast <uint64_t> (i) * 0x0123456789ABCDEFULL) ^ (static_cast <uint64_t> (w) * 0xFEDCBA9876543210ULL));
+			// Произведение, полученное общим умножением на точку
+			curve::point_t general;
+			// Выполняем общее умножение точки основания на число
+			elliptic.multiply(base, factor, general);
+			// Произведение, полученное умножением точки основания
+			curve::point_t fixed;
+			// Выполняем умножение точки основания на число
+			elliptic.product(factor, fixed);
+			// Места, в которые помещаются координаты произведений
+			std::vector <uint8_t> first(size, 0), second(size, 0), third(size, 0), fourth(size, 0);
+			// Проверяем схождение удалённости произведений
+			ASSERT_EQ(elliptic.infinity(general), elliptic.infinity(fixed)) << "набор " << IDENTIFIERS[item] << ", множитель " << i;
+			// Если произведение бесконечно удалённым не является
+			if(!elliptic.infinity(general)){
+				// Выполняем получение координат произведения общего умножения
+				ASSERT_TRUE(elliptic.coordinates(general, first.data(), second.data(), size));
+				// Выполняем получение координат произведения точки основания
+				ASSERT_TRUE(elliptic.coordinates(fixed, third.data(), fourth.data(), size));
+				// Проверяем схождение первых координат произведений
+				ASSERT_EQ(::memcmp(first.data(), third.data(), size), 0) << "набор " << IDENTIFIERS[item] << ", множитель " << i;
+				// Проверяем схождение вторых координат произведений
+				ASSERT_EQ(::memcmp(second.data(), fourth.data(), size), 0) << "набор " << IDENTIFIERS[item] << ", множитель " << i;
+			}
+		}
+		// Нулевой множитель точки основания
+		math::number_t zero;
+		/**
+		 * Выполняем обнуление множителя
+		 */
+		for(size_t w = 0; w < math::NUMBER_WORDS; w++)
+			// Обнуляем очередное слово множителя
+			zero.words[w] = 0;
+		// Произведение точки основания на ноль
+		curve::point_t none;
+		// Выполняем умножение точки основания на ноль
+		elliptic.product(zero, none);
+		/**
+		 * Точка основания, умноженная на ноль, бесконечно удалена: у нулевого окна
+		 * кратного в таблице нет вовсе, и на его месте стоит именно она
+		 */
+		ASSERT_TRUE(elliptic.infinity(none)) << "набор " << IDENTIFIERS[item];
+		// Единичный множитель точки основания
+		math::number_t one = zero;
+		// Записываем единицу множителем точки основания
+		one.words[0] = 1;
+		// Произведение точки основания на единицу
+		curve::point_t self;
+		// Выполняем умножение точки основания на единицу
+		elliptic.product(one, self);
+		// Места, в которые помещаются координаты точки основания и произведения
+		std::vector <uint8_t> first(size, 0), second(size, 0), third(size, 0), fourth(size, 0);
+		// Выполняем получение координат точки основания
+		ASSERT_TRUE(elliptic.coordinates(base, first.data(), second.data(), size));
+		// Выполняем получение координат произведения на единицу
+		ASSERT_TRUE(elliptic.coordinates(self, third.data(), fourth.data(), size));
+		// Проверяем схождение произведения на единицу с самой точкой основания
+		ASSERT_EQ(::memcmp(first.data(), third.data(), size), 0) << "набор " << IDENTIFIERS[item];
+		// Проверяем схождение второй координаты произведения на единицу
+		ASSERT_EQ(::memcmp(second.data(), fourth.data(), size), 0) << "набор " << IDENTIFIERS[item];
 	}
 }

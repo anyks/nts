@@ -600,6 +600,15 @@ TEST(ContextTest, Corrupted){
 	ASSERT_EQ(client.error(), context::error_t::PROTECTION);
 	// Проверяем извещение, которым связь оборвана
 	ASSERT_EQ(client.alert().description, alert::description_t::MAC);
+	/**
+	 * Оборванная связь принимать больше нечего: состояние сверяется ОТДЕЛЬНОЙ
+	 * половиной заслона от незаведённости, и оборванная связь трогает именно её
+	 */
+	ASSERT_EQ(client.push(view_t(buffer.data(), buffer.size())), context::error_t::STATE);
+	// Проверяем отказ закрытия оборванной связи
+	ASSERT_EQ(client.close(), context::error_t::CLOSED);
+	// Проверяем, что отвергнутая подача состояния связи не изменила
+	ASSERT_EQ(client.state(), context::state_t::FAILED);
 }
 
 /**
@@ -1124,6 +1133,58 @@ namespace {
 		return true;
 	}
 };
+
+/**
+ * Проверка предложения упреждающих данных билетом, их не дозволяющим
+ */
+TEST(ContextTest, Disallowed){
+	// Подлинность стороны сервера
+	context::credential_t credentials;
+	// Выполняем выработку подлинности стороны сервера
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Билеты, признаваемые сервером возобновляемой связи
+	vector <context::ticket_t> issued;
+	// Билет, принятый клиентом прошлой связи
+	context::ticket_t accepted;
+	// Выполняем проведение связи, выдающей билет возобновления
+	ASSERT_TRUE(granted(credentials, issued, accepted));
+	// Проверяем, что выданный билет упреждающие данные дозволяет
+	ASSERT_GT(accepted.advance, static_cast <uint32_t> (0));
+	// Объявляем принятый билет упреждающих данных не дозволяющим
+	accepted.advance = 0;
+	// Связь стороны клиента, возобновляющая прошлую
+	client::context_t client;
+	// Связь стороны сервера, признающая выданный билет
+	server::context_t server;
+	// Устанавливаем подлинность стороны сервера
+	server.credential(credentials);
+	// Устанавливаем билеты, признаваемые сервером
+	server.resume(issued);
+	// Устанавливаем приём упреждающих данных сервером
+	server.advance(true);
+	// Предъявляем серверу билет, принятый прошлой связью
+	client.resume(accepted);
+	// Устанавливаем предложение упреждающих данных клиентом
+	client.advance(true);
+	// Выполняем заведение связи стороны сервера
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	// Выполняем заведение связи стороны клиента
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	/**
+	 * Предложение связи и дозволение билета сверяются РАЗНЫМИ половинами условия:
+	 * связь упреждающие данные предлагает, а билет их не дозволяет, и расширение
+	 * упреждающих данных в приветствие не ложится
+	 */
+	converse(client, server);
+	// Проверяем установленность связи обеими сторонами
+	ASSERT_TRUE(client.established() && server.established());
+	// Проверяем возобновление связи заранее разделённым ключом
+	ASSERT_TRUE(client.shared() && server.shared());
+	// Проверяем, что упреждающие данные связью не объявлены принятыми
+	ASSERT_FALSE(client.accepted());
+	// Проверяем, что и сервер приёма упреждающих данных не объявляет
+	ASSERT_FALSE(server.accepted());
+}
 
 /**
  * Проверка упреждающих данных, принятых сервером
@@ -2050,6 +2111,81 @@ TEST(ContextTest, Echo){
 }
 
 /**
+ * Проверка сличения длины опознавателя связи, возвращённого сервером
+ */
+TEST(ContextTest, Truncated){
+	// Подлинность стороны сервера
+	context::credential_t credentials;
+	// Выполняем выработку подлинности стороны сервера
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Связь стороны клиента
+	client::context_t client;
+	// Связь стороны сервера
+	server::context_t server;
+	// Устанавливаем подлинность стороны сервера
+	server.credential(credentials);
+	// Выполняем заведение связи стороны сервера
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	// Выполняем заведение связи стороны клиента
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	// Получаем байты, отправляемые клиентом серверу
+	view_t sending = client.output();
+	// Выполняем перенос отправляемых клиентом байтов
+	const vector <uint8_t> greeting(sending.data, sending.data + sending.size);
+	// Снимаем отправленные байты с накопителя клиента
+	client.consume(greeting.size());
+	// Выполняем подачу приветствия клиента серверу
+	ASSERT_EQ(server.push(view_t(greeting.data(), greeting.size())), context::error_t::NONE);
+	// Получаем байты, отправляемые сервером клиенту
+	sending = server.output();
+	// Проверяем наличие отправляемых сервером байтов
+	ASSERT_GT(sending.size, static_cast <size_t> (0));
+	// Выполняем перенос отправляемых сервером байтов
+	vector <uint8_t> answer(sending.data, sending.data + sending.size);
+	// Снимаем отправленные байты с накопителя сервера
+	server.consume(answer.size());
+	// Место длины опознавателя связи в приветствии сервера
+	const size_t place = (5 + 4 + 2 + 32);
+	// Проверяем длину опознавателя связи приветствия сервера
+	ASSERT_EQ(answer[place], static_cast <uint8_t> (hello::HELLO_SESSION));
+	/**
+	 * Опознаватель связи изымается из приветствия ЦЕЛИКОМ, а длины записи и сообщения
+	 * рукопожатия правятся следом: подделка одной лишь длины оборвала бы приветствие
+	 * посреди поля, и заслон длины опознавателя связи остался бы нетронутым
+	 */
+	answer.erase((answer.begin() + place + 1), (answer.begin() + place + 1 + hello::HELLO_SESSION));
+	// Объявляем опознаватель связи приветствия сервера пустым
+	answer[place] = 0x00;
+	// Определяем длину сообщения рукопожатия за изъятием опознавателя связи
+	const size_t length = (((static_cast <size_t> (answer[6]) << 16) | (static_cast <size_t> (answer[7]) << 8) |
+	                        static_cast <size_t> (answer[8])) - hello::HELLO_SESSION);
+	// Правим старший байт длины сообщения рукопожатия
+	answer[6] = static_cast <uint8_t> ((length >> 16) & 0xFF);
+	// Правим средний байт длины сообщения рукопожатия
+	answer[7] = static_cast <uint8_t> ((length >> 8) & 0xFF);
+	// Правим младший байт длины сообщения рукопожатия
+	answer[8] = static_cast <uint8_t> (length & 0xFF);
+	// Определяем длину записи за изъятием опознавателя связи
+	const size_t volume = (((static_cast <size_t> (answer[3]) << 8) | static_cast <size_t> (answer[4])) - hello::HELLO_SESSION);
+	// Правим старший байт длины записи
+	answer[3] = static_cast <uint8_t> ((volume >> 8) & 0xFF);
+	// Правим младший байт длины записи
+	answer[4] = static_cast <uint8_t> (volume & 0xFF);
+	// Выполняем подачу подделанного приветствия клиенту
+	client.push(view_t(answer.data(), answer.size()));
+	// Проверяем обрыв связи стороной клиента
+	ASSERT_EQ(client.error(), context::error_t::MESSAGE);
+	/**
+	 * Длина опознавателя связи и содержимое его сверяются РАЗНЫМИ половинами заслона:
+	 * пустой опознаватель при непустом предложенном трогает ту половину, что отвечает
+	 * за длину, и до сличения содержимого дело не доходит вовсе
+	 */
+	ASSERT_EQ(client.alert().description, alert::description_t::PARAMETER);
+	// Проверяем неустановленность связи стороной клиента
+	ASSERT_FALSE(client.established());
+}
+
+/**
  * Проверка заслона понижения издания протокола
  */
 TEST(ContextTest, Downgrade){
@@ -2962,6 +3098,37 @@ TEST(ContextTest, Swapped){
 }
 
 /**
+ * Проверка заслона приветствия клиента, не объявившего схем подписи
+ */
+TEST(ContextTest, Wordless){
+	// Подлинность сторон связи
+	context::credential_t credentials;
+	// Выполняем выработку подлинности сторон связи
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Связь стороны сервера
+	server::context_t server;
+	// Устанавливаем подлинность стороны сервера
+	server.credential(credentials);
+	// Выполняем заведение связи стороны сервера
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	/**
+	 * Итог враждебного клиента здесь не сличается: сервер обрывает связь ещё на
+	 * приветствии, и до ответа, которого клиент ждёт, дело не доходит вовсе
+	 */
+	(void) intruder(server, distortion_t::WORDLESS, &credentials);
+	/**
+	 * Раздел 9.2 RFC 8446: без схем подписи сервер подписать владение ключом не вправе
+	 * ничем. Отсутствие схем и возобновление ключом сверяются РАЗНЫМИ половинами
+	 * заслона: возобновление сертификата не требует, и там расширение это не нужно
+	 */
+	ASSERT_EQ(server.error(), context::error_t::MESSAGE);
+	// Проверяем извещение, которым связь оборвана сервером
+	ASSERT_EQ(server.alert().description, alert::description_t::MISSING);
+	// Проверяем неустановленность связи стороной сервера
+	ASSERT_FALSE(server.established());
+}
+
+/**
  * Проверка заслона выбора сервером ключа, клиентом не предложенного
  */
 TEST(ContextTest, Presumed){
@@ -2974,6 +3141,28 @@ TEST(ContextTest, Presumed){
 	/**
 	 * Раздел 4.2.11 RFC 8446: сервер вправе выбрать лишь тот заранее разделённый
 	 * ключ, какой клиент ему предложил, и место выбора обязано лежать в предложении
+	 */
+	ASSERT_EQ(client.error(), context::error_t::MESSAGE);
+	// Проверяем извещение, которым связь оборвана клиентом
+	ASSERT_EQ(client.alert().description, alert::description_t::PARAMETER);
+	// Проверяем неустановленность связи стороной клиента
+	ASSERT_FALSE(client.established());
+}
+
+/**
+ * Проверка заслона выбора ключа у клиента, его не предлагавшего
+ */
+TEST(ContextTest, Unoffered){
+	// Связь стороны клиента
+	client::context_t client;
+	// Выполняем заведение связи стороны клиента
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	// Выполняем ответ враждебного сервера искажённым приветствием
+	ASSERT_TRUE(adversary(client, distortion_t::UNOFFERED));
+	/**
+	 * Место выбранного ключа и наличие самого предложения сверяются РАЗНЫМИ половинами
+	 * заслона: выбор ПЕРВОГО ключа у клиента, не предлагавшего ни одного, годен местом
+	 * и негоден отсутствием предложения
 	 */
 	ASSERT_EQ(client.error(), context::error_t::MESSAGE);
 	// Проверяем извещение, которым связь оборвана клиентом
@@ -4273,6 +4462,45 @@ TEST(ContextTest, Changing){
 		// Проверяем извещение, которым связь оборвана клиентом
 		ASSERT_EQ(client.alert().description, alert::description_t::UNEXPECTED);
 	}
+	/**
+	 * Подаём годную запись смены набора шифрования по ходу рукопожатия
+	 */
+	{
+		// Связь стороны клиента
+		client::context_t client;
+		// Связь стороны сервера
+		server::context_t server;
+		// Устанавливаем подлинность стороны сервера
+		server.credential(credentials);
+		// Выполняем заведение связи стороны сервера
+		ASSERT_EQ(server.start(), context::error_t::NONE);
+		// Выполняем заведение связи стороны клиента
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		// Получаем приветствие, отправляемое клиентом серверу
+		const view_t greeting = client.output();
+		// Выполняем перенос отправляемого клиентом приветствия
+		const vector <uint8_t> message(greeting.data, greeting.data + greeting.size);
+		// Снимаем отправленное приветствие с накопителя клиента
+		client.consume(message.size());
+		// Выполняем подачу приветствия клиента серверу
+		ASSERT_EQ(server.push(view_t(message.data(), message.size())), context::error_t::NONE);
+		// Содержимое годной записи смены набора шифрования
+		const uint8_t content[1] = {0x01};
+		// Объект нарезчика отправляемых записей
+		record::writer_t writer;
+		// Выполняем нарезку годной записи смены набора шифрования
+		ASSERT_EQ(writer.push(record::type_t::CHANGE, record::version_t::TLS12, view_t(content, sizeof(content))), record::error_t::NONE);
+		/**
+		 * Раздел 5 RFC 8446 велит ПРОПУСКАТЬ эту запись по ходу рукопожатия: она
+		 * досталась от промежуточных узлов, привыкших к предыдущим изданиям протокола,
+		 * и связь обрывать ею нельзя
+		 */
+		ASSERT_EQ(server.push(writer.data()), context::error_t::NONE);
+		// Проверяем, что связь пропущенной записью не оборвана
+		ASSERT_NE(server.state(), context::state_t::FAILED);
+		// Проверяем, что отказа пропущенная запись не дала
+		ASSERT_EQ(server.error(), context::error_t::NONE);
+	}
 }
 
 /**
@@ -4669,6 +4897,11 @@ TEST(ContextTest, Premature){
 	const uint8_t payload[] = {0x41, 0x4E, 0x54, 0x53};
 	// Проверяем отказ отправки прикладных данных до заведения связи
 	ASSERT_EQ(client.write(view_t(payload, sizeof(payload))), context::error_t::STATE);
+	/**
+	 * Незаведённая связь принимать байты не вправе: незаведённость и оборванность
+	 * сверяются РАЗНЫМИ половинами заслона, и всякая отвергает подачу в одиночку
+	 */
+	ASSERT_EQ(client.push(view_t(payload, sizeof(payload))), context::error_t::STATE);
 	// Выполняем заведение связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	// Выполняем заведение связи стороны клиента

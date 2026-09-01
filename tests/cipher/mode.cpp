@@ -946,10 +946,96 @@ TEST(ModeTest, Descriptor) {
 	ASSERT_FALSE(chaining.start(sample, view_t(iv, (cipher::MODE_REGISTER + cipher::MODE_BLOCK))));
 	// Проверяем успешность заведения вектором замены длиною в сдвиговый регистр
 	ASSERT_TRUE(chaining.start(sample, view_t(iv, cipher::MODE_REGISTER)));
+	// Объект режима гаммирования с обратной связью по выходу
+	cipher::output_t output;
+	// Место, в которое складывается итог работы режимов
+	uint8_t produced[64] = {0};
+	// Область байтов, подаваемая режимам работы
+	uint8_t supplied[64] = {0};
+	// Выполняем заполнение подаваемой области байтов
+	::memset(supplied, 0x33, sizeof(supplied));
+	/**
+	 * Незаведённость режима сверяется ПЕРВОЙ половиной условия, прежде переданности
+	 * мест, и держит эту половину всякий режим САМ: проверка одного о другом не
+	 * говорит ничего
+	 */
+	ASSERT_FALSE(output.encrypt(view_t(supplied, sizeof(supplied)), produced));
+	// Проверяем отказ расшифрования незаведённым режимом по выходу
+	ASSERT_FALSE(output.decrypt(view_t(supplied, sizeof(supplied)), produced));
+	// Объект незаведённого режима гаммирования с зацеплением
+	cipher::chaining_t unchained;
+	// Проверяем отказ зашифрования незаведённым режимом с зацеплением
+	ASSERT_FALSE(unchained.encrypt(view_t(supplied, sizeof(supplied)), produced));
+	// Проверяем отказ расшифрования незаведённым режимом с зацеплением
+	ASSERT_FALSE(unchained.decrypt(view_t(supplied, sizeof(supplied)), produced));
+	// Объект режима обратной связи по шифртексту
+	cipher::feedback_t unstarted;
+	// Проверяем отказ зашифрования незаведённым режимом обратной связи
+	ASSERT_FALSE(unstarted.encrypt(view_t(supplied, sizeof(supplied)), produced));
+	// Проверяем отказ расшифрования незаведённым режимом обратной связи
+	ASSERT_FALSE(unstarted.decrypt(view_t(supplied, sizeof(supplied)), produced));
+	// Объект режима выработки имитовставки
+	cipher::imitation_t imitation;
+	// Проверяем отказ подачи содержимого незаведённому режиму имитовставки
+	ASSERT_FALSE(imitation.update(view_t(supplied, sizeof(supplied))));
+	// Проверяем отказ снятия имитовставки с незаведённого режима
+	ASSERT_FALSE(imitation.finish(produced, cipher::KUZNYECHIK_BLOCK));
+	// Проверяем отказ заведения режима по выходу с непереданным вектором замены
+	ASSERT_FALSE(output.start(sample, view_t(nullptr, cipher::MODE_BLOCK)));
+	// Проверяем отказ заведения вектором замены длиннее сдвигового регистра
+	ASSERT_FALSE(output.start(sample, view_t(iv, (cipher::MODE_REGISTER + cipher::MODE_BLOCK))));
+	// Проверяем успешность заведения вектором замены длиною в сдвиговый регистр
+	ASSERT_TRUE(output.start(sample, view_t(iv, cipher::MODE_REGISTER)));
 	// Объект режима обратной связи по выходу
 	cipher::feedback_t feedback;
 	// Проверяем отказ заведения вектором замены длиннее сдвигового регистра
 	ASSERT_FALSE(feedback.start(sample, view_t(iv, (cipher::MODE_REGISTER + cipher::MODE_BLOCK))));
 	// Проверяем успешность заведения вектором замены длиною в сдвиговый регистр
 	ASSERT_TRUE(feedback.start(sample, view_t(iv, cipher::MODE_REGISTER)));
+	// Место, в которое складывается итог работы режима с зацеплением
+	uint8_t result[64] = {0};
+	// Область байтов, подаваемая режиму с зацеплением
+	uint8_t source[64] = {0};
+	// Выполняем заполнение подаваемой области байтов
+	::memset(source, 0x33, sizeof(source));
+	/**
+	 * Работа режимов с зацеплением требует переданными ОБА места, и всякое из них
+	 * отвергает работу в одиночку: непереданное место итога при годной подаче трогает
+	 * ту половину заслона, что отвечает за итог
+	 */
+	ASSERT_FALSE(chaining.encrypt(view_t(source, sizeof(source)), nullptr));
+	// Проверяем отказ расшифрования с зацеплением в непереданное место
+	ASSERT_FALSE(chaining.decrypt(view_t(source, sizeof(source)), nullptr));
+	// Проверяем отказ зашифрования с зацеплением непереданной подачи
+	ASSERT_FALSE(chaining.encrypt(view_t(nullptr, sizeof(source)), result));
+	// Проверяем отказ расшифрования с зацеплением непереданной подачи
+	ASSERT_FALSE(chaining.decrypt(view_t(nullptr, sizeof(source)), result));
+	// Проверяем успешность зашифрования с зацеплением годной подачи
+	ASSERT_TRUE(chaining.encrypt(view_t(source, sizeof(source)), result));
+	/**
+	 * Тот же заслон стоит у режима с обратной связью по выходу: сверка мест берётся
+	 * лишь при непустой подаче, и пустая подача проходит без всяких мест
+	 */
+	ASSERT_FALSE(feedback.encrypt(view_t(nullptr, sizeof(source)), result));
+	// Проверяем отказ расшифрования с обратной связью непереданной подачи
+	ASSERT_FALSE(feedback.decrypt(view_t(nullptr, sizeof(source)), result));
+	// Проверяем отказ зашифрования с обратной связью в непереданное место
+	ASSERT_FALSE(feedback.encrypt(view_t(source, sizeof(source)), nullptr));
+	// Проверяем отказ расшифрования с обратной связью в непереданное место
+	ASSERT_FALSE(feedback.decrypt(view_t(source, sizeof(source)), nullptr));
+	// Проверяем успешность зашифрования с обратной связью пустой подачи
+	ASSERT_TRUE(feedback.encrypt(view_t(nullptr, 0), nullptr));
+	// Проверяем успешность расшифрования с обратной связью пустой подачи
+	ASSERT_TRUE(feedback.decrypt(view_t(nullptr, 0), nullptr));
+	// Проверяем успешность зашифрования по выходу пустой подачи
+	ASSERT_TRUE(output.encrypt(view_t(nullptr, 0), nullptr));
+	// Проверяем отказ зашифрования по выходу непереданной подачи
+	ASSERT_FALSE(output.encrypt(view_t(nullptr, sizeof(source)), result));
+	/**
+	 * Вектор замены режимов с зацеплением занимает ЦЕЛОЕ число блоков шифра: длина, в
+	 * блок не уложившаяся, трогает ту часть заслона, что отвечает за кратность
+	 */
+	ASSERT_FALSE(output.start(sample, view_t(iv, (cipher::MODE_BLOCK + 1))));
+	// Проверяем отказ заведения вектором замены короче блока шифра
+	ASSERT_FALSE(output.start(sample, view_t(iv, (cipher::MODE_BLOCK - 1))));
 }

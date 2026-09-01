@@ -208,6 +208,93 @@ SET(SOURCE_FILES
 )
 
 ##
+ # Указываем что кратные точки основания заготавливаются при сборке
+ #
+ # @note Точка основания у кривой одна и известна заранее, оттого кратные её
+ #       заготавливаются отдельной программой прямо во время сборки, а подпись
+ #       обращается в перебор заготовленного. Заготовка стоит около четырёх умножений
+ #       на точку, тогда как связь тратит их три: в работе она не окупается, и держать
+ #       её в объекте кривой либо заводить при первом обращении смысла нет
+ #
+ # @note Ключ выключает заготовку у того, кому дорог размер двоичного файла: таблицы
+ #       всех девяти наборов параметров занимают около 1,3 МБ. Выключенной заготовкой
+ #       подпись идёт общим умножением на точку, и итог её не меняется
+ #
+ # @note Заготовка требует ЗАПУСКА собранной программы, оттого при сборке на одной
+ #       машине под другую она выключается сама
+ ##
+option(CMAKE_CURVE_TABLES "Precompute the multiples of the base point at the build time" ON)
+
+# Если сборка ведётся на одной машине под другую
+if (CMAKE_CROSSCOMPILING AND CMAKE_CURVE_TABLES)
+    # Выключаем заготовку кратных точки основания
+    SET(CMAKE_CURVE_TABLES OFF)
+    # Выводим сообщение о выключенной заготовке
+    message(STATUS "Base point tables: disabled, cross-compiling\n")
+endif (CMAKE_CROSSCOMPILING AND CMAKE_CURVE_TABLES)
+
+# Если кратные точки основания заготавливаются при сборке
+if (CMAKE_CURVE_TABLES)
+    ##
+     # Собираем ту часть библиотеки, которой довольно программе вычисления кратных
+     #
+     # @note Сама программа собирается с ПУСТЫМИ кратными: вычислять их ей неоткуда,
+     #       ибо она их и вычисляет. Отсутствие заготовленных кратных отказом не
+     #       является, и умножение точки основания там отступает к общему
+     ##
+    add_library(nts_tables_bootstrap STATIC
+        "${CMAKE_SOURCE_DIR}/src/math/number.cpp"
+        "${CMAKE_SOURCE_DIR}/src/field/field.cpp"
+        "${CMAKE_SOURCE_DIR}/src/curve/curve.cpp"
+        "${CMAKE_SOURCE_DIR}/src/curve/parameters.cpp"
+        "${CMAKE_SOURCE_DIR}/src/curve/tables.cpp"
+    )
+
+    # Добавляем цель программы вычисления кратных точки основания
+    add_executable(nts-tables "${CMAKE_SOURCE_DIR}/tools/tables.cpp")
+
+    # Выполняем подключение зависимостей программы вычисления кратных
+    target_link_libraries(nts-tables nts_tables_bootstrap)
+
+    # Устанавливаем место вычисленного исходного файла кратных
+    SET(CURVE_TABLES_SOURCE "${CMAKE_BINARY_DIR}/generated/tables.cpp")
+
+    # Добавляем правило вычисления кратных точки основания
+    add_custom_command(
+        OUTPUT ${CURVE_TABLES_SOURCE}
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/generated"
+        COMMAND nts-tables > ${CURVE_TABLES_SOURCE}
+        DEPENDS nts-tables
+        COMMENT "Precomputing the multiples of the base point"
+        VERBATIM
+    )
+
+    ##
+     # Заводим цель вычисления кратных отдельно от самих библиотек
+     #
+     # @note Вычисленный файл входит в состав ДВУХ библиотек - самой и её проверочной
+     #       копии, - и без отдельной цели правило вычисления пришлось бы на всякую из
+     #       них. Под многопоточной сборкой обе принялись бы писать один файл разом
+     ##
+    add_custom_target(nts_curve_tables DEPENDS ${CURVE_TABLES_SOURCE})
+
+    # Помечаем вычисленный исходный файл кратных вырабатываемым
+    set_source_files_properties(${CURVE_TABLES_SOURCE} PROPERTIES GENERATED TRUE)
+
+    # Добавляем вычисленный исходный файл кратных в состав библиотеки
+    SET(SOURCE_FILES ${SOURCE_FILES} ${CURVE_TABLES_SOURCE})
+
+    # Выводим сообщение о заготовке кратных точки основания
+    message(STATUS "Base point tables: precomputed at the build time\n")
+# Если кратные точки основания не заготавливаются
+else (CMAKE_CURVE_TABLES)
+    # Добавляем пустые кратные точки основания в состав библиотеки
+    SET(SOURCE_FILES ${SOURCE_FILES} "${CMAKE_SOURCE_DIR}/src/curve/tables.cpp")
+    # Выводим сообщение об отсутствии заготовки
+    message(STATUS "Base point tables: none, the general multiplication is used\n")
+endif (CMAKE_CURVE_TABLES)
+
+##
  # Указываем что берётся машинное умножение без переносов
  #
  # @note Ключ добавляет собирателю признак наличия у машины команд умножения без
@@ -285,6 +372,12 @@ else (CMAKE_SHARED_BUILD_LIB)
     add_library(${ANTS_LIB_NAME} STATIC ${SOURCE_FILES})
 endif (CMAKE_SHARED_BUILD_LIB)
 
+# Если кратные точки основания заготавливаются при сборке
+if (CMAKE_CURVE_TABLES)
+    # Ставим вычисление кратных прежде сборки самой библиотеки
+    add_dependencies(${ANTS_LIB_NAME} nts_curve_tables)
+endif (CMAKE_CURVE_TABLES)
+
 # Если сборка ведётся под Windows
 if (WIN32)
     # Источник случайности системы там живёт в отдельной библиотеке
@@ -338,6 +431,12 @@ if (CMAKE_BUILD_TESTS)
      # а обращения к памяти внутри библиотеки остаются без надзора
      ##
     add_library(${ANTS_LIB_NAME}_test STATIC ${SOURCE_FILES})
+
+    # Если кратные точки основания заготавливаются при сборке
+    if (CMAKE_CURVE_TABLES)
+        # Ставим вычисление кратных прежде сборки проверочной копии библиотеки
+        add_dependencies(${ANTS_LIB_NAME}_test nts_curve_tables)
+    endif (CMAKE_CURVE_TABLES)
     # Если сборка ведётся под Windows
     if (WIN32)
         # Источник случайности системы там живёт в отдельной библиотеке

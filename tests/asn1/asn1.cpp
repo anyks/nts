@@ -853,6 +853,37 @@ TEST(ASN1Test, Encodings) {
 	const uint8_t clipped[] = {0x1C, 0x03, 0x00, 0x00, 0x41};
 	// Проверяем отказ извлечения строки UCS-4, оборванной посреди знака
 	ASSERT_TRUE(refused(clipped, sizeof(clipped), asn1::tag_t::UNIVERSAL_STRING));
+	/**
+	 * Длина записи знака и его значение сверяются РАЗНЫМИ половинами условия: годная
+	 * трёхбайтовая запись трогает ту половину, что отвечает за значение, и обязана
+	 * пройти
+	 */
+	const uint8_t proper[] = {0x0C, 0x03, 0xE4, 0xB8, 0x80};
+	// Создаём разборщик записи строки с годной трёхбайтовой записью знака
+	asn1::reader_t reader(view_t(proper, sizeof(proper)));
+	// Объект разобранного элемента
+	asn1::element_t element;
+	// Выполняем разбор записи строки с годной трёхбайтовой записью знака
+	ASSERT_TRUE(reader.next(asn1::tag_t::UTF8_STRING, element));
+	// Извлечённое значение строки
+	std::string result;
+	// Проверяем успешность извлечения строки с годной трёхбайтовой записью знака
+	ASSERT_EQ(asn1::text(element, asn1::tag_t::UTF8_STRING, result), asn1::error_t::NONE);
+	// Проверяем извлечённое значение строки
+	ASSERT_STREQ(result.c_str(), "\xE4\xB8\x80");
+	/**
+	 * Область суррогатов ограничена сверху отдельной половиной условия: знак сразу за
+	 * ней принадлежит кодировке UCS-2 законно и обязан пройти
+	 */
+	const uint8_t adjacent[] = {0x1E, 0x02, 0xE0, 0x00};
+	// Создаём разборщик записи строки UCS-2 со знаком сразу за областью суррогатов
+	asn1::reader_t following(view_t(adjacent, sizeof(adjacent)));
+	// Выполняем разбор записи строки UCS-2 со знаком сразу за областью суррогатов
+	ASSERT_TRUE(following.next(asn1::tag_t::BMP_STRING, element));
+	// Проверяем успешность извлечения строки UCS-2 со знаком за областью суррогатов
+	ASSERT_EQ(asn1::text(element, asn1::tag_t::BMP_STRING, result), asn1::error_t::NONE);
+	// Проверяем извлечённое значение строки в кодировке UTF-8
+	ASSERT_STREQ(result.c_str(), "\xEE\x80\x80");
 }
 
 /**
@@ -1013,5 +1044,130 @@ TEST(ASN1Test, WriteRefusals) {
 	 */
 	ASSERT_FALSE(writer.text(asn1::tag_t::BMP_STRING, "\xF0\x9F\x98\x80"));
 	// Проверяем причину отказа записи строки UCS-2
+	ASSERT_EQ(writer.err(), asn1::error_t::VALUE);
+}
+
+/**
+ * Проверка разбора записи времени на границах суток и високосного года
+ */
+TEST(ASN1Test, Leaping) {
+	// Объект разобранного элемента
+	asn1::element_t element;
+	// Разобранное время
+	int64_t moment = 0;
+	/**
+	 * Правило високосного года о ТРЁХ условиях: год, кратный четырём, високосен, но
+	 * кратный ста - нет, а кратный четырёмстам - опять да. Всякое из трёх стоит своей
+	 * половиной условия, и годы 2000, 1900 и 2024 трогают их по отдельности
+	 */
+	const uint8_t quaternary[] = {0x18, 0x0F, '2', '0', '2', '4', '0', '2', '2', '9', '0', '0', '0', '0', '0', '0', 'Z'};
+	// Создаём разборщик записи времени года, кратного четырём
+	asn1::reader_t first(quaternary, sizeof(quaternary));
+	// Выполняем разбор записи времени
+	ASSERT_TRUE(first.next(asn1::tag_t::GENERALIZED_TIME, element));
+	// Проверяем успешность разбора двадцать девятого февраля года, кратного четырём
+	ASSERT_EQ(asn1::time(element, asn1::tag_t::GENERALIZED_TIME, moment), asn1::error_t::NONE);
+	// Запись времени двадцать девятого февраля года, кратного четырёмстам
+	const uint8_t quadringentary[] = {0x18, 0x0F, '2', '0', '0', '0', '0', '2', '2', '9', '0', '0', '0', '0', '0', '0', 'Z'};
+	// Создаём разборщик записи времени года, кратного четырёмстам
+	asn1::reader_t second(quadringentary, sizeof(quadringentary));
+	// Выполняем разбор записи времени
+	ASSERT_TRUE(second.next(asn1::tag_t::GENERALIZED_TIME, element));
+	// Проверяем успешность разбора двадцать девятого февраля года, кратного четырёмстам
+	ASSERT_EQ(asn1::time(element, asn1::tag_t::GENERALIZED_TIME, moment), asn1::error_t::NONE);
+	// Запись времени двадцать девятого февраля года, кратного ста, но не четырёмстам
+	const uint8_t centenary[] = {0x18, 0x0F, '1', '9', '0', '0', '0', '2', '2', '9', '0', '0', '0', '0', '0', '0', 'Z'};
+	// Создаём разборщик записи времени года, кратного ста
+	asn1::reader_t third(centenary, sizeof(centenary));
+	// Выполняем разбор записи времени
+	ASSERT_TRUE(third.next(asn1::tag_t::GENERALIZED_TIME, element));
+	// Проверяем отказ разбора двадцать девятого февраля года, кратного ста
+	ASSERT_EQ(asn1::time(element, asn1::tag_t::GENERALIZED_TIME, moment), asn1::error_t::VALUE);
+	/**
+	 * Часы, минуты и секунды сверяются ТРЕМЯ отдельными половинами условия, и всякая
+	 * отвергает запись в одиночку. Високосной секунды кодировка не знает: раздел
+	 * 4.1.2.5.2 RFC 5280 велит записывать время всемирным координированным
+	 */
+	const uint8_t leaping[] = {0x18, 0x0F, '2', '0', '2', '4', '0', '6', '3', '0', '2', '3', '5', '9', '6', '0', 'Z'};
+	// Создаём разборщик записи времени с високосной секундой
+	asn1::reader_t fourth(leaping, sizeof(leaping));
+	// Выполняем разбор записи времени
+	ASSERT_TRUE(fourth.next(asn1::tag_t::GENERALIZED_TIME, element));
+	// Проверяем отказ разбора записи времени с високосной секундой
+	ASSERT_EQ(asn1::time(element, asn1::tag_t::GENERALIZED_TIME, moment), asn1::error_t::VALUE);
+	// Запись времени с несуществующей минутой
+	const uint8_t minute[] = {0x18, 0x0F, '2', '0', '2', '4', '0', '6', '3', '0', '2', '3', '6', '0', '0', '0', 'Z'};
+	// Создаём разборщик записи времени с несуществующей минутой
+	asn1::reader_t fifth(minute, sizeof(minute));
+	// Выполняем разбор записи времени
+	ASSERT_TRUE(fifth.next(asn1::tag_t::GENERALIZED_TIME, element));
+	// Проверяем отказ разбора записи времени с несуществующей минутой
+	ASSERT_EQ(asn1::time(element, asn1::tag_t::GENERALIZED_TIME, moment), asn1::error_t::VALUE);
+	// Запись времени с нулевым месяцем
+	const uint8_t hollow[] = {0x18, 0x0F, '2', '0', '2', '4', '0', '0', '1', '5', '0', '0', '0', '0', '0', '0', 'Z'};
+	// Создаём разборщик записи времени с нулевым месяцем
+	asn1::reader_t sixth(hollow, sizeof(hollow));
+	// Выполняем разбор записи времени
+	ASSERT_TRUE(sixth.next(asn1::tag_t::GENERALIZED_TIME, element));
+	// Проверяем отказ разбора записи времени с нулевым месяцем
+	ASSERT_EQ(asn1::time(element, asn1::tag_t::GENERALIZED_TIME, moment), asn1::error_t::VALUE);
+	// Запись времени с нулевым днём
+	const uint8_t dayless[] = {0x18, 0x0F, '2', '0', '2', '4', '0', '6', '0', '0', '0', '0', '0', '0', '0', '0', 'Z'};
+	// Создаём разборщик записи времени с нулевым днём
+	asn1::reader_t seventh(dayless, sizeof(dayless));
+	// Выполняем разбор записи времени
+	ASSERT_TRUE(seventh.next(asn1::tag_t::GENERALIZED_TIME, element));
+	// Проверяем отказ разбора записи времени с нулевым днём
+	ASSERT_EQ(asn1::time(element, asn1::tag_t::GENERALIZED_TIME, moment), asn1::error_t::VALUE);
+}
+
+/**
+ * Проверка выдачи собранной записи записчиком, завершившим работу отказом
+ */
+TEST(ASN1Test, Withheld) {
+	// Создаём записчик записи
+	asn1::writer_t writer;
+	// Записываем годное целое число
+	ASSERT_TRUE(writer.integer(42));
+	// Проверяем, что собранная запись выдаётся
+	ASSERT_NE(writer.data().size, static_cast <size_t> (0));
+	/**
+	 * Записчик, завершивший работу отказом, собранного не выдаёт вовсе: выдать
+	 * недописанное значило бы выдать запись, годной не являющуюся. Незакрытый
+	 * составной элемент и запомненный отказ сверяются РАЗНЫМИ половинами условия
+	 */
+	ASSERT_FALSE(writer.oid("3.1.1"));
+	// Проверяем причину отказа записи опознавателя
+	ASSERT_EQ(writer.err(), asn1::error_t::VALUE);
+	// Проверяем, что записчик после отказа собранного не выдаёт
+	ASSERT_EQ(writer.data().size, static_cast <size_t> (0));
+	// Очищаем собранную запись
+	writer.clear();
+	// Записываем годное целое число заново
+	ASSERT_TRUE(writer.integer(42));
+	// Проверяем, что очистка вернула записчику способность выдавать собранное
+	ASSERT_NE(writer.data().size, static_cast <size_t> (0));
+	// Открываем составной элемент записи
+	ASSERT_TRUE(writer.open(asn1::tag_t::SEQUENCE));
+	// Проверяем, что записчик с незакрытым составным элементом собранного не выдаёт
+	ASSERT_EQ(writer.data().size, static_cast <size_t> (0));
+	// Закрываем составной элемент записи
+	ASSERT_TRUE(writer.close());
+	// Проверяем, что закрытие составного элемента выдачу вернуло
+	ASSERT_NE(writer.data().size, static_cast <size_t> (0));
+	// Строка битов, у которой место передано, а длина объявлена нулевой
+	const uint8_t sample[] = {0xFF, 0xF0};
+	// Проверяем успешность записи строки битов нулевой длины с переданным местом
+	ASSERT_TRUE(writer.bits(view_t(sample, 0), 0));
+	// Проверяем успешность сборки записи
+	ASSERT_EQ(writer.err(), asn1::error_t::NONE);
+	// Очищаем собранную запись
+	writer.clear();
+	/**
+	 * Знак записи опознавателя сверяется с ОБЕИМИ границами десятичного набора, и
+	 * знак ниже нуля трогает ту половину, что стережёт нижнюю границу
+	 */
+	ASSERT_FALSE(writer.oid("1.2.+3"));
+	// Проверяем причину отказа записи опознавателя со знаком ниже десятичного набора
 	ASSERT_EQ(writer.err(), asn1::error_t::VALUE);
 }

@@ -139,14 +139,10 @@ bool nts::agreement::generate(const curve::curve_t & curve, uint8_t * secret, ui
 	if(ok){
 		// Выполняем разворот записи секретного ключа
 		reverse(buffer, secret, size);
-		// Образующая точка кривой
-		curve::point_t base;
-		// Выполняем получение образующей точки кривой
-		curve.base(base);
 		// Открытый ключ мимолётной пары
 		curve::point_t point;
 		// Выполняем умножение образующей точки на секретный ключ
-		curve.multiply(base, value, point);
+		curve.product(value, point);
 		// Если координаты открытого ключа записать удалось
 		if((ok = curve.coordinates(point, first, second, size))){
 			// Выполняем разворот записи первой координаты открытого ключа

@@ -231,6 +231,12 @@ TEST(FlowTest, Reject){
 	ASSERT_EQ(machine.accept(handshake::type_t::SERVER, session::side_t::SERVER), flow::error_t::ORDER);
 	// Проверяем, что отказ прервал ход рукопожатия безвозвратно
 	ASSERT_EQ(machine.accept(handshake::type_t::CLIENT, session::side_t::CLIENT), flow::error_t::STATE);
+	/**
+	 * Прерванный ход рукопожатия отвергает и просьбу о повторе приветствия: состояние
+	 * сверяется отдельной половиной условия, и незаведённость с прерванностью
+	 * отвергают просьбу всякая в одиночку
+	 */
+	ASSERT_EQ(machine.retry(), flow::error_t::STATE);
 	// Выполняем заведение хода рукопожатия заново
 	ASSERT_TRUE(machine.start(flow::role_t::CLIENT));
 	// Проверяем отвержение приветствия клиента, отправленного сервером

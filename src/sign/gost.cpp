@@ -191,12 +191,8 @@ bool nts::sign::Gost::secret(const view_t & secret) noexcept {
 		// Выводим отказ установки ключа подписи
 		return false;
 	}
-	// Образующая точка подгруппы точек кривой
-	curve::point_t base;
-	// Получаем образующую точку подгруппы точек кривой
-	this->_curve->base(base);
 	// Выполняем выработку ключа проверки подписи из ключа подписи
-	this->_curve->multiply(base, this->_key, this->_point);
+	this->_curve->product(this->_key, this->_point);
 	// Устанавливаем признак того, что ключ проверки подписи установлен
 	this->_public = true;
 	// Устанавливаем признак того, что ключ подписи установлен
@@ -283,13 +279,9 @@ bool nts::sign::Gost::make(const view_t & value, const view_t & random, uint8_t 
 		// Выводим отказ выработки подписи
 		return false;
 	// Образующая точка подгруппы точек кривой
-	curve::point_t base;
-	// Получаем образующую точку подгруппы точек кривой
-	this->_curve->base(base);
-	// Кратная точка выработки подписи
 	curve::point_t point;
 	// Выполняем умножение образующей точки на случайное число
-	this->_curve->multiply(base, number, point);
+	this->_curve->product(number, point);
 	// Место, в которое записывается первая координата кратной точки
 	uint8_t buffer[math::NUMBER_SIZE];
 	// Если координаты кратной точки записать не удалось

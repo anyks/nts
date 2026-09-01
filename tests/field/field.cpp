@@ -194,3 +194,35 @@ TEST(FieldTest, Overflow){
 	// Проверяем, что отказавшее закрытие поля открытым его и оставило
 	ASSERT_EQ(builder.nesting(), static_cast <size_t> (1));
 }
+
+/**
+ * Проверка отказов по недозволенной ширине записи длины
+ */
+TEST(FieldTest, Widthless){
+	// Разбираемая область с полем переменной длины
+	const uint8_t data[] = {0x01, 0xAA};
+	// Объект разборщика полей протокола
+	field::scanner_t scanner;
+	// Устанавливаем разбираемую область байтов
+	scanner.start(view_t(data, sizeof(data)));
+	// Прочитанное содержимое поля переменной длины
+	view_t body;
+	// Проверяем отказ чтения поля с длиной нулевой ширины
+	ASSERT_EQ(scanner.vector(body, 0), field::error_t::WIDTH);
+	// Проверяем, что отказавшее чтение места чтения не подвинуло
+	ASSERT_EQ(scanner.left(), sizeof(data));
+	// Объект сборщика полей протокола
+	field::builder_t builder;
+	// Проверяем отказ записи числа нулевой ширины
+	ASSERT_EQ(builder.number(0x01, 0), field::error_t::WIDTH);
+	// Проверяем отказ записи числа недозволенной ширины
+	ASSERT_EQ(builder.number(0x01, 5), field::error_t::WIDTH);
+	// Проверяем отказ открытия поля с длиной нулевой ширины
+	ASSERT_EQ(builder.open(0), field::error_t::WIDTH);
+	// Проверяем отказ открытия поля с длиной недозволенной ширины
+	ASSERT_EQ(builder.open(4), field::error_t::WIDTH);
+	// Проверяем, что отказавшее открытие поля накопитель не тронуло
+	ASSERT_EQ(builder.data().size, static_cast <size_t> (0));
+	// Проверяем отказ закрытия неоткрытого поля переменной длины
+	ASSERT_EQ(builder.close(), field::error_t::NESTING);
+}

@@ -627,4 +627,15 @@ TEST(MgmTest, Descriptor) {
 	ASSERT_FALSE(galois.decrypt(view_t(nullptr, sizeof(source)), view_t(result, sizeof(result)), source, view_t(tag, sizeof(tag))));
 	// Проверяем успешность расшифрования годной подачей
 	ASSERT_TRUE(galois.decrypt(view_t(nullptr, 0), view_t(result, sizeof(result)), source, view_t(tag, sizeof(tag))));
+	// Объект незаведённого режима выработки имитовставки
+	cipher::galois_t unstarted;
+	/**
+	 * Готовность режима сверяется ОТДЕЛЬНОЙ половиной заслона: незаведённый режим
+	 * отвергает расшифрование и при годной метке целостности
+	 */
+	ASSERT_FALSE(unstarted.decrypt(view_t(nullptr, 0), view_t(result, sizeof(result)), source, view_t(tag, sizeof(tag))));
+	// Проверяем отказ расшифрования при непереданной метке целостности
+	ASSERT_FALSE(galois.decrypt(view_t(nullptr, 0), view_t(result, sizeof(result)), source, view_t(nullptr, sizeof(tag))));
+	// Проверяем отказ расшифрования при метке целостности не той длины
+	ASSERT_FALSE(galois.decrypt(view_t(nullptr, 0), view_t(result, sizeof(result)), source, view_t(tag, (sizeof(tag) - 1))));
 }

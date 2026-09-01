@@ -682,6 +682,33 @@ TEST(TrustTest, Reject){
 	ASSERT_NE(trust::verify(vector <vector <uint8_t>> {corrupted}, store, MOMENT), trust::error_t::NONE);
 	// Проверяем отказ добавления испорченной записи в запас доверенных
 	ASSERT_FALSE(store.add(view_t(corrupted.data(), 4)));
+	/**
+	 * Непереданная запись при заявленной длине - оплошность потребителя. Переданность
+	 * и длина сверяются РАЗНЫМИ половинами условия, и всякая отвергает запись в
+	 * одиночку
+	 */
+	ASSERT_FALSE(store.add(view_t(nullptr, root.size())));
+	// Проверяем отказ добавления записи нулевой длины в запас доверенных
+	ASSERT_FALSE(store.add(view_t(root.data(), 0)));
+	// Запись самоподписанного сертификата постороннего издателя
+	vector <uint8_t> outsider;
+	/**
+	 * Запас сличается с цепочкой сперва по длине записи, и совпадение длин при
+	 * расхождении содержимого доверием обернуться не вправе. Длина записи гуляет от
+	 * вида подписи, оттого посторонний сертификат вырабатывается до совпадения длин
+	 */
+	for(size_t i = 0; (i < 32) && (outsider.size() != root.size()); i++){
+		// Ключевая пара постороннего издателя, доверием не объявленного
+		keys_t stranger;
+		// Выполняем выработку ключевой пары постороннего издателя
+		ASSERT_TRUE(generate(stranger));
+		// Выполняем выработку самоподписанного сертификата постороннего издателя
+		ASSERT_TRUE(make("anyks main", "anyks main", stranger, vector <uint8_t> (), options, outsider));
+	}
+	// Проверяем совпадение длин записей доверенного и постороннего издателей
+	ASSERT_EQ(outsider.size(), root.size());
+	// Проверяем отказ доверия самоподписанному сертификату постороннего издателя
+	ASSERT_NE(trust::verify(vector <vector <uint8_t>> {outsider}, store, MOMENT), trust::error_t::NONE);
 }
 
 /**
@@ -812,6 +839,16 @@ TEST(TrustTest, Wildcard){
 	ASSERT_EQ(trust::belongs(view_t(common.data(), common.size()), "anyks.com"), trust::error_t::NONE);
 	// Проверяем отказ сличения чужого имени узла с общим именем владельца
 	ASSERT_EQ(trust::belongs(view_t(common.data(), common.size()), "example.com"), trust::error_t::NAME);
+	// Запись сертификата с пустым общим именем владельца
+	vector <uint8_t> nameless;
+	// Выполняем выработку сертификата с пустым общим именем владельца
+	ASSERT_TRUE(make("", "anyks.com", subject, vector <uint8_t> (), settings, nameless));
+	/**
+	 * Пустое имя сертификата не отвечает никакому имени узла: имя сертификата и имя
+	 * узла сверяются РАЗНЫМИ половинами условия, и всякая отвергает сличение в
+	 * одиночку
+	 */
+	ASSERT_EQ(trust::belongs(view_t(nameless.data(), nameless.size()), "anyks.com"), trust::error_t::NAME);
 }
 
 /**

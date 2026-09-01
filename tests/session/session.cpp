@@ -559,6 +559,15 @@ TEST(SessionTest, Binder){
 	ASSERT_EQ(secrets.binder(view_t(transcript, sizeof(transcript)), element), session::error_t::NONE);
 	// Проверяем расхождение привязок при ином усечённом приветствии
 	ASSERT_NE(::memcmp(binder, element, sizeof(binder)), 0);
+	// Проверяем отказ выработки привязки без хеша усечённого приветствия
+	ASSERT_EQ(secrets.binder(view_t(nullptr, sizeof(transcript)), element), session::error_t::EMPTY);
+	// Проверяем отказ выработки привязки с хешем приветствия нулевой длины
+	ASSERT_EQ(secrets.binder(view_t(transcript, 0), element), session::error_t::EMPTY);
+	/**
+	 * Место итога сверяется отдельной половиной условия: непереданное место отвергает
+	 * выработку и при переданном хеше усечённого приветствия
+	 */
+	ASSERT_EQ(secrets.binder(view_t(transcript, sizeof(transcript)), nullptr), session::error_t::EMPTY);
 }
 
 /**
@@ -604,6 +613,21 @@ TEST(SessionTest, Refusals){
 	const vector <uint8_t> first = decode(FIRST);
 	// Выполняем заведение начальной ступени расписания ключей
 	ASSERT_EQ(secrets.start(view_t(nullptr, 0)), session::error_t::NONE);
+	// Значения расписания ключей, заведённые ключом нулевой длины
+	session::secrets_t sparse;
+	/**
+	 * Переданное место нулевой длины - вторая половина отсутствия заранее разделённого
+	 * ключа, и заведение обязано сойтись с заведением вовсе без него
+	 */
+	ASSERT_EQ(sparse.start(view_t(shared.data(), 0)), session::error_t::NONE);
+	// Места, в которые помещаются привязки заведённых ступеней
+	uint8_t hollow[32] = {0}, empty[32] = {0};
+	// Выполняем выработку привязки заведения без заранее разделённого ключа
+	ASSERT_EQ(secrets.binder(view_t(first.data(), first.size()), hollow), session::error_t::NONE);
+	// Выполняем выработку привязки заведения ключом нулевой длины
+	ASSERT_EQ(sparse.binder(view_t(first.data(), first.size()), empty), session::error_t::NONE);
+	// Проверяем схождение заведения ключом нулевой длины с заведением без ключа
+	ASSERT_EQ(::memcmp(hollow, empty, sizeof(hollow)), 0);
 	// Проверяем отказ вывода ступени рукопожатия без общего значения обмена
 	ASSERT_EQ(secrets.handshake(view_t(nullptr, shared.size()), view_t(first.data(), first.size())), session::error_t::EMPTY);
 	// Проверяем отказ вывода ступени рукопожатия с общим значением нулевой длины

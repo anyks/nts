@@ -271,6 +271,15 @@ TEST(NumberTest, Failures) {
 	math::number_t value;
 	// Проверяем отказ разбора числа до установки модуля
 	ASSERT_FALSE(modulus.load(view_t(buffer, bytes("01", buffer)), value));
+	// Проверяем отказ приведения потока байтов до установки модуля
+	ASSERT_FALSE(modulus.reduce(view_t(buffer, bytes("01", buffer)), value));
+	// Проверяем отказ записи числа до установки модуля
+	ASSERT_FALSE(modulus.store(value, buffer, sizeof(buffer)));
+	/**
+	 * Переданное место нулевой длины - вторая половина той же оплошности: место есть,
+	 * а читать из него нечего. Всякая половина отвергает модуль в одиночку
+	 */
+	ASSERT_FALSE(modulus.start(view_t(buffer, 0)));
 	// Проверяем отказ установки чётного модуля
 	ASSERT_FALSE(modulus.start(view_t(buffer, bytes("f0", buffer))));
 	// Проверяем отказ установки модуля, меньшего трёх

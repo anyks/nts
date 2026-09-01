@@ -460,6 +460,14 @@ TEST(PemTest, Refusal){
 	ASSERT_EQ(blocks.size(), static_cast <size_t> (1));
 	// Проверяем длину тела разобранной записи
 	ASSERT_EQ(blocks[0].data.size(), static_cast <size_t> (5));
+	// Накопитель, в который складываются записи текста с табуляцией и возвратом каретки
+	vector <pem::block_t> spaced;
+	// Проверяем разбор текста с горизонтальной табуляцией и возвратом каретки в теле
+	EXPECT_EQ(pem::decode("-----BEGIN CERTIFICATE-----\nQU5Z\tS1M=\r\n-----END CERTIFICATE-----\n", spaced), pem::error_t::NONE);
+	// Проверяем число разобранных записей текста с табуляцией и возвратом каретки
+	ASSERT_EQ(spaced.size(), static_cast <size_t> (1));
+	// Проверяем длину тела разобранной записи
+	ASSERT_EQ(spaced[0].data.size(), static_cast <size_t> (5));
 	/**
 	 * Ключ записывается ПРОСТОЙ строкой байтов: составная её форма это средство
 	 * кодировки BER, которой кодировка DER не знает
@@ -495,4 +503,16 @@ TEST(PemTest, Refusal){
 	ASSERT_EQ(pem::encode(compound, enclosed), pem::error_t::NONE);
 	// Проверяем отказ извлечения ключа, записанного составной строкой байтов
 	EXPECT_EQ(pem::secret(enclosed, secret), pem::error_t::CONTENT);
+	/**
+	 * Вид метки и класс её сверяются РАЗНЫМИ половинами заслона: разборщик сличает
+	 * записи по НОМЕРУ метки, оттого метка места употребления того же номера разбор
+	 * проходит и отвергается уже половиной, отвечающей за класс
+	 */
+	compound.data[place] = 0x84;
+	// Записанный текст записи со строкой байтов не универсального класса
+	string foreign;
+	// Выполняем запись записи секретного ключа
+	ASSERT_EQ(pem::encode(compound, foreign), pem::error_t::NONE);
+	// Проверяем отказ извлечения ключа, записанного меткой не универсального класса
+	EXPECT_EQ(pem::secret(foreign, secret), pem::error_t::CONTENT);
 }

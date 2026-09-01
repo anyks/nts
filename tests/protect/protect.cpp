@@ -34,6 +34,7 @@
 #include <cstring>
 #include <limits>
 #include <main.hpp>
+#include <cipher/mgm.hpp>
 #include <protect/protect.hpp>
 
 /**
@@ -434,4 +435,89 @@ TEST(ProtectTest, Refusals){
 	ASSERT_EQ(receiver.open(header, view_t(sealed.data() + record::RECORD_HEADER, protect::block(SAMPLES[0].suite)), type, opened), protect::error_t::LENGTH);
 	// Проверяем, что отвергнутая запись открытого содержимого не дала
 	ASSERT_TRUE(opened.empty());
+	// Место, в которое помещается ключ записи построения
+	uint8_t derived[protect::PROTECT_KEY];
+	// Получаем корневой ключ выработки ключа записи
+	const std::vector <uint8_t> root = decode(SAMPLES[0].key);
+	/**
+	 * Непереданный корневой ключ при заявленной длине - оплошность потребителя.
+	 * Переданность и длина сверяются РАЗНЫМИ половинами условия, и всякая отвергает
+	 * выработку в одиночку
+	 */
+	ASSERT_FALSE(protect::tree(SAMPLES[0].suite, view_t(nullptr, protect::PROTECT_KEY), 0ULL, derived));
+	// Проверяем отказ выработки ключа записи по корневому ключу не той длины
+	ASSERT_FALSE(protect::tree(SAMPLES[0].suite, view_t(root.data(), (protect::PROTECT_KEY - 1)), 0ULL, derived));
+	// Проверяем отказ выработки ключа записи без места под него
+	ASSERT_FALSE(protect::tree(SAMPLES[0].suite, view_t(root.data(), root.size()), 0ULL, nullptr));
+	// Проверяем отказ выработки ключа записи на неизвестном наборе шифрования
+	ASSERT_FALSE(protect::tree(protect::suite_t::NONE, view_t(root.data(), root.size()), 0ULL, derived));
+}
+
+/**
+ * Проверка отказа записи, открытый текст которой истинного вида содержимого не несёт
+ */
+TEST(ProtectTest, Typeless){
+	// Объект защиты записей принимающей стороны
+	protect::protection_t receiver;
+	// Получаем корневой ключ направления связи
+	const std::vector <uint8_t> key = decode(SAMPLES[0].key);
+	// Получаем вектор замены направления связи
+	const std::vector <uint8_t> vector = decode(SAMPLES[0].vector);
+	// Выполняем установку ключевого материала принимающей стороны
+	ASSERT_TRUE(receiver.start(SAMPLES[0].suite, view_t(key.data(), key.size()), view_t(vector.data(), vector.size())));
+	// Получаем длину блока базового шифра набора шифрования
+	const size_t size = protect::block(SAMPLES[0].suite);
+	// Место, в которое помещается ключ записи очередного порядкового номера
+	uint8_t derived[protect::PROTECT_KEY];
+	// Выполняем выработку ключа первой записи направления связи
+	ASSERT_TRUE(protect::tree(SAMPLES[0].suite, view_t(key.data(), key.size()), 0ULL, derived));
+	/**
+	 * Одноразовое значение записи складывается из вектора замены с порядковым номером
+	 * записи, а старший разряд его снимается, как того требует MGM. Здесь оно строится
+	 * заново от лица враждебного собеседника: сам составитель записей нулевого вида
+	 * содержимого не составит, и достаётся такая запись только подделкой
+	 */
+	std::vector <uint8_t> nonce(vector.begin(), vector.end());
+	// Снимаем старший разряд одноразового значения записи
+	nonce[0] = static_cast <uint8_t> (nonce[0] & 0x7F);
+	// Объект базового шифра подделываемой записи
+	cipher::kuznyechik_t base;
+	// Выполняем установку ключа базового шифра подделываемой записи
+	ASSERT_TRUE(base.key(view_t(derived, sizeof(derived))));
+	// Объект режима шифрования с проверкой целостности
+	cipher::galois_t galois;
+	// Выполняем заведение режима шифрования подделываемой записи
+	ASSERT_TRUE(galois.start(cipher::block_t(base), view_t(nonce.data(), size), size));
+	/**
+	 * Открытый текст подделываемой записи весь нулевой. Раздел 5.2 RFC 8446 велит
+	 * искать истинный вид содержимого, отступая от конца открытого текста мимо нулей
+	 * дополнения, и у такой записи отступать пришлось бы до самого начала
+	 */
+	const std::vector <uint8_t> plain(32, 0x00);
+	// Заголовок подделываемой записи
+	record::header_t header;
+	// Устанавливаем вид содержимого подделываемой записи
+	header.type = record::type_t::APPLICATION;
+	// Устанавливаем издание протокола подделываемой записи
+	header.version = record::version_t::TLS12;
+	// Устанавливаем длину содержимого подделываемой записи
+	header.size = (plain.size() + size);
+	// Место, в которое записывается заголовок подделываемой записи
+	uint8_t associated[record::RECORD_HEADER];
+	// Выполняем составление заголовка подделываемой записи
+	ASSERT_EQ(record::build(header, associated), record::error_t::NONE);
+	// Накопитель, в который складывается содержимое подделываемой записи
+	std::vector <uint8_t> sealed((plain.size() + size), 0);
+	// Выполняем наложение шифрования с проверкой целостности
+	ASSERT_TRUE(galois.encrypt(view_t(associated, sizeof(associated)), view_t(plain.data(), plain.size()), sealed.data(), (sealed.data() + plain.size())));
+	// Истинный вид содержимого принятой записи
+	record::type_t type = record::type_t::NONE;
+	// Накопитель, в который складывается открытое содержимое записи
+	std::vector <uint8_t> opened;
+	// Проверяем отказ снятия защиты с записи без истинного вида содержимого
+	ASSERT_EQ(receiver.open(header, view_t(sealed.data(), sealed.size()), type, opened), protect::error_t::TYPE);
+	// Проверяем, что отвергнутая запись открытого содержимого не дала
+	ASSERT_TRUE(opened.empty());
+	// Проверяем, что вид содержимого отвергнутой записи остался неустановленным
+	ASSERT_EQ(type, record::type_t::NONE);
 }

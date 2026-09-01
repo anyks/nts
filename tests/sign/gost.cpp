@@ -249,6 +249,20 @@ TEST(GostTest, Failures) {
 	bytes(SECRET, secret);
 	// Проверяем отказ установки ключа подписи до установки кривой
 	ASSERT_FALSE(gost.secret(view_t(secret, sizeof(secret))));
+	// Места, в которые помещаются координаты ключа проверки подписи
+	uint8_t first[32], second[32];
+	/**
+	 * Заведённость кривой сверяется ОТДЕЛЬНОЙ половиной условия от наличия ключа, и
+	 * всякий вызов до заведения кривой трогает именно её: ключей нет ни того, ни
+	 * другого, но останавливает вызов раньше них отсутствие самой кривой
+	 */
+	ASSERT_FALSE(gost.key(first, second, sizeof(first)));
+	// Проверяем отказ выработки подписи до установки кривой
+	ASSERT_FALSE(gost.make(view_t(digest, sizeof(digest)), signature));
+	// Проверяем отказ выработки подписи со своим случайным числом до установки кривой
+	ASSERT_FALSE(gost.make(view_t(digest, sizeof(digest)), view_t(secret, sizeof(secret)), signature));
+	// Проверяем отказ проверки подписи до установки кривой
+	ASSERT_FALSE(gost.check(view_t(digest, sizeof(digest)), view_t(signature, sizeof(signature))));
 	// Объект неустановленной эллиптической кривой
 	curve::curve_t empty;
 	// Проверяем отказ установки неготовой кривой

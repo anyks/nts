@@ -249,6 +249,20 @@ TEST(ScheduleTest, Refusals){
 	 * двухсот пятидесяти пяти, оттого длина сверх того отвергается
 	 */
 	ASSERT_FALSE(schedule::expand(view_t(secret.data(), secret.size()), view_t(nullptr, 0), result, ((255 * schedule::SCHEDULE_SECRET) + 1)));
+	// Места, в которые помещаются растянутые значения без описания назначения
+	uint8_t hollow[64] = {0}, sparse[64] = {0};
+	/**
+	 * Раздел 2.3 RFC 5869 полагает описание назначения необязательным, и растяжение
+	 * без него обязано пройти. Переданность и длина сверяются РАЗНЫМИ половинами
+	 * условия, и всякая одна обращает описание в отсутствующее
+	 */
+	ASSERT_TRUE(schedule::expand(view_t(secret.data(), secret.size()), view_t(nullptr, 0), hollow, sizeof(hollow)));
+	// Выполняем растяжение с описанием назначения нулевой длины
+	ASSERT_TRUE(schedule::expand(view_t(secret.data(), secret.size()), view_t(label.data(), 0), sparse, sizeof(sparse)));
+	// Проверяем схождение растяжения с описанием нулевой длины с растяжением без него
+	ASSERT_EQ(::memcmp(hollow, sparse, sizeof(hollow)), 0);
+	// Проверяем, что растянутое значение не осталось нулевым
+	ASSERT_NE(hollow[0] | hollow[32] | hollow[63], 0);
 	// Описание назначения длиннее того, что вмещает слитная строка выработки
 	const std::vector <uint8_t> lengthy((schedule::SCHEDULE_LABEL + 6 + 255 + 4), 0x3C);
 	// Проверяем отказ растяжения на непомерное описание назначения
