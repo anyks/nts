@@ -387,3 +387,63 @@ TEST(NumberTest, Edges) {
 	// Проверяем, что нулевая степень дала единицу
 	ASSERT_TRUE(modulus.equal(result, unit));
 }
+
+/**
+ * Проверка схождения возведения в квадрат с общим умножением
+ */
+TEST(NumberTest, Square) {
+	// Место, в которое помещаются разбираемые записи
+	uint8_t buffer[math::NUMBER_SIZE];
+	/**
+	 * Возведение в квадрат идёт нынче общим умножением: отдельный путь пробовали и не
+	 * взяли, ибо замер показал его медленнее. Проверка оставлена заслоном на будущее -
+	 * заведись такой путь снова, он обязан сойтись с общим умножением на всяком
+	 * значении, и здесь они сличаются между собой на всех трёх модулях набора
+	 */
+	for(size_t i = 0; i < (sizeof(SAMPLES) / sizeof(sample_t)); i++){
+		// Извлекаем очередной набор ожидаемых значений
+		const sample_t & sample = SAMPLES[i];
+		// Объект арифметики по модулю
+		math::modulus_t modulus;
+		// Выполняем установку модуля
+		ASSERT_TRUE(modulus.start(view_t(buffer, bytes(sample.modulus, buffer)))) << "Набор: " << i;
+		// Возводимые в квадрат значения набора
+		const char * values[2] = {sample.first, sample.second};
+		/**
+		 * Выполняем перебор возводимых в квадрат значений набора
+		 */
+		for(size_t j = 0; j < 2; j++){
+			// Возводимое в квадрат значение и его двойник, лежащий отдельно
+			math::number_t value, twin;
+			// Выполняем разбор возводимого в квадрат значения
+			ASSERT_TRUE(modulus.load(view_t(buffer, bytes(values[j], buffer)), value)) << "Набор: " << i;
+			// Выполняем разбор двойника возводимого в квадрат значения
+			ASSERT_TRUE(modulus.load(view_t(buffer, bytes(values[j], buffer)), twin)) << "Набор: " << i;
+			// Итоги возведения в квадрат и общего умножения
+			math::number_t squared, product;
+			// Выполняем возведение значения в квадрат
+			modulus.multiply(value, value, squared);
+			// Выполняем умножение значения на его двойник, лежащий отдельно
+			modulus.multiply(value, twin, product);
+			// Сличаем квадрат с произведением значения на двойник
+			ASSERT_EQ(number(modulus, squared), number(modulus, product)) << "Набор: " << i << ", значение: " << j;
+			/**
+			 * Возведение в квадрат применяется вслед за собою: так проверяется, что
+			 * совпадение места итога с местом возводимого числа пути не мешает
+			 */
+			modulus.multiply(squared, squared, squared);
+			// Выполняем то же общим умножением через двойник
+			modulus.multiply(product, product, twin);
+			// Сличаем четвёртую степень, полученную двумя путями
+			ASSERT_EQ(number(modulus, squared), number(modulus, twin)) << "Набор: " << i << ", значение: " << j;
+			// Место, в которое помещается квадрат нуля
+			math::number_t hollow, none;
+			// Выполняем разбор нулевого значения
+			ASSERT_TRUE(modulus.load(view_t(buffer, bytes("00", buffer)), none)) << "Набор: " << i;
+			// Выполняем возведение нуля в квадрат
+			modulus.multiply(none, none, hollow);
+			// Проверяем равенство квадрата нуля нулю
+			ASSERT_TRUE(modulus.zero(hollow)) << "Набор: " << i;
+		}
+	}
+}
