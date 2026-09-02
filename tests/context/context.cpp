@@ -3645,8 +3645,13 @@ TEST(ContextTest, Prepicked){
 	 * ещё не выбирает, и расширение это в ней не своё
 	 */
 	ASSERT_EQ(client.error(), context::error_t::MESSAGE);
-	// Проверяем извещение, которым связь оборвана клиентом
-	ASSERT_EQ(client.alert().description, alert::description_t::EXTENSION);
+	/**
+	 * Раздел 4.2 RFC 8446 разводит ДВА извещения: расширение, стороне известное, но
+	 * пришедшее не в своём сообщении, обрывает связь извещением «illegal_parameter», а
+	 * расширение, о котором сторона не просила вовсе, - «unsupported_extension». Здесь
+	 * расширение известно и предлагалось, а негодно одним лишь своим местом
+	 */
+	ASSERT_EQ(client.alert().description, alert::description_t::PARAMETER);
 	// Проверяем неустановленность связи стороной клиента
 	ASSERT_FALSE(client.established());
 }
@@ -3666,8 +3671,13 @@ TEST(ContextTest, Belated){
 	 * самом приветствии сервера ей места нет
 	 */
 	ASSERT_EQ(client.error(), context::error_t::MESSAGE);
-	// Проверяем извещение, которым связь оборвана клиентом
-	ASSERT_EQ(client.alert().description, alert::description_t::EXTENSION);
+	/**
+	 * Раздел 4.2 RFC 8446 разводит ДВА извещения: расширение, стороне известное, но
+	 * пришедшее не в своём сообщении, обрывает связь извещением «illegal_parameter», а
+	 * расширение, о котором сторона не просила вовсе, - «unsupported_extension». Здесь
+	 * расширение известно и предлагалось, а негодно одним лишь своим местом
+	 */
+	ASSERT_EQ(client.alert().description, alert::description_t::PARAMETER);
 	// Проверяем неустановленность связи стороной клиента
 	ASSERT_FALSE(client.established());
 }
@@ -4249,6 +4259,79 @@ TEST(ContextTest, Discord){
 }
 
 /**
+ * Проверка заслона расширения, защищённым расширениям не положенного
+ */
+TEST(ContextTest, Misplaced){
+	// Связь стороны клиента
+	client::context_t client;
+	// Выполняем заведение связи стороны клиента
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	// Выполняем ответ враждебного сервера расширением не в своём месте
+	ASSERT_TRUE(adversary(client, distortion_t::MISPLACED));
+	// Проверяем обрыв связи стороной клиента
+	ASSERT_EQ(client.error(), context::error_t::MESSAGE);
+	/**
+	 * Раздел 4.2 RFC 8446 отводит всякому расширению свой перечень сообщений, и способы
+	 * обмена заранее разделённым ключом положены одному лишь приветствию клиента.
+	 * Заслон этот сверкой с предложенным НЕ покрывается: связь способы эти предлагает
+	 * всякий раз, и негодны они одним своим местом
+	 */
+	ASSERT_EQ(client.alert().description, alert::description_t::PARAMETER);
+	// Проверяем неустановленность связи стороной клиента
+	ASSERT_FALSE(client.established());
+}
+
+/**
+ * Проверка заслона расширения, билету возобновления связи не положенного
+ */
+TEST(ContextTest, Outplaced){
+	// Подлинность стороны сервера
+	context::credential_t credentials;
+	// Выполняем выработку подлинности стороны сервера
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Связь стороны клиента
+	client::context_t client;
+	// Выполняем заведение связи стороны клиента
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	// Выполняем рукопожатие враждебного сервера с билетом не в своём расширении
+	ASSERT_TRUE(adversary(client, distortion_t::OUTPLACED, &credentials));
+	// Проверяем обрыв связи стороной клиента
+	ASSERT_EQ(client.error(), context::error_t::MESSAGE);
+	/**
+	 * Раздел 4.2 RFC 8446 кладёт билету возобновления связи одно-единственное
+	 * расширение - предел упреждающих данных, - и открытая часть ключа обмена билету
+	 * не положена
+	 */
+	ASSERT_EQ(client.alert().description, alert::description_t::PARAMETER);
+}
+
+/**
+ * Проверка заслона расширения, запросу подлинности не положенного
+ */
+TEST(ContextTest, Offplaced){
+	// Подлинность стороны сервера
+	context::credential_t credentials;
+	// Выполняем выработку подлинности стороны сервера
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Связь стороны клиента
+	client::context_t client;
+	// Выполняем заведение связи стороны клиента
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	// Выполняем ответ враждебного сервера запросом не в своём расширении
+	ASSERT_TRUE(adversary(client, distortion_t::OFFPLACED, &credentials));
+	// Проверяем обрыв связи стороной клиента
+	ASSERT_EQ(client.error(), context::error_t::EXTENSION);
+	/**
+	 * Раздел 4.2 RFC 8446 кладёт запросу подлинности из признаваемых движком
+	 * расширений одни лишь схемы подписи. Схемы подписи запрос несёт годными, оттого
+	 * задет именно заслон места, а не заслон их отсутствия
+	 */
+	ASSERT_EQ(client.alert().description, alert::description_t::PARAMETER);
+	// Проверяем неустановленность связи стороной клиента
+	ASSERT_FALSE(client.established());
+}
+
+/**
  * Проверка заслона непрошенного расширения в ответе сервера
  */
 TEST(ContextTest, Unwanted){
@@ -4779,8 +4862,13 @@ TEST(ContextTest, Composition){
 	 * всё прочее принадлежит защищённым расширениям
 	 */
 	ASSERT_EQ(client.error(), context::error_t::MESSAGE);
-	// Проверяем извещение, которым связь оборвана клиентом
-	ASSERT_EQ(client.alert().description, alert::description_t::EXTENSION);
+	/**
+	 * Раздел 4.2 RFC 8446 разводит ДВА извещения: расширение, стороне известное, но
+	 * пришедшее не в своём сообщении, обрывает связь извещением «illegal_parameter», а
+	 * расширение, о котором сторона не просила вовсе, - «unsupported_extension». Здесь
+	 * расширение известно и предлагалось, а негодно одним лишь своим местом
+	 */
+	ASSERT_EQ(client.alert().description, alert::description_t::PARAMETER);
 	// Проверяем неустановленность связи стороной клиента
 	ASSERT_FALSE(client.established());
 }
@@ -4980,4 +5068,29 @@ TEST(ContextTest, Timeless){
 	ASSERT_TRUE(client.established() && server.established());
 	// Проверяем возобновление связи заранее разделённым ключом
 	ASSERT_TRUE(client.shared() && server.shared());
+}
+
+/**
+ * @brief Проверка обрыва связи по защищённой записи с пустым содержимым
+ *
+ */
+TEST(ContextTest, Hollow){
+	// Связь стороны клиента
+	client::context_t client;
+	// Выполняем заведение связи стороны клиента
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	// Выполняем ответ враждебного сервера защищённой записью с пустым содержимым
+	ASSERT_TRUE(adversary(client, distortion_t::VACANT));
+	// Проверяем обрыв связи стороной клиента
+	ASSERT_EQ(client.error(), context::error_t::RECORD);
+	/**
+	 * Раздел 5.4 RFC 8446 велит рвать связь извещением unexpected_message по записи
+	 * рукопожатия либо извещения с пустым содержимым. Заслон этот стережёт ИМЕННО
+	 * защищённый путь: у незащищённой записи пустоту отвергает разбор заголовка, а у
+	 * защищённой длину заголовка составляют шифртекст с меткой целостности, и пустота
+	 * вскрывается лишь по снятии защиты
+	 */
+	ASSERT_EQ(client.alert().description, alert::description_t::UNEXPECTED);
+	// Проверяем неустановленность связи стороной клиента
+	ASSERT_FALSE(client.established());
 }

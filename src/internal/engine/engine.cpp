@@ -108,6 +108,86 @@ namespace {
 	};
 
 	/**
+	 * Место расширения: приветствие сервера
+	 */
+	static constexpr uint8_t PLACE_HELLO = 0x01;
+	/**
+	 * Место расширения: просьба о повторе приветствия клиента
+	 */
+	static constexpr uint8_t PLACE_RETRY = 0x02;
+	/**
+	 * Место расширения: защищённые расширения сервера
+	 */
+	static constexpr uint8_t PLACE_GUARDED = 0x04;
+	/**
+	 * Место расширения: запрос подлинности клиента
+	 */
+	static constexpr uint8_t PLACE_REQUEST = 0x08;
+	/**
+	 * Место расширения: билет возобновления связи
+	 */
+	static constexpr uint8_t PLACE_TICKET = 0x10;
+
+	/**
+	 * @brief Описание мест, в которых расширению идти дозволено
+	 *
+	 */
+	typedef struct Placement {
+		// Вид расширения приветствия
+		uint16_t type;
+		// Места, в которых расширению идти дозволено
+		uint8_t places;
+	} placement_t;
+
+	/**
+	 * Места расширений, признаваемых движком, среди сообщений сервера
+	 *
+	 * @details Раздел 4.2 RFC 8446 отводит всякому расширению свой перечень сообщений,
+	 *          и расширение, признаваемое стороной, но пришедшее не в своём сообщении,
+	 *          обрывает связь извещением «illegal_parameter». Здесь перечислены места
+	 *          среди сообщений, которые разбирает клиент; приветствие клиента не
+	 *          значится вовсе, ибо оттуда расширения и берут своё начало
+	 *
+	 */
+	static const placement_t PLACEMENTS[] = {
+		{static_cast <uint16_t> (extension::type_t::NAME),      PLACE_GUARDED},
+		{static_cast <uint16_t> (extension::type_t::GROUPS),    PLACE_GUARDED},
+		{static_cast <uint16_t> (extension::type_t::SCHEMES),   PLACE_REQUEST},
+		{static_cast <uint16_t> (extension::type_t::PROTOCOLS), PLACE_GUARDED},
+		{static_cast <uint16_t> (extension::type_t::SECRET),    PLACE_HELLO},
+		{static_cast <uint16_t> (extension::type_t::EARLY),     (PLACE_GUARDED | PLACE_TICKET)},
+		{static_cast <uint16_t> (extension::type_t::COOKIE),    PLACE_RETRY},
+		{static_cast <uint16_t> (extension::type_t::VERSIONS),  (PLACE_HELLO | PLACE_RETRY)},
+		{static_cast <uint16_t> (extension::type_t::MODES),     0},
+		{static_cast <uint16_t> (extension::type_t::SHARE),     (PLACE_HELLO | PLACE_RETRY)}
+	};
+
+	/**
+	 * @brief Метод получения мест, в которых расширению идти дозволено
+	 *
+	 * @param type   вид расширения, места которого запрашиваются
+	 * @param result место, в которое помещается набор дозволенных мест
+	 *
+	 * @return       признак того, что вид расширения движку известен
+	 *
+	 */
+	static bool placement(const uint16_t type, uint8_t & places) noexcept {
+		/**
+		 * Выполняем перебор описаний мест признаваемых расширений
+		 */
+		for(size_t i = 0; i < (sizeof(PLACEMENTS) / sizeof(placement_t)); i++){
+			// Если описание мест разыскиваемого расширения найдено
+			if(PLACEMENTS[i].type == type){
+				// Запоминаем набор дозволенных мест расширения
+				places = PLACEMENTS[i].places;
+				// Выводим признак того, что вид расширения известен
+				return true;
+			}
+		}
+		// Выводим признак того, что вид расширения движку неизвестен
+		return false;
+	}
+	/**
 	 * @brief Метод затирания области памяти
 	 *
 	 * @param data затираемая область памяти
@@ -1296,6 +1376,17 @@ context::error_t nts::internal::Engine::requesting(const view_t & body) noexcept
 		if(reader.vector(content, 2) != field::error_t::NONE)
 			// Выводим отказ разбора запроса подлинности клиента
 			return context::error_t::MESSAGE;
+		// Места, в которых объявленному расширению идти дозволено
+		uint8_t places = 0;
+		/**
+		 * Раздел 4.2 RFC 8446 кладёт запросу подлинности свой перечень расширений, и
+		 * признаваемое расширение вне его обрывает связь извещением
+		 * «illegal_parameter»: из тех, что движок признаёт, запросу положены одни
+		 * лишь схемы подписи
+		 */
+		if(placement(static_cast <uint16_t> (type), places) && ((places & PLACE_REQUEST) == 0))
+			// Выводим отказ объявления расширения не в своём сообщении
+			return context::error_t::EXTENSION;
 		// Если объявлено расширение схем подписи
 		if(type == static_cast <uint32_t> (extension::type_t::SCHEMES))
 			// Запоминаем тело расширения схем подписи
@@ -2300,41 +2391,31 @@ context::error_t nts::internal::Engine::outgoing(const view_t & body, const view
 				return this->abort(context::error_t::VERSION, alert::description_t::PARAMETER);
 		}
 	}
+	// Определяем место, которым идут разбираемые расширения
+	const uint8_t place = (hello::retry(answer) ? PLACE_RETRY : PLACE_HELLO);
 	/**
 	 * Выполняем перебор расширений, объявленных приветствием сервера
 	 */
 	for(size_t i = 0; i < answer.extensions.size(); i++){
+		// Места, в которых объявленному расширению идти дозволено
+		uint8_t places = 0;
 		/**
-		 * Выполняем определение вида объявленного расширения
+		 * Раздел 4.1.3 RFC 8446 кладёт приветствию сервера всего три расширения, а
+		 * просьбе о повторе - три своих: всё прочее принадлежит защищённым расширениям
+		 * и открытым приветствием идти не вправе.
+		 *
+		 * Извещения тут ДВА, и раздел 4.2 RFC 8446 их разводит: расширение, стороне
+		 * ИЗВЕСТНОЕ, но пришедшее не в своём сообщении, обрывает связь извещением
+		 * «illegal_parameter», а расширение, о котором сторона не просила вовсе, -
+		 * извещением «unsupported_extension»
 		 */
-		switch(answer.extensions[i].type){
-			// Если объявлено издание протокола либо открытая часть ключа обмена
-			case static_cast <uint16_t> (extension::type_t::VERSIONS):
-			case static_cast <uint16_t> (extension::type_t::SHARE): break;
-			// Если объявлен выбранный заранее разделённый ключ
-			case static_cast <uint16_t> (extension::type_t::SECRET): {
-				/**
-				 * Выбранный ключ идёт лишь в самом приветствии: просьба о повторе
-				 * приветствия ключа ещё не выбирает
-				 */
-				if(hello::retry(answer))
-					// Выводим отказ объявления расширения не в своём сообщении
-					return this->abort(context::error_t::MESSAGE, alert::description_t::EXTENSION);
-			} break;
-			// Если объявлена метка возврата состояния сервера
-			case static_cast <uint16_t> (extension::type_t::COOKIE): {
-				// Если метка объявлена самим приветствием сервера
-				if(!hello::retry(answer))
-					// Выводим отказ объявления расширения не в своём сообщении
-					return this->abort(context::error_t::MESSAGE, alert::description_t::EXTENSION);
-			} break;
-			/**
-			 * Раздел 4.1.3 RFC 8446 кладёт приветствию сервера всего три расширения, а
-			 * просьбе о повторе - три своих: всё прочее принадлежит защищённым
-			 * расширениям и открытым приветствием идти не вправе
-			 */
-			default: return this->abort(context::error_t::MESSAGE, alert::description_t::EXTENSION);
-		}
+		if(placement(answer.extensions[i].type, places)){
+			// Если известному расширению это место не отведено
+			if((places & place) == 0)
+				// Выводим отказ объявления расширения не в своём сообщении
+				return this->abort(context::error_t::MESSAGE, alert::description_t::PARAMETER);
+		// Выводим отказ объявления расширения, связью не предлагавшегося
+		} else return this->abort(context::error_t::MESSAGE, alert::description_t::EXTENSION);
 	}
 	// Разыскиваем расширение открытой части ключа обмена
 	const hello::extension_t * extension = hello::extension(answer.extensions, static_cast <uint16_t> (extension::type_t::SHARE));
@@ -2648,6 +2729,16 @@ context::error_t nts::internal::Engine::accept(const view_t & body) noexcept {
 	 * Выполняем перебор расширений принятого билета
 	 */
 	for(size_t i = 0; i < ticket.extensions.size(); i++){
+		// Места, в которых объявленному расширению идти дозволено
+		uint8_t places = 0;
+		/**
+		 * Раздел 4.2 RFC 8446 кладёт билету возобновления связи одно-единственное
+		 * расширение - предел упреждающих данных, - и признаваемое расширение вне его
+		 * обрывает связь извещением «illegal_parameter»
+		 */
+		if(placement(ticket.extensions[i].type, places) && ((places & PLACE_TICKET) == 0))
+			// Выводим отказ объявления расширения не в своём сообщении
+			return this->abort(context::error_t::MESSAGE, alert::description_t::PARAMETER);
 		// Если расширение билета предела упреждающих данных не объявляет
 		if(ticket.extensions[i].type != static_cast <uint16_t> (extension::type_t::EARLY))
 			// Переходим к следующему расширению билета
@@ -2776,6 +2867,20 @@ context::error_t nts::internal::Engine::handle(const handshake::type_t type, con
 			 * Выполняем перебор расширений, объявленных сервером
 			 */
 			for(size_t i = 0; i < types.size(); i++){
+				// Места, в которых объявленному расширению идти дозволено
+				uint8_t places = 0;
+				/**
+				 * Раздел 4.2 RFC 8446 отводит защищённым расширениям свой перечень
+				 * видов, и признаваемое расширение вне его обрывает связь извещением
+				 * «illegal_parameter». Заслон этот НЕ покрывается сверкой с
+				 * предложенным ниже: открытая часть ключа обмена, издание протокола,
+				 * заранее разделённый ключ, способы обмена им, метка возврата состояния
+				 * и схемы подписи связью предлагаются все, а защищённым расширениям не
+				 * положено ни одно из них
+				 */
+				if(placement(types[i], places) && ((places & PLACE_GUARDED) == 0))
+					// Выводим отказ объявления расширения не в своём сообщении
+					return this->abort(context::error_t::MESSAGE, alert::description_t::PARAMETER);
 				// Признак того, что объявленное сервером расширение связью предлагалось
 				bool suitable = false;
 				/**
@@ -2880,9 +2985,11 @@ context::error_t nts::internal::Engine::handle(const handshake::type_t type, con
 			if(error != context::error_t::NONE)
 				/**
 				 * Раздел 4.3.2 RFC 8446: отсутствие схем подписи объявляется извещением
-				 * «missing_extension», а негодная запись запроса - «decode_error»
+				 * «missing_extension», расширение не в своём сообщении -
+				 * «illegal_parameter», а негодная запись запроса - «decode_error»
 				 */
-				return this->abort(error, ((error == context::error_t::SCHEME) ? alert::description_t::MISSING : alert::description_t::DECODE));
+				return this->abort(error, ((error == context::error_t::SCHEME) ? alert::description_t::MISSING :
+					((error == context::error_t::EXTENSION) ? alert::description_t::PARAMETER : alert::description_t::DECODE)));
 			// Запоминаем, что подлинность клиента запрошена сервером
 			this->_requested = true;
 		} break;
@@ -3517,6 +3624,16 @@ context::error_t nts::internal::Engine::push(const view_t & data) noexcept {
 		if((type != record::type_t::HANDSHAKE) && (this->_messages.pending() > 0))
 			// Выводим отказ разрыва сообщения рукопожатия чужой записью
 			return this->abort(context::error_t::MESSAGE, alert::description_t::UNEXPECTED);
+		/**
+		 * Раздел 5.4 RFC 8446: запись рукопожатия либо извещения с пустым содержимым
+		 * обрывает связь извещением unexpected_message. Заслон этот стережёт ИМЕННО
+		 * защищённый путь: у незащищённой записи пустоту отвергает разбор заголовка,
+		 * а у защищённой длину заголовка составляют шифртекст с меткой целостности, и
+		 * пустота вскрывается лишь по снятии защиты
+		 */
+		if((content.size == 0) && !record::empty(type))
+			// Выводим отказ пустого содержимого принятой записи
+			return this->abort(context::error_t::RECORD, alert::description_t::UNEXPECTED);
 		/**
 		 * Раздел 5.2 RFC 8446 кладёт открытому содержимому записи предел в 16384 байта:
 		 * защита вправе раздуть запись набивкой, и предел этот стережёт уже вскрытое

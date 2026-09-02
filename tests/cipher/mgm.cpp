@@ -627,6 +627,47 @@ TEST(MgmTest, Descriptor) {
 	ASSERT_FALSE(galois.decrypt(view_t(nullptr, sizeof(source)), view_t(result, sizeof(result)), source, view_t(tag, sizeof(tag))));
 	// Проверяем успешность расшифрования годной подачей
 	ASSERT_TRUE(galois.decrypt(view_t(nullptr, 0), view_t(result, sizeof(result)), source, view_t(tag, sizeof(tag))));
+	/**
+	 * Раздел 4.1 RFC 9058 держит суммарную длину связанных данных и сообщения ниже
+	 * 2^(n/2) РАЗРЯДОВ, и у блока в восемь байтов предел этот достижим: половина блока
+	 * держит 32 разряда, то есть 2^29 байтов. Длина сверх предела молча обрезалась бы, и
+	 * два сообщения разной длины дали бы одну метку целостности.
+	 *
+	 * Место подаётся малое, а длина объявляется непомерной нарочно: заслон обязан стоять
+	 * ДО чтения поданного места, и прочти он его - проверка упала бы выходом за память
+	 */
+	cipher::magma_t engine;
+	// Выполняем установку ключа шифрования «Магмы»
+	ASSERT_TRUE(engine.key(view_t(secret, sizeof(secret))));
+	// Описатель базового шифра «Магмы»
+	const cipher::block_t little(engine);
+	// Начальное заполнение счётчика длиною в блок «Магмы»
+	uint8_t small[cipher::MAGMA_BLOCK];
+	// Выполняем заполнение начального значения счётчика
+	::memset(small, 0x11, sizeof(small));
+	// Снимаем старший разряд начального заполнения счётчика
+	small[0] = static_cast <uint8_t> (small[0] & 0x7F);
+	// Объект режима выработки имитовставки на «Магме»
+	cipher::galois_t modest;
+	// Выполняем заведение режима работы описателем «Магмы»
+	ASSERT_TRUE(modest.start(little, view_t(small, sizeof(small))));
+	// Предел суммарной длины у блока в восемь байтов
+	const size_t limit = (static_cast <size_t> (1) << 29);
+	// Место, в которое складывается метка целостности «Магмы»
+	uint8_t little_tag[cipher::MAGMA_BLOCK];
+	// Проверяем отказ зашифрования при длине сообщения ровно в предел
+	ASSERT_FALSE(modest.encrypt(view_t(nullptr, 0), view_t(source, limit), result, little_tag));
+	// Проверяем отказ зашифрования при длине связанных данных ровно в предел
+	ASSERT_FALSE(modest.encrypt(view_t(source, limit), view_t(nullptr, 0), result, little_tag));
+	// Проверяем отказ расшифрования при длине шифртекста ровно в предел
+	ASSERT_FALSE(modest.decrypt(view_t(nullptr, 0), view_t(source, limit), result, view_t(little_tag, sizeof(little_tag))));
+	/**
+	 * Сумма длин сверяется с пределом ОТДЕЛЬНО от каждой из них: две части, всякая ниже
+	 * предела, вместе его превзойти вправе
+	 */
+	ASSERT_FALSE(modest.encrypt(view_t(source, (limit - 1)), view_t(source, 1), result, little_tag));
+	// Проверяем, что длина ниже предела заслоном не задета
+	ASSERT_TRUE(modest.encrypt(view_t(nullptr, 0), view_t(source, sizeof(source)), result, little_tag));
 	// Объект незаведённого режима выработки имитовставки
 	cipher::galois_t unstarted;
 	/**

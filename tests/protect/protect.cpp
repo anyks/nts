@@ -521,3 +521,55 @@ TEST(ProtectTest, Typeless){
 	// Проверяем, что вид содержимого отвергнутой записи остался неустановленным
 	ASSERT_EQ(type, record::type_t::NONE);
 }
+
+/**
+ * @brief Проверка границ открытого текста защищаемой записи
+ *
+ */
+TEST(ProtectTest, Confines){
+	// Объект защиты записей связи
+	protect::protection_t protection;
+	// Получаем корневой ключ направления связи
+	const std::vector <uint8_t> key = decode(SAMPLES[0].key);
+	// Получаем вектор замены направления связи
+	const std::vector <uint8_t> vector = decode(SAMPLES[0].vector);
+	// Выполняем установку ключевого материала направления связи
+	ASSERT_TRUE(protection.start(SAMPLES[0].suite, view_t(key.data(), key.size()), view_t(vector.data(), vector.size())));
+	// Накопитель, в который складывается защищённая запись
+	std::vector <uint8_t> sealed;
+	/**
+	 * Раздел 5.4 RFC 8446 запрещает отправлять записи рукопожатия и извещений с пустым
+	 * содержимым: набивка пустоты не отменяет
+	 */
+	ASSERT_EQ(protection.seal(record::type_t::HANDSHAKE, view_t(), sealed, 32), protect::error_t::LENGTH);
+	// Проверяем отказ наложения защиты на пустое извещение
+	ASSERT_EQ(protection.seal(record::type_t::ALERT, view_t(), sealed, 32), protect::error_t::LENGTH);
+	// Проверяем, что отвергнутые записи накопителя не тронули
+	ASSERT_TRUE(sealed.empty());
+	/**
+	 * Пустым вправе идти лишь содержимое прикладных данных - им стандарт прикрывает
+	 * истинный обмен ложным
+	 */
+	ASSERT_EQ(protection.seal(record::type_t::APPLICATION, view_t(), sealed, 32), protect::error_t::NONE);
+	// Проверяем, что запись прикладных данных с пустым содержимым составлена
+	ASSERT_FALSE(sealed.empty());
+	// Выполняем очистку накопителя защищённых записей
+	sealed.clear();
+	// Содержимое записи длиной ровно в предел открытого текста
+	const std::vector <uint8_t> content(record::RECORD_PLAINTEXT, 0x41);
+	/**
+	 * Раздел 5.4 RFC 8446 кладёт всему открытому тексту предел в 16385 байтов, и
+	 * содержимое предельной длины сходится с ним ровно, покуда набивки нет
+	 */
+	ASSERT_EQ(protection.seal(record::type_t::APPLICATION, view_t(content.data(), content.size()), sealed, 0), protect::error_t::NONE);
+	// Выполняем очистку накопителя защищённых записей
+	sealed.clear();
+	/**
+	 * А один байт набивки предел этот уже переступает: набивка его не раздвигает, и
+	 * сверка с пределом защищённой записи, что шире на разрастание от шифрования,
+	 * такую запись пропустила бы
+	 */
+	ASSERT_EQ(protection.seal(record::type_t::APPLICATION, view_t(content.data(), content.size()), sealed, 1), protect::error_t::LENGTH);
+	// Проверяем, что отвергнутая запись накопителя не тронула
+	ASSERT_TRUE(sealed.empty());
+}

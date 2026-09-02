@@ -115,10 +115,32 @@ TEST(RecordTest, Reject){
 	const uint8_t type[] = {0x19, 0x03, 0x03, 0x00, 0x01};
 	// Проверяем отказ разбора записи неизвестного вида содержимого
 	ASSERT_EQ(record::parse(view_t(type, sizeof(type)), header), record::error_t::TYPE);
-	// Разбираемый заголовок записи неизвестной версии протокола
+	/**
+	 * Раздел 5.1 RFC 8446 велит пренебрегать изданием протокола в заголовке записи во
+	 * всех отношениях: разбор его переносит, но не судит
+	 */
 	const uint8_t version[] = {0x16, 0x03, 0x05, 0x00, 0x01};
-	// Проверяем отказ разбора записи неизвестной версии протокола
-	ASSERT_EQ(record::parse(view_t(version, sizeof(version)), header), record::error_t::VERSION);
+	// Проверяем успешность разбора записи с неизвестным изданием протокола
+	ASSERT_EQ(record::parse(view_t(version, sizeof(version)), header), record::error_t::NONE);
+	// Проверяем перенос издания протокола разбором без правки
+	ASSERT_EQ(static_cast <uint16_t> (header.version), static_cast <uint16_t> (0x0305));
+	// Разбираемый заголовок записи с изданием протокола, вовсе не назначенным
+	const uint8_t unnamed[] = {0x16, 0x00, 0x00, 0x00, 0x01};
+	// Проверяем успешность разбора записи с вовсе не назначенным изданием протокола
+	ASSERT_EQ(record::parse(view_t(unnamed, sizeof(unnamed)), header), record::error_t::NONE);
+	/**
+	 * Составление записи издание протокола, напротив, судит: своя сторона пишет туда
+	 * лишь то, что стандартом ей предписано
+	 */
+	header.type = record::type_t::HANDSHAKE;
+	// Устанавливаем издание протокола, стандартом не назначенное
+	header.version = static_cast <record::version_t> (0x0305);
+	// Устанавливаем длину содержимого составляемой записи
+	header.size = 1;
+	// Место, в которое составляется заголовок записи
+	uint8_t built[record::RECORD_HEADER] = {0};
+	// Проверяем отказ составления записи с неизвестным изданием протокола
+	ASSERT_EQ(record::build(header, built), record::error_t::VERSION);
 	// Разбираемый заголовок записи длиной сверх предела протокола
 	const uint8_t length[] = {0x16, 0x03, 0x03, 0xFF, 0xFF};
 	// Проверяем отказ разбора записи длиной сверх предела протокола

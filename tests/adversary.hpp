@@ -60,6 +60,9 @@
 #include <math/number.hpp>
 #include <sign/gost.hpp>
 #include <alert/alert.hpp>
+#include <cipher/mgm.hpp>
+#include <cipher/magma.hpp>
+#include <cipher/kuznyechik.hpp>
 #include <field/field.hpp>
 #include <digest/streebog.hpp>
 #include <extension/extension.hpp>
@@ -142,7 +145,11 @@ namespace {
 		LINGERING  = 0x39, // Конец упреждающих данных несёт тело, которого ему не положено
 		MISAGED    = 0x3A, // Возраст билета объявлен разошедшимся с наблюдаемым
 		UNOFFERED  = 0x3B, // Приветствие сервера выбирает ключ у клиента, его не предлагавшего
-		WORDLESS   = 0x3C  // Приветствие клиента не объявляет схем подписи вовсе
+		WORDLESS   = 0x3C, // Приветствие клиента не объявляет схем подписи вовсе
+		MISPLACED  = 0x3D, // Защищённые расширения несут расширение, им не положенное
+		OUTPLACED  = 0x3E, // Билет возобновления связи несёт расширение, ему не положенное
+		OFFPLACED  = 0x3F, // Запрос подлинности несёт расширение, ему не положенное
+		VACANT     = 0x40  // Защищённая запись рукопожатия идёт с пустым содержимым
 	};
 	/**
 	 * @brief Заранее назначенное случайное значение просьбы о повторе приветствия
@@ -156,6 +163,100 @@ namespace {
 		0xC2, 0xA2, 0x11, 0x16, 0x7A, 0xBB, 0x8C, 0x5E,
 		0x07, 0x9E, 0x09, 0xE2, 0xC8, 0xA8, 0x33, 0x9C
 	};
+	/**
+	 * @brief Метод составления защищённой записи с пустым содержимым
+	 *
+	 * @details Раздел 5.4 RFC 8446 запрещает отправлять записи рукопожатия и извещений
+	 *          с пустым содержимым, и своя защита записей такую запись составить не
+	 *          даёт. Оттого враждебная сторона складывает её сама, по тем же правилам:
+	 *          ключ записи берётся построением TLSTREE, одноразовое значение - сложением
+	 *          вектора замены с порядковым номером, а открытым текстом идёт единственный
+	 *          байт истинного вида содержимого, за которым не стоит ничего
+	 *
+	 * @param suite    набор шифрования направления связи
+	 * @param key      корневой ключ направления связи
+	 * @param vector   вектор замены направления связи
+	 * @param sequence порядковый номер составляемой записи
+	 * @param inner    истинный вид содержимого составляемой записи
+	 * @param result   накопитель, в конец которого дописывается защищённая запись
+	 *
+	 * @return         признак успешности составления защищённой записи
+	 *
+	 */
+	bool hollow(const protect::suite_t suite, const view_t & key, const view_t & vector, const uint64_t sequence, const record::type_t inner, std::vector <uint8_t> & result) noexcept {
+		// Получаем длину блока базового шифра набора
+		const size_t size = protect::block(suite);
+		// Если набор шифрования неизвестен
+		if(size == 0)
+			// Выводим отказ составления защищённой записи
+			return false;
+		// Место, в которое помещается ключ составляемой записи
+		uint8_t item[protect::PROTECT_KEY];
+		// Если ключ записи выработать не удалось
+		if(!protect::tree(suite, key, sequence, item))
+			// Выводим отказ составления защищённой записи
+			return false;
+		// Базовые шифры, из которых выбирается шифр набора
+		cipher::magma_t magma;
+		// Базовый шифр «Кузнечик» набора шифрования
+		cipher::kuznyechik_t kuznyechik;
+		// Признак успешности установки ключа базового шифра
+		bool ok = ((size == 8) ? magma.key(view_t(item, sizeof(item))) : kuznyechik.key(view_t(item, sizeof(item))));
+		// Выполняем затирание ключа составляемой записи
+		::memset(item, 0, sizeof(item));
+		// Если ключ базового шифра установить не удалось
+		if(!ok)
+			// Выводим отказ составления защищённой записи
+			return false;
+		// Описание базового шифра составляемой записи
+		cipher::block_t block = ((size == 8) ? cipher::block_t(magma) : cipher::block_t(kuznyechik));
+		// Место, в которое помещается одноразовое значение записи
+		uint8_t nonce[protect::PROTECT_VECTOR];
+		// Записываем вектор замены направления связи
+		::memcpy(nonce, vector.data, size);
+		/**
+		 * Выполняем сложение вектора замены с порядковым номером записи
+		 */
+		for(size_t i = 0; i < 8; i++)
+			// Складываем очередной байт номера с байтом вектора замены
+			nonce[size - 1 - i] ^= static_cast <uint8_t> ((sequence >> (i * 8)) & 0xFF);
+		// Гасим старший разряд одноразового значения, занятый самим режимом
+		nonce[0] = static_cast <uint8_t> (nonce[0] & 0x7F);
+		// Объект режима шифрования с проверкой целостности
+		cipher::galois_t galois;
+		// Если режим шифрования запустить не удалось
+		if(!galois.start(block, view_t(nonce, size), size))
+			// Выводим отказ составления защищённой записи
+			return false;
+		// Заголовок составляемой защищённой записи
+		record::header_t header;
+		// Устанавливаем вид содержимого защищённой записи
+		header.type = record::type_t::APPLICATION;
+		// Устанавливаем издание протокола защищённой записи
+		header.version = record::version_t::TLS12;
+		// Устанавливаем длину содержимого защищённой записи
+		header.size = (1 + size);
+		// Место, в которое записывается заголовок защищённой записи
+		uint8_t associated[record::RECORD_HEADER];
+		// Если заголовок защищённой записи составить не удалось
+		if(record::build(header, associated) != record::error_t::NONE)
+			// Выводим отказ составления защищённой записи
+			return false;
+		// Открытый текст составляемой записи в один байт истинного вида содержимого
+		const uint8_t plain[1] = {static_cast <uint8_t> (inner)};
+		// Место, в которое помещаются шифртекст и метка целостности записи
+		uint8_t sealed[1 + protect::PROTECT_VECTOR];
+		// Если наложить шифрование с проверкой целостности не удалось
+		if(!galois.encrypt(view_t(associated, record::RECORD_HEADER), view_t(plain, sizeof(plain)), sealed, (sealed + 1)))
+			// Выводим отказ составления защищённой записи
+			return false;
+		// Складываем заголовок защищённой записи в накопитель
+		result.insert(result.end(), associated, associated + record::RECORD_HEADER);
+		// Складываем шифртекст и метку целостности в накопитель
+		result.insert(result.end(), sealed, sealed + 1 + size);
+		// Выводим успешность составления защищённой записи
+		return true;
+	}
 	/**
 	 * @brief Метод отправки сообщения рукопожатия враждебным сервером
 	 *
@@ -654,8 +755,22 @@ namespace {
 			// Добавляем расширение прикладного протокола с негодным телом
 			items.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::PROTOCOLS), view_t(spoiled.data(), spoiled.size())));
 		// Если защищённые расширения несут непрошенное расширение
+		/**
+		 * Расширение берётся такое, какое защищённым расширениям положено, а клиентом
+		 * не предлагалось: заслон непрошенного расширения проверяется тогда САМ по
+		 * себе. Расширение, защищённым расширениям не положенное вовсе, задело бы
+		 * прежде него заслон места расширения, и о непрошенном не сказало бы ничего
+		 */
 		if(distortion == distortion_t::EXTENSION)
-			// Добавляем расширение, которого клиент не предлагал вовсе
+			// Добавляем расширение прикладных протоколов, клиентом не предлагавшееся
+			items.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::PROTOCOLS), view_t(nullptr, 0)));
+		/**
+		 * Искажением MISPLACED защищённые расширения несут расширение, им не
+		 * положенное: способы обмена заранее разделённым ключом раздел 4.2 RFC 8446
+		 * кладёт одному лишь приветствию клиента
+		 */
+		if(distortion == distortion_t::MISPLACED)
+			// Добавляем расширение способов обмена заранее разделённым ключом
 			items.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::MODES), view_t(nullptr, 0)));
 		// Объект составителя перечня расширений сообщения
 		field::builder_t fields;
@@ -766,6 +881,66 @@ namespace {
 			// Выводим успешность ответа враждебного сервера
 			return true;
 		}
+		/**
+		 * Искажением OFFPLACED запрос подлинности несёт расширение, ему не положенное:
+		 * раздел 4.2 RFC 8446 кладёт запросу из признаваемых движком расширений одни
+		 * лишь схемы подписи. Сами схемы подписи запрос несёт годными, ибо заслон их
+		 * отсутствия лежит позже и негодным местом проверялся бы не тот заслон
+		 */
+		if(distortion == distortion_t::OFFPLACED){
+			// Объект составителя тела запроса подлинности клиента
+			field::builder_t builder;
+			// Если пустой опознаватель запроса записать не удалось
+			if(builder.number(0, 1) != field::error_t::NONE)
+				// Выводим отказ ответа враждебного сервера
+				return false;
+			// Накопитель, в который складывается тело расширения схем подписи
+			vector <uint8_t> schemes;
+			// Если перечень схем подписи составить не удалось
+			if(extension::schemes(vector <extension::scheme_t> {extension::scheme_t::S256A}, schemes) != extension::error_t::NONE)
+				// Выводим отказ ответа враждебного сервера
+				return false;
+			// Если перечень расширений запроса открыть не удалось
+			if(builder.open(2) != field::error_t::NONE)
+				// Выводим отказ ответа враждебного сервера
+				return false;
+			// Если вид расширения схем подписи записать не удалось
+			if(builder.number(static_cast <uint32_t> (extension::type_t::SCHEMES), 2) != field::error_t::NONE)
+				// Выводим отказ ответа враждебного сервера
+				return false;
+			// Если тело расширения схем подписи открыть не удалось
+			if(builder.open(2) != field::error_t::NONE)
+				// Выводим отказ ответа враждебного сервера
+				return false;
+			// Если тело расширения схем подписи записать не удалось
+			if(builder.bytes(view_t(schemes.data(), schemes.size())) != field::error_t::NONE)
+				// Выводим отказ ответа враждебного сервера
+				return false;
+			// Если тело расширения схем подписи закрыть не удалось
+			if(builder.close() != field::error_t::NONE)
+				// Выводим отказ ответа враждебного сервера
+				return false;
+			// Если вид расширения открытой части ключа обмена записать не удалось
+			if(builder.number(static_cast <uint32_t> (extension::type_t::SHARE), 2) != field::error_t::NONE)
+				// Выводим отказ ответа враждебного сервера
+				return false;
+			// Если пустое тело расширения открытой части ключа записать не удалось
+			if(builder.number(0, 2) != field::error_t::NONE)
+				// Выводим отказ ответа враждебного сервера
+				return false;
+			// Если перечень расширений запроса закрыть не удалось
+			if(builder.close() != field::error_t::NONE)
+				// Выводим отказ ответа враждебного сервера
+				return false;
+			// Если запрос подлинности враждебного сервера отправить не удалось
+			if(!deliver(protection, transcript, handshake::type_t::REQUEST, builder.data(), answered))
+				// Выводим отказ ответа враждебного сервера
+				return false;
+			// Выполняем подачу ответа враждебного сервера клиенту
+			client.push(view_t(answered.data(), answered.size()));
+			// Выводим успешность ответа враждебного сервера
+			return true;
+		}
 		// Если враждебный сервер шлёт запрос подлинности без схем подписи
 		if(distortion == distortion_t::SILENT){
 			// Объект составителя тела запроса подлинности клиента
@@ -834,7 +1009,7 @@ namespace {
 		} else if((distortion == distortion_t::SCHEME) || (distortion == distortion_t::FOREIGN) ||
 		          (distortion == distortion_t::LIFETIME) || (distortion == distortion_t::AFTERCLOSE) ||
 		          (distortion == distortion_t::TATTERED) || (distortion == distortion_t::SCRAMBLED) ||
-		          (distortion == distortion_t::MALADVANCE)) {
+		          (distortion == distortion_t::MALADVANCE) || (distortion == distortion_t::OUTPLACED)) {
 			// Если подлинность враждебного сервера проверкой не задана
 			if((credential == nullptr) || credential->chain.empty())
 				// Выводим отказ ответа враждебного сервера
@@ -889,7 +1064,8 @@ namespace {
 		// Если враждебный сервер доводит рукопожатие до билета возобновления связи
 		if((distortion == distortion_t::LIFETIME) || (distortion == distortion_t::AFTERCLOSE) ||
 		   (distortion == distortion_t::TATTERED) || (distortion == distortion_t::SCRAMBLED) ||
-		   (distortion == distortion_t::MALADVANCE)){
+		   (distortion == distortion_t::MALADVANCE) || (distortion == distortion_t::OUTPLACED) ||
+		   (distortion == distortion_t::VACANT)){
 			// Место, в которое помещается ключ завершения рукопожатия сервера
 			uint8_t completion[schedule::SCHEDULE_SECRET];
 			// Если ключ завершения рукопожатия вывести не удалось
@@ -1019,7 +1195,7 @@ namespace {
 				return false;
 			// Если враждебный сервер выдаёт билет возобновления связи
 			if((distortion == distortion_t::LIFETIME) || (distortion == distortion_t::TATTERED) ||
-			   (distortion == distortion_t::MALADVANCE)){
+			   (distortion == distortion_t::MALADVANCE) || (distortion == distortion_t::OUTPLACED)){
 			// Составляемый билет возобновления связи враждебного сервера
 			message::ticket_t ticket;
 			/**
@@ -1028,7 +1204,7 @@ namespace {
 			 * годным нарочно: заслон срока лежит раньше заслона предела упреждения,
 			 * и негодным сроком проверялся бы не тот заслон
 			 */
-			ticket.lifetime = ((distortion == distortion_t::MALADVANCE) ? 3600 : 604801);
+			ticket.lifetime = (((distortion == distortion_t::MALADVANCE) || (distortion == distortion_t::OUTPLACED)) ? 3600 : 604801);
 			// Устанавливаем добавку к возрасту составляемого билета
 			ticket.age = 0;
 			// Неповторимое значение составляемого билета
@@ -1037,6 +1213,14 @@ namespace {
 			ticket.nonce = view_t(nonce, sizeof(nonce));
 			// Устанавливаем тело составляемого билета
 			ticket.data = view_t(identifier, sizeof(identifier));
+			/**
+			 * Искажением OUTPLACED билет несёт расширение, ему не положенное: раздел
+			 * 4.2 RFC 8446 кладёт билету одно лишь расширение предела упреждающих
+			 * данных. Срок билета берётся годным нарочно, как и у MALADVANCE
+			 */
+			if(distortion == distortion_t::OUTPLACED)
+				// Добавляем расширение открытой части ключа обмена, билету не положенное
+				ticket.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::SHARE), view_t(nullptr, 0)));
 			// Если билет несёт негодный предел упреждающих данных
 			if(distortion == distortion_t::MALADVANCE)
 				// Добавляем расширение предела упреждающих данных с негодным телом
@@ -1067,6 +1251,19 @@ namespace {
 				answered.clear();
 				// Если смену ключевого материала отправить не удалось
 				if(!deliver(outgoing, transcript, handshake::type_t::UPDATE, view_t(nullptr, 0), answered))
+					// Выводим отказ ответа враждебного сервера
+					return false;
+			}
+			// Если враждебный сервер шлёт защищённую запись с пустым содержимым
+			if(distortion == distortion_t::VACANT){
+				// Выполняем сброс накопителя ответа враждебного сервера
+				answered.clear();
+				/**
+				 * Раздел 5.4 RFC 8446 велит рвать связь по записи рукопожатия с пустым
+				 * содержимым: своя защита записей такую составить не даёт, оттого
+				 * враждебный сервер складывает её сам
+				 */
+				if(!hollow(suite, view_t(material, sizeof(material)), view_t(element, protect::block(suite)), outgoing.sequence(), record::type_t::HANDSHAKE, answered))
 					// Выводим отказ ответа враждебного сервера
 					return false;
 			}

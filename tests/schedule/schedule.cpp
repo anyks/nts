@@ -309,3 +309,35 @@ TEST(ScheduleTest, Unbound){
 	// Проверяем схождение значения с непереданной привязкой длиною в семь
 	ASSERT_EQ(::memcmp(empty, seven, sizeof(empty)), 0);
 }
+
+/**
+ * Проверка схождения извлечения с непереданным присолом с извлечением по строке нулей
+ */
+TEST(ScheduleTest, Salted){
+	// Ключевое вещество, из которого ведётся извлечение
+	const std::vector <uint8_t> key(32, 0x0B);
+	// Строка нулей длиною в значение расписания ключей
+	const std::vector <uint8_t> zeroes(schedule::SCHEDULE_SECRET, 0x00);
+	// Места, в которые помещаются извлечённые значения
+	uint8_t hollow[schedule::SCHEDULE_SECRET] = {0}, salted[schedule::SCHEDULE_SECRET] = {0};
+	/**
+	 * Раздел 2.2 RFC 5869 велит брать на место непереданного присола строку нулей
+	 * длиною в хеш. Подстановки этой в модуле нет, и она не нужна: имитовставка добивает
+	 * нулями всякий ключ короче блока, оттого оба извлечения сходятся сами собою.
+	 * Закрепляется здесь ровно то, что перепиши кто-нибудь обработку ключа имитовставки -
+	 * расхождение всплывёт тут, а не посреди рукопожатия
+	 */
+	ASSERT_TRUE(schedule::extract(view_t(), view_t(key.data(), key.size()), hollow));
+	// Выполняем извлечение значения по присолу из строки нулей
+	ASSERT_TRUE(schedule::extract(view_t(zeroes.data(), zeroes.size()), view_t(key.data(), key.size()), salted));
+	// Проверяем схождение извлечения с непереданным присолом с извлечением по нулям
+	ASSERT_EQ(::memcmp(hollow, salted, sizeof(hollow)), 0);
+	// Проверяем, что извлечённое значение не осталось нулевым
+	ASSERT_NE(hollow[0] | hollow[16] | hollow[31], 0);
+	// Место, в которое помещается извлечение по присолу нулевой длины
+	uint8_t sparse[schedule::SCHEDULE_SECRET] = {0};
+	// Выполняем извлечение значения по переданному присолу нулевой длины
+	ASSERT_TRUE(schedule::extract(view_t(zeroes.data(), 0), view_t(key.data(), key.size()), sparse));
+	// Проверяем схождение извлечения по присолу нулевой длины с извлечением по нулям
+	ASSERT_EQ(::memcmp(sparse, salted, sizeof(sparse)), 0);
+}
