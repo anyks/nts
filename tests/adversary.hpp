@@ -149,7 +149,16 @@ namespace {
 		MISPLACED  = 0x3D, // Защищённые расширения несут расширение, им не положенное
 		OUTPLACED  = 0x3E, // Билет возобновления связи несёт расширение, ему не положенное
 		OFFPLACED  = 0x3F, // Запрос подлинности несёт расширение, ему не положенное
-		VACANT     = 0x40  // Защищённая запись рукопожатия идёт с пустым содержимым
+		VACANT     = 0x40, // Защищённая запись рукопожатия идёт с пустым содержимым
+		RETROGRADE = 0x41, // Просьба о повторе приветствия объявляет издание ниже TLS 1.3
+		LENGTHY    = 0x42, // Подпись владения ключом объявлена непомерной длины
+		MALSIGN    = 0x43, // Подпись владения ключом испорчена при годной её длине
+		MALFINISH  = 0x44, // Завершение рукопожатия несёт испорченную имитовставку
+		MISORDER   = 0x45, // Предложение ключа идёт не последним расширением приветствия
+		OFFCURVE   = 0x46, // Приветствие сервера несёт долю обмена вне кривой
+		OFFPOINT   = 0x47, // Приветствие клиента несёт долю обмена вне кривой
+		SYNTHETIC  = 0x48, // За приветствием сервера идёт сообщение поддельного вида
+		MALSCHEMES = 0x49  // Приветствие клиента несёт негодные схемы подписи
 	};
 	/**
 	 * @brief Заранее назначенное случайное значение просьбы о повторе приветствия
@@ -486,6 +495,15 @@ namespace {
 		if(!agreement::generate(elliptic, secret.data(), opened.data()))
 			// Выводим отказ ответа враждебного сервера
 			return false;
+		/**
+		 * Искажением OFFCURVE доля обмена портится ПОСЛЕ выработки: длина её и кривая
+		 * остаются годными, а точка сходит с кривой. Тем и проверяется сличение точки
+		 * с уравнением кривой при выработке общего значения - негодное ТЕЛО доли
+		 * отвергается много раньше, разбором расширения
+		 */
+		if(distortion == distortion_t::OFFCURVE)
+			// Портим первый байт первой координаты доли обмена
+			opened[0] = static_cast <uint8_t> (opened[0] ^ 0x01);
 		// Объект переписки рукопожатия враждебного сервера
 		session::transcript_t transcript;
 		// Заводим переписку рукопожатия враждебного сервера
@@ -523,7 +541,7 @@ namespace {
 		 */
 		const vector <uint8_t> spoiled = {0xFF};
 		// Если издание протокола составить не удалось
-		if(extension::version(((distortion == distortion_t::REGRESSED) ? 0x0303 : 0x0304), version) != extension::error_t::NONE)
+		if(extension::version((((distortion == distortion_t::REGRESSED) || (distortion == distortion_t::RETROGRADE)) ? 0x0303 : 0x0304), version) != extension::error_t::NONE)
 			// Выводим отказ ответа враждебного сервера
 			return false;
 		// Открытая часть ключа обмена враждебного сервера
@@ -547,7 +565,8 @@ namespace {
 		const vector <uint8_t> label = {0x00, 0x04, 0xDE, 0xAD, 0xBE, 0xEF};
 		// Если враждебный сервер просит повтора приветствия
 		if((distortion == distortion_t::COOKIE) || (distortion == distortion_t::PROPOSAL) || (distortion == distortion_t::REPEATED) ||
-		   (distortion == distortion_t::PICKEDEARLY) || (distortion == distortion_t::MALSELECT)){
+		   (distortion == distortion_t::PICKEDEARLY) || (distortion == distortion_t::MALSELECT) ||
+		   (distortion == distortion_t::RETROGRADE)){
 			// Переносим случайное значение просьбы о повторе приветствия
 			::memcpy(answer.random, RETRY, sizeof(RETRY));
 			/**
@@ -652,6 +671,20 @@ namespace {
 		 * повторе: приветствием пора рукопожатия уже прошла, и просьба приходит
 		 * тогда, когда просить о повторе поздно
 		 */
+		/**
+		 * Искажением SYNTHETIC за приветствием сервера идёт сообщение вида
+		 * message_hash: вид этот стандартом заведён для ПОДМЕНЫ первого приветствия в
+		 * переписке рукопожатия и по связи идти не вправе вовсе, хотя сборщик
+		 * сообщений его и признаёт
+		 */
+		if(distortion == distortion_t::SYNTHETIC){
+			// Тело поддельного сообщения длиною в хеш переписки
+			const vector <uint8_t> forged(32, 0x77);
+			// Если поддельное сообщение составить не удалось
+			if(writer.push(handshake::type_t::DIGEST, view_t(forged.data(), forged.size())) != handshake::error_t::NONE)
+				// Выводим отказ ответа враждебного сервера
+				return false;
+		}
 		if(distortion == distortion_t::RECURRENT){
 			// Составляемая просьба враждебного сервера о повторе приветствия
 			hello::server_t asking = answer;
@@ -1009,7 +1042,9 @@ namespace {
 		} else if((distortion == distortion_t::SCHEME) || (distortion == distortion_t::FOREIGN) ||
 		          (distortion == distortion_t::LIFETIME) || (distortion == distortion_t::AFTERCLOSE) ||
 		          (distortion == distortion_t::TATTERED) || (distortion == distortion_t::SCRAMBLED) ||
-		          (distortion == distortion_t::MALADVANCE) || (distortion == distortion_t::OUTPLACED)) {
+		          (distortion == distortion_t::MALADVANCE) || (distortion == distortion_t::OUTPLACED) ||
+		          (distortion == distortion_t::LENGTHY) || (distortion == distortion_t::MALSIGN) ||
+		          (distortion == distortion_t::MALFINISH)) {
 			// Если подлинность враждебного сервера проверкой не задана
 			if((credential == nullptr) || credential->chain.empty())
 				// Выводим отказ ответа враждебного сервера
@@ -1056,6 +1091,36 @@ namespace {
 			} else if(!possession(* credential, transcript, true, witnessed))
 				// Выводим отказ ответа враждебного сервера
 				return false;
+			/**
+			 * Искажением LENGTHY подпись объявляется непомерной длины при годной схеме:
+			 * схема берётся у настоящей подписи, дабы заслон схемы её пропустил и дело
+			 * дошло до разворота записи подписи
+			 */
+			/**
+			 * Искажением MALSIGN портится сама подпись при годных её схеме и длине:
+			 * раздел 4.4.3 RFC 8446 велит рвать связь извещением decrypt_error
+			 */
+			if((distortion == distortion_t::MALSIGN) && (witnessed.size() > 0))
+				// Портим последний байт записи подписи владения ключом
+				witnessed[witnessed.size() - 1] = static_cast <uint8_t> (witnessed[witnessed.size() - 1] ^ 0x01);
+			if(distortion == distortion_t::LENGTHY){
+				// Разбираемая настоящая подпись владения ключом
+				message::verify_t witness;
+				// Если настоящую подпись владения ключом разобрать не удалось
+				if(message::parse(view_t(witnessed.data(), witnessed.size()), witness) != message::error_t::NONE)
+					// Выводим отказ ответа враждебного сервера
+					return false;
+				// Место, в которое кладётся ничего не значащая запись подписи
+				const vector <uint8_t> lengthy(4096, 0x5A);
+				// Устанавливаем непомерную запись подписи владения ключом
+				witness.signature = view_t(lengthy.data(), lengthy.size());
+				// Выполняем сброс накопителя подписи владения ключом
+				witnessed.clear();
+				// Если тело подписи владения ключом составить не удалось
+				if(message::build(witness, witnessed) != message::error_t::NONE)
+					// Выводим отказ ответа враждебного сервера
+					return false;
+			}
 			// Если подпись владения ключом враждебного сервера отправить не удалось
 			if(!deliver(protection, transcript, handshake::type_t::VERIFY, view_t(witnessed.data(), witnessed.size()), answered))
 				// Выводим отказ ответа враждебного сервера
@@ -1065,7 +1130,7 @@ namespace {
 		if((distortion == distortion_t::LIFETIME) || (distortion == distortion_t::AFTERCLOSE) ||
 		   (distortion == distortion_t::TATTERED) || (distortion == distortion_t::SCRAMBLED) ||
 		   (distortion == distortion_t::MALADVANCE) || (distortion == distortion_t::OUTPLACED) ||
-		   (distortion == distortion_t::VACANT)){
+		   (distortion == distortion_t::VACANT) || (distortion == distortion_t::MALFINISH)){
 			// Место, в которое помещается ключ завершения рукопожатия сервера
 			uint8_t completion[schedule::SCHEDULE_SECRET];
 			// Если ключ завершения рукопожатия вывести не удалось
@@ -1101,6 +1166,13 @@ namespace {
 			if(message::finished(view_t(completion, sizeof(completion)), view_t(hash, sizeof(hash)), completed) != message::error_t::NONE)
 				// Выводим отказ ответа враждебного сервера
 				return false;
+			/**
+			 * Искажением MALFINISH портится имитовставка завершения рукопожатия:
+			 * раздел 4.4.4 RFC 8446 велит рвать связь извещением decrypt_error
+			 */
+			if(distortion == distortion_t::MALFINISH)
+				// Портим последний байт имитовставки завершения рукопожатия
+				completed[sizeof(completed) - 1] = static_cast <uint8_t> (completed[sizeof(completed) - 1] ^ 0x01);
 			// Если завершение рукопожатия враждебного сервера отправить не удалось
 			if(!deliver(protection, transcript, handshake::type_t::FINISHED, view_t(completed, sizeof(completed)), answered))
 				// Выводим отказ ответа враждебного сервера
@@ -1589,6 +1661,15 @@ namespace {
 		if(!agreement::generate(elliptic, secret.data(), opened.data()))
 			// Выводим отказ рукопожатия враждебного клиента
 			return false;
+		/**
+		 * Искажением OFFPOINT доля обмена портится ПОСЛЕ выработки: длина её и кривая
+		 * остаются годными, а точка сходит с кривой. Тем и проверяется сличение точки
+		 * с уравнением кривой при выработке общего значения - негодное ТЕЛО доли
+		 * отвергается много раньше, разбором расширения
+		 */
+		if(distortion == distortion_t::OFFPOINT)
+			// Портим первый байт первой координаты доли обмена
+			opened[0] = static_cast <uint8_t> (opened[0] ^ 0x01);
 		// Составляемое приветствие враждебного клиента
 		hello::client_t greeting;
 		// Устанавливаем издание протокола, доставшееся от предыдущих изданий
@@ -1665,9 +1746,14 @@ namespace {
 		 * RFC 8446 велит клиенту объявлять их всякий раз, когда сервер подтверждает
 		 * подлинность сертификатом, а возобновление ключом сертификата не требует
 		 */
+		/**
+		 * Искажением MALSCHEMES перечень схем подписи несёт негодное тело: сам он
+		 * приветствием объявлен, а разбору не поддаётся
+		 */
 		if(distortion != distortion_t::WORDLESS)
 			// Добавляем расширение перечня схем подписи
-			greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::SCHEMES), view_t(bodies[2].data(), bodies[2].size())));
+			greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::SCHEMES),
+				((distortion == distortion_t::MALSCHEMES) ? view_t(spoiled.data(), spoiled.size()) : view_t(bodies[2].data(), bodies[2].size()))));
 		// Если перечень открытых частей ключей обмена составить не удалось
 		if(extension::shares(vector <extension::share_t> (1, extension::share_t(group, ((distortion == distortion_t::HOLLOW) ? view_t(nullptr, 0) : view_t(opened.data(), opened.size())))), bodies[3]) != extension::error_t::NONE)
 			// Выводим отказ рукопожатия враждебного клиента
@@ -1699,7 +1785,7 @@ namespace {
 		 * искажениями MODELESS и GARBLED тело предложения годным быть не обязано
 		 */
 		if((distortion == distortion_t::MODELESS) || (distortion == distortion_t::GARBLED) ||
-		   (distortion == distortion_t::SPURIOUS)){
+		   (distortion == distortion_t::SPURIOUS) || (distortion == distortion_t::MISORDER)){
 			// Устанавливаем негодное тело предложения заранее разделённого ключа
 			bodies[4] = {0x00, 0x05};
 			// Если способы обмена заранее разделённым ключом приветствием объявляются
@@ -1724,6 +1810,14 @@ namespace {
 			 * приветствию до него
 			 */
 			greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::SECRET), view_t(bodies[4].data(), bodies[4].size())));
+			/**
+			 * Искажением MISORDER за предложением ключа идёт ещё одно расширение:
+			 * раздел 4.2.11 RFC 8446 велит серверу сверять место предложения и
+			 * отвечать извещением illegal_parameter, когда оно не последнее
+			 */
+			if(distortion == distortion_t::MISORDER)
+				// Добавляем расширение имени сервера за предложением ключа
+				greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::NAME), view_t(bodies[0].data(), bodies[0].size())));
 		}
 		// Накопитель, в который складывается тело приветствия клиента
 		vector <uint8_t> body;

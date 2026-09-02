@@ -2651,8 +2651,14 @@ TEST(ContextTest, Ancient){
 	 * приветствием клиента: без него издание связи неопределимо вовсе
 	 */
 	ASSERT_EQ(server.error(), context::error_t::VERSION);
-	// Проверяем извещение, которым связь оборвана сервером
-	ASSERT_EQ(server.alert().description, alert::description_t::MISSING);
+	/**
+	 * Приложение D.2 RFC 8446 велит серверу, не поддерживающему изданий, объявленных
+	 * приветствием без перечня, обрывать связь извещением protocol_version. Извещение
+	 * missing_extension сюда НЕ относится: раздел 9.2 держит его для приветствия,
+	 * ведущего переговоры по этому стандарту, а таковым он числит лишь приветствие,
+	 * несущее перечень изданий с 0x0304 в теле
+	 */
+	ASSERT_EQ(server.alert().description, alert::description_t::VERSION);
 	// Проверяем неустановленность связи стороной сервера
 	ASSERT_FALSE(server.established());
 }
@@ -3028,8 +3034,14 @@ TEST(ContextTest, Speechless){
 	 * расширением приветствия: без него связь издания не знает вовсе
 	 */
 	ASSERT_EQ(client.error(), context::error_t::VERSION);
-	// Проверяем извещение, которым связь оборвана клиентом
-	ASSERT_EQ(client.alert().description, alert::description_t::MISSING);
+	/**
+	 * Приветствие без расширения издания означает выбор издания, объявленного
+	 * заголовком, - то есть TLS 1.2 либо более раннего. Приложение D.1 RFC 8446 велит
+	 * обрывать связь по неподдерживаемому изданию извещением protocol_version, а не
+	 * missing_extension: последнее раздел 9.2 держит для СЕРВЕРА, принявшего негодное
+	 * приветствие клиента
+	 */
+	ASSERT_EQ(client.alert().description, alert::description_t::VERSION);
 	// Проверяем неустановленность связи стороной клиента
 	ASSERT_FALSE(client.established());
 }
@@ -3049,8 +3061,13 @@ TEST(ContextTest, Regressed){
 	 * издания предыдущего есть попытка увести стороны ниже
 	 */
 	ASSERT_EQ(client.error(), context::error_t::VERSION);
-	// Проверяем извещение, которым связь оборвана клиентом
-	ASSERT_EQ(client.alert().description, alert::description_t::VERSION);
+	/**
+	 * Раздел 4.2.1 RFC 8446 велит обрывать связь извещением illegal_parameter, если
+	 * расширение издания несёт издание, клиентом не предложенное либо предшествующее
+	 * TLS 1.3. Извещение это ИНОЕ, нежели при вовсе отсутствующем расширении: там
+	 * сервер издания не объявлял и остался при заголовке, а тут объявил негодное
+	 */
+	ASSERT_EQ(client.alert().description, alert::description_t::PARAMETER);
 	// Проверяем неустановленность связи стороной клиента
 	ASSERT_FALSE(client.established());
 }
@@ -5093,4 +5110,245 @@ TEST(ContextTest, Hollow){
 	ASSERT_EQ(client.alert().description, alert::description_t::UNEXPECTED);
 	// Проверяем неустановленность связи стороной клиента
 	ASSERT_FALSE(client.established());
+}
+
+/**
+ * @brief Проверка заслона издания протокола у просьбы о повторе приветствия
+ *
+ */
+TEST(ContextTest, Retrograde){
+	// Связь стороны клиента
+	client::context_t client;
+	// Выполняем заведение связи стороны клиента
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	// Выполняем просьбу враждебного сервера о повторе с изданием ниже TLS 1.3
+	ASSERT_TRUE(adversary(client, distortion_t::RETROGRADE));
+	/**
+	 * Раздел 9.2 RFC 8446 требует расширения издания и от просьбы о повторе, а раздел
+	 * 4.2.1 велит сверять его ПРЕЖДЕ разбора всего прочего. Стой сверка ниже
+	 * разветвления на приветствие и просьбу - просьбу она не задевала бы вовсе, и
+	 * связь пошла бы по ней на новый круг, издания так и не сверив
+	 */
+	ASSERT_EQ(client.error(), context::error_t::VERSION);
+	// Проверяем извещение, которым связь оборвана клиентом
+	ASSERT_EQ(client.alert().description, alert::description_t::PARAMETER);
+	// Проверяем неустановленность связи стороной клиента
+	ASSERT_FALSE(client.established());
+}
+
+/**
+ * @brief Проверка заслона непомерной длины подписи владения ключом
+ *
+ */
+TEST(ContextTest, Lengthy){
+	// Подлинность враждебного сервера
+	context::credential_t credentials;
+	// Выполняем выработку подлинности враждебного сервера
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Связь стороны клиента
+	client::context_t client;
+	// Выполняем заведение связи стороны клиента
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	// Выполняем ответ враждебного сервера подписью непомерной длины
+	ASSERT_TRUE(adversary(client, distortion_t::LENGTHY, &credentials));
+	/**
+	 * Длина подписи приходит с той стороны связи и пределом сообщения ограничена лишь
+	 * сверху: без заслона разворот записи подписи вынес бы её за место, отведённое
+	 * подписи на стеке
+	 */
+	ASSERT_EQ(client.error(), context::error_t::SIGNATURE);
+	// Проверяем извещение, которым связь оборвана клиентом
+	ASSERT_EQ(client.alert().description, alert::description_t::DECRYPT);
+	// Проверяем неустановленность связи стороной клиента
+	ASSERT_FALSE(client.established());
+}
+
+/**
+ * @brief Проверка заслона испорченной подписи владения ключом
+ *
+ */
+TEST(ContextTest, Malsigned){
+	// Подлинность враждебного сервера
+	context::credential_t credentials;
+	// Выполняем выработку подлинности враждебного сервера
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Связь стороны клиента
+	client::context_t client;
+	// Выполняем заведение связи стороны клиента
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	// Выполняем ответ враждебного сервера испорченной подписью владения ключом
+	ASSERT_TRUE(adversary(client, distortion_t::MALSIGN, &credentials));
+	// Проверяем обрыв связи стороной клиента
+	ASSERT_EQ(client.error(), context::error_t::SIGNATURE);
+	/**
+	 * Раздел 4.4.3 RFC 8446 велит рвать связь извещением decrypt_error, если подпись
+	 * владения ключом не сошлась. Схема и длина подписи здесь годны нарочно: заслоны
+	 * их стоят прежде, и негодными ими проверялся бы не тот заслон
+	 */
+	ASSERT_EQ(client.alert().description, alert::description_t::DECRYPT);
+	// Проверяем неустановленность связи стороной клиента
+	ASSERT_FALSE(client.established());
+}
+
+/**
+ * @brief Проверка заслона испорченного завершения рукопожатия
+ *
+ */
+TEST(ContextTest, Malfinished){
+	// Подлинность враждебного сервера
+	context::credential_t credentials;
+	// Выполняем выработку подлинности враждебного сервера
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Связь стороны клиента
+	client::context_t client;
+	// Выполняем заведение связи стороны клиента
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	// Выполняем ответ враждебного сервера испорченным завершением рукопожатия
+	ASSERT_TRUE(adversary(client, distortion_t::MALFINISH, &credentials));
+	// Проверяем обрыв связи стороной клиента
+	ASSERT_EQ(client.error(), context::error_t::COMPLETION);
+	/**
+	 * Раздел 4.4.4 RFC 8446 велит рвать связь извещением decrypt_error, если
+	 * завершение рукопожатия собеседника не сошлось
+	 */
+	ASSERT_EQ(client.alert().description, alert::description_t::DECRYPT);
+	// Проверяем неустановленность связи стороной клиента
+	ASSERT_FALSE(client.established());
+}
+
+/**
+ * @brief Проверка заслона места предложения заранее разделённого ключа
+ *
+ */
+TEST(ContextTest, Misordered){
+	// Подлинность стороны сервера
+	context::credential_t credentials;
+	// Выполняем выработку подлинности стороны сервера
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Связь стороны сервера
+	server::context_t server;
+	// Устанавливаем подлинность стороны сервера
+	server.credential(credentials);
+	// Выполняем заведение связи стороны сервера
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	/**
+	 * Итог враждебного клиента здесь не сличается: сервер обрывает связь ещё на
+	 * приветствии, и до ответа, которого клиент ждёт, дело не доходит
+	 */
+	(void) intruder(server, distortion_t::MISORDER, &credentials);
+	// Проверяем обрыв связи стороной сервера
+	ASSERT_EQ(server.error(), context::error_t::MESSAGE);
+	/**
+	 * Раздел 4.2.11 RFC 8446 велит предложению заранее разделённого ключа идти
+	 * последним расширением приветствия, ибо привязка его считается по переписке,
+	 * усечённой ровно до начала этого расширения. Сервер обязан сверять место
+	 * предложения и отвечать извещением illegal_parameter
+	 */
+	ASSERT_EQ(server.alert().description, alert::description_t::PARAMETER);
+	// Проверяем неустановленность связи стороной сервера
+	ASSERT_FALSE(server.established());
+}
+
+/**
+ * @brief Проверка заслона доли обмена, кривой не принадлежащей, у клиента
+ *
+ */
+TEST(ContextTest, Offcurve){
+	// Связь стороны клиента
+	client::context_t client;
+	// Выполняем заведение связи стороны клиента
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	// Выполняем ответ враждебного сервера долей обмена вне кривой
+	ASSERT_TRUE(adversary(client, distortion_t::OFFCURVE));
+	/**
+	 * Точка, кривой не принадлежащая, отвергается выработкой общего значения: без
+	 * этого сличения подставная точка малого порядка выдала бы секретный ключ своей
+	 * стороны. Длина доли и кривая здесь годны нарочно - негодное тело доли
+	 * отвергается много раньше, разбором расширения
+	 */
+	ASSERT_EQ(client.error(), context::error_t::EXCHANGE);
+	// Проверяем извещение, которым связь оборвана клиентом
+	ASSERT_EQ(client.alert().description, alert::description_t::HANDSHAKE);
+	// Проверяем неустановленность связи стороной клиента
+	ASSERT_FALSE(client.established());
+}
+
+/**
+ * @brief Проверка заслона доли обмена, кривой не принадлежащей, у сервера
+ *
+ */
+TEST(ContextTest, Offpoint){
+	// Подлинность стороны сервера
+	context::credential_t credentials;
+	// Выполняем выработку подлинности стороны сервера
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Связь стороны сервера
+	server::context_t server;
+	// Устанавливаем подлинность стороны сервера
+	server.credential(credentials);
+	// Выполняем заведение связи стороны сервера
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	// Выполняем приветствие враждебного клиента долей обмена вне кривой
+	(void) intruder(server, distortion_t::OFFPOINT, &credentials);
+	// Проверяем обрыв связи стороной сервера
+	ASSERT_EQ(server.error(), context::error_t::EXCHANGE);
+	// Проверяем извещение, которым связь оборвана сервером
+	ASSERT_EQ(server.alert().description, alert::description_t::HANDSHAKE);
+	// Проверяем неустановленность связи стороной сервера
+	ASSERT_FALSE(server.established());
+}
+
+/**
+ * @brief Проверка заслона сообщения поддельного вида посреди рукопожатия
+ *
+ */
+TEST(ContextTest, Synthesized){
+	// Связь стороны клиента
+	client::context_t client;
+	// Выполняем заведение связи стороны клиента
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	// Выполняем ответ враждебного сервера сообщением поддельного вида
+	ASSERT_TRUE(adversary(client, distortion_t::SYNTHETIC));
+	/**
+	 * Вид message_hash заведён разделом 4.4.1 RFC 8446 для ПОДМЕНЫ первого приветствия
+	 * в переписке рукопожатия и по связи идти не вправе вовсе, хотя сборщик сообщений
+	 * его и признаёт.
+	 *
+	 * Проверка эта отлична от ContextTest.Synthetic: та подаёт такое сообщение ПЕРВЫМ,
+	 * и его отвергает ход рукопожатия, а здесь оно идёт за приветствием сервера и
+	 * доходит до разбора принятого, где его встречает уже иной заслон
+	 */
+	ASSERT_EQ(client.error(), context::error_t::ORDER);
+	// Проверяем извещение, которым связь оборвана клиентом
+	ASSERT_EQ(client.alert().description, alert::description_t::UNEXPECTED);
+	// Проверяем неустановленность связи стороной клиента
+	ASSERT_FALSE(client.established());
+}
+
+/**
+ * @brief Проверка заслона негодных схем подписи приветствия клиента
+ *
+ */
+TEST(ContextTest, Malschemes){
+	// Подлинность стороны сервера
+	context::credential_t credentials;
+	// Выполняем выработку подлинности стороны сервера
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Связь стороны сервера
+	server::context_t server;
+	// Устанавливаем подлинность стороны сервера
+	server.credential(credentials);
+	// Выполняем заведение связи стороны сервера
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	// Выполняем приветствие враждебного клиента с негодными схемами подписи
+	(void) intruder(server, distortion_t::MALSCHEMES, &credentials);
+	// Проверяем обрыв связи стороной сервера
+	ASSERT_EQ(server.error(), context::error_t::MESSAGE);
+	/**
+	 * Расширение объявлено, а телу его разбор не поддаётся: заслон этот отличен от
+	 * заслона вовсе не объявленных схем, отвечающего иным извещением
+	 */
+	ASSERT_EQ(server.alert().description, alert::description_t::DECODE);
+	// Проверяем неустановленность связи стороной сервера
+	ASSERT_FALSE(server.established());
 }

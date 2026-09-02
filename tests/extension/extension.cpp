@@ -410,6 +410,40 @@ TEST(ExtensionTest, Ragged){
 				(void) extension::early(data, limit);
 				// Выполняем разбор предложения заранее разделённых ключей
 				(void) extension::identities(data, identities, binders, truncation);
+				/**
+				 * Итоги разбора чужих тел не сличаются намеренно: чужое тело разборщик
+				 * вправе и принять, если оно случаем сошлось с его собственным видом.
+				 * Проверяется же ими выдержка разбора: под ASan круги эти ловят всякий
+				 * выход за поданное тело.
+				 *
+				 * А вот СВОЙ разборщик обязан отвергнуть всякий НЕПОЛНЫЙ обрубок своего
+				 * же тела: длина всякого перечня объявляется впереди него, и обрубок
+				 * объявленной длины не наберёт. Порченые круги сюда не берутся - порча
+				 * байта длины вправе дать и годное тело
+				 */
+				if((place == 0) && (size < corpus[body].size())){
+					/**
+					 * Выполняем сличение обрубка со своим разборщиком
+					 */
+					switch(body){
+						// Обрубок перечня изданий протокола
+						case 0: ASSERT_NE(extension::versions(data, versions), extension::error_t::NONE) << "издания, длина " << size; break;
+						// Обрубок перечня кривых обмена ключами
+						case 1: ASSERT_NE(extension::groups(data, groups), extension::error_t::NONE) << "кривые, длина " << size; break;
+						// Обрубок перечня схем подписи
+						case 2: ASSERT_NE(extension::schemes(data, schemes), extension::error_t::NONE) << "схемы, длина " << size; break;
+						// Обрубок перечня долей обмена ключами
+						case 3: ASSERT_NE(extension::shares(data, shares), extension::error_t::NONE) << "доли, длина " << size; break;
+						// Обрубок способов обмена заранее разделённым ключом
+						case 4: ASSERT_NE(extension::modes(data, modes), extension::error_t::NONE) << "способы, длина " << size; break;
+						// Обрубок перечня прикладных протоколов
+						case 5: ASSERT_NE(extension::protocols(data, protocols), extension::error_t::NONE) << "протоколы, длина " << size; break;
+						// Обрубок метки возврата состояния сервера
+						case 6: ASSERT_NE(extension::cookie(data, cookie), extension::error_t::NONE) << "метка, длина " << size; break;
+						// Обрубок предела упреждающих данных
+						case 7: ASSERT_NE(extension::early(data, limit), extension::error_t::NONE) << "предел, длина " << size; break;
+					}
+				}
 			}
 		}
 	}
@@ -634,4 +668,98 @@ TEST(ExtensionTest, Protocol){
 	 * двух в ответе - это уже не выбор
 	 */
 	ASSERT_EQ(extension::protocol(view_t(body.data(), body.size()), protocol), extension::error_t::LENGTH);
+}
+
+/**
+ * @brief Проверка границ составления тел расширений
+ *
+ */
+TEST(ExtensionTest, Confines){
+	// Накопитель, в который складывается составляемое тело расширения
+	vector <uint8_t> body;
+	/**
+	 * Длина перечня изданий объявляется единственным байтом, и перечень длиннее 255
+	 * байтов в неё не входит: 128 изданий занимают 256 байтов
+	 */
+	ASSERT_EQ(extension::versions(vector <uint16_t> (128, 0x0304), body), extension::error_t::LENGTH);
+	// Выполняем очистку накопителя составляемого тела
+	body.clear();
+	// Проверяем, что перечень изданий предельной длины составляется
+	ASSERT_EQ(extension::versions(vector <uint16_t> (127, 0x0304), body), extension::error_t::NONE);
+	// Выполняем очистку накопителя составляемого тела
+	body.clear();
+	// Метка возврата состояния, длину свою в два байта не вмещающая
+	const vector <uint8_t> lengthy(65536, 0x5A);
+	/**
+	 * Длина метки возврата состояния объявляется двумя байтами: метка длиннее 65535
+	 * байтов в них не входит
+	 */
+	ASSERT_EQ(extension::cookie(view_t(lengthy.data(), lengthy.size()), body), extension::error_t::LENGTH);
+	// Выполняем очистку накопителя составляемого тела
+	body.clear();
+	// Проверяем, что метка предельной длины составляется
+	ASSERT_EQ(extension::cookie(view_t(lengthy.data(), 65535), body), extension::error_t::NONE);
+	// Разбираемое тело выбранной кривой с лишним байтом за ним
+	const uint8_t trailing[] = {0x00, 0x22, 0x00};
+	// Место, в которое помещается разобранная выбранная кривая
+	extension::group_t group = extension::group_t::NONE;
+	/**
+	 * Тело выбранной кривой занимает ровно два байта, и всякий байт за ними означает
+	 * собеседника, складывающего расширение не по правилам
+	 */
+	ASSERT_EQ(extension::selected(view_t(trailing, sizeof(trailing)), group), extension::error_t::TRAILING);
+	// Проверяем разбор тела выбранной кривой без лишних байтов
+	ASSERT_EQ(extension::selected(view_t(trailing, 2), group), extension::error_t::NONE);
+}
+
+/**
+ * @brief Проверка обрыва внутренних записей перечней
+ *
+ */
+TEST(ExtensionTest, Innermost){
+	// Открытая часть ключа обмена, кладомая в долю обмена
+	const vector <uint8_t> opened(64, 0x11);
+	// Накопитель, в который складывается годное тело перечня долей обмена
+	vector <uint8_t> body;
+	// Выполняем составление годного тела перечня долей обмена
+	ASSERT_EQ(extension::shares(vector <extension::share_t> {
+		extension::share_t(extension::group_t::GC256B, view_t(opened.data(), 32)),
+		extension::share_t(extension::group_t::GC512A, view_t(opened.data(), 64))
+	}, body), extension::error_t::NONE);
+	// Проверяем, что тело перечня начинается двухбайтовой длиной содержимого
+	ASSERT_GT(body.size(), static_cast <size_t> (2));
+	/**
+	 * Обрубок всего тела отвергается объявленной длиною перечня, и до записей внутри
+	 * него разбор не доходит вовсе. Чтобы дойти, длину перечня надлежит ПРАВИТЬ вслед
+	 * за обрубанием: тогда обёртка сходится, а обрывается уже запись внутри неё
+	 */
+	for(size_t cut = 1; cut < (body.size() - 2); cut++){
+		// Выполняем перенос годного тела перечня долей обмена
+		vector <uint8_t> item(body.begin(), body.end() - static_cast <ptrdiff_t> (cut));
+		// Определяем новую длину содержимого перечня
+		const size_t length = (item.size() - 2);
+		// Записываем старший байт исправленной длины содержимого
+		item[0] = static_cast <uint8_t> ((length >> 8) & 0xFF);
+		// Записываем младший байт исправленной длины содержимого
+		item[1] = static_cast <uint8_t> (length & 0xFF);
+		// Место, в которое помещается разобранный перечень долей обмена
+		vector <extension::share_t> shares;
+		// Выполняем разбор обрубка перечня долей обмена
+		const extension::error_t error = extension::shares(view_t(item.data(), item.size()), shares);
+		/**
+		 * Обрубок, оборвавший запись посреди неё, обязан отвергаться. Обрубок же,
+		 * павший ровно на границу записей, годен: перечень тогда просто короче
+		 */
+		if(error == extension::error_t::NONE){
+			// Накопитель, в который складывается тело разобранного перечня
+			vector <uint8_t> again;
+			// Выполняем обратное составление тела разобранного перечня
+			ASSERT_EQ(extension::shares(shares, again), extension::error_t::NONE) << "обрубок " << cut;
+			/**
+			 * Принятый обрубок обязан быть целым телом: составление по разобранному
+			 * даёт ровно то же тело, каким оно и подавалось
+			 */
+			ASSERT_EQ(again, item) << "обрубок " << cut;
+		}
+	}
 }

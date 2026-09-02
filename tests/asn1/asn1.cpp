@@ -1171,3 +1171,71 @@ TEST(ASN1Test, Withheld) {
 	// Проверяем причину отказа записи опознавателя со знаком ниже десятичного набора
 	ASSERT_EQ(writer.err(), asn1::error_t::VALUE);
 }
+
+/**
+ * @brief Проверка отказов разбора незнаковых записей
+ *
+ */
+TEST(ASN1Test, Unlettered) {
+	/**
+	 * Запись времени со знаком, десятичным не являющимся: разбор берёт из неё числа
+	 * знак за знаком, и всякий незнак обязан её отвергнуть.
+	 *
+	 * Незнак кладётся в поле ГОДА нарочно. Поля месяца, дня, часа и прочие сличаются
+	 * ещё и с дозволенной областью, и незнак в любом из них отвергла бы уже эта
+	 * сверка - заслоном знака проверялся бы не тот заслон. У года же области нет:
+	 * отвергнуть его способна лишь сверка самого знака
+	 */
+	const uint8_t lettered[] = {0x17, 0x0D, '9', 'A', '0', '1', '0', '1', '0', '0', '0', '0', '0', '0', 'Z'};
+	// Создаём разборщик записи времени
+	asn1::reader_t reader(lettered, sizeof(lettered));
+	// Объект разобранного элемента
+	asn1::element_t element;
+	// Число секунд от начала эпохи
+	int64_t value = 0;
+	// Выполняем разбор элемента записи времени
+	ASSERT_TRUE(reader.next(asn1::tag_t::UTC_TIME, element));
+	// Проверяем отказ извлечения времени с незнаковым знаком
+	ASSERT_EQ(asn1::time(element, asn1::tag_t::UTC_TIME, value), asn1::error_t::VALUE);
+	/**
+	 * Строка UTF-8, первый байт знака которой выходит за пределы области Юникода:
+	 * четырёхбайтовая запись дозволена лишь до 0xF4, ибо область эта кончается на
+	 * U+10FFFF
+	 */
+	const uint8_t beyond[] = {0x0C, 0x04, 0xF5, 0x80, 0x80, 0x80};
+	// Строка UTF-8, первым байтом знака несущая продолжение записи
+	const uint8_t trailing[] = {0x0C, 0x02, 0x80, 0x41};
+	// Строка UTF-8 с первым байтом, ни одной записи не отвечающим
+	const uint8_t alien[] = {0x0C, 0x02, 0xF8, 0x41};
+	// Набор строк, которые обязаны быть отвергнуты
+	const view_t records[] = {
+		view_t(beyond, sizeof(beyond)), view_t(trailing, sizeof(trailing)), view_t(alien, sizeof(alien))
+	};
+	/**
+	 * Выполняем обход набора отвергаемых строк
+	 */
+	for(size_t i = 0; i < (sizeof(records) / sizeof(records[0])); i++){
+		// Создаём разборщик строки
+		asn1::reader_t item(records[i].data, records[i].size);
+		// Объект разобранного элемента строки
+		asn1::element_t entry;
+		// Разобранная строка
+		std::string result;
+		// Выполняем разбор элемента строки
+		ASSERT_TRUE(item.next(asn1::tag_t::UTF8_STRING, entry)) << "строка " << i;
+		// Проверяем отказ извлечения строки
+		ASSERT_EQ(asn1::text(entry, asn1::tag_t::UTF8_STRING, result), asn1::error_t::VALUE) << "строка " << i;
+	}
+	// Строка UTF-8 с записью знака предельной дозволенной области
+	const uint8_t utmost[] = {0x0C, 0x04, 0xF4, 0x8F, 0xBF, 0xBF};
+	// Создаём разборщик строки предельного знака
+	asn1::reader_t last(utmost, sizeof(utmost));
+	// Объект разобранного элемента строки
+	asn1::element_t entry;
+	// Разобранная строка
+	std::string result;
+	// Выполняем разбор элемента строки
+	ASSERT_TRUE(last.next(asn1::tag_t::UTF8_STRING, entry));
+	// Проверяем, что знак предельной области отвергнут не был
+	ASSERT_EQ(asn1::text(entry, asn1::tag_t::UTF8_STRING, result), asn1::error_t::NONE);
+}

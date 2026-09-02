@@ -639,8 +639,13 @@ context::error_t nts::internal::Engine::refresh() noexcept {
  *
  */
 context::error_t nts::internal::Engine::derive(const view_t & key) noexcept {
-	// Место, в которое помещается общее значение обмена мимолётными ключами
-	uint8_t shared[64];
+	/**
+	 * Место под общее значение берётся размером числа арифметики: выработка кладёт
+	 * туда одну координату кривой, а шире числа координата быть не может. Постоянная
+	 * эта взята вместо числа нарочно - иначе расширение арифметики оставило бы место
+	 * прежним, а выработка стала бы писать за него
+	 */
+	uint8_t shared[math::NUMBER_SIZE];
 	// Если общее значение обмена мимолётными ключами выработать не удалось
 	if(!agreement::ecdhe(this->_curve, view_t(this->_secret.data(), this->_secret.size()), key, shared))
 		// Выводим отказ выработки общего значения обмена
@@ -1562,6 +1567,19 @@ context::error_t nts::internal::Engine::possession(const view_t & body) noexcept
 		return context::error_t::MESSAGE;
 	// Место, в которое помещается подпись в записи выработки
 	uint8_t signature[math::NUMBER_SIZE * 2];
+	/**
+	 * Длина подписи приходит с той стороны связи: раздел 4.4.3 RFC 8446 кладёт полю
+	 * подписи два байта длины, то есть до 65535 байтов, тогда как место под подпись
+	 * отведено на стеке размером в два числа. Разворот записи переносит подпись
+	 * ЦЕЛИКОМ, и сверка длины обязана идти прежде него - иначе подпись, объявленная
+	 * непомерной, вынесла бы разворот за отведённое место.
+	 *
+	 * Сверка эта стережёт лишь память; точная же длина, ключу собеседника отвечающая,
+	 * сверяется дальше самой проверкой подписи
+	 */
+	if(verify.signature.size > sizeof(signature))
+		// Выводим отказ непомерной длины подписи владения ключом
+		return context::error_t::SIGNATURE;
 	// Если запись подписи развернуть не удалось
 	if(message::reverse(verify.signature, signature) != message::error_t::NONE)
 		// Выводим отказ разворота записи подписи
@@ -1844,10 +1862,20 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 	}
 	// Разыскиваем расширение перечня изданий протокола
 	const hello::extension_t * extension = hello::extension(greeting.extensions, static_cast <uint16_t> (extension::type_t::VERSIONS));
-	// Если перечень изданий протокола приветствием не объявлен
+	/**
+	 * Приложение D.2 RFC 8446: при отсутствующем перечне изданий сервер обязан вести
+	 * переговоры по наименьшему из объявленного приветствием и TLS 1.2, а не
+	 * поддерживая ни того ни другого - обрывать связь извещением protocol_version.
+	 *
+	 * Извещение missing_extension сюда НЕ относится, сколь бы ни было оно похоже:
+	 * раздел 9.2 держит его для приветствия, ведущего переговоры по ЭТОМУ стандарту, а
+	 * таковым он числит лишь приветствие, несущее перечень изданий с 0x0304 в теле.
+	 * Приветствие без перечня переговоров по этому стандарту не ведёт вовсе, и требовать
+	 * с него обязательных расширений не с чего
+	 */
 	if(extension == nullptr)
-		// Выводим отказ отсутствия издания протокола
-		return this->abort(context::error_t::VERSION, alert::description_t::MISSING);
+		// Выводим отказ несовпадения издания протокола
+		return this->abort(context::error_t::VERSION, alert::description_t::VERSION);
 	// Перечень изданий протокола, предлагаемых клиентом
 	vector <uint16_t> versions;
 	// Если перечень изданий протокола разобрать не удалось
@@ -2417,6 +2445,41 @@ context::error_t nts::internal::Engine::outgoing(const view_t & body, const view
 		// Выводим отказ объявления расширения, связью не предлагавшегося
 		} else return this->abort(context::error_t::MESSAGE, alert::description_t::EXTENSION);
 	}
+	/**
+	 * Раздел 4.2.1 RFC 8446 велит клиенту сверять расширение издания ПРЕЖДЕ разбора
+	 * всего прочего в приветствии сервера, а раздел 9.2 требует расширения этого и от
+	 * просьбы о повторе приветствия. Оттого сверка и стоит выше разветвления на
+	 * приветствие и просьбу: ниже она просьбу о повторе не задевала бы вовсе, и связь
+	 * шла бы по ней на новый круг, издания так и не сверив
+	 */
+	// Разыскиваем расширение издания протокола
+	const hello::extension_t * item = hello::extension(answer.extensions, static_cast <uint16_t> (extension::type_t::VERSIONS));
+	/**
+	 * Приветствие сервера без расширения издания означает выбор издания, объявленного
+	 * заголовком приветствия, - то есть TLS 1.2 либо более раннего. Приложение D.1 RFC
+	 * 8446 велит клиенту обрывать связь по неподдерживаемому изданию извещением
+	 * protocol_version, а не missing_extension: последнее раздел 9.2 держит для
+	 * СЕРВЕРА, принявшего негодное приветствие клиента
+	 */
+	if(item == nullptr)
+		// Выводим отказ несовпадения издания протокола
+		return this->abort(context::error_t::VERSION, alert::description_t::VERSION);
+	// Издание протокола, выбранное сервером
+	uint16_t version = 0;
+	// Если издание протокола разобрать не удалось
+	if(extension::version(item->data, version) != extension::error_t::NONE)
+		// Выводим отказ разбора расширения приветствия
+		return this->abort(context::error_t::MESSAGE, alert::description_t::DECODE);
+	/**
+	 * Раздел 4.2.1 RFC 8446 велит обрывать связь извещением illegal_parameter, если
+	 * расширение издания несёт издание, клиентом не предложенное либо предшествующее
+	 * TLS 1.3. Связь предлагает единственное издание, оттого оба случая и сходятся в
+	 * одну сверку. Извещение здесь ИНОЕ, нежели при вовсе отсутствующем расширении:
+	 * там сервер издания не объявлял и остался при заголовке, а тут объявил негодное
+	 */
+	if(version != 0x0304)
+		// Выводим отказ негодного издания протокола
+		return this->abort(context::error_t::VERSION, alert::description_t::PARAMETER);
 	// Разыскиваем расширение открытой части ключа обмена
 	const hello::extension_t * extension = hello::extension(answer.extensions, static_cast <uint16_t> (extension::type_t::SHARE));
 	// Если открытая часть ключа обмена приветствием не объявлена
@@ -2512,22 +2575,6 @@ context::error_t nts::internal::Engine::outgoing(const view_t & body, const view
 		// Выводим успешность разбора просьбы о повторе приветствия
 		return context::error_t::NONE;
 	}
-	// Разыскиваем расширение издания протокола
-	const hello::extension_t * item = hello::extension(answer.extensions, static_cast <uint16_t> (extension::type_t::VERSIONS));
-	// Если издание протокола приветствием не объявлено
-	if(item == nullptr)
-		// Выводим отказ отсутствия издания протокола
-		return this->abort(context::error_t::VERSION, alert::description_t::MISSING);
-	// Издание протокола, выбранное сервером
-	uint16_t version = 0;
-	// Если издание протокола разобрать не удалось
-	if(extension::version(item->data, version) != extension::error_t::NONE)
-		// Выводим отказ разбора расширения приветствия
-		return this->abort(context::error_t::MESSAGE, alert::description_t::DECODE);
-	// Если сервер выбрал издание протокола, связью не поддержанное
-	if(version != 0x0304)
-		// Выводим отказ несовпадения издания протокола
-		return this->abort(context::error_t::VERSION, alert::description_t::VERSION);
 	// Разыскиваем расширение выбранного заранее разделённого ключа
 	const hello::extension_t * selected = hello::extension(answer.extensions, static_cast <uint16_t> (extension::type_t::SECRET));
 	// Если сервер выбрал заранее разделённый ключ клиента
@@ -2540,7 +2587,14 @@ context::error_t nts::internal::Engine::outgoing(const view_t & body, const view
 			return this->abort(context::error_t::MESSAGE, alert::description_t::DECODE);
 		/**
 		 * Клиент предлагает единственный ключ, и всякое иное его место есть выбор
-		 * того, чего клиент не предлагал вовсе
+		 * того, чего клиент не предлагал вовсе. Той же сверкой удовлетворено и
+		 * требование раздела 4.2.11 RFC 8446 о нулевом месте при объявленных сервером
+		 * упреждающих данных: нулю здесь равно всякое принимаемое место.
+		 *
+		 * Сверки хеша набора шифрования с хешем ключа тут нет, и вот почему: все
+		 * четыре набора, связью признаваемые, ведут расписание ключей на «Стрибоге»
+		 * длиной 256 разрядов, и требование раздела 4.2.11 удовлетворено само собою.
+		 * Появись набор с иным хешем - сверку эту заводить обязательно
 		 */
 		if((chosen != 0) || this->_resume.identity.empty())
 			// Выводим отказ несовпадения заранее разделённого ключа
