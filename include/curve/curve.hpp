@@ -188,6 +188,36 @@ namespace nts {
 				 * \~
 				 */
 				void attach(const point_t & first, const point_t & second, point_t & result) const noexcept;
+			private:
+				/**
+				 * \~russian
+				 * @brief Метод сложения точек кривой с аффинным вторым слагаемым
+				 *
+				 * @param first  первое слагаемое
+				 * @param second второе слагаемое, третья координата которого равна единице поля
+				 * @param result место, в которое помещается сумма точек
+				 *
+				 * @note Единичная третья координата второго слагаемого снимает со сложения пять
+				 *       умножений поля из двенадцати: приведение обеих координат первого
+				 *       слагаемого и умножение третьих координат обращаются в переписывание
+				 *
+				 * @note Бесконечная удалённость слагаемых разбирается наложением маски, а не
+				 *       ветвлением, ровно как у сложения общего вида
+				 *
+				 * \~english
+				 * @brief Method of the addition of the points of the curve with an affine second addend
+				 * @param first  the first addend
+				 * @param second the second addend the third coordinate of which equals the unit of the field
+				 * @param result the place the sum of the points is put into
+				 * @note The unit third coordinate of the second addend removes five multiplications
+				 *       of the field out of twelve from the addition: the reduction of both coordinates
+				 *       of the first addend and the multiplication of the third coordinates turn into a copy
+				 * @note The infinite remoteness of the addends is handled by an overlay of a mask
+				 *       and not by a branch exactly as in the addition of the general kind
+				 *
+				 * \~
+				 */
+				void join(const point_t & first, const point_t & second, point_t & result) const noexcept;
 			public:
 				/**
 				 * \~russian
