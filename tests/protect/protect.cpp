@@ -573,3 +573,64 @@ TEST(ProtectTest, Confines){
 	// Проверяем, что отвергнутая запись накопителя не тронула
 	ASSERT_TRUE(sealed.empty());
 }
+
+/**
+ * @brief Проверка сведений о защите записей до установки ключевого материала
+ *
+ */
+TEST(ProtectTest, Unarmed){
+	// Объект защиты записей связи
+	protect::protection_t protection;
+	// Проверяем неготовность защиты записей до установки ключевого материала
+	ASSERT_FALSE(protection.ready());
+	// Проверяем незаданность набора шифрования до установки ключевого материала
+	ASSERT_EQ(protection.suite(), protect::suite_t::NONE);
+	// Проверяем нулевой порядковый номер до установки ключевого материала
+	ASSERT_EQ(protection.sequence(), static_cast <uint64_t> (0));
+	// Заголовок снимаемой записи связи
+	record::header_t header;
+	// Устанавливаем вид содержимого снимаемой записи
+	header.type = record::type_t::APPLICATION;
+	// Устанавливаем версию протокола снимаемой записи
+	header.version = record::version_t::TLS12;
+	// Устанавливаем длину содержимого снимаемой записи
+	header.size = 64;
+	// Содержимое снимаемой записи связи
+	const std::vector <uint8_t> content(64, 0x41);
+	// Место, в которое помещается истинный вид содержимого записи
+	record::type_t type = record::type_t::NONE;
+	// Накопитель, в который складывается снятое содержимое записи
+	std::vector <uint8_t> opened;
+	// Проверяем отказ снятия защиты до установки ключевого материала
+	ASSERT_EQ(protection.open(header, view_t(content.data(), content.size()), type, opened), protect::error_t::STATE);
+	// Получаем корневой ключ направления связи
+	const std::vector <uint8_t> key = decode(SAMPLES[0].key);
+	// Получаем вектор замены направления связи
+	const std::vector <uint8_t> vector = decode(SAMPLES[0].vector);
+	// Выполняем установку ключевого материала направления связи
+	ASSERT_TRUE(protection.start(SAMPLES[0].suite, view_t(key.data(), key.size()), view_t(vector.data(), vector.size())));
+	// Проверяем готовность защиты записей после установки ключевого материала
+	ASSERT_TRUE(protection.ready());
+	// Проверяем набор шифрования, установленный защите записей
+	ASSERT_EQ(protection.suite(), SAMPLES[0].suite);
+	/**
+	 * Сброс возвращает защиту записей к её началу: ключевой материал затирается, а
+	 * порядковый номер записи и набор шифрования сбрасываются
+	 */
+	protection.clear();
+	// Проверяем неготовность защиты записей после сброса
+	ASSERT_FALSE(protection.ready());
+	// Проверяем незаданность набора шифрования после сброса
+	ASSERT_EQ(protection.suite(), protect::suite_t::NONE);
+	// Проверяем отказ наложения защиты после сброса ключевого материала
+	ASSERT_EQ(protection.seal(record::type_t::APPLICATION, view_t(content.data(), content.size()), opened), protect::error_t::STATE);
+	/**
+	 * Наибольший порядковый номер записи задан набором шифрования: раздел 5.5
+	 * RFC 8446 ограничивает объём данных, защищённых одним ключом
+	 */
+	ASSERT_NE(protect::limit(SAMPLES[0].suite), static_cast <uint64_t> (0));
+	// Проверяем нулевой предел порядкового номера у неизвестного набора шифрования
+	ASSERT_EQ(protect::limit(protect::suite_t::NONE), static_cast <uint64_t> (0));
+	// Проверяем нулевую длину блока у неизвестного набора шифрования
+	ASSERT_EQ(protect::block(protect::suite_t::NONE), static_cast <size_t> (0));
+}

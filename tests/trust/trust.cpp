@@ -54,6 +54,23 @@ namespace {
 	} keys_t;
 
 	/**
+	 * Тело расширения, записью ASN.1 не являющееся: метка набора значений объявляет
+	 * длину, за которою содержимого не набирается
+	 */
+	const uint8_t SPOILED[3] = {0x30, 0x7F, 0x00};
+
+	/**
+	 * Разряды порчи тел объявляемых расширений: расширения объявляются по отдельности,
+	 * и порча их по отдельности же нужна - заслон разбора одного расширения стоит за
+	 * заслоном другого и порчею обоих разом не задевается
+	 */
+	enum : uint8_t {
+		SPOIL_CONSTRAINTS  = 0x01, // Порча тела основных ограничений сертификата
+		SPOIL_USAGE        = 0x02, // Порча тела назначения открытого ключа
+		SPOIL_ALTERNATIVES = 0x04  // Порча тела дополнительных имён владельца
+	};
+
+	/**
 	 * @brief Настройки вырабатываемого сертификата
 	 *
 	 */
@@ -64,6 +81,19 @@ namespace {
 		bool constraints;
 		// Признак объявления назначения открытого ключа
 		bool usage;
+		// Признак объявления права подписывать другие сертификаты
+		bool signing;
+		/**
+		 * Признак порчи тела объявляемых расширений: тело расширения несёт запись
+		 * ASN.1 внутри строки байтов, и запись эта приходит извне наравне со всем
+		 * прочим - разбор её отказать вправе
+		 */
+		uint8_t spoiled;
+		/**
+		 * Признак отказа от записи имени владельца вовсе: сертификат, не объявивший
+		 * ни общего имени, ни дополнительных имён, ни одному имени узла не отвечает
+		 */
+		bool unnamed;
 		// Предел числа звеньев цепочки под сертификатом
 		int64_t depth;
 		// Начало срока действия сертификата
@@ -77,7 +107,7 @@ namespace {
 		 *
 		 */
 		Options() noexcept :
-		 authority(false), constraints(true), usage(true),
+		 authority(false), constraints(true), usage(true), signing(true), spoiled(0), unnamed(false),
 		 depth(-1), before(1767225600), after(2082758400) {}
 	} options_t;
 
@@ -227,7 +257,7 @@ namespace {
 				// Выводим отказ составления расширений
 				return false;
 			// Записываем значение расширения основных ограничений
-			if(!writer.octets(item.data()))
+			if(!writer.octets(((options.spoiled & SPOIL_CONSTRAINTS) != 0) ? view_t(SPOILED, sizeof(SPOILED)) : item.data()))
 				// Выводим отказ составления расширений
 				return false;
 			// Закрываем набор записи расширения сертификата
@@ -238,11 +268,17 @@ namespace {
 		// Если назначение открытого ключа объявляется
 		if(options.usage){
 			// Разряды назначения открытого ключа сертификата
-			const uint8_t bits[1] = {static_cast <uint8_t> (options.authority ? 0x04 : 0x80)};
+			/**
+			 * Раздел 4.2.1.3 RFC 5280 отводит праву подписывать другие сертификаты
+			 * пятый разряд назначения ключа. Признак объявления его заведён отдельно
+			 * от права издавать сертификаты: основные ограничения и назначение ключа
+			 * объявляются разными расширениями и разойтись между собою вправе
+			 */
+			const uint8_t bits[1] = {static_cast <uint8_t> ((options.authority && options.signing) ? 0x04 : 0x80)};
 			// Составитель записи назначения открытого ключа
 			asn1::writer_t item;
 			// Записываем разряды назначения открытого ключа
-			if(!item.bits(view_t(bits, sizeof(bits)), (options.authority ? 2 : 7)))
+			if(!item.bits(view_t(bits, sizeof(bits)), ((options.authority && options.signing) ? 2 : 7)))
 				// Выводим отказ составления расширений
 				return false;
 			// Открываем набор записи расширения сертификата
@@ -254,7 +290,7 @@ namespace {
 				// Выводим отказ составления расширений
 				return false;
 			// Записываем значение расширения назначения ключа
-			if(!writer.octets(item.data()))
+			if(!writer.octets(((options.spoiled & SPOIL_USAGE) != 0) ? view_t(SPOILED, sizeof(SPOILED)) : item.data()))
 				// Выводим отказ составления расширений
 				return false;
 			// Закрываем набор записи расширения сертификата
@@ -289,7 +325,7 @@ namespace {
 				// Выводим отказ составления расширений
 				return false;
 			// Записываем значение расширения дополнительных имён
-			if(!writer.octets(item.data()))
+			if(!writer.octets(((options.spoiled & SPOIL_ALTERNATIVES) != 0) ? view_t(SPOILED, sizeof(SPOILED)) : item.data()))
 				// Выводим отказ составления расширений
 				return false;
 			// Закрываем набор записи расширения сертификата
@@ -385,7 +421,7 @@ namespace {
 			// Выводим отказ выработки сертификата
 			return false;
 		// Если имя владельца сертификата записать не удалось
-		if(!title(body, subject))
+		if(!(options.unnamed ? (body.open(asn1::tag_t::SEQUENCE) && body.close()) : title(body, subject)))
 			// Выводим отказ выработки сертификата
 			return false;
 		// Открываем набор сведений об открытом ключе
@@ -923,4 +959,259 @@ TEST(TrustTest, Deepness){
 	ASSERT_TRUE(store.add(view_t(spacious.data(), spacious.size())));
 	// Проверяем доверие цепочке, в дозволенное промежуточное звено уложившейся
 	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> {issued, linked, spacious}, store, MOMENT), trust::error_t::NONE);
+}
+
+/**
+ * @brief Проверка сверки звеньев цепочки сертификатов между собою
+ *
+ * @note Цепочка длиною в одно звено сверки звеньев не задевает вовсе: проверки её
+ *       стерегли лишь связь сертификата с запасом доверенных, а сама цепочка
+ *       оставалась непроверенной
+ *
+ */
+TEST(TrustTest, Interlinked){
+	// Ключевые пары корня, промежуточного звена, владельца и постороннего
+	keys_t root, middle, subject, stranger;
+	// Выполняем выработку ключевой пары корня цепочки
+	ASSERT_TRUE(generate(root));
+	// Выполняем выработку ключевой пары промежуточного звена
+	ASSERT_TRUE(generate(middle));
+	// Выполняем выработку ключевой пары владельца цепочки
+	ASSERT_TRUE(generate(subject));
+	// Выполняем выработку ключевой пары постороннего издателя
+	ASSERT_TRUE(generate(stranger));
+	// Настройки сертификата, наделённого правом издавать другие сертификаты
+	options_t authorized;
+	// Наделяем сертификат правом издавать другие сертификаты
+	authorized.authority = true;
+	// Запись сертификата корня цепочки
+	vector <uint8_t> anchor;
+	// Выполняем выработку самоподписанного сертификата корня цепочки
+	ASSERT_TRUE(make("chain root", "chain root", root, vector <uint8_t> (), authorized, anchor));
+	// Запись сертификата промежуточного звена цепочки
+	vector <uint8_t> intermediate;
+	// Выполняем выработку сертификата промежуточного звена, изданного корнем
+	ASSERT_TRUE(make("chain middle", "chain root", middle, root.secret, authorized, intermediate));
+	// Запись сертификата владельца цепочки
+	vector <uint8_t> leaf;
+	// Выполняем выработку сертификата владельца, изданного промежуточным звеном
+	ASSERT_TRUE(make("anyks.com", "chain middle", subject, middle.secret, options_t (), leaf));
+	// Запас доверенных сертификатов
+	trust::store_t store;
+	// Выполняем добавление сертификата корня в запас доверенных
+	ASSERT_TRUE(store.add(view_t(anchor.data(), anchor.size())));
+	// Проверяем доверие цепочке из трёх звеньев
+	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> {leaf, intermediate, anchor}, store, MOMENT), trust::error_t::NONE);
+	/**
+	 * Подпись всякого звена сверяется ключом звена над ним: промежуточное звено,
+	 * подписанное посторонним ключом, доверием обернуться не вправе, хотя бы имя
+	 * издателя у него и сходилось с именем корня
+	 */
+	vector <uint8_t> forged;
+	// Выполняем выработку промежуточного звена, подписанного посторонним ключом
+	ASSERT_TRUE(make("chain middle", "chain root", middle, stranger.secret, authorized, forged));
+	// Проверяем отказ доверия цепочке с несошедшейся подписью промежуточного звена
+	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> {leaf, forged, anchor}, store, MOMENT), trust::error_t::SIGNATURE);
+	/**
+	 * Имя издателя всякого звена сверяется с именем владельца звена над ним: разрыв
+	 * имён посреди цепочки означает цепочку, звеньями не связанную
+	 */
+	vector <uint8_t> renamed;
+	// Выполняем выработку промежуточного звена с чужим именем владельца
+	ASSERT_TRUE(make("other middle", "chain root", middle, root.secret, authorized, renamed));
+	// Проверяем отказ доверия цепочке с разошедшимися именами звеньев
+	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> {leaf, renamed, anchor}, store, MOMENT), trust::error_t::ISSUER);
+	/**
+	 * Раздел 4.2.1.3 RFC 5280 велит издателю нести право подписывать другие
+	 * сертификаты. Право это объявляется назначением ключа, отдельным расширением
+	 * от основных ограничений, и одних лишь ограничений издателю мало
+	 */
+	options_t unsigning;
+	// Наделяем сертификат правом издавать другие сертификаты
+	unsigning.authority = true;
+	// Снимаем с сертификата право подписывать другие сертификаты
+	unsigning.signing = false;
+	// Ключевая пара корня, не вправе подписывать другие сертификаты
+	keys_t barren;
+	// Выполняем выработку ключевой пары корня без права подписи
+	ASSERT_TRUE(generate(barren));
+	// Запись сертификата корня, не вправе подписывать другие сертификаты
+	vector <uint8_t> unsigned_;
+	// Выполняем выработку корня без права подписывать другие сертификаты
+	ASSERT_TRUE(make("barren root", "barren root", barren, vector <uint8_t> (), unsigning, unsigned_));
+	// Запись сертификата владельца, изданного корнем без права подписи
+	vector <uint8_t> issued;
+	// Выполняем выработку сертификата владельца, изданного таким корнем
+	ASSERT_TRUE(make("anyks.com", "barren root", subject, barren.secret, options_t (), issued));
+	// Запас доверенных сертификатов, несущий корень без права подписи
+	trust::store_t barrens;
+	// Выполняем добавление корня без права подписи в запас доверенных
+	ASSERT_TRUE(barrens.add(view_t(unsigned_.data(), unsigned_.size())));
+	/**
+	 * Отказ приходит отсутствием издателя в запасе, а не нарушением ограничений:
+	 * сертификат без права подписывать другие в издатели не берётся вовсе, и
+	 * запас доверенных отвечает так, будто издателя в нём нет
+	 */
+	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> {issued}, barrens, MOMENT), trust::error_t::AUTHORITY);
+	/**
+	 * Длина цепочки ограничена сверху: цепочка длиннее дозволенной отвергается до
+	 * всякого её разбора, ибо разбор такой цепочки - это уже работа впустую
+	 */
+	vector <vector <uint8_t>> lengthy;
+	/**
+	 * Выполняем набор цепочки длиннее дозволенной
+	 */
+	for(size_t i = 0; i <= trust::TRUST_DEPTH; i++)
+		// Добавляем в цепочку очередное её звено
+		lengthy.push_back(leaf);
+	// Проверяем отказ доверия цепочке длиннее дозволенной
+	ASSERT_EQ(trust::verify(lengthy, store, MOMENT), trust::error_t::DEPTH);
+}
+
+/**
+ * @brief Проверка сличения имени узла с именами сертификата
+ *
+ */
+TEST(TrustTest, Belonging){
+	// Ключевые пары издателя и владельца сертификатов
+	keys_t issuer, subject;
+	// Выполняем выработку ключевой пары издателя
+	ASSERT_TRUE(generate(issuer));
+	// Выполняем выработку ключевой пары владельца
+	ASSERT_TRUE(generate(subject));
+	// Запись сертификата, разобрать которую нельзя вовсе
+	const vector <uint8_t> garbage(64, 0x41);
+	// Проверяем отказ сличения имени узла с неразбираемой записью
+	EXPECT_EQ(trust::belongs(view_t(garbage.data(), garbage.size()), "anyks.com"), trust::error_t::PARSE);
+	/**
+	 * Тело расширения дополнительных имён несёт запись ASN.1 внутри строки байтов, и
+	 * запись эта приходит извне: разбор её отказать вправе
+	 */
+	options_t spoiled;
+	// Портим тело объявляемых расширений сертификата
+	spoiled.spoiled = SPOIL_ALTERNATIVES;
+	// Устанавливаем дополнительное доменное имя владельца сертификата
+	spoiled.alternative = "anyks.com";
+	// Запись сертификата с порченым телом расширений
+	vector <uint8_t> broken;
+	// Выполняем выработку сертификата с порченым телом расширений
+	ASSERT_TRUE(make("anyks.com", "anyks root", subject, issuer.secret, spoiled, broken));
+	// Проверяем отказ сличения имени узла при порченом расширении имён
+	EXPECT_EQ(trust::belongs(view_t(broken.data(), broken.size()), "anyks.com"), trust::error_t::PARSE);
+	/**
+	 * Звёздочка отвечает лишь одной части имени узла: имя, из одной части и
+	 * состоящее, ей не отвечает вовсе, иначе имя вида «*.com» отвечало бы всякому
+	 * узлу верхней области имён
+	 */
+	options_t wildcard;
+	// Устанавливаем дополнительное имя владельца со звёздочкой
+	wildcard.alternative = "*.anyks.com";
+	// Запись сертификата с именем владельца со звёздочкой
+	vector <uint8_t> covered;
+	// Выполняем выработку сертификата с именем владельца со звёздочкой
+	ASSERT_TRUE(make("anyks.com", "anyks root", subject, issuer.secret, wildcard, covered));
+	// Проверяем схождение имени узла из двух частей с именем со звёздочкой
+	EXPECT_EQ(trust::belongs(view_t(covered.data(), covered.size()), "www.anyks.com"), trust::error_t::NONE);
+	// Проверяем несовпадение имени узла из одной части с именем со звёздочкой
+	EXPECT_EQ(trust::belongs(view_t(covered.data(), covered.size()), "localhost"), trust::error_t::NAME);
+	// Проверяем отказ сличения непереданного имени узла
+	EXPECT_EQ(trust::belongs(view_t(covered.data(), covered.size()), ""), trust::error_t::NAME);
+	/**
+	 * Сертификат, не объявивший ни дополнительных имён, ни общего имени владельца,
+	 * ни одному имени узла не отвечает: сличать нечего
+	 */
+	options_t nameless;
+	// Отказываемся от записи имени владельца сертификата вовсе
+	nameless.unnamed = true;
+	// Запись сертификата без имени владельца вовсе
+	vector <uint8_t> anonymous;
+	// Выполняем выработку сертификата без имени владельца
+	ASSERT_TRUE(make("", "anyks root", subject, issuer.secret, nameless, anonymous));
+	// Проверяем отказ сличения имени узла с сертификатом без имён владельца
+	EXPECT_EQ(trust::belongs(view_t(anonymous.data(), anonymous.size()), "anyks.com"), trust::error_t::NAME);
+	/**
+	 * Запас доверенных выдаёт записи по номеру, и номер за его пределами отвечает
+	 * пустою записью, а не выходом за поданную область байтов
+	 */
+	trust::store_t store;
+	// Проверяем пустоту записи, запрошенной у пустого запаса доверенных
+	EXPECT_EQ(store.get(0).data, nullptr);
+	// Настройки сертификата издателя цепочки
+	options_t authorized;
+	// Наделяем сертификат правом издавать другие сертификаты
+	authorized.authority = true;
+	// Запись самоподписанного сертификата издателя
+	vector <uint8_t> root;
+	// Выполняем выработку самоподписанного сертификата издателя
+	ASSERT_TRUE(make("anyks root", "anyks root", issuer, vector <uint8_t> (), authorized, root));
+	// Выполняем добавление сертификата издателя в запас доверенных
+	ASSERT_TRUE(store.add(view_t(root.data(), root.size())));
+	// Проверяем выдачу записи первого сертификата запаса доверенных
+	EXPECT_EQ(store.get(0).size, root.size());
+	// Проверяем пустоту записи, запрошенной за пределами запаса доверенных
+	EXPECT_EQ(store.get(1).data, nullptr);
+	/**
+	 * Всякое звено цепочки разбирается до сверки: звено, разобрать которое нельзя,
+	 * отвергает цепочку целиком
+	 */
+	vector <uint8_t> leaf;
+	// Выполняем выработку сертификата владельца, изданного издателем
+	ASSERT_TRUE(make("anyks.com", "anyks root", subject, issuer.secret, options_t (), leaf));
+	// Проверяем отказ доверия цепочке с неразбираемым звеном
+	EXPECT_EQ(trust::verify(vector <vector <uint8_t>> {leaf, garbage}, store, MOMENT), trust::error_t::PARSE);
+	/**
+	 * Тело основных ограничений издателя разбирается наравне со всем прочим: порча
+	 * его лишает издателя права издавать другие сертификаты
+	 */
+	options_t damaged;
+	// Наделяем сертификат правом издавать другие сертификаты
+	damaged.authority = true;
+	// Портим тело объявляемых расширений сертификата
+	damaged.spoiled = SPOIL_CONSTRAINTS;
+	// Ключевая пара издателя с порченым телом расширений
+	keys_t spoiler;
+	// Выполняем выработку ключевой пары издателя с порченым телом расширений
+	ASSERT_TRUE(generate(spoiler));
+	// Запись самоподписанного сертификата издателя с порченым телом расширений
+	vector <uint8_t> ruined;
+	// Выполняем выработку издателя с порченым телом расширений
+	ASSERT_TRUE(make("ruined root", "ruined root", spoiler, vector <uint8_t> (), damaged, ruined));
+	// Запас доверенных, несущий издателя с порченым телом расширений
+	trust::store_t ruins;
+	// Выполняем добавление издателя с порченым телом расширений в запас
+	ASSERT_TRUE(ruins.add(view_t(ruined.data(), ruined.size())));
+	// Запись сертификата владельца, изданного издателем с порченым телом расширений
+	vector <uint8_t> issued;
+	// Выполняем выработку сертификата владельца, изданного таким издателем
+	ASSERT_TRUE(make("anyks.com", "ruined root", subject, spoiler.secret, options_t (), issued));
+	// Проверяем отказ доверия сертификату, изданному издателем с порченым расширением
+	EXPECT_EQ(trust::verify(vector <vector <uint8_t>> {issued}, ruins, MOMENT), trust::error_t::AUTHORITY);
+	/**
+	 * Назначение открытого ключа объявляется расширением, отдельным от основных
+	 * ограничений: порча тела его задевает свой заслон, а не заслон ограничений,
+	 * и порчею обоих разом он не задевается вовсе
+	 */
+	options_t misused;
+	// Наделяем сертификат правом издавать другие сертификаты
+	misused.authority = true;
+	// Портим тело назначения открытого ключа сертификата
+	misused.spoiled = SPOIL_USAGE;
+	// Ключевая пара издателя с порченым назначением ключа
+	keys_t misuser;
+	// Выполняем выработку ключевой пары издателя с порченым назначением ключа
+	ASSERT_TRUE(generate(misuser));
+	// Запись самоподписанного издателя с порченым назначением ключа
+	vector <uint8_t> misuse;
+	// Выполняем выработку издателя с порченым назначением ключа
+	ASSERT_TRUE(make("misused root", "misused root", misuser, vector <uint8_t> (), misused, misuse));
+	// Запас доверенных, несущий издателя с порченым назначением ключа
+	trust::store_t misuses;
+	// Выполняем добавление издателя с порченым назначением ключа в запас
+	ASSERT_TRUE(misuses.add(view_t(misuse.data(), misuse.size())));
+	// Запись сертификата владельца, изданного таким издателем
+	vector <uint8_t> granted;
+	// Выполняем выработку сертификата владельца, изданного таким издателем
+	ASSERT_TRUE(make("anyks.com", "misused root", subject, misuser.secret, options_t (), granted));
+	// Проверяем отказ доверия сертификату, изданному издателем с порченым назначением
+	EXPECT_EQ(trust::verify(vector <vector <uint8_t>> {granted}, misuses, MOMENT), trust::error_t::AUTHORITY);
 }

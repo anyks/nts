@@ -30,6 +30,11 @@ fi
 trap 'rmdir "$LOCK" 2>/dev/null' EXIT INT TERM
 OUT=${1:-/tmp/sweep2-report.txt}
 ONLY=${2:-}
+#
+# Отсев ведётся по имени исходника без расширения. Имя, ни с чем не сошедшееся, прошло бы
+# молча: прогон пропустил бы все пары подряд и отчитался бы пустым итогом, неотличимым от
+# набора без единого непокрытого заслона
+#
 : > "$OUT"
 # пары «исходник:двоичный файл набора»
 PAIRS=(
@@ -60,6 +65,7 @@ for PAIR in $PAIRS; do
 	BIN=$ROOT/build/${PAIR##*:}
 	NAME=${${PAIR%%:*}:t:r}
 	if [ -n "$ONLY" ] && [ "$NAME" != "$ONLY" ]; then continue; fi
+	FOUND=1
 	if [ ! -f "$BIN" ]; then echo "$NAME: набора нет, пропущен" | tee -a "$OUT"; continue; fi
 	BAK=/tmp/sweep2-$NAME.bak
 	cp "$SRC" "$BAK"
@@ -110,4 +116,8 @@ PY
 	echo "... $NAME пройден" 
 done
 (cd $ROOT/build && cmake --build . -j8 >/dev/null 2>&1)
+if [ -z "${FOUND:-}" ]; then
+	echo "имя '$ONLY' ни с чем не сошлось: разбор не шёл" | tee -a "$OUT" >&2
+	exit 1
+fi
 echo "=== ИТОГ ===" | tee -a "$OUT"

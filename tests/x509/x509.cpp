@@ -292,10 +292,11 @@ TEST(X509Test, Ragged) {
 		// Создаём объект разбираемого сертификата
 		x509::certificate_t certificate;
 		/**
-		 * Разбор усечённой записи обязан обойтись без отказа работы: итог его здесь
-		 * не судится, ибо усечение вправе оставить запись и разбираемой
+		 * Всякий неполный обрубок записи обязан быть отвергнут: длина всякой записи
+		 * DER объявляется впереди её содержимого, и обрубок объявленной длины не
+		 * наберёт. Заслон этот стережёт весь разбор сертификата разом
 		 */
-		(void) certificate.parse(view_t(origin.data(), size));
+		ASSERT_NE(certificate.parse(view_t(origin.data(), size)), x509::error_t::NONE) << "длина " << size;
 	}
 	/**
 	 * Выполняем перебор мест порчи записи сертификата
@@ -1034,4 +1035,96 @@ TEST(X509Test, Overfilled) {
 	 * ОТДЕЛЬНОЙ половиной всякого из двух заслонов
 	 */
 	ASSERT_EQ(x509::constraints(*extension, authority, depth), x509::error_t::STRUCTURE);
+}
+
+/**
+ * @brief Метод сбора смещений меток всех элементов записи
+ *
+ * @details Обход идёт вглубь: у составного элемента разбирается и его содержимое. Смещение
+ *          берётся у просмотра элемента целиком - первым его байтом и лежит метка
+ *
+ * @param data    разбираемая запись
+ * @param origin  начало записи, от которого считаются смещения
+ * @param result  набор, в который складываются смещения меток
+ *
+ */
+static void offsets(const view_t & data, const uint8_t * origin, vector <size_t> & result) {
+	// Создаём разборщик записи
+	asn1::reader_t reader(data);
+	// Признак того, что первым элементом записи шёл опознаватель
+	bool identifier = false;
+	/**
+	 * Выполняем обход элементов записи
+	 */
+	while(!reader.empty()){
+		// Объект разобранного элемента
+		asn1::element_t element;
+		// Если очередной элемент разобрать не удалось
+		if(!reader.next(element))
+			// Прекращаем обход записи
+			break;
+		/**
+		 * Настройки алгоритма обходу не подлежат: разборщик сертификата отдаёт их
+		 * записью как есть, устройство их задаётся самим алгоритмом, и судить их вид
+		 * ему нечем. Опознать их можно по соседству - в записи опознавателя алгоритма
+		 * настройки идут вслед за самим опознавателем
+		 */
+		if(identifier)
+			// Прекращаем обход записи опознавателя алгоритма
+			break;
+		// Запоминаем, что первым элементом записи шёл опознаватель алгоритма
+		identifier = ((element.cls == asn1::cls_t::UNIVERSAL) && (element.tag == static_cast <uint32_t> (asn1::tag_t::OBJECT)));
+		// Запоминаем смещение метки очередного элемента
+		result.push_back(static_cast <size_t> (element.element.data - origin));
+		// Если элемент составной, обходим и его содержимое
+		if(element.constructed && (element.content.size > 0))
+			// Выполняем обход содержимого составного элемента
+			offsets(element.content, origin, result);
+	}
+}
+
+/**
+ * @brief Проверка отказа разбора при подмене вида метки
+ *
+ */
+TEST(X509Test, Recast) {
+	// Создаём записчик записи сертификата
+	asn1::writer_t writer;
+	// Собираем запись сертификата
+	build(writer, defect_t());
+	// Проверяем успешность сборки записи сертификата
+	ASSERT_EQ(writer.err(), asn1::error_t::NONE);
+	// Получаем собранную запись сертификата
+	const view_t whole = writer.data();
+	// Выполняем перенос собранной записи сертификата
+	const vector <uint8_t> origin(whole.data, whole.data + whole.size);
+	// Набор смещений меток всех элементов записи
+	vector <size_t> places;
+	// Выполняем сбор смещений меток всех элементов записи
+	offsets(view_t(origin.data(), origin.size()), origin.data(), places);
+	// Проверяем, что элементы записи собраны
+	ASSERT_GT(places.size(), size_t(16));
+	// Проверяем, что годная запись сертификата разбирается
+	x509::certificate_t sample;
+	// Выполняем разбор годной записи сертификата
+	ASSERT_EQ(sample.parse(view_t(origin.data(), origin.size())), x509::error_t::NONE);
+	/**
+	 * Выполняем обход меток элементов записи
+	 */
+	for(size_t i = 0; i < places.size(); i++){
+		// Выполняем перенос годной записи сертификата
+		vector <uint8_t> item(origin);
+		/**
+		 * Обращаем разряд составного вида метки: правила DER кладут составной вид
+		 * последовательностям и наборам, а простой - всем прочим видам записи, и
+		 * подмена эта делает запись негодной, какой бы элемент ни задела
+		 */
+		item[places[i]] = static_cast <uint8_t> (item[places[i]] ^ 0x20);
+		// Запоминаем подменённый вид метки для сообщения об отказе
+		const unsigned changed = static_cast <unsigned> (item[places[i]]);
+		// Создаём объект разбираемого сертификата
+		x509::certificate_t certificate;
+		// Проверяем отказ разбора записи с подменённым видом метки
+		ASSERT_NE(certificate.parse(view_t(item.data(), item.size())), x509::error_t::NONE) << "метка " << i << " по смещению " << places[i] << ", вид 0x" << std::hex << static_cast <unsigned> (origin[places[i]]) << " -> 0x" << changed;
+	}
 }

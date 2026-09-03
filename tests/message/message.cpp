@@ -190,6 +190,29 @@ TEST(MessageTest, Ragged){
 				(void) message::parse(data, update);
 				// Выполняем разбор билета возобновления связи
 				(void) message::parse(data, taken);
+				/**
+				 * Обрубок тела обязан быть отвергнут своим же разборщиком: всякое поле
+				 * тела объявляет длину впереди содержимого, и обрубок объявленной длины
+				 * не наберёт. Сверяется лишь усечение без порчи: порченый байт вправе
+				 * оставить тело разбираемым, обратившись в другое годное значение.
+				 * Образец завершения рукопожатия своего разборщика не имеет вовсе -
+				 * он лежит здесь ради подачи чужим разборщикам
+				 */
+				if((place == 0) && (size < corpus[body].size())){
+					/**
+					 * Выполняем выбор разборщика, которому принадлежит очередное тело
+					 */
+					switch(body){
+						// Обрубок тела цепочки сертификатов
+						case 0: ASSERT_NE(message::parse(data, certificate), message::error_t::NONE) << "длина " << size; break;
+						// Обрубок тела подписи владения ключом
+						case 1: ASSERT_NE(message::parse(data, verify), message::error_t::NONE) << "длина " << size; break;
+						// Обрубок тела билета возобновления связи
+						case 3: ASSERT_NE(message::parse(data, taken), message::error_t::NONE) << "длина " << size; break;
+						// Обрубок тела смены ключевого материала
+						case 4: ASSERT_NE(message::parse(data, update), message::error_t::NONE) << "длина " << size; break;
+					}
+				}
 			}
 		}
 	}
@@ -509,4 +532,282 @@ TEST(MessageTest, Refusals){
 	ASSERT_FALSE(message::compare(view_t(nullptr, 0), view_t(nullptr, 0)));
 	// Проверяем схождение сличения тела сообщения с самим собой
 	ASSERT_TRUE(message::compare(view_t(ending, sizeof(ending)), view_t(ending, sizeof(ending))));
+}
+
+/**
+ * @brief Проверка границ длин полей при составлении тел сообщений
+ *
+ * @note Всякое поле тела сообщения объявляет длину впереди содержимого, и ширина
+ *       объявления задана RFC 8446: содержимое, в неё не входящее, обязано быть
+ *       отвергнуто составлением, а не записано усечённой длиной
+ *
+ */
+TEST(MessageTest, Confines){
+	// Накопитель, в который складывается тело составленного сообщения
+	vector <uint8_t> result;
+	// Тело сертификата, годное составлению сообщения
+	const uint8_t body[] = {0x30, 0x03, 0x02, 0x01, 0x00};
+	// Запись, длина которой не входит в объявление одного байта
+	const vector <uint8_t> single(256, 0x41);
+	// Запись, длина которой не входит в объявление двух байтов
+	const vector <uint8_t> couple(65536, 0x42);
+	// Составляемое сообщение цепочки сертификатов
+	message::certificate_t certificate;
+	// Запись цепочки составляемого сообщения
+	message::entry_t entry;
+	// Устанавливаем годное тело сертификата записи
+	entry.data = view_t(body, sizeof(body));
+	// Добавляем запись цепочки в составляемое сообщение
+	certificate.entries.push_back(entry);
+	/**
+	 * Привязка цепочки сертификатов объявляется одним байтом: раздел 4.4.2 RFC 8446
+	 */
+	certificate.context = view_t(single.data(), single.size());
+	// Проверяем отказ составления цепочки с непомерной привязкой
+	ASSERT_EQ(message::build(certificate, result), message::error_t::LENGTH);
+	// Сбрасываем привязку цепочки сертификатов
+	certificate.context = view_t();
+	/**
+	 * Тело расширения записи цепочки объявляется двумя байтами
+	 */
+	hello::extension_t item;
+	// Устанавливаем вид расширения записи цепочки
+	item.type = 0x0001;
+	// Устанавливаем непомерное тело расширения записи цепочки
+	item.data = view_t(couple.data(), couple.size());
+	// Добавляем расширение в запись цепочки составляемого сообщения
+	certificate.entries[0].extensions.push_back(item);
+	// Проверяем отказ составления цепочки с непомерным телом расширения
+	ASSERT_EQ(message::build(certificate, result), message::error_t::LENGTH);
+	// Сбрасываем перечень расширений записи цепочки
+	certificate.entries[0].extensions.clear();
+	/**
+	 * Перечень расширений записи объявляется двумя байтами целиком: два расширения,
+	 * всякое из которых в своё объявление входит, вместе в него не входят
+	 */
+	hello::extension_t piece;
+	// Устанавливаем вид расширения записи цепочки
+	piece.type = 0x0003;
+	// Устанавливаем тело расширения длиною в половину объявления перечня
+	piece.data = view_t(couple.data(), couple.size() / 2);
+	// Добавляем первое расширение в запись цепочки сертификатов
+	certificate.entries[0].extensions.push_back(piece);
+	// Добавляем второе расширение в запись цепочки сертификатов
+	certificate.entries[0].extensions.push_back(piece);
+	// Проверяем отказ составления цепочки с непомерным перечнем расширений
+	ASSERT_EQ(message::build(certificate, result), message::error_t::LENGTH);
+	// Сбрасываем перечень расширений записи цепочки
+	certificate.entries[0].extensions.clear();
+	// Проверяем успешность составления цепочки после снятия непомерных полей
+	ASSERT_EQ(message::build(certificate, result), message::error_t::NONE);
+	/**
+	 * Подпись владения ключом объявляется двумя байтами: раздел 4.4.3 RFC 8446
+	 */
+	message::verify_t verify;
+	// Устанавливаем схему подписи владения ключом
+	verify.scheme = extension::scheme_t::S256A;
+	// Устанавливаем непомерное значение подписи владения ключом
+	verify.signature = view_t(couple.data(), couple.size());
+	// Проверяем отказ составления подписи непомерной длины
+	ASSERT_EQ(message::build(verify, result), message::error_t::LENGTH);
+	/**
+	 * Неповторимое значение билета объявляется одним байтом, а тело билета и тела
+	 * его расширений - двумя: раздел 4.6.1 RFC 8446
+	 */
+	message::ticket_t ticket;
+	// Устанавливаем срок жизни билета возобновления связи
+	ticket.lifetime = 3600;
+	// Устанавливаем годное тело билета возобновления связи
+	ticket.data = view_t(body, sizeof(body));
+	// Устанавливаем непомерное неповторимое значение билета
+	ticket.nonce = view_t(single.data(), single.size());
+	// Проверяем отказ составления билета с непомерным неповторимым значением
+	ASSERT_EQ(message::build(ticket, result), message::error_t::LENGTH);
+	// Сбрасываем неповторимое значение билета
+	ticket.nonce = view_t();
+	// Устанавливаем непомерное тело билета возобновления связи
+	ticket.data = view_t(couple.data(), couple.size());
+	// Проверяем отказ составления билета с непомерным телом
+	ASSERT_EQ(message::build(ticket, result), message::error_t::LENGTH);
+	// Восстанавливаем годное тело билета возобновления связи
+	ticket.data = view_t(body, sizeof(body));
+	// Устанавливаем непомерное тело расширения билета
+	ticket.extensions.push_back(item);
+	// Проверяем отказ составления билета с непомерным телом расширения
+	ASSERT_EQ(message::build(ticket, result), message::error_t::LENGTH);
+	// Сбрасываем перечень расширений билета возобновления связи
+	ticket.extensions.clear();
+	/**
+	 * Перечень расширений билета объявляется двумя байтами целиком: два расширения,
+	 * всякое из которых в своё объявление входит, вместе в него не входят
+	 */
+	hello::extension_t half;
+	// Устанавливаем вид расширения билета возобновления связи
+	half.type = 0x0002;
+	// Устанавливаем тело расширения длиною в половину объявления перечня
+	half.data = view_t(couple.data(), couple.size() / 2);
+	// Добавляем первое расширение в билет возобновления связи
+	ticket.extensions.push_back(half);
+	// Добавляем второе расширение в билет возобновления связи
+	ticket.extensions.push_back(half);
+	// Проверяем отказ составления билета с непомерным перечнем расширений
+	ASSERT_EQ(message::build(ticket, result), message::error_t::LENGTH);
+	// Сбрасываем перечень расширений билета возобновления связи
+	ticket.extensions.clear();
+	// Проверяем успешность составления билета после снятия непомерных полей
+	ASSERT_EQ(message::build(ticket, result), message::error_t::NONE);
+}
+
+/**
+ * @brief Проверка границ длин полей цепочки сертификатов в три байта
+ *
+ * @note Тело сертификата и цепочка целиком объявляются тремя байтами, оттого
+ *       проверка их требует записи свыше 16 МиБ. Она заведена отдельно от прочих
+ *       границ: та идёт мгновенно, а этой нужна память
+ *
+ */
+TEST(MessageTest, Vastness){
+	// Накопитель, в который складывается тело составленного сообщения
+	vector <uint8_t> result;
+	// Запись, длина которой не входит в объявление трёх байтов
+	const vector <uint8_t> triple((1 << 24), 0x43);
+	// Составляемое сообщение цепочки сертификатов
+	message::certificate_t certificate;
+	// Запись цепочки составляемого сообщения
+	message::entry_t entry;
+	// Устанавливаем непомерное тело сертификата записи
+	entry.data = view_t(triple.data(), triple.size());
+	// Добавляем запись цепочки в составляемое сообщение
+	certificate.entries.push_back(entry);
+	// Проверяем отказ составления цепочки с непомерным телом сертификата
+	ASSERT_EQ(message::build(certificate, result), message::error_t::LENGTH);
+	/**
+	 * Цепочка сертификатов объявляется тремя байтами целиком: два сертификата,
+	 * всякий из которых в своё объявление входит, вместе в него не входят
+	 */
+	certificate.entries[0].data = view_t(triple.data(), triple.size() / 2);
+	// Добавляем в цепочку вторую запись того же тела
+	certificate.entries.push_back(certificate.entries[0]);
+	// Проверяем отказ составления цепочки непомерной длины
+	ASSERT_EQ(message::build(certificate, result), message::error_t::LENGTH);
+}
+
+/**
+ * @brief Проверка отказов разбора негодных тел сообщений
+ *
+ * @note Тела эти собираются байтами вручную: составление таких не выдаёт, и через
+ *       него подать их разбору нельзя
+ *
+ */
+TEST(MessageTest, Deformed){
+	// Место, в которое помещается разобранная цепочка сертификатов
+	message::certificate_t certificate;
+	// Место, в которое помещается разобранная подпись владения ключом
+	message::verify_t verify;
+	// Место, в которое помещается разобранный билет возобновления связи
+	message::ticket_t ticket;
+	/**
+	 * Тело цепочки сертификатов: привязка нулевой длины, а за нею цепочка из одной
+	 * записи с телом сертификата в один байт и пустым перечнем расширений
+	 */
+	const vector <uint8_t> chain = {
+		0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x01, 0x30, 0x00, 0x00
+	};
+	// Проверяем успешность разбора годного тела цепочки сертификатов
+	ASSERT_EQ(message::parse(view_t(chain.data(), chain.size()), certificate), message::error_t::NONE);
+	// Тело цепочки сертификатов с лишним байтом за своим концом
+	vector <uint8_t> trailing = chain;
+	// Добавляем лишний байт за конец тела цепочки сертификатов
+	trailing.push_back(0x00);
+	/**
+	 * Раздел 5.1 RFC 8446 не даёт телу сообщения хвоста: длина сообщения объявлена
+	 * его обвязкой, и байты за разобранным телом означают запись негодную
+	 */
+	ASSERT_EQ(message::parse(view_t(trailing.data(), trailing.size()), certificate), message::error_t::TRAILING);
+	/**
+	 * Тело сертификата записи цепочки обязательно: раздел 4.4.2 RFC 8446 велит
+	 * нести в записи сам сертификат, а не пустое место
+	 */
+	const vector <uint8_t> hollow = {
+		0x00, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00
+	};
+	// Проверяем отказ разбора цепочки с пустым телом сертификата
+	ASSERT_EQ(message::parse(view_t(hollow.data(), hollow.size()), certificate), message::error_t::EMPTY);
+	/**
+	 * Перечень расширений записи цепочки, оборванный на середине вида расширения:
+	 * один байт вида прочитан быть не может, ибо вид объявлен двумя
+	 */
+	const vector <uint8_t> ragged = {
+		0x00, 0x00, 0x00, 0x07, 0x00, 0x00, 0x01, 0x30, 0x00, 0x01, 0x00
+	};
+	// Проверяем отказ разбора цепочки с оборванным перечнем расширений
+	ASSERT_EQ(message::parse(view_t(ragged.data(), ragged.size()), certificate), message::error_t::EXTENSION);
+	/**
+	 * Перечень расширений, оборванный на теле расширения: вид прочитан, а тела
+	 * объявленной длины за ним не набирается
+	 */
+	const vector <uint8_t> stumped = {
+		0x00, 0x00, 0x00, 0x0A, 0x00, 0x00, 0x01, 0x30, 0x00, 0x04,
+		0x00, 0x2A, 0x00, 0x08
+	};
+	// Проверяем отказ разбора цепочки с оборванным телом расширения
+	ASSERT_EQ(message::parse(view_t(stumped.data(), stumped.size()), certificate), message::error_t::EXTENSION);
+	/**
+	 * Раздел 4.2 RFC 8446: расширение одного вида дважды объявлено быть не вправе
+	 */
+	const vector <uint8_t> twofold = {
+		0x00, 0x00, 0x00, 0x0E, 0x00, 0x00, 0x01, 0x30, 0x00, 0x08,
+		0x00, 0x2A, 0x00, 0x00, 0x00, 0x2A, 0x00, 0x00
+	};
+	// Проверяем отказ разбора цепочки с дважды объявленным расширением
+	ASSERT_EQ(message::parse(view_t(twofold.data(), twofold.size()), certificate), message::error_t::EXTENSION);
+	/**
+	 * Подпись владения ключом обязательна: раздел 4.4.3 RFC 8446 объявляет её полем
+	 * тела сообщения, и пустой она быть не вправе
+	 */
+	const vector <uint8_t> unsigned_ = {0x08, 0x02, 0x00, 0x00};
+	// Проверяем отказ разбора подписи владения ключом нулевой длины
+	ASSERT_EQ(message::parse(view_t(unsigned_.data(), unsigned_.size()), verify), message::error_t::EMPTY);
+	/**
+	 * Тело билета возобновления связи: срок, добавка к возрасту, неповторимое
+	 * значение нулевой длины, тело билета в один байт и пустой перечень расширений
+	 */
+	const vector <uint8_t> issued = {
+		0x00, 0x00, 0x0E, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x01, 0x41, 0x00, 0x00
+	};
+	// Проверяем успешность разбора годного тела билета возобновления связи
+	ASSERT_EQ(message::parse(view_t(issued.data(), issued.size()), ticket), message::error_t::NONE);
+	// Тело билета возобновления связи с лишним байтом за своим концом
+	vector <uint8_t> excess = issued;
+	// Добавляем лишний байт за конец тела билета возобновления связи
+	excess.push_back(0x00);
+	// Проверяем отказ разбора билета с лишним байтом за своим концом
+	ASSERT_EQ(message::parse(view_t(excess.data(), excess.size()), ticket), message::error_t::TRAILING);
+	/**
+	 * Тело билета обязательно: раздел 4.6.1 RFC 8446 велит нести в билете значение,
+	 * по которому связь возобновляется, а пустое место таким значением не служит
+	 */
+	vector <uint8_t> vacant = issued;
+	// Обнуляем длину тела билета возобновления связи
+	vacant[10] = 0x00;
+	// Снимаем тело билета возобновления связи
+	vacant.erase(vacant.begin() + 11);
+	// Проверяем отказ разбора билета с телом нулевой длины
+	ASSERT_EQ(message::parse(view_t(vacant.data(), vacant.size()), ticket), message::error_t::EMPTY);
+	// Тело билета с оборванным перечнем расширений
+	vector <uint8_t> broken = issued;
+	// Объявляем перечень расширений билета длиной в один байт
+	broken[13] = 0x01;
+	// Добавляем единственный байт перечня расширений билета
+	broken.push_back(0x00);
+	// Проверяем отказ разбора билета с оборванным перечнем расширений
+	ASSERT_EQ(message::parse(view_t(broken.data(), broken.size()), ticket), message::error_t::EXTENSION);
+	/**
+	 * Подпись владения ключом записывается двумя числами равной длины: раздел 2
+	 * RFC 9215. Длина нечётная означает подпись, на два числа не делимую
+	 */
+	uint8_t reversed[64] = {0};
+	// Проверяем отказ обращения подписи нечётной длины
+	ASSERT_EQ(message::reverse(view_t(reversed, sizeof(reversed) - 1), reversed), message::error_t::LENGTH);
 }

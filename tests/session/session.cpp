@@ -669,3 +669,88 @@ TEST(SessionTest, Refusals){
 	// Проверяем отказ вывода ключевого материала без места под вектор замены
 	ASSERT_EQ(session::material(view_t(traffic, sizeof(traffic)), SUITE, key, nullptr), session::error_t::EMPTY);
 }
+
+/**
+ * @brief Проверка отказов на непереданное место итога и нарушенный порядок
+ *
+ * @note Порядок вывода значений расписания задан разделом 7.1 RFC 8446 ступенями:
+ *       всякая ступень выводится из предыдущей, и значение, выведенное не в свой
+ *       черёд, значением расписания не является вовсе
+ *
+ */
+TEST(SessionTest, Disordered){
+	// Получаем общее значение обмена ключами контрольного примера
+	const vector <uint8_t> shared = decode(SHARED);
+	// Получаем хеш переписки на миг вывода ключей рукопожатия
+	const vector <uint8_t> first = decode(FIRST);
+	// Просмотр хеша переписки рукопожатия связи
+	const view_t transcript(first.data(), first.size());
+	// Место, в которое помещается выводимое значение расписания
+	uint8_t value[32] = {0};
+	// Объект значений расписания ключей связи
+	session::secrets_t secrets;
+	/**
+	 * Значение направления связи выводится из ступени рукопожатия: до заведения её
+	 * выводить нечего
+	 */
+	ASSERT_EQ(secrets.traffic(session::side_t::CLIENT, value), session::error_t::STATE);
+	// Проверяем отказ вывода ключа билета до ступени прикладных данных
+	ASSERT_EQ(secrets.ticket(transcript, value), session::error_t::STATE);
+	/**
+	 * Ключевой материал и имитовставка завершения выводятся из значения направления
+	 * связи, и отказ его получения выносится наружу как есть: свой заслон у них тот
+	 * же самый, и подменять причину отказа было бы неверно
+	 */
+	uint8_t key[protect::PROTECT_KEY] = {0}, vector[protect::PROTECT_VECTOR] = {0};
+	// Проверяем отказ вывода ключевого материала до ступени рукопожатия
+	ASSERT_EQ(secrets.material(session::side_t::CLIENT, SUITE, key, vector), session::error_t::STATE);
+	// Проверяем отказ выработки имитовставки завершения до ступени рукопожатия
+	ASSERT_EQ(secrets.finished(session::side_t::CLIENT, value), session::error_t::STATE);
+	// Проверяем отказ вывода значения возобновления до ступени прикладных данных
+	ASSERT_EQ(secrets.resumption(transcript), session::error_t::STATE);
+	// Выполняем заведение начальной ступени расписания ключей
+	ASSERT_EQ(secrets.start(view_t(nullptr, 0)), session::error_t::NONE);
+	// Проверяем отказ выработки привязки без места под неё
+	ASSERT_EQ(secrets.binder(transcript, nullptr), session::error_t::EMPTY);
+	// Проверяем отказ получения значения упреждающих данных без места под него
+	ASSERT_EQ(secrets.early(nullptr), session::error_t::EMPTY);
+	// Выполняем вывод значения упреждающих данных связи
+	ASSERT_EQ(secrets.early(transcript), session::error_t::NONE);
+	// Выполняем вывод ступени рукопожатия расписания ключей
+	ASSERT_EQ(secrets.handshake(view_t(shared.data(), shared.size()), transcript), session::error_t::NONE);
+	/**
+	 * Начальная ступень пройдена, и значение упреждающих данных выводить более
+	 * не из чего: значение это принадлежит ступени, уже оставленной позади
+	 */
+	ASSERT_EQ(secrets.early(transcript), session::error_t::STATE);
+	// Проверяем отказ выработки привязки после начальной ступени расписания
+	ASSERT_EQ(secrets.binder(transcript, value), session::error_t::STATE);
+	// Проверяем отказ получения значения направления связи без места под него
+	ASSERT_EQ(secrets.traffic(session::side_t::CLIENT, nullptr), session::error_t::EMPTY);
+	// Проверяем отказ выработки имитовставки завершения без места под неё
+	ASSERT_EQ(secrets.finished(session::side_t::CLIENT, nullptr), session::error_t::EMPTY);
+	// Выполняем вывод ступени прикладных данных расписания ключей
+	ASSERT_EQ(secrets.application(transcript), session::error_t::NONE);
+	// Выполняем вывод значения возобновления связи
+	ASSERT_EQ(secrets.resumption(transcript), session::error_t::NONE);
+	// Проверяем отказ вывода ключа билета возобновления без места под него
+	ASSERT_EQ(secrets.ticket(transcript, nullptr), session::error_t::EMPTY);
+	/**
+	 * Ступень прикладных данных пройдена, и ступень рукопожатия выводить более
+	 * не из чего: порядок ступеней ходу назад не подлежит
+	 */
+	ASSERT_EQ(secrets.handshake(view_t(shared.data(), shared.size()), transcript), session::error_t::STATE);
+	// Проверяем отказ повторного вывода ступени прикладных данных
+	ASSERT_EQ(secrets.application(transcript), session::error_t::STATE);
+	/**
+	 * Сброс возвращает расписание к его началу, и всякая ступень выводится наново:
+	 * значения прежнего расписания сброс обязан затереть
+	 */
+	secrets.clear();
+	// Проверяем отказ вывода значения направления связи после сброса расписания
+	ASSERT_EQ(secrets.traffic(session::side_t::CLIENT, value), session::error_t::STATE);
+	// Выполняем заведение начальной ступени расписания ключей наново
+	ASSERT_EQ(secrets.start(view_t(shared.data(), shared.size())), session::error_t::NONE);
+	// Проверяем успешность выработки привязки после сброса расписания
+	ASSERT_EQ(secrets.binder(transcript, value), session::error_t::NONE);
+}

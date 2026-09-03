@@ -295,6 +295,14 @@ nts::x509::error_t nts::x509::Certificate::parse(const view_t & data) noexcept {
 		if(!top.next(asn1::tag_t::SEQUENCE, body))
 			// Запоминаем причину отказа
 			return (this->_error = error_t::ENCODING);
+		/**
+		 * Правила DER кладут последовательности составной вид метки: простой её вид
+		 * означает запись, правилам не отвечающую. Сверка эта стоит у всякой прочей
+		 * последовательности разбора, а у подписываемой части её недоставало
+		 */
+		if(!body.constructed)
+			// Запоминаем причину отказа
+			return (this->_error = error_t::STRUCTURE);
 		// Запоминаем подписываемую часть сертификата
 		this->_body = body.element;
 		// Объект разобранного элемента

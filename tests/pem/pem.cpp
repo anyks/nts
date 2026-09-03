@@ -534,3 +534,308 @@ TEST(PemTest, Refusal){
 	// Проверяем отказ извлечения ключа, записанного меткой не универсального класса
 	EXPECT_EQ(pem::secret(foreign, secret), pem::error_t::CONTENT);
 }
+
+/**
+ * @brief Проверка отказов разбора обёртки секретного ключа
+ *
+ * @note Обёртки эти собираются записывателем ASN.1 вручную: выработка годных таких
+ *       не выдаёт, и через неё подать их разбору нельзя
+ *
+ */
+TEST(PemTest, Unwrapped){
+	// Получаем образцовое число секретного ключа
+	const vector <uint8_t> & key = sample();
+	/**
+	 * @brief Метод подачи собранной обёртки извлечению секретного ключа
+	 *
+	 * @param writer записыватель собранной обёртки секретного ключа
+	 *
+	 * @return       отказ извлечения секретного ключа
+	 *
+	 */
+	auto extract = [](asn1::Writer & writer) noexcept -> pem::error_t {
+		// Просмотр собранной обёртки секретного ключа
+		const view_t data = writer.data();
+		// Заводим записываемую запись секретного ключа
+		pem::block_t block;
+		// Устанавливаем метку записи секретного ключа
+		block.label = "PRIVATE KEY";
+		// Устанавливаем тело записи секретного ключа
+		block.data = vector <uint8_t> (data.data, data.data + data.size);
+		// Записанный текст записи секретного ключа
+		string text;
+		// Если записать запись секретного ключа не удалось
+		if(pem::encode(block, text) != pem::error_t::NONE)
+			// Выводим отказ, записи не принадлежащий
+			return pem::error_t::MEMORY;
+		// Извлечённый секретный ключ
+		vector <uint8_t> secret;
+		// Выводим итог извлечения секретного ключа
+		return pem::secret(text, secret);
+	};
+	/**
+	 * Раздел 2 RFC 5958 велит нести секретный ключ набором значений: запись иного
+	 * вида обёрткой ключа не является вовсе
+	 */
+	asn1::Writer alien;
+	// Записываем обёртку строкой байтов вместо набора значений
+	alien.octets(view_t(key.data(), key.size()));
+	// Проверяем отказ извлечения ключа из обёртки чужеродного вида
+	EXPECT_EQ(extract(alien), pem::error_t::CONTENT);
+	/**
+	 * Первым внутри обёртки стоит номер её вида, вторым - настройки алгоритма ключа,
+	 * третьим - само тело ключа строкой байтов: раздел 2 RFC 5958
+	 */
+	asn1::Writer headless;
+	// Открываем набор значений обёртки секретного ключа
+	headless.open(asn1::tag_t::SEQUENCE);
+	// Записываем строку байтов на месте номера вида обёртки
+	headless.octets(view_t(key.data(), 4));
+	// Закрываем набор значений обёртки секретного ключа
+	headless.close();
+	// Проверяем отказ извлечения ключа из обёртки без номера её вида
+	EXPECT_EQ(extract(headless), pem::error_t::CONTENT);
+	// Обёртка, у которой настройки алгоритма ключа не записаны вовсе
+	asn1::Writer bare;
+	// Открываем набор значений обёртки секретного ключа
+	bare.open(asn1::tag_t::SEQUENCE);
+	// Записываем номер вида обёртки секретного ключа
+	bare.integer(0);
+	// Закрываем набор значений обёртки секретного ключа
+	bare.close();
+	// Проверяем отказ извлечения ключа из обёртки без настроек алгоритма
+	EXPECT_EQ(extract(bare), pem::error_t::CONTENT);
+	// Обёртка, у которой тело самого ключа не записано вовсе
+	asn1::Writer empty;
+	// Открываем набор значений обёртки секретного ключа
+	empty.open(asn1::tag_t::SEQUENCE);
+	// Записываем номер вида обёртки секретного ключа
+	empty.integer(0);
+	// Открываем набор настроек алгоритма ключа
+	empty.open(asn1::tag_t::SEQUENCE);
+	// Записываем опознаватель алгоритма ключа
+	empty.oid("1.2.643.7.1.1.1.1");
+	// Закрываем набор настроек алгоритма ключа
+	empty.close();
+	// Закрываем набор значений обёртки секретного ключа
+	empty.close();
+	// Проверяем отказ извлечения ключа из обёртки без тела ключа
+	EXPECT_EQ(extract(empty), pem::error_t::CONTENT);
+	/**
+	 * @brief Метод сборки обёртки секретного ключа с заданным телом
+	 *
+	 * @param body   записываемое тело секретного ключа
+	 * @param writer записыватель, в который складывается обёртка
+	 *
+	 */
+	auto enclose = [](const view_t & body, asn1::Writer & writer) noexcept {
+		// Открываем набор значений обёртки секретного ключа
+		writer.open(asn1::tag_t::SEQUENCE);
+		// Записываем номер вида обёртки секретного ключа
+		writer.integer(0);
+		// Открываем набор настроек алгоритма ключа
+		writer.open(asn1::tag_t::SEQUENCE);
+		// Записываем опознаватель алгоритма ключа
+		writer.oid("1.2.643.7.1.1.1.1");
+		// Закрываем набор настроек алгоритма ключа
+		writer.close();
+		// Записываем тело самого секретного ключа
+		writer.octets(body);
+		// Закрываем набор значений обёртки секретного ключа
+		writer.close();
+	};
+	// Обёртка, тело ключа у которой пусто вовсе
+	asn1::Writer hollow;
+	// Собираем обёртку с пустым телом секретного ключа
+	enclose(view_t(key.data(), 0), hollow);
+	// Проверяем отказ извлечения ключа из обёртки с пустым телом
+	EXPECT_EQ(extract(hollow), pem::error_t::CONTENT);
+	/**
+	 * За записью самого ключа внутри его тела не должно оставаться ничего: байты
+	 * за нею означают запись, правилам не отвечающую
+	 */
+	asn1::Writer inner;
+	// Записываем запись самого ключа строкой байтов
+	inner.octets(view_t(key.data(), key.size()));
+	// Получаем собранную запись самого ключа
+	const view_t written = inner.data();
+	// Тело ключа, за записью которого идут лишние байты
+	vector <uint8_t> trailing(written.data, written.data + written.size);
+	// Добавляем лишний байт за записью самого ключа
+	trailing.push_back(0x00);
+	// Обёртка, за записью ключа у которой идут лишние байты
+	asn1::Writer excess;
+	// Собираем обёртку с лишними байтами за записью ключа
+	enclose(view_t(trailing.data(), trailing.size()), excess);
+	// Проверяем отказ извлечения ключа с лишними байтами за его записью
+	EXPECT_EQ(extract(excess), pem::error_t::CONTENT);
+	/**
+	 * Строка байтов ключа простого вида: составной её вид означает запись, правилам
+	 * DER не отвечающую
+	 */
+	vector <uint8_t> recast(written.data, written.data + written.size);
+	// Обращаем разряд составного вида метки записи самого ключа
+	recast[0] = static_cast <uint8_t> (recast[0] | 0x20);
+	// Обёртка, запись ключа у которой составного вида
+	asn1::Writer constructed;
+	// Собираем обёртку с записью ключа составного вида
+	enclose(view_t(recast.data(), recast.size()), constructed);
+	// Проверяем отказ извлечения ключа из записи составного вида
+	EXPECT_EQ(extract(constructed), pem::error_t::CONTENT);
+	/**
+	 * Ключ записывается строкой байтов, целым числом либо набором значений по
+	 * RFC 5915: запись всякого иного вида разбору не подлежит
+	 */
+	asn1::Writer boolean;
+	// Записываем запись самого ключа истинностным значением
+	boolean.boolean(true);
+	// Получаем собранную запись самого ключа
+	const view_t judged = boolean.data();
+	// Обёртка, запись ключа у которой истинностного вида
+	asn1::Writer strange;
+	// Собираем обёртку с записью ключа истинностного вида
+	enclose(view_t(judged.data, judged.size), strange);
+	// Проверяем отказ извлечения ключа из записи неведомого вида
+	EXPECT_EQ(extract(strange), pem::error_t::CONTENT);
+	/**
+	 * Набор значений записи ключа по RFC 5915 несёт номер вида записи, а следом
+	 * само число ключа строкой байтов
+	 */
+	asn1::Writer numberless;
+	// Открываем набор значений записи самого ключа
+	numberless.open(asn1::tag_t::SEQUENCE);
+	// Записываем строку байтов на месте номера вида записи
+	numberless.octets(view_t(key.data(), 4));
+	// Закрываем набор значений записи самого ключа
+	numberless.close();
+	// Получаем собранную запись самого ключа
+	const view_t missing = numberless.data();
+	// Обёртка, у которой в наборе значений ключа нет номера вида
+	asn1::Writer unnumbered;
+	// Собираем обёртку с набором значений без номера вида записи
+	enclose(view_t(missing.data, missing.size), unnumbered);
+	// Проверяем отказ извлечения ключа из набора без номера вида записи
+	EXPECT_EQ(extract(unnumbered), pem::error_t::CONTENT);
+	// Запись самого ключа, у которой нет самого числа ключа
+	asn1::Writer keyless;
+	// Открываем набор значений записи самого ключа
+	keyless.open(asn1::tag_t::SEQUENCE);
+	// Записываем номер вида записи самого ключа
+	keyless.integer(1);
+	// Закрываем набор значений записи самого ключа
+	keyless.close();
+	// Получаем собранную запись самого ключа
+	const view_t absent = keyless.data();
+	// Обёртка, у которой в наборе значений ключа нет самого числа
+	asn1::Writer valueless;
+	// Собираем обёртку с набором значений без числа ключа
+	enclose(view_t(absent.data, absent.size), valueless);
+	// Проверяем отказ извлечения ключа из набора без самого числа ключа
+	EXPECT_EQ(extract(valueless), pem::error_t::CONTENT);
+	/**
+	 * Ключ, записанный целым числом с незначащим старшим байтом, правилам DER не
+	 * отвечает: раздел 8.3.2 X.690 велит записывать число наименьшим числом байтов
+	 */
+	const vector <uint8_t> padded = {0x00, 0x01, 0x02, 0x03};
+	// Запись ключа целым числом с незначащим старшим байтом
+	asn1::Writer excessive;
+	// Записываем число ключа с незначащим старшим байтом
+	excessive.element(asn1::cls_t::UNIVERSAL, false, static_cast <uint32_t> (asn1::tag_t::INTEGER), view_t(padded.data(), padded.size()));
+	// Получаем собранную запись самого ключа
+	const view_t leading = excessive.data();
+	// Обёртка, число ключа у которой несёт незначащий старший байт
+	asn1::Writer redundant;
+	// Собираем обёртку с числом ключа о незначащем старшем байте
+	enclose(view_t(leading.data, leading.size), redundant);
+	// Проверяем отказ извлечения ключа с незначащим старшим байтом числа
+	EXPECT_EQ(extract(redundant), pem::error_t::CONTENT);
+	/**
+	 * Разрядность ключа берётся по длине его значащей части: число длиннее
+	 * наибольшей разрядности ключом быть не может
+	 */
+	const vector <uint8_t> vast(65, 0x41);
+	// Запись ключа непомерной длины
+	asn1::Writer lengthy;
+	// Записываем число ключа непомерной длины
+	lengthy.octets(view_t(vast.data(), vast.size()));
+	// Получаем собранную запись самого ключа
+	const view_t oversize = lengthy.data();
+	// Обёртка, число ключа у которой непомерной длины
+	asn1::Writer immense;
+	// Собираем обёртку с числом ключа непомерной длины
+	enclose(view_t(oversize.data, oversize.size), immense);
+	// Проверяем отказ извлечения ключа непомерной длины
+	EXPECT_EQ(extract(immense), pem::error_t::CONTENT);
+}
+
+/**
+ * @brief Проверка отказов записи добивки основания 64
+ *
+ */
+TEST(PemTest, Padded){
+	// Разобранные записи текста
+	vector <pem::block_t> blocks;
+	/**
+	 * Раздел 4 RFC 4648 ставит знаку добивки место лишь в конце четвёрки знаков:
+	 * добивка в ином её месте означает запись негодную
+	 */
+	EXPECT_EQ(pem::decode("-----BEGIN CERTIFICATE-----\nQ=U5\n-----END CERTIFICATE-----\n", blocks), pem::error_t::PADDING);
+	// Проверяем отказ разбора добивки на втором знаке четвёрки
+	EXPECT_EQ(pem::decode("-----BEGIN CERTIFICATE-----\n=QU5\n-----END CERTIFICATE-----\n", blocks), pem::error_t::PADDING);
+	/**
+	 * Знаков добивки в записи не бывает больше двух: четвёрка знаков несёт три
+	 * байта, и добивка сверх двух знаков означала бы четвёрку без содержимого
+	 */
+	EXPECT_EQ(pem::decode("-----BEGIN CERTIFICATE-----\nQU5LUw===\n-----END CERTIFICATE-----\n", blocks), pem::error_t::PADDING);
+}
+
+/**
+ * @brief Проверка отказов записи набора записей и имён отказов
+ *
+ */
+TEST(PemTest, Naming){
+	// Записанный текст набора записей
+	string text;
+	// Пустой набор записываемых записей
+	vector <pem::block_t> blocks;
+	// Проверяем отказ записи пустого набора записей
+	EXPECT_EQ(pem::encode(blocks, text), pem::error_t::EMPTY);
+	// Записываемая запись с негодной меткой
+	pem::block_t block;
+	// Устанавливаем метку записи с дефисом внутри
+	block.label = "PRIVATE-KEY";
+	// Устанавливаем тело записываемой записи
+	block.data = vector <uint8_t> (8, 0x41);
+	// Добавляем запись с негодной меткой в набор записей
+	blocks.push_back(block);
+	/**
+	 * Отказ записи очередной записи набора выносится наружу как есть: набор записан
+	 * быть не может, коль скоро не записана хотя бы одна его запись
+	 */
+	EXPECT_EQ(pem::encode(blocks, text), pem::error_t::LABEL);
+	/**
+	 * Всякому отказу отвечает своё имя, и одно имя двум отказам принадлежать не
+	 * вправе: имена эти идут в журнал, и совпадение их скрыло бы разницу причин
+	 */
+	const pem::error_t errors[10] = {
+		pem::error_t::NONE, pem::error_t::EMPTY, pem::error_t::BOUNDARY,
+		pem::error_t::LABEL, pem::error_t::ALPHABET, pem::error_t::PADDING,
+		pem::error_t::LENGTH, pem::error_t::CONTENT, pem::error_t::ENCRYPTED,
+		pem::error_t::MEMORY
+	};
+	/**
+	 * Выполняем перебор всех известных отказов разбора
+	 */
+	for(size_t i = 0; i < (sizeof(errors) / sizeof(pem::error_t)); i++){
+		// Проверяем, что имя очередного отказа передано
+		ASSERT_NE(pem::name(errors[i]), nullptr);
+		/**
+		 * Выполняем перебор отказов, стоящих впереди очередного
+		 */
+		for(size_t j = 0; j < i; j++)
+			// Проверяем несовпадение имён двух разных отказов
+			EXPECT_STRNE(pem::name(errors[i]), pem::name(errors[j])) << "отказы " << i << " и " << j;
+	}
+	// Проверяем имя отказа, ни одному из известных не отвечающего
+	EXPECT_STREQ(pem::name(static_cast <pem::error_t> (0xFF)), "UNKNOWN");
+}
