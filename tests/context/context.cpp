@@ -5540,3 +5540,171 @@ TEST(ContextTest, Alienleaf){
 	ASSERT_EQ(client.error(), context::error_t::CERTIFICATE);
 	ASSERT_FALSE(client.established());
 }
+
+/**
+ * Проверка самодеятельной смены ключей движком по счётчику записей
+ */
+TEST(ContextTest, Automatic){
+	// Подлинность стороны сервера
+	context::credential_t credentials;
+	// Выполняем выработку подлинности стороны сервера
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Связь стороны клиента
+	client::context_t client;
+	// Связь стороны сервера
+	server::context_t server;
+	// Устанавливаем подлинность стороны сервера
+	server.credential(credentials);
+	// Устанавливаем смену ключей клиентом по трём записям
+	client.renewal(true, 3);
+	// Устанавливаем смену ключей сервером по трём записям
+	server.renewal(true, 3);
+	// Выполняем заведение связи стороны сервера
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	// Выполняем заведение связи стороны клиента
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	// Выполняем проведение рукопожатия сторон связи
+	converse(client, server);
+	// Проверяем установленность связи обеими сторонами
+	ASSERT_TRUE(client.established() && server.established());
+	// Проверяем, что счётчики прикладных записей начинаются с нуля
+	ASSERT_EQ(client.sequence(), 0);
+	ASSERT_EQ(server.sequence(true), 0);
+	// Накопитель, в который помещаются принятые прикладные данные
+	vector <uint8_t> received;
+	// Накопитель, в который складываются все принятые сервером данные
+	string gathered;
+	/**
+	 * Выполняем отправку семи записей: раздел 5.5 RFC 8446 велит сменять ключи
+	 * впереди предела, и порог в три записи счётчик своего направления переступать
+	 * не должен ни разу
+	 */
+	for(size_t i = 0; i < 7; i++){
+		// Отправляемые прикладные данные
+		const string data = ("Запись " + std::to_string(i));
+		// Выполняем отправку прикладных данных клиентом
+		ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (data.data()), data.size())), context::error_t::NONE);
+		// Проверяем, что счётчик своего направления клиента порога не переступил
+		ASSERT_LT(client.sequence(), 3);
+		// Выполняем передачу байтов между сторонами, пока им есть что сказать
+		converse(client, server);
+		// Проверяем сохранность связи обеими сторонами
+		ASSERT_TRUE(client.established() && server.established());
+		// Проверяем, что счётчик направления клиента у сервера порога не переступил
+		ASSERT_LT(server.sequence(true), 3);
+		// Выполняем получение принятых сервером прикладных данных
+		ASSERT_EQ(server.read(received), context::error_t::NONE);
+		// Выполняем складывание принятых данных
+		gathered.append(received.begin(), received.end());
+	}
+	// Проверяем схождение принятых данных с отправленными
+	ASSERT_EQ(gathered, "Запись 0Запись 1Запись 2Запись 3Запись 4Запись 5Запись 6");
+	// Проверяем, что связь по-прежнему пригодна к обмену в обе стороны
+	ASSERT_EQ(server.write(view_t(reinterpret_cast <const uint8_t *> ("ok"), 2)), context::error_t::NONE);
+	// Выполняем передачу байтов между сторонами связи
+	converse(client, server);
+	// Выполняем получение принятых клиентом прикладных данных
+	ASSERT_EQ(client.read(received), context::error_t::NONE);
+	// Проверяем схождение принятых данных с отправленными
+	ASSERT_EQ(string(received.begin(), received.end()), "ok");
+}
+
+/**
+ * Проверка ручного порядка смены ключей: движок счётчика не трогает
+ */
+TEST(ContextTest, Manual){
+	// Подлинность стороны сервера
+	context::credential_t credentials;
+	// Выполняем выработку подлинности стороны сервера
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Связь стороны клиента
+	client::context_t client;
+	// Связь стороны сервера
+	server::context_t server;
+	// Устанавливаем подлинность стороны сервера
+	server.credential(credentials);
+	// Устанавливаем ручной порядок смены ключей клиентом с порогом в три записи
+	client.renewal(false, 3);
+	// Устанавливаем ручной порядок смены ключей сервером с порогом в три записи
+	server.renewal(false, 3);
+	// Выполняем заведение связи стороны сервера
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	// Выполняем заведение связи стороны клиента
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	// Выполняем проведение рукопожатия сторон связи
+	converse(client, server);
+	// Проверяем установленность связи обеими сторонами
+	ASSERT_TRUE(client.established() && server.established());
+	/**
+	 * Выполняем отправку пяти записей: в ручном порядке порог движку не указ,
+	 * и счётчики обоих концов направления доходят до пяти
+	 */
+	for(size_t i = 0; i < 5; i++)
+		// Выполняем отправку прикладных данных клиентом
+		ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> ("x"), 1)), context::error_t::NONE);
+	// Выполняем передачу байтов между сторонами, пока им есть что сказать
+	converse(client, server);
+	// Проверяем, что счётчик своего направления клиента дошёл до пяти
+	ASSERT_EQ(client.sequence(), 5);
+	// Проверяем, что счётчик направления клиента у сервера дошёл до пяти
+	ASSERT_EQ(server.sequence(true), 5);
+	// Проверяем, что своё направление сервер не сменял
+	ASSERT_EQ(server.sequence(), 0);
+	// Выполняем смену ключей вручную тем, кто связь ведёт
+	ASSERT_EQ(client.update(false), context::error_t::NONE);
+	// Выполняем передачу байтов между сторонами связи
+	converse(client, server);
+	// Проверяем, что счётчики направления клиента начались заново
+	ASSERT_EQ(client.sequence(), 0);
+	ASSERT_EQ(server.sequence(true), 0);
+	// Проверяем сохранность связи обеими сторонами
+	ASSERT_TRUE(client.established() && server.established());
+}
+
+/**
+ * Проверка просьбы о встречной смене ключей у собеседника, ведущего ручной порядок
+ */
+TEST(ContextTest, Requested){
+	// Подлинность стороны сервера
+	context::credential_t credentials;
+	// Выполняем выработку подлинности стороны сервера
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Связь стороны клиента
+	client::context_t client;
+	// Связь стороны сервера
+	server::context_t server;
+	// Устанавливаем подлинность стороны сервера
+	server.credential(credentials);
+	// Устанавливаем ручной порядок смены ключей клиентом: сам он ключи не сменит
+	client.renewal(false);
+	// Устанавливаем смену ключей сервером по трём записям
+	server.renewal(true, 3);
+	// Выполняем заведение связи стороны сервера
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	// Выполняем заведение связи стороны клиента
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	// Выполняем проведение рукопожатия сторон связи
+	converse(client, server);
+	// Проверяем установленность связи обеими сторонами
+	ASSERT_TRUE(client.established() && server.established());
+	/**
+	 * Выполняем два круга по четыре записи: сервер обязан испросить смену ключей
+	 * направления клиента на третьей записи каждого круга, а клиент по разделу
+	 * 4.6.3 RFC 8446 обязан на просьбу ответить и в ручном порядке
+	 */
+	for(size_t round = 0; round < 2; round++){
+		// Выполняем отправку четырёх записей клиентом
+		for(size_t i = 0; i < 4; i++){
+			// Выполняем отправку прикладных данных клиентом
+			ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> ("x"), 1)), context::error_t::NONE);
+			// Выполняем передачу байтов между сторонами, пока им есть что сказать
+			converse(client, server);
+		}
+		// Проверяем сохранность связи обеими сторонами
+		ASSERT_TRUE(client.established() && server.established());
+		// Проверяем, что счётчик направления клиента у сервера сменою обнулён
+		ASSERT_LT(server.sequence(true), 3);
+		// Проверяем, что и клиент своё направление сменил по просьбе
+		ASSERT_LT(client.sequence(), 3);
+	}
+}

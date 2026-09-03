@@ -2714,6 +2714,8 @@ context::error_t nts::internal::Engine::renew(const view_t & body) noexcept {
 	if(error != context::error_t::NONE)
 		// Выводим отказ смены ключевого материала направления
 		return this->abort(error, alert::description_t::INTERNAL);
+	// Сбрасываем признак испрошенной у собеседника смены ключей: ключи сменены
+	this->_asked = false;
 	// Если собеседник просит сменить ключи своего направления в ответ
 	if(update == message::update_t::REQUEST)
 		// Выводим итог смены ключевого материала своего направления
@@ -3400,6 +3402,56 @@ void nts::internal::Engine::request(const bool request) noexcept {
 	this->_request = request;
 }
 /**
+ * @brief Метод установки порядка смены ключей по счётчику записей
+ *
+ * @param automatic сменяет ли движок ключи сам по счётчику записей
+ * @param records   число записей направления, по которому идёт смена
+ *
+ */
+void nts::internal::Engine::renewal(const bool automatic, const uint64_t records) noexcept {
+	// Запоминаем порядок смены ключей по счётчику записей
+	this->_automatic = automatic;
+	// Запоминаем число записей направления, по которому сменяются ключи
+	this->_renewal = records;
+}
+/**
+ * @brief Метод получения счётчика записей направления связи
+ *
+ * @param incoming запрашивается ли направление собеседника
+ *
+ * @return         число записей направления на текущих ключах
+ *
+ */
+uint64_t nts::internal::Engine::sequence(const bool incoming) const noexcept {
+	// Выводим счётчик записей запрошенного направления связи
+	return (incoming ? this->_input.sequence() : this->_output.sequence());
+}
+/**
+ * @brief Метод смены ключей своего направления по счётчику записей
+ *
+ * @return отказ смены ключевого материала своего направления
+ *
+ */
+context::error_t nts::internal::Engine::refreshing() noexcept {
+	// Если ключи по счётчику записей движком не сменяются либо связь не установлена
+	if(!this->_automatic || (this->_state != context::state_t::ESTABLISHED))
+		// Выводим успешность: смена ключей остаётся за тем, кто связь ведёт
+		return context::error_t::NONE;
+	/**
+	 * Раздел 5.5 RFC 8446 велит сменять ключи впереди предела порядковых номеров.
+	 * По умолчанию смена идёт с половины предела набора шифрования: столько же
+	 * места остаётся собеседнику ответить на просьбу о встречной смене, сколько
+	 * берёт себе своё направление
+	 */
+	const uint64_t threshold = ((this->_renewal > 0) ? this->_renewal : (protect::limit(this->_suite) / 2));
+	// Если счётчик записей своего направления до смены ключей не дошёл
+	if(this->_output.sequence() < threshold)
+		// Выводим успешность: ключи менять рано
+		return context::error_t::NONE;
+	// Выводим итог смены ключевого материала своего направления связи
+	return this->update(false);
+}
+/**
  * @brief Метод заведения связи
  *
  * @return отказ заведения связи
@@ -3494,6 +3546,8 @@ void nts::internal::Engine::clear() noexcept {
 	this->_accepted = false;
 	// Выполняем сброс числа пропущенных записей упреждающих данных
 	this->_skipped = 0;
+	// Выполняем сброс признака испрошенной у собеседника смены ключей
+	this->_asked = false;
 	// Выполняем сброс размера прошедших упреждающих данных
 	this->_passed = 0;
 	// Выполняем сброс перечня расширений, предложенных приветствием
@@ -3679,6 +3733,33 @@ context::error_t nts::internal::Engine::push(const view_t & data) noexcept {
 			this->_skipped = 0;
 			// Получаем открытое содержимое принятой записи
 			content = view_t(opened.data(), opened.size());
+			/**
+			 * Раздел 5.5 RFC 8446 велит сменять ключи впереди предела порядковых номеров.
+			 * Направление собеседника сменить самим нельзя - оттого у него испрашивается
+			 * смена просьбою в собственном KeyUpdate, и просьба повторяется лишь после
+			 * того, как собеседник ключи сменил. Записи рукопожатия за установленной
+			 * связью - сама смена ключей и билеты - просьбы не будят: по ним счётчик
+			 * собеседника вот-вот обнулится либо будет испрошен следующей записью
+			 */
+			if(this->_automatic && !this->_asked && (this->_state == context::state_t::ESTABLISHED) && (type != record::type_t::HANDSHAKE)){
+				// Определяем число записей, по которому сменяются ключи
+				const uint64_t threshold = ((this->_renewal > 0) ? this->_renewal : (protect::limit(this->_suite) / 2));
+				// Если счётчик записей собеседника дошёл до смены ключей
+				if(this->_input.sequence() >= threshold){
+					// Запоминаем, что смена ключей у собеседника испрошена
+					this->_asked = true;
+					// Выполняем смену своих ключей с просьбою о встречной смене
+					const context::error_t error = this->update(true);
+					/**
+					 * Заслон этот недостижим извне: смена ключей за установленной связью
+					 * отказывает лишь на составлении собственного сообщения либо на
+					 * нехватке памяти, а данными собеседника не управляется
+					 */
+					if(error != context::error_t::NONE)
+						// Выводим отказ смены ключевого материала своего направления
+						return this->abort(error, alert::description_t::INTERNAL);
+				}
+			}
 		}
 		/**
 		 * Раздел 5.1 RFC 8446 запрещает перемежать сообщения рукопожатия записями
@@ -3907,8 +3988,8 @@ context::error_t nts::internal::Engine::write(const view_t & data) noexcept {
 		// Увеличиваем размер отправленных прикладных данных
 		offset += size;
 	}
-	// Выводим успешность отправки прикладных данных
-	return context::error_t::NONE;
+	// Выводим итог смены ключей своего направления по счётчику записей
+	return this->refreshing();
 }
 /**
  * @brief Метод получения принятых прикладных данных
@@ -4191,7 +4272,8 @@ nts::internal::Engine::Engine(const bool server) noexcept :
  _state(context::state_t::NONE), _error(context::error_t::NONE),
  _suite(protect::suite_t::NONE), _group(extension::group_t::NONE),
  _moment(0), _limit(0), _passed(0),
- _shared(false), _chosen(0), _advance(false), _earlying(false), _accepted(false), _ticket(protect::suite_t::NONE), _skipped(0) {
+ _shared(false), _chosen(0), _advance(false), _earlying(false), _accepted(false),
+ _automatic(true), _asked(false), _renewal(0), _ticket(protect::suite_t::NONE), _skipped(0) {
 	// Выполняем сброс поры ключей записей клиента
 	this->_epoch[0] = flow::epoch_t::PLAIN;
 	// Выполняем сброс поры ключей записей сервера

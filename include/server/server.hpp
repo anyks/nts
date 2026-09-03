@@ -563,6 +563,61 @@ namespace nts {
 				 * \~
 				 */
 				bool accepted() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод установки порядка смены ключей по счётчику записей
+				 *
+				 * @param automatic сменяет ли движок ключи сам по счётчику записей
+				 * @param records   число записей направления, по которому идёт смена
+				 *
+				 * @details Раздел 5.5 RFC 8446: смена ключевого материала обязана идти впереди
+				 *          предела порядковых номеров записей. В самодеятельном порядке движок
+				 *          сменяет ключи своего направления сам, дойдя счётчиком до порога, а у
+				 *          собеседника испрашивает смену просьбою в KeyUpdate; в ручном порядке
+				 *          за счётчиком следит тот, кто связь ведёт, методами sequence() и update()
+				 *
+				 * @note Нулевое число записей означает половину предела набора шифрования: столько
+				 *       же места остаётся собеседнику ответить на просьбу, сколько берёт своё
+				 *       направление. По умолчанию порядок самодеятельный
+				 *
+				 * \~english
+				 * @brief Method of setting the order of the change of the keys by the counter of the records
+				 * @param automatic whether the engine changes the keys itself by the counter of the records
+				 * @param records   the number of the records of a direction at which the change goes
+				 * @details The section 5.5 of RFC 8446: the change of the key material must go ahead of the
+				 *          limit of the sequence numbers of the records. In the automatic order the engine
+				 *          changes the keys of its own direction itself having reached the threshold by the
+				 *          counter, and asks the interlocutor for the change by the request in KeyUpdate; in
+				 *          the manual order the one who leads the connection watches the counter by the
+				 *          methods sequence() and update()
+				 * @note The zero number of the records means a half of the limit of the cipher suite: as much
+				 *       room is left to the interlocutor to answer the request as one's own direction takes.
+				 *       The automatic order is the default
+				 *
+				 * \~
+				 */
+				void renewal(const bool automatic, const uint64_t records = 0) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения счётчика записей направления связи
+				 *
+				 * @param incoming запрашивается ли направление собеседника
+				 *
+				 * @return         число записей направления на текущих ключах
+				 *
+				 * @details Раздел 5.3 RFC 8446: счётчик начинается заново с каждой сменой ключей
+				 *          направления, оттого он равен числу записей, прошедших на текущих ключах
+				 *
+				 * \~english
+				 * @brief Method of getting the counter of the records of a direction of the connection
+				 * @param incoming whether the direction of the interlocutor is requested
+				 * @return         the number of the records of the direction under the current keys
+				 * @details The section 5.3 of RFC 8446: the counter starts anew with each change of the keys of
+				 *          the direction, hence it equals the number of the records passed under the current keys
+				 *
+				 * \~
+				 */
+				uint64_t sequence(const bool incoming = false) const noexcept;
 			public:
 				/**
 				 * \~russian

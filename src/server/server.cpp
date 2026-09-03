@@ -308,6 +308,31 @@ bool nts::server::Context::accepted() const noexcept {
 	return (this->_engine != nullptr ? this->_engine->accepted() : false);
 }
 /**
+ * @brief Метод установки порядка смены ключей по счётчику записей
+ *
+ * @param automatic сменяет ли движок ключи сам по счётчику записей
+ * @param records   число записей направления, по которому идёт смена
+ *
+ */
+void nts::server::Context::renewal(const bool automatic, const uint64_t records) noexcept {
+	// Если ведение связи заведено
+	if(this->_engine != nullptr)
+		// Выполняем установку порядка смены ключей по счётчику записей
+		this->_engine->renewal(automatic, records);
+}
+/**
+ * @brief Метод получения счётчика записей направления связи
+ *
+ * @param incoming запрашивается ли направление собеседника
+ *
+ * @return         число записей направления на текущих ключах
+ *
+ */
+uint64_t nts::server::Context::sequence(const bool incoming) const noexcept {
+	// Выводим счётчик записей запрошенного направления связи
+	return (this->_engine != nullptr ? this->_engine->sequence(incoming) : 0);
+}
+/**
  * @brief Метод заведения связи
  *
  * @return отказ заведения связи

@@ -3,6 +3,8 @@
 #include <string.h>
 #include <time.h>
 #include <openssl/evp.h>
+#include <openssl/engine.h>
+#include <openssl/objects.h>
 #include <openssl/provider.h>
 #include <openssl/err.h>
 #include <openssl/core_names.h>
@@ -68,17 +70,26 @@ int main(void){
 	}
 	printf("сличение подписи   %8.0f раз/с\n", (double) rounds / (now() - t));
 
-	/* обмен ключами VKO */
-	EVP_PKEY_CTX * dc = EVP_PKEY_CTX_new_from_pkey(ctx, mine, NULL);
+	/* обмен ключами VKO: провайдер gostprov обмена ключами не объявляет вовсе -
+	 * VKO по RFC 7836 несёт унаследованный движок gost.so, и добавочное значение (UKM)
+	 * ставится ему старым ctrl с кодом EVP_PKEY_CTRL_SET_IV; строковый ctrl «ukm» и
+	 * OSSL_PARAM у него не в ходу (-2, «command not supported») */
+	ENGINE_load_builtin_engines();
+	ENGINE * e = ENGINE_by_id("gost");
+	if(e == NULL || !ENGINE_init(e)) fail("engine gost");
+	const int nid = OBJ_txt2nid("1.2.643.7.1.1.1.1");
+	EVP_PKEY * k[2] = {NULL, NULL};
+	for(int i = 0; i < 2; i++){
+		EVP_PKEY_CTX * kc = EVP_PKEY_CTX_new_id(nid, e);
+		if(kc == NULL || EVP_PKEY_keygen_init(kc) <= 0) fail("engine keygen_init");
+		if(EVP_PKEY_CTX_ctrl_str(kc, "paramset", "A") <= 0) fail("engine paramset");
+		if(EVP_PKEY_keygen(kc, &k[i]) <= 0) fail("engine keygen");
+	}
+	EVP_PKEY_CTX * dc = EVP_PKEY_CTX_new(k[0], e);
 	if(dc == NULL || EVP_PKEY_derive_init(dc) <= 0) fail("derive_init");
-	if(EVP_PKEY_derive_set_peer(dc, peer) <= 0) fail("set_peer");
-	/* VKO требует пользовательского значения: без него провайдер отвечает «ukm not set» */
+	if(EVP_PKEY_derive_set_peer(dc, k[1]) <= 0) fail("set_peer");
 	unsigned char ukm[8] = {1, 2, 3, 4, 5, 6, 7, 8};
-	OSSL_PARAM params[] = {
-		OSSL_PARAM_construct_octet_string("ukm", ukm, sizeof(ukm)),
-		OSSL_PARAM_construct_end()
-	};
-	if(EVP_PKEY_CTX_set_params(dc, params) <= 0) fail("ukm");
+	if(EVP_PKEY_CTX_ctrl(dc, -1, EVP_PKEY_OP_DERIVE, EVP_PKEY_CTRL_SET_IV, sizeof(ukm), ukm) <= 0) fail("ukm");
 	unsigned char shared[64];
 	size_t shlen = sizeof(shared);
 	if(EVP_PKEY_derive(dc, shared, &shlen) <= 0) fail("derive");

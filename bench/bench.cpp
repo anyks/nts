@@ -49,6 +49,7 @@
 #include <cipher/mgm.hpp>
 #include <cipher/mode.hpp>
 #include <agreement/ecdhe.hpp>
+#include <agreement/vko.hpp>
 #include <cipher/kuznyechik.hpp>
 #include <cipher/magma.hpp>
 #include <digest/streebog.hpp>
@@ -495,6 +496,34 @@ int main(int argc, char * argv[]) noexcept {
 	const double exchange = count("Обмен ключами ECDHE", 200, [&curve, &secret, &opened, &shared]() noexcept -> void {
 		// Выполняем выработку общего значения обмена ключами
 		agreement::ecdhe(curve, view_t(secret, sizeof(secret)), view_t(opened, sizeof(opened)), shared);
+	});
+	/**
+	 * VKO по RFC 7836 ждёт секрет и координаты от старшего байта, тогда как обмен
+	 * ключами отдаёт их от младшего, как они идут по связи: разворот здесь, у границы
+	 */
+	uint8_t owned[32], x[32], y[32];
+	// Выполняем разворот секретного ключа и координат открытого ключа
+	for(size_t i = 0; i < 32; i++){
+		// Переносим байт секретного ключа
+		owned[i] = secret[31 - i];
+		// Переносим байт первой координаты
+		x[i] = opened[31 - i];
+		// Переносим байт второй координаты
+		y[i] = opened[63 - i];
+	}
+	// Добавочное значение сторон: восемь байтов, как у эталонного щупа
+	const uint8_t material[8] = {8, 7, 6, 5, 4, 3, 2, 1};
+	// Если общий ключ VKO выработать не удалось
+	if(!agreement::vko(curve, view_t(owned, sizeof(owned)), view_t(x, sizeof(x)), view_t(y, sizeof(y)), view_t(material, sizeof(material)), shared, sizeof(shared))){
+		// Выводим сообщение об отказе
+		cout << "Выработать общий ключ VKO не удалось" << endl;
+		// Выходим из приложения
+		return EXIT_FAILURE;
+	}
+	// Выполняем замер обмена ключами VKO: эталон снимается щупом gostbench.c на Astra
+	count("Обмен ключами VKO", 200, [&curve, &owned, &x, &y, &material, &shared]() noexcept -> void {
+		// Выполняем выработку общего ключа VKO
+		agreement::vko(curve, view_t(owned, sizeof(owned)), view_t(x, sizeof(x)), view_t(y, sizeof(y)), view_t(material, sizeof(material)), shared, sizeof(shared));
 	});
 	// Подлинность стороны сервера
 	context::credential_t credentials;

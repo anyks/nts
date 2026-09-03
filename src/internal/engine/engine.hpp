@@ -190,6 +190,13 @@ namespace nts {
 				// Признак того, что упреждающие данные приняты собеседником
 				bool _accepted;
 			private:
+				// Признак того, что ключи сменяются движком самим по счётчику записей
+				bool _automatic;
+				// Признак того, что смена ключей у собеседника уже испрошена
+				bool _asked;
+				// Число записей направления, по которому сменяются ключи
+				uint64_t _renewal;
+			private:
 				// Набор шифрования билета, из которого выводятся ключи упреждения
 				protect::suite_t _ticket;
 			private:
@@ -413,6 +420,13 @@ namespace nts {
 				 */
 				context::error_t renew(const view_t & body) noexcept;
 				/**
+				 * @brief Метод смены ключей своего направления по счётчику записей
+				 *
+				 * @return отказ смены ключевого материала своего направления
+				 *
+				 */
+				context::error_t refreshing() noexcept;
+				/**
 				 * @brief Метод вывода значения возобновления связи
 				 *
 				 * @return отказ вывода значения возобновления связи
@@ -586,6 +600,23 @@ namespace nts {
 				 *
 				 */
 				void request(const bool request) noexcept;
+				/**
+				 * @brief Метод установки порядка смены ключей по счётчику записей
+				 *
+				 * @param automatic сменяет ли движок ключи сам по счётчику записей
+				 * @param records   число записей направления, по которому идёт смена
+				 *
+				 */
+				void renewal(const bool automatic, const uint64_t records) noexcept;
+				/**
+				 * @brief Метод получения счётчика записей направления связи
+				 *
+				 * @param incoming запрашивается ли направление собеседника
+				 *
+				 * @return         число записей направления на текущих ключах
+				 *
+				 */
+				uint64_t sequence(const bool incoming) const noexcept;
 			public:
 				/**
 				 * @brief Метод заведения связи
