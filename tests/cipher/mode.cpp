@@ -1039,3 +1039,53 @@ TEST(ModeTest, Descriptor) {
 	// Проверяем отказ заведения вектором замены короче блока шифра
 	ASSERT_FALSE(output.start(sample, view_t(iv, (cipher::MODE_BLOCK - 1))));
 }
+
+/**
+ * Проверка готовности режимов и отказов установки на негодном описании шифра
+ */
+TEST(ModeTest, Unready) {
+	uint8_t secret[32];
+	bytes(KUZNYECHIK_SECRET, secret);
+	cipher::kuznyechik_t base;
+	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
+	uint8_t iv[32];
+	::memset(iv, 0x44, sizeof(iv));
+	const size_t size = cipher::KUZNYECHIK_BLOCK;
+	// Всякий режим до установки не готов, а после установки готов
+	cipher::codebook_t codebook;
+	ASSERT_FALSE(codebook.ready());
+	ASSERT_TRUE(codebook.start(cipher::block_t(base)));
+	ASSERT_TRUE(codebook.ready());
+	cipher::counter_t counter;
+	ASSERT_FALSE(counter.ready());
+	ASSERT_TRUE(counter.start(cipher::block_t(base), view_t(iv, size / 2)));
+	ASSERT_TRUE(counter.ready());
+	/**
+	 * Описание шифра без самого шифра непригодно всякому режиму: у гаммирования с
+	 * обратной связью, сцепления и имитовставки заслон тот же, что у простой замены
+	 */
+	cipher::output_t output;
+	ASSERT_FALSE(output.ready());
+	ASSERT_FALSE(output.start(cipher::block_t(), view_t(iv, size)));
+	// Длина гаммы не больше блока: раздел 5.3 ГОСТ Р 34.13-2015
+	ASSERT_FALSE(output.start(cipher::block_t(base), view_t(iv, size), size + 1));
+	ASSERT_TRUE(output.start(cipher::block_t(base), view_t(iv, size)));
+	ASSERT_TRUE(output.ready());
+	cipher::chaining_t chaining;
+	ASSERT_FALSE(chaining.ready());
+	ASSERT_FALSE(chaining.start(cipher::block_t(), view_t(iv, size)));
+	ASSERT_TRUE(chaining.start(cipher::block_t(base), view_t(iv, size)));
+	ASSERT_TRUE(chaining.ready());
+	cipher::feedback_t feedback;
+	ASSERT_FALSE(feedback.ready());
+	ASSERT_FALSE(feedback.start(cipher::block_t(), view_t(iv, size)));
+	// Длина гаммы не больше блока: раздел 5.5 ГОСТ Р 34.13-2015
+	ASSERT_FALSE(feedback.start(cipher::block_t(base), view_t(iv, size), size + 1));
+	ASSERT_TRUE(feedback.start(cipher::block_t(base), view_t(iv, size)));
+	ASSERT_TRUE(feedback.ready());
+	cipher::imitation_t imitation;
+	ASSERT_FALSE(imitation.ready());
+	ASSERT_FALSE(imitation.start(cipher::block_t()));
+	ASSERT_TRUE(imitation.start(cipher::block_t(base)));
+	ASSERT_TRUE(imitation.ready());
+}

@@ -325,4 +325,21 @@ TEST(GostTest, Failures) {
 	gost.clear();
 	// Проверяем отказ работы модуля после сброса его состояния
 	ASSERT_FALSE(gost.ready());
+	/**
+	 * Открытый ключ просмотрами координат до установки кривой: кривой, на которую
+	 * класть точку, нет, - отказ приходит от самой перегрузки, а не от установки
+	 */
+	sign::gost_t bare;
+	// Проверяем отказ установки ключа просмотрами до установки кривой
+	ASSERT_FALSE(bare.key(view_t(x, sizeof(x)), view_t(y, sizeof(y))));
+	/**
+	 * Вторая половина подписи не меньше порядка подгруппы: число такое загрузить
+	 * нельзя, и подпись отвергается до всякого счёта - раздел 6.2 ГОСТ Р 34.10-2012
+	 */
+	ASSERT_TRUE(gost.start(curve));
+	// Берём годную подпись и ставим вторую её половину не меньше порядка
+	bytes(SIGNATURE, signature);
+	::memset((signature + (sizeof(signature) / 2)), 0xFF, (sizeof(signature) / 2));
+	// Проверяем отказ на подписи со второй половиной не меньше порядка
+	ASSERT_FALSE(gost.check(view_t(digest, bytes(DIGEST, digest)), view_t(signature, sizeof(signature))));
 }

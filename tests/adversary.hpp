@@ -158,7 +158,17 @@ namespace {
 		OFFCURVE   = 0x46, // Приветствие сервера несёт долю обмена вне кривой
 		OFFPOINT   = 0x47, // Приветствие клиента несёт долю обмена вне кривой
 		SYNTHETIC  = 0x48, // За приветствием сервера идёт сообщение поддельного вида
-		MALSCHEMES = 0x49  // Приветствие клиента несёт негодные схемы подписи
+		MALSCHEMES = 0x49, // Приветствие клиента несёт негодные схемы подписи
+		MALREQUEST = 0x4A, // Запрос подлинности несёт перечень расширений, оборванный на виде
+		OVERREQUEST = 0x4B, // Запрос подлинности несёт лишний байт за своим телом
+		MALREQSCHEMES = 0x4C, // Запрос подлинности несёт негодный перечень схем подписи
+		MALCHAIN   = 0x4D, // Цепочка сертификатов несёт негодное тело
+		MALVERIFY  = 0x4E, // Подпись владения ключом несёт негодное тело
+		GARBAGELEAF = 0x4F, // Цепочка сертификатов несёт запись, сертификатом не являющуюся
+		ODDSIGN    = 0x50, // Подпись владения ключом нечётной длины при годном объявлении
+		ALIENTYPE  = 0x51, // Защищённая запись несёт содержимое неведомого вида
+		UNKNOWNPSK = 0x52, // Приветствие клиента предлагает неведомый серверу заранее разделённый ключ
+		ALIENLEAF  = 0x53  // Цепочка сертификатов несёт лист с чужим алгоритмом ключа
 	};
 	/**
 	 * @brief Заранее назначенное случайное значение просьбы о повторе приветствия
@@ -192,7 +202,7 @@ namespace {
 	 * @return         признак успешности составления защищённой записи
 	 *
 	 */
-	bool hollow(const protect::suite_t suite, const view_t & key, const view_t & vector, const uint64_t sequence, const record::type_t inner, std::vector <uint8_t> & result) noexcept {
+	bool hollow(const protect::suite_t suite, const view_t & key, const view_t & vector, const uint64_t sequence, const record::type_t inner, std::vector <uint8_t> & result, const size_t filler = 0) noexcept {
 		// Получаем длину блока базового шифра набора
 		const size_t size = protect::block(suite);
 		// Если набор шифрования неизвестен
@@ -244,7 +254,7 @@ namespace {
 		// Устанавливаем издание протокола защищённой записи
 		header.version = record::version_t::TLS12;
 		// Устанавливаем длину содержимого защищённой записи
-		header.size = (1 + size);
+		header.size = (filler + 1 + size);
 		// Место, в которое записывается заголовок защищённой записи
 		uint8_t associated[record::RECORD_HEADER];
 		// Если заголовок защищённой записи составить не удалось
@@ -252,17 +262,17 @@ namespace {
 			// Выводим отказ составления защищённой записи
 			return false;
 		// Открытый текст составляемой записи в один байт истинного вида содержимого
-		const uint8_t plain[1] = {static_cast <uint8_t> (inner)};
+		std::vector <uint8_t> plain(filler, 0x00); plain.push_back(static_cast <uint8_t> (inner));
 		// Место, в которое помещаются шифртекст и метка целостности записи
-		uint8_t sealed[1 + protect::PROTECT_VECTOR];
+		std::vector <uint8_t> sealed(plain.size() + protect::PROTECT_VECTOR);
 		// Если наложить шифрование с проверкой целостности не удалось
-		if(!galois.encrypt(view_t(associated, record::RECORD_HEADER), view_t(plain, sizeof(plain)), sealed, (sealed + 1)))
+		if(!galois.encrypt(view_t(associated, record::RECORD_HEADER), view_t(plain.data(), plain.size()), sealed.data(), (sealed.data() + plain.size())))
 			// Выводим отказ составления защищённой записи
 			return false;
 		// Складываем заголовок защищённой записи в накопитель
 		result.insert(result.end(), associated, associated + record::RECORD_HEADER);
 		// Складываем шифртекст и метку целостности в накопитель
-		result.insert(result.end(), sealed, sealed + 1 + size);
+		result.insert(result.end(), sealed.data(), sealed.data() + plain.size() + size);
 		// Выводим успешность составления защищённой записи
 		return true;
 	}
@@ -311,7 +321,7 @@ namespace {
 	 * @return           признак успешности выработки подписи владения ключом
 	 *
 	 */
-	bool possession(const context::credential_t & credential, const session::transcript_t & transcript, const bool server, vector <uint8_t> & result) noexcept {
+	bool possession(const context::credential_t & credential, const session::transcript_t & transcript, const bool server, vector <uint8_t> & result, const char * override = nullptr) noexcept {
 		// Объект разбора сертификата враждебного сервера
 		x509::certificate_t leaf;
 		// Если сертификат враждебного сервера разобрать не удалось
@@ -321,7 +331,14 @@ namespace {
 		// Опознаватель набора параметров кривой своего ключа
 		string oid;
 		// Если опознаватель набора параметров кривой извлечь не удалось
-		if(!x509::identifier(leaf.key(), oid))
+		/**
+		 * Кривая подписи берётся из листа, а при переопределении - из довода: лист с
+		 * чужим алгоритмом ключа своей кривой не выдаёт, тогда как подписать волну им
+		 * всё же надо - клиент обязан отвергнуть лист сам, а не по отказу оснастки
+		 */
+		if(override != nullptr)
+			oid = override;
+		else if(!x509::identifier(leaf.key(), oid))
 			// Выводим отказ выработки подписи владения ключом
 			return false;
 		// Схема подписи владения ключом враждебного сервера
@@ -351,7 +368,7 @@ namespace {
 		// Эллиптическая кривая подписи владения ключом
 		curve::curve_t signing;
 		// Если кривую своего ключа завести не удалось
-		if(!x509::parameters(leaf.key(), signing))
+		if((override != nullptr) ? !curve::parameters(oid, signing) : !x509::parameters(leaf.key(), signing))
 			// Выводим отказ выработки подписи владения ключом
 			return false;
 		// Место, в которое помещается хеш переписки рукопожатия
@@ -975,6 +992,23 @@ namespace {
 			return true;
 		}
 		// Если враждебный сервер шлёт запрос подлинности без схем подписи
+		if((distortion == distortion_t::MALREQUEST) || (distortion == distortion_t::OVERREQUEST) ||
+		   (distortion == distortion_t::MALREQSCHEMES)){
+			// Тело запроса подлинности с негодным перечнем расширений
+			std::vector <uint8_t> request;
+			// Если перечень расширений оборван на виде расширения
+			if(distortion == distortion_t::MALREQUEST)
+				request = {0x00, 0x00, 0x01, 0x00};
+			// Если за телом запроса идёт лишний байт
+			else if(distortion == distortion_t::OVERREQUEST)
+				request = {0x00, 0x00, 0x00, 0x00};
+			// Если перечень схем подписи негоден: длина перечня нечётна
+			else request = {0x00, 0x00, 0x07, 0x00, 0x0D, 0x00, 0x03, 0x00, 0x01, 0x08};
+			if(!deliver(protection, transcript, handshake::type_t::REQUEST, view_t(request.data(), request.size()), answered))
+				return false;
+			client.push(view_t(answered.data(), answered.size()));
+			return true;
+		}
 		if(distortion == distortion_t::SILENT){
 			// Объект составителя тела запроса подлинности клиента
 			field::builder_t builder;
@@ -1044,7 +1078,9 @@ namespace {
 		          (distortion == distortion_t::TATTERED) || (distortion == distortion_t::SCRAMBLED) ||
 		          (distortion == distortion_t::MALADVANCE) || (distortion == distortion_t::OUTPLACED) ||
 		          (distortion == distortion_t::LENGTHY) || (distortion == distortion_t::MALSIGN) ||
-		          (distortion == distortion_t::MALFINISH)) {
+		          (distortion == distortion_t::MALFINISH) || (distortion == distortion_t::MALCHAIN) ||
+		          (distortion == distortion_t::MALVERIFY) || (distortion == distortion_t::GARBAGELEAF) ||
+		          (distortion == distortion_t::ODDSIGN) || (distortion == distortion_t::ALIENLEAF)) {
 			// Если подлинность враждебного сервера проверкой не задана
 			if((credential == nullptr) || credential->chain.empty())
 				// Выводим отказ ответа враждебного сервера
@@ -1054,7 +1090,9 @@ namespace {
 			// Запись цепочки сертификатов враждебного сервера
 			message::entry_t entry;
 			// Устанавливаем тело сертификата записи цепочки
-			entry.data = view_t(credential->chain[0].data(), credential->chain[0].size());
+			// Запись, сертификатом не являющаяся: разбор её обязан отвергнуть лист
+			const std::vector <uint8_t> garbage(64, 0x41);
+			entry.data = ((distortion == distortion_t::GARBAGELEAF) ? view_t(garbage.data(), garbage.size()) : view_t(credential->chain[0].data(), credential->chain[0].size()));
 			// Добавляем запись в цепочку сертификатов
 			certificate.entries.push_back(entry);
 			// Накопитель, в который складывается тело цепочки сертификатов
@@ -1064,6 +1102,9 @@ namespace {
 				// Выводим отказ ответа враждебного сервера
 				return false;
 			// Если цепочку сертификатов враждебного сервера отправить не удалось
+			// Если цепочка сертификатов несёт негодное тело: перечень расширений записи оборван
+			if(distortion == distortion_t::MALCHAIN)
+				chain = {0x00, 0x00, 0x00, 0x07, 0x00, 0x00, 0x01, 0x30, 0x00, 0x01, 0x00};
 			if(!deliver(protection, transcript, handshake::type_t::CERTIFICATE, view_t(chain.data(), chain.size()), answered))
 				// Выводим отказ ответа враждебного сервера
 				return false;
@@ -1088,7 +1129,7 @@ namespace {
 					// Выводим отказ ответа враждебного сервера
 					return false;
 			// Если враждебный сервер подписывает владение ключом по-настоящему
-			} else if(!possession(* credential, transcript, true, witnessed))
+			} else if(!possession(* credential, transcript, true, witnessed, ((distortion == distortion_t::ALIENLEAF) ? "1.2.643.2.2.35.1" : nullptr)))
 				// Выводим отказ ответа враждебного сервера
 				return false;
 			/**
@@ -1100,6 +1141,20 @@ namespace {
 			 * Искажением MALSIGN портится сама подпись при годных её схеме и длине:
 			 * раздел 4.4.3 RFC 8446 велит рвать связь извещением decrypt_error
 			 */
+			// Если подпись владения ключом несёт негодное тело: значение подписи пусто
+			if(distortion == distortion_t::MALVERIFY)
+				witnessed = {0x08, 0x04, 0x00, 0x00};
+			// Если подпись владения ключом нечётной длины при годном объявлении
+			if(distortion == distortion_t::ODDSIGN){
+				message::verify_t witness;
+				if(message::parse(view_t(witnessed.data(), witnessed.size()), witness) != message::error_t::NONE)
+					return false;
+				const std::vector <uint8_t> odd(63, 0x5A);
+				witness.signature = view_t(odd.data(), odd.size());
+				witnessed.clear();
+				if(message::build(witness, witnessed) != message::error_t::NONE)
+					return false;
+			}
 			if((distortion == distortion_t::MALSIGN) && (witnessed.size() > 0))
 				// Портим последний байт записи подписи владения ключом
 				witnessed[witnessed.size() - 1] = static_cast <uint8_t> (witnessed[witnessed.size() - 1] ^ 0x01);
@@ -1130,7 +1185,8 @@ namespace {
 		if((distortion == distortion_t::LIFETIME) || (distortion == distortion_t::AFTERCLOSE) ||
 		   (distortion == distortion_t::TATTERED) || (distortion == distortion_t::SCRAMBLED) ||
 		   (distortion == distortion_t::MALADVANCE) || (distortion == distortion_t::OUTPLACED) ||
-		   (distortion == distortion_t::VACANT) || (distortion == distortion_t::MALFINISH)){
+		   (distortion == distortion_t::VACANT) || (distortion == distortion_t::MALFINISH) ||
+		   (distortion == distortion_t::ALIENTYPE)){
 			// Место, в которое помещается ключ завершения рукопожатия сервера
 			uint8_t completion[schedule::SCHEDULE_SECRET];
 			// Если ключ завершения рукопожатия вывести не удалось
@@ -1327,7 +1383,13 @@ namespace {
 					return false;
 			}
 			// Если враждебный сервер шлёт защищённую запись с пустым содержимым
-			if(distortion == distortion_t::VACANT){
+			if(distortion == distortion_t::ALIENTYPE){
+			answered.clear();
+			// Запись с содержимым в один байт и неведомым видом 0x2A: до разбора вида она доходит
+			if(!hollow(suite, view_t(material, sizeof(material)), view_t(element, protect::block(suite)), outgoing.sequence(), static_cast <record::type_t> (0x2A), answered, 1))
+				return false;
+		}
+		if(distortion == distortion_t::VACANT){
 				// Выполняем сброс накопителя ответа враждебного сервера
 				answered.clear();
 				/**
@@ -1818,6 +1880,23 @@ namespace {
 			if(distortion == distortion_t::MISORDER)
 				// Добавляем расширение имени сервера за предложением ключа
 				greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::NAME), view_t(bodies[0].data(), bodies[0].size())));
+		}
+		/**
+		 * Неведомый серверу заранее разделённый ключ: предложение собрано по всем
+		 * правилам - способы обмена, опознаватель, привязка, - и стоит последним, как
+		 * велит раздел 4.2.11 RFC 8446. Сервер вправе его не признать и продолжить
+		 * полным рукопожатием: неведомый опознаватель - не отказ, а отсутствие совпадения
+		 */
+		if(distortion == distortion_t::UNKNOWNPSK){
+			if(extension::modes(vector <extension::mode_t> {extension::mode_t::SHARED}, bodies[5]) != extension::error_t::NONE)
+				return false;
+			greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::MODES), view_t(bodies[5].data(), bodies[5].size())));
+			const std::vector <uint8_t> unknown(8, 0x5A);
+			const std::vector <uint8_t> binder(32, 0xA5);
+			const extension::identity_t identity(view_t(unknown.data(), unknown.size()), 0);
+			if(extension::identities(vector <extension::identity_t> {identity}, vector <view_t> {view_t(binder.data(), binder.size())}, bodies[4]) != extension::error_t::NONE)
+				return false;
+			greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::SECRET), view_t(bodies[4].data(), bodies[4].size())));
 		}
 		// Накопитель, в который складывается тело приветствия клиента
 		vector <uint8_t> body;

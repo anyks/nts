@@ -271,3 +271,30 @@ TEST(HandshakeTest, Limit){
 	// Проверяем опустошение накопителя сборщика
 	ASSERT_EQ(reader.pending(), static_cast <size_t> (0));
 }
+
+/**
+ * Проверка отказов составления заголовка сообщения рукопожатия
+ */
+TEST(HandshakeTest, Refusals){
+	// Заголовок составляемого сообщения
+	handshake::header_t header;
+	// Устанавливаем вид сообщения рукопожатия
+	header.type = handshake::type_t::FINISHED;
+	// Устанавливаем длину тела сообщения
+	header.size = 32;
+	// Место, в которое составляется заголовок сообщения
+	uint8_t buffer[handshake::HANDSHAKE_HEADER];
+	// Проверяем отказ составления заголовка в непереданное место
+	ASSERT_EQ(handshake::build(header, nullptr), handshake::error_t::HUNGRY);
+	/**
+	 * Длина тела объявляется тремя байтами: раздел 4 RFC 8446. Тело длиннее того в
+	 * заголовок не входит, и составление обязано отказать, а не усечь длину
+	 */
+	header.size = (handshake::HANDSHAKE_LIMIT + 1);
+	// Проверяем отказ составления заголовка с непомерной длиной тела
+	ASSERT_EQ(handshake::build(header, buffer), handshake::error_t::LENGTH);
+	// Устанавливаем наибольшую дозволенную длину тела сообщения
+	header.size = handshake::HANDSHAKE_LIMIT;
+	// Проверяем успешность составления заголовка на самой границе длины
+	ASSERT_EQ(handshake::build(header, buffer), handshake::error_t::NONE);
+}

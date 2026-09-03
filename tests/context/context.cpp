@@ -100,7 +100,7 @@ namespace {
 	 *       а подпись владения ключом сличается именно с этим сертификатом
 	 *
 	 */
-	bool identity(const string & name, context::credential_t & result) noexcept {
+	bool identity(const string & name, context::credential_t & result, const bool alien = false) noexcept {
 		// Эллиптическая кривая ключа стороны связи
 		curve::curve_t curve;
 		// Если кривую ключа стороны связи завести не удалось
@@ -222,7 +222,12 @@ namespace {
 			// Выводим отказ выработки подлинности стороны
 			return false;
 		// Записываем опознаватель алгоритма открытого ключа
-		if(!body.oid("1.2.643.7.1.1.1.1"))
+		/**
+		 * Чужой алгоритм ключа: опознаватель берётся эллиптическим вне ГОСТ, а подпись и
+		 * само значение остаются ГОСТ - разбор ключа обязан отвергнуть лист до всякой
+		 * сверки подписи
+		 */
+		if(!body.oid(alien ? "1.2.840.10045.2.1" : "1.2.643.7.1.1.1.1"))
 			// Выводим отказ выработки подлинности стороны
 			return false;
 		// Открываем набор настроек алгоритма открытого ключа
@@ -5351,4 +5356,187 @@ TEST(ContextTest, Malschemes){
 	ASSERT_EQ(server.alert().description, alert::description_t::DECODE);
 	// Проверяем неустановленность связи стороной сервера
 	ASSERT_FALSE(server.established());
+}
+
+/**
+ * Проверка отказа клиента на запрос подлинности с перечнем расширений, оборванным на виде
+ */
+TEST(ContextTest, Malrequest){
+	context::credential_t credentials;
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	client::context_t client;
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	ASSERT_TRUE(adversary(client, distortion_t::MALREQUEST, &credentials));
+	// Раздел 4.3.2 RFC 8446: вид расширения объявлен двумя байтами, обрыв на нём - негодное тело
+	ASSERT_EQ(client.error(), context::error_t::MESSAGE);
+	ASSERT_EQ(client.alert().description, alert::description_t::DECODE);
+	ASSERT_FALSE(client.established());
+}
+
+/**
+ * Проверка отказа клиента на запрос подлинности с лишним байтом за телом
+ */
+TEST(ContextTest, Overrequest){
+	context::credential_t credentials;
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	client::context_t client;
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	ASSERT_TRUE(adversary(client, distortion_t::OVERREQUEST, &credentials));
+	ASSERT_EQ(client.error(), context::error_t::MESSAGE);
+	ASSERT_EQ(client.alert().description, alert::description_t::DECODE);
+	ASSERT_FALSE(client.established());
+}
+
+/**
+ * Проверка отказа клиента на запрос подлинности с негодным перечнем схем подписи
+ */
+TEST(ContextTest, Malreqschemes){
+	context::credential_t credentials;
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	client::context_t client;
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	ASSERT_TRUE(adversary(client, distortion_t::MALREQSCHEMES, &credentials));
+	ASSERT_EQ(client.error(), context::error_t::MESSAGE);
+	ASSERT_EQ(client.alert().description, alert::description_t::DECODE);
+	ASSERT_FALSE(client.established());
+}
+
+/**
+ * Проверка отказа клиента на цепочку сертификатов с негодным телом
+ */
+TEST(ContextTest, Malchain){
+	context::credential_t credentials;
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	client::context_t client;
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	ASSERT_TRUE(adversary(client, distortion_t::MALCHAIN, &credentials));
+	ASSERT_EQ(client.error(), context::error_t::MESSAGE);
+	// Раздел 6.2 RFC 8446: негодная цепочка сертификатов извещается как bad_certificate
+	ASSERT_EQ(client.alert().description, alert::description_t::BADCERT);
+	ASSERT_FALSE(client.established());
+}
+
+/**
+ * Проверка отказа клиента на подпись владения ключом с негодным телом
+ */
+TEST(ContextTest, Malverify){
+	context::credential_t credentials;
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	client::context_t client;
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	ASSERT_TRUE(adversary(client, distortion_t::MALVERIFY, &credentials));
+	ASSERT_EQ(client.error(), context::error_t::MESSAGE);
+	// Раздел 4.4.3 RFC 8446: негодная подпись владения ключом извещается как decrypt_error
+	ASSERT_EQ(client.alert().description, alert::description_t::DECRYPT);
+	ASSERT_FALSE(client.established());
+}
+
+/**
+ * Проверка отказа клиента на запись цепочки, сертификатом не являющуюся
+ */
+TEST(ContextTest, Garbageleaf){
+	context::credential_t credentials;
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	client::context_t client;
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	ASSERT_TRUE(adversary(client, distortion_t::GARBAGELEAF, &credentials));
+	ASSERT_EQ(client.error(), context::error_t::CERTIFICATE);
+	ASSERT_FALSE(client.established());
+}
+
+/**
+ * Проверка отказа клиента на подпись владения ключом нечётной длины
+ */
+TEST(ContextTest, Oddsign){
+	context::credential_t credentials;
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	client::context_t client;
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	ASSERT_TRUE(adversary(client, distortion_t::ODDSIGN, &credentials));
+	// Раздел 2 RFC 9215: подпись - два числа равной длины, нечётная длина на два не делится
+	ASSERT_EQ(client.error(), context::error_t::SIGNATURE);
+	ASSERT_FALSE(client.established());
+}
+
+/**
+ * Проверка отказа клиента на защищённую запись с содержимым неведомого вида
+ */
+TEST(ContextTest, Alientype){
+	context::credential_t credentials;
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	client::context_t client;
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	ASSERT_TRUE(adversary(client, distortion_t::ALIENTYPE, &credentials));
+	/**
+	 * Раздел 5.2 RFC 8446: истинный вид содержимого обязан быть одним из известных.
+	 * Отвергает его снятие защиты записи, ещё до движка: заслон движка на тот же
+	 * случай стоит за ним в тени и своего опыта не получает
+	 */
+	ASSERT_EQ(client.error(), context::error_t::PROTECTION);
+	ASSERT_FALSE(client.established());
+}
+
+/**
+ * Проверка отказов на злоупотребление API: пустые настройки и смена ключа не в свой черёд
+ */
+TEST(ContextTest, Misused){
+	/**
+	 * Пустые перечни наборов и кривых фасадом не принимаются вовсе - сеттеры движка
+	 * пустой перечень пропускают, оставляя умолчание, - оттого заслон пустых настроек
+	 * через фасад недостижим и здесь не проверяется
+	 */
+	// Смена ключевого материала до установления связи - нарушение порядка: раздел 4.6.3 RFC 8446
+	client::context_t hasty;
+	ASSERT_EQ(hasty.start(), context::error_t::NONE);
+	/**
+	 * Отказ приходит состоянием, а не порядком: движок сверяет состояние связи прежде
+	 * машины сообщений, и заслон порядка на тот же случай стоит за ним в тени
+	 */
+	ASSERT_EQ(hasty.update(), context::error_t::STATE);
+}
+
+/**
+ * Проверка принятия приветствия с неведомым серверу заранее разделённым ключом
+ */
+TEST(ContextTest, Unknownpsk){
+	context::credential_t credentials;
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Билеты, выданные сервером: без них запас пуст, и до поиска ключа сервер не доходит
+	vector <context::ticket_t> issued;
+	{
+		client::context_t client;
+		server::context_t server;
+		server.credential(credentials);
+		ASSERT_EQ(server.start(), context::error_t::NONE);
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		converse(client, server);
+		ASSERT_TRUE(client.established() && server.established());
+		ASSERT_EQ(server.issue(), context::error_t::NONE);
+		pump(client, server);
+		issued = server.tickets();
+		ASSERT_EQ(issued.size(), static_cast <size_t> (1));
+	}
+	server::context_t server;
+	server.credential(credentials);
+	server.resume(issued);
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	// Раздел 4.2.11 RFC 8446: неведомый ключ сервер вправе не признать и продолжить полным рукопожатием
+	ASSERT_TRUE(intruder(server, distortion_t::UNKNOWNPSK, &credentials));
+	ASSERT_EQ(server.error(), context::error_t::NONE);
+	ASSERT_FALSE(server.shared());
+}
+
+/**
+ * Проверка отказа клиента на лист с чужим алгоритмом открытого ключа
+ */
+TEST(ContextTest, Alienleaf){
+	context::credential_t credentials;
+	// Удостоверение, ключ которого записан чужим алгоритмом
+	ASSERT_TRUE(identity("anyks.com", credentials, true));
+	client::context_t client;
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	ASSERT_TRUE(adversary(client, distortion_t::ALIENLEAF, &credentials));
+	// Раздел 4.4.2.2 RFC 8446: сертификат с ключом непригодного алгоритма отвергается
+	ASSERT_EQ(client.error(), context::error_t::CERTIFICATE);
+	ASSERT_FALSE(client.established());
 }

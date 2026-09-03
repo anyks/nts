@@ -63,6 +63,18 @@ typedef struct Defect {
 	bool numeric;
 	// Основные ограничения открываются полем не универсального класса
 	bool foreign;
+	// Признак пустого набора расширений: поле необязательное, и пустым ему быть нельзя
+	bool vacant;
+	// Признак записи опознавателя издателя: поле это дозволено лишь изданиям выше первого
+	bool identified;
+	// Признак записи опознавателя издателя составной формой
+	bool wrapped;
+	// Признак записи опознавателя издателя с негодным числом неиспользуемых разрядов
+	bool tainted;
+	// Признак третьего поля в записи срока действия: их ровно два
+	bool prolonged;
+	// Признак признака имени с опознавателем вне таблицы RFC 4514
+	bool serial;
 	/**
 	 * @brief Конструктор
 	 *
@@ -71,13 +83,39 @@ typedef struct Defect {
 		version(false), release(false), critical(false),
 		duplicate(false), generalized(false), trailing(false),
 		order(false), crowded(false), enclosed(false),
-		untimed(false), numeric(false), foreign(false) {}
+		untimed(false), numeric(false), foreign(false),
+		vacant(false), identified(false), wrapped(false), tainted(false), prolonged(false), serial(false) {}
 } defect_t;
 
 /**
  * @brief Метод записи отличительного имени
  *
  * @param writer записчик записи
+ * @param value  значение общего имени
+ *
+ */
+static void name(asn1::writer_t & writer, const char * oid, const char * value) {
+	// Открываем запись имени
+	writer.open(asn1::tag_t::SEQUENCE);
+	// Открываем составляющую имени
+	writer.open(asn1::tag_t::SET);
+	// Открываем признак имени
+	writer.open(asn1::tag_t::SEQUENCE);
+	// Записываем опознаватель признака имени
+	writer.oid(oid);
+	// Записываем значение признака имени
+	writer.text(asn1::tag_t::UTF8_STRING, value);
+	// Закрываем признак имени
+	writer.close();
+	// Закрываем составляющую имени
+	writer.close();
+	// Закрываем запись имени
+	writer.close();
+}
+/**
+ * @brief Метод записи имени стороны общим именем
+ *
+ * @param writer записчик, в который записывается имя
  * @param value  значение общего имени
  *
  */
@@ -159,10 +197,18 @@ static void build(asn1::writer_t & writer, const defect_t & defect) {
 	else writer.time((defect.generalized ? asn1::tag_t::GENERALIZED_TIME : asn1::tag_t::UTC_TIME), 1787747696);
 	// Записываем окончание срока действия сертификата
 	writer.time(asn1::tag_t::UTC_TIME, 1819283696);
+	// Если срок действия записывается третьим полем
+	if(defect.prolonged)
+		// Записываем лишнюю границу срока действия
+		writer.time(asn1::tag_t::UTC_TIME, 1819283696);
 	// Закрываем запись срока действия сертификата
 	writer.close();
+	// Если имя владельца записывается признаком с опознавателем вне таблицы
+	if(defect.serial)
+		// Записываем имя владельца порядковым номером: RFC 4514 обозначения ему не даёт
+		name(writer, "2.5.4.5", "0001");
 	// Записываем имя владельца сертификата
-	name(writer, "anyks.com");
+	else name(writer, "anyks.com");
 	// Открываем запись сведений об открытом ключе
 	writer.open(asn1::tag_t::SEQUENCE);
 	// Записываем опознаватель алгоритма ключа
@@ -171,6 +217,23 @@ static void build(asn1::writer_t & writer, const defect_t & defect) {
 	writer.bits(view_t(key, sizeof(key)));
 	// Закрываем запись сведений об открытом ключе
 	writer.close();
+	/**
+	 * Опознаватель издателя записывается меткой места употребления [1] неявно, как
+	 * строка разрядов: первый байт содержимого несёт число неиспользуемых разрядов.
+	 * Раздел 4.1.2.8 RFC 5280 дозволяет поле лишь изданиям выше первого
+	 */
+	if(defect.identified || defect.wrapped || defect.tainted){
+		// Содержимое опознавателя издателя: число неиспользуемых разрядов и сами разряды
+		const uint8_t uid[3] = {static_cast <uint8_t> (defect.tainted ? 0x08 : 0x00), 0xA5, 0x5A};
+		// Если опознаватель издателя записывается составной формой
+		if(defect.wrapped){
+			// Открываем составную запись опознавателя издателя
+			writer.open(asn1::cls_t::CONTEXT, 1);
+			// Закрываем составную запись опознавателя издателя
+			writer.close();
+		// Записываем опознаватель издателя простой формой
+		} else writer.element(asn1::cls_t::CONTEXT, false, 1, view_t(uid, sizeof(uid)));
+	}
 	// Если необязательные поля записываются с нарушением порядка
 	if(defect.order){
 		// Открываем запись набора расширений
@@ -207,7 +270,7 @@ static void build(asn1::writer_t & writer, const defect_t & defect) {
 	// Открываем набор расширений
 	writer.open(asn1::tag_t::SEQUENCE);
 	// Определяем число записываемых расширений основных ограничений
-	const size_t count = (defect.duplicate ? 2 : 1);
+	const size_t count = (defect.vacant ? 0 : (defect.duplicate ? 2 : 1));
 	/**
 	 * Выполняем запись расширений основных ограничений
 	 */
@@ -1127,4 +1190,320 @@ TEST(X509Test, Recast) {
 		// Проверяем отказ разбора записи с подменённым видом метки
 		ASSERT_NE(certificate.parse(view_t(item.data(), item.size())), x509::error_t::NONE) << "метка " << i << " по смещению " << places[i] << ", вид 0x" << std::hex << static_cast <unsigned> (origin[places[i]]) << " -> 0x" << changed;
 	}
+}
+
+/**
+ * @brief Проверка необязательных полей подписываемой части сертификата
+ *
+ * @note Раздел 4.1.2.8 RFC 5280: опознаватели издателя и владельца дозволены лишь
+ *       изданиям выше первого; раздел 4.1.2.9: набор расширений - поле
+ *       необязательное, и пустым ему быть нельзя
+ *
+ */
+TEST(X509Test, Peripheral) {
+	// Изъян: опознаватель издателя у сертификата первого издания
+	defect_t ancient;
+	// Ставим первое издание сертификата
+	ancient.version = true;
+	// Записываем опознаватель издателя
+	ancient.identified = true;
+	// Изъян: опознаватель издателя составной формы
+	defect_t wrapped;
+	// Записываем опознаватель издателя составной формой
+	wrapped.wrapped = true;
+	// Изъян: опознаватель издателя с негодным числом неиспользуемых разрядов
+	defect_t tainted;
+	// Записываем опознаватель издателя с восемью неиспользуемыми разрядами
+	tainted.tainted = true;
+	// Изъян: пустой набор расширений
+	defect_t vacant;
+	// Оставляем набор расширений пустым
+	vacant.vacant = true;
+	// Изъян: опознаватель издателя у сертификата третьего издания - изъяном не является
+	defect_t sound;
+	// Записываем опознаватель издателя
+	sound.identified = true;
+	/**
+	 * Изъян: опознаватель издателя у настоящего первого издания - без поля издания
+	 * вовсе. Явно записанное первое издание отвергается ещё разбором издания: DER
+	 * значение по умолчанию не пишет, - и до опознавателя разбор там не доходит
+	 */
+	defect_t primeval;
+	// Оставляем поле издания незаписанным
+	primeval.release = true;
+	// Записываем опознаватель издателя
+	primeval.identified = true;
+	// Изъян: третье поле в записи срока действия
+	defect_t prolonged;
+	// Записываем лишнюю границу срока действия
+	prolonged.prolonged = true;
+	// Набор вносимых изъянов
+	const defect_t defects[] = {ancient, wrapped, tainted, vacant, sound, primeval, prolonged};
+	// Ожидаемые отказы разбора
+	const x509::error_t errors[] = {
+		x509::error_t::VERSION, x509::error_t::STRUCTURE, x509::error_t::STRUCTURE,
+		x509::error_t::EXTENSION, x509::error_t::NONE, x509::error_t::VERSION,
+		x509::error_t::STRUCTURE
+	};
+	/**
+	 * Выполняем обход набора вносимых изъянов
+	 */
+	for(size_t i = 0; i < (sizeof(defects) / sizeof(defects[0])); i++){
+		// Создаём записчик записи сертификата
+		asn1::writer_t writer;
+		// Собираем запись сертификата с очередным изъяном
+		build(writer, defects[i]);
+		// Проверяем успешность сборки записи сертификата
+		ASSERT_EQ(writer.err(), asn1::error_t::NONE) << "изъян " << i;
+		// Объект разбираемого сертификата
+		x509::certificate_t certificate;
+		// Проверяем итог разбора записи с очередным изъяном
+		ASSERT_EQ(certificate.parse(writer.data()), errors[i]) << "изъян " << i;
+		// Проверяем, что причина отказа хранится сертификатом
+		ASSERT_EQ(certificate.err(), errors[i]) << "изъян " << i;
+	}
+	/**
+	 * Байты за концом внешней последовательности сертификата - отказ устройства
+	 * записи: длина сертификата объявлена его меткой, и хвост означает подделку
+	 */
+	asn1::writer_t writer;
+	// Собираем годную запись сертификата
+	build(writer, defect_t());
+	// Получаем собранную запись сертификата
+	const view_t whole = writer.data();
+	// Переносим собранную запись сертификата
+	vector <uint8_t> trailed(whole.data, whole.data + whole.size);
+	// Дописываем лишний байт за концом записи сертификата
+	trailed.push_back(0x00);
+	// Объект разбираемого сертификата
+	x509::certificate_t certificate;
+	// Проверяем отказ разбора записи с лишним байтом за её концом
+	ASSERT_EQ(certificate.parse(view_t(trailed.data(), trailed.size())), x509::error_t::STRUCTURE);
+	/**
+	 * Хвост ВНУТРИ внешней последовательности - за подписью - ловится своим заслоном:
+	 * внешняя длина объявлена с запасом, и байт за подписью в неё входит. Длина
+	 * внешней последовательности увеличивается на единицу прямо в записи
+	 */
+	vector <uint8_t> padded(whole.data, whole.data + whole.size);
+	// Дописываем байт внутрь внешней последовательности
+	padded.push_back(0x00);
+	// Число байтов долгой формы длины внешней последовательности
+	const size_t count = ((padded[1] & 0x80) != 0) ? (padded[1] & 0x7F) : 0;
+	// Проверяем, что длина записана долгой формой: запись сертификата длиннее 127 байтов
+	ASSERT_GT(count, static_cast <size_t> (0));
+	/**
+	 * Увеличиваем объявленную длину на единицу: младший байт стоит последним
+	 */
+	for(size_t i = (1 + count); i > 1; i--){
+		// Увеличиваем очередной байт длины
+		padded[i] = static_cast <uint8_t> (padded[i] + 1);
+		// Если переноса в старший байт не случилось
+		if(padded[i] != 0)
+			// Выходим из увеличения длины
+			break;
+	}
+	// Объект разбираемого сертификата с хвостом внутри
+	x509::certificate_t inner;
+	// Проверяем отказ разбора записи с хвостом внутри внешней последовательности
+	ASSERT_EQ(inner.parse(view_t(padded.data(), padded.size())), x509::error_t::STRUCTURE);
+	/**
+	 * Признак имени с опознавателем вне таблицы RFC 4514 записывается самим
+	 * опознавателем: запись такая разбирается всяким, а короткое обозначение вне
+	 * стандарта - лишь тем, кто знает ту же таблицу
+	 */
+	defect_t serial;
+	// Записываем имя владельца порядковым номером
+	serial.serial = true;
+	// Создаём записчик записи сертификата с порядковым номером в имени
+	asn1::writer_t numbered;
+	// Собираем запись сертификата с порядковым номером в имени
+	build(numbered, serial);
+	// Объект разбираемого сертификата с порядковым номером в имени
+	x509::certificate_t named;
+	// Проверяем успешность разбора сертификата с порядковым номером в имени
+	ASSERT_EQ(named.parse(numbered.data()), x509::error_t::NONE);
+	// Запись имени владельца сертификата
+	string subject;
+	// Проверяем успешность записи имени владельца
+	ASSERT_EQ(x509::text(named.subjects(), subject), x509::error_t::NONE);
+	// Проверяем, что признак записан самим опознавателем
+	ASSERT_EQ(subject, string("2.5.4.5=0001"));
+}
+
+/**
+ * @brief Проверка отказов разборщиков расширений на негодном теле
+ *
+ * @note Тела эти собираются байтами: записчик таких не составит, а встречаются они
+ *       лишь у подделки. Всякий разборщик расширения читает содержимое, пришедшее
+ *       извне, и обязан отвергнуть всё, что правилам записи не отвечает
+ *
+ */
+TEST(X509Test, Misextended) {
+	// Составляемое расширение сертификата
+	x509::extension_t extension;
+	// Признак принадлежности удостоверяющему центру
+	bool authority = false;
+	// Предельная глубина цепочки
+	int64_t depth = -1;
+	// Устанавливаем опознаватель расширения основных ограничений
+	extension.oid = "2.5.29.19";
+	// Первое поле ограничений объявлено длиною, которой не набирается
+	const uint8_t unfilled[] = {0x30, 0x02, 0x02, 0x05};
+	// Устанавливаем тело расширения обрубленным первым полем
+	extension.value = view_t(unfilled, sizeof(unfilled));
+	// Проверяем отказ разбора ограничений с обрубленным первым полем
+	ASSERT_EQ(x509::constraints(extension, authority, depth), x509::error_t::ENCODING);
+	// Признак принадлежности записан двумя байтами: истинностное значение занимает один
+	const uint8_t doubled[] = {0x30, 0x04, 0x01, 0x02, 0xFF, 0xFF};
+	// Устанавливаем тело расширения двухбайтовым признаком принадлежности
+	extension.value = view_t(doubled, sizeof(doubled));
+	// Проверяем отказ разбора ограничений с двухбайтовым признаком
+	ASSERT_EQ(x509::constraints(extension, authority, depth), x509::error_t::EXTENSION);
+	/**
+	 * Раздел 11.5 X.690: значение по умолчанию кодировка DER не записывает вовсе -
+	 * явная ложь признака принадлежности означает запись не по правилам
+	 */
+	const uint8_t explicitly[] = {0x30, 0x03, 0x01, 0x01, 0x00};
+	// Устанавливаем тело расширения явно записанной ложью признака
+	extension.value = view_t(explicitly, sizeof(explicitly));
+	// Проверяем отказ разбора ограничений с явно записанной ложью
+	ASSERT_EQ(x509::constraints(extension, authority, depth), x509::error_t::EXTENSION);
+	// Поле глубины вслед за признаком объявлено длиною, которой не набирается
+	const uint8_t stunted[] = {0x30, 0x05, 0x01, 0x01, 0xFF, 0x02, 0x05};
+	// Устанавливаем тело расширения обрубленным полем глубины
+	extension.value = view_t(stunted, sizeof(stunted));
+	// Проверяем отказ разбора ограничений с обрубленным полем глубины
+	ASSERT_EQ(x509::constraints(extension, authority, depth), x509::error_t::ENCODING);
+	// Глубина записана с незначащим старшим байтом: раздел 8.3.2 X.690 велит кратчайшую запись
+	const uint8_t padded[] = {0x30, 0x07, 0x01, 0x01, 0xFF, 0x02, 0x02, 0x00, 0x01};
+	// Устанавливаем тело расширения глубиной с незначащим байтом
+	extension.value = view_t(padded, sizeof(padded));
+	// Проверяем отказ разбора ограничений с некратчайшей записью глубины
+	ASSERT_EQ(x509::constraints(extension, authority, depth), x509::error_t::EXTENSION);
+	// За глубиной цепочки идёт лишнее поле
+	const uint8_t overfilled[] = {0x30, 0x08, 0x01, 0x01, 0xFF, 0x02, 0x01, 0x00, 0x05, 0x00};
+	// Устанавливаем тело расширения лишним полем за глубиной
+	extension.value = view_t(overfilled, sizeof(overfilled));
+	// Проверяем отказ разбора ограничений с лишним полем за глубиной
+	ASSERT_EQ(x509::constraints(extension, authority, depth), x509::error_t::STRUCTURE);
+	// Разряды назначения ключа
+	uint16_t usage = 0;
+	// Устанавливаем опознаватель расширения назначения ключа
+	extension.oid = "2.5.29.15";
+	// За строкой разрядов назначения идёт лишнее поле
+	const uint8_t trailed[] = {0x03, 0x02, 0x05, 0x80, 0x05, 0x00};
+	// Устанавливаем тело расширения лишним полем за разрядами
+	extension.value = view_t(trailed, sizeof(trailed));
+	// Проверяем отказ разбора назначения с лишним полем
+	ASSERT_EQ(x509::usage(extension, usage), x509::error_t::STRUCTURE);
+	// Неиспользуемых разрядов объявлено восемь: в байте их не больше семи
+	const uint8_t unused[] = {0x03, 0x02, 0x08, 0x80};
+	// Устанавливаем тело расширения негодным числом неиспользуемых разрядов
+	extension.value = view_t(unused, sizeof(unused));
+	// Проверяем отказ разбора назначения с негодным числом неиспользуемых разрядов
+	ASSERT_EQ(x509::usage(extension, usage), x509::error_t::EXTENSION);
+	// Набор опознавателей расширенного назначения
+	vector <string> purposes;
+	// Устанавливаем опознаватель расширения расширенного назначения
+	extension.oid = "2.5.29.37";
+	// Расширенное назначение записано строкой байтов вместо последовательности
+	const uint8_t octets[] = {0x04, 0x00};
+	// Устанавливаем тело расширения строкой байтов
+	extension.value = view_t(octets, sizeof(octets));
+	// Проверяем отказ разбора назначения записью не той метки
+	ASSERT_EQ(x509::purpose(extension, purposes), x509::error_t::ENCODING);
+	// Пустая последовательность назначений
+	const uint8_t empty[] = {0x30, 0x00};
+	// Устанавливаем тело расширения пустой последовательностью
+	extension.value = view_t(empty, sizeof(empty));
+	// Проверяем отказ разбора пустого набора назначений
+	ASSERT_EQ(x509::purpose(extension, purposes), x509::error_t::EXTENSION);
+	// Внутри набора назначений стоит целое число вместо опознавателя
+	const uint8_t numeric[] = {0x30, 0x02, 0x02, 0x00};
+	// Устанавливаем тело расширения числом на месте опознавателя
+	extension.value = view_t(numeric, sizeof(numeric));
+	// Проверяем отказ разбора назначения с числом на месте опознавателя
+	ASSERT_EQ(x509::purpose(extension, purposes), x509::error_t::ENCODING);
+	// Опознаватель оборван на байте с признаком продолжения
+	const uint8_t unfinished[] = {0x30, 0x03, 0x06, 0x01, 0x80};
+	// Устанавливаем тело расширения оборванным опознавателем
+	extension.value = view_t(unfinished, sizeof(unfinished));
+	// Проверяем отказ разбора назначения с оборванным опознавателем
+	ASSERT_EQ(x509::purpose(extension, purposes), x509::error_t::EXTENSION);
+	// Набор дополнительных имён владельца
+	vector <x509::alternative_t> names;
+	// Устанавливаем опознаватель расширения дополнительных имён
+	extension.oid = "2.5.29.17";
+	// Устанавливаем тело расширения пустой последовательностью
+	extension.value = view_t(empty, sizeof(empty));
+	// Проверяем отказ разбора пустого набора имён
+	ASSERT_EQ(x509::alternatives(extension, names), x509::error_t::EXTENSION);
+	// Имя объявлено длиною, которой не набирается
+	const uint8_t cut[] = {0x30, 0x02, 0x82, 0x05};
+	// Устанавливаем тело расширения обрубленным именем
+	extension.value = view_t(cut, sizeof(cut));
+	// Проверяем отказ разбора набора с обрубленным именем
+	ASSERT_EQ(x509::alternatives(extension, names), x509::error_t::ENCODING);
+	// Имя записано меткой универсального класса: имена размечаются местом употребления
+	const uint8_t universal[] = {0x30, 0x02, 0x04, 0x00};
+	// Устанавливаем тело расширения именем универсального класса
+	extension.value = view_t(universal, sizeof(universal));
+	// Проверяем отказ разбора имени универсального класса
+	ASSERT_EQ(x509::alternatives(extension, names), x509::error_t::STRUCTURE);
+	// Доменное имя несёт знак вне набора IA5
+	const uint8_t alien[] = {0x30, 0x04, 0x82, 0x02, 0x41, 0x80};
+	// Устанавливаем тело расширения доменным именем со знаком вне набора
+	extension.value = view_t(alien, sizeof(alien));
+	// Проверяем отказ разбора доменного имени со знаком вне набора IA5
+	ASSERT_EQ(x509::alternatives(extension, names), x509::error_t::EXTENSION);
+	// Адрес сети записан составной формой
+	const uint8_t nested[] = {0x30, 0x02, 0xA7, 0x00};
+	// Устанавливаем тело расширения адресом составной формы
+	extension.value = view_t(nested, sizeof(nested));
+	// Проверяем отказ разбора адреса составной формы
+	ASSERT_EQ(x509::alternatives(extension, names), x509::error_t::STRUCTURE);
+	// Адрес сети длиною в один байт: IPv4 занимает четыре, IPv6 - шестнадцать
+	const uint8_t odd[] = {0x30, 0x03, 0x87, 0x01, 0x00};
+	// Устанавливаем тело расширения адресом негодной длины
+	extension.value = view_t(odd, sizeof(odd));
+	// Проверяем отказ разбора адреса негодной длины
+	ASSERT_EQ(x509::alternatives(extension, names), x509::error_t::EXTENSION);
+	// Имя каталога записано простой формой: оно обязано быть последовательностью
+	const uint8_t flat[] = {0x30, 0x02, 0x84, 0x00};
+	// Устанавливаем тело расширения именем каталога простой формы
+	extension.value = view_t(flat, sizeof(flat));
+	// Проверяем отказ разбора имени каталога простой формы
+	ASSERT_EQ(x509::alternatives(extension, names), x509::error_t::STRUCTURE);
+	// Опознаватель ключа
+	view_t identifier;
+	// Устанавливаем опознаватель расширения опознавателя ключа владельца
+	extension.oid = "2.5.29.14";
+	// Устанавливаем тело расширения последовательностью вместо строки байтов
+	extension.value = view_t(empty, sizeof(empty));
+	// Проверяем отказ разбора опознавателя владельца записью не той метки
+	ASSERT_EQ(x509::subjectKey(extension, identifier), x509::error_t::ENCODING);
+	// Устанавливаем опознаватель расширения опознавателя ключа издателя
+	extension.oid = "2.5.29.35";
+	// Устанавливаем тело расширения строкой байтов вместо последовательности
+	extension.value = view_t(octets, sizeof(octets));
+	// Проверяем отказ разбора опознавателя издателя записью не той метки
+	ASSERT_EQ(x509::authorityKey(extension, identifier), x509::error_t::ENCODING);
+	// Поле опознавателя издателя объявлено длиною, которой не набирается
+	const uint8_t broken[] = {0x30, 0x02, 0x80, 0x05};
+	// Устанавливаем тело расширения обрубленным полем
+	extension.value = view_t(broken, sizeof(broken));
+	// Проверяем отказ разбора опознавателя издателя с обрубленным полем
+	ASSERT_EQ(x509::authorityKey(extension, identifier), x509::error_t::ENCODING);
+	// Поле с номером метки выше дозволенных: устройство записи знает лишь [0], [1] и [2]
+	const uint8_t beyond[] = {0x30, 0x02, 0x83, 0x00};
+	// Устанавливаем тело расширения полем с чужим номером метки
+	extension.value = view_t(beyond, sizeof(beyond));
+	// Проверяем отказ разбора опознавателя издателя с чужим номером метки
+	ASSERT_EQ(x509::authorityKey(extension, identifier), x509::error_t::STRUCTURE);
+	// Опознаватель ключа [0] записан составной формой: он строка байтов, а не набор
+	const uint8_t composite[] = {0x30, 0x02, 0xA0, 0x00};
+	// Устанавливаем тело расширения опознавателем составной формы
+	extension.value = view_t(composite, sizeof(composite));
+	// Проверяем отказ разбора опознавателя ключа составной формы
+	ASSERT_EQ(x509::authorityKey(extension, identifier), x509::error_t::STRUCTURE);
 }

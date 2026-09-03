@@ -391,3 +391,50 @@ TEST(RecordTest, Hollow){
 	// Проверяем успешность установки предела длиною в открытую запись протокола
 	ASSERT_TRUE(limited.limit(record::RECORD_PLAINTEXT));
 }
+
+/**
+ * Проверка отказов составления заголовка и нарезки записей
+ */
+TEST(RecordTest, Refusals){
+	// Заголовок составляемой записи
+	record::header_t header;
+	// Устанавливаем вид содержимого записи
+	header.type = record::type_t::HANDSHAKE;
+	// Устанавливаем издание протокола записи
+	header.version = record::version_t::TLS12;
+	// Устанавливаем длину содержимого записи
+	header.size = 16;
+	// Место, в которое составляется заголовок записи
+	uint8_t buffer[record::RECORD_HEADER];
+	// Проверяем отказ составления заголовка в непереданное место
+	ASSERT_EQ(record::build(header, nullptr), record::error_t::HUNGRY);
+	// Проверяем успешность составления годного заголовка
+	ASSERT_EQ(record::build(header, buffer), record::error_t::NONE);
+	// Устанавливаем неведомый вид содержимого записи
+	header.type = record::type_t::NONE;
+	// Проверяем отказ составления заголовка с неведомым видом содержимого
+	ASSERT_EQ(record::build(header, buffer), record::error_t::TYPE);
+	// Восстанавливаем вид содержимого записи
+	header.type = record::type_t::HANDSHAKE;
+	/**
+	 * Раздел 5.2 RFC 8446: защищённая запись не длиннее 2^14 + 256 байтов, а
+	 * составление заголовка допускает запас шифрования - но не сверх него
+	 */
+	header.size = (record::RECORD_PROTECTED + 1);
+	// Проверяем отказ составления заголовка с непомерной длиной содержимого
+	ASSERT_EQ(record::build(header, buffer), record::error_t::LENGTH);
+	// Нарезчик данных на записи
+	record::writer_t writer;
+	// Устанавливаем предел длины содержимого нарезаемой записи
+	ASSERT_TRUE(writer.limit(16));
+	// Проверяем, что предел хранится нарезчиком
+	ASSERT_EQ(writer.limit(), static_cast <size_t> (16));
+	// Нарезаемые данные
+	const uint8_t data[] = {0x01, 0x02, 0x03};
+	// Проверяем отказ нарезки данных неведомого вида содержимого
+	ASSERT_EQ(writer.push(record::type_t::NONE, record::version_t::TLS12, view_t(data, sizeof(data))), record::error_t::TYPE);
+	// Проверяем отказ нарезки данных неустановленного издания протокола
+	ASSERT_EQ(writer.push(record::type_t::HANDSHAKE, record::version_t::NONE, view_t(data, sizeof(data))), record::error_t::VERSION);
+	// Проверяем, что нарезчик отказами ничего не накопил
+	ASSERT_EQ(writer.pending(), static_cast <size_t> (0));
+}

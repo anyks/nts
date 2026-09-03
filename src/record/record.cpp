@@ -540,6 +540,12 @@ nts::record::error_t nts::record::Writer::push(const type_t type, const version_
 		do {
 			// Определяем длину содержимого очередной записи
 			header.size = (((total - offset) < this->_limit) ? (total - offset) : this->_limit);
+			/**
+			 * Заслон составления заголовка ниже недостижим: предел нарезки не превышает
+			 * RECORD_PLAINTEXT по устройству limit(), а вид и издание сверены выше.
+			 * Стоит он ради связности: молчаливая нарезка по неверному заголовку была
+			 * бы хуже отказа
+			 */
 			// Если заголовок очередной записи составить не удалось
 			if(nts::record::build(header, buffer) != error_t::NONE)
 				// Выводим отказ нарезки данных на записи
