@@ -627,7 +627,9 @@ nts::message::error_t nts::message::build(const ticket_t & ticket, vector <uint8
 	try {
 		// Выполняем перенос составленного тела сообщения в накопитель
 		result.assign(data.data, data.data + data.size);
-	// Если памяти под итог не хватило
+	/**
+	 * Если памяти под итог не хватило
+	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
 		return error_t::MEMORY;
@@ -686,7 +688,9 @@ nts::message::error_t nts::message::build(const update_t update, vector <uint8_t
 	try {
 		// Записываем вид смены ключевого материала связи
 		result.assign(1, static_cast <uint8_t> (update));
-	// Если памяти под итог не хватило
+	/**
+	 * Если памяти под итог не хватило
+	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
 		return error_t::MEMORY;

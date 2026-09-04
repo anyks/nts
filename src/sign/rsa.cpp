@@ -922,7 +922,9 @@ bool nts::sign::Rsa::encode(const bool secret, vector <uint8_t> & result) const 
 	try {
 		// Копируем запись в место назначения
 		result.assign(data.data, data.data + data.size);
-	// Если памяти не хватило
+	/**
+	 * Если памяти не хватило
+	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ
 		return false;

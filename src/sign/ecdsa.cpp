@@ -905,7 +905,9 @@ bool nts::sign::encode(const view_t & raw, vector <uint8_t> & der) noexcept {
 	try {
 		// Переносим собранную запись в переданное место
 		der.assign(data.data, data.data + data.size);
-	// Если памяти под запись не хватило
+	/**
+	 * Если памяти под запись не хватило
+	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ записи подписи
 		return false;

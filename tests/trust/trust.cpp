@@ -14,8 +14,10 @@
  *
  * @brief Исходный файл проверок модуля доверия цепочке сертификатов
  *
- * @note Сертификаты вырабатываются самими проверками: цепочка нужна разной - и годная, и
- *       испорченная всеми теми способами, по которым доверие ей и отказывается
+ * @note Сертификаты ГОСТ вырабатываются самими проверками: цепочка нужна разной - и годная,
+ *       и испорченная всеми теми способами, по которым доверие ей и отказывается.
+ *       Классические цепочки RSA и ECDSA взяты из набора образцов tests/corpus, где
+ *       они выработаны системным OpenSSL 3
  *
  * @copyright Copyright © 2026
  *
@@ -24,8 +26,10 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
+#include <fstream>
 #include <main.hpp>
 #include <starve.hpp>
+#include <pem/pem.hpp>
 #include <asn1/asn1.hpp>
 #include <sign/gost.hpp>
 #include <trust/trust.hpp>
@@ -1383,4 +1387,114 @@ TEST(TrustTest, Addressed){
 	vector <uint8_t> named;
 	ASSERT_TRUE(make("10.0.0.2", "10.0.0.2", subject, vector <uint8_t> (), bare, named));
 	ASSERT_EQ(trust::belongs(view_t(named.data(), named.size()), "10.0.0.2"), trust::error_t::NAME);
+}
+/**
+ * @brief Метод чтения сертификатов из файла набора образцов
+ *
+ * @param name   имя файла набора образцов
+ * @param result перечень записей сертификатов файла в порядке следования
+ *
+ * @return       признак успешности чтения сертификатов
+ *
+ */
+static bool corpus(const char * name, vector <vector <uint8_t>> & result) {
+	// Путь к файлу набора образцов
+	const string path = string(ANTS_CORPUS) + "/" + name;
+	// Открываем файл набора образцов
+	ifstream file(path, ios::binary);
+	// Если файл открыть не удалось
+	if(!file.is_open())
+		// Выводим отказ чтения сертификатов
+		return false;
+	// Считываем содержимое файла целиком
+	const string text((istreambuf_iterator <char> (file)), istreambuf_iterator <char> ());
+	// Выводим итог извлечения сертификатов из текста
+	return (pem::certificates(text, result) == pem::error_t::NONE);
+}
+/**
+ * Проверка доверия классическим цепочкам набора образцов
+ */
+TEST(TrustTest, Classic){
+	// Имена файлов цепочек набора образцов
+	static const char * CHAINS[2] = {"chain-rsa.pem", "chain-ec.pem"};
+	// Записи цепочек набора образцов: лист, промежуточный издатель, корень
+	vector <vector <uint8_t>> chains[2];
+	/**
+	 * Выполняем перебор цепочек набора образцов
+	 */
+	for(size_t i = 0; i < 2; i++){
+		// Выполняем чтение цепочки набора образцов
+		ASSERT_TRUE(corpus(CHAINS[i], chains[i])) << CHAINS[i];
+		// Проверяем, что цепочка состоит из трёх звеньев
+		ASSERT_EQ(chains[i].size(), static_cast <size_t> (3)) << CHAINS[i];
+	}
+	/**
+	 * Выполняем перебор цепочек набора образцов
+	 */
+	for(size_t i = 0; i < 2; i++){
+		// Получаем записи звеньев цепочки
+		const vector <uint8_t> & leaf = chains[i][0], & mid = chains[i][1], & root = chains[i][2];
+		// Запас доверенных сертификатов
+		trust::store_t store;
+		// Проверяем отказ доверия при пустом запасе
+		ASSERT_EQ(trust::verify(vector <vector <uint8_t>> ({leaf, mid}), store, MOMENT), trust::error_t::AUTHORITY) << CHAINS[i];
+		// Выполняем добавление корня в запас доверенных
+		ASSERT_TRUE(store.add(view_t(root.data(), root.size()))) << CHAINS[i];
+		// Проверяем доверие цепочке из листа и промежуточного издателя
+		ASSERT_EQ(trust::verify(vector <vector <uint8_t>> ({leaf, mid}), store, MOMENT), trust::error_t::NONE) << CHAINS[i];
+		// Проверяем доверие цепочке вместе с корнем
+		ASSERT_EQ(trust::verify(vector <vector <uint8_t>> ({leaf, mid, root}), store, MOMENT), trust::error_t::NONE) << CHAINS[i];
+		// Проверяем отказ доверия листу без промежуточного издателя: издателя листа в запасе нет
+		ASSERT_EQ(trust::verify(vector <vector <uint8_t>> ({leaf}), store, MOMENT), trust::error_t::AUTHORITY) << CHAINS[i];
+		// Проверяем отказ доверия цепочке с пропущенным звеном
+		ASSERT_EQ(trust::verify(vector <vector <uint8_t>> ({leaf, root}), store, MOMENT), trust::error_t::ISSUER) << CHAINS[i];
+		// Проверяем отказ доверия цепочке до начала срока действия листа
+		ASSERT_EQ(trust::verify(vector <vector <uint8_t>> ({leaf, mid}), store, 1000000000), trust::error_t::EXPIRED) << CHAINS[i];
+		// Проверяем отказ доверия цепочке после окончания срока действия листа
+		ASSERT_EQ(trust::verify(vector <vector <uint8_t>> ({leaf, mid}), store, 1900000000), trust::error_t::EXPIRED) << CHAINS[i];
+		// Проверяем сличение имени узла с именами листа
+		ASSERT_EQ(trust::belongs(view_t(leaf.data(), leaf.size()), "test.anyks.com"), trust::error_t::NONE) << CHAINS[i];
+		// Проверяем сличение имени узла без учёта регистра
+		ASSERT_EQ(trust::belongs(view_t(leaf.data(), leaf.size()), "TEST.anyks.com"), trust::error_t::NONE) << CHAINS[i];
+		// Проверяем отказ сличения чужого имени узла
+		ASSERT_EQ(trust::belongs(view_t(leaf.data(), leaf.size()), "anyks.com"), trust::error_t::NAME) << CHAINS[i];
+		// Запас доверенных сертификатов с корнем другой цепочки
+		trust::store_t foreign;
+		// Выполняем добавление корня другой цепочки в запас доверенных
+		ASSERT_TRUE(foreign.add(view_t(chains[1 - i][2].data(), chains[1 - i][2].size()))) << CHAINS[i];
+		// Проверяем отказ доверия цепочке при чужом корне в запасе
+		ASSERT_EQ(trust::verify(vector <vector <uint8_t>> ({leaf, mid}), foreign, MOMENT), trust::error_t::AUTHORITY) << CHAINS[i];
+		// Копия записи листа
+		vector <uint8_t> spoiled = leaf;
+		// Портим последний байт записи листа: он принадлежит подписи
+		spoiled[spoiled.size() - 1] = static_cast <uint8_t> (spoiled[spoiled.size() - 1] ^ 0x01);
+		// Проверяем отказ доверия цепочке с испорченной подписью листа
+		ASSERT_EQ(trust::verify(vector <vector <uint8_t>> ({spoiled, mid}), store, MOMENT), trust::error_t::SIGNATURE) << CHAINS[i];
+		/**
+		 * Цепочка, поставленная с ног на голову: назначение ключа листа проверяется прежде
+		 * сличения издателей, а ключ промежуточного издателя назначен одному подписыванию
+		 * сертификатов и списков отзыва - подпись владения он ставить не вправе
+		 */
+		ASSERT_EQ(trust::verify(vector <vector <uint8_t>> ({mid, leaf}), store, MOMENT), trust::error_t::PURPOSE) << CHAINS[i];
+	}
+	// Записи файла просроченного листа
+	vector <vector <uint8_t>> expired;
+	// Выполняем чтение просроченного листа набора образцов
+	ASSERT_TRUE(corpus("expired.crt", expired));
+	// Проверяем, что файл несёт один сертификат
+	ASSERT_EQ(expired.size(), static_cast <size_t> (1));
+	// Запас доверенных сертификатов с корнем цепочки эллиптической кривой
+	trust::store_t store;
+	// Выполняем добавление корня в запас доверенных
+	ASSERT_TRUE(store.add(view_t(chains[1][2].data(), chains[1][2].size())));
+	// Проверяем отказ доверия просроченному листу, изданному корнем
+	ASSERT_EQ(trust::verify(expired, store, MOMENT), trust::error_t::EXPIRED);
+	/**
+	 * В срок действия просроченного листа корень ещё не действует: якорь, срок которого
+	 * на этот миг не идёт, запасом не признаётся, и цепочка остаётся без издателя.
+	 * Сама же подпись листа корнем сходится, что закреплено проверками подписи
+	 */
+	ASSERT_EQ(trust::verify(expired, store, 1577880000), trust::error_t::AUTHORITY);
+	// Проверяем отказ доверия просроченному листу без корня в запасе
+	ASSERT_EQ(trust::verify(expired, trust::store_t(), MOMENT), trust::error_t::EXPIRED);
 }

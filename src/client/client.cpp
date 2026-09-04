@@ -416,20 +416,12 @@ nts::client::Context::Context() noexcept : _engine(nullptr) {
 	 */
 	try {
 		// Выполняем создание объекта ведения связи
-		this->_engine = new internal::engine_t(false);
-	// Если памяти под ведение связи не хватило
+		this->_engine = make_unique <internal::engine_t> (false);
+	/**
+	 * Если памяти под ведение связи не хватило
+	 */
 	} catch(const bad_alloc &) {
 		// Выполняем сброс объекта ведения связи
 		this->_engine = nullptr;
 	}
-}
-/**
- * @brief Деструктор
- *
- */
-nts::client::Context::~Context() noexcept {
-	// Если ведение связи заведено
-	if(this->_engine != nullptr)
-		// Выполняем удаление объекта ведения связи
-		delete this->_engine;
 }

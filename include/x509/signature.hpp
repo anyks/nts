@@ -42,6 +42,7 @@
 #include <sys/global.hpp>
 #include <x509/x509.hpp>
 #include <curve/curve.hpp>
+#include <digest/hash.hpp>
 
 /**
  * \~russian
@@ -78,10 +79,13 @@ namespace nts {
 		 * @return отказ проверки: NONE - подпись сошлась, SIGNATURE - не сошлась либо
 		 *         непригодна, KEY - ключ чужого алгоритма, MEMORY - памяти не хватило
 		 *
-		 * @details Проверяются лишь подписи по ГОСТ Р 34.10-2012 с хешем по
-		 *          ГОСТ Р 34.11-2012: опознаватели и порядок записи величин заданы
-		 *          разделами 2 и 4 RFC 9215. Подписи по устаревшему ГОСТ Р 34.11-94
-		 *          не проверяются: хеш этот в проекте не заведён и заводиться не будет.
+		 * @details Проверяются подписи по ГОСТ Р 34.10-2012 с хешем по ГОСТ Р 34.11-2012
+		 *          (опознаватели и порядок записи величин заданы разделами 2 и 4 RFC 9215),
+		 *          подписи ECDSA с хешами SHA-2 (RFC 5758, ключ по RFC 5480), подписи RSA
+		 *          PKCS #1 v1.5 с хешами SHA-1 и SHA-2 и RSASSA-PSS (RFC 4055, ключ по
+		 *          RFC 3279) и подписи Ed25519 (RFC 8410). Подписи по устаревшему
+		 *          ГОСТ Р 34.11-94 не проверяются: хеш этот в проекте не заведён и
+		 *          заводиться не будет.
 		 *
 		 * @note Метод проверяет одну лишь подпись. Ни срок действия сертификата, ни
 		 *       право издателя подписывать, ни цепочка доверия здесь не проверяются: это
@@ -96,11 +100,14 @@ namespace nts {
 		 * @param key         the info of the public key of the issuer of the certificate
 		 * @return the failure of the check: NONE - the signature has converged, SIGNATURE - it has not or is
 		 *         unsuitable, KEY - a key of a foreign algorithm, MEMORY - there was not enough memory
-		 * @details Only the signatures according to GOST R 34.10-2012 with a hash according to
-		 *          GOST R 34.11-2012 are checked: the identifiers and the order of the writing
-		 *          of the values are given by the sections 2 and 4 of RFC 9215. The signatures
-		 *          according to the outdated GOST R 34.11-94 are not checked: this hash is not
-		 *          started in the project and will not be started.
+		 * @details The signatures according to GOST R 34.10-2012 with a hash according to
+		 *          GOST R 34.11-2012 (the identifiers and the order of the writing of the values
+		 *          are given by the sections 2 and 4 of RFC 9215), the ECDSA signatures with the
+		 *          SHA-2 hashes (RFC 5758, the key according to RFC 5480), the RSA signatures
+		 *          PKCS #1 v1.5 with the SHA-1 and SHA-2 hashes and RSASSA-PSS (RFC 4055, the key
+		 *          according to RFC 3279) and the Ed25519 signatures (RFC 8410) are checked. The
+		 *          signatures according to the outdated GOST R 34.11-94 are not checked: this
+		 *          hash is not started in the project and will not be started.
 		 * @note The method checks the signature alone. Neither the term of the validity of the
 		 *       certificate, nor the right of the issuer to sign, nor the chain of the trust are
 		 *       checked here: these are different questions and it is forbidden to mix them in a single answer
@@ -138,6 +145,43 @@ namespace nts {
 		 * \~
 		 */
 		__ANTS_SHARED_EXPORT__ error_t verify(const view_t & body, const view_t & signature, const string & algorithm, const key_t & key) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод проверки подписи записи с настройками алгоритма подписи
+		 *
+		 * @param body       подписанная запись
+		 * @param signature  проверяемая подпись
+		 * @param algorithm  опознаватель алгоритма подписи
+		 * @param parameters запись настроек алгоритма подписи целиком либо пустой просмотр
+		 * @param key        сведения об открытом ключе подписавшей стороны
+		 *
+		 * @return отказ проверки: NONE - подпись сошлась, SIGNATURE - не сошлась либо
+		 *         непригодна, KEY - ключ чужого алгоритма, MEMORY - памяти не хватило
+		 *
+		 * @details Настройки нужны одной лишь подписи RSASSA-PSS: запись RSASSA-PSS-params
+		 *          раздела 3.1 RFC 4055 задаёт хеш, порождение маски и длину соли. При
+		 *          пустой записи настроек берутся умолчания того же раздела: хеш SHA-1 и
+		 *          соль в двадцать байтов. Прочие алгоритмы настроек не имеют, и запись
+		 *          их не рассматривается
+		 *
+		 * \~english
+		 * @brief Method of the check of the signature of a record with the settings of the algorithm of the signature
+		 * @param body       the signed record
+		 * @param signature  the signature being checked
+		 * @param algorithm  the identifier of the algorithm of the signature
+		 * @param parameters the record of the settings of the algorithm of the signature as a whole or an empty view
+		 * @param key        the info of the public key of the side that signed
+		 * @return the failure of the check: NONE - the signature has converged, SIGNATURE - it has not or is
+		 *         unsuitable, KEY - a key of a foreign algorithm, MEMORY - there was not enough memory
+		 * @details The settings are needed by the RSASSA-PSS signature alone: the record RSASSA-PSS-params
+		 *          of the section 3.1 of RFC 4055 sets the hash, the generation of the mask and the length
+		 *          of the salt. With an empty record of the settings the defaults of the same section are
+		 *          taken: the hash SHA-1 and a salt of twenty bytes. The other algorithms have no settings,
+		 *          and the record of them is not considered
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ error_t verify(const view_t & body, const view_t & signature, const string & algorithm, const view_t & parameters, const key_t & key) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод извлечения опознавателя набора параметров кривой ключа
@@ -219,6 +263,45 @@ namespace nts {
 		 * \~
 		 */
 		__ANTS_SHARED_EXPORT__ error_t check(const key_t & key, const view_t & content, const view_t & signature) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод проверки подписи содержимого открытым ключом с заданным хешем
+		 *
+		 * @param key       сведения об открытом ключе подписавшей стороны
+		 * @param algorithm алгоритм хеша подписанного содержимого
+		 * @param content   подписанное содержимое
+		 * @param signature проверяемая подпись в записи, отвечающей алгоритму ключа
+		 *
+		 * @return          отказ проверки: NONE - подпись сошлась, SIGNATURE - не сошлась либо
+		 *                  непригодна, KEY - ключ чужого алгоритма, MEMORY - памяти не хватило
+		 *
+		 * @details Запись подписи задана разделом 4.2.3 RFC 8446 по виду ключа: у ключа ECDSA
+		 *          подпись записана набором SEQUENCE {r, s} кодировкой DER, у ключа RSA подпись
+		 *          по схеме RSASSA-PSS с солью длиной в хеш, у ключа Ed25519 подпись сырая в
+		 *          шестьдесят четыре байта, а хеш не считается вовсе, - алгоритм хеша у неё не
+		 *          рассматривается. Ключу ГОСТ Р 34.10-2012 алгоритм хеша не нужен: длина хеша
+		 *          «Стрибог» берётся размером координаты кривой, и проверка идёт тем же путём,
+		 *          что и без алгоритма
+		 *
+		 * \~english
+		 * @brief Method of the check of the signature of a content by a public key with a given hash
+		 * @param key       the info of the public key of the side that signed
+		 * @param algorithm the algorithm of the hash of the signed content
+		 * @param content   the signed content
+		 * @param signature the signature being checked in the writing corresponding to the algorithm of the key
+		 * @return          the failure of the check: NONE - the signature has converged, SIGNATURE - it has not
+		 *                  or is unsuitable, KEY - a key of a foreign algorithm, MEMORY - there was not enough memory
+		 * @details The writing of the signature is set by the section 4.2.3 of RFC 8446 by the kind of the key:
+		 *          with an ECDSA key the signature is written as the set SEQUENCE {r, s} in the DER encoding,
+		 *          with an RSA key the signature is according to the RSASSA-PSS scheme with a salt of the length
+		 *          of the hash, with an Ed25519 key the signature is raw of sixty four bytes and no hash is
+		 *          computed at all - the algorithm of the hash is not considered for it. A GOST R 34.10-2012 key
+		 *          does not need the algorithm of the hash: the length of the «Streebog» hash is taken by the size
+		 *          of the coordinate of the curve, and the check goes the same way as without the algorithm
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ error_t check(const key_t & key, const digest::hash_t algorithm, const view_t & content, const view_t & signature) noexcept;
 	};
 };
 

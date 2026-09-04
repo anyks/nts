@@ -121,7 +121,7 @@ namespace nts {
 		typedef class __ANTS_SHARED_EXPORT__ Context {
 			private:
 				// Объект ведения связи протокола
-				internal::Engine * _engine;
+				unique_ptr <internal::Engine> _engine;
 			public:
 				/**
 				 * \~russian
@@ -780,7 +780,7 @@ namespace nts {
 				 *
 				 * \~
 				 */
-				~Context() noexcept;
+				~Context() noexcept = default;
 		} context_t;
 	};
 };

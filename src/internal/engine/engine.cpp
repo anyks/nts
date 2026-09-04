@@ -817,7 +817,9 @@ context::error_t nts::internal::Engine::emit(const record::type_t type, const vi
 			// Выполняем складывание нарезанных записей в накопитель
 			this->_wire.insert(this->_wire.end(), records.data, records.data + records.size);
 		}
-	// Если памяти под накопитель не хватило
+	/**
+	 * Если памяти под накопитель не хватило
+	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
 		return context::error_t::MEMORY;
@@ -1166,7 +1168,9 @@ context::error_t nts::internal::Engine::exchange(const extension::group_t group)
 			this->_secret.assign(this->_curve.size(), 0);
 			// Занимаем место под открытый мимолётный ключ своей стороны
 			this->_opened.assign(this->_curve.size() * 2, 0);
-		// Если памяти под ключи не хватило
+		/**
+		 * Если памяти под ключи не хватило
+		 */
 		} catch(const bad_alloc &) {
 			// Выводим отказ нехватки памяти
 			return context::error_t::MEMORY;
@@ -1389,7 +1393,9 @@ context::error_t nts::internal::Engine::greeting() noexcept {
 		try {
 			// Выполняем перенос составленного приветствия в накопитель
 			message.assign(data.data, data.data + data.size);
-		// Если памяти под приветствие не хватило
+		/**
+		 * Если памяти под приветствие не хватило
+		 */
 		} catch(const bad_alloc &) {
 			// Выводим отказ нехватки памяти
 			return context::error_t::MEMORY;
@@ -1875,7 +1881,9 @@ context::error_t nts::internal::Engine::requesting(const view_t & body) noexcept
 			 * цепочка отвечает
 			 */
 			this->_binding.assign(binding.data, binding.data + binding.size);
-		// Если памяти под опознаватель запроса не хватило
+		/**
+		 * Если памяти под опознаватель запроса не хватило
+		 */
 		} catch(const bad_alloc &) {
 			// Выводим отказ нехватки памяти
 			return context::error_t::MEMORY;
@@ -1972,7 +1980,9 @@ context::error_t nts::internal::Engine::chain(const view_t & body) noexcept {
 				// Добавляем сертификат в цепочку собеседника
 				this->_peer.push_back(vector <uint8_t> (data.data, data.data + data.size));
 			}
-		// Если памяти под цепочку сертификатов не хватило
+		/**
+		 * Если памяти под цепочку сертификатов не хватило
+		 */
 		} catch(const bad_alloc &) {
 			// Выводим отказ нехватки памяти
 			return context::error_t::MEMORY;
@@ -2319,7 +2329,9 @@ context::error_t nts::internal::Engine::offered(const vector <hello::extension_t
 		try {
 			// Запоминаем прикладной протокол связи, выдавшей признанный билет
 			this->_previous = this->_store[found].protocol;
-		// Если памяти под прикладной протокол не хватило
+		/**
+		 * Если памяти под прикладной протокол не хватило
+		 */
 		} catch(const bad_alloc &) {
 			// Выводим отказ нехватки памяти
 			return this->abort(context::error_t::MEMORY, alert::description_t::INTERNAL);
@@ -3552,7 +3564,9 @@ context::error_t nts::internal::Engine::accept(const view_t & body) noexcept {
 			}
 			// Добавляем принятый билет в перечень билетов связи
 			this->_tickets.push_back(item);
-		// Если памяти под билет не хватило
+		/**
+		 * Если памяти под билет не хватило
+		 */
 		} catch(const bad_alloc &) {
 			// Выполняем затирание ключа принятого билета
 			wipe(secret, sizeof(secret));
@@ -4477,7 +4491,9 @@ context::error_t nts::internal::Engine::start() noexcept {
 	try {
 		// Занимаем место под опознаватель связи
 		this->_session.assign(hello::HELLO_SESSION, 0);
-	// Если памяти под опознаватель связи не хватило
+	/**
+	 * Если памяти под опознаватель связи не хватило
+	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
 		return context::error_t::MEMORY;
@@ -5074,7 +5090,9 @@ context::error_t nts::internal::Engine::read(vector <uint8_t> & result) noexcept
 	try {
 		// Выполняем перенос принятых прикладных данных в накопитель
 		result.assign(this->_plain.begin(), this->_plain.end());
-	// Если памяти под накопитель не хватило
+	/**
+	 * Если памяти под накопитель не хватило
+	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
 		return context::error_t::MEMORY;
@@ -5309,7 +5327,9 @@ context::error_t nts::internal::Engine::issue() noexcept {
 			item.secret.assign(secret, secret + sizeof(secret));
 			// Добавляем выданный билет в перечень билетов связи
 			this->_tickets.push_back(item);
-		// Если памяти под билет не хватило
+		/**
+		 * Если памяти под билет не хватило
+		 */
 		} catch(const bad_alloc &) {
 			// Выполняем затирание ключа выданного билета
 			wipe(secret, sizeof(secret));

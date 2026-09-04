@@ -388,6 +388,14 @@ namespace nts {
 				 * @brief Деструктор
 				 *
 				 *
+				 * @return             признак успешности записи: ложь при нехватке памяти
+				 *
+				 * @return        признак успешности записи: ложь при нехватке памяти
+				 *
+				 * @note Накопитель растёт под noexcept: нехватка памяти перехватывается
+				 *       здесь же и выводится отказом, а не броском
+				 * @note Накопитель растёт под noexcept: нехватка памяти перехватывается
+				 *       здесь же и выводится отказом, а не броском
 				 * \~english
 				 * @brief Destructor
 				 *
@@ -592,11 +600,6 @@ namespace nts {
 				error_t _error;
 			private:
 				/**
-				 * Два служебных метода записи растят накопитель и потому исключений не
-				 * запрещают: бросок нехватки памяти доходит до перехвата в открытых
-				 * методах open, element и close, а под noexcept он завершал бы процесс
-				 */
-				/**
 				 * @brief Метод записи метки элемента
 				 *
 				 * @param cls         класс метки
@@ -604,7 +607,7 @@ namespace nts {
 				 * @param tag         номер метки внутри своего класса
 				 *
 				 */
-				void identifier(const cls_t cls, const bool constructed, const uint32_t tag) noexcept;
+				bool identifier(const cls_t cls, const bool constructed, const uint32_t tag) noexcept;
 				/**
 				 * @brief Метод записи длины содержимого
 				 *
@@ -612,7 +615,7 @@ namespace nts {
 				 * @param length длина содержимого
 				 *
 				 */
-				void length(const size_t offset, const size_t length) noexcept;
+				bool length(const size_t offset, const size_t length) noexcept;
 			public:
 				/**
 				 * \~russian

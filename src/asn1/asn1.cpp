@@ -1116,33 +1116,49 @@ nts::asn1::error_t nts::asn1::text(const element_t & element, const tag_t type, 
  * @param constructed признак составного вида метки
  * @param tag         номер метки внутри своего класса
  *
+ * @return            признак успешности записи
+ *
  */
-void nts::asn1::Writer::identifier(const cls_t cls, const bool constructed, const uint32_t tag) noexcept {
-	// Собираем первый байт метки из класса и вида метки
-	uint8_t first = static_cast <uint8_t> ((static_cast <uint8_t> (cls) << 6) | (constructed ? 0x20 : 0x00));
-	// Если номер метки умещается в короткую запись
-	if(tag < 0x1F){
-		// Дополняем первый байт метки номером метки
-		this->_buffer.push_back(static_cast <uint8_t> (first | static_cast <uint8_t> (tag)));
-		// Выходим из метода
-		return;
+bool nts::asn1::Writer::identifier(const cls_t cls, const bool constructed, const uint32_t tag) noexcept {
+	/**
+	 * Выполняем перехват ошибок работы с памятью: накопитель растёт, а нехватка
+	 * памяти обязана выводиться отказом, а не броском из-под noexcept
+	 */
+	try {
+		// Собираем первый байт метки из класса и вида метки
+		uint8_t first = static_cast <uint8_t> ((static_cast <uint8_t> (cls) << 6) | (constructed ? 0x20 : 0x00));
+		// Если номер метки умещается в короткую запись
+		if(tag < 0x1F){
+			// Дополняем первый байт метки номером метки
+			this->_buffer.push_back(static_cast <uint8_t> (first | static_cast <uint8_t> (tag)));
+			// Выходим из метода
+			return true;
+		}
+		// Записываем первый байт метки с признаком длинной записи номера
+		this->_buffer.push_back(static_cast <uint8_t> (first | 0x1F));
+		// Число значащих семёрок разрядов номера метки
+		size_t count = 1;
+		/**
+		 * Определяем число значащих семёрок разрядов номера метки
+		 */
+		while((count < 5) && ((tag >> (7 * count)) != 0))
+			// Увеличиваем число значащих семёрок разрядов
+			count++;
+		/**
+		 * Выполняем запись номера метки от старших разрядов к младшим
+		 */
+		for(size_t i = count; i > 0; i--)
+			// Записываем очередные семь разрядов номера метки
+			this->_buffer.push_back(static_cast <uint8_t> (((tag >> (7 * (i - 1))) & 0x7F) | (i > 1 ? 0x80 : 0x00)));
+	/**
+	 * Если памяти под накопитель не хватило
+	 */
+	} catch(const bad_alloc &) {
+		// Выводим отказ записи
+		return false;
 	}
-	// Записываем первый байт метки с признаком длинной записи номера
-	this->_buffer.push_back(static_cast <uint8_t> (first | 0x1F));
-	// Число значащих семёрок разрядов номера метки
-	size_t count = 1;
-	/**
-	 * Определяем число значащих семёрок разрядов номера метки
-	 */
-	while((count < 5) && ((tag >> (7 * count)) != 0))
-		// Увеличиваем число значащих семёрок разрядов
-		count++;
-	/**
-	 * Выполняем запись номера метки от старших разрядов к младшим
-	 */
-	for(size_t i = count; i > 0; i--)
-		// Записываем очередные семь разрядов номера метки
-		this->_buffer.push_back(static_cast <uint8_t> (((tag >> (7 * (i - 1))) & 0x7F) | (i > 1 ? 0x80 : 0x00)));
+	// Выводим успешность записи
+	return true;
 }
 
 /**
@@ -1151,37 +1167,53 @@ void nts::asn1::Writer::identifier(const cls_t cls, const bool constructed, cons
  * @param offset место, в которое вставляется запись длины
  * @param length длина содержимого
  *
+ * @return       признак успешности записи
+ *
  */
-void nts::asn1::Writer::length(const size_t offset, const size_t length) noexcept {
-	// Если длина умещается в короткую запись
-	if(length < 0x80){
-		// Вставляем единственный байт записи длины
-		this->_buffer.insert(this->_buffer.begin() + static_cast <ptrdiff_t> (offset), static_cast <uint8_t> (length));
-		// Выходим из метода
-		return;
+bool nts::asn1::Writer::length(const size_t offset, const size_t length) noexcept {
+	/**
+	 * Выполняем перехват ошибок работы с памятью: накопитель растёт, а нехватка
+	 * памяти обязана выводиться отказом, а не броском из-под noexcept
+	 */
+	try {
+		// Если длина умещается в короткую запись
+		if(length < 0x80){
+			// Вставляем единственный байт записи длины
+			this->_buffer.insert(this->_buffer.begin() + static_cast <ptrdiff_t> (offset), static_cast <uint8_t> (length));
+			// Выходим из метода
+			return true;
+		}
+		// Число значащих байтов записи длины
+		size_t count = 1;
+		/**
+		 * Определяем число значащих байтов записи длины
+		 */
+		while((count < 8) && ((length >> (8 * count)) != 0))
+			// Увеличиваем число значащих байтов записи
+			count++;
+		// Собираемая запись длины
+		vector <uint8_t> result;
+		// Резервируем место под запись длины
+		result.reserve(count + 1);
+		// Записываем первый байт с числом байтов записи длины
+		result.push_back(static_cast <uint8_t> (0x80 | static_cast <uint8_t> (count)));
+		/**
+		 * Выполняем запись длины от старших байтов к младшим
+		 */
+		for(size_t i = count; i > 0; i--)
+			// Записываем очередной байт записи длины
+			result.push_back(static_cast <uint8_t> ((length >> (8 * (i - 1))) & 0xFF));
+		// Вставляем собранную запись длины
+		this->_buffer.insert(this->_buffer.begin() + static_cast <ptrdiff_t> (offset), result.begin(), result.end());
+	/**
+	 * Если памяти под накопитель не хватило
+	 */
+	} catch(const bad_alloc &) {
+		// Выводим отказ записи
+		return false;
 	}
-	// Число значащих байтов записи длины
-	size_t count = 1;
-	/**
-	 * Определяем число значащих байтов записи длины
-	 */
-	while((count < 8) && ((length >> (8 * count)) != 0))
-		// Увеличиваем число значащих байтов записи
-		count++;
-	// Собираемая запись длины
-	vector <uint8_t> result;
-	// Резервируем место под запись длины
-	result.reserve(count + 1);
-	// Записываем первый байт с числом байтов записи длины
-	result.push_back(static_cast <uint8_t> (0x80 | static_cast <uint8_t> (count)));
-	/**
-	 * Выполняем запись длины от старших байтов к младшим
-	 */
-	for(size_t i = count; i > 0; i--)
-		// Записываем очередной байт записи длины
-		result.push_back(static_cast <uint8_t> ((length >> (8 * (i - 1))) & 0xFF));
-	// Вставляем собранную запись длины
-	this->_buffer.insert(this->_buffer.begin() + static_cast <ptrdiff_t> (offset), result.begin(), result.end());
+	// Выводим успешность записи
+	return true;
 }
 
 /**
@@ -1244,8 +1276,13 @@ bool nts::asn1::Writer::open(const cls_t cls, const uint32_t tag) noexcept {
 	 * причиной отказа, а не завершить процесс
 	 */
 	try {
-		// Выполняем запись метки составного элемента
-		this->identifier(cls, true, tag);
+		// Если метку составного элемента записать не удалось
+		if(!this->identifier(cls, true, tag)){
+			// Запоминаем причину отказа
+			this->_error = error_t::MEMORY;
+			// Выводим отказ записи
+			return false;
+		}
 		// Запоминаем место начала содержимого составного элемента
 		this->_opened.push_back(this->_buffer.size());
 	/**
@@ -1298,8 +1335,13 @@ bool nts::asn1::Writer::close() noexcept {
 	 * причиной отказа, а не завершить процесс
 	 */
 	try {
-		// Выполняем запись длины содержимого закрываемого элемента
-		this->length(offset, this->_buffer.size() - offset);
+		// Если длину содержимого закрываемого элемента записать не удалось
+		if(!this->length(offset, this->_buffer.size() - offset)){
+			// Запоминаем причину отказа
+			this->_error = error_t::MEMORY;
+			// Выводим отказ записи
+			return false;
+		}
 	/**
 	 * Если память выделить не удалось
 	 */
@@ -1335,10 +1377,13 @@ bool nts::asn1::Writer::element(const cls_t cls, const bool constructed, const u
 	 * причиной отказа, а не завершить процесс
 	 */
 	try {
-		// Выполняем запись метки элемента
-		this->identifier(cls, constructed, tag);
-		// Выполняем запись длины содержимого элемента
-		this->length(this->_buffer.size(), content.size);
+		// Если метку элемента либо длину содержимого записать не удалось
+		if(!this->identifier(cls, constructed, tag) || !this->length(this->_buffer.size(), content.size)){
+			// Запоминаем причину отказа
+			this->_error = error_t::MEMORY;
+			// Выводим отказ записи
+			return false;
+		}
 		// Если содержимое элемента не пустое
 		if((content.data != nullptr) && (content.size > 0))
 			// Выполняем запись содержимого элемента

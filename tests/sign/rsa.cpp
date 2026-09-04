@@ -517,9 +517,10 @@ TEST(RsaTest, Starved) {
 			outcome = rsa.encode(true, result);
 		}
 		// Если запись удалась, она обязана совпасть с записью OpenSSL
-		if(outcome)
+		if(outcome){
 			// Сличаем запись
 			ASSERT_EQ(result, bytes(KEY_DER)) << "запас " << budget;
+		}
 		// Запоминаем объявленный отказ памяти
 		starved = (starved || !outcome);
 	}

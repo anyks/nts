@@ -27,6 +27,7 @@
  * Стандартные заголовочные файлы
  */
 #include <string>
+#include <iostream>
 #include <vector>
 #include <cstdio>
 #include <cstring>
@@ -858,15 +859,21 @@ static void openssl(const char * name, const char * oid, const digest::hash_t al
 	}
 	// Проверяем признание своей подписи у openssl
 	ASSERT_EQ(::system((std::string("openssl dgst -") + option + " -verify " + pub + " -signature " + own + " " + msg + " >/dev/null 2>&1").c_str()), 0) << "Кривая: " << name;
-	// Подписываем сообщение у openssl выведенным по RFC 6979 числом
-	ASSERT_EQ(::system((std::string("openssl pkeyutl -sign -inkey ") + key + " -in " + msg + " -rawin -digest " + option + " -pkeyopt nonce-type:1 -out " + sig + " 2>/dev/null").c_str()), 0) << "Кривая: " << name;
-	// Читаем подпись openssl
-	const std::string deterministic = slurp(sig);
 	/**
-	 * Выведенное по RFC 6979 число у обеих сторон одно, оттого подписи обязаны
-	 * совпасть байт в байт, а не только сойтись при проверке
+	 * Детерминированное число у openssl появилось в издании 3.2 (nonce-type): на
+	 * старших изданиях эта часть сличения пропускается с объявлением, остальное
+	 * сличение остаётся
 	 */
-	ASSERT_EQ(text(reinterpret_cast <const uint8_t *> (deterministic.data()), deterministic.size()), text(encoded.data(), encoded.size())) << "Кривая: " << name;
+	if(::system((std::string("openssl pkeyutl -sign -inkey ") + key + " -in " + msg + " -rawin -digest " + option + " -pkeyopt nonce-type:1 -out " + sig + " 2>/dev/null").c_str()) == 0){
+		// Читаем подпись openssl
+		const std::string deterministic = slurp(sig);
+		/**
+		 * Выведенное по RFC 6979 число у обеих сторон одно, оттого подписи обязаны
+		 * совпасть байт в байт, а не только сойтись при проверке
+		 */
+		ASSERT_EQ(text(reinterpret_cast <const uint8_t *> (deterministic.data()), deterministic.size()), text(encoded.data(), encoded.size())) << "Кривая: " << name;
+	// Иначе издание openssl детерминированного числа не знает
+	} else std::cout << "openssl без nonce-type: сличение детерминированной подписи пропущено, кривая " << name << std::endl;
 	// Выполняем порчу байта своей подписи
 	encoded[encoded.size() - 1] = static_cast <uint8_t> (encoded[encoded.size() - 1] ^ 0x01);
 	{

@@ -387,7 +387,9 @@ namespace {
 					// Приводим символ к нижнему регистру
 					result[i] = static_cast <char> (result[i] - 'A' + 'a');
 			}
-		// Если памяти под копию имени не хватило
+		/**
+		 * Если памяти под копию имени не хватило
+		 */
 		} catch(const bad_alloc &) {
 			// Выводим отказ нехватки памяти
 			return error_t::MEMORY;
@@ -583,7 +585,9 @@ bool nts::trust::Store::add(const view_t & certificate) noexcept {
 	try {
 		// Добавляем запись сертификата в запас доверенных
 		this->_chain.push_back(vector <uint8_t> (certificate.data, certificate.data + certificate.size));
-	// Если памяти под запас доверенных не хватило
+	/**
+	 * Если памяти под запас доверенных не хватило
+	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ добавления сертификата в запас
 		return false;
@@ -626,7 +630,9 @@ nts::trust::error_t nts::trust::verify(const vector <vector <uint8_t>> & chain, 
 	try {
 		// Занимаем место под разобранные сертификаты цепочки
 		items.resize(chain.size());
-	// Если памяти под разбор цепочки не хватило
+	/**
+	 * Если памяти под разбор цепочки не хватило
+	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
 		return error_t::MEMORY;

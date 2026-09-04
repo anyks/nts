@@ -232,9 +232,10 @@ TEST(X25519Test, Iterations) {
 		// Итог становится скаляром
 		::memcpy(scalar, result, sizeof(scalar));
 		// Если завершилось первое повторение
-		if(i == 0)
+		if(i == 0){
 			// Сличаем итог с контрольным значением первого повторения
 			ASSERT_EQ(text(scalar, sizeof(scalar)), std::string("422c8e7a6227d7bca1350b3e2bb7279f7897b87bb6854b783c60e80311ae3079"));
+		}
 	}
 	// Сличаем итог с контрольным значением тысячного повторения
 	ASSERT_EQ(text(scalar, sizeof(scalar)), std::string("684cf59ba83309552800ef566f2f4d3c1c3887c49360e3875f2eb94d99532c51"));
