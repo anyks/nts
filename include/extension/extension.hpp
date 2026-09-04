@@ -174,7 +174,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		enum class mode_t : uint8_t {
+		enum class regime_t : uint8_t {
 			SECRET = 0x00, /*!< \~russian Обмен одним заранее разделённым ключом \~english The exchange by a pre-shared key alone \~ */
 			SHARED = 0x01  /*!< \~russian Обмен заранее разделённым ключом вместе с ключом кривой \~english The exchange by a pre-shared key together with a key of a curve \~ */
 		};
@@ -655,7 +655,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t modes(const view_t & data, vector <mode_t> & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t modes(const view_t & data, vector <regime_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод составления перечня способов обмена с заранее разделённым ключом
@@ -673,7 +673,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t modes(const vector <mode_t> & modes, vector <uint8_t> & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t modes(const vector <regime_t> & modes, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод разбора метки возврата состояния сервера

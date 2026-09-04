@@ -51,6 +51,22 @@
 using namespace nts;
 
 /**
+ * @brief Метод запуска команды оболочки без консоли на входе
+ *
+ * @details stdin подаётся из /dev/null: у оболочки инструмента разработки он бывает
+ *          сокетом, tcgetattr на нём отвечает EOPNOTSUPP, и консольный слой openssl
+ *          валит разбор даже при пароле, заданном доводом
+ *
+ * @param command запускаемая команда
+ *
+ * @return        код возврата команды
+ *
+ */
+static int shell(const std::string & command) {
+	// Запускаем команду с пустым входом
+	return ::system((command + " </dev/null").c_str());
+}
+/**
  * Опознаватели наборов параметров кривых P-256 и P-384
  */
 static const char * P256 = "1.2.840.10045.3.1.7";
@@ -782,15 +798,15 @@ static void openssl(const char * name, const char * oid, const digest::hash_t al
 	const std::string sig = (directory + "/" + name + ".sig");
 	const std::string own = (directory + "/" + name + ".own");
 	// Порождаем ключ у openssl
-	ASSERT_EQ(::system((std::string("openssl ecparam -genkey -noout -name ") + name + " -out " + key + " 2>/dev/null").c_str()), 0) << "Кривая: " << name;
+	ASSERT_EQ(shell((std::string("openssl ecparam -genkey -noout -name ") + name + " -out " + key + " 2>/dev/null").c_str()), 0) << "Кривая: " << name;
 	// Извлекаем ключ проверки у openssl
-	ASSERT_EQ(::system((std::string("openssl ec -in ") + key + " -pubout -out " + pub + " 2>/dev/null").c_str()), 0) << "Кривая: " << name;
+	ASSERT_EQ(shell((std::string("openssl ec -in ") + key + " -pubout -out " + pub + " 2>/dev/null").c_str()), 0) << "Кривая: " << name;
 	// Выводим ключ текстом у openssl
-	ASSERT_EQ(::system((std::string("openssl ec -in ") + key + " -text -noout 2>/dev/null > " + txt).c_str()), 0) << "Кривая: " << name;
+	ASSERT_EQ(shell((std::string("openssl ec -in ") + key + " -text -noout 2>/dev/null > " + txt).c_str()), 0) << "Кривая: " << name;
 	// Читаем текстовую выдачу ключа
 	const std::string output = slurp(txt);
 	// Извлекаем ключ подписи и ключ проверки
-	const std::string secret = extract(output, "priv:", "pub:");
+	std::string secret = extract(output, "priv:", "pub:");
 	const std::string point = extract(output, "pub:", "ASN1 OID");
 	// Объект эллиптической кривой
 	curve::curve_t curve;
@@ -798,6 +814,9 @@ static void openssl(const char * name, const char * oid, const digest::hash_t al
 	ASSERT_TRUE(curve::parameters(std::string(oid), curve)) << "Кривая: " << name;
 	// Размер координаты кривой
 	const size_t size = curve.size();
+	// Если openssl старого издания напечатал скаляр с ведущим нулевым байтом (1.0.2 так делает), снимаем его
+	if((secret.size() == ((size * 2) + 2)) && (secret.compare(0, 2, "00") == 0))
+		secret.erase(0, 2);
 	// Проверяем длину ключа подписи и ключа проверки
 	ASSERT_EQ(secret.size(), size * 2) << "Кривая: " << name << " ключ: " << output;
 	ASSERT_EQ(point.size(), (size * 4) + 2) << "Кривая: " << name << " ключ: " << output;
@@ -824,7 +843,7 @@ static void openssl(const char * name, const char * oid, const digest::hash_t al
 		file << message;
 	}
 	// Подписываем сообщение у openssl
-	ASSERT_EQ(::system((std::string("openssl dgst -") + option + " -sign " + key + " -out " + sig + " " + msg + " 2>/dev/null").c_str()), 0) << "Кривая: " << name;
+	ASSERT_EQ(shell((std::string("openssl dgst -") + option + " -sign " + key + " -out " + sig + " " + msg + " 2>/dev/null").c_str()), 0) << "Кривая: " << name;
 	// Читаем подпись openssl
 	const std::string der = slurp(sig);
 	// Место, в которое помещается разобранная подпись
@@ -858,13 +877,13 @@ static void openssl(const char * name, const char * oid, const digest::hash_t al
 		file.write(reinterpret_cast <const char *> (encoded.data()), static_cast <std::streamsize> (encoded.size()));
 	}
 	// Проверяем признание своей подписи у openssl
-	ASSERT_EQ(::system((std::string("openssl dgst -") + option + " -verify " + pub + " -signature " + own + " " + msg + " >/dev/null 2>&1").c_str()), 0) << "Кривая: " << name;
+	ASSERT_EQ(shell((std::string("openssl dgst -") + option + " -verify " + pub + " -signature " + own + " " + msg + " >/dev/null 2>&1").c_str()), 0) << "Кривая: " << name;
 	/**
 	 * Детерминированное число у openssl появилось в издании 3.2 (nonce-type): на
 	 * старших изданиях эта часть сличения пропускается с объявлением, остальное
 	 * сличение остаётся
 	 */
-	if(::system((std::string("openssl pkeyutl -sign -inkey ") + key + " -in " + msg + " -rawin -digest " + option + " -pkeyopt nonce-type:1 -out " + sig + " 2>/dev/null").c_str()) == 0){
+	if(shell((std::string("openssl pkeyutl -sign -inkey ") + key + " -in " + msg + " -rawin -digest " + option + " -pkeyopt nonce-type:1 -out " + sig + " 2>/dev/null").c_str()) == 0){
 		// Читаем подпись openssl
 		const std::string deterministic = slurp(sig);
 		/**
@@ -883,7 +902,7 @@ static void openssl(const char * name, const char * oid, const digest::hash_t al
 		file.write(reinterpret_cast <const char *> (encoded.data()), static_cast <std::streamsize> (encoded.size()));
 	}
 	// Проверяем отказ признания испорченной подписи у openssl
-	ASSERT_NE(::system((std::string("openssl dgst -") + option + " -verify " + pub + " -signature " + own + " " + msg + " >/dev/null 2>&1").c_str()), 0) << "Кривая: " << name;
+	ASSERT_NE(shell((std::string("openssl dgst -") + option + " -verify " + pub + " -signature " + own + " " + msg + " >/dev/null 2>&1").c_str()), 0) << "Кривая: " << name;
 }
 /**
  * @brief Проверка сличения с openssl в обе стороны
@@ -891,7 +910,7 @@ static void openssl(const char * name, const char * oid, const digest::hash_t al
  */
 TEST(EcdsaTest, Openssl) {
 	// Если системного openssl нет, сличать не с чем
-	if(::system("openssl version >/dev/null 2>&1") != 0)
+	if(shell("openssl version >/dev/null 2>&1") != 0)
 		// Объявляем пропуск проверки вслух
 		GTEST_SKIP() << "Системный openssl не найден";
 	// Заготовка имени каталога временных файлов
@@ -907,5 +926,5 @@ TEST(EcdsaTest, Openssl) {
 	// Выполняем сличение на кривой P-256 с SHA-512: хеш длиннее порядка усекается
 	openssl("prime256v1", P256, digest::hash_t::SHA512, "sha512", directory);
 	// Убираем каталог временных файлов
-	ASSERT_EQ(::system((std::string("rm -rf ") + directory).c_str()), 0);
+	ASSERT_EQ(shell((std::string("rm -rf ") + directory).c_str()), 0);
 }

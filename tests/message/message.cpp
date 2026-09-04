@@ -549,7 +549,7 @@ TEST(MessageTest, Confines){
 	// Тело сертификата, годное составлению сообщения
 	const uint8_t body[] = {0x30, 0x03, 0x02, 0x01, 0x00};
 	// Запись, длина которой не входит в объявление одного байта
-	const vector <uint8_t> single(256, 0x41);
+	const vector <uint8_t> solo(256, 0x41);
 	// Запись, длина которой не входит в объявление двух байтов
 	const vector <uint8_t> couple(65536, 0x42);
 	// Составляемое сообщение цепочки сертификатов
@@ -563,7 +563,7 @@ TEST(MessageTest, Confines){
 	/**
 	 * Привязка цепочки сертификатов объявляется одним байтом: раздел 4.4.2 RFC 8446
 	 */
-	certificate.context = view_t(single.data(), single.size());
+	certificate.context = view_t(solo.data(), solo.size());
 	// Проверяем отказ составления цепочки с непомерной привязкой
 	ASSERT_EQ(message::build(certificate, result), message::error_t::LENGTH);
 	// Сбрасываем привязку цепочки сертификатов
@@ -621,7 +621,7 @@ TEST(MessageTest, Confines){
 	// Устанавливаем годное тело билета возобновления связи
 	ticket.data = view_t(body, sizeof(body));
 	// Устанавливаем непомерное неповторимое значение билета
-	ticket.nonce = view_t(single.data(), single.size());
+	ticket.nonce = view_t(solo.data(), solo.size());
 	// Проверяем отказ составления билета с непомерным неповторимым значением
 	ASSERT_EQ(message::build(ticket, result), message::error_t::LENGTH);
 	// Сбрасываем неповторимое значение билета

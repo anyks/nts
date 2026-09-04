@@ -261,7 +261,7 @@ static bool spill(const std::string & path, const uint8_t * data, const size_t s
  */
 static bool run(const std::string & command) {
 	// Выводим признак нулевого кода завершения команды
-	return (::system(command.c_str()) == 0);
+	return (::system((command + " </dev/null").c_str()) == 0);
 }
 /**
  * @brief Метод проверки контрольного примера
@@ -454,6 +454,10 @@ TEST(Ed25519Test, Reject) {
  *
  */
 TEST(Ed25519Test, Foreign) {
+	// Если системный openssl не умеет Ed25519 (старше 1.1.1), сличать не с чем
+	if(!run("openssl genpkey -algorithm ed25519 -out /dev/null >/dev/null 2>&1"))
+		// Объявляем пропуск проверки вслух
+		GTEST_SKIP() << "Системный openssl без Ed25519";
 	// Заготовка пути временного каталога
 	char pattern[] = "/tmp/ants-ed25519-XXXXXX";
 	// Создаём временный каталог
@@ -466,6 +470,10 @@ TEST(Ed25519Test, Foreign) {
 	ASSERT_TRUE(spill(dir + "/msg.bin", reinterpret_cast <const uint8_t *> (message.data()), message.size()));
 	// Выполняем выработку ключа системным OpenSSL
 	ASSERT_TRUE(run("openssl genpkey -algorithm ed25519 -out " + dir + "/key.pem 2>/dev/null"));
+	// Если системный openssl не умеет подписывать сообщение целиком (LibreSSL без -rawin), сличать не с чем
+	if(!run("openssl pkeyutl -sign -inkey " + dir + "/key.pem -rawin -in " + dir + "/msg.bin -out " + dir + "/probe.bin >/dev/null 2>&1"))
+		// Объявляем пропуск проверки вслух
+		GTEST_SKIP() << "Системный openssl без pkeyutl -rawin";
 	// Выполняем запись ключа подписи в DER
 	ASSERT_TRUE(run("openssl pkey -in " + dir + "/key.pem -outform DER -out " + dir + "/key.der 2>/dev/null"));
 	// Выполняем запись ключа проверки в DER

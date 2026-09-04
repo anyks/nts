@@ -1301,7 +1301,7 @@ context::error_t nts::internal::Engine::greeting() noexcept {
 		// Если билет возобновления связи предъявляется серверу
 		if(resume){
 			// Способы обмена, при которых билет годен связи
-			const vector <extension::mode_t> list = {extension::mode_t::SHARED};
+			const vector <extension::regime_t> list = {extension::regime_t::SHARED};
 			// Отказ составления расширения приветствия
 			failure = translate(extension::modes(list, modes), context::error_t::MESSAGE);
 			// Если перечень способов обмена составить не удалось
@@ -2187,7 +2187,7 @@ context::error_t nts::internal::Engine::offered(const vector <hello::extension_t
 			// Выводим отказ отсутствия обязательного расширения
 			return this->abort(context::error_t::MESSAGE, alert::description_t::MISSING);
 		// Способы обмена, объявленные клиентом
-		vector <extension::mode_t> modes;
+		vector <extension::regime_t> modes;
 		// Отказ разбора расширения приветствия
 		failure = translate(extension::modes(item->data, modes), context::error_t::MESSAGE);
 		// Если способы обмена разобрать не удалось
@@ -2201,7 +2201,7 @@ context::error_t nts::internal::Engine::offered(const vector <hello::extension_t
 		 */
 		for(size_t i = 0; (i < modes.size()) && !suitable; i++)
 			// Запоминаем объявление обмена ключом кривой вместе с билетом
-			suitable = (modes[i] == extension::mode_t::SHARED);
+			suitable = (modes[i] == extension::regime_t::SHARED);
 		/**
 		 * Обмен одним лишь билетом связью не ведётся: без ключа кривой хищение билета
 		 * выдаёт всё, что этим билетом когда-либо защищено

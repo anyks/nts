@@ -187,7 +187,7 @@ static bool spill(const std::string & path, const uint8_t * data, const size_t s
  */
 static bool run(const std::string & command) {
 	// Выводим признак нулевого кода завершения команды
-	return (::system(command.c_str()) == 0);
+	return (::system((command + " </dev/null").c_str()) == 0);
 }
 
 /**
@@ -313,6 +313,10 @@ TEST(X25519Test, Reject) {
  *
  */
 TEST(X25519Test, Foreign) {
+	// Если системный openssl не умеет X25519 (старше 1.1.1), сличать не с чем
+	if(!run("openssl genpkey -algorithm X25519 -out /dev/null >/dev/null 2>&1"))
+		// Объявляем пропуск проверки вслух
+		GTEST_SKIP() << "Системный openssl без X25519";
 	// Заготовка пути временного каталога
 	char pattern[] = "/tmp/ants-x25519-XXXXXX";
 	// Создаём временный каталог

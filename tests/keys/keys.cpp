@@ -32,6 +32,7 @@
 #include <cstring>
 #include <fstream>
 #include <sstream>
+#include <iostream>
 #include <unistd.h>
 
 /**
@@ -52,6 +53,22 @@
  */
 using namespace nts;
 
+/**
+ * @brief Метод запуска команды оболочки без консоли на входе
+ *
+ * @details stdin подаётся из /dev/null: у оболочки инструмента разработки он бывает
+ *          сокетом, tcgetattr на нём отвечает EOPNOTSUPP, и консольный слой openssl
+ *          валит разбор даже при пароле, заданном доводом
+ *
+ * @param command запускаемая команда
+ *
+ * @return        код возврата команды
+ *
+ */
+static int shell(const std::string & command) {
+	// Запускаем команду с пустым входом
+	return ::system((command + " </dev/null").c_str());
+}
 /**
  * Пароль ко всем зашифрованным ключам набора: кириллица в UTF-8, десять октетов
  * при семи буквах, в выработку ключа идёт последовательностью октетов
@@ -485,7 +502,7 @@ namespace {
 				// Если каталог создан
 				if(!this->_path.empty())
 					// Удаляем каталог со всем содержимым
-					(void) ::system((std::string("rm -rf ") + this->_path).c_str());
+					(void) shell((std::string("rm -rf ") + this->_path).c_str());
 			}
 	} sandbox_t;
 };
@@ -863,9 +880,25 @@ TEST(KeysTest, Signatures){
  */
 TEST(KeysTest, Openssl){
 	// Если openssl недоступен
-	if(::system("openssl version >/dev/null 2>&1") != 0)
+	if(shell("openssl version >/dev/null 2>&1") != 0)
 		// Пропускаем проверку
 		GTEST_SKIP() << "openssl недоступен";
+	// Если openssl не умеет Ed25519 (старше 1.1.1), обмен по набору невозможен
+	if(shell("openssl genpkey -algorithm ed25519 -out /dev/null >/dev/null 2>&1") != 0)
+		// Объявляем пропуск проверки вслух
+		GTEST_SKIP() << "openssl старше 1.1.1: нет Ed25519";
+	// Признак того, что openssl умеет PBES2 с выбором имитовставки и числа оборотов (у LibreSSL нет)
+	const bool tunable = (shell((std::string("openssl pkcs8 -topk8 -in ") + CORPUS + "/ec256.pem -v2 aes-128-cbc -v2prf hmacWithSHA256 -iter 1 -passout pass:x -out /dev/null >/dev/null 2>&1").c_str()) == 0);
+	// Признак того, что openssl умеет подписывать и проверять сообщение целиком (у LibreSSL нет -rawin)
+	const bool rawin = (shell((std::string("openssl pkeyutl -sign -inkey ") + CORPUS + "/ed25519.pem -rawin -in " + CORPUS + "/data.bin -out /dev/null >/dev/null 2>&1").c_str()) == 0);
+	// Если подписи сообщения целиком нет, говорим об этом вслух
+	if(!rawin)
+		// Выводим сообщение о пропуске части проверки
+		std::cout << "openssl без pkeyutl -rawin: сличение подписей пропущено" << std::endl;
+	// Если выбора имитовставки нет, говорим об этом вслух
+	if(!tunable)
+		// Выводим сообщение о пропуске части проверки
+		std::cout << "openssl без -v2prf и -iter: сличение имитовставок PBES2 пропущено" << std::endl;
 	// Временный каталог
 	sandbox_t sandbox;
 	// Проверяем готовность временного каталога
@@ -897,15 +930,23 @@ TEST(KeysTest, Openssl){
 			// Путь к зашифрованной записи
 			const std::string sealed = sandbox.file(std::string(entry.name) + "-" + std::to_string(bits) + ".enc.pem");
 			// Путь к расшифрованной записи openssl
-			const std::string unsealed = sandbox.file(std::string(entry.name) + "-" + std::to_string(bits) + ".der");
+			const std::string unsealed = sandbox.file(std::string(entry.name) + "-" + std::to_string(bits) + ".pem");
 			// Проверяем запись файла
 			ASSERT_TRUE(spill(sealed, text)) << "Ключ: " << entry.name;
 			// Проверяем, что openssl читает нашу зашифрованную запись
-			ASSERT_EQ(::system((std::string("openssl pkey -in ") + sealed + " -passin pass:" + password + " -outform DER -out " + unsealed + " 2>/dev/null").c_str()), 0) << "Ключ: " << entry.name << ", разрядов: " << bits;
-			// Проверяем совпадение расшифрованного openssl ключа с эталоном байт в байт
-			ASSERT_EQ(bytes(slurp(unsealed)), reference) << "Ключ: " << entry.name << ", разрядов: " << bits;
+			ASSERT_EQ(shell((std::string("openssl pkey -in ") + sealed + " -passin pass:" + password + " -out " + unsealed).c_str()), 0) << "Ключ: " << entry.name << ", разрядов: " << bits;
+			// Ключ, расшифрованный openssl
+			keys::key_t unsealedKey;
+			// Проверяем разбор расшифрованной openssl записи: издания openssl расходятся в необязательных полях и в самом виде записи (у 3.0 старый вид), оттого сличать её с набором байт в байт нельзя
+			ASSERT_EQ(keys::decode(slurp(unsealed), view_t(), unsealedKey), keys::error_t::NONE) << "Ключ: " << entry.name << ", разрядов: " << bits;
+			// Каноническая запись расшифрованного openssl ключа
+			std::vector <uint8_t> canonical;
+			// Проверяем каноническую запись расшифрованного ключа
+			ASSERT_EQ(keys::encodePrivateKeyInfo(unsealedKey, canonical), keys::error_t::NONE) << "Ключ: " << entry.name << ", разрядов: " << bits;
+			// Проверяем совпадение расшифрованного openssl ключа с эталоном в канонической записи
+			ASSERT_EQ(canonical, reference) << "Ключ: " << entry.name << ", разрядов: " << bits;
 			// Проверяем, что openssl отвергает чужой пароль
-			ASSERT_NE(::system((std::string("openssl pkey -in ") + sealed + " -passin pass:" + password + "1 -noout 2>/dev/null").c_str()), 0) << "Ключ: " << entry.name;
+			ASSERT_NE(shell((std::string("openssl pkey -in ") + sealed + " -passin pass:" + password + "1 -noout 2>/dev/null").c_str()), 0) << "Ключ: " << entry.name;
 		}
 		// Имитовставки, которыми openssl шифрует ключ
 		const char * prfs[] = {"hmacWithSHA1", "hmacWithSHA224", "hmacWithSHA256", "hmacWithSHA384", "hmacWithSHA512"};
@@ -913,10 +954,14 @@ TEST(KeysTest, Openssl){
 		 * Выполняем перебор имитовставок
 		 */
 		for(const char * prf : prfs){
+			// Если выбора имитовставки у openssl нет, перебор не нужен
+			if(!tunable)
+				// Прерываем перебор
+				break;
 			// Путь к зашифрованной openssl записи
 			const std::string sealed = sandbox.file(std::string(entry.name) + "-" + prf + ".enc.pem");
 			// Проверяем, что openssl зашифровал ключ с заданной имитовставкой и числом оборотов
-			ASSERT_EQ(::system((std::string("openssl pkcs8 -topk8 -in ") + CORPUS + "/" + entry.name + ".pem -v2 aes-192-cbc -v2prf " + prf + " -iter 777 -passout pass:" + password + " -out " + sealed + " 2>/dev/null").c_str()), 0) << "Ключ: " << entry.name << ", имитовставка: " << prf;
+			ASSERT_EQ(shell((std::string("openssl pkcs8 -topk8 -in ") + CORPUS + "/" + entry.name + ".pem -v2 aes-192-cbc -v2prf " + prf + " -iter 777 -passout pass:" + password + " -out " + sealed + " 2>/dev/null").c_str()), 0) << "Ключ: " << entry.name << ", имитовставка: " << prf;
 			// Разобранный ключ
 			keys::key_t key;
 			// Проверяем разбор зашифрованной openssl записи
@@ -931,7 +976,7 @@ TEST(KeysTest, Openssl){
 		// Путь к записи, зашифрованной старой схемой PBES1
 		const std::string legacy = sandbox.file(std::string(entry.name) + "-legacy.enc.pem");
 		// Если openssl зашифровал ключ старой схемой: у новых видов ключей она недоступна
-		if(::system((std::string("openssl pkcs8 -topk8 -in ") + CORPUS + "/" + entry.name + ".pem -v1 PBE-SHA1-3DES -passout pass:" + password + " -out " + legacy + " 2>/dev/null").c_str()) == 0){
+		if(shell((std::string("openssl pkcs8 -topk8 -in ") + CORPUS + "/" + entry.name + ".pem -v1 PBE-SHA1-3DES -passout pass:" + password + " -out " + legacy + " 2>/dev/null").c_str()) == 0){
 			// Разобранный ключ
 			keys::key_t key;
 			// Проверяем отказ схемы: PBES1 не поддерживается намеренно
@@ -946,7 +991,7 @@ TEST(KeysTest, Openssl){
 		// Проверяем запись файла
 		ASSERT_TRUE(spill(opened, text)) << "Ключ: " << entry.name;
 		// Проверяем, что openssl читает наш открытый ключ
-		ASSERT_EQ(::system((std::string("openssl pkey -pubin -in ") + opened + " -noout 2>/dev/null").c_str()), 0) << "Ключ: " << entry.name;
+		ASSERT_EQ(shell((std::string("openssl pkey -pubin -in ") + opened + " -noout 2>/dev/null").c_str()), 0) << "Ключ: " << entry.name;
 		// Если ключ подписи не вырабатывает
 		if(entry.kind == keys::kind_t::X25519)
 			// Переходим к следующему ключу
@@ -961,13 +1006,16 @@ TEST(KeysTest, Openssl){
 		ASSERT_TRUE(spill(signature, own)) << "Ключ: " << entry.name;
 		// Довод хеша для openssl
 		const std::string digest = ((entry.kind == keys::kind_t::ED25519) ? "" : ((entry.size == 48) ? " -digest sha384" : " -digest sha256"));
-		// Проверяем, что openssl принимает нашу подпись нашим открытым ключом
-		ASSERT_EQ(::system((std::string("openssl pkeyutl -verify -pubin -inkey ") + opened + " -rawin" + digest + " -in " + message + " -sigfile " + signature + " >/dev/null 2>&1").c_str()), 0) << "Ключ: " << entry.name;
+			// Если openssl умеет проверять сообщение целиком
+			if(rawin){
+				// Проверяем, что openssl принимает нашу подпись нашим открытым ключом
+				ASSERT_EQ(shell((std::string("openssl pkeyutl -verify -pubin -inkey ") + opened + " -rawin" + digest + " -in " + message + " -sigfile " + signature + " >/dev/null 2>&1").c_str()), 0) << "Ключ: " << entry.name;
+			}
 	}
 	// Путь к записи RSAPublicKey
 	const std::string rsa = sandbox.file("rsa.pkcs1.pub.pem");
 	// Проверяем, что openssl записал открытый ключ RSA по PKCS #1
-	ASSERT_EQ(::system((std::string("openssl rsa -in ") + CORPUS + "/rsa2048.pem -RSAPublicKey_out -out " + rsa + " 2>/dev/null").c_str()), 0);
+	ASSERT_EQ(shell((std::string("openssl rsa -in ") + CORPUS + "/rsa2048.pem -RSAPublicKey_out -out " + rsa + " 2>/dev/null").c_str()), 0);
 	// Разобранный ключ
 	keys::key_t key;
 	// Проверяем разбор записи под меткой «RSA PUBLIC KEY»
@@ -1063,7 +1111,7 @@ TEST(KeysTest, Gost){
 		// Проверяем совпадение секретных частей
 		ASSERT_EQ(opened.d, secret.d) << "Кривая: " << set[0];
 		// Если openssl доступен
-		if(::system("openssl version >/dev/null 2>&1") == 0){
+		if(shell("openssl version >/dev/null 2>&1") == 0){
 			// Временный каталог
 			sandbox_t sandbox;
 			// Проверяем готовность временного каталога
@@ -1071,7 +1119,7 @@ TEST(KeysTest, Gost){
 			// Проверяем запись файла
 			ASSERT_TRUE(spill(sandbox.file("gost.der"), der));
 			// Проверяем, что устройство записи разбирается openssl
-			ASSERT_EQ(::system((std::string("openssl asn1parse -inform DER -in ") + sandbox.file("gost.der") + " >/dev/null 2>&1").c_str()), 0) << "Кривая: " << set[0];
+			ASSERT_EQ(shell((std::string("openssl asn1parse -inform DER -in ") + sandbox.file("gost.der") + " >/dev/null 2>&1").c_str()), 0) << "Кривая: " << set[0];
 		}
 	}
 	// Ключ с несогласованным алгоритмом: кривая 256 разрядов при алгоритме 512

@@ -604,72 +604,80 @@ bool nts::cipher::Gcm::aggregate(uint8_t * accumulator, const uint8_t * blocks) 
 	return false;
 }
 /**
- * @brief Метод вычисления многочлена GHASH по связанным данным и шифртексту
+ * @brief Метод сложения байтов в накопитель многочлена GHASH
  *
- * @param associated связанные данные
- * @param sealed     шифртекст
- * @param result     место, в которое записывается значение многочлена
+ * @param data складываемые байты
+ * @param size число складываемых байтов
  *
  */
-void nts::cipher::Gcm::polynomial(const view_t & associated, const view_t & sealed, uint8_t * result) const noexcept {
-	// Выполняем обнуление накопителя многочлена
-	::memset(result, 0, 16);
-	// Части, складываемые в многочлен: связанные данные и шифртекст
-	const view_t parts[2] = {associated, sealed};
-	/**
-	 * Выполняем перебор частей
-	 */
-	for(size_t p = 0; p < 2; p++){
-		// Число ещё не сложенных байтов части
-		size_t left = parts[p].size;
-		// Позиция чтения части
-		const uint8_t * cursor = parts[p].data;
+void nts::cipher::Gcm::absorb(const uint8_t * data, const size_t size) noexcept {
+	// Число ещё не сложенных байтов
+	size_t left = size;
+	// Позиция чтения
+	const uint8_t * cursor = data;
+	// Если неполный блок уже копится
+	if(this->_filled > 0){
+		// Число байтов, дополняющих неполный блок
+		const size_t taken = (((16 - this->_filled) < left) ? (16 - this->_filled) : left);
+		// Переносим байты в неполный блок
+		::memcpy(this->_pending + this->_filled, cursor, taken);
+		// Увеличиваем число накопленных байтов
+		this->_filled += taken;
+		// Сдвигаем позицию чтения
+		cursor += taken;
+		// Уменьшаем число не сложенных байтов
+		left -= taken;
+		// Если блок так и остался неполным
+		if(this->_filled < 16)
+			// Выходим из метода
+			return;
 		/**
-		 * Выполняем сложение по четыре целых блока одним приведением, пока машина умножает командами
+		 * Выполняем сложение собранного блока с накопителем
 		 */
-		while((left >= 64) && this->aggregate(result, cursor)){
-			// Сдвигаем позицию чтения
-			cursor += 64;
-			// Уменьшаем число не сложенных байтов
-			left -= 64;
-		}
-		/**
-		 * Выполняем сложение остальных блоков части с дополнением последнего нулями
-		 */
-		while(left > 0){
-			// Число байтов очередного блока
-			const size_t taken = ((left < 16) ? left : 16);
-			/**
-			 * Выполняем сложение блока с накопителем
-			 */
-			for(size_t i = 0; i < taken; i++)
-				// Складываем очередной байт
-				result[i] ^= cursor[i];
-			// Умножаем накопитель на ключ хеширования
-			this->multiply(result);
-			// Сдвигаем позицию чтения
-			cursor += taken;
-			// Уменьшаем число не сложенных байтов
-			left -= taken;
-		}
+		for(size_t i = 0; i < 16; i++)
+			// Складываем очередной байт
+			this->_accumulator[i] ^= this->_pending[i];
+		// Умножаем накопитель на ключ хеширования
+		this->multiply(this->_accumulator);
+		// Сбрасываем число накопленных байтов
+		this->_filled = 0;
 	}
-	// Блок длин: разряды связанных данных и шифртекста
-	uint8_t lengths[16];
-	// Записываем длину связанных данных в разрядах
-	store(static_cast <uint64_t> (associated.size) * 8, lengths);
-	// Записываем длину шифртекста в разрядах
-	store(static_cast <uint64_t> (sealed.size) * 8, lengths + 8);
 	/**
-	 * Выполняем сложение блока длин с накопителем
+	 * Выполняем сложение по четыре целых блока одним приведением, пока машина умножает командами
 	 */
-	for(size_t i = 0; i < 16; i++)
-		// Складываем очередной байт
-		result[i] ^= lengths[i];
-	// Умножаем накопитель на ключ хеширования
-	this->multiply(result);
+	while((left >= 64) && this->aggregate(this->_accumulator, cursor)){
+		// Сдвигаем позицию чтения
+		cursor += 64;
+		// Уменьшаем число не сложенных байтов
+		left -= 64;
+	}
+	/**
+	 * Выполняем сложение целых блоков с накопителем
+	 */
+	while(left >= 16){
+		/**
+		 * Выполняем сложение блока с накопителем
+		 */
+		for(size_t i = 0; i < 16; i++)
+			// Складываем очередной байт
+			this->_accumulator[i] ^= cursor[i];
+		// Умножаем накопитель на ключ хеширования
+		this->multiply(this->_accumulator);
+		// Сдвигаем позицию чтения
+		cursor += 16;
+		// Уменьшаем число не сложенных байтов
+		left -= 16;
+	}
+	// Если остался хвост короче блока
+	if(left > 0){
+		// Переносим хвост в неполный блок
+		::memcpy(this->_pending, cursor, left);
+		// Запоминаем число накопленных байтов
+		this->_filled = left;
+	}
 }
 /**
- * @brief Метод наложения гаммы счётчика
+ * @brief Метод наложения гаммы счётчика с продолжением от остатка блока
  *
  * @param source накладываемые данные
  * @param result место, в которое записывается итог наложения
@@ -677,29 +685,46 @@ void nts::cipher::Gcm::polynomial(const view_t & associated, const view_t & seal
  * @return       признак успешности наложения
  *
  */
-bool nts::cipher::Gcm::gamma(const view_t & source, uint8_t * result) const noexcept {
-	// Счётчик: начальный блок с увеличенными младшими 32 разрядами
-	uint8_t counter[16];
-	// Переносим начальный блок счётчика
-	::memcpy(counter, this->_nonce, sizeof(counter));
+bool nts::cipher::Gcm::cover(const view_t & source, uint8_t * result) noexcept {
 	// Число ещё не покрытых байтов
 	size_t left = source.size;
 	// Позиция чтения данных
 	const uint8_t * cursor = source.data;
 	// Позиция записи итога
 	uint8_t * output = result;
-	// Если шифр умеет вырабатывать гамму по многу блоков
-	if(this->_block.stream != nullptr){
-		// Гамма на восемь блоков
-		uint8_t gamma[128];
+	// Если остаток блока гаммы не израсходован
+	if(this->_rest > 0){
+		// Число байтов, покрываемых остатком
+		const size_t taken = ((this->_rest < left) ? this->_rest : left);
+		// Позиция остатка внутри блока гаммы
+		const size_t index = (16 - this->_rest);
 		/**
-		 * Выполняем покрытие данных гаммой по восемь блоков
+		 * Выполняем наложение остатка гаммы
 		 */
-		while(left > 0){
-			// Число блоков гаммы: до восьми
-			const size_t count = (((left + 15) / 16) < 8) ? ((left + 15) / 16) : 8;
+		for(size_t i = 0; i < taken; i++)
+			// Складываем очередной байт с гаммой
+			output[i] = static_cast <uint8_t> (cursor[i] ^ this->_gamma[index + i]);
+		// Сдвигаем позицию чтения
+		cursor += taken;
+		// Сдвигаем позицию записи
+		output += taken;
+		// Уменьшаем число не покрытых байтов
+		left -= taken;
+		// Уменьшаем остаток блока гаммы
+		this->_rest -= taken;
+	}
+	// Гамма на восемь блоков
+	uint8_t gamma[128];
+	/**
+	 * Выполняем покрытие данных гаммой по восемь блоков
+	 */
+	while(left > 0){
+		// Число блоков гаммы: до восьми
+		const size_t count = (((left + 15) / 16) < 8) ? ((left + 15) / 16) : 8;
+		// Если шифр умеет вырабатывать гамму по многу блоков
+		if(this->_block.stream != nullptr){
 			// Если гамму выработать не удалось
-			if(!this->_block.stream(this->_block.cipher, counter, count, gamma)){
+			if(!this->_block.stream(this->_block.cipher, this->_counter, count, gamma)){
 				// Выполняем затирание гаммы
 				wipe(gamma, sizeof(gamma));
 				// Выводим отказ наложения
@@ -714,63 +739,50 @@ bool nts::cipher::Gcm::gamma(const view_t & source, uint8_t * result) const noex
 				 */
 				for(size_t i = 16; i > 12; i--){
 					// Если байт не переполнился
-					if(++counter[i - 1] != 0)
+					if(++this->_counter[i - 1] != 0)
 						// Прерываем перенос
 						break;
 				}
 			}
-			// Число байтов, покрываемых выработанной гаммой
-			const size_t taken = ((left < (count * 16)) ? left : (count * 16));
+		// Иначе гамма вырабатывается по одному блоку
+		} else {
 			/**
-			 * Выполняем наложение гаммы
+			 * Выполняем выработку блоков гаммы
 			 */
-			for(size_t i = 0; i < taken; i++)
-				// Складываем очередной байт с гаммой
-				output[i] = static_cast <uint8_t> (cursor[i] ^ gamma[i]);
-			// Сдвигаем позицию чтения
-			cursor += taken;
-			// Сдвигаем позицию записи
-			output += taken;
-			// Уменьшаем число не покрытых байтов
-			left -= taken;
+			for(size_t b = 0; b < count; b++){
+				/**
+				 * Выполняем увеличение младших 32 разрядов счётчика от старшего байта
+				 */
+				for(size_t i = 16; i > 12; i--){
+					// Если байт не переполнился
+					if(++this->_counter[i - 1] != 0)
+						// Прерываем перенос
+						break;
+				}
+				// Если блок гаммы выработать не удалось
+				if(!this->_block.encrypt(this->_block.cipher, this->_counter, gamma + (b * 16))){
+					// Выполняем затирание гаммы
+					wipe(gamma, sizeof(gamma));
+					// Выводим отказ наложения
+					return false;
+				}
+			}
 		}
-		// Выполняем затирание гаммы
-		wipe(gamma, sizeof(gamma));
-		// Выполняем затирание счётчика
-		wipe(counter, sizeof(counter));
-		// Выводим успешность наложения
-		return true;
-	}
-	// Блок гаммы
-	uint8_t block[16];
-	/**
-	 * Выполняем покрытие данных блоками гаммы
-	 */
-	while(left > 0){
+		// Число байтов, покрываемых выработанной гаммой
+		const size_t taken = ((left < (count * 16)) ? left : (count * 16));
 		/**
-		 * Выполняем увеличение младших 32 разрядов счётчика от старшего байта
-		 */
-		for(size_t i = 16; i > 12; i--){
-			// Если байт не переполнился
-			if(++counter[i - 1] != 0)
-				// Прерываем перенос
-				break;
-		}
-		// Если блок гаммы выработать не удалось
-		if(!this->_block.encrypt(this->_block.cipher, counter, block)){
-			// Выполняем затирание блока гаммы
-			wipe(block, sizeof(block));
-			// Выводим отказ наложения
-			return false;
-		}
-		// Число байтов, покрываемых блоком
-		const size_t taken = ((left < 16) ? left : 16);
-		/**
-		 * Выполняем наложение блока гаммы
+		 * Выполняем наложение гаммы
 		 */
 		for(size_t i = 0; i < taken; i++)
 			// Складываем очередной байт с гаммой
-			output[i] = static_cast <uint8_t> (cursor[i] ^ block[i]);
+			output[i] = static_cast <uint8_t> (cursor[i] ^ gamma[i]);
+		// Если последний блок гаммы израсходован не целиком
+		if(taken < (count * 16)){
+			// Сохраняем последний блок гаммы остатком
+			::memcpy(this->_gamma, gamma + ((count - 1) * 16), 16);
+			// Запоминаем число неизрасходованных байтов остатка
+			this->_rest = ((count * 16) - taken);
+		}
 		// Сдвигаем позицию чтения
 		cursor += taken;
 		// Сдвигаем позицию записи
@@ -778,26 +790,59 @@ bool nts::cipher::Gcm::gamma(const view_t & source, uint8_t * result) const noex
 		// Уменьшаем число не покрытых байтов
 		left -= taken;
 	}
-	// Выполняем затирание блока гаммы
-	wipe(block, sizeof(block));
-	// Выполняем затирание счётчика
-	wipe(counter, sizeof(counter));
+	// Выполняем затирание гаммы
+	wipe(gamma, sizeof(gamma));
 	// Выводим успешность наложения
 	return true;
 }
 /**
- * @brief Метод вычисления метки целостности
+ * @brief Метод завершения многочлена GHASH блоком длин
  *
- * @param associated связанные данные
- * @param sealed     шифртекст
- * @param result     место в 16 байтов, в которое записывается метка
- *
- * @return           признак успешности вычисления
+ * @param result место в 16 байтов, в которое записывается значение многочлена
  *
  */
-bool nts::cipher::Gcm::authenticate(const view_t & associated, const view_t & sealed, uint8_t * result) const noexcept {
-	// Выполняем вычисление многочлена по связанным данным и шифртексту
-	this->polynomial(associated, sealed, result);
+void nts::cipher::Gcm::digest(uint8_t * result) noexcept {
+	// Если неполный блок копится
+	if(this->_filled > 0){
+		/**
+		 * Выполняем сложение неполного блока с накопителем: дополнение нулями
+		 */
+		for(size_t i = 0; i < this->_filled; i++)
+			// Складываем очередной байт
+			this->_accumulator[i] ^= this->_pending[i];
+		// Умножаем накопитель на ключ хеширования
+		this->multiply(this->_accumulator);
+		// Сбрасываем число накопленных байтов
+		this->_filled = 0;
+	}
+	// Блок длин: разряды связанных данных и шифртекста
+	uint8_t lengths[16];
+	// Записываем длину связанных данных в разрядах
+	store(this->_associated * 8, lengths);
+	// Записываем длину шифртекста в разрядах
+	store(this->_sealed * 8, lengths + 8);
+	/**
+	 * Выполняем сложение блока длин с накопителем
+	 */
+	for(size_t i = 0; i < 16; i++)
+		// Складываем очередной байт
+		this->_accumulator[i] ^= lengths[i];
+	// Умножаем накопитель на ключ хеширования
+	this->multiply(this->_accumulator);
+	// Переносим значение многочлена в место итога
+	::memcpy(result, this->_accumulator, 16);
+}
+/**
+ * @brief Метод вычисления метки целостности по накопленному потоку
+ *
+ * @param result место в 16 байтов, в которое записывается метка
+ *
+ * @return       признак успешности вычисления
+ *
+ */
+bool nts::cipher::Gcm::authenticate(uint8_t * result) noexcept {
+	// Выполняем завершение многочлена блоком длин
+	this->digest(result);
 	// Зашифрованный начальный блок счётчика
 	uint8_t mask[16];
 	// Если начальный блок зашифровать не удалось
@@ -817,6 +862,84 @@ bool nts::cipher::Gcm::authenticate(const view_t & associated, const view_t & se
 	wipe(mask, sizeof(mask));
 	// Выводим успешность вычисления
 	return true;
+}
+/**
+ * @brief Метод сброса состояния потока
+ *
+ */
+void nts::cipher::Gcm::reset() noexcept {
+	// Сбрасываем ступень потока
+	this->_stage = 0;
+	// Сбрасываем направление потока
+	this->_direction = 0;
+	// Сбрасываем остаток блока гаммы
+	this->_rest = 0;
+	// Сбрасываем число накопленных байтов неполного блока
+	this->_filled = 0;
+	// Сбрасываем длину связанных данных
+	this->_associated = 0;
+	// Сбрасываем длину шифртекста
+	this->_sealed = 0;
+	// Начальным значением счётчика служит начальный блок
+	::memcpy(this->_counter, this->_nonce, sizeof(this->_counter));
+	// Выполняем затирание остатка блока гаммы
+	wipe(this->_gamma, sizeof(this->_gamma));
+	// Выполняем затирание накопителя многочлена
+	wipe(this->_accumulator, sizeof(this->_accumulator));
+	// Выполняем затирание неполного блока многочлена
+	wipe(this->_pending, sizeof(this->_pending));
+}
+/**
+ * @brief Метод перехода потока к данным
+ *
+ * @param direction направление потока: единица - зашифрование, двойка - расшифрование
+ *
+ * @return          признак допустимости перехода
+ *
+ */
+bool nts::cipher::Gcm::proceed(const uint8_t direction) noexcept {
+	/**
+	 * Выполняем разбор ступени потока
+	 */
+	switch(this->_stage){
+		// Если поток на связанных данных либо ещё не начат
+		case 0:
+		case 1: {
+			// Если направление - зашифрование, а заполнение израсходовано
+			if((direction == 1) && this->_spent)
+				// Выводим недопустимость перехода
+				return false;
+			// Если направление - зашифрование
+			if(direction == 1)
+				// Запоминаем, что заполнение израсходовано
+				this->_spent = true;
+			// Если неполный блок связанных данных копится
+			if(this->_filled > 0){
+				/**
+				 * Выполняем сложение неполного блока с накопителем: дополнение нулями
+				 */
+				for(size_t i = 0; i < this->_filled; i++)
+					// Складываем очередной байт
+					this->_accumulator[i] ^= this->_pending[i];
+				// Умножаем накопитель на ключ хеширования
+				this->multiply(this->_accumulator);
+				// Сбрасываем число накопленных байтов
+				this->_filled = 0;
+			}
+			// Запоминаем направление потока
+			this->_direction = direction;
+			// Переводим поток на данные
+			this->_stage = 2;
+			// Выводим допустимость перехода
+			return true;
+		}
+		// Если поток на данных
+		case 2:
+			// Выводим допустимость лишь того же направления
+			return (this->_direction == direction);
+	}
+	// Поток закрыт: перехода нет
+	return false;
 }
 /**
  * @brief Метод проверки готовности режима к работе
@@ -979,14 +1102,21 @@ bool nts::cipher::Gcm::start(const block_t & block, const view_t & nonce, const 
 		this->_nonce[15] = 0x01;
 	// Иначе начальный блок вычисляется многочленом по заполнению
 	} else {
-		// Выполняем вычисление многочлена по заполнению как по шифртексту без связанных данных
-		this->polynomial(view_t(), nonce, this->_nonce);
+		// Выполняем сброс состояния потока: накопитель обнулён
+		this->reset();
+		// Выполняем сложение заполнения в накопитель
+		this->absorb(nonce.data, nonce.size);
 		/**
 		 * Блок длин у заполнения иной: нули и длина заполнения в разрядах, - оттого
-		 * многочлен пересчитывается тем же ходом, но с длиной заполнения на месте
-		 * длины шифртекста, что и даёт polynomial() при пустых связанных данных
+		 * многочлен завершается тем же ходом, но с длиной заполнения на месте длины
+		 * шифртекста и пустыми связанными данными
 		 */
+		this->_sealed = static_cast <uint64_t> (nonce.size);
+		// Выполняем завершение многочлена в начальный блок счётчика
+		this->digest(this->_nonce);
 	}
+	// Выполняем сброс состояния потока от начального блока
+	this->reset();
 	// Запоминаем готовность режима
 	this->_ready = true;
 	// Выводим успешность запуска
@@ -1013,6 +1143,178 @@ void nts::cipher::Gcm::clear() noexcept {
 	wipe(this->_mirror, sizeof(this->_mirror));
 	// Выполняем затирание степеней ключа хеширования
 	wipe(this->_powers, sizeof(this->_powers));
+	// Выполняем сброс состояния потока
+	this->reset();
+}
+/**
+ * @brief Метод подачи связанных данных потока
+ *
+ * @param associated связанные данные, защищаемые лишь меткой
+ *
+ * @return           признак успешности подачи
+ *
+ */
+bool nts::cipher::Gcm::associate(const view_t & associated) noexcept {
+	// Если режим не готов либо поток уже перешёл к данным
+	if(!this->_ready || (this->_stage > 1))
+		// Выводим отказ подачи
+		return false;
+	// Если связанные данные объявлены непустыми, но не переданы
+	if((associated.size > 0) && (associated.data == nullptr))
+		// Выводим отказ подачи
+		return false;
+	// Переводим поток на связанные данные
+	this->_stage = 1;
+	// Выполняем сложение связанных данных в накопитель
+	this->absorb(associated.data, associated.size);
+	// Увеличиваем длину связанных данных
+	this->_associated += static_cast <uint64_t> (associated.size);
+	// Выводим успешность подачи
+	return true;
+}
+/**
+ * @brief Метод поточного зашифрования куска
+ *
+ * @param source открытый текст
+ * @param result место, в которое записывается шифртекст той же длины
+ *
+ * @return       признак успешности зашифрования
+ *
+ */
+bool nts::cipher::Gcm::encrypt(const view_t & source, uint8_t * result) noexcept {
+	// Если режим не готов
+	if(!this->_ready)
+		// Выводим отказ зашифрования
+		return false;
+	// Если текст объявлен непустым, но не передан
+	if((source.size > 0) && ((source.data == nullptr) || (result == nullptr)))
+		// Выводим отказ зашифрования
+		return false;
+	// Если переход потока к зашифрованию недопустим
+	if(!this->proceed(1))
+		// Выводим отказ зашифрования
+		return false;
+	// Если гамму наложить не удалось
+	if(!this->cover(source, result)){
+		// Закрываем поток
+		this->_stage = 3;
+		// Выводим отказ зашифрования
+		return false;
+	}
+	// Выполняем сложение шифртекста в накопитель
+	this->absorb(result, source.size);
+	// Увеличиваем длину шифртекста
+	this->_sealed += static_cast <uint64_t> (source.size);
+	// Выводим успешность зашифрования
+	return true;
+}
+/**
+ * @brief Метод поточного расшифрования куска
+ *
+ * @param source шифртекст
+ * @param result место, в которое записывается открытый текст той же длины
+ *
+ * @return       признак успешности расшифрования
+ *
+ */
+bool nts::cipher::Gcm::decrypt(const view_t & source, uint8_t * result) noexcept {
+	// Если режим не готов
+	if(!this->_ready)
+		// Выводим отказ расшифрования
+		return false;
+	// Если текст объявлен непустым, но не передан
+	if((source.size > 0) && ((source.data == nullptr) || (result == nullptr)))
+		// Выводим отказ расшифрования
+		return false;
+	// Если переход потока к расшифрованию недопустим
+	if(!this->proceed(2))
+		// Выводим отказ расшифрования
+		return false;
+	// Выполняем сложение шифртекста в накопитель
+	this->absorb(source.data, source.size);
+	// Увеличиваем длину шифртекста
+	this->_sealed += static_cast <uint64_t> (source.size);
+	// Если гамму снять не удалось
+	if(!this->cover(source, result)){
+		// Выполняем затирание неполного открытого текста
+		wipe(result, source.size);
+		// Закрываем поток
+		this->_stage = 3;
+		// Выводим отказ расшифрования
+		return false;
+	}
+	// Выводим успешность расшифрования
+	return true;
+}
+/**
+ * @brief Метод завершения поточного зашифрования выработкой метки
+ *
+ * @param tag место, в которое записывается метка установленной длины
+ *
+ * @return    признак успешности завершения; поток закрывается
+ *
+ */
+bool nts::cipher::Gcm::finish(uint8_t * tag) noexcept {
+	// Если режим не готов либо места под метку нет
+	if(!this->_ready || (tag == nullptr))
+		// Выводим отказ завершения
+		return false;
+	// Если переход потока к зашифрованию недопустим: пустой текст тоже расходует заполнение
+	if(!this->proceed(1))
+		// Выводим отказ завершения
+		return false;
+	// Закрываем поток
+	this->_stage = 3;
+	// Полная метка
+	uint8_t buffer[16];
+	// Если метку вычислить не удалось
+	if(!this->authenticate(buffer)){
+		// Выполняем затирание метки
+		wipe(buffer, sizeof(buffer));
+		// Выводим отказ завершения
+		return false;
+	}
+	// Переносим метку в установленную длину
+	::memcpy(tag, buffer, this->_size);
+	// Выполняем затирание полной метки
+	wipe(buffer, sizeof(buffer));
+	// Выводим успешность завершения
+	return true;
+}
+/**
+ * @brief Метод завершения поточного расшифрования сличением метки
+ *
+ * @param tag проверяемая метка установленной длины
+ *
+ * @return    признак схождения метки за постоянное время; поток закрывается
+ *
+ */
+bool nts::cipher::Gcm::verify(const view_t & tag) noexcept {
+	// Если режим не готов либо метка не установленной длины
+	if(!this->_ready || (tag.data == nullptr) || (tag.size != this->_size))
+		// Выводим отказ сличения
+		return false;
+	// Если переход потока к расшифрованию недопустим
+	if(!this->proceed(2))
+		// Выводим отказ сличения
+		return false;
+	// Закрываем поток
+	this->_stage = 3;
+	// Полная метка
+	uint8_t buffer[16];
+	// Если метку вычислить не удалось
+	if(!this->authenticate(buffer)){
+		// Выполняем затирание метки
+		wipe(buffer, sizeof(buffer));
+		// Выводим отказ сличения
+		return false;
+	}
+	// Признак схождения метки за постоянное время
+	const bool matched = same(buffer, tag.data, this->_size);
+	// Выполняем затирание полной метки
+	wipe(buffer, sizeof(buffer));
+	// Выводим признак схождения метки
+	return matched;
 }
 /**
  * @brief Метод зашифрования с выработкой метки целостности
@@ -1038,27 +1340,18 @@ bool nts::cipher::Gcm::encrypt(const view_t & associated, const view_t & source,
 	if((associated.size > 0) && (associated.data == nullptr))
 		// Выводим отказ зашифрования
 		return false;
-	// Запоминаем, что заполнение израсходовано
-	this->_spent = true;
-	// Если гамму наложить не удалось
-	if((source.size > 0) && !this->gamma(source, result))
+	// Выполняем сброс состояния потока: разовый вызов не зависит от прежнего
+	this->reset();
+	// Если связанные данные подать не удалось
+	if(!this->associate(associated))
 		// Выводим отказ зашифрования
 		return false;
-	// Полная метка
-	uint8_t buffer[16];
-	// Если метку вычислить не удалось
-	if(!this->authenticate(associated, view_t(result, source.size), buffer)){
-		// Выполняем затирание метки
-		wipe(buffer, sizeof(buffer));
+	// Если текст зашифровать не удалось
+	if(!this->encrypt(source, result))
 		// Выводим отказ зашифрования
 		return false;
-	}
-	// Переносим метку в установленную длину
-	::memcpy(tag, buffer, this->_size);
-	// Выполняем затирание полной метки
-	wipe(buffer, sizeof(buffer));
-	// Выводим успешность зашифрования
-	return true;
+	// Выводим итог выработки метки
+	return this->finish(tag);
 }
 /**
  * @brief Метод расшифрования с проверкой метки целостности
@@ -1068,7 +1361,7 @@ bool nts::cipher::Gcm::encrypt(const view_t & associated, const view_t & source,
  * @param result     место, в которое записывается открытый текст той же длины
  * @param tag        проверяемая метка установленной длины
  *
- * @return           признак схождения метки; при расхождении открытый текст затёрт
+ * @return           признак схождения метки; при расхождении открытый текст не тронут
  *
  */
 bool nts::cipher::Gcm::decrypt(const view_t & associated, const view_t & source, uint8_t * result, const view_t & tag) noexcept {
@@ -1084,25 +1377,30 @@ bool nts::cipher::Gcm::decrypt(const view_t & associated, const view_t & source,
 	if((associated.size > 0) && (associated.data == nullptr))
 		// Выводим отказ расшифрования
 		return false;
-	// Полная метка
-	uint8_t buffer[16];
-	// Если метку вычислить не удалось
-	if(!this->authenticate(associated, source, buffer)){
-		// Выполняем затирание метки
-		wipe(buffer, sizeof(buffer));
+	// Выполняем сброс состояния потока: разовый вызов не зависит от прежнего
+	this->reset();
+	// Если связанные данные подать не удалось
+	if(!this->associate(associated))
 		// Выводим отказ расшифрования
 		return false;
-	}
-	// Признак схождения метки за постоянное время
-	const bool matched = same(buffer, tag.data, this->_size);
-	// Выполняем затирание полной метки
-	wipe(buffer, sizeof(buffer));
+	/**
+	 * Метка сличается прежде снятия гаммы, чтобы при расхождении не раскрыть ни
+	 * байта: шифртекст складывается в накопитель без наложения гаммы, а гамма
+	 * снимается лишь после схождения метки тем же счётчиком от начального блока
+	 */
+	if(!this->proceed(2))
+		// Выводим отказ расшифрования
+		return false;
+	// Выполняем сложение шифртекста в накопитель
+	this->absorb(source.data, source.size);
+	// Увеличиваем длину шифртекста
+	this->_sealed += static_cast <uint64_t> (source.size);
 	// Если метка не сошлась
-	if(!matched)
+	if(!this->verify(tag))
 		// Выводим отказ расшифрования, не раскрывая ни байта
 		return false;
 	// Если гамму снять не удалось
-	if((source.size > 0) && !this->gamma(source, result)){
+	if(!this->cover(source, result)){
 		// Выполняем затирание неполного открытого текста
 		wipe(result, source.size);
 		// Выводим отказ расшифрования
@@ -1115,7 +1413,7 @@ bool nts::cipher::Gcm::decrypt(const view_t & associated, const view_t & source,
  * @brief Конструктор
  *
  */
-nts::cipher::Gcm::Gcm() noexcept : _ready(false), _spent(false), _size(0) {
+nts::cipher::Gcm::Gcm() noexcept : _ready(false), _spent(false), _size(0), _stage(0), _direction(0), _rest(0), _filled(0), _associated(0), _sealed(0) {
 	// Выполняем затирание начального блока счётчика
 	wipe(this->_nonce, sizeof(this->_nonce));
 	// Выполняем затирание таблицы кратных
@@ -1124,6 +1422,8 @@ nts::cipher::Gcm::Gcm() noexcept : _ready(false), _spent(false), _size(0) {
 	wipe(this->_mirror, sizeof(this->_mirror));
 	// Выполняем затирание степеней ключа хеширования
 	wipe(this->_powers, sizeof(this->_powers));
+	// Выполняем сброс состояния потока
+	this->reset();
 }
 /**
  * @brief Деструктор

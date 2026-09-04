@@ -168,6 +168,11 @@ namespace nts {
 		 *
 		 * @note Секретные составляющие затираются при сбросе и при уничтожении ключа
 		 *
+		 * @note Раскладка по видам: у RSA - n, e, d, p, q, dP, dQ, qInv; у EC и ГОСТ -
+		 *       секретный скаляр d и координаты открытой точки x, y; у Ed25519 и X25519 -
+		 *       секретное зерно d и открытый ключ key. Поле key открытое всегда, секретная
+		 *       часть у всякого вида лежит в d
+		 *
 		 * \~english
 		 * @brief A parsed key
 		 * @details All the numbers are written in the order from the senior byte to the junior one:
@@ -177,6 +182,10 @@ namespace nts {
 		 *          public components of a secret key are always filled: at the parsing they are
 		 *          derived from the secret ones if the record does not carry them.
 		 * @note The secret components are wiped at the reset and at the destruction of the key
+		 * @note The layout by the kinds: at RSA - n, e, d, p, q, dP, dQ, qInv; at EC and GOST - the
+		 *       secret scalar d and the coordinates of the public point x, y; at Ed25519 and X25519 -
+		 *       the secret seed d and the public key key. The key field is always public, the secret
+		 *       part of every kind lies in d
 		 *
 		 * \~
 		 */

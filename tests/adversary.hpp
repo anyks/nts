@@ -1585,7 +1585,7 @@ namespace {
 		// Добавляем расширение открытых частей ключей обмена
 		greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::SHARE), view_t(bodies[3].data(), bodies[3].size())));
 		// Если способы обмена заранее разделённым ключом составить не удалось
-		if(extension::modes(vector <extension::mode_t> {extension::mode_t::SHARED}, bodies[4]) != extension::error_t::NONE)
+		if(extension::modes(vector <extension::regime_t> {extension::regime_t::SHARED}, bodies[4]) != extension::error_t::NONE)
 			// Выводим отказ подачи упреждающих данных
 			return false;
 		// Добавляем расширение способов обмена заранее разделённым ключом
@@ -1952,7 +1952,7 @@ namespace {
 					// Устанавливаем негодное тело способов обмена ключом
 					bodies[5] = {0x05};
 				// Если годные способы обмена ключом составить не удалось
-				else if(extension::modes(vector <extension::mode_t> {extension::mode_t::SHARED}, bodies[5]) != extension::error_t::NONE)
+				else if(extension::modes(vector <extension::regime_t> {extension::regime_t::SHARED}, bodies[5]) != extension::error_t::NONE)
 					// Выводим отказ рукопожатия враждебного клиента
 					return false;
 				// Добавляем расширение способов обмена заранее разделённым ключом
@@ -1980,7 +1980,7 @@ namespace {
 		 * полным рукопожатием: неведомый опознаватель - не отказ, а отсутствие совпадения
 		 */
 		if(distortion == distortion_t::UNKNOWNPSK){
-			if(extension::modes(vector <extension::mode_t> {extension::mode_t::SHARED}, bodies[5]) != extension::error_t::NONE)
+			if(extension::modes(vector <extension::regime_t> {extension::regime_t::SHARED}, bodies[5]) != extension::error_t::NONE)
 				return false;
 			greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::MODES), view_t(bodies[5].data(), bodies[5].size())));
 			const std::vector <uint8_t> unknown(8, 0x5A);

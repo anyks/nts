@@ -191,6 +191,7 @@ SET(SOURCE_FILES
     "${CMAKE_SOURCE_DIR}/src/cipher/mode.cpp"
     "${CMAKE_SOURCE_DIR}/src/cipher/mgm.cpp"
     "${CMAKE_SOURCE_DIR}/src/cipher/gcm.cpp"
+    "${CMAKE_SOURCE_DIR}/src/cipher/stream.cpp"
     "${CMAKE_SOURCE_DIR}/src/math/number.cpp"
     "${CMAKE_SOURCE_DIR}/src/entropy/entropy.cpp"
     "${CMAKE_SOURCE_DIR}/src/curve/curve.cpp"

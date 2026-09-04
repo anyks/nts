@@ -259,7 +259,7 @@ TEST(ExtensionTest, Bodies){
 				// Если это расширение способов обмена с заранее разделённым ключом
 				case static_cast <uint16_t> (extension::type_t::MODES): {
 					// Разобранный перечень способов обмена
-					vector <extension::mode_t> modes;
+					vector <extension::regime_t> modes;
 					// Выполняем разбор перечня способов обмена
 					ASSERT_EQ(extension::modes(item.data, modes), extension::error_t::NONE) << "приветствие " << i;
 					// Проверяем, что перечень способов обмена не пуст
@@ -316,7 +316,7 @@ TEST(ExtensionTest, Ragged){
 	// Если перечень долей обмена ключами составить не удалось
 	ASSERT_EQ(extension::shares(vector <extension::share_t> {extension::share_t(extension::group_t::GC256B, view_t(opened.data(), opened.size()))}, corpus[3]), extension::error_t::NONE);
 	// Если способы обмена заранее разделённым ключом составить не удалось
-	ASSERT_EQ(extension::modes(vector <extension::mode_t> {extension::mode_t::SHARED}, corpus[4]), extension::error_t::NONE);
+	ASSERT_EQ(extension::modes(vector <extension::regime_t> {extension::regime_t::SHARED}, corpus[4]), extension::error_t::NONE);
 	// Если перечень прикладных протоколов составить не удалось
 	ASSERT_EQ(extension::protocols(vector <string> {"h2", "http/1.1"}, corpus[5]), extension::error_t::NONE);
 	// Если метку возврата состояния составить не удалось
@@ -359,7 +359,7 @@ TEST(ExtensionTest, Ragged){
 				// Место, в которое помещается разобранная доля обмена
 				extension::share_t share(extension::group_t::NONE, view_t(nullptr, 0));
 				// Место, в которое помещается разобранный перечень способов обмена
-				vector <extension::mode_t> modes;
+				vector <extension::regime_t> modes;
 				// Место, в которое помещается разобранный перечень протоколов
 				vector <string> protocols;
 				// Место, в которое помещается разобранный прикладной протокол
@@ -910,7 +910,7 @@ TEST(ExtensionTest, Bounded){
 	// Накопитель, в который складывается тело составленного расширения
 	vector <uint8_t> result;
 	// Запись, длина которой не входит в объявление одного байта
-	const vector <uint8_t> single(256, 0x41);
+	const vector <uint8_t> solo(256, 0x41);
 	// Запись, длина которой не входит в объявление двух байтов
 	const vector <uint8_t> couple(65536, 0x42);
 	/**
@@ -963,7 +963,7 @@ TEST(ExtensionTest, Bounded){
 	// Перечень привязок заранее разделённых ключей
 	vector <view_t> binders;
 	// Добавляем привязку ключа в перечень привязок
-	binders.push_back(view_t(single.data(), 32));
+	binders.push_back(view_t(solo.data(), 32));
 	// Проверяем отказ составления предложения с непомерным опознавателем
 	ASSERT_EQ(extension::identities(identities, binders, result), extension::error_t::LENGTH);
 	// Устанавливаем опознаватель ключа длиною в половину объявления перечня
@@ -979,9 +979,9 @@ TEST(ExtensionTest, Bounded){
 	// Оставляем в перечне привязок единственную запись
 	binders.pop_back();
 	// Устанавливаем годный опознаватель заранее разделённого ключа
-	identities[0].identity = view_t(single.data(), 8);
+	identities[0].identity = view_t(solo.data(), 8);
 	// Устанавливаем непомерную привязку заранее разделённого ключа
-	binders[0] = view_t(single.data(), single.size());
+	binders[0] = view_t(solo.data(), solo.size());
 	// Проверяем отказ составления предложения с непомерной привязкой ключа
 	ASSERT_EQ(extension::identities(identities, binders, result), extension::error_t::LENGTH);
 	// Устанавливаем привязку ключа длиною в половину объявления перечня
@@ -1146,7 +1146,7 @@ static extension::error_t exhaust(const hello::client_t & hello, const vector <s
 	// Если расширение способов обмена ключами возобновления есть
 	if(item != nullptr){
 		// Разобранный перечень способов обмена
-		vector <extension::mode_t> modes;
+		vector <extension::regime_t> modes;
 		// Выполняем разбор перечня способов обмена
 		outcome = extension::modes(item->data, modes);
 		// Если разбор не состоялся

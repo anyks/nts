@@ -981,7 +981,7 @@ static bool corpus(const char * name, std::vector <std::vector <uint8_t>> & resu
  * @return       признак успешности чтения сертификата
  *
  */
-static bool single(const char * name, std::vector <uint8_t> & result) {
+static bool solo(const char * name, std::vector <uint8_t> & result) {
 	// Перечень записей сертификатов файла
 	std::vector <std::vector <uint8_t>> items;
 	// Если сертификаты файла прочитать не удалось либо их нет
@@ -1061,7 +1061,7 @@ TEST(SignatureTest, Classic) {
 	 */
 	for(size_t i = 0; i < 3; i++){
 		// Выполняем чтение сертификата набора образцов
-		ASSERT_TRUE(single(NAMES[i], records[i])) << NAMES[i];
+		ASSERT_TRUE(solo(NAMES[i], records[i])) << NAMES[i];
 		// Выполняем разбор сертификата
 		ASSERT_EQ(certificates[i].parse(view_t(records[i].data(), records[i].size())), x509::error_t::NONE) << NAMES[i];
 		// Проверяем, что подпись сертификата своим ключом сходится
@@ -1175,7 +1175,7 @@ TEST(SignatureTest, Chains) {
 			// Запись отдельного звена
 			std::vector <uint8_t> link;
 			// Выполняем чтение отдельного звена
-			ASSERT_TRUE(single(LINKS[i][j], link)) << LINKS[i][j];
+			ASSERT_TRUE(solo(LINKS[i][j], link)) << LINKS[i][j];
 			// Проверяем совпадение отдельного звена с записью цепочки
 			ASSERT_EQ(link, chain[j]) << LINKS[i][j];
 		}
@@ -1242,7 +1242,7 @@ TEST(SignatureTest, Chains) {
 	// Запись просроченного листа, изданного корнем цепочки эллиптической кривой
 	std::vector <uint8_t> expired;
 	// Выполняем чтение просроченного листа
-	ASSERT_TRUE(single("expired.crt", expired));
+	ASSERT_TRUE(solo("expired.crt", expired));
 	// Разобранные просроченный лист и корень
 	x509::certificate_t third, root;
 	// Выполняем разбор просроченного листа
@@ -1264,11 +1264,11 @@ TEST(SignatureTest, Possession) {
 	// Записи сертификатов ключей набора образцов
 	std::vector <uint8_t> rsa, ec256, ed25519;
 	// Выполняем чтение сертификата ключа RSA
-	ASSERT_TRUE(single("rsa2048.crt", rsa));
+	ASSERT_TRUE(solo("rsa2048.crt", rsa));
 	// Выполняем чтение сертификата ключа эллиптической кривой P-256
-	ASSERT_TRUE(single("ec256.crt", ec256));
+	ASSERT_TRUE(solo("ec256.crt", ec256));
 	// Выполняем чтение сертификата ключа Ed25519
-	ASSERT_TRUE(single("ed25519.crt", ed25519));
+	ASSERT_TRUE(solo("ed25519.crt", ed25519));
 	// Запись сертификата ключа эллиптической кривой P-384
 	const std::vector <uint8_t> ec384 = bytes(CERTIFICATE_EC384);
 	// Разобранные сертификаты ключей
@@ -1377,7 +1377,7 @@ TEST(SignatureTest, Unsuitable) {
 	// Записи сертификатов ключей набора образцов
 	std::vector <uint8_t> rsa, ec, ed;
 	// Выполняем чтение сертификатов набора образцов
-	ASSERT_TRUE(single("rsa2048.crt", rsa) && single("ec256.crt", ec) && single("ed25519.crt", ed));
+	ASSERT_TRUE(solo("rsa2048.crt", rsa) && solo("ec256.crt", ec) && solo("ed25519.crt", ed));
 	// Разобранные сертификаты ключей
 	x509::certificate_t first, second, third;
 	// Выполняем разбор сертификата ключа RSA
@@ -1471,7 +1471,7 @@ TEST(SignatureTest, ClassicStarved) {
 		// Запись сертификата
 		std::vector <uint8_t> data;
 		// Выполняем чтение сертификата набора образцов
-		ASSERT_TRUE(single(NAMES[i], data)) << NAMES[i];
+		ASSERT_TRUE(solo(NAMES[i], data)) << NAMES[i];
 		// Объект разбираемого сертификата
 		x509::certificate_t certificate;
 		// Выполняем разбор сертификата

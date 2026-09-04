@@ -1388,7 +1388,7 @@ nts::extension::error_t nts::extension::selected(const group_t group, vector <ui
  * @return       отказ разбора тела расширения
  *
  */
-nts::extension::error_t nts::extension::modes(const view_t & data, vector <mode_t> & result) noexcept {
+nts::extension::error_t nts::extension::modes(const view_t & data, vector <regime_t> & result) noexcept {
 	// Прочитанный перечень способов обмена
 	vector <uint32_t> values;
 	// Выполняем разбор перечня способов обмена
@@ -1406,7 +1406,7 @@ nts::extension::error_t nts::extension::modes(const view_t & data, vector <mode_
 		 */
 		for(auto & item : values)
 			// Добавляем очередной способ обмена в перечень
-			result.push_back(static_cast <mode_t> (item));
+			result.push_back(static_cast <regime_t> (item));
 	/**
 	 * Если памяти под перечень способов обмена не хватило
 	 */
@@ -1426,7 +1426,7 @@ nts::extension::error_t nts::extension::modes(const view_t & data, vector <mode_
  * @return       отказ составления тела расширения
  *
  */
-nts::extension::error_t nts::extension::modes(const vector <mode_t> & modes, vector <uint8_t> & result) noexcept {
+nts::extension::error_t nts::extension::modes(const vector <regime_t> & modes, vector <uint8_t> & result) noexcept {
 	// Составляемый перечень способов обмена
 	vector <uint32_t> values;
 	/**
