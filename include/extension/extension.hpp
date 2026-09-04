@@ -45,6 +45,7 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <sys/global.hpp>
+#include <digest/hash.hpp>
 
 /**
  * \~russian
@@ -101,9 +102,11 @@ namespace nts {
 		 */
 		enum class type_t : uint16_t {
 			NAME      = 0x0000, /*!< \~russian Имя запрашиваемого узла \~english The name of the requested host \~ */
+			STATUS    = 0x0005, /*!< \~russian Запрос состояния сертификата OCSP (RFC 6066, раздел 4.4.2.1 RFC 8446) \~english The request of the certificate status OCSP (RFC 6066, the section 4.4.2.1 of RFC 8446) \~ */
 			GROUPS    = 0x000A, /*!< \~russian Поддерживаемые группы обмена ключами \~english The supported groups of the exchange of the keys \~ */
 			SCHEMES   = 0x000D, /*!< \~russian Поддерживаемые схемы подписи \~english The supported signature schemes \~ */
 			PROTOCOLS = 0x0010, /*!< \~russian Перечень прикладных протоколов связи \~english The list of the application protocols of a connection \~ */
+			COMPRESS  = 0x001B, /*!< \~russian Перечень алгоритмов сжатия цепочки сертификатов (RFC 8879) \~english The list of the algorithms of the compression of the chain of the certificates (RFC 8879) \~ */
 			SECRET    = 0x0029, /*!< \~russian Заранее разделённый ключ \~english The pre-shared key \~ */
 			EARLY     = 0x002A, /*!< \~russian Упреждающие данные связи \~english The early data of a connection \~ */
 			COOKIE    = 0x002C, /*!< \~russian Метка возврата состояния сервера \~english The label of the return of the state of the server \~ */
@@ -116,13 +119,20 @@ namespace nts {
 		 * \~russian
 		 * @brief Группы обмена ключами
 		 *
-		 * @details Раздел 6.1 описания наборов шифрования TLS 1.3 на алгоритмах ГОСТ:
-		 *          перечисление NamedGroup
+		 * @details Раздел 6.1 описания наборов шифрования TLS 1.3 на алгоритмах ГОСТ и
+		 *          раздел 4.2.7 RFC 8446: перечисление NamedGroup
+		 *
+		 * @note Значения, здесь не перечисленные, в перечнях встречной стороны пропускаются
+		 *       молча (RFC 8701); своё такое значение потребитель вправе вставить в перечень
+		 *       снаружи, и доля ключа под него шлётся произвольной
 		 *
 		 * \~english
 		 * @brief Groups of the exchange of the keys
 		 * @details The section 6.1 of the description of the cipher suites of TLS 1.3 on the GOST
-		 *          algorithms: the NamedGroup enumeration
+		 *          algorithms and the section 4.2.7 of RFC 8446: the NamedGroup enumeration
+		 * @note The values not listed here are skipped silently in the lists of the peer (RFC 8701);
+		 *       the consumer may insert its own such value into the list from the outside, and the
+		 *       key share for it is sent arbitrary
 		 *
 		 * \~
 		 */
@@ -134,7 +144,10 @@ namespace nts {
 			GC256D = 0x0025, /*!< \~russian Кривая набора параметров C издания 2001 года \~english The curve of the parameter set C of the 2001 edition \~ */
 			GC512A = 0x0026, /*!< \~russian Кривая набора параметров A длиной 512 разрядов \~english The curve of the parameter set A of a length of 512 bits \~ */
 			GC512B = 0x0027, /*!< \~russian Кривая набора параметров B длиной 512 разрядов \~english The curve of the parameter set B of a length of 512 bits \~ */
-			GC512C = 0x0028  /*!< \~russian Кривая набора параметров C длиной 512 разрядов \~english The curve of the parameter set C of a length of 512 bits \~ */
+			GC512C = 0x0028, /*!< \~russian Кривая набора параметров C длиной 512 разрядов \~english The curve of the parameter set C of a length of 512 bits \~ */
+			SECP256R1 = 0x0017, /*!< \~russian Кривая secp256r1 (NIST P-256) по разделу 4.2.7 RFC 8446 \~english The secp256r1 (NIST P-256) curve by the section 4.2.7 of RFC 8446 \~ */
+			SECP384R1 = 0x0018, /*!< \~russian Кривая secp384r1 (NIST P-384) по разделу 4.2.7 RFC 8446 \~english The secp384r1 (NIST P-384) curve by the section 4.2.7 of RFC 8446 \~ */
+			X25519    = 0x001D  /*!< \~russian Кривая Curve25519 по RFC 7748 \~english The Curve25519 curve by RFC 7748 \~ */
 		};
 
 		/**
@@ -159,7 +172,43 @@ namespace nts {
 			S256D = 0x070C, /*!< \~russian Подпись на кривой GC256D \~english The signature on the GC256D curve \~ */
 			S512A = 0x070D, /*!< \~russian Подпись на кривой GC512A \~english The signature on the GC512A curve \~ */
 			S512B = 0x070E, /*!< \~russian Подпись на кривой GC512B \~english The signature on the GC512B curve \~ */
-			S512C = 0x070F  /*!< \~russian Подпись на кривой GC512C \~english The signature on the GC512C curve \~ */
+			S512C = 0x070F, /*!< \~russian Подпись на кривой GC512C \~english The signature on the GC512C curve \~ */
+			ECDSA_SECP256R1_SHA256 = 0x0403, /*!< \~russian Подпись ECDSA на кривой secp256r1 с хешем SHA-256 \~english The ECDSA signature on the secp256r1 curve with the SHA-256 hash \~ */
+			ECDSA_SECP384R1_SHA384 = 0x0503, /*!< \~russian Подпись ECDSA на кривой secp384r1 с хешем SHA-384 \~english The ECDSA signature on the secp384r1 curve with the SHA-384 hash \~ */
+			RSA_PSS_RSAE_SHA256    = 0x0804, /*!< \~russian Подпись RSASSA-PSS ключом rsaEncryption с хешем SHA-256 \~english The RSASSA-PSS signature by an rsaEncryption key with the SHA-256 hash \~ */
+			RSA_PSS_RSAE_SHA384    = 0x0805, /*!< \~russian Подпись RSASSA-PSS ключом rsaEncryption с хешем SHA-384 \~english The RSASSA-PSS signature by an rsaEncryption key with the SHA-384 hash \~ */
+			RSA_PSS_RSAE_SHA512    = 0x0806, /*!< \~russian Подпись RSASSA-PSS ключом rsaEncryption с хешем SHA-512 \~english The RSASSA-PSS signature by an rsaEncryption key with the SHA-512 hash \~ */
+			ED25519                = 0x0807  /*!< \~russian Подпись Ed25519 по RFC 8032 \~english The Ed25519 signature by RFC 8032 \~ */
+		};
+
+		/**
+		 * \~russian
+		 * @brief Алгоритмы сжатия цепочки сертификатов
+		 *
+		 * @details Раздел 3 RFC 8879: перечисление CertificateCompressionAlgorithm. Сами
+		 *          алгоритмы библиотека не несёт: их вызовы предоставляет потребитель, а
+		 *          здесь названы лишь опознаватели реестра. Значения 16384…65535 отведены
+		 *          частным алгоритмам и передаются числом
+		 *
+		 * @note Значения, встречной стороной объявленные и связи неведомые, пропускаются
+		 *       молча: сжатие идёт лишь по алгоритму, который есть у обеих сторон
+		 *
+		 * \~english
+		 * @brief Algorithms of the compression of the chain of the certificates
+		 * @details The section 3 of RFC 8879: the CertificateCompressionAlgorithm enumeration. The
+		 *          library does not carry the algorithms themselves: their calls are provided by the
+		 *          consumer, and only the identifiers of the registry are named here. The values
+		 *          16384…65535 are reserved for the private algorithms and are passed as a number
+		 * @note The values announced by the peer and unknown to the connection are skipped silently:
+		 *       the compression goes only by an algorithm which both sides have
+		 *
+		 * \~
+		 */
+		enum class compression_t : uint16_t {
+			NONE   = 0x0000, /*!< \~russian Сжатия нет \~english There is no compression \~ */
+			ZLIB   = 0x0001, /*!< \~russian Сжатие zlib по RFC 1950 \~english The zlib compression by RFC 1950 \~ */
+			BROTLI = 0x0002, /*!< \~russian Сжатие Brotli по RFC 7932 \~english The Brotli compression by RFC 7932 \~ */
+			ZSTD   = 0x0003  /*!< \~russian Сжатие Zstandard по RFC 8878 \~english The Zstandard compression by RFC 8878 \~ */
 		};
 
 		/**
@@ -306,7 +355,9 @@ namespace nts {
 		 * @return      опознаватель кривой набора параметров либо nullptr
 		 *
 		 * @details Раздел 6.1 описания наборов: всякая группа обмена ключами есть кривая, и
-		 *          опознаватель её набора параметров тот же, что и в сертификатах
+		 *          опознаватель её набора параметров тот же, что и в сертификатах. У группы
+		 *          X25519 отдаётся опознаватель ключа RFC 8410: кривая её в наборы параметров
+		 *          не входит, и обмен по ней ведётся своим примитивом
 		 *
 		 * \~english
 		 * @brief Method of getting the identifier of the curve of a group of the exchange of the keys
@@ -314,7 +365,9 @@ namespace nts {
 		 * @return      the identifier of the curve of the parameter set or nullptr
 		 * @details The section 6.1 of the description of the suites: every group of the exchange of the
 		 *          keys is a curve, and the identifier of its parameter set is the same as in the
-		 *          certificates
+		 *          certificates. At the X25519 group the identifier of the key of RFC 8410 is given: its
+		 *          curve does not enter the parameter sets, and the exchange over it is conducted by its
+		 *          own primitive
 		 *
 		 * \~
 		 */
@@ -356,6 +409,51 @@ namespace nts {
 		 * \~
 		 */
 		__ANTS_SHARED_EXPORT__ size_t length(const scheme_t scheme) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод получения длины доли ключа группы обмена ключами
+		 *
+		 * @param group группа обмена ключами
+		 *
+		 * @return      длина доли ключа в байтах, ноль у неизвестной группы
+		 *
+		 * @details Раздел 4.2.8.2 RFC 8446: у кривых NIST доля есть несжатая точка
+		 *          0x04||X||Y, у X25519 - тридцать два байта; у групп ГОСТ доля есть две
+		 *          координаты точки в обратном порядке байтов
+		 *
+		 * \~english
+		 * @brief Method of getting the length of the key share of a group of the exchange of the keys
+		 * @param group the group of the exchange of the keys
+		 * @return      the length of the key share in bytes, a zero at an unknown group
+		 * @details The section 4.2.8.2 of RFC 8446: at the NIST curves the share is the uncompressed
+		 *          point 0x04||X||Y, at X25519 it is thirty two bytes; at the GOST groups the share is
+		 *          two coordinates of a point in the reversed order of the bytes
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ size_t length(const group_t group) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод получения хеша схемы подписи
+		 *
+		 * @param scheme схема подписи
+		 *
+		 * @return       хеш, которым берётся подписываемое содержимое, NONE у Ed25519 и у неизвестной схемы
+		 *
+		 * @details Раздел 4.2.3 RFC 8446: хеш назван самой схемой; у схем ГОСТ он равен
+		 *          «Стрибогу» длиною в ключ, у Ed25519 хеша вне подписи нет
+		 *
+		 * \~english
+		 * @brief Method of getting the hash of a signature scheme
+		 * @param scheme the signature scheme
+		 * @return       the hash the content being signed is taken by, NONE at Ed25519 and at an unknown scheme
+		 * @details The section 4.2.3 of RFC 8446: the hash is named by the scheme itself; at the GOST
+		 *          schemes it equals «Streebog» of the length of the key, at Ed25519 there is no hash
+		 *          outside the signature
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ digest::hash_t hash(const scheme_t scheme) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод разбора перечня поддерживаемых изданий протокола
@@ -983,6 +1081,58 @@ namespace nts {
 		 * \~
 		 */
 		__ANTS_SHARED_EXPORT__ error_t early(const uint32_t limit, vector <uint8_t> & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод разбора перечня алгоритмов сжатия цепочки сертификатов
+		 *
+		 * @param data   разбираемое тело расширения
+		 * @param result перечень, в который помещаются опознаватели алгоритмов
+		 *
+		 * @return       отказ разбора тела расширения
+		 *
+		 * @details Раздел 3 RFC 8879: перечень идёт с однобайтовой длиной впереди, всякий
+		 *          опознаватель занимает два байта; пустой перечень отвергается
+		 *
+		 * @note Опознаватели выдаются числом и в порядке объявления: неведомые значения
+		 *       здесь не отсеиваются, их пропускает тот, кто перечень сличает со своим
+		 *
+		 * \~english
+		 * @brief Method of the parsing of the list of the algorithms of the compression of the chain of the certificates
+		 * @param data   the body of the extension being parsed
+		 * @param result the list the identifiers of the algorithms are put into
+		 * @return       the failure of the parsing of the body of the extension
+		 * @details The section 3 of RFC 8879: the list goes with a one-byte length in front, every
+		 *          identifier occupies two bytes; an empty list is rejected
+		 * @note The identifiers are given out as numbers and in the order of the announcement: the
+		 *       unknown values are not sifted out here, they are skipped by the one who compares the
+		 *       list with its own
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ error_t algorithms(const view_t & data, vector <uint16_t> & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод составления перечня алгоритмов сжатия цепочки сертификатов
+		 *
+		 * @param algorithms составляемый перечень опознавателей алгоритмов
+		 * @param result     накопитель, в конец которого дописывается тело расширения
+		 *
+		 * @return           отказ составления тела расширения
+		 *
+		 * @note Перечень не пересортировывается: порядок его есть порядок предпочтения
+		 *       потребителя, и по нему встречная сторона выбирает общий алгоритм
+		 *
+		 * \~english
+		 * @brief Method of the composition of the list of the algorithms of the compression of the chain of the certificates
+		 * @param algorithms the list of the identifiers of the algorithms being composed
+		 * @param result     the accumulator the body of the extension is appended to the end of
+		 * @return           the failure of the composition of the body of the extension
+		 * @note The list is not re-sorted: its order is the order of the preference of the consumer,
+		 *       and by it the peer chooses the common algorithm
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ error_t algorithms(const vector <uint16_t> & algorithms, vector <uint8_t> & result) noexcept;
 	};
 };
 

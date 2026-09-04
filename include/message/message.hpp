@@ -46,6 +46,7 @@
 #include <sys/global.hpp>
 #include <hello/hello.hpp>
 #include <extension/extension.hpp>
+#include <digest/hash.hpp>
 
 /**
  * \~russian
@@ -404,6 +405,33 @@ namespace nts {
 		 * \~
 		 */
 		__ANTS_SHARED_EXPORT__ error_t finished(const view_t & secret, const view_t & transcript, uint8_t * result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод выработки тела сообщения завершения рукопожатия выбранным хешем
+		 *
+		 * @param algorithm  хеш набора шифрования, которым ведётся рукопожатие
+		 * @param secret     ключ выработки завершения рукопожатия
+		 * @param transcript хеш переписки рукопожатия на миг завершения
+		 * @param result     место, в которое помещается тело сообщения
+		 *
+		 * @return           отказ выработки тела сообщения
+		 *
+		 * @note Выработка без довода хеша идёт «Стрибогом»-256: так сложена ветвь ГОСТ
+		 * @note Место итога обязано вмещать длину хеша
+		 *
+		 * \~english
+		 * @brief Method of the production of the body of the message of the completion of the handshake by the chosen hash
+		 * @param algorithm  the hash of the cipher suite the handshake is conducted by
+		 * @param secret     the key of the production of the completion of the handshake
+		 * @param transcript the hash of the transcript of the handshake at the moment of the completion
+		 * @param result     the place the body of the message is put into
+		 * @return           the failure of the production of the body of the message
+		 * @note The production without the argument of the hash goes by «Streebog»-256: so the GOST branch is composed
+		 * @note The place of the outcome is obliged to hold the length of the hash
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ error_t finished(const digest::hash_t algorithm, const view_t & secret, const view_t & transcript, uint8_t * result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод сличения тел сообщений завершения рукопожатия

@@ -183,6 +183,7 @@ bool nts::alert::known(const description_t description) noexcept {
 		case static_cast <uint8_t> (description_t::MISSING):
 		case static_cast <uint8_t> (description_t::EXTENSION):
 		case static_cast <uint8_t> (description_t::NAME):
+		case static_cast <uint8_t> (description_t::STATUS):
 		case static_cast <uint8_t> (description_t::PSK):
 		case static_cast <uint8_t> (description_t::REQUIRED):
 		case static_cast <uint8_t> (description_t::PROTOCOL):
@@ -279,6 +280,8 @@ const char * nts::alert::name(const description_t description) noexcept {
 		case static_cast <uint8_t> (description_t::EXTENSION): return "unsupported_extension";
 		// Если запрошенное имя стороне неизвестно
 		case static_cast <uint8_t> (description_t::NAME): return "unrecognized_name";
+		// Если ответ о состоянии сертификата негоден либо сертификат отозван
+		case static_cast <uint8_t> (description_t::STATUS): return "bad_certificate_status_response";
 		// Если опознаватель заранее разделённого ключа неизвестен
 		case static_cast <uint8_t> (description_t::PSK): return "unknown_psk_identity";
 		// Если подлинность стороны обязательна, но не подтверждена

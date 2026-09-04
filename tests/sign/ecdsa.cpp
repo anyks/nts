@@ -35,6 +35,7 @@
 #include <fstream>
 #include <sstream>
 #include <unistd.h>
+#include <cmath>
 
 /**
  * Подключаем заголовочные файлы проекта
@@ -44,6 +45,9 @@
 #include <sign/ecdsa.hpp>
 #include <digest/hash.hpp>
 #include <curve/parameters.hpp>
+#include <keys/keys.hpp>
+#include <math/integer.hpp>
+#include <entropy/entropy.hpp>
 
 /**
  * Используем пространство имён проекта
@@ -745,12 +749,11 @@ TEST(EcdsaTest, Starved) {
 	// Признак того, что нехватка памяти объявлена отказом
 	bool starved = false;
 	/**
-	 * Выполняем перебор запасов выделений от щедрого к скудному: последнее
-	 * выделение записи есть перенос в переданное место, оттого первый же отказ
-	 * при убывании запаса приходит из заслона самой записи подписи. Ниже него
-	 * запас урезает выделения записывающего объекта ASN.1, и перебор обрывается
+	 * Выполняем перебор запасов выделений от щедрого к нулевому: запись складывается
+	 * без выделений, единственное выделение есть перенос в переданное место, оттого
+	 * отказ приходит только при нулевом запасе, и перебор на нём обрывается
 	 */
-	for(size_t budget = 64; !starved && (budget > 0); budget--){
+	for(size_t budget = 64; !starved; budget--){
 		// Место, в которое помещается запись DER
 		std::vector <uint8_t> der;
 		// Итог записи при отмеренном запасе
@@ -773,6 +776,10 @@ TEST(EcdsaTest, Starved) {
 		succeeded = (succeeded || outcome);
 		// Запоминаем объявленный отказ памяти
 		starved = (starved || !outcome);
+		// Если запас исчерпан до нуля, перебор окончен
+		if(budget == 0)
+			// Прерываем перебор
+			break;
 	}
 	// Проверяем, что при щедром запасе запись удалась
 	ASSERT_TRUE(succeeded);
@@ -927,4 +934,578 @@ TEST(EcdsaTest, Openssl) {
 	openssl("prime256v1", P256, digest::hash_t::SHA512, "sha512", directory);
 	// Убираем каталог временных файлов
 	ASSERT_EQ(shell((std::string("rm -rf ") + directory).c_str()), 0);
+}
+
+/**
+ * Порог расстояния Колмогорова между распределением старшего байта ключа и
+ * равномерным: при двух тысячах порождений случайное превышение его вероятно
+ * не более чем в одном случае из ста тысяч
+ */
+static const double DISTANCE = 0.055;
+
+/**
+ * Порог расстояния смещённой модели от равномерной, с которого смещение обязано
+ * ловиться порогом DISTANCE по выборке
+ */
+static const double NOTICEABLE = 0.08;
+
+/**
+ * @brief Метод получения наибольшего числа порядка подгруппы кривой
+ *
+ * @param curve  кривая
+ * @param result место, в которое записывается порядок без единицы длиной в порядок
+ *
+ * @return       признак успешности получения
+ *
+ */
+static bool bound(const curve::curve_t & curve, uint8_t * result) {
+	// Получаем арифметику порядка подгруппы точек кривой
+	const math::modulus_t & order = curve.order();
+	// Ноль, единица и порядок без единицы
+	math::number_t zero, one, last;
+	// Получаем ноль в виде числа порядка
+	order.word(0, zero);
+	// Получаем единицу в виде числа порядка
+	order.word(1, one);
+	// Вычитание единицы из нуля по порядку даёт порядок без единицы
+	order.subtract(zero, one, last);
+	// Записываем порядок без единицы
+	return order.store(last, result, order.size());
+}
+/**
+ * @brief Метод получения расстояния Колмогорова между выборкой старшего байта и равномерным распределением
+ *
+ * @param histogram число выпадений всякого значения старшего байта
+ * @param count     число значений в выборке
+ * @param span      порядок подгруппы в единицах старшего байта
+ *
+ * @return          наибольшее расхождение накопленных долей
+ *
+ */
+static double distance(const std::vector <size_t> & histogram, const size_t count, const double span) {
+	// Наибольшее расхождение
+	double result = 0.0;
+	// Накопленное число выпадений
+	size_t accumulated = 0;
+	/**
+	 * Выполняем перебор значений старшего байта
+	 */
+	for(size_t value = 0; value < 256; value++){
+		// Накапливаем выпадения очередного значения
+		accumulated += histogram[value];
+		// Накопленная доля равномерного распределения на отрезке до порядка
+		const double expected = (std::min(static_cast <double> (value + 1), span) / span);
+		// Расхождение долей
+		const double gap = std::fabs((static_cast <double> (accumulated) / static_cast <double> (count)) - expected);
+		// Запоминаем наибольшее расхождение
+		result = std::max(result, gap);
+	}
+	// Выводим наибольшее расхождение
+	return result;
+}
+/**
+ * @brief Метод получения расстояния распределения остатка по модулю от равномерного
+ *
+ * @details Остаток случайных байтов по модулю порядка: значения от порядка до
+ *          степени двойки складываются на начало отрезка, оттого плотность на
+ *          начале выше. Расстояние считается по накопленным долям точно
+ *
+ * @param span порядок подгруппы в единицах старшего байта
+ *
+ * @return     наибольшее расхождение накопленных долей
+ *
+ */
+static double folded(const double span) {
+	// Наибольшее расхождение
+	double result = 0.0;
+	// Накопленная масса остатка
+	double accumulated = 0.0;
+	// Шаг счёта в единицах старшего байта
+	const double step = (1.0 / 1024.0);
+	/**
+	 * Выполняем перебор значений старшего байта
+	 */
+	for(size_t value = 0; value < 256; value++){
+		/**
+		 * Выполняем накопление плотности остатка на отрезке очередного значения
+		 */
+		for(double x = static_cast <double> (value); x < std::min(static_cast <double> (value + 1), span); x += step)
+			// Плотность остатка в точке есть число слоёв, легших на неё
+			accumulated += (std::ceil((256.0 - x) / span) * step / 256.0);
+		// Накопленная доля равномерного распределения на отрезке до порядка
+		const double expected = (std::min(static_cast <double> (value + 1), span) / span);
+		// Запоминаем наибольшее расхождение
+		result = std::max(result, std::fabs(accumulated - expected));
+	}
+	// Выводим наибольшее расхождение
+	return result;
+}
+/**
+ * @brief Метод выработки числа остатком случайных байтов по модулю порядка
+ *
+ * @details Намеренно смещённый способ: служит контролем того, что проверка
+ *          равномерности различает отбор и остаток
+ *
+ * @param modulus порядок подгруппы
+ * @param size    длина порядка в байтах
+ * @param result  место, в которое записывается остаток
+ *
+ * @return        признак успешности выработки
+ *
+ */
+static bool remainder(const math::integer_t & modulus, const size_t size, uint8_t * result) {
+	// Случайные байты
+	uint8_t buffer[math::NUMBER_SIZE];
+	// Если случайные байты получить не удалось
+	if(!entropy::bytes(buffer, size))
+		// Выводим отказ
+		return false;
+	// Число из случайных байтов и его остаток
+	math::integer_t value, reduced;
+	// Если число разобрать либо привести по модулю не удалось
+	if(!value.load(view_t(buffer, size)) || !reduced.reduce(value, modulus))
+		// Выводим отказ
+		return false;
+	// Записываем остаток
+	return reduced.store(result, size);
+}
+/**
+ * @brief Проверка порождения ключей на кривой: границы, различие, сходимость и равномерность
+ *
+ * @param oid   опознаватель кривой
+ * @param count число порождений
+ *
+ */
+static void generation(const char * oid, const size_t count) {
+	// Объект эллиптической кривой
+	curve::curve_t curve;
+	// Выполняем установку кривой по опознавателю
+	ASSERT_TRUE(curve::parameters(std::string(oid), curve)) << "Кривая: " << oid;
+	// Размер порядка подгруппы
+	const size_t size = curve.order().size();
+	// Порядок без единицы
+	uint8_t last[math::NUMBER_SIZE];
+	// Выполняем получение порядка без единицы
+	ASSERT_TRUE(bound(curve, last)) << "Кривая: " << oid;
+	// Порядок в единицах старшего байта: четыре старших байта дробью
+	const double span = (last[0] + (last[1] / 256.0) + (last[2] / 65536.0) + (last[3] / 16777216.0));
+	// Объект модуля электронной подписи
+	sign::ecdsa_t ecdsa;
+	// Выполняем установку эллиптической кривой
+	ASSERT_TRUE(ecdsa.start(curve)) << "Кривая: " << oid;
+	// Число выпадений всякого значения старшего байта
+	std::vector <size_t> histogram(256, 0);
+	// Число ключей со взведённым старшим разрядом
+	size_t senior = 0;
+	// Прежний порождённый ключ
+	uint8_t previous[math::NUMBER_SIZE];
+	// Обнуляем прежний ключ
+	::memset(previous, 0, sizeof(previous));
+	/**
+	 * Выполняем порождения
+	 */
+	for(size_t i = 0; i < count; i++){
+		// Порождённый ключ подписи
+		uint8_t secret[math::NUMBER_SIZE];
+		// Проверяем отказ порождения в место неверного размера
+		ASSERT_FALSE(ecdsa.generate(secret, size + 1)) << "Кривая: " << oid;
+		// Выполняем порождение ключа подписи
+		ASSERT_TRUE(ecdsa.generate(secret, size)) << "Кривая: " << oid << ", порождение " << i;
+		// Ключ не превышает порядка без единицы
+		ASSERT_LE(::memcmp(secret, last, size), 0) << "Кривая: " << oid << ", порождение " << i;
+		// Накопленное значение байтов ключа по ИЛИ
+		uint8_t accumulated = 0;
+		/**
+		 * Выполняем накопление байтов ключа
+		 */
+		for(size_t j = 0; j < size; j++)
+			// Накапливаем очередной байт
+			accumulated |= secret[j];
+		// Ключ не ноль
+		ASSERT_NE(accumulated, 0) << "Кривая: " << oid << ", порождение " << i;
+		// Ключ отличается от прежнего
+		ASSERT_NE(::memcmp(secret, previous, size), 0) << "Кривая: " << oid << ", порождение " << i;
+		// Запоминаем ключ
+		::memcpy(previous, secret, size);
+		// Если порождение из первых
+		if(i < 4){
+			// Координаты ключа проверки порождённого и выведенного ключей
+			uint8_t x[math::NUMBER_SIZE], y[math::NUMBER_SIZE], px[math::NUMBER_SIZE], py[math::NUMBER_SIZE];
+			// Выполняем получение ключа проверки порождённого ключа
+			ASSERT_TRUE(ecdsa.key(x, y, size)) << "Кривая: " << oid;
+			// Объект модуля с тем же ключом, установленным через secret
+			sign::ecdsa_t other;
+			// Выполняем установку эллиптической кривой
+			ASSERT_TRUE(other.start(curve)) << "Кривая: " << oid;
+			// Выполняем установку порождённого ключа как переданного
+			ASSERT_TRUE(other.secret(view_t(secret, size))) << "Кривая: " << oid;
+			// Выполняем получение ключа проверки выведенного ключа
+			ASSERT_TRUE(other.key(px, py, size)) << "Кривая: " << oid;
+			// Открытая часть порождённого ключа совпадает с выведенной через secret
+			ASSERT_EQ(text(x, size), text(px, size)) << "Кривая: " << oid;
+			ASSERT_EQ(text(y, size), text(py, size)) << "Кривая: " << oid;
+			// Хеш сообщения
+			uint8_t digest[64];
+			// Выполняем хеширование сообщения
+			const size_t length = summarize(digest::hash_t::SHA256, std::string("generated"), digest);
+			// Проверяем успешность хеширования
+			ASSERT_GT(length, static_cast <size_t> (0));
+			// Место подписи
+			uint8_t signature[math::NUMBER_SIZE * 2];
+			// Выполняем выработку подписи порождённым ключом
+			ASSERT_TRUE(ecdsa.make(digest::hash_t::SHA256, view_t(digest, length), signature)) << "Кривая: " << oid;
+			// Подпись сходится у выведенного ключа
+			ASSERT_TRUE(other.check(view_t(digest, length), view_t(signature, size * 2))) << "Кривая: " << oid;
+		}
+		// Учитываем старший байт ключа
+		histogram[secret[0]]++;
+		// Учитываем старший разряд ключа
+		senior += (secret[0] >> 7);
+	}
+	// Распределение старшего байта не смещено от равномерного на отрезке до порядка
+	ASSERT_LT(distance(histogram, count, span), DISTANCE) << "Кривая: " << oid;
+	// Ожидаемая доля ключей со взведённым старшим разрядом
+	const double expected = ((span > 128.0) ? ((span - 128.0) / span) : 0.0);
+	// Доля ключей со взведённым старшим разрядом сходится с ожидаемой по порядку
+	ASSERT_NEAR((static_cast <double> (senior) / static_cast <double> (count)), expected, 0.05) << "Кривая: " << oid;
+	/**
+	 * Контроль различения: у кривой, чей порядок заметно меньше степени двойки,
+	 * остаток по модулю смещён ощутимо, и выборка остатков обязана проваливать
+	 * тот же порог, который выборка отбора прошла
+	 */
+	if(folded(span) > NOTICEABLE){
+		// Порядок как целое число
+		math::integer_t modulus, one, reduced;
+		// Разбираем порядок без единицы
+		ASSERT_TRUE(reduced.load(view_t(last, size)));
+		// Записываем единицу
+		one.word(1);
+		// Складываем порядок из порядка без единицы и единицы
+		ASSERT_TRUE(modulus.add(reduced, one));
+		// Число выпадений всякого значения старшего байта остатка
+		std::vector <size_t> biased(256, 0);
+		/**
+		 * Выполняем выработку остатков вдвое большей выборкой
+		 */
+		for(size_t i = 0; i < (count * 2); i++){
+			// Остаток случайных байтов по модулю
+			uint8_t value[math::NUMBER_SIZE];
+			// Выполняем выработку остатка
+			ASSERT_TRUE(remainder(modulus, size, value));
+			// Учитываем старший байт остатка
+			biased[value[0]]++;
+		}
+		// Выборка остатков проваливает порог
+		ASSERT_GE(distance(biased, count * 2, span), DISTANCE) << "Кривая: " << oid;
+	}
+}
+/**
+ * @brief Проверка порождения ключей на кривой P-256
+ *
+ */
+TEST(EcdsaTest, GenerateP256) {
+	// Выполняем проверку порождения
+	generation(P256, 2000);
+}
+/**
+ * @brief Проверка порождения ключей на кривой P-384
+ *
+ */
+TEST(EcdsaTest, GenerateP384) {
+	// Выполняем проверку порождения
+	generation(P384, 2000);
+}
+/**
+ * @brief Проверка порождения ключей на кривой ГОСТ с порядком заметно меньше степени двойки
+ *
+ * @note Порядок кривой id-GostR3410-2001-CryptoPro-C-ParamSet начинается с 0x9b:
+ *       здесь контроль остатком по модулю различим, и он закрепляет, что проверка
+ *       равномерности ловит смещение
+ *
+ */
+TEST(EcdsaTest, GenerateFolded) {
+	// Выполняем проверку порождения
+	generation("1.2.643.2.2.35.3", 2000);
+}
+/**
+ * @brief Проверка отказов порождения
+ *
+ */
+TEST(EcdsaTest, GenerateFailures) {
+	// Объект модуля электронной подписи
+	sign::ecdsa_t ecdsa;
+	// Место ключа подписи
+	uint8_t secret[math::NUMBER_SIZE];
+	// Порождение до установки кривой отвергается
+	ASSERT_FALSE(ecdsa.generate(secret, 32));
+	// Объект эллиптической кривой
+	curve::curve_t curve;
+	// Выполняем установку кривой P-256
+	ASSERT_TRUE(curve::parameters(std::string(P256), curve));
+	// Выполняем установку эллиптической кривой
+	ASSERT_TRUE(ecdsa.start(curve));
+	// Порождение без места отвергается
+	ASSERT_FALSE(ecdsa.generate(nullptr, 32));
+	// Порождение в место короче порядка отвергается
+	ASSERT_FALSE(ecdsa.generate(secret, 31));
+	// Ключ подписи после отказов не установлен
+	uint8_t signature[math::NUMBER_SIZE * 2], digest[32];
+	// Обнуляем хеш
+	::memset(digest, 0x01, sizeof(digest));
+	// Выработка подписи без ключа отвергается
+	ASSERT_FALSE(ecdsa.make(digest::hash_t::SHA256, view_t(digest, sizeof(digest)), signature));
+}
+/**
+ * @brief Проверка порождения при нехватке памяти: порождение памяти не выделяет
+ *
+ */
+TEST(EcdsaTest, GenerateStarved) {
+	// Объект эллиптической кривой
+	curve::curve_t curve;
+	// Выполняем установку кривой P-256
+	ASSERT_TRUE(curve::parameters(std::string(P256), curve));
+	// Объект модуля электронной подписи
+	sign::ecdsa_t ecdsa;
+	// Выполняем установку эллиптической кривой
+	ASSERT_TRUE(ecdsa.start(curve));
+	/**
+	 * Выполняем перебор запасов выделений: порождение обязано удаваться при всяком
+	 * запасе, ибо памяти не выделяет, а выделение под noexcept прервало бы исполнение
+	 */
+	for(size_t budget = 0; budget < 8; budget++){
+		// Место ключа подписи
+		uint8_t secret[32];
+		// Итог порождения при отмеренном запасе
+		bool outcome = false;
+		{
+			// Отмеряем запас выделений на время порождения
+			starve::ration_t ration(budget);
+			// Выполняем порождение при отмеренном запасе
+			outcome = ecdsa.generate(secret, sizeof(secret));
+		}
+		// Порождение удалось
+		ASSERT_TRUE(outcome) << "запас " << budget;
+	}
+}
+/**
+ * @brief Проверка верхнего предела длины подписи на кривой
+ *
+ * @param oid      опознаватель кривой
+ * @param expected ожидаемый предел
+ *
+ */
+static void bounded(const char * oid, const size_t expected) {
+	// Объект эллиптической кривой
+	curve::curve_t curve;
+	// Выполняем установку кривой по опознавателю
+	ASSERT_TRUE(curve::parameters(std::string(oid), curve)) << "Кривая: " << oid;
+	// Объект модуля электронной подписи
+	sign::ecdsa_t ecdsa;
+	// Предел до установки кривой нулевой
+	ASSERT_EQ(ecdsa.limit(), static_cast <size_t> (0));
+	// Выполняем установку эллиптической кривой
+	ASSERT_TRUE(ecdsa.start(curve)) << "Кривая: " << oid;
+	// Предел равен ожидаемому
+	ASSERT_EQ(ecdsa.limit(), expected) << "Кривая: " << oid;
+	// Предел не меньше сырой подписи
+	ASSERT_GT(ecdsa.limit(), ecdsa.size()) << "Кривая: " << oid;
+	// Размер порядка подгруппы
+	const size_t size = curve.order().size();
+	// Место ключа подписи
+	uint8_t secret[math::NUMBER_SIZE];
+	// Выполняем порождение ключа подписи
+	ASSERT_TRUE(ecdsa.generate(secret, size)) << "Кривая: " << oid;
+	// Признак того, что предел достигнут хоть раз
+	bool reached = false;
+	/**
+	 * Выполняем выработку трёхсот подписей разных сообщений: наихудший случай -
+	 * ведущий нуль у обоих чисел - встречается примерно в четверти подписей
+	 */
+	for(size_t i = 0; i < 300; i++){
+		// Хеш сообщения
+		uint8_t digest[64];
+		// Выполняем хеширование очередного сообщения
+		const size_t length = summarize(digest::hash_t::SHA256, std::string("limit-") + std::to_string(i), digest);
+		// Проверяем успешность хеширования
+		ASSERT_GT(length, static_cast <size_t> (0));
+		// Место сырой подписи
+		uint8_t raw[math::NUMBER_SIZE * 2];
+		// Выполняем выработку подписи
+		ASSERT_TRUE(ecdsa.make(digest::hash_t::SHA256, view_t(digest, length), raw)) << "Кривая: " << oid;
+		// Запись подписи
+		std::vector <uint8_t> der;
+		// Выполняем запись подписи в DER
+		ASSERT_TRUE(sign::encode(view_t(raw, size * 2), der)) << "Кривая: " << oid;
+		// Запись не длиннее предела
+		ASSERT_LE(der.size(), ecdsa.limit()) << "Кривая: " << oid << ", подпись " << i;
+		// Запоминаем достижение предела
+		reached = (reached || (der.size() == ecdsa.limit()));
+	}
+	// Предел достигнут хоть раз
+	ASSERT_TRUE(reached) << "Кривая: " << oid;
+}
+/**
+ * @brief Проверка верхнего предела длины подписи
+ *
+ */
+TEST(EcdsaTest, Limit) {
+	// Выполняем проверку предела на кривой P-256
+	bounded(P256, 72);
+	// Выполняем проверку предела на кривой P-384
+	bounded(P384, 104);
+}
+/**
+ * @brief Проверка записи порождённого ключа и чтения его системным openssl
+ *
+ * @param name      имя кривой у openssl
+ * @param oid       опознаватель кривой
+ * @param directory каталог временных файлов
+ *
+ */
+static void exported(const char * name, const char * oid, const std::string & directory) {
+	// Объект эллиптической кривой
+	curve::curve_t curve;
+	// Выполняем установку кривой по опознавателю
+	ASSERT_TRUE(curve::parameters(std::string(oid), curve)) << "Кривая: " << name;
+	// Объект модуля электронной подписи
+	sign::ecdsa_t ecdsa;
+	// Выполняем установку эллиптической кривой
+	ASSERT_TRUE(ecdsa.start(curve)) << "Кривая: " << name;
+	// Размер порядка подгруппы
+	const size_t size = curve.order().size();
+	// Ключ в виде записи
+	keys::key_t key;
+	// Устанавливаем вид ключа
+	key.kind = keys::kind_t::EC;
+	// Устанавливаем опознаватель кривой
+	key.oid = oid;
+	// Выделяем место под ключ подписи
+	key.d.assign(size, 0);
+	// Выполняем порождение ключа подписи
+	ASSERT_TRUE(ecdsa.generate(key.d.data(), size)) << "Кривая: " << name;
+	// Выделяем места под координаты ключа проверки
+	key.x.assign(size, 0);
+	key.y.assign(size, 0);
+	// Выполняем получение ключа проверки
+	ASSERT_TRUE(ecdsa.key(key.x.data(), key.y.data(), size)) << "Кривая: " << name;
+	// Записи ключей
+	std::string secret, pub;
+	// Выполняем запись секретного ключа PKCS #8
+	ASSERT_EQ(keys::encode(key, keys::container_t::PRIVATE, secret), keys::error_t::NONE) << "Кривая: " << name;
+	// Выполняем запись открытого ключа SubjectPublicKeyInfo
+	ASSERT_EQ(keys::encode(key, keys::container_t::PUBLIC, pub), keys::error_t::NONE) << "Кривая: " << name;
+	// Пути к файлам
+	const std::string priv = (directory + "/" + name + "-gen.pem"), opened = (directory + "/" + name + "-gen.pub.pem"), derived = (directory + "/" + name + "-gen.derived.pem"), msg = (directory + "/" + name + "-gen.msg"), sig = (directory + "/" + name + "-gen.sig");
+	// Записываем ключи в файлы
+	ASSERT_TRUE(std::ofstream(priv) << secret) << "Кривая: " << name;
+	ASSERT_TRUE(std::ofstream(opened) << pub) << "Кривая: " << name;
+	// Системный openssl читает секретный ключ
+	ASSERT_EQ(shell((std::string("openssl pkey -in ") + priv + " -noout 2>/dev/null").c_str()), 0) << "Кривая: " << name;
+	// Системный openssl читает открытый ключ
+	ASSERT_EQ(shell((std::string("openssl pkey -pubin -in ") + opened + " -noout 2>/dev/null").c_str()), 0) << "Кривая: " << name;
+	// Системный openssl выводит открытый ключ из секретного
+	ASSERT_EQ(shell((std::string("openssl pkey -in ") + priv + " -pubout -out " + derived + " 2>/dev/null").c_str()), 0) << "Кривая: " << name;
+	// Выведенный openssl открытый ключ совпадает с нашим байт в байт
+	ASSERT_EQ(slurp(derived), pub) << "Кривая: " << name;
+	// Сообщение
+	const std::string message = "generated key message";
+	// Записываем сообщение в файл
+	ASSERT_TRUE(std::ofstream(msg) << message) << "Кривая: " << name;
+	// Хеш сообщения
+	uint8_t digest[64];
+	// Выполняем хеширование сообщения
+	const size_t length = summarize(digest::hash_t::SHA256, message, digest);
+	// Проверяем успешность хеширования
+	ASSERT_GT(length, static_cast <size_t> (0));
+	// Место сырой подписи
+	uint8_t raw[math::NUMBER_SIZE * 2];
+	// Выполняем выработку подписи порождённым ключом
+	ASSERT_TRUE(ecdsa.make(digest::hash_t::SHA256, view_t(digest, length), raw)) << "Кривая: " << name;
+	// Запись подписи
+	std::vector <uint8_t> der;
+	// Выполняем запись подписи в DER
+	ASSERT_TRUE(sign::encode(view_t(raw, size * 2), der)) << "Кривая: " << name;
+	// Записываем подпись в файл
+	ASSERT_TRUE(std::ofstream(sig, std::ios::binary).write(reinterpret_cast <const char *> (der.data()), static_cast <std::streamsize> (der.size()))) << "Кривая: " << name;
+	// Системный openssl принимает подпись порождённым ключом
+	ASSERT_EQ(shell((std::string("openssl dgst -sha256 -verify ") + opened + " -signature " + sig + " " + msg + " >/dev/null 2>&1").c_str()), 0) << "Кривая: " << name;
+	// Разобранный ключ
+	keys::key_t parsed;
+	// Выполняем разбор своей записи секретного ключа
+	ASSERT_EQ(keys::decode(secret, view_t(), parsed), keys::error_t::NONE) << "Кривая: " << name;
+	// Разобранный ключ подписи совпадает с порождённым
+	ASSERT_EQ(parsed.d, key.d) << "Кривая: " << name;
+}
+/**
+ * @brief Проверка записи порождённых ключей и чтения их системным openssl
+ *
+ */
+TEST(EcdsaTest, GenerateOpenssl) {
+	// Если системного openssl нет, сличать не с чем
+	if(shell("openssl version >/dev/null 2>&1") != 0)
+		// Объявляем пропуск проверки вслух
+		GTEST_SKIP() << "Системный openssl не найден";
+	// Заготовка имени каталога временных файлов
+	char pattern[] = "ecdsa-gen-XXXXXX";
+	// Заводим каталог временных файлов
+	ASSERT_NE(::mkdtemp(pattern), nullptr);
+	// Каталог временных файлов
+	const std::string directory = pattern;
+	// Выполняем проверку на кривой P-256
+	exported("prime256v1", P256, directory);
+	// Выполняем проверку на кривой P-384
+	exported("secp384r1", P384, directory);
+	// Убираем каталог временных файлов
+	ASSERT_EQ(shell((std::string("rm -rf ") + directory).c_str()), 0);
+}
+/**
+ * Проверка записи DER в готовое место: совпадает с записью в набор байтов, без выделений,
+ * отвергает тесное место и держится предела limit()
+ */
+TEST(EcdsaTest, Placed) {
+	// Кривые проверки
+	const char * curves[] = {"1.2.840.10045.3.1.7", "1.3.132.0.34"};
+	/**
+	 * Выполняем перебор кривых
+	 */
+	for(const char * oid : curves){
+		// Кривая и примитив подписи
+		curve::curve_t curve;
+		sign::ecdsa_t ecdsa;
+		// Проверяем установку кривой
+		ASSERT_TRUE(curve::parameters(std::string(oid), curve)) << oid;
+		ASSERT_TRUE(ecdsa.start(curve)) << oid;
+		// Секретный скаляр
+		uint8_t secret[math::NUMBER_SIZE];
+		// Проверяем порождение ключа
+		ASSERT_TRUE(ecdsa.generate(secret, curve.size())) << oid;
+		/**
+		 * Выполняем перебор сообщений
+		 */
+		for(uint8_t i = 0; i < 64; i++){
+			// Хеш сообщения: разный на каждом круге
+			uint8_t digest[32];
+			::memset(digest, i, sizeof(digest));
+			// Сырая подпись
+			uint8_t raw[math::NUMBER_SIZE * 2];
+			// Проверяем выработку подписи
+			ASSERT_TRUE(ecdsa.make(digest::hash_t::SHA256, view_t(digest, sizeof(digest)), raw)) << oid;
+			// Запись в набор байтов
+			std::vector <uint8_t> der;
+			ASSERT_TRUE(sign::encode(view_t(raw, ecdsa.size()), der)) << oid;
+			// Запись в готовое место
+			uint8_t place[256];
+			size_t size = sizeof(place);
+			ASSERT_TRUE(sign::encode(view_t(raw, ecdsa.size()), place, size)) << oid;
+			// Проверяем совпадение записей
+			ASSERT_EQ(std::vector <uint8_t> (place, place + size), der) << oid;
+			// Проверяем предел
+			ASSERT_LE(size, ecdsa.limit()) << oid;
+			// Тесное место отвергается
+			size_t tight = (size - 1);
+			ASSERT_FALSE(sign::encode(view_t(raw, ecdsa.size()), place, tight)) << oid;
+			// Пустое место отвергается
+			ASSERT_FALSE(sign::encode(view_t(raw, ecdsa.size()), nullptr, size)) << oid;
+		}
+	}
 }

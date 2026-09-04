@@ -73,7 +73,7 @@ namespace {
 	 * @brief Удвоенное слово для произведений конечностей
 	 *
 	 */
-	typedef __uint128_t double_t;
+	typedef __uint128_t wide_t;
 
 	/**
 	 * @brief Маска пятидесяти одного разряда конечности
@@ -408,15 +408,15 @@ void nts::math::field25519::mul(const element_t & first, const element_t & secon
 	// Конечности второго сомножителя с множителем сворачивания
 	const uint64_t c1 = (b1 * 19), c2 = (b2 * 19), c3 = (b3 * 19), c4 = (b4 * 19);
 	// Младшая конечность произведения: разряды сверх 2^255 свёрнуты множителем девятнадцать
-	double_t r0 = ((static_cast <double_t> (a0) * b0) + (static_cast <double_t> (a1) * c4) + (static_cast <double_t> (a2) * c3) + (static_cast <double_t> (a3) * c2) + (static_cast <double_t> (a4) * c1));
+	wide_t r0 = ((static_cast <wide_t> (a0) * b0) + (static_cast <wide_t> (a1) * c4) + (static_cast <wide_t> (a2) * c3) + (static_cast <wide_t> (a3) * c2) + (static_cast <wide_t> (a4) * c1));
 	// Вторая конечность произведения
-	double_t r1 = ((static_cast <double_t> (a0) * b1) + (static_cast <double_t> (a1) * b0) + (static_cast <double_t> (a2) * c4) + (static_cast <double_t> (a3) * c3) + (static_cast <double_t> (a4) * c2));
+	wide_t r1 = ((static_cast <wide_t> (a0) * b1) + (static_cast <wide_t> (a1) * b0) + (static_cast <wide_t> (a2) * c4) + (static_cast <wide_t> (a3) * c3) + (static_cast <wide_t> (a4) * c2));
 	// Третья конечность произведения
-	double_t r2 = ((static_cast <double_t> (a0) * b2) + (static_cast <double_t> (a1) * b1) + (static_cast <double_t> (a2) * b0) + (static_cast <double_t> (a3) * c4) + (static_cast <double_t> (a4) * c3));
+	wide_t r2 = ((static_cast <wide_t> (a0) * b2) + (static_cast <wide_t> (a1) * b1) + (static_cast <wide_t> (a2) * b0) + (static_cast <wide_t> (a3) * c4) + (static_cast <wide_t> (a4) * c3));
 	// Четвёртая конечность произведения
-	double_t r3 = ((static_cast <double_t> (a0) * b3) + (static_cast <double_t> (a1) * b2) + (static_cast <double_t> (a2) * b1) + (static_cast <double_t> (a3) * b0) + (static_cast <double_t> (a4) * c4));
+	wide_t r3 = ((static_cast <wide_t> (a0) * b3) + (static_cast <wide_t> (a1) * b2) + (static_cast <wide_t> (a2) * b1) + (static_cast <wide_t> (a3) * b0) + (static_cast <wide_t> (a4) * c4));
 	// Старшая конечность произведения
-	double_t r4 = ((static_cast <double_t> (a0) * b4) + (static_cast <double_t> (a1) * b3) + (static_cast <double_t> (a2) * b2) + (static_cast <double_t> (a3) * b1) + (static_cast <double_t> (a4) * b0));
+	wide_t r4 = ((static_cast <wide_t> (a0) * b4) + (static_cast <wide_t> (a1) * b3) + (static_cast <wide_t> (a2) * b2) + (static_cast <wide_t> (a3) * b1) + (static_cast <wide_t> (a4) * b0));
 	// Переносим разряды младшей конечности сверх пятидесяти одного во вторую
 	r1 += static_cast <uint64_t> (r0 >> 51);
 	// Отбрасываем перенесённые разряды младшей конечности

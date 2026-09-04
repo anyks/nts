@@ -43,6 +43,8 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <sys/global.hpp>
+#include <ocsp/ocsp.hpp>
+#include <trust/trust.hpp>
 #include <context/context.hpp>
 
 /**
@@ -221,6 +223,29 @@ namespace nts {
 				const vector <vector <uint8_t>> & peer() const noexcept;
 				/**
 				 * \~russian
+				 * @brief Метод получения алгоритма сжатия цепочки сертификатов направления
+				 *
+				 * @param direction направление связи относительно своей стороны
+				 *
+				 * @return          опознаватель алгоритма по реестру RFC 8879, ноль у несжатой цепочки
+				 *
+				 * @details Чтение отвечает цепочке собеседника: ноль означает, что она пришла обычным
+				 *          сообщением Certificate. Запись отвечает своей цепочке: ноль означает, что
+				 *          общего алгоритма не нашлось либо сжатие у потребителя отказало
+				 *
+				 * \~english
+				 * @brief Method of getting the algorithm of the compression of the chain of the certificates of a direction
+				 * @param direction the direction of the connection relative to one's own side
+				 * @return          the identifier of the algorithm by the registry of RFC 8879, zero at an uncompressed chain
+				 * @details The reading answers to the chain of the interlocutor: zero means that it came by the
+				 *          ordinary Certificate message. The writing answers to one's own chain: zero means that
+				 *          no common algorithm was found or the compression at the consumer has refused
+				 *
+				 * \~
+				 */
+				uint16_t compression(const context::direction_t direction) const noexcept;
+				/**
+				 * \~russian
 				 * @brief Метод получения прикладного протокола связи
 				 *
 				 * @return прикладной протокол, выбранный сторонами связи
@@ -338,6 +363,175 @@ namespace nts {
 				 * \~
 				 */
 				void groups(const vector <extension::group_t> & groups) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод установки признаваемых схем подписи
+				 *
+				 * @param schemes устанавливаемые схемы подписи
+				 *
+				 * @note Схемы перечисляются от предпочтительной к запасной; перечень объявляется
+				 *       собеседнику и им же выбирается схема своей подписи по своему ключу
+				 * @note Пустой список установку пропускает, сохраняя набор, установленный прежде
+				 *
+				 * \~english
+				 * @brief Method of setting the recognized signature schemes
+				 * @param schemes the signature schemes being set
+				 * @note The schemes are listed from the preferable one to the spare one; the list is declared
+				 *       to the peer and by it the scheme of the own signature is chosen by the own key
+				 * @note An empty list skips the setting, keeping the set having been set before
+				 *
+				 * \~
+				 */
+				void schemes(const vector <extension::scheme_t> & schemes) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод установки алгоритмов сжатия цепочки сертификатов
+				 *
+				 * @param codecs    устанавливаемые алгоритмы в порядке предпочтения
+				 * @param inflation предел длины цепочки после распаковки в байтах, ноль оставляет умолчание 65536
+				 *
+				 * @details RFC 8879: алгоритмы предоставляет потребитель, библиотека ни одного не
+				 *          несёт. Сервер выбирает алгоритм из объявленных клиентом и объявляет свой
+				 *          перечень запросом подлинности клиента.
+				 *          Цепочка сжимается первым общим алгоритмом по порядку объявившей стороны;
+				 *          неведомые значения собеседника пропускаются молча
+				 *
+				 * @note Пустой перечень выключает сжатие: расширение не объявляется, и рукопожатие
+				 *       идёт байт в байт как без него
+				 * @note Алгоритм без обоих вызовов либо с нулевым опознавателем заводить связь не
+				 *       даёт: отказ настроек
+				 *
+				 * \~english
+				 * @brief Method of setting the algorithms of the compression of the chain of the certificates
+				 * @param codecs    the algorithms being set in the order of the preference
+				 * @param inflation the limit of the length of the chain after the decompression in bytes, zero keeps the default of 65536
+				 * @details RFC 8879: the algorithms are provided by the consumer, the library carries none.
+				 *          The server chooses the algorithm from the ones announced by the client and
+				 *          announces its own list by the request of the authenticity of the client.
+				 *          The chain is compressed by the first common algorithm in the order of the announcing
+				 *          side; the values of the peer unknown to the connection are skipped silently
+				 * @note An empty list switches the compression off: the extension is not announced, and the
+				 *       handshake goes byte for byte as without it
+				 * @note An algorithm without both calls or with a zero identifier does not let the connection
+				 *       be established: the failure of the settings
+				 *
+				 * \~
+				 */
+				void codecs(const vector <context::codec_t> & codecs, const size_t inflation) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод установки запроса состояния сертификата собеседника
+				 *
+				 * @param request запрашивается ли состояние сертификата собеседника
+				 *
+				 * @details Раздел 4.4.2.1 RFC 8446 и раздел 8 RFC 6066: запрос идёт расширением
+				 *          status_request (0x0005) запроса подлинности клиента; ответ приходит расширением записи
+				 *          цепочки сертификатов собеседника и доступен вызовом status()
+				 *
+				 * @note Отсутствие ответа при запросе отказом не считается: собеседник вправе
+				 *       не отвечать, а потребитель узнаёт об этом пустым ответом
+				 *
+				 * \~english
+				 * @brief Method of setting the request of the certificate status of the peer
+				 * @param request whether the certificate status of the peer is requested
+				 * @details The section 4.4.2.1 of RFC 8446 and the section 8 of RFC 6066: the request goes as the
+				 *          extension status_request (0x0005) of the certificate request; the response comes as an extension of the
+				 *          entry of the certificate chain of the peer and is available by the call of status()
+				 * @note The absence of a response upon the request is not considered a failure: the peer is entitled
+				 *       not to respond, and the consumer learns about it by an empty response
+				 *
+				 * \~
+				 */
+				void status(const bool request) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод установки ответа о состоянии своего сертификата для сшивки
+				 *
+				 * @param response запись ответа OCSP по RFC 6960, пустая снимает ответ
+				 * @param index    место сертификата в своей цепочке, ноль - лист
+				 *
+				 * @details Ответ ответчика получает потребитель сам (адрес - ocsp::responder,
+				 *          запрос - ocsp::request) и подаёт октетами; связь его не разбирает,
+				 *          а сшивает в расширение status_request записи цепочки по запросу
+				 *          собеседника (раздел 4.4.2.1 RFC 8446, раздел 8 RFC 6066)
+				 *
+				 * \~english
+				 * @brief Method of setting the status response of the own certificate for the stapling
+				 * @param response the record of the OCSP response according to RFC 6960, an empty one removes the response
+				 * @param index    the place of the certificate in the own chain, zero is the leaf
+				 * @details The response of the responder is obtained by the consumer itself (the address is
+				 *          ocsp::responder, the request is ocsp::request) and is given as octets; the connection
+				 *          does not parse it but staples it into the extension status_request of the entry of the
+				 *          chain upon the request of the peer (the section 4.4.2.1 of RFC 8446, the section 8 of RFC 6066)
+				 *
+				 * \~
+				 */
+				void status(const vector <uint8_t> & response, const size_t index = 0) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения ответа о состоянии сертификата собеседника
+				 *
+				 * @return запись ответа OCSP по RFC 6960 либо пустой накопитель
+				 *
+				 * @note Ответ отдаётся как принят - и без проверки, и с ней; разобрать его
+				 *       потребитель вправе модулем ocsp
+				 *
+				 * \~english
+				 * @brief Method of getting the certificate status response of the peer
+				 * @return the record of the OCSP response according to RFC 6960 or an empty accumulator
+				 * @note The response is given out as received - both without the check and with it; the consumer
+				 *       is entitled to parse it by the ocsp module
+				 *
+				 * \~
+				 */
+				const vector <uint8_t> & status() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод установки проверки принятого ответа о состоянии сертификата
+				 *
+				 * @param verify проверяется ли принятый ответ связью
+				 * @param leeway дозволенный люфт сроков ответа в секундах в обе стороны
+				 * @param store  запас доверенных сертификатов для розыска издателя собеседника
+				 *
+				 * @details Ответ проверяется модулем ocsp против первого сертификата цепочки
+				 *          собеседника и его издателя: издатель берётся вторым звеном цепочки,
+				 *          у самоподписанного сертификата - им самим, а у цепочки из одного
+				 *          сертификата - из запаса по имени издателя. Сроки судятся мигом,
+				 *          установленным вызовом moment(); нулевой миг сроки не судит.
+				 *          Негодный ответ и отозванный сертификат обрывают связь извещением
+				 *          «bad_certificate_status_response» (113); неведомый ответчику
+				 *          сертификат связь не обрывает - состояние доступно вызовом certified()
+				 *
+				 * \~english
+				 * @brief Method of setting the check of the received certificate status response
+				 * @param verify whether the received response is checked by the connection
+				 * @param leeway the allowed slack of the validity of the response in seconds in both directions
+				 * @param store  the store of the trusted certificates for the search of the issuer of the peer
+				 * @details The response is checked by the ocsp module against the first certificate of the chain of
+				 *          the peer and its issuer: the issuer is taken as the second link of the chain, for a
+				 *          self-signed certificate - as itself, and for a chain of a single certificate - from the
+				 *          store by the name of the issuer. The validity is judged by the moment set by the call of
+				 *          moment(); a zero moment does not judge the validity. An unsuitable response and a revoked
+				 *          certificate tear the connection by the alert «bad_certificate_status_response» (113); a
+				 *          certificate unknown to the responder does not tear the connection - the status is
+				 *          available by the call of certified()
+				 *
+				 * \~
+				 */
+				void verification(const bool verify, const int64_t leeway, const trust::store_t & store) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения состояния сертификата собеседника
+				 *
+				 * @return состояние по проверенному ответу либо ocsp::status_t::NONE
+				 *
+				 * \~english
+				 * @brief Method of getting the certificate status of the peer
+				 * @return the status by the checked response or ocsp::status_t::NONE
+				 *
+				 * \~
+				 */
+				ocsp::status_t certified() const noexcept;
 				/**
 				 * \~russian
 				 * @brief Метод установки подлинности своей стороны связи
@@ -643,6 +837,401 @@ namespace nts {
 				 * \~
 				 */
 				uint64_t sequence(const bool incoming = false) const noexcept;
+			public:
+				/**
+				 * \~russian
+				 * @brief Метод установки способа переноса рукопожатия
+				 *
+				 * @param transport устанавливаемый способ переноса
+				 *
+				 * @details Записями протокола (умолчание) связь ведёт TLS поверх потока: сама
+				 *          защищает записи и разбирает их заголовки. Сообщениями по уровням она
+				 *          ведёт рукопожатие под QUIC (RFC 9001): принимает и выдаёт голые
+				 *          сообщения рукопожатия с пометкой уровня защиты, а записи, извещения,
+				 *          смена ключей KeyUpdate и конец упреждающих данных в этом переносе не
+				 *          идут вовсе - их берёт на себя перенос QUIC
+				 *
+				 * @note Способ переноса устанавливается до заведения связи
+				 *
+				 * \~english
+				 * @brief Method of setting the way of the transport of the handshake
+				 * @param transport the way of the transport being set
+				 * @details By the records of the protocol (the default) the connection leads TLS over a stream:
+				 *          it protects the records and parses their headers itself. By the messages by levels it
+				 *          leads the handshake under QUIC (RFC 9001): it accepts and gives out bare messages of
+				 *          the handshake marked with a protection level, while the records, the alerts, the change
+				 *          of the keys by KeyUpdate and the end of the early data do not go in this transport at
+				 *          all — the QUIC transport takes them upon itself
+				 * @note The way of the transport is set before the establishment of the connection
+				 *
+				 * \~
+				 */
+				void transport(const context::transport_t transport) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения способа переноса рукопожатия
+				 *
+				 * @return способ переноса рукопожатия связи
+				 *
+				 * \~english
+				 * @brief Method of getting the way of the transport of the handshake
+				 * @return the way of the transport of the handshake of the connection
+				 *
+				 * \~
+				 */
+				context::transport_t transport() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод установки своих параметров переноса QUIC
+				 *
+				 * @param parameters устанавливаемые параметры переноса в записи QUIC
+				 *
+				 * @details Раздел 8.2 RFC 9001: параметры уходят расширением
+				 *          quic_transport_parameters как есть - связь их не толкует. Клиент кладёт
+				 *          их в приветствие, сервер - в защищённые расширения
+				 *
+				 * @note Расширение идёт лишь при переносе по уровням; переносу записями оно не
+				 *       положено, и принятое там отвергается
+				 *
+				 * \~english
+				 * @brief Method of setting one's own QUIC transport parameters
+				 * @param parameters the transport parameters being set in the QUIC encoding
+				 * @details The section 8.2 of RFC 9001: the parameters go by the quic_transport_parameters
+				 *          extension as they are — the connection does not interpret them. The client puts them
+				 *          into the greeting, the server — into the encrypted extensions
+				 * @note The extension goes only at the transport by levels; the transport by records is not
+				 *       entitled to it, and one received there is rejected
+				 *
+				 * \~
+				 */
+				void parameters(const vector <uint8_t> & parameters) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения параметров переноса QUIC собеседника
+				 *
+				 * @return параметры переноса, принятые от собеседника как есть
+				 *
+				 * @note Приняты ли параметры вовсе, говорит acquired(): пустые параметры от
+				 *       отсутствующих пустотой не отличить
+				 *
+				 * \~english
+				 * @brief Method of getting the QUIC transport parameters of the interlocutor
+				 * @return the transport parameters received from the interlocutor as they are
+				 * @note Whether the parameters are received at all is told by acquired(): empty parameters
+				 *       cannot be distinguished from absent ones by the emptiness
+				 *
+				 * \~
+				 */
+				const vector <uint8_t> & parameters() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод проверки приёма параметров переноса собеседника
+				 *
+				 * @return признак того, что параметры переноса собеседника приняты
+				 *
+				 * \~english
+				 * @brief Method of checking the receipt of the transport parameters of the interlocutor
+				 * @return the flag of the transport parameters of the interlocutor being received
+				 *
+				 * \~
+				 */
+				bool acquired() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод подачи связи сообщений рукопожатия уровня защиты
+				 *
+				 * @param level уровень защиты, на котором сообщения приняты
+				 * @param data  принятые сообщения рукопожатия без обвязки записей (данные CRYPTO)
+				 *
+				 * @return      отказ разбора принятых сообщений
+				 *
+				 * @details Раздел 4.1.3 RFC 9001: сообщения подаются как пришли по потоку CRYPTO
+				 *          уровня, границы сообщений связь восстанавливает сама. Раздел 4.1.4:
+				 *          сообщение не на своём уровне обрывает связь отказом LEVEL с извещением
+				 *          unexpected_message; уровень упреждающих данных сообщений не несёт
+				 *
+				 * @note Подача переносу записями отвечает отказом LEVEL без обрыва связи
+				 *
+				 * \~english
+				 * @brief Method of the giving of the messages of the handshake of a protection level to the connection
+				 * @param level the protection level the messages are received at
+				 * @param data  the received messages of the handshake without the records framing (the CRYPTO data)
+				 * @return      the failure of the parsing of the received messages
+				 * @details The section 4.1.3 of RFC 9001: the messages are given as they came by the CRYPTO stream
+				 *          of the level, the connection restores the boundaries of the messages itself. The section
+				 *          4.1.4: a message not at its level tears the connection by the LEVEL failure with the
+				 *          unexpected_message alert; the level of the early data carries no messages
+				 * @note The giving to the transport by records answers by the LEVEL failure without tearing the connection
+				 *
+				 * \~
+				 */
+				context::error_t push(const context::level_t level, const view_t & data) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения сообщений рукопожатия, отправляемых на уровне защиты
+				 *
+				 * @param level уровень защиты, сообщения которого запрашиваются
+				 *
+				 * @return      накопленные сообщения рукопожатия уровня без обвязки записей
+				 *
+				 * \~english
+				 * @brief Method of getting the messages of the handshake sent at a protection level
+				 * @param level the protection level whose messages are requested
+				 * @return      the accumulated messages of the handshake of the level without the records framing
+				 *
+				 * \~
+				 */
+				view_t output(const context::level_t level) const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод снятия отправленных сообщений с накопителя уровня защиты
+				 *
+				 * @param level уровень защиты, с накопителя которого снимаются сообщения
+				 * @param size  размер снимаемых байтов
+				 *
+				 * \~english
+				 * @brief Method of the removal of the sent messages from the accumulator of a protection level
+				 * @param level the protection level whose accumulator the messages are removed from
+				 * @param size  the size of the bytes being removed
+				 *
+				 * \~
+				 */
+				void consume(const context::level_t level, const size_t size) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения значения направления связи уровня защиты
+				 *
+				 * @param level     уровень защиты: EARLY, HANDSHAKE либо APPLICATION
+				 * @param direction направление связи относительно своей стороны
+				 * @param result    место, в которое помещается значение; nullptr - лишь опрос длины
+				 * @param size      место, в которое помещается длина значения по хешу набора
+				 *
+				 * @return          признак того, что значение уровня уже выведено
+				 *
+				 * @details Раздел 7.1 RFC 8446: выдаются client_early_traffic_secret,
+				 *          {client,server}_handshake_traffic_secret и
+				 *          {client,server}_application_traffic_secret; ключ, вектор и защиту
+				 *          заголовка (метки «quic key», «quic iv», «quic hp» по разделу 5.1 RFC
+				 *          9001) выводит из них тот, кто связь ведёт. Значения прикладных данных
+				 *          доступны и после рукопожатия: следующее поколение по разделу 6 RFC 9001
+				 *          («quic ku») выводится из текущего
+				 *
+				 * @note Место под значение обязано вмещать schedule::SCHEDULE_WIDEST байтов
+				 *
+				 * \~english
+				 * @brief Method of getting the traffic secret of a direction of the connection of a protection level
+				 * @param level     the protection level: EARLY, HANDSHAKE or APPLICATION
+				 * @param direction the direction of the connection relative to one's own side
+				 * @param result    the place the secret is put into; nullptr — only the query of the length
+				 * @param size      the place the length of the secret by the hash of the suite is put into
+				 * @return          the flag of the secret of the level being already derived
+				 * @details The section 7.1 of RFC 8446: client_early_traffic_secret,
+				 *          {client,server}_handshake_traffic_secret and {client,server}_application_traffic_secret
+				 *          are given out; the key, the vector and the header protection (the labels «quic key»,
+				 *          «quic iv», «quic hp» by the section 5.1 of RFC 9001) are derived from them by the one who
+				 *          leads the connection. The secrets of the application data are available after the
+				 *          handshake too: the next generation by the section 6 of RFC 9001 («quic ku») is derived
+				 *          from the current one
+				 * @note The place for the secret must hold schedule::SCHEDULE_WIDEST bytes
+				 *
+				 * \~
+				 */
+				bool secret(const context::level_t level, const context::direction_t direction, uint8_t * result, size_t & size) const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения уровня защиты, ключи которого готовы направлению
+				 *
+				 * @param direction направление связи относительно своей стороны
+				 *
+				 * @return          наивысший уровень защиты, ключи которого у направления есть
+				 *
+				 * @note Упреждающие данные клиента объявляются уровнем EARLY, пока стороны не
+				 *       перешли к ключам рукопожатия
+				 *
+				 * \~english
+				 * @brief Method of getting the protection level whose keys are ready for a direction
+				 * @param direction the direction of the connection relative to one's own side
+				 * @return          the highest protection level whose keys the direction has
+				 * @note The early data of the client is announced by the EARLY level until the sides have moved
+				 *       to the keys of the handshake
+				 *
+				 * \~
+				 */
+				context::level_t level(const context::direction_t direction) const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод проверки хода упреждающих данных прямо сейчас
+				 *
+				 * @return признак того, что упреждающие данные идут прямо сейчас
+				 *
+				 * \~english
+				 * @brief Method of checking the early data going right now
+				 * @return the flag of the early data going right now
+				 *
+				 * \~
+				 */
+				bool earlying() const noexcept;
+			public:
+				/**
+				 * \~russian
+				 * @brief Метод установки размера дейтаграммы связи
+				 *
+				 * @param mtu устанавливаемый размер дейтаграммы в байтах
+				 *
+				 * @details Раздел 4.4 RFC 9147: поверх дейтаграмм всякая выдаваемая дейтаграмма не
+				 *          длиннее этого размера, а сообщения рукопожатия дробятся под него на
+				 *          куски. Умолчание - 1200 байтов; размер ниже наименьшего дозволенного
+				 *          поднимается до него
+				 *
+				 * @note Размер устанавливается до заведения связи и значим лишь переносу дейтаграммами
+				 *
+				 * \~english
+				 * @brief Method of setting the size of a datagram of the connection
+				 * @param mtu the size of a datagram in bytes being set
+				 * @details The section 4.4 of RFC 9147: over datagrams every datagram given out is not longer
+				 *          than this size, and the messages of the handshake are split into fragments under it.
+				 *          The default is 1200 bytes; a size below the least allowed one is raised up to it
+				 * @note The size is set before the establishment of the connection and matters only to the
+				 *       transport by datagrams
+				 *
+				 * \~
+				 */
+				void mtu(const size_t mtu) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения размера дейтаграммы связи
+				 *
+				 * @return размер дейтаграммы в байтах
+				 *
+				 * \~english
+				 * @brief Method of getting the size of a datagram of the connection
+				 * @return the size of a datagram in bytes
+				 *
+				 * \~
+				 */
+				size_t mtu() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения срока ожидания повторной передачи
+				 *
+				 * @return срок ожидания в миллисекундах, ноль, когда ждать нечего
+				 *
+				 * @details Раздел 5.8.2 RFC 9147: часов у связи нет - срок отдаётся тому, кто связь
+				 *          ведёт, а по его истечении зовётся elapsed. Начальный срок - секунда,
+				 *          всякая попытка его удваивает до шестидесяти секунд, продвижение залпа
+				 *          возвращает его к начальному
+				 *
+				 * \~english
+				 * @brief Method of getting the term of the waiting for a retransmission
+				 * @return the term of the waiting in milliseconds, a zero when there is nothing to wait for
+				 * @details The section 5.8.2 of RFC 9147: the connection has no clock — the term is given to the
+				 *          one who leads the connection, and on its expiry elapsed is called. The initial term is
+				 *          a second, every attempt doubles it up to sixty seconds, a progress of the flight
+				 *          returns it to the initial one
+				 *
+				 * \~
+				 */
+				uint32_t timeout() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод извещения связи об истечении срока ожидания
+				 *
+				 * @return отказ повторной передачи: TIMEOUT по исчерпании попыток
+				 *
+				 * @details Неподтверждённые куски последнего залпа нарезаются заново и раскладываются по
+				 *          дейтаграммам новыми номерами записей; по исчерпании попыток связь обрывается
+				 *
+				 * \~english
+				 * @brief Method of notifying the connection about the expiry of the term of the waiting
+				 * @return the failure of the retransmission: TIMEOUT on the exhaustion of the attempts
+				 * @details The unacknowledged fragments of the last flight are split anew and laid out over the
+				 *          datagrams by new numbers of the records; on the exhaustion of the attempts the
+				 *          connection is torn
+				 *
+				 * \~
+				 */
+				context::error_t elapsed() noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения числа молча отброшенных записей и дейтаграмм
+				 *
+				 * @return число отброшенных записей и дейтаграмм
+				 *
+				 * @details Раздел 4.5.2 RFC 9147: порча записи, повтор, неведомая пора ключей,
+				 *          чужая метка возврата состояния и опознаватель связи отбрасываются молча,
+				 *          без извещений; счётчик даёт о них знать тому, кто связь ведёт
+				 *
+				 * \~english
+				 * @brief Method of getting the number of the records and datagrams discarded silently
+				 * @return the number of the discarded records and datagrams
+				 * @details The section 4.5.2 of RFC 9147: a corruption of a record, a repetition, an unknown epoch,
+				 *          a foreign label of the return of the state and a connection identifier are discarded
+				 *          silently, without alerts; the counter lets the one who leads the connection know about them
+				 *
+				 * \~
+				 */
+				uint64_t discarded() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод установки адреса собеседника для метки возврата состояния
+				 *
+				 * @param address адрес либо иной опознаватель собеседника
+				 *
+				 * @details Раздел 5.1 RFC 9147: метка возврата состояния привязывается к адресу, с
+				 *          которого пришло приветствие, и повторное приветствие с иного адреса
+				 *          отвергается. Без адреса метка не проверяется вовсе, и повторное
+				 *          приветствие отбрасывается молча
+				 *
+				 * @note Адрес подаётся до приветствия клиента; чем его составить - дело того, кто
+				 *       связь ведёт
+				 *
+				 * \~english
+				 * @brief Method of setting the address of the interlocutor for the label of the return of the state
+				 * @param address the address or another identifier of the interlocutor
+				 * @details The section 5.1 of RFC 9147: the label of the return of the state is bound to the address
+				 *          the greeting came from, and a repeated greeting from another address is rejected.
+				 *          Without an address the label is not verified at all, and the repeated greeting is
+				 *          discarded silently
+				 * @note The address is given before the greeting of the client; what to compose it of is the
+				 *       business of the one who leads the connection
+				 *
+				 * \~
+				 */
+				void address(const view_t & address) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод установки секрета метки возврата состояния
+				 *
+				 * @param secret устанавливаемый секрет любой длины
+				 *
+				 * @details Секрет сворачивается хешем и служит ключом имитовставки метки; не заданный
+				 *          секрет порождается энтропией при заведении связи
+				 *
+				 * \~english
+				 * @brief Method of setting the secret of the label of the return of the state
+				 * @param secret the secret of any length being set
+				 * @details The secret is folded by a hash and serves as the key of the authentication code of the
+				 *          label; a secret not set is generated from the entropy at the establishment of the connection
+				 *
+				 * \~
+				 */
+				void stamp(const vector <uint8_t> & secret) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод смены поколения секрета метки возврата состояния
+				 *
+				 * @details Часов у связи нет, и срок жизни метки судится поколениями: живы два -
+				 *          нынешнее и предыдущее, а смену поколения зовёт тот, кто связь ведёт
+				 *
+				 * \~english
+				 * @brief Method of the change of the generation of the secret of the label of the return of the state
+				 * @details The connection has no clock, and the lifetime of the label is judged by generations: two
+				 *          are alive — the current and the previous one, and the change of the generation is called
+				 *          by the one who leads the connection
+				 *
+				 * \~
+				 */
+				void restamp() noexcept;
 			public:
 				/**
 				 * \~russian

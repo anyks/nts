@@ -170,6 +170,7 @@ namespace nts {
 			MISSING     = 109, /*!< \~russian Обязательное расширение в сообщении отсутствует \~english A mandatory extension is absent in the message \~ */
 			EXTENSION   = 110, /*!< \~russian Прислано расширение, о котором не просили \~english An extension nobody asked for is sent \~ */
 			NAME        = 112, /*!< \~russian Запрошенное имя стороне неизвестно \~english The requested name is unknown to the side \~ */
+			STATUS      = 113, /*!< \~russian Ответ о состоянии сертификата негоден либо сертификат отозван \~english The certificate status response is unsuitable or the certificate is revoked \~ */
 			PSK         = 115, /*!< \~russian Опознаватель заранее разделённого ключа неизвестен \~english The identifier of the pre-shared key is unknown \~ */
 			REQUIRED    = 116, /*!< \~russian Подлинность стороны обязательна, но не подтверждена \~english The authenticity of the side is mandatory but not confirmed \~ */
 			PROTOCOL    = 120  /*!< \~russian Ни один из предложенных протоколов не поддержан \~english None of the offered protocols is supported \~ */

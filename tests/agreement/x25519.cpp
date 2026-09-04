@@ -30,7 +30,9 @@
 #include <cstdlib>
 #include <cstring>
 #include <main.hpp>
+#include <starve.hpp>
 #include <agreement/x25519.hpp>
+#include <keys/keys.hpp>
 
 /**
  * Используем пространство имён проекта
@@ -366,6 +368,143 @@ TEST(X25519Test, Foreign) {
 	// Выполняем выработку общего значения Бобом своим кодом из ключа Алиса
 	ASSERT_TRUE(agreement::x25519(view_t(bob, sizeof(bob)), view_t(key, sizeof(key)), result));
 	// Сличаем общие значения
+	ASSERT_EQ(text(result, sizeof(result)), text(reinterpret_cast <const uint8_t *> (shared.data()), 32));
+	// Удаляем временный каталог
+	ASSERT_TRUE(run("rm -rf " + dir));
+}
+
+/**
+ * @brief Проверка порождения пары ключей: зажим, сходимость с выводом, различие и обмен
+ *
+ */
+TEST(X25519Test, Generate) {
+	// Ключи первой пары
+	uint8_t secret[32], key[32];
+	// Порождение без мест отвергается
+	ASSERT_FALSE(agreement::generate(nullptr, key));
+	ASSERT_FALSE(agreement::generate(secret, nullptr));
+	// Выполняем порождение первой пары
+	ASSERT_TRUE(agreement::generate(secret, key));
+	// Три младших разряда секретного ключа сброшены
+	ASSERT_EQ(secret[0] & 7, 0);
+	// Старший разряд секретного ключа сброшен
+	ASSERT_EQ(secret[31] & 128, 0);
+	// Разряд 254 секретного ключа поставлен
+	ASSERT_EQ(secret[31] & 64, 64);
+	// Открытый ключ, выведенный из секретного отдельно
+	uint8_t derived[32];
+	// Выполняем вывод открытого ключа
+	ASSERT_TRUE(agreement::x25519(view_t(secret, sizeof(secret)), derived));
+	// Открытый ключ пары совпадает с выведенным
+	ASSERT_EQ(text(key, sizeof(key)), text(derived, sizeof(derived)));
+	// Ключи второй пары
+	uint8_t other[32], point[32];
+	// Выполняем порождение второй пары
+	ASSERT_TRUE(agreement::generate(other, point));
+	// Секретные ключи пар различны
+	ASSERT_NE(::memcmp(secret, other, sizeof(secret)), 0);
+	// Открытые ключи пар различны
+	ASSERT_NE(::memcmp(key, point, sizeof(key)), 0);
+	// Общие значения сторон
+	uint8_t first[32], second[32];
+	// Выполняем выработку общего значения первой стороной
+	ASSERT_TRUE(agreement::x25519(view_t(secret, sizeof(secret)), view_t(point, sizeof(point)), first));
+	// Выполняем выработку общего значения второй стороной
+	ASSERT_TRUE(agreement::x25519(view_t(other, sizeof(other)), view_t(key, sizeof(key)), second));
+	// Общие значения сходятся
+	ASSERT_EQ(text(first, sizeof(first)), text(second, sizeof(second)));
+}
+/**
+ * @brief Проверка порождения при нехватке памяти: порождение памяти не выделяет
+ *
+ */
+TEST(X25519Test, GenerateStarved) {
+	/**
+	 * Выполняем перебор запасов выделений: порождение обязано удаваться при всяком
+	 * запасе, ибо памяти не выделяет, а выделение под noexcept прервало бы исполнение
+	 */
+	for(size_t budget = 0; budget < 8; budget++){
+		// Места ключей
+		uint8_t secret[32], key[32];
+		// Итог порождения при отмеренном запасе
+		bool outcome = false;
+		{
+			// Отмеряем запас выделений на время порождения
+			starve::ration_t ration(budget);
+			// Выполняем порождение при отмеренном запасе
+			outcome = agreement::generate(secret, key);
+		}
+		// Порождение удалось
+		ASSERT_TRUE(outcome) << "запас " << budget;
+	}
+}
+/**
+ * @brief Проверка записи порождённой пары и обмена с системным openssl
+ *
+ */
+TEST(X25519Test, GenerateOpenssl) {
+	// Ключ в виде записи
+	keys::key_t key;
+	// Устанавливаем вид ключа
+	key.kind = keys::kind_t::X25519;
+	// Выделяем места под ключи
+	key.d.assign(32, 0);
+	key.key.assign(32, 0);
+	// Выполняем порождение пары
+	ASSERT_TRUE(agreement::generate(key.d.data(), key.key.data()));
+	// Записи ключей
+	std::string secret, pub;
+	// Выполняем запись секретного ключа PKCS #8
+	ASSERT_EQ(keys::encode(key, keys::container_t::PRIVATE, secret), keys::error_t::NONE);
+	// Выполняем запись открытого ключа SubjectPublicKeyInfo
+	ASSERT_EQ(keys::encode(key, keys::container_t::PUBLIC, pub), keys::error_t::NONE);
+	// Разобранные ключи
+	keys::key_t parsed, opened;
+	// Выполняем разбор записи секретного ключа
+	ASSERT_EQ(keys::decode(secret, view_t(), parsed), keys::error_t::NONE);
+	// Выполняем разбор записи открытого ключа
+	ASSERT_EQ(keys::decode(pub, view_t(), opened), keys::error_t::NONE);
+	// Разобранный секретный ключ совпадает с порождённым
+	ASSERT_EQ(parsed.d, key.d);
+	// Разобранный открытый ключ совпадает с порождённым
+	ASSERT_EQ(opened.key, key.key);
+	// Если системный openssl не умеет X25519 (старше 1.1.1), сличать не с чем
+	if(!run("openssl genpkey -algorithm X25519 -out /dev/null >/dev/null 2>&1"))
+		// Объявляем пропуск проверки вслух
+		GTEST_SKIP() << "Системный openssl без X25519";
+	// Заготовка пути временного каталога
+	char pattern[] = "/tmp/ants-x25519-gen-XXXXXX";
+	// Создаём временный каталог
+	ASSERT_NE(::mkdtemp(pattern), nullptr);
+	// Путь временного каталога
+	const std::string dir(pattern);
+	// Выполняем запись ключей в файлы
+	ASSERT_TRUE(spill(dir + "/key.pem", reinterpret_cast <const uint8_t *> (secret.data()), secret.size()));
+	ASSERT_TRUE(spill(dir + "/pub.pem", reinterpret_cast <const uint8_t *> (pub.data()), pub.size()));
+	// Системный openssl читает секретный ключ
+	ASSERT_TRUE(run("openssl pkey -in " + dir + "/key.pem -noout 2>/dev/null"));
+	// Системный openssl читает открытый ключ
+	ASSERT_TRUE(run("openssl pkey -pubin -in " + dir + "/pub.pem -noout 2>/dev/null"));
+	// Системный openssl выводит открытый ключ из секретного
+	ASSERT_TRUE(run("openssl pkey -in " + dir + "/key.pem -pubout -out " + dir + "/derived.pem 2>/dev/null"));
+	// Выведенный openssl открытый ключ совпадает с нашим байт в байт
+	ASSERT_EQ(slurp(dir + "/derived.pem"), pub);
+	// Выполняем порождение встречной пары системным openssl
+	ASSERT_TRUE(run("openssl genpkey -algorithm X25519 -out " + dir + "/peer.pem 2>/dev/null"));
+	// Выполняем запись открытого ключа встречной пары в DER
+	ASSERT_TRUE(run("openssl pkey -in " + dir + "/peer.pem -pubout -outform DER -out " + dir + "/peer-pub.der 2>/dev/null"));
+	// Выполняем выработку общего значения встречной стороной нашим открытым ключом
+	ASSERT_TRUE(run("openssl pkeyutl -derive -inkey " + dir + "/peer.pem -peerkey " + dir + "/pub.pem -out " + dir + "/shared.bin 2>/dev/null"));
+	// Читаем открытый ключ встречной пары и общее значение
+	const std::string peer = slurp(dir + "/peer-pub.der"), shared = slurp(dir + "/shared.bin");
+	// Проверяем длины записей
+	ASSERT_EQ(peer.size(), static_cast <size_t> (44));
+	ASSERT_EQ(shared.size(), static_cast <size_t> (32));
+	// Место общего значения своей стороны
+	uint8_t result[32];
+	// Выполняем выработку общего значения порождённым секретным ключом
+	ASSERT_TRUE(agreement::x25519(view_t(key.d.data(), key.d.size()), view_t(reinterpret_cast <const uint8_t *> (peer.data()) + 12, 32), result));
+	// Общие значения сходятся
 	ASSERT_EQ(text(result, sizeof(result)), text(reinterpret_cast <const uint8_t *> (shared.data()), 32));
 	// Удаляем временный каталог
 	ASSERT_TRUE(run("rm -rf " + dir));

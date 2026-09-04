@@ -131,11 +131,13 @@ namespace nts {
 		 * \~russian
 		 * @brief Виды сообщений рукопожатия
 		 *
-		 * @details Раздел 4 RFC 8446: перечисление HandshakeType
+		 * @details Раздел 4 RFC 8446: перечисление HandshakeType; сжатая цепочка
+		 *          сертификатов добавлена разделом 4 RFC 8879
 		 *
 		 * \~english
 		 * @brief Types of the messages of the handshake
-		 * @details The section 4 of RFC 8446: the HandshakeType enumeration
+		 * @details The section 4 of RFC 8446: the HandshakeType enumeration; the compressed chain of
+		 *          the certificates is added by the section 4 of RFC 8879
 		 *
 		 * \~
 		 */
@@ -151,6 +153,7 @@ namespace nts {
 			VERIFY      = 0x0F, /*!< \~russian Подпись владения ключом сертификата \~english The signature of the possession of the key of the certificate \~ */
 			FINISHED    = 0x14, /*!< \~russian Завершение рукопожатия \~english The completion of the handshake \~ */
 			UPDATE      = 0x18, /*!< \~russian Смена ключевого материала связи \~english The change of the key material of the connection \~ */
+			COMPRESSED  = 0x19, /*!< \~russian Сжатая цепочка сертификатов по RFC 8879 \~english The compressed chain of the certificates by RFC 8879 \~ */
 			DIGEST      = 0xFE  /*!< \~russian Хеш приветствия клиента вместо него самого \~english The hash of the greeting of the client instead of it itself \~ */
 		};
 

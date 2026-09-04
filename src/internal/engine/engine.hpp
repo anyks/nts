@@ -51,6 +51,9 @@
 #include <session/session.hpp>
 #include <extension/extension.hpp>
 #include <handshake/handshake.hpp>
+#include <ocsp/ocsp.hpp>
+#include <trust/trust.hpp>
+#include <datagram/datagram.hpp>
 
 /**
  * @brief Основное пространство имён
@@ -67,6 +70,138 @@ namespace nts {
 	 *
 	 */
 	namespace internal {
+		/**
+		 * @brief Мимолётная пара ключей своей стороны по одной группе обмена
+		 *
+		 */
+		typedef struct Exchange {
+			// Группа обмена ключами
+			extension::group_t group;
+			// Секретный мимолётный ключ своей стороны
+			vector <uint8_t> secret;
+			// Открытый мимолётный ключ своей стороны в записи протокола
+			vector <uint8_t> opened;
+			/**
+			 * @brief Конструктор
+			 *
+			 */
+			Exchange() noexcept : group(extension::group_t::NONE) {}
+		} exchange_t;
+		/**
+		 * @brief Пора ключей одного направления связи поверх дейтаграмм
+		 *
+		 * @details Раздел 4.2.1 RFC 9147: всякая смена ключей направления открывает новую
+		 *          пору со своим номером, своим счётом записей и своим окном повторов;
+		 *          нулевая пора идёт без защиты
+		 *
+		 */
+		typedef struct Era {
+			// Признак того, что пора заведена
+			bool held;
+			// Номер поры ключей
+			uint16_t epoch;
+			// Порядковый номер очередной отправляемой записи поры
+			uint64_t next;
+			// Защита записей поры
+			protect::protection_t protection;
+			// Ключ шифрования номера записи поры
+			uint8_t sn[protect::PROTECT_KEY];
+			// Окно защиты от повторов принимаемых записей поры
+			datagram::window_t window;
+			/**
+			 * @brief Конструктор
+			 *
+			 */
+			Era() noexcept;
+		} era_t;
+		/**
+		 * @brief Сообщение рукопожатия последнего отправленного залпа
+		 *
+		 * @details Раздел 5.8 RFC 9147: залп хранится целиком до подтверждения, ибо
+		 *          повторная передача заново нарезает его на куски под размер дейтаграммы
+		 *
+		 */
+		typedef struct Dispatch {
+			// Признак того, что сообщение уже нарезано на записи
+			bool dispatched;
+			// Пора ключей, которой сообщение отправляется
+			uint16_t epoch;
+			// Порядковый номер сообщения рукопожатия
+			uint16_t sequence;
+			// Сообщение рукопожатия вместе с обвязкой TLS
+			vector <uint8_t> message;
+			/**
+			 * @brief Конструктор
+			 *
+			 */
+			Dispatch() noexcept : dispatched(false), epoch(0), sequence(0) {}
+		} dispatch_t;
+		/**
+		 * @brief Кусок сообщения залпа, отправленный одной записью
+		 *
+		 * @details Раздел 7 RFC 9147: подтверждение приходит номерами записей, оттого
+		 *          всякий кусок помнит запись, которой ушёл
+		 *
+		 */
+		typedef struct Piece {
+			// Признак того, что запись куска подтверждена собеседником
+			bool acked;
+			// Пора ключей записи куска
+			uint16_t epoch;
+			// Порядковый номер записи куска
+			uint64_t sequence;
+			// Место сообщения куска в залпе
+			size_t index;
+			// Смещение куска в теле сообщения
+			size_t offset;
+			// Длина куска в байтах
+			size_t length;
+			/**
+			 * @brief Конструктор
+			 *
+			 */
+			Piece() noexcept : acked(false), epoch(0), sequence(0), index(0), offset(0), length(0) {}
+		} piece_t;
+		/**
+		 * @brief Область тела сообщения, покрытая принятыми кусками
+		 *
+		 */
+		typedef struct Span {
+			// Смещение области в теле сообщения
+			size_t offset;
+			// Длина области в байтах
+			size_t length;
+			/**
+			 * @brief Конструктор
+			 *
+			 * @param offset смещение области в теле сообщения
+			 * @param length длина области в байтах
+			 *
+			 */
+			Span(const size_t offset, const size_t length) noexcept : offset(offset), length(length) {}
+		} span_t;
+		/**
+		 * @brief Сборка принимаемого сообщения рукопожатия из кусков
+		 *
+		 * @details Раздел 5.5 RFC 9147: куски приходят с любым перекрытием и в любом
+		 *          порядке, и сообщение считается собранным, когда покрыто целиком
+		 *
+		 */
+		typedef struct Assembly {
+			// Вид сообщения рукопожатия
+			handshake::type_t type;
+			// Порядковый номер сообщения рукопожатия
+			uint16_t sequence;
+			// Тело сообщения, заполняемое кусками
+			vector <uint8_t> body;
+			// Области тела, покрытые принятыми кусками, по возрастанию смещения
+			vector <span_t> spans;
+			/**
+			 * @brief Конструктор
+			 *
+			 */
+			Assembly() noexcept : type(handshake::type_t::NONE), sequence(0) {}
+		} assembly_t;
 		/**
 		 * @brief Ведение связи протокола TLS 1.3
 		 *
@@ -117,16 +252,11 @@ namespace nts {
 				// Кривая обмена мимолётными ключами связи
 				extension::group_t _group;
 			private:
-				// Эллиптическая кривая обмена мимолётными ключами
-				curve::curve_t _curve;
-			private:
-				// Секретный мимолётный ключ своей стороны
-				vector <uint8_t> _secret;
-				// Открытый мимолётный ключ своей стороны
-				vector <uint8_t> _opened;
+				// Мимолётные пары ключей своей стороны по группам обмена
+				vector <exchange_t> _exchanges;
 			private:
 				// Ключи завершения рукопожатия сторон связи
-				uint8_t _completion[2][32];
+				uint8_t _completion[2][schedule::SCHEDULE_WIDEST];
 				// Ключевой материал прикладных данных сторон связи
 				uint8_t _key[2][protect::PROTECT_KEY], _vector[2][protect::PROTECT_VECTOR];
 			private:
@@ -144,6 +274,8 @@ namespace nts {
 				vector <protect::suite_t> _suites;
 				// Кривые обмена ключами, предлагаемые связью
 				vector <extension::group_t> _groups;
+				// Группы обмена, по которым связь шлёт доли ключа приветствием
+				vector <extension::group_t> _shares;
 			private:
 				// Подлинность своей стороны связи
 				context::credential_t _credential;
@@ -167,6 +299,8 @@ namespace nts {
 			private:
 				// Схемы подписи, признаваемые собеседником
 				vector <extension::scheme_t> _schemes;
+				// Схемы подписи, признаваемые связью
+				vector <extension::scheme_t> _signatures;
 				// Опознаватель принятого запроса подлинности, повторяемый цепочкой
 				vector <uint8_t> _binding;
 				// Прикладной протокол связи, выдавшей признанный сервером билет
@@ -238,6 +372,114 @@ namespace nts {
 				// Цепочка сертификатов собеседника
 				vector <vector <uint8_t>> _peer;
 			private:
+				// Способ переноса рукопожатия связи
+				context::transport_t _transport;
+			private:
+				// Свои параметры переноса QUIC, объявляемые рукопожатием
+				vector <uint8_t> _parameters;
+				// Параметры переноса QUIC, принятые от собеседника
+				vector <uint8_t> _received;
+				// Признак того, что параметры переноса собеседника приняты
+				bool _acquired;
+			private:
+				// Накопители отправляемых сообщений рукопожатия по уровням защиты
+				vector <uint8_t> _levels[4];
+				// Уровень защиты, на котором подано недособранное сообщение
+				context::level_t _pushed;
+			private:
+				// Значения направлений связи по уровням защиты и сторонам
+				uint8_t _traffic[3][2][schedule::SCHEDULE_WIDEST];
+				// Признаки готовности значений направлений по уровням защиты
+				uint8_t _ready[3];
+				// Длина значений направлений связи в байтах
+				size_t _width;
+			private:
+				// Признак того, что упреждающие данные связью предлагались
+				bool _ventured;
+				// Признак того, что решение сервера об упреждающих данных получено
+				bool _judged;
+			private:
+				// Алгоритмы сжатия цепочки сертификатов, предоставленные потребителем
+				vector <context::codec_t> _codecs;
+				// Алгоритмы сжатия, объявленные собеседником, в его порядке предпочтения
+				vector <uint16_t> _compressible;
+				// Предел длины цепочки сертификатов после распаковки в байтах
+				size_t _inflation;
+				// Алгоритм, которым сжата отправленная цепочка сертификатов своей стороны
+				uint16_t _squeezed;
+				// Алгоритм, которым была сжата принятая цепочка сертификатов собеседника
+				uint16_t _inflated;
+			private:
+				// Признак того, что состояние сертификата собеседника связью запрашивается
+				bool _inquiring;
+				// Признак того, что состояние своего сертификата собеседником запрошено
+				bool _inquired;
+				// Признак того, что принятый ответ о состоянии связью проверяется
+				bool _verifying;
+				// Дозволенный люфт сроков ответа о состоянии в секундах
+				int64_t _leeway;
+				// Состояние сертификата собеседника по проверенному ответу
+				ocsp::status_t _certified;
+				// Ответы о состоянии своих сертификатов по местам в цепочке
+				vector <vector <uint8_t>> _staples;
+				// Ответ о состоянии сертификата собеседника, принятый связью
+				vector <uint8_t> _status;
+				// Запас доверенных сертификатов для розыска издателя собеседника
+				trust::store_t _anchors;
+			private:
+				// Размер дейтаграммы связи в байтах
+				size_t _mtu;
+				// Срок ожидания повторной передачи в миллисекундах
+				uint32_t _timeout;
+				// Число попыток повторной передачи залпа
+				uint32_t _attempts;
+				// Признак того, что срок ожидания повторной передачи идёт
+				bool _timing;
+				// Признак того, что залп составлен просьбою о повторе и часов не ждёт
+				bool _challenged;
+				// Признак того, что за подачу залп рукопожатия пополнился
+				bool _replied;
+				// Признак того, что своя смена ключей ждёт подтверждения залпа
+				bool _rotating;
+				// Признак того, что просьба о повторе просит долю ключа
+				bool _reshare;
+				// Признак того, что секрет метки возврата состояния задан
+				bool _stamped;
+				// Поколение секрета метки возврата состояния
+				uint8_t _generation;
+				// Секреты метки возврата состояния двух живых поколений
+				uint8_t _stamps[2][32];
+				// Адрес собеседника, привязываемый к метке возврата состояния
+				vector <uint8_t> _address;
+				// Нулевые поры направлений связи: записи без защиты
+				era_t _plains[2];
+				// Защищённые поры ключей направлений связи: запись и чтение, по два места
+				era_t _eras[2][2];
+				// Места текущих пор ключей направлений
+				uint8_t _slots[2];
+				// Сообщения последнего отправленного залпа
+				vector <dispatch_t> _flight;
+				// Куски залпа, ушедшие записями
+				vector <piece_t> _pieces;
+				// Порядковый номер очередного отправляемого сообщения рукопожатия
+				uint16_t _outgoing;
+				// Порядковый номер очередного ожидаемого сообщения рукопожатия
+				uint16_t _incoming;
+				// Сборки принимаемых сообщений рукопожатия
+				vector <assembly_t> _assemblies;
+				// Номера принятых записей рукопожатия, ждущих подтверждения
+				vector <datagram::number_t> _acknowledgeable;
+				// Собираемая дейтаграмма
+				vector <uint8_t> _packet;
+				// Пора ключей записей собираемой дейтаграммы
+				uint16_t _bundle;
+				// Готовые к отправке дейтаграммы
+				vector <vector <uint8_t>> _datagrams;
+				// Записи следующей поры, отложенные до прихода её ключей
+				vector <vector <uint8_t>> _deferred;
+				// Число записей и дейтаграмм, молча отброшенных связью
+				uint64_t _discarded;
+			private:
 				/**
 				 * @brief Метод обрыва связи отказом
 				 *
@@ -267,6 +509,24 @@ namespace nts {
 				 */
 				context::error_t emit(const record::type_t type, const view_t & data) noexcept;
 				/**
+				 * @brief Метод получения уровня защиты, на котором идут сообщения стороны
+				 *
+				 * @param side сторона связи, уровень которой запрашивается
+				 *
+				 * @return     уровень защиты сообщений стороны по поре её ключей
+				 *
+				 */
+				context::level_t layer(const session::side_t side) const noexcept;
+				/**
+				 * @brief Метод сохранения значений направлений уровня защиты для выдачи наружу
+				 *
+				 * @param level уровень защиты, значения которого сохраняются
+				 *
+				 * @return      отказ сохранения значений направлений
+				 *
+				 */
+				context::error_t store(const context::level_t level) noexcept;
+				/**
 				 * @brief Метод отправки сообщения рукопожатия собеседнику
 				 *
 				 * @param type вид отправляемого сообщения рукопожатия
@@ -290,12 +550,20 @@ namespace nts {
 				/**
 				 * @brief Метод вывода ключей рукопожатия связи
 				 *
-				 * @param key открытый мимолётный ключ собеседника
+				 * @param group группа обмена, выбранная собеседником
+				 * @param key   открытый мимолётный ключ собеседника в записи протокола
 				 *
-				 * @return    отказ вывода ключей рукопожатия
+				 * @return      отказ вывода ключей рукопожатия
 				 *
 				 */
-				context::error_t derive(const view_t & key) noexcept;
+				context::error_t derive(const extension::group_t group, const view_t & key) noexcept;
+				/**
+				 * @brief Метод выбора хеша переписки и расписания по набору шифрования
+				 *
+				 * @return отказ выбора хеша
+				 *
+				 */
+				context::error_t hashing() noexcept;
 				/**
 				 * @brief Метод вывода ключей прикладных данных связи
 				 *
@@ -314,9 +582,12 @@ namespace nts {
 				/**
 				 * @brief Метод выработки мимолётной пары ключей своей стороны
 				 *
-				 * @param group кривая, для которой вырабатывается пара ключей
+				 * @param group группа обмена, для которой вырабатывается пара ключей
 				 *
 				 * @return      отказ выработки мимолётной пары ключей
+				 *
+				 * @note Пара добавляется к прежним: клиент шлёт доли по нескольким группам
+				 * @note У группы, связи неведомой, доля шлётся произвольной (RFC 8701)
 				 *
 				 */
 				context::error_t exchange(const extension::group_t group) noexcept;
@@ -368,12 +639,13 @@ namespace nts {
 				 * @brief Метод разбора предложения заранее разделённых ключей клиента
 				 *
 				 * @param extensions перечень расширений принятого приветствия клиента
+				 * @param proposed   перечень наборов шифрования, предложенных клиентом
 				 * @param message    принятое приветствие клиента вместе с обвязкой
 				 *
 				 * @return           отказ разбора предложения заранее разделённых ключей
 				 *
 				 */
-				context::error_t offered(const vector <hello::extension_t> & extensions, const view_t & message) noexcept;
+				context::error_t offered(const vector <hello::extension_t> & extensions, const vector <uint16_t> & proposed, const view_t & message) noexcept;
 				/**
 				 * @brief Метод разбора принятого приветствия клиента
 				 *
@@ -412,6 +684,62 @@ namespace nts {
 				 *
 				 */
 				context::error_t chain(const view_t & body) noexcept;
+				/**
+				 * @brief Метод распаковки принятой сжатой цепочки сертификатов собеседника
+				 *
+				 * @param body   тело принятого сообщения сжатой цепочки сертификатов
+				 * @param result накопитель, в который помещается тело цепочки после распаковки
+				 *
+				 * @return       отказ распаковки цепочки сертификатов
+				 *
+				 * @details Раздел 4 RFC 8879: алгоритм обязан быть из объявленных связью
+				 *          (иначе COMPRESSION), длина после распаковки обязана сойтись с
+				 *          объявленной и не выйти за предел (иначе CERTIFICATE)
+				 *
+				 */
+				context::error_t unpack(const view_t & body, vector <uint8_t> & result) noexcept;
+				/**
+				 * @brief Метод разбора принятого ответа о состоянии сертификата собеседника
+				 *
+				 * @param data тело расширения записи цепочки с ответом о состоянии
+				 *
+				 * @return     отказ разбора либо проверки ответа о состоянии
+				 *
+				 * @details Раздел 8 RFC 6066: CertificateStatus несёт вид состояния (лишь
+				 *          ocsp) и запись ответа по RFC 6960 с трёхбайтовой длиной; при
+				 *          включённой проверке ответ сличается с сертификатом собеседника
+				 *          и его издателем, а отозванный сертификат обрывает связь
+				 *
+				 */
+				context::error_t stapled(const view_t & data) noexcept;
+				/**
+				 * @brief Метод разбора принятого запроса состояния сертификата
+				 *
+				 * @param data тело расширения запроса состояния сертификата
+				 *
+				 * @return     отказ разбора запроса состояния
+				 *
+				 * @details Раздел 8 RFC 6066: CertificateStatusRequest несёт вид состояния,
+				 *          перечень ответчиков и расширения запроса; запрошенным считается
+				 *          лишь вид ocsp, прочие виды пропускаются молча
+				 *
+				 */
+				context::error_t inquiry(const view_t & data) noexcept;
+				/**
+				 * @brief Метод сжатия отправляемой цепочки сертификатов своей стороны
+				 *
+				 * @param body      тело сообщения цепочки сертификатов
+				 * @param result    накопитель, в который помещается тело сжатого сообщения
+				 * @param algorithm место, в которое помещается выбранный алгоритм, ноль без сжатия
+				 *
+				 * @return          отказ сжатия цепочки сертификатов
+				 *
+				 * @details Раздел 3 RFC 8879: алгоритм берётся первым общим по порядку
+				 *          объявившей стороны; отказ сжатия у потребителя шлёт цепочку
+				 *          несжатой, и отказом связи он не считается
+				 *
+				 */
+				context::error_t squeeze(const vector <uint8_t> & body, vector <uint8_t> & result, uint16_t & algorithm) noexcept;
 				/**
 				 * @brief Метод проверки принятой подписи владения ключом
 				 *
@@ -480,6 +808,143 @@ namespace nts {
 				 *
 				 */
 				context::error_t notice(const view_t & data) noexcept;
+			private:
+				/**
+				 * @brief Метод получения издания протокола, согласуемого связью
+				 *
+				 * @return 0x0304 у TLS 1.3 и 0xFEFC у DTLS 1.3
+				 *
+				 */
+				uint16_t edition() const noexcept;
+				/**
+				 * @brief Метод заведения поры ключей направления связи поверх дейтаграмм
+				 *
+				 * @param side  сторона связи, чьё направление заводится
+				 * @param level уровень защиты, ключи которого кладутся в пору
+				 *
+				 * @return      отказ заведения поры ключей
+				 *
+				 * @details Раздел 4.2.1 RFC 9147: ключи рукопожатия открывают вторую пору,
+				 *          прикладные - третью, всякая смена ключей - следующую; прежняя
+				 *          пора чтения держится ради запоздалых записей
+				 *
+				 */
+				context::error_t adopt(const session::side_t side, const context::level_t level) noexcept;
+				/**
+				 * @brief Метод составления записи поверх дейтаграммы
+				 *
+				 * @param type   вид содержимого записи
+				 * @param data   содержимое записи
+				 * @param era    пора ключей, которой запись защищается
+				 * @param result накопитель, в конец которого дописывается запись
+				 *
+				 * @return       отказ составления записи
+				 *
+				 */
+				context::error_t shield(const record::type_t type, const view_t & data, era_t & era, vector <uint8_t> & result) noexcept;
+				/**
+				 * @brief Метод получения поры ключей записи по её номеру
+				 *
+				 * @param direction место направления: ноль у записи, единица у чтения
+				 * @param epoch     номер поры ключей
+				 *
+				 * @return          пора ключей либо nullptr, если пора связью не держится
+				 *
+				 */
+				era_t * era(const size_t direction, const uint16_t epoch) noexcept;
+				/**
+				 * @brief Метод получения текущей поры ключей направления
+				 *
+				 * @param direction место направления: ноль у записи, единица у чтения
+				 *
+				 * @return          текущая защищённая пора либо нулевая, пока защищённой нет
+				 *
+				 */
+				era_t & current(const size_t direction) noexcept;
+				/**
+				 * @brief Метод закрытия собираемой дейтаграммы
+				 *
+				 * @return отказ закрытия дейтаграммы
+				 *
+				 */
+				context::error_t settle() noexcept;
+				/**
+				 * @brief Метод нарезки области сообщения залпа на записи дейтаграмм
+				 *
+				 * @param index  место сообщения в залпе
+				 * @param offset смещение области в теле сообщения
+				 * @param length длина области в байтах
+				 *
+				 * @return       отказ нарезки области сообщения
+				 *
+				 */
+				context::error_t carve(const size_t index, const size_t offset, const size_t length) noexcept;
+				/**
+				 * @brief Метод раскладки залпа и подтверждения по дейтаграммам
+				 *
+				 * @param resend признак повторной передачи неподтверждённых кусков
+				 *
+				 * @return       отказ раскладки залпа
+				 *
+				 */
+				context::error_t dispatch(const bool resend) noexcept;
+				/**
+				 * @brief Метод разбора принятой дейтаграммы
+				 *
+				 * @param data принятая дейтаграмма
+				 *
+				 * @return     отказ разбора дейтаграммы
+				 *
+				 */
+				context::error_t receive(const view_t & data) noexcept;
+				/**
+				 * @brief Метод разбора кусков сообщений рукопожатия из принятой записи
+				 *
+				 * @param content открытое содержимое записи рукопожатия
+				 * @param epoch   пора ключей принятой записи
+				 *
+				 * @return        отказ разбора кусков сообщений
+				 *
+				 */
+				context::error_t fragments(const view_t & content, const uint16_t epoch) noexcept;
+				/**
+				 * @brief Метод выдачи собранных сообщений рукопожатия разбору по порядку
+				 *
+				 * @return отказ разбора выданных сообщений
+				 *
+				 */
+				context::error_t deliver() noexcept;
+				/**
+				 * @brief Метод разбора принятого подтверждения записей
+				 *
+				 * @param body тело принятого сообщения подтверждения
+				 *
+				 * @return     отказ разбора подтверждения
+				 *
+				 */
+				context::error_t acknowledged(const view_t & body) noexcept;
+				/**
+				 * @brief Метод составления метки возврата состояния сервера
+				 *
+				 * @param message принятое приветствие клиента вместе с обвязкой
+				 * @param result  накопитель, в который складывается метка
+				 *
+				 * @return        отказ составления метки
+				 *
+				 * @details Раздел 5.1 RFC 9147: метка несёт поколение секрета, хеш приветствия
+				 *          и имитовставку по секрету поколения над ними и адресом собеседника
+				 *
+				 */
+				context::error_t stamp(const view_t & message, vector <uint8_t> & result) noexcept;
+				/**
+				 * @brief Метод проверки метки возврата состояния сервера
+				 *
+				 * @param label проверяемая метка, повторённая клиентом
+				 *
+				 * @return      признак того, что метка сложена сервером для этого собеседника
+				 *
+				 */
+				bool verify(const view_t & label) const noexcept;
 			public:
 				/**
 				 * @brief Метод получения состояния связи
@@ -530,6 +995,15 @@ namespace nts {
 				 *
 				 */
 				const string & protocol() const noexcept;
+				/**
+				 * @brief Метод получения алгоритма сжатия цепочки сертификатов направления
+				 *
+				 * @param direction направление связи относительно своей стороны
+				 *
+				 * @return          опознаватель алгоритма по RFC 8879, ноль у несжатой цепочки
+				 *
+				 */
+				uint16_t compression(const context::direction_t direction) const noexcept;
 			public:
 				/**
 				 * @brief Метод установки предлагаемых наборов шифрования
@@ -545,6 +1019,68 @@ namespace nts {
 				 *
 				 */
 				void groups(const vector <extension::group_t> & groups) noexcept;
+				/**
+				 * @brief Метод установки групп обмена, по которым приветствием шлются доли ключа
+				 *
+				 * @param shares устанавливаемые группы долей ключа
+				 *
+				 */
+				void shares(const vector <extension::group_t> & shares) noexcept;
+				/**
+				 * @brief Метод установки признаваемых схем подписи
+				 *
+				 * @param schemes устанавливаемые схемы подписи
+				 *
+				 */
+				void schemes(const vector <extension::scheme_t> & schemes) noexcept;
+				/**
+				 * @brief Метод установки алгоритмов сжатия цепочки сертификатов
+				 *
+				 * @param codecs    устанавливаемые алгоритмы в порядке предпочтения
+				 * @param inflation предел длины цепочки после распаковки, ноль оставляет умолчание
+				 *
+				 * @note Пустой перечень выключает сжатие: расширение не объявляется вовсе
+				 *
+				 */
+				void codecs(const vector <context::codec_t> & codecs, const size_t inflation) noexcept;
+				/**
+				 * @brief Метод установки запроса состояния сертификата собеседника
+				 *
+				 * @param inquire запрашивается ли состояние сертификата собеседника
+				 *
+				 */
+				void inquire(const bool inquire) noexcept;
+				/**
+				 * @brief Метод установки ответа о состоянии своего сертификата
+				 *
+				 * @param response запись ответа OCSP, пустая снимает ответ
+				 * @param index    место сертификата в своей цепочке
+				 *
+				 */
+				void staple(const vector <uint8_t> & response, const size_t index) noexcept;
+				/**
+				 * @brief Метод получения ответа о состоянии сертификата собеседника
+				 *
+				 * @return запись принятого ответа OCSP либо пустой накопитель
+				 *
+				 */
+				const vector <uint8_t> & status() const noexcept;
+				/**
+				 * @brief Метод установки проверки принятого ответа о состоянии
+				 *
+				 * @param verify проверяется ли принятый ответ
+				 * @param leeway дозволенный люфт сроков ответа в секундах
+				 * @param store  запас доверенных сертификатов для розыска издателя
+				 *
+				 */
+				void verification(const bool verify, const int64_t leeway, const trust::store_t & store) noexcept;
+				/**
+				 * @brief Метод получения состояния сертификата собеседника
+				 *
+				 * @return состояние по проверенному ответу либо NONE
+				 *
+				 */
+				ocsp::status_t certified() const noexcept;
 				/**
 				 * @brief Метод установки подлинности своей стороны связи
 				 *
@@ -653,6 +1189,163 @@ namespace nts {
 				 *
 				 */
 				uint64_t sequence(const bool incoming) const noexcept;
+			public:
+				/**
+				 * @brief Метод установки способа переноса рукопожатия
+				 *
+				 * @param transport устанавливаемый способ переноса
+				 *
+				 */
+				void transport(const context::transport_t transport) noexcept;
+				/**
+				 * @brief Метод получения способа переноса рукопожатия
+				 *
+				 * @return способ переноса рукопожатия связи
+				 *
+				 */
+				context::transport_t transport() const noexcept;
+				/**
+				 * @brief Метод установки своих параметров переноса QUIC
+				 *
+				 * @param parameters устанавливаемые параметры переноса
+				 *
+				 */
+				void parameters(const vector <uint8_t> & parameters) noexcept;
+				/**
+				 * @brief Метод получения параметров переноса QUIC собеседника
+				 *
+				 * @return параметры переноса, принятые от собеседника
+				 *
+				 */
+				const vector <uint8_t> & parameters() const noexcept;
+				/**
+				 * @brief Метод проверки приёма параметров переноса собеседника
+				 *
+				 * @return признак того, что параметры переноса собеседника приняты
+				 *
+				 */
+				bool acquired() const noexcept;
+				/**
+				 * @brief Метод подачи связи сообщений рукопожатия уровня защиты
+				 *
+				 * @param level уровень защиты, на котором сообщения приняты
+				 * @param data  принятые сообщения рукопожатия без обвязки записей
+				 *
+				 * @return      отказ разбора принятых сообщений
+				 *
+				 */
+				context::error_t push(const context::level_t level, const view_t & data) noexcept;
+				/**
+				 * @brief Метод получения сообщений рукопожатия, отправляемых на уровне защиты
+				 *
+				 * @param level уровень защиты, сообщения которого запрашиваются
+				 *
+				 * @return      накопленные сообщения рукопожатия уровня
+				 *
+				 */
+				view_t output(const context::level_t level) const noexcept;
+				/**
+				 * @brief Метод снятия отправленных сообщений с накопителя уровня защиты
+				 *
+				 * @param level уровень защиты, с накопителя которого снимаются сообщения
+				 * @param size  размер снимаемых байтов
+				 *
+				 */
+				void consume(const context::level_t level, const size_t size) noexcept;
+				/**
+				 * @brief Метод получения значения направления связи уровня защиты
+				 *
+				 * @param level     уровень защиты, значение которого запрашивается
+				 * @param direction направление связи относительно своей стороны
+				 * @param result    место, в которое помещается значение направления
+				 * @param size      место, в которое помещается длина значения по хешу набора
+				 *
+				 * @return          признак того, что значение уровня уже выведено
+				 *
+				 */
+				bool secret(const context::level_t level, const context::direction_t direction, uint8_t * result, size_t & size) const noexcept;
+				/**
+				 * @brief Метод получения уровня защиты, ключи которого готовы направлению
+				 *
+				 * @param direction направление связи относительно своей стороны
+				 *
+				 * @return          наивысший уровень защиты, ключи которого у направления есть
+				 *
+				 */
+				context::level_t level(const context::direction_t direction) const noexcept;
+				/**
+				 * @brief Метод проверки хода упреждающих данных прямо сейчас
+				 *
+				 * @return признак того, что упреждающие данные идут прямо сейчас
+				 *
+				 */
+				bool earlying() const noexcept;
+				/**
+				 * @brief Метод проверки отказа сервера от предложенных упреждающих данных
+				 *
+				 * @return признак того, что упреждение предлагалось и сервером отвергнуто
+				 *
+				 */
+				bool rejected() const noexcept;
+			public:
+				/**
+				 * @brief Метод установки размера дейтаграммы связи
+				 *
+				 * @param mtu устанавливаемый размер дейтаграммы в байтах
+				 *
+				 * @note Размер меньше наименьшего дозволенного поднимается до него
+				 *
+				 */
+				void mtu(const size_t mtu) noexcept;
+				/**
+				 * @brief Метод получения размера дейтаграммы связи
+				 *
+				 * @return размер дейтаграммы в байтах
+				 *
+				 */
+				size_t mtu() const noexcept;
+				/**
+				 * @brief Метод получения срока ожидания повторной передачи
+				 *
+				 * @return срок в миллисекундах, ноль, когда ждать нечего
+				 *
+				 */
+				uint32_t timeout() const noexcept;
+				/**
+				 * @brief Метод извещения связи об истечении срока ожидания
+				 *
+				 * @return отказ повторной передачи: TIMEOUT по исчерпании попыток
+				 *
+				 */
+				context::error_t elapsed() noexcept;
+				/**
+				 * @brief Метод получения числа молча отброшенных записей и дейтаграмм
+				 *
+				 * @return число отброшенных записей и дейтаграмм
+				 *
+				 */
+				uint64_t discarded() const noexcept;
+				/**
+				 * @brief Метод установки адреса собеседника для метки возврата состояния
+				 *
+				 * @param address адрес либо иной опознаватель собеседника
+				 *
+				 */
+				void address(const view_t & address) noexcept;
+				/**
+				 * @brief Метод установки секрета метки возврата состояния
+				 *
+				 * @param secret устанавливаемый секрет
+				 *
+				 */
+				void stamp(const vector <uint8_t> & secret) noexcept;
+				/**
+				 * @brief Метод смены поколения секрета метки возврата состояния
+				 *
+				 * @note Прежнее поколение остаётся живым до следующей смены
+				 *
+				 */
+				void restamp() noexcept;
 			public:
 				/**
 				 * @brief Метод заведения связи

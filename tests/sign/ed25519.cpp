@@ -26,12 +26,15 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <string>
+#include <iostream>
 #include <vector>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <main.hpp>
+#include <starve.hpp>
 #include <sign/ed25519.hpp>
+#include <keys/keys.hpp>
 
 /**
  * Используем пространство имён проекта
@@ -534,6 +537,175 @@ TEST(Ed25519Test, Foreign) {
 	ASSERT_TRUE(spill(dir + "/own-sig.bin", result, sizeof(result)));
 	// Проверяем отказ OpenSSL на битой подписи: заслон сличения сам обязан работать
 	ASSERT_FALSE(run("openssl pkeyutl -verify -pubin -inkey " + dir + "/own-pub.pem -rawin -in " + dir + "/msg.bin -sigfile " + dir + "/own-sig.bin >/dev/null 2>&1"));
+	// Удаляем временный каталог
+	ASSERT_TRUE(run("rm -rf " + dir));
+}
+
+/**
+ * @brief Проверка порождения ключа: различие, сходимость с secret, подпись и предел
+ *
+ */
+TEST(Ed25519Test, Generate) {
+	// Объект модуля электронной подписи
+	sign::ed25519_t ed25519;
+	// Предел длины подписи до установки ключа нулевой
+	ASSERT_EQ(ed25519.limit(), static_cast <size_t> (0));
+	// Зёрна двух порождений
+	uint8_t first[32], second[32];
+	// Порождение без места отвергается
+	ASSERT_FALSE(ed25519.generate(nullptr, sizeof(first)));
+	// Порождение в место неверного размера отвергается
+	ASSERT_FALSE(ed25519.generate(first, sizeof(first) - 1));
+	// Предел после отказов нулевой
+	ASSERT_EQ(ed25519.limit(), static_cast <size_t> (0));
+	// Выполняем первое порождение
+	ASSERT_TRUE(ed25519.generate(first, sizeof(first)));
+	// Предел равен длине подписи
+	ASSERT_EQ(ed25519.limit(), static_cast <size_t> (64));
+	ASSERT_EQ(ed25519.limit(), ed25519.size());
+	// Ключ проверки порождённого ключа
+	uint8_t key[32];
+	// Выполняем получение ключа проверки
+	ASSERT_TRUE(ed25519.key(key, sizeof(key)));
+	// Объект модуля с тем же зерном, установленным через secret
+	sign::ed25519_t other;
+	// Выполняем установку зерна как переданного
+	ASSERT_TRUE(other.secret(view_t(first, sizeof(first))));
+	// Ключ проверки выведенного ключа
+	uint8_t derived[32];
+	// Выполняем получение ключа проверки
+	ASSERT_TRUE(other.key(derived, sizeof(derived)));
+	// Открытая часть порождённого ключа совпадает с выведенной через secret
+	ASSERT_EQ(text(key, sizeof(key)), text(derived, sizeof(derived)));
+	// Сообщение
+	const std::string message = "generated ed25519 key";
+	// Область сообщения
+	const view_t data(reinterpret_cast <const uint8_t *> (message.data()), message.size());
+	// Место подписи
+	uint8_t signature[64];
+	// Выполняем выработку подписи порождённым ключом
+	ASSERT_TRUE(ed25519.make(data, signature));
+	// Подпись сходится у выведенного ключа
+	ASSERT_TRUE(other.check(data, view_t(signature, sizeof(signature))));
+	// Объект модуля одним лишь ключом проверки
+	sign::ed25519_t verifier;
+	// Выполняем установку ключа проверки
+	ASSERT_TRUE(verifier.key(view_t(key, sizeof(key))));
+	// Предел у одного лишь ключа проверки равен длине подписи
+	ASSERT_EQ(verifier.limit(), static_cast <size_t> (64));
+	// Подпись сходится одним лишь ключом проверки
+	ASSERT_TRUE(verifier.check(data, view_t(signature, sizeof(signature))));
+	// Выполняем второе порождение
+	ASSERT_TRUE(ed25519.generate(second, sizeof(second)));
+	// Зёрна порождений различны
+	ASSERT_NE(::memcmp(first, second, sizeof(first)), 0);
+	// Прежняя подпись новым ключом не сходится
+	ASSERT_FALSE(ed25519.check(data, view_t(signature, sizeof(signature))));
+	// Выполняем сброс состояния модуля
+	ed25519.clear();
+	// Предел после сброса нулевой
+	ASSERT_EQ(ed25519.limit(), static_cast <size_t> (0));
+}
+/**
+ * @brief Проверка порождения при нехватке памяти: порождение памяти не выделяет
+ *
+ */
+TEST(Ed25519Test, GenerateStarved) {
+	// Объект модуля электронной подписи
+	sign::ed25519_t ed25519;
+	/**
+	 * Выполняем перебор запасов выделений: порождение обязано удаваться при всяком
+	 * запасе, ибо памяти не выделяет, а выделение под noexcept прервало бы исполнение
+	 */
+	for(size_t budget = 0; budget < 8; budget++){
+		// Место зерна
+		uint8_t seed[32];
+		// Итог порождения при отмеренном запасе
+		bool outcome = false;
+		{
+			// Отмеряем запас выделений на время порождения
+			starve::ration_t ration(budget);
+			// Выполняем порождение при отмеренном запасе
+			outcome = ed25519.generate(seed, sizeof(seed));
+		}
+		// Порождение удалось
+		ASSERT_TRUE(outcome) << "запас " << budget;
+	}
+}
+/**
+ * @brief Проверка записи порождённого ключа и чтения его системным openssl
+ *
+ */
+TEST(Ed25519Test, GenerateOpenssl) {
+	// Объект модуля электронной подписи
+	sign::ed25519_t ed25519;
+	// Ключ в виде записи
+	keys::key_t key;
+	// Устанавливаем вид ключа
+	key.kind = keys::kind_t::ED25519;
+	// Выделяем место под зерно
+	key.d.assign(32, 0);
+	// Выполняем порождение ключа
+	ASSERT_TRUE(ed25519.generate(key.d.data(), key.d.size()));
+	// Выделяем место под ключ проверки
+	key.key.assign(32, 0);
+	// Выполняем получение ключа проверки
+	ASSERT_TRUE(ed25519.key(key.key.data(), key.key.size()));
+	// Записи ключей
+	std::string secret, pub;
+	// Выполняем запись секретного ключа PKCS #8
+	ASSERT_EQ(keys::encode(key, keys::container_t::PRIVATE, secret), keys::error_t::NONE);
+	// Выполняем запись открытого ключа SubjectPublicKeyInfo
+	ASSERT_EQ(keys::encode(key, keys::container_t::PUBLIC, pub), keys::error_t::NONE);
+	// Разобранные ключи
+	keys::key_t parsed, opened;
+	// Выполняем разбор записи секретного ключа
+	ASSERT_EQ(keys::decode(secret, view_t(), parsed), keys::error_t::NONE);
+	// Выполняем разбор записи открытого ключа
+	ASSERT_EQ(keys::decode(pub, view_t(), opened), keys::error_t::NONE);
+	// Разобранное зерно совпадает с порождённым
+	ASSERT_EQ(parsed.d, key.d);
+	// Разобранный ключ проверки совпадает с порождённым
+	ASSERT_EQ(opened.key, key.key);
+	// Если системный openssl не умеет Ed25519 (старше 1.1.1), сличать не с чем
+	if(!run("openssl genpkey -algorithm ed25519 -out /dev/null >/dev/null 2>&1"))
+		// Объявляем пропуск проверки вслух
+		GTEST_SKIP() << "Системный openssl без Ed25519";
+	// Заготовка пути временного каталога
+	char pattern[] = "/tmp/ants-ed25519-gen-XXXXXX";
+	// Создаём временный каталог
+	ASSERT_NE(::mkdtemp(pattern), nullptr);
+	// Путь временного каталога
+	const std::string dir(pattern);
+	// Выполняем запись ключей в файлы
+	ASSERT_TRUE(spill(dir + "/key.pem", reinterpret_cast <const uint8_t *> (secret.data()), secret.size()));
+	ASSERT_TRUE(spill(dir + "/pub.pem", reinterpret_cast <const uint8_t *> (pub.data()), pub.size()));
+	// Системный openssl читает секретный ключ
+	ASSERT_TRUE(run("openssl pkey -in " + dir + "/key.pem -noout 2>/dev/null"));
+	// Системный openssl читает открытый ключ
+	ASSERT_TRUE(run("openssl pkey -pubin -in " + dir + "/pub.pem -noout 2>/dev/null"));
+	// Системный openssl выводит открытый ключ из секретного
+	ASSERT_TRUE(run("openssl pkey -in " + dir + "/key.pem -pubout -out " + dir + "/derived.pem 2>/dev/null"));
+	// Выведенный openssl открытый ключ совпадает с нашим байт в байт
+	ASSERT_EQ(slurp(dir + "/derived.pem"), pub);
+	// Сообщение
+	const std::string message = "generated ed25519 key";
+	// Выполняем запись сообщения в файл
+	ASSERT_TRUE(spill(dir + "/msg.bin", reinterpret_cast <const uint8_t *> (message.data()), message.size()));
+	// Место подписи
+	uint8_t signature[64];
+	// Выполняем выработку подписи порождённым ключом
+	ASSERT_TRUE(ed25519.make(view_t(reinterpret_cast <const uint8_t *> (message.data()), message.size()), signature));
+	// Выполняем запись подписи в файл
+	ASSERT_TRUE(spill(dir + "/sig.bin", signature, sizeof(signature)));
+	// Если системный openssl умеет проверять сообщение целиком
+	if(run("openssl pkeyutl -sign -inkey " + dir + "/key.pem -rawin -in " + dir + "/msg.bin -out " + dir + "/probe.bin >/dev/null 2>&1")){
+		// Системный openssl принимает подпись порождённым ключом
+		ASSERT_TRUE(run("openssl pkeyutl -verify -pubin -inkey " + dir + "/pub.pem -rawin -in " + dir + "/msg.bin -sigfile " + dir + "/sig.bin >/dev/null 2>&1"));
+	// Иначе объявляем вслух
+	} else
+		// Сообщаем о пропуске сличения подписи
+		std::cout << "Системный openssl без pkeyutl -rawin: сличение подписи пропущено" << std::endl;
 	// Удаляем временный каталог
 	ASSERT_TRUE(run("rm -rf " + dir));
 }

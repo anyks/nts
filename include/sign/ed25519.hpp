@@ -151,6 +151,32 @@ namespace nts {
 				size_t size() const noexcept;
 				/**
 				 * \~russian
+				 * @brief Метод получения верхнего предела длины подписи в записанном виде
+				 *
+				 * @return верхний предел длины подписи в байтах, ноль без ключа
+				 *
+				 * @details Метод size выдаёт длину сырой подписи, под которую заводится место
+				 *          для make, а limit - наибольшую длину подписи в том виде, в котором она
+				 *          уходит наружу: она не превышается ни при каком значении подписи, как
+				 *          у EVP_PKEY_size. Подпись Ed25519 уходит наружу как есть - шестьюдесятью четырьмя байтами
+				 *          по разделу 5.1.6 RFC 8032, оттого предел равен size, но обращается в
+				 *          ноль, пока ни ключ подписи, ни ключ проверки не установлены
+				 *
+				 * \~english
+				 * @brief Method of getting the upper limit of the length of a signature in the written form
+				 * @return the upper limit of the length of a signature in bytes, zero without a key
+				 * @details The method size gives the length of a raw signature the place for make is
+				 *          allocated by, while limit gives the greatest length of a signature in the form
+				 *          it goes outside in: it is not exceeded at any value of the signature, like
+				 *          EVP_PKEY_size. A signature Ed25519 goes outside as is - by sixty four bytes according to the
+				 *          section 5.1.6 of RFC 8032, therefore the limit equals size, but turns into a
+				 *          zero while neither the key of the signature nor the key of the check is set
+				 *
+				 * \~
+				 */
+				size_t limit() const noexcept;
+				/**
+				 * \~russian
 				 * @brief Метод сброса состояния модуля
 				 *
 				 * \~english
@@ -179,6 +205,41 @@ namespace nts {
 				 * \~
 				 */
 				bool secret(const view_t & secret) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод порождения долговременного ключа подписи
+				 *
+				 * @param secret место, в которое записывается зерно ключа подписи длиной в тридцать два байта
+				 * @param size   размер места ключа подписи
+				 *
+				 * @return признак успешности порождения ключа подписи
+				 *
+				 * @details Зерно берётся из источника случайности целиком по разделу 5.1.5 RFC 8032:
+				 *          тридцать два случайных байта без всякого приведения, из них скаляр и
+				 *          приставка выводятся так же, как при secret. Размер места обязан
+				 *          равняться тридцати двум байтам
+				 *
+				 * @note Порождённый ключ устанавливается в модуль так же, как при secret: ключ
+				 *       проверки подписи вырабатывается сразу же. Отказ источника случайности
+				 *       отвечает отказом порождения, прежнее состояние модуля при этом сброшено
+				 *
+				 * \~english
+				 * @brief Method of the generation of a long-term key of the signature
+				 * @param secret the place the seed of the key of the signature of a length of thirty two bytes is written into
+				 * @param size   the size of the place of the key of the signature
+				 * @return the flag of the success of the generation of the key of the signature
+				 * @details The seed is taken from the source of the randomness entirely according to the
+				 *          section 5.1.5 of RFC 8032: thirty two random bytes without any reduction, the
+				 *          scalar and the prefix are derived from them the same way as at secret. The size
+				 *          of the place must equal thirty two bytes
+				 * @note The generated key is set into the module the same way as at secret: the key of
+				 *       the check of the signature is produced at once. A refusal of the source of the
+				 *       randomness answers by a refusal of the generation, the former state of the module
+				 *       is reset at that
+				 *
+				 * \~
+				 */
+				bool generate(uint8_t * secret, const size_t size) noexcept;
 				/**
 				 * \~russian
 				 * @brief Метод установки ключа проверки подписи

@@ -113,14 +113,42 @@ namespace {
 		const char * oid;
 		// Длина ключа подписи на кривой группы в байтах
 		size_t size;
-	} SAMPLES[7] = {
+	} SAMPLES[10] = {
 		{group_t::GC256A, scheme_t::S256A, "1.2.643.7.1.2.1.1.1", 32},
 		{group_t::GC256B, scheme_t::S256B, "1.2.643.2.2.35.1",    32},
 		{group_t::GC256C, scheme_t::S256C, "1.2.643.2.2.35.2",    32},
 		{group_t::GC256D, scheme_t::S256D, "1.2.643.2.2.35.3",    32},
 		{group_t::GC512A, scheme_t::S512A, "1.2.643.7.1.2.1.2.1", 64},
 		{group_t::GC512B, scheme_t::S512B, "1.2.643.7.1.2.1.2.2", 64},
-		{group_t::GC512C, scheme_t::S512C, "1.2.643.7.1.2.1.2.3", 64}
+		{group_t::GC512C, scheme_t::S512C, "1.2.643.7.1.2.1.2.3", 64},
+		{group_t::SECP256R1, scheme_t::ECDSA_SECP256R1_SHA256, "1.2.840.10045.3.1.7", 32},
+		{group_t::SECP384R1, scheme_t::ECDSA_SECP384R1_SHA384, "1.3.132.0.34",        48},
+		{group_t::X25519,    scheme_t::NONE,                   "1.3.101.110",         32}
+	};
+
+	/**
+	 * @brief Описание хеша схемы подписи
+	 *
+	 */
+	static const struct Hashing {
+		// Схема подписи
+		scheme_t scheme;
+		// Хеш схемы подписи
+		digest::hash_t hash;
+	} HASHES[13] = {
+		{scheme_t::S256A, digest::hash_t::STREEBOG256},
+		{scheme_t::S256B, digest::hash_t::STREEBOG256},
+		{scheme_t::S256C, digest::hash_t::STREEBOG256},
+		{scheme_t::S256D, digest::hash_t::STREEBOG256},
+		{scheme_t::S512A, digest::hash_t::STREEBOG512},
+		{scheme_t::S512B, digest::hash_t::STREEBOG512},
+		{scheme_t::S512C, digest::hash_t::STREEBOG512},
+		{scheme_t::ECDSA_SECP256R1_SHA256, digest::hash_t::SHA256},
+		{scheme_t::ECDSA_SECP384R1_SHA384, digest::hash_t::SHA384},
+		{scheme_t::RSA_PSS_RSAE_SHA256, digest::hash_t::SHA256},
+		{scheme_t::RSA_PSS_RSAE_SHA384, digest::hash_t::SHA384},
+		{scheme_t::RSA_PSS_RSAE_SHA512, digest::hash_t::SHA512},
+		{scheme_t::ED25519, digest::hash_t::NONE}
 	};
 
 	/**
@@ -333,8 +361,8 @@ const char * nts::extension::curve(const scheme_t scheme) noexcept {
 	 * Выполняем перебор описаний схем подписи
 	 */
 	for(size_t i = 0; i < (sizeof(SAMPLES) / sizeof(SAMPLES[0])); i++){
-		// Если описание разыскиваемой схемы подписи найдено
-		if(SAMPLES[i].scheme == scheme)
+		// Если описание разыскиваемой схемы подписи найдено: у группы без схемы подписи нет
+		if((SAMPLES[i].scheme != scheme_t::NONE) && (SAMPLES[i].scheme == scheme))
 			// Выводим опознаватель кривой схемы подписи
 			return SAMPLES[i].oid;
 	}
@@ -354,13 +382,73 @@ size_t nts::extension::length(const scheme_t scheme) noexcept {
 	 * Выполняем перебор описаний схем подписи
 	 */
 	for(size_t i = 0; i < (sizeof(SAMPLES) / sizeof(SAMPLES[0])); i++){
-		// Если описание разыскиваемой схемы подписи найдено
-		if(SAMPLES[i].scheme == scheme)
+		// Если описание разыскиваемой схемы подписи найдено: у группы без схемы подписи нет
+		if((SAMPLES[i].scheme != scheme_t::NONE) && (SAMPLES[i].scheme == scheme))
 			// Выводим длину ключа подписи схемы
 			return SAMPLES[i].size;
 	}
 	// Выводим признак того, что схема подписи неизвестна
 	return 0;
+}
+/**
+ * @brief Метод получения длины доли ключа группы обмена ключами
+ *
+ * @param group группа обмена ключами
+ *
+ * @return      длина доли ключа в байтах, ноль у неизвестной группы
+ *
+ */
+size_t nts::extension::length(const group_t group) noexcept {
+	// Если группа обмена - X25519
+	if(group == group_t::X25519)
+		// Выводим длину доли ключа X25519
+		return 32;
+	// Если группа обмена - кривая NIST
+	if((group == group_t::SECP256R1) || (group == group_t::SECP384R1)){
+		/**
+		 * Выполняем перебор описаний групп обмена ключами
+		 */
+		for(size_t i = 0; i < (sizeof(SAMPLES) / sizeof(SAMPLES[0])); i++){
+			// Если группа обмена найдена
+			if(SAMPLES[i].group == group)
+				// Выводим длину несжатой точки 0x04||X||Y
+				return (1 + (SAMPLES[i].size * 2));
+		}
+		// Выводим отсутствие длины доли ключа
+		return 0;
+	}
+	/**
+	 * Выполняем перебор описаний групп обмена ключами
+	 */
+	for(size_t i = 0; i < (sizeof(SAMPLES) / sizeof(SAMPLES[0])); i++){
+		// Если группа обмена найдена
+		if(SAMPLES[i].group == group)
+			// Выводим длину двух координат точки
+			return (SAMPLES[i].size * 2);
+	}
+	// Выводим отсутствие длины доли ключа
+	return 0;
+}
+/**
+ * @brief Метод получения хеша схемы подписи
+ *
+ * @param scheme схема подписи
+ *
+ * @return       хеш, которым берётся подписываемое содержимое, NONE у Ed25519 и у неизвестной схемы
+ *
+ */
+nts::digest::hash_t nts::extension::hash(const scheme_t scheme) noexcept {
+	/**
+	 * Выполняем перебор описаний хешей схем подписи
+	 */
+	for(size_t i = 0; i < (sizeof(HASHES) / sizeof(HASHES[0])); i++){
+		// Если схема подписи найдена
+		if(HASHES[i].scheme == scheme)
+			// Выводим хеш схемы подписи
+			return HASHES[i].hash;
+	}
+	// Выводим отсутствие хеша схемы подписи
+	return digest::hash_t::NONE;
 }
 /**
  * @brief Метод разбора перечня поддерживаемых изданий протокола
@@ -904,6 +992,79 @@ nts::extension::error_t nts::extension::early(const uint32_t limit, vector <uint
 	}
 	// Выводим успешность составления тела расширения
 	return error_t::NONE;
+}
+/**
+ * @brief Метод разбора перечня алгоритмов сжатия цепочки сертификатов
+ *
+ * @param data   разбираемое тело расширения
+ * @param result перечень, в который помещаются опознаватели алгоритмов
+ *
+ * @return       отказ разбора тела расширения
+ *
+ */
+nts::extension::error_t nts::extension::algorithms(const view_t & data, vector <uint16_t> & result) noexcept {
+	// Прочитанный перечень опознавателей алгоритмов
+	vector <uint32_t> values;
+	/**
+	 * Раздел 3 RFC 8879: перечень идёт с однобайтовой длиной впереди, а всякий
+	 * опознаватель алгоритма занимает два байта
+	 */
+	const error_t error = numbers(data, 1, 2, values);
+	// Если перечень алгоритмов разобрать не удалось
+	if(error != error_t::NONE)
+		// Выводим отказ разбора тела расширения
+		return error;
+	/**
+	 * Выполняем перехват ошибок работы с памятью
+	 */
+	try {
+		/**
+		 * Выполняем перебор прочитанных опознавателей алгоритмов
+		 */
+		for(auto & item : values)
+			// Добавляем очередной опознаватель алгоритма в перечень
+			result.push_back(static_cast <uint16_t> (item));
+	/**
+	 * Если памяти под перечень алгоритмов не хватило
+	 */
+	} catch(const std::bad_alloc &) {
+		// Выводим отказ нехватки памяти
+		return error_t::MEMORY;
+	}
+	// Выводим успешность разбора тела расширения
+	return error_t::NONE;
+}
+/**
+ * @brief Метод составления перечня алгоритмов сжатия цепочки сертификатов
+ *
+ * @param algorithms составляемый перечень опознавателей алгоритмов
+ * @param result     накопитель, в конец которого дописывается тело расширения
+ *
+ * @return           отказ составления тела расширения
+ *
+ */
+nts::extension::error_t nts::extension::algorithms(const vector <uint16_t> & algorithms, vector <uint8_t> & result) noexcept {
+	// Составляемый перечень опознавателей алгоритмов
+	vector <uint32_t> values;
+	/**
+	 * Выполняем перехват ошибок работы с памятью
+	 */
+	try {
+		/**
+		 * Выполняем перебор составляемых опознавателей алгоритмов
+		 */
+		for(auto & item : algorithms)
+			// Добавляем очередной опознаватель алгоритма в перечень
+			values.push_back(static_cast <uint32_t> (item));
+	/**
+	 * Если памяти под перечень алгоритмов не хватило
+	 */
+	} catch(const std::bad_alloc &) {
+		// Выводим отказ нехватки памяти
+		return error_t::MEMORY;
+	}
+	// Выводим итог составления перечня опознавателей алгоритмов
+	return compose(values, 1, 2, result);
 }
 /**
  * @brief Метод разбора перечня прикладных протоколов

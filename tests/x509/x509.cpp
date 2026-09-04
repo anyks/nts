@@ -25,6 +25,7 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
+#include <cstring>
 #include <main.hpp>
 #include <starve.hpp>
 #include <vector>

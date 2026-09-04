@@ -547,7 +547,7 @@ namespace {
 		 * PROPOSED - вторым: им враждебный сервер меняет набор между просьбой о
 		 * повторе приветствия и самим приветствием
 		 */
-		answer.suite = ((distortion == distortion_t::ODDSUITE) ? 0x1301 :
+		answer.suite = ((distortion == distortion_t::ODDSUITE) ? 0x1304 :
 			(((distortion == distortion_t::PROPOSED) && (greeting.suites.size() > 1)) ? greeting.suites[1] : greeting.suites[0]));
 		// Устанавливаем выбранный способ сжатия
 		answer.method = ((distortion == distortion_t::METHOD) ? 0x01 : 0x00);

@@ -34,6 +34,7 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <math/number.hpp>
+#include <sys/wipe.hpp>
 
 /**
  * Используем стандартное пространство имён
@@ -67,29 +68,10 @@ namespace {
 	 *          иных собирателей у проекта нет
 	 *
 	 */
-	typedef __uint128_t double_t;
+	typedef __uint128_t wide_t;
 
-	/**
-	 * @brief Метод затирания области памяти
-	 *
-	 * @details Затирание ведётся через изменчивый указатель: обычное присваивание
-	 *          собиратель вправе выбросить, увидев, что записанное значение больше
-	 *          никем не читается, - и секрет остался бы в памяти
-	 *
-	 * @param data затираемая область памяти
-	 * @param size размер затираемой области памяти
-	 *
-	 */
-	static void wipe(void * data, const size_t size) noexcept {
-		// Получаем изменчивый указатель на затираемую область памяти
-		volatile uint8_t * item = static_cast <volatile uint8_t *> (data);
-		/**
-		 * Выполняем перебор байтов затираемой области памяти
-		 */
-		for(size_t i = 0; i < size; i++)
-			// Обнуляем очередной байт области памяти
-			item[i] = 0;
-	}
+	// Затирание областей памяти берётся из открытого API библиотеки
+	using nts::sys::wipe;
 	/**
 	 * @brief Метод затирания области памяти словами
 	 *
@@ -143,14 +125,14 @@ namespace {
 			 */
 			for(size_t j = 0; j < WORDS; j++){
 				// Складываем накопленное слово с произведением слов и переносом
-				const double_t item = (static_cast <double_t> (first[j]) * word + buffer[j] + carry);
+				const wide_t item = (static_cast <wide_t> (first[j]) * word + buffer[j] + carry);
 				// Записываем младшую половину полученного значения
 				buffer[j] = static_cast <uint64_t> (item);
 				// Запоминаем перенос в следующее слово
 				carry = static_cast <uint64_t> (item >> 64);
 			}
 			// Складываем старшее слово произведения с переносом
-			const double_t item = (static_cast <double_t> (buffer[WORDS]) + carry);
+			const wide_t item = (static_cast <wide_t> (buffer[WORDS]) + carry);
 			// Записываем младшую половину полученного значения
 			buffer[WORDS] = static_cast <uint64_t> (item);
 			// Запоминаем перенос в дополнительное слово произведения
@@ -161,7 +143,7 @@ namespace {
 			 */
 			const uint64_t reducer = (buffer[0] * factor);
 			// Складываем младшее слово произведения с произведением множителя на модуль
-			const double_t value = (static_cast <double_t> (reducer) * modulus[0] + buffer[0]);
+			const wide_t value = (static_cast <wide_t> (reducer) * modulus[0] + buffer[0]);
 			// Запоминаем перенос из младшего слова произведения
 			carry = static_cast <uint64_t> (value >> 64);
 			/**
@@ -169,14 +151,14 @@ namespace {
 			 */
 			for(size_t j = 1; j < WORDS; j++){
 				// Складываем накопленное слово с произведением множителя на модуль
-				const double_t step = (static_cast <double_t> (reducer) * modulus[j] + buffer[j] + carry);
+				const wide_t step = (static_cast <wide_t> (reducer) * modulus[j] + buffer[j] + carry);
 				// Записываем младшую половину полученного значения со сдвигом на слово
 				buffer[j - 1] = static_cast <uint64_t> (step);
 				// Запоминаем перенос в следующее слово
 				carry = static_cast <uint64_t> (step >> 64);
 			}
 			// Складываем старшее слово произведения с переносом
-			const double_t last = (static_cast <double_t> (buffer[WORDS]) + carry);
+			const wide_t last = (static_cast <wide_t> (buffer[WORDS]) + carry);
 			// Записываем младшую половину полученного значения со сдвигом на слово
 			buffer[WORDS - 1] = static_cast <uint64_t> (last);
 			// Складываем дополнительное слово произведения с переносом
@@ -228,7 +210,7 @@ namespace {
 		 */
 		for(size_t i = 0; i < size; i++){
 			// Складываем очередные слова с переносом
-			const double_t item = (static_cast <double_t> (first[i]) + second[i] + carry);
+			const wide_t item = (static_cast <wide_t> (first[i]) + second[i] + carry);
 			// Записываем младшую половину суммы
 			result[i] = static_cast <uint64_t> (item);
 			// Запоминаем перенос в следующее слово
@@ -256,7 +238,7 @@ namespace {
 		 */
 		for(size_t i = 0; i < size; i++){
 			// Вычитаем очередные слова с заёмом
-			const double_t item = (static_cast <double_t> (first[i]) - second[i] - borrow);
+			const wide_t item = (static_cast <wide_t> (first[i]) - second[i] - borrow);
 			// Записываем младшую половину разности
 			result[i] = static_cast <uint64_t> (item);
 			// Запоминаем заём в следующее слово
@@ -318,7 +300,7 @@ namespace {
 		 */
 		for(size_t i = 0; i < WORDS; i++){
 			// Складываем очередные слова с переносом
-			const double_t item = (static_cast <double_t> (first[i]) + second[i] + carry);
+			const wide_t item = (static_cast <wide_t> (first[i]) + second[i] + carry);
 			// Записываем младшую половину суммы
 			result[i] = static_cast <uint64_t> (item);
 			// Запоминаем перенос в следующее слово
@@ -333,7 +315,7 @@ namespace {
 		 */
 		for(size_t i = 0; i < WORDS; i++){
 			// Вычитаем очередное слово модуля с заёмом
-			const double_t item = (static_cast <double_t> (result[i]) - modulus[i] - borrow);
+			const wide_t item = (static_cast <wide_t> (result[i]) - modulus[i] - borrow);
 			// Записываем младшую половину разности
 			buffer[i] = static_cast <uint64_t> (item);
 			// Запоминаем заём из следующего слова
@@ -371,7 +353,7 @@ namespace {
 		 */
 		for(size_t i = 0; i < WORDS; i++){
 			// Вычитаем очередные слова с заёмом
-			const double_t item = (static_cast <double_t> (first[i]) - second[i] - borrow);
+			const wide_t item = (static_cast <wide_t> (first[i]) - second[i] - borrow);
 			// Записываем младшую половину разности
 			result[i] = static_cast <uint64_t> (item);
 			// Запоминаем заём из следующего слова
@@ -386,7 +368,7 @@ namespace {
 		 */
 		for(size_t i = 0; i < WORDS; i++){
 			// Складываем очередные слова с переносом
-			const double_t item = (static_cast <double_t> (result[i]) + modulus[i] + carry);
+			const wide_t item = (static_cast <wide_t> (result[i]) + modulus[i] + carry);
 			// Записываем младшую половину суммы
 			buffer[i] = static_cast <uint64_t> (item);
 			// Запоминаем перенос в следующее слово
@@ -840,8 +822,8 @@ void nts::math::Modulus::multiply(const number_t & first, const number_t & secon
 		 */
 		for(size_t j = 0; j < this->_words; j++){
 			// Складываем накопленное слово с произведением слов и переносом
-			const double_t item = (
-				static_cast <double_t> (first.words[j]) * second.words[i] + buffer[j] + carry
+			const wide_t item = (
+				static_cast <wide_t> (first.words[j]) * second.words[i] + buffer[j] + carry
 			);
 			// Записываем младшую половину полученного значения
 			buffer[j] = static_cast <uint64_t> (item);
@@ -849,7 +831,7 @@ void nts::math::Modulus::multiply(const number_t & first, const number_t & secon
 			carry = static_cast <uint64_t> (item >> 64);
 		}
 		// Складываем старшее слово произведения с переносом
-		const double_t item = (static_cast <double_t> (buffer[this->_words]) + carry);
+		const wide_t item = (static_cast <wide_t> (buffer[this->_words]) + carry);
 		// Записываем младшую половину полученного значения
 		buffer[this->_words] = static_cast <uint64_t> (item);
 		// Записываем перенос в дополнительное слово произведения
@@ -860,8 +842,8 @@ void nts::math::Modulus::multiply(const number_t & first, const number_t & secon
 		 */
 		const uint64_t factor = (buffer[0] * this->_factor);
 		// Складываем младшее слово произведения с произведением множителя на модуль
-		const double_t value = (
-			static_cast <double_t> (factor) * this->_modulus.words[0] + buffer[0]
+		const wide_t value = (
+			static_cast <wide_t> (factor) * this->_modulus.words[0] + buffer[0]
 		);
 		// Запоминаем перенос из младшего слова произведения
 		carry = static_cast <uint64_t> (value >> 64);
@@ -870,8 +852,8 @@ void nts::math::Modulus::multiply(const number_t & first, const number_t & secon
 		 */
 		for(size_t j = 1; j < this->_words; j++){
 			// Складываем накопленное слово с произведением множителя на модуль
-			const double_t item = (
-				static_cast <double_t> (factor) * this->_modulus.words[j] + buffer[j] + carry
+			const wide_t item = (
+				static_cast <wide_t> (factor) * this->_modulus.words[j] + buffer[j] + carry
 			);
 			// Записываем младшую половину полученного значения со сдвигом на слово
 			buffer[j - 1] = static_cast <uint64_t> (item);
@@ -879,7 +861,7 @@ void nts::math::Modulus::multiply(const number_t & first, const number_t & secon
 			carry = static_cast <uint64_t> (item >> 64);
 		}
 		// Складываем старшее слово произведения с переносом
-		const double_t last = (static_cast <double_t> (buffer[this->_words]) + carry);
+		const wide_t last = (static_cast <wide_t> (buffer[this->_words]) + carry);
 		// Записываем младшую половину полученного значения со сдвигом на слово
 		buffer[this->_words - 1] = static_cast <uint64_t> (last);
 		// Складываем дополнительное слово произведения с переносом

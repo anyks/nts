@@ -27,6 +27,7 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
+#include <cstring>
 #include <main.hpp>
 #include <curve/parameters.hpp>
 #include <agreement/ecdhe.hpp>

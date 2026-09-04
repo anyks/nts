@@ -138,6 +138,44 @@ namespace nts {
 		 * \~
 		 */
 		__ANTS_SHARED_EXPORT__ bool x25519(const view_t & secret, uint8_t * result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод порождения пары ключей на кривой Curve25519
+		 *
+		 * @param secret место, в которое помещается секретный ключ длиной в тридцать два байта
+		 * @param key    место, в которое помещается открытый ключ длиной в тридцать два байта
+		 *
+		 * @return       признак успешности порождения пары ключей
+		 *
+		 * @details Раздел 5 RFC 7748: секретный ключ есть тридцать два случайных байта,
+		 *          у которых сброшены три младших разряда и старший разряд, а разряд 254
+		 *          поставлен, - тот же зажим, что выполняется при всяком умножении; открытый
+		 *          ключ выводится из него как при однодоводном x25519
+		 *
+		 * @note Пара пригодна и как мимолётная, и как долговременная: порождение одно и то
+		 *       же, а срок жизни ключа определяет вызывающая сторона. Записанный секретный
+		 *       ключ уже зажат, оттого запись PKCS #8 через keys читается любой стороной
+		 *       одинаково. Отказ источника случайности отвечает отказом порождения, места
+		 *       ключей при этом затёрты
+		 *
+		 * \~english
+		 * @brief Method of the generation of a pair of keys on the curve Curve25519
+		 * @param secret the place the secret key of a length of thirty two bytes is put into
+		 * @param key    the place the public key of a length of thirty two bytes is put into
+		 * @return       the flag of the success of the generation of the pair of keys
+		 * @details The section 5 of RFC 7748: the secret key is thirty two random bytes with the
+		 *          three junior bits and the senior bit cleared and the bit 254 set - the same
+		 *          clamping that is performed at every multiplication; the public key is derived
+		 *          from it as at the one-argument x25519
+		 * @note The pair is fit both as an ephemeral and as a long-term one: the generation is
+		 *       the same, while the lifetime of the key is defined by the calling side. The
+		 *       written secret key is already clamped, therefore the record PKCS #8 via keys is
+		 *       read by any side identically. A refusal of the source of the randomness answers
+		 *       by a refusal of the generation, the places of the keys are wiped at that
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ bool generate(uint8_t * secret, uint8_t * key) noexcept;
 	};
 };
 

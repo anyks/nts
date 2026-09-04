@@ -161,6 +161,34 @@ namespace nts {
 				size_t size() const noexcept;
 				/**
 				 * \~russian
+				 * @brief Метод получения верхнего предела длины подписи в записанном виде
+				 *
+				 * @return верхний предел длины подписи в байтах, ноль без ключа
+				 *
+				 * @details Метод size выдаёт длину сырой подписи, под которую заводится место
+				 *          для make, а limit - наибольшую длину подписи в том виде, в котором она
+				 *          уходит наружу: она не превышается ни при каком значении подписи, как
+				 *          у EVP_PKEY_size. Подпись ECDSA уходит наружу записью SEQUENCE {INTEGER r, INTEGER s} по
+				 *          sign::encode, а её длина зависит от значений: число со взведённым старшим
+				 *          разрядом получает ведущий нулевой байт. Предел считается по наихудшему
+				 *          случаю - ведущий нуль у обоих чисел: 72 байта у P-256 и 104 у P-384
+				 *
+				 * \~english
+				 * @brief Method of getting the upper limit of the length of a signature in the written form
+				 * @return the upper limit of the length of a signature in bytes, zero without a key
+				 * @details The method size gives the length of a raw signature the place for make is
+				 *          allocated by, while limit gives the greatest length of a signature in the form
+				 *          it goes outside in: it is not exceeded at any value of the signature, like
+				 *          EVP_PKEY_size. A signature ECDSA goes outside by the writing SEQUENCE {INTEGER r, INTEGER s}
+				 *          according to sign::encode, while its length depends on the values: a number with
+				 *          the senior bit set receives a leading zero byte. The limit is computed by the
+				 *          worst case - a leading zero at both numbers: 72 bytes at P-256 and 104 at P-384
+				 *
+				 * \~
+				 */
+				size_t limit() const noexcept;
+				/**
+				 * \~russian
 				 * @brief Метод установки эллиптической кривой
 				 *
 				 * @param curve устанавливаемая эллиптическая кривая
@@ -210,6 +238,46 @@ namespace nts {
 				 * \~
 				 */
 				bool secret(const view_t & secret) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод порождения долговременного ключа подписи
+				 *
+				 * @param secret место, в которое записывается ключ подписи, записанный от старшего байта к младшему
+				 * @param size   размер места ключа подписи
+				 *
+				 * @return признак успешности порождения ключа подписи
+				 *
+				 * @details Ключ подписи берётся равномерно из отрезка [1, n-1], где n - порядок подгруппы
+				 *          точек кривой, отбором по разделу A.2.2 FIPS 186-5: случайные байты длиной
+				 *          порядка, не меньшие порядка либо нулевые, отбрасываются целиком и берутся
+				 *          заново, а не приводятся по модулю. Приведение сделало бы младшие значения
+				 *          вероятнее прочих, а смещённый ключ вскрывается по множеству подписей.
+				 *          Размер места обязан равняться длине порядка подгруппы
+				 *
+				 * @note Порождённый ключ устанавливается в модуль так же, как при secret: ключ
+				 *       проверки подписи вырабатывается сразу же. Отказ источника случайности
+				 *       отвечает отказом порождения, прежнее состояние модуля при этом сброшено
+				 *
+				 * \~english
+				 * @brief Method of the generation of a long-term key of the signature
+				 * @param secret the place the key of the signature written from the senior byte to the junior one is written into
+				 * @param size   the size of the place of the key of the signature
+				 * @return the flag of the success of the generation of the key of the signature
+				 * @details The key of the signature is taken uniformly from the segment [1, n-1], where n is the
+				 *          order of the subgroup of the points of the curve, by a selection according to the
+				 *          section A.2.2 of FIPS 186-5: random bytes of the length of the order that are not
+				 *          less than the order or zero are discarded entirely and taken anew, and are not
+				 *          reduced by the modulus. A reduction would make the junior values more probable
+				 *          than the rest, while a biased key is uncovered by a multitude of signatures. The
+				 *          size of the place must equal the length of the order of the subgroup
+				 * @note The generated key is set into the module the same way as at secret: the key of
+				 *       the check of the signature is produced at once. A refusal of the source of the
+				 *       randomness answers by a refusal of the generation, the former state of the module
+				 *       is reset at that
+				 *
+				 * \~
+				 */
+				bool generate(uint8_t * secret, const size_t size) noexcept;
 				/**
 				 * \~russian
 				 * @brief Метод установки ключа проверки подписи
@@ -368,6 +436,34 @@ namespace nts {
 				~Ecdsa() noexcept;
 		} ecdsa_t;
 
+		/**
+		 * \~russian
+		 * @brief Метод записи подписи ECDSA в структуру ASN.1 DER в готовое место
+		 *
+		 * @details Запись SEQUENCE {INTEGER r, INTEGER s} складывается вручную, без
+		 *          записывающего объекта ASN.1 и без единого выделения памяти: оттого
+		 *          отказ здесь означает негодную подпись, а не нехватку памяти, и
+		 *          вызывающий вправе судить о причине. Место обязано вмещать limit()
+		 *
+		 * @param raw  подпись в сыром виде: r и s подряд равной длины
+		 * @param der  место, в которое помещается запись
+		 * @param size на входе ёмкость места, на выходе длина записи
+		 *
+		 * @return     признак успешности записи
+		 *
+		 * \~english
+		 * @brief Method of the encoding of an ECDSA signature into an ASN.1 DER structure into a ready place
+		 * @details The SEQUENCE {INTEGER r, INTEGER s} record is composed by hand, without the ASN.1 writer
+		 *          and without a single allocation: hence a failure here means an unfit signature, not a
+		 *          lack of memory, and the caller may judge the cause. The place must hold limit()
+		 * @param raw  the signature in the raw form: r and s in a row of an equal length
+		 * @param der  the place the record is put into
+		 * @param size the capacity of the place at the input, the length of the record at the output
+		 * @return     the flag of the success of the encoding
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ bool encode(const view_t & raw, uint8_t * der, size_t & size) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод записи подписи ECDSA в виде ASN.1 DER

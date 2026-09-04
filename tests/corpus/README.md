@@ -35,6 +35,39 @@
   с солью в длину хеша: TLS 1.3 запрещает в `CertificateVerify` схему PKCS #1 v1.5,
   и разбор, принимающий там v1.5, нарушает RFC 8446 §4.4.3.
 
+## Ответы и запросы OCSP (`ocsp/`)
+
+Выработаны тем же openssl 3.6.3 4 сентября 2026 года для набора `tests/ocsp`; сроки
+ответов — десять лет (`-ndays 3650`), кроме `leaf-ec.short.der` (`-ndays 1`) и
+`leaf-ec.open.der` (без `-ndays`: `nextUpdate` отсутствует). Проверки судят сроки
+заданным мигом, а не часами, оттого набор не стареет.
+
+* Запросы: `leaf-ec.req.der` (`openssl ocsp -issuer mid-ec.crt -cert leaf-ec.crt -no_nonce
+  -reqout`), `leaf-ec.sha256.req.der` (`-sha256` перед `-cert`), `leaf-ec.nonce.req.der`
+  (с неповторимым значением `877D8EA1976289F08DDE9109E479CC21`), `leaf-rsa.req.der`,
+  `ec256.req.der` (самоподписанный лист как свой издатель). `ocsp::request` сходится с ними
+  байт в байт.
+* Ответы по `leaf-ec.crt` издателем `mid-ec.crt` (`openssl ocsp -index … -rsigner mid-ec.crt
+  -rkey mid-ec.key -CA mid-ec.crt -reqin … -respout …`): `leaf-ec.good.der`,
+  `leaf-ec.revoked.der` (индекс с отзывом 1 сентября 2026), `leaf-ec.unknown.der` (пустой
+  индекс), `leaf-ec.short.der`, `leaf-ec.open.der`, `leaf-ec.nonce.der`, `leaf-ec.sha256.der`.
+  Индексы: `index-good.txt`, `index-revoked.txt`.
+* Делегированный ответчик `ocsp-ec.crt` (издан `mid-ec.crt`, `extendedKeyUsage=OCSPSigning`):
+  `leaf-ec.delegated.der` (назван именем) и `leaf-ec.delegated.rid.der` (`-resp_key_id`, назван
+  хешем ключа). Ответчик без назначения `bogus-ec.crt`: `leaf-ec.unauthorized.der`. Чужой
+  ответчик `ec256.crt`, издателем не изданный: `leaf-ec.foreign.der`.
+* `leaf-rsa.good.der` — издателем `mid-rsa.crt` с `-rmd sha256`.
+* Самоподписанные листы как свои издатели: `ec256.good.der`, `ec256.revoked.der`,
+  `ec384.good.der`, `rsa2048.good.der`, `rsa2048.revoked.der`. Ответ ключом `ed25519` openssl
+  выработать не умеет (`internalerror`): ветвь Ed25519 проверяется подписью ответчика лишь
+  через `x509::verify`.
+* `aia-ec.crt` — лист от `mid-ec.crt` с расширением сведений о доступе к издателю:
+  `OCSP;URI:http://ocsp.anyks.com/ec` и `caIssuers`.
+
+Ответ ГОСТ в наборе не лежит: он вырабатывается проверкой `OcspTest.Gost` своими средствами
+на самоподписанном сертификате ГОСТ из `tests/identity.hpp` — движка ГОСТ у системного
+openssl нет.
+
 ## Защита ключа под паролем
 
 `openssl asn1parse` по любому `.enc.pem`: PBES2, PBKDF2, оборотов `0x0800` (2048),

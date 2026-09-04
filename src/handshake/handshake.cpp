@@ -36,6 +36,7 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <handshake/handshake.hpp>
+#include <sys/wipe.hpp>
 
 /**
  * Используем стандартное пространство имён
@@ -69,26 +70,8 @@ namespace {
 	 */
 	typedef handshake::error_t error_t;
 
-	/**
-	 * @brief Метод затирания области памяти
-	 *
-	 * @param data затираемая область памяти
-	 * @param size размер затираемой области памяти
-	 *
-	 */
-	static void wipe(void * data, const size_t size) noexcept {
-		// Если затираемая область памяти передана
-		if((data != nullptr) && (size > 0)){
-			// Получаем изменчивый указатель на затираемую область памяти
-			volatile uint8_t * item = static_cast <volatile uint8_t *> (data);
-			/**
-			 * Выполняем перебор байтов затираемой области памяти
-			 */
-			for(size_t i = 0; i < size; i++)
-				// Обнуляем очередной байт области памяти
-				item[i] = 0;
-		}
-	}
+	// Затирание областей памяти берётся из открытого API библиотеки
+	using nts::sys::wipe;
 };
 
 /**
@@ -115,6 +98,7 @@ bool nts::handshake::known(const type_t type) noexcept {
 		case static_cast <uint8_t> (type_t::VERIFY):
 		case static_cast <uint8_t> (type_t::FINISHED):
 		case static_cast <uint8_t> (type_t::UPDATE):
+		case static_cast <uint8_t> (type_t::COMPRESSED):
 		case static_cast <uint8_t> (type_t::DIGEST):
 			// Выводим признак известности вида сообщения рукопожатия
 			return true;

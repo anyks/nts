@@ -118,7 +118,13 @@ namespace nts {
 			PROTOCOL    = 0x12, /*!< \~russian Общего прикладного протокола у сторон не нашлось \~english The sides have not found a common application protocol \~ */
 			LIMIT       = 0x13, /*!< \~russian Упреждающие данные вышли за объявленный билетом предел \~english The early data has gone beyond the limit declared by the ticket \~ */
 			SCHEME      = 0x14, /*!< \~russian Схема подписи собеседника связью не предлагалась \~english The signature scheme of the interlocutor was not offered by the connection \~ */
-			EXTENSION   = 0x15  /*!< \~russian Собеседник объявил расширение, связью не предлагавшееся \~english The interlocutor announced an extension that was not offered by the connection \~ */
+			EXTENSION   = 0x15, /*!< \~russian Собеседник объявил расширение, связью не предлагавшееся \~english The interlocutor announced an extension that was not offered by the connection \~ */
+			LEVEL       = 0x16, /*!< \~russian Сообщение подано не на своём уровне защиты либо не тем способом переноса \~english A message is given not at its protection level or not by its transport \~ */
+			PARAMETERS  = 0x17, /*!< \~russian Параметры переноса QUIC отсутствуют там, где обязательны, либо пришли туда, где запрещены \~english The QUIC transport parameters are absent where mandatory or came where forbidden \~ */
+			TICKET      = 0x18, /*!< \~russian Запись билета возобновления сложена не по правилам \~english A record of a ticket of the resumption is composed not by the rules \~ */
+			COMPRESSION = 0x19, /*!< \~russian Цепочка сертификатов сжата алгоритмом, связью не объявлявшимся \~english The chain of the certificates is compressed by an algorithm not announced by the connection \~ */
+			STATUS      = 0x1A, /*!< \~russian Ответ о состоянии сертификата собеседника негоден либо сертификат отозван \~english The certificate status response of the interlocutor is unsuitable or the certificate is revoked \~ */
+			TIMEOUT     = 0x1B  /*!< \~russian Попытки повторной передачи поверх дейтаграмм исчерпаны \~english The attempts of the retransmission over datagrams are exhausted \~ */
 		};
 
 		/**
@@ -136,6 +142,75 @@ namespace nts {
 			ESTABLISHED = 0x02, /*!< \~russian Связь установлена, идут прикладные данные \~english The connection is established, the application data is going \~ */
 			CLOSED      = 0x03, /*!< \~russian Связь закрыта одной из сторон \~english The connection is closed by one of the sides \~ */
 			FAILED      = 0x04  /*!< \~russian Связь оборвана отказом \~english The connection is torn by a failure \~ */
+		};
+
+		/**
+		 * \~russian
+		 * @brief Способы переноса рукопожатия
+		 *
+		 * @details Записями протокола рукопожатие идёт по TLS поверх потока: связь сама
+		 *          защищает записи и разбирает их заголовки. Сообщениями по уровням оно
+		 *          идёт под QUIC (RFC 9001): связь принимает и выдаёт голые сообщения
+		 *          рукопожатия с пометкой уровня защиты, а шифрование и перенос остаются
+		 *          за тем, кто связь ведёт. Дейтаграммами оно идёт по DTLS 1.3 (RFC 9147):
+		 *          связь принимает и выдаёт целые дейтаграммы с записями, а перенос их по
+		 *          UDP либо SCTP и часы повторной передачи остаются за тем, кто связь ведёт
+		 *
+		 * \~english
+		 * @brief Ways of the transport of the handshake
+		 * @details By the records of the protocol the handshake goes by TLS over a stream: the
+		 *          connection protects the records and parses their headers itself. By the messages
+		 *          by levels it goes under QUIC (RFC 9001): the connection accepts and gives out bare
+		 *          messages of the handshake marked with a protection level, while the encryption and
+		 *          the transport remain with the one who leads the connection. By datagrams it goes by
+		 *          DTLS 1.3 (RFC 9147): the connection accepts and gives out whole datagrams with the
+		 *          records, while their transport over UDP or SCTP and the clock of the retransmission
+		 *          remain with the one who leads the connection
+		 *
+		 * \~
+		 */
+		enum class transport_t : uint8_t {
+			RECORDS   = 0x00, /*!< \~russian Записи протокола TLS поверх потока \~english The records of the TLS protocol over a stream \~ */
+			LEVELS    = 0x01, /*!< \~russian Сообщения рукопожатия по уровням защиты QUIC \~english The messages of the handshake by the protection levels of QUIC \~ */
+			DATAGRAMS = 0x02  /*!< \~russian Дейтаграммы протокола DTLS 1.3 поверх UDP либо SCTP \~english The datagrams of the DTLS 1.3 protocol over UDP or SCTP \~ */
+		};
+
+		/**
+		 * \~russian
+		 * @brief Уровни защиты QUIC
+		 *
+		 * @details Раздел 2.1 RFC 9001: всякое сообщение рукопожатия и всякий ключ помечены
+		 *          уровнем, на котором они идут. Уровни не строго по порядку: упреждающие
+		 *          данные идут рядом с рукопожатием
+		 *
+		 * \~english
+		 * @brief Protection levels of QUIC
+		 * @details The section 2.1 of RFC 9001: every message of the handshake and every key are marked
+		 *          with the level at which they go. The levels are not strictly in order: the early data
+		 *          goes side by side with the handshake
+		 *
+		 * \~
+		 */
+		enum class level_t : uint8_t {
+			NONE        = 0x00, /*!< \~russian Уровень не установлен \~english The level is not set \~ */
+			INITIAL     = 0x01, /*!< \~russian Начальный уровень: приветствия сторон \~english The initial level: the greetings of the sides \~ */
+			EARLY       = 0x02, /*!< \~russian Уровень упреждающих данных \~english The level of the early data \~ */
+			HANDSHAKE   = 0x03, /*!< \~russian Уровень рукопожатия \~english The level of the handshake \~ */
+			APPLICATION = 0x04  /*!< \~russian Уровень прикладных данных \~english The level of the application data \~ */
+		};
+
+		/**
+		 * \~russian
+		 * @brief Направления связи относительно своей стороны
+		 *
+		 * \~english
+		 * @brief Directions of the connection relative to one's own side
+		 *
+		 * \~
+		 */
+		enum class direction_t : uint8_t {
+			READ  = 0x01, /*!< \~russian Чтение: ключи собеседника \~english The reading: the keys of the interlocutor \~ */
+			WRITE = 0x02  /*!< \~russian Запись: свои ключи \~english The writing: one's own keys \~ */
 		};
 
 		/**
@@ -166,6 +241,117 @@ namespace nts {
 		} credential_t;
 		/**
 		 * \~russian
+		 * @brief Алгоритм сжатия цепочки сертификатов, предоставляемый потребителем
+		 *
+		 * @details RFC 8879: цепочка сертификатов идёт сообщением CompressedCertificate, когда
+		 *          у сторон нашёлся общий алгоритм. Библиотека ни zlib, ни Brotli, ни Zstandard
+		 *          не несёт и не тащит: сжатие и распаковку предоставляет потребитель двумя
+		 *          вызовами без состояния, а связь лишь зовёт их по опознавателю алгоритма
+		 *
+		 * @note Сжатие вправе отказать: тогда цепочка уходит несжатой, как велит раздел 4
+		 *       RFC 8879. Распаковка обязана выдать ровно ожидаемую длину, иначе цепочка
+		 *       отвергается извещением «bad_certificate»
+		 *
+		 * @note Указатель контекста передаётся вызовам как есть и связью не толкуется
+		 *
+		 * \~english
+		 * @brief Algorithm of the compression of the chain of the certificates provided by the consumer
+		 * @details RFC 8879: the chain of the certificates goes by the CompressedCertificate message when
+		 *          the sides have found a common algorithm. The library carries neither zlib, nor Brotli,
+		 *          nor Zstandard and does not drag them along: the compression and the decompression are
+		 *          provided by the consumer by two stateless calls, and the connection only invokes them by
+		 *          the identifier of the algorithm
+		 * @note The compression may refuse: then the chain goes uncompressed, as the section 4 of RFC 8879
+		 *       orders. The decompression is obliged to give out exactly the expected length, otherwise
+		 *       the chain is rejected by the «bad_certificate» alert
+		 * @note The pointer of the context is passed to the calls as it is and is not interpreted by the connection
+		 *
+		 * \~
+		 */
+		typedef struct __ANTS_SHARED_EXPORT__ Codec {
+			/**
+			 * \~russian
+			 * @brief Вызов сжатия цепочки сертификатов
+			 *
+			 * @param source  сжимаемое тело сообщения цепочки сертификатов
+			 * @param result  накопитель, в который складывается сжатое тело
+			 * @param context указатель контекста потребителя
+			 *
+			 * @return        признак успешности сжатия; отказ шлёт цепочку несжатой
+			 *
+			 * \~english
+			 * @brief Call of the compression of the chain of the certificates
+			 * @param source  the body of the message of the chain of the certificates being compressed
+			 * @param result  the accumulator the compressed body is put into
+			 * @param context the pointer of the context of the consumer
+			 * @return        the flag of the success of the compression; a refusal sends the chain uncompressed
+			 *
+			 * \~
+			 */
+			typedef bool (* compress_t)(const view_t & source, vector <uint8_t> & result, void * context);
+			/**
+			 * \~russian
+			 * @brief Вызов распаковки цепочки сертификатов
+			 *
+			 * @param source   распаковываемое сжатое тело
+			 * @param expected ожидаемая длина тела после распаковки
+			 * @param result   накопитель, в который складывается распакованное тело
+			 * @param context  указатель контекста потребителя
+			 *
+			 * @return         признак успешности распаковки; отказ отвергает цепочку
+			 *
+			 * \~english
+			 * @brief Call of the decompression of the chain of the certificates
+			 * @param source   the compressed body being decompressed
+			 * @param expected the expected length of the body after the decompression
+			 * @param result   the accumulator the decompressed body is put into
+			 * @param context  the pointer of the context of the consumer
+			 * @return         the flag of the success of the decompression; a refusal rejects the chain
+			 *
+			 * \~
+			 */
+			typedef bool (* decompress_t)(const view_t & source, const size_t expected, vector <uint8_t> & result, void * context);
+			// Опознаватель алгоритма по реестру RFC 8879: zlib 1, Brotli 2, Zstandard 3, частные 16384…65535
+			uint16_t algorithm;
+			// Указатель контекста потребителя, передаваемый вызовам как есть
+			void * context;
+			// Вызов сжатия цепочки сертификатов
+			compress_t compress;
+			// Вызов распаковки цепочки сертификатов
+			decompress_t decompress;
+			/**
+			 * \~russian
+			 * @brief Конструктор
+			 *
+			 *
+			 * \~english
+			 * @brief Constructor
+			 *
+			 * \~
+			 */
+			Codec() noexcept : algorithm(0), context(nullptr), compress(nullptr), decompress(nullptr) {}
+			/**
+			 * \~russian
+			 * @brief Конструктор
+			 *
+			 * @param algorithm  опознаватель алгоритма по реестру RFC 8879
+			 * @param compress   вызов сжатия цепочки сертификатов
+			 * @param decompress вызов распаковки цепочки сертификатов
+			 * @param context    указатель контекста потребителя
+			 *
+			 * \~english
+			 * @brief Constructor
+			 * @param algorithm  the identifier of the algorithm by the registry of RFC 8879
+			 * @param compress   the call of the compression of the chain of the certificates
+			 * @param decompress the call of the decompression of the chain of the certificates
+			 * @param context    the pointer of the context of the consumer
+			 *
+			 * \~
+			 */
+			Codec(const uint16_t algorithm, compress_t compress, decompress_t decompress, void * context = nullptr) noexcept : algorithm(algorithm), context(context), compress(compress), decompress(decompress) {}
+		} codec_t;
+		/**
+		 * \~russian
 		 * @brief Билет возобновления связи
 		 *
 		 * @details Раздел 4.6.1 RFC 8446: сервер выдаёт билет за рукопожатием, а клиент
@@ -178,6 +364,10 @@ namespace nts {
 		 *
 		 * @note Ключ билета связь выводит сама, а вот хранение пары «тело и ключ» ей не
 		 *       принадлежит: где её держать и как её беречь - решает тот, кто связь ведёт
+		 *
+		 * @note Раздел 8.2 RFC 9001: клиенту, шлющему упреждающие данные под QUIC, нужны
+		 *       параметры переноса сервера той связи, что билет выдала, - связь по уровням
+		 *       складывает их в билет сама, а в записи билета они идут своим полем
 		 *
 		 * @note Раздел 8 RFC 8446 велит беречь упреждающие данные от повторной подачи, и
 		 *       беречь их приходится тому же, кому принадлежат билеты: связь одна о
@@ -216,6 +406,8 @@ namespace nts {
 			vector <uint8_t> identity;
 			// Ключ билета, выведенный из значения возобновления связи
 			vector <uint8_t> secret;
+			// Параметры переноса QUIC собеседника связи, выдавшей билет
+			vector <uint8_t> parameters;
 			/**
 			 * \~russian
 			 * @brief Конструктор
@@ -228,6 +420,56 @@ namespace nts {
 			 */
 			Ticket() noexcept;
 		} ticket_t;
+		/**
+		 * \~russian
+		 * @brief Метод записи билета возобновления связи в октеты
+		 *
+		 * @param ticket записываемый билет возобновления связи
+		 * @param result накопитель, в который складывается запись билета
+		 *
+		 * @return       отказ записи билета: MEMORY у нехватки памяти, TICKET у билета, в запись не входящего
+		 *
+		 * @details Запись самодостаточна и от процесса не зависит: байт издания записи, за ним
+		 *          поля билета постоянной ширины в порядке от старшего байта к младшему и поля
+		 *          переменной длины с двухбайтовой длиной впереди. Ею билет уходит в другой
+		 *          процесс и возвращается обратно чтением
+		 *
+		 * \~english
+		 * @brief Method of the writing of a ticket of the resumption of a connection into octets
+		 * @param ticket the ticket of the resumption of the connection being written
+		 * @param result the accumulator the record of the ticket is put into
+		 * @return       the failure of the writing of the ticket: MEMORY at the lack of memory, TICKET at a ticket not fitting the record
+		 * @details The record is self-sufficient and does not depend on the process: a byte of the edition of
+		 *          the record, then the fields of the ticket of a constant width in the order from the senior
+		 *          byte to the junior one and the fields of a variable length with a two-byte length in front.
+		 *          By it the ticket goes to another process and comes back by the reading
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ error_t encode(const ticket_t & ticket, vector <uint8_t> & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод чтения билета возобновления связи из октетов
+		 *
+		 * @param data   читаемая запись билета возобновления связи
+		 * @param result билет, в который помещается прочитанное
+		 *
+		 * @return       отказ чтения билета: TICKET у записи не по правилам, MEMORY у нехватки памяти
+		 *
+		 * @note Запись чужого издания, обрезанная, с порченой длиной поля либо с лишними
+		 *       байтами за хвостом отвергается целиком: половина билета не билет
+		 *
+		 * \~english
+		 * @brief Method of the reading of a ticket of the resumption of a connection from octets
+		 * @param data   the record of the ticket of the resumption of the connection being read
+		 * @param result the ticket the read one is put into
+		 * @return       the failure of the reading of the ticket: TICKET at a record not by the rules, MEMORY at the lack of memory
+		 * @note A record of a foreign edition, a truncated one, one with a corrupted length of a field or with
+		 *       extra bytes behind the tail is rejected wholly: a half of a ticket is not a ticket
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ error_t decode(const view_t & data, ticket_t & result) noexcept;
 	};
 };
 

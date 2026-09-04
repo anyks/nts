@@ -48,6 +48,8 @@
 #include <sign/gost.hpp>
 #include <cipher/mgm.hpp>
 #include <cipher/gcm.hpp>
+#include <cipher/chacha.hpp>
+#include <cipher/chachapoly.hpp>
 #include <cipher/aes.hpp>
 #include <cipher/mode.hpp>
 #include <agreement/ecdhe.hpp>
@@ -418,6 +420,38 @@ int main(int argc, char * argv[]) noexcept {
 		// Выполняем шифрование области байтов с проверкой целостности
 		galoisCounter.encrypt(view_t(nullptr, 0), view_t(data.data(), data.size()), result.data(), tag);
 	});
+	// Поточный шифр ChaCha20
+	cipher::chacha_t chacha;
+	// Если поточный шифр ChaCha20 запустить не удалось
+	if(!chacha.start(view_t(key, sizeof(key)), view_t(seed, cipher::CHACHA_NONCE)) || !chacha.encrypt(view_t(data.data(), data.size()), result.data())){
+		// Выводим сообщение об отказе поточного шифрования
+		cout << "Выполнить поточное шифрование ChaCha20 не удалось" << endl;
+		// Выходим из приложения с признаком отказа
+		return EXIT_FAILURE;
+	}
+	// Выполняем замер полосы поточного шифрования ChaCha20 своей работы
+	const double chachaStream = band("ChaCha20 своя", 8, VOLUME, [&chacha, &key, &seed, &data, &result]() noexcept -> void {
+		// Выполняем запуск шифра: счётчик от единицы, как у записей TLS
+		chacha.start(view_t(key, sizeof(key)), view_t(seed, cipher::CHACHA_NONCE), 1);
+		// Выполняем поточное шифрование области байтов
+		chacha.encrypt(view_t(data.data(), data.size()), result.data());
+	});
+	// Шифрование с проверкой целостности ChaCha20-Poly1305
+	cipher::chachapoly_t chachapoly;
+	// Если шифрование с проверкой целостности ChaCha20-Poly1305 завести не удалось
+	if(!chachapoly.start(view_t(key, sizeof(key)), view_t(seed, cipher::CHACHA_NONCE)) || !chachapoly.encrypt(view_t(nullptr, 0), view_t(data.data(), data.size()), result.data(), tag)){
+		// Выводим сообщение об отказе шифрования с проверкой целостности
+		cout << "Завести шифрование с проверкой целостности ChaCha20-Poly1305 не удалось" << endl;
+		// Выходим из приложения с признаком отказа
+		return EXIT_FAILURE;
+	}
+	// Выполняем замер полосы шифрования ChaCha20-Poly1305 своей работы
+	const double chachaAead = band("ChaCha20-Poly1305 своя", 8, VOLUME, [&chachapoly, &key, &seed, &data, &result, &tag]() noexcept -> void {
+		// Выполняем заведение режима
+		chachapoly.start(view_t(key, sizeof(key)), view_t(seed, cipher::CHACHA_NONCE));
+		// Выполняем шифрование области байтов с проверкой целостности
+		chachapoly.encrypt(view_t(nullptr, 0), view_t(data.data(), data.size()), result.data(), tag);
+	});
 	// Объект блочного шифра «Магма»
 	cipher::magma_t magma;
 	// Если ключ блочного шифра «Магма» установить не удалось
@@ -643,6 +677,28 @@ int main(int argc, char * argv[]) noexcept {
 			// Выполняем извлечение имитовставки шифрования
 			::EVP_CIPHER_CTX_ctrl(context, EVP_CTRL_GCM_GET_TAG, 16, tag);
 		});
+		// Выполняем замер полосы поточного шифрования ChaCha20 эталона
+		const double chachaRef = band("ChaCha20", 8, VOLUME, [&context, &key, &seed, &data, &result]() noexcept -> void {
+			// Длина зашифрованной области байтов
+			int length = 0;
+			// Выполняем заведение поточного шифрования: вектор эталона - счётчик и заполнение в 16 байтов
+			::EVP_EncryptInit_ex(context, ::EVP_chacha20(), nullptr, key, seed);
+			// Выполняем поточное шифрование области байтов
+			::EVP_EncryptUpdate(context, result.data(), &length, data.data(), static_cast <int> (data.size()));
+		});
+		// Выполняем замер полосы шифрования с проверкой целостности ChaCha20-Poly1305 эталона
+		const double chachapolyRef = band("ChaCha20-Poly1305", 8, VOLUME, [&context, &key, &seed, &data, &result, &tag]() noexcept -> void {
+			// Длина зашифрованной области байтов
+			int length = 0;
+			// Выполняем заведение шифрования области байтов
+			::EVP_EncryptInit_ex(context, ::EVP_chacha20_poly1305(), nullptr, key, seed);
+			// Выполняем шифрование области байтов
+			::EVP_EncryptUpdate(context, result.data(), &length, data.data(), static_cast <int> (data.size()));
+			// Выполняем завершение шифрования области байтов
+			::EVP_EncryptFinal_ex(context, result.data() + length, &length);
+			// Выполняем извлечение имитовставки шифрования
+			::EVP_CIPHER_CTX_ctrl(context, EVP_CTRL_AEAD_GET_TAG, 16, tag);
+		});
 		// Выполняем освобождение объекта поточного шифрования эталона
 		::EVP_CIPHER_CTX_free(context);
 		// Ключевая пара кривой P-256 эталона
@@ -717,6 +773,10 @@ int main(int argc, char * argv[]) noexcept {
 		relation("AES-256-CBC против AES-256-CTR эталона", cbc, aes);
 		// Выводим отношение замеров AES-256-GCM к эталону
 		relation("AES-256-GCM против эталона", aead, gcm);
+		// Выводим отношение замеров ChaCha20 к эталону
+		relation("ChaCha20 против эталона", chachaStream, chachaRef);
+		// Выводим отношение замеров ChaCha20-Poly1305 к эталону
+		relation("ChaCha20-Poly1305 против эталона", chachaAead, chachapolyRef);
 		// Выводим отношение замеров выработки подписи
 		relation("Подпись", signing, ecdsa);
 		// Выводим отношение замеров сличения подписи
@@ -740,6 +800,10 @@ int main(int argc, char * argv[]) noexcept {
 		(void) cbc;
 		// Замеры своей работы AES без эталона сравнивать не с чем
 		(void) aead;
+		// Замеры своей работы ChaCha20 без эталона сравнивать не с чем
+		(void) chachaStream;
+		// Замеры своей работы ChaCha20-Poly1305 без эталона сравнивать не с чем
+		(void) chachaAead;
 		// Замеры своей работы SHA-2 без эталона сравнивать не с чем
 		(void) sha256;
 		// Замеры своей работы SHA-2 без эталона сравнивать не с чем

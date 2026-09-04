@@ -172,10 +172,12 @@ endforeach()
 # Устанавливаем список исходных файлов библиотеки
 SET(SOURCE_FILES
     "${CMAKE_SOURCE_DIR}/src/sys/machine.cpp"
+    "${CMAKE_SOURCE_DIR}/src/sys/wipe.cpp"
     "${CMAKE_SOURCE_DIR}/src/field/field.cpp"
     "${CMAKE_SOURCE_DIR}/src/asn1/asn1.cpp"
     "${CMAKE_SOURCE_DIR}/src/x509/x509.cpp"
     "${CMAKE_SOURCE_DIR}/src/x509/signature.cpp"
+    "${CMAKE_SOURCE_DIR}/src/ocsp/ocsp.cpp"
     "${CMAKE_SOURCE_DIR}/src/digest/streebog.cpp"
     "${CMAKE_SOURCE_DIR}/src/digest/sha2.cpp"
     "${CMAKE_SOURCE_DIR}/src/digest/sha1.cpp"
@@ -192,6 +194,9 @@ SET(SOURCE_FILES
     "${CMAKE_SOURCE_DIR}/src/cipher/mgm.cpp"
     "${CMAKE_SOURCE_DIR}/src/cipher/gcm.cpp"
     "${CMAKE_SOURCE_DIR}/src/cipher/stream.cpp"
+    "${CMAKE_SOURCE_DIR}/src/cipher/chacha.cpp"
+    "${CMAKE_SOURCE_DIR}/src/cipher/poly1305.cpp"
+    "${CMAKE_SOURCE_DIR}/src/cipher/chachapoly.cpp"
     "${CMAKE_SOURCE_DIR}/src/math/number.cpp"
     "${CMAKE_SOURCE_DIR}/src/entropy/entropy.cpp"
     "${CMAKE_SOURCE_DIR}/src/curve/curve.cpp"
@@ -207,6 +212,7 @@ SET(SOURCE_FILES
     "${CMAKE_SOURCE_DIR}/src/agreement/ecdhe.cpp"
     "${CMAKE_SOURCE_DIR}/src/record/record.cpp"
     "${CMAKE_SOURCE_DIR}/src/protect/protect.cpp"
+    "${CMAKE_SOURCE_DIR}/src/datagram/datagram.cpp"
     "${CMAKE_SOURCE_DIR}/src/handshake/handshake.cpp"
     "${CMAKE_SOURCE_DIR}/src/schedule/schedule.cpp"
     "${CMAKE_SOURCE_DIR}/src/hello/hello.cpp"
@@ -260,6 +266,7 @@ if (CMAKE_CURVE_TABLES)
      #       является, и умножение точки основания там отступает к общему
      ##
     add_library(nts_tables_bootstrap STATIC
+        "${CMAKE_SOURCE_DIR}/src/sys/wipe.cpp"
         "${CMAKE_SOURCE_DIR}/src/math/number.cpp"
         "${CMAKE_SOURCE_DIR}/src/field/field.cpp"
         "${CMAKE_SOURCE_DIR}/src/curve/curve.cpp"

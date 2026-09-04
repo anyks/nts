@@ -1075,3 +1075,33 @@ TEST(RsaTest, Generate) {
 	// Проверяем отказ
 	ASSERT_FALSE(other.check(sign::scheme_t::PKCS1, digest::hash_t::SHA256, view_t(hash, size), view_t(signature, sizeof(signature))));
 }
+
+/**
+ * @brief Проверка верхнего предела длины подписи: у RSA он равен длине модуля
+ *
+ */
+TEST(RsaTest, Limit) {
+	// Модуль RSA
+	sign::rsa_t rsa;
+	// Предел до установки ключа нулевой
+	ASSERT_EQ(rsa.limit(), static_cast <size_t> (0));
+	// Разбираем секретный ключ OpenSSL
+	ASSERT_TRUE(rsa.decode(view(bytes(KEY_DER))));
+	// Предел равен длине модуля
+	ASSERT_EQ(rsa.limit(), rsa.size());
+	ASSERT_EQ(rsa.limit(), static_cast <size_t> (256));
+	// Хеш сообщения
+	uint8_t hash[32];
+	// Заполняем хеш сообщения
+	::memset(hash, 0x42, sizeof(hash));
+	// Место подписи по пределу
+	std::vector <uint8_t> signature(rsa.limit(), 0);
+	// Выполняем выработку подписи PKCS #1 v1.5
+	ASSERT_TRUE(rsa.make(sign::scheme_t::PKCS1, digest::hash_t::SHA256, view_t(hash, sizeof(hash)), signature.data()));
+	// Подпись сходится
+	ASSERT_TRUE(rsa.check(sign::scheme_t::PKCS1, digest::hash_t::SHA256, view_t(hash, sizeof(hash)), view_t(signature.data(), signature.size())));
+	// Выполняем сброс состояния модуля
+	rsa.clear();
+	// Предел после сброса нулевой
+	ASSERT_EQ(rsa.limit(), static_cast <size_t> (0));
+}

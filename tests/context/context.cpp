@@ -24,6 +24,7 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
+#include <cstring>
 #include <main.hpp>
 #include <starve.hpp>
 #include <asn1/asn1.hpp>

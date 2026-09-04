@@ -141,6 +141,32 @@ namespace nts {
 				size_t size() const noexcept;
 				/**
 				 * \~russian
+				 * @brief Метод получения верхнего предела длины подписи в записанном виде
+				 *
+				 * @return верхний предел длины подписи в байтах, ноль без ключа
+				 *
+				 * @details Метод size выдаёт длину сырой подписи, под которую заводится место
+				 *          для make, а limit - наибольшую длину подписи в том виде, в котором она
+				 *          уходит наружу: она не превышается ни при каком значении подписи, как
+				 *          у EVP_PKEY_size. Подпись ГОСТ Р 34.10-2012 уходит наружу как есть - двумя числами длиной в
+				 *          порядок подгруппы, оттого предел равен size: 64 байта у кривых в 256
+				 *          разрядов и 128 у кривых в 512 разрядов
+				 *
+				 * \~english
+				 * @brief Method of getting the upper limit of the length of a signature in the written form
+				 * @return the upper limit of the length of a signature in bytes, zero without a key
+				 * @details The method size gives the length of a raw signature the place for make is
+				 *          allocated by, while limit gives the greatest length of a signature in the form
+				 *          it goes outside in: it is not exceeded at any value of the signature, like
+				 *          EVP_PKEY_size. A signature GOST R 34.10-2012 goes outside as is - by two numbers of the length of
+				 *          the order of the subgroup, therefore the limit equals size: 64 bytes at the
+				 *          curves of 256 bits and 128 at the curves of 512 bits
+				 *
+				 * \~
+				 */
+				size_t limit() const noexcept;
+				/**
+				 * \~russian
 				 * @brief Метод установки эллиптической кривой
 				 *
 				 * @param curve устанавливаемая эллиптическая кривая
@@ -190,6 +216,48 @@ namespace nts {
 				 * \~
 				 */
 				bool secret(const view_t & secret) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод порождения долговременного ключа подписи
+				 *
+				 * @param secret место, в которое записывается ключ подписи, записанный от старшего байта к младшему
+				 * @param size   размер места ключа подписи
+				 *
+				 * @return признак успешности порождения ключа подписи
+				 *
+				 * @details Ключ подписи берётся равномерно из отрезка [1, q-1], где q - порядок подгруппы
+				 *          точек кривой, отбором: случайные байты длиной порядка, не меньшие порядка
+				 *          либо нулевые, отбрасываются целиком и берутся заново, а не приводятся по
+				 *          модулю. Приведение сделало бы младшие значения вероятнее прочих, что у
+				 *          кривых с порядком заметно меньше степени двойки - половина кривых ГОСТ -
+				 *          особенно заметно, а смещённый ключ вскрывается по множеству подписей.
+				 *          Размер места обязан равняться длине порядка подгруппы
+				 *
+				 * @note Порождённый ключ устанавливается в модуль так же, как при secret: ключ
+				 *       проверки подписи вырабатывается сразу же. Отказ источника случайности
+				 *       отвечает отказом порождения, прежнее состояние модуля при этом сброшено
+				 *
+				 * \~english
+				 * @brief Method of the generation of a long-term key of the signature
+				 * @param secret the place the key of the signature written from the senior byte to the junior one is written into
+				 * @param size   the size of the place of the key of the signature
+				 * @return the flag of the success of the generation of the key of the signature
+				 * @details The key of the signature is taken uniformly from the segment [1, q-1], where q is the
+				 *          order of the subgroup of the points of the curve, by a selection: random bytes of
+				 *          the length of the order that are not less than the order or zero are discarded
+				 *          entirely and taken anew, and are not reduced by the modulus. A reduction would
+				 *          make the junior values more probable than the rest, which is especially noticeable
+				 *          at the curves with an order noticeably less than a power of two - a half of the
+				 *          GOST curves, - while a biased key is uncovered by a multitude of signatures. The
+				 *          size of the place must equal the length of the order of the subgroup
+				 * @note The generated key is set into the module the same way as at secret: the key of
+				 *       the check of the signature is produced at once. A refusal of the source of the
+				 *       randomness answers by a refusal of the generation, the former state of the module
+				 *       is reset at that
+				 *
+				 * \~
+				 */
+				bool generate(uint8_t * secret, const size_t size) noexcept;
 				/**
 				 * \~russian
 				 * @brief Метод установки ключа проверки подписи

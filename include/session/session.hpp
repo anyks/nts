@@ -41,7 +41,7 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <sys/global.hpp>
-#include <digest/streebog.hpp>
+#include <digest/hash.hpp>
 #include <protect/protect.hpp>
 #include <schedule/schedule.hpp>
 
@@ -137,7 +137,7 @@ namespace nts {
 		 * \~russian
 		 * @brief Метод вывода ключевого материала из значения направления связи
 		 *
-		 * @param traffic значение направления связи, из которого выводится материал
+		 * @param traffic значение направления связи, из которого выводится материал, длиною в хеш набора
 		 * @param suite   набор шифрования, которым защищаются записи
 		 * @param key     место, в которое помещается корневой ключ направления
 		 * @param vector  место, в которое помещается вектор замены направления
@@ -189,20 +189,131 @@ namespace nts {
 		 * \~
 		 */
 		typedef class __ANTS_SHARED_EXPORT__ Transcript {
+			public:
+				/**
+				 * \~russian
+				 * @brief Число хешей, которыми переписка ведётся до выбора набора шифрования
+				 *
+				 * \~english
+				 * @brief Number of the hashes the transcript is conducted by before the choice of the cipher suite
+				 *
+				 * \~
+				 */
+				static constexpr size_t CANDIDATES = 3;
 			private:
-				// Объект хеширования переписки рукопожатия
-				digest::streebog_t _hash;
+				// Хеш переписки, выбранный набором шифрования
+				digest::hash_t _selected;
+			private:
+				// Объекты хеширования переписки всеми хешами наборов шифрования
+				digest::hasher_t _hashers[CANDIDATES];
+			private:
+				/**
+				 * \~russian
+				 * @brief Метод получения объекта хеширования переписки по хешу
+				 *
+				 * @param algorithm хеш, чей объект хеширования запрашивается
+				 *
+				 * @return          объект хеширования переписки либо nullptr у неведомого хеша
+				 *
+				 * \~english
+				 * @brief Method of getting the object of the hashing of the transcript by a hash
+				 * @param algorithm the hash whose object of the hashing is being requested
+				 * @return          the object of the hashing of the transcript or nullptr at an unknown hash
+				 *
+				 * \~
+				 */
+				const digest::hasher_t * hasher(const digest::hash_t algorithm) const noexcept;
+			public:
+				/**
+				 * \~russian
+				 * @brief Метод получения хеша, которым ведётся переписка рукопожатия
+				 *
+				 * @return хеш переписки рукопожатия
+				 *
+				 * @note До выбора набора шифрования переписка отвечает «Стрибогом»-256: так
+				 *       сложена ветвь ГОСТ, у которой хеш расписания один на все наборы
+				 *
+				 * \~english
+				 * @brief Method of getting the hash the transcript of the handshake is conducted by
+				 * @return the hash of the transcript of the handshake
+				 * @note Before the choice of the cipher suite the transcript answers with «Streebog»-256: so the
+				 *       GOST branch is composed, at which the hash of the schedule is one for all the suites
+				 *
+				 * \~
+				 */
+				digest::hash_t algorithm() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения длины хеша переписки рукопожатия в байтах
+				 *
+				 * @return длина хеша переписки рукопожатия
+				 *
+				 * \~english
+				 * @brief Method of getting the length of the hash of the transcript of the handshake in bytes
+				 * @return the length of the hash of the transcript of the handshake
+				 *
+				 * \~
+				 */
+				size_t size() const noexcept;
 			public:
 				/**
 				 * \~russian
 				 * @brief Метод начала переписки рукопожатия
 				 *
+				 * @details Приветствие клиента входит в переписку прежде, чем набор шифрования
+				 *          выбран, а хеш переписки задаётся набором. Оттого переписка до выбора
+				 *          ведётся всеми хешами наборов разом, а выбор лишь оставляет один из них
+				 *
 				 * \~english
 				 * @brief Method of the beginning of the transcript of the handshake
+				 * @details The greeting of the client enters the transcript before the cipher suite is chosen,
+				 *          while the hash of the transcript is set by the suite. Hence before the choice the
+				 *          transcript is conducted by all the hashes of the suites at once, and the choice only
+				 *          leaves one of them
 				 *
 				 * \~
 				 */
 				void start() noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод начала переписки рукопожатия выбранным хешем
+				 *
+				 * @param algorithm хеш, которым ведётся переписка рукопожатия
+				 *
+				 * @return          отказ начала переписки на неведомом хеше
+				 *
+				 * \~english
+				 * @brief Method of the beginning of the transcript of the handshake by the chosen hash
+				 * @param algorithm the hash the transcript of the handshake is conducted by
+				 * @return          the failure of the beginning of the transcript on an unknown hash
+				 *
+				 * \~
+				 */
+				error_t start(const digest::hash_t algorithm) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод выбора хеша переписки рукопожатия
+				 *
+				 * @param algorithm хеш, выбранный набором шифрования
+				 *
+				 * @return          отказ выбора хеша переписки
+				 *
+				 * @details Выбор оставляет один из хешей, которыми переписка велась до сих пор.
+				 *          Повторный выбор того же хеша ничего не меняет, выбор иного хеша после
+				 *          состоявшегося отвергается: прочие хеши уже отстали от переписки
+				 *
+				 * \~english
+				 * @brief Method of the choice of the hash of the transcript of the handshake
+				 * @param algorithm the hash chosen by the cipher suite
+				 * @return          the failure of the choice of the hash of the transcript
+				 * @details The choice leaves one of the hashes the transcript has been conducted by so far. A
+				 *          repeated choice of the same hash changes nothing, the choice of another hash after
+				 *          the one having taken place is rejected: the other hashes have already fallen behind
+				 *          the transcript
+				 *
+				 * \~
+				 */
+				error_t select(const digest::hash_t algorithm) noexcept;
 				/**
 				 * \~russian
 				 * @brief Метод сброса переписки рукопожатия
@@ -290,6 +401,34 @@ namespace nts {
 				error_t digest(const view_t & suffix, uint8_t * result) const noexcept;
 				/**
 				 * \~russian
+				 * @brief Метод получения хеша переписки рукопожатия с довеском заданным хешем
+				 *
+				 * @param algorithm хеш, которым берётся хеш переписки
+				 * @param suffix    довесок, дописываемый к переписке лишь на этот хеш
+				 * @param result    место, в которое помещается хеш переписки с довеском
+				 *
+				 * @return          отказ получения хеша переписки с довеском
+				 *
+				 * @details Раздел 4.2.11.2 RFC 8446: привязка билета берётся хешем набора билета,
+				 *          тогда как набор связи ещё не выбран, - на этот случай хеш и задаётся
+				 *          доводом. После выбора дозволен лишь выбранный хеш
+				 *
+				 * \~english
+				 * @brief Method of getting the hash of the transcript with an appendage by the given hash
+				 * @param algorithm the hash the hash of the transcript is taken by
+				 * @param suffix    the appendage appended to the transcript only for this hash
+				 * @param result    the place the hash of the transcript with the appendage is put into
+				 * @return          the failure of getting the hash of the transcript with the appendage
+				 * @details The section 4.2.11.2 of RFC 8446: the binder of a ticket is taken by the hash of the
+				 *          suite of the ticket, while the suite of the connection is not chosen yet - it is for
+				 *          this case that the hash is given by the argument. After the choice only the chosen
+				 *          hash is allowed
+				 *
+				 * \~
+				 */
+				error_t digest(const digest::hash_t algorithm, const view_t & suffix, uint8_t * result) const noexcept;
+				/**
+				 * \~russian
 				 * @brief Метод замены накопленной переписки её хешем
 				 *
 				 * @return отказ замены накопленной переписки
@@ -352,21 +491,53 @@ namespace nts {
 				// Пройденная ступень расписания ключей
 				stage_t _stage;
 			private:
+				// Хеш, которым ведётся расписание ключей
+				digest::hash_t _algorithm;
+			private:
+				// Длина значения расписания ключей в байтах
+				size_t _length;
+			private:
 				// Значение расписания ключей текущей ступени
-				uint8_t _secret[schedule::SCHEDULE_SECRET];
+				uint8_t _secret[schedule::SCHEDULE_WIDEST];
 			private:
 				// Значение направления связи от клиента
-				uint8_t _client[schedule::SCHEDULE_SECRET];
+				uint8_t _client[schedule::SCHEDULE_WIDEST];
 			private:
 				// Значение направления связи от сервера
-				uint8_t _server[schedule::SCHEDULE_SECRET];
+				uint8_t _server[schedule::SCHEDULE_WIDEST];
 			private:
 				// Значение возобновления связи
-				uint8_t _resumption[schedule::SCHEDULE_SECRET];
+				uint8_t _resumption[schedule::SCHEDULE_WIDEST];
 			private:
 				// Значение упреждающих данных связи
-				uint8_t _early[schedule::SCHEDULE_SECRET];
+				uint8_t _early[schedule::SCHEDULE_WIDEST];
 			public:
+				/**
+				 * \~russian
+				 * @brief Метод получения хеша, которым ведётся расписание ключей
+				 *
+				 * @return хеш расписания ключей
+				 *
+				 * \~english
+				 * @brief Method of getting the hash the key schedule is conducted by
+				 * @return the hash of the key schedule
+				 *
+				 * \~
+				 */
+				digest::hash_t algorithm() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения длины значения расписания ключей в байтах
+				 *
+				 * @return длина значения расписания ключей
+				 *
+				 * \~english
+				 * @brief Method of getting the length of a value of the key schedule in bytes
+				 * @return the length of a value of the key schedule
+				 *
+				 * \~
+				 */
+				size_t size() const noexcept;
 				/**
 				 * \~russian
 				 * @brief Метод получения пройденной ступени расписания ключей
@@ -412,6 +583,29 @@ namespace nts {
 				 * \~
 				 */
 				error_t start(const view_t & secret) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод заведения начальной ступени расписания ключей выбранным хешем
+				 *
+				 * @param algorithm хеш набора шифрования, которым ведётся расписание
+				 * @param secret    заранее разделённый ключ связи
+				 *
+				 * @return          отказ заведения начальной ступени
+				 *
+				 * @note Заведение без довода хеша ведёт расписание «Стрибогом»-256: так сложена
+				 *       ветвь ГОСТ, и всякое её значение сходится с прежним байт в байт
+				 *
+				 * \~english
+				 * @brief Method of the setting up of the initial stage of the key schedule by the chosen hash
+				 * @param algorithm the hash of the cipher suite the schedule is conducted by
+				 * @param secret    the pre-shared key of the connection
+				 * @return          the failure of the setting up of the initial stage
+				 * @note The setting up without the argument of the hash conducts the schedule by «Streebog»-256:
+				 *       so the GOST branch is composed, and every its value matches the former one byte for byte
+				 *
+				 * \~
+				 */
+				error_t start(const digest::hash_t algorithm, const view_t & secret) noexcept;
 				/**
 				 * \~russian
 				 * @brief Метод вывода ступени рукопожатия расписания ключей
@@ -470,14 +664,14 @@ namespace nts {
 				 *
 				 * @return       отказ получения значения направления связи
 				 *
-				 * @note Место итога обязано вмещать SCHEDULE_SECRET байтов
+				 * @note Место итога обязано вмещать длину хеша расписания байтов
 				 *
 				 * \~english
 				 * @brief Method of getting the value of a direction of the connection
 				 * @param side   the side whose direction of the connection is being requested
 				 * @param result the place the value of the direction of the connection is put into
 				 * @return       the failure of the getting of the value of the direction of the connection
-				 * @note The place of the outcome is obliged to hold SCHEDULE_SECRET bytes
+				 * @note The place of the outcome is obliged to hold the length of the hash of the schedule bytes
 				 *
 				 * \~
 				 */
@@ -524,7 +718,7 @@ namespace nts {
 				 * @details Раздел 4.4.4 RFC 8446: ключ выводится из значения направления связи
 				 *          меткою «finished», и на нём вырабатывается имитовставка завершения
 				 *
-				 * @note Место итога обязано вмещать SCHEDULE_SECRET байтов
+				 * @note Место итога обязано вмещать длину хеша расписания байтов
 				 *
 				 * \~english
 				 * @brief Method of the derivation of the key of the completion of the handshake
@@ -534,7 +728,7 @@ namespace nts {
 				 * @details The section 4.4.4 of RFC 8446: the key is derived from the value of the direction of
 				 *          the connection by the «finished» label, and the authentication code of the completion
 				 *          is produced under it
-				 * @note The place of the outcome is obliged to hold SCHEDULE_SECRET bytes
+				 * @note The place of the outcome is obliged to hold the length of the hash of the schedule bytes
 				 *
 				 * \~
 				 */
@@ -601,7 +795,7 @@ namespace nts {
 				 *          значение билета их и разводит - иначе все билеты одной связи вышли бы
 				 *          одинаковыми
 				 *
-				 * @note Место итога обязано вмещать SCHEDULE_SECRET байтов
+				 * @note Место итога обязано вмещать длину хеша расписания байтов
 				 *
 				 * \~english
 				 * @brief Method of the derivation of the key of a ticket of the resumption of the connection
@@ -611,7 +805,7 @@ namespace nts {
 				 * @details The section 4.6.1 of RFC 8446: every ticket corresponds to its own key, and the unique
 				 *          value of the ticket is what separates them — otherwise all the tickets of one connection
 				 *          would come out identical
-				 * @note The place of the outcome is obliged to hold SCHEDULE_SECRET bytes
+				 * @note The place of the outcome is obliged to hold the length of the hash of the schedule bytes
 				 *
 				 * \~
 				 */
@@ -682,13 +876,13 @@ namespace nts {
 				 *
 				 * @return       отказ получения значения упреждающих данных
 				 *
-				 * @note Место итога обязано вмещать SCHEDULE_SECRET байтов
+				 * @note Место итога обязано вмещать длину хеша расписания байтов
 				 *
 				 * \~english
 				 * @brief Method of getting the value of the early data of the connection
 				 * @param result the place the value of the early data is put into
 				 * @return       the failure of getting the value of the early data
-				 * @note The place of the outcome is obliged to hold SCHEDULE_SECRET bytes
+				 * @note The place of the outcome is obliged to hold the length of the hash of the schedule bytes
 				 *
 				 * \~
 				 */

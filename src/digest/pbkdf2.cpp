@@ -28,6 +28,7 @@
  */
 #include <digest/pbkdf2.hpp>
 #include <digest/hmac.hpp>
+#include <sys/wipe.hpp>
 
 /**
  * Используем стандартное пространство имён
@@ -49,23 +50,8 @@ namespace {
 	 */
 	using namespace nts::digest;
 
-	/**
-	 * @brief Метод затирания области памяти
-	 *
-	 * @param data затираемая область памяти
-	 * @param size размер затираемой области памяти
-	 *
-	 */
-	static void wipe(void * data, const size_t size) noexcept {
-		// Получаем изменчивый указатель на затираемую область памяти
-		volatile uint8_t * item = static_cast <volatile uint8_t *> (data);
-		/**
-		 * Выполняем перебор байтов затираемой области памяти
-		 */
-		for(size_t i = 0; i < size; i++)
-			// Обнуляем очередной байт области памяти
-			item[i] = 0;
-	}
+	// Затирание областей памяти берётся из открытого API библиотеки
+	using nts::sys::wipe;
 };
 
 /**

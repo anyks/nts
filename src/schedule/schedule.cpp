@@ -26,6 +26,12 @@
  *    это закреплено проверкой ScheduleTest.Salted: перепиши кто-нибудь обработку ключа
  *    имитовставки - расхождение всплывёт там, а не посреди рукопожатия.
  *
+ * 4. Расписание обобщено на хеш набора шифрования, а методы без довода хеша остались
+ *    и ведут его «Стрибогом»-256: так сложена ветвь ГОСТ, и всякое её значение обязано
+ *    сходиться с прежним байт в байт. Обобщённые методы выражены через общие HMAC и
+ *    HKDF модуля digest над hash_t, а пределы длин описания назначения сохранены и у них:
+ *    описание по-прежнему складывается на стеке, и длина его задана протоколом.
+ *
  * @copyright Copyright © 2026
  *
  */
@@ -39,7 +45,9 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <digest/hmac.hpp>
+#include <digest/hkdf.hpp>
 #include <schedule/schedule.hpp>
+#include <sys/wipe.hpp>
 
 /**
  * Используем стандартное пространство имён
@@ -65,23 +73,8 @@ namespace {
 	 */
 	static const char * PREFIX = "tls13 ";
 
-	/**
-	 * @brief Метод затирания области памяти
-	 *
-	 * @param data затираемая область памяти
-	 * @param size размер затираемой области памяти
-	 *
-	 */
-	static void wipe(void * data, const size_t size) noexcept {
-		// Получаем изменчивый указатель на затираемую область памяти
-		volatile uint8_t * item = static_cast <volatile uint8_t *> (data);
-		/**
-		 * Выполняем перебор байтов затираемой области памяти
-		 */
-		for(size_t i = 0; i < size; i++)
-			// Обнуляем очередной байт области памяти
-			item[i] = 0;
-	}
+	// Затирание областей памяти берётся из открытого API библиотеки
+	using nts::sys::wipe;
 };
 
 /**
@@ -95,12 +88,32 @@ namespace {
  *
  */
 bool nts::schedule::extract(const view_t & salt, const view_t & key, uint8_t * result) noexcept {
-	// Если место для извлечённого значения не передано
-	if(result == nullptr)
+	// Выводим итог извлечения значения расписания ключей «Стрибогом»-256
+	return nts::schedule::extract(digest::hash_t::STREEBOG256, salt, key, result);
+}
+/**
+ * @brief Метод извлечения значения расписания ключей выбранным хешем
+ *
+ * @param algorithm хеш, которым ведётся расписание ключей
+ * @param salt      соль извлечения значения
+ * @param key       ключевой материал, из которого извлекается значение
+ * @param result    место, в которое помещается извлечённое значение
+ *
+ * @return          признак успешности извлечения значения
+ *
+ */
+bool nts::schedule::extract(const digest::hash_t algorithm, const view_t & salt, const view_t & key, uint8_t * result) noexcept {
+	// Получаем длину хеша расписания ключей
+	const size_t length = digest::length(algorithm);
+	// Если место для извлечённого значения не передано либо хеш не установлен
+	if((result == nullptr) || (length == 0))
 		// Выводим отказ извлечения значения расписания ключей
 		return false;
-	// Выводим итог извлечения значения расписания ключей
-	return digest::hmac(digest::type_t::SHORT, salt, key, result, SCHEDULE_SECRET);
+	/**
+	 * Извлечение есть имитовставка, где солью служит ключ: непереданная соль добивается
+	 * нулями самой имитовставкой, и подставлять строку нулей на её место незачем
+	 */
+	return digest::hmac(algorithm, salt, key, result, length);
 }
 /**
  * @brief Метод растяжения значения расписания ключей
@@ -114,69 +127,61 @@ bool nts::schedule::extract(const view_t & salt, const view_t & key, uint8_t * r
  *
  */
 bool nts::schedule::expand(const view_t & secret, const view_t & info, uint8_t * result, const size_t size) noexcept {
-	// Если место для растянутого значения не передано
-	if((result == nullptr) || (size == 0))
+	// Выводим итог растяжения значения расписания ключей «Стрибогом»-256
+	return nts::schedule::expand(digest::hash_t::STREEBOG256, secret, info, result, size);
+}
+/**
+ * @brief Метод растяжения значения расписания ключей выбранным хешем
+ *
+ * @param algorithm хеш, которым ведётся расписание ключей
+ * @param secret    растягиваемое значение расписания ключей
+ * @param info      описание назначения растянутого значения
+ * @param result    место, в которое помещается растянутое значение
+ * @param size      требуемая длина растянутого значения в байтах
+ *
+ * @return          признак успешности растяжения значения
+ *
+ */
+bool nts::schedule::expand(const digest::hash_t algorithm, const view_t & secret, const view_t & info, uint8_t * result, const size_t size) noexcept {
+	// Получаем длину хеша расписания ключей
+	const size_t length = digest::length(algorithm);
+	// Если место для растянутого значения не передано либо хеш не установлен
+	if((result == nullptr) || (size == 0) || (length == 0))
 		// Выводим отказ растяжения значения расписания ключей
 		return false;
 	/**
 	 * Раздел 2.3 RFC 5869: частей у растянутого значения не более двухсот пятидесяти пяти
 	 */
-	if(size > (255 * SCHEDULE_SECRET))
+	if(size > (255 * length))
 		// Выводим отказ растяжения значения расписания ключей
 		return false;
 	// Если описание назначения растянутого значения длиннее дозволенного
 	if(info.size > (SCHEDULE_LABEL + 6 + 255 + 4))
 		// Выводим отказ растяжения значения расписания ключей
 		return false;
-	// Слитная строка выработки очередной части растянутого значения
-	uint8_t buffer[SCHEDULE_SECRET + SCHEDULE_LABEL + 6 + 255 + 4 + 1];
-	// Очередная часть растянутого значения
-	uint8_t part[SCHEDULE_SECRET];
-	// Число уже выработанных байтов растянутого значения
-	size_t offset = 0;
-	// Порядковый номер очередной части растянутого значения
-	uint8_t index = 0;
-	// Признак успешности растяжения значения расписания ключей
-	bool ok = true;
+	// Если растягиваемое значение не передано
+	if((secret.data == nullptr) || (secret.size == 0))
+		// Выводим отказ растяжения значения расписания ключей
+		return false;
+	// Место, в которое помещается ключ растяжения не короче хеша
+	uint8_t key[SCHEDULE_WIDEST];
+	// Обнуляем ключ растяжения
+	::memset(key, 0, sizeof(key));
 	/**
-	 * Выполняем выработку частей растянутого значения до набора требуемой длины
+	 * Раздел 2.3 RFC 5869 требует ключ не короче хеша: значение расписания короче хеша
+	 * добивается нулями, что имитовставке безразлично, а растяжению модуля digest - нет
 	 */
-	while(ok && (offset < size)){
-		// Число уже записанных байтов слитной строки
-		size_t length = 0;
-		// Если очередная часть растянутого значения не первая
-		if(index > 0){
-			// Записываем предыдущую часть растянутого значения
-			::memcpy(buffer, part, sizeof(part));
-			// Увеличиваем число записанных байтов слитной строки
-			length += sizeof(part);
-		}
-		// Если описание назначения растянутого значения передано
-		if((info.data != nullptr) && (info.size > 0)){
-			// Записываем описание назначения растянутого значения
-			::memcpy(buffer + length, info.data, info.size);
-			// Увеличиваем число записанных байтов слитной строки
-			length += info.size;
-		}
-		// Увеличиваем порядковый номер очередной части растянутого значения
-		index++;
-		// Записываем порядковый номер очередной части растянутого значения
-		buffer[length++] = index;
-		// Если очередную часть растянутого значения выработать не удалось
-		if(!(ok = digest::hmac(digest::type_t::SHORT, secret, view_t(buffer, length), part, sizeof(part))))
-			// Выходим из выработки растянутого значения
-			break;
-		// Определяем размер переносимой части растянутого значения
-		const size_t count = (((size - offset) < sizeof(part)) ? (size - offset) : sizeof(part));
-		// Переносим очередную часть растянутого значения
-		::memcpy(result + offset, part, count);
-		// Увеличиваем число уже выработанных байтов растянутого значения
-		offset += count;
-	}
-	// Выполняем затирание очередной части растянутого значения
-	wipe(part, sizeof(part));
-	// Выполняем затирание слитной строки выработки части значения
-	wipe(buffer, sizeof(buffer));
+	const size_t width = ((secret.size < length) ? length : secret.size);
+	// Если растягиваемое значение не вмещается в место ключа
+	if(width > sizeof(key))
+		// Выводим итог растяжения переданным значением как есть
+		return digest::expand(algorithm, secret, (((info.data != nullptr) && (info.size > 0)) ? info : view_t()), result, size);
+	// Переносим растягиваемое значение в место ключа
+	::memcpy(key, secret.data, secret.size);
+	// Выполняем растяжение значения расписания ключей
+	const bool ok = digest::expand(algorithm, view_t(key, width), (((info.data != nullptr) && (info.size > 0)) ? info : view_t()), result, size);
+	// Выполняем затирание ключа растяжения
+	wipe(key, sizeof(key));
 	// Выводим признак успешности растяжения значения расписания ключей
 	return ok;
 }
@@ -193,6 +198,23 @@ bool nts::schedule::expand(const view_t & secret, const view_t & info, uint8_t *
  *
  */
 bool nts::schedule::derive(const view_t & secret, const view_t & label, const view_t & context, uint8_t * result, const size_t size) noexcept {
+	// Выводим итог вывода значения расписания ключей «Стрибогом»-256
+	return nts::schedule::derive(digest::hash_t::STREEBOG256, secret, label, context, result, size);
+}
+/**
+ * @brief Метод вывода значения по метке назначения выбранным хешем
+ *
+ * @param algorithm хеш, которым ведётся расписание ключей
+ * @param secret    значение расписания ключей, из которого ведётся вывод
+ * @param label     метка назначения выводимого значения
+ * @param context   привязка выводимого значения к переписке рукопожатия
+ * @param result    место, в которое помещается выведенное значение
+ * @param size      требуемая длина выведенного значения в байтах
+ *
+ * @return          признак успешности вывода значения
+ *
+ */
+bool nts::schedule::derive(const digest::hash_t algorithm, const view_t & secret, const view_t & label, const view_t & context, uint8_t * result, const size_t size) noexcept {
 	// Если метка назначения выводимого значения не передана
 	if((label.data == nullptr) || (label.size == 0) || (label.size > SCHEDULE_LABEL))
 		// Выводим отказ вывода значения расписания ключей
@@ -241,7 +263,7 @@ bool nts::schedule::derive(const view_t & secret, const view_t & label, const vi
 		offset += total;
 	}
 	// Выполняем растяжение значения расписания ключей
-	const bool ok = nts::schedule::expand(secret, view_t(info, offset), result, size);
+	const bool ok = nts::schedule::expand(algorithm, secret, view_t(info, offset), result, size);
 	// Выполняем затирание описания назначения выводимого значения
 	wipe(info, sizeof(info));
 	// Выводим признак успешности вывода значения расписания ключей
@@ -259,6 +281,22 @@ bool nts::schedule::derive(const view_t & secret, const view_t & label, const vi
  *
  */
 bool nts::schedule::secret(const view_t & secret, const view_t & label, const view_t & digest, uint8_t * result) noexcept {
-	// Выводим итог вывода очередного значения расписания ключей
-	return nts::schedule::derive(secret, label, digest, result, SCHEDULE_SECRET);
+	// Выводим итог вывода очередного значения расписания ключей «Стрибогом»-256
+	return nts::schedule::secret(digest::hash_t::STREEBOG256, secret, label, digest, result);
+}
+/**
+ * @brief Метод вывода очередного значения расписания ключей выбранным хешем
+ *
+ * @param algorithm хеш, которым ведётся расписание ключей
+ * @param secret    значение расписания ключей, из которого ведётся вывод
+ * @param label     метка назначения выводимого значения
+ * @param digest    хеш переписки рукопожатия на этот миг
+ * @param result    место, в которое помещается выведенное значение
+ *
+ * @return          признак успешности вывода значения
+ *
+ */
+bool nts::schedule::secret(const digest::hash_t algorithm, const view_t & secret, const view_t & label, const view_t & digest, uint8_t * result) noexcept {
+	// Выводим итог вывода очередного значения расписания ключей длиной в хеш
+	return nts::schedule::derive(algorithm, secret, label, digest, result, digest::length(algorithm));
 }

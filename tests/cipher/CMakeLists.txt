@@ -103,3 +103,57 @@ target_link_libraries(${TEST_STREAM_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_mai
 
 # Регистрируем цель проверок
 add_test(NAME ${TEST_STREAM_NAME} COMMAND ${TEST_STREAM_NAME})
+
+# Устанавливаем имя цели проверок модуля поточного шифра ChaCha20
+SET(TEST_CHACHA_NAME chacha)
+
+# Добавляем цель проверок модуля поточного шифра ChaCha20
+add_executable(${TEST_CHACHA_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/chacha.cpp")
+
+# Включаем флаги компиляции проверок
+target_compile_options(${TEST_CHACHA_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
+
+# Подключаем каталог общих заголовочных файлов набора проверок
+target_include_directories(${TEST_CHACHA_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+
+# Выполняем подключение зависимостей цели проверок
+target_link_libraries(${TEST_CHACHA_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
+
+# Регистрируем цель проверок
+add_test(NAME ${TEST_CHACHA_NAME} COMMAND ${TEST_CHACHA_NAME})
+
+# Устанавливаем имя цели проверок модуля имитовставки Poly1305
+SET(TEST_POLY1305_NAME poly1305)
+
+# Добавляем цель проверок модуля имитовставки Poly1305
+add_executable(${TEST_POLY1305_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/poly1305.cpp")
+
+# Включаем флаги компиляции проверок
+target_compile_options(${TEST_POLY1305_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
+
+# Подключаем каталог общих заголовочных файлов набора проверок
+target_include_directories(${TEST_POLY1305_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+
+# Выполняем подключение зависимостей цели проверок
+target_link_libraries(${TEST_POLY1305_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
+
+# Регистрируем цель проверок
+add_test(NAME ${TEST_POLY1305_NAME} COMMAND ${TEST_POLY1305_NAME})
+
+# Устанавливаем имя цели проверок модуля шифрования с проверкой целостности ChaCha20-Poly1305
+SET(TEST_CHACHAPOLY_NAME chachapoly)
+
+# Добавляем цель проверок модуля шифрования с проверкой целостности ChaCha20-Poly1305
+add_executable(${TEST_CHACHAPOLY_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/chachapoly.cpp")
+
+# Включаем флаги компиляции проверок
+target_compile_options(${TEST_CHACHAPOLY_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
+
+# Подключаем каталог общих заголовочных файлов набора проверок
+target_include_directories(${TEST_CHACHAPOLY_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+
+# Выполняем подключение зависимостей цели проверок
+target_link_libraries(${TEST_CHACHAPOLY_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
+
+# Регистрируем цель проверок
+add_test(NAME ${TEST_CHACHAPOLY_NAME} COMMAND ${TEST_CHACHAPOLY_NAME})

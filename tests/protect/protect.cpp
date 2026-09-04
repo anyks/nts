@@ -765,3 +765,310 @@ TEST(ProtectTest, Starved){
 	// Проверяем, что нехватка памяти объявлена отказом хоть раз
 	ASSERT_TRUE(starved);
 }
+
+/**
+ * Проверка набора TLS_CHACHA20_POLY1305_SHA256: описание набора, защищённая запись
+ * сличается с примитивом chachapoly_t по одноразовому значению и связанным данным,
+ * составленным здесь же по разделам 5.2 и 5.3 RFC 8446, и обратный ход по записям
+ */
+TEST(ProtectTest, Chachapoly){
+	// Набор шифрования проверки
+	const protect::suite_t suite = protect::suite_t::CHACHA20_POLY1305_SHA256;
+	// Проверяем число набора по разделу B.4 RFC 8446
+	ASSERT_EQ(static_cast <uint16_t> (suite), static_cast <uint16_t> (0x1303));
+	// Проверяем длину ключа набора
+	ASSERT_EQ(protect::key(suite), static_cast <size_t> (32));
+	// Проверяем длину вектора замены набора
+	ASSERT_EQ(protect::block(suite), static_cast <size_t> (12));
+	// Проверяем длину метки целостности набора
+	ASSERT_EQ(protect::tag(suite), static_cast <size_t> (16));
+	// Проверяем хеш расписания набора
+	ASSERT_EQ(protect::hash(suite), digest::hash_t::SHA256);
+	// Проверяем предел записей на ключе: 2^62, недостижимый и вдали от переполнения
+	ASSERT_EQ(protect::limit(suite), static_cast <uint64_t> (0x3FFFFFFFFFFFFFFFULL));
+	// Проверяем, что предел выше предела AES-GCM того же хеша
+	ASSERT_GT(protect::limit(suite), protect::limit(protect::suite_t::AES_128_GCM_SHA256));
+	// Корневой ключ направления связи: длинный, чтобы выделения шли по-настоящему
+	const std::vector <uint8_t> key = decode("808182838485868788898A8B8C8D8E8F909192939495969798999A9B9C9D9E9F");
+	// Вектор замены направления связи
+	const std::vector <uint8_t> vector = decode("070000004041424344454647");
+	// Место, в которое помещается ключ записи
+	uint8_t derived[protect::PROTECT_KEY];
+	// Проверяем, что построения TLSTREE у набора нет: ключ записи равен корневому
+	ASSERT_TRUE(protect::tree(suite, view_t(key.data(), key.size()), 12345ULL, derived));
+	// Проверяем перенос корневого ключа на место ключа записи
+	ASSERT_EQ(::memcmp(derived, key.data(), key.size()), 0);
+	// Объект защиты записей, накладывающий защиту
+	protect::protection_t sealer;
+	// Выполняем установку ключевого материала
+	ASSERT_TRUE(sealer.start(suite, view_t(key.data(), key.size()), view_t(vector.data(), vector.size())));
+	// Проверяем набор направления связи
+	ASSERT_EQ(sealer.suite(), suite);
+	// Открытое содержимое защищаемой записи
+	const std::string content = "Ladies and Gentlemen of the class of '99: If I could offer you only one tip for the future, sunscreen would be it.";
+	/**
+	 * Выполняем защиту записей: первая запись под номером ноль, третья под номером два,
+	 * чтобы одноразовое значение вобрало порядковый номер, а не один лишь вектор
+	 */
+	for(uint64_t sequence = 0; sequence < 3; sequence++){
+		// Накопитель, в который складывается защищённая запись
+		std::vector <uint8_t> sealed;
+		// Выполняем наложение защиты на запись
+		ASSERT_EQ(sealer.seal(record::type_t::APPLICATION, view_t(reinterpret_cast <const uint8_t *> (content.data()), content.size()), sealed), protect::error_t::NONE) << "запись " << sequence;
+		// Проверяем рост порядкового номера
+		ASSERT_EQ(sealer.sequence(), (sequence + 1));
+		// Открытый текст записи: содержимое и истинный вид содержимого следом
+		std::vector <uint8_t> plain(content.begin(), content.end());
+		// Добавляем истинный вид содержимого
+		plain.push_back(static_cast <uint8_t> (record::type_t::APPLICATION));
+		// Заголовок защищённой записи по разделу 5.2 RFC 8446
+		record::header_t header;
+		// Устанавливаем вид содержимого защищённой записи
+		header.type = record::type_t::APPLICATION;
+		// Устанавливаем издание протокола защищённой записи
+		header.version = record::version_t::TLS12;
+		// Устанавливаем длину содержимого защищённой записи
+		header.size = (plain.size() + protect::tag(suite));
+		// Связанные данные: заголовок записи
+		uint8_t associated[record::RECORD_HEADER];
+		// Составляем заголовок записи
+		ASSERT_EQ(record::build(header, associated), record::error_t::NONE);
+		// Одноразовое значение по разделу 5.3 RFC 8446: вектор, сложенный с номером справа
+		std::vector <uint8_t> nonce(vector.begin(), vector.end());
+		/**
+		 * Выполняем сложение вектора замены с порядковым номером записи
+		 */
+		for(size_t i = 0; i < 8; i++)
+			// Складываем очередной байт номера с байтом вектора замены
+			nonce[nonce.size() - 1 - i] = static_cast <uint8_t> (nonce[nonce.size() - 1 - i] ^ ((sequence >> (i * 8)) & 0xFF));
+		// Объект AEAD ChaCha20-Poly1305
+		cipher::chachapoly_t chachapoly;
+		// Запускаем AEAD на ключе и одноразовом значении
+		ASSERT_TRUE(chachapoly.start(view_t(key.data(), key.size()), view_t(nonce.data(), nonce.size())));
+		// Ожидаемая защищённая запись: заголовок, шифртекст и метка
+		std::vector <uint8_t> expected(record::RECORD_HEADER + plain.size() + protect::tag(suite), 0);
+		// Переносим заголовок записи
+		::memcpy(expected.data(), associated, record::RECORD_HEADER);
+		// Выполняем шифрование примитивом
+		ASSERT_TRUE(chachapoly.encrypt(view_t(associated, record::RECORD_HEADER), view_t(plain.data(), plain.size()), (expected.data() + record::RECORD_HEADER), (expected.data() + record::RECORD_HEADER + plain.size())));
+		// Проверяем схождение защищённой записи с примитивом байт в байт
+		ASSERT_EQ(sealed, expected) << "запись " << sequence;
+	}
+	// Объект защиты записей, снимающий защиту
+	protect::protection_t opener;
+	// Выполняем установку ключевого материала снимающей стороны
+	ASSERT_TRUE(opener.start(suite, view_t(key.data(), key.size()), view_t(vector.data(), vector.size())));
+	// Объект защиты записей, накладывающий защиту заново
+	protect::protection_t again;
+	// Выполняем установку ключевого материала накладывающей стороны
+	ASSERT_TRUE(again.start(suite, view_t(key.data(), key.size()), view_t(vector.data(), vector.size())));
+	/**
+	 * Выполняем обратный ход по записям с дополнением, извещением и рукопожатием
+	 */
+	for(uint64_t sequence = 0; sequence < 4; sequence++){
+		// Вид содержимого очередной записи
+		const record::type_t kind = ((sequence == 1) ? record::type_t::HANDSHAKE : ((sequence == 2) ? record::type_t::ALERT : record::type_t::APPLICATION));
+		// Содержимое очередной записи: у извещения два байта
+		const view_t data = ((kind == record::type_t::ALERT) ? view_t(reinterpret_cast <const uint8_t *> (content.data()), 2) : view_t(reinterpret_cast <const uint8_t *> (content.data()), content.size()));
+		// Накопитель, в который складывается защищённая запись
+		std::vector <uint8_t> sealed;
+		// Выполняем наложение защиты на запись с дополнением у последней
+		ASSERT_EQ(again.seal(kind, data, sealed, ((sequence == 3) ? 77 : 0)), protect::error_t::NONE) << "запись " << sequence;
+		// Заголовок защищённой записи
+		record::header_t header;
+		// Разбираем заголовок защищённой записи
+		ASSERT_EQ(record::parse(view_t(sealed.data(), sealed.size()), header), record::error_t::NONE);
+		// Истинный вид содержимого принятой записи
+		record::type_t type = record::type_t::NONE;
+		// Накопитель, в который складывается открытое содержимое
+		std::vector <uint8_t> opened;
+		// Выполняем снятие защиты с записи
+		ASSERT_EQ(opener.open(header, view_t(sealed.data() + record::RECORD_HEADER, sealed.size() - record::RECORD_HEADER), type, opened), protect::error_t::NONE) << "запись " << sequence;
+		// Проверяем истинный вид содержимого
+		ASSERT_EQ(type, kind) << "запись " << sequence;
+		// Проверяем длину открытого содержимого: дополнение отброшено
+		ASSERT_EQ(opened.size(), data.size) << "запись " << sequence;
+		// Проверяем схождение открытого содержимого с исходным
+		ASSERT_EQ(::memcmp(opened.data(), data.data, data.size), 0) << "запись " << sequence;
+		// Проверяем рост порядкового номера снимающей стороны
+		ASSERT_EQ(opener.sequence(), (sequence + 1));
+	}
+}
+
+/**
+ * Проверка заслонов набора TLS_CHACHA20_POLY1305_SHA256: ключ и вектор не той длины,
+ * битая метка, битый шифртекст, чужой заголовок и запись под чужим ключом отвергаются,
+ * а порядковый номер отвергнутой записи не продвигается
+ */
+TEST(ProtectTest, ChachapolyRefusals){
+	// Набор шифрования проверки
+	const protect::suite_t suite = protect::suite_t::CHACHA20_POLY1305_SHA256;
+	// Корневой ключ направления связи
+	const std::vector <uint8_t> key = decode("808182838485868788898A8B8C8D8E8F909192939495969798999A9B9C9D9E9F");
+	// Вектор замены направления связи
+	const std::vector <uint8_t> vector = decode("070000004041424344454647");
+	// Объект защиты записей
+	protect::protection_t protection;
+	// Проверяем отказ на ключе длиною в AES-128: набору положены тридцать два байта
+	ASSERT_FALSE(protection.start(suite, view_t(key.data(), 16), view_t(vector.data(), vector.size())));
+	// Проверяем, что отказ ключевого материала готовности не даёт
+	ASSERT_FALSE(protection.ready());
+	// Проверяем отказ на ключе длиннее положенного
+	ASSERT_FALSE(protection.start(suite, view_t(key.data(), key.size() - 1), view_t(vector.data(), vector.size())));
+	// Проверяем отказ на векторе длиною в блок AES: набору положены двенадцать байтов
+	ASSERT_FALSE(protection.start(suite, view_t(key.data(), key.size()), view_t(key.data(), 16)));
+	// Проверяем отказ на векторе длиною в восемь байтов
+	ASSERT_FALSE(protection.start(suite, view_t(key.data(), key.size()), view_t(vector.data(), 8)));
+	// Проверяем отказ без ключа
+	ASSERT_FALSE(protection.start(suite, view_t(nullptr, key.size()), view_t(vector.data(), vector.size())));
+	// Выполняем установку годного ключевого материала
+	ASSERT_TRUE(protection.start(suite, view_t(key.data(), key.size()), view_t(vector.data(), vector.size())));
+	// Защищаемое содержимое записи
+	const std::vector <uint8_t> content(300, 0x5A);
+	// Накопитель, в который складывается защищённая запись
+	std::vector <uint8_t> sealed;
+	// Выполняем наложение защиты на запись
+	ASSERT_EQ(protection.seal(record::type_t::APPLICATION, view_t(content.data(), content.size()), sealed), protect::error_t::NONE);
+	// Проверяем длину защищённой записи: заголовок, содержимое, вид и метка
+	ASSERT_EQ(sealed.size(), (record::RECORD_HEADER + content.size() + 1 + protect::tag(suite)));
+	// Заголовок защищённой записи
+	record::header_t header;
+	// Разбираем заголовок защищённой записи
+	ASSERT_EQ(record::parse(view_t(sealed.data(), sealed.size()), header), record::error_t::NONE);
+	// Истинный вид содержимого принятой записи
+	record::type_t type = record::type_t::NONE;
+	// Накопитель, в который складывается открытое содержимое
+	std::vector <uint8_t> opened;
+	{
+		// Объект защиты записей принимающей стороны
+		protect::protection_t receiver;
+		// Выполняем установку ключевого материала принимающей стороны
+		ASSERT_TRUE(receiver.start(suite, view_t(key.data(), key.size()), view_t(vector.data(), vector.size())));
+		// Запись с битой меткой
+		std::vector <uint8_t> broken(sealed);
+		// Портим последний байт метки
+		broken.back() = static_cast <uint8_t> (broken.back() ^ 0x01);
+		// Проверяем отказ метки
+		ASSERT_EQ(receiver.open(header, view_t(broken.data() + record::RECORD_HEADER, broken.size() - record::RECORD_HEADER), type, opened), protect::error_t::TAG);
+		// Проверяем, что порядковый номер не продвинулся
+		ASSERT_EQ(receiver.sequence(), static_cast <uint64_t> (0));
+		// Проверяем, что открытого содержимого нет
+		ASSERT_TRUE(opened.empty());
+	}
+	{
+		// Объект защиты записей принимающей стороны
+		protect::protection_t receiver;
+		// Выполняем установку ключевого материала принимающей стороны
+		ASSERT_TRUE(receiver.start(suite, view_t(key.data(), key.size()), view_t(vector.data(), vector.size())));
+		// Запись с битым шифртекстом
+		std::vector <uint8_t> broken(sealed);
+		// Портим первый байт шифртекста
+		broken[record::RECORD_HEADER] = static_cast <uint8_t> (broken[record::RECORD_HEADER] ^ 0x80);
+		// Проверяем отказ метки
+		ASSERT_EQ(receiver.open(header, view_t(broken.data() + record::RECORD_HEADER, broken.size() - record::RECORD_HEADER), type, opened), protect::error_t::TAG);
+		// Проверяем, что порядковый номер не продвинулся
+		ASSERT_EQ(receiver.sequence(), static_cast <uint64_t> (0));
+	}
+	{
+		// Объект защиты записей принимающей стороны
+		protect::protection_t receiver;
+		// Выполняем установку ключевого материала принимающей стороны
+		ASSERT_TRUE(receiver.start(suite, view_t(key.data(), key.size()), view_t(vector.data(), vector.size())));
+		// Чужой заголовок: издание протокола иное, связанные данные разъехались
+		record::header_t foreign = header;
+		// Подменяем издание протокола
+		foreign.version = record::version_t::TLS11;
+		// Проверяем отказ метки по связанным данным
+		ASSERT_EQ(receiver.open(foreign, view_t(sealed.data() + record::RECORD_HEADER, sealed.size() - record::RECORD_HEADER), type, opened), protect::error_t::TAG);
+		// Проверяем, что порядковый номер не продвинулся
+		ASSERT_EQ(receiver.sequence(), static_cast <uint64_t> (0));
+	}
+	{
+		// Объект защиты записей принимающей стороны на чужом ключе
+		protect::protection_t receiver;
+		// Чужой ключ: последний байт иной
+		std::vector <uint8_t> other(key);
+		// Портим последний байт ключа
+		other.back() = static_cast <uint8_t> (other.back() ^ 0x01);
+		// Выполняем установку чужого ключевого материала
+		ASSERT_TRUE(receiver.start(suite, view_t(other.data(), other.size()), view_t(vector.data(), vector.size())));
+		// Проверяем отказ метки на чужом ключе
+		ASSERT_EQ(receiver.open(header, view_t(sealed.data() + record::RECORD_HEADER, sealed.size() - record::RECORD_HEADER), type, opened), protect::error_t::TAG);
+	}
+	{
+		// Объект защиты записей принимающей стороны на наборе AES-GCM того же хеша
+		protect::protection_t receiver;
+		// Выполняем установку ключевого материала набора AES-256-GCM тою же длиной ключа
+		ASSERT_TRUE(receiver.start(protect::suite_t::AES_256_GCM_SHA384, view_t(key.data(), key.size()), view_t(vector.data(), vector.size())));
+		// Проверяем, что запись ChaCha20-Poly1305 набором AES-GCM не снимается
+		ASSERT_EQ(receiver.open(header, view_t(sealed.data() + record::RECORD_HEADER, sealed.size() - record::RECORD_HEADER), type, opened), protect::error_t::TAG);
+	}
+	{
+		// Объект защиты записей принимающей стороны
+		protect::protection_t receiver;
+		// Выполняем установку ключевого материала принимающей стороны
+		ASSERT_TRUE(receiver.start(suite, view_t(key.data(), key.size()), view_t(vector.data(), vector.size())));
+		// Проверяем, что нетронутая запись снимается
+		ASSERT_EQ(receiver.open(header, view_t(sealed.data() + record::RECORD_HEADER, sealed.size() - record::RECORD_HEADER), type, opened), protect::error_t::NONE);
+		// Проверяем истинный вид содержимого
+		ASSERT_EQ(type, record::type_t::APPLICATION);
+		// Проверяем схождение открытого содержимого
+		ASSERT_EQ(opened, content);
+		// Проверяем, что та же запись второй раз не снимается: порядковый номер ушёл
+		ASSERT_EQ(receiver.open(header, view_t(sealed.data() + record::RECORD_HEADER, sealed.size() - record::RECORD_HEADER), type, opened), protect::error_t::TAG);
+	}
+	// Проверяем сброс ключевого материала
+	protection.clear();
+	// Проверяем, что после сброса защита не готова
+	ASSERT_FALSE(protection.ready());
+	// Проверяем отказ наложения защиты после сброса
+	ASSERT_EQ(protection.seal(record::type_t::APPLICATION, view_t(content.data(), content.size()), sealed), protect::error_t::STATE);
+}
+
+/**
+ * Проверка наложения и снятия защиты записи набором TLS_CHACHA20_POLY1305_SHA256 при
+ * нехватке памяти: всякий исход либо успех, либо отказ памяти
+ */
+TEST(ProtectTest, ChachapolyStarved){
+	// Набор шифрования проверки
+	const protect::suite_t suite = protect::suite_t::CHACHA20_POLY1305_SHA256;
+	// Корневой ключ направления связи
+	const std::vector <uint8_t> key = decode("808182838485868788898A8B8C8D8E8F909192939495969798999A9B9C9D9E9F");
+	// Вектор замены направления связи
+	const std::vector <uint8_t> vector = decode("070000004041424344454647");
+	// Открытое содержимое защищаемой записи: длиннее короткого запаса строки
+	const std::vector <uint8_t> content(777, 0x33);
+	// Признак того, что нехватка памяти хоть раз объявлена отказом
+	bool starved = false;
+	/**
+	 * Выполняем перебор запасов выделений
+	 */
+	for(size_t budget = 0; budget < 256; budget++){
+		// Объект защиты записей, накладывающий защиту
+		protect::protection_t sealer;
+		// Объект защиты записей, снимающий защиту
+		protect::protection_t opener;
+		// Выполняем установку ключевого материала накладывающей стороны
+		ASSERT_TRUE(sealer.start(suite, view_t(key.data(), key.size()), view_t(vector.data(), vector.size()))) << "запас " << budget;
+		// Выполняем установку ключевого материала снимающей стороны
+		ASSERT_TRUE(opener.start(suite, view_t(key.data(), key.size()), view_t(vector.data(), vector.size()))) << "запас " << budget;
+		// Итог наложения и снятия защиты при отмеренном запасе
+		protect::error_t outcome = protect::error_t::NONE;
+		// Признак схождения открытого содержимого с исходным
+		bool intact = false;
+		{
+			// Отмеряем запас выделений на время наложения и снятия защиты
+			starve::ration_t ration(budget);
+			// Выполняем наложение и снятие защиты при отмеренном запасе
+			outcome = exhaust(sealer, opener, view_t(content.data(), content.size()), intact);
+		}
+		// Проверяем, что наложение и снятие защиты ответили успехом либо отказом памяти
+		ASSERT_TRUE((outcome == protect::error_t::NONE) || (outcome == protect::error_t::MEMORY)) << "запас " << budget << " отказ " << static_cast <int> (outcome);
+		// Проверяем, что успех не скрывает усечённого содержимого
+		ASSERT_TRUE((outcome != protect::error_t::NONE) || intact) << "запас " << budget;
+		// Запоминаем объявленный отказ памяти
+		starved = (starved || (outcome == protect::error_t::MEMORY));
+	}
+	// Проверяем, что нехватка памяти объявлена отказом хоть раз
+	ASSERT_TRUE(starved);
+}

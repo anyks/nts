@@ -52,7 +52,9 @@
  */
 #include <sign/ed25519.hpp>
 #include <digest/sha2.hpp>
+#include <entropy/entropy.hpp>
 #include <math/field25519.hpp>
+#include <sys/wipe.hpp>
 
 /**
  * Используем стандартное пространство имён
@@ -161,27 +163,8 @@ namespace {
 		element_t x, y, z, t;
 	} point_t;
 
-	/**
-	 * @brief Метод затирания области памяти
-	 *
-	 * @details Затирание ведётся через изменчивый указатель: обычное присваивание
-	 *          собиратель вправе выбросить, увидев, что записанное значение больше
-	 *          никем не читается, - и секрет остался бы в памяти
-	 *
-	 * @param data затираемая область памяти
-	 * @param size размер затираемой области памяти
-	 *
-	 */
-	static void wipe(void * data, const size_t size) noexcept {
-		// Получаем изменчивый указатель на затираемую область памяти
-		volatile uint8_t * item = static_cast <volatile uint8_t *> (data);
-		/**
-		 * Выполняем перебор байтов затираемой области памяти
-		 */
-		for(size_t i = 0; i < size; i++)
-			// Обнуляем очередной байт области памяти
-			item[i] = 0;
-	}
+	// Затирание областей памяти берётся из открытого API библиотеки
+	using nts::sys::wipe;
 	/**
 	 * @brief Метод разворота записи числа
 	 *
@@ -713,7 +696,7 @@ namespace {
 	 * @return       признак успешности выработки хеша
 	 *
 	 */
-	static bool hash(const view_t & first, const view_t & second, const view_t & third, uint8_t * result) noexcept {
+	static bool digestion(const view_t & first, const view_t & second, const view_t & third, uint8_t * result) noexcept {
 		// Объект хеширования SHA-512
 		digest::sha2_t hasher(digest::sha_t::SHA512);
 		// Выполняем подачу первой части
@@ -735,6 +718,20 @@ namespace {
  */
 size_t nts::sign::Ed25519::size() const noexcept {
 	// Выводим размер подписи в байтах
+	return SIGNATURE_SIZE;
+}
+/**
+ * @brief Метод получения верхнего предела длины подписи в записанном виде
+ *
+ * @return верхний предел длины подписи в байтах, ноль без ключа
+ *
+ */
+size_t nts::sign::Ed25519::limit() const noexcept {
+	// Если ни ключ подписи, ни ключ проверки не установлены
+	if(!this->_secret && !this->_public)
+		// Выводим нулевой предел
+		return 0;
+	// Подпись уходит наружу как есть: предел равен длине сырой подписи
 	return SIGNATURE_SIZE;
 }
 /**
@@ -810,6 +807,42 @@ bool nts::sign::Ed25519::secret(const view_t & secret) noexcept {
 	// Устанавливаем признак того, что ключ подписи установлен
 	this->_secret = true;
 	// Выводим успешность установки ключа подписи
+	return true;
+}
+/**
+ * @brief Метод порождения долговременного ключа подписи
+ *
+ * @param secret место, в которое записывается зерно ключа подписи
+ * @param size   размер места зерна ключа подписи
+ *
+ * @return       признак успешности порождения ключа подписи
+ *
+ */
+bool nts::sign::Ed25519::generate(uint8_t * secret, const size_t size) noexcept {
+	// Выполняем сброс прежнего состояния модуля
+	this->clear();
+	// Если место зерна не передано либо размер его не равен длине зерна
+	if((secret == nullptr) || (size != KEY_SIZE))
+		// Выводим отказ порождения ключа подписи
+		return false;
+	/**
+	 * Зерно по разделу 5.1.5 RFC 8032 есть тридцать два случайных байта как есть:
+	 * зажим скаляра выполняет вывод из хеша зерна, оттого отбора здесь нет
+	 */
+	if(!entropy::bytes(secret, size)){
+		// Выполняем затирание переданного места
+		wipe(secret, size);
+		// Выводим отказ порождения ключа подписи
+		return false;
+	}
+	// Если зерно установить не удалось
+	if(!this->secret(view_t(secret, size))){
+		// Выполняем затирание переданного места
+		wipe(secret, size);
+		// Выводим отказ порождения ключа подписи
+		return false;
+	}
+	// Выводим успешность порождения ключа подписи
 	return true;
 }
 /**
@@ -909,7 +942,7 @@ bool nts::sign::Ed25519::make(const view_t & message, uint8_t * result) const no
 	// Хеш и скаляры выработки подписи
 	uint8_t buffer[DIGEST], r[RECORD], k[RECORD];
 	// Признак успешности выработки подписи
-	bool ok = hash(view_t(this->_prefix, KEY_SIZE), message, view_t(), buffer);
+	bool ok = digestion(view_t(this->_prefix, KEY_SIZE), message, view_t(), buffer);
 	// Если хеш приставки с сообщением выработать удалось
 	if(ok)
 		// Выполняем приведение хеша по порядку подгруппы в скаляр r
@@ -927,7 +960,7 @@ bool nts::sign::Ed25519::make(const view_t & message, uint8_t * result) const no
 		// Выполняем затирание точки R
 		wipe(&point, sizeof(point));
 		// Выполняем выработку хеша точки R, ключа проверки и сообщения
-		ok = hash(view_t(result, RECORD), view_t(this->_key, KEY_SIZE), message, buffer);
+		ok = digestion(view_t(result, RECORD), view_t(this->_key, KEY_SIZE), message, buffer);
 	}
 	// Если хеш точки R с ключом и сообщением выработать удалось
 	if(ok)
@@ -989,7 +1022,7 @@ bool nts::sign::Ed25519::check(const view_t & message, const view_t & signature)
 	// Хеш и скаляр проверки подписи
 	uint8_t buffer[DIGEST], k[RECORD];
 	// Если хеш точки R, ключа проверки и сообщения выработать не удалось
-	if(!hash(view_t(signature.data, RECORD), view_t(this->_key, KEY_SIZE), message, buffer))
+	if(!digestion(view_t(signature.data, RECORD), view_t(this->_key, KEY_SIZE), message, buffer))
 		// Выводим отказ проверки подписи
 		return false;
 	// Если хеш привести по порядку подгруппы не удалось

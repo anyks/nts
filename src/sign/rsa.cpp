@@ -37,6 +37,7 @@
 #include <sign/rsa.hpp>
 #include <asn1/asn1.hpp>
 #include <entropy/entropy.hpp>
+#include <sys/wipe.hpp>
 
 /**
  * Используем стандартное пространство имён
@@ -91,27 +92,8 @@ namespace {
 	 */
 	static constexpr size_t PADDING = 8;
 
-	/**
-	 * @brief Метод затирания области памяти
-	 *
-	 * @details Затирание ведётся через изменчивый указатель: обычное присваивание
-	 *          собиратель вправе выбросить, увидев, что записанное значение больше
-	 *          никем не читается, - и секрет остался бы в памяти
-	 *
-	 * @param data затираемая область памяти
-	 * @param size размер затираемой области памяти
-	 *
-	 */
-	static void wipe(void * data, const size_t size) noexcept {
-		// Получаем изменчивый указатель на затираемую область памяти
-		volatile uint8_t * item = static_cast <volatile uint8_t *> (data);
-		/**
-		 * Выполняем перебор байтов затираемой области памяти
-		 */
-		for(size_t i = 0; i < size; i++)
-			// Обнуляем очередной байт области памяти
-			item[i] = 0;
-	}
+	// Затирание областей памяти берётся из открытого API библиотеки
+	using nts::sys::wipe;
 	/**
 	 * @brief Метод получения маски равенства слов
 	 *
@@ -537,6 +519,16 @@ bool nts::sign::Rsa::secret() const noexcept {
 size_t nts::sign::Rsa::size() const noexcept {
 	// Выводим размер модуля в байтах
 	return ((this->_bits + 7) / 8);
+}
+/**
+ * @brief Метод получения верхнего предела длины подписи в записанном виде
+ *
+ * @return верхний предел длины подписи в байтах, ноль без ключа
+ *
+ */
+size_t nts::sign::Rsa::limit() const noexcept {
+	// Подпись уходит наружу как есть: предел равен длине модуля
+	return this->size();
 }
 /**
  * @brief Метод получения числа разрядов модуля

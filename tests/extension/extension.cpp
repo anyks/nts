@@ -645,6 +645,52 @@ TEST(ExtensionTest, Protocols){
 }
 
 /**
+ * Проверка разбора и составления перечня алгоритмов сжатия цепочки сертификатов по
+ * разделу 3 RFC 8879: однобайтовая длина, двухбайтовые опознаватели, порядок сохраняется,
+ * неведомые значения выдаются как есть
+ */
+TEST(ExtensionTest, Algorithms){
+	// Накопитель, в который складывается тело расширения
+	vector <uint8_t> body;
+	// Перечень составляемых алгоритмов: zlib, частный и чужой, порядок потребителя
+	const vector <uint16_t> offer = {static_cast <uint16_t> (extension::compression_t::ZLIB), 16384, 0x7777};
+	// Выполняем составление перечня алгоритмов
+	ASSERT_EQ(extension::algorithms(offer, body), extension::error_t::NONE);
+	// Проверяем длину составленного тела расширения: длина и три опознавателя
+	ASSERT_EQ(body.size(), static_cast <size_t> (1 + 3 * 2));
+	// Проверяем однобайтовую длину перечня
+	ASSERT_EQ(body[0], static_cast <uint8_t> (6));
+	// Проверяем запись первого опознавателя старшим байтом вперёд
+	ASSERT_EQ(body[1], static_cast <uint8_t> (0x00));
+	// Младший байт первого опознавателя
+	ASSERT_EQ(body[2], static_cast <uint8_t> (0x01));
+	// Перечень разобранных алгоритмов
+	vector <uint16_t> algorithms;
+	// Выполняем разбор составленного тела расширения
+	ASSERT_EQ(extension::algorithms(view_t(body.data(), body.size()), algorithms), extension::error_t::NONE);
+	// Проверяем схождение разобранного перечня с составленным в том же порядке
+	ASSERT_EQ(algorithms, offer);
+	// Проверяем отказ составления пустого перечня
+	ASSERT_EQ(extension::algorithms(vector <uint16_t> (), body), extension::error_t::EMPTY);
+	// Тело расширения с пустым перечнем
+	const uint8_t empty[1] = {0x00};
+	// Проверяем отказ разбора пустого перечня
+	ASSERT_EQ(extension::algorithms(view_t(empty, sizeof(empty)), algorithms), extension::error_t::EMPTY);
+	// Тело расширения, оборванное посреди опознавателя
+	const uint8_t torn[2] = {0x02, 0x00};
+	// Проверяем отказ разбора оборванного тела расширения
+	ASSERT_EQ(extension::algorithms(view_t(torn, sizeof(torn)), algorithms), extension::error_t::HUNGRY);
+	// Тело расширения с нечётной длиной перечня
+	const uint8_t odd[4] = {0x03, 0x00, 0x01, 0x00};
+	// Проверяем отказ разбора перечня нечётной длины
+	ASSERT_NE(extension::algorithms(view_t(odd, sizeof(odd)), algorithms), extension::error_t::NONE);
+	// Тело расширения с лишними байтами за перечнем
+	const uint8_t trailing[4] = {0x02, 0x00, 0x01, 0x00};
+	// Проверяем отказ разбора лишних байтов
+	ASSERT_EQ(extension::algorithms(view_t(trailing, sizeof(trailing)), algorithms), extension::error_t::TRAILING);
+}
+
+/**
  * Проверка разбора и составления выбранного прикладного протокола
  */
 TEST(ExtensionTest, Protocol){

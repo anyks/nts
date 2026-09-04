@@ -788,13 +788,34 @@ nts::message::error_t nts::message::content(const view_t & transcript, const boo
  *
  */
 nts::message::error_t nts::message::finished(const view_t & secret, const view_t & transcript, uint8_t * result) noexcept {
-	// Если ключ выработки завершения либо хеш переписки не переданы
+	// Выводим итог выработки тела сообщения завершения «Стрибогом»-256
+	return nts::message::finished(digest::hash_t::STREEBOG256, secret, transcript, result);
+}
+/**
+ * @brief Метод выработки тела сообщения завершения рукопожатия выбранным хешем
+ *
+ * @param algorithm  хеш набора шифрования, которым ведётся рукопожатие
+ * @param secret     ключ выработки завершения рукопожатия
+ * @param transcript хеш переписки рукопожатия на миг завершения
+ * @param result     место, в которое помещается тело сообщения
+ *
+ * @return           отказ выработки тела сообщения
+ *
+ */
+nts::message::error_t nts::message::finished(const digest::hash_t algorithm, const view_t & secret, const view_t & transcript, uint8_t * result) noexcept {
+	// Если ключ, хеш переписки либо место итога не переданы
 	if((secret.data == nullptr) || (transcript.data == nullptr) || (result == nullptr))
-		// Выводим отказ пустого обязательного поля
+		// Выводим отказ выработки тела сообщения
 		return error_t::EMPTY;
-	// Если выработать имитовставку завершения рукопожатия не удалось
-	if(!digest::hmac(digest::type_t::SHORT, secret, transcript, result, static_cast <size_t> (digest::type_t::SHORT)))
-		// Выводим отказ выработки имитовставки завершения
+	// Получаем длину хеша набора шифрования
+	const size_t length = digest::length(algorithm);
+	// Если хеш набора шифрования не установлен
+	if(length == 0)
+		// Выводим отказ выработки тела сообщения
+		return error_t::DIGEST;
+	// Если имитовставку от хеша переписки выработать не удалось
+	if(!digest::hmac(algorithm, secret, transcript, result, length))
+		// Выводим отказ выработки тела сообщения
 		return error_t::DIGEST;
 	// Выводим успешность выработки тела сообщения
 	return error_t::NONE;

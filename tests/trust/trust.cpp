@@ -27,6 +27,7 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <fstream>
+#include <cstring>
 #include <main.hpp>
 #include <starve.hpp>
 #include <pem/pem.hpp>

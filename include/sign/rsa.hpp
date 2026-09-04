@@ -246,6 +246,30 @@ namespace nts {
 				size_t size() const noexcept;
 				/**
 				 * \~russian
+				 * @brief Метод получения верхнего предела длины подписи в записанном виде
+				 *
+				 * @return верхний предел длины подписи в байтах, ноль без ключа
+				 *
+				 * @details Метод size выдаёт длину сырой подписи, под которую заводится место
+				 *          для make, а limit - наибольшую длину подписи в том виде, в котором она
+				 *          уходит наружу: она не превышается ни при каком значении подписи, как
+				 *          у EVP_PKEY_size. Подпись RSA уходит наружу как есть - числом длиной в модуль по разделу
+				 *          8 RFC 8017, оттого предел равен size
+				 *
+				 * \~english
+				 * @brief Method of getting the upper limit of the length of a signature in the written form
+				 * @return the upper limit of the length of a signature in bytes, zero without a key
+				 * @details The method size gives the length of a raw signature the place for make is
+				 *          allocated by, while limit gives the greatest length of a signature in the form
+				 *          it goes outside in: it is not exceeded at any value of the signature, like
+				 *          EVP_PKEY_size. A signature RSA goes outside as is - by a number of the length of the modulus
+				 *          according to the section 8 of RFC 8017, therefore the limit equals size
+				 *
+				 * \~
+				 */
+				size_t limit() const noexcept;
+				/**
+				 * \~russian
 				 * @brief Метод получения числа разрядов модуля
 				 *
 				 * @return число разрядов модуля

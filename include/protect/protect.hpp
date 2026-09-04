@@ -14,11 +14,12 @@
  *
  * \~russian
  * @brief Заголовочный файл модуля защиты записей протокола TLS 1.3 наборами шифрования
- *        на алгоритмах ГОСТ
+ *        на алгоритмах ГОСТ и классическими наборами AES-GCM и ChaCha20-Poly1305
  *
  * \~english
  * @brief Header file of the module of the protection of the records of the TLS 1.3 protocol
- *        by the cipher suites on the GOST algorithms
+ *        by the cipher suites on the GOST algorithms and by the classic AES-GCM and
+ *        ChaCha20-Poly1305 suites
  *
  * \~
  *
@@ -43,10 +44,14 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <sys/global.hpp>
+#include <cipher/aes.hpp>
+#include <cipher/gcm.hpp>
 #include <cipher/mgm.hpp>
 #include <cipher/mode.hpp>
+#include <digest/hash.hpp>
 #include <cipher/magma.hpp>
 #include <cipher/kuznyechik.hpp>
+#include <cipher/chachapoly.hpp>
 #include <record/record.hpp>
 
 /**
@@ -72,8 +77,10 @@ namespace nts {
 	 *          шифрования с проверкой целостности, где связанными данными служит сам
 	 *          заголовок записи, а истинный вид её содержимого прячется внутрь шифртекста.
 	 *
-	 * @note Ключ записи вырабатывается заново для всякого порядкового номера построением
-	 *       TLSTREE: тем ограничивается объём данных, зашифрованных на одном ключе
+	 * @note У наборов ГОСТ ключ записи вырабатывается заново для всякого порядкового номера
+	 *       построением TLSTREE: тем ограничивается объём данных, зашифрованных на одном
+	 *       ключе. У классических наборов ключ один на всё направление, а предел записей
+	 *       на нём задан разделом 5.5 RFC 8446
 	 *
 	 * \~english
 	 * @brief Namespace of the protection of the records of the TLS protocol
@@ -81,18 +88,26 @@ namespace nts {
 	 *          application of an encryption with an integrity check, where the header of the record
 	 *          itself serves as the associated data, while the true type of its content is hidden
 	 *          inside the ciphertext.
-	 * @note The key of a record is derived anew for every sequence number by the TLSTREE
-	 *       construction: this limits the volume of the data encrypted under a single key
+	 * @note At the GOST suites the key of a record is derived anew for every sequence number by
+	 *       the TLSTREE construction: this limits the volume of the data encrypted under a single
+	 *       key. At the classic suites the key is one for the whole direction, while the limit of
+	 *       the records under it is set by the section 5.5 of RFC 8446
 	 *
 	 * \~
 	 */
 	namespace protect {
 		/**
 		 * \~russian
-		 * @brief Длина ключа набора шифрования в байтах
+		 * @brief Наибольшая длина ключа набора шифрования в байтах
+		 *
+		 * @details У наборов ГОСТ, у AES-256 и у ChaCha20-Poly1305 ключ занимает тридцать два
+		 *          байта, у AES-128 - шестнадцать; длину ключа набора отдаёт метод key
 		 *
 		 * \~english
-		 * @brief Length of the key of a cipher suite in bytes
+		 * @brief Greatest length of the key of a cipher suite in bytes
+		 * @details At the GOST suites, at AES-256 and at ChaCha20-Poly1305 the key occupies thirty
+		 *          two bytes, at AES-128 - sixteen; the length of the key of a suite is given by the
+		 *          key method
 		 *
 		 * \~
 		 */
@@ -102,13 +117,16 @@ namespace nts {
 		 * \~russian
 		 * @brief Наибольшая длина вектора замены набора шифрования в байтах
 		 *
-		 * @details Длина вектора замены равна длине блока базового шифра: у «Кузнечика»
-		 *          это шестнадцать байтов, у «Магмы» - восемь
+		 * @details У наборов ГОСТ длина вектора замены равна длине блока базового шифра: у
+		 *          «Кузнечика» это шестнадцать байтов, у «Магмы» - восемь; у наборов AES-GCM и
+		 *          ChaCha20-Poly1305 вектор занимает двенадцать байтов (раздел 5.3 RFC 8446)
 		 *
 		 * \~english
 		 * @brief Greatest length of the initialization vector of a cipher suite in bytes
-		 * @details The length of the initialization vector equals the length of a block of the base
-		 *          cipher: at «Kuznyechik» it is sixteen bytes, at «Magma» it is eight
+		 * @details At the GOST suites the length of the initialization vector equals the length of a
+		 *          block of the base cipher: at «Kuznyechik» it is sixteen bytes, at «Magma» it is
+		 *          eight; at the AES-GCM and ChaCha20-Poly1305 suites the vector occupies twelve
+		 *          bytes (the section 5.3 of RFC 8446)
 		 *
 		 * \~
 		 */
@@ -136,16 +154,25 @@ namespace nts {
 
 		/**
 		 * \~russian
-		 * @brief Наборы шифрования протокола TLS 1.3 на алгоритмах ГОСТ
+		 * @brief Наборы шифрования протокола TLS 1.3
 		 *
-		 * @details Наборы различаются базовым шифром и тем, как часто сменяется ключ записи:
-		 *          у наборов с буквой L смена редкая, у наборов с буквой S - частая
+		 * @details Наборы ГОСТ различаются базовым шифром и тем, как часто сменяется ключ
+		 *          записи: у наборов с буквой L смена редкая, у наборов с буквой S - частая.
+		 *          Классические наборы раздела B.4 RFC 8446 различаются шифром записей (AES-GCM
+		 *          либо ChaCha20-Poly1305), длиной ключа и хешем расписания ключей
+		 *
+		 * @note Значения, здесь не перечисленные, в перечнях встречной стороны пропускаются
+		 *       молча (RFC 8701): набор неведомый - не набор негодный
 		 *
 		 * \~english
-		 * @brief Cipher suites of the TLS 1.3 protocol on the GOST algorithms
-		 * @details The suites differ by the base cipher and by how often the key of a record is
+		 * @brief Cipher suites of the TLS 1.3 protocol
+		 * @details The GOST suites differ by the base cipher and by how often the key of a record is
 		 *          changed: at the suites with the letter L the change is rare, at the suites with
-		 *          the letter S it is frequent
+		 *          the letter S it is frequent. The classic suites of the section B.4 of RFC 8446
+		 *          differ by the cipher of the records (AES-GCM or ChaCha20-Poly1305), by the length
+		 *          of the key and by the hash of the key schedule
+		 * @note The values not listed here are skipped silently in the lists of the peer (RFC 8701):
+		 *       an unknown suite is not an invalid suite
 		 *
 		 * \~
 		 */
@@ -154,29 +181,89 @@ namespace nts {
 			KUZNYECHIK_MGM_L = 0xC103, /*!< \~russian «Кузнечик» в режиме MGM с редкой сменой ключа записи \~english «Kuznyechik» in the MGM mode with a rare change of the key of a record \~ */
 			MAGMA_MGM_L      = 0xC104, /*!< \~russian «Магма» в режиме MGM с редкой сменой ключа записи \~english «Magma» in the MGM mode with a rare change of the key of a record \~ */
 			KUZNYECHIK_MGM_S = 0xC105, /*!< \~russian «Кузнечик» в режиме MGM с частой сменой ключа записи \~english «Kuznyechik» in the MGM mode with a frequent change of the key of a record \~ */
-			MAGMA_MGM_S      = 0xC106  /*!< \~russian «Магма» в режиме MGM с частой сменой ключа записи \~english «Magma» in the MGM mode with a frequent change of the key of a record \~ */
+			MAGMA_MGM_S      = 0xC106, /*!< \~russian «Магма» в режиме MGM с частой сменой ключа записи \~english «Magma» in the MGM mode with a frequent change of the key of a record \~ */
+			AES_128_GCM_SHA256 = 0x1301, /*!< \~russian AES-128 в режиме GCM с расписанием на SHA-256 \~english AES-128 in the GCM mode with the schedule on SHA-256 \~ */
+			AES_256_GCM_SHA384 = 0x1302, /*!< \~russian AES-256 в режиме GCM с расписанием на SHA-384 \~english AES-256 in the GCM mode with the schedule on SHA-384 \~ */
+			CHACHA20_POLY1305_SHA256 = 0x1303 /*!< \~russian ChaCha20-Poly1305 с расписанием на SHA-256 \~english ChaCha20-Poly1305 with the schedule on SHA-256 \~ */
 		};
 
 		/**
 		 * \~russian
-		 * @brief Метод получения длины блока базового шифра набора шифрования
+		 * @brief Метод получения длины вектора замены набора шифрования
 		 *
 		 * @param suite набор шифрования
 		 *
-		 * @return      длина блока базового шифра в байтах, ноль у неизвестного набора
+		 * @return      длина вектора замены в байтах, ноль у неизвестного набора
 		 *
-		 * @note Ей же равны длина вектора замены и длина метки целостности записи
+		 * @note У наборов ГОСТ она равна длине блока базового шифра, ей же равна и длина
+		 *       метки целостности записи; у наборов AES-GCM и ChaCha20-Poly1305 вектор
+		 *       занимает двенадцать байтов, а длину метки отдаёт метод tag
 		 *
 		 * \~english
-		 * @brief Method of getting the length of a block of the base cipher of a cipher suite
+		 * @brief Method of getting the length of the initialization vector of a cipher suite
 		 * @param suite the cipher suite
-		 * @return      the length of a block of the base cipher in bytes, a zero at an unknown suite
-		 * @note The length of the initialization vector and the length of the authentication tag of a
-		 *       record are equal to it as well
+		 * @return      the length of the initialization vector in bytes, a zero at an unknown suite
+		 * @note At the GOST suites it equals the length of a block of the base cipher, and the length
+		 *       of the authentication tag of a record equals it as well; at the AES-GCM and
+		 *       ChaCha20-Poly1305 suites the vector occupies twelve bytes, while the length of the
+		 *       tag is given by the tag method
 		 *
 		 * \~
 		 */
 		__ANTS_SHARED_EXPORT__ size_t block(const suite_t suite) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод получения длины ключа набора шифрования
+		 *
+		 * @param suite набор шифрования
+		 *
+		 * @return      длина ключа в байтах, ноль у неизвестного набора
+		 *
+		 * \~english
+		 * @brief Method of getting the length of the key of a cipher suite
+		 * @param suite the cipher suite
+		 * @return      the length of the key in bytes, a zero at an unknown suite
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ size_t key(const suite_t suite) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод получения длины метки целостности записи набора шифрования
+		 *
+		 * @param suite набор шифрования
+		 *
+		 * @return      длина метки целостности в байтах, ноль у неизвестного набора
+		 *
+		 * \~english
+		 * @brief Method of getting the length of the authentication tag of a record of a cipher suite
+		 * @param suite the cipher suite
+		 * @return      the length of the authentication tag in bytes, a zero at an unknown suite
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ size_t tag(const suite_t suite) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод получения хеша расписания ключей набора шифрования
+		 *
+		 * @param suite набор шифрования
+		 *
+		 * @return      хеш расписания ключей, NONE у неизвестного набора
+		 *
+		 * @details Раздел 7.1 RFC 8446: расписание ключей и переписка рукопожатия ведутся
+		 *          хешем набора шифрования; у наборов ГОСТ это «Стрибог»-256
+		 *
+		 * \~english
+		 * @brief Method of getting the hash of the key schedule of a cipher suite
+		 * @param suite the cipher suite
+		 * @return      the hash of the key schedule, NONE at an unknown suite
+		 * @details The section 7.1 of RFC 8446: the key schedule and the transcript of the handshake are
+		 *          conducted by the hash of the cipher suite; at the GOST suites it is «Streebog»-256
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ digest::hash_t hash(const suite_t suite) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод получения наибольшего порядкового номера записи набора шифрования
@@ -188,12 +275,23 @@ namespace nts {
 		 * @details Достигнув этого номера, связь обязана сменить ключевой материал: дальше
 		 *          записи на нём защищать нельзя
 		 *
+		 * @note Раздел 5.5 RFC 8446: у AES-GCM предел около 2^24,5 записей полной длины, а у
+		 *       ChaCha20-Poly1305 порядковый номер переполнится раньше, чем стойкость
+		 *       просядет (2^-57 на 2^64 записей). Оттого у набора ChaCha20-Poly1305 предел
+		 *       взят в 2^62: он недостижим на деле, но оставляет заслон номеров живым и не
+		 *       подпускает счётчик к переполнению, за которым одноразовое значение повторилось бы
+		 *
 		 * \~english
 		 * @brief Method of getting the greatest sequence number of a record of a cipher suite
 		 * @param suite the cipher suite
 		 * @return      the greatest sequence number of a record, a zero at an unknown suite
 		 * @details Having reached this number, a connection is obliged to change the key material:
 		 *          further records may not be protected under it
+		 * @note The section 5.5 of RFC 8446: at AES-GCM the limit is about 2^24.5 full-length records,
+		 *       while at ChaCha20-Poly1305 the sequence number would wrap before the safety drops
+		 *       (2^-57 at 2^64 records). Hence at the ChaCha20-Poly1305 suite the limit is taken as
+		 *       2^62: it is unreachable in practice, yet keeps the guard of the numbers alive and does
+		 *       not let the counter approach the wrap, behind which the nonce would repeat
 		 *
 		 * \~
 		 */
@@ -215,6 +313,8 @@ namespace nts {
 		 *          изменится, а изменившись - уводят ключ безвозвратно
 		 *
 		 * @note Место итога обязано вмещать PROTECT_KEY байтов
+		 * @note У классических наборов построения нет: ключом записи служит сам корневой
+		 *       ключ, и метод лишь переносит его на место итога
 		 *
 		 * \~english
 		 * @brief Method of the derivation of the key of a record by the TLSTREE construction
@@ -228,6 +328,8 @@ namespace nts {
 		 *          every level. Hence the neighbouring records share a key until the truncated number
 		 *          changes, and having changed, it takes the key away irreversibly
 		 * @note The place of the outcome is obliged to hold PROTECT_KEY bytes
+		 * @note At the classic suites there is no construction: the root key itself serves as the key
+		 *       of a record, and the method only moves it to the place of the outcome
 		 *
 		 * \~
 		 */
@@ -262,8 +364,20 @@ namespace nts {
 				// Набор шифрования, которым защищаются записи
 				suite_t _suite;
 			private:
-				// Длина блока базового шифра набора шифрования
+				// Длина вектора замены набора шифрования
 				size_t _size;
+			private:
+				// Длина метки целостности записи набора шифрования
+				size_t _tag;
+			private:
+				// Длина ключа набора шифрования
+				size_t _width;
+			private:
+				// Признак классического набора шифрования AES-GCM либо ChaCha20-Poly1305
+				bool _classic;
+			private:
+				// Признак набора ChaCha20-Poly1305, обходящегося без базового блочного шифра
+				bool _stream;
 			private:
 				// Порядковый номер очередной записи
 				uint64_t _sequence;
@@ -285,6 +399,9 @@ namespace nts {
 			private:
 				// Объект базового шифра «Кузнечик»
 				cipher::kuznyechik_t _kuznyechik;
+			private:
+				// Объект базового шифра AES классических наборов
+				cipher::aes_t _aes;
 			private:
 				/**
 				 * \~russian
@@ -467,6 +584,74 @@ namespace nts {
 				 * \~
 				 */
 				error_t open(const record::header_t & header, const view_t & data, record::type_t & type, vector <uint8_t> & result) noexcept;
+			public:
+				/**
+				 * \~russian
+				 * @brief Метод наложения защиты на запись с заданными связанными данными и номером
+				 *
+				 * @param associated связанные данные записи: её заголовок, составленный снаружи
+				 * @param sequence   порядковый номер записи, задающий одноразовое значение
+				 * @param type       истинный вид содержимого защищаемой записи
+				 * @param data       защищаемое содержимое записи
+				 * @param result     накопитель, в конец которого дописываются шифртекст и метка целостности
+				 * @param padding    длина дополнения, скрывающего истинную длину содержимого
+				 *
+				 * @return           отказ наложения защиты на запись
+				 *
+				 * @details Раздел 4.2 RFC 9147: заголовок записи поверх дейтаграммы составляет
+				 *          связь, а номер записи она ведёт сама по порам ключей - оттого и то и
+				 *          другое подаются снаружи, а собственный счётчик защиты не движется
+				 *
+				 * @note Заголовок в накопитель не дописывается: составивший его кладёт его сам
+				 *
+				 * \~english
+				 * @brief Method of the application of the protection to a record with the given associated
+				 *        data and number
+				 * @param associated the associated data of the record: its header composed outside
+				 * @param sequence   the sequence number of the record setting the nonce
+				 * @param type       the true type of the content of the record being protected
+				 * @param data       the content of the record being protected
+				 * @param result     the accumulator the ciphertext and the authentication tag are appended to the end of
+				 * @param padding    the length of the padding hiding the true length of the content
+				 * @return           the failure of the application of the protection to the record
+				 * @details The section 4.2 of RFC 9147: the header of a record over a datagram is composed by the
+				 *          connection, and the number of the record it leads itself by the epochs — hence both are
+				 *          given from outside, while the own counter of the protection does not move
+				 * @note The header is not appended to the accumulator: the one who composed it puts it itself
+				 *
+				 * \~
+				 */
+				error_t seal(const view_t & associated, const uint64_t sequence, const record::type_t type, const view_t & data, vector <uint8_t> & result, const size_t padding = 0) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод снятия защиты с записи с заданными связанными данными и номером
+				 *
+				 * @param associated связанные данные записи: её заголовок, каким он был при наложении защиты
+				 * @param sequence   восстановленный порядковый номер записи
+				 * @param data       защищённое содержимое принятой записи
+				 * @param type       вид содержимого, в который помещается истинный вид содержимого записи
+				 * @param result     накопитель, в конец которого дописывается открытое содержимое записи
+				 *
+				 * @return           отказ снятия защиты с записи
+				 *
+				 * @note Собственный счётчик защиты не движется: порядок приёма записей поверх
+				 *       дейтаграмм ведёт окно защиты от повторов у связи
+				 *
+				 * \~english
+				 * @brief Method of the removal of the protection from a record with the given associated data
+				 *        and number
+				 * @param associated the associated data of the record: its header as it was at the application of the protection
+				 * @param sequence   the restored sequence number of the record
+				 * @param data       the protected content of the received record
+				 * @param type       the type of the content the true type of the content of the record is put into
+				 * @param result     the accumulator the plain content of the record is appended to the end of
+				 * @return           the failure of the removal of the protection from the record
+				 * @note The own counter of the protection does not move: the order of the receipt of the records
+				 *       over datagrams is led by the anti-replay window of the connection
+				 *
+				 * \~
+				 */
+				error_t open(const view_t & associated, const uint64_t sequence, const view_t & data, record::type_t & type, vector <uint8_t> & result) noexcept;
 			public:
 				/**
 				 * \~russian

@@ -106,6 +106,12 @@ TEST(HandshakeTest, Header){
 	ASSERT_EQ(handshake::build(header, buffer), handshake::error_t::NONE);
 	// Проверяем схождение записанной обвязки с разобранной
 	ASSERT_EQ(::memcmp(buffer, data, sizeof(data)), 0);
+	// Разбираемая обвязка сжатой цепочки сертификатов по RFC 8879
+	const uint8_t compressed[] = {0x19, 0x00, 0x01, 0x00};
+	// Выполняем разбор обвязки сжатой цепочки сертификатов
+	ASSERT_EQ(handshake::parse(view_t(compressed, sizeof(compressed)), header), handshake::error_t::NONE);
+	// Проверяем вид разобранного сообщения: сжатая цепочка сертификатов
+	ASSERT_EQ(header.type, handshake::type_t::COMPRESSED);
 	// Разбираемая обвязка сообщения неизвестного вида
 	const uint8_t unknown[] = {0x2A, 0x00, 0x00, 0x01};
 	// Проверяем отказ разбора сообщения неизвестного вида

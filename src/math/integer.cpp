@@ -33,6 +33,7 @@
  */
 #include <math/integer.hpp>
 #include <entropy/entropy.hpp>
+#include <sys/wipe.hpp>
 
 /**
  * Используем стандартное пространство имён
@@ -57,7 +58,7 @@ namespace {
 	/**
 	 * Двойное слово для произведений слов
 	 */
-	typedef __uint128_t double_t;
+	typedef __uint128_t wide_t;
 
 	/**
 	 * @brief Число слов накопителя двойной ёмкости
@@ -96,27 +97,8 @@ namespace {
 	 */
 	static constexpr size_t SIEVE = 8192;
 
-	/**
-	 * @brief Метод затирания области памяти
-	 *
-	 * @details Затирание ведётся через изменчивый указатель: обычное присваивание
-	 *          собиратель вправе выбросить, увидев, что записанное значение больше
-	 *          никем не читается, - и секрет остался бы в памяти
-	 *
-	 * @param data затираемая область памяти
-	 * @param size размер затираемой области памяти
-	 *
-	 */
-	static void wipe(void * data, const size_t size) noexcept {
-		// Получаем изменчивый указатель на затираемую область памяти
-		volatile uint8_t * item = static_cast <volatile uint8_t *> (data);
-		/**
-		 * Выполняем перебор байтов затираемой области памяти
-		 */
-		for(size_t i = 0; i < size; i++)
-			// Обнуляем очередной байт области памяти
-			item[i] = 0;
-	}
+	// Затирание областей памяти берётся из открытого API библиотеки
+	using nts::sys::wipe;
 	/**
 	 * @brief Метод выбора одного из двух слов наложением маски
 	 *
@@ -175,7 +157,7 @@ namespace {
 		 */
 		for(size_t i = 0; i < count; i++){
 			// Складываем очередные слова с переносом
-			const double_t item = (static_cast <double_t> (first[i]) + second[i] + carry);
+			const wide_t item = (static_cast <wide_t> (first[i]) + second[i] + carry);
 			// Записываем младшую половину полученного значения
 			result[i] = static_cast <uint64_t> (item);
 			// Запоминаем перенос в следующее слово
@@ -203,7 +185,7 @@ namespace {
 		 */
 		for(size_t i = 0; i < count; i++){
 			// Вычитаем очередные слова с заёмом
-			const double_t item = (static_cast <double_t> (first[i]) - second[i] - borrow);
+			const wide_t item = (static_cast <wide_t> (first[i]) - second[i] - borrow);
 			// Записываем младшую половину полученного значения
 			result[i] = static_cast <uint64_t> (item);
 			// Запоминаем заём из следующего слова
@@ -220,7 +202,7 @@ namespace {
 	 * @param count  число слов
 	 *
 	 */
-	static void copy(const uint64_t * source, uint64_t * target, const size_t count) noexcept {
+	static void transfer(const uint64_t * source, uint64_t * target, const size_t count) noexcept {
 		/**
 		 * Выполняем перебор копируемых слов
 		 */
@@ -372,7 +354,7 @@ namespace {
 			 */
 			for(size_t j = 0; j < count2; j++){
 				// Складываем накопленное слово с произведением слов и переносом
-				const double_t item = (static_cast <double_t> (first[i]) * second[j] + result[i + j] + carry);
+				const wide_t item = (static_cast <wide_t> (first[i]) * second[j] + result[i + j] + carry);
 				// Записываем младшую половину полученного значения
 				result[i + j] = static_cast <uint64_t> (item);
 				// Запоминаем перенос в следующее слово
@@ -420,7 +402,7 @@ namespace {
 			// Если остаток не меньше делителя: старшее слово покрывает заём
 			if(remainder[words] >= borrow){
 				// Записываем разность в остаток
-				copy(buffer, remainder, words + 1);
+				transfer(buffer, remainder, words + 1);
 				// Если частное нужно
 				if(quotient != nullptr)
 					// Выставляем очередной разряд частного
@@ -484,14 +466,14 @@ namespace {
 			 */
 			for(size_t j = 0; j < count; j++){
 				// Складываем накопленное слово с произведением слов и переносом
-				const double_t item = (static_cast <double_t> (first[j]) * word + buffer[j] + carry);
+				const wide_t item = (static_cast <wide_t> (first[j]) * word + buffer[j] + carry);
 				// Записываем младшую половину полученного значения
 				buffer[j] = static_cast <uint64_t> (item);
 				// Запоминаем перенос в следующее слово
 				carry = static_cast <uint64_t> (item >> 64);
 			}
 			// Складываем старшее слово произведения с переносом
-			const double_t item = (static_cast <double_t> (buffer[count]) + carry);
+			const wide_t item = (static_cast <wide_t> (buffer[count]) + carry);
 			// Записываем младшую половину полученного значения
 			buffer[count] = static_cast <uint64_t> (item);
 			// Запоминаем перенос в дополнительное слово произведения
@@ -502,7 +484,7 @@ namespace {
 			 */
 			const uint64_t reducer = (buffer[0] * inverse);
 			// Складываем младшее слово произведения с произведением множителя на модуль
-			const double_t value = (static_cast <double_t> (reducer) * modulus[0] + buffer[0]);
+			const wide_t value = (static_cast <wide_t> (reducer) * modulus[0] + buffer[0]);
 			// Запоминаем перенос из младшего слова произведения
 			carry = static_cast <uint64_t> (value >> 64);
 			/**
@@ -510,14 +492,14 @@ namespace {
 			 */
 			for(size_t j = 1; j < count; j++){
 				// Складываем накопленное слово с произведением множителя на модуль
-				const double_t step = (static_cast <double_t> (reducer) * modulus[j] + buffer[j] + carry);
+				const wide_t step = (static_cast <wide_t> (reducer) * modulus[j] + buffer[j] + carry);
 				// Записываем младшую половину полученного значения со сдвигом на слово
 				buffer[j - 1] = static_cast <uint64_t> (step);
 				// Запоминаем перенос в следующее слово
 				carry = static_cast <uint64_t> (step >> 64);
 			}
 			// Складываем старшее слово произведения с переносом
-			const double_t last = (static_cast <double_t> (buffer[count]) + carry);
+			const wide_t last = (static_cast <wide_t> (buffer[count]) + carry);
 			// Записываем младшую половину полученного значения со сдвигом на слово
 			buffer[count - 1] = static_cast <uint64_t> (last);
 			// Складываем дополнительное слово произведения с переносом
@@ -592,7 +574,7 @@ namespace {
 			// Если пройдена половина удвоений
 			if(i == (count * 64))
 				// Запоминаем основание области
-				copy(square, base, count);
+				transfer(square, base, count);
 			// Удваиваем значение по модулю
 			twice(square, modulus, count);
 		}
@@ -636,7 +618,7 @@ namespace {
 	 */
 	static uint64_t modulo(const uint64_t * data, const size_t count, const uint64_t divisor) noexcept {
 		// Накапливаемый остаток
-		double_t result = 0;
+		wide_t result = 0;
 		/**
 		 * Выполняем перебор слов от старшего к младшему
 		 */
@@ -742,7 +724,7 @@ namespace {
 			// Знаковое слагаемое
 			signed_t item;
 			// Копируем величину слагаемого
-			copy(addend, item.words, SIGNED_WORDS);
+			transfer(addend, item.words, SIGNED_WORDS);
 			// Если знак слагаемого совпадает со знаком числа, величины складываются
 			if(value.negative == minus)
 				// Складываем величины с запоминанием переноса
@@ -756,7 +738,7 @@ namespace {
 				// Вычитаем обращённое слагаемое из числа
 				lessen(value, item, result);
 				// Записываем разность в число
-				copy(result.words, value.words, SIGNED_WORDS);
+				transfer(result.words, value.words, SIGNED_WORDS);
 				// Записываем знак разности
 				value.negative = result.negative;
 			}
@@ -800,15 +782,15 @@ namespace {
 		// Слова чисел с запасным словом
 		uint64_t x[SIGNED_WORDS] = {}, y[SIGNED_WORDS] = {};
 		// Копируем первое число
-		copy(first, x, INTEGER_WORDS);
+		transfer(first, x, INTEGER_WORDS);
 		// Копируем второе число
-		copy(second, y, INTEGER_WORDS);
+		transfer(second, y, INTEGER_WORDS);
 		// Текущие величины алгоритма
 		signed_t u, v, a, b, c, d;
 		// Копируем первое число
-		copy(x, u.words, SIGNED_WORDS);
+		transfer(x, u.words, SIGNED_WORDS);
 		// Копируем второе число
-		copy(y, v.words, SIGNED_WORDS);
+		transfer(y, v.words, SIGNED_WORDS);
 		// Начальный коэффициент при x у первой величины
 		a.words[0] = 1;
 		// Начальный коэффициент при y у второй величины
@@ -866,13 +848,13 @@ namespace {
 				// Вычитаем третий коэффициент из первого
 				lessen(a, c, item);
 				// Записываем разность в первый коэффициент
-				copy(item.words, a.words, SIGNED_WORDS);
+				transfer(item.words, a.words, SIGNED_WORDS);
 				// Записываем знак разности
 				a.negative = item.negative;
 				// Вычитаем четвёртый коэффициент из второго
 				lessen(b, d, item);
 				// Записываем разность во второй коэффициент
-				copy(item.words, b.words, SIGNED_WORDS);
+				transfer(item.words, b.words, SIGNED_WORDS);
 				// Записываем знак разности
 				b.negative = item.negative;
 			// Если вторая величина больше
@@ -884,13 +866,13 @@ namespace {
 				// Вычитаем первый коэффициент из третьего
 				lessen(c, a, item);
 				// Записываем разность в третий коэффициент
-				copy(item.words, c.words, SIGNED_WORDS);
+				transfer(item.words, c.words, SIGNED_WORDS);
 				// Записываем знак разности
 				c.negative = item.negative;
 				// Вычитаем второй коэффициент из четвёртого
 				lessen(d, b, item);
 				// Записываем разность в четвёртый коэффициент
-				copy(item.words, d.words, SIGNED_WORDS);
+				transfer(item.words, d.words, SIGNED_WORDS);
 				// Записываем знак разности
 				d.negative = item.negative;
 			}
@@ -898,11 +880,11 @@ namespace {
 		// Если делитель нужен
 		if(divisor != nullptr)
 			// Записываем наибольший общий делитель
-			copy(v.words, divisor, INTEGER_WORDS);
+			transfer(v.words, divisor, INTEGER_WORDS);
 		// Если коэффициент при x нужен
 		if(inverse != nullptr){
 			// Записываем величину коэффициента
-			copy(c.words, inverse->words, SIGNED_WORDS);
+			transfer(c.words, inverse->words, SIGNED_WORDS);
 			// Записываем знак коэффициента
 			inverse->negative = c.negative;
 		}
@@ -1217,7 +1199,7 @@ bool nts::math::Integer::multiply(const Integer & first, const Integer & second)
 	// Вычисляем произведение целиком
 	product(first._words, INTEGER_WORDS, second._words, INTEGER_WORDS, buffer);
 	// Записываем младшую половину произведения
-	copy(buffer, this->_words, INTEGER_WORDS);
+	transfer(buffer, this->_words, INTEGER_WORDS);
 	// Объединение слов старшей половины
 	uint64_t excess = 0;
 	/**
@@ -1242,7 +1224,7 @@ void nts::math::Integer::left(const Integer & value, const size_t count) noexcep
 	// Слова исходного значения
 	uint64_t buffer[INTEGER_WORDS];
 	// Копируем исходное значение
-	copy(value._words, buffer, INTEGER_WORDS);
+	transfer(value._words, buffer, INTEGER_WORDS);
 	// Обнуляем число
 	this->clear();
 	// Сдвиг в словах
@@ -1274,7 +1256,7 @@ void nts::math::Integer::right(const Integer & value, const size_t count) noexce
 	// Слова исходного значения
 	uint64_t buffer[INTEGER_WORDS];
 	// Копируем исходное значение
-	copy(value._words, buffer, INTEGER_WORDS);
+	transfer(value._words, buffer, INTEGER_WORDS);
 	// Обнуляем число
 	this->clear();
 	// Сдвиг в словах
@@ -1318,13 +1300,13 @@ bool nts::math::Integer::divide(const Integer & dividend, const Integer & diviso
 	// Выполняем деление столбиком
 	::divide(dividend._words, INTEGER_WORDS, divisor._words, words, quotient, buffer);
 	// Записываем частное
-	copy(quotient, this->_words, INTEGER_WORDS);
+	transfer(quotient, this->_words, INTEGER_WORDS);
 	// Если остаток нужен
 	if(remainder != nullptr){
 		// Обнуляем остаток
 		remainder->clear();
 		// Записываем остаток
-		copy(buffer, remainder->_words, words);
+		transfer(buffer, remainder->_words, words);
 	}
 	// Затираем частное
 	wipe(quotient, sizeof(quotient));
@@ -1355,7 +1337,7 @@ bool nts::math::Integer::reduce(const Integer & value, const Integer & modulus) 
 	// Обнуляем число
 	this->clear();
 	// Записываем остаток
-	copy(buffer, this->_words, words);
+	transfer(buffer, this->_words, words);
 	// Затираем остаток
 	wipe(buffer, sizeof(buffer));
 	// Выводим признак успешности
@@ -1491,7 +1473,7 @@ bool nts::math::Integer::mulmod(const Integer & first, const Integer & second, c
 		// Обнуляем число
 		this->clear();
 		// Записываем остаток
-		copy(remainder, this->_words, words);
+		transfer(remainder, this->_words, words);
 		// Затираем накопитель
 		wipe(buffer, sizeof(buffer));
 		// Затираем остаток
@@ -1530,7 +1512,7 @@ bool nts::math::Integer::power(const Integer & base, const Integer & exponent, c
 	// Таблица степеней основания в области Монтгомери
 	uint64_t table[TABLE][INTEGER_WORDS];
 	// Единица в области Монтгомери - само основание области
-	copy(unit, table[0], words);
+	transfer(unit, table[0], words);
 	// Приводим основание степени в область Монтгомери
 	montgomery(base._words, square, modulus._words, words, inverse, table[1]);
 	/**
@@ -1544,7 +1526,7 @@ bool nts::math::Integer::power(const Integer & base, const Integer & exponent, c
 	// Накопитель степени и выбранная запись таблицы
 	uint64_t result[INTEGER_WORDS], chosen[INTEGER_WORDS];
 	// Начинаем с единицы в области Монтгомери
-	copy(unit, result, words);
+	transfer(unit, result, words);
 	/**
 	 * Выполняем перебор окон показателя от старшего к младшему
 	 */
@@ -1644,7 +1626,7 @@ bool nts::math::Integer::invert(const Integer & value, const Integer & modulus) 
 	// Приводим величину коэффициента по модулю
 	Integer amount;
 	// Копируем величину коэффициента
-	copy(inverse.words, amount._words, INTEGER_WORDS);
+	transfer(inverse.words, amount._words, INTEGER_WORDS);
 	// Приводим величину по модулю
 	this->reduce(amount, modulus);
 	// Если коэффициент отрицателен, и величина не ноль
@@ -1668,9 +1650,9 @@ bool nts::math::Integer::gcd(const Integer & first, const Integer & second) noex
 	// Копии чисел без общих двоек
 	Integer x, y;
 	// Копируем первое число
-	copy(first._words, x._words, INTEGER_WORDS);
+	transfer(first._words, x._words, INTEGER_WORDS);
 	// Копируем второе число
-	copy(second._words, y._words, INTEGER_WORDS);
+	transfer(second._words, y._words, INTEGER_WORDS);
 	// Если оба числа нули
 	if(x.zero() && y.zero())
 		// Выводим отказ
@@ -1692,13 +1674,13 @@ bool nts::math::Integer::gcd(const Integer & first, const Integer & second) noex
 	// Если второе число равно нулю, делитель - первое число
 	if(y.zero())
 		// Копируем первое число
-		copy(x._words, divisor, INTEGER_WORDS);
+		transfer(x._words, divisor, INTEGER_WORDS);
 	// Если оба числа не нули, выполняем расширенный алгоритм Евклида
 	else if(!euclid(x._words, y._words, divisor, nullptr))
 		// Выводим отказ
 		return false;
 	// Копируем делитель
-	copy(divisor, this->_words, INTEGER_WORDS);
+	transfer(divisor, this->_words, INTEGER_WORDS);
 	// Возвращаем вынесенные двойки
 	this->left(*this, twos);
 	// Затираем делитель
@@ -1796,7 +1778,7 @@ bool nts::math::Integer::prime() const noexcept {
 	// Нечётная часть числа без единицы
 	Integer part;
 	// Копируем число без единицы
-	copy(lessened._words, part._words, INTEGER_WORDS);
+	transfer(lessened._words, part._words, INTEGER_WORDS);
 	/**
 	 * Выполняем вынесение двоек из числа без единицы
 	 */

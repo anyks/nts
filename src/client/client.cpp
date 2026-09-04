@@ -118,6 +118,18 @@ const vector <vector <uint8_t>> & nts::client::Context::peer() const noexcept {
 	return (this->_engine != nullptr ? this->_engine->peer() : chain);
 }
 /**
+ * @brief Метод получения алгоритма сжатия цепочки сертификатов направления
+ *
+ * @param direction направление связи относительно своей стороны
+ *
+ * @return          опознаватель алгоритма по реестру RFC 8879, ноль у несжатой цепочки
+ *
+ */
+uint16_t nts::client::Context::compression(const context::direction_t direction) const noexcept {
+	// Выводим алгоритм сжатия цепочки направления, ноль без ведения связи
+	return ((this->_engine != nullptr) ? this->_engine->compression(direction) : 0);
+}
+/**
  * @brief Метод получения прикладного протокола связи
  *
  * @return прикладной протокол, выбранный сторонами связи
@@ -164,6 +176,104 @@ void nts::client::Context::groups(const vector <extension::group_t> & groups) no
 	if(this->_engine != nullptr)
 		// Выполняем установку предлагаемых кривых обмена ключами
 		this->_engine->groups(groups);
+}
+/**
+ * @brief Метод установки групп обмена, по которым приветствием шлются доли ключа
+ *
+ * @param shares устанавливаемые группы долей ключа
+ *
+ */
+void nts::client::Context::shares(const vector <extension::group_t> & shares) noexcept {
+	// Если ведение связи заведено
+	if(this->_engine != nullptr)
+		// Выполняем установку групп долей ключа
+		this->_engine->shares(shares);
+}
+/**
+ * @brief Метод установки признаваемых схем подписи
+ *
+ * @param schemes устанавливаемые схемы подписи
+ *
+ */
+void nts::client::Context::schemes(const vector <extension::scheme_t> & schemes) noexcept {
+	// Если ведение связи заведено
+	if(this->_engine != nullptr)
+		// Выполняем установку признаваемых схем подписи
+		this->_engine->schemes(schemes);
+}
+/**
+ * @brief Метод установки алгоритмов сжатия цепочки сертификатов
+ *
+ * @param codecs    устанавливаемые алгоритмы в порядке предпочтения
+ * @param inflation предел длины цепочки после распаковки в байтах, ноль оставляет умолчание
+ *
+ */
+void nts::client::Context::codecs(const vector <context::codec_t> & codecs, const size_t inflation) noexcept {
+	// Если ведение связи заведено
+	if(this->_engine != nullptr)
+		// Выполняем установку алгоритмов сжатия цепочки сертификатов
+		this->_engine->codecs(codecs, inflation);
+}
+/**
+ * @brief Метод установки запроса состояния сертификата собеседника
+ *
+ * @param request запрашивается ли состояние сертификата собеседника
+ *
+ */
+void nts::client::Context::status(const bool request) noexcept {
+	// Если ведение связи заведено
+	if(this->_engine != nullptr)
+		// Выполняем установку запроса состояния сертификата собеседника
+		this->_engine->inquire(request);
+}
+/**
+ * @brief Метод установки ответа о состоянии своего сертификата для сшивки
+ *
+ * @param response запись ответа OCSP, пустая снимает ответ
+ * @param index    место сертификата в своей цепочке
+ *
+ */
+void nts::client::Context::status(const vector <uint8_t> & response, const size_t index) noexcept {
+	// Если ведение связи заведено
+	if(this->_engine != nullptr)
+		// Выполняем установку ответа о состоянии своего сертификата
+		this->_engine->staple(response, index);
+}
+/**
+ * @brief Метод получения ответа о состоянии сертификата собеседника
+ *
+ * @return запись ответа OCSP либо пустой накопитель
+ *
+ */
+const vector <uint8_t> & nts::client::Context::status() const noexcept {
+	// Пустой накопитель на случай незаведённой связи
+	static const vector <uint8_t> empty;
+	// Выводим ответ о состоянии сертификата собеседника
+	return ((this->_engine != nullptr) ? this->_engine->status() : empty);
+}
+/**
+ * @brief Метод установки проверки принятого ответа о состоянии сертификата
+ *
+ * @param verify проверяется ли принятый ответ связью
+ * @param leeway дозволенный люфт сроков ответа в секундах
+ * @param store  запас доверенных сертификатов для розыска издателя собеседника
+ *
+ */
+void nts::client::Context::verification(const bool verify, const int64_t leeway, const trust::store_t & store) noexcept {
+	// Если ведение связи заведено
+	if(this->_engine != nullptr)
+		// Выполняем установку проверки принятого ответа о состоянии
+		this->_engine->verification(verify, leeway, store);
+}
+/**
+ * @brief Метод получения состояния сертификата собеседника
+ *
+ * @return состояние по проверенному ответу либо NONE
+ *
+ */
+nts::ocsp::status_t nts::client::Context::certified() const noexcept {
+	// Выводим состояние сертификата собеседника
+	return ((this->_engine != nullptr) ? this->_engine->certified() : ocsp::status_t::NONE);
 }
 /**
  * @brief Метод установки подлинности своей стороны связи
@@ -281,6 +391,207 @@ void nts::client::Context::renewal(const bool automatic, const uint64_t records)
 uint64_t nts::client::Context::sequence(const bool incoming) const noexcept {
 	// Выводим счётчик записей запрошенного направления связи
 	return (this->_engine != nullptr ? this->_engine->sequence(incoming) : 0);
+}
+/**
+ * @brief Метод установки способа переноса рукопожатия
+ *
+ * @param transport устанавливаемый способ переноса
+ *
+ */
+void nts::client::Context::transport(const context::transport_t transport) noexcept {
+	// Если ведение связи заведено
+	if(this->_engine != nullptr)
+		// Устанавливаем способ переноса рукопожатия
+		this->_engine->transport(transport);
+}
+/**
+ * @brief Метод получения способа переноса рукопожатия
+ *
+ * @return способ переноса рукопожатия связи
+ *
+ */
+context::transport_t nts::client::Context::transport() const noexcept {
+	// Выводим способ переноса рукопожатия связи
+	return (this->_engine != nullptr ? this->_engine->transport() : context::transport_t::RECORDS);
+}
+/**
+ * @brief Метод установки своих параметров переноса QUIC
+ *
+ * @param parameters устанавливаемые параметры переноса
+ *
+ */
+void nts::client::Context::parameters(const vector <uint8_t> & parameters) noexcept {
+	// Если ведение связи заведено
+	if(this->_engine != nullptr)
+		// Устанавливаем свои параметры переноса QUIC
+		this->_engine->parameters(parameters);
+}
+/**
+ * @brief Метод получения параметров переноса QUIC собеседника
+ *
+ * @return параметры переноса, принятые от собеседника
+ *
+ */
+const vector <uint8_t> & nts::client::Context::parameters() const noexcept {
+	// Параметры, выводимые при незаведённом ведении связи
+	static const vector <uint8_t> parameters;
+	// Выводим параметры переноса, принятые от собеседника
+	return (this->_engine != nullptr ? this->_engine->parameters() : parameters);
+}
+/**
+ * @brief Метод проверки приёма параметров переноса собеседника
+ *
+ * @return признак того, что параметры переноса собеседника приняты
+ *
+ */
+bool nts::client::Context::acquired() const noexcept {
+	// Выводим признак приёма параметров переноса собеседника
+	return (this->_engine != nullptr ? this->_engine->acquired() : false);
+}
+/**
+ * @brief Метод подачи связи сообщений рукопожатия уровня защиты
+ *
+ * @param level уровень защиты, на котором сообщения приняты
+ * @param data  принятые сообщения рукопожатия без обвязки записей
+ *
+ * @return      отказ разбора принятых сообщений
+ *
+ */
+context::error_t nts::client::Context::push(const context::level_t level, const view_t & data) noexcept {
+	// Если ведение связи не заведено
+	if(this->_engine == nullptr)
+		// Выводим отказ нехватки памяти
+		return context::error_t::MEMORY;
+	// Выводим итог разбора принятых сообщений уровня
+	return this->_engine->push(level, data);
+}
+/**
+ * @brief Метод получения сообщений рукопожатия, отправляемых на уровне защиты
+ *
+ * @param level уровень защиты, сообщения которого запрашиваются
+ *
+ * @return      накопленные сообщения рукопожатия уровня
+ *
+ */
+view_t nts::client::Context::output(const context::level_t level) const noexcept {
+	// Выводим накопленные сообщения рукопожатия уровня
+	return (this->_engine != nullptr ? this->_engine->output(level) : view_t());
+}
+/**
+ * @brief Метод снятия отправленных сообщений с накопителя уровня защиты
+ *
+ * @param level уровень защиты, с накопителя которого снимаются сообщения
+ * @param size  размер снимаемых байтов
+ *
+ */
+void nts::client::Context::consume(const context::level_t level, const size_t size) noexcept {
+	// Если ведение связи заведено
+	if(this->_engine != nullptr)
+		// Выполняем снятие отправленных сообщений с накопителя уровня
+		this->_engine->consume(level, size);
+}
+/**
+ * @brief Метод получения значения направления связи уровня защиты
+ *
+ * @param level     уровень защиты, значение которого запрашивается
+ * @param direction направление связи относительно своей стороны
+ * @param result    место, в которое помещается значение направления
+ * @param size      место, в которое помещается длина значения по хешу набора
+ *
+ * @return          признак того, что значение уровня уже выведено
+ *
+ */
+bool nts::client::Context::secret(const context::level_t level, const context::direction_t direction, uint8_t * result, size_t & size) const noexcept {
+	// Выводим итог получения значения направления связи уровня
+	return (this->_engine != nullptr ? this->_engine->secret(level, direction, result, size) : false);
+}
+/**
+ * @brief Метод получения уровня защиты, ключи которого готовы направлению
+ *
+ * @param direction направление связи относительно своей стороны
+ *
+ * @return          наивысший уровень защиты, ключи которого у направления есть
+ *
+ */
+context::level_t nts::client::Context::level(const context::direction_t direction) const noexcept {
+	// Выводим уровень защиты, ключи которого готовы направлению
+	return (this->_engine != nullptr ? this->_engine->level(direction) : context::level_t::NONE);
+}
+/**
+ * @brief Метод проверки хода упреждающих данных прямо сейчас
+ *
+ * @return признак того, что упреждающие данные идут прямо сейчас
+ *
+ */
+bool nts::client::Context::earlying() const noexcept {
+	// Выводим признак хода упреждающих данных
+	return (this->_engine != nullptr ? this->_engine->earlying() : false);
+}
+/**
+ * @brief Метод проверки отказа сервера от предложенных упреждающих данных
+ *
+ * @return признак того, что упреждение предлагалось и сервером отвергнуто
+ *
+ */
+bool nts::client::Context::rejected() const noexcept {
+	// Выводим признак отвергнутого сервером упреждения
+	return (this->_engine != nullptr ? this->_engine->rejected() : false);
+}
+/**
+ * @brief Метод установки размера дейтаграммы связи
+ *
+ * @param mtu устанавливаемый размер дейтаграммы в байтах
+ *
+ */
+void nts::client::Context::mtu(const size_t mtu) noexcept {
+	// Если ведение связи заведено
+	if(this->_engine != nullptr)
+		// Выполняем установку размера дейтаграммы связи
+		this->_engine->mtu(mtu);
+}
+/**
+ * @brief Метод получения размера дейтаграммы связи
+ *
+ * @return размер дейтаграммы в байтах
+ *
+ */
+size_t nts::client::Context::mtu() const noexcept {
+	// Выводим размер дейтаграммы связи
+	return (this->_engine != nullptr ? this->_engine->mtu() : 0);
+}
+/**
+ * @brief Метод получения срока ожидания повторной передачи
+ *
+ * @return срок ожидания в миллисекундах, ноль, когда ждать нечего
+ *
+ */
+uint32_t nts::client::Context::timeout() const noexcept {
+	// Выводим срок ожидания повторной передачи
+	return (this->_engine != nullptr ? this->_engine->timeout() : 0);
+}
+/**
+ * @brief Метод извещения связи об истечении срока ожидания
+ *
+ * @return отказ повторной передачи
+ *
+ */
+context::error_t nts::client::Context::elapsed() noexcept {
+	// Если ведение связи не заведено
+	if(this->_engine == nullptr)
+		// Выводим отказ нехватки памяти
+		return context::error_t::MEMORY;
+	// Выводим итог повторной передачи залпа
+	return this->_engine->elapsed();
+}
+/**
+ * @brief Метод получения числа молча отброшенных записей и дейтаграмм
+ *
+ * @return число отброшенных записей и дейтаграмм
+ *
+ */
+uint64_t nts::client::Context::discarded() const noexcept {
+	// Выводим число отброшенных записей и дейтаграмм
+	return (this->_engine != nullptr ? this->_engine->discarded() : 0);
 }
 /**
  * @brief Метод заведения связи

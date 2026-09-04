@@ -260,7 +260,8 @@ namespace nts {
 			CHANGE      = 0x14, /*!< \~russian Извещение о смене набора шифрования \~english The notification of the change of the cipher suite \~ */
 			ALERT       = 0x15, /*!< \~russian Извещение о событии или об отказе \~english The notification of an event or of a failure \~ */
 			HANDSHAKE   = 0x16, /*!< \~russian Сообщение рукопожатия \~english A message of the handshake \~ */
-			APPLICATION = 0x17  /*!< \~russian Данные прикладного протокола \~english The data of the application protocol \~ */
+			APPLICATION = 0x17, /*!< \~russian Данные прикладного протокола \~english The data of the application protocol \~ */
+			ACK         = 0x1A  /*!< \~russian Подтверждение принятых записей DTLS 1.3 (раздел 7 RFC 9147) \~english The acknowledgement of the received records of DTLS 1.3 (the section 7 of RFC 9147) \~ */
 		};
 
 		/**
