@@ -88,6 +88,7 @@
 | `include/server`, `src/server` | Фасад связи сервера: подлинность, запрос подлинности клиента и билеты |
 | `include/trust`, `src/trust` | Доверие цепочке сертификатов: запас, проверка цепочки и сличение имени |
 | `include/pem`, `src/pem` | Хранение записей в виде PEM по RFC 7468: обёртка, цепочка сертификатов и секретный ключ |
+| `include/keys`, `src/keys` | Кодеки ключей: SubjectPublicKeyInfo, PrivateKeyInfo, EncryptedPrivateKeyInfo по PBES2, ECPrivateKey, RSAPrivateKey и RSAPublicKey; RSA, EC, Ed25519, X25519 и ГОСТ; из памяти в DER и PEM и обратно |
 | `include/alert`, `src/alert` | Извещения: уровень, описание и решение о разрыве связи |
 | `include/schedule`, `src/schedule` | Расписание ключей TLS 1.3 по разделу 7.1 RFC 8446 |
 | `src/internal` | Внутренние модули, наружу не вывозятся |

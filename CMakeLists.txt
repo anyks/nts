@@ -217,6 +217,7 @@ SET(SOURCE_FILES
     "${CMAKE_SOURCE_DIR}/src/context/context.cpp"
     "${CMAKE_SOURCE_DIR}/src/trust/trust.cpp"
     "${CMAKE_SOURCE_DIR}/src/pem/pem.cpp"
+    "${CMAKE_SOURCE_DIR}/src/keys/keys.cpp"
     "${CMAKE_SOURCE_DIR}/src/internal/engine/engine.cpp"
     "${CMAKE_SOURCE_DIR}/src/client/client.cpp"
     "${CMAKE_SOURCE_DIR}/src/server/server.cpp"

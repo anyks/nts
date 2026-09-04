@@ -425,3 +425,11 @@ nts::client::Context::Context() noexcept : _engine(nullptr) {
 		this->_engine = nullptr;
 	}
 }
+/**
+ * @brief Деструктор
+ *
+ */
+nts::client::Context::~Context() noexcept {
+	// Уничтожаем объект ведения связи здесь, где его тип полон
+	this->_engine.reset();
+}

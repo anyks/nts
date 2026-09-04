@@ -915,7 +915,7 @@ namespace nts {
 				 *
 				 * \~
 				 */
-				~Context() noexcept = default;
+				~Context() noexcept;
 		} context_t;
 	};
 };
