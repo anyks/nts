@@ -142,16 +142,16 @@ namespace {
 	 * @param parameters разбираемая запись настроек алгоритма ключа
 	 * @param result     место, в которое помещается опознаватель набора параметров
 	 *
-	 * @return           признак успешности извлечения опознавателя
+	 * @return           отказ извлечения опознавателя
 	 *
 	 */
-	static bool identifier(const view_t & parameters, string & result) noexcept {
+	static nts::x509::error_t identifier(const view_t & parameters, string & result) noexcept {
 		// Выполняем сброс извлекаемого опознавателя
 		result.clear();
 		// Если запись настроек алгоритма ключа не передана
 		if((parameters.data == nullptr) || (parameters.size == 0))
 			// Выводим отказ извлечения опознавателя
-			return false;
+			return nts::x509::error_t::KEY;
 		// Разборщик записи настроек алгоритма ключа
 		asn1::Reader reader(parameters);
 		// Разбираемый элемент записи настроек
@@ -159,15 +159,22 @@ namespace {
 		// Если набор настроек алгоритма ключа разобрать не удалось
 		if(!reader.next(asn1::tag_t::SEQUENCE, element))
 			// Выводим отказ извлечения опознавателя
-			return false;
+			return nts::x509::error_t::KEY;
 		// Разборщик содержимого набора настроек
 		asn1::Reader items = reader.enter(element);
 		// Если опознаватель набора параметров кривой разобрать не удалось
 		if(!items.next(asn1::tag_t::OBJECT, element))
 			// Выводим отказ извлечения опознавателя
-			return false;
+			return nts::x509::error_t::KEY;
 		// Выводим итог разбора опознавателя набора параметров кривой
-		return (asn1::oid(element, result) == asn1::error_t::NONE);
+		// Итог извлечения опознавателя набора параметров
+		const asn1::error_t outcome = asn1::oid(element, result);
+		// Если памяти под опознаватель не хватило
+		if(outcome == asn1::error_t::MEMORY)
+			// Выводим отказ нехватки памяти
+			return nts::x509::error_t::MEMORY;
+		// Выводим отказ извлечения опознавателя, если он есть
+		return ((outcome == asn1::error_t::NONE) ? nts::x509::error_t::NONE : nts::x509::error_t::KEY);
 	}
 	/**
 	 * @brief Метод извлечения координат открытого ключа
@@ -226,47 +233,50 @@ namespace {
  * @return          признак того, что подпись записи сошлась
  *
  */
-bool nts::x509::verify(const view_t & body, const view_t & signature, const string & algorithm, const key_t & key) noexcept {
+nts::x509::error_t nts::x509::verify(const view_t & body, const view_t & signature, const string & algorithm, const key_t & key) noexcept {
 	// Если подписанная запись либо подпись не переданы
 	if((body.data == nullptr) || (body.size == 0) || (signature.data == nullptr))
 		// Выводим отказ проверки подписи
-		return false;
+		return nts::x509::error_t::SIGNATURE;
 	// Определяем длину хеша подписанной записи
 	const size_t size = length(algorithm);
 	// Если алгоритм подписи неизвестен
 	if(size == 0)
 		// Выводим отказ проверки подписи
-		return false;
+		return nts::x509::error_t::SIGNATURE;
 	// Если алгоритм открытого ключа непригоден
 	if(!suitable(key.algorithm))
-		// Выводим отказ проверки подписи
-		return false;
+		// Выводим отказ ключа чужого алгоритма
+		return nts::x509::error_t::KEY;
 	// Опознаватель набора параметров кривой
 	string oid;
 	// Если опознаватель набора параметров кривой извлечь не удалось
-	if(!::identifier(key.parameters, oid))
-		// Выводим отказ проверки подписи
-		return false;
+	// Итог извлечения опознавателя набора параметров кривой
+	const nts::x509::error_t extracted = ::identifier(key.parameters, oid);
+	// Если опознаватель набора параметров кривой извлечь не удалось
+	if(extracted != nts::x509::error_t::NONE)
+		// Выводим отказ извлечения опознавателя
+		return extracted;
 	// Эллиптическая кривая проверки подписи
 	curve::curve_t curve;
 	// Если кривую по опознавателю набора параметров установить не удалось
 	if(!curve::parameters(oid, curve))
 		// Выводим отказ проверки подписи
-		return false;
+		return nts::x509::error_t::SIGNATURE;
 	// Если длина хеша не совпала с размером координаты точки кривой
 	if(size != curve.size())
 		// Выводим отказ проверки подписи
-		return false;
+		return nts::x509::error_t::SIGNATURE;
 	// Если подпись не занимает двух чисел длиной в порядок подгруппы точек кривой
 	if(signature.size != (curve.order().size() * 2))
 		// Выводим отказ проверки подписи
-		return false;
+		return nts::x509::error_t::SIGNATURE;
 	// Места, в которые помещаются координаты открытого ключа
 	uint8_t x[math::NUMBER_SIZE], y[math::NUMBER_SIZE];
 	// Если координаты открытого ключа извлечь не удалось
 	if(!coordinates(key.key, curve.size(), x, y))
 		// Выводим отказ проверки подписи
-		return false;
+		return nts::x509::error_t::SIGNATURE;
 	// Объект модуля электронной подписи
 	sign::gost_t gost;
 	/**
@@ -277,11 +287,11 @@ bool nts::x509::verify(const view_t & body, const view_t & signature, const stri
 	// Если эллиптическую кривую установить не удалось
 	if(!gost.start(curve))
 		// Выводим отказ проверки подписи
-		return false;
+		return nts::x509::error_t::SIGNATURE;
 	// Если открытый ключ подписавшей стороны установить не удалось
 	if(!gost.key(view_t(x, curve.size()), view_t(y, curve.size())))
 		// Выводим отказ проверки подписи
-		return false;
+		return nts::x509::error_t::SIGNATURE;
 	// Место, в которое помещается хеш подписанной записи
 	uint8_t digest[64];
 	/**
@@ -299,7 +309,7 @@ bool nts::x509::verify(const view_t & body, const view_t & signature, const stri
 	 */
 	if(!digest::streebog(type, body, digest, size, digest::order_t::VECTOR))
 		// Выводим отказ проверки подписи
-		return false;
+		return nts::x509::error_t::SIGNATURE;
 	// Место, в которое помещается подпись в порядке выработки
 	uint8_t buffer[math::NUMBER_SIZE * 2];
 	// Определяем длину всякой части подписи
@@ -312,7 +322,7 @@ bool nts::x509::verify(const view_t & body, const view_t & signature, const stri
 	// Переносим вторую часть подписи
 	::memcpy(buffer + half, signature.data, half);
 	// Выводим итог проверки подписи записи
-	return gost.check(view_t(digest, size), view_t(buffer, signature.size));
+	return (gost.check(view_t(digest, size), view_t(buffer, signature.size)) ? nts::x509::error_t::NONE : nts::x509::error_t::SIGNATURE);
 }
 /**
  * @brief Метод извлечения опознавателя набора параметров кривой ключа
@@ -320,15 +330,15 @@ bool nts::x509::verify(const view_t & body, const view_t & signature, const stri
  * @param key    сведения об открытом ключе, набор параметров которого извлекается
  * @param result строка, в которую помещается опознаватель набора параметров
  *
- * @return       признак успешности извлечения опознавателя
+ * @return       отказ извлечения опознавателя
  *
  */
-bool nts::x509::identifier(const key_t & key, string & result) noexcept {
-	// Если алгоритм открытого ключа непригоден
+nts::x509::error_t nts::x509::identifier(const key_t & key, string & result) noexcept {
+	// Если алгоритм ключа модулем не поддержан
 	if(!suitable(key.algorithm))
-		// Выводим отказ извлечения опознавателя набора параметров
-		return false;
-	// Выводим итог извлечения опознавателя набора параметров кривой
+		// Выводим отказ ключа чужого алгоритма
+		return error_t::KEY;
+	// Выводим итог извлечения опознавателя набора параметров
 	return ::identifier(key.parameters, result);
 }
 /**
@@ -337,22 +347,24 @@ bool nts::x509::identifier(const key_t & key, string & result) noexcept {
  * @param key    сведения об открытом ключе, кривая которого заводится
  * @param result кривая, в которую помещается набор параметров ключа
  *
- * @return       признак успешности заведения кривой открытого ключа
+ * @return       отказ заведения кривой открытого ключа
  *
  */
-bool nts::x509::parameters(const key_t & key, curve::curve_t & result) noexcept {
-	// Если алгоритм открытого ключа непригоден
+nts::x509::error_t nts::x509::parameters(const key_t & key, curve::curve_t & result) noexcept {
+	// Если алгоритм ключа модулем не поддержан
 	if(!suitable(key.algorithm))
-		// Выводим отказ заведения кривой открытого ключа
-		return false;
-	// Опознаватель набора параметров кривой
+		// Выводим отказ ключа чужого алгоритма
+		return error_t::KEY;
+	// Опознаватель набора параметров кривой ключа
 	string oid;
-	// Если опознаватель набора параметров кривой извлечь не удалось
-	if(!nts::x509::identifier(key, oid))
-		// Выводим отказ заведения кривой открытого ключа
-		return false;
+	// Итог извлечения опознавателя набора параметров
+	const error_t outcome = nts::x509::identifier(key, oid);
+	// Если опознаватель набора параметров извлечь не удалось
+	if(outcome != error_t::NONE)
+		// Выводим отказ извлечения опознавателя
+		return outcome;
 	// Выводим итог заведения кривой по опознавателю набора параметров
-	return curve::parameters(oid, result);
+	return (curve::parameters(oid, result) ? error_t::NONE : error_t::KEY);
 }
 /**
  * @brief Метод проверки подписи содержимого открытым ключом
@@ -361,30 +373,33 @@ bool nts::x509::parameters(const key_t & key, curve::curve_t & result) noexcept 
  * @param content   подписанное содержимое
  * @param signature проверяемая подпись, записанная числами r и s подряд
  *
- * @return          признак того, что подпись содержимого сошлась
+ * @return          отказ проверки подписи содержимого
  *
  */
-bool nts::x509::check(const key_t & key, const view_t & content, const view_t & signature) noexcept {
+nts::x509::error_t nts::x509::check(const key_t & key, const view_t & content, const view_t & signature) noexcept {
 	// Если подписанное содержимое либо подпись не переданы
 	if((content.data == nullptr) || (content.size == 0) || (signature.data == nullptr))
 		// Выводим отказ проверки подписи содержимого
-		return false;
+		return nts::x509::error_t::SIGNATURE;
 	// Эллиптическая кривая проверки подписи
 	curve::curve_t curve;
 	// Если кривую открытого ключа завести не удалось
-	if(!nts::x509::parameters(key, curve))
-		// Выводим отказ проверки подписи содержимого
-		return false;
+	// Итог заведения кривой открытого ключа
+	const nts::x509::error_t established = nts::x509::parameters(key, curve);
+	// Если кривую открытого ключа завести не удалось
+	if(established != nts::x509::error_t::NONE)
+		// Выводим отказ заведения кривой
+		return established;
 	// Если подпись не занимает двух чисел длиной в порядок подгруппы точек кривой
 	if(signature.size != (curve.order().size() * 2))
 		// Выводим отказ проверки подписи содержимого
-		return false;
+		return nts::x509::error_t::SIGNATURE;
 	// Места, в которые помещаются координаты открытого ключа
 	uint8_t x[math::NUMBER_SIZE], y[math::NUMBER_SIZE];
 	// Если координаты открытого ключа извлечь не удалось
 	if(!coordinates(key.key, curve.size(), x, y))
 		// Выводим отказ проверки подписи содержимого
-		return false;
+		return nts::x509::error_t::SIGNATURE;
 	// Объект модуля электронной подписи
 	sign::gost_t gost;
 	/**
@@ -395,11 +410,11 @@ bool nts::x509::check(const key_t & key, const view_t & content, const view_t & 
 	// Если эллиптическую кривую установить не удалось
 	if(!gost.start(curve))
 		// Выводим отказ проверки подписи содержимого
-		return false;
+		return nts::x509::error_t::SIGNATURE;
 	// Если открытый ключ подписавшей стороны установить не удалось
 	if(!gost.key(view_t(x, curve.size()), view_t(y, curve.size())))
 		// Выводим отказ проверки подписи содержимого
-		return false;
+		return nts::x509::error_t::SIGNATURE;
 	// Место, в которое помещается хеш подписанного содержимого
 	uint8_t digest[64];
 	/**
@@ -417,9 +432,9 @@ bool nts::x509::check(const key_t & key, const view_t & content, const view_t & 
 	 */
 	if(!digest::streebog(type, content, digest, curve.size(), digest::order_t::VECTOR))
 		// Выводим отказ проверки подписи содержимого
-		return false;
+		return nts::x509::error_t::SIGNATURE;
 	// Выводим итог проверки подписи содержимого
-	return gost.check(view_t(digest, curve.size()), signature);
+	return (gost.check(view_t(digest, curve.size()), signature) ? nts::x509::error_t::NONE : nts::x509::error_t::SIGNATURE);
 }
 /**
  * @brief Метод проверки подписи сертификата
@@ -430,7 +445,7 @@ bool nts::x509::check(const key_t & key, const view_t & content, const view_t & 
  * @return            признак того, что подпись сертификата сошлась
  *
  */
-bool nts::x509::verify(const certificate_t & certificate, const key_t & key) noexcept {
+nts::x509::error_t nts::x509::verify(const certificate_t & certificate, const key_t & key) noexcept {
 	// Число неиспользуемых разрядов последнего байта подписи
 	uint8_t unused = 0;
 	// Получаем подпись проверяемого сертификата
@@ -438,7 +453,7 @@ bool nts::x509::verify(const certificate_t & certificate, const key_t & key) noe
 	// Если подпись сертификата занимает неполное число байтов
 	if(unused != 0)
 		// Выводим отказ проверки подписи сертификата
-		return false;
+		return nts::x509::error_t::SIGNATURE;
 	// Выводим итог проверки подписи тела сертификата
 	return nts::x509::verify(certificate.body(), signature, certificate.algorithms(), key);
 }

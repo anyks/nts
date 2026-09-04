@@ -125,7 +125,9 @@ namespace nts {
 			SIGNATURE  = 0x07, /*!< \~russian Подпись сертификата издателем не сошлась \~english The signature of a certificate by its issuer has not converged \~ */
 			AUTHORITY  = 0x08, /*!< \~russian Издателя цепочки в запасе доверенных нет \~english There is no issuer of the chain in the store of the trusted ones \~ */
 			NAME       = 0x09, /*!< \~russian Имя узла ни одному имени сертификата не отвечает \~english The name of the host corresponds to no name of the certificate \~ */
-			MEMORY     = 0x0A  /*!< \~russian Памяти под разбор цепочки не хватило \~english There was not enough memory for the parsing of the chain \~ */
+			MEMORY     = 0x0A, /*!< \~russian Памяти под разбор цепочки не хватило \~english There was not enough memory for the parsing of the chain \~ */
+			CRITICAL   = 0x0B, /*!< \~russian Сертификат несёт неизвестное расширение, объявленное критичным \~english A certificate carries an unknown extension declared critical \~ */
+			PURPOSE    = 0x0C  /*!< \~russian Назначение ключа сертификата подписи владения не дозволяет \~english The purpose of the key of the certificate does not allow the signature of the possession \~ */
 		};
 
 		/**

@@ -29,6 +29,7 @@
 #include <string>
 #include <cstring>
 #include <main.hpp>
+#include <starve.hpp>
 #include <asn1/asn1.hpp>
 #include <x509/signature.hpp>
 
@@ -146,7 +147,7 @@ TEST(SignatureTest, Certificates) {
 		 * Сертификаты подписаны своими же ключами, оттого подпись проверяется
 		 * сведениями об открытом ключе самого сертификата
 		 */
-		ASSERT_TRUE(x509::verify(certificate, certificate.key())) << "Сертификат: " << i;
+		ASSERT_EQ(x509::verify(certificate, certificate.key()), x509::error_t::NONE) << "Сертификат: " << i;
 	}
 }
 /**
@@ -186,7 +187,7 @@ TEST(SignatureTest, Forgery) {
 			 */
 			if(item.parse(view_t(data.data(), data.size())) == x509::error_t::NONE){
 				// Проверяем отказ проверки подписи испорченного сертификата
-				ASSERT_FALSE(x509::verify(item, item.key())) << "Сертификат: " << i << ", место порчи: " << j;
+				ASSERT_NE(x509::verify(item, item.key()), x509::error_t::NONE) << "Сертификат: " << i << ", место порчи: " << j;
 			}
 			// Выполняем восстановление очередного байта тела сертификата
 			data[offset + j] = static_cast <uint8_t> (data[offset + j] ^ 0x01);
@@ -208,7 +209,7 @@ TEST(SignatureTest, Forgery) {
 			// Выполняем разбор сертификата с испорченной подписью
 			ASSERT_EQ(item.parse(view_t(data.data(), data.size())), x509::error_t::NONE) << "Сертификат: " << i;
 			// Проверяем отказ проверки испорченной подписи
-			ASSERT_FALSE(x509::verify(item, item.key())) << "Сертификат: " << i << ", место порчи: " << j;
+			ASSERT_NE(x509::verify(item, item.key()), x509::error_t::NONE) << "Сертификат: " << i << ", место порчи: " << j;
 			// Выполняем восстановление очередного байта подписи
 			data[place + j] = static_cast <uint8_t> (data[place + j] ^ 0x01);
 		}
@@ -234,17 +235,17 @@ TEST(SignatureTest, Foreign) {
 	// Выполняем разбор третьего сертификата
 	ASSERT_EQ(three.parse(view_t(third.data(), third.size())), x509::error_t::NONE);
 	// Проверяем отказ проверки подписи ключом с другой кривой той же разрядности
-	ASSERT_FALSE(x509::verify(one, two.key()));
+	ASSERT_NE(x509::verify(one, two.key()), x509::error_t::NONE);
 	// Проверяем отказ проверки подписи ключом другой разрядности
-	ASSERT_FALSE(x509::verify(one, three.key()));
+	ASSERT_NE(x509::verify(one, three.key()), x509::error_t::NONE);
 	// Проверяем отказ проверки подписи длинного сертификата коротким ключом
-	ASSERT_FALSE(x509::verify(three, one.key()));
+	ASSERT_NE(x509::verify(three, one.key()), x509::error_t::NONE);
 	// Проверяем схождение подписи всякого сертификата своим же ключом
-	ASSERT_TRUE(x509::verify(one, one.key()));
+	ASSERT_EQ(x509::verify(one, one.key()), x509::error_t::NONE);
 	// Проверяем схождение подписи второго сертификата своим же ключом
-	ASSERT_TRUE(x509::verify(two, two.key()));
+	ASSERT_EQ(x509::verify(two, two.key()), x509::error_t::NONE);
 	// Проверяем схождение подписи третьего сертификата своим же ключом
-	ASSERT_TRUE(x509::verify(three, three.key()));
+	ASSERT_EQ(x509::verify(three, three.key()), x509::error_t::NONE);
 }
 /**
  * @brief Проверка отказов модуля проверки подписи
@@ -264,35 +265,35 @@ TEST(SignatureTest, Failures) {
 	// Получаем сведения об открытом ключе сертификата
 	const x509::key_t & key = certificate.key();
 	// Проверяем отказ проверки подписи непереданной записи
-	ASSERT_FALSE(x509::verify(view_t(), signature, certificate.algorithms(), key));
+	ASSERT_NE(x509::verify(view_t(), signature, certificate.algorithms(), key), x509::error_t::NONE);
 	// Проверяем отказ проверки непереданной подписи
-	ASSERT_FALSE(x509::verify(certificate.body(), view_t(), certificate.algorithms(), key));
+	ASSERT_NE(x509::verify(certificate.body(), view_t(), certificate.algorithms(), key), x509::error_t::NONE);
 	// Проверяем отказ проверки подписи неизвестного алгоритма
-	ASSERT_FALSE(x509::verify(certificate.body(), signature, std::string("1.2.840.113549.1.1.11"), key));
+	ASSERT_NE(x509::verify(certificate.body(), signature, std::string("1.2.840.113549.1.1.11"), key), x509::error_t::NONE);
 	// Проверяем отказ проверки подписи по устаревшему хешу ГОСТ Р 34.11-94
-	ASSERT_FALSE(x509::verify(certificate.body(), signature, std::string("1.2.643.2.2.3"), key));
+	ASSERT_NE(x509::verify(certificate.body(), signature, std::string("1.2.643.2.2.3"), key), x509::error_t::NONE);
 	// Проверяем отказ проверки подписи неполной длины
-	ASSERT_FALSE(x509::verify(certificate.body(), view_t(signature.data, signature.size - 1), certificate.algorithms(), key));
+	ASSERT_NE(x509::verify(certificate.body(), view_t(signature.data, signature.size - 1), certificate.algorithms(), key), x509::error_t::NONE);
 	// Сведения об открытом ключе с непригодным алгоритмом
 	x509::key_t item = key;
 	// Подменяем опознаватель алгоритма открытого ключа
 	item.algorithm = std::string("1.2.840.10045.2.1");
 	// Проверяем отказ проверки подписи ключом непригодного алгоритма
-	ASSERT_FALSE(x509::verify(certificate.body(), signature, certificate.algorithms(), item));
+	ASSERT_NE(x509::verify(certificate.body(), signature, certificate.algorithms(), item), x509::error_t::NONE);
 	// Восстанавливаем опознаватель алгоритма открытого ключа
 	item.algorithm = key.algorithm;
 	// Сбрасываем настройки алгоритма открытого ключа
 	item.parameters = view_t();
 	// Проверяем отказ проверки подписи ключом без настроек алгоритма
-	ASSERT_FALSE(x509::verify(certificate.body(), signature, certificate.algorithms(), item));
+	ASSERT_NE(x509::verify(certificate.body(), signature, certificate.algorithms(), item), x509::error_t::NONE);
 	// Восстанавливаем настройки алгоритма открытого ключа
 	item.parameters = key.parameters;
 	// Сбрасываем запись открытого ключа
 	item.key = view_t();
 	// Проверяем отказ проверки подписи без записи открытого ключа
-	ASSERT_FALSE(x509::verify(certificate.body(), signature, certificate.algorithms(), item));
+	ASSERT_NE(x509::verify(certificate.body(), signature, certificate.algorithms(), item), x509::error_t::NONE);
 	// Проверяем схождение подписи после восстановления всех значений
-	ASSERT_TRUE(x509::verify(certificate.body(), signature, certificate.algorithms(), key));
+	ASSERT_EQ(x509::verify(certificate.body(), signature, certificate.algorithms(), key), x509::error_t::NONE);
 }
 
 /**
@@ -306,19 +307,19 @@ TEST(SignatureTest, Unsigned) {
 	// Ключ проверки подписи, оставленный незаполненным
 	x509::key_t key;
 	// Проверяем отказ проверки подписи без подписанной записи
-	ASSERT_FALSE(x509::verify(view_t(nullptr, body.size()), view_t(signature.data(), signature.size()), "1.2.643.7.1.1.3.2", key));
+	ASSERT_NE(x509::verify(view_t(nullptr, body.size()), view_t(signature.data(), signature.size()), "1.2.643.7.1.1.3.2", key), x509::error_t::NONE);
 	// Проверяем отказ проверки подписи с подписанной записью нулевой длины
-	ASSERT_FALSE(x509::verify(view_t(body.data(), 0), view_t(signature.data(), signature.size()), "1.2.643.7.1.1.3.2", key));
+	ASSERT_NE(x509::verify(view_t(body.data(), 0), view_t(signature.data(), signature.size()), "1.2.643.7.1.1.3.2", key), x509::error_t::NONE);
 	// Проверяем отказ проверки подписи без самой подписи
-	ASSERT_FALSE(x509::verify(view_t(body.data(), body.size()), view_t(nullptr, signature.size()), "1.2.643.7.1.1.3.2", key));
+	ASSERT_NE(x509::verify(view_t(body.data(), body.size()), view_t(nullptr, signature.size()), "1.2.643.7.1.1.3.2", key), x509::error_t::NONE);
 	// Проверяем отказ проверки подписи на неизвестном алгоритме
-	ASSERT_FALSE(x509::verify(view_t(body.data(), body.size()), view_t(signature.data(), signature.size()), "1.2.3.4.5", key));
+	ASSERT_NE(x509::verify(view_t(body.data(), body.size()), view_t(signature.data(), signature.size()), "1.2.3.4.5", key), x509::error_t::NONE);
 	// Проверяем отказ проверки подписи содержимого без содержимого
-	ASSERT_FALSE(x509::check(key, view_t(nullptr, body.size()), view_t(signature.data(), signature.size())));
+	ASSERT_NE(x509::check(key, view_t(nullptr, body.size()), view_t(signature.data(), signature.size())), x509::error_t::NONE);
 	// Проверяем отказ проверки подписи содержимого с содержимым нулевой длины
-	ASSERT_FALSE(x509::check(key, view_t(body.data(), 0), view_t(signature.data(), signature.size())));
+	ASSERT_NE(x509::check(key, view_t(body.data(), 0), view_t(signature.data(), signature.size())), x509::error_t::NONE);
 	// Проверяем отказ проверки подписи содержимого без самой подписи
-	ASSERT_FALSE(x509::check(key, view_t(body.data(), body.size()), view_t(nullptr, signature.size())));
+	ASSERT_NE(x509::check(key, view_t(body.data(), body.size()), view_t(nullptr, signature.size())), x509::error_t::NONE);
 	/**
 	 * Ключ, у которого настройки алгоритма не переданы вовсе, отвергается заслоном
 	 * извлечения опознавателя кривой: опознаватель тот берётся из настроек, и брать
@@ -326,11 +327,11 @@ TEST(SignatureTest, Unsigned) {
 	 */
 	key.algorithm = "1.2.643.7.1.1.1.1";
 	// Проверяем отказ проверки подписи с непереданными настройками алгоритма ключа
-	ASSERT_FALSE(x509::check(key, view_t(body.data(), body.size()), view_t(signature.data(), signature.size())));
+	ASSERT_NE(x509::check(key, view_t(body.data(), body.size()), view_t(signature.data(), signature.size())), x509::error_t::NONE);
 	// Устанавливаем настройки алгоритма ключа нулевой длины
 	key.parameters = view_t(body.data(), 0);
 	// Проверяем отказ проверки подписи с настройками алгоритма нулевой длины
-	ASSERT_FALSE(x509::check(key, view_t(body.data(), body.size()), view_t(signature.data(), signature.size())));
+	ASSERT_NE(x509::check(key, view_t(body.data(), body.size()), view_t(signature.data(), signature.size())), x509::error_t::NONE);
 	// Создаём записчик записи настроек алгоритма ключа
 	asn1::writer_t parameters;
 	// Открываем последовательность настроек алгоритма ключа
@@ -347,11 +348,11 @@ TEST(SignatureTest, Unsigned) {
 	 * Настройки теперь годны, а вот запись открытого ключа не передана: отказ обязан
 	 * прийти уже от извлечения координат, а не от разбора настроек
 	 */
-	ASSERT_FALSE(x509::check(key, view_t(body.data(), body.size()), view_t(signature.data(), signature.size())));
+	ASSERT_NE(x509::check(key, view_t(body.data(), body.size()), view_t(signature.data(), signature.size())), x509::error_t::NONE);
 	// Устанавливаем запись открытого ключа нулевой длины
 	key.key = view_t(body.data(), 0);
 	// Проверяем отказ проверки подписи с записью открытого ключа нулевой длины
-	ASSERT_FALSE(x509::check(key, view_t(body.data(), body.size()), view_t(signature.data(), signature.size())));
+	ASSERT_NE(x509::check(key, view_t(body.data(), body.size()), view_t(signature.data(), signature.size())), x509::error_t::NONE);
 }
 
 /**
@@ -405,7 +406,7 @@ TEST(SignatureTest, Malformed) {
 	// Подменяем настройки алгоритма ключа записью чужеродного вида
 	key.parameters = alien.data();
 	// Проверяем отказ проверки подписи на настройках чужеродного вида
-	ASSERT_FALSE(x509::check(key, view_t(body.data(), body.size()), view_t(signature.data(), signature.size())));
+	ASSERT_NE(x509::check(key, view_t(body.data(), body.size()), view_t(signature.data(), signature.size())), x509::error_t::NONE);
 	/**
 	 * Первым внутри последовательности настроек стоит опознаватель набора параметров
 	 * кривой, и никакой иной элемент его места занять не вправе
@@ -422,7 +423,7 @@ TEST(SignatureTest, Malformed) {
 	// Подменяем настройки алгоритма ключа записью с числом вместо опознавателя
 	key.parameters = numeric.data();
 	// Проверяем отказ проверки подписи на настройках без опознавателя кривой
-	ASSERT_FALSE(x509::check(key, view_t(body.data(), body.size()), view_t(signature.data(), signature.size())));
+	ASSERT_NE(x509::check(key, view_t(body.data(), body.size()), view_t(signature.data(), signature.size())), x509::error_t::NONE);
 	// Восстанавливаем исправную запись настроек алгоритма ключа
 	key.parameters = sound.data();
 	/**
@@ -441,7 +442,7 @@ TEST(SignatureTest, Malformed) {
 	// Подменяем запись открытого ключа записью чужеродного вида
 	key.key = wrapped.data();
 	// Проверяем отказ проверки подписи на записи ключа чужеродного вида
-	ASSERT_FALSE(x509::check(key, view_t(body.data(), body.size()), view_t(signature.data(), signature.size())));
+	ASSERT_NE(x509::check(key, view_t(body.data(), body.size()), view_t(signature.data(), signature.size())), x509::error_t::NONE);
 	/**
 	 * Строка байтов открытого ключа занимает ровно две координаты точки кривой:
 	 * строка иной длины на кривую не ложится
@@ -454,19 +455,19 @@ TEST(SignatureTest, Malformed) {
 	// Подменяем запись открытого ключа укороченной записью
 	key.key = stunted.data();
 	// Проверяем отказ проверки подписи на укороченной записи открытого ключа
-	ASSERT_FALSE(x509::check(key, view_t(body.data(), body.size()), view_t(signature.data(), signature.size())));
+	ASSERT_NE(x509::check(key, view_t(body.data(), body.size()), view_t(signature.data(), signature.size())), x509::error_t::NONE);
 	// Восстанавливаем исправную запись открытого ключа
 	key.key = opened.data();
 	/**
 	 * Подпись занимает два числа длиной в порядок подгруппы точек кривой: длина
 	 * иная означает подпись, к этой кривой не относящуюся
 	 */
-	ASSERT_FALSE(x509::check(key, view_t(body.data(), body.size()), view_t(signature.data(), signature.size() - 1)));
+	ASSERT_NE(x509::check(key, view_t(body.data(), body.size()), view_t(signature.data(), signature.size() - 1)), x509::error_t::NONE);
 	/**
 	 * Координаты исправной длины, но точке кривой не отвечающие, отвергаются
 	 * установкой открытого ключа: точка вне кривой ключом быть не может
 	 */
-	ASSERT_FALSE(x509::check(key, view_t(body.data(), body.size()), view_t(signature.data(), signature.size())));
+	ASSERT_NE(x509::check(key, view_t(body.data(), body.size()), view_t(signature.data(), signature.size())), x509::error_t::NONE);
 	/**
 	 * Извлечение опознавателя набора параметров и заведение кривой стоят открытыми
 	 * приёмами, и всякий из них судит пригодность алгоритма ключа сам за себя
@@ -475,23 +476,23 @@ TEST(SignatureTest, Malformed) {
 	// Эллиптическая кривая, заводимая по сведениям об открытом ключе
 	curve::curve_t curve;
 	// Проверяем схождение извлечения опознавателя на исправных сведениях о ключе
-	ASSERT_TRUE(x509::identifier(key, oid));
+	ASSERT_EQ(x509::identifier(key, oid), x509::error_t::NONE);
 	// Проверяем совпадение извлечённого опознавателя набора параметров кривой
 	ASSERT_EQ(oid, string("1.2.643.7.1.2.1.1.1"));
 	// Проверяем схождение заведения кривой на исправных сведениях о ключе
-	ASSERT_TRUE(x509::parameters(key, curve));
+	ASSERT_EQ(x509::parameters(key, curve), x509::error_t::NONE);
 	// Подменяем опознаватель алгоритма ключа опознавателем чужого алгоритма
 	key.algorithm = "1.2.840.10045.2.1";
 	// Проверяем отказ извлечения опознавателя на чужом алгоритме ключа
-	ASSERT_FALSE(x509::identifier(key, oid));
+	ASSERT_EQ(x509::identifier(key, oid), x509::error_t::KEY);
 	// Проверяем отказ заведения кривой на чужом алгоритме ключа
-	ASSERT_FALSE(x509::parameters(key, curve));
+	ASSERT_EQ(x509::parameters(key, curve), x509::error_t::KEY);
 	// Восстанавливаем опознаватель алгоритма открытого ключа
 	key.algorithm = "1.2.643.7.1.1.1.1";
 	// Сбрасываем запись настроек алгоритма ключа
 	key.parameters = view_t();
 	// Проверяем отказ заведения кривой без записи настроек алгоритма ключа
-	ASSERT_FALSE(x509::parameters(key, curve));
+	ASSERT_EQ(x509::parameters(key, curve), x509::error_t::KEY);
 }
 
 /**
@@ -533,7 +534,7 @@ TEST(SignatureTest, Fractional) {
 	// Выполняем разбор исправного сертификата
 	ASSERT_EQ(certificate.parse(view_t(data.data(), data.size())), x509::error_t::NONE);
 	// Проверяем схождение подписи исправного сертификата своим же ключом
-	ASSERT_TRUE(x509::verify(certificate, certificate.key()));
+	ASSERT_EQ(x509::verify(certificate, certificate.key()), x509::error_t::NONE);
 	// Ставим число неиспользуемых разрядов последнего байта подписи отличным от нуля
 	data[place] = 0x01;
 	/**
@@ -548,5 +549,65 @@ TEST(SignatureTest, Fractional) {
 	// Выполняем разбор сертификата с подписью неполного числа байтов
 	ASSERT_EQ(fractional.parse(view_t(data.data(), data.size())), x509::error_t::NONE);
 	// Проверяем отказ проверки подписи неполного числа байтов
-	ASSERT_FALSE(x509::verify(fractional, fractional.key()));
+	ASSERT_NE(x509::verify(fractional, fractional.key()), x509::error_t::NONE);
+}
+/**
+ * @brief Проверка подписи при нехватке памяти
+ *
+ * @note Проверка подписи извлекает опознаватель набора параметров кривой, а
+ *       значит выделяет память: на всяком запасе выделений она обязана ответить
+ *       либо схождением, либо отказом, но не прерыванием исполнения
+ *
+ */
+TEST(SignatureTest, Starved) {
+	// Выполняем разбор записи первого сертификата
+	const std::vector <uint8_t> data = bytes(CERTIFICATE_FIRST);
+	// Объект разбираемого сертификата
+	x509::certificate_t certificate;
+	// Выполняем разбор сертификата
+	ASSERT_EQ(certificate.parse(view_t(data.data(), data.size())), x509::error_t::NONE);
+	// Признак того, что подпись хоть раз сошлась
+	bool verified = false;
+	/**
+	 * Выполняем перебор запасов выделений при проверке подписи
+	 */
+	for(size_t budget = 0; budget < 512; budget++){
+		// Итог проверки подписи при отмеренном запасе
+		x509::error_t outcome = x509::error_t::NONE;
+		{
+			// Отмеряем запас выделений на время проверки подписи
+			starve::ration_t ration(budget);
+			// Выполняем проверку подписи при отмеренном запасе
+			outcome = x509::verify(certificate, certificate.key());
+		}
+		// Проверяем, что проверка ответила схождением либо отказом памяти
+		ASSERT_TRUE((outcome == x509::error_t::NONE) || (outcome == x509::error_t::MEMORY)) << "запас " << budget;
+		// Запоминаем схождение подписи
+		verified = (verified || (outcome == x509::error_t::NONE));
+	}
+	// Проверяем, что при достаточном запасе подпись сошлась
+	ASSERT_TRUE(verified);
+	// Признак того, что нехватка памяти при разборе хоть раз объявлена отказом
+	bool starved = false;
+	/**
+	 * Выполняем перебор запасов выделений при разборе настоящего сертификата
+	 */
+	for(size_t budget = 0; budget < 512; budget++){
+		// Объект сертификата, разбираемого при отмеренном запасе
+		x509::certificate_t item;
+		// Итог разбора при отмеренном запасе
+		x509::error_t outcome = x509::error_t::NONE;
+		{
+			// Отмеряем запас выделений на время разбора
+			starve::ration_t ration(budget);
+			// Выполняем разбор сертификата при отмеренном запасе
+			outcome = item.parse(view_t(data.data(), data.size()));
+		}
+		// Проверяем, что разбор ответил успехом либо отказом памяти
+		ASSERT_TRUE((outcome == x509::error_t::NONE) || (outcome == x509::error_t::MEMORY)) << "запас " << budget;
+		// Запоминаем объявленный отказ памяти
+		starved = (starved || (outcome == x509::error_t::MEMORY));
+	}
+	// Проверяем, что нехватка памяти при разборе объявлена отказом хоть раз
+	ASSERT_TRUE(starved);
 }

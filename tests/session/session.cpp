@@ -754,3 +754,14 @@ TEST(SessionTest, Disordered){
 	// Проверяем успешность выработки привязки после сброса расписания
 	ASSERT_EQ(secrets.binder(transcript, value), session::error_t::NONE);
 }
+
+/**
+ * @brief Проверка заслона значения упреждающих данных до начала расписания
+ *
+ */
+TEST(SessionTest, Unbegun){
+	session::secrets_t secrets;
+	uint8_t result[schedule::SCHEDULE_SECRET];
+	// Значение упреждающих данных до вывода начального значения не выдаётся
+	ASSERT_EQ(secrets.early(result), session::error_t::STATE);
+}

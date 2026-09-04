@@ -47,12 +47,15 @@
  */
 #include <sign/gost.hpp>
 #include <cipher/mgm.hpp>
+#include <cipher/gcm.hpp>
+#include <cipher/aes.hpp>
 #include <cipher/mode.hpp>
 #include <agreement/ecdhe.hpp>
 #include <agreement/vko.hpp>
 #include <cipher/kuznyechik.hpp>
 #include <cipher/magma.hpp>
 #include <digest/streebog.hpp>
+#include <digest/sha2.hpp>
 #include <entropy/entropy.hpp>
 #include <curve/parameters.hpp>
 #include <client/client.hpp>
@@ -210,7 +213,7 @@ namespace {
 	 *       раз округляется в ноль и перестаёт что-либо говорить
 	 *
 	 */
-	void relation(const string & name, const double ours, const double them) noexcept {
+	[[maybe_unused]] void relation(const string & name, const double ours, const double them) noexcept {
 		// Если сличать замеры не с чем
 		if((ours <= 0.) || (them <= 0.))
 			// Выходим из вывода отношения замеров
@@ -310,6 +313,16 @@ int main(int argc, char * argv[]) noexcept {
 		// Выполняем хеширование области байтов
 		digest::streebog(digest::type_t::LONG, view_t(data.data(), data.size()), hash, 64);
 	});
+	// Выполняем замер полосы хеширования SHA-256 своей работы
+	const double sha256 = band("SHA-256 своя", 16, VOLUME, [&data, &hash]() noexcept -> void {
+		// Выполняем хеширование области байтов
+		digest::sha2(digest::sha_t::SHA256, view_t(data.data(), data.size()), hash, 32);
+	});
+	// Выполняем замер полосы хеширования SHA-512 своей работы
+	const double sha512 = band("SHA-512 своя", 16, VOLUME, [&data, &hash]() noexcept -> void {
+		// Выполняем хеширование области байтов
+		digest::sha2(digest::sha_t::SHA512, view_t(data.data(), data.size()), hash, 64);
+	});
 	// Ключ блочного шифрования области байтов
 	uint8_t key[32];
 	// Выполняем выработку ключа блочного шифрования
@@ -375,6 +388,35 @@ int main(int argc, char * argv[]) noexcept {
 		galois.start(block, view_t(seed, sizeof(seed)));
 		// Выполняем шифрование области байтов с проверкой целостности
 		galois.encrypt(view_t(nullptr, 0), view_t(data.data(), data.size()), result.data(), tag);
+	});
+	// Объект блочного шифра AES
+	cipher::aes_t rijndael;
+	// Если ключ AES-256 установить не удалось
+	if(!rijndael.key(view_t(key, sizeof(key)))){
+		// Выводим сообщение об отказе установки ключа
+		cout << "Установить ключ блочного шифра AES не удалось" << endl;
+		// Выходим из приложения с признаком отказа
+		return EXIT_FAILURE;
+	}
+	// Описание базового алгоритма блочного шифрования AES
+	const cipher::block_t standard(rijndael);
+	// Режим сцепления блоков
+	cipher::chaining_t chaining;
+	// Выполняем замер полосы шифрования AES-256-CBC своей работы
+	const double cbc = band("AES-256-CBC своя", 8, VOLUME, [&chaining, &standard, &seed, &data, &result]() noexcept -> void {
+		// Выполняем заведение режима сцепления блоков
+		chaining.start(standard, view_t(seed, 16));
+		// Выполняем шифрование области байтов
+		chaining.encrypt(view_t(data.data(), data.size()), result.data());
+	});
+	// Режим шифрования с проверкой целостности GCM
+	cipher::gcm_t galoisCounter;
+	// Выполняем замер полосы шифрования AES-256-GCM своей работы
+	const double aead = band("AES-256-GCM своя", 8, VOLUME, [&galoisCounter, &standard, &seed, &data, &result, &tag]() noexcept -> void {
+		// Выполняем заведение режима
+		galoisCounter.start(standard, view_t(seed, 12));
+		// Выполняем шифрование области байтов с проверкой целостности
+		galoisCounter.encrypt(view_t(nullptr, 0), view_t(data.data(), data.size()), result.data(), tag);
 	});
 	// Объект блочного шифра «Магма»
 	cipher::magma_t magma;
@@ -566,6 +608,13 @@ int main(int argc, char * argv[]) noexcept {
 			// Выполняем хеширование области байтов
 			::EVP_Digest(data.data(), data.size(), hash, &length, ::EVP_sha256(), nullptr);
 		});
+		// Выполняем замер полосы хеширования SHA-512 эталона
+		const double sha512ref = band("SHA-512", 16, VOLUME, [&data, &hash]() noexcept -> void {
+			// Длина выработанного хеша области байтов
+			unsigned int length = 0;
+			// Выполняем хеширование области байтов
+			::EVP_Digest(data.data(), data.size(), hash, &length, ::EVP_sha512(), nullptr);
+		});
 		// Объект поточного шифрования эталона
 		EVP_CIPHER_CTX * context = ::EVP_CIPHER_CTX_new();
 		// Выполняем замер полосы поточного шифрования AES-256-CTR
@@ -656,10 +705,18 @@ int main(int argc, char * argv[]) noexcept {
 		cout << endl << "Отставание от эталона" << endl << endl;
 		// Выводим отношение замеров хеширования
 		relation("Хеш 256 разрядов", streebog, sha);
+		// Выводим отношение замеров хеширования SHA-256 к эталону
+		relation("SHA-256 против эталона", sha256, sha);
+		// Выводим отношение замеров хеширования SHA-512 к эталону
+		relation("SHA-512 против эталона", sha512, sha512ref);
 		// Выводим отношение замеров поточного шифрования
 		relation("Поточное шифрование", stream, aes);
 		// Выводим отношение замеров шифрования с целостностью
 		relation("Шифрование с целостностью", sealed, gcm);
+		// Выводим отношение замеров AES-256-CBC к поточному эталону
+		relation("AES-256-CBC против AES-256-CTR эталона", cbc, aes);
+		// Выводим отношение замеров AES-256-GCM к эталону
+		relation("AES-256-GCM против эталона", aead, gcm);
 		// Выводим отношение замеров выработки подписи
 		relation("Подпись", signing, ecdsa);
 		// Выводим отношение замеров сличения подписи
@@ -679,6 +736,14 @@ int main(int argc, char * argv[]) noexcept {
 	#else
 		// Не используем замер хеширования при отключённом сличении
 		(void) streebog;
+		// Замеры своей работы AES без эталона сравнивать не с чем
+		(void) cbc;
+		// Замеры своей работы AES без эталона сравнивать не с чем
+		(void) aead;
+		// Замеры своей работы SHA-2 без эталона сравнивать не с чем
+		(void) sha256;
+		// Замеры своей работы SHA-2 без эталона сравнивать не с чем
+		(void) sha512;
 		// Не используем замер поточного шифрования при отключённом сличении
 		(void) stream;
 		// Не используем замер шифрования с целостностью при отключённом сличении

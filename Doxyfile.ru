@@ -10,6 +10,8 @@
 
 OUTPUT_LANGUAGE  = Russian
 OUTPUT_DIRECTORY = ./doc/ru
+PROJECT_BRIEF    = "A-NTS - криптографическая библиотека и реализация TLS на C++, самостоятельный проект, не зависящий от чужого криптографического кода."
+GENERATE_LATEX   = NO
 
 ##
  # Подписи меток шапки на русском языке: сами метки заведены в Doxyfile,

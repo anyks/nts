@@ -447,3 +447,42 @@ TEST(NumberTest, Square) {
 		}
 	}
 }
+
+/**
+ * @brief Проверка заслонов усечения записи и малого модуля приведения
+ *
+ */
+TEST(NumberTest, Guards) {
+	math::modulus_t modulus;
+	// Модуль длиной 32 байта
+	uint8_t prime[32];
+	ASSERT_EQ(bytes("fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd97", prime), static_cast <size_t> (32));
+	ASSERT_TRUE(modulus.start(view_t(prime, sizeof(prime))));
+	// Число со старшим ненулевым байтом
+	uint8_t wide[32];
+	ASSERT_EQ(bytes("0100000000000000000000000000000000000000000000000000000000000000", wide), static_cast <size_t> (32));
+	math::number_t value;
+	ASSERT_TRUE(modulus.load(view_t(wide, sizeof(wide)), value));
+	uint8_t buffer[32];
+	/**
+	 * Место короче числа усекло бы старший байт молча: запись обязана отказать,
+	 * а место с младшими байтами - остаться затёртым
+	 */
+	ASSERT_FALSE(modulus.store(value, buffer, 31));
+	ASSERT_TRUE(modulus.store(value, buffer, 32));
+	ASSERT_EQ(buffer[0], 0x01);
+	// Число, умещающееся в короткое место, записывается и в него
+	uint8_t narrow[32];
+	ASSERT_EQ(bytes("0000000000000000000000000000000000000000000000000000000000000002", narrow), static_cast <size_t> (32));
+	ASSERT_TRUE(modulus.load(view_t(narrow, sizeof(narrow)), value));
+	ASSERT_TRUE(modulus.store(value, buffer, 1));
+	ASSERT_EQ(buffer[0], 0x02);
+	/**
+	 * Приведение по модулю не длиннее байта: слагаемые сложения превысили бы модуль
+	 */
+	math::modulus_t small;
+	const uint8_t eleven[1] = {0x0B};
+	ASSERT_TRUE(small.start(view_t(eleven, 1)));
+	const uint8_t stream[1] = {0xFF};
+	ASSERT_FALSE(small.reduce(view_t(stream, 1), value));
+}

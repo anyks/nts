@@ -252,6 +252,18 @@ void nts::server::Context::moment(const int64_t moment) noexcept {
 		this->_engine->moment(moment);
 }
 /**
+ * @brief Метод установки срока жизни выдаваемых билетов
+ *
+ * @param lifetime устанавливаемый срок в секундах
+ *
+ */
+void nts::server::Context::lifetime(const uint32_t lifetime) noexcept {
+	// Если ведение связи заведено
+	if(this->_engine != nullptr)
+		// Выполняем установку срока жизни выдаваемых билетов
+		this->_engine->lifetime(lifetime);
+}
+/**
  * @brief Метод установки требования подлинности клиента
  *
  * @param request устанавливаемое требование подлинности клиента

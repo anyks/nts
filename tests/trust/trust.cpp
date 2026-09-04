@@ -25,6 +25,7 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <main.hpp>
+#include <starve.hpp>
 #include <asn1/asn1.hpp>
 #include <sign/gost.hpp>
 #include <trust/trust.hpp>
@@ -102,13 +103,21 @@ namespace {
 		int64_t after;
 		// Дополнительное доменное имя владельца сертификата
 		string alternative;
+		// Адрес сети в дополнительных именах владельца
+		vector <uint8_t> address;
+		// Признак назначения ключа одному согласованию ключей
+		bool agreement;
+		// Признак неизвестного расширения, объявленного критичным
+		bool critical;
+		// Признак неизвестного расширения без признака критичности
+		bool unknown;
 		/**
 		 * @brief Конструктор
 		 *
 		 */
 		Options() noexcept :
 		 authority(false), constraints(true), usage(true), signing(true), spoiled(0), unnamed(false),
-		 depth(-1), before(1767225600), after(2082758400) {}
+		 depth(-1), before(1767225600), after(2082758400), agreement(false), critical(false), unknown(false) {}
 	} options_t;
 
 	/**
@@ -274,11 +283,11 @@ namespace {
 			 * от права издавать сертификаты: основные ограничения и назначение ключа
 			 * объявляются разными расширениями и разойтись между собою вправе
 			 */
-			const uint8_t bits[1] = {static_cast <uint8_t> ((options.authority && options.signing) ? 0x04 : 0x80)};
+			const uint8_t bits[1] = {static_cast <uint8_t> (options.agreement ? 0x08 : ((options.authority && options.signing) ? 0x04 : 0x80))};
 			// Составитель записи назначения открытого ключа
 			asn1::writer_t item;
 			// Записываем разряды назначения открытого ключа
-			if(!item.bits(view_t(bits, sizeof(bits)), ((options.authority && options.signing) ? 2 : 7)))
+			if(!item.bits(view_t(bits, sizeof(bits)), (options.agreement ? 3 : ((options.authority && options.signing) ? 2 : 7))))
 				// Выводим отказ составления расширений
 				return false;
 			// Открываем набор записи расширения сертификата
@@ -312,6 +321,10 @@ namespace {
 			if(!item.element(asn1::cls_t::CONTEXT, false, 2, name))
 				// Выводим отказ составления расширений
 				return false;
+			// Если объявлен адрес сети владельца и записать его не удалось
+			if(!options.address.empty() && !item.element(asn1::cls_t::CONTEXT, false, 7, view_t(options.address.data(), options.address.size())))
+				// Выводим отказ составления расширений
+				return false;
 			// Закрываем набор записи дополнительных имён
 			if(!item.close())
 				// Выводим отказ составления расширений
@@ -329,6 +342,31 @@ namespace {
 				// Выводим отказ составления расширений
 				return false;
 			// Закрываем набор записи расширения сертификата
+			if(!writer.close())
+				// Выводим отказ составления расширений
+				return false;
+		}
+		// Если объявлено неизвестное расширение
+		if(options.critical || options.unknown){
+			// Тело неизвестного расширения: пустая последовательность
+			const uint8_t hollow[2] = {0x30, 0x00};
+			// Открываем запись неизвестного расширения
+			if(!writer.open(asn1::tag_t::SEQUENCE))
+				// Выводим отказ составления расширений
+				return false;
+			// Записываем опознаватель неизвестного расширения
+			if(!writer.oid("1.2.643.100.1"))
+				// Выводим отказ составления расширений
+				return false;
+			// Если расширение объявлено критичным
+			if(options.critical && !writer.boolean(true))
+				// Выводим отказ составления расширений
+				return false;
+			// Записываем тело неизвестного расширения
+			if(!writer.octets(view_t(hollow, sizeof(hollow))))
+				// Выводим отказ составления расширений
+				return false;
+			// Закрываем запись неизвестного расширения
 			if(!writer.close())
 				// Выводим отказ составления расширений
 				return false;
@@ -601,6 +639,30 @@ TEST(TrustTest, Chain){
 	ASSERT_EQ(trust::belongs(view_t(leaf.data(), leaf.size()), "ANYKS.com"), trust::error_t::NONE);
 	// Проверяем отказ сличения чужого имени узла
 	ASSERT_EQ(trust::belongs(view_t(leaf.data(), leaf.size()), "example.com"), trust::error_t::NAME);
+	// Признак того, что нехватка памяти хоть раз объявлена отказом
+	bool starved = false;
+	// Сличаемое имя узла, заводимое до отмеривания запаса: строка сама выделяет
+	const string named = "ANYKS.com";
+	/**
+	 * Выполняем перебор запасов выделений: сличение имени обязано на всяком запасе
+	 * ответить либо успехом, либо отказом памяти, но не прерыванием исполнения
+	 */
+	for(size_t budget = 0; budget < 256; budget++){
+		// Итог сличения при отмеренном запасе
+		trust::error_t outcome = trust::error_t::NONE;
+		{
+			// Отмеряем запас выделений на время сличения
+			starve::ration_t ration(budget);
+			// Выполняем сличение имени при отмеренном запасе
+			outcome = trust::belongs(view_t(leaf.data(), leaf.size()), named);
+		}
+		// Проверяем, что сличение ответило успехом либо отказом памяти
+		ASSERT_TRUE((outcome == trust::error_t::NONE) || (outcome == trust::error_t::MEMORY)) << "запас " << budget;
+		// Запоминаем объявленный отказ памяти
+		starved = (starved || (outcome == trust::error_t::MEMORY));
+	}
+	// Проверяем, что нехватка памяти объявлена отказом хоть раз
+	ASSERT_TRUE(starved);
 }
 
 /**
@@ -644,7 +706,12 @@ TEST(TrustTest, Authority){
 	// Проверяем отказ доверия цепочке чужого издателя
 	ASSERT_EQ(trust::verify(chain, store, MOMENT), trust::error_t::AUTHORITY);
 	// Проверяем доверие самому сертификату издателя, лежащему в запасе
-	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> {foreign}, store, MOMENT), trust::error_t::NONE);
+	/**
+	 * Доверенный корень, предъявленный листом цепочки, доверием оборачивается, но
+	 * ключ его назначен одному подписыванию сертификатов: раздел 4.4.2.2 RFC 8446
+	 * подписи владения таким ключом не дозволяет
+	 */
+	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> {foreign}, store, MOMENT), trust::error_t::PURPOSE);
 }
 
 /**
@@ -1214,4 +1281,106 @@ TEST(TrustTest, Belonging){
 	ASSERT_TRUE(make("anyks.com", "misused root", subject, misuser.secret, options_t (), granted));
 	// Проверяем отказ доверия сертификату, изданному издателем с порченым назначением
 	EXPECT_EQ(trust::verify(vector <vector <uint8_t>> {granted}, misuses, MOMENT), trust::error_t::AUTHORITY);
+}
+
+/**
+ * Проверка отказа на неизвестное расширение, объявленное критичным
+ */
+TEST(TrustTest, Critical){
+	keys_t root, subject;
+	ASSERT_TRUE(generate(root));
+	ASSERT_TRUE(generate(subject));
+	options_t authorized;
+	authorized.authority = true;
+	vector <uint8_t> anchor;
+	ASSERT_TRUE(make("crit root", "crit root", root, vector <uint8_t> (), authorized, anchor));
+	trust::store_t store;
+	ASSERT_TRUE(store.add(view_t(anchor.data(), anchor.size())));
+	options_t marked;
+	marked.critical = true;
+	vector <uint8_t> leaf;
+	ASSERT_TRUE(make("anyks.com", "crit root", subject, root.secret, marked, leaf));
+	/**
+	 * Раздел 4.2 RFC 5280: сертификат с неизвестным критичным расширением
+	 * отвергается, ибо его требование исполнить нечем
+	 */
+	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> {leaf, anchor}, store, MOMENT), trust::error_t::CRITICAL);
+	options_t plain;
+	plain.unknown = true;
+	vector <uint8_t> tolerable;
+	ASSERT_TRUE(make("anyks.com", "crit root", subject, root.secret, plain, tolerable));
+	// Неизвестное расширение без признака критичности пропускается
+	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> {tolerable, anchor}, store, MOMENT), trust::error_t::NONE);
+	// Якорь с неизвестным критичным расширением якорем служить не может
+	options_t spoiled;
+	spoiled.authority = true;
+	spoiled.critical = true;
+	vector <uint8_t> tainted;
+	ASSERT_TRUE(make("taint root", "taint root", root, vector <uint8_t> (), spoiled, tainted));
+	trust::store_t weak;
+	ASSERT_TRUE(weak.add(view_t(tainted.data(), tainted.size())));
+	vector <uint8_t> child;
+	ASSERT_TRUE(make("anyks.com", "taint root", subject, root.secret, options_t (), child));
+	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> {child}, weak, MOMENT), trust::error_t::AUTHORITY);
+}
+
+/**
+ * Проверка назначения ключа листа цепочки
+ */
+TEST(TrustTest, Purpose){
+	keys_t root, subject;
+	ASSERT_TRUE(generate(root));
+	ASSERT_TRUE(generate(subject));
+	options_t authorized;
+	authorized.authority = true;
+	vector <uint8_t> anchor;
+	ASSERT_TRUE(make("use root", "use root", root, vector <uint8_t> (), authorized, anchor));
+	trust::store_t store;
+	ASSERT_TRUE(store.add(view_t(anchor.data(), anchor.size())));
+	options_t agreeing;
+	agreeing.agreement = true;
+	vector <uint8_t> leaf;
+	ASSERT_TRUE(make("anyks.com", "use root", subject, root.secret, agreeing, leaf));
+	/**
+	 * Раздел 4.4.2.2 RFC 8446: ключ листа, назначенный одному согласованию ключей,
+	 * подпись владения ставить не вправе
+	 */
+	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> {leaf, anchor}, store, MOMENT), trust::error_t::PURPOSE);
+	vector <uint8_t> signing;
+	ASSERT_TRUE(make("anyks.com", "use root", subject, root.secret, options_t (), signing));
+	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> {signing, anchor}, store, MOMENT), trust::error_t::NONE);
+}
+
+/**
+ * Проверка сличения имени узла, записанного адресом сети
+ */
+TEST(TrustTest, Addressed){
+	keys_t subject;
+	ASSERT_TRUE(generate(subject));
+	options_t addressed;
+	addressed.alternative = "10.0.0.1";
+	addressed.address = {0x0A, 0x00, 0x00, 0x02};
+	vector <uint8_t> leaf;
+	ASSERT_TRUE(make("anyks.com", "anyks.com", subject, vector <uint8_t> (), addressed, leaf));
+	/**
+	 * Раздел 6.4 RFC 6125: адрес сети сличается лишь с адресами сети в двоичном
+	 * виде; доменное имя, записанное цифрами адреса, ему не отвечает
+	 */
+	ASSERT_EQ(trust::belongs(view_t(leaf.data(), leaf.size()), "10.0.0.2"), trust::error_t::NONE);
+	ASSERT_EQ(trust::belongs(view_t(leaf.data(), leaf.size()), "10.0.0.1"), trust::error_t::NAME);
+	ASSERT_EQ(trust::belongs(view_t(leaf.data(), leaf.size()), "10.0.0.3"), trust::error_t::NAME);
+	options_t wide;
+	wide.alternative = "anyks.com";
+	wide.address = {0x20, 0x01, 0x0D, 0xB8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01};
+	vector <uint8_t> six;
+	ASSERT_TRUE(make("anyks.com", "anyks.com", subject, vector <uint8_t> (), wide, six));
+	ASSERT_EQ(trust::belongs(view_t(six.data(), six.size()), "2001:db8::1"), trust::error_t::NONE);
+	ASSERT_EQ(trust::belongs(view_t(six.data(), six.size()), "2001:0DB8:0:0:0:0:0:1"), trust::error_t::NONE);
+	ASSERT_EQ(trust::belongs(view_t(six.data(), six.size()), "2001:db8::2"), trust::error_t::NAME);
+	ASSERT_EQ(trust::belongs(view_t(six.data(), six.size()), "anyks.com"), trust::error_t::NONE);
+	// Адрес сети общему имени владельца не отвечает
+	options_t bare;
+	vector <uint8_t> named;
+	ASSERT_TRUE(make("10.0.0.2", "10.0.0.2", subject, vector <uint8_t> (), bare, named));
+	ASSERT_EQ(trust::belongs(view_t(named.data(), named.size()), "10.0.0.2"), trust::error_t::NAME);
 }

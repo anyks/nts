@@ -88,34 +88,11 @@ namespace nts {
 		 * \~
 		 */
 		enum class type_t : uint8_t {
-			NONE  = 0x00, // Длина хеша не установлена
-			SHORT = 0x20, // Хеш длиной 256 разрядов
-			LONG  = 0x40  // Хеш длиной 512 разрядов
+			NONE  = 0x00, /*!< \~russian Длина хеша не установлена \~english The length of the hash is not set \~ */
+			SHORT = 0x20, /*!< \~russian Хеш длиной 256 разрядов \~english Hash of a length of 256 bits \~ */
+			LONG  = 0x40 /*!< \~russian Хеш длиной 512 разрядов \~english Hash of a length of 512 bits \~ */
 		};
 
-		/**
-		 * \~russian
-		 * @brief Хеширование по ГОСТ Р 34.11-2012
-		 *
-		 * @details Сообщение подаётся вызовами update кусками произвольного размера, а
-		 *          выработанный хеш снимается вызовом finish. Повторное хеширование
-		 *          требует вызова reset: finish оставляет объект в завершённом состоянии.
-		 *
-		 * @note Обе длины хеша вырабатываются одним и тем же преобразованием и
-		 *       различаются лишь начальным значением и тем, что хеш длиной 256 разрядов
-		 *       берётся старшей половиной итога. Отдельного устройства под них нет
-		 *
-		 * \~english
-		 * @brief Hashing according to GOST R 34.11-2012
-		 * @details The message is fed by the calls of update by the chunks of an arbitrary size,
-		 *          while the produced hash is taken by a call of finish. A repeated hashing
-		 *          requires a call of reset: finish leaves the object in a finished state.
-		 * @note Both lengths of the hash are produced by one and the same transformation and
-		 *       differ only by the initial value and by the fact that a hash of a length of 256 bits
-		 *       is taken as the high half of the result. There is no separate structure for them
-		 *
-		 * \~
-		 */
 		/**
 		 * \~russian
 		 * @brief Порядок записи выработанного хеша
@@ -143,10 +120,33 @@ namespace nts {
 		 * \~
 		 */
 		enum class order_t : uint8_t {
-			STREAM = 0x01, // Строка байтов, как её передают протоколы
-			VECTOR = 0x02  // Вектор, как его записывает стандарт
+			STREAM = 0x01, /*!< \~russian Строка байтов, как её передают протоколы \~english String of bytes, as the protocols transfer it \~ */
+			VECTOR = 0x02 /*!< \~russian Вектор, как его записывает стандарт \~english Vector, as the standard writes it \~ */
 		};
 
+		/**
+		 * \~russian
+		 * @brief Хеширование по ГОСТ Р 34.11-2012
+		 *
+		 * @details Сообщение подаётся вызовами update кусками произвольного размера, а
+		 *          выработанный хеш снимается вызовом finish. Повторное хеширование
+		 *          требует вызова reset: finish оставляет объект в завершённом состоянии.
+		 *
+		 * @note Обе длины хеша вырабатываются одним и тем же преобразованием и
+		 *       различаются лишь начальным значением и тем, что хеш длиной 256 разрядов
+		 *       берётся старшей половиной итога. Отдельного устройства под них нет
+		 *
+		 * \~english
+		 * @brief Hashing according to GOST R 34.11-2012
+		 * @details The message is fed by the calls of update by the chunks of an arbitrary size,
+		 *          while the produced hash is taken by a call of finish. A repeated hashing
+		 *          requires a call of reset: finish leaves the object in a finished state.
+		 * @note Both lengths of the hash are produced by one and the same transformation and
+		 *       differ only by the initial value and by the fact that a hash of a length of 256 bits
+		 *       is taken as the high half of the result. There is no separate structure for them
+		 *
+		 * \~
+		 */
 		typedef class __ANTS_SHARED_EXPORT__ Streebog {
 			private:
 				// Длина вырабатываемого хеша
@@ -254,13 +254,15 @@ namespace nts {
 				 * \~russian
 				 * @brief Деструктор
 				 *
+				 * @note Состояние хеширования затирается: у имитовставки оно выведено из ключа
 				 *
 				 * \~english
 				 * @brief Destructor
+				 * @note The hashing state is wiped: at the message authentication code it is derived from the key
 				 *
 				 * \~
 				 */
-				~Streebog() noexcept {}
+				~Streebog() noexcept;
 		} streebog_t;
 
 		/**

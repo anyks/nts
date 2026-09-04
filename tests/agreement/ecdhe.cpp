@@ -319,3 +319,39 @@ TEST(EcdheTest, Reject){
 	// Проверяем отказ выработки мимолётной пары ключей без мест ключей
 	ASSERT_FALSE(agreement::generate(curve, nullptr, alien));
 }
+
+/**
+ * @brief Проверка отсечения точки малого порядка на кривой с кофактором четыре
+ *
+ */
+TEST(EcdheTest, Torsion){
+	curve::curve_t curve;
+	// Набор параметров с кофактором четыре: группа TLS GC256A
+	ASSERT_TRUE(curve::parameters("1.2.643.7.1.2.1.1.1", curve));
+	/**
+	 * Точка порядка два (корень x^3 + a*x + b при y = 0) в записи протокола: обе
+	 * координаты от младшего байта к старшему
+	 */
+	static const uint8_t ROOT[32] = {
+		0x01, 0x00, 0xfe, 0x73, 0xf5, 0x95, 0xff, 0x15, 0x8e, 0x97, 0x4b, 0x44, 0xd4, 0x78, 0xd9, 0x58,
+		0x87, 0x44, 0xfe, 0x5c, 0x19, 0x2a, 0xc4, 0x7e, 0xa6, 0x30, 0x75, 0xdc, 0xe7, 0xa1, 0x4a, 0xaa
+	};
+	uint8_t key[64] = {0};
+	for(size_t i = 0; i < 32; i++)
+		key[i] = ROOT[31 - i];
+	uint8_t result[32] = {0};
+	/**
+	 * Раздел 6.1.1.3 черновика наборов ГОСТ: чужой ключ вне подгруппы отвергается
+	 * при любом своём секрете. Перебираются секреты обеих чётностей: до правки
+	 * нечётный множитель давал успех и выдавал разряд секретного ключа
+	 */
+	for(uint8_t low = 1; low < 8; low++){
+		uint8_t secret[32] = {0};
+		secret[0] = low;
+		ASSERT_FALSE(agreement::ecdhe(curve, view_t(secret, sizeof(secret)), view_t(key, sizeof(key)), result));
+	}
+	// Годный ключ той же кривой по-прежнему принимается
+	uint8_t mine[32], opened[64];
+	ASSERT_TRUE(agreement::generate(curve, mine, opened));
+	ASSERT_TRUE(agreement::ecdhe(curve, view_t(mine, sizeof(mine)), view_t(opened, sizeof(opened)), result));
+}

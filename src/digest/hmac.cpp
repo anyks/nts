@@ -197,6 +197,203 @@ bool nts::digest::hmac(const type_t type, const view_t & key, const view_t & dat
 	return ok;
 }
 /**
+ * @brief Метод проверки готовности к выработке
+ *
+ * @return признак того, что ключ установлен
+ *
+ */
+bool nts::digest::Mac::ready() const noexcept {
+	// Выводим признак установленного ключа
+	return this->_ready;
+}
+/**
+ * @brief Метод установки ключа и начала выработки
+ *
+ * @param algorithm алгоритм хеширования
+ * @param key       ключ выработки имитовставки, вправе быть пустым
+ *
+ * @return          признак успешности установки ключа
+ *
+ */
+bool nts::digest::Mac::start(const hash_t algorithm, const view_t & key) noexcept {
+	// Выполняем сброс прежнего ключа
+	this->clear();
+	// Размер блока сжатия выбранного алгоритма
+	const size_t width = digest::block(algorithm);
+	// Если алгоритм не установлен либо ключ объявлен непустым, но не передан
+	if((width == 0) || ((key.size > 0) && (key.data == nullptr)))
+		// Выводим отказ установки ключа
+		return false;
+	// Ключ, приведённый к размеру блока сжатия
+	uint8_t padded[128];
+	// Выполняем обнуление приведённого ключа
+	wipe(padded, sizeof(padded));
+	// Если ключ длиннее блока сжатия
+	if(key.size > width){
+		// Если хеш ключа выработать не удалось
+		if(!hash(algorithm, key, padded, sizeof(padded))){
+			// Выполняем затирание приведённого ключа
+			wipe(padded, sizeof(padded));
+			// Выводим отказ установки ключа
+			return false;
+		}
+	// Если ключ передан
+	} else if(key.size > 0)
+		// Переносим ключ в приведённый
+		::memcpy(padded, key.data, key.size);
+	/**
+	 * Выполняем перебор байтов блока сжатия
+	 */
+	for(size_t i = 0; i < width; i++){
+		// Складываем внутреннее заполнение
+		this->_inner[i] = static_cast <uint8_t> (padded[i] ^ 0x36);
+		// Складываем внешнее заполнение
+		this->_outer[i] = static_cast <uint8_t> (padded[i] ^ 0x5C);
+	}
+	// Выполняем затирание приведённого ключа
+	wipe(padded, sizeof(padded));
+	// Запоминаем алгоритм хеширования
+	this->_type = algorithm;
+	// Запоминаем размер блока сжатия
+	this->_width = width;
+	// Запоминаем, что ключ установлен
+	this->_ready = true;
+	// Выводим итог начала выработки
+	return this->restart();
+}
+/**
+ * @brief Метод повторного начала выработки на установленном ключе
+ *
+ * @return признак того, что ключ установлен
+ *
+ */
+bool nts::digest::Mac::restart() noexcept {
+	// Если ключ не установлен
+	if(!this->_ready)
+		// Выводим отказ начала выработки
+		return false;
+	// Выполняем сброс хеширования под внутренний хеш
+	this->_hasher.reset(this->_type);
+	// Выполняем подачу внутреннего заполнения
+	this->_hasher.update(view_t(this->_inner, this->_width));
+	// Выводим успешность начала выработки
+	return true;
+}
+/**
+ * @brief Метод подачи куска сообщения
+ *
+ * @param data подаваемый кусок сообщения
+ *
+ */
+void nts::digest::Mac::update(const view_t & data) noexcept {
+	// Если ключ установлен
+	if(this->_ready)
+		// Выполняем подачу куска хешированию
+		this->_hasher.update(data);
+}
+/**
+ * @brief Метод снятия имитовставки
+ *
+ * @param result место, в которое записывается имитовставка
+ * @param size   требуемая длина имитовставки, от одного байта до длины хеша
+ *
+ * @return       признак успешности снятия
+ *
+ */
+bool nts::digest::Mac::finish(uint8_t * result, const size_t size) noexcept {
+	// Длина хеша алгоритма
+	const size_t length = digest::length(this->_type);
+	// Если ключ не установлен, либо места нет, либо длина негодна
+	if(!this->_ready || (result == nullptr) || (size == 0) || (size > length))
+		// Выводим отказ снятия имитовставки
+		return false;
+	// Место, в которое записывается внутренний хеш
+	uint8_t buffer[64];
+	// Признак успешности выработки
+	bool ok = this->_hasher.finish(buffer, sizeof(buffer));
+	// Если внутренний хеш снят
+	if(ok){
+		// Выполняем сброс хеширования под внешний хеш
+		this->_hasher.reset(this->_type);
+		// Выполняем подачу внешнего заполнения
+		this->_hasher.update(view_t(this->_outer, this->_width));
+		// Выполняем подачу внутреннего хеша
+		this->_hasher.update(view_t(buffer, length));
+		// Если внешний хеш снят
+		if((ok = this->_hasher.finish(buffer, sizeof(buffer))))
+			// Переносим имитовставку в требуемую длину
+			::memcpy(result, buffer, size);
+	}
+	// Выполняем затирание внутреннего хеша
+	wipe(buffer, sizeof(buffer));
+	// Выводим признак успешности выработки
+	return ok;
+}
+/**
+ * @brief Метод сброса ключа
+ *
+ */
+void nts::digest::Mac::clear() noexcept {
+	// Сбрасываем признак установленного ключа
+	this->_ready = false;
+	// Сбрасываем алгоритм хеширования
+	this->_type = hash_t::NONE;
+	// Сбрасываем размер блока сжатия
+	this->_width = 0;
+	// Выполняем затирание внутреннего заполнения
+	wipe(this->_inner, sizeof(this->_inner));
+	// Выполняем затирание внешнего заполнения
+	wipe(this->_outer, sizeof(this->_outer));
+	// Выполняем сброс хеширования
+	this->_hasher.reset(hash_t::NONE);
+}
+/**
+ * @brief Конструктор
+ *
+ */
+nts::digest::Mac::Mac() noexcept : _ready(false), _type(hash_t::NONE), _width(0) {
+	// Выполняем затирание внутреннего заполнения
+	wipe(this->_inner, sizeof(this->_inner));
+	// Выполняем затирание внешнего заполнения
+	wipe(this->_outer, sizeof(this->_outer));
+}
+/**
+ * @brief Деструктор
+ *
+ */
+nts::digest::Mac::~Mac() noexcept {
+	// Выполняем сброс ключа
+	this->clear();
+}
+/**
+ * @brief Метод выработки имитовставки HMAC выбранным алгоритмом хеширования
+ *
+ * @param algorithm алгоритм хеширования, на котором вырабатывается имитовставка
+ * @param key       ключ выработки имитовставки
+ * @param data      сообщение, на котором вырабатывается имитовставка
+ * @param result    место, в которое помещается имитовставка
+ * @param size      требуемая длина имитовставки в байтах, не больше длины хеша
+ *
+ * @return          признак успешности выработки имитовставки
+ *
+ */
+bool nts::digest::hmac(const hash_t algorithm, const view_t & key, const view_t & data, uint8_t * result, const size_t size) noexcept {
+	// Если сообщение объявлено непустым, но не передано
+	if((data.size > 0) && (data.data == nullptr))
+		// Выводим отказ выработки имитовставки
+		return false;
+	// Объект поточной выработки имитовставки
+	mac_t mac;
+	// Если ключ установить не удалось
+	if(!mac.start(algorithm, key))
+		// Выводим отказ выработки имитовставки
+		return false;
+	// Выполняем подачу сообщения
+	mac.update(data);
+	// Выводим итог снятия имитовставки
+	return mac.finish(result, size);
+}
+/**
  * @brief Метод выработки порождающей последовательности протокола TLS
  *
  * @param type   длина хеша, на котором вырабатывается последовательность
@@ -269,9 +466,12 @@ bool nts::digest::prf(const type_t type, const view_t & key, const view_t & labe
 			// Записываем слитную строку метки и затравки
 			::memcpy(block + length, buffer, total);
 			// Если очередную часть последовательности выработать не удалось
-			if(!(ok = nts::digest::hmac(type, key, view_t(block, length + total), part, length)))
+			if(!(ok = nts::digest::hmac(type, key, view_t(block, length + total), part, length))){
+				// Выполняем затирание слитной строки промежуточного значения
+				wipe(block, sizeof(block));
 				// Выходим из выработки последовательности
 				break;
+			}
 			// Определяем размер переносимой части последовательности
 			const size_t count = ((size - offset) < length ? (size - offset) : length);
 			// Переносим очередную часть последовательности

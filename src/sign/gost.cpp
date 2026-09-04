@@ -24,11 +24,6 @@
  */
 
 /**
- * Стандартные заголовочные файлы
- */
-#include <cstring>
-
-/**
  * Подключаем заголовочные файлы проекта
  */
 #include <sign/gost.hpp>
@@ -212,19 +207,47 @@ bool nts::sign::Gost::secret(const view_t & secret) noexcept {
 bool nts::sign::Gost::key(const view_t & x, const view_t & y) noexcept {
 	// Если кривая не установлена
 	if(this->_curve == nullptr)
-		// Выводим отказ установки ключа проверки подписи
+		// Выводим отказ установки ключа
 		return false;
-	// Если точку ключа проверки подписи разобрать не удалось
+	// Если ключ подписи уже установлен
+	if(this->_secret){
+		/**
+		 * Открытый ключ выведен из закрытого при его установке: поданный обязан с ним
+		 * сойтись, и тогда состояние не меняется; чужой открытый ключ отвергается.
+		 * Затирать закрытый ключ молча нельзя: подпись отказала бы там, где ключ был
+		 * в полном порядке
+		 */
+		curve::point_t given;
+		// Если поданная точка кривой не принадлежит
+		if(!this->_curve->point(x, y, given))
+			// Выводим отказ установки ключа
+			return false;
+		// Координаты выведенного открытого ключа
+		uint8_t ax[math::NUMBER_SIZE], ay[math::NUMBER_SIZE];
+		// Координаты поданного открытого ключа
+		uint8_t bx[math::NUMBER_SIZE], by[math::NUMBER_SIZE];
+		// Размер координаты
+		const size_t size = this->_curve->size();
+		// Признак схождения ключей
+		bool same = (this->_curve->coordinates(this->_point, ax, ay, size) && this->_curve->coordinates(given, bx, by, size));
+		// Накопленное различие координат
+		uint8_t difference = 0;
+		/**
+		 * Выполняем сличение координат за постоянное время
+		 */
+		for(size_t i = 0; i < size; i++)
+			// Накапливаем различие
+			difference = static_cast <uint8_t> (difference | (ax[i] ^ bx[i]) | (ay[i] ^ by[i]));
+		// Выводим схождение поданного ключа с выведенным
+		return (same && (difference == 0));
+	}
+	// Если точка ключа проверки кривой не принадлежит
 	if(!this->_curve->point(x, y, this->_point))
-		// Выводим отказ установки ключа проверки подписи
+		// Выводим отказ установки ключа
 		return false;
-	// Выполняем затирание прежде установленного ключа подписи
-	wipe(this->_key.words, sizeof(this->_key.words));
-	// Снимаем признак того, что ключ подписи установлен
-	this->_secret = false;
-	// Устанавливаем признак того, что ключ проверки подписи установлен
+	// Запоминаем, что ключ проверки установлен
 	this->_public = true;
-	// Выводим успешность установки ключа проверки подписи
+	// Выводим успешность установки ключа
 	return true;
 }
 /**
@@ -270,55 +293,54 @@ bool nts::sign::Gost::make(const view_t & value, const view_t & random, uint8_t 
 		return false;
 	// Случайное число выработки подписи
 	math::number_t number;
-	// Если случайное число разобрать не удалось
-	if(!order.load(random, number))
-		// Выводим отказ выработки подписи
-		return false;
-	// Если случайное число обратилось в ноль
-	if(order.zero(number))
-		// Выводим отказ выработки подписи
-		return false;
-	// Образующая точка подгруппы точек кривой
+	// Первая и вторая части подписи
+	math::number_t first, second;
+	// Значения в области Монтгомери, участвующие в выработке второй части подписи
+	math::number_t entered, item2;
+	// Кратная точка образующей по случайному числу
 	curve::point_t point;
-	// Выполняем умножение образующей точки на случайное число
-	this->_curve->product(number, point);
 	// Место, в которое записывается первая координата кратной точки
 	uint8_t buffer[math::NUMBER_SIZE];
-	// Если координаты кратной точки записать не удалось
-	if(!this->_curve->coordinates(point, buffer, nullptr, this->_curve->size()))
-		// Выводим отказ выработки подписи
-		return false;
-	// Первая часть подписи
-	math::number_t first;
-	// Выполняем приведение первой координаты кратной точки по порядку подгруппы
-	if(!order.reduce(view_t(buffer, this->_curve->size()), first))
-		// Выводим отказ выработки подписи
-		return false;
-	// Если первая часть подписи обратилась в ноль
-	if(order.zero(first))
-		// Выводим отказ выработки подписи: случайное число подлежит замене
-		return false;
-	// Значения в области Монтгомери, участвующие в выработке второй части подписи
-	math::number_t entered, item2, second;
-	// Выполняем приведение первой части подписи в область Монтгомери
-	order.enter(first, entered);
-	// Выполняем приведение ключа подписи в область Монтгомери
-	order.enter(this->_key, item2);
-	// Выполняем умножение первой части подписи на ключ подписи
-	order.multiply(entered, item2, second);
-	// Выполняем приведение случайного числа в область Монтгомери
-	order.enter(number, entered);
-	// Выполняем приведение хеша сообщения в область Монтгомери
-	order.enter(item, item2);
-	// Выполняем умножение случайного числа на хеш сообщения
-	order.multiply(entered, item2, entered);
-	// Складываем полученные произведения
-	order.add(second, entered, second);
-	// Выполняем вывод второй части подписи из области Монтгомери
-	order.leave(second, second);
-	// Признак успешности выработки подписи
-	bool ok = !order.zero(second);
-	// Если вторая часть подписи в ноль не обратилась
+	/**
+	 * Случайное число и всё, что из него выведено, секретны: всякий отказ ниже
+	 * ведёт к общему затиранию, оттого признак успеха копится, а не выводится
+	 */
+	bool ok = (order.load(random, number) && !order.zero(number));
+	// Если случайное число разобрано и в ноль не обратилось
+	if(ok){
+		// Выполняем умножение образующей точки на случайное число
+		this->_curve->product(number, point);
+		/**
+		 * Первая часть подписи есть первая координата кратной точки, приведённая по
+		 * порядку подгруппы; нулевая часть подписи велит заменить случайное число
+		 */
+		ok = (
+			this->_curve->coordinates(point, buffer, nullptr, this->_curve->size()) &&
+			order.reduce(view_t(buffer, this->_curve->size()), first) && !order.zero(first)
+		);
+	}
+	// Если первая часть подписи выработана
+	if(ok){
+		// Выполняем приведение первой части подписи в область Монтгомери
+		order.enter(first, entered);
+		// Выполняем приведение ключа подписи в область Монтгомери
+		order.enter(this->_key, item2);
+		// Выполняем умножение первой части подписи на ключ подписи
+		order.multiply(entered, item2, second);
+		// Выполняем приведение случайного числа в область Монтгомери
+		order.enter(number, entered);
+		// Выполняем приведение хеша сообщения в область Монтгомери
+		order.enter(item, item2);
+		// Выполняем умножение случайного числа на хеш сообщения
+		order.multiply(entered, item2, entered);
+		// Складываем полученные произведения
+		order.add(second, entered, second);
+		// Выполняем вывод второй части подписи из области Монтгомери
+		order.leave(second, second);
+		// Если вторая часть подписи в ноль обратилась, случайное число подлежит замене
+		ok = !order.zero(second);
+	}
+	// Если обе части подписи выработаны
 	if(ok){
 		// Записываем первую часть подписи
 		ok = order.store(first, result, order.size());
@@ -327,10 +349,18 @@ bool nts::sign::Gost::make(const view_t & value, const view_t & random, uint8_t 
 			// Записываем вторую часть подписи
 			ok = order.store(second, result + order.size(), order.size());
 	}
+	// Выполняем затирание первой координаты кратной точки
+	wipe(buffer, sizeof(buffer));
+	// Выполняем затирание кратной точки образующей
+	wipe(&point, sizeof(point));
 	// Выполняем затирание промежуточных значений выработки подписи
 	wipe(entered.words, sizeof(entered.words));
 	// Выполняем затирание промежуточных значений выработки подписи
 	wipe(item2.words, sizeof(item2.words));
+	// Выполняем затирание второй части подписи
+	wipe(second.words, sizeof(second.words));
+	// Выполняем затирание первой части подписи
+	wipe(first.words, sizeof(first.words));
 	// Выполняем затирание случайного числа выработки подписи
 	wipe(number.words, sizeof(number.words));
 	// Выводим признак успешности выработки подписи

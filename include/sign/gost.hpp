@@ -199,11 +199,19 @@ namespace nts {
 				 *
 				 * @return признак успешности установки ключа проверки подписи
 				 *
+				 * @note Если ключ подписи уже установлен, открытый ключ из него выведен:
+				 *       поданный обязан сойтись с выведенным, тогда состояние не меняется,
+				 *       а чужой отвергается. Закрытый ключ этим вызовом не затирается
+				 *
 				 * \~english
 				 * @brief Method of setting the key of the check of the signature
 				 * @param x the first coordinate of the key of the check of the signature
 				 * @param y the second coordinate of the key of the check of the signature
 				 * @return the flag of the success of the setting of the key of the check of the signature
+				 *
+				 * @note If the signing key is already set, the public key is derived from it: the given one
+				 *       must coincide with the derived one, then the state does not change, and a foreign one
+				 *       is rejected. The private key is not wiped by this call
 				 *
 				 * \~
 				 */

@@ -25,6 +25,7 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <main.hpp>
+#include <starve.hpp>
 #include <asn1/asn1.hpp>
 #include <hello/hello.hpp>
 #include <record/record.hpp>
@@ -386,31 +387,44 @@ namespace {
 	bool pump(client::context_t & client, server::context_t & server) noexcept {
 		// Признак того, что байты между сторонами передавались
 		bool moved = false;
-		// Получаем байты, отправляемые клиентом
-		view_t data = client.output();
-		// Если клиенту есть что отправить серверу
-		if(data.size > 0){
-			// Выполняем перенос отправляемых байтов
-			const vector <uint8_t> buffer(data.data, data.data + data.size);
-			// Снимаем отправленные байты с накопителя клиента
-			client.consume(buffer.size());
-			// Выполняем подачу отправленных байтов серверу
-			server.push(view_t(buffer.data(), buffer.size()));
-			// Запоминаем, что байты между сторонами передавались
-			moved = true;
-		}
-		// Получаем байты, отправляемые сервером
-		data = server.output();
-		// Если серверу есть что отправить клиенту
-		if(data.size > 0){
-			// Выполняем перенос отправляемых байтов
-			const vector <uint8_t> buffer(data.data, data.data + data.size);
-			// Снимаем отправленные байты с накопителя сервера
-			server.consume(buffer.size());
-			// Выполняем подачу отправленных байтов клиенту
-			client.push(view_t(buffer.data(), buffer.size()));
-			// Запоминаем, что байты между сторонами передавались
-			moved = true;
+		/**
+		 * Выполняем перехват ошибок работы с памятью: под отмеренным запасом выделений
+		 * переносу байтов памяти может не хватить, и тогда байты остаются в накопителе
+		 * отправителя, а передача считается не состоявшейся
+		 */
+		try {
+			// Получаем байты, отправляемые клиентом
+			view_t data = client.output();
+			// Если клиенту есть что отправить серверу
+			if(data.size > 0){
+				// Выполняем перенос отправляемых байтов
+				const vector <uint8_t> buffer(data.data, data.data + data.size);
+				// Снимаем отправленные байты с накопителя клиента
+				client.consume(buffer.size());
+				// Выполняем подачу отправленных байтов серверу
+				server.push(view_t(buffer.data(), buffer.size()));
+				// Запоминаем, что байты между сторонами передавались
+				moved = true;
+			}
+			// Получаем байты, отправляемые сервером
+			data = server.output();
+			// Если серверу есть что отправить клиенту
+			if(data.size > 0){
+				// Выполняем перенос отправляемых байтов
+				const vector <uint8_t> buffer(data.data, data.data + data.size);
+				// Снимаем отправленные байты с накопителя сервера
+				server.consume(buffer.size());
+				// Выполняем подачу отправленных байтов клиенту
+				client.push(view_t(buffer.data(), buffer.size()));
+				// Запоминаем, что байты между сторонами передавались
+				moved = true;
+			}
+		/**
+		 * Если памяти под перенос байтов не хватило
+		 */
+		} catch(const bad_alloc &) {
+			// Выводим признак того, что байты между сторонами не передавались
+			return false;
 		}
 		// Выводим признак того, что байты между сторонами передавались
 		return moved;
@@ -429,6 +443,196 @@ namespace {
 		for(size_t i = 0; (i < 16) && pump(client, server); i++)
 			// Продолжаем передачу байтов между сторонами связи
 			continue;
+	}
+	/**
+	 * @brief Виды нарушений договора связи при нехватке памяти
+	 *
+	 */
+	enum class breach_t : uint8_t {
+		NONE     = 0x00, // Нарушения нет
+		SETUP    = 0x01, // Заведение связи ответило отказом, отличным от нехватки памяти
+		TORN     = 0x02, // Связь оборвана отказом, отличным от нехватки памяти
+		NOTICE   = 0x03, // Связь оборвана нехваткой памяти, но извещение не о внутреннем отказе
+		WRITE    = 0x04, // Отправка прикладных данных ответила отказом вне договора
+		READ     = 0x05, // Получение прикладных данных ответило отказом вне договора
+		PAYLOAD  = 0x06, // Принятые прикладные данные разошлись с отправленными
+		CLOSE    = 0x07, // Закрытие связи ответило отказом вне договора
+		FINISHED = 0x08  // На достаточном запасе связь не прошла весь путь без отказа памяти
+	};
+	/**
+	 * @brief Метод проверки одной стороны оборванной связи
+	 *
+	 * @param state       состояние проверяемой стороны связи
+	 * @param error       отказ, которым сторона связи оборвана
+	 * @param description описание извещения, которым сторона связи оборвана
+	 * @param torn        признак обрыва связи, выставляемый по итогу проверки
+	 *
+	 * @return            обнаруженное нарушение договора связи
+	 *
+	 */
+	breach_t torn(const context::state_t state, const context::error_t error, const alert::description_t description, bool & torn) noexcept {
+		// Если связь стороной не оборвана
+		if(state != context::state_t::FAILED)
+			// Выводим отсутствие нарушения договора связи
+			return breach_t::NONE;
+		// Запоминаем, что связь оборвана
+		torn = true;
+		// Если связь оборвана отказом, отличным от нехватки памяти
+		if(error != context::error_t::MEMORY)
+			// Выводим нарушение вида обрыва связи
+			return breach_t::TORN;
+		// Если извещение обрыва не о внутреннем отказе
+		if(description != alert::description_t::INTERNAL)
+			// Выводим нарушение вида извещения об обрыве связи
+			return breach_t::NOTICE;
+		// Выводим отсутствие нарушения договора связи
+		return breach_t::NONE;
+	}
+	/**
+	 * @brief Метод проверки отказа вызова связи при нехватке памяти
+	 *
+	 * @param error проверяемый отказ вызова связи
+	 *
+	 * @return      признак того, что отказ вызова договору отвечает
+	 *
+	 * @note Дозволены успех, нехватка памяти да отказы состояния: последние идут
+	 *       следствием обрыва связи либо несостоявшегося рукопожатия
+	 *
+	 */
+	bool lawful(const context::error_t error) noexcept {
+		// Выводим признак того, что отказ вызова договору отвечает
+		return (
+			(error == context::error_t::NONE) || (error == context::error_t::MEMORY) ||
+			(error == context::error_t::STATE) || (error == context::error_t::CLOSED)
+		);
+	}
+	/**
+	 * @brief Метод ведения связи при отмеренном запасе выделений
+	 *
+	 * @param client      связь стороны клиента
+	 * @param server      связь стороны сервера
+	 * @param credentials подлинность стороны сервера
+	 * @param starved     признак того, что нехватка памяти хоть раз объявлена отказом
+	 *
+	 * @return            обнаруженное нарушение договора связи
+	 *
+	 * @note Запас выделений отмеряется тем, кто связь ведёт: сами связи достаются
+	 *       заведёнными как внутри запаса, так и вне его
+	 *
+	 */
+	breach_t starving(client::context_t & client, server::context_t & server, const context::credential_t & credentials, bool & starved) noexcept {
+		// Устанавливаем подлинность стороны сервера
+		server.credential(credentials);
+		// Выполняем заведение связи стороны сервера
+		context::error_t error = server.start();
+		// Запоминаем объявленный отказ памяти
+		starved = (starved || (error == context::error_t::MEMORY));
+		// Если заведение связи сервера ответило отказом вне договора
+		if((error != context::error_t::NONE) && (error != context::error_t::MEMORY))
+			// Выводим нарушение договора заведения связи
+			return breach_t::SETUP;
+		// Выполняем заведение связи стороны клиента
+		error = client.start();
+		// Запоминаем объявленный отказ памяти
+		starved = (starved || (error == context::error_t::MEMORY));
+		// Если заведение связи клиента ответило отказом вне договора
+		if((error != context::error_t::NONE) && (error != context::error_t::MEMORY))
+			// Выводим нарушение договора заведения связи
+			return breach_t::SETUP;
+		// Выполняем проведение рукопожатия сторон связи
+		converse(client, server);
+		// Признак того, что связь оборвана одной из сторон
+		bool failed = false;
+		// Выполняем проверку обрыва связи стороной клиента
+		breach_t breach = torn(client.state(), client.error(), client.alert().description, failed);
+		// Если договор обрыва связи нарушен
+		if(breach != breach_t::NONE)
+			// Выводим обнаруженное нарушение договора связи
+			return breach;
+		// Выполняем проверку обрыва связи стороной сервера
+		breach = torn(server.state(), server.error(), server.alert().description, failed);
+		// Если договор обрыва связи нарушен
+		if(breach != breach_t::NONE)
+			// Выводим обнаруженное нарушение договора связи
+			return breach;
+		// Запоминаем обрыв связи нехваткой памяти
+		starved = (starved || failed);
+		// Текст прикладных данных, отправляемых клиентом
+		static const char text[] = "Запрос прикладного протокола при нехватке памяти";
+		// Прикладные данные, отправляемые клиентом
+		const view_t request(reinterpret_cast <const uint8_t *> (text), sizeof(text) - 1);
+		// Выполняем отправку прикладных данных клиентом
+		error = client.write(request);
+		// Запоминаем объявленный отказ памяти
+		starved = (starved || (error == context::error_t::MEMORY));
+		// Если отправка прикладных данных ответила отказом вне договора
+		if(!lawful(error))
+			// Выводим нарушение договора отправки прикладных данных
+			return breach_t::WRITE;
+		// Признак того, что прикладные данные отправлены
+		const bool written = (error == context::error_t::NONE);
+		// Выполняем передачу байтов между сторонами связи
+		pump(client, server);
+		// Выполняем проверку обрыва связи стороной сервера
+		breach = torn(server.state(), server.error(), server.alert().description, failed);
+		// Если договор обрыва связи нарушен
+		if(breach != breach_t::NONE)
+			// Выводим обнаруженное нарушение договора связи
+			return breach;
+		// Накопитель, в который помещаются принятые прикладные данные
+		vector <uint8_t> received;
+		// Выполняем получение принятых сервером прикладных данных
+		error = server.read(received);
+		// Запоминаем объявленный отказ памяти
+		starved = (starved || (error == context::error_t::MEMORY));
+		// Если получение прикладных данных ответило отказом вне договора
+		if(!lawful(error))
+			// Выводим нарушение договора получения прикладных данных
+			return breach_t::READ;
+		/**
+		 * Принятые данные обязаны сойтись с отправленными, когда отправка удалась,
+		 * передача байтов состоялась и связь при этом не оборвана: нехватка памяти
+		 * вправе не донести данные, но не вправе их исказить
+		 */
+		if(written && (error == context::error_t::NONE) && !received.empty() && ((received.size() != request.size) || (::memcmp(received.data(), request.data, request.size) != 0)))
+			// Выводим нарушение целости прикладных данных
+			return breach_t::PAYLOAD;
+		// Выполняем закрытие связи стороной клиента
+		error = client.close();
+		// Запоминаем объявленный отказ памяти
+		starved = (starved || (error == context::error_t::MEMORY));
+		// Если закрытие связи ответило отказом вне договора
+		if(!lawful(error))
+			// Выводим нарушение договора закрытия связи
+			return breach_t::CLOSE;
+		// Выполняем передачу байтов между сторонами связи
+		pump(client, server);
+		// Выполняем закрытие связи стороной сервера
+		error = server.close();
+		// Запоминаем объявленный отказ памяти
+		starved = (starved || (error == context::error_t::MEMORY));
+		// Если закрытие связи ответило отказом вне договора
+		if(!lawful(error))
+			// Выводим нарушение договора закрытия связи
+			return breach_t::CLOSE;
+		// Выполняем передачу байтов между сторонами связи
+		pump(client, server);
+		// Выполняем проверку обрыва связи стороной клиента
+		breach = torn(client.state(), client.error(), client.alert().description, failed);
+		// Если договор обрыва связи нарушен
+		if(breach != breach_t::NONE)
+			// Выводим обнаруженное нарушение договора связи
+			return breach;
+		// Выполняем проверку обрыва связи стороной сервера
+		breach = torn(server.state(), server.error(), server.alert().description, failed);
+		// Если договор обрыва связи нарушен
+		if(breach != breach_t::NONE)
+			// Выводим обнаруженное нарушение договора связи
+			return breach;
+		// Запоминаем обрыв связи нехваткой памяти
+		starved = (starved || failed);
+		// Выводим отсутствие нарушения договора связи
+		return breach_t::NONE;
 	}
 };
 
@@ -2818,12 +3022,12 @@ TEST(ContextTest, Voided){
 	 */
 	(void) intruder(server, distortion_t::HOLLOW, &credentials);
 	/**
-	 * Раздел 4.2.8 RFC 8446: доля обмена ключами обязана нести открытую часть ключа,
-	 * и пустая её длина делает обмен неисполнимым
+	 * Раздел 4.2.8 RFC 8446: открытая часть ключа в доле обмена длиной не короче
+	 * байта, и пустую долю отвергает уже разбор расширения - отказом записи
 	 */
-	ASSERT_EQ(server.error(), context::error_t::EXCHANGE);
+	ASSERT_EQ(server.error(), context::error_t::MESSAGE);
 	// Проверяем извещение, которым связь оборвана сервером
-	ASSERT_EQ(server.alert().description, alert::description_t::PARAMETER);
+	ASSERT_EQ(server.alert().description, alert::description_t::DECODE);
 	// Проверяем неустановленность связи стороной сервера
 	ASSERT_FALSE(server.established());
 }
@@ -3431,7 +3635,11 @@ TEST(ContextTest, Scrambled){
 	 */
 	ASSERT_EQ(client.error(), context::error_t::MESSAGE);
 	// Проверяем извещение, которым связь оборвана клиентом
-	ASSERT_EQ(client.alert().description, alert::description_t::PARAMETER);
+	/**
+	 * Раздел 6 RFC 8446: сообщение негодной записи объявляется decode_error, а
+	 * illegal_parameter отведён неизвестному значению просьбы (раздел 4.6.3)
+	 */
+	ASSERT_EQ(client.alert().description, alert::description_t::DECODE);
 }
 
 /**
@@ -4395,8 +4603,11 @@ TEST(ContextTest, Chain){
 		 * разбора сообщения, а пустая цепочка сервера - отказом подлинности
 		 */
 		ASSERT_EQ(client.error(), ((item == 0) ? context::error_t::MESSAGE : context::error_t::CERTIFICATE)) << "искажение " << item;
-		// Проверяем извещение, которым связь оборвана клиентом
-		ASSERT_EQ(client.alert().description, alert::description_t::BADCERT) << "искажение " << item;
+		/**
+		 * Извещение расходится: негодная цепочка объявляется «bad_certificate», а
+		 * пустая цепочка сервера по разделу 4.4.2.4 - «decode_error»
+		 */
+		ASSERT_EQ(client.alert().description, ((item == 0) ? alert::description_t::BADCERT : alert::description_t::DECODE)) << "искажение " << item;
 		// Проверяем неустановленность связи стороной клиента
 		ASSERT_FALSE(client.established()) << "искажение " << item;
 	}
@@ -5102,7 +5313,13 @@ TEST(ContextTest, Hollow){
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Выполняем ответ враждебного сервера защищённой записью с пустым содержимым
-	ASSERT_TRUE(adversary(client, distortion_t::VACANT));
+	/**
+	 * Враждебный сервер подтверждает себя сертификатом: завершение без сертификата
+	 * клиент отвергает раньше, чем дело дошло бы до подделанной записи
+	 */
+	context::credential_t credentials;
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	ASSERT_TRUE(adversary(client, distortion_t::VACANT, &credentials));
 	// Проверяем обрыв связи стороной клиента
 	ASSERT_EQ(client.error(), context::error_t::RECORD);
 	/**
@@ -5707,4 +5924,602 @@ TEST(ContextTest, Requested){
 		// Проверяем, что и клиент своё направление сменил по просьбе
 		ASSERT_LT(client.sequence(), 3);
 	}
+}
+
+/**
+ * Проверка отказа клиента на завершение без сертификата в полном рукопожатии
+ */
+TEST(ContextTest, Unattested){
+	client::context_t client;
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	ASSERT_TRUE(adversary(client, distortion_t::UNATTESTED));
+	/**
+	 * Раздел 4.4.2 RFC 8446: сервер обязан предъявить сертификат во всяком
+	 * рукопожатии, кроме связи на заранее разделённом ключе. Посредник, знающий обмен
+	 * как его сторона, сходящееся завершение составит - а подпись владения нет
+	 */
+	ASSERT_EQ(client.error(), context::error_t::ORDER);
+	ASSERT_EQ(client.alert().description, alert::description_t::UNEXPECTED);
+	ASSERT_FALSE(client.established());
+	ASSERT_TRUE(client.peer().empty());
+	// Сброс возвращает извещение и набор шифрования в исходное
+	client.clear();
+	ASSERT_EQ(client.alert().description, alert::alert_t().description);
+	ASSERT_EQ(client.suite(), protect::suite_t::NONE);
+	ASSERT_EQ(client.error(), context::error_t::NONE);
+}
+
+/**
+ * Проверка отказа сервера на сертификат клиента без подписи владения
+ */
+TEST(ContextTest, Unproven){
+	context::credential_t credentials;
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	server::context_t server;
+	server.credential(credentials);
+	server.request(true);
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	ASSERT_TRUE(intruder(server, distortion_t::UNPROVEN, &credentials));
+	// Раздел 4.4.3 RFC 8446: за непустым сертификатом обязана идти подпись владения
+	ASSERT_EQ(server.error(), context::error_t::ORDER);
+	ASSERT_EQ(server.alert().description, alert::description_t::UNEXPECTED);
+	ASSERT_FALSE(server.established());
+}
+
+/**
+ * Проверка отказа на сообщение, пересекающее смену ключей
+ */
+TEST(ContextTest, Spanning){
+	context::credential_t credentials;
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	client::context_t client;
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	ASSERT_TRUE(adversary(client, distortion_t::SPANNING, &credentials));
+	// Раздел 5.1 RFC 8446: сообщение перед сменой ключей кончается на границе записи
+	ASSERT_EQ(client.error(), context::error_t::ORDER);
+	ASSERT_EQ(client.alert().description, alert::description_t::UNEXPECTED);
+	ASSERT_FALSE(client.established());
+}
+
+/**
+ * Проверка отказа на объявление упреждения без выбранного заранее разделённого ключа
+ */
+TEST(ContextTest, Unpicked){
+	context::credential_t credentials;
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	vector <context::ticket_t> issued;
+	context::ticket_t accepted;
+	ASSERT_TRUE(granted(credentials, issued, accepted));
+	client::context_t client;
+	client.resume(accepted);
+	client.advance(true);
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	ASSERT_TRUE(adversary(client, distortion_t::UNPICKED, &credentials));
+	// Раздел 4.2.11 RFC 8446: упреждение принимается лишь при выбранном ключе
+	ASSERT_EQ(client.error(), context::error_t::MESSAGE);
+	ASSERT_EQ(client.alert().description, alert::description_t::PARAMETER);
+	ASSERT_FALSE(client.established());
+}
+
+/**
+ * Проверка отказа сервера на завершение ключами упреждения без его конца
+ */
+TEST(ContextTest, Endless){
+	context::credential_t credentials;
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	vector <context::ticket_t> issued;
+	context::ticket_t accepted;
+	ASSERT_TRUE(granted(credentials, issued, accepted));
+	server::context_t server;
+	server.credential(credentials);
+	server.resume(issued);
+	server.advance(true);
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	ASSERT_TRUE(precursor(server, accepted, distortion_t::ENDLESS));
+	// Раздел 4.5 RFC 8446: конец упреждающих данных обязателен прежде завершения
+	ASSERT_EQ(server.error(), context::error_t::ORDER);
+	ASSERT_EQ(server.alert().description, alert::description_t::UNEXPECTED);
+	ASSERT_FALSE(server.established());
+}
+
+/**
+ * Проверка отказа на выбор сервером билета, срок которого вышел и который не предлагался
+ */
+TEST(ContextTest, Stale){
+	context::credential_t credentials;
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	const int64_t issued = 1800000000;
+	context::ticket_t ticket;
+	{
+		client::context_t client;
+		server::context_t server;
+		server.credential(credentials);
+		server.moment(issued);
+		client.moment(issued);
+		ASSERT_EQ(server.start(), context::error_t::NONE);
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		converse(client, server);
+		ASSERT_EQ(server.issue(), context::error_t::NONE);
+		pump(client, server);
+		ASSERT_EQ(client.tickets().size(), static_cast <size_t> (1));
+		ticket = client.tickets()[0];
+	}
+	client::context_t client;
+	// Билет предъявлен позже своего срока: приветствие его не несёт
+	client.resume(ticket);
+	client.moment(issued + static_cast <int64_t> (ticket.lifetime) + 1);
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	ASSERT_TRUE(adversary(client, distortion_t::UNOFFERED));
+	/**
+	 * Раздел 4.2.11 RFC 8446: выбранный ключ обязан лежать в пределах предложенного,
+	 * а предложено не было ничего - место нулевое тут ничем не лучше иного
+	 */
+	ASSERT_EQ(client.error(), context::error_t::MESSAGE);
+	ASSERT_EQ(client.alert().description, alert::description_t::PARAMETER);
+	ASSERT_FALSE(client.shared());
+	ASSERT_FALSE(client.established());
+}
+
+/**
+ * Проверка того, что расхождение возраста билета одной связи не гасит упреждение у следующей
+ */
+TEST(ContextTest, Recovered){
+	context::credential_t credentials;
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	const int64_t issued = 1800000000;
+	vector <context::ticket_t> tickets;
+	{
+		client::context_t client;
+		server::context_t server;
+		server.credential(credentials);
+		server.moment(issued);
+		client.moment(issued);
+		server.advance(true);
+		ASSERT_EQ(server.start(), context::error_t::NONE);
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		converse(client, server);
+		ASSERT_EQ(server.issue(), context::error_t::NONE);
+		pump(client, server);
+		ASSERT_EQ(client.tickets().size(), static_cast <size_t> (1));
+		tickets = server.tickets();
+		tickets.push_back(client.tickets()[0]);
+	}
+	// Один и тот же сервер ведёт обе связи подряд
+	server::context_t server;
+	server.credential(credentials);
+	server.advance(true);
+	for(size_t item = 0; item < 2; item++){
+		const int64_t drift = ((item == 0) ? 30 : 0);
+		client::context_t client;
+		server.clear();
+		server.moment(issued + 3600 + drift);
+		client.moment(issued + 3600);
+		server.resume(vector <context::ticket_t> (1, tickets[0]));
+		client.resume(tickets[1]);
+		client.advance(true);
+		ASSERT_EQ(server.start(), context::error_t::NONE);
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		const string request = "Упреждающие данные";
+		ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
+		converse(client, server);
+		ASSERT_TRUE(client.established() && server.established()) << "круг " << item;
+		/**
+		 * Раздел 4.2.10 RFC 8446 велит отвергнуть упреждение ЭТОЙ связи при
+		 * расхождении возраста, а не настройку сервера: следующая связь с честным
+		 * возрастом упреждение получает
+		 */
+		ASSERT_EQ(client.accepted(), (item == 1)) << "круг " << item;
+	}
+}
+
+/**
+ * Проверка упреждающих данных вместе с просьбой о повторе приветствия
+ */
+TEST(ContextTest, Hastened){
+	context::credential_t credentials;
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	vector <context::ticket_t> issued;
+	context::ticket_t accepted;
+	ASSERT_TRUE(granted(credentials, issued, accepted));
+	for(size_t item = 0; item < 2; item++){
+		client::context_t client;
+		server::context_t server;
+		server.credential(credentials);
+		server.resume(issued);
+		server.advance(item == 0);
+		client.resume(accepted);
+		client.advance(true);
+		client.groups({extension::group_t::GC256B, extension::group_t::GC512C});
+		server.groups({extension::group_t::GC512C});
+		ASSERT_EQ(server.start(), context::error_t::NONE);
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		const string request = "Упреждающие данные до просьбы о повторе";
+		ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
+		converse(client, server);
+		/**
+		 * Разделы 4.1.2 и 4.2.10 RFC 8446: за просьбою о повторе упреждение не идёт,
+		 * повторное приветствие уходит открытой записью, а уже ушедшие записи
+		 * упреждения сервер пропускает. Связь устанавливается, упреждение отвергнуто
+		 */
+		ASSERT_TRUE(client.established() && server.established()) << "круг " << item;
+		ASSERT_TRUE(client.shared() && server.shared()) << "круг " << item;
+		ASSERT_FALSE(client.accepted()) << "круг " << item;
+		vector <uint8_t> received;
+		ASSERT_EQ(server.read(received), context::error_t::NONE);
+		ASSERT_TRUE(received.empty()) << "круг " << item;
+		const string repeated = "Данные по установленной связи";
+		ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (repeated.data()), repeated.size())), context::error_t::NONE);
+		pump(client, server);
+		ASSERT_EQ(server.read(received), context::error_t::NONE);
+		ASSERT_EQ(string(received.begin(), received.end()), repeated) << "круг " << item;
+	}
+}
+
+/**
+ * Проверка пропуска отвергнутого упреждения, нарезанного на множество записей
+ */
+TEST(ContextTest, Shredded){
+	context::credential_t credentials;
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	vector <context::ticket_t> issued;
+	context::ticket_t accepted;
+	ASSERT_TRUE(granted(credentials, issued, accepted));
+	client::context_t client;
+	server::context_t server;
+	server.credential(credentials);
+	server.resume(issued);
+	server.advance(false);
+	client.resume(accepted);
+	client.advance(true);
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	/**
+	 * Раздел 4.2.10 RFC 8446 ограничивает пропуск объёмом упреждения в байтах, а
+	 * клиент вправе нарезать его сколь угодно мелко: сорок записей по байту
+	 */
+	for(size_t i = 0; i < 40; i++)
+		ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> ("x"), 1)), context::error_t::NONE);
+	converse(client, server);
+	ASSERT_TRUE(client.established() && server.established());
+	ASSERT_FALSE(client.accepted());
+}
+
+/**
+ * Проверка предела хранимых клиентом билетов
+ */
+TEST(ContextTest, Hoarded){
+	context::credential_t credentials;
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	client::context_t client;
+	server::context_t server;
+	server.credential(credentials);
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	converse(client, server);
+	ASSERT_TRUE(client.established() && server.established());
+	// Сервер вправе слать билеты без счёта, клиент хранит последние шестнадцать
+	for(size_t i = 0; i < 24; i++)
+		ASSERT_EQ(server.issue(), context::error_t::NONE);
+	pump(client, server);
+	ASSERT_TRUE(client.established());
+	ASSERT_EQ(client.tickets().size(), static_cast <size_t> (16));
+	// Хранятся последние билеты: старейшие вытеснены
+	ASSERT_EQ(client.tickets().front().identity, server.tickets()[8].identity);
+	ASSERT_EQ(client.tickets().back().identity, server.tickets()[23].identity);
+}
+
+/**
+ * Проверка единственного ответа на пачку просьб о смене ключей
+ */
+TEST(ContextTest, Amplified){
+	context::credential_t credentials;
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	client::context_t client;
+	server::context_t server;
+	server.credential(credentials);
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	converse(client, server);
+	ASSERT_TRUE(client.established() && server.established());
+	// Восемь просьб о встречной смене ключей одной подачей
+	for(size_t i = 0; i < 8; i++)
+		ASSERT_EQ(server.update(true), context::error_t::NONE);
+	const view_t asked = server.output();
+	ASSERT_EQ(client.push(asked), context::error_t::NONE);
+	server.consume(asked.size);
+	/**
+	 * Раздел 4.6.3 RFC 8446: сторона, получившая несколько просьб, пока молчала,
+	 * отвечает одной сменой - иначе каждая просьба усиливалась бы целой выработкой
+	 * ключей и записью в ответ. Одна запись смены ключей короче полусотни байтов
+	 */
+	const view_t answered = client.output();
+	ASSERT_GT(answered.size, static_cast <size_t> (0));
+	ASSERT_LT(answered.size, static_cast <size_t> (64));
+	ASSERT_EQ(server.push(answered), context::error_t::NONE);
+	client.consume(answered.size);
+	ASSERT_TRUE(client.established() && server.established());
+	// Связь пригодна к обмену новыми ключами в обе стороны
+	ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> ("ok"), 2)), context::error_t::NONE);
+	pump(client, server);
+	vector <uint8_t> received;
+	ASSERT_EQ(server.read(received), context::error_t::NONE);
+	ASSERT_EQ(string(received.begin(), received.end()), "ok");
+}
+
+/**
+ * Проверка закрытия незаведённой связи и смены шифра до приветствия клиента
+ */
+TEST(ContextTest, Unopened){
+	client::context_t idle;
+	// Закрывать незаведённую связь нечего
+	ASSERT_EQ(idle.close(), context::error_t::STATE);
+	ASSERT_EQ(idle.state(), context::state_t::NONE);
+	context::credential_t credentials;
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	server::context_t server;
+	server.credential(credentials);
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	// Запись смены шифра, пришедшая серверу прежде приветствия клиента
+	const uint8_t change[6] = {0x14, 0x03, 0x03, 0x00, 0x01, 0x01};
+	server.push(view_t(change, sizeof(change)));
+	// Раздел 5 RFC 8446: смена шифра до первого приветствия - неожиданная запись
+	ASSERT_EQ(server.error(), context::error_t::RECORD);
+	ASSERT_EQ(server.alert().description, alert::description_t::UNEXPECTED);
+}
+
+/**
+ * Проверка половинного закрытия связи
+ */
+TEST(ContextTest, Halfclosed){
+	// Подлинность стороны сервера
+	context::credential_t credentials;
+	// Выполняем выработку подлинности стороны сервера
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Связь стороны клиента
+	client::context_t client;
+	// Связь стороны сервера
+	server::context_t server;
+	// Устанавливаем подлинность стороны сервера
+	server.credential(credentials);
+	// Выполняем заведение связи стороны сервера
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	// Выполняем заведение связи стороны клиента
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	// Выполняем рукопожатие сторон связи
+	converse(client, server);
+	// Проверяем установленность связи обеими сторонами
+	ASSERT_TRUE(client.established() && server.established());
+	// Прикладные данные, отправляемые сервером до сведений о закрытии
+	const string answer = "Ответ, разошедшийся с закрытием";
+	// Выполняем отправку прикладных данных сервером
+	ASSERT_EQ(server.write(view_t(reinterpret_cast <const uint8_t *> (answer.data()), answer.size())), context::error_t::NONE);
+	// Выполняем закрытие своей передачи стороной клиента
+	ASSERT_EQ(client.close(), context::error_t::NONE);
+	// Проверяем состояние закрытия связи стороной клиента
+	ASSERT_EQ(client.state(), context::state_t::CLOSED);
+	// Проверяем отказ отправки данных после закрытия своей передачи
+	ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (answer.data()), answer.size())), context::error_t::STATE);
+	// Размер накопителя сервера до принятия извещения о закрытии
+	const size_t before = server.output().size;
+	// Извещение о закрытии, отправляемое клиентом
+	const view_t closing = client.output();
+	// Выполняем подачу извещения о закрытии серверу
+	ASSERT_EQ(server.push(closing), context::error_t::NONE);
+	// Выполняем снятие отправленного извещения с накопителя клиента
+	client.consume(closing.size);
+	/**
+	 * Принявший извещение о закрытии обязан ответить своим: ответ сложен в
+	 * накопитель самой связью, без участия того, кто её ведёт
+	 */
+	ASSERT_GT(server.output().size, before);
+	// Проверяем состояние закрытия связи стороной сервера
+	ASSERT_EQ(server.state(), context::state_t::CLOSED);
+	// Проверяем отказ отправки данных принявшим извещение о закрытии
+	ASSERT_EQ(server.write(view_t(reinterpret_cast <const uint8_t *> (answer.data()), answer.size())), context::error_t::STATE);
+	// Проверяем отказ повторного закрытия уже завершённой передачи
+	ASSERT_EQ(server.close(), context::error_t::CLOSED);
+	// Выполняем передачу разошедшихся данных и ответного извещения клиенту
+	pump(client, server);
+	// Накопитель, в который помещаются принятые прикладные данные
+	vector <uint8_t> received;
+	/**
+	 * Раздел 6.1 RFC 8446: закрывший передачу читать вправе, пока собеседник не
+	 * завершит свою; данные, разошедшиеся с извещением о закрытии, теряться не должны
+	 */
+	ASSERT_EQ(client.read(received), context::error_t::NONE);
+	// Проверяем схождение принятых данных с отправленными сервером
+	ASSERT_EQ(string(received.begin(), received.end()), answer);
+	// Проверяем состояние закрытия связи стороной клиента
+	ASSERT_EQ(client.state(), context::state_t::CLOSED);
+	// Проверяем отказ повторного закрытия стороной клиента
+	ASSERT_EQ(client.close(), context::error_t::CLOSED);
+	// Проверяем, что закрытие связь отказом не считается
+	ASSERT_EQ(client.error(), context::error_t::NONE);
+	// Проверяем, что закрытие связь отказом не считается
+	ASSERT_EQ(server.error(), context::error_t::NONE);
+}
+
+/**
+ * Проверка установки срока жизни выдаваемых билетов
+ */
+TEST(ContextTest, Termed){
+	// Подлинность стороны сервера
+	context::credential_t credentials;
+	// Выполняем выработку подлинности стороны сервера
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Связь стороны клиента
+	client::context_t client;
+	// Связь стороны сервера
+	server::context_t server;
+	// Устанавливаем подлинность стороны сервера
+	server.credential(credentials);
+	// Устанавливаем срок жизни выдаваемых билетов в минуту
+	server.lifetime(60);
+	// Выполняем заведение связи стороны сервера
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	// Выполняем заведение связи стороны клиента
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	// Выполняем рукопожатие сторон связи
+	converse(client, server);
+	// Проверяем установленность связи обеими сторонами
+	ASSERT_TRUE(client.established() && server.established());
+	// Выполняем выдачу билета со сроком в минуту
+	ASSERT_EQ(server.issue(), context::error_t::NONE);
+	// Устанавливаем срок жизни выдаваемых билетов выше предела стандарта
+	server.lifetime(700000);
+	// Выполняем выдачу билета с усечённым сроком
+	ASSERT_EQ(server.issue(), context::error_t::NONE);
+	// Возвращаем срок жизни выдаваемых билетов к принятому по умолчанию
+	server.lifetime(0);
+	// Выполняем выдачу билета со сроком по умолчанию
+	ASSERT_EQ(server.issue(), context::error_t::NONE);
+	// Выполняем передачу билетов клиенту
+	pump(client, server);
+	// Проверяем число принятых клиентом билетов
+	ASSERT_EQ(client.tickets().size(), 3);
+	// Проверяем срок билета, выданного со сроком в минуту
+	ASSERT_EQ(client.tickets()[0].lifetime, 60);
+	// Раздел 4.6.1 RFC 8446: срок билета не выше семи суток
+	ASSERT_EQ(client.tickets()[1].lifetime, 604800);
+	// Проверяем срок билета, выданного со сроком по умолчанию
+	ASSERT_EQ(client.tickets()[2].lifetime, 7200);
+}
+
+/**
+ * Проверка обрыва связи по сообщению рукопожатия непомерной длины после установления
+ */
+TEST(ContextTest, Overgrown){
+	// Подлинность стороны сервера
+	context::credential_t credentials;
+	// Выполняем выработку подлинности стороны сервера
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Связь стороны клиента
+	client::context_t client;
+	// Выполняем заведение связи стороны клиента
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	// Выполняем рукопожатие враждебного сервера с непомерным сообщением после
+	ASSERT_TRUE(adversary(client, distortion_t::OVERGROWN, &credentials));
+	/**
+	 * После установления связи сообщения рукопожатия шире билета не ходят: связь
+	 * обрывается по одной обвязке, не копя мегабайты чужого мусора
+	 */
+	ASSERT_EQ(client.error(), context::error_t::MESSAGE);
+	// Проверяем извещение, которым связь оборвана клиентом
+	ASSERT_EQ(client.alert().description, alert::description_t::DECODE);
+	// Проверяем состояние обрыва связи стороной клиента
+	ASSERT_EQ(client.state(), context::state_t::FAILED);
+}
+
+/**
+ * Проверка обрыва связи по цепочке сертификатов, присланной после установления
+ */
+TEST(ContextTest, Impostor){
+	// Подлинность стороны сервера
+	context::credential_t credentials;
+	// Выполняем выработку подлинности стороны сервера
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Связь стороны клиента
+	client::context_t client;
+	// Выполняем заведение связи стороны клиента
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	// Выполняем рукопожатие враждебного сервера с повторной цепочкой после
+	ASSERT_TRUE(adversary(client, distortion_t::IMPOSTOR, &credentials));
+	/**
+	 * За установленной связью законны лишь смена ключей и билеты: цепочка
+	 * сертификатов после установления - сообщение не в свой черёд, и принятая
+	 * цепочка подменяться не должна
+	 */
+	ASSERT_EQ(client.error(), context::error_t::ORDER);
+	// Проверяем извещение, которым связь оборвана клиентом
+	ASSERT_EQ(client.alert().description, alert::description_t::UNEXPECTED);
+	// Проверяем состояние обрыва связи стороной клиента
+	ASSERT_EQ(client.state(), context::state_t::FAILED);
+	// Проверяем, что принятая цепочка сертификатов подменена не была
+	ASSERT_FALSE(client.peer().empty());
+}
+
+/**
+ * Проверка ведения связи при нехватке памяти
+ */
+TEST(ContextTest, Starved){
+	// Подлинность стороны сервера
+	context::credential_t credentials;
+	// Выполняем выработку подлинности стороны сервера
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Признак того, что нехватка памяти хоть раз объявлена отказом
+	bool starved = false;
+	/**
+	 * Верхний край запаса выделений: полное ведение связи с заведением сторон, их
+	 * рукопожатием, обменом прикладными данными и закрытием укладывается в 244
+	 * выделения, и на верхнем краю связь обязана пройти без единого отказа памяти
+	 */
+	const size_t top = 512;
+	/**
+	 * Выполняем перебор запасов выделений: до трёхсот по одному, дальше шагом в
+	 * пятьдесят три до самого верха (полный путь связи укладывается в 244 выделения,
+	 * и всякий перехват задевается первой сотней с лишним). На всяком запасе связь
+	 * обязана ответить либо успехом, либо отказом памяти, но не прерыванием
+	 * исполнения, а обрыв связи дозволен лишь нехваткой памяти с извещением о
+	 * внутреннем отказе
+	 */
+	for(size_t budget = 0; budget <= top; budget += ((budget < 300) ? 1 : 53)){
+		// Обнаруженное нарушение договора связи
+		breach_t breach = breach_t::NONE;
+		// Признак того, что нехватка памяти объявлена отказом на этом запасе
+		bool hungry = false;
+		{
+			// Связь стороны клиента, заведённая вне запаса
+			client::context_t client;
+			// Связь стороны сервера, заведённая вне запаса
+			server::context_t server;
+			// Отмеряем запас выделений на время ведения связи
+			starve::ration_t ration(budget);
+			// Выполняем ведение связи при отмеренном запасе выделений
+			breach = starving(client, server, credentials, hungry);
+			// Снимаем запас: дальнейшие выделения принадлежат проверке, а не связи
+			ration.stop();
+			/**
+			 * На верхнем краю запаса связь обязана пройти весь путь без единого отказа
+			 * памяти и кончиться закрытием обеих сторон, а не обрывом
+			 */
+			if((budget == top) && (hungry || (client.state() != context::state_t::CLOSED) || (server.state() != context::state_t::CLOSED)))
+				// Запоминаем нарушение прохождения связи
+				breach = breach_t::FINISHED;
+			// Проверяем, что договор связи при заведённых вне запаса сторонах соблюдён
+			ASSERT_EQ(breach, breach_t::NONE) << "запас " << budget << " вне: клиент "
+				<< static_cast <int> (client.state()) << "/" << static_cast <int> (client.error()) << "/" << static_cast <int> (client.alert().description)
+				<< " сервер " << static_cast <int> (server.state()) << "/" << static_cast <int> (server.error()) << "/" << static_cast <int> (server.alert().description);
+		}
+		// Запоминаем объявленный отказ памяти
+		starved = (starved || hungry);
+		// Сбрасываем признак отказа памяти на этом запасе
+		hungry = false;
+		{
+			// Отмеряем запас выделений на время ведения связи
+			starve::ration_t ration(budget);
+			// Связь стороны клиента, заведённая внутри запаса
+			client::context_t client;
+			// Связь стороны сервера, заведённая внутри запаса
+			server::context_t server;
+			// Выполняем ведение связи при отмеренном запасе выделений
+			breach = starving(client, server, credentials, hungry);
+			// Снимаем запас: дальнейшие выделения принадлежат проверке, а не связи
+			ration.stop();
+			/**
+			 * На верхнем краю запаса связь обязана пройти весь путь без единого отказа
+			 * памяти и кончиться закрытием обеих сторон, а не обрывом
+			 */
+			if((budget == top) && (hungry || (client.state() != context::state_t::CLOSED) || (server.state() != context::state_t::CLOSED)))
+				// Запоминаем нарушение прохождения связи
+				breach = breach_t::FINISHED;
+			// Проверяем, что договор связи при заведённых внутри запаса сторонах соблюдён
+			ASSERT_EQ(breach, breach_t::NONE) << "запас " << budget << " внутри: клиент "
+				<< static_cast <int> (client.state()) << "/" << static_cast <int> (client.error()) << "/" << static_cast <int> (client.alert().description)
+				<< " сервер " << static_cast <int> (server.state()) << "/" << static_cast <int> (server.error()) << "/" << static_cast <int> (server.alert().description);
+		}
+		// Запоминаем объявленный отказ памяти
+		starved = (starved || hungry);
+	}
+	// Проверяем, что нехватка памяти объявлена отказом хоть раз
+	ASSERT_TRUE(starved);
 }

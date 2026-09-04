@@ -23,6 +23,7 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <main.hpp>
+#include <starve.hpp>
 #include <cstring>
 #include <asn1/asn1.hpp>
 
@@ -1430,4 +1431,69 @@ TEST(ASN1Test, Malformed){
 	ASSERT_TRUE(spent.next(spare));
 	// Проверяем нулевую длину области, разобранной до конца
 	ASSERT_EQ(spent.size(), static_cast <size_t> (0));
+}
+
+/**
+ * @brief Проверка залипания отказа вида у входа в простой элемент
+ *
+ */
+TEST(Asn1Test, Primitive){
+	// Простой элемент с содержимым, похожим на вложенный OID
+	const uint8_t data[] = {0x04, 0x05, 0x06, 0x03, 0x2A, 0x03, 0x04};
+	asn1::reader_t reader(view_t(data, sizeof(data)));
+	asn1::element_t element;
+	ASSERT_TRUE(reader.next(element));
+	ASSERT_FALSE(element.constructed);
+	/**
+	 * Вход в простой элемент отдаёт разборщик с отказом вида, и первое же чтение
+	 * стирать этот отказ не вправе: содержимое простого элемента вложением не является
+	 */
+	asn1::reader_t inner = reader.enter(element);
+	ASSERT_EQ(inner.err(), asn1::error_t::FORM);
+	asn1::element_t nested;
+	ASSERT_FALSE(inner.next(nested));
+	ASSERT_EQ(inner.err(), asn1::error_t::FORM);
+}
+
+/**
+ * Проверка извлечения опознавателя объекта при нехватке памяти
+ */
+TEST(Asn1Test, Starved){
+	// Элемент опознавателя объекта, чья запись длиннее короткого запаса строки
+	const uint8_t data[] = {0x06, 0x14, 0x2A, 0x85, 0x03, 0x07, 0x01, 0x01, 0x01, 0x01, 0xAF, 0xD7, 0xC1, 0x7F, 0xAF, 0xD7, 0xC1, 0x7F, 0xAF, 0xD7, 0xC1, 0x7F};
+	// Разборщик элемента
+	asn1::Reader reader(view_t(data, sizeof(data)));
+	// Разбираемый элемент
+	asn1::element_t element;
+	// Проверяем разбор элемента
+	ASSERT_TRUE(reader.next(element));
+	// Признак того, что нехватка памяти хоть раз объявлена отказом
+	bool starved = false;
+	/**
+	 * Выполняем перебор запасов выделений: на всяком запасе извлечение обязано
+	 * ответить либо успехом, либо отказом памяти, но не прерыванием исполнения
+	 */
+	for(size_t budget = 0; budget < 16; budget++){
+		// Место, в которое помещается опознаватель объекта
+		string object;
+		// Итог извлечения при отмеренном запасе
+		asn1::error_t outcome = asn1::error_t::NONE;
+		{
+			// Отмеряем запас выделений на время извлечения
+			starve::ration_t ration(budget);
+			// Выполняем извлечение опознавателя при отмеренном запасе
+			outcome = asn1::oid(element, object);
+		}
+		// Проверяем, что извлечение ответило успехом либо отказом памяти
+		ASSERT_TRUE((outcome == asn1::error_t::NONE) || (outcome == asn1::error_t::MEMORY)) << "запас " << budget;
+		// Если извлечение удалось
+		if(outcome == asn1::error_t::NONE){
+			// Проверяем извлечённый опознаватель
+			ASSERT_EQ(object, "1.2.643.7.1.1.1.1.99999999.99999999.99999999") << "запас " << budget;
+		}
+		// Запоминаем объявленный отказ памяти
+		starved = (starved || (outcome == asn1::error_t::MEMORY));
+	}
+	// Проверяем, что нехватка памяти объявлена отказом хоть раз
+	ASSERT_TRUE(starved);
 }

@@ -455,6 +455,30 @@ namespace nts {
 				void moment(const int64_t moment) noexcept;
 				/**
 				 * \~russian
+				 * @brief Метод установки срока жизни выдаваемых билетов
+				 *
+				 * @param lifetime устанавливаемый срок в секундах
+				 *
+				 * @details Раздел 4.6.1 RFC 8446 кладёт сроку билета семь суток: больший срок
+				 *          усекается до семи суток, а нулевой возвращает срок по умолчанию -
+				 *          два часа
+				 *
+				 * @note Срок действует на билеты, выдаваемые после его установки; уже
+				 *       выданные билеты своего срока не меняют
+				 *
+				 * \~english
+				 * @brief Method of setting the lifetime of the tickets being issued
+				 * @param lifetime the term being set in the seconds
+				 * @details The section 4.6.1 of RFC 8446 lays seven days to the term of a ticket: a bigger
+				 *          term is cut to seven days, and a zero one returns the default term — two hours
+				 * @note The term acts on the tickets issued after its setting; the tickets already issued
+				 *       do not change their term
+				 *
+				 * \~
+				 */
+				void lifetime(const uint32_t lifetime) noexcept;
+				/**
+				 * \~russian
 				 * @brief Метод установки требования подлинности клиента
 				 *
 				 * @param request устанавливаемое требование подлинности клиента
@@ -813,14 +837,29 @@ namespace nts {
 				 *
 				 * @return отказ закрытия связи
 				 *
+				 * @details Раздел 6.1 RFC 8446: закрытие завершает лишь свою передачу. Отправка
+				 *          после него отвергается, а приём идёт дальше, пока собеседник не
+				 *          завершит свою передачу таким же извещением; принятое извещение
+				 *          о закрытии связь отвечает своим сама и после него принятое
+				 *          пропускает
+				 *
 				 * @note Извещение о завершении передачи складывается в накопитель: отправить его
 				 *       собеседнику - дело того, кто связь ведёт
+				 *
+				 * @note Состояние закрытия наступает по любой из сторон; кончился ли приём,
+				 *       говорит не оно, а отсутствие принятых данных после подачи
 				 *
 				 * \~english
 				 * @brief Method of the closing of the connection
 				 * @return the failure of the closing of the connection
+				 * @details The section 6.1 of RFC 8446: the closing finishes only the own transfer. The sending
+				 *          after it is refused, and the receiving goes on until the interlocutor finishes its
+				 *          transfer by the same alert; the connection answers a received alert about the closing
+				 *          by its own one itself and skips what is received after it
 				 * @note The alert about the finishing of the transfer is put into the accumulator: to send it
 				 *       to the interlocutor is the business of the one who leads the connection
+				 * @note The state of the closing comes by any of the sides; whether the receiving is over is
+				 *       told not by it but by the absence of the received data after a submission
 				 *
 				 * \~
 				 */

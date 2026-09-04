@@ -439,3 +439,44 @@ TEST(VkoTest, Bounds) {
 	// Проверяем отказ выработки при добавочном значении сверх границы широкой кривой
 	ASSERT_FALSE(agreement::vko(wide, view_t(owner, 64), view_t(x, 64), view_t(y, 64), view_t(lengthy, 65), key, 32));
 }
+
+/**
+ * @brief Проверка отсечения точки малого порядка на кривой с кофактором четыре
+ *
+ */
+TEST(VkoTest, Torsion) {
+	curve::curve_t curve;
+	// Набор параметров с кофактором четыре: группа TLS GC256A
+	ASSERT_TRUE(curve::parameters(std::string("1.2.643.7.1.2.1.1.1"), curve));
+	ASSERT_EQ(curve.cofactor(), static_cast <uint64_t> (4));
+	/**
+	 * Точка порядка два: корень уравнения x^3 + a*x + b = 0 при y = 0. Уравнению
+	 * кривой она отвечает, а подгруппе порядка q не принадлежит
+	 */
+	uint8_t x[32], y[32], secret[32];
+	ASSERT_EQ(bytes("0100fe73f595ff158e974b44d478d9588744fe5c192ac47ea63075dce7a14aaa", x), static_cast <size_t> (32));
+	::memset(y, 0, sizeof(y));
+	::memset(secret, 0x01, sizeof(secret));
+	/**
+	 * Разбор точки обязан её отвергнуть: умножение на кофактор обращает её в ноль
+	 */
+	curve::point_t point;
+	ASSERT_FALSE(curve.point(view_t(x, 32), view_t(y, 32), point));
+	uint8_t key[32];
+	/**
+	 * Раздел 5.2 ГОСТ Р 34.10-2012: чужой ключ вне подгруппы отвергается при любом
+	 * своём секрете. До правки выработка удавалась при нечётном множителе и выдавала
+	 * разряд секретного ключа
+	 */
+	ASSERT_FALSE(agreement::vko(curve, view_t(secret, 32), view_t(x, 32), view_t(y, 32), view_t(), key, 32));
+	// Годный ключ той же кривой по-прежнему принимается
+	uint8_t opened[64], mine[32];
+	ASSERT_TRUE(agreement::generate(curve, mine, opened));
+	uint8_t px[32], py[32], sec[32];
+	for(size_t i = 0; i < 32; i++){
+		px[i] = opened[31 - i];
+		py[i] = opened[63 - i];
+		sec[i] = mine[31 - i];
+	}
+	ASSERT_TRUE(agreement::vko(curve, view_t(sec, 32), view_t(px, 32), view_t(py, 32), view_t(), key, 32));
+}

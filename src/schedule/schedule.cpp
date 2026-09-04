@@ -125,11 +125,11 @@ bool nts::schedule::expand(const view_t & secret, const view_t & info, uint8_t *
 		// Выводим отказ растяжения значения расписания ключей
 		return false;
 	// Если описание назначения растянутого значения длиннее дозволенного
-	if(info.size > (SCHEDULE_LABEL + 6 + 255 + 3))
+	if(info.size > (SCHEDULE_LABEL + 6 + 255 + 4))
 		// Выводим отказ растяжения значения расписания ключей
 		return false;
 	// Слитная строка выработки очередной части растянутого значения
-	uint8_t buffer[SCHEDULE_SECRET + SCHEDULE_LABEL + 6 + 255 + 3 + 1];
+	uint8_t buffer[SCHEDULE_SECRET + SCHEDULE_LABEL + 6 + 255 + 4 + 1];
 	// Очередная часть растянутого значения
 	uint8_t part[SCHEDULE_SECRET];
 	// Число уже выработанных байтов растянутого значения
@@ -214,7 +214,7 @@ bool nts::schedule::derive(const view_t & secret, const view_t & label, const vi
 		// Выводим отказ вывода значения расписания ключей
 		return false;
 	// Описание назначения выводимого значения
-	uint8_t info[SCHEDULE_LABEL + 6 + 255 + 3];
+	uint8_t info[SCHEDULE_LABEL + 6 + 255 + 4];
 	// Число уже записанных байтов описания назначения
 	size_t offset = 0;
 	// Записываем старший байт требуемой длины выведенного значения

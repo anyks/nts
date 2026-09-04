@@ -43,6 +43,7 @@
  */
 #include <sys/global.hpp>
 #include <digest/streebog.hpp>
+#include <digest/hash.hpp>
 
 /**
  * \~russian
@@ -104,6 +105,186 @@ namespace nts {
 		 * \~
 		 */
 		__ANTS_SHARED_EXPORT__ bool hmac(const type_t type, const view_t & key, const view_t & data, uint8_t * result, const size_t size) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод выработки имитовставки HMAC выбранным алгоритмом хеширования
+		 *
+		 * @param algorithm алгоритм хеширования, на котором вырабатывается имитовставка
+		 * @param key       ключ выработки имитовставки
+		 * @param data      сообщение, на котором вырабатывается имитовставка
+		 * @param result    место, в которое помещается имитовставка
+		 * @param size      требуемая длина имитовставки в байтах, не больше длины хеша
+		 *
+		 * @return          признак успешности выработки имитовставки
+		 *
+		 * @details RFC 2104 над любым хешем библиотеки: ключ длиннее блока сжатия
+		 *          хешируется, короче - дополняется нулями до блока; блок берётся у
+		 *          алгоритма (64 байта, у SHA-384 и SHA-512 - 128)
+		 *
+		 * @note Имитовставка вправе быть короче хеша: усечение берёт старшие байты,
+		 *       как велит раздел 5 RFC 2104
+		 *
+		 * \~english
+		 * @brief Method of the production of an HMAC authentication code by a chosen hashing algorithm
+		 * @param algorithm the hashing algorithm the authentication code is produced on
+		 * @param key       the key of the production of the authentication code
+		 * @param data      the message the authentication code is produced on
+		 * @param result    the place the authentication code is put into
+		 * @param size      the required length of the authentication code in bytes, not more than the length of the hash
+		 * @return          the flag of the success of the production of the authentication code
+		 * @details RFC 2104 over any hash of the library: a key longer than the compression block is
+		 *          hashed, a shorter one is padded by zeros to the block; the block is taken from the
+		 *          algorithm (64 bytes, at SHA-384 and SHA-512 - 128)
+		 * @note The authentication code may be shorter than the hash: the truncation takes the senior
+		 *       bytes, as the section 5 of RFC 2104 orders
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ bool hmac(const hash_t algorithm, const view_t & key, const view_t & data, uint8_t * result, const size_t size) noexcept;
+		/**
+		 * \~russian
+		 * @brief Поточная выработка имитовставки HMAC выбранным алгоритмом хеширования
+		 *
+		 * @details Ключ задаётся вызовом start, сообщение подаётся кусками вызовами
+		 *          update, имитовставка снимается вызовом finish. Повторная выработка
+		 *          на том же ключе требует нового start: ключ хранится лишь в виде
+		 *          внутреннего и внешнего заполнений и затирается вызовом clear и
+		 *          деструктором
+		 *
+		 * \~english
+		 * @brief Streaming production of an HMAC authentication code by a chosen hashing algorithm
+		 * @details The key is set by a call of start, the message is fed by chunks by the calls of
+		 *          update, the authentication code is taken by a call of finish. A repeated production
+		 *          on the same key requires a new start: the key is kept only as the inner and the
+		 *          outer paddings and is wiped by a call of clear and by the destructor
+		 *
+		 * \~
+		 */
+		typedef class __ANTS_SHARED_EXPORT__ Mac {
+			private:
+				// Признак того, что ключ установлен
+				bool _ready;
+			private:
+				// Алгоритм хеширования
+				hash_t _type;
+				// Размер блока сжатия алгоритма
+				size_t _width;
+			private:
+				// Внутреннее заполнение ключа
+				uint8_t _inner[128];
+				// Внешнее заполнение ключа
+				uint8_t _outer[128];
+			private:
+				// Объект хеширования
+				hasher_t _hasher;
+			public:
+				/**
+				 * \~russian
+				 * @brief Метод проверки готовности к выработке
+				 *
+				 * @return признак того, что ключ установлен
+				 *
+				 * \~english
+				 * @brief Method of checking the readiness for the production
+				 * @return the flag of the key being set
+				 *
+				 * \~
+				 */
+				bool ready() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод установки ключа и начала выработки
+				 *
+				 * @param algorithm алгоритм хеширования
+				 * @param key       ключ выработки имитовставки, вправе быть пустым
+				 *
+				 * @return          признак успешности установки ключа
+				 *
+				 * \~english
+				 * @brief Method of setting the key and of the start of the production
+				 * @param algorithm the hashing algorithm
+				 * @param key       the key of the production of the authentication code, may be empty
+				 * @return          the flag of the success of the setting of the key
+				 *
+				 * \~
+				 */
+				bool start(const hash_t algorithm, const view_t & key) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод повторного начала выработки на установленном ключе
+				 *
+				 * @return признак того, что ключ установлен
+				 *
+				 * \~english
+				 * @brief Method of the repeated start of the production on the set key
+				 * @return the flag of the key being set
+				 *
+				 * \~
+				 */
+				bool restart() noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод подачи куска сообщения
+				 *
+				 * @param data подаваемый кусок сообщения
+				 *
+				 * \~english
+				 * @brief Method of feeding a chunk of the message
+				 * @param data the chunk of the message being fed
+				 *
+				 * \~
+				 */
+				void update(const view_t & data) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод снятия имитовставки
+				 *
+				 * @param result место, в которое записывается имитовставка
+				 * @param size   требуемая длина имитовставки, от одного байта до длины хеша
+				 *
+				 * @return       признак успешности снятия
+				 *
+				 * \~english
+				 * @brief Method of taking the authentication code
+				 * @param result the place the authentication code is written into
+				 * @param size   the required length of the authentication code, from one byte to the length of the hash
+				 * @return       the flag of the success of the taking
+				 *
+				 * \~
+				 */
+				bool finish(uint8_t * result, const size_t size) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод сброса ключа
+				 *
+				 * \~english
+				 * @brief Method of the reset of the key
+				 *
+				 * \~
+				 */
+				void clear() noexcept;
+			public:
+				/**
+				 * \~russian
+				 * @brief Конструктор
+				 *
+				 * \~english
+				 * @brief Constructor
+				 *
+				 * \~
+				 */
+				Mac() noexcept;
+				/**
+				 * \~russian
+				 * @brief Деструктор
+				 *
+				 * \~english
+				 * @brief Destructor
+				 *
+				 * \~
+				 */
+				~Mac() noexcept;
+		} mac_t;
 		/**
 		 * \~russian
 		 * @brief Метод выработки порождающей последовательности протокола TLS

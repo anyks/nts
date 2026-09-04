@@ -86,24 +86,275 @@ namespace {
 	typedef trust::error_t error_t;
 
 	/**
+	 * Опознаватели заведены строками, а не указателями на знаки: вызовы, берущие
+	 * `const string &`, иначе строили бы временную строку на каждый вызов, и у
+	 * старых изданий libstdc++ такая строка выделяет память вне перехвата
+	 */
+	/**
 	 * Опознаватель расширения основных ограничений сертификата
 	 */
-	static const char * CONSTRAINTS = "2.5.29.19";
+	static const string CONSTRAINTS = "2.5.29.19";
 
 	/**
 	 * Опознаватель расширения назначения открытого ключа
 	 */
-	static const char * USAGE = "2.5.29.15";
+	static const string USAGE = "2.5.29.15";
 
 	/**
 	 * Опознаватель расширения дополнительных имён владельца
 	 */
-	static const char * ALTERNATIVES = "2.5.29.17";
+	static const string ALTERNATIVES = "2.5.29.17";
 
 	/**
 	 * Опознаватель свойства общего имени владельца
 	 */
-	static const char * COMMON = "2.5.4.3";
+	static const string COMMON = "2.5.4.3";
+	/**
+	 * Опознаватель расширения расширенного назначения ключа
+	 */
+	static const string EXTENDED = "2.5.29.37";
+	/**
+	 * @brief Метод разбора адреса сети из записи имени узла
+	 *
+	 * @param name   имя узла, записанное адресом сети
+	 * @param result место, в которое помещаются байты адреса
+	 *
+	 * @return       признак того, что имя узла есть адрес сети
+	 *
+	 */
+	static bool address(const string & name, uint8_t * result) noexcept {
+		// Если имя узла содержит точки и не содержит двоеточий: адрес IPv4
+		if((name.find(':') == string::npos) && (name.find('.') != string::npos)){
+			// Число разобранных частей адреса
+			size_t count = 0;
+			// Значение разбираемой части адреса
+			uint32_t value = 0;
+			// Число знаков разбираемой части адреса
+			size_t digits = 0;
+			/**
+			 * Выполняем перебор знаков адреса
+			 */
+			for(size_t i = 0; i <= name.size(); i++){
+				// Если знак кончает часть адреса
+				if((i == name.size()) || (name[i] == '.')){
+					// Если часть пуста, длиннее трёх знаков, больше 255 либо частей уже четыре
+					if((digits == 0) || (digits > 3) || (value > 255) || (count == 4))
+						// Выводим отказ разбора
+						return false;
+					// Записываем часть адреса
+					result[count++] = static_cast <uint8_t> (value);
+					// Сбрасываем значение части адреса
+					value = 0;
+					// Сбрасываем число знаков части адреса
+					digits = 0;
+				// Если знак - десятичная цифра
+				} else if((name[i] >= '0') && (name[i] <= '9')) {
+					// Накапливаем значение части адреса
+					value = ((value * 10) + static_cast <uint32_t> (name[i] - '0'));
+					// Считаем знак части адреса
+					digits++;
+				// Если знак чужой: не адрес
+				} else return false;
+			}
+			// Выводим признак четырёх частей адреса
+			return (count == 4);
+		}
+		// Если имя узла содержит двоеточия: адрес IPv6
+		if(name.find(':') != string::npos){
+			// Половины адреса до и после сжатия нулей
+			uint16_t head[8] = {0}, tail[8] = {0};
+			// Число частей в половинах адреса
+			size_t heads = 0, tails = 0;
+			// Признак пройденного сжатия нулей
+			bool compressed = false;
+			// Значение разбираемой части адреса
+			uint32_t value = 0;
+			// Число знаков разбираемой части адреса
+			size_t digits = 0;
+			/**
+			 * Выполняем перебор знаков адреса
+			 */
+			for(size_t i = 0; i <= name.size(); i++){
+				// Если знак кончает часть адреса
+				if((i == name.size()) || (name[i] == ':')){
+					// Если часть заполнена
+					if(digits > 0){
+						// Если частей больше восьми: не адрес
+						if((heads + tails) == 8)
+							// Выводим отказ разбора
+							return false;
+						// Если сжатие пройдено, часть ложится во вторую половину
+						if(compressed)
+							// Записываем часть адреса во вторую половину
+							tail[tails++] = static_cast <uint16_t> (value);
+						// Иначе часть ложится в первую половину
+						else head[heads++] = static_cast <uint16_t> (value);
+					// Если часть пуста посреди адреса: сжатие нулей
+					} else if((i > 0) && (name[i - 1] == ':')) {
+						// Если сжатие уже встречалось: не адрес
+						if(compressed)
+							// Выводим отказ разбора
+							return false;
+						// Запоминаем пройденное сжатие
+						compressed = true;
+					// Если часть пуста на краю адреса не при сжатии: не адрес
+					} else if((i == name.size()) || (i == 0)) {
+						// Если следом не идёт двоеточие сжатия
+						if((i == name.size()) || (name.size() < 2) || (name[1] != ':'))
+							// Выводим отказ разбора
+							return false;
+					}
+					// Сбрасываем значение части адреса
+					value = 0;
+					// Сбрасываем число знаков части адреса
+					digits = 0;
+				// Если знак - шестнадцатеричная цифра
+				} else if(((name[i] >= '0') && (name[i] <= '9')) || ((name[i] >= 'a') && (name[i] <= 'f')) || ((name[i] >= 'A') && (name[i] <= 'F'))) {
+					// Если знаков больше четырёх: не адрес
+					if(digits == 4)
+						// Выводим отказ разбора
+						return false;
+					// Накапливаем значение части адреса
+					value = ((value << 4) | static_cast <uint32_t> ((name[i] <= '9') ? (name[i] - '0') : (((name[i] | 0x20) - 'a') + 10)));
+					// Считаем знак части адреса
+					digits++;
+				// Если знак чужой: не адрес
+				} else return false;
+			}
+			// Если сжатия не было, частей обязано быть ровно восемь
+			if(!compressed && ((heads + tails) != 8))
+				// Выводим отказ разбора
+				return false;
+			// Если сжатие было, а частей и без него восемь: не адрес
+			if(compressed && ((heads + tails) == 8))
+				// Выводим отказ разбора
+				return false;
+			/**
+			 * Выполняем запись половин адреса с нулями сжатия между ними
+			 */
+			for(size_t i = 0; i < 8; i++){
+				// Значение очередной части адреса
+				const uint16_t item = ((i < heads) ? head[i] : ((i >= (8 - tails)) ? tail[i - (8 - tails)] : 0));
+				// Записываем старший байт части
+				result[i * 2] = static_cast <uint8_t> (item >> 8);
+				// Записываем младший байт части
+				result[(i * 2) + 1] = static_cast <uint8_t> (item & 0xFF);
+			}
+			// Выводим успешность разбора
+			return true;
+		}
+		// Выводим отказ разбора: имя узла адресом не является
+		return false;
+	}
+	/**
+	 * Опознаватели расширений, которые проверка доверия понимает: раздел 4.2 RFC 5280
+	 * велит отвергать сертификат с неизвестным расширением, объявленным критичным
+	 */
+	static const char * RECOGNIZED[] = {
+		"2.5.29.14", "2.5.29.15", "2.5.29.17", "2.5.29.19", "2.5.29.35", "2.5.29.37"
+	};
+	/**
+	 * @brief Метод проверки критичных расширений сертификата на известность
+	 *
+	 * @param certificate проверяемый сертификат
+	 *
+	 * @return            признак того, что все критичные расширения известны
+	 *
+	 */
+	static bool recognized(const x509::certificate_t & certificate) noexcept {
+		// Получаем перечень расширений сертификата
+		const vector <x509::extension_t> & extensions = certificate.extension();
+		/**
+		 * Выполняем перебор расширений сертификата
+		 */
+		for(size_t i = 0; i < extensions.size(); i++){
+			// Если расширение критичным не объявлено
+			if(!extensions[i].critical)
+				// Переходим к следующему расширению
+				continue;
+			// Признак известности расширения
+			bool known = false;
+			/**
+			 * Выполняем перебор известных расширений
+			 */
+			for(size_t j = 0; !known && (j < (sizeof(RECOGNIZED) / sizeof(RECOGNIZED[0]))); j++)
+				// Сличаем опознаватель расширения с известным
+				known = (extensions[i].oid.compare(RECOGNIZED[j]) == 0);
+			// Если критичное расширение неизвестно
+			if(!known)
+				// Выводим отказ
+				return false;
+		}
+		// Выводим успешность проверки
+		return true;
+	}
+	/**
+	 * @brief Метод проверки назначения ключа листа цепочки
+	 *
+	 * @param certificate сертификат листа цепочки
+	 *
+	 * @return            отказ назначения ключа листа либо нехватки памяти под разбор
+	 *
+	 */
+	static error_t signer(const x509::certificate_t & certificate) noexcept {
+		// Получаем расширение назначения ключа
+		const x509::extension_t * extension = certificate.extension(USAGE);
+		// Если назначение ключа объявлено
+		if(extension != nullptr){
+			// Назначение открытого ключа
+			uint16_t usage = 0;
+			// Итог разбора, о нехватке памяти под который отвечает свой отказ
+			const x509::error_t outcome = x509::usage(*extension, usage);
+			// Если памяти под разбор не хватило
+			if(outcome == x509::error_t::MEMORY)
+				// Выводим отказ нехватки памяти
+				return error_t::MEMORY;
+			// Если назначение ключа разобрать не удалось
+			if(outcome != x509::error_t::NONE)
+				// Выводим отказ назначения ключа
+				return error_t::PURPOSE;
+			/**
+			 * Раздел 4.4.2.2 RFC 8446 и раздел 4.2.1.3 RFC 5280: подпись владения ключом
+			 * ставится ключом, назначенным проверке подписи
+			 */
+			if((usage & static_cast <uint16_t> (x509::usage_t::SIGNATURE)) == 0)
+				// Выводим отказ
+				return error_t::PURPOSE;
+		}
+		// Получаем расширение расширенного назначения ключа
+		extension = certificate.extension(EXTENDED);
+		// Если расширенное назначение ключа объявлено
+		if(extension != nullptr){
+			// Перечень расширенных назначений ключа
+			vector <string> purposes;
+			// Итог разбора, о нехватке памяти под который отвечает свой отказ
+			const x509::error_t outcome = x509::purpose(*extension, purposes);
+			// Если памяти под разбор не хватило
+			if(outcome == x509::error_t::MEMORY)
+				// Выводим отказ нехватки памяти
+				return error_t::MEMORY;
+			// Если расширенное назначение разобрать не удалось
+			if(outcome != x509::error_t::NONE)
+				// Выводим отказ назначения ключа
+				return error_t::PURPOSE;
+			// Признак пригодности назначения к связи
+			bool suitable = false;
+			/**
+			 * Раздел 4.2.1.12 RFC 5280: назначение к подлинности сервера, клиента либо
+			 * всякое назначение. Проверка доверия роли не знает, оттого годится любое
+			 * из трёх
+			 */
+			for(size_t i = 0; !suitable && (i < purposes.size()); i++)
+				// Сличаем назначение с пригодными
+				suitable = ((purposes[i].compare("1.3.6.1.5.5.7.3.1") == 0) || (purposes[i].compare("1.3.6.1.5.5.7.3.2") == 0) || (purposes[i].compare("2.5.29.37.0") == 0));
+			// Если пригодного назначения нет
+			if(!suitable)
+				// Выводим отказ
+				return error_t::PURPOSE;
+		}
+		// Выводим успешность проверки
+		return error_t::NONE;
+	}
 
 	/**
 	 * @brief Метод приведения имени узла к нижнему регистру
@@ -111,25 +362,38 @@ namespace {
 	 * @details Раздел 6.4 RFC 6125: доменные имена сличаются без учёта регистра, и
 	 *          приведение это ведётся по таблице ASCII, а не по местным правилам языка
 	 *
-	 * @param name приводимое имя узла
+	 * @param name   приводимое имя узла
+	 * @param result место, в которое помещается приведённое имя узла
 	 *
-	 * @return     приведённое имя узла
+	 * @return       отказ приведения имени узла
 	 *
 	 */
-	static string lower(const string & name) noexcept {
-		// Приведённое имя узла
-		string result = name;
+	static error_t lower(const string & name, string & result) noexcept {
 		/**
-		 * Выполняем перебор символов приводимого имени узла
+		 * Приведение выделяет память под копию имени, и нехватка её обязана дойти
+		 * до вызывающего причиной отказа, а не завершить процесс. Запись знаков тоже
+		 * под перехватом: строка, разделяющая буфер с образцом (копирование при
+		 * записи у старых изданий libstdc++), выделяет память первой же записью
 		 */
-		for(size_t i = 0; i < result.size(); i++){
-			// Если очередной символ имени узла заглавный
-			if((result[i] >= 'A') && (result[i] <= 'Z'))
-				// Приводим очередной символ имени узла к нижнему регистру
-				result[i] = static_cast <char> (result[i] - 'A' + 'a');
+		try {
+			// Выполняем копирование имени
+			result = name;
+			/**
+			 * Выполняем перебор символов приводимого имени узла
+			 */
+			for(size_t i = 0; i < result.size(); i++){
+				// Если символ записан в верхнем регистре
+				if((result[i] >= 'A') && (result[i] <= 'Z'))
+					// Приводим символ к нижнему регистру
+					result[i] = static_cast <char> (result[i] - 'A' + 'a');
+			}
+		// Если памяти под копию имени не хватило
+		} catch(const bad_alloc &) {
+			// Выводим отказ нехватки памяти
+			return error_t::MEMORY;
 		}
-		// Выводим приведённое имя узла
-		return result;
+		// Выводим успешность приведения имени
+		return error_t::NONE;
 	}
 	/**
 	 * @brief Метод сличения имени узла с именем сертификата
@@ -194,8 +458,14 @@ namespace {
 		bool allowed = false;
 		// Предел числа звеньев цепочки под сертификатом
 		int64_t limit = -1;
+		// Итог разбора, о нехватке памяти под который отвечает свой отказ
+		const x509::error_t limits = x509::constraints(*extension, allowed, limit);
+		// Если памяти под разбор не хватило
+		if(limits == x509::error_t::MEMORY)
+			// Выводим отказ нехватки памяти
+			return error_t::MEMORY;
 		// Если основные ограничения сертификата разобрать не удалось
-		if(x509::constraints(*extension, allowed, limit) != x509::error_t::NONE)
+		if(limits != x509::error_t::NONE)
 			// Выводим отказ разбора основных ограничений
 			return error_t::CONSTRAINT;
 		// Если сертификат издавать другие сертификаты не вправе
@@ -214,8 +484,14 @@ namespace {
 			return error_t::NONE;
 		// Набор разрядов назначения открытого ключа
 		uint16_t usage = 0;
+		// Итог разбора, о нехватке памяти под который отвечает свой отказ
+		const x509::error_t usages = x509::usage(*extension, usage);
+		// Если памяти под разбор не хватило
+		if(usages == x509::error_t::MEMORY)
+			// Выводим отказ нехватки памяти
+			return error_t::MEMORY;
 		// Если назначение открытого ключа разобрать не удалось
-		if(x509::usage(*extension, usage) != x509::error_t::NONE)
+		if(usages != x509::error_t::NONE)
 			// Выводим отказ разбора назначения открытого ключа
 			return error_t::CONSTRAINT;
 		/**
@@ -359,10 +635,20 @@ nts::trust::error_t nts::trust::verify(const vector <vector <uint8_t>> & chain, 
 	 * Выполняем перебор сертификатов проверяемой цепочки
 	 */
 	for(size_t i = 0; i < chain.size(); i++){
+		// Итог разбора, о нехватке памяти под который отвечает свой отказ
+		const x509::error_t parsed = items[i].parse(view_t(chain[i].data(), chain[i].size()));
+		// Если памяти под разбор не хватило
+		if(parsed == x509::error_t::MEMORY)
+			// Выводим отказ нехватки памяти
+			return error_t::MEMORY;
 		// Если сертификат цепочки разобрать не удалось
-		if(items[i].parse(view_t(chain[i].data(), chain[i].size())) != x509::error_t::NONE)
+		if(parsed != x509::error_t::NONE)
 			// Выводим отказ разбора сертификата цепочки
 			return error_t::PARSE;
+		// Если сертификат звена несёт неизвестное критичное расширение
+		if(!recognized(items[i]))
+			// Выводим отказ неизвестного критичного расширения
+			return error_t::CRITICAL;
 		// Выполняем проверку срока действия сертификата цепочки
 		const error_t error = validity(items[i], moment);
 		// Если срок действия сертификата на этот миг не идёт
@@ -370,6 +656,12 @@ nts::trust::error_t nts::trust::verify(const vector <vector <uint8_t>> & chain, 
 			// Выводим отказ истечения срока действия сертификата
 			return error;
 	}
+	// Итог проверки назначения ключа листа цепочки
+	const error_t purposed = signer(items[0]);
+	// Если ключ листа цепочки подпись владения ставить не вправе либо памяти не хватило
+	if(purposed != error_t::NONE)
+		// Выводим отказ назначения ключа листа либо нехватки памяти
+		return purposed;
 	/**
 	 * Выполняем перебор звеньев проверяемой цепочки сертификатов
 	 */
@@ -382,14 +674,26 @@ nts::trust::error_t nts::trust::verify(const vector <vector <uint8_t>> & chain, 
 		 * Стоят они ради связности сверки: сличение имён по пустой записи, молча
 		 * полученной вместо настоящей, было бы хуже отказа
 		 */
+		// Итог разбора, о нехватке памяти под который отвечает свой отказ
+		const x509::error_t issued = x509::text(items[i].issuers(), issuer);
+		// Если памяти под разбор не хватило
+		if(issued == x509::error_t::MEMORY)
+			// Выводим отказ нехватки памяти
+			return error_t::MEMORY;
 		// Если имя издателя сертификата получить не удалось
-		if(x509::text(items[i].issuers(), issuer) != x509::error_t::NONE)
+		if(issued != x509::error_t::NONE)
 			// Выводим отказ разбора имени издателя сертификата
 			return error_t::PARSE;
 		// Имя владельца следующего сертификата цепочки
 		string subject;
+		// Итог разбора, о нехватке памяти под который отвечает свой отказ
+		const x509::error_t owned = x509::text(items[i + 1].subjects(), subject);
+		// Если памяти под разбор не хватило
+		if(owned == x509::error_t::MEMORY)
+			// Выводим отказ нехватки памяти
+			return error_t::MEMORY;
 		// Если имя владельца сертификата получить не удалось
-		if(x509::text(items[i + 1].subjects(), subject) != x509::error_t::NONE)
+		if(owned != x509::error_t::NONE)
 			// Выводим отказ разбора имени владельца сертификата
 			return error_t::PARSE;
 		// Если издатель сертификата с владельцем следующего разошёлся
@@ -402,8 +706,14 @@ nts::trust::error_t nts::trust::verify(const vector <vector <uint8_t>> & chain, 
 		if(error != error_t::NONE)
 			// Выводим отказ отсутствия права издавать сертификаты
 			return error;
+		// Итог проверки подписи сертификата издателем
+		const x509::error_t attested = x509::verify(items[i], items[i + 1].key());
+		// Если памяти под проверку подписи не хватило
+		if(attested == x509::error_t::MEMORY)
+			// Выводим отказ нехватки памяти
+			return error_t::MEMORY;
 		// Если подпись сертификата издателем не сошлась
-		if(!x509::verify(items[i], items[i + 1].key()))
+		if(attested != x509::error_t::NONE)
 			// Выводим отказ схождения подписи сертификата
 			return error_t::SIGNATURE;
 	}
@@ -413,8 +723,14 @@ nts::trust::error_t nts::trust::verify(const vector <vector <uint8_t>> & chain, 
 	const vector <uint8_t> & record = chain[chain.size() - 1];
 	// Имя издателя последнего сертификата цепочки
 	string issuer;
+	// Итог разбора, о нехватке памяти под который отвечает свой отказ
+	const x509::error_t issued = x509::text(last.issuers(), issuer);
+	// Если памяти под разбор не хватило
+	if(issued == x509::error_t::MEMORY)
+		// Выводим отказ нехватки памяти
+		return error_t::MEMORY;
 	// Если имя издателя сертификата получить не удалось
-	if(x509::text(last.issuers(), issuer) != x509::error_t::NONE)
+	if(issued != x509::error_t::NONE)
 		// Выводим отказ разбора имени издателя сертификата
 		return error_t::PARSE;
 	/**
@@ -432,14 +748,30 @@ nts::trust::error_t nts::trust::verify(const vector <vector <uint8_t>> & chain, 
 			return error_t::NONE;
 		// Объект разбора доверенного сертификата запаса
 		x509::certificate_t anchor;
+		// Итог разбора, о нехватке памяти под который отвечает свой отказ
+		const x509::error_t parsed = anchor.parse(item);
+		// Если памяти под разбор не хватило
+		if(parsed == x509::error_t::MEMORY)
+			// Выводим отказ нехватки памяти
+			return error_t::MEMORY;
 		// Если доверенный сертификат запаса разобрать не удалось
-		if(anchor.parse(item) != x509::error_t::NONE)
+		if(parsed != x509::error_t::NONE)
+			// Переходим к следующему доверенному сертификату запаса
+			continue;
+		// Если якорь несёт неизвестное критичное расширение, якорем он служить не может
+		if(!recognized(anchor))
 			// Переходим к следующему доверенному сертификату запаса
 			continue;
 		// Имя владельца доверенного сертификата запаса
 		string subject;
+		// Итог разбора, о нехватке памяти под который отвечает свой отказ
+		const x509::error_t owned = x509::text(anchor.subjects(), subject);
+		// Если памяти под разбор не хватило
+		if(owned == x509::error_t::MEMORY)
+			// Выводим отказ нехватки памяти
+			return error_t::MEMORY;
 		// Если имя владельца сертификата получить не удалось
-		if(x509::text(anchor.subjects(), subject) != x509::error_t::NONE)
+		if(owned != x509::error_t::NONE)
 			// Переходим к следующему доверенному сертификату запаса
 			continue;
 		// Если владелец доверенного сертификата с издателем цепочки разошёлся
@@ -454,8 +786,14 @@ nts::trust::error_t nts::trust::verify(const vector <vector <uint8_t>> & chain, 
 		if(authority(anchor, items.size() - 1) != error_t::NONE)
 			// Переходим к следующему доверенному сертификату запаса
 			continue;
+		// Итог проверки подписи последнего сертификата цепочки якорем
+		const x509::error_t anchored = x509::verify(last, anchor.key());
+		// Если памяти под проверку подписи не хватило
+		if(anchored == x509::error_t::MEMORY)
+			// Выводим отказ нехватки памяти
+			return error_t::MEMORY;
 		// Если подпись последнего сертификата цепочки не сошлась
-		if(!x509::verify(last, anchor.key()))
+		if(anchored != x509::error_t::NONE)
 			// Переходим к следующему доверенному сертификату запаса
 			continue;
 		// Выводим успешность проверки цепочки сертификатов
@@ -480,32 +818,77 @@ nts::trust::error_t nts::trust::belongs(const view_t & certificate, const string
 		return error_t::NAME;
 	// Объект разбора сличаемого сертификата
 	x509::certificate_t item;
+	// Итог разбора, о нехватке памяти под который отвечает свой отказ
+	const x509::error_t parsed = item.parse(certificate);
+	// Если памяти под разбор не хватило
+	if(parsed == x509::error_t::MEMORY)
+		// Выводим отказ нехватки памяти
+		return error_t::MEMORY;
 	// Если сличаемый сертификат разобрать не удалось
-	if(item.parse(certificate) != x509::error_t::NONE)
+	if(parsed != x509::error_t::NONE)
 		// Выводим отказ разбора сертификата
 		return error_t::PARSE;
-	// Приводим имя узла к нижнему регистру
-	const string requested = lower(name);
+	// Приведённое к нижнему регистру имя узла
+	string requested;
+	// Если привести имя узла к нижнему регистру не удалось
+	if(lower(name, requested) != error_t::NONE)
+		// Выводим отказ нехватки памяти
+		return error_t::MEMORY;
+	// Байты адреса сети, если имя узла им записано
+	uint8_t bytes[16] = {0};
+	// Признак имени узла, записанного адресом сети
+	const bool numeric = address(name, bytes);
+	// Длина адреса сети: четыре байта у IPv4 и шестнадцать у IPv6
+	const size_t width = ((name.find(':') != string::npos) ? 16 : 4);
 	// Разыскиваем расширение дополнительных имён владельца
 	const x509::extension_t * extension = item.extension(ALTERNATIVES);
 	// Если дополнительные имена владельца сертификатом объявлены
 	if(extension != nullptr){
 		// Перечень дополнительных имён владельца сертификата
 		vector <x509::alternative_t> alternatives;
+		// Итог разбора, о нехватке памяти под который отвечает свой отказ
+		const x509::error_t listed = x509::alternatives(*extension, alternatives);
+		// Если памяти под разбор не хватило
+		if(listed == x509::error_t::MEMORY)
+			// Выводим отказ нехватки памяти
+			return error_t::MEMORY;
 		// Если дополнительные имена владельца разобрать не удалось
-		if(x509::alternatives(*extension, alternatives) != x509::error_t::NONE)
+		if(listed != x509::error_t::NONE)
 			// Выводим отказ разбора дополнительных имён владельца
 			return error_t::PARSE;
 		/**
 		 * Выполняем перебор дополнительных имён владельца сертификата
 		 */
 		for(size_t i = 0; i < alternatives.size(); i++){
+			/**
+			 * Раздел 6.4 RFC 6125 и раздел 4.2.1.6 RFC 5280: имя узла, записанное
+			 * адресом сети, сличается лишь с адресами сети в двоичном виде, а доменное
+			 * имя - лишь с доменными
+			 */
+			if(numeric){
+				// Если очередное имя владельца адресом сети не является
+				if(alternatives[i].kind != x509::kind_t::ADDRESS)
+					// Переходим к следующему имени владельца сертификата
+					continue;
+				// Если байты адреса сошлись с адресом узла
+				if((alternatives[i].value.size() == width) && (::memcmp(alternatives[i].value.data(), bytes, width) == 0))
+					// Выводим успешность сличения
+					return error_t::NONE;
+				// Переходим к следующему имени владельца сертификата
+				continue;
+			}
 			// Если очередное имя владельца доменным не является
 			if(alternatives[i].kind != x509::kind_t::DNS)
 				// Переходим к следующему имени владельца сертификата
 				continue;
+			// Приведённое к нижнему регистру имя владельца сертификата
+			string pattern;
+			// Если привести имя владельца сертификата к нижнему регистру не удалось
+			if(lower(alternatives[i].value, pattern) != error_t::NONE)
+				// Выводим отказ нехватки памяти
+				return error_t::MEMORY;
 			// Если имя узла имени сертификата отвечает
-			if(matches(lower(alternatives[i].value), requested))
+			if(matches(pattern, requested))
 				// Выводим успешность сличения имени узла
 				return error_t::NONE;
 		}
@@ -516,13 +899,23 @@ nts::trust::error_t nts::trust::belongs(const view_t & certificate, const string
 		return error_t::NAME;
 	}
 	// Разыскиваем общее имя владельца сертификата
+	// Если имя узла записано адресом сети, общее имя владельца ему не отвечает
+	if(numeric)
+		// Выводим отказ сличения имени
+		return error_t::NAME;
 	const x509::attribute_t * attribute = x509::attribute(item.subjects(), COMMON);
 	// Если общего имени владельца у сертификата нет
 	if(attribute == nullptr)
 		// Выводим отказ несовпадения имени узла
 		return error_t::NAME;
+	// Приведённое к нижнему регистру общее имя владельца сертификата
+	string pattern;
+	// Если привести общее имя владельца к нижнему регистру не удалось
+	if(lower(attribute->value, pattern) != error_t::NONE)
+		// Выводим отказ нехватки памяти
+		return error_t::MEMORY;
 	// Если имя узла общему имени владельца отвечает
-	if(matches(lower(attribute->value), requested))
+	if(matches(pattern, requested))
 		// Выводим успешность сличения имени узла
 		return error_t::NONE;
 	// Выводим отказ несовпадения имени узла

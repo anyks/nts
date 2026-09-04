@@ -702,14 +702,29 @@ namespace nts {
 				 *
 				 * @return отказ закрытия связи
 				 *
+				 * @details Раздел 6.1 RFC 8446: закрытие завершает лишь свою передачу. Отправка
+				 *          после него отвергается, а приём идёт дальше, пока собеседник не
+				 *          завершит свою передачу таким же извещением; принятое извещение
+				 *          о закрытии связь отвечает своим сама и после него принятое
+				 *          пропускает
+				 *
 				 * @note Извещение о завершении передачи складывается в накопитель: отправить его
 				 *       собеседнику - дело того, кто связь ведёт
+				 *
+				 * @note Состояние закрытия наступает по любой из сторон; кончился ли приём,
+				 *       говорит не оно, а отсутствие принятых данных после подачи
 				 *
 				 * \~english
 				 * @brief Method of the closing of the connection
 				 * @return the failure of the closing of the connection
+				 * @details The section 6.1 of RFC 8446: the closing finishes only the own transfer. The sending
+				 *          after it is refused, and the receiving goes on until the interlocutor finishes its
+				 *          transfer by the same alert; the connection answers a received alert about the closing
+				 *          by its own one itself and skips what is received after it
 				 * @note The alert about the finishing of the transfer is put into the accumulator: to send it
 				 *       to the interlocutor is the business of the one who leads the connection
+				 * @note The state of the closing comes by any of the sides; whether the receiving is over is
+				 *       told not by it but by the absence of the received data after a submission
 				 *
 				 * \~
 				 */

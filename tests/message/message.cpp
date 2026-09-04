@@ -32,6 +32,7 @@
 #include <vector>
 #include <cstring>
 #include <main.hpp>
+#include <starve.hpp>
 #include <message/message.hpp>
 #include <handshake/handshake.hpp>
 
@@ -810,4 +811,142 @@ TEST(MessageTest, Deformed){
 	uint8_t reversed[64] = {0};
 	// Проверяем отказ обращения подписи нечётной длины
 	ASSERT_EQ(message::reverse(view_t(reversed, sizeof(reversed) - 1), reversed), message::error_t::LENGTH);
+}
+
+/**
+ * @brief Метод разбора и составления сообщений заново при отмеренном запасе выделений
+ *
+ * @param certificate тело сообщения цепочки сертификатов
+ * @param verify      тело сообщения подписи владения ключом
+ * @param transcript  хеш переписки рукопожатия
+ * @param intact      признак схождения составленных тел с исходными
+ *
+ * @return            отказ, которым завершился первый несостоявшийся шаг
+ *
+ */
+static message::error_t exhaust(const view_t & certificate, const view_t & verify, const view_t & transcript, bool & intact) noexcept {
+	// Снимаем признак схождения составленных тел с исходными
+	intact = false;
+	// Накопитель, в который складывается составленное тело сообщения
+	vector <uint8_t> result;
+	// Разобранное сообщение цепочки сертификатов
+	message::certificate_t chain;
+	// Итог очередного шага
+	message::error_t outcome = message::parse(certificate, chain);
+	// Если разбор цепочки сертификатов не состоялся
+	if(outcome != message::error_t::NONE)
+		// Выводим отказ разбора
+		return outcome;
+	// Выполняем составление тела цепочки сертификатов заново
+	outcome = message::build(chain, result);
+	// Если составление цепочки сертификатов не состоялось
+	if(outcome != message::error_t::NONE)
+		// Выводим отказ составления
+		return outcome;
+	// Запоминаем схождение составленного тела цепочки сертификатов с исходным
+	intact = ((result.size() == certificate.size) && (::memcmp(result.data(), certificate.data, certificate.size) == 0));
+	// Разобранное сообщение подписи владения ключом
+	message::verify_t signature;
+	// Выполняем разбор тела подписи владения ключом
+	outcome = message::parse(verify, signature);
+	// Если разбор подписи владения ключом не состоялся
+	if(outcome != message::error_t::NONE)
+		// Выводим отказ разбора
+		return outcome;
+	// Выполняем сброс накопителя
+	result.clear();
+	// Выполняем составление тела подписи владения ключом заново
+	outcome = message::build(signature, result);
+	// Если составление подписи владения ключом не состоялось
+	if(outcome != message::error_t::NONE)
+		// Выводим отказ составления
+		return outcome;
+	// Запоминаем схождение составленного тела подписи владения ключом с исходным
+	intact = (intact && (result.size() == verify.size) && (::memcmp(result.data(), verify.data, verify.size) == 0));
+	// Неповторимое значение составляемого билета
+	const uint8_t nonce[4] = {0x00, 0x00, 0x00, 0x01};
+	// Тело составляемого билета возобновления связи
+	const uint8_t body[6] = {0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF};
+	// Составляемый билет возобновления связи
+	message::ticket_t ticket;
+	// Устанавливаем срок жизни составляемого билета
+	ticket.lifetime = 7200;
+	// Устанавливаем добавку к возрасту составляемого билета
+	ticket.age = 0x01020304;
+	// Устанавливаем неповторимое значение составляемого билета
+	ticket.nonce = view_t(nonce, sizeof(nonce));
+	// Устанавливаем тело составляемого билета
+	ticket.data = view_t(body, sizeof(body));
+	// Выполняем сброс накопителя
+	result.clear();
+	// Выполняем составление тела сообщения билета
+	outcome = message::build(ticket, result);
+	// Если составление билета не состоялось
+	if(outcome != message::error_t::NONE)
+		// Выводим отказ составления
+		return outcome;
+	// Разбираемый билет возобновления связи
+	message::ticket_t parsed;
+	// Выполняем разбор составленного тела сообщения билета
+	outcome = message::parse(view_t(result.data(), result.size()), parsed);
+	// Если разбор билета не состоялся
+	if(outcome != message::error_t::NONE)
+		// Выводим отказ разбора
+		return outcome;
+	// Запоминаем схождение разобранного тела билета с составленным
+	intact = (intact && (parsed.data.size == sizeof(body)) && (::memcmp(parsed.data.data, body, sizeof(body)) == 0));
+	// Выполняем сброс накопителя
+	result.clear();
+	// Выполняем составление тела сообщения обновления ключей
+	outcome = message::build(message::update_t::REQUEST, result);
+	// Если составление обновления ключей не состоялось
+	if(outcome != message::error_t::NONE)
+		// Выводим отказ составления
+		return outcome;
+	// Выполняем сброс накопителя
+	result.clear();
+	// Выводим итог составления содержимого подписи владения ключом
+	return message::content(transcript, true, result);
+}
+
+/**
+ * Проверка разбора и составления сообщений при нехватке памяти
+ */
+TEST(MessageTest, Starved){
+	// Получаем сообщение цепочки сертификатов вместе с обвязкой
+	const vector <uint8_t> certificate = decode(CERTIFICATE);
+	// Получаем сообщение подписи владения ключом вместе с обвязкой
+	const vector <uint8_t> verify = decode(VERIFY);
+	// Получаем хеш переписки рукопожатия
+	const vector <uint8_t> transcript = decode(TRANSCRIPT);
+	// Получаем тело сообщения цепочки сертификатов
+	const view_t chain(certificate.data() + handshake::HANDSHAKE_HEADER, certificate.size() - handshake::HANDSHAKE_HEADER);
+	// Получаем тело сообщения подписи владения ключом
+	const view_t signature(verify.data() + handshake::HANDSHAKE_HEADER, verify.size() - handshake::HANDSHAKE_HEADER);
+	// Признак того, что нехватка памяти хоть раз объявлена отказом
+	bool starved = false;
+	/**
+	 * Выполняем перебор запасов выделений: на всяком запасе разбор и составление
+	 * обязаны ответить либо успехом, либо отказом памяти, но не прерыванием исполнения
+	 */
+	for(size_t budget = 0; budget < 256; budget++){
+		// Итог разбора и составления при отмеренном запасе
+		message::error_t outcome = message::error_t::NONE;
+		// Признак схождения составленных тел с исходными
+		bool intact = false;
+		{
+			// Отмеряем запас выделений на время разбора и составления
+			starve::ration_t ration(budget);
+			// Выполняем разбор и составление при отмеренном запасе
+			outcome = exhaust(chain, signature, view_t(transcript.data(), transcript.size()), intact);
+		}
+		// Проверяем, что разбор и составление ответили успехом либо отказом памяти
+		ASSERT_TRUE((outcome == message::error_t::NONE) || (outcome == message::error_t::MEMORY)) << "запас " << budget << " отказ " << static_cast <int> (outcome);
+		// Проверяем, что успех не скрывает усечённого нехваткой памяти тела
+		ASSERT_TRUE((outcome != message::error_t::NONE) || intact) << "запас " << budget;
+		// Запоминаем объявленный отказ памяти
+		starved = (starved || (outcome == message::error_t::MEMORY));
+	}
+	// Проверяем, что нехватка памяти объявлена отказом хоть раз
+	ASSERT_TRUE(starved);
 }

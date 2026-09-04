@@ -99,6 +99,14 @@ namespace nts {
 		 * @note Старший разряд начального заполнения счётчика занят самим режимом и
 		 *       обязан быть нулевым
 		 *
+		 * @note Намеренные решения: повторное зашифрование одним объектом на том же
+		 *       начальном заполнении счётчика отвергается заслоном режима, а не
+		 *       оставляется на совести вызывающего: после первого зашифрования объект
+		 *       запоминает, что заполнение уже израсходовано на наложение защиты, и
+		 *       всякое следующее зашифрование отказывает до нового запуска режима с
+		 *       новым заполнением. Расшифрование под заслон не подпадает: повторная
+		 *       проверка метки на том же заполнении ничего не раскрывает
+		 *
 		 * \~english
 		 * @brief MGM authenticated encryption mode
 		 * @details RFC 9058. The plain text is encrypted by the gamma with a counter, while
@@ -110,6 +118,13 @@ namespace nts {
 		 *       texts but the key of the production of the tag as well
 		 * @note The senior bit of the initial counter nonce is occupied by the mode itself
 		 *       and must be a zero
+		 * @note Deliberate decisions: a repeated encryption by a single object under the
+		 *       same initial counter nonce is refused by a guard of the mode itself rather
+		 *       than left to the conscience of the caller: after the first encryption the
+		 *       object remembers that the nonce is already spent on the sealing, and every
+		 *       following encryption fails until a new start of the mode with a new nonce.
+		 *       The decryption is not subject to the guard: a repeated check of the tag
+		 *       under the same nonce reveals nothing
 		 *
 		 * \~
 		 */
@@ -117,6 +132,9 @@ namespace nts {
 			private:
 				// Признак того, что режим готов к работе
 				bool _ready;
+			private:
+				// Признак того, что начальное заполнение счётчика уже израсходовано на зашифрование
+				bool _spent;
 			private:
 				// Длина метки целостности в байтах
 				size_t _size;
@@ -197,6 +215,10 @@ namespace nts {
 				 *
 				 * @note Место итога вправе совпадать с местом исходного сообщения
 				 *
+				 * @note Повторное зашифрование на том же начальном заполнении счётчика
+				 *       отвергается: перед следующим зашифрованием режим обязан быть запущен
+				 *       заново с новым заполнением
+				 *
 				 * \~english
 				 * @brief Method of the encryption of a message with the production of the authentication tag
 				 * @param associated the associated data the integrity of which is checked without their encryption
@@ -205,6 +227,8 @@ namespace nts {
 				 * @param tag        the place the authentication tag is put into
 				 * @return the flag of the success of the encryption
 				 * @note The place of the result may coincide with the place of the source message
+				 * @note A repeated encryption under the same initial counter nonce is refused: before
+				 *       the next encryption the mode must be started anew with a new nonce
 				 *
 				 * \~
 				 */

@@ -168,7 +168,14 @@ namespace {
 		ODDSIGN    = 0x50, // Подпись владения ключом нечётной длины при годном объявлении
 		ALIENTYPE  = 0x51, // Защищённая запись несёт содержимое неведомого вида
 		UNKNOWNPSK = 0x52, // Приветствие клиента предлагает неведомый серверу заранее разделённый ключ
-		ALIENLEAF  = 0x53  // Цепочка сертификатов несёт лист с чужим алгоритмом ключа
+		ALIENLEAF  = 0x53, // Цепочка сертификатов несёт лист с чужим алгоритмом ключа
+		UNATTESTED = 0x54, // Завершение сервера без сертификата в полном рукопожатии
+		SPANNING   = 0x55, // Запись приветствия сервера несёт хвост следующего сообщения
+		UNPICKED   = 0x56, // Защищённые расширения объявляют упреждение без выбранного ключа
+		UNPROVEN   = 0x57, // Сертификат клиента без подписи владения ключом
+		ENDLESS    = 0x58, // Завершение клиента ключами упреждения без конца упреждающих данных
+		OVERGROWN  = 0x59, // Сервер шлёт по установленной связи сообщение рукопожатия непомерной длины
+		IMPOSTOR   = 0x5A  // Сервер шлёт по установленной связи цепочку сертификатов заново
 	};
 	/**
 	 * @brief Заранее назначенное случайное значение просьбы о повторе приветствия
@@ -338,7 +345,7 @@ namespace {
 		 */
 		if(override != nullptr)
 			oid = override;
-		else if(!x509::identifier(leaf.key(), oid))
+		else if(x509::identifier(leaf.key(), oid) != x509::error_t::NONE)
 			// Выводим отказ выработки подписи владения ключом
 			return false;
 		// Схема подписи владения ключом враждебного сервера
@@ -368,7 +375,7 @@ namespace {
 		// Эллиптическая кривая подписи владения ключом
 		curve::curve_t signing;
 		// Если кривую своего ключа завести не удалось
-		if((override != nullptr) ? !curve::parameters(oid, signing) : !x509::parameters(leaf.key(), signing))
+		if((override != nullptr) ? !curve::parameters(oid, signing) : (x509::parameters(leaf.key(), signing) != x509::error_t::NONE))
 			// Выводим отказ выработки подписи владения ключом
 			return false;
 		// Место, в которое помещается хеш переписки рукопожатия
@@ -737,7 +744,21 @@ namespace {
 		// Объект нарезчика отправляемых записей
 		record::writer_t plain;
 		// Если приветствие враждебного сервера на записи нарезать не удалось
-		if(plain.push(record::type_t::HANDSHAKE, record::version_t::TLS12, greeter) != record::error_t::NONE)
+		// Содержимое записи приветствия сервера
+		vector <uint8_t> spanned(greeter.data, greeter.data + greeter.size);
+		/**
+		 * Искажением SPANNING за приветствием в той же записи идёт начало следующего
+		 * сообщения: раздел 5.1 RFC 8446 велит сообщению перед сменой ключей кончаться
+		 * на границе записи
+		 */
+		if(distortion == distortion_t::SPANNING){
+			// Начало следующего сообщения рукопожатия: вид и длина без тела
+			const uint8_t spanning[4] = {0x08, 0x00, 0x00, 0x10};
+			// Дописываем начало следующего сообщения к записи
+			spanned.insert(spanned.end(), spanning, spanning + sizeof(spanning));
+		}
+		// Если запись приветствия сервера составить не удалось
+		if(plain.push(record::type_t::HANDSHAKE, record::version_t::TLS12, view_t(spanned.data(), spanned.size())) != record::error_t::NONE)
 			// Выводим отказ ответа враждебного сервера
 			return false;
 		// Получаем нарезанные записи приветствия враждебного сервера
@@ -912,9 +933,14 @@ namespace {
 		 * свыше собственного размера, и разбору не поддаётся
 		 */
 		const vector <uint8_t> mangled = {0xFF, 0xFF};
+		/**
+		 * Искажением UNPICKED защищённые расширения объявляют приём упреждающих данных,
+		 * хотя приветствие сервера заранее разделённого ключа не выбрало
+		 */
+		const vector <uint8_t> unpicked = {0x00, 0x04, 0x00, 0x2A, 0x00, 0x00};
 		// Если защищённые расширения враждебного сервера отправить не удалось
 		if(!deliver(protection, transcript, handshake::type_t::EXTENSIONS,
-			((distortion == distortion_t::MANGLED) ? view_t(mangled.data(), mangled.size()) : view_t(extensions.data(), extensions.size())), answered))
+			((distortion == distortion_t::MANGLED) ? view_t(mangled.data(), mangled.size()) : ((distortion == distortion_t::UNPICKED) ? view_t(unpicked.data(), unpicked.size()) : view_t(extensions.data(), extensions.size()))), answered))
 			// Выводим отказ ответа враждебного сервера
 			return false;
 		/**
@@ -1080,7 +1106,9 @@ namespace {
 		          (distortion == distortion_t::LENGTHY) || (distortion == distortion_t::MALSIGN) ||
 		          (distortion == distortion_t::MALFINISH) || (distortion == distortion_t::MALCHAIN) ||
 		          (distortion == distortion_t::MALVERIFY) || (distortion == distortion_t::GARBAGELEAF) ||
-		          (distortion == distortion_t::ODDSIGN) || (distortion == distortion_t::ALIENLEAF)) {
+		          (distortion == distortion_t::ODDSIGN) || (distortion == distortion_t::ALIENLEAF) ||
+		          (distortion == distortion_t::VACANT) || (distortion == distortion_t::ALIENTYPE) ||
+		          (distortion == distortion_t::OVERGROWN) || (distortion == distortion_t::IMPOSTOR)) {
 			// Если подлинность враждебного сервера проверкой не задана
 			if((credential == nullptr) || credential->chain.empty())
 				// Выводим отказ ответа враждебного сервера
@@ -1186,7 +1214,8 @@ namespace {
 		   (distortion == distortion_t::TATTERED) || (distortion == distortion_t::SCRAMBLED) ||
 		   (distortion == distortion_t::MALADVANCE) || (distortion == distortion_t::OUTPLACED) ||
 		   (distortion == distortion_t::VACANT) || (distortion == distortion_t::MALFINISH) ||
-		   (distortion == distortion_t::ALIENTYPE)){
+		   (distortion == distortion_t::ALIENTYPE) || (distortion == distortion_t::UNATTESTED) ||
+		   (distortion == distortion_t::OVERGROWN) || (distortion == distortion_t::IMPOSTOR)){
 			// Место, в которое помещается ключ завершения рукопожатия сервера
 			uint8_t completion[schedule::SCHEDULE_SECRET];
 			// Если ключ завершения рукопожатия вывести не удалось
@@ -1436,6 +1465,44 @@ namespace {
 				// Складываем защищённую запись данных в ответ враждебного сервера
 				answered.insert(answered.end(), tailing.begin(), tailing.end());
 			}
+			// Если враждебный сервер шлёт сообщение рукопожатия непомерной длины
+			if(distortion == distortion_t::OVERGROWN){
+				/**
+				 * Обвязка билета возобновления с телом в мегабайт: после установления
+				 * связи сообщения рукопожатия шире билета не ходят, и связь обязана
+				 * оборваться по одной обвязке, не дожидаясь набора тела
+				 */
+				const uint8_t bloated[] = {0x04, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+				// Выполняем сброс накопителя ответа враждебного сервера
+				answered.clear();
+				// Накопитель, в который складывается запись непомерного сообщения
+				vector <uint8_t> swollen;
+				// Если наложить защиту на непомерное сообщение не удалось
+				if(outgoing.seal(record::type_t::HANDSHAKE, view_t(bloated, sizeof(bloated)), swollen) != protect::error_t::NONE)
+					// Выводим отказ ответа враждебного сервера
+					return false;
+				// Складываем защищённую запись непомерного сообщения в ответ враждебного сервера
+				answered.insert(answered.end(), swollen.begin(), swollen.end());
+			}
+			// Если враждебный сервер шлёт цепочку сертификатов по установленной связи
+			if(distortion == distortion_t::IMPOSTOR){
+				/**
+				 * Пустая цепочка сертификатов после установления связи: сообщение
+				 * само по себе законное, но не в свой черёд - подмена принятой цепочки
+				 * по установленной связи отвергается до разбора тела
+				 */
+				const uint8_t chain[] = {0x0B, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00};
+				// Выполняем сброс накопителя ответа враждебного сервера
+				answered.clear();
+				// Накопитель, в который складывается запись повторной цепочки
+				vector <uint8_t> repeated;
+				// Если наложить защиту на повторную цепочку не удалось
+				if(outgoing.seal(record::type_t::HANDSHAKE, view_t(chain, sizeof(chain)), repeated) != protect::error_t::NONE)
+					// Выводим отказ ответа враждебного сервера
+					return false;
+				// Складываем защищённую запись повторной цепочки в ответ враждебного сервера
+				answered.insert(answered.end(), repeated.begin(), repeated.end());
+			}
 		}
 		// Выполняем подачу ответа враждебного сервера клиенту
 		client.push(view_t(answered.data(), answered.size()));
@@ -1645,24 +1712,49 @@ namespace {
 		// Складываем защищённую запись в подачу враждебного клиента
 		answered.insert(answered.end(), advanced.begin(), advanced.end());
 		// Объект составителя конца упреждающих данных
-		handshake::writer_t ending;
 		/**
-		 * Раздел 4.5 RFC 8446 кладёт концу упреждающих данных пустое тело: искажением
-		 * LINGERING он несёт байт, которого ему не положено
+		 * Искажением ENDLESS конец упреждающих данных не посылается вовсе, а ключами
+		 * упреждения уходит завершение рукопожатия: раздел 4.5 RFC 8446 велит серверу
+		 * ждать конца упреждения прежде всякого иного сообщения
 		 */
-		const uint8_t trailing[1] = {0x00};
-		// Если конец упреждающих данных составить не удалось
-		if(ending.push(handshake::type_t::EARLY, ((distortion == distortion_t::LINGERING) ? view_t(trailing, sizeof(trailing)) : view_t(nullptr, 0))) != handshake::error_t::NONE)
-			// Выводим отказ подачи упреждающих данных
-			return false;
-		// Накопитель, в который складывается запись конца упреждающих данных
-		vector <uint8_t> sealed;
-		// Если наложить защиту на конец упреждающих данных не удалось
-		if(protection.seal(record::type_t::HANDSHAKE, ending.data(), sealed) != protect::error_t::NONE)
-			// Выводим отказ подачи упреждающих данных
-			return false;
-		// Складываем защищённую запись в подачу враждебного клиента
-		answered.insert(answered.end(), sealed.begin(), sealed.end());
+		if(distortion == distortion_t::ENDLESS){
+			// Объект составителя подложного завершения рукопожатия
+			handshake::writer_t finishing;
+			// Тело подложного завершения рукопожатия
+			const vector <uint8_t> forged(32, 0x5A);
+			// Если подложное завершение составить не удалось
+			if(finishing.push(handshake::type_t::FINISHED, view_t(forged.data(), forged.size())) != handshake::error_t::NONE)
+				// Выводим отказ ответа враждебного клиента
+				return false;
+			// Защищённая запись подложного завершения
+			vector <uint8_t> sealed;
+			// Если наложить защиту упреждения на завершение не удалось
+			if(protection.seal(record::type_t::HANDSHAKE, finishing.data(), sealed) != protect::error_t::NONE)
+				// Выводим отказ ответа враждебного клиента
+				return false;
+			// Дописываем подложное завершение к ответу
+			answered.insert(answered.end(), sealed.begin(), sealed.end());
+		// Иначе упреждающие данные кончаются по правилам
+		} else {
+			handshake::writer_t ending;
+			/**
+			 * Раздел 4.5 RFC 8446 кладёт концу упреждающих данных пустое тело: искажением
+			 * LINGERING он несёт байт, которого ему не положено
+			 */
+			const uint8_t trailing[1] = {0x00};
+			// Если конец упреждающих данных составить не удалось
+			if(ending.push(handshake::type_t::EARLY, ((distortion == distortion_t::LINGERING) ? view_t(trailing, sizeof(trailing)) : view_t(nullptr, 0))) != handshake::error_t::NONE)
+				// Выводим отказ подачи упреждающих данных
+				return false;
+			// Накопитель, в который складывается запись конца упреждающих данных
+			vector <uint8_t> sealed;
+			// Если наложить защиту на конец упреждающих данных не удалось
+			if(protection.seal(record::type_t::HANDSHAKE, ending.data(), sealed) != protect::error_t::NONE)
+				// Выводим отказ подачи упреждающих данных
+				return false;
+			// Складываем защищённую запись в подачу враждебного клиента
+			answered.insert(answered.end(), sealed.begin(), sealed.end());
+		}
 		/**
 		 * Итог подачи не сличается: обрыв связи сервером и есть проверяемое, и отказом
 		 * оснастки он не является
@@ -2168,6 +2260,34 @@ namespace {
 			// Если подпись владения ключом враждебного клиента отправить не удалось
 			if(!deliver(protection, transcript, handshake::type_t::VERIFY, view_t(witnessed.data(), witnessed.size()), answered))
 				// Выводим отказ рукопожатия враждебного клиента
+				return false;
+		}
+		/**
+		 * Искажением UNPROVEN клиент предъявляет сертификат без подписи владения
+		 * ключом: раздел 4.4.3 RFC 8446 велит подписи идти сразу за сертификатом
+		 */
+		if(distortion == distortion_t::UNPROVEN){
+			// Если подлинность враждебного клиента проверкой не задана
+			if((credential == nullptr) || credential->chain.empty())
+				// Выводим отказ ответа враждебного клиента
+				return false;
+			// Составляемая цепочка сертификатов враждебного клиента
+			message::certificate_t certificate;
+			// Запись цепочки сертификатов
+			message::entry_t entry;
+			// Устанавливаем тело сертификата записи цепочки
+			entry.data = view_t(credential->chain[0].data(), credential->chain[0].size());
+			// Добавляем запись в цепочку сертификатов
+			certificate.entries.push_back(entry);
+			// Составленная цепочка сертификатов
+			vector <uint8_t> chain;
+			// Если цепочку сертификатов составить не удалось
+			if(message::build(certificate, chain) != message::error_t::NONE)
+				// Выводим отказ ответа враждебного клиента
+				return false;
+			// Если цепочку сертификатов отправить не удалось
+			if(!deliver(protection, transcript, handshake::type_t::CERTIFICATE, view_t(chain.data(), chain.size()), answered))
+				// Выводим отказ ответа враждебного клиента
 				return false;
 		}
 		// Место, в которое помещается хеш переписки рукопожатия

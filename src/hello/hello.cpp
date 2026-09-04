@@ -76,6 +76,31 @@ namespace {
 	typedef hello::error_t error_t;
 
 	/**
+	 * @brief Метод перевода отказа составителя полей в отказ модуля
+	 *
+	 * @param failure отказ, которым ответил составитель полей
+	 *
+	 * @return        отказ модуля, отвечающий отказу составителя
+	 *
+	 * @note Нехватка памяти обязана дойти до вызывающего своим именем: составитель
+	 *       перехватывает её сам и отвечает отказом, а не исключением, и молчаливый
+	 *       перевод этого отказа в невхождение поля прятал бы истинную причину
+	 *
+	 */
+	static error_t translate(const field::error_t failure) noexcept {
+		// Если составитель полей отказом не ответил
+		if(failure == field::error_t::NONE)
+			// Выводим успешность составления
+			return error_t::NONE;
+		// Если памяти под накопитель составителя не хватило
+		if(failure == field::error_t::MEMORY)
+			// Выводим отказ нехватки памяти
+			return error_t::MEMORY;
+		// Выводим отказ невхождения поля в свою длину
+		return error_t::LENGTH;
+	}
+
+	/**
 	 * @brief Случайное значение просьбы о повторе приветствия клиента
 	 *
 	 * @details Раздел 4.1.3 RFC 8446: значение назначено заранее и есть хеш строки
@@ -150,35 +175,37 @@ namespace {
 	 *
 	 */
 	static error_t compose(const vector <extension_t> & extensions, field::builder_t & builder) noexcept {
+		// Отказ, которым ответил составитель полей
+		field::error_t failure = field::error_t::NONE;
 		// Если перечень расширений приветствия открыть не удалось
-		if(builder.open(2) != field::error_t::NONE)
-			// Выводим отказ составления перечня расширений
-			return error_t::MEMORY;
+		if((failure = builder.open(2)) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
 		/**
 		 * Выполняем перебор расширений составляемого приветствия
 		 */
 		for(auto & item : extensions){
 			// Если вид очередного расширения записать не удалось
-			if(builder.number(static_cast <uint32_t> (item.type), 2) != field::error_t::NONE)
-				// Выводим отказ составления перечня расширений
-				return error_t::MEMORY;
+			if((failure = builder.number(static_cast <uint32_t> (item.type), 2)) != field::error_t::NONE)
+				// Выводим отказ, которым ответил составитель полей
+				return translate(failure);
 			// Если тело очередного расширения открыть не удалось
-			if(builder.open(2) != field::error_t::NONE)
-				// Выводим отказ составления перечня расширений
-				return error_t::MEMORY;
+			if((failure = builder.open(2)) != field::error_t::NONE)
+				// Выводим отказ, которым ответил составитель полей
+				return translate(failure);
 			// Если тело очередного расширения записать не удалось
-			if(builder.bytes(item.data) != field::error_t::NONE)
-				// Выводим отказ составления перечня расширений
-				return error_t::MEMORY;
+			if((failure = builder.bytes(item.data)) != field::error_t::NONE)
+				// Выводим отказ, которым ответил составитель полей
+				return translate(failure);
 			// Если тело очередного расширения закрыть не удалось
-			if(builder.close() != field::error_t::NONE)
-				// Выводим отказ переполнения длины расширения
-				return error_t::LENGTH;
+			if((failure = builder.close()) != field::error_t::NONE)
+				// Выводим отказ, которым ответил составитель полей
+				return translate(failure);
 		}
 		// Если перечень расширений приветствия закрыть не удалось
-		if(builder.close() != field::error_t::NONE)
-			// Выводим отказ переполнения длины перечня расширений
-			return error_t::LENGTH;
+		if((failure = builder.close()) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
 		// Выводим успешность составления перечня расширений
 		return error_t::NONE;
 	}
@@ -292,8 +319,12 @@ nts::hello::error_t nts::hello::parse(const view_t & data, client_t & result) no
 		return error_t::METHOD;
 	// Перечень расширений приветствия клиента
 	view_t extensions;
-	// Если перечень расширений приветствия прочитать не удалось
-	if(scanner.vector(extensions, 2) != field::error_t::NONE)
+	/**
+	 * Раздел 4.1.2 RFC 8446: приветствие прежних изданий поля расширений может не
+	 * нести вовсе, и наличие расширений узнаётся по байтам за способами сжатия.
+	 * Такое приветствие годно, а об издании рассудит движок
+	 */
+	if((scanner.left() > 0) && (scanner.vector(extensions, 2) != field::error_t::NONE))
 		// Выводим отказ обрыва тела приветствия
 		return error_t::HUNGRY;
 	// Если за телом приветствия идут лишние байты
@@ -456,6 +487,8 @@ nts::hello::error_t nts::hello::build(const client_t & hello, vector <uint8_t> &
 		return error_t::METHOD;
 	// Объект составителя полей тела приветствия
 	field::builder_t builder;
+	// Отказ, которым ответил составитель полей
+	field::error_t failure = field::error_t::NONE;
 	// Отказ, которым завершилось составление тела приветствия
 	error_t outcome = error_t::NONE;
 	/**
@@ -463,45 +496,55 @@ nts::hello::error_t nts::hello::build(const client_t & hello, vector <uint8_t> &
 	 */
 	try {
 		// Записываем версию протокола, доставшуюся от предыдущих изданий
-		builder.number(static_cast <uint32_t> (hello.version), 2);
+		if((failure = builder.number(static_cast <uint32_t> (hello.version), 2)) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
 		// Записываем случайное значение приветствия клиента
-		builder.bytes(view_t(hello.random, HELLO_RANDOM));
+		if((failure = builder.bytes(view_t(hello.random, HELLO_RANDOM))) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
 		// Открываем поле опознавателя связи
-		builder.open(1);
+		if((failure = builder.open(1)) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
 		// Записываем опознаватель связи приветствия клиента
-		builder.bytes(view_t(hello.session.data(), hello.session.size()));
+		if((failure = builder.bytes(view_t(hello.session.data(), hello.session.size()))) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
 		// Закрываем поле опознавателя связи
-		builder.close();
+		if((failure = builder.close()) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
 		// Открываем перечень предлагаемых наборов шифрования
-		builder.open(2);
+		if((failure = builder.open(2)) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
 		/**
 		 * Выполняем перебор предлагаемых наборов шифрования
 		 */
 		for(auto & item : hello.suites)
 			// Записываем очередной предлагаемый набор шифрования
-			builder.number(static_cast <uint32_t> (item), 2);
+			if((failure = builder.number(static_cast <uint32_t> (item), 2)) != field::error_t::NONE)
+				// Выводим отказ, которым ответил составитель полей
+				return translate(failure);
 		// Если перечень наборов шифрования закрыть не удалось
-		if(builder.close() != field::error_t::NONE)
-			// Запоминаем отказ переполнения длины перечня наборов
-			outcome = error_t::LENGTH;
+		if((failure = builder.close()) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
 		// Открываем перечень способов сжатия
-		builder.open(1);
+		if((failure = builder.open(1)) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
 		// Записываем перечень способов сжатия приветствия клиента
-		builder.bytes(view_t(hello.methods.data(), hello.methods.size()));
-		/**
-		 * Слагаемое (builder.close() != NONE) ложно всегда: закрытие поля отказывает
-		 * лишь переполнением длины, а перечень способов сжатия шире двухсот пятидесяти
-		 * пяти байтов не бывает. Слагаемое оставлено ради однообразия с прочими полями
-		 * приветствия и ради того, что молчаливый пропуск отказа был бы хуже
-		 */
+		if((failure = builder.bytes(view_t(hello.methods.data(), hello.methods.size()))) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
 		// Если перечень способов сжатия закрыть не удалось
-		if((outcome == error_t::NONE) && (builder.close() != field::error_t::NONE))
-			// Запоминаем отказ переполнения длины перечня способов сжатия
-			outcome = error_t::LENGTH;
-		// Если перечень расширений приветствия составить не удалось
-		if(outcome == error_t::NONE)
-			// Выполняем составление перечня расширений приветствия
-			outcome = compose(hello.extensions, builder);
+		if((failure = builder.close()) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
+		// Выполняем составление перечня расширений приветствия
+		outcome = compose(hello.extensions, builder);
 		// Если тело приветствия клиента составлено
 		if(outcome == error_t::NONE){
 			// Получаем составленное тело приветствия клиента
@@ -535,6 +578,8 @@ nts::hello::error_t nts::hello::build(const server_t & hello, vector <uint8_t> &
 		return error_t::SESSION;
 	// Объект составителя полей тела приветствия
 	field::builder_t builder;
+	// Отказ, которым ответил составитель полей
+	field::error_t failure = field::error_t::NONE;
 	// Отказ, которым завершилось составление тела приветствия
 	error_t outcome = error_t::NONE;
 	/**
@@ -542,19 +587,33 @@ nts::hello::error_t nts::hello::build(const server_t & hello, vector <uint8_t> &
 	 */
 	try {
 		// Записываем версию протокола, доставшуюся от предыдущих изданий
-		builder.number(static_cast <uint32_t> (hello.version), 2);
+		if((failure = builder.number(static_cast <uint32_t> (hello.version), 2)) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
 		// Записываем случайное значение приветствия сервера
-		builder.bytes(view_t(hello.random, HELLO_RANDOM));
+		if((failure = builder.bytes(view_t(hello.random, HELLO_RANDOM))) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
 		// Открываем поле опознавателя связи
-		builder.open(1);
+		if((failure = builder.open(1)) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
 		// Записываем опознаватель связи приветствия сервера
-		builder.bytes(view_t(hello.session.data(), hello.session.size()));
+		if((failure = builder.bytes(view_t(hello.session.data(), hello.session.size()))) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
 		// Закрываем поле опознавателя связи
-		builder.close();
+		if((failure = builder.close()) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
 		// Записываем выбранный сервером набор шифрования
-		builder.number(static_cast <uint32_t> (hello.suite), 2);
+		if((failure = builder.number(static_cast <uint32_t> (hello.suite), 2)) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
 		// Записываем выбранный способ сжатия
-		builder.number(static_cast <uint32_t> (hello.method), 1);
+		if((failure = builder.number(static_cast <uint32_t> (hello.method), 1)) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
 		// Выполняем составление перечня расширений приветствия
 		outcome = compose(hello.extensions, builder);
 		// Если тело приветствия сервера составлено

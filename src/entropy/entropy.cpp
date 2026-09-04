@@ -95,6 +95,27 @@ namespace {
 	static constexpr size_t ATTEMPTS = 100;
 
 	/**
+	 * @brief Метод затирания области памяти
+	 *
+	 * @details Затирание ведётся через изменчивый указатель: обычное присваивание
+	 *          собиратель вправе выбросить, увидев, что записанное значение больше
+	 *          никем не читается, - и случайные байты остались бы в памяти
+	 *
+	 * @param data затираемая область памяти
+	 * @param size размер затираемой области памяти
+	 *
+	 */
+	static void wipe(void * data, const size_t size) noexcept {
+		// Получаем изменчивый указатель на затираемую область памяти
+		volatile uint8_t * item = static_cast <volatile uint8_t *> (data);
+		/**
+		 * Выполняем перебор байтов затираемой области памяти
+		 */
+		for(size_t i = 0; i < size; i++)
+			// Обнуляем очередной байт области памяти
+			item[i] = 0;
+	}
+	/**
 	 * Устройство случайных байтов существует лишь у систем Unix: у Windows этого пути
 	 * нет вовсе, и помощник там не заводится - иначе он оставался бы неупотребимым
 	 */
@@ -246,13 +267,13 @@ bool nts::entropy::number(const math::modulus_t & modulus, math::number_t & resu
 		 */
 		if(modulus.load(view_t(buffer, modulus.size()), result) && !modulus.zero(result)){
 			// Выполняем затирание полученных случайных байтов
-			::memset(buffer, 0, sizeof(buffer));
+			wipe(buffer, sizeof(buffer));
 			// Выводим успешность получения случайного числа
 			return true;
 		}
 	}
 	// Выполняем затирание полученных случайных байтов
-	::memset(buffer, 0, sizeof(buffer));
+	wipe(buffer, sizeof(buffer));
 	// Выполняем обнуление получаемого случайного числа
 	result = math::number_t();
 	// Выводим отказ получения случайного числа

@@ -689,6 +689,8 @@ bool nts::cipher::Galois::start(const block_t & block, const view_t & nonce, con
 	this->_size = tag;
 	// Запоминаем начальное заполнение счётчика
 	::memcpy(this->_nonce, nonce.data, nonce.size);
+	// Снимаем признак расходования начального заполнения счётчика на зашифрование
+	this->_spent = false;
 	// Устанавливаем признак готовности режима к работе
 	this->_ready = true;
 	// Выводим успешность запуска режима работы
@@ -705,6 +707,8 @@ void nts::cipher::Galois::clear() noexcept {
 	this->_block = block_t();
 	// Сбрасываем длину метки целостности
 	this->_size = 0;
+	// Снимаем признак расходования начального заполнения счётчика на зашифрование
+	this->_spent = false;
 	// Снимаем признак готовности режима к работе
 	this->_ready = false;
 }
@@ -722,6 +726,14 @@ void nts::cipher::Galois::clear() noexcept {
 bool nts::cipher::Galois::encrypt(const view_t & associated, const view_t & source, uint8_t * result, uint8_t * tag) noexcept {
 	// Если режим не готов к работе либо место метки целостности не передано
 	if(!this->_ready || (tag == nullptr))
+		// Выводим отказ зашифрования
+		return false;
+	/**
+	 * Начальное заполнение счётчика годится на одно зашифрование: повтор на том же
+	 * заполнении раскрывает сумму открытых текстов и ключ выработки метки, оттого
+	 * следующее зашифрование дозволяется лишь после запуска режима с новым заполнением
+	 */
+	if(this->_spent)
 		// Выводим отказ зашифрования
 		return false;
 	// Если зашифровываемое сообщение передано неверно
@@ -752,6 +764,8 @@ bool nts::cipher::Galois::encrypt(const view_t & associated, const view_t & sour
 	 * самостоятельности выражения: молчаливый пропуск отказа наложения гаммы выдал бы
 	 * наружу неполный шифртекст
 	 */
+	// Отмечаем начальное заполнение счётчика израсходованным на зашифрование
+	this->_spent = true;
 	// Если сообщение всё же передано
 	if((source.size > 0) && !gamma(this->_block, this->_nonce, source, result))
 		// Выводим отказ зашифрования
@@ -852,7 +866,7 @@ bool nts::cipher::Galois::decrypt(const view_t & associated, const view_t & sour
  * @brief Конструктор
  *
  */
-nts::cipher::Galois::Galois() noexcept : _ready(false), _size(0) {
+nts::cipher::Galois::Galois() noexcept : _ready(false), _spent(false), _size(0) {
 	// Выполняем затирание начального заполнения счётчика
 	wipe(this->_nonce, sizeof(this->_nonce));
 }

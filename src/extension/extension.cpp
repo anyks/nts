@@ -76,6 +76,31 @@ namespace {
 	typedef extension::error_t error_t;
 
 	/**
+	 * @brief Метод перевода отказа составителя полей в отказ модуля
+	 *
+	 * @param failure отказ, которым ответил составитель полей
+	 *
+	 * @return        отказ модуля, отвечающий отказу составителя
+	 *
+	 * @note Нехватка памяти обязана дойти до вызывающего своим именем: составитель
+	 *       перехватывает её сам и отвечает отказом, а не исключением, и молчаливый
+	 *       перевод этого отказа в невхождение поля прятал бы истинную причину
+	 *
+	 */
+	static error_t translate(const field::error_t failure) noexcept {
+		// Если составитель полей отказом не ответил
+		if(failure == field::error_t::NONE)
+			// Выводим успешность составления
+			return error_t::NONE;
+		// Если памяти под накопитель составителя не хватило
+		if(failure == field::error_t::MEMORY)
+			// Выводим отказ нехватки памяти
+			return error_t::MEMORY;
+		// Выводим отказ невхождения поля в свою длину
+		return error_t::LENGTH;
+	}
+
+	/**
 	 * @brief Описание группы обмена ключами
 	 *
 	 */
@@ -179,31 +204,36 @@ namespace {
 			return error_t::EMPTY;
 		// Объект составителя полей тела расширения
 		field::builder_t builder;
+		// Отказ, которым ответил составитель полей
+		field::error_t failure = field::error_t::NONE;
 		/**
 		 * Выполняем перехват ошибок работы с памятью
 		 */
 		try {
 			// Открываем перечень чисел тела расширения
-			builder.open(width);
+			if((failure = builder.open(width)) != field::error_t::NONE)
+				// Выводим отказ, которым ответил составитель полей
+				return translate(failure);
 			/**
 			 * Выполняем перебор чисел составляемого перечня
 			 */
 			for(auto & item : values){
 				/**
-				 * Заслон этот недостижим: числа перечней приходят из перечислений,
-				 * шириной своей и заданных - издания, кривые и схемы объявлены двумя
-				 * байтами, способы обмена ключом единственным, - и всякое из них в
-				 * свою ширину входит по самому своему виду. Стоит он ради связности
-				 * составления: молчаливый разбор непроверенного итога был бы хуже
+				 * Невхождением в ширину заслон этот недостижим: числа перечней приходят
+				 * из перечислений, шириной своей и заданных - издания, кривые и схемы
+				 * объявлены двумя байтами, способы обмена ключом единственным, - и
+				 * всякое из них в свою ширину входит по самому своему виду. Нехваткой
+				 * же памяти запись отказать способна, и отказ этот обязан дойти до
+				 * вызывающего своим именем, а не молчаливым усечением перечня
 				 */
-				if(builder.number(item, size) != field::error_t::NONE)
-					// Выводим отказ переполнения ширины числа
-					return error_t::LENGTH;
+				if((failure = builder.number(item, size)) != field::error_t::NONE)
+					// Выводим отказ, которым ответил составитель полей
+					return translate(failure);
 			}
 			// Если перечень чисел закрыть не удалось
-			if(builder.close() != field::error_t::NONE)
-				// Выводим отказ переполнения длины перечня
-				return error_t::LENGTH;
+			if((failure = builder.close()) != field::error_t::NONE)
+				// Выводим отказ, которым ответил составитель полей
+				return translate(failure);
 			// Получаем составленное тело расширения
 			const view_t data = builder.data();
 			// Выполняем дописывание тела расширения в накопитель
@@ -235,18 +265,24 @@ namespace {
 	static error_t alone(const view_t & data, const size_t width, vector <uint8_t> & result) noexcept {
 		// Объект составителя полей тела расширения
 		field::builder_t builder;
+		// Отказ, которым ответил составитель полей
+		field::error_t failure = field::error_t::NONE;
 		/**
 		 * Выполняем перехват ошибок работы с памятью
 		 */
 		try {
 			// Открываем поле переменной длины
-			builder.open(width);
+			if((failure = builder.open(width)) != field::error_t::NONE)
+				// Выводим отказ, которым ответил составитель полей
+				return translate(failure);
 			// Записываем содержимое поля переменной длины
-			builder.bytes(data);
+			if((failure = builder.bytes(data)) != field::error_t::NONE)
+				// Выводим отказ, которым ответил составитель полей
+				return translate(failure);
 			// Если поле переменной длины закрыть не удалось
-			if(builder.close() != field::error_t::NONE)
-				// Выводим отказ переполнения длины поля
-				return error_t::LENGTH;
+			if((failure = builder.close()) != field::error_t::NONE)
+				// Выводим отказ, которым ответил составитель полей
+				return translate(failure);
 			// Получаем составленное тело расширения
 			const view_t body = builder.data();
 			// Выполняем дописывание тела расширения в накопитель
@@ -637,6 +673,10 @@ nts::extension::error_t nts::extension::shares(const view_t & data, vector <shar
 		if(reader.vector(key, 2) != field::error_t::NONE)
 			// Выводим отказ обрыва тела расширения
 			return error_t::HUNGRY;
+		// Раздел 4.2.8 RFC 8446: открытая часть ключа непуста
+		if(key.size == 0)
+			// Выводим отказ пустой открытой части ключа
+			return error_t::EMPTY;
 		/**
 		 * Выполняем перехват ошибок работы с памятью
 		 */
@@ -666,31 +706,41 @@ nts::extension::error_t nts::extension::shares(const view_t & data, vector <shar
 nts::extension::error_t nts::extension::shares(const vector <share_t> & shares, vector <uint8_t> & result) noexcept {
 	// Объект составителя полей тела расширения
 	field::builder_t builder;
+	// Отказ, которым ответил составитель полей
+	field::error_t failure = field::error_t::NONE;
 	/**
 	 * Выполняем перехват ошибок работы с памятью
 	 */
 	try {
 		// Открываем перечень открытых частей ключей обмена
-		builder.open(2);
+		if((failure = builder.open(2)) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
 		/**
 		 * Выполняем перебор составляемых открытых частей ключей обмена
 		 */
 		for(auto & item : shares){
 			// Записываем группу обмена очередной открытой части ключа
-			builder.number(static_cast <uint32_t> (item.group), 2);
+			if((failure = builder.number(static_cast <uint32_t> (item.group), 2)) != field::error_t::NONE)
+				// Выводим отказ, которым ответил составитель полей
+				return translate(failure);
 			// Открываем поле открытой части ключа обмена
-			builder.open(2);
+			if((failure = builder.open(2)) != field::error_t::NONE)
+				// Выводим отказ, которым ответил составитель полей
+				return translate(failure);
 			// Записываем открытую часть ключа обмена
-			builder.bytes(item.key);
+			if((failure = builder.bytes(item.key)) != field::error_t::NONE)
+				// Выводим отказ, которым ответил составитель полей
+				return translate(failure);
 			// Если поле открытой части ключа закрыть не удалось
-			if(builder.close() != field::error_t::NONE)
-				// Выводим отказ переполнения длины открытой части ключа
-				return error_t::LENGTH;
+			if((failure = builder.close()) != field::error_t::NONE)
+				// Выводим отказ, которым ответил составитель полей
+				return translate(failure);
 		}
 		// Если перечень открытых частей ключей закрыть не удалось
-		if(builder.close() != field::error_t::NONE)
-			// Выводим отказ переполнения длины перечня
-			return error_t::LENGTH;
+		if((failure = builder.close()) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
 		// Получаем составленное тело расширения
 		const view_t data = builder.data();
 		// Выполняем дописывание тела расширения в накопитель
@@ -754,20 +804,28 @@ nts::extension::error_t nts::extension::share(const view_t & data, share_t & res
 nts::extension::error_t nts::extension::share(const share_t & share, vector <uint8_t> & result) noexcept {
 	// Объект составителя полей тела расширения
 	field::builder_t builder;
+	// Отказ, которым ответил составитель полей
+	field::error_t failure = field::error_t::NONE;
 	/**
 	 * Выполняем перехват ошибок работы с памятью
 	 */
 	try {
 		// Записываем группу обмена открытой части ключа
-		builder.number(static_cast <uint32_t> (share.group), 2);
+		if((failure = builder.number(static_cast <uint32_t> (share.group), 2)) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
 		// Открываем поле открытой части ключа обмена
-		builder.open(2);
+		if((failure = builder.open(2)) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
 		// Записываем открытую часть ключа обмена
-		builder.bytes(share.key);
+		if((failure = builder.bytes(share.key)) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
 		// Если поле открытой части ключа закрыть не удалось
-		if(builder.close() != field::error_t::NONE)
-			// Выводим отказ переполнения длины открытой части ключа
-			return error_t::LENGTH;
+		if((failure = builder.close()) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
 		// Получаем составленное тело расширения
 		const view_t data = builder.data();
 		// Выполняем дописывание тела расширения в накопитель
@@ -823,10 +881,12 @@ nts::extension::error_t nts::extension::early(const view_t & data, uint32_t & re
 nts::extension::error_t nts::extension::early(const uint32_t limit, vector <uint8_t> & result) noexcept {
 	// Объект составителя полей тела расширения
 	field::builder_t builder;
+	// Отказ, которым ответил составитель полей
+	field::error_t failure = field::error_t::NONE;
 	// Если предел упреждающих данных записать не удалось
-	if(builder.number(limit, 4) != field::error_t::NONE)
-		// Выводим отказ невхождения поля в свою длину
-		return error_t::LENGTH;
+	if((failure = builder.number(limit, 4)) != field::error_t::NONE)
+		// Выводим отказ, которым ответил составитель полей
+		return translate(failure);
 	// Получаем составленное тело расширения приветствия
 	const view_t data = builder.data();
 	/**
@@ -926,12 +986,16 @@ nts::extension::error_t nts::extension::protocols(const vector <string> & protoc
 		return error_t::EMPTY;
 	// Объект составителя полей тела расширения
 	field::builder_t builder;
+	// Отказ, которым ответил составитель полей
+	field::error_t failure = field::error_t::NONE;
 	/**
 	 * Выполняем перехват ошибок работы с памятью
 	 */
 	try {
 		// Открываем перечень прикладных протоколов
-		builder.open(2);
+		if((failure = builder.open(2)) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
 		/**
 		 * Выполняем перебор составляемого перечня прикладных протоколов
 		 */
@@ -943,18 +1007,22 @@ nts::extension::error_t nts::extension::protocols(const vector <string> & protoc
 				// Выводим отказ пустой записи перечня
 				return error_t::EMPTY;
 			// Открываем поле названия прикладного протокола
-			builder.open(1);
+			if((failure = builder.open(1)) != field::error_t::NONE)
+				// Выводим отказ, которым ответил составитель полей
+				return translate(failure);
 			// Записываем название прикладного протокола
-			builder.bytes(view_t(reinterpret_cast <const uint8_t *> (protocols[i].data()), protocols[i].size()));
+			if((failure = builder.bytes(view_t(reinterpret_cast <const uint8_t *> (protocols[i].data()), protocols[i].size()))) != field::error_t::NONE)
+				// Выводим отказ, которым ответил составитель полей
+				return translate(failure);
 			// Если поле названия прикладного протокола закрыть не удалось
-			if(builder.close() != field::error_t::NONE)
-				// Выводим отказ переполнения длины названия протокола
-				return error_t::LENGTH;
+			if((failure = builder.close()) != field::error_t::NONE)
+				// Выводим отказ, которым ответил составитель полей
+				return translate(failure);
 		}
 		// Если перечень прикладных протоколов закрыть не удалось
-		if(builder.close() != field::error_t::NONE)
-			// Выводим отказ переполнения длины перечня протоколов
-			return error_t::LENGTH;
+		if((failure = builder.close()) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
 		// Получаем составленное тело расширения
 		const view_t data = builder.data();
 		// Выполняем дописывание тела расширения в накопитель
@@ -1122,6 +1190,10 @@ nts::extension::error_t nts::extension::identities(const view_t & data, vector <
 		if(items_reader.vector(binder, 1) != field::error_t::NONE)
 			// Выводим отказ обрыва тела расширения
 			return error_t::HUNGRY;
+		// Раздел 4.2.11 RFC 8446: привязка не короче 32 байтов
+		if(binder.size < 32)
+			// Выводим отказ пустой привязки
+			return error_t::EMPTY;
 		/**
 		 * Выполняем перехват ошибок работы с памятью
 		 */
@@ -1136,6 +1208,12 @@ nts::extension::error_t nts::extension::identities(const view_t & data, vector <
 			return error_t::MEMORY;
 		}
 	}
+	/**
+	 * Раздел 4.2.11 RFC 8446: перечни опознавателей и привязок непусты
+	 */
+	if(result.empty() || binders.empty())
+		// Выводим отказ пустого перечня
+		return error_t::EMPTY;
 	/**
 	 * Число привязок обязано совпадать с числом опознавателей: всякому ключу отвечает
 	 * своя привязка, и без неё ключ предъявлен не по правилам
@@ -1167,60 +1245,62 @@ nts::extension::error_t nts::extension::identities(const vector <identity_t> & i
 		return error_t::EMPTY;
 	// Объект составителя полей тела расширения
 	field::builder_t builder;
+	// Отказ, которым ответил составитель полей
+	field::error_t failure = field::error_t::NONE;
 	// Если место под перечень опознавателей ключей занять не удалось
-	if(builder.open(2) != field::error_t::NONE)
-		// Выводим отказ невхождения поля в свою длину
-		return error_t::LENGTH;
+	if((failure = builder.open(2)) != field::error_t::NONE)
+		// Выводим отказ, которым ответил составитель полей
+		return translate(failure);
 	/**
 	 * Выполняем перебор составляемых опознавателей ключей
 	 */
 	for(size_t i = 0; i < identities.size(); i++){
 		// Если место под опознаватель ключа занять не удалось
-		if(builder.open(2) != field::error_t::NONE)
-			// Выводим отказ невхождения поля в свою длину
-			return error_t::LENGTH;
+		if((failure = builder.open(2)) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
 		// Если опознаватель ключа записать не удалось
-		if(builder.bytes(identities[i].identity) != field::error_t::NONE)
-			// Выводим отказ невхождения поля в свою длину
-			return error_t::LENGTH;
+		if((failure = builder.bytes(identities[i].identity)) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
 		// Если длину опознавателя ключа проставить не удалось
-		if(builder.close() != field::error_t::NONE)
-			// Выводим отказ невхождения поля в свою длину
-			return error_t::LENGTH;
+		if((failure = builder.close()) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
 		// Если скрытый возраст билета записать не удалось
-		if(builder.number(identities[i].age, 4) != field::error_t::NONE)
-			// Выводим отказ невхождения поля в свою длину
-			return error_t::LENGTH;
+		if((failure = builder.number(identities[i].age, 4)) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
 	}
 	// Если длину перечня опознавателей ключей проставить не удалось
-	if(builder.close() != field::error_t::NONE)
-		// Выводим отказ невхождения поля в свою длину
-		return error_t::LENGTH;
+	if((failure = builder.close()) != field::error_t::NONE)
+		// Выводим отказ, которым ответил составитель полей
+		return translate(failure);
 	// Если место под перечень привязок ключей занять не удалось
-	if(builder.open(2) != field::error_t::NONE)
-		// Выводим отказ невхождения поля в свою длину
-		return error_t::LENGTH;
+	if((failure = builder.open(2)) != field::error_t::NONE)
+		// Выводим отказ, которым ответил составитель полей
+		return translate(failure);
 	/**
 	 * Выполняем перебор составляемых привязок ключей
 	 */
 	for(size_t i = 0; i < binders.size(); i++){
 		// Если место под привязку ключа занять не удалось
-		if(builder.open(1) != field::error_t::NONE)
-			// Выводим отказ невхождения поля в свою длину
-			return error_t::LENGTH;
+		if((failure = builder.open(1)) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
 		// Если привязку ключа записать не удалось
-		if(builder.bytes(binders[i]) != field::error_t::NONE)
-			// Выводим отказ невхождения поля в свою длину
-			return error_t::LENGTH;
+		if((failure = builder.bytes(binders[i])) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
 		// Если длину привязки ключа проставить не удалось
-		if(builder.close() != field::error_t::NONE)
-			// Выводим отказ невхождения поля в свою длину
-			return error_t::LENGTH;
+		if((failure = builder.close()) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
 	}
 	// Если длину перечня привязок ключей проставить не удалось
-	if(builder.close() != field::error_t::NONE)
-		// Выводим отказ невхождения поля в свою длину
-		return error_t::LENGTH;
+	if((failure = builder.close()) != field::error_t::NONE)
+		// Выводим отказ, которым ответил составитель полей
+		return translate(failure);
 	// Получаем составленное тело расширения приветствия
 	const view_t data = builder.data();
 	/**
@@ -1471,6 +1551,12 @@ nts::extension::error_t nts::extension::name(const view_t & data, view_t & resul
 			// Выводим отказ обрыва тела расширения
 			return error_t::HUNGRY;
 		/**
+		 * Раздел 3 RFC 6066: имя узла непусто
+		 */
+		if((type == 0) && (item.size == 0))
+			// Выводим отказ пустого имени узла
+			return error_t::EMPTY;
+		/**
 		 * Раздел 3 RFC 6066: имени вида «host_name» отведено значение нуль
 		 */
 		if((type == 0) && !found){
@@ -1503,26 +1589,36 @@ nts::extension::error_t nts::extension::name(const view_t & name, vector <uint8_
 		return error_t::EMPTY;
 	// Объект составителя полей тела расширения
 	field::builder_t builder;
+	// Отказ, которым ответил составитель полей
+	field::error_t failure = field::error_t::NONE;
 	/**
 	 * Выполняем перехват ошибок работы с памятью
 	 */
 	try {
 		// Открываем перечень имён узлов
-		builder.open(2);
+		if((failure = builder.open(2)) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
 		// Записываем вид имени узла «host_name»
-		builder.number(0, 1);
+		if((failure = builder.number(0, 1)) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
 		// Открываем поле имени запрашиваемого узла
-		builder.open(2);
+		if((failure = builder.open(2)) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
 		// Записываем имя запрашиваемого узла
-		builder.bytes(name);
+		if((failure = builder.bytes(name)) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
 		// Если поле имени запрашиваемого узла закрыть не удалось
-		if(builder.close() != field::error_t::NONE)
-			// Выводим отказ переполнения длины имени узла
-			return error_t::LENGTH;
+		if((failure = builder.close()) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
 		// Если перечень имён узлов закрыть не удалось
-		if(builder.close() != field::error_t::NONE)
-			// Выводим отказ переполнения длины перечня имён
-			return error_t::LENGTH;
+		if((failure = builder.close()) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
 		// Получаем составленное тело расширения
 		const view_t data = builder.data();
 		// Выполняем дописывание тела расширения в накопитель

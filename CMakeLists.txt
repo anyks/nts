@@ -1,8 +1,8 @@
 # Устанавливаем минимальную версию CMake
 cmake_minimum_required(VERSION 3.15)
 
-# Устанавливаем название проекта
-project(nts LANGUAGES CXX)
+# Устанавливаем название и версию проекта
+project(nts VERSION 1.0.0 LANGUAGES CXX)
 
 # Устанавливаем полное название проекта
 SET(PROJECT_VENDOR_LONG "ANYKS - Network Transport Security (A-NTS)")
@@ -171,22 +171,37 @@ endforeach()
 
 # Устанавливаем список исходных файлов библиотеки
 SET(SOURCE_FILES
+    "${CMAKE_SOURCE_DIR}/src/sys/machine.cpp"
     "${CMAKE_SOURCE_DIR}/src/field/field.cpp"
     "${CMAKE_SOURCE_DIR}/src/asn1/asn1.cpp"
     "${CMAKE_SOURCE_DIR}/src/x509/x509.cpp"
     "${CMAKE_SOURCE_DIR}/src/x509/signature.cpp"
     "${CMAKE_SOURCE_DIR}/src/digest/streebog.cpp"
+    "${CMAKE_SOURCE_DIR}/src/digest/sha2.cpp"
+    "${CMAKE_SOURCE_DIR}/src/digest/sha1.cpp"
+    "${CMAKE_SOURCE_DIR}/src/digest/md5.cpp"
+    "${CMAKE_SOURCE_DIR}/src/digest/hash.cpp"
+    "${CMAKE_SOURCE_DIR}/src/digest/hkdf.cpp"
+    "${CMAKE_SOURCE_DIR}/src/digest/pbkdf2.cpp"
     "${CMAKE_SOURCE_DIR}/src/digest/hmac.cpp"
     "${CMAKE_SOURCE_DIR}/src/digest/kdf.cpp"
     "${CMAKE_SOURCE_DIR}/src/cipher/kuznyechik.cpp"
+    "${CMAKE_SOURCE_DIR}/src/cipher/aes.cpp"
     "${CMAKE_SOURCE_DIR}/src/cipher/magma.cpp"
     "${CMAKE_SOURCE_DIR}/src/cipher/mode.cpp"
     "${CMAKE_SOURCE_DIR}/src/cipher/mgm.cpp"
+    "${CMAKE_SOURCE_DIR}/src/cipher/gcm.cpp"
     "${CMAKE_SOURCE_DIR}/src/math/number.cpp"
     "${CMAKE_SOURCE_DIR}/src/entropy/entropy.cpp"
     "${CMAKE_SOURCE_DIR}/src/curve/curve.cpp"
     "${CMAKE_SOURCE_DIR}/src/curve/parameters.cpp"
     "${CMAKE_SOURCE_DIR}/src/sign/gost.cpp"
+    "${CMAKE_SOURCE_DIR}/src/sign/rsa.cpp"
+    "${CMAKE_SOURCE_DIR}/src/math/integer.cpp"
+    "${CMAKE_SOURCE_DIR}/src/sign/ecdsa.cpp"
+    "${CMAKE_SOURCE_DIR}/src/sign/ed25519.cpp"
+    "${CMAKE_SOURCE_DIR}/src/agreement/x25519.cpp"
+    "${CMAKE_SOURCE_DIR}/src/math/field25519.cpp"
     "${CMAKE_SOURCE_DIR}/src/agreement/vko.cpp"
     "${CMAKE_SOURCE_DIR}/src/agreement/ecdhe.cpp"
     "${CMAKE_SOURCE_DIR}/src/record/record.cpp"
@@ -323,13 +338,13 @@ if (CMAKE_CIPHER_CARRYLESS)
     # Если сборка ведётся под x86-64
     elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64|AMD64")
         # Выполняем проверку пригодности ключа расширения команд
-        check_cxx_compiler_flag("-mpclmul" CARRYLESS_X86_FLAG)
-        # Если ключ расширения команд собирателем принят
+        check_cxx_compiler_flag("-mpclmul -maes -msha -mssse3" CARRYLESS_X86_FLAG)
+        # Если ключи расширений команд собирателем приняты
         if (CARRYLESS_X86_FLAG)
-            # Добавляем ключ расширения команд
-            add_compile_options(-mpclmul)
-            # Выводим сообщение о машинном умножении без переносов
-            message(STATUS "Carry-less multiplication: PCLMULQDQ\n")
+            # Добавляем ключи расширений команд: умножение без переносов, AES-NI и SHA-NI
+            add_compile_options(-mpclmul -maes -msha -mssse3)
+            # Выводим сообщение о машинных командах
+            message(STATUS "Machine instructions: PCLMULQDQ, AES-NI, SHA-NI\n")
         endif (CARRYLESS_X86_FLAG)
     endif (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64|ARM64")
 endif (CMAKE_CIPHER_CARRYLESS)
@@ -370,6 +385,14 @@ else (CMAKE_SHARED_BUILD_LIB)
     add_compile_definitions(ANTS_STATICLIB)
     # Добавляем статическую библиотеку
     add_library(${ANTS_LIB_NAME} STATIC ${SOURCE_FILES})
+    ##
+     # Признак статической сборки обязан доехать до потребителя цели: без него
+     # заголовки под Windows объявляют символы как импорт из динамической
+     # библиотеки, и потребитель libnts.a не связывается. На прочих системах
+     # ветвь даёт лишь видимость символов и молчит, оттого дефект виден
+     # только под Windows
+     ##
+    target_compile_definitions(${ANTS_LIB_NAME} PUBLIC ANTS_STATICLIB)
 endif (CMAKE_SHARED_BUILD_LIB)
 
 # Если кратные точки основания заготавливаются при сборке

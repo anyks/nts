@@ -102,10 +102,10 @@ namespace nts {
 		 *
 		 */
 		enum class cls_t : uint8_t {
-			UNIVERSAL   = 0x00, // Универсальный класс, метки определены стандартом
-			APPLICATION = 0x01, // Класс приложения
-			CONTEXT     = 0x02, // Класс, зависящий от места употребления
-			PRIVATE     = 0x03  // Частный класс
+			UNIVERSAL   = 0x00, /*!< \~russian Универсальный класс, метки определены стандартом \~english Universal class, the tags are defined by the standard \~ */
+			APPLICATION = 0x01, /*!< \~russian Класс приложения \~english Application class \~ */
+			CONTEXT     = 0x02, /*!< \~russian Класс, зависящий от места употребления \~english Class depending on the place of use \~ */
+			PRIVATE     = 0x03 /*!< \~russian Частный класс \~english Private class \~ */
 		};
 
 		/**
@@ -119,23 +119,23 @@ namespace nts {
 		 *
 		 */
 		enum class tag_t : uint32_t {
-			BOOLEAN          = 0x01, // Логическое значение
-			INTEGER          = 0x02, // Целое число произвольной разрядности
-			BIT_STRING       = 0x03, // Строка битов
-			OCTET_STRING     = 0x04, // Строка байтов
-			NOTHING          = 0x05, // Отсутствие значения (NULL)
-			OBJECT           = 0x06, // Опознаватель объекта (OID)
-			UTF8_STRING      = 0x0C, // Строка в кодировке UTF-8
-			SEQUENCE         = 0x10, // Упорядоченный набор значений
-			SET              = 0x11, // Неупорядоченный набор значений
-			PRINTABLE_STRING = 0x13, // Строка печатных знаков
-			T61_STRING       = 0x14, // Строка в кодировке T.61
-			IA5_STRING       = 0x16, // Строка в кодировке IA5
-			UTC_TIME         = 0x17, // Время в двузначной записи года
-			GENERALIZED_TIME = 0x18, // Время в четырёхзначной записи года
-			VISIBLE_STRING   = 0x1A, // Строка видимых знаков
-			UNIVERSAL_STRING = 0x1C, // Строка в кодировке UCS-4
-			BMP_STRING       = 0x1E  // Строка в кодировке UCS-2
+			BOOLEAN          = 0x01, /*!< \~russian Логическое значение \~english Boolean value \~ */
+			INTEGER          = 0x02, /*!< \~russian Целое число произвольной разрядности \~english Integer of an arbitrary width \~ */
+			BIT_STRING       = 0x03, /*!< \~russian Строка битов \~english String of bits \~ */
+			OCTET_STRING     = 0x04, /*!< \~russian Строка байтов \~english String of bytes \~ */
+			NOTHING          = 0x05, /*!< \~russian Отсутствие значения (NULL) \~english Absence of a value (NULL) \~ */
+			OBJECT           = 0x06, /*!< \~russian Опознаватель объекта (OID) \~english Object identifier (OID) \~ */
+			UTF8_STRING      = 0x0C, /*!< \~russian Строка в кодировке UTF-8 \~english String in the UTF-8 encoding \~ */
+			SEQUENCE         = 0x10, /*!< \~russian Упорядоченный набор значений \~english Ordered set of values \~ */
+			SET              = 0x11, /*!< \~russian Неупорядоченный набор значений \~english Unordered set of values \~ */
+			PRINTABLE_STRING = 0x13, /*!< \~russian Строка печатных знаков \~english String of printable characters \~ */
+			T61_STRING       = 0x14, /*!< \~russian Строка в кодировке T.61 \~english String in the T.61 encoding \~ */
+			IA5_STRING       = 0x16, /*!< \~russian Строка в кодировке IA5 \~english String in the IA5 encoding \~ */
+			UTC_TIME         = 0x17, /*!< \~russian Время в двузначной записи года \~english Time with a two-digit writing of the year \~ */
+			GENERALIZED_TIME = 0x18, /*!< \~russian Время в четырёхзначной записи года \~english Time with a four-digit writing of the year \~ */
+			VISIBLE_STRING   = 0x1A, /*!< \~russian Строка видимых знаков \~english String of visible characters \~ */
+			UNIVERSAL_STRING = 0x1C, /*!< \~russian Строка в кодировке UCS-4 \~english String in the UCS-4 encoding \~ */
+			BMP_STRING       = 0x1E /*!< \~russian Строка в кодировке UCS-2 \~english String in the UCS-2 encoding \~ */
 		};
 
 		/**
@@ -156,18 +156,18 @@ namespace nts {
 		 *
 		 */
 		enum class error_t : uint8_t {
-			NONE       = 0x00, // Отказа не произошло
-			TRUNCATED  = 0x01, // Данные оборваны, объявленная длина за пределами буфера
-			INDEFINITE = 0x02, // Длина неопределённого вида, кодировкой DER запрещена
-			EXCESSIVE  = 0x03, // Длина или номер метки записаны не кратчайшим образом
-			HUGE_SIZE  = 0x04, // Длина или номер метки не умещаются в разрядную сетку
-			TAG        = 0x05, // Метка не та, которая ожидалась в этом месте
-			FORM       = 0x06, // Составной вид метки там, где требуется простой, или наоборот
-			VALUE      = 0x07, // Содержимое не отвечает правилам записи своей метки
-			TRAILING   = 0x08, // После разобранного значения остались лишние байты
-			DEPTH      = 0x09, // Превышена предельная глубина вложенности
-			MEMORY     = 0x0A, // Не удалось выделить память под собираемую запись
-			BALANCE    = 0x0B  // Составные элементы записи открыты и закрыты не парно
+			NONE       = 0x00, /*!< \~russian Отказа не произошло \~english No failure has occurred \~ */
+			TRUNCATED  = 0x01, /*!< \~russian Данные оборваны, объявленная длина за пределами буфера \~english The data is truncated, the declared length is beyond the buffer \~ */
+			INDEFINITE = 0x02, /*!< \~russian Длина неопределённого вида, кодировкой DER запрещена \~english The length is of an indefinite form, forbidden by the DER encoding \~ */
+			EXCESSIVE  = 0x03, /*!< \~russian Длина или номер метки записаны не кратчайшим образом \~english The length or the number of the tag is written not in the shortest way \~ */
+			HUGE_SIZE  = 0x04, /*!< \~russian Длина или номер метки не умещаются в разрядную сетку \~english The length or the number of the tag does not fit into the bit width \~ */
+			TAG        = 0x05, /*!< \~russian Метка не та, которая ожидалась в этом месте \~english The tag is not the one expected in this place \~ */
+			FORM       = 0x06, /*!< \~russian Составной вид метки там, где требуется простой, или наоборот \~english A constructed form of the tag where a primitive one is required, or vice versa \~ */
+			VALUE      = 0x07, /*!< \~russian Содержимое не отвечает правилам записи своей метки \~english The content does not meet the rules of writing of its tag \~ */
+			TRAILING   = 0x08, /*!< \~russian После разобранного значения остались лишние байты \~english Extra bytes remained after the parsed value \~ */
+			DEPTH      = 0x09, /*!< \~russian Превышена предельная глубина вложенности \~english The limit depth of nesting is exceeded \~ */
+			MEMORY     = 0x0A, /*!< \~russian Не удалось выделить память под собираемую запись \~english It was not possible to allocate memory for the record being composed \~ */
+			BALANCE    = 0x0B /*!< \~russian Составные элементы записи открыты и закрыты не парно \~english The constructed elements of the record are opened and closed not in pairs \~ */
 		};
 
 		/**
@@ -591,6 +591,11 @@ namespace nts {
 				// Причина последнего отказа
 				error_t _error;
 			private:
+				/**
+				 * Два служебных метода записи растят накопитель и потому исключений не
+				 * запрещают: бросок нехватки памяти доходит до перехвата в открытых
+				 * методах open, element и close, а под noexcept он завершал бы процесс
+				 */
 				/**
 				 * @brief Метод записи метки элемента
 				 *

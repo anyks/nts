@@ -32,6 +32,7 @@
 #include <vector>
 #include <cstring>
 #include <main.hpp>
+#include <starve.hpp>
 #include <hello/hello.hpp>
 #include <handshake/handshake.hpp>
 
@@ -215,9 +216,26 @@ TEST(HelloTest, Reject){
 	/**
 	 * Выполняем перебор длин обрезанного тела приветствия
 	 */
+	/**
+	 * Раздел 4.1.2 RFC 8446: обрез ровно за способами сжатия - годное приветствие
+	 * прежних изданий без поля расширений, и лишь он разбором принимается
+	 */
+	size_t cut = 2 + hello::HELLO_RANDOM;
+	cut += (1 + static_cast <size_t> (body[cut]));
+	cut += (2 + (static_cast <size_t> (body[cut]) << 8) + static_cast <size_t> (body[cut + 1]));
+	cut += (1 + static_cast <size_t> (body[cut]));
 	for(size_t i = 0; i < body.size(); i++){
 		// Разобранное обрезанное приветствие клиента
 		hello::client_t truncated;
+		// Если обрез пришёлся ровно за способами сжатия
+		if(i == cut){
+			// Проверяем, что приветствие без поля расширений разбирается
+			ASSERT_EQ(hello::parse(view_t(body.data(), i), truncated), hello::error_t::NONE) << "обрез " << i;
+			// Проверяем, что расширений у него нет
+			ASSERT_TRUE(truncated.extensions.empty());
+			// Переходим к следующему обрезу
+			continue;
+		}
 		// Проверяем, что обрезанное приветствие разобрано быть не может
 		ASSERT_NE(hello::parse(view_t(body.data(), i), truncated), hello::error_t::NONE) << "обрез " << i;
 	}
@@ -438,4 +456,97 @@ TEST(HelloTest, Deformed){
 	immense.session = vector <uint8_t> (33, 0x41);
 	// Проверяем отказ составления ответного приветствия с непомерным опознавателем
 	ASSERT_EQ(hello::build(immense, answered), hello::error_t::SESSION);
+}
+
+/**
+ * @brief Метод разбора и составления приветствий заново при отмеренном запасе выделений
+ *
+ * @param client тело приветствия клиента
+ * @param server тело приветствия сервера
+ * @param intact признак схождения составленных тел с исходными
+ *
+ * @return       отказ, которым завершился первый несостоявшийся шаг
+ *
+ */
+static hello::error_t exhaust(const view_t & client, const view_t & server, bool & intact) noexcept {
+	// Снимаем признак схождения составленных тел с исходными
+	intact = false;
+	// Разобранное приветствие клиента
+	hello::client_t first;
+	// Разобранное приветствие сервера
+	hello::server_t second;
+	// Накопитель, в который складывается составленное тело приветствия
+	vector <uint8_t> result;
+	// Итог очередного шага
+	hello::error_t outcome = hello::parse(client, first);
+	// Если разбор приветствия клиента не состоялся
+	if(outcome != hello::error_t::NONE)
+		// Выводим отказ разбора
+		return outcome;
+	// Выполняем составление тела приветствия клиента заново
+	outcome = hello::build(first, result);
+	// Если составление приветствия клиента не состоялось
+	if(outcome != hello::error_t::NONE)
+		// Выводим отказ составления
+		return outcome;
+	// Запоминаем схождение составленного тела приветствия клиента с исходным
+	intact = ((result.size() == client.size) && (::memcmp(result.data(), client.data, client.size) == 0));
+	// Выполняем разбор тела приветствия сервера
+	outcome = hello::parse(server, second);
+	// Если разбор приветствия сервера не состоялся
+	if(outcome != hello::error_t::NONE)
+		// Выводим отказ разбора
+		return outcome;
+	// Выполняем сброс накопителя
+	result.clear();
+	// Выполняем составление тела приветствия сервера заново
+	outcome = hello::build(second, result);
+	// Если составление приветствия сервера не состоялось
+	if(outcome != hello::error_t::NONE)
+		// Выводим отказ составления
+		return outcome;
+	// Запоминаем схождение составленного тела приветствия сервера с исходным
+	intact = (intact && (result.size() == server.size) && (::memcmp(result.data(), server.data, server.size) == 0));
+	// Выводим успешность разбора и составления
+	return hello::error_t::NONE;
+}
+
+/**
+ * Проверка разбора и составления приветствий при нехватке памяти
+ */
+TEST(HelloTest, Starved){
+	// Получаем сообщение приветствия клиента вместе с обвязкой
+	const vector <uint8_t> client = decode(SAMPLES[0].message);
+	// Получаем сообщение приветствия сервера вместе с обвязкой
+	const vector <uint8_t> server = decode(SAMPLES[1].message);
+	// Получаем тело приветствия клиента
+	const view_t first(client.data() + handshake::HANDSHAKE_HEADER, client.size() - handshake::HANDSHAKE_HEADER);
+	// Получаем тело приветствия сервера
+	const view_t second(server.data() + handshake::HANDSHAKE_HEADER, server.size() - handshake::HANDSHAKE_HEADER);
+	// Признак того, что нехватка памяти хоть раз объявлена отказом
+	bool starved = false;
+	/**
+	 * Выполняем перебор запасов выделений: на всяком запасе разбор и составление
+	 * обязаны ответить либо успехом, либо отказом памяти, но не прерыванием исполнения
+	 */
+	for(size_t budget = 0; budget < 256; budget++){
+		// Итог разбора и составления при отмеренном запасе
+		hello::error_t outcome = hello::error_t::NONE;
+		// Признак схождения составленных тел с исходными
+		bool intact = false;
+		{
+			// Отмеряем запас выделений на время разбора и составления
+			starve::ration_t ration(budget);
+			// Выполняем разбор и составление при отмеренном запасе
+			outcome = exhaust(first, second, intact);
+		}
+		// Проверяем, что разбор и составление ответили успехом либо отказом памяти
+		ASSERT_TRUE((outcome == hello::error_t::NONE) || (outcome == hello::error_t::MEMORY)) << "запас " << budget << " отказ " << static_cast <int> (outcome);
+		// Проверяем, что успех не скрывает усечённого нехваткой памяти тела
+		ASSERT_TRUE((outcome != hello::error_t::NONE) || intact) << "запас " << budget;
+		// Запоминаем объявленный отказ памяти
+		starved = (starved || (outcome == hello::error_t::MEMORY));
+	}
+	// Проверяем, что нехватка памяти объявлена отказом хоть раз
+	ASSERT_TRUE(starved);
 }

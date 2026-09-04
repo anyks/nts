@@ -34,6 +34,7 @@
 #include <cstring>
 #include <limits>
 #include <main.hpp>
+#include <starve.hpp>
 #include <cipher/mgm.hpp>
 #include <protect/protect.hpp>
 
@@ -633,4 +634,134 @@ TEST(ProtectTest, Unarmed){
 	ASSERT_EQ(protect::limit(protect::suite_t::NONE), static_cast <uint64_t> (0));
 	// Проверяем нулевую длину блока у неизвестного набора шифрования
 	ASSERT_EQ(protect::block(protect::suite_t::NONE), static_cast <size_t> (0));
+}
+
+/**
+ * @brief Проверка предела открытого текста при снятии защиты с записи
+ *
+ */
+TEST(ProtectTest, Overflow){
+	protect::protection_t receiver;
+	const std::vector <uint8_t> key = decode(SAMPLES[0].key);
+	const std::vector <uint8_t> vector = decode(SAMPLES[0].vector);
+	ASSERT_TRUE(receiver.start(SAMPLES[0].suite, view_t(key.data(), key.size()), view_t(vector.data(), vector.size())));
+	const size_t size = protect::block(SAMPLES[0].suite);
+	uint8_t derived[protect::PROTECT_KEY];
+	ASSERT_TRUE(protect::tree(SAMPLES[0].suite, view_t(key.data(), key.size()), 0ULL, derived));
+	std::vector <uint8_t> nonce(vector.begin(), vector.end());
+	nonce[0] = static_cast <uint8_t> (nonce[0] & 0x7F);
+	cipher::kuznyechik_t base;
+	ASSERT_TRUE(base.key(view_t(derived, sizeof(derived))));
+	cipher::galois_t galois;
+	ASSERT_TRUE(galois.start(cipher::block_t(base), view_t(nonce.data(), size), size));
+	/**
+	 * Раздел 5.2 RFC 8446: открытый текст защищённой записи не длиннее 2^14 + 1
+	 * байтов. Запись с верной меткой целостности и открытым текстом на байт длиннее
+	 * отвергается длиною ещё до снятия защиты
+	 */
+	std::vector <uint8_t> plain((record::RECORD_PLAINTEXT + 2), 0x00);
+	plain.back() = static_cast <uint8_t> (record::type_t::APPLICATION);
+	record::header_t header;
+	header.type = record::type_t::APPLICATION;
+	header.version = record::version_t::TLS12;
+	header.size = (plain.size() + size);
+	uint8_t associated[record::RECORD_HEADER];
+	ASSERT_EQ(record::build(header, associated), record::error_t::NONE);
+	std::vector <uint8_t> sealed((plain.size() + size), 0);
+	ASSERT_TRUE(galois.encrypt(view_t(associated, sizeof(associated)), view_t(plain.data(), plain.size()), sealed.data(), (sealed.data() + plain.size())));
+	record::type_t type = record::type_t::NONE;
+	std::vector <uint8_t> opened;
+	ASSERT_EQ(receiver.open(header, view_t(sealed.data(), sealed.size()), type, opened), protect::error_t::LENGTH);
+	// Порядковый номер отвергнутой записи не продвинулся
+	ASSERT_EQ(receiver.sequence(), static_cast <uint64_t> (0));
+}
+
+/**
+ * @brief Метод наложения и снятия защиты записи при отмеренном запасе выделений
+ *
+ * @param sealer  объект защиты записей, накладывающий защиту
+ * @param opener  объект защиты записей, снимающий защиту
+ * @param content открытое содержимое защищаемой записи
+ * @param intact  признак схождения открытого содержимого с исходным
+ *
+ * @return        отказ, которым завершился первый несостоявшийся шаг
+ *
+ */
+static protect::error_t exhaust(protect::protection_t & sealer, protect::protection_t & opener, const view_t & content, bool & intact) noexcept {
+	// Снимаем признак схождения открытого содержимого с исходным
+	intact = false;
+	// Накопитель, в который складывается защищённая запись
+	std::vector <uint8_t> sealed;
+	// Итог очередного шага
+	protect::error_t outcome = sealer.seal(record::type_t::HANDSHAKE, content, sealed);
+	// Если наложение защиты не состоялось
+	if(outcome != protect::error_t::NONE)
+		// Выводим отказ наложения защиты
+		return outcome;
+	// Заголовок защищённой записи
+	record::header_t header;
+	// Если заголовок защищённой записи не разобрался
+	if(record::parse(view_t(sealed.data(), sealed.size()), header) != record::error_t::NONE)
+		// Выводим отказ вида содержимого
+		return protect::error_t::TYPE;
+	// Истинный вид содержимого принятой записи
+	record::type_t type = record::type_t::NONE;
+	// Накопитель, в который складывается открытое содержимое
+	std::vector <uint8_t> opened;
+	// Выполняем снятие защиты с записи
+	outcome = opener.open(header, view_t(sealed.data() + record::RECORD_HEADER, sealed.size() - record::RECORD_HEADER), type, opened);
+	// Если снятие защиты не состоялось
+	if(outcome != protect::error_t::NONE)
+		// Выводим отказ снятия защиты
+		return outcome;
+	// Запоминаем схождение открытого содержимого с исходным
+	intact = ((type == record::type_t::HANDSHAKE) && (opened.size() == content.size) && (::memcmp(opened.data(), content.data, content.size) == 0));
+	// Выводим успешность наложения и снятия защиты
+	return protect::error_t::NONE;
+}
+
+/**
+ * Проверка наложения и снятия защиты записи при нехватке памяти
+ */
+TEST(ProtectTest, Starved){
+	// Получаем корневой ключ направления связи
+	const std::vector <uint8_t> key = decode(SAMPLES[1].key);
+	// Получаем вектор замены направления связи
+	const std::vector <uint8_t> vector = decode(SAMPLES[1].vector);
+	// Открытое содержимое защищаемой записи
+	const std::vector <uint8_t> content = decode(SAMPLES[1].content);
+	// Признак того, что нехватка памяти хоть раз объявлена отказом
+	bool starved = false;
+	/**
+	 * Выполняем перебор запасов выделений: на всяком запасе наложение и снятие защиты
+	 * обязаны ответить либо успехом, либо отказом памяти, но не прерыванием исполнения
+	 */
+	for(size_t budget = 0; budget < 256; budget++){
+		// Объект защиты записей, накладывающий защиту
+		protect::protection_t sealer;
+		// Объект защиты записей, снимающий защиту
+		protect::protection_t opener;
+		// Выполняем установку ключевого материала накладывающей стороны
+		ASSERT_TRUE(sealer.start(SAMPLES[1].suite, view_t(key.data(), key.size()), view_t(vector.data(), vector.size()))) << "запас " << budget;
+		// Выполняем установку ключевого материала снимающей стороны
+		ASSERT_TRUE(opener.start(SAMPLES[1].suite, view_t(key.data(), key.size()), view_t(vector.data(), vector.size()))) << "запас " << budget;
+		// Итог наложения и снятия защиты при отмеренном запасе
+		protect::error_t outcome = protect::error_t::NONE;
+		// Признак схождения открытого содержимого с исходным
+		bool intact = false;
+		{
+			// Отмеряем запас выделений на время наложения и снятия защиты
+			starve::ration_t ration(budget);
+			// Выполняем наложение и снятие защиты при отмеренном запасе
+			outcome = exhaust(sealer, opener, view_t(content.data(), content.size()), intact);
+		}
+		// Проверяем, что наложение и снятие защиты ответили успехом либо отказом памяти
+		ASSERT_TRUE((outcome == protect::error_t::NONE) || (outcome == protect::error_t::MEMORY)) << "запас " << budget << " отказ " << static_cast <int> (outcome);
+		// Проверяем, что успех не скрывает усечённого нехваткой памяти содержимого
+		ASSERT_TRUE((outcome != protect::error_t::NONE) || intact) << "запас " << budget;
+		// Запоминаем объявленный отказ памяти
+		starved = (starved || (outcome == protect::error_t::MEMORY));
+	}
+	// Проверяем, что нехватка памяти объявлена отказом хоть раз
+	ASSERT_TRUE(starved);
 }

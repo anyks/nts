@@ -40,4 +40,4 @@ using namespace std;
  *
  */
 nts::context::Ticket::Ticket() noexcept :
- suite(protect::suite_t::NONE), moment(0), lifetime(0), advance(0), age(0) {}
+	suite(protect::suite_t::NONE), moment(0), lifetime(0), advance(0), age(0) {}

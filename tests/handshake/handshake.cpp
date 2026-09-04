@@ -33,6 +33,7 @@
 #include <vector>
 #include <cstring>
 #include <main.hpp>
+#include <starve.hpp>
 #include <handshake/handshake.hpp>
 
 /**
@@ -297,4 +298,115 @@ TEST(HandshakeTest, Refusals){
 	header.size = handshake::HANDSHAKE_LIMIT;
 	// Проверяем успешность составления заголовка на самой границе длины
 	ASSERT_EQ(handshake::build(header, buffer), handshake::error_t::NONE);
+}
+
+/**
+ * @brief Метод составления и сборки сообщений рукопожатия при отмеренном запасе выделений
+ *
+ * @param messages сообщения рукопожатия контрольного примера вместе с обвязкой
+ * @param intact   признак схождения собранных сообщений с исходными
+ *
+ * @return         отказ, которым завершился первый несостоявшийся шаг
+ *
+ */
+static handshake::error_t exhaust(const vector <vector <uint8_t>> & messages, bool & intact) noexcept {
+	// Снимаем признак схождения собранных сообщений с исходными
+	intact = false;
+	// Число собранных сообщений рукопожатия
+	size_t count = 0;
+	// Объект составителя исходящих сообщений рукопожатия
+	handshake::writer_t writer;
+	// Итог очередного шага
+	handshake::error_t outcome = handshake::error_t::NONE;
+	/**
+	 * Выполняем перебор сообщений рукопожатия контрольного примера
+	 */
+	for(size_t i = 0; i < messages.size(); i++){
+		// Выполняем составление очередного сообщения рукопожатия
+		outcome = writer.push(TYPES[i], view_t(messages[i].data() + handshake::HANDSHAKE_HEADER, messages[i].size() - handshake::HANDSHAKE_HEADER));
+		// Если составление сообщения не состоялось
+		if(outcome != handshake::error_t::NONE)
+			// Выводим отказ составления
+			return outcome;
+	}
+	// Получаем составленную переписку рукопожатия
+	const view_t data = writer.data();
+	// Объект сборщика входящих сообщений рукопожатия
+	handshake::reader_t reader;
+	/**
+	 * Выполняем подачу переписки рукопожатия кусками по семь байтов
+	 */
+	for(size_t offset = 0; offset < data.size; offset += 7){
+		// Определяем длину очередного подаваемого куска
+		const size_t size = ((data.size - offset) < 7 ? (data.size - offset) : 7);
+		// Выполняем подачу очередного куска переписки
+		outcome = reader.push(view_t(data.data + offset, size));
+		// Если подача куска не состоялась
+		if(outcome != handshake::error_t::NONE)
+			// Выводим отказ подачи
+			return outcome;
+		// Обвязка очередного собранного сообщения
+		handshake::header_t header;
+		// Тело очередного собранного сообщения
+		view_t payload;
+		/**
+		 * Выполняем выборку всех собранных на этот миг сообщений
+		 */
+		while((outcome = reader.next(header, payload)) == handshake::error_t::NONE){
+			// Если собранное сообщение с исходным не сходится
+			if((count >= messages.size()) || (header.type != TYPES[count]) || (payload.size != (messages[count].size() - handshake::HANDSHAKE_HEADER)) || (::memcmp(payload.data, messages[count].data() + handshake::HANDSHAKE_HEADER, payload.size) != 0))
+				// Выводим успешность сборки без схождения
+				return handshake::error_t::NONE;
+			// Увеличиваем число собранных сообщений
+			count++;
+		}
+		// Если сборка завершилась не нехваткой данных
+		if(outcome != handshake::error_t::HUNGRY)
+			// Выводим отказ сборки
+			return outcome;
+	}
+	// Запоминаем схождение числа собранных сообщений с числом составленных
+	intact = (count == messages.size());
+	// Выводим успешность составления и сборки
+	return handshake::error_t::NONE;
+}
+
+/**
+ * Проверка составления и сборки сообщений рукопожатия при нехватке памяти
+ */
+TEST(HandshakeTest, Starved){
+	// Сообщения рукопожатия контрольного примера вместе с обвязкой
+	vector <vector <uint8_t>> messages;
+	/**
+	 * Выполняем перебор сообщений рукопожатия контрольного примера
+	 */
+	for(size_t i = 0; i < (sizeof(MESSAGES) / sizeof(MESSAGES[0])); i++)
+		// Добавляем очередное разобранное сообщение рукопожатия
+		messages.push_back(decode(MESSAGES[i]));
+	// Признак того, что нехватка памяти хоть раз объявлена отказом
+	bool starved = false;
+	/**
+	 * Выполняем перебор запасов выделений: на всяком запасе составление и сборка
+	 * обязаны ответить либо успехом, либо отказом памяти, но не прерыванием исполнения
+	 */
+	for(size_t budget = 0; budget < 256; budget++){
+		// Итог составления и сборки при отмеренном запасе
+		handshake::error_t outcome = handshake::error_t::NONE;
+		// Признак схождения собранных сообщений с исходными
+		bool intact = false;
+		{
+			// Отмеряем запас выделений на время составления и сборки
+			starve::ration_t ration(budget);
+			// Выполняем составление и сборку при отмеренном запасе
+			outcome = exhaust(messages, intact);
+		}
+		// Проверяем, что составление и сборка ответили успехом либо отказом памяти
+		ASSERT_TRUE((outcome == handshake::error_t::NONE) || (outcome == handshake::error_t::MEMORY)) << "запас " << budget << " отказ " << static_cast <int> (outcome);
+		// Проверяем, что успех не скрывает усечённой нехваткой памяти переписки
+		ASSERT_TRUE((outcome != handshake::error_t::NONE) || intact) << "запас " << budget;
+		// Запоминаем объявленный отказ памяти
+		starved = (starved || (outcome == handshake::error_t::MEMORY));
+	}
+	// Проверяем, что нехватка памяти объявлена отказом хоть раз
+	ASSERT_TRUE(starved);
 }

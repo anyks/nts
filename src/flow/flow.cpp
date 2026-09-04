@@ -241,6 +241,13 @@ nts::flow::error_t nts::flow::Machine::accept(const handshake::type_t type, cons
 				// Проверяем принадлежность запроса стороне связи
 				outcome = ::belongs(session::side_t::SERVER, side);
 				// Если запрос сертификата объявлен сервером
+				/**
+				 * Раздел 4.3.2 RFC 8446: запрос подлинности клиента в рукопожатии один,
+				 * повторный - сообщение не в свой черёд
+				 */
+				if((outcome == error_t::NONE) && this->_requested)
+					// Выводим отказ повторного запроса подлинности
+					outcome = error_t::ORDER;
 				if(outcome == error_t::NONE)
 					// Запоминаем, что сервер запросил сертификат клиента
 					this->_requested = true;
@@ -260,9 +267,16 @@ nts::flow::error_t nts::flow::Machine::accept(const handshake::type_t type, cons
 				// Проверяем принадлежность завершения стороне связи
 				outcome = ::belongs(session::side_t::SERVER, side);
 				// Если завершение рукопожатия объявлено сервером
+				/**
+				 * Раздел 4.3.2 RFC 8446: сервер, запросивший подлинность, сертификатами
+				 * себя подтверждает, и завершение сразу за запросом невозможно
+				 */
+				if((outcome == error_t::NONE) && this->_requested)
+					// Выводим отказ завершения без сертификатов сервера
+					outcome = error_t::ORDER;
 				if(outcome == error_t::NONE){
 					// Устанавливаем ожидание ответа клиента
-					this->_stage = (this->_requested ? stage_t::ANSWERING : stage_t::FINISHING);
+					this->_stage = stage_t::FINISHING;
 					// Отправив завершение, сервер переходит к ключам прикладных данных
 					this->_server = epoch_t::APPLICATION;
 				}

@@ -603,6 +603,14 @@ nts::protect::error_t nts::protect::Protection::open(const record::header_t & he
 		return error_t::LENGTH;
 	// Определяем длину открытого текста принятой записи
 	const size_t length = (data.size - this->_size);
+	/**
+	 * Раздел 5.2 RFC 8446: открытый текст защищённой записи не длиннее 2^14 + 1
+	 * байтов, иначе связь обрывается извещением record_overflow. Сверка идёт до
+	 * снятия защиты: на непомерную запись работы не тратится
+	 */
+	if(length > (record::RECORD_PLAINTEXT + 1))
+		// Выводим отказ снятия защиты с записи
+		return error_t::LENGTH;
 	// Описание базового шифра принятой записи
 	cipher::block_t block;
 	// Выполняем подготовку базового шифра к снятию защиты с записи

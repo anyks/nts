@@ -115,6 +115,49 @@ namespace {
 		return reinterpret_cast <const kuznyechik_t *> (cipher)->decrypt(source, result);
 	}
 	/**
+	 * @brief Метод зашифрования блока шифром AES
+	 *
+	 * @param cipher объект блочного шифра
+	 * @param source зашифровываемый блок
+	 * @param result место, в которое помещается зашифрованный блок
+	 *
+	 * @return       признак успешности зашифрования
+	 *
+	 */
+	static bool encryptAes(const void * cipher, const uint8_t * source, uint8_t * result) noexcept {
+		// Выполняем зашифрование блока шифром AES
+		return reinterpret_cast <const aes_t *> (cipher)->encrypt(source, result);
+	}
+	/**
+	 * @brief Метод расшифрования блока шифром AES
+	 *
+	 * @param cipher объект блочного шифра
+	 * @param source расшифровываемый блок
+	 * @param result место, в которое помещается расшифрованный блок
+	 *
+	 * @return       признак успешности расшифрования
+	 *
+	 */
+	static bool decryptAes(const void * cipher, const uint8_t * source, uint8_t * result) noexcept {
+		// Выполняем расшифрование блока шифром AES
+		return reinterpret_cast <const aes_t *> (cipher)->decrypt(source, result);
+	}
+	/**
+	 * @brief Метод выработки гаммы счётчика шифром AES
+	 *
+	 * @param cipher  объект блочного шифра
+	 * @param counter начальный блок счётчика
+	 * @param blocks  число блоков гаммы
+	 * @param result  место, в которое помещается гамма
+	 *
+	 * @return        признак успешности выработки
+	 *
+	 */
+	static bool streamAes(const void * cipher, const uint8_t * counter, const size_t blocks, uint8_t * result) noexcept {
+		// Выполняем выработку гаммы шифром AES
+		return reinterpret_cast <const aes_t *> (cipher)->stream(counter, blocks, result);
+	}
+	/**
 	 * @brief Метод затирания области памяти
 	 *
 	 * @details Затирание ведётся через изменчивый указатель: обычное присваивание
@@ -194,7 +237,7 @@ namespace {
  *
  */
 nts::cipher::Block::Block() noexcept :
- size(0), cipher(nullptr), encrypt(nullptr), decrypt(nullptr) {}
+	size(0), cipher(nullptr), encrypt(nullptr), decrypt(nullptr), stream(nullptr) {}
 /**
  * @brief Конструктор
  *
@@ -202,7 +245,7 @@ nts::cipher::Block::Block() noexcept :
  *
  */
 nts::cipher::Block::Block(const magma_t & cipher) noexcept :
- size(MAGMA_BLOCK), cipher(&cipher), encrypt(&encryptMagma), decrypt(&decryptMagma) {}
+	size(MAGMA_BLOCK), cipher(&cipher), encrypt(&encryptMagma), decrypt(&decryptMagma), stream(nullptr) {}
 /**
  * @brief Конструктор
  *
@@ -210,7 +253,15 @@ nts::cipher::Block::Block(const magma_t & cipher) noexcept :
  *
  */
 nts::cipher::Block::Block(const kuznyechik_t & cipher) noexcept :
- size(KUZNYECHIK_BLOCK), cipher(&cipher), encrypt(&encryptKuznyechik), decrypt(&decryptKuznyechik) {}
+	size(KUZNYECHIK_BLOCK), cipher(&cipher), encrypt(&encryptKuznyechik), decrypt(&decryptKuznyechik), stream(nullptr) {}
+/**
+ * @brief Конструктор
+ *
+ * @param cipher объект блочного шифра AES
+ *
+ */
+nts::cipher::Block::Block(const aes_t & cipher) noexcept :
+	size(AES_BLOCK), cipher(&cipher), encrypt(&encryptAes), decrypt(&decryptAes), stream(&streamAes) {}
 /**
  * @brief Метод проверки готовности режима к работе
  *

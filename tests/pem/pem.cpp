@@ -25,6 +25,7 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <main.hpp>
+#include <starve.hpp>
 #include <pem/pem.hpp>
 #include <asn1/asn1.hpp>
 
@@ -838,4 +839,36 @@ TEST(PemTest, Naming){
 	}
 	// Проверяем имя отказа, ни одному из известных не отвечающего
 	EXPECT_STREQ(pem::name(static_cast <pem::error_t> (0xFF)), "UNKNOWN");
+}
+
+/**
+ * Проверка разбора при нехватке памяти
+ */
+TEST(PemTest, Starved){
+	// Разбираемый текст с известным телом записи
+	const string text = "-----BEGIN DATA-----\nQU5ZS1M=\n-----END DATA-----\n";
+	// Признак того, что нехватка памяти хоть раз объявлена отказом
+	bool starved = false;
+	/**
+	 * Выполняем перебор запасов выделений: на всяком запасе разбор обязан ответить
+	 * либо успехом, либо отказом памяти, но не прерыванием исполнения
+	 */
+	for(size_t budget = 0; budget < 64; budget++){
+		// Разобранные записи
+		vector <pem::block_t> blocks;
+		// Итог разбора при отмеренном запасе
+		pem::error_t outcome = pem::error_t::NONE;
+		{
+			// Отмеряем запас выделений на время разбора
+			starve::ration_t ration(budget);
+			// Выполняем разбор текста при отмеренном запасе
+			outcome = pem::decode(text, blocks);
+		}
+		// Проверяем, что разбор ответил успехом либо отказом памяти
+		ASSERT_TRUE((outcome == pem::error_t::NONE) || (outcome == pem::error_t::MEMORY)) << "запас " << budget;
+		// Запоминаем объявленный отказ памяти
+		starved = (starved || (outcome == pem::error_t::MEMORY));
+	}
+	// Проверяем, что нехватка памяти объявлена отказом хоть раз
+	ASSERT_TRUE(starved);
 }

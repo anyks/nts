@@ -44,6 +44,7 @@
 #include <sys/global.hpp>
 #include <cipher/magma.hpp>
 #include <cipher/kuznyechik.hpp>
+#include <cipher/aes.hpp>
 
 /**
  * \~russian
@@ -130,6 +131,8 @@ namespace nts {
 			bool (* encrypt)(const void * cipher, const uint8_t * source, uint8_t * result) noexcept;
 			// Функция расшифрования блока базовым алгоритмом блочного шифрования
 			bool (* decrypt)(const void * cipher, const uint8_t * source, uint8_t * result) noexcept;
+			// Функция выработки гаммы счётчика по многу блоков разом: у шифров без неё пуста
+			bool (* stream)(const void * cipher, const uint8_t * counter, const size_t blocks, uint8_t * result) noexcept;
 			/**
 			 * \~russian
 			 * @brief Конструктор
@@ -167,6 +170,19 @@ namespace nts {
 			 * \~
 			 */
 			Block(const kuznyechik_t & cipher) noexcept;
+			/**
+			 * \~russian
+			 * @brief Конструктор
+			 *
+			 * @param cipher объект блочного шифра AES
+			 *
+			 * \~english
+			 * @brief Constructor
+			 * @param cipher the object of the AES block cipher
+			 *
+			 * \~
+			 */
+			Block(const aes_t & cipher) noexcept;
 		} block_t;
 
 		/**

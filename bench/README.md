@@ -60,8 +60,10 @@ openssl speed -provider gostprov -provider default -evp md_gost12_256
 gcc -O2 -o gostbench gostbench.c -lcrypto && ./gostbench
 ```
 
-Щуп подписывает готовый хеш через `EVP_PKEY_sign` — ту же работу, что мерит набор.
-Обмен ключами он не меряет: провайдер ведёт его как VKO и требует UKM, установить
-который не вышло ни через `ctrl`, ни через `OSSL_PARAM`.
+Щуп подписывает готовый хеш через `EVP_PKEY_sign` — ту же работу, что мерит набор, —
+и меряет обмен ключами VKO. Провайдер `gostprov` обмена ключами не объявляет вовсе:
+VKO несёт унаследованный движок `gost.so`, а добавочное значение (UKM) ставится ему
+старым `ctrl` с кодом `EVP_PKEY_CTRL_SET_IV`; строковый `ctrl` и `OSSL_PARAM` у него
+не в ходу.
 
 Итоги сличения лежат в [COMPARISON.md](COMPARISON.md).

@@ -35,7 +35,6 @@
  */
 #include <string>
 #include <cstdint>
-#include <cstddef>
 
 /**
  * Подключаем заголовочные файлы проекта

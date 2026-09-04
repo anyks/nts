@@ -74,6 +74,31 @@ namespace {
 	typedef message::error_t error_t;
 
 	/**
+	 * @brief Метод перевода отказа составителя полей в отказ модуля
+	 *
+	 * @param failure отказ, которым ответил составитель полей
+	 *
+	 * @return        отказ модуля, отвечающий отказу составителя
+	 *
+	 * @note Нехватка памяти обязана дойти до вызывающего своим именем: составитель
+	 *       перехватывает её сам и отвечает отказом, а не исключением, и молчаливый
+	 *       перевод этого отказа в невхождение поля прятал бы истинную причину
+	 *
+	 */
+	static error_t translate(const field::error_t failure) noexcept {
+		// Если составитель полей отказом не ответил
+		if(failure == field::error_t::NONE)
+			// Выводим успешность составления
+			return error_t::NONE;
+		// Если памяти под накопитель составителя не хватило
+		if(failure == field::error_t::MEMORY)
+			// Выводим отказ нехватки памяти
+			return error_t::MEMORY;
+		// Выводим отказ невхождения поля в свою длину
+		return error_t::LENGTH;
+	}
+
+	/**
 	 * @brief Число пробелов подписываемого содержимого владения ключом
 	 *
 	 */
@@ -252,20 +277,28 @@ nts::message::error_t nts::message::parse(const view_t & data, certificate_t & r
 nts::message::error_t nts::message::build(const certificate_t & message, vector <uint8_t> & result) noexcept {
 	// Объект составителя полей тела сообщения
 	field::builder_t builder;
+	// Отказ, которым ответил составитель полей
+	field::error_t failure = field::error_t::NONE;
 	/**
 	 * Выполняем перехват ошибок работы с памятью
 	 */
 	try {
 		// Открываем поле привязки цепочки к запросу сертификата
-		builder.open(1);
+		if((failure = builder.open(1)) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
 		// Записываем привязку цепочки к запросу сертификата
-		builder.bytes(message.context);
+		if((failure = builder.bytes(message.context)) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
 		// Если поле привязки цепочки закрыть не удалось
-		if(builder.close() != field::error_t::NONE)
-			// Выводим отказ переполнения длины привязки цепочки
-			return error_t::LENGTH;
+		if((failure = builder.close()) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
 		// Открываем цепочку сертификатов
-		builder.open(3);
+		if((failure = builder.open(3)) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
 		/**
 		 * Выполняем перебор записей составляемой цепочки сертификатов
 		 */
@@ -275,39 +308,51 @@ nts::message::error_t nts::message::build(const certificate_t & message, vector 
 				// Выводим отказ пустого обязательного поля
 				return error_t::EMPTY;
 			// Открываем поле тела сертификата записи
-			builder.open(3);
+			if((failure = builder.open(3)) != field::error_t::NONE)
+				// Выводим отказ, которым ответил составитель полей
+				return translate(failure);
 			// Записываем тело сертификата записи
-			builder.bytes(entry.data);
+			if((failure = builder.bytes(entry.data)) != field::error_t::NONE)
+				// Выводим отказ, которым ответил составитель полей
+				return translate(failure);
 			// Если поле тела сертификата закрыть не удалось
-			if(builder.close() != field::error_t::NONE)
-				// Выводим отказ переполнения длины тела сертификата
-				return error_t::LENGTH;
+			if((failure = builder.close()) != field::error_t::NONE)
+				// Выводим отказ, которым ответил составитель полей
+				return translate(failure);
 			// Открываем перечень расширений записи цепочки
-			builder.open(2);
+			if((failure = builder.open(2)) != field::error_t::NONE)
+				// Выводим отказ, которым ответил составитель полей
+				return translate(failure);
 			/**
 			 * Выполняем перебор расширений записи цепочки сертификатов
 			 */
 			for(auto & item : entry.extensions){
 				// Записываем вид очередного расширения записи
-				builder.number(static_cast <uint32_t> (item.type), 2);
+				if((failure = builder.number(static_cast <uint32_t> (item.type), 2)) != field::error_t::NONE)
+					// Выводим отказ, которым ответил составитель полей
+					return translate(failure);
 				// Открываем тело очередного расширения записи
-				builder.open(2);
+				if((failure = builder.open(2)) != field::error_t::NONE)
+					// Выводим отказ, которым ответил составитель полей
+					return translate(failure);
 				// Записываем тело очередного расширения записи
-				builder.bytes(item.data);
+				if((failure = builder.bytes(item.data)) != field::error_t::NONE)
+					// Выводим отказ, которым ответил составитель полей
+					return translate(failure);
 				// Если тело очередного расширения закрыть не удалось
-				if(builder.close() != field::error_t::NONE)
-					// Выводим отказ переполнения длины расширения
-					return error_t::LENGTH;
+				if((failure = builder.close()) != field::error_t::NONE)
+					// Выводим отказ, которым ответил составитель полей
+					return translate(failure);
 			}
 			// Если перечень расширений записи закрыть не удалось
-			if(builder.close() != field::error_t::NONE)
-				// Выводим отказ переполнения длины перечня расширений
-				return error_t::LENGTH;
+			if((failure = builder.close()) != field::error_t::NONE)
+				// Выводим отказ, которым ответил составитель полей
+				return translate(failure);
 		}
 		// Если цепочку сертификатов закрыть не удалось
-		if(builder.close() != field::error_t::NONE)
-			// Выводим отказ переполнения длины цепочки сертификатов
-			return error_t::LENGTH;
+		if((failure = builder.close()) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
 		// Получаем составленное тело сообщения
 		const view_t data = builder.data();
 		// Выполняем дописывание тела сообщения в накопитель
@@ -379,20 +424,28 @@ nts::message::error_t nts::message::build(const verify_t & message, vector <uint
 		return error_t::EMPTY;
 	// Объект составителя полей тела сообщения
 	field::builder_t builder;
+	// Отказ, которым ответил составитель полей
+	field::error_t failure = field::error_t::NONE;
 	/**
 	 * Выполняем перехват ошибок работы с памятью
 	 */
 	try {
 		// Записываем схему подписи владения ключом сертификата
-		builder.number(static_cast <uint32_t> (message.scheme), 2);
+		if((failure = builder.number(static_cast <uint32_t> (message.scheme), 2)) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
 		// Открываем поле значения подписи владения ключом
-		builder.open(2);
+		if((failure = builder.open(2)) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
 		// Записываем значение подписи владения ключом
-		builder.bytes(message.signature);
+		if((failure = builder.bytes(message.signature)) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
 		// Если поле значения подписи закрыть не удалось
-		if(builder.close() != field::error_t::NONE)
-			// Выводим отказ переполнения длины подписи
-			return error_t::LENGTH;
+		if((failure = builder.close()) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
 		// Получаем составленное тело сообщения
 		const view_t data = builder.data();
 		// Выполняем дописывание тела сообщения в накопитель
@@ -494,75 +547,78 @@ nts::message::error_t nts::message::build(const ticket_t & ticket, vector <uint8
 		// Выводим отказ пустого обязательного поля
 		return error_t::EMPTY;
 	/**
-	 * Отказать здесь способно лишь проставление длины: число заданной ширины в неё
-	 * входит по самому своему виду, занятие места под поле не судит ничего, а запись
-	 * содержимого длину его не объявляет. Оттого проверками задеты закрытия полей, а
-	 * прочие заслоны стоят ради связности составления: молчаливая запись поля, в свою
-	 * длину не вошедшего, была бы хуже
+	 * Невхождением в длину отказать здесь способно лишь проставление длины: число
+	 * заданной ширины в неё входит по самому своему виду, занятие места под поле не
+	 * судит ничего, а запись содержимого длину его не объявляет. Нехваткой памяти же
+	 * способен отказать всякий шаг составления, и всякий отказ составителя доходит
+	 * до вызывающего своим именем: молчаливая запись поля, в свою длину не вошедшего,
+	 * либо усечённого нехваткой памяти, была бы хуже
 	 */
 	// Объект составителя полей тела сообщения
 	field::builder_t builder;
+	// Отказ, которым ответил составитель полей
+	field::error_t failure = field::error_t::NONE;
 	// Если срок жизни билета записать не удалось
-	if(builder.number(ticket.lifetime, 4) != field::error_t::NONE)
-		// Выводим отказ невхождения поля в свою длину
-		return error_t::LENGTH;
+	if((failure = builder.number(ticket.lifetime, 4)) != field::error_t::NONE)
+		// Выводим отказ, которым ответил составитель полей
+		return translate(failure);
 	// Если добавку к возрасту билета записать не удалось
-	if(builder.number(ticket.age, 4) != field::error_t::NONE)
-		// Выводим отказ невхождения поля в свою длину
-		return error_t::LENGTH;
+	if((failure = builder.number(ticket.age, 4)) != field::error_t::NONE)
+		// Выводим отказ, которым ответил составитель полей
+		return translate(failure);
 	// Если место под неповторимое значение билета занять не удалось
-	if(builder.open(1) != field::error_t::NONE)
-		// Выводим отказ невхождения поля в свою длину
-		return error_t::LENGTH;
+	if((failure = builder.open(1)) != field::error_t::NONE)
+		// Выводим отказ, которым ответил составитель полей
+		return translate(failure);
 	// Если неповторимое значение билета записать не удалось
-	if(builder.bytes(ticket.nonce) != field::error_t::NONE)
-		// Выводим отказ невхождения поля в свою длину
-		return error_t::LENGTH;
+	if((failure = builder.bytes(ticket.nonce)) != field::error_t::NONE)
+		// Выводим отказ, которым ответил составитель полей
+		return translate(failure);
 	// Если длину неповторимого значения проставить не удалось
-	if(builder.close() != field::error_t::NONE)
-		// Выводим отказ невхождения поля в свою длину
-		return error_t::LENGTH;
+	if((failure = builder.close()) != field::error_t::NONE)
+		// Выводим отказ, которым ответил составитель полей
+		return translate(failure);
 	// Если место под тело билета занять не удалось
-	if(builder.open(2) != field::error_t::NONE)
-		// Выводим отказ невхождения поля в свою длину
-		return error_t::LENGTH;
+	if((failure = builder.open(2)) != field::error_t::NONE)
+		// Выводим отказ, которым ответил составитель полей
+		return translate(failure);
 	// Если тело билета записать не удалось
-	if(builder.bytes(ticket.data) != field::error_t::NONE)
-		// Выводим отказ невхождения поля в свою длину
-		return error_t::LENGTH;
+	if((failure = builder.bytes(ticket.data)) != field::error_t::NONE)
+		// Выводим отказ, которым ответил составитель полей
+		return translate(failure);
 	// Если длину тела билета проставить не удалось
-	if(builder.close() != field::error_t::NONE)
-		// Выводим отказ невхождения поля в свою длину
-		return error_t::LENGTH;
+	if((failure = builder.close()) != field::error_t::NONE)
+		// Выводим отказ, которым ответил составитель полей
+		return translate(failure);
 	// Если место под перечень расширений билета занять не удалось
-	if(builder.open(2) != field::error_t::NONE)
-		// Выводим отказ невхождения поля в свою длину
-		return error_t::LENGTH;
+	if((failure = builder.open(2)) != field::error_t::NONE)
+		// Выводим отказ, которым ответил составитель полей
+		return translate(failure);
 	/**
 	 * Выполняем перебор расширений составляемого билета
 	 */
 	for(size_t i = 0; i < ticket.extensions.size(); i++){
 		// Если вид расширения билета записать не удалось
-		if(builder.number(ticket.extensions[i].type, 2) != field::error_t::NONE)
-			// Выводим отказ невхождения поля в свою длину
-			return error_t::LENGTH;
+		if((failure = builder.number(ticket.extensions[i].type, 2)) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
 		// Если место под тело расширения занять не удалось
-		if(builder.open(2) != field::error_t::NONE)
-			// Выводим отказ невхождения поля в свою длину
-			return error_t::LENGTH;
+		if((failure = builder.open(2)) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
 		// Если тело расширения записать не удалось
-		if(builder.bytes(ticket.extensions[i].data) != field::error_t::NONE)
-			// Выводим отказ невхождения поля в свою длину
-			return error_t::LENGTH;
+		if((failure = builder.bytes(ticket.extensions[i].data)) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
 		// Если длину тела расширения проставить не удалось
-		if(builder.close() != field::error_t::NONE)
-			// Выводим отказ невхождения поля в свою длину
-			return error_t::LENGTH;
+		if((failure = builder.close()) != field::error_t::NONE)
+			// Выводим отказ, которым ответил составитель полей
+			return translate(failure);
 	}
 	// Если длину перечня расширений проставить не удалось
-	if(builder.close() != field::error_t::NONE)
-		// Выводим отказ невхождения поля в свою длину
-		return error_t::LENGTH;
+	if((failure = builder.close()) != field::error_t::NONE)
+		// Выводим отказ, которым ответил составитель полей
+		return translate(failure);
 	// Получаем составленное тело сообщения билета
 	const view_t data = builder.data();
 	/**

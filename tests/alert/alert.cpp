@@ -72,7 +72,12 @@ TEST(AlertTest, Reject){
 	// Извещение с уровнем, протоколом не определённым
 	const uint8_t level[2] = {0x03, 0x28};
 	// Проверяем отказ разбора извещения с неизвестным уровнем
-	ASSERT_EQ(alert::parse(view_t(level, sizeof(level)), result), alert::error_t::LEVEL);
+	ASSERT_EQ(alert::parse(view_t(level, sizeof(level)), result), alert::error_t::NONE);
+	/**
+	 * Раздел 6 RFC 8446: уровень извещения значения не имеет и пропускается, а
+	 * описание принимается как есть
+	 */
+	ASSERT_EQ(result.description, static_cast <alert::description_t> (0x28));
 	// Место для записи извещения
 	uint8_t buffer[alert::ALERT_LENGTH] = {0};
 	// Проверяем отказ записи извещения с неустановленным уровнем

@@ -28,6 +28,7 @@
 #include <vector>
 #include <cstring>
 #include <main.hpp>
+#include <starve.hpp>
 #include <field/field.hpp>
 
 /**
@@ -267,4 +268,96 @@ TEST(FieldTest, Remainder){
 	ASSERT_EQ(scanner.rest(empty), field::error_t::NONE);
 	// Проверяем нулевую длину остатка разобранной до конца области
 	ASSERT_EQ(empty.size, static_cast <size_t> (0));
+}
+
+/**
+ * @brief Метод составления вложенных полей при отмеренном запасе выделений
+ *
+ * @param data   область байтов, записываемая внутрь вложенного поля
+ * @param intact признак схождения составленной записи с ожидаемой
+ *
+ * @return       отказ, которым завершился первый несостоявшийся шаг
+ *
+ */
+static field::error_t exhaust(const view_t & data, bool & intact) noexcept {
+	// Снимаем признак схождения составленной записи с ожидаемой
+	intact = false;
+	// Объект составителя полей протокола
+	field::builder_t builder;
+	// Итог очередного шага
+	field::error_t outcome = builder.open(2);
+	// Если открытие внешнего поля не состоялось
+	if(outcome != field::error_t::NONE)
+		// Выводим отказ открытия
+		return outcome;
+	// Записываем число внутри внешнего поля
+	outcome = builder.number(0x1234, 2);
+	// Если запись числа не состоялась
+	if(outcome != field::error_t::NONE)
+		// Выводим отказ записи
+		return outcome;
+	// Открываем вложенное поле переменной длины
+	outcome = builder.open(1);
+	// Если открытие вложенного поля не состоялось
+	if(outcome != field::error_t::NONE)
+		// Выводим отказ открытия
+		return outcome;
+	// Записываем область байтов внутри вложенного поля
+	outcome = builder.bytes(data);
+	// Если запись области байтов не состоялась
+	if(outcome != field::error_t::NONE)
+		// Выводим отказ записи
+		return outcome;
+	// Закрываем вложенное поле переменной длины
+	outcome = builder.close();
+	// Если закрытие вложенного поля не состоялось
+	if(outcome != field::error_t::NONE)
+		// Выводим отказ закрытия
+		return outcome;
+	// Закрываем внешнее поле переменной длины
+	outcome = builder.close();
+	// Если закрытие внешнего поля не состоялось
+	if(outcome != field::error_t::NONE)
+		// Выводим отказ закрытия
+		return outcome;
+	// Получаем составленную запись
+	const view_t result = builder.data();
+	// Запоминаем схождение длины и хвоста составленной записи с ожидаемыми
+	intact = ((result.size == (2 + 2 + 1 + data.size)) && (result.data[0] == 0x00) && (result.data[1] == static_cast <uint8_t> (3 + data.size)) && (result.data[4] == static_cast <uint8_t> (data.size)) && (::memcmp(result.data + 5, data.data, data.size) == 0));
+	// Выводим успешность составления
+	return field::error_t::NONE;
+}
+
+/**
+ * Проверка составления полей при нехватке памяти
+ */
+TEST(FieldTest, Starved){
+	// Записываемая внутрь вложенного поля область байтов
+	vector <uint8_t> data(100, 0xAA);
+	// Признак того, что нехватка памяти хоть раз объявлена отказом
+	bool starved = false;
+	/**
+	 * Выполняем перебор запасов выделений: на всяком запасе составление обязано
+	 * ответить либо успехом, либо отказом памяти, но не прерыванием исполнения
+	 */
+	for(size_t budget = 0; budget < 64; budget++){
+		// Итог составления при отмеренном запасе
+		field::error_t outcome = field::error_t::NONE;
+		// Признак схождения составленной записи с ожидаемой
+		bool intact = false;
+		{
+			// Отмеряем запас выделений на время составления
+			starve::ration_t ration(budget);
+			// Выполняем составление при отмеренном запасе
+			outcome = exhaust(view_t(data.data(), data.size()), intact);
+		}
+		// Проверяем, что составление ответило успехом либо отказом памяти
+		ASSERT_TRUE((outcome == field::error_t::NONE) || (outcome == field::error_t::MEMORY)) << "запас " << budget << " отказ " << static_cast <int> (outcome);
+		// Проверяем, что успех не скрывает усечённой нехваткой памяти записи
+		ASSERT_TRUE((outcome != field::error_t::NONE) || intact) << "запас " << budget;
+		// Запоминаем объявленный отказ памяти
+		starved = (starved || (outcome == field::error_t::MEMORY));
+	}
+	// Проверяем, что нехватка памяти объявлена отказом хоть раз
+	ASSERT_TRUE(starved);
 }

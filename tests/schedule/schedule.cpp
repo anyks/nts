@@ -264,7 +264,7 @@ TEST(ScheduleTest, Refusals){
 	// Проверяем, что растянутое значение не осталось нулевым
 	ASSERT_NE(hollow[0] | hollow[32] | hollow[63], 0);
 	// Описание назначения длиннее того, что вмещает слитная строка выработки
-	const std::vector <uint8_t> lengthy((schedule::SCHEDULE_LABEL + 6 + 255 + 4), 0x3C);
+	const std::vector <uint8_t> lengthy((schedule::SCHEDULE_LABEL + 6 + 255 + 5), 0x3C);
 	// Проверяем отказ растяжения на непомерное описание назначения
 	ASSERT_FALSE(schedule::expand(view_t(secret.data(), secret.size()), view_t(lengthy.data(), lengthy.size()), result, sizeof(result)));
 	// Проверяем отказ вывода без метки назначения
@@ -340,4 +340,29 @@ TEST(ScheduleTest, Salted){
 	ASSERT_TRUE(schedule::extract(view_t(zeroes.data(), 0), view_t(key.data(), key.size()), sparse));
 	// Проверяем схождение извлечения по присолу нулевой длины с извлечением по нулям
 	ASSERT_EQ(::memcmp(sparse, salted, sizeof(sparse)), 0);
+}
+
+/**
+ * @brief Проверка наибольшей записи описания назначения по разделу 7.1 RFC 8446
+ *
+ */
+TEST(ScheduleTest, Widest){
+	// Значение расписания ключей
+	const std::vector <uint8_t> secret(32, 0x5A);
+	// Метка назначения наибольшей дозволенной длины
+	const std::vector <uint8_t> label(schedule::SCHEDULE_LABEL, 0x61);
+	// Привязка наибольшей дозволенной длины
+	const std::vector <uint8_t> context(255, 0xC3);
+	// Место, в которое помещается выведенное значение
+	uint8_t result[32];
+	/**
+	 * Запись HkdfLabel из двух байтов длины, байта длины метки, приставки с меткой,
+	 * байта длины привязки и самой привязки достигает 514 байтов: вывод обязан
+	 * её вместить, а растяжение - принять
+	 */
+	ASSERT_TRUE(schedule::derive(view_t(secret.data(), secret.size()), view_t(label.data(), label.size()), view_t(context.data(), context.size()), result, sizeof(result)));
+	// Описание назначения ровно наибольшей длины принимается растяжением
+	const std::vector <uint8_t> widest((schedule::SCHEDULE_LABEL + 6 + 255 + 4), 0x3C);
+	// Проверяем принятие описания наибольшей длины
+	ASSERT_TRUE(schedule::expand(view_t(secret.data(), secret.size()), view_t(widest.data(), widest.size()), result, sizeof(result)));
 }

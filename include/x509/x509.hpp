@@ -97,17 +97,18 @@ namespace nts {
 		 *
 		 */
 		enum class error_t : uint8_t {
-			NONE      = 0x00, // Отказа не произошло
-			ENCODING  = 0x01, // Запись не отвечает правилам кодировки DER
-			STRUCTURE = 0x02, // Состав записи не отвечает устройству сертификата
-			VERSION   = 0x03, // Издание сертификата не поддерживается либо записано неверно
-			SERIAL    = 0x04, // Порядковый номер сертификата записан неверно
-			NAME      = 0x05, // Имя записано неверно
-			VALIDITY  = 0x06, // Срок действия записан неверно
-			KEY       = 0x07, // Сведения об открытом ключе записаны неверно
-			EXTENSION = 0x08, // Расширение записано неверно
-			DUPLICATE = 0x09, // Расширение либо признак имени встретились дважды
-			MEMORY    = 0x0A  // Не удалось выделить память под разобранные сведения
+			NONE      = 0x00, /*!< \~russian Отказа не произошло \~english No failure has occurred \~ */
+			ENCODING  = 0x01, /*!< \~russian Запись не отвечает правилам кодировки DER \~english The record does not meet the rules of the DER encoding \~ */
+			STRUCTURE = 0x02, /*!< \~russian Состав записи не отвечает устройству сертификата \~english The composition of the record does not meet the structure of a certificate \~ */
+			VERSION   = 0x03, /*!< \~russian Издание сертификата не поддерживается либо записано неверно \~english The version of the certificate is not supported or is written incorrectly \~ */
+			SERIAL    = 0x04, /*!< \~russian Порядковый номер сертификата записан неверно \~english The serial number of the certificate is written incorrectly \~ */
+			NAME      = 0x05, /*!< \~russian Имя записано неверно \~english The name is written incorrectly \~ */
+			VALIDITY  = 0x06, /*!< \~russian Срок действия записан неверно \~english The validity period is written incorrectly \~ */
+			KEY       = 0x07, /*!< \~russian Сведения об открытом ключе записаны неверно \~english The information about the public key is written incorrectly \~ */
+			EXTENSION = 0x08, /*!< \~russian Расширение записано неверно \~english The extension is written incorrectly \~ */
+			DUPLICATE = 0x09, /*!< \~russian Расширение либо признак имени встретились дважды \~english An extension or an attribute of a name was met twice \~ */
+			MEMORY    = 0x0A, /*!< \~russian Не удалось выделить память под разобранные сведения \~english It was not possible to allocate memory for the parsed information \~ */
+			SIGNATURE = 0x0B  /*!< \~russian Подпись не сошлась либо непригодна для проверки \~english The signature has not converged or is unsuitable for the check \~ */
 		};
 
 		/**
@@ -121,9 +122,9 @@ namespace nts {
 		 *
 		 */
 		enum class version_t : uint8_t {
-			V1 = 0x00, // Первое издание, расширений не имеет
-			V2 = 0x01, // Второе издание, добавлены опознаватели издателя и владельца
-			V3 = 0x02  // Третье издание, добавлены расширения
+			V1 = 0x00, /*!< \~russian Первое издание, расширений не имеет \~english First version, has no extensions \~ */
+			V2 = 0x01, /*!< \~russian Второе издание, добавлены опознаватели издателя и владельца \~english Second version, the identifiers of the issuer and of the subject are added \~ */
+			V3 = 0x02 /*!< \~russian Третье издание, добавлены расширения \~english Third version, the extensions are added \~ */
 		};
 
 		/**
@@ -137,12 +138,12 @@ namespace nts {
 		 *
 		 */
 		enum class kind_t : uint8_t {
-			OTHER     = 0x00, // Имя иного вида, отдаётся записью как есть
-			EMAIL     = 0x01, // Адрес электронной почты
-			DNS       = 0x02, // Доменное имя
-			DIRECTORY = 0x03, // Отличительное имя
-			URI       = 0x04, // Единый указатель ресурса
-			ADDRESS   = 0x05  // Адрес сети
+			OTHER     = 0x00, /*!< \~russian Имя иного вида, отдаётся записью как есть \~english A name of another kind, given as the record as is \~ */
+			EMAIL     = 0x01, /*!< \~russian Адрес электронной почты \~english E-mail address \~ */
+			DNS       = 0x02, /*!< \~russian Доменное имя \~english Domain name \~ */
+			DIRECTORY = 0x03, /*!< \~russian Отличительное имя \~english Distinguished name \~ */
+			URI       = 0x04, /*!< \~russian Единый указатель ресурса \~english Uniform resource identifier \~ */
+			ADDRESS   = 0x05 /*!< \~russian Адрес сети \~english Network address \~ */
 		};
 
 		/**
@@ -161,15 +162,15 @@ namespace nts {
 		 *
 		 */
 		enum class usage_t : uint16_t {
-			SIGNATURE  = 0x0080, // Проверка подписи
-			CONTENT    = 0x0040, // Неотрекаемость от содержимого
-			ENCIPHER   = 0x0020, // Шифрование ключа
-			DATA       = 0x0010, // Шифрование данных
-			AGREEMENT  = 0x0008, // Согласование ключа
-			CERTIFICATE= 0x0004, // Подписывание сертификатов
-			REVOCATION = 0x0002, // Подписывание списков отзыва
-			ENCIPHER_ONLY = 0x0001, // Только шифрование при согласовании ключа
-			DECIPHER_ONLY = 0x8000  // Только расшифровывание при согласовании ключа
+			SIGNATURE  = 0x0080, /*!< \~russian Проверка подписи \~english Signature verification \~ */
+			CONTENT    = 0x0040, /*!< \~russian Неотрекаемость от содержимого \~english Non-repudiation of the content \~ */
+			ENCIPHER   = 0x0020, /*!< \~russian Шифрование ключа \~english Key encipherment \~ */
+			DATA       = 0x0010, /*!< \~russian Шифрование данных \~english Data encipherment \~ */
+			AGREEMENT  = 0x0008, /*!< \~russian Согласование ключа \~english Key agreement \~ */
+			CERTIFICATE= 0x0004, /*!< \~russian Подписывание сертификатов \~english Signing of certificates \~ */
+			REVOCATION = 0x0002, /*!< \~russian Подписывание списков отзыва \~english Signing of revocation lists \~ */
+			ENCIPHER_ONLY = 0x0001, /*!< \~russian Только шифрование при согласовании ключа \~english Encipherment only during the key agreement \~ */
+			DECIPHER_ONLY = 0x8000 /*!< \~russian Только расшифровывание при согласовании ключа \~english Decipherment only during the key agreement \~ */
 		};
 
 		/**

@@ -277,3 +277,34 @@ TEST(FlowTest, Reject){
 	// Проверяем отказ объявления просьбы о повторе сброшенному ходу
 	ASSERT_EQ(machine.retry(), flow::error_t::STATE);
 }
+
+/**
+ * @brief Проверка заслонов повторного запроса подлинности и завершения за запросом
+ *
+ */
+TEST(FlowTest, Unattested){
+	flow::machine_t machine;
+	ASSERT_TRUE(machine.start(flow::role_t::CLIENT));
+	machine.accept(handshake::type_t::CLIENT, session::side_t::CLIENT);
+	machine.accept(handshake::type_t::SERVER, session::side_t::SERVER);
+	machine.accept(handshake::type_t::EXTENSIONS, session::side_t::SERVER);
+	ASSERT_EQ(machine.accept(handshake::type_t::REQUEST, session::side_t::SERVER), flow::error_t::NONE);
+	/**
+	 * Раздел 4.3.2 RFC 8446: запрос подлинности в рукопожатии один, повторный -
+	 * сообщение не в свой черёд
+	 */
+	ASSERT_EQ(machine.accept(handshake::type_t::REQUEST, session::side_t::SERVER), flow::error_t::ORDER);
+	ASSERT_EQ(machine.stage(), flow::stage_t::FAILED);
+	flow::machine_t hasty;
+	ASSERT_TRUE(hasty.start(flow::role_t::CLIENT));
+	hasty.accept(handshake::type_t::CLIENT, session::side_t::CLIENT);
+	hasty.accept(handshake::type_t::SERVER, session::side_t::SERVER);
+	hasty.accept(handshake::type_t::EXTENSIONS, session::side_t::SERVER);
+	ASSERT_EQ(hasty.accept(handshake::type_t::REQUEST, session::side_t::SERVER), flow::error_t::NONE);
+	/**
+	 * Сервер, запросивший подлинность, подтверждает себя сертификатами: завершение
+	 * сразу за запросом невозможно ни в сертификатном рукопожатии, ни на PSK
+	 */
+	ASSERT_EQ(hasty.accept(handshake::type_t::FINISHED, session::side_t::SERVER), flow::error_t::ORDER);
+	ASSERT_EQ(hasty.stage(), flow::stage_t::FAILED);
+}

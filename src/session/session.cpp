@@ -612,6 +612,10 @@ nts::session::error_t nts::session::Secrets::early(uint8_t * result) const noexc
 	if(result == nullptr)
 		// Выводим отказ отсутствия обязательного довода
 		return error_t::EMPTY;
+	// Если начальное значение расписания ещё не выведено
+	if(this->_stage == stage_t::NONE)
+		// Выводим отказ порядка вывода
+		return error_t::STATE;
 	// Записываем значение упреждающих данных связи
 	::memcpy(result, this->_early, schedule::SCHEDULE_SECRET);
 	// Выводим успешность получения значения упреждающих данных

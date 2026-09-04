@@ -497,6 +497,71 @@ TEST(GaloisTest, Failures) {
 }
 
 /**
+ * @brief Проверка заслона повторного зашифрования на том же начальном заполнении счётчика
+ *
+ */
+TEST(GaloisTest, Repeat) {
+	// Ключ шифрования
+	uint8_t secret[32];
+	// Начальное заполнение счётчика
+	uint8_t nonce[16];
+	// Открытый текст, шифртекст и расшифрованный текст
+	uint8_t plain[16], cipher[16], back[16];
+	// Метка целостности
+	uint8_t tag[16];
+	// Выполняем разбор ключа шифрования
+	bytes("8899aabbccddeeff0011223344556677fedcba98765432100123456789abcdef", secret);
+	// Выполняем разбор начального заполнения счётчика
+	bytes("1122334455667700ffeeddccbbaa9988", nonce);
+	// Выполняем разбор открытого текста
+	const size_t size = bytes("1122334455667700ffeeddccbbaa9988", plain);
+	// Объект блочного шифра
+	cipher::kuznyechik_t base;
+	// Выполняем установку ключа шифрования
+	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
+	// Объект режима шифрования с проверкой целостности
+	cipher::galois_t mode;
+	// Выполняем запуск режима работы
+	ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(nonce, sizeof(nonce))));
+	// Выполняем первое зашифрование открытого текста
+	ASSERT_TRUE(mode.encrypt(view_t(), view_t(plain, size), cipher, tag));
+	// Проверяем отказ повторного зашифрования на том же начальном заполнении счётчика
+	ASSERT_FALSE(mode.encrypt(view_t(), view_t(plain, size), cipher, tag));
+	// Проверяем, что режим остаётся готовым к работе после отказа
+	ASSERT_TRUE(mode.ready());
+	// Выполняем первое расшифрование шифртекста тем же объектом
+	ASSERT_TRUE(mode.decrypt(view_t(), view_t(cipher, size), back, view_t(tag, sizeof(tag))));
+	// Проверяем схождение расшифрованного текста с исходным
+	ASSERT_EQ(::memcmp(back, plain, size), 0);
+	// Выполняем повторное расшифрование того же шифртекста: снятие защиты повторять можно
+	ASSERT_TRUE(mode.decrypt(view_t(), view_t(cipher, size), back, view_t(tag, sizeof(tag))));
+	// Проверяем схождение расшифрованного текста с исходным
+	ASSERT_EQ(::memcmp(back, plain, size), 0);
+	// Проверяем, что расшифрование заслона повторного зашифрования не снимает
+	ASSERT_FALSE(mode.encrypt(view_t(), view_t(plain, size), cipher, tag));
+	// Выполняем смену начального заполнения счётчика
+	nonce[sizeof(nonce) - 1] = static_cast <uint8_t> (nonce[sizeof(nonce) - 1] ^ 0x01);
+	// Выполняем повторный запуск режима работы с новым начальным заполнением счётчика
+	ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(nonce, sizeof(nonce))));
+	// Проверяем, что зашифрование на новом начальном заполнении счётчика принимается
+	ASSERT_TRUE(mode.encrypt(view_t(), view_t(plain, size), cipher, tag));
+	// Проверяем отказ повторного зашифрования и на новом начальном заполнении счётчика
+	ASSERT_FALSE(mode.encrypt(view_t(), view_t(plain, size), cipher, tag));
+	// Объект режима расшифрования с проверкой целостности
+	cipher::galois_t receiver;
+	// Выполняем запуск режима работы на новом начальном заполнении счётчика
+	ASSERT_TRUE(receiver.start(cipher::block_t(base), view_t(nonce, sizeof(nonce))));
+	// Выполняем расшифрование шифртекста, полученного после смены заполнения
+	ASSERT_TRUE(receiver.decrypt(view_t(), view_t(cipher, size), back, view_t(tag, sizeof(tag))));
+	// Проверяем схождение расшифрованного текста с исходным
+	ASSERT_EQ(::memcmp(back, plain, size), 0);
+	// Выполняем сброс состояния режима работы
+	mode.clear();
+	// Проверяем отказ зашифрования после сброса состояния режима работы
+	ASSERT_FALSE(mode.encrypt(view_t(), view_t(plain, size), cipher, tag));
+}
+
+/**
  * Проверка обратимости шифрования при всякой длине сообщения
  *
  * @note Умножение в поле приводится по многочлену дважды, и второе приведение

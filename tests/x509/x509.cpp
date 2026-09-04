@@ -26,6 +26,7 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <main.hpp>
+#include <starve.hpp>
 #include <vector>
 #include <x509/x509.hpp>
 
@@ -75,6 +76,10 @@ typedef struct Defect {
 	bool prolonged;
 	// Признак признака имени с опознавателем вне таблицы RFC 4514
 	bool serial;
+	// Опознаватель алгоритма подписи снаружи расходится с внутренним
+	bool mismatched;
+	// Составляющая имени владельца несёт два признака одного вида
+	bool doubled;
 	/**
 	 * @brief Конструктор
 	 *
@@ -84,7 +89,8 @@ typedef struct Defect {
 		duplicate(false), generalized(false), trailing(false),
 		order(false), crowded(false), enclosed(false),
 		untimed(false), numeric(false), foreign(false),
-		vacant(false), identified(false), wrapped(false), tainted(false), prolonged(false), serial(false) {}
+		vacant(false), identified(false), wrapped(false), tainted(false), prolonged(false), serial(false),
+		mismatched(false), doubled(false) {}
 } defect_t;
 
 /**
@@ -208,7 +214,20 @@ static void build(asn1::writer_t & writer, const defect_t & defect) {
 		// Записываем имя владельца порядковым номером: RFC 4514 обозначения ему не даёт
 		name(writer, "2.5.4.5", "0001");
 	// Записываем имя владельца сертификата
-	else name(writer, "anyks.com");
+	else if(defect.doubled){
+		writer.open(asn1::tag_t::SEQUENCE);
+		writer.open(asn1::tag_t::SET);
+		writer.open(asn1::tag_t::SEQUENCE);
+		writer.oid("2.5.4.3");
+		writer.text(asn1::tag_t::UTF8_STRING, "a");
+		writer.close();
+		writer.open(asn1::tag_t::SEQUENCE);
+		writer.oid("2.5.4.3");
+		writer.text(asn1::tag_t::UTF8_STRING, "b");
+		writer.close();
+		writer.close();
+		writer.close();
+	} else name(writer, "anyks.com");
 	// Открываем запись сведений об открытом ключе
 	writer.open(asn1::tag_t::SEQUENCE);
 	// Записываем опознаватель алгоритма ключа
@@ -320,7 +339,7 @@ static void build(asn1::writer_t & writer, const defect_t & defect) {
 	// Закрываем подписываемую часть сертификата
 	writer.close();
 	// Записываем опознаватель алгоритма подписи
-	algorithm(writer, "1.2.840.113549.1.1.11");
+	algorithm(writer, (defect.mismatched ? "1.2.840.113549.1.1.5" : "1.2.840.113549.1.1.11"));
 	// Записываем подпись сертификата
 	writer.bits(view_t(key, sizeof(key)));
 	// Закрываем запись сертификата
@@ -1506,4 +1525,152 @@ TEST(X509Test, Misextended) {
 	extension.value = view_t(composite, sizeof(composite));
 	// Проверяем отказ разбора опознавателя ключа составной формы
 	ASSERT_EQ(x509::authorityKey(extension, identifier), x509::error_t::STRUCTURE);
+}
+
+/**
+ * @brief Проверка согласованности опознавателей и повтора признака имени
+ *
+ */
+TEST(X509Test, Consistent){
+	defect_t defect;
+	defect.mismatched = true;
+	asn1::writer_t writer;
+	build(writer, defect);
+	x509::certificate_t certificate;
+	/**
+	 * Разделы 4.1.1.2 и 4.1.2.3 RFC 5280: опознаватель алгоритма подписи снаружи
+	 * обязан совпадать с опознавателем внутри подписываемой части
+	 */
+	ASSERT_EQ(certificate.parse(writer.data()), x509::error_t::STRUCTURE);
+	defect_t twice;
+	twice.doubled = true;
+	asn1::writer_t again;
+	build(again, twice);
+	// X.501: два признака одного вида в одной составляющей имени - повтор
+	ASSERT_EQ(certificate.parse(again.data()), x509::error_t::DUPLICATE);
+}
+/**
+ * @brief Проверка разбора при нехватке памяти
+ *
+ * @note Разбор сертификата, сборка записи имени и извлечение дополнительных имён
+ *       выделяют память, и на всяком запасе выделений они обязаны ответить либо
+ *       успехом, либо отказом памяти, но не прерыванием исполнения
+ *
+ */
+TEST(X509Test, Starved) {
+	// Создаём записчик записи сертификата
+	asn1::writer_t writer;
+	// Собираем запись сертификата
+	build(writer, defect_t());
+	// Проверяем успешность сборки записи сертификата
+	ASSERT_EQ(writer.err(), asn1::error_t::NONE);
+	// Признак того, что нехватка памяти при разборе хоть раз объявлена отказом
+	bool starved = false;
+	/**
+	 * Выполняем перебор запасов выделений при разборе записи сертификата
+	 */
+	for(size_t budget = 0; budget < 512; budget++){
+		// Создаём объект сертификата
+		x509::certificate_t certificate;
+		// Итог разбора при отмеренном запасе
+		x509::error_t outcome = x509::error_t::NONE;
+		{
+			// Отмеряем запас выделений на время разбора
+			starve::ration_t ration(budget);
+			// Выполняем разбор записи сертификата при отмеренном запасе
+			outcome = certificate.parse(writer.data());
+		}
+		// Проверяем, что разбор ответил успехом либо отказом памяти
+		ASSERT_TRUE((outcome == x509::error_t::NONE) || (outcome == x509::error_t::MEMORY)) << "запас " << budget;
+		// Проверяем, что запомненная причина отказа совпадает с отвеченной
+		ASSERT_EQ(certificate.err(), outcome) << "запас " << budget;
+		// Запоминаем объявленный отказ памяти
+		starved = (starved || (outcome == x509::error_t::MEMORY));
+	}
+	// Проверяем, что нехватка памяти при разборе объявлена отказом хоть раз
+	ASSERT_TRUE(starved);
+	// Имя с длинным значением признака: короткое значение памяти не выделяет
+	x509::name_t name;
+	// Признак имени с длинным значением
+	x509::attribute_t attribute;
+	// Устанавливаем опознаватель общего имени
+	attribute.oid = "2.5.4.3";
+	// Устанавливаем длинное значение общего имени
+	attribute.value = "a-rather-long-common-name-for-the-starvation-check.anyks.com";
+	// Добавляем составляющую имени с единственным признаком
+	name.parts.push_back(vector <x509::attribute_t> (1, attribute));
+	// Сбрасываем признак объявленного отказа памяти
+	starved = false;
+	/**
+	 * Выполняем перебор запасов выделений при сборке записи имени
+	 */
+	for(size_t budget = 0; budget < 512; budget++){
+		// Собранная запись имени
+		std::string text;
+		// Итог сборки при отмеренном запасе
+		x509::error_t outcome = x509::error_t::NONE;
+		{
+			// Отмеряем запас выделений на время сборки
+			starve::ration_t ration(budget);
+			// Выполняем сборку записи имени при отмеренном запасе
+			outcome = x509::text(name, text);
+		}
+		// Проверяем, что сборка ответила успехом либо отказом памяти
+		ASSERT_TRUE((outcome == x509::error_t::NONE) || (outcome == x509::error_t::MEMORY)) << "запас " << budget;
+		// Если сборка удалась
+		if(outcome == x509::error_t::NONE){
+			// Проверяем собранную запись имени
+			ASSERT_STREQ(text.c_str(), "CN=a-rather-long-common-name-for-the-starvation-check.anyks.com") << "запас " << budget;
+		}
+		// Запоминаем объявленный отказ памяти
+		starved = (starved || (outcome == x509::error_t::MEMORY));
+	}
+	// Проверяем, что нехватка памяти при сборке объявлена отказом хоть раз
+	ASSERT_TRUE(starved);
+	// Создаём записчик записи дополнительных имён
+	asn1::writer_t named;
+	// Открываем последовательность дополнительных имён
+	named.open(asn1::tag_t::SEQUENCE);
+	// Записываем доменное имя с длинным значением меткой второго места употребления
+	named.element(asn1::cls_t::CONTEXT, false, 2, view_t(reinterpret_cast <const uint8_t *> ("a-rather-long-alternative-name.anyks.com"), 40));
+	// Записываем второе доменное имя с длинным значением
+	named.element(asn1::cls_t::CONTEXT, false, 2, view_t(reinterpret_cast <const uint8_t *> ("another-long-alternative-name.anyks.com"), 39));
+	// Закрываем последовательность дополнительных имён
+	named.close();
+	// Проверяем успешность сборки записи дополнительных имён
+	ASSERT_EQ(named.err(), asn1::error_t::NONE);
+	// Составляемое расширение дополнительных имён
+	x509::extension_t extension;
+	// Устанавливаем опознаватель расширения дополнительных имён
+	extension.oid = "2.5.29.17";
+	// Устанавливаем тело расширения дополнительных имён
+	extension.value = named.data();
+	// Сбрасываем признак объявленного отказа памяти
+	starved = false;
+	/**
+	 * Выполняем перебор запасов выделений при извлечении дополнительных имён
+	 */
+	for(size_t budget = 0; budget < 512; budget++){
+		// Набор извлечённых дополнительных имён
+		vector <x509::alternative_t> alternatives;
+		// Итог извлечения при отмеренном запасе
+		x509::error_t outcome = x509::error_t::NONE;
+		{
+			// Отмеряем запас выделений на время извлечения
+			starve::ration_t ration(budget);
+			// Выполняем извлечение дополнительных имён при отмеренном запасе
+			outcome = x509::alternatives(extension, alternatives);
+		}
+		// Проверяем, что извлечение ответило успехом либо отказом памяти
+		ASSERT_TRUE((outcome == x509::error_t::NONE) || (outcome == x509::error_t::MEMORY)) << "запас " << budget;
+		// Если извлечение удалось
+		if(outcome == x509::error_t::NONE){
+			// Проверяем число извлечённых дополнительных имён
+			ASSERT_EQ(alternatives.size(), size_t(2)) << "запас " << budget;
+		}
+		// Запоминаем объявленный отказ памяти
+		starved = (starved || (outcome == x509::error_t::MEMORY));
+	}
+	// Проверяем, что нехватка памяти при извлечении объявлена отказом хоть раз
+	ASSERT_TRUE(starved);
 }

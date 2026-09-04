@@ -28,6 +28,7 @@
 #include <vector>
 #include <cstring>
 #include <main.hpp>
+#include <starve.hpp>
 #include <record/record.hpp>
 
 /**
@@ -437,4 +438,110 @@ TEST(RecordTest, Refusals){
 	ASSERT_EQ(writer.push(record::type_t::HANDSHAKE, record::version_t::NONE, view_t(data, sizeof(data))), record::error_t::VERSION);
 	// Проверяем, что нарезчик отказами ничего не накопил
 	ASSERT_EQ(writer.pending(), static_cast <size_t> (0));
+}
+
+/**
+ * @brief Метод нарезки и сборки записей при отмеренном запасе выделений
+ *
+ * @param source нарезаемые на записи данные
+ * @param intact признак схождения собранных данных с нарезанными
+ *
+ * @return       отказ, которым завершился первый несостоявшийся шаг
+ *
+ */
+static record::error_t exhaust(const vector <uint8_t> & source, bool & intact) noexcept {
+	// Снимаем признак схождения собранных данных с нарезанными
+	intact = false;
+	// Число собранных байтов данных
+	size_t count = 0;
+	// Объект нарезчика исходящих записей
+	record::writer_t writer;
+	// Устанавливаем предел длины содержимого нарезаемой записи
+	writer.limit(64);
+	// Итог очередного шага
+	record::error_t outcome = writer.push(record::type_t::APPLICATION, record::version_t::TLS12, view_t(source.data(), source.size()));
+	// Если нарезка данных на записи не состоялась
+	if(outcome != record::error_t::NONE)
+		// Выводим отказ нарезки
+		return outcome;
+	// Получаем готовый поток нарезанных записей
+	const view_t data = writer.data();
+	// Объект сборщика входящих записей
+	record::reader_t reader;
+	/**
+	 * Выполняем подачу потока записей кусками по семь байтов
+	 */
+	for(size_t offset = 0; offset < data.size; offset += 7){
+		// Определяем длину очередного подаваемого куска
+		const size_t size = ((data.size - offset) < 7 ? (data.size - offset) : 7);
+		// Выполняем подачу очередного куска потока
+		outcome = reader.push(view_t(data.data + offset, size));
+		// Если подача куска не состоялась
+		if(outcome != record::error_t::NONE)
+			// Выводим отказ подачи
+			return outcome;
+		// Заголовок очередной собранной записи
+		record::header_t header;
+		// Содержимое очередной собранной записи
+		view_t payload;
+		/**
+		 * Выполняем выборку всех собранных на этот миг записей
+		 */
+		while((outcome = reader.next(header, payload)) == record::error_t::NONE){
+			// Если содержимое собранной записи с нарезанными данными не сходится
+			if(((count + payload.size) > source.size()) || (::memcmp(payload.data, source.data() + count, payload.size) != 0))
+				// Выводим успешность сборки без схождения
+				return record::error_t::NONE;
+			// Увеличиваем число собранных байтов данных
+			count += payload.size;
+		}
+		// Если сборка завершилась не нехваткой данных
+		if(outcome != record::error_t::HUNGRY)
+			// Выводим отказ сборки
+			return outcome;
+	}
+	// Запоминаем схождение числа собранных байтов с числом нарезанных
+	intact = (count == source.size());
+	// Выводим успешность нарезки и сборки
+	return record::error_t::NONE;
+}
+
+/**
+ * Проверка нарезки и сборки записей при нехватке памяти
+ */
+TEST(RecordTest, Starved){
+	// Нарезаемые на записи данные
+	vector <uint8_t> source(150, 0);
+	/**
+	 * Выполняем заполнение нарезаемых на записи данных
+	 */
+	for(size_t i = 0; i < source.size(); i++)
+		// Записываем очередной байт нарезаемых данных
+		source[i] = static_cast <uint8_t> (i & 0xFF);
+	// Признак того, что нехватка памяти хоть раз объявлена отказом
+	bool starved = false;
+	/**
+	 * Выполняем перебор запасов выделений: на всяком запасе нарезка и сборка
+	 * обязаны ответить либо успехом, либо отказом памяти, но не прерыванием исполнения
+	 */
+	for(size_t budget = 0; budget < 256; budget++){
+		// Итог нарезки и сборки при отмеренном запасе
+		record::error_t outcome = record::error_t::NONE;
+		// Признак схождения собранных данных с нарезанными
+		bool intact = false;
+		{
+			// Отмеряем запас выделений на время нарезки и сборки
+			starve::ration_t ration(budget);
+			// Выполняем нарезку и сборку при отмеренном запасе
+			outcome = exhaust(source, intact);
+		}
+		// Проверяем, что нарезка и сборка ответили успехом либо отказом памяти
+		ASSERT_TRUE((outcome == record::error_t::NONE) || (outcome == record::error_t::MEMORY)) << "запас " << budget << " отказ " << static_cast <int> (outcome);
+		// Проверяем, что успех не скрывает усечённых нехваткой памяти данных
+		ASSERT_TRUE((outcome != record::error_t::NONE) || intact) << "запас " << budget;
+		// Запоминаем объявленный отказ памяти
+		starved = (starved || (outcome == record::error_t::MEMORY));
+	}
+	// Проверяем, что нехватка памяти объявлена отказом хоть раз
+	ASSERT_TRUE(starved);
 }

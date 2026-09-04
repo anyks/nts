@@ -35,7 +35,6 @@
  */
 #include <string>
 #include <cstdint>
-#include <cstddef>
 
 /**
  * Подключаем заголовочные файлы проекта
@@ -76,7 +75,8 @@ namespace nts {
 		 * @param certificate сертификат, подпись которого проверяется
 		 * @param key         сведения об открытом ключе издателя сертификата
 		 *
-		 * @return признак того, что подпись сертификата сошлась
+		 * @return отказ проверки: NONE - подпись сошлась, SIGNATURE - не сошлась либо
+		 *         непригодна, KEY - ключ чужого алгоритма, MEMORY - памяти не хватило
 		 *
 		 * @details Проверяются лишь подписи по ГОСТ Р 34.10-2012 с хешем по
 		 *          ГОСТ Р 34.11-2012: опознаватели и порядок записи величин заданы
@@ -94,7 +94,8 @@ namespace nts {
 		 * @brief Method of the check of the signature of a certificate
 		 * @param certificate the certificate the signature of which is checked
 		 * @param key         the info of the public key of the issuer of the certificate
-		 * @return the flag of the signature of the certificate having converged
+		 * @return the failure of the check: NONE - the signature has converged, SIGNATURE - it has not or is
+		 *         unsuitable, KEY - a key of a foreign algorithm, MEMORY - there was not enough memory
 		 * @details Only the signatures according to GOST R 34.10-2012 with a hash according to
 		 *          GOST R 34.11-2012 are checked: the identifiers and the order of the writing
 		 *          of the values are given by the sections 2 and 4 of RFC 9215. The signatures
@@ -107,7 +108,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool verify(const certificate_t & certificate, const key_t & key) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t verify(const certificate_t & certificate, const key_t & key) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод проверки подписи записи
@@ -117,7 +118,8 @@ namespace nts {
 		 * @param algorithm опознаватель алгоритма подписи
 		 * @param key       сведения об открытом ключе подписавшей стороны
 		 *
-		 * @return признак того, что подпись записи сошлась
+		 * @return отказ проверки: NONE - подпись сошлась, SIGNATURE - не сошлась либо
+		 *         непригодна, KEY - ключ чужого алгоритма, MEMORY - памяти не хватило
 		 *
 		 * @note Метод годится и для запросов на сертификат, и для списков отзыва: запись
 		 *       подписи у них та же, что и у сертификата
@@ -128,13 +130,14 @@ namespace nts {
 		 * @param signature the signature being checked
 		 * @param algorithm the identifier of the algorithm of the signature
 		 * @param key       the info of the public key of the side that signed
-		 * @return the flag of the signature of the record having converged
+		 * @return the failure of the check: NONE - the signature has converged, SIGNATURE - it has not or is
+		 *         unsuitable, KEY - a key of a foreign algorithm, MEMORY - there was not enough memory
 		 * @note The method is suitable both for the certificate requests and for the revocation
 		 *       lists: the writing of the signature of them is the same as of a certificate
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool verify(const view_t & body, const view_t & signature, const string & algorithm, const key_t & key) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t verify(const view_t & body, const view_t & signature, const string & algorithm, const key_t & key) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод извлечения опознавателя набора параметров кривой ключа
@@ -142,17 +145,19 @@ namespace nts {
 		 * @param key    сведения об открытом ключе, набор параметров которого извлекается
 		 * @param result строка, в которую помещается опознаватель набора параметров
 		 *
-		 * @return       признак успешности извлечения опознавателя
+		 * @return       отказ извлечения опознавателя: KEY - ключ чужого алгоритма либо
+		 *               негодная запись настроек, MEMORY - памяти под опознаватель не хватило
 		 *
 		 * \~english
 		 * @brief Method of the extraction of the identifier of the set of the parameters of the curve of a key
 		 * @param key    the info of the public key the set of the parameters of which is extracted
 		 * @param result the string the identifier of the set of the parameters is put into
-		 * @return       the flag of the success of the extraction of the identifier
+		 * @return       the failure of the extraction of the identifier: KEY - a key of a foreign algorithm
+		 *               or an unsuitable record of the parameters, MEMORY - there was not enough memory
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool identifier(const key_t & key, string & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t identifier(const key_t & key, string & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод заведения кривой открытого ключа
@@ -160,7 +165,8 @@ namespace nts {
 		 * @param key    сведения об открытом ключе, кривая которого заводится
 		 * @param result кривая, в которую помещается набор параметров ключа
 		 *
-		 * @return       признак успешности заведения кривой открытого ключа
+		 * @return       отказ заведения кривой: KEY - ключ чужого алгоритма либо неизвестной
+		 *               кривой, MEMORY - памяти под опознаватель не хватило
 		 *
 		 * @details Набор параметров кривой объявлен настройками алгоритма ключа: раздел
 		 *          2.1 RFC 9215
@@ -169,13 +175,14 @@ namespace nts {
 		 * @brief Method of the establishment of the curve of a public key
 		 * @param key    the info of the public key the curve of which is established
 		 * @param result the curve the set of the parameters of the key is put into
-		 * @return       the flag of the success of the establishment of the curve of the public key
+		 * @return       the failure of the establishment of the curve: KEY - a key of a foreign algorithm or
+		 *               of an unknown curve, MEMORY - there was not enough memory
 		 * @details The set of the parameters of the curve is declared by the settings of the algorithm
 		 *          of the key: the section 2.1 of RFC 9215
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool parameters(const key_t & key, curve::curve_t & result) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t parameters(const key_t & key, curve::curve_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод проверки подписи содержимого открытым ключом
@@ -184,7 +191,8 @@ namespace nts {
 		 * @param content   подписанное содержимое
 		 * @param signature проверяемая подпись, записанная числами r и s подряд
 		 *
-		 * @return          признак того, что подпись содержимого сошлась
+		 * @return          отказ проверки: NONE - подпись сошлась, SIGNATURE - не сошлась либо
+		 *                  непригодна, KEY - ключ чужого алгоритма, MEMORY - памяти не хватило
 		 *
 		 * @details Тем же ключом, что и сертификат, сторона подписывает и владение им: длина
 		 *          хеша содержимого берётся из размера координаты кривой открытого ключа
@@ -198,7 +206,8 @@ namespace nts {
 		 * @param key       the info of the public key of the side that signed
 		 * @param content   the signed content
 		 * @param signature the signature being checked written by the numbers r and s in a row
-		 * @return          the flag of the signature of the content having converged
+		 * @return          the failure of the check: NONE - the signature has converged, SIGNATURE - it has not
+		 *                  or is unsuitable, KEY - a key of a foreign algorithm, MEMORY - there was not enough memory
 		 * @details By the same key as the certificate a side signs the possession of it as well: the
 		 *          length of the hash of the content is taken from the size of the coordinate of the
 		 *          curve of the public key
@@ -209,7 +218,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool check(const key_t & key, const view_t & content, const view_t & signature) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t check(const key_t & key, const view_t & content, const view_t & signature) noexcept;
 	};
 };
 

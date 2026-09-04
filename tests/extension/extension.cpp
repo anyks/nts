@@ -29,6 +29,7 @@
 #include <vector>
 #include <cstring>
 #include <main.hpp>
+#include <starve.hpp>
 #include <hello/hello.hpp>
 #include <curve/curve.hpp>
 #include <curve/parameters.hpp>
@@ -996,4 +997,301 @@ TEST(ExtensionTest, Bounded){
 	 * раздел 3 RFC 6066
 	 */
 	ASSERT_EQ(extension::name(view_t(couple.data(), couple.size()), result), extension::error_t::LENGTH);
+}
+
+/**
+ * @brief Проверка пустых полей расширений, отвергаемых по длинам записи
+ *
+ */
+TEST(ExtensionTest, Hollowed){
+	// Пустые перечни опознавателей и привязок
+	const uint8_t vacant[4] = {0x00, 0x00, 0x00, 0x00};
+	vector <extension::identity_t> identities;
+	vector <view_t> binders;
+	size_t truncation = 0;
+	// Раздел 4.2.11 RFC 8446: перечни непусты
+	ASSERT_EQ(extension::identities(view_t(vacant, sizeof(vacant)), identities, binders, truncation), extension::error_t::EMPTY);
+	// Опознаватель с привязкой в один байт
+	const uint8_t brief[] = {0x00, 0x07, 0x00, 0x01, 0x5A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x01, 0xA5};
+	// Раздел 4.2.11 RFC 8446: привязка не короче 32 байтов
+	ASSERT_EQ(extension::identities(view_t(brief, sizeof(brief)), identities, binders, truncation), extension::error_t::EMPTY);
+	// Доля обмена с пустой открытой частью ключа
+	const uint8_t bare[] = {0x00, 0x04, 0x00, 0x22, 0x00, 0x00};
+	vector <extension::share_t> shares;
+	// Раздел 4.2.8 RFC 8446: открытая часть ключа непуста
+	ASSERT_EQ(extension::shares(view_t(bare, sizeof(bare)), shares), extension::error_t::EMPTY);
+	// Имя узла нулевой длины
+	const uint8_t nameless[] = {0x00, 0x03, 0x00, 0x00, 0x00};
+	view_t name;
+	// Раздел 3 RFC 6066: имя узла непусто
+	ASSERT_EQ(extension::name(view_t(nameless, sizeof(nameless)), name), extension::error_t::EMPTY);
+}
+
+/**
+ * @brief Метод разбора и составления расширений заново при отмеренном запасе выделений
+ *
+ * @param hello      разобранное приветствие клиента, тела расширений которого разбираются
+ * @param names      имена прикладных протоколов длиною сверх короткого запаса строки
+ * @param identities перечень опознавателей заранее разделённых ключей
+ * @param binders    перечень привязок заранее разделённых ключей
+ * @param intact     признак схождения составленных тел с исходными
+ *
+ * @return           отказ, которым завершился первый несостоявшийся шаг
+ *
+ * @note Всё, что выделяет память само по себе, заведено вызывающим до отмеривания
+ *       запаса: под запасом должны выделять только разборщики и составители
+ *
+ */
+static extension::error_t exhaust(const hello::client_t & hello, const vector <string> & names, const vector <extension::identity_t> & identities, const vector <view_t> & binders, bool & intact) noexcept {
+	// Считаем составленные тела сходящимися, пока не найдено расхождения
+	intact = true;
+	// Накопитель, в который складывается составленное тело расширения
+	vector <uint8_t> body;
+	// Итог очередного шага
+	extension::error_t outcome = extension::error_t::NONE;
+	// Получаем расширение поддерживаемых изданий протокола
+	const hello::extension_t * item = hello::extension(hello.extensions, 0x002B);
+	// Если расширение поддерживаемых изданий протокола есть
+	if(item != nullptr){
+		// Разобранный перечень изданий протокола
+		vector <uint16_t> versions;
+		// Выполняем разбор перечня изданий протокола
+		outcome = extension::versions(item->data, versions);
+		// Если разбор не состоялся
+		if(outcome != extension::error_t::NONE)
+			// Выводим отказ разбора
+			return outcome;
+		// Выполняем сброс накопителя
+		body.clear();
+		// Выполняем составление перечня изданий протокола заново
+		outcome = extension::versions(versions, body);
+		// Если составление не состоялось
+		if(outcome != extension::error_t::NONE)
+			// Выводим отказ составления
+			return outcome;
+		// Запоминаем схождение составленного тела расширения с исходным
+		intact = (intact && (body.size() == item->data.size) && (::memcmp(body.data(), item->data.data, item->data.size) == 0));
+	}
+	// Получаем расширение поддерживаемых групп обмена
+	item = hello::extension(hello.extensions, 0x000A);
+	// Если расширение поддерживаемых групп обмена есть
+	if(item != nullptr){
+		// Разобранный перечень групп обмена
+		vector <extension::group_t> groups;
+		// Выполняем разбор перечня групп обмена
+		outcome = extension::groups(item->data, groups);
+		// Если разбор не состоялся
+		if(outcome != extension::error_t::NONE)
+			// Выводим отказ разбора
+			return outcome;
+		// Выполняем сброс накопителя
+		body.clear();
+		// Выполняем составление перечня групп обмена заново
+		outcome = extension::groups(groups, body);
+		// Если составление не состоялось
+		if(outcome != extension::error_t::NONE)
+			// Выводим отказ составления
+			return outcome;
+		// Запоминаем схождение составленного тела расширения с исходным
+		intact = (intact && (body.size() == item->data.size) && (::memcmp(body.data(), item->data.data, item->data.size) == 0));
+	}
+	// Получаем расширение поддерживаемых схем подписи
+	item = hello::extension(hello.extensions, 0x000D);
+	// Если расширение поддерживаемых схем подписи есть
+	if(item != nullptr){
+		// Разобранный перечень схем подписи
+		vector <extension::scheme_t> schemes;
+		// Выполняем разбор перечня схем подписи
+		outcome = extension::schemes(item->data, schemes);
+		// Если разбор не состоялся
+		if(outcome != extension::error_t::NONE)
+			// Выводим отказ разбора
+			return outcome;
+		// Выполняем сброс накопителя
+		body.clear();
+		// Выполняем составление перечня схем подписи заново
+		outcome = extension::schemes(schemes, body);
+		// Если составление не состоялось
+		if(outcome != extension::error_t::NONE)
+			// Выводим отказ составления
+			return outcome;
+		// Запоминаем схождение составленного тела расширения с исходным
+		intact = (intact && (body.size() == item->data.size) && (::memcmp(body.data(), item->data.data, item->data.size) == 0));
+	}
+	// Получаем расширение открытых частей ключей обмена
+	item = hello::extension(hello.extensions, 0x0033);
+	// Если расширение открытых частей ключей обмена есть
+	if(item != nullptr){
+		// Разобранный перечень открытых частей ключей
+		vector <extension::share_t> shares;
+		// Выполняем разбор перечня открытых частей ключей
+		outcome = extension::shares(item->data, shares);
+		// Если разбор не состоялся
+		if(outcome != extension::error_t::NONE)
+			// Выводим отказ разбора
+			return outcome;
+		// Выполняем сброс накопителя
+		body.clear();
+		// Выполняем составление перечня открытых частей ключей заново
+		outcome = extension::shares(shares, body);
+		// Если составление не состоялось
+		if(outcome != extension::error_t::NONE)
+			// Выводим отказ составления
+			return outcome;
+		// Запоминаем схождение составленного тела расширения с исходным
+		intact = (intact && (body.size() == item->data.size) && (::memcmp(body.data(), item->data.data, item->data.size) == 0));
+	}
+	// Получаем расширение способов обмена ключами возобновления
+	item = hello::extension(hello.extensions, 0x002D);
+	// Если расширение способов обмена ключами возобновления есть
+	if(item != nullptr){
+		// Разобранный перечень способов обмена
+		vector <extension::mode_t> modes;
+		// Выполняем разбор перечня способов обмена
+		outcome = extension::modes(item->data, modes);
+		// Если разбор не состоялся
+		if(outcome != extension::error_t::NONE)
+			// Выводим отказ разбора
+			return outcome;
+		// Выполняем сброс накопителя
+		body.clear();
+		// Выполняем составление перечня способов обмена заново
+		outcome = extension::modes(modes, body);
+		// Если составление не состоялось
+		if(outcome != extension::error_t::NONE)
+			// Выводим отказ составления
+			return outcome;
+		// Запоминаем схождение составленного тела расширения с исходным
+		intact = (intact && (body.size() == item->data.size) && (::memcmp(body.data(), item->data.data, item->data.size) == 0));
+	}
+	// Выполняем сброс накопителя
+	body.clear();
+	// Выполняем составление перечня прикладных протоколов
+	outcome = extension::protocols(names, body);
+	// Если составление не состоялось
+	if(outcome != extension::error_t::NONE)
+		// Выводим отказ составления
+		return outcome;
+	// Разобранный перечень прикладных протоколов
+	vector <string> protocols;
+	// Выполняем разбор составленного перечня прикладных протоколов
+	outcome = extension::protocols(view_t(body.data(), body.size()), protocols);
+	// Если разбор не состоялся
+	if(outcome != extension::error_t::NONE)
+		// Выводим отказ разбора
+		return outcome;
+	// Запоминаем схождение разобранного перечня прикладных протоколов с составленным
+	intact = (intact && (protocols == names));
+	// Выполняем сброс накопителя
+	body.clear();
+	// Выполняем составление выбранного прикладного протокола
+	outcome = extension::protocol(names[0], body);
+	// Если составление не состоялось
+	if(outcome != extension::error_t::NONE)
+		// Выводим отказ составления
+		return outcome;
+	// Разобранное имя выбранного прикладного протокола
+	string protocol;
+	// Выполняем разбор выбранного прикладного протокола
+	outcome = extension::protocol(view_t(body.data(), body.size()), protocol);
+	// Если разбор не состоялся
+	if(outcome != extension::error_t::NONE)
+		// Выводим отказ разбора
+		return outcome;
+	// Запоминаем схождение разобранного названия прикладного протокола с составленным
+	intact = (intact && (protocol == names[0]));
+	// Выполняем сброс накопителя
+	body.clear();
+	// Выполняем составление предложения заранее разделённых ключей
+	outcome = extension::identities(identities, binders, body);
+	// Если составление не состоялось
+	if(outcome != extension::error_t::NONE)
+		// Выводим отказ составления
+		return outcome;
+	// Разбираемый перечень опознавателей ключей
+	vector <extension::identity_t> parsed;
+	// Разбираемый перечень привязок ключей
+	vector <view_t> items;
+	// Длина усечения приветствия от начала тела расширения
+	size_t truncation = 0;
+	// Выполняем разбор составленного предложения ключей
+	outcome = extension::identities(view_t(body.data(), body.size()), parsed, items, truncation);
+	// Если разбор не состоялся
+	if(outcome != extension::error_t::NONE)
+		// Выводим отказ разбора
+		return outcome;
+	// Запоминаем схождение разобранного предложения ключей с составленным
+	intact = (intact && (parsed.size() == identities.size()) && (items.size() == binders.size()) && (parsed[0].identity.size == identities[0].identity.size) && (items[0].size == binders[0].size));
+	// Имя сервера длиною сверх короткого запаса строки
+	const char * name = "very-long-server-name.example.com";
+	// Выполняем сброс накопителя
+	body.clear();
+	// Выполняем составление имени сервера
+	outcome = extension::name(view_t(reinterpret_cast <const uint8_t *> (name), ::strlen(name)), body);
+	// Если составление не состоялось
+	if(outcome != extension::error_t::NONE)
+		// Выводим отказ составления
+		return outcome;
+	// Разобранное имя сервера
+	view_t host;
+	// Выполняем разбор составленного имени сервера
+	outcome = extension::name(view_t(body.data(), body.size()), host);
+	// Если разбор не состоялся
+	if(outcome != extension::error_t::NONE)
+		// Выводим отказ разбора
+		return outcome;
+	// Запоминаем схождение разобранного имени сервера с составленным
+	intact = (intact && (host.size == ::strlen(name)) && (::memcmp(host.data, name, host.size) == 0));
+	// Выводим успешность разбора и составления
+	return extension::error_t::NONE;
+}
+
+/**
+ * Проверка разбора и составления расширений при нехватке памяти
+ */
+TEST(ExtensionTest, Starved){
+	// Получаем сообщение приветствия клиента вместе с обвязкой
+	const vector <uint8_t> message = decode(SAMPLES[0].message);
+	// Получаем тело приветствия клиента
+	const view_t body(message.data() + handshake::HANDSHAKE_HEADER, message.size() - handshake::HANDSHAKE_HEADER);
+	// Разобранное приветствие клиента
+	hello::client_t hello;
+	// Выполняем разбор тела приветствия клиента
+	ASSERT_EQ(hello::parse(body, hello), hello::error_t::NONE);
+	// Имена прикладных протоколов длиною сверх короткого запаса строки
+	const vector <string> names = {"application-protocol-name-first-of-all", "application-protocol-name-second-one"};
+	// Опознаватель предлагаемого заранее разделённого ключа
+	const uint8_t identity[4] = {0x01, 0x02, 0x03, 0x04};
+	// Привязка предлагаемого заранее разделённого ключа
+	const uint8_t binder[32] = {0};
+	// Составляемый перечень опознавателей ключей
+	const vector <extension::identity_t> identities = {extension::identity_t(view_t(identity, sizeof(identity)), 0x01020304)};
+	// Составляемый перечень привязок ключей
+	const vector <view_t> binders = {view_t(binder, sizeof(binder))};
+	// Признак того, что нехватка памяти хоть раз объявлена отказом
+	bool starved = false;
+	/**
+	 * Выполняем перебор запасов выделений: на всяком запасе разбор и составление
+	 * обязаны ответить либо успехом, либо отказом памяти, но не прерыванием исполнения
+	 */
+	for(size_t budget = 0; budget < 256; budget++){
+		// Итог разбора и составления при отмеренном запасе
+		extension::error_t outcome = extension::error_t::NONE;
+		// Признак схождения составленных тел с исходными
+		bool intact = false;
+		{
+			// Отмеряем запас выделений на время разбора и составления
+			starve::ration_t ration(budget);
+			// Выполняем разбор и составление при отмеренном запасе
+			outcome = exhaust(hello, names, identities, binders, intact);
+		}
+		// Проверяем, что разбор и составление ответили успехом либо отказом памяти
+		ASSERT_TRUE((outcome == extension::error_t::NONE) || (outcome == extension::error_t::MEMORY)) << "запас " << budget << " отказ " << static_cast <int> (outcome);
+		// Проверяем, что успех не скрывает усечённого нехваткой памяти тела
+		ASSERT_TRUE((outcome != extension::error_t::NONE) || intact) << "запас " << budget;
+		// Запоминаем объявленный отказ памяти
+		starved = (starved || (outcome == extension::error_t::MEMORY));
+	}
+	// Проверяем, что нехватка памяти объявлена отказом хоть раз
+	ASSERT_TRUE(starved);
 }

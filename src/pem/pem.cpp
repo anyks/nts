@@ -61,7 +61,6 @@
  * Стандартные заголовочные файлы
  */
 #include <new>
-#include <cstring>
 
 /**
  * Подключаем заголовочные файлы проекта
@@ -129,7 +128,9 @@ namespace {
 	 *
 	 */
 	static int16_t number(const char letter) noexcept {
-		// Выполняем перебор всех знаков основания
+		/**
+		 * Выполняем перебор всех знаков основания
+		 */
 		for(int16_t i = 0; i < 64; i++){
 			// Если знак основания найден
 			if(ALPHABET[i] == letter)
@@ -440,70 +441,71 @@ pem::error_t nts::pem::decode(const string & text, vector <block_t> & result) no
 	// Место, до которого разбор текста дошёл
 	size_t offset = 0;
 	/**
-	 * Выполняем разбор текста, пока в нём остаются записи
+	 * Разбор выделяет память под метку, рамку конца и тело записи, и нехватка её
+	 * обязана дойти до вызывающего причиной отказа, а не завершить процесс
 	 */
-	while(offset < text.length()){
-		// Выполняем поиск рамки начала записи
-		const size_t begin = text.find(OPENING, offset);
-		// Если рамки начала записи в тексте больше нет
-		if(begin == string::npos)
-			// Прекращаем разбор текста
-			break;
-		// Получаем место, с которого начинается метка записи
-		const size_t opening = (begin + (sizeof(OPENING) - 1));
-		// Выполняем поиск ограды рамки начала записи
-		const size_t fence = text.find(FENCE, opening);
-		// Если ограда рамки начала записи не найдена
-		if(fence == string::npos)
-			// Выводим отказ об оборванной рамке записи
-			return error_t::BOUNDARY;
-		// Получаем метку записи
-		const string & label = text.substr(opening, fence - opening);
-		// Если метка записи недопустима
-		if(!suitable(label))
-			// Выводим отказ о недопустимой метке записи
-			return error_t::LABEL;
-		// Собираем рамку конца записи
-		const string & closing = (string(CLOSING) + label + FENCE);
-		// Получаем место, с которого начинается тело записи
-		const size_t body = (fence + (sizeof(FENCE) - 1));
-		// Выполняем поиск рамки конца записи
-		const size_t end = text.find(closing, body);
-		// Если рамка конца записи не найдена
-		if(end == string::npos)
-			// Выводим отказ об оборванной рамке записи
-			return error_t::BOUNDARY;
-		// Выполняем поиск ближайшей рамки начала записи
-		const size_t next = text.find(OPENING, body);
-		// Если внутри записи открылась ещё одна запись
-		if((next != string::npos) && (next < end))
-			// Выводим отказ об оборванной рамке записи
-			return error_t::BOUNDARY;
-		// Заводим разбираемую запись
-		block_t block;
-		// Выполняем снятие тела записи с основания 64
-		const error_t error = revert(text.substr(body, end - body), block.data);
-		// Если снять тело записи с основания не удалось
-		if(error != error_t::NONE)
-			// Выводим отказ снятия тела записи с основания
-			return error;
+	try {
 		/**
-		 * Выполняем помещение разобранной записи в итог
+		 * Выполняем разбор текста, пока в нём остаются записи
 		 */
-		try {
+		while(offset < text.length()){
+			// Выполняем поиск рамки начала записи
+			const size_t begin = text.find(OPENING, offset);
+			// Если рамки начала записи в тексте больше нет
+			if(begin == string::npos)
+				// Прекращаем разбор текста
+				break;
+			// Получаем место, с которого начинается метка записи
+			const size_t opening = (begin + (sizeof(OPENING) - 1));
+			// Выполняем поиск ограды рамки начала записи
+			const size_t fence = text.find(FENCE, opening);
+			// Если ограда рамки начала записи не найдена
+			if(fence == string::npos)
+				// Выводим отказ об оборванной рамке записи
+				return error_t::BOUNDARY;
+			// Получаем метку записи
+			const string & label = text.substr(opening, fence - opening);
+			// Если метка записи недопустима
+			if(!suitable(label))
+				// Выводим отказ о недопустимой метке записи
+				return error_t::LABEL;
+			// Собираем рамку конца записи
+			const string & closing = (string(CLOSING) + label + FENCE);
+			// Получаем место, с которого начинается тело записи
+			const size_t body = (fence + (sizeof(FENCE) - 1));
+			// Выполняем поиск рамки конца записи
+			const size_t end = text.find(closing, body);
+			// Если рамка конца записи не найдена
+			if(end == string::npos)
+				// Выводим отказ об оборванной рамке записи
+				return error_t::BOUNDARY;
+			// Выполняем поиск ближайшей рамки начала записи
+			const size_t next = text.find(OPENING, body);
+			// Если внутри записи открылась ещё одна запись
+			if((next != string::npos) && (next < end))
+				// Выводим отказ об оборванной рамке записи
+				return error_t::BOUNDARY;
+			// Заводим разбираемую запись
+			block_t block;
+			// Выполняем снятие тела записи с основания 64
+			const error_t error = revert(text.substr(body, end - body), block.data);
+			// Если снять тело записи с основания не удалось
+			if(error != error_t::NONE)
+				// Выводим отказ снятия тела записи с основания
+				return error;
 			// Устанавливаем метку разобранной записи
 			block.label = label;
 			// Добавляем разобранную запись в итог
 			result.push_back(::move(block));
-		/**
-		 * Если память под итог выделить не удалось
-		 */
-		} catch(const bad_alloc &) {
-			// Выводим отказ о нехватке памяти
-			return error_t::MEMORY;
+			// Сдвигаем место, до которого разбор текста дошёл
+			offset = (end + closing.length());
 		}
-		// Сдвигаем место, до которого разбор текста дошёл
-		offset = (end + closing.length());
+	/**
+	 * Если память под разбор выделить не удалось
+	 */
+	} catch(const bad_alloc &) {
+		// Выводим отказ о нехватке памяти
+		return error_t::MEMORY;
 	}
 	// Выводим признак успешного разбора текста
 	return error_t::NONE;
