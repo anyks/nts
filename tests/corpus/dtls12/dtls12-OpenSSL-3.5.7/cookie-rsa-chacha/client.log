@@ -1,0 +1,79 @@
+Connecting to 127.0.0.1
+Can't use SSL_get_servername
+depth=0 CN=anyks-rsa2048
+verify return:1
+CONNECTED(00000004)
+---
+Certificate chain
+ 0 s:CN=anyks-rsa2048
+   i:CN=anyks-rsa2048
+   a:PKEY: RSA, 2048 (bit); sigalg: sha256WithRSAEncryption
+   v:NotBefore: Sep  4 00:31:48 2026 GMT; NotAfter: Sep  4 00:31:48 2027 GMT
+---
+Server certificate
+-----BEGIN CERTIFICATE-----
+MIIDETCCAfmgAwIBAgIUY0yAC6p2CduJHcxak5grMHWU2ocwDQYJKoZIhvcNAQEL
+BQAwGDEWMBQGA1UEAwwNYW55a3MtcnNhMjA0ODAeFw0yNjA5MDQwMDMxNDhaFw0y
+NzA5MDQwMDMxNDhaMBgxFjAUBgNVBAMMDWFueWtzLXJzYTIwNDgwggEiMA0GCSqG
+SIb3DQEBAQUAA4IBDwAwggEKAoIBAQDqx816cZSoDR2tW8XGYeoRXZNuNn/euoNM
+5xDd9Y5aKbHIQWzMk68kVAj98/mIuJIeo/XgdwaGP2sCCzY+Y66JU4UKguLMK9Jx
+/fDL1TmnASkXvzGu12Le3D5kN4NVO7DEaxsuwHuBRxYlzzfmuAZgO6+IhS9tmFs3
+U781R3ozhlPBKByySW9pn1h7Y6+0ecQwzujr4toJOthhGncOp1Yv9PVdM2jWtXVg
+KQTpkeXnJYCsHZYKVd5UZB0Uh14T+/ziRY0o7WDTPkvW+7DTyzA7gaWWjzc2moms
+5fJRP+SVHVyLNAMLxuYjIai5D0K7gzt1ZJKLyHLOtV8JbClIK8z1AgMBAAGjUzBR
+MB0GA1UdDgQWBBSlUxfoAEjPpTFhp7GwMzKvCyXaVzAfBgNVHSMEGDAWgBSlUxfo
+AEjPpTFhp7GwMzKvCyXaVzAPBgNVHRMBAf8EBTADAQH/MA0GCSqGSIb3DQEBCwUA
+A4IBAQAb4bYPyp6ILNOO9PCNUQ0ue5VrCdIlMNtBJOaR4+ef7LeuA0nqrmmDM5+F
+rBRZkGeLLYDaUC/fl1AeKRLyzNPw0bS1OrNAWvUzYjY6qyasX8zGKLQwyoPpY//d
+EoG5GMGj2bVfgr1/tDyBcdUtQRLHg5jbwRtPwjNtGSoM84Q0F1b0DiqycoRU5Tso
+gBEMnSJgLesS3MKzD+s9zDVQHyxoQ8nU44WOpuOxA71Geq4f+0Z+JrbL1Ly7YeYQ
+GchRa8mLZel5Qcg9+teYNuKkOl25RR8Q9oh49HVKFeskWW8n7J0weF6hoXqJft9q
+MO2Y/vz727HygG9yjqHaNWQAhSIK
+-----END CERTIFICATE-----
+subject=CN=anyks-rsa2048
+issuer=CN=anyks-rsa2048
+---
+No client certificate CA names sent
+Peer signing digest: SHA256
+Peer signature type: rsa_pss_rsae_sha256
+Peer Temp Key: X25519, 253 bits
+---
+SSL handshake has read 1574 bytes and written 425 bytes
+Verification: OK
+---
+New, TLSv1.2, Cipher is ECDHE-RSA-CHACHA20-POLY1305
+Protocol: DTLSv1.2
+Server public key is 2048 bit
+Secure Renegotiation IS supported
+Compression: NONE
+Expansion: NONE
+No ALPN negotiated
+SSL-Session:
+    Protocol  : DTLSv1.2
+    Cipher    : ECDHE-RSA-CHACHA20-POLY1305
+    Session-ID: 9565A108EE4C5F4B277BDDE191647CAC417EC406BFE205228EB09D725EAFF124
+    Session-ID-ctx: 
+    Master-Key: 0FEAF64D560C1B6833335B9ECCD5C7D42AC7914E3C810F4AD53C31CA55109E79B4D63A41EDA809C3C9BA4719CDC915D9
+    PSK identity: None
+    PSK identity hint: None
+    SRP username: None
+    TLS session ticket lifetime hint: 7200 (seconds)
+    TLS session ticket:
+    0000 - 8d 86 58 d0 1c 34 43 c9-69 b6 1e 48 81 6f fe 5f   ..X..4C.i..H.o._
+    0010 - 2a ee 5a c7 fe ae da 64-7a a9 e1 00 a8 f3 57 b8   *.Z....dz.....W.
+    0020 - c4 97 c4 e3 26 ec 3b 15-4e f7 cd 3c db 00 bd 9f   ....&.;.N..<....
+    0030 - 91 1b c6 14 d3 19 9c b1-73 ae 01 7a aa 04 ca dd   ........s..z....
+    0040 - e9 3f 2e 6e 2f 3e 31 6f-f3 6f 84 4c e7 11 bd 4b   .?.n/>1o.o.L...K
+    0050 - 3c 67 6e 71 bd 4c 98 55-d0 29 3a 02 a0 ba 14 c1   <gnq.L.U.):.....
+    0060 - e0 b4 f3 49 1d ca 68 8e-9f a7 ef 59 41 e5 a6 8b   ...I..h....YA...
+    0070 - 34 55 75 23 d7 9b d3 d3-30 b2 7b 89 46 54 99 cf   4Uu#....0.{.FT..
+    0080 - a3 da 87 0b 80 05 8e cd-ba 85 a2 4c 99 ec 29 74   ...........L..)t
+    0090 - 53 8f eb 23 00 74 bd 48-e3 6f 4d 34 69 ee 7c 55   S..#.t.H.oM4i.|U
+    00a0 - e4 dc 56 12 1c d9 df 4e-84 1d fa 7e a7 e0 aa b0   ..V....N...~....
+
+    Start Time: 1788624984
+    Timeout   : 7200 (sec)
+    Verify return code: 0 (ok)
+    Extended master secret: yes
+---
+DONE

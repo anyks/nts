@@ -126,7 +126,8 @@ namespace nts {
 			STATUS      = 0x1A, /*!< \~russian Ответ о состоянии сертификата собеседника негоден либо сертификат отозван \~english The certificate status response of the interlocutor is unsuitable or the certificate is revoked \~ */
 			TIMEOUT     = 0x1B, /*!< \~russian Попытки повторной передачи поверх дейтаграмм исчерпаны \~english The attempts of the retransmission over datagrams are exhausted \~ */
 			MASTER      = 0x1C, /*!< \~russian Собеседник по TLS 1.2 не поддерживает расширенный главный секрет RFC 7627 \~english The TLS 1.2 interlocutor does not support the extended master secret of RFC 7627 \~ */
-			RENEGOTIATION = 0x1D /*!< \~russian Собеседник по TLS 1.2 затеял пересогласование, связью не дозволенное \~english The TLS 1.2 interlocutor has started a renegotiation not allowed by the connection \~ */
+			RENEGOTIATION = 0x1D, /*!< \~russian Собеседник по TLS 1.2 затеял пересогласование, связью не дозволенное \~english The TLS 1.2 interlocutor has started a renegotiation not allowed by the connection \~ */
+			EXHAUSTED   = 0x1E  /*!< \~russian Записи своего направления по TLS 1.2 исчерпали предел ключа: смены ключей у издания нет, связь закрыта извещением close_notify \~english The records of the own direction by TLS 1.2 have exhausted the limit of the key: the edition has no change of the keys, the connection is closed by the close_notify alert \~ */
 		};
 
 		/**
@@ -154,9 +155,10 @@ namespace nts {
 		 *          защищает записи и разбирает их заголовки. Сообщениями по уровням оно
 		 *          идёт под QUIC (RFC 9001): связь принимает и выдаёт голые сообщения
 		 *          рукопожатия с пометкой уровня защиты, а шифрование и перенос остаются
-		 *          за тем, кто связь ведёт. Дейтаграммами оно идёт по DTLS 1.3 (RFC 9147):
-		 *          связь принимает и выдаёт целые дейтаграммы с записями, а перенос их по
-		 *          UDP либо SCTP и часы повторной передачи остаются за тем, кто связь ведёт
+		 *          за тем, кто связь ведёт. Дейтаграммами оно идёт по DTLS 1.3 (RFC 9147)
+		 *          либо DTLS 1.2 (RFC 6347) по пределам издания: связь принимает и выдаёт
+		 *          целые дейтаграммы с записями, а перенос их по UDP либо SCTP и часы
+		 *          повторной передачи остаются за тем, кто связь ведёт
 		 *
 		 * \~english
 		 * @brief Ways of the transport of the handshake
@@ -165,16 +167,16 @@ namespace nts {
 		 *          by levels it goes under QUIC (RFC 9001): the connection accepts and gives out bare
 		 *          messages of the handshake marked with a protection level, while the encryption and
 		 *          the transport remain with the one who leads the connection. By datagrams it goes by
-		 *          DTLS 1.3 (RFC 9147): the connection accepts and gives out whole datagrams with the
-		 *          records, while their transport over UDP or SCTP and the clock of the retransmission
-		 *          remain with the one who leads the connection
+		 *          DTLS 1.3 (RFC 9147) or DTLS 1.2 (RFC 6347) by the limits of the edition: the connection
+		 *          accepts and gives out whole datagrams with the records, while their transport over UDP
+		 *          or SCTP and the clock of the retransmission remain with the one who leads the connection
 		 *
 		 * \~
 		 */
 		enum class transport_t : uint8_t {
 			RECORDS   = 0x00, /*!< \~russian Записи протокола TLS поверх потока \~english The records of the TLS protocol over a stream \~ */
 			LEVELS    = 0x01, /*!< \~russian Сообщения рукопожатия по уровням защиты QUIC \~english The messages of the handshake by the protection levels of QUIC \~ */
-			DATAGRAMS = 0x02  /*!< \~russian Дейтаграммы протокола DTLS 1.3 поверх UDP либо SCTP \~english The datagrams of the DTLS 1.3 protocol over UDP or SCTP \~ */
+			DATAGRAMS = 0x02  /*!< \~russian Дейтаграммы протокола DTLS 1.3 либо DTLS 1.2 поверх UDP либо SCTP \~english The datagrams of the DTLS 1.3 or DTLS 1.2 protocol over UDP or SCTP \~ */
 		};
 
 		/**

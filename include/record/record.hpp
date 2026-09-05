@@ -284,7 +284,9 @@ namespace nts {
 			TLS10 = 0x0301, /*!< \~russian Издание TLS 1.0 \~english The TLS 1.0 edition \~ */
 			TLS11 = 0x0302, /*!< \~russian Издание TLS 1.1 \~english The TLS 1.1 edition \~ */
 			TLS12 = 0x0303, /*!< \~russian Издание TLS 1.2 \~english The TLS 1.2 edition \~ */
-			TLS13 = 0x0304  /*!< \~russian Издание TLS 1.3 \~english The TLS 1.3 edition \~ */
+			TLS13 = 0x0304, /*!< \~russian Издание TLS 1.3 \~english The TLS 1.3 edition \~ */
+			DTLS10 = 0xFEFF, /*!< \~russian Издание DTLS 1.0 (RFC 4347): им сервер объявляет просьбу о подтверждении адреса HelloVerifyRequest по разделу 4.2.1 RFC 6347 \~english The DTLS 1.0 edition (RFC 4347): by it a server announces the HelloVerifyRequest by the section 4.2.1 of RFC 6347 \~ */
+			DTLS12 = 0xFEFD  /*!< \~russian Издание DTLS 1.2 (раздел 4.1 RFC 6347): издания DTLS считаются в обратную сторону, 0xFEFD младше 0xFEFF \~english The DTLS 1.2 edition (the section 4.1 of RFC 6347): the DTLS editions are counted backwards, 0xFEFD is younger than 0xFEFF \~ */
 		};
 
 		/**
@@ -449,8 +451,8 @@ namespace nts {
 				 * @return      признак успешности установки предела
 				 *
 				 * @details Умолчанием берётся предел защищённой записи TLS 1.3, самый строгий из
-				 *          дозволенных протоколом. Связи по TLS 1.2 предел поднимают до RECORD_LEGACY,
-				 *          а согласовавшие наибольшую длину куска - опускают
+				 *          дозволенных протоколом. Связи по TLS 1.2 предел поднимают до RECORD_PROTECTED
+				 *          (раздел 6.2.3 RFC 5246), а согласовавшие наибольшую длину куска - опускают
 				 *
 				 * \~english
 				 * @brief Method of setting the limit of the length of the content of a record being received
@@ -458,8 +460,8 @@ namespace nts {
 				 * @return      the flag of the success of the setting of the limit
 				 * @details The limit of a protected record of TLS 1.3 is taken as the default, the strictest
 				 *          of the ones allowed by the protocol. The connections over TLS 1.2 raise the limit
-				 *          up to RECORD_LEGACY, while the ones which have negotiated a greatest length of a
-				 *          fragment lower it
+				 *          up to RECORD_PROTECTED (the section 6.2.3 of RFC 5246), while the ones which have
+				 *          negotiated a greatest length of a fragment lower it
 				 *
 				 * \~
 				 */

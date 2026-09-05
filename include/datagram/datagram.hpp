@@ -427,7 +427,9 @@ namespace nts {
 			AHEAD      = 0x07, /*!< \~russian Кусок сообщения слишком далеко впереди ожидаемого \~english The fragment of a message is too far ahead of the expected one \~ */
 			FRAMING    = 0x08, /*!< \~russian Обвязка куска открытой записи негодна либо кусок расходится со сборкой \~english The framing of a fragment of a plain record is unfit or the fragment diverges from the assembly \~ */
 			PREMATURE  = 0x09, /*!< \~russian Прикладные данные пришли до установления связи \~english The application data came before the establishment of the connection \~ */
-			COOKIE     = 0x0A  /*!< \~russian Повторное приветствие клиента без метки возврата состояния либо с чужою \~english A repeated greeting of the client without a label of the return of the state or with a foreign one \~ */
+			COOKIE     = 0x0A, /*!< \~russian Повторное приветствие клиента без метки возврата состояния либо с чужою \~english A repeated greeting of the client without a label of the return of the state or with a foreign one \~ */
+			VERSION    = 0x0B, /*!< \~russian Заголовок записи DTLS 1.2 несёт чужое издание протокола: не 0xFEFD, а 0xFEFF - не у открытой записи рукопожатия (раздел 4.1 RFC 6347) \~english The header of a DTLS 1.2 record carries a foreign edition of the protocol: not 0xFEFD, and 0xFEFF - not at a plain handshake record (the section 4.1 of RFC 6347) \~ */
+			GREETING   = 0x0C  /*!< \~russian Приветствие клиента до подтверждения адреса негодно: порчено, дроблёно либо кусок чужого сообщения - сервер без состояния отбрасывает его молча (разделы 4.1.2.7 и 4.2.1 RFC 6347) \~english The greeting of the client before the confirmation of the address is unfit: damaged, fragmented or a fragment of a foreign message - the stateless server discards it silently (the sections 4.1.2.7 and 4.2.1 of RFC 6347) \~ */
 		};
 
 		/**
@@ -439,7 +441,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		static constexpr size_t DATAGRAM_REASONS = 11;
+		static constexpr size_t DATAGRAM_REASONS = 13;
 
 		/**
 		 * \~russian
@@ -457,7 +459,8 @@ namespace nts {
 			EPOCH      = 0x03, /*!< \~russian Открытая запись несёт ненулевую пору ключей \~english The plain record carries a non-zero epoch \~ */
 			LENGTH     = 0x04, /*!< \~russian Длина поля вышла за дозволенный предел \~english The length of a field has gone beyond the allowed limit \~ */
 			IDENTIFIER = 0x05, /*!< \~russian Запись несёт опознаватель связи, связью не поддержанный \~english The record carries a connection identifier not supported by the connection \~ */
-			MEMORY     = 0x06  /*!< \~russian Памяти под итог не хватило \~english There was not enough memory for the outcome \~ */
+			MEMORY     = 0x06, /*!< \~russian Памяти под итог не хватило \~english There was not enough memory for the outcome \~ */
+			VERSION    = 0x07  /*!< \~russian Заголовок записи издания DTLS 1.2 несёт чужое издание протокола: не 0xFEFD, а 0xFEFF - не у открытой записи рукопожатия (раздел 4.1 RFC 6347) \~english The header of a DTLS 1.2 record carries a foreign edition of the protocol: not 0xFEFD, and 0xFEFF - not at a plain handshake record (the section 4.1 of RFC 6347) \~ */
 		};
 
 
@@ -496,6 +499,8 @@ namespace nts {
 			size_t size;
 			// Длина самого заголовка в байтах
 			size_t length;
+			// Издание протокола из заголовка по проводу: заполняется лишь разбором заголовка издания DTLS 1.2
+			uint16_t version;
 			/**
 			 * \~russian
 			 * @brief Конструктор
@@ -506,7 +511,7 @@ namespace nts {
 			 *
 			 * \~
 			 */
-			Header() noexcept : unified(false), identifier(false), sized(true), bits(16), type(record::type_t::NONE), epoch(0), sequence(0), size(0), length(0) {}
+			Header() noexcept : unified(false), identifier(false), sized(true), bits(16), type(record::type_t::NONE), epoch(0), sequence(0), size(0), length(0), version(0) {}
 		} header_t;
 
 		/**
@@ -650,6 +655,76 @@ namespace nts {
 		 * \~
 		 */
 		__ANTS_SHARED_EXPORT__ error_t build(const header_t & header, uint8_t * result, size_t & length) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод разбора заголовка записи поверх дейтаграммы по изданию переноса
+		 *
+		 * @param data   разбираемая область байтов от начала записи до конца дейтаграммы
+		 * @param result заголовок, в который помещается итог разбора
+		 * @param legacy ведётся ли перенос изданием DTLS 1.2
+		 *
+		 * @return       отказ разбора заголовка записи
+		 *
+		 * @details Раздел 4.1 RFC 6347: у издания DTLS 1.2 всякая запись, и защищённая тоже,
+		 *          идёт открытым заголовком с видом, изданием, порой, 48-разрядным номером и
+		 *          длиной; защищённую выдаёт ненулевая пора. Изданием признаётся 0xFEFD, а
+		 *          0xFEFF - лишь у открытой записи рукопожатия: им чужие узлы шлют первое
+		 *          приветствие и просьбу о подтверждении адреса; иное - отказ VERSION. Издание
+		 *          из заголовка кладётся в поле version как есть. Без признака издания 1.2
+		 *          разбор идёт заголовком DTLS 1.3
+		 *
+		 * \~english
+		 * @brief Method of the parsing of the header of a record over a datagram by the edition of the transport
+		 * @param data   the byte area being parsed from the beginning of the record to the end of the datagram
+		 * @param result the header the outcome of the parsing is put into
+		 * @param legacy whether the transport is conducted by the DTLS 1.2 edition
+		 * @return       the failure of the parsing of the header of the record
+		 * @details The section 4.1 of RFC 6347: at the DTLS 1.2 edition every record, a protected one too,
+		 *          goes with a plain header carrying the type, the edition, the epoch, the 48-bit number and
+		 *          the length; a protected one is told by a non-zero epoch. 0xFEFD is recognized as the
+		 *          edition, and 0xFEFF - only at a plain handshake record: foreign nodes send by it the first
+		 *          greeting and the HelloVerifyRequest; anything else is the VERSION failure. The edition from
+		 *          the header is put into the version field as is. Without the sign of the 1.2 edition the
+		 *          parsing goes by the DTLS 1.3 header
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ error_t parse(const view_t & data, header_t & result, const bool legacy) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод записи заголовка записи поверх дейтаграммы по изданию переноса
+		 *
+		 * @param header записываемый заголовок записи
+		 * @param result место, в которое помещается заголовок записи
+		 * @param length место, в которое помещается длина записанного заголовка
+		 * @param legacy ведётся ли перенос изданием DTLS 1.2
+		 *
+		 * @return       отказ записи заголовка записи
+		 *
+		 * @details Раздел 4.1 RFC 6347: заголовок издания DTLS 1.2 всегда открытый и всегда с
+		 *          изданием 0xFEFD; пора берётся из заголовка как есть, а предел длины
+		 *          содержимого зависит от неё - 2^14 у нулевой поры, 2^14 + 2048 у защищённой
+		 *          (раздел 6.2.3 RFC 5246). Без признака издания 1.2 запись идёт заголовком DTLS 1.3
+		 *
+		 * @note Место итога обязано вмещать DATAGRAM_PLAIN_HEADER байтов
+		 *
+		 * \~english
+		 * @brief Method of the writing of the header of a record over a datagram by the edition of the transport
+		 * @param header the header of the record being written
+		 * @param result the place the header of the record is put into
+		 * @param length the place the length of the written header is put into
+		 * @param legacy whether the transport is conducted by the DTLS 1.2 edition
+		 * @return       the failure of the writing of the header of the record
+		 * @details The section 4.1 of RFC 6347: the header of the DTLS 1.2 edition is always plain and always
+		 *          with the 0xFEFD edition; the epoch is taken from the header as is, and the limit of the
+		 *          length of the content depends on it - 2^14 at the zero epoch, 2^14 + 2048 at a protected
+		 *          one (the section 6.2.3 of RFC 5246). Without the sign of the 1.2 edition the record goes
+		 *          by the DTLS 1.3 header
+		 * @note The place of the outcome is obliged to hold DATAGRAM_PLAIN_HEADER bytes
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ error_t build(const header_t & header, uint8_t * result, size_t & length, const bool legacy) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод разбора обвязки куска сообщения рукопожатия

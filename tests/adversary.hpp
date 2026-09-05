@@ -309,7 +309,7 @@ namespace {
 		// Накопитель, в который складывается защищённая запись
 		vector <uint8_t> sealed;
 		// Если наложить защиту на сообщение рукопожатия не удалось
-		if(protection.seal(record::type_t::HANDSHAKE, writer.data(), sealed) != protect::error_t::NONE)
+		if(protection.seal(record::type_t::HANDSHAKE, writer.data(), sealed, 0) != protect::error_t::NONE)
 			// Выводим отказ отправки сообщения рукопожатия
 			return false;
 		// Складываем защищённую запись в накопитель ответа
@@ -895,7 +895,7 @@ namespace {
 			// Накопитель, в который складывается первая половина сообщения
 			vector <uint8_t> leading;
 			// Если наложить защиту на первую половину сообщения не удалось
-			if(protection.seal(record::type_t::HANDSHAKE, view_t(whole.data, 2), leading) != protect::error_t::NONE)
+			if(protection.seal(record::type_t::HANDSHAKE, view_t(whole.data, 2), leading, 0) != protect::error_t::NONE)
 				// Выводим отказ ответа враждебного сервера
 				return false;
 			// Складываем защищённую запись в ответ враждебного сервера
@@ -918,7 +918,7 @@ namespace {
 			// Накопитель, в который складывается запись извещения
 			vector <uint8_t> noticing;
 			// Если наложить защиту на извещение не удалось
-			if(protection.seal(record::type_t::ALERT, view_t(noticed, sizeof(noticed)), noticing) != protect::error_t::NONE)
+			if(protection.seal(record::type_t::ALERT, view_t(noticed, sizeof(noticed)), noticing, 0) != protect::error_t::NONE)
 				// Выводим отказ ответа враждебного сервера
 				return false;
 			// Складываем защищённую запись в ответ враждебного сервера
@@ -1449,7 +1449,7 @@ namespace {
 				// Накопитель, в который складывается запись извещения о закрытии
 				vector <uint8_t> closing;
 				// Если наложить защиту на извещение о закрытии не удалось
-				if(outgoing.seal(record::type_t::ALERT, view_t(noticed, sizeof(noticed)), closing) != protect::error_t::NONE)
+				if(outgoing.seal(record::type_t::ALERT, view_t(noticed, sizeof(noticed)), closing, 0) != protect::error_t::NONE)
 					// Выводим отказ ответа враждебного сервера
 					return false;
 				// Складываем защищённую запись извещения в ответ враждебного сервера
@@ -1459,7 +1459,7 @@ namespace {
 				// Накопитель, в который складывается запись прикладных данных
 				vector <uint8_t> tailing;
 				// Если наложить защиту на прикладные данные не удалось
-				if(outgoing.seal(record::type_t::APPLICATION, view_t(trailing, sizeof(trailing)), tailing) != protect::error_t::NONE)
+				if(outgoing.seal(record::type_t::APPLICATION, view_t(trailing, sizeof(trailing)), tailing, 0) != protect::error_t::NONE)
 					// Выводим отказ ответа враждебного сервера
 					return false;
 				// Складываем защищённую запись данных в ответ враждебного сервера
@@ -1478,7 +1478,7 @@ namespace {
 				// Накопитель, в который складывается запись непомерного сообщения
 				vector <uint8_t> swollen;
 				// Если наложить защиту на непомерное сообщение не удалось
-				if(outgoing.seal(record::type_t::HANDSHAKE, view_t(bloated, sizeof(bloated)), swollen) != protect::error_t::NONE)
+				if(outgoing.seal(record::type_t::HANDSHAKE, view_t(bloated, sizeof(bloated)), swollen, 0) != protect::error_t::NONE)
 					// Выводим отказ ответа враждебного сервера
 					return false;
 				// Складываем защищённую запись непомерного сообщения в ответ враждебного сервера
@@ -1497,7 +1497,7 @@ namespace {
 				// Накопитель, в который складывается запись повторной цепочки
 				vector <uint8_t> repeated;
 				// Если наложить защиту на повторную цепочку не удалось
-				if(outgoing.seal(record::type_t::HANDSHAKE, view_t(chain, sizeof(chain)), repeated) != protect::error_t::NONE)
+				if(outgoing.seal(record::type_t::HANDSHAKE, view_t(chain, sizeof(chain)), repeated, 0) != protect::error_t::NONE)
 					// Выводим отказ ответа враждебного сервера
 					return false;
 				// Складываем защищённую запись повторной цепочки в ответ враждебного сервера
@@ -1706,7 +1706,7 @@ namespace {
 		// Накопитель, в который складывается запись упреждающих данных
 		vector <uint8_t> advanced;
 		// Если наложить защиту на упреждающие данные не удалось
-		if(protection.seal(record::type_t::APPLICATION, view_t(advancing, sizeof(advancing)), advanced) != protect::error_t::NONE)
+		if(protection.seal(record::type_t::APPLICATION, view_t(advancing, sizeof(advancing)), advanced, 0) != protect::error_t::NONE)
 			// Выводим отказ подачи упреждающих данных
 			return false;
 		// Складываем защищённую запись в подачу враждебного клиента
@@ -1729,7 +1729,7 @@ namespace {
 			// Защищённая запись подложного завершения
 			vector <uint8_t> sealed;
 			// Если наложить защиту упреждения на завершение не удалось
-			if(protection.seal(record::type_t::HANDSHAKE, finishing.data(), sealed) != protect::error_t::NONE)
+			if(protection.seal(record::type_t::HANDSHAKE, finishing.data(), sealed, 0) != protect::error_t::NONE)
 				// Выводим отказ ответа враждебного клиента
 				return false;
 			// Дописываем подложное завершение к ответу
@@ -1749,7 +1749,7 @@ namespace {
 			// Накопитель, в который складывается запись конца упреждающих данных
 			vector <uint8_t> sealed;
 			// Если наложить защиту на конец упреждающих данных не удалось
-			if(protection.seal(record::type_t::HANDSHAKE, ending.data(), sealed) != protect::error_t::NONE)
+			if(protection.seal(record::type_t::HANDSHAKE, ending.data(), sealed, 0) != protect::error_t::NONE)
 				// Выводим отказ подачи упреждающих данных
 				return false;
 			// Складываем защищённую запись в подачу враждебного клиента

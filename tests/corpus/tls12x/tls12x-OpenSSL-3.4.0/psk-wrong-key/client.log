@@ -1,0 +1,32 @@
+Connecting to 127.0.0.1
+Can't use SSL_get_servername
+40D73AEA64700000:error:0A0003FC:SSL routines:ssl3_read_bytes:ssl/tls alert bad record mac:../ssl/record/rec_layer_s3.c:908:SSL alert number 20
+CONNECTED(00000004)
+---
+no peer certificate available
+---
+No client certificate CA names sent
+---
+SSL handshake has read 82 bytes and written 232 bytes
+Verification: OK
+---
+New, SSLv3, Cipher is PSK-AES128-CBC-SHA
+Protocol: TLSv1.2
+Secure Renegotiation IS supported
+Compression: NONE
+Expansion: NONE
+No ALPN negotiated
+SSL-Session:
+    Protocol  : TLSv1.2
+    Cipher    : PSK-AES128-CBC-SHA
+    Session-ID: 
+    Session-ID-ctx: 
+    Master-Key: 4B8A9C5230E33BF971F4F635945E96620135A6A09692A64D4426B410A5C4AC4ADA1F083CEA4CAAA5E5A9D33BD5D2E6BC
+    PSK identity: anyks
+    PSK identity hint: None
+    SRP username: None
+    Start Time: 1788634272
+    Timeout   : 7200 (sec)
+    Verify return code: 0 (ok)
+    Extended master secret: yes
+---

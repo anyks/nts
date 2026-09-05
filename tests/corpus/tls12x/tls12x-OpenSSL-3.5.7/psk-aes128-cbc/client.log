@@ -1,0 +1,46 @@
+Connecting to 127.0.0.1
+Can't use SSL_get_servername
+CONNECTED(00000004)
+---
+no peer certificate available
+---
+No client certificate CA names sent
+---
+SSL handshake has read 366 bytes and written 202 bytes
+Verification: OK
+---
+New, SSLv3, Cipher is PSK-AES128-CBC-SHA
+Protocol: TLSv1.2
+Secure Renegotiation IS supported
+Compression: NONE
+Expansion: NONE
+No ALPN negotiated
+SSL-Session:
+    Protocol  : TLSv1.2
+    Cipher    : PSK-AES128-CBC-SHA
+    Session-ID: 544594329115C8890633BC57F94D494D7413E2CEA41CB9391B63A32039566DDF
+    Session-ID-ctx: 
+    Master-Key: 4A8836F9F48F8F8271B65B04A2CFB562EA528AAEBB55F48A63597AAC7A393DFBB2904C0ABFC72287C6B45EB81D9CB6F2
+    PSK identity: anyks
+    PSK identity hint: anyks-hint
+    SRP username: None
+    TLS session ticket lifetime hint: 7200 (seconds)
+    TLS session ticket:
+    0000 - 1e 53 93 2a b6 0f 0f f1-b0 6c 08 2b 3d aa fd ff   .S.*.....l.+=...
+    0010 - 53 8d 2f c3 60 0d 1c 3d-e5 bb 93 b7 1f 00 42 e2   S./.`..=......B.
+    0020 - e0 03 09 4a 28 44 36 e6-06 a1 39 6c 6b 51 e3 b0   ...J(D6...9lkQ..
+    0030 - 40 3b 06 7c 94 40 a9 5c-da 5c dd 40 dc dd fe 35   @;.|.@.\.\.@...5
+    0040 - c3 16 27 6a 58 42 c8 9c-69 b6 31 68 4d d6 c0 11   ..'jXB..i.1hM...
+    0050 - 74 64 07 d4 43 12 cf a7-7d 1f ad 1d cb c8 21 79   td..C...}.....!y
+    0060 - 34 80 6c 24 39 17 de 07-45 07 25 a4 9e a1 0b e2   4.l$9...E.%.....
+    0070 - 2b 39 8a f3 07 62 df d8-29 d8 eb c9 cc 65 34 b0   +9...b..)....e4.
+    0080 - fb a6 44 e9 4c 75 fe e4-29 c5 b6 51 09 c5 85 3a   ..D.Lu..)..Q...:
+    0090 - 5f 7b f0 9c ab d2 47 2d-be c5 34 15 3f e0 9f 80   _{....G-..4.?...
+    00a0 - a2 cf b1 a0 02 6d dc 17-9b 0d 0c ed 10 09 c3 fb   .....m..........
+
+    Start Time: 1788634266
+    Timeout   : 7200 (sec)
+    Verify return code: 0 (ok)
+    Extended master secret: yes
+---
+DONE

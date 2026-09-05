@@ -618,6 +618,49 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ error_t schemes(const vector <scheme_t> & schemes, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
+		 * @brief Метод разбора перечня записей точек кривой ec_point_formats
+		 *
+		 * @param data   разбираемое тело расширения
+		 * @param result перечень, в который помещаются объявленные записи точек
+		 *
+		 * @return       отказ разбора тела расширения
+		 *
+		 * @details Раздел 5.1.2 RFC 8422: перечень с однобайтовой длиной и однобайтовыми
+		 *          записями, непустой и без лишних байтов; несжатая запись uncompressed(0)
+		 *          обязательна всякой стороне, и её наличие сверяет вызывающий
+		 *
+		 * \~english
+		 * @brief Method of the parsing of the list of the ec_point_formats of the points of a curve
+		 * @param data   the body of the extension being parsed
+		 * @param result the list the announced formats of the points are put into
+		 * @return       the failure of the parsing of the body of the extension
+		 * @details The section 5.1.2 of RFC 8422: a list with a one-byte length and one-byte entries,
+		 *          non-empty and without trailing bytes; the uncompressed(0) format is mandatory for
+		 *          every side, and its presence is checked by the caller
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ error_t formats(const view_t & data, vector <uint8_t> & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод составления перечня записей точек кривой ec_point_formats
+		 *
+		 * @param formats составляемый перечень записей точек
+		 * @param result  накопитель, в конец которого дописывается тело расширения
+		 *
+		 * @return        отказ составления тела расширения
+		 *
+		 * \~english
+		 * @brief Method of the composition of the list of the ec_point_formats of the points of a curve
+		 * @param formats the list of the formats of the points being composed
+		 * @param result  the accumulator the body of the extension is appended to the end of
+		 * @return        the failure of the composition of the body of the extension
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ error_t formats(const vector <uint8_t> & formats, vector <uint8_t> & result) noexcept;
+		/**
+		 * \~russian
 		 * @brief Метод разбора перечня открытых частей ключей обмена
 		 *
 		 * @param data   разбираемое тело расширения приветствия клиента

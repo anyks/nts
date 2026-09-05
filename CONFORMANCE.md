@@ -1714,6 +1714,7 @@ macOS такая проверка молчит, нужен стенд с libstdc
 | `timeout` при отсутствии ожидания | ноль (было и есть, закреплено) | `Timer` |
 | один счётчик отбросов | `discarded(reason_t)` | `Discard`, `Loss`, `Reorder`, `Replay` |
 | стиль: `link`, голые блоки, умолчание `padding` у нового `seal`, `EndOfEarlyData` без проверки | `bond`, комментарии, довод явный, `Unacked` | — |
+| (06.09.2026, из аудита DTLS 1.2) окно нулевой поры чтения сервера велось до подтверждения адреса: чужая открытая запись с большим номером (и приветствие с негодной меткой) занимала окно и закрывала им настоящее приветствие | `flight_t::verified`: до метки окно не ведётся, по принятой метке запись приветствия и всё перед нею ложатся в окно; правило общее обоим изданиям | `Discard`, `Cookie` (переписаны: настоящее приветствие тем же номером записи, что подделка, принимается; повтор принятого - `REPLAY`), `Dtls12Test.Unverified` |
 
 ### Мутации (05.09.2026)
 
@@ -1773,19 +1774,27 @@ ECDHE-RSA 0xC02F, 0xC030, 0xCCA8 в том же реестре `protect::suite_t
 чужих сторон, в 1.3 не признаются); PRF по разделу 5 RFC 5246 (`digest::prf(hash_t, …)`);
 расписание ключей по разделу 6.3 (ключи и векторы обеих сторон, без имитовставок);
 записи AES-GCM по RFC 5288 (явная часть одноразового значения - порядковый номер, AAD
-из номера и заголовка) и ChaCha20-Poly1305 по RFC 7905 (одноразовое значение - вектор XOR
-номер); порча записи - `bad_record_mac` и обрыв; сжатие записей - только нулевое;
-`session_id` сервер шлёт пустым, а чужой принимает любым (возобновления нет).
+из номера и заголовка записи по проводу: издание берётся из заголовка, а не подставляется
+постоянным) и ChaCha20-Poly1305 по RFC 7905 (одноразовое значение - вектор XOR номер);
+порча записи - `bad_record_mac` и обрыв; повтор записи - `bad_record_mac` порядковым
+номером в AAD; за согласованием издания заголовок всякой записи обязан нести 0x0303
+(приложение E.1 RFC 5246), иначе `protocol_version`; предел длины защищённой записи
+2^14 + 2048 (раздел 6.2.3), шире - `record_overflow`; сжатие записей - только нулевое;
+`session_id` сервер шлёт пустым, а чужой принимает любым до 32 байтов (возобновления нет).
 
 Безусловные решения: расширенный главный секрет RFC 7627 обязателен обеим сторонам
 (отсутствие у собеседника - `MASTER`, `handshake_failure`); `renegotiation_info` RFC 5746
 идёт лишь расширением совместимости (пустое у клиента, пустой ответ сервера, SCSV 0x00FF
-признаётся), а пересогласований связь не ведёт: приветствие клиента за установленной
-связью сервер отвечает `no_renegotiation` (100) и отказом `RENEGOTIATION`, а просьбу
-HelloRequest (вид 0, заведён явно как `handshake::type_t::HELLO_REQUEST`) клиент за
-установленной связью отвечает `no_renegotiation` уровня предупреждения (раздел 4.2 RFC 5746,
-раздел 7.2.2 RFC 5246) и связь продолжает, по ходу рукопожатия пропускает без переписки
-(раздел 7.4.1.1 RFC 5246), с непустым телом - `decode_error`, у сервера - `unexpected_message`;
+признаётся, непустое на первом рукопожатии - `handshake_failure`), а пересогласований связь
+не ведёт: и приветствие клиента за установленной связью у сервера, и просьбу HelloRequest
+(вид 0, заведён явно как `handshake::type_t::HELLO_REQUEST`; вид «не установлен» `NONE`
+вынесен в 0xFF вне реестра) у клиента связь отвечает `no_renegotiation` (100) уровня
+предупреждения (раздел 7.2.2 RFC 5246, раздел 4.2 RFC 5746) и продолжает прежними ключами -
+рвёт связь лишь собеседник, сочтя отказ роковым (openssl отвечает `handshake_failure`);
+по ходу рукопожатия клиент просьбу пропускает без переписки (раздел 7.4.1.1 RFC 5246) - и за
+приветствием сервера, и до него, пока издание не согласовано; с непустым телом -
+`decode_error`, у сервера и у клиента «только 1.3» - `unexpected_message`; отказ
+`RENEGOTIATION` в реестре остался, но связью более не выдаётся;
 KeyUpdate, CompressedCertificate, NewSessionTicket и EncryptedExtensions в 1.2 -
 `unexpected_message`; выбор набора сервером - порядком сервера (умолчание, как
 `SSL_OP_CIPHER_SERVER_PREFERENCE`) либо клиента по ручке `preference`, в 1.3 - порядком
@@ -1795,12 +1804,39 @@ KeyUpdate, CompressedCertificate, NewSessionTicket и EncryptedExtensions в 1.2
 фасадами; секреты (главный секрет, общее значение, ключевой материал) затираются
 `sys::wipe`.
 
-Заслон понижения (раздел 4.1.3 RFC 8446): сервер кладёт `DOWNGRD\x01`, когда сам знает
-издание 1.3 (верхний предел 0x0304), а выбрал 1.2; сервер «только 1.2» заслона не кладёт -
-иначе клиент издания 1.3 (openssl в том числе) счёл бы законный выбор 1.2 подменой
-(`inappropriate fallback`). Клиент судит оба заслона, лишь если сам предлагал 1.3; клиент
-одного 1.2 судит лишь `DOWNGRD\x00`. Оттого у пары «клиент предлагает 1.3, сервер способен
-к 1.3, но наборов 1.3 не несёт» связь обрывается `illegal_parameter` - так велит стандарт.
+Заслон понижения (раздел 4.1.3 RFC 8446): сервер кладёт `DOWNGRD\x01`, когда сам способен
+к изданию 1.3 - верхний предел 0x0304 И хоть один набор 1.3, - а выбрал 1.2; сервер «только
+1.2» по пределу либо по наборам заслона не кладёт: выбор 1.2 у него единственно возможный,
+а клиент издания 1.3 (openssl в том числе) счёл бы его подменой (`inappropriate fallback`).
+Клиент судит оба заслона, лишь если сам предлагал 1.3; клиент одного 1.2 судит лишь
+`DOWNGRD\x00`. Оттого пара «клиент предлагает 1.3, сервер с пределом 1.3, но без наборов
+1.3» сходится изданием 1.2 без заслона (`Tls12Test.Limits`, четвёртый блок).
+
+### Намеренные решения издания 1.2
+
+1. Предел записей на ключе AES-GCM - 2^24,5 = 23 726 566 записей (`protect::limit`), общий
+   с изданием 1.3: раздел 5.5 RFC 8446 обосновывает его стойкостью шифра, а не способом
+   сложения одноразового значения. Смены ключей в 1.2 нет, и, дойдя своим направлением до
+   предела, связь шлёт `close_notify` и отвечает отказом `EXHAUSTED` (0x1E), не отправив
+   записи; ручка `renewal(true, records)` ставит порог ниже предела (в ручном порядке
+   `renewal(false, …)` порог не действует - остаётся предел набора). Записи собеседника за
+   пределом отвергаются защитой как есть (`SEQUENCE` → `bad_record_mac`). У ChaCha20-Poly1305
+   предел 2^62 недостижим.
+2. Явная часть одноразового значения AES-GCM у принимаемых записей берётся из записи и с
+   порядковым номером НЕ сличается: раздел 3 RFC 5288 велит ей лишь не повторяться, а openssl
+   начинает её случайным значением (`RAND_bytes` в `gcm_tls_iv_set_fixed`), не номером, -
+   сличение оборвало бы обмен с ним. Повтор записи отвергается порядковым номером в AAD
+   (`Tls12Test.Nonce`), а повтор одноразового значения отправителем вредит лишь ему самому.
+   Свои записи несут явной частью порядковый номер.
+3. Издание заголовка записи за согласованием 1.2 обязано быть 0x0303 (приложение E.1
+   RFC 5246); первому приветствию клиента у сервера дозволены и меньшие издания заголовка,
+   а до согласования у клиента и в издании 1.3 заголовок не судится (раздел 5.1 RFC 8446).
+   Известное, но чужое издание - `protocol_version` движком; неизвестное сборщик записей
+   не судит - и его отвергает тот же заслон движка.
+4. Точка ServerKeyExchange сверяется с записью кривой (длина, несжатая запись 0x04 у кривых
+   NIST) прежде подписи: сжатая точка - `illegal_parameter`, а не `decrypt_error`.
+5. Ступень `phase_t` оставлена россыпью условий в `legacy`: всякое условие сочетает роль и
+   до двух допустимых ступеней, и таблица «ожидаемое → допустимые» читалась бы не лучше.
 
 Отложено отдельным решением владельца: PSK-наборы, CBC-наборы, голый RSA-обмен, DHE,
 билеты RFC 5077 и кэш сеансов, DTLS 1.2. Устройство их допускает без переделки: наборы
@@ -1812,16 +1848,21 @@ KeyUpdate, CompressedCertificate, NewSessionTicket и EncryptedExtensions в 1.2
 | --- | --- | --- | --- |
 | RFC 5246 §5 | PRF на HMAC хеша набора, `P_hash`, метка и затравка слитно | `digest::prf(hash_t, …)` | `Tls12Test.Prf` (векторы SHA-256 100 байтов и SHA-384 148 байтов из рабочей группы TLS IETF 2008 года; вектор SHA-256 сверен ещё и независимой реализацией, хвост «…97fce34f79…») |
 | RFC 8446 §4.2.1, приложение D | клиент шлёт legacy_version 0x0303 и supported_versions по пределам; сервер выбирает высшее общее, без расширения - 1.2 по заголовку; ниже 1.2 - `protocol_version` | `greeting`, `incoming`, `outgoing`, `greeted` | `Tls12Test.Limits`, `Tls12Test.Master`, `ContextTest.Ancient/Antique/Speechless` (режим «только 1.3») |
-| RFC 8446 §4.1.3 | заслон понижения в случайном значении сервера | `welcome`, `greeted` | `Tls12Test.Limits`, `Tls12Test.Downgrade` |
+| RFC 8446 §4.1.3 | заслон понижения в случайном значении сервера, способного к 1.3 (предел И наборы 1.3) | `welcome`, `greeted` | `Tls12Test.Limits` (второй блок - есть, третий и четвёртый - нет), `Tls12Test.Downgrade` |
 | RFC 5246 §7.3, §7.4 | порядок сообщений: ServerHello, Certificate, [CertificateStatus], ServerKeyExchange, [CertificateRequest], ServerHelloDone, [Certificate], ClientKeyExchange, [CertificateVerify], CCS, Finished, CCS, Finished; лишнее и не в свой черёд - `unexpected_message` | `legacy`, `phase_t`, `push` (CCS) | `Tls12Test.Loopback`, `Tls12Test.Unilateral`, `Tls12Test.Alien` |
-| RFC 8422 §5.4, §5.7 | ServerKeyExchange: named_curve, точка, подпись над client_random ‖ server_random ‖ params схемой из signature_algorithms; ClientKeyExchange: точка; кривая из предложенных | `agreeing`, `agreed`, `exchanging`, `exchanged`, `agree` | `Tls12Test.Loopback` (три группы), `Tls12Test.Downgrade` (порченое случайное значение - подпись не сходится), `Tls12Test.Openssl` |
+| RFC 8422 §5.4, §5.7 | ServerKeyExchange: named_curve, точка несжатой записью длиною кривой, подпись над client_random ‖ server_random ‖ params схемой из signature_algorithms; ClientKeyExchange: точка; кривая из предложенных; сжатая точка и схема вне перечня - `illegal_parameter` | `agreeing`, `agreed`, `exchanging`, `exchanged`, `agree`, `checking` | `Tls12Test.Loopback` (три группы), `Tls12Test.Downgrade` (порченое случайное значение - подпись не сходится), `Tls12Test.Forged` (сжатая точка в обоих обменах, схема 0x0503 вне перечня), `Tls12Test.Openssl` |
 | RFC 5246 §7.4.1.4.1 | схема ECDSA именует хеш, кривая - из ключа; PKCS #1 v1.5 принимается и выдаётся; RSA-PSS по RFC 8446 §4.2.3 | `matching(…, loose)`, `signing`, `checking` | `Tls12Test.Openssl` (openssl подписывает ecdsa_sha256 ключом P-384) |
-| RFC 7627 §4, §5 | EMS обязателен; главный секрет от session_hash с ClientKeyExchange включительно | `welcome`, `greeted`, `expanding` | `Tls12Test.Master`, `Tls12Test.Openssl` |
-| RFC 5246 §6.3, RFC 5288, RFC 7905 | key_block, ключи и векторы, явная часть одноразового значения, AAD, счёт записей | `expanding`, `protect::wrap`, `protect::unwrap` | `Tls12Test.Loopback` (счётчики), `Tls12Test.Corruption`, `Tls12Test.Openssl` |
-| RFC 5246 §7.4.9 | Finished: 12 байтов PRF меткой стороны от хеша переписки, сличение за постоянное время | `finishing`, `finished` | `Tls12Test.Loopback`, `Tls12Test.Openssl` |
-| RFC 5246 §7.4.4, §7.4.6, §7.4.8 | CertificateRequest (виды 64 и 1, схемы, издатели пусто), пустая цепочка клиента, CertificateVerify над всеми сообщениями подряд | `demanding`, `demanded`, `presenting`, `presented`, `attesting`, `attested` | `Tls12Test.Loopback` (взаимная), `Tls12Test.Unilateral`, `Tls12Test.Openssl` (`-Verify 1`) |
-| RFC 5746 | renegotiation_info пустое, SCSV; пересогласование приветствием клиента - `no_renegotiation` | `greeting`, `welcome`, `greeted`, `legacy` | `Tls12Test.Openssl` (s_client с командой R) |
-| RFC 5246 §7.4.1.1, RFC 5746 §4.2 | HelloRequest: вид 0 ведом обвязке; за установленной связью - предупреждение `no_renegotiation` без обрыва; по ходу рукопожатия пропускается и в переписку не кладётся; тело непустое - `decode_error`; у сервера - `unexpected_message` | `handshake::known`, `legacy` | `HandshakeTest` (обвязка вида 0), `Tls12Test.HelloRequest` (просьба руками), `Tls12Test.Renegotiation` (s_server с командой r: «no renegotiation» в журнале, `handshake_failure` в ответ) |
+| RFC 7627 §4, §5 | EMS обязателен; главный секрет от session_hash с ClientKeyExchange включительно; расхождение переписок разводит ключи | `welcome`, `greeted`, `expanding` | `Tls12Test.Master`, `Tls12Test.Divergent` (подменённый session_id - `bad_record_mac`), `Tls12Test.Counterfeit` (выработка руками сходится), `Tls12Test.Openssl` |
+| RFC 5246 §6.3, RFC 5288, RFC 7905 | key_block, ключи и векторы, явная часть одноразового значения равна номеру и растёт на единицу, AAD из номера и заголовка по проводу, счёт записей, повтор - `bad_record_mac` | `expanding`, `protect::associate`, `protect::wrap`, `protect::unwrap` | `Tls12Test.Loopback` (счётчики), `Tls12Test.Corruption`, `Tls12Test.Nonce`, `Tls12Test.Versioned` (подмена издания и вида заголовка рвёт метку у самой защиты), `Tls12Test.Openssl` |
+| RFC 5246 §6.2.1, приложение E.1 | издание заголовка записи за согласованием 1.2 равно 0x0303, иначе `protocol_version`: защищённая запись у сервера, открытая у клиента, неизвестное издание | `push` | `Tls12Test.Versioned` |
+| RFC 5246 §6.2.3 | предел длины защищённой записи 2^14 + 2048: на пределе доходит до защиты, шире - `record_overflow` | `welcome`, `greeted` (`records.limit`) | `Tls12Test.Oversize` |
+| RFC 8446 §5.5 | предел записей AES-GCM 2^24,5 без смены ключей: `close_notify` и `EXHAUSTED`; порог ручки `renewal` | `write`, `protect::limit` | `Tls12Test.Exhausted` |
+| RFC 5246 §7.4.9 | Finished: 12 байтов PRF меткой стороны от хеша переписки, сличение за постоянное время; порченое - `decrypt_error` | `finishing`, `finished` | `Tls12Test.Loopback`, `Tls12Test.Counterfeit` (поддельный клиент: верное завершение принимается, порченое - `decrypt_error`), `Tls12Test.Openssl` |
+| RFC 5246 §7.4.4, §7.4.6, §7.4.8 | CertificateRequest (виды 64 и 1, схемы читаются с места без переноса, издатели пусто), пустая цепочка клиента, CertificateVerify над всеми сообщениями подряд; CertificateVerify за пустой цепочкой - `unexpected_message` | `demanding`, `demanded`, `presenting`, `presented`, `attesting`, `attested`, `legacy` | `Tls12Test.Loopback` (взаимная), `Tls12Test.Unilateral`, `Tls12Test.Forged`, `Tls12Test.Openssl` (`-Verify 1`) |
+| RFC 5746 §3.4, §3.6 | renegotiation_info пустое, SCSV; непустое на первом рукопожатии в обоих приветствиях - `handshake_failure`; пересогласование приветствием клиента - предупреждение `no_renegotiation`, связь продолжается | `greeting`, `welcome`, `greeted`, `legacy`, `declining` | `Tls12Test.Forged`, `Tls12Test.Openssl` (s_client с командой R: «warning:no renegotiation» в журнале, `handshake_failure` в ответ) |
+| RFC 5246 §7.4.1.1, §7.2.2, RFC 5746 §4.2 | HelloRequest: вид 0 ведом обвязке, `NONE` с ним не совпадает; за установленной связью - предупреждение `no_renegotiation` без обрыва; по ходу рукопожатия пропускается и в переписку не кладётся - и до приветствия сервера; тело непустое - `decode_error`; у сервера и у клиента «только 1.3» - `unexpected_message` | `handshake::known`, `handle`, `legacy` | `HandshakeTest` (обвязка вида 0 и 0xFF), `ContextTest.Unsolicited` (издание 1.3), `Tls12Test.HelloRequest` (просьба руками до и за приветствием сервера), `Tls12Test.Renegotiation` (s_server с командой r: «no renegotiation» в журнале, `handshake_failure` в ответ) |
+| RFC 5246 §7.4.1.3, §7.1, RFC 6066 §8 | session_id длиннее 32 - `decode_error`; смена набора не в свой черёд - `unexpected_message`; CertificateStatus без запроса - `unexpected_message` | `hello::parse`, `push`, `legacy` | `Tls12Test.Forged` |
+| RFC 8422 §5.1.2 | ec_point_formats разбирается одним местом обеим сторонам; без несжатой записи - `handshake_failure` | `extension::formats`, `formatted` | `ExtensionTest.Formats`, `Tls12Test.Loopback` |
 | RFC 9001, RFC 9147 | издание 1.2 лишь переносом записями: под уровнями QUIC и дейтаграммами DTLS 1.3 пределы без издания 1.3 - `SETTINGS` у `start`, чужому приветствию - `protocol_version` | `start`, `greeting`, `incoming`, `greeted` | `Tls12Test.Datagrams` |
 | RFC 6066 §8 | CertificateStatus за цепочкой по status_request | `welcome`, `legacy` (STATUS), `stapled` | `Tls12Test.Status` |
 | RFC 5246 §7.4.1.2 | выбор набора порядком сервера либо клиента | `welcome`, `preference` | `Tls12Test.Preference` |
@@ -1832,18 +1873,31 @@ KeyUpdate, CompressedCertificate, NewSessionTicket и EncryptedExtensions в 1.2
 «TLSv1.2»), `s_client -tls1_2` против нашего сервера («Verify return code: 0 (ok)»,
 «Protocol : TLSv1.2», «Cipher : …» совпадает), `s_client` без предела против нашего
 сервера «только 1.2» - TLSv1.2, `s_server -tls1_2` против нашего клиента «только 1.3» -
-`protocol_version`, пересогласование `s_client` командой R - `no_renegotiation`. Грабли
+`protocol_version`, пересогласование `s_client` командой R - предупреждение
+`no_renegotiation` от нашего сервера без обрыва, `handshake_failure` в ответ от openssl.
+Фоновые процессы openssl снимаются по номеру из файла сторожем `sentinel_t` и при отказе
+посреди проверки. Грабли
 openssl изданием 1.2: кривая ключа сертификата обязана входить в supported_groups обеих
 сторон (RFC 8422 §5.1.1), иначе «no shared cipher» либо «wrong curve»; ServerHello несёт
 новый session_id (раздел 7.4.1.3 RFC 5246) - клиент его не сличает.
 
-Таблица мутаций (заслон снят руками, набор прогнан):
+Таблица мутаций (заслон снят руками, набор прогнан; прогон 05.09.2026 после исправлений
+аудита, каждая мутация собиралась отдельно с восстановлением исходника):
 
 | Мутация | Какая проверка ловит |
 | --- | --- |
+| AAD с постоянным изданием 0x0303 (`protect::associate`: издание заголовка не берётся) | `Tls12Test.Versioned` (третий блок: `open` с заголовком TLS 1.0 обязан дать `TAG`) |
+| Сверка Finished всегда истинна (`finished`: итог `message::compare` не судится) | `Tls12Test.Counterfeit` (порченое завершение поддельного клиента ждёт `COMPLETION`/`decrypt_error`) |
+| Явная часть одноразового значения равна нулю (`protect::wrap`: `number(0, …)`) | `Tls12Test.Nonce` (явная часть обязана равняться номеру и расти на единицу) |
+| `record::suitable` → true (издание заголовка не судится при составлении) | `RecordTest.Reject`, `RecordTest.Refusals` (`build`/`writer.push` с изданием NONE ждут `VERSION`); набор tls12 не задевается - сборщик принимаемых записей издание не судит, за него судит движок |
 | Снять проверку EMS у сервера (`welcome`: расширение MASTER не требуется) | `Tls12Test.Master` (ждёт `MASTER`/`handshake_failure` на приветствии без расширения) |
-| Снять заслон понижения у клиента (`greeted`: сличение хвоста случайного значения) | `Tls12Test.Downgrade` (первый круг ждёт `VERSION`/`illegal_parameter`), `Tls12Test.Limits` (последний блок) |
-| Снять проверку подписи ServerKeyExchange (`agreed`: итог `checking` не судится) | `Tls12Test.Downgrade` (второй круг ждёт `SIGNATURE` на порченом случайном значении сервера) |
+| Снять заслон понижения у сервера (`welcome`: `DOWNGRD\x01` не кладётся) | `Tls12Test.Limits` (второй блок ждёт заслон у сервера 1.2…1.3 с наборами 1.3) |
+| Снять сличение издания заголовка записи (`push`) | `Tls12Test.Versioned` (первый и второй блоки ждут `VERSION`/`protocol_version`) |
+| Снять закрытие по исчерпании записей (`write`) | `Tls12Test.Exhausted` (четвёртая запись ждёт `EXHAUSTED`) |
+| Снять сверку записи точки до подписи (`agreed`) | `Tls12Test.Forged` (сжатая точка SKE ждёт `illegal_parameter`, а не `decrypt_error`) |
+
+Прежняя таблица (снятие проверки подписи ServerKeyExchange - `Tls12Test.Downgrade`, второй
+круг) остаётся в силе.
 
 ### Уточнения договора OCSP по щупу Григория (05.09.2026)
 
@@ -1860,3 +1914,301 @@ openssl изданием 1.2: кривая ключа сертификата о�
   серверной стороны нет), и после перехода связь с отозванным сертификатом начнёт рваться
   по 113 лишь там, где потребитель включил проверку сам.
 - Запрос `status(true)` самодостаточен: расширение 0x0005 уходит без иных настроек.
+
+### Тур по десяти стендам на снимке с flight_t (05.09.2026)
+
+DTLS 1.3 после аудита (объект переноса `flight_t`, 25 проверок `dtls`) вместе с OCSP:
+FreeBSD, Astra, Solaris, OpenIndiana, NetBSD, OpenBSD, Alpine, Debian, DragonFly,
+OpenWRT - 56 из 56 на каждом, сборка без предупреждений. Следом тем же кругом идёт
+снимок с TLS 1.2 (57 наборов).
+
+### Векторы рукопожатий TLS 1.2, снятые с шести изданий openssl (05.09.2026)
+
+Набор `tests/corpus/tls12/tls12-OpenSSL-<издание>/<сценарий>/`: издания 3.0.15, 3.0.20,
+3.3.1, 3.4.0, 3.5.0, 3.5.7; двенадцать сценариев (`no-ems` лишь у 3.3.1+ - ключ `-no_ems`
+появился в 3.3, у 3.0.x каталога нет, и проверки сообщают о пропуске вслух; всякий иной
+отсутствующий каталог - отказ). Итого 70 векторов. Перечни изданий и сценариев держатся в
+коде (`EDITIONS`, `SCENARIOS`), без обхода каталогов. Ожидаемый набор всякого сценария
+закреплён и в коде, и сверяется со строкой `Набор:`/`Выбрано на деле:` описания README.md;
+непустой файл рукопожатием не считается - поток разбирается до защищённого Finished.
+Проверялка Григория (`tls12-verify.py`) повторена нашими примитивами и расширена
+криптографией. Три проверки:
+
+| Проверка | Что сверено на каждом из 70 векторов |
+|---|---|
+| `Tls12Test.VectorServer` | Первая запись `handshake-c2s.bin` (ClientHello s_client) подаётся нашему `server::context_t` дважды: пределы 1.2…1.2 и 1.2…1.3, подлинность тем же сертификатом (ec256/rsa2048 по README), группы X25519/P-256/P-384, наборы и `preference` по сценарию. Ответ: `version()` 0x0303, `suite()` равен `cipher_suite` из `serverhello.bin` и ожиданию README (0xC02B/0xC02C/0xCCA9/0xC02F/0xC030/0xCCA8), ServerHello несёт EMS и renegotiation_info, сжатие 0, кривая ServerKeyExchange равна обмену README (X25519 / prime256v1 / secp384r1), CertificateRequest ровно у `mutual`, ServerHelloDone последним, издание заголовков записей 0x0303. `no-ems` (4 вектора): отказ `MASTER`, извещение `handshake_failure` (40) на проводе. `cbc-sha256` (6 векторов): отказ `SUITE`, извещение `handshake_failure` (40). Счётчик: 120 = (70 − 4 − 6) × 2 |
+| `Tls12Test.VectorClient` | Нарезанные `client-clienthello.bin`, `serverhello.bin`, `certificate.bin`, `serverkeyexchange.bin`, `serverhellodone.bin`, `client-clientkeyexchange.bin` (и `certificaterequest.bin`, `client-certificate.bin`, `client-certificateverify.bin` у `mutual`) байт в байт равны сообщениям, вынутым из потоков `handshake-c2s/s2c.bin` нашими `record::reader_t`/`handshake::reader_t`. ServerHello через `hello::parse`: версия 0x0303, набор README, сжатие 0, EMS ровно по README (`нет` у no-ems), renegotiation_info пустой (один нулевой байт). Сертификат из Certificate равен `ec256.crt`/`rsa2048.crt` набора и разбирается `x509::certificate_t`. ServerKeyExchange: curve_type 3, named_curve по README, схема 0x0403 у ECDSA либо 0x0804 (RSA-PSS, все шесть изданий) у RSA; подпись проверена ключом сертификата над `client_random ‖ server_random ‖ ECParameters` через `x509::check` (ECDSA DER, RSASSA-PSS); отрицательные утверждения внутри проверки: испорченный байт подписи и подменённый байт `client_random` не сходятся. `mutual` (6 векторов): в CertificateRequest вид ecdsa_sign (64) и схема 0x0403 (`extension::schemes`), сертификат клиента равен `ec256.crt`, CertificateVerify схемой 0x0403 проверен над переписью ClientHello…ClientKeyExchange без билета; подменённый байт переписи не сходится. Счётчики: 70 подписей ServerKeyExchange, 6 CertificateVerify |
+| `Tls12Test.VectorFinished` | По `keylog.txt` (`CLIENT_RANDOM` обязан равняться random из ClientHello) и random обеих сторон `digest::prf` набора выводит `master → key expansion → key_block` (раскладка раздела 6.3: ключ клиента, ключ сервера, вектор клиента, вектор сервера; соль 4 байта у GCM, вектор 12 у ChaCha20). `protect::protection_t` с ключом стороны расшифровывает защищённый Finished каждой стороны из записи за ChangeCipherSpec (издание заголовка 0x0303, порядковый номер 0, явная часть nonce из записи у GCM); `verify_data` = `PRF(master, "client finished" / "server finished", hash(переписи))`, перепись сервера включает Finished клиента и NewSessionTicket (у всех 70 векторов сервер шлёт билет). Испорченный байт шифротекста - `TAG`. `cbc-sha256` (6 векторов): расшифровка пропущена вслух (CBC связью не реализован), остальные утверждения (ключевой файл, random, издание записей) сделаны. Счётчик: 64 расшифрованных вектора |
+
+Таблица «издание × сценарий → что сверено» (S - VectorServer, C - VectorClient, F - VectorFinished;
+S⁻ - сервер обязан отказать, F⁻ - расшифровка пропущена вслух, «—» - вектора нет, пропуск вслух):
+
+| Сценарий | Набор | 3.0.15 | 3.0.20 | 3.3.1 | 3.4.0 | 3.5.0 | 3.5.7 |
+|---|---|---|---|---|---|---|---|
+| ecdsa-aes128-gcm | 0xC02B, X25519 | S C F | S C F | S C F | S C F | S C F | S C F |
+| ecdsa-aes256-gcm | 0xC02C, P-384 | S C F | S C F | S C F | S C F | S C F | S C F |
+| ecdsa-chacha20 | 0xCCA9, X25519 | S C F | S C F | S C F | S C F | S C F | S C F |
+| rsa-aes128-gcm | 0xC02F, P-256, RSA-PSS 0x0804 | S C F | S C F | S C F | S C F | S C F | S C F |
+| rsa-aes256-gcm | 0xC030, X25519, RSA-PSS | S C F | S C F | S C F | S C F | S C F | S C F |
+| rsa-chacha20 | 0xCCA8, X25519, RSA-PSS | S C F | S C F | S C F | S C F | S C F | S C F |
+| mutual | 0xC02B, CertificateRequest, CertificateVerify 0x0403 | S C F | S C F | S C F | S C F | S C F | S C F |
+| no-ems | 0xC02B без EMS | — | — | S⁻ C F | S⁻ C F | S⁻ C F | S⁻ C F |
+| no-renegotiation | 0xC02B | S C F | S C F | S C F | S C F | S C F | S C F |
+| preference-server | 0xC02C (порядок сервера) | S C F | S C F | S C F | S C F | S C F | S C F |
+| preference-client | 0xC02B (порядок клиента) | S C F | S C F | S C F | S C F | S C F | S C F |
+| cbc-sha256 | 0xC023 (не реализован) | S⁻ C F⁻ | S⁻ C F⁻ | S⁻ C F⁻ | S⁻ C F⁻ | S⁻ C F⁻ | S⁻ C F⁻ |
+
+Отрицательный контроль вручную: подмена ожидаемого набора `ecdsa-aes256-gcm` на 0xC02B - все
+три проверки падают на сверке README; испорченный байт `serverkeyexchange.bin` - VectorClient
+падает на сверке с проводом (а подпись над испорченным байтом внутри проверки отвергается
+отдельно). Расшифровка доказывает совместимость PRF, расписания ключей и раскладки AEAD
+(GCM с явной частью nonce из записи, ChaCha20 с XOR номера) с шестью изданиями байт в байт;
+вывод самого master из premaster через EMS векторами не покрыт - секретных ключей обмена
+в снимке нет, EMS сверяется наличием расширения и тем, что master из keylog ведёт к верным
+Finished.
+
+Найдено попутно: у `no-ems` в ClientHello s_client расширения 0x0017 нет, а renegotiation_info
+и session_ticket есть у всех; у 3.0.x схема RSA в ServerKeyExchange та же 0x0804.
+Договор `protect::protection_t::open` доливает открытый текст в накопитель, не заменяя его -
+проверка очищает накопитель перед каждой записью.
+
+### Переносимость обмена с системным openssl по стендам (05.09.2026)
+
+Тур показал три беды `Tls12Test.Openssl`/`Renegotiation`: OpenSSL 3.0 (FreeBSD 3.0.13, Solaris
+3.0.18) отвергал перечень групп с повтором (`-groups P-256:P-256:P-384` → «Call to SSL_CONF_cmd
+failed»); OpenSSL 1.0.2u (OpenIndiana) без `-groups`/`-naccept`, с `-curves` у s_client и
+`-named_curve` у s_server; LibreSSL (OpenBSD 4.3, DragonFly 3.6.1) с `-accept` только портом,
+а на DragonFly без адреса слушает лишь tcp6. Решение - щупы способностей (`toolkit_t inspect()`),
+все по справке и поведению, не по номеру издания: `listed(prog, key)` = `openssl <prog> -help |
+grep -q '[-]key'` (конвейер в скобках: перенаправление `</dev/null` помощника `shell()` иначе
+достаётся grep и подменяет ему трубу), «host and port» в справке s_server для вида `-accept
+host:port`, `genpkey -algorithm X25519` для кривой, `offered()` - живое приветствие s_client
+принимается своим слушающим сокетом и разбирается `hello::parse` в поисках 0x0017. Перечень групп
+без повторов (`roster`), ключ групп по способности (`-groups` → `-curves` → `-named_curve`),
+`-accept 127.0.0.1:ПОРТ` где принимается, `dial()` пробует 127.0.0.1 и затем `::1`, `-naccept 1`
+только при наличии, X25519 пропускается вслух без поддержки.
+
+Намеренное: расширенный главный секрет обязателен (см. выше), потому обмен с openssl, чей
+s_client не предлагает 0x0017, пропускается `GTEST_SKIP` с причиной - это OpenSSL 1.0.2u и весь
+LibreSSL (дамп ClientHello LibreSSL 4.3: расширения 000b, 0023, 000a, 000d). Прочие 22-23
+проверки набора на этих стендах идут.
+
+| Стенд | openssl | Итог tls12 | Пропуски |
+|---|---|---|---|
+| FreeBSD 14 | OpenSSL 3.0.13 | 25/25, полный ctest 57/57 | - |
+| Solaris 11.4 | OpenSSL 3.0.18 | 24/24 без Starved | - |
+| OpenIndiana | OpenSSL 1.0.2u | 22/22 без Starved | Openssl, Renegotiation - нет EMS |
+| OpenBSD | LibreSSL 4.3.0 | 23/25, полный ctest 57/57 | Openssl, Renegotiation - нет EMS |
+| DragonFly | LibreSSL 3.6.1 | 22/22 без Starved | Openssl, Renegotiation - нет EMS |
+| Astra | OpenSSL 3.4.0 | 24/24 без Starved | - |
+| macOS | OpenSSL 3.6.3 | 25/25, полный ctest 57/57 | - |
+
+«Без Starved» - `--gtest_filter=-Tls12Test.Starved`: на стендах с libstdc++ `Starved` обрывает
+процесс abort'ом из-за дефекта движка (ниже), и это же валит `ContextTest.Starved`,
+`ClassicTest.Starved`, `CompressTest.Starved`, `OcspTest.Starved` - те самые «четыре набора после
+tls12» из тура; состояние после `Tls12Test.*` ни при чём (после tls12 нет ни процессов openssl,
+ни занятых портов; на FreeBSD и OpenBSD полный последовательный ctest зелёный).
+
+Дефект движка (не чинился, задача только в tests/): `Engine::agree` (engine.cpp:1681) и через
+него `Engine::derive` (:1722) зовут `curve::parameters(extension::curve(group), curve)` -
+`extension::curve()` отдаёт `const char *`, а `curve::parameters(const string &, …)` строит
+временную строку OID длиной 19 байт («1.2.840.10045.3.1.7», «1.2.643.7.1.2.1.2.3»): под libstdc++
+(SSO 15) это выделение на куче в noexcept-пути без перехвата, под нехваткой памяти -
+`bad_alloc` → `terminate`; libc++ (SSO 22) его прячет. Лечение - перегрузка по `const char *`
+либо перехват по образцу `asn1::oid`.
+
+Дефект движка, вскрытый туром со снимком 1.2 и найденный агентом переносимости: в
+`Engine::agree` и `derive` вызов `curve::parameters(extension::curve(group), …)` строил
+временную строку из OID в 19 байт под `noexcept` вне `try` - на libstdc++ это бросок
+`bad_alloc` под нехваткой памяти, и на всех стендах с libstdc++ после `tls12` валились
+`Starved` пяти наборов (context, classic, tls12, compress, ocsp). Лечение системное:
+перегрузка `curve::parameters(const char *, curve_t &)` без построения строки, строковая
+делегирует ей.
+
+### Тур 21 по десяти стендам на полном снимке (05.09.2026)
+
+OCSP, DTLS 1.3 после аудита, TLS 1.2 после аудита, векторы шести изданий openssl,
+перегрузки без временных строк: FreeBSD, Astra, Solaris, OpenIndiana, NetBSD, OpenBSD,
+Alpine, Debian, DragonFly, OpenWRT - 57 из 57 на каждом, сборка без предупреждений.
+Снимок передан Григорию на приёмку семью щупами и на прогон голодания под libstdc++.
+
+Приёмка снимка tour21 Григорием (05.09.2026): девять систем чисто, семь щупов без
+расхождений, обмен TLS 1.2 с настоящим openssl на всех изданиях; охота на голодание
+под libstdc++ (Astra, Debian, OpenWRT) дала один дефект - `src/x509/x509.cpp`,
+помощник `shorten()`: статическая таблица со строковым полем `string name`
+заполнялась литералами при первом вызове внутри `noexcept`; на OpenWRT с прежним
+устройством строк выделяет даже «CN», и `X509Test.Starved` падал на запасе 0.
+Лечение: поле `const char *`, таблица памяти не просит. Четвёртый случай класса
+«скрытое выделение под noexcept»; новый вид - не параметр, а строковое поле статической
+таблицы. Иных статических таблиц со строковыми полями в дереве нет (проверено grep).
+Снимок tour21b принят Григорием полностью (05.09.2026): охота на голодание чиста на
+Astra, Debian и OpenWRT (31 проверка, `X509Test.Starved` на OpenWRT OK), 57 из 57 на
+девяти системах, семь щупов без расхождений; приёмка OCSP, DTLS 1.3, TLS 1.2 и «отказ
+памяти вместо падения» записана в NTS-MIGRATION.md.
+
+
+## Связь поверх дейтаграмм DTLS 1.2 (05.09.2026)
+
+Четвёртое сочетание того же движка `internal::engine_t`: рукопожатие издания 1.2 (ступень
+`phase_t`, PRF, EMS, ECDHE, AEAD - всё, что у TLS 1.2 записями) поверх переноса дейтаграммами
+`flight_t` по RFC 6347. Отдельного способа переноса нет: `transport_t::DATAGRAMS` ведёт оба
+издания, а выбирают его пределы `versions(lowest, highest)` - 0x0303 отвечает DTLS 1.2
+(на проводе 0xFEFD), 0x0304 - DTLS 1.3 (на проводе 0xFEFC), умолчание 1.2…1.3; `version()`
+отдаёт те же коды TLS 0x0303/0x0304 - шкала изданий едина на любом переносе, а проводные
+0xFEFD/0xFEFC наружу не показываются нигде (договорной долг с Григорием 06.09.2026, закрыт
+правкой по аудиту 06.09.2026; проверки утверждают проводные издания лишь по байтам записей).
+Заслон «DATAGRAMS только 1.3» снят: клиент шлёт `legacy_version` 0xFEFD и
+`supported_versions` [0xFEFC, 0xFEFD] по пределу и наборам, сервер выбирает высшее общее, чужой
+сервер 1.2 отвечает ServerHello 0xFEFD без расширения издания. У переноса появился признак
+`legacy`: открытые заголовки всех записей, защита наборами 1.2 с порой и номером в связанных
+данных, смена набора в залпе, сервер без состояния, последний залп без часов; у DTLS 1.3
+ничего не изменилось, кроме поля `legacy_cookie` в приветствии клиента (раздел 5.3 RFC 9147
+требовало его всегда, прежде оно не писалось - обмена с чужой реализацией DTLS 1.3 не было).
+
+| Пункт RFC 6347 | Требование | Где | Проверка |
+| --- | --- | --- | --- |
+| §4.1 | заголовок type(1) version(2) epoch(2) sequence(6) length(2) у всех записей, и защищённых тоже; издание 0xFEFD; пора 0 до смены набора, 1 за нею; записи одной дейтаграммы - одной поры | `datagram::parse`/`build` с признаком `legacy` (рядом с заголовком DTLS 1.3), `flight.cpp`: `shield`, `uncover`, `carve` | `Dtls12Test.Loopback` (заголовки первого приветствия и прикладных данных первой поры), `Contract` (номера нулевой поры растут, первая пора лишь за сменой), `Counterfeit` (последний залп: смена нулевой порой и завершение первой - двумя дейтаграммами), `VectorFinished` (0xFEFD в заголовках openssl) |
+| §4.1 | издание в заголовке: 0xFEFD принимается, 0xFEFF - лишь у открытой записи рукопожатия (первое приветствие и просьба чужих узлов), иное отбрасывается молча `VERSION` до снятия защиты; издание входит в связанные данные как есть | `datagram::parse(…, legacy)`, `uncover`, `protect::unwrap(sequence, version, …)` | `Replay` (0x0303 → `VERSION`, 0xFEFF на защищённой записи → `VERSION`, порча не растёт), `VectorClient` (запись просьбы openssl с 0xFEFF), `ProtectTest.Datagram` |
+| §4.1.2.1 | AEAD по RFC 5288/7905 с seq_num = epoch‖sequence в связанных данных и явной части; порча - молчаливый отброс без извещения | `protect::wrap`/`unwrap` с номером и изданием, `uncover` | `ProtectTest.Datagram` (иная пора, номер, издание, вид - `TAG`; счётчик связи не движется; явная часть несёт номер), `Counterfeit` (завершение сложено снаружи номером 1‖0), `Replay` (`DAMAGE` без извещения и обрыва), `VectorFinished` (завершения шести изданий openssl вскрыты нашей защитой) |
+| §4.1.2.6 | окно повторов на 64 записи у каждой поры; окно нулевой поры чтения сервера ведётся лишь по подтверждению адреса меткой - тогда в него ложатся запись приветствия и всё перед нею | `datagram::window_t` в `uncover` и открытой ветви `receive`, `Flight::verified` | `Replay` (`REPLAY` на повторе данных), `Reorder` (повторы всякой дейтаграммы), `Loss`, `Unverified` (повтор принятого приветствия - `REPLAY`, повтор просьбы у клиента - `REPLAY`), `DtlsTest.Discard`/`Cookie` (окно до метки не ведётся) |
+| §4.1.2.7 | запись неведомой поры - молчаливый отброс `EPOCH`; запись первой поры до смены набора откладывается (завершение приходит одной дейтаграммой со сменой, как у openssl) - но не у сервера без состояния | `uncover`, `pending` | `Replay` (пора 2 → `EPOCH`), `Change` (залп клиента в обратном порядке), `Reorder`, `Openssl` (CCS и Finished openssl в одной дейтаграмме), `Unverified` (запись первой поры до метки - `EPOCH`) |
+| §4.1.2.7, §4.2.1 | до подтверждения адреса негодное приветствие (усечённое, порченое, без нулевого сжатия, с негодным расширением) отбрасывается молча `GREETING` без извещения и без смены состояния; заголовок приветствия с изданием не DTLS либо старше 1.2 (0x0303, 0xFEFF, 0x0000) - `protocol_version` | `Engine::dismissing`, `incoming` (`declared` с нижней границей) | `Unverified` (четыре негодных приветствия → `GREETING`, ни одной дейтаграммы наружу, затем настоящее → просьба; три издания заголовка → `protocol_version`) |
+| §4.2.1 | HelloVerifyRequest: сервер без состояния на первое приветствие; издание в просьбе 0xFEFF; cookie ≤ 255; просьба короче наименьшего приветствия (61 < 69 байтов): метка издания 1.2 - поколение и HMAC, 33 байта; клиент повторяет приветствие с тем же random и session_id и cookie дословно, издание не судит; приветствие без cookie - просьба вновь, с негодной - отброс; до метки приветствие принимается лишь целиком одним куском, сборок и отложенных записей не заводится | `Engine::querying`, `queried`, `incoming`, `Flight::token`, `verify(label, message)`, `attest`, `stateless` | `Loopback`, `Contract` (0xFEFF, ≤ 255, тот же random/session_id, повтор длиннее), `Amplification` (просьба 61 байт на наименьшее приветствие в 69, метка 33, порченая/чужого поколения/длины 1.3 - `COOKIE`), `Stateless` (сто приветствий с разных адресов без залпа и часов, повтор первого - просьба вновь, порченая и чужого адреса - `COOKIE`, сосед с тем же секретом признаёт), `Unverified` (сто дроблёных и чужих кусков - `GREETING` без ответа), `VectorServer` (просьба на записанное приветствие шести изданий, чужая cookie openssl отброшена), `VectorClient` (cookie openssl в 20 октетов, издание 0xFEFF, повтор дословно), `Versions` (просьба серверу - `unexpected_message`, пустая cookie принимается, повторные просьбы клиенту - до трёх), `Openssl` (s_server -listen и s_client) |
+| §4.2.1 | повторная просьба о подтверждении адреса (сервер сменил секрет метки) принимается клиентом: переписка и метка заново, приветствие номером один вновь; не более `QUERIES` (3) за рукопожатие, сверх того - `unexpected_message` | `Engine::queried` (`_queries`), `Flight::fragments`/`deliver` (просьба номером 0 при ожидаемой 1), `outgoing(1)` | `Versions` (три просьбы с разными метками принимаются, метка повторяется последняя, четвёртая - `unexpected_message`) |
+| §4.2.1 | HelloVerifyRequest и первое приветствие в переписку не входят | `queried` (переписка заново), `querying` (без переписки), `welcome` (переписка с повторного приветствия) | `Counterfeit` (независимый расчёт PRF: без них сходится, с ними - ключи не сходятся), `VectorFinished` и `VectorClient` (шесть изданий openssl: без них сходится, с ними - нет) |
+| §4.2.2 | message_seq: просьба 0, повторное приветствие 1, приветствие сервера 1 | `Flight::stateless` (нумерация с единицы), `deliver` | `Loopback`, `Counterfeit`, `VectorServer`, `VectorClient` |
+| §4.2.3 | обвязка куска: message_seq, fragment_offset, fragment_length; сборка и дробление под MTU | общие с DTLS 1.3: `carve`, `fragments`, `deliver`; пустое сообщение (ServerHelloDone) уходит единственным пустым куском | `Mtu` (300, цепочка RSA раздроблена, данные 5000 байтов), `Reorder`, `Openssl` (-mtu 300 у обеих подкоманд), `VectorClient` (цепочка openssl из кусков по 228) |
+| §4.2.4 | порядок залпов; повтор всего залпа по часам; залп подтверждается лишь следующим залпом; последний залп сервера повторяется лишь по повтору ЗАЩИЩЁННОГО завершения клиента и часов не ждёт - открытый кусок с прежним номером за ключами чтения отбрасывается `PLAIN`; смена набора - запись в залпе | `Flight::emit` (CHANGE в залп), `dispatch`, `conclude`, `fragments` (открытый кусок за ключами), `Engine::legacy`, `receive` | `Loss` (всякая третья/четвёртая, ряд, первый залп целиком, потеря последнего залпа сервера: повтор открытого обмена ключами - `PLAIN`, повтор залпа по завершению), `Reorder` (поздний открытый повтор - `PLAIN`), `Loopback` (часы сервера ноль по установлении), `Contract` |
+| §4.2.4 | смена набора не в свой черёд - `unexpected_message`; обогнавшая сообщения своего залпа у сервера ждёт черёда | `Engine::receive` (CHANGE), `switched` | `Change` (у клиента до цепочки - обрыв, негодное тело - обрыв, у сервера до издания - `TYPE`, залп в обратном порядке сходится) |
+| §4.2.6 | переписка по сообщениям в обвязке DTLS без учёта дробления; один путь переписки для своих и принятых сообщений | `Engine::chronicle` (reframe → хеш → переписка подряд; `send` зовёт его же), `greeted` (хеш заново из накопленного) | `Counterfeit` (обвязка TLS не сходится), `VectorFinished` (обвязка TLS не сходится; openssl дробит и завершение), `VectorClient` (CertificateVerify openssl над обвязкой DTLS) |
+| §4.2.4, §4.2.4.1 | часы: 1 с с удвоением до 60 с, `DATAGRAM_ATTEMPTS`, `timeout()`/`elapsed()` наружу | общие с DTLS 1.3 | `Loss`, `Loopback`, `Openssl` (часы ведёт проверка по `timeout()`) |
+| RFC 5246 §7.2.2, RFC 5746 | `no_renegotiation` предупреждением, `close_notify`, `EXHAUSTED` по пределу AES-GCM либо порогу `renewal` | общие с TLS 1.2: `legacy`, `declining`, `write` (предел по `sequence(false)` переноса) | `Loopback` (закрытие), `Exhausted` (порог 3 поверх дейтаграмм: close_notify первой порой и `EXHAUSTED`, собеседник читает отправленное до порога и закрывается), `Tls12Test` (те же пути) |
+| не поддерживается | возобновление и билеты (NewSessionTicket - `unexpected_message`, `issue` - `STATE`), SRTP (`use_srtp` не предлагается и не признаётся), CID (RFC 9146), пересогласование, сжатие кроме нулевого, CBC и ГОСТ поверх дейтаграмм | `legacy`, `issue`, `start` | `Loopback` (`update`/`issue` → `STATE`), `Contract` (билетов нет), `VectorFinished` (билет openssl s_client в переписке завершения сервера - по букве, наш клиент его не просит) |
+| согласование издания | пределы 0x0303/0x0304 поверх дейтаграмм и те же коды у `version()`; «только 1.3» отвергает 1.2 `protocol_version`; «только 1.2» принимается; 1.2…1.3 с наборами обоих изданий сходится на 1.3; издание предлагается лишь при наличии его наборов | `greeting`, `incoming`, `greeted`, `elder`, `start`, `version` | `Versions` (0x0304 и 0x0303 у `version()`), `Contract`, `Loopback`, `DtlsTest.Loopback` (наборов 1.2 нет - одно издание 1.3; `version()` 0x0304) |
+| RFC 8446 §4.1.3 | заслон понижения в DTLS 1.2: сервер 1.2…1.3 кладёт DOWNGRD\x01 в хвост random приветствия, клиент 1.2…1.3 на нём обрывается `illegal_parameter`, клиент «только 1.2» его не судит | `welcome`, `greeted` | `Downgrade` (по байтам ServerHello; подделанное приветствие сервера с хвостом - обрыв, без хвоста - рукопожатие идёт) |
+| обмен с чужой реализацией | openssl 3.6 по UDP в обе стороны, шесть наборов, три группы, взаимная подлинность, -mtu 300; векторы шести изданий 3.0.15…3.5.7 | - | `Openssl`, `VectorServer`, `VectorClient`, `VectorFinished` |
+| нехватка памяти | всякий путь отвечает `MEMORY` либо внутренним извещением | перехваты `bad_alloc` на новых путях | `Starved`, `HelloTest.Starved`, `DtlsTest.Starved` |
+
+### Намеренные решения DTLS 1.2
+
+1. **Издание в HelloVerifyRequest - 0xFEFF** по букве раздела 4.2.1 («SHOULD use DTLS
+   version 1.0»); так же у всех шести изданий openssl. Клиент издание в просьбе не судит
+   (MUST раздела 4.2.1), а cookie принимает любой длины до 255 байтов - у openssl она в 20
+   октетов, у нас в 65 (поколение, хеш приветствия, HMAC-SHA256).
+2. **Просьба принимается всегда**, и от сервера без `-listen` тоже: openssl шлёт её
+   безусловно; второй просьбе за рукопожатие - `unexpected_message`.
+3. **Метка проверяется без состояния**: хеш считается заново по повторённому приветствию
+   без cookie и покрывается имитовставкой, а сервер держит лишь секрет поколения и адрес;
+   оттого метку признаёт и соседний сервер с тем же секретом (`Stateless`), а «стороннее»
+   приветствие с чужой cookie (векторы openssl) законно отвергается. Метка издания 1.2
+   короткая - поколение и HMAC, 33 байта: просьба (61 байт) короче наименьшего приветствия
+   (69), усиления нет; метка издания 1.3 (65 байтов, с хешем) не тронута, и составление
+   метки 1.2 (`token`) состояния не оставляет. Приветствие с негодной cookie отбрасывается
+   молча, как у DTLS 1.3 (извещение неподтверждённому адресу - усиление чужого потока);
+   повтор первого приветствия отвечается просьбой вновь. До принятой метки сервер не держит
+   ни залпа, ни часов, ни окна повторов нулевой поры, ни сборок, ни отложенных записей:
+   приветствие принимается лишь целиком одним куском (как у `DTLSv1_listen`), дроблёное,
+   чужой кусок, усечённое и порченое отбрасываются молча `GREETING`, запись первой поры -
+   `EPOCH`; сто приветствий с разных адресов и сто чужих кусков не заводят ничего. По
+   принятой метке запись приветствия и всё перед нею ложатся в окно нулевой поры.
+3а. **Повторная просьба о подтверждении адреса принимается, но не более трёх**: сервер,
+   сменивший секрет метки (`restamp`) либо соседний сервер с иным секретом, вправе спросить
+   заново - клиент начинает переписку и метку заново и шлёт приветствие номером один вновь;
+   зацикливание обрывается счётчиком `QUERIES` = 3 извещением `unexpected_message`. Просьба
+   сервера без состояния всегда идёт номером сообщения ноль, и перенос выдаёт её клиенту как
+   ожидаемую при ожидаемой единице.
+4. **Последний залп сервера часов не ждёт** (раздел 4.2.4): повторяется лишь по повтору
+   ЗАЩИЩЁННОГО (первой поры) завершения клиента, а сбрасывается первыми прикладными данными
+   от него. Открытый кусок с прежним номером за появлением ключей чтения у издания 1.2
+   отбрасывается `PLAIN`, а не повторяет залп: подделать его нечем, а повтор по нему был бы
+   усилением. Цена: под потерями повтор залпа ждёт именно завершения клиента, и ряд потерь
+   с зерном 12345 в `Loss` перестал сходиться за восемь попыток - зерно сменено на
+   сходящееся (29), ряд по-прежнему роняет половину дейтаграмм. У издания 1.3 открытый
+   повтор разобранного остаётся повтором (решение 1 переноса).
+5. **Смена набора шифрования, обогнавшая сообщения своего залпа**, у сервера ждёт черёда
+   (при потерях и перестановке она приходит раньше цепочки клиента - запись без номера
+   сообщения); у клиента и в прочих ступенях она не в свой черёд - `unexpected_message`.
+   Повтор смены за принятой пропускается (повтор залпа собеседника).
+6. **Записи разных пор в одну дейтаграмму не пакуются** - потому смена набора и завершение
+   уходят двумя дейтаграммами; чужие узлы (openssl) кладут их в одну, и такая дейтаграмма
+   принимается: завершение первой поры откладывается до смены и разбирается той же подачей.
+7. **Поля `legacy_cookie` приветствия клиента** (раздел 4.2.1 RFC 6347, раздел 5.3 RFC 9147)
+   пишется и читается перегрузками `hello::parse`/`build` с признаком дейтаграмм; у DTLS 1.3
+   оно обязано быть пустым - иное `illegal_parameter`.
+8. **Без возобновления, билетов, SRTP, CID и пересогласования**: как у TLS 1.2 записями;
+   AWH их не требует.
+9. **Издание заголовка приветствия судится всегда** (раздел 4.1 RFC 6347, раздел 5.3
+   RFC 9147): поверх дейтаграмм оно обязано быть изданием DTLS не старше 1.2 (0xFEFD либо
+   0xFEFC) - 0xFEFF (DTLS 1.0), 0x0303 и 0x0000 обрывают связь `protocol_version`, и с
+   перечнем изданий тоже; ниже 1.2 связь не опускается никогда.
+10. **0xFEFF в заголовке записи дозволено лишь открытой записи рукопожатия**: у защищённой
+   записи оно - `VERSION` до снятия защиты, а не `DAMAGE` после.
+11. **Проверка обмена с openssl без пауз по времени**: вход `s_server` держится именованным
+   каналом до снятия сервера сторожем по номеру процесса, `s_client` идёт с `-ign_eof` и
+   уходит по `close_notify` нашего сервера; ожидания - по состоянию журнала, срок лишь у
+   сторожа.
+
+### Мутации (05.09.2026)
+
+| Мутация | Ловит |
+| --- | --- |
+| снять проверку cookie (`verify(label, message)` не зовётся) | `Contract`, `Stateless`, `VectorServer` |
+| снять окно повторов первой поры (`window.stale` в `uncover`) | `Contract`, `Stateless`, `VectorServer`, `Reorder`, `Replay` |
+| включить HelloVerifyRequest в переписку сервера (`chronicle` в `querying`) | `Contract`, `Loopback`, `Stateless`, `Counterfeit`, `Loss`, `Reorder`, `Mtu`, `Replay`, `Change`, `Versions`, `Starved` |
+| снять повышение поры на смену набора (`adopt` в `switched`) | `Contract`, `Loopback`, `Stateless`, `Counterfeit`, `Loss`, `Reorder`, `Mtu`, `Replay`, `Change`, `Versions`, `Starved` |
+| снять сверку Finished (`message::compare` в `finished`) | `Counterfeit` |
+| сервер без состояния держит залп просьбы (`dispatch` не сбрасывает) | `Contract`, `Stateless`, `VectorServer`, `Loopback`, `Counterfeit`, `Reorder` |
+| издание просьбы 0xFEFD вместо 0xFEFF | `Contract`, `Stateless`, `VectorServer`, `Loopback`, `Reorder` |
+
+### Правки по аудиту DTLS 1.2 (06.09.2026) и их мутации
+
+Аудит 05.09.2026 нашёл двенадцать дефектов и пять требований устройства; все закрыты правкой
+06.09.2026, каждый заслон закреплён проверкой, и каждая мутация ниже прогнана по копии дерева
+(мутация → сборка → `dtls12` и `dtls` без `Openssl`/`Starved` → возврат исходника).
+
+| Мутация (что снято) | Ловит |
+| --- | --- |
+| порченый CH1 отвечается извещением (`dismissing` → `abort`) | `Unverified` |
+| метка издания 1.2 длинная: с хешем приветствия (65 байтов) | `Amplification`, `Contract`, `Loopback`, `Stateless`, `Counterfeit`, `Loss`, `Reorder`, `Mtu`, `Replay`, `Change`, `Versions`, `VectorServer`, `Unverified` |
+| дроблёное приветствие принимается при `_stateless` (сборка заводится) | `Unverified` |
+| `declared` без нижней границы (0x0303 и 0xFEFF в заголовке приветствия проходят) | `Unverified` |
+| запись приветствия не ложится в окно по принятой метке | `Unverified`, `DtlsTest.Discard`, `DtlsTest.Cookie` |
+| открытый кусок с прежним номером за ключами чтения повторяет залп (снят отброс `PLAIN`) | `Loss`, `Reorder` |
+| 0xFEFF в заголовке защищённой записи принимается (отброс не `VERSION`, а `DAMAGE`) | `Replay` |
+| вторая просьба о подтверждении адреса отвергается (`QUERIES` = 1) | `Versions`, `Reorder` |
+| заслон понижения не кладётся сервером 1.2…1.3 | `Downgrade` |
+| окно нулевой поры чтения ведётся до подтверждения адреса (отметка без `verified`) | `Unverified` (мусор с номерами 0…3 до первого приветствия занимал окно, настоящее приветствие номером 0 отбрасывалось `REPLAY`) |
+| `version()` отдаёт проводное издание по перечню изданий (`_version = chosen`) | `Versions`, `DtlsTest.Loopback` |
+| `version()` отдаёт проводное издание у ответа изданием 1.2 (`_version = elder()`) | `Contract`, `Loopback`, `VectorServer`, `Versions` |
+
+Устройство: у `flight_t` признак `legacy` переключает разбор и составление заголовков
+(перегрузки `datagram::parse`/`build` с признаком `legacy` - заголовок издания 1.2 лежит в
+публичном модуле рядом с заголовком 1.3, поле `header_t::version` несёт проводное издание,
+отказ `datagram::error_t::VERSION`), защиту (`protect::wrap`/`unwrap` с номером
+epoch‖sequence и изданием) и снимает подтверждения; `dispatch_t::change` несёт запись смены
+набора в залпе; `stateless` сбрасывает залп просьбы по раскладке и принимает приветствие
+номером 0 либо 1 лишь целиком; `verified` ведёт окно нулевой поры чтения лишь по
+подтверждению адреса; `conclude` глушит часы последнего залпа; `token`/`attest`/`imprint` -
+короткая метка 1.2 и общая сверка имитовставки с меткой 1.3 (`stamp`/`verify`);
+`refresh(era_t &)`/`purge()` - общий сброс поры и чистка открытых сборок у обоих `adopt`;
+`overhead(epoch)` - накладные байты записи в одном месте для `carve` и `emit`;
+`outgoing(sequence)` - номер приветствия по повторной просьбе. Ключ `sn` у `era_t` изданию
+1.2 не нужен (оговорено в doxygen), окно повторов - общее. Движок: `elder()` (проводное
+издание 1.2 по переносу), `_version` - единая шкала (LEGACY/MODERN), `dismissing` (молчаливый
+отброс до подтверждения адреса, `_confirmed`), `querying`/`queried` (просьба, счётчик
+`_queries` до `QUERIES`), `chronicle`/`reframe` (единственный путь переписки: `send` зовёт
+`chronicle`), `switched` (пора чтения по смене набора), ключи сторон хранятся в
+`_key`/`_vector` до смен набора. Публичные заголовки: `record::version_t::DTLS12`/`DTLS10`,
+`handshake::type_t::VERIFY_REQUEST`, `hello::client_t::cookie` с перегрузками
+`parse`/`build`, `protect::prefix`, `protect::protection_t::wrap`/`unwrap` с номером,
+`protect::protection_t::seal` без умолчания дополнения (довод явный у всех вызовов),
+`datagram::reason_t::VERSION`/`GREETING`, `datagram::parse`/`build` с признаком `legacy`.
+
+Не сделано (намеренно, см. выше): возобновление, SRTP, CID, пересогласование, дозирование
+залпа; записи разных пор в одну дейтаграмму не пакуются (принимаются).
+
+### Тур 22 по десяти стендам на снимке DTLS 1.2 до правки по аудиту (06.09.2026)
+
+Девять стендов - 58 из 58; Solaris - один отказ `Dtls12Test.Openssl`: `/bin/sh` там ksh93,
+и строка `system()`, начинавшаяся с `((`, читалась как арифметика. Вылечено в помощнике
+`launch()` (`( (cmd &) …) &`), проверено на стенде. Тур 23 идёт на слитом снимке.

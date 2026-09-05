@@ -3240,6 +3240,50 @@ TEST(ContextTest, Unheard){
 }
 
 /**
+ * Проверка заслона просьбы о пересогласовании HelloRequest изданием 1.3: вид ноль изданию
+ * 1.3 неведом (раздел 4 RFC 8446), и клиент «только 1.3» до приветствия сервера, как и
+ * сервер до приветствия клиента, обрывают связь извещением unexpected_message
+ */
+TEST(ContextTest, Unsolicited){
+	// Подлинность стороны сервера
+	context::credential_t credentials;
+	// Выполняем выработку подлинности стороны сервера
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Запись просьбы о пересогласовании
+	vector <uint8_t> wire;
+	// Составляем открытую запись просьбы с пустым телом
+	ASSERT_TRUE(sole(handshake::type_t::HELLO_REQUEST, view_t(nullptr, 0), wire));
+	{
+		// Связь стороны клиента
+		client::context_t client;
+		// Клиент ведёт лишь издание 1.3
+		ASSERT_EQ(client.versions(0x0304, 0x0304), context::error_t::NONE);
+		// Выполняем заведение связи стороны клиента
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		// Выполняем подачу просьбы клиенту
+		ASSERT_EQ(client.push(view_t(wire.data(), wire.size())), context::error_t::ORDER);
+		// Проверяем извещение, которым связь оборвана
+		ASSERT_EQ(client.alert().description, alert::description_t::UNEXPECTED);
+		// Проверяем неустановленность связи
+		ASSERT_FALSE(client.established());
+	}
+	{
+		// Связь стороны сервера
+		server::context_t server;
+		// Устанавливаем подлинность стороны сервера
+		server.credential(credentials);
+		// Выполняем заведение связи стороны сервера
+		ASSERT_EQ(server.start(), context::error_t::NONE);
+		// Выполняем подачу просьбы серверу: просьбу шлёт лишь сервер
+		ASSERT_EQ(server.push(view_t(wire.data(), wire.size())), context::error_t::ORDER);
+		// Проверяем извещение, которым связь оборвана
+		ASSERT_EQ(server.alert().description, alert::description_t::UNEXPECTED);
+		// Проверяем неустановленность связи
+		ASSERT_FALSE(server.established());
+	}
+}
+
+/**
  * Проверка заслона приветствия сервера без издания протокола
  */
 TEST(ContextTest, Speechless){

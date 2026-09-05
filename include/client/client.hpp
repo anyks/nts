@@ -327,7 +327,7 @@ namespace nts {
 				 * \~russian
 				 * @brief Метод установки пределов издания протокола
 				 *
-				 * @param lowest  наименьшее дозволенное издание: 0x0303 (TLS 1.2) либо 0x0304 (TLS 1.3)
+				 * @param lowest  наименьшее дозволенное издание: 0x0303 (издание 1.2) либо 0x0304 (издание 1.3)
 				 * @param highest наибольшее дозволенное издание: 0x0303 либо 0x0304
 				 *
 				 * @return        отказ установки: SETTINGS у издания ниже TLS 1.2 либо перевёрнутых
@@ -339,8 +339,10 @@ namespace nts {
 				 *          TLS 1.2. Умолчание - от 1.2 до 1.3; режим «только 1.3» - оба предела
 				 *          0x0304; ниже 1.2 связь не опускается никогда
 				 *
-				 * @note Издание TLS 1.2 ведётся лишь переносом записями: под QUIC и поверх
-				 *       дейтаграмм связь знает одно издание 1.3
+				 * @note Издания задаются и отдаются кодами TLS 0x0303/0x0304 на любом переносе; на
+				 *       проводе DTLS они ложатся как 0xFEFD/0xFEFC. Поверх дейтаграмм 0x0303 отвечает
+				 *       DTLS 1.2 (RFC 6347), 0x0304 - DTLS 1.3 (RFC 9147); под QUIC связь знает одно
+				 *       издание 1.3
 				 *
 				 * \~english
 				 * @brief Method of setting the limits of the edition of the protocol
@@ -353,8 +355,10 @@ namespace nts {
 				 *          a foreign side without the extension conducts the connection by the edition of the header
 				 *          of the greeting - TLS 1.2. The default is from 1.2 to 1.3; the «1.3 only» mode - both
 				 *          limits 0x0304; the connection never goes below 1.2
-				 * @note The TLS 1.2 edition is conducted only by the transport by records: under QUIC and over
-				 *       datagrams the connection knows the 1.3 edition alone
+				 * @note The editions are set and returned by the TLS codes 0x0303/0x0304 on any transport; on the
+				 *       DTLS wire they are laid as 0xFEFD/0xFEFC. Over datagrams 0x0303 stands for DTLS 1.2
+				 *       (RFC 6347), 0x0304 - for DTLS 1.3 (RFC 9147); under QUIC the connection knows the 1.3
+				 *       edition alone
 				 *
 				 * \~
 				 */
@@ -389,11 +393,18 @@ namespace nts {
 				 * \~russian
 				 * @brief Метод получения издания протокола, согласованного сторонами
 				 *
-				 * @return 0x0304 у TLS 1.3, 0x0303 у TLS 1.2, 0xFEFC у DTLS 1.3, ноль до согласования
+				 * @return 0x0304 у издания 1.3, 0x0303 у издания 1.2, ноль до согласования
+				 *
+				 * @note Издания задаются и отдаются кодами TLS 0x0303/0x0304 на любом переносе; на
+				 *       проводе DTLS они ложатся как 0xFEFD/0xFEFC. Проводное издание наружу не
+				 *       показывается: 0x0303 поверх дейтаграмм означает DTLS 1.2, 0x0304 - DTLS 1.3
 				 *
 				 * \~english
 				 * @brief Method of getting the edition of the protocol agreed by the sides
-				 * @return 0x0304 at TLS 1.3, 0x0303 at TLS 1.2, 0xFEFC at DTLS 1.3, a zero before the agreement
+				 * @return 0x0304 at the 1.3 edition, 0x0303 at the 1.2 edition, a zero before the agreement
+				 * @note The editions are set and returned by the TLS codes 0x0303/0x0304 on any transport; on the
+				 *       DTLS wire they are laid as 0xFEFD/0xFEFC. The wire edition is not shown outside: 0x0303
+				 *       over datagrams means DTLS 1.2, 0x0304 - DTLS 1.3
 				 *
 				 * \~
 				 */

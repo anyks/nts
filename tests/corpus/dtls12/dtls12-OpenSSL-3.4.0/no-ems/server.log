@@ -1,0 +1,29 @@
+Using default temp DH parameters
+ACCEPT
+-----BEGIN SSL SESSION PARAMETERS-----
+MFsCAQECAwD+/QQCwCsEAAQw0X08MtBvEuODqhXJnylEtWstKxxaLCuNofUHZb37
+jxUiZ0dMJHxOIfGzI/v1dkDdoQYCBGqcQYiiBAICHCCkBgQEAQAAALMDAgEd
+-----END SSL SESSION PARAMETERS-----
+Shared ciphers:ECDHE-ECDSA-AES128-GCM-SHA256
+Signature Algorithms: ECDSA+SHA256:ECDSA+SHA384:ECDSA+SHA512:Ed25519:Ed448:ECDSA+SHA256:ECDSA+SHA384:ECDSA+SHA512:RSA-PSS+SHA256:RSA-PSS+SHA384:RSA-PSS+SHA512:RSA-PSS+SHA256:RSA-PSS+SHA384:RSA-PSS+SHA512:RSA+SHA256:RSA+SHA384:RSA+SHA512:ECDSA+SHA224:RSA+SHA224:DSA+SHA224:DSA+SHA256:DSA+SHA384:DSA+SHA512:gost2012_256+md_gost12_256:gost2012_512+md_gost12_512:gost2012_256+md_gost12_256:gost2012_512+md_gost12_512:gost2001+md_gost94
+Shared Signature Algorithms: ECDSA+SHA256:ECDSA+SHA384:ECDSA+SHA512:Ed25519:Ed448:ECDSA+SHA256:ECDSA+SHA384:ECDSA+SHA512:RSA-PSS+SHA256:RSA-PSS+SHA384:RSA-PSS+SHA512:RSA-PSS+SHA256:RSA-PSS+SHA384:RSA-PSS+SHA512:RSA+SHA256:RSA+SHA384:RSA+SHA512:ECDSA+SHA224:RSA+SHA224:DSA+SHA224:DSA+SHA256:DSA+SHA384:DSA+SHA512:gost2012_256+md_gost12_256:gost2012_512+md_gost12_512:gost2012_256+md_gost12_256:gost2012_512+md_gost12_512:gost2001+md_gost94
+Supported Elliptic Curve Point Formats: uncompressed:ansiX962_compressed_prime:ansiX962_compressed_char2
+Supported groups: x25519:secp256r1
+Shared groups: x25519:secp256r1
+CIPHER is ECDHE-ECDSA-AES128-GCM-SHA256
+Secure Renegotiation IS supported
+DONE
+shutting down SSL
+CONNECTION CLOSED
+   0 items in the session cache
+   0 client connects (SSL_connect())
+   0 client renegotiates (SSL_connect())
+   0 client connects that finished
+   1 server accepts (SSL_accept())
+   0 server renegotiates (SSL_accept())
+   1 server accepts that finished
+   0 session cache hits
+   0 session cache misses
+   0 session cache timeouts
+   0 callback cache hits
+   0 cache full overflows (128 allowed)

@@ -1001,8 +1001,10 @@ TEST(DtlsTest, Loopback){
 				ASSERT_EQ(fragment.length, fragment.size);
 				// Разобранное приветствие клиента
 				hello::client_t greeting;
-				// Разбираем приветствие клиента
-				ASSERT_EQ(hello::parse(view_t(first.data + datagram::DATAGRAM_PLAIN_HEADER + datagram::DATAGRAM_FRAGMENT_HEADER, fragment.length), greeting), hello::error_t::NONE);
+				// Разбираем приветствие клиента: поверх дейтаграмм с полем метки (раздел 5.3 RFC 9147)
+				ASSERT_EQ(hello::parse(view_t(first.data + datagram::DATAGRAM_PLAIN_HEADER + datagram::DATAGRAM_FRAGMENT_HEADER, fragment.length), greeting, true), hello::error_t::NONE);
+				// Раздел 5.3 RFC 9147: поле метки первого приветствия пусто
+				ASSERT_TRUE(greeting.cookie.empty());
 				// Раздел 5.3 RFC 9147: издание приветствия DTLS 1.2
 				ASSERT_EQ(greeting.version, datagram::DATAGRAM_LEGACY);
 				// Расширение изданий
@@ -1013,7 +1015,7 @@ TEST(DtlsTest, Loopback){
 				vector <uint16_t> editions;
 				// Разбираем перечень изданий
 				ASSERT_EQ(extension::versions(versions->data, editions), extension::error_t::NONE);
-				// Единственное издание - DTLS 1.3
+				// Единственное издание - DTLS 1.3: наборов издания 1.2 у связи нет, и DTLS 1.2 (RFC 6347) не предлагается
 				ASSERT_EQ(editions, vector <uint16_t> {datagram::DATAGRAM_VERSION});
 				// Первое приветствие без метки
 				ASSERT_EQ(hello::extension(greeting.extensions, static_cast <uint16_t> (extension::type_t::COOKIE)), nullptr);
@@ -1056,7 +1058,7 @@ TEST(DtlsTest, Loopback){
 				// Второе сообщение клиента
 				ASSERT_EQ(fragment.sequence, 1);
 				// Разбираем повторное приветствие
-				ASSERT_EQ(hello::parse(view_t(second.data + datagram::DATAGRAM_PLAIN_HEADER + datagram::DATAGRAM_FRAGMENT_HEADER, fragment.length), greeting), hello::error_t::NONE);
+				ASSERT_EQ(hello::parse(view_t(second.data + datagram::DATAGRAM_PLAIN_HEADER + datagram::DATAGRAM_FRAGMENT_HEADER, fragment.length), greeting, true), hello::error_t::NONE);
 				// Повторное приветствие несёт метку дословно
 				ASSERT_NE(hello::extension(greeting.extensions, static_cast <uint16_t> (extension::type_t::COOKIE)), nullptr);
 				// Проводим рукопожатие до тишины
@@ -1065,6 +1067,10 @@ TEST(DtlsTest, Loopback){
 				ASSERT_TRUE(client.established()) << ENTRIES[k] << " " << s << " " << g << " " << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 				// Проверяем установленность связи сервером
 				ASSERT_TRUE(server.established()) << ENTRIES[k] << " " << s << " " << g;
+				// Издание единой шкалы у клиента: 0x0304 на любом переносе, проводное 0xFEFC наружу не показывается
+				ASSERT_EQ(client.version(), static_cast <uint16_t> (0x0304));
+				// Издание единой шкалы у сервера
+				ASSERT_EQ(server.version(), static_cast <uint16_t> (0x0304));
 				// Часы обеих сторон остановлены: залпы подтверждены
 				ASSERT_EQ(client.timeout(), static_cast <uint32_t> (0));
 				// Часы сервера
@@ -1661,7 +1667,17 @@ TEST(DtlsTest, Discard){
 	ASSERT_EQ(server.push(view_t(ahead.data(), ahead.size())), context::error_t::NONE);
 	// Отброшен далёким номером
 	ASSERT_EQ(server.discarded(datagram::reason_t::AHEAD), static_cast <uint64_t> (1));
-	// Повтор той же дейтаграммы отброшен окном: номер записи уже отмечен
+	/**
+	 * Настоящее приветствие тем же номером записи, что и подделка, принимается: до
+	 * подтверждения адреса окно нулевой поры не ведётся (раздел 5.1 RFC 9147) - иначе
+	 * чужая запись с большим номером закрывала бы окном настоящее приветствие
+	 */
+	ASSERT_EQ(server.push(view_t(second.data(), second.size())), context::error_t::NONE);
+	// Сервер ответил залпом
+	ASSERT_GT(server.output().size, static_cast <size_t> (0));
+	// Окном не отброшено ничего
+	ASSERT_EQ(server.discarded(datagram::reason_t::REPLAY), static_cast <uint64_t> (0));
+	// Повтор принятого приветствия отброшен окном: по подтверждению адреса его запись отмечена
 	ASSERT_EQ(server.push(view_t(second.data(), second.size())), context::error_t::NONE);
 	// Отброшен повтором
 	ASSERT_EQ(server.discarded(datagram::reason_t::REPLAY), static_cast <uint64_t> (1));
@@ -1901,7 +1917,7 @@ TEST(DtlsTest, Refusals){
 		// Приветствие клиента
 		hello::client_t greeting;
 		// Разбираем приветствие клиента: просьба обязана повторить его опознаватель связи
-		ASSERT_EQ(hello::parse(view_t(repeated[0].data() + datagram::DATAGRAM_PLAIN_HEADER + datagram::DATAGRAM_FRAGMENT_HEADER, fragment.length), greeting), hello::error_t::NONE);
+		ASSERT_EQ(hello::parse(view_t(repeated[0].data() + datagram::DATAGRAM_PLAIN_HEADER + datagram::DATAGRAM_FRAGMENT_HEADER, fragment.length), greeting, true), hello::error_t::NONE);
 		// Просьба о повторе без метки, сложенная снаружи
 		hello::server_t retry;
 		// Издание DTLS 1.2
@@ -1958,7 +1974,9 @@ TEST(DtlsTest, Refusals){
 		// Запись TLS с приветствием
 		const view_t record = stream.output();
 		// Приветствие без заголовка записи и обвязки TLS
-		const vector <uint8_t> body(record.data + record::RECORD_HEADER + handshake::HANDSHAKE_HEADER, record.data + record.size);
+		vector <uint8_t> body(record.data + record::RECORD_HEADER + handshake::HANDSHAKE_HEADER, record.data + record.size);
+		// Раздел 5.3 RFC 9147: поверх дейтаграмм за опознавателем связи идёт пустое поле метки
+		body.insert(body.begin() + 2 + hello::HELLO_RANDOM + 1 + hello::HELLO_SESSION, 0x00);
 		// Дейтаграмма с приветствием TLS 1.3
 		const vector <uint8_t> datagram = plain(handshake::type_t::CLIENT, body, 0);
 		// Сервер поверх дейтаграмм
@@ -2656,13 +2674,23 @@ TEST(DtlsTest, Cookie){
 	ASSERT_EQ(two.output().size, static_cast <size_t> (0));
 	// Сервер не оборван
 	ASSERT_EQ(two.state(), context::state_t::HANDSHAKE);
-	// Настоящее приветствие тем же номером записи отброшено окном: подделка его заняла
+	/**
+	 * Настоящее приветствие тем же номером записи принимается: до подтверждения адреса
+	 * окно нулевой поры не ведётся, и подделка номера записи не занимает (раздел 5.1 RFC
+	 * 9147) - иначе чужая запись закрывала бы окном настоящее приветствие
+	 */
+	ASSERT_EQ(two.push(view_t(genuine.data(), genuine.size())), context::error_t::NONE);
+	// Сервер ответил залпом
+	ASSERT_GT(two.output().size, static_cast <size_t> (0));
+	// Окном не отброшено ничего
+	ASSERT_EQ(two.discarded(datagram::reason_t::REPLAY), static_cast <uint64_t> (0));
+	// Повтор принятого приветствия отброшен окном: по подтверждению адреса его запись отмечена
 	ASSERT_EQ(two.push(view_t(genuine.data(), genuine.size())), context::error_t::NONE);
 	// Отброшено повтором
 	ASSERT_EQ(two.discarded(datagram::reason_t::REPLAY), static_cast <uint64_t> (1));
 	// Клиент повторяет приветствие по часам новым номером записи
 	ASSERT_EQ(second.elapsed(), context::error_t::NONE);
-	// Повтор доходит и принимается тем же номером сообщения
+	// Повтор доходит и принимается тем же номером сообщения: сервер повторяет залп
 	ASSERT_TRUE(carry(second, two, beta, 0));
 	// Сервер ответил залпом
 	ASSERT_GT(two.output().size, static_cast <size_t> (0));

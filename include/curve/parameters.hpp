@@ -107,6 +107,31 @@ namespace nts {
 		 * \~
 		 */
 		__ANTS_SHARED_EXPORT__ bool parameters(const string & oid, curve_t & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод установки кривой по опознавателю-литералу набора параметров
+		 *
+		 * Не строит временную строку: на libstdc++ строка длиннее 15 байтов (а с прежним
+		 * устройством строк - любая) выделяет память, и под noexcept это оборачивалось броском
+		 *
+		 * @param oid    опознаватель набора параметров в записи через точку
+		 * @param result место, в которое помещается установленная кривая
+		 *
+		 * @return       признак того, что набор параметров известен и кривая установлена
+		 *
+		 * \~english
+		 * @brief Method of setting a curve by a literal identifier of a set of the parameters
+		 *
+		 * Does not build a temporary string: on libstdc++ a string longer than 15 bytes (and with the
+		 * former string layout - any string) allocates, and under noexcept that turned into a throw
+		 *
+		 * @param oid    the identifier of the set of the parameters in the notation through a dot
+		 * @param result the place the set curve is put into
+		 * @return the flag of the set of the parameters being known and the curve being set
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ bool parameters(const char * oid, curve_t & result) noexcept;
 	};
 };
 

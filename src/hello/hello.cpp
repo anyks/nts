@@ -271,6 +271,20 @@ bool nts::hello::retry(const server_t & hello) noexcept {
  *
  */
 nts::hello::error_t nts::hello::parse(const view_t & data, client_t & result) noexcept {
+	// Выводим итог разбора приветствия переноса записями: метки возврата состояния в нём нет
+	return parse(data, result, false);
+}
+/**
+ * @brief Метод разбора тела приветствия клиента с учётом переноса
+ *
+ * @param data     разбираемое тело приветствия клиента
+ * @param result   приветствие, в которое помещается итог разбора
+ * @param datagram признак приветствия поверх дейтаграмм: за опознавателем связи идёт метка возврата состояния
+ *
+ * @return         отказ разбора приветствия клиента
+ *
+ */
+nts::hello::error_t nts::hello::parse(const view_t & data, client_t & result, const bool datagram) noexcept {
 	// Объект разборщика полей тела приветствия
 	field::scanner_t scanner;
 	// Устанавливаем разбираемое тело приветствия клиента
@@ -297,6 +311,12 @@ nts::hello::error_t nts::hello::parse(const view_t & data, client_t & result) no
 	if(session.size > HELLO_SESSION)
 		// Выводим отказ недозволенной длины опознавателя связи
 		return error_t::SESSION;
+	// Метка возврата состояния приветствия поверх дейтаграмм
+	view_t cookie;
+	// Раздел 4.2.1 RFC 6347 и раздел 5.3 RFC 9147: поверх дейтаграмм за опознавателем идёт метка с однобайтовой длиной
+	if(datagram && (scanner.vector(cookie, 1) != field::error_t::NONE))
+		// Выводим отказ обрыва тела приветствия
+		return error_t::HUNGRY;
 	// Перечень предлагаемых наборов шифрования
 	view_t suites;
 	// Если перечень наборов шифрования прочитать не удалось
@@ -353,6 +373,8 @@ nts::hello::error_t nts::hello::parse(const view_t & data, client_t & result) no
 			result.suites[i] = static_cast <uint16_t> ((static_cast <uint16_t> (suites.data[i * 2]) << 8) | static_cast <uint16_t> (suites.data[(i * 2) + 1]));
 		// Устанавливаем опознаватель связи приветствия клиента
 		result.session.assign(session.data, session.data + session.size);
+		// Устанавливаем метку возврата состояния приветствия клиента: пустую у переноса записями
+		result.cookie.assign(cookie.data, cookie.data + cookie.size);
 		// Устанавливаем перечень способов сжатия приветствия клиента
 		result.methods.assign(methods.data, methods.data + methods.size);
 		// Устанавливаем перечень расширений приветствия клиента
@@ -473,10 +495,28 @@ nts::hello::error_t nts::hello::parse(const view_t & data, server_t & result) no
  *
  */
 nts::hello::error_t nts::hello::build(const client_t & hello, vector <uint8_t> & result) noexcept {
+	// Выводим итог составления приветствия переноса записями: метка возврата состояния в нём не пишется
+	return build(hello, result, false);
+}
+/**
+ * @brief Метод составления тела приветствия клиента с учётом переноса
+ *
+ * @param hello    составляемое приветствие клиента
+ * @param result   накопитель, в конец которого дописывается тело приветствия
+ * @param datagram признак приветствия поверх дейтаграмм: за опознавателем связи пишется метка возврата состояния
+ *
+ * @return         отказ составления приветствия клиента
+ *
+ */
+nts::hello::error_t nts::hello::build(const client_t & hello, vector <uint8_t> & result, const bool datagram) noexcept {
 	// Если опознаватель связи длиннее дозволенного протоколом
 	if(hello.session.size() > HELLO_SESSION)
 		// Выводим отказ недозволенной длины опознавателя связи
 		return error_t::SESSION;
+	// Раздел 4.2.1 RFC 6347: метка возврата состояния несёт однобайтовую длину
+	if(datagram && (hello.cookie.size() > HELLO_COOKIE))
+		// Выводим отказ недозволенной длины метки возврата состояния
+		return error_t::COOKIE;
 	// Если перечень предлагаемых наборов шифрования пуст
 	if(hello.suites.empty())
 		// Выводим отказ пустого перечня наборов шифрования
@@ -515,6 +555,21 @@ nts::hello::error_t nts::hello::build(const client_t & hello, vector <uint8_t> &
 		if((failure = builder.close()) != field::error_t::NONE)
 			// Выводим отказ, которым ответил составитель полей
 			return translate(failure);
+		// Если приветствие идёт поверх дейтаграмм
+		if(datagram){
+			// Открываем поле метки возврата состояния
+			if((failure = builder.open(1)) != field::error_t::NONE)
+				// Выводим отказ, которым ответил составитель полей
+				return translate(failure);
+			// Записываем метку возврата состояния: пустую у DTLS 1.3, из HelloVerifyRequest у DTLS 1.2
+			if((failure = builder.bytes(view_t(hello.cookie.data(), hello.cookie.size()))) != field::error_t::NONE)
+				// Выводим отказ, которым ответил составитель полей
+				return translate(failure);
+			// Закрываем поле метки возврата состояния
+			if((failure = builder.close()) != field::error_t::NONE)
+				// Выводим отказ, которым ответил составитель полей
+				return translate(failure);
+		}
 		// Открываем перечень предлагаемых наборов шифрования
 		if((failure = builder.open(2)) != field::error_t::NONE)
 			// Выводим отказ, которым ответил составитель полей

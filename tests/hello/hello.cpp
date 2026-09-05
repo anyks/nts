@@ -550,3 +550,64 @@ TEST(HelloTest, Starved){
 	// Проверяем, что нехватка памяти объявлена отказом хоть раз
 	ASSERT_TRUE(starved);
 }
+
+/**
+ * Проверка приветствия клиента поверх дейтаграмм: за опознавателем связи идёт поле метки
+ * возврата состояния с однобайтовой длиной (раздел 4.2.1 RFC 6347, раздел 5.3 RFC 9147) -
+ * пустое поле складывается и разбирается, метка в 255 байтов повторяется дословно, метка
+ * длиннее отвергается составлением, а тело поверх дейтаграмм разбором записями не признаётся
+ */
+TEST(HelloTest, Datagram){
+	// Получаем приветствие клиента контрольного примера
+	const vector <uint8_t> message = decode(SAMPLES[0].message);
+	// Разобранное приветствие клиента
+	hello::client_t hello;
+	// Выполняем разбор тела приветствия записями
+	ASSERT_EQ(hello::parse(view_t(message.data() + handshake::HANDSHAKE_HEADER, message.size() - handshake::HANDSHAKE_HEADER), hello), hello::error_t::NONE);
+	// Метки у приветствия записями нет
+	ASSERT_TRUE(hello.cookie.empty());
+	// Накопитель тела поверх дейтаграмм
+	vector <uint8_t> datagram;
+	// Выполняем составление тела поверх дейтаграмм с пустой меткой
+	ASSERT_EQ(hello::build(hello, datagram, true), hello::error_t::NONE);
+	// Накопитель тела записями
+	vector <uint8_t> stream;
+	// Выполняем составление тела записями
+	ASSERT_EQ(hello::build(hello, stream), hello::error_t::NONE);
+	// Тело поверх дейтаграмм длиннее на байт длины пустой метки
+	ASSERT_EQ(datagram.size(), stream.size() + 1);
+	// Байт длины метки лежит за опознавателем связи и равен нулю
+	ASSERT_EQ(datagram[2 + hello::HELLO_RANDOM + 1 + hello.session.size()], 0);
+	// Разобранное приветствие поверх дейтаграмм
+	hello::client_t parsed;
+	// Выполняем разбор тела поверх дейтаграмм
+	ASSERT_EQ(hello::parse(view_t(datagram.data(), datagram.size()), parsed, true), hello::error_t::NONE);
+	// Метка пуста
+	ASSERT_TRUE(parsed.cookie.empty());
+	// Наборы сошлись
+	ASSERT_EQ(parsed.suites, hello.suites);
+	// Расширения сошлись числом
+	ASSERT_EQ(parsed.extensions.size(), hello.extensions.size());
+	// Тело поверх дейтаграмм разбором записями не признаётся: байт метки сдвигает наборы
+	ASSERT_NE(hello::parse(view_t(datagram.data(), datagram.size()), parsed), hello::error_t::NONE);
+	// Метка наибольшей длины
+	hello.cookie.assign(hello::HELLO_COOKIE, 0xA5);
+	// Выполняем сброс накопителя
+	datagram.clear();
+	// Выполняем составление тела с меткой наибольшей длины
+	ASSERT_EQ(hello::build(hello, datagram, true), hello::error_t::NONE);
+	// Выполняем разбор тела с меткой
+	ASSERT_EQ(hello::parse(view_t(datagram.data(), datagram.size()), parsed, true), hello::error_t::NONE);
+	// Метка повторена дословно
+	ASSERT_EQ(parsed.cookie, hello.cookie);
+	// Метка длиннее дозволенной
+	hello.cookie.assign(hello::HELLO_COOKIE + 1, 0xA5);
+	// Проверяем отказ составления
+	ASSERT_EQ(hello::build(hello, datagram, true), hello::error_t::COOKIE);
+	// Записями метка не пишется вовсе: составление проходит
+	ASSERT_EQ(hello::build(hello, stream), hello::error_t::NONE);
+	// Обрезанное тело: длина метки объявлена, а самой метки нет
+	vector <uint8_t> truncated(datagram.begin(), datagram.begin() + 2 + hello::HELLO_RANDOM + 1 + hello.session.size() + 1);
+	// Проверяем отказ обрыва тела
+	ASSERT_EQ(hello::parse(view_t(truncated.data(), truncated.size()), parsed, true), hello::error_t::HUNGRY);
+}

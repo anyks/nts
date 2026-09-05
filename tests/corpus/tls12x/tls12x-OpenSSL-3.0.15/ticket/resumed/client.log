@@ -1,0 +1,58 @@
+Can't use SSL_get_servername
+CONNECTED(00000003)
+---
+Server certificate
+-----BEGIN CERTIFICATE-----
+MIIBgTCCASegAwIBAgIUJBjliSgMGC69ZlXgpECGh3FHutgwCgYIKoZIzj0EAwIw
+FjEUMBIGA1UEAwwLYW55a3MtZWMyNTYwHhcNMjYwOTA0MDAzMTQ4WhcNMjcwOTA0
+MDAzMTQ4WjAWMRQwEgYDVQQDDAthbnlrcy1lYzI1NjBZMBMGByqGSM49AgEGCCqG
+SM49AwEHA0IABMX5BOYEcanpibkUhr/H5EH8PGj+SDXasli4V+wjKn99WKwf0w8Y
+lCoAIdhceQpWuHIHgd71cXatu1zZInKjd2SjUzBRMB0GA1UdDgQWBBTjeOvRc0mX
+zXMqpv561rxtnPLpyDAfBgNVHSMEGDAWgBTjeOvRc0mXzXMqpv561rxtnPLpyDAP
+BgNVHRMBAf8EBTADAQH/MAoGCCqGSM49BAMCA0gAMEUCIBKpi79SYHzK8BAZIop2
+d/UmFDWVzafM6AFmFOAPUdtlAiEAo1HF+thuX0wtlrZBIa95v8gXKI5GCKxjIT/t
+5cJSJF0=
+-----END CERTIFICATE-----
+subject=CN = anyks-ec256
+issuer=CN = anyks-ec256
+---
+No client certificate CA names sent
+---
+SSL handshake has read 141 bytes and written 389 bytes
+Verification: OK
+---
+Reused, TLSv1.2, Cipher is ECDHE-ECDSA-AES128-GCM-SHA256
+Server public key is 256 bit
+Secure Renegotiation IS supported
+Compression: NONE
+Expansion: NONE
+No ALPN negotiated
+SSL-Session:
+    Protocol  : TLSv1.2
+    Cipher    : ECDHE-ECDSA-AES128-GCM-SHA256
+    Session-ID: 53AF2C13905071CE041FB790E5FA9755706A5DE9B544693F5BF6D7321A8844A8
+    Session-ID-ctx: 
+    Master-Key: F832348AA069C946B0E9429D230C27B2B49F98AE725BF2A6B60C8C055666A65D9D49764B98D20A65AAF93A8394565228
+    PSK identity: None
+    PSK identity hint: None
+    SRP username: None
+    TLS session ticket lifetime hint: 7200 (seconds)
+    TLS session ticket:
+    0000 - f8 a7 1c 2b a6 c0 0f 3a-b2 38 40 56 4a 5e 05 d3   ...+...:.8@VJ^..
+    0010 - 81 ac a9 1f aa 07 ac 20-b2 db 4d d7 b1 28 8a 98   ....... ..M..(..
+    0020 - 3d b9 16 2e 26 f2 89 6d-b1 b9 94 b6 d8 a7 13 89   =...&..m........
+    0030 - 5b 85 b9 a3 ce 91 33 0c-05 be 76 77 37 d0 3c 39   [.....3...vw7.<9
+    0040 - d7 e9 10 bf 3f 35 d5 f3-9e 9e 88 e6 b3 71 fb 0e   ....?5.......q..
+    0050 - 62 46 56 4e a9 05 99 50-79 6c d3 da 56 94 91 e0   bFVN...Pyl..V...
+    0060 - 1b c6 0c d3 47 6f 5c 7a-c0 0e 31 c6 e3 8b e0 41   ....Go\z..1....A
+    0070 - 55 1c 30 91 bb 84 60 16-81 54 61 ce 4e 5a c3 73   U.0...`..Ta.NZ.s
+    0080 - c9 9b 3a c7 3a 46 36 28-b0 a3 c9 e8 37 94 eb 44   ..:.:F6(....7..D
+    0090 - e9 6e ab 50 b4 8e 6a df-f4 91 fe 14 22 0f 94 13   .n.P..j....."...
+    00a0 - dc 77 b3 d6 72 dc 2e 2d-a5 43 dc 3c 7e ae ef 3c   .w..r..-.C.<~..<
+
+    Start Time: 1788634347
+    Timeout   : 7200 (sec)
+    Verify return code: 0 (ok)
+    Extended master secret: yes
+---
+DONE

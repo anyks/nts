@@ -1,0 +1,17 @@
+verify depth is 1, must return a certificate
+Using default temp DH parameters
+ACCEPT
+depth=0 CN = anyks-ec256
+verify return:1
+   0 items in the session cache
+   0 client connects (SSL_connect())
+   0 client renegotiates (SSL_connect())
+   0 client connects that finished
+   1 server accepts (SSL_accept())
+   0 server renegotiates (SSL_accept())
+   1 server accepts that finished
+   0 session cache hits
+   0 session cache misses
+   0 session cache timeouts
+   0 callback cache hits
+   0 cache full overflows (128 allowed)

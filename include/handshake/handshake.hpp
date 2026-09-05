@@ -144,8 +144,8 @@ namespace nts {
 		 * \~
 		 */
 		enum class type_t : uint8_t {
-			NONE          = 0x00, /*!< \~russian Вид сообщения не установлен \~english The type of the message is not set \~ */
-			HELLO_REQUEST = 0x00, /*!< \~russian Просьба о пересогласовании HelloRequest (раздел 7.4.1.1 RFC 5246, TLS 1.2): на проводе несёт ноль и совпадает с NONE \~english The HelloRequest of the renegotiation (the section 7.4.1.1 of RFC 5246, TLS 1.2): carries zero on the wire and coincides with NONE \~ */
+			HELLO_REQUEST = 0x00, /*!< \~russian Просьба о пересогласовании HelloRequest (раздел 7.4.1.1 RFC 5246, TLS 1.2): на проводе несёт ноль \~english The HelloRequest of the renegotiation (the section 7.4.1.1 of RFC 5246, TLS 1.2): carries zero on the wire \~ */
+			VERIFY_REQUEST = 0x03, /*!< \~russian Просьба о подтверждении адреса HelloVerifyRequest (раздел 4.2.1 RFC 6347, DTLS 1.2): издание и метка возврата состояния \~english The HelloVerifyRequest of the address confirmation (the section 4.2.1 of RFC 6347, DTLS 1.2): the edition and the cookie \~ */
 			CLIENT        = 0x01, /*!< \~russian Приветствие клиента \~english The greeting of the client \~ */
 			SERVER        = 0x02, /*!< \~russian Приветствие сервера \~english The greeting of the server \~ */
 			TICKET        = 0x04, /*!< \~russian Билет на возобновление связи \~english The ticket for the resumption of the connection \~ */
@@ -161,7 +161,8 @@ namespace nts {
 			STATUS        = 0x16, /*!< \~russian Состояние сертификата CertificateStatus (раздел 8 RFC 6066, TLS 1.2) \~english The CertificateStatus (the section 8 of RFC 6066, TLS 1.2) \~ */
 			UPDATE        = 0x18, /*!< \~russian Смена ключевого материала связи \~english The change of the key material of the connection \~ */
 			COMPRESSED    = 0x19, /*!< \~russian Сжатая цепочка сертификатов по RFC 8879 \~english The compressed chain of the certificates by RFC 8879 \~ */
-			DIGEST        = 0xFE  /*!< \~russian Хеш приветствия клиента вместо него самого \~english The hash of the greeting of the client instead of it itself \~ */
+			DIGEST        = 0xFE, /*!< \~russian Хеш приветствия клиента вместо него самого \~english The hash of the greeting of the client instead of it itself \~ */
+			NONE          = 0xFF  /*!< \~russian Вид сообщения не установлен: значение вне реестра видов и с проводным видом не совпадает \~english The type of the message is not set: a value outside the registry of the types, coinciding with no type on the wire \~ */
 		};
 
 		/**

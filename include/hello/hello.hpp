@@ -114,6 +114,20 @@ namespace nts {
 
 		/**
 		 * \~russian
+		 * @brief Наибольшая длина метки возврата состояния приветствия поверх дейтаграмм в байтах
+		 *
+		 * @details Раздел 4.2.1 RFC 6347: поле cookie приветствия клиента несёт однобайтовую длину
+		 *
+		 * \~english
+		 * @brief Greatest length of the cookie of a greeting over datagrams in bytes
+		 * @details The section 4.2.1 of RFC 6347: the cookie field of a greeting of the client carries a one-byte length
+		 *
+		 * \~
+		 */
+		static constexpr size_t HELLO_COOKIE = 255;
+
+		/**
+		 * \~russian
 		 * @brief Отказы разбора и составления приветствий
 		 *
 		 * \~english
@@ -130,7 +144,8 @@ namespace nts {
 			EXTENSION = 0x05, /*!< \~russian Расширение оборвано либо объявлено дважды \~english An extension is cut off or is declared twice \~ */
 			TRAILING  = 0x06, /*!< \~russian За телом приветствия идут лишние байты \~english There are extra bytes behind the body of the greeting \~ */
 			LENGTH    = 0x07, /*!< \~russian Составляемое поле в свою длину не входит \~english A field being composed does not fit into its length \~ */
-			MEMORY    = 0x08  /*!< \~russian Памяти под итог не хватило \~english There was not enough memory for the outcome \~ */
+			MEMORY    = 0x08, /*!< \~russian Памяти под итог не хватило \~english There was not enough memory for the outcome \~ */
+			COOKIE    = 0x09  /*!< \~russian Метка возврата состояния приветствия поверх дейтаграмм длиннее 255 байтов \~english The cookie of a greeting over datagrams is longer than 255 bytes \~ */
 		};
 
 		/**
@@ -199,6 +214,8 @@ namespace nts {
 			uint8_t random[HELLO_RANDOM];
 			// Опознаватель связи, доставшийся от предыдущих изданий
 			vector <uint8_t> session;
+			// Метка возврата состояния поверх дейтаграмм: раздел 4.2.1 RFC 6347, раздел 5.3 RFC 9147
+			vector <uint8_t> cookie;
 			// Перечень предлагаемых наборов шифрования
 			vector <uint16_t> suites;
 			// Перечень способов сжатия, доставшийся от предыдущих изданий
@@ -320,6 +337,34 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ error_t parse(const view_t & data, client_t & result) noexcept;
 		/**
 		 * \~russian
+		 * @brief Метод разбора тела приветствия клиента с учётом переноса
+		 *
+		 * @param data     разбираемое тело приветствия клиента
+		 * @param result   приветствие, в которое помещается итог разбора
+		 * @param datagram признак приветствия поверх дейтаграмм: за опознавателем связи идёт метка возврата состояния
+		 *
+		 * @return         отказ разбора приветствия клиента
+		 *
+		 * @details Раздел 4.2.1 RFC 6347 и раздел 5.3 RFC 9147: приветствие клиента поверх
+		 *          дейтаграмм несёт за опознавателем связи метку возврата состояния с
+		 *          однобайтовой длиной; у DTLS 1.3 она пуста, у DTLS 1.2 повторяет метку из
+		 *          HelloVerifyRequest
+		 *
+		 * \~english
+		 * @brief Method of the parsing of the body of a greeting of the client with regard to the transport
+		 * @param data     the body of the greeting of the client being parsed
+		 * @param result   the greeting the outcome of the parsing is put into
+		 * @param datagram the flag of a greeting over datagrams: the cookie follows the session identifier
+		 * @return         the failure of the parsing of the greeting of the client
+		 * @details The section 4.2.1 of RFC 6347 and the section 5.3 of RFC 9147: a greeting of the client
+		 *          over datagrams carries the cookie with a one-byte length after the session identifier;
+		 *          at DTLS 1.3 it is empty, at DTLS 1.2 it repeats the cookie from the HelloVerifyRequest
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ error_t parse(const view_t & data, client_t & result, const bool datagram) noexcept;
+		/**
+		 * \~russian
 		 * @brief Метод разбора тела приветствия сервера
 		 *
 		 * @param data   разбираемое тело приветствия сервера
@@ -357,6 +402,26 @@ namespace nts {
 		 * \~
 		 */
 		__ANTS_SHARED_EXPORT__ error_t build(const client_t & hello, vector <uint8_t> & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод составления тела приветствия клиента с учётом переноса
+		 *
+		 * @param hello    составляемое приветствие клиента
+		 * @param result   накопитель, в конец которого дописывается тело приветствия
+		 * @param datagram признак приветствия поверх дейтаграмм: за опознавателем связи пишется метка возврата состояния
+		 *
+		 * @return         отказ составления приветствия клиента: COOKIE у метки длиннее 255 байтов
+		 *
+		 * \~english
+		 * @brief Method of the composition of the body of a greeting of the client with regard to the transport
+		 * @param hello    the greeting of the client being composed
+		 * @param result   the accumulator the body of the greeting is appended to the end of
+		 * @param datagram the flag of a greeting over datagrams: the cookie is written after the session identifier
+		 * @return         the failure of the composition of the greeting of the client: COOKIE at a cookie longer than 255 bytes
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ error_t build(const client_t & hello, vector <uint8_t> & result, const bool datagram) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод составления тела приветствия сервера

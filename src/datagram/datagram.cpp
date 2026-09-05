@@ -314,6 +314,115 @@ nts::datagram::error_t nts::datagram::build(const header_t & header, uint8_t * r
 	return error_t::NONE;
 }
 /**
+ * @brief Метод разбора заголовка записи поверх дейтаграммы по изданию переноса
+ *
+ * @param data   разбираемая область байтов от начала записи до конца дейтаграммы
+ * @param result заголовок, в который помещается итог разбора
+ * @param legacy ведётся ли перенос изданием DTLS 1.2
+ *
+ * @return       отказ разбора заголовка записи
+ *
+ */
+nts::datagram::error_t nts::datagram::parse(const view_t & data, header_t & result, const bool legacy) noexcept {
+	// Если перенос ведётся изданием DTLS 1.3: заголовок его
+	if(!legacy)
+		// Выводим итог разбора заголовка издания DTLS 1.3
+		return parse(data, result);
+	// Если область байтов заголовок не вмещает
+	if((data.data == nullptr) || (data.size < DATAGRAM_PLAIN_HEADER))
+		// Выводим отказ нехватки байтов
+		return error_t::HUNGRY;
+	// Читаем вид содержимого записи
+	result.type = static_cast <record::type_t> (data.data[0]);
+	// Раздел 4.1 RFC 6347: изданию 1.2 ведомы смена набора, извещение, рукопожатие и прикладные данные
+	if(!record::known(result.type) || (result.type == record::type_t::ACK))
+		// Выводим отказ вида содержимого
+		return error_t::TYPE;
+	// Читаем издание протокола из заголовка как есть
+	result.version = static_cast <uint16_t> (fetch(data.data + 1, 2));
+	// Читаем пору ключей записи
+	result.epoch = static_cast <uint16_t> (fetch(data.data + 3, 2));
+	/**
+	 * Раздел 4.1 RFC 6347: изданием признаётся 0xFEFD, а 0xFEFF - лишь у открытой записи
+	 * рукопожатия, которой чужие узлы шлют первое приветствие и просьбу о подтверждении
+	 * адреса; у защищённой записи чужое издание отбрасывается до снятия защиты
+	 */
+	if((result.version != static_cast <uint16_t> (record::version_t::DTLS12)) && ((result.version != static_cast <uint16_t> (record::version_t::DTLS10)) || (result.epoch != 0) || (result.type != record::type_t::HANDSHAKE)))
+		// Выводим отказ издания протокола
+		return error_t::VERSION;
+	// Читаем порядковый номер записи: сорок восемь разрядов
+	result.sequence = fetch(data.data + 5, 6);
+	// Читаем длину содержимого записи
+	result.size = static_cast <size_t> (fetch(data.data + 11, 2));
+	// Заголовок издания 1.2 всегда открытый и всегда с длиной
+	result.length = DATAGRAM_PLAIN_HEADER;
+	// Опознавателя связи у издания 1.2 нет
+	result.identifier = false;
+	// Длина в заголовке есть всегда
+	result.sized = true;
+	// Защищённая запись отличается лишь ненулевой порой
+	result.unified = (result.epoch != 0);
+	// Номер записи занимает сорок восемь разрядов
+	result.bits = 48;
+	// Раздел 6.2.3 RFC 5246: защищённая запись вмещает до 2^14 + 2048 байтов, открытая - до 2^14
+	if((result.size == 0) || (result.size > (result.unified ? record::RECORD_PROTECTED : record::RECORD_PLAINTEXT)))
+		// Выводим отказ длины записи
+		return error_t::LENGTH;
+	// Если область байтов содержимое записи не вмещает
+	if(data.size < (result.length + result.size))
+		// Выводим отказ нехватки байтов
+		return error_t::HUNGRY;
+	// Выводим успешность разбора заголовка издания DTLS 1.2
+	return error_t::NONE;
+}
+/**
+ * @brief Метод записи заголовка записи поверх дейтаграммы по изданию переноса
+ *
+ * @param header записываемый заголовок записи
+ * @param result место, в которое помещается заголовок записи
+ * @param length место, в которое помещается длина записанного заголовка
+ * @param legacy ведётся ли перенос изданием DTLS 1.2
+ *
+ * @return       отказ записи заголовка записи
+ *
+ */
+nts::datagram::error_t nts::datagram::build(const header_t & header, uint8_t * result, size_t & length, const bool legacy) noexcept {
+	// Если перенос ведётся изданием DTLS 1.3: заголовок его
+	if(!legacy)
+		// Выводим итог записи заголовка издания DTLS 1.3
+		return build(header, result, length);
+	// Если место для записи заголовка не передано
+	if(result == nullptr)
+		// Выводим отказ длины записи
+		return error_t::LENGTH;
+	// Раздел 4.1 RFC 6347: изданию 1.2 ведомы смена набора, извещение, рукопожатие и прикладные данные
+	if(!record::known(header.type) || (header.type == record::type_t::ACK))
+		// Выводим отказ вида содержимого
+		return error_t::TYPE;
+	// Раздел 6.2.3 RFC 5246: защищённая запись вмещает до 2^14 + 2048 байтов, открытая - до 2^14
+	if((header.size == 0) || (header.size > ((header.epoch != 0) ? record::RECORD_PROTECTED : record::RECORD_PLAINTEXT)))
+		// Выводим отказ длины записи
+		return error_t::LENGTH;
+	// Если порядковый номер вышел за сорок восемь разрядов
+	if(header.sequence > DATAGRAM_SEQUENCE)
+		// Выводим отказ длины записи
+		return error_t::LENGTH;
+	// Записываем вид содержимого записи
+	result[0] = static_cast <uint8_t> (header.type);
+	// Раздел 4.1 RFC 6347: издание заголовка - DTLS 1.2 у всякой своей записи
+	stow(static_cast <uint16_t> (record::version_t::DTLS12), result + 1, 2);
+	// Записываем пору ключей записи как есть
+	stow(header.epoch, result + 3, 2);
+	// Записываем порядковый номер записи: сорок восемь разрядов
+	stow(header.sequence, result + 5, 6);
+	// Записываем длину содержимого записи
+	stow(header.size, result + 11, 2);
+	// Выводим длину заголовка издания DTLS 1.2
+	length = DATAGRAM_PLAIN_HEADER;
+	// Выводим успешность записи заголовка издания DTLS 1.2
+	return error_t::NONE;
+}
+/**
  * @brief Метод разбора обвязки куска сообщения рукопожатия
  *
  * @param data   разбираемая область байтов

@@ -1,0 +1,47 @@
+Connecting to 127.0.0.1
+Can't use SSL_get_servername
+CONNECTED(00000004)
+---
+no peer certificate available
+---
+No client certificate CA names sent
+Peer Temp Key: X25519, 253 bits
+---
+SSL handshake has read 352 bytes and written 217 bytes
+Verification: OK
+---
+New, TLSv1.2, Cipher is ECDHE-PSK-CHACHA20-POLY1305
+Protocol: TLSv1.2
+Secure Renegotiation IS supported
+Compression: NONE
+Expansion: NONE
+No ALPN negotiated
+SSL-Session:
+    Protocol  : TLSv1.2
+    Cipher    : ECDHE-PSK-CHACHA20-POLY1305
+    Session-ID: 9F31D74304CC396EF03043B9B67AD13C299326F93E56A12B967E82B81F2217B1
+    Session-ID-ctx: 
+    Master-Key: A079EF737F76DCE9AA7F286B1ED60A8354EB4333BE74A842BBB9EDCD87282AA49DDCB4F9D5F4D6075A2F96CC63CAE0CE
+    PSK identity: anyks
+    PSK identity hint: None
+    SRP username: None
+    TLS session ticket lifetime hint: 7200 (seconds)
+    TLS session ticket:
+    0000 - 1d 3c dd e3 dd b9 a5 5d-cb 0a c4 fb 00 9f f3 71   .<.....].......q
+    0010 - 68 22 c4 1e 97 5e 0d 1a-d7 af 8d 30 ad 3d 0c a9   h"...^.....0.=..
+    0020 - c9 88 20 bb d9 43 52 31-86 44 51 7e 8e 5f 47 28   .. ..CR1.DQ~._G(
+    0030 - e1 0b 3f 33 f1 17 e9 2c-c7 2f fd 06 5e b0 b6 3d   ..?3...,./..^..=
+    0040 - 45 85 56 68 75 3c a0 e5-4c 6d c7 43 f3 e7 e7 2e   E.Vhu<..Lm.C....
+    0050 - 38 15 1f 05 08 49 bb 5b-b3 4c ad 70 5e 44 ab 76   8....I.[.L.p^D.v
+    0060 - 0b 8a cb 35 1e 45 da 12-16 d7 be 73 ff cd 97 fc   ...5.E.....s....
+    0070 - ea 52 4c c6 05 b4 f9 94-e3 b2 ae 8a 40 b6 b6 24   .RL.........@..$
+    0080 - 4e 99 09 10 04 1f 80 3a-e9 d7 76 dd 76 3e b2 bc   N......:..v.v>..
+    0090 - 61 39 ee 4e 6c ec 96 c6-27 e6 f4 d3 c2 16 74 e0   a9.Nl...'.....t.
+    00a0 - db e9 01 02 30 ca 14 a6-d2 3b ca 1e f3 8e ba 23   ....0....;.....#
+
+    Start Time: 1788634269
+    Timeout   : 7200 (sec)
+    Verify return code: 0 (ok)
+    Extended master secret: yes
+---
+DONE

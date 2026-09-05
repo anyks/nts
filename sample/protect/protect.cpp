@@ -198,7 +198,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Накопитель, в который складывается подменяемая запись
 	std::vector <uint8_t> sealed;
 	// Выполняем наложение защиты на подменяемую запись
-	sender.seal(record::type_t::APPLICATION, view_t(reinterpret_cast <const uint8_t *> ("Подменяемое сообщение"), 21), sealed);
+	sender.seal(record::type_t::APPLICATION, view_t(reinterpret_cast <const uint8_t *> ("Подменяемое сообщение"), 21), sealed, 0);
 	// Портим один байт содержимого защищённой записи
 	sealed[record::RECORD_HEADER] = static_cast <uint8_t> (sealed[record::RECORD_HEADER] ^ 0x01);
 	// Заголовок подменённой записи

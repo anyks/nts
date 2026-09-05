@@ -645,6 +645,42 @@ TEST(ExtensionTest, Protocols){
 }
 
 /**
+ * Проверка разбора и составления перечня записей точек кривой ec_point_formats по разделу
+ * 5.1.2 RFC 8422: однобайтовая длина, однобайтовые записи, порядок сохраняется; пустой
+ * перечень, лишние байты и обрыв отвергаются
+ */
+TEST(ExtensionTest, Formats){
+	// Накопитель, в который складывается тело расширения
+	vector <uint8_t> body;
+	// Перечень составляемых записей точек: несжатая и обе сжатые
+	const vector <uint8_t> offer = {0x00, 0x01, 0x02};
+	// Выполняем составление перечня записей точек
+	ASSERT_EQ(extension::formats(offer, body), extension::error_t::NONE);
+	// Проверяем тело расширения: длина и три записи
+	ASSERT_EQ(body, (vector <uint8_t> {0x03, 0x00, 0x01, 0x02}));
+	// Перечень разобранных записей точек
+	vector <uint8_t> formats;
+	// Выполняем разбор составленного тела расширения
+	ASSERT_EQ(extension::formats(view_t(body.data(), body.size()), formats), extension::error_t::NONE);
+	// Проверяем схождение разобранного перечня с составленным
+	ASSERT_EQ(formats, offer);
+	// Проверяем отказ составления пустого перечня
+	ASSERT_EQ(extension::formats(vector <uint8_t> (), body), extension::error_t::EMPTY);
+	// Тело расширения с пустым перечнем
+	const uint8_t empty[1] = {0x00};
+	// Проверяем отказ разбора пустого перечня
+	ASSERT_EQ(extension::formats(view_t(empty, sizeof(empty)), formats), extension::error_t::EMPTY);
+	// Тело расширения с лишним байтом за перечнем
+	const uint8_t trailing[3] = {0x01, 0x00, 0x00};
+	// Проверяем отказ разбора лишних байтов
+	ASSERT_EQ(extension::formats(view_t(trailing, sizeof(trailing)), formats), extension::error_t::TRAILING);
+	// Тело расширения, оборванное посреди перечня
+	const uint8_t torn[2] = {0x02, 0x00};
+	// Проверяем отказ разбора оборванного тела расширения
+	ASSERT_EQ(extension::formats(view_t(torn, sizeof(torn)), formats), extension::error_t::HUNGRY);
+}
+
+/**
  * Проверка разбора и составления перечня алгоритмов сжатия цепочки сертификатов по
  * разделу 3 RFC 8879: однобайтовая длина, двухбайтовые опознаватели, порядок сохраняется,
  * неведомые значения выдаются как есть

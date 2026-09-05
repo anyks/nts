@@ -272,7 +272,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Накопитель, в который складывается защищённая запись
 	vector <uint8_t> sealed;
 	// Если наложить защиту на запись не удалось
-	if(sender.seal(record::type_t::HANDSHAKE, view_t(reinterpret_cast <const uint8_t *> (text), ::strlen(text)), sealed) != protect::error_t::NONE){
+	if(sender.seal(record::type_t::HANDSHAKE, view_t(reinterpret_cast <const uint8_t *> (text), ::strlen(text)), sealed, 0) != protect::error_t::NONE){
 		// Выводим сообщение об отказе наложения защиты
 		cout << "Наложить защиту на запись не удалось" << endl;
 		// Выходим из приложения с признаком отказа

@@ -1,0 +1,45 @@
+Connecting to 127.0.0.1
+Can't use SSL_get_servername
+CONNECTED(00000004)
+---
+no peer certificate available
+---
+No client certificate CA names sent
+---
+SSL handshake has read 366 bytes and written 219 bytes
+Verification: OK
+---
+New, SSLv3, Cipher is PSK-AES128-CBC-SHA
+Secure Renegotiation IS supported
+Compression: NONE
+Expansion: NONE
+No ALPN negotiated
+SSL-Session:
+    Protocol  : TLSv1.2
+    Cipher    : PSK-AES128-CBC-SHA
+    Session-ID: 8FF88844B2C89486BFDCB3F18AD29841E72CAD840661A282A96A2240179176CA
+    Session-ID-ctx: 
+    Master-Key: 271A6559DD32B4E5CB91E9D2E41CF3BD7B5A7E0CD56E50F8586D6AA72E526AAD0DFC02A7D8A4A5DCD16E9810583EC165
+    PSK identity: anyks
+    PSK identity hint: anyks-hint
+    SRP username: None
+    TLS session ticket lifetime hint: 7200 (seconds)
+    TLS session ticket:
+    0000 - 6e 13 89 9c 7a 10 e8 58-82 1d af 4e af fd 80 9f   n...z..X...N....
+    0010 - 9d 00 3e a9 e6 4f 75 06-07 0a 2c 7b b6 ea d7 23   ..>..Ou...,{...#
+    0020 - 91 ea 23 13 45 66 1c c0-16 8b 44 cf d3 f3 c0 34   ..#.Ef....D....4
+    0030 - 81 47 38 ae 5d a1 02 c3-aa e4 be 70 91 7b 30 60   .G8.]......p.{0`
+    0040 - 25 83 91 85 a8 92 ab 3b-66 2e d0 df 10 7d 0a 1a   %......;f....}..
+    0050 - eb 8b e8 74 44 3f 03 c4-0a d1 88 9f 34 63 31 82   ...tD?......4c1.
+    0060 - 05 8d 93 9e a8 ec 80 a3-d5 11 88 f9 a3 65 d7 3e   .............e.>
+    0070 - c3 cf d0 e6 5e 26 a8 9f-1b 45 36 79 19 10 fa 71   ....^&...E6y...q
+    0080 - 6b 1e 01 f7 a3 7f 44 44-91 d4 a3 a1 a7 98 bc 43   k.....DD.......C
+    0090 - 25 15 e2 cd f8 26 58 13-6e 1e f1 43 c5 9e c2 03   %....&X.n..C....
+    00a0 - 95 16 0c e8 f7 dd 33 65-13 c3 2d 0f 5f 92 eb 0a   ......3e..-._...
+
+    Start Time: 1788634323
+    Timeout   : 7200 (sec)
+    Verify return code: 0 (ok)
+    Extended master secret: yes
+---
+DONE

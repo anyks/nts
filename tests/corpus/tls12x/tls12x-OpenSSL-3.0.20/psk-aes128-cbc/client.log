@@ -1,0 +1,44 @@
+Can't use SSL_get_servername
+CONNECTED(00000004)
+---
+no peer certificate available
+---
+No client certificate CA names sent
+---
+SSL handshake has read 366 bytes and written 213 bytes
+Verification: OK
+---
+New, SSLv3, Cipher is PSK-AES128-CBC-SHA
+Secure Renegotiation IS supported
+Compression: NONE
+Expansion: NONE
+No ALPN negotiated
+SSL-Session:
+    Protocol  : TLSv1.2
+    Cipher    : PSK-AES128-CBC-SHA
+    Session-ID: 6D2B07F9E01E79B8C148A96D4DD39B81936003C6A6083E3A6DCC71B299D7247E
+    Session-ID-ctx: 
+    Master-Key: 607338497BCAF69F49ECBDB47CB7C4418FE027B6B2812A5DF5D0B65FAFF46843266B71A35F8779C846610E6E83EDAFAA
+    PSK identity: anyks
+    PSK identity hint: anyks-hint
+    SRP username: None
+    TLS session ticket lifetime hint: 7200 (seconds)
+    TLS session ticket:
+    0000 - bc 0c b8 91 57 a2 e6 e1-65 fd 3c c6 cd f7 15 8f   ....W...e.<.....
+    0010 - de d7 05 cc 1f e6 9b 39-53 fc cd c2 52 f3 67 a2   .......9S...R.g.
+    0020 - 1f 9b 2f b9 fc 5d 6b fe-bd 08 42 a6 6e 21 76 df   ../..]k...B.n!v.
+    0030 - 4f a6 f6 f7 49 2e 34 98-9a 79 10 d8 32 a3 5d bc   O...I.4..y..2.].
+    0040 - 79 40 01 85 5b 86 2a 48-91 53 b0 56 e3 95 6d d3   y@..[.*H.S.V..m.
+    0050 - 2f 6b 67 fc d2 7e 2b 60-2b 94 c6 19 30 b0 93 ca   /kg..~+`+...0...
+    0060 - bf 2a 40 a5 65 ec e1 de-8d 73 0a 4f bf 05 41 d6   .*@.e....s.O..A.
+    0070 - 46 0a 86 4c 50 a8 b8 b4-4a f6 8e f0 36 5c 52 e4   F..LP...J...6\R.
+    0080 - a4 e9 e5 3a 29 68 d9 5a-78 5c 89 d4 4b bb 96 5c   ...:)h.Zx\..K..\
+    0090 - e3 97 fd 00 06 51 26 ec-16 c1 56 ac 37 57 7f 07   .....Q&...V.7W..
+    00a0 - 40 b5 4b 2a 3e 82 a6 b2-6d 61 35 c9 aa 04 b6 83   @.K*>...ma5.....
+
+    Start Time: 1788634294
+    Timeout   : 7200 (sec)
+    Verify return code: 0 (ok)
+    Extended master secret: yes
+---
+DONE

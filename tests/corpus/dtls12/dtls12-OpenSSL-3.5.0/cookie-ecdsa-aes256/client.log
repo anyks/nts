@@ -1,0 +1,71 @@
+Connecting to 127.0.0.1
+Can't use SSL_get_servername
+depth=0 CN=anyks-ec256
+verify return:1
+CONNECTED(00000004)
+---
+Certificate chain
+ 0 s:CN=anyks-ec256
+   i:CN=anyks-ec256
+   a:PKEY: EC, (prime256v1); sigalg: ecdsa-with-SHA256
+   v:NotBefore: Sep  4 00:31:48 2026 GMT; NotAfter: Sep  4 00:31:48 2027 GMT
+---
+Server certificate
+-----BEGIN CERTIFICATE-----
+MIIBgTCCASegAwIBAgIUJBjliSgMGC69ZlXgpECGh3FHutgwCgYIKoZIzj0EAwIw
+FjEUMBIGA1UEAwwLYW55a3MtZWMyNTYwHhcNMjYwOTA0MDAzMTQ4WhcNMjcwOTA0
+MDAzMTQ4WjAWMRQwEgYDVQQDDAthbnlrcy1lYzI1NjBZMBMGByqGSM49AgEGCCqG
+SM49AwEHA0IABMX5BOYEcanpibkUhr/H5EH8PGj+SDXasli4V+wjKn99WKwf0w8Y
+lCoAIdhceQpWuHIHgd71cXatu1zZInKjd2SjUzBRMB0GA1UdDgQWBBTjeOvRc0mX
+zXMqpv561rxtnPLpyDAfBgNVHSMEGDAWgBTjeOvRc0mXzXMqpv561rxtnPLpyDAP
+BgNVHRMBAf8EBTADAQH/MAoGCCqGSM49BAMCA0gAMEUCIBKpi79SYHzK8BAZIop2
+d/UmFDWVzafM6AFmFOAPUdtlAiEAo1HF+thuX0wtlrZBIa95v8gXKI5GCKxjIT/t
+5cJSJF0=
+-----END CERTIFICATE-----
+subject=CN=anyks-ec256
+issuer=CN=anyks-ec256
+---
+No client certificate CA names sent
+Peer signing digest: SHA256
+Peer signature type: ecdsa_secp256r1_sha256
+Peer Temp Key: ECDH, prime256v1, 256 bits
+---
+SSL handshake has read 1030 bytes and written 466 bytes
+Verification: OK
+---
+New, TLSv1.2, Cipher is ECDHE-ECDSA-AES256-GCM-SHA384
+Protocol: DTLSv1.2
+Server public key is 256 bit
+Secure Renegotiation IS supported
+Compression: NONE
+Expansion: NONE
+No ALPN negotiated
+SSL-Session:
+    Protocol  : DTLSv1.2
+    Cipher    : ECDHE-ECDSA-AES256-GCM-SHA384
+    Session-ID: 658233F232326CFEFC65981FE40DE9465E083B0C2370AA7E5F63D42514BEC96B
+    Session-ID-ctx: 
+    Master-Key: BC0FAD6FBDB481605A2737544450BF52FFC53367037074E2E6538375656ADCC97C1904C0F47D9A5C83B9AB35A5426337
+    PSK identity: None
+    PSK identity hint: None
+    SRP username: None
+    TLS session ticket lifetime hint: 7200 (seconds)
+    TLS session ticket:
+    0000 - d8 45 48 95 8c bb 19 12-5d a0 9b 32 99 40 5a bf   .EH.....]..2.@Z.
+    0010 - ce ac 6f 43 39 ef ff b7-d5 0f 0a 1f 42 75 b0 20   ..oC9.......Bu. 
+    0020 - 71 6d 65 87 9b a5 65 cf-da 32 3e c7 14 f8 6a 8e   qme...e..2>...j.
+    0030 - a4 44 c7 ed 1d 14 dd d9-15 96 19 8c 28 9e 78 12   .D..........(.x.
+    0040 - 7a 00 76 18 ba eb 00 0d-0f a6 75 0c 93 f4 ee 15   z.v.......u.....
+    0050 - f6 1e 81 35 d0 cb 56 7b-1f 7b 16 7f 83 bc f2 9c   ...5..V{.{......
+    0060 - 0a 6b d8 5a 9f fd 49 5b-14 03 26 a1 d1 b8 f6 22   .k.Z..I[..&...."
+    0070 - 98 ab 0f 19 de 77 6b 5b-a6 da 40 2c 28 39 4d 61   .....wk[..@,(9Ma
+    0080 - a1 b1 52 be 84 98 df e5-5f 31 b8 13 c4 9d b8 57   ..R....._1.....W
+    0090 - 55 15 80 2a 18 ee 26 2d-3c 3d fd 14 9e 54 3a 4f   U..*..&-<=...T:O
+    00a0 - 9c aa 2d 91 10 ef e0 8b-76 0a f8 81 a3 66 c8 63   ..-.....v....f.c
+
+    Start Time: 1788624957
+    Timeout   : 7200 (sec)
+    Verify return code: 0 (ok)
+    Extended master secret: yes
+---
+DONE

@@ -130,6 +130,30 @@ TEST(HandshakeTest, Header){
 	ASSERT_EQ(header.size, static_cast <size_t> (0));
 	// Проверяем известность вида просьбы о пересогласовании
 	ASSERT_TRUE(handshake::known(handshake::type_t::HELLO_REQUEST));
+	// Вид «не установлен» с проводным видом просьбы не совпадает: у них разные значения
+	ASSERT_NE(static_cast <uint8_t> (handshake::type_t::NONE), static_cast <uint8_t> (handshake::type_t::HELLO_REQUEST));
+	// Вид «не установлен» обвязке неведом
+	ASSERT_FALSE(handshake::known(handshake::type_t::NONE));
+	// Разбираемая обвязка просьбы о подтверждении адреса HelloVerifyRequest (раздел 4.2.1 RFC 6347): вид три
+	const uint8_t verification[] = {0x03, 0x00, 0x00, 0x03, 0xFE, 0xFF, 0x00};
+	// Выполняем разбор обвязки просьбы о подтверждении адреса
+	ASSERT_EQ(handshake::parse(view_t(verification, sizeof(verification)), header), handshake::error_t::NONE);
+	// Проверяем вид разобранного сообщения: просьба о подтверждении адреса
+	ASSERT_EQ(header.type, handshake::type_t::VERIFY_REQUEST);
+	// Проверяем длину тела просьбы: издание и пустая метка
+	ASSERT_EQ(header.size, static_cast <size_t> (3));
+	// Проверяем известность вида просьбы о подтверждении адреса
+	ASSERT_TRUE(handshake::known(handshake::type_t::VERIFY_REQUEST));
+	// Проводной вид просьбы о подтверждении адреса - три
+	ASSERT_EQ(static_cast <uint8_t> (handshake::type_t::VERIFY_REQUEST), 0x03);
+	// Устанавливаем вид «не установлен»
+	header.type = handshake::type_t::NONE;
+	// Проверяем отказ записи обвязки сообщения без вида
+	ASSERT_EQ(handshake::build(header, buffer), handshake::error_t::TYPE);
+	// Разбираемая обвязка сообщения со значением вида «не установлен» на проводе
+	const uint8_t unset[] = {0xFF, 0x00, 0x00, 0x00};
+	// Проверяем отказ разбора: значение вне реестра видов
+	ASSERT_EQ(handshake::parse(view_t(unset, sizeof(unset)), header), handshake::error_t::TYPE);
 	// Устанавливаем вид сообщения, протоколом не определённый
 	header.type = static_cast <handshake::type_t> (0x2A);
 	// Проверяем отказ записи обвязки сообщения неизвестного вида

@@ -76,14 +76,14 @@ namespace {
 	 * @return    короткое обозначение признака либо сам опознаватель
 	 *
 	 */
-	static const string & shorten(const string & oid) noexcept {
+	static const char * shorten(const string & oid) noexcept {
 		/**
 		 * @brief Соответствие опознавателя признака его короткому обозначению
 		 *
 		 */
 		static const struct {
-			// Короткое обозначение признака имени
-			string name = "";
+			// Короткое обозначение признака имени (указатель на литерал: таблица не выделяет памяти даже при прежнем устройстве строк)
+			const char * name = nullptr;
 			// Опознаватель признака имени
 			const char * oid = nullptr;
 		} names[] = {
@@ -107,7 +107,7 @@ namespace {
 				return names[i].name;
 		}
 		// Выводим сам опознаватель признака
-		return oid;
+		return oid.c_str();
 	}
 };
 

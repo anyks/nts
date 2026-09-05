@@ -350,6 +350,30 @@ namespace nts {
 		 * \~
 		 */
 		__ANTS_SHARED_EXPORT__ bool legacy(const suite_t suite) noexcept;
+
+		/**
+		 * \~russian
+		 * @brief Метод получения длины явной части одноразового значения записи TLS 1.2
+		 *
+		 * @param suite набор шифрования
+		 *
+		 * @return      восемь байтов у AES-GCM (раздел 3 RFC 5288), ноль у ChaCha20-Poly1305
+		 *              (раздел 2 RFC 7905) и у наборов TLS 1.3
+		 *
+		 * @details Явная часть идёт по проводу перед шифртекстом, и слой записей поверх
+		 *          дейтаграмм считает по ней накладные байты записи
+		 *
+		 * \~english
+		 * @brief Method of getting the length of the explicit part of the nonce of a TLS 1.2 record
+		 * @param suite the cipher suite
+		 * @return      eight bytes at AES-GCM (the section 3 of RFC 5288), zero at ChaCha20-Poly1305
+		 *              (the section 2 of RFC 7905) and at the TLS 1.3 suites
+		 * @details The explicit part goes on the wire before the ciphertext, and the record layer over
+		 *          datagrams counts the overhead of a record by it
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ size_t prefix(const suite_t suite) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод получения алгоритма подписи, требуемого набором шифрования TLS 1.2
@@ -515,24 +539,30 @@ namespace nts {
 				 *
 				 * @param sequence порядковый номер записи
 				 * @param type     вид содержимого записи
+				 * @param version  издание протокола из заголовка записи
 				 * @param length   длина открытого содержимого записи
 				 * @param result   место, в которое помещаются связанные данные
 				 *
 				 * @details Раздел 6.2.3.3 RFC 5246: порядковый номер, вид содержимого, издание
-				 *          протокола и длина открытого содержимого - тринадцать байтов
+				 *          протокола и длина открытого содержимого - тринадцать байтов; издание
+				 *          берётся из заголовка записи по проводу, а не подставляется постоянным,
+				 *          чтобы подмена заголовка не сходилась меткой целостности
 				 *
 				 * \~english
 				 * @brief Method of the composition of the associated data of a record of the TLS 1.2 edition
 				 * @param sequence the sequence number of the record
 				 * @param type     the type of the content of the record
+				 * @param version  the edition of the protocol from the header of the record
 				 * @param length   the length of the plain content of the record
 				 * @param result   the place the associated data is put into
 				 * @details The section 6.2.3.3 of RFC 5246: the sequence number, the type of the content, the
-				 *          edition of the protocol and the length of the plain content - thirteen bytes
+				 *          edition of the protocol and the length of the plain content - thirteen bytes; the
+				 *          edition is taken from the header of the record on the wire and not substituted by a
+				 *          constant, so that a forged header does not match the authentication tag
 				 *
 				 * \~
 				 */
-				void associate(const uint64_t sequence, const record::type_t type, const size_t length, uint8_t * result) const noexcept;
+				void associate(const uint64_t sequence, const record::type_t type, const record::version_t version, const size_t length, uint8_t * result) const noexcept;
 				/**
 				 * \~russian
 				 * @brief Метод наложения защиты на запись издания TLS 1.2
@@ -575,6 +605,70 @@ namespace nts {
 				 * \~
 				 */
 				error_t unwrap(const record::header_t & header, const view_t & data, record::type_t & type, vector <uint8_t> & result) noexcept;
+			public:
+				/**
+				 * \~russian
+				 * @brief Метод наложения защиты на запись издания TLS 1.2 с заданными номером и изданием
+				 *
+				 * @param sequence порядковый номер записи: младшие 48 разрядов - номер, старшие 16 - пора ключей DTLS
+				 * @param version  издание протокола из заголовка записи по проводу
+				 * @param type     вид содержимого защищаемой записи
+				 * @param data     защищаемое содержимое записи
+				 * @param result   накопитель, в конец которого дописываются явная часть, шифртекст и метка целостности
+				 *
+				 * @return         отказ наложения защиты на запись
+				 *
+				 * @details Раздел 4.1.2.1 RFC 6347: поверх дейтаграмм номер записи складывается из поры
+				 *          ключей и порядкового номера, а заголовок записи составляет слой записей
+				 *          снаружи; счётчик записей связи этим вызовом не движется, предел набора
+				 *          судится по сорока восьми разрядам порядкового номера
+				 *
+				 * \~english
+				 * @brief Method of the application of the protection to a TLS 1.2 record with the given number and edition
+				 * @param sequence the sequence number of the record: the lower 48 bits - the number, the upper 16 - the DTLS epoch
+				 * @param version  the edition of the protocol from the header of the record on the wire
+				 * @param type     the type of the content of the record being protected
+				 * @param data     the content of the record being protected
+				 * @param result   the accumulator the explicit part, the ciphertext and the tag are appended to the end of
+				 * @return         the failure of the application of the protection to the record
+				 * @details The section 4.1.2.1 of RFC 6347: over datagrams the number of a record consists of the epoch
+				 *          and the sequence number, and the header of the record is composed by the record layer
+				 *          outside; the counter of the records of the connection is not moved by this call, the limit
+				 *          of the suite is judged by the 48 bits of the sequence number
+				 *
+				 * \~
+				 */
+				error_t wrap(const uint64_t sequence, const record::version_t version, const record::type_t type, const view_t & data, vector <uint8_t> & result) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод снятия защиты с записи издания TLS 1.2 с заданными номером и изданием
+				 *
+				 * @param sequence порядковый номер записи: младшие 48 разрядов - номер, старшие 16 - пора ключей DTLS
+				 * @param version  издание протокола из заголовка записи по проводу
+				 * @param type     вид содержимого записи из её заголовка
+				 * @param data     защищённое содержимое записи: явная часть, шифртекст и метка целостности
+				 * @param result   накопитель, в конец которого дописывается открытое содержимое записи
+				 *
+				 * @return         отказ снятия защиты с записи
+				 *
+				 * @details Раздел 4.1.2.1 RFC 6347: связанными данными служат пора ключей с порядковым
+				 *          номером, вид, издание и длина; счётчик записей связи этим вызовом не движется
+				 *
+				 * \~english
+				 * @brief Method of the removal of the protection from a TLS 1.2 record with the given number and edition
+				 * @param sequence the sequence number of the record: the lower 48 bits - the number, the upper 16 - the DTLS epoch
+				 * @param version  the edition of the protocol from the header of the record on the wire
+				 * @param type     the type of the content of the record from its header
+				 * @param data     the protected content of the record: the explicit part, the ciphertext and the tag
+				 * @param result   the accumulator the plain content of the record is appended to the end of
+				 * @return         the failure of the removal of the protection from the record
+				 * @details The section 4.1.2.1 of RFC 6347: the epoch with the sequence number, the type, the edition
+				 *          and the length serve as the associated data; the counter of the records of the connection
+				 *          is not moved by this call
+				 *
+				 * \~
+				 */
+				error_t unwrap(const uint64_t sequence, const record::version_t version, const record::type_t type, const view_t & data, vector <uint8_t> & result) noexcept;
 			public:
 				/**
 				 * \~russian
@@ -661,7 +755,7 @@ namespace nts {
 				 * @param type    истинный вид содержимого защищаемой записи
 				 * @param data    защищаемое содержимое записи
 				 * @param result  накопитель, в конец которого дописывается защищённая запись
-				 * @param padding длина дополнения, скрывающего истинную длину содержимого
+				 * @param padding длина дополнения, скрывающего истинную длину содержимого: ноль без дополнения
 				 *
 				 * @return        отказ наложения защиты на запись
 				 *
@@ -682,7 +776,7 @@ namespace nts {
 				 * @param type    the true type of the content of the record being protected
 				 * @param data    the content of the record being protected
 				 * @param result  the accumulator the protected record is appended to the end of
-				 * @param padding the length of the padding hiding the true length of the content
+				 * @param padding the length of the padding hiding the true length of the content: zero without padding
 				 * @return        the failure of the application of the protection to the record
 				 * @details The section 5.2 of RFC 8446: the header of a protected record always pretends
 				 *          to be the application data of the TLS 1.2 edition, while the true type of the
@@ -692,7 +786,7 @@ namespace nts {
 				 *
 				 * \~
 				 */
-				error_t seal(const record::type_t type, const view_t & data, vector <uint8_t> & result, const size_t padding = 0) noexcept;
+				error_t seal(const record::type_t type, const view_t & data, vector <uint8_t> & result, const size_t padding) noexcept;
 				/**
 				 * \~russian
 				 * @brief Метод снятия защиты с записи

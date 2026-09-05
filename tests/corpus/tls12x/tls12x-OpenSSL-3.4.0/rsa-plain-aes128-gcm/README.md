@@ -1,0 +1,10 @@
+# Вектор рукопожатия TLS 1.2
+
+Издание: OpenSSL 3.4.0 22 Oct 2024 (Library: OpenSSL 3.4.0 22 Oct 2024)
+Заказанный набор: AES128-GCM-SHA256
+Выбрано на деле: AES128-GCM-SHA256
+Уровень безопасности снижен (@SECLEVEL=0): да
+Дополнение серверу: -cert tests/corpus/rsa2048.crt -key tests/corpus/rsa2048.pem
+Дополнение клиенту: -CAfile tests/corpus/rsa2048.crt
+EMS в обмене: да
+Encrypt-then-MAC упомянут в выводе клиента: нет

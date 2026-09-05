@@ -664,7 +664,7 @@ namespace {
 			// Защищённая запись
 			vector <uint8_t> sealed;
 			// Если защиту наложить не удалось
-			if(protection.seal(record::type_t::HANDSHAKE, item.data(), sealed) != protect::error_t::NONE)
+			if(protection.seal(record::type_t::HANDSHAKE, item.data(), sealed, 0) != protect::error_t::NONE)
 				// Выводим отказ доставки
 				return false;
 			// Складываем запись в накопитель
@@ -976,7 +976,7 @@ TEST(ClassicTest, Rfc8448Simple){
 	// Накопитель защищённой записи
 	vector <uint8_t> sealed;
 	// Накладываем защиту на выход сервера
-	ASSERT_EQ(outgoing.seal(record::type_t::HANDSHAKE, view_t(flight.data(), flight.size()), sealed), protect::error_t::NONE);
+	ASSERT_EQ(outgoing.seal(record::type_t::HANDSHAKE, view_t(flight.data(), flight.size()), sealed, 0), protect::error_t::NONE);
 	// Проверяем схождение защищённой записи сервера байт в байт
 	ASSERT_EQ(sealed, decode(rfc8448::S3_SERVER_FLIGHT_RECORD));
 	// Сообщение завершения сервера с обвязкой
@@ -1022,7 +1022,7 @@ TEST(ClassicTest, Rfc8448Simple){
 	// Сбрасываем накопитель записи
 	sealed.clear();
 	// Накладываем защиту на завершение клиента
-	ASSERT_EQ(incoming.seal(record::type_t::HANDSHAKE, writer.data(), sealed), protect::error_t::NONE);
+	ASSERT_EQ(incoming.seal(record::type_t::HANDSHAKE, writer.data(), sealed, 0), protect::error_t::NONE);
 	// Проверяем схождение защищённой записи клиента байт в байт
 	ASSERT_EQ(sealed, decode(rfc8448::S3_CLIENT_FINISHED_RECORD));
 	// Добавляем завершение клиента в переписку
@@ -1052,7 +1052,7 @@ TEST(ClassicTest, Rfc8448Simple){
 	// Сбрасываем накопитель записи
 	sealed.clear();
 	// Накладываем защиту на билет
-	ASSERT_EQ(outgoing.seal(record::type_t::HANDSHAKE, view_t(issued.data(), issued.size()), sealed), protect::error_t::NONE);
+	ASSERT_EQ(outgoing.seal(record::type_t::HANDSHAKE, view_t(issued.data(), issued.size()), sealed, 0), protect::error_t::NONE);
 	// Проверяем схождение записи билета байт в байт
 	ASSERT_EQ(sealed, decode(rfc8448::S3_TICKET_RECORD));
 	// Прикладные данные сторон
@@ -1060,7 +1060,7 @@ TEST(ClassicTest, Rfc8448Simple){
 	// Сбрасываем накопитель записи
 	sealed.clear();
 	// Накладываем защиту на прикладные данные сервера
-	ASSERT_EQ(outgoing.seal(record::type_t::APPLICATION, view_t(data.data(), data.size()), sealed), protect::error_t::NONE);
+	ASSERT_EQ(outgoing.seal(record::type_t::APPLICATION, view_t(data.data(), data.size()), sealed, 0), protect::error_t::NONE);
 	// Проверяем схождение прикладной записи сервера
 	ASSERT_EQ(sealed, decode(rfc8448::S3_SERVER_APP_RECORD));
 	// Извещение о закрытии
@@ -1068,7 +1068,7 @@ TEST(ClassicTest, Rfc8448Simple){
 	// Сбрасываем накопитель записи
 	sealed.clear();
 	// Накладываем защиту на извещение сервера
-	ASSERT_EQ(outgoing.seal(record::type_t::ALERT, view_t(notice, sizeof(notice)), sealed), protect::error_t::NONE);
+	ASSERT_EQ(outgoing.seal(record::type_t::ALERT, view_t(notice, sizeof(notice)), sealed, 0), protect::error_t::NONE);
 	// Проверяем схождение записи извещения сервера
 	ASSERT_EQ(sealed, decode(rfc8448::S3_SERVER_ALERT_RECORD));
 	// Ключевой материал прикладных данных клиента
@@ -1082,13 +1082,13 @@ TEST(ClassicTest, Rfc8448Simple){
 	// Сбрасываем накопитель записи
 	sealed.clear();
 	// Накладываем защиту на прикладные данные клиента
-	ASSERT_EQ(incoming.seal(record::type_t::APPLICATION, view_t(data.data(), data.size()), sealed), protect::error_t::NONE);
+	ASSERT_EQ(incoming.seal(record::type_t::APPLICATION, view_t(data.data(), data.size()), sealed, 0), protect::error_t::NONE);
 	// Проверяем схождение прикладной записи клиента
 	ASSERT_EQ(sealed, decode(rfc8448::S3_CLIENT_APP_RECORD));
 	// Сбрасываем накопитель записи
 	sealed.clear();
 	// Накладываем защиту на извещение клиента
-	ASSERT_EQ(incoming.seal(record::type_t::ALERT, view_t(notice, sizeof(notice)), sealed), protect::error_t::NONE);
+	ASSERT_EQ(incoming.seal(record::type_t::ALERT, view_t(notice, sizeof(notice)), sealed, 0), protect::error_t::NONE);
 	// Проверяем схождение записи извещения клиента
 	ASSERT_EQ(sealed, decode(rfc8448::S3_CLIENT_ALERT_RECORD));
 	// Снятие защиты с записи сервера: заголовок и содержимое
@@ -1181,7 +1181,7 @@ TEST(ClassicTest, Rfc8448Resumed){
 	// Накопитель записи
 	vector <uint8_t> sealed;
 	// Накладываем защиту на упреждающие данные
-	ASSERT_EQ(early.seal(record::type_t::APPLICATION, view_t(data.data(), data.size()), sealed), protect::error_t::NONE);
+	ASSERT_EQ(early.seal(record::type_t::APPLICATION, view_t(data.data(), data.size()), sealed, 0), protect::error_t::NONE);
 	// Проверяем схождение записи упреждающих данных
 	ASSERT_EQ(sealed, decode(rfc8448::S4_EARLY_APP_RECORD));
 	// Выбираем хеш набора связи
@@ -1223,7 +1223,7 @@ TEST(ClassicTest, Rfc8448Resumed){
 	// Сбрасываем накопитель записи
 	sealed.clear();
 	// Накладываем защиту на выход сервера
-	ASSERT_EQ(outgoing.seal(record::type_t::HANDSHAKE, view_t(flight.data(), flight.size()), sealed), protect::error_t::NONE);
+	ASSERT_EQ(outgoing.seal(record::type_t::HANDSHAKE, view_t(flight.data(), flight.size()), sealed, 0), protect::error_t::NONE);
 	// Проверяем схождение записи выхода сервера
 	ASSERT_EQ(sealed, decode(rfc8448::S4_SERVER_FLIGHT_RECORD));
 	// Добавляем выход сервера в переписку
@@ -1244,7 +1244,7 @@ TEST(ClassicTest, Rfc8448Resumed){
 	 * Раздел 4.5 RFC 8446: конец упреждающих данных идёт под ключами упреждения, второй
 	 * записью того же направления
 	 */
-	ASSERT_EQ(early.seal(record::type_t::HANDSHAKE, view_t(ending.data(), ending.size()), sealed), protect::error_t::NONE);
+	ASSERT_EQ(early.seal(record::type_t::HANDSHAKE, view_t(ending.data(), ending.size()), sealed, 0), protect::error_t::NONE);
 	// Проверяем схождение записи конца упреждающих данных
 	ASSERT_EQ(sealed, decode(rfc8448::S4_EOED_RECORD));
 	// Ключ завершения клиента
@@ -1276,7 +1276,7 @@ TEST(ClassicTest, Rfc8448Resumed){
 	// Сбрасываем накопитель записи
 	sealed.clear();
 	// Накладываем защиту на завершение клиента: первая запись под ключами рукопожатия
-	ASSERT_EQ(incoming.seal(record::type_t::HANDSHAKE, writer.data(), sealed), protect::error_t::NONE);
+	ASSERT_EQ(incoming.seal(record::type_t::HANDSHAKE, writer.data(), sealed, 0), protect::error_t::NONE);
 	// Проверяем схождение записи завершения клиента
 	ASSERT_EQ(sealed, decode(rfc8448::S4_CLIENT_FINISHED_RECORD));
 	// Добавляем завершение клиента в переписку
@@ -1404,7 +1404,7 @@ TEST(ClassicTest, Rfc8448Retry){
 	// Накопитель записи
 	vector <uint8_t> sealed;
 	// Накладываем защиту на выход сервера
-	ASSERT_EQ(outgoing.seal(record::type_t::HANDSHAKE, view_t(flight.data(), flight.size()), sealed), protect::error_t::NONE);
+	ASSERT_EQ(outgoing.seal(record::type_t::HANDSHAKE, view_t(flight.data(), flight.size()), sealed, 0), protect::error_t::NONE);
 	// Проверяем схождение записи выхода сервера
 	ASSERT_EQ(sealed, decode(rfc8448::S5_SERVER_FLIGHT_RECORD));
 	// Ключ завершения сервера

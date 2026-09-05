@@ -721,6 +721,76 @@ nts::extension::error_t nts::extension::schemes(const vector <scheme_t> & scheme
 	return compose(values, 2, 2, result);
 }
 /**
+ * @brief Метод разбора перечня записей точек кривой ec_point_formats
+ *
+ * @param data   разбираемое тело расширения
+ * @param result перечень, в который помещаются объявленные записи точек
+ *
+ * @return       отказ разбора тела расширения
+ *
+ */
+nts::extension::error_t nts::extension::formats(const view_t & data, vector <uint8_t> & result) noexcept {
+	// Прочитанный перечень записей точек кривой
+	vector <uint32_t> values;
+	// Раздел 5.1.2 RFC 8422: перечень с однобайтовой длиной и однобайтовыми записями
+	const error_t error = numbers(data, 1, 1, values);
+	// Если перечень записей точек разобрать не удалось
+	if(error != error_t::NONE)
+		// Выводим отказ разбора тела расширения
+		return error;
+	/**
+	 * Выполняем перехват ошибок работы с памятью
+	 */
+	try {
+		/**
+		 * Выполняем перебор прочитанных записей точек кривой
+		 */
+		for(auto & item : values)
+			// Добавляем очередную запись точки в перечень
+			result.push_back(static_cast <uint8_t> (item));
+	/**
+	 * Если памяти под перечень записей не хватило
+	 */
+	} catch(const std::bad_alloc &) {
+		// Выводим отказ нехватки памяти
+		return error_t::MEMORY;
+	}
+	// Выводим успешность разбора тела расширения
+	return error_t::NONE;
+}
+/**
+ * @brief Метод составления перечня записей точек кривой ec_point_formats
+ *
+ * @param formats составляемый перечень записей точек
+ * @param result  накопитель, в конец которого дописывается тело расширения
+ *
+ * @return        отказ составления тела расширения
+ *
+ */
+nts::extension::error_t nts::extension::formats(const vector <uint8_t> & formats, vector <uint8_t> & result) noexcept {
+	// Составляемый перечень записей точек кривой
+	vector <uint32_t> values;
+	/**
+	 * Выполняем перехват ошибок работы с памятью
+	 */
+	try {
+		/**
+		 * Выполняем перебор составляемых записей точек кривой
+		 */
+		for(auto & item : formats)
+			// Добавляем очередную запись точки в перечень
+			values.push_back(static_cast <uint32_t> (item));
+	/**
+	 * Если памяти под перечень записей не хватило
+	 */
+	} catch(const std::bad_alloc &) {
+		// Выводим отказ нехватки памяти
+		return error_t::MEMORY;
+	}
+	// Выводим итог составления перечня записей точек кривой
+	return compose(values, 1, 1, result);
+}
+/**
  * @brief Метод разбора перечня открытых частей ключей обмена
  *
  * @param data   разбираемое тело расширения приветствия клиента

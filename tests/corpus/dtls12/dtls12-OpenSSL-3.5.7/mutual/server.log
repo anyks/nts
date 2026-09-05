@@ -1,0 +1,57 @@
+verify depth is 1, must return a certificate
+Using default temp DH parameters
+ACCEPT
+depth=0 CN=anyks-ec256
+verify return:1
+-----BEGIN SSL SESSION PARAMETERS-----
+MIIB6QIBAQIDAP79BALAKwQABDCDap1Qnr/GIMkUv1Sr40G8Fp0dWDikteKZl9Tg
+7YgT1PcM/UT5STonPYwpOyANr8ehBgIEapxAYqIEAgIcIKOCAYUwggGBMIIBJ6AD
+AgECAhQkGOWJKAwYLr1mVeCkQIaHcUe62DAKBggqhkjOPQQDAjAWMRQwEgYDVQQD
+DAthbnlrcy1lYzI1NjAeFw0yNjA5MDQwMDMxNDhaFw0yNzA5MDQwMDMxNDhaMBYx
+FDASBgNVBAMMC2FueWtzLWVjMjU2MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE
+xfkE5gRxqemJuRSGv8fkQfw8aP5INdqyWLhX7CMqf31YrB/TDxiUKgAh2Fx5Cla4
+cgeB3vVxdq27XNkicqN3ZKNTMFEwHQYDVR0OBBYEFON469FzSZfNcyqm/nrWvG2c
+8unIMB8GA1UdIwQYMBaAFON469FzSZfNcyqm/nrWvG2c8unIMA8GA1UdEwEB/wQF
+MAMBAf8wCgYIKoZIzj0EAwIDSAAwRQIgEqmLv1JgfMrwEBkiinZ39SYUNZXNp8zo
+AWYU4A9R22UCIQCjUcX62G5fTC2WtkEhr3m/yBcojkYIrGMhP+3lwlIkXaQGBAQB
+AAAArQMCAQGzAwIBHQ==
+-----END SSL SESSION PARAMETERS-----
+Client certificate
+-----BEGIN CERTIFICATE-----
+MIIBgTCCASegAwIBAgIUJBjliSgMGC69ZlXgpECGh3FHutgwCgYIKoZIzj0EAwIw
+FjEUMBIGA1UEAwwLYW55a3MtZWMyNTYwHhcNMjYwOTA0MDAzMTQ4WhcNMjcwOTA0
+MDAzMTQ4WjAWMRQwEgYDVQQDDAthbnlrcy1lYzI1NjBZMBMGByqGSM49AgEGCCqG
+SM49AwEHA0IABMX5BOYEcanpibkUhr/H5EH8PGj+SDXasli4V+wjKn99WKwf0w8Y
+lCoAIdhceQpWuHIHgd71cXatu1zZInKjd2SjUzBRMB0GA1UdDgQWBBTjeOvRc0mX
+zXMqpv561rxtnPLpyDAfBgNVHSMEGDAWgBTjeOvRc0mXzXMqpv561rxtnPLpyDAP
+BgNVHRMBAf8EBTADAQH/MAoGCCqGSM49BAMCA0gAMEUCIBKpi79SYHzK8BAZIop2
+d/UmFDWVzafM6AFmFOAPUdtlAiEAo1HF+thuX0wtlrZBIa95v8gXKI5GCKxjIT/t
+5cJSJF0=
+-----END CERTIFICATE-----
+subject=CN=anyks-ec256
+issuer=CN=anyks-ec256
+Shared ciphers:ECDHE-ECDSA-AES128-GCM-SHA256
+Signature Algorithms: ECDSA+SHA256:ECDSA+SHA384:ECDSA+SHA512:ed25519:ed448:rsa_pss_pss_sha256:rsa_pss_pss_sha384:rsa_pss_pss_sha512:RSA-PSS+SHA256:RSA-PSS+SHA384:RSA-PSS+SHA512:RSA+SHA256:RSA+SHA384:RSA+SHA512:ECDSA+SHA224:RSA+SHA224
+Shared Signature Algorithms: ECDSA+SHA256:ECDSA+SHA384:ECDSA+SHA512:ed25519:ed448:rsa_pss_pss_sha256:rsa_pss_pss_sha384:rsa_pss_pss_sha512:RSA-PSS+SHA256:RSA-PSS+SHA384:RSA-PSS+SHA512:RSA+SHA256:RSA+SHA384:RSA+SHA512:ECDSA+SHA224:RSA+SHA224
+Peer signing digest: SHA256
+Peer signature type: ecdsa_secp256r1_sha256
+Supported Elliptic Curve Point Formats: uncompressed:ansiX962_compressed_prime:ansiX962_compressed_char2
+Supported groups: x25519:secp256r1
+Shared groups: x25519:secp256r1
+CIPHER is ECDHE-ECDSA-AES128-GCM-SHA256
+Secure Renegotiation IS supported
+DONE
+shutting down SSL
+CONNECTION CLOSED
+   0 items in the session cache
+   0 client connects (SSL_connect())
+   0 client renegotiates (SSL_connect())
+   0 client connects that finished
+   1 server accepts (SSL_accept())
+   0 server renegotiates (SSL_accept())
+   1 server accepts that finished
+   0 session cache hits
+   0 session cache misses
+   0 session cache timeouts
+   0 callback cache hits
+   0 cache full overflows (128 allowed)

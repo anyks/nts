@@ -1,0 +1,16 @@
+Using default temp DH parameters
+ACCEPT
+4017E6E4C97B0000:error:0A000119:SSL routines:tls_get_more_records:decryption failed or bad record mac:../ssl/record/methods/tls_common.c:799:
+4017E6E4C97B0000:error:0A000139:SSL routines::record layer failure:../ssl/record/rec_layer_s3.c:687:
+   0 items in the session cache
+   0 client connects (SSL_connect())
+   0 client renegotiates (SSL_connect())
+   0 client connects that finished
+   1 server accepts (SSL_accept())
+   0 server renegotiates (SSL_accept())
+   0 server accepts that finished
+   0 session cache hits
+   0 session cache misses
+   0 session cache timeouts
+   0 callback cache hits
+   0 cache full overflows (128 allowed)

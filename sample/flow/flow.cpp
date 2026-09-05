@@ -165,7 +165,7 @@ namespace {
 			// Получаем объект защиты записей отправляющей стороны
 			protect::protection_t & protection = ((side == session::side_t::CLIENT) ? CLIENT.client : CLIENT.server);
 			// Если наложить защиту на запись не удалось
-			if(protection.seal(record::type_t::HANDSHAKE, message, wire) != protect::error_t::NONE)
+			if(protection.seal(record::type_t::HANDSHAKE, message, wire, 0) != protect::error_t::NONE)
 				// Выводим отказ передачи сообщения рукопожатия
 				return false;
 		}
@@ -397,7 +397,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Накопитель, в который складывается защищённая запись
 	vector <uint8_t> sealed;
 	// Выполняем наложение защиты на запись прикладных данных
-	CLIENT.server.seal(record::type_t::APPLICATION, view_t(reinterpret_cast <const uint8_t *> (text), ::strlen(text)), sealed);
+	CLIENT.server.seal(record::type_t::APPLICATION, view_t(reinterpret_cast <const uint8_t *> (text), ::strlen(text)), sealed, 0);
 	// Объект сборщика входящих записей
 	record::reader_t reader;
 	// Выполняем подачу защищённой записи сборщику
