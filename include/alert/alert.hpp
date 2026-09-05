@@ -172,6 +172,7 @@ namespace nts {
 			NAME        = 112, /*!< \~russian Запрошенное имя стороне неизвестно \~english The requested name is unknown to the side \~ */
 			STATUS      = 113, /*!< \~russian Ответ о состоянии сертификата негоден либо сертификат отозван \~english The certificate status response is unsuitable or the certificate is revoked \~ */
 			PSK         = 115, /*!< \~russian Опознаватель заранее разделённого ключа неизвестен \~english The identifier of the pre-shared key is unknown \~ */
+			RENEGOTIATION = 100, /*!< \~russian Пересогласование связи не дозволено (RFC 5746, TLS 1.2) \~english The renegotiation of the connection is not allowed (RFC 5746, TLS 1.2) \~ */
 			REQUIRED    = 116, /*!< \~russian Подлинность стороны обязательна, но не подтверждена \~english The authenticity of the side is mandatory but not confirmed \~ */
 			PROTOCOL    = 120  /*!< \~russian Ни один из предложенных протоколов не поддержан \~english None of the offered protocols is supported \~ */
 		};

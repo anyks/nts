@@ -14,7 +14,8 @@
  *
  * \~russian
  * @brief Заголовочный файл модуля защиты записей протокола TLS 1.3 наборами шифрования
- *        на алгоритмах ГОСТ и классическими наборами AES-GCM и ChaCha20-Poly1305
+ *        на алгоритмах ГОСТ и классическими наборами AES-GCM и ChaCha20-Poly1305, а также
+ *        записей протокола TLS 1.2 наборами ECDHE на тех же шифрах
  *
  * \~english
  * @brief Header file of the module of the protection of the records of the TLS 1.3 protocol
@@ -184,7 +185,35 @@ namespace nts {
 			MAGMA_MGM_S      = 0xC106, /*!< \~russian «Магма» в режиме MGM с частой сменой ключа записи \~english «Magma» in the MGM mode with a frequent change of the key of a record \~ */
 			AES_128_GCM_SHA256 = 0x1301, /*!< \~russian AES-128 в режиме GCM с расписанием на SHA-256 \~english AES-128 in the GCM mode with the schedule on SHA-256 \~ */
 			AES_256_GCM_SHA384 = 0x1302, /*!< \~russian AES-256 в режиме GCM с расписанием на SHA-384 \~english AES-256 in the GCM mode with the schedule on SHA-384 \~ */
-			CHACHA20_POLY1305_SHA256 = 0x1303 /*!< \~russian ChaCha20-Poly1305 с расписанием на SHA-256 \~english ChaCha20-Poly1305 with the schedule on SHA-256 \~ */
+			CHACHA20_POLY1305_SHA256 = 0x1303, /*!< \~russian ChaCha20-Poly1305 с расписанием на SHA-256 \~english ChaCha20-Poly1305 with the schedule on SHA-256 \~ */
+			ECDHE_ECDSA_AES_128_GCM_SHA256       = 0xC02B, /*!< \~russian TLS 1.2: ECDHE с подписью ECDSA, AES-128-GCM, PRF на SHA-256 (RFC 5289) \~english TLS 1.2: ECDHE with an ECDSA signature, AES-128-GCM, the PRF on SHA-256 (RFC 5289) \~ */
+			ECDHE_ECDSA_AES_256_GCM_SHA384       = 0xC02C, /*!< \~russian TLS 1.2: ECDHE с подписью ECDSA, AES-256-GCM, PRF на SHA-384 (RFC 5289) \~english TLS 1.2: ECDHE with an ECDSA signature, AES-256-GCM, the PRF on SHA-384 (RFC 5289) \~ */
+			ECDHE_RSA_AES_128_GCM_SHA256         = 0xC02F, /*!< \~russian TLS 1.2: ECDHE с подписью RSA, AES-128-GCM, PRF на SHA-256 (RFC 5289) \~english TLS 1.2: ECDHE with an RSA signature, AES-128-GCM, the PRF on SHA-256 (RFC 5289) \~ */
+			ECDHE_RSA_AES_256_GCM_SHA384         = 0xC030, /*!< \~russian TLS 1.2: ECDHE с подписью RSA, AES-256-GCM, PRF на SHA-384 (RFC 5289) \~english TLS 1.2: ECDHE with an RSA signature, AES-256-GCM, the PRF on SHA-384 (RFC 5289) \~ */
+			ECDHE_RSA_CHACHA20_POLY1305_SHA256   = 0xCCA8, /*!< \~russian TLS 1.2: ECDHE с подписью RSA, ChaCha20-Poly1305, PRF на SHA-256 (RFC 7905) \~english TLS 1.2: ECDHE with an RSA signature, ChaCha20-Poly1305, the PRF on SHA-256 (RFC 7905) \~ */
+			ECDHE_ECDSA_CHACHA20_POLY1305_SHA256 = 0xCCA9  /*!< \~russian TLS 1.2: ECDHE с подписью ECDSA, ChaCha20-Poly1305, PRF на SHA-256 (RFC 7905) \~english TLS 1.2: ECDHE with an ECDSA signature, ChaCha20-Poly1305, the PRF on SHA-256 (RFC 7905) \~ */
+		};
+
+		/**
+		 * \~russian
+		 * @brief Алгоритмы подписи, которых набор шифрования TLS 1.2 требует от сертификата
+		 *
+		 * @details Раздел 2 RFC 8422: у наборов ECDHE_ECDSA сертификат несёт ключ ECDSA либо
+		 *          EdDSA, у наборов ECDHE_RSA - ключ RSA; наборы TLS 1.3 подписи в имени не
+		 *          несут вовсе
+		 *
+		 * \~english
+		 * @brief Signature algorithms a TLS 1.2 cipher suite requires from the certificate
+		 * @details The section 2 of RFC 8422: at the ECDHE_ECDSA suites the certificate carries an ECDSA or
+		 *          an EdDSA key, at the ECDHE_RSA suites - an RSA key; the TLS 1.3 suites do not carry a
+		 *          signature in the name at all
+		 *
+		 * \~
+		 */
+		enum class signer_t : uint8_t {
+			NONE  = 0x00, /*!< \~russian Набор подписи не требует \~english The suite does not require a signature \~ */
+			ECDSA = 0x01, /*!< \~russian Подпись ECDSA либо EdDSA \~english An ECDSA or an EdDSA signature \~ */
+			RSA   = 0x02  /*!< \~russian Подпись RSA \~english An RSA signature \~ */
 		};
 
 		/**
@@ -298,6 +327,47 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ uint64_t limit(const suite_t suite) noexcept;
 		/**
 		 * \~russian
+		 * @brief Метод проверки принадлежности набора шифрования изданию TLS 1.2
+		 *
+		 * @param suite набор шифрования
+		 *
+		 * @return      признак того, что набор ведёт записи по разделу 6.2.3.3 RFC 5246
+		 *
+		 * @details Наборы TLS 1.2 защищают записи иначе: заголовок несёт истинный вид
+		 *          содержимого, связанными данными служат порядковый номер и заголовок
+		 *          открытой записи (RFC 5288, RFC 7905), а у AES-GCM явная часть одноразового
+		 *          значения идёт в самой записи
+		 *
+		 * \~english
+		 * @brief Method of checking that a cipher suite belongs to the TLS 1.2 edition
+		 * @param suite the cipher suite
+		 * @return      the flag of the suite conducting the records by the section 6.2.3.3 of RFC 5246
+		 * @details The TLS 1.2 suites protect the records differently: the header carries the true type of
+		 *          the content, the sequence number and the header of the plain record serve as the
+		 *          associated data (RFC 5288, RFC 7905), and at AES-GCM the explicit part of the nonce goes
+		 *          in the record itself
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ bool legacy(const suite_t suite) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод получения алгоритма подписи, требуемого набором шифрования TLS 1.2
+		 *
+		 * @param suite набор шифрования
+		 *
+		 * @return      алгоритм подписи, NONE у наборов TLS 1.3 и у неизвестного набора
+		 *
+		 * \~english
+		 * @brief Method of getting the signature algorithm required by a TLS 1.2 cipher suite
+		 * @param suite the cipher suite
+		 * @return      the signature algorithm, NONE at the TLS 1.3 suites and at an unknown suite
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ signer_t signer(const suite_t suite) noexcept;
+		/**
+		 * \~russian
 		 * @brief Метод выработки ключа записи построением TLSTREE
 		 *
 		 * @param suite    набор шифрования, которым заданы постоянные построения
@@ -379,6 +449,9 @@ namespace nts {
 				// Признак набора ChaCha20-Poly1305, обходящегося без базового блочного шифра
 				bool _stream;
 			private:
+				// Признак набора издания TLS 1.2 с защитой записей по разделу 6.2.3.3 RFC 5246
+				bool _legacy;
+			private:
 				// Порядковый номер очередной записи
 				uint64_t _sequence;
 			private:
@@ -436,6 +509,72 @@ namespace nts {
 				 * \~
 				 */
 				void nonce(const uint64_t sequence, uint8_t * result) const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод составления связанных данных записи издания TLS 1.2
+				 *
+				 * @param sequence порядковый номер записи
+				 * @param type     вид содержимого записи
+				 * @param length   длина открытого содержимого записи
+				 * @param result   место, в которое помещаются связанные данные
+				 *
+				 * @details Раздел 6.2.3.3 RFC 5246: порядковый номер, вид содержимого, издание
+				 *          протокола и длина открытого содержимого - тринадцать байтов
+				 *
+				 * \~english
+				 * @brief Method of the composition of the associated data of a record of the TLS 1.2 edition
+				 * @param sequence the sequence number of the record
+				 * @param type     the type of the content of the record
+				 * @param length   the length of the plain content of the record
+				 * @param result   the place the associated data is put into
+				 * @details The section 6.2.3.3 of RFC 5246: the sequence number, the type of the content, the
+				 *          edition of the protocol and the length of the plain content - thirteen bytes
+				 *
+				 * \~
+				 */
+				void associate(const uint64_t sequence, const record::type_t type, const size_t length, uint8_t * result) const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод наложения защиты на запись издания TLS 1.2
+				 *
+				 * @param type   вид содержимого защищаемой записи
+				 * @param data   защищаемое содержимое записи
+				 * @param result накопитель, в конец которого дописывается защищённая запись
+				 *
+				 * @return       отказ наложения защиты на запись
+				 *
+				 * \~english
+				 * @brief Method of the application of the protection to a record of the TLS 1.2 edition
+				 * @param type   the type of the content of the record being protected
+				 * @param data   the content of the record being protected
+				 * @param result the accumulator the protected record is appended to the end of
+				 * @return       the failure of the application of the protection to the record
+				 *
+				 * \~
+				 */
+				error_t wrap(const record::type_t type, const view_t & data, vector <uint8_t> & result) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод снятия защиты с записи издания TLS 1.2
+				 *
+				 * @param header заголовок принятой защищённой записи
+				 * @param data   защищённое содержимое принятой записи
+				 * @param type   вид содержимого, в который помещается вид содержимого записи
+				 * @param result накопитель, в конец которого дописывается открытое содержимое записи
+				 *
+				 * @return       отказ снятия защиты с записи
+				 *
+				 * \~english
+				 * @brief Method of the removal of the protection from a record of the TLS 1.2 edition
+				 * @param header the header of the received protected record
+				 * @param data   the protected content of the received record
+				 * @param type   the type of the content the type of the content of the record is put into
+				 * @param result the accumulator the plain content of the record is appended to the end of
+				 * @return       the failure of the removal of the protection from the record
+				 *
+				 * \~
+				 */
+				error_t unwrap(const record::header_t & header, const view_t & data, record::type_t & type, vector <uint8_t> & result) noexcept;
 			public:
 				/**
 				 * \~russian
@@ -533,6 +672,11 @@ namespace nts {
 				 * @note Дописывается целая запись вместе с заголовком: заголовок служит связанными
 				 *       данными, и составляется он здесь же
 				 *
+				 * @note У наборов TLS 1.2 заголовок несёт истинный вид содержимого, дополнение не
+				 *       кладётся, связанными данными идут порядковый номер и заголовок открытой
+				 *       записи (раздел 6.2.3.3 RFC 5246), а у AES-GCM перед шифртекстом идёт явная
+				 *       часть одноразового значения - порядковый номер записи (RFC 5288)
+				 *
 				 * \~english
 				 * @brief Method of the application of the protection to a record
 				 * @param type    the true type of the content of the record being protected
@@ -567,6 +711,9 @@ namespace nts {
 				 *
 				 * @note Открытое содержимое дописывается лишь после того, как метка целостности
 				 *       сошлась
+				 *
+				 * @note У наборов TLS 1.2 вид содержимого берётся из заголовка записи, а явная часть
+				 *       одноразового значения AES-GCM читается из самой записи (RFC 5288)
 				 *
 				 * \~english
 				 * @brief Method of the removal of the protection from a record
@@ -621,7 +768,7 @@ namespace nts {
 				 *
 				 * \~
 				 */
-				error_t seal(const view_t & associated, const uint64_t sequence, const record::type_t type, const view_t & data, vector <uint8_t> & result, const size_t padding = 0) noexcept;
+				error_t seal(const view_t & associated, const uint64_t sequence, const record::type_t type, const view_t & data, vector <uint8_t> & result, const size_t padding) noexcept;
 				/**
 				 * \~russian
 				 * @brief Метод снятия защиты с записи с заданными связанными данными и номером

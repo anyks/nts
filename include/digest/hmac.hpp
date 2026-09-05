@@ -320,6 +320,40 @@ namespace nts {
 		 * \~
 		 */
 		__ANTS_SHARED_EXPORT__ bool prf(const type_t type, const view_t & key, const view_t & label, const view_t & seed, uint8_t * result, const size_t size) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод выработки порождающей последовательности протокола TLS 1.2 выбранным хешем
+		 *
+		 * @param algorithm хеш, на имитовставке которого вырабатывается последовательность
+		 * @param key       ключ выработки последовательности
+		 * @param label     метка назначения последовательности
+		 * @param seed      затравка выработки последовательности
+		 * @param result    место, в которое помещается выработанная последовательность
+		 * @param size      требуемая длина последовательности в байтах
+		 *
+		 * @return          признак успешности выработки последовательности
+		 *
+		 * @details Раздел 5 RFC 5246: PRF(secret, label, seed) = P_hash(secret, label + seed), где
+		 *          P_hash идёт на HMAC с хешем набора шифрования (SHA-256 у наборов с SHA-256 в
+		 *          имени, SHA-384 у наборов с SHA-384). Хеши «Стрибог» ведёт метод с длиной хеша
+		 *
+		 * \~english
+		 * @brief Method of the production of a pseudorandom sequence of the TLS 1.2 protocol by the chosen hash
+		 * @param algorithm the hash on the HMAC of which the sequence is produced
+		 * @param key       the key of the production of the sequence
+		 * @param label     the label of the purpose of the sequence
+		 * @param seed      the seed of the production of the sequence
+		 * @param result    the place the produced sequence is put into
+		 * @param size      the required length of the sequence in bytes
+		 * @return          the flag of the success of the production of the sequence
+		 * @details The section 5 of RFC 5246: PRF(secret, label, seed) = P_hash(secret, label + seed), where
+		 *          P_hash goes on HMAC with the hash of the cipher suite (SHA-256 at the suites with SHA-256
+		 *          in the name, SHA-384 at the suites with SHA-384). The «Streebog» hashes are conducted by
+		 *          the method with the length of the hash
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ bool prf(const hash_t algorithm, const view_t & key, const view_t & label, const view_t & seed, uint8_t * result, const size_t size) noexcept;
 	};
 };
 

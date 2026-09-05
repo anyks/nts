@@ -299,6 +299,150 @@ namespace nts {
 
 		/**
 		 * \~russian
+		 * @brief Наибольшая длина принимаемой дейтаграммы в байтах
+		 *
+		 * @details Раздел 4.5.2 RFC 9147: защищённая запись не длиннее 2^14 + 256 байтов, и
+		 *          дейтаграмма вмещает такую запись вместе с заголовком; более длинная
+		 *          означает чужой перенос и отбрасывается. Размер своих дейтаграмм с этим
+		 *          пределом не связан: стороны с разным размером обязаны сходиться
+		 *
+		 * \~english
+		 * @brief Greatest length of a received datagram in bytes
+		 * @details The section 4.5.2 of RFC 9147: a protected record is not longer than 2^14 + 256 bytes,
+		 *          and a datagram holds such a record together with its header; a longer one means a
+		 *          foreign transport and is discarded. The size of the own datagrams is not bound to this
+		 *          limit: the sides with different sizes are obliged to converge
+		 *
+		 * \~
+		 */
+		static constexpr size_t DATAGRAM_LONGEST = (DATAGRAM_PLAIN_HEADER + record::RECORD_CIPHERTEXT);
+
+		/**
+		 * \~russian
+		 * @brief Наибольшая длина адреса собеседника, привязываемого к метке возврата состояния, в байтах
+		 *
+		 * @note Адрес непрозрачен и сличается побайтно; более длинный отвергается установкой
+		 *
+		 * \~english
+		 * @brief Greatest length of the address of the interlocutor bound to the label of the return of
+		 *        the state, in bytes
+		 * @note The address is opaque and compared byte by byte; a longer one is rejected by the setting
+		 *
+		 * \~
+		 */
+		static constexpr size_t DATAGRAM_ADDRESS = 256;
+
+		/**
+		 * \~russian
+		 * @brief Число записей, дозволенное одной передаче залпа
+		 *
+		 * @details Раздел 5.8.3 RFC 9147: за одну передачу не следует слать более десяти
+		 *          записей. Связь залп дозирует не по этому пределу, а целиком: управления
+		 *          перегрузкой у неё нет, и предел лишь именует норму стандарта
+		 *
+		 * \~english
+		 * @brief Number of the records allowed to a single transmission of a flight
+		 * @details The section 5.8.3 of RFC 9147: no more than ten records should be sent in a single
+		 *          transmission. The connection does not dose a flight by this limit but sends it whole:
+		 *          it has no congestion control, and the limit merely names the norm of the standard
+		 *
+		 * \~
+		 */
+		static constexpr size_t DATAGRAM_RECORDS = 10;
+
+		/**
+		 * \~russian
+		 * @brief Число сообщений рукопожатия, принимаемых наперёд ожидаемого
+		 *
+		 * @details Залп редко длиннее, а большее означало бы накопление чужого мусора:
+		 *          сборок принимаемых сообщений держится не более этого числа
+		 *
+		 * \~english
+		 * @brief Number of the messages of the handshake received ahead of the expected one
+		 * @details A flight is rarely longer, and more would mean an accumulation of foreign garbage: no
+		 *          more assemblies of the received messages than this number are kept
+		 *
+		 * \~
+		 */
+		static constexpr size_t DATAGRAM_AHEAD = 8;
+
+		/**
+		 * \~russian
+		 * @brief Наибольшая длина собираемого сообщения рукопожатия в байтах
+		 *
+		 * @details Память под сборку занимается по чужому слову - по длине из обвязки куска;
+		 *          шестнадцать мегабайтов предела сообщения рукопожатия поверх дейтаграмм не
+		 *          собираются, и сообщение длиннее отбрасывается
+		 *
+		 * \~english
+		 * @brief Greatest length of an assembled message of the handshake in bytes
+		 * @details The memory for an assembly is taken by a foreign word — by the length from the framing
+		 *          of a fragment; the sixteen megabytes of the limit of a message of the handshake are not
+		 *          assembled over datagrams, and a longer message is discarded
+		 *
+		 * \~
+		 */
+		static constexpr size_t DATAGRAM_ASSEMBLY = 65536;
+
+		/**
+		 * \~russian
+		 * @brief Число записей следующей поры, откладываемых до прихода её ключей
+		 *
+		 * @details Раздел 4.2.1 RFC 9147: приветствие сервера теряется, а его защищённый
+		 *          выход доходит - и ждёт повтора приветствия; сверх этого числа записи
+		 *          отбрасываются
+		 *
+		 * \~english
+		 * @brief Number of the records of the next epoch deferred until the arrival of its keys
+		 * @details The section 4.2.1 of RFC 9147: the greeting of the server gets lost while its protected
+		 *          output arrives — and waits for the repetition of the greeting; beyond this number the
+		 *          records are discarded
+		 *
+		 * \~
+		 */
+		static constexpr size_t DATAGRAM_DEFERRED = 8;
+
+		/**
+		 * \~russian
+		 * @brief Причины молчаливого отброса записей и дейтаграмм
+		 *
+		 * @details Раздел 4.5.2 RFC 9147: негодное отбрасывается без извещений, и лишь
+		 *          счётчики по причинам дают о том знать тому, кто связь ведёт
+		 *
+		 * \~english
+		 * @brief Reasons of the silent discarding of records and datagrams
+		 * @details The section 4.5.2 of RFC 9147: the unfit is discarded without alerts, and only the
+		 *          counters by reasons let the one who leads the connection know about it
+		 *
+		 * \~
+		 */
+		enum class reason_t : uint8_t {
+			LENGTH     = 0x00, /*!< \~russian Дейтаграмма пуста либо длиннее принимаемой, запись усечена, пуста либо длиннее дозволенного \~english The datagram is empty or longer than accepted, the record is truncated, empty or longer than allowed \~ */
+			TYPE       = 0x01, /*!< \~russian Вид содержимого записи протоколом не определён \~english The type of the content of the record is not defined by the protocol \~ */
+			EPOCH      = 0x02, /*!< \~russian Пора ключей записи связью не держится либо отложить запись некуда \~english The epoch of the record is not kept by the connection or there is no room to defer the record \~ */
+			IDENTIFIER = 0x03, /*!< \~russian Запись несёт опознаватель связи \~english The record carries a connection identifier \~ */
+			REPLAY     = 0x04, /*!< \~russian Запись повторная либо позади окна повторов \~english The record is repeated or behind the anti-replay window \~ */
+			DAMAGE     = 0x05, /*!< \~russian Защита с записи не снимается: запись порчена либо чужая \~english The protection is not removed from the record: it is damaged or foreign \~ */
+			PLAIN      = 0x06, /*!< \~russian Открытая запись пришла, когда ей уже не место: извещение либо кусок за появлением ключей чтения, подтверждение с номерами \~english A plain record came when there is no place for it: an alert or a fragment after the read keys appeared, an acknowledgement with numbers \~ */
+			AHEAD      = 0x07, /*!< \~russian Кусок сообщения слишком далеко впереди ожидаемого \~english The fragment of a message is too far ahead of the expected one \~ */
+			FRAMING    = 0x08, /*!< \~russian Обвязка куска открытой записи негодна либо кусок расходится со сборкой \~english The framing of a fragment of a plain record is unfit or the fragment diverges from the assembly \~ */
+			PREMATURE  = 0x09, /*!< \~russian Прикладные данные пришли до установления связи \~english The application data came before the establishment of the connection \~ */
+			COOKIE     = 0x0A  /*!< \~russian Повторное приветствие клиента без метки возврата состояния либо с чужою \~english A repeated greeting of the client without a label of the return of the state or with a foreign one \~ */
+		};
+
+		/**
+		 * \~russian
+		 * @brief Число причин молчаливого отброса
+		 *
+		 * \~english
+		 * @brief Number of the reasons of the silent discarding
+		 *
+		 * \~
+		 */
+		static constexpr size_t DATAGRAM_REASONS = 11;
+
+		/**
+		 * \~russian
 		 * @brief Отказы слоя записей поверх дейтаграмм
 		 *
 		 * \~english
@@ -310,12 +454,12 @@ namespace nts {
 			NONE       = 0x00, /*!< \~russian Отказа нет \~english There is no failure \~ */
 			HUNGRY     = 0x01, /*!< \~russian Байтов для целого заголовка либо записи не хватает \~english There are not enough bytes for a whole header or record \~ */
 			TYPE       = 0x02, /*!< \~russian Вид содержимого записи протоколом не определён \~english The type of the content of the record is not defined by the protocol \~ */
-			VERSION    = 0x03, /*!< \~russian Издание протокола в заголовке открытой записи неизвестно \~english The edition of the protocol in the header of the plain record is unknown \~ */
-			EPOCH      = 0x04, /*!< \~russian Открытая запись несёт ненулевую пору ключей \~english The plain record carries a non-zero epoch \~ */
-			LENGTH     = 0x05, /*!< \~russian Длина поля вышла за дозволенный предел \~english The length of a field has gone beyond the allowed limit \~ */
-			IDENTIFIER = 0x06, /*!< \~russian Запись несёт опознаватель связи, связью не поддержанный \~english The record carries a connection identifier not supported by the connection \~ */
-			MEMORY     = 0x07  /*!< \~russian Памяти под итог не хватило \~english There was not enough memory for the outcome \~ */
+			EPOCH      = 0x03, /*!< \~russian Открытая запись несёт ненулевую пору ключей \~english The plain record carries a non-zero epoch \~ */
+			LENGTH     = 0x04, /*!< \~russian Длина поля вышла за дозволенный предел \~english The length of a field has gone beyond the allowed limit \~ */
+			IDENTIFIER = 0x05, /*!< \~russian Запись несёт опознаватель связи, связью не поддержанный \~english The record carries a connection identifier not supported by the connection \~ */
+			MEMORY     = 0x06  /*!< \~russian Памяти под итог не хватило \~english There was not enough memory for the outcome \~ */
 		};
+
 
 		/**
 		 * \~russian

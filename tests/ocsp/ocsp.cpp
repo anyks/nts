@@ -33,6 +33,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <algorithm>
 #include <fstream>
 #include <functional>
 #include <unistd.h>
@@ -1456,6 +1457,10 @@ TEST(OcspTest, Request){
 	ASSERT_EQ(shell("(openssl ocsp -reqin " + base + ".ours -req_text -noverify 2>/dev/null | grep -q 'Serial Number: 03')"), 0);
 	// Проверяем, что openssl видит наше неповторимое значение
 	ASSERT_EQ(shell("(openssl ocsp -reqin " + base + ".ours -req_text -noverify 2>/dev/null | grep -qi 'nonce')"), 0);
+	// Если ответчик openssl не умеет задавать хеш подписи (LibreSSL без -rmd), ответ уйдёт под SHA-1, который библиотека отвергает по замыслу
+	if(shell("openssl ocsp -help 2>&1 | grep -q rmd") != 0)
+		// Пропускаем обмен ответом: чужой ответчик негоден, а не наш разбор
+		GTEST_SKIP() << "openssl ocsp без -rmd подписывает ответ SHA-1";
 	// Вырабатываем ответ openssl на наш запрос
 	ASSERT_EQ(shell("openssl ocsp -index " + std::string(CORPUS) + "/ocsp/index-good.txt -rmd sha256 -rsigner " + issuer + " -rkey " + key + " -CA " + issuer + " -reqin " + base + ".ours -respout " + base + ".resp -ndays 30 >/dev/null 2>&1"), 0);
 	// Читаем ответ openssl
@@ -2412,6 +2417,39 @@ TEST(OcspTest, Openssl){
 }
 
 /**
+ * Проверка самодостаточности запроса состояния: расширение уходит без иных настроек
+ */
+TEST(OcspTest, Alone){
+	// Байты расширения status_request: тип 0x0005, длина 5, вид ответчика OCSP, пустые перечни
+	static const uint8_t EXTENSION[] = {0x00, 0x05, 0x00, 0x05, 0x01, 0x00, 0x00, 0x00, 0x00};
+	{
+		// Связь стороны клиента с одним лишь запросом состояния
+		client::context_t client;
+		// Запрашиваем состояние сертификата собеседника
+		client.status(true);
+		// Заводим клиента
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		// Приветствие клиента
+		const view_t greeting = client.output();
+		// Проверяем, что приветствие составлено
+		ASSERT_GT(greeting.size, sizeof(EXTENSION));
+		// Ищем расширение в приветствии
+		ASSERT_NE(std::search(greeting.data, greeting.data + greeting.size, EXTENSION, EXTENSION + sizeof(EXTENSION)), greeting.data + greeting.size);
+	}{
+		// Связь стороны клиента без запроса состояния
+		client::context_t client;
+		// Заводим клиента
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		// Приветствие клиента
+		const view_t greeting = client.output();
+		// Проверяем, что приветствие составлено
+		ASSERT_GT(greeting.size, sizeof(EXTENSION));
+		// Проверяем, что расширения в приветствии нет
+		ASSERT_EQ(std::search(greeting.data, greeting.data + greeting.size, EXTENSION, EXTENSION + sizeof(EXTENSION)), greeting.data + greeting.size);
+	}
+}
+
+/**
  * Проверка поведения при нехватке памяти: разбор, проверка и составление запроса, а
  * также рукопожатие со сшивкой в обе стороны - всякий отказ либо NONE, либо MEMORY,
  * либо обрыв внутренним извещением
@@ -2431,7 +2469,7 @@ TEST(OcspTest, Starved){
 		/**
 		 * Выполняем перебор запасов выделений
 		 */
-		for(size_t budget = 0; (budget < 400) && !complete; budget++){
+		for(size_t budget = 0; (budget < 6000) && !complete; budget += ((budget < 200) ? 1 : 37)){
 			// Отказы разбора, проверки и составления
 			ocsp::error_t first = ocsp::error_t::NONE, second = ocsp::error_t::NONE, third = ocsp::error_t::NONE;
 			// Состояние сертификата
@@ -2484,7 +2522,7 @@ TEST(OcspTest, Starved){
 		/**
 		 * Выполняем перебор запасов выделений
 		 */
-		for(size_t budget = 0; (budget < 4000) && !complete; budget += ((budget < 200) ? 1 : 37)){
+		for(size_t budget = 0; (budget < 6000) && !complete; budget += ((budget < 200) ? 1 : 37)){
 			// Связь стороны клиента
 			client::context_t client;
 			// Связь стороны сервера

@@ -621,6 +621,29 @@ namespace nts {
 				 *
 				 */
 				const extension_t * extension(const string & oid) const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод поиска расширения сертификата по опознавателю-литералу
+				 *
+				 * Не строит временную строку: на libstdc++ с прежним устройством строк
+				 * любая строка выделяет память, и под noexcept это оборачивалось броском
+				 *
+				 * @param oid опознаватель разыскиваемого расширения
+				 * @return    расширение сертификата либо nullptr
+				 *
+				 * \~english
+				 * @brief Method of finding an extension of the certificate by a literal identifier
+				 *
+				 * Does not build a temporary string: on libstdc++ with the former string layout
+				 * every string allocates, and under noexcept that turned into a throw
+				 *
+				 * @param oid the identifier of the extension being sought
+				 * @return    the extension of the certificate or nullptr
+				 *
+				 * \~
+				 *
+				 */
+				const extension_t * extension(const char * oid) const noexcept;
 			public:
 				/**
 				 * \~russian

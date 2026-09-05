@@ -185,6 +185,7 @@ bool nts::alert::known(const description_t description) noexcept {
 		case static_cast <uint8_t> (description_t::NAME):
 		case static_cast <uint8_t> (description_t::STATUS):
 		case static_cast <uint8_t> (description_t::PSK):
+		case static_cast <uint8_t> (description_t::RENEGOTIATION):
 		case static_cast <uint8_t> (description_t::REQUIRED):
 		case static_cast <uint8_t> (description_t::PROTOCOL):
 			// Выводим признак известности описания извещения
@@ -288,6 +289,8 @@ const char * nts::alert::name(const description_t description) noexcept {
 		case static_cast <uint8_t> (description_t::REQUIRED): return "certificate_required";
 		// Если ни один из предложенных протоколов не поддержан
 		case static_cast <uint8_t> (description_t::PROTOCOL): return "no_application_protocol";
+		// Если пересогласование связи не дозволено
+		case static_cast <uint8_t> (description_t::RENEGOTIATION): return "no_renegotiation";
 	}
 	// Выводим название неизвестного описания извещения
 	return "unknown_alert";

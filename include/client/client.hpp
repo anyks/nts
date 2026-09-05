@@ -46,6 +46,7 @@
 #include <ocsp/ocsp.hpp>
 #include <trust/trust.hpp>
 #include <context/context.hpp>
+#include <datagram/datagram.hpp>
 
 /**
  * \~russian
@@ -324,6 +325,81 @@ namespace nts {
 				void suites(const vector <protect::suite_t> & suites) noexcept;
 				/**
 				 * \~russian
+				 * @brief Метод установки пределов издания протокола
+				 *
+				 * @param lowest  наименьшее дозволенное издание: 0x0303 (TLS 1.2) либо 0x0304 (TLS 1.3)
+				 * @param highest наибольшее дозволенное издание: 0x0303 либо 0x0304
+				 *
+				 * @return        отказ установки: SETTINGS у издания ниже TLS 1.2 либо перевёрнутых
+				 *                пределов, STATE у уже заведённой связи
+				 *
+				 * @details Раздел 4.2.1 RFC 8446 и приложение D RFC 8446: клиент объявляет издания
+				 *          расширением supported_versions, сервер выбирает высшее общее; чужая
+				 *          сторона без расширения ведёт связь изданием заголовка приветствия -
+				 *          TLS 1.2. Умолчание - от 1.2 до 1.3; режим «только 1.3» - оба предела
+				 *          0x0304; ниже 1.2 связь не опускается никогда
+				 *
+				 * @note Издание TLS 1.2 ведётся лишь переносом записями: под QUIC и поверх
+				 *       дейтаграмм связь знает одно издание 1.3
+				 *
+				 * \~english
+				 * @brief Method of setting the limits of the edition of the protocol
+				 * @param lowest  the lowest allowed edition: 0x0303 (TLS 1.2) or 0x0304 (TLS 1.3)
+				 * @param highest the highest allowed edition: 0x0303 or 0x0304
+				 * @return        the failure of the setting: SETTINGS at an edition below TLS 1.2 or at inverted
+				 *                limits, STATE at an already established connection
+				 * @details The section 4.2.1 of RFC 8446 and the appendix D of RFC 8446: the client announces the
+				 *          editions by the supported_versions extension, the server chooses the highest common one;
+				 *          a foreign side without the extension conducts the connection by the edition of the header
+				 *          of the greeting - TLS 1.2. The default is from 1.2 to 1.3; the «1.3 only» mode - both
+				 *          limits 0x0304; the connection never goes below 1.2
+				 * @note The TLS 1.2 edition is conducted only by the transport by records: under QUIC and over
+				 *       datagrams the connection knows the 1.3 edition alone
+				 *
+				 * \~
+				 */
+				context::error_t versions(const uint16_t lowest, const uint16_t highest) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения наименьшего дозволенного издания протокола
+				 *
+				 * @return наименьшее дозволенное издание протокола
+				 *
+				 * \~english
+				 * @brief Method of getting the lowest allowed edition of the protocol
+				 * @return the lowest allowed edition of the protocol
+				 *
+				 * \~
+				 */
+				uint16_t lowest() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения наибольшего дозволенного издания протокола
+				 *
+				 * @return наибольшее дозволенное издание протокола
+				 *
+				 * \~english
+				 * @brief Method of getting the highest allowed edition of the protocol
+				 * @return the highest allowed edition of the protocol
+				 *
+				 * \~
+				 */
+				uint16_t highest() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения издания протокола, согласованного сторонами
+				 *
+				 * @return 0x0304 у TLS 1.3, 0x0303 у TLS 1.2, 0xFEFC у DTLS 1.3, ноль до согласования
+				 *
+				 * \~english
+				 * @brief Method of getting the edition of the protocol agreed by the sides
+				 * @return 0x0304 at TLS 1.3, 0x0303 at TLS 1.2, 0xFEFC at DTLS 1.3, a zero before the agreement
+				 *
+				 * \~
+				 */
+				uint16_t version() const noexcept;
+				/**
+				 * \~russian
 				 * @brief Метод установки предлагаемых кривых обмена ключами
 				 *
 				 * @param groups устанавливаемые кривые обмена ключами
@@ -433,6 +509,10 @@ namespace nts {
 				 * @note Отсутствие ответа при запросе отказом не считается: собеседник вправе
 				 *       не отвечать, а потребитель узнаёт об этом пустым ответом
 				 *
+				 * @note Запрос самодостаточен: расширение уходит и без иных настроек связи,
+				 *       а полученный ответ сам по себе связь не судит - проверка включается
+				 *       только явно вызовом verification(), иначе ответ лишь отдаётся наружу
+				 *
 				 * \~english
 				 * @brief Method of setting the request of the certificate status of the peer
 				 * @param request whether the certificate status of the peer is requested
@@ -441,6 +521,9 @@ namespace nts {
 				 *          entry of the certificate chain of the peer and is available by the call of status()
 				 * @note The absence of a response upon the request is not considered a failure: the peer is entitled
 				 *       not to respond, and the consumer learns about it by an empty response
+				 * @note The request is self-sufficient: the extension goes without any other settings of the connection,
+				 *       and a received response does not judge the connection by itself - the check is enabled only
+				 *       explicitly by the call of verification(), otherwise the response is merely given outside
 				 *
 				 * \~
 				 */
@@ -499,7 +582,9 @@ namespace nts {
 				 *          собеседника и его издателя: издатель берётся вторым звеном цепочки,
 				 *          у самоподписанного сертификата - им самим, а у цепочки из одного
 				 *          сертификата - из запаса по имени издателя. Сроки судятся мигом,
-				 *          установленным вызовом moment(); нулевой миг сроки не судит.
+				 *          установленным вызовом moment(); нулевой миг сроки не судит,
+				 *          а миг, отстоящий от срока ответа, законно даёт отказ EXPIRED - это
+				 *          не порок ответчика, а часы потребителя.
 				 *          Негодный ответ и отозванный сертификат обрывают связь извещением
 				 *          «bad_certificate_status_response» (113); неведомый ответчику
 				 *          сертификат связь не обрывает - состояние доступно вызовом certified()
@@ -513,7 +598,9 @@ namespace nts {
 				 *          the peer and its issuer: the issuer is taken as the second link of the chain, for a
 				 *          self-signed certificate - as itself, and for a chain of a single certificate - from the
 				 *          store by the name of the issuer. The validity is judged by the moment set by the call of
-				 *          moment(); a zero moment does not judge the validity. An unsuitable response and a revoked
+				 *          moment(); a zero moment does not judge the validity, while a moment away from the
+				 *          validity of the response lawfully yields the failure EXPIRED - that is not a fault of the
+				 *          responder but the clock of the consumer. An unsuitable response and a revoked
 				 *          certificate tear the connection by the alert «bad_certificate_status_response» (113); a
 				 *          certificate unknown to the responder does not tear the connection - the status is
 				 *          available by the call of certified()
@@ -769,6 +856,10 @@ namespace nts {
 				 *
 				 * @note Способ переноса устанавливается до заведения связи
 				 *
+				 * @note Перенос по уровням без прикладных протоколов protocols() и без
+				 *       параметров переноса parameters() связь не заводит (отказ SETTINGS):
+				 *       под QUIC и то, и другое обязательно, и молчание тут было бы дефектом
+				 *
 				 * \~english
 				 * @brief Method of setting the way of the transport of the handshake
 				 * @param transport the way of the transport being set
@@ -779,6 +870,9 @@ namespace nts {
 				 *          of the keys by KeyUpdate and the end of the early data do not go in this transport at
 				 *          all — the QUIC transport takes them upon itself
 				 * @note The way of the transport is set before the establishment of the connection
+				 * @note The transport by levels without the application protocols protocols() and without the
+				 *       transport parameters parameters() does not establish the connection (the failure SETTINGS):
+				 *       under QUIC both are mandatory, and silence here would be a defect
 				 *
 				 * \~
 				 */
@@ -1016,7 +1110,10 @@ namespace nts {
 				 * @details Раздел 4.4 RFC 9147: поверх дейтаграмм всякая выдаваемая дейтаграмма не
 				 *          длиннее этого размера, а сообщения рукопожатия дробятся под него на
 				 *          куски. Умолчание - 1200 байтов; размер ниже наименьшего дозволенного
-				 *          поднимается до него
+				 *          (DATAGRAM_MTU_LEAST) поднимается до него, верхнего предела нет: по SCTP
+				 *          сообщения бывают длиннее 1500 байтов, а запись протокола и так не
+				 *          шире 2^14 байтов. Принимаемые дейтаграммы этим размером не
+				 *          ограничены: стороны с разным размером сходятся
 				 *
 				 * @note Размер устанавливается до заведения связи и значим лишь переносу дейтаграммами
 				 *
@@ -1025,7 +1122,10 @@ namespace nts {
 				 * @param mtu the size of a datagram in bytes being set
 				 * @details The section 4.4 of RFC 9147: over datagrams every datagram given out is not longer
 				 *          than this size, and the messages of the handshake are split into fragments under it.
-				 *          The default is 1200 bytes; a size below the least allowed one is raised up to it
+				 *          The default is 1200 bytes; a size below the least allowed one (DATAGRAM_MTU_LEAST) is
+				 *          raised up to it, there is no upper limit: over SCTP the messages happen to be longer
+				 *          than 1500 bytes, and a record of the protocol is not wider than 2^14 bytes anyway. The
+				 *          received datagrams are not bound by this size: the sides with different sizes converge
 				 * @note The size is set before the establishment of the connection and matters only to the
 				 *       transport by datagrams
 				 *
@@ -1106,6 +1206,25 @@ namespace nts {
 				 * \~
 				 */
 				uint64_t discarded() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения числа отброшенного по причине
+				 *
+				 * @param reason причина отброса
+				 *
+				 * @return       число записей и дейтаграмм, отброшенных по этой причине
+				 *
+				 * @note Сумма по всем причинам равна общему счётчику discarded
+				 *
+				 * \~english
+				 * @brief Method of getting the number of the discarded by a reason
+				 * @param reason the reason of the discarding
+				 * @return       the number of the records and datagrams discarded by this reason
+				 * @note The sum over all the reasons equals the total counter discarded
+				 *
+				 * \~
+				 */
+				uint64_t discarded(const datagram::reason_t reason) const noexcept;
 			public:
 				/**
 				 * \~russian
@@ -1167,12 +1286,24 @@ namespace nts {
 				 *
 				 * @return накопленные байты, отправляемые собеседнику
 				 *
+				 * @details Поверх дейтаграмм вызов отдаёт ровно одну готовую дейтаграмму - первую
+				 *          из очереди; за одну подачу либо отправку готовых дейтаграмм может быть
+				 *          несколько, и звать output и consume надлежит, пока просмотр не
+				 *          опустеет, иначе остальные дейтаграммы ждут в очереди. Всякая готовая
+				 *          запись прикладных данных либо извещения уходит своей дейтаграммой,
+				 *          ни одна не теряется и с соседней не сливается
+				 *
 				 * @note Просмотр смотрит внутрь накопителя связи: снятие байтов вызовом consume
 				 *       его обесценивает
 				 *
 				 * \~english
 				 * @brief Method of getting the bytes sent to the interlocutor
 				 * @return the accumulated bytes sent to the interlocutor
+				 * @details Over datagrams the call gives out exactly one ready datagram — the first of the queue;
+				 *          per a single feeding or sending there may be several ready datagrams, and output and
+				 *          consume are to be called until the view gets empty, otherwise the rest of the datagrams
+				 *          wait in the queue. Every ready record of the application data or of an alert goes by
+				 *          its own datagram, none is lost and none merges with the neighbouring one
 				 * @note The view looks inside the accumulator of the connection: the removal of the bytes
 				 *       by a call of consume invalidates it
 				 *

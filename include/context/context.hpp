@@ -124,7 +124,9 @@ namespace nts {
 			TICKET      = 0x18, /*!< \~russian Запись билета возобновления сложена не по правилам \~english A record of a ticket of the resumption is composed not by the rules \~ */
 			COMPRESSION = 0x19, /*!< \~russian Цепочка сертификатов сжата алгоритмом, связью не объявлявшимся \~english The chain of the certificates is compressed by an algorithm not announced by the connection \~ */
 			STATUS      = 0x1A, /*!< \~russian Ответ о состоянии сертификата собеседника негоден либо сертификат отозван \~english The certificate status response of the interlocutor is unsuitable or the certificate is revoked \~ */
-			TIMEOUT     = 0x1B  /*!< \~russian Попытки повторной передачи поверх дейтаграмм исчерпаны \~english The attempts of the retransmission over datagrams are exhausted \~ */
+			TIMEOUT     = 0x1B, /*!< \~russian Попытки повторной передачи поверх дейтаграмм исчерпаны \~english The attempts of the retransmission over datagrams are exhausted \~ */
+			MASTER      = 0x1C, /*!< \~russian Собеседник по TLS 1.2 не поддерживает расширенный главный секрет RFC 7627 \~english The TLS 1.2 interlocutor does not support the extended master secret of RFC 7627 \~ */
+			RENEGOTIATION = 0x1D /*!< \~russian Собеседник по TLS 1.2 затеял пересогласование, связью не дозволенное \~english The TLS 1.2 interlocutor has started a renegotiation not allowed by the connection \~ */
 		};
 
 		/**

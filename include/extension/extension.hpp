@@ -104,15 +104,18 @@ namespace nts {
 			NAME      = 0x0000, /*!< \~russian Имя запрашиваемого узла \~english The name of the requested host \~ */
 			STATUS    = 0x0005, /*!< \~russian Запрос состояния сертификата OCSP (RFC 6066, раздел 4.4.2.1 RFC 8446) \~english The request of the certificate status OCSP (RFC 6066, the section 4.4.2.1 of RFC 8446) \~ */
 			GROUPS    = 0x000A, /*!< \~russian Поддерживаемые группы обмена ключами \~english The supported groups of the exchange of the keys \~ */
+			FORMATS   = 0x000B, /*!< \~russian Записи точек кривой ec_point_formats (раздел 5.1.2 RFC 8422, TLS 1.2) \~english The ec_point_formats of the points of a curve (the section 5.1.2 of RFC 8422, TLS 1.2) \~ */
 			SCHEMES   = 0x000D, /*!< \~russian Поддерживаемые схемы подписи \~english The supported signature schemes \~ */
 			PROTOCOLS = 0x0010, /*!< \~russian Перечень прикладных протоколов связи \~english The list of the application protocols of a connection \~ */
+			MASTER    = 0x0017, /*!< \~russian Расширенный главный секрет extended_master_secret (RFC 7627, TLS 1.2) \~english The extended_master_secret (RFC 7627, TLS 1.2) \~ */
 			COMPRESS  = 0x001B, /*!< \~russian Перечень алгоритмов сжатия цепочки сертификатов (RFC 8879) \~english The list of the algorithms of the compression of the chain of the certificates (RFC 8879) \~ */
 			SECRET    = 0x0029, /*!< \~russian Заранее разделённый ключ \~english The pre-shared key \~ */
 			EARLY     = 0x002A, /*!< \~russian Упреждающие данные связи \~english The early data of a connection \~ */
 			COOKIE    = 0x002C, /*!< \~russian Метка возврата состояния сервера \~english The label of the return of the state of the server \~ */
 			VERSIONS  = 0x002B, /*!< \~russian Поддерживаемые издания протокола \~english The supported editions of the protocol \~ */
 			MODES     = 0x002D, /*!< \~russian Способы обмена с заранее разделённым ключом \~english The modes of the exchange with a pre-shared key \~ */
-			SHARE     = 0x0033  /*!< \~russian Открытая часть ключа обмена \~english The public part of the key of the exchange \~ */
+			SHARE     = 0x0033, /*!< \~russian Открытая часть ключа обмена \~english The public part of the key of the exchange \~ */
+			RENEGOTIATION = 0xFF01 /*!< \~russian Признак безопасного пересогласования renegotiation_info (RFC 5746, TLS 1.2) \~english The renegotiation_info (RFC 5746, TLS 1.2) \~ */
 		};
 
 		/**
@@ -173,8 +176,11 @@ namespace nts {
 			S512A = 0x070D, /*!< \~russian Подпись на кривой GC512A \~english The signature on the GC512A curve \~ */
 			S512B = 0x070E, /*!< \~russian Подпись на кривой GC512B \~english The signature on the GC512B curve \~ */
 			S512C = 0x070F, /*!< \~russian Подпись на кривой GC512C \~english The signature on the GC512C curve \~ */
+			RSA_PKCS1_SHA256       = 0x0401, /*!< \~russian Подпись RSASSA-PKCS1-v1_5 с хешем SHA-256 (TLS 1.2, раздел 7.4.1.4.1 RFC 5246) \~english The RSASSA-PKCS1-v1_5 signature with the SHA-256 hash (TLS 1.2, the section 7.4.1.4.1 of RFC 5246) \~ */
 			ECDSA_SECP256R1_SHA256 = 0x0403, /*!< \~russian Подпись ECDSA на кривой secp256r1 с хешем SHA-256 \~english The ECDSA signature on the secp256r1 curve with the SHA-256 hash \~ */
+			RSA_PKCS1_SHA384       = 0x0501, /*!< \~russian Подпись RSASSA-PKCS1-v1_5 с хешем SHA-384 (TLS 1.2) \~english The RSASSA-PKCS1-v1_5 signature with the SHA-384 hash (TLS 1.2) \~ */
 			ECDSA_SECP384R1_SHA384 = 0x0503, /*!< \~russian Подпись ECDSA на кривой secp384r1 с хешем SHA-384 \~english The ECDSA signature on the secp384r1 curve with the SHA-384 hash \~ */
+			RSA_PKCS1_SHA512       = 0x0601, /*!< \~russian Подпись RSASSA-PKCS1-v1_5 с хешем SHA-512 (TLS 1.2) \~english The RSASSA-PKCS1-v1_5 signature with the SHA-512 hash (TLS 1.2) \~ */
 			RSA_PSS_RSAE_SHA256    = 0x0804, /*!< \~russian Подпись RSASSA-PSS ключом rsaEncryption с хешем SHA-256 \~english The RSASSA-PSS signature by an rsaEncryption key with the SHA-256 hash \~ */
 			RSA_PSS_RSAE_SHA384    = 0x0805, /*!< \~russian Подпись RSASSA-PSS ключом rsaEncryption с хешем SHA-384 \~english The RSASSA-PSS signature by an rsaEncryption key with the SHA-384 hash \~ */
 			RSA_PSS_RSAE_SHA512    = 0x0806, /*!< \~russian Подпись RSASSA-PSS ключом rsaEncryption с хешем SHA-512 \~english The RSASSA-PSS signature by an rsaEncryption key with the SHA-512 hash \~ */

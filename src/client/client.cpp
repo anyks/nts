@@ -166,6 +166,49 @@ void nts::client::Context::suites(const vector <protect::suite_t> & suites) noex
 		this->_engine->suites(suites);
 }
 /**
+ * @brief Метод установки пределов издания протокола
+ *
+ * @param lowest  наименьшее дозволенное издание протокола
+ * @param highest наибольшее дозволенное издание протокола
+ *
+ * @return        отказ установки пределов издания протокола
+ *
+ */
+context::error_t nts::client::Context::versions(const uint16_t lowest, const uint16_t highest) noexcept {
+	// Выводим итог установки пределов издания протокола
+	return (this->_engine != nullptr ? this->_engine->versions(lowest, highest) : context::error_t::MEMORY);
+}
+/**
+ * @brief Метод получения наименьшего дозволенного издания протокола
+ *
+ * @return наименьшее дозволенное издание протокола
+ *
+ */
+uint16_t nts::client::Context::lowest() const noexcept {
+	// Выводим наименьшее дозволенное издание протокола
+	return (this->_engine != nullptr ? this->_engine->lowest() : 0);
+}
+/**
+ * @brief Метод получения наибольшего дозволенного издания протокола
+ *
+ * @return наибольшее дозволенное издание протокола
+ *
+ */
+uint16_t nts::client::Context::highest() const noexcept {
+	// Выводим наибольшее дозволенное издание протокола
+	return (this->_engine != nullptr ? this->_engine->highest() : 0);
+}
+/**
+ * @brief Метод получения издания протокола, согласованного сторонами
+ *
+ * @return согласованное издание протокола
+ *
+ */
+uint16_t nts::client::Context::version() const noexcept {
+	// Выводим согласованное издание протокола
+	return (this->_engine != nullptr ? this->_engine->version() : 0);
+}
+/**
  * @brief Метод установки предлагаемых кривых обмена ключами
  *
  * @param groups устанавливаемые кривые обмена ключами
@@ -592,6 +635,18 @@ context::error_t nts::client::Context::elapsed() noexcept {
 uint64_t nts::client::Context::discarded() const noexcept {
 	// Выводим число отброшенных записей и дейтаграмм
 	return (this->_engine != nullptr ? this->_engine->discarded() : 0);
+}
+/**
+ * @brief Метод получения числа отброшенного по причине
+ *
+ * @param reason причина отброса
+ *
+ * @return       число записей и дейтаграмм, отброшенных по этой причине
+ *
+ */
+uint64_t nts::client::Context::discarded(const datagram::reason_t reason) const noexcept {
+	// Выводим число отброшенного по причине
+	return (this->_engine != nullptr ? this->_engine->discarded(reason) : 0);
 }
 /**
  * @brief Метод заведения связи

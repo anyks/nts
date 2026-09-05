@@ -120,8 +120,18 @@ TEST(HandshakeTest, Header){
 	const uint8_t hungry[] = {0x14, 0x00, 0x00};
 	// Проверяем отказ разбора недобранной обвязки сообщения
 	ASSERT_EQ(handshake::parse(view_t(hungry, sizeof(hungry)), header), handshake::error_t::HUNGRY);
-	// Проверяем отказ записи обвязки сообщения неизвестного вида
-	header.type = handshake::type_t::NONE;
+	// Разбираемая обвязка просьбы о пересогласовании HelloRequest: вид ноль, тело пусто
+	const uint8_t request[] = {0x00, 0x00, 0x00, 0x00};
+	// Выполняем разбор обвязки просьбы о пересогласовании
+	ASSERT_EQ(handshake::parse(view_t(request, sizeof(request)), header), handshake::error_t::NONE);
+	// Проверяем вид разобранного сообщения: просьба о пересогласовании
+	ASSERT_EQ(header.type, handshake::type_t::HELLO_REQUEST);
+	// Проверяем длину тела просьбы о пересогласовании
+	ASSERT_EQ(header.size, static_cast <size_t> (0));
+	// Проверяем известность вида просьбы о пересогласовании
+	ASSERT_TRUE(handshake::known(handshake::type_t::HELLO_REQUEST));
+	// Устанавливаем вид сообщения, протоколом не определённый
+	header.type = static_cast <handshake::type_t> (0x2A);
 	// Проверяем отказ записи обвязки сообщения неизвестного вида
 	ASSERT_EQ(handshake::build(header, buffer), handshake::error_t::TYPE);
 }
@@ -224,7 +234,7 @@ TEST(HandshakeTest, Compose){
 	// Проверяем схождение составленной переписки с контрольным примером
 	ASSERT_EQ(::memcmp(data.data, sample.data(), data.size), 0);
 	// Проверяем отказ составления сообщения неизвестного вида
-	ASSERT_EQ(writer.push(handshake::type_t::NONE, view_t(sample.data(), 1)), handshake::error_t::TYPE);
+	ASSERT_EQ(writer.push(static_cast <handshake::type_t> (0x2A), view_t(sample.data(), 1)), handshake::error_t::TYPE);
 	// Выполняем сброс накопителя составленных сообщений
 	writer.clear();
 	// Проверяем опустошение накопителя составителя

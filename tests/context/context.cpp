@@ -2847,6 +2847,11 @@ TEST(ContextTest, Ancient){
 	server::context_t server;
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
+	/**
+	 * Сервер ведёт лишь издание 1.3: с умолчанием 1.2…1.3 приветствие без перечня
+	 * изданий законно вело бы связь изданием 1.2 (приложение D.2 RFC 8446)
+	 */
+	ASSERT_EQ(server.versions(0x0304, 0x0304), context::error_t::NONE);
 	// Устанавливаем набор шифрования, признаваемый сервером
 	server.suites({protect::suite_t::MAGMA_MGM_L});
 	// Выполняем заведение связи стороны сервера
@@ -2885,6 +2890,11 @@ TEST(ContextTest, Antique){
 	server::context_t server;
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
+	/**
+	 * Сервер ведёт лишь издание 1.3: с умолчанием 1.2…1.3 приветствие без перечня
+	 * изданий законно вело бы связь изданием 1.2 (приложение D.2 RFC 8446)
+	 */
+	ASSERT_EQ(server.versions(0x0304, 0x0304), context::error_t::NONE);
 	// Устанавливаем набор шифрования, признаваемый сервером
 	server.suites({protect::suite_t::MAGMA_MGM_L});
 	// Выполняем заведение связи стороны сервера
@@ -3235,6 +3245,11 @@ TEST(ContextTest, Unheard){
 TEST(ContextTest, Speechless){
 	// Связь стороны клиента
 	client::context_t client;
+	/**
+	 * Клиент ведёт лишь издание 1.3: с умолчанием 1.2…1.3 приветствие сервера без
+	 * расширения издания законно вело бы связь изданием 1.2 (приложение D.1 RFC 8446)
+	 */
+	ASSERT_EQ(client.versions(0x0304, 0x0304), context::error_t::NONE);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Выполняем ответ враждебного сервера искажённым приветствием

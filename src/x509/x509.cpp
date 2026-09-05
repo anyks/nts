@@ -910,6 +910,31 @@ const nts::x509::extension_t * nts::x509::Certificate::extension(const string & 
 }
 
 /**
+ * @brief Метод поиска расширения сертификата по опознавателю-литералу
+ *
+ * @param oid опознаватель разыскиваемого расширения
+ * @return    расширение сертификата либо nullptr
+ *
+ */
+const nts::x509::extension_t * nts::x509::Certificate::extension(const char * oid) const noexcept {
+	// Если опознаватель не задан
+	if(oid == nullptr)
+		// Выводим отсутствие расширения
+		return nullptr;
+	/**
+	 * Выполняем обход набора расширений сертификата
+	 */
+	for(size_t i = 0; i < this->_extensions.size(); i++){
+		// Если опознаватель расширения совпал с разыскиваемым (сличение без построения строки)
+		if(this->_extensions[i].oid.compare(oid) == 0)
+			// Выводим найденное расширение
+			return &this->_extensions[i];
+	}
+	// Выводим отсутствие расширения
+	return nullptr;
+}
+
+/**
  * @brief Конструктор сертификата
  *
  */

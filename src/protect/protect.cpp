@@ -109,6 +109,22 @@ namespace {
 	static constexpr uint64_t CLASSIC_LIMIT = 23726566ULL;
 
 	/**
+	 * Длина соли одноразового значения наборов AES-GCM издания TLS 1.2: раздел 3 RFC 5288
+	 */
+	static constexpr size_t LEGACY_SALT = 4;
+
+	/**
+	 * Длина явной части одноразового значения наборов AES-GCM издания TLS 1.2: раздел 3 RFC 5288
+	 */
+	static constexpr size_t LEGACY_EXPLICIT = 8;
+
+	/**
+	 * Длина связанных данных записи издания TLS 1.2: порядковый номер, вид содержимого,
+	 * издание протокола и длина открытого содержимого (раздел 6.2.3.3 RFC 5246)
+	 */
+	static constexpr size_t LEGACY_ASSOCIATED = 13;
+
+	/**
 	 * Предел записей на одном ключе ChaCha20-Poly1305: 2^62, раздел 5.5 RFC 8446 предела
 	 * не ставит, а недостижимый предел держит заслон номеров живым вдали от переполнения
 	 */
@@ -137,14 +153,30 @@ namespace {
 		size_t tag;
 		// Хеш расписания ключей набора
 		digest::hash_t hash;
-	} SAMPLES[7] = {
-		{suite_t::KUZNYECHIK_MGM_L,         false, false, {0xF800000000000000ULL, 0xFFFFFFF000000000ULL, 0xFFFFFFFFFFFFE000ULL}, 0xFFFFFFFFFFFFFFFFULL, 16, 32, 16, digest::hash_t::STREEBOG256},
-		{suite_t::MAGMA_MGM_L,              false, false, {0xFFE0000000000000ULL, 0xFFFFFFFFC0000000ULL, 0xFFFFFFFFFFFFFF80ULL}, 0xFFFFFFFFFFFFFFFFULL, 8,  32, 8,  digest::hash_t::STREEBOG256},
-		{suite_t::KUZNYECHIK_MGM_S,         false, false, {0xFFFFFFFFE0000000ULL, 0xFFFFFFFFFFFF0000ULL, 0xFFFFFFFFFFFFFFF8ULL}, 0x000003FFFFFFFFFFULL, 16, 32, 16, digest::hash_t::STREEBOG256},
-		{suite_t::MAGMA_MGM_S,              false, false, {0xFFFFFFFFFC000000ULL, 0xFFFFFFFFFFFFE000ULL, 0xFFFFFFFFFFFFFFFFULL}, 0x0000007FFFFFFFFFULL, 8,  32, 8,  digest::hash_t::STREEBOG256},
-		{suite_t::AES_128_GCM_SHA256,       true,  false, {0ULL, 0ULL, 0ULL}, CLASSIC_LIMIT, CLASSIC_VECTOR, 16, CLASSIC_TAG, digest::hash_t::SHA256},
-		{suite_t::AES_256_GCM_SHA384,       true,  false, {0ULL, 0ULL, 0ULL}, CLASSIC_LIMIT, CLASSIC_VECTOR, 32, CLASSIC_TAG, digest::hash_t::SHA384},
-		{suite_t::CHACHA20_POLY1305_SHA256, true,  true,  {0ULL, 0ULL, 0ULL}, STREAM_LIMIT,  CLASSIC_VECTOR, 32, CLASSIC_TAG, digest::hash_t::SHA256}
+		// Признак набора издания TLS 1.2 с защитой записей по разделу 6.2.3.3 RFC 5246
+		bool legacy;
+		// Алгоритм подписи, требуемый набором TLS 1.2 от сертификата
+		signer_t signer;
+	} SAMPLES[13] = {
+		{suite_t::KUZNYECHIK_MGM_L,         false, false, {0xF800000000000000ULL, 0xFFFFFFF000000000ULL, 0xFFFFFFFFFFFFE000ULL}, 0xFFFFFFFFFFFFFFFFULL, 16, 32, 16, digest::hash_t::STREEBOG256, false, signer_t::NONE},
+		{suite_t::MAGMA_MGM_L,              false, false, {0xFFE0000000000000ULL, 0xFFFFFFFFC0000000ULL, 0xFFFFFFFFFFFFFF80ULL}, 0xFFFFFFFFFFFFFFFFULL, 8,  32, 8,  digest::hash_t::STREEBOG256, false, signer_t::NONE},
+		{suite_t::KUZNYECHIK_MGM_S,         false, false, {0xFFFFFFFFE0000000ULL, 0xFFFFFFFFFFFF0000ULL, 0xFFFFFFFFFFFFFFF8ULL}, 0x000003FFFFFFFFFFULL, 16, 32, 16, digest::hash_t::STREEBOG256, false, signer_t::NONE},
+		{suite_t::MAGMA_MGM_S,              false, false, {0xFFFFFFFFFC000000ULL, 0xFFFFFFFFFFFFE000ULL, 0xFFFFFFFFFFFFFFFFULL}, 0x0000007FFFFFFFFFULL, 8,  32, 8,  digest::hash_t::STREEBOG256, false, signer_t::NONE},
+		{suite_t::AES_128_GCM_SHA256,       true,  false, {0ULL, 0ULL, 0ULL}, CLASSIC_LIMIT, CLASSIC_VECTOR, 16, CLASSIC_TAG, digest::hash_t::SHA256, false, signer_t::NONE},
+		{suite_t::AES_256_GCM_SHA384,       true,  false, {0ULL, 0ULL, 0ULL}, CLASSIC_LIMIT, CLASSIC_VECTOR, 32, CLASSIC_TAG, digest::hash_t::SHA384, false, signer_t::NONE},
+		{suite_t::CHACHA20_POLY1305_SHA256, true,  true,  {0ULL, 0ULL, 0ULL}, STREAM_LIMIT,  CLASSIC_VECTOR, 32, CLASSIC_TAG, digest::hash_t::SHA256, false, signer_t::NONE},
+		/**
+		 * Наборы TLS 1.2 (RFC 5289, RFC 7905): у AES-GCM вектор замены занимает четыре байта
+		 * соли (раздел 3 RFC 5288), у ChaCha20-Poly1305 - двенадцать (раздел 2 RFC 7905);
+		 * предел записей взят недостижимым 2^62: смены ключей в TLS 1.2 нет, а раздел 6.1
+		 * RFC 5246 лишь запрещает переполнение порядкового номера
+		 */
+		{suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256,       true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, LEGACY_SALT,    16, CLASSIC_TAG, digest::hash_t::SHA256, true, signer_t::ECDSA},
+		{suite_t::ECDHE_ECDSA_AES_256_GCM_SHA384,       true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, LEGACY_SALT,    32, CLASSIC_TAG, digest::hash_t::SHA384, true, signer_t::ECDSA},
+		{suite_t::ECDHE_RSA_AES_128_GCM_SHA256,         true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, LEGACY_SALT,    16, CLASSIC_TAG, digest::hash_t::SHA256, true, signer_t::RSA},
+		{suite_t::ECDHE_RSA_AES_256_GCM_SHA384,         true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, LEGACY_SALT,    32, CLASSIC_TAG, digest::hash_t::SHA384, true, signer_t::RSA},
+		{suite_t::ECDHE_RSA_CHACHA20_POLY1305_SHA256,   true, true,  {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, CLASSIC_VECTOR, 32, CLASSIC_TAG, digest::hash_t::SHA256, true, signer_t::RSA},
+		{suite_t::ECDHE_ECDSA_CHACHA20_POLY1305_SHA256, true, true,  {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, CLASSIC_VECTOR, 32, CLASSIC_TAG, digest::hash_t::SHA256, true, signer_t::ECDSA}
 	};
 
 	/**
@@ -256,6 +288,34 @@ uint64_t nts::protect::limit(const suite_t suite) noexcept {
 	const Sample * sample = search(suite);
 	// Выводим наибольший порядковый номер записи набора шифрования
 	return ((sample != nullptr) ? sample->limit : 0);
+}
+/**
+ * @brief Метод проверки принадлежности набора шифрования изданию TLS 1.2
+ *
+ * @param suite набор шифрования
+ *
+ * @return      признак того, что набор ведёт записи по разделу 6.2.3.3 RFC 5246
+ *
+ */
+bool nts::protect::legacy(const suite_t suite) noexcept {
+	// Получаем описание набора шифрования
+	const Sample * sample = search(suite);
+	// Выводим признак набора издания TLS 1.2
+	return ((sample != nullptr) && sample->legacy);
+}
+/**
+ * @brief Метод получения алгоритма подписи, требуемого набором шифрования TLS 1.2
+ *
+ * @param suite набор шифрования
+ *
+ * @return      алгоритм подписи, NONE у наборов TLS 1.3 и у неизвестного набора
+ *
+ */
+nts::protect::signer_t nts::protect::signer(const suite_t suite) noexcept {
+	// Получаем описание набора шифрования
+	const Sample * sample = search(suite);
+	// Выводим алгоритм подписи набора шифрования
+	return ((sample != nullptr) ? sample->signer : signer_t::NONE);
 }
 /**
  * @brief Метод выработки ключа записи построением TLSTREE
@@ -488,6 +548,8 @@ bool nts::protect::Protection::start(const suite_t suite, const view_t & key, co
 	this->_classic = sample->classic;
 	// Запоминаем признак набора ChaCha20-Poly1305
 	this->_stream = sample->stream;
+	// Запоминаем признак набора издания TLS 1.2
+	this->_legacy = sample->legacy;
 	// Запоминаем наибольший порядковый номер записи набора
 	this->_limit = sample->limit;
 	// Переносим корневой ключ направления связи
@@ -535,6 +597,8 @@ void nts::protect::Protection::clear() noexcept {
 	this->_classic = false;
 	// Сбрасываем признак набора ChaCha20-Poly1305
 	this->_stream = false;
+	// Сбрасываем признак набора издания TLS 1.2
+	this->_legacy = false;
 	// Сбрасываем порядковый номер очередной записи
 	this->_sequence = 0;
 	// Сбрасываем наибольший порядковый номер записи
@@ -564,6 +628,10 @@ nts::protect::error_t nts::protect::Protection::seal(const record::type_t type, 
 	if(!record::known(type))
 		// Выводим отказ наложения защиты
 		return error_t::TYPE;
+	// Если набор шифрования издания TLS 1.2: запись складывается по разделу 6.2.3.3 RFC 5246
+	if(this->_legacy)
+		// Выводим итог наложения защиты записи издания TLS 1.2
+		return this->wrap(type, data, result);
 	// Длина защищаемого содержимого записи
 	const size_t total = ((data.data != nullptr) ? data.size : 0);
 	// Если содержимое либо дополнение длиннее дозволенного
@@ -640,6 +708,10 @@ nts::protect::error_t nts::protect::Protection::open(const record::header_t & he
 	if(!this->_ready)
 		// Выводим отказ снятия защиты
 		return error_t::STATE;
+	// Если набор шифрования издания TLS 1.2: запись разбирается по разделу 6.2.3.3 RFC 5246
+	if(this->_legacy)
+		// Выводим итог снятия защиты с записи издания TLS 1.2
+		return this->unwrap(header, data, type, result);
 	// Если запись не выдаёт себя за прикладные данные
 	if(header.type != record::type_t::APPLICATION)
 		// Выводим отказ снятия защиты
@@ -929,10 +1001,287 @@ nts::protect::error_t nts::protect::Protection::open(const view_t & associated, 
 	return outcome;
 }
 /**
+ * @brief Метод составления связанных данных записи издания TLS 1.2
+ *
+ * @param sequence порядковый номер записи
+ * @param type     вид содержимого записи
+ * @param length   длина открытого содержимого записи
+ * @param result   место, в которое помещаются связанные данные
+ *
+ */
+void nts::protect::Protection::associate(const uint64_t sequence, const record::type_t type, const size_t length, uint8_t * result) const noexcept {
+	// Записываем порядковый номер записи от старшего байта к младшему
+	number(sequence, result);
+	// Записываем вид содержимого записи
+	result[8] = static_cast <uint8_t> (type);
+	// Записываем старший байт издания протокола TLS 1.2
+	result[9] = 0x03;
+	// Записываем младший байт издания протокола TLS 1.2
+	result[10] = 0x03;
+	// Записываем старший байт длины открытого содержимого
+	result[11] = static_cast <uint8_t> ((length >> 8) & 0xFF);
+	// Записываем младший байт длины открытого содержимого
+	result[12] = static_cast <uint8_t> (length & 0xFF);
+}
+/**
+ * @brief Метод наложения защиты на запись издания TLS 1.2
+ *
+ * @param type   вид содержимого защищаемой записи
+ * @param data   защищаемое содержимое записи
+ * @param result накопитель, в конец которого дописывается защищённая запись
+ *
+ * @return       отказ наложения защиты на запись
+ *
+ */
+nts::protect::error_t nts::protect::Protection::wrap(const record::type_t type, const view_t & data, vector <uint8_t> & result) noexcept {
+	// Если порядковые номера записей на этом ключе исчерпаны
+	if(this->_sequence > this->_limit)
+		// Выводим отказ наложения защиты
+		return error_t::SEQUENCE;
+	// Длина защищаемого содержимого записи
+	const size_t total = ((data.data != nullptr) ? data.size : 0);
+	// Если содержимое длиннее дозволенного
+	if(total > record::RECORD_PLAINTEXT)
+		// Выводим отказ наложения защиты
+		return error_t::LENGTH;
+	// Если содержимое пусто, а вид записи пустоты не дозволяет
+	if((total == 0) && !record::empty(type))
+		// Выводим отказ наложения защиты
+		return error_t::LENGTH;
+	/**
+	 * Раздел 3 RFC 5288: у AES-GCM перед шифртекстом идёт явная часть одноразового
+	 * значения в восемь байтов; у ChaCha20-Poly1305 (раздел 2 RFC 7905) явной части нет
+	 */
+	const size_t prefix = (this->_stream ? 0 : LEGACY_EXPLICIT);
+	// Заголовок защищённой записи: вид содержимого идёт открыто
+	record::header_t header;
+	// Устанавливаем вид содержимого защищённой записи
+	header.type = type;
+	// Устанавливаем издание протокола защищённой записи
+	header.version = record::version_t::TLS12;
+	// Устанавливаем длину содержимого защищённой записи
+	header.size = (prefix + total + this->_tag);
+	// Место, в которое записывается заголовок защищённой записи
+	uint8_t written[record::RECORD_HEADER];
+	// Если заголовок защищённой записи составить не удалось
+	if(record::build(header, written) != record::error_t::NONE)
+		// Выводим отказ наложения защиты
+		return error_t::LENGTH;
+	// Описание базового шифра записи
+	cipher::block_t block;
+	// Выполняем подготовку базового шифра к защите записи
+	const error_t error = this->prepare(this->_sequence, block);
+	// Если базовый шифр подготовить не удалось
+	if(error != error_t::NONE)
+		// Выводим отказ наложения защиты
+		return error;
+	// Место, в которое помещаются связанные данные записи
+	uint8_t associated[LEGACY_ASSOCIATED];
+	// Составляем связанные данные записи: раздел 6.2.3.3 RFC 5246
+	this->associate(this->_sequence, type, total, associated);
+	// Место, в которое помещается одноразовое значение записи
+	uint8_t nonce[PROTECT_VECTOR];
+	// Если набор шифрования - ChaCha20-Poly1305
+	if(this->_stream)
+		// Раздел 2 RFC 7905: одноразовое значение есть вектор замены, сложенный с номером записи
+		this->nonce(this->_sequence, nonce);
+	// Если набор шифрования - AES-GCM
+	else {
+		// Раздел 3 RFC 5288: одноразовое значение есть соль и явная часть - порядковый номер записи
+		::memcpy(nonce, this->_vector, LEGACY_SALT);
+		// Записываем явную часть одноразового значения
+		number(this->_sequence, nonce + LEGACY_SALT);
+	}
+	// Смещение защищённой записи в накопителе
+	const size_t offset = result.size();
+	// Итог наложения защиты на запись
+	error_t outcome = error_t::NONE;
+	/**
+	 * Выполняем складывание защищённой записи в накопитель
+	 */
+	try {
+		// Занимаем место под заголовок, явную часть, шифртекст и метку целостности
+		result.resize(offset + record::RECORD_HEADER + prefix + total + this->_tag, 0);
+		// Переносим заголовок защищённой записи
+		::memcpy(result.data() + offset, written, record::RECORD_HEADER);
+		// Если явная часть одноразового значения положена
+		if(prefix > 0)
+			// Переносим явную часть одноразового значения
+			::memcpy(result.data() + offset + record::RECORD_HEADER, nonce + LEGACY_SALT, prefix);
+		// Место, в которое помещается шифртекст записи
+		uint8_t * cipher = (result.data() + offset + record::RECORD_HEADER + prefix);
+		// Признак успешности наложения шифрования с проверкой целостности
+		bool ok = false;
+		// Если набор шифрования - ChaCha20-Poly1305
+		if(this->_stream){
+			// Объект AEAD ChaCha20-Poly1305
+			cipher::chachapoly_t chachapoly;
+			// Если AEAD запустить не удалось
+			if(chachapoly.start(view_t(this->_key, this->_width), view_t(nonce, this->_size)))
+				// Выполняем наложение шифрования с проверкой целостности
+				ok = chachapoly.encrypt(view_t(associated, sizeof(associated)), view_t(data.data, total), cipher, (cipher + total));
+		// Если набор шифрования - AES-GCM
+		} else {
+			// Объект режима GCM
+			cipher::gcm_t gcm;
+			// Если режим GCM запустить не удалось
+			if(gcm.start(block, view_t(nonce, LEGACY_SALT + LEGACY_EXPLICIT), this->_tag))
+				// Выполняем наложение шифрования с проверкой целостности
+				ok = gcm.encrypt(view_t(associated, sizeof(associated)), view_t(data.data, total), cipher, (cipher + total));
+		}
+		// Если наложить шифрование не удалось
+		if(!ok){
+			// Возвращаем накопитель к прежней длине
+			result.resize(offset);
+			// Запоминаем отказ базового шифра
+			outcome = error_t::CIPHER;
+		}
+	/**
+	 * Если памяти под накопитель не хватило
+	 */
+	} catch(const std::bad_alloc &) {
+		// Запоминаем отказ нехватки памяти
+		outcome = error_t::MEMORY;
+	}
+	// Выполняем затирание одноразового значения
+	wipe(nonce, sizeof(nonce));
+	// Если защита наложена
+	if(outcome == error_t::NONE)
+		// Увеличиваем порядковый номер очередной записи
+		this->_sequence++;
+	// Выводим итог наложения защиты на запись
+	return outcome;
+}
+/**
+ * @brief Метод снятия защиты с записи издания TLS 1.2
+ *
+ * @param header заголовок принятой защищённой записи
+ * @param data   защищённое содержимое принятой записи
+ * @param type   вид содержимого, в который помещается вид содержимого записи
+ * @param result накопитель, в конец которого дописывается открытое содержимое записи
+ *
+ * @return       отказ снятия защиты с записи
+ *
+ */
+nts::protect::error_t nts::protect::Protection::unwrap(const record::header_t & header, const view_t & data, record::type_t & type, vector <uint8_t> & result) noexcept {
+	// Если порядковые номера записей на этом ключе исчерпаны
+	if(this->_sequence > this->_limit)
+		// Выводим отказ снятия защиты
+		return error_t::SEQUENCE;
+	// Если вид содержимого записи протоколом не определён
+	if(!record::known(header.type))
+		// Выводим отказ снятия защиты
+		return error_t::TYPE;
+	// Если содержимое записи не передано либо не сходится длиной с заголовком
+	if((data.data == nullptr) || (data.size != header.size))
+		// Выводим отказ снятия защиты
+		return error_t::LENGTH;
+	// Длина явной части одноразового значения, идущей перед шифртекстом
+	const size_t prefix = (this->_stream ? 0 : LEGACY_EXPLICIT);
+	// Если содержимое записи короче явной части и метки целостности
+	if(data.size < (prefix + this->_tag))
+		// Выводим отказ снятия защиты
+		return error_t::LENGTH;
+	// Длина шифртекста записи без явной части и метки целостности
+	const size_t length = (data.size - prefix - this->_tag);
+	// Если шифртекст длиннее дозволенного открытому содержимому
+	if(length > record::RECORD_PLAINTEXT)
+		// Выводим отказ снятия защиты
+		return error_t::LENGTH;
+	// Если содержимое пусто, а вид записи пустоты не дозволяет
+	if((length == 0) && !record::empty(header.type))
+		// Выводим отказ снятия защиты
+		return error_t::LENGTH;
+	// Описание базового шифра записи
+	cipher::block_t block;
+	// Выполняем подготовку базового шифра к снятию защиты
+	const error_t error = this->prepare(this->_sequence, block);
+	// Если базовый шифр подготовить не удалось
+	if(error != error_t::NONE)
+		// Выводим отказ снятия защиты
+		return error;
+	// Место, в которое помещаются связанные данные записи
+	uint8_t associated[LEGACY_ASSOCIATED];
+	// Составляем связанные данные записи: раздел 6.2.3.3 RFC 5246
+	this->associate(this->_sequence, header.type, length, associated);
+	// Место, в которое помещается одноразовое значение записи
+	uint8_t nonce[PROTECT_VECTOR];
+	// Если набор шифрования - ChaCha20-Poly1305
+	if(this->_stream)
+		// Раздел 2 RFC 7905: одноразовое значение есть вектор замены, сложенный с номером записи
+		this->nonce(this->_sequence, nonce);
+	// Если набор шифрования - AES-GCM
+	else {
+		/**
+		 * Раздел 3 RFC 5288: явная часть одноразового значения берётся из самой записи -
+		 * собеседник вправе слать её любой, лишь бы не повторял
+		 */
+		::memcpy(nonce, this->_vector, LEGACY_SALT);
+		// Переносим явную часть одноразового значения из записи
+		::memcpy(nonce + LEGACY_SALT, data.data, LEGACY_EXPLICIT);
+	}
+	// Итог снятия защиты с записи
+	error_t outcome = error_t::NONE;
+	/**
+	 * Открытый текст записи складывается в памяти: длина его задана записью, и памяти
+	 * под неё может не хватить
+	 */
+	try {
+		// Открытый текст записи
+		vector <uint8_t> plain(length, 0);
+		// Признак успешности снятия шифрования с проверкой целостности
+		bool ok = false;
+		// Если набор шифрования - ChaCha20-Poly1305
+		if(this->_stream){
+			// Объект AEAD ChaCha20-Poly1305
+			cipher::chachapoly_t chachapoly;
+			// Если AEAD запустить не удалось
+			if(chachapoly.start(view_t(this->_key, this->_width), view_t(nonce, this->_size)))
+				// Выполняем снятие шифрования с проверкой целостности
+				ok = chachapoly.decrypt(view_t(associated, sizeof(associated)), view_t(data.data + prefix, length), plain.data(), view_t((data.data + prefix + length), this->_tag));
+		// Если набор шифрования - AES-GCM
+		} else {
+			// Объект режима GCM
+			cipher::gcm_t gcm;
+			// Если режим GCM запустить не удалось
+			if(gcm.start(block, view_t(nonce, LEGACY_SALT + LEGACY_EXPLICIT), this->_tag))
+				// Выполняем снятие шифрования с проверкой целостности
+				ok = gcm.decrypt(view_t(associated, sizeof(associated)), view_t(data.data + prefix, length), plain.data(), view_t((data.data + prefix + length), this->_tag));
+		}
+		// Если метка целостности записи не сошлась
+		if(!ok)
+			// Запоминаем отказ метки целостности
+			outcome = error_t::TAG;
+		// Если защита снята
+		else {
+			// Устанавливаем вид содержимого записи из её заголовка
+			type = header.type;
+			// Складываем открытое содержимое записи в накопитель
+			result.insert(result.end(), plain.data(), (plain.data() + length));
+		}
+		// Выполняем затирание открытого текста записи
+		wipe(plain.data(), plain.size());
+	/**
+	 * Если памяти под открытый текст либо накопитель не хватило
+	 */
+	} catch(const std::bad_alloc &) {
+		// Запоминаем отказ нехватки памяти
+		outcome = error_t::MEMORY;
+	}
+	// Выполняем затирание одноразового значения
+	wipe(nonce, sizeof(nonce));
+	// Если защита снята
+	if(outcome == error_t::NONE)
+		// Увеличиваем порядковый номер очередной записи
+		this->_sequence++;
+	// Выводим итог снятия защиты с записи
+	return outcome;
+}
+/**
  * @brief Конструктор
  *
  */
-nts::protect::Protection::Protection() noexcept : _ready(false), _suite(suite_t::NONE), _size(0), _tag(0), _width(0), _classic(false), _stream(false), _sequence(0), _limit(0), _derived(0) {
+nts::protect::Protection::Protection() noexcept : _ready(false), _suite(suite_t::NONE), _size(0), _tag(0), _width(0), _classic(false), _stream(false), _legacy(false), _sequence(0), _limit(0), _derived(0) {
 	// Обнуляем корневой ключ направления связи
 	::memset(this->_key, 0, sizeof(this->_key));
 	// Обнуляем вектор замены направления связи

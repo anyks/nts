@@ -88,15 +88,20 @@ bool nts::handshake::known(const type_t type) noexcept {
 	 */
 	switch(static_cast <uint8_t> (type)){
 		// Если это один из известных видов сообщения рукопожатия
+		case static_cast <uint8_t> (type_t::HELLO_REQUEST):
 		case static_cast <uint8_t> (type_t::CLIENT):
 		case static_cast <uint8_t> (type_t::SERVER):
 		case static_cast <uint8_t> (type_t::TICKET):
 		case static_cast <uint8_t> (type_t::EARLY):
 		case static_cast <uint8_t> (type_t::EXTENSIONS):
 		case static_cast <uint8_t> (type_t::CERTIFICATE):
+		case static_cast <uint8_t> (type_t::AGREEMENT):
 		case static_cast <uint8_t> (type_t::REQUEST):
+		case static_cast <uint8_t> (type_t::DONE):
 		case static_cast <uint8_t> (type_t::VERIFY):
+		case static_cast <uint8_t> (type_t::PREMASTER):
 		case static_cast <uint8_t> (type_t::FINISHED):
+		case static_cast <uint8_t> (type_t::STATUS):
 		case static_cast <uint8_t> (type_t::UPDATE):
 		case static_cast <uint8_t> (type_t::COMPRESSED):
 		case static_cast <uint8_t> (type_t::DIGEST):

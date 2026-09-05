@@ -132,29 +132,36 @@ namespace nts {
 		 * @brief Виды сообщений рукопожатия
 		 *
 		 * @details Раздел 4 RFC 8446: перечисление HandshakeType; сжатая цепочка
-		 *          сертификатов добавлена разделом 4 RFC 8879
+		 *          сертификатов добавлена разделом 4 RFC 8879; виды издания TLS 1.2, в
+		 *          том числе просьба о пересогласовании HelloRequest, - разделом 7.4 RFC 5246
 		 *
 		 * \~english
 		 * @brief Types of the messages of the handshake
 		 * @details The section 4 of RFC 8446: the HandshakeType enumeration; the compressed chain of
-		 *          the certificates is added by the section 4 of RFC 8879
+		 *          the certificates is added by the section 4 of RFC 8879; the types of the TLS 1.2
+		 *          edition, the HelloRequest of the renegotiation among them, - by the section 7.4 of RFC 5246
 		 *
 		 * \~
 		 */
 		enum class type_t : uint8_t {
-			NONE        = 0x00, /*!< \~russian Вид сообщения не установлен \~english The type of the message is not set \~ */
-			CLIENT      = 0x01, /*!< \~russian Приветствие клиента \~english The greeting of the client \~ */
-			SERVER      = 0x02, /*!< \~russian Приветствие сервера \~english The greeting of the server \~ */
-			TICKET      = 0x04, /*!< \~russian Билет на возобновление связи \~english The ticket for the resumption of the connection \~ */
-			EARLY       = 0x05, /*!< \~russian Конец упреждающих данных \~english The end of the early data \~ */
-			EXTENSIONS  = 0x08, /*!< \~russian Защищённые расширения \~english The encrypted extensions \~ */
-			CERTIFICATE = 0x0B, /*!< \~russian Цепочка сертификатов \~english The chain of the certificates \~ */
-			REQUEST     = 0x0D, /*!< \~russian Запрос сертификата собеседника \~english The request of the certificate of the peer \~ */
-			VERIFY      = 0x0F, /*!< \~russian Подпись владения ключом сертификата \~english The signature of the possession of the key of the certificate \~ */
-			FINISHED    = 0x14, /*!< \~russian Завершение рукопожатия \~english The completion of the handshake \~ */
-			UPDATE      = 0x18, /*!< \~russian Смена ключевого материала связи \~english The change of the key material of the connection \~ */
-			COMPRESSED  = 0x19, /*!< \~russian Сжатая цепочка сертификатов по RFC 8879 \~english The compressed chain of the certificates by RFC 8879 \~ */
-			DIGEST      = 0xFE  /*!< \~russian Хеш приветствия клиента вместо него самого \~english The hash of the greeting of the client instead of it itself \~ */
+			NONE          = 0x00, /*!< \~russian Вид сообщения не установлен \~english The type of the message is not set \~ */
+			HELLO_REQUEST = 0x00, /*!< \~russian Просьба о пересогласовании HelloRequest (раздел 7.4.1.1 RFC 5246, TLS 1.2): на проводе несёт ноль и совпадает с NONE \~english The HelloRequest of the renegotiation (the section 7.4.1.1 of RFC 5246, TLS 1.2): carries zero on the wire and coincides with NONE \~ */
+			CLIENT        = 0x01, /*!< \~russian Приветствие клиента \~english The greeting of the client \~ */
+			SERVER        = 0x02, /*!< \~russian Приветствие сервера \~english The greeting of the server \~ */
+			TICKET        = 0x04, /*!< \~russian Билет на возобновление связи \~english The ticket for the resumption of the connection \~ */
+			EARLY         = 0x05, /*!< \~russian Конец упреждающих данных \~english The end of the early data \~ */
+			EXTENSIONS    = 0x08, /*!< \~russian Защищённые расширения \~english The encrypted extensions \~ */
+			CERTIFICATE   = 0x0B, /*!< \~russian Цепочка сертификатов \~english The chain of the certificates \~ */
+			AGREEMENT     = 0x0C, /*!< \~russian Обмен ключами сервера ServerKeyExchange (раздел 7.4.3 RFC 5246, TLS 1.2) \~english The ServerKeyExchange of the server (the section 7.4.3 of RFC 5246, TLS 1.2) \~ */
+			REQUEST       = 0x0D, /*!< \~russian Запрос сертификата собеседника \~english The request of the certificate of the peer \~ */
+			DONE          = 0x0E, /*!< \~russian Конец приветствия сервера ServerHelloDone (раздел 7.4.5 RFC 5246, TLS 1.2) \~english The ServerHelloDone of the server (the section 7.4.5 of RFC 5246, TLS 1.2) \~ */
+			VERIFY        = 0x0F, /*!< \~russian Подпись владения ключом сертификата \~english The signature of the possession of the key of the certificate \~ */
+			PREMASTER     = 0x10, /*!< \~russian Обмен ключами клиента ClientKeyExchange (раздел 7.4.7 RFC 5246, TLS 1.2) \~english The ClientKeyExchange of the client (the section 7.4.7 of RFC 5246, TLS 1.2) \~ */
+			FINISHED      = 0x14, /*!< \~russian Завершение рукопожатия \~english The completion of the handshake \~ */
+			STATUS        = 0x16, /*!< \~russian Состояние сертификата CertificateStatus (раздел 8 RFC 6066, TLS 1.2) \~english The CertificateStatus (the section 8 of RFC 6066, TLS 1.2) \~ */
+			UPDATE        = 0x18, /*!< \~russian Смена ключевого материала связи \~english The change of the key material of the connection \~ */
+			COMPRESSED    = 0x19, /*!< \~russian Сжатая цепочка сертификатов по RFC 8879 \~english The compressed chain of the certificates by RFC 8879 \~ */
+			DIGEST        = 0xFE  /*!< \~russian Хеш приветствия клиента вместо него самого \~english The hash of the greeting of the client instead of it itself \~ */
 		};
 
 		/**
