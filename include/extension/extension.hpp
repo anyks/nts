@@ -107,7 +107,9 @@ namespace nts {
 			FORMATS   = 0x000B, /*!< \~russian Записи точек кривой ec_point_formats (раздел 5.1.2 RFC 8422, TLS 1.2) \~english The ec_point_formats of the points of a curve (the section 5.1.2 of RFC 8422, TLS 1.2) \~ */
 			SCHEMES   = 0x000D, /*!< \~russian Поддерживаемые схемы подписи \~english The supported signature schemes \~ */
 			PROTOCOLS = 0x0010, /*!< \~russian Перечень прикладных протоколов связи \~english The list of the application protocols of a connection \~ */
+			ETM       = 0x0016, /*!< \~russian Порядок «шифрование, затем имитовставка» encrypt_then_mac (RFC 7366, TLS 1.2) \~english The encrypt_then_mac order (RFC 7366, TLS 1.2) \~ */
 			MASTER    = 0x0017, /*!< \~russian Расширенный главный секрет extended_master_secret (RFC 7627, TLS 1.2) \~english The extended_master_secret (RFC 7627, TLS 1.2) \~ */
+			TICKET    = 0x0023, /*!< \~russian Билет сеанса session_ticket (RFC 5077, TLS 1.2) \~english The session_ticket (RFC 5077, TLS 1.2) \~ */
 			COMPRESS  = 0x001B, /*!< \~russian Перечень алгоритмов сжатия цепочки сертификатов (RFC 8879) \~english The list of the algorithms of the compression of the chain of the certificates (RFC 8879) \~ */
 			SECRET    = 0x0029, /*!< \~russian Заранее разделённый ключ \~english The pre-shared key \~ */
 			EARLY     = 0x002A, /*!< \~russian Упреждающие данные связи \~english The early data of a connection \~ */

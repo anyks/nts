@@ -104,8 +104,12 @@ namespace nts {
 		 * @note Намеренные решения: арифметика на пяти конечностях по 26 разрядов с
 		 *       произведениями в 64 разряда; ни деления, ни ветвления по данным -
 		 *       окончательное приведение выбирает между накопителем и накопителем
-		 *       минус модуль маской. Памяти не выделяется, исключений нет. Снятие
-		 *       метки finish завершает объект: повтор требует нового start
+		 *       минус модуль маской. Целые блоки складываются парами по разделу
+		 *       2.5.1 RFC 8439: (h + m0) * r^2 + m1 * r, где оба произведения
+		 *       независимы, а переносы проводятся один раз на пару; квадрат r
+		 *       считается при запуске, итог тот же, что и поблочно. Памяти не
+		 *       выделяется, исключений нет. Снятие метки finish завершает объект:
+		 *       повтор требует нового start
 		 *
 		 * \~english
 		 * @brief The Poly1305 one-time authenticator
@@ -117,9 +121,12 @@ namespace nts {
 		 *       of a forgery. At AEAD the key is produced for every message
 		 * @note Deliberate decisions: the arithmetic on five 26-bit limbs with 64-bit products;
 		 *       neither division nor data-dependent branching - the final reduction chooses between
-		 *       the accumulator and the accumulator minus the modulus by a mask. No memory is
-		 *       allocated, there are no exceptions. The taking of the tag by finish finishes the
-		 *       object: a repetition requires a new start
+		 *       the accumulator and the accumulator minus the modulus by a mask. The whole blocks
+		 *       are absorbed by pairs according to section 2.5.1 of RFC 8439: (h + m0) * r^2 + m1 * r,
+		 *       where both products are independent and the carries are propagated once per pair;
+		 *       the square of r is computed at the start, the result is the same as block by block.
+		 *       No memory is allocated, there are no exceptions. The taking of the tag by finish
+		 *       finishes the object: a repetition requires a new start
 		 *
 		 * \~
 		 */
@@ -133,6 +140,8 @@ namespace nts {
 			private:
 				// Обрезанный множитель r по 26 разрядов
 				uint32_t _r[5];
+				// Квадрат множителя r по 26 разрядов: под сложение блоков парами
+				uint32_t _r2[5];
 				// Накопитель по 26 разрядов
 				uint32_t _h[5];
 				// Слагаемое s по 32 разряда

@@ -133,7 +133,7 @@ namespace {
 	 * @return       признак успешности выработки ключевой пары
 	 *
 	 */
-	bool generate(keys_t & result) noexcept {
+	bool fabricate(keys_t & result) noexcept {
 		// Эллиптическая кривая ключа стороны сертификата
 		curve::curve_t curve;
 		// Если кривую ключа стороны завести не удалось
@@ -605,9 +605,9 @@ TEST(TrustTest, Chain){
 	// Ключевые пары издателя и владельца сертификатов
 	keys_t issuer, subject;
 	// Выполняем выработку ключевой пары издателя
-	ASSERT_TRUE(generate(issuer));
+	ASSERT_TRUE(fabricate(issuer));
 	// Выполняем выработку ключевой пары владельца
-	ASSERT_TRUE(generate(subject));
+	ASSERT_TRUE(fabricate(subject));
 	// Настройки сертификата издателя
 	options_t options;
 	// Устанавливаем право издавать другие сертификаты
@@ -677,9 +677,9 @@ TEST(TrustTest, Authority){
 	// Ключевые пары издателя и владельца сертификатов
 	keys_t issuer, subject;
 	// Выполняем выработку ключевой пары издателя
-	ASSERT_TRUE(generate(issuer));
+	ASSERT_TRUE(fabricate(issuer));
 	// Выполняем выработку ключевой пары владельца
-	ASSERT_TRUE(generate(subject));
+	ASSERT_TRUE(fabricate(subject));
 	// Настройки сертификата издателя
 	options_t options;
 	// Устанавливаем право издавать другие сертификаты
@@ -701,7 +701,7 @@ TEST(TrustTest, Authority){
 	// Ключевая пара чужого издателя
 	keys_t alien;
 	// Выполняем выработку ключевой пары чужого издателя
-	ASSERT_TRUE(generate(alien));
+	ASSERT_TRUE(fabricate(alien));
 	// Запись сертификата чужого издателя
 	vector <uint8_t> foreign;
 	// Выполняем выработку самоподписанного сертификата чужого издателя
@@ -726,9 +726,9 @@ TEST(TrustTest, Reject){
 	// Ключевые пары издателя и владельца сертификатов
 	keys_t issuer, subject;
 	// Выполняем выработку ключевой пары издателя
-	ASSERT_TRUE(generate(issuer));
+	ASSERT_TRUE(fabricate(issuer));
 	// Выполняем выработку ключевой пары владельца
-	ASSERT_TRUE(generate(subject));
+	ASSERT_TRUE(fabricate(subject));
 	// Настройки сертификата издателя
 	options_t options;
 	// Устанавливаем право издавать другие сертификаты
@@ -809,7 +809,7 @@ TEST(TrustTest, Reject){
 		// Ключевая пара постороннего издателя, доверием не объявленного
 		keys_t stranger;
 		// Выполняем выработку ключевой пары постороннего издателя
-		ASSERT_TRUE(generate(stranger));
+		ASSERT_TRUE(fabricate(stranger));
 		// Выполняем выработку самоподписанного сертификата постороннего издателя
 		ASSERT_TRUE(make("anyks main", "anyks main", stranger, vector <uint8_t> (), options, outsider));
 	}
@@ -826,9 +826,9 @@ TEST(TrustTest, Unstated){
 	// Ключевые пары издателя и владельца сертификатов
 	keys_t issuer, subject;
 	// Выполняем выработку ключевой пары издателя
-	ASSERT_TRUE(generate(issuer));
+	ASSERT_TRUE(fabricate(issuer));
 	// Выполняем выработку ключевой пары владельца
-	ASSERT_TRUE(generate(subject));
+	ASSERT_TRUE(fabricate(subject));
 	// Настройки сертификата издателя с правом издавать сертификаты
 	options_t options;
 	// Объявляем принадлежность издателя удостоверяющему центру
@@ -862,9 +862,9 @@ TEST(TrustTest, Constraint){
 	// Ключевые пары издателя и владельца сертификатов
 	keys_t issuer, subject;
 	// Выполняем выработку ключевой пары издателя
-	ASSERT_TRUE(generate(issuer));
+	ASSERT_TRUE(fabricate(issuer));
 	// Выполняем выработку ключевой пары владельца
-	ASSERT_TRUE(generate(subject));
+	ASSERT_TRUE(fabricate(subject));
 	// Настройки сертификата издателя без права издавать сертификаты
 	options_t options;
 	// Запись сертификата издателя цепочки
@@ -912,7 +912,7 @@ TEST(TrustTest, Wildcard){
 	// Ключевая пара владельца сертификата
 	keys_t subject;
 	// Выполняем выработку ключевой пары владельца
-	ASSERT_TRUE(generate(subject));
+	ASSERT_TRUE(fabricate(subject));
 	// Настройки сертификата владельца
 	options_t options;
 	// Устанавливаем дополнительное доменное имя владельца со звёздочкой
@@ -966,11 +966,11 @@ TEST(TrustTest, Deepness){
 	// Ключевые пары корня, промежуточного звена и владельца цепочки
 	keys_t root, middle, subject;
 	// Выполняем выработку ключевой пары корня цепочки
-	ASSERT_TRUE(generate(root));
+	ASSERT_TRUE(fabricate(root));
 	// Выполняем выработку ключевой пары промежуточного звена
-	ASSERT_TRUE(generate(middle));
+	ASSERT_TRUE(fabricate(middle));
 	// Выполняем выработку ключевой пары владельца цепочки
-	ASSERT_TRUE(generate(subject));
+	ASSERT_TRUE(fabricate(subject));
 	/**
 	 * Раздел 4.2.1.9 RFC 5280: предел числа звеньев считает промежуточные звенья под
 	 * сертификатом, и ноль его значит, что издавать корень вправе один лишь
@@ -1045,13 +1045,13 @@ TEST(TrustTest, Interlinked){
 	// Ключевые пары корня, промежуточного звена, владельца и постороннего
 	keys_t root, middle, subject, stranger;
 	// Выполняем выработку ключевой пары корня цепочки
-	ASSERT_TRUE(generate(root));
+	ASSERT_TRUE(fabricate(root));
 	// Выполняем выработку ключевой пары промежуточного звена
-	ASSERT_TRUE(generate(middle));
+	ASSERT_TRUE(fabricate(middle));
 	// Выполняем выработку ключевой пары владельца цепочки
-	ASSERT_TRUE(generate(subject));
+	ASSERT_TRUE(fabricate(subject));
 	// Выполняем выработку ключевой пары постороннего издателя
-	ASSERT_TRUE(generate(stranger));
+	ASSERT_TRUE(fabricate(stranger));
 	// Настройки сертификата, наделённого правом издавать другие сертификаты
 	options_t authorized;
 	// Наделяем сертификат правом издавать другие сертификаты
@@ -1106,7 +1106,7 @@ TEST(TrustTest, Interlinked){
 	// Ключевая пара корня, не вправе подписывать другие сертификаты
 	keys_t barren;
 	// Выполняем выработку ключевой пары корня без права подписи
-	ASSERT_TRUE(generate(barren));
+	ASSERT_TRUE(fabricate(barren));
 	// Запись сертификата корня, не вправе подписывать другие сертификаты
 	vector <uint8_t> unsigned_;
 	// Выполняем выработку корня без права подписывать другие сертификаты
@@ -1148,9 +1148,9 @@ TEST(TrustTest, Belonging){
 	// Ключевые пары издателя и владельца сертификатов
 	keys_t issuer, subject;
 	// Выполняем выработку ключевой пары издателя
-	ASSERT_TRUE(generate(issuer));
+	ASSERT_TRUE(fabricate(issuer));
 	// Выполняем выработку ключевой пары владельца
-	ASSERT_TRUE(generate(subject));
+	ASSERT_TRUE(fabricate(subject));
 	// Запись сертификата, разобрать которую нельзя вовсе
 	const vector <uint8_t> garbage(64, 0x41);
 	// Проверяем отказ сличения имени узла с неразбираемой записью
@@ -1243,7 +1243,7 @@ TEST(TrustTest, Belonging){
 	// Ключевая пара издателя с порченым телом расширений
 	keys_t spoiler;
 	// Выполняем выработку ключевой пары издателя с порченым телом расширений
-	ASSERT_TRUE(generate(spoiler));
+	ASSERT_TRUE(fabricate(spoiler));
 	// Запись самоподписанного сертификата издателя с порченым телом расширений
 	vector <uint8_t> ruined;
 	// Выполняем выработку издателя с порченым телом расширений
@@ -1271,7 +1271,7 @@ TEST(TrustTest, Belonging){
 	// Ключевая пара издателя с порченым назначением ключа
 	keys_t misuser;
 	// Выполняем выработку ключевой пары издателя с порченым назначением ключа
-	ASSERT_TRUE(generate(misuser));
+	ASSERT_TRUE(fabricate(misuser));
 	// Запись самоподписанного издателя с порченым назначением ключа
 	vector <uint8_t> misuse;
 	// Выполняем выработку издателя с порченым назначением ключа
@@ -1293,8 +1293,8 @@ TEST(TrustTest, Belonging){
  */
 TEST(TrustTest, Critical){
 	keys_t root, subject;
-	ASSERT_TRUE(generate(root));
-	ASSERT_TRUE(generate(subject));
+	ASSERT_TRUE(fabricate(root));
+	ASSERT_TRUE(fabricate(subject));
 	options_t authorized;
 	authorized.authority = true;
 	vector <uint8_t> anchor;
@@ -1334,8 +1334,8 @@ TEST(TrustTest, Critical){
  */
 TEST(TrustTest, Purpose){
 	keys_t root, subject;
-	ASSERT_TRUE(generate(root));
-	ASSERT_TRUE(generate(subject));
+	ASSERT_TRUE(fabricate(root));
+	ASSERT_TRUE(fabricate(subject));
 	options_t authorized;
 	authorized.authority = true;
 	vector <uint8_t> anchor;
@@ -1361,7 +1361,7 @@ TEST(TrustTest, Purpose){
  */
 TEST(TrustTest, Addressed){
 	keys_t subject;
-	ASSERT_TRUE(generate(subject));
+	ASSERT_TRUE(fabricate(subject));
 	options_t addressed;
 	addressed.alternative = "10.0.0.1";
 	addressed.address = {0x0A, 0x00, 0x00, 0x02};

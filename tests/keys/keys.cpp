@@ -41,11 +41,10 @@
 #include <main.hpp>
 #include <starve.hpp>
 #include <keys/keys.hpp>
+#include <sign/gost.hpp>
 #include <pem/pem.hpp>
 #include <asn1/asn1.hpp>
-#include <math/number.hpp>
 #include <digest/hash.hpp>
-#include <entropy/entropy.hpp>
 #include <curve/parameters.hpp>
 
 /**
@@ -249,7 +248,7 @@ namespace {
 	 * @return          хеш набора байтов
 	 *
 	 */
-	static std::vector <uint8_t> hash(const digest::hash_t algorithm, const std::vector <uint8_t> & data) {
+	static std::vector <uint8_t> digested(const digest::hash_t algorithm, const std::vector <uint8_t> & data) {
 		// Хеш набора байтов
 		std::vector <uint8_t> result(digest::length(algorithm), 0);
 		// Выполняем хеширование
@@ -298,7 +297,7 @@ namespace {
 					// Выводим отказ
 					return false;
 				// Хеш данных
-				const std::vector <uint8_t> digest = hash(digest::hash_t::SHA256, data);
+				const std::vector <uint8_t> digest = digested(digest::hash_t::SHA256, data);
 				// Выделяем место под подпись
 				result.assign(rsa.size(), 0);
 				// Выводим итог выработки подписи PKCS #1 v1.5
@@ -317,7 +316,7 @@ namespace {
 				// Алгоритм хеширования по размеру кривой
 				const digest::hash_t algorithm = ((curve.size() == 32) ? digest::hash_t::SHA256 : digest::hash_t::SHA384);
 				// Хеш данных
-				const std::vector <uint8_t> digest = hash(algorithm, data);
+				const std::vector <uint8_t> digest = digested(algorithm, data);
 				// Подпись парой чисел
 				std::vector <uint8_t> raw(curve.size() * 2, 0);
 				// Если подпись выработать не удалось
@@ -368,7 +367,7 @@ namespace {
 					// Выводим отказ
 					return false;
 				// Хеш данных
-				const std::vector <uint8_t> digest = hash(digest::hash_t::SHA256, data);
+				const std::vector <uint8_t> digest = digested(digest::hash_t::SHA256, data);
 				// Выводим итог проверки подписи PKCS #1 v1.5
 				return rsa.check(sign::scheme_t::PKCS1, digest::hash_t::SHA256, view(digest), view(signature));
 			}
@@ -385,7 +384,7 @@ namespace {
 				// Алгоритм хеширования по размеру кривой
 				const digest::hash_t algorithm = ((curve.size() == 32) ? digest::hash_t::SHA256 : digest::hash_t::SHA384);
 				// Хеш данных
-				const std::vector <uint8_t> digest = hash(algorithm, data);
+				const std::vector <uint8_t> digest = digested(algorithm, data);
 				// Подпись парой чисел
 				std::vector <uint8_t> raw(curve.size() * 2, 0);
 				// Если подпись из кодировки DER разобрать не удалось
@@ -411,7 +410,7 @@ namespace {
 		return false;
 	}
 	/**
-	 * @brief Метод выработки ключа ГОСТ на заданной кривой
+	 * @brief Метод выработки ключа ГОСТ на заданной кривой средствами библиотеки
 	 *
 	 * @param oid       опознаватель кривой
 	 * @param algorithm опознаватель алгоритма ключа
@@ -427,16 +426,16 @@ namespace {
 		if(!curve::parameters(oid, curve))
 			// Выводим отказ
 			return false;
-		// Случайное число порядка подгруппы
-		math::number_t number;
-		// Если случайное число выработать не удалось
-		if(!entropy::number(curve.order(), number))
+		// Объект модуля электронной подписи ГОСТ
+		sign::gost_t signer;
+		// Если кривую подписи установить не удалось
+		if(!signer.start(curve))
 			// Выводим отказ
 			return false;
 		// Выделяем место под секретный скаляр
 		result.d.assign(curve.size(), 0);
-		// Если скаляр записать не удалось
-		if(!curve.order().store(number, result.d.data(), result.d.size()))
+		// Если секретный скаляр выработать библиотекой не удалось
+		if(!signer.generate(result.d.data(), result.d.size()))
 			// Выводим отказ
 			return false;
 		// Устанавливаем вид ключа

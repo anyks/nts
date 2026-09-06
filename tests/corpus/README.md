@@ -78,3 +78,24 @@ PRF `hmacWithSHA256`, шифр по имени файла. Число оборо
 
 * ECDSA в DER — **переменная**: у P-256 от 70 до 72 октетов.
 * Ed25519 — ровно 64, RSA-2048 — ровно 256.
+
+## Сертификаты второго круга TLS 1.2 (правки по аудиту, 06.09.2026)
+
+Проверка `Tls12Test.Feeble` судит пригодность сертификата сервера обмену по разделам 7.4.2
+и 7.4.7.1 RFC 5246: длину ключа при обмене шифрованием RSA и назначение ключа.
+
+* `rsa1024.pem`, `rsa1024.crt` — самоподписанный лист с ключом RSA-1024: клиент отвергает
+  его при обмене шифрованием RSA (`bad_certificate`), нижняя граница 2048 разрядов.
+  `openssl req -x509 -newkey rsa:1024 -nodes -keyout rsa1024.pem -out rsa1024.crt
+  -subj "/CN=anyks-rsa1024" -days 3650 -sha256`
+* `rsa2048-sign.crt` — лист на ключе `rsa2048.pem` с `keyUsage=critical,digitalSignature`:
+  годен ECDHE_RSA (подписанный обмен), негоден обмену шифрованием RSA (нет keyEncipherment).
+  `openssl req -x509 -key rsa2048.pem -out rsa2048-sign.crt -subj "/CN=anyks-rsa2048-sign"
+  -days 3650 -sha256 -addext "keyUsage=critical,digitalSignature"`
+* `rsa2048-encipher.crt` — тот же ключ с `keyUsage=critical,keyEncipherment`: наоборот, годен
+  обмену RSA и негоден ECDHE_RSA.
+  `openssl req -x509 -key rsa2048.pem -out rsa2048-encipher.crt
+  -subj "/CN=anyks-rsa2048-encipher" -days 3650 -sha256 -addext "keyUsage=critical,keyEncipherment"`
+
+`rsa2048.crt` расширения назначения ключа не несёт, и обоим обменам годен. Замер стойкости
+обмена RSA ко времени (`bench/bench.cpp`) читает `rsa2048.pem` и `rsa2048.crt` отсюда же.

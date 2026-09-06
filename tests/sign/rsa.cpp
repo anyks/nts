@@ -1027,11 +1027,14 @@ TEST(RsaTest, Generate) {
 	// Сомножители различаются не менее чем в старших ста разрядах
 	math::integer_t difference;
 	// Вычисляем разность
-	if(prime1.compare(prime2) > 0)
+	if(prime1.compare(prime2) > 0){
 		// Вычитаем второй из первого
 		ASSERT_TRUE(difference.subtract(prime1, prime2));
 	// Если второй больше
-	else ASSERT_TRUE(difference.subtract(prime2, prime1));
+	} else {
+		// Вычитаем первый из второго
+		ASSERT_TRUE(difference.subtract(prime2, prime1));
+	}
 	// Проверяем разность
 	ASSERT_GT(difference.bits(), static_cast <size_t> (924));
 	// Хеш сообщения

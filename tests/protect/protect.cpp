@@ -36,6 +36,9 @@
 #include <main.hpp>
 #include <starve.hpp>
 #include <cipher/mgm.hpp>
+#include <cipher/aes.hpp>
+#include <cipher/mode.hpp>
+#include <digest/hmac.hpp>
 #include <protect/protect.hpp>
 
 /**
@@ -1178,5 +1181,275 @@ TEST(ProtectTest, Datagram){
 		protect::protection_t idle;
 		// Наложение защиты без ключей
 		ASSERT_EQ(idle.wrap(1, record::version_t::DTLS12, record::type_t::APPLICATION, view_t(content.data(), content.size()), sealed), protect::error_t::STATE);
+	}
+}
+
+/**
+ * Проверка наборов CBC издания TLS 1.2 (раздел 6.2.3.2 RFC 5246, RFC 7366): описание наборов,
+ * раскладка записи байт в байт в обоих порядках - вектор замены, шифртекст с имитовставкой и
+ * дополнением внутри (MAC-then-encrypt) либо имитовставка поверх шифртекста (encrypt-then-MAC),
+ * обратный ход, порча всякого байта дополнения, имитовставки и вектора - TAG, негодные длины -
+ * LENGTH, номер, издание и вид в связанных данных, порядок сторон не сходится, отсутствие
+ * ключа имитовставки у CBC и лишний у AEAD - отказ заведения
+ */
+TEST(ProtectTest, Chaining){
+	// Наборы CBC второго круга
+	static const protect::suite_t SUITES[] = {
+		protect::suite_t::ECDHE_ECDSA_AES_128_CBC_SHA256, protect::suite_t::ECDHE_RSA_AES_128_CBC_SHA256,
+		protect::suite_t::ECDHE_ECDSA_AES_128_CBC_SHA, protect::suite_t::ECDHE_ECDSA_AES_256_CBC_SHA,
+		protect::suite_t::ECDHE_RSA_AES_128_CBC_SHA, protect::suite_t::ECDHE_RSA_AES_256_CBC_SHA,
+		protect::suite_t::RSA_AES_128_CBC_SHA, protect::suite_t::RSA_AES_256_CBC_SHA,
+		protect::suite_t::RSA_AES_128_CBC_SHA256, protect::suite_t::RSA_AES_256_CBC_SHA256,
+		protect::suite_t::PSK_AES_128_CBC_SHA, protect::suite_t::PSK_AES_256_CBC_SHA,
+		protect::suite_t::ECDHE_PSK_AES_128_CBC_SHA, protect::suite_t::ECDHE_PSK_AES_256_CBC_SHA
+	};
+	// Наборы AEAD второго круга: обмен RSA и ECDHE_PSK на ChaCha20
+	static const protect::suite_t AEADS[] = {protect::suite_t::RSA_AES_128_GCM_SHA256, protect::suite_t::RSA_AES_256_GCM_SHA384, protect::suite_t::ECDHE_PSK_CHACHA20_POLY1305_SHA256};
+	/**
+	 * Выполняем перебор наборов AEAD: описание как у первого круга
+	 */
+	for(size_t s = 0; s < (sizeof(AEADS) / sizeof(AEADS[0])); s++){
+		// Набор принадлежит изданию 1.2
+		ASSERT_TRUE(protect::legacy(AEADS[s]));
+		// Имитовставки у AEAD нет
+		ASSERT_EQ(protect::mac(AEADS[s]), digest::hash_t::NONE);
+		// Метка в шестнадцать байтов
+		ASSERT_EQ(protect::tag(AEADS[s]), static_cast <size_t> (16));
+		// Ключ имитовставки набору AEAD не положен: заведение с ним отвергается
+		protect::protection_t protection;
+		// Ключ и вектор набора
+		const std::vector <uint8_t> key(protect::key(AEADS[s]), 0x11), vector(protect::block(AEADS[s]), 0x22), mac(20, 0x33);
+		// Заведение с лишним ключом имитовставки отвергается
+		ASSERT_FALSE(protection.start(AEADS[s], view_t(key.data(), key.size()), view_t(vector.data(), vector.size()), view_t(mac.data(), mac.size())));
+		// Заведение без него принимается
+		ASSERT_TRUE(protection.start(AEADS[s], view_t(key.data(), key.size()), view_t(vector.data(), vector.size())));
+		// Порядок RFC 7366 у AEAD не значится
+		ASSERT_FALSE(protection.etm());
+	}
+	// Способы обмена наборов
+	ASSERT_EQ(protect::exchange(protect::suite_t::RSA_AES_128_GCM_SHA256), protect::exchange_t::RSA);
+	// Обмен ECDHE_PSK
+	ASSERT_EQ(protect::exchange(protect::suite_t::ECDHE_PSK_CHACHA20_POLY1305_SHA256), protect::exchange_t::ECDHE_PSK);
+	// Обмен PSK
+	ASSERT_EQ(protect::exchange(protect::suite_t::PSK_AES_128_CBC_SHA), protect::exchange_t::PSK);
+	// Обмен ECDHE
+	ASSERT_EQ(protect::exchange(protect::suite_t::ECDHE_ECDSA_AES_128_CBC_SHA256), protect::exchange_t::ECDHE);
+	// У наборов 1.3 обмена нет
+	ASSERT_EQ(protect::exchange(protect::suite_t::AES_128_GCM_SHA256), protect::exchange_t::NONE);
+	// Подпись у наборов PSK не требуется
+	ASSERT_EQ(protect::signer(protect::suite_t::ECDHE_PSK_AES_128_CBC_SHA), protect::signer_t::NONE);
+	// Подпись RSA у обмена RSA
+	ASSERT_EQ(protect::signer(protect::suite_t::RSA_AES_256_CBC_SHA256), protect::signer_t::RSA);
+	/**
+	 * Выполняем перебор наборов CBC
+	 */
+	for(size_t s = 0; s < (sizeof(SUITES) / sizeof(SUITES[0])); s++){
+		// Набор шифрования круга
+		const protect::suite_t suite = SUITES[s];
+		// Набор принадлежит изданию 1.2
+		ASSERT_TRUE(protect::legacy(suite)) << s;
+		// Хеш имитовставки набора: SHA-1 либо SHA-256
+		const digest::hash_t algorithm = protect::mac(suite);
+		// Хеш имитовставки задан
+		ASSERT_TRUE((algorithm == digest::hash_t::SHA1) || (algorithm == digest::hash_t::SHA256)) << s;
+		// Длина имитовставки
+		const size_t width = digest::length(algorithm);
+		// Заслон Lucky13 считает сжатия хеша блоком в 64 байта: блок сжатия хеша имитовставки обязан быть таким у всякого набора CBC
+		ASSERT_EQ(digest::block(algorithm), static_cast <size_t> (64)) << s;
+		// Метка есть имитовставка
+		ASSERT_EQ(protect::tag(suite), width) << s;
+		// Явная часть - вектор замены в блок
+		ASSERT_EQ(protect::prefix(suite), static_cast <size_t> (16)) << s;
+		// Векторов замены в ключевом материале нет
+		ASSERT_EQ(protect::block(suite), static_cast <size_t> (0)) << s;
+		// PRF на SHA-256
+		ASSERT_EQ(protect::hash(suite), digest::hash_t::SHA256) << s;
+		// Ключ шифрования
+		const std::vector <uint8_t> key(protect::key(suite), static_cast <uint8_t> (0x40 + s));
+		// Ключ имитовставки
+		const std::vector <uint8_t> mac(width, static_cast <uint8_t> (0x70 + s));
+		// Заведение без ключа имитовставки отвергается
+		protect::protection_t naked;
+		// Ключ имитовставки обязателен
+		ASSERT_FALSE(naked.start(suite, view_t(key.data(), key.size()), view_t(nullptr, 0))) << s;
+		// Ключ имитовставки чужой длины отвергается
+		ASSERT_FALSE(naked.start(suite, view_t(key.data(), key.size()), view_t(nullptr, 0), view_t(mac.data(), width - 1))) << s;
+		// Непустой вектор замены отвергается
+		ASSERT_FALSE(naked.start(suite, view_t(key.data(), key.size()), view_t(key.data(), 16), view_t(mac.data(), mac.size()))) << s;
+		/**
+		 * Выполняем перебор порядков: MAC-then-encrypt и encrypt-then-MAC
+		 */
+		for(size_t order = 0; order < 2; order++){
+			// Признак порядка «шифрование, затем имитовставка»
+			const bool etm = (order == 1);
+			// Защита отправляемых записей
+			protect::protection_t sealing;
+			// Устанавливаем ключевой материал
+			ASSERT_TRUE(sealing.start(suite, view_t(key.data(), key.size()), view_t(nullptr, 0), view_t(mac.data(), mac.size()))) << s;
+			// Устанавливаем порядок
+			sealing.etm(etm);
+			// Порядок установлен
+			ASSERT_EQ(sealing.etm(), etm);
+			// Защита принимаемых записей
+			protect::protection_t opening;
+			// Устанавливаем ключевой материал
+			ASSERT_TRUE(opening.start(suite, view_t(key.data(), key.size()), view_t(nullptr, 0), view_t(mac.data(), mac.size()))) << s;
+			// Устанавливаем порядок
+			opening.etm(etm);
+			/**
+			 * Выполняем перебор длин содержимого: от пустого до трёх блоков с остатком - все
+			 * длины дополнения от нуля до пятнадцати
+			 */
+			for(size_t total = 0; total < 50; total++){
+				// Защищаемое содержимое
+				std::vector <uint8_t> content(total, 0);
+				/**
+				 * Выполняем заполнение содержимого
+				 */
+				for(size_t i = 0; i < total; i++)
+					// Записываем очередной байт
+					content[i] = static_cast <uint8_t> (i * 7 + s);
+				// Порядковый номер записи и издание
+				const uint64_t number = static_cast <uint64_t> (total + 3);
+				// Накопитель защищённого содержимого
+				std::vector <uint8_t> sealed;
+				// Выполняем наложение защиты
+				ASSERT_EQ(sealing.wrap(number, record::version_t::TLS12, record::type_t::APPLICATION, view_t(content.data(), content.size()), sealed), protect::error_t::NONE) << s << " " << total;
+				// Длина шифруемого: содержимое, имитовставка (MtE) и байт длины дополнения, до блока
+				const size_t inner = (total + (etm ? 0 : width) + 1);
+				// Длина дополнения без байта длины
+				const size_t padding = ((16 - (inner % 16)) % 16);
+				// Раскладка: вектор, шифртекст и открытая имитовставка (ETM)
+				ASSERT_EQ(sealed.size(), 16 + inner + padding + (etm ? width : 0)) << s << " " << total << " " << etm;
+				// Расшифровываем шифртекст своими руками: AES-CBC с вектором из записи
+				cipher::aes_t aes;
+				// Устанавливаем ключ
+				ASSERT_TRUE(aes.key(view_t(key.data(), key.size())));
+				// Режим зацепления
+				cipher::chaining_t chaining;
+				// Запускаем режим вектором из записи
+				ASSERT_TRUE(chaining.start(cipher::block_t(aes), view_t(sealed.data(), 16)));
+				// Открытый текст
+				std::vector <uint8_t> plain(inner + padding, 0);
+				// Расшифровываем
+				ASSERT_TRUE(chaining.decrypt(view_t(sealed.data() + 16, inner + padding), plain.data()));
+				// Содержимое лежит впереди
+				ASSERT_EQ(std::vector <uint8_t> (plain.begin(), plain.begin() + total), content) << s << " " << total;
+				/**
+				 * Выполняем сверку всех байтов дополнения и байта длины: все равны длине дополнения
+				 */
+				for(size_t i = 0; i <= padding; i++)
+					// Байт дополнения равен длине дополнения
+					ASSERT_EQ(plain[plain.size() - 1 - i], static_cast <uint8_t> (padding)) << s << " " << total << " " << i;
+				// Связанные данные: номер, вид, издание и длина (раздел 6.2.3.1 RFC 5246)
+				uint8_t associated[13] = {0, 0, 0, 0, 0, 0, 0, static_cast <uint8_t> (number), 0x17, 0x03, 0x03, 0, 0};
+				// Ожидаемая имитовставка
+				uint8_t expected[32];
+				// Если порядок MAC-then-encrypt: имитовставка над содержимым лежит за ним внутри шифртекста
+				if(!etm){
+					// Длина содержимого в связанных данных
+					associated[11] = static_cast <uint8_t> ((total >> 8) & 0xFF);
+					// Младший байт длины
+					associated[12] = static_cast <uint8_t> (total & 0xFF);
+					// Сообщение имитовставки: связанные данные и содержимое
+					std::vector <uint8_t> message(associated, associated + sizeof(associated));
+					// Добавляем содержимое
+					message.insert(message.end(), content.begin(), content.end());
+					// Вырабатываем имитовставку
+					ASSERT_TRUE(digest::hmac(algorithm, view_t(mac.data(), mac.size()), view_t(message.data(), message.size()), expected, width));
+					// Имитовставка лежит сразу за содержимым
+					ASSERT_EQ(std::vector <uint8_t> (plain.begin() + total, plain.begin() + total + width), std::vector <uint8_t> (expected, expected + width)) << s << " " << total;
+				// Если порядок encrypt-then-MAC: имитовставка над вектором и шифртекстом лежит открытой в хвосте (раздел 2 RFC 7366)
+				} else {
+					// Длина вектора и шифртекста в связанных данных
+					associated[11] = static_cast <uint8_t> (((16 + inner + padding) >> 8) & 0xFF);
+					// Младший байт длины
+					associated[12] = static_cast <uint8_t> ((16 + inner + padding) & 0xFF);
+					// Сообщение имитовставки: связанные данные, вектор и шифртекст
+					std::vector <uint8_t> message(associated, associated + sizeof(associated));
+					// Добавляем вектор и шифртекст
+					message.insert(message.end(), sealed.begin(), sealed.begin() + 16 + inner + padding);
+					// Вырабатываем имитовставку
+					ASSERT_TRUE(digest::hmac(algorithm, view_t(mac.data(), mac.size()), view_t(message.data(), message.size()), expected, width));
+					// Имитовставка лежит в хвосте записи открытой
+					ASSERT_EQ(std::vector <uint8_t> (sealed.end() - width, sealed.end()), std::vector <uint8_t> (expected, expected + width)) << s << " " << total;
+				}
+				// Накопитель открытого содержимого
+				std::vector <uint8_t> opened;
+				// Снятие защиты тем же номером
+				ASSERT_EQ(opening.unwrap(number, record::version_t::TLS12, record::type_t::APPLICATION, view_t(sealed.data(), sealed.size()), opened), protect::error_t::NONE) << s << " " << total << " " << etm;
+				// Содержимое сошлось
+				ASSERT_EQ(opened, content) << s << " " << total;
+				// Иной номер рвёт имитовставку
+				ASSERT_EQ(opening.unwrap(number + 1, record::version_t::TLS12, record::type_t::APPLICATION, view_t(sealed.data(), sealed.size()), opened), protect::error_t::TAG) << s << " " << total;
+				// Иное издание рвёт имитовставку
+				ASSERT_EQ(opening.unwrap(number, record::version_t::TLS11, record::type_t::APPLICATION, view_t(sealed.data(), sealed.size()), opened), protect::error_t::TAG) << s << " " << total;
+				// Иной вид рвёт имитовставку
+				ASSERT_EQ(opening.unwrap(number, record::version_t::TLS12, record::type_t::ALERT, view_t(sealed.data(), sealed.size()), opened), protect::error_t::TAG) << s << " " << total;
+				/**
+				 * Выполняем порчу всякого байта записи: вектор, шифртекст (содержимое, имитовставка,
+				 * дополнение и байт длины) и открытая имитовставка - всякая порча ловится TAG
+				 */
+				for(size_t i = 0; i < sealed.size(); i++){
+					// Порченая запись
+					std::vector <uint8_t> spoiled = sealed;
+					// Портим байт
+					spoiled[i] ^= 0x01;
+					// Порча ловится
+					ASSERT_EQ(opening.unwrap(number, record::version_t::TLS12, record::type_t::APPLICATION, view_t(spoiled.data(), spoiled.size()), opened), protect::error_t::TAG) << s << " " << total << " байт " << i << " порядок " << etm;
+				}
+				// Усечение на блок: имитовставка не сходится либо длина негодна
+				if(sealed.size() > (16 + 16 + (etm ? width : 0))){
+					// Усечённая запись
+					const std::vector <uint8_t> shorter(sealed.begin(), sealed.end() - 16);
+					// Усечение ловится
+					ASSERT_NE(opening.unwrap(number, record::version_t::TLS12, record::type_t::APPLICATION, view_t(shorter.data(), shorter.size()), opened), protect::error_t::NONE) << s << " " << total;
+				}
+				// Лишний байт: длина не кратна блоку
+				std::vector <uint8_t> longer = sealed;
+				// Дописываем байт
+				longer.push_back(0x00);
+				// Некратная длина отвергается
+				ASSERT_EQ(opening.unwrap(number, record::version_t::TLS12, record::type_t::APPLICATION, view_t(longer.data(), longer.size()), opened), protect::error_t::LENGTH) << s << " " << total;
+			}
+			// Запись короче наименьшей: вектор и имитовставка без блока
+			const std::vector <uint8_t> tiny(16 + width, 0);
+			// Накопитель открытого содержимого
+			std::vector <uint8_t> opened;
+			// Короткая запись отвергается длиной
+			ASSERT_EQ(opening.unwrap(0, record::version_t::TLS12, record::type_t::APPLICATION, view_t(tiny.data(), tiny.size()), opened), protect::error_t::LENGTH) << s << " " << etm;
+			// Признак того, что нехватка памяти хоть раз объявлена отказом
+			bool starved = false;
+			/**
+			 * Выполняем перебор запасов выделений: наложение и снятие защиты CBC обязаны ответить
+			 * либо успехом, либо отказом памяти, но не прерыванием исполнения
+			 */
+			for(size_t budget = 0; budget < 64; budget++){
+				// Содержимое записи
+				const std::vector <uint8_t> content(100, 0x5A);
+				// Итог наложения и снятия защиты
+				protect::error_t outcome = protect::error_t::NONE;
+				// Накопители записи и содержимого
+				std::vector <uint8_t> sealed, plain;
+				{
+					// Отмеряем запас выделений
+					starve::ration_t ration(budget);
+					// Выполняем наложение защиты
+					outcome = sealing.wrap(1000 + budget, record::version_t::TLS12, record::type_t::APPLICATION, view_t(content.data(), content.size()), sealed);
+					// Если защита наложена
+					if(outcome == protect::error_t::NONE)
+						// Выполняем снятие защиты
+						outcome = opening.unwrap(1000 + budget, record::version_t::TLS12, record::type_t::APPLICATION, view_t(sealed.data(), sealed.size()), plain);
+				}
+				// Исход либо успех, либо нехватка памяти
+				ASSERT_TRUE((outcome == protect::error_t::NONE) || (outcome == protect::error_t::MEMORY)) << s << " запас " << budget << " отказ " << static_cast <int> (outcome);
+				// Успех не скрывает усечённого содержимого
+				ASSERT_TRUE((outcome != protect::error_t::NONE) || (plain == content)) << s << " запас " << budget;
+				// Запоминаем объявленный отказ памяти
+				starved = (starved || (outcome == protect::error_t::MEMORY));
+			}
+			// Нехватка памяти объявлена отказом хоть раз
+			ASSERT_TRUE(starved) << s << " " << etm;
+		}
 	}
 }

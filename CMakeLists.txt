@@ -226,6 +226,7 @@ SET(SOURCE_FILES
     "${CMAKE_SOURCE_DIR}/src/pem/pem.cpp"
     "${CMAKE_SOURCE_DIR}/src/keys/keys.cpp"
     "${CMAKE_SOURCE_DIR}/src/internal/flight/flight.cpp"
+    "${CMAKE_SOURCE_DIR}/src/internal/ticket/ticket.cpp"
     "${CMAKE_SOURCE_DIR}/src/internal/engine/engine.cpp"
     "${CMAKE_SOURCE_DIR}/src/client/client.cpp"
     "${CMAKE_SOURCE_DIR}/src/server/server.cpp"
@@ -531,6 +532,12 @@ if (${CMAKE_BUILD_BENCHMARKS})
 
     # Подключаем каталог общих заголовочных файлов набора проверок
     target_include_directories(bench PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+
+    # Подключаем каталог образца сжатия: частный кодек цепочки общий с набором замеров
+    target_include_directories(bench PRIVATE "${CMAKE_SOURCE_DIR}/sample/compress")
+
+    # Передаём путь к набору ключей для сличения: замер обмена RSA читает подлинность из него
+    target_compile_definitions(bench PRIVATE ANTS_CORPUS="${CMAKE_SOURCE_DIR}/tests/corpus")
 
     # Выполняем подключение библиотеки к приложению набора замеров
     target_link_libraries(bench ${ANTS_LIB_NAME})
@@ -840,6 +847,198 @@ if (${CMAKE_BUILD_SAMPLES})
         # Выводим сообщение о сборке образца
         message(STATUS "Build sample PROTOCOL: No")
     endif (${CMAKE_BUILD_PROTOCOL_APP_SAMPLE})
+
+    ##
+     # Функция создания образца, читающего ключи и ответы из набора tests/corpus
+     #
+     # Аргументы:
+     #  name - имя исполняемого файла образца
+     #  src  - исходный файл образца
+     #  dir  - каталог, в который кладётся исполняемый файл
+     #
+     # @note Образцам издания 1.2, дейтаграмм, уровней, сшивки OCSP и сжатия нужны
+     #       сертификаты ECDSA и RSA с ответами ответчика: вырабатывать их на месте
+     #       образцу не по чину, и берутся они из набора проверок
+     ##
+    function(add_corpus_sample name src dir)
+        # Выполняем создание приложения образца
+        add_sample(${name} ${src} ${dir})
+        # Передаём путь к набору ключей и ответов
+        target_compile_definitions(${name} PRIVATE ANTS_CORPUS="${CMAKE_SOURCE_DIR}/tests/corpus")
+    endfunction()
+
+    # Устанавливаем имя приложения рукопожатия издания TLS 1.2
+    SET(TLS12_APP_NAME tls12-handshake)
+    # Указываем что нужно собрать приложение рукопожатия издания TLS 1.2
+    option(CMAKE_BUILD_TLS12_APP_SAMPLE "Build TLS 1.2 handshake app sample" ON)
+
+    # Устанавливаем имя приложения заранее разделённого ключа
+    SET(PSK_APP_NAME tls12-psk)
+    # Указываем что нужно собрать приложение заранее разделённого ключа
+    option(CMAKE_BUILD_PSK_APP_SAMPLE "Build pre-shared key app sample" ON)
+
+    # Устанавливаем имя приложения наборов CBC с порядком RFC 7366
+    SET(CBC_APP_NAME tls12-cbc)
+    # Указываем что нужно собрать приложение наборов CBC
+    option(CMAKE_BUILD_CBC_APP_SAMPLE "Build CBC suites with encrypt-then-MAC app sample" ON)
+
+    # Устанавливаем имя приложения связи поверх дейтаграмм
+    SET(DTLS_APP_NAME dtls-datagrams)
+    # Указываем что нужно собрать приложение связи поверх дейтаграмм
+    option(CMAKE_BUILD_DTLS_APP_SAMPLE "Build DTLS 1.3 and DTLS 1.2 app sample" ON)
+
+    # Устанавливаем имя приложения рукопожатия по уровням
+    SET(QUIC_APP_NAME quic-levels)
+    # Указываем что нужно собрать приложение рукопожатия по уровням
+    option(CMAKE_BUILD_QUIC_APP_SAMPLE "Build QUIC levels handshake app sample" ON)
+
+    # Устанавливаем имя приложения состояния сертификата
+    SET(OCSP_APP_NAME ocsp-stapling)
+    # Указываем что нужно собрать приложение состояния сертификата
+    option(CMAKE_BUILD_OCSP_APP_SAMPLE "Build OCSP stapling app sample" ON)
+
+    # Устанавливаем имя приложения сжатия цепочки сертификатов
+    SET(COMPRESS_APP_NAME compress-chain)
+    # Указываем что нужно собрать приложение сжатия цепочки сертификатов
+    option(CMAKE_BUILD_COMPRESS_APP_SAMPLE "Build certificate chain compression app sample" ON)
+    # Указываем что образец сжатия сличается с системным zlib, если тот в системе есть
+    option(CMAKE_SAMPLE_COMPRESS_ZLIB "Use the system zlib in the compression app sample when found" ON)
+
+    # Устанавливаем имя приложения кодеков ключей
+    SET(KEYS_APP_NAME keys-codec)
+    # Указываем что нужно собрать приложение кодеков ключей
+    option(CMAKE_BUILD_KEYS_APP_SAMPLE "Build keys codec app sample" ON)
+
+    # Устанавливаем имя приложения поточного шифрования
+    SET(STREAM_APP_NAME cipher-stream)
+    # Указываем что нужно собрать приложение поточного шифрования
+    option(CMAKE_BUILD_STREAM_APP_SAMPLE "Build stream encryption app sample" ON)
+
+    # Если нужно собрать образец рукопожатия издания TLS 1.2
+    if (${CMAKE_BUILD_TLS12_APP_SAMPLE})
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample TLS12: Yes")
+        # Выполняем создание приложения рукопожатия издания TLS 1.2
+        add_corpus_sample(${TLS12_APP_NAME} sample/tls12/tls12.cpp tls12)
+    # Если образец рукопожатия издания TLS 1.2 собирать не нужно
+    else()
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample TLS12: No")
+    endif (${CMAKE_BUILD_TLS12_APP_SAMPLE})
+
+    # Если нужно собрать образец заранее разделённого ключа
+    if (${CMAKE_BUILD_PSK_APP_SAMPLE})
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample PSK: Yes")
+        # Выполняем создание приложения заранее разделённого ключа
+        add_sample(${PSK_APP_NAME} sample/psk/psk.cpp tls12)
+    # Если образец заранее разделённого ключа собирать не нужно
+    else()
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample PSK: No")
+    endif (${CMAKE_BUILD_PSK_APP_SAMPLE})
+
+    # Если нужно собрать образец наборов CBC
+    if (${CMAKE_BUILD_CBC_APP_SAMPLE})
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample CBC: Yes")
+        # Выполняем создание приложения наборов CBC
+        add_corpus_sample(${CBC_APP_NAME} sample/cbc/cbc.cpp tls12)
+    # Если образец наборов CBC собирать не нужно
+    else()
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample CBC: No")
+    endif (${CMAKE_BUILD_CBC_APP_SAMPLE})
+
+    # Если нужно собрать образец связи поверх дейтаграмм
+    if (${CMAKE_BUILD_DTLS_APP_SAMPLE})
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample DTLS: Yes")
+        # Выполняем создание приложения связи поверх дейтаграмм
+        add_corpus_sample(${DTLS_APP_NAME} sample/dtls/dtls.cpp dtls)
+    # Если образец связи поверх дейтаграмм собирать не нужно
+    else()
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample DTLS: No")
+    endif (${CMAKE_BUILD_DTLS_APP_SAMPLE})
+
+    # Если нужно собрать образец рукопожатия по уровням
+    if (${CMAKE_BUILD_QUIC_APP_SAMPLE})
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample QUIC: Yes")
+        # Выполняем создание приложения рукопожатия по уровням
+        add_corpus_sample(${QUIC_APP_NAME} sample/quic/quic.cpp quic)
+    # Если образец рукопожатия по уровням собирать не нужно
+    else()
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample QUIC: No")
+    endif (${CMAKE_BUILD_QUIC_APP_SAMPLE})
+
+    # Если нужно собрать образец состояния сертификата
+    if (${CMAKE_BUILD_OCSP_APP_SAMPLE})
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample OCSP: Yes")
+        # Выполняем создание приложения состояния сертификата
+        add_corpus_sample(${OCSP_APP_NAME} sample/ocsp/ocsp.cpp ocsp)
+    # Если образец состояния сертификата собирать не нужно
+    else()
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample OCSP: No")
+    endif (${CMAKE_BUILD_OCSP_APP_SAMPLE})
+
+    # Если нужно собрать образец сжатия цепочки сертификатов
+    if (${CMAKE_BUILD_COMPRESS_APP_SAMPLE})
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample COMPRESS: Yes")
+        # Выполняем создание приложения сжатия цепочки сертификатов
+        add_corpus_sample(${COMPRESS_APP_NAME} sample/compress/compress.cpp compress)
+        # Если образец сличается с системным zlib
+        if (${CMAKE_SAMPLE_COMPRESS_ZLIB})
+            # Выполняем поиск системного zlib
+            find_package(ZLIB)
+            # Если системный zlib найден
+            if (ZLIB_FOUND)
+                # Выводим сообщение о сличении с zlib
+                message(STATUS "Compression sample zlib: Yes")
+                # Объявляем образцу наличие zlib
+                target_compile_definitions(${COMPRESS_APP_NAME} PRIVATE ANTS_SAMPLE_ZLIB)
+                # Выполняем подключение zlib к образцу
+                target_link_libraries(${COMPRESS_APP_NAME} ZLIB::ZLIB)
+            # Если системного zlib нет
+            else()
+                # Выводим сообщение о сличении с zlib
+                message(STATUS "Compression sample zlib: No")
+            endif (ZLIB_FOUND)
+        endif (${CMAKE_SAMPLE_COMPRESS_ZLIB})
+    # Если образец сжатия цепочки собирать не нужно
+    else()
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample COMPRESS: No")
+    endif (${CMAKE_BUILD_COMPRESS_APP_SAMPLE})
+
+    # Если нужно собрать образец кодеков ключей
+    if (${CMAKE_BUILD_KEYS_APP_SAMPLE})
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample KEYS: Yes")
+        # Выполняем создание приложения кодеков ключей
+        add_sample(${KEYS_APP_NAME} sample/keys/keys.cpp keys)
+    # Если образец кодеков ключей собирать не нужно
+    else()
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample KEYS: No")
+    endif (${CMAKE_BUILD_KEYS_APP_SAMPLE})
+
+    # Если нужно собрать образец поточного шифрования
+    if (${CMAKE_BUILD_STREAM_APP_SAMPLE})
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample STREAM: Yes")
+        # Выполняем создание приложения поточного шифрования
+        add_sample(${STREAM_APP_NAME} sample/stream/stream.cpp cipher)
+    # Если образец поточного шифрования собирать не нужно
+    else()
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample STREAM: No")
+    endif (${CMAKE_BUILD_STREAM_APP_SAMPLE})
 endif (${CMAKE_BUILD_SAMPLES})
 
 # Выполняем установку заголовочных файлов проекта

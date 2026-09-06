@@ -233,8 +233,8 @@ size_t nts::internal::Flight::overhead(const uint16_t epoch) const noexcept {
 		return datagram::DATAGRAM_PLAIN_HEADER;
 	// Раздел 4.1 RFC 6347: у DTLS 1.2 открытый заголовок, явная часть и метка целостности
 	if(this->_legacy)
-		// Выводим накладные байты защищённой записи издания DTLS 1.2
-		return (datagram::DATAGRAM_PLAIN_HEADER + protect::prefix(this->_suite) + protect::tag(this->_suite));
+		// Выводим накладные байты защищённой записи издания DTLS 1.2: у наборов CBC ещё и дополнение до блока с байтом длины (раздел 6.2.3.2 RFC 5246)
+		return (datagram::DATAGRAM_PLAIN_HEADER + protect::prefix(this->_suite) + protect::tag(this->_suite) + ((protect::mac(this->_suite) != digest::hash_t::NONE) ? 16 : 0));
 	// Раздел 4 RFC 9147: объединённый заголовок, вид содержимого и метка целостности
 	return (datagram::DATAGRAM_UNIFIED_HEADER + 1 + protect::tag(this->_suite));
 }
@@ -1042,11 +1042,13 @@ context::error_t nts::internal::Flight::adopt(const bool incoming, const bool ha
  * @param suite    набор шифрования связи издания TLS 1.2
  * @param key      ключ защиты записей поры
  * @param vector   вектор замены защиты записей поры
+ * @param mac      ключ имитовставки поры у наборов CBC, пустой у наборов AEAD
+ * @param etm      ведётся ли защита CBC в порядке «шифрование, затем имитовставка»
  *
  * @return         отказ заведения поры ключей
  *
  */
-context::error_t nts::internal::Flight::adopt(const bool incoming, const protect::suite_t suite, const view_t & key, const view_t & vector) noexcept {
+context::error_t nts::internal::Flight::adopt(const bool incoming, const protect::suite_t suite, const view_t & key, const view_t & vector, const view_t & mac, const bool etm) noexcept {
 	// Место направления: запись у своей стороны, чтение у собеседника
 	const size_t direction = (incoming ? 1 : 0);
 	// Раздел 4.1 RFC 6347: за нулевой порой идёт первая, а пересогласований связь не ведёт
@@ -1064,9 +1066,11 @@ context::error_t nts::internal::Flight::adopt(const bool incoming, const protect
 	// Выполняем сброс новой поры перед заведением
 	this->refresh(fresh);
 	// Если ключевой материал установить не удалось
-	if(!fresh.protection.start(suite, key, vector))
+	if(!fresh.protection.start(suite, key, vector, mac))
 		// Выводим отказ установки ключевого материала
 		return context::error_t::SCHEDULE;
+	// Раздел 3 RFC 7366: согласованный порядок защиты CBC ставится поре
+	fresh.protection.etm(etm);
 	// Запоминаем набор шифрования связи
 	this->_suite = suite;
 	// Раздел 4.1 RFC 6347: смена набора шифрования открывает первую пору

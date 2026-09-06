@@ -17,6 +17,7 @@
  */
 #include <string>
 #include <vector>
+#include <random>
 
 /**
  * Подключаем заголовочные файлы проекта
@@ -237,4 +238,61 @@ TEST(Sha2Test, Paths){
 	ASSERT_EQ(first, second);
 	// Проверяем длину хеша
 	ASSERT_EQ(first.size(), 64u);
+}
+
+/**
+ * Проверка схождения обоих путей SHA-512 и SHA-384: командами ARMv8.2 и переносимым
+ * путём, длины 0…4096, поток кусками случайной длины через границы блоков в 128 байтов
+ */
+TEST(Sha2Test, Paths512){
+	// Генератор сообщений и длин кусков с закреплённым зерном
+	std::mt19937 generator(20260906);
+	/**
+	 * Выполняем перебор длин
+	 */
+	for(size_t length = 0; length <= 4096; length++){
+		// Сообщение
+		std::string message(length, 'x');
+		/**
+		 * Выполняем заполнение сообщения
+		 */
+		for(size_t i = 0; i < message.size(); i++)
+			// Записываем очередной знак
+			message[i] = static_cast <char> (generator());
+		// Хеши на пути, выбранном машиной
+		const std::string first512 = whole(digest::sha_t::SHA512, message), first384 = whole(digest::sha_t::SHA384, message);
+		// Запрещаем машинные команды
+		machine::allow(false);
+		// Хеш SHA-384 целиком переносимым путём
+		const std::string second384 = whole(digest::sha_t::SHA384, message);
+		// Объект хеширования SHA-512 переносимым путём
+		digest::sha2_t hasher(digest::sha_t::SHA512);
+		// Позиция внутри сообщения
+		size_t position = 0;
+		/**
+		 * Выполняем подачу сообщения кусками случайной длины
+		 */
+		while(position < length){
+			// Длина очередного куска
+			size_t chunk = (1 + (generator() % 300));
+			// Если кусок длиннее остатка
+			if(chunk > (length - position))
+				// Ограничиваем кусок остатком
+				chunk = (length - position);
+			// Подаём очередной кусок
+			hasher.update(view_t(reinterpret_cast <const uint8_t *> (message.data()) + position, chunk));
+			// Сдвигаем позицию
+			position += chunk;
+		}
+		// Место, в которое записывается хеш
+		uint8_t result[64];
+		// Проверяем снятие хеша
+		ASSERT_TRUE(hasher.finish(result, sizeof(result)));
+		// Возвращаем машинные команды
+		machine::allow(true);
+		// Проверяем схождение хешей SHA-512
+		ASSERT_EQ(first512, text(result, sizeof(result))) << "length " << length;
+		// Проверяем схождение хешей SHA-384
+		ASSERT_EQ(first384, second384) << "length " << length;
+	}
 }

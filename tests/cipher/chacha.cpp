@@ -28,6 +28,7 @@
  */
 #include <main.hpp>
 #include <starve.hpp>
+#include <sys/machine.hpp>
 #include <cipher/chacha.hpp>
 
 /**
@@ -616,5 +617,104 @@ TEST(ChachaTest, Openssl){
 		ASSERT_TRUE(chacha.decrypt(view_t(reference.data(), reference.size()), opened.data()));
 		// Проверяем схождение открытого текста
 		ASSERT_EQ(opened, plain) << "длина " << length;
+	}
+}
+
+/**
+ * Проверка схождения векторного и переносимого путей: длины 0…4096, невыровненные
+ * буферы, оба направления и поток кусками случайной длины через границы блоков в 64
+ * байта и пачек в четыре и восемь блоков; у каждой седьмой длины счётчик стоит у
+ * переполнения, и оба пути обязаны отказать на одном и том же блоке
+ */
+TEST(ChachaTest, Paths){
+	// Разобранные байты ключа и заполнения
+	const std::vector <uint8_t> key = bytes(KEY_SEQUENCE), nonce = bytes("000000000000004a00000000");
+	// Генератор данных и длин кусков с закреплённым зерном
+	std::mt19937 generator(20260906);
+	// Объект шифра
+	cipher::chacha_t chacha;
+	/**
+	 * Выполняем перебор длин
+	 */
+	for(size_t length = 0; length <= 4096; length++){
+		// Смещения буферов от выравнивания
+		const size_t inset = (generator() % 16), outset = (generator() % 16);
+		// Открытый текст с запасом под смещение
+		std::vector <uint8_t> plain(length + 16);
+		/**
+		 * Выполняем заполнение открытого текста
+		 */
+		for(size_t i = 0; i < plain.size(); i++)
+			// Записываем очередной байт
+			plain[i] = static_cast <uint8_t> (generator());
+		// Шифртексты обоих путей и раскрытый текст
+		std::vector <uint8_t> first(length + 16), second(length + 16), opened(length + 16);
+		// Счётчик блока: у каждой седьмой длины близко к переполнению
+		const uint32_t counter = (((length % 7) == 0) ? (UINT32_MAX - static_cast <uint32_t> (generator() % 12)) : static_cast <uint32_t> (generator() % 3));
+		// Проверяем запуск шифра на пути, выбранном машиной
+		ASSERT_TRUE(chacha.start(view_t(key.data(), key.size()), view_t(nonce.data(), nonce.size()), counter));
+		// Итог зашифрования целиком на пути, выбранном машиной
+		const bool whole = chacha.encrypt(view_t(plain.data() + inset, length), first.data() + outset);
+		// Запрещаем машинные команды
+		machine::allow(false);
+		// Проверяем перезапуск шифра переносимым путём
+		ASSERT_TRUE(chacha.start(view_t(key.data(), key.size()), view_t(nonce.data(), nonce.size()), counter));
+		// Итог расшифрования кусками переносимым путём
+		bool sliced = true;
+		// Позиция внутри данных
+		size_t position = 0;
+		/**
+		 * Выполняем расшифрование кусками случайной длины
+		 */
+		while(position < length){
+			// Длина очередного куска
+			size_t chunk = (1 + (generator() % 700));
+			// Если кусок длиннее остатка
+			if(chunk > (length - position))
+				// Ограничиваем кусок остатком
+				chunk = (length - position);
+			// Складываем итог расшифрования куска
+			sliced = (chacha.decrypt(view_t(first.data() + outset + position, chunk), opened.data() + inset + position) && sliced);
+			// Сдвигаем позицию
+			position += chunk;
+		}
+		// Проверяем перезапуск шифра переносимым путём
+		ASSERT_TRUE(chacha.start(view_t(key.data(), key.size()), view_t(nonce.data(), nonce.size()), counter));
+		// Итог зашифрования целиком переносимым путём
+		const bool plainWhole = chacha.encrypt(view_t(plain.data() + inset, length), second.data() + outset);
+		// Возвращаем машинные команды
+		machine::allow(true);
+		// Проверяем схождение отказов: оба пути равно отвергают переполнение счётчика
+		ASSERT_EQ(whole, sliced) << "length " << length;
+		// Проверяем схождение отказов зашифрования целиком
+		ASSERT_EQ(whole, plainWhole) << "length " << length;
+		// Если гаммы хватило
+		if(whole){
+			// Проверяем возврат открытого текста переносимым путём кусками
+			ASSERT_EQ(::memcmp(opened.data() + inset, plain.data() + inset, length), 0) << "length " << length;
+			// Проверяем схождение шифртекстов обоих путей
+			ASSERT_EQ(::memcmp(first.data() + outset, second.data() + outset, length), 0) << "length " << length;
+			// Проверяем перезапуск шифра на пути, выбранном машиной
+			ASSERT_TRUE(chacha.start(view_t(key.data(), key.size()), view_t(nonce.data(), nonce.size()), counter));
+			// Сбрасываем позицию внутри данных
+			position = 0;
+			/**
+			 * Выполняем зашифрование кусками случайной длины на пути, выбранном машиной
+			 */
+			while(position < length){
+				// Длина очередного куска
+				size_t chunk = (1 + (generator() % 1100));
+				// Если кусок длиннее остатка
+				if(chunk > (length - position))
+					// Ограничиваем кусок остатком
+					chunk = (length - position);
+				// Проверяем зашифрование куска
+				ASSERT_TRUE(chacha.encrypt(view_t(plain.data() + inset + position, chunk), opened.data() + outset + position)) << "length " << length;
+				// Сдвигаем позицию
+				position += chunk;
+			}
+			// Проверяем схождение шифртекста кусками с шифртекстом целиком
+			ASSERT_EQ(::memcmp(opened.data() + outset, second.data() + outset, length), 0) << "length " << length;
+		}
 	}
 }

@@ -47,6 +47,7 @@
 #include <sys/global.hpp>
 #include <cipher/aes.hpp>
 #include <cipher/gcm.hpp>
+#include <digest/hmac.hpp>
 #include <cipher/mgm.hpp>
 #include <cipher/mode.hpp>
 #include <digest/hash.hpp>
@@ -135,6 +136,22 @@ namespace nts {
 
 		/**
 		 * \~russian
+		 * @brief Наибольшая длина ключа имитовставки набора шифрования CBC в байтах
+		 *
+		 * @details Раздел 6.2.3.2 RFC 5246: ключ имитовставки равен по длине хешу набора -
+		 *          двадцать байтов у SHA-1, тридцать два у SHA-256
+		 *
+		 * \~english
+		 * @brief Greatest length of the key of the authentication code of a CBC cipher suite in bytes
+		 * @details The section 6.2.3.2 of RFC 5246: the key of the authentication code equals the hash of the
+		 *          suite by the length - twenty bytes at SHA-1, thirty two at SHA-256
+		 *
+		 * \~
+		 */
+		static constexpr size_t PROTECT_MAC = 32;
+
+		/**
+		 * \~russian
 		 * @brief Отказы защиты записей
 		 *
 		 * \~english
@@ -191,7 +208,24 @@ namespace nts {
 			ECDHE_RSA_AES_128_GCM_SHA256         = 0xC02F, /*!< \~russian TLS 1.2: ECDHE с подписью RSA, AES-128-GCM, PRF на SHA-256 (RFC 5289) \~english TLS 1.2: ECDHE with an RSA signature, AES-128-GCM, the PRF on SHA-256 (RFC 5289) \~ */
 			ECDHE_RSA_AES_256_GCM_SHA384         = 0xC030, /*!< \~russian TLS 1.2: ECDHE с подписью RSA, AES-256-GCM, PRF на SHA-384 (RFC 5289) \~english TLS 1.2: ECDHE with an RSA signature, AES-256-GCM, the PRF on SHA-384 (RFC 5289) \~ */
 			ECDHE_RSA_CHACHA20_POLY1305_SHA256   = 0xCCA8, /*!< \~russian TLS 1.2: ECDHE с подписью RSA, ChaCha20-Poly1305, PRF на SHA-256 (RFC 7905) \~english TLS 1.2: ECDHE with an RSA signature, ChaCha20-Poly1305, the PRF on SHA-256 (RFC 7905) \~ */
-			ECDHE_ECDSA_CHACHA20_POLY1305_SHA256 = 0xCCA9  /*!< \~russian TLS 1.2: ECDHE с подписью ECDSA, ChaCha20-Poly1305, PRF на SHA-256 (RFC 7905) \~english TLS 1.2: ECDHE with an ECDSA signature, ChaCha20-Poly1305, the PRF on SHA-256 (RFC 7905) \~ */
+			ECDHE_ECDSA_CHACHA20_POLY1305_SHA256 = 0xCCA9, /*!< \~russian TLS 1.2: ECDHE с подписью ECDSA, ChaCha20-Poly1305, PRF на SHA-256 (RFC 7905) \~english TLS 1.2: ECDHE with an ECDSA signature, ChaCha20-Poly1305, the PRF on SHA-256 (RFC 7905) \~ */
+			ECDHE_ECDSA_AES_128_CBC_SHA256       = 0xC023, /*!< \~russian TLS 1.2: ECDHE с подписью ECDSA, AES-128-CBC, HMAC-SHA256 (RFC 5289) \~english TLS 1.2: ECDHE with an ECDSA signature, AES-128-CBC, HMAC-SHA256 (RFC 5289) \~ */
+			ECDHE_RSA_AES_128_CBC_SHA256         = 0xC027, /*!< \~russian TLS 1.2: ECDHE с подписью RSA, AES-128-CBC, HMAC-SHA256 (RFC 5289) \~english TLS 1.2: ECDHE with an RSA signature, AES-128-CBC, HMAC-SHA256 (RFC 5289) \~ */
+			ECDHE_ECDSA_AES_128_CBC_SHA          = 0xC009, /*!< \~russian TLS 1.2: ECDHE с подписью ECDSA, AES-128-CBC, HMAC-SHA1 (RFC 8422) \~english TLS 1.2: ECDHE with an ECDSA signature, AES-128-CBC, HMAC-SHA1 (RFC 8422) \~ */
+			ECDHE_ECDSA_AES_256_CBC_SHA          = 0xC00A, /*!< \~russian TLS 1.2: ECDHE с подписью ECDSA, AES-256-CBC, HMAC-SHA1 (RFC 8422) \~english TLS 1.2: ECDHE with an ECDSA signature, AES-256-CBC, HMAC-SHA1 (RFC 8422) \~ */
+			ECDHE_RSA_AES_128_CBC_SHA            = 0xC013, /*!< \~russian TLS 1.2: ECDHE с подписью RSA, AES-128-CBC, HMAC-SHA1 (RFC 8422) \~english TLS 1.2: ECDHE with an RSA signature, AES-128-CBC, HMAC-SHA1 (RFC 8422) \~ */
+			ECDHE_RSA_AES_256_CBC_SHA            = 0xC014, /*!< \~russian TLS 1.2: ECDHE с подписью RSA, AES-256-CBC, HMAC-SHA1 (RFC 8422) \~english TLS 1.2: ECDHE with an RSA signature, AES-256-CBC, HMAC-SHA1 (RFC 8422) \~ */
+			RSA_AES_128_CBC_SHA                  = 0x002F, /*!< \~russian TLS 1.2: обмен ключами RSA, AES-128-CBC, HMAC-SHA1 (раздел A.5 RFC 5246) \~english TLS 1.2: the RSA key exchange, AES-128-CBC, HMAC-SHA1 (the appendix A.5 of RFC 5246) \~ */
+			RSA_AES_256_CBC_SHA                  = 0x0035, /*!< \~russian TLS 1.2: обмен ключами RSA, AES-256-CBC, HMAC-SHA1 (раздел A.5 RFC 5246) \~english TLS 1.2: the RSA key exchange, AES-256-CBC, HMAC-SHA1 (the appendix A.5 of RFC 5246) \~ */
+			RSA_AES_128_CBC_SHA256               = 0x003C, /*!< \~russian TLS 1.2: обмен ключами RSA, AES-128-CBC, HMAC-SHA256 (раздел A.5 RFC 5246) \~english TLS 1.2: the RSA key exchange, AES-128-CBC, HMAC-SHA256 (the appendix A.5 of RFC 5246) \~ */
+			RSA_AES_256_CBC_SHA256               = 0x003D, /*!< \~russian TLS 1.2: обмен ключами RSA, AES-256-CBC, HMAC-SHA256 (раздел A.5 RFC 5246) \~english TLS 1.2: the RSA key exchange, AES-256-CBC, HMAC-SHA256 (the appendix A.5 of RFC 5246) \~ */
+			RSA_AES_128_GCM_SHA256               = 0x009C, /*!< \~russian TLS 1.2: обмен ключами RSA, AES-128-GCM, PRF на SHA-256 (RFC 5288) \~english TLS 1.2: the RSA key exchange, AES-128-GCM, the PRF on SHA-256 (RFC 5288) \~ */
+			RSA_AES_256_GCM_SHA384               = 0x009D, /*!< \~russian TLS 1.2: обмен ключами RSA, AES-256-GCM, PRF на SHA-384 (RFC 5288) \~english TLS 1.2: the RSA key exchange, AES-256-GCM, the PRF on SHA-384 (RFC 5288) \~ */
+			PSK_AES_128_CBC_SHA                  = 0x008C, /*!< \~russian TLS 1.2: заранее разделённый ключ, AES-128-CBC, HMAC-SHA1 (RFC 4279) \~english TLS 1.2: a pre-shared key, AES-128-CBC, HMAC-SHA1 (RFC 4279) \~ */
+			PSK_AES_256_CBC_SHA                  = 0x008D, /*!< \~russian TLS 1.2: заранее разделённый ключ, AES-256-CBC, HMAC-SHA1 (RFC 4279) \~english TLS 1.2: a pre-shared key, AES-256-CBC, HMAC-SHA1 (RFC 4279) \~ */
+			ECDHE_PSK_AES_128_CBC_SHA            = 0xC035, /*!< \~russian TLS 1.2: ECDHE с заранее разделённым ключом, AES-128-CBC, HMAC-SHA1 (RFC 5489) \~english TLS 1.2: ECDHE with a pre-shared key, AES-128-CBC, HMAC-SHA1 (RFC 5489) \~ */
+			ECDHE_PSK_AES_256_CBC_SHA            = 0xC036, /*!< \~russian TLS 1.2: ECDHE с заранее разделённым ключом, AES-256-CBC, HMAC-SHA1 (RFC 5489) \~english TLS 1.2: ECDHE with a pre-shared key, AES-256-CBC, HMAC-SHA1 (RFC 5489) \~ */
+			ECDHE_PSK_CHACHA20_POLY1305_SHA256   = 0xCCAC  /*!< \~russian TLS 1.2: ECDHE с заранее разделённым ключом, ChaCha20-Poly1305, PRF на SHA-256 (RFC 7905) \~english TLS 1.2: ECDHE with a pre-shared key, ChaCha20-Poly1305, the PRF on SHA-256 (RFC 7905) \~ */
 		};
 
 		/**
@@ -214,6 +248,32 @@ namespace nts {
 			NONE  = 0x00, /*!< \~russian Набор подписи не требует \~english The suite does not require a signature \~ */
 			ECDSA = 0x01, /*!< \~russian Подпись ECDSA либо EdDSA \~english An ECDSA or an EdDSA signature \~ */
 			RSA   = 0x02  /*!< \~russian Подпись RSA \~english An RSA signature \~ */
+		};
+
+		/**
+		 * \~russian
+		 * @brief Способы обмена ключами наборов шифрования TLS 1.2
+		 *
+		 * @details Раздел 7.4.3 RFC 5246, RFC 8422, RFC 4279 и RFC 5489: набор именует и
+		 *          способ выработки общего значения обмена - мимолётные ключи на кривой,
+		 *          шифрование случайного значения ключом RSA сертификата, заранее
+		 *          разделённый ключ либо его сочетание с мимолётными ключами
+		 *
+		 * \~english
+		 * @brief Ways of the key exchange of the TLS 1.2 cipher suites
+		 * @details The section 7.4.3 of RFC 5246, RFC 8422, RFC 4279 and RFC 5489: a suite names the way of the
+		 *          derivation of the shared value of the exchange as well - ephemeral keys on a curve, the
+		 *          encryption of a random value by the RSA key of the certificate, a pre-shared key or its
+		 *          combination with the ephemeral keys
+		 *
+		 * \~
+		 */
+		enum class exchange_t : uint8_t {
+			NONE      = 0x00, /*!< \~russian Набор обмена ключами издания 1.2 не ведёт \~english The suite does not conduct the key exchange of the 1.2 edition \~ */
+			ECDHE     = 0x01, /*!< \~russian Мимолётные ключи на кривой с подписью сертификатом \~english Ephemeral keys on a curve with a signature by the certificate \~ */
+			RSA       = 0x02, /*!< \~russian Шифрование общего значения ключом RSA сертификата \~english The encryption of the shared value by the RSA key of the certificate \~ */
+			PSK       = 0x03, /*!< \~russian Заранее разделённый ключ без сертификата \~english A pre-shared key without a certificate \~ */
+			ECDHE_PSK = 0x04  /*!< \~russian Мимолётные ключи на кривой с заранее разделённым ключом \~english Ephemeral keys on a curve with a pre-shared key \~ */
 		};
 
 		/**
@@ -392,6 +452,43 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ signer_t signer(const suite_t suite) noexcept;
 		/**
 		 * \~russian
+		 * @brief Метод получения способа обмена ключами набора шифрования TLS 1.2
+		 *
+		 * @param suite набор шифрования
+		 *
+		 * @return      способ обмена ключами, NONE у наборов TLS 1.3 и у неизвестного набора
+		 *
+		 * \~english
+		 * @brief Method of getting the way of the key exchange of a TLS 1.2 cipher suite
+		 * @param suite the cipher suite
+		 * @return      the way of the key exchange, NONE at the TLS 1.3 suites and at an unknown suite
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ exchange_t exchange(const suite_t suite) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод получения хеша имитовставки набора шифрования CBC
+		 *
+		 * @param suite набор шифрования
+		 *
+		 * @return      хеш имитовставки записи: SHA-1 либо SHA-256 у наборов CBC, NONE у наборов AEAD
+		 *
+		 * @details Раздел 6.2.3.2 RFC 5246: у наборов CBC запись покрывается имитовставкой HMAC
+		 *          на хеше набора, ключ её выводится расписанием ключей и по длине равен хешу
+		 *
+		 * \~english
+		 * @brief Method of getting the hash of the authentication code of a CBC cipher suite
+		 * @param suite the cipher suite
+		 * @return      the hash of the authentication code of a record: SHA-1 or SHA-256 at the CBC suites, NONE at the AEAD suites
+		 * @details The section 6.2.3.2 of RFC 5246: at the CBC suites a record is covered by an HMAC on the hash
+		 *          of the suite, its key is derived by the key schedule and equals the hash by the length
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ digest::hash_t mac(const suite_t suite) noexcept;
+		/**
+		 * \~russian
 		 * @brief Метод выработки ключа записи построением TLSTREE
 		 *
 		 * @param suite    набор шифрования, которым заданы постоянные построения
@@ -475,6 +572,15 @@ namespace nts {
 			private:
 				// Признак набора издания TLS 1.2 с защитой записей по разделу 6.2.3.3 RFC 5246
 				bool _legacy;
+			private:
+				// Признак набора CBC с имитовставкой по разделу 6.2.3.2 RFC 5246
+				bool _cbc;
+				// Признак порядка «шифрование, затем имитовставка» по RFC 7366
+				bool _etm;
+				// Хеш имитовставки набора CBC
+				digest::hash_t _digest;
+				// Ключ имитовставки направления связи
+				uint8_t _mac[PROTECT_MAC];
 			private:
 				// Порядковый номер очередной записи
 				uint64_t _sequence;
@@ -563,6 +669,109 @@ namespace nts {
 				 * \~
 				 */
 				void associate(const uint64_t sequence, const record::type_t type, const record::version_t version, const size_t length, uint8_t * result) const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод снятия дополнения и имитовставки с расшифрованного текста записи CBC за постоянное время
+				 *
+				 * @param sequence порядковый номер записи
+				 * @param version  издание протокола из заголовка записи
+				 * @param type     вид содержимого записи
+				 * @param plain    расшифрованный текст записи: содержимое, имитовставка (MAC-then-encrypt) и дополнение
+				 * @param length   длина расшифрованного текста
+				 * @param total    место, в которое помещается длина открытого содержимого
+				 *
+				 * @return         маска годности: 0xFF при сошедшихся дополнении и имитовставке, 0x00 иначе
+				 *
+				 * @details Раздел 6.2.3.2 RFC 5246 и Lucky13: ни одна ветвь не зависит от секрета, а
+				 *          суждение сложено из масок явной таблицы - «дополнение умещается»,
+				 *          «байт входит в дополнение», «байт дополнения равен длине», «байт текста
+				 *          лежит на месте имитовставки», «имитовставки сошлись»; число сжатий хеша
+				 *          выравнивается холостыми до наибольшего возможного, а имитовставка
+				 *          извлекается перебором окна. В порядке encrypt-then-MAC имитовставка уже
+				 *          сличена до расшифрования, и снимается лишь дополнение
+				 *
+				 * \~english
+				 * @brief Method of the removal of the padding and of the authentication code from the decrypted text of a CBC record in constant time
+				 * @param sequence the sequence number of the record
+				 * @param version  the edition of the protocol from the header of the record
+				 * @param type     the type of the content of the record
+				 * @param plain    the decrypted text of the record: the content, the authentication code (MAC-then-encrypt) and the padding
+				 * @param length   the length of the decrypted text
+				 * @param total    the place the length of the plain content is put into
+				 * @return         the mask of the validity: 0xFF at the matched padding and code, 0x00 otherwise
+				 * @details The section 6.2.3.2 of RFC 5246 and Lucky13: no branch depends on a secret, and the
+				 *          judgement is composed of the masks of an explicit table - «the padding fits», «the byte
+				 *          belongs to the padding», «the byte of the padding equals the length», «the byte of the
+				 *          text lies at the place of the code», «the codes match»; the number of the compressions of
+				 *          the hash is levelled by the idle ones up to the greatest possible one, and the code is
+				 *          extracted by the scan of a window. In the encrypt-then-MAC order the code has already been
+				 *          compared before the decryption, and only the padding is removed
+				 *
+				 * \~
+				 */
+				uint8_t uncover(const uint64_t sequence, const record::version_t version, const record::type_t type, const uint8_t * plain, const size_t length, size_t & total) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод наложения защиты на запись набора CBC
+				 *
+				 * @param sequence порядковый номер записи в связанных данных
+				 * @param version  издание протокола из заголовка записи по проводу
+				 * @param type     вид содержимого защищаемой записи
+				 * @param data     защищаемое содержимое записи
+				 * @param result   накопитель, в конец которого дописываются вектор замены, шифртекст и имитовставка
+				 *
+				 * @return         отказ наложения защиты на запись
+				 *
+				 * @details Раздел 6.2.3.2 RFC 5246: имитовставка над номером, заголовком и содержимым,
+				 *          дополнение до блока, явный вектор замены впереди; по RFC 7366 имитовставка
+				 *          кладётся поверх шифртекста
+				 *
+				 * \~english
+				 * @brief Method of the application of the protection to a record of a CBC suite
+				 * @param sequence the sequence number of the record in the associated data
+				 * @param version  the edition of the protocol from the header of the record on the wire
+				 * @param type     the type of the content of the record being protected
+				 * @param data     the content of the record being protected
+				 * @param result   the accumulator the initialization vector, the ciphertext and the authentication code are appended to
+				 * @return         the failure of the application of the protection to the record
+				 * @details The section 6.2.3.2 of RFC 5246: an authentication code over the number, the header and the
+				 *          content, a padding up to a block, an explicit initialization vector in front; by RFC 7366 the
+				 *          authentication code is put over the ciphertext
+				 *
+				 * \~
+				 */
+				error_t chain(const uint64_t sequence, const record::version_t version, const record::type_t type, const view_t & data, vector <uint8_t> & result) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод снятия защиты с записи набора CBC
+				 *
+				 * @param sequence порядковый номер записи в связанных данных
+				 * @param version  издание протокола из заголовка записи по проводу
+				 * @param type     вид содержимого записи из её заголовка
+				 * @param data     защищённое содержимое записи: вектор замены, шифртекст и имитовставка
+				 * @param result   накопитель, в конец которого дописывается открытое содержимое записи
+				 *
+				 * @return         отказ снятия защиты с записи
+				 *
+				 * @details Раздел 6.2.3.2 RFC 5246: дополнение сверяется целиком, имитовставка сличается
+				 *          за постоянное время независимо от длины дополнения; по RFC 7366 имитовставка
+				 *          сличается прежде расшифрования
+				 *
+				 * \~english
+				 * @brief Method of the removal of the protection from a record of a CBC suite
+				 * @param sequence the sequence number of the record in the associated data
+				 * @param version  the edition of the protocol from the header of the record on the wire
+				 * @param type     the type of the content of the record from its header
+				 * @param data     the protected content of the record: the initialization vector, the ciphertext and the authentication code
+				 * @param result   the accumulator the plain content of the record is appended to
+				 * @return         the failure of the removal of the protection from the record
+				 * @details The section 6.2.3.2 of RFC 5246: the padding is checked entirely, the authentication code is
+				 *          compared in a constant time regardless of the length of the padding; by RFC 7366 the
+				 *          authentication code is compared before the decryption
+				 *
+				 * \~
+				 */
+				error_t unchain(const uint64_t sequence, const record::version_t version, const record::type_t type, const view_t & data, vector <uint8_t> & result) noexcept;
 				/**
 				 * \~russian
 				 * @brief Метод наложения защиты на запись издания TLS 1.2
@@ -737,6 +946,64 @@ namespace nts {
 				 * \~
 				 */
 				bool start(const suite_t suite, const view_t & key, const view_t & vector) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод установки ключевого материала направления связи набора CBC
+				 *
+				 * @param suite  устанавливаемый набор шифрования
+				 * @param key    ключ шифрования направления связи
+				 * @param vector вектор замены направления связи: у наборов CBC пуст, вектор явный
+				 * @param mac    ключ имитовставки направления связи длиною в хеш набора
+				 *
+				 * @return       признак успешности установки ключевого материала
+				 *
+				 * @details Раздел 6.3 RFC 5246: у наборов CBC расписание ключей выводит и ключи
+				 *          имитовставки; у наборов AEAD ключ имитовставки обязан быть пустым
+				 *
+				 * \~english
+				 * @brief Method of setting the key material of a direction of a connection of a CBC suite
+				 * @param suite  the cipher suite being set
+				 * @param key    the encryption key of the direction of the connection
+				 * @param vector the initialization vector of the direction of the connection: empty at the CBC suites, the vector is explicit
+				 * @param mac    the key of the authentication code of the direction of the connection of the length of the hash of the suite
+				 * @return       the flag of the success of the setting of the key material
+				 * @details The section 6.3 of RFC 5246: at the CBC suites the key schedule derives the keys of the
+				 *          authentication code as well; at the AEAD suites the key of the authentication code is obliged to be empty
+				 *
+				 * \~
+				 */
+				bool start(const suite_t suite, const view_t & key, const view_t & vector, const view_t & mac) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод установки порядка «шифрование, затем имитовставка»
+				 *
+				 * @param etm ведётся ли защита записей CBC по RFC 7366
+				 *
+				 * @details Раздел 3 RFC 7366: порядок согласуется расширением encrypt_then_mac и
+				 *          действует лишь на наборы CBC; у наборов AEAD он ничего не меняет
+				 *
+				 * \~english
+				 * @brief Method of setting the «encrypt, then MAC» order
+				 * @param etm whether the protection of the CBC records is conducted by RFC 7366
+				 * @details The section 3 of RFC 7366: the order is negotiated by the encrypt_then_mac extension and
+				 *          acts on the CBC suites alone; at the AEAD suites it changes nothing
+				 *
+				 * \~
+				 */
+				void etm(const bool etm) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод проверки порядка «шифрование, затем имитовставка»
+				 *
+				 * @return признак защиты записей CBC по RFC 7366
+				 *
+				 * \~english
+				 * @brief Method of checking the «encrypt, then MAC» order
+				 * @return the flag of the protection of the CBC records by RFC 7366
+				 *
+				 * \~
+				 */
+				bool etm() const noexcept;
 				/**
 				 * \~russian
 				 * @brief Метод сброса ключевого материала направления связи

@@ -87,6 +87,101 @@ namespace {
 		// Записываем старший байт
 		data[3] = static_cast <uint8_t> (value >> 24);
 	}
+	/**
+	 * @brief Метод разбора блока на пять конечностей по 26 разрядов
+	 *
+	 * @param block разбираемый блок в 16 байтов
+	 * @param hibit старший разряд блока: 2^128 у целого, ничего у дополненного
+	 * @param limbs место под пять конечностей
+	 *
+	 */
+	static inline void split(const uint8_t * block, const uint32_t hibit, uint32_t * limbs) noexcept {
+		// Первая конечность блока
+		limbs[0] = (load(block) & 0x3FFFFFF);
+		// Вторая конечность блока
+		limbs[1] = ((load(block + 3) >> 2) & 0x3FFFFFF);
+		// Третья конечность блока
+		limbs[2] = ((load(block + 6) >> 4) & 0x3FFFFFF);
+		// Четвёртая конечность блока
+		limbs[3] = ((load(block + 9) >> 6) & 0x3FFFFFF);
+		// Пятая конечность блока со старшим разрядом
+		limbs[4] = ((load(block + 12) >> 8) | hibit);
+	}
+	/**
+	 * @brief Метод умножения конечностей на множитель с прибавлением к произведению
+	 *
+	 * @details Произведение по модулю 2^130 - 5 без переносов: конечности, ушедшие
+	 *          за 2^130, возвращаются умноженными на пять. Каждая конечность итога -
+	 *          сумма пяти произведений по 26 разрядов, и на два таких умножения
+	 *          64 разрядов хватает без переносов между ними
+	 *
+	 * @param limbs   конечности множимого
+	 * @param r       конечности множителя
+	 * @param s       конечности множителя, умноженные на пять; первая не нужна
+	 * @param product конечности произведения, к которым прибавляется итог
+	 *
+	 */
+	static inline void multiply(const uint32_t * limbs, const uint32_t * r, const uint32_t * s, uint64_t * product) noexcept {
+		// Первая конечность произведения
+		product[0] += ((static_cast <uint64_t> (limbs[0]) * r[0]) + (static_cast <uint64_t> (limbs[1]) * s[4]) + (static_cast <uint64_t> (limbs[2]) * s[3]) + (static_cast <uint64_t> (limbs[3]) * s[2]) + (static_cast <uint64_t> (limbs[4]) * s[1]));
+		// Вторая конечность произведения
+		product[1] += ((static_cast <uint64_t> (limbs[0]) * r[1]) + (static_cast <uint64_t> (limbs[1]) * r[0]) + (static_cast <uint64_t> (limbs[2]) * s[4]) + (static_cast <uint64_t> (limbs[3]) * s[3]) + (static_cast <uint64_t> (limbs[4]) * s[2]));
+		// Третья конечность произведения
+		product[2] += ((static_cast <uint64_t> (limbs[0]) * r[2]) + (static_cast <uint64_t> (limbs[1]) * r[1]) + (static_cast <uint64_t> (limbs[2]) * r[0]) + (static_cast <uint64_t> (limbs[3]) * s[4]) + (static_cast <uint64_t> (limbs[4]) * s[3]));
+		// Четвёртая конечность произведения
+		product[3] += ((static_cast <uint64_t> (limbs[0]) * r[3]) + (static_cast <uint64_t> (limbs[1]) * r[2]) + (static_cast <uint64_t> (limbs[2]) * r[1]) + (static_cast <uint64_t> (limbs[3]) * r[0]) + (static_cast <uint64_t> (limbs[4]) * s[4]));
+		// Пятая конечность произведения
+		product[4] += ((static_cast <uint64_t> (limbs[0]) * r[4]) + (static_cast <uint64_t> (limbs[1]) * r[3]) + (static_cast <uint64_t> (limbs[2]) * r[2]) + (static_cast <uint64_t> (limbs[3]) * r[1]) + (static_cast <uint64_t> (limbs[4]) * r[0]));
+	}
+	/**
+	 * @brief Метод проведения переносов произведения в конечности по 26 разрядов
+	 *
+	 * @details Итог приведён не до конца: вторая конечность может нести малый
+	 *          перенос сверх 26 разрядов, что следующему умножению не мешает, а
+	 *          окончательное приведение делается при снятии имитовставки
+	 *
+	 * @param product конечности произведения
+	 * @param limbs   место под приведённые конечности
+	 *
+	 */
+	static inline void reduce(uint64_t * product, uint32_t * limbs) noexcept {
+		// Перенос из первой конечности
+		uint32_t carry = static_cast <uint32_t> (product[0] >> 26);
+		// Первая конечность
+		limbs[0] = (static_cast <uint32_t> (product[0]) & 0x3FFFFFF);
+		// Добавляем перенос ко второй конечности
+		product[1] += carry;
+		// Перенос из второй конечности
+		carry = static_cast <uint32_t> (product[1] >> 26);
+		// Вторая конечность
+		limbs[1] = (static_cast <uint32_t> (product[1]) & 0x3FFFFFF);
+		// Добавляем перенос к третьей конечности
+		product[2] += carry;
+		// Перенос из третьей конечности
+		carry = static_cast <uint32_t> (product[2] >> 26);
+		// Третья конечность
+		limbs[2] = (static_cast <uint32_t> (product[2]) & 0x3FFFFFF);
+		// Добавляем перенос к четвёртой конечности
+		product[3] += carry;
+		// Перенос из четвёртой конечности
+		carry = static_cast <uint32_t> (product[3] >> 26);
+		// Четвёртая конечность
+		limbs[3] = (static_cast <uint32_t> (product[3]) & 0x3FFFFFF);
+		// Добавляем перенос к пятой конечности
+		product[4] += carry;
+		// Перенос из пятой конечности: уходит за 2^130
+		carry = static_cast <uint32_t> (product[4] >> 26);
+		// Пятая конечность
+		limbs[4] = (static_cast <uint32_t> (product[4]) & 0x3FFFFFF);
+		// Возвращаем перенос в первую конечность умноженным на пять
+		limbs[0] += (carry * 5);
+		// Перенос из первой конечности
+		carry = (limbs[0] >> 26);
+		// Первая конечность
+		limbs[0] &= 0x3FFFFFF;
+		// Добавляем перенос ко второй конечности
+		limbs[1] += carry;
+	}
 };
 
 /**
@@ -100,91 +195,79 @@ namespace {
 void nts::cipher::Poly1305::absorb(const uint8_t * data, const size_t size, const bool last) noexcept {
 	// Старший разряд блока: 2^128 у целого блока, ничего у дополненного неполного
 	const uint32_t hibit = (last ? 0 : (static_cast <uint32_t> (1) << 24));
-	// Конечности множителя r
-	const uint32_t r0 = this->_r[0], r1 = this->_r[1], r2 = this->_r[2], r3 = this->_r[3], r4 = this->_r[4];
-	// Конечности множителя, умноженные на пять: возврат из-за 2^130
-	const uint32_t s1 = (r1 * 5), s2 = (r2 * 5), s3 = (r3 * 5), s4 = (r4 * 5);
+	// Конечности множителя r, умноженные на пять: возврат из-за 2^130
+	const uint32_t s[5] = {0, (this->_r[1] * 5), (this->_r[2] * 5), (this->_r[3] * 5), (this->_r[4] * 5)};
+	// Конечности квадрата множителя, умноженные на пять
+	const uint32_t s2[5] = {0, (this->_r2[1] * 5), (this->_r2[2] * 5), (this->_r2[3] * 5), (this->_r2[4] * 5)};
 	// Конечности накопителя
-	uint32_t h0 = this->_h[0], h1 = this->_h[1], h2 = this->_h[2], h3 = this->_h[3], h4 = this->_h[4];
+	uint32_t h[5] = {this->_h[0], this->_h[1], this->_h[2], this->_h[3], this->_h[4]};
 	// Число ещё не сложенных байтов
 	size_t left = size;
 	// Позиция чтения
 	const uint8_t * cursor = data;
 	/**
-	 * Выполняем сложение блоков с накопителем и умножение на r
+	 * Выполняем сложение блоков парами: (h + m0) * r^2 + m1 * r, произведения
+	 * независимы и считаются параллельно, переносы проводятся один раз на пару
+	 */
+	while(left >= (2 * POLY1305_TAG)){
+		// Конечности первого блока пары, сложенного с накопителем
+		uint32_t first[5];
+		// Конечности второго блока пары
+		uint32_t second[5];
+		// Конечности произведения
+		uint64_t product[5] = {0, 0, 0, 0, 0};
+		// Разбираем первый блок пары
+		split(cursor, hibit, first);
+		// Разбираем второй блок пары
+		split(cursor + POLY1305_TAG, hibit, second);
+		/**
+		 * Выполняем сложение первого блока с накопителем
+		 */
+		for(size_t i = 0; i < 5; i++)
+			// Складываем очередную конечность
+			first[i] += h[i];
+		// Умножаем первый блок с накопителем на квадрат множителя
+		multiply(first, this->_r2, s2, product);
+		// Умножаем второй блок на множитель
+		multiply(second, this->_r, s, product);
+		// Проводим переносы в накопитель
+		reduce(product, h);
+		// Сдвигаем позицию чтения
+		cursor += (2 * POLY1305_TAG);
+		// Уменьшаем число не сложенных байтов
+		left -= (2 * POLY1305_TAG);
+	}
+	/**
+	 * Выполняем сложение оставшегося одиночного блока с накопителем и умножение на r
 	 */
 	while(left >= POLY1305_TAG){
-		// Складываем первую конечность блока
-		h0 += (load(cursor) & 0x3FFFFFF);
-		// Складываем вторую конечность блока
-		h1 += ((load(cursor + 3) >> 2) & 0x3FFFFFF);
-		// Складываем третью конечность блока
-		h2 += ((load(cursor + 6) >> 4) & 0x3FFFFFF);
-		// Складываем четвёртую конечность блока
-		h3 += ((load(cursor + 9) >> 6) & 0x3FFFFFF);
-		// Складываем пятую конечность блока со старшим разрядом
-		h4 += ((load(cursor + 12) >> 8) | hibit);
-		// Первая конечность произведения
-		uint64_t d0 = ((static_cast <uint64_t> (h0) * r0) + (static_cast <uint64_t> (h1) * s4) + (static_cast <uint64_t> (h2) * s3) + (static_cast <uint64_t> (h3) * s2) + (static_cast <uint64_t> (h4) * s1));
-		// Вторая конечность произведения
-		uint64_t d1 = ((static_cast <uint64_t> (h0) * r1) + (static_cast <uint64_t> (h1) * r0) + (static_cast <uint64_t> (h2) * s4) + (static_cast <uint64_t> (h3) * s3) + (static_cast <uint64_t> (h4) * s2));
-		// Третья конечность произведения
-		uint64_t d2 = ((static_cast <uint64_t> (h0) * r2) + (static_cast <uint64_t> (h1) * r1) + (static_cast <uint64_t> (h2) * r0) + (static_cast <uint64_t> (h3) * s4) + (static_cast <uint64_t> (h4) * s3));
-		// Четвёртая конечность произведения
-		uint64_t d3 = ((static_cast <uint64_t> (h0) * r3) + (static_cast <uint64_t> (h1) * r2) + (static_cast <uint64_t> (h2) * r1) + (static_cast <uint64_t> (h3) * r0) + (static_cast <uint64_t> (h4) * s4));
-		// Пятая конечность произведения
-		uint64_t d4 = ((static_cast <uint64_t> (h0) * r4) + (static_cast <uint64_t> (h1) * r3) + (static_cast <uint64_t> (h2) * r2) + (static_cast <uint64_t> (h3) * r1) + (static_cast <uint64_t> (h4) * r0));
-		// Перенос из первой конечности
-		uint32_t carry = static_cast <uint32_t> (d0 >> 26);
-		// Первая конечность накопителя
-		h0 = (static_cast <uint32_t> (d0) & 0x3FFFFFF);
-		// Добавляем перенос ко второй конечности
-		d1 += carry;
-		// Перенос из второй конечности
-		carry = static_cast <uint32_t> (d1 >> 26);
-		// Вторая конечность накопителя
-		h1 = (static_cast <uint32_t> (d1) & 0x3FFFFFF);
-		// Добавляем перенос к третьей конечности
-		d2 += carry;
-		// Перенос из третьей конечности
-		carry = static_cast <uint32_t> (d2 >> 26);
-		// Третья конечность накопителя
-		h2 = (static_cast <uint32_t> (d2) & 0x3FFFFFF);
-		// Добавляем перенос к четвёртой конечности
-		d3 += carry;
-		// Перенос из четвёртой конечности
-		carry = static_cast <uint32_t> (d3 >> 26);
-		// Четвёртая конечность накопителя
-		h3 = (static_cast <uint32_t> (d3) & 0x3FFFFFF);
-		// Добавляем перенос к пятой конечности
-		d4 += carry;
-		// Перенос из пятой конечности: уходит за 2^130
-		carry = static_cast <uint32_t> (d4 >> 26);
-		// Пятая конечность накопителя
-		h4 = (static_cast <uint32_t> (d4) & 0x3FFFFFF);
-		// Возвращаем перенос в первую конечность умноженным на пять
-		h0 += (carry * 5);
-		// Перенос из первой конечности
-		carry = (h0 >> 26);
-		// Первая конечность накопителя
-		h0 &= 0x3FFFFFF;
-		// Добавляем перенос ко второй конечности
-		h1 += carry;
+		// Конечности блока, сложенного с накопителем
+		uint32_t limbs[5];
+		// Конечности произведения
+		uint64_t product[5] = {0, 0, 0, 0, 0};
+		// Разбираем блок
+		split(cursor, hibit, limbs);
+		/**
+		 * Выполняем сложение блока с накопителем
+		 */
+		for(size_t i = 0; i < 5; i++)
+			// Складываем очередную конечность
+			limbs[i] += h[i];
+		// Умножаем блок с накопителем на множитель
+		multiply(limbs, this->_r, s, product);
+		// Проводим переносы в накопитель
+		reduce(product, h);
 		// Сдвигаем позицию чтения
 		cursor += POLY1305_TAG;
 		// Уменьшаем число не сложенных байтов
 		left -= POLY1305_TAG;
 	}
-	// Записываем первую конечность накопителя
-	this->_h[0] = h0;
-	// Записываем вторую конечность накопителя
-	this->_h[1] = h1;
-	// Записываем третью конечность накопителя
-	this->_h[2] = h2;
-	// Записываем четвёртую конечность накопителя
-	this->_h[3] = h3;
-	// Записываем пятую конечность накопителя
-	this->_h[4] = h4;
+	/**
+	 * Выполняем запись конечностей накопителя
+	 */
+	for(size_t i = 0; i < 5; i++)
+		// Записываем очередную конечность
+		this->_h[i] = h[i];
 }
 /**
  * @brief Метод проверки готовности имитовставки к работе
@@ -221,6 +304,14 @@ bool nts::cipher::Poly1305::start(const view_t & key) noexcept {
 	this->_r[3] = ((load(key.data + 9) >> 6) & 0x3F03FFF);
 	// Пятая конечность r: обрезка старших четырёх разрядов
 	this->_r[4] = ((load(key.data + 12) >> 8) & 0x00FFFFF);
+	// Конечности множителя, умноженные на пять
+	const uint32_t s[5] = {0, (this->_r[1] * 5), (this->_r[2] * 5), (this->_r[3] * 5), (this->_r[4] * 5)};
+	// Конечности произведения
+	uint64_t product[5] = {0, 0, 0, 0, 0};
+	// Умножаем множитель сам на себя
+	multiply(this->_r, this->_r, s, product);
+	// Проводим переносы в квадрат множителя
+	reduce(product, this->_r2);
 	/**
 	 * Выполняем чтение слов слагаемого s от младшего байта
 	 */
@@ -243,6 +334,8 @@ void nts::cipher::Poly1305::clear() noexcept {
 	this->_filled = 0;
 	// Выполняем затирание множителя
 	wipe(this->_r, sizeof(this->_r));
+	// Выполняем затирание квадрата множителя
+	wipe(this->_r2, sizeof(this->_r2));
 	// Выполняем затирание накопителя
 	wipe(this->_h, sizeof(this->_h));
 	// Выполняем затирание слагаемого
@@ -467,6 +560,8 @@ bool nts::cipher::Poly1305::finish(uint8_t * tag) noexcept {
 nts::cipher::Poly1305::Poly1305() noexcept : _ready(false), _filled(0) {
 	// Выполняем затирание множителя
 	wipe(this->_r, sizeof(this->_r));
+	// Выполняем затирание квадрата множителя
+	wipe(this->_r2, sizeof(this->_r2));
 	// Выполняем затирание накопителя
 	wipe(this->_h, sizeof(this->_h));
 	// Выполняем затирание слагаемого

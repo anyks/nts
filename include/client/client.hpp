@@ -751,6 +751,75 @@ namespace nts {
 				void resume(const context::ticket_t & ticket) noexcept;
 				/**
 				 * \~russian
+				 * @brief Метод установки заранее разделённого ключа издания TLS 1.2
+				 *
+				 * @param psk настройки заранее разделённого ключа: опознаватель и ключ клиента, необязательный вызов advise по подсказке сервера
+				 *
+				 * @details RFC 4279 и RFC 5489: наборы PSK-AES128/256-CBC-SHA, ECDHE-PSK-AES128/256-CBC-SHA
+				 *          и ECDHE-PSK-CHACHA20-POLY1305 ведут рукопожатие без сертификатов; клиент предлагает их лишь при заданном ключе либо вызове; подсказка psk_identity_hint сервера доставляется вызовом advise, и потребитель вправе выбрать по ней иные опознаватель и ключ
+				 *
+				 * @note Раздел 5.3 RFC 4279: опознаватель не длиннее 128 байтов, ключ - не длиннее 64,
+				 *       иное заведение связи отвергает отказом SETTINGS; неверный ключ обрывает
+				 *       рукопожатие на завершении извещением decrypt_error (51)
+				 *
+				 * \~english
+				 * @brief Method of setting the pre-shared key of the TLS 1.2 edition
+				 * @param psk the settings of the pre-shared key: the identity and the key of the client, the optional advise call by the hint of the server
+				 * @details RFC 4279 and RFC 5489: the PSK-AES128/256-CBC-SHA, ECDHE-PSK-AES128/256-CBC-SHA and
+				 *          ECDHE-PSK-CHACHA20-POLY1305 suites conduct the handshake without certificates; the client offers them only at a set key or call; the psk_identity_hint of the server is delivered by the advise call, and the consumer may choose another identity and key by it
+				 * @note The section 5.3 of RFC 4279: the identity is not longer than 128 bytes, the key - not longer
+				 *       than 64, otherwise the establishment refuses by SETTINGS; a wrong key tears the handshake at
+				 *       the completion by the decrypt_error alert (51)
+				 *
+				 * \~
+				 */
+				void psk(const context::psk_t & psk) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод установки требования порядка «шифрование, затем имитовставка» RFC 7366
+				 *
+				 * @param required обязателен ли порядок encrypt_then_mac при наборе CBC
+				 *
+				 * @details Раздел 3 RFC 7366: порядок предлагается клиентом и подтверждается сервером
+				 *          всегда, когда в деле набор CBC, - без него запись идёт в порядке
+				 *          MAC-then-encrypt раздела 6.2.3.2 RFC 5246 (защита от Lucky13 постоянным
+				 *          временем разбора). Требование обрывает рукопожатие извещением
+				 *          handshake_failure и отказом ETM, если собеседник выбрал набор CBC, а
+				 *          порядка не поддержал; наборов AEAD требование не касается
+				 *
+				 * \~english
+				 * @brief Method of setting the requirement of the «encrypt, then MAC» order of RFC 7366
+				 * @param required whether the encrypt_then_mac order is mandatory at a CBC suite
+				 * @details The section 3 of RFC 7366: the order is offered by the client and confirmed by the server
+				 *          whenever a CBC suite is in play - without it a record goes in the MAC-then-encrypt order
+				 *          of the section 6.2.3.2 of RFC 5246 (the protection against Lucky13 by a constant-time
+				 *          parsing). The requirement tears the handshake by the handshake_failure alert and the ETM
+				 *          failure when the interlocutor chose a CBC suite but did not support the order; the AEAD
+				 *          suites are not concerned by the requirement
+				 *
+				 * \~
+				 */
+				void etm(const bool required) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод проверки согласованного порядка «шифрование, затем имитовставка»
+				 *
+				 * @return признак того, что записи CBC идут в порядке encrypt_then_mac RFC 7366
+				 *
+				 * @note У наборов AEAD и до согласования набора признак ложен: потребитель судит по
+				 *       нему, идёт ли связь набором CBC в порядке MAC-then-encrypt
+				 *
+				 * \~english
+				 * @brief Method of checking the negotiated «encrypt, then MAC» order
+				 * @return the flag of the CBC records going in the encrypt_then_mac order of RFC 7366
+				 * @note At the AEAD suites and before the negotiation of the suite the flag is false: the consumer
+				 *       judges by it whether the connection goes by a CBC suite in the MAC-then-encrypt order
+				 *
+				 * \~
+				 */
+				bool etm() const noexcept;
+				/**
+				 * \~russian
 				 * @brief Метод установки предложения упреждающих данных серверу
 				 *
 				 * @param advance предлагаются ли упреждающие данные

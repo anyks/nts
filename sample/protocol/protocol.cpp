@@ -386,7 +386,7 @@ namespace {
 	 * @param server связь стороны сервера
 	 *
 	 */
-	void handshake(client::context_t & client, server::context_t & server) noexcept {
+	void converse(client::context_t & client, server::context_t & server) noexcept {
 		// Число кругов передачи байтов между сторонами связи
 		size_t rounds = 0;
 		/**
@@ -448,7 +448,7 @@ int main(int argc, char * argv[]) noexcept {
 			return EXIT_FAILURE;
 		}
 		// Выполняем проведение рукопожатия сторон связи
-		handshake(client, server);
+		converse(client, server);
 		// Выводим перечень протоколов, предложенных клиентом
 		cout << "Предложено клиентом : http/1.1, h2" << endl;
 		// Выводим перечень протоколов, признаваемых сервером
@@ -482,7 +482,7 @@ int main(int argc, char * argv[]) noexcept {
 			return EXIT_FAILURE;
 		}
 		// Выполняем проведение рукопожатия сторон связи
-		handshake(client, server);
+		converse(client, server);
 		// Выводим сообщение о расхождении перечней сторон связи
 		cout << endl << "Расхождение         : клиент просит http/1.1, сервер знает лишь h2" << endl;
 		// Выводим извещение, которым связь оборвана сервером

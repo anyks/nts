@@ -46,6 +46,7 @@
  */
 #include <main.hpp>
 #include <starve.hpp>
+#include <openssl.hpp>
 #include <identity.hpp>
 #include <pem/pem.hpp>
 #include <ocsp/ocsp.hpp>
@@ -112,18 +113,6 @@ namespace {
 	 * Уровни защиты, несущие сообщения рукопожатия, в порядке подачи
 	 */
 	static const context::level_t LEVELS[] = {context::level_t::INITIAL, context::level_t::HANDSHAKE, context::level_t::APPLICATION};
-	/**
-	 * @brief Метод запуска команды оболочки без консоли на входе
-	 *
-	 * @param command запускаемая команда
-	 *
-	 * @return        код возврата команды
-	 *
-	 */
-	int shell(const std::string & command) noexcept {
-		// Запускаем команду с пустым входом
-		return ::system((command + " </dev/null").c_str());
-	}
 	/**
 	 * @brief Метод чтения файла целиком
 	 *
@@ -635,7 +624,7 @@ namespace {
 	 * @return       признак того, что данные дошли в обе стороны без искажения
 	 *
 	 */
-	bool exchange(client::context_t & client, server::context_t & server) noexcept {
+	bool barter(client::context_t & client, server::context_t & server) noexcept {
 		// Прикладные данные, отправляемые клиентом
 		const string request = "Запрос по связи со сшитым ответом о состоянии сертификата";
 		// Если отправить прикладные данные клиентом не удалось
@@ -679,7 +668,7 @@ namespace {
 	 * @param levels     ведётся ли перенос по уровням QUIC
 	 *
 	 */
-	void arrange(client::context_t & client, server::context_t & server, const protect::suite_t suite, const extension::group_t group, const context::credential_t & credential, const bool mutual, const bool levels = false) noexcept {
+	void arrange(client::context_t & client, server::context_t & server, const protect::suite_t suite, const extension::group_t group, const context::credential_t & credential, const bool mutual, const bool levels) noexcept {
 		// Устанавливаем набор шифрования клиенту
 		client.suites(vector <protect::suite_t> {suite});
 		// Устанавливаем набор шифрования серверу
@@ -918,129 +907,6 @@ namespace {
 		body = rebuilt;
 		// Выводим успешность искажения
 		return true;
-	}
-	/**
-	 * @brief Метод получения свободного порта на петлевом устройстве
-	 *
-	 * @return свободный порт либо ноль
-	 *
-	 */
-	uint16_t port() noexcept {
-		// Заводим сокет для розыска свободного порта
-		const int fd = ::socket(AF_INET, SOCK_STREAM, 0);
-		// Если сокет завести не удалось
-		if(fd < 0)
-			// Выводим отсутствие порта
-			return 0;
-		// Адрес привязки на петлевом устройстве
-		struct sockaddr_in address;
-		// Обнуляем адрес привязки
-		::memset(&address, 0, sizeof(address));
-		// Устанавливаем семейство адреса
-		address.sin_family = AF_INET;
-		// Устанавливаем петлевое устройство
-		address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-		// Порт назначается системой
-		address.sin_port = 0;
-		// Найденный свободный порт
-		uint16_t result = 0;
-		// Длина адреса привязки
-		socklen_t length = sizeof(address);
-		// Если привязка и чтение адреса удались
-		if((::bind(fd, reinterpret_cast <struct sockaddr *> (&address), sizeof(address)) == 0) && (::getsockname(fd, reinterpret_cast <struct sockaddr *> (&address), &length) == 0))
-			// Запоминаем назначенный системой порт
-			result = ntohs(address.sin_port);
-		// Закрываем сокет розыска порта
-		::close(fd);
-		// Выводим найденный свободный порт
-		return result;
-	}
-	/**
-	 * @brief Метод подключения к порту петлевого устройства с ожиданием
-	 *
-	 * @param number порт подключения
-	 *
-	 * @return       описатель подключённого сокета либо отрицательное число
-	 *
-	 */
-	int connect(const uint16_t number) noexcept {
-		/**
-		 * Выполняем попытки подключения, пока сервер поднимается
-		 */
-		for(size_t attempt = 0; attempt < 100; attempt++){
-			// Заводим сокет подключения
-			const int fd = ::socket(AF_INET, SOCK_STREAM, 0);
-			// Если сокет завести не удалось
-			if(fd < 0)
-				// Выводим отказ подключения
-				return -1;
-			// Адрес подключения на петлевом устройстве
-			struct sockaddr_in address;
-			// Обнуляем адрес подключения
-			::memset(&address, 0, sizeof(address));
-			// Устанавливаем семейство адреса
-			address.sin_family = AF_INET;
-			// Устанавливаем петлевое устройство
-			address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-			// Устанавливаем порт подключения
-			address.sin_port = htons(number);
-			// Если подключение удалось
-			if(::connect(fd, reinterpret_cast <struct sockaddr *> (&address), sizeof(address)) == 0){
-				// Предел ожидания приёма: зависание собеседника не должно вешать проверку
-				struct timeval limit = {10, 0};
-				// Устанавливаем предел ожидания приёма
-				(void) ::setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &limit, sizeof(limit));
-				// Выводим описатель подключённого сокета
-				return fd;
-			}
-			// Закрываем сокет неудавшегося подключения
-			::close(fd);
-			// Ждём подъёма сервера
-			::usleep(100000);
-		}
-		// Выводим отказ подключения
-		return -1;
-	}
-	/**
-	 * @brief Метод передачи байтов между связью клиента и сокетом
-	 *
-	 * @param client связь стороны клиента
-	 * @param fd     описатель сокета
-	 *
-	 * @return       признак того, что байты передавались
-	 *
-	 */
-	bool relay(client::context_t & client, const int fd) noexcept {
-		// Признак того, что байты передавались
-		bool moved = false;
-		// Получаем байты, отправляемые клиентом
-		const view_t data = client.output();
-		// Если клиенту есть что отправить
-		if(data.size > 0){
-			// Отправляем байты в сокет
-			const ssize_t sent = ::send(fd, data.data, data.size, 0);
-			// Если отправка не удалась
-			if(sent <= 0)
-				// Выводим отсутствие передачи
-				return false;
-			// Снимаем отправленные байты с накопителя клиента
-			client.consume(static_cast <size_t> (sent));
-			// Запоминаем передачу
-			moved = true;
-		}
-		// Место, в которое помещаются принятые байты
-		uint8_t buffer[16384];
-		// Принимаем байты из сокета с ожиданием
-		const ssize_t received = ::recv(fd, buffer, sizeof(buffer), 0);
-		// Если байты приняты
-		if(received > 0){
-			// Подаём принятые байты связи клиента
-			client.push(view_t(buffer, static_cast <size_t> (received)));
-			// Запоминаем передачу
-			moved = true;
-		}
-		// Выводим признак передачи
-		return moved;
 	}
 };
 
@@ -1649,7 +1515,7 @@ TEST(OcspTest, Loopback){
 				// Если перенос идёт записями
 				if(t == 0){
 					// Проверяем обмен данными
-					ASSERT_TRUE(exchange(client, server));
+					ASSERT_TRUE(barter(client, server));
 					// Выдаём билет
 					ASSERT_EQ(server.issue(), context::error_t::NONE);
 					// Доставляем билет
@@ -1661,7 +1527,7 @@ TEST(OcspTest, Loopback){
 					// Связь возобновляющего сервера
 					server::context_t resumed;
 					// Настраиваем стороны без подлинности клиента
-					arrange(resuming, resumed, SUITES[s], extension::group_t::X25519, credential, false);
+					arrange(resuming, resumed, SUITES[s], extension::group_t::X25519, credential, false, false);
 					// Сервер отдаёт ответ
 					resumed.status(answer);
 					// Клиент запрашивает состояние
@@ -1687,7 +1553,7 @@ TEST(OcspTest, Loopback){
 					// Состояние не установлено
 					ASSERT_EQ(resuming.certified(), ocsp::status_t::NONE);
 					// Проверяем обмен данными по возобновлённой связи
-					ASSERT_TRUE(exchange(resuming, resumed));
+					ASSERT_TRUE(barter(resuming, resumed));
 				}
 			}
 		}
@@ -1852,7 +1718,7 @@ TEST(OcspTest, Absent){
 		// Связь стороны сервера
 		server::context_t server;
 		// Настраиваем стороны с подлинностью клиента
-		arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, true);
+		arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, true, false);
 		// Клиент запрашивает состояние, сервер ответа не имеет
 		client.status(true);
 		// Клиент проверяет ответ
@@ -1874,7 +1740,7 @@ TEST(OcspTest, Absent){
 		// Проверяем, что ответа у сервера нет
 		ASSERT_TRUE(server.status().empty());
 		// Проверяем обмен данными
-		ASSERT_TRUE(exchange(client, server));
+		ASSERT_TRUE(barter(client, server));
 	}
 	{
 		// Связь стороны клиента
@@ -1882,7 +1748,7 @@ TEST(OcspTest, Absent){
 		// Связь стороны сервера
 		server::context_t server;
 		// Настраиваем стороны с подлинностью клиента
-		arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, true);
+		arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, true, false);
 		// Сервер имеет ответ, клиент его не запрашивает
 		server.status(vectored("ec256.good.der"));
 		// Клиент имеет ответ, сервер его не запрашивает
@@ -1906,7 +1772,7 @@ TEST(OcspTest, Absent){
 		// Связь стороны сервера
 		server::context_t server;
 		// Настраиваем стороны без подлинности клиента
-		arrange(client, server, protect::suite_t::CHACHA20_POLY1305_SHA256, extension::group_t::X25519, credential, false);
+		arrange(client, server, protect::suite_t::CHACHA20_POLY1305_SHA256, extension::group_t::X25519, credential, false, false);
 		// Ответ revoked
 		const vector <uint8_t> answer = vectored("ec256.revoked.der");
 		// Сервер отдаёт ответ revoked
@@ -2040,7 +1906,7 @@ TEST(OcspTest, Refusals){
 		// Связь стороны сервера
 		server::context_t server;
 		// Настраиваем стороны с подлинностью клиента
-		arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, true);
+		arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, true, false);
 		// Клиент отдаёт ответ revoked
 		client.status(vectored("ec256.revoked.der"));
 		// Сервер запрашивает состояние клиента
@@ -2068,7 +1934,7 @@ TEST(OcspTest, Refusals){
 		// Связь стороны сервера
 		server::context_t server;
 		// Настраиваем стороны без подлинности клиента
-		arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
+		arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false, false);
 		// Сервер отдаёт ответ по чужому сертификату с состоянием unknown: опознаватель не сходится
 		server.status(vectored("leaf-ec.unknown.der"));
 		// Клиент запрашивает состояние
@@ -2196,13 +2062,15 @@ TEST(OcspTest, Refusals){
  * в выводе клиента «OCSP Response Data» и состояние good
  */
 TEST(OcspTest, Openssl){
+	// Способности системного openssl, снятые щупами
+	const toolkit_t toolkit = inspect();
 	// Если openssl недоступен
-	if(shell("openssl version >/dev/null 2>&1") != 0){
+	if(!toolkit.present){
 		// Пропускаем проверку вслух
 		GTEST_SKIP() << "openssl недоступен";
 	}
 	// Если openssl не умеет TLS 1.3
-	if(shell("openssl ciphers -s -tls1_3 -ciphersuites TLS_AES_128_GCM_SHA256 >/dev/null 2>&1") != 0){
+	if(!toolkit.tls13){
 		// Пропускаем проверку вслух
 		GTEST_SKIP() << "openssl без TLS 1.3";
 	}
@@ -2228,18 +2096,20 @@ TEST(OcspTest, Openssl){
 	 * Ключ сшивки у s_server: с 3.2 ответы из файлов сличаются с цепочкой ключом -status_all,
 	 * а -status у него шлёт ответ лишь по своему устройству; у старых сборок есть один -status
 	 */
-	const std::string stapling = ((shell("(openssl s_server -help 2>&1 | grep -q -- '-status_all')") == 0) ? "-status_all" : "-status");
+	const std::string stapling = (listed("s_server", "status_all") ? "-status_all" : "-status");
 	{
 		// Свободный порт
-		const uint16_t number = port();
+		const uint16_t number = vacant(false);
 		// Проверяем наличие порта
 		ASSERT_NE(number, 0);
 		// Журнал сервера openssl
 		const std::string log = "/tmp/ants-ocsp-server-" + std::to_string(number) + ".log";
 		// Запускаем сервер openssl со сшивкой ответа из файла
-		ASSERT_EQ(::system(("openssl s_server -accept " + std::to_string(number) + " -tls1_3 -cert " + crt + " -key " + key + " -cert_chain " + chain + " " + stapling + " -status_file " + resp + " -www -naccept 1 </dev/null >" + log + " 2>&1 &").c_str()), 0);
+		ASSERT_TRUE(launch("openssl s_server" + accepting(toolkit, number) + " -tls1_3 -cert " + crt + " -key " + key + " -cert_chain " + chain + " " + stapling + " -status_file " + resp + " -www" + once(toolkit) + " </dev/null >" + log + " 2>&1", log, log + ".pid"));
+		// Сторож сервера openssl: снимается по номеру и при отказе посреди проверки
+		sentinel_t sentinel(log + ".pid");
 		// Подключаемся к серверу openssl
-		const int fd = connect(number);
+		const int fd = dial(number);
 		// Проверяем подключение
 		ASSERT_GE(fd, 0) << "порт " << number;
 		// Связь стороны клиента
@@ -2291,46 +2161,32 @@ TEST(OcspTest, Openssl){
 		ASSERT_NE(string(reply.begin(), reply.end()).find("HTTP/1.0 200"), string::npos);
 		// Закрываем сокет
 		::close(fd);
+		// Снимаем сервер до удаления журнала: иначе отметка завершения воссоздаст файл
+		sentinel.halt();
+		// Журнал сервера
+		std::string journal;
+		// Дожидаемся отметки завершения снятого сервера
+		(void) settle(log, journal);
 		// Удаляем журнал
 		::remove(log.c_str());
 	}
 	{
+		// Порт сервера
+		uint16_t number = 0;
 		// Слушающий сокет
-		const int listener = ::socket(AF_INET, SOCK_STREAM, 0);
+		const int listener = harbour(number);
 		// Проверяем сокет
 		ASSERT_GE(listener, 0);
-		// Адрес привязки
-		struct sockaddr_in address;
-		// Обнуляем адрес
-		::memset(&address, 0, sizeof(address));
-		// Семейство адреса
-		address.sin_family = AF_INET;
-		// Петлевое устройство
-		address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-		// Порт назначается системой
-		address.sin_port = 0;
-		// Привязываем сокет
-		ASSERT_EQ(::bind(listener, reinterpret_cast <struct sockaddr *> (&address), sizeof(address)), 0);
-		// Длина адреса
-		socklen_t length = sizeof(address);
-		// Читаем назначенный порт
-		ASSERT_EQ(::getsockname(listener, reinterpret_cast <struct sockaddr *> (&address), &length), 0);
-		// Слушаем сокет
-		ASSERT_EQ(::listen(listener, 1), 0);
-		// Порт сервера
-		const uint16_t number = ntohs(address.sin_port);
 		// Журнал клиента openssl
 		const std::string log = "/tmp/ants-ocsp-client-" + std::to_string(number) + ".log";
 		// Запускаем клиента openssl с запросом состояния
-		ASSERT_EQ(::system(("openssl s_client -connect 127.0.0.1:" + std::to_string(number) + " -tls1_3 -status -CAfile " + root + " -servername test.anyks.com </dev/null >" + log + " 2>&1 &").c_str()), 0);
+		ASSERT_TRUE(launch("openssl s_client -connect 127.0.0.1:" + std::to_string(number) + " -tls1_3 -status -CAfile " + root + " -servername test.anyks.com </dev/null >" + log + " 2>&1", log, log + ".pid"));
+		// Сторож клиента openssl
+		sentinel_t sentinel(log + ".pid");
 		// Принимаем подключение
-		const int fd = ::accept(listener, nullptr, nullptr);
+		const int fd = greeted(listener);
 		// Проверяем подключение
 		ASSERT_GE(fd, 0);
-		// Предел ожидания приёма
-		struct timeval limit = {10, 0};
-		// Устанавливаем предел ожидания приёма
-		(void) ::setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &limit, sizeof(limit));
 		// Связь стороны сервера
 		server::context_t server;
 		// Наборы сервера
@@ -2343,68 +2199,22 @@ TEST(OcspTest, Openssl){
 		server.status(answer);
 		// Заводим сервер
 		ASSERT_EQ(server.start(), context::error_t::NONE);
-		// Признак того, что рукопожатие дошло до конца
-		bool complete = false;
-		/**
-		 * Выполняем передачу байтов до установления либо закрытия связи
-		 */
-		for(size_t i = 0; (i < 8) && !complete && (server.state() != context::state_t::FAILED); i++){
-			// Место принятых байтов
-			uint8_t buffer[16384];
-			// Принимаем байты клиента
-			const ssize_t received = ::recv(fd, buffer, sizeof(buffer), 0);
-			// Если байты приняты
-			if(received > 0)
-				// Подаём байты серверу
-				server.push(view_t(buffer, static_cast <size_t> (received)));
-			// Байты сервера
-			const view_t data = server.output();
-			// Если серверу есть что отправить
-			if(data.size > 0){
-				// Отправляем байты
-				const ssize_t sent = ::send(fd, data.data, data.size, 0);
-				// Если отправлено
-				if(sent > 0)
-					// Снимаем байты
-					server.consume(static_cast <size_t> (sent));
-			}
-			// Запоминаем установление либо закрытие связи
-			complete = (server.established() || (server.state() == context::state_t::CLOSED));
-		}
+		// Ведём связь до конца рукопожатия
+		const bool complete = serve(server, fd);
 		// Проверяем, что рукопожатие дошло до конца
 		ASSERT_TRUE(complete) << "отказ " << static_cast <int> (server.error());
 		// Проверяем, что отказа не было
 		ASSERT_EQ(server.error(), context::error_t::NONE);
-		// Если связь ещё открыта
-		if(server.established()){
-			// Закрываем связь
-			ASSERT_EQ(server.close(), context::error_t::NONE);
-			// Байты закрытия
-			const view_t closing = server.output();
-			// Отправляем закрытие
-			(void) ::send(fd, closing.data, closing.size, 0);
-		}
+		// Закрываем связь, коли она ещё открыта
+		ASSERT_TRUE(farewell(server, fd));
 		// Закрываем сокет
 		::close(fd);
 		// Закрываем слушающий сокет
 		::close(listener);
 		// Содержимое журнала
 		std::string text;
-		/**
-		 * Выполняем ожидание завершения клиента openssl
-		 */
-		for(size_t i = 0; i < 50; i++){
-			// Читаем журнал
-			std::ifstream file(log);
-			// Переносим содержимое журнала
-			text.assign((std::istreambuf_iterator <char> (file)), std::istreambuf_iterator <char> ());
-			// Если клиент отчитался о проверке
-			if(text.find("Verify return code") != std::string::npos)
-				// Прекращаем ожидание
-				break;
-			// Ждём
-			::usleep(100000);
-		}
+		// Клиент обязан завершиться
+		ASSERT_TRUE(settle(log, text)) << text;
 		// Проверяем, что клиент openssl получил сшитый ответ
 		ASSERT_NE(text.find("OCSP Response Data"), std::string::npos) << text;
 		// Проверяем состояние в выводе клиента openssl
@@ -2528,7 +2338,7 @@ TEST(OcspTest, Starved){
 			// Связь стороны сервера
 			server::context_t server;
 			// Настраиваем стороны с подлинностью клиента
-			arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::SECP256R1, credential, true);
+			arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::SECP256R1, credential, true, false);
 			// Сервер отдаёт ответ
 			server.status(answer);
 			// Сервер запрашивает состояние

@@ -127,7 +127,9 @@ namespace nts {
 			TIMEOUT     = 0x1B, /*!< \~russian Попытки повторной передачи поверх дейтаграмм исчерпаны \~english The attempts of the retransmission over datagrams are exhausted \~ */
 			MASTER      = 0x1C, /*!< \~russian Собеседник по TLS 1.2 не поддерживает расширенный главный секрет RFC 7627 \~english The TLS 1.2 interlocutor does not support the extended master secret of RFC 7627 \~ */
 			RENEGOTIATION = 0x1D, /*!< \~russian Собеседник по TLS 1.2 затеял пересогласование, связью не дозволенное \~english The TLS 1.2 interlocutor has started a renegotiation not allowed by the connection \~ */
-			EXHAUSTED   = 0x1E  /*!< \~russian Записи своего направления по TLS 1.2 исчерпали предел ключа: смены ключей у издания нет, связь закрыта извещением close_notify \~english The records of the own direction by TLS 1.2 have exhausted the limit of the key: the edition has no change of the keys, the connection is closed by the close_notify alert \~ */
+			EXHAUSTED   = 0x1E, /*!< \~russian Записи своего направления по TLS 1.2 исчерпали предел ключа: смены ключей у издания нет, связь закрыта извещением close_notify \~english The records of the own direction by TLS 1.2 have exhausted the limit of the key: the edition has no change of the keys, the connection is closed by the close_notify alert \~ */
+			IDENTITY    = 0x1F, /*!< \~russian Опознаватель заранее разделённого ключа клиента серверу неизвестен (RFC 4279, TLS 1.2) \~english The identity of the pre-shared key of the client is unknown to the server (RFC 4279, TLS 1.2) \~ */
+			ETM         = 0x20  /*!< \~russian Собеседник по TLS 1.2 не поддержал порядок encrypt_then_mac RFC 7366 при наборе CBC, а связь его требует \~english The TLS 1.2 interlocutor has not supported the encrypt_then_mac order of RFC 7366 at a CBC suite, while the connection requires it \~ */
 		};
 
 		/**
@@ -356,6 +358,125 @@ namespace nts {
 		} codec_t;
 		/**
 		 * \~russian
+		 * @brief Заранее разделённый ключ издания TLS 1.2
+		 *
+		 * @details RFC 4279 и RFC 5489: наборы PSK ведут рукопожатие без сертификатов - общее
+		 *          значение обмена выводится из ключа, известного обеим сторонам заранее.
+		 *          Сервер держит много ключей одним контекстом, и потому не хранит ключ, а
+		 *          отвечает на опознаватель клиента вызовом «дано identity - ключ либо отказ»;
+		 *          клиент хранит свой опознаватель с ключом и вправе выбрать их заново по
+		 *          подсказке сервера psk_identity_hint вызовом advise
+		 *
+		 * @note Раздел 5.3 RFC 4279: опознаватель не длиннее 128 байтов, ключ - не длиннее
+		 *       64; иное заведение связи отвергает отказом SETTINGS. Наборы PSK
+		 *       предлагаются и признаются лишь тогда, когда ключ либо вызов заданы
+		 *
+		 * @note Раздел 2 RFC 4279: неизвестный опознаватель сервер вправе отвергнуть
+		 *       извещением unknown_psk_identity (115) либо продолжить случайным ключом и
+		 *       оборваться на завершении decrypt_error (51), не выдавая, что опознаватель
+		 *       неизвестен; выбор за признаком disclose
+		 *
+		 * \~english
+		 * @brief Pre-shared key of the TLS 1.2 edition
+		 * @details RFC 4279 and RFC 5489: the PSK suites conduct the handshake without certificates - the
+		 *          shared value of the exchange is derived from a key known to both sides beforehand. The
+		 *          server holds many keys by one context, hence it does not store the key but answers the
+		 *          identity of the client by the call «given the identity - the key or a refusal»; the client
+		 *          stores its identity with the key and may choose them anew by the psk_identity_hint of the
+		 *          server by the advise call
+		 * @note The section 5.3 of RFC 4279: the identity is not longer than 128 bytes, the key - not longer
+		 *       than 64; otherwise the establishment of the connection refuses by SETTINGS. The PSK suites are
+		 *       offered and recognized only when the key or the call is set
+		 * @note The section 2 of RFC 4279: an unknown identity the server may reject by the unknown_psk_identity
+		 *       alert (115) or continue with a random key and fail at the completion by decrypt_error (51),
+		 *       not disclosing that the identity is unknown; the choice is by the disclose flag
+		 *
+		 * \~
+		 */
+		typedef struct __ANTS_SHARED_EXPORT__ Psk {
+			/**
+			 * \~russian
+			 * @brief Вызов сервера: ключ по опознавателю клиента
+			 *
+			 * @param identity опознаватель, предъявленный клиентом
+			 * @param key      накопитель, в который помещается ключ не длиннее 64 байтов
+			 * @param context  указатель контекста потребителя
+			 *
+			 * @return         признак того, что опознаватель известен и ключ выдан
+			 *
+			 * \~english
+			 * @brief Call of the server: the key by the identity of the client
+			 * @param identity the identity presented by the client
+			 * @param key      the accumulator the key not longer than 64 bytes is put into
+			 * @param context  the pointer of the context of the consumer
+			 * @return         the flag of the identity being known and the key given
+			 *
+			 * \~
+			 */
+			typedef bool (* respond_t)(const view_t & identity, vector <uint8_t> & key, void * context);
+			/**
+			 * \~russian
+			 * @brief Вызов клиента: опознаватель и ключ по подсказке сервера
+			 *
+			 * @param hint     подсказка psk_identity_hint сервера
+			 * @param identity накопитель, в который помещается опознаватель не длиннее 128 байтов
+			 * @param key      накопитель, в который помещается ключ не длиннее 64 байтов
+			 * @param context  указатель контекста потребителя
+			 *
+			 * @return         признак того, что опознаватель и ключ выбраны заново; отказ оставляет настроенные
+			 *
+			 * \~english
+			 * @brief Call of the client: the identity and the key by the hint of the server
+			 * @param hint     the psk_identity_hint of the server
+			 * @param identity the accumulator the identity not longer than 128 bytes is put into
+			 * @param key      the accumulator the key not longer than 64 bytes is put into
+			 * @param context  the pointer of the context of the consumer
+			 * @return         the flag of the identity and the key being chosen anew; a refusal leaves the configured ones
+			 *
+			 * \~
+			 */
+			typedef bool (* advise_t)(const view_t & hint, vector <uint8_t> & identity, vector <uint8_t> & key, void * context);
+			// Опознаватель клиента; у сервера - подсказка psk_identity_hint, пустая не шлётся
+			vector <uint8_t> identity;
+			// Ключ клиента; сервером не используется
+			vector <uint8_t> key;
+			// Вызов сервера: ключ по опознавателю
+			respond_t respond;
+			// Вызов клиента: опознаватель и ключ по подсказке
+			advise_t advise;
+			// Указатель контекста потребителя, передаваемый вызовам как есть
+			void * context;
+			// Признак того, что неизвестный опознаватель отвечается извещением unknown_psk_identity, а не decrypt_error на завершении
+			bool disclose;
+			/**
+			 * \~russian
+			 * @brief Конструктор
+			 *
+			 *
+			 * \~english
+			 * @brief Constructor
+			 *
+			 * \~
+			 */
+			Psk() noexcept : respond(nullptr), advise(nullptr), context(nullptr), disclose(false) {}
+			/**
+			 * \~russian
+			 * @brief Деструктор
+			 *
+			 * @note Ключ затирается изменчивым циклом прежде освобождения; копии настроек
+			 *       (у связи своя) затирают каждая свой ключ, и копирование оставлено обычным
+			 *
+			 * \~english
+			 * @brief Destructor
+			 * @note The key is wiped by the volatile loop before the release; the copies of the settings (the
+			 *       connection has its own) wipe each its own key, and the copying is left ordinary
+			 *
+			 * \~
+			 */
+			~Psk() noexcept;
+		} psk_t;
+		/**
+		 * \~russian
 		 * @brief Билет возобновления связи
 		 *
 		 * @details Раздел 4.6.1 RFC 8446: сервер выдаёт билет за рукопожатием, а клиент
@@ -372,6 +493,10 @@ namespace nts {
 		 * @note Раздел 8.2 RFC 9001: клиенту, шлющему упреждающие данные под QUIC, нужны
 		 *       параметры переноса сервера той связи, что билет выдала, - связь по уровням
 		 *       складывает их в билет сама, а в записи билета они идут своим полем
+		 *
+		 * @note Раздел 3.1 RFC 7366: порядок «шифрование, затем имитовставка» у издания 1.2
+		 *       понижать нельзя, и билет помнит порядок выдавшей его связи: сокращённое
+		 *       рукопожатие иным порядком клиент отвергает illegal_parameter
 		 *
 		 * @note Раздел 8 RFC 8446 велит беречь упреждающие данные от повторной подачи, и
 		 *       беречь их приходится тому же, кому принадлежат билеты: связь одна о
@@ -390,6 +515,9 @@ namespace nts {
 		 * @note The connection derives the key of the ticket itself, while the storage of the pair of «the
 		 *       body and the key» does not belong to it: where to keep it and how to guard it is decided by
 		 *       the one who leads the connection
+		 * @note The section 3.1 of RFC 7366: the encrypt-then-MAC order of the 1.2 edition must not be
+		 *       downgraded, and the ticket remembers the order of the connection which issued it: an
+		 *       abbreviated handshake by another order the client rejects by illegal_parameter
 		 *
 		 * \~
 		 */
@@ -404,6 +532,8 @@ namespace nts {
 			uint32_t advance;
 			// Добавка к возрасту билета, скрывающая его от посторонних
 			uint32_t age;
+			// Признак порядка «шифрование, затем имитовставка» RFC 7366 у связи издания 1.2, выдавшей билет: возобновление ведётся тем же порядком
+			bool etm;
 			// Прикладной протокол связи, выдавшей билет
 			string protocol;
 			// Тело билета, опознающее связь для выдавшего его сервера

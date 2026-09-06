@@ -113,8 +113,12 @@ namespace nts {
 		 * @note Начальное заполнение для всякого сообщения на одном ключе обязано быть
 		 *       неповторимым: повтор раскрывает сумму открытых текстов
 		 *
-		 * @note Намеренные решения: всё на 32-разрядных операциях без машинных команд,
-		 *       памяти не выделяется, исключений нет. Счётчик блока в 32 разряда, как
+		 * @note Намеренные решения: переносимый путь на 32-разрядных операциях, а
+		 *       пачки целых блоков идут векторными командами (NEON у ARM64, SSE2,
+		 *       SSSE3 либо AVX2 у x86-64) с выбором на исполнении по sys/machine.hpp;
+		 *       оба пути в одном двоичном файле, запрет machine::allow(false)
+		 *       возвращает переносимый. Памяти не выделяется, исключений нет.
+		 *       Счётчик блока в 32 разряда, как
 		 *       велит RFC 8439, и переполнение его отвергается отказом, а не переносом
 		 *       в заполнение: 256 ГиБ на одном заполнении никакому протоколу не нужны.
 		 *       Вызов block выдаёт целый блок гаммы на текущем счётчике и отбрасывает
@@ -135,8 +139,11 @@ namespace nts {
 		 *          is of 32 bytes, the nonce of 12 bytes, the counter of 32 bits
 		 * @note The nonce of every message under a single key must be unique: a repetition reveals
 		 *       the sum of the plain texts
-		 * @note Deliberate decisions: everything on 32-bit operations without machine instructions,
-		 *       no memory is allocated, there are no exceptions. The block counter is of 32 bits as
+		 * @note Deliberate decisions: the portable path is on 32-bit operations, and the packs of
+		 *       whole blocks go by the vector instructions (NEON at ARM64, SSE2, SSSE3 or AVX2 at
+		 *       x86-64) chosen at the run time by sys/machine.hpp; both paths are in one binary, the
+		 *       ban machine::allow(false) brings the portable one back. No memory is allocated, there
+		 *       are no exceptions. The block counter is of 32 bits as
 		 *       RFC 8439 says, and its overflow is refused instead of being carried into the nonce:
 		 *       256 GiB under a single nonce are needed by no protocol. A call of block gives out a
 		 *       whole gamma block at the current counter and discards the unspent rest of the previous
@@ -189,6 +196,23 @@ namespace nts {
 				 * \~
 				 */
 				bool advance() noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод покрытия гаммой пачек целых блоков векторными командами
+				 *
+				 * @param cursor позиция чтения данных, сдвигается на покрытое
+				 * @param output позиция записи итога, сдвигается на покрытое
+				 * @param left   число ещё не покрытых байтов, уменьшается на покрытое
+				 *
+				 * \~english
+				 * @brief Method of covering the packs of whole blocks with the gamma by the vector instructions
+				 * @param cursor the reading position of the data, advanced by the covered
+				 * @param output the writing position of the result, advanced by the covered
+				 * @param left   the number of the bytes not covered yet, decreased by the covered
+				 *
+				 * \~
+				 */
+				void pack(const uint8_t * & cursor, uint8_t * & output, size_t & left) noexcept;
 			public:
 				/**
 				 * \~russian

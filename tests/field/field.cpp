@@ -361,3 +361,73 @@ TEST(FieldTest, Starved){
 	// Проверяем, что нехватка памяти объявлена отказом хоть раз
 	ASSERT_TRUE(starved);
 }
+
+/**
+ * Подключаем открытый API затирания области памяти: им же затирается накопитель
+ */
+#include <sys/wipe.hpp>
+
+/**
+ * Если проверка собрана под наблюдателем адресов: чтение накопителя за его сбросом
+ * законно лишь по снятию отравы с области памяти
+ */
+#if defined(__has_feature)
+	#if __has_feature(address_sanitizer)
+		#include <sanitizer/asan_interface.h>
+		#define ANTS_FIELD_UNPOISON(data, size) ASAN_UNPOISON_MEMORY_REGION(data, size)
+	#endif
+#endif
+#if !defined(ANTS_FIELD_UNPOISON)
+	#define ANTS_FIELD_UNPOISON(data, size) ((void) 0)
+#endif
+
+/**
+ * Проверка затирания накопителя составителя: секреты (общее значение обмена, состояние
+ * билета сеанса) складываются составителем, и по сбросу их в памяти оставаться не должно.
+ * Область накопителя по сбросу читается по просмотру, снятому до сброса: у vector сброс
+ * ёмкости не отдаёт, и память остаётся своей
+ */
+TEST(FieldTest, Wiped){
+	// Составитель записи
+	field::builder_t builder;
+	// Записываемый секрет: длиннее короткого запаса строки, чтобы лежать в куче
+	vector <uint8_t> secret(96, 0xA5);
+	// Записываем число
+	ASSERT_EQ(builder.number(0xDEADBEEF, 4), field::error_t::NONE);
+	// Открываем поле
+	ASSERT_EQ(builder.open(2), field::error_t::NONE);
+	// Записываем секрет
+	ASSERT_EQ(builder.bytes(view_t(secret.data(), secret.size())), field::error_t::NONE);
+	// Закрываем поле
+	ASSERT_EQ(builder.close(), field::error_t::NONE);
+	// Просмотр составленной записи до сброса
+	const view_t before = builder.data();
+	// Запись составлена
+	ASSERT_EQ(before.size, static_cast <size_t> (4 + 2 + secret.size()));
+	// Секрет в записи лежит
+	ASSERT_EQ(::memcmp(before.data + 6, secret.data(), secret.size()), 0);
+	// Выполняем сброс накопителя
+	builder.clear();
+	// Накопитель пуст
+	ASSERT_EQ(builder.pending(), static_cast <size_t> (0));
+	// Снимаем отраву наблюдателя адресов с прежней области накопителя
+	ANTS_FIELD_UNPOISON(before.data, before.size);
+	// Число ненулевых байтов прежней области накопителя
+	size_t dirty = 0;
+	/**
+	 * Выполняем перебор байтов прежней области накопителя
+	 */
+	for(size_t i = 0; i < before.size; i++)
+		// Учитываем ненулевой байт
+		dirty += ((before.data[i] != 0) ? 1 : 0);
+	// Прежняя область накопителя затёрта целиком
+	ASSERT_EQ(dirty, static_cast <size_t> (0));
+	// Составитель годен к новой записи
+	ASSERT_EQ(builder.bytes(view_t(secret.data(), 8)), field::error_t::NONE);
+	// Новая запись составлена
+	ASSERT_EQ(builder.data().size, static_cast <size_t> (8));
+	// Помощник затирания вектора опустошает его
+	sys::wipe(secret);
+	// Вектор пуст
+	ASSERT_TRUE(secret.empty());
+}

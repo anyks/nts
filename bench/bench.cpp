@@ -41,6 +41,8 @@
 #include <iomanip>
 #include <iostream>
 #include <functional>
+#include <fstream>
+#include <algorithm>
 
 /**
  * Подключаем заголовочные файлы проекта
@@ -62,6 +64,22 @@
 #include <curve/parameters.hpp>
 #include <client/client.hpp>
 #include <server/server.hpp>
+#include <pem/pem.hpp>
+#include <x509/x509.hpp>
+#include <sign/rsa.hpp>
+#include <hello/hello.hpp>
+#include <record/record.hpp>
+#include <handshake/handshake.hpp>
+#include <extension/extension.hpp>
+#include <datagram/datagram.hpp>
+#include <protect/protect.hpp>
+#include <digest/hash.hpp>
+#include <ocsp/ocsp.hpp>
+
+/**
+ * Подключаем частный кодек сжатия цепочки сертификатов образца sample/compress
+ */
+#include "lz77.hpp"
 
 /**
  * Если сличение с эталоном OpenSSL включено
@@ -224,6 +242,113 @@ namespace {
 		cout << pad(name, 28) << setw(12) << right << fixed << setprecision(1) << (them / ours) << " раз медленнее" << endl;
 	}
 	/**
+	 * @brief Метод чтения файла набора ключей для сличения
+	 *
+	 * @param name имя файла в наборе
+	 *
+	 * @return     содержимое файла, пустое при отказе чтения
+	 *
+	 */
+	vector <uint8_t> corpus(const char * name) noexcept {
+		// Содержимое файла
+		vector <uint8_t> result;
+		/**
+		 * Выполняем чтение файла: поток и накопитель занимают память
+		 */
+		try {
+			// Поток чтения файла набора
+			ifstream file(string(ANTS_CORPUS) + "/" + name, ios::binary);
+			// Если файл открыт
+			if(file.is_open())
+				// Читаем файл целиком
+				result.assign(istreambuf_iterator <char> (file), istreambuf_iterator <char> ());
+		/**
+		 * Если памяти под файл не хватило
+		 */
+		} catch(const bad_alloc &) {
+			// Файл не прочитан
+			result.clear();
+		}
+		// Выводим содержимое файла
+		return result;
+	}
+	/**
+	 * @brief Метод получения середины ряда замеров
+	 *
+	 * @param values ряд замеров
+	 *
+	 * @return       середина ряда, ноль у пустого ряда
+	 *
+	 */
+	double median(vector <double> values) noexcept {
+		// Если ряд пуст
+		if(values.empty())
+			// Выводим ноль
+			return 0.;
+		// Упорядочиваем ряд
+		sort(values.begin(), values.end());
+		// Выводим середину ряда
+		return values[values.size() / 2];
+	}
+	/**
+	 * @brief Метод составления записи приветствия клиента издания TLS 1.2 под обмен RSA
+	 *
+	 * @param result накопитель, в который складывается запись приветствия
+	 *
+	 * @return       признак успешности составления
+	 *
+	 */
+	bool greeting(vector <uint8_t> & result) noexcept {
+		// Составляемое приветствие
+		hello::client_t hello;
+		// Издание TLS 1.2 заголовком
+		hello.version = 0x0303;
+		/**
+		 * Выполняем заполнение случайного значения
+		 */
+		for(size_t i = 0; i < sizeof(hello.random); i++)
+			// Записываем очередной байт
+			hello.random[i] = static_cast <uint8_t> (i);
+		// Набор обмена RSA
+		hello.suites = {static_cast <uint16_t> (protect::suite_t::RSA_AES_128_GCM_SHA256)};
+		// Способ сжатия
+		hello.methods = {0x00};
+		// Тело расширения схем подписи
+		vector <uint8_t> schemes;
+		// Если схемы составить не удалось
+		if(extension::schemes(vector <extension::scheme_t> {extension::scheme_t::RSA_PSS_RSAE_SHA256}, schemes) != extension::error_t::NONE)
+			// Выводим отказ
+			return false;
+		// Добавляем схемы
+		hello.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::SCHEMES), view_t(schemes.data(), schemes.size())));
+		// Добавляем расширенный главный секрет
+		hello.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::MASTER), view_t(nullptr, 0)));
+		// Тело приветствия
+		vector <uint8_t> body;
+		// Если тело составить не удалось
+		if(hello::build(hello, body) != hello::error_t::NONE)
+			// Выводим отказ
+			return false;
+		// Составитель сообщения рукопожатия
+		handshake::writer_t writer;
+		// Если сообщение составить не удалось
+		if(writer.push(handshake::type_t::CLIENT, view_t(body.data(), body.size())) != handshake::error_t::NONE)
+			// Выводим отказ
+			return false;
+		// Нарезчик записей
+		record::writer_t records;
+		// Если запись составить не удалось
+		if(records.push(record::type_t::HANDSHAKE, record::version_t::TLS12, writer.data()) != record::error_t::NONE)
+			// Выводим отказ
+			return false;
+		// Запись приветствия
+		const view_t data = records.data();
+		// Переносим запись
+		result.assign(data.data, data.data + data.size);
+		// Выводим успешность
+		return true;
+	}
+	/**
 	 * @brief Метод передачи накопленных байтов между сторонами связи
 	 *
 	 * @param client связь стороны клиента
@@ -265,6 +390,385 @@ namespace {
 		}
 		// Выводим признак того, что байты между сторонами передавались
 		return moved;
+	}
+	/**
+	 * @brief Метод проведения рукопожатия сторон связи записями до тишины
+	 *
+	 * @param client связь стороны клиента
+	 * @param server связь стороны сервера
+	 *
+	 * @return       признак того, что рукопожатие пройдено обеими сторонами
+	 *
+	 */
+	bool converse(client::context_t & client, server::context_t & server) noexcept {
+		/**
+		 * Выполняем передачу байтов между сторонами, пока им есть что сказать
+		 */
+		for(size_t i = 0; (i < 16) && pump(client, server); i++)
+			// Продолжаем передачу байтов между сторонами связи
+			continue;
+		// Выводим установленность связи обеими сторонами
+		return (client.established() && server.established());
+	}
+	/**
+	 * @brief Метод составления подлинности стороны из набора ключей
+	 *
+	 * @param key         имя файла секретного ключа в записи PEM
+	 * @param certificate имя файла сертификата либо цепочки в записи PEM
+	 * @param result      подлинность, в которую помещается итог
+	 *
+	 * @return            признак успешности составления подлинности
+	 *
+	 */
+	bool keyed(const char * key, const char * certificate, context::credential_t & result) noexcept {
+		// Читаем секретный ключ в записи PEM: связь принимает и её
+		result.secret = corpus(key);
+		// Читаем сертификат в записи PEM
+		const vector <uint8_t> text = corpus(certificate);
+		// Если ключ либо сертификат не прочитаны
+		if(result.secret.empty() || text.empty())
+			// Выводим отказ составления подлинности
+			return false;
+		// Выполняем сброс цепочки сертификатов
+		result.chain.clear();
+		// Выводим итог разбора цепочки сертификатов из записи PEM
+		return (pem::certificates(string(text.begin(), text.end()), result.chain) == pem::error_t::NONE);
+	}
+	/**
+	 * @brief Метод чтения сертификата набора в кодировке DER из записи PEM
+	 *
+	 * @param name имя файла сертификата в наборе
+	 *
+	 * @return     запись сертификата в кодировке DER, пустая при отказе
+	 *
+	 */
+	vector <uint8_t> certified(const char * name) noexcept {
+		// Текст сертификата в записи PEM
+		const vector <uint8_t> text = corpus(name);
+		// Разобранные сертификаты
+		vector <vector <uint8_t>> chain;
+		// Если сертификат не прочитан либо не разобран
+		if(text.empty() || (pem::certificates(string(text.begin(), text.end()), chain) != pem::error_t::NONE) || chain.empty())
+			// Выводим пустую запись
+			return vector <uint8_t> ();
+		// Выводим первый сертификат записи
+		return chain[0];
+	}
+	/**
+	 * @brief Вызов сервера: ключ по опознавателю клиента
+	 *
+	 * @param identity опознаватель клиента, здесь не судится
+	 * @param key      накопитель, в который помещается ключ
+	 * @param context  указатель на ключ сервера
+	 *
+	 * @return         признак того, что ключ выдан
+	 *
+	 * @note Вызов не noexcept намеренно: нехватку памяти в накопителе перехватывает связь
+	 *
+	 */
+	bool responding(const view_t & identity, vector <uint8_t> & key, void * context) {
+		// Опознаватель замеру безразличен
+		(void) identity;
+		// Выдаём ключ сервера
+		key = *reinterpret_cast <const vector <uint8_t> *> (context);
+		// Ключ выдан
+		return true;
+	}
+	/**
+	 * @brief Метод проведения рукопожатия издания TLS 1.2 записями
+	 *
+	 * @param credential подлинность сервера, при заранее разделённом ключе не нужна
+	 * @param suite      набор шифрования обеих сторон
+	 * @param psk        настройки заранее разделённого ключа клиента либо nullptr
+	 * @param vault      ключ билетов сервера либо nullptr
+	 * @param ticket     билет, предъявляемый клиентом, либо nullptr
+	 * @param issued     место, в которое помещается выданный билет, либо nullptr
+	 *
+	 * @return           признак того, что рукопожатие пройдено и ожидания сошлись
+	 *
+	 */
+	bool legacy(const context::credential_t & credential, const protect::suite_t suite, const context::psk_t * psk, const vector <uint8_t> * vault, const context::ticket_t * ticket, context::ticket_t * issued) noexcept {
+		// Связь стороны клиента
+		client::context_t client;
+		// Связь стороны сервера
+		server::context_t server;
+		// Набор шифрования клиента
+		client.suites(vector <protect::suite_t> {suite});
+		// Набор шифрования сервера
+		server.suites(vector <protect::suite_t> {suite});
+		// Группа обмена клиента
+		client.groups(vector <extension::group_t> {extension::group_t::X25519});
+		// Группа обмена сервера
+		server.groups(vector <extension::group_t> {extension::group_t::X25519});
+		// Если заранее разделённого ключа нет
+		if(psk == nullptr)
+			// Устанавливаем подлинность сервера
+			server.credential(credential);
+		// Если заранее разделённый ключ есть
+		else {
+			// Настройки заранее разделённого ключа сервера
+			context::psk_t mine;
+			// Вызов ключа по опознавателю
+			mine.respond = responding;
+			// Указатель на ключ
+			mine.context = psk->context;
+			// Устанавливаем настройки серверу
+			server.psk(mine);
+			// Устанавливаем настройки клиенту
+			client.psk(*psk);
+		}
+		// Если ключ билетов задан
+		if(vault != nullptr){
+			// Устанавливаем ключ билетов серверу
+			server.vault(*vault);
+			// Миг клиента, которым судятся сроки билетов
+			client.moment(1790000000);
+			// Миг сервера
+			server.moment(1790000000);
+		}
+		// Если билет предъявляется
+		if(ticket != nullptr)
+			// Предъявляем билет
+			client.resume(*ticket);
+		// Если пределы издания клиента установить не удалось
+		if(client.versions(0x0303, 0x0303) != context::error_t::NONE)
+			// Выводим отказ
+			return false;
+		// Если связь завести не удалось
+		if((server.start() != context::error_t::NONE) || (client.start() != context::error_t::NONE))
+			// Выводим отказ
+			return false;
+		// Если рукопожатие не пройдено
+		if(!converse(client, server))
+			// Выводим отказ
+			return false;
+		// Если билет предъявлялся, а возобновления не вышло
+		if((ticket != nullptr) && !client.shared())
+			// Выводим отказ
+			return false;
+		// Если выданный билет запрашивается
+		if(issued != nullptr){
+			// Если билет не выдан
+			if(client.tickets().empty())
+				// Выводим отказ
+				return false;
+			// Запоминаем выданный билет
+			*issued = client.tickets()[0];
+		}
+		// Выводим успешность
+		return true;
+	}
+	/**
+	 * @brief Метод переноса всех готовых дейтаграмм от одной стороны к другой
+	 *
+	 * @param from связь стороны, отдающей дейтаграммы
+	 * @param to   связь стороны, принимающей дейтаграммы
+	 *
+	 * @return     признак того, что хоть одна дейтаграмма перенесена
+	 *
+	 */
+	template <typename A, typename B>
+	bool ferry(A & from, B & to) noexcept {
+		// Признак того, что дейтаграммы переносились
+		bool moved = false;
+		/**
+		 * Выполняем перенос дейтаграмм по одной: просмотр отдаёт первую из очереди
+		 */
+		while(from.output().size > 0){
+			// Получаем очередную дейтаграмму
+			const view_t data = from.output();
+			// Переносим дейтаграмму
+			const vector <uint8_t> buffer(data.data, data.data + data.size);
+			// Снимаем дейтаграмму с накопителя
+			from.consume(buffer.size());
+			// Подаём дейтаграмму принимающей стороне
+			to.push(view_t(buffer.data(), buffer.size()));
+			// Запоминаем перенос
+			moved = true;
+		}
+		// Выводим признак переноса
+		return moved;
+	}
+	/**
+	 * @brief Метод настройки и рукопожатия сторон поверх дейтаграмм
+	 *
+	 * @param client     связь стороны клиента
+	 * @param server     связь стороны сервера
+	 * @param credential подлинность сервера
+	 * @param legacy     ведётся ли связь изданием DTLS 1.2
+	 *
+	 * @return           признак того, что рукопожатие пройдено обеими сторонами
+	 *
+	 */
+	bool settle(client::context_t & client, server::context_t & server, const context::credential_t & credential, const bool legacy) noexcept {
+		// Перенос дейтаграммами у клиента
+		client.transport(context::transport_t::DATAGRAMS);
+		// Перенос дейтаграммами у сервера
+		server.transport(context::transport_t::DATAGRAMS);
+		// Набор шифрования по изданию
+		const protect::suite_t suite = (legacy ? protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256 : protect::suite_t::AES_128_GCM_SHA256);
+		// Набор шифрования клиента
+		client.suites(vector <protect::suite_t> {suite});
+		// Набор шифрования сервера
+		server.suites(vector <protect::suite_t> {suite});
+		// Группа обмена клиента
+		client.groups(vector <extension::group_t> {extension::group_t::X25519});
+		// Группа обмена сервера
+		server.groups(vector <extension::group_t> {extension::group_t::X25519});
+		// Подлинность сервера
+		server.credential(credential);
+		// Адрес собеседника для метки возврата состояния
+		static const uint8_t ADDRESS[] = {10, 0, 0, 1, 0x12, 0x34};
+		// Если адрес установить не удалось
+		if(!server.address(view_t(ADDRESS, sizeof(ADDRESS))))
+			// Выводим отказ
+			return false;
+		// Издание по пределам
+		const uint16_t edition = (legacy ? 0x0303 : 0x0304);
+		// Если пределы издания либо заведение связи не удались
+		if((client.versions(edition, edition) != context::error_t::NONE) || (server.versions(edition, edition) != context::error_t::NONE) || (server.start() != context::error_t::NONE) || (client.start() != context::error_t::NONE))
+			// Выводим отказ
+			return false;
+		/**
+		 * Выполняем перенос дейтаграмм до тишины: без потерь часы не ходят
+		 */
+		for(size_t round = 0; round < 64; round++){
+			// Если связь одной из сторон оборвана
+			if((client.state() == context::state_t::FAILED) || (server.state() == context::state_t::FAILED))
+				// Прекращаем перенос
+				break;
+			// Переносим дейтаграммы клиента серверу
+			bool moved = ferry(client, server);
+			// Переносим дейтаграммы сервера клиенту
+			moved = (ferry(server, client) || moved);
+			// Если дейтаграммы переносились
+			if(moved)
+				// Переходим к следующему кругу
+				continue;
+			// Признак хода часов
+			bool fired = false;
+			// Если клиент ждёт повторной передачи
+			if(client.timeout() > 0){
+				// Извещаем клиента об истечении срока
+				client.elapsed();
+				// Запоминаем ход часов
+				fired = true;
+			}
+			// Если сервер ждёт повторной передачи
+			if(server.timeout() > 0){
+				// Извещаем сервер об истечении срока
+				server.elapsed();
+				// Запоминаем ход часов
+				fired = true;
+			}
+			// Если ждать нечего
+			if(!fired)
+				// Прекращаем перенос
+				break;
+		}
+		// Выводим установленность связи обеими сторонами
+		return (client.established() && server.established());
+	}
+	/**
+	 * @brief Метод передачи прикладных данных по установленной связи поверх дейтаграмм
+	 *
+	 * @param client   связь стороны клиента
+	 * @param server   связь стороны сервера
+	 * @param payload  передаваемые данные: не длиннее одной дейтаграммы
+	 * @param count    число передач
+	 * @param received накопитель принятых сервером данных
+	 *
+	 * @return         признак того, что всё переданное принято
+	 *
+	 */
+	bool transfer(client::context_t & client, server::context_t & server, const view_t & payload, const size_t count, vector <uint8_t> & received) noexcept {
+		// Число принятых байтов
+		size_t taken = 0;
+		/**
+		 * Выполняем передачи по одной записи в дейтаграмме
+		 */
+		for(size_t i = 0; i < count; i++){
+			// Если данные отправить не удалось
+			if(client.write(payload) != context::error_t::NONE)
+				// Выводим отказ
+				return false;
+			// Переносим дейтаграмму серверу
+			ferry(client, server);
+			// Если принятое прочитать не удалось
+			if(server.read(received) != context::error_t::NONE)
+				// Выводим отказ
+				return false;
+			// Считаем принятые байты
+			taken += received.size();
+		}
+		// Выводим признак того, что всё переданное принято
+		return (taken == (payload.size * count));
+	}
+	/**
+	 * @brief Метод заведения защиты записей издания 1.2 случайным ключевым материалом
+	 *
+	 * @param suite  набор шифрования
+	 * @param sealer защита отправляющей стороны
+	 * @param opener защита принимающей стороны
+	 * @param etm    порядок RFC 7366 у наборов CBC
+	 *
+	 * @return       признак успешности заведения
+	 *
+	 */
+	bool keying(const protect::suite_t suite, protect::protection_t & sealer, protect::protection_t & opener, const bool etm) noexcept {
+		// Ключ шифрования набора
+		vector <uint8_t> key(protect::key(suite), 0);
+		// Неявная часть вектора набора: ноль у наборов CBC
+		vector <uint8_t> salt(protect::block(suite), 0);
+		// Ключ имитовставки: ноль у наборов AEAD
+		vector <uint8_t> mac(digest::length(protect::mac(suite)), 0);
+		// Если ключевой материал выработать не удалось
+		if(!entropy::bytes(key.data(), key.size()) || (!salt.empty() && !entropy::bytes(salt.data(), salt.size())) || (!mac.empty() && !entropy::bytes(mac.data(), mac.size())))
+			// Выводим отказ
+			return false;
+		// Если защиту отправляющей стороны завести не удалось
+		if(!sealer.start(suite, view_t(key.data(), key.size()), view_t(salt.data(), salt.size()), view_t(mac.data(), mac.size())))
+			// Выводим отказ
+			return false;
+		// Если защиту принимающей стороны завести не удалось
+		if(!opener.start(suite, view_t(key.data(), key.size()), view_t(salt.data(), salt.size()), view_t(mac.data(), mac.size())))
+			// Выводим отказ
+			return false;
+		// Порядок RFC 7366 у отправляющей стороны
+		sealer.etm(etm);
+		// Порядок RFC 7366 у принимающей стороны
+		opener.etm(etm);
+		// Выводим успешность
+		return true;
+	}
+	/**
+	 * @brief Метод наложения и снятия защиты одной записи издания 1.2
+	 *
+	 * @param sealer   защита отправляющей стороны
+	 * @param opener   защита принимающей стороны
+	 * @param sequence порядковый номер записи
+	 * @param data     содержимое записи
+	 * @param sealed   накопитель защищённой записи
+	 * @param opened   накопитель снятого содержимого
+	 *
+	 * @return         признак успешности наложения и снятия защиты
+	 *
+	 * @note Обвязка издания 1.2 одна на наборы CBC и AEAD: явный вектор либо явная часть
+	 *       одноразового значения, шифртекст и имитовставка либо метка складываются в
+	 *       накопитель, а заголовок записи составляет слой записей снаружи
+	 *
+	 */
+	bool roundtrip(protect::protection_t & sealer, protect::protection_t & opener, const uint64_t sequence, const view_t & data, vector <uint8_t> & sealed, vector <uint8_t> & opened) noexcept {
+		// Очищаем накопитель защищённой записи: защита в него дописывает
+		sealed.clear();
+		// Очищаем накопитель снятого содержимого
+		opened.clear();
+		// Если защиту наложить не удалось
+		if(sealer.wrap(sequence, record::version_t::TLS12, record::type_t::APPLICATION, data, sealed) != protect::error_t::NONE)
+			// Выводим отказ
+			return false;
+		// Выводим итог снятия защиты
+		return (opener.unwrap(sequence, record::version_t::TLS12, record::type_t::APPLICATION, view_t(sealed.data(), sealed.size()), opened) == protect::error_t::NONE);
 	}
 };
 
@@ -629,6 +1133,453 @@ int main(int argc, char * argv[]) noexcept {
 			// Продолжаем передачу байтов между сторонами связи
 			continue;
 	});
+	/**
+	 * Замер стойкости обмена RSA ко времени (раздел 7.4.7.1 RFC 5246, Бляйхенбахер):
+	 * время разбора сервером ClientKeyExchange с годным шифртекстом сличается со временем
+	 * разбора порченого - подмена общего значения идёт под маской, и середины рядов
+	 * обязаны сходиться. Замер здесь, а не в проверках: под отладочной сборкой с
+	 * наблюдателем адресов и на занятой машине ряды плывут, и порог был бы либо ложным,
+	 * либо слепым
+	 */
+	{
+		// Подлинность сервера обмена RSA из набора ключей
+		context::credential_t rsa;
+		// Секретный ключ
+		rsa.secret = corpus("rsa2048.pem");
+		// Сертификат
+		const vector <uint8_t> text = corpus("rsa2048.crt");
+		// Если подлинность прочитать не удалось
+		if(rsa.secret.empty() || text.empty() || (pem::certificates(string(text.begin(), text.end()), rsa.chain) != pem::error_t::NONE)){
+			// Выводим сообщение об отказе
+			cout << "Прочитать подлинность RSA из набора ключей не удалось" << endl;
+			// Выходим из приложения с признаком отказа
+			return EXIT_FAILURE;
+		}
+		// Сертификат сервера
+		x509::certificate_t leaf;
+		// Открытый ключ RSA сервера
+		sign::rsa_t key;
+		// Если ключ сертификата разобрать не удалось
+		if((leaf.parse(view_t(rsa.chain[0].data(), rsa.chain[0].size())) != x509::error_t::NONE) || !key.decode(leaf.key().key)){
+			// Выводим сообщение об отказе
+			cout << "Разобрать ключ сертификата RSA не удалось" << endl;
+			// Выходим из приложения с признаком отказа
+			return EXIT_FAILURE;
+		}
+		// Число прогонов на всякий путь
+		static constexpr size_t TRIALS = 2000;
+		// Ряды времени разбора обмена ключами: годный и порченый шифртекст
+		vector <double> fine, spoiled;
+		// Запись приветствия клиента
+		vector <uint8_t> hello;
+		// Если приветствие составить не удалось
+		if(!greeting(hello)){
+			// Выводим сообщение об отказе
+			cout << "Составить приветствие клиента не удалось" << endl;
+			// Выходим из приложения с признаком отказа
+			return EXIT_FAILURE;
+		}
+		/**
+		 * Выполняем перебор прогонов: годный и порченый шифртекст вперемешку ради ровной нагрузки
+		 */
+		for(size_t trial = 0; trial < (TRIALS * 2); trial++){
+			// Путь: чётные прогоны годные, нечётные порченые
+			const bool broken = ((trial % 2) == 1);
+			// Связь стороны сервера
+			server::context_t server;
+			// Набор обмена RSA
+			server.suites(vector <protect::suite_t> {protect::suite_t::RSA_AES_128_GCM_SHA256});
+			// Подлинность
+			server.credential(rsa);
+			// Издание 1.2
+			server.versions(0x0303, 0x0303);
+			// Заводим и подаём приветствие
+			if((server.start() != context::error_t::NONE) || (server.push(view_t(hello.data(), hello.size())) != context::error_t::NONE)){
+				// Выводим сообщение об отказе
+				cout << "Провести приветствие обмена RSA не удалось" << endl;
+				// Выходим из приложения с признаком отказа
+				return EXIT_FAILURE;
+			}
+			// Снимаем залп сервера
+			server.consume(server.output().size);
+			// Общее значение: издание и случайные байты
+			vector <uint8_t> premaster(48, 0x5A);
+			// Старший байт издания
+			premaster[0] = 0x03;
+			// Младший байт издания
+			premaster[1] = 0x03;
+			// Шифртекст общего значения
+			vector <uint8_t> encrypted(key.size(), 0);
+			// Если общее значение зашифровать не удалось
+			if(!key.encrypt(sign::scheme_t::PKCS1, digest::hash_t::NONE, view_t(premaster.data(), premaster.size()), encrypted.data())){
+				// Выводим сообщение об отказе
+				cout << "Зашифровать общее значение RSA не удалось" << endl;
+				// Выходим из приложения с признаком отказа
+				return EXIT_FAILURE;
+			}
+			// Если путь порченый
+			if(broken)
+				// Портим байт шифртекста
+				encrypted[17] ^= 0x01;
+			// Тело обмена ключами: длина и шифртекст
+			vector <uint8_t> body = {static_cast <uint8_t> ((encrypted.size() >> 8) & 0xFF), static_cast <uint8_t> (encrypted.size() & 0xFF)};
+			// Шифртекст
+			body.insert(body.end(), encrypted.begin(), encrypted.end());
+			// Составитель сообщения рукопожатия
+			handshake::writer_t writer;
+			// Нарезчик записей
+			record::writer_t records;
+			// Если запись обмена ключами составить не удалось
+			if((writer.push(handshake::type_t::PREMASTER, view_t(body.data(), body.size())) != handshake::error_t::NONE) || (records.push(record::type_t::HANDSHAKE, record::version_t::TLS12, writer.data()) != record::error_t::NONE)){
+				// Выводим сообщение об отказе
+				cout << "Составить обмен ключами клиента не удалось" << endl;
+				// Выходим из приложения с признаком отказа
+				return EXIT_FAILURE;
+			}
+			// Запись обмена ключами
+			const view_t exchange = records.data();
+			// Миг начала разбора
+			const auto begin = chrono::steady_clock::now();
+			// Подаём обмен ключами серверу: ответа на него нет ни в одном пути
+			const context::error_t outcome = server.push(exchange);
+			// Время разбора в микросекундах
+			const double elapsed = (static_cast <double> (chrono::duration_cast <chrono::nanoseconds> (chrono::steady_clock::now() - begin).count()) / 1000.);
+			// Если разбор ответил отказом: заслон Бляйхенбахера ветвится, чего быть не должно
+			if(outcome != context::error_t::NONE){
+				// Выводим сообщение об отказе
+				cout << "Разбор обмена ключами ответил отказом " << static_cast <int> (outcome) << endl;
+				// Выходим из приложения с признаком отказа
+				return EXIT_FAILURE;
+			}
+			// Складываем время в ряд своего пути
+			(broken ? spoiled : fine).push_back(elapsed);
+		}
+		// Середины рядов
+		const double good = median(fine), bad = median(spoiled);
+		// Выводим середину годного ряда
+		cout << pad("RSA CKE годный, середина", 28) << setw(12) << right << fixed << setprecision(1) << good << " мкс" << endl;
+		// Выводим середину порченого ряда
+		cout << pad("RSA CKE порченый, середина", 28) << setw(12) << right << fixed << setprecision(1) << bad << " мкс" << endl;
+		// Выводим расхождение середин
+		cout << pad("Расхождение середин", 28) << setw(12) << right << fixed << setprecision(1) << (((good > 0.) ? (((bad > good) ? (bad - good) : (good - bad)) / good) : 0.) * 100.) << " %" << endl;
+	}
+	/**
+	 * Замеры рукопожатий издания TLS 1.2 записями: ECDHE-ECDSA с AES-GCM, ECDHE-ECDSA с
+	 * AES-CBC в порядке RFC 7366, ECDHE-PSK с ChaCha20-Poly1305, голый обмен RSA и
+	 * возобновление билетом RFC 5077. Подлинности берутся из набора ключей: ECDSA на P-256
+	 * и RSA-2048. Всякая работа сперва проводится один раз и обязана удаться
+	 */
+	{
+		// Выводим заголовок замеров издания 1.2
+		cout << endl << "Рукопожатия TLS 1.2" << endl << endl;
+		// Подлинность ECDSA и подлинность RSA
+		context::credential_t ecdsa, rsa;
+		// Если подлинности прочитать не удалось
+		if(!keyed("ec256.pem", "ec256.crt", ecdsa) || !keyed("rsa2048.pem", "rsa2048.crt", rsa)){
+			// Выводим сообщение об отказе
+			cout << "Прочитать подлинности издания 1.2 из набора ключей не удалось" << endl;
+			// Выходим из приложения с признаком отказа
+			return EXIT_FAILURE;
+		}
+		// Заранее разделённый ключ сторон
+		const vector <uint8_t> preshared(reinterpret_cast <const uint8_t *> ("pre-shared key of the benchmark"), reinterpret_cast <const uint8_t *> ("pre-shared key of the benchmark") + 31);
+		// Настройки заранее разделённого ключа клиента
+		context::psk_t psk;
+		// Опознаватель клиента
+		psk.identity.assign(reinterpret_cast <const uint8_t *> ("anyks"), reinterpret_cast <const uint8_t *> ("anyks") + 5);
+		// Ключ клиента
+		psk.key = preshared;
+		// Указатель на ключ для вызова сервера
+		psk.context = const_cast <vector <uint8_t> *> (&preshared);
+		// Ключ билетов сервера
+		const vector <uint8_t> vault(reinterpret_cast <const uint8_t *> ("ticket vault secret of the benchmark"), reinterpret_cast <const uint8_t *> ("ticket vault secret of the benchmark") + 36);
+		// Билет, выданный первым рукопожатием
+		context::ticket_t ticket;
+		// Если хоть одно рукопожатие издания 1.2 не удалось
+		if(!legacy(ecdsa, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, nullptr, nullptr, nullptr, nullptr) || !legacy(ecdsa, protect::suite_t::ECDHE_ECDSA_AES_128_CBC_SHA256, nullptr, nullptr, nullptr, nullptr) || !legacy(ecdsa, protect::suite_t::ECDHE_PSK_CHACHA20_POLY1305_SHA256, &psk, nullptr, nullptr, nullptr) || !legacy(rsa, protect::suite_t::RSA_AES_128_GCM_SHA256, nullptr, nullptr, nullptr, nullptr) || !legacy(ecdsa, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, nullptr, &vault, nullptr, &ticket) || !legacy(ecdsa, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, nullptr, &vault, &ticket, nullptr)){
+			// Выводим сообщение об отказе
+			cout << "Провести рукопожатие издания 1.2 не удалось" << endl;
+			// Выходим из приложения с признаком отказа
+			return EXIT_FAILURE;
+		}
+		// Выполняем замер рукопожатий ECDHE-ECDSA с AES-GCM
+		count("TLS 1.2 ECDHE-ECDSA-GCM", 50, [&ecdsa]() noexcept -> void {
+			// Проводим рукопожатие
+			legacy(ecdsa, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, nullptr, nullptr, nullptr, nullptr);
+		});
+		// Выполняем замер рукопожатий ECDHE-ECDSA с AES-CBC
+		count("TLS 1.2 ECDHE-ECDSA-CBC", 50, [&ecdsa]() noexcept -> void {
+			// Проводим рукопожатие
+			legacy(ecdsa, protect::suite_t::ECDHE_ECDSA_AES_128_CBC_SHA256, nullptr, nullptr, nullptr, nullptr);
+		});
+		// Выполняем замер рукопожатий ECDHE-PSK: сертификатов нет вовсе
+		count("TLS 1.2 ECDHE-PSK-CHACHA20", 50, [&ecdsa, &psk]() noexcept -> void {
+			// Проводим рукопожатие
+			legacy(ecdsa, protect::suite_t::ECDHE_PSK_CHACHA20_POLY1305_SHA256, &psk, nullptr, nullptr, nullptr);
+		});
+		// Выполняем замер рукопожатий голым обменом RSA: расшифрование RSA-2048 у сервера
+		count("TLS 1.2 голый RSA-GCM", 50, [&rsa]() noexcept -> void {
+			// Проводим рукопожатие
+			legacy(rsa, protect::suite_t::RSA_AES_128_GCM_SHA256, nullptr, nullptr, nullptr, nullptr);
+		});
+		// Выполняем замер возобновления билетом: ни сертификата, ни подписи, ни обмена
+		count("TLS 1.2 билет RFC 5077", 50, [&ecdsa, &vault, &ticket]() noexcept -> void {
+			// Проводим сокращённое рукопожатие
+			legacy(ecdsa, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, nullptr, &vault, &ticket, nullptr);
+		});
+	}
+	/**
+	 * Замеры связи поверх дейтаграмм: рукопожатия DTLS 1.3 и DTLS 1.2 с просьбой
+	 * подтвердить адрес и пропускная способность записей прикладных данных по одной
+	 * записи в дейтаграмме размером 1200 байтов
+	 */
+	{
+		// Выводим заголовок замеров дейтаграмм
+		cout << endl << "Связь поверх дейтаграмм" << endl << endl;
+		// Подлинность ECDSA
+		context::credential_t ecdsa;
+		// Если подлинность прочитать не удалось
+		if(!keyed("ec256.pem", "ec256.crt", ecdsa)){
+			// Выводим сообщение об отказе
+			cout << "Прочитать подлинность из набора ключей не удалось" << endl;
+			// Выходим из приложения с признаком отказа
+			return EXIT_FAILURE;
+		}
+		/**
+		 * Выполняем перебор изданий: DTLS 1.3, затем DTLS 1.2
+		 */
+		for(size_t edition = 0; edition < 2; edition++){
+			// Признак издания DTLS 1.2
+			const bool classic = (edition == 1);
+			// Связь стороны клиента
+			client::context_t client;
+			// Связь стороны сервера
+			server::context_t server;
+			// Если рукопожатие поверх дейтаграмм не удалось
+			if(!settle(client, server, ecdsa, classic)){
+				// Выводим сообщение об отказе
+				cout << "Провести рукопожатие поверх дейтаграмм не удалось" << endl;
+				// Выходим из приложения с признаком отказа
+				return EXIT_FAILURE;
+			}
+			// Выполняем замер рукопожатий поверх дейтаграмм
+			count((classic ? "DTLS 1.2 рукопожатие" : "DTLS 1.3 рукопожатие"), 50, [&ecdsa, classic]() noexcept -> void {
+				// Связь стороны клиента
+				client::context_t peer;
+				// Связь стороны сервера
+				server::context_t host;
+				// Проводим рукопожатие
+				settle(peer, host, ecdsa, classic);
+			});
+			// Запись прикладных данных, входящая в одну дейтаграмму с накладными байтами
+			const vector <uint8_t> payload(1100, 0x5A);
+			// Накопитель принятых данных
+			vector <uint8_t> received;
+			// Если передача по дейтаграммам не удалась
+			if(!transfer(client, server, view_t(payload.data(), payload.size()), 16, received)){
+				// Выводим сообщение об отказе
+				cout << "Передать записи по дейтаграммам не удалось" << endl;
+				// Выходим из приложения с признаком отказа
+				return EXIT_FAILURE;
+			}
+			// Выполняем замер пропускной способности записей по дейтаграммам
+			band((classic ? "DTLS 1.2 записи 1200 байт" : "DTLS 1.3 записи 1200 байт"), 4, payload.size() * 256, [&client, &server, &payload, &received]() noexcept -> void {
+				// Передаём двести пятьдесят шесть записей по одной в дейтаграмме
+				transfer(client, server, view_t(payload.data(), payload.size()), 256, received);
+			});
+		}
+	}
+	/**
+	 * Замеры защиты записей издания 1.2 на записях в 16 КиБ: наложение и снятие защиты
+	 * набором CBC в порядке RFC 7366, в порядке MAC-then-encrypt за постоянное время и
+	 * набором AES-GCM. Замер ведётся на самой защите записей, минуя связь: у пары наших
+	 * сторон порядок MAC-then-encrypt никогда не согласуется, и иначе его не смерить
+	 */
+	{
+		// Выводим заголовок замеров защиты записей
+		cout << endl << "Защита записей TLS 1.2, 16 КиБ" << endl << endl;
+		// Содержимое записи наибольшей длины
+		const vector <uint8_t> content(record::RECORD_PLAINTEXT, 0x5A);
+		// Просмотр содержимого записи
+		const view_t plain(content.data(), content.size());
+		// Накопители защищённой записи и снятого содержимого
+		vector <uint8_t> sealed, opened;
+		// Защита отправляющей и принимающей сторон набора CBC в порядке RFC 7366
+		protect::protection_t etmSealer, etmOpener;
+		// Защита сторон набора CBC в порядке MAC-then-encrypt
+		protect::protection_t mteSealer, mteOpener;
+		// Защита сторон набора AES-GCM
+		protect::protection_t gcmSealer, gcmOpener;
+		// Если защиту завести либо первую запись провести не удалось
+		if(!keying(protect::suite_t::ECDHE_ECDSA_AES_128_CBC_SHA256, etmSealer, etmOpener, true) || !roundtrip(etmSealer, etmOpener, 0, plain, sealed, opened) || (opened != content) || !keying(protect::suite_t::ECDHE_ECDSA_AES_128_CBC_SHA256, mteSealer, mteOpener, false) || !roundtrip(mteSealer, mteOpener, 0, plain, sealed, opened) || (opened != content) || !keying(protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, gcmSealer, gcmOpener, false) || !roundtrip(gcmSealer, gcmOpener, 0, plain, sealed, opened) || (opened != content)){
+			// Выводим сообщение об отказе
+			cout << "Завести защиту записей издания 1.2 не удалось" << endl;
+			// Выходим из приложения с признаком отказа
+			return EXIT_FAILURE;
+		}
+		// Порядковый номер записи
+		uint64_t sequence = 1;
+		// Выполняем замер защиты записей CBC в порядке RFC 7366
+		const double etm = band("AES-128-CBC-SHA256 ETM", 64, record::RECORD_PLAINTEXT, [&etmSealer, &etmOpener, &sequence, &plain, &sealed, &opened]() noexcept -> void {
+			// Накладываем и снимаем защиту записи
+			roundtrip(etmSealer, etmOpener, sequence++, plain, sealed, opened);
+		});
+		// Выполняем замер защиты записей CBC в порядке MAC-then-encrypt
+		const double mte = band("AES-128-CBC-SHA256 MtE", 64, record::RECORD_PLAINTEXT, [&mteSealer, &mteOpener, &sequence, &plain, &sealed, &opened]() noexcept -> void {
+			// Накладываем и снимаем защиту записи
+			roundtrip(mteSealer, mteOpener, sequence++, plain, sealed, opened);
+		});
+		// Выполняем замер защиты записей AES-GCM
+		const double gcm12 = band("AES-128-GCM", 64, record::RECORD_PLAINTEXT, [&gcmSealer, &gcmOpener, &sequence, &plain, &sealed, &opened]() noexcept -> void {
+			// Накладываем и снимаем защиту записи
+			roundtrip(gcmSealer, gcmOpener, sequence++, plain, sealed, opened);
+		});
+		// Выводим отношение защиты CBC к AES-GCM
+		relation("CBC ETM против AES-GCM", etm, gcm12);
+		// Выводим отношение защиты MAC-then-encrypt к AES-GCM
+		relation("CBC MtE против AES-GCM", mte, gcm12);
+	}
+	/**
+	 * Замер разбора и проверки ответа OCSP: запись ответа из набора, лист и его издатель;
+	 * сроки судятся заданным мигом, оттого набор не стареет
+	 */
+	{
+		// Выводим заголовок замера OCSP
+		cout << endl << "Состояние сертификата OCSP" << endl << endl;
+		// Ответ ответчика о листе цепочки
+		const vector <uint8_t> answer = corpus("ocsp/leaf-ec.good.der");
+		// Лист цепочки и его издатель в кодировке DER
+		const vector <uint8_t> leaf = certified("leaf-ec.crt"), issuer = certified("mid-ec.crt");
+		// Разобранный ответ
+		ocsp::response_t response;
+		// Состояние сертификата
+		ocsp::status_t status = ocsp::status_t::NONE;
+		// Если ответ не прочитан, не разобран либо не проверен
+		if(answer.empty() || leaf.empty() || issuer.empty() || (response.parse(view_t(answer.data(), answer.size())) != ocsp::error_t::NONE) || (ocsp::verify(response, view_t(leaf.data(), leaf.size()), view_t(issuer.data(), issuer.size()), 1790000000, 0, view_t(), status) != ocsp::error_t::NONE) || (status != ocsp::status_t::GOOD)){
+			// Выводим сообщение об отказе
+			cout << "Разобрать и проверить ответ OCSP из набора не удалось" << endl;
+			// Выходим из приложения с признаком отказа
+			return EXIT_FAILURE;
+		}
+		// Выполняем замер разбора ответа
+		count("OCSP разбор ответа", 500, [&answer]() noexcept -> void {
+			// Разбираемый ответ
+			ocsp::response_t parsed;
+			// Разбираем ответ
+			parsed.parse(view_t(answer.data(), answer.size()));
+		});
+		// Выполняем замер разбора и проверки ответа: подпись ECDSA ответчика и сроки
+		count("OCSP разбор и проверка", 200, [&answer, &leaf, &issuer]() noexcept -> void {
+			// Разбираемый ответ
+			ocsp::response_t parsed;
+			// Состояние сертификата
+			ocsp::status_t outcome = ocsp::status_t::NONE;
+			// Разбираем ответ
+			parsed.parse(view_t(answer.data(), answer.size()));
+			// Проверяем ответ против листа и издателя
+			ocsp::verify(parsed, view_t(leaf.data(), leaf.size()), view_t(issuer.data(), issuer.size()), 1790000000, 0, view_t(), outcome);
+		});
+	}
+	/**
+	 * Замеры сжатия цепочки сертификатов RFC 8879: частный кодек повторами на цепочке
+	 * из трёх сертификатов ECDSA сам по себе и рукопожатие TLS 1.3 с цепочкой без
+	 * сжатия и со сжатием
+	 */
+	{
+		// Выводим заголовок замеров сжатия
+		cout << endl << "Сжатие цепочки сертификатов" << endl << endl;
+		// Подлинность с цепочкой из трёх сертификатов
+		context::credential_t chained;
+		// Если подлинность прочитать не удалось
+		if(!keyed("leaf-ec.key", "chain-ec.pem", chained) || (chained.chain.size() != 3)){
+			// Выводим сообщение об отказе
+			cout << "Прочитать цепочку из набора ключей не удалось" << endl;
+			// Выходим из приложения с признаком отказа
+			return EXIT_FAILURE;
+		}
+		// Тело цепочки одним куском
+		vector <uint8_t> body;
+		/**
+		 * Выполняем сборку тела цепочки
+		 */
+		for(size_t i = 0; i < chained.chain.size(); i++)
+			// Дописываем очередной сертификат
+			body.insert(body.end(), chained.chain[i].begin(), chained.chain[i].end());
+		// Сжатый поток и распакованное тело
+		vector <uint8_t> packed, unpacked;
+		// Если кодек не сошёлся сам с собой
+		if(!lz77Compress(view_t(body.data(), body.size()), packed, nullptr) || !lz77Decompress(view_t(packed.data(), packed.size()), body.size(), unpacked, nullptr) || (unpacked != body)){
+			// Выводим сообщение об отказе
+			cout << "Кодек сжатия не сошёлся сам с собой" << endl;
+			// Выходим из приложения с признаком отказа
+			return EXIT_FAILURE;
+		}
+		// Выводим степень сжатия цепочки
+		cout << pad("LZ77 цепочка 3 сертификата", 28) << setw(12) << right << body.size() << " → " << packed.size() << " байт" << endl;
+		// Выполняем замер сжатия цепочки
+		count("LZ77 сжатие цепочки", 500, [&body, &packed]() noexcept -> void {
+			// Очищаем сжатый поток
+			packed.clear();
+			// Сжимаем цепочку
+			lz77Compress(view_t(body.data(), body.size()), packed, nullptr);
+		});
+		// Выполняем замер распаковки цепочки
+		count("LZ77 распаковка цепочки", 500, [&body, &packed, &unpacked]() noexcept -> void {
+			// Очищаем распакованное тело
+			unpacked.clear();
+			// Распаковываем цепочку
+			lz77Decompress(view_t(packed.data(), packed.size()), body.size(), unpacked, nullptr);
+		});
+		// Алгоритмы сжатия сторон
+		const vector <context::codec_t> codecs = {context::codec_t(LZ77_ALGORITHM, lz77Compress, lz77Decompress, nullptr)};
+		/**
+		 * Выполняем перебор: рукопожатие без сжатия и со сжатием
+		 */
+		for(size_t squeezed = 0; squeezed < 2; squeezed++){
+			// Связь стороны клиента
+			client::context_t client;
+			// Связь стороны сервера
+			server::context_t server;
+			// Подлинность сервера
+			server.credential(chained);
+			// Если сжатие включено
+			if(squeezed == 1){
+				// Алгоритмы клиента
+				client.codecs(codecs, 0);
+				// Алгоритмы сервера
+				server.codecs(codecs, 0);
+			}
+			// Если рукопожатие с цепочкой не удалось
+			if((server.start() != context::error_t::NONE) || (client.start() != context::error_t::NONE) || !converse(client, server) || (client.compression(context::direction_t::READ) != ((squeezed == 1) ? LZ77_ALGORITHM : 0))){
+				// Выводим сообщение об отказе
+				cout << "Провести рукопожатие с цепочкой не удалось" << endl;
+				// Выходим из приложения с признаком отказа
+				return EXIT_FAILURE;
+			}
+			// Выполняем замер рукопожатий TLS 1.3 с цепочкой из трёх сертификатов
+			count(((squeezed == 1) ? "TLS 1.3 цепочка сжатая" : "TLS 1.3 цепочка из 3"), 50, [&chained, &codecs, squeezed]() noexcept -> void {
+				// Связь стороны клиента
+				client::context_t peer;
+				// Связь стороны сервера
+				server::context_t host;
+				// Подлинность сервера
+				host.credential(chained);
+				// Если сжатие включено
+				if(squeezed == 1){
+					// Алгоритмы клиента
+					peer.codecs(codecs, 0);
+					// Алгоритмы сервера
+					host.codecs(codecs, 0);
+				}
+				// Заводим сервер
+				host.start();
+				// Заводим клиента
+				peer.start();
+				// Проводим рукопожатие
+				converse(peer, host);
+			});
+		}
+	}
 	/**
 	 * Если сличение с эталоном OpenSSL включено
 	 */

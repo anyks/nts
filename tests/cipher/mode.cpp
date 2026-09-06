@@ -1089,3 +1089,73 @@ TEST(ModeTest, Unready) {
 	ASSERT_TRUE(imitation.start(cipher::block_t(base)));
 	ASSERT_TRUE(imitation.ready());
 }
+/**
+ * @brief Проверка режима простой замены с зацеплением на шифре AES по векторам SP 800-38A
+ *
+ * @details Приложение F.2 NIST SP 800-38A: примеры F.2.1 (CBC-AES128), F.2.3 (CBC-AES192) и
+ *          F.2.5 (CBC-AES256) на четырёх блоках открытого текста с одной синхропосылкой;
+ *          расшифрование сверяется по примерам F.2.2, F.2.4 и F.2.6 теми же данными
+ *
+ */
+TEST(ModeTest, AesChaining) {
+	// Описание примера приложения F.2 SP 800-38A
+	static const struct Example {
+		// Ключ шифрования
+		const char * key;
+		// Ожидаемый шифртекст
+		const char * cipher;
+	} examples[] = {
+		{"2b7e151628aed2a6abf7158809cf4f3c", "7649abac8119b246cee98e9b12e9197d5086cb9b507219ee95db113a917678b273bed6b8e3c1743b7116e69e222295163ff1caa1681fac09120eca307586e1a7"},
+		{"8e73b0f7da0e6452c810f32b809079e562f8ead2522c6b7b", "4f021db243bc633d7178183a9fa071e8b4d9ada9ad7dedf4e5e738763f69145a571b242012fb7ae07fa9baac3df102e008b0e27988598881d920a9e64f5615cd"},
+		{"603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4", "f58c4c04d6e5f1ba779eabfb5f7bfbd69cfc4e967edb808d679f777bc6702c7d39f23369a9d9bacfa530e26304231461b2eb05e2c39be9fcda6c19078c6a9d1b"}
+	};
+	/**
+	 * Выполняем перебор примеров приложения F.2
+	 */
+	for(size_t i = 0; i < (sizeof(examples) / sizeof(examples[0])); i++){
+		// Ключ шифрования
+		uint8_t secret[32];
+		// Синхропосылка
+		uint8_t iv[16];
+		// Открытый текст и шифртекст
+		uint8_t plain[64], cipher[64];
+		// Выполняем разбор ключа шифрования
+		const size_t width = bytes(examples[i].key, secret);
+		// Выполняем разбор синхропосылки
+		bytes("000102030405060708090a0b0c0d0e0f", iv);
+		// Выполняем разбор открытого текста: четыре блока приложения F
+		const size_t size = bytes("6bc1bee22e409f96e93d7e117393172aae2d8a571e03ac9c9eb76fac45af8e5130c81c46a35ce411e5fbc1191a0a52eff69f2445df4f9b17ad2b417be66c3710", plain);
+		// Объект блочного шифра AES
+		cipher::aes_t base;
+		// Выполняем установку ключа шифрования
+		ASSERT_TRUE(base.key(view_t(secret, width)));
+		// Объект режима простой замены с зацеплением
+		cipher::chaining_t mode;
+		// Выполняем запуск режима работы
+		ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(iv, sizeof(iv))));
+		// Выполняем зашифрование открытого текста
+		ASSERT_TRUE(mode.encrypt(view_t(plain, size), cipher));
+		// Сличаем полученный шифртекст с контрольным примером
+		ASSERT_EQ(text(cipher, size), std::string(examples[i].cipher)) << "пример " << i;
+		// Место, в которое помещается расшифрованный текст
+		uint8_t back[64];
+		// Выполняем перезапуск режима работы
+		ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(iv, sizeof(iv))));
+		// Выполняем расшифрование шифртекста
+		ASSERT_TRUE(mode.decrypt(view_t(cipher, size), back));
+		// Сличаем расшифрованный текст с исходным
+		ASSERT_EQ(::memcmp(back, plain, size), 0) << "пример " << i;
+		// Порча одного байта шифртекста портит свой блок и один байт следующего, а не всё
+		cipher[0] ^= 0x01;
+		// Выполняем перезапуск режима работы
+		ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(iv, sizeof(iv))));
+		// Выполняем расшифрование порченого шифртекста
+		ASSERT_TRUE(mode.decrypt(view_t(cipher, size), back));
+		// Первый блок не сошёлся
+		ASSERT_NE(::memcmp(back, plain, 16), 0);
+		// Второй блок разошёлся ровно первым байтом
+		ASSERT_EQ(back[16], static_cast <uint8_t> (plain[16] ^ 0x01));
+		// Третий и четвёртый блоки целы
+		ASSERT_EQ(::memcmp(back + 32, plain + 32, 32), 0);
+	}
+}

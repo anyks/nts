@@ -50,6 +50,7 @@
  */
 #include <main.hpp>
 #include <starve.hpp>
+#include <openssl.hpp>
 #include <pem/pem.hpp>
 #include <hello/hello.hpp>
 #include <field/field.hpp>
@@ -100,155 +101,6 @@ namespace {
 	 * Заслон понижения издания протокола: раздел 4.1.3 RFC 8446, хвост случайного значения сервера
 	 */
 	static const uint8_t DOWNGRADE[8] = {0x44, 0x4F, 0x57, 0x4E, 0x47, 0x52, 0x44, 0x01};
-	/**
-	 * @brief Сторож фонового процесса openssl
-	 *
-	 * @details Номер процесса пишется оболочкой в файл при запуске; по выходу из проверки -
-	 *          и при отказе посреди неё - процесс снимается по номеру, а не по шаблону имени
-	 *
-	 */
-	typedef class Sentinel {
-		private:
-			// Путь к файлу с номером процесса
-			std::string _path;
-		public:
-			/**
-			 * @brief Метод снятия процесса по номеру из файла
-			 *
-			 */
-			void halt() noexcept {
-				// Если файл номера процесса не назначен
-				if(this->_path.empty())
-					// Выходим
-					return;
-				// Читаем файл номера процесса
-				std::ifstream file(this->_path);
-				// Номер процесса
-				long number = 0;
-				// Если номер прочитан и процесс жив
-				if((file >> number) && (number > 0) && (::kill(static_cast <pid_t> (number), 0) == 0))
-					// Снимаем процесс по номеру
-					(void) ::kill(static_cast <pid_t> (number), SIGTERM);
-				// Удаляем файл номера процесса
-				::remove(this->_path.c_str());
-				// Забываем путь
-				this->_path.clear();
-			}
-			/**
-			 * @brief Конструктор
-			 *
-			 * @param path путь к файлу с номером процесса
-			 *
-			 */
-			explicit Sentinel(const std::string & path) noexcept : _path(path) {}
-			/**
-			 * @brief Деструктор
-			 *
-			 */
-			~Sentinel() noexcept {
-				// Снимаем процесс, коли он ещё жив
-				this->halt();
-			}
-	} sentinel_t;
-	/**
-	 * @brief Метод запуска команды openssl фоном с записью номера процесса и отметкой завершения
-	 *
-	 * @param command запускаемая команда вместе с перенаправлениями входа и вывода
-	 * @param log     путь к журналу, в который по завершении дописывается отметка ANTS-DONE
-	 * @param path    путь к файлу, в который пишется номер процесса
-	 * @param holder  путь к именованному каналу входа команды, пустой без держателя
-	 *
-	 * @return        признак успешности запуска
-	 *
-	 */
-	bool launch(const std::string & command, const std::string & log, const std::string & path, const std::string & holder) noexcept {
-		/**
-		 * Держатель входа: подоболочка открывает именованный канал на запись и держит его до
-		 * конца команды - вход команды не кончается, пока она жива, и никаких пауз по времени
-		 */
-		const std::string opening = (holder.empty() ? std::string() : ("exec 3>" + holder + "; "));
-		/**
-		 * Команда уходит фоном: номер её процесса кладётся в файл, по завершении пишется
-		 * отметка; вести оболочки о судьбе фонового задания глушатся, чтобы не сорить в вывод.
-		 * Скобки разделены пробелом: сдвоенная «((» у ksh93 (/bin/sh Solaris) - арифметика,
-		 * и оболочка валила запуск синтаксической ошибкой
-		 */
-		return (::system(("( (" + command + " & echo $! >" + path + "; " + opening + "wait) 2>/dev/null; echo ANTS-DONE >>" + log + ") &").c_str()) == 0);
-	}
-	/**
-	 * @brief Метод запуска команды оболочки без консоли на входе
-	 *
-	 * @param command запускаемая команда
-	 *
-	 * @return        код возврата команды
-	 *
-	 */
-	int shell(const std::string & command) noexcept {
-		// Запускаем команду с пустым входом
-		return ::system((command + " </dev/null").c_str());
-	}
-	/**
-	 * @brief Метод ожидания отметки завершения в журнале openssl
-	 *
-	 * @param log  путь к журналу
-	 * @param text место, в которое помещается текст журнала
-	 *
-	 * @return     признак того, что отметка дождалась
-	 *
-	 */
-	bool settle(const std::string & log, std::string & text) noexcept {
-		// Признак того, что отметка найдена
-		bool finished = false;
-		/**
-		 * Ожидание идёт по состоянию: до отметки завершения в журнале; срок в шестьдесят
-		 * секунд лишь защита от зависания, под нагрузкой он не наступает
-		 */
-		for(size_t i = 0; !finished && (i < 600); i++){
-			// Читаем журнал
-			std::ifstream file(log);
-			// Переносим текст журнала
-			text.assign((std::istreambuf_iterator <char> (file)), std::istreambuf_iterator <char> ());
-			// Проверяем отметку завершения
-			finished = (text.find("ANTS-DONE") != std::string::npos);
-			// Если отметки ещё нет, ждём
-			if(!finished)
-				// Выдерживаем паузу
-				::usleep(100000);
-		}
-		// Выводим признак того, что отметка дождалась
-		return finished;
-	}
-	/**
-	 * @brief Метод ожидания строки в журнале openssl
-	 *
-	 * @param log  путь к журналу
-	 * @param mark искомая строка
-	 * @param text место, в которое помещается текст журнала
-	 *
-	 * @return     признак того, что строка дождалась
-	 *
-	 */
-	bool awaited(const std::string & log, const std::string & mark, std::string & text) noexcept {
-		// Признак того, что строка найдена
-		bool found = false;
-		/**
-		 * Выполняем ожидание строки до срока в тридцать секунд
-		 */
-		for(size_t i = 0; !found && (i < 300); i++){
-			// Читаем журнал
-			std::ifstream file(log);
-			// Переносим текст журнала
-			text.assign((std::istreambuf_iterator <char> (file)), std::istreambuf_iterator <char> ());
-			// Проверяем строку
-			found = (text.find(mark) != std::string::npos);
-			// Если строки ещё нет, ждём
-			if(!found)
-				// Выдерживаем паузу
-				::usleep(100000);
-		}
-		// Выводим признак того, что строка дождалась
-		return found;
-	}
 	/**
 	 * @brief Метод чтения файла набора целиком
 	 *
@@ -529,7 +381,7 @@ namespace {
 	 * @return       признак того, что обе стороны прочли отправленное
 	 *
 	 */
-	bool exchange(client::context_t & client, server::context_t & server, bond_t & bond) noexcept {
+	bool barter(client::context_t & client, server::context_t & server, bond_t & bond) noexcept {
 		// Данные, отправляемые клиентом
 		const string request = "ping from the client over DTLS 1.2";
 		// Данные, отправляемые сервером
@@ -705,226 +557,6 @@ namespace {
 	 * Группы обмена издания 1.2
 	 */
 	static const extension::group_t GROUPS[] = {extension::group_t::X25519, extension::group_t::SECP256R1, extension::group_t::SECP384R1};
-	/**
-	 * @brief Метод получения имени группы у openssl
-	 *
-	 * @param group группа обмена
-	 *
-	 * @return      имя группы у openssl
-	 *
-	 */
-	const char * naming(const extension::group_t group) noexcept {
-		// Выводим имя группы у openssl
-		return ((group == extension::group_t::X25519) ? "X25519" : ((group == extension::group_t::SECP256R1) ? "P-256" : "P-384"));
-	}
-	/**
-	 * @brief Метод составления перечня групп без повторов
-	 *
-	 * @param group предпочитаемая группа, идущая первой
-	 *
-	 * @return      перечень групп через двоеточие
-	 *
-	 */
-	std::string roster(const extension::group_t group) noexcept {
-		// Перечень групп: предпочитаемая первой, кривые сертификатов следом без повторов
-		std::string result = naming(group);
-		// Если предпочитаемая группа не P-256
-		if(group != extension::group_t::SECP256R1)
-			// Дописываем запасную группу P-256
-			result += ":P-256";
-		// Если предпочитаемая группа не P-384
-		if(group != extension::group_t::SECP384R1)
-			// Дописываем запасную группу P-384
-			result += ":P-384";
-		// Выводим перечень групп
-		return result;
-	}
-	/**
-	 * @brief Метод получения свободного порта UDP на петлевом устройстве
-	 *
-	 * @return свободный порт либо ноль
-	 *
-	 */
-	uint16_t vacant() noexcept {
-		// Заводим сокет для розыска свободного порта
-		const int fd = ::socket(AF_INET, SOCK_DGRAM, 0);
-		// Если сокет завести не удалось
-		if(fd < 0)
-			// Выводим отсутствие порта
-			return 0;
-		// Адрес привязки на петлевом устройстве
-		struct sockaddr_in address;
-		// Обнуляем адрес привязки
-		::memset(&address, 0, sizeof(address));
-		// Устанавливаем семейство адреса
-		address.sin_family = AF_INET;
-		// Устанавливаем петлевое устройство
-		address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-		// Порт назначается системой
-		address.sin_port = 0;
-		// Найденный свободный порт
-		uint16_t result = 0;
-		// Длина адреса привязки
-		socklen_t length = sizeof(address);
-		// Если привязка и чтение адреса удались
-		if((::bind(fd, reinterpret_cast <struct sockaddr *> (&address), sizeof(address)) == 0) && (::getsockname(fd, reinterpret_cast <struct sockaddr *> (&address), &length) == 0))
-			// Запоминаем назначенный системой порт
-			result = ntohs(address.sin_port);
-		// Закрываем сокет розыска порта
-		::close(fd);
-		// Выводим найденный свободный порт
-		return result;
-	}
-	/**
-	 * @brief Метод заведения сокета UDP на петлевом устройстве
-	 *
-	 * @param number порт привязки, ноль назначается системой
-	 * @param bound  место, в которое помещается назначенный порт
-	 *
-	 * @return       описатель сокета либо отрицательное число
-	 *
-	 */
-	int socketing(const uint16_t number, uint16_t & bound) noexcept {
-		// Заводим сокет
-		const int fd = ::socket(AF_INET, SOCK_DGRAM, 0);
-		// Если сокет завести не удалось
-		if(fd < 0)
-			// Выводим отказ
-			return -1;
-		// Адрес привязки
-		struct sockaddr_in address;
-		// Обнуляем адрес
-		::memset(&address, 0, sizeof(address));
-		// Семейство адреса
-		address.sin_family = AF_INET;
-		// Петлевое устройство
-		address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-		// Порт привязки
-		address.sin_port = htons(number);
-		// Длина адреса
-		socklen_t length = sizeof(address);
-		// Если привязка либо чтение адреса не удались
-		if((::bind(fd, reinterpret_cast <struct sockaddr *> (&address), sizeof(address)) != 0) || (::getsockname(fd, reinterpret_cast <struct sockaddr *> (&address), &length) != 0)){
-			// Закрываем сокет
-			::close(fd);
-			// Выводим отказ
-			return -1;
-		}
-		// Запоминаем назначенный порт
-		bound = ntohs(address.sin_port);
-		// Предел ожидания приёма: доля секунды, ибо часы связи ведёт проверка
-		struct timeval limit = {0, 200000};
-		// Устанавливаем предел ожидания приёма
-		(void) ::setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &limit, sizeof(limit));
-		// Выводим сокет
-		return fd;
-	}
-	/**
-	 * @brief Метод ведения связи клиента с сокетом UDP до конца рукопожатия либо приёма данных
-	 *
-	 * @param client связь стороны клиента
-	 * @param fd     описатель сокета, подключённого к серверу
-	 * @param peer   адрес сервера
-	 * @param rounds предел кругов переноса
-	 *
-	 * @return       признак того, что связь установлена
-	 *
-	 */
-	bool relay(client::context_t & client, const int fd, const struct sockaddr_in & peer, const size_t rounds) noexcept {
-		/**
-		 * Выполняем перенос дейтаграмм до установления, обрыва либо исчерпания кругов
-		 */
-		for(size_t i = 0; (i < rounds) && (client.state() != context::state_t::FAILED); i++){
-			/**
-			 * Выполняем отправку готовых дейтаграмм по одной
-			 */
-			while(client.output().size > 0){
-				// Очередная дейтаграмма
-				const view_t data = client.output();
-				// Отправляем дейтаграмму серверу
-				(void) ::sendto(fd, data.data, data.size, 0, reinterpret_cast <const struct sockaddr *> (&peer), sizeof(peer));
-				// Снимаем дейтаграмму
-				client.consume(data.size);
-			}
-			// Если связь установлена и ждать нечего
-			if(client.established() && (client.timeout() == 0))
-				// Выводим успешность
-				return true;
-			// Место принятой дейтаграммы
-			uint8_t buffer[65536];
-			// Принимаем дейтаграмму с ожиданием
-			const ssize_t received = ::recv(fd, buffer, sizeof(buffer), 0);
-			// Если дейтаграмма принята
-			if(received > 0)
-				// Подаём дейтаграмму связи
-				client.push(view_t(buffer, static_cast <size_t> (received)));
-			// Если ожидание истекло, а часы идут
-			else if(client.timeout() > 0)
-				// Извещаем связь об истечении срока
-				client.elapsed();
-		}
-		// Выводим итог
-		return (client.established() && (client.timeout() == 0));
-	}
-	/**
-	 * @brief Способности системного openssl, снятые щупами
-	 *
-	 */
-	typedef struct Toolkit {
-		// Признак наличия openssl
-		bool present;
-		// Признак поддержки DTLS 1.2 у s_server и s_client
-		bool dtls12;
-		// Признак ключа -listen у s_server: приём приветствия с меткой
-		bool listen;
-		// Признак ключа -groups
-		bool groups;
-		// Признак поддержки кривой X25519
-		bool x25519;
-		/**
-		 * Конструктор
-		 */
-		Toolkit() noexcept : present(false), dtls12(false), listen(false), groups(false), x25519(false) {}
-	} toolkit_t;
-	/**
-	 * @brief Метод щупа ключа справки openssl
-	 *
-	 * @param program подкоманда openssl: s_server либо s_client
-	 * @param key     имя ключа без ведущей чёрточки
-	 *
-	 * @return        признак наличия ключа в справке
-	 *
-	 */
-	bool listed(const char * program, const char * key) noexcept {
-		// Чёрточка ключа спрятана в скобки, чтобы grep не принял её за свой ключ; конвейер в скобках ради перенаправления входа
-		return (shell(std::string("(openssl ") + program + " -help 2>&1 | grep -q '[-]" + key + "') >/dev/null 2>&1") == 0);
-	}
-	/**
-	 * @brief Метод снятия способностей системного openssl
-	 *
-	 * @return способности системного openssl
-	 *
-	 */
-	toolkit_t inspect() noexcept {
-		// Способности системного openssl
-		toolkit_t result;
-		// Если openssl недоступен
-		if(shell("openssl version >/dev/null 2>&1") != 0)
-			// Выводим пустые способности
-			return result;
-		// Запоминаем наличие openssl
-		result.present = true;
-		// Снимаем поддержку DTLS 1.2 у обеих подкоманд
-		result.dtls12 = (listed("s_server", "dtls1_2") && listed("s_client", "dtls1_2"));
-		// Снимаем ключ приёма приветствия с меткой
-		result.listen = listed("s_server", "listen");
-		// Снимаем ключ групп
-		result.groups = (listed("s_server", "groups") && listed("s_client", "groups"));
-		// Кривая X25519: щупом служит порождение ключа
-		result.x25519 = (shell("openssl genpkey -algorithm X25519 -out /dev/null >/dev/null 2>&1") == 0);
-		// Выводим способности
-		return result;
-	}
 	/**
 	 * @brief Метод проведения сторон до повторного приветствия клиента с меткой
 	 *
@@ -2030,12 +1662,14 @@ TEST(Dtls12Test, Contract){
 		ASSERT_EQ(client.version(), TLS12);
 		// Издание 1.2 у сервера
 		ASSERT_EQ(server.version(), TLS12);
-		// Билетов у издания 1.2 нет
+		// Билет за рукопожатием изданию 1.2 не выдаётся: билет RFC 5077 идёт внутри рукопожатия
 		ASSERT_EQ(server.issue(), context::error_t::STATE);
-		// Билет не принят
-		ASSERT_TRUE(client.tickets().empty());
+		// Билет сеанса RFC 5077 принят клиентом внутри рукопожатия
+		ASSERT_EQ(client.tickets().size(), static_cast <size_t> (1));
+		// Билет выдан сервером тем же набором
+		ASSERT_EQ(client.tickets()[0].suite, server.suite());
 		// Обмениваемся данными
-		ASSERT_TRUE(exchange(client, server, bond));
+		ASSERT_TRUE(barter(client, server, bond));
 	}
 	// Клиент «только 1.2» против сервера «только 1.3»: связь не складывается
 	{
@@ -2171,7 +1805,7 @@ TEST(Dtls12Test, Contract){
 		// Связь установлена у обеих сторон
 		ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 		// Обмениваемся данными
-		ASSERT_TRUE(exchange(client, server, bond));
+		ASSERT_TRUE(barter(client, server, bond));
 	}
 }
 
@@ -3062,7 +2696,7 @@ TEST(Dtls12Test, Loopback){
 			// Подлинность сервера у клиента
 			ASSERT_EQ(client.peer().size(), credential.chain.size());
 			// Обмениваемся данными
-			ASSERT_TRUE(exchange(client, server, bond)) << SUITES[s].title << " " << naming(GROUPS[g]);
+			ASSERT_TRUE(barter(client, server, bond)) << SUITES[s].title << " " << naming(GROUPS[g]);
 			// Отправляем байт
 			ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> ("x"), 1)), context::error_t::NONE);
 			// Дейтаграмма с прикладными данными
@@ -3233,7 +2867,7 @@ TEST(Dtls12Test, Stateless){
 	// Связь установлена
 	ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 	// Обмениваемся данными
-	ASSERT_TRUE(exchange(client, server, bond));
+	ASSERT_TRUE(barter(client, server, bond));
 	// Второй клиент со своим сервером: общий секрет метки признаёт метку другого сервера лишь при том же приветствии и адресе
 	client::context_t another;
 	// Второй сервер
@@ -3650,7 +3284,7 @@ TEST(Dtls12Test, Loss){
 		// Обмен данными без потерь
 		bond_t clean;
 		// Обмениваемся данными
-		ASSERT_TRUE(exchange(client, server, clean)) << i;
+		ASSERT_TRUE(barter(client, server, clean)) << i;
 	}
 	// Потеря последнего залпа сервера
 	{
@@ -3705,7 +3339,7 @@ TEST(Dtls12Test, Loss){
 		// Часы клиента остановлены
 		ASSERT_EQ(client.timeout(), static_cast <uint32_t> (0));
 		// Обмениваемся данными
-		ASSERT_TRUE(exchange(client, server, bond));
+		ASSERT_TRUE(barter(client, server, bond));
 		// Повтор залпа клиента нарезан новыми номерами записей: окном не отброшен ничего
 		ASSERT_EQ(server.discarded(datagram::reason_t::REPLAY), static_cast <uint64_t> (0));
 		// Открытый обмен ключами в повторе за ключами чтения отброшен PLAIN: залп повторён по защищённому завершению
@@ -3758,7 +3392,7 @@ TEST(Dtls12Test, Reorder){
 		// Дейтаграммы не длиннее 300
 		ASSERT_LE(bond.largest, static_cast <size_t> (300));
 		// Обмениваемся данными
-		ASSERT_TRUE(exchange(client, server, bond));
+		ASSERT_TRUE(barter(client, server, bond));
 		// Если дейтаграммы повторялись
 		if(item == 1){
 			// Повторы отброшены окном
@@ -3819,7 +3453,7 @@ TEST(Dtls12Test, Mtu){
 	// Ничего не отброшено клиентом
 	ASSERT_EQ(client.discarded(), static_cast <uint64_t> (0));
 	// Обмениваемся данными
-	ASSERT_TRUE(exchange(client, server, bond));
+	ASSERT_TRUE(barter(client, server, bond));
 	// Длинные данные дробятся на записи по дейтаграммам
 	const vector <uint8_t> bulk(5000, 0xAB);
 	// Отправляем данные
@@ -4041,7 +3675,7 @@ TEST(Dtls12Test, Change){
 		// Связь установлена
 		ASSERT_TRUE(client.established());
 		// Обмениваемся данными
-		ASSERT_TRUE(exchange(client, server, bond));
+		ASSERT_TRUE(barter(client, server, bond));
 	}
 }
 
@@ -4167,7 +3801,7 @@ TEST(Dtls12Test, Versions){
 		// Набор издания 1.3
 		ASSERT_EQ(client.suite(), protect::suite_t::AES_128_GCM_SHA256);
 		// Обмениваемся данными
-		ASSERT_TRUE(exchange(client, server, bond));
+		ASSERT_TRUE(barter(client, server, bond));
 	}
 	// Клиент «только 1.2» против сервера 1.2…1.3 сходится на DTLS 1.2 без обрыва по заслону понижения
 	{
@@ -4318,7 +3952,7 @@ TEST(Dtls12Test, Openssl){
 		GTEST_SKIP() << "openssl недоступен";
 	}
 	// Если openssl без DTLS 1.2
-	if(!toolkit.dtls12 || !toolkit.listen){
+	if(!toolkit.dtls12 || !toolkit.listening){
 		// Пропускаем проверку вслух
 		GTEST_SKIP() << "openssl без DTLS 1.2 либо без -listen";
 	}
@@ -4351,13 +3985,13 @@ TEST(Dtls12Test, Openssl){
 				continue;
 			}
 			// Свободный порт UDP
-			const uint16_t number = vacant();
+			const uint16_t number = vacant(true);
 			// Проверяем порт
 			ASSERT_NE(number, 0);
 			// Журнал сервера openssl
 			const std::string log = "/tmp/ants-dtls12-server-" + std::to_string(number) + ".log";
 			// Ключ групп
-			const std::string grouping = (toolkit.groups ? (" -groups " + roster(GROUPS[g])) : "");
+			const std::string grouping = ((toolkit.serverGroups && toolkit.clientGroups) ? (" -groups " + roster(GROUPS[g])) : "");
 			// Именованный канал входа сервера openssl: по концу входа сервер уходит, и вход держится каналом, а не паузой
 			const std::string holder = "/tmp/ants-dtls12-server-" + std::to_string(number) + ".fifo";
 			// Убираем канал, оставшийся от прежнего прогона
@@ -4370,7 +4004,7 @@ TEST(Dtls12Test, Openssl){
 			 * именованным каналом до снятия сервера сторожем, а -www с DTLS ему не дозволен;
 			 * итог судится по состоянию: подъём по «ACCEPT» в журнале, принятые данные по журналу
 			 */
-			ASSERT_TRUE(launch("openssl s_server -accept 127.0.0.1:" + std::to_string(number) + " -dtls1_2 -listen -no_ticket -cert " + crt + " -key " + key + " -Verify 1 -CAfile " + crt + " -cipher " + SUITES[s].title + grouping + " -mtu 300 -naccept 1 <" + holder + " >" + log + " 2>&1", log, log + ".pid", holder));
+			ASSERT_TRUE(launch("openssl s_server" + accepting(toolkit, number) + " -dtls1_2 -listen -no_ticket -cert " + crt + " -key " + key + " -Verify 1 -CAfile " + crt + " -cipher " + SUITES[s].title + grouping + " -mtu 300" + once(toolkit) + " <" + holder + " >" + log + " 2>&1", log, log + ".pid", holder));
 			// Сторож сервера openssl
 			sentinel_t sentinel(log + ".pid");
 			// Журнал
@@ -4478,7 +4112,7 @@ TEST(Dtls12Test, Openssl){
 			// Журнал клиента openssl
 			const std::string log = "/tmp/ants-dtls12-client-" + std::to_string(number) + ".log";
 			// Ключ групп
-			const std::string grouping = (toolkit.groups ? (" -groups " + roster(GROUPS[g])) : "");
+			const std::string grouping = ((toolkit.serverGroups && toolkit.clientGroups) ? (" -groups " + roster(GROUPS[g])) : "");
 			// Данные клиента openssl
 			const string request = "hello from openssl " + std::to_string(s) + " " + std::to_string(g) + "\n";
 			/**
@@ -4792,7 +4426,7 @@ TEST(Dtls12Test, Unverified){
 		// Связь установлена
 		ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 		// Обмениваемся данными
-		ASSERT_TRUE(exchange(client, server, bond));
+		ASSERT_TRUE(barter(client, server, bond));
 	}
 	// Издание заголовка приветствия
 	{
@@ -5249,3 +4883,656 @@ TEST(Dtls12Test, Starved){
 }
 
 
+
+/**
+ * @brief Внутренние служебные объекты второго круга поверх дейтаграмм
+ *
+ */
+namespace {
+	/**
+	 * @brief Связка заранее разделённого ключа для проверок
+	 *
+	 */
+	typedef struct Keyring {
+		// Опознаватель и ключ
+		vector <uint8_t> identity, key;
+		// Опознаватель, увиденный сервером, и подсказка, увиденная клиентом
+		vector <uint8_t> seen, hint;
+	} keyring_t;
+	/**
+	 * @brief Вызов сервера: ключ по опознавателю
+	 *
+	 * @param identity опознаватель
+	 * @param key      накопитель ключа
+	 * @param context  связка
+	 *
+	 * @return         признак известности
+	 *
+	 */
+	bool responding(const view_t & identity, vector <uint8_t> & key, void * context) {
+		// Связка
+		keyring_t * ring = reinterpret_cast <keyring_t *> (context);
+		// Запоминаем
+		ring->seen.assign(identity.data, identity.data + identity.size);
+		// Если опознаватель известен
+		if(ring->seen == ring->identity){
+			// Ключ
+			key = ring->key;
+			// Известен
+			return true;
+		}
+		// Неизвестен
+		return false;
+	}
+	/**
+	 * @brief Вызов клиента: подсказка сервера
+	 *
+	 * @param hint     подсказка
+	 * @param identity накопитель опознавателя
+	 * @param key      накопитель ключа
+	 * @param context  связка
+	 *
+	 * @return         признак выбора заново: настроенные остаются
+	 *
+	 */
+	bool advising(const view_t & hint, vector <uint8_t> & identity, vector <uint8_t> & key, void * context) {
+		// Связка
+		keyring_t * ring = reinterpret_cast <keyring_t *> (context);
+		// Запоминаем подсказку
+		ring->hint.assign(hint.data, hint.data + hint.size);
+		// Накопители не трогаются
+		(void) identity;
+		// Ключ тоже
+		(void) key;
+		// Остаются настроенные
+		return false;
+	}
+	/**
+	 * Наборы второго круга поверх дейтаграмм: CBC, обмен RSA и PSK
+	 */
+	static const struct Second {
+		// Набор
+		protect::suite_t suite;
+		// Имя у openssl
+		const char * title;
+		// Ключ сервера, пусто у PSK
+		const char * key;
+	} SECOND[] = {
+		{protect::suite_t::ECDHE_ECDSA_AES_128_CBC_SHA256, "ECDHE-ECDSA-AES128-SHA256", "ec256"},
+		{protect::suite_t::ECDHE_RSA_AES_256_CBC_SHA,      "ECDHE-RSA-AES256-SHA",      "rsa2048"},
+		{protect::suite_t::RSA_AES_128_GCM_SHA256,         "AES128-GCM-SHA256",         "rsa2048"},
+		{protect::suite_t::RSA_AES_256_CBC_SHA,            "AES256-SHA",                "rsa2048"},
+		{protect::suite_t::PSK_AES_128_CBC_SHA,            "PSK-AES128-CBC-SHA",        ""},
+		{protect::suite_t::ECDHE_PSK_CHACHA20_POLY1305_SHA256, "ECDHE-PSK-CHACHA20-POLY1305", ""}
+	};
+	/**
+	 * @brief Метод настройки сторон под набор второго круга поверх дейтаграмм
+	 *
+	 * @param client связь клиента
+	 * @param server связь сервера
+	 * @param item   описание набора
+	 * @param theirs связка сервера
+	 * @param ours   связка клиента
+	 *
+	 * @return       признак успешности
+	 *
+	 */
+	bool arranging(client::context_t & client, server::context_t & server, const Second & item, keyring_t & theirs, keyring_t & ours) noexcept {
+		// Перенос дейтаграммами
+		client.transport(context::transport_t::DATAGRAMS);
+		// Сервер
+		server.transport(context::transport_t::DATAGRAMS);
+		// Наборы
+		client.suites(vector <protect::suite_t> {item.suite});
+		// Сервер
+		server.suites(vector <protect::suite_t> {item.suite});
+		// Группы
+		client.groups(vector <extension::group_t> {extension::group_t::X25519});
+		// Сервер
+		server.groups(vector <extension::group_t> {extension::group_t::X25519});
+		// Адрес
+		server.address(view_t(ADDRESS, sizeof(ADDRESS)));
+		// Издание 1.2
+		client.versions(0x0303, 0x0303);
+		// Если набор PSK
+		if(::strlen(item.key) == 0){
+			// Опознаватель
+			theirs.identity = decode("616e796b73");
+			// Ключ
+			theirs.key = decode("0123456789abcdef");
+			// Клиент
+			ours.identity = theirs.identity;
+			// Ключ
+			ours.key = theirs.key;
+			// Настройки сервера
+			context::psk_t mine;
+			// Вызов
+			mine.respond = responding;
+			// Связка
+			mine.context = &theirs;
+			// Подсказка
+			mine.identity = decode("616e796b732d68696e74");
+			// Устанавливаем
+			server.psk(mine);
+			// Настройки клиента
+			context::psk_t yours;
+			// Опознаватель
+			yours.identity = ours.identity;
+			// Ключ
+			yours.key = ours.key;
+			// Вызов
+			yours.advise = advising;
+			// Связка
+			yours.context = &ours;
+			// Устанавливаем
+			client.psk(yours);
+			// Готово
+			return true;
+		}
+		// Подлинность
+		context::credential_t credential;
+		// Если не составилась
+		if(!identity(item.key, credential))
+			// Отказ
+			return false;
+		// Устанавливаем
+		server.credential(credential);
+		// Готово
+		return true;
+	}
+};
+
+/**
+ * Проверка второго круга поверх дейтаграмм (RFC 6347 с RFC 5246 §6.2.3.2, RFC 4279, RFC 5489,
+ * RFC 5077): наборы CBC с encrypt_then_mac (номер в имитовставке - пора и порядковый номер),
+ * голый RSA, PSK без сертификатов - петля без потерь и с потерей всякой третьей дейтаграммы,
+ * порча защищённой записи CBC отбрасывается молча; билет сеанса выдаётся полным рукопожатием
+ * и возобновляет связь сокращённым в дейтаграммах с завершением сервера первым
+ */
+TEST(Dtls12Test, Second){
+	/**
+	 * Выполняем перебор наборов
+	 */
+	for(size_t s = 0; s < (sizeof(SECOND) / sizeof(SECOND[0])); s++){
+		/**
+		 * Выполняем перебор путей: без потерь и с потерей всякой третьей
+		 */
+		for(size_t lossy = 0; lossy < 2; lossy++){
+			// Связь клиента
+			client::context_t client;
+			// Связь сервера
+			server::context_t server;
+			// Связки
+			keyring_t theirs, ours;
+			// Настраиваем
+			ASSERT_TRUE(arranging(client, server, SECOND[s], theirs, ours)) << SECOND[s].title;
+			// Заводим
+			ASSERT_EQ(server.start(), context::error_t::NONE) << SECOND[s].title;
+			// Заводим клиента
+			ASSERT_EQ(client.start(), context::error_t::NONE);
+			// Путь
+			bond_t bond;
+			// Потери
+			bond.period = ((lossy == 1) ? 3 : 0);
+			// Рукопожатие
+			converse(client, server, bond, 400);
+			// Установлена
+			ASSERT_TRUE(client.established() && server.established()) << SECOND[s].title << " потери " << lossy << " " << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
+			// Издание
+			ASSERT_EQ(client.version(), TLS12);
+			// Набор
+			ASSERT_EQ(server.suite(), SECOND[s].suite);
+			// Порядок RFC 7366 у CBC
+			ASSERT_EQ(client.etm(), (protect::mac(SECOND[s].suite) != digest::hash_t::NONE)) << SECOND[s].title;
+			// У сервера тот же
+			ASSERT_EQ(server.etm(), client.etm());
+			// Если набор PSK: сертификатов нет, опознаватель и подсказка дошли
+			if(::strlen(SECOND[s].key) == 0){
+				// Сертификатов нет
+				ASSERT_TRUE(client.peer().empty() && server.peer().empty());
+				// Опознаватель
+				ASSERT_EQ(theirs.seen, theirs.identity);
+				// Подсказка
+				ASSERT_EQ(string(ours.hint.begin(), ours.hint.end()), string("anyks-hint"));
+			}
+			// Билет принят
+			ASSERT_EQ(client.tickets().size(), static_cast <size_t> (1)) << SECOND[s].title;
+			// Путь без потерь
+			bond_t clean;
+			// Обмен данными
+			ASSERT_TRUE(barter(client, server, clean)) << SECOND[s].title;
+			// Если набор CBC и путь без потерь: порча записи отбрасывается молча
+			if((lossy == 0) && (protect::mac(SECOND[s].suite) != digest::hash_t::NONE)){
+				// Данные
+				const string request = "порча записи CBC";
+				// Отправляем
+				ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
+				// Дейтаграммы
+				vector <vector <uint8_t>> datagrams;
+				// Снимаем
+				ASSERT_TRUE(drain(client, datagrams));
+				// Одна
+				ASSERT_EQ(datagrams.size(), static_cast <size_t> (1));
+				// Портим последний байт: имитовставка
+				datagrams[0].back() ^= 0x01;
+				// Отброшенных до подачи
+				const uint64_t before = server.discarded(datagram::reason_t::DAMAGE);
+				// Подаём
+				ASSERT_EQ(server.push(view_t(datagrams[0].data(), datagrams[0].size())), context::error_t::NONE);
+				// Отброшена молча
+				ASSERT_EQ(server.discarded(datagram::reason_t::DAMAGE), before + 1);
+				// Связь жива
+				ASSERT_TRUE(server.established());
+				// Данных нет
+				vector <uint8_t> received;
+				// Читаем
+				ASSERT_EQ(server.read(received), context::error_t::NONE);
+				// Пусто
+				ASSERT_TRUE(received.empty());
+			}
+		}
+	}
+	{
+		// Подлинность
+		context::credential_t credential;
+		// Составляем
+		ASSERT_TRUE(identity("ec256", credential));
+		// Ключ билетов
+		const vector <uint8_t> vault = decode("00112233445566778899aabbccddeeff");
+		// Билет
+		context::ticket_t ticket;
+		{
+			// Связь клиента
+			client::context_t client;
+			// Связь сервера
+			server::context_t server;
+			// Настраиваем
+			arrange(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_CBC_SHA256, extension::group_t::X25519, credential, false);
+			// Ключ билетов
+			server.vault(vault);
+			// Заводим
+			ASSERT_EQ(server.start(), context::error_t::NONE);
+			// Заводим клиента
+			ASSERT_EQ(client.start(), context::error_t::NONE);
+			// Путь
+			bond_t bond;
+			// Рукопожатие
+			converse(client, server, bond, 400);
+			// Установлена
+			ASSERT_TRUE(client.established() && server.established());
+			// Полное
+			ASSERT_FALSE(client.shared());
+			// Билет
+			ASSERT_EQ(client.tickets().size(), static_cast <size_t> (1));
+			// Запоминаем
+			ticket = client.tickets()[0];
+		}
+		/**
+		 * Выполняем перебор путей возобновления: без потерь и с потерями
+		 */
+		for(size_t lossy = 0; lossy < 2; lossy++){
+			// Связь клиента
+			client::context_t client;
+			// Связь сервера
+			server::context_t server;
+			// Настраиваем
+			arrange(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_CBC_SHA256, extension::group_t::X25519, credential, false);
+			// Ключ билетов
+			server.vault(vault);
+			// Предъявляем
+			client.resume(ticket);
+			// Заводим
+			ASSERT_EQ(server.start(), context::error_t::NONE);
+			// Заводим клиента
+			ASSERT_EQ(client.start(), context::error_t::NONE);
+			// Путь
+			bond_t bond;
+			// Потери
+			bond.period = ((lossy == 1) ? 3 : 0);
+			// Если без потерь: приветствие, просьба, повторное приветствие и залп сервера по шагам
+			if(lossy == 0){
+				// Приветствия
+				ASSERT_TRUE(greet(client, server, bond));
+				// Дейтаграммы сервера
+				vector <vector <uint8_t>> datagrams;
+				// Снимаем
+				ASSERT_TRUE(drain(server, datagrams));
+				// Залп есть
+				ASSERT_FALSE(datagrams.empty());
+				// Признак смены набора в залпе сервера: завершение сервера первым
+				bool changed = false;
+				/**
+				 * Выполняем перебор дейтаграмм
+				 */
+				for(size_t i = 0; i < datagrams.size(); i++){
+					// Смещение
+					size_t offset = 0;
+					/**
+					 * Выполняем перебор записей
+					 */
+					while(offset < datagrams[i].size()){
+						// Заголовок
+						uint8_t type = 0;
+						// Издание
+						uint16_t version = 0, epoch = 0;
+						// Номер
+						uint64_t sequence = 0;
+						// Длина
+						size_t size = 0;
+						// Читаем
+						ASSERT_TRUE(heading(datagrams[i], offset, type, version, epoch, sequence, size));
+						// Смена набора
+						changed = (changed || (type == 0x14));
+						// Следующая
+						offset += (13 + size);
+					}
+					// Подаём клиенту
+					client.push(view_t(datagrams[i].data(), datagrams[i].size()));
+				}
+				// Смена набора в залпе сервера сразу за приветствием: сокращённое рукопожатие
+				ASSERT_TRUE(changed);
+			}
+			// Доводим
+			converse(client, server, bond, 400);
+			// Установлена
+			ASSERT_TRUE(client.established() && server.established()) << "потери " << lossy << " " << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
+			// Возобновлена
+			ASSERT_TRUE(client.shared() && server.shared()) << lossy;
+			// Сертификата нет
+			ASSERT_TRUE(client.peer().empty());
+			// Новый билет
+			ASSERT_EQ(client.tickets().size(), static_cast <size_t> (1));
+			// Путь без потерь
+			bond_t clean;
+			// Обмен
+			ASSERT_TRUE(barter(client, server, clean)) << lossy;
+		}
+	}
+}
+
+/**
+ * Проверка обмена второго круга с настоящим openssl поверх дейтаграмм: набор CBC с ETM и с
+ * -no_etm и набор PSK в обе стороны; полнота обмена судится по данным в журналах
+ */
+TEST(Dtls12Test, Interop){
+	// Способности
+	const toolkit_t toolkit = inspect();
+	// Если openssl недоступен либо без DTLS 1.2
+	if(!toolkit.present || !toolkit.dtls12 || !toolkit.listening){
+		// Пропускаем
+		GTEST_SKIP() << "openssl без DTLS 1.2";
+	}
+	/**
+	 * @brief Круг обмена
+	 */
+	struct Round {
+		// Набор
+		protect::suite_t suite;
+		// Набор openssl
+		const char * cipher;
+		// Ключ
+		const char * key;
+		// Без ETM
+		bool noetm;
+	} rounds[] = {
+		{protect::suite_t::ECDHE_ECDSA_AES_128_CBC_SHA256, "ECDHE-ECDSA-AES128-SHA256", "ec256", false},
+		{protect::suite_t::ECDHE_ECDSA_AES_128_CBC_SHA256, "ECDHE-ECDSA-AES128-SHA256", "ec256", true},
+		{protect::suite_t::PSK_AES_128_CBC_SHA, "PSK-AES128-CBC-SHA@SECLEVEL=0", "", false}
+	};
+	/**
+	 * Выполняем перебор кругов: наш клиент против s_server
+	 */
+	for(size_t r = 0; r < (sizeof(rounds) / sizeof(rounds[0])); r++){
+		// Порт
+		const uint16_t number = vacant(true);
+		// Порт есть
+		ASSERT_NE(number, 0);
+		// Журнал
+		const std::string log = "/tmp/ants-dtls12b-server-" + std::to_string(number) + ".log";
+		// Канал
+		const std::string holder = "/tmp/ants-dtls12b-server-" + std::to_string(number) + ".fifo";
+		// Убираем прежний
+		::remove(holder.c_str());
+		// Заводим
+		ASSERT_EQ(::mkfifo(holder.c_str(), 0600), 0);
+		// Доводы
+		const std::string arming = ((::strlen(rounds[r].key) == 0) ? std::string(" -nocert -psk_identity anyks -psk 0123456789ABCDEF -psk_hint anyks-hint") : (" -cert " + std::string(CORPUS) + "/" + rounds[r].key + ".crt -key " + std::string(CORPUS) + "/" + rounds[r].key + ".pem"));
+		// Запускаем сервер
+		ASSERT_TRUE(launch("openssl s_server" + accepting(toolkit, number) + " -dtls1_2 -listen" + arming + " -cipher " + rounds[r].cipher + (rounds[r].noetm ? " -no_etm" : "") + " -mtu 300" + once(toolkit) + " <" + holder + " >" + log + " 2>&1", log, log + ".pid", holder));
+		// Сторож
+		sentinel_t sentinel(log + ".pid");
+		// Журнал
+		std::string text;
+		// Подъём
+		ASSERT_TRUE(awaited(log, "ACCEPT", text)) << text;
+		// Порт своего сокета
+		uint16_t bound = 0;
+		// Сокет
+		const int fd = socketing(0, bound);
+		// Сокет есть
+		ASSERT_GE(fd, 0);
+		// Адрес сервера
+		struct sockaddr_in peer;
+		// Обнуляем
+		::memset(&peer, 0, sizeof(peer));
+		// Семейство
+		peer.sin_family = AF_INET;
+		// Петля
+		peer.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+		// Порт
+		peer.sin_port = htons(number);
+		// Связь клиента
+		client::context_t client;
+		// Перенос
+		client.transport(context::transport_t::DATAGRAMS);
+		// Набор
+		client.suites(vector <protect::suite_t> {rounds[r].suite});
+		// Группы
+		client.groups(vector <extension::group_t> {extension::group_t::X25519, extension::group_t::SECP256R1, extension::group_t::SECP384R1});
+		// Связка
+		keyring_t ours;
+		// Если PSK
+		if(::strlen(rounds[r].key) == 0){
+			// Настройки
+			context::psk_t yours;
+			// Опознаватель
+			yours.identity = decode("616e796b73");
+			// Ключ
+			yours.key = decode("0123456789abcdef");
+			// Вызов
+			yours.advise = advising;
+			// Связка
+			yours.context = &ours;
+			// Устанавливаем
+			client.psk(yours);
+		}
+		// Размер
+		client.mtu(300);
+		// Имя
+		client.name("localhost");
+		// Заводим
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		// Ведём
+		const bool complete = relay(client, fd, peer, 400);
+		// Установлена
+		ASSERT_TRUE(complete) << rounds[r].cipher << " отказ " << static_cast <int> (client.error()) << " извещение " << static_cast <int> (client.alert().description);
+		// Набор
+		ASSERT_EQ(client.suite(), rounds[r].suite);
+		// Порядок RFC 7366
+		ASSERT_EQ(client.etm(), ((protect::mac(rounds[r].suite) != digest::hash_t::NONE) && !rounds[r].noetm)) << rounds[r].cipher;
+		// Если PSK: подсказка
+		if(::strlen(rounds[r].key) == 0){
+			// Подсказка дошла
+			ASSERT_EQ(string(ours.hint.begin(), ours.hint.end()), string("anyks-hint"));
+		}
+		// Данные
+		const string request = "ants second round over dtls " + std::to_string(r) + "\n";
+		// Отправляем
+		ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
+		// Дейтаграммы
+		relay(client, fd, peer, 1);
+		// Сервер напечатал
+		ASSERT_TRUE(awaited(log, request, text)) << text;
+		// Закрываем
+		ASSERT_EQ(client.close(), context::error_t::NONE);
+		// Извещение
+		relay(client, fd, peer, 1);
+		// Закрываем сокет
+		::close(fd);
+		// Снимаем
+		sentinel.halt();
+		// Дожидаемся
+		(void) settle(log, text);
+		// Удаляем
+		::remove(log.c_str());
+		// Удаляем канал
+		::remove(holder.c_str());
+	}
+	/**
+	 * Выполняем перебор кругов: s_client против нашего сервера
+	 */
+	for(size_t r = 0; r < (sizeof(rounds) / sizeof(rounds[0])); r++){
+		// Порт
+		uint16_t number = 0;
+		// Сокет
+		const int fd = socketing(0, number);
+		// Сокет есть
+		ASSERT_GE(fd, 0);
+		// Журнал
+		const std::string log = "/tmp/ants-dtls12b-client-" + std::to_string(number) + ".log";
+		// Данные
+		const string request = "hello second round " + std::to_string(r) + "\n";
+		// Доводы
+		const std::string arming = ((::strlen(rounds[r].key) == 0) ? std::string(" -psk_identity anyks -psk 0123456789ABCDEF") : (" -CAfile " + std::string(CORPUS) + "/" + rounds[r].key + ".crt -servername localhost -verify_return_error"));
+		// Запускаем клиента
+		ASSERT_TRUE(launch("printf '" + request + "' | openssl s_client -connect 127.0.0.1:" + std::to_string(number) + " -dtls1_2" + arming + " -cipher " + rounds[r].cipher + (rounds[r].noetm ? " -no_etm" : "") + " -mtu 300 -ign_eof >" + log + " 2>&1", log, log + ".pid", std::string()));
+		// Сторож
+		sentinel_t sentinel(log + ".pid");
+		// Адрес клиента
+		struct sockaddr_in peer;
+		// Длина
+		socklen_t length = sizeof(peer);
+		// Место
+		uint8_t buffer[65536];
+		// Принятое
+		ssize_t received = -1;
+		/**
+		 * Выполняем ожидание приветствия
+		 */
+		for(size_t i = 0; (i < 150) && (received <= 0); i++)
+			// Принимаем
+			received = ::recvfrom(fd, buffer, sizeof(buffer), 0, reinterpret_cast <struct sockaddr *> (&peer), &length);
+		// Принято
+		ASSERT_GT(received, 0) << rounds[r].cipher;
+		// Связь сервера
+		server::context_t server;
+		// Перенос
+		server.transport(context::transport_t::DATAGRAMS);
+		// Набор
+		server.suites(vector <protect::suite_t> {rounds[r].suite});
+		// Группы
+		server.groups(vector <extension::group_t> {extension::group_t::X25519});
+		// Связка
+		keyring_t theirs;
+		// Если PSK
+		if(::strlen(rounds[r].key) == 0){
+			// Опознаватель
+			theirs.identity = decode("616e796b73");
+			// Ключ
+			theirs.key = decode("0123456789abcdef");
+			// Настройки
+			context::psk_t mine;
+			// Вызов
+			mine.respond = responding;
+			// Связка
+			mine.context = &theirs;
+			// Устанавливаем
+			server.psk(mine);
+		// Иначе подлинность
+		} else {
+			// Подлинность
+			context::credential_t credential;
+			// Составляем
+			ASSERT_TRUE(identity(rounds[r].key, credential));
+			// Устанавливаем
+			server.credential(credential);
+		}
+		// Размер
+		server.mtu(300);
+		// Адрес
+		ASSERT_TRUE(server.address(view_t(reinterpret_cast <const uint8_t *> (&peer), sizeof(peer))));
+		// Заводим
+		ASSERT_EQ(server.start(), context::error_t::NONE);
+		// Подаём
+		server.push(view_t(buffer, static_cast <size_t> (received)));
+		// Данные
+		vector <uint8_t> plaintext;
+		/**
+		 * Выполняем перенос до данных
+		 */
+		for(size_t i = 0; (i < 400) && (server.state() != context::state_t::FAILED) && (server.state() != context::state_t::CLOSED) && plaintext.empty(); i++){
+			/**
+			 * Выполняем отправку
+			 */
+			while(server.output().size > 0){
+				// Дейтаграмма
+				const view_t data = server.output();
+				// Отправляем
+				(void) ::sendto(fd, data.data, data.size, 0, reinterpret_cast <const struct sockaddr *> (&peer), length);
+				// Снимаем
+				server.consume(data.size);
+			}
+			// Принимаем
+			received = ::recv(fd, buffer, sizeof(buffer), 0);
+			// Если принято
+			if(received > 0)
+				// Подаём
+				server.push(view_t(buffer, static_cast <size_t> (received)));
+			// Если часы
+			else if(server.timeout() > 0)
+				// Истекли
+				server.elapsed();
+			// Если установлена
+			if(server.established())
+				// Читаем
+				(void) server.read(plaintext);
+		}
+		// Установлена
+		ASSERT_TRUE(server.established()) << rounds[r].cipher << " отказ " << static_cast <int> (server.error()) << " извещение " << static_cast <int> (server.alert().description);
+		// Данные дошли
+		ASSERT_EQ(string(plaintext.begin(), plaintext.end()), request);
+		// Набор
+		ASSERT_EQ(server.suite(), rounds[r].suite);
+		// Порядок RFC 7366
+		ASSERT_EQ(server.etm(), ((protect::mac(rounds[r].suite) != digest::hash_t::NONE) && !rounds[r].noetm)) << rounds[r].cipher;
+		// Ответ
+		const string answer = "ants server second round\n";
+		// Отправляем
+		ASSERT_EQ(server.write(view_t(reinterpret_cast <const uint8_t *> (answer.data()), answer.size())), context::error_t::NONE);
+		// Закрываем
+		ASSERT_EQ(server.close(), context::error_t::NONE);
+		/**
+		 * Выполняем отправку
+		 */
+		while(server.output().size > 0){
+			// Дейтаграмма
+			const view_t data = server.output();
+			// Отправляем
+			(void) ::sendto(fd, data.data, data.size, 0, reinterpret_cast <const struct sockaddr *> (&peer), length);
+			// Снимаем
+			server.consume(data.size);
+		}
+		// Закрываем
+		::close(fd);
+		// Текст
+		std::string text;
+		// Завершился
+		ASSERT_TRUE(settle(log, text)) << text;
+		// Издание
+		ASSERT_NE(text.find("Protocol  : DTLSv1.2"), std::string::npos) << text;
+		// Ответ дошёл
+		ASSERT_NE(text.find(answer), std::string::npos) << text;
+		// Удаляем
+		::remove(log.c_str());
+	}
+}

@@ -257,13 +257,13 @@ namespace {
 	/**
 	 * @brief Метод выработки случайной области байтов
 	 *
-	 * @param random источник случайных значений
+	 * @param roller источник случайных значений
 	 * @param size   размер вырабатываемой области байтов
 	 *
 	 * @return       выработанная область байтов
 	 *
 	 */
-	vector <uint8_t> blob(random_t & random, const size_t size) noexcept {
+	vector <uint8_t> blob(random_t & roller, const size_t size) noexcept {
 		// Заводим вырабатываемую область байтов
 		vector <uint8_t> result(size, 0);
 		/**
@@ -271,7 +271,7 @@ namespace {
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Записываем очередной случайный байт области
-			result[i] = static_cast <uint8_t> (random.next() & 0xFF);
+			result[i] = static_cast <uint8_t> (roller.next() & 0xFF);
 		// Выводим выработанную область байтов
 		return result;
 	}
@@ -438,7 +438,7 @@ TEST(FuzzerTest, Corruption){
 	// Запоминаем чистые потоки байтов направлений передачи
 	const vector <uint8_t> clean[2] = {streams[0], streams[1]};
 	// Заводим источник повторимых случайных значений
-	random_t random(0x414E594B53544C53);
+	random_t roller(0x414E594B53544C53);
 	/**
 	 * Выполняем перебор ворошений потока рукопожатия
 	 */
@@ -448,9 +448,9 @@ TEST(FuzzerTest, Corruption){
 		// Получаем место ворошимого потока среди направлений
 		const size_t side = ((course == course_t::CLIENT) ? 0 : 1);
 		// Получаем место ворошимого байта в потоке направления
-		const size_t target = random.below(clean[side].size());
+		const size_t target = roller.below(clean[side].size());
 		// Получаем разряд, которым ворошится байт потока
-		const uint8_t mask = static_cast <uint8_t> (1 << random.below(8));
+		const uint8_t mask = static_cast <uint8_t> (1 << roller.below(8));
 		// Если ворошение хода рукопожатия менять не должно
 		if(ignorable(clean[side], target))
 			// Переходим к следующему ворошению потока рукопожатия
@@ -475,7 +475,7 @@ TEST(FuzzerTest, Garbage){
 	// Выполняем выработку подлинности стороны сервера
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Заводим источник повторимых случайных значений
-	random_t random(0x5F4C4F42415245);
+	random_t roller(0x5F4C4F42415245);
 	/**
 	 * Выполняем перебор подач случайного потока байтов
 	 */
@@ -487,9 +487,9 @@ TEST(FuzzerTest, Garbage){
 		// Выполняем заведение связи стороны сервера
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Получаем размер вырабатываемого потока байтов
-		const size_t size = random.below(512);
+		const size_t size = roller.below(512);
 		// Вырабатываем случайный поток байтов
-		const vector <uint8_t> data = blob(random, size + 1);
+		const vector <uint8_t> data = blob(roller, size + 1);
 		// Выполняем подачу случайного потока байтов связи
 		server.push(view_t(data.data(), data.size()));
 		/**
@@ -510,15 +510,15 @@ TEST(FuzzerTest, Garbage){
  */
 TEST(FuzzerTest, Parsers){
 	// Заводим источник повторимых случайных значений
-	random_t random(0x504152534552);
+	random_t roller(0x504152534552);
 	/**
 	 * Выполняем перебор подач случайных областей байтов
 	 */
 	for(size_t i = 0; i < 2048; i++){
 		// Получаем размер вырабатываемой области байтов
-		const size_t size = random.below(256);
+		const size_t size = roller.below(256);
 		// Вырабатываем случайную область байтов
-		const vector <uint8_t> data = blob(random, size);
+		const vector <uint8_t> data = blob(roller, size);
 		// Выполняем подачу случайной области байтов всем разборщикам
 		feed(view_t(data.data(), data.size()));
 	}
@@ -534,7 +534,7 @@ TEST(FuzzerTest, Parsers){
  */
 TEST(FuzzerTest, Storage){
 	// Заводим источник повторимых случайных значений
-	random_t random(0x50454D5F464B);
+	random_t roller(0x50454D5F464B);
 	/**
 	 * Выполняем перебор подач случайного текста
 	 */
@@ -542,9 +542,9 @@ TEST(FuzzerTest, Storage){
 		// Заводим подаваемый разборщику текст
 		string text = "-----BEGIN ";
 		// Получаем размер вырабатываемой метки записи
-		const size_t title = random.below(16);
+		const size_t title = roller.below(16);
 		// Вырабатываем случайную область байтов метки записи
-		const vector <uint8_t> label = blob(random, title);
+		const vector <uint8_t> label = blob(roller, title);
 		/**
 		 * Выполняем перебор случайной области байтов метки записи
 		 */
@@ -554,9 +554,9 @@ TEST(FuzzerTest, Storage){
 		// Записываем ограду рамки начала записи
 		text.append("-----\n");
 		// Получаем размер вырабатываемого тела записи
-		const size_t length = random.below(128);
+		const size_t length = roller.below(128);
 		// Вырабатываем случайную область байтов тела записи
-		const vector <uint8_t> body = blob(random, length);
+		const vector <uint8_t> body = blob(roller, length);
 		/**
 		 * Выполняем перебор случайной области байтов тела записи
 		 */

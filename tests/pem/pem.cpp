@@ -147,7 +147,7 @@ namespace {
 	 * @return образцовое число секретного ключа порядком от старшего байта к младшему
 	 *
 	 */
-	vector <uint8_t> sample() noexcept {
+	vector <uint8_t> specimen() noexcept {
 		// Заводим образцовое число секретного ключа
 		vector <uint8_t> result(32, 0);
 		/**
@@ -391,7 +391,7 @@ TEST(PemTest, Broken){
  */
 TEST(PemTest, Secret){
 	// Получаем образцовое число секретного ключа
-	const vector <uint8_t> & key = sample();
+	const vector <uint8_t> & key = specimen();
 	/**
 	 * Выполняем перебор всех дозволенных видов записи ключа
 	 */
@@ -545,7 +545,7 @@ TEST(PemTest, Refusal){
  */
 TEST(PemTest, Unwrapped){
 	// Получаем образцовое число секретного ключа
-	const vector <uint8_t> & key = sample();
+	const vector <uint8_t> & key = specimen();
 	/**
 	 * @brief Метод подачи собранной обёртки извлечению секретного ключа
 	 *

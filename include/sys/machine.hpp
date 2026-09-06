@@ -68,7 +68,10 @@ namespace nts {
 	 *
 	 * @note Опознание: macOS - sysctlbyname по признакам hw.optional, Linux - getauxval,
 	 *       FreeBSD - elf_aux_info, Windows - IsProcessorFeaturePresent, x86-64 - cpuid.
-	 *       Там, где способа опознания нет, расширения считаются отсутствующими
+	 *       Там, где способа опознания нет, расширения считаются отсутствующими.
+	 *       Векторные команды основания набора (NEON у ARM64, SSE2 у x86-64) есть у
+	 *       всякой машины набора и объявляются признаком VECTOR, чтобы запрет allow(false)
+	 *       переводил и векторные ветви на переносимый путь ради сличения
 	 *
 	 * \~english
 	 * @brief Namespace of the machine detection
@@ -78,7 +81,10 @@ namespace nts {
 	 *          it is carried between the machines of one instruction set without a rebuild
 	 * @note Detection: macOS - sysctlbyname by the hw.optional flags, Linux - getauxval, FreeBSD -
 	 *       elf_aux_info, Windows - IsProcessorFeaturePresent, x86-64 - cpuid. Where there is no
-	 *       way of the detection, the extensions are considered absent
+	 *       way of the detection, the extensions are considered absent. The baseline vector
+	 *       instructions (NEON at ARM64, SSE2 at x86-64) exist at every machine of the set and are
+	 *       declared by the VECTOR flag so that the ban allow(false) puts the vector branches onto
+	 *       the portable path too for the sake of the comparison
 	 *
 	 * \~
 	 */
@@ -96,7 +102,10 @@ namespace nts {
 			AES       = 0x01, /*!< \~russian Команды AES: ARMv8 AESE/AESD либо AES-NI \~english AES instructions: ARMv8 AESE/AESD or AES-NI \~ */
 			CARRYLESS = 0x02, /*!< \~russian Умножение без переносов: PMULL либо PCLMULQDQ \~english Carry-less multiplication: PMULL or PCLMULQDQ \~ */
 			SHA256    = 0x04, /*!< \~russian Команды SHA-256: ARMv8 SHA256H либо SHA-NI \~english SHA-256 instructions: ARMv8 SHA256H or SHA-NI \~ */
-			SHA512    = 0x08  /*!< \~russian Команды SHA-512 расширения ARMv8.2 \~english SHA-512 instructions of the ARMv8.2 extension \~ */
+			SHA512    = 0x08, /*!< \~russian Команды SHA-512 расширения ARMv8.2 \~english SHA-512 instructions of the ARMv8.2 extension \~ */
+			VECTOR    = 0x10, /*!< \~russian Векторные команды основания набора: NEON у ARM64 либо SSE2 у x86-64 \~english Baseline vector instructions: NEON at ARM64 or SSE2 at x86-64 \~ */
+			SSSE3     = 0x20, /*!< \~russian Перестановка байтов PSHUFB расширения SSSE3 у x86-64 \~english PSHUFB byte shuffle of the SSSE3 extension at x86-64 \~ */
+			AVX2      = 0x40  /*!< \~russian Векторы в 256 разрядов расширения AVX2 у x86-64, разрешённые системой \~english 256-bit vectors of the AVX2 extension at x86-64, enabled by the system \~ */
 		};
 
 		/**
@@ -109,15 +118,19 @@ namespace nts {
 		 *
 		 * @note Первое обращение снимает признаки машины и читает переменную окружения
 		 *       ANTS_MACHINE: значение «0» запрещает все расширения на исполнении, без
-		 *       пересборки. Дальнейшие обращения отвечают по снятому
+		 *       пересборки; иное число - маска запрещённых разрядов feature_t (например
+		 *       «0x40» снимает AVX2, «0x60» - AVX2 и SSSE3, оставляя SSE2), чем проверки
+		 *       принуждают выбор пути помимо опроса машины. Дальнейшие обращения отвечают по снятому
 		 *
 		 * \~english
 		 * @brief Method of checking the presence of an extension at the machine
 		 * @param feature the extension being checked
 		 * @return        the flag of the extension being present and not forbidden
 		 * @note The first call takes the flags of the machine and reads the ANTS_MACHINE environment
-		 *       variable: the value «0» forbids all the extensions at the run time, without a rebuild.
-		 *       The further calls answer by what was taken
+		 *       variable: the value «0» forbids all the extensions at the run time, without a rebuild;
+		 *       another number is a mask of the forbidden bits of feature_t (e.g. «0x40» drops AVX2,
+		 *       «0x60» - AVX2 and SSSE3 leaving SSE2), by which the checks force the choice of a path
+		 *       besides the inquiry of the machine. The further calls answer by what was taken
 		 *
 		 * \~
 		 */

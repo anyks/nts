@@ -47,6 +47,7 @@
  */
 #include <field/field.hpp>
 #include <context/context.hpp>
+#include <sys/wipe.hpp>
 
 /**
  * Используем стандартное пространство имён
@@ -66,7 +67,7 @@ namespace {
 	/**
 	 * Издание записи билета возобновления связи
 	 */
-	static constexpr uint32_t EDITION = 0x01;
+	static constexpr uint32_t EDITION = 0x02;
 	/**
 	 * Предел длины ключа билета: ключ выводится хешем набора, а шире хеша он не бывает
 	 */
@@ -122,7 +123,15 @@ namespace {
  *
  */
 nts::context::Ticket::Ticket() noexcept :
-	suite(protect::suite_t::NONE), moment(0), lifetime(0), advance(0), age(0) {}
+	suite(protect::suite_t::NONE), moment(0), lifetime(0), advance(0), age(0), etm(false) {}
+/**
+ * @brief Деструктор настроек заранее разделённого ключа
+ *
+ */
+nts::context::Psk::~Psk() noexcept {
+	// Выполняем затирание ключа: в освобождённой памяти ему не место
+	sys::wipe(this->key);
+}
 /**
  * @brief Метод записи билета возобновления связи в октеты
  *
@@ -183,6 +192,12 @@ nts::context::error_t nts::context::encode(const ticket_t & ticket, vector <uint
 	// Отказ записи добавки к возрасту билета
 	failure = translate(builder.number(ticket.age, 4));
 	// Если добавку к возрасту билета записать не удалось
+	if(failure != error_t::NONE)
+		// Выводим отказ записи билета
+		return failure;
+	// Отказ записи признака порядка «шифрование, затем имитовставка»
+	failure = translate(builder.number((ticket.etm ? 1 : 0), 1));
+	// Если признак порядка записать не удалось
 	if(failure != error_t::NONE)
 		// Выводим отказ записи билета
 		return failure;
@@ -290,6 +305,14 @@ nts::context::error_t nts::context::decode(const view_t & data, ticket_t & resul
 	if(scanner.number(ticket.age, 4) != field::error_t::NONE)
 		// Выводим отказ чтения билета
 		return error_t::TICKET;
+	// Признак порядка «шифрование, затем имитовставка» в записи
+	uint32_t etm = 0;
+	// Если признак порядка прочитать не удалось либо он не ноль и не единица
+	if((scanner.number(etm, 1) != field::error_t::NONE) || (etm > 1))
+		// Выводим отказ чтения билета
+		return error_t::TICKET;
+	// Переносим признак порядка
+	ticket.etm = (etm == 1);
 	// Поля билета переменной длины
 	view_t protocol, identity, secret, parameters;
 	// Если прикладной протокол билета прочитать не удалось

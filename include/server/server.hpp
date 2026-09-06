@@ -209,6 +209,11 @@ namespace nts {
 				 * @note Доверие к издателю цепочки связь не проверяет: запас доверенных
 				 *       сертификатов принадлежит тому, кто связь ведёт, и решение это его
 				 *
+				 * @note У связи издания 1.2, возобновлённой билетом RFC 5077, цепочка состоит из
+				 *       одного сертификата клиента, унаследованного билетом от выдавшей связи с
+				 *       проверенной подлинностью; при запросе подлинности билет без неё
+				 *       возобновления не даёт, и подлинность запрашивается полным рукопожатием
+				 *
 				 * \~english
 				 * @brief Method of getting the chain of the certificates of the interlocutor
 				 * @return the chain of the certificates presented by the interlocutor
@@ -218,6 +223,10 @@ namespace nts {
 				 * @note The connection does not check the trust to the issuer of the chain: the store of the
 				 *       trusted certificates belongs to the one who leads the connection, and this decision
 				 *       is theirs
+				 * @note At a connection of the 1.2 edition resumed by a ticket of RFC 5077 the chain consists of
+				 *       the single certificate of the client inherited by the ticket from the issuing connection
+				 *       with the verified authenticity; at the request of the authenticity a ticket without it
+				 *       gives no resumption, and the authenticity is requested by a full handshake
 				 *
 				 * \~
 				 */
@@ -839,6 +848,106 @@ namespace nts {
 				 * \~
 				 */
 				void resume(const vector <context::ticket_t> & tickets) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод установки заранее разделённого ключа издания TLS 1.2
+				 *
+				 * @param psk настройки заранее разделённого ключа: вызов respond «дано identity - ключ либо отказ», необязательная подсказка identity и признак disclose
+				 *
+				 * @details RFC 4279 и RFC 5489: наборы PSK-AES128/256-CBC-SHA, ECDHE-PSK-AES128/256-CBC-SHA
+				 *          и ECDHE-PSK-CHACHA20-POLY1305 ведут рукопожатие без сертификатов; сервер признаёт их лишь при заданном вызове respond, сертификат при них не шлётся; неизвестный опознаватель отвечается извещением unknown_psk_identity (115) при disclose либо продолжается случайным ключом до decrypt_error (51) на завершении (раздел 2 RFC 4279)
+				 *
+				 * @note Раздел 5.3 RFC 4279: опознаватель не длиннее 128 байтов, ключ - не длиннее 64,
+				 *       иное заведение связи отвергает отказом SETTINGS; неверный ключ обрывает
+				 *       рукопожатие на завершении извещением decrypt_error (51)
+				 *
+				 * \~english
+				 * @brief Method of setting the pre-shared key of the TLS 1.2 edition
+				 * @param psk the settings of the pre-shared key: the respond call «given the identity - the key or a refusal», the optional hint identity and the disclose flag
+				 * @details RFC 4279 and RFC 5489: the PSK-AES128/256-CBC-SHA, ECDHE-PSK-AES128/256-CBC-SHA and
+				 *          ECDHE-PSK-CHACHA20-POLY1305 suites conduct the handshake without certificates; the server recognizes them only at a set respond call, the certificate is not sent with them; an unknown identity is answered by the unknown_psk_identity alert (115) at disclose or continued with a random key up to decrypt_error (51) at the completion (the section 2 of RFC 4279)
+				 * @note The section 5.3 of RFC 4279: the identity is not longer than 128 bytes, the key - not longer
+				 *       than 64, otherwise the establishment refuses by SETTINGS; a wrong key tears the handshake at
+				 *       the completion by the decrypt_error alert (51)
+				 *
+				 * \~
+				 */
+				void psk(const context::psk_t & psk) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод установки требования порядка «шифрование, затем имитовставка» RFC 7366
+				 *
+				 * @param required обязателен ли порядок encrypt_then_mac при наборе CBC
+				 *
+				 * @details Раздел 3 RFC 7366: порядок предлагается клиентом и подтверждается сервером
+				 *          всегда, когда в деле набор CBC, - без него запись идёт в порядке
+				 *          MAC-then-encrypt раздела 6.2.3.2 RFC 5246 (защита от Lucky13 постоянным
+				 *          временем разбора). Требование обрывает рукопожатие извещением
+				 *          handshake_failure и отказом ETM, если собеседник выбрал набор CBC, а
+				 *          порядка не поддержал; наборов AEAD требование не касается
+				 *
+				 * \~english
+				 * @brief Method of setting the requirement of the «encrypt, then MAC» order of RFC 7366
+				 * @param required whether the encrypt_then_mac order is mandatory at a CBC suite
+				 * @details The section 3 of RFC 7366: the order is offered by the client and confirmed by the server
+				 *          whenever a CBC suite is in play - without it a record goes in the MAC-then-encrypt order
+				 *          of the section 6.2.3.2 of RFC 5246 (the protection against Lucky13 by a constant-time
+				 *          parsing). The requirement tears the handshake by the handshake_failure alert and the ETM
+				 *          failure when the interlocutor chose a CBC suite but did not support the order; the AEAD
+				 *          suites are not concerned by the requirement
+				 *
+				 * \~
+				 */
+				void etm(const bool required) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод проверки согласованного порядка «шифрование, затем имитовставка»
+				 *
+				 * @return признак того, что записи CBC идут в порядке encrypt_then_mac RFC 7366
+				 *
+				 * @note У наборов AEAD и до согласования набора признак ложен: потребитель судит по
+				 *       нему, идёт ли связь набором CBC в порядке MAC-then-encrypt
+				 *
+				 * \~english
+				 * @brief Method of checking the negotiated «encrypt, then MAC» order
+				 * @return the flag of the CBC records going in the encrypt_then_mac order of RFC 7366
+				 * @note At the AEAD suites and before the negotiation of the suite the flag is false: the consumer
+				 *       judges by it whether the connection goes by a CBC suite in the MAC-then-encrypt order
+				 *
+				 * \~
+				 */
+				bool etm() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод установки ключа билетов сеансов издания TLS 1.2
+				 *
+				 * @param secret секрет любой длины, из которого выводятся имя ключа, ключ шифрования и ключ имитовставки
+				 *
+				 * @details Раздел 4 RFC 5077: билет сеанса - имя ключа, вектор замены, состояние под
+				 *          AES-128-CBC и имитовставка HMAC-SHA256; сервер кэша сеансов не ведёт, всё
+				 *          состояние лежит в билете. Всякий вызов открывает новое поколение ключа, а
+				 *          прежнее остаётся признаваемым - живы два, как у метки возврата состояния.
+				 *          Соседние узлы с тем же секретом признают билеты друг друга
+				 *
+				 * @note Не заданный ключ порождается энтропией при заведении связи: билеты тогда
+				 *       признаёт лишь та же связь. Выданные билеты отдаёт tickets() в единой с
+				 *       изданием 1.3 записи, а клиент предъявляет их через resume
+				 *
+				 * \~english
+				 * @brief Method of setting the key of the session tickets of the TLS 1.2 edition
+				 * @param secret a secret of any length the name of the key, the encryption key and the key of the authentication code are derived from
+				 * @details The section 4 of RFC 5077: a session ticket is the name of the key, an initialization vector,
+				 *          the state under AES-128-CBC and an HMAC-SHA256; the server keeps no session cache, all the
+				 *          state lies in the ticket. Every call opens a new generation of the key, and the previous
+				 *          one remains recognized - two are alive, as at the label of the return of the state.
+				 *          Neighbouring nodes with the same secret recognize the tickets of each other
+				 * @note A key not set is generated from the entropy at the establishment of the connection: the tickets
+				 *       are then recognized by the same connection alone. The issued tickets are given by tickets() in
+				 *       the record common with the 1.3 edition, and the client presents them through resume
+				 *
+				 * \~
+				 */
+				void vault(const vector <uint8_t> & secret) noexcept;
 				/**
 				 * \~russian
 				 * @brief Метод установки приёма упреждающих данных клиента

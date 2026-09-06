@@ -121,7 +121,7 @@ namespace {
 	 *               разбор ключа обязан отвергнуть лист до всякой сверки подписи
 	 *
 	 */
-	bool identity(const string & name, context::credential_t & result, const bool alien = false) noexcept {
+	bool identity(const string & name, context::credential_t & result, const bool alien) noexcept {
 		// Эллиптическая кривая ключа стороны связи
 		curve::curve_t curve;
 		// Если кривую ключа стороны связи завести не удалось
@@ -343,6 +343,19 @@ namespace {
 		result.chain.push_back(vector <uint8_t> (data.data, data.data + data.size));
 		// Выводим успешность выработки подлинности стороны связи
 		return true;
+	}
+	/**
+	 * @brief Метод выработки подлинности стороны связи своим алгоритмом ГОСТ
+	 *
+	 * @param name   общее имя стороны выработанного сертификата
+	 * @param result подлинность, в которую помещается итог выработки
+	 *
+	 * @return       признак успешности выработки подлинности стороны
+	 *
+	 */
+	bool identity(const string & name, context::credential_t & result) noexcept {
+		// Вырабатываем подлинность своим алгоритмом
+		return identity(name, result, false);
 	}
 };
 

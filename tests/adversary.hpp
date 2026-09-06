@@ -209,7 +209,7 @@ namespace {
 	 * @return         признак успешности составления защищённой записи
 	 *
 	 */
-	bool hollow(const protect::suite_t suite, const view_t & key, const view_t & vector, const uint64_t sequence, const record::type_t inner, std::vector <uint8_t> & result, const size_t filler = 0) noexcept {
+	bool hollow(const protect::suite_t suite, const view_t & key, const view_t & vector, const uint64_t sequence, const record::type_t inner, std::vector <uint8_t> & result, const size_t filler) noexcept {
 		// Получаем длину блока базового шифра набора
 		const size_t size = protect::block(suite);
 		// Если набор шифрования неизвестен
@@ -328,7 +328,7 @@ namespace {
 	 * @return           признак успешности выработки подписи владения ключом
 	 *
 	 */
-	bool possession(const context::credential_t & credential, const session::transcript_t & transcript, const bool server, vector <uint8_t> & result, const char * override = nullptr) noexcept {
+	bool possession(const context::credential_t & credential, const session::transcript_t & transcript, const bool server, vector <uint8_t> & result, const char * override) noexcept {
 		// Объект разбора сертификата враждебного сервера
 		x509::certificate_t leaf;
 		// Если сертификат враждебного сервера разобрать не удалось
@@ -442,7 +442,7 @@ namespace {
 	 *       о заслоне снимается с самого клиента
 	 *
 	 */
-	bool adversary(client::context_t & client, const distortion_t distortion, const context::credential_t * credential = nullptr) noexcept {
+	bool adversary(client::context_t & client, const distortion_t distortion, const context::credential_t * credential) noexcept {
 		// Получаем байты, отправляемые клиентом серверу
 		const view_t sending = client.output();
 		// Если клиент серверу ничего не отправил
@@ -1426,7 +1426,7 @@ namespace {
 				 * содержимым: своя защита записей такую составить не даёт, оттого
 				 * враждебный сервер складывает её сам
 				 */
-				if(!hollow(suite, view_t(material, sizeof(material)), view_t(element, protect::block(suite)), outgoing.sequence(), record::type_t::HANDSHAKE, answered))
+				if(!hollow(suite, view_t(material, sizeof(material)), view_t(element, protect::block(suite)), outgoing.sequence(), record::type_t::HANDSHAKE, answered, 0))
 					// Выводим отказ ответа враждебного сервера
 					return false;
 			}
@@ -1780,7 +1780,7 @@ namespace {
 	 *       суждение о заслоне снимается с самого сервера
 	 *
 	 */
-	bool intruder(server::context_t & server, const distortion_t distortion, const context::credential_t * credential = nullptr) noexcept {
+	bool intruder(server::context_t & server, const distortion_t distortion, const context::credential_t * credential) noexcept {
 		/**
 		 * Кривая обмена ключами враждебного клиента: искажениями BARE и STRANGER
 		 * берётся кривая, в перечень сервера по умолчанию не входящая, - без этого
@@ -2254,7 +2254,7 @@ namespace {
 			// Накопитель, в который складывается тело подписи владения ключом
 			vector <uint8_t> witnessed;
 			// Если подпись владения ключом враждебного клиента выработать не удалось
-			if(!possession(* credential, transcript, false, witnessed))
+			if(!possession(* credential, transcript, false, witnessed, nullptr))
 				// Выводим отказ рукопожатия враждебного клиента
 				return false;
 			// Если подпись владения ключом враждебного клиента отправить не удалось
@@ -2310,6 +2310,32 @@ namespace {
 		server.push(view_t(answered.data(), answered.size()));
 		// Выводим успешность рукопожатия враждебного клиента
 		return true;
+	}
+	/**
+	 * @brief Метод ответа враждебного сервера без подлинности
+	 *
+	 * @param client     связь стороны клиента, приветствие которой разбирается
+	 * @param distortion вид искажения
+	 *
+	 * @return           признак успешности ответа враждебного сервера
+	 *
+	 */
+	bool adversary(client::context_t & client, const distortion_t distortion) noexcept {
+		// Отвечаем без подлинности
+		return adversary(client, distortion, nullptr);
+	}
+	/**
+	 * @brief Метод приветствия враждебного клиента без подлинности
+	 *
+	 * @param server     связь стороны сервера, ответ которой разбирается
+	 * @param distortion вид искажения
+	 *
+	 * @return           признак успешности приветствия враждебного клиента
+	 *
+	 */
+	bool intruder(server::context_t & server, const distortion_t distortion) noexcept {
+		// Приветствуем без подлинности
+		return intruder(server, distortion, nullptr);
 	}
 };
 

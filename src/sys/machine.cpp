@@ -119,10 +119,16 @@ namespace {
 		uint8_t result = 0;
 		// Переменная окружения запрета расширений
 		const char * variable = ::getenv("ANTS_MACHINE");
-		// Если расширения запрещены окружением
+		// Если расширения запрещены окружением целиком
 		if((variable != nullptr) && (::strcmp(variable, "0") == 0))
 			// Выводим отсутствие расширений
 			return 0;
+		// Разряды расширений, запрещённых окружением поимённо
+		uint8_t denied = 0;
+		// Если окружение несёт число - это маска запрещённых разрядов (например 0x40 снимает AVX2)
+		if(variable != nullptr)
+			// Разбираем маску запрещённых расширений
+			denied = static_cast <uint8_t> (::strtoul(variable, nullptr, 0) & 0xFF);
 /**
  * Если сборка ведётся под ARM64 на macOS
  */
@@ -228,9 +234,40 @@ namespace {
 				// Записываем разряд расширения
 				result = static_cast <uint8_t> (result | static_cast <uint8_t> (feature_t::SHA256));
 		}
+		// Регистры повторного опроса первого листа
+		unsigned int eax1 = 0, ebx1 = 0, ecx1 = 0, edx1 = 0;
+		// Если первый лист опроса снят
+		if(::__get_cpuid(1, &eax1, &ebx1, &ecx1, &edx1)){
+			// Если перестановка байтов SSSE3 есть: разряд 9 ECX
+			if(ecx1 & (1U << 9))
+				// Записываем разряд расширения
+				result = static_cast <uint8_t> (result | static_cast <uint8_t> (feature_t::SSSE3));
+			// Признак того, что система сохраняет верхние половины векторов: OSXSAVE, разряд 27 ECX
+			const bool osxsave = ((ecx1 & (1U << 27)) != 0);
+			// Признак AVX: разряд 28 ECX
+			const bool avx = ((ecx1 & (1U << 28)) != 0);
+			// Если сохранение верхних половин и AVX объявлены, а седьмой лист несёт AVX2: разряд 5 EBX
+			if(osxsave && avx && (ebx & (1U << 5))){
+				// Младшая и старшая половины регистра XCR0
+				unsigned int low = 0, high = 0;
+				// Читаем регистр XCR0: разрешённые системой состояния регистров
+				__asm__ __volatile__("xgetbv" : "=a" (low), "=d" (high) : "c" (0));
+				// Если система сохраняет и XMM, и YMM: разряды 1 и 2
+				if((low & 0x6) == 0x6)
+					// Записываем разряд расширения
+					result = static_cast <uint8_t> (result | static_cast <uint8_t> (feature_t::AVX2));
+			}
+		}
 #endif
-		// Выводим снятые разряды расширений
-		return result;
+/**
+ * Если сборка ведётся под ARM64 либо x86-64
+ */
+#if defined(__aarch64__) || defined(__x86_64__)
+		// Векторные команды основания набора есть у всякой машины
+		result = static_cast <uint8_t> (result | static_cast <uint8_t> (feature_t::VECTOR));
+#endif
+		// Выводим снятые разряды расширений без запрещённых окружением
+		return static_cast <uint8_t> (result & static_cast <uint8_t> (~denied));
 	}
 
 	/**

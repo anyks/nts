@@ -17,6 +17,7 @@
  */
 #include <string>
 #include <vector>
+#include <random>
 #include <cstring>
 
 /**
@@ -275,4 +276,68 @@ TEST(Poly1305Test, Starved){
 	ASSERT_TRUE(poly.finish(expected));
 	// Проверяем схождение меток
 	ASSERT_EQ(::memcmp(tag, expected, sizeof(tag)), 0);
+}
+
+/**
+ * Проверка схождения сложения блоков парами со сложением поблочно: сообщение целиком
+ * идёт парами (h + m0) * r^2 + m1 * r, кусками по 16 байтов - только одиночными
+ * блоками, а по одному байту - через накопитель неполного блока; метки на длинах
+ * 0…1024 обязаны совпасть
+ */
+TEST(Poly1305Test, Pairs){
+	// Генератор ключей и сообщений с закреплённым зерном
+	std::mt19937 generator(20260906);
+	// Объект имитовставки
+	cipher::poly1305_t poly;
+	/**
+	 * Выполняем перебор длин
+	 */
+	for(size_t length = 0; length <= 1024; length++){
+		// Ключ и сообщение
+		std::vector <uint8_t> key(cipher::POLY1305_KEY), message(length);
+		/**
+		 * Выполняем заполнение ключа
+		 */
+		for(size_t i = 0; i < key.size(); i++)
+			// Записываем очередной байт
+			key[i] = static_cast <uint8_t> (generator());
+		/**
+		 * Выполняем заполнение сообщения
+		 */
+		for(size_t i = 0; i < message.size(); i++)
+			// Записываем очередной байт
+			message[i] = static_cast <uint8_t> (generator());
+		// Метки трёх нарезок
+		uint8_t whole[cipher::POLY1305_TAG], blocks[cipher::POLY1305_TAG], bytes[cipher::POLY1305_TAG];
+		// Проверяем запуск имитовставки
+		ASSERT_TRUE(poly.start(view_t(key.data(), key.size())));
+		// Проверяем подачу сообщения целиком: парами блоков
+		ASSERT_TRUE(poly.update(view_t(message.data(), message.size())));
+		// Проверяем снятие метки
+		ASSERT_TRUE(poly.finish(whole));
+		// Проверяем перезапуск имитовставки
+		ASSERT_TRUE(poly.start(view_t(key.data(), key.size())));
+		/**
+		 * Выполняем подачу сообщения по блокам: только одиночными
+		 */
+		for(size_t position = 0; position < length; position += cipher::POLY1305_TAG)
+			// Проверяем подачу очередного блока
+			ASSERT_TRUE(poly.update(view_t(message.data() + position, (((length - position) < cipher::POLY1305_TAG) ? (length - position) : cipher::POLY1305_TAG))));
+		// Проверяем снятие метки
+		ASSERT_TRUE(poly.finish(blocks));
+		// Проверяем перезапуск имитовставки
+		ASSERT_TRUE(poly.start(view_t(key.data(), key.size())));
+		/**
+		 * Выполняем подачу сообщения по одному байту: через накопитель
+		 */
+		for(size_t position = 0; position < length; position++)
+			// Проверяем подачу очередного байта
+			ASSERT_TRUE(poly.update(view_t(message.data() + position, 1)));
+		// Проверяем снятие метки
+		ASSERT_TRUE(poly.finish(bytes));
+		// Проверяем схождение метки парами с меткой поблочно
+		ASSERT_EQ(text(whole, sizeof(whole)), text(blocks, sizeof(blocks))) << "length " << length;
+		// Проверяем схождение метки парами с меткой побайтно
+		ASSERT_EQ(text(whole, sizeof(whole)), text(bytes, sizeof(bytes))) << "length " << length;
+	}
 }

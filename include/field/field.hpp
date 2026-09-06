@@ -283,12 +283,17 @@ namespace nts {
 		 *          проставляет длину на отложенное под неё место. Поля вкладываются друг в
 		 *          друга: открытых полей вправе быть сколько угодно.
 		 *
+		 * @note Накопитель считается хранилищем секретов: сброс и разрушение затирают его
+		 *       содержимое по длине записи, и потребителю затирать составленное самому не нужно
+		 *
 		 * \~english
 		 * @brief Composer of the fields of the protocol
 		 * @details The numbers and the byte areas are appended to the accumulator in a row, while the
 		 *          fields of a variable length are opened by a call of open and are closed by a call of
 		 *          close, which itself writes the length into the place reserved for it. The fields are
 		 *          nested into each other: there may be any number of the opened fields.
+		 * @note The accumulator is considered a storage of secrets: the reset and the destruction wipe its
+		 *       content by the length of the record, and the consumer does not need to wipe the composed one itself
 		 *
 		 * \~
 		 */
@@ -346,8 +351,17 @@ namespace nts {
 				 * \~russian
 				 * @brief Метод сброса накопителя составляемой записи
 				 *
+				 * @details Накопитель затирается прежде сброса: составитель складывает и
+				 *          секреты (общее значение обмена, состояние билета сеанса), и
+				 *          оставлять их в освобождённой памяти нельзя. Затирание идёт по
+				 *          длине записи изменчивым циклом sys::wipe; то же делает деструктор
+				 *
 				 * \~english
 				 * @brief Method of the reset of the accumulator of the record being composed
+				 * @details The accumulator is wiped before the reset: the composer holds secrets too (the
+				 *          shared value of the exchange, the state of a session ticket), and leaving them in
+				 *          the freed memory is not allowed. The wiping goes by the length of the record by the
+				 *          volatile loop sys::wipe; the destructor does the same
 				 *
 				 * \~
 				 */
@@ -437,9 +451,11 @@ namespace nts {
 				 * \~russian
 				 * @brief Деструктор
 				 *
+				 * @note Накопитель затирается по длине записи прежде освобождения
 				 *
 				 * \~english
 				 * @brief Destructor
+				 * @note The accumulator is wiped by the length of the record before the release
 				 *
 				 * \~
 				 */

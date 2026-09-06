@@ -50,6 +50,7 @@
  */
 #include <main.hpp>
 #include <starve.hpp>
+#include <openssl.hpp>
 #include <pem/pem.hpp>
 #include <field/field.hpp>
 #include <message/message.hpp>
@@ -86,18 +87,6 @@ namespace {
 	 * Опознаватель zlib по реестру RFC 8879
 	 */
 	static constexpr uint16_t ZLIB = static_cast <uint16_t> (extension::compression_t::ZLIB);
-	/**
-	 * @brief Метод запуска команды оболочки без консоли на входе
-	 *
-	 * @param command запускаемая команда
-	 *
-	 * @return        код возврата команды
-	 *
-	 */
-	int shell(const std::string & command) noexcept {
-		// Запускаем команду с пустым входом
-		return ::system((command + " </dev/null").c_str());
-	}
 	/**
 	 * @brief Метод чтения файла целиком
 	 *
@@ -909,7 +898,7 @@ namespace {
 	 * @return        описание частного кодека
 	 *
 	 */
-	context::codec_t custom(size_t * counter = nullptr) noexcept {
+	context::codec_t custom(size_t * counter) noexcept {
 		// Выводим описание частного кодека
 		return context::codec_t(PRIVATE, scramble, unscramble, counter);
 	}
@@ -989,7 +978,7 @@ namespace {
 	 * @return       признак того, что данные дошли в обе стороны без искажения
 	 *
 	 */
-	bool exchange(client::context_t & client, server::context_t & server) noexcept {
+	bool barter(client::context_t & client, server::context_t & server) noexcept {
 		// Прикладные данные, отправляемые клиентом
 		const string request = "Запрос по связи со сжатой цепочкой сертификатов";
 		// Если отправить прикладные данные клиентом не удалось
@@ -1033,7 +1022,7 @@ namespace {
 	 * @param levels     ведётся ли перенос по уровням QUIC
 	 *
 	 */
-	void arrange(client::context_t & client, server::context_t & server, const protect::suite_t suite, const extension::group_t group, const context::credential_t & credential, const bool mutual, const bool levels = false) noexcept {
+	void arrange(client::context_t & client, server::context_t & server, const protect::suite_t suite, const extension::group_t group, const context::credential_t & credential, const bool mutual, const bool levels) noexcept {
 		// Устанавливаем набор шифрования клиенту
 		client.suites(vector <protect::suite_t> {suite});
 		// Устанавливаем набор шифрования серверу
@@ -1218,129 +1207,6 @@ namespace {
 		}
 		// Выводим признак применённого искажения
 		return applied;
-	}
-	/**
-	 * @brief Метод получения свободного порта на петлевом устройстве
-	 *
-	 * @return свободный порт либо ноль
-	 *
-	 */
-	uint16_t port() noexcept {
-		// Заводим сокет для розыска свободного порта
-		const int fd = ::socket(AF_INET, SOCK_STREAM, 0);
-		// Если сокет завести не удалось
-		if(fd < 0)
-			// Выводим отсутствие порта
-			return 0;
-		// Адрес привязки на петлевом устройстве
-		struct sockaddr_in address;
-		// Обнуляем адрес привязки
-		::memset(&address, 0, sizeof(address));
-		// Устанавливаем семейство адреса
-		address.sin_family = AF_INET;
-		// Устанавливаем петлевое устройство
-		address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-		// Порт назначается системой
-		address.sin_port = 0;
-		// Найденный свободный порт
-		uint16_t result = 0;
-		// Длина адреса привязки
-		socklen_t length = sizeof(address);
-		// Если привязка и чтение адреса удались
-		if((::bind(fd, reinterpret_cast <struct sockaddr *> (&address), sizeof(address)) == 0) && (::getsockname(fd, reinterpret_cast <struct sockaddr *> (&address), &length) == 0))
-			// Запоминаем назначенный системой порт
-			result = ntohs(address.sin_port);
-		// Закрываем сокет розыска порта
-		::close(fd);
-		// Выводим найденный свободный порт
-		return result;
-	}
-	/**
-	 * @brief Метод подключения к порту петлевого устройства с ожиданием
-	 *
-	 * @param number порт подключения
-	 *
-	 * @return       описатель подключённого сокета либо отрицательное число
-	 *
-	 */
-	int connect(const uint16_t number) noexcept {
-		/**
-		 * Выполняем попытки подключения, пока сервер поднимается
-		 */
-		for(size_t attempt = 0; attempt < 100; attempt++){
-			// Заводим сокет подключения
-			const int fd = ::socket(AF_INET, SOCK_STREAM, 0);
-			// Если сокет завести не удалось
-			if(fd < 0)
-				// Выводим отказ подключения
-				return -1;
-			// Адрес подключения на петлевом устройстве
-			struct sockaddr_in address;
-			// Обнуляем адрес подключения
-			::memset(&address, 0, sizeof(address));
-			// Устанавливаем семейство адреса
-			address.sin_family = AF_INET;
-			// Устанавливаем петлевое устройство
-			address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-			// Устанавливаем порт подключения
-			address.sin_port = htons(number);
-			// Если подключение удалось
-			if(::connect(fd, reinterpret_cast <struct sockaddr *> (&address), sizeof(address)) == 0){
-				// Предел ожидания приёма: зависание собеседника не должно вешать проверку
-				struct timeval limit = {10, 0};
-				// Устанавливаем предел ожидания приёма
-				(void) ::setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &limit, sizeof(limit));
-				// Выводим описатель подключённого сокета
-				return fd;
-			}
-			// Закрываем сокет неудавшегося подключения
-			::close(fd);
-			// Ждём подъёма сервера
-			::usleep(100000);
-		}
-		// Выводим отказ подключения
-		return -1;
-	}
-	/**
-	 * @brief Метод передачи байтов между связью клиента и сокетом
-	 *
-	 * @param client связь стороны клиента
-	 * @param fd     описатель сокета
-	 *
-	 * @return       признак того, что байты передавались
-	 *
-	 */
-	bool relay(client::context_t & client, const int fd) noexcept {
-		// Признак того, что байты передавались
-		bool moved = false;
-		// Получаем байты, отправляемые клиентом
-		const view_t data = client.output();
-		// Если клиенту есть что отправить
-		if(data.size > 0){
-			// Отправляем байты в сокет
-			const ssize_t sent = ::send(fd, data.data, data.size, 0);
-			// Если отправка не удалась
-			if(sent <= 0)
-				// Выводим отсутствие передачи
-				return false;
-			// Снимаем отправленные байты с накопителя клиента
-			client.consume(static_cast <size_t> (sent));
-			// Запоминаем передачу
-			moved = true;
-		}
-		// Место, в которое помещаются принятые байты
-		uint8_t buffer[16384];
-		// Принимаем байты из сокета с ожиданием
-		const ssize_t received = ::recv(fd, buffer, sizeof(buffer), 0);
-		// Если байты приняты
-		if(received > 0){
-			// Подаём принятые байты связи клиента
-			client.push(view_t(buffer, static_cast <size_t> (received)));
-			// Запоминаем передачу
-			moved = true;
-		}
-		// Выводим признак передачи
-		return moved;
 	}
 	/**
 	 * Наборы шифрования перебора
@@ -1555,7 +1421,7 @@ TEST(CompressTest, Loopback){
 				// Если перенос идёт записями
 				if(t == 0){
 					// Проверяем обмен данными
-					ASSERT_TRUE(exchange(client, server)) << ENTRIES[k] << " " << s;
+					ASSERT_TRUE(barter(client, server)) << ENTRIES[k] << " " << s;
 					// Выдаём билет
 					ASSERT_EQ(server.issue(), context::error_t::NONE);
 					// Доставляем билет
@@ -1567,7 +1433,7 @@ TEST(CompressTest, Loopback){
 					// Связь возобновляющего сервера
 					server::context_t resumed;
 					// Настраиваем стороны без подлинности клиента
-					arrange(resuming, resumed, SUITES[s], extension::group_t::X25519, credential, false);
+					arrange(resuming, resumed, SUITES[s], extension::group_t::X25519, credential, false, false);
 					// Кодеки клиента при возобновлении
 					resuming.codecs(vector <context::codec_t> {zlib()}, 0);
 					// Кодеки сервера при возобновлении
@@ -1593,7 +1459,7 @@ TEST(CompressTest, Loopback){
 					// Сервер цепочку не слал
 					ASSERT_EQ(resumed.compression(context::direction_t::WRITE), 0);
 					// Проверяем обмен данными по возобновлённой связи
-					ASSERT_TRUE(exchange(resuming, resumed));
+					ASSERT_TRUE(barter(resuming, resumed));
 				}
 			}
 		}
@@ -1639,14 +1505,14 @@ TEST(CompressTest, Selection){
 	const Scenario scenarios[] = {
 		{"только клиент",           {zlib()},            {},                  true,  0,       0},
 		{"только сервер",           {},                  {zlib()},            true,  0,       0},
-		{"нет общего",              {custom()},          {zlib()},            true,  0,       0},
-		{"порядок клиента: частный", {custom(), zlib()}, {zlib(), custom()},  false, PRIVATE, 0},
-		{"порядок клиента: zlib",   {zlib(), custom()},  {custom(), zlib()},  false, ZLIB,    0},
+		{"нет общего",              {custom(nullptr)},          {zlib()},            true,  0,       0},
+		{"порядок клиента: частный", {custom(nullptr), zlib()}, {zlib(), custom(nullptr)},  false, PRIVATE, 0},
+		{"порядок клиента: zlib",   {zlib(), custom(nullptr)},  {custom(nullptr), zlib()},  false, ZLIB,    0},
 		{"неведомый пропущен",      {stranger, zlib()},  {zlib()},            false, ZLIB,    0},
 		{"отказ сжатия",            {zlib()},            {declining},         true,  0,       ZLIB},
 		{"чужое исключение",        {zlib()},            {hurling},           true,  0,       ZLIB},
-		{"по запросу подлинности",  {custom()},          {custom()},          true,  PRIVATE, PRIVATE},
-		{"порядок сервера у клиента", {zlib(), custom()}, {custom(), zlib()}, true,  ZLIB,    PRIVATE}
+		{"по запросу подлинности",  {custom(nullptr)},          {custom(nullptr)},          true,  PRIVATE, PRIVATE},
+		{"порядок сервера у клиента", {zlib(), custom(nullptr)}, {custom(nullptr), zlib()}, true,  ZLIB,    PRIVATE}
 	};
 	/**
 	 * Выполняем перебор сценариев
@@ -1657,7 +1523,7 @@ TEST(CompressTest, Selection){
 		// Связь стороны сервера
 		server::context_t server;
 		// Настраиваем стороны
-		arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, scenarios[i].mutual);
+		arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, scenarios[i].mutual, false);
 		// Кодеки клиента
 		client.codecs(scenarios[i].client, 0);
 		// Кодеки сервера
@@ -1681,7 +1547,7 @@ TEST(CompressTest, Selection){
 		// Проверяем цепочку сервера у клиента
 		ASSERT_EQ(client.peer().size(), static_cast <size_t> (1)) << scenarios[i].name;
 		// Проверяем обмен данными
-		ASSERT_TRUE(exchange(client, server)) << scenarios[i].name;
+		ASSERT_TRUE(barter(client, server)) << scenarios[i].name;
 	}
 	{
 		// Счётчик вызовов кодека клиента
@@ -1693,7 +1559,7 @@ TEST(CompressTest, Selection){
 		// Связь стороны сервера
 		server::context_t server;
 		// Настраиваем стороны с подлинностью клиента
-		arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, true);
+		arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, true, false);
 		// Кодек клиента со счётчиком
 		client.codecs(vector <context::codec_t> {custom(&first)}, 0);
 		// Кодек сервера со счётчиком
@@ -1806,7 +1672,7 @@ TEST(CompressTest, Refusals){
 	}
 	{
 		// Сжатая цепочка без объявления: клиент кодеков не имеет, цепочка обёрнута частным кодеком
-		Scenario item = {"без объявления", {}, {custom()}, 0, mutation_t(), context::error_t::ORDER, alert::description_t::UNEXPECTED};
+		Scenario item = {"без объявления", {}, {custom(nullptr)}, 0, mutation_t(), context::error_t::ORDER, alert::description_t::UNEXPECTED};
 		// Искажается обычная цепочка сервера
 		item.mutation.type = handshake::type_t::CERTIFICATE;
 		// Оборачиваем цепочку в сжатую частным кодеком
@@ -1937,13 +1803,15 @@ TEST(CompressTest, Refusals){
  * собранный без zlib - пропуск вслух
  */
 TEST(CompressTest, Openssl){
+	// Способности системного openssl, снятые щупами
+	const toolkit_t toolkit = inspect();
 	// Если openssl недоступен
-	if(shell("openssl version >/dev/null 2>&1") != 0){
+	if(!toolkit.present){
 		// Пропускаем проверку вслух
 		GTEST_SKIP() << "openssl недоступен";
 	}
 	// Если openssl не умеет TLS 1.3
-	if(shell("openssl ciphers -s -tls1_3 -ciphersuites TLS_AES_128_GCM_SHA256 >/dev/null 2>&1") != 0){
+	if(!toolkit.tls13){
 		// Пропускаем проверку вслух
 		GTEST_SKIP() << "openssl без TLS 1.3";
 	}
@@ -1956,7 +1824,7 @@ TEST(CompressTest, Openssl){
 		GTEST_SKIP() << "openssl собран без zlib: сжатие сертификатов у него выключено";
 	}
 	// Если s_server не умеет пред-сжимать сертификаты: ключ -cert_comp пришёл с 3.2 и скрыт без zlib
-	if(shell("(openssl s_server -help 2>&1 | grep -q -- '-cert_comp')") != 0){
+	if(!listed("s_server", "cert_comp")){
 		// Пропускаем проверку вслух
 		GTEST_SKIP() << "openssl без ключа s_server -cert_comp: сжатия сертификатов у него нет";
 	}
@@ -1968,15 +1836,17 @@ TEST(CompressTest, Openssl){
 	const std::string crt = std::string(CORPUS) + "/ec256.crt", key = std::string(CORPUS) + "/ec256.pem";
 	{
 		// Свободный порт
-		const uint16_t number = port();
+		const uint16_t number = vacant(false);
 		// Проверяем наличие порта
 		ASSERT_NE(number, 0);
 		// Журнал сервера openssl
 		const std::string log = "/tmp/ants-compress-server-" + std::to_string(number) + ".log";
 		// Запускаем сервер openssl с пред-сжатием сертификатов и запросом подлинности клиента
-		ASSERT_EQ(::system(("openssl s_server -accept " + std::to_string(number) + " -tls1_3 -cert " + crt + " -key " + key + " -cert_comp -Verify 1 -CAfile " + crt + " -www -naccept 1 </dev/null >" + log + " 2>&1 &").c_str()), 0);
+		ASSERT_TRUE(launch("openssl s_server" + accepting(toolkit, number) + " -tls1_3 -cert " + crt + " -key " + key + " -cert_comp -Verify 1 -CAfile " + crt + " -www" + once(toolkit) + " </dev/null >" + log + " 2>&1", log, log + ".pid"));
+		// Сторож сервера openssl: снимается по номеру и при отказе посреди проверки
+		sentinel_t sentinel(log + ".pid");
 		// Подключаемся к серверу openssl
-		const int fd = connect(number);
+		const int fd = dial(number);
 		// Проверяем подключение
 		ASSERT_GE(fd, 0) << "порт " << number;
 		// Связь стороны клиента
@@ -2024,46 +1894,32 @@ TEST(CompressTest, Openssl){
 		ASSERT_NE(string(answer.begin(), answer.end()).find("HTTP/1.0 200"), string::npos);
 		// Закрываем сокет
 		::close(fd);
+		// Снимаем сервер до удаления журнала: иначе отметка завершения воссоздаст файл
+		sentinel.halt();
+		// Журнал сервера
+		std::string journal;
+		// Дожидаемся отметки завершения снятого сервера
+		(void) settle(log, journal);
 		// Удаляем журнал
 		::remove(log.c_str());
 	}
 	{
+		// Порт сервера
+		uint16_t number = 0;
 		// Слушающий сокет
-		const int listener = ::socket(AF_INET, SOCK_STREAM, 0);
+		const int listener = harbour(number);
 		// Проверяем сокет
 		ASSERT_GE(listener, 0);
-		// Адрес привязки
-		struct sockaddr_in address;
-		// Обнуляем адрес
-		::memset(&address, 0, sizeof(address));
-		// Семейство адреса
-		address.sin_family = AF_INET;
-		// Петлевое устройство
-		address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-		// Порт назначается системой
-		address.sin_port = 0;
-		// Привязываем сокет
-		ASSERT_EQ(::bind(listener, reinterpret_cast <struct sockaddr *> (&address), sizeof(address)), 0);
-		// Длина адреса
-		socklen_t length = sizeof(address);
-		// Читаем назначенный порт
-		ASSERT_EQ(::getsockname(listener, reinterpret_cast <struct sockaddr *> (&address), &length), 0);
-		// Слушаем сокет
-		ASSERT_EQ(::listen(listener, 1), 0);
-		// Порт сервера
-		const uint16_t number = ntohs(address.sin_port);
 		// Журнал клиента openssl
 		const std::string log = "/tmp/ants-compress-client-" + std::to_string(number) + ".log";
 		// Запускаем клиента openssl с подлинностью
-		ASSERT_EQ(::system(("openssl s_client -connect 127.0.0.1:" + std::to_string(number) + " -tls1_3 -CAfile " + crt + " -cert " + crt + " -key " + key + " -servername localhost -verify_return_error </dev/null >" + log + " 2>&1 &").c_str()), 0);
+		ASSERT_TRUE(launch("openssl s_client -connect 127.0.0.1:" + std::to_string(number) + " -tls1_3 -CAfile " + crt + " -cert " + crt + " -key " + key + " -servername localhost -verify_return_error </dev/null >" + log + " 2>&1", log, log + ".pid"));
+		// Сторож клиента openssl
+		sentinel_t sentinel(log + ".pid");
 		// Принимаем подключение
-		const int fd = ::accept(listener, nullptr, nullptr);
+		const int fd = greeted(listener);
 		// Проверяем подключение
 		ASSERT_GE(fd, 0);
-		// Предел ожидания приёма
-		struct timeval limit = {10, 0};
-		// Устанавливаем предел ожидания приёма
-		(void) ::setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &limit, sizeof(limit));
 		// Связь стороны сервера
 		server::context_t server;
 		// Наборы сервера
@@ -2078,34 +1934,8 @@ TEST(CompressTest, Openssl){
 		server.codecs(vector <context::codec_t> {zlib()}, 0);
 		// Заводим сервер
 		ASSERT_EQ(server.start(), context::error_t::NONE);
-		// Признак того, что рукопожатие дошло до конца
-		bool complete = false;
-		/**
-		 * Выполняем передачу байтов до установления либо закрытия связи
-		 */
-		for(size_t i = 0; (i < 8) && !complete && (server.state() != context::state_t::FAILED); i++){
-			// Место принятых байтов
-			uint8_t buffer[16384];
-			// Принимаем байты клиента
-			const ssize_t received = ::recv(fd, buffer, sizeof(buffer), 0);
-			// Если байты приняты
-			if(received > 0)
-				// Подаём байты серверу
-				server.push(view_t(buffer, static_cast <size_t> (received)));
-			// Байты сервера
-			const view_t data = server.output();
-			// Если серверу есть что отправить
-			if(data.size > 0){
-				// Отправляем байты
-				const ssize_t sent = ::send(fd, data.data, data.size, 0);
-				// Если отправлено
-				if(sent > 0)
-					// Снимаем байты
-					server.consume(static_cast <size_t> (sent));
-			}
-			// Запоминаем установление либо закрытие связи
-			complete = (server.established() || (server.state() == context::state_t::CLOSED));
-		}
+		// Ведём связь до конца рукопожатия
+		const bool complete = serve(server, fd);
 		// Проверяем, что рукопожатие дошло до конца
 		ASSERT_TRUE(complete) << "отказ " << static_cast <int> (server.error());
 		// Проверяем, что отказа не было
@@ -2116,37 +1946,18 @@ TEST(CompressTest, Openssl){
 		ASSERT_EQ(server.compression(context::direction_t::READ), ZLIB);
 		// Проверяем подлинность клиента
 		ASSERT_EQ(server.peer().size(), static_cast <size_t> (1));
-		// Если связь ещё открыта
-		if(server.established()){
-			// Закрываем связь
-			ASSERT_EQ(server.close(), context::error_t::NONE);
-			// Байты закрытия
-			const view_t closing = server.output();
-			// Отправляем закрытие
-			(void) ::send(fd, closing.data, closing.size, 0);
-		}
+		// Закрываем связь, коли она ещё открыта
+		ASSERT_TRUE(farewell(server, fd));
 		// Закрываем сокет
 		::close(fd);
 		// Закрываем слушающий сокет
 		::close(listener);
-		/**
-		 * Выполняем ожидание завершения клиента openssl
-		 */
-		for(size_t i = 0; i < 50; i++){
-			// Читаем журнал
-			std::ifstream file(log);
-			// Содержимое журнала
-			const std::string text((std::istreambuf_iterator <char> (file)), std::istreambuf_iterator <char> ());
-			// Если клиент отчитался о проверке
-			if(text.find("Verify return code") != std::string::npos){
-				// Проверяем проверку сертификата сервера клиентом openssl: сжатая цепочка распакована им
-				ASSERT_NE(text.find("Verify return code: 0 (ok)"), std::string::npos) << text;
-				// Прекращаем ожидание
-				break;
-			}
-			// Ждём
-			::usleep(100000);
-		}
+		// Содержимое журнала
+		std::string text;
+		// Клиент обязан завершиться
+		ASSERT_TRUE(settle(log, text)) << text;
+		// Проверяем проверку сертификата сервера клиентом openssl: сжатая цепочка распакована им
+		ASSERT_NE(text.find("Verify return code: 0 (ok)"), std::string::npos) << text;
 		// Удаляем журнал
 		::remove(log.c_str());
 	}
@@ -2174,11 +1985,11 @@ TEST(CompressTest, Starved){
 		// Связь стороны сервера
 		server::context_t server;
 		// Настраиваем стороны с подлинностью клиента
-		arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::SECP256R1, credential, true);
+		arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::SECP256R1, credential, true, false);
 		// Кодеки клиента: два алгоритма
-		client.codecs(vector <context::codec_t> {custom(), zlib()}, 0);
+		client.codecs(vector <context::codec_t> {custom(nullptr), zlib()}, 0);
 		// Кодеки сервера: два алгоритма
-		server.codecs(vector <context::codec_t> {zlib(), custom()}, 0);
+		server.codecs(vector <context::codec_t> {zlib(), custom(nullptr)}, 0);
 		// Ошибки сторон
 		context::error_t first = context::error_t::NONE, second = context::error_t::NONE;
 		{

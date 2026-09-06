@@ -379,6 +379,40 @@ void nts::client::Context::resume(const context::ticket_t & ticket) noexcept {
 		this->_engine->resume(ticket);
 }
 /**
+ * @brief Метод установки заранее разделённого ключа издания TLS 1.2
+ *
+ * @param psk настройки заранее разделённого ключа
+ *
+ */
+void nts::client::Context::psk(const context::psk_t & psk) noexcept {
+	// Если ведение связи заведено
+	if(this->_engine != nullptr)
+		// Выполняем установку заранее разделённого ключа
+		this->_engine->psk(psk);
+}
+/**
+ * @brief Метод установки требования порядка «шифрование, затем имитовставка» RFC 7366
+ *
+ * @param required обязателен ли порядок encrypt_then_mac при наборе CBC
+ *
+ */
+void nts::client::Context::etm(const bool required) noexcept {
+	// Если ведение связи заведено
+	if(this->_engine != nullptr)
+		// Выполняем установку требования порядка
+		this->_engine->etm(required);
+}
+/**
+ * @brief Метод проверки согласованного порядка «шифрование, затем имитовставка»
+ *
+ * @return признак того, что записи CBC идут в порядке encrypt_then_mac RFC 7366
+ *
+ */
+bool nts::client::Context::etm() const noexcept {
+	// Выводим согласованный порядок
+	return ((this->_engine != nullptr) && this->_engine->etm());
+}
+/**
  * @brief Метод проверки возобновления связи билетом
  *
  * @return признак того, что связь возобновлена заранее разделённым ключом

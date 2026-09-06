@@ -379,7 +379,7 @@ namespace {
 	 * @return       признак того, что обе стороны прочли отправленное
 	 *
 	 */
-	bool exchange(client::context_t & client, server::context_t & server, bond_t & bond) noexcept {
+	bool barter(client::context_t & client, server::context_t & server, bond_t & bond) noexcept {
 		// Данные, отправляемые клиентом
 		const string request = "ping from the client over datagrams";
 		// Данные, отправляемые сервером
@@ -1092,7 +1092,7 @@ TEST(DtlsTest, Loopback){
 				// Секреты прикладного уровня сторон сходятся
 				ASSERT_EQ(traffic(client, context::level_t::APPLICATION, context::direction_t::WRITE), traffic(server, context::level_t::APPLICATION, context::direction_t::READ));
 				// Обмениваемся данными в обе стороны
-				ASSERT_TRUE(exchange(client, server, bond)) << ENTRIES[k] << " " << s << " " << g;
+				ASSERT_TRUE(barter(client, server, bond)) << ENTRIES[k] << " " << s << " " << g;
 				// Прикладные данные идут третьей порой: младшие разряды поры в заголовке
 				ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> ("x"), 1)), context::error_t::NONE);
 				// Дейтаграмма с прикладными данными
@@ -1197,7 +1197,7 @@ TEST(DtlsTest, Loss){
 		// Путь без потерь для обмена
 		bond_t clean;
 		// Обмениваемся данными
-		ASSERT_TRUE(exchange(client, server, clean)) << "сценарий " << i;
+		ASSERT_TRUE(barter(client, server, clean)) << "сценарий " << i;
 	}
 }
 
@@ -1251,7 +1251,7 @@ TEST(DtlsTest, Reorder){
 		// Ни порчи, ни подделок, ни далёких кусков
 		ASSERT_EQ(server.discarded(datagram::reason_t::DAMAGE) + server.discarded(datagram::reason_t::AHEAD) + server.discarded(datagram::reason_t::COOKIE), static_cast <uint64_t> (0));
 		// Обмениваемся данными по тому же пути
-		ASSERT_TRUE(exchange(client, server, bond)) << s;
+		ASSERT_TRUE(barter(client, server, bond)) << s;
 	}
 }
 
@@ -1335,7 +1335,7 @@ TEST(DtlsTest, Mtu){
 	// Дейтаграммы не длиннее назначенного
 	ASSERT_LE(bond.largest, static_cast <size_t> (300));
 	// Обмениваемся данными без потерь: прикладные данные повторной передачи не знают
-	ASSERT_TRUE(exchange(client, server, clean));
+	ASSERT_TRUE(barter(client, server, clean));
 	// Длинные прикладные данные дробятся по записям в свои дейтаграммы
 	const vector <uint8_t> bulk(5000, 0x5A);
 	// Отправляем длинные данные
@@ -2200,7 +2200,7 @@ TEST(DtlsTest, Forgery){
 	// Обе стороны установлены
 	ASSERT_TRUE(client.established() && server.established());
 	// Обмениваемся данными
-	ASSERT_TRUE(exchange(client, server, bond));
+	ASSERT_TRUE(barter(client, server, bond));
 }
 
 /**
@@ -2357,7 +2357,7 @@ TEST(DtlsTest, Rotation){
 	// Секреты сторон сходятся
 	ASSERT_EQ(traffic(client, context::level_t::APPLICATION, context::direction_t::WRITE), traffic(server, context::level_t::APPLICATION, context::direction_t::READ));
 	// Обмениваемся данными
-	ASSERT_TRUE(exchange(client, server, bond));
+	ASSERT_TRUE(barter(client, server, bond));
 	// Ничего не отброшено
 	ASSERT_EQ(server.discarded() + client.discarded(), static_cast <uint64_t> (0));
 }
@@ -2435,7 +2435,7 @@ TEST(DtlsTest, Deferral){
 	// Доводим до тишины
 	converse(client, server, bond);
 	// Обмениваемся данными
-	ASSERT_TRUE(exchange(client, server, bond));
+	ASSERT_TRUE(barter(client, server, bond));
 	// Второй клиент: доходит одно лишь приветствие сервера, остаток потерян
 	client::context_t lonely;
 	// Второй сервер
@@ -2859,7 +2859,7 @@ TEST(DtlsTest, Timer){
 	// Доводим до тишины
 	converse(client, server, bond);
 	// Обмениваемся данными
-	ASSERT_TRUE(exchange(client, server, bond));
+	ASSERT_TRUE(barter(client, server, bond));
 }
 
 /**
@@ -2897,7 +2897,7 @@ TEST(DtlsTest, Asymmetric){
 	// Ничего не отброшено
 	ASSERT_EQ(server.discarded() + client.discarded(), static_cast <uint64_t> (0));
 	// Обмениваемся данными
-	ASSERT_TRUE(exchange(client, server, bond));
+	ASSERT_TRUE(barter(client, server, bond));
 	// Клиент с большим размером
 	client::context_t wide;
 	// Сервер с большим размером

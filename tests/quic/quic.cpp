@@ -1106,14 +1106,16 @@ TEST(QuicTest, Ticket){
 	ticket.secret.insert(ticket.secret.end(), ticket.secret.begin(), ticket.secret.begin() + 16);
 	// Устанавливаем параметры переноса собеседника
 	ticket.parameters = SERVER_PARAMETERS;
+	// Устанавливаем признак порядка «шифрование, затем имитовставка»: у билета 1.3 он ничего не значит, но запись его переносит
+	ticket.etm = true;
 	// Запись билета
 	vector <uint8_t> encoded;
 	// Записываем билет
 	ASSERT_EQ(context::encode(ticket, encoded), context::error_t::NONE);
 	// Проверяем издание записи
-	ASSERT_EQ(encoded[0], static_cast <uint8_t> (0x01));
-	// Проверяем длину записи: 1 + 2 + 8 + 4 + 4 + 4 и четыре поля с длинами
-	ASSERT_EQ(encoded.size(), static_cast <size_t> (23 + 2 + 2 + 2 + 32 + 2 + 48 + 2 + SERVER_PARAMETERS.size()));
+	ASSERT_EQ(encoded[0], static_cast <uint8_t> (0x02));
+	// Проверяем длину записи: 1 + 2 + 8 + 4 + 4 + 4 + 1 и четыре поля с длинами
+	ASSERT_EQ(encoded.size(), static_cast <size_t> (24 + 2 + 2 + 2 + 32 + 2 + 48 + 2 + SERVER_PARAMETERS.size()));
 	// Прочитанный билет
 	context::ticket_t decoded;
 	// Читаем билет
@@ -1128,6 +1130,8 @@ TEST(QuicTest, Ticket){
 	ASSERT_EQ(decoded.advance, ticket.advance);
 	// Проверяем добавку к возрасту
 	ASSERT_EQ(decoded.age, ticket.age);
+	// Проверяем признак порядка «шифрование, затем имитовставка»
+	ASSERT_EQ(decoded.etm, ticket.etm);
 	// Проверяем прикладной протокол
 	ASSERT_EQ(decoded.protocol, ticket.protocol);
 	// Проверяем тело билета
@@ -1155,7 +1159,7 @@ TEST(QuicTest, Ticket){
 	// Записываем пустой билет
 	ASSERT_EQ(context::encode(blank, encoded), context::error_t::NONE);
 	// Проверяем длину записи пустого билета
-	ASSERT_EQ(encoded.size(), static_cast <size_t> (23 + 8));
+	ASSERT_EQ(encoded.size(), static_cast <size_t> (24 + 8));
 	// Читаем пустой билет
 	ASSERT_EQ(context::decode(view_t(encoded.data(), encoded.size()), decoded), context::error_t::NONE);
 	// Проверяем пустоту ключа
@@ -1173,7 +1177,7 @@ TEST(QuicTest, Ticket){
 		// Порченая запись
 		vector <uint8_t> broken = encoded;
 		// Меняем издание записи
-		broken[0] = 0x02;
+		broken[0] = 0x03;
 		// Проверяем отказ чтения
 		ASSERT_EQ(context::decode(view_t(broken.data(), broken.size()), decoded), context::error_t::TICKET);
 	}
@@ -1197,7 +1201,7 @@ TEST(QuicTest, Ticket){
 		// Порченая запись
 		vector <uint8_t> broken = encoded;
 		// Раздуваем длину протокола
-		broken[23 + 1] = 0xFF;
+		broken[24 + 1] = 0xFF;
 		// Проверяем отказ чтения
 		ASSERT_EQ(context::decode(view_t(broken.data(), broken.size()), decoded), context::error_t::TICKET);
 	}
@@ -1206,14 +1210,14 @@ TEST(QuicTest, Ticket){
 		// Порченая запись
 		vector <uint8_t> broken = encoded;
 		// Ужимаем длину протокола
-		broken[23 + 1] = 0x01;
+		broken[24 + 1] = 0x01;
 		// Проверяем отказ чтения
 		ASSERT_EQ(context::decode(view_t(broken.data(), broken.size()), decoded), context::error_t::TICKET);
 	}
 	// Отказ: порча длины ключа за предел хеша
 	{
 		// Место длины ключа: заголовок, протокол и тело билета
-		const size_t place = (23 + 2 + 2 + 2 + 32);
+		const size_t place = (24 + 2 + 2 + 2 + 32);
 		// Порченая запись
 		vector <uint8_t> broken = encoded;
 		// Объявляем ключ длиною в 65 байтов
@@ -1228,7 +1232,7 @@ TEST(QuicTest, Ticket){
 	// Отказ: порча длины параметров переноса
 	{
 		// Место длины параметров
-		const size_t place = (23 + 2 + 2 + 2 + 32 + 2 + 48);
+		const size_t place = (24 + 2 + 2 + 2 + 32 + 2 + 48);
 		// Порченая запись
 		vector <uint8_t> broken = encoded;
 		// Раздуваем длину параметров

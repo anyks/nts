@@ -484,6 +484,8 @@ namespace nts {
 				 * @param suite    набор шифрования связи издания TLS 1.2
 				 * @param key      ключ защиты записей поры
 				 * @param vector   вектор замены защиты записей поры
+				 * @param mac      ключ имитовставки поры у наборов CBC, пустой у наборов AEAD
+				 * @param etm      ведётся ли защита CBC в порядке «шифрование, затем имитовставка» (RFC 7366)
 				 *
 				 * @return         отказ заведения поры ключей
 				 *
@@ -491,7 +493,7 @@ namespace nts {
 				 *          и пересогласований связь не ведёт - иных пор у издания 1.2 нет
 				 *
 				 */
-				context::error_t adopt(const bool incoming, const protect::suite_t suite, const view_t & key, const view_t & vector) noexcept;
+				context::error_t adopt(const bool incoming, const protect::suite_t suite, const view_t & key, const view_t & vector, const view_t & mac, const bool etm) noexcept;
 				/**
 				 * @brief Метод получения номера текущей поры ключей направления
 				 *

@@ -46,6 +46,19 @@
  *    раньше), а недостижимый предел оставляет заслон номеров живым и не подпускает
  *    счётчик к переполнению.
  *
+ * 8. Наборы CBC издания TLS 1.2 (раздел 6.2.3.2 RFC 5246) ведутся тем же объектом: ключ
+ *    имитовставки лежит рядом с ключом шифрования, вектор замены явный и случайный на всякую
+ *    запись, а порядок «имитовставка, затем шифрование» либо «шифрование, затем имитовставка»
+ *    (RFC 7366) переключается признаком etm. Снятие защиты в порядке MAC-then-encrypt идёт
+ *    за постоянное время относительно длины дополнения (Lucky13): дополнение сверяется
+ *    целиком под масками без ранних выходов, имитовставка над открытым текстом дополняется
+ *    холостыми сжатиями хеша до числа, отвечающего наибольшей длине открытого текста записи,
+ *    принятая имитовставка извлекается из расшифрованного буфера перебором окна под маской
+ *    совпадения номера (окно - наибольшая длина дополнения и имитовставки, а не вся запись,
+ *    чтобы цена не росла с длиной записи), и лишь итоговый признак решает судьбу записи.
+ *    Ключевой материал наборов CBC векторов замены не несёт вовсе (block равен нулю): у
+ *    издания 1.1 и выше вектор явный, и расписание ключей выводить его незачем.
+ *
  * @copyright Copyright © 2026
  *
  */
@@ -60,6 +73,9 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <digest/kdf.hpp>
+#include <digest/hmac.hpp>
+#include <entropy/entropy.hpp>
+#include <message/message.hpp>
 #include <protect/protect.hpp>
 #include <sys/wipe.hpp>
 
@@ -136,6 +152,23 @@ namespace {
 	static constexpr uint64_t STREAM_LIMIT = 0x3FFFFFFFFFFFFFFFULL;
 
 	/**
+	 * Длина блока AES и явного вектора замены наборов CBC: раздел 6.2.3.2 RFC 5246
+	 */
+	static constexpr size_t CBC_BLOCK = 16;
+
+	/**
+	 * Наибольшая длина дополнения записи CBC вместе с байтом длины: раздел 6.2.3.2 RFC 5246
+	 */
+	static constexpr size_t CBC_PADDING = 256;
+
+	/**
+	 * Длина блока сжатия хешей имитовставки SHA-1 и SHA-256 и длина их дополнения с полем
+	 * длины сообщения: FIPS 180-4
+	 */
+	static constexpr size_t CBC_COMPRESSION = 64;
+	static constexpr size_t CBC_TRAILER = 9;
+
+	/**
 	 * @brief Описание набора шифрования
 	 *
 	 */
@@ -162,14 +195,18 @@ namespace {
 		bool legacy;
 		// Алгоритм подписи, требуемый набором TLS 1.2 от сертификата
 		signer_t signer;
-	} SAMPLES[13] = {
-		{suite_t::KUZNYECHIK_MGM_L,         false, false, {0xF800000000000000ULL, 0xFFFFFFF000000000ULL, 0xFFFFFFFFFFFFE000ULL}, 0xFFFFFFFFFFFFFFFFULL, 16, 32, 16, digest::hash_t::STREEBOG256, false, signer_t::NONE},
-		{suite_t::MAGMA_MGM_L,              false, false, {0xFFE0000000000000ULL, 0xFFFFFFFFC0000000ULL, 0xFFFFFFFFFFFFFF80ULL}, 0xFFFFFFFFFFFFFFFFULL, 8,  32, 8,  digest::hash_t::STREEBOG256, false, signer_t::NONE},
-		{suite_t::KUZNYECHIK_MGM_S,         false, false, {0xFFFFFFFFE0000000ULL, 0xFFFFFFFFFFFF0000ULL, 0xFFFFFFFFFFFFFFF8ULL}, 0x000003FFFFFFFFFFULL, 16, 32, 16, digest::hash_t::STREEBOG256, false, signer_t::NONE},
-		{suite_t::MAGMA_MGM_S,              false, false, {0xFFFFFFFFFC000000ULL, 0xFFFFFFFFFFFFE000ULL, 0xFFFFFFFFFFFFFFFFULL}, 0x0000007FFFFFFFFFULL, 8,  32, 8,  digest::hash_t::STREEBOG256, false, signer_t::NONE},
-		{suite_t::AES_128_GCM_SHA256,       true,  false, {0ULL, 0ULL, 0ULL}, CLASSIC_LIMIT, CLASSIC_VECTOR, 16, CLASSIC_TAG, digest::hash_t::SHA256, false, signer_t::NONE},
-		{suite_t::AES_256_GCM_SHA384,       true,  false, {0ULL, 0ULL, 0ULL}, CLASSIC_LIMIT, CLASSIC_VECTOR, 32, CLASSIC_TAG, digest::hash_t::SHA384, false, signer_t::NONE},
-		{suite_t::CHACHA20_POLY1305_SHA256, true,  true,  {0ULL, 0ULL, 0ULL}, STREAM_LIMIT,  CLASSIC_VECTOR, 32, CLASSIC_TAG, digest::hash_t::SHA256, false, signer_t::NONE},
+		// Способ обмена ключами набора TLS 1.2
+		exchange_t exchange;
+		// Хеш имитовставки набора CBC, NONE у наборов AEAD
+		digest::hash_t mac;
+	} SAMPLES[30] = {
+		{suite_t::KUZNYECHIK_MGM_L,         false, false, {0xF800000000000000ULL, 0xFFFFFFF000000000ULL, 0xFFFFFFFFFFFFE000ULL}, 0xFFFFFFFFFFFFFFFFULL, 16, 32, 16, digest::hash_t::STREEBOG256, false, signer_t::NONE, exchange_t::NONE, digest::hash_t::NONE},
+		{suite_t::MAGMA_MGM_L,              false, false, {0xFFE0000000000000ULL, 0xFFFFFFFFC0000000ULL, 0xFFFFFFFFFFFFFF80ULL}, 0xFFFFFFFFFFFFFFFFULL, 8,  32, 8,  digest::hash_t::STREEBOG256, false, signer_t::NONE, exchange_t::NONE, digest::hash_t::NONE},
+		{suite_t::KUZNYECHIK_MGM_S,         false, false, {0xFFFFFFFFE0000000ULL, 0xFFFFFFFFFFFF0000ULL, 0xFFFFFFFFFFFFFFF8ULL}, 0x000003FFFFFFFFFFULL, 16, 32, 16, digest::hash_t::STREEBOG256, false, signer_t::NONE, exchange_t::NONE, digest::hash_t::NONE},
+		{suite_t::MAGMA_MGM_S,              false, false, {0xFFFFFFFFFC000000ULL, 0xFFFFFFFFFFFFE000ULL, 0xFFFFFFFFFFFFFFFFULL}, 0x0000007FFFFFFFFFULL, 8,  32, 8,  digest::hash_t::STREEBOG256, false, signer_t::NONE, exchange_t::NONE, digest::hash_t::NONE},
+		{suite_t::AES_128_GCM_SHA256,       true,  false, {0ULL, 0ULL, 0ULL}, CLASSIC_LIMIT, CLASSIC_VECTOR, 16, CLASSIC_TAG, digest::hash_t::SHA256, false, signer_t::NONE, exchange_t::NONE, digest::hash_t::NONE},
+		{suite_t::AES_256_GCM_SHA384,       true,  false, {0ULL, 0ULL, 0ULL}, CLASSIC_LIMIT, CLASSIC_VECTOR, 32, CLASSIC_TAG, digest::hash_t::SHA384, false, signer_t::NONE, exchange_t::NONE, digest::hash_t::NONE},
+		{suite_t::CHACHA20_POLY1305_SHA256, true,  true,  {0ULL, 0ULL, 0ULL}, STREAM_LIMIT,  CLASSIC_VECTOR, 32, CLASSIC_TAG, digest::hash_t::SHA256, false, signer_t::NONE, exchange_t::NONE, digest::hash_t::NONE},
 		/**
 		 * Наборы TLS 1.2 (RFC 5289, RFC 7905): у AES-GCM вектор замены занимает четыре байта
 		 * соли (раздел 3 RFC 5288), у ChaCha20-Poly1305 - двенадцать (раздел 2 RFC 7905).
@@ -177,12 +214,36 @@ namespace {
 		 * шифра не зависит от способа сложения одноразового значения, а смены ключей в
 		 * TLS 1.2 нет - дойдя до предела, связь закрывается извещением close_notify
 		 */
-		{suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256,       true, false, {0ULL, 0ULL, 0ULL}, CLASSIC_LIMIT, LEGACY_SALT,    16, CLASSIC_TAG, digest::hash_t::SHA256, true, signer_t::ECDSA},
-		{suite_t::ECDHE_ECDSA_AES_256_GCM_SHA384,       true, false, {0ULL, 0ULL, 0ULL}, CLASSIC_LIMIT, LEGACY_SALT,    32, CLASSIC_TAG, digest::hash_t::SHA384, true, signer_t::ECDSA},
-		{suite_t::ECDHE_RSA_AES_128_GCM_SHA256,         true, false, {0ULL, 0ULL, 0ULL}, CLASSIC_LIMIT, LEGACY_SALT,    16, CLASSIC_TAG, digest::hash_t::SHA256, true, signer_t::RSA},
-		{suite_t::ECDHE_RSA_AES_256_GCM_SHA384,         true, false, {0ULL, 0ULL, 0ULL}, CLASSIC_LIMIT, LEGACY_SALT,    32, CLASSIC_TAG, digest::hash_t::SHA384, true, signer_t::RSA},
-		{suite_t::ECDHE_RSA_CHACHA20_POLY1305_SHA256,   true, true,  {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, CLASSIC_VECTOR, 32, CLASSIC_TAG, digest::hash_t::SHA256, true, signer_t::RSA},
-		{suite_t::ECDHE_ECDSA_CHACHA20_POLY1305_SHA256, true, true,  {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, CLASSIC_VECTOR, 32, CLASSIC_TAG, digest::hash_t::SHA256, true, signer_t::ECDSA}
+		{suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256,       true, false, {0ULL, 0ULL, 0ULL}, CLASSIC_LIMIT, LEGACY_SALT,    16, CLASSIC_TAG, digest::hash_t::SHA256, true, signer_t::ECDSA, exchange_t::ECDHE, digest::hash_t::NONE},
+		{suite_t::ECDHE_ECDSA_AES_256_GCM_SHA384,       true, false, {0ULL, 0ULL, 0ULL}, CLASSIC_LIMIT, LEGACY_SALT,    32, CLASSIC_TAG, digest::hash_t::SHA384, true, signer_t::ECDSA, exchange_t::ECDHE, digest::hash_t::NONE},
+		{suite_t::ECDHE_RSA_AES_128_GCM_SHA256,         true, false, {0ULL, 0ULL, 0ULL}, CLASSIC_LIMIT, LEGACY_SALT,    16, CLASSIC_TAG, digest::hash_t::SHA256, true, signer_t::RSA, exchange_t::ECDHE, digest::hash_t::NONE},
+		{suite_t::ECDHE_RSA_AES_256_GCM_SHA384,         true, false, {0ULL, 0ULL, 0ULL}, CLASSIC_LIMIT, LEGACY_SALT,    32, CLASSIC_TAG, digest::hash_t::SHA384, true, signer_t::RSA, exchange_t::ECDHE, digest::hash_t::NONE},
+		{suite_t::ECDHE_RSA_CHACHA20_POLY1305_SHA256,   true, true,  {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, CLASSIC_VECTOR, 32, CLASSIC_TAG, digest::hash_t::SHA256, true, signer_t::RSA, exchange_t::ECDHE, digest::hash_t::NONE},
+		{suite_t::ECDHE_ECDSA_CHACHA20_POLY1305_SHA256, true, true,  {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, CLASSIC_VECTOR, 32, CLASSIC_TAG, digest::hash_t::SHA256, true, signer_t::ECDSA, exchange_t::ECDHE, digest::hash_t::NONE},
+		/**
+		 * Наборы CBC издания TLS 1.2 (раздел 6.2.3.2 RFC 5246, RFC 5289, RFC 8422, RFC 4279, RFC 5489):
+		 * вектор замены явный и в ключевой материал не входит (размер вектора ноль), длина
+		 * «метки» есть длина имитовставки HMAC на хеше набора, PRF всюду на SHA-256; предел
+		 * записей 2^62 - режим CBC предела стойкости по номеру не ставит, а недостижимый предел
+		 * держит заслон номеров живым. Наборы обмена RSA на AES-GCM устроены как ECDHE-наборы
+		 */
+		{suite_t::ECDHE_ECDSA_AES_128_CBC_SHA256,       true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 16, 32, digest::hash_t::SHA256, true, signer_t::ECDSA, exchange_t::ECDHE,     digest::hash_t::SHA256},
+		{suite_t::ECDHE_RSA_AES_128_CBC_SHA256,         true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 16, 32, digest::hash_t::SHA256, true, signer_t::RSA,   exchange_t::ECDHE,     digest::hash_t::SHA256},
+		{suite_t::ECDHE_ECDSA_AES_128_CBC_SHA,          true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 16, 20, digest::hash_t::SHA256, true, signer_t::ECDSA, exchange_t::ECDHE,     digest::hash_t::SHA1},
+		{suite_t::ECDHE_ECDSA_AES_256_CBC_SHA,          true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 32, 20, digest::hash_t::SHA256, true, signer_t::ECDSA, exchange_t::ECDHE,     digest::hash_t::SHA1},
+		{suite_t::ECDHE_RSA_AES_128_CBC_SHA,            true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 16, 20, digest::hash_t::SHA256, true, signer_t::RSA,   exchange_t::ECDHE,     digest::hash_t::SHA1},
+		{suite_t::ECDHE_RSA_AES_256_CBC_SHA,            true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 32, 20, digest::hash_t::SHA256, true, signer_t::RSA,   exchange_t::ECDHE,     digest::hash_t::SHA1},
+		{suite_t::RSA_AES_128_CBC_SHA,                  true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 16, 20, digest::hash_t::SHA256, true, signer_t::RSA,   exchange_t::RSA,       digest::hash_t::SHA1},
+		{suite_t::RSA_AES_256_CBC_SHA,                  true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 32, 20, digest::hash_t::SHA256, true, signer_t::RSA,   exchange_t::RSA,       digest::hash_t::SHA1},
+		{suite_t::RSA_AES_128_CBC_SHA256,               true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 16, 32, digest::hash_t::SHA256, true, signer_t::RSA,   exchange_t::RSA,       digest::hash_t::SHA256},
+		{suite_t::RSA_AES_256_CBC_SHA256,               true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 32, 32, digest::hash_t::SHA256, true, signer_t::RSA,   exchange_t::RSA,       digest::hash_t::SHA256},
+		{suite_t::RSA_AES_128_GCM_SHA256,               true, false, {0ULL, 0ULL, 0ULL}, CLASSIC_LIMIT, LEGACY_SALT, 16, CLASSIC_TAG, digest::hash_t::SHA256, true, signer_t::RSA, exchange_t::RSA, digest::hash_t::NONE},
+		{suite_t::RSA_AES_256_GCM_SHA384,               true, false, {0ULL, 0ULL, 0ULL}, CLASSIC_LIMIT, LEGACY_SALT, 32, CLASSIC_TAG, digest::hash_t::SHA384, true, signer_t::RSA, exchange_t::RSA, digest::hash_t::NONE},
+		{suite_t::PSK_AES_128_CBC_SHA,                  true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 16, 20, digest::hash_t::SHA256, true, signer_t::NONE,  exchange_t::PSK,       digest::hash_t::SHA1},
+		{suite_t::PSK_AES_256_CBC_SHA,                  true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 32, 20, digest::hash_t::SHA256, true, signer_t::NONE,  exchange_t::PSK,       digest::hash_t::SHA1},
+		{suite_t::ECDHE_PSK_AES_128_CBC_SHA,            true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 16, 20, digest::hash_t::SHA256, true, signer_t::NONE,  exchange_t::ECDHE_PSK, digest::hash_t::SHA1},
+		{suite_t::ECDHE_PSK_AES_256_CBC_SHA,            true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 32, 20, digest::hash_t::SHA256, true, signer_t::NONE,  exchange_t::ECDHE_PSK, digest::hash_t::SHA1},
+		{suite_t::ECDHE_PSK_CHACHA20_POLY1305_SHA256,   true, true,  {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, CLASSIC_VECTOR, 32, CLASSIC_TAG, digest::hash_t::SHA256, true, signer_t::NONE, exchange_t::ECDHE_PSK, digest::hash_t::NONE}
 	};
 
 	/**
@@ -222,6 +283,53 @@ namespace {
 		for(size_t i = 0; i < 8; i++)
 			// Записываем очередной байт числа от старшего к младшему
 			result[i] = static_cast <uint8_t> ((value >> ((7 - i) * 8)) & 0xFF);
+	}
+	/**
+	 * @brief Метод получения маски равенства двух чисел за постоянное время
+	 *
+	 * @param first  первое число
+	 * @param second второе число
+	 *
+	 * @return       0xFF при равенстве чисел, 0x00 иначе
+	 *
+	 */
+	static uint8_t same(const size_t first, const size_t second) noexcept {
+		// Различие чисел
+		const uint64_t diff = (static_cast <uint64_t> (first) ^ static_cast <uint64_t> (second));
+		// Выводим маску равенства: старший разряд выражения единичен лишь у нулевого различия
+		return static_cast <uint8_t> (0xFF & (0 - (((diff - 1) & ~diff) >> 63)));
+	}
+	/**
+	 * @brief Метод получения маски «первое не меньше второго» за постоянное время
+	 *
+	 * @param first  первое число
+	 * @param second второе число
+	 *
+	 * @return       0xFF при первом не меньшем второго, 0x00 иначе
+	 *
+	 * @note Числа не превосходят 2^32: разность двух таких чисел в старший разряд не уходит
+	 *
+	 */
+	static uint8_t atleast(const size_t first, const size_t second) noexcept {
+		// Разность чисел: старший разряд единичен при первом меньшем второго
+		const uint64_t diff = (static_cast <uint64_t> (first) - static_cast <uint64_t> (second));
+		// Выводим маску: обращённый старший разряд, размноженный на весь байт
+		return static_cast <uint8_t> (0xFF & (0 - ((~diff) >> 63)));
+	}
+	/**
+	 * @brief Метод счёта сжатий хеша с блоком в 64 байта, покрывающих имитовставку HMAC
+	 *
+	 * @param length длина сообщения имитовставки без ключевого блока
+	 *
+	 * @return       число сжатий внутреннего хеша HMAC
+	 *
+	 * @details Внутренний хеш HMAC обрабатывает блок ключа, сообщение, байт дополнения и
+	 *          восемь байтов длины; число сжатий есть их сумма, округлённая вверх до блока
+	 *
+	 */
+	static size_t compressions(const size_t length) noexcept {
+		// Выводим число сжатий, покрывающих ключевой блок, сообщение и дополнение
+		return ((CBC_COMPRESSION + length + CBC_TRAILER + (CBC_COMPRESSION - 1)) / CBC_COMPRESSION);
 	}
 };
 
@@ -320,8 +428,44 @@ bool nts::protect::legacy(const suite_t suite) noexcept {
 size_t nts::protect::prefix(const suite_t suite) noexcept {
 	// Получаем описание набора шифрования
 	const Sample * sample = search(suite);
+	// Если набор неизвестен либо принадлежит изданию TLS 1.3
+	if((sample == nullptr) || !sample->legacy)
+		// Выводим отсутствие явной части
+		return 0;
+	// Раздел 6.2.3.2 RFC 5246: у наборов CBC явный вектор замены длиною в блок идёт перед шифртекстом
+	if(sample->mac != digest::hash_t::NONE)
+		// Выводим длину явного вектора замены
+		return CBC_BLOCK;
 	// Раздел 3 RFC 5288: явная часть есть лишь у AES-GCM издания TLS 1.2; у ChaCha20-Poly1305 её нет (раздел 2 RFC 7905)
-	return (((sample != nullptr) && sample->legacy && !sample->stream) ? LEGACY_EXPLICIT : 0);
+	return (sample->stream ? 0 : LEGACY_EXPLICIT);
+}
+/**
+ * @brief Метод получения способа обмена ключами набора шифрования TLS 1.2
+ *
+ * @param suite набор шифрования
+ *
+ * @return      способ обмена ключами, NONE у наборов TLS 1.3 и у неизвестного набора
+ *
+ */
+nts::protect::exchange_t nts::protect::exchange(const suite_t suite) noexcept {
+	// Получаем описание набора шифрования
+	const Sample * sample = search(suite);
+	// Выводим способ обмена ключами набора шифрования
+	return ((sample != nullptr) ? sample->exchange : exchange_t::NONE);
+}
+/**
+ * @brief Метод получения хеша имитовставки набора шифрования CBC
+ *
+ * @param suite набор шифрования
+ *
+ * @return      хеш имитовставки записи, NONE у наборов AEAD и у неизвестного набора
+ *
+ */
+nts::digest::hash_t nts::protect::mac(const suite_t suite) noexcept {
+	// Получаем описание набора шифрования
+	const Sample * sample = search(suite);
+	// Выводим хеш имитовставки набора шифрования
+	return ((sample != nullptr) ? sample->mac : digest::hash_t::NONE);
 }
 /**
  * @brief Метод получения алгоритма подписи, требуемого набором шифрования TLS 1.2
@@ -540,6 +684,21 @@ uint64_t nts::protect::Protection::sequence() const noexcept {
  *
  */
 bool nts::protect::Protection::start(const suite_t suite, const view_t & key, const view_t & vector) noexcept {
+	// Выводим итог установки ключевого материала без ключа имитовставки
+	return this->start(suite, key, vector, view_t(nullptr, 0));
+}
+/**
+ * @brief Метод установки ключевого материала направления связи набора CBC
+ *
+ * @param suite  устанавливаемый набор шифрования
+ * @param key    ключ шифрования направления связи
+ * @param vector вектор замены направления связи: у наборов CBC пуст
+ * @param mac    ключ имитовставки направления связи длиною в хеш набора
+ *
+ * @return       признак успешности установки ключевого материала
+ *
+ */
+bool nts::protect::Protection::start(const suite_t suite, const view_t & key, const view_t & vector, const view_t & mac) noexcept {
 	// Выполняем сброс прежнего ключевого материала
 	this->clear();
 	// Получаем описание набора шифрования
@@ -552,10 +711,31 @@ bool nts::protect::Protection::start(const suite_t suite, const view_t & key, co
 	if((key.data == nullptr) || (key.size != sample->key))
 		// Выводим отказ установки ключевого материала
 		return false;
-	// Если вектор замены не передан либо не сходится длиной с вектором набора
-	if((vector.data == nullptr) || (vector.size != sample->size))
+	// Если вектор замены не сходится длиной с вектором набора либо объявлен непустым, но не передан
+	if((vector.size != sample->size) || ((vector.size > 0) && (vector.data == nullptr)))
 		// Выводим отказ установки ключевого материала
 		return false;
+	// Длина ключа имитовставки набора: длина хеша имитовставки, ноль у наборов AEAD
+	const size_t width = digest::length(sample->mac);
+	// Если ключ имитовставки не сходится длиной с хешем набора либо объявлен непустым, но не передан
+	if((mac.size != width) || ((mac.size > 0) && (mac.data == nullptr)))
+		// Выводим отказ установки ключевого материала
+		return false;
+	/**
+	 * Заслон Lucky13 считает сжатия хеша блоком CBC_COMPRESSION: хеш имитовставки с иным
+	 * блоком сжатия выравнивался бы неверно, и набор с таким хешем связью не ведётся
+	 */
+	if((width > 0) && (digest::block(sample->mac) != CBC_COMPRESSION))
+		// Выводим отказ установки ключевого материала
+		return false;
+	// Запоминаем признак набора CBC
+	this->_cbc = (sample->mac != digest::hash_t::NONE);
+	// Запоминаем хеш имитовставки набора
+	this->_digest = sample->mac;
+	// Если ключ имитовставки положен набору
+	if(width > 0)
+		// Переносим ключ имитовставки направления связи
+		::memcpy(this->_mac, mac.data, width);
 	// Запоминаем набор шифрования направления связи
 	this->_suite = suite;
 	// Запоминаем длину вектора замены набора шифрования
@@ -574,8 +754,10 @@ bool nts::protect::Protection::start(const suite_t suite, const view_t & key, co
 	this->_limit = sample->limit;
 	// Переносим корневой ключ направления связи
 	::memcpy(this->_key, key.data, key.size);
-	// Переносим вектор замены направления связи
-	::memcpy(this->_vector, vector.data, vector.size);
+	// Если вектор замены положен набору
+	if(vector.size > 0)
+		// Переносим вектор замены направления связи
+		::memcpy(this->_vector, vector.data, vector.size);
 	// Описание базового шифра первой записи
 	cipher::block_t block;
 	// Если базовый шифр к первой записи подготовить не удалось
@@ -619,6 +801,14 @@ void nts::protect::Protection::clear() noexcept {
 	this->_stream = false;
 	// Сбрасываем признак набора издания TLS 1.2
 	this->_legacy = false;
+	// Сбрасываем признак набора CBC
+	this->_cbc = false;
+	// Сбрасываем порядок «шифрование, затем имитовставка»
+	this->_etm = false;
+	// Сбрасываем хеш имитовставки набора
+	this->_digest = digest::hash_t::NONE;
+	// Выполняем затирание ключа имитовставки направления связи
+	wipe(this->_mac, sizeof(this->_mac));
 	// Сбрасываем порядковый номер очередной записи
 	this->_sequence = 0;
 	// Сбрасываем наибольший порядковый номер записи
@@ -1074,22 +1264,17 @@ nts::protect::error_t nts::protect::Protection::wrap(const record::type_t type, 
 	header.type = type;
 	// Устанавливаем издание протокола защищённой записи
 	header.version = record::version_t::TLS12;
-	// Устанавливаем длину содержимого защищённой записи: явная часть, шифртекст и метка
-	header.size = (((this->_stream ? 0 : LEGACY_EXPLICIT)) + total + this->_tag);
 	// Место, в которое записывается заголовок защищённой записи
 	uint8_t written[record::RECORD_HEADER];
-	// Если заголовок защищённой записи составить не удалось
-	if(record::build(header, written) != record::error_t::NONE)
-		// Выводим отказ наложения защиты
-		return error_t::LENGTH;
 	// Смещение защищённой записи в накопителе
 	const size_t offset = result.size();
 	/**
-	 * Выполняем складывание заголовка защищённой записи в накопитель
+	 * Выполняем складывание места под заголовок защищённой записи в накопитель: длина
+	 * содержимого у наборов CBC известна лишь по наложении защиты (дополнение до блока)
 	 */
 	try {
-		// Переносим заголовок защищённой записи
-		result.insert(result.end(), written, written + record::RECORD_HEADER);
+		// Занимаем место под заголовок защищённой записи
+		result.resize(offset + record::RECORD_HEADER, 0);
 	/**
 	 * Если памяти под накопитель не хватило
 	 */
@@ -1106,6 +1291,17 @@ nts::protect::error_t nts::protect::Protection::wrap(const record::type_t type, 
 		// Выводим отказ наложения защиты
 		return outcome;
 	}
+	// Устанавливаем длину содержимого защищённой записи: явная часть, шифртекст и метка
+	header.size = (result.size() - offset - record::RECORD_HEADER);
+	// Если заголовок защищённой записи составить не удалось
+	if(record::build(header, written) != record::error_t::NONE){
+		// Возвращаем накопитель к прежней длине
+		result.resize(offset);
+		// Выводим отказ наложения защиты
+		return error_t::LENGTH;
+	}
+	// Переносим заголовок защищённой записи на занятое место
+	::memcpy(result.data() + offset, written, record::RECORD_HEADER);
 	// Увеличиваем порядковый номер очередной записи
 	this->_sequence++;
 	// Выводим успешность наложения защиты на запись
@@ -1150,6 +1346,10 @@ nts::protect::error_t nts::protect::Protection::wrap(const uint64_t sequence, co
 	if((total == 0) && !record::empty(type))
 		// Выводим отказ наложения защиты
 		return error_t::LENGTH;
+	// Если набор шифрования - набор CBC: запись складывается по разделу 6.2.3.2 RFC 5246
+	if(this->_cbc)
+		// Выводим итог наложения защиты на запись набора CBC
+		return this->chain(sequence, version, type, data, result);
 	/**
 	 * Раздел 3 RFC 5288: у AES-GCM перед шифртекстом идёт явная часть одноразового
 	 * значения в восемь байтов; у ChaCha20-Poly1305 (раздел 2 RFC 7905) явной части нет
@@ -1300,6 +1500,10 @@ nts::protect::error_t nts::protect::Protection::unwrap(const uint64_t sequence, 
 	if(data.data == nullptr)
 		// Выводим отказ снятия защиты
 		return error_t::LENGTH;
+	// Если набор шифрования - набор CBC: запись разбирается по разделу 6.2.3.2 RFC 5246
+	if(this->_cbc)
+		// Выводим итог снятия защиты с записи набора CBC
+		return this->unchain(sequence, version, type, data, result);
 	// Длина явной части одноразового значения, идущей перед шифртекстом
 	const size_t prefix = (this->_stream ? 0 : LEGACY_EXPLICIT);
 	// Если содержимое записи короче явной части и метки целостности
@@ -1397,14 +1601,419 @@ nts::protect::error_t nts::protect::Protection::unwrap(const uint64_t sequence, 
 	return outcome;
 }
 /**
+ * @brief Метод установки порядка «шифрование, затем имитовставка»
+ *
+ * @param etm ведётся ли защита записей CBC по RFC 7366
+ *
+ */
+void nts::protect::Protection::etm(const bool etm) noexcept {
+	// Запоминаем порядок защиты записей CBC
+	this->_etm = etm;
+}
+/**
+ * @brief Метод проверки порядка «шифрование, затем имитовставка»
+ *
+ * @return признак защиты записей CBC по RFC 7366
+ *
+ */
+bool nts::protect::Protection::etm() const noexcept {
+	// Выводим порядок защиты записей CBC
+	return this->_etm;
+}
+/**
+ * @brief Метод наложения защиты на запись набора CBC
+ *
+ * @param sequence порядковый номер записи в связанных данных
+ * @param version  издание протокола из заголовка записи по проводу
+ * @param type     вид содержимого защищаемой записи
+ * @param data     защищаемое содержимое записи
+ * @param result   накопитель, в конец которого дописываются вектор замены, шифртекст и имитовставка
+ *
+ * @return         отказ наложения защиты на запись
+ *
+ */
+nts::protect::error_t nts::protect::Protection::chain(const uint64_t sequence, const record::version_t version, const record::type_t type, const view_t & data, vector <uint8_t> & result) noexcept {
+	// Длина защищаемого содержимого записи
+	const size_t total = ((data.data != nullptr) ? data.size : 0);
+	// Длина имитовставки набора
+	const size_t width = digest::length(this->_digest);
+	// Описание базового шифра записи
+	cipher::block_t block;
+	// Выполняем подготовку базового шифра к защите записи
+	const error_t error = this->prepare(sequence, block);
+	// Если базовый шифр подготовить не удалось
+	if(error != error_t::NONE)
+		// Выводим отказ наложения защиты
+		return error;
+	// Место, в которое помещается явный вектор замены записи
+	uint8_t iv[CBC_BLOCK];
+	// Раздел 6.2.3.2 RFC 5246: вектор замены случаен на всякую запись и непредсказуем
+	if(!entropy::bytes(iv, sizeof(iv)))
+		// Выводим отказ базового шифра
+		return error_t::CIPHER;
+	/**
+	 * Раздел 6.2.3.2 RFC 5246: в порядке MAC-then-encrypt шифруются содержимое, имитовставка
+	 * и дополнение; раздел 2 RFC 7366: в порядке encrypt-then-MAC шифруются содержимое и
+	 * дополнение, а имитовставка кладётся поверх вектора замены и шифртекста
+	 */
+	const size_t inner = (total + (this->_etm ? 0 : width) + 1);
+	// Длина дополнения без байта длины: до кратного блоку
+	const size_t padding = ((CBC_BLOCK - (inner % CBC_BLOCK)) % CBC_BLOCK);
+	// Длина шифруемого текста
+	const size_t length = (inner + padding);
+	// Смещение защищённой записи в накопителе
+	const size_t offset = result.size();
+	// Итог наложения защиты на запись
+	error_t outcome = error_t::NONE;
+	/**
+	 * Открытый текст записи складывается в памяти: длина его задана содержимым, и памяти
+	 * под неё может не хватить
+	 */
+	try {
+		// Открытый текст записи: содержимое, имитовставка (MAC-then-encrypt) и дополнение
+		vector <uint8_t> plain(length, static_cast <uint8_t> (padding));
+		// Если содержимое записи передано
+		if(total > 0)
+			// Переносим содержимое записи в открытый текст
+			::memcpy(plain.data(), data.data, total);
+		// Место, в которое помещаются связанные данные записи
+		uint8_t associated[LEGACY_ASSOCIATED];
+		// Объект выработки имитовставки записи
+		digest::mac_t mac;
+		// Если ключ имитовставки установить не удалось
+		if(!mac.start(this->_digest, view_t(this->_mac, width)))
+			// Выводим отказ базового шифра
+			return error_t::CIPHER;
+		// Если порядок «имитовставка, затем шифрование»
+		if(!this->_etm){
+			// Составляем связанные данные записи с длиной содержимого: раздел 6.2.3.1 RFC 5246
+			this->associate(sequence, type, version, total, associated);
+			// Подаём связанные данные имитовставке
+			mac.update(view_t(associated, sizeof(associated)));
+			// Подаём содержимое записи имитовставке
+			mac.update(view_t(plain.data(), total));
+			// Если имитовставку над содержимым снять не удалось
+			if(!mac.finish(plain.data() + total, width)){
+				// Выполняем затирание открытого текста записи
+				wipe(plain.data(), plain.size());
+				// Выводим отказ базового шифра
+				return error_t::CIPHER;
+			}
+		}
+		// Занимаем место под вектор замены, шифртекст и имитовставку (encrypt-then-MAC)
+		result.resize(offset + CBC_BLOCK + length + (this->_etm ? width : 0), 0);
+		// Переносим явный вектор замены
+		::memcpy(result.data() + offset, iv, sizeof(iv));
+		// Объект режима простой замены с зацеплением
+		cipher::chaining_t chaining;
+		// Если режим запустить либо зашифровать открытый текст не удалось
+		if(!chaining.start(block, view_t(iv, sizeof(iv))) || !chaining.encrypt(view_t(plain.data(), plain.size()), result.data() + offset + CBC_BLOCK)){
+			// Возвращаем накопитель к прежней длине
+			result.resize(offset);
+			// Запоминаем отказ базового шифра
+			outcome = error_t::CIPHER;
+		// Если порядок «шифрование, затем имитовставка»
+		} else if(this->_etm) {
+			// Составляем связанные данные записи с длиной вектора замены и шифртекста: раздел 2 RFC 7366
+			this->associate(sequence, type, version, (CBC_BLOCK + length), associated);
+			// Подаём связанные данные имитовставке
+			mac.update(view_t(associated, sizeof(associated)));
+			// Подаём вектор замены и шифртекст имитовставке
+			mac.update(view_t(result.data() + offset, (CBC_BLOCK + length)));
+			// Если имитовставку над шифртекстом снять не удалось
+			if(!mac.finish(result.data() + offset + CBC_BLOCK + length, width)){
+				// Возвращаем накопитель к прежней длине
+				result.resize(offset);
+				// Запоминаем отказ базового шифра
+				outcome = error_t::CIPHER;
+			}
+		}
+		// Выполняем затирание открытого текста записи
+		wipe(plain.data(), plain.size());
+	/**
+	 * Если памяти под открытый текст либо накопитель не хватило
+	 */
+	} catch(const std::bad_alloc &) {
+		// Запоминаем отказ нехватки памяти
+		outcome = error_t::MEMORY;
+	}
+	// Выводим итог наложения защиты на запись
+	return outcome;
+}
+/**
+ * @brief Метод снятия защиты с записи набора CBC
+ *
+ * @param sequence порядковый номер записи в связанных данных
+ * @param version  издание протокола из заголовка записи по проводу
+ * @param type     вид содержимого записи из её заголовка
+ * @param data     защищённое содержимое записи: вектор замены, шифртекст и имитовставка
+ * @param result   накопитель, в конец которого дописывается открытое содержимое записи
+ *
+ * @return         отказ снятия защиты с записи
+ *
+ */
+nts::protect::error_t nts::protect::Protection::unchain(const uint64_t sequence, const record::version_t version, const record::type_t type, const view_t & data, vector <uint8_t> & result) noexcept {
+	// Длина имитовставки набора
+	const size_t width = digest::length(this->_digest);
+	/**
+	 * Раздел 6.2.3.2 RFC 5246: за вектором замены идёт шифртекст целым числом блоков, в
+	 * порядке MAC-then-encrypt не короче имитовставки с байтом длины дополнения; раздел 2
+	 * RFC 7366: в порядке encrypt-then-MAC имитовставка идёт открытой за шифртекстом
+	 */
+	const size_t least = (CBC_BLOCK + (this->_etm ? (CBC_BLOCK + width) : (width + 1)));
+	// Если содержимое записи короче наименьшего дозволенного
+	if(data.size < least)
+		// Выводим отказ снятия защиты
+		return error_t::LENGTH;
+	// Длина шифртекста без вектора замены и открытой имитовставки
+	const size_t length = (data.size - CBC_BLOCK - (this->_etm ? width : 0));
+	// Если шифртекст не кратен блоку
+	if((length % CBC_BLOCK) != 0)
+		// Выводим отказ снятия защиты
+		return error_t::LENGTH;
+	// Раздел 6.2.3.2 RFC 5246: содержимое, имитовставка и дополнение не шире 2^14 + 2048 байтов
+	if(length > (record::RECORD_PLAINTEXT + CBC_PADDING + width))
+		// Выводим отказ снятия защиты
+		return error_t::LENGTH;
+	// Описание базового шифра записи
+	cipher::block_t block;
+	// Выполняем подготовку базового шифра к снятию защиты
+	const error_t error = this->prepare(sequence, block);
+	// Если базовый шифр подготовить не удалось
+	if(error != error_t::NONE)
+		// Выводим отказ снятия защиты
+		return error;
+	// Место, в которое помещаются связанные данные записи
+	uint8_t associated[LEGACY_ASSOCIATED];
+	// Место, в которое помещается ожидаемая имитовставка записи
+	uint8_t expected[PROTECT_MAC];
+	// Обнуляем ожидаемую имитовставку
+	::memset(expected, 0, sizeof(expected));
+	// Если порядок «шифрование, затем имитовставка»: раздел 2 RFC 7366 велит сличать имитовставку прежде расшифрования
+	if(this->_etm){
+		// Объект выработки имитовставки записи
+		digest::mac_t mac;
+		// Если ключ имитовставки установить не удалось
+		if(!mac.start(this->_digest, view_t(this->_mac, width)))
+			// Выводим отказ базового шифра
+			return error_t::CIPHER;
+		// Составляем связанные данные записи с длиной вектора замены и шифртекста
+		this->associate(sequence, type, version, (CBC_BLOCK + length), associated);
+		// Подаём связанные данные имитовставке
+		mac.update(view_t(associated, sizeof(associated)));
+		// Подаём вектор замены и шифртекст имитовставке
+		mac.update(view_t(data.data, (CBC_BLOCK + length)));
+		// Если ожидаемую имитовставку снять не удалось
+		if(!mac.finish(expected, width)){
+			// Выполняем затирание ожидаемой имитовставки
+			wipe(expected, sizeof(expected));
+			// Выводим отказ базового шифра
+			return error_t::CIPHER;
+		}
+		// Если принятая имитовставка не сошлась с ожидаемой: сличение за постоянное время
+		if(!message::compare(view_t(data.data + CBC_BLOCK + length, width), view_t(expected, width))){
+			// Выполняем затирание ожидаемой имитовставки
+			wipe(expected, sizeof(expected));
+			// Выводим отказ метки целостности
+			return error_t::TAG;
+		}
+	}
+	// Итог снятия защиты с записи
+	error_t outcome = error_t::NONE;
+	/**
+	 * Открытый текст записи складывается в памяти: длина его задана записью, и памяти
+	 * под неё может не хватить
+	 */
+	try {
+		// Открытый текст записи: содержимое, имитовставка и дополнение
+		vector <uint8_t> plain(length, 0);
+		// Объект режима простой замены с зацеплением
+		cipher::chaining_t chaining;
+		// Если режим запустить либо расшифровать шифртекст не удалось
+		if(!chaining.start(block, view_t(data.data, CBC_BLOCK)) || !chaining.decrypt(view_t(data.data + CBC_BLOCK, length), plain.data())){
+			// Выполняем затирание открытого текста записи
+			wipe(plain.data(), plain.size());
+			// Выполняем затирание ожидаемой имитовставки
+			wipe(expected, sizeof(expected));
+			// Выводим отказ базового шифра
+			return error_t::CIPHER;
+		}
+		// Длина открытого содержимого записи
+		size_t total = 0;
+		// Снимаем дополнение и имитовставку за постоянное время: одна маска решает судьбу записи
+		const uint8_t good = this->uncover(sequence, version, type, plain.data(), length, total);
+		// Если дополнение либо имитовставка не сошлись
+		if(good != 0xFF)
+			// Запоминаем отказ метки целостности
+			outcome = error_t::TAG;
+		// Раздел 6.2.1 RFC 5246: открытое содержимое записи не шире 2^14 байтов
+		else if(total > record::RECORD_PLAINTEXT)
+			// Запоминаем отказ длины
+			outcome = error_t::LENGTH;
+		// Если содержимое пусто, а вид записи пустоты не дозволяет
+		else if((total == 0) && !record::empty(type))
+			// Запоминаем отказ длины
+			outcome = error_t::LENGTH;
+		// Если защита снята
+		else
+			// Складываем открытое содержимое записи в накопитель
+			result.insert(result.end(), plain.data(), (plain.data() + total));
+		// Выполняем затирание открытого текста записи
+		wipe(plain.data(), plain.size());
+	/**
+	 * Если памяти под открытый текст либо накопитель не хватило
+	 */
+	} catch(const std::bad_alloc &) {
+		// Запоминаем отказ нехватки памяти
+		outcome = error_t::MEMORY;
+	}
+	// Выполняем затирание ожидаемой имитовставки
+	wipe(expected, sizeof(expected));
+	// Выводим итог снятия защиты с записи
+	return outcome;
+}
+/**
+ * @brief Метод снятия дополнения и имитовставки с расшифрованного текста записи CBC за постоянное время
+ *
+ * @param sequence порядковый номер записи
+ * @param version  издание протокола из заголовка записи
+ * @param type     вид содержимого записи
+ * @param plain    расшифрованный текст записи: содержимое, имитовставка (MAC-then-encrypt) и дополнение
+ * @param length   длина расшифрованного текста
+ * @param total    место, в которое помещается длина открытого содержимого
+ *
+ * @return         маска годности: 0xFF при сошедшихся дополнении и имитовставке, 0x00 иначе
+ *
+ * @details Таблица масок суждения, все за постоянное время:
+ *          - good    = atleast(length, padding + 1 + covered): дополнение с байтом длины и имитовставкой умещается;
+ *          - inside  = atleast(declared, i): байт с номером i от конца входит в дополнение;
+ *          - same(plain[length - 1 - i], declared) | ~inside: байт дополнения равен длине либо в дополнение не входит;
+ *          - same(j, total + k): байт открытого текста с номером j лежит на месте байта k имитовставки;
+ *          - same(diff, 0): ожидаемая и принятая имитовставки сошлись по всем байтам.
+ *          Ветвей по секрету нет: перебор дополнения идёт по окну в CBC_PADDING байтов, извлечение
+ *          имитовставки - по окну в MAC + CBC_PADDING байтов, а сжатия хеша выравниваются холостыми
+ *
+ */
+uint8_t nts::protect::Protection::uncover(const uint64_t sequence, const record::version_t version, const record::type_t type, const uint8_t * plain, const size_t length, size_t & total) noexcept {
+	// Длина имитовставки набора
+	const size_t width = digest::length(this->_digest);
+	// Длина дополнения без байта длины: последний байт открытого текста
+	const size_t padding = plain[length - 1];
+	// Длина хвоста, покрываемого дополнением: имитовставка при MAC-then-encrypt
+	const size_t covered = (this->_etm ? 0 : width);
+	/**
+	 * Раздел 6.2.3.2 RFC 5246: дополнение с байтом длины и имитовставкой обязано
+	 * умещаться в открытый текст; суждение идёт под маской без ранних выходов, чтобы
+	 * время не выдавало длину дополнения (Lucky13)
+	 */
+	uint8_t good = atleast(length, (padding + 1 + covered));
+	// Длина дополнения, обращённая в ноль при негодной: дальнейшие расчёты идут по ней
+	const size_t declared = (padding & good);
+	// Наибольшее число байтов дополнения, доступных сверке: не дальше начала открытого текста
+	const size_t scope = ((length < CBC_PADDING) ? length : CBC_PADDING);
+	/**
+	 * Выполняем сверку всех байтов дополнения: раздел 6.2.3.2 RFC 5246 велит сверять
+	 * каждый байт, а перебор идёт по всему окну независимо от длины дополнения
+	 */
+	for(size_t i = 1; i < scope; i++){
+		// Маска «байт входит в дополнение»: номер с конца не больше объявленной длины
+		const uint8_t inside = atleast(declared, i);
+		// Учитываем расхождение байта дополнения с объявленной длиной под маской
+		good = static_cast <uint8_t> (good & (same(plain[length - 1 - i], declared) | static_cast <uint8_t> (~inside)));
+	}
+	// Вычисляем длину открытого содержимого записи
+	total = (length - declared - 1 - covered);
+	// Если порядок «шифрование, затем имитовставка»: имитовставка сличена до расшифрования
+	if(this->_etm)
+		// Выводим маску годности дополнения
+		return good;
+	// Место, в которое помещаются связанные данные записи
+	uint8_t associated[LEGACY_ASSOCIATED];
+	// Место, в которое помещается ожидаемая имитовставка записи
+	uint8_t expected[PROTECT_MAC];
+	// Место, в которое помещается принятая имитовставка записи
+	uint8_t received[PROTECT_MAC];
+	// Обнуляем ожидаемую имитовставку
+	::memset(expected, 0, sizeof(expected));
+	// Обнуляем принятую имитовставку
+	::memset(received, 0, sizeof(received));
+	// Объект выработки имитовставки записи
+	digest::mac_t mac;
+	// Маска «имитовставка выработана»: отказ ключа либо хеша обращает годность в ноль
+	uint8_t produced = static_cast <uint8_t> (0 - static_cast <uint8_t> (mac.start(this->_digest, view_t(this->_mac, width))));
+	// Составляем связанные данные записи с длиной содержимого
+	this->associate(sequence, type, version, total, associated);
+	// Подаём связанные данные имитовставке
+	mac.update(view_t(associated, sizeof(associated)));
+	// Подаём содержимое записи имитовставке
+	mac.update(view_t(plain, total));
+	// Учитываем выработку ожидаемой имитовставки
+	produced = static_cast <uint8_t> (produced & static_cast <uint8_t> (0 - static_cast <uint8_t> (mac.finish(expected, width))));
+	/**
+	 * Число сжатий хеша зависит от длины содержимого, а она секретна: недостающие до
+	 * наибольшей длины сжатия отрабатываются вхолостую, и время выработки имитовставки
+	 * перестаёт выдавать длину дополнения (RFC 7366 раздел 2 отсылает к тому же приёму)
+	 */
+	const size_t extra = (compressions(LEGACY_ASSOCIATED + (length - 1 - covered)) - compressions(LEGACY_ASSOCIATED + total));
+	// Объект холостого хеширования
+	digest::hasher_t idle(this->_digest);
+	// Блок холостого хеширования
+	const uint8_t filler[CBC_COMPRESSION] = {0};
+	/**
+	 * Выполняем холостые сжатия хеша
+	 */
+	for(size_t i = 0; i < extra; i++)
+		// Подаём блок холостому хешированию
+		idle.update(view_t(filler, sizeof(filler)));
+	// Место, в которое помещается итог холостого хеширования
+	uint8_t discarded[PROTECT_MAC];
+	// Снимаем итог холостого хеширования: он никуда не идёт
+	(void) idle.finish(discarded, width);
+	/**
+	 * Начало окна извлечения принятой имитовставки: наибольшая длина дополнения с байтом
+	 * длины и имитовставкой от конца открытого текста; длина окна зависит лишь от длины
+	 * записи, а место имитовставки внутри окна - секрет
+	 */
+	const size_t window = ((length > (width + CBC_PADDING)) ? (length - width - CBC_PADDING) : 0);
+	/**
+	 * Выполняем извлечение принятой имитовставки перебором окна под маской совпадения номера
+	 */
+	for(size_t j = window; j < length; j++){
+		/**
+		 * Выполняем перебор байтов имитовставки
+		 */
+		for(size_t k = 0; k < width; k++)
+			// Учитываем байт открытого текста под маской совпадения номера
+			received[k] = static_cast <uint8_t> (received[k] | (plain[j] & same(j, (total + k))));
+	}
+	// Маска расхождения имитовставок
+	uint8_t diff = 0;
+	/**
+	 * Выполняем сличение имитовставок за постоянное время
+	 */
+	for(size_t k = 0; k < width; k++)
+		// Накапливаем расхождение очередных байтов
+		diff = static_cast <uint8_t> (diff | (expected[k] ^ received[k]));
+	// Учитываем схождение имитовставок и их выработку в итоговом признаке
+	good = static_cast <uint8_t> (good & same(diff, 0) & produced);
+	// Выполняем затирание ожидаемой имитовставки
+	wipe(expected, sizeof(expected));
+	// Выполняем затирание принятой имитовставки
+	wipe(received, sizeof(received));
+	// Выводим маску годности записи
+	return good;
+}
+/**
  * @brief Конструктор
  *
  */
-nts::protect::Protection::Protection() noexcept : _ready(false), _suite(suite_t::NONE), _size(0), _tag(0), _width(0), _classic(false), _stream(false), _legacy(false), _sequence(0), _limit(0), _derived(0) {
+nts::protect::Protection::Protection() noexcept : _ready(false), _suite(suite_t::NONE), _size(0), _tag(0), _width(0), _classic(false), _stream(false), _legacy(false), _cbc(false), _etm(false), _digest(digest::hash_t::NONE), _sequence(0), _limit(0), _derived(0) {
 	// Обнуляем корневой ключ направления связи
 	::memset(this->_key, 0, sizeof(this->_key));
 	// Обнуляем вектор замены направления связи
 	::memset(this->_vector, 0, sizeof(this->_vector));
+	// Обнуляем ключ имитовставки направления связи
+	::memset(this->_mac, 0, sizeof(this->_mac));
 }
 /**
  * @brief Деструктор

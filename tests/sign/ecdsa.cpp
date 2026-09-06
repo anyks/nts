@@ -765,13 +765,14 @@ TEST(EcdsaTest, Starved) {
 			outcome = sign::encode(view_t(raw, sizeof(raw)), der);
 		}
 		// Если запись удалась, она обязана совпасть с записью openssl
-		if(outcome)
+		if(outcome){
 			// Сличаем запись с записью, снятой с openssl
 			ASSERT_EQ(text(der.data(), der.size()), std::string(DER256)) << "запас " << budget;
 		// Если запись отказала, место обязано остаться пустым
-		else
+		} else {
 			// Проверяем пустоту места записи
 			ASSERT_TRUE(der.empty()) << "запас " << budget;
+		}
 		// Запоминаем удавшуюся запись
 		succeeded = (succeeded || outcome);
 		// Запоминаем объявленный отказ памяти
@@ -824,6 +825,9 @@ static void openssl(const char * name, const char * oid, const digest::hash_t al
 	// Если openssl старого издания напечатал скаляр с ведущим нулевым байтом (1.0.2 так делает), снимаем его
 	if((secret.size() == ((size * 2) + 2)) && (secret.compare(0, 2, "00") == 0))
 		secret.erase(0, 2);
+	// Если openssl напечатал скаляр без ведущих нулевых байтов (так печатается число, а не поле фиксированной ширины), дополняем слева
+	if((secret.size() < (size * 2)) && ((secret.size() % 2) == 0))
+		secret.insert(0, (size * 2) - secret.size(), '0');
 	// Проверяем длину ключа подписи и ключа проверки
 	ASSERT_EQ(secret.size(), size * 2) << "Кривая: " << name << " ключ: " << output;
 	ASSERT_EQ(point.size(), (size * 4) + 2) << "Кривая: " << name << " ключ: " << output;

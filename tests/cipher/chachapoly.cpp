@@ -17,6 +17,7 @@
  */
 #include <string>
 #include <vector>
+#include <random>
 #include <cstring>
 #include <algorithm>
 
@@ -25,6 +26,7 @@
  */
 #include <main.hpp>
 #include <starve.hpp>
+#include <sys/machine.hpp>
 #include <cipher/chachapoly.hpp>
 
 /**
@@ -628,4 +630,105 @@ TEST(ChachapolyTest, Starved){
 	ASSERT_TRUE(reverse);
 	// Проверяем схождение открытого текста
 	ASSERT_EQ(opened, p);
+}
+
+/**
+ * Проверка схождения векторного и переносимого путей режима: длины 0…2048 с
+ * невыровненными буферами, шифртекст и метка целиком на пути машины сходятся с
+ * потоком кусками случайной длины переносимым путём в обоих направлениях
+ */
+TEST(ChachapolyTest, Paths){
+	// Разобранные байты ключа и заполнения
+	const std::vector <uint8_t> key = bytes(KEY_282), nonce = bytes(NONCE_282);
+	// Генератор данных и длин кусков с закреплённым зерном
+	std::mt19937 generator(20260906);
+	// Объект режима
+	cipher::chachapoly_t aead;
+	/**
+	 * Выполняем перебор длин
+	 */
+	for(size_t length = 0; length <= 2048; length++){
+		// Смещения буферов от выравнивания
+		const size_t inset = (generator() % 16), outset = (generator() % 16);
+		// Связанные данные случайной длины
+		std::vector <uint8_t> associated(generator() % 40);
+		/**
+		 * Выполняем заполнение связанных данных
+		 */
+		for(size_t i = 0; i < associated.size(); i++)
+			// Записываем очередной байт
+			associated[i] = static_cast <uint8_t> (generator());
+		// Открытый текст с запасом под смещение
+		std::vector <uint8_t> plain(length + 16);
+		/**
+		 * Выполняем заполнение открытого текста
+		 */
+		for(size_t i = 0; i < plain.size(); i++)
+			// Записываем очередной байт
+			plain[i] = static_cast <uint8_t> (generator());
+		// Шифртексты обоих путей и раскрытый текст
+		std::vector <uint8_t> first(length + 16), second(length + 16), opened(length + 16);
+		// Метки обоих путей
+		uint8_t tag[cipher::CHACHAPOLY_TAG], other[cipher::CHACHAPOLY_TAG];
+		// Проверяем зашифрование целиком на пути, выбранном машиной
+		ASSERT_TRUE(aead.start(view_t(key.data(), key.size()), view_t(nonce.data(), nonce.size()))) << "length " << length;
+		// Проверяем зашифрование целиком на пути, выбранном машиной
+		ASSERT_TRUE(aead.encrypt(view_t(associated.data(), associated.size()), view_t(plain.data() + inset, length), first.data() + outset, tag)) << "length " << length;
+		// Запрещаем машинные команды
+		machine::allow(false);
+		// Проверяем запуск потока переносимым путём
+		ASSERT_TRUE(aead.start(view_t(key.data(), key.size()), view_t(nonce.data(), nonce.size()))) << "length " << length;
+		// Проверяем подачу связанных данных
+		ASSERT_TRUE(aead.associate(view_t(associated.data(), associated.size()))) << "length " << length;
+		// Позиция внутри данных
+		size_t position = 0;
+		/**
+		 * Выполняем расшифрование кусками случайной длины
+		 */
+		while(position < length){
+			// Длина очередного куска
+			size_t chunk = (1 + (generator() % 300));
+			// Если кусок длиннее остатка
+			if(chunk > (length - position))
+				// Ограничиваем кусок остатком
+				chunk = (length - position);
+			// Проверяем расшифрование куска
+			ASSERT_TRUE(aead.decrypt(view_t(first.data() + outset + position, chunk), opened.data() + inset + position)) << "length " << length;
+			// Сдвигаем позицию
+			position += chunk;
+		}
+		// Проверяем сличение метки, снятой путём машины, переносимым путём
+		ASSERT_TRUE(aead.verify(view_t(tag, sizeof(tag)))) << "length " << length;
+		// Проверяем возврат открытого текста
+		ASSERT_EQ(::memcmp(opened.data() + inset, plain.data() + inset, length), 0) << "length " << length;
+		// Проверяем запуск потока переносимым путём
+		ASSERT_TRUE(aead.start(view_t(key.data(), key.size()), view_t(nonce.data(), nonce.size()))) << "length " << length;
+		// Проверяем подачу связанных данных
+		ASSERT_TRUE(aead.associate(view_t(associated.data(), associated.size()))) << "length " << length;
+		// Сбрасываем позицию внутри данных
+		position = 0;
+		/**
+		 * Выполняем зашифрование кусками случайной длины
+		 */
+		while(position < length){
+			// Длина очередного куска
+			size_t chunk = (1 + (generator() % 500));
+			// Если кусок длиннее остатка
+			if(chunk > (length - position))
+				// Ограничиваем кусок остатком
+				chunk = (length - position);
+			// Проверяем зашифрование куска
+			ASSERT_TRUE(aead.encrypt(view_t(plain.data() + inset + position, chunk), second.data() + outset + position)) << "length " << length;
+			// Сдвигаем позицию
+			position += chunk;
+		}
+		// Проверяем снятие метки переносимым путём
+		ASSERT_TRUE(aead.finish(other)) << "length " << length;
+		// Возвращаем машинные команды
+		machine::allow(true);
+		// Проверяем схождение шифртекстов обоих путей
+		ASSERT_EQ(::memcmp(first.data() + outset, second.data() + outset, length), 0) << "length " << length;
+		// Проверяем схождение меток обоих путей
+		ASSERT_EQ(::memcmp(tag, other, sizeof(tag)), 0) << "length " << length;
+	}
 }
