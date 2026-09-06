@@ -112,7 +112,7 @@
 | `SSL_CTX_set_default_verify_paths` | `src/cryptography/tls/coder.cpp` ×2 |
 | `SSL_CTX_set_dos_protection_cb` | `src/cryptography/tls/coder.cpp` ×1 |
 | `SSL_CTX_set_ex_data` | `src/cryptography/tls/coder.cpp` ×6 |
-| `SSL_CTX_set_grease_enabled` | `src/cryptography/tls/coder.cpp` ×4 |
+| `SSL_CTX_set_grease_enabled` | `src/cryptography/tls/coder.cpp` ×4 — **закрыто** (06.09.2026): `client::grease(bool)`/`server::grease(bool)`, поведение BoringSSL по RFC 8701, набор `tests/grease` |
 | `SSL_CTX_set_max_proto_version` | `src/cryptography/tls/coder.cpp` ×8 |
 | `SSL_CTX_set_min_proto_version` | `src/cryptography/tls/coder.cpp` ×8 |
 | `SSL_CTX_set_mode` | `src/cryptography/tls/coder.cpp` ×2 |
@@ -439,6 +439,9 @@ BoringSSL (объект контекста, поля ключа и вектор�
 - Предлагаемые группы и группы долей ключа (key_share) - два разных списка.
 - GREASE (RFC 8701): неизвестные значения в перечнях пропускаются молча; своё
   GREASE-значение вставляется снаружи в наборы, группы, схемы и key_share.
+  **Закрыто 06.09.2026** одной ручкой `grease(true)` как у BoringSSL: набор, два
+  расширения, группа, доля и издание у клиента, расширение билета и запроса подлинности
+  у сервера; см. раздел «GREASE по RFC 8701» README и «GREASE по RFC 8701» CONFORMANCE.md.
 - Группы на деле: X25519, secp256r1, secp384r1; P-521, X448, FFDHE, secp256k1 и
   постквантовые отложены. Схемы: 0x0403, 0x0503, 0x0804…0x0806 (SHA-512 нужна), 0x0807.
 - Наборы AWH: 0x1301, 0x1302, 0x1303 в порядке потребителя.
@@ -717,3 +720,100 @@ CBC и encrypt_then_mac: расширение у AWH только в fingerprint
   в проверках задаётся;
 - завершённость обмена с s_client судится по «Verify return code: 0 (ok)» и отсутствию
   отказа у нашего сервера, а не по строке «Cipher :».
+
+## ECH и HPKE: потребности AWH (снято с src/cryptography/tls/coder.cpp 06.09.2026, только чтение)
+
+Места: `member->ech` в `cts_t` (692) и `ctl_t` (730), применение при заведении связи
+(6613-6618, 6808-6813), `getKeysECH` (7460-7530), `setKeysECH` (7536-7860),
+`grease` (8744-8830). Обращений к BoringSSL по ECH: `EVP_HPKE_KEY_new/init/generate/free`,
+`EVP_hpke_x25519_hkdf_sha256`, `SSL_marshal_ech_config`, `SSL_ECH_KEYS_new/add/free`,
+`SSL_ECH_KEYS_marshal_retry_configs`, `SSL_CTX_set1_ech_keys`, `SSL_set1_ech_config_list`,
+`RAND_bytes` (config id). Ни `SSL_ech_accepted`, ни `SSL_get0_ech_retry_configs`, ни
+`SSL_get0_ech_name_override`, ни `SSL_ECH_KEYS_has_duplicate_config_id` AWH не зовёт.
+
+Что AWH делает:
+
+- **Клиент** (CTS и CTL): `setKeysECH(id, bytes)` — довод это готовый **ECHConfigList**
+  байтами (из DNS HTTPS-записи, ключ `ech`), пустой довод у клиента — отказ (`result =
+  false`, без журнала). Список хранится копией в шаблоне контекста (`cts->ech`) и при
+  заведении каждой связи копируется в `ctl->ech` и ставится `SSL_set1_ech_config_list`
+  **до приветствия**; на уровне CTL ставится сразу на `SSL *`. `getKeysECH` у клиента
+  отдаёт те же байты, что были поданы. Разбор списка, выбор конфигурации, набор HPKE — всё
+  на стороне библиотеки: AWH внутрь ECHConfigList не глядит.
+- **Сервер** (только CTS; на CTL — отказ `INVALID_LAYER` «keys must be configured at the
+  context level»): довод `setKeysECH` — либо **32 байта секретного ключа X25519** для
+  `EVP_HPKE_KEY_init(EVP_hpke_x25519_hkdf_sha256)`, либо **пустой** — тогда ключ
+  порождается `EVP_HPKE_KEY_generate`. Дальше AWH сам складывает **один ECHConfig**:
+  `config_id` — один случайный байт `RAND_bytes`, ключ — из HPKE-ключа, **публичное
+  имя** — `member->host`, а при пустом — `"localhost"`; `SSL_marshal_ech_config` заполняет
+  остальное (издание 0xFE0D, KEM 0x0020, набор шифров и наибольшую длину имени — умолчания
+  BoringSSL). Конфигурация кладётся в `SSL_ECH_KEYS` с `is_retry_config = 1` и ставится
+  на контекст `SSL_CTX_set1_ech_keys`. После успеха AWH берёт
+  `SSL_ECH_KEYS_marshal_retry_configs` — **ECHConfigList из конфигураций, помеченных
+  retry**, — и хранит его в `cts->ech`; именно он отдаётся `getKeysECH` для публикации в
+  DNS. Итого у сервера два разных выхода наружу: ключи в контекст (внутрь) и ECHConfigList
+  для DNS (наружу); секретный ключ наружу не отдаётся.
+- **Отказы**: всякий отказ по пути (нет памяти под ключ, ключ не инициализирован, не
+  собрался ECHConfig, не встали ключи на контекст) — отклик `callback.error(id,
+  SNI_FAILED, текст)` либо журнал `CRITICAL`, `result = false`; связь не рвётся, сервер
+  живёт без ECH. Отказ `SSL_ECH_KEYS_marshal_retry_configs` молча оставляет `cts->ech`
+  пустым. Итог принятия ECH в рукопожатии (accepted / retry configs от сервера / имя
+  public_name при откате) AWH **не читает и не обрабатывает**: при отказе ECH связь идёт
+  как обычная с публичным именем, потребитель об этом не узнаёт.
+- **GREASE ECH**: отдельной ручки нет; `grease(id, mode)` включает
+  `SSL_CTX_set_grease_enabled`, и у BoringSSL это же включает GREASE-расширение ECH
+  (0xFE0D со случайным телом) у клиента без настроенного ECHConfigList. Значит, GREASE ECH
+  ожидается как часть общего GREASE (работа A), а не как настройка модуля ECH.
+- **Один ключ, одна конфигурация**: ротации ключей, нескольких конфигураций на сервере и
+  подмены без обрыва связей у AWH нет; `setKeysECH` вызывается один раз при настройке.
+
+Что из этого требуется от A-NTS второй ступенью (ECH поверх `hpke`):
+
+1. Клиент: `client::ech(ECHConfigList байтами)` — разбор списка (RFC 9180 KEM 0x0020,
+   издание ECHConfig 0xFE0D по draft-ietf-tls-esni-18 / RFC 9849), выбор первой
+   поддерживаемой конфигурации, `encrypted_client_hello` с внутренним приветствием,
+   `hpke::sender` в режиме `BASE` с `info = "tls ech" || 0x00 || ECHConfig`; ставится до
+   приветствия и живёт в связи копией.
+2. Сервер: `server::ech(секрет X25519 либо пусто → порождение, публичное имя, config_id)`
+   и `server::ech()` → ECHConfigList для DNS из конфигураций с признаком retry; ключ
+   `hpke::key_t::set`/`generate`; принятие внешнего приветствия, `hpke::recipient`,
+   расшифрование внутреннего, `ech_accept` в `ServerHello.random`; при отказе —
+   `retry_configs` в защищённых расширениях и связь по публичному имени.
+3. Итог наружу, которого у AWH нет, но который нужен для правильного отката: признак
+   «ECH принят» и полученные `retry_configs` у клиента — как `ech()`/`retry()` на фасаде.
+4. GREASE ECH: расширение 0xFE0D со случайным телом при включённом `grease(true)` без
+   настроенного списка — точка стыка с работой A; при профиле отпечатка (работа C) длина
+   тела берётся из профиля.
+5. Модуль `hpke` этой работы всё, что нужно ECH, уже отдаёт: X25519-KEM с заданным и
+   порождённым ключом, `BASE`, три AEAD, `sender`/`recipient` с `info`, `seal`/`open` с
+   порядковыми номерами, `exporter`. Ничего сверх RFC 9180 для ECH не требуется.
+
+Сверка со снятием Григория (передано координатором 06.09.2026): расхождений нет —
+клиенту ECHConfigList целиком байтами до приветствия с копией в связи; серверу ключ HPKE
+X25519 заданный либо порождённый при пустом доводе; ECHConfig складывается с config id,
+ключом и публичным именем; наружу идут только конфигурации с `is_retry_config = 1`, и это
+второй выход, отличный от ключей. Дополнено сверх снятого: публичное имя берётся из
+`member->host` с подменой `"localhost"` при пустом; config id — один случайный байт;
+сервер на CTL отвергается; итог принятия ECH и retry configs от сервера AWH не читает;
+GREASE ECH ждётся от общего `grease`, своей ручки у него нет.
+
+
+### Отпечатки: перенос `awh::tls::Fingerprint` в A-NTS (закрыто 07.09.2026)
+
+Решение владельца 06.09.2026: модуль отпечатков переносится в A-NTS целиком, снимок
+применяется движком «как есть», в AWH модуль удаляется. Потребности AWH (сняты Григорием
+с `coder.cpp` 06.09.2026) и их закрытие:
+
+| Потребность AWH | Закрытие в A-NTS |
+|---|---|
+| `browser(id, fid)`: профиль выбирается числом из хранилища потребителя до рукопожатия (`coder.cpp:6624`) | `client::profile(const fingerprint::profile_t &)` до `start()` (после - `STATE`); хранилище `fingerprint::store_t` оставлено потребителю по желанию |
+| `fingerprint_callback_t(id, browser_t)`: серверу нужен разобранный отпечаток из write-пути (`coder.cpp:8193`) | `server::profile(fingerprint::profile_t &)` с момента приёма приветствия; сырые байты - `server::greeting()` |
+| `FINGERPRINT_FAILED` (0x11): отказ приложения громкий и отдельный | `context::error_t::PROFILE` (0x21): сервер выбрал набор профиля, связи неведомый; профиль не в свой черёд - `STATE`, негодный - `SETTINGS` |
+| `grease(id, browser.grease)`: признак GREASE один на профиль | места и число значений GREASE берутся из снимка, ручка `grease` на профиль не влияет |
+| Сборка ClientHello по кускам в read-пути и `apply()` переписыванием байтов | исчезают: приветствие складывается движком по профилю до отправки; вызовы `threadSafety()` в AWH снимаются вместе с модулем |
+| Профиль только клиенту («supported for the client only») | `server::profile(const profile_t &)` не заводится; установщик серверу отвечает `SETTINGS` |
+| JA3/JA4/PeetPrint/Akamai, дамп, хранилище | `fingerprint::imprint`, `akamai`, `dump`/`load` (переносимый формат вместо порядка машины), `store_t`; JA4 - SHA-256 по FoxIO (у AWH был MD5) |
+
+Долг: доли постквантовых групп (X25519MLKEM768 0x11EC) не вырабатываются - группа
+остаётся в перечне, доля опускается; настоящий ECH (вторая ступень) заменит GREASE ECH
+случайным телом.

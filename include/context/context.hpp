@@ -129,7 +129,8 @@ namespace nts {
 			RENEGOTIATION = 0x1D, /*!< \~russian Собеседник по TLS 1.2 затеял пересогласование, связью не дозволенное \~english The TLS 1.2 interlocutor has started a renegotiation not allowed by the connection \~ */
 			EXHAUSTED   = 0x1E, /*!< \~russian Записи своего направления по TLS 1.2 исчерпали предел ключа: смены ключей у издания нет, связь закрыта извещением close_notify \~english The records of the own direction by TLS 1.2 have exhausted the limit of the key: the edition has no change of the keys, the connection is closed by the close_notify alert \~ */
 			IDENTITY    = 0x1F, /*!< \~russian Опознаватель заранее разделённого ключа клиента серверу неизвестен (RFC 4279, TLS 1.2) \~english The identity of the pre-shared key of the client is unknown to the server (RFC 4279, TLS 1.2) \~ */
-			ETM         = 0x20  /*!< \~russian Собеседник по TLS 1.2 не поддержал порядок encrypt_then_mac RFC 7366 при наборе CBC, а связь его требует \~english The TLS 1.2 interlocutor has not supported the encrypt_then_mac order of RFC 7366 at a CBC suite, while the connection requires it \~ */
+			ETM         = 0x20, /*!< \~russian Собеседник по TLS 1.2 не поддержал порядок encrypt_then_mac RFC 7366 при наборе CBC, а связь его требует \~english The TLS 1.2 interlocutor has not supported the encrypt_then_mac order of RFC 7366 at a CBC suite, while the connection requires it \~ */
+			PROFILE     = 0x21  /*!< \~russian Профиль отпечатка исполнить нельзя: сервер выбрал набор, схему либо группу профиля, связи неведомые, либо профиль задан не в свой черёд \~english The fingerprint profile cannot be fulfilled: the server has selected a suite, a scheme or a group of the profile unknown to the connection, or the profile is set out of turn \~ */
 		};
 
 		/**

@@ -949,8 +949,16 @@ context::error_t nts::internal::Flight::acknowledge(const bool settled) noexcept
 	}
 	// Накопитель, в который складывается тело подтверждения
 	vector <uint8_t> body;
+	// Пустой перечень номеров: подтверждение без номеров
+	static const vector <datagram::number_t> NOTHING;
+	/**
+	 * Перечень берётся ссылкой, а не условным выражением с временным перечнем: то
+	 * копировало бы принятые номера, и копия под нехваткой памяти бросала бы мимо
+	 * перехвата (вскрыто голоданием DtlsTest.Starved при сдвиге номеров выделений)
+	 */
+	const vector <datagram::number_t> & numbers = (listed ? this->_acknowledgeable : NOTHING);
 	// Если тело подтверждения составить не удалось
-	if(datagram::build((listed ? this->_acknowledgeable : vector <datagram::number_t> ()), body) != datagram::error_t::NONE)
+	if(datagram::build(numbers, body) != datagram::error_t::NONE)
 		// Выводим отказ нехватки памяти
 		return context::error_t::MEMORY;
 	// Раздел 7 RFC 9147: подтверждение идёт наивысшей порой записи

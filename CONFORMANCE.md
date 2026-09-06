@@ -1335,7 +1335,7 @@ RFC 8701) пропускаются, свои вставляются снаруж
 | §4.6.1, §4.2.11 | билет пригоден набору с тем же хешем: 0x1301 ↔ 0x1303 возобновляют друг друга, 0x1302 ↔ 0x1303 — полное рукопожатие; сервер перевыбирает набор под хеш билета среди предложенных клиентом, упреждающие данные идут ключами набора билета | `offered`, `outgoing` | `ClassicTest.Crossing`, `ClassicTest.Reselect` |
 | §7.1 | расписание хешем набора; переписка ведётся до выбора набора всеми хешами | `schedule`, `session` | `ClassicTest.Rfc8448*`, прежние `SessionTest`/`ScheduleTest` байт в байт |
 | §7.4.2 | общее значение NIST — координата X прямой записью | `derive` | `ClassicTest.Rfc8448Retry` |
-| RFC 8701 | GREASE в наборах, группах, схемах и долях: чужое пропускается, своё вставляется снаружи (доля произвольная) | `known`, `exchange` | `ClassicTest.Grease`, `ClassicTest.Openssl` (перечни потребителя) |
+| RFC 8701 | GREASE в наборах, группах, схемах и долях: чужое пропускается, своё вставляется снаружи (доля произвольная) либо одной ручкой `grease` (раздел «GREASE по RFC 8701» ниже) | `known`, `exchange`, `greased` | `ClassicTest.Grease`, `ClassicTest.Openssl` (перечни потребителя), `GreaseTest.*` (ручка) |
 
 Обмен с настоящим openssl (`ClassicTest.Openssl`): наш клиент против `s_server -www`
 и `s_client` против нашего сервера по четырём ключам (rsa2048, ec256, ec384, ed25519), трём
@@ -1756,6 +1756,61 @@ SHA-1 - обмен ответом в `OcspTest.Request` на таких стен
 покрывал полный разбор - предел поднят до 6000 с шагом 37 после 200, как у второго
 круга. После этого OpenBSD, DragonFly - 56 из 56 туром, OpenWRT - `ocsp` 8 из 8 на
 месте; десять стендов на снимке OCSP + DTLS (до правки по аудиту) чисты.
+
+## GREASE по RFC 8701 (06.09.2026)
+
+Ручка `grease(bool)` у обоих фасадов, по умолчанию выключена; поведение — BoringSSL при
+`SSL_CTX_set_grease_enabled(1)`. Решение о вставке — в одной точке движка `greased()`
+(туда же встанет профиль отпечатка), значения — `greasing(place)` из зерна связи.
+
+| Пункт RFC 8701 | Требование | Где | Проверка |
+| --- | --- | --- | --- |
+| §2 | значения вида `0x?A?A`, шестнадцать штук; в связи — из энтропии, по байту зерна на место; два расширения различны (раздел 4.2 RFC 8446 запрещает повтор вида) | `start` (зерно), `greasing` | `GreaseTest.Places` (вид всех мест), `GreaseTest.Entropy` (различие между связями, различие двух расширений) |
+| §3.1, наборы | набор GREASE первым в `cipher_suites`, иных нет | `greeting` | `GreaseTest.Places` |
+| §3.1, расширения | первое расширение GREASE пустым впереди всех; второе — последним среди расширений потребителя с телом в один нулевой байт; `pre_shared_key` за ним (раздел 4.2.11 RFC 8446); заполнения RFC 7685 у нас нет | `greeting` | `GreaseTest.Places` (без билета и с билетом) |
+| §3.1, группы и доли | группа GREASE первой в `supported_groups`, доля GREASE первой в `key_share` с телом в один байт, группа доли та же | `greeting` | `GreaseTest.Places`, `GreaseTest.Cookie` |
+| §3.1, издания | издание GREASE первым в `supported_versions` | `greeting` | `GreaseTest.Places` |
+| §3.1 + §4.1.2 RFC 8446 | повторное приветствие после просьбы о повторе несёт те же значения на тех же местах; после просьбы с долей — доля по одной запрошенной группе (§4.2.8), доля GREASE снята, как у BoringSSL и как требует openssl; после просьбы одной меткой доли прежние | `greeting` (`_retried && _reshare`), `incoming` | `GreaseTest.Retry` (TLS 1.3, доля запрошена), `GreaseTest.Cookie` (DTLS 1.3, одна метка), `GreaseTest.Openssl13` (повтор против `s_server -groups P-384`), `GreaseTest.Dtls` (повтор по метке HVR) |
+| §3.2, сервер | пустое расширение GREASE первым в `CertificateRequest` и в `NewSessionTicket` за `early_data` (TLS 1.3); у TLS 1.2 расширений там нет | `outgoing` (запрос), `issue` (билет) | `GreaseTest.Server` (по уровням QUIC, сообщения открытые), `GreaseTest.Openssl13` (`s_client` принимает запрос и билет) |
+| §3.3, приём | собеседник GREASE не выбирает; чужие значения пропускаются | `known`, разбор перечней | `ClassicTest.Grease` (прежний), `GreaseTest.Places` (сервер выбрал набор потребителя) |
+| выключено | байты прежние: ни одного значения вида `0x?A?A`, порядок расширений прежний, у сервера запрос и билет без GREASE | `greased` | `GreaseTest.Disabled`, `GreaseTest.Server` (выключенная половина) |
+| обмен | TLS 1.3 напрямую и с повтором, TLS 1.2, DTLS 1.2 против системного openssl | — | `GreaseTest.Openssl13`, `GreaseTest.Openssl12`, `GreaseTest.Dtls` |
+| нехватка памяти | исходы лишь NONE/MEMORY либо обрыв внутренним извещением; на щедром запасе связь и билет | — | `GreaseTest.Starved` |
+
+### Мутации GREASE (06.09.2026)
+
+Каждая мутация ломает одну вставку в `engine.cpp`; набор `grease` обязан упасть.
+
+| Мутация | Что сломано | Итог |
+| --- | --- | --- |
+| suite | набор GREASE не первым, а последним | поймана, 9 отказов |
+| version | издание GREASE не добавляется | поймана, 9 |
+| group | группа GREASE не добавляется | поймана, 15 |
+| share | доля GREASE не добавляется | поймана, 9 |
+| first | первое расширение GREASE не добавляется | поймана, 9 |
+| second | второе расширение GREASE вставлено первым, а не последним | поймана, 9 |
+| request | GREASE запроса подлинности сервера снято | поймана, 3 |
+| ticket | GREASE билета сервера снято | поймана, 3 |
+| value | младшие разряды `0x0B` вместо `0x0A` | поймана, 11 |
+| distinct | разведение второго расширения снято (`^= 0x00`) | поймана, 7 |
+| constant | зерно постоянное `0x5A` вместо энтропии | поймана, 3 (`GreaseTest.Entropy`) |
+
+### Намеренные решения GREASE
+
+* Зерно берётся при заведении связи (`start`), а не в приветствии: так значения одинаковы
+  у первого и повторного приветствия, а у сервера — у запроса подлинности и всех билетов
+  связи. BoringSSL выводит их из `client_random`; у нас зерно своё, и `random` не
+  раскрывает значений.
+* Тело доли GREASE и тело второго расширения — один нулевой байт (`GREASE_STUB`), как у
+  BoringSSL; RFC 8701 содержимого не предписывает.
+* Доля GREASE снимается после просьбы о повторе с долей: раздел 4.2.8 RFC 8446 велит
+  слать долю по одной запрошенной группе, а `openssl s_server` отвечает
+  `illegal_parameter` на всякую иную долю (проверено: до правки `GreaseTest.Openssl13`
+  падала извещением 47). Значение группы GREASE в `supported_groups` при этом остаётся.
+* Признак `_reshare` у клиента ставится по просьбе о повторе (с долей либо без): один и
+  тот же признак у сервера означает «просьба просит долю», смысл общий.
+* Профиль отпечатка (работа C) перекрывает умолчание в `greased()`, ветвь его там не
+  написана намеренно.
 
 ## Рукопожатие TLS 1.2 (05.09.2026)
 
@@ -2547,3 +2602,125 @@ TLS 1.3). Охота голоданием на Astra, Debian, OpenWRT - по 33 
 Правка EcdsaTest подтверждена отдельно под базовым LibreSSL 3.6.1 DragonFly (штатный круг
 берёт openssl 3.0.15 из /usr/local/bin и отказа бы не показал): восемь прогонов чисто,
 проверки исполняются, а не пропускаются. Претензий нет; единственный долг - ARM64 не от Apple.
+
+## HPKE по RFC 9180 (06.09.2026)
+
+Модуль `hpke` (`include/hpke/hpke.hpp`, `src/hpke/hpke.cpp`, набор `tests/hpke`, 9 проверок):
+DHKEM(X25519, HKDF-SHA256) 0x0020; HKDF-SHA256/384/512; AES-128-GCM, AES-256-GCM,
+ChaCha20-Poly1305, Export-only; режимы base, psk, auth, auth_psk. Поверх `agreement`,
+`digest`, `cipher`; из движка TLS ничего не берёт. Вектора: приложение A RFC 9180 (A.1, A.2)
+и 32 вектора X25519 из `test-vectors.json` CFRG того же издания (тот же материал: A.1.1 —
+первый из них), байт в байт. Внешнего вектора для HKDF-SHA384 с X25519 нет ни в RFC, ни у
+CFRG — покрыт переписка живьём и различием секретов по наборам.
+
+| Пункт | Требование | Где | Проверка |
+| --- | --- | --- | --- |
+| §4 | `LabeledExtract(salt, label, ikm) = Extract(salt, "HPKE-v1" ‖ suite_id ‖ label ‖ ikm)`, `LabeledExpand(prk, label, info, L) = Expand(prk, I2OSP(L, 2) ‖ "HPKE-v1" ‖ suite_id ‖ label ‖ info, L)`; собирается по частям потоковой HMAC без склейки | `absorb`, `unfold` | `HpkeTest.Vectors` (все ключи расписания), `HpkeTest.Starved` (нулевой запас на ключевом пути) |
+| §4.1 | `ExtractAndExpand`: `eae_prk = LabeledExtract("", "eae_prk", dh)`, `shared_secret = LabeledExpand(eae_prk, "shared_secret", kem_context, Nsecret)` с `suite_id = "KEM" ‖ kem_id` | `combine`, `stamp(kem)` | `HpkeTest.Encapsulation` (`shared_secret` 32 векторов) |
+| §5.1 | `VerifyPSKInputs`: `psk` и `psk_id` оба пустые либо оба непустые; непустые лишь в `mode_psk`/`mode_auth_psk` | `Context::setup` | `HpkeTest.Refusals` (ключ без режима, режим без ключа, ключ без опознавателя, опознаватель без ключа → `PSK`) |
+| §5.1 | `KeySchedule`: `psk_id_hash`, `info_hash`, `key_schedule_context = mode ‖ psk_id_hash ‖ info_hash`, `secret = LabeledExtract(shared_secret, "secret", psk)`, `key`/`base_nonce`/`exp` с `suite_id = "HPKE" ‖ kem_id ‖ kdf_id ‖ aead_id` | `Context::setup`, `stamp(suite)` | `HpkeTest.Vectors` (шифртексты и экспорты всех режимов), `HpkeTest.Distinct` (12 наборов дают 12 разных секретов на одном материале), `HpkeTest.Refusals` (чужой режим при том же ключе → `OPEN`) |
+| §5.1 | `SetupBaseS/R`, `SetupPSKS/R`, `SetupAuthS/R`, `SetupAuthPSKS/R`; ключ отправителя есть только в auth-режимах | `sender`, `recipient` | `HpkeTest.Vectors`, `HpkeTest.Roundtrip` (12 × 4), `HpkeTest.Refusals` (пара отправителя в `BASE`, её отсутствие в `AUTH` → `KEY`) |
+| §5.2 | `ComputeNonce = base_nonce XOR I2OSP(seq, Nn)`, `IncrementSeq` после каждого `Seal`/`Open`; исчерпание номеров — отказ без шифрования | `Context::mask`, `seal`, `open` | `HpkeTest.Vectors` (номера 0, 1, 2, 4, 255, 256), `HpkeTest.Refusals` (`UINT64_MAX` → `SEQUENCE` у обеих сторон, предпоследний ещё годен, рассинхрон → `OPEN` без сдвига номера) |
+| §5.2 | `Seal` у отправителя, `Open` у получателя; Export-only не шифрует | `seal`, `open` | `HpkeTest.Refusals` (`open` у отправителя, `seal` у получателя → `AEAD`), `HpkeTest.Roundtrip` (Export-only → `AEAD`) |
+| §5.3 | `Export(ctx, L) = LabeledExpand(exporter_secret, "sec", ctx, L)`, `L ≤ 255·Nh` | `Context::exporter` | `HpkeTest.Vectors` (три экспорта у обеих сторон), `HpkeTest.Refusals` (0 и 255·Nh+1 → `LENGTH`, 255·Nh годен) |
+| §6.1 | одношаговые `Seal`/`Open` | `hpke::seal`, `hpke::open` | `HpkeTest.Single` (вектор через `open`, свежая пара через `seal` → `open`), `HpkeTest.Starved` |
+| §6.2 | `SendExport`/`ReceiveExport` | `hpke::dispatch`, `hpke::receive` | `HpkeTest.Single` (секрет вектора у получателя, совпадение у свежей пары), `HpkeTest.Starved` |
+| §7.1 | опознаватели 0x0020, 0x0001…0x0003, 0x0001…0x0003 и 0xFFFF; Nh 32/48/64, Nk 16/32/32, Nn 12, Nt 16 | перечисления, `length`, `overhead`, `supported` | `HpkeTest.Lengths` |
+| §7.1.1 | `Encap`: `dh = DH(skE, pkR)`, `kem_context = enc ‖ pkR`; `AuthEncap`: `dh = DH(skE, pkR) ‖ DH(skS, pkR)`, `kem_context = enc ‖ pkR ‖ pkS`; `Decap`/`AuthDecap` зеркально | `encapsulate`, `decapsulate` | `HpkeTest.Encapsulation` (`enc`, `shared_secret` всех режимов, декапсуляция сходится) |
+| §7.1.3 | `DeriveKeyPair(ikm)`: `dkp_prk = LabeledExtract("", "dkp_prk", ikm)`, `sk = LabeledExpand(dkp_prk, "sk", "", Nsk)`; `ikm` не короче `Nsk` | `Key::derive` | `HpkeTest.Derive` (`skEm`/`pkEm`, `skRm`/`pkRm`, `skSm`/`pkSm` 32 векторов; 31 байт → `KEY`) |
+| §7.1.4 | нулевое общее значение X25519 — отказ (заслон точек малого порядка) | `agreement::x25519` → `ENCAPSULATION` | `HpkeTest.Encapsulation` (нулевой `pkR`, нулевой `enc`, нулевой `pkS`) |
+| §7.1.4, RFC 7748 §5 | секретный ключ хранится незажатым, зажим при употреблении | `Key::set`, `Key::derive` | `HpkeTest.Derive` (незажатый `skEm` из вектора байт в байт) |
+| §9.7.1 | явные порядковые номера у переписки не по порядку — ручка `sequence(n)`; повтор номера у отправителя не сторожится | `Context::sequence` | `HpkeTest.Vectors` (перестановка на 255, 256), `HpkeTest.Refusals` |
+| — | без исключений; `bad_alloc` → `MEMORY`; секреты `sys::wipe` при завершении и отказе; порченый шифртекст → `OPEN` со стёртым местом | `try/catch` в обёртках, `wipe` | `HpkeTest.Starved`, `HpkeTest.Refusals` (порча каждого байта, стёртое место) |
+
+Намеренные решения (см. заголовок `src/hpke/hpke.cpp`): порядковый номер в 64 разряда —
+остановка при 2^64 − 1 строже предела 2^96 − 1 стандарта; секретный ключ без зажима;
+принадлежность точки кривой не проверяется (раздел 7.1.4 велит лишь отвергать нулевое
+значение); метки HPKE по частям без склейки — ключевой путь без выделений.
+
+Мутации заслонов (16, каждая поймана, 9 из 9 после отката):
+
+| Мутация | Что валится |
+| --- | --- |
+| XOR номера в `ComputeNonce` снят | `Vectors`, `Refusals` |
+| `_sequence++` в `seal` снят | `Vectors`, `Roundtrip`, `Refusals` |
+| сверка «ключ ↔ режим» снята | `Refusals` |
+| сверка «ключ ↔ опознаватель» снята | `Refusals` |
+| режим не пишется в `key_schedule_context` | `Vectors`, `Single` |
+| метка `"sec"` экспорта заменена `"exp"` | `Vectors`, `Single` |
+| стирание места при отказе `open` снято | `Refusals` |
+| предел номеров в `seal` снят | `Refusals` |
+| второе DH в `AuthDecap` снято | `Encapsulation`, `Vectors`, `Single`, `Roundtrip`, `Refusals` |
+| сверка «пара отправителя ↔ режим» у `sender` снята | те же пять |
+| `pkR` в `kem_context` заменён нулями | те же плюс `Starved` |
+| `"HPKE"` в `suite_id` испорчен | `Vectors`, `Single`, `Refusals` |
+| отказ нулевого общего значения снят | `Encapsulation` |
+| нижний предел `ikm` у `DeriveKeyPair` снят | `Derive` |
+| верхний предел `L` экспорта снят | `Refusals` — срыв ASan (запись за буфер), процесс падает |
+| сторона отправителя в `seal` не сверяется | `Refusals` |
+
+Не сделано: KEM на P-256/P-384/P-521 (0x0010…0x0012) и ECH — вторая ступень; вектор
+HKDF-SHA384 с X25519 (внешнего нет); GREASE ECH — через общий `grease` работы A.
+
+
+## Отпечатки приветствия и применение снимка (07.09.2026)
+
+Модуль `fingerprint` перенесён из AWH и переделан под библиотеку; применение снимка -
+`client::profile`, снятие - `server::profile`/`server::greeting()`. Набор `tests/fingerprint`.
+
+| Правило | Требование | Где | Проверка |
+| --- | --- | --- | --- |
+| RFC 8701 §2 | значение GREASE: оба байта равны, младшие половины 0xA | `fingerprint::grease` | `FingerprintTest.Grease` (шестнадцать значений, чужие отвергнуты) |
+| RFC 8446 §4.1.2, RFC 6347 §4.2.2 | разбор записи рукопожатия и голого сообщения записями и поверх дейтаграмм (пора, номер записи, номер сообщения, метка возврата; нарезанное на куски сообщение отвергается) | `examine`, `hello::parse` | `FingerprintTest.Ja4`, `Ja3`, `Datagram`, `Refusals` (усечение на всякой длине, чужой вид записи и сообщения, порченый перечень, порченое тело расширения) |
+| JA3 (Salesforce) | `версия,наборы,расширения,группы,точки` десятично без GREASE, MD5 | `imprint` | `FingerprintTest.Ja3` (пример описания: строка и хеш `ada70206…` байт в байт) |
+| JA4 (FoxIO) | `t/d/q` + издание (старшее из supported_versions без GREASE) + `d/i` + счётчики без GREASE с пределом 99 + первая и последняя буквы ALPN; SHA-256 сортированных наборов; SHA-256 сортированных расширений без 0000/0010 + схемы в порядке провода; `000000000000` у пустых; JA4_r и JA4_o | `imprint` | `FingerprintTest.Ja4` (пример FoxIO: `t13d1516h2_8daaf6152771_e5627efa2ab1`, JA4_r и JA4_o байт в байт), `Ja3` (`t10d120300_`), `Datagram` (`dd2d`) |
+| PeetPrint | восемь разделов через `\|`, GREASE словом, как у AWH | `imprint` | `FingerprintTest.Ja4` (восемь разделов, `GREASE-772-771`) |
+| Akamai HTTP/2 | `settings\|window\|priorities\|pseudo` по предисловию, SETTINGS, WINDOW_UPDATE, PRIORITY и HPACK первого запроса | `parse(stream)`, `akamai` | `FingerprintTest.Akamai` (Chrome `1:65536;2:0;4:6291456;6:262144\|15663105\|\|m,a,s,p`, приоритет `3:1:0:201`, чужое предисловие, без SETTINGS) |
+| Снимок | метка `ANTSFP`, издание, старший байт вперёд, фиксированные ширины; связка с опознавателями; строгий разбор | `dump`, `load`, `store_t` | `FingerprintTest.Snapshot` (круг байт в байт, усечение на всякой длине, хвост, чужие метка и издание, хранилище: опознаватели, удаление, повторная выдача, связка) |
+| нехватка памяти | лишь NONE/MEMORY на всём пути, включая отказы парсеров расширений | все | `FingerprintTest.Starved`, `ProfileTest.Starved` |
+| применение «как есть» | JA3, JA4, JA4_r, JA4_o и PeetPrint сложенного приветствия равны снимку; random, опознаватель, доли и GREASE свои; длина 512 с заполнением; сервер видит тот же отпечаток | `Engine::profile`, `imitate`, `greased` | `ProfileTest.Loopback` |
+| RFC 8446 §4.1.2, §4.2.8 | второе приветствие за просьбой о повторе: те же GREASE, опознаватель и random, доля лишь по запрошенной группе, отпечаток прежний | `imitate` | `ProfileTest.Retry` |
+| неведомое | неведомый набор идёт как записан, группа ML-KEM остаётся в перечне, доля по ней опущена; выбор сервером неведомого набора - `PROFILE` (издания 1.3 и 1.2), без профиля - обычный `SUITE` | `imitate`, `carried` | `ProfileTest.Unknown`, `Alien`, `Openssl` (s_server с `ECDHE-ECDSA-AES128-CCM`) |
+| отказы установки | после `start()` - `STATE`; пустой профиль, без ведомых наборов либо групп - `SETTINGS`; сервер до приёма - `STATE`; ручка `grease` на профиль не влияет; без `name()` расширение имени не идёт; профиль без опознавателя связи - приветствие без него | `Engine::profile`, `start` | `ProfileTest.Refusals` |
+| обмен | рукопожатие по профилю с системным `openssl s_server` до ответа HTTP | — | `ProfileTest.Openssl` |
+
+### Мутации применения профиля (07.09.2026)
+
+Каждая мутация ломает одно место `Engine::imitate`/`profile`/`start`/суждения набора в
+`engine.cpp`; набор `fingerprint` обязан упасть.
+
+| Мутация | Что сломано | Итог |
+| --- | --- | --- |
+| suites | все наборы профиля подменены 0x1301 | поймана (JA4 разошёлся) |
+| greaseext | расширения GREASE профиля не идут | поймана (PeetPrint разошёлся) |
+| groups | группа GREASE в перечне снята | поймана (11 отказов) |
+| shares | доля X25519 не складывается | поймана (9 отказов, рукопожатие) |
+| name | имя узла не идёт при заданном `name()` | поймана (JA4 `i`) |
+| padding | заполнение не считается | поймана (длина 512) |
+| session | длина опознавателя не по профилю | поймана (профиль без опознавателя) |
+| profileabort | отказ `PROFILE` подменён `SUITE` | поймана (`ProfileTest.Alien`, `Openssl`) |
+| retry | доля за просьбой о повторе по профилю, а не по запрошенной группе | поймана (`ProfileTest.Retry`) |
+| profiled | признак профиля не ставится | поймана (все проверки профиля) |
+
+Урок прогона: после восстановления исходника из мутации объект движка остался от
+последней мутации (сборка не заметила замены в ту же секунду) - перед итоговым прогоном
+исходники трогаются `touch` и пересобираются.
+
+### Намеренные решения отпечатков
+
+* JA4 считается SHA-256 по описанию FoxIO; AWH считал MD5 - расхождение с описанием, здесь
+  исправлено, значение примера FoxIO закреплено байт в байт.
+* Знаки ALPN у JA4: первая и последняя буквы первого протокола; у небуквенных - старшая
+  половина первого байта и младшая последнего (описание FoxIO).
+* Отпечаток снимается с разбора модуля `hello`, а не отдельным разбором: правила одни.
+* Профиль сужает перечни связи до ведомых ей значений профиля, а предлагает всё, что
+  записано: так сервер может выбрать неведомое, и это ловится отказом `PROFILE`, а не
+  молчаливой подменой снимка.
+* Заполнение считается правилом BoringSSL (RFC 7685): 256…511 с обвязкой → до 512.
+* Ручка `grease` под профилем не действует и вставки не делает: `greased()` отвечает
+  «нет», а сами места GREASE расставляет профиль. Мутация `greased()` под профилем
+  ненаблюдаема по устройству (вставки умолчания перекладываются профилем целиком) и в
+  таблицу мутаций не входит.
+* Попутно вскрыт и закрыт дефект `Flight::acknowledge`: условное выражение с временным
+  перечнем копировало принятые номера, и копия под нехваткой памяти бросала мимо
+  перехвата (`DtlsTest.Starved` при сдвиге номеров выделений); перечень берётся ссылкой.

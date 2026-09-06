@@ -218,6 +218,12 @@ namespace {
 	static const uint8_t FORMATS[] = {0x01, 0x00};
 
 	/**
+	 * Тело последнего расширения GREASE приветствия клиента и доли ключа GREASE: один
+	 * нулевой байт, как у BoringSSL (раздел 3.1 RFC 8701 содержимого не предписывает)
+	 */
+	static const uint8_t GREASE_STUB[] = {0x00};
+
+	/**
 	 * Набор-сигнал TLS_EMPTY_RENEGOTIATION_INFO_SCSV: раздел 3.3 RFC 5746
 	 */
 	static constexpr uint16_t SCSV = 0x00FF;
@@ -2342,6 +2348,8 @@ context::error_t nts::internal::Engine::greeting() noexcept {
 		greeting.session = this->_session;
 		// Устанавливаем перечень способов сжатия
 		greeting.methods = {0x00};
+		// Признак того, что приветствие несёт свои значения GREASE (RFC 8701): решает единая точка
+		const bool greased = this->greased();
 		/**
 		 * Издание 1.2 предлагается переносом записями (TLS 1.2) и дейтаграммами (DTLS 1.2
 		 * по RFC 6347); под QUIC (RFC 9001) связь ведёт одно лишь издание 1.3. Издание
@@ -2386,12 +2394,20 @@ context::error_t nts::internal::Engine::greeting() noexcept {
 		if(greeting.suites.empty())
 			// Выводим отказ нехватки настроек связи
 			return context::error_t::SETTINGS;
+		// Раздел 3.1 RFC 8701: набор GREASE идёт первым в перечне наборов, как у BoringSSL
+		if(greased)
+			// Вставляем набор GREASE в начало перечня наборов
+			greeting.suites.insert(greeting.suites.begin(), this->greasing(grease_t::SUITE));
 		// Накопители, в которых лежат тела расширений приветствия
 		vector <uint8_t> versions, groups, schemes, shares, name, protocols;
 		// Перечень предлагаемых изданий протокола от старшего к младшему
 		vector <uint16_t> editions;
 		// Запоминаем, предлагается ли издание 1.3 приветствием
 		this->_proposed = modern;
+		// Раздел 3.1 RFC 8701: издание GREASE идёт первым в перечне изданий
+		if(greased)
+			// Добавляем издание GREASE в перечень
+			editions.push_back(this->greasing(grease_t::VERSION));
 		// Если издание TLS 1.3 предлагается
 		if(modern)
 			// Добавляем издание TLS 1.3 либо DTLS 1.3 в перечень
@@ -2406,8 +2422,16 @@ context::error_t nts::internal::Engine::greeting() noexcept {
 		if(failure != context::error_t::NONE)
 			// Выводим отказ составления расширения приветствия
 			return failure;
+		// Группы обмена, объявляемые приветствием
+		vector <extension::group_t> curves;
+		// Раздел 3.1 RFC 8701: группа GREASE идёт первой в перечне групп
+		if(greased)
+			// Добавляем группу GREASE в объявляемый перечень
+			curves.push_back(static_cast <extension::group_t> (this->greasing(grease_t::GROUP)));
+		// Добавляем группы потребителя в объявляемый перечень в его порядке
+		curves.insert(curves.end(), this->_groups.begin(), this->_groups.end());
 		// Отказ составления расширения приветствия
-		failure = translate(extension::groups(this->_groups, groups), context::error_t::MESSAGE);
+		failure = translate(extension::groups(curves, groups), context::error_t::MESSAGE);
 		// Если перечень кривых обмена ключами составить не удалось
 		if(failure != context::error_t::NONE)
 			// Выводим отказ составления расширения приветствия
@@ -2437,6 +2461,16 @@ context::error_t nts::internal::Engine::greeting() noexcept {
 		// Открытые части ключей обмена своей стороны по группам долей
 		vector <extension::share_t> list;
 		/**
+		 * Раздел 3.1 RFC 8701: доля GREASE идёт первой, тело её - один байт; после просьбы
+		 * о повторе с долей ключа приветствие несёт долю по одной лишь запрошенной группе
+		 * (раздел 4.2.8 RFC 8446), и доля GREASE снимается вместе с прежними, как у BoringSSL,
+		 * - openssl отвергает всякую иную долю повторного приветствия; просьба без доли
+		 * (одна метка) оставляет доли прежними, и доля GREASE остаётся с ними
+		 */
+		if(greased && !(this->_retried && this->_reshare))
+			// Добавляем долю GREASE в перечень долей
+			list.push_back(extension::share_t(static_cast <extension::group_t> (this->greasing(grease_t::GROUP)), view_t(GREASE_STUB, sizeof(GREASE_STUB))));
+		/**
 		 * Выполняем перебор мимолётных пар ключей своей стороны
 		 */
 		for(size_t i = 0; i < this->_exchanges.size(); i++)
@@ -2448,6 +2482,10 @@ context::error_t nts::internal::Engine::greeting() noexcept {
 		if(failure != context::error_t::NONE)
 			// Выводим отказ составления расширения приветствия
 			return failure;
+		// Раздел 3.1 RFC 8701: первое расширение GREASE идёт пустым впереди всех
+		if(greased)
+			// Добавляем первое расширение GREASE
+			greeting.extensions.push_back(hello::extension_t(this->greasing(grease_t::FIRST), view_t(nullptr, 0)));
 		// Добавляем расширение перечня изданий протокола
 		greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::VERSIONS), view_t(versions.data(), versions.size())));
 		// Добавляем расширение перечня кривых обмена ключами
@@ -2617,6 +2655,25 @@ context::error_t nts::internal::Engine::greeting() noexcept {
 			 * велит ставить его в самый конец, ибо привязка покрывает всё, что идёт до неё
 			 */
 			greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::SECRET), view_t(secret.data(), secret.size())));
+		}
+		/**
+		 * Раздел 3.1 RFC 8701: второе расширение GREASE идёт последним среди расширений
+		 * потребителя с телом в один нулевой байт, как у BoringSSL; заранее разделённый
+		 * ключ остаётся за ним - раздел 4.2.11 RFC 8446 велит ему быть последним
+		 */
+		if(greased)
+			// Вставляем второе расширение GREASE перед заранее разделённым ключом либо в конец
+			greeting.extensions.insert(greeting.extensions.end() - (resume ? 1 : 0), hello::extension_t(this->greasing(grease_t::SECOND), view_t(GREASE_STUB, sizeof(GREASE_STUB))));
+		// Хранилище тел расширений, сложенных по профилю отпечатка: живёт до составления приветствия
+		vector <vector <uint8_t>> storage;
+		// Если приветствие складывается по профилю отпечатка
+		if(this->_profiled){
+			// Отказ складывания приветствия по профилю
+			failure = this->imitate(greeting, name, protocols, algorithms, modes, secret, resume, storage);
+			// Если приветствие по профилю сложить не удалось
+			if(failure != context::error_t::NONE)
+				// Выводим отказ складывания приветствия
+				return failure;
 		}
 		/**
 		 * Выполняем перехват ошибок работы с памятью
@@ -4518,6 +4575,8 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 		if(failure != context::error_t::NONE)
 			// Выводим отказ разбора приветствия клиента
 			return this->dismissing(failure, blame(failure, alert::description_t::DECODE));
+		// Запоминаем принятое приветствие вместе с обвязкой: с него потребитель снимает отпечаток
+		this->_salutation.assign(message.data, message.data + message.size);
 		// Признак того, что среди способов сжатия объявлен нулевой
 		bool uncompressed = false;
 		/**
@@ -5307,6 +5366,10 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 				return this->abort(failure, blame(failure, alert::description_t::INTERNAL));
 			// Перечень расширений запроса подлинности клиента
 			vector <hello::extension_t> list;
+			// Раздел 3.2 RFC 8701: расширение GREASE запроса подлинности идёт пустым впереди всех, как у BoringSSL
+			if(this->greased())
+				// Добавляем расширение GREASE запроса подлинности
+				list.push_back(hello::extension_t(this->greasing(grease_t::FIRST), view_t(nullptr, 0)));
 			// Добавляем расширение перечня схем подписи
 			list.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::SCHEMES), view_t(schemes.data(), schemes.size())));
 			// Накопитель, в который складывается тело расширения алгоритмов сжатия
@@ -5471,6 +5534,10 @@ context::error_t nts::internal::Engine::outgoing(const view_t & body, const view
 		for(size_t i = 0; (i < this->_suites.size()) && !suitable; i++)
 			// Запоминаем совпадение выбранного набора шифрования с предложенным
 			suitable = (answer.suite == static_cast <uint16_t> (this->_suites[i]));
+		// Если сервер выбрал набор профиля отпечатка, связи неведомый: профиль исполнить нельзя
+		if(!suitable && this->_profiled && this->carried(answer.suite))
+			// Выводим отказ исполнения профиля
+			return this->abort(context::error_t::PROFILE, alert::description_t::PARAMETER);
 		// Если сервер выбрал набор шифрования, связью не предложенный
 		if(!suitable)
 			// Выводим отказ несовпадения набора шифрования
@@ -5690,6 +5757,8 @@ context::error_t nts::internal::Engine::outgoing(const view_t & body, const view
 				return this->abort(context::error_t::ORDER, alert::description_t::UNEXPECTED);
 			// Отказ выработки мимолётной пары ключей
 			context::error_t error = context::error_t::NONE;
+			// Запоминаем, просит ли просьба о повторе долю ключа: по ней судится доля GREASE повторного приветствия
+			this->_reshare = (extension != nullptr);
 			// Если доля ключа просьбой запрошена
 			if(extension != nullptr){
 				/**
@@ -7772,6 +7841,18 @@ context::error_t nts::internal::Engine::start() noexcept {
 	if(!entropy::bytes(this->_random, sizeof(this->_random)))
 		// Выводим отказ выработки случайного значения приветствия
 		return this->abort(context::error_t::SETTINGS, alert::description_t::INTERNAL);
+	/**
+	 * Зерно значений GREASE вырабатывается на связь один раз: повторное приветствие
+	 * после просьбы о повторе несёт те же значения, а сервер выводит из него
+	 * расширения билета и запроса подлинности
+	 */
+	if(!entropy::bytes(this->_seed, sizeof(this->_seed)))
+		// Выводим отказ выработки зерна значений GREASE
+		return this->abort(context::error_t::SETTINGS, alert::description_t::INTERNAL);
+	// Раздел 4.2 RFC 8446: два расширения GREASE одного значения означали бы повторное объявление
+	if((this->_seed[static_cast <uint8_t> (grease_t::FIRST)] & 0xF0) == (this->_seed[static_cast <uint8_t> (grease_t::SECOND)] & 0xF0))
+		// Разводим значение второго расширения со значением первого
+		this->_seed[static_cast <uint8_t> (grease_t::SECOND)] ^= 0x10;
 	// Если связь ведётся стороной сервера
 	if(this->_server)
 		// Выводим успешность заведения связи: сервер ждёт приветствия клиента
@@ -7780,8 +7861,8 @@ context::error_t nts::internal::Engine::start() noexcept {
 	 * Выполняем заведение опознавателя связи, доставшегося от предыдущих изданий
 	 */
 	try {
-		// Занимаем место под опознаватель связи
-		this->_session.assign(hello::HELLO_SESSION, 0);
+		// Занимаем место под опознаватель связи: по профилю отпечатка - той же длины, что у обозревателя
+		this->_session.assign((this->_profiled ? this->_profile.session.size() : hello::HELLO_SESSION), 0);
 	/**
 	 * Если памяти под опознаватель связи не хватило
 	 */
@@ -7790,7 +7871,7 @@ context::error_t nts::internal::Engine::start() noexcept {
 		return context::error_t::MEMORY;
 	}
 	// Если опознаватель связи выработать не удалось
-	if(!entropy::bytes(this->_session.data(), this->_session.size()))
+	if(!this->_session.empty() && !entropy::bytes(this->_session.data(), this->_session.size()))
 		// Выводим отказ выработки опознавателя связи
 		return this->abort(context::error_t::SETTINGS, alert::description_t::INTERNAL);
 	/**
@@ -8018,6 +8099,8 @@ void nts::internal::Engine::clear() noexcept {
 	this->_tickets.clear();
 	// Выполняем сброс опознавателя связи
 	this->_session.clear();
+	// Выполняем сброс принятого приветствия клиента
+	this->_salutation.clear();
 	// Выполняем затирание случайного значения своего приветствия
 	wipe(this->_random, sizeof(this->_random));
 	// Сбрасываем признак просьбы о доле ключа
@@ -8815,6 +8898,10 @@ context::error_t nts::internal::Engine::issue() noexcept {
 			// Добавляем расширение предела упреждающих данных
 			ticket.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::EARLY), view_t(advance.data(), advance.size())));
 		}
+		// Раздел 3.2 RFC 8701: расширение GREASE билета идёт пустым за пределом упреждения, как у BoringSSL
+		if(this->greased())
+			// Добавляем расширение GREASE билета
+			ticket.extensions.push_back(hello::extension_t(this->greasing(grease_t::TICKET), view_t(nullptr, 0)));
 		// Накопитель, в который складывается тело сообщения билета
 		vector <uint8_t> body;
 		// Отказ составления тела сообщения билета
@@ -9887,6 +9974,10 @@ context::error_t nts::internal::Engine::greeted(const hello::server_t & answer, 
 		for(size_t i = 0; (i < this->_suites.size()) && !suitable; i++)
 			// Запоминаем совпадение выбранного набора шифрования с предложенным
 			suitable = (suite == this->_suites[i]);
+		// Если сервер выбрал набор профиля отпечатка, связи неведомый: профиль исполнить нельзя
+		if(!suitable && this->_profiled && this->carried(answer.suite))
+			// Выводим отказ исполнения профиля
+			return this->abort(context::error_t::PROFILE, alert::description_t::PARAMETER);
 		// Раздел 7.4.1.3 RFC 5246: набор обязан быть из предложенных, а изданию 1.2 годны лишь его наборы
 		if(!suitable || !protect::legacy(suite))
 			// Выводим отказ несовпадения набора шифрования
@@ -11678,6 +11769,630 @@ void nts::internal::Engine::etm(const bool required) noexcept {
 	this->_strict = required;
 }
 /**
+ * @brief Метод решения, вставляет ли связь свои значения GREASE
+ *
+ * @return признак того, что значения GREASE вставляются умолчанием движка
+ *
+ */
+bool nts::internal::Engine::greased() const noexcept {
+	/**
+	 * Точка перекрытия профилем отпечатка: при заданном профиле места и число значений
+	 * GREASE берёт профиль, а не признак потребителя - ветвь профиля становится сюда
+	 */
+	// Выводим признак вставки значений GREASE по настройке потребителя: профиль отпечатка расставляет свои
+	return (this->_greasing && !this->_profiled);
+}
+/**
+ * @brief Метод получения значения GREASE места связи
+ *
+ * @param place место значения GREASE
+ *
+ * @return      значение вида 0x?A?A, выведенное из зерна связи
+ *
+ */
+uint16_t nts::internal::Engine::greasing(const grease_t place) const noexcept {
+	// Раздел 2 RFC 8701: старшие четыре разряда байта зерна, младшие - 0xA, байт повторён дважды
+	const uint8_t value = static_cast <uint8_t> ((this->_seed[static_cast <uint8_t> (place)] & 0xF0) | 0x0A);
+	// Выводим значение GREASE места
+	return static_cast <uint16_t> ((static_cast <uint16_t> (value) << 8) | value);
+}
+/**
+ * @brief Метод установки вставки своих значений GREASE (RFC 8701)
+ *
+ * @param grease вставляются ли значения GREASE
+ *
+ */
+void nts::internal::Engine::grease(const bool grease) noexcept {
+	// Запоминаем, вставляются ли значения GREASE
+	this->_greasing = grease;
+}
+/**
+ * @brief Метод проверки вставки своих значений GREASE
+ *
+ * @return признак того, что значения GREASE вставляются
+ *
+ */
+bool nts::internal::Engine::grease() const noexcept {
+	// Выводим признак вставки значений GREASE
+	return this->_greasing;
+}
+/**
+ * @brief Метод проверки, есть ли набор шифрования среди наборов профиля отпечатка
+ *
+ * @param suite набор шифрования по проводу
+ *
+ * @return      признак того, что набор есть в профиле
+ *
+ */
+bool nts::internal::Engine::carried(const uint16_t suite) const noexcept {
+	/**
+	 * Выполняем перебор наборов профиля
+	 */
+	for(size_t i = 0; i < this->_profile.suites.size(); i++){
+		// Если набор совпал
+		if(static_cast <uint16_t> (this->_profile.suites[i]) == suite)
+			// Выводим наличие набора
+			return true;
+	}
+	// Выводим отсутствие набора
+	return false;
+}
+/**
+ * @brief Метод установки профиля отпечатка, по которому складывается приветствие клиента
+ *
+ * @param profile профиль отпечатка, снятый с приветствия обозревателя
+ *
+ * @return        отказ установки
+ *
+ */
+context::error_t nts::internal::Engine::profile(const fingerprint::profile_t & profile) noexcept {
+	// Профиль ставится лишь до заведения связи
+	if(this->_state != context::state_t::NONE)
+		// Выводим отказ негодного состояния связи
+		return context::error_t::STATE;
+	// Настройкам связи памяти не хватило: за них отвечает нехватка памяти, а не настройки
+	if(this->_starved)
+		// Выводим отказ нехватки памяти
+		return context::error_t::MEMORY;
+	// Профиль складывает приветствие клиента: серверу и пустому профилю он не годен
+	if(this->_server || profile.suites.empty() || profile.extensions.empty())
+		// Выводим отказ настроек связи
+		return context::error_t::SETTINGS;
+	/**
+	 * Выполняем перехват ошибок работы с памятью
+	 */
+	try {
+		// Наборы профиля, ведомые связи, в порядке профиля
+		vector <protect::suite_t> suites;
+		/**
+		 * Выполняем перебор наборов профиля
+		 */
+		for(size_t i = 0; i < profile.suites.size(); i++){
+			/**
+			 * Выполняем перебор наборов, ведомых связи
+			 */
+			for(size_t j = 0; j < this->_suites.size(); j++){
+				// Если набор профиля ведом связи
+				if(profile.suites[i] == this->_suites[j]){
+					// Добавляем набор в перечень
+					suites.push_back(profile.suites[i]);
+					// Выходим из перебора
+					break;
+				}
+			}
+		}
+		// Если ни одного набора профиля связь не ведает
+		if(suites.empty())
+			// Выводим отказ настроек связи
+			return context::error_t::SETTINGS;
+		// Группы, доли и схемы профиля, ведомые связи, в порядке профиля
+		vector <extension::group_t> groups, shares;
+		vector <extension::scheme_t> schemes;
+		// Прикладные протоколы профиля
+		vector <string> protocols;
+		// Пределы изданий по профилю
+		uint16_t lowest = 0, highest = 0;
+		// Признак запроса состояния сертификата в профиле
+		bool inquiring = false;
+		/**
+		 * Выполняем перебор расширений профиля
+		 */
+		for(size_t i = 0; i < profile.extensions.size(); i++){
+			// Расширение профиля
+			const fingerprint::extension_t & extension = profile.extensions[i];
+			/**
+			 * Определяем вид расширения
+			 */
+			switch(extension.type){
+				// Группы обмена ключами
+				case static_cast <uint16_t> (extension::type_t::GROUPS): {
+					/**
+					 * Выполняем перебор групп профиля
+					 */
+					for(size_t j = 0; j < extension.groups.size(); j++){
+						/**
+						 * Выполняем перебор групп, ведомых связи
+						 */
+						for(size_t k = 0; k < this->_groups.size(); k++){
+							// Если группа профиля ведома связи
+							if(extension.groups[j] == this->_groups[k]){
+								// Добавляем группу в перечень
+								groups.push_back(extension.groups[j]);
+								// Выходим из перебора
+								break;
+							}
+						}
+					}
+				} break;
+				// Доли ключа
+				case static_cast <uint16_t> (extension::type_t::SHARE): {
+					/**
+					 * Выполняем перебор долей профиля
+					 */
+					for(size_t j = 0; j < extension.shares.size(); j++){
+						/**
+						 * Выполняем перебор групп, ведомых связи
+						 */
+						for(size_t k = 0; k < this->_groups.size(); k++){
+							// Если группа доли ведома связи
+							if(extension.shares[j].group == this->_groups[k]){
+								// Добавляем группу доли в перечень
+								shares.push_back(extension.shares[j].group);
+								// Выходим из перебора
+								break;
+							}
+						}
+					}
+				} break;
+				// Схемы подписи
+				case static_cast <uint16_t> (extension::type_t::SCHEMES): {
+					/**
+					 * Выполняем перебор схем профиля
+					 */
+					for(size_t j = 0; j < extension.schemes.size(); j++){
+						/**
+						 * Выполняем перебор схем, ведомых связи
+						 */
+						for(size_t k = 0; k < this->_signatures.size(); k++){
+							// Если схема профиля ведома связи
+							if(extension.schemes[j] == this->_signatures[k]){
+								// Добавляем схему в перечень
+								schemes.push_back(extension.schemes[j]);
+								// Выходим из перебора
+								break;
+							}
+						}
+					}
+				} break;
+				// Издания протокола
+				case static_cast <uint16_t> (extension::type_t::VERSIONS): {
+					/**
+					 * Выполняем перебор изданий профиля
+					 */
+					for(size_t j = 0; j < extension.versions.size(); j++){
+						// Издание в кодах TLS: поверх дейтаграмм издания зеркальны
+						uint16_t edition = extension.versions[j];
+						// Если издание есть DTLS 1.2
+						if(edition == datagram::DATAGRAM_LEGACY)
+							// Переводим в код TLS 1.2
+							edition = LEGACY;
+						// Если издание есть DTLS 1.3
+						else if(edition == datagram::DATAGRAM_VERSION)
+							// Переводим в код TLS 1.3
+							edition = MODERN;
+						// Если издание связи неведомо
+						if((edition != LEGACY) && (edition != MODERN))
+							// Переходим к следующему изданию
+							continue;
+						// Если наименьшее издание не задано либо старше найденного
+						if((lowest == 0) || (edition < lowest))
+							// Запоминаем наименьшее издание
+							lowest = edition;
+						// Если наибольшее издание младше найденного
+						if(edition > highest)
+							// Запоминаем наибольшее издание
+							highest = edition;
+					}
+				} break;
+				// Прикладные протоколы
+				case static_cast <uint16_t> (extension::type_t::PROTOCOLS):
+					// Переносим прикладные протоколы профиля
+					protocols = extension.protocols;
+				break;
+				// Запрос состояния сертификата
+				case static_cast <uint16_t> (extension::type_t::STATUS):
+					// Запоминаем запрос состояния
+					inquiring = true;
+				break;
+				// Прочие расширения на настройки связи не влияют
+				default: break;
+			}
+		}
+		// Если ни одной группы профиля связь не ведает
+		if(groups.empty())
+			// Выводим отказ настроек связи
+			return context::error_t::SETTINGS;
+		// Переносим профиль
+		this->_profile = profile;
+		// Переносим наборы шифрования
+		this->_suites = suites;
+		// Переносим группы обмена ключами
+		this->_groups = groups;
+		// Переносим группы долей: без долей в профиле доля идёт по первой группе умолчанием
+		this->_shares = shares;
+		// Если схемы профиля связи ведомы
+		if(!schemes.empty())
+			// Переносим схемы подписи
+			this->_signatures = schemes;
+		// Если прикладные протоколы потребителем не заданы
+		if(this->_protocols.empty())
+			// Переносим прикладные протоколы профиля
+			this->_protocols = protocols;
+		// Если издания профиля связи ведомы
+		if(lowest != 0){
+			// Устанавливаем наименьшее дозволенное издание
+			this->_lowest = lowest;
+			// Устанавливаем наибольшее дозволенное издание
+			this->_highest = highest;
+		}
+		// Если профиль запрашивает состояние сертификата
+		if(inquiring)
+			// Включаем запрос состояния сертификата
+			this->_inquiring = true;
+		// Запоминаем, что приветствие складывается по профилю
+		this->_profiled = true;
+		// Выводим успешность установки профиля
+		return context::error_t::NONE;
+	/**
+	 * Если памяти под профиль не хватило
+	 */
+	} catch(const bad_alloc &) {
+		// Выводим отказ нехватки памяти
+		return context::error_t::MEMORY;
+	}
+}
+/**
+ * @brief Метод проверки, задан ли профиль отпечатка
+ *
+ * @return признак того, что приветствие клиента складывается по профилю
+ *
+ */
+bool nts::internal::Engine::profiled() const noexcept {
+	// Выводим признак профиля
+	return this->_profiled;
+}
+/**
+ * @brief Метод получения принятого сервером приветствия клиента
+ *
+ * @return байты приветствия клиента вместе с обвязкой рукопожатия
+ *
+ */
+const vector <uint8_t> & nts::internal::Engine::received() const noexcept {
+	// Выводим принятое приветствие
+	return this->_salutation;
+}
+/**
+ * @brief Метод складывания приветствия клиента по профилю отпечатка
+ *
+ * @param greeting   приветствие, сложенное умолчанием движка; перекладывается по профилю
+ * @param name       тело расширения имени узла, сложенное движком
+ * @param protocols  тело расширения прикладных протоколов, сложенное движком
+ * @param algorithms тело расширения алгоритмов сжатия цепочки, сложенное движком
+ * @param modes      тело расширения способов обмена ключом при предъявлении билета
+ * @param secret     тело расширения заранее разделённых ключей при предъявлении билета
+ * @param resume     признак предъявления билета возобновления
+ * @param storage    хранилище тел расширений, сложенных по профилю
+ *
+ * @return           отказ складывания приветствия
+ *
+ */
+context::error_t nts::internal::Engine::imitate(hello::client_t & greeting, const vector <uint8_t> & name, const vector <uint8_t> & protocols, const vector <uint8_t> & algorithms, const vector <uint8_t> & modes, const vector <uint8_t> & secret, const bool resume, vector <vector <uint8_t>> & storage) noexcept {
+	/**
+	 * Выполняем перехват ошибок работы с памятью
+	 */
+	try {
+		// Заполнение по RFC 7685
+		static constexpr uint16_t PADDING = 0x0015;
+		// Зашифрованное приветствие: до появления настоящего ECH идёт значением GREASE случайным телом
+		static constexpr uint16_t ECH = 0xFE0D;
+		// Виды расширений профиля, идущие в приветствие
+		vector <uint16_t> types;
+		// Тела расширений профиля, идущие в приветствие
+		vector <view_t> bodies;
+		// Признак присутствия заполнения в профиле и его место
+		bool padded = false;
+		// Место заполнения среди расширений приветствия
+		size_t place = 0;
+		// Поверх записей издание приветствия берётся из профиля; поверх дейтаграмм - своё
+		if(this->_transport != context::transport_t::DATAGRAMS)
+			// Устанавливаем издание приветствия профиля
+			greeting.version = this->_profile.version;
+		// Запоминаем издание заголовка приветствия: оно идёт в общее значение обмена RSA
+		this->_claimed = greeting.version;
+		// Устанавливаем способы сжатия профиля
+		greeting.methods = this->_profile.methods;
+		// Выполняем сброс наборов, сложенных умолчанием
+		greeting.suites.clear();
+		/**
+		 * Выполняем перебор наборов профиля
+		 */
+		for(size_t i = 0; i < this->_profile.suites.size(); i++){
+			// Набор профиля по проводу
+			const uint16_t suite = static_cast <uint16_t> (this->_profile.suites[i]);
+			// Добавляем набор: значение GREASE - своё и свежее, прочие - как записаны
+			greeting.suites.push_back(fingerprint::grease(suite) ? this->greasing(grease_t::SUITE) : suite);
+		}
+		// Хранилище занимает место заранее: указатели на тела не должны переезжать
+		storage.reserve(this->_profile.extensions.size() + 1);
+		// Счётчик расширений GREASE профиля
+		size_t greased = 0;
+		/**
+		 * Выполняем перебор расширений профиля
+		 */
+		for(size_t i = 0; i < this->_profile.extensions.size(); i++){
+			// Расширение профиля
+			const fingerprint::extension_t & extension = this->_profile.extensions[i];
+			// Вид расширения приветствия
+			uint16_t type = extension.type;
+			// Тело расширения приветствия: по умолчанию как записано
+			view_t body(extension.data.data(), extension.data.size());
+			// Если расширение есть значение GREASE
+			if(extension.grease){
+				// Первое значение GREASE - своё первое, прочие - своё второе
+				type = this->greasing((greased == 0) ? grease_t::FIRST : grease_t::SECOND);
+				// Считаем расширение GREASE
+				greased++;
+			// Если расширение обычное
+			} else {
+				/**
+				 * Определяем вид расширения
+				 */
+				switch(type){
+					// Имя узла: своё, а без имени расширение не идёт
+					case static_cast <uint16_t> (extension::type_t::NAME): {
+						// Если имя узла не задано
+						if(name.empty())
+							// Переходим к следующему расширению
+							continue;
+						// Тело имени узла, сложенное движком
+						body = view_t(name.data(), name.size());
+					} break;
+					// Прикладные протоколы: свои, если заданы потребителем
+					case static_cast <uint16_t> (extension::type_t::PROTOCOLS): {
+						// Если протоколы сложены движком
+						if(!protocols.empty())
+							// Тело протоколов, сложенное движком
+							body = view_t(protocols.data(), protocols.size());
+					} break;
+					// Алгоритмы сжатия цепочки: свои, если заданы потребителем
+					case static_cast <uint16_t> (extension::type_t::COMPRESS): {
+						// Если алгоритмы сложены движком
+						if(!algorithms.empty())
+							// Тело алгоритмов, сложенное движком
+							body = view_t(algorithms.data(), algorithms.size());
+					} break;
+					// Группы обмена ключами: как записаны, значения GREASE свои
+					case static_cast <uint16_t> (extension::type_t::GROUPS): {
+						// Группы приветствия
+						vector <extension::group_t> groups;
+						/**
+						 * Выполняем перебор групп профиля
+						 */
+						for(size_t j = 0; j < extension.groups.size(); j++)
+							// Добавляем группу: значение GREASE - своё
+							groups.push_back(fingerprint::grease(static_cast <uint16_t> (extension.groups[j])) ? static_cast <extension::group_t> (this->greasing(grease_t::GROUP)) : extension.groups[j]);
+						// Занимаем место под тело
+						storage.push_back(vector <uint8_t> ());
+						// Отказ составления перечня групп
+						const context::error_t failure = translate(extension::groups(groups, storage.back()), context::error_t::MESSAGE);
+						// Если перечень групп составить не удалось
+						if(failure != context::error_t::NONE)
+							// Выводим отказ составления расширения
+							return failure;
+						// Тело групп
+						body = view_t(storage.back().data(), storage.back().size());
+					} break;
+					// Издания протокола: как записаны, значения GREASE свои
+					case static_cast <uint16_t> (extension::type_t::VERSIONS): {
+						// Издания приветствия
+						vector <uint16_t> editions;
+						/**
+						 * Выполняем перебор изданий профиля
+						 */
+						for(size_t j = 0; j < extension.versions.size(); j++)
+							// Добавляем издание: значение GREASE - своё
+							editions.push_back(fingerprint::grease(extension.versions[j]) ? this->greasing(grease_t::VERSION) : extension.versions[j]);
+						// Занимаем место под тело
+						storage.push_back(vector <uint8_t> ());
+						// Отказ составления перечня изданий
+						const context::error_t failure = translate(extension::versions(editions, storage.back()), context::error_t::MESSAGE);
+						// Если перечень изданий составить не удалось
+						if(failure != context::error_t::NONE)
+							// Выводим отказ составления расширения
+							return failure;
+						// Тело изданий
+						body = view_t(storage.back().data(), storage.back().size());
+					} break;
+					// Доли ключа: свои свежие по записанным группам, GREASE своё, неведомые группы опускаются
+					case static_cast <uint16_t> (extension::type_t::SHARE): {
+						// Доли приветствия
+						vector <extension::share_t> shares;
+						/**
+						 * Раздел 4.2.8 RFC 8446: за просьбой о повторе с долей приветствие несёт долю
+						 * по одной лишь запрошенной группе - её выработал движок, а профиль тут не судья
+						 */
+						if(this->_retried && this->_reshare){
+							/**
+							 * Выполняем перебор мимолётных пар ключей своей стороны
+							 */
+							for(size_t k = 0; k < this->_exchanges.size(); k++)
+								// Добавляем свою долю по запрошенной группе
+								shares.push_back(extension::share_t(this->_exchanges[k].group, view_t(this->_exchanges[k].opened.data(), this->_exchanges[k].opened.size())));
+						}
+						/**
+						 * Выполняем перебор долей профиля
+						 */
+						for(size_t j = 0; (j < extension.shares.size()) && !(this->_retried && this->_reshare); j++){
+							// Группа доли по проводу
+							const uint16_t group = static_cast <uint16_t> (extension.shares[j].group);
+							// Если доля есть значение GREASE
+							if(fingerprint::grease(group)){
+								// Раздел 4.2.8 RFC 8446: за просьбой о повторе с долей идёт лишь запрошенная доля
+								if(!(this->_retried && this->_reshare))
+									// Добавляем долю GREASE своим значением и телом в один байт
+									shares.push_back(extension::share_t(static_cast <extension::group_t> (this->greasing(grease_t::GROUP)), view_t(GREASE_STUB, sizeof(GREASE_STUB))));
+								// Переходим к следующей доле
+								continue;
+							}
+							/**
+							 * Выполняем перебор мимолётных пар ключей своей стороны
+							 */
+							for(size_t k = 0; k < this->_exchanges.size(); k++){
+								// Если пара ключей выработана по группе доли
+								if(this->_exchanges[k].group == extension.shares[j].group){
+									// Добавляем свою долю
+									shares.push_back(extension::share_t(this->_exchanges[k].group, view_t(this->_exchanges[k].opened.data(), this->_exchanges[k].opened.size())));
+									// Выходим из перебора
+									break;
+								}
+							}
+						}
+						// Занимаем место под тело
+						storage.push_back(vector <uint8_t> ());
+						// Отказ составления перечня долей
+						const context::error_t failure = translate(extension::shares(shares, storage.back()), context::error_t::MESSAGE);
+						// Если перечень долей составить не удалось
+						if(failure != context::error_t::NONE)
+							// Выводим отказ составления расширения
+							return failure;
+						// Тело долей
+						body = view_t(storage.back().data(), storage.back().size());
+					} break;
+					// Метка возврата состояния сервера: лишь полученная
+					case static_cast <uint16_t> (extension::type_t::COOKIE): {
+						// Если метка не получена
+						if(this->_cookie.empty())
+							// Переходим к следующему расширению
+							continue;
+						// Тело метки
+						body = view_t(this->_cookie.data(), this->_cookie.size());
+					} break;
+					// Способы обмена ключом: при предъявлении билета - свои
+					case static_cast <uint16_t> (extension::type_t::MODES): {
+						// Если билет предъявляется
+						if(resume)
+							// Тело способов, сложенное движком
+							body = view_t(modes.data(), modes.size());
+					} break;
+					// Заранее разделённые ключи: лишь при предъявлении билета, и последними
+					case static_cast <uint16_t> (extension::type_t::SECRET):
+					// Упреждающие данные: лишь по логике движка
+					case static_cast <uint16_t> (extension::type_t::EARLY):
+						// Переходим к следующему расширению
+						continue;
+					// Билет сеанса издания 1.2: предъявляется движком, иначе пустым
+					case static_cast <uint16_t> (extension::type_t::TICKET):
+						// Тело билета
+						body = (this->_presented ? view_t(this->_resume.identity.data(), this->_resume.identity.size()) : view_t(nullptr, 0));
+					break;
+					// Параметры переноса QUIC: лишь по уровням
+					case TRANSPORT: {
+						// Если перенос не по уровням
+						if(this->_transport != context::transport_t::LEVELS)
+							// Переходим к следующему расширению
+							continue;
+						// Тело параметров переноса
+						body = view_t(this->_parameters.data(), this->_parameters.size());
+					} break;
+					// Заполнение: место запоминается, длина считается по итогу
+					case PADDING: {
+						// Запоминаем присутствие и место заполнения
+						padded = true;
+						// Запоминаем место
+						place = types.size();
+						// Переходим к следующему расширению
+						continue;
+					}
+					// Зашифрованное приветствие: значение GREASE случайным телом записанной длины
+					case ECH: {
+						// Занимаем место под тело
+						storage.push_back(vector <uint8_t> (extension.data.size(), 0));
+						// Если тело выработать не удалось
+						if(!storage.back().empty() && !entropy::bytes(storage.back().data(), storage.back().size()))
+							// Выводим отказ настроек связи
+							return context::error_t::SETTINGS;
+						// Тело значения GREASE ECH
+						body = view_t(storage.back().data(), storage.back().size());
+					} break;
+					// Прочие расширения идут как записаны
+					default: break;
+				}
+			}
+			// Добавляем вид расширения
+			types.push_back(type);
+			// Добавляем тело расширения
+			bodies.push_back(body);
+		}
+		// Если билет предъявляется: заранее разделённые ключи идут последними (раздел 4.2.11 RFC 8446)
+		if(resume){
+			// Добавляем вид расширения
+			types.push_back(static_cast <uint16_t> (extension::type_t::SECRET));
+			// Добавляем тело расширения
+			bodies.push_back(view_t(secret.data(), secret.size()));
+		}
+		// Выполняем сброс расширений, сложенных умолчанием
+		greeting.extensions.clear();
+		/**
+		 * Выполняем перебор расширений профиля
+		 */
+		for(size_t i = 0; i < types.size(); i++)
+			// Добавляем расширение в приветствие
+			greeting.extensions.push_back(hello::extension_t(types[i], bodies[i]));
+		// Если заполнение профилем не предусмотрено
+		if(!padded)
+			// Выводим успешность складывания
+			return context::error_t::NONE;
+		// Накопитель, в который складывается приветствие без заполнения
+		vector <uint8_t> body;
+		// Отказ составления приветствия без заполнения
+		const context::error_t failure = translate(hello::build(greeting, body, (this->_transport == context::transport_t::DATAGRAMS)), context::error_t::MESSAGE);
+		// Если приветствие без заполнения составить не удалось
+		if(failure != context::error_t::NONE)
+			// Выводим отказ составления приветствия
+			return failure;
+		/**
+		 * RFC 7685 правилом BoringSSL: приветствие длиной с обвязкой от 256 до 511 байтов
+		 * дополняется до 512; длина заполнения считается без четырёх байтов его обвязки
+		 */
+		const size_t total = (body.size() + ((this->_transport == context::transport_t::DATAGRAMS) ? 12 : 4));
+		// Длина заполнения
+		size_t length = 0;
+		// Если приветствие подлежит заполнению
+		if((total > 0xFF) && (total < 0x200)){
+			// Считаем длину заполнения с обвязкой
+			length = (0x200 - total);
+			// Если заполнение вмещает свою обвязку
+			if(length >= 5)
+				// Снимаем обвязку с длины
+				length -= 4;
+			// Если заполнение обвязки не вмещает
+			else length = 1;
+		}
+		// Занимаем место под заполнение
+		storage.push_back(vector <uint8_t> (length, 0));
+		// Вставляем заполнение на записанное место
+		greeting.extensions.insert(greeting.extensions.begin() + static_cast <ptrdiff_t> (place), hello::extension_t(PADDING, view_t(storage.back().data(), storage.back().size())));
+		// Выводим успешность складывания
+		return context::error_t::NONE;
+	/**
+	 * Если памяти под приветствие не хватило
+	 */
+	} catch(const bad_alloc &) {
+		// Выводим отказ нехватки памяти
+		return context::error_t::MEMORY;
+	}
+}
+/**
  * @brief Метод проверки согласованного порядка «шифрование, затем имитовставка»
  *
  * @return признак того, что записи CBC идут в порядке encrypt_then_mac RFC 7366
@@ -12547,7 +13262,7 @@ nts::internal::Engine::Engine(const bool server) noexcept :
 	_closed(false), _drained(false), _lifetime(TERM), _ticket(protect::suite_t::NONE), _skipped(0), _starved(false),
 	_transport(context::transport_t::RECORDS), _acquired(false), _pushed(context::level_t::NONE), _width(0), _ventured(false), _judged(false),
 	_inflation(INFLATION), _squeezed(0), _inflated(0),
-	_inquiring(false), _inquired(false), _verifying(false), _leeway(0), _certified(ocsp::status_t::NONE), _reshare(true),
+	_inquiring(false), _inquired(false), _verifying(false), _leeway(0), _certified(ocsp::status_t::NONE), _reshare(true), _greasing(false), _profiled(false),
 	_queries(0), _confirmed(false), _delivered(0), _switched(false),
 	_lowest(LEGACY), _highest(MODERN), _version(0), _legacy(false), _proposed(false), _own(true), _phase(phase_t::NONE), _sealing(false), _opening(false), _stapling(false),
 	_claimed(0), _etm(false), _strict(false), _ticketing(false), _presented(false), _resumed(false) {
@@ -12565,6 +13280,8 @@ nts::internal::Engine::Engine(const bool server) noexcept :
 	::memset(this->_vector, 0, sizeof(this->_vector));
 	// Выполняем обнуление случайного значения своего приветствия
 	::memset(this->_random, 0, sizeof(this->_random));
+	// Выполняем обнуление зерна значений GREASE связи
+	::memset(this->_seed, 0, sizeof(this->_seed));
 	// Выполняем обнуление случайного значения собеседника
 	::memset(this->_foreign, 0, sizeof(this->_foreign));
 	// Выполняем обнуление главного секрета издания TLS 1.2

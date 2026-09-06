@@ -209,6 +209,8 @@ SET(SOURCE_FILES
     "${CMAKE_SOURCE_DIR}/src/agreement/x25519.cpp"
     "${CMAKE_SOURCE_DIR}/src/math/field25519.cpp"
     "${CMAKE_SOURCE_DIR}/src/agreement/vko.cpp"
+    "${CMAKE_SOURCE_DIR}/src/hpke/hpke.cpp"
+    "${CMAKE_SOURCE_DIR}/src/fingerprint/fingerprint.cpp"
     "${CMAKE_SOURCE_DIR}/src/agreement/ecdhe.cpp"
     "${CMAKE_SOURCE_DIR}/src/record/record.cpp"
     "${CMAKE_SOURCE_DIR}/src/protect/protect.cpp"
@@ -897,6 +899,11 @@ if (${CMAKE_BUILD_SAMPLES})
     # Указываем что нужно собрать приложение состояния сертификата
     option(CMAKE_BUILD_OCSP_APP_SAMPLE "Build OCSP stapling app sample" ON)
 
+    # Устанавливаем имя приложения отпечатков приветствия
+    SET(FINGERPRINT_APP_NAME fingerprint-profile)
+    # Указываем что нужно собрать приложение отпечатков приветствия
+    option(CMAKE_BUILD_FINGERPRINT_APP_SAMPLE "Build fingerprint profile app sample" ON)
+
     # Устанавливаем имя приложения сжатия цепочки сертификатов
     SET(COMPRESS_APP_NAME compress-chain)
     # Указываем что нужно собрать приложение сжатия цепочки сертификатов
@@ -985,6 +992,18 @@ if (${CMAKE_BUILD_SAMPLES})
         # Выводим сообщение о сборке образца
         message(STATUS "Build sample OCSP: No")
     endif (${CMAKE_BUILD_OCSP_APP_SAMPLE})
+
+    # Если нужно собрать образец отпечатков приветствия
+    if (${CMAKE_BUILD_FINGERPRINT_APP_SAMPLE})
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample fingerprint: Yes")
+        # Выполняем создание приложения отпечатков приветствия
+        add_corpus_sample(${FINGERPRINT_APP_NAME} sample/fingerprint/fingerprint.cpp fingerprint)
+    # Если образец отпечатков приветствия собирать не нужно
+    else()
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample fingerprint: No")
+    endif (${CMAKE_BUILD_FINGERPRINT_APP_SAMPLE})
 
     # Если нужно собрать образец сжатия цепочки сертификатов
     if (${CMAKE_BUILD_COMPRESS_APP_SAMPLE})

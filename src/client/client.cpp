@@ -413,6 +413,44 @@ bool nts::client::Context::etm() const noexcept {
 	return ((this->_engine != nullptr) && this->_engine->etm());
 }
 /**
+ * @brief Метод установки вставки своих значений GREASE (RFC 8701)
+ *
+ * @param grease вставляются ли значения GREASE
+ *
+ */
+void nts::client::Context::grease(const bool grease) noexcept {
+	// Если ведение связи заведено
+	if(this->_engine != nullptr)
+		// Выполняем установку вставки значений GREASE
+		this->_engine->grease(grease);
+}
+/**
+ * @brief Метод проверки вставки своих значений GREASE
+ *
+ * @return признак того, что значения GREASE вставляются
+ *
+ */
+bool nts::client::Context::grease() const noexcept {
+	// Выводим признак вставки значений GREASE
+	return ((this->_engine != nullptr) && this->_engine->grease());
+}
+/**
+ * @brief Метод установки профиля отпечатка, по которому складывается приветствие клиента
+ *
+ * @param profile профиль отпечатка, снятый с приветствия обозревателя
+ *
+ * @return        отказ установки
+ *
+ */
+context::error_t nts::client::Context::profile(const fingerprint::profile_t & profile) noexcept {
+	// Если ведение связи не заведено
+	if(this->_engine == nullptr)
+		// Выводим отказ нехватки памяти
+		return context::error_t::MEMORY;
+	// Выводим итог установки профиля
+	return this->_engine->profile(profile);
+}
+/**
  * @brief Метод проверки возобновления связи билетом
  *
  * @return признак того, что связь возобновлена заранее разделённым ключом

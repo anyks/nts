@@ -475,6 +475,60 @@ bool nts::server::Context::etm() const noexcept {
 	return ((this->_engine != nullptr) && this->_engine->etm());
 }
 /**
+ * @brief Метод установки вставки своих значений GREASE (RFC 8701)
+ *
+ * @param grease вставляются ли значения GREASE
+ *
+ */
+void nts::server::Context::grease(const bool grease) noexcept {
+	// Если ведение связи заведено
+	if(this->_engine != nullptr)
+		// Выполняем установку вставки значений GREASE
+		this->_engine->grease(grease);
+}
+/**
+ * @brief Метод проверки вставки своих значений GREASE
+ *
+ * @return признак того, что значения GREASE вставляются
+ *
+ */
+bool nts::server::Context::grease() const noexcept {
+	// Выводим признак вставки значений GREASE
+	return ((this->_engine != nullptr) && this->_engine->grease());
+}
+/**
+ * @brief Метод снятия профиля отпечатка с принятого приветствия клиента
+ *
+ * @param profile место, в которое помещается разобранный профиль приветствия
+ *
+ * @return        отказ снятия
+ *
+ */
+context::error_t nts::server::Context::profile(fingerprint::profile_t & profile) const noexcept {
+	// Если ведение связи не заведено либо приветствие не принято
+	if((this->_engine == nullptr) || this->_engine->received().empty())
+		// Выводим отказ негодного состояния связи
+		return context::error_t::STATE;
+	// Отказ разбора приветствия
+	const fingerprint::error_t failure = fingerprint::parse(view_t(this->_engine->received().data(), this->_engine->received().size()), profile, (this->_engine->transport() == context::transport_t::DATAGRAMS));
+	// Выводим итог разбора: нехватка памяти своим кодом, прочие отказы - сообщением
+	return ((failure == fingerprint::error_t::NONE) ? context::error_t::NONE : ((failure == fingerprint::error_t::MEMORY) ? context::error_t::MEMORY : context::error_t::MESSAGE));
+}
+/**
+ * @brief Метод получения принятого приветствия клиента байтами
+ *
+ * @return байты приветствия клиента вместе с обвязкой сообщения рукопожатия
+ *
+ */
+view_t nts::server::Context::greeting() const noexcept {
+	// Если ведение связи не заведено
+	if(this->_engine == nullptr)
+		// Выводим пустоту
+		return view_t(nullptr, 0);
+	// Выводим принятое приветствие
+	return view_t(this->_engine->received().data(), this->_engine->received().size());
+}
+/**
  * @brief Метод установки ключа билетов сеансов издания TLS 1.2
  *
  * @param secret секрет любой длины

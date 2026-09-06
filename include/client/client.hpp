@@ -46,6 +46,7 @@
 #include <ocsp/ocsp.hpp>
 #include <trust/trust.hpp>
 #include <context/context.hpp>
+#include <fingerprint/fingerprint.hpp>
 #include <datagram/datagram.hpp>
 
 /**
@@ -818,6 +819,107 @@ namespace nts {
 				 * \~
 				 */
 				bool etm() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод установки вставки своих значений GREASE (RFC 8701)
+				 *
+				 * @param grease вставляются ли значения GREASE
+				 *
+				 * @details Раздел 3.1 RFC 8701, поведение BoringSSL при SSL_CTX_set_grease_enabled:
+				 *          приветствие клиента несёт набор GREASE первым в перечне наборов, пустое
+				 *          расширение GREASE первым и расширение GREASE с телом в один нулевой байт
+				 *          последним среди расширений (заранее разделённый ключ остаётся за ним),
+				 *          группу GREASE первой в перечне групп, долю GREASE с телом в один байт
+				 *          первой в перечне долей и издание GREASE первым в перечне изданий. Значения
+				 *          вида 0x?A?A выводятся из энтропии на связь, два расширения различны, и
+				 *          повторное приветствие после просьбы о повторе несёт те же значения
+				 *
+				 * @note По умолчанию выключено: байты приветствия прежние. Собеседник значения
+				 *       GREASE не выбирает ни при каких условиях; при заданном профиле отпечатка
+				 *       места и число значений берутся из профиля, а ручка на него не влияет
+				 *
+				 * \~english
+				 * @brief Method of setting the insertion of the own GREASE values (RFC 8701)
+				 * @param grease whether the GREASE values are inserted
+				 * @details The section 3.1 of RFC 8701, the behaviour of BoringSSL at SSL_CTX_set_grease_enabled:
+				 *          the greeting of the client carries a GREASE suite first in the list of the suites, an empty
+				 *          GREASE extension first and a GREASE extension with a body of a single zero byte last among
+				 *          the extensions (the pre-shared key stays behind it), a GREASE group first in the list of
+				 *          the groups, a GREASE share with a body of a single byte first in the list of the shares
+				 *          and a GREASE version first in the list of the versions. The values of the form 0x?A?A are
+				 *          derived from the entropy per connection, the two extensions differ, and the repeated
+				 *          greeting after the retry request carries the same values
+				 * @note Disabled by default: the bytes of the greeting are the former ones. The interlocutor never
+				 *       selects a GREASE value; with a fingerprint profile set the places and the number of the
+				 *       values are taken from the profile, and the switch does not affect it
+				 *
+				 * \~
+				 */
+				void grease(const bool grease) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод проверки вставки своих значений GREASE
+				 *
+				 * @return признак того, что значения GREASE вставляются
+				 *
+				 * \~english
+				 * @brief Method of checking the insertion of the own GREASE values
+				 * @return the flag of the GREASE values being inserted
+				 *
+				 * \~
+				 */
+				bool grease() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод установки профиля отпечатка, по которому складывается приветствие клиента
+				 *
+				 * @param profile профиль отпечатка, снятый с приветствия обозревателя (`fingerprint::parse`, `fingerprint::load`)
+				 * @return        отказ установки: STATE после `start()`, SETTINGS у пустого профиля либо профиля
+				 *                без единого набора или группы, ведомых связи, MEMORY при нехватке памяти
+				 *
+				 * @details Приветствие клиента складывается по профилю, а не по умолчаниям движка:
+				 *          издание приветствия, длина опознавателя связи (свежие случайные байты той же
+				 *          длины), способы сжатия, порядок наборов со значениями GREASE на записанных
+				 *          местах (значения свежие), порядок и состав расширений дословно, тела статичных
+				 *          расширений как записаны, группы и издания с GREASE на местах, доли ключа
+				 *          свежими ключами по записанным группам, заполнение по RFC 7685 до 512 байтов.
+				 *          Имя узла берётся из `name()` (без имени расширение не идёт), прикладные
+				 *          протоколы и алгоритмы сжатия - свои, если заданы потребителем, иначе профиля;
+				 *          зашифрованное приветствие (0xFE0D) идёт значением GREASE случайным телом
+				 *          записанной длины; заранее разделённые ключи - лишь при предъявлении билета.
+				 *          Перечни наборов, групп, долей и схем связи сужаются до ведомых связи значений
+				 *          профиля в порядке профиля, пределы изданий берутся из профиля. Наборы и группы,
+				 *          связи неведомые, предлагаются как записаны: выбери их сервер - связь обрывается
+				 *          отказом PROFILE. Доли групп, которых связь не умеет (X25519MLKEM768 0x11EC и
+				 *          прочие постквантовые), опускаются, а группы остаются в перечне - долг ML-KEM
+				 * @note Профиль ставится лишь до `start()` и лишь клиенту; ручка `grease` на него не влияет
+				 *
+				 * \~english
+				 * @brief Method of setting the fingerprint profile the greeting of the client is composed by
+				 * @param profile the fingerprint profile taken from a greeting of a browser (`fingerprint::parse`, `fingerprint::load`)
+				 * @return        the failure of the setting: STATE after `start()`, SETTINGS at an empty profile or a profile
+				 *                without a single suite or group known to the connection, MEMORY at the lack of memory
+				 * @details The greeting of the client is composed by the profile instead of the defaults of the engine:
+				 *          the edition of the greeting, the length of the session identifier (fresh random bytes of the
+				 *          same length), the compression methods, the order of the suites with the GREASE values at the
+				 *          recorded places (the values are fresh), the order and the set of the extensions verbatim, the
+				 *          bodies of the static extensions as recorded, the groups and the editions with GREASE at their
+				 *          places, the key shares by fresh keys of the recorded groups, the padding by RFC 7685 up to 512
+				 *          bytes. The host name is taken from `name()` (without a name the extension does not go), the
+				 *          application protocols and the compression algorithms are the own ones when set by the consumer,
+				 *          otherwise the ones of the profile; the encrypted client hello (0xFE0D) goes as a GREASE value
+				 *          with a random body of the recorded length; the pre-shared keys go only at the presentation of a
+				 *          ticket. The lists of the suites, groups, shares and schemes of the connection are narrowed to the
+				 *          values of the profile known to the connection in the order of the profile, the limits of the
+				 *          editions are taken from the profile. The suites and the groups unknown to the connection are
+				 *          offered as recorded: should the server select them, the connection is aborted by PROFILE. The
+				 *          shares of the groups the connection cannot handle (X25519MLKEM768 0x11EC and the other
+				 *          post-quantum ones) are omitted while the groups stay in the list - the ML-KEM debt
+				 * @note The profile is set only before `start()` and only at the client; the `grease` switch does not affect it
+				 *
+				 * \~
+				 */
+				context::error_t profile(const fingerprint::profile_t & profile) noexcept;
 				/**
 				 * \~russian
 				 * @brief Метод установки предложения упреждающих данных серверу

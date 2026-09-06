@@ -46,6 +46,7 @@
 #include <ocsp/ocsp.hpp>
 #include <trust/trust.hpp>
 #include <context/context.hpp>
+#include <fingerprint/fingerprint.hpp>
 #include <datagram/datagram.hpp>
 
 /**
@@ -917,6 +918,93 @@ namespace nts {
 				 * \~
 				 */
 				bool etm() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод установки вставки своих значений GREASE (RFC 8701)
+				 *
+				 * @param grease вставляются ли значения GREASE
+				 *
+				 * @details Раздел 3.2 RFC 8701, поведение BoringSSL при SSL_CTX_set_grease_enabled:
+				 *          сервер издания TLS 1.3 несёт пустое расширение GREASE в билете
+				 *          возобновления связи (за пределом упреждающих данных) и первым в запросе
+				 *          подлинности клиента. Значения вида 0x?A?A выводятся из энтропии на связь
+				 *
+				 * @note По умолчанию выключено: байты сообщений прежние. Значения GREASE клиента
+				 *       сервер не выбирает ни при каких условиях; издание TLS 1.2 расширений у билета
+				 *       и запроса подлинности не имеет, и там вставки нет
+				 *
+				 * \~english
+				 * @brief Method of setting the insertion of the own GREASE values (RFC 8701)
+				 * @param grease whether the GREASE values are inserted
+				 * @details The section 3.2 of RFC 8701, the behaviour of BoringSSL at SSL_CTX_set_grease_enabled:
+				 *          the server of the 1.3 edition carries an empty GREASE extension in the ticket of the
+				 *          resumption of the connection (behind the limit of the early data) and first in the request
+				 *          of the authenticity of the client. The values of the form 0x?A?A are derived from the
+				 *          entropy per connection
+				 * @note Disabled by default: the bytes of the messages are the former ones. The server never selects
+				 *       a GREASE value of the client; the 1.2 edition has no extensions at the ticket and at the
+				 *       request of the authenticity, and there is no insertion there
+				 *
+				 * \~
+				 */
+				void grease(const bool grease) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод проверки вставки своих значений GREASE
+				 *
+				 * @return признак того, что значения GREASE вставляются
+				 *
+				 * \~english
+				 * @brief Method of checking the insertion of the own GREASE values
+				 * @return the flag of the GREASE values being inserted
+				 *
+				 * \~
+				 */
+				bool grease() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод снятия профиля отпечатка с принятого приветствия клиента
+				 *
+				 * @param profile место, в которое помещается разобранный профиль приветствия
+				 * @return        отказ снятия: STATE до приёма приветствия, иначе отказ разбора
+				 *                (`fingerprint::error_t` сведён к MESSAGE, MEMORY при нехватке памяти)
+				 *
+				 * @details Профиль доступен с момента приёма приветствия клиента: до завершения
+				 *          рукопожатия, после него и до сброса связи. По профилю потребитель
+				 *          считает отпечатки `fingerprint::imprint` (JA3, JA4, PeetPrint). Сырые
+				 *          байты приветствия для своего разбора отдаёт `greeting()`
+				 *
+				 * \~english
+				 * @brief Method of taking the fingerprint profile from the accepted greeting of the client
+				 * @param profile the place the parsed profile of the greeting is put into
+				 * @return        the failure of the taking: STATE before the acceptance of the greeting, otherwise
+				 *                the failure of the parsing (`fingerprint::error_t` reduced to MESSAGE, MEMORY at the lack of memory)
+				 * @details The profile is available from the moment of the acceptance of the greeting of the client:
+				 *          before the completion of the handshake, after it and until the reset of the connection.
+				 *          By the profile the consumer computes the fingerprints `fingerprint::imprint` (JA3, JA4,
+				 *          PeetPrint). The raw bytes of the greeting for an own parsing are given by `greeting()`
+				 *
+				 * \~
+				 */
+				context::error_t profile(fingerprint::profile_t & profile) const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения принятого приветствия клиента байтами
+				 *
+				 * @return байты приветствия клиента вместе с обвязкой сообщения рукопожатия (пусто до приёма)
+				 *
+				 * @details Для своего разбора помимо `profile()`: сообщение рукопожатия с четырёхбайтовой
+				 *          обвязкой записями и с двенадцатибайтовой поверх дейтаграмм, без заголовка записи
+				 *
+				 * \~english
+				 * @brief Method of getting the accepted greeting of the client by bytes
+				 * @return the bytes of the greeting of the client together with the framing of the handshake message (empty before the acceptance)
+				 * @details For an own parsing besides `profile()`: the handshake message with the four-byte framing over
+				 *          records and with the twelve-byte one over datagrams, without the header of the record
+				 *
+				 * \~
+				 */
+				view_t greeting() const noexcept;
 				/**
 				 * \~russian
 				 * @brief Метод установки ключа билетов сеансов издания TLS 1.2
