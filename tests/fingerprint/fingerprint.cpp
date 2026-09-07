@@ -1492,6 +1492,8 @@ TEST(ProfileTest, Starved){
 	bool starved = false;
 	// Признак того, что на щедром запасе всё удалось
 	bool complete = false;
+	// Имя узла складывается до ограничения запаса: строка из литерала под старым ABI libstdc++ выделяет память в теле проверки
+	const string host = "example.com";
 	/**
 	 * Выполняем перебор запасов выделений
 	 */
@@ -1507,7 +1509,7 @@ TEST(ProfileTest, Starved){
 			client::context_t client;
 			server::context_t server;
 			// Имя узла
-			client.name("example.com");
+			client.name(host);
 			// Ставим профиль
 			set = client.profile(source);
 			// Если профиль поставлен

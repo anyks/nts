@@ -627,7 +627,8 @@ namespace {
 		{static_cast <uint16_t> (extension::type_t::VERSIONS),  (PLACE_HELLO | PLACE_RETRY)},
 		{static_cast <uint16_t> (extension::type_t::MODES),     0},
 		{static_cast <uint16_t> (extension::type_t::SHARE),     (PLACE_HELLO | PLACE_RETRY)},
-		{TRANSPORT,                                             PLACE_GUARDED}
+		{TRANSPORT,                                             PLACE_GUARDED},
+		{ech::ECH_EXTENSION,                                    (PLACE_RETRY | PLACE_GUARDED)}
 	};
 
 	/**
@@ -1700,6 +1701,12 @@ context::error_t nts::internal::Engine::send(const handshake::type_t type, const
 	// Получаем составленное сообщение рукопожатия
 	const view_t message = writer.data();
 	/**
+	 * Раздел 7.2 RFC 9849: по принятии ECH переписка ведётся внутренним приветствием, а
+	 * на провод уходит внешнее - повторное приветствие после просьбы о повторе
+	 * записывается в переписку внутренним
+	 */
+	const view_t recorded = ((!this->_server && (type == handshake::type_t::CLIENT) && (this->_ech == ech_t::ACCEPTED) && !this->_inner.empty()) ? view_t(this->_inner.data(), this->_inner.size()) : message);
+	/**
 	 * Запись складывается ключами той поры, которая идёт до объявления сообщения:
 	 * приветствие сервера уходит открытым, а защита появляется лишь за ним
 	 */
@@ -1727,18 +1734,18 @@ context::error_t nts::internal::Engine::send(const handshake::type_t type, const
 		// Если рукопожатие ещё не завершено
 		if(this->_phase != phase_t::ESTABLISHED){
 			// Отказ ведения переписки рукопожатия
-			const context::error_t recorded = this->chronicle(message, number);
+			const context::error_t chronicled = this->chronicle(recorded, number);
 			// Если сообщение в переписку рукопожатия добавить не удалось
-			if(recorded != context::error_t::NONE)
+			if(chronicled != context::error_t::NONE)
 				// Выводим отказ ведения переписки рукопожатия
-				return recorded;
+				return chronicled;
 		}
 		// Если связь ведётся изданием TLS 1.2
 		if(this->_legacy)
 			// Выводим успешность отправки сообщения рукопожатия
 			return context::error_t::NONE;
 	// Если сообщение в переписку рукопожатия издания 1.3 добавить не удалось
-	} else if(this->_transcript.update(message) != session::error_t::NONE)
+	} else if(this->_transcript.update(recorded) != session::error_t::NONE)
 		// Выводим отказ ведения переписки рукопожатия
 		return context::error_t::MESSAGE;
 	// Если сообщение ходу рукопожатия объявить не удалось
@@ -2524,8 +2531,13 @@ context::error_t nts::internal::Engine::greeting() noexcept {
 		}
 		// Если имя узла у сервера запрашивается
 		if(!this->_name.empty()){
-			// Отказ составления расширения приветствия
-			failure = translate(extension::name(view_t(reinterpret_cast <const uint8_t *> (this->_name.data()), this->_name.size()), name), context::error_t::MESSAGE);
+			/**
+			 * Имя берётся c_str(), а не data(): под libstdc++ старого ABI неконстантный
+			 * data() разделённой строки копирует её внутри функции, объявленной noexcept
+			 * стандартом, и нехватка памяти там обрывает процесс мимо перехвата (вскрыто
+			 * ProfileTest.Starved на OpenWRT: имя пришло разделённой копией)
+			 */
+			failure = translate(extension::name(view_t(reinterpret_cast <const uint8_t *> (this->_name.c_str()), this->_name.size()), name), context::error_t::MESSAGE);
 			// Если имя запрашиваемого узла составить не удалось
 			if(failure != context::error_t::NONE)
 				// Выводим отказ составления расширения приветствия
@@ -2674,6 +2686,69 @@ context::error_t nts::internal::Engine::greeting() noexcept {
 			if(failure != context::error_t::NONE)
 				// Выводим отказ складывания приветствия
 				return failure;
+		}
+		// Если конфигурации ECH заданы и билет не предъявляется: внутреннее приветствие шифруется, внешнее собирается
+		if(!this->_configs.empty() && !resume && (this->_transport != context::transport_t::DATAGRAMS)){
+			// Хранилище занимает место под публичное имя и расширение ECH: указатели на тела не должны переезжать
+			storage.reserve(storage.size() + 2);
+			// Отказ складывания зашифрованного приветствия
+			failure = this->shrouding(greeting, storage);
+			// Если зашифрованное приветствие сложить не удалось
+			if(failure != context::error_t::NONE)
+				// Выводим отказ складывания
+				return failure;
+		/**
+		 * Раздел 6.2 RFC 9849: клиент без конфигураций ECH при включённом GREASE шлёт
+		 * расширение ECH внешнего вида со случайным телом, как BoringSSL; профиль
+		 * отпечатка расставляет своё значение GREASE ECH сам
+		 */
+		} else if(this->_configs.empty() && greased && !this->_profiled && !resume) {
+			// Хранилище занимает место под расширение ECH
+			storage.reserve(storage.size() + 1);
+			// Значение GREASE ECH
+			ech::hello_t stub;
+			// Место случайного опознавателя
+			uint8_t identifier[1];
+			// Если опознаватель выработать не удалось
+			if(!entropy::bytes(identifier, sizeof(identifier)))
+				// Выводим отказ настроек связи
+				return context::error_t::SETTINGS;
+			// Опознаватель конфигурации случайный
+			stub.id = identifier[0];
+			// Набор: обязательный к исполнению по разделу 9 RFC 9849
+			stub.suite = ech::suite_t(hpke::kdf_t::HKDF_SHA256, hpke::aead_t::AES_128_GCM);
+			// Мимолётный ключ: инкапсулированный ключ обязан быть годной точкой X25519
+			hpke::key_t ephemeral;
+			// Если мимолётный ключ выработать не удалось
+			if(ephemeral.generate(hpke::kem_t::X25519_HKDF_SHA256) != hpke::error_t::NONE)
+				// Выводим отказ настроек связи
+				return context::error_t::SETTINGS;
+			// Переносим открытую часть мимолётного ключа
+			stub.enc.assign(ephemeral.point().data, ephemeral.point().data + ephemeral.point().size);
+			// Накопитель, в который складывается приветствие без ECH: по нему судится правдоподобная длина шифротекста
+			vector <uint8_t> gauge;
+			// Отказ составления приветствия
+			failure = translate(hello::build(greeting, gauge, false), context::error_t::MESSAGE);
+			// Если приветствие составить не удалось
+			if(failure != context::error_t::NONE)
+				// Выводим отказ составления
+				return failure;
+			// Шифротекст длиной закодированного приветствия, доведённой до кратной 32, с меткой шифра
+			stub.payload.assign((((gauge.size() + 31) / 32) * 32) + hpke::overhead(stub.suite.aead), 0);
+			// Если шифротекст выработать не удалось
+			if(!entropy::bytes(stub.payload.data(), stub.payload.size()))
+				// Выводим отказ настроек связи
+				return context::error_t::SETTINGS;
+			// Занимаем место под тело расширения
+			storage.push_back(vector <uint8_t> ());
+			// Если тело расширения составить не удалось
+			if(ech::build(stub, storage.back()) != ech::error_t::NONE)
+				// Выводим отказ нехватки памяти
+				return context::error_t::MEMORY;
+			// Добавляем расширение GREASE ECH перед вторым расширением GREASE: то остаётся последним, как у BoringSSL
+			greeting.extensions.insert(greeting.extensions.end() - (greased ? 1 : 0), hello::extension_t(ech::ECH_EXTENSION, view_t(storage.back().data(), storage.back().size())));
+			// Запоминаем, что отправлено лишь значение GREASE ECH
+			this->_ech = ech_t::GREASED;
 		}
 		/**
 		 * Выполняем перехват ошибок работы с памятью
@@ -2878,6 +2953,8 @@ context::error_t nts::internal::Engine::answer(const vector <uint8_t> & session,
 			// Добавляем расширение метки возврата состояния сервера
 			answer.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::COOKIE), view_t(label.data(), label.size())));
 		}
+		// Раздел 7.2.1 RFC 9849: просьба о повторе принявшего ECH сервера несёт расширение ECH с подтверждением
+		static const uint8_t CONFIRMATION[ech::ECH_CONFIRMATION] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 		// Накопитель, в котором лежит тело расширения выбранного ключа
 		vector <uint8_t> selected;
 		// Если связь возобновляется заранее разделённым ключом
@@ -2891,6 +2968,10 @@ context::error_t nts::internal::Engine::answer(const vector <uint8_t> & session,
 			// Добавляем расширение выбранного заранее разделённого ключа
 			answer.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::SECRET), view_t(selected.data(), selected.size())));
 		}
+		// Если сервер принял ECH и шлёт просьбу о повторе: расширение подтверждения идёт последним, место обнулено
+		if(retry && this->_echaccepted)
+			// Добавляем расширение подтверждения
+			answer.extensions.push_back(hello::extension_t(ech::ECH_EXTENSION, view_t(CONFIRMATION, sizeof(CONFIRMATION))));
 		// Накопитель, в который складывается тело приветствия сервера
 		vector <uint8_t> body;
 		// Отказ составления приветствия сервера
@@ -2899,6 +2980,15 @@ context::error_t nts::internal::Engine::answer(const vector <uint8_t> & session,
 		if(failure != context::error_t::NONE)
 			// Выводим отказ составления приветствия сервера
 			return failure;
+		// Если сервер принял ECH: подтверждение вписывается в приветствие либо просьбу о повторе
+		if(this->_echaccepted){
+			// Отказ вписывания подтверждения
+			failure = this->marking(body, retry);
+			// Если подтверждение вписать не удалось
+			if(failure != context::error_t::NONE)
+				// Выводим отказ вписывания
+				return failure;
+		}
 		// Выводим итог отправки приветствия сервера
 		return this->send(handshake::type_t::SERVER, view_t(body.data(), body.size()));
 	/**
@@ -4575,8 +4665,42 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 		if(failure != context::error_t::NONE)
 			// Выводим отказ разбора приветствия клиента
 			return this->dismissing(failure, blame(failure, alert::description_t::DECODE));
-		// Запоминаем принятое приветствие вместе с обвязкой: с него потребитель снимает отпечаток
-		this->_salutation.assign(message.data, message.data + message.size);
+		// Запоминаем принятое приветствие вместе с обвязкой: с него потребитель снимает отпечаток (внешнее, как на проводе)
+		if(!this->_unshrouding)
+			// Запоминаем приветствие
+			this->_salutation.assign(message.data, message.data + message.size);
+		// Если сервер служит ECH и разбирается внешнее приветствие
+		if(!this->_unshrouding && this->_echkey.ready() && (this->_transport != context::transport_t::DATAGRAMS)){
+			// Признак принятия ECH
+			bool accepted = false;
+			// Тело восстановленного внутреннего приветствия
+			vector <uint8_t> inner;
+			// Отказ раскрытия зашифрованного приветствия
+			failure = this->unshrouding(greeting, body, accepted, inner);
+			// Если зашифрованное приветствие сложено не по правилам
+			if(failure != context::error_t::NONE)
+				// Выводим отказ раскрытия
+				return this->abort(failure, blame(failure, alert::description_t::PARAMETER));
+			// Если ECH принят: рукопожатие идёт по внутреннему приветствию
+			if(accepted){
+				// Объект составителя сообщения рукопожатия
+				handshake::writer_t writer;
+				// Отказ составления внутреннего приветствия с обвязкой
+				failure = translate(writer.push(handshake::type_t::CLIENT, view_t(inner.data(), inner.size())), context::error_t::MESSAGE);
+				// Если внутреннее приветствие составить не удалось
+				if(failure != context::error_t::NONE)
+					// Выводим отказ составления
+					return this->abort(failure, alert::description_t::INTERNAL);
+				// Отмечаем разбор внутреннего приветствия
+				this->_unshrouding = true;
+				// Разбираем внутреннее приветствие как принятое
+				const context::error_t outcome = this->incoming(view_t(inner.data(), inner.size()), writer.data());
+				// Снимаем отметку разбора
+				this->_unshrouding = false;
+				// Выводим итог разбора внутреннего приветствия
+				return outcome;
+			}
+		}
 		// Признак того, что среди способов сжатия объявлен нулевой
 		bool uncompressed = false;
 		/**
@@ -5316,6 +5440,10 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 		if(this->_transport == context::transport_t::LEVELS)
 			// Объявляем клиенту свои параметры переноса QUIC как есть
 			items.push_back(hello::extension_t(TRANSPORT, view_t(this->_parameters.data(), this->_parameters.size())));
+		// Раздел 7.1 RFC 9849: сервер, отвергший ECH, шлёт свои конфигурации как retry_configs
+		if(this->_echrejected && !this->_echlist.empty())
+			// Добавляем расширение запасных конфигураций
+			items.push_back(hello::extension_t(ech::ECH_EXTENSION, view_t(this->_echlist.data(), this->_echlist.size())));
 		// Накопитель, в который складывается тело защищённых расширений
 		vector <uint8_t> extensions;
 		// Отказ составления тела сообщения защищённых расширений
@@ -5566,6 +5694,15 @@ context::error_t nts::internal::Engine::outgoing(const view_t & body, const view
 		if(hashed != context::error_t::NONE)
 			// Выводим отказ выбора хеша переписки
 			return this->abort(hashed, alert::description_t::PARAMETER);
+		// Если зашифрованное приветствие предложено либо принято просьбой о повторе: судим о принятии
+		if((this->_ech == ech_t::OFFERED) || ((this->_ech == ech_t::ACCEPTED) && this->_retried)){
+			// Отказ суждения о принятии ECH
+			failure = this->confirming(answer, message);
+			// Если о принятии судить не удалось
+			if(failure != context::error_t::NONE)
+				// Выводим отказ суждения
+				return this->abort(failure, blame(failure, alert::description_t::PARAMETER));
+		}
 		// Если приветствие сервера просьбой о повторе не является
 		if(!hello::retry(answer)){
 			/**
@@ -6419,6 +6556,28 @@ context::error_t nts::internal::Engine::handle(const handshake::type_t type, con
 						// Выводим отказ объявления непрошенного расширения
 						return this->abort(context::error_t::EXTENSION, alert::description_t::EXTENSION);
 				}
+				// Запасные конфигурации ECH сервера
+				view_t retrying;
+				// Раздел 7.1 RFC 9849: сервер, отвергший ECH, шлёт retry_configs защищённым расширением
+				if(announced(body, ech::ECH_EXTENSION, retrying)){
+					// Принявший ECH сервер расширения не шлёт: раздел 7.1
+					if(this->_ech == ech_t::ACCEPTED)
+						// Выводим отказ негодного расширения
+						return this->abort(context::error_t::MESSAGE, alert::description_t::PARAMETER);
+					/**
+					 * Выполняем перехват ошибок работы с памятью
+					 */
+					try {
+						// Запоминаем запасные конфигурации как записаны
+						this->_retries.assign(retrying.data, retrying.data + retrying.size);
+					/**
+					 * Если памяти под конфигурации не хватило
+					 */
+					} catch(const std::bad_alloc &) {
+						// Выводим отказ нехватки памяти
+						return this->abort(context::error_t::MEMORY, alert::description_t::INTERNAL);
+					}
+				}
 				// Тело расширения параметров переноса QUIC сервера
 				view_t transport;
 				// Признак того, что параметры переноса сервером объявлены
@@ -6777,6 +6936,14 @@ context::error_t nts::internal::Engine::handle(const handshake::type_t type, con
 			this->_state = context::state_t::ESTABLISHED;
 			// Понижаем сборщику сообщений предел до положенного установленной связи
 			this->_messages.limit(AFTERMATH);
+			/**
+			 * Раздел 6.1.7 RFC 9849: сервер ECH отверг - рукопожатие сложено по публичному имени,
+			 * и связь обрывается извещением ech_required прежде всяких прикладных данных;
+			 * запасные конфигурации сервера остаются потребителю
+			 */
+			if(!this->_server && (this->_ech == ech_t::REJECTED))
+				// Выводим отказ отвергнутого ECH
+				return this->abort(context::error_t::ECH, alert::description_t::ECH_REQUIRED);
 		}
 		// Выводим успешность разбора сообщения рукопожатия
 		return context::error_t::NONE;
@@ -8101,6 +8268,23 @@ void nts::internal::Engine::clear() noexcept {
 	this->_session.clear();
 	// Выполняем сброс принятого приветствия клиента
 	this->_salutation.clear();
+	// Выполняем сброс состояния зашифрованного приветствия ECH: конфигурации и ключ - настройки, они остаются
+	this->_ech = ech_t::NONE;
+	// Выполняем сброс внутреннего приветствия
+	this->_inner.clear();
+	// Выполняем сброс видов расширений внутреннего приветствия
+	this->_hidden.clear();
+	// Выполняем сброс запасных конфигураций
+	this->_retries.clear();
+	// Выполняем сброс признаков сервера
+	this->_echaccepted = false;
+	this->_echrejected = false;
+	this->_unshrouding = false;
+	// Выполняем сброс состояний HPKE
+	this->_sealer.clear();
+	this->_opener.clear();
+	// Выполняем затирание случайного значения внутреннего приветствия
+	wipe(this->_innerandom, sizeof(this->_innerandom));
 	// Выполняем затирание случайного значения своего приветствия
 	wipe(this->_random, sizeof(this->_random));
 	// Сбрасываем признак просьбы о доле ключа
@@ -12052,6 +12236,784 @@ context::error_t nts::internal::Engine::profile(const fingerprint::profile_t & p
 	}
 }
 /**
+ * @brief Метод установки конфигураций ECH клиенту
+ *
+ * @param configs перечень ECHConfigList байтами
+ *
+ * @return        отказ установки
+ *
+ */
+context::error_t nts::internal::Engine::ech(const view_t & configs) noexcept {
+	// Конфигурации ставятся лишь до заведения связи
+	if(this->_state != context::state_t::NONE)
+		// Выводим отказ негодного состояния связи
+		return context::error_t::STATE;
+	// Настройкам связи памяти не хватило
+	if(this->_starved)
+		// Выводим отказ нехватки памяти
+		return context::error_t::MEMORY;
+	// Конфигурации годны лишь клиенту
+	if(this->_server)
+		// Выводим отказ настроек связи
+		return context::error_t::SETTINGS;
+	/**
+	 * Выполняем перехват ошибок работы с памятью
+	 */
+	try {
+		// Разобранные конфигурации
+		vector <ech::config_t> list;
+		// Отказ разбора перечня
+		const ech::error_t failure = ech::parse(configs, list);
+		// Если памяти не хватило
+		if(failure == ech::error_t::MEMORY)
+			// Выводим отказ нехватки памяти
+			return context::error_t::MEMORY;
+		// Если перечень негоден либо без единой признаваемой конфигурации
+		if(failure != ech::error_t::NONE)
+			// Выводим отказ конфигураций ECH
+			return context::error_t::ECH;
+		// Переносим конфигурации
+		this->_configs = list;
+		// Запоминаем перечень как записан
+		this->_echlist.assign(configs.data, configs.data + configs.size);
+		// Выбирается первая признаваемая конфигурация
+		this->_shroud = 0;
+		// Публичное имя известно с момента установки: по нему потребитель судит сертификат при отказе
+		this->_public = list[0].name;
+		/**
+		 * Раздел 6.1 RFC 9849: внутреннее приветствие не вправе предлагать издания ниже 1.3,
+		 * а внешнее обязано предлагать 1.3 - связь с ECH ведёт одно лишь издание 1.3
+		 */
+		this->_lowest = MODERN;
+		// Наибольшее издание не ниже 1.3
+		this->_highest = MODERN;
+		// Выводим успешность установки
+		return context::error_t::NONE;
+	/**
+	 * Если памяти под конфигурации не хватило
+	 */
+	} catch(const bad_alloc &) {
+		// Выводим отказ нехватки памяти
+		return context::error_t::MEMORY;
+	}
+}
+/**
+ * @brief Метод установки ключа ECH серверу
+ *
+ * @param secret секретный ключ X25519 либо пусто
+ * @param name   публичное имя конфигурации
+ * @param id     опознаватель конфигурации
+ * @param length наибольшая длина имени для заполнения клиента
+ *
+ * @return       отказ установки
+ *
+ */
+context::error_t nts::internal::Engine::ech(const view_t & secret, const string & name, const uint8_t id, const uint8_t length) noexcept {
+	// Ключ ставится лишь до заведения связи
+	if(this->_state != context::state_t::NONE)
+		// Выводим отказ негодного состояния связи
+		return context::error_t::STATE;
+	// Настройкам связи памяти не хватило
+	if(this->_starved)
+		// Выводим отказ нехватки памяти
+		return context::error_t::MEMORY;
+	// Ключ годен лишь серверу, имя обязательно и не длиннее дозволенного
+	if(!this->_server || name.empty() || (name.size() > ech::ECH_NAME))
+		// Выводим отказ настроек связи
+		return context::error_t::SETTINGS;
+	/**
+	 * Выполняем перехват ошибок работы с памятью
+	 */
+	try {
+		// Ключ HPKE сервера
+		hpke::key_t key;
+		// Отказ заведения ключа: заданный секрет либо порождение
+		const hpke::error_t keyed = ((secret.size == 0) ? key.generate(hpke::kem_t::X25519_HKDF_SHA256) : key.set(hpke::kem_t::X25519_HKDF_SHA256, secret));
+		// Если ключ завести не удалось
+		if(keyed != hpke::error_t::NONE)
+			// Выводим отказ: нехватка памяти своим кодом, прочее - настройками
+			return ((keyed == hpke::error_t::MEMORY) ? context::error_t::MEMORY : context::error_t::SETTINGS);
+		// Составляемая конфигурация
+		ech::config_t config;
+		// Опознаватель
+		config.id = id;
+		// Наибольшая длина имени
+		config.length = length;
+		// Способ инкапсуляции
+		config.kem = hpke::kem_t::X25519_HKDF_SHA256;
+		// Открытая часть ключа
+		config.key.assign(key.point().data, key.point().data + key.point().size);
+		// Наборы: обязательный AES-128-GCM и ChaCha20-Poly1305, оба на HKDF-SHA256
+		config.suites.push_back(ech::suite_t(hpke::kdf_t::HKDF_SHA256, hpke::aead_t::AES_128_GCM));
+		config.suites.push_back(ech::suite_t(hpke::kdf_t::HKDF_SHA256, hpke::aead_t::CHACHA20_POLY1305));
+		// Публичное имя
+		config.name = name;
+		// Конфигурация как записана
+		vector <uint8_t> raw;
+		// Если конфигурацию составить не удалось
+		if(ech::build(config, raw) != ech::error_t::NONE)
+			// Выводим отказ нехватки памяти
+			return context::error_t::MEMORY;
+		// Служимая конфигурация: разбирается из записи, чтобы хранить себя как записана
+		ech::config_t served;
+		// Если конфигурацию разобрать не удалось
+		if(ech::parse(view_t(raw.data(), raw.size()), served) != ech::error_t::NONE)
+			// Выводим отказ нехватки памяти
+			return context::error_t::MEMORY;
+		// Перечень для DNS
+		vector <uint8_t> list;
+		// Если перечень составить не удалось
+		if(ech::build(vector <ech::config_t> {served}, list) != ech::error_t::NONE)
+			// Выводим отказ нехватки памяти
+			return context::error_t::MEMORY;
+		// Если ключ перенести не удалось
+		if(this->_echkey.set(hpke::kem_t::X25519_HKDF_SHA256, key.secret()) != hpke::error_t::NONE)
+			// Выводим отказ нехватки памяти
+			return context::error_t::MEMORY;
+		// Запоминаем конфигурацию
+		this->_served = served;
+		// Запоминаем перечень для DNS
+		this->_echlist.swap(list);
+		// Выводим успешность установки
+		return context::error_t::NONE;
+	/**
+	 * Если памяти под ключ не хватило
+	 */
+	} catch(const bad_alloc &) {
+		// Выводим отказ нехватки памяти
+		return context::error_t::MEMORY;
+	}
+}
+/**
+ * @brief Метод получения перечня конфигураций ECH
+ *
+ * @return перечень ECHConfigList
+ *
+ */
+const vector <uint8_t> & nts::internal::Engine::ech() const noexcept {
+	// Выводим перечень
+	return this->_echlist;
+}
+/**
+ * @brief Метод проверки принятия ECH сервером
+ *
+ * @return признак того, что рукопожатие идёт по внутреннему приветствию
+ *
+ */
+bool nts::internal::Engine::shrouded() const noexcept {
+	// Выводим признак принятия: у сервера - своё, у клиента - подтверждённое
+	return (this->_server ? this->_echaccepted : (this->_ech == ech_t::ACCEPTED));
+}
+/**
+ * @brief Метод получения имени, которым шло внешнее приветствие
+ *
+ * @return публичное имя конфигурации ECH либо пусто без ECH
+ *
+ */
+const string & nts::internal::Engine::visible() const noexcept {
+	// Выводим публичное имя
+	return this->_public;
+}
+/**
+ * @brief Метод получения запасных конфигураций ECH, присланных сервером
+ *
+ * @return перечень ECHConfigList из защищённых расширений
+ *
+ */
+const vector <uint8_t> & nts::internal::Engine::retries() const noexcept {
+	// Выводим запасные конфигурации
+	return this->_retries;
+}
+/**
+ * @brief Метод складывания зашифрованного приветствия ECH
+ *
+ * @param greeting приветствие, сложенное движком: становится внешним
+ * @param storage  хранилище тел расширений внешнего приветствия
+ *
+ * @return         отказ складывания
+ *
+ */
+context::error_t nts::internal::Engine::shrouding(hello::client_t & greeting, vector <vector <uint8_t>> & storage) noexcept {
+	/**
+	 * Выполняем перехват ошибок работы с памятью
+	 */
+	try {
+		// Расширение ECH внутреннего вида
+		static const uint8_t INWARD[] = {0x01};
+		// Если выбранной конфигурации нет
+		if(this->_shroud >= this->_configs.size())
+			// Выводим отказ конфигураций ECH
+			return context::error_t::ECH;
+		// Выбранная конфигурация
+		const ech::config_t & config = this->_configs[this->_shroud];
+		// Набор симметричных алгоритмов: первый признаваемый из конфигурации
+		ech::suite_t suite;
+		// Признак того, что набор найден
+		bool found = false;
+		/**
+		 * Выполняем перебор наборов конфигурации
+		 */
+		for(size_t i = 0; (i < config.suites.size()) && !found; i++){
+			// Если набор признаётся
+			if(ech::supported(config.kem, config.suites[i])){
+				// Запоминаем набор
+				suite = config.suites[i];
+				// Отмечаем находку
+				found = true;
+			}
+		}
+		// Если набор не найден
+		if(!found)
+			// Выводим отказ конфигураций ECH
+			return context::error_t::ECH;
+		// Инкапсулированный ключ: у первого приветствия свой, у повторного - пустой
+		vector <uint8_t> enc;
+		// Если приветствие первое: случайное значение внутреннего и заведение HPKE
+		if(!this->_retried){
+			// Если случайное значение выработать не удалось
+			if(!entropy::bytes(this->_innerandom, sizeof(this->_innerandom)))
+				// Выводим отказ настроек связи
+				return context::error_t::SETTINGS;
+			// Привязка HPKE
+			vector <uint8_t> info;
+			// Если привязку составить не удалось
+			if(ech::binding(view_t(config.raw.data(), config.raw.size()), info) != ech::error_t::NONE)
+				// Выводим отказ нехватки памяти
+				return context::error_t::MEMORY;
+			// Набор HPKE
+			hpke::suite_t item;
+			// Способ инкапсуляции
+			item.kem = config.kem;
+			// Функция вывода
+			item.kdf = suite.kdf;
+			// Шифр
+			item.aead = suite.aead;
+			// Место инкапсулированного ключа X25519
+			uint8_t encapsulated[agreement::X25519_SIZE];
+			// Отказ заведения отправителя HPKE
+			const hpke::error_t established = hpke::sender(item, hpke::regime_t::BASE, view_t(config.key.data(), config.key.size()), view_t(info.data(), info.size()), hpke::shared_t(), nullptr, encapsulated, this->_sealer);
+			// Если отправителя завести не удалось
+			if(established != hpke::error_t::NONE)
+				// Выводим отказ: нехватка памяти своим кодом, прочее - конфигурациями
+				return ((established == hpke::error_t::MEMORY) ? context::error_t::MEMORY : context::error_t::ECH);
+			// Переносим инкапсулированный ключ
+			enc.assign(encapsulated, encapsulated + sizeof(encapsulated));
+		// Если приветствие повторное, а отправитель не заведён
+		} else if(!this->_sealer.ready())
+			// Выводим отказ конфигураций ECH
+			return context::error_t::ECH;
+		// Внутреннее приветствие: сложенное движком со своим случайным значением и расширением ECH внутреннего вида
+		hello::client_t inner = greeting;
+		// Устанавливаем случайное значение внутреннего приветствия
+		::memcpy(inner.random, this->_innerandom, sizeof(inner.random));
+		// Добавляем расширение ECH внутреннего вида
+		inner.extensions.push_back(hello::extension_t(ech::ECH_EXTENSION, view_t(INWARD, sizeof(INWARD))));
+		// Выполняем сброс видов расширений внутреннего приветствия
+		this->_hidden.clear();
+		/**
+		 * Выполняем перебор расширений внутреннего приветствия
+		 */
+		for(size_t i = 0; i < inner.extensions.size(); i++)
+			// Запоминаем вид расширения
+			this->_hidden.push_back(inner.extensions[i].type);
+		// Тело внутреннего приветствия
+		vector <uint8_t> body;
+		// Отказ составления внутреннего приветствия
+		context::error_t failure = translate(hello::build(inner, body, false), context::error_t::MESSAGE);
+		// Если внутреннее приветствие составить не удалось
+		if(failure != context::error_t::NONE)
+			// Выводим отказ составления
+			return failure;
+		// Объект составителя сообщения рукопожатия
+		handshake::writer_t writer;
+		// Отказ составления внутреннего приветствия с обвязкой
+		failure = translate(writer.push(handshake::type_t::CLIENT, view_t(body.data(), body.size())), context::error_t::MESSAGE);
+		// Если внутреннее приветствие с обвязкой составить не удалось
+		if(failure != context::error_t::NONE)
+			// Выводим отказ составления
+			return failure;
+		// Запоминаем внутреннее приветствие с обвязкой
+		this->_inner.assign(writer.data().data, writer.data().data + writer.data().size);
+		// Виды расширений, выносимых во внешнее приветствие: ведущий ряд до имени узла и ECH
+		vector <uint16_t> outsourced;
+		/**
+		 * Выполняем перебор расширений внутреннего приветствия
+		 */
+		for(size_t i = 0; i < inner.extensions.size(); i++){
+			// Если расширение есть имя узла либо ECH: ряд кончился
+			if((inner.extensions[i].type == static_cast <uint16_t> (extension::type_t::NAME)) || (inner.extensions[i].type == ech::ECH_EXTENSION))
+				// Выходим из перебора
+				break;
+			// Добавляем вид расширения в ряд
+			outsourced.push_back(inner.extensions[i].type);
+		}
+		// Закодированное внутреннее приветствие без заполнения: для подсчёта заполнения
+		vector <uint8_t> encoded;
+		// Если закодировать не удалось
+		if(ech::encode(inner, outsourced, 0, encoded) != ech::error_t::NONE)
+			// Выводим отказ нехватки памяти
+			return context::error_t::MEMORY;
+		// Заполнение по разделу 6.1.3 RFC 9849
+		const size_t padding = ech::padding(this->_name.size(), config.length, encoded.size());
+		// Если закодировать с заполнением не удалось
+		if(ech::encode(inner, outsourced, padding, encoded) != ech::error_t::NONE)
+			// Выводим отказ нехватки памяти
+			return context::error_t::MEMORY;
+		// Занимаем место под публичное имя
+		storage.push_back(vector <uint8_t> ());
+		// Тело публичного имени
+		vector <uint8_t> & named = storage.back();
+		// Отказ составления публичного имени
+		failure = translate(extension::name(view_t(reinterpret_cast <const uint8_t *> (config.name.c_str()), config.name.size()), named), context::error_t::MESSAGE);
+		// Если публичное имя составить не удалось
+		if(failure != context::error_t::NONE)
+			// Выводим отказ составления
+			return failure;
+		// Признак того, что имя узла во внешнем приветствии подменено
+		bool renamed = false;
+		/**
+		 * Выполняем перебор расширений внешнего приветствия
+		 */
+		for(size_t i = 0; i < greeting.extensions.size(); i++){
+			// Если расширение есть имя узла
+			if(greeting.extensions[i].type == static_cast <uint16_t> (extension::type_t::NAME)){
+				// Подменяем имя публичным
+				greeting.extensions[i].data = view_t(named.data(), named.size());
+				// Отмечаем подмену
+				renamed = true;
+			}
+		}
+		// Раздел 6.1 RFC 9849: внешнее приветствие несёт публичное имя конфигурации
+		if(!renamed)
+			// Добавляем публичное имя
+			greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::NAME), view_t(named.data(), named.size())));
+		// Расширение ECH внешнего вида
+		ech::hello_t outward;
+		// Набор
+		outward.suite = suite;
+		// Опознаватель конфигурации
+		outward.id = config.id;
+		// Инкапсулированный ключ
+		outward.enc = enc;
+		// Шифротекст: место под закодированное приветствие с меткой шифра, пока нулевое
+		outward.payload.assign(encoded.size() + hpke::overhead(suite.aead), 0x00);
+		// Занимаем место под тело расширения
+		storage.push_back(vector <uint8_t> ());
+		// Тело расширения ECH
+		vector <uint8_t> & sealed = storage.back();
+		// Если тело расширения составить не удалось
+		if(ech::build(outward, sealed) != ech::error_t::NONE)
+			// Выводим отказ нехватки памяти
+			return context::error_t::MEMORY;
+		// Добавляем расширение ECH перед вторым расширением GREASE, коли оно есть: то остаётся последним, как у BoringSSL
+		greeting.extensions.insert(greeting.extensions.end() - (this->greased() ? 1 : 0), hello::extension_t(ech::ECH_EXTENSION, view_t(sealed.data(), sealed.size())));
+		// Добавочные данные: внешнее приветствие с обнулённым шифротекстом
+		vector <uint8_t> aad;
+		// Отказ составления внешнего приветствия
+		failure = translate(hello::build(greeting, aad, false), context::error_t::MESSAGE);
+		// Если внешнее приветствие составить не удалось
+		if(failure != context::error_t::NONE)
+			// Выводим отказ составления
+			return failure;
+		// Шифротекст
+		vector <uint8_t> payload;
+		// Отказ шифрования закодированного приветствия
+		const hpke::error_t enciphered = this->_sealer.seal(view_t(aad.data(), aad.size()), view_t(encoded.data(), encoded.size()), payload);
+		// Если зашифровать не удалось
+		if(enciphered != hpke::error_t::NONE)
+			// Выводим отказ: нехватка памяти своим кодом, прочее - конфигурациями
+			return ((enciphered == hpke::error_t::MEMORY) ? context::error_t::MEMORY : context::error_t::ECH);
+		// Если длина шифротекста разошлась с местом
+		if(payload.size() != outward.payload.size())
+			// Выводим отказ конфигураций ECH
+			return context::error_t::ECH;
+		// Вписываем шифротекст в хвост тела расширения: оно кончается шифротекстом
+		::memcpy(sealed.data() + (sealed.size() - payload.size()), payload.data(), payload.size());
+		// Запоминаем публичное имя: по нему судится подлинность отвергшего сервера
+		this->_public = config.name;
+		// Если принятие ещё не подтверждено: приветствие предложено
+		if(this->_ech != ech_t::ACCEPTED)
+			// Запоминаем, что зашифрованное приветствие предложено
+			this->_ech = ech_t::OFFERED;
+		// Выводим успешность складывания
+		return context::error_t::NONE;
+	/**
+	 * Если памяти под приветствие не хватило
+	 */
+	} catch(const bad_alloc &) {
+		// Выводим отказ нехватки памяти
+		return context::error_t::MEMORY;
+	}
+}
+/**
+ * @brief Метод суждения о принятии ECH по приветствию сервера либо просьбе о повторе
+ *
+ * @param answer  разобранное приветствие сервера
+ * @param message приветствие сервера вместе с обвязкой
+ *
+ * @return        отказ суждения
+ *
+ */
+context::error_t nts::internal::Engine::confirming(const hello::server_t & answer, const view_t & message) noexcept {
+	/**
+	 * Выполняем перехват ошибок работы с памятью
+	 */
+	try {
+		// Признак просьбы о повторе
+		const bool retry = hello::retry(answer);
+		// Место подтверждения внутри сообщения
+		size_t offset = 0;
+		// Если приветствие сервера: последние восемь байтов случайного значения
+		if(!retry)
+			// Место: обвязка, издание и первые двадцать четыре байта случайного значения
+			offset = (handshake::HANDSHAKE_HEADER + 2 + (hello::HELLO_RANDOM - ech::ECH_CONFIRMATION));
+		// Если просьба о повторе: тело расширения ECH
+		else {
+			// Расширение подтверждения
+			const hello::extension_t * extension = hello::extension(answer.extensions, ech::ECH_EXTENSION);
+			// Если расширения нет: сервер ECH отверг
+			if(extension == nullptr){
+				// Если принятие уже подтверждалось: сервер обязан подтверждать и дальше
+				if(this->_ech == ech_t::ACCEPTED)
+					// Выводим отказ сообщения
+					return context::error_t::MESSAGE;
+				// Запоминаем, что ECH отвергнут
+				this->_ech = ech_t::REJECTED;
+				// Выводим успешность суждения
+				return context::error_t::NONE;
+			}
+			// Если подтверждение не в восемь байтов
+			if(extension->data.size != ech::ECH_CONFIRMATION)
+				// Выводим отказ сообщения
+				return context::error_t::MESSAGE;
+			// Место: тело расширения указывает в сообщение
+			offset = static_cast <size_t> (extension->data.data - message.data);
+		}
+		// Если место в сообщение не входит
+		if((offset + ech::ECH_CONFIRMATION) > message.size)
+			// Выводим отказ сообщения
+			return context::error_t::MESSAGE;
+		// Сообщение с обнулённым подтверждением
+		vector <uint8_t> shaped(message.data, message.data + message.size);
+		// Присланное подтверждение
+		uint8_t presented[ech::ECH_CONFIRMATION];
+		// Запоминаем присланное подтверждение
+		::memcpy(presented, shaped.data() + offset, sizeof(presented));
+		// Обнуляем место подтверждения
+		::memset(shaped.data() + offset, 0x00, ech::ECH_CONFIRMATION);
+		// Хеш набора шифрования связи
+		const digest::hash_t algorithm = this->_transcript.algorithm();
+		// Длина хеша
+		const size_t width = digest::length(algorithm);
+		// Место хеша переписки
+		uint8_t transcript[schedule::SCHEDULE_WIDEST];
+		// Если переписка уже ведётся внутренним приветствием: просьба о повторе принята раньше
+		if(this->_retried){
+			// Если хеш переписки с обнулённым сообщением взять не удалось
+			if(this->_transcript.digest(view_t(shaped.data(), shaped.size()), transcript) != session::error_t::NONE)
+				// Выводим отказ сообщения
+				return context::error_t::MESSAGE;
+		// Если переписка ведётся внешним приветствием: хеш берётся с внутреннего отдельно
+		} else {
+			// Переписка внутреннего приветствия
+			session::transcript_t shadow;
+			// Если переписку завести не удалось
+			if(shadow.start(algorithm) != session::error_t::NONE)
+				// Выводим отказ сообщения
+				return context::error_t::MESSAGE;
+			// Если внутреннее приветствие добавить не удалось
+			if(shadow.update(view_t(this->_inner.data(), this->_inner.size())) != session::error_t::NONE)
+				// Выводим отказ сообщения
+				return context::error_t::MESSAGE;
+			// Раздел 4.4.1 RFC 8446: за просьбой о повторе первое приветствие идёт в переписке своим хешем
+			if(retry && (shadow.replace() != session::error_t::NONE))
+				// Выводим отказ сообщения
+				return context::error_t::MESSAGE;
+			// Если хеш переписки с обнулённым сообщением взять не удалось
+			if(shadow.digest(view_t(shaped.data(), shaped.size()), transcript) != session::error_t::NONE)
+				// Выводим отказ сообщения
+				return context::error_t::MESSAGE;
+		}
+		// Ожидаемое подтверждение
+		uint8_t expected[ech::ECH_CONFIRMATION];
+		// Если подтверждение вычислить не удалось
+		if(!ech::confirmation(algorithm, view_t(this->_innerandom, sizeof(this->_innerandom)), view_t(transcript, width), retry, expected))
+			// Выводим отказ сообщения
+			return context::error_t::MESSAGE;
+		// Расхождение подтверждений: сличение постоянным временем
+		uint8_t differing = 0;
+		/**
+		 * Выполняем перебор байтов подтверждения
+		 */
+		for(size_t i = 0; i < ech::ECH_CONFIRMATION; i++)
+			// Накапливаем расхождение
+			differing |= static_cast <uint8_t> (presented[i] ^ expected[i]);
+		// Если подтверждение разошлось
+		if(differing != 0){
+			// Если принятие уже подтверждалось: сервер обязан подтверждать и дальше
+			if(this->_ech == ech_t::ACCEPTED)
+				// Выводим отказ сообщения
+				return context::error_t::MESSAGE;
+			// Запоминаем, что ECH отвергнут
+			this->_ech = ech_t::REJECTED;
+			// Выводим успешность суждения
+			return context::error_t::NONE;
+		}
+		// Если переписка ведётся внешним приветствием: переводим её на внутреннее
+		if(!this->_retried){
+			// Начинаем переписку заново
+			this->_transcript.start();
+			// Если внутреннее приветствие добавить не удалось
+			if(this->_transcript.update(view_t(this->_inner.data(), this->_inner.size())) != session::error_t::NONE)
+				// Выводим отказ сообщения
+				return context::error_t::MESSAGE;
+			// Если хеш переписки выбрать не удалось
+			if(this->_transcript.select(algorithm) != session::error_t::NONE)
+				// Выводим отказ сообщения
+				return context::error_t::MESSAGE;
+		}
+		// Предложенными становятся расширения внутреннего приветствия
+		this->_offered = this->_hidden;
+		// Случайное значение связи - внутреннее
+		::memcpy(this->_random, this->_innerandom, sizeof(this->_random));
+		// Запоминаем принятие
+		this->_ech = ech_t::ACCEPTED;
+		// Выводим успешность суждения
+		return context::error_t::NONE;
+	/**
+	 * Если памяти под суждение не хватило
+	 */
+	} catch(const bad_alloc &) {
+		// Выводим отказ нехватки памяти
+		return context::error_t::MEMORY;
+	}
+}
+/**
+ * @brief Метод раскрытия зашифрованного приветствия ECH сервером
+ *
+ * @param greeting разобранное внешнее приветствие
+ * @param body     тело внешнего приветствия
+ * @param accepted место, в которое помещается признак принятия
+ * @param inner    накопитель, в который помещается тело восстановленного внутреннего приветствия
+ *
+ * @return         отказ раскрытия
+ *
+ */
+context::error_t nts::internal::Engine::unshrouding(const hello::client_t & greeting, const view_t & body, bool & accepted, vector <uint8_t> & inner) noexcept {
+	/**
+	 * Выполняем перехват ошибок работы с памятью
+	 */
+	try {
+		// ECH не принят, пока не доказано обратное
+		accepted = false;
+		// Расширение ECH внешнего приветствия
+		const hello::extension_t * extension = hello::extension(greeting.extensions, ech::ECH_EXTENSION);
+		// Если расширения нет
+		if(extension == nullptr){
+			// Раздел 7.1 RFC 9849: за принятой просьбой о повторе приветствие обязано нести ECH
+			if(this->_retried && this->_echaccepted)
+				// Выводим отказ сообщения
+				return context::error_t::MESSAGE;
+			// Выводим успешность: ECH не предлагалось
+			return context::error_t::NONE;
+		}
+		// Разобранное расширение
+		ech::hello_t hello;
+		// Отказ разбора расширения
+		const ech::error_t parsed = ech::parse(extension->data, hello);
+		// Если памяти не хватило
+		if(parsed == ech::error_t::MEMORY)
+			// Выводим отказ нехватки памяти
+			return context::error_t::MEMORY;
+		// Раздел 7.1 RFC 9849: порченое расширение и внутренний вид во внешнем приветствии - illegal_parameter
+		if((parsed != ech::error_t::NONE) || hello.inner)
+			// Выводим отказ сообщения
+			return context::error_t::MESSAGE;
+		// Добавочные данные: внешнее приветствие с обнулённым шифротекстом
+		vector <uint8_t> aad;
+		// Отказ составления добавочных данных
+		const ech::error_t redacted = ech::redact(body, aad);
+		// Если добавочные данные составить не удалось
+		if(redacted != ech::error_t::NONE)
+			// Выводим отказ: нехватка памяти своим кодом, прочее - сообщением
+			return ((redacted == ech::error_t::MEMORY) ? context::error_t::MEMORY : context::error_t::MESSAGE);
+		// Закодированное внутреннее приветствие
+		vector <uint8_t> encoded;
+		// Если приветствие повторное за принятой просьбой о повторе: то же состояние HPKE, пустой enc
+		if(this->_retried && this->_echaccepted){
+			// Раздел 6.1.5 RFC 9849: повторное приветствие идёт с пустым enc тем же состоянием
+			if(!hello.enc.empty() || !this->_opener.ready())
+				// Выводим отказ сообщения
+				return context::error_t::MESSAGE;
+			// Если раскрыть не удалось: за принятой просьбой это обрыв
+			if(this->_opener.open(view_t(aad.data(), aad.size()), view_t(hello.payload.data(), hello.payload.size()), encoded) != hpke::error_t::NONE)
+				// Выводим отказ сообщения
+				return context::error_t::MESSAGE;
+		// Если приветствие первое: конфигурация подбирается по опознавателю и набору
+		} else {
+			// Признак того, что набор расширения признаётся конфигурацией
+			bool listed = false;
+			/**
+			 * Выполняем перебор наборов конфигурации
+			 */
+			for(size_t i = 0; (i < this->_served.suites.size()) && !listed; i++)
+				// Запоминаем совпадение набора
+				listed = ((this->_served.suites[i].kdf == hello.suite.kdf) && (this->_served.suites[i].aead == hello.suite.aead));
+			// Если опознаватель, набор либо ключ не отвечают конфигурации: ECH отвергается
+			if((hello.id != this->_served.id) || !listed || (hello.enc.size() != agreement::X25519_SIZE)){
+				// Запоминаем отказ ECH: клиент получит запасные конфигурации
+				this->_echrejected = true;
+				// Выводим успешность: связь идёт по внешнему приветствию
+				return context::error_t::NONE;
+			}
+			// Привязка HPKE
+			vector <uint8_t> info;
+			// Если привязку составить не удалось
+			if(ech::binding(view_t(this->_served.raw.data(), this->_served.raw.size()), info) != ech::error_t::NONE)
+				// Выводим отказ нехватки памяти
+				return context::error_t::MEMORY;
+			// Набор HPKE
+			hpke::suite_t item;
+			// Способ инкапсуляции
+			item.kem = this->_served.kem;
+			// Функция вывода
+			item.kdf = hello.suite.kdf;
+			// Шифр
+			item.aead = hello.suite.aead;
+			// Отказ заведения получателя HPKE
+			const hpke::error_t established = hpke::recipient(item, hpke::regime_t::BASE, this->_echkey, view_t(hello.enc.data(), hello.enc.size()), view_t(info.data(), info.size()), hpke::shared_t(), view_t(nullptr, 0), this->_opener);
+			// Если памяти не хватило
+			if(established == hpke::error_t::MEMORY)
+				// Выводим отказ нехватки памяти
+				return context::error_t::MEMORY;
+			// Если получателя завести либо шифротекст раскрыть не удалось: ECH отвергается
+			if((established != hpke::error_t::NONE) || (this->_opener.open(view_t(aad.data(), aad.size()), view_t(hello.payload.data(), hello.payload.size()), encoded) != hpke::error_t::NONE)){
+				// Сбрасываем получателя
+				this->_opener.clear();
+				// Запоминаем отказ ECH
+				this->_echrejected = true;
+				// Выводим успешность: связь идёт по внешнему приветствию
+				return context::error_t::NONE;
+			}
+		}
+		// Отказ восстановления внутреннего приветствия
+		const ech::error_t decoded = ech::decode(view_t(encoded.data(), encoded.size()), greeting, inner);
+		// Если памяти не хватило
+		if(decoded == ech::error_t::MEMORY)
+			// Выводим отказ нехватки памяти
+			return context::error_t::MEMORY;
+		// Раздел 7.1 RFC 9849: раскрытое, но негодное приветствие - illegal_parameter
+		if(decoded != ech::error_t::NONE)
+			// Выводим отказ сообщения
+			return context::error_t::MESSAGE;
+		// Восстановленное приветствие
+		hello::client_t restored;
+		// Если восстановленное приветствие не разбирается
+		if(hello::parse(view_t(inner.data(), inner.size()), restored) != hello::error_t::NONE)
+			// Выводим отказ сообщения
+			return context::error_t::MESSAGE;
+		// Расширение ECH внутреннего приветствия
+		const hello::extension_t * inward = hello::extension(restored.extensions, ech::ECH_EXTENSION);
+		// Разобранное внутреннее расширение
+		ech::hello_t mark;
+		// Раздел 7.1 RFC 9849: внутреннее приветствие обязано нести ECH внутреннего вида
+		if((inward == nullptr) || (ech::parse(inward->data, mark) != ech::error_t::NONE) || !mark.inner)
+			// Выводим отказ сообщения
+			return context::error_t::MESSAGE;
+		// Расширение изданий внутреннего приветствия
+		const hello::extension_t * versions = hello::extension(restored.extensions, static_cast <uint16_t> (extension::type_t::VERSIONS));
+		// Перечень изданий
+		vector <uint16_t> editions;
+		// Раздел 6.1 RFC 9849: внутреннее приветствие предлагает лишь издание 1.3
+		if((versions == nullptr) || (extension::versions(versions->data, editions) != extension::error_t::NONE))
+			// Выводим отказ сообщения
+			return context::error_t::MESSAGE;
+		/**
+		 * Выполняем перебор изданий
+		 */
+		for(size_t i = 0; i < editions.size(); i++){
+			// Если издание не 1.3 и не значение GREASE
+			if((editions[i] != this->edition()) && !fingerprint::grease(editions[i]))
+				// Выводим отказ сообщения
+				return context::error_t::MESSAGE;
+		}
+		// Запоминаем случайное значение внутреннего приветствия: им судится подтверждение
+		::memcpy(this->_innerandom, restored.random, sizeof(this->_innerandom));
+		// Запоминаем принятие
+		this->_echaccepted = true;
+		// Отказ ECH снимается
+		this->_echrejected = false;
+		// Выводим принятие
+		accepted = true;
+		// Выводим успешность раскрытия
+		return context::error_t::NONE;
+	/**
+	 * Если памяти под раскрытие не хватило
+	 */
+	} catch(const bad_alloc &) {
+		// Выводим отказ нехватки памяти
+		return context::error_t::MEMORY;
+	}
+}
+/**
+ * @brief Метод вписывания подтверждения принятия ECH в приветствие сервера либо просьбу о повторе
+ *
+ * @param body  тело сообщения сервера с местом подтверждения
+ * @param retry признак просьбы о повторе
+ *
+ * @return      отказ вписывания
+ *
+ */
+context::error_t nts::internal::Engine::marking(vector <uint8_t> & body, const bool retry) noexcept {
+	/**
+	 * Выполняем перехват ошибок работы с памятью
+	 */
+	try {
+		// Место подтверждения: у приветствия - хвост случайного значения, у просьбы - хвост тела (расширение последнее)
+		const size_t offset = (retry ? (body.size() - ech::ECH_CONFIRMATION) : (2 + (hello::HELLO_RANDOM - ech::ECH_CONFIRMATION)));
+		// Если место в тело не входит
+		if(body.size() < (offset + ech::ECH_CONFIRMATION))
+			// Выводим отказ сообщения
+			return context::error_t::MESSAGE;
+		// Обнуляем место подтверждения
+		::memset(body.data() + offset, 0x00, ech::ECH_CONFIRMATION);
+		// Объект составителя сообщения рукопожатия
+		handshake::writer_t writer;
+		// Отказ составления сообщения с обвязкой
+		const context::error_t failure = translate(writer.push(handshake::type_t::SERVER, view_t(body.data(), body.size())), context::error_t::MESSAGE);
+		// Если сообщение составить не удалось
+		if(failure != context::error_t::NONE)
+			// Выводим отказ составления
+			return failure;
+		// Место хеша переписки
+		uint8_t transcript[schedule::SCHEDULE_WIDEST];
+		// Если хеш переписки с обнулённым сообщением взять не удалось
+		if(this->_transcript.digest(writer.data(), transcript) != session::error_t::NONE)
+			// Выводим отказ сообщения
+			return context::error_t::MESSAGE;
+		// Подтверждение
+		uint8_t confirmation[ech::ECH_CONFIRMATION];
+		// Если подтверждение вычислить не удалось
+		if(!ech::confirmation(this->_transcript.algorithm(), view_t(this->_innerandom, sizeof(this->_innerandom)), view_t(transcript, this->_transcript.size()), retry, confirmation))
+			// Выводим отказ сообщения
+			return context::error_t::MESSAGE;
+		// Вписываем подтверждение
+		::memcpy(body.data() + offset, confirmation, sizeof(confirmation));
+		// Если подтверждение вписано в приветствие: случайное значение связи меняется вместе с ним
+		if(!retry)
+			// Переносим подтверждение в случайное значение
+			::memcpy(this->_random + (hello::HELLO_RANDOM - ech::ECH_CONFIRMATION), confirmation, sizeof(confirmation));
+		// Выводим успешность вписывания
+		return context::error_t::NONE;
+	/**
+	 * Если памяти под подтверждение не хватило
+	 */
+	} catch(const bad_alloc &) {
+		// Выводим отказ нехватки памяти
+		return context::error_t::MEMORY;
+	}
+}
+/**
  * @brief Метод проверки, задан ли профиль отпечатка
  *
  * @return признак того, что приветствие клиента складывается по профилю
@@ -12122,8 +13084,8 @@ context::error_t nts::internal::Engine::imitate(hello::client_t & greeting, cons
 			// Добавляем набор: значение GREASE - своё и свежее, прочие - как записаны
 			greeting.suites.push_back(fingerprint::grease(suite) ? this->greasing(grease_t::SUITE) : suite);
 		}
-		// Хранилище занимает место заранее: указатели на тела не должны переезжать
-		storage.reserve(this->_profile.extensions.size() + 1);
+		// Хранилище занимает место заранее: указатели на тела не должны переезжать (заполнение, публичное имя и ECH - три места)
+		storage.reserve(this->_profile.extensions.size() + 4);
 		// Счётчик расширений GREASE профиля
 		size_t greased = 0;
 		/**
@@ -12466,6 +13428,14 @@ context::error_t nts::internal::Engine::versions(const uint16_t lowest, const ui
 	 * пределы не оставляют ни одного издания
 	 */
 	if((lowest < LEGACY) || (highest > MODERN) || (lowest > highest))
+		// Выводим отказ настроек связи
+		return context::error_t::SETTINGS;
+	/**
+	 * Раздел 6.1 RFC 9849: с заданными конфигурациями ECH связь ведёт лишь издание 1.3, и
+	 * предел ниже него - отказ, а не молчаливое опускание: иначе связь уехала бы по 1.2 к
+	 * серверу публичного имени без единого признака (находка щупа Григория)
+	 */
+	if(!this->_configs.empty() && (lowest < MODERN))
 		// Выводим отказ настроек связи
 		return context::error_t::SETTINGS;
 	// Устанавливаем наименьшее дозволенное издание
@@ -13262,7 +14232,7 @@ nts::internal::Engine::Engine(const bool server) noexcept :
 	_closed(false), _drained(false), _lifetime(TERM), _ticket(protect::suite_t::NONE), _skipped(0), _starved(false),
 	_transport(context::transport_t::RECORDS), _acquired(false), _pushed(context::level_t::NONE), _width(0), _ventured(false), _judged(false),
 	_inflation(INFLATION), _squeezed(0), _inflated(0),
-	_inquiring(false), _inquired(false), _verifying(false), _leeway(0), _certified(ocsp::status_t::NONE), _reshare(true), _greasing(false), _profiled(false),
+	_inquiring(false), _inquired(false), _verifying(false), _leeway(0), _certified(ocsp::status_t::NONE), _reshare(true), _greasing(false), _profiled(false), _ech(ech_t::NONE), _shroud(0), _echaccepted(false), _echrejected(false), _unshrouding(false),
 	_queries(0), _confirmed(false), _delivered(0), _switched(false),
 	_lowest(LEGACY), _highest(MODERN), _version(0), _legacy(false), _proposed(false), _own(true), _phase(phase_t::NONE), _sealing(false), _opening(false), _stapling(false),
 	_claimed(0), _etm(false), _strict(false), _ticketing(false), _presented(false), _resumed(false) {
@@ -13282,6 +14252,8 @@ nts::internal::Engine::Engine(const bool server) noexcept :
 	::memset(this->_random, 0, sizeof(this->_random));
 	// Выполняем обнуление зерна значений GREASE связи
 	::memset(this->_seed, 0, sizeof(this->_seed));
+	// Выполняем обнуление случайного значения внутреннего приветствия ECH
+	::memset(this->_innerandom, 0, sizeof(this->_innerandom));
 	// Выполняем обнуление случайного значения собеседника
 	::memset(this->_foreign, 0, sizeof(this->_foreign));
 	// Выполняем обнуление главного секрета издания TLS 1.2

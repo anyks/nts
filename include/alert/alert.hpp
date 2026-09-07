@@ -173,6 +173,7 @@ namespace nts {
 			STATUS      = 113, /*!< \~russian Ответ о состоянии сертификата негоден либо сертификат отозван \~english The certificate status response is unsuitable or the certificate is revoked \~ */
 			PSK         = 115, /*!< \~russian Опознаватель заранее разделённого ключа неизвестен \~english The identifier of the pre-shared key is unknown \~ */
 			RENEGOTIATION = 100, /*!< \~russian Пересогласование связи не дозволено (RFC 5746, TLS 1.2) \~english The renegotiation of the connection is not allowed (RFC 5746, TLS 1.2) \~ */
+			ECH_REQUIRED = 121, /*!< \~russian Зашифрованное приветствие ECH отвергнуто сервером, а клиент требует ECH (раздел 6.1.7 RFC 9849) \~english The encrypted client hello ECH has been rejected by the server while the client requires ECH (the section 6.1.7 of RFC 9849) \~ */
 			REQUIRED    = 116, /*!< \~russian Подлинность стороны обязательна, но не подтверждена \~english The authenticity of the side is mandatory but not confirmed \~ */
 			PROTOCOL    = 120  /*!< \~russian Ни один из предложенных протоколов не поддержан \~english None of the offered protocols is supported \~ */
 		};

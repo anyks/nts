@@ -451,6 +451,68 @@ context::error_t nts::client::Context::profile(const fingerprint::profile_t & pr
 	return this->_engine->profile(profile);
 }
 /**
+ * @brief Метод установки конфигураций зашифрованного приветствия ECH
+ *
+ * @param configs перечень ECHConfigList байтами
+ *
+ * @return        отказ установки
+ *
+ */
+context::error_t nts::client::Context::ech(const vector <uint8_t> & configs) noexcept {
+	// Если ведение связи не заведено
+	if(this->_engine == nullptr)
+		// Выводим отказ нехватки памяти
+		return context::error_t::MEMORY;
+	// Выводим итог установки конфигураций
+	return this->_engine->ech(view_t(configs.data(), configs.size()));
+}
+/**
+ * @brief Метод получения заданных конфигураций ECH
+ *
+ * @return перечень ECHConfigList байтами
+ *
+ */
+const vector <uint8_t> & nts::client::Context::ech() const noexcept {
+	// Пустой перечень
+	static const vector <uint8_t> NOTHING;
+	// Выводим перечень
+	return ((this->_engine != nullptr) ? this->_engine->ech() : NOTHING);
+}
+/**
+ * @brief Метод проверки принятия ECH сервером
+ *
+ * @return признак того, что рукопожатие идёт по внутреннему приветствию
+ *
+ */
+bool nts::client::Context::shrouded() const noexcept {
+	// Выводим признак принятия
+	return ((this->_engine != nullptr) && this->_engine->shrouded());
+}
+/**
+ * @brief Метод получения имени, которым шло внешнее приветствие ECH
+ *
+ * @return публичное имя конфигурации ECH
+ *
+ */
+const string & nts::client::Context::visible() const noexcept {
+	// Пустое имя
+	static const string NOTHING;
+	// Выводим публичное имя
+	return ((this->_engine != nullptr) ? this->_engine->visible() : NOTHING);
+}
+/**
+ * @brief Метод получения запасных конфигураций ECH, присланных сервером
+ *
+ * @return перечень ECHConfigList из защищённых расширений
+ *
+ */
+const vector <uint8_t> & nts::client::Context::retry() const noexcept {
+	// Пустой перечень
+	static const vector <uint8_t> NOTHING;
+	// Выводим запасные конфигурации
+	return ((this->_engine != nullptr) ? this->_engine->retries() : NOTHING);
+}
+/**
  * @brief Метод проверки возобновления связи билетом
  *
  * @return признак того, что связь возобновлена заранее разделённым ключом

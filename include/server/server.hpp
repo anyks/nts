@@ -147,9 +147,18 @@ namespace nts {
 				 *
 				 * @return отказ, которым связь оборвана
 				 *
+				 * @note Здесь лишь отказы самой связи: обрыв рукопожатия либо приёма. Отказ
+				 *       заведения `start()` (например MEMORY при нехватке памяти под настройки)
+				 *       выводится возвратом `start()`, а `error()` при этом отвечает NONE и
+				 *       `state()` остаётся NONE - судить о заведении по возврату `start()`
+				 *
 				 * \~english
 				 * @brief Method of getting the failure the connection is torn by
 				 * @return the failure the connection is torn by
+				 * @note Only the failures of the connection itself are here: the abort of the handshake or of
+				 *       the reception. The failure of the start `start()` (for example MEMORY at the lack of
+				 *       memory for the settings) is given by the return of `start()`, while `error()` answers
+				 *       NONE and `state()` stays NONE - judge the start by the return of `start()`
 				 *
 				 * \~
 				 */
@@ -1005,6 +1014,69 @@ namespace nts {
 				 * \~
 				 */
 				view_t greeting() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод установки ключа зашифрованного приветствия ECH серверу (RFC 9849)
+				 *
+				 * @param secret секретный ключ X25519 (32 байта) либо пусто - ключ порождается
+				 * @param name   публичное имя конфигурации: им идёт внешнее приветствие клиента
+				 * @param id     опознаватель конфигурации (один случайный байт у потребителя)
+				 * @param length наибольшая длина имени узла в множестве анонимности: правит заполнение клиента
+				 * @return       отказ установки: STATE после `start()`, SETTINGS при негодном ключе либо имени, MEMORY
+				 *
+				 * @details Сервер складывает одну конфигурацию издания 0xFE0D с KEM X25519 и наборами
+				 *          AES-128-GCM и ChaCha20-Poly1305 на HKDF-SHA256; перечень ECHConfigList для
+				 *          записи DNS HTTPS отдаёт `ech()`, секретный ключ наружу не отдаётся. Принятое
+				 *          внешнее приветствие раскрывается, рукопожатие идёт по внутреннему, подтверждение
+				 *          вписывается в приветствие сервера либо просьбу о повторе; нераскрываемое либо
+				 *          чужое ECH отвергается - связь идёт по внешнему приветствию, а свои конфигурации
+				 *          уходят клиенту как retry_configs. `greeting()` и `profile()` отдают внешнее
+				 *          приветствие, как оно шло на проводе
+				 *
+				 * \~english
+				 * @brief Method of setting the key of the encrypted client hello ECH at the server (RFC 9849)
+				 * @param secret the X25519 secret key (32 bytes) or empty - the key is generated
+				 * @param name   the public name of the configuration: the outer greeting of the client goes by it
+				 * @param id     the identifier of the configuration (a single random byte at the consumer)
+				 * @param length the greatest length of a host name in the anonymity set: rules the padding of the client
+				 * @return       the failure of the setting: STATE after `start()`, SETTINGS at an invalid key or name, MEMORY
+				 * @details The server composes a single configuration of the edition 0xFE0D with the X25519 KEM and the
+				 *          AES-128-GCM and ChaCha20-Poly1305 suites on HKDF-SHA256; the ECHConfigList list for the DNS HTTPS
+				 *          record is given by `ech()`, the secret key is not given out. The accepted outer greeting is
+				 *          opened, the handshake goes by the inner one, the confirmation is written into the greeting of the
+				 *          server or the retry request; an unopenable or foreign ECH is rejected - the connection goes by the
+				 *          outer greeting while the own configurations go to the client as retry_configs. `greeting()` and
+				 *          `profile()` give the outer greeting as it went on the wire
+				 *
+				 * \~
+				 */
+				context::error_t ech(const vector <uint8_t> & secret, const string & name, const uint8_t id, const uint8_t length) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения перечня конфигураций ECH для записи DNS HTTPS
+				 *
+				 * @return перечень ECHConfigList байтами (пусто без ключа)
+				 *
+				 * \~english
+				 * @brief Method of getting the list of the ECH configurations for the DNS HTTPS record
+				 * @return the ECHConfigList list by bytes (empty without a key)
+				 *
+				 * \~
+				 */
+				const vector <uint8_t> & ech() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод проверки принятия ECH связью
+				 *
+				 * @return признак того, что рукопожатие идёт по раскрытому внутреннему приветствию
+				 *
+				 * \~english
+				 * @brief Method of checking the acceptance of ECH by the connection
+				 * @return the flag of the handshake going by the opened inner greeting
+				 *
+				 * \~
+				 */
+				bool shrouded() const noexcept;
 				/**
 				 * \~russian
 				 * @brief Метод установки ключа билетов сеансов издания TLS 1.2

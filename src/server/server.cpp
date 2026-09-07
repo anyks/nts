@@ -529,6 +529,47 @@ view_t nts::server::Context::greeting() const noexcept {
 	return view_t(this->_engine->received().data(), this->_engine->received().size());
 }
 /**
+ * @brief Метод установки ключа зашифрованного приветствия ECH серверу
+ *
+ * @param secret секретный ключ X25519 либо пусто
+ * @param name   публичное имя конфигурации
+ * @param id     опознаватель конфигурации
+ * @param length наибольшая длина имени узла
+ *
+ * @return       отказ установки
+ *
+ */
+context::error_t nts::server::Context::ech(const vector <uint8_t> & secret, const string & name, const uint8_t id, const uint8_t length) noexcept {
+	// Если ведение связи не заведено
+	if(this->_engine == nullptr)
+		// Выводим отказ нехватки памяти
+		return context::error_t::MEMORY;
+	// Выводим итог установки ключа
+	return this->_engine->ech(view_t(secret.data(), secret.size()), name, id, length);
+}
+/**
+ * @brief Метод получения перечня конфигураций ECH для записи DNS HTTPS
+ *
+ * @return перечень ECHConfigList байтами
+ *
+ */
+const vector <uint8_t> & nts::server::Context::ech() const noexcept {
+	// Пустой перечень
+	static const vector <uint8_t> NOTHING;
+	// Выводим перечень
+	return ((this->_engine != nullptr) ? this->_engine->ech() : NOTHING);
+}
+/**
+ * @brief Метод проверки принятия ECH связью
+ *
+ * @return признак того, что рукопожатие идёт по внутреннему приветствию
+ *
+ */
+bool nts::server::Context::shrouded() const noexcept {
+	// Выводим признак принятия
+	return ((this->_engine != nullptr) && this->_engine->shrouded());
+}
+/**
  * @brief Метод установки ключа билетов сеансов издания TLS 1.2
  *
  * @param secret секрет любой длины

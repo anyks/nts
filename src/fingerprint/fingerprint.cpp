@@ -156,7 +156,7 @@ namespace {
 	 * @return     прочитанное число
 	 *
 	 */
-	static uint32_t quad(const uint8_t * data) noexcept {
+	static uint32_t tetrad(const uint8_t * data) noexcept {
 		// Выводим число из четырёх байтов
 		return ((static_cast <uint32_t> (data[0]) << 24) | (static_cast <uint32_t> (data[1]) << 16) | (static_cast <uint32_t> (data[2]) << 8) | static_cast <uint32_t> (data[3]));
 	}
@@ -169,7 +169,7 @@ namespace {
 	 */
 	static uint64_t octet(const uint8_t * data) noexcept {
 		// Выводим число из восьми байтов
-		return ((static_cast <uint64_t> (quad(data)) << 32) | static_cast <uint64_t> (quad(data + 4)));
+		return ((static_cast <uint64_t> (tetrad(data)) << 32) | static_cast <uint64_t> (tetrad(data + 4)));
 	}
 	/**
 	 * @brief Метод дописывания числа старшим байтом вперёд в накопитель
@@ -526,7 +526,7 @@ namespace {
 				// Если тело несёт предел упреждения
 				if(data.size == 4)
 					// Запоминаем предел упреждения
-					extension.value = quad(data.data);
+					extension.value = tetrad(data.data);
 				// Если тело не пусто и не предел
 				else if(data.size != 0)
 					// Выводим отказ разбора
@@ -763,7 +763,7 @@ namespace {
 				// Запоминаем пору записи
 				result.epoch = twain(data.data + 3);
 				// Запоминаем порядковый номер записи
-				result.sequence = ((static_cast <uint64_t> (twain(data.data + 5)) << 32) | static_cast <uint64_t> (quad(data.data + 7)));
+				result.sequence = ((static_cast <uint64_t> (twain(data.data + 5)) << 32) | static_cast <uint64_t> (tetrad(data.data + 7)));
 				// Запоминаем длину записи
 				length = twain(data.data + 11);
 			// Если запись идёт потоком
@@ -1211,7 +1211,7 @@ namespace {
 		// Читаем порядковый номер сообщения
 		result.message = twain(data.data + offset + 14);
 		// Читаем длину тела приветствия
-		result.length = quad(data.data + offset + 16);
+		result.length = tetrad(data.data + offset + 16);
 		// Переходим к случайному значению
 		offset += 20;
 		// Читаем случайное значение приветствия
@@ -1880,7 +1880,7 @@ nts::fingerprint::error_t nts::fingerprint::parse(const view_t & data, stream_t 
 			// Признаки кадра
 			const uint8_t flags = data.data[offset + 4];
 			// Опознаватель потока кадра
-			const uint32_t stream = (quad(data.data + offset + 5) & 0x7FFFFFFF);
+			const uint32_t stream = (tetrad(data.data + offset + 5) & 0x7FFFFFFF);
 			// Переходим к телу кадра
 			offset += 9;
 			// Если тело кадра в поток не входит
@@ -1906,7 +1906,7 @@ nts::fingerprint::error_t nts::fingerprint::parse(const view_t & data, stream_t 
 							// Читаем опознаватель настройки
 							setting.id = twain(body + i);
 							// Читаем значение настройки
-							setting.value = quad(body + i + 2);
+							setting.value = tetrad(body + i + 2);
 							// Добавляем настройку в перечень
 							result.settings.push_back(setting);
 						}
@@ -1919,7 +1919,7 @@ nts::fingerprint::error_t nts::fingerprint::parse(const view_t & data, stream_t 
 					// Если кадр относится к связи
 					if((stream == 0) && (length >= 4))
 						// Читаем прибавку окна
-						result.window = (quad(body) & 0x7FFFFFFF);
+						result.window = (tetrad(body) & 0x7FFFFFFF);
 				} break;
 				// Кадр приоритета
 				case FRAME_PRIORITY: {
@@ -1932,7 +1932,7 @@ nts::fingerprint::error_t nts::fingerprint::parse(const view_t & data, stream_t 
 						// Читаем признак исключительности
 						priority.exclusive = ((body[0] & 0x80) != 0);
 						// Читаем зависимость
-						priority.dependency = (quad(body) & 0x7FFFFFFF);
+						priority.dependency = (tetrad(body) & 0x7FFFFFFF);
 						// Читаем вес
 						priority.weight = body[4];
 						// Добавляем приоритет в перечень
@@ -2167,7 +2167,7 @@ nts::fingerprint::error_t nts::fingerprint::load(const view_t & data, profile_t 
 		// Смещение внутри снимка: за меткой, изданием, числом и опознавателем
 		size_t offset = (sizeof(STAMP) + 3);
 		// Длина профиля
-		const size_t length = quad(data.data + offset);
+		const size_t length = tetrad(data.data + offset);
 		// Переходим к профилю
 		offset += 4;
 		// Если профиль в снимок не входит либо за ним идут лишние байты
@@ -2448,7 +2448,7 @@ nts::fingerprint::error_t nts::fingerprint::Store::load(const view_t & data) noe
 			// Читаем опознаватель профиля
 			entry.id = data.data[offset];
 			// Длина профиля
-			const size_t length = quad(data.data + offset + 1);
+			const size_t length = tetrad(data.data + offset + 1);
 			// Переходим к профилю
 			offset += 5;
 			// Если профиль в снимок не входит либо опознаватель нулевой

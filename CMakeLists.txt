@@ -210,6 +210,7 @@ SET(SOURCE_FILES
     "${CMAKE_SOURCE_DIR}/src/math/field25519.cpp"
     "${CMAKE_SOURCE_DIR}/src/agreement/vko.cpp"
     "${CMAKE_SOURCE_DIR}/src/hpke/hpke.cpp"
+    "${CMAKE_SOURCE_DIR}/src/ech/ech.cpp"
     "${CMAKE_SOURCE_DIR}/src/fingerprint/fingerprint.cpp"
     "${CMAKE_SOURCE_DIR}/src/agreement/ecdhe.cpp"
     "${CMAKE_SOURCE_DIR}/src/record/record.cpp"
@@ -904,6 +905,11 @@ if (${CMAKE_BUILD_SAMPLES})
     # Указываем что нужно собрать приложение отпечатков приветствия
     option(CMAKE_BUILD_FINGERPRINT_APP_SAMPLE "Build fingerprint profile app sample" ON)
 
+    # Устанавливаем имя приложения зашифрованного приветствия ECH
+    SET(ECH_APP_NAME ech-hello)
+    # Указываем что нужно собрать приложение зашифрованного приветствия ECH
+    option(CMAKE_BUILD_ECH_APP_SAMPLE "Build encrypted client hello app sample" ON)
+
     # Устанавливаем имя приложения сжатия цепочки сертификатов
     SET(COMPRESS_APP_NAME compress-chain)
     # Указываем что нужно собрать приложение сжатия цепочки сертификатов
@@ -1004,6 +1010,18 @@ if (${CMAKE_BUILD_SAMPLES})
         # Выводим сообщение о сборке образца
         message(STATUS "Build sample fingerprint: No")
     endif (${CMAKE_BUILD_FINGERPRINT_APP_SAMPLE})
+
+    # Если нужно собрать образец зашифрованного приветствия ECH
+    if (${CMAKE_BUILD_ECH_APP_SAMPLE})
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample ECH: Yes")
+        # Выполняем создание приложения зашифрованного приветствия ECH
+        add_corpus_sample(${ECH_APP_NAME} sample/ech/ech.cpp ech)
+    # Если образец зашифрованного приветствия ECH собирать не нужно
+    else()
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample ECH: No")
+    endif (${CMAKE_BUILD_ECH_APP_SAMPLE})
 
     # Если нужно собрать образец сжатия цепочки сертификатов
     if (${CMAKE_BUILD_COMPRESS_APP_SAMPLE})

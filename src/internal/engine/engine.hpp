@@ -57,6 +57,7 @@
 #include <internal/flight/flight.hpp>
 #include <internal/ticket/ticket.hpp>
 #include <fingerprint/fingerprint.hpp>
+#include <ech/ech.hpp>
 
 /**
  * @brief Основное пространство имён
@@ -119,6 +120,21 @@ namespace nts {
 		 * @details Раздел 2 RFC 8701: у каждого места своё значение вида 0x?A?A, выводимое
 		 *          из зерна связи по байту на место, как у BoringSSL; расширениям клиента
 		 *          отведены два места, и значения их различны
+		 *
+		 */
+		/**
+		 * @brief Состояние зашифрованного приветствия клиента ECH (RFC 9849)
+		 *
+		 */
+		enum class ech_t : uint8_t {
+			NONE     = 0x00, /*!< ECH не предлагалось */
+			OFFERED  = 0x01, /*!< Внешнее приветствие с зашифрованным внутренним отправлено, ответ сервера ещё не судился */
+			ACCEPTED = 0x02, /*!< Сервер подтвердил принятие: рукопожатие идёт по внутреннему приветствию */
+			REJECTED = 0x03, /*!< Сервер ECH отверг: рукопожатие идёт по внешнему приветствию и публичному имени */
+			GREASED  = 0x04  /*!< Отправлено лишь значение GREASE ECH: ответ сервера не значим */
+		};
+		/**
+		 * @brief Место значения GREASE в приветствии
 		 *
 		 */
 		enum class grease_t : uint8_t {
@@ -370,6 +386,39 @@ namespace nts {
 				fingerprint::profile_t _profile;
 				// Принятое сервером приветствие клиента вместе с обвязкой: для снятия отпечатка
 				vector <uint8_t> _salutation;
+			private:
+				// Состояние зашифрованного приветствия ECH связи
+				ech_t _ech;
+				// Конфигурации ECH, заданные клиенту (признаваемого издания, в порядке перечня)
+				vector <ech::config_t> _configs;
+				// Перечень конфигураций ECH как записан: клиенту - заданный, серверу - для DNS
+				vector <uint8_t> _echlist;
+				// Место выбранной конфигурации в перечне
+				size_t _shroud;
+				// Состояние HPKE отправителя: живёт от первого приветствия до повторного
+				hpke::context_t _sealer;
+				// Состояние HPKE получателя: живёт от первого приветствия до повторного
+				hpke::context_t _opener;
+				// Внутреннее приветствие вместе с обвязкой: для суждения о принятии и переписки
+				vector <uint8_t> _inner;
+				// Виды расширений внутреннего приветствия: становятся предложенными по принятии
+				vector <uint16_t> _hidden;
+				// Случайное значение внутреннего приветствия
+				uint8_t _innerandom[hello::HELLO_RANDOM];
+				// Запасные конфигурации сервера из защищённых расширений (retry_configs)
+				vector <uint8_t> _retries;
+				// Публичное имя конфигурации: по нему судится подлинность сервера, отвергшего ECH
+				string _public;
+				// Ключ HPKE сервера
+				hpke::key_t _echkey;
+				// Конфигурация, которой служит сервер
+				ech::config_t _served;
+				// Признак того, что сервер принял ECH: подтверждение идёт приветствием
+				bool _echaccepted;
+				// Признак того, что сервер ECH отверг: запасные конфигурации идут защищёнными расширениями
+				bool _echrejected;
+				// Признак разбора восстановленного внутреннего приветствия: ECH внутри не ищется
+				bool _unshrouding;
 				// Перенос рукопожатия дейтаграммами: поры, залп, сборки, часы и метка
 				flight_t _flight;
 			private:
@@ -695,6 +744,60 @@ namespace nts {
 				 *
 				 */
 				context::error_t imitate(hello::client_t & greeting, const vector <uint8_t> & name, const vector <uint8_t> & protocols, const vector <uint8_t> & algorithms, const vector <uint8_t> & modes, const vector <uint8_t> & secret, const bool resume, vector <vector <uint8_t>> & storage) noexcept;
+				/**
+				 * @brief Метод складывания зашифрованного приветствия ECH: внутреннее шифруется, внешнее собирается
+				 *
+				 * @param greeting приветствие, сложенное движком: становится внешним приветствием
+				 * @param storage  хранилище тел расширений внешнего приветствия
+				 *
+				 * @return         отказ складывания
+				 *
+				 * @details Раздел 6.1 RFC 9849: внутреннее приветствие есть сложенное движком с
+				 *          расширением ECH внутреннего вида и своим случайным значением; внешнее -
+				 *          копия с публичным именем конфигурации и расширением ECH внешнего вида,
+				 *          шифротекст которого покрывает внешнее приветствие с обнулённым
+				 *          шифротекстом. Ведущие расширения, одинаковые у обоих, выносятся
+				 *          ech_outer_extensions; повторное приветствие после просьбы о повторе
+				 *          шифруется тем же состоянием HPKE с пустым enc
+				 *
+				 */
+				context::error_t shrouding(hello::client_t & greeting, vector <vector <uint8_t>> & storage) noexcept;
+				/**
+				 * @brief Метод суждения о принятии ECH по приветствию сервера либо просьбе о повторе
+				 *
+				 * @param answer  разобранное приветствие сервера
+				 * @param message приветствие сервера вместе с обвязкой
+				 *
+				 * @return        отказ суждения
+				 *
+				 * @details Разделы 7.2 и 7.2.1 RFC 9849: подтверждение сверяется постоянным временем;
+				 *          по принятии переписка переводится на внутреннее приветствие, а
+				 *          предложенными становятся его расширения; иначе связь идёт по внешнему
+				 *
+				 */
+				context::error_t confirming(const hello::server_t & answer, const view_t & message) noexcept;
+				/**
+				 * @brief Метод раскрытия зашифрованного приветствия ECH сервером
+				 *
+				 * @param greeting разобранное внешнее приветствие
+				 * @param body     тело внешнего приветствия
+				 * @param accepted место, в которое помещается признак принятия
+				 * @param inner    накопитель, в который помещается тело восстановленного внутреннего приветствия
+				 *
+				 * @return         отказ раскрытия: отказ расшифрования принятием не считается
+				 *
+				 */
+				context::error_t unshrouding(const hello::client_t & greeting, const view_t & body, bool & accepted, vector <uint8_t> & inner) noexcept;
+				/**
+				 * @brief Метод вписывания подтверждения принятия ECH в приветствие сервера либо просьбу о повторе
+				 *
+				 * @param body  тело сообщения сервера с обнулённым местом подтверждения
+				 * @param retry признак просьбы о повторе
+				 *
+				 * @return      отказ вписывания
+				 *
+				 */
+				context::error_t marking(vector <uint8_t> & body, const bool retry) noexcept;
 			private:
 				/**
 				 * @brief Метод отправки приветствия клиента
@@ -1610,6 +1713,59 @@ namespace nts {
 				 *
 				 */
 				const vector <uint8_t> & received() const noexcept;
+				/**
+				 * @brief Метод установки конфигураций ECH клиенту
+				 *
+				 * @param configs перечень ECHConfigList байтами (из записи DNS HTTPS)
+				 *
+				 * @return        отказ установки: STATE после заведения, SETTINGS серверу,
+				 *                ECH при перечне без единой признаваемой конфигурации
+				 *
+				 */
+				context::error_t ech(const view_t & configs) noexcept;
+				/**
+				 * @brief Метод установки ключа ECH серверу
+				 *
+				 * @param secret секретный ключ X25519 (32 байта) либо пусто - порождается
+				 * @param name   публичное имя конфигурации
+				 * @param id     опознаватель конфигурации
+				 * @param length наибольшая длина имени для заполнения клиента
+				 *
+				 * @return       отказ установки
+				 *
+				 */
+				context::error_t ech(const view_t & secret, const string & name, const uint8_t id, const uint8_t length) noexcept;
+				/**
+				 * @brief Метод получения перечня конфигураций ECH
+				 *
+				 * @return перечень ECHConfigList: клиенту - заданный, серверу - для публикации в DNS
+				 *
+				 */
+				const vector <uint8_t> & ech() const noexcept;
+				/**
+				 * @brief Метод проверки принятия ECH сервером
+				 *
+				 * @return признак того, что рукопожатие идёт по внутреннему приветствию
+				 *
+				 */
+				bool shrouded() const noexcept;
+				/**
+				 * @brief Метод получения запасных конфигураций ECH, присланных сервером
+				 *
+				 * @return перечень ECHConfigList из защищённых расширений (пусто, если не присылался)
+				 *
+				 */
+				const vector <uint8_t> & retries() const noexcept;
+				/**
+				 * @brief Метод получения имени, которым шло внешнее приветствие ECH
+				 *
+				 * @return публичное имя конфигурации (пусто без ECH)
+				 *
+				 * @details Раздел 6.1.7 RFC 9849: сервер, отвергший ECH, удостоверяется по этому
+				 *          имени, а принявший - по имени `name()`; удостоверение ведёт потребитель
+				 *
+				 */
+				const string & visible() const noexcept;
 				/**
 				 * @brief Метод установки ключа билетов сеансов сервера издания TLS 1.2
 				 *

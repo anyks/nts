@@ -147,9 +147,18 @@ namespace nts {
 				 *
 				 * @return отказ, которым связь оборвана
 				 *
+				 * @note Здесь лишь отказы самой связи: обрыв рукопожатия либо приёма. Отказ
+				 *       заведения `start()` (например MEMORY при нехватке памяти под настройки)
+				 *       выводится возвратом `start()`, а `error()` при этом отвечает NONE и
+				 *       `state()` остаётся NONE - судить о заведении по возврату `start()`
+				 *
 				 * \~english
 				 * @brief Method of getting the failure the connection is torn by
 				 * @return the failure the connection is torn by
+				 * @note Only the failures of the connection itself are here: the abort of the handshake or of
+				 *       the reception. The failure of the start `start()` (for example MEMORY at the lack of
+				 *       memory for the settings) is given by the return of `start()`, while `error()` answers
+				 *       NONE and `state()` stays NONE - judge the start by the return of `start()`
 				 *
 				 * \~
 				 */
@@ -920,6 +929,115 @@ namespace nts {
 				 * \~
 				 */
 				context::error_t profile(const fingerprint::profile_t & profile) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод установки конфигураций зашифрованного приветствия ECH (RFC 9849)
+				 *
+				 * @param configs перечень ECHConfigList байтами, как получен из записи DNS HTTPS (ключ `ech`)
+				 * @return        отказ установки: STATE после `start()`, ECH у перечня без единой признаваемой
+				 *                конфигурации (издание 0xFE0D, KEM X25519, наборы HPKE модуля), MEMORY
+				 *
+				 * @details Берётся первая признаваемая конфигурация. Приветствие складывается движком
+				 *          как обычно и становится внутренним (с расширением ECH внутреннего вида и
+				 *          своим случайным значением); внешнее несёт публичное имя конфигурации и
+				 *          шифротекст HPKE закодированного внутреннего с заполнением по разделу 6.1.3.
+				 *          Принятие судится по подтверждению в приветствии сервера либо просьбе о
+				 *          повторе (`shrouded()`); при отказе сервера рукопожатие складывается по
+				 *          публичному имени, запасные конфигурации кладутся в `retry()`, и связь
+				 *          обрывается извещением ech_required с отказом ECH - как велит раздел 6.1.7.
+				 *          Билет возобновления с ECH не предъявляется (связь идёт полным
+				 *          рукопожатием); поверх дейтаграмм ECH не предлагается
+				 * @note Без конфигураций при включённом `grease(true)` идёт значение GREASE ECH
+				 *
+				 * \~english
+				 * @brief Method of setting the configurations of the encrypted client hello ECH (RFC 9849)
+				 * @param configs the ECHConfigList list by bytes as received from the DNS HTTPS record (the `ech` key)
+				 * @return        the failure of the setting: STATE after `start()`, ECH at a list without a single recognized
+				 *                configuration (the edition 0xFE0D, the X25519 KEM, the HPKE suites of the module), MEMORY
+				 * @details The first recognized configuration is taken. The greeting is composed by the engine as usual
+				 *          and becomes the inner one (with the ECH extension of the inner type and its own random value);
+				 *          the outer one carries the public name of the configuration and the HPKE ciphertext of the encoded
+				 *          inner one with the padding by the section 6.1.3. The acceptance is judged by the confirmation in
+				 *          the greeting of the server or the retry request (`shrouded()`); at the rejection by the server the
+				 *          handshake completes by the public name, the retry configurations are put into `retry()`, and the
+				 *          connection is aborted by the ech_required alert with the ECH failure - as the section 6.1.7
+				 *          prescribes. A resumption ticket is not presented with ECH (the connection goes by the full
+				 *          handshake); over datagrams ECH is not offered
+				 * @note Without configurations at the enabled `grease(true)` a GREASE ECH value goes
+				 *
+				 * \~
+				 */
+				context::error_t ech(const vector <uint8_t> & configs) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения заданных конфигураций ECH
+				 *
+				 * @return перечень ECHConfigList байтами, как задан (пусто без ECH)
+				 *
+				 * \~english
+				 * @brief Method of getting the set ECH configurations
+				 * @return the ECHConfigList list by bytes as set (empty without ECH)
+				 *
+				 * \~
+				 */
+				const vector <uint8_t> & ech() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод проверки принятия ECH сервером
+				 *
+				 * @return признак того, что рукопожатие идёт по внутреннему приветствию (имя узла скрыто)
+				 *
+				 * \~english
+				 * @brief Method of checking the acceptance of ECH by the server
+				 * @return the flag of the handshake going by the inner greeting (the host name is hidden)
+				 *
+				 * \~
+				 */
+				bool shrouded() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения запасных конфигураций ECH, присланных сервером
+				 *
+				 * @return перечень ECHConfigList из защищённых расширений сервера (пусто, если не присылался)
+				 *
+				 * @details Раздел 6.1.7 RFC 9849: отвергший ECH сервер присылает свои конфигурации;
+				 *          если среди них есть признаваемая, потребитель вправе повторить связь с
+				 *          ними; если перечень пуст либо неведом - ECH сервером надёжно отключён
+				 *
+				 * \~english
+				 * @brief Method of getting the retry ECH configurations sent by the server
+				 * @return the ECHConfigList list from the encrypted extensions of the server (empty if not sent)
+				 * @details The section 6.1.7 of RFC 9849: the server that has rejected ECH sends its configurations; if there
+				 *          is a recognized one among them, the consumer may retry the connection with them; if the list is
+				 *          empty or unknown - ECH is securely disabled by the server
+				 *
+				 * \~
+				 */
+				const vector <uint8_t> & retry() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения имени, которым шло внешнее приветствие ECH
+				 *
+				 * @return публичное имя конфигурации ECH (пусто без ECH)
+				 *
+				 * @details Раздел 6.1.7 RFC 9849: удостоверение сервера по имени ведёт потребитель
+				 *          над `peer()`; при принятом ECH (`shrouded()`) сертификат обязан отвечать
+				 *          имени `name()`, при отвергнутом - этому публичному имени, и лишь после
+				 *          удостоверения решение о повторе с `retry()` считается надёжным. Имя
+				 *          известно с момента `ech(configs)` - имя первой признаваемой конфигурации
+				 * @note С заданными конфигурациями `versions()` с нижним пределом ниже 1.3 отвечает SETTINGS
+				 *
+				 * \~english
+				 * @brief Method of getting the name the outer ECH greeting went by
+				 * @return the public name of the ECH configuration (empty without ECH)
+				 * @details The section 6.1.7 of RFC 9849: the verification of the server by the name is conducted by
+				 *          the consumer over `peer()`; at the accepted ECH (`shrouded()`) the certificate is obliged to
+				 *          match the `name()`, at the rejected one - this public name, and only after the verification
+				 *          the decision about the retry with `retry()` is considered secure
+				 *
+				 * \~
+				 */
+				const string & visible() const noexcept;
 				/**
 				 * \~russian
 				 * @brief Метод установки предложения упреждающих данных серверу
