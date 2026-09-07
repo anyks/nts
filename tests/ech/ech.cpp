@@ -1461,3 +1461,202 @@ TEST(EchTest, Visible){
 		}
 	}
 }
+
+/**
+ * Возобновление под ECH: билет и привязка идут во внутреннем приветствии, внешнее без
+ * pre_shared_key и early_data с публичным именем; связь остаётся скрытой и возобновлённой
+ */
+TEST(EchTest, Resumed){
+	// Первая связь: выдача билета
+	client::context_t client;
+	server::context_t server;
+	ASSERT_TRUE(arranged(client, server, false));
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	converse(client, server);
+	ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
+	ASSERT_TRUE(client.shrouded() && server.shrouded());
+	// Выдаём билет
+	ASSERT_EQ(server.issue(), context::error_t::NONE);
+	converse(client, server);
+	ASSERT_FALSE(client.tickets().empty());
+	ASSERT_FALSE(server.tickets().empty());
+	// Вторая связь: билет предъявляется под ECH
+	client::context_t resuming;
+	server::context_t resumed;
+	ASSERT_TRUE(arranged(resuming, resumed, false));
+	resuming.resume(client.tickets()[0]);
+	resumed.resume(server.tickets());
+	ASSERT_EQ(resumed.start(), context::error_t::NONE);
+	ASSERT_EQ(resuming.start(), context::error_t::NONE);
+	// Внешнее приветствие
+	fingerprint::profile_t outer;
+	ASSERT_TRUE(captured(resuming, outer));
+	bool named = false, secret = false, early = false, shrouded = false;
+	for(size_t i = 0; i < outer.extensions.size(); i++){
+		if(outer.extensions[i].type == 0x0000){
+			EXPECT_EQ(outer.extensions[i].names[0], "public.example");
+			named = true;
+		}
+		secret = (secret || (outer.extensions[i].type == 0x0029));
+		early = (early || (outer.extensions[i].type == 0x002A));
+		shrouded = (shrouded || (outer.extensions[i].type == ech::ECH_EXTENSION));
+	}
+	EXPECT_TRUE(named);
+	EXPECT_TRUE(shrouded);
+	// Внешнее приветствие не несёт ни билета, ни упреждения
+	EXPECT_FALSE(secret);
+	EXPECT_FALSE(early);
+	const view_t wire = resuming.output();
+	EXPECT_EQ(string(reinterpret_cast <const char *> (wire.data), wire.size).find("secret.example"), string::npos);
+	converse(resuming, resumed);
+	ASSERT_TRUE(resuming.established() && resumed.established()) << static_cast <int> (resuming.error()) << " " << static_cast <int> (resumed.error()) << " извещения " << static_cast <int> (resuming.alert().description) << " " << static_cast <int> (resumed.alert().description);
+	// Связь скрыта и возобновлена
+	EXPECT_TRUE(resuming.shrouded());
+	EXPECT_TRUE(resumed.shrouded());
+	EXPECT_TRUE(resuming.shared());
+	EXPECT_TRUE(resumed.shared());
+	EXPECT_EQ(resumed.name(), "secret.example");
+	// Прикладные данные
+	const string request = "Запрос под ECH с билетом";
+	ASSERT_EQ(resuming.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
+	converse(resuming, resumed);
+	vector <uint8_t> received;
+	ASSERT_EQ(resumed.read(received), context::error_t::NONE);
+	EXPECT_EQ(string(received.begin(), received.end()), request);
+}
+
+/**
+ * Возобновление под ECH против bssl client -test-resumption: обе связи скрыты, вторая
+ * возобновлена по билету нашего сервера
+ */
+TEST(EchTest, Boringssl3){
+	const std::string tool = bssltool();
+	if(tool.empty()){
+		GTEST_SKIP() << "bssl (BoringSSL) недоступен: задайте ANTS_BSSL";
+	}
+	const std::string echlist = std::string(CORPUS) + "/ech/bssl.list";
+	uint16_t number = 0;
+	const int listener = harbour(number);
+	ASSERT_GE(listener, 0);
+	const std::string log = "/tmp/ants-ech-bssl-resume-" + std::to_string(number) + ".log";
+	ASSERT_TRUE(launch(tool + " client -connect 127.0.0.1:" + std::to_string(number) + " -ech-config-list " + echlist + " -server-name secret.example -test-resumption </dev/null >" + log + " 2>&1", log, log + ".pid"));
+	sentinel_t sentinel(log + ".pid");
+	context::credential_t credential;
+	ASSERT_TRUE(identity("ec256", credential));
+	// Билеты первой связи
+	vector <context::ticket_t> tickets;
+	for(size_t round = 0; round < 2; round++){
+		const int fd = greeted(listener);
+		ASSERT_GE(fd, 0) << "связь " << round;
+		server::context_t server;
+		server.credential(credential);
+		ASSERT_EQ(server.ech(corpus("ech/bssl.key"), "public.example", 7, 64), context::error_t::NONE);
+		if(round == 1)
+			server.resume(tickets);
+		ASSERT_EQ(server.start(), context::error_t::NONE);
+		ASSERT_TRUE(serve(server, fd)) << "связь " << round << " отказ " << static_cast <int> (server.error());
+		EXPECT_TRUE(server.shrouded()) << "связь " << round;
+		EXPECT_EQ(server.name(), "secret.example") << "связь " << round;
+		if(round == 0){
+			// Выдаём билет
+			ASSERT_EQ(server.issue(), context::error_t::NONE);
+			const view_t granting = server.output();
+			ASSERT_EQ(::send(fd, granting.data, granting.size, 0), static_cast <ssize_t> (granting.size));
+			server.consume(granting.size);
+			tickets = server.tickets();
+			ASSERT_FALSE(tickets.empty());
+			// Первое подключение закрывает сам bssl, получив билет: ждём его закрытия
+			uint8_t buffer[4096];
+			for(size_t i = 0; (i < 8) && (::recv(fd, buffer, sizeof(buffer), 0) > 0); i++)
+				continue;
+		} else {
+			EXPECT_TRUE(server.shared());
+			ASSERT_TRUE(farewell(server, fd));
+		}
+		::close(fd);
+	}
+	::close(listener);
+	std::string text;
+	ASSERT_TRUE(settle(log, text)) << text;
+	EXPECT_NE(text.find("Encrypted ClientHello: yes"), std::string::npos) << text;
+	EXPECT_NE(text.find("Resumed session: yes"), std::string::npos) << text;
+	::remove(log.c_str());
+	// bssl server в режиме -www билетов не выдаёт (проверено отладчиком без ECH и с ECH): ступень «наш клиент возобновляется у bssl server» невозможна
+
+}
+
+/**
+ * ECH поверх дейтаграмм DTLS 1.3: внешнее приветствие с публичным именем и шифротекстом,
+ * просьба о повторе с меткой несёт подтверждение, связь скрыта и установлена
+ */
+TEST(EchTest, Datagram){
+	// Насос дейтаграмм: все дейтаграммы стороны переносятся за раз
+	auto shuttle = [](client::context_t & client, server::context_t & server) -> bool {
+		bool moved = false;
+		for(size_t pass = 0; pass < 2; pass++){
+			vector <vector <uint8_t>> datagrams;
+			if(pass == 0){
+				while(client.output().size > 0){
+					const view_t data = client.output();
+					datagrams.push_back(vector <uint8_t> (data.data, data.data + data.size));
+					client.consume(data.size);
+				}
+				for(size_t i = 0; i < datagrams.size(); i++)
+					server.push(view_t(datagrams[i].data(), datagrams[i].size()));
+			} else {
+				while(server.output().size > 0){
+					const view_t data = server.output();
+					datagrams.push_back(vector <uint8_t> (data.data, data.data + data.size));
+					server.consume(data.size);
+				}
+				for(size_t i = 0; i < datagrams.size(); i++)
+					client.push(view_t(datagrams[i].data(), datagrams[i].size()));
+			}
+			moved = (moved || !datagrams.empty());
+		}
+		return moved;
+	};
+	client::context_t client;
+	server::context_t server;
+	client.transport(context::transport_t::DATAGRAMS);
+	server.transport(context::transport_t::DATAGRAMS);
+	ASSERT_TRUE(arranged(client, server, false));
+	client.suites(vector <protect::suite_t> {protect::suite_t::AES_128_GCM_SHA256});
+	server.suites(vector <protect::suite_t> {protect::suite_t::AES_128_GCM_SHA256});
+	client.groups(vector <extension::group_t> {extension::group_t::X25519});
+	server.groups(vector <extension::group_t> {extension::group_t::X25519});
+	// Адрес собеседника: им сервер помечает метку возврата состояния
+	static const uint8_t ADDRESS[] = {10, 0, 0, 1, 0x12, 0x34};
+	ASSERT_TRUE(server.address(view_t(ADDRESS, sizeof(ADDRESS))));
+	ASSERT_EQ(server.start(), context::error_t::NONE) << static_cast <int> (server.error());
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	// Первая дейтаграмма: внешнее приветствие
+	fingerprint::profile_t outer;
+	ASSERT_TRUE(captured(client, outer));
+	EXPECT_TRUE(outer.datagram);
+	bool named = false, shrouded = false;
+	for(size_t i = 0; i < outer.extensions.size(); i++){
+		if(outer.extensions[i].type == 0x0000){
+			EXPECT_EQ(outer.extensions[i].names[0], "public.example");
+			named = true;
+		}
+		shrouded = (shrouded || (outer.extensions[i].type == ech::ECH_EXTENSION));
+	}
+	EXPECT_TRUE(named);
+	EXPECT_TRUE(shrouded);
+	for(size_t i = 0; (i < 24) && shuttle(client, server); i++)
+		continue;
+	ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error()) << " извещения " << static_cast <int> (client.alert().description) << " " << static_cast <int> (server.alert().description);
+	EXPECT_TRUE(client.shrouded());
+	EXPECT_TRUE(server.shrouded());
+	EXPECT_EQ(server.name(), "secret.example");
+	EXPECT_EQ(client.protocol(), "h2");
+	const string request = "Запрос под ECH поверх дейтаграмм";
+	ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
+	for(size_t i = 0; (i < 8) && shuttle(client, server); i++)
+		continue;
+	vector <uint8_t> received;
+	ASSERT_EQ(server.read(received), context::error_t::NONE);
+	EXPECT_EQ(string(received.begin(), received.end()), request);
+}

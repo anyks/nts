@@ -456,6 +456,32 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ error_t encode(const hello::client_t & inner, const vector <uint16_t> & outsourced, const size_t padding, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
+		 * @brief Метод кодирования внутреннего приветствия с выбором записи
+		 *
+		 * @param inner      внутреннее приветствие
+		 * @param outsourced виды расширений, выносимых во внешнее приветствие ссылкой
+		 * @param padding    число нулевых байтов заполнения
+		 * @param datagram   признак записи поверх дейтаграмм: тело несёт поле метки возврата состояния (RFC 9147)
+		 * @param result     накопитель закодированного приветствия
+		 *
+		 * @return           отказ кодирования
+		 *
+		 * \~english
+		 * @brief Method of the encoding of the inner greeting with the choice of the record
+		 *
+		 * @param inner      inner greeting
+		 * @param outsourced kinds of the extensions carried to the outer greeting by a reference
+		 * @param padding    number of the zero bytes of the padding
+		 * @param datagram   sign of the record over datagrams: the body carries the cookie field (RFC 9147)
+		 * @param result     accumulator of the encoded greeting
+		 *
+		 * @return           failure of the encoding
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ error_t encode(const hello::client_t & inner, const vector <uint16_t> & outsourced, const size_t padding, const bool datagram, vector <uint8_t> & result) noexcept;
+		/**
+		 * \~russian
 		 * @brief Метод восстановления внутреннего приветствия из закодированного
 		 *
 		 * @param encoded закодированное внутреннее приветствие (раскрытый шифротекст)
@@ -486,6 +512,30 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ error_t decode(const view_t & encoded, const hello::client_t & outer, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
+		 * @brief Метод восстановления внутреннего приветствия с выбором записи
+		 *
+		 * @param encoded  закодированное внутреннее приветствие
+		 * @param outer    внешнее приветствие, из которого берутся вынесенные расширения
+		 * @param datagram признак записи поверх дейтаграмм
+		 * @param result   накопитель восстановленного приветствия
+		 *
+		 * @return         отказ восстановления
+		 *
+		 * \~english
+		 * @brief Method of the restoring of the inner greeting with the choice of the record
+		 *
+		 * @param encoded  encoded inner greeting
+		 * @param outer    outer greeting the carried extensions are taken from
+		 * @param datagram sign of the record over datagrams
+		 * @param result   accumulator of the restored greeting
+		 *
+		 * @return         failure of the restoring
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ error_t decode(const view_t & encoded, const hello::client_t & outer, const bool datagram, vector <uint8_t> & result) noexcept;
+		/**
+		 * \~russian
 		 * @brief Метод составления добавочных данных внешнего приветствия ClientHelloOuterAAD
 		 *
 		 * @param body   тело внешнего приветствия с расширением encrypted_client_hello
@@ -507,6 +557,28 @@ namespace nts {
 		 * \~
 		 */
 		__ANTS_SHARED_EXPORT__ error_t redact(const view_t & body, vector <uint8_t> & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод составления связанных данных из внешнего приветствия с выбором записи
+		 *
+		 * @param body     тело внешнего приветствия
+		 * @param datagram признак записи поверх дейтаграмм
+		 * @param result   накопитель связанных данных: тело с обнулённым шифротекстом
+		 *
+		 * @return         отказ составления
+		 *
+		 * \~english
+		 * @brief Method of the composition of the associated data from the outer greeting with the choice of the record
+		 *
+		 * @param body     body of the outer greeting
+		 * @param datagram sign of the record over datagrams
+		 * @param result   accumulator of the associated data: the body with the zeroed ciphertext
+		 *
+		 * @return         failure of the composition
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ error_t redact(const view_t & body, const bool datagram, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод вычисления подтверждения принятия ECH

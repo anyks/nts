@@ -209,6 +209,26 @@ namespace nts {
 				protect::suite_t suite() const noexcept;
 				/**
 				 * \~russian
+				 * @brief Метод получения группы обмена ключами связи
+				 *
+				 * @return согласованная сторонами группа обмена ключами
+				 *
+				 * @note До установления связи и у возобновления по билету без обмена ключами - NONE;
+				 *       у гибрида X25519MLKEM768 отдаётся именно он - так потребитель считает,
+				 *       сколько связей сложилось постквантовым обменом
+				 *
+				 * \~english
+				 * @brief Method of getting the key exchange group of the connection
+				 * @return the key exchange group agreed upon by the sides
+				 * @note Before the establishment of the connection and at a resumption by a ticket without a key
+				 *       exchange - NONE; at the X25519MLKEM768 hybrid it is the one given - so the
+				 *       consumer counts how many connections were made by the post-quantum exchange
+				 *
+				 * \~
+				 */
+				extension::group_t group() const noexcept;
+				/**
+				 * \~russian
 				 * @brief Метод получения цепочки сертификатов собеседника
 				 *
 				 * @return цепочка сертификатов, предъявленная собеседником
@@ -899,8 +919,9 @@ namespace nts {
 				 *          Перечни наборов, групп, долей и схем связи сужаются до ведомых связи значений
 				 *          профиля в порядке профиля, пределы изданий берутся из профиля. Наборы и группы,
 				 *          связи неведомые, предлагаются как записаны: выбери их сервер - связь обрывается
-				 *          отказом PROFILE. Доли групп, которых связь не умеет (X25519MLKEM768 0x11EC и
-				 *          прочие постквантовые), опускаются, а группы остаются в перечне - долг ML-KEM
+				 *          отказом PROFILE. Доля X25519MLKEM768 (0x11EC) идёт свежей гибридной парой: ключ
+				 *          инкапсуляции ML-KEM-768 и точка X25519 в 1216 байтов, как у Chrome; доли прочих
+				 *          постквантовых групп опускаются, а группы остаются в перечне
 				 * @note Профиль ставится лишь до `start()` и лишь клиенту; ручка `grease` на него не влияет
 				 *
 				 * \~english
@@ -922,8 +943,9 @@ namespace nts {
 				 *          values of the profile known to the connection in the order of the profile, the limits of the
 				 *          editions are taken from the profile. The suites and the groups unknown to the connection are
 				 *          offered as recorded: should the server select them, the connection is aborted by PROFILE. The
-				 *          shares of the groups the connection cannot handle (X25519MLKEM768 0x11EC and the other
-				 *          post-quantum ones) are omitted while the groups stay in the list - the ML-KEM debt
+				 *          share of X25519MLKEM768 (0x11EC) goes as a fresh hybrid pair: the ML-KEM-768 encapsulation
+				 *          key and the X25519 point of 1216 bytes, as at Chrome; the shares of the other post-quantum
+				 *          groups are omitted while the groups stay in the list
 				 * @note The profile is set only before `start()` and only at the client; the `grease` switch does not affect it
 				 *
 				 * \~

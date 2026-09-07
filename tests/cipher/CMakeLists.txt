@@ -157,3 +157,21 @@ target_link_libraries(${TEST_CHACHAPOLY_NAME} ${ANTS_LIB_NAME}_test GTest::gtest
 
 # Регистрируем цель проверок
 add_test(NAME ${TEST_CHACHAPOLY_NAME} COMMAND ${TEST_CHACHAPOLY_NAME})
+
+# Устанавливаем имя цели проверок сырых поточных шифров
+SET(TEST_RAW_NAME raw)
+
+# Добавляем цель проверок сырых поточных шифров
+add_executable(${TEST_RAW_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/raw.cpp")
+
+# Включаем флаги компиляции проверок
+target_compile_options(${TEST_RAW_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
+
+# Подключаем каталог общих заголовочных файлов набора проверок
+target_include_directories(${TEST_RAW_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+
+# Выполняем подключение зависимостей цели проверок
+target_link_libraries(${TEST_RAW_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
+
+# Регистрируем цель проверок
+add_test(NAME ${TEST_RAW_NAME} COMMAND ${TEST_RAW_NAME})

@@ -253,7 +253,7 @@ namespace {
 	 * @return       отказ измерения
 	 *
 	 */
-	static ech::error_t measure(const view_t & data, size_t & length) noexcept {
+	static ech::error_t measure(const view_t & data, const bool datagram, size_t & length) noexcept {
 		// Смещение внутри байтов: издание и случайное значение
 		size_t offset = (2 + hello::HELLO_RANDOM);
 		// Если заголовок приветствия не помещается
@@ -262,6 +262,15 @@ namespace {
 			return ech::error_t::HUNGRY;
 		// Переходим за опознаватель связи
 		offset += (1 + data.data[offset]);
+		// Поверх дейтаграмм за опознавателем связи идёт поле метки возврата состояния (RFC 9147)
+		if(datagram){
+			// Если байта длины метки нет
+			if((offset + 1) > data.size)
+				// Выводим отказ нехватки байтов
+				return ech::error_t::HUNGRY;
+			// Пропускаем метку
+			offset += (1 + data.data[offset]);
+		}
 		// Если перечень наборов не помещается
 		if((offset + 2) > data.size)
 			// Выводим отказ обрыва
@@ -762,6 +771,35 @@ size_t nts::ech::padding(const size_t named, const size_t maximum, const size_t 
  *
  */
 nts::ech::error_t nts::ech::encode(const hello::client_t & inner, const vector <uint16_t> & outsourced, const size_t padding, vector <uint8_t> & result) noexcept {
+	// Выводим итог кодирования записью поверх записей
+	return encode(inner, outsourced, padding, false, result);
+}
+/**
+ * \~russian
+ * @brief Метод кодирования внутреннего приветствия с выбором записи
+ *
+ * @param inner      внутреннее приветствие
+ * @param outsourced виды расширений, выносимых во внешнее приветствие ссылкой
+ * @param padding    число нулевых байтов заполнения
+ * @param datagram   признак записи поверх дейтаграмм
+ * @param result     накопитель закодированного приветствия
+ *
+ * @return           отказ кодирования
+ *
+ * \~english
+ * @brief Method of the encoding of the inner greeting with the choice of the record
+ *
+ * @param inner      inner greeting
+ * @param outsourced kinds of the extensions carried to the outer greeting by a reference
+ * @param padding    number of the zero bytes of the padding
+ * @param datagram   sign of the record over datagrams
+ * @param result     accumulator of the encoded greeting
+ *
+ * @return           failure of the encoding
+ *
+ * \~
+ */
+nts::ech::error_t nts::ech::encode(const hello::client_t & inner, const vector <uint16_t> & outsourced, const size_t padding, const bool datagram, vector <uint8_t> & result) noexcept {
 	/**
 	 * Выполняем перехват нехватки памяти
 	 */
@@ -848,7 +886,7 @@ nts::ech::error_t nts::ech::encode(const hello::client_t & inner, const vector <
 			// Выводим отказ ссылок
 			return error_t::OUTER;
 		// Отказ составления приветствия
-		const hello::error_t failure = hello::build(encoded, result);
+		const hello::error_t failure = hello::build(encoded, result, datagram);
 		// Если приветствие составить не удалось
 		if(failure != hello::error_t::NONE){
 			// Сбрасываем накопитель
@@ -881,6 +919,33 @@ nts::ech::error_t nts::ech::encode(const hello::client_t & inner, const vector <
  *
  */
 nts::ech::error_t nts::ech::decode(const view_t & encoded, const hello::client_t & outer, vector <uint8_t> & result) noexcept {
+	// Выводим итог восстановления записью поверх записей
+	return decode(encoded, outer, false, result);
+}
+/**
+ * \~russian
+ * @brief Метод восстановления внутреннего приветствия с выбором записи
+ *
+ * @param encoded  закодированное внутреннее приветствие
+ * @param outer    внешнее приветствие
+ * @param datagram признак записи поверх дейтаграмм
+ * @param result   накопитель восстановленного приветствия
+ *
+ * @return         отказ восстановления
+ *
+ * \~english
+ * @brief Method of the restoring of the inner greeting with the choice of the record
+ *
+ * @param encoded  encoded inner greeting
+ * @param outer    outer greeting
+ * @param datagram sign of the record over datagrams
+ * @param result   accumulator of the restored greeting
+ *
+ * @return         failure of the restoring
+ *
+ * \~
+ */
+nts::ech::error_t nts::ech::decode(const view_t & encoded, const hello::client_t & outer, const bool datagram, vector <uint8_t> & result) noexcept {
 	/**
 	 * Выполняем перехват нехватки памяти
 	 */
@@ -890,7 +955,7 @@ nts::ech::error_t nts::ech::decode(const view_t & encoded, const hello::client_t
 		// Длина тела без заполнения
 		size_t length = 0;
 		// Отказ измерения тела
-		const error_t measured = measure(encoded, length);
+		const error_t measured = measure(encoded, datagram, length);
 		// Если тело измерить не удалось
 		if(measured != error_t::NONE)
 			// Выводим отказ измерения
@@ -907,7 +972,7 @@ nts::ech::error_t nts::ech::decode(const view_t & encoded, const hello::client_t
 		// Закодированное приветствие
 		hello::client_t inner;
 		// Отказ разбора закодированного приветствия
-		const hello::error_t parsed = hello::parse(view_t(encoded.data, length), inner);
+		const hello::error_t parsed = hello::parse(view_t(encoded.data, length), inner, datagram);
 		// Если закодированное приветствие разобрать не удалось
 		if(parsed != hello::error_t::NONE)
 			// Выводим отказ: нехватка памяти своим кодом, прочее - записью
@@ -999,7 +1064,7 @@ nts::ech::error_t nts::ech::decode(const view_t & encoded, const hello::client_t
 			}
 		}
 		// Отказ составления приветствия
-		const hello::error_t failure = hello::build(restored, result);
+		const hello::error_t failure = hello::build(restored, result, datagram);
 		// Если приветствие составить не удалось
 		if(failure != hello::error_t::NONE){
 			// Сбрасываем накопитель
@@ -1029,6 +1094,31 @@ nts::ech::error_t nts::ech::decode(const view_t & encoded, const hello::client_t
  *
  */
 nts::ech::error_t nts::ech::redact(const view_t & body, vector <uint8_t> & result) noexcept {
+	// Выводим итог составления записью поверх записей
+	return redact(body, false, result);
+}
+/**
+ * \~russian
+ * @brief Метод составления связанных данных из внешнего приветствия с выбором записи
+ *
+ * @param body     тело внешнего приветствия
+ * @param datagram признак записи поверх дейтаграмм
+ * @param result   накопитель связанных данных
+ *
+ * @return         отказ составления
+ *
+ * \~english
+ * @brief Method of the composition of the associated data from the outer greeting with the choice of the record
+ *
+ * @param body     body of the outer greeting
+ * @param datagram sign of the record over datagrams
+ * @param result   accumulator of the associated data
+ *
+ * @return         failure of the composition
+ *
+ * \~
+ */
+nts::ech::error_t nts::ech::redact(const view_t & body, const bool datagram, vector <uint8_t> & result) noexcept {
 	/**
 	 * Выполняем перехват нехватки памяти
 	 */
@@ -1038,7 +1128,7 @@ nts::ech::error_t nts::ech::redact(const view_t & body, vector <uint8_t> & resul
 		// Внешнее приветствие
 		hello::client_t outer;
 		// Отказ разбора внешнего приветствия
-		const hello::error_t parsed = hello::parse(body, outer);
+		const hello::error_t parsed = hello::parse(body, outer, datagram);
 		// Если внешнее приветствие разобрать не удалось
 		if(parsed != hello::error_t::NONE)
 			// Выводим отказ: нехватка памяти своим кодом, прочее - записью

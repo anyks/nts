@@ -42,6 +42,8 @@
  */
 #include <field/field.hpp>
 #include <extension/extension.hpp>
+#include <agreement/mlkem.hpp>
+#include <agreement/x25519.hpp>
 
 /**
  * Используем стандартное пространство имён
@@ -359,6 +361,27 @@ const char * nts::extension::curve(const group_t group) noexcept {
  * @return       опознаватель кривой набора параметров либо nullptr
  *
  */
+/**
+ * \~russian
+ * @brief Метод проверки принадлежности группы гибридам с инкапсуляцией ключа
+ *
+ * @param group проверяемая группа обмена ключами
+ *
+ * @return      признак того, что группа есть гибрид с инкапсуляцией ключа
+ *
+ * \~english
+ * @brief Method of the check of the belonging of a group to the hybrids with a key encapsulation
+ *
+ * @param group group of the exchange of the keys to check
+ *
+ * @return      sign that the group is a hybrid with a key encapsulation
+ *
+ * \~
+ */
+bool nts::extension::hybrid(const group_t group) noexcept {
+	// Выводим признак гибридной группы
+	return (group == group_t::X25519MLKEM768);
+}
 const char * nts::extension::curve(const scheme_t scheme) noexcept {
 	/**
 	 * Выполняем перебор описаний схем подписи
@@ -402,6 +425,10 @@ size_t nts::extension::length(const scheme_t scheme) noexcept {
  *
  */
 size_t nts::extension::length(const group_t group) noexcept {
+	// Если группа обмена - гибрид X25519 и ML-KEM-768: доля клиента есть ключ инкапсуляции и точка
+	if(group == group_t::X25519MLKEM768)
+		// Выводим длину доли клиента
+		return (agreement::encapsulation(agreement::kem_t::MLKEM768) + agreement::X25519_SIZE);
 	// Если группа обмена - X25519
 	if(group == group_t::X25519)
 		// Выводим длину доли ключа X25519

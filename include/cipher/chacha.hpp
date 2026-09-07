@@ -98,6 +98,26 @@ namespace nts {
 		 * \~
 		 */
 		static constexpr size_t CHACHA_BLOCK = 64;
+		/**
+		 * \~russian
+		 * @brief Длина начального заполнения XChaCha20 в байтах (draft-irtf-cfrg-xchacha)
+		 *
+		 * \~english
+		 * @brief Length of the XChaCha20 nonce in bytes (draft-irtf-cfrg-xchacha)
+		 *
+		 * \~
+		 */
+		static constexpr size_t CHACHA_XNONCE = 24;
+		/**
+		 * \~russian
+		 * @brief Длина начального заполнения HChaCha20 в байтах
+		 *
+		 * \~english
+		 * @brief Length of the HChaCha20 nonce in bytes
+		 *
+		 * \~
+		 */
+		static constexpr size_t HCHACHA_NONCE = 16;
 
 		/**
 		 * \~russian
@@ -271,21 +291,50 @@ namespace nts {
 				 * @brief Метод запуска шифра
 				 *
 				 * @param key     ключ в 32 байта
-				 * @param nonce   начальное заполнение в 12 байтов
+				 * @param nonce   начальное заполнение в 12 байтов (ChaCha20, RFC 8439) либо в 24 байта (XChaCha20)
 				 * @param counter начальное значение счётчика блока
 				 *
 				 * @return        признак успешности запуска
 				 *
+				 * @details С заполнением в 24 байта шифр идёт как XChaCha20 (draft-irtf-cfrg-xchacha,
+				 *          раздел 2.3): подключ выводится HChaCha20 из ключа и первых шестнадцати байтов,
+				 *          заполнением ChaCha20 служат четыре нулевых байта и последние восемь. Это сырой
+				 *          поток без имитовставки: гамма, наложенная на данные; целостность - дело потребителя
+				 *
 				 * \~english
 				 * @brief Method of the start of the cipher
 				 * @param key     the 32-byte key
-				 * @param nonce   the 12-byte nonce
+				 * @param nonce   the 12-byte nonce (ChaCha20, RFC 8439) or the 24-byte nonce (XChaCha20)
 				 * @param counter the initial value of the block counter
 				 * @return        the flag of the success of the start
+				 * @details With a 24-byte nonce the cipher runs as XChaCha20 (draft-irtf-cfrg-xchacha, section
+				 *          2.3): the subkey is derived by HChaCha20 from the key and the first sixteen bytes, the
+				 *          ChaCha20 nonce is four zero bytes and the last eight. It is a raw stream without an
+				 *          authentication tag: the gamma applied to the data; the integrity is the consumer's business
 				 *
 				 * \~
 				 */
 				bool start(const view_t & key, const view_t & nonce, const uint32_t counter = 0) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод вывода подключа HChaCha20 (draft-irtf-cfrg-xchacha, раздел 2.2)
+				 *
+				 * @param key    ключ в 32 байта
+				 * @param nonce  начальное заполнение в 16 байтов
+				 * @param result место, в которое помещается подключ в 32 байта
+				 *
+				 * @return       признак успешности вывода
+				 *
+				 * \~english
+				 * @brief Method of the derivation of the HChaCha20 subkey (draft-irtf-cfrg-xchacha, section 2.2)
+				 * @param key    the 32-byte key
+				 * @param nonce  the 16-byte nonce
+				 * @param result the place the 32-byte subkey is put into
+				 * @return       the flag of the success of the derivation
+				 *
+				 * \~
+				 */
+				static bool hchacha(const view_t & key, const view_t & nonce, uint8_t * result) noexcept;
 				/**
 				 * \~russian
 				 * @brief Метод сброса шифра с затиранием состояния

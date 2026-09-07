@@ -106,6 +106,16 @@ protect::suite_t nts::client::Context::suite() const noexcept {
 	return (this->_engine != nullptr ? this->_engine->suite() : protect::suite_t::NONE);
 }
 /**
+ * @brief Метод получения группы обмена ключами связи
+ *
+ * @return согласованная сторонами группа обмена ключами
+ *
+ */
+extension::group_t nts::client::Context::group() const noexcept {
+	// Выводим согласованную сторонами группу обмена ключами
+	return (this->_engine != nullptr ? this->_engine->group() : extension::group_t::NONE);
+}
+/**
  * @brief Метод получения цепочки сертификатов собеседника
  *
  * @return цепочка сертификатов, предъявленная собеседником

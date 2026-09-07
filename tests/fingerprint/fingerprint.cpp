@@ -1231,7 +1231,7 @@ TEST(ProfileTest, Refusals){
 		// Если расширение есть перечень групп
 		if(alien.extensions[i].type == 0x000A)
 			// Подменяем группы неведомыми
-			alien.extensions[i].groups = vector <extension::group_t> {static_cast <extension::group_t> (0x11EC)};
+			alien.extensions[i].groups = vector <extension::group_t> {static_cast <extension::group_t> (0x11EB)};
 	}
 	// Проверяем отказ
 	EXPECT_EQ(client.profile(alien), context::error_t::SETTINGS);
@@ -1311,13 +1311,13 @@ TEST(ProfileTest, Unknown){
 		// Если расширение есть перечень групп
 		if(source.extensions[i].type == 0x000A)
 			// Вставляем группу ML-KEM за GREASE
-			source.extensions[i].groups.insert(source.extensions[i].groups.begin() + 1, static_cast <extension::group_t> (0x11EC));
+			source.extensions[i].groups.insert(source.extensions[i].groups.begin() + 1, static_cast <extension::group_t> (0x11EB));
 		// Если расширение есть перечень долей
 		if(source.extensions[i].type == 0x0033){
 			// Доля ML-KEM
 			fingerprint::share_t share;
 			// Группа доли
-			share.group = static_cast <extension::group_t> (0x11EC);
+			share.group = static_cast <extension::group_t> (0x11EB);
 			// Ключ доли длиной 1216 байтов
 			share.key.assign(1216, 0x33);
 			// Вставляем долю за GREASE
@@ -1346,8 +1346,8 @@ TEST(ProfileTest, Unknown){
 	ASSERT_TRUE(captured(client, made));
 	// Неведомый набор идёт как есть на своём месте
 	EXPECT_EQ(static_cast <uint16_t> (made.suites[1]), 0xC0AC);
-	// Группа ML-KEM в перечне на своём месте, доля по ней опущена
-	EXPECT_EQ(static_cast <uint16_t> (made.extensions[15].groups[1]), 0x11EC);
+	// Неведомая гибридная группа 0x11EB в перечне на своём месте, доля по ней опущена
+	EXPECT_EQ(static_cast <uint16_t> (made.extensions[15].groups[1]), 0x11EB);
 	EXPECT_EQ(made.extensions[3].shares.size(), static_cast <size_t> (2));
 	EXPECT_EQ(made.extensions[3].shares[1].group, extension::group_t::X25519);
 	// Проводим рукопожатие: сервер выбирает ведомый набор и группу

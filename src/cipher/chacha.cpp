@@ -919,9 +919,30 @@ bool nts::cipher::Chacha::start(const view_t & key, const view_t & nonce, const 
 	// Выполняем сброс прежнего состояния
 	this->clear();
 	// Если ключ либо заполнение не той длины либо не переданы
-	if((key.data == nullptr) || (key.size != CHACHA_KEY) || (nonce.data == nullptr) || (nonce.size != CHACHA_NONCE))
+	if((key.data == nullptr) || (key.size != CHACHA_KEY) || (nonce.data == nullptr) || ((nonce.size != CHACHA_NONCE) && (nonce.size != CHACHA_XNONCE)))
 		// Выводим отказ запуска
 		return false;
+	// Если заполнение в 24 байта: XChaCha20 - подключ HChaCha20 и заполнение из нулей и хвоста
+	if(nonce.size == CHACHA_XNONCE){
+		// Подключ
+		uint8_t subkey[CHACHA_KEY];
+		// Если подключ вывести не удалось
+		if(!hchacha(key, view_t(nonce.data, HCHACHA_NONCE), subkey))
+			// Выводим отказ запуска
+			return false;
+		// Заполнение ChaCha20: четыре нулевых байта и последние восемь байтов
+		uint8_t shorter[CHACHA_NONCE];
+		// Обнуляем начало
+		::memset(shorter, 0, 4);
+		// Переносим хвост
+		::memcpy(shorter + 4, nonce.data + HCHACHA_NONCE, 8);
+		// Запускаем ChaCha20 на подключе
+		const bool started = this->start(view_t(subkey, sizeof(subkey)), view_t(shorter, sizeof(shorter)), counter);
+		// Выполняем затирание подключа
+		wipe(subkey, sizeof(subkey));
+		// Выводим итог запуска
+		return started;
+	}
 	/**
 	 * Выполняем запись постоянных слов состояния
 	 */
@@ -1098,4 +1119,76 @@ nts::cipher::Chacha::Chacha() noexcept : _ready(false), _exhausted(false), _rest
 nts::cipher::Chacha::~Chacha() noexcept {
 	// Выполняем сброс шифра
 	this->clear();
+}
+
+/**
+ * \~russian
+ * @brief Метод вывода подключа HChaCha20
+ *
+ * @param key    ключ в 32 байта
+ * @param nonce  начальное заполнение в 16 байтов
+ * @param result место подключа
+ *
+ * @return       признак успешности вывода
+ *
+ * \~english
+ * @brief Method of the derivation of the HChaCha20 subkey
+ * @param key    the 32-byte key
+ * @param nonce  the 16-byte nonce
+ * @param result the place of the subkey
+ * @return       the flag of the success of the derivation
+ *
+ * \~
+ */
+bool nts::cipher::Chacha::hchacha(const view_t & key, const view_t & nonce, uint8_t * result) noexcept {
+	// Если ключ, заполнение либо место негодны
+	if((key.data == nullptr) || (key.size != CHACHA_KEY) || (nonce.data == nullptr) || (nonce.size != HCHACHA_NONCE) || (result == nullptr))
+		// Выводим отказ
+		return false;
+	// Состояние: константы, ключ, заполнение целиком на месте счётчика и заполнения
+	uint32_t work[16];
+	/**
+	 * Выполняем заполнение констант
+	 */
+	for(size_t i = 0; i < 4; i++)
+		// Константа
+		work[i] = CONSTANTS[i];
+	/**
+	 * Выполняем заполнение ключа
+	 */
+	for(size_t i = 0; i < 8; i++)
+		// Слово ключа
+		work[4 + i] = load(key.data + (i * 4));
+	/**
+	 * Выполняем заполнение начального заполнения
+	 */
+	for(size_t i = 0; i < 4; i++)
+		// Слово заполнения
+		work[12 + i] = load(nonce.data + (i * 4));
+	/**
+	 * Выполняем двадцать кругов
+	 */
+	for(size_t i = 0; i < 10; i++){
+		quarter(work[0], work[4], work[8], work[12]);
+		quarter(work[1], work[5], work[9], work[13]);
+		quarter(work[2], work[6], work[10], work[14]);
+		quarter(work[3], work[7], work[11], work[15]);
+		quarter(work[0], work[5], work[10], work[15]);
+		quarter(work[1], work[6], work[11], work[12]);
+		quarter(work[2], work[7], work[8], work[13]);
+		quarter(work[3], work[4], work[9], work[14]);
+	}
+	/**
+	 * Раздел 2.2 черновика: подключ есть слова 0-3 и 12-15 без сложения с начальным состоянием
+	 */
+	for(size_t i = 0; i < 4; i++){
+		// Первая половина
+		store(work[i], result + (i * 4));
+		// Вторая половина
+		store(work[12 + i], result + 16 + (i * 4));
+	}
+	// Выполняем затирание
+	wipe(work, sizeof(work));
+	// Выводим успешность
+	return true;
 }

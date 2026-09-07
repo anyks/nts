@@ -253,14 +253,14 @@ namespace nts {
 				 * @brief Метод запуска режима
 				 *
 				 * @param key   ключ в 32 байта
-				 * @param nonce начальное заполнение в 12 байтов
+				 * @param nonce начальное заполнение в 12 байтов либо в 24 байта (XChaCha20-Poly1305, draft-irtf-cfrg-xchacha)
 				 *
 				 * @return      признак успешности запуска
 				 *
 				 * \~english
 				 * @brief Method of the start of the mode
 				 * @param key   the 32-byte key
-				 * @param nonce the 12-byte nonce
+				 * @param nonce the 12-byte nonce or the 24-byte nonce (XChaCha20-Poly1305, draft-irtf-cfrg-xchacha)
 				 * @return      the flag of the success of the start
 				 *
 				 * \~

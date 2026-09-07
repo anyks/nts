@@ -263,13 +263,26 @@ bool nts::cipher::Chachapoly::start(const view_t & key, const view_t & nonce) no
 	// Выполняем сброс прежнего состояния
 	this->clear();
 	// Если ключ либо заполнение не той длины либо не переданы
-	if((key.data == nullptr) || (key.size != CHACHA_KEY) || (nonce.data == nullptr) || (nonce.size != CHACHA_NONCE))
+	if((key.data == nullptr) || (key.size != CHACHA_KEY) || (nonce.data == nullptr) || ((nonce.size != CHACHA_NONCE) && (nonce.size != CHACHA_XNONCE)))
 		// Выводим отказ запуска
 		return false;
-	// Запоминаем ключ
-	::memcpy(this->_key, key.data, sizeof(this->_key));
-	// Запоминаем заполнение
-	::memcpy(this->_nonce, nonce.data, sizeof(this->_nonce));
+	// Если заполнение в 24 байта: XChaCha20-Poly1305 - подключ HChaCha20, заполнение из нулей и хвоста
+	if(nonce.size == CHACHA_XNONCE){
+		// Если подключ вывести не удалось
+		if(!Chacha::hchacha(key, view_t(nonce.data, HCHACHA_NONCE), this->_key))
+			// Выводим отказ запуска
+			return false;
+		// Обнуляем начало заполнения
+		::memset(this->_nonce, 0, 4);
+		// Переносим хвост заполнения
+		::memcpy(this->_nonce + 4, nonce.data + HCHACHA_NONCE, 8);
+	// Иначе ключ и заполнение как есть
+	} else {
+		// Переносим ключ
+		::memcpy(this->_key, key.data, sizeof(this->_key));
+		// Переносим заполнение
+		::memcpy(this->_nonce, nonce.data, sizeof(this->_nonce));
+	}
 	// Запоминаем готовность режима: сброс потока заводит шифр и имитовставку
 	this->_ready = true;
 	// Если поток сбросить не удалось

@@ -152,8 +152,35 @@ namespace nts {
 			GC512C = 0x0028, /*!< \~russian Кривая набора параметров C длиной 512 разрядов \~english The curve of the parameter set C of a length of 512 bits \~ */
 			SECP256R1 = 0x0017, /*!< \~russian Кривая secp256r1 (NIST P-256) по разделу 4.2.7 RFC 8446 \~english The secp256r1 (NIST P-256) curve by the section 4.2.7 of RFC 8446 \~ */
 			SECP384R1 = 0x0018, /*!< \~russian Кривая secp384r1 (NIST P-384) по разделу 4.2.7 RFC 8446 \~english The secp384r1 (NIST P-384) curve by the section 4.2.7 of RFC 8446 \~ */
-			X25519    = 0x001D  /*!< \~russian Кривая Curve25519 по RFC 7748 \~english The Curve25519 curve by RFC 7748 \~ */
+			X25519    = 0x001D, /*!< \~russian Кривая Curve25519 по RFC 7748 \~english The Curve25519 curve by RFC 7748 \~ */
+			X25519MLKEM768 = 0x11EC /*!< \~russian Гибрид X25519 и ML-KEM-768 по draft-ietf-tls-ecdhe-mlkem \~english The hybrid of X25519 and ML-KEM-768 by draft-ietf-tls-ecdhe-mlkem \~ */
 		};
+		/**
+		 * \~russian
+		 * @brief Метод проверки принадлежности группы гибридам с инкапсуляцией ключа
+		 *
+		 * @details У гибридных групп доли сторон различны: клиент шлёт ключ инкапсуляции
+		 *          с открытым ключом кривой, сервер отвечает шифртекстом с открытым ключом
+		 *          кривой; изданию TLS 1.2 такие группы негодны
+		 *
+		 * @param group проверяемая группа обмена ключами
+		 *
+		 * @return      признак того, что группа есть гибрид с инкапсуляцией ключа
+		 *
+		 * \~english
+		 * @brief Method of the check of the belonging of a group to the hybrids with a key encapsulation
+		 *
+		 * @details At the hybrid groups the shares of the sides differ: the client sends the
+		 *          encapsulation key with the public key of the curve, the server answers by the
+		 *          ciphertext with the public key of the curve; such groups are unfit for TLS 1.2
+		 *
+		 * @param group group of the exchange of the keys to check
+		 *
+		 * @return      sign that the group is a hybrid with a key encapsulation
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ bool hybrid(const group_t group) noexcept;
 
 		/**
 		 * \~russian

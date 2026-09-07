@@ -55,6 +55,9 @@ size_t nts::digest::length(const hash_t algorithm) noexcept {
 		// Если выбран SHA-512 либо «Стрибог» длиной 512 разрядов
 		case static_cast <uint8_t> (hash_t::SHA512):
 		case static_cast <uint8_t> (hash_t::STREEBOG512): return 64;
+		// BLAKE2s-256 и BLAKE2b-512
+		case static_cast <uint8_t> (hash_t::BLAKE2S256): return 32;
+		case static_cast <uint8_t> (hash_t::BLAKE2B512): return 64;
 		// Если алгоритм не установлен
 		default: return 0;
 	}
@@ -79,6 +82,9 @@ size_t nts::digest::block(const hash_t algorithm) noexcept {
 		case static_cast <uint8_t> (hash_t::SHA256):
 		case static_cast <uint8_t> (hash_t::STREEBOG256):
 		case static_cast <uint8_t> (hash_t::STREEBOG512): return 64;
+		// Блоки BLAKE2s и BLAKE2b
+		case static_cast <uint8_t> (hash_t::BLAKE2S256): return 64;
+		case static_cast <uint8_t> (hash_t::BLAKE2B512): return 128;
 		// Если выбран алгоритм с блоком в 128 байтов
 		case static_cast <uint8_t> (hash_t::SHA384):
 		case static_cast <uint8_t> (hash_t::SHA512): return 128;
@@ -125,6 +131,9 @@ void nts::digest::Hasher::reset(const hash_t algorithm) noexcept {
 		case static_cast <uint8_t> (hash_t::STREEBOG256): this->_streebog.reset(type_t::SHORT); break;
 		// Если выбран «Стрибог» длиной 512 разрядов
 		case static_cast <uint8_t> (hash_t::STREEBOG512): this->_streebog.reset(type_t::LONG); break;
+		// BLAKE2 заводится без ключа на полную длину
+		case static_cast <uint8_t> (hash_t::BLAKE2S256): this->_blake2.start(blake_t::BLAKE2S, BLAKE2S_LENGTH, view_t()); break;
+		case static_cast <uint8_t> (hash_t::BLAKE2B512): this->_blake2.start(blake_t::BLAKE2B, BLAKE2B_LENGTH, view_t()); break;
 		// Если алгоритм не установлен
 		default: this->_type = hash_t::NONE;
 	}
@@ -152,6 +161,9 @@ void nts::digest::Hasher::update(const view_t & data) noexcept {
 		// Если выбран «Стрибог»
 		case static_cast <uint8_t> (hash_t::STREEBOG256):
 		case static_cast <uint8_t> (hash_t::STREEBOG512): this->_streebog.update(data); break;
+		// BLAKE2
+		case static_cast <uint8_t> (hash_t::BLAKE2S256):
+		case static_cast <uint8_t> (hash_t::BLAKE2B512): this->_blake2.update(data); break;
 		// Если алгоритм не установлен
 		default: break;
 	}
@@ -193,6 +205,18 @@ bool nts::digest::Hasher::finish(uint8_t * result, const size_t size) noexcept {
 				return false;
 			// Выводим итог снятия хеша в его длину
 			return this->_streebog.finish(result, needed);
+		}
+		// BLAKE2: итог ровно длины разновидности
+		case static_cast <uint8_t> (hash_t::BLAKE2S256):
+		case static_cast <uint8_t> (hash_t::BLAKE2B512): {
+			// Длина итога
+			const size_t needed = this->_blake2.length();
+			// Если место не передано либо короче итога
+			if((result == nullptr) || (size < needed))
+				// Выводим отказ
+				return false;
+			// Выводим итог снятия
+			return this->_blake2.finish(result, needed);
 		}
 		// Если алгоритм не установлен
 		default: return false;

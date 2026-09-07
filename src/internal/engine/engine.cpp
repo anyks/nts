@@ -114,6 +114,7 @@
 #include <digest/hash.hpp>
 #include <digest/hmac.hpp>
 #include <agreement/x25519.hpp>
+#include <agreement/mlkem.hpp>
 #include <field/field.hpp>
 #include <entropy/entropy.hpp>
 #include <curve/parameters.hpp>
@@ -1113,8 +1114,8 @@ namespace {
 	 *
 	 */
 	static bool known(const extension::group_t group) noexcept {
-		// Выводим признак того, что кривая группы связи ведома
-		return (extension::curve(group) != nullptr);
+		// Выводим признак того, что кривая группы связи ведома либо группа есть гибрид с инкапсуляцией
+		return ((extension::curve(group) != nullptr) || extension::hybrid(group));
 	}
 	/**
 	 * @brief Метод проверки принадлежности группы обмена классической ветви
@@ -1431,6 +1432,10 @@ void nts::internal::Engine::shred() noexcept {
 		if(!this->_exchanges[i].secret.empty())
 			// Выполняем затирание секретного мимолётного ключа
 			wipe(this->_exchanges[i].secret.data(), this->_exchanges[i].secret.size());
+		// Если общий секрет инкапсуляции есть
+		if(!this->_exchanges[i].shared.empty())
+			// Выполняем затирание общего секрета инкапсуляции
+			wipe(this->_exchanges[i].shared.data(), this->_exchanges[i].shared.size());
 	}
 	// Выполняем сброс мимолётных пар ключей своей стороны
 	this->_exchanges.clear();
@@ -1849,6 +1854,70 @@ context::error_t nts::internal::Engine::hashing() noexcept {
 	return context::error_t::NONE;
 }
 /**
+ * @brief Метод выработки своей доли гибридной группы инкапсуляцией на долю клиента
+ *
+ * @param group группа обмена, гибрид с инкапсуляцией ключа
+ * @param peer  доля клиента: ключ инкапсуляции и точка кривой
+ *
+ * @return      отказ выработки доли
+ *
+ */
+context::error_t nts::internal::Engine::encapsulating(const extension::group_t group, const view_t & peer) noexcept {
+	// Если группа не гибрид с инкапсуляцией
+	if(!extension::hybrid(group))
+		// Выводим отказ группы
+		return context::error_t::GROUP;
+	// Длины ключа инкапсуляции и шифртекста
+	const size_t opened = agreement::encapsulation(agreement::kem_t::MLKEM768), cipher = agreement::ciphertext(agreement::kem_t::MLKEM768);
+	// Если доля клиента не сходится длиной с группой
+	if((peer.data == nullptr) || (peer.size != (opened + agreement::X25519_SIZE)))
+		// Выводим отказ негодной длины доли клиента
+		return context::error_t::EXCHANGE;
+	/**
+	 * Выполняем перехват ошибок работы с памятью
+	 */
+	try {
+		// Вырабатываемая пара
+		exchange_t item;
+		// Запоминаем группу обмена
+		item.group = group;
+		// Занимаем место под секретный ключ кривой
+		item.secret.assign(agreement::X25519_SIZE, 0);
+		// Занимаем место под шифртекст инкапсуляции и точку кривой: доля сервера
+		item.opened.assign(cipher + agreement::X25519_SIZE, 0);
+		// Занимаем место под общий секрет инкапсуляции
+		item.shared.assign(agreement::MLKEM_SHARED, 0);
+		// Если инкапсуляцию на ключ клиента выполнить не удалось
+		if(!agreement::encapsulate(agreement::kem_t::MLKEM768, view_t(peer.data, opened), item.opened.data(), item.shared.data())){
+			// Выполняем затирание общего секрета
+			wipe(item.shared.data(), item.shared.size());
+			// Выводим отказ выработки доли
+			return context::error_t::EXCHANGE;
+		}
+		// Если секретный ключ кривой выработать не удалось либо точку по нему вычислить не удалось
+		if(!entropy::bytes(item.secret.data(), item.secret.size()) || !agreement::x25519(view_t(item.secret.data(), item.secret.size()), item.opened.data() + cipher)){
+			// Выполняем затирание секретного ключа
+			wipe(item.secret.data(), item.secret.size());
+			// Выполняем затирание общего секрета
+			wipe(item.shared.data(), item.shared.size());
+			// Выводим отказ выработки доли
+			return context::error_t::EXCHANGE;
+		}
+		// Добавляем пару к парам своей стороны
+		this->_exchanges.push_back(::move(item));
+		// Запоминаем группу обмена связи
+		this->_group = group;
+		// Выводим успешность выработки доли
+		return context::error_t::NONE;
+	/**
+	 * Если памяти под долю не хватило
+	 */
+	} catch(const bad_alloc &) {
+		// Выводим отказ нехватки памяти
+		return context::error_t::MEMORY;
+	}
+}
+/**
  * @brief Метод выработки общего значения обмена мимолётными ключами
  *
  * @param group  группа обмена, выбранная собеседником
@@ -1877,6 +1946,42 @@ context::error_t nts::internal::Engine::agree(const extension::group_t group, co
 	if((own == nullptr) || own->secret.empty() || !known(group))
 		// Выводим отказ обмена ключами по неведомой группе
 		return context::error_t::GROUP;
+	// Если группа обмена - гибрид X25519 и ML-KEM-768
+	if(extension::hybrid(group)){
+		// Длины ключа инкапсуляции, ключа декапсуляции и шифртекста
+		const size_t opened = agreement::encapsulation(agreement::kem_t::MLKEM768), secret = agreement::decapsulation(agreement::kem_t::MLKEM768), cipher = agreement::ciphertext(agreement::kem_t::MLKEM768);
+		// Признак стороны, инкапсулировавшей ключ: у неё общий секрет инкапсуляции уже есть
+		const bool responded = !own->shared.empty();
+		// Ожидаемая длина доли собеседника: ключ инкапсуляции клиента либо шифртекст сервера, с точкой кривой
+		const size_t expected = ((responded ? opened : cipher) + agreement::X25519_SIZE);
+		// Если доля собеседника не передана либо не сходится длиной
+		if((key.data == nullptr) || (key.size != expected))
+			// Выводим отказ негодной длины доли собеседника
+			return context::error_t::EXCHANGE;
+		// Если ключ инкапсулировала своя сторона
+		if(responded)
+			// Переносим общий секрет инкапсуляции первой половиной общего значения
+			::memcpy(result, own->shared.data(), agreement::MLKEM_SHARED);
+		// Если шифртекст прислал собеседник: декапсулируем его своим ключом
+		else if(!agreement::decapsulate(agreement::kem_t::MLKEM768, view_t(own->secret.data(), secret), view_t(key.data, cipher), result))
+			// Выводим отказ декапсуляции
+			return context::error_t::EXCHANGE;
+		// Секретный ключ кривой своей стороны: у сервера весь секрет, у клиента - хвост за ключом декапсуляции
+		const uint8_t * scalar = (responded ? own->secret.data() : (own->secret.data() + secret));
+		// Точка кривой собеседника: хвост доли за ключом инкапсуляции либо шифртекстом
+		const uint8_t * point = (key.data + (responded ? opened : cipher));
+		// Если общее значение кривой выработать не удалось: нулевой итог отвергается примитивом
+		if(!agreement::x25519(view_t(scalar, agreement::X25519_SIZE), view_t(point, agreement::X25519_SIZE), result + agreement::MLKEM_SHARED)){
+			// Выполняем затирание первой половины общего значения
+			wipe(result, agreement::MLKEM_SHARED);
+			// Выводим отказ выработки общего значения
+			return context::error_t::EXCHANGE;
+		}
+		// Запоминаем длину общего значения: draft-ietf-tls-ecdhe-mlkem, секрет инкапсуляции и общее значение кривой
+		length = (agreement::MLKEM_SHARED + agreement::X25519_SIZE);
+		// Выводим успешность выработки общего значения
+		return context::error_t::NONE;
+	}
 	// Если открытый ключ собеседника не передан либо не сходится длиной с группой
 	if((key.data == nullptr) || (key.size == 0) || (key.size != extension::length(group)))
 		// Выводим отказ негодной длины открытого ключа собеседника
@@ -2262,8 +2367,30 @@ context::error_t nts::internal::Engine::exchange(const extension::group_t group)
 			// Выводим успешность выработки доли ключа
 			return context::error_t::NONE;
 		}
+		// Если группа обмена - гибрид X25519 и ML-KEM-768
+		if(extension::hybrid(group)){
+			// Длины ключей инкапсуляции и декапсуляции
+			const size_t opened = agreement::encapsulation(agreement::kem_t::MLKEM768), secret = agreement::decapsulation(agreement::kem_t::MLKEM768);
+			// Занимаем место под ключ декапсуляции и секретный ключ кривой
+			item.secret.assign(secret + agreement::X25519_SIZE, 0);
+			// Занимаем место под ключ инкапсуляции и точку кривой: draft-ietf-tls-ecdhe-mlkem, доля клиента
+			item.opened.assign(opened + agreement::X25519_SIZE, 0);
+			// Если пару ключей ML-KEM выработать не удалось
+			if(!agreement::generate(agreement::kem_t::MLKEM768, item.opened.data(), item.secret.data())){
+				// Выполняем затирание секретного ключа
+				wipe(item.secret.data(), item.secret.size());
+				// Выводим отказ выработки мимолётной пары ключей
+				return context::error_t::EXCHANGE;
+			}
+			// Если секретный ключ кривой выработать не удалось либо точку по нему вычислить не удалось
+			if(!entropy::bytes(item.secret.data() + secret, agreement::X25519_SIZE) || !agreement::x25519(view_t(item.secret.data() + secret, agreement::X25519_SIZE), item.opened.data() + opened)){
+				// Выполняем затирание секретного ключа
+				wipe(item.secret.data(), item.secret.size());
+				// Выводим отказ выработки мимолётной пары ключей
+				return context::error_t::EXCHANGE;
+			}
 		// Если группа обмена - X25519
-		if(group == extension::group_t::X25519){
+		} else if(group == extension::group_t::X25519){
 			// Занимаем место под секретный мимолётный ключ своей стороны
 			item.secret.assign(agreement::X25519_SIZE, 0);
 			// Занимаем место под открытый мимолётный ключ своей стороны
@@ -2634,7 +2761,7 @@ context::error_t nts::internal::Engine::greeting() noexcept {
 			// Выполняем обнуление привязки предъявляемого билета
 			::memset(empty, 0, sizeof(empty));
 			// Если упреждающие данные связью предлагаются и дозволены билетом
-			if(this->_advance && !this->_retried && (this->_resume.advance > 0) && (this->_transport != context::transport_t::DATAGRAMS)){
+			if(this->_advance && !this->_retried && (this->_resume.advance > 0) && (this->_transport != context::transport_t::DATAGRAMS) && this->_configs.empty()){
 				/**
 				 * Расширение упреждающих данных в приветствии пусто: раздел 4.2.10 RFC 8446
 				 * велит объявлять им лишь само намерение, а предел объявлен билетом
@@ -2688,15 +2815,20 @@ context::error_t nts::internal::Engine::greeting() noexcept {
 				return failure;
 		}
 		// Если конфигурации ECH заданы и билет не предъявляется: внутреннее приветствие шифруется, внешнее собирается
-		if(!this->_configs.empty() && !resume && (this->_transport != context::transport_t::DATAGRAMS)){
+		// Признак того, что приветствие ушло внутрь ECH: билет и его привязка лежат во внутреннем
+		bool hidden = false;
+		// Если конфигурации ECH заданы: внутреннее приветствие шифруется, внешнее собирается (билет - во внутреннем)
+		if(!this->_configs.empty()){
 			// Хранилище занимает место под публичное имя и расширение ECH: указатели на тела не должны переезжать
 			storage.reserve(storage.size() + 2);
 			// Отказ складывания зашифрованного приветствия
-			failure = this->shrouding(greeting, storage);
+			failure = this->shrouding(greeting, resume, storage);
 			// Если зашифрованное приветствие сложить не удалось
 			if(failure != context::error_t::NONE)
 				// Выводим отказ складывания
 				return failure;
+			// Запоминаем, что приветствие ушло внутрь
+			hidden = true;
 		/**
 		 * Раздел 6.2 RFC 9849: клиент без конфигураций ECH при включённом GREASE шлёт
 		 * расширение ECH внешнего вида со случайным телом, как BoringSSL; профиль
@@ -2778,8 +2910,8 @@ context::error_t nts::internal::Engine::greeting() noexcept {
 			// Выводим отказ составления приветствия клиента
 			return failure;
 		// Если билет возобновления связи серверу не предъявляется
-		if(!resume)
-			// Выводим итог отправки приветствия клиента
+		if(!resume || hidden)
+			// Выводим итог отправки приветствия клиента: при ECH билет и привязка уже во внутреннем
 			return this->send(handshake::type_t::CLIENT, view_t(body.data(), body.size()));
 		// Объект составителя отправляемых сообщений рукопожатия
 		handshake::writer_t writer;
@@ -4670,7 +4802,7 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 			// Запоминаем приветствие
 			this->_salutation.assign(message.data, message.data + message.size);
 		// Если сервер служит ECH и разбирается внешнее приветствие
-		if(!this->_unshrouding && this->_echkey.ready() && (this->_transport != context::transport_t::DATAGRAMS)){
+		if(!this->_unshrouding && this->_echkey.ready()){
 			// Признак принятия ECH
 			bool accepted = false;
 			// Тело восстановленного внутреннего приветствия
@@ -4693,8 +4825,10 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 					return this->abort(failure, alert::description_t::INTERNAL);
 				// Отмечаем разбор внутреннего приветствия
 				this->_unshrouding = true;
-				// Разбираем внутреннее приветствие как принятое
-				const context::error_t outcome = this->incoming(view_t(inner.data(), inner.size()), writer.data());
+				// Сообщение внутреннего приветствия с обвязкой
+				const view_t whole = writer.data();
+				// Разбираем внутреннее приветствие как принятое: тело - срез того же сообщения, по нему считаются смещения привязок билета
+				const context::error_t outcome = this->incoming(view_t(whole.data + handshake::HANDSHAKE_HEADER, whole.size - handshake::HANDSHAKE_HEADER), whole);
 				// Снимаем отметку разбора
 				this->_unshrouding = false;
 				// Выводим итог разбора внутреннего приветствия
@@ -5385,8 +5519,8 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 		const extension::group_t group = selected->group;
 		// Выполняем сброс мимолётных пар ключей своей стороны
 		this->_exchanges.clear();
-		// Выполняем выработку мимолётной пары ключей своей стороны
-		context::error_t error = this->exchange(group);
+		// Выполняем выработку своей доли: у гибридной группы инкапсуляцией на долю клиента, иначе своей парой ключей
+		context::error_t error = (extension::hybrid(group) ? this->encapsulating(group, view_t(key.data(), key.size())) : this->exchange(group));
 		// Если мимолётную пару ключей выработать не удалось
 		if(error != context::error_t::NONE)
 			// Выводим отказ выработки мимолётной пары ключей
@@ -6996,6 +7130,20 @@ protect::suite_t nts::internal::Engine::suite() const noexcept {
 	return this->_suite;
 }
 /**
+ * @brief Метод получения группы обмена ключами связи
+ *
+ * @return группа, по которой сложилось общее значение
+ *
+ */
+extension::group_t nts::internal::Engine::group() const noexcept {
+	// Пока рукопожатие не завершено, группа ещё не согласована: у клиента поле держит группу последней доли
+	if((this->_state == context::state_t::NONE) || (this->_state == context::state_t::HANDSHAKE))
+		// Выводим отсутствие согласованной группы
+		return extension::group_t::NONE;
+	// Выводим группу обмена ключами связи
+	return this->_group;
+}
+/**
  * @brief Метод получения цепочки сертификатов собеседника
  *
  * @return цепочка сертификатов, предъявленная собеседником
@@ -8204,6 +8352,10 @@ void nts::internal::Engine::clear() noexcept {
 		if(!this->_exchanges[i].secret.empty())
 			// Выполняем затирание секретного мимолётного ключа
 			wipe(this->_exchanges[i].secret.data(), this->_exchanges[i].secret.size());
+		// Если общий секрет инкапсуляции есть
+		if(!this->_exchanges[i].shared.empty())
+			// Выполняем затирание общего секрета инкапсуляции
+			wipe(this->_exchanges[i].shared.data(), this->_exchanges[i].shared.size());
 	}
 	// Выполняем сброс мимолётных пар ключей своей стороны
 	this->_exchanges.clear();
@@ -10800,7 +10952,7 @@ context::error_t nts::internal::Engine::agreed(const view_t & body) noexcept {
 		 * кривых NIST; сжатая либо чужая точка отвергается illegal_parameter прежде подписи -
 		 * подпись над негодной точкой сверять незачем
 		 */
-		if((point.size != extension::length(group)) || ((group != extension::group_t::X25519) && (point.data[0] != 0x04)))
+		if(!classic(group) || (point.size != extension::length(group)) || ((group != extension::group_t::X25519) && (point.data[0] != 0x04)))
 			// Выводим отказ негодной записи точки
 			return context::error_t::EXCHANGE;
 		// Отказ разбора обмена ключами
@@ -12433,7 +12585,7 @@ const vector <uint8_t> & nts::internal::Engine::retries() const noexcept {
  * @return         отказ складывания
  *
  */
-context::error_t nts::internal::Engine::shrouding(hello::client_t & greeting, vector <vector <uint8_t>> & storage) noexcept {
+context::error_t nts::internal::Engine::shrouding(hello::client_t & greeting, const bool resume, vector <vector <uint8_t>> & storage) noexcept {
 	/**
 	 * Выполняем перехват ошибок работы с памятью
 	 */
@@ -12507,7 +12659,11 @@ context::error_t nts::internal::Engine::shrouding(hello::client_t & greeting, ve
 		// Устанавливаем случайное значение внутреннего приветствия
 		::memcpy(inner.random, this->_innerandom, sizeof(inner.random));
 		// Добавляем расширение ECH внутреннего вида
-		inner.extensions.push_back(hello::extension_t(ech::ECH_EXTENSION, view_t(INWARD, sizeof(INWARD))));
+		/**
+		 * Раздел 4.2.11 RFC 8446: заранее разделённые ключи обязаны идти последним расширением и
+		 * во внутреннем приветствии, оттого внутреннее расширение ECH встаёт перед ними
+		 */
+		inner.extensions.insert(inner.extensions.end() - ((resume && !inner.extensions.empty() && (inner.extensions.back().type == static_cast <uint16_t> (extension::type_t::SECRET))) ? 1 : 0), hello::extension_t(ech::ECH_EXTENSION, view_t(INWARD, sizeof(INWARD))));
 		// Выполняем сброс видов расширений внутреннего приветствия
 		this->_hidden.clear();
 		/**
@@ -12519,7 +12675,7 @@ context::error_t nts::internal::Engine::shrouding(hello::client_t & greeting, ve
 		// Тело внутреннего приветствия
 		vector <uint8_t> body;
 		// Отказ составления внутреннего приветствия
-		context::error_t failure = translate(hello::build(inner, body, false), context::error_t::MESSAGE);
+		context::error_t failure = translate(hello::build(inner, body, (this->_transport == context::transport_t::DATAGRAMS)), context::error_t::MESSAGE);
 		// Если внутреннее приветствие составить не удалось
 		if(failure != context::error_t::NONE)
 			// Выводим отказ составления
@@ -12534,6 +12690,55 @@ context::error_t nts::internal::Engine::shrouding(hello::client_t & greeting, ve
 			return failure;
 		// Запоминаем внутреннее приветствие с обвязкой
 		this->_inner.assign(writer.data().data, writer.data().data + writer.data().size);
+		/**
+		 * Раздел 6.1 RFC 9849: билет возобновления предъявляется во внутреннем приветствии,
+		 * и привязка считается по его усечённому телу; внешнее приветствие билета не несёт,
+		 * иначе опознаватель билета выдавал бы связь наблюдателю не хуже открытого имени
+		 */
+		if(resume){
+			// Хеш набора билета: им считается привязка
+			const digest::hash_t algorithm = ((protect::hash(this->_resume.suite) != digest::hash_t::NONE) ? protect::hash(this->_resume.suite) : this->_transcript.algorithm());
+			// Длина привязки
+			const size_t width = digest::length(algorithm);
+			// Если внутреннее приветствие короче привязки с её длинами
+			if(this->_inner.size() < (width + 3))
+				// Выводим отказ составления
+				return context::error_t::MESSAGE;
+			// Длина усечённого приветствия: без привязки и длин перечня привязок
+			const size_t truncation = (this->_inner.size() - (width + 3));
+			// Если начальную ступень расписания ключей завести не удалось хешем набора билета
+			if(this->_secrets.start(algorithm, view_t(this->_resume.secret.data(), this->_resume.secret.size())) != session::error_t::NONE)
+				// Выводим отказ вывода ключевого материала связи
+				return context::error_t::SCHEDULE;
+			// Место, в которое помещается хеш усечённого внутреннего приветствия
+			uint8_t transcript[schedule::SCHEDULE_WIDEST];
+			// Если хеш усечённого приветствия снять не удалось
+			if(this->_transcript.digest(algorithm, view_t(this->_inner.data(), truncation), transcript) != session::error_t::NONE)
+				// Выводим отказ ведения переписки рукопожатия
+				return context::error_t::MESSAGE;
+			// Если привязку предъявляемого билета выработать не удалось
+			if(this->_secrets.binder(view_t(transcript, width), this->_inner.data() + (this->_inner.size() - width)) != session::error_t::NONE)
+				// Выводим отказ выработки привязки билета
+				return context::error_t::SCHEDULE;
+			// Внутреннее приветствие с настоящей привязкой: тело без заголовка сообщения
+			const view_t patched(this->_inner.data() + 4, this->_inner.size() - 4);
+			// Если внутреннее приветствие с привязкой разобрать не удалось
+			if(hello::parse(patched, inner, (this->_transport == context::transport_t::DATAGRAMS)) != hello::error_t::NONE)
+				// Выводим отказ составления
+				return context::error_t::MESSAGE;
+			/**
+			 * Выполняем изъятие билета и упреждения из внешнего приветствия: они принадлежат внутреннему
+			 */
+			for(size_t i = 0; i < greeting.extensions.size(); i++){
+				// Если расширение есть заранее разделённые ключи либо упреждающие данные
+				if((greeting.extensions[i].type == static_cast <uint16_t> (extension::type_t::SECRET)) || (greeting.extensions[i].type == static_cast <uint16_t> (extension::type_t::EARLY))){
+					// Изымаем расширение из внешнего приветствия
+					greeting.extensions.erase(greeting.extensions.begin() + i);
+					// Возвращаемся на шаг
+					i--;
+				}
+			}
+		}
 		// Виды расширений, выносимых во внешнее приветствие: ведущий ряд до имени узла и ECH
 		vector <uint16_t> outsourced;
 		/**
@@ -12550,13 +12755,13 @@ context::error_t nts::internal::Engine::shrouding(hello::client_t & greeting, ve
 		// Закодированное внутреннее приветствие без заполнения: для подсчёта заполнения
 		vector <uint8_t> encoded;
 		// Если закодировать не удалось
-		if(ech::encode(inner, outsourced, 0, encoded) != ech::error_t::NONE)
+		if(ech::encode(inner, outsourced, 0, (this->_transport == context::transport_t::DATAGRAMS), encoded) != ech::error_t::NONE)
 			// Выводим отказ нехватки памяти
 			return context::error_t::MEMORY;
 		// Заполнение по разделу 6.1.3 RFC 9849
 		const size_t padding = ech::padding(this->_name.size(), config.length, encoded.size());
 		// Если закодировать с заполнением не удалось
-		if(ech::encode(inner, outsourced, padding, encoded) != ech::error_t::NONE)
+		if(ech::encode(inner, outsourced, padding, (this->_transport == context::transport_t::DATAGRAMS), encoded) != ech::error_t::NONE)
 			// Выводим отказ нехватки памяти
 			return context::error_t::MEMORY;
 		// Занимаем место под публичное имя
@@ -12610,7 +12815,7 @@ context::error_t nts::internal::Engine::shrouding(hello::client_t & greeting, ve
 		// Добавочные данные: внешнее приветствие с обнулённым шифротекстом
 		vector <uint8_t> aad;
 		// Отказ составления внешнего приветствия
-		failure = translate(hello::build(greeting, aad, false), context::error_t::MESSAGE);
+		failure = translate(hello::build(greeting, aad, (this->_transport == context::transport_t::DATAGRAMS)), context::error_t::MESSAGE);
 		// Если внешнее приветствие составить не удалось
 		if(failure != context::error_t::NONE)
 			// Выводим отказ составления
@@ -12832,7 +13037,7 @@ context::error_t nts::internal::Engine::unshrouding(const hello::client_t & gree
 		// Добавочные данные: внешнее приветствие с обнулённым шифротекстом
 		vector <uint8_t> aad;
 		// Отказ составления добавочных данных
-		const ech::error_t redacted = ech::redact(body, aad);
+		const ech::error_t redacted = ech::redact(body, (this->_transport == context::transport_t::DATAGRAMS), aad);
 		// Если добавочные данные составить не удалось
 		if(redacted != ech::error_t::NONE)
 			// Выводим отказ: нехватка памяти своим кодом, прочее - сообщением
@@ -12897,7 +13102,7 @@ context::error_t nts::internal::Engine::unshrouding(const hello::client_t & gree
 			}
 		}
 		// Отказ восстановления внутреннего приветствия
-		const ech::error_t decoded = ech::decode(view_t(encoded.data(), encoded.size()), greeting, inner);
+		const ech::error_t decoded = ech::decode(view_t(encoded.data(), encoded.size()), greeting, (this->_transport == context::transport_t::DATAGRAMS), inner);
 		// Если памяти не хватило
 		if(decoded == ech::error_t::MEMORY)
 			// Выводим отказ нехватки памяти
@@ -12909,7 +13114,7 @@ context::error_t nts::internal::Engine::unshrouding(const hello::client_t & gree
 		// Восстановленное приветствие
 		hello::client_t restored;
 		// Если восстановленное приветствие не разбирается
-		if(hello::parse(view_t(inner.data(), inner.size()), restored) != hello::error_t::NONE)
+		if(hello::parse(view_t(inner.data(), inner.size()), restored, (this->_transport == context::transport_t::DATAGRAMS)) != hello::error_t::NONE)
 			// Выводим отказ сообщения
 			return context::error_t::MESSAGE;
 		// Расширение ECH внутреннего приветствия
@@ -14298,7 +14503,7 @@ nts::internal::Engine::Engine(const bool server) noexcept :
 		this->_groups = {
 			extension::group_t::GC512C, extension::group_t::GC512A,
 			extension::group_t::GC256B, extension::group_t::GC256A,
-			extension::group_t::X25519, extension::group_t::SECP256R1, extension::group_t::SECP384R1
+			extension::group_t::X25519MLKEM768, extension::group_t::X25519, extension::group_t::SECP256R1, extension::group_t::SECP384R1
 		};
 		// Схемы подписи по умолчанию: схемы ГОСТ первыми, классические следом
 		this->_signatures.assign(SCHEMES, SCHEMES + (sizeof(SCHEMES) / sizeof(extension::scheme_t)));

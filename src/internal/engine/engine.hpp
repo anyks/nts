@@ -85,6 +85,8 @@ namespace nts {
 			vector <uint8_t> secret;
 			// Открытый мимолётный ключ своей стороны в записи протокола
 			vector <uint8_t> opened;
+			// Общий секрет инкапсуляции у гибридной группы: лишь у стороны, инкапсулировавшей ключ
+			vector <uint8_t> shared;
 			/**
 			 * @brief Конструктор
 			 *
@@ -695,6 +697,19 @@ namespace nts {
 				 *
 				 */
 				context::error_t exchange(const extension::group_t group) noexcept;
+				/**
+				 * @brief Метод выработки своей доли гибридной группы инкапсуляцией на долю клиента
+				 *
+				 * @param group группа обмена, гибрид с инкапсуляцией ключа
+				 * @param peer  доля клиента: ключ инкапсуляции и точка кривой
+				 *
+				 * @return      отказ выработки доли
+				 *
+				 * @note Доля сервера есть шифртекст инкапсуляции и своя точка кривой; общий секрет
+				 *       инкапсуляции хранится в паре до вывода ключей
+				 *
+				 */
+				context::error_t encapsulating(const extension::group_t group, const view_t & peer) noexcept;
 			private:
 				/**
 				 * @brief Метод решения, вставляет ли связь свои значения GREASE
@@ -739,7 +754,7 @@ namespace nts {
 				 * @details Порядок наборов и расширений, тела статичных расширений, места и число
 				 *          значений GREASE берутся из профиля; случайное значение, опознаватель связи,
 				 *          доли ключа и значения GREASE - свои и свежие. Доли по группам, которых связь
-				 *          не умеет (например X25519MLKEM768), опускаются, а группы остаются в перечне.
+				 *          не умеет, опускаются, а группы остаются в перечне; доля X25519MLKEM768 идёт свежей гибридной парой.
 				 *          Заполнение по RFC 7685 складывается правилом BoringSSL до 512 байтов
 				 *
 				 */
@@ -761,7 +776,7 @@ namespace nts {
 				 *          шифруется тем же состоянием HPKE с пустым enc
 				 *
 				 */
-				context::error_t shrouding(hello::client_t & greeting, vector <vector <uint8_t>> & storage) noexcept;
+				context::error_t shrouding(hello::client_t & greeting, const bool resume, vector <vector <uint8_t>> & storage) noexcept;
 				/**
 				 * @brief Метод суждения о принятии ECH по приветствию сервера либо просьбе о повторе
 				 *
@@ -1454,6 +1469,13 @@ namespace nts {
 				 *
 				 */
 				protect::suite_t suite() const noexcept;
+				/**
+				 * @brief Метод получения группы обмена ключами связи
+				 *
+				 * @return группа, по которой сложилось общее значение; NONE до установления связи и у возобновления без обмена
+				 *
+				 */
+				extension::group_t group() const noexcept;
 				/**
 				 * @brief Метод получения цепочки сертификатов собеседника
 				 *

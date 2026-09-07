@@ -209,6 +209,26 @@ namespace nts {
 				protect::suite_t suite() const noexcept;
 				/**
 				 * \~russian
+				 * @brief Метод получения группы обмена ключами связи
+				 *
+				 * @return согласованная сторонами группа обмена ключами
+				 *
+				 * @note До установления связи и у возобновления по билету без обмена ключами - NONE;
+				 *       у гибрида X25519MLKEM768 отдаётся именно он - так потребитель считает,
+				 *       сколько связей сложилось постквантовым обменом
+				 *
+				 * \~english
+				 * @brief Method of getting the key exchange group of the connection
+				 * @return the key exchange group agreed upon by the sides
+				 * @note Before the establishment of the connection and at a resumption by a ticket without a key
+				 *       exchange - NONE; at the X25519MLKEM768 hybrid it is the one given - so the
+				 *       consumer counts how many connections were made by the post-quantum exchange
+				 *
+				 * \~
+				 */
+				extension::group_t group() const noexcept;
+				/**
+				 * \~russian
 				 * @brief Метод получения цепочки сертификатов собеседника
 				 *
 				 * @return цепочка сертификатов, предъявленная собеседником
@@ -845,6 +865,9 @@ namespace nts {
 				 *
 				 * @note Предъявленный билет признаётся лишь тогда, когда сошлась его привязка:
 				 *       ею клиент и доказывает владение ключом билета, а не одним его телом
+				 * @note Выданные билеты сервер сам не помнит: `vault()` лишь выводит ключи, а
+				 *       билеты, взятые из `tickets()` после `issue()`, сервер признаёт только этим
+				 *       вызовом - без него возобновление идёт полным рукопожатием
 				 *
 				 * \~english
 				 * @brief Method of setting the recognized tickets of the resumption of a connection
@@ -854,6 +877,9 @@ namespace nts {
 				 *          the connection: it is for them to give them to the connection
 				 * @note A presented ticket is recognized only when its binder has converged: by it the client
 				 *       proves the possession of the key of the ticket and not of its body alone
+				 * @note The server does not remember the issued tickets itself: `vault()` only derives the
+				 *       keys, and the tickets taken from `tickets()` after `issue()` are recognized by the
+				 *       server only by this call - without it the resumption goes by a full handshake
 				 *
 				 * \~
 				 */
