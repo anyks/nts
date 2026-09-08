@@ -105,6 +105,8 @@ bool nts::handshake::known(const type_t type) noexcept {
 		case static_cast <uint8_t> (type_t::STATUS):
 		case static_cast <uint8_t> (type_t::UPDATE):
 		case static_cast <uint8_t> (type_t::COMPRESSED):
+		// Выбранный протокол выработки NPN
+		case static_cast <uint8_t> (type_t::NEXT_PROTOCOL):
 		case static_cast <uint8_t> (type_t::DIGEST):
 			// Выводим признак известности вида сообщения рукопожатия
 			return true;

@@ -191,6 +191,10 @@ namespace {
 	 * Издание протокола TLS 1.2 и издание TLS 1.3
 	 */
 	static constexpr uint16_t LEGACY = 0x0303;
+	/**
+	 * Издание TLS 1.1 в кодах TLS: изданию DTLS 1.0 (RFC 4347) отвечает именно оно
+	 */
+	static constexpr uint16_t ANCIENT = 0x0302;
 	static constexpr uint16_t MODERN = 0x0304;
 
 	/**
@@ -327,6 +331,39 @@ namespace {
 	 * @return       признак того, что набор в перечне есть
 	 *
 	 */
+	/**
+	 * @brief Метод проверки годности набора шифрования изданию 1.1
+	 *
+	 * @param suite проверяемый набор
+	 *
+	 * @return      признак годности: набор издания 1.2 с CBC и HMAC-SHA1 (раздел 1.2 RFC 5246: AEAD и SHA-256 ввели изданием 1.2)
+	 *
+	 */
+	static bool archaic(const protect::suite_t suite) noexcept {
+		// Выводим признак годности
+		return (protect::legacy(suite) && (protect::mac(suite) == digest::hash_t::SHA1));
+	}
+	/**
+	 * @brief Метод проверки наличия наборов, годных изданию 1.1
+	 *
+	 * @param suites проверяемый перечень
+	 *
+	 * @return       признак наличия
+	 *
+	 */
+	static bool archaical(const vector <protect::suite_t> & suites) noexcept {
+		/**
+		 * Выполняем перебор наборов
+		 */
+		for(size_t i = 0; i < suites.size(); i++){
+			// Если набор годен изданию 1.1
+			if(archaic(suites[i]))
+				// Выводим признак наличия
+				return true;
+		}
+		// Выводим признак отсутствия
+		return false;
+	}
 	static bool listed(const vector <protect::suite_t> & suites, const protect::suite_t suite) noexcept {
 		/**
 		 * Выполняем перебор наборов шифрования перечня
@@ -573,6 +610,10 @@ namespace {
 	 */
 	static const uint8_t INQUIRY[] = {0x01, 0x00, 0x00, 0x00, 0x00};
 	/**
+	 * Расширение heartbeat по RFC 6520
+	 */
+	static constexpr uint16_t HEARTBEAT_EXTENSION = 0x000F;
+	/**
 	 * Вид состояния сертификата ocsp: раздел 8 RFC 6066
 	 */
 	static constexpr uint32_t OCSP = 0x01;
@@ -618,10 +659,17 @@ namespace {
 	static const placement_t PLACEMENTS[] = {
 		{static_cast <uint16_t> (extension::type_t::NAME),      PLACE_GUARDED},
 		{static_cast <uint16_t> (extension::type_t::STATUS),    PLACE_REQUEST},
+		{static_cast <uint16_t> (extension::type_t::TIMESTAMPS), PLACE_REQUEST},
+		{static_cast <uint16_t> (extension::type_t::AUTHORITIES), PLACE_REQUEST},
+		{static_cast <uint16_t> (extension::type_t::NEGOTIATION), 0},
 		{static_cast <uint16_t> (extension::type_t::GROUPS),    PLACE_GUARDED},
 		{static_cast <uint16_t> (extension::type_t::SCHEMES),   PLACE_REQUEST},
 		{static_cast <uint16_t> (extension::type_t::COMPRESS),  PLACE_REQUEST},
+		{static_cast <uint16_t> (extension::type_t::FRAGMENT),  PLACE_GUARDED},
+		{static_cast <uint16_t> (extension::type_t::LIMIT),     PLACE_GUARDED},
 		{static_cast <uint16_t> (extension::type_t::PROTOCOLS), PLACE_GUARDED},
+		{static_cast <uint16_t> (extension::type_t::SETTINGS),  PLACE_GUARDED},
+		{static_cast <uint16_t> (extension::type_t::SETTINGS_OLD), PLACE_GUARDED},
 		{static_cast <uint16_t> (extension::type_t::SECRET),    PLACE_HELLO},
 		{static_cast <uint16_t> (extension::type_t::EARLY),     (PLACE_GUARDED | PLACE_TICKET)},
 		{static_cast <uint16_t> (extension::type_t::COOKIE),    PLACE_RETRY},
@@ -1118,6 +1166,62 @@ namespace {
 		return ((extension::curve(group) != nullptr) || extension::hybrid(group));
 	}
 	/**
+	 * @brief Метод получения механизма инкапсуляции гибридной группы
+	 *
+	 * @param group гибридная группа обмена ключами
+	 *
+	 * @return      механизм ML-KEM гибрида
+	 *
+	 */
+	static agreement::kem_t kemof(const extension::group_t group) noexcept {
+		// Выводим механизм: 1024 у SecP384r1MLKEM1024, 768 у прочих
+		return ((group == extension::group_t::SECP384R1MLKEM1024) ? agreement::kem_t::MLKEM1024 : agreement::kem_t::MLKEM768);
+	}
+	/**
+	 * @brief Метод получения классической половины гибридной группы
+	 *
+	 * @param group гибридная группа обмена ключами
+	 *
+	 * @return      группа кривой: X25519, secp256r1 либо secp384r1
+	 *
+	 */
+	static extension::group_t curveof(const extension::group_t group) noexcept {
+		// Если гибрид с secp256r1
+		if(group == extension::group_t::SECP256R1MLKEM768)
+			// Выводим кривую
+			return extension::group_t::SECP256R1;
+		// Если гибрид с secp384r1
+		if(group == extension::group_t::SECP384R1MLKEM1024)
+			// Выводим кривую
+			return extension::group_t::SECP384R1;
+		// Иначе X25519
+		return extension::group_t::X25519;
+	}
+	/**
+	 * @brief Метод получения длины доли классической половины гибрида
+	 *
+	 * @param group гибридная группа обмена ключами
+	 *
+	 * @return      длина доли кривой: 32 у X25519, 65 и 97 у точек NIST в несжатом виде
+	 *
+	 */
+	static size_t curvelength(const extension::group_t group) noexcept {
+		// Выводим длину доли кривой
+		return extension::length(curveof(group));
+	}
+	/**
+	 * @brief Метод получения порядка половин гибрида
+	 *
+	 * @param group гибридная группа обмена ключами
+	 *
+	 * @return      признак того, что доля ML-KEM идёт впереди (X25519MLKEM768); у гибридов NIST впереди кривая
+	 *
+	 */
+	static bool kemfirst(const extension::group_t group) noexcept {
+		// Выводим признак порядка по draft-ietf-tls-ecdhe-mlkem
+		return (group == extension::group_t::X25519MLKEM768);
+	}
+	/**
 	 * @brief Метод проверки принадлежности группы обмена классической ветви
 	 *
 	 * @param group проверяемая группа обмена ключами
@@ -1536,6 +1640,27 @@ context::error_t nts::internal::Engine::emit(const record::type_t type, const vi
 			// Выводим итог складывания записи в дейтаграммы
 			return this->_flight.emit(type, data);
 		/**
+		 * Если содержимое длиннее предела, объявленного собеседником на приём (RFC 8449, RFC 6066),
+		 * режем его на записи по пределу: каждая запись несёт не больше дозволенного
+		 */
+		if(data.size > this->_outgoing){
+			/**
+			 * Выполняем перебор содержимого кусками по пределу
+			 */
+			for(size_t offset = 0; offset < data.size; offset += this->_outgoing){
+				// Длина куска: остаток либо предел
+				const size_t size = (((data.size - offset) > this->_outgoing) ? this->_outgoing : (data.size - offset));
+				// Отправляем кусок отдельной записью
+				failure = this->emit(type, view_t(data.data + offset, size));
+				// Если отправить кусок не удалось
+				if(failure != context::error_t::NONE)
+					// Выводим ошибку
+					return failure;
+			}
+			// Выводим успешность
+			return context::error_t::NONE;
+		}
+		/**
 		 * Изданию TLS 1.2 защита включается сменой набора шифрования (раздел 7.1 RFC 5246):
 		 * до своей смены записи идут открытыми, за нею - под ключами связи
 		 */
@@ -1863,57 +1988,76 @@ context::error_t nts::internal::Engine::hashing() noexcept {
  *
  */
 context::error_t nts::internal::Engine::encapsulating(const extension::group_t group, const view_t & peer) noexcept {
-	// Если группа не гибрид с инкапсуляцией
+	// Если группа не гибрид
 	if(!extension::hybrid(group))
-		// Выводим отказ группы
+		// Выходим с ошибкой группы
 		return context::error_t::GROUP;
-	// Длины ключа инкапсуляции и шифртекста
-	const size_t opened = agreement::encapsulation(agreement::kem_t::MLKEM768), cipher = agreement::ciphertext(agreement::kem_t::MLKEM768);
-	// Если доля клиента не сходится длиной с группой
-	if((peer.data == nullptr) || (peer.size != (opened + agreement::X25519_SIZE)))
-		// Выводим отказ негодной длины доли клиента
+	// Механизм инкапсуляции, кривая и порядок половин гибрида
+	const agreement::kem_t kem = kemof(group);
+	const extension::group_t half = curveof(group);
+	const size_t opened = agreement::encapsulation(kem), cipher = agreement::ciphertext(kem), point = curvelength(group);
+	const size_t kemat = (kemfirst(group) ? 0 : point);
+	// Если доля клиента не той длины
+	if((peer.data == nullptr) || (peer.size != (opened + point)))
+		// Выходим с ошибкой обмена
 		return context::error_t::EXCHANGE;
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок памяти
 	 */
 	try {
-		// Вырабатываемая пара
+		// Пара обмена сервера
 		exchange_t item;
-		// Запоминаем группу обмена
+		// Устанавливаем группу
 		item.group = group;
-		// Занимаем место под секретный ключ кривой
-		item.secret.assign(agreement::X25519_SIZE, 0);
-		// Занимаем место под шифртекст инкапсуляции и точку кривой: доля сервера
-		item.opened.assign(cipher + agreement::X25519_SIZE, 0);
-		// Занимаем место под общий секрет инкапсуляции
+		// Кривая NIST классической половины и длина её секрета
+		curve::curve_t curve;
+		size_t scalar = agreement::X25519_SIZE;
+		// Если половина - кривая NIST, берём её параметры
+		if((half != extension::group_t::X25519) && curve::parameters(extension::curve(half), curve))
+			// Длина секрета - размер кривой
+			scalar = curve.size();
+		// Секрет кривой, доля сервера (шифртекст и точка порядком гибрида) и общее значение ML-KEM
+		item.secret.assign(scalar, 0);
+		item.opened.assign(cipher + point, 0);
 		item.shared.assign(agreement::MLKEM_SHARED, 0);
-		// Если инкапсуляцию на ключ клиента выполнить не удалось
-		if(!agreement::encapsulate(agreement::kem_t::MLKEM768, view_t(peer.data, opened), item.opened.data(), item.shared.data())){
-			// Выполняем затирание общего секрета
+		// Если инкапсуляцию на ключе клиента провести не удалось
+		if(!agreement::encapsulate(kem, view_t(peer.data + kemat, opened), item.opened.data() + (kemfirst(group) ? 0 : point), item.shared.data())){
 			wipe(item.shared.data(), item.shared.size());
-			// Выводим отказ выработки доли
 			return context::error_t::EXCHANGE;
 		}
-		// Если секретный ключ кривой выработать не удалось либо точку по нему вычислить не удалось
-		if(!entropy::bytes(item.secret.data(), item.secret.size()) || !agreement::x25519(view_t(item.secret.data(), item.secret.size()), item.opened.data() + cipher)){
-			// Выполняем затирание секретного ключа
-			wipe(item.secret.data(), item.secret.size());
-			// Выполняем затирание общего секрета
-			wipe(item.shared.data(), item.shared.size());
-			// Выводим отказ выработки доли
-			return context::error_t::EXCHANGE;
+		// Если половина - X25519
+		if(half == extension::group_t::X25519){
+			// Если секрет и точку X25519 выработать не удалось
+			if(!entropy::bytes(item.secret.data(), item.secret.size()) || !agreement::x25519(view_t(item.secret.data(), item.secret.size()), item.opened.data() + (kemfirst(group) ? cipher : 0))){
+				wipe(item.secret.data(), item.secret.size());
+				wipe(item.shared.data(), item.shared.size());
+				return context::error_t::EXCHANGE;
+			}
+		// Если половина - кривая NIST
+		} else {
+			// Место под точку младшим байтом вперёд
+			uint8_t raw[math::NUMBER_SIZE * 2];
+			// Если пару кривой породить не удалось
+			if(!agreement::generate(curve, item.secret.data(), raw)){
+				wipe(item.secret.data(), item.secret.size());
+				wipe(item.shared.data(), item.shared.size());
+				return context::error_t::EXCHANGE;
+			}
+			// Кодируем точку в несжатом виде
+			const size_t at = (kemfirst(group) ? cipher : 0);
+			item.opened[at] = 0x04;
+			reverse(raw, item.opened.data() + at + 1, scalar);
+			reverse(raw + scalar, item.opened.data() + at + 1 + scalar, scalar);
+			wipe(raw, sizeof(raw));
 		}
-		// Добавляем пару к парам своей стороны
+		// Запоминаем пару и группу
 		this->_exchanges.push_back(::move(item));
-		// Запоминаем группу обмена связи
 		this->_group = group;
-		// Выводим успешность выработки доли
+		// Выводим успешность
 		return context::error_t::NONE;
-	/**
-	 * Если памяти под долю не хватило
-	 */
+	// Если памяти не хватило
 	} catch(const bad_alloc &) {
-		// Выводим отказ нехватки памяти
+		// Выводим ошибку памяти
 		return context::error_t::MEMORY;
 	}
 }
@@ -1948,41 +2092,73 @@ context::error_t nts::internal::Engine::agree(const extension::group_t group, co
 		return context::error_t::GROUP;
 	// Если группа обмена - гибрид X25519 и ML-KEM-768
 	if(extension::hybrid(group)){
-		// Длины ключа инкапсуляции, ключа декапсуляции и шифртекста
-		const size_t opened = agreement::encapsulation(agreement::kem_t::MLKEM768), secret = agreement::decapsulation(agreement::kem_t::MLKEM768), cipher = agreement::ciphertext(agreement::kem_t::MLKEM768);
-		// Признак стороны, инкапсулировавшей ключ: у неё общий секрет инкапсуляции уже есть
+		// Механизм инкапсуляции, кривая и порядок половин гибрида
+		const agreement::kem_t kem = kemof(group);
+		const extension::group_t half = curveof(group);
+		const size_t opened = agreement::encapsulation(kem), secret = agreement::decapsulation(kem), cipher = agreement::ciphertext(kem), point = curvelength(group);
+		// Сервер отвечал (общее значение ML-KEM уже есть) либо клиент распаковывает
 		const bool responded = !own->shared.empty();
-		// Ожидаемая длина доли собеседника: ключ инкапсуляции клиента либо шифртекст сервера, с точкой кривой
-		const size_t expected = ((responded ? opened : cipher) + agreement::X25519_SIZE);
-		// Если доля собеседника не передана либо не сходится длиной
-		if((key.data == nullptr) || (key.size != expected))
-			// Выводим отказ негодной длины доли собеседника
+		// Длина доли ML-KEM у собеседника и её место, место доли кривой
+		const size_t kemlength = (responded ? opened : cipher);
+		const size_t kemat = (kemfirst(group) ? 0 : point), curveat = (kemfirst(group) ? kemlength : 0);
+		// Если доля собеседника не той длины
+		if((key.data == nullptr) || (key.size != (kemlength + point)))
+			// Выходим с ошибкой обмена
 			return context::error_t::EXCHANGE;
-		// Если ключ инкапсулировала своя сторона
+		// Общее значение: у X25519MLKEM768 ML-KEM впереди, у гибридов NIST впереди кривая
+		const size_t curveshared = ((half == extension::group_t::X25519) ? agreement::X25519_SIZE : (point - 1) / 2);
+		uint8_t * kemout = (result + (kemfirst(group) ? 0 : curveshared));
+		uint8_t * curveout = (result + (kemfirst(group) ? agreement::MLKEM_SHARED : 0));
+		// Если сервер отвечал, общее значение ML-KEM уже выработано
 		if(responded)
-			// Переносим общий секрет инкапсуляции первой половиной общего значения
-			::memcpy(result, own->shared.data(), agreement::MLKEM_SHARED);
-		// Если шифртекст прислал собеседник: декапсулируем его своим ключом
-		else if(!agreement::decapsulate(agreement::kem_t::MLKEM768, view_t(own->secret.data(), secret), view_t(key.data, cipher), result))
-			// Выводим отказ декапсуляции
+			::memcpy(kemout, own->shared.data(), agreement::MLKEM_SHARED);
+		// Если распаковать шифртекст не удалось
+		else if(!agreement::decapsulate(kem, view_t(own->secret.data(), secret), view_t(key.data + kemat, cipher), kemout))
+			// Выходим с ошибкой обмена
 			return context::error_t::EXCHANGE;
-		// Секретный ключ кривой своей стороны: у сервера весь секрет, у клиента - хвост за ключом декапсуляции
+		// Секрет кривой: у сервера весь секрет, у клиента - за ключом декапсуляции
 		const uint8_t * scalar = (responded ? own->secret.data() : (own->secret.data() + secret));
-		// Точка кривой собеседника: хвост доли за ключом инкапсуляции либо шифртекстом
-		const uint8_t * point = (key.data + (responded ? opened : cipher));
-		// Если общее значение кривой выработать не удалось: нулевой итог отвергается примитивом
-		if(!agreement::x25519(view_t(scalar, agreement::X25519_SIZE), view_t(point, agreement::X25519_SIZE), result + agreement::MLKEM_SHARED)){
-			// Выполняем затирание первой половины общего значения
-			wipe(result, agreement::MLKEM_SHARED);
-			// Выводим отказ выработки общего значения
-			return context::error_t::EXCHANGE;
+		const size_t scalarsize = (responded ? own->secret.size() : (own->secret.size() - secret));
+		// Точка собеседника
+		const uint8_t * peer = (key.data + curveat);
+		// Если половина - X25519
+		if(half == extension::group_t::X25519){
+			// Если общее значение X25519 выработать не удалось
+			if(!agreement::x25519(view_t(scalar, agreement::X25519_SIZE), view_t(peer, agreement::X25519_SIZE), curveout)){
+				wipe(result, agreement::MLKEM_SHARED + agreement::X25519_SIZE);
+				return context::error_t::EXCHANGE;
+			}
+		// Если половина - кривая NIST
+		} else {
+			// Кривая
+			curve::curve_t curve;
+			// Если параметры кривой не найдены либо точка не в несжатом виде
+			if(!curve::parameters(extension::curve(half), curve) || (peer[0] != 0x04) || (curve.size() != curveshared)){
+				wipe(result, agreement::MLKEM_SHARED + curveshared);
+				return context::error_t::EXCHANGE;
+			}
+			// Точка младшим байтом вперёд
+			uint8_t raw[math::NUMBER_SIZE * 2];
+			reverse(peer + 1, raw, curveshared);
+			reverse(peer + 1 + curveshared, raw + curveshared, curveshared);
+			// Общее значение младшим байтом вперёд
+			uint8_t little[math::NUMBER_SIZE];
+			// Если общее значение кривой выработать не удалось
+			if(!agreement::ecdhe(curve, view_t(scalar, scalarsize), view_t(raw, curveshared * 2), little)){
+				wipe(raw, sizeof(raw));
+				wipe(result, agreement::MLKEM_SHARED + curveshared);
+				return context::error_t::EXCHANGE;
+			}
+			// Переводим в старший байт вперёд, как велит RFC 8446 для кривых NIST
+			reverse(little, curveout, curveshared);
+			wipe(little, sizeof(little));
+			wipe(raw, sizeof(raw));
 		}
-		// Запоминаем длину общего значения: draft-ietf-tls-ecdhe-mlkem, секрет инкапсуляции и общее значение кривой
-		length = (agreement::MLKEM_SHARED + agreement::X25519_SIZE);
-		// Выводим успешность выработки общего значения
+		// Длина общего значения
+		length = (agreement::MLKEM_SHARED + curveshared);
+		// Выводим успешность
 		return context::error_t::NONE;
 	}
-	// Если открытый ключ собеседника не передан либо не сходится длиной с группой
 	if((key.data == nullptr) || (key.size == 0) || (key.size != extension::length(group)))
 		// Выводим отказ негодной длины открытого ключа собеседника
 		return context::error_t::EXCHANGE;
@@ -2078,7 +2254,7 @@ context::error_t nts::internal::Engine::derive(const extension::group_t group, c
 		 * Место под общее значение берётся размером числа арифметики: выработка кладёт
 		 * туда одну координату кривой, а шире числа координата быть не может
 		 */
-		uint8_t shared[math::NUMBER_SIZE];
+		uint8_t shared[agreement::MLKEM_SHARED + math::NUMBER_SIZE];
 		// Длина общего значения обмена мимолётными ключами
 		size_t length = 0;
 		// Отказ выработки общего значения обмена мимолётными ключами
@@ -2270,9 +2446,21 @@ context::error_t nts::internal::Engine::earliest() noexcept {
 		const size_t width = digest::length(algorithm);
 		// Место, в которое помещается хеш переписки рукопожатия
 		uint8_t transcript[schedule::SCHEDULE_WIDEST];
-		// Если хеш переписки рукопожатия получить не удалось хешем набора билета
-		if(this->_transcript.digest(algorithm, view_t(nullptr, 0), transcript) != session::error_t::NONE)
-			// Выводим отказ ведения переписки рукопожатия
+		/**
+		 * Раздел 6.1 RFC 9849: под ECH упреждающие данные принадлежат внутреннему приветствию -
+		 * их ключи выводятся из переписки с ClientHelloInner, а не с отправленным внешним;
+		 * примет ли сервер ECH, ещё неизвестно, и при отказе данные пропадают вместе со связью
+		 */
+		if(!this->_server && (this->_ech == ech_t::OFFERED) && !this->_inner.empty()){
+			// Переписка с внутренним приветствием
+			session::transcript_t shadow;
+			// Если переписку завести либо посчитать не удалось
+			if((shadow.start(algorithm) != session::error_t::NONE) || (shadow.update(view_t(this->_inner.data(), this->_inner.size())) != session::error_t::NONE) || (shadow.digest(algorithm, view_t(nullptr, 0), transcript) != session::error_t::NONE))
+				// Выходим с ошибкой расписания
+				return context::error_t::SCHEDULE;
+		// Если переписка обычная, хеш берётся с неё
+		} else if(this->_transcript.digest(algorithm, view_t(nullptr, 0), transcript) != session::error_t::NONE)
+			// Выходим с ошибкой расписания
 			return context::error_t::SCHEDULE;
 		// Если значение упреждающих данных вывести не удалось
 		if(this->_secrets.early(view_t(transcript, width)) != session::error_t::NONE)
@@ -2369,27 +2557,49 @@ context::error_t nts::internal::Engine::exchange(const extension::group_t group)
 		}
 		// Если группа обмена - гибрид X25519 и ML-KEM-768
 		if(extension::hybrid(group)){
-			// Длины ключей инкапсуляции и декапсуляции
-			const size_t opened = agreement::encapsulation(agreement::kem_t::MLKEM768), secret = agreement::decapsulation(agreement::kem_t::MLKEM768);
-			// Занимаем место под ключ декапсуляции и секретный ключ кривой
-			item.secret.assign(secret + agreement::X25519_SIZE, 0);
-			// Занимаем место под ключ инкапсуляции и точку кривой: draft-ietf-tls-ecdhe-mlkem, доля клиента
-			item.opened.assign(opened + agreement::X25519_SIZE, 0);
-			// Если пару ключей ML-KEM выработать не удалось
-			if(!agreement::generate(agreement::kem_t::MLKEM768, item.opened.data(), item.secret.data())){
-				// Выполняем затирание секретного ключа
+			// Механизм инкапсуляции, кривая и порядок половин гибрида
+			const agreement::kem_t kem = kemof(group);
+			const extension::group_t half = curveof(group);
+			const size_t opened = agreement::encapsulation(kem), secret = agreement::decapsulation(kem), point = curvelength(group);
+			const size_t kemat = (kemfirst(group) ? 0 : point), curveat = (kemfirst(group) ? opened : 0);
+			// Кривая NIST классической половины
+			curve::curve_t curve;
+			// Длина секрета кривой: 32 у X25519, размер кривой у NIST
+			size_t scalar = agreement::X25519_SIZE;
+			// Если половина - кривая NIST, берём её параметры
+			if((half != extension::group_t::X25519) && curve::parameters(extension::curve(half), curve))
+				// Длина секрета - размер кривой
+				scalar = curve.size();
+			// Секрет: ключ декапсуляции и секрет кривой; доля: ключ инкапсуляции и точка порядком гибрида
+			item.secret.assign(secret + scalar, 0);
+			item.opened.assign(opened + point, 0);
+			// Если пару ML-KEM породить не удалось
+			if(!agreement::generate(kem, item.opened.data() + kemat, item.secret.data())){
 				wipe(item.secret.data(), item.secret.size());
-				// Выводим отказ выработки мимолётной пары ключей
 				return context::error_t::EXCHANGE;
 			}
-			// Если секретный ключ кривой выработать не удалось либо точку по нему вычислить не удалось
-			if(!entropy::bytes(item.secret.data() + secret, agreement::X25519_SIZE) || !agreement::x25519(view_t(item.secret.data() + secret, agreement::X25519_SIZE), item.opened.data() + opened)){
-				// Выполняем затирание секретного ключа
-				wipe(item.secret.data(), item.secret.size());
-				// Выводим отказ выработки мимолётной пары ключей
-				return context::error_t::EXCHANGE;
+			// Если половина - X25519
+			if(half == extension::group_t::X25519){
+				// Если секрет и точку X25519 выработать не удалось
+				if(!entropy::bytes(item.secret.data() + secret, agreement::X25519_SIZE) || !agreement::x25519(view_t(item.secret.data() + secret, agreement::X25519_SIZE), item.opened.data() + curveat)){
+					wipe(item.secret.data(), item.secret.size());
+					return context::error_t::EXCHANGE;
+				}
+			// Если половина - кривая NIST: точка в несжатом виде 04 ‖ X ‖ Y старшим байтом вперёд
+			} else {
+				// Место под точку младшим байтом вперёд
+				uint8_t raw[math::NUMBER_SIZE * 2];
+				// Если пару кривой породить не удалось
+				if((half != curveof(group)) || !agreement::generate(curve, item.secret.data() + secret, raw)){
+					wipe(item.secret.data(), item.secret.size());
+					return context::error_t::EXCHANGE;
+				}
+				// Кодируем точку
+				item.opened[curveat] = 0x04;
+				reverse(raw, item.opened.data() + curveat + 1, scalar);
+				reverse(raw + scalar, item.opened.data() + curveat + 1 + scalar, scalar);
+				wipe(raw, sizeof(raw));
 			}
-		// Если группа обмена - X25519
 		} else if(group == extension::group_t::X25519){
 			// Занимаем место под секретный мимолётный ключ своей стороны
 			item.secret.assign(agreement::X25519_SIZE, 0);
@@ -2475,7 +2685,7 @@ context::error_t nts::internal::Engine::greeting() noexcept {
 		// Составляемое приветствие клиента
 		hello::client_t greeting;
 		// Раздел 5.3 RFC 9147: поверх дейтаграмм приветствие несёт издание DTLS 1.2
-		greeting.version = ((this->_transport == context::transport_t::DATAGRAMS) ? datagram::DATAGRAM_LEGACY : 0x0303);
+		greeting.version = ((this->_transport == context::transport_t::DATAGRAMS) ? ((this->_highest >= LEGACY) ? datagram::DATAGRAM_LEGACY : this->eldest()) : 0x0303);
 		// Переносим случайное значение своего приветствия
 		::memcpy(greeting.random, this->_random, sizeof(this->_random));
 		// Устанавливаем опознаватель связи, доставшийся от предыдущих изданий
@@ -2490,9 +2700,11 @@ context::error_t nts::internal::Engine::greeting() noexcept {
 		 * предлагается лишь тогда, когда у связи есть хоть один его набор: без наборов
 		 * издания сторонам нечем сойтись, и предложение обернулось бы отказом
 		 */
-		const bool ancient = ((this->_transport != context::transport_t::LEVELS) && (this->_lowest <= LEGACY) && carries(this->_suites, true));
+		const bool ancient = ((this->_transport != context::transport_t::LEVELS) && (this->_lowest <= LEGACY) && (this->_highest >= LEGACY) && carries(this->_suites, true));
 		// Признак того, что издание TLS 1.3 предлагается
 		const bool modern = ((this->_transport == context::transport_t::LEVELS) || ((this->_highest >= MODERN) && carries(this->_suites, false)));
+		// Признак того, что издание DTLS 1.0 (RFC 4347) предлагается: лишь дейтаграммами и лишь при наборах CBC-SHA1
+		const bool primeval = ((this->_transport == context::transport_t::DATAGRAMS) && (this->_lowest <= ANCIENT) && archaical(this->_suites));
 		// Раздел 4.2.1 RFC 6347: метка из просьбы о подтверждении адреса повторяется приветствием дословно
 		greeting.cookie = this->_token;
 		// Запоминаем издание заголовка приветствия: оно идёт в общее значение обмена RSA (раздел 7.4.7.1 RFC 5246)
@@ -2512,7 +2724,7 @@ context::error_t nts::internal::Engine::greeting() noexcept {
 			 * без самого издания собеседнику не выбрать, а набор TLS 1.3 в приветствии
 			 * одного лишь издания 1.2 означал бы то, чего связь не умеет
 			 */
-			if((old && !ancient) || (!old && !modern && (protect::hash(this->_suites[i]) != digest::hash_t::NONE)))
+			if((old && !ancient && !(primeval && archaic(this->_suites[i]))) || (!old && !modern && (protect::hash(this->_suites[i]) != digest::hash_t::NONE)))
 				// Переходим к следующему набору шифрования
 				continue;
 			// RFC 4279: наборы PSK предлагаются лишь при заданном ключе - иначе сервер выберет то, чего клиенту не исполнить
@@ -2550,6 +2762,10 @@ context::error_t nts::internal::Engine::greeting() noexcept {
 		if(ancient)
 			// Добавляем издание TLS 1.2 либо DTLS 1.2 в перечень
 			editions.push_back(this->elder());
+		// Если издание DTLS 1.0 предлагается: BoringSSL кладёт его в перечень изданий наравне с прочими
+		if(primeval)
+			// Добавляем издание DTLS 1.0 в перечень
+			editions.push_back(this->eldest());
 		// Отказ составления расширения приветствия
 		failure = translate(extension::versions(editions, versions), context::error_t::MESSAGE);
 		// Если перечень изданий протокола составить не удалось
@@ -2634,9 +2850,10 @@ context::error_t nts::internal::Engine::greeting() noexcept {
 		 * Издание TLS 1.2 объявляется тремя расширениями сразу: расширенный главный секрет
 		 * (раздел 5.1 RFC 7627) - безусловно, ибо без него связь оборвётся; безопасное
 		 * пересогласование (раздел 3.2 RFC 5746) - пустым, ибо связь пересогласований не
-		 * ведёт; записи точек (раздел 5.1.2 RFC 8422) - одной несжатой
+		 * ведёт; записи точек (раздел 5.1.2 RFC 8422) - одной несжатой. Изданию DTLS 1.0 всё
+		 * это положено так же (RFC 7627, RFC 5746 и RFC 8422 действуют и у 1.1)
 		 */
-		if(ancient){
+		if(ancient || primeval){
 			// Добавляем расширение расширенного главного секрета
 			greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::MASTER), view_t(nullptr, 0)));
 			// Добавляем расширение безопасного пересогласования
@@ -2683,6 +2900,30 @@ context::error_t nts::internal::Engine::greeting() noexcept {
 			// Добавляем расширение перечня прикладных протоколов
 			greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::PROTOCOLS), view_t(protocols.data(), protocols.size())));
 		}
+		// Накопитель, в котором лежит тело расширения прикладных настроек ALPS
+		vector <uint8_t> settings;
+		/**
+		 * Черновик draft-vvv-tls-alps: перечень протоколов с настройками идёт лишь при
+		 * предложенном издании 1.3 и лишь вместе с перечнем прикладных протоколов
+		 */
+		if(!this->_settings.empty() && !this->_protocols.empty() && ((this->_transport == context::transport_t::LEVELS) || (this->_highest >= MODERN))){
+			// Перечень протоколов, для которых настройки объявлены
+			vector <string> names;
+			/**
+			 * Выполняем перебор объявленных прикладных настроек
+			 */
+			for(size_t i = 0; i < this->_settings.size(); i++)
+				// Добавляем протокол в перечень
+				names.push_back(this->_settings[i].protocol);
+			// Отказ составления расширения приветствия
+			failure = translate(extension::protocols(names, settings), context::error_t::MESSAGE);
+			// Если перечень протоколов с настройками составить не удалось
+			if(failure != context::error_t::NONE)
+				// Выводим отказ составления расширения приветствия
+				return failure;
+			// Добавляем расширение прикладных настроек своей точкой кода
+			greeting.extensions.push_back(hello::extension_t(this->_codepoint, view_t(settings.data(), settings.size())));
+		}
 		// Если метка возврата состояния сервера связью получена
 		if(!this->_cookie.empty())
 			// Повторяем метку возврата состояния сервера дословно
@@ -2725,6 +2966,17 @@ context::error_t nts::internal::Engine::greeting() noexcept {
 		if(this->_inquiring)
 			// Добавляем расширение запроса состояния сертификата
 			greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::STATUS), view_t(INQUIRY, sizeof(INQUIRY))));
+		// Раздел 3.3.1 RFC 6962: метки времени сертификата запрашиваются пустым расширением приветствия
+		if(this->_stamping)
+			// Добавляем расширение запроса меток времени сертификата
+			greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::TIMESTAMPS), view_t(nullptr, 0)));
+		/**
+		 * Черновик draft-agl-tls-nextprotoneg: выработка NPN предлагается пустым расширением лишь
+		 * изданию 1.2 потоком - не дейтаграммам, не связи, зажатой на издании 1.3, и не под ECH (как у BoringSSL)
+		 */
+		if(this->_negotiating && (this->_transport == context::transport_t::RECORDS) && (this->_lowest < MODERN) && this->_configs.empty())
+			// Добавляем расширение выработки NPN
+			greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::NEGOTIATION), view_t(nullptr, 0)));
 		// Накопители, в которых лежат тела расширений возобновления связи
 		vector <uint8_t> modes, secret;
 		// Место, в которое помещается пустая привязка предъявляемого билета
@@ -2761,7 +3013,7 @@ context::error_t nts::internal::Engine::greeting() noexcept {
 			// Выполняем обнуление привязки предъявляемого билета
 			::memset(empty, 0, sizeof(empty));
 			// Если упреждающие данные связью предлагаются и дозволены билетом
-			if(this->_advance && !this->_retried && (this->_resume.advance > 0) && (this->_transport != context::transport_t::DATAGRAMS) && this->_configs.empty()){
+			if(this->_advance && !this->_retried && (this->_resume.advance > 0) && (this->_transport != context::transport_t::DATAGRAMS) && this->inheritable(this->_resume)){
 				/**
 				 * Расширение упреждающих данных в приветствии пусто: раздел 4.2.10 RFC 8446
 				 * велит объявлять им лишь само намерение, а предел объявлен билетом
@@ -2891,9 +3143,14 @@ context::error_t nts::internal::Engine::greeting() noexcept {
 			/**
 			 * Выполняем перебор расширений составленного приветствия клиента
 			 */
-			for(size_t i = 0; i < greeting.extensions.size(); i++)
+			for(size_t i = 0; i < greeting.extensions.size(); i++){
 				// Запоминаем вид очередного расширения, предложенного связью
 				this->_offered.push_back(greeting.extensions[i].type);
+				// Если приветствие предлагает heartbeat (RFC 6520, расширение 0x000F из профиля), записи вида 24 будут роняться молча
+				if(greeting.extensions[i].type == HEARTBEAT_EXTENSION)
+					// Отмечаем предложение
+					this->_heartbeating = true;
+			}
 		/**
 		 * Если памяти под перечень предложенных расширений не хватило
 		 */
@@ -2910,9 +3167,19 @@ context::error_t nts::internal::Engine::greeting() noexcept {
 			// Выводим отказ составления приветствия клиента
 			return failure;
 		// Если билет возобновления связи серверу не предъявляется
-		if(!resume || hidden)
-			// Выводим итог отправки приветствия клиента: при ECH билет и привязка уже во внутреннем
-			return this->send(handshake::type_t::CLIENT, view_t(body.data(), body.size()));
+		if(!resume || hidden){
+			// Отправляем приветствие
+			failure = this->send(handshake::type_t::CLIENT, view_t(body.data(), body.size()));
+			/**
+			 * Раздел 6.1 RFC 9849: упреждающие данные под ECH идут по билету внутреннего
+			 * приветствия - если они дозволены и предложены, ключи выводятся сразу после отправки
+			 */
+			if((failure != context::error_t::NONE) || !hidden || !resume || !this->_advance || this->_retried || (this->_resume.advance == 0) || (this->_transport == context::transport_t::DATAGRAMS) || !this->inheritable(this->_resume))
+				// Выводим итог отправки
+				return failure;
+			// Заводим ключи упреждения
+			return this->earliest();
+		}
 		// Объект составителя отправляемых сообщений рукопожатия
 		handshake::writer_t writer;
 		// Отказ составления приветствия клиента
@@ -2979,7 +3246,7 @@ context::error_t nts::internal::Engine::greeting() noexcept {
 		 * повторное приветствие расширения упреждения не несёт. Ключи упреждения
 		 * заводятся лишь тогда, когда упреждение и предложено, и билетом дозволено
 		 */
-		if(!this->_advance || this->_retried || (this->_resume.advance == 0) || (this->_transport == context::transport_t::DATAGRAMS))
+		if(!this->_advance || this->_retried || (this->_resume.advance == 0) || (this->_transport == context::transport_t::DATAGRAMS) || !this->inheritable(this->_resume))
 			// Выводим успешность отправки приветствия клиента
 			return context::error_t::NONE;
 		// Выводим итог заведения защиты записей упреждающих данных
@@ -3208,6 +3475,14 @@ context::error_t nts::internal::Engine::authenticate() noexcept {
 				// Переносим тело расширения в накопитель, переживающий составление
 				statuses.push_back(vector <uint8_t> (data.data, data.data + data.size));
 			}
+			/**
+			 * Раздел 4.4.2.1 RFC 8446 и раздел 3.3 RFC 6962: перечень меток времени идёт
+			 * расширением записи листа лишь по запросу собеседника; перечень - член связи,
+			 * и просмотр внутрь него остаётся верным
+			 */
+			if((i == 0) && this->_stamped && !this->_stamps.empty())
+				// Добавляем расширение меток времени сертификата
+				entry.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::TIMESTAMPS), view_t(this->_stamps.data(), this->_stamps.size())));
 			// Добавляем запись в цепочку сертификатов
 			certificate.entries.push_back(entry);
 		}
@@ -3397,6 +3672,8 @@ context::error_t nts::internal::Engine::requesting(const view_t & body) noexcept
 		view_t squeezing(nullptr, 0);
 		// Тело расширения запроса состояния сертификата клиента
 		view_t asking(nullptr, 0);
+		// Тело расширения перечня доверенных удостоверяющих центров
+		view_t naming(nullptr, 0);
 		/**
 		 * Выполняем перебор расширений, объявленных запросом подлинности
 		 */
@@ -3436,12 +3713,35 @@ context::error_t nts::internal::Engine::requesting(const view_t & body) noexcept
 			else if(type == static_cast <uint32_t> (extension::type_t::STATUS))
 				// Запоминаем тело расширения запроса состояния
 				asking = content;
+			// Если объявлен перечень доверенных удостоверяющих центров
+			else if(type == static_cast <uint32_t> (extension::type_t::AUTHORITIES))
+				// Запоминаем тело перечня
+				naming = content;
+		}
+		// Выполняем сброс перечня доверенных центров собеседника
+		this->_authorities.clear();
+		// Раздел 4.2.4 RFC 8446: перечень имён разбирается по виду и хранится как записан - выбор сертификата по нему за потребителем
+		if(naming.data != nullptr){
+			// Отказ разбора перечня
+			const context::error_t named = translate(extension::authorities(naming, this->_authorities), context::error_t::MESSAGE);
+			// Если перечень разобрать не удалось
+			if(named != context::error_t::NONE)
+				// Выводим отказ разбора запроса подлинности
+				return named;
 		}
 		// Выполняем сброс признака запроса состояния прежним запросом подлинности
 		this->_inquired = false;
-		// Если состояние сертификата клиента запросом подлинности запрошено
-		if(asking.data != nullptr){
-			// Отказ разбора запроса состояния сертификата
+		/**
+		 * Раздел 4.4.2.1 RFC 8446: сервер просит у клиента ответ OCSP ПУСТЫМ расширением
+		 * status_request в CertificateRequest (так шлёт GnuTLS); OpenSSL кладёт туда полную
+		 * структуру CertificateStatusRequest, как в приветствии, - принимаем обе формы
+		 */
+		if((asking.data != nullptr) && (asking.size == 0))
+			// Пустое расширение - просьба об ответе OCSP
+			this->_inquired = true;
+		// Если расширение с телом, разбираем структуру запроса состояния
+		else if(asking.data != nullptr){
+			// Разбираем запрос состояния
 			const context::error_t status = this->inquiry(asking);
 			// Если запрос состояния сертификата разобрать не удалось
 			if(status != context::error_t::NONE)
@@ -3632,6 +3932,31 @@ context::error_t nts::internal::Engine::chain(const view_t & body) noexcept {
 			if(error != context::error_t::NONE)
 				// Выводим отказ разбора ответа о состоянии
 				return error;
+		}
+		// Выполняем сброс перечня меток времени сертификата собеседника
+		this->_timestamps.clear();
+		/**
+		 * Раздел 4.4.2.1 RFC 8446 и раздел 3.3 RFC 6962: перечень меток времени берётся с
+		 * листа - первой записи цепочки; в иных записях он терпится и не хранится (как у
+		 * BoringSSL). Перечень проверяется по виду и хранится как записан: ни журналы, ни
+		 * подписи связь не толкует
+		 */
+		if(!certificate.entries.empty()){
+			// Разыскиваем расширение меток времени в записи листа
+			extension = hello::extension(certificate.entries[0].extensions, static_cast <uint16_t> (extension::type_t::TIMESTAMPS));
+			// Если перечень меток времени сервером выдан
+			if(extension != nullptr){
+				// Записи перечня, разобранные ради проверки вида
+				vector <vector <uint8_t>> entries;
+				// Отказ разбора перечня меток времени: негодная запись - свой отказ, нехватка памяти - своя
+				const context::error_t failure = translate(extension::timestamps(extension->data, entries), context::error_t::TIMESTAMPS);
+				// Если перечень разобрать не удалось
+				if(failure != context::error_t::NONE)
+					// Выводим отказ разбора перечня меток времени
+					return ((failure == context::error_t::MEMORY) ? failure : context::error_t::TIMESTAMPS);
+				// Запоминаем перечень меток времени как записан
+				this->_timestamps.assign(extension->data.data, extension->data.data + extension->data.size);
+			}
 		}
 		// Выводим успешность разбора цепочки сертификатов собеседника
 		return context::error_t::NONE;
@@ -4084,6 +4409,13 @@ context::error_t nts::internal::Engine::signing(const view_t & content, extensio
 	 * Выполняем перехват ошибок работы с памятью: тело выработки подписи занимает
 	 * память на всяком шаге, и всякий такой шаг вправе ответить нехваткой памяти
 	 */
+	// Раздел 7.4.3 RFC 4346: изданием 1.1 подпись идёт без схемы - RSA над MD5 ‖ SHA-1, ECDSA над SHA-1
+	if(this->_ancient){
+		// Схемы у издания 1.1 нет
+		scheme = extension::scheme_t::NONE;
+		// Выводим итог выработки подписи изданием 1.1
+		return this->engraving(content, signature);
+	}
 	try {
 		// Отказ связи, отвечающий отказу модуля
 		context::error_t failure = context::error_t::NONE;
@@ -4308,6 +4640,10 @@ context::error_t nts::internal::Engine::checking(const extension::scheme_t schem
 	 * Выполняем перехват ошибок работы с памятью: тело проверки подписи занимает память
 	 * на всяком шаге, и всякий такой шаг вправе ответить нехваткой памяти
 	 */
+	// Раздел 7.4.3 RFC 4346: изданием 1.1 подпись судится без схемы
+	if(this->_ancient)
+		// Выводим итог проверки подписи изданием 1.1
+		return this->engraved(content, signature);
 	try {
 		// Отказ связи, отвечающий отказу модуля
 		context::error_t failure = context::error_t::NONE;
@@ -4750,6 +5086,12 @@ context::error_t nts::internal::Engine::offered(const vector <hello::extension_t
 		try {
 			// Запоминаем прикладной протокол связи, выдавшей признанный билет
 			this->_previous = this->_store[found].protocol;
+			// Запоминаем признак согласования прикладных настроек выдавшей билет связи
+			this->_bequeathed = this->_store[found].settled;
+			// Запоминаем свои прикладные настройки выдавшей билет связи
+			this->_bequest = this->_store[found].settings;
+			// Запоминаем прикладные настройки собеседника выдавшей билет связи
+			this->_heritage = this->_store[found].obtained;
 		/**
 		 * Если памяти под прикладной протокол не хватило
 		 */
@@ -4834,6 +5176,12 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 				// Выводим итог разбора внутреннего приветствия
 				return outcome;
 			}
+			/**
+			 * ECH предложен, но отклонён: клиент мог слать упреждающие данные под внутреннее
+			 * приветствие, которое здесь не прочесть, - их записи пропускаются как отвергнутые
+			 * (раздел 4.2.10 RFC 8446), пока не придёт завершение клиента
+			 */
+			this->_skipped = (static_cast <size_t> (this->_granted) * 2 + 4096);
 		}
 		// Признак того, что среди способов сжатия объявлен нулевой
 		bool uncompressed = false;
@@ -4924,7 +5272,7 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 		 * Издание 1.2 ведётся переносом записями (TLS 1.2) и дейтаграммами (DTLS 1.2 по
 		 * RFC 6347); под QUIC (RFC 9001) связь знает одно лишь издание 1.3
 		 */
-		const bool ancient = ((this->_transport != context::transport_t::LEVELS) && (this->_lowest <= LEGACY) && carries(this->_suites, true));
+		const bool ancient = ((this->_transport != context::transport_t::LEVELS) && (this->_lowest <= LEGACY) && (this->_highest >= LEGACY) && carries(this->_suites, true));
 		// Признак того, что издание TLS 1.3 связью дозволено: без наборов издания оно не выбирается
 		const bool modern = ((this->_transport == context::transport_t::LEVELS) || ((this->_highest >= MODERN) && carries(this->_suites, false)));
 		/**
@@ -4933,7 +5281,11 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 		 * непременно издание DTLS (старший байт 0xFE): 0xFEFF (DTLS 1.0), 0x0303 и всякое
 		 * чужое издание заголовка ниже 1.2 не опускают, а обрывают связь protocol_version
 		 */
-		const bool declared = ((this->_transport == context::transport_t::DATAGRAMS) ? (((greeting.version >> 8) == 0xFE) && (greeting.version <= datagram::DATAGRAM_LEGACY)) : (greeting.version >= LEGACY));
+		// Признак того, что издание DTLS 1.0 связью дозволено: лишь дейтаграммами и лишь при наборах CBC-SHA1
+		const bool primeval = ((this->_transport == context::transport_t::DATAGRAMS) && (this->_lowest <= ANCIENT) && archaical(this->_suites));
+		// Признак того, что заголовок приветствия несёт издание DTLS 1.0 (RFC 4347)
+		const bool oldest = ((this->_transport == context::transport_t::DATAGRAMS) && (greeting.version == this->eldest()));
+		const bool declared = ((this->_transport == context::transport_t::DATAGRAMS) ? (((greeting.version >> 8) == 0xFE) && ((greeting.version <= datagram::DATAGRAM_LEGACY) || (primeval && oldest))) : (greeting.version >= LEGACY));
 		// Поверх дейтаграмм заголовок приветствия судится всегда, и с перечнем изданий тоже (раздел 5.3 RFC 9147)
 		if((this->_transport == context::transport_t::DATAGRAMS) && !declared)
 			// Выводим отказ несовпадения издания протокола
@@ -4955,9 +5307,13 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 		 */
 		if(extension == nullptr){
 			// Если издание 1.2 дозволено связи и объявлено заголовком приветствия
-			if(ancient && declared)
+			if(ancient && declared && !oldest)
 				// Выбираем издание TLS 1.2 либо DTLS 1.2
 				chosen = this->elder();
+			// Если заголовок несёт издание DTLS 1.0 и оно дозволено связи
+			else if(primeval && oldest)
+				// Выбираем издание DTLS 1.0
+				chosen = this->eldest();
 			// Если общего издания протокола у сторон нет
 			else return this->abort(context::error_t::VERSION, alert::description_t::VERSION);
 		// Если перечень изданий протокола приветствием объявлен
@@ -4974,7 +5330,11 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 			 * Раздел 4.2.1 RFC 8446: сервер выбирает высшее из изданий, предложенных клиентом
 			 * и дозволенных себе; порядок перечня клиента предпочтением не считается
 			 */
+			// Признак того, что клиент предложил издание DTLS 1.0
+			bool primal = false;
 			for(size_t i = 0; i < versions.size(); i++){
+				// Запоминаем предложение клиентом издания DTLS 1.0
+				primal = (primal || (versions[i] == this->eldest()));
 				// Запоминаем предложение клиентом издания 1.3
 				this->_proposed = (this->_proposed || (versions[i] == this->edition()));
 				// Если клиент предложил издание TLS 1.3 либо DTLS 1.3 и оно дозволено связи
@@ -4986,13 +5346,19 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 					// Выбираем издание TLS 1.2 либо DTLS 1.2
 					chosen = this->elder();
 			}
+			// Если ни 1.3, ни 1.2 не выбраны, а издание DTLS 1.0 предложено и дозволено
+			if((chosen == 0) && primeval && primal)
+				// Выбираем издание DTLS 1.0: раздел 4.2.1 RFC 8446 велит брать высшее из общих, и оно последнее
+				chosen = this->eldest();
 			// Если общего издания протокола у сторон не нашлось
 			if(chosen == 0)
 				// Выводим отказ несовпадения издания протокола
 				return this->abort(context::error_t::VERSION, alert::description_t::VERSION);
 		}
-		// Если сторонами выбрано издание TLS 1.2 либо DTLS 1.2
-		if(chosen == this->elder()){
+		// Запоминаем, ведётся ли связь изданием DTLS 1.0
+		this->_ancient = (chosen == this->eldest());
+		// Если сторонами выбрано издание TLS 1.2, DTLS 1.2 либо DTLS 1.0
+		if((chosen == this->elder()) || (chosen == this->eldest())){
 			// Если связь ведётся поверх дейтаграмм
 			if(this->_transport == context::transport_t::DATAGRAMS){
 				/**
@@ -5105,6 +5471,14 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 				return this->abort(context::error_t::MEMORY, alert::description_t::INTERNAL);
 			}
 		}
+		// Разбираем предложенные клиентом пределы длины записи (RFC 8449, раздел 4 RFC 6066)
+		failure = this->sizing(greeting);
+		// Если пределы не приняты
+		if(failure != context::error_t::NONE)
+			// Выводим ошибку
+			return failure;
+		// Если клиент предложил heartbeat (RFC 6520), его записи вида 24 будут роняться молча
+		this->_heartbeating = (hello::extension(greeting.extensions, HEARTBEAT_EXTENSION) != nullptr);
 		// Если прикладные протоколы сервером признаются
 		if(!this->_protocols.empty()){
 			// Разыскиваем расширение перечня прикладных протоколов
@@ -5150,6 +5524,50 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 				if(this->_protocol.empty())
 					// Выводим отказ отсутствия общего прикладного протокола
 					return this->abort(context::error_t::PROTOCOL, alert::description_t::PROTOCOL);
+			}
+		}
+		// Свои прикладные настройки выбранного протокола
+		view_t applied;
+		/**
+		 * Черновик draft-vvv-tls-alps: настройки согласуются лишь изданием 1.3, лишь для
+		 * выбранного протокола и лишь когда клиент объявил его в перечне своей точки кода;
+		 * разошедшиеся точки кода сторон оставляют связь без настроек молча
+		 */
+		if((this->_version == MODERN) && !this->_protocol.empty() && this->pick(this->_protocol, applied)){
+			// Разыскиваем расширение прикладных настроек своей точкой кода
+			extension = hello::extension(greeting.extensions, this->_codepoint);
+			// Если перечень протоколов с настройками клиентом объявлен
+			if(extension != nullptr){
+				// Перечень протоколов с настройками, предложенных клиентом
+				vector <string> declared;
+				// Отказ разбора расширения приветствия
+				failure = translate(extension::protocols(extension->data, declared), context::error_t::MESSAGE);
+				// Если перечень протоколов с настройками разобрать не удалось (пустой перечень разборщик отвергает сам)
+				if(failure != context::error_t::NONE)
+					// Выводим отказ разбора расширения приветствия
+					return this->abort(failure, blame(failure, alert::description_t::DECODE));
+				/**
+				 * Выполняем перебор протоколов с настройками, предложенных клиентом
+				 */
+				for(size_t i = 0; (i < declared.size()) && !this->_settled; i++)
+					// Запоминаем, объявлен ли выбранный протокол клиентом с настройками
+					this->_settled = (declared[i].compare(this->_protocol) == 0);
+				// Если прикладные настройки согласованы
+				if(this->_settled){
+					/**
+					 * Выполняем перехват ошибок работы с памятью
+					 */
+					try {
+						// Запоминаем свои настройки выбранного протокола
+						this->_applied.assign(applied.data, applied.data + applied.size);
+					/**
+					 * Если памяти под настройки не хватило
+					 */
+					} catch(const std::bad_alloc &) {
+						// Выводим отказ нехватки памяти
+						return this->abort(context::error_t::MEMORY, alert::description_t::INTERNAL);
+					}
+				}
 			}
 		}
 		/**
@@ -5209,6 +5627,19 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 		}
 		// Выполняем сброс признака запроса состояния прежним приветствием
 		this->_inquired = false;
+		// Выполняем сброс признака запроса меток времени сертификата
+		this->_stamped = false;
+		// Разыскиваем расширение запроса меток времени сертификата
+		extension = hello::extension(greeting.extensions, static_cast <uint16_t> (extension::type_t::TIMESTAMPS));
+		// Если метки времени сертификата клиентом запрошены
+		if(extension != nullptr){
+			// Раздел 3.3.1 RFC 6962: тело запроса пусто, а непустое выдаёт негодное приветствие
+			if(extension->data.size > 0)
+				// Выводим отказ негодного расширения
+				return this->abort(context::error_t::MESSAGE, alert::description_t::DECODE);
+			// Запоминаем, что метки времени сертификата запрошены
+			this->_stamped = true;
+		}
 		// Разыскиваем расширение запроса состояния сертификата
 		extension = hello::extension(greeting.extensions, static_cast <uint16_t> (extension::type_t::STATUS));
 		// Если состояние сертификата приветствием клиента запрошено
@@ -5294,7 +5725,7 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 			 * Задеть это условие способен лишь собеседник, предлагающий несколько билетов
 			 * разом, оттого закреплённой проверки на него и нет
 			 */
-			if(this->_advance && !this->_misaged && (this->_granted > 0) && this->_shared && (this->_chosen == 0) && (this->_suite == this->_ticket) && (this->_protocol == this->_previous)){
+			if(this->_advance && !this->_misaged && (this->_granted > 0) && this->_shared && (this->_chosen == 0) && (this->_suite == this->_ticket) && (this->_protocol == this->_previous) && (this->_settled == this->_bequeathed) && (this->_applied == this->_bequest)){
 				/**
 				 * Ключи упреждающих данных выводятся от переписки с одним лишь приветствием
 				 * клиента: ответа сервера в ней на этот миг ещё нет, и завестись им надо
@@ -5307,6 +5738,19 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 					return this->abort(outcome, alert::description_t::INTERNAL);
 				// Запоминаем приём упреждающих данных клиента
 				this->_accepted = true;
+				/**
+				 * Выполняем перехват ошибок работы с памятью
+				 */
+				try {
+					// Черновик draft-vvv-tls-alps: настройки клиента при принятом упреждении наследуются от билета
+					this->_obtained = this->_heritage;
+				/**
+				 * Если памяти под настройки не хватило
+				 */
+				} catch(const std::bad_alloc &) {
+					// Выводим отказ нехватки памяти
+					return this->abort(context::error_t::MEMORY, alert::description_t::INTERNAL);
+				}
 			/**
 			 * Отвергнутые упреждающие данные прочесть нечем, и записи их пропускаются:
 			 * число пропусков ограничено, иначе им открылся бы бесконечный поток
@@ -5553,6 +5997,15 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 		 * Имя узла подтверждается пустым расширением: раздел 3 RFC 6066 велит серверу лишь
 		 * объявить, что имя принято, а самого имени в ответ не возвращать
 		 */
+		// Если предел длины записи договорён, отвечаем клиенту своим расширением
+		if(this->_sizing != 0){
+			// Добавляем ответное расширение предела
+			items.push_back(hello::extension_t(static_cast <uint16_t> ((this->_sizing == 1) ? extension::type_t::LIMIT : extension::type_t::FRAGMENT), view_t(this->_sized, ((this->_sizing == 1) ? 2 : 1))));
+			// С ответом договорённая длина max_fragment_length связывает и приём (раздел 4 RFC 6066)
+			if(this->_sizing == 2)
+				// Ограничиваем приём договорённой длиной
+				this->_incoming = this->_outgoing;
+		}
 		if(!this->_name.empty())
 			// Объявляем клиенту приём имени запрашиваемого узла
 			items.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::NAME), view_t(nullptr, 0)));
@@ -5567,6 +6020,13 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 			// Объявляем клиенту выбранный прикладной протокол
 			items.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::PROTOCOLS), view_t(protocol.data(), protocol.size())));
 		}
+		/**
+		 * Черновик draft-vvv-tls-alps: свои настройки идут под защитой, а при принятом
+		 * упреждении опускаются - они унаследованы билетом
+		 */
+		if(this->_settled && !this->_accepted)
+			// Объявляем клиенту свои прикладные настройки
+			items.push_back(hello::extension_t(this->_codepoint, view_t(this->_applied.data(), this->_applied.size())));
 		/**
 		 * Раздел 8.2 RFC 9001: параметры переноса сервера идут защищёнными расширениями
 		 * всякий раз, когда рукопожатие переносится по уровням
@@ -5662,9 +6122,27 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 			 * Раздел 4.4.2.1 RFC 8446: состояние сертификата клиента запрашивается
 			 * расширением status_request запроса подлинности
 			 */
+			/**
+			 * Раздел 4.4.2.1 RFC 8446: ответ OCSP у клиента просится ПУСТЫМ расширением
+			 * status_request в CertificateRequest (так шлёт GnuTLS; OpenSSL и BoringSSL у клиента
+			 * его не просят вовсе); структура CertificateStatusRequest принадлежит приветствию
+			 */
 			if(this->_inquiring)
-				// Добавляем расширение запроса состояния сертификата
-				list.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::STATUS), view_t(INQUIRY, sizeof(INQUIRY))));
+				// Добавляем пустую просьбу об ответе OCSP
+				list.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::STATUS), view_t(nullptr, 0)));
+			// Накопитель, в котором лежит тело расширения доверенных удостоверяющих центров
+			vector <uint8_t> names;
+			// Раздел 4.2.4 RFC 8446: перечень доверенных центров идёт запросом подлинности лишь по настройке потребителя
+			if(!this->_trusted.empty()){
+				// Отказ составления перечня
+				failure = translate(extension::authorities(this->_trusted, names), context::error_t::MESSAGE);
+				// Если перечень составить не удалось
+				if(failure != context::error_t::NONE)
+					// Выводим отказ составления запроса подлинности
+					return this->abort(failure, blame(failure, alert::description_t::INTERNAL));
+				// Добавляем расширение перечня доверенных центров
+				list.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::AUTHORITIES), view_t(names.data(), names.size())));
+			}
 			// Накопитель, в который складывается запись перечня расширений
 			vector <uint8_t> record;
 			// Отказ составления записи перечня расширений
@@ -6428,6 +6906,12 @@ context::error_t nts::internal::Engine::accept(const view_t & body) noexcept {
 		try {
 			// Запоминаем прикладной протокол связи, принявшей билет
 			item.protocol = this->_protocol;
+			// Устанавливаем признак согласования прикладных настроек связи
+			item.settled = this->_settled;
+			// Устанавливаем свои прикладные настройки связи
+			item.settings = this->_applied;
+			// Устанавливаем прикладные настройки собеседника
+			item.obtained = this->_obtained;
 			/**
 			 * Раздел 8.2 RFC 9001: упреждающие данные будущей связи идут по параметрам
 			 * переноса сервера этой связи - билет уносит их с собою
@@ -6638,15 +7122,64 @@ context::error_t nts::internal::Engine::handle(const handshake::type_t type, con
 		// Отказ разбора принятого сообщения рукопожатия
 		context::error_t error = context::error_t::NONE;
 		/**
+		 * Черновик draft-vvv-tls-alps: по согласованным настройкам за завершением сервера
+		 * первым идёт сообщение защищённых расширений клиента, и иное сообщение прежде него
+		 * выдаёт клиента, настроек не пославшего
+		 */
+		if(this->_server && this->_settled && !this->_accepted && !this->_stated && (type != handshake::type_t::EXTENSIONS))
+			// Выводим отказ сообщения не в свой черёд
+			return this->abort(context::error_t::ORDER, alert::description_t::UNEXPECTED);
+		/**
 		 * Выполняем определение вида принятого сообщения рукопожатия
 		 */
 		switch(static_cast <uint8_t> (type)){
-			// Если приняты защищённые расширения сервера
+			// Если приняты защищённые расширения стороны
 			case static_cast <uint8_t> (handshake::type_t::EXTENSIONS): {
 				// Если связь ведётся стороной сервера
-				if(this->_server)
-					// Выводим отказ прихода сообщения не от той стороны
-					return this->abort(context::error_t::ORDER, alert::description_t::UNEXPECTED);
+				if(this->_server){
+					/**
+					 * Черновик draft-vvv-tls-alps: защищённые расширения клиента идут лишь по
+					 * согласованным настройкам, лишь при отвергнутом упреждении и лишь однажды
+					 */
+					if(!this->_settled || this->_accepted || this->_stated)
+						// Выводим отказ сообщения не в свой черёд
+						return this->abort(context::error_t::ORDER, alert::description_t::UNEXPECTED);
+					// Перечень видов расширений, объявленных клиентом
+					vector <uint16_t> kinds;
+					// Отказ разбора перечня защищённых расширений клиента
+					failure = enumerate(body, kinds);
+					// Если перечень защищённых расширений клиента разобрать не удалось
+					if(failure != context::error_t::NONE)
+						// Выводим отказ разбора защищённых расширений клиента
+						return this->abort(failure, blame(failure, alert::description_t::DECODE));
+					// Тело прикладных настроек клиента
+					view_t stated;
+					// Если настроек своей точкой кода клиент не объявил
+					if(!announced(body, this->_codepoint, stated))
+						// Выводим отказ отсутствия обязательного расширения
+						return this->abort(context::error_t::MESSAGE, alert::description_t::MISSING);
+					// Иных расширений сообщению клиента не положено
+					if(kinds.size() != 1)
+						// Выводим отказ объявления непрошенного расширения
+						return this->abort(context::error_t::EXTENSION, alert::description_t::EXTENSION);
+					/**
+					 * Выполняем перехват ошибок работы с памятью
+					 */
+					try {
+						// Запоминаем настройки клиента
+						this->_obtained.assign(stated.data, stated.data + stated.size);
+					/**
+					 * Если памяти под настройки не хватило
+					 */
+					} catch(const std::bad_alloc &) {
+						// Выводим отказ нехватки памяти
+						return this->abort(context::error_t::MEMORY, alert::description_t::INTERNAL);
+					}
+					// Запоминаем, что защищённые расширения клиента прошли по связи
+					this->_stated = true;
+					// Выходим из разбора
+					break;
+				}
 				// Перечень видов расширений, объявленных сервером
 				vector <uint16_t> types;
 				// Отказ разбора перечня защищённых расширений сервера
@@ -6689,6 +7222,34 @@ context::error_t nts::internal::Engine::handle(const handshake::type_t type, con
 					if(!suitable)
 						// Выводим отказ объявления непрошенного расширения
 						return this->abort(context::error_t::EXTENSION, alert::description_t::EXTENSION);
+				}
+				// Тела расширений предела длины записи, присланных сервером
+				view_t bound, fragment;
+				// Если сервер подтвердил предел record_size_limit (RFC 8449)
+				if(announced(body, static_cast <uint16_t> (extension::type_t::LIMIT), bound)){
+					// Если тело расширения не двухбайтовое
+					if(bound.size != 2)
+						// Выходим с ошибкой разбора
+						return this->abort(context::error_t::MESSAGE, alert::description_t::DECODE);
+					// Применяем присланный предел к отправке
+					const context::error_t bounded = this->bounding(static_cast <uint16_t> ((static_cast <uint16_t> (bound.data[0]) << 8) | bound.data[1]), false);
+					// Если предел не принят
+					if(bounded != context::error_t::NONE)
+						// Выводим ошибку
+						return bounded;
+				}
+				// Если сервер подтвердил длину max_fragment_length (раздел 4 RFC 6066)
+				if(announced(body, static_cast <uint16_t> (extension::type_t::FRAGMENT), fragment)){
+					// Если тело расширения не однобайтовое
+					if(fragment.size != 1)
+						// Выходим с ошибкой разбора
+						return this->abort(context::error_t::MESSAGE, alert::description_t::DECODE);
+					// Применяем присланный код длины к обеим сторонам
+					const context::error_t fragmented = this->fragmenting(fragment.data[0], false);
+					// Если код не принят
+					if(fragmented != context::error_t::NONE)
+						// Выводим ошибку
+						return fragmented;
 				}
 				// Запасные конфигурации ECH сервера
 				view_t retrying;
@@ -6758,6 +7319,26 @@ context::error_t nts::internal::Engine::handle(const handshake::type_t type, con
 				this->_accepted = (this->_shared && this->_earlying && declared(body, static_cast <uint16_t> (extension::type_t::EARLY)));
 				// Запоминаем, что решение сервера об упреждающих данных получено
 				this->_judged = true;
+				// Если упреждающие данные приняты, прикладные настройки наследуются от билета
+				if(this->_accepted){
+					/**
+					 * Выполняем перехват ошибок работы с памятью
+					 */
+					try {
+						// Наследуем свои настройки от билета
+						this->_applied = this->_resume.settings;
+						// Наследуем настройки сервера от билета
+						this->_obtained = this->_resume.obtained;
+					/**
+					 * Если памяти под настройки не хватило
+					 */
+					} catch(const std::bad_alloc &) {
+						// Выводим отказ нехватки памяти
+						return this->abort(context::error_t::MEMORY, alert::description_t::INTERNAL);
+					}
+					// Наследуем признак согласования от билета
+					this->_settled = this->_resume.settled;
+				}
 				/**
 				 * Отвергнутые упреждающие данные пропали: связь возвращается к ключам
 				 * рукопожатия, а посланное ими сервер не прочтёт вовсе
@@ -6814,6 +7395,38 @@ context::error_t nts::internal::Engine::handle(const handshake::type_t type, con
 				if((this->_transport == context::transport_t::LEVELS) && this->_protocol.empty())
 					// Выводим отказ отсутствия общего прикладного протокола
 					return this->abort(context::error_t::PROTOCOL, alert::description_t::PROTOCOL);
+				// Тело расширения прикладных настроек сервера
+				view_t offered;
+				// Если прикладные настройки сервером объявлены
+				if(announced(body, this->_codepoint, offered)){
+					// Свои настройки выбранного протокола
+					view_t applied;
+					/**
+					 * Черновик draft-vvv-tls-alps: настройки идут лишь при выбранном протоколе, лишь
+					 * для протокола с объявленными настройками и лишь при отвергнутом упреждении -
+					 * при принятом они унаследованы билетом, и расширение сервер обязан опустить
+					 */
+					if(this->_protocol.empty() || !this->pick(this->_protocol, applied) || this->_accepted)
+						// Выводим отказ негодного расширения
+						return this->abort(context::error_t::MESSAGE, alert::description_t::PARAMETER);
+					/**
+					 * Выполняем перехват ошибок работы с памятью
+					 */
+					try {
+						// Запоминаем свои настройки выбранного протокола
+						this->_applied.assign(applied.data, applied.data + applied.size);
+						// Запоминаем настройки сервера
+						this->_obtained.assign(offered.data, offered.data + offered.size);
+					/**
+					 * Если памяти под настройки не хватило
+					 */
+					} catch(const std::bad_alloc &) {
+						// Выводим отказ нехватки памяти
+						return this->abort(context::error_t::MEMORY, alert::description_t::INTERNAL);
+					}
+					// Запоминаем, что прикладные настройки согласованы
+					this->_settled = true;
+				}
 			} break;
 			// Если принят конец упреждающих данных клиента
 			case static_cast <uint8_t> (handshake::type_t::EARLY): {
@@ -6901,7 +7514,7 @@ context::error_t nts::internal::Engine::handle(const handshake::type_t type, con
 					 */
 					return this->abort(error, blame(error, ((error == context::error_t::EXTENSION) ? alert::description_t::EXTENSION :
 						((error == context::error_t::STATUS) ? alert::description_t::STATUS :
-						((error == context::error_t::CERTIFICATE) ? alert::description_t::DECODE : alert::description_t::BADCERT)))));
+						(((error == context::error_t::CERTIFICATE) || (error == context::error_t::TIMESTAMPS)) ? alert::description_t::DECODE : alert::description_t::BADCERT)))));
 			} break;
 			// Если принята цепочка сертификатов собеседника
 			case static_cast <uint8_t> (handshake::type_t::CERTIFICATE): {
@@ -6920,7 +7533,7 @@ context::error_t nts::internal::Engine::handle(const handshake::type_t type, con
 					 */
 					return this->abort(error, blame(error, ((error == context::error_t::EXTENSION) ? alert::description_t::EXTENSION :
 						((error == context::error_t::STATUS) ? alert::description_t::STATUS :
-						((error == context::error_t::CERTIFICATE) ? alert::description_t::DECODE : alert::description_t::BADCERT)))));
+						(((error == context::error_t::CERTIFICATE) || (error == context::error_t::TIMESTAMPS)) ? alert::description_t::DECODE : alert::description_t::BADCERT)))));
 			} break;
 			// Если принята подпись владения ключом собеседника
 			case static_cast <uint8_t> (handshake::type_t::VERIFY): {
@@ -7017,6 +7630,15 @@ context::error_t nts::internal::Engine::handle(const handshake::type_t type, con
 				}
 				// Прекращаем ход упреждающих данных связи
 				this->_earlying = false;
+			}
+			// Если прикладные настройки согласованы и упреждение не принято
+			if(this->_settled && !this->_accepted){
+				// Выполняем отправку защищённых расширений клиента
+				error = this->stating();
+				// Если защищённые расширения клиента отправить не удалось
+				if(error != context::error_t::NONE)
+					// Выводим отказ отправки защищённых расширений клиента
+					return this->abort(error, alert::description_t::INTERNAL);
 			}
 			// Если подлинность клиента запрошена сервером
 			if(this->_requested){
@@ -7215,6 +7837,302 @@ void nts::internal::Engine::staple(const vector <uint8_t> & response, const size
 		// Запоминаем нехватку памяти до заведения связи
 		this->_starved = true;
 	}
+}
+/**
+ * @brief Метод установки запроса меток времени сертификата собеседника
+ *
+ * @param request запрашиваются ли метки времени сертификата собеседника
+ *
+ */
+void nts::internal::Engine::timestamps(const bool request) noexcept {
+	// Устанавливаем признак запроса меток времени
+	this->_stamping = request;
+}
+/**
+ * @brief Метод установки перечня меток времени своего сертификата для выдачи по запросу
+ *
+ * @param list перечень меток времени как записан (SignedCertificateTimestampList)
+ *
+ */
+void nts::internal::Engine::timestamps(const vector <uint8_t> & list) noexcept {
+	/**
+	 * Выполняем перехват ошибок работы с памятью: установщик отказа не выводит, и
+	 * нехватка памяти помнится до заведения связи
+	 */
+	try {
+		// Запоминаем перечень меток времени
+		this->_stamps = list;
+	/**
+	 * Если памяти под перечень не хватило
+	 */
+	} catch(const bad_alloc &) {
+		// Выполняем сброс перечня
+		this->_stamps.clear();
+		// Запоминаем, что настройкам связи памяти не хватило
+		this->_starved = true;
+	}
+}
+/**
+ * @brief Метод получения перечня меток времени сертификата собеседника
+ *
+ * @return перечень меток времени как записан, пустой без ответа
+ *
+ */
+const vector <uint8_t> & nts::internal::Engine::timestamps() const noexcept {
+	// Выводим перечень меток времени
+	return this->_timestamps;
+}
+/**
+ * @brief Метод установки перечня доверенных удостоверяющих центров для запроса подлинности
+ *
+ * @param names имена как записаны (DER X.501 Name)
+ *
+ */
+void nts::internal::Engine::authorities(const vector <vector <uint8_t>> & names) noexcept {
+	/**
+	 * Выполняем перехват ошибок работы с памятью: установщик отказа не выводит, и
+	 * нехватка памяти помнится до заведения связи
+	 */
+	try {
+		// Запоминаем перечень доверенных центров
+		this->_trusted = names;
+	/**
+	 * Если памяти под перечень не хватило
+	 */
+	} catch(const bad_alloc &) {
+		// Выполняем сброс перечня
+		this->_trusted.clear();
+		// Запоминаем, что настройкам связи памяти не хватило
+		this->_starved = true;
+	}
+}
+/**
+ * @brief Метод получения перечня доверенных удостоверяющих центров из запроса подлинности
+ *
+ * @return имена как записаны, пусто без запроса либо без перечня
+ *
+ */
+const vector <vector <uint8_t>> & nts::internal::Engine::authorities() const noexcept {
+	// Выводим перечень доверенных центров
+	return this->_authorities;
+}
+/**
+ * @brief Метод установки выработки следующего протокола NPN
+ *
+ * @param negotiation предлагается ли (объявляется ли) выработка NPN
+ *
+ */
+void nts::internal::Engine::negotiation(const bool negotiation) noexcept {
+	// Устанавливаем признак выработки NPN
+	this->_negotiating = negotiation;
+}
+/**
+ * @brief Метод проверки выработки протокола связи через NPN
+ *
+ * @return признак того, что протокол связи взят выработкой NPN
+ *
+ */
+bool nts::internal::Engine::negotiated() const noexcept {
+	// Выводим признак выработки NPN
+	return this->_negotiated;
+}
+/**
+ * @brief Метод отправки сообщения NextProtocol выработки NPN клиентом издания TLS 1.2
+ *
+ * @return отказ отправки сообщения
+ *
+ */
+context::error_t nts::internal::Engine::announcing() noexcept {
+	// Если связь ведётся сервером либо выработка не состоялась
+	if(this->_server || !this->_negotiated)
+		// Выводим успешность: слать нечего
+		return context::error_t::NONE;
+	// Объект составителя тела сообщения
+	field::builder_t builder;
+	// Отказ составления
+	field::error_t outcome = builder.open(1);
+	// Если имя открыто
+	if(outcome == field::error_t::NONE)
+		// Записываем выбранный протокол
+		outcome = builder.bytes(view_t(reinterpret_cast <const uint8_t *> (this->_protocol.data()), this->_protocol.size()));
+	// Если имя записано
+	if(outcome == field::error_t::NONE)
+		// Закрываем имя
+		outcome = builder.close();
+	// Черновик draft-agl-tls-nextprotoneg: заполнение нулями до кратной 32 длины тела
+	const size_t padding = (32 - ((this->_protocol.size() + 2) % 32));
+	// Нули заполнения
+	static const uint8_t ZEROS[32] = {0};
+	// Если заполнение открыть удалось
+	if((outcome == field::error_t::NONE) && ((outcome = builder.open(1)) == field::error_t::NONE))
+		// Записываем нули заполнения
+		outcome = builder.bytes(view_t(ZEROS, padding));
+	// Если заполнение записано
+	if(outcome == field::error_t::NONE)
+		// Закрываем заполнение
+		outcome = builder.close();
+	// Если сообщение составить не удалось
+	if(outcome != field::error_t::NONE)
+		// Выводим отказ составления сообщения
+		return translate(outcome, context::error_t::MESSAGE);
+	// Запоминаем, что сообщение NextProtocol прошло
+	this->_announced = true;
+	// Выводим итог отправки сообщения
+	return this->send(handshake::type_t::NEXT_PROTOCOL, builder.data());
+}
+/**
+ * @brief Метод принятия предела record_size_limit, присланного собеседником (раздел 4 RFC 8449)
+ *
+ * @param value  присланный предел длины принимаемой собеседником записи
+ * @param legacy признак издания 1.2: предел без октета вида содержимого
+ *
+ * @return       результат работы: NONE при успехе либо ошибка с отправленным извещением
+ */
+context::error_t nts::internal::Engine::bounding(const uint16_t value, const bool legacy) noexcept {
+	/**
+	 * Раздел 4 RFC 8449: предел меньше 64 недопустим - illegal_parameter; предел выше
+	 * дозволенного протоколом не ошибка, но записи длиннее протокольного предела не шлются;
+	 * в TLS 1.3 предел считается вместе с октетом вида содержимого, потому полезная часть на
+	 * единицу короче. Раздел 5: сервер, поддерживающий record_size_limit, не отвечает
+	 * max_fragment_length, оба ответа разом - illegal_parameter
+	 */
+	if((value < 64) || (this->_sizing == 2))
+		// Выходим с ошибкой недопустимого значения
+		return this->abort(context::error_t::PARAMETERS, alert::description_t::PARAMETER);
+	// Полезная длина записи под присланный предел: без октета вида у TLS 1.3
+	const size_t outgoing = (static_cast <size_t> (value) - (legacy ? 0 : 1));
+	// Применяем предел к отправке, не выходя за предел протокола
+	this->_outgoing = ((outgoing > record::RECORD_PLAINTEXT) ? record::RECORD_PLAINTEXT : outgoing);
+	// Если свой предел был предложен, собеседник его подтвердил и обязан ему следовать: стережём приём
+	if(this->_bounded >= 64){
+		// Полезная длина принимаемой записи под свой предел
+		const size_t incoming = (static_cast <size_t> (this->_bounded) - (legacy ? 0 : 1));
+		// Применяем свой предел к приёму, не выходя за предел протокола
+		this->_incoming = ((incoming > record::RECORD_PLAINTEXT) ? record::RECORD_PLAINTEXT : incoming);
+	}
+	// Отмечаем действующее расширение
+	this->_sizing = 1;
+	// Выводим успешность
+	return context::error_t::NONE;
+}
+/**
+ * @brief Метод принятия кода max_fragment_length, присланного сервером (раздел 4 RFC 6066)
+ *
+ * @param code   присланный код длины: 1…4 для 2^9…2^12 байтов
+ * @param legacy признак издания 1.2: длина без октета вида содержимого
+ *
+ * @return       результат работы: NONE при успехе либо ошибка с отправленным извещением
+ */
+context::error_t nts::internal::Engine::fragmenting(const uint8_t code, const bool legacy) noexcept {
+	/**
+	 * Раздел 4 RFC 6066: сервер обязан вернуть ровно предложенный код, иной код либо код вне
+	 * 1…4 - illegal_parameter; договорённая длина связывает обе стороны. Раздел 5 RFC 8449:
+	 * рядом с record_size_limit этому ответу не место
+	 */
+	if((code < 1) || (code > 4) || (code != this->_fragmented) || (this->_sizing == 1))
+		// Выходим с ошибкой недопустимого значения
+		return this->abort(context::error_t::PARAMETERS, alert::description_t::PARAMETER);
+	// Договорённая длина: 2^(8 + код), у TLS 1.3 без октета вида содержимого
+	const size_t length = ((static_cast <size_t> (1) << (8 + code)) - (legacy ? 0 : 1));
+	// Применяем длину к обеим сторонам
+	this->_outgoing = length;
+	this->_incoming = length;
+	// Отмечаем действующее расширение
+	this->_sizing = 2;
+	// Выводим успешность
+	return context::error_t::NONE;
+}
+/**
+ * @brief Метод разбора сервером пределов длины записи, предложенных приветствием клиента (RFC 8449, RFC 6066)
+ *
+ * @param greeting приветствие клиента
+ *
+ * @return         результат работы: NONE при успехе либо ошибка с отправленным извещением
+ */
+context::error_t nts::internal::Engine::sizing(const hello::client_t & greeting) noexcept {
+	// Пределы над дейтаграммами не договариваются: там длину записи диктует MTU полёта
+	if(this->_transport == context::transport_t::DATAGRAMS)
+		// Выводим успешность
+		return context::error_t::NONE;
+	// Расширение предела record_size_limit клиента
+	const hello::extension_t * bound = hello::extension(greeting.extensions, static_cast <uint16_t> (extension::type_t::LIMIT));
+	// Расширение длины max_fragment_length клиента
+	const hello::extension_t * fragment = hello::extension(greeting.extensions, static_cast <uint16_t> (extension::type_t::FRAGMENT));
+	// Если клиент предложил предел record_size_limit
+	if(bound != nullptr){
+		// Если тело расширения не двухбайтовое
+		if(bound->data.size != 2)
+			// Выходим с ошибкой разбора
+			return this->abort(context::error_t::MESSAGE, alert::description_t::DECODE);
+		// Присланный предел
+		const uint16_t value = static_cast <uint16_t> ((static_cast <uint16_t> (bound->data.data[0]) << 8) | bound->data.data[1]);
+		// Раздел 4 RFC 8449: предел меньше 64 недопустим
+		if(value < 64)
+			// Выходим с ошибкой недопустимого значения
+			return this->abort(context::error_t::PARAMETERS, alert::description_t::PARAMETER);
+		// Полезная длина отправляемой записи под предел клиента: без октета вида у TLS 1.3
+		const size_t outgoing = (static_cast <size_t> (value) - (this->_legacy ? 0 : 1));
+		// Применяем предел клиента к отправке, не выходя за предел протокола
+		this->_outgoing = ((outgoing > record::RECORD_PLAINTEXT) ? record::RECORD_PLAINTEXT : outgoing);
+		// Запоминаем предложенное значение
+		this->_bounding = value;
+		// Свой предел на приём: наибольший дозволенный протоколом, у TLS 1.3 с октетом вида
+		const uint16_t own = static_cast <uint16_t> (record::RECORD_PLAINTEXT + (this->_legacy ? 0 : 1));
+		// Составляем тело ответного расширения
+		this->_sized[0] = static_cast <uint8_t> (own >> 8);
+		this->_sized[1] = static_cast <uint8_t> (own & 0xFF);
+		/**
+		 * Раздел 5 RFC 8449: сервер, поддерживающий record_size_limit, отвечает лишь им,
+		 * а max_fragment_length рядом с ним пропускает без ответа
+		 */
+		this->_sizing = 1;
+	// Если клиент предложил лишь длину max_fragment_length
+	} else if(fragment != nullptr) {
+		// Если тело расширения не однобайтовое
+		if(fragment->data.size != 1)
+			// Выходим с ошибкой разбора
+			return this->abort(context::error_t::MESSAGE, alert::description_t::DECODE);
+		// Присланный код длины
+		const uint8_t code = fragment->data.data[0];
+		// Раздел 4 RFC 6066: код вне 1…4 недопустим
+		if((code < 1) || (code > 4))
+			// Выходим с ошибкой недопустимого значения
+			return this->abort(context::error_t::PARAMETERS, alert::description_t::PARAMETER);
+		// Договорённая длина: 2^(8 + код), у TLS 1.3 без октета вида содержимого
+		const size_t length = ((static_cast <size_t> (1) << (8 + code)) - (this->_legacy ? 0 : 1));
+		/**
+		 * Отправку связываем сразу, приём - лишь с отправкой ответа: до него договора нет,
+		 * и второе приветствие клиента после HelloRetryRequest длиной не ограничено
+		 */
+		this->_outgoing = length;
+		// Запоминаем предложенный код
+		this->_fragmenting = code;
+		// Составляем тело ответного расширения: тот же код
+		this->_sized[0] = code;
+		this->_sized[1] = 0;
+		// Отмечаем действующее расширение
+		this->_sizing = 2;
+	}
+	// Выводим успешность
+	return context::error_t::NONE;
+}
+/**
+ * @brief Метод получения предела длины открытого содержимого отправляемой записи
+ *
+ * @return предел в байтах: объявленный собеседником либо предел протокола
+ */
+size_t nts::internal::Engine::ceiling() const noexcept {
+	// Выводим предел отправки
+	return this->_outgoing;
+}
+/**
+ * @brief Метод получения предела длины открытого содержимого принимаемой записи
+ *
+ * @return предел в байтах: свой объявленный и подтверждённый либо предел протокола
+ */
+size_t nts::internal::Engine::threshold() const noexcept {
+	// Выводим предел приёма
+	return this->_incoming;
 }
 /**
  * @brief Метод получения ответа о состоянии сертификата собеседника
@@ -7479,6 +8397,178 @@ void nts::internal::Engine::protocols(const vector <string> & protocols) noexcep
 		this->_protocols.clear();
 		// Запоминаем, что настройкам связи памяти не хватило
 		this->_starved = true;
+	}
+}
+/**
+ * @brief Метод объявления прикладных настроек ALPS для прикладного протокола
+ *
+ * @param protocol прикладной протокол, для которого объявляются настройки
+ * @param value    прикладные настройки как есть
+ *
+ */
+void nts::internal::Engine::settings(const string & protocol, const vector <uint8_t> & value) noexcept {
+	/**
+	 * Выполняем перехват ошибок работы с памятью: установщик отказа не выводит, и
+	 * нехватка памяти помнится до заведения связи
+	 */
+	try {
+		/**
+		 * Выполняем перебор объявленных прикладных настроек
+		 */
+		for(size_t i = 0; i < this->_settings.size(); i++){
+			// Если настройки для протокола уже объявлены
+			if(this->_settings[i].protocol.compare(protocol) == 0){
+				// Заменяем настройки протокола
+				this->_settings[i].value = value;
+				// Выходим из метода
+				return;
+			}
+		}
+		// Настройки протокола
+		setting_t item;
+		// Устанавливаем протокол настроек
+		item.protocol = protocol;
+		// Устанавливаем настройки протокола
+		item.value = value;
+		// Объявляем настройки протокола
+		this->_settings.push_back(item);
+	/**
+	 * Если памяти под прикладные настройки связи не хватило
+	 */
+	} catch(const bad_alloc &) {
+		// Выполняем сброс объявленных настроек
+		this->_settings.clear();
+		// Запоминаем, что настройкам связи памяти не хватило
+		this->_starved = true;
+	}
+}
+/**
+ * @brief Метод установки точки кода расширения прикладных настроек ALPS
+ *
+ * @param type вид расширения: SETTINGS либо SETTINGS_OLD
+ *
+ */
+void nts::internal::Engine::codepoint(const uint16_t type) noexcept {
+	// Если вид расширения есть одна из точек кода ALPS
+	if((type == static_cast <uint16_t> (extension::type_t::SETTINGS)) || (type == static_cast <uint16_t> (extension::type_t::SETTINGS_OLD)))
+		// Устанавливаем точку кода
+		this->_codepoint = type;
+}
+/**
+ * @brief Метод проверки согласования прикладных настроек ALPS
+ *
+ * @return признак того, что прикладные настройки сторонами согласованы
+ *
+ */
+bool nts::internal::Engine::settled() const noexcept {
+	// Выводим признак согласования прикладных настроек
+	return this->_settled;
+}
+/**
+ * @brief Метод получения прикладных настроек собеседника
+ *
+ * @return прикладные настройки собеседника как есть
+ *
+ */
+const vector <uint8_t> & nts::internal::Engine::settings() const noexcept {
+	// Выводим прикладные настройки собеседника
+	return this->_obtained;
+}
+/**
+ * @brief Метод получения точки кода расширения прикладных настроек ALPS
+ *
+ * @return вид расширения, которым ведётся связь
+ *
+ */
+uint16_t nts::internal::Engine::codepoint() const noexcept {
+	// Выводим точку кода
+	return this->_codepoint;
+}
+/**
+ * @brief Метод поиска своих прикладных настроек по протоколу
+ *
+ * @param protocol прикладной протокол, настройки которого ищутся
+ * @param result   место, в которое помещаются найденные настройки
+ *
+ * @return         признак того, что настройки для протокола объявлены
+ *
+ */
+bool nts::internal::Engine::pick(const string & protocol, view_t & result) const noexcept {
+	/**
+	 * Выполняем перебор объявленных прикладных настроек
+	 */
+	for(size_t i = 0; i < this->_settings.size(); i++){
+		// Если настройки для протокола объявлены
+		if(this->_settings[i].protocol.compare(protocol) == 0){
+			// Выводим настройки протокола
+			result = view_t(this->_settings[i].value.data(), this->_settings[i].value.size());
+			// Выводим признак находки
+			return true;
+		}
+	}
+	// Выводим признак отсутствия настроек
+	return false;
+}
+/**
+ * @brief Метод сличения состояния прикладных настроек связи с билетом
+ *
+ * @param ticket билет, с которым сличается состояние
+ *
+ * @return       признак того, что состояние равно билетному
+ *
+ */
+bool nts::internal::Engine::inheritable(const context::ticket_t & ticket) const noexcept {
+	// Свои настройки протокола билета
+	view_t applied;
+	// Признак того, что настройки для протокола билета объявлены
+	const bool found = this->pick(ticket.protocol, applied);
+	/**
+	 * Черновик draft-vvv-tls-alps: упреждение идёт лишь при том же состоянии настроек,
+	 * что и у выдавшей билет связи - и признак согласования, и сами настройки
+	 */
+	if(found != ticket.settled)
+		// Выводим признак расхождения
+		return false;
+	// Если настройки не объявлены ни теперь, ни билетом
+	if(!found)
+		// Выводим признак равенства
+		return true;
+	// Выводим признак равенства настроек
+	return ((applied.size == ticket.settings.size()) && ((applied.size == 0) || (::memcmp(applied.data, ticket.settings.data(), applied.size) == 0)));
+}
+/**
+ * @brief Метод отправки защищённых расширений клиента с прикладными настройками
+ *
+ * @return отказ отправки защищённых расширений клиента
+ *
+ */
+context::error_t nts::internal::Engine::stating() noexcept {
+	/**
+	 * Выполняем перехват ошибок работы с памятью
+	 */
+	try {
+		// Перечень расширений, объявляемых клиентом под защитой
+		vector <hello::extension_t> items;
+		// Черновик draft-vvv-tls-alps: сообщение несёт одно расширение - свои настройки своей точкой кода
+		items.push_back(hello::extension_t(this->_codepoint, view_t(this->_applied.data(), this->_applied.size())));
+		// Накопитель, в который складывается тело сообщения
+		vector <uint8_t> extensions;
+		// Отказ составления тела сообщения
+		const context::error_t failure = block(items, extensions);
+		// Если тело сообщения составить не удалось
+		if(failure != context::error_t::NONE)
+			// Выводим отказ составления тела сообщения
+			return failure;
+		// Запоминаем, что защищённые расширения клиента прошли по связи
+		this->_stated = true;
+		// Выводим итог отправки сообщения
+		return this->send(handshake::type_t::EXTENSIONS, view_t(extensions.data(), extensions.size()));
+	/**
+	 * Если памяти под сообщение не хватило
+	 */
+	} catch(const bad_alloc &) {
+		// Выводим отказ нехватки памяти
+		return context::error_t::MEMORY;
 	}
 }
 /**
@@ -8028,6 +9118,13 @@ context::error_t nts::internal::Engine::start() noexcept {
 		// Выводим отказ нехватки настроек связи
 		return context::error_t::SETTINGS;
 	/**
+	 * Издание 1.1 (DTLS 1.0 по RFC 4347) ведётся лишь дейтаграммами: потоком TLS 1.0 и 1.1
+	 * не заводятся - у AWH пол переноса записями 1.2, и опускаться ниже незачем
+	 */
+	if((this->_transport != context::transport_t::DATAGRAMS) && (this->_lowest < LEGACY))
+		// Выводим отказ негодных настроек
+		return context::error_t::SETTINGS;
+	/**
 	 * Выполняем перебор алгоритмов сжатия, предоставленных потребителем
 	 */
 	for(size_t i = 0; i < this->_codecs.size(); i++){
@@ -8038,6 +9135,52 @@ context::error_t nts::internal::Engine::start() noexcept {
 		if((this->_codecs[i].algorithm == 0) || (this->_codecs[i].compress == nullptr) || (this->_codecs[i].decompress == nullptr))
 			// Выводим отказ нехватки настроек связи
 			return context::error_t::SETTINGS;
+	}
+	// Если перечень доверенных удостоверяющих центров задан
+	if(!this->_trusted.empty()){
+		// Тело перечня, составленное ради проверки имён
+		vector <uint8_t> names;
+		// Отказ проверки перечня: пустое имя либо имя не SEQUENCE отвергается заведением связи
+		const context::error_t named = translate(extension::authorities(this->_trusted, names), context::error_t::SETTINGS);
+		// Если перечень негоден либо памяти под проверку не хватило
+		if(named != context::error_t::NONE)
+			// Выводим отказ негодных настроек либо нехватки памяти
+			return named;
+	}
+	// Если перечень меток времени своего сертификата задан
+	if(!this->_stamps.empty()){
+		// Записи перечня, разобранные ради проверки вида
+		vector <vector <uint8_t>> entries;
+		/**
+		 * Раздел 3.3 RFC 6962: перечень выдаётся как записан, оттого негодная запись
+		 * отвергается заведением связи, а не собеседником
+		 */
+		// Отказ проверки перечня
+		const context::error_t checked = translate(extension::timestamps(view_t(this->_stamps.data(), this->_stamps.size()), entries), context::error_t::SETTINGS);
+		// Если перечень негоден либо памяти под проверку не хватило
+		if(checked != context::error_t::NONE)
+			// Выводим отказ негодных настроек либо нехватки памяти
+			return checked;
+	}
+	/**
+	 * Выполняем перебор объявленных прикладных настроек
+	 */
+	for(size_t i = 0; i < this->_settings.size(); i++){
+		// Признак того, что протокол настроек предлагается связью
+		bool offered = false;
+		/**
+		 * Выполняем перебор прикладных протоколов связи
+		 */
+		for(size_t j = 0; (j < this->_protocols.size()) && !offered; j++)
+			// Запоминаем, предлагается ли протокол настроек связью
+			offered = (this->_settings[i].protocol.compare(this->_protocols[j]) == 0);
+		/**
+		 * Черновик draft-vvv-tls-alps: настройки объявляются лишь для протокола из перечня
+		 * ALPN, а имя протокола по проводу занимает от одного до 255 байтов
+		 */
+		if(!offered || this->_settings[i].protocol.empty() || (this->_settings[i].protocol.size() > 0xFF))
+			// Выводим отказ протокола, связью не предлагаемого
+			return context::error_t::PROTOCOL;
 	}
 	/**
 	 * Сервер без своей подлинности связь завести не вправе: подтверждать её ему нечем;
@@ -8296,6 +9439,41 @@ void nts::internal::Engine::clear() noexcept {
 	this->_passed = 0;
 	// Выполняем сброс перечня расширений, предложенных приветствием
 	this->_offered.clear();
+	// Выполняем сброс пределов длины записей к умолчанию протокола: пределы договариваются заново каждым рукопожатием (раздел 4 RFC 8449)
+	this->_outgoing = record::RECORD_PLAINTEXT;
+	this->_incoming = record::RECORD_PLAINTEXT;
+	// Выполняем сброс признака действующего расширения предела и присланных клиентом значений
+	this->_sizing = 0;
+	this->_bounding = 0;
+	this->_fragmenting = 0;
+	// Выполняем сброс признака предложенного heartbeat
+	this->_heartbeating = false;
+	// Выполняем сброс признака запроса меток времени сертификата собеседником
+	this->_stamped = false;
+	// Выполняем сброс перечня меток времени сертификата собеседника
+	this->_timestamps.clear();
+	// Выполняем сброс перечня доверенных центров собеседника
+	this->_authorities.clear();
+	// Выполняем сброс признака издания DTLS 1.0
+	this->_ancient = false;
+	// Выполняем сброс признака выработки NPN
+	this->_negotiated = false;
+	// Выполняем сброс признака прохождения NextProtocol
+	this->_announced = false;
+	// Выполняем сброс признака согласования прикладных настроек
+	this->_settled = false;
+	// Выполняем сброс признака прохождения защищённых расширений клиента
+	this->_stated = false;
+	// Выполняем сброс своих прикладных настроек связи
+	this->_applied.clear();
+	// Выполняем сброс прикладных настроек собеседника
+	this->_obtained.clear();
+	// Выполняем сброс признака согласования настроек у выдавшей билет связи
+	this->_bequeathed = false;
+	// Выполняем сброс своих настроек выдавшей билет связи
+	this->_bequest.clear();
+	// Выполняем сброс настроек собеседника выдавшей билет связи
+	this->_heritage.clear();
 	// Выполняем сброс метки возврата состояния, принятой от собеседника
 	this->_label.clear();
 	// Выполняем сброс схем подписи, признаваемых собеседником
@@ -8706,7 +9884,7 @@ context::error_t nts::internal::Engine::push(const view_t & data) noexcept {
 		 * защита вправе раздуть запись набивкой, и предел этот стережёт уже вскрытое
 		 * содержимое, а не пришедшую запись
 		 */
-		if(content.size > record::RECORD_PLAINTEXT)
+		if(content.size > this->_incoming)
 			// Выводим отказ выхода открытого содержимого за дозволенный предел
 			return this->abort(context::error_t::RECORD, alert::description_t::OVERSIZE);
 		/**
@@ -8847,6 +10025,17 @@ context::error_t nts::internal::Engine::push(const view_t & data) noexcept {
 					// Выводим отказ нехватки памяти
 					return this->abort(context::error_t::MEMORY, alert::description_t::INTERNAL);
 				}
+			} break;
+			/**
+			 * RFC 6520: сердцебиение принимается лишь при предложенном расширении и роняется
+			 * молча - ответа HeartbeatResponse нет намеренно (усилитель и поддержание связи
+			 * собеседнику не даются; отпечаток - это октеты приветствия, не поведение на приём)
+			 */
+			case static_cast <uint8_t> (record::type_t::HEARTBEAT): {
+				// Если heartbeat не предлагался, запись неожиданна
+				if(!this->_heartbeating)
+					// Выходим с ошибкой
+					return this->abort(context::error_t::RECORD, alert::description_t::UNEXPECTED);
 			} break;
 			/**
 			 * Ветвь эта достижима: раздел 5 RFC 8446 велит обрывать связь извещением
@@ -9289,6 +10478,12 @@ context::error_t nts::internal::Engine::issue() noexcept {
 		try {
 			// Запоминаем прикладной протокол связи, выдающей билет
 			item.protocol = this->_protocol;
+			// Устанавливаем признак согласования прикладных настроек связи
+			item.settled = this->_settled;
+			// Устанавливаем свои прикладные настройки связи
+			item.settings = this->_applied;
+			// Устанавливаем прикладные настройки собеседника
+			item.obtained = this->_obtained;
 			// Переносим тело выданного билета возобновления связи
 			item.identity.assign(identity, identity + sizeof(identity));
 			// Переносим ключ выданного билета возобновления связи длиною в хеш набора
@@ -9615,6 +10810,12 @@ context::error_t nts::internal::Engine::legacy(const handshake::type_t type, con
 				if(error != context::error_t::NONE)
 					// Выводим отказ отправки смены набора шифрования
 					return this->abort(error, alert::description_t::INTERNAL);
+				// Выполняем отправку выбранного протокола выработки NPN
+				error = this->announcing();
+				// Если выбранный протокол отправить не удалось
+				if(error != context::error_t::NONE)
+					// Выводим отказ отправки выбранного протокола
+					return this->abort(error, alert::description_t::INTERNAL);
 				// Выполняем отправку завершения рукопожатия клиентом
 				error = this->finishing();
 				// Если завершение рукопожатия отправить не удалось
@@ -9676,10 +10877,58 @@ context::error_t nts::internal::Engine::legacy(const handshake::type_t type, con
 						return this->abort(error, alert::description_t::INTERNAL);
 				}
 			} break;
+			// Если принят выбранный протокол выработки NPN
+			case static_cast <uint8_t> (handshake::type_t::NEXT_PROTOCOL): {
+				/**
+				 * Черновик draft-agl-tls-nextprotoneg: сообщение идёт от клиента за сменой набора
+				 * и прежде завершения, лишь при выработке и лишь однажды
+				 */
+				if(!this->_server || !this->_negotiated || this->_announced || (this->_phase != phase_t::FINISHED))
+					// Выводим отказ сообщения не в свой черёд
+					return this->abort(context::error_t::ORDER, alert::description_t::UNEXPECTED);
+				// Объект сканера тела сообщения
+				field::scanner_t scanner;
+				// Заводим сканер по телу сообщения
+				scanner.start(body);
+				// Выбранный протокол и заполнение
+				view_t selected, padding;
+				// Если тело сообщения сложено не по правилам
+				if((scanner.vector(selected, 1) != field::error_t::NONE) || (scanner.vector(padding, 1) != field::error_t::NONE) || (scanner.left() > 0) || (padding.size != (32 - ((selected.size + 2) % 32))))
+					// Выводим отказ разбора сообщения
+					return this->abort(context::error_t::MESSAGE, alert::description_t::DECODE);
+				/**
+				 * Выполняем перебор байтов заполнения: черновик велит нули
+				 */
+				for(size_t i = 0; i < padding.size; i++){
+					// Если байт заполнения не нуль
+					if(padding.data[i] != 0x00)
+						// Выводим отказ разбора сообщения
+						return this->abort(context::error_t::MESSAGE, alert::description_t::DECODE);
+				}
+				/**
+				 * Выполняем перехват ошибок работы с памятью
+				 */
+				try {
+					// Запоминаем протокол связи, выбранный клиентом
+					this->_protocol.assign(reinterpret_cast <const char *> (selected.data), selected.size);
+				/**
+				 * Если памяти под название протокола не хватило
+				 */
+				} catch(const std::bad_alloc &) {
+					// Выводим отказ нехватки памяти
+					return this->abort(context::error_t::MEMORY, alert::description_t::INTERNAL);
+				}
+				// Запоминаем, что сообщение NextProtocol прошло
+				this->_announced = true;
+			} break;
 			// Если принято завершение рукопожатия собеседником
 			case static_cast <uint8_t> (handshake::type_t::FINISHED): {
 				// Раздел 7.1 RFC 5246: завершение идёт сразу за сменой набора шифрования
 				if(this->_phase != phase_t::FINISHED)
+					// Выводим отказ сообщения не в свой черёд
+					return this->abort(context::error_t::ORDER, alert::description_t::UNEXPECTED);
+				// Черновик draft-agl-tls-nextprotoneg: при выработке завершению клиента обязан предшествовать NextProtocol
+				if(this->_server && this->_negotiated && !this->_announced)
 					// Выводим отказ сообщения не в свой черёд
 					return this->abort(context::error_t::ORDER, alert::description_t::UNEXPECTED);
 				// Выполняем проверку завершения рукопожатия собеседником
@@ -9773,14 +11022,18 @@ context::error_t nts::internal::Engine::welcome(const hello::client_t & greeting
 		context::error_t failure = context::error_t::NONE;
 		// Запоминаем, что связь ведётся изданием TLS 1.2
 		this->_legacy = true;
-		// Запоминаем согласованное издание протокола кодом TLS 1.2: единая шкала изданий на любом переносе
-		this->_version = LEGACY;
+		// Запоминаем согласованное издание протокола кодом TLS 1.2 либо 1.1: единая шкала изданий на любом переносе
+		this->_version = (this->_ancient ? ANCIENT : LEGACY);
 		// Раздел 6.2.3 RFC 5246: защищённая запись издания TLS 1.2 вмещает до 2^14 + 2048 байтов
 		this->_records.limit(record::RECORD_PROTECTED);
 		// Раздел 4.1 RFC 6347: перенос дейтаграммами отныне ведётся изданием DTLS 1.2
 		if(this->_transport == context::transport_t::DATAGRAMS)
 			// Переводим перенос на издание DTLS 1.2
 			this->_flight.legacy(true);
+		// Раздел 4.1 RFC 4347: изданием DTLS 1.0 записи несут 0xFEFF
+		if(this->_transport == context::transport_t::DATAGRAMS)
+			// Переводим перенос на издание DTLS 1.0 либо оставляем 1.2
+			this->_flight.ancient(this->_ancient);
 		/**
 		 * Раздел 5.1 RFC 7627: расширенный главный секрет связь ведёт безусловно, ибо
 		 * обычный главный секрет открыт подмене тройным рукопожатием; клиент без этого
@@ -9872,8 +11125,42 @@ context::error_t nts::internal::Engine::welcome(const hello::client_t & greeting
 					return this->abort(context::error_t::PROTOCOL, alert::description_t::PROTOCOL);
 			}
 		}
+		// Разбираем предложенные клиентом пределы длины записи (RFC 8449, раздел 4 RFC 6066)
+		failure = this->sizing(greeting);
+		// Если пределы не приняты
+		if(failure != context::error_t::NONE)
+			// Выводим ошибку
+			return failure;
+		// Если клиент предложил heartbeat (RFC 6520), его записи вида 24 будут роняться молча
+		this->_heartbeating = (hello::extension(greeting.extensions, HEARTBEAT_EXTENSION) != nullptr);
+		// Выполняем сброс признака выработки NPN
+		this->_negotiated = false;
+		// Разыскиваем расширение выработки NPN
+		extension = hello::extension(greeting.extensions, static_cast <uint16_t> (extension::type_t::NEGOTIATION));
+		// Если выработка NPN клиентом предложена
+		if(extension != nullptr){
+			// Черновик draft-agl-tls-nextprotoneg: тело у клиента пусто, а непустое выдаёт негодное приветствие
+			if(extension->data.size > 0)
+				// Выводим отказ негодного расширения
+				return this->abort(context::error_t::MESSAGE, alert::description_t::DECODE);
+			// NPN объявляется лишь по настройке потребителя и лишь когда ALPN не выбран (как у BoringSSL)
+			this->_negotiated = (this->_negotiating && this->_protocol.empty());
+		}
 		// Выполняем сброс признака запроса состояния прежним приветствием
 		this->_inquired = false;
+		// Выполняем сброс признака запроса меток времени сертификата
+		this->_stamped = false;
+		// Разыскиваем расширение запроса меток времени сертификата
+		extension = hello::extension(greeting.extensions, static_cast <uint16_t> (extension::type_t::TIMESTAMPS));
+		// Если метки времени сертификата клиентом запрошены
+		if(extension != nullptr){
+			// Раздел 3.3.1 RFC 6962: тело запроса пусто, а непустое выдаёт негодное приветствие
+			if(extension->data.size > 0)
+				// Выводим отказ негодного расширения
+				return this->abort(context::error_t::MESSAGE, alert::description_t::DECODE);
+			// Запоминаем, что метки времени сертификата запрошены
+			this->_stamped = true;
+		}
 		// Разыскиваем расширение запроса состояния сертификата
 		extension = hello::extension(greeting.extensions, static_cast <uint16_t> (extension::type_t::STATUS));
 		// Если состояние сертификата приветствием клиента запрошено
@@ -9893,11 +11180,12 @@ context::error_t nts::internal::Engine::welcome(const hello::client_t & greeting
 		 * Раздел 7.4.1.4.1 RFC 5246: без расширения клиент признаёт лишь подписи на SHA-1,
 		 * которых связь не ведёт, - сторонам нечем сойтись
 		 */
-		if(extension == nullptr)
+		// Раздел 7.4.1.4.1 RFC 5246: схемы подписи - расширение издания 1.2; у DTLS 1.0 (TLS 1.1) их нет, и подписи идут без схем
+		if((extension == nullptr) && !this->_ancient)
 			// Выводим отказ отсутствия схем подписи в приветствии клиента
 			return this->abort(context::error_t::SCHEME, alert::description_t::HANDSHAKE);
 		// Отказ разбора расширения приветствия
-		failure = translate(extension::schemes(extension->data, this->_schemes), context::error_t::MESSAGE);
+		failure = ((extension == nullptr) ? context::error_t::NONE : translate(extension::schemes(extension->data, this->_schemes), context::error_t::MESSAGE));
 		// Если схемы подписи, признаваемые клиентом, разобрать не удалось
 		if(failure != context::error_t::NONE)
 			// Выводим отказ разбора расширения приветствия
@@ -9974,6 +11262,10 @@ context::error_t nts::internal::Engine::welcome(const hello::client_t & greeting
 					const uint16_t theirs = (this->_own ? greeting.suites[j] : greeting.suites[i]);
 					// Если набор предложен не обеими сторонами либо не принадлежит изданию TLS 1.2
 					if((static_cast <uint16_t> (mine) != theirs) || !protect::legacy(mine))
+						// Переходим к следующей паре
+						continue;
+					// Раздел 1.2 RFC 5246: изданию 1.1 годны лишь наборы CBC с HMAC-SHA1
+					if(this->_ancient && !archaic(mine))
 						// Переходим к следующей паре
 						continue;
 					/**
@@ -10062,9 +11354,13 @@ context::error_t nts::internal::Engine::welcome(const hello::client_t & greeting
 		 * заслона не кладёт, ибо выбор 1.2 у него единственно возможный, а клиент издания
 		 * 1.3 (openssl в том числе) счёл бы его подменой и оборвал бы связь
 		 */
-		if((this->_highest >= MODERN) && carries(this->_suites, false))
+		if(!this->_ancient && (this->_highest >= MODERN) && carries(this->_suites, false))
 			// Записываем заслон понижения издания протокола
 			::memcpy(this->_random + (sizeof(this->_random) - sizeof(DOWNGRADE[0])), DOWNGRADE[0], sizeof(DOWNGRADE[0]));
+		// Раздел 4.1.3 RFC 8446: сервер, способный к изданию 1.2, но ведущий связь изданием 1.1, кладёт заслон DOWNGRD00
+		else if(this->_ancient && (this->_highest >= LEGACY) && carries(this->_suites, true))
+			// Записываем заслон понижения издания протокола ниже 1.2
+			::memcpy(this->_random + (sizeof(this->_random) - sizeof(DOWNGRADE[1])), DOWNGRADE[1], sizeof(DOWNGRADE[1]));
 		// Выполняем выбор хеша переписки по набору шифрования
 		failure = this->hashing();
 		// Если хеш переписки выбрать не удалось
@@ -10081,8 +11377,8 @@ context::error_t nts::internal::Engine::welcome(const hello::client_t & greeting
 			return this->abort(recorded, alert::description_t::INTERNAL);
 		// Составляемое приветствие сервера
 		hello::server_t answer;
-		// Устанавливаем издание протокола: TLS 1.2 либо DTLS 1.2
-		answer.version = this->elder();
+		// Устанавливаем издание протокола: TLS 1.2, DTLS 1.2 либо DTLS 1.0
+		answer.version = (this->_ancient ? this->eldest() : this->elder());
 		// Переносим случайное значение своего приветствия
 		::memcpy(answer.random, this->_random, sizeof(this->_random));
 		/**
@@ -10122,10 +11418,36 @@ context::error_t nts::internal::Engine::welcome(const hello::client_t & greeting
 			// Добавляем расширение выбранного прикладного протокола
 			answer.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::PROTOCOLS), view_t(protocol.data(), protocol.size())));
 		}
+		// Если предел длины записи договорён, отвечаем клиенту своим расширением
+		if(this->_sizing != 0){
+			// Добавляем ответное расширение предела
+			answer.extensions.push_back(hello::extension_t(static_cast <uint16_t> ((this->_sizing == 1) ? extension::type_t::LIMIT : extension::type_t::FRAGMENT), view_t(this->_sized, ((this->_sizing == 1) ? 2 : 1))));
+			// С ответом договорённая длина max_fragment_length связывает и приём (раздел 4 RFC 6066)
+			if(this->_sizing == 2)
+				// Ограничиваем приём договорённой длиной
+				this->_incoming = this->_outgoing;
+		}
 		// Раздел 8 RFC 6066: состояние сертификата объявляется пустым расширением, а идёт отдельным сообщением
 		if(this->_stapling && !this->_resumed && !preshared(this->_suite))
 			// Добавляем расширение запроса состояния сертификата
 			answer.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::STATUS), view_t(nullptr, 0)));
+		// Раздел 3.3.1 RFC 6962: изданием 1.2 перечень меток времени идёт приветствием сервера по запросу, не при возобновлении и лишь при подлинности сертификатом
+		if(this->_stamped && !this->_stamps.empty() && !this->_resumed && !preshared(this->_suite))
+			// Добавляем расширение меток времени сертификата
+			answer.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::TIMESTAMPS), view_t(this->_stamps.data(), this->_stamps.size())));
+		// Накопитель, в котором лежит тело расширения выработки NPN
+		vector <uint8_t> advertised;
+		// Черновик draft-agl-tls-nextprotoneg: сервер объявляет свои протоколы по запросу клиента, и при возобновлении тоже
+		if(this->_negotiated){
+			// Отказ составления перечня протоколов
+			failure = translate(extension::negotiation(this->_protocols, advertised), context::error_t::MESSAGE);
+			// Если перечень составить не удалось
+			if(failure != context::error_t::NONE)
+				// Выводим отказ составления приветствия
+				return this->abort(failure, blame(failure, alert::description_t::INTERNAL));
+			// Добавляем расширение выработки NPN
+			answer.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::NEGOTIATION), view_t(advertised.data(), advertised.size())));
+		}
 		// Раздел 3 RFC 7366: порядок «шифрование, затем имитовставка» подтверждается пустым расширением
 		if(this->_etm)
 			// Добавляем расширение encrypt_then_mac
@@ -10277,15 +11599,25 @@ context::error_t nts::internal::Engine::greeted(const hello::server_t & answer, 
 		 * предложенных; издание TLS 1.2 предлагается лишь переносом записями и лишь в
 		 * пределах, поставленных потребителю, а ниже 1.2 связь не опускается никогда
 		 */
-		if((this->_transport == context::transport_t::LEVELS) || (this->_lowest > LEGACY) || (answer.version != this->elder()))
+		// Признак того, что сервер выбрал издание DTLS 1.0 (RFC 4347), дозволенное связи
+		const bool oldest = ((this->_transport == context::transport_t::DATAGRAMS) && (this->_lowest <= ANCIENT) && (answer.version == this->eldest()) && archaical(this->_suites));
+		if((this->_transport == context::transport_t::LEVELS) || ((this->_lowest > LEGACY) && !oldest) || ((answer.version != this->elder()) && !oldest) || ((answer.version == this->elder()) && (this->_highest < LEGACY)))
 			// Выводим отказ несовпадения издания протокола
 			return this->abort(context::error_t::VERSION, alert::description_t::VERSION);
+		// Запоминаем, ведётся ли связь изданием DTLS 1.0
+		this->_ancient = oldest;
 		/**
 		 * Раздел 4.1.3 RFC 8446: клиент, предлагавший издание 1.3, обрывается на обоих
 		 * заслонах понижения; клиент одного лишь издания 1.2 судит лишь заслон понижения
-		 * ниже 1.2 - заслон 1.3 законно кладёт сервер, знающий издание 1.3
+		 * ниже 1.2 - заслон 1.3 законно кладёт сервер, знающий издание 1.3. Изданием 1.1
+		 * заслон 1.3 (DOWNGRD01) - подмена всегда, заслон 1.2 (DOWNGRD00) - подмена лишь для
+		 * клиента, предлагавшего 1.2
 		 */
-		for(size_t i = (this->_proposed ? 0 : 1); i < (sizeof(DOWNGRADE) / sizeof(DOWNGRADE[0])); i++){
+		for(size_t i = ((this->_proposed || oldest) ? 0 : 1); i < (sizeof(DOWNGRADE) / sizeof(DOWNGRADE[0])); i++){
+			// Если заслон 1.2 у клиента одного лишь издания 1.1 - он законен
+			if(oldest && (i == 1) && (this->_highest < LEGACY))
+				// Переходим к следующему заслону
+				continue;
 			// Если заслон понижения лежит в хвосте случайного значения сервера
 			if(::memcmp(answer.random + (sizeof(answer.random) - sizeof(DOWNGRADE[i])), DOWNGRADE[i], sizeof(DOWNGRADE[i])) == 0)
 				// Выводим отказ понижения издания протокола
@@ -10344,6 +11676,32 @@ context::error_t nts::internal::Engine::greeted(const hello::server_t & answer, 
 			 * Выполняем определение вида расширения
 			 */
 			switch(type){
+				// Если сервер подтвердил предел длины записи record_size_limit (RFC 8449)
+				case static_cast <uint16_t> (extension::type_t::LIMIT): {
+					// Если тело расширения не двухбайтовое
+					if(data.size != 2)
+						// Выходим с ошибкой разбора
+						return this->abort(context::error_t::MESSAGE, alert::description_t::DECODE);
+					// Применяем присланный предел к отправке
+					const context::error_t bounded = this->bounding(static_cast <uint16_t> ((static_cast <uint16_t> (data.data[0]) << 8) | data.data[1]), true);
+					// Если предел не принят
+					if(bounded != context::error_t::NONE)
+						// Выводим ошибку
+						return bounded;
+				} break;
+				// Если сервер подтвердил длину max_fragment_length (раздел 4 RFC 6066)
+				case static_cast <uint16_t> (extension::type_t::FRAGMENT): {
+					// Если тело расширения не однобайтовое
+					if(data.size != 1)
+						// Выходим с ошибкой разбора
+						return this->abort(context::error_t::MESSAGE, alert::description_t::DECODE);
+					// Применяем присланный код длины к обеим сторонам
+					const context::error_t fragmented = this->fragmenting(data.data[0], true);
+					// Если код не принят
+					if(fragmented != context::error_t::NONE)
+						// Выводим ошибку
+						return fragmented;
+				} break;
 				// Раздел 5.3 RFC 7627: подтверждение расширенного главного секрета пусто
 				case static_cast <uint16_t> (extension::type_t::MASTER): {
 					// Если тело расширения не пусто
@@ -10402,6 +11760,64 @@ context::error_t nts::internal::Engine::greeted(const hello::server_t & answer, 
 					this->_protocol = ::move(selected);
 				} break;
 				// Раздел 8 RFC 6066: состояние сертификата объявляется пустым расширением
+				// Черновик draft-agl-tls-nextprotoneg: перечень протоколов сервера для выработки NPN
+				case static_cast <uint16_t> (extension::type_t::NEGOTIATION): {
+					// Если прикладной протокол уже выбран через ALPN: NPN и ALPN вместе не бывает
+					if(!this->_protocol.empty())
+						// Выводим отказ негодного расширения
+						return this->abort(context::error_t::MESSAGE, alert::description_t::PARAMETER);
+					// Перечень протоколов, объявленных сервером
+					vector <string> advertised;
+					// Отказ разбора перечня
+					failure = translate(extension::negotiation(data, advertised), context::error_t::MESSAGE);
+					// Если перечень разобрать не удалось
+					if(failure != context::error_t::NONE)
+						// Выводим отказ разбора приветствия сервера
+						return this->abort(failure, blame(failure, alert::description_t::DECODE));
+					// Выбранный протокол
+					string selected;
+					/**
+					 * Выполняем перебор своих протоколов: выбор идёт порядком клиента среди объявленных сервером
+					 */
+					for(size_t j = 0; (j < this->_protocols.size()) && selected.empty(); j++){
+						/**
+						 * Выполняем перебор протоколов, объявленных сервером
+						 */
+						for(size_t k = 0; (k < advertised.size()) && selected.empty(); k++){
+							// Если протокол объявлен сервером
+							if(advertised[k].compare(this->_protocols[j]) == 0)
+								// Запоминаем выбранный протокол
+								selected = this->_protocols[j];
+						}
+					}
+					/**
+					 * Черновик и SSL_select_next_proto: без общего протокола берётся первый свой, без
+					 * своих - первый объявленный; без того и другого NextProtocol идёт с пустым
+					 * именем (как у BoringSSL): сервер, объявивший выработку, ждёт сообщения
+					 */
+					if(selected.empty() && !this->_protocols.empty())
+						// Берём первый свой протокол
+						selected = this->_protocols.front();
+					// Если своих протоколов нет, а сервер объявил
+					else if(selected.empty() && !advertised.empty())
+						// Берём первый объявленный
+						selected = advertised.front();
+					/**
+					 * Выполняем перехват ошибок работы с памятью
+					 */
+					try {
+						// Запоминаем протокол связи
+						this->_protocol = ::move(selected);
+					/**
+					 * Если памяти под название протокола не хватило
+					 */
+					} catch(const std::bad_alloc &) {
+						// Выводим отказ нехватки памяти
+						return this->abort(context::error_t::MEMORY, alert::description_t::INTERNAL);
+					}
+					// Запоминаем, что выработка NPN состоялась
+					this->_negotiated = true;
+				} break;
 				case static_cast <uint16_t> (extension::type_t::STATUS): {
 					// Если тело расширения не пусто
 					if(data.size > 0)
@@ -10409,6 +11825,33 @@ context::error_t nts::internal::Engine::greeted(const hello::server_t & answer, 
 						return this->abort(context::error_t::MESSAGE, alert::description_t::PARAMETER);
 					// Запоминаем, что состояние сертификата идёт отдельным сообщением
 					this->_stapling = true;
+				} break;
+				// Раздел 3.3.1 RFC 6962: перечень меток времени сертификата сервера изданием 1.2
+				case static_cast <uint16_t> (extension::type_t::TIMESTAMPS): {
+					// Записи перечня, разобранные ради проверки вида
+					vector <vector <uint8_t>> entries;
+					// Отказ разбора перечня меток времени
+					failure = translate(extension::timestamps(data, entries), context::error_t::MESSAGE);
+					// Если перечень разобрать не удалось
+					if(failure != context::error_t::NONE)
+						// Выводим отказ разбора перечня меток времени
+						return this->abort(failure, blame(failure, alert::description_t::DECODE));
+					// При возобновлении перечень не хранится: сертификата в сокращённом рукопожатии нет
+					if(!this->_resumed){
+						/**
+						 * Выполняем перехват ошибок работы с памятью
+						 */
+						try {
+							// Запоминаем перечень меток времени как записан
+							this->_timestamps.assign(data.data, data.data + data.size);
+						/**
+						 * Если памяти под перечень не хватило
+						 */
+						} catch(const std::bad_alloc &) {
+							// Выводим отказ нехватки памяти
+							return this->abort(context::error_t::MEMORY, alert::description_t::INTERNAL);
+						}
+					}
 				} break;
 				// Раздел 3 RFC 7366: порядок «шифрование, затем имитовставка» подтверждается пустым расширением
 				case static_cast <uint16_t> (extension::type_t::ETM): {
@@ -10449,8 +11892,8 @@ context::error_t nts::internal::Engine::greeted(const hello::server_t & answer, 
 			return this->abort(context::error_t::MASTER, alert::description_t::HANDSHAKE);
 		// Запоминаем, что связь ведётся изданием TLS 1.2
 		this->_legacy = true;
-		// Запоминаем согласованное издание протокола кодом TLS 1.2: единая шкала изданий на любом переносе
-		this->_version = LEGACY;
+		// Запоминаем согласованное издание протокола кодом TLS 1.2 либо 1.1: единая шкала изданий на любом переносе
+		this->_version = (this->_ancient ? ANCIENT : LEGACY);
 		// Раздел 6.2.3 RFC 5246: защищённая запись издания TLS 1.2 вмещает до 2^14 + 2048 байтов
 		this->_records.limit(record::RECORD_PROTECTED);
 		// Запоминаем выбранный сервером набор шифрования
@@ -10474,6 +11917,8 @@ context::error_t nts::internal::Engine::greeted(const hello::server_t & answer, 
 		if(this->_transport == context::transport_t::DATAGRAMS){
 			// Переводим перенос на издание DTLS 1.2
 			this->_flight.legacy(true);
+			// Раздел 4.1 RFC 4347: изданием DTLS 1.0 записи несут 0xFEFF
+			this->_flight.ancient(this->_ancient);
 			// Начинаем переписку рукопожатия заново
 			this->_transcript.start();
 			// Если приветствие клиента в обвязке DTLS в переписку добавить не удалось
@@ -10802,7 +12247,7 @@ context::error_t nts::internal::Engine::agreeing() noexcept {
 			// Выводим отказ выработки подписи обмена ключами
 			return failure;
 		// Записываем схему подписи обмена ключами
-		outcome = builder.number(static_cast <uint32_t> (scheme), 2);
+		outcome = (this->_ancient ? field::error_t::NONE : builder.number(static_cast <uint32_t> (scheme), 2));
 		// Если схема подписи записана
 		if(outcome == field::error_t::NONE)
 			// Занимаем место под длину подписи
@@ -10925,7 +12370,7 @@ context::error_t nts::internal::Engine::agreed(const view_t & body) noexcept {
 		// Если обмен подписывается сертификатом
 		} else {
 			// Если схему подписи прочитать не удалось
-			if(scanner.number(scheme, 2) != field::error_t::NONE)
+			if(!this->_ancient && (scanner.number(scheme, 2) != field::error_t::NONE))
 				// Выводим отказ разбора обмена ключами сервера
 				return context::error_t::MESSAGE;
 			// Если подпись прочитать не удалось либо за нею идут лишние байты
@@ -10983,7 +12428,7 @@ context::error_t nts::internal::Engine::agreed(const view_t & body) noexcept {
 			// Выводим отказ выработки мимолётной пары ключей
 			return failure;
 		// Место, в которое помещается общее значение обмена ключами
-		uint8_t shared[math::NUMBER_SIZE];
+		uint8_t shared[agreement::MLKEM_SHARED + math::NUMBER_SIZE];
 		// Длина общего значения обмена ключами
 		size_t length = 0;
 		// Выполняем выработку общего значения обмена ключами
@@ -11065,19 +12510,34 @@ context::error_t nts::internal::Engine::demanding() noexcept {
 		// Накопитель, в который складывается перечень схем подписи
 		vector <uint8_t> schemes;
 		// Отказ составления перечня схем подписи: запись та же, что у расширения
-		context::error_t failure = translate(extension::schemes(declared, schemes), context::error_t::MESSAGE);
+		context::error_t failure = (this->_ancient ? context::error_t::NONE : translate(extension::schemes(declared, schemes), context::error_t::MESSAGE));
 		// Если перечень схем подписи составить не удалось
 		if(failure != context::error_t::NONE)
 			// Выводим отказ составления запроса подлинности
 			return failure;
 		// Записываем перечень схем подписи
-		outcome = builder.bytes(view_t(schemes.data(), schemes.size()));
-		// Если перечень схем подписи записан
-		if(outcome == field::error_t::NONE)
+		outcome = (this->_ancient ? field::error_t::NONE : builder.bytes(view_t(schemes.data(), schemes.size())));
+		// Накопитель, в котором лежит перечень доверенных удостоверяющих центров
+		vector <uint8_t> names;
+		// Раздел 7.4.4 RFC 5246: перечень издателей записан так же, как тело расширения 47, - пустым без настройки потребителя
+		if(!this->_trusted.empty()){
+			// Отказ составления перечня
+			failure = translate(extension::authorities(this->_trusted, names), context::error_t::MESSAGE);
+			// Если перечень составить не удалось
+			if(failure != context::error_t::NONE)
+				// Выводим отказ составления запроса подлинности
+				return failure;
+		}
+		// Если перечень схем подписи записан и перечень издателей задан
+		if((outcome == field::error_t::NONE) && !names.empty())
+			// Записываем перечень издателей как есть
+			outcome = builder.bytes(view_t(names.data(), names.size()));
+		// Если перечень схем подписи записан, а перечень издателей не задан
+		else if(outcome == field::error_t::NONE)
 			// Занимаем место под длину перечня издателей
 			outcome = builder.open(2);
-		// Если место под длину перечня издателей занято: перечень пуст, издатель любой
-		if(outcome == field::error_t::NONE)
+		// Если место под длину пустого перечня издателей занято: издатель любой
+		if((outcome == field::error_t::NONE) && names.empty())
 			// Проставляем длину пустого перечня издателей
 			outcome = builder.close();
 		// Если запрос подлинности составить не удалось
@@ -11118,20 +12578,33 @@ context::error_t nts::internal::Engine::demanded(const view_t & body) noexcept {
 	// Перечень схем подписи, признаваемых сервером
 	view_t schemes;
 	// Если перечень схем подписи прочитать не удалось
-	if(scanner.vector(schemes, 2) != field::error_t::NONE)
+	if(!this->_ancient && (scanner.vector(schemes, 2) != field::error_t::NONE))
 		// Выводим отказ разбора запроса подлинности
 		return context::error_t::MESSAGE;
+	// Место перечня издателей в теле запроса
+	const size_t place = scanner.offset();
 	// Перечень издателей, признаваемых сервером
 	view_t authorities;
 	// Если перечень издателей прочитать не удалось либо за ним идут лишние байты
 	if((scanner.vector(authorities, 2) != field::error_t::NONE) || (scanner.left() > 0))
 		// Выводим отказ разбора запроса подлинности
 		return context::error_t::MESSAGE;
+	// Выполняем сброс перечня доверенных центров собеседника
+	this->_authorities.clear();
+	// Раздел 7.4.4 RFC 5246: непустой перечень издателей разбирается как тело расширения 47 и хранится как записан
+	if(authorities.size > 0){
+		// Отказ разбора перечня
+		const context::error_t named = translate(extension::authorities(view_t(body.data + place, 2 + authorities.size), this->_authorities), context::error_t::MESSAGE);
+		// Если перечень разобрать не удалось
+		if(named != context::error_t::NONE)
+			// Выводим отказ разбора запроса подлинности
+			return named;
+	}
 	/**
 	 * Раздел 7.4.4 RFC 5246: перечень схем с двухбайтовой длиной записан в запросе так же,
 	 * как в теле расширения signature_algorithms, и читается прямо с места, без переноса
 	 */
-	const context::error_t failure = translate(extension::schemes(view_t(body.data + start, 2 + schemes.size), this->_schemes), context::error_t::MESSAGE);
+	const context::error_t failure = (this->_ancient ? context::error_t::NONE : translate(extension::schemes(view_t(body.data + start, 2 + schemes.size), this->_schemes), context::error_t::MESSAGE));
 	// Если перечень схем подписи разобрать не удалось
 	if(failure != context::error_t::NONE)
 		// Выводим отказ разбора запроса подлинности
@@ -11140,7 +12613,7 @@ context::error_t nts::internal::Engine::demanded(const view_t & body) noexcept {
 	 * Раздел 7.4.4 RFC 5246: без единой схемы подписи клиенту нечем подписать владение
 	 * ключом; перечень издателей связь не толкует - сертификат выбирает потребитель
 	 */
-	if(this->_schemes.empty())
+	if(!this->_ancient && this->_schemes.empty())
 		// Выводим отказ отсутствия схем подписи
 		return context::error_t::SCHEME;
 	// Выводим успешность разбора запроса подлинности
@@ -11396,7 +12869,7 @@ context::error_t nts::internal::Engine::exchanged(const view_t & body) noexcept 
 				// Выводим отказ разбора обмена ключами клиента
 				return context::error_t::MESSAGE;
 			// Место, в которое помещается общее значение обмена ключами
-			uint8_t shared[math::NUMBER_SIZE];
+			uint8_t shared[agreement::MLKEM_SHARED + math::NUMBER_SIZE];
 			// Длина общего значения обмена ключами
 			size_t length = 0;
 			// Выполняем выработку общего значения обмена ключами на кривой, выбранной сервером
@@ -11514,18 +12987,18 @@ context::error_t nts::internal::Engine::exchanged(const view_t & body) noexcept 
  *
  */
 context::error_t nts::internal::Engine::expanding(const view_t & premaster) noexcept {
-	// Хеш набора шифрования связи
-	const digest::hash_t algorithm = protect::hash(this->_suite);
+	// Длина хеша переписки рукопожатия по изданию связи
+	size_t width = 0;
 	// Место, в которое помещается хеш переписки рукопожатия
 	uint8_t transcript[schedule::SCHEDULE_WIDEST];
 	// Раздел 4 RFC 7627: хеш переписки берётся с обменом ключами клиента включительно
-	if(this->_transcript.digest(transcript) != session::error_t::NONE)
+	if(!this->digesting(transcript, width))
 		// Выводим отказ ведения переписки рукопожатия
 		return context::error_t::SCHEDULE;
 	// Метка выработки расширенного главного секрета
 	const view_t extended(reinterpret_cast <const uint8_t *> (EXTENDED), ::strlen(EXTENDED));
 	// Раздел 4 RFC 7627: главный секрет из общего значения меткой и хешем переписки
-	if(!digest::prf(algorithm, premaster, extended, view_t(transcript, this->_transcript.size()), this->_master, sizeof(this->_master)))
+	if(!this->sequencing(premaster, extended, view_t(transcript, width), this->_master, sizeof(this->_master)))
 		// Выводим отказ вывода главного секрета
 		return context::error_t::SCHEDULE;
 	// Выводим итог вывода ключевого материала из главного секрета
@@ -11556,7 +13029,7 @@ context::error_t nts::internal::Engine::attesting() noexcept {
 		// Объект составителя тела подписи владения ключом
 		field::builder_t builder;
 		// Отказ, которым ответил составитель полей
-		field::error_t outcome = builder.number(static_cast <uint32_t> (scheme), 2);
+		field::error_t outcome = (this->_ancient ? field::error_t::NONE : builder.number(static_cast <uint32_t> (scheme), 2));
 		// Если схема подписи записана
 		if(outcome == field::error_t::NONE)
 			// Занимаем место под длину подписи
@@ -11599,7 +13072,7 @@ context::error_t nts::internal::Engine::attested(const view_t & body) noexcept {
 	// Схема подписи владения ключом
 	uint32_t scheme = 0;
 	// Если схему подписи прочитать не удалось
-	if(scanner.number(scheme, 2) != field::error_t::NONE)
+	if(!this->_ancient && (scanner.number(scheme, 2) != field::error_t::NONE))
 		// Выводим отказ разбора подписи владения ключом
 		return context::error_t::MESSAGE;
 	// Подпись владения ключом
@@ -11655,8 +13128,10 @@ context::error_t nts::internal::Engine::switching() noexcept {
 context::error_t nts::internal::Engine::finishing() noexcept {
 	// Место, в которое помещается хеш переписки рукопожатия
 	uint8_t transcript[schedule::SCHEDULE_WIDEST];
+	// Длина хеша переписки рукопожатия по изданию связи
+	size_t width = 0;
 	// Если хеш переписки рукопожатия получить не удалось
-	if(this->_transcript.digest(transcript) != session::error_t::NONE)
+	if(!this->digesting(transcript, width))
 		// Выводим отказ ведения переписки рукопожатия
 		return context::error_t::MESSAGE;
 	// Метка завершения рукопожатия своей стороны
@@ -11664,7 +13139,7 @@ context::error_t nts::internal::Engine::finishing() noexcept {
 	// Место, в которое помещается завершение рукопожатия
 	uint8_t completion[VERIFIED];
 	// Раздел 7.4.9 RFC 5246: завершение из главного секрета меткой стороны и хешем переписки
-	if(!digest::prf(protect::hash(this->_suite), view_t(this->_master, sizeof(this->_master)), view_t(reinterpret_cast <const uint8_t *> (label), ::strlen(label)), view_t(transcript, this->_transcript.size()), completion, sizeof(completion)))
+	if(!this->sequencing(view_t(this->_master, sizeof(this->_master)), view_t(reinterpret_cast <const uint8_t *> (label), ::strlen(label)), view_t(transcript, width), completion, sizeof(completion)))
 		// Выводим отказ выработки завершения рукопожатия
 		return context::error_t::COMPLETION;
 	// Выводим итог отправки завершения рукопожатия
@@ -11685,8 +13160,10 @@ context::error_t nts::internal::Engine::finished(const view_t & body) noexcept {
 		return context::error_t::COMPLETION;
 	// Место, в которое помещается хеш переписки рукопожатия
 	uint8_t transcript[schedule::SCHEDULE_WIDEST];
+	// Длина хеша переписки рукопожатия по изданию связи
+	size_t width = 0;
 	// Если хеш переписки рукопожатия получить не удалось
-	if(this->_transcript.digest(transcript) != session::error_t::NONE)
+	if(!this->digesting(transcript, width))
 		// Выводим отказ ведения переписки рукопожатия
 		return context::error_t::MESSAGE;
 	// Метка завершения рукопожатия собеседника
@@ -11694,7 +13171,7 @@ context::error_t nts::internal::Engine::finished(const view_t & body) noexcept {
 	// Место, в которое помещается ожидаемое завершение рукопожатия
 	uint8_t completion[VERIFIED];
 	// Раздел 7.4.9 RFC 5246: ожидаемое завершение из главного секрета меткой собеседника
-	if(!digest::prf(protect::hash(this->_suite), view_t(this->_master, sizeof(this->_master)), view_t(reinterpret_cast <const uint8_t *> (label), ::strlen(label)), view_t(transcript, this->_transcript.size()), completion, sizeof(completion)))
+	if(!this->sequencing(view_t(this->_master, sizeof(this->_master)), view_t(reinterpret_cast <const uint8_t *> (label), ::strlen(label)), view_t(transcript, width), completion, sizeof(completion)))
 		// Выводим отказ выработки завершения рукопожатия
 		return context::error_t::COMPLETION;
 	// Сличение ведётся за постоянное время: время сличения не выдаёт ожидаемого завершения
@@ -11734,7 +13211,7 @@ context::error_t nts::internal::Engine::keying() noexcept {
 	// Место, в которое помещается ключевой материал: ключи имитовставки, ключи и векторы обеих сторон
 	uint8_t material[(protect::PROTECT_MAC + protect::PROTECT_KEY + protect::PROTECT_VECTOR) * 2];
 	// Раздел 6.3 RFC 5246: ключевой материал из главного секрета меткой и затравкой
-	if(!digest::prf(algorithm, view_t(this->_master, sizeof(this->_master)), expansion, view_t(seed, sizeof(seed)), material, (stamp + width + size) * 2)){
+	if(!this->sequencing(view_t(this->_master, sizeof(this->_master)), expansion, view_t(seed, sizeof(seed)), material, (stamp + width + size) * 2)){
 		// Выполняем затирание ключевого материала
 		wipe(material, sizeof(material));
 		// Выводим отказ вывода ключевого материала
@@ -11818,8 +13295,8 @@ context::error_t nts::internal::Engine::granting() noexcept {
 		state.moment = this->_moment;
 		// Устанавливаем срок жизни билета
 		state.lifetime = this->_lifetime;
-		// Запоминаем прикладной протокол связи
-		state.protocol = this->_protocol;
+		// Запоминаем прикладной протокол связи: выбранный выработкой NPN билет не несёт, NPN идёт заново всяким рукопожатием
+		state.protocol = (this->_negotiated ? string() : this->_protocol);
 		// Запоминаем имя узла, запрошенное клиентом (раздел 3 RFC 6066)
 		state.name = this->_name;
 		// Если подлинность клиента проверена
@@ -11868,8 +13345,8 @@ context::error_t nts::internal::Engine::granting() noexcept {
 		item.moment = this->_moment;
 		// Устанавливаем срок жизни билета
 		item.lifetime = this->_lifetime;
-		// Запоминаем прикладной протокол связи, выдавшей билет
-		item.protocol = this->_protocol;
+		// Запоминаем прикладной протокол связи, выдавшей билет: выбранный выработкой NPN билет не несёт
+		item.protocol = (this->_negotiated ? string() : this->_protocol);
 		// Запоминаем порядок защиты записей связи, выдавшей билет
 		item.etm = this->_etm;
 		// Переносим октеты билета телом билета потребителя
@@ -11929,8 +13406,8 @@ context::error_t nts::internal::Engine::granted(const view_t & body) noexcept {
 		this->_promise.moment = this->_moment;
 		// Раздел 3.3 RFC 5077: нулевая подсказка срока означает срок неизвестный - берётся предел RFC 8446
 		this->_promise.lifetime = ((lifetime == 0) ? LIFETIME : lifetime);
-		// Запоминаем прикладной протокол связи, выдавшей билет
-		this->_promise.protocol = this->_protocol;
+		// Запоминаем прикладной протокол связи, выдавшей билет: выбранный выработкой NPN билет не несёт
+		this->_promise.protocol = (this->_negotiated ? string() : this->_protocol);
 		// Раздел 3.1 RFC 7366: билет помнит порядок защиты записей связи, его выдавшей
 		this->_promise.etm = this->_etm;
 		// Переносим октеты билета телом билета потребителя
@@ -12062,6 +13539,12 @@ context::error_t nts::internal::Engine::concluding() noexcept {
 	// Если смену набора шифрования отправить не удалось
 	if(failure != context::error_t::NONE)
 		// Выводим отказ отправки смены набора шифрования
+		return failure;
+	// Выполняем отправку выбранного протокола выработки NPN (лишь клиентом)
+	failure = this->announcing();
+	// Если выбранный протокол отправить не удалось
+	if(failure != context::error_t::NONE)
+		// Выводим отказ отправки выбранного протокола
 		return failure;
 	// Выводим итог отправки завершения рукопожатия своей стороной
 	return this->finishing();
@@ -12335,11 +13818,36 @@ context::error_t nts::internal::Engine::profile(const fingerprint::profile_t & p
 					// Переносим прикладные протоколы профиля
 					protocols = extension.protocols;
 				break;
+				// Прикладные настройки ALPS: точка кода профиля и его протоколы с пустыми настройками
+				case static_cast <uint16_t> (extension::type_t::SETTINGS):
+				case static_cast <uint16_t> (extension::type_t::SETTINGS_OLD): {
+					// Точка кода - точка профиля
+					this->_codepoint = extension.type;
+					// Если настройки потребителем не объявлены
+					if(this->_settings.empty()){
+						/**
+						 * Выполняем перебор протоколов расширения профиля
+						 */
+						for(size_t j = 0; j < extension.protocols.size(); j++){
+							// Настройки протокола профиля
+							setting_t item;
+							// Устанавливаем протокол настроек
+							item.protocol = extension.protocols[j];
+							// Объявляем пустые настройки протокола
+							this->_settings.push_back(item);
+						}
+					}
+				} break;
 				// Запрос состояния сертификата
 				case static_cast <uint16_t> (extension::type_t::STATUS):
 					// Запоминаем запрос состояния
 					inquiring = true;
 				break;
+				/**
+				 * Запрос меток времени сертификата (расширение 18) профиль несёт сырым телом,
+				 * и ответ на него клиент принимает по перечню предложенных: отдельного признака
+				 * не нужно
+				 */
 				// Прочие расширения на настройки связи не влияют
 				default: break;
 			}
@@ -13270,6 +14778,9 @@ context::error_t nts::internal::Engine::imitate(hello::client_t & greeting, cons
 		bool padded = false;
 		// Место заполнения среди расширений приветствия
 		size_t place = 0;
+		// Сбрасываем предложенные пределы длины записи: их заново диктует профиль
+		this->_bounded = 0;
+		this->_fragmented = 0;
 		// Поверх записей издание приветствия берётся из профиля; поверх дейтаграмм - своё
 		if(this->_transport != context::transport_t::DATAGRAMS)
 			// Устанавливаем издание приветствия профиля
@@ -13290,7 +14801,7 @@ context::error_t nts::internal::Engine::imitate(hello::client_t & greeting, cons
 			greeting.suites.push_back(fingerprint::grease(suite) ? this->greasing(grease_t::SUITE) : suite);
 		}
 		// Хранилище занимает место заранее: указатели на тела не должны переезжать (заполнение, публичное имя и ECH - три места)
-		storage.reserve(this->_profile.extensions.size() + 4);
+		storage.reserve(this->_profile.extensions.size() + 5);
 		// Счётчик расширений GREASE профиля
 		size_t greased = 0;
 		/**
@@ -13462,6 +14973,48 @@ context::error_t nts::internal::Engine::imitate(hello::client_t & greeting, cons
 						// Тело билета
 						body = (this->_presented ? view_t(this->_resume.identity.data(), this->_resume.identity.size()) : view_t(nullptr, 0));
 					break;
+					// Прикладные настройки ALPS: перечень протоколов с настройками, сложенный движком
+					case static_cast <uint16_t> (extension::type_t::SETTINGS):
+					case static_cast <uint16_t> (extension::type_t::SETTINGS_OLD): {
+						// Если настройки не объявлены либо прикладные протоколы не предлагаются
+						if(this->_settings.empty() || this->_protocols.empty())
+							// Переходим к следующему расширению
+							continue;
+						// Перечень протоколов, для которых настройки объявлены
+						vector <string> names;
+						/**
+						 * Выполняем перебор объявленных прикладных настроек
+						 */
+						for(size_t j = 0; j < this->_settings.size(); j++)
+							// Добавляем протокол в перечень
+							names.push_back(this->_settings[j].protocol);
+						// Заводим хранилище тела расширения
+						storage.push_back(vector <uint8_t> ());
+						// Отказ составления перечня протоколов с настройками
+						const context::error_t composed = translate(extension::protocols(names, storage.back()), context::error_t::SETTINGS);
+						// Если перечень протоколов с настройками составить не удалось
+						if(composed != context::error_t::NONE)
+							// Выводим отказ складывания приветствия
+							return composed;
+						// Точка кода - та, которой ведётся связь
+						type = this->_codepoint;
+						// Тело перечня, сложенное движком
+						body = view_t(storage.back().data(), storage.back().size());
+					} break;
+					// Если профиль предлагает предел record_size_limit, запоминаем значение: ответ сервера нас обяжет (RFC 8449)
+					case static_cast <uint16_t> (extension::type_t::LIMIT): {
+						// Если тело двухбайтовое, запоминаем значение
+						if(extension.data.size() == 2)
+							// Запоминаем предложенный предел
+							this->_bounded = static_cast <uint16_t> ((static_cast <uint16_t> (extension.data[0]) << 8) | extension.data[1]);
+					} break;
+					// Если профиль предлагает длину max_fragment_length, запоминаем код: ответ сервера нас обяжет (RFC 6066)
+					case static_cast <uint16_t> (extension::type_t::FRAGMENT): {
+						// Если тело однобайтовое, запоминаем код
+						if(extension.data.size() == 1)
+							// Запоминаем предложенный код
+							this->_fragmented = extension.data[0];
+					} break;
 					// Параметры переноса QUIC: лишь по уровням
 					case TRANSPORT: {
 						// Если перенос не по уровням
@@ -13632,7 +15185,7 @@ context::error_t nts::internal::Engine::versions(const uint16_t lowest, const ui
 	 * Ниже TLS 1.2 связь не опускается никогда, выше TLS 1.3 изданий нет, а перевёрнутые
 	 * пределы не оставляют ни одного издания
 	 */
-	if((lowest < LEGACY) || (highest > MODERN) || (lowest > highest))
+	if((lowest < ANCIENT) || (highest > MODERN) || (lowest > highest))
 		// Выводим отказ настроек связи
 		return context::error_t::SETTINGS;
 	/**
@@ -13709,6 +15262,186 @@ uint16_t nts::internal::Engine::edition() const noexcept {
 uint16_t nts::internal::Engine::elder() const noexcept {
 	// Выводим издание 1.2 по способу переноса
 	return ((this->_transport == context::transport_t::DATAGRAMS) ? datagram::DATAGRAM_LEGACY : LEGACY);
+}
+/**
+ * @brief Метод получения издания 1.1 протокола по способу переноса: DTLS 1.0
+ *
+ * @return 0x0302 у TLS 1.1 и 0xFEFF у DTLS 1.0
+ *
+ */
+uint16_t nts::internal::Engine::eldest() const noexcept {
+	// Выводим издание: RFC 4347 кладёт DTLS 1.0 значение 0xFEFF
+	return ((this->_transport == context::transport_t::DATAGRAMS) ? static_cast <uint16_t> (record::version_t::DTLS10) : ANCIENT);
+}
+/**
+ * @brief Метод выработки хеша переписки изданием 1.1: MD5 ‖ SHA-1 накопленных сообщений
+ *
+ * @param result место в 36 байтов, в которое помещается хеш
+ *
+ * @return       признак успешности выработки
+ *
+ */
+bool nts::internal::Engine::archive(uint8_t * result) const noexcept {
+	// Переписка, накопленная сообщениями как записаны
+	const view_t history(this->_history.data(), this->_history.size());
+	// Выводим итог выработки: раздел 7.4.9 RFC 4346 велит MD5, затем SHA-1
+	return (digest::hash(digest::hash_t::MD5, history, result, 16) && digest::hash(digest::hash_t::SHA1, history, result + 16, 20));
+}
+/**
+ * @brief Метод выработки псевдослучайной последовательности по изданию связи
+ *
+ * @param key    секрет
+ * @param label  метка
+ * @param seed   семя
+ * @param result место, в которое помещается последовательность
+ * @param size   длина последовательности
+ *
+ * @return       признак успешности выработки
+ *
+ */
+bool nts::internal::Engine::sequencing(const view_t & key, const view_t & label, const view_t & seed, uint8_t * result, const size_t size) const noexcept {
+	// Раздел 5 RFC 4346: изданием 1.1 PRF идёт на MD5 ⊕ SHA-1, изданием 1.2 - на хеше набора (раздел 5 RFC 5246)
+	return (this->_ancient ? digest::legacy(key, label, seed, result, size) : digest::prf(protect::hash(this->_suite), key, label, seed, result, size));
+}
+/**
+ * @brief Метод получения хеша переписки по изданию связи
+ *
+ * @param result место, в которое помещается хеш
+ * @param size   место, в которое помещается длина хеша
+ *
+ * @return       признак успешности выработки
+ *
+ */
+bool nts::internal::Engine::digesting(uint8_t * result, size_t & size) const noexcept {
+	// Если связь ведётся изданием 1.1
+	if(this->_ancient){
+		// Длина хеша MD5 ‖ SHA-1
+		size = 36;
+		// Выводим итог выработки хеша переписки изданием 1.1
+		return this->archive(result);
+	}
+	// Длина хеша набора
+	size = this->_transcript.size();
+	// Выводим итог выработки хеша переписки хешем набора
+	return (this->_transcript.digest(result) == session::error_t::NONE);
+}
+/**
+ * @brief Метод выработки подписи изданием 1.1: RSA над MD5 ‖ SHA-1 без DigestInfo, ECDSA над SHA-1
+ *
+ * @param content   подписываемое содержимое
+ * @param signature накопитель, в который помещается подпись
+ *
+ * @return          отказ выработки подписи
+ *
+ */
+context::error_t nts::internal::Engine::engraving(const view_t & content, vector <uint8_t> & signature) noexcept {
+	/**
+	 * Выполняем перехват ошибок работы с памятью
+	 */
+	try {
+		// Ключ своей подлинности
+		keys::key_t key;
+		// Отказ заведения ключа
+		const context::error_t failure = loading(this->_credential, key);
+		// Если ключ завести не удалось
+		if(failure != context::error_t::NONE)
+			// Выводим отказ заведения ключа
+			return failure;
+		// Объект подписи RSA
+		sign::rsa_t rsa;
+		// Если ключ RSA
+		if(key.load(rsa)){
+			// Хеш MD5 ‖ SHA-1 содержимого
+			uint8_t digest[36];
+			// Раздел 7.4.3 RFC 4346: RSA подписывает MD5 ‖ SHA-1 без DigestInfo
+			if(!digest::hash(digest::hash_t::MD5, content, digest, 16) || !digest::hash(digest::hash_t::SHA1, content, digest + 16, 20))
+				// Выводим отказ выработки подписи
+				return context::error_t::SIGNATURE;
+			// Занимаем место под подпись размером в модуль
+			signature.assign(rsa.size(), 0);
+			// Если подпись выработать не удалось
+			if(!rsa.make(sign::scheme_t::PKCS1, digest::hash_t::NONE, view_t(digest, sizeof(digest)), signature.data(), SIZE_MAX, view_t()))
+				// Выводим отказ выработки подписи
+				return context::error_t::SIGNATURE;
+			// Выводим успешность
+			return context::error_t::NONE;
+		}
+		// Кривая ключа ECDSA
+		curve::curve_t curve;
+		// Объект подписи ECDSA
+		sign::ecdsa_t ecdsa;
+		// Если ключ не ECDSA
+		if(!key.load(ecdsa, curve))
+			// Выводим отказ выработки подписи
+			return context::error_t::SIGNATURE;
+		// Хеш SHA-1 содержимого
+		uint8_t digest[20];
+		// Раздел 5.4 RFC 4492: ECDSA изданием 1.1 подписывает SHA-1
+		if(!digest::hash(digest::hash_t::SHA1, content, digest, sizeof(digest)))
+			// Выводим отказ выработки подписи
+			return context::error_t::SIGNATURE;
+		// Сырая подпись r ‖ s
+		uint8_t raw[math::NUMBER_SIZE * 2];
+		// Если подпись выработать не удалось
+		if(!ecdsa.make(digest::hash_t::SHA1, view_t(digest, sizeof(digest)), raw))
+			// Выводим отказ выработки подписи
+			return context::error_t::SIGNATURE;
+		// Занимаем место под подпись в записи DER
+		signature.assign(ecdsa.limit(), 0);
+		// Длина записи подписи
+		size_t written = signature.size();
+		// Если подпись в DER записать не удалось
+		if(!sign::encode(view_t(raw, ecdsa.size()), signature.data(), written))
+			// Выводим отказ выработки подписи
+			return context::error_t::SIGNATURE;
+		// Усекаем подпись до записанной длины
+		signature.resize(written);
+		// Выводим успешность
+		return context::error_t::NONE;
+	/**
+	 * Если памяти под подпись не хватило
+	 */
+	} catch(const bad_alloc &) {
+		// Выводим отказ нехватки памяти
+		return context::error_t::MEMORY;
+	}
+}
+/**
+ * @brief Метод проверки подписи изданием 1.1
+ *
+ * @param content   подписанное содержимое
+ * @param signature проверяемая подпись
+ *
+ * @return          отказ проверки подписи
+ *
+ */
+context::error_t nts::internal::Engine::engraved(const view_t & content, const view_t & signature) noexcept {
+	// Если цепочки собеседника нет
+	if(this->_peer.empty())
+		// Выводим отказ отсутствия сертификата
+		return context::error_t::CERTIFICATE;
+	// Лист собеседника
+	x509::certificate_t leaf;
+	// Отказ разбора листа
+	context::error_t failure = translate(leaf.parse(view_t(this->_peer[0].data(), this->_peer[0].size())), context::error_t::CERTIFICATE);
+	// Если лист разобрать не удалось
+	if(failure != context::error_t::NONE)
+		// Выводим отказ разбора листа
+		return failure;
+	// Хеш MD5 ‖ SHA-1 содержимого
+	uint8_t digest[36];
+	// Если хеш выработать не удалось
+	if(!digest::hash(digest::hash_t::MD5, content, digest, 16) || !digest::hash(digest::hash_t::SHA1, content, digest + 16, 20))
+		// Выводим отказ проверки подписи
+		return context::error_t::SIGNATURE;
+	// Отказ проверки голой подписи RSA над MD5 ‖ SHA-1
+	const x509::error_t verified = x509::verify(view_t(digest, sizeof(digest)), signature, leaf.key());
+	// Если ключ листа не RSA: раздел 5.4 RFC 4492 - ECDSA над SHA-1
+	if(verified == x509::error_t::KEY)
+		// Выводим итог проверки подписи ECDSA над SHA-1
+		return translate(x509::check(leaf.key(), digest::hash_t::SHA1, content, signature), context::error_t::SIGNATURE);
+	// Выводим итог проверки подписи RSA
+	return translate(verified, context::error_t::SIGNATURE);
 }
 /**
  * @brief Метод добавления сообщения рукопожатия в переписку издания 1.2
@@ -14031,7 +15764,7 @@ context::error_t nts::internal::Engine::receive(const view_t & data) noexcept {
 		// Открытое содержимое очередной записи
 		const view_t content(records[i].content.data(), records[i].content.size());
 		// Раздел 4.5.2 RFC 9147: открытое содержимое шире 2^14 обрывает связь record_overflow
-		if(content.size > record::RECORD_PLAINTEXT)
+		if(content.size > this->_incoming)
 			// Выводим отказ выхода содержимого за предел
 			return this->abort(context::error_t::RECORD, alert::description_t::OVERSIZE);
 		// Раздел 6.1 RFC 8446: принятое за извещением о закрытии пропускается
@@ -14432,14 +16165,15 @@ nts::internal::Engine::Engine(const bool server) noexcept :
 	_state(context::state_t::NONE), _error(context::error_t::NONE),
 	_suite(protect::suite_t::NONE), _group(extension::group_t::NONE),
 	_moment(0), _limit(0), _passed(0),
+	_codepoint(static_cast <uint16_t> (extension::type_t::SETTINGS)), _settled(false), _stated(false), _bequeathed(false),
 	_shared(false), _chosen(0), _advance(false), _earlying(false), _accepted(false),
 	_automatic(true), _asked(false), _owed(false), _misaged(false), _granted(0), _renewal(0),
 	_closed(false), _drained(false), _lifetime(TERM), _ticket(protect::suite_t::NONE), _skipped(0), _starved(false),
 	_transport(context::transport_t::RECORDS), _acquired(false), _pushed(context::level_t::NONE), _width(0), _ventured(false), _judged(false),
 	_inflation(INFLATION), _squeezed(0), _inflated(0),
-	_inquiring(false), _inquired(false), _verifying(false), _leeway(0), _certified(ocsp::status_t::NONE), _reshare(true), _greasing(false), _profiled(false), _ech(ech_t::NONE), _shroud(0), _echaccepted(false), _echrejected(false), _unshrouding(false),
+	_inquiring(false), _inquired(false), _verifying(false), _leeway(0), _certified(ocsp::status_t::NONE), _stamping(false), _stamped(false), _outgoing(record::RECORD_PLAINTEXT), _incoming(record::RECORD_PLAINTEXT), _sizing(0), _bounded(0), _fragmented(0), _bounding(0), _fragmenting(0), _sized{0, 0}, _heartbeating(false), _negotiating(false), _negotiated(false), _announced(false), _reshare(true), _greasing(false), _profiled(false), _ech(ech_t::NONE), _shroud(0), _echaccepted(false), _echrejected(false), _unshrouding(false),
 	_queries(0), _confirmed(false), _delivered(0), _switched(false),
-	_lowest(LEGACY), _highest(MODERN), _version(0), _legacy(false), _proposed(false), _own(true), _phase(phase_t::NONE), _sealing(false), _opening(false), _stapling(false),
+	_lowest(LEGACY), _highest(MODERN), _version(0), _legacy(false), _ancient(false), _proposed(false), _own(true), _phase(phase_t::NONE), _sealing(false), _opening(false), _stapling(false),
 	_claimed(0), _etm(false), _strict(false), _ticketing(false), _presented(false), _resumed(false) {
 	// Выполняем обнуление ключей имитовставки сторон
 	::memset(this->_stamp, 0, sizeof(this->_stamp));

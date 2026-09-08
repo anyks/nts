@@ -131,7 +131,8 @@ namespace nts {
 			IDENTITY    = 0x1F, /*!< \~russian Опознаватель заранее разделённого ключа клиента серверу неизвестен (RFC 4279, TLS 1.2) \~english The identity of the pre-shared key of the client is unknown to the server (RFC 4279, TLS 1.2) \~ */
 			ETM         = 0x20, /*!< \~russian Собеседник по TLS 1.2 не поддержал порядок encrypt_then_mac RFC 7366 при наборе CBC, а связь его требует \~english The TLS 1.2 interlocutor has not supported the encrypt_then_mac order of RFC 7366 at a CBC suite, while the connection requires it \~ */
 			PROFILE     = 0x21, /*!< \~russian Профиль отпечатка исполнить нельзя: сервер выбрал набор, схему либо группу профиля, связи неведомые, либо профиль задан не в свой черёд \~english The fingerprint profile cannot be fulfilled: the server has selected a suite, a scheme or a group of the profile unknown to the connection, or the profile is set out of turn \~ */
-			ECH         = 0x22  /*!< \~russian Зашифрованное приветствие ECH отвергнуто сервером: рукопожатие сложилось по публичному имени и оборвано извещением ech_required, запасные конфигурации сервера - в retry(); либо конфигурации ECH негодны \~english The encrypted client hello ECH has been rejected by the server: the handshake has completed by the public name and has been aborted by the ech_required alert, the retry configurations of the server are in retry(); or the ECH configurations are invalid \~ */
+			ECH         = 0x22, /*!< \~russian Зашифрованное приветствие ECH отвергнуто сервером: рукопожатие сложилось по публичному имени и оборвано извещением ech_required, запасные конфигурации сервера - в retry(); либо конфигурации ECH негодны \~english The encrypted client hello ECH has been rejected by the server: the handshake has completed by the public name and has been aborted by the ech_required alert, the retry configurations of the server are in retry(); or the ECH configurations are invalid \~ */
+			TIMESTAMPS  = 0x23  /*!< \~russian Перечень меток времени сертификата собеседника сложен не по правилам (RFC 6962) \~english The list of the certificate timestamps of the peer is composed not by the rules (RFC 6962) \~ */
 		};
 
 		/**
@@ -538,6 +539,12 @@ namespace nts {
 			bool etm;
 			// Прикладной протокол связи, выдавшей билет
 			string protocol;
+			// Признак согласования прикладных настроек ALPS у связи, выдавшей билет (draft-vvv-tls-alps)
+			bool settled;
+			// Свои прикладные настройки ALPS связи, выдавшей билет
+			vector <uint8_t> settings;
+			// Прикладные настройки ALPS собеседника связи, выдавшей билет
+			vector <uint8_t> obtained;
 			// Тело билета, опознающее связь для выдавшего его сервера
 			vector <uint8_t> identity;
 			// Ключ билета, выведенный из значения возобновления связи

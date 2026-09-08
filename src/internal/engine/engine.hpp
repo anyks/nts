@@ -258,6 +258,36 @@ namespace nts {
 				// Прикладной протокол, выбранный сторонами связи
 				string _protocol;
 			private:
+				/**
+				 * @brief Прикладные настройки ALPS, объявленные для прикладного протокола
+				 *
+				 */
+				typedef struct Setting {
+					// Прикладной протокол, для которого объявлены настройки
+					string protocol;
+					// Прикладные настройки как есть
+					vector <uint8_t> value;
+				} setting_t;
+			private:
+				// Прикладные настройки ALPS, объявленные связью по протоколам
+				vector <setting_t> _settings;
+				// Точка кода расширения ALPS, которой ведётся связь
+				uint16_t _codepoint;
+				// Признак того, что прикладные настройки сторонами согласованы
+				bool _settled;
+				// Признак того, что защищённые расширения клиента прошли по связи
+				bool _stated;
+				// Свои прикладные настройки выбранного протокола
+				vector <uint8_t> _applied;
+				// Прикладные настройки собеседника
+				vector <uint8_t> _obtained;
+				// Признак согласования прикладных настроек у связи, выдавшей билет
+				bool _bequeathed;
+				// Свои прикладные настройки связи, выдавшей билет
+				vector <uint8_t> _bequest;
+				// Прикладные настройки собеседника связи, выдавшей билет
+				vector <uint8_t> _heritage;
+			private:
 				// Признак того, что связь возобновлена заранее разделённым ключом
 				bool _shared;
 			private:
@@ -371,6 +401,46 @@ namespace nts {
 				vector <vector <uint8_t>> _staples;
 				// Ответ о состоянии сертификата собеседника, принятый связью
 				vector <uint8_t> _status;
+			private:
+				// Признак того, что метки времени сертификата собеседника связью запрашиваются (RFC 6962)
+				bool _stamping;
+				// Признак того, что метки времени своего сертификата собеседником запрошены
+				bool _stamped;
+			private:
+				// Предел длины открытого содержимого отправляемой записи: объявленный собеседником предел на приём (RFC 8449, RFC 6066)
+				size_t _outgoing;
+				// Предел длины открытого содержимого принимаемой записи: свой объявленный предел, когда собеседник его подтвердил
+				size_t _incoming;
+				// Какое из расширений предела действует: 0 - никакое, 1 - record_size_limit, 2 - max_fragment_length
+				uint8_t _sizing;
+				// Значение record_size_limit, предложенное своим приветствием (профилем отпечатка), нуль без предложения
+				uint16_t _bounded;
+				// Код max_fragment_length, предложенный своим приветствием (профилем отпечатка), нуль без предложения
+				uint8_t _fragmented;
+				// Значение record_size_limit, присланное приветствием клиента, нуль без предложения
+				uint16_t _bounding;
+				// Код max_fragment_length, присланный приветствием клиента, нуль без предложения
+				uint8_t _fragmenting;
+				// Тело ответного расширения предела: два байта record_size_limit либо один байт max_fragment_length
+				uint8_t _sized[2];
+				// Признак того, что приветствие клиента предложило heartbeat (RFC 6520): записи вида 24 роняются молча, ответа нет (намеренно)
+				bool _heartbeating;
+				// Перечень меток времени своего сертификата для выдачи по запросу, как записан
+				vector <uint8_t> _stamps;
+				// Перечень меток времени сертификата собеседника, принятый связью, как записан
+				vector <uint8_t> _timestamps;
+			private:
+				// Перечень доверенных удостоверяющих центров для запроса подлинности, имена как записаны (RFC 8446, раздел 4.2.4)
+				vector <vector <uint8_t>> _trusted;
+				// Перечень доверенных удостоверяющих центров из запроса подлинности собеседника
+				vector <vector <uint8_t>> _authorities;
+			private:
+				// Признак того, что выработка NPN предлагается клиентом либо объявляется сервером (draft-agl-tls-nextprotoneg)
+				bool _negotiating;
+				// Признак того, что протокол связи взят выработкой NPN
+				bool _negotiated;
+				// Признак того, что сообщение NextProtocol прошло по связи
+				bool _announced;
 				// Запас доверенных сертификатов для розыска издателя собеседника
 				trust::store_t _anchors;
 			private:
@@ -518,6 +588,8 @@ namespace nts {
 				uint16_t _version;
 				// Признак того, что связь ведётся изданием TLS 1.2
 				bool _legacy;
+				// Признак того, что связь ведётся изданием DTLS 1.0 (RFC 4347 поверх TLS 1.1): PRF на MD5 ⊕ SHA-1, подписи без схем
+				bool _ancient;
 				// Признак того, что издание TLS 1.3 предложено приветствием клиента
 				bool _proposed;
 				// Признак того, что набор издания TLS 1.2 выбирается порядком сервера
@@ -643,6 +715,65 @@ namespace nts {
 				 *
 				 */
 				context::error_t deciding(const bool resumed) noexcept;
+				/**
+				 * @brief Метод поиска своих прикладных настроек по протоколу
+				 *
+				 * @param protocol прикладной протокол, настройки которого ищутся
+				 * @param result   место, в которое помещаются найденные настройки
+				 *
+				 * @return         признак того, что настройки для протокола объявлены
+				 *
+				 */
+				bool pick(const string & protocol, view_t & result) const noexcept;
+				/**
+				 * @brief Метод сличения состояния прикладных настроек связи с билетом
+				 *
+				 * @param ticket билет, с которым сличается состояние
+				 *
+				 * @return       признак того, что состояние равно билетному
+				 *
+				 */
+				bool inheritable(const context::ticket_t & ticket) const noexcept;
+				/**
+				 * @brief Метод отправки защищённых расширений клиента с прикладными настройками
+				 *
+				 * @return отказ отправки защищённых расширений клиента
+				 *
+				 */
+				context::error_t stating() noexcept;
+				/**
+				 * @brief Метод отправки сообщения NextProtocol выработки NPN клиентом издания TLS 1.2
+				 *
+				 * @return отказ отправки сообщения
+				 *
+				 */
+				context::error_t announcing() noexcept;
+				/**
+				 * @brief Метод принятия предела record_size_limit, присланного собеседником (раздел 4 RFC 8449)
+				 *
+				 * @param value  присланный предел длины принимаемой собеседником записи
+ * @param legacy признак издания 1.2: предел без октета вида содержимого
+				 *
+				 * @return      результат работы: NONE при успехе либо ошибка с отправленным извещением
+				 */
+				context::error_t bounding(const uint16_t value, const bool legacy) noexcept;
+				/**
+				 * @brief Метод принятия кода max_fragment_length, присланного сервером (раздел 4 RFC 6066)
+				 *
+				 * @param code   присланный код длины: 1…4 для 2^9…2^12 байтов
+ * @param legacy признак издания 1.2: длина без октета вида содержимого
+				 *
+				 * @return     результат работы: NONE при успехе либо ошибка с отправленным извещением
+				 */
+				context::error_t fragmenting(const uint8_t code, const bool legacy) noexcept;
+				/**
+				 * @brief Метод разбора сервером пределов длины записи, предложенных приветствием клиента (RFC 8449, RFC 6066)
+				 *
+				 * @param greeting приветствие клиента
+				 *
+				 * @return         результат работы: NONE при успехе либо ошибка с отправленным извещением
+				 */
+				context::error_t sizing(const hello::client_t & greeting) noexcept;
 				/**
 				 * @brief Метод согласования ключевого материала защиты записей
 				 *
@@ -1063,6 +1194,65 @@ namespace nts {
 				 *
 				 */
 				uint16_t elder() const noexcept;
+				/**
+				 * @brief Метод получения издания 1.1 протокола по способу переноса: DTLS 1.0
+				 *
+				 * @return 0x0302 у TLS 1.1 и 0xFEFF у DTLS 1.0
+				 *
+				 */
+				uint16_t eldest() const noexcept;
+				/**
+				 * @brief Метод выработки хеша переписки изданием 1.1: MD5 ‖ SHA-1 накопленных сообщений
+				 *
+				 * @param result место в 36 байтов, в которое помещается хеш
+				 *
+				 * @return       признак успешности выработки
+				 *
+				 */
+				bool archive(uint8_t * result) const noexcept;
+				/**
+				 * @brief Метод выработки псевдослучайной последовательности по изданию связи
+				 *
+				 * @param key    секрет
+				 * @param label  метка
+				 * @param seed   семя
+				 * @param result место, в которое помещается последовательность
+				 * @param size   длина последовательности
+				 *
+				 * @return       признак успешности выработки
+				 *
+				 */
+				bool sequencing(const view_t & key, const view_t & label, const view_t & seed, uint8_t * result, const size_t size) const noexcept;
+				/**
+				 * @brief Метод получения хеша переписки по изданию связи: хеш набора у 1.2, MD5 ‖ SHA-1 у 1.1
+				 *
+				 * @param result место, в которое помещается хеш
+				 * @param size   место, в которое помещается длина хеша
+				 *
+				 * @return       признак успешности выработки
+				 *
+				 */
+				bool digesting(uint8_t * result, size_t & size) const noexcept;
+				/**
+				 * @brief Метод выработки подписи изданием 1.1: RSA над MD5 ‖ SHA-1 без DigestInfo, ECDSA над SHA-1
+				 *
+				 * @param content   подписываемое содержимое
+				 * @param signature накопитель, в который помещается подпись
+				 *
+				 * @return          отказ выработки подписи
+				 *
+				 */
+				context::error_t engraving(const view_t & content, vector <uint8_t> & signature) noexcept;
+				/**
+				 * @brief Метод проверки подписи изданием 1.1
+				 *
+				 * @param content   подписанное содержимое
+				 * @param signature проверяемая подпись
+				 *
+				 * @return          отказ проверки подписи
+				 *
+				 */
+				context::error_t engraved(const view_t & content, const view_t & signature) noexcept;
 				/**
 				 * @brief Метод добавления сообщения рукопожатия в переписку издания 1.2
 				 *
@@ -1503,6 +1693,27 @@ namespace nts {
 				 */
 				const string & protocol() const noexcept;
 				/**
+				 * @brief Метод проверки согласования прикладных настроек ALPS
+				 *
+				 * @return признак того, что прикладные настройки сторонами согласованы
+				 *
+				 */
+				bool settled() const noexcept;
+				/**
+				 * @brief Метод получения прикладных настроек собеседника
+				 *
+				 * @return прикладные настройки собеседника как есть
+				 *
+				 */
+				const vector <uint8_t> & settings() const noexcept;
+				/**
+				 * @brief Метод получения точки кода расширения прикладных настроек ALPS
+				 *
+				 * @return вид расширения, которым ведётся связь
+				 *
+				 */
+				uint16_t codepoint() const noexcept;
+				/**
 				 * @brief Метод получения алгоритма сжатия цепочки сертификатов направления
 				 *
 				 * @param direction направление связи относительно своей стороны
@@ -1558,6 +1769,18 @@ namespace nts {
 				 */
 				void inquire(const bool inquire) noexcept;
 				/**
+				 * @brief Метод получения предела длины открытого содержимого отправляемой записи
+				 *
+				 * @return предел в байтах: объявленный собеседником либо предел протокола
+				 */
+				size_t ceiling() const noexcept;
+				/**
+				 * @brief Метод получения предела длины открытого содержимого принимаемой записи
+				 *
+				 * @return предел в байтах: свой объявленный и подтверждённый либо предел протокола
+				 */
+				size_t threshold() const noexcept;
+				/**
 				 * @brief Метод установки ответа о состоянии своего сертификата
 				 *
 				 * @param response запись ответа OCSP, пустая снимает ответ
@@ -1565,6 +1788,55 @@ namespace nts {
 				 *
 				 */
 				void staple(const vector <uint8_t> & response, const size_t index) noexcept;
+				/**
+				 * @brief Метод установки запроса меток времени сертификата собеседника
+				 *
+				 * @param request запрашиваются ли метки времени сертификата собеседника
+				 *
+				 */
+				void timestamps(const bool request) noexcept;
+				/**
+				 * @brief Метод установки перечня меток времени своего сертификата для выдачи по запросу
+				 *
+				 * @param list перечень меток времени как записан (SignedCertificateTimestampList)
+				 *
+				 */
+				void timestamps(const vector <uint8_t> & list) noexcept;
+				/**
+				 * @brief Метод получения перечня меток времени сертификата собеседника
+				 *
+				 * @return перечень меток времени как записан, пустой без ответа
+				 *
+				 */
+				const vector <uint8_t> & timestamps() const noexcept;
+				/**
+				 * @brief Метод установки перечня доверенных удостоверяющих центров для запроса подлинности
+				 *
+				 * @param names имена как записаны (DER X.501 Name)
+				 *
+				 */
+				void authorities(const vector <vector <uint8_t>> & names) noexcept;
+				/**
+				 * @brief Метод получения перечня доверенных удостоверяющих центров из запроса подлинности
+				 *
+				 * @return имена как записаны, пусто без запроса либо без перечня
+				 *
+				 */
+				const vector <vector <uint8_t>> & authorities() const noexcept;
+				/**
+				 * @brief Метод установки выработки следующего протокола NPN
+				 *
+				 * @param negotiation предлагается ли (объявляется ли) выработка NPN
+				 *
+				 */
+				void negotiation(const bool negotiation) noexcept;
+				/**
+				 * @brief Метод проверки выработки протокола связи через NPN
+				 *
+				 * @return признак того, что протокол связи взят выработкой NPN
+				 *
+				 */
+				bool negotiated() const noexcept;
 				/**
 				 * @brief Метод получения ответа о состоянии сертификата собеседника
 				 *
@@ -1612,6 +1884,21 @@ namespace nts {
 				 *
 				 */
 				void protocols(const vector <string> & protocols) noexcept;
+				/**
+				 * @brief Метод объявления прикладных настроек ALPS для прикладного протокола
+				 *
+				 * @param protocol прикладной протокол, для которого объявляются настройки
+				 * @param value    прикладные настройки как есть
+				 *
+				 */
+				void settings(const string & protocol, const vector <uint8_t> & value) noexcept;
+				/**
+				 * @brief Метод установки точки кода расширения прикладных настроек ALPS
+				 *
+				 * @param type вид расширения: SETTINGS либо SETTINGS_OLD
+				 *
+				 */
+				void codepoint(const uint16_t type) noexcept;
 				/**
 				 * @brief Метод установки метки возврата состояния сервера
 				 *

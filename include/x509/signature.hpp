@@ -147,6 +147,29 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ error_t verify(const view_t & body, const view_t & signature, const string & algorithm, const key_t & key) noexcept;
 		/**
 		 * \~russian
+		 * @brief Метод проверки голой подписи RSA PKCS #1 v1.5 над готовым хешем (TLS 1.1)
+		 *
+		 * @param digest    готовый хеш: 36 байтов MD5 ‖ SHA-1 у изданий TLS 1.0 и 1.1
+		 * @param signature проверяемая подпись
+		 * @param key       открытый ключ RSA из сертификата
+		 *
+		 * @return          отказ проверки подписи
+		 *
+		 * @details Раздел 7.4.3 RFC 4346: подпись без DigestInfo; нужна лишь изданию DTLS 1.0
+		 *
+		 * \~english
+		 * @brief Method of the check of a bare RSA PKCS #1 v1.5 signature over a ready hash (TLS 1.1)
+		 * @param digest    the ready hash: 36 bytes MD5 ‖ SHA-1 at the TLS 1.0 and 1.1 editions
+		 * @param signature the signature being checked
+		 * @param key       the RSA public key from the certificate
+		 * @return          the failure of the check of the signature
+		 * @details The section 7.4.3 of RFC 4346: a signature without DigestInfo; needed only by the DTLS 1.0 edition
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ error_t verify(const view_t & digest, const view_t & signature, const key_t & key) noexcept;
+		/**
+		 * \~russian
 		 * @brief Метод проверки подписи записи с настройками алгоритма подписи
 		 *
 		 * @param body       подписанная запись

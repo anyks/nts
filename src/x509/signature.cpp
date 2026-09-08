@@ -1080,6 +1080,36 @@ nts::x509::error_t nts::x509::verify(const view_t & body, const view_t & signatu
 	return nts::x509::error_t::SIGNATURE;
 }
 /**
+ * @brief Метод проверки голой подписи RSA PKCS #1 v1.5 над готовым хешем (TLS 1.1)
+ *
+ * @param digest    готовый хеш: 36 байтов MD5 ‖ SHA-1
+ * @param signature проверяемая подпись
+ * @param key       открытый ключ RSA из сертификата
+ *
+ * @return          отказ проверки подписи
+ *
+ */
+nts::x509::error_t nts::x509::verify(const view_t & digest, const view_t & signature, const key_t & key) noexcept {
+	// Если хеш либо подпись не переданы
+	if((digest.data == nullptr) || (digest.size == 0) || (signature.data == nullptr) || (signature.size == 0))
+		// Выводим отказ подписи
+		return error_t::SIGNATURE;
+	// Объект подписи RSA
+	sign::rsa_t rsa;
+	// Отказ заведения ключа
+	const error_t failure = ::rsa(key, rsa);
+	// Если ключ завести не удалось
+	if(failure != error_t::NONE)
+		// Выводим отказ
+		return failure;
+	// Если длина подписи не равна модулю
+	if(signature.size != rsa.size())
+		// Выводим отказ подписи
+		return error_t::SIGNATURE;
+	// Выводим итог проверки голой подписи PKCS #1 v1.5
+	return (rsa.check(sign::scheme_t::PKCS1, digest::hash_t::NONE, digest, signature, SIZE_MAX) ? error_t::NONE : error_t::SIGNATURE);
+}
+/**
  * @brief Метод проверки подписи записи
  *
  * @param body      подписанная запись

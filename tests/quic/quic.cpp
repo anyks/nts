@@ -1113,9 +1113,9 @@ TEST(QuicTest, Ticket){
 	// Записываем билет
 	ASSERT_EQ(context::encode(ticket, encoded), context::error_t::NONE);
 	// Проверяем издание записи
-	ASSERT_EQ(encoded[0], static_cast <uint8_t> (0x02));
-	// Проверяем длину записи: 1 + 2 + 8 + 4 + 4 + 4 + 1 и четыре поля с длинами
-	ASSERT_EQ(encoded.size(), static_cast <size_t> (24 + 2 + 2 + 2 + 32 + 2 + 48 + 2 + SERVER_PARAMETERS.size()));
+	ASSERT_EQ(encoded[0], static_cast <uint8_t> (0x03));
+	// Проверяем длину записи: 1 + 2 + 8 + 4 + 4 + 4 + 1 и четыре поля с длинами, за ними признак ALPS и два пустых поля настроек (издание 3)
+	ASSERT_EQ(encoded.size(), static_cast <size_t> (24 + 2 + 2 + 2 + 32 + 2 + 48 + 2 + SERVER_PARAMETERS.size() + 1 + 2 + 2));
 	// Прочитанный билет
 	context::ticket_t decoded;
 	// Читаем билет
@@ -1159,7 +1159,7 @@ TEST(QuicTest, Ticket){
 	// Записываем пустой билет
 	ASSERT_EQ(context::encode(blank, encoded), context::error_t::NONE);
 	// Проверяем длину записи пустого билета
-	ASSERT_EQ(encoded.size(), static_cast <size_t> (24 + 8));
+	ASSERT_EQ(encoded.size(), static_cast <size_t> (24 + 8 + 5));
 	// Читаем пустой билет
 	ASSERT_EQ(context::decode(view_t(encoded.data(), encoded.size()), decoded), context::error_t::NONE);
 	// Проверяем пустоту ключа
@@ -1177,7 +1177,7 @@ TEST(QuicTest, Ticket){
 		// Порченая запись
 		vector <uint8_t> broken = encoded;
 		// Меняем издание записи
-		broken[0] = 0x03;
+		broken[0] = 0x04;
 		// Проверяем отказ чтения
 		ASSERT_EQ(context::decode(view_t(broken.data(), broken.size()), decoded), context::error_t::TICKET);
 	}

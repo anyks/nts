@@ -102,6 +102,7 @@ namespace nts {
 		 */
 		enum class type_t : uint16_t {
 			NAME      = 0x0000, /*!< \~russian Имя запрашиваемого узла \~english The name of the requested host \~ */
+			FRAGMENT  = 0x0001, /*!< \~russian Наибольшая длина открытого содержимого записи по разделу 4 RFC 6066 (max_fragment_length) \~english The greatest length of the plaintext content of a record by the section 4 of RFC 6066 (max_fragment_length) \~ */
 			STATUS    = 0x0005, /*!< \~russian Запрос состояния сертификата OCSP (RFC 6066, раздел 4.4.2.1 RFC 8446) \~english The request of the certificate status OCSP (RFC 6066, the section 4.4.2.1 of RFC 8446) \~ */
 			GROUPS    = 0x000A, /*!< \~russian Поддерживаемые группы обмена ключами \~english The supported groups of the exchange of the keys \~ */
 			FORMATS   = 0x000B, /*!< \~russian Записи точек кривой ec_point_formats (раздел 5.1.2 RFC 8422, TLS 1.2) \~english The ec_point_formats of the points of a curve (the section 5.1.2 of RFC 8422, TLS 1.2) \~ */
@@ -111,12 +112,18 @@ namespace nts {
 			MASTER    = 0x0017, /*!< \~russian Расширенный главный секрет extended_master_secret (RFC 7627, TLS 1.2) \~english The extended_master_secret (RFC 7627, TLS 1.2) \~ */
 			TICKET    = 0x0023, /*!< \~russian Билет сеанса session_ticket (RFC 5077, TLS 1.2) \~english The session_ticket (RFC 5077, TLS 1.2) \~ */
 			COMPRESS  = 0x001B, /*!< \~russian Перечень алгоритмов сжатия цепочки сертификатов (RFC 8879) \~english The list of the algorithms of the compression of the chain of the certificates (RFC 8879) \~ */
+			LIMIT     = 0x001C, /*!< \~russian Предел длины принимаемой записи по RFC 8449 (record_size_limit) \~english The limit of the length of a record being received by RFC 8449 (record_size_limit) \~ */
+			TIMESTAMPS = 0x0012, /*!< \~russian Метки времени подписанного сертификата signed_certificate_timestamp (RFC 6962, раздел 4.4.2.1 RFC 8446) \~english The signed_certificate_timestamp (RFC 6962, the section 4.4.2.1 of RFC 8446) \~ */
 			SECRET    = 0x0029, /*!< \~russian Заранее разделённый ключ \~english The pre-shared key \~ */
 			EARLY     = 0x002A, /*!< \~russian Упреждающие данные связи \~english The early data of a connection \~ */
 			COOKIE    = 0x002C, /*!< \~russian Метка возврата состояния сервера \~english The label of the return of the state of the server \~ */
+			AUTHORITIES = 0x002F, /*!< \~russian Перечень доверенных удостоверяющих центров certificate_authorities (раздел 4.2.4 RFC 8446) \~english The certificate_authorities (the section 4.2.4 of RFC 8446) \~ */
 			VERSIONS  = 0x002B, /*!< \~russian Поддерживаемые издания протокола \~english The supported editions of the protocol \~ */
 			MODES     = 0x002D, /*!< \~russian Способы обмена с заранее разделённым ключом \~english The modes of the exchange with a pre-shared key \~ */
 			SHARE     = 0x0033, /*!< \~russian Открытая часть ключа обмена \~english The public part of the key of the exchange \~ */
+			SETTINGS_OLD = 0x4469, /*!< \~russian Прикладные настройки ALPS прежней точкой кода (draft-vvv-tls-alps, 17513) \~english The application settings ALPS by the former code point (draft-vvv-tls-alps, 17513) \~ */
+			SETTINGS  = 0x44CD, /*!< \~russian Прикладные настройки ALPS новой точкой кода (draft-vvv-tls-alps, 17613) \~english The application settings ALPS by the new code point (draft-vvv-tls-alps, 17613) \~ */
+			NEGOTIATION = 0x3374, /*!< \~russian Выработка следующего протокола next_protocol_negotiation (draft-agl-tls-nextprotoneg, TLS 1.2) \~english The next_protocol_negotiation (draft-agl-tls-nextprotoneg, TLS 1.2) \~ */
 			RENEGOTIATION = 0xFF01 /*!< \~russian Признак безопасного пересогласования renegotiation_info (RFC 5746, TLS 1.2) \~english The renegotiation_info (RFC 5746, TLS 1.2) \~ */
 		};
 
@@ -153,7 +160,9 @@ namespace nts {
 			SECP256R1 = 0x0017, /*!< \~russian Кривая secp256r1 (NIST P-256) по разделу 4.2.7 RFC 8446 \~english The secp256r1 (NIST P-256) curve by the section 4.2.7 of RFC 8446 \~ */
 			SECP384R1 = 0x0018, /*!< \~russian Кривая secp384r1 (NIST P-384) по разделу 4.2.7 RFC 8446 \~english The secp384r1 (NIST P-384) curve by the section 4.2.7 of RFC 8446 \~ */
 			X25519    = 0x001D, /*!< \~russian Кривая Curve25519 по RFC 7748 \~english The Curve25519 curve by RFC 7748 \~ */
-			X25519MLKEM768 = 0x11EC /*!< \~russian Гибрид X25519 и ML-KEM-768 по draft-ietf-tls-ecdhe-mlkem \~english The hybrid of X25519 and ML-KEM-768 by draft-ietf-tls-ecdhe-mlkem \~ */
+			SECP256R1MLKEM768 = 0x11EB, /*!< \~russian Гибрид secp256r1 и ML-KEM-768 по draft-ietf-tls-ecdhe-mlkem: доля кривой впереди \~english The hybrid of secp256r1 and ML-KEM-768 by draft-ietf-tls-ecdhe-mlkem: the curve share goes first \~ */
+			X25519MLKEM768 = 0x11EC, /*!< \~russian Гибрид X25519 и ML-KEM-768 по draft-ietf-tls-ecdhe-mlkem \~english The hybrid of X25519 and ML-KEM-768 by draft-ietf-tls-ecdhe-mlkem \~ */
+			SECP384R1MLKEM1024 = 0x11ED /*!< \~russian Гибрид secp384r1 и ML-KEM-1024 по draft-ietf-tls-ecdhe-mlkem: доля кривой впереди \~english The hybrid of secp384r1 and ML-KEM-1024 by draft-ietf-tls-ecdhe-mlkem: the curve share goes first \~ */
 		};
 		/**
 		 * \~russian
@@ -1159,6 +1168,133 @@ namespace nts {
 		 * \~
 		 */
 		__ANTS_SHARED_EXPORT__ error_t early(const uint32_t limit, vector <uint8_t> & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод разбора перечня меток времени подписанного сертификата
+		 *
+		 * @param data   разбираемое тело расширения signed_certificate_timestamp
+		 * @param result накопитель, в конец которого дописываются записи перечня как есть
+		 *
+		 * @return       отказ разбора тела расширения
+		 *
+		 * @details Раздел 3.3 RFC 6962: SignedCertificateTimestampList - перечень записей с
+		 *          двухбайтовыми длинами; ни перечень, ни запись пустыми быть не вправе.
+		 *          Сама запись (издание, журнал, миг, подпись) здесь не толкуется
+		 *
+		 * \~english
+		 * @brief Method of the parsing of the list of the signed certificate timestamps
+		 * @param data   the body of the signed_certificate_timestamp extension being parsed
+		 * @param result the accumulator the entries of the list are appended to as they are
+		 * @return       the failure of the parsing of the body of the extension
+		 * @details The section 3.3 of RFC 6962: SignedCertificateTimestampList - a list of entries with
+		 *          two-byte lengths; neither the list nor an entry may be empty. The entry itself (the
+		 *          version, the log, the moment, the signature) is not interpreted here
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ error_t timestamps(const view_t & data, vector <vector <uint8_t>> & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод составления перечня меток времени подписанного сертификата
+		 *
+		 * @param entries записи перечня как есть
+		 * @param result  накопитель, в конец которого дописывается тело расширения
+		 *
+		 * @return        отказ составления тела расширения
+		 *
+		 * \~english
+		 * @brief Method of the composition of the list of the signed certificate timestamps
+		 * @param entries the entries of the list as they are
+		 * @param result  the accumulator the body of the extension is appended to the end of
+		 * @return        the failure of the composition of the body of the extension
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ error_t timestamps(const vector <vector <uint8_t>> & entries, vector <uint8_t> & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод разбора перечня доверенных удостоверяющих центров
+		 *
+		 * @param data   разбираемое тело расширения certificate_authorities
+		 * @param result накопитель, в конец которого дописываются имена как записаны (DER X.501 Name)
+		 *
+		 * @return       отказ разбора тела расширения
+		 *
+		 * @details Раздел 4.2.4 RFC 8446: перечень имён с двухбайтовыми длинами; ни перечень, ни
+		 *          имя пустыми быть не вправе, а имя есть DER-запись SEQUENCE. Само имя здесь не
+		 *          толкуется - его разбирает x509
+		 *
+		 * \~english
+		 * @brief Method of the parsing of the list of the trusted certificate authorities
+		 * @param data   the body of the certificate_authorities extension being parsed
+		 * @param result the accumulator the names are appended to as they are written (DER X.501 Name)
+		 * @return       the failure of the parsing of the body of the extension
+		 * @details The section 4.2.4 of RFC 8446: a list of names with two-byte lengths; neither the list
+		 *          nor a name may be empty, and a name is a DER SEQUENCE record. The name itself is not
+		 *          interpreted here - x509 parses it
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ error_t authorities(const view_t & data, vector <vector <uint8_t>> & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод составления перечня доверенных удостоверяющих центров
+		 *
+		 * @param names  имена как записаны (DER X.501 Name)
+		 * @param result накопитель, в конец которого дописывается тело расширения
+		 *
+		 * @return       отказ составления тела расширения
+		 *
+		 * \~english
+		 * @brief Method of the composition of the list of the trusted certificate authorities
+		 * @param names  the names as they are written (DER X.501 Name)
+		 * @param result the accumulator the body of the extension is appended to the end of
+		 * @return       the failure of the composition of the body of the extension
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ error_t authorities(const vector <vector <uint8_t>> & names, vector <uint8_t> & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод разбора перечня протоколов выработки NPN, объявленного сервером
+		 *
+		 * @param data   разбираемое тело расширения next_protocol_negotiation приветствия сервера
+		 * @param result накопитель, в конец которого дописываются названия протоколов
+		 *
+		 * @return       отказ разбора тела расширения
+		 *
+		 * @details Черновик draft-agl-tls-nextprotoneg: имена идут подряд с однобайтовыми
+		 *          длинами без внешней длины; пустое имя запрещено, пустой перечень дозволен
+		 *
+		 * \~english
+		 * @brief Method of the parsing of the list of the NPN protocols declared by the server
+		 * @param data   the body of the next_protocol_negotiation extension of the server hello being parsed
+		 * @param result the accumulator the names of the protocols are appended to
+		 * @return       the failure of the parsing of the body of the extension
+		 * @details The draft-agl-tls-nextprotoneg: the names go one after another with one-byte lengths
+		 *          without an outer length; an empty name is forbidden, an empty list is allowed
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ error_t negotiation(const view_t & data, vector <string> & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод составления перечня протоколов выработки NPN
+		 *
+		 * @param protocols названия протоколов
+		 * @param result    накопитель, в конец которого дописывается тело расширения
+		 *
+		 * @return          отказ составления тела расширения
+		 *
+		 * \~english
+		 * @brief Method of the composition of the list of the NPN protocols
+		 * @param protocols the names of the protocols
+		 * @param result    the accumulator the body of the extension is appended to the end of
+		 * @return          the failure of the composition of the body of the extension
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ error_t negotiation(const vector <string> & protocols, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод разбора перечня алгоритмов сжатия цепочки сертификатов

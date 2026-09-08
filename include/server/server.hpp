@@ -178,6 +178,50 @@ namespace nts {
 				bool established() const noexcept;
 				/**
 				 * \~russian
+				 * @brief Метод получения предела длины открытого содержимого отправляемой записи
+				 *
+				 * @details Предел, объявленный собеседником расширением record_size_limit (RFC 8449)
+				 *          либо max_fragment_length (раздел 4 RFC 6066); без договора - предел
+				 *          протокола RECORD_PLAINTEXT. Учитывается нарезкой всякой записи связи
+				 *
+				 * @return  предел в байтах
+				 *
+				 * \~english
+				 * @brief Method of getting the limit of the length of the plaintext content of a record being sent
+				 *
+				 * @details The limit declared by the peer with the record_size_limit (RFC 8449) or
+				 *          max_fragment_length (the section 4 of RFC 6066) extension; without an agreement,
+				 *          the protocol limit RECORD_PLAINTEXT. Respected by the splitting of every record
+				 *
+				 * @return  the limit in bytes
+				 *
+				 * \~
+				 */
+				size_t ceiling() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения предела длины открытого содержимого принимаемой записи
+				 *
+				 * @details Свой предел, объявленный и подтверждённый собеседником; без договора -
+				 *          предел протокола RECORD_PLAINTEXT. Запись длиннее отвергается извещением
+				 *          record_overflow
+				 *
+				 * @return  предел в байтах
+				 *
+				 * \~english
+				 * @brief Method of getting the limit of the length of the plaintext content of a record being received
+				 *
+				 * @details The own limit declared and confirmed by the peer; without an agreement, the
+				 *          protocol limit RECORD_PLAINTEXT. A longer record is rejected with the
+				 *          record_overflow alert
+				 *
+				 * @return  the limit in bytes
+				 *
+				 * \~
+				 */
+				size_t threshold() const noexcept;
+				/**
+				 * \~russian
 				 * @brief Метод получения извещения, которым связь оборвана
 				 *
 				 * @return извещение, которым связь оборвана
@@ -307,6 +351,57 @@ namespace nts {
 				 * \~
 				 */
 				const string & protocol() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод проверки согласования прикладных настроек ALPS
+				 *
+				 * @return признак того, что прикладные настройки сторонами согласованы
+				 *
+				 * @details Черновик draft-vvv-tls-alps: настройки согласованы, когда обе стороны
+				 *          объявили их для выбранного прикладного протокола одной точкой кода;
+				 *          при принятых упреждающих данных состояние унаследовано от билета
+				 *
+				 * \~english
+				 * @brief Method of checking the negotiation of the application settings ALPS
+				 * @return the flag of the application settings having been negotiated by the sides
+				 * @details The draft-vvv-tls-alps: the settings are negotiated when both sides have declared
+				 *          them for the chosen application protocol by one code point; with the accepted
+				 *          early data the state is inherited from the ticket
+				 *
+				 * \~
+				 */
+				bool settled() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения прикладных настроек собеседника
+				 *
+				 * @return прикладные настройки собеседника как есть
+				 *
+				 * @note Пустые настройки означают либо пустые настройки собеседника, либо их
+				 *       отсутствие - различать их велит settled()
+				 *
+				 * \~english
+				 * @brief Method of getting the application settings of the peer
+				 * @return the application settings of the peer as they are
+				 * @note Empty settings mean either the empty settings of the peer or their absence -
+				 *       settled() tells them apart
+				 *
+				 * \~
+				 */
+				const vector <uint8_t> & settings() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения точки кода расширения прикладных настроек ALPS
+				 *
+				 * @return вид расширения, которым ведётся связь: SETTINGS либо SETTINGS_OLD
+				 *
+				 * \~english
+				 * @brief Method of getting the code point of the extension of the application settings ALPS
+				 * @return the type of the extension by which the connection goes: SETTINGS or SETTINGS_OLD
+				 *
+				 * \~
+				 */
+				extension::type_t codepoint() const noexcept;
 				/**
 				 * \~russian
 				 * @brief Метод получения имени узла, запрошенного клиентом
@@ -622,6 +717,33 @@ namespace nts {
 				void status(const vector <uint8_t> & response, const size_t index = 0) noexcept;
 				/**
 				 * \~russian
+				 * @brief Метод установки перечня меток времени своего сертификата для выдачи по запросу
+				 *
+				 * @param list перечень SignedCertificateTimestampList как записан (RFC 6962, раздел 3.3)
+				 *
+				 * @details Перечень идёт лишь по запросу клиента расширением signed_certificate_timestamp:
+				 *          изданием 1.3 - расширением записи листа цепочки, изданием 1.2 - расширением
+				 *          приветствия сервера, не при возобновлении и лишь при подлинности сертификатом
+				 *
+				 * @note Негодная запись перечня (пустой перечень, пустая запись, хвост) отвергается
+				 *       заведением связи отказом SETTINGS; сами метки связь не толкует
+				 *
+				 * \~english
+				 * @brief Method of setting the list of the timestamps of the own certificate for giving out upon request
+				 * @param list the SignedCertificateTimestampList as it is written (RFC 6962, the section 3.3)
+				 * @details The list goes only upon the request of the client by the signed_certificate_timestamp
+				 *          extension: in the 1.3 edition as an extension of the leaf entry of the chain, in the 1.2
+				 *          edition as an extension of the server hello, not on resumption and only with the
+				 *          authenticity by a certificate
+				 * @note An unfit record of the list (an empty list, an empty entry, a tail) is rejected by the
+				 *       start of the connection with the SETTINGS failure; the timestamps themselves are not
+				 *       interpreted by the connection
+				 *
+				 * \~
+				 */
+				void timestamps(const vector <uint8_t> & list) noexcept;
+				/**
+				 * \~russian
 				 * @brief Метод получения ответа о состоянии сертификата собеседника
 				 *
 				 * @return запись ответа OCSP по RFC 6960 либо пустой накопитель
@@ -728,6 +850,58 @@ namespace nts {
 				 * \~
 				 */
 				void protocols(const vector <string> & protocols) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод объявления прикладных настроек ALPS для прикладного протокола
+				 *
+				 * @param protocol прикладной протокол, для которого объявляются настройки
+				 * @param value    прикладные настройки как есть
+				 *
+				 * @details Черновик draft-vvv-tls-alps: настройки прикладного уровня согласуются
+				 *          рукопожатием издания 1.3 для выбранного протокола; вызовы копятся по
+				 *          протоколам, повтор по тому же протоколу заменяет настройки. Протокол
+				 *          обязан значиться в protocols(), иначе заведение связи отвечает PROTOCOL
+				 *
+				 * @note Смысл настроек за потребителем: связь несёт их байтами как есть; пустые
+				 *       настройки согласуются наравне с непустыми
+				 *
+				 * \~english
+				 * @brief Method of declaring the application settings ALPS for an application protocol
+				 * @param protocol the application protocol for which the settings are declared
+				 * @param value    the application settings as they are
+				 * @details The draft-vvv-tls-alps: the settings of the application layer are negotiated by
+				 *          the handshake of the 1.3 edition for the chosen protocol; the calls accumulate by
+				 *          protocols, a repeat for the same protocol replaces the settings. The protocol must
+				 *          be listed in protocols(), otherwise the start of the connection answers PROTOCOL
+				 * @note The meaning of the settings is up to the consumer: the connection carries them as
+				 *       bytes as they are; empty settings are negotiated on a par with non-empty ones
+				 *
+				 * \~
+				 */
+				void settings(const string & protocol, const vector <uint8_t> & value) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод установки точки кода расширения прикладных настроек ALPS
+				 *
+				 * @param type вид расширения: SETTINGS (0x44CD, новая точка) либо SETTINGS_OLD (0x4469, прежняя)
+				 *
+				 * @details Точки кода сторон обязаны совпасть, иначе связь идёт без настроек молча;
+				 *          умолчание - новая точка, как у BoringSSL. Профиль отпечатка с расширением
+				 *          ALPS выставляет точку профиля сам
+				 *
+				 * @note Иной вид расширения точку не меняет
+				 *
+				 * \~english
+				 * @brief Method of setting the code point of the extension of the application settings ALPS
+				 * @param type the type of the extension: SETTINGS (0x44CD, the new point) or SETTINGS_OLD (0x4469, the former)
+				 * @details The code points of the sides must coincide, otherwise the connection goes without
+				 *          the settings silently; the default is the new point, as at BoringSSL. A fingerprint
+				 *          profile with the ALPS extension sets the point of the profile itself
+				 * @note Another type of the extension does not change the point
+				 *
+				 * \~
+				 */
+				void codepoint(const extension::type_t type) noexcept;
 				/**
 				 * \~russian
 				 * @brief Метод установки метки возврата состояния сервера
@@ -853,6 +1027,74 @@ namespace nts {
 				 * \~
 				 */
 				void request(const bool request) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод установки перечня доверенных удостоверяющих центров для запроса подлинности
+				 *
+				 * @param names имена центров как записаны (DER X.501 Name)
+				 *
+				 * @details Раздел 4.2.4 RFC 8446 и раздел 7.4.4 RFC 5246: перечень идёт запросом
+				 *          подлинности - изданием 1.3 расширением certificate_authorities (0x002F),
+				 *          изданием 1.2 полем запроса - и говорит клиенту, чьи сертификаты сервер
+				 *          примет; имя владельца сертификата центра даёт
+				 *          x509::certificate_t::subjects().element
+				 *
+				 * @note Пустое имя либо имя не SEQUENCE отвергается заведением связи отказом SETTINGS;
+				 *       без перечня запрос идёт без расширения (издание 1.2 - с пустым полем)
+				 *
+				 * \~english
+				 * @brief Method of setting the list of the trusted certificate authorities for the request of the authenticity
+				 * @param names the names of the authorities as they are written (DER X.501 Name)
+				 * @details The section 4.2.4 of RFC 8446 and the section 7.4.4 of RFC 5246: the list goes by the request
+				 *          of the authenticity - in the 1.3 edition by the certificate_authorities extension (0x002F),
+				 *          in the 1.2 edition by the field of the request - and tells the client whose certificates the
+				 *          server accepts; the name of the subject of the certificate of an authority is given by
+				 *          x509::certificate_t::subjects().element
+				 * @note An empty name or a name which is not a SEQUENCE is rejected by the start of the connection
+				 *       with the SETTINGS failure; without the list the request goes without the extension (the 1.2
+				 *       edition - with an empty field)
+				 *
+				 * \~
+				 */
+				void authorities(const vector <vector <uint8_t>> & names) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод установки выработки следующего протокола NPN
+				 *
+				 * @param negotiation объявляется ли перечень протоколов по запросу клиента
+				 *
+				 * @details Черновик draft-agl-tls-nextprotoneg: по пустому расширению 0x3374 клиента
+				 *          издания 1.2 сервер объявляет protocols() в своём порядке приветствием, а
+				 *          клиент отвечает сообщением NextProtocol с выбранным протоколом; итог в protocol()
+				 *
+				 * @note Объявление идёт лишь когда ALPN не выбран; изданием 1.3 расширение
+				 *       клиента пропускается; завершение клиента без NextProtocol - unexpected_message
+				 *
+				 * \~english
+				 * @brief Method of setting the next protocol negotiation NPN
+				 * @param negotiation whether the list of the protocols is declared upon the request of the client
+				 * @details The draft-agl-tls-nextprotoneg: upon the empty extension 0x3374 of a 1.2 client the
+				 *          server declares protocols() in its order by the hello, and the client answers by the
+				 *          NextProtocol message with the chosen protocol; the result is in protocol()
+				 * @note The declaration goes only when ALPN is not chosen; in the 1.3 edition the extension of
+				 *       the client is skipped; a completion of the client without NextProtocol - unexpected_message
+				 *
+				 * \~
+				 */
+				void negotiation(const bool negotiation) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод проверки выработки протокола связи через NPN
+				 *
+				 * @return признак того, что protocol() взят выработкой NPN, а не ALPN
+				 *
+				 * \~english
+				 * @brief Method of checking the negotiation of the protocol of the connection by NPN
+				 * @return the flag of protocol() having been taken by the NPN negotiation, not by ALPN
+				 *
+				 * \~
+				 */
+				bool negotiated() const noexcept;
 			public:
 				/**
 				 * \~russian

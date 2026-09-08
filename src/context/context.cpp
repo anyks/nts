@@ -67,7 +67,7 @@ namespace {
 	/**
 	 * Издание записи билета возобновления связи
 	 */
-	static constexpr uint32_t EDITION = 0x02;
+	static constexpr uint32_t EDITION = 0x03;
 	/**
 	 * Предел длины ключа билета: ключ выводится хешем набора, а шире хеша он не бывает
 	 */
@@ -123,7 +123,7 @@ namespace {
  *
  */
 nts::context::Ticket::Ticket() noexcept :
-	suite(protect::suite_t::NONE), moment(0), lifetime(0), advance(0), age(0), etm(false) {}
+	suite(protect::suite_t::NONE), moment(0), lifetime(0), advance(0), age(0), etm(false), settled(false) {}
 /**
  * @brief Деструктор настроек заранее разделённого ключа
  *
@@ -146,7 +146,7 @@ nts::context::error_t nts::context::encode(const ticket_t & ticket, vector <uint
 	 * Поля переменной длины идут с двухбайтовой длиной, а ключ билета шире хеша не
 	 * бывает: билет, в запись не входящий, отвергается прежде составления
 	 */
-	if((ticket.protocol.size() > 0xFFFF) || (ticket.identity.size() > 0xFFFF) || (ticket.parameters.size() > 0xFFFF) || (ticket.secret.size() > SECRET_WIDEST))
+	if((ticket.protocol.size() > 0xFFFF) || (ticket.identity.size() > 0xFFFF) || (ticket.parameters.size() > 0xFFFF) || (ticket.settings.size() > 0xFFFF) || (ticket.obtained.size() > 0xFFFF) || (ticket.secret.size() > SECRET_WIDEST))
 		// Выводим отказ записи билета
 		return error_t::TICKET;
 	// Объект составителя записи билета
@@ -222,6 +222,24 @@ nts::context::error_t nts::context::encode(const ticket_t & ticket, vector <uint
 	// Отказ записи параметров переноса собеседника
 	failure = ::field(builder, view_t(ticket.parameters.data(), ticket.parameters.size()));
 	// Если параметры переноса собеседника записать не удалось
+	if(failure != error_t::NONE)
+		// Выводим отказ записи билета
+		return failure;
+	// Отказ записи признака согласования прикладных настроек ALPS
+	failure = translate(builder.number((ticket.settled ? 1 : 0), 1));
+	// Если признак согласования записать не удалось
+	if(failure != error_t::NONE)
+		// Выводим отказ записи билета
+		return failure;
+	// Отказ записи своих прикладных настроек
+	failure = ::field(builder, view_t(ticket.settings.data(), ticket.settings.size()));
+	// Если свои прикладные настройки записать не удалось
+	if(failure != error_t::NONE)
+		// Выводим отказ записи билета
+		return failure;
+	// Отказ записи прикладных настроек собеседника
+	failure = ::field(builder, view_t(ticket.obtained.data(), ticket.obtained.size()));
+	// Если прикладные настройки собеседника записать не удалось
 	if(failure != error_t::NONE)
 		// Выводим отказ записи билета
 		return failure;
@@ -314,7 +332,7 @@ nts::context::error_t nts::context::decode(const view_t & data, ticket_t & resul
 	// Переносим признак порядка
 	ticket.etm = (etm == 1);
 	// Поля билета переменной длины
-	view_t protocol, identity, secret, parameters;
+	view_t protocol, identity, secret, parameters, settings, obtained;
 	// Если прикладной протокол билета прочитать не удалось
 	if(scanner.vector(protocol, 2) != field::error_t::NONE)
 		// Выводим отказ чтения билета
@@ -329,6 +347,22 @@ nts::context::error_t nts::context::decode(const view_t & data, ticket_t & resul
 		return error_t::TICKET;
 	// Если параметры переноса собеседника прочитать не удалось
 	if(scanner.vector(parameters, 2) != field::error_t::NONE)
+		// Выводим отказ чтения билета
+		return error_t::TICKET;
+	// Признак согласования прикладных настроек ALPS
+	uint32_t settled = 0;
+	// Если признак согласования прочитать не удалось либо он вне 0..1
+	if((scanner.number(settled, 1) != field::error_t::NONE) || (settled > 1))
+		// Выводим отказ чтения билета
+		return error_t::TICKET;
+	// Устанавливаем признак согласования прикладных настроек
+	ticket.settled = (settled == 1);
+	// Если свои прикладные настройки прочитать не удалось
+	if(scanner.vector(settings, 2) != field::error_t::NONE)
+		// Выводим отказ чтения билета
+		return error_t::TICKET;
+	// Если прикладные настройки собеседника прочитать не удалось
+	if(scanner.vector(obtained, 2) != field::error_t::NONE)
 		// Выводим отказ чтения билета
 		return error_t::TICKET;
 	/**
@@ -350,6 +384,10 @@ nts::context::error_t nts::context::decode(const view_t & data, ticket_t & resul
 		ticket.secret.assign(secret.data, secret.data + secret.size);
 		// Переносим параметры переноса собеседника
 		ticket.parameters.assign(parameters.data, parameters.data + parameters.size);
+		// Переносим свои прикладные настройки
+		ticket.settings.assign(settings.data, settings.data + settings.size);
+		// Переносим прикладные настройки собеседника
+		ticket.obtained.assign(obtained.data, obtained.data + obtained.size);
 		// Переносим прочитанный билет на место итога
 		result = ::move(ticket);
 	/**

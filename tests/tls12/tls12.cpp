@@ -1465,8 +1465,13 @@ TEST(Tls12Test, Limits){
 		ASSERT_EQ(client.lowest(), static_cast <uint16_t> (0x0303));
 		// Верхний предел
 		ASSERT_EQ(client.highest(), static_cast <uint16_t> (0x0304));
-		// Ниже 1.2 - никогда
-		ASSERT_EQ(client.versions(0x0302, 0x0304), context::error_t::SETTINGS);
+		// Издание 1.1 (DTLS 1.0 по RFC 4347) пределом принимается, но потоком связь с ним не заводится
+		ASSERT_EQ(client.versions(0x0302, 0x0304), context::error_t::NONE);
+		ASSERT_EQ(client.start(), context::error_t::SETTINGS);
+		// Ниже 1.1 - никогда
+		ASSERT_EQ(client.versions(0x0301, 0x0304), context::error_t::SETTINGS);
+		// Возвращаем умолчание пределов
+		ASSERT_EQ(client.versions(0x0303, 0x0304), context::error_t::NONE);
 		// Выше 1.3 изданий нет
 		ASSERT_EQ(client.versions(0x0303, 0x0305), context::error_t::SETTINGS);
 		// Перевёрнутые пределы

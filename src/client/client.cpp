@@ -41,6 +41,7 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <client/client.hpp>
+#include <record/record.hpp>
 #include <internal/engine/engine.hpp>
 
 /**
@@ -82,6 +83,24 @@ context::error_t nts::client::Context::error() const noexcept {
 bool nts::client::Context::established() const noexcept {
 	// Выводим признак установленности связи
 	return (this->state() == context::state_t::ESTABLISHED);
+}
+/**
+ * @brief Метод получения предела длины открытого содержимого отправляемой записи
+ *
+ * @return предел в байтах
+ */
+size_t nts::client::Context::ceiling() const noexcept {
+	// Выводим предел отправки движка либо предел протокола
+	return ((this->_engine != nullptr) ? this->_engine->ceiling() : record::RECORD_PLAINTEXT);
+}
+/**
+ * @brief Метод получения предела длины открытого содержимого принимаемой записи
+ *
+ * @return предел в байтах
+ */
+size_t nts::client::Context::threshold() const noexcept {
+	// Выводим предел приёма движка либо предел протокола
+	return ((this->_engine != nullptr) ? this->_engine->threshold() : record::RECORD_PLAINTEXT);
 }
 /**
  * @brief Метод получения извещения, которым связь оборвана
@@ -280,6 +299,64 @@ void nts::client::Context::status(const bool request) noexcept {
 		this->_engine->inquire(request);
 }
 /**
+ * @brief Метод установки запроса меток времени сертификата собеседника
+ *
+ * @param request запрашиваются ли метки времени подписанного сертификата
+ *
+ */
+void nts::client::Context::timestamps(const bool request) noexcept {
+	// Если ведение связи заведено
+	if(this->_engine != nullptr)
+		// Выполняем установку запроса меток времени
+		this->_engine->timestamps(request);
+}
+/**
+ * @brief Метод установки выработки следующего протокола NPN
+ *
+ * @param negotiation предлагается ли выработка NPN
+ *
+ */
+void nts::client::Context::negotiation(const bool negotiation) noexcept {
+	// Если ведение связи заведено
+	if(this->_engine != nullptr)
+		// Выполняем установку выработки NPN
+		this->_engine->negotiation(negotiation);
+}
+/**
+ * @brief Метод проверки выработки протокола связи через NPN
+ *
+ * @return признак того, что протокол взят выработкой NPN
+ *
+ */
+bool nts::client::Context::negotiated() const noexcept {
+	// Выводим признак выработки NPN
+	return (this->_engine != nullptr ? this->_engine->negotiated() : false);
+}
+/**
+ * @brief Метод получения перечня меток времени сертификата собеседника
+ *
+ * @return перечень меток времени как записан, пустой без ответа
+ *
+ */
+const vector <uint8_t> & nts::client::Context::timestamps() const noexcept {
+	// Пустой перечень на случай незаведённой связи
+	static const vector <uint8_t> empty;
+	// Выводим перечень меток времени
+	return (this->_engine != nullptr ? this->_engine->timestamps() : empty);
+}
+/**
+ * @brief Метод получения перечня доверенных удостоверяющих центров из запроса подлинности
+ *
+ * @return имена центров как записаны, пусто без запроса либо без перечня
+ *
+ */
+const vector <vector <uint8_t>> & nts::client::Context::authorities() const noexcept {
+	// Пустой перечень на случай незаведённой связи
+	static const vector <vector <uint8_t>> empty;
+	// Выводим перечень доверенных центров
+	return (this->_engine != nullptr ? this->_engine->authorities() : empty);
+}
+/**
  * @brief Метод установки ответа о состоянии своего сертификата для сшивки
  *
  * @param response запись ответа OCSP, пустая снимает ответ
@@ -363,6 +440,63 @@ void nts::client::Context::protocols(const vector <string> & protocols) noexcept
 	if(this->_engine != nullptr)
 		// Выполняем установку предлагаемых прикладных протоколов
 		this->_engine->protocols(protocols);
+}
+/**
+ * @brief Метод объявления прикладных настроек ALPS для прикладного протокола
+ *
+ * @param protocol прикладной протокол, для которого объявляются настройки
+ * @param value    прикладные настройки как есть
+ *
+ */
+void nts::client::Context::settings(const string & protocol, const vector <uint8_t> & value) noexcept {
+	// Если ведение связи заведено
+	if(this->_engine != nullptr)
+		// Выполняем объявление прикладных настроек
+		this->_engine->settings(protocol, value);
+}
+/**
+ * @brief Метод установки точки кода расширения прикладных настроек ALPS
+ *
+ * @param type вид расширения: SETTINGS либо SETTINGS_OLD
+ *
+ */
+void nts::client::Context::codepoint(const extension::type_t type) noexcept {
+	// Если ведение связи заведено
+	if(this->_engine != nullptr)
+		// Выполняем установку точки кода
+		this->_engine->codepoint(static_cast <uint16_t> (type));
+}
+/**
+ * @brief Метод проверки согласования прикладных настроек ALPS
+ *
+ * @return признак того, что прикладные настройки сторонами согласованы
+ *
+ */
+bool nts::client::Context::settled() const noexcept {
+	// Выводим признак согласования прикладных настроек
+	return (this->_engine != nullptr ? this->_engine->settled() : false);
+}
+/**
+ * @brief Метод получения прикладных настроек собеседника
+ *
+ * @return прикладные настройки собеседника как есть
+ *
+ */
+const vector <uint8_t> & nts::client::Context::settings() const noexcept {
+	// Пустые настройки на случай незаведённой связи
+	static const vector <uint8_t> empty;
+	// Выводим прикладные настройки собеседника
+	return (this->_engine != nullptr ? this->_engine->settings() : empty);
+}
+/**
+ * @brief Метод получения точки кода расширения прикладных настроек ALPS
+ *
+ * @return вид расширения, которым ведётся связь
+ *
+ */
+extension::type_t nts::client::Context::codepoint() const noexcept {
+	// Выводим точку кода
+	return (this->_engine != nullptr ? static_cast <extension::type_t> (this->_engine->codepoint()) : extension::type_t::SETTINGS);
 }
 /**
  * @brief Метод установки мига, которым судятся сроки билетов

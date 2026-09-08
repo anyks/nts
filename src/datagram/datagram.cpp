@@ -324,6 +324,21 @@ nts::datagram::error_t nts::datagram::build(const header_t & header, uint8_t * r
  *
  */
 nts::datagram::error_t nts::datagram::parse(const view_t & data, header_t & result, const bool legacy) noexcept {
+	// Выводим итог разбора без признака издания DTLS 1.0
+	return parse(data, result, legacy, false);
+}
+/**
+ * @brief Метод разбора заголовка записи с учётом издания DTLS 1.0
+ *
+ * @param data    разбираемая область байтов
+ * @param result  заголовок, в который помещается итог разбора
+ * @param legacy  ведётся ли перенос открытым заголовком
+ * @param ancient ведётся ли перенос изданием DTLS 1.0
+ *
+ * @return        отказ разбора заголовка
+ *
+ */
+nts::datagram::error_t nts::datagram::parse(const view_t & data, header_t & result, const bool legacy, const bool ancient) noexcept {
 	// Если перенос ведётся изданием DTLS 1.3: заголовок его
 	if(!legacy)
 		// Выводим итог разбора заголовка издания DTLS 1.3
@@ -347,7 +362,7 @@ nts::datagram::error_t nts::datagram::parse(const view_t & data, header_t & resu
 	 * рукопожатия, которой чужие узлы шлют первое приветствие и просьбу о подтверждении
 	 * адреса; у защищённой записи чужое издание отбрасывается до снятия защиты
 	 */
-	if((result.version != static_cast <uint16_t> (record::version_t::DTLS12)) && ((result.version != static_cast <uint16_t> (record::version_t::DTLS10)) || (result.epoch != 0) || (result.type != record::type_t::HANDSHAKE)))
+	if((result.version != static_cast <uint16_t> (record::version_t::DTLS12)) && ((result.version != static_cast <uint16_t> (record::version_t::DTLS10)) || (!ancient && ((result.epoch != 0) || (result.type != record::type_t::HANDSHAKE)))))
 		// Выводим отказ издания протокола
 		return error_t::VERSION;
 	// Читаем порядковый номер записи: сорок восемь разрядов
@@ -387,6 +402,22 @@ nts::datagram::error_t nts::datagram::parse(const view_t & data, header_t & resu
  *
  */
 nts::datagram::error_t nts::datagram::build(const header_t & header, uint8_t * result, size_t & length, const bool legacy) noexcept {
+	// Выводим итог записи без признака издания DTLS 1.0
+	return build(header, result, length, legacy, false);
+}
+/**
+ * @brief Метод записи заголовка записи с учётом издания DTLS 1.0
+ *
+ * @param header  записываемый заголовок
+ * @param result  место, в которое помещается запись заголовка
+ * @param length  место, в которое помещается длина записи заголовка
+ * @param legacy  ведётся ли перенос открытым заголовком
+ * @param ancient ведётся ли перенос изданием DTLS 1.0
+ *
+ * @return        отказ записи заголовка
+ *
+ */
+nts::datagram::error_t nts::datagram::build(const header_t & header, uint8_t * result, size_t & length, const bool legacy, const bool ancient) noexcept {
 	// Если перенос ведётся изданием DTLS 1.3: заголовок его
 	if(!legacy)
 		// Выводим итог записи заголовка издания DTLS 1.3
@@ -410,7 +441,8 @@ nts::datagram::error_t nts::datagram::build(const header_t & header, uint8_t * r
 	// Записываем вид содержимого записи
 	result[0] = static_cast <uint8_t> (header.type);
 	// Раздел 4.1 RFC 6347: издание заголовка - DTLS 1.2 у всякой своей записи
-	stow(static_cast <uint16_t> (record::version_t::DTLS12), result + 1, 2);
+	// Записываем издание записи: 0xFEFF у DTLS 1.0 (RFC 4347), иначе 0xFEFD
+	stow(static_cast <uint16_t> (ancient ? record::version_t::DTLS10 : record::version_t::DTLS12), result + 1, 2);
 	// Записываем пору ключей записи как есть
 	stow(header.epoch, result + 3, 2);
 	// Записываем порядковый номер записи: сорок восемь разрядов

@@ -161,6 +161,7 @@ namespace nts {
 			STATUS        = 0x16, /*!< \~russian Состояние сертификата CertificateStatus (раздел 8 RFC 6066, TLS 1.2) \~english The CertificateStatus (the section 8 of RFC 6066, TLS 1.2) \~ */
 			UPDATE        = 0x18, /*!< \~russian Смена ключевого материала связи \~english The change of the key material of the connection \~ */
 			COMPRESSED    = 0x19, /*!< \~russian Сжатая цепочка сертификатов по RFC 8879 \~english The compressed chain of the certificates by RFC 8879 \~ */
+			NEXT_PROTOCOL = 0x43, /*!< \~russian Выбранный протокол NextProtocol выработки NPN (draft-agl-tls-nextprotoneg, TLS 1.2) \~english The NextProtocol of the NPN negotiation (draft-agl-tls-nextprotoneg, TLS 1.2) \~ */
 			DIGEST        = 0xFE, /*!< \~russian Хеш приветствия клиента вместо него самого \~english The hash of the greeting of the client instead of it itself \~ */
 			NONE          = 0xFF  /*!< \~russian Вид сообщения не установлен: значение вне реестра видов и с проводным видом не совпадает \~english The type of the message is not set: a value outside the registry of the types, coinciding with no type on the wire \~ */
 		};

@@ -76,8 +76,6 @@ namespace {
 	static constexpr uint16_t WIRE_LIMIT     = 0x001C; // record_size_limit (RFC 8449)
 	static constexpr uint16_t WIRE_DELEGATED = 0x0022; // delegated_credential (RFC 9345)
 	static constexpr uint16_t WIRE_CERTIFIED = 0x0032; // signature_algorithms_cert (RFC 8446)
-	static constexpr uint16_t WIRE_ALPS      = 0x4469; // application_settings
-	static constexpr uint16_t WIRE_ALPS_OLD  = 0x44CD; // application_settings (прежний вид)
 	static constexpr uint16_t WIRE_OUTER     = 0xFD00; // ech_outer_extensions
 
 	/**
@@ -474,10 +472,10 @@ namespace {
 				return rendered(extension::schemes(data, extension.schemes));
 			// Прикладные протоколы
 			case static_cast <uint16_t> (extension::type_t::PROTOCOLS):
-			// Прикладные настройки
-			case WIRE_ALPS:
-			// Прикладные настройки прежнего вида
-			case WIRE_ALPS_OLD:
+			// Прикладные настройки ALPS новой точкой кода
+			case static_cast <uint16_t> (extension::type_t::SETTINGS):
+			// Прикладные настройки ALPS прежней точкой кода
+			case static_cast <uint16_t> (extension::type_t::SETTINGS_OLD):
 				// Выводим итог разбора перечня протоколов
 				return (naming(data, extension.protocols) ? fingerprint::error_t::NONE : fingerprint::error_t::EXTENSION);
 			// Алгоритмы сжатия цепочки

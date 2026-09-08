@@ -472,6 +472,216 @@ TEST(HybridTest, Profile){
  * Голодание: связь по гибридной группе при ограниченном запасе выделений отвечает лишь
  * NONE либо MEMORY, не падает и при достаточном запасе устанавливается
  */
+/**
+ * Проверка гибридов NIST по draft-ietf-tls-ecdhe-mlkem: SecP256r1MLKEM768 (0x11EB, доля 65 + 1184,
+ * ответ 65 + 1088) и SecP384r1MLKEM1024 (0x11ED, доля 97 + 1568, ответ 97 + 1568), кривая впереди;
+ * связь, согласованная группа, данные; повтор приветствия с долей X25519
+ */
+TEST(HybridTest, Nist){
+	// Группы, длины долей и ответов
+	static const extension::group_t GROUPS[] = {extension::group_t::SECP256R1MLKEM768, extension::group_t::SECP384R1MLKEM1024};
+	static const size_t OFFERS[] = {65 + 1184, 97 + 1568}, ANSWERS[] = {65 + 1088, 97 + 1568};
+	static const uint8_t CODES[][2] = {{0x11, 0xEB}, {0x11, 0xED}};
+	/**
+	 * Выполняем перебор групп
+	 */
+	for(size_t i = 0; i < 2; i++){
+		context::credential_t credential;
+		ASSERT_TRUE(identity("ec256", credential));
+		client::context_t client;
+		server::context_t server;
+		client.groups(vector <extension::group_t> {GROUPS[i], extension::group_t::X25519});
+		client.shares(vector <extension::group_t> {GROUPS[i]});
+		client.name("localhost");
+		server.groups(vector <extension::group_t> {GROUPS[i], extension::group_t::X25519});
+		server.credential(credential);
+		ASSERT_EQ(server.start(), context::error_t::NONE);
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		fingerprint::profile_t offer;
+		ASSERT_TRUE(captured(client, offer));
+		const vector <extension::share_t> offered = offersof(offer);
+		ASSERT_EQ(offered.size(), static_cast <size_t> (1)) << i;
+		EXPECT_EQ(offered[0].group, GROUPS[i]) << i;
+		EXPECT_EQ(offered[0].key.size, OFFERS[i]) << i;
+		// Кривая впереди: точка в несжатом виде, за ней ключ инкапсуляции
+		EXPECT_EQ(offered[0].key.data[0], 0x04) << i;
+		EXPECT_TRUE(agreement::validate(((i == 0) ? agreement::kem_t::MLKEM768 : agreement::kem_t::MLKEM1024), view_t(offered[0].key.data + ((i == 0) ? 65 : 97), OFFERS[i] - ((i == 0) ? 65 : 97)))) << i;
+		ASSERT_TRUE(forth(client, server));
+		const view_t answer = server.output();
+		ASSERT_GT(answer.size, ANSWERS[i]) << i;
+		{
+			bool found = false;
+			for(size_t k = 0; (k + 5) <= answer.size; k++){
+				if((answer.data[k] == CODES[i][0]) && (answer.data[k + 1] == CODES[i][1]) && (answer.data[k + 2] == static_cast <uint8_t> (ANSWERS[i] >> 8)) && (answer.data[k + 3] == static_cast <uint8_t> (ANSWERS[i] & 0xFF)) && (answer.data[k + 4] == 0x04))
+					found = true;
+			}
+			EXPECT_TRUE(found) << i;
+		}
+		converse(client, server);
+		ASSERT_TRUE(client.established() && server.established()) << i << " " << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
+		EXPECT_EQ(client.group(), GROUPS[i]) << i;
+		EXPECT_EQ(server.group(), GROUPS[i]) << i;
+		EXPECT_TRUE(exchanged(client, server)) << i;
+	}
+	// Длины долей клиента у открытого API совпадают с проводом
+	EXPECT_EQ(extension::length(extension::group_t::SECP256R1MLKEM768), OFFERS[0]);
+	EXPECT_EQ(extension::length(extension::group_t::SECP384R1MLKEM1024), OFFERS[1]);
+	EXPECT_EQ(extension::length(extension::group_t::X25519MLKEM768), OFFER);
+	// Повтор приветствия: доля X25519, сервер лишь с SecP256r1MLKEM768
+	{
+		context::credential_t credential;
+		ASSERT_TRUE(identity("ec256", credential));
+		client::context_t client;
+		server::context_t server;
+		client.groups(vector <extension::group_t> {extension::group_t::X25519, extension::group_t::SECP256R1MLKEM768});
+		client.shares(vector <extension::group_t> {extension::group_t::X25519});
+		server.groups(vector <extension::group_t> {extension::group_t::SECP256R1MLKEM768});
+		server.credential(credential);
+		ASSERT_EQ(server.start(), context::error_t::NONE);
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		ASSERT_TRUE(forth(client, server));
+		ASSERT_TRUE(back(client, server));
+		fingerprint::profile_t again;
+		ASSERT_TRUE(captured(client, again));
+		const vector <extension::share_t> offered = offersof(again);
+		ASSERT_EQ(offered.size(), static_cast <size_t> (1));
+		EXPECT_EQ(offered[0].group, extension::group_t::SECP256R1MLKEM768);
+		EXPECT_EQ(offered[0].key.size, OFFERS[0]);
+		converse(client, server);
+		ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
+		EXPECT_EQ(client.group(), extension::group_t::SECP256R1MLKEM768);
+		EXPECT_TRUE(exchanged(client, server));
+	}
+}
+
+/**
+ * Проверка стражи длины доли гибрида NIST у сервера: приветствие с долей 0x11EB короче положенного
+ * (100 байтов) и с долей длиннее (1250) отвергается, связь не устанавливается
+ */
+TEST(HybridTest, NistMalformed){
+	static const size_t SIZES[] = {100, 1250};
+	/**
+	 * Выполняем перебор длин
+	 */
+	for(size_t i = 0; i < 2; i++){
+		context::credential_t credential;
+		ASSERT_TRUE(identity("ec256", credential));
+		// Приветствие с одной долей негодной длины
+		hello::client_t greeting;
+		greeting.version = 0x0303;
+		for(size_t k = 0; k < 32; k++) greeting.random[k] = static_cast <uint8_t> (k * 5 + 3);
+		greeting.suites.push_back(0x1301);
+		greeting.methods.push_back(0);
+		vector <uint8_t> name, share, groups, versions, schemes, modes;
+		vector <uint8_t> key(SIZES[i], 0x00);
+		key[0] = 0x04;
+		for(size_t k = 1; k < key.size(); k++) key[k] = static_cast <uint8_t> (k * 7 + 1);
+		ASSERT_EQ(extension::name(view_t(reinterpret_cast <const uint8_t *> ("localhost"), 9), name), extension::error_t::NONE);
+		ASSERT_EQ(extension::shares(vector <extension::share_t> {extension::share_t(extension::group_t::SECP256R1MLKEM768, view_t(key.data(), key.size()))}, share), extension::error_t::NONE);
+		ASSERT_EQ(extension::groups(vector <extension::group_t> {extension::group_t::SECP256R1MLKEM768, extension::group_t::X25519}, groups), extension::error_t::NONE);
+		ASSERT_EQ(extension::versions(vector <uint16_t> {0x0304}, versions), extension::error_t::NONE);
+		ASSERT_EQ(extension::schemes(vector <extension::scheme_t> {extension::scheme_t::ECDSA_SECP256R1_SHA256}, schemes), extension::error_t::NONE);
+		ASSERT_EQ(extension::modes(vector <extension::regime_t> {extension::regime_t::SHARED}, modes), extension::error_t::NONE);
+		greeting.extensions.push_back(hello::extension_t(0x0000, view_t(name.data(), name.size())));
+		greeting.extensions.push_back(hello::extension_t(0x000A, view_t(groups.data(), groups.size())));
+		greeting.extensions.push_back(hello::extension_t(0x000D, view_t(schemes.data(), schemes.size())));
+		greeting.extensions.push_back(hello::extension_t(0x002B, view_t(versions.data(), versions.size())));
+		greeting.extensions.push_back(hello::extension_t(0x002D, view_t(modes.data(), modes.size())));
+		greeting.extensions.push_back(hello::extension_t(0x0033, view_t(share.data(), share.size())));
+		vector <uint8_t> body;
+		ASSERT_EQ(hello::build(greeting, body), hello::error_t::NONE);
+		const vector <uint8_t> record = wrapped(body);
+		server::context_t server;
+		server.groups(vector <extension::group_t> {extension::group_t::SECP256R1MLKEM768, extension::group_t::X25519});
+		server.credential(credential);
+		ASSERT_EQ(server.start(), context::error_t::NONE);
+		(void) server.push(view_t(record.data(), record.size()));
+		EXPECT_FALSE(server.established()) << SIZES[i];
+		EXPECT_EQ(server.state(), context::state_t::FAILED) << SIZES[i] << " " << static_cast <int> (server.error());
+	}
+}
+
+/**
+ * Сличение гибридов NIST с openssl 3.5+: наш клиент против s_server с группой и наш сервер
+ * против s_client с группой, обе группы
+ */
+TEST(HybridTest, NistOpenssl){
+	const toolkit_t toolkit = inspect();
+	if(!toolkit.present || !toolkit.tls13 || !listed("s_server", "groups")){
+		GTEST_SKIP() << "openssl без TLS 1.3 либо без -groups";
+	}
+	if(shell("(openssl list -tls-groups 2>/dev/null | tr ':' '\\n' | grep -qw SecP256r1MLKEM768) >/dev/null 2>&1") != 0){
+		GTEST_SKIP() << "openssl без SecP256r1MLKEM768 (нужен openssl 3.5+)";
+	}
+	context::credential_t credential;
+	ASSERT_TRUE(identity("ec256", credential));
+	const std::string crt = std::string(CORPUS) + "/ec256.crt", key = std::string(CORPUS) + "/ec256.pem";
+	static const char * NAMES[] = {"SecP256r1MLKEM768", "SecP384r1MLKEM1024"};
+	static const extension::group_t GROUPS[] = {extension::group_t::SECP256R1MLKEM768, extension::group_t::SECP384R1MLKEM1024};
+	/**
+	 * Выполняем перебор групп
+	 */
+	for(size_t i = 0; i < 2; i++){
+		{
+			const uint16_t number = vacant(false);
+			ASSERT_NE(number, 0);
+			const std::string log = "/tmp/ants-nist-server-" + std::to_string(number) + ".log";
+			ASSERT_TRUE(launch("openssl s_server" + accepting(toolkit, number) + " -tls1_3 -cert " + crt + " -key " + key + " -groups " + NAMES[i] + " -www" + once(toolkit) + " </dev/null >" + log + " 2>&1", log, log + ".pid"));
+			sentinel_t sentinel(log + ".pid");
+			const int fd = dial(number);
+			ASSERT_GE(fd, 0) << "порт " << number;
+			client::context_t client;
+			client.groups(vector <extension::group_t> {GROUPS[i], extension::group_t::X25519});
+			client.shares(vector <extension::group_t> {GROUPS[i]});
+			client.name("localhost");
+			ASSERT_EQ(client.start(), context::error_t::NONE);
+			for(size_t k = 0; (k < 8) && !client.established() && (client.state() != context::state_t::FAILED); k++)
+				relay(client, fd);
+			if(!client.established()){ std::string journal; (void) settle(log, journal); ADD_FAILURE() << journal; }
+			ASSERT_TRUE(client.established()) << NAMES[i] << " отказ " << static_cast <int> (client.error()) << " извещение " << static_cast <int> (client.alert().description);
+			EXPECT_EQ(client.group(), GROUPS[i]) << NAMES[i];
+			const string request = "GET / HTTP/1.0\r\n\r\n";
+			ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
+			vector <uint8_t> reply;
+			for(size_t k = 0; (k < 16) && reply.empty(); k++){
+				relay(client, fd);
+				ASSERT_EQ(client.read(reply), context::error_t::NONE);
+			}
+			EXPECT_NE(string(reply.begin(), reply.end()).find("HTTP/1.0 200"), string::npos) << NAMES[i];
+			::close(fd);
+			sentinel.halt();
+			std::string journal;
+			(void) settle(log, journal);
+			::remove(log.c_str());
+		}
+		{
+			uint16_t number = 0;
+			const int listener = harbour(number);
+			ASSERT_GE(listener, 0);
+			const std::string log = "/tmp/ants-nist-client-" + std::to_string(number) + ".log";
+			ASSERT_TRUE(launch("openssl s_client -connect 127.0.0.1:" + std::to_string(number) + " -tls1_3 -CAfile " + crt + " -servername localhost -groups " + NAMES[i] + " -verify_return_error </dev/null >" + log + " 2>&1", log, log + ".pid"));
+			sentinel_t sentinel(log + ".pid");
+			const int fd = greeted(listener);
+			ASSERT_GE(fd, 0);
+			server::context_t server;
+			server.groups(vector <extension::group_t> {GROUPS[i], extension::group_t::X25519});
+			server.credential(credential);
+			ASSERT_EQ(server.start(), context::error_t::NONE);
+			const bool complete = serve(server, fd);
+			ASSERT_TRUE(complete) << NAMES[i] << " отказ " << static_cast <int> (server.error()) << " извещение " << static_cast <int> (server.alert().description);
+			ASSERT_EQ(server.error(), context::error_t::NONE);
+			EXPECT_EQ(server.group(), GROUPS[i]) << NAMES[i];
+			ASSERT_TRUE(farewell(server, fd));
+			::close(fd);
+			::close(listener);
+			std::string text;
+			ASSERT_TRUE(settle(log, text)) << text;
+			EXPECT_NE(text.find(std::string("Negotiated TLS1.3 group: ") + NAMES[i]), std::string::npos) << text;
+			::remove(log.c_str());
+		}
+	}
+}
+
 TEST(HybridTest, Starved){
 	context::credential_t credential;
 	ASSERT_TRUE(identity("ec256", credential));

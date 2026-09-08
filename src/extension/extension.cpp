@@ -379,8 +379,8 @@ const char * nts::extension::curve(const group_t group) noexcept {
  * \~
  */
 bool nts::extension::hybrid(const group_t group) noexcept {
-	// Выводим признак гибридной группы
-	return (group == group_t::X25519MLKEM768);
+	// Выводим признак гибрида: X25519MLKEM768, SecP256r1MLKEM768 либо SecP384r1MLKEM1024
+	return ((group == group_t::X25519MLKEM768) || (group == group_t::SECP256R1MLKEM768) || (group == group_t::SECP384R1MLKEM1024));
 }
 const char * nts::extension::curve(const scheme_t scheme) noexcept {
 	/**
@@ -429,6 +429,14 @@ size_t nts::extension::length(const group_t group) noexcept {
 	if(group == group_t::X25519MLKEM768)
 		// Выводим длину доли клиента
 		return (agreement::encapsulation(agreement::kem_t::MLKEM768) + agreement::X25519_SIZE);
+	// Если группа - гибрид secp256r1 и ML-KEM-768: точка 65 байтов и ключ инкапсуляции
+	if(group == group_t::SECP256R1MLKEM768)
+		// Выводим длину доли
+		return (65 + agreement::encapsulation(agreement::kem_t::MLKEM768));
+	// Если группа - гибрид secp384r1 и ML-KEM-1024: точка 97 байтов и ключ инкапсуляции
+	if(group == group_t::SECP384R1MLKEM1024)
+		// Выводим длину доли
+		return (97 + agreement::encapsulation(agreement::kem_t::MLKEM1024));
 	// Если группа обмена - X25519
 	if(group == group_t::X25519)
 		// Выводим длину доли ключа X25519
@@ -1055,6 +1063,360 @@ nts::extension::error_t nts::extension::early(const view_t & data, uint32_t & re
 	// Устанавливаем разобранный предел упреждающих данных
 	result = limit;
 	// Выводим успешность разбора тела расширения
+	return error_t::NONE;
+}
+/**
+ * @brief Метод разбора перечня меток времени подписанного сертификата
+ *
+ * @param data   разбираемое тело расширения signed_certificate_timestamp
+ * @param result накопитель, в конец которого дописываются записи перечня как есть
+ *
+ * @return       отказ разбора тела расширения
+ *
+ */
+nts::extension::error_t nts::extension::timestamps(const view_t & data, vector <vector <uint8_t>> & result) noexcept {
+	// Объект сканера тела расширения
+	field::scanner_t scanner;
+	// Заводим сканер по телу расширения
+	scanner.start(data);
+	// Тело перечня записей
+	view_t body;
+	// Если перечень записей прочитать не удалось
+	if(scanner.vector(body, 2) != field::error_t::NONE)
+		// Выводим отказ нехватки данных
+		return error_t::HUNGRY;
+	// Если за перечнем остались лишние байты
+	if(scanner.left() > 0)
+		// Выводим отказ лишних данных
+		return error_t::TRAILING;
+	// Раздел 3.3 RFC 6962: пустой перечень запрещён
+	if(body.size == 0)
+		// Выводим отказ пустого перечня
+		return error_t::EMPTY;
+	// Объект сканера перечня записей
+	field::scanner_t reader;
+	// Заводим сканер по перечню записей
+	reader.start(body);
+	/**
+	 * Выполняем перехват ошибок работы с памятью
+	 */
+	try {
+		/**
+		 * Выполняем перебор записей перечня
+		 */
+		while(reader.left() > 0){
+			// Запись перечня
+			view_t item;
+			// Если запись прочитать не удалось
+			if(reader.vector(item, 2) != field::error_t::NONE)
+				// Выводим отказ нехватки данных
+				return error_t::HUNGRY;
+			// Раздел 3.3 RFC 6962: пустая запись запрещена
+			if(item.size == 0)
+				// Выводим отказ пустой записи
+				return error_t::EMPTY;
+			// Добавляем запись в накопитель как есть
+			result.push_back(vector <uint8_t> (item.data, item.data + item.size));
+		}
+	/**
+	 * Если памяти под перечень записей не хватило
+	 */
+	} catch(const std::bad_alloc &) {
+		// Выводим отказ нехватки памяти
+		return error_t::MEMORY;
+	}
+	// Выводим успешность разбора
+	return error_t::NONE;
+}
+/**
+ * @brief Метод составления перечня меток времени подписанного сертификата
+ *
+ * @param entries записи перечня как есть
+ * @param result  накопитель, в конец которого дописывается тело расширения
+ *
+ * @return        отказ составления тела расширения
+ *
+ */
+nts::extension::error_t nts::extension::timestamps(const vector <vector <uint8_t>> & entries, vector <uint8_t> & result) noexcept {
+	// Раздел 3.3 RFC 6962: пустой перечень запрещён
+	if(entries.empty())
+		// Выводим отказ пустого перечня
+		return error_t::EMPTY;
+	// Объект составителя тела расширения
+	field::builder_t builder;
+	// Отказ составления
+	field::error_t failure = field::error_t::NONE;
+	// Если перечень открыть не удалось
+	if((failure = builder.open(2)) != field::error_t::NONE)
+		// Выводим отказ составления
+		return translate(failure);
+	/**
+	 * Выполняем перебор записей перечня
+	 */
+	for(size_t i = 0; i < entries.size(); i++){
+		// Раздел 3.3 RFC 6962: пустая запись запрещена, а длина записи двухбайтовая
+		if(entries[i].empty() || (entries[i].size() > 0xFFFF))
+			// Выводим отказ негодной записи
+			return error_t::EMPTY;
+		// Если запись открыть не удалось
+		if((failure = builder.open(2)) != field::error_t::NONE)
+			// Выводим отказ составления
+			return translate(failure);
+		// Если запись записать не удалось
+		if((failure = builder.bytes(view_t(entries[i].data(), entries[i].size()))) != field::error_t::NONE)
+			// Выводим отказ составления
+			return translate(failure);
+		// Если запись закрыть не удалось
+		if((failure = builder.close()) != field::error_t::NONE)
+			// Выводим отказ составления
+			return translate(failure);
+	}
+	// Если перечень закрыть не удалось
+	if((failure = builder.close()) != field::error_t::NONE)
+		// Выводим отказ составления
+		return translate(failure);
+	// Составленное тело расширения
+	const view_t data = builder.data();
+	/**
+	 * Выполняем перехват ошибок работы с памятью
+	 */
+	try {
+		// Дописываем тело расширения в накопитель
+		result.insert(result.end(), data.data, data.data + data.size);
+	/**
+	 * Если памяти под тело расширения не хватило
+	 */
+	} catch(const std::bad_alloc &) {
+		// Выводим отказ нехватки памяти
+		return error_t::MEMORY;
+	}
+	// Выводим успешность составления
+	return error_t::NONE;
+}
+/**
+ * @brief Метод разбора перечня доверенных удостоверяющих центров
+ *
+ * @param data   разбираемое тело расширения certificate_authorities
+ * @param result накопитель, в конец которого дописываются имена как записаны
+ *
+ * @return       отказ разбора тела расширения
+ *
+ */
+nts::extension::error_t nts::extension::authorities(const view_t & data, vector <vector <uint8_t>> & result) noexcept {
+	// Объект сканера тела расширения
+	field::scanner_t scanner;
+	// Заводим сканер по телу расширения
+	scanner.start(data);
+	// Тело перечня имён
+	view_t body;
+	// Если перечень имён прочитать не удалось
+	if(scanner.vector(body, 2) != field::error_t::NONE)
+		// Выводим отказ нехватки данных
+		return error_t::HUNGRY;
+	// Если за перечнем остались лишние байты
+	if(scanner.left() > 0)
+		// Выводим отказ лишних данных
+		return error_t::TRAILING;
+	// Раздел 4.2.4 RFC 8446: пустой перечень запрещён
+	if(body.size == 0)
+		// Выводим отказ пустого перечня
+		return error_t::EMPTY;
+	// Объект сканера перечня имён
+	field::scanner_t reader;
+	// Заводим сканер по перечню имён
+	reader.start(body);
+	/**
+	 * Выполняем перехват ошибок работы с памятью
+	 */
+	try {
+		/**
+		 * Выполняем перебор имён перечня
+		 */
+		while(reader.left() > 0){
+			// Имя перечня
+			view_t item;
+			// Если имя прочитать не удалось
+			if(reader.vector(item, 2) != field::error_t::NONE)
+				// Выводим отказ нехватки данных
+				return error_t::HUNGRY;
+			// Раздел 4.2.4 RFC 8446: пустое имя запрещено, а имя X.501 есть DER SEQUENCE
+			if((item.size == 0) || (item.data[0] != 0x30))
+				// Выводим отказ негодного имени
+				return error_t::EMPTY;
+			// Добавляем имя в накопитель как есть
+			result.push_back(vector <uint8_t> (item.data, item.data + item.size));
+		}
+	/**
+	 * Если памяти под перечень имён не хватило
+	 */
+	} catch(const std::bad_alloc &) {
+		// Выводим отказ нехватки памяти
+		return error_t::MEMORY;
+	}
+	// Выводим успешность разбора
+	return error_t::NONE;
+}
+/**
+ * @brief Метод составления перечня доверенных удостоверяющих центров
+ *
+ * @param names  имена как записаны
+ * @param result накопитель, в конец которого дописывается тело расширения
+ *
+ * @return       отказ составления тела расширения
+ *
+ */
+nts::extension::error_t nts::extension::authorities(const vector <vector <uint8_t>> & names, vector <uint8_t> & result) noexcept {
+	// Раздел 4.2.4 RFC 8446: пустой перечень запрещён
+	if(names.empty())
+		// Выводим отказ пустого перечня
+		return error_t::EMPTY;
+	// Объект составителя тела расширения
+	field::builder_t builder;
+	// Отказ составления
+	field::error_t failure = field::error_t::NONE;
+	// Если перечень открыть не удалось
+	if((failure = builder.open(2)) != field::error_t::NONE)
+		// Выводим отказ составления
+		return translate(failure);
+	/**
+	 * Выполняем перебор имён перечня
+	 */
+	for(size_t i = 0; i < names.size(); i++){
+		// Раздел 4.2.4 RFC 8446: имя не пусто, есть DER SEQUENCE и не длиннее двухбайтовой длины
+		if(names[i].empty() || (names[i][0] != 0x30) || (names[i].size() > 0xFFFF))
+			// Выводим отказ негодного имени
+			return error_t::EMPTY;
+		// Если имя открыть не удалось
+		if((failure = builder.open(2)) != field::error_t::NONE)
+			// Выводим отказ составления
+			return translate(failure);
+		// Если имя записать не удалось
+		if((failure = builder.bytes(view_t(names[i].data(), names[i].size()))) != field::error_t::NONE)
+			// Выводим отказ составления
+			return translate(failure);
+		// Если имя закрыть не удалось
+		if((failure = builder.close()) != field::error_t::NONE)
+			// Выводим отказ составления
+			return translate(failure);
+	}
+	// Если перечень закрыть не удалось
+	if((failure = builder.close()) != field::error_t::NONE)
+		// Выводим отказ составления
+		return translate(failure);
+	// Составленное тело расширения
+	const view_t data = builder.data();
+	/**
+	 * Выполняем перехват ошибок работы с памятью
+	 */
+	try {
+		// Дописываем тело расширения в накопитель
+		result.insert(result.end(), data.data, data.data + data.size);
+	/**
+	 * Если памяти под тело расширения не хватило
+	 */
+	} catch(const std::bad_alloc &) {
+		// Выводим отказ нехватки памяти
+		return error_t::MEMORY;
+	}
+	// Выводим успешность составления
+	return error_t::NONE;
+}
+/**
+ * @brief Метод разбора перечня протоколов выработки NPN, объявленного сервером
+ *
+ * @param data   разбираемое тело расширения next_protocol_negotiation приветствия сервера
+ * @param result накопитель, в конец которого дописываются названия протоколов
+ *
+ * @return       отказ разбора тела расширения
+ *
+ */
+nts::extension::error_t nts::extension::negotiation(const view_t & data, vector <string> & result) noexcept {
+	// Объект сканера тела расширения
+	field::scanner_t scanner;
+	// Заводим сканер по телу расширения
+	scanner.start(data);
+	/**
+	 * Выполняем перехват ошибок работы с памятью
+	 */
+	try {
+		/**
+		 * Выполняем перебор имён перечня
+		 */
+		while(scanner.left() > 0){
+			// Имя протокола
+			view_t item;
+			// Если имя прочитать не удалось
+			if(scanner.vector(item, 1) != field::error_t::NONE)
+				// Выводим отказ нехватки данных
+				return error_t::HUNGRY;
+			// Черновик draft-agl-tls-nextprotoneg: пустое имя запрещено
+			if(item.size == 0)
+				// Выводим отказ пустого имени
+				return error_t::EMPTY;
+			// Добавляем имя в накопитель
+			result.push_back(string(reinterpret_cast <const char *> (item.data), item.size));
+		}
+	/**
+	 * Если памяти под перечень не хватило
+	 */
+	} catch(const std::bad_alloc &) {
+		// Выводим отказ нехватки памяти
+		return error_t::MEMORY;
+	}
+	// Выводим успешность разбора
+	return error_t::NONE;
+}
+/**
+ * @brief Метод составления перечня протоколов выработки NPN
+ *
+ * @param protocols названия протоколов
+ * @param result    накопитель, в конец которого дописывается тело расширения
+ *
+ * @return          отказ составления тела расширения
+ *
+ */
+nts::extension::error_t nts::extension::negotiation(const vector <string> & protocols, vector <uint8_t> & result) noexcept {
+	// Объект составителя тела расширения
+	field::builder_t builder;
+	// Отказ составления
+	field::error_t failure = field::error_t::NONE;
+	/**
+	 * Выполняем перебор имён перечня
+	 */
+	for(size_t i = 0; i < protocols.size(); i++){
+		// Черновик draft-agl-tls-nextprotoneg: имя не пусто и не длиннее однобайтовой длины
+		if(protocols[i].empty() || (protocols[i].size() > 0xFF))
+			// Выводим отказ негодного имени
+			return error_t::EMPTY;
+		// Если имя открыть не удалось
+		if((failure = builder.open(1)) != field::error_t::NONE)
+			// Выводим отказ составления
+			return translate(failure);
+		// Если имя записать не удалось
+		if((failure = builder.bytes(view_t(reinterpret_cast <const uint8_t *> (protocols[i].data()), protocols[i].size()))) != field::error_t::NONE)
+			// Выводим отказ составления
+			return translate(failure);
+		// Если имя закрыть не удалось
+		if((failure = builder.close()) != field::error_t::NONE)
+			// Выводим отказ составления
+			return translate(failure);
+	}
+	// Составленное тело расширения
+	const view_t data = builder.data();
+	/**
+	 * Выполняем перехват ошибок работы с памятью
+	 */
+	try {
+		// Дописываем тело расширения в накопитель
+		result.insert(result.end(), data.data, data.data + data.size);
+	/**
+	 * Если памяти под тело расширения не хватило
+	 */
+	} catch(const std::bad_alloc &) {
+		// Выводим отказ нехватки памяти
+		return error_t::MEMORY;
+	}
+	// Выводим успешность составления
 	return error_t::NONE;
 }
 /**

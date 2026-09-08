@@ -206,6 +206,9 @@ namespace nts {
 				// Признак того, что клиент прислал непустую цепочку сертификатов
 				bool _certified;
 			private:
+				// Признак того, что клиент прислал свои защищённые расширения (draft-vvv-tls-alps)
+				bool _stated;
+			private:
 				// Пора ключей записей, отправляемых клиентом
 				epoch_t _client;
 			private:

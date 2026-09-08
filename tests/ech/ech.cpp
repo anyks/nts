@@ -1530,6 +1530,94 @@ TEST(EchTest, Resumed){
  * Возобновление под ECH против bssl client -test-resumption: обе связи скрыты, вторая
  * возобновлена по билету нашего сервера
  */
+/**
+ * Проверка упреждающих данных под ECH (раздел 6.1 RFC 9849): билет со связи под ECH, второе
+ * приветствие несёт early_data лишь во внутреннем, ключи упреждения с внутреннего приветствия,
+ * сервер принимает ECH и данные
+ */
+TEST(EchTest, Early){
+	client::context_t client;
+	server::context_t server;
+	ASSERT_TRUE(arranged(client, server, false));
+	server.advance(true, 16384);
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	converse(client, server);
+	ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
+	ASSERT_EQ(server.issue(), context::error_t::NONE);
+	converse(client, server);
+	ASSERT_FALSE(client.tickets().empty());
+	client::context_t resuming;
+	server::context_t resumed;
+	ASSERT_TRUE(arranged(resuming, resumed, false));
+	resumed.advance(true, 16384);
+	resuming.advance(true, 16384);
+	resuming.resume(client.tickets()[0]);
+	resumed.resume(server.tickets());
+	ASSERT_EQ(resumed.start(), context::error_t::NONE);
+	ASSERT_EQ(resuming.start(), context::error_t::NONE);
+	// Внешнее приветствие без early_data, внутреннее его несёт (в ECH, скрыто)
+	fingerprint::profile_t outer;
+	ASSERT_TRUE(captured(resuming, outer));
+	bool early = false, shrouded = false;
+	for(size_t i = 0; i < outer.extensions.size(); i++){
+		early = (early || (outer.extensions[i].type == 0x002A));
+		shrouded = (shrouded || (outer.extensions[i].type == ech::ECH_EXTENSION));
+	}
+	EXPECT_TRUE(shrouded);
+	EXPECT_FALSE(early);
+	// Упреждающие данные уходят до ответа сервера
+	const string request = "Упреждающий запрос под ECH";
+	ASSERT_EQ(resuming.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
+	converse(resuming, resumed);
+	ASSERT_TRUE(resuming.established() && resumed.established()) << static_cast <int> (resuming.error()) << " " << static_cast <int> (resumed.error()) << " извещение " << static_cast <int> (resumed.alert().description);
+	EXPECT_TRUE(resuming.shrouded() && resumed.shrouded());
+	EXPECT_TRUE(resuming.accepted());
+	EXPECT_TRUE(resumed.accepted());
+	vector <uint8_t> received;
+	ASSERT_EQ(resumed.read(received), context::error_t::NONE);
+	EXPECT_EQ(string(received.begin(), received.end()), request);
+}
+
+/**
+ * Проверка упреждающих данных при отклонённом ECH: сервер с иными ключами ECH читает внешнее
+ * приветствие, записи упреждения пропускает (раздел 4.2.10 RFC 8446), связь рвётся по
+ * ech_required клиента, а не по bad_record_mac сервера
+ */
+TEST(EchTest, EarlyRejected){
+	client::context_t client;
+	server::context_t server;
+	ASSERT_TRUE(arranged(client, server, false));
+	server.advance(true, 16384);
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	converse(client, server);
+	ASSERT_TRUE(client.established() && server.established());
+	ASSERT_EQ(server.issue(), context::error_t::NONE);
+	converse(client, server);
+	ASSERT_FALSE(client.tickets().empty());
+	client::context_t resuming;
+	server::context_t stranger;
+	ASSERT_TRUE(arranged(resuming, stranger, false));
+	// Сервер с иными ключами ECH под тем же именем: ECH будет отклонён
+	ASSERT_EQ(stranger.ech(vector <uint8_t> (), "public.example", 9, 64), context::error_t::NONE);
+	stranger.advance(true, 16384);
+	resuming.advance(true, 16384);
+	resuming.resume(client.tickets()[0]);
+	stranger.resume(server.tickets());
+	ASSERT_EQ(stranger.start(), context::error_t::NONE);
+	ASSERT_EQ(resuming.start(), context::error_t::NONE);
+	const string request = "Упреждающий запрос под отклонённый ECH";
+	ASSERT_EQ(resuming.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
+	converse(resuming, stranger);
+	// Клиент отверг связь по ech_required, сервер получил именно его, не упал на снятии защиты
+	EXPECT_EQ(resuming.error(), context::error_t::ECH);
+	EXPECT_EQ(resuming.alert().description, alert::description_t::ECH_REQUIRED);
+	EXPECT_EQ(stranger.error(), context::error_t::ALERT) << static_cast <int> (stranger.error()) << " " << static_cast <int> (stranger.alert().description);
+	EXPECT_EQ(stranger.alert().description, alert::description_t::ECH_REQUIRED);
+	EXPECT_FALSE(resuming.accepted());
+}
+
 TEST(EchTest, Boringssl3){
 	const std::string tool = bssltool();
 	if(tool.empty()){

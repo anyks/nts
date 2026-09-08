@@ -476,6 +476,49 @@ bool nts::digest::prf(const type_t type, const view_t & key, const view_t & labe
 	return ok;
 }
 /**
+ * @brief Метод выработки псевдослучайной последовательности PRF изданий TLS 1.0 и 1.1
+ *
+ * @param key    секрет, делимый пополам между P_MD5 и P_SHA1
+ * @param label  метка выработки
+ * @param seed   семя выработки
+ * @param result место, в которое помещается последовательность
+ * @param size   длина последовательности в байтах
+ *
+ * @return       признак успешности выработки
+ *
+ */
+bool nts::digest::legacy(const view_t & key, const view_t & label, const view_t & seed, uint8_t * result, const size_t size) noexcept {
+	// Если секрет, место либо длина негодны
+	if((key.data == nullptr) || (key.size == 0) || (result == nullptr) || (size == 0) || (size > 512))
+		// Выводим отказ
+		return false;
+	// Раздел 5 RFC 4346: половины секрета, при нечётной длине середина входит в обе
+	const size_t half = ((key.size + 1) / 2);
+	// Половина под P_SHA1
+	uint8_t second[512];
+	// Если последовательность MD5 выработать не удалось
+	if(!prf(hash_t::MD5, view_t(key.data, half), label, seed, result, size))
+		// Выводим отказ
+		return false;
+	// Если последовательность SHA-1 выработать не удалось
+	if(!prf(hash_t::SHA1, view_t(key.data + (key.size - half), half), label, seed, second, size)){
+		// Затираем последовательность
+		wipe(second, sizeof(second));
+		// Выводим отказ
+		return false;
+	}
+	/**
+	 * Выполняем сложение последовательностей по модулю два
+	 */
+	for(size_t i = 0; i < size; i++)
+		// Складываем байты
+		result[i] ^= second[i];
+	// Затираем последовательность SHA-1
+	wipe(second, sizeof(second));
+	// Выводим успешность
+	return true;
+}
+/**
  * @brief Метод выработки порождающей последовательности протокола TLS 1.2 выбранным хешем
  *
  * @param algorithm хеш, на имитовставке которого вырабатывается последовательность

@@ -261,6 +261,7 @@ namespace nts {
 			ALERT       = 0x15, /*!< \~russian Извещение о событии или об отказе \~english The notification of an event or of a failure \~ */
 			HANDSHAKE   = 0x16, /*!< \~russian Сообщение рукопожатия \~english A message of the handshake \~ */
 			APPLICATION = 0x17, /*!< \~russian Данные прикладного протокола \~english The data of the application protocol \~ */
+			HEARTBEAT   = 0x18, /*!< \~russian Сердцебиение по RFC 6520: принимается лишь при предложенном расширении и роняется молча \~english The heartbeat by RFC 6520: accepted only with the extension offered and dropped silently \~ */
 			ACK         = 0x1A  /*!< \~russian Подтверждение принятых записей DTLS 1.3 (раздел 7 RFC 9147) \~english The acknowledgement of the received records of DTLS 1.3 (the section 7 of RFC 9147) \~ */
 		};
 

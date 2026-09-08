@@ -134,6 +134,7 @@ bool nts::record::known(const type_t type) noexcept {
 		case static_cast <uint8_t> (type_t::ALERT):
 		case static_cast <uint8_t> (type_t::HANDSHAKE):
 		case static_cast <uint8_t> (type_t::APPLICATION):
+		case static_cast <uint8_t> (type_t::HEARTBEAT):
 		case static_cast <uint8_t> (type_t::ACK):
 			// Выводим признак известности вида содержимого записи
 			return true;

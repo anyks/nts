@@ -1122,12 +1122,17 @@ bool nts::sign::Rsa::make(const scheme_t scheme, const digest::hash_t algorithm,
 		return false;
 	// Длина записи DigestInfo
 	size_t size = 0;
-	// Получаем запись DigestInfo: она же признак допустимости алгоритма
-	const uint8_t * info = prefix(algorithm, size);
-	// Длина хеша
-	const size_t hash = digest::length(algorithm);
+	/**
+	 * Алгоритм NONE означает подпись без DigestInfo над готовым хешем: раздел 7.4.3 RFC 4346
+	 * (TLS 1.1) кладёт под PKCS #1 v1.5 голые 36 байтов MD5 ‖ SHA-1; лишь для схемы PKCS1
+	 */
+	const bool bare = ((algorithm == digest::hash_t::NONE) && (scheme == scheme_t::PKCS1));
+	// Получаем запись DigestInfo: она же признак допустимости алгоритма; у голой подписи её нет
+	const uint8_t * info = (bare ? nullptr : prefix(algorithm, size));
+	// Длина хеша: у голой подписи - длина переданного хеша
+	const size_t hash = (bare ? digest.size : digest::length(algorithm));
 	// Если алгоритм недопустим либо хеш не той длины
-	if((info == nullptr) || (hash != digest.size) || (digest.data == nullptr))
+	if((!bare && (info == nullptr)) || (hash == 0) || (hash > HASH_SIZE) || (hash != digest.size) || (digest.data == nullptr))
 		// Выводим отказ
 		return false;
 	// Размер модуля в байтах
@@ -1275,14 +1280,16 @@ bool nts::sign::Rsa::check(const scheme_t scheme, const digest::hash_t algorithm
 		return false;
 	// Длина записи DigestInfo
 	size_t size = 0;
-	// Получаем запись DigestInfo: она же признак допустимости алгоритма
-	const uint8_t * info = prefix(algorithm, size);
-	// Длина хеша
-	const size_t hash = digest::length(algorithm);
+	// Алгоритм NONE означает проверку без DigestInfo над готовым хешем (TLS 1.1), лишь для PKCS1
+	const bool bare = ((algorithm == digest::hash_t::NONE) && (scheme == scheme_t::PKCS1));
+	// Получаем запись DigestInfo: она же признак допустимости алгоритма; у голой подписи её нет
+	const uint8_t * info = (bare ? nullptr : prefix(algorithm, size));
+	// Длина хеша: у голой подписи - длина переданного хеша
+	const size_t hash = (bare ? digest.size : digest::length(algorithm));
 	// Размер модуля в байтах
 	const size_t modulus = this->size();
 	// Если алгоритм недопустим, хеш либо подпись не той длины
-	if((info == nullptr) || (hash != digest.size) || (digest.data == nullptr) || (signature.size != modulus) || (signature.data == nullptr))
+	if((!bare && (info == nullptr)) || (hash == 0) || (hash > HASH_SIZE) || (hash != digest.size) || (digest.data == nullptr) || (signature.size != modulus) || (signature.data == nullptr))
 		// Выводим отказ
 		return false;
 	// Закодированное сообщение из подписи

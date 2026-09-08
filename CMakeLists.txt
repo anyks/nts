@@ -938,6 +938,36 @@ if (${CMAKE_BUILD_SAMPLES})
     # Указываем что нужно собрать приложение поточного шифрования
     option(CMAKE_BUILD_STREAM_APP_SAMPLE "Build stream encryption app sample" ON)
 
+    # Устанавливаем название приложения работы с хешами SHA-3, BLAKE2 и SipHash
+    SET(SHA3_APP_NAME digest-sha3)
+    # Указываем что нужно собрать приложение работы с хешами SHA-3, BLAKE2 и SipHash
+    option(CMAKE_BUILD_SHA3_APP_SAMPLE "Build SHA-3, BLAKE2 and SipHash digests app sample" ON)
+
+    # Устанавливаем название приложения выработки ключа из пароля Argon2
+    SET(ARGON2_APP_NAME digest-argon2)
+    # Указываем что нужно собрать приложение выработки ключа из пароля Argon2
+    option(CMAKE_BUILD_ARGON2_APP_SAMPLE "Build Argon2 password hashing app sample" ON)
+
+    # Устанавливаем название приложения упаковки ключа ML-KEM и гибрида
+    SET(MLKEM_APP_NAME agreement-mlkem)
+    # Указываем что нужно собрать приложение упаковки ключа ML-KEM и гибрида
+    option(CMAKE_BUILD_MLKEM_APP_SAMPLE "Build ML-KEM and hybrid key encapsulation app sample" ON)
+
+    # Устанавливаем название приложения гибридного шифрования HPKE
+    SET(HPKE_APP_NAME hpke-hpke)
+    # Указываем что нужно собрать приложение гибридного шифрования HPKE
+    option(CMAKE_BUILD_HPKE_APP_SAMPLE "Build HPKE hybrid public key encryption app sample" ON)
+
+    # Устанавливаем название приложения каркаса Noise и PQNoise
+    SET(NOISE_APP_NAME noise-noise)
+    # Указываем что нужно собрать приложение каркаса Noise и PQNoise
+    option(CMAKE_BUILD_NOISE_APP_SAMPLE "Build Noise and PQNoise handshakes app sample" ON)
+
+    # Устанавливаем название приложения сырого поточного шифра без имитовставки
+    SET(RAW_APP_NAME stream-raw)
+    # Указываем что нужно собрать приложение сырого поточного шифра без имитовставки
+    option(CMAKE_BUILD_RAW_APP_SAMPLE "Build raw stream cipher without authentication app sample" ON)
+
     # Если нужно собрать образец рукопожатия издания TLS 1.2
     if (${CMAKE_BUILD_TLS12_APP_SAMPLE})
         # Выводим сообщение о сборке образца
@@ -1087,6 +1117,78 @@ if (${CMAKE_BUILD_SAMPLES})
         # Выводим сообщение о сборке образца
         message(STATUS "Build sample STREAM: No")
     endif (${CMAKE_BUILD_STREAM_APP_SAMPLE})
+
+    # Если нужно собрать образец работы с хешами SHA-3, BLAKE2 и SipHash
+    if (${CMAKE_BUILD_SHA3_APP_SAMPLE})
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample SHA3: Yes")
+        # Выполняем создание приложения работы с хешами SHA-3, BLAKE2 и SipHash
+        add_sample(${SHA3_APP_NAME} sample/digest/sha3.cpp digest)
+    # Если образец работы с хешами SHA-3, BLAKE2 и SipHash собирать не нужно
+    else()
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample SHA3: No")
+    endif (${CMAKE_BUILD_SHA3_APP_SAMPLE})
+
+    # Если нужно собрать образец выработки ключа из пароля Argon2
+    if (${CMAKE_BUILD_ARGON2_APP_SAMPLE})
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample ARGON2: Yes")
+        # Выполняем создание приложения выработки ключа из пароля Argon2
+        add_sample(${ARGON2_APP_NAME} sample/digest/argon2.cpp digest)
+    # Если образец выработки ключа из пароля Argon2 собирать не нужно
+    else()
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample ARGON2: No")
+    endif (${CMAKE_BUILD_ARGON2_APP_SAMPLE})
+
+    # Если нужно собрать образец упаковки ключа ML-KEM и гибрида
+    if (${CMAKE_BUILD_MLKEM_APP_SAMPLE})
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample MLKEM: Yes")
+        # Выполняем создание приложения упаковки ключа ML-KEM и гибрида
+        add_sample(${MLKEM_APP_NAME} sample/agreement/mlkem.cpp agreement)
+    # Если образец упаковки ключа ML-KEM и гибрида собирать не нужно
+    else()
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample MLKEM: No")
+    endif (${CMAKE_BUILD_MLKEM_APP_SAMPLE})
+
+    # Если нужно собрать образец гибридного шифрования HPKE
+    if (${CMAKE_BUILD_HPKE_APP_SAMPLE})
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample HPKE: Yes")
+        # Выполняем создание приложения гибридного шифрования HPKE
+        add_sample(${HPKE_APP_NAME} sample/hpke/hpke.cpp hpke)
+    # Если образец гибридного шифрования HPKE собирать не нужно
+    else()
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample HPKE: No")
+    endif (${CMAKE_BUILD_HPKE_APP_SAMPLE})
+
+    # Если нужно собрать образец каркаса Noise и PQNoise
+    if (${CMAKE_BUILD_NOISE_APP_SAMPLE})
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample NOISE: Yes")
+        # Выполняем создание приложения каркаса Noise и PQNoise
+        add_sample(${NOISE_APP_NAME} sample/noise/noise.cpp noise)
+    # Если образец каркаса Noise и PQNoise собирать не нужно
+    else()
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample NOISE: No")
+    endif (${CMAKE_BUILD_NOISE_APP_SAMPLE})
+
+    # Если нужно собрать образец сырого поточного шифра без имитовставки
+    if (${CMAKE_BUILD_RAW_APP_SAMPLE})
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample RAW: Yes")
+        # Выполняем создание приложения сырого поточного шифра без имитовставки
+        add_sample(${RAW_APP_NAME} sample/stream/raw.cpp cipher)
+    # Если образец сырого поточного шифра без имитовставки собирать не нужно
+    else()
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample RAW: No")
+    endif (${CMAKE_BUILD_RAW_APP_SAMPLE})
 endif (${CMAKE_BUILD_SAMPLES})
 
 # Выполняем установку заголовочных файлов проекта

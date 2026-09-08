@@ -329,7 +329,7 @@ context::error_t nts::internal::Flight::shield(const record::type_t type, const 
 				// Устанавливаем длину содержимого записи
 				header.size = data.size;
 				// Если заголовок открытой записи составить не удалось
-				if(datagram::build(header, buffer, length, true) != datagram::error_t::NONE)
+				if(datagram::build(header, buffer, length, true, this->_ancient) != datagram::error_t::NONE)
 					// Выводим отказ составления записи
 					return context::error_t::RECORD;
 				// Складываем заголовок открытой записи в накопитель
@@ -347,7 +347,7 @@ context::error_t nts::internal::Flight::shield(const record::type_t type, const 
 				// Номер записи в связанных данных: пора и порядковый номер (раздел 4.1.2.1 RFC 6347)
 				const uint64_t number = ((static_cast <uint64_t> (era.epoch) << 48) | era.next);
 				// Отказ наложения защиты на запись
-				const context::error_t failure = translate(era.protection.wrap(number, record::version_t::DTLS12, type, data, result), context::error_t::PROTECTION);
+				const context::error_t failure = translate(era.protection.wrap(number, (this->_ancient ? record::version_t::DTLS10 : record::version_t::DTLS12), type, data, result), context::error_t::PROTECTION);
 				// Если защиту на запись наложить не удалось
 				if(failure != context::error_t::NONE){
 					// Возвращаем накопитель к прежней длине
@@ -358,7 +358,7 @@ context::error_t nts::internal::Flight::shield(const record::type_t type, const 
 				// Устанавливаем длину защищённого содержимого
 				header.size = (result.size() - offset - datagram::DATAGRAM_PLAIN_HEADER);
 				// Если заголовок защищённой записи составить не удалось
-				if(datagram::build(header, result.data() + offset, length, true) != datagram::error_t::NONE){
+				if(datagram::build(header, result.data() + offset, length, true, this->_ancient) != datagram::error_t::NONE){
 					// Возвращаем накопитель к прежней длине
 					result.resize(offset);
 					// Выводим отказ составления записи
@@ -1411,7 +1411,7 @@ context::error_t nts::internal::Flight::receive(const view_t & data, vector <ope
 			// Остаток дейтаграммы от начала записи
 			const view_t rest(data.data + offset, data.size - offset);
 			// Отказ разбора заголовка записи по изданию переноса: у издания 1.2 заголовок свой (раздел 4.1 RFC 6347)
-			const datagram::error_t parsed = datagram::parse(rest, header, this->_legacy);
+			const datagram::error_t parsed = datagram::parse(rest, header, this->_legacy, this->_ancient);
 			/**
 			 * Негодный заголовок обрывает разбор дейтаграммы: границы следующей записи
 			 * по нему не найти, а порча записи по разделу 4.5.2 RFC 9147 не смертельна
@@ -2053,6 +2053,16 @@ void nts::internal::Flight::legacy(const bool legacy) noexcept {
 	this->_legacy = legacy;
 }
 /**
+ * @brief Метод установки переноса изданием DTLS 1.0
+ *
+ * @param ancient ведётся ли перенос изданием DTLS 1.0
+ *
+ */
+void nts::internal::Flight::ancient(const bool ancient) noexcept {
+	// Запоминаем издание переноса
+	this->_ancient = ancient;
+}
+/**
  * @brief Метод проверки переноса изданием DTLS 1.2
  *
  * @return признак того, что перенос ведётся изданием DTLS 1.2
@@ -2558,6 +2568,8 @@ void nts::internal::Flight::clear() noexcept {
 	this->_suite = protect::suite_t::NONE;
 	// Сбрасываем издание переноса
 	this->_legacy = false;
+	// Выполняем сброс издания DTLS 1.0
+	this->_ancient = false;
 	// Сбрасываем признак сервера без состояния
 	this->_stateless = false;
 	// Адрес собеседника считается подтверждённым, пока сервер не скажет иного
@@ -2618,7 +2630,7 @@ void nts::internal::Flight::clear() noexcept {
  *
  */
 nts::internal::Flight::Flight() noexcept :
-	_suite(protect::suite_t::NONE), _legacy(false), _stateless(false), _verified(true), _concluded(false), _mtu(datagram::DATAGRAM_MTU), _timeout(datagram::DATAGRAM_TIMEOUT), _attempts(0),
+	_suite(protect::suite_t::NONE), _legacy(false), _ancient(false), _stateless(false), _verified(true), _concluded(false), _mtu(datagram::DATAGRAM_MTU), _timeout(datagram::DATAGRAM_TIMEOUT), _attempts(0),
 	_timing(false), _challenged(false), _replied(false), _rotating(false), _repeated(false), _nudged(false), _deferring(false),
 	_stamped(false), _digested(false), _generation(0), _greeted(0), _outgoing(0), _incoming(0), _bundle(0) {
 	// Выполняем обнуление секретов метки возврата состояния

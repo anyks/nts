@@ -175,7 +175,20 @@ namespace {
 		UNPROVEN   = 0x57, // Сертификат клиента без подписи владения ключом
 		ENDLESS    = 0x58, // Завершение клиента ключами упреждения без конца упреждающих данных
 		OVERGROWN  = 0x59, // Сервер шлёт по установленной связи сообщение рукопожатия непомерной длины
-		IMPOSTOR   = 0x5A  // Сервер шлёт по установленной связи цепочку сертификатов заново
+		IMPOSTOR   = 0x5A, // Сервер шлёт по установленной связи цепочку сертификатов заново
+		SETTLING   = 0x5B, // Защищённые расширения несут прикладные настройки ALPS без прикладного протокола
+		TACITURN   = 0x5C, // Клиент предлагает ALPS, а защищённых расширений за завершением сервера не шлёт
+		VOIDSETTLED = 0x5D, // Клиент предлагает ALPS пустым перечнем протоколов
+		MALSCT     = 0x5E, // Запись листа несёт пустой перечень меток времени сертификата
+		HOLLOWSCT  = 0x5F, // Запись листа несёт перечень меток времени с пустой записью
+		TRAILSCT   = 0x60, // Запись листа несёт перечень меток времени с хвостом
+		UNASKEDSCT = 0x61, // Запись листа несёт перечень меток времени без запроса клиента
+		SCTHELLO   = 0x62, // Приветствие сервера издания 1.3 несёт перечень меток времени
+		GREEDYSCT  = 0x63, // Клиент запрашивает метки времени непустым телом расширения
+		MALCA      = 0x64, // Запрос подлинности несёт пустой перечень доверенных центров
+		HOLLOWCA   = 0x65, // Запрос подлинности несёт перечень с пустым именем центра
+		TRAILCA    = 0x66, // Запрос подлинности несёт перечень центров с хвостом
+		NOTSEQCA   = 0x67  // Запрос подлинности несёт имя центра, не являющееся DER SEQUENCE
 	};
 	/**
 	 * @brief Заранее назначенное случайное значение просьбы о повторе приветствия
@@ -666,6 +679,12 @@ namespace {
 			if(distortion == distortion_t::GREETING)
 				// Добавляем расширение, приветствию сервера не положенное
 				answer.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::NAME), view_t(nullptr, 0)));
+			// Годный перечень меток времени из одной записи
+			static const uint8_t STAMPED[] = {0x00, 0x03, 0x00, 0x01, 0xAA};
+			// Если приветствие сервера издания 1.3 несёт перечень меток времени: раздел 4.4.2.1 RFC 8446 кладёт его записи цепочки
+			if(distortion == distortion_t::SCTHELLO)
+				// Добавляем расширение меток времени, приветствию сервера издания 1.3 не положенное
+				answer.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::TIMESTAMPS), view_t(STAMPED, sizeof(STAMPED))));
 		}
 		// Накопитель, в который складывается тело приветствия сервера
 		vector <uint8_t> greeted;
@@ -843,6 +862,14 @@ namespace {
 		if(distortion == distortion_t::MISPLACED)
 			// Добавляем расширение способов обмена заранее разделённым ключом
 			items.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::MODES), view_t(nullptr, 0)));
+		/**
+		 * Искажением SETTLING защищённые расширения несут прикладные настройки ALPS новой
+		 * точкой кода, а прикладного протокола не объявляют: черновик draft-vvv-tls-alps
+		 * ведёт настройки лишь при выбранном протоколе
+		 */
+		if(distortion == distortion_t::SETTLING)
+			// Добавляем расширение прикладных настроек без протокола
+			items.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::SETTINGS), view_t(nullptr, 0)));
 		// Объект составителя перечня расширений сообщения
 		field::builder_t fields;
 		// Если перечень расширений открыть не удалось
@@ -1019,11 +1046,25 @@ namespace {
 		}
 		// Если враждебный сервер шлёт запрос подлинности без схем подписи
 		if((distortion == distortion_t::MALREQUEST) || (distortion == distortion_t::OVERREQUEST) ||
-		   (distortion == distortion_t::MALREQSCHEMES)){
+		   (distortion == distortion_t::MALREQSCHEMES) || (distortion == distortion_t::MALCA) ||
+		   (distortion == distortion_t::HOLLOWCA) || (distortion == distortion_t::TRAILCA) ||
+		   (distortion == distortion_t::NOTSEQCA)){
 			// Тело запроса подлинности с негодным перечнем расширений
 			std::vector <uint8_t> request;
+			/**
+			 * Запрос подлинности с годными схемами (0x0403) и перечнем доверенных центров:
+			 * пустым, с пустым именем, с хвостом либо с именем не SEQUENCE
+			 */
+			if(distortion == distortion_t::MALCA)
+				request = {0x00, 0x00, 0x0E, 0x00, 0x0D, 0x00, 0x04, 0x00, 0x02, 0x04, 0x03, 0x00, 0x2F, 0x00, 0x02, 0x00, 0x00};
+			else if(distortion == distortion_t::HOLLOWCA)
+				request = {0x00, 0x00, 0x10, 0x00, 0x0D, 0x00, 0x04, 0x00, 0x02, 0x04, 0x03, 0x00, 0x2F, 0x00, 0x04, 0x00, 0x02, 0x00, 0x00};
+			else if(distortion == distortion_t::TRAILCA)
+				request = {0x00, 0x00, 0x12, 0x00, 0x0D, 0x00, 0x04, 0x00, 0x02, 0x04, 0x03, 0x00, 0x2F, 0x00, 0x06, 0x00, 0x03, 0x00, 0x01, 0x30, 0xFF};
+			else if(distortion == distortion_t::NOTSEQCA)
+				request = {0x00, 0x00, 0x11, 0x00, 0x0D, 0x00, 0x04, 0x00, 0x02, 0x04, 0x03, 0x00, 0x2F, 0x00, 0x05, 0x00, 0x03, 0x00, 0x01, 0x31};
 			// Если перечень расширений оборван на виде расширения
-			if(distortion == distortion_t::MALREQUEST)
+			else if(distortion == distortion_t::MALREQUEST)
 				request = {0x00, 0x00, 0x01, 0x00};
 			// Если за телом запроса идёт лишний байт
 			else if(distortion == distortion_t::OVERREQUEST)
@@ -1108,7 +1149,9 @@ namespace {
 		          (distortion == distortion_t::MALVERIFY) || (distortion == distortion_t::GARBAGELEAF) ||
 		          (distortion == distortion_t::ODDSIGN) || (distortion == distortion_t::ALIENLEAF) ||
 		          (distortion == distortion_t::VACANT) || (distortion == distortion_t::ALIENTYPE) ||
-		          (distortion == distortion_t::OVERGROWN) || (distortion == distortion_t::IMPOSTOR)) {
+		          (distortion == distortion_t::OVERGROWN) || (distortion == distortion_t::IMPOSTOR) ||
+		          (distortion == distortion_t::MALSCT) || (distortion == distortion_t::HOLLOWSCT) ||
+		          (distortion == distortion_t::TRAILSCT) || (distortion == distortion_t::UNASKEDSCT)) {
 			// Если подлинность враждебного сервера проверкой не задана
 			if((credential == nullptr) || credential->chain.empty())
 				// Выводим отказ ответа враждебного сервера
@@ -1121,6 +1164,24 @@ namespace {
 			// Запись, сертификатом не являющаяся: разбор её обязан отвергнуть лист
 			const std::vector <uint8_t> garbage(64, 0x41);
 			entry.data = ((distortion == distortion_t::GARBAGELEAF) ? view_t(garbage.data(), garbage.size()) : view_t(credential->chain[0].data(), credential->chain[0].size()));
+			// Перечни меток времени: пустой, с пустой записью, с хвостом и годный без запроса
+			static const uint8_t EMPTYLIST[] = {0x00, 0x00}, HOLLOWLIST[] = {0x00, 0x02, 0x00, 0x00}, TRAILLIST[] = {0x00, 0x03, 0x00, 0x01, 0xAA, 0xFF}, GOODLIST[] = {0x00, 0x03, 0x00, 0x01, 0xAA};
+			// Если запись листа несёт пустой перечень меток времени
+			if(distortion == distortion_t::MALSCT)
+				// Добавляем расширение меток времени с пустым перечнем
+				entry.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::TIMESTAMPS), view_t(EMPTYLIST, sizeof(EMPTYLIST))));
+			// Если запись листа несёт перечень с пустой записью
+			if(distortion == distortion_t::HOLLOWSCT)
+				// Добавляем расширение меток времени с пустой записью
+				entry.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::TIMESTAMPS), view_t(HOLLOWLIST, sizeof(HOLLOWLIST))));
+			// Если запись листа несёт перечень с хвостом
+			if(distortion == distortion_t::TRAILSCT)
+				// Добавляем расширение меток времени с хвостом
+				entry.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::TIMESTAMPS), view_t(TRAILLIST, sizeof(TRAILLIST))));
+			// Если запись листа несёт годный перечень, которого клиент не просил
+			if(distortion == distortion_t::UNASKEDSCT)
+				// Добавляем расширение меток времени без запроса
+				entry.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::TIMESTAMPS), view_t(GOODLIST, sizeof(GOODLIST))));
 			// Добавляем запись в цепочку сертификатов
 			certificate.entries.push_back(entry);
 			// Накопитель, в который складывается тело цепочки сертификатов
@@ -1523,7 +1584,7 @@ namespace {
 	 *          сервер упреждения не примет и заслоны за ним останутся непроверенными
 	 *
 	 */
-	bool precursor(server::context_t & server, const context::ticket_t & ticket, const distortion_t distortion) noexcept {
+	[[maybe_unused]] bool precursor(server::context_t & server, const context::ticket_t & ticket, const distortion_t distortion) noexcept {
 		// Кривая обмена ключами враждебного клиента
 		const extension::group_t group = extension::group_t::GC256B;
 		// Получаем опознаватель набора параметров кривой обмена ключами
@@ -1933,6 +1994,30 @@ namespace {
 		if(distortion == distortion_t::MALPROTOCOL)
 			// Добавляем расширение перечня прикладных протоколов
 			greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::PROTOCOLS), view_t(spoiled.data(), spoiled.size())));
+		// Перечень прикладных протоколов с настройками ALPS: h2 и в ALPN, и в ALPS
+		static const uint8_t SETTLED[] = {0x00, 0x03, 0x02, 'h', '2'};
+		// Пустой перечень протоколов с настройками ALPS
+		static const uint8_t VOID[] = {0x00, 0x00};
+		// Непустое тело запроса меток времени сертификата
+		static const uint8_t GREEDY[] = {0x00};
+		// Если клиент запрашивает метки времени непустым телом расширения
+		if(distortion == distortion_t::GREEDYSCT)
+			// Добавляем расширение запроса меток времени с телом
+			greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::TIMESTAMPS), view_t(GREEDY, sizeof(GREEDY))));
+		// Если клиент предлагает ALPS пустым перечнем протоколов
+		if(distortion == distortion_t::VOIDSETTLED){
+			// Добавляем расширение перечня прикладных протоколов
+			greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::PROTOCOLS), view_t(SETTLED, sizeof(SETTLED))));
+			// Добавляем расширение прикладных настроек ALPS с пустым перечнем
+			greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::SETTINGS), view_t(VOID, sizeof(VOID))));
+		}
+		// Если клиент предлагает ALPS, а защищённых расширений слать не собирается
+		if(distortion == distortion_t::TACITURN){
+			// Добавляем расширение перечня прикладных протоколов
+			greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::PROTOCOLS), view_t(SETTLED, sizeof(SETTLED))));
+			// Добавляем расширение прикладных настроек ALPS новой точкой кода
+			greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::SETTINGS), view_t(SETTLED, sizeof(SETTLED))));
+		}
 		/**
 		 * Предложение заранее разделённого ключа: сами байты предложения разбору
 		 * подлежат не всегда, ибо заслоны способов обмена стоят до него. Оттого
@@ -2320,7 +2405,7 @@ namespace {
 	 * @return           признак успешности ответа враждебного сервера
 	 *
 	 */
-	bool adversary(client::context_t & client, const distortion_t distortion) noexcept {
+	[[maybe_unused]] bool adversary(client::context_t & client, const distortion_t distortion) noexcept {
 		// Отвечаем без подлинности
 		return adversary(client, distortion, nullptr);
 	}
@@ -2333,7 +2418,7 @@ namespace {
 	 * @return           признак успешности приветствия враждебного клиента
 	 *
 	 */
-	bool intruder(server::context_t & server, const distortion_t distortion) noexcept {
+	[[maybe_unused]] bool intruder(server::context_t & server, const distortion_t distortion) noexcept {
 		// Приветствуем без подлинности
 		return intruder(server, distortion, nullptr);
 	}

@@ -165,6 +165,8 @@ void nts::flow::Machine::clear() noexcept {
 	this->_requested = false;
 	// Снимаем признак присланной клиентом цепочки сертификатов
 	this->_certified = false;
+	// Выполняем сброс признака защищённых расширений клиента
+	this->_stated = false;
 	// Выполняем сброс поры ключей записей клиента
 	this->_client = epoch_t::PLAIN;
 	// Выполняем сброс поры ключей записей сервера
@@ -327,6 +329,22 @@ nts::flow::error_t nts::flow::Machine::accept(const handshake::type_t type, cons
 			} else if(type == handshake::type_t::EARLY)
 				// Проверяем принадлежность конца упреждающих данных стороне связи
 				outcome = ::belongs(session::side_t::CLIENT, side);
+			/**
+			 * Черновик draft-vvv-tls-alps: защищённые расширения клиента идут за завершением
+			 * сервера прежде цепочки и завершения клиента, и лишь однажды
+			 */
+			else if(type == handshake::type_t::EXTENSIONS){
+				// Проверяем принадлежность защищённых расширений клиента стороне связи
+				outcome = ::belongs(session::side_t::CLIENT, side);
+				// Если защищённые расширения клиента уже прошли
+				if((outcome == error_t::NONE) && this->_stated)
+					// Выводим отказ повторного сообщения
+					outcome = error_t::ORDER;
+				// Если сообщение принято
+				if(outcome == error_t::NONE)
+					// Запоминаем, что защищённые расширения клиента прошли
+					this->_stated = true;
+			}
 		} break;
 		// Если ожидается подпись владения ключом клиента
 		case static_cast <uint8_t> (stage_t::CONFIRMING): {
@@ -378,6 +396,22 @@ nts::flow::error_t nts::flow::Machine::accept(const handshake::type_t type, cons
 			} else if(type == handshake::type_t::EARLY)
 				// Проверяем принадлежность конца упреждающих данных стороне связи
 				outcome = ::belongs(session::side_t::CLIENT, side);
+			/**
+			 * Черновик draft-vvv-tls-alps: защищённые расширения клиента идут за завершением
+			 * сервера прежде цепочки и завершения клиента, и лишь однажды
+			 */
+			else if(type == handshake::type_t::EXTENSIONS){
+				// Проверяем принадлежность защищённых расширений клиента стороне связи
+				outcome = ::belongs(session::side_t::CLIENT, side);
+				// Если защищённые расширения клиента уже прошли
+				if((outcome == error_t::NONE) && this->_stated)
+					// Выводим отказ повторного сообщения
+					outcome = error_t::ORDER;
+				// Если сообщение принято
+				if(outcome == error_t::NONE)
+					// Запоминаем, что защищённые расширения клиента прошли
+					this->_stated = true;
+			}
 		} break;
 		// Если рукопожатие завершено и связь установлена
 		case static_cast <uint8_t> (stage_t::ESTABLISHED): {
@@ -454,4 +488,4 @@ bool nts::flow::Machine::certified() const noexcept {
  * @brief Конструктор
  *
  */
-nts::flow::Machine::Machine() noexcept : _role(role_t::NONE), _stage(stage_t::NONE), _retried(false), _requested(false), _certified(false), _client(epoch_t::PLAIN), _server(epoch_t::PLAIN) {}
+nts::flow::Machine::Machine() noexcept : _role(role_t::NONE), _stage(stage_t::NONE), _retried(false), _requested(false), _certified(false), _stated(false), _client(epoch_t::PLAIN), _server(epoch_t::PLAIN) {}

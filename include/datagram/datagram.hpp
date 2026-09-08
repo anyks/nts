@@ -692,6 +692,33 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ error_t parse(const view_t & data, header_t & result, const bool legacy) noexcept;
 		/**
 		 * \~russian
+		 * @brief Метод разбора заголовка записи с учётом издания DTLS 1.0
+		 *
+		 * @param data    разбираемая область байтов
+		 * @param result  заголовок, в который помещается итог разбора
+		 * @param legacy  ведётся ли перенос открытым заголовком (DTLS 1.2 либо 1.0)
+		 * @param ancient ведётся ли перенос изданием DTLS 1.0: издание 0xFEFF у всякой записи
+		 *
+		 * @return        отказ разбора заголовка
+		 *
+		 * @details RFC 4347: записи издания DTLS 1.0 несут 0xFEFF в заголовке; без признака
+		 *          0xFEFF признаётся лишь у открытой записи приветствия (раздел 4.1 RFC 6347)
+		 *
+		 * \~english
+		 * @brief Method of the parsing of the header of a record with regard to the DTLS 1.0 edition
+		 * @param data    the area of bytes being parsed
+		 * @param result  the header the result of the parsing is put into
+		 * @param legacy  whether the transport goes by a plain header (DTLS 1.2 or 1.0)
+		 * @param ancient whether the transport goes by the DTLS 1.0 edition: 0xFEFF at every record
+		 * @return        the failure of the parsing of the header
+		 * @details RFC 4347: the records of the DTLS 1.0 edition carry 0xFEFF in the header; without
+		 *          the flag 0xFEFF is recognized only at a plain record of a greeting (the section 4.1 of RFC 6347)
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ error_t parse(const view_t & data, header_t & result, const bool legacy, const bool ancient) noexcept;
+		/**
+		 * \~russian
 		 * @brief Метод записи заголовка записи поверх дейтаграммы по изданию переноса
 		 *
 		 * @param header записываемый заголовок записи
@@ -725,6 +752,30 @@ namespace nts {
 		 * \~
 		 */
 		__ANTS_SHARED_EXPORT__ error_t build(const header_t & header, uint8_t * result, size_t & length, const bool legacy) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод записи заголовка записи с учётом издания DTLS 1.0
+		 *
+		 * @param header  записываемый заголовок
+		 * @param result  место, в которое помещается запись заголовка
+		 * @param length  место, в которое помещается длина записи заголовка
+		 * @param legacy  ведётся ли перенос открытым заголовком
+		 * @param ancient ведётся ли перенос изданием DTLS 1.0: в заголовок кладётся 0xFEFF
+		 *
+		 * @return        отказ записи заголовка
+		 *
+		 * \~english
+		 * @brief Method of the writing of the header of a record with regard to the DTLS 1.0 edition
+		 * @param header  the header being written
+		 * @param result  the place the record of the header is put into
+		 * @param length  the place the length of the record of the header is put into
+		 * @param legacy  whether the transport goes by a plain header
+		 * @param ancient whether the transport goes by the DTLS 1.0 edition: 0xFEFF is put into the header
+		 * @return        the failure of the writing of the header
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ error_t build(const header_t & header, uint8_t * result, size_t & length, const bool legacy, const bool ancient) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод разбора обвязки куска сообщения рукопожатия

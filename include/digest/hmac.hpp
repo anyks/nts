@@ -354,6 +354,37 @@ namespace nts {
 		 * \~
 		 */
 		__ANTS_SHARED_EXPORT__ bool prf(const hash_t algorithm, const view_t & key, const view_t & label, const view_t & seed, uint8_t * result, const size_t size) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод выработки псевдослучайной последовательности PRF изданий TLS 1.0 и 1.1
+		 *
+		 * @param key    секрет, делимый пополам между P_MD5 и P_SHA1 (при нечётной длине середина в обеих половинах)
+		 * @param label  метка выработки
+		 * @param seed   семя выработки
+		 * @param result место, в которое помещается последовательность
+		 * @param size   длина последовательности в байтах
+		 *
+		 * @return       признак успешности выработки
+		 *
+		 * @details Раздел 5 RFC 4346: `P_MD5(S1, label ‖ seed) ⊕ P_SHA1(S2, label ‖ seed)`;
+		 *          нужна изданию DTLS 1.0 (RFC 4347 поверх TLS 1.1) и только ему - MD5 здесь
+		 *          требование издания, а не выбор
+		 *
+		 * \~english
+		 * @brief Method of the production of the pseudo-random sequence PRF of the TLS 1.0 and 1.1 editions
+		 * @param key    the secret divided in halves between P_MD5 and P_SHA1 (at an odd length the middle is in both halves)
+		 * @param label  the label of the production
+		 * @param seed   the seed of the production
+		 * @param result the place the sequence is put into
+		 * @param size   the length of the sequence in bytes
+		 * @return       the flag of the success of the production
+		 * @details The section 5 of RFC 4346: `P_MD5(S1, label ‖ seed) ⊕ P_SHA1(S2, label ‖ seed)`;
+		 *          needed by the DTLS 1.0 edition (RFC 4347 over TLS 1.1) and by it alone - MD5 here
+		 *          is a requirement of the edition, not a choice
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ bool legacy(const view_t & key, const view_t & label, const view_t & seed, uint8_t * result, const size_t size) noexcept;
 	};
 };
 
