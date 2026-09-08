@@ -1236,8 +1236,9 @@ TEST(KeysTest, Refusal){
 			ASSERT_TRUE(items.next(asn1::tag_t::OBJECT, oid));
 			// Запись с чужой кривой
 			std::vector <uint8_t> curve = opened;
-			// Портим последний байт опознавателя кривой
-			curve[static_cast <size_t> ((oid.content.data + oid.content.size - 1) - opened.data())] ^= 0x01;
+			// Портим последний байт опознавателя кривой: маска 0x40, а не 0x01 - иначе у ec384 «1.3.132.0.34» флип
+			// младшего разряда дал бы «...35» = secp521r1, кривую теперь ведомую, и отказа кривой бы не было
+			curve[static_cast <size_t> ((oid.content.data + oid.content.size - 1) - opened.data())] ^= 0x40;
 			// Проверяем отказ разбора записи с чужой кривой
 			ASSERT_EQ(keys::decodeSubjectPublicKeyInfo(view(curve), key), keys::error_t::CURVE) << "Ключ: " << entry.name;
 			// Запись с точкой вне кривой

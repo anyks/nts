@@ -1339,6 +1339,8 @@ context::error_t nts::internal::Flight::dispatch(const bool resend) noexcept {
 				this->_attempts = 0;
 			// Заводим часы
 			this->_timing = true;
+			// Новый срок - ранний повтор дозволен
+			this->_prodded = false;
 		// Если ждать нечего
 		} else this->_timing = false;
 	/**
@@ -1371,6 +1373,8 @@ context::error_t nts::internal::Flight::retransmit() noexcept {
 	}
 	// Считаем попытку повторной передачи
 	this->_attempts++;
+	// Новый срок - новый ранний повтор дозволен
+	this->_prodded = false;
 	// Удваиваем срок ожидания до предела
 	this->_timeout = (((this->_timeout * 2) > datagram::DATAGRAM_TIMEOUT_LIMIT) ? datagram::DATAGRAM_TIMEOUT_LIMIT : (this->_timeout * 2));
 	// Выводим итог повторной раскладки залпа
@@ -1436,6 +1440,13 @@ context::error_t nts::internal::Flight::receive(const view_t & data, vector <ope
 				 * Открытое извещение ничем не подписано и принимается лишь до ключей
 				 * чтения; открытые куски рукопожатия судит сборка по своему номеру
 				 */
+				// Раздел 4 RFC 9147: прикладные данные и сердцебиение открытой записью не ходят - открытый текст приложению не впрыскивается
+				if((header.type == record::type_t::APPLICATION) || (header.type == record::type_t::HEARTBEAT)){
+					// Считаем отброшенную запись
+					this->discard(datagram::reason_t::PLAIN);
+					// Переходим к следующей записи
+					continue;
+				}
 				if((header.type == record::type_t::ALERT) && (this->epoch(true) != 0)){
 					// Считаем отброшенную запись
 					this->discard(datagram::reason_t::PLAIN);
@@ -1454,8 +1465,13 @@ context::error_t nts::internal::Flight::receive(const view_t & data, vector <ope
 					// Переходим к следующей записи
 					continue;
 				}
-				// Отмечаем открытую запись принятой: до подтверждения адреса сервер ничего не помнит
-				if(this->_verified)
+				/**
+				 * Отмечаем открытую запись принятой (до подтверждения адреса сервер ничего
+				 * не помнит), но окно не двигаем дальше ожидаемого номера на его ширину:
+				 * открытая запись ничем не подписана, и чужая запись с номером 2^48 - 1
+				 * закрыла бы иначе все настоящие открытые записи собеседника
+				 */
+				if(this->_verified && (header.sequence < (keys.window.expected() + datagram::DATAGRAM_WINDOW)))
 					// Отмечаем запись в окне
 					keys.window.mark(header.sequence);
 				// Запоминаем порядковый номер записи
@@ -2002,7 +2018,23 @@ context::error_t nts::internal::Flight::complete(const bool settled) noexcept {
 	 * Раздел 7.2 RFC 9147: пустое подтверждение просит повтора залпа тотчас же, а
 	 * повтор собеседника повторяет свой залп раскладкой без счёта попыток
 	 */
-	return (nudged ? this->retransmit() : this->dispatch(repeated));
+	/**
+	 * Раздел 7.3 RFC 9147: пустое подтверждение просит ранний повтор. Он не расходует
+	 * попыток и не удваивает срока - иначе девять открытых двухбайтовых подтверждений
+	 * рвали бы рукопожатие по TIMEOUT; и не чаще одного на срок, иначе усилитель
+	 */
+	/**
+	 * Оба рычага раннего повтора - пустое подтверждение и повтор собеседником своего
+	 * залпа - идут через один гейт: не чаще одного повтора на срок (иначе раздробленный
+	 * повтор собеседника из N дейтаграмм давал бы N повторов своего залпа - усилитель), а
+	 * раскладка идёт всегда, чтобы уже сложенное подтверждение ушло сейчас, а не потом
+	 */
+	const bool resend = (repeated || (nudged && !this->_prodded));
+	// Если просили пустым подтверждением - отмечаем ранний повтор
+	if(nudged)
+		this->_prodded = true;
+	// Раскладка идёт всегда: уже сложенное подтверждение уходит сейчас (повтор по повтору собеседника не сдерживается: путь с потерями на него опирается - записано долгом)
+	return this->dispatch(resend);
 }
 /**
  * @brief Метод получения срока ожидания повторной передачи
@@ -2346,6 +2378,21 @@ void nts::internal::Flight::stamp(const vector <uint8_t> & secret) noexcept {
 		return;
 	// Переносим секрет нынешнему поколению
 	::memcpy(this->_stamps[this->_generation % 2], digest, sizeof(digest));
+	/**
+	 * Прежнее поколение: свёртка от свёртки. Оставить второй слот нулевым нельзя:
+	 * attest() принимает метку и поколением «на одно назад», а нулевой ключ HMAC
+	 * известен всякому - подделка метки обходила бы подтверждение адреса (раздел
+	 * 5.1 RFC 9147, раздел 4.2.1 RFC 6347). Так оба поколения выводятся из секрета
+	 * потребителя, и смена процесса не рвёт меток, выданных прежним
+	 */
+	if(!digest::hash(digest::hash_t::SHA256, view_t(digest, sizeof(digest)), this->_stamps[(this->_generation + 1) % 2], sizeof(digest))){
+		// Выполняем затирание свёрнутого секрета
+		wipe(digest, sizeof(digest));
+		// Затираем нынешнее поколение: половинной установки быть не должно
+		wipe(this->_stamps[this->_generation % 2], sizeof(this->_stamps[0]));
+		// Выходим из метода
+		return;
+	}
 	// Выполняем затирание свёрнутого секрета
 	wipe(digest, sizeof(digest));
 	// Отмечаем, что секрет метки задан
@@ -2592,6 +2639,8 @@ void nts::internal::Flight::clear() noexcept {
 	this->_repeated = false;
 	// Сбрасываем признак просьбы о повторе
 	this->_nudged = false;
+	// Сбрасываем признак раннего повтора
+	this->_prodded = false;
 	// Сбрасываем признак отложенной записи
 	this->_deferring = false;
 	// Сбрасываем признак выданной метки
@@ -2631,7 +2680,7 @@ void nts::internal::Flight::clear() noexcept {
  */
 nts::internal::Flight::Flight() noexcept :
 	_suite(protect::suite_t::NONE), _legacy(false), _ancient(false), _stateless(false), _verified(true), _concluded(false), _mtu(datagram::DATAGRAM_MTU), _timeout(datagram::DATAGRAM_TIMEOUT), _attempts(0),
-	_timing(false), _challenged(false), _replied(false), _rotating(false), _repeated(false), _nudged(false), _deferring(false),
+	_timing(false), _challenged(false), _replied(false), _rotating(false), _repeated(false), _nudged(false), _prodded(false), _deferring(false),
 	_stamped(false), _digested(false), _generation(0), _greeted(0), _outgoing(0), _incoming(0), _bundle(0) {
 	// Выполняем обнуление секретов метки возврата состояния
 	::memset(this->_stamps, 0, sizeof(this->_stamps));

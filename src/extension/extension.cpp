@@ -115,7 +115,7 @@ namespace {
 		const char * oid;
 		// Длина ключа подписи на кривой группы в байтах
 		size_t size;
-	} SAMPLES[10] = {
+	} SAMPLES[13] = {
 		{group_t::GC256A, scheme_t::S256A, "1.2.643.7.1.2.1.1.1", 32},
 		{group_t::GC256B, scheme_t::S256B, "1.2.643.2.2.35.1",    32},
 		{group_t::GC256C, scheme_t::S256C, "1.2.643.2.2.35.2",    32},
@@ -125,7 +125,10 @@ namespace {
 		{group_t::GC512C, scheme_t::S512C, "1.2.643.7.1.2.1.2.3", 64},
 		{group_t::SECP256R1, scheme_t::ECDSA_SECP256R1_SHA256, "1.2.840.10045.3.1.7", 32},
 		{group_t::SECP384R1, scheme_t::ECDSA_SECP384R1_SHA384, "1.3.132.0.34",        48},
-		{group_t::X25519,    scheme_t::NONE,                   "1.3.101.110",         32}
+		{group_t::X25519,    scheme_t::NONE,                   "1.3.101.110",         32},
+		{group_t::X448,      scheme_t::NONE,                   "1.3.101.111",         56},
+		{group_t::SECP521R1, scheme_t::ECDSA_SECP521R1_SHA512, "1.3.132.0.35",        66},
+		{group_t::SECP256K1, scheme_t::NONE,                   "1.3.132.0.10",        32}
 	};
 
 	/**
@@ -137,7 +140,7 @@ namespace {
 		scheme_t scheme;
 		// Хеш схемы подписи
 		digest::hash_t hash;
-	} HASHES[16] = {
+	} HASHES[17] = {
 		{scheme_t::RSA_PKCS1_SHA256, digest::hash_t::SHA256},
 		{scheme_t::RSA_PKCS1_SHA384, digest::hash_t::SHA384},
 		{scheme_t::RSA_PKCS1_SHA512, digest::hash_t::SHA512},
@@ -150,6 +153,7 @@ namespace {
 		{scheme_t::S512C, digest::hash_t::STREEBOG512},
 		{scheme_t::ECDSA_SECP256R1_SHA256, digest::hash_t::SHA256},
 		{scheme_t::ECDSA_SECP384R1_SHA384, digest::hash_t::SHA384},
+		{scheme_t::ECDSA_SECP521R1_SHA512, digest::hash_t::SHA512},
 		{scheme_t::RSA_PSS_RSAE_SHA256, digest::hash_t::SHA256},
 		{scheme_t::RSA_PSS_RSAE_SHA384, digest::hash_t::SHA384},
 		{scheme_t::RSA_PSS_RSAE_SHA512, digest::hash_t::SHA512},
@@ -382,6 +386,33 @@ bool nts::extension::hybrid(const group_t group) noexcept {
 	// Выводим признак гибрида: X25519MLKEM768, SecP256r1MLKEM768 либо SecP384r1MLKEM1024
 	return ((group == group_t::X25519MLKEM768) || (group == group_t::SECP256R1MLKEM768) || (group == group_t::SECP384R1MLKEM1024));
 }
+/**
+ * @brief Метод получения длины модуля группы конечного поля RFC 7919
+ *
+ * @param group проверяемая группа обмена ключами
+ *
+ * @return      длина модуля в байтах, ноль у прочих групп
+ *
+ */
+size_t nts::extension::finite(const group_t group) noexcept {
+	/**
+	 * Выполняем определение группы
+	 */
+	switch(static_cast <uint16_t> (group)){
+		// Группа ffdhe2048
+		case static_cast <uint16_t> (group_t::FFDHE2048): return 256;
+		// Группа ffdhe3072
+		case static_cast <uint16_t> (group_t::FFDHE3072): return 384;
+		// Группа ffdhe4096
+		case static_cast <uint16_t> (group_t::FFDHE4096): return 512;
+		// Группа ffdhe6144
+		case static_cast <uint16_t> (group_t::FFDHE6144): return 768;
+		// Группа ffdhe8192
+		case static_cast <uint16_t> (group_t::FFDHE8192): return 1024;
+	}
+	// Выводим отсутствие модуля: группа не конечное поле
+	return 0;
+}
 const char * nts::extension::curve(const scheme_t scheme) noexcept {
 	/**
 	 * Выполняем перебор описаний схем подписи
@@ -441,8 +472,16 @@ size_t nts::extension::length(const group_t group) noexcept {
 	if(group == group_t::X25519)
 		// Выводим длину доли ключа X25519
 		return 32;
-	// Если группа обмена - кривая NIST
-	if((group == group_t::SECP256R1) || (group == group_t::SECP384R1)){
+	// Если группа обмена - X448
+	if(group == group_t::X448)
+		// Выводим длину доли ключа X448
+		return 56;
+	// Если группа обмена - конечное поле RFC 7919: доля есть открытый ключ длиной в модуль
+	if(finite(group) > 0)
+		// Выводим длину модуля
+		return finite(group);
+	// Если группа обмена - кривая NIST либо secp256k1
+	if((group == group_t::SECP256R1) || (group == group_t::SECP384R1) || (group == group_t::SECP521R1) || (group == group_t::SECP256K1)){
 		/**
 		 * Выполняем перебор описаний групп обмена ключами
 		 */
@@ -981,6 +1020,10 @@ nts::extension::error_t nts::extension::share(const view_t & data, share_t & res
 	if(scanner.left() > 0)
 		// Выводим отказ лишних байтов за телом расширения
 		return error_t::TRAILING;
+	// Раздел 4.2.8 RFC 8446: key_exchange<1..2^16-1> - пустая доля негодна
+	if(key.size == 0)
+		// Выводим отказ пустого тела
+		return error_t::EMPTY;
 	// Устанавливаем группу обмена открытой части ключа
 	result.group = static_cast <group_t> (group);
 	// Устанавливаем открытую часть ключа обмена сервера
@@ -1779,6 +1822,10 @@ nts::extension::error_t nts::extension::identities(const view_t & data, vector <
 		if(reader.vector(identity, 2) != field::error_t::NONE)
 			// Выводим отказ обрыва тела расширения
 			return error_t::HUNGRY;
+		// Раздел 4.2.11 RFC 8446: identity<1..2^16-1> - пустой опознаватель негоден
+		if(identity.size == 0)
+			// Выводим отказ пустого тела
+			return error_t::EMPTY;
 		// Скрытый возраст билета, выдавшего ключ
 		uint32_t age = 0;
 		// Если скрытый возраст билета прочитать не удалось
@@ -2182,6 +2229,10 @@ nts::extension::error_t nts::extension::name(const view_t & data, view_t & resul
 		/**
 		 * Раздел 3 RFC 6066: имени вида «host_name» отведено значение нуль
 		 */
+		// Раздел 3 RFC 6066: двух имён одного вида в перечне быть не вправе
+		if((type == 0) && found)
+			// Выводим отказ лишних записей
+			return error_t::TRAILING;
 		if((type == 0) && !found){
 			// Устанавливаем имя запрашиваемого узла
 			result = item;

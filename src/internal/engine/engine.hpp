@@ -94,6 +94,23 @@ namespace nts {
 			Exchange() noexcept : group(extension::group_t::NONE) {}
 		} exchange_t;
 		/**
+		 * @brief Служимая конфигурация ECH сервера
+		 *
+		 */
+		typedef struct Served {
+			// Конфигурация, как записана
+			ech::config_t config;
+			// Ключ HPKE конфигурации
+			hpke::key_t key;
+			// Признак объявления конфигурации в перечне для DNS и в retry_configs
+			bool advertised;
+			/**
+			 * @brief Конструктор
+			 *
+			 */
+			Served() noexcept : advertised(true) {}
+		} served_t;
+		/**
 		 * @brief Ступени рукопожатия издания TLS 1.2
 		 *
 		 * @details Раздел 7.3 RFC 5246: порядок сообщений издания TLS 1.2 иной, нежели у
@@ -423,8 +440,16 @@ namespace nts {
 				uint8_t _fragmenting;
 				// Тело ответного расширения предела: два байта record_size_limit либо один байт max_fragment_length
 				uint8_t _sized[2];
-				// Признак того, что приветствие клиента предложило heartbeat (RFC 6520): записи вида 24 роняются молча, ответа нет (намеренно)
+				// Признак того, что heartbeat (RFC 6520, расширение 0x000F) предложен: у клиента - своим приветствием, у сервера - приветствием клиента
 				bool _heartbeating;
+				// Признак того, что собеседник дозволил слать ему запросы сердцебиения (peer_allowed_to_send)
+				bool _permitted;
+				// Признак запроса сердцебиения в пути: второй до ответа не шлётся (раздел 4 RFC 6520)
+				bool _beating;
+				// Число принятых ответов на свои запросы сердцебиения
+				size_t _pulses;
+				// Нагрузка запроса сердцебиения в пути: ответ сличается с ней
+				vector <uint8_t> _pulse;
 				// Перечень меток времени своего сертификата для выдачи по запросу, как записан
 				vector <uint8_t> _stamps;
 				// Перечень меток времени сертификата собеседника, принятый связью, как записан
@@ -481,10 +506,8 @@ namespace nts {
 				vector <uint8_t> _retries;
 				// Публичное имя конфигурации: по нему судится подлинность сервера, отвергшего ECH
 				string _public;
-				// Ключ HPKE сервера
-				hpke::key_t _echkey;
-				// Конфигурация, которой служит сервер
-				ech::config_t _served;
+				// Конфигурации, которыми служит сервер: по опознавателю подбирается ключ; ротация - новая объявленная и прежняя удержанная
+				vector <served_t> _serving;
 				// Признак того, что сервер принял ECH: подтверждение идёт приветствием
 				bool _echaccepted;
 				// Признак того, что сервер ECH отверг: запасные конфигурации идут защищёнными расширениями
@@ -1769,6 +1792,28 @@ namespace nts {
 				 */
 				void inquire(const bool inquire) noexcept;
 				/**
+				 * @brief Метод отправки запроса сердцебиения (RFC 6520)
+				 *
+				 * @param payload нагрузка запроса: ответ обязан вернуть её слово в слово
+				 *
+				 * @return        отказ отправки: STATE вне установленной связи либо при запросе в пути, SETTINGS без дозволения собеседника
+				 */
+				context::error_t heartbeat(const view_t & payload) noexcept;
+				/**
+				 * @brief Метод получения числа принятых ответов на свои запросы сердцебиения
+				 *
+				 * @return число ответов с ожидаемой нагрузкой
+				 */
+				size_t pulses() const noexcept;
+				/**
+				 * @brief Метод разбора принятой записи сердцебиения (RFC 6520)
+				 *
+				 * @param content открытое содержимое записи вида 24
+				 *
+				 * @return        отказ разбора: запись без предложения heartbeat обрывает связь, негодная роняется молча
+				 */
+				context::error_t pulse(const view_t & content) noexcept;
+				/**
 				 * @brief Метод получения предела длины открытого содержимого отправляемой записи
 				 *
 				 * @return предел в байтах: объявленный собеседником либо предел протокола
@@ -2044,6 +2089,25 @@ namespace nts {
 				 *
 				 */
 				context::error_t ech(const view_t & secret, const string & name, const uint8_t id, const uint8_t length) noexcept;
+				/**
+				 * @brief Метод установки удержанной конфигурации ECH серверу: принимается, но не объявляется
+				 * @param secret секретный ключ X25519 (32 байта) либо пусто - порождается
+				 * @param name   публичное имя конфигурации
+				 * @param id     опознаватель конфигурации: занятый заменяет прежнюю конфигурацию
+				 * @param length наибольшая длина имени для заполнения клиента
+				 * @return       отказ установки
+				 */
+				context::error_t retain(const view_t & secret, const string & name, const uint8_t id, const uint8_t length) noexcept;
+				/**
+				 * @brief Метод добавления служимой конфигурации ECH
+				 * @param secret     секретный ключ X25519 (32 байта) либо пусто - порождается
+				 * @param name       публичное имя конфигурации
+				 * @param id         опознаватель конфигурации
+				 * @param length     наибольшая длина имени для заполнения клиента
+				 * @param advertised признак объявления конфигурации в перечне
+				 * @return           отказ установки
+				 */
+				context::error_t serving(const view_t & secret, const string & name, const uint8_t id, const uint8_t length, const bool advertised) noexcept;
 				/**
 				 * @brief Метод получения перечня конфигураций ECH
 				 *

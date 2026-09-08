@@ -85,6 +85,30 @@ bool nts::server::Context::established() const noexcept {
 	return (this->state() == context::state_t::ESTABLISHED);
 }
 /**
+ * @brief Метод отправки запроса сердцебиения (RFC 6520)
+ *
+ * @param payload нагрузка запроса
+ *
+ * @return        отказ отправки
+ */
+context::error_t nts::server::Context::heartbeat(const view_t & payload) noexcept {
+	// Если ведение связи не заведено
+	if(this->_engine == nullptr)
+		// Выводим отказ нехватки памяти
+		return context::error_t::MEMORY;
+	// Выводим итог отправки запроса
+	return this->_engine->heartbeat(payload);
+}
+/**
+ * @brief Метод получения числа принятых ответов на свои запросы сердцебиения
+ *
+ * @return число ответов
+ */
+size_t nts::server::Context::pulses() const noexcept {
+	// Выводим число ответов движка либо ноль
+	return ((this->_engine != nullptr) ? this->_engine->pulses() : 0);
+}
+/**
  * @brief Метод получения предела длины открытого содержимого отправляемой записи
  *
  * @return предел в байтах
@@ -678,6 +702,24 @@ context::error_t nts::server::Context::ech(const vector <uint8_t> & secret, cons
 		return context::error_t::MEMORY;
 	// Выводим итог установки ключа
 	return this->_engine->ech(view_t(secret.data(), secret.size()), name, id, length);
+}
+/**
+ * @brief Метод установки удержанной конфигурации ECH серверу
+ *
+ * @param secret секретный ключ X25519 либо пусто
+ * @param name   публичное имя конфигурации
+ * @param id     опознаватель конфигурации
+ * @param length наибольшая длина имени
+ *
+ * @return       отказ установки
+ */
+context::error_t nts::server::Context::retain(const vector <uint8_t> & secret, const string & name, const uint8_t id, const uint8_t length) noexcept {
+	// Если ведение связи не заведено
+	if(this->_engine == nullptr)
+		// Выводим отказ нехватки памяти
+		return context::error_t::MEMORY;
+	// Выводим итог установки удержанной конфигурации
+	return this->_engine->retain(view_t(secret.data(), secret.size()), name, id, length);
 }
 /**
  * @brief Метод получения перечня конфигураций ECH для записи DNS HTTPS

@@ -121,6 +121,14 @@ using namespace std;
  */
 namespace {
 	/**
+	 * Наибольшая длина открытого текста одного вызова GCM в байтах: (2^39 - 256) / 8
+	 */
+	static constexpr uint64_t GCM_MOST = ((static_cast <uint64_t> (1) << 36) - 32);
+	/**
+	 * Наибольшая длина присоединённых данных в байтах: (2^64 - 1) / 8
+	 */
+	static constexpr uint64_t GCM_ASSOCIATED = (static_cast <uint64_t> (1) << 61);
+	/**
 	 * Пространство имён библиотеки
 	 */
 	using namespace nts;
@@ -1150,6 +1158,10 @@ bool nts::cipher::Gcm::associate(const view_t & associated) noexcept {
 		// Выводим отказ подачи
 		return false;
 	// Переводим поток на связанные данные
+	// Раздел 5.2.1.1 NIST SP 800-38D: присоединённые данные не длиннее 2^64 - 1 разрядов - до поглощения, иначе поглотились бы байты сверх предела
+	if((this->_associated + static_cast <uint64_t> (associated.size)) > GCM_ASSOCIATED)
+		// Выводим отказ
+		return false;
 	this->_stage = 1;
 	// Выполняем сложение связанных данных в накопитель
 	this->absorb(associated.data, associated.size);
@@ -1177,6 +1189,16 @@ bool nts::cipher::Gcm::encrypt(const view_t & source, uint8_t * result) noexcept
 		// Выводим отказ зашифрования
 		return false;
 	// Если переход потока к зашифрованию недопустим
+	/**
+	 * Раздел 5.2.1.1 NIST SP 800-38D: открытый текст не длиннее 2^39 - 256 разрядов
+	 * (2^32 - 2 блоков), иначе 32-разрядный счётчик замыкается на J0 и гамма повторяется
+	 */
+	if((this->_sealed + static_cast <uint64_t> (source.size)) > GCM_MOST){
+		// Останавливаем шифрование
+		this->_stage = 3;
+		// Выводим отказ
+		return false;
+	}
 	if(!this->proceed(1))
 		// Выводим отказ зашифрования
 		return false;
@@ -1204,6 +1226,16 @@ bool nts::cipher::Gcm::encrypt(const view_t & source, uint8_t * result) noexcept
  *
  */
 bool nts::cipher::Gcm::decrypt(const view_t & source, uint8_t * result) noexcept {
+	/**
+	 * Раздел 5.2.1.1 NIST SP 800-38D: открытый текст не длиннее 2^39 - 256 разрядов
+	 * (2^32 - 2 блоков), иначе 32-разрядный счётчик замыкается на J0 и гамма повторяется
+	 */
+	if((this->_sealed + static_cast <uint64_t> (source.size)) > GCM_MOST){
+		// Останавливаем шифрование
+		this->_stage = 3;
+		// Выводим отказ
+		return false;
+	}
 	// Если режим не готов
 	if(!this->_ready)
 		// Выводим отказ расшифрования
@@ -1351,6 +1383,10 @@ bool nts::cipher::Gcm::encrypt(const view_t & associated, const view_t & source,
  *
  */
 bool nts::cipher::Gcm::decrypt(const view_t & associated, const view_t & source, uint8_t * result, const view_t & tag) noexcept {
+	// Раздел 5.2.1.1 NIST SP 800-38D: предел открытого текста и у одновызовного пути - поточный decrypt() здесь минуется
+	if(static_cast <uint64_t> (source.size) > GCM_MOST)
+		// Выводим отказ
+		return false;
 	// Если режим не готов либо метка не установленной длины
 	if(!this->_ready || (tag.data == nullptr) || (tag.size != this->_size))
 		// Выводим отказ расшифрования

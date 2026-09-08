@@ -51,6 +51,8 @@
 #include <handshake/handshake.hpp>
 #include <extension/extension.hpp>
 #include <digest/hash.hpp>
+#include <digest/hmac.hpp>
+#include <internal/flight/flight.hpp>
 #include <client/client.hpp>
 #include <server/server.hpp>
 
@@ -2414,8 +2416,8 @@ TEST(DtlsTest, Deferral){
 	ASSERT_EQ(server.timeout(), datagram::DATAGRAM_TIMEOUT);
 	// Переносим пустое подтверждение серверу
 	ASSERT_TRUE(carry(client, server, bond, 0));
-	// Сервер повторил залп тотчас же, посчитав попытку
-	ASSERT_EQ(server.timeout(), datagram::DATAGRAM_TIMEOUT * 2);
+	// Сервер повторил залп тотчас же, не считая попытки и не удваивая срока (аудит круга 2: девять открытых ACK рвали рукопожатие)
+	ASSERT_EQ(server.timeout(), datagram::DATAGRAM_TIMEOUT);
 	// Повтор залпа
 	vector <vector <uint8_t>> again;
 	// Снимаем повтор
@@ -3015,4 +3017,44 @@ TEST(DtlsTest, Output){
 	ASSERT_EQ(server.read(received), context::error_t::NONE);
 	// Ни одно слово не потеряно
 	ASSERT_EQ(string(received.begin(), received.end()), "firstsecondthirdfourth");
+}
+
+/**
+ * Подделка метки возврата состояния прежним поколением: при секрете потребителя оба поколения
+ * обязаны быть заданы, иначе метка на нулевом ключе HMAC поколения «на одно назад» принималась бы
+ */
+TEST(DtlsTest, CookieForgery){
+	internal::flight_t flight;
+	const uint8_t address[6] = {10, 0, 0, 1, 0x1F, 0x90};
+	ASSERT_TRUE(flight.address(view_t(address, sizeof(address))));
+	flight.stamp(vector <uint8_t> {'s', 'e', 'c', 'r', 'e', 't'});
+	ASSERT_TRUE(flight.prepare());
+	uint8_t hello[40];
+	for(size_t i = 0; i < sizeof(hello); i++)
+		hello[i] = static_cast <uint8_t> (i);
+	vector <uint8_t> label;
+	ASSERT_EQ(flight.stamp(view_t(hello, sizeof(hello)), label), context::error_t::NONE);
+	EXPECT_TRUE(flight.verify(view_t(label.data(), label.size())));
+	// Подделка: поколение 0xFF, HMAC на нулевом ключе
+	uint8_t digest[32];
+	ASSERT_TRUE(digest::hash(digest::hash_t::SHA256, view_t(hello, sizeof(hello)), digest, sizeof(digest)));
+	uint8_t zero[32] = {0};
+	uint8_t covered[1 + 32 + 6];
+	covered[0] = 0xFF;
+	::memcpy(covered + 1, digest, 32);
+	::memcpy(covered + 33, address, 6);
+	uint8_t mac[32];
+	ASSERT_TRUE(digest::hmac(digest::hash_t::SHA256, view_t(zero, 32), view_t(covered, sizeof(covered)), mac, 32));
+	vector <uint8_t> forged;
+	forged.push_back(0xFF);
+	forged.insert(forged.end(), digest, digest + 32);
+	forged.insert(forged.end(), mac, mac + 32);
+	EXPECT_FALSE(flight.verify(view_t(forged.data(), forged.size())));
+	vector <uint8_t> token;
+	token.push_back(0xFF);
+	token.insert(token.end(), mac, mac + 32);
+	EXPECT_FALSE(flight.verify(view_t(token.data(), token.size()), view_t(hello, sizeof(hello))));
+	// Метка прежнего поколения после смены поколения остаётся годной
+	flight.restamp();
+	EXPECT_TRUE(flight.verify(view_t(label.data(), label.size())));
 }

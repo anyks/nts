@@ -379,16 +379,26 @@ bool nts::curve::Curve::point(const view_t & x, const view_t & y, point_t & resu
 	 * умножением на кофактор - по нему она здесь и отсекается
 	 */
 	if(this->_cofactor > 1){
-		// Число, равное кофактору кривой
-		math::number_t cofactor;
-		// Кратная точка по кофактору кривой
-		point_t cleared;
-		// Записываем кофактор кривой числом
-		this->_order.word(this->_cofactor, cofactor);
-		// Выполняем умножение точки на кофактор кривой
-		this->multiply(result, cofactor, cleared);
-		// Если кратная точка обратилась в ноль: точка малого порядка
-		if(this->infinity(cleared)){
+		// Ноль, единица и порядок без единицы в арифметике порядка
+		math::number_t zero, one, last;
+		// Точки (q - 1)·Q и q·Q
+		point_t nearly, cleared;
+		// Ноль
+		this->_order.word(0, zero);
+		// Единица
+		this->_order.word(1, one);
+		// q - 1: сам порядок числом арифметики по модулю q не выразить
+		this->_order.subtract(zero, one, last);
+		/**
+		 * Раздел 5.2 ГОСТ Р 34.10-2012 требует q·Q = O. Отсечь одни лишь точки кручения
+		 * умножением на кофактор мало: точка G + T с T порядка два лежит на кривой,
+		 * h·(G + T) = h·G не ноль, а q·(G + T) = T не ноль - такая точка проходила бы
+		 */
+		this->multiply(result, last, nearly);
+		// q·Q = (q - 1)·Q + Q
+		this->add(nearly, result, cleared);
+		// Если точка не в подгруппе порядка q
+		if(!this->infinity(cleared)){
 			// Выполняем сброс разбираемой точки
 			result = point_t();
 			// Выводим отказ разбора точки

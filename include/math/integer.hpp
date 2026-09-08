@@ -76,11 +76,12 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Greatest number of the bits of a multi-precision integer
-		 * @details The greatest modulus of RSA produced by the library occupies 4096 bits
+		 * @details The greatest modulus of RSA produced by the library occupies 4096 bits, the greatest
+		 *          group of RFC 7919 (ffdhe8192) occupies 8192 bits
 		 *
 		 * \~
 		 */
-		static constexpr size_t INTEGER_BITS = 4096;
+		static constexpr size_t INTEGER_BITS = 8192;
 
 		/**
 		 * \~russian
@@ -567,6 +568,30 @@ namespace nts {
 				 * \~
 				 */
 				bool power(const Integer & base, const Integer & exponent, const Integer & modulus, const bool secret = true) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод возведения числа в степень по модулю с заданной шириной перебора показателя
+				 * @param base     основание, меньшее модуля
+				 * @param exponent показатель
+				 * @param modulus  нечётный модуль
+				 * @param bits     число разрядов показателя, по которым идёт перебор: не меньше его значимых разрядов
+				 * @return         признак успешности
+				 * @note Число шагов перебора задаётся вызывающим и не зависит от значения показателя:
+				 *       так секретный показатель известной длины (например, 336 разрядов у ffdhe4096)
+				 *       возводится без перебора всей ширины модуля и без утечки своей ширины временем
+				 * \~english
+				 * @brief Method of the raise into a power by a modulus with a given width of the scan of the exponent
+				 * @param base     the base, less than the modulus
+				 * @param exponent the exponent
+				 * @param modulus  the odd modulus
+				 * @param bits     the number of the bits of the exponent the scan goes over: not less than its significant bits
+				 * @return         the flag of the success
+				 * @note The number of the steps of the scan is set by the caller and does not depend on the value of the
+				 *       exponent: thus a secret exponent of a known length (e.g. 336 bits at ffdhe4096) is raised without a
+				 *       scan over the whole width of the modulus and without a leak of its width by the timing
+				 * \~
+				 */
+				bool power(const Integer & base, const Integer & exponent, const Integer & modulus, const size_t bits) noexcept;
 				/**
 				 * \~russian
 				 * @brief Метод обращения числа по модулю

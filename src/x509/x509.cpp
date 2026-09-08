@@ -490,8 +490,8 @@ nts::x509::error_t nts::x509::Certificate::parse(const view_t & data) noexcept {
 			 * Правило это снимает у записи двоякость, и нарушение его означает запись,
 			 * которую разные разборщики прочтут по-разному
 			 */
-			if((*bounds[i] <= 2524607999) != (type == asn1::tag_t::UTC_TIME))
-				// Запоминаем причину отказа
+			if(((*bounds[i] >= -631152000) && (*bounds[i] <= 2524607999)) != (type == asn1::tag_t::UTC_TIME))
+				// Запоминаем причину отказа: раздел 4.1.2.5 RFC 5280 отводит UTCTime лишь годам 1950…2049, а время вне них - GeneralizedTime
 				return (this->_error = error_t::VALIDITY);
 		}
 		// Если после границ срока действия остались лишние поля
@@ -1472,5 +1472,171 @@ nts::x509::error_t nts::x509::authorityKey(const extension_t & extension, view_t
 		last = (field.tag + 1);
 	}
 	// Выводим успешность извлечения
+	return error_t::NONE;
+}
+/**
+ * @brief Метод проверки критичных расширений сертификата на известность
+ *
+ * @param certificate проверяемый сертификат
+ *
+ * @return            признак того, что все критичные расширения известны
+ *
+ */
+bool nts::x509::recognized(const certificate_t & certificate) noexcept {
+	// Известные расширения: subjectKeyIdentifier, keyUsage, subjectAltName, basicConstraints, authorityKeyIdentifier, extendedKeyUsage
+	static const char * RECOGNIZED[] = {"2.5.29.14", "2.5.29.15", "2.5.29.17", "2.5.29.19", "2.5.29.30", "2.5.29.35", "2.5.29.37"};
+	// Расширения сертификата
+	const vector <extension_t> & extensions = certificate.extension();
+	/**
+	 * Выполняем перебор расширений сертификата
+	 */
+	for(size_t i = 0; i < extensions.size(); i++){
+		// Если расширение не критично
+		if(!extensions[i].critical)
+			// Переходим к следующему
+			continue;
+		// Признак известности
+		bool known = false;
+		/**
+		 * Выполняем перебор известных расширений
+		 */
+		for(size_t j = 0; !known && (j < (sizeof(RECOGNIZED) / sizeof(RECOGNIZED[0]))); j++)
+			// Сличаем опознаватель
+			known = (extensions[i].oid.compare(RECOGNIZED[j]) == 0);
+		// Если расширение неизвестно
+		if(!known)
+			// Выводим отказ
+			return false;
+	}
+	// Выводим успешность
+	return true;
+}
+/**
+ * @brief Метод извлечения ограничений имён издателя
+ *
+ * @param extension расширение nameConstraints
+ * @param permitted дозволенные поддеревья
+ * @param excluded  запрещённые поддеревья
+ *
+ * @return          причина отказа либо error_t::NONE
+ *
+ */
+nts::x509::error_t nts::x509::constraints(const extension_t & extension, vector <alternative_t> & permitted, vector <alternative_t> & excluded) noexcept {
+	/**
+	 * Выполняем перехват ошибок работы с памятью
+	 */
+	try {
+		// Сбрасываем перечни
+		permitted.clear();
+		excluded.clear();
+		// Разборщик расширения
+		asn1::reader_t reader(extension.value);
+		// Элемент NameConstraints
+		asn1::element_t item;
+		// Если внешняя последовательность не прочиталась
+		if(!reader.next(asn1::tag_t::SEQUENCE, item))
+			return error_t::ENCODING;
+		// Если за ней идут лишние байты либо она не составная
+		if(!reader.empty() || !item.constructed)
+			return error_t::STRUCTURE;
+		// Разборщик поддеревьев
+		asn1::reader_t parts(item.content);
+		/**
+		 * Выполняем перебор частей: [0] permittedSubtrees, [1] excludedSubtrees
+		 */
+		while(!parts.empty()){
+			// Часть
+			asn1::element_t part;
+			// Если часть не прочиталась
+			if(!parts.next(part))
+				return error_t::ENCODING;
+			// Если часть не помечена контекстом [0] либо [1] либо не составная
+			if((part.cls != asn1::cls_t::CONTEXT) || ((part.tag != 0) && (part.tag != 1)) || !part.constructed)
+				return error_t::STRUCTURE;
+			// Перечень, в который ложатся поддеревья
+			vector <alternative_t> & result = ((part.tag == 0) ? permitted : excluded);
+			// Разборщик поддеревьев части
+			asn1::reader_t trees(part.content);
+			// Раздел 4.2.1.10 RFC 5280: перечень поддеревьев непуст
+			if(trees.empty())
+				return error_t::EXTENSION;
+			/**
+			 * Выполняем перебор поддеревьев GeneralSubtree
+			 */
+			while(!trees.empty()){
+				// Поддерево
+				asn1::element_t tree;
+				// Если поддерево не прочиталось
+				if(!trees.next(asn1::tag_t::SEQUENCE, tree))
+					return error_t::ENCODING;
+				// Если поддерево не составное
+				if(!tree.constructed)
+					return error_t::STRUCTURE;
+				// Разборщик поддерева
+				asn1::reader_t fields(tree.content);
+				// Основание поддерева
+				asn1::element_t base;
+				// Если основание не прочиталось
+				if(!fields.next(base))
+					return error_t::ENCODING;
+				// Если основание не помечено контекстом
+				if(base.cls != asn1::cls_t::CONTEXT)
+					return error_t::STRUCTURE;
+				// Раздел 4.2.1.10 RFC 5280: minimum и maximum не выпускаются - поддерево с ними не разбирается
+				if(!fields.empty())
+					return error_t::EXTENSION;
+				// Имя поддерева
+				alternative_t alternative;
+				// Запись имени целиком
+				alternative.element = base.element;
+				/**
+				 * Выполняем определение вида имени
+				 */
+				switch(base.tag){
+					// Адрес почты, доменное имя, указатель ресурса
+					case 1: case 2: case 6: {
+						// Вид имени
+						alternative.kind = ((base.tag == 1) ? kind_t::EMAIL : ((base.tag == 2) ? kind_t::DNS : kind_t::URI));
+						// Отказ разбора текста
+						const asn1::error_t status = asn1::text(base, asn1::tag_t::IA5_STRING, alternative.value);
+						// Если памяти не хватило
+						if(status == asn1::error_t::MEMORY)
+							return error_t::MEMORY;
+						// Если текст не разобрался
+						if(status != asn1::error_t::NONE)
+							return error_t::EXTENSION;
+					} break;
+					// Адрес сети с маской: 8 либо 32 байта
+					case 7: {
+						// Вид имени
+						alternative.kind = kind_t::ADDRESS;
+						// Если запись составная либо длина не адрес с маской
+						if(base.constructed || ((base.content.size != 8) && (base.content.size != 32)))
+							return error_t::EXTENSION;
+						// Переносим адрес с маской
+						alternative.value.assign(reinterpret_cast <const char *> (base.content.data), base.content.size);
+					} break;
+					// Отличительное имя
+					case 4: {
+						// Вид имени
+						alternative.kind = kind_t::DIRECTORY;
+						// Если запись не составная
+						if(!base.constructed)
+							return error_t::STRUCTURE;
+					} break;
+					// Иное имя
+					default: alternative.kind = kind_t::OTHER;
+				}
+				// Добавляем поддерево
+				result.push_back(alternative);
+			}
+		}
+	/**
+	 * Если памяти не хватило
+	 */
+	} catch(const bad_alloc &) {
+		return error_t::MEMORY;
+	}
+	// Выводим успешность
 	return error_t::NONE;
 }

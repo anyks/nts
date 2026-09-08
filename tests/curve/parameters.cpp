@@ -32,6 +32,10 @@
 #include <sign/gost.hpp>
 #include <entropy/entropy.hpp>
 #include <curve/parameters.hpp>
+#include <agreement/ecdhe.hpp>
+#include <sign/ecdsa.hpp>
+#include <entropy/entropy.hpp>
+#include <cstring>
 
 /**
  * Используем пространство имён проекта
@@ -191,4 +195,37 @@ TEST(ParametersTest, Failures) {
 	ASSERT_FALSE(curve::parameters(std::string("1.2.643.7.1.2.1.1.11"), curve));
 	// Проверяем, что кривая после отказов установленной не считается
 	ASSERT_FALSE(curve.ready());
+}
+
+/**
+ * @brief Проверка наборов secp521r1 и secp256k1: установка, размер, обмен ECDHE двух пар и подпись ECDSA
+ *
+ */
+TEST(ParametersTest, Deferred) {
+	static const char * OIDS[] = {"1.3.132.0.35", "1.3.132.0.10"};
+	static const size_t SIZES[] = {66, 32};
+	for(size_t i = 0; i < 2; i++){
+		curve::curve_t curve;
+		ASSERT_TRUE(curve::parameters(std::string(OIDS[i]), curve)) << OIDS[i];
+		ASSERT_EQ(curve.size(), SIZES[i]) << OIDS[i];
+		ASSERT_EQ(curve.order().size(), SIZES[i]) << OIDS[i];
+		uint8_t secretA[math::NUMBER_SIZE], keyA[math::NUMBER_SIZE * 2], secretB[math::NUMBER_SIZE], keyB[math::NUMBER_SIZE * 2];
+		ASSERT_TRUE(agreement::generate(curve, secretA, keyA)) << OIDS[i];
+		ASSERT_TRUE(agreement::generate(curve, secretB, keyB)) << OIDS[i];
+		uint8_t sharedA[math::NUMBER_SIZE], sharedB[math::NUMBER_SIZE];
+		ASSERT_TRUE(agreement::ecdhe(curve, view_t(secretA, SIZES[i]), view_t(keyB, SIZES[i] * 2), sharedA)) << OIDS[i];
+		ASSERT_TRUE(agreement::ecdhe(curve, view_t(secretB, SIZES[i]), view_t(keyA, SIZES[i] * 2), sharedB)) << OIDS[i];
+		ASSERT_EQ(::memcmp(sharedA, sharedB, SIZES[i]), 0) << OIDS[i];
+		sign::ecdsa_t ecdsa;
+		ASSERT_TRUE(ecdsa.start(curve)) << OIDS[i];
+		uint8_t secret[math::NUMBER_SIZE];
+		ASSERT_TRUE(ecdsa.generate(secret, SIZES[i])) << OIDS[i];
+		uint8_t digest[64];
+		ASSERT_TRUE(entropy::bytes(digest, sizeof(digest))) << OIDS[i];
+		uint8_t signature[math::NUMBER_SIZE * 2];
+		ASSERT_TRUE(ecdsa.make(digest::hash_t::SHA512, view_t(digest, sizeof(digest)), signature)) << OIDS[i];
+		ASSERT_TRUE(ecdsa.check(view_t(digest, sizeof(digest)), view_t(signature, SIZES[i] * 2))) << OIDS[i];
+		signature[3] ^= 0x01;
+		ASSERT_FALSE(ecdsa.check(view_t(digest, sizeof(digest)), view_t(signature, SIZES[i] * 2))) << OIDS[i];
+	}
 }

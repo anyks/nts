@@ -160,6 +160,14 @@ namespace nts {
 			SECP256R1 = 0x0017, /*!< \~russian Кривая secp256r1 (NIST P-256) по разделу 4.2.7 RFC 8446 \~english The secp256r1 (NIST P-256) curve by the section 4.2.7 of RFC 8446 \~ */
 			SECP384R1 = 0x0018, /*!< \~russian Кривая secp384r1 (NIST P-384) по разделу 4.2.7 RFC 8446 \~english The secp384r1 (NIST P-384) curve by the section 4.2.7 of RFC 8446 \~ */
 			X25519    = 0x001D, /*!< \~russian Кривая Curve25519 по RFC 7748 \~english The Curve25519 curve by RFC 7748 \~ */
+			X448      = 0x001E, /*!< \~russian Кривая Curve448 по RFC 7748 \~english The Curve448 curve by RFC 7748 \~ */
+			SECP521R1 = 0x0019, /*!< \~russian Кривая secp521r1 (NIST P-521) по разделу 4.2.7 RFC 8446 \~english The secp521r1 (NIST P-521) curve by the section 4.2.7 of RFC 8446 \~ */
+			SECP256K1 = 0x0016, /*!< \~russian Кривая secp256k1 по RFC 8422: лишь TLS 1.2, изданием 1.3 не допускается \~english The secp256k1 curve by RFC 8422: TLS 1.2 only, not allowed by the edition 1.3 \~ */
+			FFDHE2048 = 0x0100, /*!< \~russian Группа конечного поля ffdhe2048 по RFC 7919 \~english The ffdhe2048 finite field group by RFC 7919 \~ */
+			FFDHE3072 = 0x0101, /*!< \~russian Группа конечного поля ffdhe3072 по RFC 7919 \~english The ffdhe3072 finite field group by RFC 7919 \~ */
+			FFDHE4096 = 0x0102, /*!< \~russian Группа конечного поля ffdhe4096 по RFC 7919 \~english The ffdhe4096 finite field group by RFC 7919 \~ */
+			FFDHE6144 = 0x0103, /*!< \~russian Группа конечного поля ffdhe6144 по RFC 7919 \~english The ffdhe6144 finite field group by RFC 7919 \~ */
+			FFDHE8192 = 0x0104, /*!< \~russian Группа конечного поля ffdhe8192 по RFC 7919 \~english The ffdhe8192 finite field group by RFC 7919 \~ */
 			SECP256R1MLKEM768 = 0x11EB, /*!< \~russian Гибрид secp256r1 и ML-KEM-768 по draft-ietf-tls-ecdhe-mlkem: доля кривой впереди \~english The hybrid of secp256r1 and ML-KEM-768 by draft-ietf-tls-ecdhe-mlkem: the curve share goes first \~ */
 			X25519MLKEM768 = 0x11EC, /*!< \~russian Гибрид X25519 и ML-KEM-768 по draft-ietf-tls-ecdhe-mlkem \~english The hybrid of X25519 and ML-KEM-768 by draft-ietf-tls-ecdhe-mlkem \~ */
 			SECP384R1MLKEM1024 = 0x11ED /*!< \~russian Гибрид secp384r1 и ML-KEM-1024 по draft-ietf-tls-ecdhe-mlkem: доля кривой впереди \~english The hybrid of secp384r1 and ML-KEM-1024 by draft-ietf-tls-ecdhe-mlkem: the curve share goes first \~ */
@@ -190,6 +198,18 @@ namespace nts {
 		 * \~
 		 */
 		__ANTS_SHARED_EXPORT__ bool hybrid(const group_t group) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод получения длины модуля группы конечного поля RFC 7919
+		 * @param group проверяемая группа обмена ключами
+		 * @return      длина модуля в байтах: 256 … 1024 у ffdhe2048 … ffdhe8192, ноль у прочих групп
+		 * \~english
+		 * @brief Method of getting the length of the modulus of a finite field group of RFC 7919
+		 * @param group the group of the exchange of the keys being checked
+		 * @return      the length of the modulus in bytes: 256 … 1024 at ffdhe2048 … ffdhe8192, zero at the other groups
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ size_t finite(const group_t group) noexcept;
 
 		/**
 		 * \~russian
@@ -219,6 +239,7 @@ namespace nts {
 			RSA_PKCS1_SHA384       = 0x0501, /*!< \~russian Подпись RSASSA-PKCS1-v1_5 с хешем SHA-384 (TLS 1.2) \~english The RSASSA-PKCS1-v1_5 signature with the SHA-384 hash (TLS 1.2) \~ */
 			ECDSA_SECP384R1_SHA384 = 0x0503, /*!< \~russian Подпись ECDSA на кривой secp384r1 с хешем SHA-384 \~english The ECDSA signature on the secp384r1 curve with the SHA-384 hash \~ */
 			RSA_PKCS1_SHA512       = 0x0601, /*!< \~russian Подпись RSASSA-PKCS1-v1_5 с хешем SHA-512 (TLS 1.2) \~english The RSASSA-PKCS1-v1_5 signature with the SHA-512 hash (TLS 1.2) \~ */
+			ECDSA_SECP521R1_SHA512 = 0x0603, /*!< \~russian Подпись ECDSA на кривой secp521r1 с хешем SHA-512 \~english The ECDSA signature on the secp521r1 curve with the SHA-512 hash \~ */
 			RSA_PSS_RSAE_SHA256    = 0x0804, /*!< \~russian Подпись RSASSA-PSS ключом rsaEncryption с хешем SHA-256 \~english The RSASSA-PSS signature by an rsaEncryption key with the SHA-256 hash \~ */
 			RSA_PSS_RSAE_SHA384    = 0x0805, /*!< \~russian Подпись RSASSA-PSS ключом rsaEncryption с хешем SHA-384 \~english The RSASSA-PSS signature by an rsaEncryption key with the SHA-384 hash \~ */
 			RSA_PSS_RSAE_SHA512    = 0x0806, /*!< \~russian Подпись RSASSA-PSS ключом rsaEncryption с хешем SHA-512 \~english The RSASSA-PSS signature by an rsaEncryption key with the SHA-512 hash \~ */

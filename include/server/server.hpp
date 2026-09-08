@@ -178,6 +178,53 @@ namespace nts {
 				bool established() const noexcept;
 				/**
 				 * \~russian
+				 * @brief Метод отправки запроса сердцебиения (RFC 6520)
+				 *
+				 * @param payload нагрузка запроса: ответ собеседника обязан вернуть её слово в слово
+				 *
+				 * @details Запрос идёт лишь по установленной связи издания TLS 1.2 либо DTLS 1.2, при
+				 *          предложенном расширении heartbeat (0x000F, из профиля отпечатка) и дозволении
+				 *          собеседника peer_allowed_to_send, по одному до ответа (раздел 4 RFC 6520). Сообщение
+				 *          несёт вид, длину нагрузки, нагрузку и шестнадцать случайных байтов заполнения.
+				 *          Ответ с ожидаемой нагрузкой считается в `pulses()`, иной роняется молча
+				 *
+				 * @return  отказ отправки: STATE вне установленной связи либо при запросе в пути, SETTINGS без
+				 *          расширения либо дозволения, LIMIT при нагрузке шире записи
+				 *
+				 * \~english
+				 * @brief Method of sending a heartbeat request (RFC 6520)
+				 *
+				 * @param payload the payload of the request: the response of the peer must return it word for word
+				 *
+				 * @details The request goes only over an established connection of the edition TLS 1.2 or DTLS 1.2,
+				 *          with the heartbeat extension offered (0x000F, from a fingerprint profile) and the
+				 *          peer_allowed_to_send permission of the peer, one at a time until a response (the section 4
+				 *          of RFC 6520). The message carries the type, the length of the payload, the payload and
+				 *          sixteen random bytes of padding. A response with the expected payload is counted in
+				 *          `pulses()`, another one is dropped silently
+				 *
+				 * @return  the failure of the sending: STATE outside an established connection or with a request in
+				 *          flight, SETTINGS without the extension or the permission, LIMIT at a payload wider than a record
+				 *
+				 * \~
+				 */
+				context::error_t heartbeat(const view_t & payload) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения числа принятых ответов на свои запросы сердцебиения
+				 *
+				 * @return число ответов с ожидаемой нагрузкой
+				 *
+				 * \~english
+				 * @brief Method of getting the number of the received responses to one's own heartbeat requests
+				 *
+				 * @return the number of the responses with the expected payload
+				 *
+				 * \~
+				 */
+				size_t pulses() const noexcept;
+				/**
+				 * \~russian
 				 * @brief Метод получения предела длины открытого содержимого отправляемой записи
 				 *
 				 * @details Предел, объявленный собеседником расширением record_size_limit (RFC 8449)
@@ -1292,8 +1339,9 @@ namespace nts {
 				 * @param length наибольшая длина имени узла в множестве анонимности: правит заполнение клиента
 				 * @return       отказ установки: STATE после `start()`, SETTINGS при негодном ключе либо имени, MEMORY
 				 *
-				 * @details Сервер складывает одну конфигурацию издания 0xFE0D с KEM X25519 и наборами
-				 *          AES-128-GCM и ChaCha20-Poly1305 на HKDF-SHA256; перечень ECHConfigList для
+				 * @details Сервер складывает конфигурацию издания 0xFE0D с KEM X25519 и наборами
+				 *          AES-128-GCM и ChaCha20-Poly1305 на HKDF-SHA256; всякий вызов добавляет конфигурацию
+				 *          с новым опознавателем либо заменяет прежнюю с тем же, служатся все; перечень ECHConfigList для
 				 *          записи DNS HTTPS отдаёт `ech()`, секретный ключ наружу не отдаётся. Принятое
 				 *          внешнее приветствие раскрывается, рукопожатие идёт по внутреннему, подтверждение
 				 *          вписывается в приветствие сервера либо просьбу о повторе; нераскрываемое либо
@@ -1308,8 +1356,9 @@ namespace nts {
 				 * @param id     the identifier of the configuration (a single random byte at the consumer)
 				 * @param length the greatest length of a host name in the anonymity set: rules the padding of the client
 				 * @return       the failure of the setting: STATE after `start()`, SETTINGS at an invalid key or name, MEMORY
-				 * @details The server composes a single configuration of the edition 0xFE0D with the X25519 KEM and the
-				 *          AES-128-GCM and ChaCha20-Poly1305 suites on HKDF-SHA256; the ECHConfigList list for the DNS HTTPS
+				 * @details The server composes a configuration of the edition 0xFE0D with the X25519 KEM and the
+				 *          AES-128-GCM and ChaCha20-Poly1305 suites on HKDF-SHA256; every call adds a configuration with
+				 *          a new identifier or replaces the former one with the same, all of them are served; the ECHConfigList list for the DNS HTTPS
 				 *          record is given by `ech()`, the secret key is not given out. The accepted outer greeting is
 				 *          opened, the handshake goes by the inner one, the confirmation is written into the greeting of the
 				 *          server or the retry request; an unopenable or foreign ECH is rejected - the connection goes by the
@@ -1319,6 +1368,40 @@ namespace nts {
 				 * \~
 				 */
 				context::error_t ech(const vector <uint8_t> & secret, const string & name, const uint8_t id, const uint8_t length) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод установки удержанной конфигурации ECH серверу: принимается, но не объявляется
+				 *
+				 * @param secret секретный ключ X25519 (32 байта) либо пусто - ключ порождается
+				 * @param name   публичное имя конфигурации
+				 * @param id     опознаватель конфигурации: занятый прежней конфигурацией заменяет её
+				 * @param length наибольшая длина имени узла
+				 *
+				 * @details Ротация ключей по разделу 7.1 RFC 9849: новая конфигурация ставится `ech()` и
+				 *          уходит в перечень DNS и retry_configs, прежняя удерживается `retain()` - клиенты со
+				 *          старой записью DNS раскрываются ещё, но в перечень не попадают. Служимых
+				 *          конфигураций вправе быть несколько, подбор идёт по опознавателю и набору
+				 *
+				 * @return  отказ установки: STATE после `start()`, SETTINGS при негодном ключе либо имени, MEMORY
+				 *
+				 * \~english
+				 * @brief Method of setting a retained ECH configuration at the server: accepted but not advertised
+				 *
+				 * @param secret the X25519 secret key (32 bytes) or empty - the key is generated
+				 * @param name   the public name of the configuration
+				 * @param id     the identifier of the configuration: one taken by a former configuration replaces it
+				 * @param length the greatest length of a host name
+				 *
+				 * @details The rotation of the keys by the section 7.1 of RFC 9849: a new configuration is set by `ech()`
+				 *          and goes into the DNS list and retry_configs, the former one is retained by `retain()` - the
+				 *          clients with the old DNS record are still opened but do not get into the list. There may be
+				 *          several served configurations, the selection goes by the identifier and the suite
+				 *
+				 * @return  the failure of the setting: STATE after `start()`, SETTINGS at an invalid key or name, MEMORY
+				 *
+				 * \~
+				 */
+				context::error_t retain(const vector <uint8_t> & secret, const string & name, const uint8_t id, const uint8_t length) noexcept;
 				/**
 				 * \~russian
 				 * @brief Метод получения перечня конфигураций ECH для записи DNS HTTPS

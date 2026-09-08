@@ -562,6 +562,58 @@ namespace nts {
 			 * \~
 			 */
 			Ticket() noexcept;
+			/**
+			 * \~russian
+			 * @brief Деструктор: ключ билета затирается, копии у потребителя не оставляют его в освобождённой памяти
+			 * \~english
+			 * @brief Destructor: the key of the ticket is wiped, the copies at the consumer do not leave it in the freed memory
+			 * \~
+			 */
+			~Ticket() noexcept;
+			/**
+			 * \~russian
+			 * @brief Конструктор копирования
+			 * @param other копируемый билет
+			 * \~english
+			 * @brief Copy constructor
+			 * @param other the ticket being copied
+			 * \~
+			 */
+			Ticket(const Ticket & other);
+			/**
+			 * \~russian
+			 * @brief Конструктор перемещения: ключ переезжает, у источника затирается
+			 * @param other перемещаемый билет
+			 * \~english
+			 * @brief Move constructor: the key moves over, at the source it is wiped
+			 * @param other the ticket being moved
+			 * \~
+			 */
+			Ticket(Ticket && other) noexcept;
+			/**
+			 * \~russian
+			 * @brief Оператор присваивания копированием: прежний ключ затирается до замены
+			 * @param other копируемый билет
+			 * @return      сам билет
+			 * \~english
+			 * @brief Copy assignment operator: the former key is wiped before the replacement
+			 * @param other the ticket being copied
+			 * @return      the ticket itself
+			 * \~
+			 */
+			Ticket & operator = (const Ticket & other);
+			/**
+			 * \~russian
+			 * @brief Оператор присваивания перемещением: прежний ключ затирается, ключ источника переезжает и затирается у него
+			 * @param other перемещаемый билет
+			 * @return      сам билет
+			 * \~english
+			 * @brief Move assignment operator: the former key is wiped, the key of the source moves over and is wiped there
+			 * @param other the ticket being moved
+			 * @return      the ticket itself
+			 * \~
+			 */
+			Ticket & operator = (Ticket && other) noexcept;
 		} ticket_t;
 		/**
 		 * \~russian

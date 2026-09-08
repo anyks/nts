@@ -127,7 +127,8 @@ namespace nts {
 			NAME       = 0x09, /*!< \~russian Имя узла ни одному имени сертификата не отвечает \~english The name of the host corresponds to no name of the certificate \~ */
 			MEMORY     = 0x0A, /*!< \~russian Памяти под разбор цепочки не хватило \~english There was not enough memory for the parsing of the chain \~ */
 			CRITICAL   = 0x0B, /*!< \~russian Сертификат несёт неизвестное расширение, объявленное критичным \~english A certificate carries an unknown extension declared critical \~ */
-			PURPOSE    = 0x0C  /*!< \~russian Назначение ключа сертификата подписи владения не дозволяет \~english The purpose of the key of the certificate does not allow the signature of the possession \~ */
+			PURPOSE    = 0x0C, /*!< \~russian Назначение ключа сертификата подписи владения не дозволяет \~english The purpose of the key of the certificate does not allow the signature of the possession \~ */
+			CONSTRAINED = 0x0D /*!< \~russian Имя сертификата нарушает ограничения имён издателя (раздел 4.2.1.10 RFC 5280) либо ограничения не разобрать \~english A name of a certificate violates the name constraints of an issuer (the section 4.2.1.10 of RFC 5280) or the constraints cannot be parsed \~ */
 		};
 
 		/**
@@ -236,6 +237,26 @@ namespace nts {
 
 		/**
 		 * \~russian
+		 * @brief Роль собеседника, чья цепочка проверяется
+		 *
+		 * @details Раздел 4.2.1.12 RFC 5280: назначение extendedKeyUsage листа обязано отвечать роли -
+		 *          serverAuth у сервера, clientAuth у клиента; anyExtendedKeyUsage годится обеим
+		 *
+		 * \~english
+		 * @brief Role of the peer whose chain is being checked
+		 *
+		 * @details The section 4.2.1.12 of RFC 5280: the extendedKeyUsage purpose of the leaf must match the
+		 *          role - serverAuth at a server, clientAuth at a client; anyExtendedKeyUsage suits both
+		 *
+		 * \~
+		 */
+		enum class role_t : uint8_t {
+			ANY    = 0x00, /*!< \~russian Роль не судится: годится любое из назначений \~english The role is not judged: any of the purposes suits \~ */
+			SERVER = 0x01, /*!< \~russian Проверяется сервер: нужен serverAuth \~english A server is being checked: serverAuth is needed \~ */
+			CLIENT = 0x02  /*!< \~russian Проверяется клиент: нужен clientAuth \~english A client is being checked: clientAuth is needed \~ */
+		};
+		/**
+		 * \~russian
 		 * @brief Метод проверки цепочки сертификатов запасом доверенных
 		 *
 		 * @param chain  проверяемая цепочка сертификатов от своего к издателю
@@ -266,6 +287,28 @@ namespace nts {
 		 * \~
 		 */
 		__ANTS_SHARED_EXPORT__ error_t verify(const vector <vector <uint8_t>> & chain, const store_t & store, const int64_t moment) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод проверки цепочки сертификатов по запасу доверенных с учётом роли собеседника
+		 *
+		 * @param chain  проверяемая цепочка сертификатов от своего к издателю
+		 * @param store  запас доверенных сертификатов
+		 * @param moment миг проверки в секундах от начала эпохи
+		 * @param role   роль собеседника: назначение листа обязано ей отвечать
+		 *
+		 * @return       отказ доверия цепочке сертификатов: PURPOSE при назначении не по роли
+		 *
+		 * \~english
+		 * @brief Method of the check of a chain of the certificates by a store of the trusted ones with the role of the peer
+		 * @param chain  the chain of the certificates being checked from one's own to the issuer
+		 * @param store  the store of the trusted certificates
+		 * @param moment the moment of the check in seconds from the beginning of the epoch
+		 * @param role   the role of the peer: the purpose of the leaf must match it
+		 * @return       the failure of the trust to the chain of the certificates: PURPOSE at a purpose not by the role
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ error_t verify(const vector <vector <uint8_t>> & chain, const store_t & store, const int64_t moment, const role_t role) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод сличения имени узла с именами сертификата

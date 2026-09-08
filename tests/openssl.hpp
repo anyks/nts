@@ -49,6 +49,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <sys/socket.h>
+#include <poll.h>
 #include <sys/select.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -463,16 +464,28 @@ namespace {
 	 *
 	 */
 	inline int greeted(const int listener) noexcept {
+		/**
+		 * Ожидание подключения с пределом: клиент openssl, умерший на разборе доводов
+		 * (LibreSSL не знает иных имён групп), иначе оставил бы accept() навсегда
+		 */
+		struct pollfd waiting;
+		waiting.fd = listener;
+		waiting.events = POLLIN;
+		waiting.revents = 0;
+		// Если за тридцать секунд никто не подключился
+		if(::poll(&waiting, 1, 30000) <= 0)
+			// Выводим отказ
+			return -1;
 		// Принимаем подключение
 		const int fd = ::accept(listener, nullptr, nullptr);
 		// Если подключение принято
 		if(fd >= 0){
-			// Предел ожидания приёма: зависание собеседника не должно вешать проверку
+			// Предел ожидания приёма
 			struct timeval limit = {60, 0};
-			// Устанавливаем предел ожидания приёма
+			// Ставим предел ожидания приёма
 			(void) ::setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &limit, sizeof(limit));
 		}
-		// Выводим описатель принятого подключения
+		// Выводим описатель
 		return fd;
 	}
 	/**

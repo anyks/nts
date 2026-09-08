@@ -633,9 +633,11 @@ void nts::protect::Protection::nonce(const uint64_t sequence, uint8_t * result) 
 	// Переносим вектор замены на место одноразового значения
 	::memcpy(result, this->_vector, this->_size);
 	/**
-	 * Выполняем сложение вектора замены с порядковым номером записи
+	 * Выполняем сложение вектора замены с порядковым номером записи: не глубже длины
+	 * вектора - у наборов издания 1.2 он короче восьми байтов (четыре у AES-GCM, ноль у
+	 * CBC), и цикл без границы уходил бы за начало буфера
 	 */
-	for(size_t i = 0; i < 8; i++)
+	for(size_t i = 0; (i < 8) && (i < this->_size); i++)
 		// Складываем очередной байт номера с байтом вектора замены
 		result[this->_size - 1 - i] ^= static_cast <uint8_t> ((sequence >> (i * 8)) & 0xFF);
 	// Если набор шифрования на алгоритмах ГОСТ
@@ -965,6 +967,10 @@ nts::protect::error_t nts::protect::Protection::seal(const view_t & associated, 
 	if(!this->_ready)
 		// Выводим отказ наложения защиты
 		return error_t::STATE;
+	// Наборы издания 1.2 ходят лишь обёрткой wrap(): единой записи с присоединёнными данными у них нет
+	if(this->_legacy)
+		// Выводим отказ наложения защиты
+		return error_t::STATE;
 	// Если вид содержимого записи протоколом не определён
 	if(!record::known(type))
 		// Выводим отказ наложения защиты
@@ -1093,6 +1099,10 @@ nts::protect::error_t nts::protect::Protection::seal(const view_t & associated, 
 nts::protect::error_t nts::protect::Protection::open(const view_t & associated, const uint64_t sequence, const view_t & data, record::type_t & type, vector <uint8_t> & result) noexcept {
 	// Если ключевой материал не установлен
 	if(!this->_ready)
+		// Выводим отказ снятия защиты
+		return error_t::STATE;
+	// Наборы издания 1.2 ходят лишь обёрткой unwrap(): единой записи с присоединёнными данными у них нет
+	if(this->_legacy)
 		// Выводим отказ снятия защиты
 		return error_t::STATE;
 	// Если связанные данные не переданы

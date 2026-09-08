@@ -72,3 +72,39 @@ target_link_libraries(${TEST_MLKEM_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main
 
 # Регистрируем цель проверок
 add_test(NAME ${TEST_MLKEM_NAME} COMMAND ${TEST_MLKEM_NAME})
+
+# Устанавливаем имя цели проверок модуля выработки общего ключа X448
+SET(TEST_X448_NAME x448)
+
+# Добавляем цель проверок модуля выработки общего ключа X448
+add_executable(${TEST_X448_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/x448.cpp")
+
+# Включаем флаги компиляции проверок
+target_compile_options(${TEST_X448_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
+
+# Подключаем каталог общих заголовочных файлов набора проверок
+target_include_directories(${TEST_X448_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+
+# Выполняем подключение зависимостей цели проверок
+target_link_libraries(${TEST_X448_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
+
+# Регистрируем цель проверок
+add_test(NAME ${TEST_X448_NAME} COMMAND ${TEST_X448_NAME})
+
+# Устанавливаем имя цели проверок модуля выработки общего ключа в конечном поле RFC 7919
+SET(TEST_FFDHE_NAME ffdhe)
+
+# Добавляем цель проверок модуля выработки общего ключа в конечном поле RFC 7919
+add_executable(${TEST_FFDHE_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/ffdhe.cpp")
+
+# Включаем флаги компиляции проверок
+target_compile_options(${TEST_FFDHE_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
+
+# Подключаем каталог общих заголовочных файлов набора проверок
+target_include_directories(${TEST_FFDHE_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+
+# Выполняем подключение зависимостей цели проверок
+target_link_libraries(${TEST_FFDHE_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
+
+# Регистрируем цель проверок
+add_test(NAME ${TEST_FFDHE_NAME} COMMAND ${TEST_FFDHE_NAME})

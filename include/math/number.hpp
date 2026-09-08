@@ -84,11 +84,12 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Greatest number of the bits of a number
-		 * @details The greatest modulus of GOST R 34.10-2012 occupies 512 bits
+		 * @details The greatest modulus of GOST R 34.10-2012 occupies 512 bits, the modulus of the curve
+		 *          secp521r1 occupies 521 bits - nine words of sixty four bits
 		 *
 		 * \~
 		 */
-		static constexpr size_t NUMBER_BITS = 512;
+		static constexpr size_t NUMBER_BITS = 576;
 
 		/**
 		 * \~russian

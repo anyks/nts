@@ -85,6 +85,30 @@ bool nts::client::Context::established() const noexcept {
 	return (this->state() == context::state_t::ESTABLISHED);
 }
 /**
+ * @brief Метод отправки запроса сердцебиения (RFC 6520)
+ *
+ * @param payload нагрузка запроса
+ *
+ * @return        отказ отправки
+ */
+context::error_t nts::client::Context::heartbeat(const view_t & payload) noexcept {
+	// Если ведение связи не заведено
+	if(this->_engine == nullptr)
+		// Выводим отказ нехватки памяти
+		return context::error_t::MEMORY;
+	// Выводим итог отправки запроса
+	return this->_engine->heartbeat(payload);
+}
+/**
+ * @brief Метод получения числа принятых ответов на свои запросы сердцебиения
+ *
+ * @return число ответов
+ */
+size_t nts::client::Context::pulses() const noexcept {
+	// Выводим число ответов движка либо ноль
+	return ((this->_engine != nullptr) ? this->_engine->pulses() : 0);
+}
+/**
  * @brief Метод получения предела длины открытого содержимого отправляемой записи
  *
  * @return предел в байтах

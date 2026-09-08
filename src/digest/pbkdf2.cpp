@@ -78,6 +78,10 @@ bool nts::digest::pbkdf2(const hash_t algorithm, const view_t & password, const 
 	if((salt.size > 0) && (salt.data == nullptr))
 		// Выводим отказ вывода
 		return false;
+	// Раздел 5.2 RFC 8018: ключ не длиннее (2^32 - 1) блоков хеша, иначе счётчик блоков замыкается и блоки повторяются
+	if(static_cast <uint64_t> (size) > (static_cast <uint64_t> (UINT32_MAX) * length))
+		// Выводим отказ вывода
+		return false;
 	// Объект поточной выработки имитовставки: пароль заводится ключом один раз
 	mac_t mac;
 	// Если пароль установить ключом не удалось

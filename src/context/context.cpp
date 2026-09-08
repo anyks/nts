@@ -133,6 +133,111 @@ nts::context::Psk::~Psk() noexcept {
 	sys::wipe(this->key);
 }
 /**
+ * @brief Конструктор копирования билета
+ *
+ * @param other копируемый билет
+ *
+ */
+nts::context::Ticket::Ticket(const Ticket & other) : suite(other.suite), moment(other.moment), lifetime(other.lifetime), advance(other.advance), age(other.age), etm(other.etm), protocol(other.protocol), settled(other.settled), settings(other.settings), obtained(other.obtained), identity(other.identity), secret(other.secret), parameters(other.parameters) {}
+/**
+ * @brief Конструктор перемещения билета
+ *
+ * @param other перемещаемый билет
+ *
+ */
+nts::context::Ticket::Ticket(Ticket && other) noexcept : suite(other.suite), moment(other.moment), lifetime(other.lifetime), advance(other.advance), age(other.age), etm(other.etm), protocol(::move(other.protocol)), settled(other.settled), settings(::move(other.settings)), obtained(::move(other.obtained)), identity(::move(other.identity)), secret(::move(other.secret)), parameters(::move(other.parameters)) {
+	// Если у источника ключ остался (перемещение вправе оставить копию)
+	if(!other.secret.empty())
+		// Затираем ключ источника
+		sys::wipe(other.secret.data(), other.secret.size());
+	// Сбрасываем источник
+	other.secret.clear();
+}
+/**
+ * @brief Оператор присваивания билета копированием
+ *
+ * @param other копируемый билет
+ *
+ * @return      сам билет
+ *
+ */
+nts::context::Ticket & nts::context::Ticket::operator = (const Ticket & other) {
+	// Если билет присваивается сам себе
+	if(this == &other)
+		// Выводим сам билет
+		return (* this);
+	// Затираем прежний ключ до замены: рост буфера освободил бы его незатёртым
+	if(!this->secret.empty())
+		// Затирание
+		sys::wipe(this->secret.data(), this->secret.size());
+	// Переносим поля
+	this->suite = other.suite;
+	this->moment = other.moment;
+	this->lifetime = other.lifetime;
+	this->advance = other.advance;
+	this->age = other.age;
+	this->etm = other.etm;
+	this->protocol = other.protocol;
+	this->settled = other.settled;
+	this->settings = other.settings;
+	this->obtained = other.obtained;
+	this->identity = other.identity;
+	this->secret = other.secret;
+	this->parameters = other.parameters;
+	// Выводим сам билет
+	return (* this);
+}
+/**
+ * @brief Оператор присваивания билета перемещением
+ *
+ * @param other перемещаемый билет
+ *
+ * @return      сам билет
+ *
+ */
+nts::context::Ticket & nts::context::Ticket::operator = (Ticket && other) noexcept {
+	// Если билет присваивается сам себе
+	if(this == &other)
+		// Выводим сам билет
+		return (* this);
+	// Затираем прежний ключ
+	if(!this->secret.empty())
+		// Затирание
+		sys::wipe(this->secret.data(), this->secret.size());
+	// Переносим поля
+	this->suite = other.suite;
+	this->moment = other.moment;
+	this->lifetime = other.lifetime;
+	this->advance = other.advance;
+	this->age = other.age;
+	this->etm = other.etm;
+	this->protocol = ::move(other.protocol);
+	this->settled = other.settled;
+	this->settings = ::move(other.settings);
+	this->obtained = ::move(other.obtained);
+	this->identity = ::move(other.identity);
+	this->secret = ::move(other.secret);
+	this->parameters = ::move(other.parameters);
+	// Если у источника ключ остался
+	if(!other.secret.empty())
+		// Затираем ключ источника
+		sys::wipe(other.secret.data(), other.secret.size());
+	// Сбрасываем источник
+	other.secret.clear();
+	// Выводим сам билет
+	return (* this);
+}
+/**
+ * @brief Деструктор билета
+ *
+ */
+nts::context::Ticket::~Ticket() noexcept {
+	// Затираем ключ билета
+	if(!this->secret.empty())
+		// Затирание
+		sys::wipe(this->secret.data(), this->secret.size());
+}
+/**
  * @brief Метод записи билета возобновления связи в октеты
  *
  * @param ticket записываемый билет возобновления связи

@@ -80,6 +80,10 @@ using namespace std;
  */
 namespace {
 	/**
+	 * Наибольшее число итераций PBKDF2, принимаемое из недоверенной записи
+	 */
+	static constexpr int64_t PBKDF2_MOST = 10000000;
+	/**
 	 * Пространство имён библиотеки
 	 */
 	using namespace nts;
@@ -1755,8 +1759,8 @@ namespace {
 		if(outcome != error_t::NONE)
 			// Выводим отказ разбора
 			return outcome;
-		// Если число оборотов не укладывается в дозволенное
-		if((count < 1) || (count > static_cast <int64_t> (UINT32_MAX)))
+		// Если число оборотов не укладывается в дозволенное: потолок 10^7 (openssl по умолчанию 2048), запись с 2^32 - 1 стоила бы часы на один разбор
+		if((count < 1) || (count > PBKDF2_MOST))
 			// Выводим отказ схемы
 			return error_t::CIPHER;
 		// Устанавливаем число оборотов

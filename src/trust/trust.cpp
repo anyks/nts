@@ -104,11 +104,19 @@ namespace {
 	 * Опознаватель расширения дополнительных имён владельца
 	 */
 	static const string ALTERNATIVES = "2.5.29.17";
+	/**
+	 * Опознаватель расширения ограничений имён nameConstraints
+	 */
+	static const string BOUNDS = "2.5.29.30";
 
 	/**
 	 * Опознаватель свойства общего имени владельца
 	 */
 	static const string COMMON = "2.5.4.3";
+	/**
+	 * Опознаватель признака emailAddress владельца
+	 */
+	static const string MAILBOX = "1.2.840.113549.1.9.1";
 	/**
 	 * Опознаватель расширения расширенного назначения ключа
 	 */
@@ -191,12 +199,18 @@ namespace {
 						else head[heads++] = static_cast <uint16_t> (value);
 					// Если часть пуста посреди адреса: сжатие нулей
 					} else if((i > 0) && (name[i - 1] == ':')) {
-						// Если сжатие уже встречалось: не адрес
-						if(compressed)
+						// Если пустая часть на конце адреса: годен лишь хвост сжатия «::», одиночное двоеточие в конце («1:») не адрес
+						if(i == name.size()){
+							// Если перед двоеточием нет второго либо сжатия не было
+							if((i < 2) || (name[i - 2] != ':') || !compressed)
+								// Выводим отказ разбора
+								return false;
+						// Если сжатие уже встречалось посреди адреса: не адрес
+						} else if(compressed)
 							// Выводим отказ разбора
 							return false;
-						// Запоминаем пройденное сжатие
-						compressed = true;
+						// Иначе запоминаем пройденное сжатие
+						else compressed = true;
 					// Если часть пуста на краю адреса не при сжатии: не адрес
 					} else if((i == name.size()) || (i == 0)) {
 						// Если следом не идёт двоеточие сжатия
@@ -250,43 +264,294 @@ namespace {
 	 * Опознаватели расширений, которые проверка доверия понимает: раздел 4.2 RFC 5280
 	 * велит отвергать сертификат с неизвестным расширением, объявленным критичным
 	 */
-	static const char * RECOGNIZED[] = {
-		"2.5.29.14", "2.5.29.15", "2.5.29.17", "2.5.29.19", "2.5.29.35", "2.5.29.37"
-	};
+	// Приведение имени к нижнему регистру определено ниже
+	static error_t lower(const string & name, string & result) noexcept;
 	/**
-	 * @brief Метод проверки критичных расширений сертификата на известность
+	 * @brief Метод проверки назначения ключа сертификата по роли собеседника
 	 *
-	 * @param certificate проверяемый сертификат
+	 * @param certificate проверяемый сертификат: лист либо издатель
+	 * @param role        роль собеседника
 	 *
-	 * @return            признак того, что все критичные расширения известны
+	 * @return            отказ назначения либо нехватки памяти
+	 *
+	 * @details Раздел 4.2.1.12 RFC 5280: сертификат применяется лишь по объявленному
+	 *          назначению; у издателей это судится так же, как у листа - openssl, NSS и
+	 *          Windows применяют extendedKeyUsage ко всей цепочке
 	 *
 	 */
-	static bool recognized(const x509::certificate_t & certificate) noexcept {
-		// Получаем перечень расширений сертификата
-		const vector <x509::extension_t> & extensions = certificate.extension();
+	static error_t intended(const x509::certificate_t & certificate, const role_t role) noexcept {
+		// Расширение назначения
+		const x509::extension_t * extension = certificate.extension(EXTENDED);
+		// Если назначения нет - годится любое
+		if(extension == nullptr)
+			return error_t::NONE;
+		// Перечень назначений
+		vector <string> purposes;
+		// Отказ разбора
+		const x509::error_t outcome = x509::purpose(*extension, purposes);
+		// Если памяти не хватило
+		if(outcome == x509::error_t::MEMORY)
+			return error_t::MEMORY;
+		// Если назначения не разобрались
+		if(outcome != x509::error_t::NONE)
+			return error_t::PURPOSE;
+		// Признак пригодности
+		bool suitable = false;
 		/**
-		 * Выполняем перебор расширений сертификата
+		 * Выполняем перебор назначений: serverAuth годен серверу, clientAuth клиенту, anyExtendedKeyUsage обоим; без роли - любое из трёх
 		 */
-		for(size_t i = 0; i < extensions.size(); i++){
-			// Если расширение критичным не объявлено
-			if(!extensions[i].critical)
-				// Переходим к следующему расширению
-				continue;
-			// Признак известности расширения
-			bool known = false;
-			/**
-			 * Выполняем перебор известных расширений
-			 */
-			for(size_t j = 0; !known && (j < (sizeof(RECOGNIZED) / sizeof(RECOGNIZED[0]))); j++)
-				// Сличаем опознаватель расширения с известным
-				known = (extensions[i].oid.compare(RECOGNIZED[j]) == 0);
-			// Если критичное расширение неизвестно
-			if(!known)
-				// Выводим отказ
-				return false;
+		for(size_t i = 0; !suitable && (i < purposes.size()); i++)
+			suitable = ((purposes[i].compare("2.5.29.37.0") == 0) || ((role != role_t::CLIENT) && (purposes[i].compare("1.3.6.1.5.5.7.3.1") == 0)) || ((role != role_t::SERVER) && (purposes[i].compare("1.3.6.1.5.5.7.3.2") == 0)));
+		// Выводим итог
+		return (suitable ? error_t::NONE : error_t::PURPOSE);
+	}
+	/**
+	 * @brief Метод извлечения содержимого записи ASN.1
+	 *
+	 * @param element запись целиком
+	 *
+	 * @return        содержимое записи либо пустой просмотр без данных
+	 *
+	 */
+	static view_t contents(const view_t & element) noexcept {
+		// Разборщик записи
+		asn1::reader_t reader(element);
+		// Элемент
+		asn1::element_t item;
+		// Если запись не прочиталась
+		if(!reader.next(item))
+			return view_t(nullptr, 0);
+		// Выводим содержимое
+		return item.content;
+	}
+	/**
+	 * @brief Метод сличения имени с поддеревом ограничений
+	 *
+	 * @param name имя сертификата
+	 * @param tree поддерево ограничений того же вида
+	 *
+	 * @return     признак того, что имя лежит в поддереве
+	 *
+	 */
+	static bool within(const x509::alternative_t & name, const x509::alternative_t & tree) noexcept {
+		/**
+		 * Выполняем определение вида имени
+		 */
+		switch(name.kind){
+			// Доменное имя: раздел 4.2.1.10 RFC 5280 - «example.com» кроет себя и подчинённые, «.example.com» лишь подчинённые
+			case x509::kind_t::DNS: {
+				// Имя и поддерево без учёта регистра
+				string host, base;
+				// Приводим к нижнему регистру
+				if((lower(name.value, host) != error_t::NONE) || (lower(tree.value, base) != error_t::NONE))
+					return false;
+				// Если поддерево пусто - кроет всё
+				if(base.empty())
+					return true;
+				// Если поддерево начинается с точки - лишь подчинённые
+				if(base[0] == '.')
+					return ((host.size() > base.size()) && (host.compare(host.size() - base.size(), base.size(), base) == 0));
+				// Само имя
+				if(host.compare(base) == 0)
+					return true;
+				// Подчинённое имя
+				return ((host.size() > base.size()) && (host[host.size() - base.size() - 1] == '.') && (host.compare(host.size() - base.size(), base.size(), base) == 0));
+			}
+			// Адрес почты: поддерево с «@» - сам адрес, «example.com» - узел, «.example.com» - подчинённые узлы
+			case x509::kind_t::EMAIL: {
+				// Имя и поддерево без учёта регистра
+				string mail, base;
+				// Приводим к нижнему регистру
+				if((lower(name.value, mail) != error_t::NONE) || (lower(tree.value, base) != error_t::NONE))
+					return false;
+				// Если поддерево - сам адрес
+				if(base.find('@') != string::npos)
+					return (mail.compare(base) == 0);
+				// Место разделителя адреса
+				const size_t at = mail.find('@');
+				// Если разделителя нет - не адрес
+				if(at == string::npos)
+					return false;
+				// Узел адреса
+				const string host = mail.substr(at + 1);
+				// Если поддерево - подчинённые узлы
+				if(!base.empty() && (base[0] == '.'))
+					return ((host.size() > base.size()) && (host.compare(host.size() - base.size(), base.size(), base) == 0));
+				// Сам узел
+				return (host.compare(base) == 0);
+			}
+			// Адрес сети: поддерево несёт адрес и маску той же длины
+			case x509::kind_t::ADDRESS: {
+				// Если длины не сходятся
+				if(tree.value.size() != (name.value.size() * 2))
+					return false;
+				/**
+				 * Выполняем перебор байтов адреса под маской
+				 */
+				for(size_t i = 0; i < name.value.size(); i++){
+					// Байт маски
+					const uint8_t mask = static_cast <uint8_t> (tree.value[name.value.size() + i]);
+					// Если под маской байты разошлись
+					if((static_cast <uint8_t> (name.value[i]) & mask) != (static_cast <uint8_t> (tree.value[i]) & mask))
+						return false;
+				}
+				// Адрес в поддереве
+				return true;
+			}
+			// Отличительное имя: раздел 7.1 RFC 5280 - последовательность RDN имени начинается с последовательности основания
+			case x509::kind_t::DIRECTORY: {
+				// Содержимое имени и основания
+				const view_t subject = contents(name.element), base = contents(contents(tree.element));
+				// Если содержимое не разобралось
+				if((subject.data == nullptr) || (base.data == nullptr))
+					return false;
+				// Пустое основание кроет всё
+				if(base.size == 0)
+					return true;
+				// Имя начинается с основания
+				return ((subject.size >= base.size) && (::memcmp(subject.data, base.data, base.size) == 0));
+			}
+			// Прочие виды сличаются записью
+			default: return ((name.element.size == tree.element.size) && (::memcmp(name.element.data, tree.element.data, name.element.size) == 0));
 		}
-		// Выводим успешность проверки
-		return true;
+	}
+	/**
+	 * @brief Метод проверки имён сертификата по ограничениям издателя
+	 *
+	 * @param certificate проверяемый подчинённый сертификат
+	 * @param issuer      издатель с расширением nameConstraints
+	 *
+	 * @return            отказ ограничений либо нехватки памяти
+	 *
+	 * @details Раздел 6.1.4 RFC 5280: ограничения применяются ко всем подчинённым
+	 *          сертификатам независимо от критичности расширения. Имена берутся из
+	 *          subjectAltName; поддеревья видов, которые не сличить (отличительные имена,
+	 *          указатели ресурса, иные), при наличии у подчинённого имени того же вида
+	 *          отвергают цепочку - терпимость здесь была бы обходом ограничения
+	 *
+	 */
+	static error_t constrained(const x509::certificate_t & certificate, const x509::certificate_t & issuer) noexcept {
+		// Расширение ограничений
+		const x509::extension_t * extension = issuer.extension(BOUNDS);
+		// Если ограничений нет
+		if(extension == nullptr)
+			return error_t::NONE;
+		// Дозволенные и запрещённые поддеревья
+		vector <x509::alternative_t> permitted, excluded;
+		// Отказ разбора ограничений
+		const x509::error_t parsed = x509::constraints(*extension, permitted, excluded);
+		// Если памяти не хватило
+		if(parsed == x509::error_t::MEMORY)
+			return error_t::MEMORY;
+		// Если ограничения не разобрались - цепочка негодна
+		if(parsed != x509::error_t::NONE)
+			return error_t::CONSTRAINED;
+		// Имена подчинённого сертификата
+		vector <x509::alternative_t> names;
+		// Расширение имён
+		const x509::extension_t * listed = certificate.extension(ALTERNATIVES);
+		// Если имена объявлены
+		if(listed != nullptr){
+			// Отказ разбора имён
+			const x509::error_t named = x509::alternatives(*listed, names);
+			// Если памяти не хватило
+			if(named == x509::error_t::MEMORY)
+				return error_t::MEMORY;
+			// Если имена не разобрались
+			if(named != x509::error_t::NONE)
+				return error_t::PARSE;
+		}
+		// Признаки наличия имён вида DNS и почты в subjectAltName
+		bool hosted = false, mailed = false;
+		/**
+		 * Выполняем перебор имён на виды
+		 */
+		for(size_t i = 0; i < names.size(); i++){
+			hosted = (hosted || (names[i].kind == x509::kind_t::DNS));
+			mailed = (mailed || (names[i].kind == x509::kind_t::EMAIL));
+		}
+		/**
+		 * Выполняем перехват ошибок памяти
+		 */
+		try {
+			/**
+			 * Раздел 4.2.1.10 RFC 5280: без имени узла в subjectAltName ограничение dNSName
+			 * судит общее имя владельца (им же belongs() сличает узел), ограничение
+			 * rfc822Name - признак emailAddress владельца; ограничение directoryName
+			 * судит само поле subject
+			 */
+			if(!hosted){
+				// Общее имя владельца
+				const x509::attribute_t * common = x509::attribute(certificate.subjects(), COMMON);
+				// Если общее имя есть
+				if(common != nullptr){
+					// Имя вида DNS
+					x509::alternative_t name;
+					name.kind = x509::kind_t::DNS;
+					name.value = common->value;
+					names.push_back(name);
+				}
+			}
+			if(!mailed){
+				// Признак emailAddress владельца
+				const x509::attribute_t * mail = x509::attribute(certificate.subjects(), MAILBOX);
+				// Если признак есть
+				if(mail != nullptr){
+					// Имя вида почты
+					x509::alternative_t name;
+					name.kind = x509::kind_t::EMAIL;
+					name.value = mail->value;
+					names.push_back(name);
+				}
+			}
+			// Само поле subject именем вида отличительного имени
+			if(certificate.subjects().element.size > 0){
+				x509::alternative_t name;
+				name.kind = x509::kind_t::DIRECTORY;
+				name.element = certificate.subjects().element;
+				names.push_back(name);
+			}
+		} catch(const bad_alloc &) {
+			return error_t::MEMORY;
+		}
+		/**
+		 * Выполняем перебор имён подчинённого
+		 */
+		for(size_t i = 0; i < names.size(); i++){
+			// Признак того, что вид имени сличается
+			const bool comparable = ((names[i].kind == x509::kind_t::DNS) || (names[i].kind == x509::kind_t::EMAIL) || (names[i].kind == x509::kind_t::ADDRESS) || (names[i].kind == x509::kind_t::DIRECTORY));
+			/**
+			 * Выполняем перебор запрещённых поддеревьев
+			 */
+			for(size_t j = 0; j < excluded.size(); j++){
+				// Если вид не тот
+				if(excluded[j].kind != names[i].kind)
+					continue;
+				// Если вид не сличить либо имя в запрещённом поддереве
+				if(!comparable || within(names[i], excluded[j]))
+					return error_t::CONSTRAINED;
+			}
+			// Признак наличия дозволенных поддеревьев этого вида и вхождения в одно из них
+			bool ruled = false, allowed = false;
+			/**
+			 * Выполняем перебор дозволенных поддеревьев
+			 */
+			for(size_t j = 0; j < permitted.size(); j++){
+				// Если вид не тот
+				if(permitted[j].kind != names[i].kind)
+					continue;
+				// Дозволенные этого вида есть
+				ruled = true;
+				// Если имя в поддереве
+				if(comparable && within(names[i], permitted[j]))
+					allowed = true;
+			}
+			// Если дозволенные есть, а имя вне их
+			if(ruled && !allowed)
+				return error_t::CONSTRAINED;
+		}
+		// Выводим успешность
+		return error_t::NONE;
 	}
 	/**
 	 * @brief Метод проверки назначения ключа листа цепочки
@@ -296,7 +561,7 @@ namespace {
 	 * @return            отказ назначения ключа листа либо нехватки памяти под разбор
 	 *
 	 */
-	static error_t signer(const x509::certificate_t & certificate) noexcept {
+	static error_t signer(const x509::certificate_t & certificate, const role_t role) noexcept {
 		// Получаем расширение назначения ключа
 		const x509::extension_t * extension = certificate.extension(USAGE);
 		// Если назначение ключа объявлено
@@ -322,38 +587,8 @@ namespace {
 				return error_t::PURPOSE;
 		}
 		// Получаем расширение расширенного назначения ключа
-		extension = certificate.extension(EXTENDED);
-		// Если расширенное назначение ключа объявлено
-		if(extension != nullptr){
-			// Перечень расширенных назначений ключа
-			vector <string> purposes;
-			// Итог разбора, о нехватке памяти под который отвечает свой отказ
-			const x509::error_t outcome = x509::purpose(*extension, purposes);
-			// Если памяти под разбор не хватило
-			if(outcome == x509::error_t::MEMORY)
-				// Выводим отказ нехватки памяти
-				return error_t::MEMORY;
-			// Если расширенное назначение разобрать не удалось
-			if(outcome != x509::error_t::NONE)
-				// Выводим отказ назначения ключа
-				return error_t::PURPOSE;
-			// Признак пригодности назначения к связи
-			bool suitable = false;
-			/**
-			 * Раздел 4.2.1.12 RFC 5280: назначение к подлинности сервера, клиента либо
-			 * всякое назначение. Проверка доверия роли не знает, оттого годится любое
-			 * из трёх
-			 */
-			for(size_t i = 0; !suitable && (i < purposes.size()); i++)
-				// Сличаем назначение с пригодными
-				suitable = ((purposes[i].compare("1.3.6.1.5.5.7.3.1") == 0) || (purposes[i].compare("1.3.6.1.5.5.7.3.2") == 0) || (purposes[i].compare("2.5.29.37.0") == 0));
-			// Если пригодного назначения нет
-			if(!suitable)
-				// Выводим отказ
-				return error_t::PURPOSE;
-		}
-		// Выводим успешность проверки
-		return error_t::NONE;
+		// Назначение ключа по роли
+		return intended(certificate, role);
 	}
 
 	/**
@@ -614,6 +849,21 @@ void nts::trust::Store::clear() noexcept {
  *
  */
 nts::trust::error_t nts::trust::verify(const vector <vector <uint8_t>> & chain, const store_t & store, const int64_t moment) noexcept {
+	// Без роли годится любое назначение листа
+	return verify(chain, store, moment, role_t::ANY);
+}
+/**
+ * @brief Метод проверки цепочки сертификатов с учётом роли собеседника
+ *
+ * @param chain  проверяемая цепочка
+ * @param store  запас доверенных
+ * @param moment миг проверки
+ * @param role   роль собеседника
+ *
+ * @return       отказ доверия
+ *
+ */
+nts::trust::error_t nts::trust::verify(const vector <vector <uint8_t>> & chain, const store_t & store, const int64_t moment, const role_t role) noexcept {
 	// Если проверяемая цепочка сертификатов пуста
 	if(chain.empty())
 		// Выводим отказ пустой цепочки сертификатов
@@ -652,7 +902,7 @@ nts::trust::error_t nts::trust::verify(const vector <vector <uint8_t>> & chain, 
 			// Выводим отказ разбора сертификата цепочки
 			return error_t::PARSE;
 		// Если сертификат звена несёт неизвестное критичное расширение
-		if(!recognized(items[i]))
+		if(!x509::recognized(items[i]))
 			// Выводим отказ неизвестного критичного расширения
 			return error_t::CRITICAL;
 		// Выполняем проверку срока действия сертификата цепочки
@@ -663,7 +913,7 @@ nts::trust::error_t nts::trust::verify(const vector <vector <uint8_t>> & chain, 
 			return error;
 	}
 	// Итог проверки назначения ключа листа цепочки
-	const error_t purposed = signer(items[0]);
+	const error_t purposed = signer(items[0], role);
 	// Если ключ листа цепочки подпись владения ставить не вправе либо памяти не хватило
 	if(purposed != error_t::NONE)
 		// Выводим отказ назначения ключа листа либо нехватки памяти
@@ -712,6 +962,18 @@ nts::trust::error_t nts::trust::verify(const vector <vector <uint8_t>> & chain, 
 		if(error != error_t::NONE)
 			// Выводим отказ отсутствия права издавать сертификаты
 			return error;
+		// Назначение ключа издателя по роли (раздел 4.2.1.12 RFC 5280)
+		const error_t intent = intended(items[i + 1], role);
+		if(intent != error_t::NONE)
+			return intent;
+		/**
+		 * Раздел 6.1.4 RFC 5280: ограничения имён издателя кроют все подчинённые сертификаты
+		 */
+		for(size_t j = 0; j <= i; j++){
+			const error_t bounded = constrained(items[j], items[i + 1]);
+			if(bounded != error_t::NONE)
+				return bounded;
+		}
 		// Итог проверки подписи сертификата издателем
 		const x509::error_t attested = x509::verify(items[i], items[i + 1].key());
 		// Если памяти под проверку подписи не хватило
@@ -765,7 +1027,7 @@ nts::trust::error_t nts::trust::verify(const vector <vector <uint8_t>> & chain, 
 			// Переходим к следующему доверенному сертификату запаса
 			continue;
 		// Если якорь несёт неизвестное критичное расширение, якорем он служить не может
-		if(!recognized(anchor))
+		if(!x509::recognized(anchor))
 			// Переходим к следующему доверенному сертификату запаса
 			continue;
 		// Имя владельца доверенного сертификата запаса
@@ -791,6 +1053,26 @@ nts::trust::error_t nts::trust::verify(const vector <vector <uint8_t>> & chain, 
 		// Если доверенный сертификат издавать другие сертификаты не вправе
 		if(authority(anchor, items.size() - 1) != error_t::NONE)
 			// Переходим к следующему доверенному сертификату запаса
+			continue;
+		// Назначение ключа якоря по роли и его ограничения имён кроют всю цепочку (разделы 4.2.1.10, 4.2.1.12 RFC 5280 - как у openssl и NSS)
+		if(intended(anchor, role) != error_t::NONE)
+			continue;
+		// Признак нарушения ограничений якоря
+		bool bounded = false;
+		/**
+		 * Выполняем перебор звеньев цепочки под ограничениями якоря
+		 */
+		for(size_t j = 0; (j < items.size()) && !bounded; j++){
+			// Отказ ограничений
+			const error_t limit = constrained(items[j], anchor);
+			// Если памяти не хватило
+			if(limit == error_t::MEMORY)
+				return error_t::MEMORY;
+			// Запоминаем нарушение
+			bounded = (limit != error_t::NONE);
+		}
+		// Если ограничения нарушены
+		if(bounded)
 			continue;
 		// Итог проверки подписи последнего сертификата цепочки якорем
 		const x509::error_t anchored = x509::verify(last, anchor.key());

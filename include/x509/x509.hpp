@@ -753,6 +753,28 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ error_t usage(const extension_t & extension, uint16_t & result) noexcept;
 		/**
 		 * \~russian
+		 * @brief Метод проверки критичных расширений сертификата на известность
+		 *
+		 * @param certificate проверяемый сертификат
+		 * @return            признак того, что все критичные расширения известны библиотеке
+		 * @details Раздел 4.2 RFC 5280: сертификат с критичным расширением, которого проверяющий не
+		 *          понимает, отвергается. Известны: subjectKeyIdentifier, keyUsage, subjectAltName,
+		 *          basicConstraints, authorityKeyIdentifier, extendedKeyUsage
+		 *
+		 * \~english
+		 * @brief Method of checking the critical extensions of a certificate for being known
+		 * @param certificate the certificate being checked
+		 * @return            the flag of all the critical extensions being known to the library
+		 * @details The section 4.2 of RFC 5280: a certificate with a critical extension the verifier does not
+		 *          understand is rejected. Known: subjectKeyIdentifier, keyUsage, subjectAltName,
+		 *          basicConstraints, authorityKeyIdentifier, extendedKeyUsage
+		 *
+		 * \~
+		 *
+		 */
+		__ANTS_SHARED_EXPORT__ bool recognized(const certificate_t & certificate) noexcept;
+		/**
+		 * \~russian
 		 * @brief Метод извлечения расширенного назначения открытого ключа
 		 *
 		 * @param extension расширение расширенного назначения ключа
@@ -790,6 +812,30 @@ namespace nts {
 		 *
 		 */
 		__ANTS_SHARED_EXPORT__ error_t alternatives(const extension_t & extension, vector <alternative_t> & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод извлечения ограничений имён издателя
+		 *
+		 * @param extension расширение nameConstraints (2.5.29.30)
+		 * @param permitted дозволенные поддеревья имён
+		 * @param excluded  запрещённые поддеревья имён
+		 * @return          причина отказа либо error_t::NONE
+		 * @details Раздел 4.2.1.10 RFC 5280: поддеревья с minimum либо maximum отвергаются как
+		 *          неразбираемые (EXTENSION) - их стандарт велит не выпускать
+		 *
+		 * \~english
+		 * @brief Method of getting the name constraints of an issuer
+		 * @param extension the nameConstraints extension (2.5.29.30)
+		 * @param permitted the permitted subtrees of the names
+		 * @param excluded  the excluded subtrees of the names
+		 * @return          the reason of the failure or error_t::NONE
+		 * @details The section 4.2.1.10 of RFC 5280: the subtrees with minimum or maximum are rejected as
+		 *          unparseable (EXTENSION) - the standard orders not to issue them
+		 *
+		 * \~
+		 *
+		 */
+		__ANTS_SHARED_EXPORT__ error_t constraints(const extension_t & extension, vector <alternative_t> & permitted, vector <alternative_t> & excluded) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод извлечения опознавателя ключа владельца

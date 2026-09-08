@@ -631,3 +631,40 @@ TEST(CurveTest, Product) {
 		ASSERT_EQ(::memcmp(second.data(), fourth.data(), size), 0) << "набор " << IDENTIFIERS[item];
 	}
 }
+
+/**
+ * Принадлежность подгруппе порядка q у кривой с кофактором (раздел 5.2 ГОСТ Р 34.10-2012): точка
+ * G + T с T порядка два лежит на кривой и не гасится кофактором, но q·(G + T) = T - отвергается
+ */
+TEST(CurveTest, Subgroup){
+	curve::curve_t curve;
+	ASSERT_TRUE(curve::parameters("1.2.643.7.1.2.1.1.1", curve));
+	ASSERT_EQ(curve.cofactor(), static_cast <uint64_t> (4));
+	// Точка T порядка два: y = 0, x - корень кубического уравнения (найден отдельно)
+	static const char * TX = "0100fe73f595ff158e974b44d478d9588744fe5c192ac47ea63075dce7a14aaa";
+	uint8_t tx[32], ty[32] = {0};
+	for(size_t i = 0; i < 32; i++){ unsigned v = 0; ::sscanf(TX + i * 2, "%2x", &v); tx[i] = static_cast <uint8_t> (v); }
+	curve::point_t torsion;
+	EXPECT_FALSE(curve.point(view_t(tx, sizeof(tx)), view_t(ty, sizeof(ty)), torsion));
+	// Та же кривая с кофактором один: точка T читается как есть, G + T складывается
+	static const char * P = "fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd97", * A = "c2173f1513981673af4892c23035a27ce25e2013bf95aa33b22c656f277e7335", * B = "295f9bae7428ed9ccc20e7c359a9d41a22fccd9108e17bf7ba9337a6f8ae9513", * N = "400000000000000000000000000000000fd8cddfc87b6635c115af556c360c67", * GX = "91e38443a5e82c0d880923425712b2bb658b9196932e02c78b2582fe742daa28", * GY = "32879423ab1a0375895786c4bb46e9565fde0b5344766740af268adb32322e5c";
+	uint8_t p[32], a[32], b[32], n[32], gx[32], gy[32];
+	const char * texts[6] = {P, A, B, N, GX, GY};
+	uint8_t * places[6] = {p, a, b, n, gx, gy};
+	for(size_t k = 0; k < 6; k++)
+		for(size_t i = 0; i < 32; i++){ unsigned v = 0; ::sscanf(texts[k] + i * 2, "%2x", &v); places[k][i] = static_cast <uint8_t> (v); }
+	curve::curve_t loose;
+	ASSERT_TRUE(loose.start(view_t(p, 32), view_t(a, 32), view_t(b, 32), view_t(n, 32), view_t(gx, 32), view_t(gy, 32), 1));
+	ASSERT_TRUE(loose.point(view_t(tx, 32), view_t(ty, 32), torsion));
+	curve::point_t base, sum;
+	loose.base(base);
+	loose.add(base, torsion, sum);
+	uint8_t sx[32], sy[32];
+	ASSERT_TRUE(loose.coordinates(sum, sx, sy, 32));
+	// Кривая с кофактором четыре обязана отвергнуть G + T
+	curve::point_t outside;
+	EXPECT_FALSE(curve.point(view_t(sx, 32), view_t(sy, 32), outside));
+	// А саму G принимает
+	curve::point_t inside;
+	EXPECT_TRUE(curve.point(view_t(gx, 32), view_t(gy, 32), inside));
+}

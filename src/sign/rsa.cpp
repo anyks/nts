@@ -1100,6 +1100,16 @@ bool nts::sign::Rsa::decipher(const view_t & input, uint8_t * output) const noex
 	if(!result.mulmod(joined, unblind, this->_modulus, true))
 		// Выводим отказ
 		return false;
+	/**
+	 * Защита от сбоя вычисления (Boneh-DeMillo-Lipton): одиночный сбой в одной из
+	 * половин CRT даёт s', и gcd(s'^e - m, n) выдаёт множитель модуля. Итог сверяется
+	 * возведением в открытый показатель - при расхождении отказ, наружу ничего не уходит
+	 */
+	math::integer_t check;
+	// Если сверка не удалась либо разошлась с входом
+	if(!check.power(result, this->_exponent, this->_modulus, false) || !check.equal(value))
+		// Выводим отказ
+		return false;
 	// Выводим итог записи
 	return result.store(output, this->size());
 }

@@ -359,3 +359,106 @@ TEST(HeartbeatTest, Gnutls){
 	(void) settle(log, journal);
 	::remove(log.c_str());
 }
+
+/**
+ * Запрос и ответ по установленной связи 1.2 обеими сторонами: нагрузка возвращается слово в слово,
+ * ответ считается, второй запрос до ответа отвергается, без расширения запрос отвергается
+ */
+TEST(HeartbeatTest, Ping){
+	context::credential_t credential;
+	ASSERT_TRUE(keyfile("ec256", credential));
+	fingerprint::profile_t profile;
+	ASSERT_TRUE(profiling(profile, {HEARTBEAT}, {vector <uint8_t> {0x01}}));
+	client::context_t client;
+	server::context_t server;
+	client.name("example.com");
+	ASSERT_EQ(client.profile(profile), context::error_t::NONE);
+	server.credential(credential);
+	ASSERT_EQ(server.versions(0x0303, 0x0303), context::error_t::NONE);
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	// До установления связи запрос отвергается
+	EXPECT_EQ(client.heartbeat(view_t()), context::error_t::STATE);
+	for(size_t i = 0; (i < 16) && !(client.established() && server.established()); i++){
+		view_t data = client.output();
+		if(data.size > 0){ vector <uint8_t> buffer(data.data, data.data + data.size); client.consume(buffer.size()); server.push(view_t(buffer.data(), buffer.size())); }
+		data = server.output();
+		if(data.size > 0){ vector <uint8_t> buffer(data.data, data.data + data.size); server.consume(buffer.size()); client.push(view_t(buffer.data(), buffer.size())); }
+	}
+	ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
+	// Клиент шлёт запрос, сервер отвечает
+	const std::string payload = "нагрузка сердцебиения";
+	ASSERT_EQ(client.heartbeat(view_t(reinterpret_cast <const uint8_t *> (payload.data()), payload.size())), context::error_t::NONE);
+	EXPECT_EQ(client.heartbeat(view_t()), context::error_t::STATE);
+	{
+		const view_t data = client.output();
+		ASSERT_GT(data.size, static_cast <size_t> (5));
+		// Запись вида 24 на проводе
+		EXPECT_EQ(data.data[0], 0x18);
+		vector <uint8_t> buffer(data.data, data.data + data.size);
+		client.consume(buffer.size());
+		server.push(view_t(buffer.data(), buffer.size()));
+	}
+	EXPECT_EQ(server.error(), context::error_t::NONE);
+	{
+		const view_t data = server.output();
+		ASSERT_GT(data.size, static_cast <size_t> (5)) << "сервер не ответил";
+		EXPECT_EQ(data.data[0], 0x18);
+		vector <uint8_t> buffer(data.data, data.data + data.size);
+		server.consume(buffer.size());
+		client.push(view_t(buffer.data(), buffer.size()));
+	}
+	EXPECT_EQ(client.pulses(), static_cast <size_t> (1));
+	EXPECT_EQ(server.pulses(), static_cast <size_t> (0));
+	// Сервер шлёт запрос, клиент отвечает
+	ASSERT_EQ(server.heartbeat(view_t()), context::error_t::NONE);
+	{
+		const view_t data = server.output();
+		vector <uint8_t> buffer(data.data, data.data + data.size);
+		server.consume(buffer.size());
+		client.push(view_t(buffer.data(), buffer.size()));
+	}
+	{
+		const view_t data = client.output();
+		ASSERT_GT(data.size, static_cast <size_t> (5)) << "клиент не ответил";
+		vector <uint8_t> buffer(data.data, data.data + data.size);
+		client.consume(buffer.size());
+		server.push(view_t(buffer.data(), buffer.size()));
+	}
+	EXPECT_EQ(server.pulses(), static_cast <size_t> (1));
+	// Второй запрос после ответа дозволен
+	EXPECT_EQ(client.heartbeat(view_t()), context::error_t::NONE);
+	// Прикладные данные ходят по-прежнему
+	const std::string message = "после сердцебиения";
+	ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (message.data()), message.size())), context::error_t::NONE);
+	{
+		const view_t data = client.output();
+		vector <uint8_t> buffer(data.data, data.data + data.size);
+		client.consume(buffer.size());
+		server.push(view_t(buffer.data(), buffer.size()));
+	}
+	vector <uint8_t> received;
+	ASSERT_EQ(server.read(received), context::error_t::NONE);
+	EXPECT_EQ(std::string(received.begin(), received.end()), message);
+	EXPECT_EQ(server.state(), context::state_t::ESTABLISHED);
+	EXPECT_EQ(client.state(), context::state_t::ESTABLISHED);
+	// Без расширения запрос отвергается настройками
+	{
+		client::context_t plain;
+		server::context_t host;
+		plain.name("example.com");
+		host.credential(credential);
+		ASSERT_EQ(host.versions(0x0303, 0x0303), context::error_t::NONE);
+		ASSERT_EQ(host.start(), context::error_t::NONE);
+		ASSERT_EQ(plain.start(), context::error_t::NONE);
+		for(size_t i = 0; (i < 16) && !(plain.established() && host.established()); i++){
+			view_t data = plain.output();
+			if(data.size > 0){ vector <uint8_t> buffer(data.data, data.data + data.size); plain.consume(buffer.size()); host.push(view_t(buffer.data(), buffer.size())); }
+			data = host.output();
+			if(data.size > 0){ vector <uint8_t> buffer(data.data, data.data + data.size); host.consume(buffer.size()); plain.push(view_t(buffer.data(), buffer.size())); }
+		}
+		ASSERT_TRUE(plain.established() && host.established());
+		EXPECT_EQ(plain.heartbeat(view_t()), context::error_t::SETTINGS);
+		EXPECT_EQ(host.heartbeat(view_t()), context::error_t::SETTINGS);
+	}
+}

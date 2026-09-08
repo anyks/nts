@@ -1598,9 +1598,8 @@ TEST(EchTest, EarlyRejected){
 	ASSERT_FALSE(client.tickets().empty());
 	client::context_t resuming;
 	server::context_t stranger;
-	ASSERT_TRUE(arranged(resuming, stranger, false));
-	// Сервер с иными ключами ECH под тем же именем: ECH будет отклонён
-	ASSERT_EQ(stranger.ech(vector <uint8_t> (), "public.example", 9, 64), context::error_t::NONE);
+	// Чужой сервер: тот же опознаватель 7, но свой ключ - раскрыть приветствие ему нечем
+	ASSERT_TRUE(arranged(resuming, stranger, true));
 	stranger.advance(true, 16384);
 	resuming.advance(true, 16384);
 	resuming.resume(client.tickets()[0]);
@@ -1747,4 +1746,134 @@ TEST(EchTest, Datagram){
 	vector <uint8_t> received;
 	ASSERT_EQ(server.read(received), context::error_t::NONE);
 	EXPECT_EQ(string(received.begin(), received.end()), request);
+}
+
+/**
+ * Несколько служимых конфигураций: клиент с перечнем из двух берёт первую, сервер подбирает ключ по
+ * опознавателю; клиент лишь со второй конфигурацией тоже раскрывается; занятый опознаватель отвергается
+ */
+TEST(EchTest, Several){
+	context::credential_t credential;
+	ASSERT_TRUE(identity("ec256", credential));
+	server::context_t server;
+	server.credential(credential);
+	ASSERT_EQ(server.ech(vector <uint8_t> (), "public.example", 7, 64), context::error_t::NONE);
+	ASSERT_EQ(server.ech(vector <uint8_t> (), "public.example", 9, 64), context::error_t::NONE);
+	// Перечень несёт обе конфигурации
+	vector <ech::config_t> configs;
+	ASSERT_EQ(ech::parse(view_t(server.ech().data(), server.ech().size()), configs), ech::error_t::NONE);
+	ASSERT_EQ(configs.size(), static_cast <size_t> (2));
+	EXPECT_EQ(configs[0].id, 7);
+	EXPECT_EQ(configs[1].id, 9);
+	// Занятый опознаватель заменяет конфигурацию: перечень по-прежнему из двух, ключ второй сменился
+	EXPECT_EQ(server.ech(vector <uint8_t> (), "public.example", 9, 64), context::error_t::NONE);
+	{
+		vector <ech::config_t> renewed;
+		ASSERT_EQ(ech::parse(view_t(server.ech().data(), server.ech().size()), renewed), ech::error_t::NONE);
+		ASSERT_EQ(renewed.size(), static_cast <size_t> (2));
+		EXPECT_EQ(renewed[0].key, configs[0].key);
+		EXPECT_NE(renewed[1].key, configs[1].key);
+		configs = renewed;
+	}
+	// Клиент с полным перечнем
+	{
+		client::context_t client;
+		client.name("secret.example");
+		ASSERT_EQ(client.ech(server.ech()), context::error_t::NONE);
+		ASSERT_EQ(server.start(), context::error_t::NONE);
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		converse(client, server);
+		ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
+		EXPECT_TRUE(client.shrouded());
+		EXPECT_TRUE(server.shrouded());
+	}
+	// Клиент лишь со второй конфигурацией
+	{
+		server::context_t anew;
+		anew.credential(credential);
+		ASSERT_EQ(anew.ech(vector <uint8_t> (), "public.example", 7, 64), context::error_t::NONE);
+		ASSERT_EQ(anew.ech(vector <uint8_t> (), "public.example", 9, 64), context::error_t::NONE);
+		// Ключи anew порождены заново: перечень берётся у него, вторая конфигурация - записью как есть
+		ASSERT_EQ(ech::parse(view_t(anew.ech().data(), anew.ech().size()), configs), ech::error_t::NONE);
+		ASSERT_EQ(configs.size(), static_cast <size_t> (2));
+		vector <uint8_t> second;
+		second.push_back(static_cast <uint8_t> (configs[1].raw.size() >> 8));
+		second.push_back(static_cast <uint8_t> (configs[1].raw.size() & 0xFF));
+		second.insert(second.end(), configs[1].raw.begin(), configs[1].raw.end());
+		client::context_t client;
+		client.name("secret.example");
+		ASSERT_EQ(client.ech(second), context::error_t::NONE);
+		ASSERT_EQ(anew.start(), context::error_t::NONE);
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		converse(client, anew);
+		ASSERT_TRUE(client.established() && anew.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (anew.error());
+		EXPECT_TRUE(client.shrouded());
+		EXPECT_TRUE(anew.shrouded());
+	}
+}
+
+/**
+ * Ротация ключей: прежняя конфигурация удержана - клиент с прежней записью раскрывается, но retry_configs
+ * и перечень DNS несут лишь новую; без удержания прежний ключ отвергается и клиент получает новую
+ */
+TEST(EchTest, Rotation){
+	context::credential_t credential;
+	ASSERT_TRUE(identity("ec256", credential));
+	const vector <uint8_t> older = corpus("ech/bssl.key"), stale = corpus("ech/bssl.list");
+	ASSERT_FALSE(older.empty());
+	ASSERT_FALSE(stale.empty());
+	// Сервер после ротации: новая объявлена, прежняя удержана
+	{
+		server::context_t server;
+		server.credential(credential);
+		ASSERT_EQ(server.ech(vector <uint8_t> (), "public.example", 11, 64), context::error_t::NONE);
+		ASSERT_EQ(server.retain(older, "public.example", 7, 64), context::error_t::NONE);
+		vector <ech::config_t> configs;
+		ASSERT_EQ(ech::parse(view_t(server.ech().data(), server.ech().size()), configs), ech::error_t::NONE);
+		ASSERT_EQ(configs.size(), static_cast <size_t> (1));
+		EXPECT_EQ(configs[0].id, 11);
+		client::context_t client;
+		client.name("secret.example");
+		ASSERT_EQ(client.ech(stale), context::error_t::NONE);
+		ASSERT_EQ(server.start(), context::error_t::NONE);
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		converse(client, server);
+		ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
+		EXPECT_TRUE(client.shrouded());
+		EXPECT_TRUE(server.shrouded());
+		EXPECT_TRUE(client.retry().empty());
+	}
+	// Сервер без удержания: прежний ключ отвергнут, клиент получает новую конфигурацию
+	{
+		server::context_t server;
+		server.credential(credential);
+		ASSERT_EQ(server.ech(vector <uint8_t> (), "public.example", 11, 64), context::error_t::NONE);
+		client::context_t client;
+		client.name("secret.example");
+		ASSERT_EQ(client.ech(stale), context::error_t::NONE);
+		ASSERT_EQ(server.start(), context::error_t::NONE);
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		converse(client, server);
+		EXPECT_FALSE(server.shrouded());
+		EXPECT_EQ(client.retry(), server.ech());
+		vector <ech::config_t> configs;
+		ASSERT_EQ(ech::parse(view_t(client.retry().data(), client.retry().size()), configs), ech::error_t::NONE);
+		ASSERT_EQ(configs.size(), static_cast <size_t> (1));
+		EXPECT_EQ(configs[0].id, 11);
+	}
+	// Только удержанная конфигурация: перечень пуст, а раскрытие идёт
+	{
+		server::context_t server;
+		server.credential(credential);
+		ASSERT_EQ(server.retain(older, "public.example", 7, 64), context::error_t::NONE);
+		EXPECT_TRUE(server.ech().empty());
+		client::context_t client;
+		client.name("secret.example");
+		ASSERT_EQ(client.ech(stale), context::error_t::NONE);
+		ASSERT_EQ(server.start(), context::error_t::NONE);
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		converse(client, server);
+		ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
+		EXPECT_TRUE(server.shrouded());
+	}
 }

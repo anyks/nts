@@ -1451,9 +1451,16 @@ bool nts::math::Integer::mulmod(const Integer & first, const Integer & second, c
 		// Приводим первый сомножитель в область Монтгомери
 		montgomery(first._words, square, modulus._words, words, inverse, entered);
 		// Обнуляем число
+		// Произведение в отдельное место: второй сомножитель вправе совпадать с итогом (алиасинг)
+		uint64_t product[INTEGER_WORDS];
+		// Умножаем
+		montgomery(entered, second._words, modulus._words, words, inverse, product);
+		// Сбрасываем итог
 		this->clear();
-		// Умножаем приведённый сомножитель на второй с выводом из области
-		montgomery(entered, second._words, modulus._words, words, inverse, this->_words);
+		// Переносим произведение
+		transfer(product, this->_words, words);
+		// Затираем произведение
+		wipe(product, sizeof(product));
 		// Затираем приведённый сомножитель
 		wipe(entered, sizeof(entered));
 		// Затираем основание области
@@ -1495,12 +1502,33 @@ bool nts::math::Integer::mulmod(const Integer & first, const Integer & second, c
 bool nts::math::Integer::power(const Integer & base, const Integer & exponent, const Integer & modulus, const bool secret) noexcept {
 	// Число значимых слов модуля
 	const size_t words = top(modulus._words, INTEGER_WORDS);
+	// Если модуль пуст
+	if(words == 0)
+		// Выводим отказ
+		return false;
+	// Ширина перебора: у секретного показателя - все разряды слов модуля, у открытого - значимые
+	return this->power(base, exponent, modulus, (secret ? (words * 64) : width(exponent._words, INTEGER_WORDS)));
+}
+/**
+ * @brief Метод возведения числа в степень по модулю с заданной шириной перебора показателя
+ *
+ * @param base     основание
+ * @param exponent показатель
+ * @param modulus  нечётный модуль
+ * @param bits     число разрядов показателя, по которым идёт перебор: не меньше его значимых разрядов
+ *
+ * @return         признак успешности
+ *
+ */
+bool nts::math::Integer::power(const Integer & base, const Integer & exponent, const Integer & modulus, const size_t bits) noexcept {
+	// Число значимых слов модуля
+	const size_t words = top(modulus._words, INTEGER_WORDS);
 	// Если модуль чётный либо основание не меньше модуля
 	if((words == 0) || ((modulus._words[0] & 1) == 0) || (base.compare(modulus) >= 0))
 		// Выводим отказ
 		return false;
-	// Если секретный показатель не умещается в слова модуля: перебор по ним его не покроет
-	if(secret && (top(exponent._words, INTEGER_WORDS) > words))
+	// Если ширина перебора не покрывает показатель либо шире самого числа
+	if((bits < width(exponent._words, INTEGER_WORDS)) || (bits > INTEGER_BITS))
 		// Выводим отказ
 		return false;
 	// Основание области Монтгомери и его квадрат по модулю
@@ -1522,7 +1550,6 @@ bool nts::math::Integer::power(const Integer & base, const Integer & exponent, c
 		// Вычисляем очередную степень основания
 		montgomery(table[i - 1], table[1], modulus._words, words, inverse, table[i]);
 	// Число разрядов показателя: вся разрядность слов модуля при секретном показателе
-	const size_t bits = (secret ? (words * 64) : width(exponent._words, INTEGER_WORDS));
 	// Накопитель степени и выбранная запись таблицы
 	uint64_t result[INTEGER_WORDS], chosen[INTEGER_WORDS];
 	// Начинаем с единицы в области Монтгомери
@@ -1567,9 +1594,16 @@ bool nts::math::Integer::power(const Integer & base, const Integer & exponent, c
 	// Записываем единицу
 	chosen[0] = 1;
 	// Обнуляем число
+	// Итог в отдельное место: модуль вправе совпадать с итогом (алиасинг)
+	uint64_t outcome[INTEGER_WORDS];
+	// Выводим из области Монтгомери
+	montgomery(result, chosen, modulus._words, words, inverse, outcome);
+	// Сбрасываем итог
 	this->clear();
-	// Выводим степень из области Монтгомери
-	montgomery(result, chosen, modulus._words, words, inverse, this->_words);
+	// Переносим итог
+	transfer(outcome, this->_words, words);
+	// Затираем итог
+	wipe(outcome, sizeof(outcome));
 	// Затираем таблицу степеней
 	wipe(table, sizeof(table));
 	// Затираем накопитель

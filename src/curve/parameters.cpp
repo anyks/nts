@@ -337,6 +337,46 @@ namespace {
 			"0a60b1ce1d7e819d7a431d7c90ea0e5f",
 			// Кофактор кривой
 			1
+		},
+		{
+			// Набор параметров secp521r1 (NIST P-521) по разделу 2.6.1 SEC 2
+			// Модуль поля кривой
+			"01ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+			"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+			// Первый коэффициент уравнения кривой
+			"01ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+			"fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc",
+			// Второй коэффициент уравнения кривой
+			"0051953eb9618e1c9a1f929a21a0b68540eea2da725b99b315f3b8b489918ef109"
+			"e156193951ec7e937b1652c0bd3bb1bf073573df883d2c34f1ef451fd46b503f00",
+			// Порядок подгруппы точек кривой
+			"01ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+			"fa51868783bf2f966b7fcc0148f709a5d03bb5c9b8899c47aebb6fb71e91386409",
+			// Первая координата образующей точки
+			"00c6858e06b70404e9cd9e3ecb662395b4429c648139053fb521f828af606b4d3d"
+			"baa14b5e77efe75928fe1dc127a2ffa8de3348b3c1856a429bf97e7e31c2e5bd66",
+			// Вторая координата образующей точки
+			"011839296a789a3bc0045c8a5fb42c7d1bd998f54449579b446817afbd17273e66"
+			"2c97ee72995ef42640c550b9013fad0761353c7086a272c24088be94769fd16650",
+			// Кофактор кривой
+			1
+		},
+		{
+			// Набор параметров secp256k1 по разделу 2.4.1 SEC 2
+			// Модуль поля кривой
+			"fffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f",
+			// Первый коэффициент уравнения кривой
+			"00",
+			// Второй коэффициент уравнения кривой
+			"07",
+			// Порядок подгруппы точек кривой
+			"fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141",
+			// Первая координата образующей точки
+			"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+			// Вторая координата образующей точки
+			"483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8",
+			// Кофактор кривой
+			1
 		}
 	};
 
@@ -359,7 +399,9 @@ namespace {
 		{"1.2.643.7.1.2.1.2.2", 7},
 		{"1.2.643.7.1.2.1.2.3", 8},
 		{"1.2.840.10045.3.1.7", 9},
-		{"1.3.132.0.34", 10}
+		{"1.3.132.0.34", 10},
+		{"1.3.132.0.35", 11},
+		{"1.3.132.0.10", 12}
 	};
 };
 

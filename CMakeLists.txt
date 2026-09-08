@@ -211,6 +211,8 @@ SET(SOURCE_FILES
     "${CMAKE_SOURCE_DIR}/src/sign/ecdsa.cpp"
     "${CMAKE_SOURCE_DIR}/src/sign/ed25519.cpp"
     "${CMAKE_SOURCE_DIR}/src/agreement/x25519.cpp"
+    "${CMAKE_SOURCE_DIR}/src/agreement/x448.cpp"
+    "${CMAKE_SOURCE_DIR}/src/agreement/ffdhe.cpp"
     "${CMAKE_SOURCE_DIR}/src/agreement/mlkem.cpp"
     "${CMAKE_SOURCE_DIR}/src/noise/noise.cpp"
     "${CMAKE_SOURCE_DIR}/src/noise/patterns.cpp"

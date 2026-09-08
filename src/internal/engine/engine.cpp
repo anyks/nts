@@ -114,6 +114,8 @@
 #include <digest/hash.hpp>
 #include <digest/hmac.hpp>
 #include <agreement/x25519.hpp>
+#include <agreement/x448.hpp>
+#include <agreement/ffdhe.hpp>
 #include <agreement/mlkem.hpp>
 #include <field/field.hpp>
 #include <entropy/entropy.hpp>
@@ -181,6 +183,7 @@ namespace {
 		extension::scheme_t::S512A, extension::scheme_t::S512B,
 		extension::scheme_t::S512C,
 		extension::scheme_t::ECDSA_SECP256R1_SHA256, extension::scheme_t::ECDSA_SECP384R1_SHA384,
+		extension::scheme_t::ECDSA_SECP521R1_SHA512,
 		extension::scheme_t::RSA_PSS_RSAE_SHA256, extension::scheme_t::RSA_PSS_RSAE_SHA384,
 		extension::scheme_t::RSA_PSS_RSAE_SHA512, extension::scheme_t::ED25519,
 		extension::scheme_t::RSA_PKCS1_SHA256, extension::scheme_t::RSA_PKCS1_SHA384,
@@ -409,6 +412,7 @@ namespace {
 			// Схемы подписи, годные изданию TLS 1.2
 			case static_cast <uint16_t> (extension::scheme_t::ECDSA_SECP256R1_SHA256):
 			case static_cast <uint16_t> (extension::scheme_t::ECDSA_SECP384R1_SHA384):
+			case static_cast <uint16_t> (extension::scheme_t::ECDSA_SECP521R1_SHA512):
 			case static_cast <uint16_t> (extension::scheme_t::RSA_PSS_RSAE_SHA256):
 			case static_cast <uint16_t> (extension::scheme_t::RSA_PSS_RSAE_SHA384):
 			case static_cast <uint16_t> (extension::scheme_t::RSA_PSS_RSAE_SHA512):
@@ -613,6 +617,14 @@ namespace {
 	 * Расширение heartbeat по RFC 6520
 	 */
 	static constexpr uint16_t HEARTBEAT_EXTENSION = 0x000F;
+	/**
+	 * Режим heartbeat peer_allowed_to_send (раздел 2 RFC 6520)
+	 */
+	static const uint8_t HEARTBEAT_ALLOWED = 0x01;
+	/**
+	 * Наименьшая длина заполнения сообщения сердцебиения (раздел 4 RFC 6520)
+	 */
+	static constexpr size_t HEARTBEAT_PADDING = 16;
 	/**
 	 * Вид состояния сертификата ocsp: раздел 8 RFC 6066
 	 */
@@ -1162,8 +1174,8 @@ namespace {
 	 *
 	 */
 	static bool known(const extension::group_t group) noexcept {
-		// Выводим признак того, что кривая группы связи ведома либо группа есть гибрид с инкапсуляцией
-		return ((extension::curve(group) != nullptr) || extension::hybrid(group));
+		// Выводим признак того, что кривая группы связи ведома, группа есть гибрид с инкапсуляцией либо конечное поле RFC 7919
+		return ((extension::curve(group) != nullptr) || extension::hybrid(group) || (extension::finite(group) > 0));
 	}
 	/**
 	 * @brief Метод получения механизма инкапсуляции гибридной группы
@@ -1230,8 +1242,59 @@ namespace {
 	 *
 	 */
 	static bool classic(const extension::group_t group) noexcept {
-		// Выводим признак классической группы обмена ключами
-		return ((group == extension::group_t::X25519) || (group == extension::group_t::SECP256R1) || (group == extension::group_t::SECP384R1));
+		/**
+		 * Выполняем определение группы обмена ключами
+		 */
+		switch(static_cast <uint16_t> (group)){
+			// Кривые записи RFC 8446: точки NIST несжатой записью, кривые Монтгомери первой координатой
+			case static_cast <uint16_t> (extension::group_t::X25519):
+			case static_cast <uint16_t> (extension::group_t::X448):
+			case static_cast <uint16_t> (extension::group_t::SECP256R1):
+			case static_cast <uint16_t> (extension::group_t::SECP384R1):
+			case static_cast <uint16_t> (extension::group_t::SECP521R1):
+			case static_cast <uint16_t> (extension::group_t::SECP256K1):
+				// Выводим признак классической группы обмена ключами
+				return true;
+		}
+		// Группы конечного поля RFC 7919 идут записью раздела 4.2.8.1 RFC 8446
+		return (extension::finite(group) > 0);
+	}
+	/**
+	 * @brief Метод проверки принадлежности группы обмена кривым Монтгомери
+	 *
+	 * @param group проверяемая группа обмена ключами
+	 *
+	 * @return      признак того, что доля ключа группы есть первая координата точки по RFC 7748 (X25519, X448)
+	 *
+	 */
+	static bool montgomery(const extension::group_t group) noexcept {
+		// Выводим признак кривой Монтгомери
+		return ((group == extension::group_t::X25519) || (group == extension::group_t::X448));
+	}
+	/**
+	 * @brief Метод проверки допустимости группы обмена изданию протокола
+	 *
+	 * @param group  проверяемая группа обмена ключами
+	 * @param legacy признак издания TLS 1.2
+	 *
+	 * @return       признак того, что группу изданием выбирать дозволено
+	 *
+	 * @details Реестр IANA групп TLS: secp256k1 изданием 1.3 не допускается (RFC 8446 знает лишь
+	 *          secp256r1, secp384r1, secp521r1, x25519, x448 и группы RFC 7919); группы конечного
+	 *          поля изданием 1.2 требуют наборов DHE, которых связь не ведёт
+	 *
+	 */
+	static bool fitting(const extension::group_t group, const bool legacy) noexcept {
+		// Если группа - secp256k1, она годна лишь изданию 1.2
+		if(group == extension::group_t::SECP256K1)
+			// Выводим допустимость по изданию
+			return legacy;
+		// Если группа - конечное поле, она годна лишь изданию 1.3
+		if(extension::finite(group) > 0)
+			// Выводим допустимость по изданию
+			return !legacy;
+		// Прочие группы годны обоим изданиям
+		return true;
 	}
 	/**
 	 * @brief Метод переноса области байтов в обратном порядке
@@ -1373,7 +1436,8 @@ namespace {
 			}
 			// Схемы подписи ECDSA
 			case static_cast <uint16_t> (extension::scheme_t::ECDSA_SECP256R1_SHA256):
-			case static_cast <uint16_t> (extension::scheme_t::ECDSA_SECP384R1_SHA384): {
+			case static_cast <uint16_t> (extension::scheme_t::ECDSA_SECP384R1_SHA384):
+			case static_cast <uint16_t> (extension::scheme_t::ECDSA_SECP521R1_SHA512): {
 				// Если ключ сертификата не ключ EC
 				if(key.algorithm.compare(EC_KEY) != 0)
 					// Выводим несоответствие схемы ключу
@@ -1519,6 +1583,8 @@ void nts::internal::Engine::shred() noexcept {
 	// Выполняем затирание ключевого материала пор поверх дейтаграмм
 	this->_flight.shred();
 	// Выполняем затирание ключей завершения рукопожатия
+	// Затираем ключи имитовставки наборов CBC издания 1.2
+	wipe(this->_stamp, sizeof(this->_stamp));
 	wipe(this->_completion, sizeof(this->_completion));
 	// Выполняем затирание ключевого материала прикладных данных
 	wipe(this->_key, sizeof(this->_key));
@@ -2013,9 +2079,14 @@ context::error_t nts::internal::Engine::encapsulating(const extension::group_t g
 		curve::curve_t curve;
 		size_t scalar = agreement::X25519_SIZE;
 		// Если половина - кривая NIST, берём её параметры
-		if((half != extension::group_t::X25519) && curve::parameters(extension::curve(half), curve))
+		if(half != extension::group_t::X25519){
+			// Если параметры кривой не заведены: с незаведённой кривой пару не выработать
+			if(!curve::parameters(extension::curve(half), curve))
+				// Выводим отказ группы
+				return context::error_t::GROUP;
 			// Длина секрета - размер кривой
 			scalar = curve.size();
+		}
 		// Секрет кривой, доля сервера (шифртекст и точка порядком гибрида) и общее значение ML-KEM
 		item.secret.assign(scalar, 0);
 		item.opened.assign(cipher + point, 0);
@@ -2164,17 +2235,39 @@ context::error_t nts::internal::Engine::agree(const extension::group_t group, co
 		return context::error_t::EXCHANGE;
 	// Место, в которое помещается общее значение обмена
 	uint8_t * shared = result;
-	// Если группа обмена - X25519
-	if(group == extension::group_t::X25519){
+	// Если группа обмена - кривая Монтгомери
+	if(montgomery(group)){
 		/**
-		 * Раздел 7.4.2 RFC 8446: итог X25519 из одних нулей связь обязана отвергнуть -
-		 * примитив отвечает на него отказом сам
+		 * Раздел 7.4.2 RFC 8446: итог X25519 либо X448 из одних нулей связь обязана
+		 * отвергнуть - примитив отвечает на него отказом сам
 		 */
-		if(!agreement::x25519(view_t(own->secret.data(), own->secret.size()), key, shared))
+		if(group == extension::group_t::X25519){
+			// Если общее значение X25519 выработать не удалось
+			if(!agreement::x25519(view_t(own->secret.data(), own->secret.size()), key, shared))
+				// Выводим отказ выработки общего значения обмена
+				return context::error_t::EXCHANGE;
+			// Запоминаем длину общего значения
+			length = agreement::X25519_SIZE;
+		// Если группа обмена - X448
+		} else {
+			// Если общее значение X448 выработать не удалось
+			if(!agreement::x448(view_t(own->secret.data(), own->secret.size()), key, shared))
+				// Выводим отказ выработки общего значения обмена
+				return context::error_t::EXCHANGE;
+			// Запоминаем длину общего значения
+			length = agreement::X448_SIZE;
+		}
+	// Если группа обмена - конечное поле RFC 7919
+	} else if(extension::finite(group) > 0){
+		/**
+		 * Раздел 7.4.1 RFC 8446: общее значение идёт длиной модуля с нулями спереди;
+		 * ключ собеседника вне подгруппы простого порядка примитив отвергает сам
+		 */
+		if(!agreement::ffdhe(extension::finite(group), view_t(own->secret.data(), own->secret.size()), key, shared))
 			// Выводим отказ выработки общего значения обмена
 			return context::error_t::EXCHANGE;
 		// Запоминаем длину общего значения
-		length = agreement::X25519_SIZE;
+		length = extension::finite(group);
 	// Если группа обмена - кривая
 	} else {
 		// Эллиптическая кривая обмена мимолётными ключами
@@ -2244,6 +2337,10 @@ context::error_t nts::internal::Engine::agree(const extension::group_t group, co
  *
  */
 context::error_t nts::internal::Engine::derive(const extension::group_t group, const view_t & key) noexcept {
+	// Раздел 4.2.7 RFC 8446: доля ключа идёт лишь по группе, изданию 1.3 дозволенной
+	if(!fitting(group, false))
+		// Выводим отказ группы вне издания
+		return context::error_t::GROUP;
 	/**
 	 * Выполняем перехват ошибок работы с памятью: тело вывода ключевого материала
 	 * занимает память на всяком шаге, и всякий такой шаг вправе ответить нехваткой
@@ -2251,10 +2348,11 @@ context::error_t nts::internal::Engine::derive(const extension::group_t group, c
 	 */
 	try {
 		/**
-		 * Место под общее значение берётся размером числа арифметики: выработка кладёт
-		 * туда одну координату кривой, а шире числа координата быть не может
+		 * Место под общее значение берётся по самому широкому: у гибрида это общее значение
+		 * ML-KEM с координатой кривой, у конечного поля RFC 7919 - ключ длиной в модуль
+		 * ffdhe8192; координата кривой шире числа арифметики быть не может
 		 */
-		uint8_t shared[agreement::MLKEM_SHARED + math::NUMBER_SIZE];
+		uint8_t shared[agreement::MLKEM_SHARED + agreement::FFDHE_MOST];
 		// Длина общего значения обмена мимолётными ключами
 		size_t length = 0;
 		// Отказ выработки общего значения обмена мимолётными ключами
@@ -2600,18 +2698,43 @@ context::error_t nts::internal::Engine::exchange(const extension::group_t group)
 				reverse(raw + scalar, item.opened.data() + curveat + 1 + scalar, scalar);
 				wipe(raw, sizeof(raw));
 			}
-		} else if(group == extension::group_t::X25519){
+		} else if(montgomery(group)){
+			// Длина ключей кривой Монтгомери
+			const size_t size = ((group == extension::group_t::X25519) ? agreement::X25519_SIZE : agreement::X448_SIZE);
 			// Занимаем место под секретный мимолётный ключ своей стороны
-			item.secret.assign(agreement::X25519_SIZE, 0);
+			item.secret.assign(size, 0);
 			// Занимаем место под открытый мимолётный ключ своей стороны
-			item.opened.assign(agreement::X25519_SIZE, 0);
+			item.opened.assign(size, 0);
 			// Если секретный мимолётный ключ выработать не удалось
-			if(!entropy::bytes(item.secret.data(), item.secret.size()))
+			if(!entropy::bytes(item.secret.data(), item.secret.size())){
+				// Затираем недовыработанный секрет
+				wipe(item.secret.data(), item.secret.size());
 				// Выводим отказ выработки мимолётной пары ключей
 				return context::error_t::EXCHANGE;
+			}
+			// Признак выработки открытого мимолётного ключа
+			const bool produced = ((group == extension::group_t::X25519) ?
+				agreement::x25519(view_t(item.secret.data(), item.secret.size()), item.opened.data()) :
+				agreement::x448(view_t(item.secret.data(), item.secret.size()), item.opened.data())
+			);
 			// Если открытый мимолётный ключ выработать не удалось
-			if(!agreement::x25519(view_t(item.secret.data(), item.secret.size()), item.opened.data())){
+			if(!produced){
 				// Выполняем затирание секретного мимолётного ключа
+				wipe(item.secret.data(), item.secret.size());
+				// Выводим отказ выработки мимолётной пары ключей
+				return context::error_t::EXCHANGE;
+			}
+		// Если группа обмена - конечное поле RFC 7919
+		} else if(extension::finite(group) > 0){
+			// Длина модуля группы
+			const size_t size = extension::finite(group);
+			// Занимаем место под секретный показатель своей стороны
+			item.secret.assign(agreement::exponent(size), 0);
+			// Занимаем место под открытый ключ своей стороны длиной в модуль
+			item.opened.assign(size, 0);
+			// Если пару ключей группы выработать не удалось
+			if(!agreement::pairffdhe(size, item.secret.data(), item.opened.data())){
+				// Выполняем затирание секретного показателя
 				wipe(item.secret.data(), item.secret.size());
 				// Выводим отказ выработки мимолётной пары ключей
 				return context::error_t::EXCHANGE;
@@ -3227,14 +3350,31 @@ context::error_t nts::internal::Engine::greeting() noexcept {
 		if(this->_secrets.binder(view_t(transcript, width), message.data() + (message.size() - width)) != session::error_t::NONE)
 			// Выводим отказ выработки привязки билета
 			return context::error_t::SCHEDULE;
+		// Номер записи приветствия: переписке издания 1.2 поверх дейтаграмм нужна обвязка DTLS
+		const uint16_t number = this->_flight.outgoing();
 		// Выполняем складывание приветствия клиента в накопитель отправляемых байтов
 		const context::error_t error = this->emit(record::type_t::HANDSHAKE, view_t(message.data(), message.size()));
 		// Если приветствие клиента отправить не удалось
 		if(error != context::error_t::NONE)
 			// Выводим отказ отправки приветствия клиента
 			return error;
+		/**
+		 * Переписка ведётся тем же путём, что и в send(): издание выбирает сервер, и если
+		 * он ответит изданием 1.2, подпись владения ключом клиента (раздел 7.4.8 RFC 5246)
+		 * покроет и это приветствие - оно обязано лежать в переписке издания 1.2, иначе
+		 * сервер с запросом подлинности клиента ответил бы decrypt_error
+		 */
+		if(this->_transport != context::transport_t::LEVELS){
+			// Приветствие клиента начинает переписку заново
+			this->_history.clear();
+			// Отказ ведения переписки
+			const context::error_t chronicled = this->chronicle(view_t(message.data(), message.size()), number);
+			// Если переписку вести не удалось
+			if(chronicled != context::error_t::NONE)
+				// Выводим отказ ведения переписки рукопожатия
+				return chronicled;
 		// Если приветствие в переписку рукопожатия добавить не удалось
-		if(this->_transcript.update(view_t(message.data(), message.size())) != session::error_t::NONE)
+		} else if(this->_transcript.update(view_t(message.data(), message.size())) != session::error_t::NONE)
 			// Выводим отказ ведения переписки рукопожатия
 			return context::error_t::MESSAGE;
 		// Если приветствие клиента ходу рукопожатия объявить не удалось
@@ -4537,7 +4677,7 @@ context::error_t nts::internal::Engine::signing(const view_t & content, extensio
 			// Хеш подписываемого содержимого по схеме подписи
 			const digest::hash_t algorithm = extension::hash(item);
 			// Если схема подписи - ECDSA
-			if((item == extension::scheme_t::ECDSA_SECP256R1_SHA256) || (item == extension::scheme_t::ECDSA_SECP384R1_SHA384)){
+			if((item == extension::scheme_t::ECDSA_SECP256R1_SHA256) || (item == extension::scheme_t::ECDSA_SECP384R1_SHA384) || (item == extension::scheme_t::ECDSA_SECP521R1_SHA512)){
 				// Эллиптическая кривая подписи владения ключом
 				curve::curve_t curve;
 				// Объект модуля подписи ECDSA
@@ -4881,6 +5021,21 @@ context::error_t nts::internal::Engine::confirm(const view_t & body) noexcept {
  */
 context::error_t nts::internal::Engine::offered(const vector <hello::extension_t> & extensions, const vector <uint16_t> & proposed, const view_t & message) noexcept {
 	/**
+	 * Раздел 4.1.2 RFC 8446: второе приветствие за просьбой о повторе вправе снять либо
+	 * сменить pre_shared_key - состояние билета, выставленное первым приветствием,
+	 * сбрасывается всякий раз, иначе сервер возобновлял бы связь билетом, которого во
+	 * втором предложении нет, а ступень секретов оставалась бы заведённой его ключом
+	 */
+	this->_shared = false;
+	this->_chosen = 0;
+	this->_granted = 0;
+	this->_misaged = false;
+	this->_ticket = protect::suite_t::NONE;
+	this->_previous.clear();
+	this->_bequest.clear();
+	this->_heritage.clear();
+	this->_secrets.clear();
+	/**
 	 * Выполняем перехват ошибок работы с памятью: тело разбора предложения ключей
 	 * занимает память на всяком шаге, и всякий такой шаг вправе ответить нехваткой
 	 * памяти
@@ -5000,6 +5155,10 @@ context::error_t nts::internal::Engine::offered(const vector <hello::extension_t
 			 * Выполняем перебор наборов шифрования, предлагаемых связью
 			 */
 			for(size_t i = 0; (i < this->_suites.size()) && (suite == protect::suite_t::NONE); i++){
+				// Если набор годен лишь изданию 1.2: рукопожатию 1.3 с билетом он не подходит, как и при первичном выборе
+				if(protect::legacy(this->_suites[i]))
+					// Переходим к следующему набору шифрования
+					continue;
 				// Если хеш набора с хешем билета не сходится
 				if(protect::hash(this->_suites[i]) != algorithm)
 					// Переходим к следующему набору шифрования
@@ -5144,7 +5303,7 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 			// Запоминаем приветствие
 			this->_salutation.assign(message.data, message.data + message.size);
 		// Если сервер служит ECH и разбирается внешнее приветствие
-		if(!this->_unshrouding && this->_echkey.ready()){
+		if(!this->_unshrouding && !this->_serving.empty()){
 			// Признак принятия ECH
 			bool accepted = false;
 			// Тело восстановленного внутреннего приветствия
@@ -5181,7 +5340,7 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 			 * приветствие, которое здесь не прочесть, - их записи пропускаются как отвергнутые
 			 * (раздел 4.2.10 RFC 8446), пока не придёт завершение клиента
 			 */
-			this->_skipped = (static_cast <size_t> (this->_granted) * 2 + 4096);
+			this->_skipped = (static_cast <size_t> ((this->_granted > this->_limit) ? this->_granted : this->_limit) * 2 + 4096);
 		}
 		// Признак того, что среди способов сжатия объявлен нулевой
 		bool uncompressed = false;
@@ -5417,6 +5576,24 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 		// Признак того, что общий набор шифрования у сторон нашёлся
 		bool suitable = false;
 		/**
+		 * Раздел 4.1.4 RFC 8446: набор шифрования приветствия сервера обязан совпадать с
+		 * набором просьбы о повторе - на втором приветствии набор не перевыбирается, а
+		 * лишь сверяется с предложением клиента; иначе перевыбор по порядку сервера
+		 * расходился бы с хешем переписки и с самой просьбой
+		 */
+		if(this->_retried){
+			/**
+			 * Выполняем перебор наборов шифрования, предлагаемых клиентом
+			 */
+			for(size_t j = 0; (j < greeting.suites.size()) && !suitable; j++)
+				// Если набор просьбы предложен и вторым приветствием
+				suitable = (greeting.suites[j] == static_cast <uint16_t> (this->_suite));
+			// Если набор просьбы снят вторым приветствием
+			if(!suitable)
+				// Выводим отказ негодных параметров
+				return this->abort(context::error_t::SUITE, alert::description_t::PARAMETER);
+		}
+		/**
 		 * Выполняем перебор наборов шифрования, предлагаемых связью
 		 */
 		for(size_t i = 0; (i < this->_suites.size()) && !suitable; i++){
@@ -5478,7 +5655,18 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 			// Выводим ошибку
 			return failure;
 		// Если клиент предложил heartbeat (RFC 6520), его записи вида 24 будут роняться молча
-		this->_heartbeating = (hello::extension(greeting.extensions, HEARTBEAT_EXTENSION) != nullptr);
+		{
+			// Расширение heartbeat приветствия клиента
+			const hello::extension_t * beat = hello::extension(greeting.extensions, HEARTBEAT_EXTENSION);
+			// Раздел 2 RFC 6520: режим - один октет со значением 1 либо 2, иное обрывает связь illegal_parameter
+			if((beat != nullptr) && ((beat->data.size != 1) || ((beat->data.data[0] != 1) && (beat->data.data[0] != 2))))
+				// Выводим отказ негодных параметров
+				return this->abort(context::error_t::MESSAGE, alert::description_t::PARAMETER);
+			// Запоминаем предложение
+			this->_heartbeating = (beat != nullptr);
+			// Раздел 2 RFC 6520: запросы клиенту шлются лишь при peer_allowed_to_send (1)
+			this->_permitted = ((beat != nullptr) && (beat->data.data[0] == 1));
+		}
 		// Если прикладные протоколы сервером признаются
 		if(!this->_protocols.empty()){
 			// Разыскиваем расширение перечня прикладных протоколов
@@ -5725,7 +5913,7 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 			 * Задеть это условие способен лишь собеседник, предлагающий несколько билетов
 			 * разом, оттого закреплённой проверки на него и нет
 			 */
-			if(this->_advance && !this->_misaged && (this->_granted > 0) && this->_shared && (this->_chosen == 0) && (this->_suite == this->_ticket) && (this->_protocol == this->_previous) && (this->_settled == this->_bequeathed) && (this->_applied == this->_bequest)){
+			if(this->_advance && !this->_retried && !this->_misaged && (this->_granted > 0) && this->_shared && (this->_chosen == 0) && (this->_suite == this->_ticket) && (this->_protocol == this->_previous) && (this->_settled == this->_bequeathed) && (this->_applied == this->_bequest)){
 				/**
 				 * Ключи упреждающих данных выводятся от переписки с одним лишь приветствием
 				 * клиента: ответа сервера в ней на этот миг ещё нет, и завестись им надо
@@ -5760,7 +5948,7 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 			 * не числом записей: клиент вправе нарезать его сколь угодно мелко. Запас
 			 * покрывает обвязку записей
 			 */
-			} else this->_skipped = (static_cast <size_t> (this->_granted) * 2 + 4096);
+			} else this->_skipped = (static_cast <size_t> ((this->_granted > this->_limit) ? this->_granted : this->_limit) * 2 + 4096);
 		}
 		// Разыскиваем расширение открытых частей ключей обмена
 		extension = hello::extension(greeting.extensions, static_cast <uint16_t> (extension::type_t::SHARE));
@@ -5815,8 +6003,8 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 		 * Выполняем перебор кривых обмена ключами, предлагаемых связью
 		 */
 		for(size_t i = 0; (i < this->_groups.size()) && (selected == nullptr); i++){
-			// Если группа обмена связи неведома: своё значение GREASE выбирать нельзя
-			if(!known(this->_groups[i]))
+			// Если группа обмена связи неведома либо изданию 1.3 не дозволена: своё значение GREASE выбирать нельзя
+			if(!known(this->_groups[i]) || !fitting(this->_groups[i], false))
 				// Переходим к следующей группе обмена ключами
 				continue;
 			/**
@@ -5858,8 +6046,8 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 			this->_earlying = false;
 			// Сбрасываем признак приёма упреждающих данных
 			this->_accepted = false;
-			// Устанавливаем объём пропускаемых записей упреждения с запасом на обвязку
-			this->_skipped = (static_cast <size_t> (this->_granted) * 2 + 4096);
+			// Устанавливаем объём пропускаемых записей упреждения с запасом на обвязку: лишь если упреждение предлагалось (раздел 4.2.10 RFC 8446), иначе открытые записи за просьбой - unexpected_message
+			this->_skipped = ((hello::extension(greeting.extensions, static_cast <uint16_t> (extension::type_t::EARLY)) != nullptr) ? (static_cast <size_t> ((this->_granted > this->_limit) ? this->_granted : this->_limit) * 2 + 4096) : 0);
 			// Перечень кривых обмена ключами, поддерживаемых клиентом
 			vector <extension::group_t> groups;
 			// Если годная доля ключа пришла: группа берётся у неё
@@ -5889,8 +6077,8 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 			 * Выполняем перебор кривых обмена ключами, предлагаемых связью
 			 */
 			for(size_t i = 0; (i < this->_groups.size()) && !suitable; i++){
-				// Если группа обмена связи неведома: своё значение GREASE выбирать нельзя
-				if(!known(this->_groups[i]))
+				// Если группа обмена связи неведома либо изданию 1.3 не дозволена: своё значение GREASE выбирать нельзя
+				if(!known(this->_groups[i]) || !fitting(this->_groups[i], false))
 					// Переходим к следующей группе обмена ключами
 					continue;
 				/**
@@ -6410,8 +6598,8 @@ context::error_t nts::internal::Engine::outgoing(const view_t & body, const view
 		 * меняет иное - поверх дейтаграмм она несёт метку возврата состояния (раздел 5.1
 		 * RFC 9147); самому приветствию сервера доля обязательна
 		 */
-		if((extension == nullptr) && (!hello::retry(answer) || (this->_transport != context::transport_t::DATAGRAMS)))
-			// Выводим отказ отсутствия открытой части ключа обмена
+		if((extension == nullptr) && (!hello::retry(answer) || ((this->_transport != context::transport_t::DATAGRAMS) && (hello::extension(answer.extensions, static_cast <uint16_t> (extension::type_t::COOKIE)) == nullptr))))
+			// Выводим отказ отсутствия открытой части ключа обмена: просьба без доли обязана нести хотя бы метку (разделы 4.1.4, 4.2.2 RFC 8446); поверх дейтаграмм метку судит свой заслон
 			return this->abort(context::error_t::EXCHANGE, alert::description_t::MISSING);
 		/**
 		 * Просьба о повторе приветствия идёт тем же сообщением, что и приветствие сервера,
@@ -6514,6 +6702,16 @@ context::error_t nts::internal::Engine::outgoing(const view_t & body, const view
 				 * Раздел 4.2.8 RFC 8446: повторное приветствие несёт долю ключа лишь по
 				 * запрошенной группе, прежние доли снимаются
 				 */
+				/**
+				 * Выполняем затирание секретов снимаемых долей: секреты всех предложенных
+				 * групп иначе оставались бы в освобождённой памяти
+				 */
+				for(size_t i = 0; i < this->_exchanges.size(); i++){
+					// Затираем секрет доли
+					wipe(this->_exchanges[i].secret.data(), this->_exchanges[i].secret.size());
+					// Затираем общее значение доли
+					wipe(this->_exchanges[i].shared.data(), this->_exchanges[i].shared.size());
+				}
 				this->_exchanges.clear();
 				// Выполняем выработку мимолётной пары ключей на выбранной кривой
 				error = this->exchange(group);
@@ -6934,15 +7132,15 @@ context::error_t nts::internal::Engine::accept(const view_t & body) noexcept {
 				this->_tickets.erase(this->_tickets.begin());
 			}
 			// Добавляем принятый билет в перечень билетов связи
-			this->_tickets.push_back(item);
+			this->_tickets.push_back(::move(item));
 		/**
 		 * Если памяти под билет не хватило
 		 */
 		} catch(const bad_alloc &) {
 			// Выполняем затирание ключа принятого билета
 			wipe(secret, sizeof(secret));
-			// Выводим отказ нехватки памяти
-			return context::error_t::MEMORY;
+			// Выводим отказ нехватки памяти: сообщение уже снято со сборщика, связь обрывается
+			return this->abort(context::error_t::MEMORY, alert::description_t::INTERNAL);
 		}
 		// Выполняем затирание ключа принятого билета
 		wipe(secret, sizeof(secret));
@@ -8112,6 +8310,152 @@ context::error_t nts::internal::Engine::sizing(const hello::client_t & greeting)
 		this->_sized[1] = 0;
 		// Отмечаем действующее расширение
 		this->_sizing = 2;
+	}
+	// Выводим успешность
+	return context::error_t::NONE;
+}
+/**
+ * @brief Метод отправки запроса сердцебиения (RFC 6520)
+ *
+ * @param payload нагрузка запроса
+ *
+ * @return        отказ отправки
+ *
+ */
+context::error_t nts::internal::Engine::heartbeat(const view_t & payload) noexcept {
+	// Раздел 4 RFC 6520: запросы идут лишь по установленной связи и по одному до ответа
+	if((this->_state != context::state_t::ESTABLISHED) || this->_beating)
+		// Выводим отказ состояния
+		return context::error_t::STATE;
+	// Раздел 2 RFC 6520: без расширения heartbeat и дозволения собеседника запросы не шлются; изданию 1.3 сердцебиения нет
+	if(!this->_heartbeating || !this->_permitted || !this->_legacy)
+		// Выводим отказ настроек
+		return context::error_t::SETTINGS;
+	// Нагрузка вместе с заголовком и заполнением обязана уместиться в запись
+	if((payload.size > 0xFFFF) || ((3 + payload.size + HEARTBEAT_PADDING) > this->_outgoing))
+		// Выводим отказ предела
+		return context::error_t::LIMIT;
+	/**
+	 * Выполняем перехват ошибок работы с памятью
+	 */
+	try {
+		// Сообщение сердцебиения: вид, длина нагрузки, нагрузка, заполнение
+		vector <uint8_t> message(3 + payload.size + HEARTBEAT_PADDING, 0);
+		// Вид heartbeat_request
+		message[0] = 0x01;
+		// Длина нагрузки старшим байтом вперёд
+		message[1] = static_cast <uint8_t> (payload.size >> 8);
+		message[2] = static_cast <uint8_t> (payload.size & 0xFF);
+		// Если нагрузка есть
+		if(payload.size > 0)
+			// Переносим нагрузку
+			::memcpy(message.data() + 3, payload.data, payload.size);
+		// Заполнение: случайные байты (раздел 4 RFC 6520)
+		if(!entropy::bytes(message.data() + 3 + payload.size, HEARTBEAT_PADDING))
+			// Выводим отказ
+			return context::error_t::SETTINGS;
+		// Запоминаем нагрузку в пути
+		this->_pulse.assign(message.begin() + 3, message.begin() + 3 + payload.size);
+		// Отказ складывания записи
+		const context::error_t error = this->emit(record::type_t::HEARTBEAT, view_t(message.data(), message.size()));
+		// Если запись сложена
+		if(error == context::error_t::NONE)
+			// Запоминаем запрос в пути
+			this->_beating = true;
+		// Выводим итог
+		return error;
+	/**
+	 * Если памяти не хватило
+	 */
+	} catch(const bad_alloc &) {
+		// Выводим отказ нехватки памяти
+		return context::error_t::MEMORY;
+	}
+}
+/**
+ * @brief Метод получения числа принятых ответов на свои запросы сердцебиения
+ *
+ * @return число ответов
+ *
+ */
+size_t nts::internal::Engine::pulses() const noexcept {
+	// Выводим число ответов
+	return this->_pulses;
+}
+/**
+ * @brief Метод разбора принятой записи сердцебиения (RFC 6520)
+ *
+ * @param content открытое содержимое записи вида 24
+ *
+ * @return        отказ разбора
+ *
+ */
+context::error_t nts::internal::Engine::pulse(const view_t & content) noexcept {
+	// Если heartbeat не предлагался, запись неожиданна
+	if(!this->_heartbeating)
+		// Выходим с ошибкой
+		return this->abort(context::error_t::RECORD, alert::description_t::UNEXPECTED);
+	/**
+	 * Раздел 4 RFC 6520: сердцебиение вне установленной связи не ходит, а сообщение
+	 * короче заголовка либо с длиной нагрузки, выходящей за запись с наименьшим
+	 * заполнением, роняется молча; изданию 1.3 сердцебиения нет вовсе
+	 */
+	if((this->_state != context::state_t::ESTABLISHED) || !this->_legacy || (content.size < 3))
+		// Выводим успешность: запись уронена
+		return context::error_t::NONE;
+	// Длина нагрузки
+	const size_t length = ((static_cast <size_t> (content.data[1]) << 8) | content.data[2]);
+	// Если нагрузка с заполнением не умещается в сообщение
+	if((3 + length + HEARTBEAT_PADDING) > content.size)
+		// Выводим успешность: запись уронена
+		return context::error_t::NONE;
+	/**
+	 * Выполняем определение вида сообщения
+	 */
+	switch(content.data[0]){
+		// Если принят запрос: ответ несёт ту же нагрузку и своё заполнение
+		case 0x01: {
+			/**
+			 * Выполняем перехват ошибок работы с памятью
+			 */
+			try {
+				// Ответ сердцебиения
+				vector <uint8_t> message(3 + length + HEARTBEAT_PADDING, 0);
+				// Вид heartbeat_response
+				message[0] = 0x02;
+				// Длина нагрузки
+				message[1] = content.data[1];
+				message[2] = content.data[2];
+				// Если нагрузка есть
+				if(length > 0)
+					// Переносим нагрузку слово в слово
+					::memcpy(message.data() + 3, content.data + 3, length);
+				// Заполнение: случайные байты
+				if(!entropy::bytes(message.data() + 3 + length, HEARTBEAT_PADDING))
+					// Выводим успешность: ответ не сложен, запись уронена
+					return context::error_t::NONE;
+				// Складываем ответ
+				return this->emit(record::type_t::HEARTBEAT, view_t(message.data(), message.size()));
+			/**
+			 * Если памяти не хватило
+			 */
+			} catch(const bad_alloc &) {
+				// Выводим отказ нехватки памяти
+				return context::error_t::MEMORY;
+			}
+		}
+		// Если принят ответ: сличается с нагрузкой запроса в пути, иное роняется молча
+		case 0x02: {
+			// Если запрос в пути и нагрузка совпала
+			if(this->_beating && (length == this->_pulse.size()) && ((length == 0) || (::memcmp(content.data + 3, this->_pulse.data(), length) == 0))){
+				// Запрос отвечен
+				this->_beating = false;
+				// Считаем ответ
+				this->_pulses++;
+				// Забываем нагрузку
+				this->_pulse.clear();
+			}
+		} break;
 	}
 	// Выводим успешность
 	return context::error_t::NONE;
@@ -9448,6 +9792,10 @@ void nts::internal::Engine::clear() noexcept {
 	this->_fragmenting = 0;
 	// Выполняем сброс признака предложенного heartbeat
 	this->_heartbeating = false;
+	this->_permitted = false;
+	this->_beating = false;
+	this->_pulses = 0;
+	this->_pulse.clear();
 	// Выполняем сброс признака запроса меток времени сертификата собеседником
 	this->_stamped = false;
 	// Выполняем сброс перечня меток времени сертификата собеседника
@@ -9776,7 +10124,7 @@ context::error_t nts::internal::Engine::push(const view_t & data) noexcept {
 			 * лишь с единственным дозволенным значением: за установленной связью она
 			 * не значит ничего, а иное её содержимое - это уже не она
 			 */
-			if((this->_state == context::state_t::ESTABLISHED) || (this->_state == context::state_t::CLOSED) || (this->_server && (this->_machine.stage() == flow::stage_t::GREETING)) || (payload.size != 1) || (payload.data[0] != 0x01))
+			if((this->_state == context::state_t::ESTABLISHED) || (this->_state == context::state_t::CLOSED) || (this->_server && !this->_retried && (this->_machine.stage() == flow::stage_t::GREETING)) || (payload.size != 1) || (payload.data[0] != 0x01))
 				// Выводим отказ прихода записи смены набора не в свой черёд
 				return this->abort(context::error_t::RECORD, alert::description_t::UNEXPECTED);
 			// Пропускаем запись, доставшуюся от предыдущих изданий протокола
@@ -9884,8 +10232,8 @@ context::error_t nts::internal::Engine::push(const view_t & data) noexcept {
 		 * защита вправе раздуть запись набивкой, и предел этот стережёт уже вскрытое
 		 * содержимое, а не пришедшую запись
 		 */
-		if(content.size > this->_incoming)
-			// Выводим отказ выхода открытого содержимого за дозволенный предел
+		if(content.size > ((this->_server && this->_retried && !this->_earlying && (this->_state == context::state_t::HANDSHAKE)) ? record::RECORD_CIPHERTEXT : this->_incoming))
+			// Выводим отказ выхода открытого содержимого за дозволенный предел: записи упреждения до просьбы о повторе ещё не вскрыты и меряются пределом шифртекста (раздел 4.2.10 RFC 8446)
 			return this->abort(context::error_t::RECORD, alert::description_t::OVERSIZE);
 		/**
 		 * Раздел 6.1 RFC 8446 велит пропускать всё, что пришло за извещением о
@@ -10026,16 +10374,14 @@ context::error_t nts::internal::Engine::push(const view_t & data) noexcept {
 					return this->abort(context::error_t::MEMORY, alert::description_t::INTERNAL);
 				}
 			} break;
-			/**
-			 * RFC 6520: сердцебиение принимается лишь при предложенном расширении и роняется
-			 * молча - ответа HeartbeatResponse нет намеренно (усилитель и поддержание связи
-			 * собеседнику не даются; отпечаток - это октеты приветствия, не поведение на приём)
-			 */
+			// Если принята запись сердцебиения (RFC 6520)
 			case static_cast <uint8_t> (record::type_t::HEARTBEAT): {
-				// Если heartbeat не предлагался, запись неожиданна
-				if(!this->_heartbeating)
-					// Выходим с ошибкой
-					return this->abort(context::error_t::RECORD, alert::description_t::UNEXPECTED);
+				// Выполняем разбор сердцебиения: запрос отвечается, ответ сличается, негодное роняется молча
+				error = this->pulse(content);
+				// Если связь оборвана
+				if(error != context::error_t::NONE)
+					// Выводим отказ
+					return error;
 			} break;
 			/**
 			 * Ветвь эта достижима: раздел 5 RFC 8446 велит обрывать связь извещением
@@ -10045,8 +10391,8 @@ context::error_t nts::internal::Engine::push(const view_t & data) noexcept {
 			default: return this->abort(context::error_t::RECORD, alert::description_t::UNEXPECTED);
 		}
 	}
-	// Если ответная смена ключей задолжена собеседнику
-	if(this->_owed && (this->_state == context::state_t::ESTABLISHED)){
+	// Если ответная смена ключей задолжена собеседнику и своя смена подтверждена
+	if(this->_owed && (this->_state == context::state_t::ESTABLISHED) && !this->rotating()){
 		// Сбрасываем признак задолженной смены ключей
 		this->_owed = false;
 		// Выполняем ответную смену ключей своего направления
@@ -10129,16 +10475,21 @@ context::error_t nts::internal::Engine::write(const view_t & data) noexcept {
 		if(early && ((static_cast <uint64_t> (this->_passed) + data.size) > static_cast <uint64_t> (this->_resume.advance)))
 			// Выводим отказ выхода за предел упреждающих данных
 			return context::error_t::LIMIT;
-		// Если ответная смена ключей задолжена собеседнику
-		if(this->_owed && !early){
-			// Сбрасываем признак задолженной смены ключей
-			this->_owed = false;
+		/**
+		 * Если ответная смена ключей задолжена собеседнику: над дейтаграммами своя
+		 * неподтверждённая смена не даёт начать следующую (раздел 8 RFC 9147) - долг
+		 * остаётся за receive(), а данные уходят нынешними ключами; сброс долга лишь по
+		 * удаче, иначе ответ по разделу 4.6.3 RFC 8446 терялся бы навсегда
+		 */
+		if(this->_owed && !early && !this->rotating()){
 			// Выполняем ответную смену ключей прежде отправки прикладных данных
 			const context::error_t settled = this->update(false);
 			// Если ответную смену ключей выполнить не удалось
 			if(settled != context::error_t::NONE)
 				// Выводим отказ смены ключевого материала своего направления
 				return settled;
+			// Сбрасываем признак задолженной смены ключей
+			this->_owed = false;
 		}
 		// Если отправляемые прикладные данные не переданы
 		if((data.data == nullptr) || (data.size == 0))
@@ -10489,15 +10840,15 @@ context::error_t nts::internal::Engine::issue() noexcept {
 			// Переносим ключ выданного билета возобновления связи длиною в хеш набора
 			item.secret.assign(secret, secret + this->_secrets.size());
 			// Добавляем выданный билет в перечень билетов связи
-			this->_tickets.push_back(item);
+			this->_tickets.push_back(::move(item));
 		/**
 		 * Если памяти под билет не хватило
 		 */
 		} catch(const bad_alloc &) {
 			// Выполняем затирание ключа выданного билета
 			wipe(secret, sizeof(secret));
-			// Выводим отказ нехватки памяти
-			return context::error_t::MEMORY;
+			// Выводим отказ нехватки памяти: сообщение уже снято со сборщика, связь обрывается
+			return this->abort(context::error_t::MEMORY, alert::description_t::INTERNAL);
 		}
 		// Выполняем затирание ключа выданного билета
 		wipe(secret, sizeof(secret));
@@ -11132,7 +11483,18 @@ context::error_t nts::internal::Engine::welcome(const hello::client_t & greeting
 			// Выводим ошибку
 			return failure;
 		// Если клиент предложил heartbeat (RFC 6520), его записи вида 24 будут роняться молча
-		this->_heartbeating = (hello::extension(greeting.extensions, HEARTBEAT_EXTENSION) != nullptr);
+		{
+			// Расширение heartbeat приветствия клиента
+			const hello::extension_t * beat = hello::extension(greeting.extensions, HEARTBEAT_EXTENSION);
+			// Раздел 2 RFC 6520: режим - один октет со значением 1 либо 2, иное обрывает связь illegal_parameter
+			if((beat != nullptr) && ((beat->data.size != 1) || ((beat->data.data[0] != 1) && (beat->data.data[0] != 2))))
+				// Выводим отказ негодных параметров
+				return this->abort(context::error_t::MESSAGE, alert::description_t::PARAMETER);
+			// Запоминаем предложение
+			this->_heartbeating = (beat != nullptr);
+			// Раздел 2 RFC 6520: запросы клиенту шлются лишь при peer_allowed_to_send (1)
+			this->_permitted = ((beat != nullptr) && (beat->data.data[0] == 1));
+		}
 		// Выполняем сброс признака выработки NPN
 		this->_negotiated = false;
 		// Разыскиваем расширение выработки NPN
@@ -11321,8 +11683,8 @@ context::error_t nts::internal::Engine::welcome(const hello::client_t & greeting
 			 * Выполняем перебор кривых обмена ключами, предлагаемых связью: выбор идёт порядком сервера
 			 */
 			for(size_t i = 0; (i < this->_groups.size()) && (this->_group == extension::group_t::NONE); i++){
-				// Изданию TLS 1.2 годны лишь классические кривые: X25519 и кривые NIST (RFC 8422)
-				if(!classic(this->_groups[i]))
+				// Изданию TLS 1.2 годны лишь классические кривые RFC 8422: X25519, X448, кривые NIST и secp256k1; конечное поле без наборов DHE не годно
+				if(!classic(this->_groups[i]) || !fitting(this->_groups[i], true))
 					// Переходим к следующей кривой обмена ключами
 					continue;
 				/**
@@ -11452,6 +11814,10 @@ context::error_t nts::internal::Engine::welcome(const hello::client_t & greeting
 		if(this->_etm)
 			// Добавляем расширение encrypt_then_mac
 			answer.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::ETM), view_t(nullptr, 0)));
+		// Если клиент предложил heartbeat: раздел 2 RFC 6520 велит ответить своим режимом - запросы собеседника принимаются
+		if(this->_heartbeating)
+			// Добавляем расширение heartbeat с режимом peer_allowed_to_send
+			answer.extensions.push_back(hello::extension_t(HEARTBEAT_EXTENSION, view_t(&HEARTBEAT_ALLOWED, 1)));
 		// Раздел 3.3 RFC 5077: пустое расширение session_ticket обещает клиенту билет сеанса
 		if(this->_ticketing)
 			// Добавляем расширение билета сеанса
@@ -11643,6 +12009,10 @@ context::error_t nts::internal::Engine::greeted(const hello::server_t & answer, 
 			// Запоминаем совпадение выбранного набора шифрования с предложенным
 			suitable = (suite == this->_suites[i]);
 		// Если сервер выбрал набор профиля отпечатка, связи неведомый: профиль исполнить нельзя
+		// Раздел 4 RFC 5288: изданием DTLS 1.0 набор AEAD не ведётся - клиент с перечнем из обоих родов обязан отвергнуть такой ответ
+		if(suitable && oldest && !archaic(suite))
+			// Выводим отказ набора
+			return this->abort(context::error_t::SUITE, alert::description_t::PARAMETER);
 		if(!suitable && this->_profiled && this->carried(answer.suite))
 			// Выводим отказ исполнения профиля
 			return this->abort(context::error_t::PROFILE, alert::description_t::PARAMETER);
@@ -11852,6 +12222,19 @@ context::error_t nts::internal::Engine::greeted(const hello::server_t & answer, 
 							return this->abort(context::error_t::MEMORY, alert::description_t::INTERNAL);
 						}
 					}
+				} break;
+				// Если сервер ответил расширением heartbeat (RFC 6520)
+				case HEARTBEAT_EXTENSION: {
+					// Раздел 7.4.1.4 RFC 5246: расширение, связью не предложенное, обрывает связь
+					if(!this->_heartbeating)
+						// Выводим отказ неподдержанного расширения
+						return this->abort(context::error_t::MESSAGE, alert::description_t::UNSUPPORTED);
+					// Раздел 2 RFC 6520: режим - один октет со значением 1 либо 2
+					if((data.size != 1) || ((data.data[0] != 1) && (data.data[0] != 2)))
+						// Выводим отказ негодных параметров
+						return this->abort(context::error_t::MESSAGE, alert::description_t::PARAMETER);
+					// Запоминаем дозволение слать запросы
+					this->_permitted = (data.data[0] == 1);
 				} break;
 				// Раздел 3 RFC 7366: порядок «шифрование, затем имитовставка» подтверждается пустым расширением
 				case static_cast <uint16_t> (extension::type_t::ETM): {
@@ -12397,7 +12780,7 @@ context::error_t nts::internal::Engine::agreed(const view_t & body) noexcept {
 		 * кривых NIST; сжатая либо чужая точка отвергается illegal_parameter прежде подписи -
 		 * подпись над негодной точкой сверять незачем
 		 */
-		if(!classic(group) || (point.size != extension::length(group)) || ((group != extension::group_t::X25519) && (point.data[0] != 0x04)))
+		if(!classic(group) || !fitting(group, true) || (point.size != extension::length(group)) || (!montgomery(group) && (point.data[0] != 0x04)))
 			// Выводим отказ негодной записи точки
 			return context::error_t::EXCHANGE;
 		// Отказ разбора обмена ключами
@@ -12428,7 +12811,7 @@ context::error_t nts::internal::Engine::agreed(const view_t & body) noexcept {
 			// Выводим отказ выработки мимолётной пары ключей
 			return failure;
 		// Место, в которое помещается общее значение обмена ключами
-		uint8_t shared[agreement::MLKEM_SHARED + math::NUMBER_SIZE];
+		uint8_t shared[agreement::MLKEM_SHARED + agreement::FFDHE_MOST];
 		// Длина общего значения обмена ключами
 		size_t length = 0;
 		// Выполняем выработку общего значения обмена ключами
@@ -12869,7 +13252,7 @@ context::error_t nts::internal::Engine::exchanged(const view_t & body) noexcept 
 				// Выводим отказ разбора обмена ключами клиента
 				return context::error_t::MESSAGE;
 			// Место, в которое помещается общее значение обмена ключами
-			uint8_t shared[agreement::MLKEM_SHARED + math::NUMBER_SIZE];
+			uint8_t shared[agreement::MLKEM_SHARED + agreement::FFDHE_MOST];
 			// Длина общего значения обмена ключами
 			size_t length = 0;
 			// Выполняем выработку общего значения обмена ключами на кривой, выбранной сервером
@@ -13289,6 +13672,8 @@ context::error_t nts::internal::Engine::granting() noexcept {
 		::memcpy(state.master, this->_master, sizeof(state.master));
 		// Раздел 3.1 RFC 7366: билет помнит порядок защиты записей выдавшей связи
 		state.etm = this->_etm;
+		// Издание выдавшей связи
+		state.ancient = this->_ancient;
 		// Раздел 7.4.8 RFC 5246: подлинность клиента проверена, коли цепочка непуста - подпись владения ключом сошлась до завершения
 		state.verified = !this->_peer.empty();
 		// Устанавливаем миг выдачи билета
@@ -13440,6 +13825,14 @@ bool nts::internal::Engine::recalling(const hello::client_t & greeting, const bo
 	if(!protect::legacy(state.suite))
 		// Выводим негодность билета
 		return false;
+	// Раздел 3.4 RFC 5077: билет возобновляет связь лишь тем же изданием; набор GCM ниже 1.2 запрещён (раздел 4 RFC 5288)
+	if((this->_ancient != state.ancient) || (this->_ancient && !archaic(state.suite)))
+		// Выводим негодность билета
+		return false;
+	// Раздел 3.1 RFC 7366: строгий порядок при билете без него ведёт к полному рукопожатию, а не к обрыву
+	if(this->_strict && !state.etm && (protect::mac(state.suite) != digest::hash_t::NONE))
+		// Выводим негодность билета
+		return false;
 	// Билет в записи потребителя ради суждения о сроке
 	context::ticket_t item;
 	// Устанавливаем миг выдачи
@@ -13463,10 +13856,11 @@ bool nts::internal::Engine::recalling(const hello::client_t & greeting, const bo
 	if(!suitable)
 		// Выводим негодность билета
 		return false;
-	// Раздел 3.1 RFC 7301: прикладной протокол возобновлённой связи обязан сойтись с протоколом выдавшей билет
-	if(state.protocol.compare(this->_protocol) != 0)
-		// Выводим негодность билета
-		return false;
+	/**
+	 * Раздел 3.1 RFC 7301: прикладной протокол - свойство связи, не сеанса; при
+	 * возобновлении берётся лишь протокол нового рукопожатия, прежний в билете не
+	 * судится (сверка с ним отказывала бы в возобновлении там, где стандарт велит)
+	 */
 	/**
 	 * Раздел 3.1 RFC 7366: порядок «шифрование, затем имитовставка» не понижается -
 	 * связь с ETM возобновляется лишь клиентом, предложившим его вновь; иначе
@@ -13969,6 +14363,37 @@ context::error_t nts::internal::Engine::ech(const view_t & configs) noexcept {
  *
  */
 context::error_t nts::internal::Engine::ech(const view_t & secret, const string & name, const uint8_t id, const uint8_t length) noexcept {
+	// Добавляем объявляемую конфигурацию
+	return this->serving(secret, name, id, length, true);
+}
+/**
+ * @brief Метод установки удержанной конфигурации ECH серверу: принимается, но не объявляется
+ *
+ * @param secret секретный ключ X25519 либо пусто
+ * @param name   публичное имя конфигурации
+ * @param id     опознаватель конфигурации
+ * @param length наибольшая длина имени
+ *
+ * @return       отказ установки
+ *
+ */
+context::error_t nts::internal::Engine::retain(const view_t & secret, const string & name, const uint8_t id, const uint8_t length) noexcept {
+	// Добавляем удержанную конфигурацию
+	return this->serving(secret, name, id, length, false);
+}
+/**
+ * @brief Метод добавления служимой конфигурации ECH
+ *
+ * @param secret     секретный ключ X25519 либо пусто
+ * @param name       публичное имя конфигурации
+ * @param id         опознаватель конфигурации
+ * @param length     наибольшая длина имени
+ * @param advertised признак объявления конфигурации в перечне
+ *
+ * @return           отказ установки
+ *
+ */
+context::error_t nts::internal::Engine::serving(const view_t & secret, const string & name, const uint8_t id, const uint8_t length, const bool advertised) noexcept {
 	// Ключ ставится лишь до заведения связи
 	if(this->_state != context::state_t::NONE)
 		// Выводим отказ негодного состояния связи
@@ -13981,14 +14406,27 @@ context::error_t nts::internal::Engine::ech(const view_t & secret, const string 
 	if(!this->_server || name.empty() || (name.size() > ech::ECH_NAME))
 		// Выводим отказ настроек связи
 		return context::error_t::SETTINGS;
+	// Место прежней конфигурации с тем же опознавателем: она заменяется, ведь клиенту не подобрать ключ по одному опознавателю на два ключа (раздел 7.1 RFC 9849)
+	size_t replaced = this->_serving.size();
+	/**
+	 * Выполняем перебор служимых конфигураций
+	 */
+	for(size_t i = 0; (i < this->_serving.size()) && (replaced == this->_serving.size()); i++){
+		// Если опознаватель занят
+		if(this->_serving[i].config.id == id)
+			// Запоминаем место замены
+			replaced = i;
+	}
 	/**
 	 * Выполняем перехват ошибок работы с памятью
 	 */
 	try {
-		// Ключ HPKE сервера
-		hpke::key_t key;
+		// Служимая конфигурация
+		served_t item;
+		// Признак объявления
+		item.advertised = advertised;
 		// Отказ заведения ключа: заданный секрет либо порождение
-		const hpke::error_t keyed = ((secret.size == 0) ? key.generate(hpke::kem_t::X25519_HKDF_SHA256) : key.set(hpke::kem_t::X25519_HKDF_SHA256, secret));
+		const hpke::error_t keyed = ((secret.size == 0) ? item.key.generate(hpke::kem_t::X25519_HKDF_SHA256) : item.key.set(hpke::kem_t::X25519_HKDF_SHA256, secret));
 		// Если ключ завести не удалось
 		if(keyed != hpke::error_t::NONE)
 			// Выводим отказ: нехватка памяти своим кодом, прочее - настройками
@@ -14002,7 +14440,7 @@ context::error_t nts::internal::Engine::ech(const view_t & secret, const string 
 		// Способ инкапсуляции
 		config.kem = hpke::kem_t::X25519_HKDF_SHA256;
 		// Открытая часть ключа
-		config.key.assign(key.point().data, key.point().data + key.point().size);
+		config.key.assign(item.key.point().data, item.key.point().data + item.key.point().size);
 		// Наборы: обязательный AES-128-GCM и ChaCha20-Poly1305, оба на HKDF-SHA256
 		config.suites.push_back(ech::suite_t(hpke::kdf_t::HKDF_SHA256, hpke::aead_t::AES_128_GCM));
 		config.suites.push_back(ech::suite_t(hpke::kdf_t::HKDF_SHA256, hpke::aead_t::CHACHA20_POLY1305));
@@ -14014,24 +14452,39 @@ context::error_t nts::internal::Engine::ech(const view_t & secret, const string 
 		if(ech::build(config, raw) != ech::error_t::NONE)
 			// Выводим отказ нехватки памяти
 			return context::error_t::MEMORY;
-		// Служимая конфигурация: разбирается из записи, чтобы хранить себя как записана
-		ech::config_t served;
-		// Если конфигурацию разобрать не удалось
-		if(ech::parse(view_t(raw.data(), raw.size()), served) != ech::error_t::NONE)
+		// Служимая конфигурация разбирается из записи, чтобы хранить себя как записана
+		if(ech::parse(view_t(raw.data(), raw.size()), item.config) != ech::error_t::NONE)
 			// Выводим отказ нехватки памяти
 			return context::error_t::MEMORY;
+		// Объявляемые конфигурации для перечня DNS и retry_configs
+		vector <ech::config_t> listed;
+		/**
+		 * Выполняем перебор служимых конфигураций без заменяемой
+		 */
+		for(size_t i = 0; i < this->_serving.size(); i++){
+			// Если конфигурация объявляется и не заменяется
+			if(this->_serving[i].advertised && (i != replaced))
+				// Добавляем конфигурацию в перечень
+				listed.push_back(this->_serving[i].config);
+		}
+		// Если новая конфигурация объявляется
+		if(advertised)
+			// Добавляем её в перечень
+			listed.push_back(item.config);
 		// Перечень для DNS
 		vector <uint8_t> list;
-		// Если перечень составить не удалось
-		if(ech::build(vector <ech::config_t> {served}, list) != ech::error_t::NONE)
+		// Если перечень непуст и составить его не удалось
+		if(!listed.empty() && (ech::build(listed, list) != ech::error_t::NONE))
 			// Выводим отказ нехватки памяти
 			return context::error_t::MEMORY;
-		// Если ключ перенести не удалось
-		if(this->_echkey.set(hpke::kem_t::X25519_HKDF_SHA256, key.secret()) != hpke::error_t::NONE)
-			// Выводим отказ нехватки памяти
-			return context::error_t::MEMORY;
-		// Запоминаем конфигурацию
-		this->_served = served;
+		// Если конфигурация заменяет прежнюю
+		if(replaced < this->_serving.size())
+			// Заменяем конфигурацию
+			this->_serving[replaced] = item;
+		// Если конфигурация новая
+		else
+			// Запоминаем конфигурацию
+			this->_serving.push_back(item);
 		// Запоминаем перечень для DNS
 		this->_echlist.swap(list);
 		// Выводим успешность установки
@@ -14564,16 +15017,40 @@ context::error_t nts::internal::Engine::unshrouding(const hello::client_t & gree
 				return context::error_t::MESSAGE;
 		// Если приветствие первое: конфигурация подбирается по опознавателю и набору
 		} else {
-			// Признак того, что набор расширения признаётся конфигурацией
-			bool listed = false;
 			/**
-			 * Выполняем перебор наборов конфигурации
+			 * Раздел 7.1.1 RFC 9849: если первое приветствие ECH не несло либо ECH был
+			 * отвергнут, за просьбой о повторе связь идёт как обычная - свежий enc во втором
+			 * приветствии не принимается, иначе первая половина переписки шла бы открытым
+			 * именем, а вторая - скрытым
 			 */
-			for(size_t i = 0; (i < this->_served.suites.size()) && !listed; i++)
-				// Запоминаем совпадение набора
-				listed = ((this->_served.suites[i].kdf == hello.suite.kdf) && (this->_served.suites[i].aead == hello.suite.aead));
-			// Если опознаватель, набор либо ключ не отвечают конфигурации: ECH отвергается
-			if((hello.id != this->_served.id) || !listed || (hello.enc.size() != agreement::X25519_SIZE)){
+			if(this->_retried){
+				// Запоминаем отказ ECH
+				this->_echrejected = true;
+				// Выводим успешность: связь идёт по внешнему приветствию
+				return context::error_t::NONE;
+			}
+			// Служимая конфигурация, отвечающая опознавателю и набору приветствия
+			const served_t * chosen = nullptr;
+			/**
+			 * Выполняем перебор служимых конфигураций: объявленные и удержанные равно годны
+			 */
+			for(size_t i = 0; (i < this->_serving.size()) && (chosen == nullptr); i++){
+				// Если опознаватель не совпал
+				if(this->_serving[i].config.id != hello.id)
+					// Переходим к следующей конфигурации
+					continue;
+				/**
+				 * Выполняем перебор наборов конфигурации
+				 */
+				for(size_t j = 0; (j < this->_serving[i].config.suites.size()) && (chosen == nullptr); j++){
+					// Если набор совпал
+					if((this->_serving[i].config.suites[j].kdf == hello.suite.kdf) && (this->_serving[i].config.suites[j].aead == hello.suite.aead))
+						// Запоминаем конфигурацию
+						chosen = &this->_serving[i];
+				}
+			}
+			// Если конфигурации по опознавателю и набору нет либо ключ негодной длины: ECH отвергается
+			if((chosen == nullptr) || (hello.enc.size() != agreement::X25519_SIZE)){
 				// Запоминаем отказ ECH: клиент получит запасные конфигурации
 				this->_echrejected = true;
 				// Выводим успешность: связь идёт по внешнему приветствию
@@ -14582,19 +15059,19 @@ context::error_t nts::internal::Engine::unshrouding(const hello::client_t & gree
 			// Привязка HPKE
 			vector <uint8_t> info;
 			// Если привязку составить не удалось
-			if(ech::binding(view_t(this->_served.raw.data(), this->_served.raw.size()), info) != ech::error_t::NONE)
+			if(ech::binding(view_t(chosen->config.raw.data(), chosen->config.raw.size()), info) != ech::error_t::NONE)
 				// Выводим отказ нехватки памяти
 				return context::error_t::MEMORY;
 			// Набор HPKE
 			hpke::suite_t item;
 			// Способ инкапсуляции
-			item.kem = this->_served.kem;
+			item.kem = chosen->config.kem;
 			// Функция вывода
 			item.kdf = hello.suite.kdf;
 			// Шифр
 			item.aead = hello.suite.aead;
 			// Отказ заведения получателя HPKE
-			const hpke::error_t established = hpke::recipient(item, hpke::regime_t::BASE, this->_echkey, view_t(hello.enc.data(), hello.enc.size()), view_t(info.data(), info.size()), hpke::shared_t(), view_t(nullptr, 0), this->_opener);
+			const hpke::error_t established = hpke::recipient(item, hpke::regime_t::BASE, chosen->key, view_t(hello.enc.data(), hello.enc.size()), view_t(info.data(), info.size()), hpke::shared_t(), view_t(nullptr, 0), this->_opener);
 			// Если памяти не хватило
 			if(established == hpke::error_t::MEMORY)
 				// Выводим отказ нехватки памяти
@@ -15839,14 +16316,28 @@ context::error_t nts::internal::Engine::receive(const view_t & data) noexcept {
 					// Переходим к следующей записи
 					continue;
 				}
-				// Раздел 7.1 RFC 5246: смена несёт единственный байт со значением один и идёт нулевой порой
-				if((records[i].epoch != 0) || (content.size != 1) || (content.data[0] != 0x01))
-					// Выводим отказ негодной смены набора шифрования
-					return this->abort(context::error_t::RECORD, alert::description_t::UNEXPECTED);
-				// Раздел 4.2.4 RFC 6347: повтор залпа собеседника несёт смену набора вновь - она уже принята
+				// Раздел 4.2.4 RFC 6347: повтор залпа собеседника несёт смену набора вновь - она уже принята; чужая открытая запись за сменой ключей судится прежде тела
 				if(this->_opening || this->_switched)
 					// Переходим к следующей записи
 					continue;
+				/**
+				 * Раздел 7.1 RFC 5246: смена несёт единственный байт со значением один и идёт
+				 * нулевой порой. По установленной связи открытая запись ничем не подписана, и
+				 * негодная роняется молча (раздел 4.1.2.7 RFC 6347: связь сохраняется) - иначе
+				 * одна поддельная дейтаграмма со стороны убивала бы связь; на рукопожатии
+				 * негодная смена - отказ, как прежде
+				 */
+				if((records[i].epoch != 0) || (content.size != 1) || (content.data[0] != 0x01)){
+					// Если связь установлена
+					if(this->_state == context::state_t::ESTABLISHED){
+						// Считаем отброшенную запись
+						this->_flight.discard(datagram::reason_t::PLAIN);
+						// Переходим к следующей записи
+						continue;
+					}
+					// Выводим отказ негодной смены набора шифрования
+					return this->abort(context::error_t::RECORD, alert::description_t::UNEXPECTED);
+				}
 				// Если клиент с предъявленным билетом ждёт первого сообщения за приветствием сервера: смена набора означает сокращённое рукопожатие
 				if(!this->_server && (this->_phase == phase_t::EITHER)){
 					// Отказ суждения о виде рукопожатия
@@ -15918,6 +16409,13 @@ context::error_t nts::internal::Engine::receive(const view_t & data) noexcept {
 				 * рукопожатия собеседника: раздел 5.8 RFC 9147 велит ждать повтора, а не
 				 * рвать связь
 				 */
+				// Прикладные данные ходят лишь защищённой записью: открытая запись эпохи 0 роняется (раздел 4 RFC 9147)
+				if(records[i].epoch == 0){
+					// Считаем отброшенную запись
+					this->_flight.discard(datagram::reason_t::PLAIN);
+					// Переходим к следующей записи
+					continue;
+				}
 				if((this->_state != context::state_t::ESTABLISHED) && (this->_state != context::state_t::CLOSED)){
 					// Считаем отброшенную запись
 					this->_flight.discard(datagram::reason_t::PREMATURE);
@@ -15947,6 +16445,15 @@ context::error_t nts::internal::Engine::receive(const view_t & data) noexcept {
 				if(error != context::error_t::NONE)
 					// Выводим отказ смены ключевого материала своего направления
 					return this->abort(error, alert::description_t::INTERNAL);
+			} break;
+			// Если принята запись сердцебиения (RFC 6520): дейтаграммный перенос отвечает так же
+			case static_cast <uint8_t> (record::type_t::HEARTBEAT): {
+				// Выполняем разбор сердцебиения
+				error = this->pulse(content);
+				// Если связь оборвана
+				if(error != context::error_t::NONE)
+					// Выводим отказ
+					return error;
 			} break;
 			// Если принята запись неведомого содержимого
 			default: this->_flight.discard(datagram::reason_t::TYPE);
@@ -16171,7 +16678,7 @@ nts::internal::Engine::Engine(const bool server) noexcept :
 	_closed(false), _drained(false), _lifetime(TERM), _ticket(protect::suite_t::NONE), _skipped(0), _starved(false),
 	_transport(context::transport_t::RECORDS), _acquired(false), _pushed(context::level_t::NONE), _width(0), _ventured(false), _judged(false),
 	_inflation(INFLATION), _squeezed(0), _inflated(0),
-	_inquiring(false), _inquired(false), _verifying(false), _leeway(0), _certified(ocsp::status_t::NONE), _stamping(false), _stamped(false), _outgoing(record::RECORD_PLAINTEXT), _incoming(record::RECORD_PLAINTEXT), _sizing(0), _bounded(0), _fragmented(0), _bounding(0), _fragmenting(0), _sized{0, 0}, _heartbeating(false), _negotiating(false), _negotiated(false), _announced(false), _reshare(true), _greasing(false), _profiled(false), _ech(ech_t::NONE), _shroud(0), _echaccepted(false), _echrejected(false), _unshrouding(false),
+	_inquiring(false), _inquired(false), _verifying(false), _leeway(0), _certified(ocsp::status_t::NONE), _stamping(false), _stamped(false), _outgoing(record::RECORD_PLAINTEXT), _incoming(record::RECORD_PLAINTEXT), _sizing(0), _bounded(0), _fragmented(0), _bounding(0), _fragmenting(0), _sized{0, 0}, _heartbeating(false), _permitted(false), _beating(false), _pulses(0), _negotiating(false), _negotiated(false), _announced(false), _reshare(true), _greasing(false), _profiled(false), _ech(ech_t::NONE), _shroud(0), _echaccepted(false), _echrejected(false), _unshrouding(false),
 	_queries(0), _confirmed(false), _delivered(0), _switched(false),
 	_lowest(LEGACY), _highest(MODERN), _version(0), _legacy(false), _ancient(false), _proposed(false), _own(true), _phase(phase_t::NONE), _sealing(false), _opening(false), _stapling(false),
 	_claimed(0), _etm(false), _strict(false), _ticketing(false), _presented(false), _resumed(false) {

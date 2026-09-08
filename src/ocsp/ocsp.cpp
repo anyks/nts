@@ -521,6 +521,27 @@ namespace {
 		if(!same(candidate.issuers().element, issuer.subjects().element))
 			// Выводим отказ права ответчика
 			return ocsp::error_t::RESPONDER;
+		// Раздел 4.2 RFC 5280: критичное расширение, библиотеке неведомое, делает сертификат ответчика негодным - как у звеньев цепочки доверия
+		if(!x509::recognized(candidate))
+			// Выводим отказ права ответчика
+			return ocsp::error_t::RESPONDER;
+		// Расширение назначения ключа
+		const x509::extension_t * keyed = candidate.extension("2.5.29.15");
+		// Если назначение ключа объявлено
+		if(keyed != nullptr){
+			// Разряды назначения
+			uint16_t usage = 0;
+			// Отказ разбора назначения
+			const x509::error_t outcome = x509::usage(*keyed, usage);
+			// Если памяти не хватило
+			if(outcome == x509::error_t::MEMORY)
+				// Выводим отказ нехватки памяти
+				return ocsp::error_t::MEMORY;
+			// Раздел 4.2.2.2 RFC 6960: ответ подписывается ключом, назначенным подписи
+			if((outcome != x509::error_t::NONE) || ((usage & static_cast <uint16_t> (x509::usage_t::SIGNATURE)) == 0))
+				// Выводим отказ права ответчика
+				return ocsp::error_t::RESPONDER;
+		}
 		// Если сроки судить дозволено
 		if(moment != 0){
 			// Границы срока действия приложенного сертификата

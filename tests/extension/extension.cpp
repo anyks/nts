@@ -500,10 +500,8 @@ TEST(ExtensionTest, Reject){
 	const uint8_t twofold[] = {
 		0x00, 0x0C, 0x00, 0x00, 0x03, 0x61, 0x62, 0x63,
 		0x00, 0x00, 0x03, 0x64, 0x65, 0x66};
-	// Выполняем разбор перечня с двумя именами узлов своего вида
-	ASSERT_EQ(extension::name(view_t(twofold, sizeof(twofold)), name), extension::error_t::NONE);
-	// Проверяем длину разобранного имени запрашиваемого узла
-	ASSERT_EQ(name.size, static_cast <size_t> (3));
+	// Выполняем разбор перечня с двумя именами узлов своего вида: раздел 3 RFC 6066 двух имён одного вида не дозволяет (аудит 09.09.2026, прежняя терпимость снята)
+	ASSERT_EQ(extension::name(view_t(twofold, sizeof(twofold)), name), extension::error_t::TRAILING);
 	// Проверяем, что разобрано именно первое имя узла перечня
 	ASSERT_EQ(::memcmp(name.data, "abc", name.size), 0);
 	// Разобранная метка возврата состояния сервера
@@ -974,10 +972,8 @@ TEST(ExtensionTest, Requested){
 		0x00, 0x0F, 0x00, 0x00, 0x05, 0x66, 0x69, 0x72, 0x73, 0x74,
 		0x00, 0x00, 0x04, 0x6C, 0x61, 0x73, 0x74
 	};
-	// Проверяем успешность разбора перечня из двух имён узлов
-	ASSERT_EQ(extension::name(view_t(twofold.data(), twofold.size()), name), extension::error_t::NONE);
-	// Проверяем, что именем узла взято первое из объявленных
-	ASSERT_EQ(::memcmp(name.data, "first", name.size), 0);
+	// Перечень из двух имён узлов отвергается: раздел 3 RFC 6066 (аудит 09.09.2026, прежняя терпимость «берётся первое» снята)
+	ASSERT_EQ(extension::name(view_t(twofold.data(), twofold.size()), name), extension::error_t::TRAILING);
 }
 
 /**

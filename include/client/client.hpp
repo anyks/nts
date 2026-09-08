@@ -178,6 +178,53 @@ namespace nts {
 				bool established() const noexcept;
 				/**
 				 * \~russian
+				 * @brief Метод отправки запроса сердцебиения (RFC 6520)
+				 *
+				 * @param payload нагрузка запроса: ответ собеседника обязан вернуть её слово в слово
+				 *
+				 * @details Запрос идёт лишь по установленной связи издания TLS 1.2 либо DTLS 1.2, при
+				 *          предложенном расширении heartbeat (0x000F, из профиля отпечатка) и дозволении
+				 *          собеседника peer_allowed_to_send, по одному до ответа (раздел 4 RFC 6520). Сообщение
+				 *          несёт вид, длину нагрузки, нагрузку и шестнадцать случайных байтов заполнения.
+				 *          Ответ с ожидаемой нагрузкой считается в `pulses()`, иной роняется молча
+				 *
+				 * @return  отказ отправки: STATE вне установленной связи либо при запросе в пути, SETTINGS без
+				 *          расширения либо дозволения, LIMIT при нагрузке шире записи
+				 *
+				 * \~english
+				 * @brief Method of sending a heartbeat request (RFC 6520)
+				 *
+				 * @param payload the payload of the request: the response of the peer must return it word for word
+				 *
+				 * @details The request goes only over an established connection of the edition TLS 1.2 or DTLS 1.2,
+				 *          with the heartbeat extension offered (0x000F, from a fingerprint profile) and the
+				 *          peer_allowed_to_send permission of the peer, one at a time until a response (the section 4
+				 *          of RFC 6520). The message carries the type, the length of the payload, the payload and
+				 *          sixteen random bytes of padding. A response with the expected payload is counted in
+				 *          `pulses()`, another one is dropped silently
+				 *
+				 * @return  the failure of the sending: STATE outside an established connection or with a request in
+				 *          flight, SETTINGS without the extension or the permission, LIMIT at a payload wider than a record
+				 *
+				 * \~
+				 */
+				context::error_t heartbeat(const view_t & payload) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения числа принятых ответов на свои запросы сердцебиения
+				 *
+				 * @return число ответов с ожидаемой нагрузкой
+				 *
+				 * \~english
+				 * @brief Method of getting the number of the received responses to one's own heartbeat requests
+				 *
+				 * @return the number of the responses with the expected payload
+				 *
+				 * \~
+				 */
+				size_t pulses() const noexcept;
+				/**
+				 * \~russian
 				 * @brief Метод получения предела длины открытого содержимого отправляемой записи
 				 *
 				 * @details Предел, объявленный собеседником расширением record_size_limit (RFC 8449)

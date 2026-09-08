@@ -1453,3 +1453,25 @@ TEST(ProtectTest, Chaining){
 		}
 	}
 }
+
+/**
+ * Единая запись с присоединёнными данными у наборов издания 1.2 отвергается состоянием, а не уходит
+ * за начало буфера вектора (у AES-GCM 1.2 вектор в четыре байта, у CBC - ноль)
+ */
+TEST(ProtectTest, LegacyUnified){
+	const protect::suite_t suites[] = {protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, protect::suite_t::ECDHE_ECDSA_AES_128_CBC_SHA256};
+	for(size_t s = 0; s < 2; s++){
+		protect::protection_t protection;
+		const std::vector <uint8_t> key(protect::key(suites[s]), 0x42);
+		const std::vector <uint8_t> vector(protect::block(suites[s]), 0x17);
+		const std::vector <uint8_t> mac(32, 0x33);
+		// У AES-GCM ключа имитовставки нет, у CBC он длиной хеша
+		ASSERT_TRUE((s == 0) ? protection.start(suites[s], view_t(key.data(), key.size()), view_t(vector.data(), vector.size())) : protection.start(suites[s], view_t(key.data(), key.size()), view_t(vector.data(), vector.size()), view_t(mac.data(), mac.size()))) << s;
+		const uint8_t associated[5] = {0x17, 0x03, 0x03, 0x00, 0x10};
+		const uint8_t content[16] = {0};
+		std::vector <uint8_t> result;
+		EXPECT_EQ(protection.seal(view_t(associated, sizeof(associated)), 1, record::type_t::APPLICATION, view_t(content, sizeof(content)), result, 0), protect::error_t::STATE) << s;
+		record::type_t type = record::type_t::NONE;
+		EXPECT_EQ(protection.open(view_t(associated, sizeof(associated)), 1, view_t(content, sizeof(content)), type, result), protect::error_t::STATE) << s;
+	}
+}

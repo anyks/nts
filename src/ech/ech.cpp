@@ -30,6 +30,7 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <ech/ech.hpp>
+#include <agreement/x25519.hpp>
 #include <digest/hkdf.hpp>
 
 /**
@@ -200,6 +201,22 @@ namespace {
 			// Выводим отказ записи
 			return ech::error_t::FORMAT;
 		// Читаем расширения конфигурации как записаны
+		/**
+		 * Раздел 4 RFC 9849: перечень расширений есть Extension<0..2^16-1> из вида (2 байта)
+		 * и тела с длиной (2 байта) - обрыв внутри перечня делает конфигурацию негодной
+		 */
+		for(size_t at = 0; at < length;){
+			// Если заголовка расширения не осталось
+			if((at + 4) > length)
+				return ech::error_t::FORMAT;
+			// Длина тела расширения
+			const size_t body = twain(data.data + offset + at + 2);
+			// Если тело выходит за перечень
+			if((at + 4 + body) > length)
+				return ech::error_t::FORMAT;
+			// Переходим за расширение
+			at += (4 + body);
+		}
 		result.extensions.assign(data.data + offset, data.data + offset + length);
 		// Выводим успешность разбора
 		return ech::error_t::NONE;
@@ -359,6 +376,19 @@ nts::ech::error_t nts::ech::parse(const view_t & data, vector <config_t> & resul
 			for(size_t i = 0; (i < config.suites.size()) && !usable; i++)
 				// Запоминаем признаваемость набора
 				usable = supported(config.kem, config.suites[i]);
+			/**
+			 * Раздел 4.2 RFC 9849: конфигурация с обязательным (старший разряд вида)
+			 * расширением, клиенту неведомым, пропускается; здесь неведомы все. Открытый
+			 * ключ обязан быть длиной ключа KEM, иначе отправителя HPKE не завести и
+			 * следующая годная конфигурация перечня осталась бы непопробованной
+			 */
+			for(size_t at = 0; usable && ((at + 4) <= config.extensions.size()); at += (4 + twain(config.extensions.data() + at + 2)))
+				// Обязательное расширение делает конфигурацию негодной
+				usable = ((config.extensions[at] & 0x80) == 0);
+			// Если ключ не длиной ключа KEM: у X25519 тридцать два байта
+			if(usable && (config.key.size() != agreement::X25519_SIZE))
+				// Конфигурация негодна
+				usable = false;
 			// Если конфигурация исполнима
 			if(usable)
 				// Добавляем конфигурацию в перечень
@@ -832,8 +862,8 @@ nts::ech::error_t nts::ech::encode(const hello::client_t & inner, const vector <
 			 * Выполняем перебор вынесенных расширений
 			 */
 			for(size_t i = 0; i < outsourced.size(); i++){
-				// Раздел 5.1 RFC 9849: само encrypted_client_hello выносить нельзя
-				if(outsourced[i] == ECH_EXTENSION)
+				// Раздел 5.1 RFC 9849: само encrypted_client_hello и ech_outer_extensions выносить нельзя
+				if((outsourced[i] == ECH_EXTENSION) || (outsourced[i] == ECH_OUTER))
 					// Выводим отказ ссылок
 					return error_t::OUTER;
 				// Дописываем вид расширения
@@ -862,8 +892,8 @@ nts::ech::error_t nts::ech::encode(const hello::client_t & inner, const vector <
 				if((carried > 0) && (place + carried != i))
 					// Выводим отказ ссылок
 					return error_t::OUTER;
-				// Если расширение не по порядку перечня
-				if(inner.extensions[i].type != outsourced[carried])
+				// Если вынесенных больше перечня (повтор вида во внутреннем приветствии) либо расширение не по порядку перечня
+				if((carried >= outsourced.size()) || (inner.extensions[i].type != outsourced[carried]))
 					// Выводим отказ ссылок
 					return error_t::OUTER;
 				// Если расширение первое из вынесенных
@@ -1028,8 +1058,8 @@ nts::ech::error_t nts::ech::decode(const view_t & encoded, const hello::client_t
 			for(size_t j = 1; j < data.size; j += 2){
 				// Вид расширения по ссылке
 				const uint16_t type = twain(data.data + j);
-				// Раздел 7.1 RFC 9849: ссылка на само encrypted_client_hello негодна
-				if(type == ECH_EXTENSION)
+				// Разделы 5.1 и 7.1 RFC 9849: ссылка на само encrypted_client_hello либо на ech_outer_extensions негодна - во внутреннем приветствии их быть не вправе
+				if((type == ECH_EXTENSION) || (type == ECH_OUTER))
 					// Выводим отказ ссылок
 					return error_t::OUTER;
 				/**

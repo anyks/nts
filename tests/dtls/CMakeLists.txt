@@ -11,7 +11,7 @@ target_compile_options(${TEST_DTLS_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
 target_compile_definitions(${TEST_DTLS_NAME} PRIVATE ANTS_CORPUS="${CMAKE_SOURCE_DIR}/tests/corpus")
 
 # Подключаем каталог общих заголовочных файлов набора проверок
-target_include_directories(${TEST_DTLS_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/tests" "${CMAKE_SOURCE_DIR}/tests/classic")
+target_include_directories(${TEST_DTLS_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/tests" "${CMAKE_SOURCE_DIR}/tests/classic" "${CMAKE_SOURCE_DIR}/src")
 
 # Выполняем подключение зависимостей цели проверок
 target_link_libraries(${TEST_DTLS_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})

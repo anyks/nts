@@ -73,9 +73,11 @@ namespace {
 
 	/**
 	 * Издание записи состояния билета: второе несёт порядок RFC 7366, подлинность
-	 * клиента, имя узла и сертификат клиента
+	 * клиента, имя узла и сертификат клиента; третье добавило издание выдавшей связи
+	 * (DTLS 1.0/TLS 1.1) между порядком и подлинностью - билет прежней раскладки
+	 * распечатывается ключом, но состоянием не признаётся
 	 */
-	static constexpr uint8_t STATE = 0x02;
+	static constexpr uint8_t STATE = 0x03;
 
 	/**
 	 * Метки вывода частей ключа билетов из секрета потребителя
@@ -163,6 +165,10 @@ namespace {
 			outcome = builder.number((state.etm ? 1 : 0), 1);
 		// Если порядок записан
 		if(outcome == field::error_t::NONE)
+			// Записываем признак издания выдавшей связи
+			outcome = builder.number((state.ancient ? 1 : 0), 1);
+		// Если порядок записан
+		if(outcome == field::error_t::NONE)
 			// Записываем признак проверенной подлинности клиента
 			outcome = builder.number((state.verified ? 1 : 0), 1);
 		// Если признак записан
@@ -219,7 +225,7 @@ namespace {
 		// Устанавливаем разбираемое состояние
 		scanner.start(data);
 		// Издание записи, набор, признак расширенного главного секрета, половины мига, срок, порядок и подлинность
-		uint32_t edition = 0, suite = 0, extended = 0, upper = 0, lower = 0, lifetime = 0, etm = 0, verified = 0;
+		uint32_t edition = 0, suite = 0, extended = 0, upper = 0, lower = 0, lifetime = 0, etm = 0, ancient = 0, verified = 0;
 		// Главный секрет, прикладной протокол, имя узла и сертификат клиента
 		view_t master, protocol, name, leaf;
 		// Разбираем состояние поле за полем: чужое издание, лишние байты и негодные признаки отвергаются
@@ -230,6 +236,7 @@ namespace {
 			(scanner.number(upper, 4) == field::error_t::NONE) && (scanner.number(lower, 4) == field::error_t::NONE) &&
 			(scanner.number(lifetime, 4) == field::error_t::NONE) &&
 			(scanner.number(etm, 1) == field::error_t::NONE) && (etm <= 1) &&
+			(scanner.number(ancient, 1) == field::error_t::NONE) && (ancient <= 1) &&
 			(scanner.number(verified, 1) == field::error_t::NONE) && (verified <= 1) &&
 			(scanner.vector(protocol, 1) == field::error_t::NONE) &&
 			(scanner.vector(name, 2) == field::error_t::NONE) &&
@@ -267,6 +274,8 @@ namespace {
 		::memcpy(result.master, master.data, sizeof(result.master));
 		// Переносим порядок защиты записей
 		result.etm = (etm == 1);
+		// Переносим признак издания выдавшей связи
+		result.ancient = (ancient == 1);
 		// Переносим признак подлинности клиента
 		result.verified = (verified == 1);
 		// Переносим миг выдачи
@@ -289,6 +298,8 @@ void nts::internal::ticket::State::clear() noexcept {
 	wipe(this->master, sizeof(this->master));
 	// Сбрасываем порядок защиты записей
 	this->etm = false;
+	// Сбрасываем признак издания
+	this->ancient = false;
 	// Сбрасываем признак подлинности клиента
 	this->verified = false;
 	// Сбрасываем миг выдачи
@@ -306,7 +317,7 @@ void nts::internal::ticket::State::clear() noexcept {
  * @brief Конструктор
  *
  */
-nts::internal::ticket::State::State() noexcept : suite(protect::suite_t::NONE), etm(false), verified(false), moment(0), lifetime(0) {
+nts::internal::ticket::State::State() noexcept : suite(protect::suite_t::NONE), etm(false), ancient(false), verified(false), moment(0), lifetime(0) {
 	// Выполняем обнуление главного секрета
 	::memset(this->master, 0, sizeof(this->master));
 }
