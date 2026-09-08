@@ -859,3 +859,27 @@ SecP384r1MLKEM1024 0x11ED) опускаются - их не шлёт ни оди
 | статистическая приёмка выхода на неверных ключах | `RawTest.Statistics`: монобит и χ² на 1 МиБ, XChaCha20 и AES-CTR |
 | XChaCha20-Poly1305 | `chachapoly_t::start` с 24-байтовым заполнением (IETF) |
 | BLAKE2s с ключом, SipHash-2-4 | `digest::blake2_t`, `digest::siphash` |
+
+### Закрыто 07.09.2026: набор Noise (порядок Романа, ступени 1-4 по классике)
+
+| Требование | Как закрыто |
+| --- | --- |
+| узоры таблицей, а не ветвями | `src/noise/patterns.cpp`: 15 основных и односторонних, 23 отложенных; psk видоизменениями |
+| XX первым, IK/NK/NN, N/K/X, IKpsk2 | всё в одной машине `noise::handshake_t`; векторы flynn 1920 из 1920, Cacophony 472 из 944 |
+| наборы, включая HASHLEN 64 | восемь наборов 25519 × {ChaChaPoly, AESGCM} × {SHA256, SHA512, BLAKE2s, BLAKE2b}; усечение ключа при 64 закреплено векторами и мутацией |
+| CipherState: 2^64-1 запретно, rekey наружу, split два состояния, пролог, 65535, затирание, MixKeyAndHash на три | `noise::cipher_t`, `noise::symmetric_t`; проверки `NoiseTest.{Nonce,Rekey,OneWay,Message,Hkdf}` |
+| обмен по буферам потребителя без выделений | `write/read` на буферах вызывающего; `NoiseTest.Starved` с пайком в нуль |
+| сырой CipherState под WireGuard (свой счётчик и окно повтора) | `cipher_t::encrypt(n, …)/decrypt(n, …)`, `key(out)` |
+| эталон: векторы Cacophony, пропуск вслух | два корпуса как есть, свой читатель JSON, счёт «взято/пропущено» утверждается |
+| живой обмен с чужой реализацией | статический собеседник Григория на flynn/noise (Go только у эталона) |
+| PQNoise | ступень 5 отдельно, после приёмки классики |
+
+### Закрыто 08.09.2026: WireGuard-кадры и PQNoise (ступени 4 и 5 порядка Романа)
+
+| Требование | Как закрыто |
+| --- | --- |
+| IKpsk2 под WireGuard с настоящим эталоном | `tests/corpus/noise/wireguard.txt` от wireguard-go, кадры 148/92 байт в байт с mac1 (`WireguardTest.Vector`) |
+| сырой CipherState под счётчик и окно повтора | `cipher_t::encrypt/decrypt(n, …)`, `key(out)`; перенос в проверке кадров |
+| PQNoise: отвлечение KEM, pqXX, pqIK, чистый ML-KEM строкой | `noise::kem_t`, `kemlength`, тринадцать узоров таблицей, `PqnoiseTest` 6 проверок |
+| целость классики после обобщения | flynn 1920, Cacophony 472 теми же числами |
+| свой замороженный корпус с оговоркой | `tests/corpus/noise/pqnoise.txt`, 52 записи, `ANTS_NOISE_FREEZE` вслух |
