@@ -46,6 +46,8 @@
 #include <cipher/gcm.hpp>
 #include <cipher/poly1305.hpp>
 #include <cipher/mode.hpp>
+#include <digest/argon2.hpp>
+#include <sign/rsa.hpp>
 #include <datagram/datagram.hpp>
 #include <x509/x509.hpp>
 #include <math/integer.hpp>
@@ -1114,4 +1116,119 @@ TEST(AuditTest, PoisonedWindow){
 	EXPECT_EQ(client.push(view_t(poison.data(), poison.size())), context::error_t::NONE);
 	converse(client, server);
 	EXPECT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
+}
+
+/**
+ * Круг 3 (шифры): пустой кусок после неполного блока не зовёт копирование с нулевым указателем,
+ * а итог совпадает с подачей одним куском
+ */
+TEST(AuditTest, EmptyPiece){
+	uint8_t key[32], message[21], one[16], two[16];
+	for(size_t i = 0; i < sizeof(key); i++) key[i] = static_cast <uint8_t> (i * 7 + 1);
+	for(size_t i = 0; i < sizeof(message); i++) message[i] = static_cast <uint8_t> (i);
+	cipher::poly1305_t whole, pieces;
+	ASSERT_TRUE(whole.start(view_t(key, sizeof(key))) && pieces.start(view_t(key, sizeof(key))));
+	ASSERT_TRUE(whole.update(view_t(message, sizeof(message))));
+	ASSERT_TRUE(pieces.update(view_t(message, 5)));
+	ASSERT_TRUE(pieces.update(view_t()));
+	ASSERT_TRUE(pieces.update(view_t(message + 5, sizeof(message) - 5)));
+	ASSERT_TRUE(whole.finish(one) && pieces.finish(two));
+	EXPECT_EQ(::memcmp(one, two, sizeof(one)), 0);
+	cipher::aes_t aes;
+	ASSERT_TRUE(aes.key(view_t(key, sizeof(key))));
+	uint8_t nonce[12] = {0};
+	cipher::gcm_t solid, split;
+	ASSERT_TRUE(solid.start(cipher::block_t(aes), view_t(nonce, sizeof(nonce))));
+	ASSERT_TRUE(split.start(cipher::block_t(aes), view_t(nonce, sizeof(nonce))));
+	ASSERT_TRUE(solid.associate(view_t(message, sizeof(message))));
+	ASSERT_TRUE(split.associate(view_t(message, 5)));
+	ASSERT_TRUE(split.associate(view_t()));
+	ASSERT_TRUE(split.associate(view_t(message + 5, sizeof(message) - 5)));
+	uint8_t outOne[21], outTwo[21];
+	ASSERT_TRUE(solid.encrypt(view_t(message, sizeof(message)), outOne));
+	ASSERT_TRUE(split.encrypt(view_t(message, 5), outTwo));
+	ASSERT_TRUE(split.encrypt(view_t(), nullptr));
+	ASSERT_TRUE(split.encrypt(view_t(message + 5, sizeof(message) - 5), outTwo + 5));
+	ASSERT_TRUE(solid.finish(one) && split.finish(two));
+	EXPECT_EQ(::memcmp(outOne, outTwo, sizeof(outOne)), 0);
+	EXPECT_EQ(::memcmp(one, two, sizeof(one)), 0);
+}
+
+/**
+ * Круг 3 (шифры): длины Argon2 вне 32 разрядов отвергаются до расчёта (RFC 9106 раздел 3.1)
+ */
+TEST(AuditTest, ArgonBounds){
+	digest::argon_params_t params(digest::argon_t::ARGON2ID, 64, 1, 1);
+	uint8_t password[8] = {1, 2, 3, 4, 5, 6, 7, 8}, salt[8] = {8, 7, 6, 5, 4, 3, 2, 1}, tag[32];
+	const view_t huge(password, static_cast <size_t> (1) << 32);
+	EXPECT_FALSE(digest::argon2(params, view_t(password, sizeof(password)), view_t(salt, sizeof(salt)), view_t(), view_t(), tag, huge.size));
+	EXPECT_FALSE(digest::argon2(params, huge, view_t(salt, sizeof(salt)), view_t(), view_t(), tag, sizeof(tag)));
+	EXPECT_FALSE(digest::argon2(params, view_t(password, sizeof(password)), huge, view_t(), view_t(), tag, sizeof(tag)));
+	EXPECT_FALSE(digest::argon2(params, view_t(password, sizeof(password)), view_t(salt, sizeof(salt)), huge, view_t(), tag, sizeof(tag)));
+	EXPECT_FALSE(digest::argon2(params, view_t(password, sizeof(password)), view_t(salt, sizeof(salt)), view_t(), huge, tag, sizeof(tag)));
+	EXPECT_TRUE(digest::argon2(params, view_t(password, sizeof(password)), view_t(salt, sizeof(salt)), view_t(), view_t(), tag, sizeof(tag)));
+}
+
+/**
+ * Круг 3 (математика): приведение за постоянное время совпадает с делением столбиком на
+ * случайных числах всей ёмкости, на нуле, на модуле и на числе с одним старшим разрядом
+ */
+TEST(AuditTest, Residue){
+	math::integer_t modulus, value, slow, fast;
+	// Случайные нечётные модули разной ширины
+	const size_t widths[] = {64, 65, 511, 512, 521, 1024, 1536, 2048, 4096, 8191};
+	for(size_t width : widths){
+		for(size_t round = 0; round < 8; round++){
+			ASSERT_TRUE(modulus.random(width));
+			// Модуль нечётный и не меньше трёх
+			uint8_t low[1];
+			ASSERT_TRUE(modulus.store(low, 1) || true);
+			math::integer_t one, odd;
+			one.word(1);
+			ASSERT_TRUE(odd.add(modulus, one));
+			if(!odd.odd()) odd.add(modulus, one), odd.add(odd, one);
+			if(odd.bits() < 2) continue;
+			// Число всей ёмкости
+			ASSERT_TRUE(value.random(math::INTEGER_BITS));
+			ASSERT_TRUE(slow.reduce(value, odd) && fast.residue(value, odd));
+			EXPECT_TRUE(slow.equal(fast)) << width;
+			// Число вдвое шире модуля
+			ASSERT_TRUE(value.random((width * 2 > math::INTEGER_BITS) ? math::INTEGER_BITS : width * 2));
+			ASSERT_TRUE(slow.reduce(value, odd) && fast.residue(value, odd));
+			EXPECT_TRUE(slow.equal(fast)) << width;
+			// Число короче модуля
+			ASSERT_TRUE(value.random(width / 2 + 1));
+			ASSERT_TRUE(slow.reduce(value, odd) && fast.residue(value, odd));
+			EXPECT_TRUE(slow.equal(fast)) << width;
+		}
+	}
+	// Единица и ноль
+	math::integer_t one; one.word(1);
+	math::integer_t seven; seven.word(7);
+	ASSERT_TRUE(fast.residue(one, seven)); EXPECT_TRUE(fast.equal(one));
+	value.clear();
+	ASSERT_TRUE(fast.residue(value, seven)); EXPECT_TRUE(fast.zero());
+	// Само значение, равное модулю, даёт ноль
+	ASSERT_TRUE(fast.residue(seven, seven)); EXPECT_TRUE(fast.zero());
+	// Чётный модуль отвергается
+	math::integer_t eight; eight.word(8);
+	EXPECT_FALSE(fast.residue(one, eight));
+}
+
+/**
+ * Круг 3 (математика): ослепляющее число RSA всегда меньше модуля - секретное действие на ключе
+ * с модулем 512 разрядов чуть выше 2^511 не отказывает ни разу за тысячи вызовов
+ */
+TEST(AuditTest, BlindRange){
+	sign::rsa_t rsa;
+	const vector <uint8_t> key = corpus("audit/rsa-low.der");
+	ASSERT_FALSE(key.empty());
+	ASSERT_TRUE(rsa.decode(view_t(key.data(), key.size())));
+	uint8_t input[16], enciphered[64], deciphered[64];
+	for(size_t i = 0; i < sizeof(input); i++) input[i] = static_cast <uint8_t> (0x21 + i);
+	ASSERT_TRUE(rsa.encipher(view_t(input, sizeof(input)), enciphered));
+	for(size_t round = 0; round < 2000; round++){
+		ASSERT_TRUE(rsa.decipher(view_t(enciphered, sizeof(enciphered)), deciphered)) << round;
+		ASSERT_EQ(::memcmp(deciphered + sizeof(deciphered) - sizeof(input), input, sizeof(input)), 0);
+	}
 }

@@ -116,8 +116,10 @@ namespace nts {
 		 *          выбирается наложением маски, оттого время работы от значения множителя
 		 *          не зависит
 		 *
-		 * @note Кривые с ненулевым порядком кручения не поддерживаются намеренно: наборы
-		 *       параметров ГОСТ Р 34.10-2012 задают кофактор, равный единице
+		 * @note Кривые с кофактором больше единицы (наборы ГОСТ Р 34.10-2012 с кофактором 4)
+		 *       ведутся: точка вне подгруппы порядка q отсекается при загрузке умножением на
+		 *       порядок (раздел 5.2 ГОСТ Р 34.10-2012), у кривых с кофактором единица
+		 *       принадлежность подгруппе следует из уравнения кривой
 		 *
 		 * \~english
 		 * @brief Elliptic curve over a field of a prime order
@@ -125,8 +127,10 @@ namespace nts {
 		 *          an addition at every bit of the number regardless of its value: the needed
 		 *          one of the two points is chosen by an overlay of a mask, therefore the time
 		 *          of the work does not depend on the value of the factor
-		 * @note The curves with a non-unit cofactor are not supported deliberately: the sets of
-		 *       the parameters of GOST R 34.10-2012 give a cofactor equal to a unit
+		 * @note The curves with a cofactor above a unit (the sets of GOST R 34.10-2012 with a
+		 *       cofactor of 4) are carried: a point outside the subgroup of the order q is rejected
+		 *       at the load by a multiplication by the order (section 5.2 of GOST R 34.10-2012),
+		 *       at the curves with a unit cofactor the membership follows from the equation of the curve
 		 *
 		 * \~
 		 */

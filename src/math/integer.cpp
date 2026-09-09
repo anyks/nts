@@ -413,6 +413,101 @@ namespace {
 		wipe(buffer, sizeof(buffer));
 	}
 	/**
+	 * @brief Метод проверки наличия разрядов выше заданной границы за постоянное время
+	 *
+	 * @param data  слова числа
+	 * @param count число слов
+	 * @param bits  граница: номер первого разряда, который обязан быть нулевым
+	 *
+	 * @return      ноль, если разрядов выше границы нет, иначе ненулевое значение
+	 *
+	 * @note Ветвления зависят лишь от границы и номера слова, а не от самого числа:
+	 *       так проверка ширины секретного показателя либо сомножителя не выдаёт
+	 *       его длину временем работы
+	 *
+	 */
+	static uint64_t beyond(const uint64_t * data, const size_t count, const size_t bits) noexcept {
+		// Накопитель разрядов выше границы
+		uint64_t result = 0;
+		/**
+		 * Выполняем перебор слов числа
+		 */
+		for(size_t i = 0; i < count; i++){
+			// Номер младшего разряда слова
+			const size_t low = (i * 64);
+			// Если слово целиком выше границы
+			if(low >= bits)
+				// Учитываем слово целиком
+				result |= data[i];
+			// Если граница проходит внутри слова
+			else if((low + 64) > bits)
+				// Учитываем разряды слова выше границы
+				result |= (data[i] >> (bits - low));
+		}
+		// Выводим накопитель
+		return result;
+	}
+	/**
+	 * @brief Метод одного прохода приведения Монтгомери на словах за постоянное время
+	 *
+	 * @param buffer  слова приводимого числа с запасом в число слов модуля и ещё одно
+	 * @param length  число значимых слов приводимого числа
+	 * @param modulus слова нечётного модуля
+	 * @param count   число слов модуля
+	 * @param inverse множитель приведения по модулю
+	 *
+	 * @note Число обращается в (число + m·модуль) / R, где R - основание области по
+	 *       числу слов модуля: итог меньше числа / R + модуль. Ни ветвления, ни адреса
+	 *       обращений от слов числа не зависят
+	 *
+	 */
+	static void descend(uint64_t * buffer, const size_t length, const uint64_t * modulus, const size_t count, const uint64_t inverse) noexcept {
+		/**
+		 * Выполняем перебор слов модуля: каждый шаг обращает очередное младшее слово в ноль
+		 */
+		for(size_t i = 0; i < count; i++){
+			// Множитель, обращающий очередное слово в ноль
+			const uint64_t reducer = (buffer[i] * inverse);
+			// Перенос в следующее слово
+			uint64_t carry = 0;
+			/**
+			 * Выполняем сложение произведения множителя на модуль со сдвигом на слово
+			 */
+			for(size_t j = 0; j < count; j++){
+				// Складываем накопленное слово с произведением множителя на слово модуля и переносом
+				const wide_t item = (static_cast <wide_t> (reducer) * modulus[j] + buffer[i + j] + carry);
+				// Записываем младшую половину полученного значения
+				buffer[i + j] = static_cast <uint64_t> (item);
+				// Запоминаем перенос
+				carry = static_cast <uint64_t> (item >> 64);
+			}
+			/**
+			 * Выполняем проведение переноса по всем старшим словам: число шагов
+			 * зависит лишь от длины, а не от значения переноса
+			 */
+			for(size_t j = (i + count); j <= (length + count); j++){
+				// Складываем слово с переносом
+				const wide_t item = (static_cast <wide_t> (buffer[j]) + carry);
+				// Записываем младшую половину
+				buffer[j] = static_cast <uint64_t> (item);
+				// Запоминаем перенос
+				carry = static_cast <uint64_t> (item >> 64);
+			}
+		}
+		/**
+		 * Выполняем сдвиг числа вниз на слова модуля
+		 */
+		for(size_t j = 0; j <= length; j++)
+			// Переносим слово
+			buffer[j] = buffer[j + count];
+		/**
+		 * Выполняем обнуление освободившихся слов
+		 */
+		for(size_t j = (length + 1); j <= (length + count); j++)
+			// Обнуляем слово
+			buffer[j] = 0;
+	}
+	/**
 	 * @brief Метод вычисления множителя приведения Монтгомери
 	 *
 	 * @param word младшее слово нечётного модуля
@@ -1344,6 +1439,95 @@ bool nts::math::Integer::reduce(const Integer & value, const Integer & modulus) 
 	return true;
 }
 /**
+ * @brief Метод приведения числа по нечётному модулю за постоянное время
+ *
+ * @param value   приводимое число
+ * @param modulus нечётный модуль
+ * @return        признак успешности: модуль нечётный
+ *
+ */
+bool nts::math::Integer::residue(const Integer & value, const Integer & modulus) noexcept {
+	// Число значимых слов модуля
+	const size_t words = top(modulus._words, INTEGER_WORDS);
+	// Если модуль чётный либо пуст
+	if((words == 0) || ((modulus._words[0] & 1) == 0))
+		// Выводим отказ
+		return false;
+	/**
+	 * Число значимых слов приводимого числа открыто: оно задано ёмкостью величины
+	 * (модулем ключа), а не её значением, оттого по нему допустимо считать проходы
+	 */
+	const size_t counted = top(value._words, INTEGER_WORDS);
+	// Длина приводимого числа в словах: не меньше слов модуля, чтобы проход шёл по всем его словам
+	const size_t length = ((counted > words) ? counted : words);
+	// Число проходов приведения: по одному на каждые слова модуля в длине числа
+	const size_t passes = ((length + words - 1) / words);
+	// Слова приводимого числа с запасом под перенос и сдвиг
+	uint64_t buffer[INTEGER_WORDS + INTEGER_WORDS + 1];
+	// Обнуляем накопитель
+	clean(buffer, sizeof(buffer) / sizeof(buffer[0]));
+	// Переносим приводимое число
+	transfer(value._words, buffer, INTEGER_WORDS);
+	// Множитель приведения по модулю
+	const uint64_t inverse = factor(modulus._words[0]);
+	/**
+	 * Выполняем проходы приведения: каждый делит число на основание области, после
+	 * всех проходов число меньше модуля с единицей
+	 */
+	for(size_t i = 0; i < passes; i++)
+		// Выполняем проход приведения
+		descend(buffer, length, modulus._words, words, inverse);
+	// Слова разности числа и модуля
+	uint64_t lessened[INTEGER_WORDS];
+	// Вычитаем модуль из числа
+	const uint64_t borrow = decrease(buffer, modulus._words, lessened, words);
+	// Маска выбора разности: число не умещается в слова модуля либо не меньше его
+	const uint64_t mask = (0 - ((buffer[words] | (borrow ^ 1)) & 1));
+	/**
+	 * Выполняем перебор слов числа
+	 */
+	for(size_t i = 0; i < words; i++)
+		// Записываем выбранное слово
+		buffer[i] = select(mask, lessened[i], buffer[i]);
+	// Основание области Монтгомери и его квадрат по модулю
+	uint64_t base[INTEGER_WORDS], square[INTEGER_WORDS];
+	// Вычисляем основание области и его квадрат
+	domain(modulus._words, words, base, square);
+	// Множитель возврата: основание области в степени числа проходов с единицей
+	uint64_t restorer[INTEGER_WORDS];
+	// Начинаем с квадрата основания области
+	transfer(square, restorer, words);
+	/**
+	 * Выполняем доведение множителя до нужной степени: каждое умножение Монтгомери
+	 * на квадрат основания поднимает степень на единицу
+	 */
+	for(size_t i = 1; i < passes; i++)
+		// Поднимаем степень множителя
+		montgomery(restorer, square, modulus._words, words, inverse, restorer);
+	// Итог в отдельное место: модуль вправе совпадать с итогом (алиасинг)
+	uint64_t outcome[INTEGER_WORDS];
+	// Возвращаем число из области: делённое на основание в степени проходов и умноженное на него же
+	montgomery(buffer, restorer, modulus._words, words, inverse, outcome);
+	// Сбрасываем итог
+	this->clear();
+	// Переносим итог
+	transfer(outcome, this->_words, words);
+	// Затираем итог
+	wipe(outcome, sizeof(outcome));
+	// Затираем накопитель
+	wipe(buffer, sizeof(buffer));
+	// Затираем разность
+	wipe(lessened, sizeof(lessened));
+	// Затираем множитель возврата
+	wipe(restorer, sizeof(restorer));
+	// Затираем основание области
+	wipe(base, sizeof(base));
+	// Затираем квадрат основания
+	wipe(square, sizeof(square));
+	// Выводим признак успешности
+	return true;
+}
+/**
  * @brief Метод сложения чисел по модулю за постоянное время
  *
  * @param first   первое слагаемое, меньшее модуля
@@ -1435,9 +1619,10 @@ bool nts::math::Integer::mulmod(const Integer & first, const Integer & second, c
 		/**
 		 * Умножению Монтгомери довольно, чтобы произведение сомножителей было
 		 * меньше произведения модуля на основание области: сомножители, умещающиеся
-		 * в слова модуля, этому отвечают и без приведения по модулю
+		 * в слова модуля, этому отвечают и без приведения по модулю; проверка
+		 * ширины сомножителей ведётся без ветвления по их словам
 		 */
-		if(((modulus._words[0] & 1) == 0) || (top(first._words, INTEGER_WORDS) > words) || (top(second._words, INTEGER_WORDS) > words))
+		if(((modulus._words[0] & 1) == 0) || (beyond(first._words, INTEGER_WORDS, words * 64) != 0) || (beyond(second._words, INTEGER_WORDS, words * 64) != 0))
 			// Выводим отказ
 			return false;
 		// Основание области Монтгомери и его квадрат по модулю
@@ -1527,8 +1712,8 @@ bool nts::math::Integer::power(const Integer & base, const Integer & exponent, c
 	if((words == 0) || ((modulus._words[0] & 1) == 0) || (base.compare(modulus) >= 0))
 		// Выводим отказ
 		return false;
-	// Если ширина перебора не покрывает показатель либо шире самого числа
-	if((bits < width(exponent._words, INTEGER_WORDS)) || (bits > INTEGER_BITS))
+	// Если ширина перебора шире самого числа либо не покрывает показатель: проверка без ветвления по разрядам показателя
+	if((bits > INTEGER_BITS) || (beyond(exponent._words, INTEGER_WORDS, bits) != 0))
 		// Выводим отказ
 		return false;
 	// Основание области Монтгомери и его квадрат по модулю

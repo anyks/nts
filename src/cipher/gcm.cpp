@@ -605,6 +605,10 @@ bool nts::cipher::Gcm::aggregate(uint8_t * accumulator, const uint8_t * blocks) 
  *
  */
 void nts::cipher::Gcm::absorb(const uint8_t * data, const size_t size) noexcept {
+	// Если кусок пуст: складывать нечего, а копирование с нулевым указателем недопустимо
+	if(size == 0)
+		// Выходим из метода
+		return;
 	// Число ещё не сложенных байтов
 	size_t left = size;
 	// Позиция чтения

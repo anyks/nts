@@ -456,6 +456,10 @@ namespace {
  * \~
  */
 bool nts::digest::argon2(const argon_params_t & params, const view_t & password, const view_t & salt, const view_t & secret, const view_t & associated, uint8_t * result, const size_t size) noexcept {
+	// Раздел 3.1: длины метки, пароля, соли, тайны и связанных данных кодируются 32 разрядами
+	if((size > 0xFFFFFFFFU) || (password.size > 0xFFFFFFFFU) || (salt.size > 0xFFFFFFFFU) || (secret.size > 0xFFFFFFFFU) || (associated.size > 0xFFFFFFFFU))
+		// Выводим отказ подачи
+		return false;
 	// Раздел 3.1: пределы параметров
 	if((result == nullptr) || (size < 4) || (params.lanes == 0) || (params.lanes > 0xFFFFFF) || (params.passes == 0) || (params.memory < (8 * params.lanes)) || (salt.size < 8) || ((salt.size > 0) && (salt.data == nullptr)) || ((password.size > 0) && (password.data == nullptr)))
 		// Выводим отказ параметров

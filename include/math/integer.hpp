@@ -468,6 +468,36 @@ namespace nts {
 				bool reduce(const Integer & value, const Integer & modulus) noexcept;
 				/**
 				 * \~russian
+				 * @brief Метод приведения числа по нечётному модулю за постоянное время
+				 *
+				 * @param value   приводимое число
+				 * @param modulus нечётный модуль
+				 * @return        признак успешности: модуль нечётный
+				 *
+				 * @note Приведение ведётся проходами Монтгомери по всей ёмкости числа с
+				 *       возвратом из области умножением на степень основания: ни ветвления,
+				 *       ни адреса обращений от слов числа и модуля не зависят, открыто лишь
+				 *       число значимых слов приводимого числа (его ёмкость). Предназначено
+				 *       для секретных путей - приведения ослеплённого числа по сомножителям
+				 *       RSA, где деление столбиком выдало бы сомножитель временем работы
+				 *
+				 * \~english
+				 * @brief Method of the reduction of the number by an odd modulus in a constant time
+				 * @param value   the number being reduced
+				 * @param modulus the odd modulus
+				 * @return        the flag of the success: the modulus is odd
+				 * @note The reduction is carried by Montgomery passes over the whole capacity of the
+				 *       number with a return from the domain by a multiplication by a power of the base:
+				 *       neither branches nor addresses of the accesses depend on the words of the number
+				 *       and the modulus, only the count of the significant words of the number (its
+				 *       capacity) is public. It is meant for the secret paths - the reduction of the blinded
+				 *       number by the factors of RSA, where a long division would leak the factor by the timing
+				 *
+				 * \~
+				 */
+				bool residue(const Integer & value, const Integer & modulus) noexcept;
+				/**
+				 * \~russian
 				 * @brief Метод сложения чисел по модулю за постоянное время
 				 *
 				 * @param first   первое слагаемое, меньшее модуля
@@ -601,8 +631,9 @@ namespace nts {
 				 * @return        признак успешности: число и модуль взаимно просты
 				 *
 				 * @note Обращение ведётся двоичным расширенным алгоритмом Евклида за
-				 *       переменное время: оно предназначено для порождения ключа и
-				 *       для ослепления, где обращается случайное значение
+				 *       переменное время: оно предназначено для порождения ключа, где
+				 *       секрет ещё не установлен; на секретных путях обратное берётся
+				 *       возведением в степень по малой теореме Ферма
 				 *
 				 * \~english
 				 * @brief Method of the inversion of the number by a modulus
@@ -610,8 +641,8 @@ namespace nts {
 				 * @param modulus the modulus
 				 * @return        the flag of the success: the number and the modulus are coprime
 				 * @note The inversion is carried by the binary extended algorithm of Euclid in a
-				 *       variable time: it is meant for the generation of the key and for the blinding,
-				 *       where a random value is inverted
+				 *       variable time: it is meant for the generation of the key, where the secret is not
+				 *       yet set; on the secret paths the inverse is taken by a raise into a power by Fermat
 				 *
 				 * \~
 				 */

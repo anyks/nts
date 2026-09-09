@@ -364,6 +364,10 @@ bool nts::cipher::Poly1305::update(const view_t & source) noexcept {
 	if((source.size > 0) && (source.data == nullptr))
 		// Выводим отказ подачи
 		return false;
+	// Если кусок пуст: складывать нечего, а копирование с нулевым указателем недопустимо
+	if(source.size == 0)
+		// Выводим успешность подачи
+		return true;
 	// Число ещё не сложенных байтов
 	size_t left = source.size;
 	// Позиция чтения

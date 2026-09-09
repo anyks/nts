@@ -176,6 +176,26 @@ namespace nts {
 			private:
 				/**
 				 * \~russian
+				 * @brief Метод сборки числа по китайской теореме об остатках за постоянное время
+				 *
+				 * @param first  вычет по первому сомножителю
+				 * @param second вычет по второму сомножителю
+				 * @param result место, в которое помещается собранное число
+				 * @return       признак успешности сборки
+				 *
+				 * \~english
+				 * @brief Method of the assembly of the number by the Chinese remainder theorem in a constant time
+				 * @param first  the residue by the first factor
+				 * @param second the residue by the second factor
+				 * @param result the place the assembled number is put into
+				 * @return       the flag of the success of the assembly
+				 *
+				 * \~
+				 */
+				bool garner(const math::integer_t & first, const math::integer_t & second, math::integer_t & result) const noexcept;
+			private:
+				/**
+				 * \~russian
 				 * @brief Метод выработки простого сомножителя ключа
 				 *
 				 * @param bits   число разрядов сомножителя

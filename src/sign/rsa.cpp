@@ -91,6 +91,14 @@ namespace {
 	 *
 	 */
 	static constexpr size_t PADDING = 8;
+	/**
+	 * @brief Число попыток выработки ослепляющего числа
+	 *
+	 * @details Число на разряд короче модуля всегда меньше него; попытка срывается
+	 *          лишь на нулевом вычете по сомножителю, вероятность чего ничтожна
+	 *
+	 */
+	static constexpr size_t BLINDING = 100;
 
 	// Затирание областей памяти берётся из открытого API библиотеки
 	using nts::sys::wipe;
@@ -1012,6 +1020,41 @@ bool nts::sign::Rsa::encipher(const view_t & input, uint8_t * output) const noex
 	return result.store(output, this->size());
 }
 /**
+ * @brief Метод сборки числа по китайской теореме об остатках
+ *
+ * @param first  вычет по первому сомножителю
+ * @param second вычет по второму сомножителю
+ * @param result место, в которое помещается собранное число, меньшее модуля
+ * @return       признак успешности сборки
+ *
+ * @note Сборка по Гарнеру: h = qInv·(first − second) mod p, итог = second + h·q.
+ *       Все шаги идут за постоянное время: приведение вычета по второму сомножителю
+ *       к первому - проходами Монтгомери, а не делением столбиком
+ *
+ */
+bool nts::sign::Rsa::garner(const math::integer_t & first, const math::integer_t & second, math::integer_t & result) const noexcept {
+	// Вычет по второму сомножителю, приведённый к первому, и разность вычетов
+	math::integer_t reduced, difference, factor, product;
+	// Приводим вычет по второму сомножителю к первому: второй сомножитель может быть больше
+	if(!reduced.residue(second, this->_prime1))
+		// Выводим отказ
+		return false;
+	// Вычитаем вычеты по первому сомножителю
+	if(!difference.submod(first, reduced, this->_prime1))
+		// Выводим отказ
+		return false;
+	// Умножаем разность на коэффициент по первому сомножителю
+	if(!factor.mulmod(difference, this->_coefficient, this->_prime1, true))
+		// Выводим отказ
+		return false;
+	// Умножаем коэффициент Гарнера на второй сомножитель
+	if(!product.multiply(factor, this->_prime2))
+		// Выводим отказ
+		return false;
+	// Собираем итог
+	return result.add(second, product);
+}
+/**
  * @brief Метод секретного действия RSA
  *
  * @param input  входное число, меньшее модуля, от старшего байта к младшему
@@ -1030,21 +1073,35 @@ bool nts::sign::Rsa::decipher(const view_t & input, uint8_t * output) const noex
 	if(!value.load(input) || (value.compare(this->_modulus) >= 0))
 		// Выводим отказ
 		return false;
-	// Ослепляющее число и обратное к нему
-	math::integer_t blind, unblind;
+	// Двойка и сомножители без двойки: показатели обращения по малой теореме Ферма
+	math::integer_t two, fermat1, fermat2;
+	// Записываем двойку
+	two.word(2);
+	// Вычисляем сомножители без двойки
+	if(!fermat1.subtract(this->_prime1, two) || !fermat2.subtract(this->_prime2, two))
+		// Выводим отказ
+		return false;
+	// Ослепляющее число и его вычеты по сомножителям
+	math::integer_t blind, blind1, blind2;
 	// Признак выработки ослепляющего числа
 	bool found = false;
 	/**
-	 * Выполняем выработку ослепляющего числа: случайного, меньшего модуля и
-	 * обратимого по нему
+	 * Выполняем выработку ослепляющего числа: случайного на разряд короче модуля,
+	 * оттого всегда меньшего его, и взаимно простого с ним - вычеты по обоим
+	 * сомножителям ненулевые. Приведение по сомножителям ведётся за постоянное
+	 * время: деление столбиком выдало бы сомножитель временем работы
 	 */
-	for(size_t i = 0; (i < PADDING) && !found; i++){
+	for(size_t i = 0; (i < BLINDING) && !found; i++){
 		// Вырабатываем случайное число
-		if(!blind.random(this->_bits))
+		if(!blind.random(this->_bits - 1))
 			// Выводим отказ
 			return false;
-		// Число годится, если оно меньше модуля и обратимо
-		found = ((blind.compare(this->_modulus) < 0) && !blind.zero() && unblind.invert(blind, this->_modulus));
+		// Приводим ослепляющее число по сомножителям
+		if(!blind1.residue(blind, this->_prime1) || !blind2.residue(blind, this->_prime2))
+			// Выводим отказ
+			return false;
+		// Число годится, если его вычеты по обоим сомножителям ненулевые
+		found = (!blind1.zero() && !blind2.zero());
 	}
 	// Если ослепляющее число не выработано
 	if(!found)
@@ -1062,38 +1119,27 @@ bool nts::sign::Rsa::decipher(const view_t & input, uint8_t * output) const noex
 		return false;
 	// Ослеплённое число по сомножителям
 	math::integer_t part1, part2;
-	// Приводим ослеплённое число по первому сомножителю
-	if(!part1.reduce(blinded, this->_prime1) || !part2.reduce(blinded, this->_prime2))
+	// Приводим ослеплённое число по сомножителям за постоянное время
+	if(!part1.residue(blinded, this->_prime1) || !part2.residue(blinded, this->_prime2))
 		// Выводим отказ
 		return false;
-	// Степени по сомножителям
-	math::integer_t power1, power2;
+	// Степени по сомножителям и обратные к ослепляющему числу по сомножителям
+	math::integer_t power1, power2, inverse1, inverse2;
 	// Возводим в секретные степени по сомножителям
 	if(!power1.power(part1, this->_exponent1, this->_prime1, true) || !power2.power(part2, this->_exponent2, this->_prime2, true))
 		// Выводим отказ
 		return false;
-	// Вторая степень по первому сомножителю и разность степеней
-	math::integer_t reduced, difference, garner;
-	// Приводим вторую степень по первому сомножителю: второй сомножитель может быть больше
-	if(!reduced.reduce(power2, this->_prime1))
+	/**
+	 * Обращаем ослепляющее число по сомножителям малой теоремой Ферма: возведение в
+	 * степень идёт за постоянное время, тогда как Евклид выдал бы число следом ветвлений
+	 */
+	if(!inverse1.power(blind1, fermat1, this->_prime1, true) || !inverse2.power(blind2, fermat2, this->_prime2, true))
 		// Выводим отказ
 		return false;
-	// Вычитаем степени по первому сомножителю
-	if(!difference.submod(power1, reduced, this->_prime1))
-		// Выводим отказ
-		return false;
-	// Умножаем разность на коэффициент по первому сомножителю
-	if(!garner.mulmod(difference, this->_coefficient, this->_prime1, true))
-		// Выводим отказ
-		return false;
-	// Произведение коэффициента Гарнера на второй сомножитель и собранный итог
-	math::integer_t product, joined, result;
-	// Умножаем коэффициент Гарнера на второй сомножитель
-	if(!product.multiply(garner, this->_prime2))
-		// Выводим отказ
-		return false;
-	// Собираем итог по китайской теореме об остатках
-	if(!joined.add(power2, product))
+	// Собранные по китайской теореме об остатках степень и обратное к ослепляющему числу
+	math::integer_t joined, unblind, result;
+	// Собираем степень и обратное число по сомножителям
+	if(!this->garner(power1, power2, joined) || !this->garner(inverse1, inverse2, unblind))
 		// Выводим отказ
 		return false;
 	// Снимаем ослепление
