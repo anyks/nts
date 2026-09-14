@@ -18,3 +18,9 @@ target_link_libraries(${TEST_AUDIT_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main
 
 # Регистрируем цель проверок
 add_test(NAME ${TEST_AUDIT_NAME} COMMAND ${TEST_AUDIT_NAME})
+
+# Если сборка ведётся под Solaris либо illumos
+if(CMAKE_SYSTEM_NAME STREQUAL "SunOS")
+	# Подключаем библиотеки сокетов: проверки против openssl поверх дейтаграмм
+	target_link_libraries(${TEST_AUDIT_NAME} socket nsl)
+endif()
