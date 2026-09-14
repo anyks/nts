@@ -38,6 +38,26 @@ namespace starve {
 	 */
 	static size_t budget = 0;
 	/**
+	 * @brief Наблюдатель освобождений: зовётся перед всяким освобождением памяти, пока задан
+	 *
+	 * @note Нужен проверкам затирания секретов: наблюдатель осматривает освобождаемый
+	 *       блок до его возврата в кучу. Вне таких проверок остаётся пустым
+	 */
+	static void (* watch)(void *) noexcept = nullptr;
+	/**
+	 * @brief Метод освобождения памяти с оповещением наблюдателя
+	 *
+	 * @param data указатель на освобождаемую память
+	 *
+	 */
+	static void drop(void * data) noexcept {
+		// Если наблюдатель задан, показываем ему освобождаемый блок
+		if((watch != nullptr) && (data != nullptr))
+			watch(data);
+		// Выполняем освобождение памяти
+		::free(data);
+	}
+	/**
 	 * @brief Класс отмеренного запаса выделений на время своей жизни
 	 */
 	typedef class Ration {
@@ -134,8 +154,8 @@ void * operator new[](const std::size_t size){
  *
  */
 void operator delete(void * data) noexcept {
-	// Выполняем освобождение памяти
-	::free(data);
+	// Выполняем освобождение памяти с оповещением наблюдателя
+	starve::drop(data);
 }
 /**
  * @brief Оператор освобождения памяти под массивом
@@ -144,8 +164,8 @@ void operator delete(void * data) noexcept {
  *
  */
 void operator delete[](void * data) noexcept {
-	// Выполняем освобождение памяти
-	::free(data);
+	// Выполняем освобождение памяти с оповещением наблюдателя
+	starve::drop(data);
 }
 /**
  * Освобождение известного размера подменяется лишь у GCC: он предупреждает о его
@@ -163,8 +183,8 @@ void operator delete[](void * data) noexcept {
 void operator delete(void * data, const std::size_t size) noexcept {
 	// Размер освобождаемой памяти не нужен
 	(void) size;
-	// Выполняем освобождение памяти
-	::free(data);
+	// Выполняем освобождение памяти с оповещением наблюдателя
+	starve::drop(data);
 }
 /**
  * @brief Оператор освобождения памяти известного размера под массивом
@@ -176,8 +196,8 @@ void operator delete(void * data, const std::size_t size) noexcept {
 void operator delete[](void * data, const std::size_t size) noexcept {
 	// Размер освобождаемой памяти не нужен
 	(void) size;
-	// Выполняем освобождение памяти
-	::free(data);
+	// Выполняем освобождение памяти с оповещением наблюдателя
+	starve::drop(data);
 }
 #endif
 

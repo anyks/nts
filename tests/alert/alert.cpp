@@ -128,7 +128,7 @@ TEST(AlertTest, Fatal){
 TEST(AlertTest, Names){
 	// Набор описаний извещения, определённых протоколом
 	const alert::description_t descriptions[] = {
-		alert::description_t::CLOSE, alert::description_t::UNEXPECTED,
+		alert::description_t::CLOSE, alert::description_t::UNEXPECTED, alert::description_t::ECH_REQUIRED,
 		alert::description_t::MAC, alert::description_t::DECRYPTION,
 		alert::description_t::OVERSIZE, alert::description_t::COMPRESSION,
 		alert::description_t::HANDSHAKE, alert::description_t::NOSIGNER,
@@ -159,4 +159,24 @@ TEST(AlertTest, Names){
 	ASSERT_STREQ(alert::name(alert::description_t::MAC), "bad_record_mac");
 	// Проверяем название описания обязательной, но не подтверждённой подлинности
 	ASSERT_STREQ(alert::name(alert::description_t::REQUIRED), "certificate_required");
+}
+
+/**
+ * Круг 5: перечень описаний, смертельных всегда (RFC 5246 §7.2.2, RFC 6066 §8, RFC 7507 §3)
+ */
+TEST(AlertTest, Grave){
+	const alert::description_t always[] = {
+		alert::description_t::UNEXPECTED, alert::description_t::MAC, alert::description_t::DECRYPTION, alert::description_t::OVERSIZE,
+		alert::description_t::COMPRESSION, alert::description_t::HANDSHAKE, alert::description_t::PARAMETER, alert::description_t::AUTHORITY,
+		alert::description_t::ACCESS, alert::description_t::DECODE, alert::description_t::DECRYPT, alert::description_t::VERSION,
+		alert::description_t::SECURITY, alert::description_t::INTERNAL, alert::description_t::FALLBACK, alert::description_t::EXTENSION,
+		alert::description_t::STATUS, alert::description_t::PSK, alert::description_t::PROTOCOL
+	};
+	for(size_t i = 0; i < (sizeof(always) / sizeof(always[0])); i++)
+		EXPECT_TRUE(alert::grave(always[i])) << static_cast <int> (always[i]);
+	const alert::description_t level[] = {alert::description_t::CLOSE, alert::description_t::CANCELED, alert::description_t::RENEGOTIATION, alert::description_t::NAME, alert::description_t::BADCERT, alert::description_t::EXPIRED};
+	for(size_t i = 0; i < (sizeof(level) / sizeof(level[0])); i++)
+		EXPECT_FALSE(alert::grave(level[i])) << static_cast <int> (level[i]);
+	EXPECT_TRUE(alert::known(alert::description_t::ECH_REQUIRED));
+	EXPECT_STREQ(alert::name(alert::description_t::ECH_REQUIRED), "ech_required");
 }

@@ -586,7 +586,7 @@ TEST(AlpsTest, Ticket){
 	ticket.secret.assign(32, 0x22);
 	vector <uint8_t> encoded;
 	ASSERT_EQ(context::encode(ticket, encoded), context::error_t::NONE);
-	EXPECT_EQ(encoded[0], static_cast <uint8_t> (0x03));
+	EXPECT_EQ(encoded[0], static_cast <uint8_t> (0x04));
 	context::ticket_t decoded;
 	ASSERT_EQ(context::decode(view_t(encoded.data(), encoded.size()), decoded), context::error_t::NONE);
 	EXPECT_TRUE(decoded.settled);

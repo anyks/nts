@@ -616,6 +616,14 @@ namespace nts {
 				 *
 				 */
 				bool length(const size_t offset, const size_t length) noexcept;
+				/**
+				 * @brief Метод обеспечения места под запись с затиранием прежнего буфера
+				 * @param extra число байтов, которое предстоит записать
+				 * @note  Буфер растёт только здесь: прежняя память затирается до
+				 *        освобождения, и секретное содержимое (записи ключей) в
+				 *        освобождённой памяти не остаётся
+				 */
+				bool grow(const size_t extra) noexcept;
 			public:
 				/**
 				 * \~russian
@@ -648,6 +656,22 @@ namespace nts {
 				 *
 				 */
 				view_t data() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод извлечения накопителя записи целиком
+				 * @return просмотр накопителя, каким бы ни было состояние записи
+				 * @note   В отличие от data() накопитель отдаётся и при отказе записи, и при
+				 *         незакрытом элементе: он нужен тому, кто обязан затереть секретное
+				 *         содержимое на пути отказа, а записью служить не вправе
+				 * \~english
+				 * @brief Method of getting the whole accumulator of the encoding
+				 * @return the view of the accumulator whatever the state of the encoding is
+				 * @note   Unlike data() the accumulator is given both after a failure and with an
+				 *         unclosed element: it serves the one who must wipe a secret content on the
+				 *         failure path, and it must not serve as the encoding
+				 * \~
+				 */
+				view_t buffer() const noexcept;
 				/**
 				 * \~russian
 				 * @brief Метод очистки собранной записи

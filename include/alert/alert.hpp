@@ -307,6 +307,31 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ bool fatal(const alert_t & alert) noexcept;
 		/**
 		 * \~russian
+		 * @brief Метод проверки, объявлено ли описание извещения смертельным всегда
+		 *
+		 * @param description проверяемое описание
+		 *
+		 * @return            признак описания, смертельного при любом уровне
+		 *
+		 * @details Раздел 7.2.2 RFC 5246 и раздел 3 RFC 7507: у изданий до 1.3 связь рвёт
+		 *          смертельный уровень либо описание, объявленное смертельным всегда;
+		 *          предупреждение прочих описаний (no_renegotiation, unrecognized_name по
+		 *          разделу 3 RFC 6066) связь не рвёт
+		 *
+		 * \~english
+		 * @brief Method of the checking whether the description of an alert is declared always fatal
+		 * @param description the description being checked
+		 * @return            the flag of a description fatal at any level
+		 * @details The section 7.2.2 of RFC 5246 and the section 3 of RFC 7507: at the editions before 1.3
+		 *          the connection is broken by the fatal level or by a description declared always fatal;
+		 *          a warning of the other descriptions (no_renegotiation, unrecognized_name by the section 3
+		 *          of RFC 6066) does not break the connection
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ bool grave(const description_t description) noexcept;
+		/**
+		 * \~russian
 		 * @brief Метод получения названия описания извещения
 		 *
 		 * @param description описание извещения, название которого запрашивается

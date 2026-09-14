@@ -212,6 +212,13 @@ void nts::digest::Sha1::reset() noexcept {
  *
  */
 void nts::digest::Sha1::update(const view_t & data) noexcept {
+	// Если кусок задан длиной без места: подача порчена, хеш сниматься не будет (договор тот же, что у Hasher)
+	if((data.data == nullptr) && (data.size > 0)){
+		// Запоминаем порчу подачи: снятие хеша отказывает
+		this->_finished = true;
+		// Выходим из метода
+		return;
+	}
 	// Если хеш уже снят либо кусок сообщения пуст
 	if(this->_finished || (data.data == nullptr) || (data.size == 0))
 		// Выходим из метода

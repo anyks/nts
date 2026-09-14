@@ -673,6 +673,8 @@ namespace {
 			for(size_t c = 0; c < N; c++)
 				// Складываем коэффициенты
 				u[i].values[c] = reduce(u[i].values[c] + e.values[c]);
+			// Выполняем затирание шума: вместе с u и матрицей он раскрывает r
+			wipe(e.values, sizeof(e.values));
 		}
 		// Многочлен v
 		poly_t v;

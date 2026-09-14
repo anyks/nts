@@ -304,6 +304,23 @@ namespace nts {
 			private:
 				// Места отложенных длин ещё не закрытых полей переменной длины
 				vector <pair <size_t, size_t>> _marks;
+			private:
+				/**
+				 * \~russian
+				 * @brief Метод выделения места под запись с затиранием прежнего накопителя
+				 *
+				 * @param extra требуемое число свободных байтов
+				 *
+				 * @return      признак успешности выделения места
+				 *
+				 * \~english
+				 * @brief Method of allocating room for the record with wiping of the previous accumulator
+				 * @param extra the required number of free bytes
+				 * @return the sign of the success of the allocation
+				 *
+				 * \~
+				 */
+				bool grow(const size_t extra) noexcept;
 			public:
 				/**
 				 * \~russian

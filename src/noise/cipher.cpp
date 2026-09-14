@@ -166,8 +166,8 @@ bool nts::noise::Cipher::open(const uint64_t nonce, const view_t & associated, c
 		// Прочее
 		default: break;
 	}
-	// Если подлинность не сошлась, выход обнуляется
-	if(!status && (result != nullptr) && (source.size > 0))
+	// Если подлинность не сошлась, выход обнуляется - кроме вскрытия на месте, где выход и есть вход вызывающего
+	if(!status && (result != nullptr) && (result != source.data) && (source.size > 0))
 		// Обнуляем выход
 		::memset(result, 0, source.size);
 	// Выводим успешность

@@ -707,15 +707,21 @@ TEST(FingerprintTest, Datagram){
 	ASSERT_EQ(fingerprint::imprint(profile, imprint), fingerprint::error_t::NONE);
 	// Проверяем перенос и издание JA4
 	EXPECT_EQ(imprint.ja4.substr(0, 4), "dd2d");
-	// Голое сообщение поверх дейтаграмм требует заданного устройства
-	const vector <uint8_t> message(record.begin() + 13, record.end());
+	// Голое сообщение после сборки поверх дейтаграмм несёт обвязку в 4 байта (так его держит связь сервера): тело - по переносу
+	vector <uint8_t> message(record.begin() + 13, record.begin() + 13 + 4);
+	message.insert(message.end(), record.begin() + 13 + 12, record.end());
 	// Разбираем голое сообщение
 	ASSERT_EQ(fingerprint::parse(view_t(message.data(), message.size()), profile, true), fingerprint::error_t::NONE);
 	// Проверяем поля профиля
 	EXPECT_EQ(profile.record, 0);
-	EXPECT_EQ(profile.message, 3);
-	// Голое сообщение поверх дейтаграмм под потоковым устройством не разбирается
+	EXPECT_EQ(profile.message, 0);
+	EXPECT_EQ(profile.cookie.size(), static_cast <size_t> (16));
+	// Голое сообщение поверх дейтаграмм под потоковым устройством не разбирается: тело с меткой возврата состояния
 	EXPECT_NE(fingerprint::parse(view_t(message.data(), message.size()), profile, false), fingerprint::error_t::NONE);
+	// Лишние байты за записью отвергаются
+	vector <uint8_t> trailing(record);
+	trailing.push_back(0);
+	EXPECT_EQ(fingerprint::parse(view_t(trailing.data(), trailing.size()), profile), fingerprint::error_t::TRAILING);
 	// Запись поверх дейтаграмм под потоковым устройством отвергается
 	EXPECT_EQ(fingerprint::parse(view_t(record.data(), record.size()), profile, false), fingerprint::error_t::RECORD);
 }
@@ -744,8 +750,8 @@ TEST(FingerprintTest, Refusals){
 	vector <uint8_t> longer = record;
 	// Дописываем байт
 	longer.push_back(0x00);
-	// Запись с хвостом разбирается: хвост есть следующая запись
-	EXPECT_EQ(fingerprint::parse(view_t(longer.data(), longer.size()), profile), fingerprint::error_t::NONE);
+	// Запись с хвостом отвергается: запись обязана нести приветствие целиком, лишние байты за ней негодны (круг 4)
+	EXPECT_EQ(fingerprint::parse(view_t(longer.data(), longer.size()), profile), fingerprint::error_t::TRAILING);
 	// Запись чужого вида
 	vector <uint8_t> broken = record;
 	// Портим вид записи

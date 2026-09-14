@@ -464,6 +464,10 @@ namespace {
 		if(unused != 0)
 			// Выводим отказ подписи
 			return ocsp::error_t::SIGNATURE;
+		// Ответ об отзыве - такое же звено доверия, как сертификат: политика стойкости общая с цепочкой (x509::weak)
+		if(x509::weak(response.algorithms(), response.parameters()) || x509::weak(certificate.key()))
+			// Выводим отказ стойкости
+			return ocsp::error_t::WEAK;
 		// Отказ проверки подписи
 		const x509::error_t failure = x509::verify(response.body(), signature, response.algorithms(), response.parameters(), certificate.key());
 		// Если памяти под проверку подписи не хватило
@@ -525,6 +529,10 @@ namespace {
 		if(!x509::recognized(candidate))
 			// Выводим отказ права ответчика
 			return ocsp::error_t::RESPONDER;
+		// Делегированный ответчик судится как звено цепочки: подпись SHA-1 либо ключ RSA короче 2048 разрядов негодны
+		if(x509::weak(candidate, false))
+			// Выводим отказ стойкости
+			return ocsp::error_t::WEAK;
 		// Расширение назначения ключа
 		const x509::extension_t * keyed = candidate.extension("2.5.29.15");
 		// Если назначение ключа объявлено
@@ -1437,37 +1445,45 @@ nts::ocsp::error_t nts::ocsp::verify(const response_t & response, const view_t &
 		return error_t::IDENTITY;
 	// Отказ проверки
 	error_t failure = error_t::RESPONDER;
-	// Если ответчиком назван сам издатель
-	if(named(response, authority))
-		// Выполняем проверку подписи ответа ключом издателя
-		failure = signed_(response, authority);
-	// Если ответчик делегирован издателем
-	else {
-		// Получаем приложенные сертификаты
-		const vector <view_t> & certificates = response.certificates();
-		/**
-		 * Выполняем перебор приложенных сертификатов в поисках ответчика
-		 */
-		for(size_t i = 0; (i < certificates.size()) && (failure == error_t::RESPONDER); i++){
-			// Объект разбора приложенного сертификата
-			x509::certificate_t candidate;
-			// Отказ разбора приложенного сертификата
-			parsed = candidate.parse(certificates[i]);
-			// Если памяти под разбор не хватило
-			if(parsed == x509::error_t::MEMORY)
-				// Выводим отказ нехватки памяти
-				return error_t::MEMORY;
-			// Если приложенный сертификат разобрать не удалось либо ответчик назван не им
-			if((parsed != x509::error_t::NONE) || !named(response, candidate))
-				// Переходим к следующему сертификату
-				continue;
-			// Выполняем проверку права приложенного сертификата отвечать за издателя
-			failure = delegated(candidate, authority, moment);
-			// Если приложенный сертификат отвечать вправе
-			if(failure == error_t::NONE)
-				// Выполняем проверку подписи ответа ключом ответчика
-				failure = signed_(response, candidate);
-		}
+	// Получаем приложенные сертификаты
+	const vector <view_t> & certificates = response.certificates();
+	/**
+	 * Подписавший ищется сперва среди приложенных сертификатов, и лишь потом у издателя -
+	 * так поступают openssl, BoringSSL и NSS. Делегированный ответчик (раздел 4.2.2.2
+	 * RFC 6960) вправе нести то же имя владельца, что и издатель, и назван быть им же:
+	 * суд одним ключом издателя по совпадению имени отвергал бы годный ответ
+	 */
+	/**
+	 * Выполняем перебор приложенных сертификатов в поисках ответчика
+	 */
+	for(size_t i = 0; (i < certificates.size()) && (failure == error_t::RESPONDER); i++){
+		// Объект разбора приложенного сертификата
+		x509::certificate_t candidate;
+		// Отказ разбора приложенного сертификата
+		parsed = candidate.parse(certificates[i]);
+		// Если памяти под разбор не хватило
+		if(parsed == x509::error_t::MEMORY)
+			// Выводим отказ нехватки памяти
+			return error_t::MEMORY;
+		// Если приложенный сертификат разобрать не удалось либо ответчик назван не им
+		if((parsed != x509::error_t::NONE) || !named(response, candidate))
+			// Переходим к следующему сертификату
+			continue;
+		// Выполняем проверку права приложенного сертификата отвечать за издателя
+		failure = delegated(candidate, authority, moment);
+		// Если приложенный сертификат отвечать вправе
+		if(failure == error_t::NONE)
+			// Выполняем проверку подписи ответа ключом ответчика
+			failure = signed_(response, candidate);
+	}
+	// Если приложенные сертификаты ответ не подтвердили, а ответчиком назван сам издатель
+	if((failure != error_t::NONE) && named(response, authority)){
+		// Итог проверки подписи ответа ключом издателя
+		const error_t direct = signed_(response, authority);
+		// Если подпись издателя сошлась либо приложенные сертификаты ничего точнее отсутствия ответчика не сказали
+		if((direct == error_t::NONE) || (failure == error_t::RESPONDER))
+			// Запоминаем итог проверки подписи издателем
+			failure = direct;
 	}
 	// Если подпись ответа либо право ответчика не подтвердились
 	if(failure != error_t::NONE)
@@ -1484,6 +1500,10 @@ nts::ocsp::error_t nts::ocsp::verify(const response_t & response, const view_t &
 			return error_t::EXPIRED;
 		// Если обещанный срок ответа вышел
 		if((single->next != 0) && (single->next < (moment - leeway)))
+			// Выводим отказ срока ответа
+			return error_t::EXPIRED;
+		// Если обещанного срока нет: давность мига верности ограничена своим пределом (раздел 4.2.2.1 RFC 6960 велит клиенту судить свежесть самому)
+		if((single->next == 0) && ((single->updated + OCSP_STALE) < (moment - leeway)))
 			// Выводим отказ срока ответа
 			return error_t::EXPIRED;
 	}

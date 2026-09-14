@@ -37,6 +37,7 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <asn1/asn1.hpp>
+#include <sys/wipe.hpp>
 
 /**
  * Используем стандартное пространство имён
@@ -1125,6 +1126,10 @@ bool nts::asn1::Writer::identifier(const cls_t cls, const bool constructed, cons
 	 * памяти обязана выводиться отказом, а не броском из-под noexcept
 	 */
 	try {
+		// Если место под метку обеспечить не удалось: первый байт и до пяти байтов номера
+		if(!this->grow(6))
+			// Выводим отказ записи
+			return false;
 		// Собираем первый байт метки из класса и вида метки
 		uint8_t first = static_cast <uint8_t> ((static_cast <uint8_t> (cls) << 6) | (constructed ? 0x20 : 0x00));
 		// Если номер метки умещается в короткую запись
@@ -1162,6 +1167,53 @@ bool nts::asn1::Writer::identifier(const cls_t cls, const bool constructed, cons
 }
 
 /**
+ * @brief Метод обеспечения места под запись с затиранием прежнего буфера
+ *
+ * @param extra число байтов, которое предстоит записать
+ *
+ * @return      признак успешности выделения места
+ *
+ */
+bool nts::asn1::Writer::grow(const size_t extra) noexcept {
+	// Если места в буфере на запись хватает
+	if((this->_buffer.capacity() - this->_buffer.size()) >= extra)
+		// Выводим успешность выделения места
+		return true;
+	// Если требуемая длина буфера не помещается в размер
+	if(extra > (SIZE_MAX - this->_buffer.size()))
+		// Выводим отказ выделения места
+		return false;
+	// Требуемая длина буфера
+	const size_t needed = (this->_buffer.size() + extra);
+	// Новая ёмкость буфера: удвоение прежней, но не меньше требуемой
+	const size_t capacity = ((this->_buffer.capacity() > (SIZE_MAX / 2)) ? needed : ((this->_buffer.capacity() * 2) > needed ? (this->_buffer.capacity() * 2) : needed));
+	/**
+	 * Выполняем перехват ошибок работы с памятью: нехватка её обязана
+	 * выводиться отказом, а не броском из-под noexcept
+	 */
+	try {
+		// Новый буфер записи
+		vector <uint8_t> wider;
+		// Выделяем память под новый буфер
+		wider.reserve(capacity);
+		// Переносим накопленную запись в новый буфер
+		wider.assign(this->_buffer.begin(), this->_buffer.end());
+		// Затираем прежний буфер: запись ключа не вправе остаться в освобождённой памяти
+		sys::wipe(this->_buffer);
+		// Подменяем прежний буфер новым: обмен памяти не выделяет
+		this->_buffer.swap(wider);
+	/**
+	 * Если памяти под буфер не хватило
+	 */
+	} catch(const bad_alloc &) {
+		// Выводим отказ выделения места
+		return false;
+	}
+	// Выводим успешность выделения места
+	return true;
+}
+
+/**
  * @brief Метод записи длины содержимого
  *
  * @param offset место, в которое вставляется запись длины
@@ -1176,6 +1228,10 @@ bool nts::asn1::Writer::length(const size_t offset, const size_t length) noexcep
 	 * памяти обязана выводиться отказом, а не броском из-под noexcept
 	 */
 	try {
+		// Если место под запись длины обеспечить не удалось: первый байт и до восьми байтов длины
+		if(!this->grow(9))
+			// Выводим отказ записи
+			return false;
 		// Если длина умещается в короткую запись
 		if(length < 0x80){
 			// Вставляем единственный байт записи длины
@@ -1242,6 +1298,17 @@ nts::view_t nts::asn1::Writer::data() const noexcept {
 		// Выводим пустой просмотр
 		return view_t();
 	// Выводим просмотр собранной записи
+	return view_t(this->_buffer.data(), this->_buffer.size());
+}
+
+/**
+ * @brief Метод извлечения накопителя записи целиком
+ *
+ * @return просмотр накопителя, каким бы ни было состояние записи
+ *
+ */
+nts::view_t nts::asn1::Writer::buffer() const noexcept {
+	// Выводим просмотр накопителя записи целиком
 	return view_t(this->_buffer.data(), this->_buffer.size());
 }
 
@@ -1385,9 +1452,17 @@ bool nts::asn1::Writer::element(const cls_t cls, const bool constructed, const u
 			return false;
 		}
 		// Если содержимое элемента не пустое
-		if((content.data != nullptr) && (content.size > 0))
+		if((content.data != nullptr) && (content.size > 0)){
+			// Если место под содержимое обеспечить не удалось
+			if(!this->grow(content.size)){
+				// Запоминаем причину отказа
+				this->_error = error_t::MEMORY;
+				// Выводим отказ записи
+				return false;
+			}
 			// Выполняем запись содержимого элемента
 			this->_buffer.insert(this->_buffer.end(), content.data, content.data + content.size);
+		}
 	/**
 	 * Если память выделить не удалось
 	 */
@@ -1599,6 +1674,13 @@ bool nts::asn1::Writer::oid(const string & value) noexcept {
 		if((parts.size() < 2) || (parts[0] > 2) || ((parts[0] < 2) && (parts[1] > 39))){
 			// Запоминаем причину отказа
 			this->_error = error_t::VALUE;
+			// Выводим отказ записи
+			return false;
+		}
+		// Если сведённые первые две составляющие не умещаются в разрядную сетку
+		if(parts[1] > (UINT64_MAX - (parts[0] * 40))){
+			// Запоминаем причину отказа
+			this->_error = error_t::HUGE_SIZE;
 			// Выводим отказ записи
 			return false;
 		}

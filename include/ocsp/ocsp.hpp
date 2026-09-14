@@ -97,6 +97,24 @@ namespace nts {
 	namespace ocsp {
 		/**
 		 * \~russian
+		 * @brief Предел давности мига верности ответа без обещанного срока, в секундах
+		 *
+		 * @details Раздел 4.2.2.1 RFC 6960: без nextUpdate свежесть ответа судит клиент;
+		 *          ответ старше десяти суток негоден - иначе перехваченный ответ «good»
+		 *          воспроизводился бы годами
+		 *
+		 * \~english
+		 * @brief Limit of the age of the moment of the validity of a response without a promised term, in seconds
+		 * @details The section 4.2.2.1 of RFC 6960: without nextUpdate the freshness of the response is
+		 *          judged by the client; a response older than ten days is unfit - otherwise an intercepted
+		 *          "good" response would be replayed for years
+		 *
+		 * \~
+		 */
+		static constexpr int64_t OCSP_STALE = (10 * 24 * 60 * 60);
+
+		/**
+		 * \~russian
 		 * @brief Причина отказа разбора либо проверки ответа
 		 *
 		 * \~english
@@ -120,7 +138,8 @@ namespace nts {
 			IDENTITY  = 0x0B, /*!< \~russian Ответ относится не к проверяемому сертификату \~english The response relates not to the certificate being checked \~ */
 			EXPIRED   = 0x0C, /*!< \~russian Срок ответа на этот миг не идёт \~english The validity of the response does not go at this moment \~ */
 			NONCE     = 0x0D, /*!< \~russian Неповторимое значение ответа с запрошенным разошлось \~english The nonce of the response has diverged with the requested one \~ */
-			EXTENSION = 0x0E  /*!< \~russian Расширение записано неверно \~english The extension is written incorrectly \~ */
+			EXTENSION = 0x0E, /*!< \~russian Расширение записано неверно \~english The extension is written incorrectly \~ */
+			WEAK      = 0x0F  /*!< \~russian Подпись ответа хешем MD5/SHA-1 либо ключ подписавшего RSA короче 2048 разрядов: стойкости на звено доверия недостаёт (RFC 9155, SP 800-131A), политика та же, что у цепочки \~english The response is signed with an MD5/SHA-1 hash or the key of the signer is RSA shorter than 2048 bits: the strength does not suffice for a link of the trust (RFC 9155, SP 800-131A), the policy is the same as for a chain \~ */
 		};
 
 		/**

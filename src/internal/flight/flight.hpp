@@ -82,6 +82,8 @@ namespace nts {
 			uint16_t epoch;
 			// Порядковый номер очередной отправляемой записи поры
 			uint64_t next;
+			// Число записей поры, не прошедших проверку подлинности (раздел 4.5.3 RFC 9147)
+			uint64_t forged;
 			// Защита записей поры
 			protect::protection_t protection;
 			// Ключ шифрования номера записи поры
@@ -138,11 +140,17 @@ namespace nts {
 			size_t offset;
 			// Длина куска в байтах
 			size_t length;
+			// Признак того, что кусок уже уходил прежней записью
+			bool former;
+			// Пора ключей прежней записи куска
+			uint16_t formerEpoch;
+			// Порядковый номер прежней записи куска
+			uint64_t formerSequence;
 			/**
 			 * @brief Конструктор
 			 *
 			 */
-			Piece() noexcept : acked(false), epoch(0), sequence(0), index(0), offset(0), length(0) {}
+			Piece() noexcept : acked(false), epoch(0), sequence(0), index(0), offset(0), length(0), former(false), formerEpoch(0), formerSequence(0) {}
 		} piece_t;
 		/**
 		 * @brief Область тела сообщения, покрытая принятыми кусками
@@ -240,6 +248,8 @@ namespace nts {
 			private:
 				// Размер дейтаграммы связи в байтах
 				size_t _mtu;
+				// Предел содержимого записи, договорённый собеседником на приём (RFC 8449, RFC 6066)
+				size_t _limit;
 			private:
 				// Срок ожидания повторной передачи в миллисекундах
 				uint32_t _timeout;
@@ -871,6 +881,20 @@ namespace nts {
 				 */
 				size_t mtu() const noexcept;
 				/**
+				 * @brief Метод установки предела содержимого записи, объявленного собеседником на приём
+				 *
+				 * @param limit предел содержимого одной записи в байтах (RFC 8449, RFC 6066)
+				 *
+				 */
+				void limit(const size_t limit) noexcept;
+				/**
+				 * @brief Метод получения места под содержимое одной записи в дейтаграмме
+				 *
+				 * @return место в байтах: размер дейтаграммы за вычетом обвязки записи текущей поры записи
+				 *
+				 */
+				size_t room() noexcept;
+				/**
 				 * @brief Метод учёта молча отброшенной записи либо дейтаграммы
 				 *
 				 * @param reason причина отброса
@@ -926,6 +950,11 @@ namespace nts {
 				 *
 				 */
 				Flight() noexcept;
+				/**
+				 * @brief Деструктор: секреты метки возврата состояния затираются
+				 *
+				 */
+				~Flight() noexcept;
 		} flight_t;
 	};
 };

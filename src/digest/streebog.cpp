@@ -501,6 +501,13 @@ void nts::digest::Streebog::reset(const type_t type) noexcept {
  *
  */
 void nts::digest::Streebog::update(const view_t & data) noexcept {
+	// Если кусок задан длиной без места: подача порчена, хеш сниматься не будет (договор тот же, что у Hasher)
+	if((data.data == nullptr) && (data.size > 0)){
+		// Запоминаем порчу подачи: снятие хеша отказывает
+		this->_finished = true;
+		// Выходим из метода
+		return;
+	}
 	// Если хеширование завершено либо кусок сообщения пустой
 	if(this->_finished || (this->_type == type_t::NONE) || (data.data == nullptr) || (data.size == 0))
 		// Выходим из метода

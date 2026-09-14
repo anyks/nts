@@ -77,7 +77,7 @@ namespace {
 	 * (DTLS 1.0/TLS 1.1) между порядком и подлинностью - билет прежней раскладки
 	 * распечатывается ключом, но состоянием не признаётся
 	 */
-	static constexpr uint8_t STATE = 0x03;
+	static constexpr uint8_t STATE = 0x04;
 
 	/**
 	 * Метки вывода частей ключа билетов из секрета потребителя
@@ -159,6 +159,16 @@ namespace {
 		if(outcome == field::error_t::NONE)
 			// Записываем срок жизни билета
 			outcome = builder.number(state.lifetime, 4);
+		// Миг первичного удостоверения в записи
+		const uint64_t authenticated = static_cast <uint64_t> (state.authenticated);
+		// Если срок записан
+		if(outcome == field::error_t::NONE)
+			// Записываем старшую половину мига удостоверения
+			outcome = builder.number(static_cast <uint32_t> (authenticated >> 32), 4);
+		// Если старшая половина записана
+		if(outcome == field::error_t::NONE)
+			// Записываем младшую половину мига удостоверения
+			outcome = builder.number(static_cast <uint32_t> (authenticated & 0xFFFFFFFF), 4);
 		// Если срок записан: раздел 3.1 RFC 7366 велит помнить порядок защиты записей
 		if(outcome == field::error_t::NONE)
 			// Записываем признак порядка «шифрование, затем имитовставка»
@@ -225,7 +235,7 @@ namespace {
 		// Устанавливаем разбираемое состояние
 		scanner.start(data);
 		// Издание записи, набор, признак расширенного главного секрета, половины мига, срок, порядок и подлинность
-		uint32_t edition = 0, suite = 0, extended = 0, upper = 0, lower = 0, lifetime = 0, etm = 0, ancient = 0, verified = 0;
+		uint32_t edition = 0, suite = 0, extended = 0, upper = 0, lower = 0, lifetime = 0, senior = 0, junior = 0, etm = 0, ancient = 0, verified = 0;
 		// Главный секрет, прикладной протокол, имя узла и сертификат клиента
 		view_t master, protocol, name, leaf;
 		// Разбираем состояние поле за полем: чужое издание, лишние байты и негодные признаки отвергаются
@@ -235,6 +245,7 @@ namespace {
 			(scanner.number(extended, 1) == field::error_t::NONE) && (extended == 1) &&
 			(scanner.number(upper, 4) == field::error_t::NONE) && (scanner.number(lower, 4) == field::error_t::NONE) &&
 			(scanner.number(lifetime, 4) == field::error_t::NONE) &&
+			(scanner.number(senior, 4) == field::error_t::NONE) && (scanner.number(junior, 4) == field::error_t::NONE) &&
 			(scanner.number(etm, 1) == field::error_t::NONE) && (etm <= 1) &&
 			(scanner.number(ancient, 1) == field::error_t::NONE) && (ancient <= 1) &&
 			(scanner.number(verified, 1) == field::error_t::NONE) && (verified <= 1) &&
@@ -282,6 +293,8 @@ namespace {
 		result.moment = static_cast <int64_t> ((static_cast <uint64_t> (upper) << 32) | lower);
 		// Переносим срок жизни
 		result.lifetime = lifetime;
+		// Переносим миг первичного удостоверения
+		result.authenticated = static_cast <int64_t> ((static_cast <uint64_t> (senior) << 32) | junior);
 		// Выводим годность записи
 		return true;
 	}
@@ -304,6 +317,8 @@ void nts::internal::ticket::State::clear() noexcept {
 	this->verified = false;
 	// Сбрасываем миг выдачи
 	this->moment = 0;
+	// Сбрасываем миг первичного удостоверения
+	this->authenticated = 0;
 	// Сбрасываем срок жизни
 	this->lifetime = 0;
 	// Сбрасываем прикладной протокол
@@ -317,7 +332,7 @@ void nts::internal::ticket::State::clear() noexcept {
  * @brief Конструктор
  *
  */
-nts::internal::ticket::State::State() noexcept : suite(protect::suite_t::NONE), etm(false), ancient(false), verified(false), moment(0), lifetime(0) {
+nts::internal::ticket::State::State() noexcept : suite(protect::suite_t::NONE), etm(false), ancient(false), verified(false), moment(0), authenticated(0), lifetime(0) {
 	// Выполняем обнуление главного секрета
 	::memset(this->master, 0, sizeof(this->master));
 }
@@ -418,12 +433,14 @@ nts::internal::ticket::error_t nts::internal::ticket::Keeper::mint(const state_t
 	const size_t padding = ((BLOCK - ((record.size + 1) % BLOCK)) % BLOCK);
 	// Итог запечатывания билета
 	error_t failure = error_t::NONE;
+	// Открытый текст состояния: живёт вне перехвата, чтобы затираться и при нехватке памяти
+	vector <uint8_t> plain;
 	/**
 	 * Выполняем складывание билета: имя ключа, вектор, длина, шифртекст и имитовставка
 	 */
 	try {
-		// Открытый текст состояния с дополнением по образцу раздела 6.2.3.2 RFC 5246
-		vector <uint8_t> plain(record.size + 1 + padding, static_cast <uint8_t> (padding));
+		// Занимаем место под открытый текст с дополнением по образцу раздела 6.2.3.2 RFC 5246
+		plain.assign(record.size + 1 + padding, static_cast <uint8_t> (padding));
 		// Переносим состояние билета
 		::memcpy(plain.data(), record.data, record.size);
 		// Выполняем сброс накопителя билета
@@ -457,8 +474,6 @@ nts::internal::ticket::error_t nts::internal::ticket::Keeper::mint(const state_t
 				// Записываем имитовставку билета
 				result.insert(result.end(), stamp, stamp + sizeof(stamp));
 		}
-		// Выполняем затирание открытого текста состояния
-		wipe(plain.data(), plain.size());
 	/**
 	 * Если памяти под билет не хватило
 	 */
@@ -466,6 +481,10 @@ nts::internal::ticket::error_t nts::internal::ticket::Keeper::mint(const state_t
 		// Запоминаем отказ нехватки памяти
 		failure = error_t::MEMORY;
 	}
+	// Если открытый текст состояния занят
+	if(!plain.empty())
+		// Выполняем затирание открытого текста состояния
+		wipe(plain.data(), plain.size());
 	// Если билет запечатать не удалось
 	if(failure != error_t::NONE)
 		// Выполняем сброс накопителя билета

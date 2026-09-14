@@ -1565,7 +1565,7 @@ TEST(EchTest, Early){
 		shrouded = (shrouded || (outer.extensions[i].type == ech::ECH_EXTENSION));
 	}
 	EXPECT_TRUE(shrouded);
-	EXPECT_FALSE(early);
+	EXPECT_TRUE(early);
 	// Упреждающие данные уходят до ответа сервера
 	const string request = "Упреждающий запрос под ECH";
 	ASSERT_EQ(resuming.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);

@@ -128,7 +128,9 @@ bool nts::noise::Handshake::ready() noexcept {
 		}
 	}
 	/**
-	 * Выполняем поглощение предсообщений: сперва инициатора, затем отвечающего
+	 * Выполняем проверку предсообщений обеих сторон до всякого хеширования: отказ
+	 * на второй стороне после примешивания первой оставил бы h изменённым, и повтор
+	 * после дозаведения ключей разошёлся бы с h собеседника
 	 */
 	for(uint8_t side = 0; side < 2; side++){
 		// Признак предсообщения инициатора
@@ -145,12 +147,28 @@ bool nts::noise::Handshake::ready() noexcept {
 			if(list[j] != token_t::S)
 				// Выводим отказ
 				return false;
-			// Признак того, что ключ наш
-			const bool own = (first == initiator);
 			// Если нужного ключа нет
-			if(own ? !this->_hasS : !this->_hasRS)
+			if((first == initiator) ? !this->_hasS : !this->_hasRS)
 				// Выводим отказ
 				return false;
+		}
+	}
+	/**
+	 * Выполняем поглощение предсообщений: сперва инициатора, затем отвечающего
+	 */
+	for(uint8_t side = 0; side < 2; side++){
+		// Признак предсообщения инициатора
+		const bool first = (side == 0);
+		// Получаем знаки предсообщения
+		if(!premessage(this->_pattern, first, list, count))
+			// Выводим отказ
+			return false;
+		/**
+		 * Выполняем перебор знаков
+		 */
+		for(size_t j = 0; j < count; j++){
+			// Признак того, что ключ наш
+			const bool own = (first == initiator);
 			// Примешиваем открытый ключ
 			if(!this->_symmetric.hash(view_t(own ? this->_sPublic : this->_rs, this->_public)))
 				// Выводим отказ
@@ -996,11 +1014,13 @@ bool nts::noise::Handshake::read(const view_t & message, uint8_t * result, size_
  *
  * \~
  */
-bool nts::noise::Handshake::split(cipher_t & one, cipher_t & two) const noexcept {
-	// Если рукопожатие не завершено
-	if(this->step() != step_t::DONE)
+bool nts::noise::Handshake::split(cipher_t & one, cipher_t & two) noexcept {
+	// Если рукопожатие не завершено либо раскол уже выполнен (раздел 5.3 Noise r34: после Split состояние рукопожатия удаляется)
+	if((this->step() != step_t::DONE) || this->_split)
 		// Выводим отказ
 		return false;
+	// Раскол выполнен: повтор отвергается
+	this->_split = true;
 	// Раскалываем симметричное состояние
 	if(!this->_symmetric.split(one, two))
 		// Выводим отказ
@@ -1150,6 +1170,8 @@ void nts::noise::Handshake::clear() noexcept {
 	this->_index = 0;
 	this->_count = 0;
 	this->_started = false;
+	// Сбрасываем признак раскола
+	this->_split = false;
 	this->_broken = false;
 	this->_hasS = false;
 	this->_hasE = false;
@@ -1174,7 +1196,7 @@ void nts::noise::Handshake::clear() noexcept {
  */
 nts::noise::Handshake::Handshake() noexcept :
  _pattern(pattern_t::NONE), _psks(0), _role(role_t::NONE), _index(0), _count(0),
- _started(false), _broken(false), _hasS(false), _hasE(false), _hasRS(false), _hasRE(false),
+ _started(false), _split(false), _broken(false), _hasS(false), _hasE(false), _hasRS(false), _hasRE(false),
  _pskCount(0), _pskUsed(0), _coinCount(0), _coinUsed(0), _public(0), _secret(0), _seed(0) {
 	// Обнуляем ключи
 	::memset(this->_s, 0, sizeof(this->_s));

@@ -68,6 +68,10 @@ bool nts::digest::kdf(const view_t & key, const view_t & label, const view_t & s
 	if(result == nullptr)
 		// Выводим отказ выработки производного ключа
 		return false;
+	// Если метка либо затравка объявлены непустыми, но не переданы
+	if(((label.size > 0) && (label.data == nullptr)) || ((seed.size > 0) && (seed.data == nullptr)))
+		// Выводим отказ выработки производного ключа
+		return false;
 	// Если метка или затравка выработки ключа длиннее дозволенного
 	if((label.size > KDF_LIMIT) || (seed.size > KDF_LIMIT))
 		// Выводим отказ выработки производного ключа

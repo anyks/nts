@@ -770,14 +770,21 @@ namespace {
 			if((header + length) > data.size)
 				// Выводим отказ обрыва
 				return fingerprint::error_t::HUNGRY;
+			// Если за записью идут лишние байты: запись обязана нести приветствие целиком
+			if((header + length) < data.size)
+				// Выводим отказ лишних байтов
+				return fingerprint::error_t::TRAILING;
 			// Переходим к сообщению рукопожатия
 			offset = header;
 		// Если байты начинаются не сообщением рукопожатия
 		} else if(data.data[0] != GREETING)
 			// Выводим отказ записи
 			return fingerprint::error_t::RECORD;
-		// Размер заголовка сообщения рукопожатия
-		const size_t header = (datagram ? HEADER_DATAGRAM : HEADER_STREAM);
+		/**
+		 * Размер обвязки сообщения рукопожатия: внутри записи дейтаграммы - в 12 байтов, у
+		 * голого сообщения - в 4 при любом переносе (так его держит связь сервера после сборки)
+		 */
+		const size_t header = ((datagram && (offset > 0)) ? HEADER_DATAGRAM : HEADER_STREAM);
 		// Если заголовок сообщения оборван
 		if((offset + header) > data.size)
 			// Выводим отказ обрыва
@@ -788,8 +795,8 @@ namespace {
 			return fingerprint::error_t::MESSAGE;
 		// Запоминаем длину тела приветствия
 		result.length = triad(data.data + offset + 1);
-		// Если сообщение идёт поверх дейтаграмм
-		if(datagram){
+		// Если сообщение идёт внутри записи дейтаграммы
+		if(header == HEADER_DATAGRAM){
 			// Запоминаем порядковый номер сообщения
 			result.message = twain(data.data + offset + 4);
 			// Если сообщение нарезано на куски: отпечаток снимается лишь с цельного
@@ -803,6 +810,10 @@ namespace {
 		if((offset + result.length) > data.size)
 			// Выводим отказ обрыва
 			return fingerprint::error_t::HUNGRY;
+		// Если за телом приветствия идут лишние байты
+		if((offset + result.length) < data.size)
+			// Выводим отказ лишних байтов
+			return fingerprint::error_t::TRAILING;
 		// Разобранное приветствие клиента
 		hello::client_t greeting;
 		// Отказ разбора приветствия
@@ -1240,6 +1251,10 @@ namespace {
 		size_t count = twain(data.data + offset);
 		// Переходим за число наборов
 		offset += 2;
+		// Снимок без наборов негоден - зеркально dump() и Store::add
+		if(count == 0)
+			// Выводим отказ пустого профиля
+			return fingerprint::error_t::EMPTY;
 		// Если наборы в снимок не входят
 		if((offset + (count * 2) + 1) > data.size)
 			// Выводим отказ снимка

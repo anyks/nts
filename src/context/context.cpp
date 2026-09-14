@@ -67,7 +67,7 @@ namespace {
 	/**
 	 * Издание записи билета возобновления связи
 	 */
-	static constexpr uint32_t EDITION = 0x03;
+	static constexpr uint32_t EDITION = 0x04;
 	/**
 	 * Предел длины ключа билета: ключ выводится хешем набора, а шире хеша он не бывает
 	 */
@@ -123,7 +123,7 @@ namespace {
  *
  */
 nts::context::Ticket::Ticket() noexcept :
-	suite(protect::suite_t::NONE), moment(0), lifetime(0), advance(0), age(0), etm(false), settled(false) {}
+	suite(protect::suite_t::NONE), moment(0), lifetime(0), advance(0), age(0), etm(false), ancient(false), authenticated(0), settled(false) {}
 /**
  * @brief Деструктор настроек заранее разделённого ключа
  *
@@ -138,14 +138,14 @@ nts::context::Psk::~Psk() noexcept {
  * @param other копируемый билет
  *
  */
-nts::context::Ticket::Ticket(const Ticket & other) : suite(other.suite), moment(other.moment), lifetime(other.lifetime), advance(other.advance), age(other.age), etm(other.etm), protocol(other.protocol), settled(other.settled), settings(other.settings), obtained(other.obtained), identity(other.identity), secret(other.secret), parameters(other.parameters) {}
+nts::context::Ticket::Ticket(const Ticket & other) : suite(other.suite), moment(other.moment), lifetime(other.lifetime), advance(other.advance), age(other.age), etm(other.etm), ancient(other.ancient), authenticated(other.authenticated), protocol(other.protocol), settled(other.settled), settings(other.settings), obtained(other.obtained), identity(other.identity), secret(other.secret), parameters(other.parameters) {}
 /**
  * @brief Конструктор перемещения билета
  *
  * @param other перемещаемый билет
  *
  */
-nts::context::Ticket::Ticket(Ticket && other) noexcept : suite(other.suite), moment(other.moment), lifetime(other.lifetime), advance(other.advance), age(other.age), etm(other.etm), protocol(::move(other.protocol)), settled(other.settled), settings(::move(other.settings)), obtained(::move(other.obtained)), identity(::move(other.identity)), secret(::move(other.secret)), parameters(::move(other.parameters)) {
+nts::context::Ticket::Ticket(Ticket && other) noexcept : suite(other.suite), moment(other.moment), lifetime(other.lifetime), advance(other.advance), age(other.age), etm(other.etm), ancient(other.ancient), authenticated(other.authenticated), protocol(::move(other.protocol)), settled(other.settled), settings(::move(other.settings)), obtained(::move(other.obtained)), identity(::move(other.identity)), secret(::move(other.secret)), parameters(::move(other.parameters)) {
 	// Если у источника ключ остался (перемещение вправе оставить копию)
 	if(!other.secret.empty())
 		// Затираем ключ источника
@@ -170,6 +170,8 @@ nts::context::Ticket & nts::context::Ticket::operator = (const Ticket & other) {
 	if(!this->secret.empty())
 		// Затирание
 		sys::wipe(this->secret.data(), this->secret.size());
+	// Опустошаем ключ: отказ памяти на прочих полях не оставит билета с нулевым ключом прежней длины
+	this->secret.clear();
 	// Переносим поля
 	this->suite = other.suite;
 	this->moment = other.moment;
@@ -177,6 +179,10 @@ nts::context::Ticket & nts::context::Ticket::operator = (const Ticket & other) {
 	this->advance = other.advance;
 	this->age = other.age;
 	this->etm = other.etm;
+	// Переносим признак издания выдавшей связи
+	this->ancient = other.ancient;
+	// Переносим миг первичного удостоверения
+	this->authenticated = other.authenticated;
 	this->protocol = other.protocol;
 	this->settled = other.settled;
 	this->settings = other.settings;
@@ -211,6 +217,10 @@ nts::context::Ticket & nts::context::Ticket::operator = (Ticket && other) noexce
 	this->advance = other.advance;
 	this->age = other.age;
 	this->etm = other.etm;
+	// Переносим признак издания выдавшей связи
+	this->ancient = other.ancient;
+	// Переносим миг первичного удостоверения
+	this->authenticated = other.authenticated;
 	this->protocol = ::move(other.protocol);
 	this->settled = other.settled;
 	this->settings = ::move(other.settings);
@@ -303,6 +313,24 @@ nts::context::error_t nts::context::encode(const ticket_t & ticket, vector <uint
 	// Отказ записи признака порядка «шифрование, затем имитовставка»
 	failure = translate(builder.number((ticket.etm ? 1 : 0), 1));
 	// Если признак порядка записать не удалось
+	if(failure != error_t::NONE)
+		// Выводим отказ записи билета
+		return failure;
+	// Отказ записи признака издания выдавшей связи
+	failure = translate(builder.number((ticket.ancient ? 1 : 0), 1));
+	// Если признак издания записать не удалось
+	if(failure != error_t::NONE)
+		// Выводим отказ записи билета
+		return failure;
+	// Миг первичного удостоверения в записи
+	const uint64_t authenticated = static_cast <uint64_t> (ticket.authenticated);
+	// Отказ записи старшей половины мига удостоверения
+	failure = translate(builder.number(static_cast <uint32_t> (authenticated >> 32), 4));
+	// Если старшая половина записана
+	if(failure == error_t::NONE)
+		// Отказ записи младшей половины мига удостоверения
+		failure = translate(builder.number(static_cast <uint32_t> (authenticated & 0xFFFFFFFF), 4));
+	// Если миг удостоверения записать не удалось
 	if(failure != error_t::NONE)
 		// Выводим отказ записи билета
 		return failure;
@@ -436,6 +464,22 @@ nts::context::error_t nts::context::decode(const view_t & data, ticket_t & resul
 		return error_t::TICKET;
 	// Переносим признак порядка
 	ticket.etm = (etm == 1);
+	// Признак издания выдавшей связи в записи
+	uint32_t ancient = 0;
+	// Если признак издания прочитать не удалось либо он не ноль и не единица
+	if((scanner.number(ancient, 1) != field::error_t::NONE) || (ancient > 1))
+		// Выводим отказ чтения билета
+		return error_t::TICKET;
+	// Переносим признак издания
+	ticket.ancient = (ancient == 1);
+	// Половины мига первичного удостоверения
+	uint32_t senior = 0, junior = 0;
+	// Если миг удостоверения прочитать не удалось
+	if((scanner.number(senior, 4) != field::error_t::NONE) || (scanner.number(junior, 4) != field::error_t::NONE))
+		// Выводим отказ чтения билета
+		return error_t::TICKET;
+	// Переносим миг первичного удостоверения
+	ticket.authenticated = static_cast <int64_t> ((static_cast <uint64_t> (senior) << 32) | junior);
 	// Поля билета переменной длины
 	view_t protocol, identity, secret, parameters, settings, obtained;
 	// Если прикладной протокол билета прочитать не удалось

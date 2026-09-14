@@ -217,6 +217,41 @@ namespace nts {
 
 		/**
 		 * \~russian
+		 * @brief Предел записей, не прошедших проверку подлинности, на одном ключе
+		 *
+		 * @details Раздел 4.5.3 RFC 9147: у AES-GCM и ChaCha20-Poly1305 после 2^36 подделок
+		 *          связь обязана закрыться; предел один на оба издания
+		 *
+		 * \~english
+		 * @brief Limit of the records that failed the authentication on one key
+		 * @details The section 4.5.3 of RFC 9147: at AES-GCM and ChaCha20-Poly1305 the connection
+		 *          must be closed after 2^36 forgeries; the limit is the same at both editions
+		 *
+		 * \~
+		 */
+		static constexpr uint64_t DATAGRAM_FORGERY = (static_cast <uint64_t> (1) << 36);
+
+		/**
+		 * \~russian
+		 * @brief Предел числа несмежных областей покрытия одной сборки сообщения
+		 *
+		 * @details Куски честного отправителя идут подряд и сливаются в одну область;
+		 *          подделка кусками по байту через один давала бы десятки тысяч областей
+		 *          и квадратичное слияние на открытой нулевой поре - кусок сверх предела
+		 *          отбрасывается
+		 *
+		 * \~english
+		 * @brief Limit of the number of non-adjacent spans of the coverage of one assembly of a message
+		 * @details The fragments of an honest sender go contiguously and merge into one span; a forgery
+		 *          by one-byte fragments every other byte would give tens of thousands of spans and a
+		 *          quadratic merging at the plain zero epoch - a fragment beyond the limit is discarded
+		 *
+		 * \~
+		 */
+		static constexpr size_t DATAGRAM_SPANS = 64;
+
+		/**
+		 * \~russian
 		 * @brief Длина образца шифртекста, из которого выводится маска номера записи, в байтах
 		 *
 		 * @details Раздел 4.2.3 RFC 9147: маска берётся от первых шестнадцати байтов

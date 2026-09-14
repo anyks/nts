@@ -308,7 +308,8 @@ namespace nts {
 			EMPTY    = 0x02, /*!< \~russian Перечень тела расширения пуст \~english The list of the body of the extension is empty \~ */
 			TRAILING = 0x03, /*!< \~russian За телом расширения идут лишние байты \~english There are extra bytes behind the body of the extension \~ */
 			LENGTH   = 0x04, /*!< \~russian Составляемое поле в свою длину не входит \~english A field being composed does not fit into its length \~ */
-			MEMORY   = 0x05  /*!< \~russian Памяти под итог не хватило \~english There was not enough memory for the outcome \~ */
+			MEMORY   = 0x05, /*!< \~russian Памяти под итог не хватило \~english There was not enough memory for the outcome \~ */
+			FORMAT   = 0x06  /*!< \~russian Поле негодного вида: имя узла с байтом вне печатаемого ASCII либо с точкой на конце (раздел 3 RFC 6066) \~english A field of an unfit form: a host name with a byte outside the printable ASCII or with a trailing dot (the section 3 of RFC 6066) \~ */
 		};
 
 		/**

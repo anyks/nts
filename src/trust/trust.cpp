@@ -37,6 +37,32 @@
  *    лишь для имён, записанных теми же видами строк: расхождение видов даёт отказ, а не
  *    ложное совпадение.
  *
+ * 6. Имя со звёздочкой «*.X» при сличении с запрещённым поддеревом dNSName лежит в нём и
+ *    тогда, когда основание поддерева само лежит под X одной либо несколькими метками
+ *    («*.example.com» против excluded «secure.example.com»). RFC 5280 звёздочек не знает,
+ *    и OpenSSL сличает буквально; но belongs() трактует «*.X» как всякий узел под X, и
+ *    буквальное сличение с ограничением давало бы обход: издатель, которому запрещено
+ *    secure.example.com, выпускал бы «*.example.com» и обслуживал им запрещённое имя.
+ *    Для дозволенных поддеревьев сличение остаётся буквальным: хвост имени обязан лежать
+ *    в поддереве. Закреплено проверкой AuditTest.WildcardExcluded. К основанию с ведущей
+ *    точкой («.secure.example.com», лишь строго подчинённые имена) правило не применяется:
+ *    звёздочка кроет ровно одну метку и ни одного имени под таким основанием обслужить не
+ *    может, а применение давало ложный отказ годной цепочке. Закреплено проверкой
+ *    TrustTest.WildcardExcludedLeadingDot.
+ *
+ * 7. Хвостовая точка доменного имени снимается перед всяким сличением: у имени владельца,
+ *    у запрошенного имени узла и у основания поддерева. Запись «secure.example.com.» -
+ *    законная форма FQDN, её принимают и IA5String, и резолверы, и издатели; сличаясь же
+ *    буквально, она обходила запрещённое поддерево secure.example.com и при этом отвечала
+ *    имени узла, поданному с той же точкой. Имя из одной точки либо с двумя точками на
+ *    конце негодно. Закреплено проверкой TrustTest.TrailingDotExcluded.
+ *
+ * 8. Пустое поле subject именем вида directoryName не считается. Раздел 4.2.1.10 RFC 5280
+ *    применяет ограничение лишь к именам того вида, что в сертификате есть, а раздел
+ *    4.1.2.6 дозволяет пустой subject при критичном subjectAltName: такой лист под
+ *    дозволенным поддеревом directoryName годен (так судит и openssl). Закреплено проверкой
+ *    TrustTest.EmptySubjectDirName.
+ *
  * @copyright Copyright © 2026
  *
  */
@@ -46,6 +72,7 @@
  */
 #include <new>
 #include <cstring>
+#include <algorithm>
 
 /**
  * Подключаем заголовочные файлы проекта
@@ -261,11 +288,50 @@ namespace {
 		return false;
 	}
 	/**
+	 * @brief Метод проверки, что общее имя по виду есть имя узла
+	 *
+	 * @param name общее имя владельца
+	 *
+	 * @return     признак имени узла: лишь буквы, цифры, точки и дефисы, не адрес сети
+	 *
+	 * @note Ограничения dNSName судят общее имя лишь такого вида: имя человека либо
+	 *       адрес сети под них не подпадают (так же поступает OpenSSL)
+	 *
+	 */
+	static bool hostlike(const string & name) noexcept {
+		// Пустое имя узлом не является
+		if(name.empty())
+			return false;
+		/**
+		 * Выполняем перебор знаков имени
+		 */
+		for(size_t i = 0; i < name.size(); i++){
+			// Знак имени
+			const char sign = name[i];
+			// Если знак вне набора имени узла
+			if(!(((sign >= 'a') && (sign <= 'z')) || ((sign >= 'A') && (sign <= 'Z')) || ((sign >= '0') && (sign <= '9')) || (sign == '.') || (sign == '-') || (sign == '*')))
+				return false;
+		}
+		// Байты адреса сети
+		uint8_t bytes[16];
+		// Адрес сети именем узла не является
+		return !address(name, bytes);
+	}
+	/**
 	 * Опознаватели расширений, которые проверка доверия понимает: раздел 4.2 RFC 5280
 	 * велит отвергать сертификат с неизвестным расширением, объявленным критичным
 	 */
 	// Приведение имени к нижнему регистру определено ниже
 	static error_t lower(const string & name, string & result) noexcept;
+	/**
+	 * @brief Метод снятия хвостовой точки доменного имени (решение 7)
+	 *
+	 * @param name доменное имя, у которого снимается одна хвостовая точка
+	 *
+	 * @return     признак годности имени: имя из одной точки либо с двумя точками на конце негодно
+	 *
+	 */
+	static bool rooted(string & name) noexcept;
 	/**
 	 * @brief Метод проверки назначения ключа сертификата по роли собеседника
 	 *
@@ -325,15 +391,125 @@ namespace {
 		return item.content;
 	}
 	/**
-	 * @brief Метод сличения имени с поддеревом ограничений
+	 * @brief Метод приведения отличительного имени к сличимому виду
 	 *
-	 * @param name имя сертификата
-	 * @param tree поддерево ограничений того же вида
+	 * @param rdns   содержимое последовательности RDN имени
+	 * @param result место, в которое помещаются RDN по порядку: признаки внутри RDN отсортированы, значения строк приведены
 	 *
-	 * @return     признак того, что имя лежит в поддереве
+	 * @return       признак успешности разбора
+	 *
+	 * @note Раздел 7.1 RFC 5280: строки сличаются без учёта вида записи и регистра, с
+	 *       ослаблением пробелов; побайтное сличение DER давало бы обход исключённого
+	 *       поддерева подменой UTF8String на PrintableString. Может бросить bad_alloc.
+	 *       Негодная запись даёт отказ, а не конец перебора: частично разобранное имя
+	 *       не лежало бы ни в одном поддереве, и ограничение обходилось бы порчей записи
 	 *
 	 */
-	static bool within(const x509::alternative_t & name, const x509::alternative_t & tree) noexcept {
+	static bool folded(const view_t & rdns, vector <string> & result) {
+		// Разборщик последовательности RDN
+		asn1::reader_t reader(rdns);
+		// Очередной RDN
+		asn1::element_t rdn;
+		/**
+		 * Выполняем перебор RDN
+		 */
+		while(!reader.empty()){
+			// Если очередной RDN не прочитался - запись негодна
+			if(!reader.next(rdn))
+				return false;
+			// Признаки RDN
+			vector <string> attributes;
+			// Разборщик набора признаков
+			asn1::reader_t inner(rdn.content);
+			// Очередной признак
+			asn1::element_t attribute;
+			/**
+			 * Выполняем перебор признаков RDN
+			 */
+			while(!inner.empty()){
+				// Если очередной признак не прочитался - запись негодна
+				if(!inner.next(attribute))
+					return false;
+				// Разборщик признака: опознаватель и значение
+				asn1::reader_t pair(attribute.content);
+				// Опознаватель и значение
+				asn1::element_t object, value;
+				// Если признак не разобрался
+				if(!pair.next(object) || !pair.next(value))
+					return false;
+				// Опознаватель признака
+				string oid;
+				// Если опознаватель не разобрался
+				if(asn1::oid(object, oid) != asn1::error_t::NONE)
+					return false;
+				// Значение признака строкой
+				string text;
+				// Если значение не строка известного вида: берётся запись целиком
+				if((value.cls != asn1::cls_t::UNIVERSAL) || (asn1::text(value, static_cast <asn1::tag_t> (value.tag), text) != asn1::error_t::NONE))
+					text.assign(reinterpret_cast <const char *> (value.element.data), value.element.size);
+				// Приведённое значение: регистр ASCII вниз, пробелы ослаблены
+				string canon;
+				// Признак пробела перед знаком
+				bool space = true;
+				/**
+				 * Выполняем перебор знаков значения
+				 */
+				for(size_t i = 0; i < text.size(); i++){
+					// Знак значения
+					char sign = text[i];
+					// Если знак пробельный
+					if((sign == ' ') || (sign == '\t') || (sign == '\n') || (sign == '\r')){
+						// Один пробел между словами
+						if(!space)
+							canon.push_back(' ');
+						// Отмечаем пробел
+						space = true;
+						continue;
+					}
+					// Регистр ASCII вниз
+					if((sign >= 'A') && (sign <= 'Z'))
+						sign = static_cast <char> (sign + ('a' - 'A'));
+					// Добавляем знак
+					canon.push_back(sign);
+					// Пробела не было
+					space = false;
+				}
+				// Срезаем хвостовой пробел
+				if(!canon.empty() && (canon.back() == ' '))
+					canon.pop_back();
+				// Разделители экранируются: значение с «;» либо «=» не должно читаться как два признака
+				string guarded;
+				for(size_t i = 0; i < canon.size(); i++){
+					if((canon[i] == ';') || (canon[i] == '=') || (canon[i] == '\\'))
+						guarded.push_back('\\');
+					guarded.push_back(canon[i]);
+				}
+				// Признак записью «опознаватель=значение»
+				attributes.push_back(oid + "=" + guarded);
+			}
+			// Порядок признаков внутри RDN не значим
+			std::sort(attributes.begin(), attributes.end());
+			// Собираем RDN в одну строку
+			string joined;
+			for(size_t i = 0; i < attributes.size(); i++)
+				joined += (attributes[i] + ";");
+			// Добавляем RDN
+			result.push_back(joined);
+		}
+		// Выводим успешность
+		return true;
+	}
+	/**
+	 * @brief Метод сличения имени с поддеревом ограничений
+	 *
+	 * @param name     имя сертификата
+	 * @param tree     поддерево ограничений того же вида
+	 * @param excluded признак того, что поддерево запрещённое: имя со звёздочкой судится шире (решение 6)
+	 *
+	 * @return         признак того, что имя лежит в поддереве, минус один при нехватке памяти
+	 *
+	 */
+	static int within(const x509::alternative_t & name, const x509::alternative_t & tree, const bool excluded) noexcept {
 		/**
 		 * Выполняем определение вида имени
 		 */
@@ -344,16 +520,36 @@ namespace {
 				string host, base;
 				// Приводим к нижнему регистру
 				if((lower(name.value, host) != error_t::NONE) || (lower(tree.value, base) != error_t::NONE))
-					return false;
+					// Нехватка памяти не обращается в «вне поддерева»
+					return -1;
 				// Если поддерево пусто - кроет всё
 				if(base.empty())
-					return true;
+					return 1;
+				// Если имя с хвостовой точкой негодно (решение 7) - ни в одном поддереве не лежит
+				if(!rooted(host))
+					return 0;
+				// Если основание с хвостовой точкой негодно (решение 7) - ничего не кроет
+				if(!rooted(base))
+					return 0;
+				/**
+				 * Решение 6: имя «*.X» против запрещённого поддерева лежит в нём и тогда,
+				 * когда основание поддерева само лежит под X - звёздочка кроет всякий
+				 * узел под X, в том числе и запрещённый. Основание с ведущей точкой кроет
+				 * лишь строго подчинённые имена, а до них звёздочка одной меткой не достаёт
+				 */
+				if(excluded && (base[0] != '.') && (host.size() > 2) && (host[0] == '*') && (host[1] == '.')){
+					// Хвост имени за звёздочкой
+					const size_t tail = (host.size() - 2);
+					// Если основание лежит под хвостом имени: кончается на «.» и хвост
+					if((base.size() > tail) && (base[base.size() - tail - 1] == '.') && (base.compare(base.size() - tail, tail, host, 2, tail) == 0))
+						return 1;
+				}
 				// Если поддерево начинается с точки - лишь подчинённые
 				if(base[0] == '.')
 					return ((host.size() > base.size()) && (host.compare(host.size() - base.size(), base.size(), base) == 0));
 				// Само имя
 				if(host.compare(base) == 0)
-					return true;
+					return 1;
 				// Подчинённое имя
 				return ((host.size() > base.size()) && (host[host.size() - base.size() - 1] == '.') && (host.compare(host.size() - base.size(), base.size(), base) == 0));
 			}
@@ -363,28 +559,29 @@ namespace {
 				string mail, base;
 				// Приводим к нижнему регистру
 				if((lower(name.value, mail) != error_t::NONE) || (lower(tree.value, base) != error_t::NONE))
-					return false;
+					// Нехватка памяти не обращается в «вне поддерева»
+					return -1;
 				// Если поддерево - сам адрес
 				if(base.find('@') != string::npos)
-					return (mail.compare(base) == 0);
+					return ((mail.compare(base) == 0) ? 1 : 0);
 				// Место разделителя адреса
 				const size_t at = mail.find('@');
 				// Если разделителя нет - не адрес
 				if(at == string::npos)
-					return false;
-				// Узел адреса
-				const string host = mail.substr(at + 1);
+					return 0;
+				// Длина узла адреса: сличение по месту, без копии - выделений в noexcept не заводим
+				const size_t host = (mail.size() - at - 1);
 				// Если поддерево - подчинённые узлы
 				if(!base.empty() && (base[0] == '.'))
-					return ((host.size() > base.size()) && (host.compare(host.size() - base.size(), base.size(), base) == 0));
+					return (((host > base.size()) && (mail.compare(mail.size() - base.size(), base.size(), base) == 0)) ? 1 : 0);
 				// Сам узел
-				return (host.compare(base) == 0);
+				return (((host == base.size()) && (mail.compare(at + 1, host, base) == 0)) ? 1 : 0);
 			}
 			// Адрес сети: поддерево несёт адрес и маску той же длины
 			case x509::kind_t::ADDRESS: {
 				// Если длины не сходятся
 				if(tree.value.size() != (name.value.size() * 2))
-					return false;
+					return 0;
 				/**
 				 * Выполняем перебор байтов адреса под маской
 				 */
@@ -393,26 +590,57 @@ namespace {
 					const uint8_t mask = static_cast <uint8_t> (tree.value[name.value.size() + i]);
 					// Если под маской байты разошлись
 					if((static_cast <uint8_t> (name.value[i]) & mask) != (static_cast <uint8_t> (tree.value[i]) & mask))
-						return false;
+						return 0;
 				}
 				// Адрес в поддереве
-				return true;
+				return 1;
 			}
 			// Отличительное имя: раздел 7.1 RFC 5280 - последовательность RDN имени начинается с последовательности основания
 			case x509::kind_t::DIRECTORY: {
+				/**
+				 * Имя из subjectAltName записано меткой [4] поверх последовательности имени, а
+				 * поле subject - самой последовательностью: у первого содержимое снимается дважды
+				 */
+				const bool tagged = ((name.element.size > 0) && (name.element.data[0] == 0xA4));
 				// Содержимое имени и основания
-				const view_t subject = contents(name.element), base = contents(contents(tree.element));
+				const view_t subject = (tagged ? contents(contents(name.element)) : contents(name.element)), base = contents(contents(tree.element));
 				// Если содержимое не разобралось
 				if((subject.data == nullptr) || (base.data == nullptr))
-					return false;
+					return 0;
 				// Пустое основание кроет всё
 				if(base.size == 0)
-					return true;
-				// Имя начинается с основания
-				return ((subject.size >= base.size) && (::memcmp(subject.data, base.data, base.size) == 0));
+					return 1;
+				/**
+				 * Выполняем перехват ошибок работы с памятью
+				 */
+				try {
+					// Приведённые RDN имени и основания
+					vector <string> first, second;
+					// Если имя либо основание не разобрались
+					if(!folded(subject, first) || !folded(base, second))
+						return 0;
+					// Если основание длиннее имени
+					if(second.size() > first.size())
+						return 0;
+					/**
+					 * Выполняем сличение RDN основания с началом имени (раздел 7.1 RFC 5280)
+					 */
+					for(size_t i = 0; i < second.size(); i++){
+						// Если RDN разошлись
+						if(first[i].compare(second[i]) != 0)
+							return 0;
+					}
+					// Имя начинается с основания
+					return 1;
+				/**
+				 * Если памяти не хватило
+				 */
+				} catch(const bad_alloc &) {
+					return -1;
+				}
 			}
 			// Прочие виды сличаются записью
-			default: return ((name.element.size == tree.element.size) && (::memcmp(name.element.data, tree.element.data, name.element.size) == 0));
+			default: return (((name.element.size == tree.element.size) && (::memcmp(name.element.data, tree.element.data, name.element.size) == 0)) ? 1 : 0);
 		}
 	}
 	/**
@@ -483,8 +711,8 @@ namespace {
 			if(!hosted){
 				// Общее имя владельца
 				const x509::attribute_t * common = x509::attribute(certificate.subjects(), COMMON);
-				// Если общее имя есть
-				if(common != nullptr){
+				// Если общее имя есть и по виду есть имя узла, а не адрес сети и не имя человека
+				if((common != nullptr) && hostlike(common->value)){
 					// Имя вида DNS
 					x509::alternative_t name;
 					name.kind = x509::kind_t::DNS;
@@ -504,8 +732,12 @@ namespace {
 					names.push_back(name);
 				}
 			}
-			// Само поле subject именем вида отличительного имени
-			if(certificate.subjects().element.size > 0){
+			/**
+			 * Само поле subject именем вида отличительного имени; пустое поле (SEQUENCE без
+			 * RDN, дозволено разделом 4.1.2.6 RFC 5280 при критичном subjectAltName) имени
+			 * этого вида не несёт и ограничением directoryName не судится (решение 8)
+			 */
+			if(!certificate.subjects().parts.empty() && (certificate.subjects().element.size > 0)){
 				x509::alternative_t name;
 				name.kind = x509::kind_t::DIRECTORY;
 				name.element = certificate.subjects().element;
@@ -527,8 +759,13 @@ namespace {
 				// Если вид не тот
 				if(excluded[j].kind != names[i].kind)
 					continue;
+				// Итог сличения с запрещённым поддеревом
+				const int inside = (comparable ? within(names[i], excluded[j], true) : 0);
+				// Если памяти на сличение не хватило
+				if(inside < 0)
+					return error_t::MEMORY;
 				// Если вид не сличить либо имя в запрещённом поддереве
-				if(!comparable || within(names[i], excluded[j]))
+				if(!comparable || (inside == 1))
 					return error_t::CONSTRAINED;
 			}
 			// Признак наличия дозволенных поддеревьев этого вида и вхождения в одно из них
@@ -542,8 +779,13 @@ namespace {
 					continue;
 				// Дозволенные этого вида есть
 				ruled = true;
+				// Итог сличения с дозволенным поддеревом
+				const int inside = (comparable ? within(names[i], permitted[j], false) : 0);
+				// Если памяти на сличение не хватило
+				if(inside < 0)
+					return error_t::MEMORY;
 				// Если имя в поддереве
-				if(comparable && within(names[i], permitted[j]))
+				if(inside == 1)
 					allowed = true;
 			}
 			// Если дозволенные есть, а имя вне их
@@ -631,6 +873,30 @@ namespace {
 		}
 		// Выводим успешность приведения имени
 		return error_t::NONE;
+	}
+	/**
+	 * @brief Метод снятия хвостовой точки доменного имени
+	 *
+	 * @details Решение 7: «example.com.» - та же запись имени, что и «example.com», и
+	 *          сличается она лишь после снятия точки; имя из одной точки либо с двумя
+	 *          точками на конце - не имя вовсе
+	 *
+	 * @param name доменное имя, у которого снимается одна хвостовая точка
+	 *
+	 * @return     признак годности имени
+	 *
+	 */
+	static bool rooted(string & name) noexcept {
+		// Если имя пусто - снимать нечего, а пустое имя судится вызывающим
+		if(name.empty())
+			// Выводим признак годности имени
+			return true;
+		// Если имя кончается точкой
+		if(name.back() == '.')
+			// Снимаем хвостовую точку
+			name.pop_back();
+		// Выводим признак того, что за снятой точкой стоит имя, а не пустота и не вторая точка
+		return (!name.empty() && (name.back() != '.'));
 	}
 	/**
 	 * @brief Метод сличения имени узла с именем сертификата
@@ -887,6 +1153,8 @@ nts::trust::error_t nts::trust::verify(const vector <vector <uint8_t>> & chain, 
 		// Выводим отказ нехватки памяти
 		return error_t::MEMORY;
 	}
+	// Место звена, замкнувшего цепочку из запаса: за пределами цепочки, пока такого нет
+	size_t closing = chain.size();
 	/**
 	 * Выполняем перебор сертификатов проверяемой цепочки
 	 */
@@ -911,6 +1179,33 @@ nts::trust::error_t nts::trust::verify(const vector <vector <uint8_t>> & chain, 
 		if(error != error_t::NONE)
 			// Выводим отказ истечения срока действия сертификата
 			return error;
+		/**
+		 * Звено, лежащее в запасе доверенных, замыкает цепочку: звенья выше него (истёкший
+		 * прежний корень над доверенным промежуточным, как DST Root CA X3 над ISRG Root X1)
+		 * не судятся - так поступают OpenSSL с -partial_chain и браузеры
+		 */
+		if((i + 1) < chain.size()){
+			// Признак того, что звено доверено
+			bool trusted = false;
+			/**
+			 * Выполняем перебор запаса
+			 */
+			for(size_t j = 0; !trusted && (j < store.size()); j++){
+				// Доверенный сертификат
+				const view_t anchor = store.get(j);
+				// Если записи совпали
+				trusted = ((anchor.size == chain[i].size()) && (::memcmp(anchor.data, chain[i].data(), anchor.size) == 0));
+			}
+			// Если звено доверено: цепочка кончается на нём, и оно судится якорем
+			if(trusted){
+				// Запоминаем место замыкающего звена
+				closing = i;
+				// Укорачиваем разобранную цепочку
+				items.resize(i + 1);
+				// Прерываем разбор
+				break;
+			}
+		}
 	}
 	// Итог проверки назначения ключа листа цепочки
 	const error_t purposed = signer(items[0], role);
@@ -974,6 +1269,10 @@ nts::trust::error_t nts::trust::verify(const vector <vector <uint8_t>> & chain, 
 			if(bounded != error_t::NONE)
 				return bounded;
 		}
+		// Если звено либо его издатель слабы: подпись SHA-1/MD5 либо ключ RSA короче 2048 (RFC 9155, SP 800-131A)
+		if(x509::weak(items[i], false) || x509::weak(items[i + 1], ((i + 1) == closing)))
+			// Выводим отказ стойкости
+			return error_t::WEAK;
 		// Итог проверки подписи сертификата издателем
 		const x509::error_t attested = x509::verify(items[i], items[i + 1].key());
 		// Если памяти под проверку подписи не хватило
@@ -987,8 +1286,8 @@ nts::trust::error_t nts::trust::verify(const vector <vector <uint8_t>> & chain, 
 	}
 	// Получаем последний сертификат проверяемой цепочки
 	const x509::certificate_t & last = items[items.size() - 1];
-	// Получаем запись последнего сертификата проверяемой цепочки
-	const vector <uint8_t> & record = chain[chain.size() - 1];
+	// Получаем запись последнего сертификата проверяемой (быть может, укороченной) цепочки
+	const vector <uint8_t> & record = chain[items.size() - 1];
 	// Имя издателя последнего сертификата цепочки
 	string issuer;
 	// Итог разбора, о нехватке памяти под который отвечает свой отказ
@@ -1074,6 +1373,14 @@ nts::trust::error_t nts::trust::verify(const vector <vector <uint8_t>> & chain, 
 		// Если ограничения нарушены
 		if(bounded)
 			continue;
+		// Если последнее звено слабо: подпись SHA-1/MD5 либо ключ RSA короче 2048
+		if(x509::weak(last, false))
+			// Выводим отказ стойкости
+			return error_t::WEAK;
+		// Если слаб якорь: он негоден, ищется иной
+		if(x509::weak(anchor, true))
+			// Переходим к следующему якорю
+			continue;
 		// Итог проверки подписи последнего сертификата цепочки якорем
 		const x509::error_t anchored = x509::verify(last, anchor.key());
 		// Если памяти под проверку подписи не хватило
@@ -1122,6 +1429,10 @@ nts::trust::error_t nts::trust::belongs(const view_t & certificate, const string
 	if(lower(name, requested) != error_t::NONE)
 		// Выводим отказ нехватки памяти
 		return error_t::MEMORY;
+	// Если имя узла с хвостовой точкой негодно (решение 7)
+	if(!rooted(requested))
+		// Выводим отказ несовпадения имени узла
+		return error_t::NAME;
 	// Байты адреса сети, если имя узла им записано
 	uint8_t bytes[16] = {0};
 	// Признак имени узла, записанного адресом сети
@@ -1175,6 +1486,10 @@ nts::trust::error_t nts::trust::belongs(const view_t & certificate, const string
 			if(lower(alternatives[i].value, pattern) != error_t::NONE)
 				// Выводим отказ нехватки памяти
 				return error_t::MEMORY;
+			// Если имя владельца с хвостовой точкой негодно (решение 7)
+			if(!rooted(pattern))
+				// Переходим к следующему имени владельца сертификата
+				continue;
 			// Если имя узла имени сертификата отвечает
 			if(matches(pattern, requested))
 				// Выводим успешность сличения имени узла
@@ -1202,6 +1517,10 @@ nts::trust::error_t nts::trust::belongs(const view_t & certificate, const string
 	if(lower(attribute->value, pattern) != error_t::NONE)
 		// Выводим отказ нехватки памяти
 		return error_t::MEMORY;
+	// Если общее имя владельца с хвостовой точкой негодно (решение 7)
+	if(!rooted(pattern))
+		// Выводим отказ несовпадения имени узла
+		return error_t::NAME;
 	// Если имя узла общему имени владельца отвечает
 	if(matches(pattern, requested))
 		// Выводим успешность сличения имени узла

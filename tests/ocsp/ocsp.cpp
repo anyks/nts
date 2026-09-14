@@ -1184,8 +1184,12 @@ TEST(OcspTest, Verify){
 	ASSERT_EQ(judge("leaf-ec.good.der", "leaf-ec.crt", "mid-ec.crt", UPDATED - 30, 60, none, status), ocsp::error_t::NONE);
 	// Проверяем срок без нулевого мига: сроки не судятся
 	ASSERT_EQ(judge("leaf-ec.short.der", "leaf-ec.crt", "mid-ec.crt", 0, 0, none, status), ocsp::error_t::NONE);
-	// Проверяем ответ без обещания на далёкий миг: обещания нет, срок не вышел
-	ASSERT_EQ(judge("leaf-ec.open.der", "leaf-ec.crt", "mid-ec.crt", MOMENT, 0, none, status), ocsp::error_t::NONE);
+	// Проверяем ответ без обещания на близкий миг: обещания нет, давность в пределах OCSP_STALE
+	ASSERT_EQ(judge("leaf-ec.open.der", "leaf-ec.crt", "mid-ec.crt", UPDATED + 3600, 0, none, status), ocsp::error_t::NONE);
+	// Проверяем ответ без обещания на далёкий миг: давность больше OCSP_STALE - ответ негоден (круг 4, RFC 6960 §4.2.2.1)
+	ASSERT_EQ(judge("leaf-ec.open.der", "leaf-ec.crt", "mid-ec.crt", UPDATED + ocsp::OCSP_STALE + 3600, 0, none, status), ocsp::error_t::EXPIRED);
+	// Люфт покрывает давность на самой границе
+	ASSERT_EQ(judge("leaf-ec.open.der", "leaf-ec.crt", "mid-ec.crt", UPDATED + ocsp::OCSP_STALE + 30, 60, none, status), ocsp::error_t::NONE);
 	// Проверяем неповторимое значение: ответ с запрошенным значением
 	ASSERT_EQ(judge("leaf-ec.nonce.der", "leaf-ec.crt", "mid-ec.crt", MOMENT, 0, view_t(NONCE, sizeof(NONCE)), status), ocsp::error_t::NONE);
 	// Проверяем состояние
@@ -2394,5 +2398,39 @@ TEST(OcspTest, Starved){
 		ASSERT_TRUE(starved);
 		// Проверяем, что на щедром запасе связь установилась
 		ASSERT_TRUE(complete);
+	}
+}
+
+/**
+ * Круг 8: подписавший ответ ищется сперва среди приложенных сертификатов, потом у издателя (как у openssl,
+ * BoringSSL и NSS) - делегированный ответчик с тем же именем владельца, что у издателя, названный byName,
+ * подтверждается своим приложенным сертификатом, а не отвергается подписью ключом издателя; ответ самого
+ * издателя и ответ делегата с иным именем принимаются как прежде
+ */
+TEST(OcspTest, SameNameResponder){
+	// Издатель и проверяемый сертификат
+	const vector <uint8_t> root = certified("audit/r8-ocsp-root.crt"), leaf = certified("audit/r8-ocsp-leaf.crt");
+	// Проверяем чтение образцов
+	ASSERT_FALSE(root.empty() || leaf.empty());
+	// Ответы: делегат с именем издателя, делегат с иным именем, сам издатель
+	const char * const RESPONSES[3] = {"audit/r8-ocsp-samename.der", "audit/r8-ocsp-other.der", "audit/r8-ocsp-ca.der"};
+	/**
+	 * Выполняем перебор ответов
+	 */
+	for(size_t i = 0; i < 3; i++){
+		// Запись ответа
+		const vector <uint8_t> der = corpus(RESPONSES[i]);
+		// Проверяем чтение ответа
+		ASSERT_FALSE(der.empty()) << RESPONSES[i];
+		// Разобранный ответ
+		ocsp::response_t response;
+		// Проверяем разбор ответа
+		ASSERT_EQ(response.parse(view_t(der.data(), der.size())), ocsp::error_t::NONE) << RESPONSES[i];
+		// Состояние сертификата по ответу
+		ocsp::status_t status = ocsp::status_t::NONE;
+		// Проверяем подтверждение ответа: сроки не судятся, образцы записаны на миг выпуска
+		EXPECT_EQ(ocsp::verify(response, view_t(leaf.data(), leaf.size()), view_t(root.data(), root.size()), 0, 0, view_t(), status), ocsp::error_t::NONE) << RESPONSES[i];
+		// Проверяем состояние сертификата
+		EXPECT_EQ(status, ocsp::status_t::GOOD) << RESPONSES[i];
 	}
 }

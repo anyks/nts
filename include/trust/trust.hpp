@@ -128,7 +128,8 @@ namespace nts {
 			MEMORY     = 0x0A, /*!< \~russian Памяти под разбор цепочки не хватило \~english There was not enough memory for the parsing of the chain \~ */
 			CRITICAL   = 0x0B, /*!< \~russian Сертификат несёт неизвестное расширение, объявленное критичным \~english A certificate carries an unknown extension declared critical \~ */
 			PURPOSE    = 0x0C, /*!< \~russian Назначение ключа сертификата подписи владения не дозволяет \~english The purpose of the key of the certificate does not allow the signature of the possession \~ */
-			CONSTRAINED = 0x0D /*!< \~russian Имя сертификата нарушает ограничения имён издателя (раздел 4.2.1.10 RFC 5280) либо ограничения не разобрать \~english A name of a certificate violates the name constraints of an issuer (the section 4.2.1.10 of RFC 5280) or the constraints cannot be parsed \~ */
+			CONSTRAINED = 0x0D, /*!< \~russian Имя сертификата нарушает ограничения имён издателя (раздел 4.2.1.10 RFC 5280) либо ограничения не разобрать \~english A name of a certificate violates the name constraints of an issuer (the section 4.2.1.10 of RFC 5280) or the constraints cannot be parsed \~ */
+			WEAK        = 0x0E  /*!< \~russian Звено цепочки подписано хешем MD5/SHA-1 либо несёт ключ RSA короче 2048 разрядов: стойкости на цепочку доверия недостаёт (RFC 9155, SP 800-131A) \~english A link of the chain is signed with an MD5/SHA-1 hash or carries an RSA key shorter than 2048 bits: the strength does not suffice for a chain of the trust (RFC 9155, SP 800-131A) \~ */
 		};
 
 		/**

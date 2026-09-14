@@ -535,6 +535,19 @@ namespace nts {
 				const string & algorithms() const noexcept;
 				/**
 				 * \~russian
+				 * @brief Метод получения записи настроек алгоритма подписи
+				 *
+				 * @return просмотр записи настроек (RSASSA-PSS-params у id-RSASSA-PSS) либо пустой просмотр
+				 *
+				 * \~english
+				 * @brief Method of getting the encoding of the parameters of the signature algorithm
+				 * @return the view of the encoding of the parameters (RSASSA-PSS-params at id-RSASSA-PSS) or an empty view
+				 *
+				 * \~
+				 */
+				const view_t & settings() const noexcept;
+				/**
+				 * \~russian
 				 * @brief Метод извлечения имени издателя сертификата
 				 *
 				 * @return имя издателя сертификата
@@ -773,6 +786,64 @@ namespace nts {
 		 *
 		 */
 		__ANTS_SHARED_EXPORT__ bool recognized(const certificate_t & certificate) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод проверки стойкости алгоритма подписи
+		 *
+		 * @param algorithm  опознаватель алгоритма подписи
+		 * @param parameters запись настроек алгоритма подписи либо пустой просмотр
+		 * @return           признак слабой подписи: хеш MD2/MD4/MD5/SHA-1, у RSASSA-PSS - по настройкам (без них SHA-1)
+		 * @details RFC 9155 выводит SHA-1 из подписей; политика единая для цепочки доверия и
+		 *          ответов OCSP: примитив проверки подписи SHA-1 сам по себе принимает,
+		 *          политика доверия строже примитива
+		 *
+		 * \~english
+		 * @brief Method of checking the strength of a signature algorithm
+		 * @param algorithm  the identifier of the signature algorithm
+		 * @param parameters the encoding of the parameters of the algorithm or an empty view
+		 * @return           the flag of a weak signature: an MD2/MD4/MD5/SHA-1 hash, for RSASSA-PSS by the parameters (SHA-1 without them)
+		 * @details RFC 9155 deprecates SHA-1 in signatures; the policy is common for the chain of
+		 *          the trust and for the OCSP responses: the primitive itself accepts SHA-1,
+		 *          the trust policy is stricter than the primitive
+		 *
+		 * \~
+		 *
+		 */
+		__ANTS_SHARED_EXPORT__ bool weak(const string & algorithm, const view_t & parameters) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод проверки стойкости открытого ключа
+		 *
+		 * @param key сведения об открытом ключе
+		 * @return    признак слабого ключа: RSA короче 2048 разрядов (SP 800-131A) либо не разбираемый
+		 *
+		 * \~english
+		 * @brief Method of checking the strength of a public key
+		 * @param key the info of the public key
+		 * @return    the flag of a weak key: RSA shorter than 2048 bits (SP 800-131A) or unparsable
+		 *
+		 * \~
+		 *
+		 */
+		__ANTS_SHARED_EXPORT__ bool weak(const key_t & key) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод проверки стойкости сертификата как звена доверия
+		 *
+		 * @param certificate проверяемый сертификат
+		 * @param anchor      признак якоря: самоподпись якоря не судится, ключ судится всегда
+		 * @return            признак слабого звена: подпись хешем MD5/SHA-1 либо ключ RSA короче 2048 разрядов
+		 *
+		 * \~english
+		 * @brief Method of checking the strength of a certificate as a link of the trust
+		 * @param certificate the certificate being checked
+		 * @param anchor      the flag of an anchor: the self-signature of an anchor is not judged, the key always is
+		 * @return            the flag of a weak link: a signature with an MD5/SHA-1 hash or an RSA key shorter than 2048 bits
+		 *
+		 * \~
+		 *
+		 */
+		__ANTS_SHARED_EXPORT__ bool weak(const certificate_t & certificate, const bool anchor) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод извлечения расширенного назначения открытого ключа

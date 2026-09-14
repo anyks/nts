@@ -2906,12 +2906,13 @@ TEST(DtlsTest, Asymmetric){
 	server::context_t broad;
 	// Настраиваем стороны
 	arrange(wide, broad, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
-	// Верхнего предела у размера нет
+	// Верхний предел размера - наибольшая принимаемая дейтаграмма: шире собеседник отбросил бы её целиком (круг 6)
 	broad.mtu(70000);
 	// Проверяем размер
-	ASSERT_EQ(broad.mtu(), static_cast <size_t> (70000));
-	// Размер под сообщения SCTP
+	ASSERT_EQ(broad.mtu(), datagram::DATAGRAM_LONGEST);
+	// Размер под сообщения SCTP: тоже сверху ограничен
 	broad.mtu(20000);
+	ASSERT_EQ(broad.mtu(), datagram::DATAGRAM_LONGEST);
 	// Заводим сервер
 	ASSERT_EQ(broad.start(), context::error_t::NONE);
 	// Заводим клиента

@@ -28,6 +28,7 @@
  */
 #include <curve/curve.hpp>
 #include <internal/curve/tables.hpp>
+#include <cstring>
 #include <sys/wipe.hpp>
 
 /**
@@ -281,6 +282,37 @@ bool nts::curve::Curve::start(const view_t & modulus, const view_t & first, cons
 	 * опознавателю
 	 */
 	this->_multiples = precomputed(this->_base.x.words, this->_base.y.words, ((this->_order.size() + 7) / 8));
+	/**
+	 * Точка основания опознаёт кривую не вполне: кривая с тем же модулем и той же точкой,
+	 * но иным первым коэффициентом, дала бы чужие кратные. Удвоение точки основания идёт
+	 * через первый коэффициент, оттого второе кратное таблицы сверяется с удвоением своей
+	 * арифметикой: расхождение снимает заготовленное
+	 */
+	if(this->_multiples != nullptr){
+		// Число слов координаты
+		const size_t words = ((this->_order.size() + 7) / 8);
+		// Описание заготовленных кратных
+		const precomputed_t * multiples = static_cast <const precomputed_t *> (this->_multiples);
+		// Второе кратное таблицы: за первой парой координат
+		point_t sample;
+		// Переносим координаты второго кратного
+		::memcpy(sample.x.words, multiples->data + (2 * words), words * sizeof(uint64_t));
+		::memcpy(sample.y.words, multiples->data + (3 * words), words * sizeof(uint64_t));
+		// Третья координата - единица поля
+		sample.z = this->_unit;
+		// Удвоенная точка основания своей арифметикой
+		point_t doubled;
+		// Выполняем удвоение
+		this->twice(this->_base, doubled);
+		// Координаты обеих точек
+		uint8_t first[2 * math::NUMBER_SIZE], second[2 * math::NUMBER_SIZE];
+		// Длина координаты в байтах
+		const size_t size = this->_order.size();
+		// Если координаты не сошлись - кратные чужие
+		if(!this->coordinates(sample, first, first + size, size) || !this->coordinates(doubled, second, second + size, size) || (::memcmp(first, second, 2 * size) != 0))
+			// Снимаем заготовленное
+			this->_multiples = nullptr;
+	}
 	// Выводим успешность установки параметров кривой
 	return true;
 }

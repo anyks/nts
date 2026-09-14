@@ -26,10 +26,13 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <cstring>
+#include <fstream>
 #include <main.hpp>
 #include <starve.hpp>
 #include <vector>
 #include <x509/x509.hpp>
+#include <x509/signature.hpp>
+#include <asn1/asn1.hpp>
 
 /**
  * Используем пространство имён проекта
@@ -1674,4 +1677,120 @@ TEST(X509Test, Starved) {
 	}
 	// Проверяем, что нехватка памяти при извлечении объявлена отказом хоть раз
 	ASSERT_TRUE(starved);
+}
+
+/**
+ * @brief Метод чтения файла набора образцов целиком
+ *
+ * @param name имя файла набора образцов
+ *
+ * @return     содержимое файла либо пустой накопитель
+ *
+ */
+static vector <uint8_t> corpus(const char * name) {
+	// Открываем файл набора образцов
+	ifstream file(string(ANTS_CORPUS) + "/" + name, ios::binary);
+	// Если файл открыть не удалось
+	if(!file.is_open())
+		// Выводим пустой накопитель
+		return vector <uint8_t> ();
+	// Выводим содержимое файла целиком
+	return vector <uint8_t> ((istreambuf_iterator <char> (file)), istreambuf_iterator <char> ());
+}
+
+/**
+ * @brief Метод записи настроек RSASSA-PSS-params
+ *
+ * @param writer записчик, в который помещаются настройки
+ * @param hash   опознаватель алгоритма хеша
+ * @param salt   длина соли
+ *
+ * @return       признак успешности записи настроек
+ *
+ */
+static bool pssParams(asn1::writer_t & writer, const string & hash, const int64_t salt) {
+	// Записываем обёртку настроек
+	writer.open(asn1::tag_t::SEQUENCE);
+	// Записываем алгоритм хеша [0]
+	writer.open(asn1::cls_t::CONTEXT, 0);
+	writer.open(asn1::tag_t::SEQUENCE);
+	writer.oid(hash);
+	writer.nothing();
+	writer.close();
+	writer.close();
+	// Записываем функцию порождения маски MGF1 с тем же хешем [1]
+	writer.open(asn1::cls_t::CONTEXT, 1);
+	writer.open(asn1::tag_t::SEQUENCE);
+	writer.oid("1.2.840.113549.1.1.8");
+	writer.open(asn1::tag_t::SEQUENCE);
+	writer.oid(hash);
+	writer.nothing();
+	writer.close();
+	writer.close();
+	writer.close();
+	// Записываем длину соли [2]
+	writer.open(asn1::cls_t::CONTEXT, 2);
+	writer.integer(salt);
+	writer.close();
+	// Закрываем обёртку настроек
+	writer.close();
+	// Выводим успешность записи
+	return (writer.err() == asn1::error_t::NONE);
+}
+
+/**
+ * Круг 8: x509::check() (подпись содержимого открытым ключом - CertificateVerify TLS 1.3) судит настройки
+ * ключа id-RSASSA-PSS так же, как x509::verify(): ключ, ограниченный SHA-384 и солью 48 (раздел 3.3
+ * RFC 4055), подпись PSS-SHA-256 с солью 32 отвергает; тот же ключ с настройками SHA-256/32, без настроек
+ * и ключ rsaEncryption её принимают
+ */
+TEST(X509Test, PssKeyBoundCheck){
+	// Открытый ключ RSA, подписанное содержимое и подпись PSS-SHA-256 с солью 32
+	const vector <uint8_t> spki = corpus("audit/r8-pss-spki.der"), content = corpus("audit/r8-pss-content.bin"), signature = corpus("audit/r8-pss-sig256.bin");
+	// Проверяем чтение образцов
+	ASSERT_FALSE(spki.empty() || content.empty() || signature.empty());
+	// Разборщик записи SubjectPublicKeyInfo
+	asn1::reader_t reader(view_t(spki.data(), spki.size()));
+	// Элементы записи: обёртка, алгоритм, строка битов ключа
+	asn1::element_t outer, algorithm, bits;
+	// Проверяем разбор обёртки
+	ASSERT_TRUE(reader.next(asn1::tag_t::SEQUENCE, outer));
+	// Разборщик содержимого обёртки
+	asn1::reader_t inner(outer.content);
+	// Проверяем разбор алгоритма и строки битов ключа
+	ASSERT_TRUE(inner.next(asn1::tag_t::SEQUENCE, algorithm));
+	ASSERT_TRUE(inner.next(asn1::tag_t::BIT_STRING, bits));
+	// Сведения об открытом ключе
+	x509::key_t key;
+	// Число неиспользуемых разрядов строки битов
+	uint8_t unused = 0;
+	// Проверяем извлечение строки битов ключа
+	ASSERT_EQ(asn1::bits(bits, key.key, unused), asn1::error_t::NONE);
+	// Запоминаем число неиспользуемых разрядов
+	key.unused = unused;
+	// Настройки ключа: SHA-384, MGF1-SHA-384, соль 48
+	asn1::writer_t strict;
+	// Проверяем запись строгих настроек ключа
+	ASSERT_TRUE(pssParams(strict, "2.16.840.1.101.3.4.2.2", 48));
+	// Ключ id-RSASSA-PSS со строгими настройками
+	key.algorithm = "1.2.840.113549.1.1.10";
+	key.parameters = strict.data();
+	// Проверяем отказ подписи SHA-256/32 ключом, ограниченным SHA-384/48
+	EXPECT_EQ(x509::check(key, digest::hash_t::SHA256, view_t(content.data(), content.size()), view_t(signature.data(), signature.size())), x509::error_t::SIGNATURE);
+	// Настройки ключа: SHA-256, MGF1-SHA-256, соль 32
+	asn1::writer_t loose;
+	// Проверяем запись дозволяющих настроек ключа
+	ASSERT_TRUE(pssParams(loose, "2.16.840.1.101.3.4.2.1", 32));
+	// Ключ id-RSASSA-PSS с дозволяющими настройками
+	key.parameters = loose.data();
+	// Проверяем приём подписи SHA-256/32 ключом с настройками SHA-256/32
+	EXPECT_EQ(x509::check(key, digest::hash_t::SHA256, view_t(content.data(), content.size()), view_t(signature.data(), signature.size())), x509::error_t::NONE);
+	// Ключ id-RSASSA-PSS без настроек
+	key.parameters = view_t();
+	// Проверяем приём подписи ключом без настроек
+	EXPECT_EQ(x509::check(key, digest::hash_t::SHA256, view_t(content.data(), content.size()), view_t(signature.data(), signature.size())), x509::error_t::NONE);
+	// Ключ rsaEncryption
+	key.algorithm = "1.2.840.113549.1.1.1";
+	// Проверяем приём подписи ключом rsaEncryption
+	EXPECT_EQ(x509::check(key, digest::hash_t::SHA256, view_t(content.data(), content.size()), view_t(signature.data(), signature.size())), x509::error_t::NONE);
 }

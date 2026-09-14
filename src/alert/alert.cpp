@@ -188,6 +188,7 @@ bool nts::alert::known(const description_t description) noexcept {
 		case static_cast <uint8_t> (description_t::RENEGOTIATION):
 		case static_cast <uint8_t> (description_t::REQUIRED):
 		case static_cast <uint8_t> (description_t::PROTOCOL):
+		case static_cast <uint8_t> (description_t::ECH_REQUIRED):
 			// Выводим признак известности описания извещения
 			return true;
 	}
@@ -215,6 +216,45 @@ bool nts::alert::fatal(const alert_t & alert) noexcept {
 	}
 	// Выводим признак смертельности извещения
 	return true;
+}
+/**
+ * @brief Метод проверки, объявлено ли описание извещения смертельным всегда
+ *
+ * @param description проверяемое описание
+ *
+ * @return            признак описания, смертельного при любом уровне
+ *
+ */
+bool nts::alert::grave(const description_t description) noexcept {
+	/**
+	 * Выполняем определение описания извещения: перечень раздела 7.2.2 RFC 5246,
+	 * раздела 8 RFC 6066, раздела 2 RFC 4279, раздела 3.2 RFC 7301 и раздела 3 RFC 7507
+	 */
+	switch(static_cast <uint8_t> (description)){
+		case static_cast <uint8_t> (description_t::UNEXPECTED):
+		case static_cast <uint8_t> (description_t::MAC):
+		case static_cast <uint8_t> (description_t::DECRYPTION):
+		case static_cast <uint8_t> (description_t::OVERSIZE):
+		case static_cast <uint8_t> (description_t::COMPRESSION):
+		case static_cast <uint8_t> (description_t::HANDSHAKE):
+		case static_cast <uint8_t> (description_t::PARAMETER):
+		case static_cast <uint8_t> (description_t::AUTHORITY):
+		case static_cast <uint8_t> (description_t::ACCESS):
+		case static_cast <uint8_t> (description_t::DECODE):
+		case static_cast <uint8_t> (description_t::DECRYPT):
+		case static_cast <uint8_t> (description_t::STATUS):
+		case static_cast <uint8_t> (description_t::PSK):
+		case static_cast <uint8_t> (description_t::PROTOCOL):
+		case static_cast <uint8_t> (description_t::VERSION):
+		case static_cast <uint8_t> (description_t::SECURITY):
+		case static_cast <uint8_t> (description_t::INTERNAL):
+		case static_cast <uint8_t> (description_t::FALLBACK):
+		case static_cast <uint8_t> (description_t::EXTENSION):
+			// Выводим признак описания, смертельного всегда
+			return true;
+	}
+	// Выводим признак описания, смертельность которого задаётся уровнем
+	return false;
 }
 /**
  * @brief Метод получения названия описания извещения
@@ -285,6 +325,7 @@ const char * nts::alert::name(const description_t description) noexcept {
 		case static_cast <uint8_t> (description_t::STATUS): return "bad_certificate_status_response";
 		// Если опознаватель заранее разделённого ключа неизвестен
 		case static_cast <uint8_t> (description_t::PSK): return "unknown_psk_identity";
+		case static_cast <uint8_t> (description_t::ECH_REQUIRED): return "ech_required";
 		// Если подлинность стороны обязательна, но не подтверждена
 		case static_cast <uint8_t> (description_t::REQUIRED): return "certificate_required";
 		// Если ни один из предложенных протоколов не поддержан

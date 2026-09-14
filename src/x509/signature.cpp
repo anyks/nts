@@ -555,9 +555,13 @@ namespace {
 	 * @return    отказ заведения открытого ключа
 	 *
 	 */
-	static nts::x509::error_t rsa(const nts::x509::key_t & key, sign::rsa_t & rsa) noexcept {
+	static nts::x509::error_t rsa(const nts::x509::key_t & key, sign::rsa_t & rsa, const bool pss) noexcept {
 		// Если алгоритм открытого ключа не есть RSA
 		if((key.algorithm.compare(RSA_KEY) != 0) && (key.algorithm.compare(PSS_KEY) != 0))
+			// Выводим отказ ключа чужого алгоритма
+			return nts::x509::error_t::KEY;
+		// Раздел 1.2 RFC 4055: ключ id-RSASSA-PSS применим лишь к подписи RSASSA-PSS - под PKCS #1 v1.5 он негоден
+		if((key.algorithm.compare(PSS_KEY) == 0) && !pss)
 			// Выводим отказ ключа чужого алгоритма
 			return nts::x509::error_t::KEY;
 		// Если ключ RSA несёт настройки, отличные от NULL
@@ -753,12 +757,18 @@ namespace {
 			switch(element.tag){
 				// Алгоритм хеша подписи
 				case 0: {
+					// Запись опознавателя алгоритма хеша
+					asn1::element_t identifier;
+					// Если запись опознавателя алгоритма хеша внутри обёртки не прочиталась
+					if(!inner.next(asn1::tag_t::SEQUENCE, identifier))
+						// Выводим отказ разбора настроек
+						return nts::x509::error_t::SIGNATURE;
 					// Опознаватель алгоритма хеша
 					string oid;
 					// Запись настроек алгоритма хеша, которая не рассматривается
 					view_t params;
 					// Итог разбора записи опознавателя алгоритма хеша
-					const nts::x509::error_t outcome = algorithm(inner.empty() ? view_t() : element.content, oid, params);
+					const nts::x509::error_t outcome = algorithm(identifier.element, oid, params);
 					// Если запись опознавателя алгоритма хеша разобрать не удалось
 					if(outcome != nts::x509::error_t::NONE)
 						// Выводим отказ разбора настроек
@@ -770,12 +780,18 @@ namespace {
 				} break;
 				// Алгоритм порождения маски
 				case 1: {
+					// Запись опознавателя алгоритма порождения маски
+					asn1::element_t identifier;
+					// Если запись опознавателя алгоритма порождения маски внутри обёртки не прочиталась
+					if(!inner.next(asn1::tag_t::SEQUENCE, identifier))
+						// Выводим отказ разбора настроек
+						return nts::x509::error_t::SIGNATURE;
 					// Опознаватель алгоритма порождения маски
 					string oid;
 					// Запись настроек алгоритма порождения маски: опознаватель хеша
 					view_t params;
 					// Итог разбора записи опознавателя алгоритма порождения маски
-					const nts::x509::error_t outcome = algorithm(inner.empty() ? view_t() : element.content, oid, params);
+					const nts::x509::error_t outcome = algorithm(identifier.element, oid, params);
 					// Если запись опознавателя алгоритма порождения маски разобрать не удалось
 					if(outcome != nts::x509::error_t::NONE)
 						// Выводим отказ разбора настроек
@@ -826,8 +842,8 @@ namespace {
 						return nts::x509::error_t::SIGNATURE;
 				} break;
 			}
-			// Если внутри поля числа остались лишние данные
-			if(((element.tag == 2) || (element.tag == 3)) && !inner.empty())
+			// Если внутри явной обёртки поля остались лишние данные: у всех четырёх полей ровно одна запись
+			if(!inner.empty())
 				// Выводим отказ разбора настроек
 				return nts::x509::error_t::SIGNATURE;
 		}
@@ -946,6 +962,37 @@ namespace {
 		return (ecdsa.check(view_t(digest, length), view_t(raw, size)) ? nts::x509::error_t::NONE : nts::x509::error_t::SIGNATURE);
 	}
 	/**
+	 * @brief Метод суда настроек ключа id-RSASSA-PSS над хешем и солью подписи
+	 *
+	 * @param key  сведения об открытом ключе подписавшей стороны
+	 * @param hash алгоритм хеша проверяемой подписи
+	 * @param salt длина соли проверяемой подписи
+	 *
+	 * @return     признак того, что настройки ключа подпись дозволяют
+	 *
+	 * @details Раздел 3.3 RFC 4055: ключ id-RSASSA-PSS с настройками ограничивает подпись
+	 *          тем же хешем и солью не короче заданной. Суд един для подписи сертификата
+	 *          и для подписи содержимого открытым ключом (CertificateVerify TLS 1.3):
+	 *          политика ключа, объявленная издателем, не зависит от места проверки
+	 *
+	 */
+	static bool bounded(const nts::x509::key_t & key, const digest::hash_t hash, const size_t salt) noexcept {
+		// Если ключ не id-RSASSA-PSS либо настроек у него нет - ограничений нет
+		if((key.algorithm.compare(PSS_KEY) != 0) || absent(key.parameters))
+			// Выводим признак дозволенной подписи
+			return true;
+		// Настройки ключа
+		digest::hash_t bound = digest::hash_t::NONE;
+		// Наименьшая соль по ключу
+		size_t least = 0;
+		// Если настройки ключа разобрать не удалось
+		if(settings(key.parameters, bound, least) != nts::x509::error_t::NONE)
+			// Выводим отказ: неразбираемые настройки ключа подписи не дозволяют
+			return false;
+		// Выводим признак того, что хеш подписи тот же, а соль не короче заданной ключом
+		return ((bound == hash) && (salt >= least));
+	}
+	/**
 	 * @brief Метод проверки подписи RSA
 	 *
 	 * @param scheme    схема подписи: PKCS #1 v1.5 либо RSASSA-PSS
@@ -965,8 +1012,8 @@ namespace {
 			return nts::x509::error_t::SIGNATURE;
 		// Объект модуля электронной подписи
 		sign::rsa_t rsa;
-		// Итог заведения открытого ключа
-		const nts::x509::error_t established = ::rsa(key, rsa);
+		// Итог заведения открытого ключа: ключ id-RSASSA-PSS годен лишь схеме PSS
+		const nts::x509::error_t established = ::rsa(key, rsa, (scheme == sign::scheme_t::PSS));
 		// Если открытый ключ завести не удалось
 		if(established != nts::x509::error_t::NONE)
 			// Выводим отказ заведения открытого ключа
@@ -1068,6 +1115,10 @@ nts::x509::error_t nts::x509::verify(const view_t & body, const view_t & signatu
 			if(outcome != nts::x509::error_t::NONE)
 				// Выводим отказ разбора настроек подписи
 				return outcome;
+			// Если настройки ключа id-RSASSA-PSS подписи не дозволяют
+			if(!bounded(key, hash, salt))
+				// Выводим отказ проверки подписи
+				return nts::x509::error_t::SIGNATURE;
 			// Выводим итог проверки подписи RSA по схеме RSASSA-PSS
 			return ::rsa(sign::scheme_t::PSS, hash, salt, body, signature, key);
 		}
@@ -1096,8 +1147,8 @@ nts::x509::error_t nts::x509::verify(const view_t & digest, const view_t & signa
 		return error_t::SIGNATURE;
 	// Объект подписи RSA
 	sign::rsa_t rsa;
-	// Отказ заведения ключа
-	const error_t failure = ::rsa(key, rsa);
+	// Отказ заведения ключа: сырая подпись PKCS #1 v1.5 - ключ id-RSASSA-PSS негоден
+	const error_t failure = ::rsa(key, rsa, false);
 	// Если ключ завести не удалось
 	if(failure != error_t::NONE)
 		// Выводим отказ
@@ -1241,9 +1292,14 @@ nts::x509::error_t nts::x509::check(const key_t & key, const digest::hash_t algo
 		// Выводим итог проверки подписи ECDSA
 		return ::ecdsa(algorithm, content, signature, key);
 	// Если ключ RSA, подпись по схеме RSASSA-PSS с солью длиной в хеш: раздел 4.2.3 RFC 8446
-	if((key.algorithm.compare(RSA_KEY) == 0) || (key.algorithm.compare(PSS_KEY) == 0))
+	if((key.algorithm.compare(RSA_KEY) == 0) || (key.algorithm.compare(PSS_KEY) == 0)){
+		// Если настройки ключа id-RSASSA-PSS подписи не дозволяют (раздел 3.3 RFC 4055)
+		if(!bounded(key, algorithm, digest::length(algorithm)))
+			// Выводим отказ проверки подписи содержимого
+			return nts::x509::error_t::SIGNATURE;
 		// Выводим итог проверки подписи RSA по схеме RSASSA-PSS
 		return ::rsa(sign::scheme_t::PSS, algorithm, digest::length(algorithm), content, signature, key);
+	}
 	// Если ключ Ed25519, подпись сырая, а хеш не считается вовсе
 	if(key.algorithm.compare(ED_KEY) == 0)
 		// Выводим итог проверки подписи Ed25519

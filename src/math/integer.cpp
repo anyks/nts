@@ -983,6 +983,10 @@ namespace {
 			// Записываем знак коэффициента
 			inverse->negative = c.negative;
 		}
+		// Выполняем затирание копии первого числа
+		wipe(x, sizeof(x));
+		// Выполняем затирание копии второго числа
+		wipe(y, sizeof(y));
 		// Выводим признак успешности
 		return true;
 	}
@@ -1843,15 +1847,17 @@ bool nts::math::Integer::invert(const Integer & value, const Integer & modulus) 
 		// Выводим отказ
 		return false;
 	// Приводим величину коэффициента по модулю
-	Integer amount;
+	Integer amount, reduced;
 	// Копируем величину коэффициента
 	transfer(inverse.words, amount._words, INTEGER_WORDS);
-	// Приводим величину по модулю
-	this->reduce(amount, modulus);
+	// Приводим величину по модулю в отдельное место: модуль вправе совпадать с итогом (алиасинг)
+	reduced.reduce(amount, modulus);
 	// Если коэффициент отрицателен, и величина не ноль
-	if(inverse.negative && !this->zero())
-		// Вычитаем величину из модуля
-		this->subtract(modulus, *this);
+	if(inverse.negative && !reduced.zero())
+		// Вычитаем величину из модуля: итог пишется лишь теперь
+		this->subtract(modulus, reduced);
+	// Иначе переносим приведённую величину
+	else transfer(reduced._words, this->_words, INTEGER_WORDS);
 	// Выводим признак успешности
 	return true;
 }

@@ -889,8 +889,13 @@ TEST(HpkeTest, Refusals){
 		ASSERT_EQ(hpke::open(suite, hpke::regime_t::AUTH, own, viewed(fresh), viewed(info), hpke::shared_t(), authenticator.point(), viewed(aad), viewed(sealed), opened), hpke::error_t::NONE);
 		// Зашифровываем с заранее разделённым ключом
 		ASSERT_EQ(hpke::seal(suite, hpke::regime_t::PSK, own.point(), viewed(info), hpke::shared_t(viewed(psk), viewed(identity)), nullptr, viewed(aad), viewed(pt), fresh, sealed), hpke::error_t::NONE);
+		// Чужой ключ той же длины (короче 32 байтов ключ отвергается до расшифрования - круг 7)
+		std::vector <uint8_t> wrong = psk;
+		wrong[0] ^= 0x01;
 		// Проверяем отказ чужого ключа
-		ASSERT_EQ(hpke::open(suite, hpke::regime_t::PSK, own, viewed(fresh), viewed(info), hpke::shared_t(viewed(identity), viewed(identity)), view_t(), viewed(aad), viewed(sealed), opened), hpke::error_t::OPEN);
+		ASSERT_EQ(hpke::open(suite, hpke::regime_t::PSK, own, viewed(fresh), viewed(info), hpke::shared_t(viewed(wrong), viewed(identity)), view_t(), viewed(aad), viewed(sealed), opened), hpke::error_t::OPEN);
+		// Проверяем отказ короткого ключа (RFC 9180 §9.5)
+		ASSERT_EQ(hpke::open(suite, hpke::regime_t::PSK, own, viewed(fresh), viewed(info), hpke::shared_t(viewed(identity), viewed(identity)), view_t(), viewed(aad), viewed(sealed), opened), hpke::error_t::PSK);
 		// Проверяем отказ чужого опознавателя
 		ASSERT_EQ(hpke::open(suite, hpke::regime_t::PSK, own, viewed(fresh), viewed(info), hpke::shared_t(viewed(psk), viewed(psk)), view_t(), viewed(aad), viewed(sealed), opened), hpke::error_t::OPEN);
 		// Проверяем отказ чужого режима с тем же ключом: режим входит в расписание

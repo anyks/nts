@@ -180,7 +180,7 @@ namespace {
  * @brief Конструктор
  *
  */
-nts::internal::Era::Era() noexcept : held(false), epoch(0), next(0) {
+nts::internal::Era::Era() noexcept : held(false), epoch(0), next(0), forged(0) {
 	// Выполняем обнуление ключа шифрования номера записи
 	::memset(this->sn, 0, sizeof(this->sn));
 }
@@ -199,6 +199,8 @@ void nts::internal::Flight::refresh(era_t & era) noexcept {
 	era.window.clear();
 	// Сбрасываем счёт записей поры
 	era.next = 0;
+	// Сбрасываем счёт подделок поры
+	era.forged = 0;
 	// Снимаем признак заведённости поры
 	era.held = false;
 }
@@ -460,6 +462,17 @@ bool nts::internal::Flight::unveil(const datagram::header_t & header, const view
 		return this->uncover(header, rest, result, failure);
 	// Защищённое содержимое записи
 	const view_t payload(rest.data + header.length, header.size);
+	/**
+	 * Раздел 4.2.3 RFC 9147: маска берётся от образца шифртекста, а сам он не короче метки -
+	 * суд длины идёт до откладывания записи следующей поры, иначе чужие обрывки с угаданной
+	 * порой занимали бы все места отложенных записей и рождали бы пустые подтверждения
+	 */
+	if((payload.size < datagram::DATAGRAM_SAMPLE) || (payload.size <= protect::tag(this->_suite))){
+		// Считаем отброшенную запись
+		this->discard(datagram::reason_t::LENGTH);
+		// Выводим признак того, что запись не принята
+		return false;
+	}
 	// Пора ключей чтения, отвечающая младшим разрядам заголовка
 	era_t * keys = nullptr;
 	/**
@@ -520,13 +533,6 @@ bool nts::internal::Flight::unveil(const datagram::header_t & header, const view
 		// Выводим признак того, что запись не принята
 		return false;
 	}
-	// Раздел 4.2.3 RFC 9147: маска берётся от образца шифртекста, а сам он не короче метки
-	if((payload.size < datagram::DATAGRAM_SAMPLE) || (payload.size <= protect::tag(this->_suite))){
-		// Считаем отброшенную запись
-		this->discard(datagram::reason_t::LENGTH);
-		// Выводим признак того, что запись не принята
-		return false;
-	}
 	// Заголовок записи с расшифрованным номером: связанные данные защиты
 	uint8_t associated[datagram::DATAGRAM_PLAIN_HEADER];
 	// Переносим заголовок записи как он пришёл
@@ -572,6 +578,10 @@ bool nts::internal::Flight::unveil(const datagram::header_t & header, const view
 	if(opened != context::error_t::NONE){
 		// Считаем отброшенную запись
 		this->discard(datagram::reason_t::DAMAGE);
+		// Раздел 4.5.3 RFC 9147: по достижении предела подделок на ключе связь закрывается
+		if(++keys->forged >= datagram::DATAGRAM_FORGERY)
+			// Запоминаем отказ защиты: пропуском он не лечится
+			failure = context::error_t::PROTECTION;
 		// Выводим признак того, что запись не принята
 		return false;
 	}
@@ -671,6 +681,10 @@ bool nts::internal::Flight::uncover(const datagram::header_t & header, const vie
 	if(opened != context::error_t::NONE){
 		// Считаем отброшенную запись
 		this->discard(datagram::reason_t::DAMAGE);
+		// Раздел 4.5.3 RFC 9147 (тот же предел и у издания 1.2): по достижении предела подделок связь закрывается
+		if(++keys->forged >= datagram::DATAGRAM_FORGERY)
+			// Запоминаем отказ защиты: пропуском он не лечится
+			failure = context::error_t::PROTECTION;
 		// Выводим признак того, что запись не принята
 		return false;
 	}
@@ -837,8 +851,10 @@ context::error_t nts::internal::Flight::carve(const size_t index, const size_t o
 			if(this->_mtu < (this->_packet.size() + overhead + 1))
 				// Выводим отказ составления записи
 				return context::error_t::RECORD;
-			// Место, остающееся в дейтаграмме под кусок, не шире записи
-			const size_t room = ((((this->_mtu - this->_packet.size() - overhead) > WIDEST) ? WIDEST : (this->_mtu - this->_packet.size() - overhead)));
+			// Наибольший кусок: не шире записи протокола и не шире предела собеседника за вычетом обвязки куска
+			const size_t widest = (((this->_limit - datagram::DATAGRAM_FRAGMENT_HEADER) > WIDEST) ? WIDEST : (this->_limit - datagram::DATAGRAM_FRAGMENT_HEADER));
+			// Место, остающееся в дейтаграмме под кусок, не шире наибольшего куска
+			const size_t room = ((((this->_mtu - this->_packet.size() - overhead) > widest) ? widest : (this->_mtu - this->_packet.size() - overhead)));
 			// Длина очередного куска
 			const size_t take = (((length - done) < room) ? (length - done) : room);
 			// Обвязка очередного куска
@@ -957,29 +973,58 @@ context::error_t nts::internal::Flight::acknowledge(const bool settled) noexcept
 	 * перехвата (вскрыто голоданием DtlsTest.Starved при сдвиге номеров выделений)
 	 */
 	const vector <datagram::number_t> & numbers = (listed ? this->_acknowledgeable : NOTHING);
-	// Если тело подтверждения составить не удалось
-	if(datagram::build(numbers, body) != datagram::error_t::NONE)
-		// Выводим отказ нехватки памяти
-		return context::error_t::MEMORY;
 	// Раздел 7 RFC 9147: подтверждение идёт наивысшей порой записи
 	era_t & keys = this->current(0);
-	// Если собираемая дейтаграмма идёт иной порой ключей
-	if(!this->_packet.empty() && (this->_bundle != keys.epoch)){
-		// Отказ закрытия собираемой дейтаграммы
-		const context::error_t closed = this->settle();
-		// Если дейтаграмму закрыть не удалось
-		if(closed != context::error_t::NONE)
-			// Выводим отказ закрытия дейтаграммы
-			return closed;
+	// Обвязка записи в дейтаграмме
+	const size_t overhead = this->overhead(keys.epoch);
+	// Место под содержимое записи подтверждения: дейтаграмма за вычетом обвязки, не шире предела собеседника (RFC 8449 §4)
+	const size_t room = (((this->_mtu > overhead) ? (this->_mtu - overhead) : 0) > this->_limit) ? this->_limit : ((this->_mtu > overhead) ? (this->_mtu - overhead) : 0);
+	// Число номеров, умещающихся в одну запись подтверждения: место за вычетом длины перечня, не меньше одного
+	const size_t portion = ((room > (2 + 16)) ? ((room - 2) / 16) : 1);
+	// Число записей подтверждения: пустое подтверждение - одна запись
+	const size_t records = (numbers.empty() ? 1 : ((numbers.size() + portion - 1) / portion));
+	/**
+	 * Выполняем составление записей подтверждения: перечень дробится по месту в дейтаграмме
+	 * (раздел 4.4 RFC 9147: дейтаграмма не шире PMTU), каждая порция - своей дейтаграммой
+	 */
+	for(size_t i = 0; i < records; i++){
+		/**
+		 * Выполняем перехват ошибок работы с памятью: порция копируется
+		 */
+		try {
+			// Порция номеров
+			const vector <datagram::number_t> slice(numbers.begin() + (i * portion), numbers.begin() + (((i + 1) * portion < numbers.size()) ? ((i + 1) * portion) : numbers.size()));
+			// Сбрасываем тело прежней порции
+			body.clear();
+			// Если тело порции составить не удалось
+			if(datagram::build(slice, body) != datagram::error_t::NONE)
+				// Выводим отказ нехватки памяти
+				return context::error_t::MEMORY;
+		/**
+		 * Если памяти под порцию не хватило
+		 */
+		} catch(const bad_alloc &) {
+			// Выводим отказ нехватки памяти
+			return context::error_t::MEMORY;
+		}
+		// Если собираемая дейтаграмма идёт иной порой ключей либо в ней уже лежит порция подтверждения
+		if(!this->_packet.empty() && ((this->_bundle != keys.epoch) || (i > 0))){
+			// Отказ закрытия собираемой дейтаграммы
+			const context::error_t closed = this->settle();
+			// Если дейтаграмму закрыть не удалось
+			if(closed != context::error_t::NONE)
+				// Выводим отказ закрытия дейтаграммы
+				return closed;
+		}
+		// Отказ составления записи подтверждения
+		const context::error_t error = this->shield(record::type_t::ACK, view_t(body.data(), body.size()), keys, this->_packet);
+		// Если запись подтверждения составить не удалось
+		if(error != context::error_t::NONE)
+			// Выводим отказ составления подтверждения
+			return error;
+		// Запоминаем пору ключей собираемой дейтаграммы
+		this->_bundle = keys.epoch;
 	}
-	// Отказ составления записи подтверждения
-	const context::error_t error = this->shield(record::type_t::ACK, view_t(body.data(), body.size()), keys, this->_packet);
-	// Если запись подтверждения составить не удалось
-	if(error != context::error_t::NONE)
-		// Выводим отказ составления подтверждения
-		return error;
-	// Запоминаем пору ключей собираемой дейтаграммы
-	this->_bundle = keys.epoch;
 	// Принятые записи подтверждены
 	this->_acknowledgeable.clear();
 	// Выводим успешность составления подтверждения
@@ -1194,8 +1239,8 @@ context::error_t nts::internal::Flight::emit(const record::type_t type, const vi
 	if(this->_mtu <= overhead)
 		// Выводим отказ составления записи
 		return context::error_t::RECORD;
-	// Наибольшее содержимое записи, входящее в дейтаграмму и не шире записи протокола
-	const size_t room = (((this->_mtu - overhead) > record::RECORD_PLAINTEXT) ? record::RECORD_PLAINTEXT : (this->_mtu - overhead));
+	// Наибольшее содержимое записи, входящее в дейтаграмму и не шире предела собеседника (RFC 8449, RFC 6066)
+	const size_t room = (((this->_mtu - overhead) > this->_limit) ? this->_limit : (this->_mtu - overhead));
 	// Смещение очередной записи в содержимом
 	size_t offset = 0;
 	/**
@@ -1269,12 +1314,26 @@ context::error_t nts::internal::Flight::dispatch(const bool resend) noexcept {
 			 * защищается заново, ибо запись с прежним номером окно повторов отбросит
 			 */
 			for(size_t i = 0; i < pending.size(); i++){
+				// Число кусков залпа до нарезки
+				const size_t before = this->_pieces.size();
 				// Отказ нарезки области сообщения
 				const context::error_t error = this->carve(pending[i].index, pending[i].offset, pending[i].length);
 				// Если область сообщения нарезать не удалось
 				if(error != context::error_t::NONE)
 					// Выводим отказ нарезки области сообщения
 					return error;
+				/**
+				 * Запоминаем у новых кусков номер прежней записи: подтверждение на неё,
+				 * задержавшееся за повтором, подтверждает тот же кусок, а не теряется
+				 */
+				for(size_t j = before; j < this->_pieces.size(); j++){
+					// Отмечаем, что кусок уже уходил
+					this->_pieces[j].former = true;
+					// Запоминаем пору прежней записи
+					this->_pieces[j].formerEpoch = pending[i].epoch;
+					// Запоминаем номер прежней записи
+					this->_pieces[j].formerSequence = pending[i].sequence;
+				}
 			}
 		}
 		/**
@@ -1334,13 +1393,14 @@ context::error_t nts::internal::Flight::dispatch(const bool resend) noexcept {
 		 */
 		if(waiting && !this->_challenged && !this->_concluded){
 			// Если часы ещё не идут
-			if(!this->_timing)
+			if(!this->_timing){
 				// Сбрасываем число попыток повторной передачи
 				this->_attempts = 0;
+				// Новый срок - ранний повтор дозволен; по идущим часам срок прежний, и гейт держится
+				this->_prodded = false;
+			}
 			// Заводим часы
 			this->_timing = true;
-			// Новый срок - ранний повтор дозволен
-			this->_prodded = false;
 		// Если ждать нечего
 		} else this->_timing = false;
 	/**
@@ -1605,6 +1665,17 @@ context::error_t nts::internal::Flight::fragments(const view_t & content, const 
 					this->_assemblies.erase(this->_assemblies.begin() + (i - 1));
 			}
 			/**
+			 * За установленной связью открытых сообщений рукопожатия собеседник не шлёт
+			 * никогда: повтор приветствия кончается с подтверждением завершения. Открытый
+			 * кусок с любым номером - подделка: ни повтора залпа, ни подтверждения ему
+			 */
+			if(settled && (epoch == 0) && (this->epoch(true) != 0)){
+				// Считаем отброшенный кусок
+				this->discard(datagram::reason_t::PLAIN);
+				// Переходим к следующему куску
+				continue;
+			}
+			/**
 			 * Раздел 5.8.1 RFC 9147: уже разобранное сообщение повторяется собеседником,
 			 * не дождавшимся ответа, - ждущий залп повторяется ему раскладкой; за
 			 * установленной связью повтор подтверждается явно (раздел 7)
@@ -1696,6 +1767,17 @@ context::error_t nts::internal::Flight::fragments(const view_t & content, const 
 				// Считаем отброшенный кусок
 				this->discard(datagram::reason_t::FRAMING);
 				// Переходим к следующему куску
+				continue;
+			}
+			/**
+			 * Покрытие сообщения ограничено числом несмежных областей: подделка кусками по
+			 * байту через один давала бы десятки тысяч областей и квадратичное слияние на
+			 * открытой нулевой поре; честный отправитель режет сообщение подряд
+			 */
+			if(assembly->spans.size() >= datagram::DATAGRAM_SPANS){
+				// Считаем отброшенную запись
+				this->discard(datagram::reason_t::FRAMING);
+				// Кусок не принят
 				continue;
 			}
 			// Если кусок несёт тело
@@ -1923,8 +2005,9 @@ context::error_t nts::internal::Flight::acknowledged(const view_t & body, const 
 		 * Выполняем перебор кусков залпа
 		 */
 		for(size_t j = 0; j < this->_pieces.size(); j++){
-			// Если кусок ушёл подтверждённой записью
-			if(!this->_pieces[j].acked && (this->_pieces[j].epoch == numbers[i].epoch) && (this->_pieces[j].sequence == numbers[i].sequence))
+			// Если кусок ушёл подтверждённой записью: нынешней либо прежней, до повтора
+			if(!this->_pieces[j].acked && (((this->_pieces[j].epoch == numbers[i].epoch) && (this->_pieces[j].sequence == numbers[i].sequence)) ||
+			   (this->_pieces[j].former && (this->_pieces[j].formerEpoch == numbers[i].epoch) && (this->_pieces[j].formerSequence == numbers[i].sequence))))
 				// Отмечаем кусок подтверждённым
 				this->_pieces[j].acked = true;
 		}
@@ -2403,12 +2486,30 @@ void nts::internal::Flight::stamp(const vector <uint8_t> & secret) noexcept {
  *
  */
 void nts::internal::Flight::restamp() noexcept {
+	// Секрет нового поколения вырабатывается в отдельное место: отказ энтропии не тронет слот прежнего поколения
+	uint8_t fresh[32];
+	// Если секрет нового поколения выработать не удалось: поколения не меняются
+	if(!entropy::bytes(fresh, sizeof(fresh)))
+		// Выходим из метода
+		return;
 	// Переходим к следующему поколению секрета
 	this->_generation++;
-	// Если секрет нового поколения выработать не удалось
-	if(!entropy::bytes(this->_stamps[this->_generation % 2], sizeof(this->_stamps[0])))
-		// Возвращаемся к прежнему поколению
-		this->_generation--;
+	// Переносим секрет в слот нового поколения
+	::memcpy(this->_stamps[this->_generation % 2], fresh, sizeof(fresh));
+	// Затираем отдельное место
+	wipe(fresh, sizeof(fresh));
+}
+/**
+ * @brief Деструктор: секреты метки возврата состояния и свёрнутый секрет затираются - они общие для всех связей сервера
+ *
+ */
+nts::internal::Flight::~Flight() noexcept {
+	// Затираем ключевой материал связи
+	this->shred();
+	// Затираем секреты метки
+	wipe(this->_stamps, sizeof(this->_stamps));
+	// Затираем свёрнутый секрет
+	wipe(this->_digest, sizeof(this->_digest));
 }
 /**
  * @brief Метод выработки секретов метки, если они не заданы
@@ -2485,8 +2586,8 @@ bool nts::internal::Flight::addressed() const noexcept {
  *
  */
 void nts::internal::Flight::mtu(const size_t mtu) noexcept {
-	// Устанавливаем размер дейтаграммы не ниже наименьшего дозволенного
-	this->_mtu = ((mtu < datagram::DATAGRAM_MTU_LEAST) ? datagram::DATAGRAM_MTU_LEAST : mtu);
+	// Устанавливаем размер дейтаграммы не ниже наименьшего дозволенного и не выше принимаемого собеседником (DATAGRAM_LONGEST): шире он отбросил бы дейтаграмму целиком
+	this->_mtu = ((mtu < datagram::DATAGRAM_MTU_LEAST) ? datagram::DATAGRAM_MTU_LEAST : ((mtu > datagram::DATAGRAM_LONGEST) ? datagram::DATAGRAM_LONGEST : mtu));
 }
 /**
  * @brief Метод получения размера дейтаграммы связи
@@ -2497,6 +2598,30 @@ void nts::internal::Flight::mtu(const size_t mtu) noexcept {
 size_t nts::internal::Flight::mtu() const noexcept {
 	// Выводим размер дейтаграммы связи
 	return this->_mtu;
+}
+/**
+ * @brief Метод установки предела содержимого записи, объявленного собеседником на приём
+ *
+ * @param limit предел содержимого одной записи в байтах (RFC 8449, RFC 6066)
+ *
+ */
+void nts::internal::Flight::limit(const size_t limit) noexcept {
+	// Устанавливаем предел не выше записи протокола и не ниже обвязки куска с одним байтом
+	this->_limit = ((limit > record::RECORD_PLAINTEXT) ? record::RECORD_PLAINTEXT : ((limit <= datagram::DATAGRAM_FRAGMENT_HEADER) ? (datagram::DATAGRAM_FRAGMENT_HEADER + 1) : limit));
+}
+/**
+ * @brief Метод получения места под содержимое одной записи в дейтаграмме
+ *
+ * @return место в байтах: размер дейтаграммы за вычетом обвязки записи текущей поры записи
+ *
+ */
+size_t nts::internal::Flight::room() noexcept {
+	// Обвязка записи текущей поры записи
+	const size_t overhead = this->overhead(this->current(0).epoch);
+	// Место в дейтаграмме: не меньше нуля
+	const size_t room = ((this->_mtu > overhead) ? (this->_mtu - overhead) : 0);
+	// Выводим место, не шире предела собеседника
+	return ((room > this->_limit) ? this->_limit : room);
 }
 /**
  * @brief Метод учёта молча отброшенной записи либо дейтаграммы
@@ -2679,7 +2804,7 @@ void nts::internal::Flight::clear() noexcept {
  *
  */
 nts::internal::Flight::Flight() noexcept :
-	_suite(protect::suite_t::NONE), _legacy(false), _ancient(false), _stateless(false), _verified(true), _concluded(false), _mtu(datagram::DATAGRAM_MTU), _timeout(datagram::DATAGRAM_TIMEOUT), _attempts(0),
+	_suite(protect::suite_t::NONE), _legacy(false), _ancient(false), _stateless(false), _verified(true), _concluded(false), _mtu(datagram::DATAGRAM_MTU), _limit(record::RECORD_PLAINTEXT), _timeout(datagram::DATAGRAM_TIMEOUT), _attempts(0),
 	_timing(false), _challenged(false), _replied(false), _rotating(false), _repeated(false), _nudged(false), _prodded(false), _deferring(false),
 	_stamped(false), _digested(false), _generation(0), _greeted(0), _outgoing(0), _incoming(0), _bundle(0) {
 	// Выполняем обнуление секретов метки возврата состояния

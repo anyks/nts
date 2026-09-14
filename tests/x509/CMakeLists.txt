@@ -7,6 +7,9 @@ add_executable(${TEST_X509_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/x509.cpp")
 # Включаем флаги компиляции проверок
 target_compile_options(${TEST_X509_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
 
+# Объявляем путь к набору образцов проверок
+target_compile_definitions(${TEST_X509_NAME} PRIVATE ANTS_CORPUS="${CMAKE_SOURCE_DIR}/tests/corpus")
+
 # Подключаем каталог общих заголовочных файлов набора проверок
 target_include_directories(${TEST_X509_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/tests")
 

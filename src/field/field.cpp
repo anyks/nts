@@ -252,7 +252,52 @@ void nts::field::Builder::clear() noexcept {
 	this->_marks.clear();
 }
 /**
- * @brief Метод записи числа заданной ширины
+ * @brief Метод выделения места под запись с затиранием прежнего накопителя
+ *
+ * @param extra требуемое число свободных байтов
+ *
+ * @return      признак успешности выделения места
+ *
+ */
+bool nts::field::Builder::grow(const size_t extra) noexcept {
+	// Если места в накопителе на запись хватает
+	if((this->_buffer.capacity() - this->_buffer.size()) >= extra)
+		// Выводим успешность выделения места
+		return true;
+	// Если требуемая длина накопителя не помещается в размер
+	if(extra > (SIZE_MAX - this->_buffer.size()))
+		// Выводим отказ выделения места
+		return false;
+	// Требуемая длина накопителя
+	const size_t needed = (this->_buffer.size() + extra);
+	// Новая ёмкость накопителя: удвоение прежней, но не меньше требуемой
+	const size_t capacity = ((this->_buffer.capacity() > (SIZE_MAX / 2)) ? needed : (((this->_buffer.capacity() * 2) > needed) ? (this->_buffer.capacity() * 2) : needed));
+	/**
+	 * Выполняем перехват ошибок работы с памятью
+	 */
+	try {
+		// Новый накопитель
+		vector <uint8_t> wider;
+		// Выделяем память под новый накопитель
+		wider.reserve(capacity);
+		// Переносим составленную запись в новый накопитель
+		wider.assign(this->_buffer.begin(), this->_buffer.end());
+		// Затираем прежний накопитель: секрет не вправе остаться в освобождённой памяти
+		sys::wipe(this->_buffer);
+		// Подменяем прежний накопитель новым: обмен памяти не выделяет
+		this->_buffer.swap(wider);
+	/**
+	 * Если памяти под накопитель не хватило
+	 */
+	} catch(const std::bad_alloc &) {
+		// Выводим отказ выделения места
+		return false;
+	}
+	// Выводим успешность выделения места
+	return true;
+}
+/**
+ * @brief Метод записи числа старшим разрядом вперёд
  *
  * @param value записываемое число
  * @param size  ширина записи числа в байтах
@@ -273,6 +318,10 @@ nts::field::error_t nts::field::Builder::number(const uint32_t value, const size
 	 * Выполняем перехват ошибок работы с памятью
 	 */
 	try {
+		// Если места под число выделить не удалось
+		if(!this->grow(size))
+			// Выводим отказ нехватки памяти
+			return error_t::MEMORY;
 		/**
 		 * Выполняем перебор байтов записи числа
 		 */
@@ -306,6 +355,10 @@ nts::field::error_t nts::field::Builder::bytes(const view_t & data) noexcept {
 	 * Выполняем перехват ошибок работы с памятью
 	 */
 	try {
+		// Если места под область байтов выделить не удалось
+		if(!this->grow(data.size))
+			// Выводим отказ нехватки памяти
+			return error_t::MEMORY;
 		// Выполняем дописывание области байтов в накопитель
 		this->_buffer.insert(this->_buffer.end(), data.data, data.data + data.size);
 	/**
@@ -337,6 +390,10 @@ nts::field::error_t nts::field::Builder::open(const size_t width) noexcept {
 	 * Выполняем перехват ошибок работы с памятью
 	 */
 	try {
+		// Если места под длину поля выделить не удалось
+		if(!this->grow(width))
+			// Выводим отказ нехватки памяти
+			return error_t::MEMORY;
 		/**
 		 * Откладываем место под длину открываемого поля
 		 */

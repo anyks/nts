@@ -2233,6 +2233,25 @@ nts::extension::error_t nts::extension::name(const view_t & data, view_t & resul
 		if((type == 0) && found)
 			// Выводим отказ лишних записей
 			return error_t::TRAILING;
+		/**
+		 * Раздел 3 RFC 6066: имя узла - ASCII без замыкающей точки; байт 0x00 и байты вне
+		 * печатаемых обрывали бы имя у потребителя со строками C и подменяли бы узел
+		 */
+		if(type == 0){
+			// Если имя кончается точкой
+			if(item.data[item.size - 1] == '.')
+				// Выводим отказ вида
+				return error_t::FORMAT;
+			/**
+			 * Выполняем перебор байтов имени
+			 */
+			for(size_t i = 0; i < item.size; i++){
+				// Если байт вне печатаемого ASCII
+				if((item.data[i] <= 0x20) || (item.data[i] >= 0x7F))
+					// Выводим отказ вида
+					return error_t::FORMAT;
+			}
+		}
 		if((type == 0) && !found){
 			// Устанавливаем имя запрашиваемого узла
 			result = item;

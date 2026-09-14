@@ -525,6 +525,8 @@ bool nts::digest::argon2(const argon_params_t & params, const view_t & password,
 			quartet(i, input + sizeof(h0) + 4);
 			// Считаем блок
 			ok = stretch(view_t(input, sizeof(input)), bytes, BLOCK);
+			// Затираем вход: он несёт H0
+			wipe(input, sizeof(input));
 			// Переносим в матрицу
 			if(ok)
 				load(bytes, matrix[(static_cast <size_t> (i) * lane) + j]);

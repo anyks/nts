@@ -67,6 +67,13 @@ namespace {
 	 *
 	 */
 	static constexpr size_t LEAST_BITS = 512;
+	/**
+	 * Наибольшая ширина открытого показателя в разрядах: RFC 8017 её не ограничивает, но
+	 * чужой ключ с показателем шириной в модуль делает проверку подписи ценою секретного
+	 * действия (отказ в обслуживании по цепочке сертификатов); предел тот же, что у
+	 * BoringSSL (e < 2^33). Условие пересмотра: потребитель с ключами шире
+	 */
+	static constexpr size_t EXPONENT_BITS = 33;
 
 	/**
 	 * @brief Наибольшее число попыток выработки простого сомножителя
@@ -589,8 +596,8 @@ bool nts::sign::Rsa::generate(const size_t bits, const uint64_t exponent) noexce
 	if((bits != 2048) && (bits != 3072) && (bits != 4096))
 		// Выводим отказ
 		return false;
-	// Если показатель чётный либо меньше трёх
-	if(((exponent & 1) == 0) || (exponent < 3))
+	// Если показатель чётный, меньше трёх либо шире дозволенного (тот же предел, что у key())
+	if(((exponent & 1) == 0) || (exponent < 3) || (exponent >= (static_cast <uint64_t> (1) << EXPONENT_BITS)))
 		// Выводим отказ
 		return false;
 	// Сбрасываем состояние модуля
@@ -680,7 +687,7 @@ bool nts::sign::Rsa::key(const view_t & modulus, const view_t & exponent) noexce
 	 * не меньше трёх и меньше модуля
 	 */
 	if((this->_bits < LEAST_BITS) || (this->_bits > math::INTEGER_BITS) || !this->_modulus.odd() ||
-	   !this->_exponent.odd() || (this->_exponent.compare(three) < 0) || (this->_exponent.compare(this->_modulus) >= 0)){
+	   !this->_exponent.odd() || (this->_exponent.compare(three) < 0) || (this->_exponent.compare(this->_modulus) >= 0) || (this->_exponent.bits() > EXPONENT_BITS)){
 		// Сбрасываем состояние модуля
 		this->clear();
 		// Выводим отказ

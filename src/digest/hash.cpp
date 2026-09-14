@@ -111,6 +111,8 @@ nts::digest::hash_t nts::digest::Hasher::type() const noexcept {
 void nts::digest::Hasher::reset(const hash_t algorithm) noexcept {
 	// Запоминаем выбранный алгоритм хеширования
 	this->_type = algorithm;
+	// Сбрасываем признак порченой подачи
+	this->_spoiled = false;
 	/**
 	 * Выполняем сброс объекта выбранного алгоритма
 	 */
@@ -145,6 +147,13 @@ void nts::digest::Hasher::reset(const hash_t algorithm) noexcept {
  *
  */
 void nts::digest::Hasher::update(const view_t & data) noexcept {
+	// Если кусок задан длиной без места: подача порчена, хеш сниматься не будет
+	if((data.data == nullptr) && (data.size > 0)){
+		// Запоминаем порченую подачу
+		this->_spoiled = true;
+		// Выходим из метода
+		return;
+	}
 	/**
 	 * Выполняем передачу куска объекту выбранного алгоритма
 	 */
@@ -178,6 +187,10 @@ void nts::digest::Hasher::update(const view_t & data) noexcept {
  *
  */
 bool nts::digest::Hasher::finish(uint8_t * result, const size_t size) noexcept {
+	// Если подача была порчена: хеш пустого сообщения выдавать нельзя
+	if(this->_spoiled)
+		// Выводим отказ снятия хеша
+		return false;
 	/**
 	 * Выполняем снятие хеша с объекта выбранного алгоритма
 	 */
@@ -228,7 +241,7 @@ bool nts::digest::Hasher::finish(uint8_t * result, const size_t size) noexcept {
  * @param algorithm алгоритм хеширования
  *
  */
-nts::digest::Hasher::Hasher(const hash_t algorithm) noexcept : _type(hash_t::NONE) {
+nts::digest::Hasher::Hasher(const hash_t algorithm) noexcept : _type(hash_t::NONE), _spoiled(false) {
 	// Выполняем сброс состояния под выбранный алгоритм
 	this->reset(algorithm);
 }

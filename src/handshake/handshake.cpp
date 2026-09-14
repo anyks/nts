@@ -31,6 +31,7 @@
  * Стандартные заголовочные файлы
  */
 #include <new>
+#include <cstring>
 
 /**
  * Подключаем заголовочные файлы проекта
@@ -261,10 +262,16 @@ nts::handshake::error_t nts::handshake::Reader::push(const view_t & data) noexce
 	try {
 		// Если разобранные данные в накопителе есть
 		if(this->_offset > 0){
-			// Выполняем затирание уже разобранных данных накопителя
-			wipe(this->_buffer.data(), this->_offset);
-			// Выполняем снятие разобранных данных с начала накопителя
-			this->_buffer.erase(this->_buffer.begin(), this->_buffer.begin() + static_cast <ptrdiff_t> (this->_offset));
+			// Длина неразобранного хвоста накопителя
+			const size_t rest = (this->_buffer.size() - this->_offset);
+			// Если неразобранный хвост есть
+			if(rest > 0)
+				// Выполняем перенос хвоста в начало накопителя (области могут перекрываться)
+				::memmove(this->_buffer.data(), this->_buffer.data() + this->_offset, rest);
+			// Выполняем затирание освободившегося места: копия хвоста не переживает уплотнения
+			wipe(this->_buffer.data() + rest, this->_buffer.size() - rest);
+			// Выполняем усечение накопителя по хвосту
+			this->_buffer.resize(rest);
 			// Выполняем сброс смещения начала неразобранных данных
 			this->_offset = 0;
 			// Выполняем сброс длины последнего выданного сообщения

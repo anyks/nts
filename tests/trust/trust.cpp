@@ -1499,3 +1499,102 @@ TEST(TrustTest, Classic){
 	// Проверяем отказ доверия просроченному листу без корня в запасе
 	ASSERT_EQ(trust::verify(expired, trust::store_t(), MOMENT), trust::error_t::EXPIRED);
 }
+
+/**
+ * @brief Метод чтения первого сертификата файла набора образцов
+ *
+ * @param name имя файла набора образцов
+ *
+ * @return     запись DER сертификата либо пустой накопитель
+ *
+ */
+static vector <uint8_t> certified(const char * name) {
+	// Перечень записей сертификатов файла
+	vector <vector <uint8_t>> chain;
+	// Если сертификаты файла прочитать не удалось либо файл их не несёт
+	if(!corpus(name, chain) || chain.empty())
+		// Выводим пустой накопитель
+		return vector <uint8_t> ();
+	// Выводим первый сертификат файла
+	return chain[0];
+}
+
+/**
+ * Круг 8: решение 6 (звёздочка против запрещённого поддерева) не применяется к основанию с ведущей точкой -
+ * excluded «.secure.example.com» кроет лишь строго подчинённые имена, а «*.example.com» кроет одну метку и
+ * ни одного такого имени обслужить не может: цепочка годна (так судит и openssl)
+ */
+TEST(TrustTest, WildcardExcludedLeadingDot){
+	// Корень, промежуточный издатель с запретом «.secure.example.com» и лист «*.example.com»
+	const vector <uint8_t> root = certified("audit/r8-nc-root.crt"), mid = certified("audit/r8-nc-mid-leaddot.crt"), star = certified("audit/r8-nc-leaf-star.crt");
+	// Проверяем чтение образцов
+	ASSERT_FALSE(root.empty() || mid.empty() || star.empty());
+	// Запас доверенных сертификатов
+	trust::store_t store;
+	// Проверяем добавление корня в запас
+	ASSERT_TRUE(store.add(view_t(root.data(), root.size())));
+	// Миг проверки в срок действия образцов
+	const int64_t moment = 1800000000;
+	// Проверяем доверие цепочке: лист под запретом с ведущей точкой не лежит
+	EXPECT_EQ(trust::verify(vector <vector <uint8_t>> {star, mid}, store, moment, trust::role_t::SERVER), trust::error_t::NONE);
+}
+
+/**
+ * Круг 8: хвостовая точка доменного имени снимается перед сличением (решение 7 trust.cpp) - лист
+ * «secure.example.com.» лежит в запрещённом поддереве secure.example.com так же, как «secure.example.com»,
+ * а belongs() отвечает одним и тем же на имя узла с точкой и без; две точки на конце - не имя
+ */
+TEST(TrustTest, TrailingDotExcluded){
+	// Корень, промежуточный издатель с запретом secure.example.com, лист с точкой на конце и лист без неё
+	const vector <uint8_t> root = certified("audit/r8-nc-root.crt"), mid = certified("audit/r8-nc-mid-secure.crt");
+	const vector <uint8_t> dot = certified("audit/r8-nc-leaf-dot.crt"), plain = certified("audit/r8-nc-leaf-plain.crt");
+	// Проверяем чтение образцов
+	ASSERT_FALSE(root.empty() || mid.empty() || dot.empty() || plain.empty());
+	// Запас доверенных сертификатов
+	trust::store_t store;
+	// Проверяем добавление корня в запас
+	ASSERT_TRUE(store.add(view_t(root.data(), root.size())));
+	// Миг проверки в срок действия образцов
+	const int64_t moment = 1800000000;
+	// Проверяем отказ доверия листу без точки (образец сличения)
+	EXPECT_EQ(trust::verify(vector <vector <uint8_t>> {plain, mid}, store, moment, trust::role_t::SERVER), trust::error_t::CONSTRAINED);
+	// Проверяем отказ доверия листу с хвостовой точкой: обхода запрета нет
+	EXPECT_EQ(trust::verify(vector <vector <uint8_t>> {dot, mid}, store, moment, trust::role_t::SERVER), trust::error_t::CONSTRAINED);
+	// Проверяем сличение имени узла без точки с листом с точкой
+	EXPECT_EQ(trust::belongs(view_t(dot.data(), dot.size()), "secure.example.com"), trust::error_t::NONE);
+	// Проверяем сличение имени узла с точкой с листом с точкой
+	EXPECT_EQ(trust::belongs(view_t(dot.data(), dot.size()), "secure.example.com."), trust::error_t::NONE);
+	// Проверяем сличение имени узла с точкой с листом без точки
+	EXPECT_EQ(trust::belongs(view_t(plain.data(), plain.size()), "secure.example.com."), trust::error_t::NONE);
+	// Проверяем отказ имени узла с двумя точками на конце
+	EXPECT_EQ(trust::belongs(view_t(plain.data(), plain.size()), "secure.example.com.."), trust::error_t::NAME);
+	// Проверяем отказ имени узла из одной точки
+	EXPECT_EQ(trust::belongs(view_t(plain.data(), plain.size()), "."), trust::error_t::NAME);
+	// Проверяем, что точка не сличает чужое имя
+	EXPECT_EQ(trust::belongs(view_t(dot.data(), dot.size()), "example.com."), trust::error_t::NAME);
+}
+
+/**
+ * Круг 8: пустое поле subject при критичном subjectAltName именем вида directoryName не считается (решение 8
+ * trust.cpp, раздел 4.2.1.10 RFC 5280) - лист с пустым subject под дозволенным поддеревом directoryName годен;
+ * лист с subject в поддереве годен, лист с subject вне поддерева отвергается
+ */
+TEST(TrustTest, EmptySubjectDirName){
+	// Корень, промежуточный издатель с дозволенным поддеревом C=US,O=Corp и три листа
+	const vector <uint8_t> root = certified("audit/r8-nc-root.crt"), mid = certified("audit/r8-nc-mid-dn.crt");
+	const vector <uint8_t> empty = certified("audit/r8-nc-leaf-empty.crt"), inside = certified("audit/r8-nc-leaf-dn.crt"), foreign = certified("audit/r8-nc-leaf-foreign.crt");
+	// Проверяем чтение образцов
+	ASSERT_FALSE(root.empty() || mid.empty() || empty.empty() || inside.empty() || foreign.empty());
+	// Запас доверенных сертификатов
+	trust::store_t store;
+	// Проверяем добавление корня в запас
+	ASSERT_TRUE(store.add(view_t(root.data(), root.size())));
+	// Миг проверки в срок действия образцов
+	const int64_t moment = 1800000000;
+	// Проверяем доверие листу с subject в поддереве
+	EXPECT_EQ(trust::verify(vector <vector <uint8_t>> {inside, mid}, store, moment, trust::role_t::SERVER), trust::error_t::NONE);
+	// Проверяем доверие листу с пустым subject: имени вида directoryName у него нет
+	EXPECT_EQ(trust::verify(vector <vector <uint8_t>> {empty, mid}, store, moment, trust::role_t::SERVER), trust::error_t::NONE);
+	// Проверяем отказ доверия листу с subject вне поддерева
+	EXPECT_EQ(trust::verify(vector <vector <uint8_t>> {foreign, mid}, store, moment, trust::role_t::SERVER), trust::error_t::CONSTRAINED);
+}

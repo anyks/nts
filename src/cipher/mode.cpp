@@ -297,7 +297,7 @@ void nts::cipher::Codebook::clear() noexcept {
  */
 bool nts::cipher::Codebook::encrypt(const view_t & source, uint8_t * result) noexcept {
 	// Если режим не готов к работе либо места не переданы
-	if(!this->_ready || (source.data == nullptr) || (result == nullptr))
+	if(!this->_ready || ((source.size > 0) && ((source.data == nullptr) || (result == nullptr))))
 		// Выводим отказ зашифрования
 		return false;
 	// Если длина сообщения не кратна длине блока шифра
@@ -327,7 +327,7 @@ bool nts::cipher::Codebook::encrypt(const view_t & source, uint8_t * result) noe
  */
 bool nts::cipher::Codebook::decrypt(const view_t & source, uint8_t * result) noexcept {
 	// Если режим не готов к работе либо места не переданы
-	if(!this->_ready || (source.data == nullptr) || (result == nullptr))
+	if(!this->_ready || ((source.size > 0) && ((source.data == nullptr) || (result == nullptr))))
 		// Выводим отказ расшифрования
 		return false;
 	// Если длина шифртекста не кратна длине блока шифра
@@ -732,7 +732,7 @@ void nts::cipher::Chaining::clear() noexcept {
  */
 bool nts::cipher::Chaining::encrypt(const view_t & source, uint8_t * result) noexcept {
 	// Если режим не готов к работе либо места не переданы
-	if(!this->_ready || (source.data == nullptr) || (result == nullptr))
+	if(!this->_ready || ((source.size > 0) && ((source.data == nullptr) || (result == nullptr))))
 		// Выводим отказ зашифрования
 		return false;
 	// Если длина сообщения не кратна длине блока шифра
@@ -775,7 +775,7 @@ bool nts::cipher::Chaining::encrypt(const view_t & source, uint8_t * result) noe
  */
 bool nts::cipher::Chaining::decrypt(const view_t & source, uint8_t * result) noexcept {
 	// Если режим не готов к работе либо места не переданы
-	if(!this->_ready || (source.data == nullptr) || (result == nullptr))
+	if(!this->_ready || ((source.size > 0) && ((source.data == nullptr) || (result == nullptr))))
 		// Выводим отказ расшифрования
 		return false;
 	// Если длина шифртекста не кратна длине блока шифра
@@ -1219,6 +1219,8 @@ bool nts::cipher::Imitation::finish(uint8_t * result, const size_t size) noexcep
 		return false;
 	// Выполняем усечение выхода шифра до требуемой длины имитовставки
 	::memcpy(result, this->_state, size);
+	// Имитовставка снята: объект закрывается, повторные снятие и подача отвергаются, как у прочих режимов
+	this->clear();
 	// Выводим успешность снятия имитовставки
 	return true;
 }

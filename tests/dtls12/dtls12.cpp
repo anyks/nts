@@ -3571,8 +3571,8 @@ TEST(Dtls12Test, Replay){
 
 /**
  * Проверка смены набора шифрования не в свой черёд: у клиента, принявшего приветствие
- * сервера без остатка залпа, смена набора обрывает связь извещением unexpected_message, как
- * и смена с негодным телом; у сервера до согласования издания смена отбрасывается молча
+ * сервера без остатка залпа, открытая смена набора (и с негодным телом) роняется молча -
+ * раздел 4.1.2.7 RFC 6347, рукопожатие доходит до конца; у сервера до согласования издания смена отбрасывается молча
  * видом (DTLS 1.3 её не знает), а обогнавшая цепочку клиента ждёт своего черёда - залп
  * клиента в обратном порядке сходится
  */
@@ -3629,12 +3629,22 @@ TEST(Dtls12Test, Change){
 		enclose(record::type_t::CHANGE, 0, 9, 1, change);
 		// Тело: единица либо негодная двойка
 		change.push_back((item == 0) ? 0x01 : 0x02);
-		// Подаём смену клиенту
-		ASSERT_EQ(client.push(view_t(change.data(), change.size())), context::error_t::RECORD);
-		// Клиент оборван
-		ASSERT_EQ(client.state(), context::state_t::FAILED);
-		// Извещение unexpected_message
-		ASSERT_EQ(client.alert().description, alert::description_t::UNEXPECTED);
+		// Подаём смену клиенту: открытая запись ничем не подписана и роняется молча (круг 7)
+		ASSERT_EQ(client.push(view_t(change.data(), change.size())), context::error_t::NONE);
+		// Клиент рукопожатия не прервал
+		ASSERT_EQ(client.state(), context::state_t::HANDSHAKE);
+		// Смена отброшена как открытая запись
+		ASSERT_EQ(client.discarded(datagram::reason_t::PLAIN), static_cast <uint64_t> (1));
+		// Остаток залпа сервера
+		for(size_t i = 1; i < flight.size(); i++)
+			// Подаём клиенту
+			ASSERT_EQ(client.push(view_t(flight[i].data(), flight[i].size())), context::error_t::NONE);
+		// Доводим до тишины
+		converse(client, server, bond, 400);
+		// Рукопожатие доходит до конца
+		ASSERT_TRUE(client.established() && server.established());
+		// Обмениваемся данными
+		ASSERT_TRUE(barter(client, server, bond));
 	}
 	// Смена набора, обогнавшая цепочку клиента у сервера
 	{

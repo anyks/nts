@@ -67,6 +67,7 @@
  * Стандартные заголовочные файлы
  */
 #include <new>
+#include <cstdint>
 #include <cstring>
 
 /**
@@ -1109,10 +1110,11 @@ nts::protect::error_t nts::protect::Protection::open(const view_t & associated, 
 	if((associated.data == nullptr) || (associated.size == 0))
 		// Выводим отказ снятия защиты
 		return error_t::LENGTH;
-	// Если порядковые номера записей на этом ключе исчерпаны
-	if(sequence > this->_limit)
-		// Выводим отказ снятия защиты
-		return error_t::SEQUENCE;
+	/**
+	 * Раздел 5.5 RFC 8446: предел записей на ключе - обязанность отправителя, и на
+	 * приёме он не судится: иначе собеседник, не сменивший ключи, молча отбрасывался бы
+	 * поверх дейтаграмм с записи за пределом, а потоком - обрывался
+	 */
 	// Если содержимое записи не передано либо короче метки целостности
 	if((data.data == nullptr) || (data.size <= this->_tag))
 		// Выводим отказ снятия защиты
@@ -1456,8 +1458,8 @@ nts::protect::error_t nts::protect::Protection::wrap(const uint64_t sequence, co
  *
  */
 nts::protect::error_t nts::protect::Protection::unwrap(const record::header_t & header, const view_t & data, record::type_t & type, vector <uint8_t> & result) noexcept {
-	// Если порядковые номера записей на этом ключе исчерпаны
-	if(this->_sequence > this->_limit)
+	// Раздел 5.5 RFC 8446: предел записей на ключе - обязанность отправителя; на приёме судится лишь исчерпание самого номера (круг 7)
+	if(this->_sequence == UINT64_MAX)
 		// Выводим отказ снятия защиты
 		return error_t::SEQUENCE;
 	// Если содержимое записи не передано либо не сходится длиной с заголовком
@@ -1498,10 +1500,7 @@ nts::protect::error_t nts::protect::Protection::unwrap(const uint64_t sequence, 
 	if(!this->_legacy)
 		// Выводим отказ негодного состояния
 		return error_t::STATE;
-	// Раздел 4.1 RFC 6347: предел набора судится по сорока восьми разрядам порядкового номера
-	if((sequence & LEGACY_ORDINAL) > this->_limit)
-		// Выводим отказ снятия защиты
-		return error_t::SEQUENCE;
+	// Раздел 5.5 RFC 8446: предел записей на ключе - обязанность отправителя, на приёме он не судится (круг 7)
 	// Если вид содержимого записи протоколом не определён
 	if(!record::known(type))
 		// Выводим отказ снятия защиты

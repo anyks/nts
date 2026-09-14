@@ -141,6 +141,8 @@ namespace nts {
 				size_t _count;
 				// Признак поглощённых предсообщений
 				bool _started;
+				// Признак того, что раскол выполнен: повтор дал бы вторую пару шифров с теми же ключами и нулевыми счётчиками
+				bool _split;
 				// Признак неисправности
 				bool _broken;
 				// Признаки наличия ключей: свой постоянный, свой временный, чужой постоянный, чужой временный
@@ -454,7 +456,7 @@ namespace nts {
 				 *
 				 * \~
 				 */
-				bool split(cipher_t & one, cipher_t & two) const noexcept;
+				bool split(cipher_t & one, cipher_t & two) noexcept;
 				/**
 				 * \~russian
 				 * @brief Метод получения хеша рукопожатия для привязки канала

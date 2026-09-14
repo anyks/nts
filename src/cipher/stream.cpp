@@ -300,8 +300,14 @@ bool nts::cipher::Stream::update(const view_t & source, vector <uint8_t> & resul
 			// Запоминаем, что вектор выдан
 			this->_headed = true;
 		}
-		// Выводим итог пропуска куска через режим
-		return this->pass(source, result);
+		// Итог пропуска куска через режим: отказ закрывает поток
+		const bool passed = this->pass(source, result);
+		// Если пропустить не удалось
+		if(!passed)
+			// Закрываем поток
+			this->_ready = false;
+		// Выводим итог
+		return passed;
 	}
 	// Число ещё не разобранных байтов куска
 	size_t left = source.size;
@@ -324,14 +330,24 @@ bool nts::cipher::Stream::update(const view_t & source, vector <uint8_t> & resul
 			// Выводим успешность подачи: выдача пуста
 			return true;
 		// Если режим на собранном векторе не запустился
-		if(!this->launch())
+		if(!this->launch()){
+			// Закрываем поток
+			this->_ready = false;
 			// Выводим отказ подачи
 			return false;
+		}
 	}
 	// Если метки у режима нет
-	if(this->_tag == 0)
-		// Выводим итог пропуска остатка куска через режим
-		return this->pass(view_t(cursor, left), result);
+	if(this->_tag == 0){
+		// Итог пропуска остатка куска через режим
+		const bool passed = this->pass(view_t(cursor, left), result);
+		// Если пропустить не удалось
+		if(!passed)
+			// Закрываем поток
+			this->_ready = false;
+		// Выводим итог
+		return passed;
+	}
 	// Число байтов, заведомо не задевающих метку
 	const size_t release = (((this->_tail.size() + left) > this->_tag) ? ((this->_tail.size() + left) - this->_tag) : 0);
 	// Если выдавать нечего
@@ -354,16 +370,22 @@ bool nts::cipher::Stream::update(const view_t & source, vector <uint8_t> & resul
 	}
 	// Число выдаваемых байтов из удерживаемого хвоста
 	const size_t held = ((release < this->_tail.size()) ? release : this->_tail.size());
-	// Если из хвоста выдаётся хоть байт и пропустить его не удалось
-	if((held > 0) && !this->pass(view_t(this->_tail.data(), held), result))
+	// Если из хвоста выдаётся хоть байт и пропустить его не удалось: режим уже продвинут, поток негоден
+	if((held > 0) && !this->pass(view_t(this->_tail.data(), held), result)){
+		// Закрываем поток: повторная подача пропустила бы удержанные байты дважды
+		this->_ready = false;
 		// Выводим отказ подачи
 		return false;
+	}
 	// Число выдаваемых байтов из куска
 	const size_t fresh = (release - held);
 	// Если из куска выдаётся хоть байт и пропустить его не удалось
-	if((fresh > 0) && !this->pass(view_t(cursor, fresh), result))
+	if((fresh > 0) && !this->pass(view_t(cursor, fresh), result)){
+		// Закрываем поток
+		this->_ready = false;
 		// Выводим отказ подачи
 		return false;
+	}
 	// Если хвост выдан не целиком
 	if(held < this->_tail.size())
 		// Сдвигаем остаток хвоста к началу
@@ -379,9 +401,11 @@ bool nts::cipher::Stream::update(const view_t & source, vector <uint8_t> & resul
 		// Дописываем остаток куска в удерживаемый хвост
 		this->_tail.insert(this->_tail.end(), cursor + fresh, cursor + left);
 	/**
-	 * Если памяти под хвост не хватило
+	 * Если памяти под хвост не хватило: байты куска потеряны, поток закрывается
 	 */
 	} catch(const bad_alloc &) {
+		// Закрываем поток
+		this->_ready = false;
 		// Выводим отказ подачи
 		return false;
 	}

@@ -1163,7 +1163,7 @@ bool nts::cipher::Gcm::associate(const view_t & associated) noexcept {
 		return false;
 	// Переводим поток на связанные данные
 	// Раздел 5.2.1.1 NIST SP 800-38D: присоединённые данные не длиннее 2^64 - 1 разрядов - до поглощения, иначе поглотились бы байты сверх предела
-	if((this->_associated + static_cast <uint64_t> (associated.size)) > GCM_ASSOCIATED)
+	if((this->_associated + static_cast <uint64_t> (associated.size)) >= GCM_ASSOCIATED)
 		// Выводим отказ
 		return false;
 	this->_stage = 1;

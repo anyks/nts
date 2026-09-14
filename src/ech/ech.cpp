@@ -30,6 +30,7 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <ech/ech.hpp>
+#include <sys/wipe.hpp>
 #include <agreement/x25519.hpp>
 #include <digest/hkdf.hpp>
 
@@ -43,6 +44,48 @@ using namespace std;
  *
  */
 namespace {
+	/**
+	 * @brief Метод проверки публичного имени конфигурации на вид имени DNS
+	 *
+	 * @param name публичное имя
+	 *
+	 * @return     признак годного имени: метки LDH через точку, без дефиса на краях метки, не литерал IPv4 (раздел 4 RFC 9849)
+	 *
+	 */
+	static bool named(const string & name) noexcept {
+		// Пустое либо чрезмерное имя негодно
+		if(name.empty() || (name.size() > 253))
+			return false;
+		// Начало текущей метки и признак того, что все знаки - цифры и точки (литерал IPv4)
+		size_t start = 0;
+		bool digits = true;
+		/**
+		 * Выполняем перебор знаков имени метка за меткой
+		 */
+		for(size_t i = 0; i <= name.size(); i++){
+			// Если метка кончилась
+			if((i == name.size()) || (name[i] == '.')){
+				// Длина метки
+				const size_t length = (i - start);
+				// Пустая либо длинная метка, дефис на краю метки - негодно
+				if((length == 0) || (length > 63) || (name[start] == '-') || (name[i - 1] == '-'))
+					return false;
+				// Начало следующей метки
+				start = (i + 1);
+				continue;
+			}
+			// Знак метки
+			const char sign = name[i];
+			// Если знак не буква, не цифра и не дефис
+			if(!(((sign >= 'a') && (sign <= 'z')) || ((sign >= 'A') && (sign <= 'Z')) || ((sign >= '0') && (sign <= '9')) || (sign == '-')))
+				return false;
+			// Не цифра - не литерал IPv4
+			if(!((sign >= '0') && (sign <= '9')))
+				digits = false;
+		}
+		// Литерал IPv4 негоден (SHOULD раздела 4 RFC 9849)
+		return !digits;
+	}
 	/**
 	 * Пространство имён библиотеки
 	 */
@@ -387,6 +430,10 @@ nts::ech::error_t nts::ech::parse(const view_t & data, vector <config_t> & resul
 				usable = ((config.extensions[at] & 0x80) == 0);
 			// Если ключ не длиной ключа KEM: у X25519 тридцать два байта
 			if(usable && (config.key.size() != agreement::X25519_SIZE))
+				// Конфигурация негодна
+				usable = false;
+			// Раздел 4 RFC 9849: конфигурация с публичным именем не вида DNS пропускается
+			if(usable && !named(config.name))
 				// Конфигурация негодна
 				usable = false;
 			// Если конфигурация исполнима
@@ -1226,8 +1273,12 @@ bool nts::ech::confirmation(const digest::hash_t algorithm, const view_t & rando
 		return false;
 	// Метка подтверждения
 	const char * label = (retry ? RETRY : ACCEPT);
-	// Выводим итог развёртывания: HKDF-Expand-Label(secret, метка, transcript, 8)
-	return digest::label(algorithm, view_t(secret, size), view_t(reinterpret_cast <const uint8_t *> (label), ::strlen(label)), transcript, result, ECH_CONFIRMATION);
+	// Итог развёртывания: HKDF-Expand-Label(secret, метка, transcript, 8)
+	const bool derived = digest::label(algorithm, view_t(secret, size), view_t(reinterpret_cast <const uint8_t *> (label), ::strlen(label)), transcript, result, ECH_CONFIRMATION);
+	// Выполняем затирание извлечённого секрета
+	sys::wipe(secret, sizeof(secret));
+	// Выводим итог развёртывания
+	return derived;
 }
 /**
  * @brief Метод проверки, признаётся ли набор HPKE конфигурации

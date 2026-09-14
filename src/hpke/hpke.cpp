@@ -94,6 +94,8 @@ namespace {
 	 * Длина опознавателя способа инкапсуляции: «KEM» и два байта номера
 	 */
 	static constexpr size_t KEM_STAMP = 5;
+	// Наименьшая длина заранее разделённого ключа в байтах (раздел 9.5 RFC 9180)
+	static constexpr size_t PSK_LEAST = 32;
 	/**
 	 * Длина опознавателя набора: «HPKE» и три номера по два байта
 	 */
@@ -722,6 +724,10 @@ nts::hpke::error_t nts::hpke::Context::setup(const suite_t & suite, const regime
 	if((keyed && ((psk.key.data == nullptr) || (psk.identity.data == nullptr))) || ((info.size > 0) && (info.data == nullptr)))
 		// Выводим отказ довода
 		return error_t::ARGUMENT;
+	// Раздел 9.5 RFC 9180: заранее разделённый ключ обязан нести не меньше 32 байтов энтропии - короче 32 байтов он отвергается
+	if(keyed && (psk.key.size < PSK_LEAST))
+		// Выводим отказ ключа
+		return error_t::PSK;
 	// Алгоритм хеширования функции выработки ключа
 	const digest::hash_t hash = hashing(suite.kdf);
 	// Длина хеша

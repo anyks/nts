@@ -314,20 +314,37 @@ bool nts::noise::Symmetric::open(const view_t & source, uint8_t * result, size_t
 	const size_t length = (source.size - tag);
 	// Если ключ есть, расшифровываем с h как сопутствующими данными: h не тронут до подлинности
 	if(this->_cipher.has()){
-		// Если подлинность не сошлась
+		/**
+		 * Новый хеш считается до расшифрования в отдельное место: области входа и итога
+		 * вправе совпадать, и после расшифрования на месте входа лежал бы открытый текст
+		 */
+		uint8_t mixed[HASH_MAX];
+		// Объект хеширования
+		digest::hasher_t hasher(this->_hash);
+		// Подаём прежний хеш
+		hasher.update(view_t(this->_digest, this->_length));
+		// Подаём шифртекст с меткой
+		hasher.update(source);
+		// Если хеш снять не удалось
+		if(!hasher.finish(mixed, HASH_MAX)){
+			// Сбрасываем длину
+			size = 0;
+			// Выводим отказ
+			return false;
+		}
+		// Если подлинность не сошлась: прежний h нетронут
 		if(!this->_cipher.decrypt(view_t(this->_digest, this->_length), view_t(source.data, length), view_t(source.data + length, TAG), result)){
+			// Затираем новый хеш
+			sys::wipe(mixed, sizeof(mixed));
 			// Сбрасываем длину
 			size = 0;
 			// Выводим отказ
 			return false;
 		}
-		// Примешиваем вход в хеш
-		if(!this->hash(source)){
-			// Сбрасываем длину
-			size = 0;
-			// Выводим отказ
-			return false;
-		}
+		// Переносим новый хеш на место прежнего
+		::memcpy(this->_digest, mixed, HASH_MAX);
+		// Затираем отдельное место
+		sys::wipe(mixed, sizeof(mixed));
 	// Иначе выход равен входу
 	} else {
 		// Примешиваем вход в хеш до переноса: области вправе совпадать
