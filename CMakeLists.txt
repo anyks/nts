@@ -191,6 +191,7 @@ SET(SOURCE_FILES
     "${CMAKE_SOURCE_DIR}/src/digest/pbkdf2.cpp"
     "${CMAKE_SOURCE_DIR}/src/digest/hmac.cpp"
     "${CMAKE_SOURCE_DIR}/src/digest/kdf.cpp"
+    "${CMAKE_SOURCE_DIR}/src/embed/embed.cpp"
     "${CMAKE_SOURCE_DIR}/src/cipher/kuznyechik.cpp"
     "${CMAKE_SOURCE_DIR}/src/cipher/aes.cpp"
     "${CMAKE_SOURCE_DIR}/src/cipher/magma.cpp"

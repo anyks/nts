@@ -394,6 +394,31 @@ static const char * COEFFICIENT =
  * @brief Проверка разбора ключей из записи DER
  *
  */
+
+/**
+ * @brief Служебные объекты проверки затирания приватного DER (круг 11)
+ */
+#if defined(__APPLE__)
+	#include <malloc/malloc.h>
+#elif defined(__linux__) || defined(__FreeBSD__)
+	#include <malloc.h>
+#endif
+static std::vector <uint8_t> imprint;
+static size_t traces = 0;
+static void inspect(void * data) noexcept {
+	if(imprint.empty()) return;
+	size_t size = 0;
+	#if defined(__APPLE__)
+		size = ::malloc_size(data);
+	#elif defined(__linux__) || defined(__FreeBSD__)
+		size = ::malloc_usable_size(data);
+	#endif
+	const uint8_t * bytes = static_cast <const uint8_t *> (data);
+	for(size_t i = 0; (i + imprint.size()) <= size; i++){
+		if(::memcmp(bytes + i, imprint.data(), imprint.size()) == 0){ traces++; return; }
+	}
+}
+
 TEST(RsaTest, Decode) {
 	// Модуль RSA
 	sign::rsa_t rsa;
@@ -483,6 +508,40 @@ TEST(RsaTest, Encode) {
 	// Проверяем отказ
 	ASSERT_FALSE(rsa.encode(false, result));
 }
+/**
+ * Круг 11 (разрез по свойству, секреты): Rsa::encode(secret=true) набирал приватный DER (d,p,q,dp,dq,
+ * коэффициент) в буфер asn1::writer_t, а ~Writer/clear() освобождали его БЕЗ затирания - приватный
+ * ключ уходил в кучу незатёртым на всех путях. Правка: scrub(writer) на всех выходах encode().
+ * Мутация (снять scrub) роняет пин.
+ */
+TEST(RsaTest, EncodeNoTraces){
+	#if !defined(__APPLE__) && !defined(__linux__) && !defined(__FreeBSD__)
+		GTEST_SKIP() << "размер освобождаемого блока на этой системе не узнать";
+	#endif
+	#if defined(__linux__) && !defined(__GLIBC__)
+		GTEST_SKIP() << "под musl размер освобождаемого блока недостоверен";
+	#endif
+	sign::rsa_t rsa;
+	ASSERT_TRUE(rsa.decode(view(bytes(KEY_DER))));
+	// Первая запись без наблюдателя: узнаём приватный DER
+	std::vector <uint8_t> der;
+	ASSERT_TRUE(rsa.encode(true, der));
+	ASSERT_GT(der.size(), size_t(64));
+	// Образец: окно приватного DER за 4-байтовым заголовком SEQUENCE
+	imprint.assign(der.begin() + 8, der.begin() + 56);
+	// Вторая запись под наблюдателем: буфер записчика освобождается на возврате
+	traces = 0;
+	std::vector <uint8_t> again;
+	starve::watch = inspect;
+	const bool ok = rsa.encode(true, again);
+	starve::watch = nullptr;
+	imprint.clear();
+	ASSERT_TRUE(ok);
+	ASSERT_EQ(again, der);
+	// Ни один освобождённый блок не нёс приватный DER
+	EXPECT_EQ(traces, size_t(0)) << "буфер записчика с приватным ключом освобождён незатёртым";
+}
+
 /**
  * @brief Проверка записи ключа при нехватке памяти
  *

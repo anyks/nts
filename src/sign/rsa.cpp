@@ -371,6 +371,27 @@ namespace {
 		return result;
 	}
 	/**
+	 * @brief Метод затирания буфера записчика DER с его сбросом
+	 *
+	 * @details Записчик секретного ключа держит приватный DER (d, p, q, dp, dq, коэффициент)
+	 *          в собственном буфере кучи; деструктор asn1::Writer пуст, а clear() буфер не
+	 *          затирает, оттого приватный ключ ушёл бы в кучу незатёртым. Затираем как scrub
+	 *          в keys.cpp - на всех путях выхода encode()
+	 *
+	 * @param writer затираемый записчик
+	 *
+	 */
+	static void scrub(asn1::writer_t & writer) noexcept {
+		// Получаем просмотр накопителя записчика целиком: на пути отказа data() пуст
+		const view_t data = writer.buffer();
+		// Если буфер записчика не пуст
+		if((data.data != nullptr) && (data.size > 0))
+			// Затираем буфер: память принадлежит записчику и постоянной не является
+			wipe(const_cast <uint8_t *> (data.data), data.size);
+		// Выполняем сброс записчика
+		writer.clear();
+	}
+	/**
 	 * @brief Метод копирования куска буфера с секретным началом за постоянное время
 	 *
 	 * @details Каждый байт итога собирается перебором всего буфера под маской
@@ -917,11 +938,16 @@ bool nts::sign::Rsa::encode(const bool secret, vector <uint8_t> & result) const 
 	// Закрываем набор полей ключа
 	writer.close();
 	// Если запись не удалась
-	if(writer.err() != asn1::error_t::NONE)
+	if(writer.err() != asn1::error_t::NONE){
+		// Затираем буфер записчика: приватный DER не должен уйти в кучу незатёртым
+		scrub(writer);
 		// Выводим отказ
 		return false;
+	}
 	// Получаем собранную запись
 	const view_t data = writer.data();
+	// Признак успешности копирования записи
+	bool copied = true;
 	/**
 	 * Копирование записи выделяет память: нехватка её отдаётся отказом, а не
 	 * завершением процесса
@@ -933,11 +959,13 @@ bool nts::sign::Rsa::encode(const bool secret, vector <uint8_t> & result) const 
 	 * Если памяти не хватило
 	 */
 	} catch(const bad_alloc &) {
-		// Выводим отказ
-		return false;
+		// Запоминаем отказ копирования
+		copied = false;
 	}
+	// Затираем буфер записчика на всех путях: приватный DER остаётся лишь в result у вызывающего
+	scrub(writer);
 	// Выводим признак успешности
-	return true;
+	return copied;
 }
 /**
  * @brief Метод разбора ключа из кодировки DER

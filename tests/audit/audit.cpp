@@ -3021,3 +3021,40 @@ TEST(AuditTest, TicketEditionMismatch){
 	EXPECT_EQ(client.state(), context::state_t::FAILED);
 	EXPECT_EQ(client.error(), context::error_t::VERSION);
 }
+
+/**
+ * Круг 9: Engine::issue() не затирал ключ выдаваемого билета (resumption-PSK) на пути bad_alloc -
+ * secret объявлялся ВНУТРИ try, и внешний catch того try места уже не видел. Правка: объявление
+ * поднято на уровень функции (до try), внешний catch(bad_alloc) затирает secret. Достижимость
+ * внешнего catch замерена отдельно (щуп audit9/engineB, при advance+grease на малых запасах голода).
+ * Само затирание стекового секрета тестом не наблюдаемо (стек-алиасинг кадра), потому пин статический:
+ * читает исходник issue() и закрепляет ФОРМУ правки - объявление до try и затирание во внешнем catch.
+ * Мутация (вернуть объявление внутрь try либо убрать wipe из внешнего catch) роняет пин.
+ */
+TEST(AuditTest, IssueTicketSecretScopedBeforeTry){
+	std::ifstream file(ANTS_ENGINE_SRC, std::ios::binary);
+	ASSERT_TRUE(file.is_open()) << "нет исходника движка: " << ANTS_ENGINE_SRC;
+	const std::string source((std::istreambuf_iterator <char> (file)), std::istreambuf_iterator <char> ());
+	// Вырезаем тело issue() по сигнатуре и сопоставлению скобок
+	const size_t sign = source.find("Engine::issue() noexcept {");
+	ASSERT_NE(sign, std::string::npos) << "сигнатура issue() не найдена";
+	const size_t open = source.find('{', sign);
+	size_t depth = 0, close = std::string::npos;
+	for(size_t i = open; i < source.size(); i++){
+		if(source[i] == '{') depth++;
+		else if(source[i] == '}'){ depth--; if(depth == 0){ close = i; break; } }
+	}
+	ASSERT_NE(close, std::string::npos) << "тело issue() не закрыто";
+	const std::string body = source.substr(open, close - open + 1);
+	// Объявление ключа билета обязано стоять ДО try (уровень функции), иначе внешний catch его не видит
+	const size_t decl = body.find("uint8_t secret[schedule::SCHEDULE_WIDEST];");
+	const size_t attempt = body.find("try {");
+	ASSERT_NE(decl, std::string::npos) << "объявление secret[] не найдено";
+	ASSERT_NE(attempt, std::string::npos) << "try не найден";
+	EXPECT_LT(decl, attempt) << "secret[] объявлен внутри try - внешний catch(bad_alloc) его не затрёт (регрессия круга 9)";
+	// Внешний catch(bad_alloc) issue() (последний в теле) обязан затирать secret
+	const size_t outer = body.rfind("catch(const bad_alloc &)");
+	ASSERT_NE(outer, std::string::npos) << "внешний catch(bad_alloc) не найден";
+	const std::string tail = body.substr(outer);
+	EXPECT_NE(tail.find("wipe(secret"), std::string::npos) << "внешний catch(bad_alloc) не затирает ключ билета (регрессия круга 9)";
+}

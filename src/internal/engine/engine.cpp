@@ -10901,6 +10901,15 @@ context::error_t nts::internal::Engine::update(const bool request) noexcept {
  */
 context::error_t nts::internal::Engine::issue() noexcept {
 	/**
+	 * Ключ выдаваемого билета (resumption-PSK) заводится ДО try, на уровне функции:
+	 * выделения в теле (расширения билета, тело сообщения, отправка) вправе ответить
+	 * нехваткой памяти выбросом bad_alloc, а он разматывается к внешнему catch. Место
+	 * внутри try тот catch не видит (иная область видимости), оттого объявление здесь -
+	 * иначе ключ остался бы в брошенном кадре стека (класс находок круга 8: секрет не
+	 * затирался на всех путях выхода). До вывода ключа буфер не заполнен, затирание пустого безвредно.
+	 */
+	uint8_t secret[schedule::SCHEDULE_WIDEST];
+	/**
 	 * Выполняем перехват ошибок работы с памятью: тело выдачи билета занимает память
 	 * на всяком шаге, и всякий такой шаг вправе ответить нехваткой памяти
 	 */
@@ -10961,8 +10970,6 @@ context::error_t nts::internal::Engine::issue() noexcept {
 			return context::error_t::SETTINGS;
 		// Устанавливаем добавку к возрасту выдаваемого билета
 		item.age = ((static_cast <uint32_t> (addition[0]) << 24) | (static_cast <uint32_t> (addition[1]) << 16) | (static_cast <uint32_t> (addition[2]) << 8) | static_cast <uint32_t> (addition[3]));
-		// Место, в которое помещается ключ выдаваемого билета
-		uint8_t secret[schedule::SCHEDULE_WIDEST];
 		// Если ключ выдаваемого билета вывести не удалось
 		if(this->_secrets.ticket(view_t(nonce, sizeof(nonce)), secret) != session::error_t::NONE)
 			// Выводим отказ вывода ключа билета возобновления связи
@@ -11081,6 +11088,8 @@ context::error_t nts::internal::Engine::issue() noexcept {
 	 * Если памяти под выдачи билета не хватило
 	 */
 	} catch(const bad_alloc &) {
+		// Затираем ключ билета: выделение ниже вывода ключа могло бросить, оставив его в кадре
+		wipe(secret, sizeof(secret));
 		// Выводим отказ нехватки памяти
 		return context::error_t::MEMORY;
 	}
@@ -13081,6 +13090,15 @@ context::error_t nts::internal::Engine::agreed(const view_t & body) noexcept {
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
 		return context::error_t::MEMORY;
+	/**
+	 * Вызов потребителя по заранее разделённому ключу (advise/respond) вправе бросить не
+	 * только bad_alloc; чужое исключение сквозь noexcept связи пройти не вправе - тот же
+	 * довод, что у распаковки цепочки, где catch(...) закалён явно, - и отвечается оно
+	 * отказом обмена ключами
+	 */
+	} catch(...) {
+		// Выводим отказ обмена ключами: чужое исключение из вызова потребителя PSK
+		return context::error_t::EXCHANGE;
 	}
 }
 /**
@@ -13591,6 +13609,15 @@ context::error_t nts::internal::Engine::exchanged(const view_t & body) noexcept 
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
 		return context::error_t::MEMORY;
+	/**
+	 * Вызов потребителя по заранее разделённому ключу (advise/respond) вправе бросить не
+	 * только bad_alloc; чужое исключение сквозь noexcept связи пройти не вправе - тот же
+	 * довод, что у распаковки цепочки, где catch(...) закалён явно, - и отвечается оно
+	 * отказом обмена ключами
+	 */
+	} catch(...) {
+		// Выводим отказ обмена ключами: чужое исключение из вызова потребителя PSK
+		return context::error_t::EXCHANGE;
 	}
 }
 /**

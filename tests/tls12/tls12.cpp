@@ -5353,6 +5353,74 @@ TEST(Tls12Test, Preshared){
 }
 
 /**
+ * Круг 11 (разрез по свойству, noexcept): вызовы потребителя по заранее разделённому ключу -
+ * respond у сервера (exchanged()) и advise у клиента (agreed()) - были обёрнуты лишь
+ * catch(bad_alloc); чужое (не bad_alloc) исключение из коллбэка пробило бы noexcept связи ->
+ * std::terminate. Тот же класс, что распаковка цепочки, где catch(...) закалён явно
+ * (CompressTest.Selection). Правка: catch(...) -> EXCHANGE в agreed() и exchanged(). Дойти до
+ * ASSERT под бросающим коллбэком уже значит, что terminate не случился; мутация (снять catch(...))
+ * роняет процесс проверки.
+ */
+TEST(Tls12Test, PresharedCallbackThrows){
+	const vector <uint8_t> secret = decode("0123456789abcdef");
+	// Сценарий A: respond сервера бросает чужое исключение (путь exchanged())
+	{
+		keyring_t theirs, ours;
+		theirs.identity = decode("616e796b73"); theirs.key = secret;
+		ours.identity = theirs.identity; ours.key = secret;
+		client::context_t client;
+		server::context_t server;
+		presharing(client, server, protect::suite_t::PSK_AES_128_CBC_SHA, theirs, ours, "anyks-hint");
+		// Переустанавливаем respond сервера на бросающий
+		context::psk_t mine;
+		mine.respond = [](const view_t &, vector <uint8_t> &, void *) -> bool { throw 42; };
+		const string hint("anyks-hint");
+		mine.identity.assign(hint.begin(), hint.end());
+		server.psk(mine);
+		ASSERT_EQ(server.start(), context::error_t::NONE);
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		vector <vector <uint8_t>> flight;
+		ASSERT_TRUE(volley(client, server, flight));
+		vector <uint8_t> stream;
+		join(flight, stream);
+		// Клиент разбирает залп сервера штатно (advise настоящий) и шлёт свой обмен ключами
+		client.push(view_t(stream.data(), stream.size()));
+		converse(client, server);
+		// Сервер обязан завершиться отказом обмена ключами, а не обрушить процесс
+		EXPECT_EQ(server.state(), context::state_t::FAILED);
+		EXPECT_EQ(server.error(), context::error_t::EXCHANGE);
+	}
+	// Сценарий B: advise клиента бросает чужое исключение (путь agreed())
+	{
+		keyring_t theirs, ours;
+		theirs.identity = decode("616e796b73"); theirs.key = secret;
+		ours.identity = theirs.identity; ours.key = secret;
+		client::context_t client;
+		server::context_t server;
+		presharing(client, server, protect::suite_t::PSK_AES_128_CBC_SHA, theirs, ours, "anyks-hint");
+		// Переустанавливаем advise клиента на бросающий
+		context::psk_t yours;
+		yours.identity = ours.identity;
+		yours.key = ours.key;
+		yours.advise = [](const view_t &, vector <uint8_t> &, vector <uint8_t> &, void *) -> bool { throw 42; };
+		client.psk(yours);
+		client.versions(0x0303, 0x0303);
+		ASSERT_EQ(server.start(), context::error_t::NONE);
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		vector <vector <uint8_t>> flight;
+		ASSERT_TRUE(volley(client, server, flight));
+		vector <uint8_t> stream;
+		join(flight, stream);
+		// Клиент разбирает обмен ключами сервера с подсказкой -> advise бросает
+		client.push(view_t(stream.data(), stream.size()));
+		converse(client, server);
+		// Клиент обязан завершиться отказом обмена ключами, а не обрушить процесс
+		EXPECT_EQ(client.state(), context::state_t::FAILED);
+		EXPECT_EQ(client.error(), context::error_t::EXCHANGE);
+	}
+}
+
+/**
  * Проверка билетов сеансов RFC 5077 и сокращённого рукопожатия (раздел 7.3 RFC 5246): полное
  * рукопожатие выдаёт билет перед сменой набора сервера, билет уходит октетами и возвращается
  * чтением, сокращённое рукопожатие идёт без сертификата и обмена ключами с завершением

@@ -1065,3 +1065,50 @@ TEST(PemTest, EncodeNoTraces){
 	// Проверяем, что прежний накопитель с записью ключа затёрт перед освобождением
 	EXPECT_EQ(traces, size_t(0));
 }
+
+/**
+ * Круг 11 (разрез по свойству, секреты): decode(text, label) и secret(text) при обрыве разбора на
+ * повреждённой записи возвращали отказ БЕЗ scour(blocks) - уже разобранный PRIVATE KEY гиб в
+ * освобождённой памяти незатёртым (текст «валидный PRIVATE KEY + повреждённая запись»). Правка:
+ * scour(blocks) на отказном возврате обоих. Мутация (снять scour) роняет пин.
+ */
+TEST(PemTest, DecodeErrorScoured){
+	#if !defined(__APPLE__) && !defined(__linux__) && !defined(__FreeBSD__)
+		GTEST_SKIP() << "размер освобождаемого блока на этой системе не узнать";
+	#endif
+	#if defined(__linux__) && !defined(__GLIBC__)
+		GTEST_SKIP() << "под musl размер освобождаемого блока недостоверен";
+	#endif
+	// Приметное тело секретного ключа без повторов
+	pem::block_t secret;
+	secret.label = "PRIVATE KEY";
+	for(size_t i = 0; i < 120; i++)
+		secret.data.push_back(static_cast <uint8_t> ((i * 89 + 17) & 0xFF));
+	// Текст: валидная запись PRIVATE KEY, затем повреждённая запись того же вида
+	string text;
+	ASSERT_EQ(pem::encode(secret, text), pem::error_t::NONE);
+	text += "-----BEGIN PRIVATE KEY-----\n@@@@invalid_base64@@@@\n-----END PRIVATE KEY-----\n";
+	// Образец: середина тела ключа
+	imprint.assign(secret.data.begin() + 16, secret.data.begin() + 48);
+	// decode(text, label): отказ обязан прийти, а тело ключа - быть затёртым
+	{
+		traces = 0;
+		vector <vector <uint8_t>> result;
+		starve::watch = inspect;
+		const pem::error_t outcome = pem::decode(text, string("CERTIFICATE"), result);
+		starve::watch = nullptr;
+		EXPECT_NE(outcome, pem::error_t::NONE);
+		EXPECT_EQ(traces, size_t(0)) << "decode(text,label): тело ключа осталось в освобождённой памяти";
+	}
+	// secret(text): тот же отказной путь извлечения секретного ключа
+	{
+		traces = 0;
+		vector <uint8_t> key;
+		starve::watch = inspect;
+		const pem::error_t outcome = pem::secret(text, key);
+		starve::watch = nullptr;
+		EXPECT_NE(outcome, pem::error_t::NONE);
+		EXPECT_EQ(traces, size_t(0)) << "secret(text): тело ключа осталось в освобождённой памяти";
+	}
+	imprint.clear();
+}

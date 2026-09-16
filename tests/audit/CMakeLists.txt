@@ -10,6 +10,9 @@ target_compile_options(${TEST_AUDIT_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
 # Передаём путь к набору ключей
 target_compile_definitions(${TEST_AUDIT_NAME} PRIVATE ANTS_CORPUS="${CMAKE_SOURCE_DIR}/tests/corpus")
 
+# Передаём путь к исходнику движка: статический пин затирания ключа билета (круг 9) читает его текст
+target_compile_definitions(${TEST_AUDIT_NAME} PRIVATE ANTS_ENGINE_SRC="${CMAKE_SOURCE_DIR}/src/internal/engine/engine.cpp")
+
 # Подключаем каталог общих заголовочных файлов набора проверок
 target_include_directories(${TEST_AUDIT_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/tests" "${CMAKE_SOURCE_DIR}/src")
 

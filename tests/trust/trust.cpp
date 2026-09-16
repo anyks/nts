@@ -960,6 +960,33 @@ TEST(TrustTest, Wildcard){
 }
 
 /**
+ * Решение 7 на пути сличения ИМЕНИ УЗЛА (не только ограничений): belongs() снимает хвостовую
+ * точку у запрошенного имени и у имени владельца перед сличением - «www.anyks.com.» (законная
+ * форма FQDN) отвечает сертификату «www.anyks.com». Имя из одной точки либо с двумя точками на
+ * конце негодно. Прежде приём держался лишь кодом (пин решения 7 был на стороне ограничений,
+ * TrustTest.TrailingDotExcluded); независимая сверка names (сессия приёмки) вскрыла расхождение с
+ * openssl, который завершающую точку отвергает - расхождение политик законное и намеренное.
+ * Мутация (снять rooted(requested) в belongs) роняет первый EXPECT.
+ */
+TEST(TrustTest, TrailingDotHost){
+	keys_t subject;
+	ASSERT_TRUE(fabricate(subject));
+	options_t options;
+	options.alternative = "www.anyks.com";
+	vector <uint8_t> leaf;
+	ASSERT_TRUE(make("www.anyks.com", "www.anyks.com", subject, vector <uint8_t> (), options, leaf));
+	const view_t certificate(leaf.data(), leaf.size());
+	// Контроль: имя без точки отвечает
+	EXPECT_EQ(trust::belongs(certificate, "www.anyks.com"), trust::error_t::NONE);
+	// Решение 7: имя с одной хвостовой точкой отвечает (точка снимается перед сличением)
+	EXPECT_EQ(trust::belongs(certificate, "www.anyks.com."), trust::error_t::NONE);
+	// Имя из одной точки негодно
+	EXPECT_EQ(trust::belongs(certificate, "."), trust::error_t::NAME);
+	// Две точки на конце негодны
+	EXPECT_EQ(trust::belongs(certificate, "www.anyks.com.."), trust::error_t::NAME);
+}
+
+/**
  * Проверка предела числа звеньев цепочки сертификатов
  */
 TEST(TrustTest, Deepness){
