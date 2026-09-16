@@ -546,7 +546,8 @@ namespace nts {
 				 * @note Издания задаются и отдаются кодами TLS 0x0303/0x0304 на любом переносе; на
 				 *       проводе DTLS они ложатся как 0xFEFD/0xFEFC. Поверх дейтаграмм 0x0303 отвечает
 				 *       DTLS 1.2 (RFC 6347), 0x0304 - DTLS 1.3 (RFC 9147); под QUIC связь знает одно
-				 *       издание 1.3
+				 *       издание 1.3. Коды провода DTLS на входе НЕ принимаются: versions(0xFEFD, 0xFEFD)
+				 *       отвечает SETTINGS - издание DTLS 1.2 закрепляется как versions(0x0303, 0x0303)
 				 *
 				 * \~english
 				 * @brief Method of setting the limits of the edition of the protocol
@@ -562,7 +563,8 @@ namespace nts {
 				 * @note The editions are set and returned by the TLS codes 0x0303/0x0304 on any transport; on the
 				 *       DTLS wire they are laid as 0xFEFD/0xFEFC. Over datagrams 0x0303 stands for DTLS 1.2
 				 *       (RFC 6347), 0x0304 - for DTLS 1.3 (RFC 9147); under QUIC the connection knows the 1.3
-				 *       edition alone
+				 *       edition alone. The DTLS wire codes are NOT accepted as input: versions(0xFEFD, 0xFEFD)
+				 *       answers SETTINGS - the DTLS 1.2 edition is pinned as versions(0x0303, 0x0303)
 				 *
 				 * \~
 				 */
@@ -1861,6 +1863,54 @@ namespace nts {
 				 * \~
 				 */
 				size_t mtu() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод установки строгого сервера без состояния издания DTLS 1.2
+				 *
+				 * @param strict принимается ли приветствие клиента до метки лишь целиком одним куском
+				 *
+				 * @details Раздел 4.2.1 RFC 6347: до принятой метки сервер состояния по связи не держит.
+				 *          Умолчанием дроблёное повторное приветствие собирается под жёсткими пределами
+				 *          (DATAGRAM_GREETING байтов на сборку, DATAGRAM_GREETINGS сборок, привязка к
+				 *          адресу), ибо чужие клиенты - openssl со стандартными настройками - дробят его
+				 *          умолчанием, и без сборки они не связались бы никогда. Строгий сервер принимает
+				 *          приветствие лишь целиком одним куском, как DTLSv1_listen, и куски отбрасывает
+				 *          молча: он годен для связи своих клиентов со своими серверами, где дробления
+				 *          не бывает, и не держит памяти по чужому слову вовсе
+				 *
+				 * @note Строгость устанавливается до заведения связи и значима лишь серверу издания
+				 *       DTLS 1.2 поверх дейтаграмм
+				 *
+				 * \~english
+				 * @brief Method of setting the strict stateless server of the DTLS 1.2 edition
+				 * @param strict whether the greeting of the client before the label is accepted only whole in one fragment
+				 * @details The section 4.2.1 of RFC 6347: before the accepted label the server holds no state of the
+				 *          connection. By default a fragmented repeated greeting is assembled under hard limits
+				 *          (DATAGRAM_GREETING bytes per assembly, DATAGRAM_GREETINGS assemblies, binding to the
+				 *          address), because foreign clients — openssl with the default settings — fragment it by
+				 *          default, and without the assembly they would never connect. The strict server accepts the
+				 *          greeting only whole in one fragment, like DTLSv1_listen, and discards the fragments silently:
+				 *          it is fit for the connections of own clients with own servers, where there is no
+				 *          fragmentation, and holds no memory by a foreign word at all
+				 * @note The strictness is set before the establishment of the connection and matters only to the
+				 *       server of the DTLS 1.2 edition over datagrams
+				 *
+				 * \~
+				 */
+				void strict(const bool strict) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод проверки строгости сервера без состояния издания DTLS 1.2
+				 *
+				 * @return признак того, что приветствие клиента до метки принимается лишь целиком
+				 *
+				 * \~english
+				 * @brief Method of checking the strictness of the stateless server of the DTLS 1.2 edition
+				 * @return the sign that the greeting of the client before the label is accepted only whole
+				 *
+				 * \~
+				 */
+				bool strict() const noexcept;
 				/**
 				 * \~russian
 				 * @brief Метод получения срока ожидания повторной передачи

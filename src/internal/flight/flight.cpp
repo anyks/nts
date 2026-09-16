@@ -52,16 +52,16 @@
  *    нет. Смена набора шифрования ложится в залп записью и повторяется вместе с ним
  *    (раздел 4.2.4). Запись первой поры, обогнавшая смену набора, откладывается до неё.
  *
- * 9. Сервер издания DTLS 1.2 до принятой метки состояния не держит (раздел 4.2.1): залп с
- *    HelloVerifyRequest сбрасывается по раскладке, номер сообщения возвращается к нулю,
- *    а приветствие клиента принимается номером 0 (первое) либо 1 (с меткой) и лишь
- *    целиком одним куском - дроблёное приветствие, чужой кусок и запись первой поры до
- *    метки отбрасываются молча (GREETING, EPOCH), сборок и отложенных записей не
- *    заводится, как у DTLSv1_listen; метка сверяется по хешу, посчитанному заново из
- *    повторённого приветствия, а не по запомненному, и хеш её составление не запоминает.
- *    По принятой метке запись приветствия отмечается в окне нулевой поры: повтор её -
- *    REPLAY. Последний залп сервера (смена набора и завершение) часов не ждёт и
- *    повторяется лишь по повтору завершения клиента (раздел 4.2.4).
+ * 9. Сервер издания DTLS 1.2 до принятой метки состояния по связи не держит (раздел 4.2.1):
+ *    залп с HelloVerifyRequest сбрасывается по раскладке, номер сообщения возвращается к
+ *    нулю, а приветствие клиента принимается номером 0 (первое) либо 1 (с меткой); чужой
+ *    кусок и запись первой поры до метки отбрасываются молча (GREETING, EPOCH), отложенных
+ *    записей не заводится; дроблёное приветствие собирается под пределами решения 13, а у
+ *    строгого сервера (strict) отбрасывается, как у DTLSv1_listen; метка сверяется по хешу,
+ *    посчитанному заново из повторённого приветствия, а не по запомненному, и хеш её
+ *    составление не запоминает. По принятой метке запись приветствия отмечается в окне
+ *    нулевой поры: повтор её - REPLAY. Последний залп сервера (смена набора и завершение)
+ *    часов не ждёт и повторяется лишь по повтору завершения клиента (раздел 4.2.4).
  *
  * 10. Метка издания DTLS 1.2 короткая: поколение и имитовставка, 33 байта, ибо просьба о
  *    подтверждении адреса обязана быть короче наименьшего приветствия клиента (69 байтов)
@@ -77,6 +77,21 @@
  * 12. Повторная просьба о подтверждении адреса (номером ноль при ожидаемой единице)
  *    выдаётся клиенту как ожидаемая: сервер, сменивший секрет метки, вправе спросить
  *    заново; число таких просьб ограничивает движок.
+ *
+ * 13. Дроблёное приветствие клиента до принятой метки СОБИРАЕТСЯ умолчанием, ибо чужие
+ *    клиенты дробят повторное приветствие умолчанием (openssl: 232 байта тела кусками
+ *    203 + 29 без единого ключа - начальный MTU у него 256), и строгий отказ означал бы
+ *    «клиент openssl со стандартными настройками не связывается никогда»; эталонный
+ *    сервер openssl (без -listen, с состоянием) дроблёное собирает. Сборка ведётся под
+ *    жёсткими пределами, ибо память занимается по чужому слову: приветствие не длиннее
+ *    DATAGRAM_GREETING, сборок не больше DATAGRAM_GREETINGS (старейшая снимается), каждая
+ *    привязана к адресу собеседника - куски разных адресов не смешиваются, выдаче подлежит
+ *    сборка адреса принятой дейтаграммы, а по принятой метке чужие сборки снимаются; срок
+ *    жизни сборки ограничен вытеснением и меткой, а не часами. Строгий сервер (strict)
+ *    принимает приветствие лишь целиком, как DTLSv1_listen, - для связи своих клиентов со
+ *    своими серверами, где дробления не бывает. Заголовок записи с HelloVerifyRequest
+ *    несёт издание DTLS 1.0 (0xFEFF), как и её тело и как у openssl: просьба уходит до
+ *    согласования издания и обязана быть понятна клиенту одного лишь DTLS 1.0.
  *
  * @copyright Copyright © 2026
  *
@@ -285,15 +300,16 @@ nts::internal::era_t & nts::internal::Flight::current(const size_t direction) no
 /**
  * @brief Метод составления записи поверх дейтаграммы
  *
- * @param type   вид содержимого записи
- * @param data   содержимое записи
- * @param era    пора ключей, которой запись защищается
- * @param result накопитель, в конец которого дописывается запись
+ * @param type    вид содержимого записи
+ * @param data    содержимое записи
+ * @param era     пора ключей, которой запись защищается
+ * @param result  накопитель, в конец которого дописывается запись
+ * @param ancient издание заголовка записи DTLS 1.0: просьба о подтверждении адреса (раздел 4.2.1 RFC 6347)
  *
- * @return       отказ составления записи
+ * @return        отказ составления записи
  *
  */
-context::error_t nts::internal::Flight::shield(const record::type_t type, const view_t & data, era_t & era, vector <uint8_t> & result) noexcept {
+context::error_t nts::internal::Flight::shield(const record::type_t type, const view_t & data, era_t & era, vector <uint8_t> & result, const bool ancient) noexcept {
 	// Если порядковые номера записей поры исчерпаны
 	if(era.next > datagram::DATAGRAM_SEQUENCE)
 		// Выводим отказ защиты записи
@@ -331,7 +347,7 @@ context::error_t nts::internal::Flight::shield(const record::type_t type, const 
 				// Устанавливаем длину содержимого записи
 				header.size = data.size;
 				// Если заголовок открытой записи составить не удалось
-				if(datagram::build(header, buffer, length, true, this->_ancient) != datagram::error_t::NONE)
+				if(datagram::build(header, buffer, length, true, ancient) != datagram::error_t::NONE)
 					// Выводим отказ составления записи
 					return context::error_t::RECORD;
 				// Складываем заголовок открытой записи в накопитель
@@ -349,7 +365,7 @@ context::error_t nts::internal::Flight::shield(const record::type_t type, const 
 				// Номер записи в связанных данных: пора и порядковый номер (раздел 4.1.2.1 RFC 6347)
 				const uint64_t number = ((static_cast <uint64_t> (era.epoch) << 48) | era.next);
 				// Отказ наложения защиты на запись
-				const context::error_t failure = translate(era.protection.wrap(number, (this->_ancient ? record::version_t::DTLS10 : record::version_t::DTLS12), type, data, result), context::error_t::PROTECTION);
+				const context::error_t failure = translate(era.protection.wrap(number, (ancient ? record::version_t::DTLS10 : record::version_t::DTLS12), type, data, result), context::error_t::PROTECTION);
 				// Если защиту на запись наложить не удалось
 				if(failure != context::error_t::NONE){
 					// Возвращаем накопитель к прежней длине
@@ -360,7 +376,7 @@ context::error_t nts::internal::Flight::shield(const record::type_t type, const 
 				// Устанавливаем длину защищённого содержимого
 				header.size = (result.size() - offset - datagram::DATAGRAM_PLAIN_HEADER);
 				// Если заголовок защищённой записи составить не удалось
-				if(datagram::build(header, result.data() + offset, length, true, this->_ancient) != datagram::error_t::NONE){
+				if(datagram::build(header, result.data() + offset, length, true, ancient) != datagram::error_t::NONE){
 					// Возвращаем накопитель к прежней длине
 					result.resize(offset);
 					// Выводим отказ составления записи
@@ -378,8 +394,12 @@ context::error_t nts::internal::Flight::shield(const record::type_t type, const 
 			header.unified = false;
 			// Устанавливаем длину содержимого записи
 			header.size = data.size;
-			// Если заголовок открытой записи составить не удалось
-			if(datagram::build(header, buffer, length) != datagram::error_t::NONE)
+			/**
+			 * Раздел 4.2.1 RFC 6347: просьба о подтверждении адреса уходит до согласования
+			 * издания заголовком DTLS 1.0 (0xFEFF) - раскладка открытого заголовка у изданий
+			 * одна, различается лишь издание (решение 13)
+			 */
+			if((ancient ? datagram::build(header, buffer, length, true, true) : datagram::build(header, buffer, length)) != datagram::error_t::NONE)
 				// Выводим отказ составления записи
 				return context::error_t::RECORD;
 			// Складываем заголовок открытой записи в накопитель
@@ -783,7 +803,7 @@ context::error_t nts::internal::Flight::carve(const size_t index, const size_t o
 		// Запоминаем длину: единственный байт
 		piece.length = sizeof(CHANGE);
 		// Отказ составления записи смены набора шифрования
-		const context::error_t error = this->shield(record::type_t::CHANGE, view_t(CHANGE, sizeof(CHANGE)), *keys, this->_packet);
+		const context::error_t error = this->shield(record::type_t::CHANGE, view_t(CHANGE, sizeof(CHANGE)), *keys, this->_packet, this->_ancient);
 		// Если запись составить не удалось
 		if(error != context::error_t::NONE)
 			// Выводим отказ составления записи
@@ -890,7 +910,7 @@ context::error_t nts::internal::Flight::carve(const size_t index, const size_t o
 			// Запоминаем длину куска
 			piece.length = take;
 			// Отказ составления записи с куском
-			const context::error_t error = this->shield(record::type_t::HANDSHAKE, view_t(chunk.data(), chunk.size()), *keys, this->_packet);
+			const context::error_t error = this->shield(record::type_t::HANDSHAKE, view_t(chunk.data(), chunk.size()), *keys, this->_packet, (this->_ancient || item.ancient));
 			// Если запись с куском составить не удалось
 			if(error != context::error_t::NONE)
 				// Выводим отказ составления записи
@@ -1017,7 +1037,7 @@ context::error_t nts::internal::Flight::acknowledge(const bool settled) noexcept
 				return closed;
 		}
 		// Отказ составления записи подтверждения
-		const context::error_t error = this->shield(record::type_t::ACK, view_t(body.data(), body.size()), keys, this->_packet);
+		const context::error_t error = this->shield(record::type_t::ACK, view_t(body.data(), body.size()), keys, this->_packet, this->_ancient);
 		// Если запись подтверждения составить не удалось
 		if(error != context::error_t::NONE)
 			// Выводим отказ составления подтверждения
@@ -1219,6 +1239,8 @@ context::error_t nts::internal::Flight::emit(const record::type_t type, const vi
 			item.sequence = this->_outgoing++;
 			// Переносим сообщение вместе с обвязкой TLS
 			item.message.assign(data.data, data.data + data.size);
+			// Раздел 4.2.1 RFC 6347: просьба о подтверждении адреса уходит заголовком записи издания DTLS 1.0, как её тело и как у openssl (решение 13)
+			item.ancient = ((data.size > 0) && (data.data[0] == static_cast <uint8_t> (handshake::type_t::VERIFY_REQUEST)));
 			// Добавляем сообщение в залп
 			this->_flight.push_back(::move(item));
 			// Запоминаем, что залп пополнился
@@ -1256,7 +1278,7 @@ context::error_t nts::internal::Flight::emit(const record::type_t type, const vi
 			// Выводим отказ закрытия дейтаграммы
 			return failure;
 		// Отказ составления записи
-		failure = this->shield(type, view_t(data.data + offset, size), keys, this->_packet);
+		failure = this->shield(type, view_t(data.data + offset, size), keys, this->_packet, this->_ancient);
 		// Если запись составить не удалось
 		if(failure != context::error_t::NONE)
 			// Выводим отказ составления записи
@@ -1620,12 +1642,16 @@ context::error_t nts::internal::Flight::fragments(const view_t & content, const 
 			offset += (datagram::DATAGRAM_FRAGMENT_HEADER + fragment.length);
 			// Признак того, что кусок несёт приветствие клиента целиком
 			const bool whole = ((fragment.type == handshake::type_t::CLIENT) && (fragment.offset == 0) && (fragment.length == fragment.size));
+			// Признак того, что кусок несёт приветствие клиента до подтверждения адреса: первое либо повторённое с меткой
+			const bool greeting = ((fragment.type == handshake::type_t::CLIENT) && (fragment.sequence <= 1));
 			/**
-			 * Раздел 4.2.1 RFC 6347: сервер без состояния принимает приветствие клиента лишь
-			 * целиком одним куском - сборка под чужое слово была бы состоянием, как и у
-			 * DTLSv1_listen; всё прочее до принятой метки отбрасывается молча
+			 * Раздел 4.2.1 RFC 6347: сервер без состояния до принятой метки принимает лишь
+			 * приветствие клиента номером 0 либо 1 - всё прочее отбрасывается молча. Строгий
+			 * сервер принимает его лишь целиком одним куском, как DTLSv1_listen; иначе дроблёное
+			 * приветствие собирается под пределами решения 13: чужие клиенты дробят повторное
+			 * приветствие умолчанием
 			 */
-			if(this->_stateless && (!whole || (fragment.sequence > 1))){
+			if(this->_stateless && (!greeting || (this->_strict && !whole))){
 				// Считаем отброшенный кусок
 				this->discard(datagram::reason_t::GREETING);
 				// Переходим к следующему куску
@@ -1660,7 +1686,7 @@ context::error_t nts::internal::Flight::fragments(const view_t & content, const 
 			 */
 			for(size_t i = this->_assemblies.size(); fresh && (fragment.offset == 0) && (fragment.length == fragment.size) && (i > 0); i--){
 				// Если сборка ведёт сообщение того же номера
-				if(this->_assemblies[i - 1].sequence == fragment.sequence)
+				if((this->_assemblies[i - 1].sequence == fragment.sequence) && (!this->_assemblies[i - 1].greeting || (this->_assemblies[i - 1].address == this->_address)))
 					// Снимаем сборку с перечня
 					this->_assemblies.erase(this->_assemblies.begin() + (i - 1));
 			}
@@ -1720,6 +1746,16 @@ context::error_t nts::internal::Flight::fragments(const view_t & content, const 
 				// Переходим к следующему куску
 				continue;
 			}
+			/**
+			 * Решение 13: приветствие клиента до подтверждения адреса собирается лишь под
+			 * пределом длины - память под сборку занимается по чужому слову
+			 */
+			if(this->_stateless && (fragment.size > datagram::DATAGRAM_GREETING)){
+				// Считаем отброшенный кусок
+				this->discard(datagram::reason_t::GREETING);
+				// Переходим к следующему куску
+				continue;
+			}
 			// Сборка сообщения куска
 			assembly_t * assembly = nullptr;
 			/**
@@ -1727,7 +1763,7 @@ context::error_t nts::internal::Flight::fragments(const view_t & content, const 
 			 */
 			for(size_t i = 0; (i < this->_assemblies.size()) && (assembly == nullptr); i++){
 				// Если сборка ведёт сообщение куска
-				if(this->_assemblies[i].sequence == fragment.sequence)
+				if((this->_assemblies[i].sequence == fragment.sequence) && (!this->_assemblies[i].greeting || (this->_assemblies[i].address == this->_address)))
 					// Запоминаем найденную сборку
 					assembly = &this->_assemblies[i];
 			}
@@ -1740,6 +1776,38 @@ context::error_t nts::internal::Flight::fragments(const view_t & content, const 
 			}
 			// Если сборка сообщения ещё не заведена
 			if(assembly == nullptr){
+				/**
+				 * Решение 13: сборок приветствий до подтверждения адреса не больше предела -
+				 * по его достижении старейшая снимается: память ограничена постоянной, а
+				 * честный клиент повторит приветствие по своим часам
+				 */
+				if(this->_stateless){
+					// Число сборок приветствий до подтверждения адреса
+					size_t held = 0;
+					// Место старейшей сборки приветствия
+					size_t eldest = this->_assemblies.size();
+					/**
+					 * Выполняем счёт сборок приветствий: перечень растёт в конец, старейшая - первая
+					 */
+					for(size_t i = 0; i < this->_assemblies.size(); i++){
+						// Если сборка ведёт приветствие до подтверждения адреса
+						if(this->_assemblies[i].greeting){
+							// Считаем сборку
+							held++;
+							// Если старейшая ещё не найдена
+							if(eldest == this->_assemblies.size())
+								// Запоминаем старейшую
+								eldest = i;
+						}
+					}
+					// Если предел сборок приветствий достигнут
+					if((held >= datagram::DATAGRAM_GREETINGS) && (eldest < this->_assemblies.size())){
+						// Считаем снятую сборку
+						this->discard(datagram::reason_t::GREETING);
+						// Снимаем старейшую сборку приветствия
+						this->_assemblies.erase(this->_assemblies.begin() + eldest);
+					}
+				}
 				// Новая сборка сообщения
 				assembly_t item;
 				// Устанавливаем вид сообщения сборки
@@ -1748,6 +1816,12 @@ context::error_t nts::internal::Flight::fragments(const view_t & content, const 
 				item.epoch = epoch;
 				// Устанавливаем порядковый номер сообщения сборки
 				item.sequence = fragment.sequence;
+				// Сборка приветствия до подтверждения адреса привязывается к адресу собеседника (решение 13)
+				item.greeting = this->_stateless;
+				// Если сборка ведёт приветствие до подтверждения адреса
+				if(item.greeting)
+					// Запоминаем адрес собеседника сборки
+					item.address = this->_address;
 				// Занимаем место под тело сообщения
 				item.body.assign(fragment.size, 0);
 				// Добавляем сборку в перечень
@@ -1853,6 +1927,10 @@ bool nts::internal::Flight::deliver(handshake::type_t & type, vector <uint8_t> &
 	 * Выполняем перебор сборок принимаемых сообщений
 	 */
 	for(size_t i = 0; (i < this->_assemblies.size()) && (place == this->_assemblies.size()); i++){
+		// Решение 13: сборка приветствия чужого адреса выдаче не подлежит - метка сверяется по адресу принятой дейтаграммы
+		if(this->_assemblies[i].greeting && (this->_assemblies[i].address != this->_address))
+			// Переходим к следующей сборке
+			continue;
 		// Если сборка ведёт ожидаемое сообщение, приветствие клиента серверу без состояния (раздел 4.2.1 RFC 6347) либо повторную просьбу о подтверждении адреса
 		if((this->_assemblies[i].sequence == this->_incoming) || ((this->_stateless || (this->_incoming == 0)) && (this->_assemblies[i].type == handshake::type_t::CLIENT) && (this->_assemblies[i].sequence <= 1)) || ((this->_assemblies[i].type == handshake::type_t::VERIFY_REQUEST) && (this->_assemblies[i].sequence == 0) && (this->_incoming == 1)))
 			// Запоминаем место сборки
@@ -2197,9 +2275,40 @@ void nts::internal::Flight::stateless(const bool stateless) noexcept {
 	// Запоминаем признак сервера без состояния
 	this->_stateless = stateless;
 	// Раздел 4.2.2 RFC 6347: за просьбой о подтверждении адреса приветствие сервера идёт номером один
-	if(!stateless)
+	if(!stateless){
 		// Устанавливаем номер следующего отправляемого сообщения
 		this->_outgoing = 1;
+		/**
+		 * Решение 13: по принятой метке сборки приветствий снимаются - состояние держится
+		 * лишь по подтверждённому собеседнику; выданная сборка снята выдачей раньше
+		 */
+		for(size_t i = this->_assemblies.size(); i > 0; i--){
+			// Если сборка ведёт приветствие до подтверждения адреса
+			if(this->_assemblies[i - 1].greeting)
+				// Снимаем сборку с перечня
+				this->_assemblies.erase(this->_assemblies.begin() + (i - 1));
+		}
+	}
+}
+/**
+ * @brief Метод установки строгого сервера без состояния издания DTLS 1.2
+ *
+ * @param strict принимается ли приветствие клиента до метки лишь целиком одним куском
+ *
+ */
+void nts::internal::Flight::strict(const bool strict) noexcept {
+	// Запоминаем строгость сервера без состояния
+	this->_strict = strict;
+}
+/**
+ * @brief Метод проверки строгости сервера без состояния издания DTLS 1.2
+ *
+ * @return признак того, что приветствие клиента до метки принимается лишь целиком
+ *
+ */
+bool nts::internal::Flight::strict() const noexcept {
+	// Выводим строгость сервера без состояния
+	return this->_strict;
 }
 /**
  * @brief Метод отметки подтверждённости адреса собеседника меткой возврата состояния
@@ -2804,7 +2913,7 @@ void nts::internal::Flight::clear() noexcept {
  *
  */
 nts::internal::Flight::Flight() noexcept :
-	_suite(protect::suite_t::NONE), _legacy(false), _ancient(false), _stateless(false), _verified(true), _concluded(false), _mtu(datagram::DATAGRAM_MTU), _limit(record::RECORD_PLAINTEXT), _timeout(datagram::DATAGRAM_TIMEOUT), _attempts(0),
+	_suite(protect::suite_t::NONE), _legacy(false), _ancient(false), _stateless(false), _strict(false), _verified(true), _concluded(false), _mtu(datagram::DATAGRAM_MTU), _limit(record::RECORD_PLAINTEXT), _timeout(datagram::DATAGRAM_TIMEOUT), _attempts(0),
 	_timing(false), _challenged(false), _replied(false), _rotating(false), _repeated(false), _nudged(false), _prodded(false), _deferring(false),
 	_stamped(false), _digested(false), _generation(0), _greeted(0), _outgoing(0), _incoming(0), _bundle(0) {
 	// Выполняем обнуление секретов метки возврата состояния

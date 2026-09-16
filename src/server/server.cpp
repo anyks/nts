@@ -970,6 +970,28 @@ size_t nts::server::Context::mtu() const noexcept {
 	return (this->_engine != nullptr ? this->_engine->mtu() : 0);
 }
 /**
+ * @brief Метод установки строгого сервера без состояния издания DTLS 1.2
+ *
+ * @param strict принимается ли приветствие клиента до метки лишь целиком одним куском
+ *
+ */
+void nts::server::Context::strict(const bool strict) noexcept {
+	// Если ведение связи заведено
+	if(this->_engine != nullptr)
+		// Выполняем установку строгости сервера без состояния
+		this->_engine->strict(strict);
+}
+/**
+ * @brief Метод проверки строгости сервера без состояния издания DTLS 1.2
+ *
+ * @return признак того, что приветствие клиента до метки принимается лишь целиком
+ *
+ */
+bool nts::server::Context::strict() const noexcept {
+	// Выводим строгость сервера без состояния
+	return ((this->_engine != nullptr) && this->_engine->strict());
+}
+/**
  * @brief Метод получения срока ожидания повторной передачи
  *
  * @return срок ожидания в миллисекундах, ноль, когда ждать нечего

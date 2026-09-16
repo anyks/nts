@@ -421,6 +421,46 @@ namespace nts {
 
 		/**
 		 * \~russian
+		 * @brief Наибольшая длина приветствия клиента, собираемого до подтверждения адреса, в байтах
+		 *
+		 * @details Решение 13 переноса: сервер издания DTLS 1.2 до принятой метки собирает
+		 *          дроблёное приветствие клиента - чужие клиенты дробят повторное приветствие
+		 *          умолчанием, - но память под сборку занимается по чужому слову, потому длина
+		 *          сборки ограничена; приветствие длиннее отбрасывается (GREETING)
+		 *
+		 * \~english
+		 * @brief Greatest length of a greeting of the client assembled before the confirmation of the address in bytes
+		 * @details Decision 13 of the transport: the server of the DTLS 1.2 edition assembles a fragmented
+		 *          greeting of the client before the accepted label — foreign clients fragment the repeated
+		 *          greeting by default — but the memory for an assembly is taken by a foreign word, therefore
+		 *          the length of an assembly is bounded; a longer greeting is discarded (GREETING)
+		 *
+		 * \~
+		 */
+		static constexpr size_t DATAGRAM_GREETING = 8192;
+
+		/**
+		 * \~russian
+		 * @brief Наибольшее число сборок приветствий клиентов, держимых до подтверждения адреса
+		 *
+		 * @details Решение 13 переноса: сборки приветствий до принятой метки привязаны к адресам
+		 *          собеседников и держатся не больше этого числа - по его достижении старейшая
+		 *          снимается (GREETING): память ограничена постоянной, а честный клиент повторит
+		 *          приветствие по своим часам
+		 *
+		 * \~english
+		 * @brief Greatest number of assemblies of greetings of clients held before the confirmation of the address
+		 * @details Decision 13 of the transport: the assemblies of greetings before the accepted label are bound to
+		 *          the addresses of the peers and are held not more than this number — at reaching it the eldest
+		 *          one is dropped (GREETING): the memory is bounded by a constant, and an honest client repeats
+		 *          the greeting by its own clock
+		 *
+		 * \~
+		 */
+		static constexpr size_t DATAGRAM_GREETINGS = 4;
+
+		/**
+		 * \~russian
 		 * @brief Число записей следующей поры, откладываемых до прихода её ключей
 		 *
 		 * @details Раздел 4.2.1 RFC 9147: приветствие сервера теряется, а его защищённый
@@ -464,7 +504,7 @@ namespace nts {
 			PREMATURE  = 0x09, /*!< \~russian Прикладные данные пришли до установления связи \~english The application data came before the establishment of the connection \~ */
 			COOKIE     = 0x0A, /*!< \~russian Повторное приветствие клиента без метки возврата состояния либо с чужою \~english A repeated greeting of the client without a label of the return of the state or with a foreign one \~ */
 			VERSION    = 0x0B, /*!< \~russian Заголовок записи DTLS 1.2 несёт чужое издание протокола: не 0xFEFD, а 0xFEFF - не у открытой записи рукопожатия (раздел 4.1 RFC 6347) \~english The header of a DTLS 1.2 record carries a foreign edition of the protocol: not 0xFEFD, and 0xFEFF - not at a plain handshake record (the section 4.1 of RFC 6347) \~ */
-			GREETING   = 0x0C  /*!< \~russian Приветствие клиента до подтверждения адреса негодно: порчено, дроблёно либо кусок чужого сообщения - сервер без состояния отбрасывает его молча (разделы 4.1.2.7 и 4.2.1 RFC 6347) \~english The greeting of the client before the confirmation of the address is unfit: damaged, fragmented or a fragment of a foreign message - the stateless server discards it silently (the sections 4.1.2.7 and 4.2.1 of RFC 6347) \~ */
+			GREETING   = 0x0C  /*!< \~russian Приветствие клиента до подтверждения адреса негодно: порчено, кусок чужого сообщения, дроблёно у строгого сервера либо шире пределов сборки приветствия - сервер без состояния отбрасывает его молча (разделы 4.1.2.7 и 4.2.1 RFC 6347, решение 13 переноса) \~english The greeting of the client before the confirmation of the address is unfit: damaged, a fragment of a foreign message, fragmented at a strict server or beyond the limits of the assembly of a greeting - the stateless server discards it silently (the sections 4.1.2.7 and 4.2.1 of RFC 6347, decision 13 of the transport) \~ */
 		};
 
 		/**

@@ -535,6 +535,95 @@ namespace {
 		return result;
 	}
 	/**
+	 * @brief Метод составления дейтаграммы с куском сообщения рукопожатия открытой записью
+	 *
+	 * @param type     вид сообщения
+	 * @param size     длина целого сообщения по обвязке
+	 * @param message  порядковый номер сообщения
+	 * @param offset   смещение куска
+	 * @param data     тело куска
+	 * @param length   длина куска
+	 * @param sequence порядковый номер записи
+	 *
+	 * @return         дейтаграмма с куском
+	 *
+	 */
+	vector <uint8_t> shard(const handshake::type_t type, const size_t size, const uint16_t message, const size_t offset, const uint8_t * data, const size_t length, const uint64_t sequence) noexcept {
+		// Обвязка куска
+		datagram::fragment_t fragment;
+		// Устанавливаем вид сообщения
+		fragment.type = type;
+		// Устанавливаем длину целого сообщения
+		fragment.size = size;
+		// Устанавливаем порядковый номер сообщения
+		fragment.sequence = message;
+		// Устанавливаем смещение куска
+		fragment.offset = offset;
+		// Устанавливаем длину куска
+		fragment.length = length;
+		// Кусок в обвязке
+		vector <uint8_t> content(datagram::DATAGRAM_FRAGMENT_HEADER, 0);
+		// Записываем обвязку
+		datagram::build(fragment, content.data());
+		// Добавляем тело куска
+		content.insert(content.end(), data, data + length);
+		// Дейтаграмма
+		vector <uint8_t> result;
+		// Записываем заголовок записи
+		enclose(record::type_t::HANDSHAKE, 0, sequence, content.size(), result);
+		// Добавляем содержимое
+		result.insert(result.end(), content.begin(), content.end());
+		// Выводим дейтаграмму
+		return result;
+	}
+	/**
+	 * @brief Метод дробления дейтаграммы с целым сообщением рукопожатия на две дейтаграммы с кусками
+	 *
+	 * @param whole  дейтаграмма с целым сообщением одной открытой записью
+	 * @param cut    длина первого куска; за пределами сообщения - середина
+	 * @param first  дейтаграмма с первым куском записью того же номера
+	 * @param second дейтаграмма со вторым куском записью следующего номера
+	 *
+	 * @return       признак того, что дейтаграмма раздроблена
+	 *
+	 */
+	bool bisect(const vector <uint8_t> & whole, const size_t cut, vector <uint8_t> & first, vector <uint8_t> & second) noexcept {
+		// Вид содержимого записи
+		uint8_t type = 0;
+		// Издание записи
+		uint16_t version = 0;
+		// Пора записи
+		uint16_t epoch = 0;
+		// Номер записи
+		uint64_t sequence = 0;
+		// Длина содержимого записи
+		size_t size = 0;
+		// Читаем заголовок записи
+		if(!heading(whole, 0, type, version, epoch, sequence, size))
+			// Выводим отказ
+			return false;
+		// Обвязка куска
+		datagram::fragment_t fragment;
+		// Разбираем обвязку
+		if(datagram::parse(view_t(whole.data() + datagram::DATAGRAM_PLAIN_HEADER, size), fragment) != datagram::error_t::NONE)
+			// Выводим отказ
+			return false;
+		// Сообщение обязано быть целым и не короче двух байтов
+		if((fragment.offset != 0) || (fragment.length != fragment.size) || (fragment.size < 2))
+			// Выводим отказ
+			return false;
+		// Место разреза: заданное либо середина, когда сообщение короче
+		const size_t place = (((cut > 0) && (cut < fragment.size)) ? cut : (fragment.size / 2));
+		// Тело сообщения
+		const uint8_t * body = (whole.data() + datagram::DATAGRAM_PLAIN_HEADER + datagram::DATAGRAM_FRAGMENT_HEADER);
+		// Первый кусок записью того же номера
+		first = shard(fragment.type, fragment.size, fragment.sequence, 0, body, place, sequence);
+		// Второй кусок записью следующего номера
+		second = shard(fragment.type, fragment.size, fragment.sequence, place, body + place, fragment.size - place, sequence + 1);
+		// Выводим успех
+		return true;
+	}
+	/**
 	 * @brief Описание набора шифрования издания 1.2
 	 *
 	 */
@@ -675,8 +764,8 @@ namespace {
 				if(!heading(datagrams[i], offset, type, version, epoch, sequence, size))
 					// Выводим отказ
 					return false;
-				// Записи ожидаются открытые, рукопожатия и издания DTLS 1.2
-				if((type != static_cast <uint8_t> (record::type_t::HANDSHAKE)) || (epoch != 0) || (version != DTLS12))
+				// Записи ожидаются открытые, рукопожатия и издания DTLS 1.2 либо DTLS 1.0 - им идёт просьба о подтверждении адреса (раздел 4.2.1 RFC 6347, решение 13 переноса)
+				if((type != static_cast <uint8_t> (record::type_t::HANDSHAKE)) || (epoch != 0) || ((version != DTLS12) && (version != DTLS10)))
 					// Выводим отказ
 					return false;
 				// Содержимое записи
@@ -1491,7 +1580,8 @@ namespace {
 
 /**
  * Проверка договора DTLS 1.2 по контрольному списку приёмки: умолчание пределов 1.2…1.3
- * поверх дейтаграмм, пределы «только 1.2» у обеих сторон и издание 0xFEFD, клиент «только
+ * поверх дейтаграмм, коды провода 0xFEFD в versions() отвергаются SETTINGS без порчи пределов,
+ * пределы «только 1.2» у обеих сторон и издание 0xFEFD, клиент «только
  * 1.2» против сервера «только 1.3» - protocol_version без связи, просьба о подтверждении
  * адреса с изданием ровно 0xFEFF и меткой до 255 байтов, повторное приветствие длиннее
  * первого с теми же случайным значением и опознавателем, сто первых приветствий без единой
@@ -1519,6 +1609,13 @@ TEST(Dtls12Test, Contract){
 		// Нижний предел сервера 1.2
 		ASSERT_EQ(server.lowest(), static_cast <uint16_t> (0x0303));
 		// Верхний предел сервера 1.3
+		ASSERT_EQ(server.highest(), static_cast <uint16_t> (0x0304));
+		// Коды провода DTLS на входе не принимаются: издание закрепляется кодами TLS (договор versions())
+		ASSERT_EQ(server.versions(0xFEFD, 0xFEFD), context::error_t::SETTINGS);
+		// У клиента так же
+		ASSERT_EQ(client.versions(0xFEFD, 0xFEFD), context::error_t::SETTINGS);
+		// Пределы после отказа не тронуты
+		ASSERT_EQ(server.lowest(), static_cast <uint16_t> (0x0303));
 		ASSERT_EQ(server.highest(), static_cast <uint16_t> (0x0304));
 	}
 	// Пределы «только 1.2» у обеих сторон
@@ -1563,6 +1660,10 @@ TEST(Dtls12Test, Contract){
 		size_t size = 0;
 		// Читаем заголовок
 		ASSERT_TRUE(heading(query[0], 0, type, version, epoch, sequence, size));
+		// Раздел 4.2.1 RFC 6347: заголовок записи с просьбой несёт издание DTLS 1.0, как тело и как у openssl (решение 13 переноса)
+		ASSERT_EQ(version, static_cast <uint16_t> (0xFEFF));
+		// Просьба идёт нулевой порой
+		ASSERT_EQ(epoch, static_cast <uint16_t> (0));
 		// Обвязка куска
 		datagram::fragment_t fragment;
 		// Разбираем обвязку
@@ -3951,7 +4052,8 @@ TEST(Dtls12Test, Versions){
  * Проверка обмена с настоящим openssl по UDP: наш клиент против s_server -dtls1_2 -listen с
  * просьбой о подтверждении адреса, взаимной подлинностью и дроблением по шести наборам и
  * трём группам; s_client -dtls1_2 против нашего сервера с нашей просьбой о подтверждении
- * адреса («Protocol  : DTLSv1.2», «Verify return code: 0 (ok)») по тем же наборам и группам
+ * адреса («Protocol  : DTLSv1.2», «Verify return code: 0 (ok)») по тем же наборам и группам -
+ * дважды: с -mtu 300 и с умолчанием openssl, дробящим повторное приветствие (решение 13)
  */
 TEST(Dtls12Test, Openssl){
 	// Способности системного openssl
@@ -4108,9 +4210,19 @@ TEST(Dtls12Test, Openssl){
 		/**
 		 * Выполняем перебор групп обмена
 		 */
-		for(size_t g = 0; g < (sizeof(GROUPS) / sizeof(GROUPS[0])); g++){
+		for(size_t g = 0; g < (2 * (sizeof(GROUPS) / sizeof(GROUPS[0]))); g++){
+			// Группа обмена: первый проход по группам с -mtu 300, второй - с умолчанием openssl
+			const extension::group_t group = GROUPS[g % (sizeof(GROUPS) / sizeof(GROUPS[0]))];
+			/**
+			 * Признак прохода с умолчанием openssl без -mtu: клиент дробит повторное приветствие
+			 * умолчанием (начальный MTU 256, тело 232 байта кусками 203 + 29) - ровно случай, на
+			 * котором строгий сервер молчал; сервер умолчанием собирает (решение 13 переноса).
+			 * Наборы и группы клиенту не задаются: с одним набором приветствие короче порога
+			 * дробления и случай не воспроизводится - сервер выбирает свой набор из предложенных
+			 */
+			const bool fragmenting = (g >= (sizeof(GROUPS) / sizeof(GROUPS[0])));
 			// Если openssl без кривой X25519
-			if((GROUPS[g] == extension::group_t::X25519) && !toolkit.x25519)
+			if((group == extension::group_t::X25519) && !toolkit.x25519)
 				// Переходим к следующей группе
 				continue;
 			// Порт сервера
@@ -4122,15 +4234,15 @@ TEST(Dtls12Test, Openssl){
 			// Журнал клиента openssl
 			const std::string log = "/tmp/ants-dtls12-client-" + std::to_string(number) + ".log";
 			// Ключ групп
-			const std::string grouping = ((toolkit.serverGroups && toolkit.clientGroups) ? (" -groups " + roster(GROUPS[g])) : "");
+			const std::string grouping = ((toolkit.serverGroups && toolkit.clientGroups) ? (" -groups " + roster(group)) : "");
 			// Данные клиента openssl
 			const string request = "hello from openssl " + std::to_string(s) + " " + std::to_string(g) + "\n";
 			/**
-			 * Клиент openssl: DTLS 1.2, своя подлинность, дробление под 300 байтов; на входе
+			 * Клиент openssl: DTLS 1.2, своя подлинность, дробление под 300 байтов либо умолчание; на входе
 			 * данные, а конец входа не глушит клиента (-ign_eof) - уходит он по close_notify
 			 * нашего сервера, и ожидание идёт по состоянию, а не по паузе
 			 */
-			ASSERT_TRUE(launch("printf '" + request + "' | openssl s_client -connect 127.0.0.1:" + std::to_string(number) + " -dtls1_2 -CAfile " + crt + " -cert " + crt + " -key " + key + " -cipher " + SUITES[s].title + grouping + " -mtu 300 -servername localhost -verify_return_error -ign_eof >" + log + " 2>&1", log, log + ".pid", std::string()));
+			ASSERT_TRUE(launch("printf '" + request + "' | openssl s_client -connect 127.0.0.1:" + std::to_string(number) + " -dtls1_2 -CAfile " + crt + " -cert " + crt + " -key " + key + (fragmenting ? std::string() : (" -cipher " + std::string(SUITES[s].title) + grouping + " -mtu 300")) + " -servername localhost -verify_return_error -ign_eof >" + log + " 2>&1", log, log + ".pid", std::string()));
 			// Сторож клиента openssl
 			sentinel_t sentinel(log + ".pid");
 			// Адрес клиента
@@ -4148,7 +4260,7 @@ TEST(Dtls12Test, Openssl){
 				// Принимаем дейтаграмму с адресом
 				received = ::recvfrom(fd, buffer, sizeof(buffer), 0, reinterpret_cast <struct sockaddr *> (&peer), &length);
 			// Приветствие принято
-			ASSERT_GT(received, 0) << SUITES[s].title << " " << naming(GROUPS[g]);
+			ASSERT_GT(received, 0) << SUITES[s].title << " " << naming(group);
 			// Связь стороны сервера
 			server::context_t server;
 			// Перенос дейтаграммами
@@ -4156,7 +4268,7 @@ TEST(Dtls12Test, Openssl){
 			// Набор
 			server.suites(vector <protect::suite_t> {SUITES[s].suite});
 			// Группа
-			server.groups(vector <extension::group_t> {GROUPS[g]});
+			server.groups(vector <extension::group_t> {group});
 			// Подлинность сервера
 			server.credential(credential);
 			// Запрашиваем подлинность клиента
@@ -4202,7 +4314,7 @@ TEST(Dtls12Test, Openssl){
 					(void) server.read(plaintext);
 			}
 			// Связь установлена
-			ASSERT_TRUE(server.established()) << SUITES[s].title << " " << naming(GROUPS[g]) << " отказ " << static_cast <int> (server.error()) << " извещение " << static_cast <int> (server.alert().description) << " состояние " << static_cast <int> (server.state());
+			ASSERT_TRUE(server.established()) << SUITES[s].title << " " << naming(group) << (fragmenting ? " умолчание" : " mtu300") << " отказ " << static_cast <int> (server.error()) << " извещение " << static_cast <int> (server.alert().description) << " состояние " << static_cast <int> (server.state());
 			// Данные клиента дошли
 			ASSERT_EQ(string(plaintext.begin(), plaintext.end()), request);
 			// Издание DTLS 1.2
@@ -4252,8 +4364,9 @@ TEST(Dtls12Test, Openssl){
  * Проверка сервера до подтверждения адреса (разделы 4.1.2.7 и 4.2.1 RFC 6347): усечённое,
  * порченое и мусорное первое приветствие отбрасываются молча GREETING без единой
  * дейтаграммы наружу и без обрыва, следующее настоящее приветствие отвечается просьбой;
- * сервер без состояния принимает приветствие лишь целиком одним куском - сто дроблёных и
- * чужих кусков и запись первой поры отбрасываются без сборок, отложенных записей и ответа;
+ * строгий сервер без состояния (strict, решение 13 переноса) принимает приветствие лишь
+ * целиком одним куском - сто дроблёных и чужих кусков и запись первой поры отбрасываются без
+ * сборок, отложенных записей и ответа;
  * по принятой метке запись повторного приветствия отмечается в окне нулевой поры - повтор
  * её REPLAY без второго залпа; окно нулевой поры у клиента: повтор просьбы - REPLAY без
  * второго приветствия; приветствие с изданием 0x0303, 0xFEFF (DTLS 1.0) и 0x0000 в
@@ -4272,6 +4385,8 @@ TEST(Dtls12Test, Unverified){
 		server::context_t server;
 		// Настраиваем стороны
 		arrange(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
+		// Строгий сервер: прежняя семантика решения 9 - приветствие лишь целиком, сборок не заводится (решение 13)
+		server.strict(true);
 		// Заводим сервер
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Заводим клиента
@@ -5544,5 +5659,302 @@ TEST(Dtls12Test, Interop){
 		ASSERT_NE(text.find(answer), std::string::npos) << text;
 		// Удаляем
 		::remove(log.c_str());
+	}
+}
+
+/**
+ * Дроблёное повторное приветствие (решение 13 переноса): чужие клиенты дробят повторное
+ * приветствие умолчанием (openssl: 232 байта тела кусками 203 + 29), и сервер умолчанием
+ * собирает его под пределами и отвечает - в любом порядке кусков; строгий сервер (strict)
+ * принимает приветствие лишь целиком, как DTLSv1_listen, на куски молчит и растит
+ * discarded(GREETING), целое принимает; приветствие шире DATAGRAM_GREETING отбрасывается, а
+ * ровно в предел - собирается; сборок не больше DATAGRAM_GREETINGS - старейшая снимается,
+ * сборки чужих адресов не смешиваются, и выдаётся сборка адреса принятой дейтаграммы - даже
+ * когда чужая недособранная сборка стоит в перечне впереди своей
+ */
+TEST(Dtls12Test, FragmentedGreeting){
+	// Подлинность стороны
+	context::credential_t credential;
+	// Составляем подлинность
+	ASSERT_TRUE(identity("ec256", credential));
+	// Место разреза повторного приветствия: как у openssl, первый кусок в 203 байта
+	static constexpr size_t CUT = 203;
+	/**
+	 * Порядок кусков: прямой и обратный - оба обязаны связать
+	 */
+	for(size_t order = 0; order < 2; order++){
+		// Связь стороны клиента
+		client::context_t client;
+		// Связь стороны сервера
+		server::context_t server;
+		// Настраиваем стороны
+		arrange(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
+		// Клиент лишь 1.2
+		ASSERT_EQ(client.versions(0x0303, 0x0303), context::error_t::NONE);
+		// Сервер лишь 1.2
+		ASSERT_EQ(server.versions(0x0303, 0x0303), context::error_t::NONE);
+		// Умолчанием сервер не строгий
+		ASSERT_FALSE(server.strict());
+		// Заводим сервер
+		ASSERT_EQ(server.start(), context::error_t::NONE);
+		// Заводим клиента
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		// Путь
+		bond_t bond;
+		// Приветствие и просьба о подтверждении адреса
+		ASSERT_TRUE(carry(client, server, bond, 0) && carry(server, client, bond, 1));
+		// Повторное приветствие с меткой
+		vector <vector <uint8_t>> second;
+		// Снимаем повторное приветствие
+		ASSERT_TRUE(drain(client, second));
+		// Одна дейтаграмма
+		ASSERT_EQ(second.size(), static_cast <size_t> (1));
+		// Куски приветствия
+		vector <uint8_t> head, rest;
+		// Дробим приветствие
+		ASSERT_TRUE(bisect(second[0], CUT, head, rest));
+		// Первый подаваемый кусок
+		const vector <uint8_t> & lead = ((order == 0) ? head : rest);
+		// Второй подаваемый кусок
+		const vector <uint8_t> & tail = ((order == 0) ? rest : head);
+		// Подаём первый кусок
+		ASSERT_EQ(server.push(view_t(lead.data(), lead.size())), context::error_t::NONE) << order;
+		// Сервер молчит: приветствие не собрано
+		ASSERT_EQ(server.output().size, static_cast <size_t> (0)) << order;
+		// Ошибки нет
+		ASSERT_EQ(server.error(), context::error_t::NONE) << order;
+		// Подаём второй кусок
+		ASSERT_EQ(server.push(view_t(tail.data(), tail.size())), context::error_t::NONE) << order;
+		// Приветствие собрано: сервер отвечает залпом
+		ASSERT_GT(server.output().size, static_cast <size_t> (0)) << order;
+		// Отбросов приветствия нет
+		ASSERT_EQ(server.discarded(datagram::reason_t::GREETING), static_cast <uint64_t> (0)) << order;
+		// Доводим до тишины
+		converse(client, server, bond, 400);
+		// Связь установлена у обеих сторон
+		ASSERT_TRUE(client.established() && server.established()) << order << " " << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
+		// Обмениваемся данными
+		ASSERT_TRUE(barter(client, server, bond)) << order;
+	}
+	// Строгий сервер: куски отбрасываются молча, целое принимается
+	{
+		// Связь стороны клиента
+		client::context_t client;
+		// Связь стороны сервера
+		server::context_t server;
+		// Настраиваем стороны
+		arrange(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
+		// Клиент лишь 1.2
+		ASSERT_EQ(client.versions(0x0303, 0x0303), context::error_t::NONE);
+		// Сервер лишь 1.2
+		ASSERT_EQ(server.versions(0x0303, 0x0303), context::error_t::NONE);
+		// Строгий сервер
+		server.strict(true);
+		// Строгость установлена
+		ASSERT_TRUE(server.strict());
+		// Заводим сервер
+		ASSERT_EQ(server.start(), context::error_t::NONE);
+		// Заводим клиента
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		// Путь
+		bond_t bond;
+		// Приветствие и просьба
+		ASSERT_TRUE(carry(client, server, bond, 0) && carry(server, client, bond, 1));
+		// Повторное приветствие
+		vector <vector <uint8_t>> second;
+		// Снимаем
+		ASSERT_TRUE(drain(client, second));
+		// Куски приветствия
+		vector <uint8_t> head, rest;
+		// Дробим
+		ASSERT_TRUE(bisect(second[0], CUT, head, rest));
+		// Подаём первый кусок
+		ASSERT_EQ(server.push(view_t(head.data(), head.size())), context::error_t::NONE);
+		// Подаём второй кусок
+		ASSERT_EQ(server.push(view_t(rest.data(), rest.size())), context::error_t::NONE);
+		// Сервер молчит
+		ASSERT_EQ(server.output().size, static_cast <size_t> (0));
+		// Ошибки нет
+		ASSERT_EQ(server.error(), context::error_t::NONE);
+		// Оба куска отброшены как приветствие
+		ASSERT_EQ(server.discarded(datagram::reason_t::GREETING), static_cast <uint64_t> (2));
+		// Связи нет
+		ASSERT_FALSE(server.established());
+		// Подаём приветствие целиком
+		ASSERT_EQ(server.push(view_t(second[0].data(), second[0].size())), context::error_t::NONE);
+		// Сервер отвечает залпом
+		ASSERT_GT(server.output().size, static_cast <size_t> (0));
+		// Доводим до тишины
+		converse(client, server, bond, 400);
+		// Связь установлена у обеих сторон
+		ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
+		// Обмениваемся данными
+		ASSERT_TRUE(barter(client, server, bond));
+	}
+	// Предел длины сборки приветствия
+	{
+		// Связь стороны клиента
+		client::context_t client;
+		// Связь стороны сервера
+		server::context_t server;
+		// Настраиваем стороны
+		arrange(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
+		// Сервер лишь 1.2
+		ASSERT_EQ(server.versions(0x0303, 0x0303), context::error_t::NONE);
+		// Заводим сервер
+		ASSERT_EQ(server.start(), context::error_t::NONE);
+		// Заводим клиента
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		// Путь
+		bond_t bond;
+		// Приветствие и просьба: сервер без состояния
+		ASSERT_TRUE(carry(client, server, bond, 0) && carry(server, client, bond, 1));
+		// Тело куска
+		const vector <uint8_t> zeros(64, 0);
+		// Кусок приветствия с длиной целого сверх предела
+		const vector <uint8_t> wide = shard(handshake::type_t::CLIENT, datagram::DATAGRAM_GREETING + 1, 1, 0, zeros.data(), zeros.size(), 5);
+		// Подаём кусок
+		ASSERT_EQ(server.push(view_t(wide.data(), wide.size())), context::error_t::NONE);
+		// Кусок отброшен
+		ASSERT_EQ(server.discarded(datagram::reason_t::GREETING), static_cast <uint64_t> (1));
+		// Кусок приветствия с длиной целого ровно в предел
+		const vector <uint8_t> edge = shard(handshake::type_t::CLIENT, datagram::DATAGRAM_GREETING, 1, 0, zeros.data(), zeros.size(), 6);
+		// Подаём кусок
+		ASSERT_EQ(server.push(view_t(edge.data(), edge.size())), context::error_t::NONE);
+		// Кусок принят в сборку: отбросов не прибавилось
+		ASSERT_EQ(server.discarded(datagram::reason_t::GREETING), static_cast <uint64_t> (1));
+		// Сервер молчит
+		ASSERT_EQ(server.output().size, static_cast <size_t> (0));
+		// Связи нет
+		ASSERT_FALSE(server.established());
+	}
+	// Предел числа сборок и привязка сборок к адресу
+	{
+		// Связь стороны клиента
+		client::context_t client;
+		// Связь стороны сервера
+		server::context_t server;
+		// Настраиваем стороны
+		arrange(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
+		// Сервер лишь 1.2
+		ASSERT_EQ(server.versions(0x0303, 0x0303), context::error_t::NONE);
+		// Заводим сервер
+		ASSERT_EQ(server.start(), context::error_t::NONE);
+		// Заводим клиента
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		// Путь
+		bond_t bond;
+		// Приветствие и просьба: сервер без состояния
+		ASSERT_TRUE(carry(client, server, bond, 0) && carry(server, client, bond, 1));
+		// Поддельная метка длиной как настоящая
+		const vector <uint8_t> forged(33, 0x00);
+		// Тело поддельного повторного приветствия
+		vector <uint8_t> body;
+		// Составляем приветствие
+		ASSERT_TRUE(greeting(forged, 0xFEFD, body));
+		// Место разреза: как у openssl либо середина, когда приветствие короче
+		const size_t cut = ((body.size() > CUT) ? CUT : (body.size() / 2));
+		/**
+		 * Подаём первые куски приветствий с адресов числом на один больше предела
+		 */
+		for(size_t i = 0; i <= datagram::DATAGRAM_GREETINGS; i++){
+			// Адрес собеседника
+			const uint8_t address[] = {10, 0, 0, static_cast <uint8_t> (i + 1), 0x12, 0x34};
+			// Устанавливаем адрес
+			ASSERT_TRUE(server.address(view_t(address, sizeof(address)))) << i;
+			// Первый кусок приветствия
+			const vector <uint8_t> head = shard(handshake::type_t::CLIENT, body.size(), 1, 0, body.data(), cut, 10 + i);
+			// Подаём кусок
+			ASSERT_EQ(server.push(view_t(head.data(), head.size())), context::error_t::NONE) << i;
+			// Сервер молчит
+			ASSERT_EQ(server.output().size, static_cast <size_t> (0)) << i;
+		}
+		// Старейшая сборка снята
+		ASSERT_EQ(server.discarded(datagram::reason_t::GREETING), static_cast <uint64_t> (1));
+		// Ни одно приветствие не собрано
+		ASSERT_EQ(server.discarded(datagram::reason_t::COOKIE), static_cast <uint64_t> (0));
+		// Адрес первого собеседника, чья сборка снята
+		const uint8_t eldest[] = {10, 0, 0, 1, 0x12, 0x34};
+		// Устанавливаем адрес
+		ASSERT_TRUE(server.address(view_t(eldest, sizeof(eldest))));
+		// Второй кусок его приветствия
+		const vector <uint8_t> orphan = shard(handshake::type_t::CLIENT, body.size(), 1, cut, body.data() + cut, body.size() - cut, 20);
+		// Подаём кусок
+		ASSERT_EQ(server.push(view_t(orphan.data(), orphan.size())), context::error_t::NONE);
+		// Приветствие не собрано: сборки снятого адреса нет, кусок завёл новую и вытеснил следующую старейшую
+		ASSERT_EQ(server.discarded(datagram::reason_t::COOKIE), static_cast <uint64_t> (0));
+		// Ещё одна сборка снята
+		ASSERT_EQ(server.discarded(datagram::reason_t::GREETING), static_cast <uint64_t> (2));
+		// Адрес третьего собеседника, чья сборка цела
+		const uint8_t third[] = {10, 0, 0, 3, 0x12, 0x34};
+		// Устанавливаем адрес
+		ASSERT_TRUE(server.address(view_t(third, sizeof(third))));
+		// Второй кусок его приветствия
+		const vector <uint8_t> closing = shard(handshake::type_t::CLIENT, body.size(), 1, cut, body.data() + cut, body.size() - cut, 21);
+		// Подаём кусок
+		ASSERT_EQ(server.push(view_t(closing.data(), closing.size())), context::error_t::NONE);
+		// Приветствие собрано именно его сборкой: метка отвергнута
+		ASSERT_EQ(server.discarded(datagram::reason_t::COOKIE), static_cast <uint64_t> (1));
+		// Сервер молчит
+		ASSERT_EQ(server.output().size, static_cast <size_t> (0));
+		// Связи нет
+		ASSERT_FALSE(server.established());
+	}
+	// Чужая недособранная сборка впереди своей: выдаётся сборка адреса принятой дейтаграммы
+	{
+		// Связь стороны клиента
+		client::context_t client;
+		// Связь стороны сервера
+		server::context_t server;
+		// Настраиваем стороны
+		arrange(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
+		// Сервер лишь 1.2
+		ASSERT_EQ(server.versions(0x0303, 0x0303), context::error_t::NONE);
+		// Заводим сервер
+		ASSERT_EQ(server.start(), context::error_t::NONE);
+		// Заводим клиента
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		// Путь
+		bond_t bond;
+		// Приветствие и просьба: сервер без состояния
+		ASSERT_TRUE(carry(client, server, bond, 0) && carry(server, client, bond, 1));
+		// Поддельная метка длиной как настоящая
+		const vector <uint8_t> forged(33, 0x00);
+		// Тело поддельного повторного приветствия
+		vector <uint8_t> body;
+		// Составляем приветствие
+		ASSERT_TRUE(greeting(forged, 0xFEFD, body));
+		// Место разреза
+		const size_t cut = ((body.size() > CUT) ? CUT : (body.size() / 2));
+		// Адрес первого собеседника
+		const uint8_t alpha[] = {10, 0, 0, 7, 0x12, 0x34};
+		// Адрес второго собеседника
+		const uint8_t beta[] = {10, 0, 0, 8, 0x12, 0x34};
+		// Первый собеседник: лишь первый кусок - его сборка встаёт в перечень первой и остаётся недособранной
+		ASSERT_TRUE(server.address(view_t(alpha, sizeof(alpha))));
+		// Первый кусок первого собеседника
+		const vector <uint8_t> opening = shard(handshake::type_t::CLIENT, body.size(), 1, 0, body.data(), cut, 30);
+		// Подаём кусок
+		ASSERT_EQ(server.push(view_t(opening.data(), opening.size())), context::error_t::NONE);
+		// Второй собеседник: оба куска
+		ASSERT_TRUE(server.address(view_t(beta, sizeof(beta))));
+		// Первый кусок второго собеседника
+		const vector <uint8_t> head = shard(handshake::type_t::CLIENT, body.size(), 1, 0, body.data(), cut, 31);
+		// Подаём кусок
+		ASSERT_EQ(server.push(view_t(head.data(), head.size())), context::error_t::NONE);
+		// Ни одно приветствие не собрано
+		ASSERT_EQ(server.discarded(datagram::reason_t::COOKIE), static_cast <uint64_t> (0));
+		// Второй кусок второго собеседника
+		const vector <uint8_t> rest = shard(handshake::type_t::CLIENT, body.size(), 1, cut, body.data() + cut, body.size() - cut, 32);
+		// Подаём кусок
+		ASSERT_EQ(server.push(view_t(rest.data(), rest.size())), context::error_t::NONE);
+		// Приветствие второго собеседника собрано и выдано мимо чужой недособранной сборки: метка отвергнута
+		ASSERT_EQ(server.discarded(datagram::reason_t::COOKIE), static_cast <uint64_t> (1));
+		// Отбросов приветствия нет: сборки не смешивались и не снимались
+		ASSERT_EQ(server.discarded(datagram::reason_t::GREETING), static_cast <uint64_t> (0));
+		// Сервер молчит
+		ASSERT_EQ(server.output().size, static_cast <size_t> (0));
+		// Связи нет
+		ASSERT_FALSE(server.established());
 	}
 }

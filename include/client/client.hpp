@@ -514,7 +514,8 @@ namespace nts {
 				 * @note Издания задаются и отдаются кодами TLS 0x0303/0x0304 на любом переносе; на
 				 *       проводе DTLS они ложатся как 0xFEFD/0xFEFC. Поверх дейтаграмм 0x0303 отвечает
 				 *       DTLS 1.2 (RFC 6347), 0x0304 - DTLS 1.3 (RFC 9147); под QUIC связь знает одно
-				 *       издание 1.3
+				 *       издание 1.3. Коды провода DTLS на входе НЕ принимаются: versions(0xFEFD, 0xFEFD)
+				 *       отвечает SETTINGS - издание DTLS 1.2 закрепляется как versions(0x0303, 0x0303)
 				 *
 				 * \~english
 				 * @brief Method of setting the limits of the edition of the protocol
@@ -530,7 +531,8 @@ namespace nts {
 				 * @note The editions are set and returned by the TLS codes 0x0303/0x0304 on any transport; on the
 				 *       DTLS wire they are laid as 0xFEFD/0xFEFC. Over datagrams 0x0303 stands for DTLS 1.2
 				 *       (RFC 6347), 0x0304 - for DTLS 1.3 (RFC 9147); under QUIC the connection knows the 1.3
-				 *       edition alone
+				 *       edition alone. The DTLS wire codes are NOT accepted as input: versions(0xFEFD, 0xFEFD)
+				 *       answers SETTINGS - the DTLS 1.2 edition is pinned as versions(0x0303, 0x0303)
 				 *
 				 * \~
 				 */

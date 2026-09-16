@@ -108,6 +108,8 @@ namespace nts {
 			bool dispatched;
 			// Признак записи смены набора шифрования DTLS 1.2 вместо сообщения рукопожатия
 			bool change;
+			// Признак заголовка записи изданием DTLS 1.0: просьба о подтверждении адреса (раздел 4.2.1 RFC 6347, решение 13)
+			bool ancient;
 			// Пора ключей, которой сообщение отправляется
 			uint16_t epoch;
 			// Порядковый номер сообщения рукопожатия
@@ -118,7 +120,7 @@ namespace nts {
 			 * @brief Конструктор
 			 *
 			 */
-			Dispatch() noexcept : dispatched(false), change(false), epoch(0), sequence(0) {}
+			Dispatch() noexcept : dispatched(false), change(false), ancient(false), epoch(0), sequence(0) {}
 		} dispatch_t;
 		/**
 		 * @brief Кусок сообщения залпа, отправленный одной записью
@@ -190,11 +192,15 @@ namespace nts {
 			vector <uint8_t> body;
 			// Области тела, покрытые принятыми кусками, по возрастанию смещения
 			vector <span_t> spans;
+			// Признак сборки приветствия клиента до подтверждения адреса: под пределами и привязана к адресу (решение 13)
+			bool greeting;
+			// Адрес собеседника, чьё приветствие собирается до подтверждения адреса
+			vector <uint8_t> address;
 			/**
 			 * @brief Конструктор
 			 *
 			 */
-			Assembly() noexcept : type(handshake::type_t::NONE), epoch(0), sequence(0) {}
+			Assembly() noexcept : type(handshake::type_t::NONE), epoch(0), sequence(0), greeting(false) {}
 		} assembly_t;
 		/**
 		 * @brief Запись, принятая дейтаграммой и вскрытая
@@ -241,6 +247,8 @@ namespace nts {
 				bool _ancient;
 				// Признак сервера без состояния DTLS 1.2: приветствие клиента ждётся заново после HelloVerifyRequest
 				bool _stateless;
+				// Признак строгого сервера без состояния: приветствие клиента принимается лишь целиком одним куском, как у DTLSv1_listen (решение 13)
+				bool _strict;
 				// Признак того, что адрес собеседника подтверждён меткой: до того окно нулевой поры чтения сервером не ведётся
 				bool _verified;
 				// Признак того, что залп последний и часов не ждёт: повторяется лишь по повтору собеседника
@@ -400,15 +408,16 @@ namespace nts {
 				/**
 				 * @brief Метод составления записи поверх дейтаграммы
 				 *
-				 * @param type   вид содержимого записи
-				 * @param data   содержимое записи
-				 * @param era    пора ключей, которой запись защищается
-				 * @param result накопитель, в конец которого дописывается запись
+				 * @param type    вид содержимого записи
+				 * @param data    содержимое записи
+				 * @param era     пора ключей, которой запись защищается
+				 * @param result  накопитель, в конец которого дописывается запись
+				 * @param ancient издание заголовка записи DTLS 1.0: просьба о подтверждении адреса (раздел 4.2.1 RFC 6347)
 				 *
-				 * @return       отказ составления записи
+				 * @return        отказ составления записи
 				 *
 				 */
-				context::error_t shield(const record::type_t type, const view_t & data, era_t & era, vector <uint8_t> & result) noexcept;
+				context::error_t shield(const record::type_t type, const view_t & data, era_t & era, vector <uint8_t> & result, const bool ancient) noexcept;
 				/**
 				 * @brief Метод вскрытия защищённой записи
 				 *
@@ -751,6 +760,25 @@ namespace nts {
 				 *
 				 */
 				void stateless(const bool stateless) noexcept;
+				/**
+				 * @brief Метод установки строгого сервера без состояния издания DTLS 1.2
+				 *
+				 * @param strict принимается ли приветствие клиента до метки лишь целиком одним куском
+				 *
+				 * @details Решение 13: умолчанием дроблёное приветствие собирается под пределами
+				 *          DATAGRAM_GREETING и DATAGRAM_GREETINGS с привязкой к адресу, ибо чужие клиенты
+				 *          дробят повторное приветствие умолчанием; строгий сервер куски отбрасывает
+				 *          молча, как DTLSv1_listen, и памяти по чужому слову не держит вовсе
+				 *
+				 */
+				void strict(const bool strict) noexcept;
+				/**
+				 * @brief Метод проверки строгости сервера без состояния издания DTLS 1.2
+				 *
+				 * @return признак того, что приветствие клиента до метки принимается лишь целиком
+				 *
+				 */
+				bool strict() const noexcept;
 				/**
 				 * @brief Метод отметки подтверждённости адреса собеседника меткой возврата состояния
 				 *
