@@ -7615,3 +7615,64 @@ TEST(Tls12Test, Nameless){
 		ASSERT_EQ(server.state(), context::state_t::FAILED);
 	}
 }
+
+/**
+ * Решение 15 движка (раздел 4.2.1 RFC 8446): расширение перечня изданий supported_versions
+ * клиент кладёт лишь когда предлагает 1.3; при versions(0x0303, 0x0303) приветствие идёт без
+ * него, как у openssl, - издание 1.2 сервер берёт из заголовка; умолчанием расширение есть
+ */
+TEST(Tls12Test, VersionsOmitted){
+	// Подлинность стороны
+	context::credential_t credential;
+	// Составляем подлинность
+	ASSERT_TRUE(identity("ec256", credential));
+	/**
+	 * Два клиента: закреплённый на 1.2 и умолчательный
+	 */
+	for(size_t pinned = 0; pinned < 2; pinned++){
+		// Связь стороны клиента
+		client::context_t client;
+		// Связь стороны сервера
+		server::context_t server;
+		// Настраиваем стороны
+		arrange(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
+		// Если клиент закреплён на 1.2
+		if(pinned == 1)
+			// Клиент ведёт лишь издание 1.2
+			ASSERT_EQ(client.versions(0x0303, 0x0303), context::error_t::NONE);
+		// Иначе клиент предлагает и издание 1.3: без набора 1.3 оно не предлагается, и расширения не было бы по тому же правилу
+		else client.suites(vector <protect::suite_t> {protect::suite_t::AES_128_GCM_SHA256, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256});
+		// Заводим клиента
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		// Первое приветствие: запись с сообщением рукопожатия
+		const view_t data = client.output();
+		// Запись есть и несёт обвязку записи и сообщения
+		ASSERT_GT(data.size, static_cast <size_t> (5 + handshake::HANDSHAKE_HEADER)) << pinned;
+		// Запись рукопожатия
+		ASSERT_EQ(data.data[0], static_cast <uint8_t> (record::type_t::HANDSHAKE)) << pinned;
+		// Обвязка сообщения
+		handshake::header_t header;
+		// Разбираем обвязку
+		ASSERT_EQ(handshake::parse(view_t(data.data + 5, data.size - 5), header), handshake::error_t::NONE) << pinned;
+		// Приветствие клиента
+		ASSERT_EQ(header.type, handshake::type_t::CLIENT) << pinned;
+		// Разобранное приветствие
+		hello::client_t greeting;
+		// Разбираем приветствие
+		ASSERT_EQ(hello::parse(view_t(data.data + 5 + handshake::HANDSHAKE_HEADER, header.size), greeting), hello::error_t::NONE) << pinned;
+		// Расширение изданий
+		const hello::extension_t * versions = hello::extension(greeting.extensions, static_cast <uint16_t> (extension::type_t::VERSIONS));
+		// Закреплённый на 1.2 клиент расширения не кладёт, умолчательный кладёт
+		if(pinned == 1)
+			ASSERT_EQ(versions, nullptr);
+		else
+			ASSERT_NE(versions, nullptr);
+		// Заголовок приветствия несёт издание 1.2 в обоих случаях
+		ASSERT_EQ(greeting.version, static_cast <uint16_t> (0x0303)) << pinned;
+		// Связь всё равно встаёт
+		ASSERT_EQ(server.start(), context::error_t::NONE);
+		converse(client, server);
+		ASSERT_TRUE(client.established() && server.established()) << pinned << " " << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
+		ASSERT_EQ(client.version(), static_cast <uint16_t> (0x0303)) << pinned;
+	}
+}

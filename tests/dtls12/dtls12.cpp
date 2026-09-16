@@ -2686,16 +2686,8 @@ TEST(Dtls12Test, Loopback){
 			ASSERT_TRUE(greeting.cookie.empty());
 			// Издание заголовка приветствия DTLS 1.2
 			ASSERT_EQ(greeting.version, DTLS12);
-			// Расширение изданий
-			const hello::extension_t * versions = hello::extension(greeting.extensions, static_cast <uint16_t> (extension::type_t::VERSIONS));
-			// Проверяем наличие расширения
-			ASSERT_NE(versions, nullptr);
-			// Перечень изданий
-			vector <uint16_t> editions;
-			// Разбираем перечень
-			ASSERT_EQ(extension::versions(versions->data, editions), extension::error_t::NONE);
-			// Наборов издания 1.3 у связи нет: предлагается лишь DTLS 1.2
-			ASSERT_EQ(editions, vector <uint16_t> {DTLS12});
+			// Наборов издания 1.3 у связи нет: предлагается лишь DTLS 1.2, и расширение изданий не кладётся (решение 15 движка, как у openssl; LibreSSL 3.6.1 на нём обрывает связь)
+			ASSERT_EQ(hello::extension(greeting.extensions, static_cast <uint16_t> (extension::type_t::VERSIONS)), nullptr);
 			// Расширенный главный секрет предложен
 			ASSERT_NE(hello::extension(greeting.extensions, static_cast <uint16_t> (extension::type_t::MASTER)), nullptr);
 			// Случайное значение первого приветствия

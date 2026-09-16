@@ -93,6 +93,14 @@
  *    пору; последний залп сервера повторяется лишь по повтору завершения клиента. Билетов,
  *    SRTP, опознавателя связи и пересогласования у DTLS 1.2 нет.
  *
+ * 15. Расширение перечня изданий (supported_versions, раздел 4.2.1 RFC 8446) клиент кладёт в
+ *    приветствие лишь когда перечень несёт сведения сверх заголовка: предлагается издание 1.3
+ *    либо DTLS 1.0 наравне с 1.2 (BoringSSL кладёт 1.0 в перечень). При одном лишь издании 1.2
+ *    - versions(0x0303, 0x0303) - приветствие идёт без 0x002B, как у openssl: издание сервер
+ *    берёт из заголовка. Установлено
+ *    независимым щупом эталоном одной разницы: LibreSSL 3.6.1 в DTLS обрывает связь
+ *    protocol_version на самом расширении, а без него ведёт рукопожатие обычным ходом.
+ *
  * @copyright Copyright © 2026
  *
  */
@@ -3011,8 +3019,16 @@ context::error_t nts::internal::Engine::greeting() noexcept {
 		if(greased)
 			// Добавляем первое расширение GREASE
 			greeting.extensions.push_back(hello::extension_t(this->greasing(grease_t::FIRST), view_t(nullptr, 0)));
-		// Добавляем расширение перечня изданий протокола
-		greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::VERSIONS), view_t(versions.data(), versions.size())));
+		/**
+		 * Раздел 4.2.1 RFC 8446: расширение перечня изданий согласует издание 1.3; когда
+		 * предлагается одно лишь издание 1.2, сведений оно не несёт - издание сервер берёт из
+		 * заголовка приветствия, - и не кладётся, как у openssl (решение 15): LibreSSL 3.6.1
+		 * в DTLS обрывает связь protocol_version на самом расширении. Перечень с DTLS 1.0
+		 * сведения несёт - заголовок объявляет лишь 1.2 - и кладётся, как у BoringSSL
+		 */
+		if(modern || primeval)
+			// Добавляем расширение перечня изданий протокола
+			greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::VERSIONS), view_t(versions.data(), versions.size())));
 		// Добавляем расширение перечня кривых обмена ключами
 		greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::GROUPS), view_t(groups.data(), groups.size())));
 		// Добавляем расширение перечня схем подписи

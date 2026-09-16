@@ -516,6 +516,10 @@ namespace nts {
 				 *       DTLS 1.2 (RFC 6347), 0x0304 - DTLS 1.3 (RFC 9147); под QUIC связь знает одно
 				 *       издание 1.3. Коды провода DTLS на входе НЕ принимаются: versions(0xFEFD, 0xFEFD)
 				 *       отвечает SETTINGS - издание DTLS 1.2 закрепляется как versions(0x0303, 0x0303)
+				 *       . Когда предлагается одно лишь издание 1.2 (оба предела 0x0303), приветствие клиента
+				 *       идёт без расширения supported_versions, как у openssl: издание сервер берёт из
+				 *       заголовка приветствия (раздел 4.2.1 RFC 8446); с изданием 1.3 либо DTLS 1.0 в
+				 *       перечне расширение кладётся
 				 *
 				 * \~english
 				 * @brief Method of setting the limits of the edition of the protocol
@@ -533,6 +537,10 @@ namespace nts {
 				 *       (RFC 6347), 0x0304 - for DTLS 1.3 (RFC 9147); under QUIC the connection knows the 1.3
 				 *       edition alone. The DTLS wire codes are NOT accepted as input: versions(0xFEFD, 0xFEFD)
 				 *       answers SETTINGS - the DTLS 1.2 edition is pinned as versions(0x0303, 0x0303)
+				 *       . When the 1.2 edition alone is offered (both limits 0x0303), the greeting of the client
+				 *       goes without the supported_versions extension, like at openssl: the server takes the
+				 *       edition from the header of the greeting (the section 4.2.1 of RFC 8446); with the 1.3
+				 *       or the DTLS 1.0 edition in the list the extension is put
 				 *
 				 * \~
 				 */
