@@ -363,6 +363,10 @@ bool nts::internal::ticket::Keeper::ready() const noexcept {
  *
  */
 bool nts::internal::ticket::Keeper::stash(const view_t & secret) noexcept {
+	// Если укрытой памяти под ключи билетов нет
+	if(this->_keys == nullptr)
+		// Выводим отказ заведения ключа
+		return false;
 	// Место, в которое помещается ключ нового поколения
 	uint8_t fresh[TICKET_VAULT];
 	// Если ключ из секрета вывести не удалось
@@ -375,11 +379,11 @@ bool nts::internal::ticket::Keeper::stash(const view_t & secret) noexcept {
 	// Если нынешнее поколение заведено
 	if(this->_vaulted[0])
 		// Переносим нынешнее поколение в предыдущее
-		::memcpy(this->_vault[1], this->_vault[0], sizeof(this->_vault[1]));
+		::memcpy(this->_keys->vault[1], this->_keys->vault[0], sizeof(this->_keys->vault[1]));
 	// Отмечаем заведённость предыдущего поколения по нынешнему
 	this->_vaulted[1] = this->_vaulted[0];
 	// Переносим ключ нового поколения в нынешнее
-	::memcpy(this->_vault[0], fresh, sizeof(this->_vault[0]));
+	::memcpy(this->_keys->vault[0], fresh, sizeof(this->_keys->vault[0]));
 	// Отмечаем заведённость нынешнего поколения
 	this->_vaulted[0] = true;
 	// Выполняем затирание места ключа
@@ -402,7 +406,7 @@ nts::internal::ticket::error_t nts::internal::ticket::Keeper::mint(const state_t
 		// Выводим отказ отсутствия ключа
 		return error_t::VAULT;
 	// Ключ билетов нынешнего поколения: имя, ключ шифрования и ключ имитовставки
-	const uint8_t * vault = this->_vault[0];
+	const uint8_t * vault = this->_keys->vault[0];
 	// Объект составителя состояния билета: накопитель затирается им самим
 	field::builder_t builder;
 	// Если состояние в запись сложить не удалось
@@ -522,7 +526,7 @@ bool nts::internal::ticket::Keeper::redeem(const view_t & ticket, state_t & resu
 	 */
 	for(size_t i = 0; (i < 2) && (generation == 2); i++){
 		// Если поколение заведено и имя ключа сошлось
-		if(this->_vaulted[i] && (::memcmp(ticket.data, this->_vault[i], TICKET_NAME) == 0))
+		if(this->_vaulted[i] && (::memcmp(ticket.data, this->_keys->vault[i], TICKET_NAME) == 0))
 			// Запоминаем поколение
 			generation = i;
 	}
@@ -531,7 +535,7 @@ bool nts::internal::ticket::Keeper::redeem(const view_t & ticket, state_t & resu
 		// Выводим негодность билета
 		return false;
 	// Ключ билетов найденного поколения
-	const uint8_t * vault = this->_vault[generation];
+	const uint8_t * vault = this->_keys->vault[generation];
 	// Длина шифртекста по билету
 	const size_t length = ((static_cast <size_t> (ticket.data[TICKET_NAME + BLOCK]) << 8) | ticket.data[TICKET_NAME + BLOCK + 1]);
 	// Если длина шифртекста не сходится с билетом либо не кратна блоку
@@ -599,7 +603,7 @@ bool nts::internal::ticket::Keeper::redeem(const view_t & ticket, state_t & resu
  */
 void nts::internal::ticket::Keeper::clear() noexcept {
 	// Выполняем затирание ключей билетов
-	wipe(this->_vault, sizeof(this->_vault));
+	this->_shelter.wipe();
 	// Сбрасываем заведённость нынешнего поколения
 	this->_vaulted[0] = false;
 	// Сбрасываем заведённость предыдущего поколения
@@ -609,9 +613,11 @@ void nts::internal::ticket::Keeper::clear() noexcept {
  * @brief Конструктор
  *
  */
-nts::internal::ticket::Keeper::Keeper() noexcept {
-	// Выполняем обнуление ключей билетов
-	::memset(this->_vault, 0, sizeof(this->_vault));
+nts::internal::ticket::Keeper::Keeper() noexcept : _keys(nullptr) {
+	// Заводим участок укрытой памяти под ключи билетов; без него ключи не заводятся
+	if(this->_shelter.reserve(sizeof(keys_t)))
+		// Запоминаем ключи билетов
+		this->_keys = reinterpret_cast <keys_t *> (this->_shelter.data());
 	// Нынешнее поколение не заведено
 	this->_vaulted[0] = false;
 	// Предыдущее поколение не заведено

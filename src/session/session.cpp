@@ -484,16 +484,8 @@ stage_t nts::session::Secrets::stage() const noexcept {
  *
  */
 void nts::session::Secrets::clear() noexcept {
-	// Выполняем затирание значения расписания ключей текущей ступени
-	wipe(this->_secret, sizeof(this->_secret));
-	// Выполняем затирание значения направления связи от клиента
-	wipe(this->_client, sizeof(this->_client));
-	// Выполняем затирание значения направления связи от сервера
-	wipe(this->_server, sizeof(this->_server));
-	// Выполняем затирание значения возобновления связи
-	wipe(this->_resumption, sizeof(this->_resumption));
-	// Выполняем затирание значения упреждающих данных связи
-	wipe(this->_early, sizeof(this->_early));
+	// Выполняем затирание всех значений расписания ключей в укрытой памяти
+	this->_shelter.wipe();
 	// Сбрасываем хеш расписания ключей на хеш ветви ГОСТ
 	this->_algorithm = DEFAULT;
 	// Сбрасываем длину значения расписания ключей
@@ -510,6 +502,10 @@ void nts::session::Secrets::clear() noexcept {
  *
  */
 nts::session::error_t nts::session::Secrets::start(const view_t & secret) noexcept {
+	// Если укрытой памяти под значения расписания нет
+	if(this->_keys == nullptr)
+		// Выводим отказ состояния расписания
+		return error_t::STATE;
 	// Выводим итог заведения начальной ступени расписания «Стрибогом»-256
 	return this->start(DEFAULT, secret);
 }
@@ -523,6 +519,10 @@ nts::session::error_t nts::session::Secrets::start(const view_t & secret) noexce
  *
  */
 nts::session::error_t nts::session::Secrets::start(const digest::hash_t algorithm, const view_t & secret) noexcept {
+	// Если укрытой памяти под значения расписания нет
+	if(this->_keys == nullptr)
+		// Выводим отказ состояния расписания
+		return error_t::STATE;
 	// Выполняем сброс значений расписания ключей
 	this->clear();
 	// Получаем длину хеша расписания ключей
@@ -542,7 +542,7 @@ nts::session::error_t nts::session::Secrets::start(const digest::hash_t algorith
 	// Ключевой материал начальной ступени: заранее разделённый ключ либо нули
 	const view_t material = (((secret.data != nullptr) && (secret.size > 0)) ? secret : view_t(zeroes, length));
 	// Если начальное значение расписания извлечь не удалось
-	if(!schedule::extract(algorithm, view_t(zeroes, length), material, this->_secret)){
+	if(!schedule::extract(algorithm, view_t(zeroes, length), material, this->_keys->secret)){
 		// Выполняем сброс значений расписания ключей
 		this->clear();
 		// Выводим отказ заведения начальной ступени
@@ -563,6 +563,10 @@ nts::session::error_t nts::session::Secrets::start(const digest::hash_t algorith
  *
  */
 nts::session::error_t nts::session::Secrets::handshake(const view_t & shared, const view_t & transcript) noexcept {
+	// Если укрытой памяти под значения расписания нет
+	if(this->_keys == nullptr)
+		// Выводим отказ состояния расписания
+		return error_t::STATE;
 	// Если начальная ступень не пройдена
 	if(this->_stage != stage_t::EARLY)
 		// Выводим отказ вывода ступени рукопожатия
@@ -574,14 +578,14 @@ nts::session::error_t nts::session::Secrets::handshake(const view_t & shared, co
 	// Место, в которое помещается промежуточное значение
 	uint8_t derived[schedule::SCHEDULE_WIDEST];
 	// Если промежуточное значение вывести не удалось
-	if(!stepping(this->_algorithm, this->_secret, derived)){
+	if(!stepping(this->_algorithm, this->_keys->secret, derived)){
 		// Выполняем затирание промежуточного значения
 		wipe(derived, sizeof(derived));
 		// Выводим отказ вывода ступени рукопожатия
 		return error_t::SCHEDULE;
 	}
 	// Если значение ступени рукопожатия извлечь не удалось
-	if(!schedule::extract(this->_algorithm, view_t(derived, this->_length), shared, this->_secret)){
+	if(!schedule::extract(this->_algorithm, view_t(derived, this->_length), shared, this->_keys->secret)){
 		// Выполняем затирание промежуточного значения
 		wipe(derived, sizeof(derived));
 		// Выводим отказ вывода ступени рукопожатия
@@ -590,11 +594,11 @@ nts::session::error_t nts::session::Secrets::handshake(const view_t & shared, co
 	// Выполняем затирание промежуточного значения
 	wipe(derived, sizeof(derived));
 	// Если значение направления связи от клиента вывести не удалось
-	if(!schedule::secret(this->_algorithm, view_t(this->_secret, this->_length), ::label(CLIENT_HANDSHAKE), transcript, this->_client))
+	if(!schedule::secret(this->_algorithm, view_t(this->_keys->secret, this->_length), ::label(CLIENT_HANDSHAKE), transcript, this->_keys->client))
 		// Выводим отказ вывода ступени рукопожатия
 		return error_t::SCHEDULE;
 	// Если значение направления связи от сервера вывести не удалось
-	if(!schedule::secret(this->_algorithm, view_t(this->_secret, this->_length), ::label(SERVER_HANDSHAKE), transcript, this->_server))
+	if(!schedule::secret(this->_algorithm, view_t(this->_keys->secret, this->_length), ::label(SERVER_HANDSHAKE), transcript, this->_keys->server))
 		// Выводим отказ вывода ступени рукопожатия
 		return error_t::SCHEDULE;
 	// Отмечаем прохождение ступени рукопожатия
@@ -611,6 +615,10 @@ nts::session::error_t nts::session::Secrets::handshake(const view_t & shared, co
  *
  */
 nts::session::error_t nts::session::Secrets::application(const view_t & transcript) noexcept {
+	// Если укрытой памяти под значения расписания нет
+	if(this->_keys == nullptr)
+		// Выводим отказ состояния расписания
+		return error_t::STATE;
 	// Если ступень рукопожатия не пройдена
 	if(this->_stage != stage_t::HANDSHAKE)
 		// Выводим отказ вывода ступени прикладных данных
@@ -622,7 +630,7 @@ nts::session::error_t nts::session::Secrets::application(const view_t & transcri
 	// Место, в которое помещается промежуточное значение
 	uint8_t derived[schedule::SCHEDULE_WIDEST];
 	// Если промежуточное значение вывести не удалось
-	if(!stepping(this->_algorithm, this->_secret, derived)){
+	if(!stepping(this->_algorithm, this->_keys->secret, derived)){
 		// Выполняем затирание промежуточного значения
 		wipe(derived, sizeof(derived));
 		// Выводим отказ вывода ступени прикладных данных
@@ -633,7 +641,7 @@ nts::session::error_t nts::session::Secrets::application(const view_t & transcri
 	// Обнуляем строку нулей
 	::memset(zeroes, 0, sizeof(zeroes));
 	// Если значение ступени прикладных данных извлечь не удалось
-	if(!schedule::extract(this->_algorithm, view_t(derived, this->_length), view_t(zeroes, this->_length), this->_secret)){
+	if(!schedule::extract(this->_algorithm, view_t(derived, this->_length), view_t(zeroes, this->_length), this->_keys->secret)){
 		// Выполняем затирание промежуточного значения
 		wipe(derived, sizeof(derived));
 		// Выводим отказ вывода ступени прикладных данных
@@ -642,11 +650,11 @@ nts::session::error_t nts::session::Secrets::application(const view_t & transcri
 	// Выполняем затирание промежуточного значения
 	wipe(derived, sizeof(derived));
 	// Если значение направления связи от клиента вывести не удалось
-	if(!schedule::secret(this->_algorithm, view_t(this->_secret, this->_length), ::label(CLIENT_APPLICATION), transcript, this->_client))
+	if(!schedule::secret(this->_algorithm, view_t(this->_keys->secret, this->_length), ::label(CLIENT_APPLICATION), transcript, this->_keys->client))
 		// Выводим отказ вывода ступени прикладных данных
 		return error_t::SCHEDULE;
 	// Если значение направления связи от сервера вывести не удалось
-	if(!schedule::secret(this->_algorithm, view_t(this->_secret, this->_length), ::label(SERVER_APPLICATION), transcript, this->_server))
+	if(!schedule::secret(this->_algorithm, view_t(this->_keys->secret, this->_length), ::label(SERVER_APPLICATION), transcript, this->_keys->server))
 		// Выводим отказ вывода ступени прикладных данных
 		return error_t::SCHEDULE;
 	// Отмечаем прохождение ступени прикладных данных
@@ -664,6 +672,10 @@ nts::session::error_t nts::session::Secrets::application(const view_t & transcri
  *
  */
 nts::session::error_t nts::session::Secrets::traffic(const side_t side, uint8_t * result) const noexcept {
+	// Если укрытой памяти под значения расписания нет
+	if(this->_keys == nullptr)
+		// Выводим отказ состояния расписания
+		return error_t::STATE;
 	// Если ступень рукопожатия ещё не пройдена
 	if((this->_stage != stage_t::HANDSHAKE) && (this->_stage != stage_t::APPLICATION))
 		// Выводим отказ получения значения направления связи
@@ -673,7 +685,7 @@ nts::session::error_t nts::session::Secrets::traffic(const side_t side, uint8_t 
 		// Выводим отказ получения значения направления связи
 		return error_t::EMPTY;
 	// Переносим значение направления связи запрошенной стороны
-	::memcpy(result, ((side == side_t::CLIENT) ? this->_client : this->_server), this->_length);
+	::memcpy(result, ((side == side_t::CLIENT) ? this->_keys->client : this->_keys->server), this->_length);
 	// Выводим успешность получения значения направления связи
 	return error_t::NONE;
 }
@@ -726,6 +738,10 @@ nts::session::error_t nts::session::material(const view_t & traffic, const prote
  *
  */
 nts::session::error_t nts::session::Secrets::material(const side_t side, const protect::suite_t suite, uint8_t * key, uint8_t * vector) const noexcept {
+	// Если укрытой памяти под значения расписания нет
+	if(this->_keys == nullptr)
+		// Выводим отказ состояния расписания
+		return error_t::STATE;
 	// Место, в которое помещается значение направления связи
 	uint8_t traffic[schedule::SCHEDULE_WIDEST];
 	// Выполняем получение значения направления связи
@@ -760,6 +776,10 @@ nts::session::error_t nts::session::Secrets::material(const side_t side, const p
  *
  */
 nts::session::error_t nts::session::Secrets::early(const view_t & transcript) noexcept {
+	// Если укрытой памяти под значения расписания нет
+	if(this->_keys == nullptr)
+		// Выводим отказ состояния расписания
+		return error_t::STATE;
 	// Если начальная ступень не пройдена
 	if(this->_stage != stage_t::EARLY)
 		// Выводим отказ вывода значения упреждающих данных
@@ -769,7 +789,7 @@ nts::session::error_t nts::session::Secrets::early(const view_t & transcript) no
 		// Выводим отказ вывода значения упреждающих данных
 		return error_t::EMPTY;
 	// Если значение упреждающих данных вывести не удалось
-	if(!schedule::secret(this->_algorithm, view_t(this->_secret, this->_length), ::label(EARLY), transcript, this->_early))
+	if(!schedule::secret(this->_algorithm, view_t(this->_keys->secret, this->_length), ::label(EARLY), transcript, this->_keys->early))
 		// Выводим отказ вывода значения упреждающих данных
 		return error_t::SCHEDULE;
 	// Выводим успешность вывода значения упреждающих данных
@@ -784,6 +804,10 @@ nts::session::error_t nts::session::Secrets::early(const view_t & transcript) no
  *
  */
 nts::session::error_t nts::session::Secrets::early(uint8_t * result) const noexcept {
+	// Если укрытой памяти под значения расписания нет
+	if(this->_keys == nullptr)
+		// Выводим отказ состояния расписания
+		return error_t::STATE;
 	// Если место для значения упреждающих данных не передано
 	if(result == nullptr)
 		// Выводим отказ получения значения упреждающих данных
@@ -793,7 +817,7 @@ nts::session::error_t nts::session::Secrets::early(uint8_t * result) const noexc
 		// Выводим отказ получения значения упреждающих данных
 		return error_t::STATE;
 	// Переносим значение упреждающих данных связи
-	::memcpy(result, this->_early, this->_length);
+	::memcpy(result, this->_keys->early, this->_length);
 	// Выводим успешность получения значения упреждающих данных
 	return error_t::NONE;
 }
@@ -807,6 +831,10 @@ nts::session::error_t nts::session::Secrets::early(uint8_t * result) const noexc
  *
  */
 nts::session::error_t nts::session::Secrets::finished(const side_t side, uint8_t * result) const noexcept {
+	// Если укрытой памяти под значения расписания нет
+	if(this->_keys == nullptr)
+		// Выводим отказ состояния расписания
+		return error_t::STATE;
 	// Место, в которое помещается значение направления связи
 	uint8_t traffic[schedule::SCHEDULE_WIDEST];
 	// Выполняем получение значения направления связи
@@ -838,6 +866,10 @@ nts::session::error_t nts::session::Secrets::finished(const side_t side, uint8_t
  *
  */
 nts::session::error_t nts::session::Secrets::resumption(const view_t & transcript) noexcept {
+	// Если укрытой памяти под значения расписания нет
+	if(this->_keys == nullptr)
+		// Выводим отказ состояния расписания
+		return error_t::STATE;
 	// Если ступень прикладных данных не пройдена
 	if(this->_stage != stage_t::APPLICATION)
 		// Выводим отказ вывода значения возобновления связи
@@ -847,7 +879,7 @@ nts::session::error_t nts::session::Secrets::resumption(const view_t & transcrip
 		// Выводим отказ вывода значения возобновления связи
 		return error_t::EMPTY;
 	// Если значение возобновления связи вывести не удалось
-	if(!schedule::secret(this->_algorithm, view_t(this->_secret, this->_length), ::label(RESUMPTION), transcript, this->_resumption))
+	if(!schedule::secret(this->_algorithm, view_t(this->_keys->secret, this->_length), ::label(RESUMPTION), transcript, this->_keys->resumption))
 		// Выводим отказ вывода значения возобновления связи
 		return error_t::SCHEDULE;
 	// Выводим успешность вывода значения возобновления связи
@@ -863,6 +895,10 @@ nts::session::error_t nts::session::Secrets::resumption(const view_t & transcrip
  *
  */
 nts::session::error_t nts::session::Secrets::ticket(const view_t & nonce, uint8_t * result) const noexcept {
+	// Если укрытой памяти под значения расписания нет
+	if(this->_keys == nullptr)
+		// Выводим отказ состояния расписания
+		return error_t::STATE;
 	// Если ступень прикладных данных не пройдена
 	if(this->_stage != stage_t::APPLICATION)
 		// Выводим отказ вывода заранее разделённого ключа
@@ -872,7 +908,7 @@ nts::session::error_t nts::session::Secrets::ticket(const view_t & nonce, uint8_
 		// Выводим отказ вывода заранее разделённого ключа
 		return error_t::EMPTY;
 	// Если заранее разделённый ключ билета вывести не удалось
-	if(!schedule::derive(this->_algorithm, view_t(this->_resumption, this->_length), ::label(TICKET), nonce, result, this->_length))
+	if(!schedule::derive(this->_algorithm, view_t(this->_keys->resumption, this->_length), ::label(TICKET), nonce, result, this->_length))
 		// Выводим отказ вывода заранее разделённого ключа
 		return error_t::SCHEDULE;
 	// Выводим успешность вывода заранее разделённого ключа
@@ -888,6 +924,10 @@ nts::session::error_t nts::session::Secrets::ticket(const view_t & nonce, uint8_
  *
  */
 nts::session::error_t nts::session::Secrets::binder(const view_t & transcript, uint8_t * result) const noexcept {
+	// Если укрытой памяти под значения расписания нет
+	if(this->_keys == nullptr)
+		// Выводим отказ состояния расписания
+		return error_t::STATE;
 	// Если начальная ступень не пройдена
 	if(this->_stage != stage_t::EARLY)
 		// Выводим отказ выработки привязки
@@ -905,7 +945,7 @@ nts::session::error_t nts::session::Secrets::binder(const view_t & transcript, u
 	// Место, в которое помещается значение привязки
 	uint8_t secret[schedule::SCHEDULE_WIDEST];
 	// Если значение привязки вывести не удалось
-	if(!schedule::secret(this->_algorithm, view_t(this->_secret, this->_length), ::label(BINDER), view_t(empty, this->_length), secret)){
+	if(!schedule::secret(this->_algorithm, view_t(this->_keys->secret, this->_length), ::label(BINDER), view_t(empty, this->_length), secret)){
 		// Выполняем затирание значения привязки
 		wipe(secret, sizeof(secret));
 		// Выводим отказ выработки привязки
@@ -940,12 +980,16 @@ nts::session::error_t nts::session::Secrets::binder(const view_t & transcript, u
  *
  */
 nts::session::error_t nts::session::Secrets::renew(const side_t side) noexcept {
+	// Если укрытой памяти под значения расписания нет
+	if(this->_keys == nullptr)
+		// Выводим отказ состояния расписания
+		return error_t::STATE;
 	// Если ступень прикладных данных не пройдена
 	if(this->_stage != stage_t::APPLICATION)
 		// Выводим отказ смены значения направления связи
 		return error_t::STATE;
 	// Сменяемое значение направления связи
-	uint8_t * traffic = ((side == side_t::CLIENT) ? this->_client : this->_server);
+	uint8_t * traffic = ((side == side_t::CLIENT) ? this->_keys->client : this->_keys->server);
 	// Место, в которое помещается новое значение направления связи
 	uint8_t result[schedule::SCHEDULE_WIDEST];
 	// Если новое значение направления связи вывести не удалось
@@ -966,17 +1010,14 @@ nts::session::error_t nts::session::Secrets::renew(const side_t side) noexcept {
  * @brief Конструктор
  *
  */
-nts::session::Secrets::Secrets() noexcept : _stage(stage_t::NONE), _algorithm(DEFAULT), _length(digest::length(DEFAULT)) {
-	// Обнуляем значение расписания ключей текущей ступени
-	::memset(this->_secret, 0, sizeof(this->_secret));
-	// Обнуляем значение направления связи от клиента
-	::memset(this->_client, 0, sizeof(this->_client));
-	// Обнуляем значение направления связи от сервера
-	::memset(this->_server, 0, sizeof(this->_server));
-	// Обнуляем значение возобновления связи
-	::memset(this->_resumption, 0, sizeof(this->_resumption));
-	// Обнуляем значение упреждающих данных связи
-	::memset(this->_early, 0, sizeof(this->_early));
+nts::session::Secrets::Secrets() noexcept : _stage(stage_t::NONE), _algorithm(DEFAULT), _length(digest::length(DEFAULT)), _keys(nullptr) {
+	/**
+	 * Заводим участок укрытой памяти под значения расписания; без участка расписание
+	 * вести нечем, и всякая ступень отвечает отказом состояния
+	 */
+	if(this->_shelter.reserve(sizeof(keys_t)))
+		// Запоминаем значения расписания ключей
+		this->_keys = reinterpret_cast <keys_t *> (this->_shelter.data());
 }
 /**
  * @brief Деструктор

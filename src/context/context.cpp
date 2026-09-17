@@ -130,7 +130,9 @@ nts::context::Ticket::Ticket() noexcept :
  */
 nts::context::Psk::~Psk() noexcept {
 	// Выполняем затирание ключа: в освобождённой памяти ему не место
-	sys::wipe(this->key);
+	sys::wipe(this->key.data(), this->key.size());
+	// Опустошаем ключ
+	this->key.clear();
 }
 /**
  * @brief Конструктор копирования билета

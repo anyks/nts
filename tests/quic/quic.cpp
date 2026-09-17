@@ -1101,7 +1101,7 @@ TEST(QuicTest, Ticket){
 	// Устанавливаем тело билета
 	ticket.identity = decode("00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff");
 	// Устанавливаем ключ билета длиною в SHA-384
-	ticket.secret = decode(rfc8448::S3_RESUMPTION);
+	{ const vector <uint8_t> secret = decode(rfc8448::S3_RESUMPTION); ticket.secret.assign(secret.begin(), secret.end()); }
 	// Добавляем ключу байтов до длины SHA-384
 	ticket.secret.insert(ticket.secret.end(), ticket.secret.begin(), ticket.secret.begin() + 16);
 	// Устанавливаем параметры переноса собеседника
@@ -1486,7 +1486,7 @@ TEST(QuicTest, Starved){
 	// Устанавливаем тело билета
 	ticket.identity = decode("00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff");
 	// Устанавливаем ключ билета
-	ticket.secret = decode(rfc8448::S3_RESUMPTION);
+	{ const vector <uint8_t> secret = decode(rfc8448::S3_RESUMPTION); ticket.secret.assign(secret.begin(), secret.end()); }
 	// Устанавливаем параметры переноса
 	ticket.parameters = SERVER_PARAMETERS;
 	// Признак нехватки памяти кодека

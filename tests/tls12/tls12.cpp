@@ -1557,9 +1557,10 @@ TEST(Tls12Test, Downgrade){
 }
 
 /**
- * Проверка обязательности расширенного главного секрета (RFC 7627): чужой клиент без
- * расширения отвергается извещением handshake_failure, с расширением - принимается до
- * конца приветствия сервера
+ * Расширенный главный секрет (RFC 7627, решение 16 движка): умолчанием чужой клиент без
+ * расширения принимается и ведётся обычным главным секретом, как у openssl; с расширением -
+ * принимается и подтверждается; обязательный (master(true)) сервер клиента без расширения
+ * отвергает извещением handshake_failure, с расширением - принимает
  */
 TEST(Tls12Test, Master){
 	// Подлинность сервера
@@ -1567,35 +1568,59 @@ TEST(Tls12Test, Master){
 	// Составляем подлинность
 	ASSERT_TRUE(identity("ec256", credential));
 	/**
-	 * Выполняем перебор: без расширения и с расширением
+	 * Выполняем перебор: расширение есть либо нет, обязательность выключена либо включена
 	 */
-	for(size_t item = 0; item < 2; item++){
+	for(size_t item = 0; item < 4; item++){
+		// Признак того, что клиент предлагает расширение
+		const bool offered = ((item % 2) == 1);
+		// Признак обязательности расширения у сервера
+		const bool mandatory = (item >= 2);
 		// Связь стороны сервера
 		server::context_t server;
 		// Подлинность сервера
 		server.credential(credential);
+		// Умолчанием расширение не обязательно
+		ASSERT_FALSE(server.master()) << item;
+		// Устанавливаем обязательность
+		server.master(mandatory);
+		// Обязательность установлена
+		ASSERT_EQ(server.master(), mandatory) << item;
 		// Заводим сервер
-		ASSERT_EQ(server.start(), context::error_t::NONE);
+		ASSERT_EQ(server.start(), context::error_t::NONE) << item;
 		// Запись приветствия чужого клиента
 		vector <uint8_t> wire;
 		// Составляем приветствие руками
-		ASSERT_TRUE(greeting(item == 1, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, wire, false, extension::group_t::SECP256R1));
+		ASSERT_TRUE(greeting(offered, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, wire, false, extension::group_t::SECP256R1)) << item;
 		// Подаём приветствие серверу
 		server.push(view_t(wire.data(), wire.size()));
-		// Если расширения нет
-		if(item == 0){
+		// Если расширения нет, а оно обязательно
+		if(!offered && mandatory){
 			// Сервер оборвал связь отсутствием расширенного главного секрета
-			ASSERT_EQ(server.error(), context::error_t::MASTER);
+			ASSERT_EQ(server.error(), context::error_t::MASTER) << item;
 			// Извещение handshake_failure
-			ASSERT_EQ(server.alert().description, alert::description_t::HANDSHAKE);
-		// Если расширение есть
+			ASSERT_EQ(server.alert().description, alert::description_t::HANDSHAKE) << item;
+		// Иначе связь ведётся
 		} else {
 			// Сервер ответил без отказа
-			ASSERT_EQ(server.error(), context::error_t::NONE);
+			ASSERT_EQ(server.error(), context::error_t::NONE) << item;
 			// Издание 1.2 согласовано
-			ASSERT_EQ(server.version(), static_cast <uint16_t> (0x0303));
+			ASSERT_EQ(server.version(), static_cast <uint16_t> (0x0303)) << item;
 			// Сервер выслал приветствие, цепочку, обмен и конец приветствия
-			ASSERT_GT(server.output().size, static_cast <size_t> (100));
+			ASSERT_GT(server.output().size, static_cast <size_t> (100)) << item;
+			// Приветствие сервера: запись, обвязка, тело
+			const view_t data = server.output();
+			// Обвязка сообщения
+			handshake::header_t header;
+			// Разбираем обвязку первого сообщения
+			ASSERT_EQ(handshake::parse(view_t(data.data + 5, data.size - 5), header), handshake::error_t::NONE) << item;
+			// Приветствие сервера
+			ASSERT_EQ(header.type, handshake::type_t::SERVER) << item;
+			// Разобранное приветствие сервера
+			hello::server_t answer;
+			// Разбираем приветствие
+			ASSERT_EQ(hello::parse(view_t(data.data + 5 + handshake::HANDSHAKE_HEADER, header.size), answer), hello::error_t::NONE) << item;
+			// Раздел 5.2 RFC 7627: сервер подтверждает расширение лишь предложившему его клиенту
+			ASSERT_EQ((hello::extension(answer.extensions, static_cast <uint16_t> (extension::type_t::MASTER)) != nullptr), offered) << item;
 		}
 	}
 }
@@ -1857,8 +1882,8 @@ TEST(Tls12Test, Openssl){
 	}
 	// Если openssl без расширенного главного секрета
 	if(!toolkit.master){
-		// Пропускаем проверку вслух: связь без RFC 7627 не ведётся намеренно (отказ MASTER)
-		GTEST_SKIP() << "s_client не предлагает extended_master_secret (RFC 7627; нет у OpenSSL 1.0.2 и у LibreSSL): связь без него не ведётся намеренно";
+		// Пропускаем проверку вслух: сличение с расширенным главным секретом эталон не ведёт (без него связь ведётся умолчанием по решению 16, пин - MasterInterop)
+		GTEST_SKIP() << "openssl не ведёт extended_master_secret (RFC 7627; нет у OpenSSL 1.0.2 и у LibreSSL): сличение с ним пропущено";
 	}
 	/**
 	 * Выполняем перебор наборов шифрования: наш клиент против s_server
@@ -2455,8 +2480,8 @@ TEST(Tls12Test, Renegotiation){
 	}
 	// Если openssl без расширенного главного секрета
 	if(!toolkit.master){
-		// Пропускаем проверку вслух: связь без RFC 7627 не ведётся намеренно (отказ MASTER)
-		GTEST_SKIP() << "s_client не предлагает extended_master_secret (RFC 7627; нет у OpenSSL 1.0.2 и у LibreSSL): связь без него не ведётся намеренно";
+		// Пропускаем проверку вслух: сличение с расширенным главным секретом эталон не ведёт (без него связь ведётся умолчанием по решению 16, пин - MasterInterop)
+		GTEST_SKIP() << "openssl не ведёт extended_master_secret (RFC 7627; нет у OpenSSL 1.0.2 и у LibreSSL): сличение с ним пропущено";
 	}
 	// Подлинность стороны
 	context::credential_t credential;
@@ -3696,6 +3721,10 @@ TEST(Tls12Test, VectorServer){
 				if(SCENARIOS[s].mutual)
 					// Требуем сертификат клиента
 					server.request(true);
+				// Сценарий без расширенного главного секрета гоняется строгим сервером: умолчанием (решение 16) он принят бы был, отказ пинуется обязательностью
+				if(!SCENARIOS[s].master)
+					// Требуем расширенный главный секрет
+					server.master(true);
 				// Заводим связь
 				ASSERT_EQ(server.start(), context::error_t::NONE) << path;
 				// Подаём записанный ClientHello как запись по проводу
@@ -4440,7 +4469,7 @@ namespace {
 		// Опознаватель
 		yours.identity = ours.identity;
 		// Ключ
-		yours.key = ours.key;
+		yours.key.assign(ours.key.begin(), ours.key.end());
 		// Вызов по подсказке
 		yours.advise = advising;
 		// Связка
@@ -4990,11 +5019,11 @@ TEST(Tls12Test, Preshared){
 		// Опознаватель сервера
 		theirs.identity = decode("616e796b73");
 		// Ключ сервера
-		theirs.key = secret;
+		theirs.key.assign(secret.begin(), secret.end());
 		// Опознаватель клиента
 		ours.identity = theirs.identity;
 		// Ключ клиента
-		ours.key = secret;
+		ours.key.assign(secret.begin(), secret.end());
 		// Связь клиента
 		client::context_t client;
 		// Связь сервера
@@ -5050,7 +5079,7 @@ TEST(Tls12Test, Preshared){
 		// Основной опознаватель сервера
 		theirs.identity = decode("616e796b73");
 		// Ключ
-		theirs.key = secret;
+		theirs.key.assign(secret.begin(), secret.end());
 		// Запасной опознаватель сервера
 		theirs.alternative = decode("6f74686572");
 		// Запасной ключ
@@ -5058,7 +5087,7 @@ TEST(Tls12Test, Preshared){
 		// Клиент настроен основным
 		ours.identity = theirs.identity;
 		// Ключ основной
-		ours.key = secret;
+		ours.key.assign(secret.begin(), secret.end());
 		// Запасные клиента
 		ours.alternative = theirs.alternative;
 		// Запасной ключ
@@ -5090,11 +5119,11 @@ TEST(Tls12Test, Preshared){
 		// Опознаватель
 		theirs.identity = decode("616e796b73");
 		// Ключ
-		theirs.key = secret;
+		theirs.key.assign(secret.begin(), secret.end());
 		// Клиент
 		ours.identity = theirs.identity;
 		// Ключ
-		ours.key = secret;
+		ours.key.assign(secret.begin(), secret.end());
 		// Связь клиента
 		client::context_t client;
 		// Связь сервера
@@ -5138,7 +5167,7 @@ TEST(Tls12Test, Preshared){
 		// Опознаватель
 		theirs.identity = decode("616e796b73");
 		// Ключ сервера
-		theirs.key = secret;
+		theirs.key.assign(secret.begin(), secret.end());
 		// Клиент
 		ours.identity = theirs.identity;
 		// Ключ клиента иной
@@ -5183,11 +5212,11 @@ TEST(Tls12Test, Preshared){
 		// Опознаватель сервера
 		theirs.identity = decode("616e796b73");
 		// Ключ
-		theirs.key = secret;
+		theirs.key.assign(secret.begin(), secret.end());
 		// Клиент с неизвестным опознавателем
 		ours.identity = decode("756e6b6e6f776e");
 		// Ключ
-		ours.key = secret;
+		ours.key.assign(secret.begin(), secret.end());
 		// Связь клиента
 		client::context_t client;
 		// Связь сервера
@@ -5252,7 +5281,7 @@ TEST(Tls12Test, Preshared){
 		// Опознаватель
 		theirs.identity = decode("616e796b73");
 		// Ключ
-		theirs.key = secret;
+		theirs.key.assign(secret.begin(), secret.end());
 		// Клиент без ключа с наборами PSK и ECDHE
 		client::context_t client;
 		// Сервер с вызовом и сертификатом
@@ -5292,7 +5321,7 @@ TEST(Tls12Test, Preshared){
 		// Опознаватель
 		yours.identity = theirs.identity;
 		// Ключ
-		yours.key = secret;
+		yours.key.assign(secret.begin(), secret.end());
 		// Устанавливаем
 		again.psk(yours);
 		// Наборы: PSK впереди
@@ -5328,7 +5357,7 @@ TEST(Tls12Test, Preshared){
 		// Опознаватель в 129 байтов
 		broad.identity.assign(129, 0x41);
 		// Ключ
-		broad.key = secret;
+		broad.key.assign(secret.begin(), secret.end());
 		// Устанавливаем
 		wide.psk(broad);
 		// Отказ настроек
@@ -5366,8 +5395,8 @@ TEST(Tls12Test, PresharedCallbackThrows){
 	// Сценарий A: respond сервера бросает чужое исключение (путь exchanged())
 	{
 		keyring_t theirs, ours;
-		theirs.identity = decode("616e796b73"); theirs.key = secret;
-		ours.identity = theirs.identity; ours.key = secret;
+		theirs.identity = decode("616e796b73"); theirs.key.assign(secret.begin(), secret.end());
+		ours.identity = theirs.identity; ours.key.assign(secret.begin(), secret.end());
 		client::context_t client;
 		server::context_t server;
 		presharing(client, server, protect::suite_t::PSK_AES_128_CBC_SHA, theirs, ours, "anyks-hint");
@@ -5393,15 +5422,15 @@ TEST(Tls12Test, PresharedCallbackThrows){
 	// Сценарий B: advise клиента бросает чужое исключение (путь agreed())
 	{
 		keyring_t theirs, ours;
-		theirs.identity = decode("616e796b73"); theirs.key = secret;
-		ours.identity = theirs.identity; ours.key = secret;
+		theirs.identity = decode("616e796b73"); theirs.key.assign(secret.begin(), secret.end());
+		ours.identity = theirs.identity; ours.key.assign(secret.begin(), secret.end());
 		client::context_t client;
 		server::context_t server;
 		presharing(client, server, protect::suite_t::PSK_AES_128_CBC_SHA, theirs, ours, "anyks-hint");
 		// Переустанавливаем advise клиента на бросающий
 		context::psk_t yours;
 		yours.identity = ours.identity;
-		yours.key = ours.key;
+		yours.key.assign(ours.key.begin(), ours.key.end());
 		yours.advise = [](const view_t &, vector <uint8_t> &, vector <uint8_t> &, void *) -> bool { throw 42; };
 		client.psk(yours);
 		client.versions(0x0303, 0x0303);
@@ -5783,7 +5812,7 @@ TEST(Tls12Test, Interop){
 			// Опознаватель
 			yours.identity = decode("616e796b73");
 			// Ключ
-			yours.key = secret;
+			yours.key.assign(secret.begin(), secret.end());
 			// Вызов по подсказке
 			yours.advise = advising;
 			// Связка
@@ -5891,7 +5920,7 @@ TEST(Tls12Test, Interop){
 			// Опознаватель
 			theirs.identity = decode("616e796b73");
 			// Ключ
-			theirs.key = secret;
+			theirs.key.assign(secret.begin(), secret.end());
 			// Настройки
 			context::psk_t mine;
 			// Вызов
@@ -6021,7 +6050,7 @@ TEST(Tls12Test, Interop){
 		// Опознаватель
 		theirs.identity = decode("616e796b73");
 		// Ключ
-		theirs.key = secret;
+		theirs.key.assign(secret.begin(), secret.end());
 		// Настройки
 		context::psk_t mine;
 		// Вызов
@@ -6369,7 +6398,7 @@ TEST(Tls12Test, VectorSecond){
 				// Опознаватель
 				theirs.identity = decode("616e796b73");
 				// Ключ
-				theirs.key = secret;
+				theirs.key.assign(secret.begin(), secret.end());
 				// Настройки
 				context::psk_t mine;
 				// Вызов
@@ -6783,11 +6812,11 @@ TEST(Tls12Test, StarvedSecond){
 				// Опознаватель
 				theirs.identity = decode("616e796b73");
 				// Ключ
-				theirs.key = secret;
+				theirs.key.assign(secret.begin(), secret.end());
 				// Клиент
 				ours.identity = theirs.identity;
 				// Ключ
-				ours.key = secret;
+				ours.key.assign(secret.begin(), secret.end());
 				// Настраиваем
 				presharing(client, server, protect::suite_t::ECDHE_PSK_AES_128_CBC_SHA, theirs, ours, "anyks-hint");
 			// Если путь билета
@@ -7534,7 +7563,7 @@ TEST(Tls12Test, Nameless){
 		// Связка клиента
 		keyring_t ours;
 		// Ключ сервера по пустому опознавателю
-		theirs.key = secret;
+		theirs.key.assign(secret.begin(), secret.end());
 		// Если пустой опознаватель выбирается по подсказке
 		if(path == 1){
 			// Опознаватель клиента настройкой непуст
@@ -7548,7 +7577,7 @@ TEST(Tls12Test, Nameless){
 		// Если пустой опознаватель задан настройкой
 		} else
 			// Ключ клиента
-			ours.key = secret;
+			ours.key.assign(secret.begin(), secret.end());
 		// Связь клиента
 		client::context_t client;
 		// Связь сервера
@@ -7576,7 +7605,7 @@ TEST(Tls12Test, Nameless){
 		// Опознаватель
 		ours.identity = decode("616e796b73");
 		// Ключ
-		ours.key = secret;
+		ours.key.assign(secret.begin(), secret.end());
 		// Связь клиента
 		client::context_t client;
 		// Связь сервера
@@ -7596,7 +7625,7 @@ TEST(Tls12Test, Nameless){
 		// Опознаватель
 		yours.identity = ours.identity;
 		// Ключ
-		yours.key = ours.key;
+		yours.key.assign(ours.key.begin(), ours.key.end());
 		// Устанавливаем
 		client.psk(yours);
 		// Издание 1.2
@@ -7674,5 +7703,184 @@ TEST(Tls12Test, VersionsOmitted){
 		converse(client, server);
 		ASSERT_TRUE(client.established() && server.established()) << pinned << " " << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 		ASSERT_EQ(client.version(), static_cast <uint16_t> (0x0303)) << pinned;
+	}
+}
+
+/**
+ * Расширенный главный секрет против настоящего openssl (решение 16 движка): s_server -no_ems
+ * против нашего клиента и s_client -no_ems против нашего сервера - умолчанием связь встаёт
+ * обычным главным секретом, обязательный (master(true)) обрывает её отказом MASTER
+ */
+TEST(Tls12Test, MasterInterop){
+	// Способности системного openssl
+	const toolkit_t toolkit = inspect();
+	// Если openssl недоступен
+	if(!toolkit.present){
+		// Пропускаем проверку вслух
+		GTEST_SKIP() << "openssl недоступен";
+	}
+	// Если openssl без TLS 1.2 либо без ключа -no_ems
+	// Умение -no_ems судится кодом возврата разбора доводов: -help у openssl отвечает нулём, неизвестный довод - единицей (shell() дописывает </dev/null, потому не по выводу)
+	if(!toolkit.tls12 || (shell("openssl s_client -no_ems -help >/dev/null 2>&1") != 0)){
+		// Пропускаем проверку вслух
+		GTEST_SKIP() << "openssl без TLS 1.2 либо без -no_ems";
+	}
+	// Подлинность стороны
+	context::credential_t credential;
+	// Составляем подлинность
+	ASSERT_TRUE(identity("ec256", credential));
+	// Пути к сертификату и ключу
+	const std::string crt = std::string(CORPUS) + "/ec256.crt", key = std::string(CORPUS) + "/ec256.pem";
+	// Группа обмена
+	const extension::group_t group = (toolkit.x25519 ? extension::group_t::X25519 : extension::group_t::SECP256R1);
+	/**
+	 * Наш клиент против s_server -no_ems: умолчанием связь, обязательным - отказ MASTER
+	 */
+	for(size_t mandatory = 0; mandatory < 2; mandatory++){
+		// Свободный порт
+		const uint16_t number = vacant(false);
+		// Проверяем наличие порта
+		ASSERT_NE(number, 0);
+		// Журнал сервера openssl
+		const std::string log = "/tmp/ants-tls12-noems-server-" + std::to_string(number) + ".log";
+		// Запускаем сервер openssl без расширенного главного секрета
+		ASSERT_TRUE(launch("openssl s_server" + accepting(toolkit, number) + " -tls1_2 -no_ticket -no_ems -cert " + crt + " -key " + key + " -cipher ECDHE-ECDSA-AES128-GCM-SHA256" + grouping(toolkit, true, group) + " -www" + once(toolkit) + " </dev/null >" + log + " 2>&1", log, log + ".pid"));
+		// Сторож сервера openssl
+		sentinel_t sentinel(log + ".pid");
+		// Подключаемся к серверу openssl
+		const int fd = dial(number);
+		// Проверяем подключение
+		ASSERT_GE(fd, 0) << "порт " << number;
+		// Связь стороны клиента
+		client::context_t client;
+		// Набор клиента
+		client.suites(vector <protect::suite_t> {protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256});
+		// Группы клиента
+		client.groups(vector <extension::group_t> {group, extension::group_t::SECP256R1});
+		// Имя узла
+		client.name("localhost");
+		// Обязательность расширения
+		client.master(mandatory == 1);
+		// Заводим клиента
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		/**
+		 * Выполняем передачу байтов до установления либо обрыва связи
+		 */
+		for(size_t i = 0; (i < 8) && !client.established() && (client.state() != context::state_t::FAILED); i++)
+			// Передаём байты
+			relay(client, fd);
+		// Если расширение обязательно
+		if(mandatory == 1){
+			// Связь оборвана отсутствием расширенного главного секрета
+			ASSERT_EQ(client.error(), context::error_t::MASTER);
+			// Связи нет
+			ASSERT_FALSE(client.established());
+		// Иначе связь ведётся обычным главным секретом
+		} else {
+			// Связь установлена
+			ASSERT_TRUE(client.established()) << " отказ " << static_cast <int> (client.error()) << " извещение " << static_cast <int> (client.alert().description);
+			// Издание 1.2
+			ASSERT_EQ(client.version(), static_cast <uint16_t> (0x0303));
+			// Запрос HTTP серверу openssl
+			const string request = "GET / HTTP/1.0\r\n\r\n";
+			// Отправляем запрос
+			ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
+			// Накопитель ответа
+			vector <uint8_t> answer;
+			/**
+			 * Выполняем передачу байтов до получения ответа
+			 */
+			for(size_t i = 0; (i < 16) && answer.empty(); i++){
+				// Передаём байты
+				relay(client, fd);
+				// Читаем принятые данные
+				ASSERT_EQ(client.read(answer), context::error_t::NONE);
+			}
+			// Текст ответа
+			const string text(answer.begin(), answer.end());
+			// Ответ HTTP получен: ключи обеих сторон сошлись без расширения
+			ASSERT_NE(text.find("HTTP/1.0 200"), string::npos) << text;
+		}
+		// Закрываем сокет
+		::close(fd);
+		// Снимаем сервер до удаления журнала
+		sentinel.halt();
+		// Журнал сервера
+		std::string journal;
+		// Дожидаемся отметки завершения снятого сервера
+		(void) settle(log, journal);
+		// Удаляем журнал
+		::remove(log.c_str());
+	}
+	/**
+	 * s_client -no_ems против нашего сервера: умолчанием связь, обязательным - отказ MASTER
+	 */
+	for(size_t mandatory = 0; mandatory < 2; mandatory++){
+		// Порт сервера
+		uint16_t number = 0;
+		// Слушающий сокет
+		const int listener = harbour(number);
+		// Проверяем сокет
+		ASSERT_GE(listener, 0);
+		// Журнал клиента openssl
+		const std::string log = "/tmp/ants-tls12-noems-client-" + std::to_string(number) + ".log";
+		// Запускаем клиента openssl без расширенного главного секрета
+		ASSERT_TRUE(launch("openssl s_client -connect 127.0.0.1:" + std::to_string(number) + " -tls1_2 -no_ems -CAfile " + crt + " -cipher ECDHE-ECDSA-AES128-GCM-SHA256" + grouping(toolkit, false, group) + " -servername localhost -verify_return_error </dev/null >" + log + " 2>&1", log, log + ".pid"));
+		// Сторож клиента openssl
+		sentinel_t sentinel(log + ".pid");
+		// Принимаем подключение
+		const int fd = greeted(listener);
+		// Проверяем подключение
+		ASSERT_GE(fd, 0);
+		// Связь стороны сервера
+		server::context_t server;
+		// Набор сервера
+		server.suites(vector <protect::suite_t> {protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256});
+		// Группы сервера
+		server.groups(vector <extension::group_t> {group});
+		// Подлинность сервера
+		server.credential(credential);
+		// Обязательность расширения
+		server.master(mandatory == 1);
+		// Заводим сервер
+		ASSERT_EQ(server.start(), context::error_t::NONE);
+		// Ведём связь до конца рукопожатия либо обрыва
+		const bool complete = serve(server, fd);
+		// Если расширение обязательно
+		if(mandatory == 1){
+			// Рукопожатие не дошло до конца
+			ASSERT_FALSE(complete);
+			// Отказ отсутствия расширенного главного секрета
+			ASSERT_EQ(server.error(), context::error_t::MASTER);
+			// Извещение handshake_failure
+			ASSERT_EQ(server.alert().description, alert::description_t::HANDSHAKE);
+		// Иначе связь ведётся обычным главным секретом
+		} else {
+			// Рукопожатие дошло до конца
+			ASSERT_TRUE(complete) << " отказ " << static_cast <int> (server.error()) << " извещение " << static_cast <int> (server.alert().description);
+			// Отказа не было
+			ASSERT_EQ(server.error(), context::error_t::NONE);
+			// Издание 1.2
+			ASSERT_EQ(server.version(), static_cast <uint16_t> (0x0303));
+			// Закрываем связь
+			ASSERT_TRUE(farewell(server, fd));
+		}
+		// Закрываем сокеты
+		::close(fd);
+		// Закрываем слушающий сокет
+		::close(listener);
+		// Текст журнала клиента
+		std::string text;
+		// Клиент обязан завершиться
+		ASSERT_TRUE(settle(log, text)) << text;
+		// Если связь велась
+		if(mandatory == 0){
+			// Проверка подлинности сервера у клиента сошлась
+			ASSERT_NE(text.find("Verify return code: 0 (ok)"), std::string::npos) << text;
+			// Издание 1.2
+			ASSERT_NE(text.find("Protocol  : TLSv1.2"), std::string::npos) << text;
+		}
+		// Удаляем журнал
+		::remove(log.c_str());
 	}
 }

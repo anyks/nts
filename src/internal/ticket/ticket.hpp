@@ -42,6 +42,7 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <sys/global.hpp>
+#include <sys/vault.hpp>
 #include <protect/protect.hpp>
 
 /**
@@ -159,8 +160,21 @@ namespace nts {
 			 */
 			typedef class Keeper {
 				private:
-					// Ключи билетов двух поколений: имя ключа, ключ шифрования и ключ имитовставки подряд
-					uint8_t _vault[2][TICKET_VAULT];
+					/**
+					 * @brief Структура ключей билетов, живущих между вызовами
+					 *
+					 * @details Лежит целиком в укрытой памяти хранилища (sys::Vault)
+					 *
+					 */
+					typedef struct Keys {
+						// Ключи билетов двух поколений: имя ключа, ключ шифрования и ключ имитовставки подряд
+						uint8_t vault[2][TICKET_VAULT];
+					} keys_t;
+				private:
+					// Участок укрытой памяти под ключи билетов
+					sys::secret_t _shelter;
+					// Ключи билетов в укрытой памяти; nullptr, если хранилище участка не дало
+					keys_t * _keys;
 					// Признаки заведённости поколений ключей билетов
 					bool _vaulted[2];
 				public:

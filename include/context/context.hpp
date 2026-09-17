@@ -44,6 +44,7 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <sys/global.hpp>
+#include <sys/vault.hpp>
 #include <alert/alert.hpp>
 #include <protect/protect.hpp>
 #include <extension/extension.hpp>
@@ -441,8 +442,8 @@ namespace nts {
 			typedef bool (* advise_t)(const view_t & hint, vector <uint8_t> & identity, vector <uint8_t> & key, void * context);
 			// Опознаватель клиента; у сервера - подсказка psk_identity_hint, пустая не шлётся
 			vector <uint8_t> identity;
-			// Ключ клиента; сервером не используется
-			vector <uint8_t> key;
+			// Ключ клиента; сервером не используется: набор над укрытым хранилищем (sys::Vault) - живёт между вызовами, в обычной куче не лежит
+			sys::bytes_t key;
 			// Вызов сервера: ключ по опознавателю
 			respond_t respond;
 			// Вызов клиента: опознаватель и ключ по подсказке
@@ -551,8 +552,8 @@ namespace nts {
 			vector <uint8_t> obtained;
 			// Тело билета, опознающее связь для выдавшего его сервера
 			vector <uint8_t> identity;
-			// Ключ билета, выведенный из значения возобновления связи
-			vector <uint8_t> secret;
+			// Ключ билета, выведенный из значения возобновления связи: набор над укрытым хранилищем (sys::Vault) - живёт между вызовами, в обычной куче не лежит
+			sys::bytes_t secret;
 			// Параметры переноса QUIC собеседника связи, выдавшей билет
 			vector <uint8_t> parameters;
 			/**

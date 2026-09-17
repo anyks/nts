@@ -173,6 +173,7 @@ endforeach()
 SET(SOURCE_FILES
     "${CMAKE_SOURCE_DIR}/src/sys/machine.cpp"
     "${CMAKE_SOURCE_DIR}/src/sys/wipe.cpp"
+    "${CMAKE_SOURCE_DIR}/src/sys/vault.cpp"
     "${CMAKE_SOURCE_DIR}/src/field/field.cpp"
     "${CMAKE_SOURCE_DIR}/src/asn1/asn1.cpp"
     "${CMAKE_SOURCE_DIR}/src/x509/x509.cpp"

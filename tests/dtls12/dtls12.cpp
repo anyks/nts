@@ -2035,6 +2035,10 @@ TEST(Dtls12Test, VectorServer){
 					// Запрашиваем подлинность клиента
 					server.request(true);
 				// Заводим сервер
+				// Сценарий без расширенного главного секрета гоняется строгим сервером: умолчанием (решение 16) он принят бы был, отказ пинуется обязательностью
+				if(!SCENARIOS[s].master)
+					// Требуем расширенный главный секрет
+					server.master(true);
 				ASSERT_EQ(server.start(), context::error_t::NONE) << path;
 				// Подаём записанное первое приветствие
 				ASSERT_EQ(server.push(view_t(c2s[0].data(), c2s[0].size())), context::error_t::NONE) << path;
@@ -5116,7 +5120,7 @@ namespace {
 			// Опознаватель
 			theirs.identity = decode("616e796b73");
 			// Ключ
-			theirs.key = decode("0123456789abcdef");
+			{ const vector <uint8_t> raw = decode("0123456789abcdef"); theirs.key.assign(raw.begin(), raw.end()); }
 			// Клиент
 			ours.identity = theirs.identity;
 			// Ключ
@@ -5136,7 +5140,7 @@ namespace {
 			// Опознаватель
 			yours.identity = ours.identity;
 			// Ключ
-			yours.key = ours.key;
+			yours.key.assign(ours.key.begin(), ours.key.end());
 			// Вызов
 			yours.advise = advising;
 			// Связка
@@ -5455,7 +5459,7 @@ TEST(Dtls12Test, Interop){
 			// Опознаватель
 			yours.identity = decode("616e796b73");
 			// Ключ
-			yours.key = decode("0123456789abcdef");
+			{ const vector <uint8_t> raw = decode("0123456789abcdef"); yours.key.assign(raw.begin(), raw.end()); }
 			// Вызов
 			yours.advise = advising;
 			// Связка
@@ -5556,7 +5560,7 @@ TEST(Dtls12Test, Interop){
 			// Опознаватель
 			theirs.identity = decode("616e796b73");
 			// Ключ
-			theirs.key = decode("0123456789abcdef");
+			{ const vector <uint8_t> raw = decode("0123456789abcdef"); theirs.key.assign(raw.begin(), raw.end()); }
 			// Настройки
 			context::psk_t mine;
 			// Вызов

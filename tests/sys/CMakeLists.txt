@@ -33,3 +33,21 @@ target_link_libraries(${TEST_MACHINE_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_ma
 
 # Регистрируем цель проверок
 add_test(NAME ${TEST_MACHINE_NAME} COMMAND ${TEST_MACHINE_NAME})
+
+# Устанавливаем имя цели проверок укрытого хранилища
+SET(TEST_VAULT_NAME vault)
+
+# Добавляем цель проверок укрытого хранилища
+add_executable(${TEST_VAULT_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/vault.cpp")
+
+# Включаем флаги компиляции проверок
+target_compile_options(${TEST_VAULT_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
+
+# Подключаем каталог общих заголовочных файлов набора проверок
+target_include_directories(${TEST_VAULT_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+
+# Выполняем подключение зависимостей цели проверок
+target_link_libraries(${TEST_VAULT_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
+
+# Регистрируем цель проверок
+add_test(NAME ${TEST_VAULT_NAME} COMMAND ${TEST_VAULT_NAME})

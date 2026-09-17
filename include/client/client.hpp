@@ -547,6 +547,46 @@ namespace nts {
 				context::error_t versions(const uint16_t lowest, const uint16_t highest) noexcept;
 				/**
 				 * \~russian
+				 * @brief Метод установки обязательности расширенного главного секрета издания 1.2
+				 *
+				 * @param mandatory отвергается ли собеседник без расширения RFC 7627
+				 *
+				 * @details Решение 16 движка: расширение extended_master_secret предлагается и
+				 *          подтверждается всегда; умолчанием, как у openssl и BoringSSL, собеседник без
+				 *          него ведёт связь обычным главным секретом (раздел 8.1 RFC 5246) - иначе издание
+				 *          1.2 не сходилось бы со стеками без RFC 7627 (LibreSSL). Обязательность закрывает
+				 *          тройное рукопожатие: собеседник без расширения отвергается handshake_failure
+				 *
+				 * @note Значимо лишь изданию 1.2; у издания 1.3 главный секрет расширен по устройству
+				 *
+				 * \~english
+				 * @brief Method of setting the obligation of the extended master secret of the 1.2 edition
+				 * @param mandatory whether a peer without the RFC 7627 extension is rejected
+				 * @details Decision 16 of the engine: the extended_master_secret extension is always offered and
+				 *          confirmed; by default, like at openssl and BoringSSL, a peer without it conducts the
+				 *          connection by the ordinary master secret (the section 8.1 of RFC 5246) - otherwise the
+				 *          1.2 edition would not converge with the stacks without RFC 7627 (LibreSSL). The obligation
+				 *          closes the triple handshake: a peer without the extension is rejected by handshake_failure
+				 * @note Matters only to the 1.2 edition; at the 1.3 edition the master secret is extended by design
+				 *
+				 * \~
+				 */
+				void master(const bool mandatory) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод проверки обязательности расширенного главного секрета издания 1.2
+				 *
+				 * @return признак того, что собеседник без расширения RFC 7627 отвергается
+				 *
+				 * \~english
+				 * @brief Method of checking the obligation of the extended master secret of the 1.2 edition
+				 * @return the sign that a peer without the RFC 7627 extension is rejected
+				 *
+				 * \~
+				 */
+				bool master() const noexcept;
+				/**
+				 * \~russian
 				 * @brief Метод получения наименьшего дозволенного издания протокола
 				 *
 				 * @return наименьшее дозволенное издание протокола

@@ -41,6 +41,7 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <sys/global.hpp>
+#include <sys/vault.hpp>
 #include <digest/hash.hpp>
 #include <protect/protect.hpp>
 #include <schedule/schedule.hpp>
@@ -497,20 +498,36 @@ namespace nts {
 				// Длина значения расписания ключей в байтах
 				size_t _length;
 			private:
-				// Значение расписания ключей текущей ступени
-				uint8_t _secret[schedule::SCHEDULE_WIDEST];
+				/**
+				 * \~russian
+				 * @brief Структура значений расписания ключей, живущих между вызовами
+				 *
+				 * @details Лежит целиком в укрытой памяти хранилища (sys::Vault): подкачка
+				 *          запрещена, снимки памяти её не содержат, потомок процесса получает
+				 *          затёртой. Копирования у расписания нет - у тайны один владелец
+				 *
+				 * \~english
+				 * @brief Structure of the values of the key schedule living between the calls
+				 *
+				 * \~
+				 */
+				typedef struct Keys {
+					// Значение расписания ключей текущей ступени
+					uint8_t secret[schedule::SCHEDULE_WIDEST];
+					// Значение направления связи от клиента
+					uint8_t client[schedule::SCHEDULE_WIDEST];
+					// Значение направления связи от сервера
+					uint8_t server[schedule::SCHEDULE_WIDEST];
+					// Значение возобновления связи
+					uint8_t resumption[schedule::SCHEDULE_WIDEST];
+					// Значение упреждающих данных связи
+					uint8_t early[schedule::SCHEDULE_WIDEST];
+				} keys_t;
 			private:
-				// Значение направления связи от клиента
-				uint8_t _client[schedule::SCHEDULE_WIDEST];
-			private:
-				// Значение направления связи от сервера
-				uint8_t _server[schedule::SCHEDULE_WIDEST];
-			private:
-				// Значение возобновления связи
-				uint8_t _resumption[schedule::SCHEDULE_WIDEST];
-			private:
-				// Значение упреждающих данных связи
-				uint8_t _early[schedule::SCHEDULE_WIDEST];
+				// Участок укрытой памяти под значения расписания ключей
+				sys::secret_t _shelter;
+				// Значения расписания ключей в укрытой памяти; nullptr, если хранилище участка не дало
+				keys_t * _keys;
 			public:
 				/**
 				 * \~russian

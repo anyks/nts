@@ -3058,3 +3058,82 @@ TEST(AuditTest, IssueTicketSecretScopedBeforeTry){
 	const std::string tail = body.substr(outer);
 	EXPECT_NE(tail.find("wipe(secret"), std::string::npos) << "внешний catch(bad_alloc) не затирает ключ билета (регрессия круга 9)";
 }
+
+/**
+ * Круг 13 (движок, по независимому щупу Heartbleed CVE-2014-0160): по установленной связи 1.2 запись
+ * сердцебиения с солгавшей длиной нагрузки роняется молча обоими рубежами pulse() - объявленная
+ * длина не больше пришедшего содержимого (рубеж 1) и ответ умещается в одну запись собеседника
+ * (рубеж 2); честная нагрузка отвечается. Снятие рубежа 1 даёт ответ на умеренную ложь - утечку
+ */
+TEST(AuditTest, HeartbeatBleed){
+	context::credential_t credential;
+	ASSERT_TRUE(keyfile("ec256", credential));
+	// Профиль клиента с расширением heartbeat в режиме peer_allowed_to_send
+	fingerprint::profile_t profile;
+	{
+		client::context_t donor;
+		donor.name("example.com");
+		ASSERT_EQ(donor.start(), context::error_t::NONE);
+		ASSERT_EQ(fingerprint::parse(donor.output(), profile), fingerprint::error_t::NONE);
+		fingerprint::extension_t extension;
+		extension.type = 0x000F;
+		extension.data = vector <uint8_t> {0x01};
+		profile.extensions.push_back(extension);
+	}
+	// Заполнение ответа сердцебиения: раздел 4 RFC 6520, не короче 16 байтов
+	static constexpr size_t PADDING = 16;
+	// Четыре нагрузки: честная, умеренная ложь, ложь до предела, честная длина сверх записи собеседника
+	for(size_t item = 0; item < 4; item++){
+		internal::engine_t client(false), server(true);
+		client.name("example.com");
+		ASSERT_EQ(client.profile(profile), context::error_t::NONE);
+		server.credential(credential);
+		ASSERT_EQ(server.versions(0x0303, 0x0303), context::error_t::NONE);
+		ASSERT_EQ(server.start(), context::error_t::NONE);
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		for(size_t round = 0; round < 16; round++){
+			bool moved = false;
+			view_t data = client.output();
+			if(data.size > 0){ vector <uint8_t> buffer(data.data, data.data + data.size); client.consume(buffer.size()); server.push(view_t(buffer.data(), buffer.size())); moved = true; }
+			data = server.output();
+			if(data.size > 0){ vector <uint8_t> buffer(data.data, data.data + data.size); server.consume(buffer.size()); client.push(view_t(buffer.data(), buffer.size())); moved = true; }
+			if(!moved) break;
+		}
+		ASSERT_EQ(server.state(), context::state_t::ESTABLISHED) << item;
+		ASSERT_EQ(server.version(), 0x0303) << item;
+		ASSERT_EQ(server.output().size, static_cast <size_t> (0)) << item;
+		// Открытое содержимое записи сердцебиения: вид, длина, нагрузка, заполнение
+		vector <uint8_t> content;
+		// Объявляемая длина нагрузки
+		size_t length = 0;
+		// Настоящая нагрузка
+		const std::string payload = "heartbeat payload";
+		switch(item){
+			// Честная: длина равна нагрузке
+			case 0: length = payload.size(); content.assign(3 + payload.size() + PADDING, 0x00); break;
+			// Умеренная ложь: объявлено на десять байтов больше, чем пришло (Heartbleed по существу)
+			case 1: length = (payload.size() + 10); content.assign(3 + payload.size() + PADDING, 0x00); break;
+			// Ложь до предела: 0xFFFF при пяти байтах содержимого (буквальный Heartbleed)
+			case 2: length = 0xFFFF; content.assign(5, 0x00); break;
+			// Честная длина, но ответ не уместится в запись собеседника: рубеж 2
+			case 3: length = 20000; content.assign(3 + 20000 + PADDING, 0x00); break;
+		}
+		content[0] = 0x01;
+		content[1] = static_cast <uint8_t> ((length >> 8) & 0xFF);
+		content[2] = static_cast <uint8_t> (length & 0xFF);
+		if(content.size() >= (3 + payload.size()))
+			::memcpy(content.data() + 3, payload.data(), payload.size());
+		// Запись подаётся уже расшифрованной: бьём в логику после снятия защиты
+		ASSERT_EQ(server.pulse(view_t(content.data(), content.size())), context::error_t::NONE) << item;
+		// Связь жива, ошибки нет
+		EXPECT_EQ(server.state(), context::state_t::ESTABLISHED) << item;
+		EXPECT_EQ(server.error(), context::error_t::NONE) << item;
+		// Честная нагрузка отвечается записью вида 24; всякая ложь - молчанием
+		if(item == 0){
+			ASSERT_GT(server.output().size, static_cast <size_t> (5)) << item;
+			EXPECT_EQ(server.output().data[0], 0x18) << item;
+		} else {
+			EXPECT_EQ(server.output().size, static_cast <size_t> (0)) << item;
+		}
+	}
+}

@@ -232,6 +232,28 @@ context::error_t nts::client::Context::versions(const uint16_t lowest, const uin
 	return (this->_engine != nullptr ? this->_engine->versions(lowest, highest) : context::error_t::MEMORY);
 }
 /**
+ * @brief Метод установки обязательности расширенного главного секрета издания 1.2
+ *
+ * @param mandatory отвергается ли собеседник без расширения RFC 7627
+ *
+ */
+void nts::client::Context::master(const bool mandatory) noexcept {
+	// Если ведение связи заведено
+	if(this->_engine != nullptr)
+		// Выполняем установку обязательности расширенного главного секрета
+		this->_engine->master(mandatory);
+}
+/**
+ * @brief Метод проверки обязательности расширенного главного секрета издания 1.2
+ *
+ * @return признак того, что собеседник без расширения RFC 7627 отвергается
+ *
+ */
+bool nts::client::Context::master() const noexcept {
+	// Выводим обязательность расширенного главного секрета
+	return ((this->_engine != nullptr) && this->_engine->master());
+}
+/**
  * @brief Метод получения наименьшего дозволенного издания протокола
  *
  * @return наименьшее дозволенное издание протокола

@@ -52,7 +52,8 @@
  *    Издание согласуется по supported_versions (раздел 4.2.1 RFC 8446) либо по заголовку
  *    приветствия (приложение D), и предлагается лишь тогда, когда у связи есть наборы
  *    этого издания. Только ECDHE, только AEAD, расширенный главный секрет (RFC 7627)
- *    безусловно, пересогласование (RFC 5746) отвергается, билетов и возобновления нет.
+ *    предлагается всегда, а требуется по настройке (решение 16), пересогласование (RFC 5746)
+ *    отвергается, билетов и возобновления нет.
  *
  * 9. Заслон понижения (раздел 4.1.3 RFC 8446) сервер кладёт по своей способности к 1.3,
  *    а не по предложению клиента, и способность эта складывается из предела издания и
@@ -100,6 +101,32 @@
  *    берёт из заголовка. Установлено
  *    независимым щупом эталоном одной разницы: LibreSSL 3.6.1 в DTLS обрывает связь
  *    protocol_version на самом расширении, а без него ведёт рукопожатие обычным ходом.
+ *
+ * 16. Расширенный главный секрет (RFC 7627) предлагается клиентом и подтверждается сервером
+ *    всегда, но ТРЕБУЕТСЯ лишь по настройке master(true): умолчанием, как у openssl и
+ *    BoringSSL, собеседник без расширения ведёт связь обычным главным секретом (раздел 8.1
+ *    RFC 5246 - метка «master secret» и случайные значения сторон), а сервер эхом отвечает
+ *    расширением лишь клиенту, его предложившему (раздел 5.2 RFC 7627). Прежняя безусловная
+ *    обязательность выделяла нас среди эталонов: LibreSSL 3.6.1 RFC 7627 не ведёт вовсе, и
+ *    издание 1.2 с ним не сходилось ни в одну сторону (независимый щуп на DragonFly).
+ *    Обязательность закрывает тройное рукопожатие и остаётся доступной настройкой.
+ * 17. Ключевой материал, живущий МЕЖДУ вызовами, лежит не в обычной куче, а в укрытом
+ *    хранилище процесса (sys::Vault): главный секрет издания 1.2, ключи завершения,
+ *    ключи и векторы прикладных данных, ключи имитовставки CBC и значения направлений
+ *    - одной структурой keys_t в одном участке; общее значение обмена и заранее
+ *    разделённый ключ - наборами sys::bytes_t над тем же хранилищем; так же значения
+ *    расписания (session::Secrets) и ключи билетов (ticket::Keeper). Хранилищу запрещена
+ *    подкачка (mlock/VirtualLock), оно укрыто от снимков памяти (MADV_DONTDUMP/NOCORE, где
+ *    есть), а потомку процесса достаётся затёртым (MADV_WIPEONFORK, INHERIT_ZERO либо
+ *    обработчик pthread_atfork); освобождённый участок затирается в момент возврата.
+ *    Хранилище одно на процесс, а не своё у связи: право на запрет подкачки ограничено
+ *    RLIMIT_MEMLOCK, и страница на связь исчерпала бы его на десятке связей. Понижение
+ *    укрытия умолчанием не отказ, а честный доклад Vault::shelter(); кому понижение
+ *    непозволительно, зовёт Vault::demand(true) - тогда связь без укрытого участка негодна
+ *    с рождения (FAILED, MEMORY). Значения, живущие вызовом (буферы открытого текста,
+ *    промежуточные общие значения на стеке и в местных наборах), укрытия не требуют и
+ *    затираются по-прежнему. Заказ - требование 2а AWH-KEY-EMBEDDING.md по карте сроков
+ *    жизни ключевого материала.
  *
  * @copyright Copyright © 2026
  *
@@ -219,6 +246,7 @@ namespace {
 	 * Метки порождающей функции издания TLS 1.2: раздел 4 RFC 7627, разделы 6.3 и 7.4.9 RFC 5246
 	 */
 	static const char * EXTENDED = "extended master secret";
+	static const char * MASTER = "master secret";
 	static const char * EXPANSION = "key expansion";
 	static const char * CLIENT_FINISHED = "client finished";
 	static const char * SERVER_FINISHED = "server finished";
@@ -498,7 +526,7 @@ namespace {
 	 *          len(psk) ‖ psk с двухбайтовыми длинами; составитель затирает свой накопитель сам
 	 *
 	 */
-	static field::error_t premastering(const view_t & other, const view_t & key, vector <uint8_t> & result) noexcept {
+	static field::error_t premastering(const view_t & other, const view_t & key, sys::bytes_t & result) noexcept {
 		// Объект составителя общего значения
 		field::builder_t composer;
 		// Занимаем место под длину первой половины
@@ -1636,16 +1664,10 @@ void nts::internal::Engine::shred() noexcept {
 	this->_early.clear();
 	// Выполняем затирание ключевого материала пор поверх дейтаграмм
 	this->_flight.shred();
-	// Выполняем затирание ключей завершения рукопожатия
-	// Затираем ключи имитовставки наборов CBC издания 1.2
-	wipe(this->_stamp, sizeof(this->_stamp));
-	wipe(this->_completion, sizeof(this->_completion));
-	// Выполняем затирание ключевого материала прикладных данных
-	wipe(this->_key, sizeof(this->_key));
-	// Выполняем затирание векторов замены прикладных данных
-	wipe(this->_vector, sizeof(this->_vector));
-	// Выполняем затирание значений направлений связи по уровням защиты
-	wipe(this->_traffic, sizeof(this->_traffic));
+	// Если укрытая память ключей заведена
+	if(this->_keys != nullptr)
+		// Выполняем затирание ключевого материала связи целиком: главный секрет, ключи завершения, ключи, векторы, имитовставки и направления
+		this->_shelter.wipe();
 	// Выполняем сброс признаков готовности значений направлений
 	::memset(this->_ready, 0, sizeof(this->_ready));
 	/**
@@ -1683,8 +1705,6 @@ void nts::internal::Engine::shred() noexcept {
  *
  */
 void nts::internal::Engine::scrub() noexcept {
-	// Выполняем затирание главного секрета издания TLS 1.2
-	wipe(this->_master, sizeof(this->_master));
 	// Если общее значение обмена ключами ещё не израсходовано
 	if(!this->_premaster.empty())
 		// Выполняем затирание общего значения обмена ключами
@@ -1899,7 +1919,7 @@ context::error_t nts::internal::Engine::store(const context::level_t level) noex
 		// Если сохраняется значение упреждающих данных
 		case static_cast <uint8_t> (context::level_t::EARLY): {
 			// Если значение упреждающих данных получить не удалось
-			if(this->_secrets.early(this->_traffic[0][0]) != session::error_t::NONE)
+			if(this->_secrets.early(this->_keys->traffic[0][0]) != session::error_t::NONE)
 				// Выводим отказ вывода значения расписания ключей
 				return context::error_t::SCHEDULE;
 			// Запоминаем длину значений направлений связи
@@ -1919,7 +1939,7 @@ context::error_t nts::internal::Engine::store(const context::level_t level) noex
 				// Получаем очередную сторону связи
 				const session::side_t side = ((i == 0) ? session::side_t::CLIENT : session::side_t::SERVER);
 				// Если значение направления стороны получить не удалось
-				if(this->_secrets.traffic(side, this->_traffic[place][i]) != session::error_t::NONE)
+				if(this->_secrets.traffic(side, this->_keys->traffic[place][i]) != session::error_t::NONE)
 					// Выводим отказ вывода значения расписания ключей
 					return context::error_t::SCHEDULE;
 			}
@@ -2055,7 +2075,7 @@ context::error_t nts::internal::Engine::refresh() noexcept {
 			 * Защита записей заводится лишь переносу записями: под QUIC записи шифрует тот,
 			 * кто связь ведёт, значениями направлений, выданными наружу
 			 */
-			if((this->_transport != context::transport_t::LEVELS) && !protection.start(this->_suite, view_t(this->_key[i], protect::key(this->_suite)), view_t(this->_vector[i], protect::block(this->_suite))))
+			if((this->_transport != context::transport_t::LEVELS) && !protection.start(this->_suite, view_t(this->_keys->key[i], protect::key(this->_suite)), view_t(this->_keys->vector[i], protect::block(this->_suite))))
 				// Выводим отказ установки ключевого материала
 				return context::error_t::SCHEDULE;
 			// Раздел 4.2.1 RFC 9147: прикладные ключи открывают третью пору направления
@@ -2477,7 +2497,7 @@ context::error_t nts::internal::Engine::derive(const extension::group_t group, c
 			 * Ключи завершения рукопожатия снимаются сразу: переход к ступени прикладных
 			 * данных значения направлений связи переписывает
 			 */
-			if(this->_secrets.finished(side, this->_completion[i]) != session::error_t::NONE)
+			if(this->_secrets.finished(side, this->_keys->completion[i]) != session::error_t::NONE)
 				// Выводим отказ вывода ключей завершения рукопожатия
 				return context::error_t::SCHEDULE;
 			// Корневой ключ направления связи
@@ -2563,7 +2583,7 @@ context::error_t nts::internal::Engine::mature() noexcept {
 			// Получаем очередную сторону связи
 			const session::side_t side = ((i == 0) ? session::side_t::CLIENT : session::side_t::SERVER);
 			// Если ключевой материал направления связи вывести не удалось
-			if(this->_secrets.material(side, this->_suite, this->_key[i], this->_vector[i]) != session::error_t::NONE)
+			if(this->_secrets.material(side, this->_suite, this->_keys->key[i], this->_keys->vector[i]) != session::error_t::NONE)
 				// Выводим отказ вывода ключевого материала направления
 				return context::error_t::SCHEDULE;
 		}
@@ -3060,7 +3080,7 @@ context::error_t nts::internal::Engine::greeting() noexcept {
 			 * билета расширение идёт пустым - так клиент объявляет готовность билет принять;
 			 * билет с вышедшим сроком не предъявляется, связь идёт полным рукопожатием
 			 */
-			this->_presented = (protect::legacy(this->_resume.suite) && !this->_resume.identity.empty() && (this->_resume.secret.size() == sizeof(this->_master)) && !expired(this->_resume, this->_moment) && !outdated(this->_resume.authenticated, this->_moment));
+			this->_presented = (protect::legacy(this->_resume.suite) && !this->_resume.identity.empty() && (this->_resume.secret.size() == sizeof(this->_keys->master)) && !expired(this->_resume, this->_moment) && !outdated(this->_resume.authenticated, this->_moment));
 			// Добавляем расширение билета сеанса
 			greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::TICKET), (this->_presented ? view_t(this->_resume.identity.data(), this->_resume.identity.size()) : view_t(nullptr, 0))));
 		}
@@ -3823,7 +3843,7 @@ context::error_t nts::internal::Engine::complete() noexcept {
 		// Место, в которое помещается завершение рукопожатия своей стороной
 		uint8_t completion[schedule::SCHEDULE_WIDEST];
 		// Отказ выработки завершения рукопожатия
-		const context::error_t failure = translate(message::finished(this->_transcript.algorithm(), view_t(this->_completion[index(side)], width), view_t(transcript, width), completion), context::error_t::COMPLETION);
+		const context::error_t failure = translate(message::finished(this->_transcript.algorithm(), view_t(this->_keys->completion[index(side)], width), view_t(transcript, width), completion), context::error_t::COMPLETION);
 		// Если завершение рукопожатия выработать не удалось
 		if(failure != context::error_t::NONE)
 			// Выводим отказ выработки завершения рукопожатия
@@ -5058,7 +5078,7 @@ context::error_t nts::internal::Engine::confirm(const view_t & body) noexcept {
 		// Место, в которое помещается ожидаемое завершение рукопожатия
 		uint8_t completion[schedule::SCHEDULE_WIDEST];
 		// Отказ выработки завершения рукопожатия
-		const context::error_t failure = translate(message::finished(this->_transcript.algorithm(), view_t(this->_completion[index(side)], width), view_t(transcript, width), completion), context::error_t::COMPLETION);
+		const context::error_t failure = translate(message::finished(this->_transcript.algorithm(), view_t(this->_keys->completion[index(side)], width), view_t(transcript, width), completion), context::error_t::COMPLETION);
 		// Если ожидаемое завершение рукопожатия выработать не удалось
 		if(failure != context::error_t::NONE)
 			// Выводим отказ выработки завершения рукопожатия
@@ -9579,7 +9599,7 @@ bool nts::internal::Engine::secret(const context::level_t level, const context::
 	// Если место для значения передано
 	if(result != nullptr)
 		// Переносим значение направления связи
-		::memcpy(result, this->_traffic[place][item], this->_width);
+		::memcpy(result, this->_keys->traffic[place][item], this->_width);
 	// Выводим длину значения направления связи
 	size = this->_width;
 	// Выводим признак готовности значения
@@ -9970,8 +9990,8 @@ context::error_t nts::internal::Engine::start() noexcept {
  *
  */
 void nts::internal::Engine::clear() noexcept {
-	// Выполняем сброс состояния связи
-	this->_state = context::state_t::NONE;
+	// Выполняем сброс состояния связи: без укрытой памяти ключей связь негодна
+	this->_state = ((this->_keys != nullptr) ? context::state_t::NONE : context::state_t::FAILED);
 	// Выполняем сброс отказа, которым связь оборвана
 	this->_error = context::error_t::NONE;
 	// Выполняем сброс извещения, которым связь оборвана
@@ -10098,11 +10118,11 @@ void nts::internal::Engine::clear() noexcept {
 	// Выполняем сброс поры ключей записей сервера
 	this->_epoch[1] = flow::epoch_t::PLAIN;
 	// Выполняем затирание ключей завершения рукопожатия сторон
-	wipe(this->_completion, sizeof(this->_completion));
+	wipe(this->_keys->completion, sizeof(this->_keys->completion));
 	// Выполняем затирание ключевого материала прикладных данных
-	wipe(this->_key, sizeof(this->_key));
+	wipe(this->_keys->key, sizeof(this->_keys->key));
 	// Выполняем затирание векторов замены прикладных данных
-	wipe(this->_vector, sizeof(this->_vector));
+	wipe(this->_keys->vector, sizeof(this->_keys->vector));
 	/**
 	 * Выполняем перебор мимолётных пар ключей своей стороны
 	 */
@@ -10139,7 +10159,7 @@ void nts::internal::Engine::clear() noexcept {
 	// Выполняем сброс признака приёма параметров переноса собеседника
 	this->_acquired = false;
 	// Выполняем затирание значений направлений связи по уровням защиты
-	wipe(this->_traffic, sizeof(this->_traffic));
+	wipe(this->_keys->traffic, sizeof(this->_keys->traffic));
 	// Выполняем сброс признаков готовности значений направлений
 	::memset(this->_ready, 0, sizeof(this->_ready));
 	// Выполняем сброс длины значений направлений связи
@@ -10206,6 +10226,8 @@ void nts::internal::Engine::clear() noexcept {
 	this->_version = 0;
 	// Выполняем сброс признака издания TLS 1.2
 	this->_legacy = false;
+	// Выполняем сброс признака расширенного главного секрета связи
+	this->_extending = false;
 	// Выполняем сброс метки возврата состояния DTLS 1.2
 	this->_token.clear();
 	// Выполняем сброс числа принятых просьб о подтверждении адреса
@@ -10253,7 +10275,7 @@ void nts::internal::Engine::clear() noexcept {
 	// Выполняем сброс ожидавшего билета сеанса
 	this->_promise = context::ticket_t();
 	// Выполняем затирание ключей имитовставки сторон
-	wipe(this->_stamp, sizeof(this->_stamp));
+	wipe(this->_keys->stamp, sizeof(this->_keys->stamp));
 }
 /**
  * @brief Метод подачи связи принятых байтов
@@ -11631,14 +11653,18 @@ context::error_t nts::internal::Engine::welcome(const hello::client_t & greeting
 		if(this->_transport == context::transport_t::DATAGRAMS)
 			// Переводим перенос на издание DTLS 1.0 либо оставляем 1.2
 			this->_flight.ancient(this->_ancient);
+		// Признак того, что клиент предложил расширенный главный секрет (раздел 5.1 RFC 7627)
+		const bool extended = (hello::extension(greeting.extensions, static_cast <uint16_t> (extension::type_t::MASTER)) != nullptr);
 		/**
-		 * Раздел 5.1 RFC 7627: расширенный главный секрет связь ведёт безусловно, ибо
-		 * обычный главный секрет открыт подмене тройным рукопожатием; клиент без этого
-		 * расширения связью отвергается - так решено для новой реализации
+		 * Решение 16: обычный главный секрет открыт подмене тройным рукопожатием, потому
+		 * обязательный расширенный главный секрет отвергает клиента без расширения; умолчанием,
+		 * как у openssl, связь с ним ведётся обычным главным секретом (раздел 8.1 RFC 5246)
 		 */
-		if(hello::extension(greeting.extensions, static_cast <uint16_t> (extension::type_t::MASTER)) == nullptr)
+		if(!extended && this->_mandatory)
 			// Выводим отказ отсутствия расширенного главного секрета
 			return this->abort(context::error_t::MASTER, alert::description_t::HANDSHAKE);
+		// Запоминаем, ведётся ли связь расширенным главным секретом
+		this->_extending = extended;
 		// Разыскиваем расширение безопасного пересогласования
 		const hello::extension_t * extension = hello::extension(greeting.extensions, static_cast <uint16_t> (extension::type_t::RENEGOTIATION));
 		/**
@@ -12001,8 +12027,10 @@ context::error_t nts::internal::Engine::welcome(const hello::client_t & greeting
 		answer.method = 0x00;
 		// Накопитель, в котором лежит тело расширения выбранного прикладного протокола
 		vector <uint8_t> protocol;
-		// Раздел 5.3 RFC 7627: сервер отвечает пустым расширением расширенного главного секрета
-		answer.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::MASTER), view_t(nullptr, 0)));
+		// Раздел 5.2 RFC 7627: сервер отвечает пустым расширением расширенного главного секрета лишь клиенту, его предложившему
+		if(this->_extending)
+			// Добавляем подтверждение расширенного главного секрета
+			answer.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::MASTER), view_t(nullptr, 0)));
 		// Раздел 3.6 RFC 5746: безопасное пересогласование подтверждается пустым перечнем
 		if(renegotiable)
 			// Добавляем расширение безопасного пересогласования
@@ -12527,11 +12555,14 @@ context::error_t nts::internal::Engine::greeted(const hello::server_t & answer, 
 		}
 		/**
 		 * Раздел 5.3 RFC 7627: без подтверждения сервером расширенного главного секрета
-		 * связь ведётся обычным главным секретом, а его связь не ведёт - так решено
+		 * связь ведётся обычным главным секретом (раздел 8.1 RFC 5246), как у openssl, а
+		 * обязательный расширенный главный секрет такого сервера отвергает (решение 16)
 		 */
-		if(!extended)
+		if(!extended && this->_mandatory)
 			// Выводим отказ отсутствия расширенного главного секрета
 			return this->abort(context::error_t::MASTER, alert::description_t::HANDSHAKE);
+		// Запоминаем, ведётся ли связь расширенным главным секретом
+		this->_extending = extended;
 		// Запоминаем, что связь ведётся изданием TLS 1.2
 		this->_legacy = true;
 		// Запоминаем согласованное издание протокола кодом TLS 1.2 либо 1.1: единая шкала изданий на любом переносе
@@ -12550,7 +12581,7 @@ context::error_t nts::internal::Engine::greeted(const hello::server_t & answer, 
 		 */
 		if(this->_presented)
 			// Переносим главный секрет из билета
-			::memcpy(this->_master, this->_resume.secret.data(), sizeof(this->_master));
+			::memcpy(this->_keys->master, this->_resume.secret.data(), sizeof(this->_keys->master));
 		/**
 		 * Раздел 4.2.6 RFC 6347: переписка DTLS 1.2 ведётся в обвязке DTLS, а приветствие
 		 * клиента легло в неё в обвязке TLS ради издания 1.3 - переписка начинается заново с
@@ -12964,8 +12995,10 @@ context::error_t nts::internal::Engine::agreed(const view_t & body) noexcept {
 					if(!this->_preshared.empty())
 						// Выполняем затирание прежнего ключа
 						wipe(this->_preshared.data(), this->_preshared.size());
-					// Переносим выбранный ключ
-					this->_preshared = ::move(key);
+					// Переносим выбранный ключ в укрытую память
+					this->_preshared.assign(key.begin(), key.end());
+					// Выполняем затирание ключа в обычной куче
+					wipe(key.data(), key.size());
 				}
 			}
 			// Раздел 2 RFC 4279: у чистого PSK за подсказкой ничего не идёт
@@ -13296,8 +13329,8 @@ context::error_t nts::internal::Engine::exchanging() noexcept {
 			if(this->_preshared.empty()){
 				// Переносим настроенный опознаватель
 				this->_identity = this->_psk.identity;
-				// Переносим настроенный ключ
-				this->_preshared = this->_psk.key;
+				// Переносим настроенный ключ в укрытую память
+				this->_preshared.assign(this->_psk.key.begin(), this->_psk.key.end());
 			}
 			// Раздел 2 RFC 4279: без ключа рукопожатие вести нечем
 			if(this->_preshared.empty())
@@ -13398,7 +13431,7 @@ context::error_t nts::internal::Engine::exchanging() noexcept {
 		// Если набор ведёт рукопожатие заранее разделённым ключом: общее значение по разделу 2 RFC 4279 и разделу 3.2 RFC 5489
 		if(preshared(this->_suite)){
 			// Первая половина общего значения: общее значение кривой у ECDHE_PSK, нули длиною в ключ у PSK
-			vector <uint8_t> other = ((exchange == protect::exchange_t::ECDHE_PSK) ? this->_premaster : vector <uint8_t> (this->_preshared.size(), 0));
+			sys::bytes_t other = ((exchange == protect::exchange_t::ECDHE_PSK) ? this->_premaster : sys::bytes_t(this->_preshared.size(), 0));
 			// Если прежнее общее значение выработано
 			if(!this->_premaster.empty())
 				// Выполняем затирание прежнего общего значения
@@ -13480,8 +13513,14 @@ context::error_t nts::internal::Engine::exchanged(const view_t & body) noexcept 
 			if(this->_psk.respond == nullptr)
 				// Выводим отказ настроек связи
 				return context::error_t::SETTINGS;
+			// Ключ, выданный потребителем: вызов принимает обычный набор, укрытая память ему не подставляется
+			vector <uint8_t> issued;
 			// Признак того, что опознаватель клиенту известен и ключ выдан
-			const bool known = this->_psk.respond(identity, this->_preshared, this->_psk.context);
+			const bool known = this->_psk.respond(identity, issued, this->_psk.context);
+			// Переносим выданный ключ в укрытую память
+			this->_preshared.assign(issued.begin(), issued.end());
+			// Выполняем затирание ключа в обычной куче
+			wipe(issued.data(), issued.size());
 			// Раздел 5.3 RFC 4279: выданный ключ не длиннее 64 байтов и непуст - иное есть отказ настроек потребителя, а не неизвестный опознаватель
 			if(known && (this->_preshared.empty() || (this->_preshared.size() > PRESHARED))){
 				// Выполняем затирание негодного ключа
@@ -13600,8 +13639,8 @@ context::error_t nts::internal::Engine::exchanged(const view_t & body) noexcept 
 			if(exchange == protect::exchange_t::PSK)
 				// Заполняем первую половину нулями
 				other.assign(this->_preshared.size(), 0);
-			// Составленное общее значение обмена
-			vector <uint8_t> composed;
+			// Составленное общее значение обмена: в укрытой памяти
+			sys::bytes_t composed;
 			// Составляем общее значение обмена: len(other) ‖ other ‖ len(psk) ‖ psk
 			const field::error_t outcome = premastering(view_t(other.data(), other.size()), view_t(this->_preshared.data(), this->_preshared.size()), composed);
 			// Выполняем затирание первой половины
@@ -13610,8 +13649,8 @@ context::error_t nts::internal::Engine::exchanged(const view_t & body) noexcept 
 			if(outcome != field::error_t::NONE)
 				// Выводим отказ составления общего значения
 				return translate(outcome, context::error_t::MESSAGE);
-			// Переносим составленное общее значение
-			other.swap(composed);
+			// Переносим составленное общее значение: распределители разные, перенос идёт копией
+			other.assign(composed.begin(), composed.end());
 			// Выполняем затирание прежней первой половины, ушедшей обменом
 			wipe(composed.data(), composed.size());
 		}
@@ -13655,10 +13694,30 @@ context::error_t nts::internal::Engine::expanding(const view_t & premaster) noex
 	if(!this->digesting(transcript, width))
 		// Выводим отказ ведения переписки рукопожатия
 		return context::error_t::SCHEDULE;
+	/**
+	 * Решение 16: без расширения RFC 7627 главный секрет выводится по разделу 8.1 RFC 5246 -
+	 * меткой «master secret» и затравкой из случайных значений клиента и сервера
+	 */
+	if(!this->_extending){
+		// Затравка обычного главного секрета: случайные значения клиента и сервера
+		uint8_t seed[64];
+		// Записываем случайное значение клиента
+		::memcpy(seed, (this->_server ? this->_foreign : this->_random), 32);
+		// Записываем случайное значение сервера
+		::memcpy(seed + 32, (this->_server ? this->_random : this->_foreign), 32);
+		// Метка выработки обычного главного секрета
+		const view_t master(reinterpret_cast <const uint8_t *> (MASTER), ::strlen(MASTER));
+		// Раздел 8.1 RFC 5246: главный секрет из общего значения меткой и случайными значениями
+		if(!this->sequencing(premaster, master, view_t(seed, sizeof(seed)), this->_keys->master, sizeof(this->_keys->master)))
+			// Выводим отказ вывода главного секрета
+			return context::error_t::SCHEDULE;
+		// Выводим итог вывода ключевого материала из главного секрета
+		return this->keying();
+	}
 	// Метка выработки расширенного главного секрета
 	const view_t extended(reinterpret_cast <const uint8_t *> (EXTENDED), ::strlen(EXTENDED));
 	// Раздел 4 RFC 7627: главный секрет из общего значения меткой и хешем переписки
-	if(!this->sequencing(premaster, extended, view_t(transcript, width), this->_master, sizeof(this->_master)))
+	if(!this->sequencing(premaster, extended, view_t(transcript, width), this->_keys->master, sizeof(this->_keys->master)))
 		// Выводим отказ вывода главного секрета
 		return context::error_t::SCHEDULE;
 	// Выводим итог вывода ключевого материала из главного секрета
@@ -13768,7 +13827,7 @@ context::error_t nts::internal::Engine::switching() noexcept {
 		// Место ключевого материала своей стороны
 		const size_t own = (this->_server ? 1 : 0);
 		// Отказ заведения поры ключей записи
-		const context::error_t adopted = this->_flight.adopt(false, this->_suite, view_t(this->_key[own], protect::key(this->_suite)), view_t(this->_vector[own], protect::block(this->_suite)), view_t(this->_stamp[own], digest::length(protect::mac(this->_suite))), this->_etm);
+		const context::error_t adopted = this->_flight.adopt(false, this->_suite, view_t(this->_keys->key[own], protect::key(this->_suite)), view_t(this->_keys->vector[own], protect::block(this->_suite)), view_t(this->_keys->stamp[own], digest::length(protect::mac(this->_suite))), this->_etm);
 		// Если пору ключей завести не удалось
 		if(adopted != context::error_t::NONE)
 			// Выводим отказ заведения поры ключей
@@ -13799,7 +13858,7 @@ context::error_t nts::internal::Engine::finishing() noexcept {
 	// Место, в которое помещается завершение рукопожатия
 	uint8_t completion[VERIFIED];
 	// Раздел 7.4.9 RFC 5246: завершение из главного секрета меткой стороны и хешем переписки
-	if(!this->sequencing(view_t(this->_master, sizeof(this->_master)), view_t(reinterpret_cast <const uint8_t *> (label), ::strlen(label)), view_t(transcript, width), completion, sizeof(completion)))
+	if(!this->sequencing(view_t(this->_keys->master, sizeof(this->_keys->master)), view_t(reinterpret_cast <const uint8_t *> (label), ::strlen(label)), view_t(transcript, width), completion, sizeof(completion)))
 		// Выводим отказ выработки завершения рукопожатия
 		return context::error_t::COMPLETION;
 	// Выводим итог отправки завершения рукопожатия
@@ -13831,7 +13890,7 @@ context::error_t nts::internal::Engine::finished(const view_t & body) noexcept {
 	// Место, в которое помещается ожидаемое завершение рукопожатия
 	uint8_t completion[VERIFIED];
 	// Раздел 7.4.9 RFC 5246: ожидаемое завершение из главного секрета меткой собеседника
-	if(!this->sequencing(view_t(this->_master, sizeof(this->_master)), view_t(reinterpret_cast <const uint8_t *> (label), ::strlen(label)), view_t(transcript, width), completion, sizeof(completion)))
+	if(!this->sequencing(view_t(this->_keys->master, sizeof(this->_keys->master)), view_t(reinterpret_cast <const uint8_t *> (label), ::strlen(label)), view_t(transcript, width), completion, sizeof(completion)))
 		// Выводим отказ выработки завершения рукопожатия
 		return context::error_t::COMPLETION;
 	// Сличение ведётся за постоянное время: время сличения не выдаёт ожидаемого завершения
@@ -13871,7 +13930,7 @@ context::error_t nts::internal::Engine::keying() noexcept {
 	// Место, в которое помещается ключевой материал: ключи имитовставки, ключи и векторы обеих сторон
 	uint8_t material[(protect::PROTECT_MAC + protect::PROTECT_KEY + protect::PROTECT_VECTOR) * 2];
 	// Раздел 6.3 RFC 5246: ключевой материал из главного секрета меткой и затравкой
-	if(!this->sequencing(view_t(this->_master, sizeof(this->_master)), expansion, view_t(seed, sizeof(seed)), material, (stamp + width + size) * 2)){
+	if(!this->sequencing(view_t(this->_keys->master, sizeof(this->_keys->master)), expansion, view_t(seed, sizeof(seed)), material, (stamp + width + size) * 2)){
 		// Выполняем затирание ключевого материала
 		wipe(material, sizeof(material));
 		// Выводим отказ вывода ключевого материала
@@ -13890,22 +13949,22 @@ context::error_t nts::internal::Engine::keying() noexcept {
 	// Раздел 4.1 RFC 6347: поверх дейтаграмм ключи ставятся порам по сменам набора шифрования, а до того хранятся связью
 	if(this->_transport == context::transport_t::DATAGRAMS){
 		// Запоминаем ключ клиента
-		::memcpy(this->_key[0], clientKey.data, width);
+		::memcpy(this->_keys->key[0], clientKey.data, width);
 		// Запоминаем ключ сервера
-		::memcpy(this->_key[1], serverKey.data, width);
+		::memcpy(this->_keys->key[1], serverKey.data, width);
 		// Если векторы замены положены набору
 		if(size > 0){
 			// Запоминаем вектор замены клиента
-			::memcpy(this->_vector[0], clientVector.data, size);
+			::memcpy(this->_keys->vector[0], clientVector.data, size);
 			// Запоминаем вектор замены сервера
-			::memcpy(this->_vector[1], serverVector.data, size);
+			::memcpy(this->_keys->vector[1], serverVector.data, size);
 		}
 		// Если ключи имитовставки положены набору
 		if(stamp > 0){
 			// Запоминаем ключ имитовставки клиента
-			::memcpy(this->_stamp[0], clientMac.data, stamp);
+			::memcpy(this->_keys->stamp[0], clientMac.data, stamp);
 			// Запоминаем ключ имитовставки сервера
-			::memcpy(this->_stamp[1], serverMac.data, stamp);
+			::memcpy(this->_keys->stamp[1], serverMac.data, stamp);
 		}
 	}
 	// Признак успешности установки ключевого материала обеим защитам
@@ -13946,7 +14005,7 @@ context::error_t nts::internal::Engine::granting() noexcept {
 		// Устанавливаем набор шифрования связи
 		state.suite = this->_suite;
 		// Переносим главный секрет связи
-		::memcpy(state.master, this->_master, sizeof(state.master));
+		::memcpy(state.master, this->_keys->master, sizeof(state.master));
 		// Раздел 3.1 RFC 7366: билет помнит порядок защиты записей выдавшей связи
 		state.etm = this->_etm;
 		// Издание выдавшей связи
@@ -14028,7 +14087,7 @@ context::error_t nts::internal::Engine::granting() noexcept {
 		// Переносим октеты билета телом билета потребителя
 		item.identity = ::move(ticket);
 		// Переносим главный секрет ключом билета
-		item.secret.assign(this->_master, this->_master + sizeof(this->_master));
+		item.secret.assign(this->_keys->master, this->_keys->master + sizeof(this->_keys->master));
 		// Добавляем выданный билет в перечень билетов связи
 		this->_tickets.push_back(item);
 		// Выполняем затирание главного секрета в записи билета
@@ -14093,7 +14152,7 @@ context::error_t nts::internal::Engine::granted(const view_t & body) noexcept {
 		// Переносим октеты билета телом билета потребителя
 		this->_promise.identity.assign(ticket.data, ticket.data + ticket.size);
 		// Переносим главный секрет ключом билета
-		this->_promise.secret.assign(this->_master, this->_master + sizeof(this->_master));
+		this->_promise.secret.assign(this->_keys->master, this->_keys->master + sizeof(this->_keys->master));
 	/**
 	 * Если памяти под билет не хватило
 	 */
@@ -14203,7 +14262,7 @@ bool nts::internal::Engine::recalling(const hello::client_t & greeting, const bo
 		}
 	}
 	// Переносим главный секрет билета в связь
-	::memcpy(this->_master, state.master, sizeof(this->_master));
+	::memcpy(this->_keys->master, state.master, sizeof(this->_keys->master));
 	// Устанавливаем набор шифрования билета
 	this->_suite = state.suite;
 	// Наследуем порядок защиты записей выдавшей связи
@@ -15954,7 +16013,7 @@ context::error_t nts::internal::Engine::deciding(const bool resumed) noexcept {
 	// Если рукопожатие полное: билет сервером не признан, за приветствием идёт цепочка либо обмен ключами
 	if(!resumed){
 		// Выполняем затирание главного секрета билета: он не пригодился
-		wipe(this->_master, sizeof(this->_master));
+		wipe(this->_keys->master, sizeof(this->_keys->master));
 		// Переходим к ожиданию цепочки сертификатов либо обмена ключами у наборов PSK
 		this->_phase = (preshared(this->_suite) ? phase_t::AGREEMENT : phase_t::CERTIFICATE);
 		// Выводим успешность суждения
@@ -16491,7 +16550,7 @@ context::error_t nts::internal::Engine::switched() noexcept {
 	// Место ключевого материала собеседника
 	const size_t peer = (this->_server ? 0 : 1);
 	// Раздел 4.1 RFC 6347: смена набора шифрования открывает первую пору чтения
-	const context::error_t error = this->_flight.adopt(true, this->_suite, view_t(this->_key[peer], protect::key(this->_suite)), view_t(this->_vector[peer], protect::block(this->_suite)), view_t(this->_stamp[peer], digest::length(protect::mac(this->_suite))), this->_etm);
+	const context::error_t error = this->_flight.adopt(true, this->_suite, view_t(this->_keys->key[peer], protect::key(this->_suite)), view_t(this->_keys->vector[peer], protect::block(this->_suite)), view_t(this->_keys->stamp[peer], digest::length(protect::mac(this->_suite))), this->_etm);
 	// Если пору ключей завести не удалось
 	if(error != context::error_t::NONE)
 		// Выводим отказ заведения поры ключей
@@ -16536,7 +16595,7 @@ context::error_t nts::internal::Engine::adopt(const session::side_t side, const 
 	// Метка вывода ключа шифрования номера записи: раздел 4.2.3 RFC 9147
 	static const uint8_t LABEL[2] = {'s', 'n'};
 	// Признак того, что ключ шифрования номера записи выведен
-	const bool derived = schedule::derive(protect::hash(this->_suite), view_t(this->_traffic[place][index(side)], this->_width), view_t(LABEL, sizeof(LABEL)), view_t(nullptr, 0), sn, protect::key(this->_suite));
+	const bool derived = schedule::derive(protect::hash(this->_suite), view_t(this->_keys->traffic[place][index(side)], this->_width), view_t(LABEL, sizeof(LABEL)), view_t(nullptr, 0), sn, protect::key(this->_suite));
 	// Отказ заведения поры ключей переносом
 	const context::error_t error = (derived ? this->_flight.adopt((side != own), (level == context::level_t::HANDSHAKE), this->_suite, view_t(material, protect::key(this->_suite)), view_t(element, protect::block(this->_suite)), view_t(sn, protect::key(this->_suite))) : context::error_t::SCHEDULE);
 	// Выполняем затирание ключа шифрования номера записи
@@ -16894,6 +16953,26 @@ bool nts::internal::Engine::strict() const noexcept {
 	return this->_flight.strict();
 }
 /**
+ * @brief Метод установки обязательности расширенного главного секрета издания 1.2
+ *
+ * @param mandatory отвергается ли собеседник без расширения RFC 7627
+ *
+ */
+void nts::internal::Engine::master(const bool mandatory) noexcept {
+	// Запоминаем обязательность расширенного главного секрета
+	this->_mandatory = mandatory;
+}
+/**
+ * @brief Метод проверки обязательности расширенного главного секрета издания 1.2
+ *
+ * @return признак того, что собеседник без расширения RFC 7627 отвергается
+ *
+ */
+bool nts::internal::Engine::master() const noexcept {
+	// Выводим обязательность расширенного главного секрета
+	return this->_mandatory;
+}
+/**
  * @brief Метод получения срока ожидания повторной передачи
  *
  * @return срок в миллисекундах, ноль, когда повторять нечего
@@ -17046,7 +17125,7 @@ void nts::internal::Engine::restamp() noexcept {
  *
  */
 nts::internal::Engine::Engine(const bool server) noexcept :
-	_server(server), _request(false), _requested(false), _retried(false),
+	_server(server), _request(false), _mandatory(false), _extending(false), _requested(false), _retried(false),
 	_state(context::state_t::NONE), _error(context::error_t::NONE),
 	_suite(protect::suite_t::NONE), _group(extension::group_t::NONE),
 	_moment(0), _limit(0), _passed(0),
@@ -17060,18 +17139,26 @@ nts::internal::Engine::Engine(const bool server) noexcept :
 	_queries(0), _confirmed(false), _delivered(0), _switched(false),
 	_lowest(LEGACY), _highest(MODERN), _version(0), _legacy(false), _ancient(false), _proposed(false), _own(true), _phase(phase_t::NONE), _sealing(false), _opening(false), _stapling(false),
 	_claimed(0), _etm(false), _strict(false), _ticketing(false), _presented(false), _resumed(false), _authenticated(0) {
-	// Выполняем обнуление ключей имитовставки сторон
-	::memset(this->_stamp, 0, sizeof(this->_stamp));
+	// Сбрасываем ключевой материал связи до заведения участка
+	this->_keys = nullptr;
+	/**
+	 * Заводим участок укрытой памяти под ключевой материал связи (решение 17 шапки); без
+	 * участка связь негодна с рождения: ключам лежать в обычной куче нельзя
+	 */
+	if(this->_shelter.reserve(sizeof(keys_t)))
+		// Запоминаем ключевой материал связи
+		this->_keys = reinterpret_cast <keys_t *> (this->_shelter.data());
+	// Если хранилище участка не дало
+	else {
+		// Отмечаем связь негодной
+		this->_state = context::state_t::FAILED;
+		// Запоминаем отказ памяти
+		this->_error = context::error_t::MEMORY;
+	}
 	// Выполняем сброс поры ключей записей клиента
 	this->_epoch[0] = flow::epoch_t::PLAIN;
 	// Выполняем сброс поры ключей записей сервера
 	this->_epoch[1] = flow::epoch_t::PLAIN;
-	// Выполняем обнуление ключей завершения рукопожатия сторон
-	::memset(this->_completion, 0, sizeof(this->_completion));
-	// Выполняем обнуление ключевого материала прикладных данных
-	::memset(this->_key, 0, sizeof(this->_key));
-	// Выполняем обнуление векторов замены прикладных данных
-	::memset(this->_vector, 0, sizeof(this->_vector));
 	// Выполняем обнуление случайного значения своего приветствия
 	::memset(this->_random, 0, sizeof(this->_random));
 	// Выполняем обнуление зерна значений GREASE связи
@@ -17080,10 +17167,6 @@ nts::internal::Engine::Engine(const bool server) noexcept :
 	::memset(this->_innerandom, 0, sizeof(this->_innerandom));
 	// Выполняем обнуление случайного значения собеседника
 	::memset(this->_foreign, 0, sizeof(this->_foreign));
-	// Выполняем обнуление главного секрета издания TLS 1.2
-	::memset(this->_master, 0, sizeof(this->_master));
-	// Выполняем обнуление значений направлений связи по уровням защиты
-	::memset(this->_traffic, 0, sizeof(this->_traffic));
 	// Выполняем обнуление признаков готовности значений направлений
 	::memset(this->_ready, 0, sizeof(this->_ready));
 	/**
