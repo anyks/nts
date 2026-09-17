@@ -103,15 +103,18 @@ namespace {
 	 * @param first  число, выбираемое при единичной маске
 	 * @param second число, выбираемое при нулевой маске
 	 * @param result место, в которое помещается выбранное число
+	 * @param words  число слов поля, в котором лежат числа
 	 *
 	 */
-	static void select(const uint64_t mask, const math::number_t & first, const math::number_t & second, math::number_t & result) noexcept {
+	static void select(const uint64_t mask, const math::number_t & first, const math::number_t & second, math::number_t & result, const size_t words) noexcept {
 		// Получаем маску выбора, растянутую на все разряды слова
 		const uint64_t value = (0 - (mask & 0x01));
 		/**
-		 * Выполняем перебор слов выбираемых чисел
+		 * Выполняем перебор слов выбираемых чисел по ширине поля: старшие слова числа
+		 * у координат точек всегда нулевые, и перебирать их значило бы тратить на выбор
+		 * кратного вдвое больше, чем на само сложение точек
 		 */
-		for(size_t i = 0; i < math::NUMBER_WORDS; i++)
+		for(size_t i = 0; i < words; i++)
 			// Выбираем очередное слово итога наложением маски
 			result.words[i] = (second.words[i] ^ (value & (second.words[i] ^ first.words[i])));
 	}
@@ -140,15 +143,16 @@ namespace {
 	 * @param first  точка, выбираемая при единичной маске
 	 * @param second точка, выбираемая при нулевой маске
 	 * @param result место, в которое помещается выбранная точка
+	 * @param words  число слов поля, в котором лежат координаты
 	 *
 	 */
-	static void choose(const uint64_t mask, const point_t & first, const point_t & second, point_t & result) noexcept {
+	static void choose(const uint64_t mask, const point_t & first, const point_t & second, point_t & result, const size_t words) noexcept {
 		// Выбираем первую координату точки
-		select(mask, first.x, second.x, result.x);
+		select(mask, first.x, second.x, result.x, words);
 		// Выбираем вторую координату точки
-		select(mask, first.y, second.y, result.y);
+		select(mask, first.y, second.y, result.y, words);
 		// Выбираем третью координату точки
-		select(mask, first.z, second.z, result.z);
+		select(mask, first.z, second.z, result.z, words);
 	}
 };
 
@@ -667,9 +671,9 @@ void nts::curve::Curve::attach(const point_t & first, const point_t & second, po
 	 * Бесконечно удалённое слагаемое обращает сумму в другое слагаемое: выбор ведётся
 	 * наложением маски, оттого удалённость слагаемого временем работы не выдаётся
 	 */
-	choose(this->infinity(second) ? 1 : 0, first, value, value);
+	choose(this->infinity(second) ? 1 : 0, first, value, value, ((this->_field.size() + 7) / 8));
 	// Выбираем сумму точек наложением маски удалённости первого слагаемого
-	choose(this->infinity(first) ? 1 : 0, second, value, result);
+	choose(this->infinity(first) ? 1 : 0, second, value, result, ((this->_field.size() + 7) / 8));
 }
 /**
  * @brief Метод сложения точек кривой с аффинным вторым слагаемым
@@ -743,9 +747,9 @@ void nts::curve::Curve::join(const point_t & first, const point_t & second, poin
 	 * Бесконечно удалённое слагаемое обращает сумму в другое слагаемое: выбор ведётся
 	 * наложением маски, оттого удалённость слагаемого временем работы не выдаётся
 	 */
-	choose(this->infinity(second) ? 1 : 0, first, value, value);
+	choose(this->infinity(second) ? 1 : 0, first, value, value, ((this->_field.size() + 7) / 8));
 	// Выбираем сумму точек наложением маски удалённости первого слагаемого
-	choose(this->infinity(first) ? 1 : 0, second, value, result);
+	choose(this->infinity(first) ? 1 : 0, second, value, result, ((this->_field.size() + 7) / 8));
 }
 /**
  * @brief Метод сложения точек кривой
@@ -880,6 +884,8 @@ void nts::curve::Curve::multiply(const point_t & value, const math::number_t & f
 	point_t twice;
 	// Сумма накопленного произведения с выбранным кратным
 	point_t sum;
+	// Число слов поля кривой: выбор кратных перебирает лишь их
+	const size_t words = ((this->_field.size() + 7) / 8);
 	/**
 	 * Выполняем перебор окон множителя от старшего к младшему
 	 */
@@ -903,7 +909,7 @@ void nts::curve::Curve::multiply(const point_t & value, const math::number_t & f
 		 */
 		for(size_t j = 0; j < MULTIPLES; j++)
 			// Выбираем кратное точки наложением маски совпадения со значением окна
-			choose(equal(window, static_cast <uint64_t> (j)), table[j], chosen, chosen);
+			choose(equal(window, static_cast <uint64_t> (j)), table[j], chosen, chosen, words);
 		// Выполняем сложение накопленного произведения с выбранным кратным
 		this->attach(item, chosen, sum);
 		// Запоминаем накопленное произведение

@@ -113,6 +113,29 @@ namespace {
 		}
 	}
 	/**
+	 * Сличение байтов без перехватчиков санитайзера: мера читает блоки целиком, включая
+	 * хвост вектора между размером и ёмкостью, который ASan помечает переполнением
+	 * контейнера; для меры это законное чтение своей же учтённой области
+	 */
+	#if defined(__clang__) || defined(__GNUC__)
+		__attribute__((no_sanitize("address")))
+	#endif
+	static bool same(const uint8_t * data, const uint8_t * key, const size_t size) noexcept {
+		uint8_t diff = 0;
+		for(size_t i = 0; i < size; i++) diff |= static_cast <uint8_t> (data[i] ^ key[i]);
+		return (diff == 0);
+	}
+	/**
+	 * Копирование байтов без перехватчиков санитайзера: журнал снимает освобождаемый блок целиком
+	 */
+	#if defined(__clang__) || defined(__GNUC__)
+		__attribute__((no_sanitize("address")))
+	#endif
+	static void copy(uint8_t * to, const void * from, const size_t size) noexcept {
+		const uint8_t * data = static_cast <const uint8_t *> (from);
+		for(size_t i = 0; i < size; i++) to[i] = data[i];
+	}
+	/**
 	 * Снятие блока с учёта с переписыванием содержимого в журнал
 	 */
 	void untrack(void * ptr) noexcept {
@@ -122,7 +145,7 @@ namespace {
 			if(cells[i].ptr == nullptr) return;
 			if(cells[i].ptr == ptr){
 				const size_t size = ((cells[i].size > LARGEST) ? LARGEST : cells[i].size);
-				if((filled + size) <= JOURNAL){ ::memcpy(journal + filled, ptr, size); filled += size; }
+				if((filled + size) <= JOURNAL){ copy(journal + filled, ptr, size); filled += size; }
 				else overflowed = true;
 				// Удаление из открытой адресации: помечаем надгробием (адрес 1), поиск его пропускает
 				cells[i].ptr = reinterpret_cast <void *> (1);
@@ -140,7 +163,7 @@ namespace {
 			if((cells[i].ptr == nullptr) || (cells[i].ptr == reinterpret_cast <void *> (1)) || (cells[i].size < size)) continue;
 			const uint8_t * data = static_cast <const uint8_t *> (cells[i].ptr);
 			for(size_t j = 0; (j + size) <= cells[i].size; j++){
-				if(::memcmp(data + j, key, size) == 0){ if(where != nullptr) *where = cells[i].size; count++; break; }
+				if(same(data + j, key, size)){ if(where != nullptr) *where = cells[i].size; count++; break; }
 			}
 		}
 		return count;
@@ -151,7 +174,7 @@ namespace {
 	size_t buried(const uint8_t * key, const size_t size) noexcept {
 		size_t count = 0;
 		for(size_t j = 0; (j + size) <= filled; j++)
-			if(::memcmp(journal + j, key, size) == 0) count++;
+			if(same(journal + j, key, size)) count++;
 		return count;
 	}
 	/**
@@ -206,7 +229,7 @@ namespace {
 		size_t count = 0;
 		for(const uint8_t * p = low; (p + size) <= high; p++){
 			if((p >= skip) && (p < (skip + span))) continue;
-			if(::memcmp(p, key, size) == 0){ count++; ::printf("след ключа на стеке: %td байтов ниже кадра\n", high - p); }
+			if(same(p, key, size)){ count++; ::printf("след ключа на стеке: %td байтов ниже кадра\n", high - p); }
 		}
 		return count;
 	}

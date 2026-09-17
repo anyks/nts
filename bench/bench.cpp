@@ -62,6 +62,7 @@
 #include <digest/sha2.hpp>
 #include <entropy/entropy.hpp>
 #include <curve/parameters.hpp>
+#include <agreement/x25519.hpp>
 #include <client/client.hpp>
 #include <server/server.hpp>
 #include <pem/pem.hpp>
@@ -1077,6 +1078,51 @@ int main(int argc, char * argv[]) noexcept {
 		// Выполняем выработку общего значения обмена ключами
 		agreement::ecdhe(curve, view_t(secret, sizeof(secret)), view_t(opened, sizeof(opened)), shared);
 	});
+	// Кривая P-256: обмен ключами по ней сличается с эталоном той же кривой
+	curve::curve_t nist;
+	// Если параметры кривой P-256 получить не удалось
+	if(!curve::parameters("1.2.840.10045.3.1.7", nist)){
+		// Выводим сообщение об отказе получения параметров кривой
+		cout << "Получить параметры кривой P-256 не удалось" << endl;
+		// Выходим из приложения с признаком отказа
+		return EXIT_FAILURE;
+	}
+	// Секретный ключ обмена по кривой P-256
+	uint8_t nistSecret[32];
+	// Открытый ключ обмена по кривой P-256
+	uint8_t nistOpened[64];
+	// Общее значение обмена по кривой P-256
+	uint8_t nistShared[32];
+	// Если ключевую пару кривой P-256 выработать не удалось либо общее значение не выработалось
+	if(!agreement::generate(nist, nistSecret, nistOpened) || !agreement::ecdhe(nist, view_t(nistSecret, sizeof(nistSecret)), view_t(nistOpened, sizeof(nistOpened)), nistShared)){
+		// Выводим сообщение об отказе обмена ключами
+		cout << "Выработать общее значение обмена по кривой P-256 не удалось" << endl;
+		// Выходим из приложения с признаком отказа
+		return EXIT_FAILURE;
+	}
+	// Выполняем замер числа обменов ключами по кривой P-256 за секунду
+	const double nistExchange = count("Обмен ключами ECDH P-256", 200, [&nist, &nistSecret, &nistOpened, &nistShared]() noexcept -> void {
+		// Выполняем выработку общего значения обмена по кривой P-256
+		agreement::ecdhe(nist, view_t(nistSecret, sizeof(nistSecret)), view_t(nistOpened, sizeof(nistOpened)), nistShared);
+	});
+	// Секретный ключ обмена X25519
+	uint8_t montSecret[32];
+	// Открытый ключ обмена X25519
+	uint8_t montKey[32];
+	// Общее значение обмена X25519
+	uint8_t montShared[32];
+	// Если ключевую пару X25519 выработать не удалось либо общее значение не выработалось
+	if(!agreement::generate(montSecret, montKey) || !agreement::x25519(view_t(montSecret, sizeof(montSecret)), view_t(montKey, sizeof(montKey)), montShared)){
+		// Выводим сообщение об отказе обмена ключами
+		cout << "Выработать общее значение обмена X25519 не удалось" << endl;
+		// Выходим из приложения с признаком отказа
+		return EXIT_FAILURE;
+	}
+	// Выполняем замер числа обменов ключами X25519 за секунду
+	const double montExchange = count("Обмен ключами X25519", 200, [&montSecret, &montKey, &montShared]() noexcept -> void {
+		// Выполняем выработку общего значения обмена X25519
+		agreement::x25519(view_t(montSecret, sizeof(montSecret)), view_t(montKey, sizeof(montKey)), montShared);
+	});
 	/**
 	 * VKO по RFC 7836 ждёт секрет и координаты от старшего байта, тогда как обмен
 	 * ключами отдаёт их от младшего, как они идут по связи: разворот здесь, у границы
@@ -1288,7 +1334,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Опознаватель клиента
 		psk.identity.assign(reinterpret_cast <const uint8_t *> ("anyks"), reinterpret_cast <const uint8_t *> ("anyks") + 5);
 		// Ключ клиента
-		psk.key = preshared;
+		psk.key.assign(preshared.begin(), preshared.end());
 		// Указатель на ключ для вызова сервера
 		psk.context = const_cast <vector <uint8_t> *> (&preshared);
 		// Ключ билетов сервера
@@ -1708,6 +1754,32 @@ int main(int argc, char * argv[]) noexcept {
 		});
 		// Выполняем освобождение ключевой пары кривой эталона
 		::EVP_PKEY_free(pair);
+		// Ключевая пара X25519 эталона
+		EVP_PKEY * mont = ::EVP_PKEY_Q_keygen(nullptr, nullptr, "X25519");
+		// Если ключевую пару X25519 эталона выработать не удалось
+		if(mont == nullptr){
+			// Выводим сообщение об отказе выработки пары ключей
+			cout << "Выработать ключевую пару X25519 эталона не удалось" << endl;
+			// Выходим из приложения с признаком отказа
+			return EXIT_FAILURE;
+		}
+		// Выполняем замер числа обменов ключами X25519 эталона за секунду
+		const double montRef = count("Обмен ключами X25519", 200, [&mont, &common]() noexcept -> void {
+			// Длина общего значения обмена эталона
+			size_t size = common.size();
+			// Объект обмена ключами эталона
+			EVP_PKEY_CTX * exchange = ::EVP_PKEY_CTX_new(mont, nullptr);
+			// Выполняем заведение обмена ключами эталона
+			::EVP_PKEY_derive_init(exchange);
+			// Устанавливаем открытый ключ встречной стороны обмена
+			::EVP_PKEY_derive_set_peer(exchange, mont);
+			// Выполняем выработку общего значения обмена
+			::EVP_PKEY_derive(exchange, common.data(), &size);
+			// Выполняем освобождение объекта обмена ключами эталона
+			::EVP_PKEY_CTX_free(exchange);
+		});
+		// Выполняем освобождение ключевой пары X25519 эталона
+		::EVP_PKEY_free(mont);
 		// Выводим заголовок отношений замеров одного рода работы
 		cout << endl << "Отставание от эталона" << endl << endl;
 		// Выводим отношение замеров хеширования
@@ -1732,8 +1804,12 @@ int main(int argc, char * argv[]) noexcept {
 		relation("Подпись", signing, ecdsa);
 		// Выводим отношение замеров сличения подписи
 		relation("Сличение подписи", checking, verify);
-		// Выводим отношение замеров обмена ключами
-		relation("Обмен ключами", exchange, ecdh);
+		// Выводим отношение замеров обмена ключами по ГОСТ-кривой к обмену эталона по P-256
+		relation("Обмен ключами ГОСТ против P-256 эталона", exchange, ecdh);
+		// Выводим отношение замеров обмена ключами по кривой P-256 к эталону
+		relation("ECDH P-256 против эталона", nistExchange, ecdh);
+		// Выводим отношение замеров обмена ключами X25519 к эталону
+		relation("X25519 против эталона", montExchange, montRef);
 		/**
 		 * Эталон на этой машине шифрует и хеширует машинными командами, которых у ГОСТ
 		 * нет ни на одной: чтобы сличить сами алгоритмы, а не оснастку под них, эталон

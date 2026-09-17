@@ -2,6 +2,8 @@
 
 # ANYKS - Network Transport Security (A-NTS)
 
+English version: [README.en.md](README.en.md)
+
 [![LicenseRef-A-NTS-1.0](https://img.shields.io/badge/license-A--NTS%201.0-blue.svg)](LICENSE)
 
 Криптографическая библиотека и реализация TLS на C++ — самостоятельный проект,

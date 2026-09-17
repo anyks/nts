@@ -174,6 +174,90 @@ namespace {
 		return buffer[WORDS];
 	}
 	/**
+	 * @brief Метод умножения Монтгомери по простому числу кривой P-256
+	 *
+	 * @param first  первый сомножитель
+	 * @param second второй сомножитель
+	 * @param result место, в которое помещается произведение
+	 *
+	 * @return       старшее слово переноса произведения
+	 *
+	 */
+	static uint64_t nist256(const uint64_t * first, const uint64_t * second, uint64_t * result) noexcept {
+		/**
+		 * Простое число кривой P-256 в словах, от младшего к старшему, есть
+		 * (2^64 - 1, 2^32 - 1, 0, 2^64 - 2^32 + 1), а обратное к его младшему
+		 * слову со сменой знака равно единице. Оттого множитель приведения есть
+		 * само младшее слово накопителя, произведение множителя на младшее слово
+		 * модуля вместе с накопителем даёт ровно перенос в размере множителя,
+		 * а третье слово модуля не умножается вовсе: на шаг уходит два умножения
+		 * приведения вместо четырёх и ни одного умножения на множитель
+		 */
+		uint64_t buffer[5] = {};
+		/**
+		 * Выполняем перебор слов второго сомножителя от младшего к старшему
+		 */
+		for(size_t i = 0; i < 4; i++){
+			// Получаем очередное слово второго сомножителя
+			const uint64_t word = second[i];
+			// Перенос из очередного слова накапливаемого произведения
+			uint64_t carry = 0;
+			/**
+			 * Выполняем умножение первого сомножителя на очередное слово второго
+			 */
+			for(size_t j = 0; j < 4; j++){
+				// Складываем накопленное слово с произведением слов и переносом
+				const wide_t item = (static_cast <wide_t> (first[j]) * word + buffer[j] + carry);
+				// Записываем младшую половину полученного значения
+				buffer[j] = static_cast <uint64_t> (item);
+				// Запоминаем перенос в следующее слово
+				carry = static_cast <uint64_t> (item >> 64);
+			}
+			// Складываем старшее слово произведения с переносом
+			const wide_t item = (static_cast <wide_t> (buffer[4]) + carry);
+			// Записываем младшую половину полученного значения
+			buffer[4] = static_cast <uint64_t> (item);
+			// Запоминаем перенос в дополнительное слово произведения
+			const uint64_t extra = static_cast <uint64_t> (item >> 64);
+			// Множитель приведения есть само младшее слово накопителя
+			const uint64_t reducer = buffer[0];
+			// Произведение множителя на младшее слово модуля с накопителем даёт перенос в размере множителя
+			carry = reducer;
+			// Складываем второе слово накопителя с произведением множителя на (2^32 - 1) и переносом
+			const wide_t second1 = (static_cast <wide_t> (reducer) * 0xFFFFFFFFULL + buffer[1] + carry);
+			// Записываем младшую половину полученного значения со сдвигом на слово
+			buffer[0] = static_cast <uint64_t> (second1);
+			// Запоминаем перенос в следующее слово
+			carry = static_cast <uint64_t> (second1 >> 64);
+			// Третье слово модуля нулевое: складываем накопитель лишь с переносом
+			const wide_t third = (static_cast <wide_t> (buffer[2]) + carry);
+			// Записываем младшую половину полученного значения со сдвигом на слово
+			buffer[1] = static_cast <uint64_t> (third);
+			// Запоминаем перенос в следующее слово
+			carry = static_cast <uint64_t> (third >> 64);
+			// Складываем четвёртое слово накопителя с произведением множителя на (2^64 - 2^32 + 1) и переносом
+			const wide_t fourth = (static_cast <wide_t> (reducer) * 0xFFFFFFFF00000001ULL + buffer[3] + carry);
+			// Записываем младшую половину полученного значения со сдвигом на слово
+			buffer[2] = static_cast <uint64_t> (fourth);
+			// Запоминаем перенос в следующее слово
+			carry = static_cast <uint64_t> (fourth >> 64);
+			// Складываем старшее слово произведения с переносом
+			const wide_t last = (static_cast <wide_t> (buffer[4]) + carry);
+			// Записываем младшую половину полученного значения со сдвигом на слово
+			buffer[3] = static_cast <uint64_t> (last);
+			// Складываем дополнительное слово произведения с переносом
+			buffer[4] = static_cast <uint64_t> (extra + (last >> 64));
+		}
+		/**
+		 * Выполняем перебор слов накопленного произведения
+		 */
+		for(size_t i = 0; i < 4; i++)
+			// Записываем очередное слово произведения
+			result[i] = buffer[i];
+		// Накопитель не затирается по той же причине, что и у общего умножения
+		return buffer[4];
+	}
+	/**
 	 * @brief Метод выбора одного из двух слов наложением маски
 	 *
 	 * @param mask   маска выбора: все разряды единичны либо все нулевые
@@ -489,6 +573,17 @@ bool nts::math::Modulus::start(const view_t & modulus) noexcept {
 	// Запоминаем обратное значение со сменой знака
 	this->_factor = (0 - factor);
 	/**
+	 * Простое число кривой P-256 опознаётся по словам дословно: у него есть свой
+	 * путь умножения, и признак ставится лишь при полном совпадении всех четырёх слов
+	 */
+	this->_nist = (
+		(this->_words == 4) &&
+		(this->_modulus.words[0] == 0xFFFFFFFFFFFFFFFFULL) &&
+		(this->_modulus.words[1] == 0x00000000FFFFFFFFULL) &&
+		(this->_modulus.words[2] == 0x0000000000000000ULL) &&
+		(this->_modulus.words[3] == 0xFFFFFFFF00000001ULL)
+	);
+	/**
 	 * Выполняем выработку квадрата основания области Монтгомери удвоением единицы:
 	 * всякое удвоение сдвигает значение на разряд, а после двух разрядностей модуля
 	 * удвоений выходит основание, возведённое в квадрат
@@ -516,6 +611,8 @@ void nts::math::Modulus::clear() noexcept {
 	wipe(this->_modulus.words, sizeof(this->_modulus.words));
 	// Сбрасываем обратное к младшему слову модуля значение
 	this->_factor = 0;
+	// Сбрасываем признак простого числа кривой P-256
+	this->_nist = false;
 	// Сбрасываем размер модуля в байтах
 	this->_size = 0;
 	// Сбрасываем число слов модуля
@@ -813,9 +910,11 @@ void nts::math::Modulus::multiply(const number_t & first, const number_t & secon
 	 * держит накопитель в регистрах, а не в памяти. Прочие числа слов идут общим путём
 	 */
 	if((this->_words == 4) || (this->_words == 8)){
-		// Старшее слово переноса полученного произведения
+		// Если модуль есть простое число кривой P-256, умножаем путём с заложенными словами модуля
+		if(this->_nist)
+			shrink <4> (result.words, this->_modulus.words, nist256(first.words, second.words, result.words));
 		// Умножаем и приводим развёрнутыми по числу слов путями
-		if(this->_words == 4)
+		else if(this->_words == 4)
 			shrink <4> (result.words, this->_modulus.words, montgomery <4> (first.words, second.words, this->_modulus.words, this->_factor, result.words));
 		else
 			shrink <8> (result.words, this->_modulus.words, montgomery <8> (first.words, second.words, this->_modulus.words, this->_factor, result.words));
@@ -969,7 +1068,7 @@ void nts::math::Modulus::invert(const number_t & value, number_t & result) const
  * @brief Конструктор
  *
  */
-nts::math::Modulus::Modulus() noexcept : _ready(false), _words(0), _size(0), _factor(0) {}
+nts::math::Modulus::Modulus() noexcept : _ready(false), _nist(false), _words(0), _size(0), _factor(0) {}
 /**
  * @brief Деструктор
  *

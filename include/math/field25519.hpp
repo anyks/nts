@@ -273,6 +273,28 @@ namespace nts {
 			__ANTS_SHARED_EXPORT__ void mul(const element_t & first, const element_t & second, element_t & result) noexcept;
 			/**
 			 * \~russian
+			 * @brief Метод умножения элемента поля на малое число
+			 *
+			 * @param value  умножаемый элемент
+			 * @param factor множитель, не больше 2^32
+			 * @param result место, в которое помещается произведение
+			 *
+			 * @note Место итога вправе совпадать с местом умножаемого элемента; множитель
+			 *       сверх 2^32 переполняет перенос между конечностями, и итог выходит неверным
+			 *
+			 * \~english
+			 * @brief Method of the multiplication of an element of the field by a small number
+			 * @param value  the element being multiplied
+			 * @param factor the factor, not greater than 2^32
+			 * @param result the place the product is put into
+			 * @note The place of the result may coincide with the place of the element being multiplied;
+			 *       a factor greater than 2^32 overflows the carry between the limbs and the result comes out wrong
+			 *
+			 * \~
+			 */
+			__ANTS_SHARED_EXPORT__ void mul(const element_t & value, const uint64_t factor, element_t & result) noexcept;
+			/**
+			 * \~russian
 			 * @brief Метод возведения элемента поля в квадрат
 			 *
 			 * @param value  возводимый элемент

@@ -219,6 +219,97 @@ TEST(Field25519Test, Multiplication) {
 	ASSERT_EQ(record(first), std::string(SQUARE));
 }
 /**
+ * @brief Проверка возведения в квадрат на неприведённых конечностях
+ *
+ * @details Квадрат считается своим путём, а не умножением элемента на себя: конечности
+ *          между действиями доходят до 2^54, и путь квадрата обязан давать то же, что
+ *          и умножение, на всех допустимых конечностях, а не только на приведённых
+ *
+ */
+TEST(Field25519Test, Squaring) {
+	// Границы конечностей: приведённая, за пределом приведения, на верхней границе умножения
+	static const uint64_t limits[] = {0, 1, ((static_cast <uint64_t> (1) << 51) - 1), (static_cast <uint64_t> (1) << 51), ((static_cast <uint64_t> (1) << 53) - 1), ((static_cast <uint64_t> (1) << 54) - 1)};
+	// Число проверенных сочетаний
+	size_t count = 0;
+	// Выполняем перебор сочетаний конечностей по границам
+	for(size_t i = 0; i < 6; i++){
+		for(size_t j = 0; j < 6; j++){
+			for(size_t k = 0; k < 6; k++){
+				// Элемент, составленный по границам
+				math::field25519::element_t value;
+				// Записываем конечности элемента
+				value.limbs[0] = limits[i];
+				value.limbs[1] = limits[j];
+				value.limbs[2] = limits[k];
+				value.limbs[3] = limits[(i + j) % 6];
+				value.limbs[4] = limits[(j + k) % 6];
+				// Квадрат своим путём и умножением на себя
+				math::field25519::element_t square, product;
+				// Выполняем возведение в квадрат
+				math::field25519::square(value, square);
+				// Выполняем умножение элемента на себя
+				math::field25519::mul(value, value, product);
+				// Сличаем записи квадрата и произведения
+				ASSERT_EQ(record(square), record(product)) << "конечности " << i << " " << j << " " << k;
+				// Считаем проверенное сочетание
+				count++;
+			}
+		}
+	}
+	// Сличаем число проверенных сочетаний
+	ASSERT_EQ(count, static_cast <size_t> (216));
+}
+/**
+ * @brief Проверка умножения элемента на малое число
+ *
+ * @details Малое число умножает пять конечностей вместо двадцати пяти произведений:
+ *          итог обязан совпадать с умножением на элемент, несущий то же число, на
+ *          приведённых и неприведённых конечностях и на границе множителя 2^32
+ *
+ */
+TEST(Field25519Test, Scaling) {
+	// Множители: единица, множитель удвоения X25519, граница
+	static const uint64_t factors[] = {1, 19, 121665, 0xFFFFFFFFULL, (static_cast <uint64_t> (1) << 32)};
+	// Контрольный элемент
+	math::field25519::element_t value;
+	// Выполняем разбор контрольного элемента
+	element(FIRST, value);
+	// Выполняем перебор множителей
+	for(const uint64_t factor : factors){
+		// Множитель элементом поля
+		math::field25519::element_t scalar;
+		// Записываем множитель в младшую конечность
+		scalar.limbs[0] = factor;
+		// Произведение своим путём и умножением элементов
+		math::field25519::element_t scaled, product;
+		// Выполняем умножение на малое число
+		math::field25519::mul(value, factor, scaled);
+		// Выполняем умножение на элемент
+		math::field25519::mul(value, scalar, product);
+		// Сличаем записи произведений
+		ASSERT_EQ(record(scaled), record(product)) << "множитель " << factor;
+		// Выполняем умножение на малое число в место довода
+		math::field25519::element_t inplace = value;
+		// Выполняем умножение на месте
+		math::field25519::mul(inplace, factor, inplace);
+		// Сличаем запись произведения на месте
+		ASSERT_EQ(record(inplace), record(product)) << "множитель на месте " << factor;
+	}
+	// Неприведённый элемент: все конечности на верхней границе умножения
+	math::field25519::element_t wide, scalar, scaled, product;
+	// Записываем конечности на границе
+	for(size_t i = 0; i < 5; i++)
+		wide.limbs[i] = ((static_cast <uint64_t> (1) << 54) - 1 - i);
+	// Записываем множитель удвоения X25519
+	scalar.limbs[0] = 121665;
+	// Выполняем умножение на малое число
+	math::field25519::mul(wide, static_cast <uint64_t> (121665), scaled);
+	// Выполняем умножение на элемент
+	math::field25519::mul(wide, scalar, product);
+	// Сличаем записи произведений
+	ASSERT_EQ(record(scaled), record(product));
+}
+/**
  * @brief Проверка обращения элемента
  *
  */

@@ -452,8 +452,93 @@ void nts::math::field25519::mul(const element_t & first, const element_t & secon
  *
  */
 void nts::math::field25519::square(const element_t & value, element_t & result) noexcept {
-	// Выполняем умножение элемента на себя
-	mul(value, value, result);
+	// Конечности возводимого элемента
+	const uint64_t a0 = value.limbs[0], a1 = value.limbs[1], a2 = value.limbs[2], a3 = value.limbs[3], a4 = value.limbs[4];
+	/**
+	 * Удвоенные конечности: у квадрата всякая пара разных конечностей встречается
+	 * дважды, и удвоение одной из них заменяет второе произведение сложением
+	 */
+	const uint64_t d0 = (a0 << 1), d1 = (a1 << 1), d2 = (a2 << 1), d3 = (a3 << 1);
+	// Старшие конечности с множителем сворачивания
+	const uint64_t c3 = (a3 * 19), c4 = (a4 * 19);
+	// Младшая конечность квадрата: разряды сверх 2^255 свёрнуты множителем девятнадцать
+	wide_t r0 = ((static_cast <wide_t> (a0) * a0) + (static_cast <wide_t> (d1) * c4) + (static_cast <wide_t> (d2) * c3));
+	// Вторая конечность квадрата
+	wide_t r1 = ((static_cast <wide_t> (d0) * a1) + (static_cast <wide_t> (d2) * c4) + (static_cast <wide_t> (a3) * c3));
+	// Третья конечность квадрата
+	wide_t r2 = ((static_cast <wide_t> (d0) * a2) + (static_cast <wide_t> (a1) * a1) + (static_cast <wide_t> (d3) * c4));
+	// Четвёртая конечность квадрата
+	wide_t r3 = ((static_cast <wide_t> (d0) * a3) + (static_cast <wide_t> (d1) * a2) + (static_cast <wide_t> (a4) * c4));
+	// Старшая конечность квадрата
+	wide_t r4 = ((static_cast <wide_t> (d0) * a4) + (static_cast <wide_t> (d1) * a3) + (static_cast <wide_t> (a2) * a2));
+	// Переносим разряды младшей конечности сверх пятидесяти одного во вторую
+	r1 += static_cast <uint64_t> (r0 >> 51);
+	// Отбрасываем перенесённые разряды младшей конечности
+	result.limbs[0] = (static_cast <uint64_t> (r0) & MASK);
+	// Переносим разряды второй конечности сверх пятидесяти одного в третью
+	r2 += static_cast <uint64_t> (r1 >> 51);
+	// Отбрасываем перенесённые разряды второй конечности
+	result.limbs[1] = (static_cast <uint64_t> (r1) & MASK);
+	// Переносим разряды третьей конечности сверх пятидесяти одного в четвёртую
+	r3 += static_cast <uint64_t> (r2 >> 51);
+	// Отбрасываем перенесённые разряды третьей конечности
+	result.limbs[2] = (static_cast <uint64_t> (r2) & MASK);
+	// Переносим разряды четвёртой конечности сверх пятидесяти одного в старшую
+	r4 += static_cast <uint64_t> (r3 >> 51);
+	// Отбрасываем перенесённые разряды четвёртой конечности
+	result.limbs[3] = (static_cast <uint64_t> (r3) & MASK);
+	// Сворачиваем разряды старшей конечности сверх пятидесяти одного в младшую
+	result.limbs[0] += (static_cast <uint64_t> (r4 >> 51) * 19);
+	// Отбрасываем перенесённые разряды старшей конечности
+	result.limbs[4] = (static_cast <uint64_t> (r4) & MASK);
+	// Переносим разряды младшей конечности сверх пятидесяти одного во вторую
+	result.limbs[1] += (result.limbs[0] >> 51);
+	// Отбрасываем перенесённые разряды младшей конечности
+	result.limbs[0] &= MASK;
+}
+/**
+ * @brief Метод умножения элемента поля на малое число
+ *
+ * @param value  умножаемый элемент
+ * @param factor множитель, не больше 2^32
+ * @param result место, в которое помещается произведение
+ *
+ */
+void nts::math::field25519::mul(const element_t & value, const uint64_t factor, element_t & result) noexcept {
+	// Произведения конечностей на множитель: конечность до 2^54, множитель до 2^32
+	wide_t r0 = (static_cast <wide_t> (value.limbs[0]) * factor);
+	// Вторая конечность произведения
+	wide_t r1 = (static_cast <wide_t> (value.limbs[1]) * factor);
+	// Третья конечность произведения
+	wide_t r2 = (static_cast <wide_t> (value.limbs[2]) * factor);
+	// Четвёртая конечность произведения
+	wide_t r3 = (static_cast <wide_t> (value.limbs[3]) * factor);
+	// Старшая конечность произведения
+	wide_t r4 = (static_cast <wide_t> (value.limbs[4]) * factor);
+	// Переносим разряды младшей конечности сверх пятидесяти одного во вторую
+	r1 += static_cast <uint64_t> (r0 >> 51);
+	// Отбрасываем перенесённые разряды младшей конечности
+	result.limbs[0] = (static_cast <uint64_t> (r0) & MASK);
+	// Переносим разряды второй конечности сверх пятидесяти одного в третью
+	r2 += static_cast <uint64_t> (r1 >> 51);
+	// Отбрасываем перенесённые разряды второй конечности
+	result.limbs[1] = (static_cast <uint64_t> (r1) & MASK);
+	// Переносим разряды третьей конечности сверх пятидесяти одного в четвёртую
+	r3 += static_cast <uint64_t> (r2 >> 51);
+	// Отбрасываем перенесённые разряды третьей конечности
+	result.limbs[2] = (static_cast <uint64_t> (r2) & MASK);
+	// Переносим разряды четвёртой конечности сверх пятидесяти одного в старшую
+	r4 += static_cast <uint64_t> (r3 >> 51);
+	// Отбрасываем перенесённые разряды четвёртой конечности
+	result.limbs[3] = (static_cast <uint64_t> (r3) & MASK);
+	// Сворачиваем разряды старшей конечности сверх пятидесяти одного в младшую
+	result.limbs[0] += (static_cast <uint64_t> (r4 >> 51) * 19);
+	// Отбрасываем перенесённые разряды старшей конечности
+	result.limbs[4] = (static_cast <uint64_t> (r4) & MASK);
+	// Переносим разряды младшей конечности сверх пятидесяти одного во вторую
+	result.limbs[1] += (result.limbs[0] >> 51);
+	// Отбрасываем перенесённые разряды младшей конечности
+	result.limbs[0] &= MASK;
 }
 /**
  * @brief Метод обращения элемента поля
