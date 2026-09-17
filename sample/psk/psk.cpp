@@ -251,7 +251,7 @@ namespace {
 		// Опознаватель клиента
 		yours.identity = ours.identity;
 		// Ключ клиента
-		yours.key = ours.key;
+		yours.key.assign(ours.key.begin(), ours.key.end());
 		// Вызов выбора по подсказке
 		yours.advise = advising;
 		// Связка клиента
@@ -362,11 +362,11 @@ int main(int argc, char * argv[]) noexcept {
 		// Опознаватель сервера
 		theirs.identity = bytes("anyks");
 		// Ключ сервера по опознавателю
-		theirs.key = secret;
+		theirs.key.assign(secret.begin(), secret.end());
 		// Опознаватель клиента
 		ours.identity = bytes("anyks");
 		// Ключ клиента
-		ours.key = secret;
+		ours.key.assign(secret.begin(), secret.end());
 		// Связь стороны клиента
 		client::context_t client;
 		// Связь стороны сервера
@@ -420,7 +420,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Основной опознаватель сервера
 		theirs.identity = bytes("anyks");
 		// Ключ сервера
-		theirs.key = secret;
+		theirs.key.assign(secret.begin(), secret.end());
 		// Запасной опознаватель, известный серверу
 		theirs.alternative = bytes("anyks-spare");
 		// Запасной ключ сервера
@@ -428,7 +428,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Клиент настроен на основной опознаватель
 		ours.identity = bytes("anyks");
 		// Ключ клиента
-		ours.key = secret;
+		ours.key.assign(secret.begin(), secret.end());
 		// Запасной опознаватель клиента
 		ours.alternative = bytes("anyks-spare");
 		// Запасной ключ клиента
@@ -469,11 +469,11 @@ int main(int argc, char * argv[]) noexcept {
 		// Опознаватель сервера
 		theirs.identity = bytes("anyks");
 		// Ключ сервера
-		theirs.key = secret;
+		theirs.key.assign(secret.begin(), secret.end());
 		// Клиент с опознавателем, серверу неизвестным
 		ours.identity = bytes("stranger");
 		// Ключ клиента
-		ours.key = secret;
+		ours.key.assign(secret.begin(), secret.end());
 		// Связь стороны клиента
 		client::context_t client;
 		// Связь стороны сервера
@@ -528,11 +528,11 @@ int main(int argc, char * argv[]) noexcept {
 		// Опознаватель сервера
 		theirs.identity = bytes("anyks");
 		// Ключ сервера
-		theirs.key = secret;
+		theirs.key.assign(secret.begin(), secret.end());
 		// Тот же опознаватель у клиента
 		ours.identity = bytes("anyks");
 		// Иной ключ у клиента
-		ours.key = bytes("wrong pre-shared key");
+		{ const vector <uint8_t> wrong = bytes("wrong pre-shared key"); ours.key.assign(wrong.begin(), wrong.end()); }
 		// Связь стороны клиента
 		client::context_t client;
 		// Связь стороны сервера
@@ -566,7 +566,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Опознаватель в 129 байтов
 		wide.identity.assign(129, 'a');
 		// Ключ
-		wide.key = secret;
+		wide.key.assign(secret.begin(), secret.end());
 		// Устанавливаем настройки
 		client.psk(wide);
 		// Заводим связь: заведение обязано отказать

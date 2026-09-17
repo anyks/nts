@@ -952,6 +952,16 @@ if (${CMAKE_BUILD_SAMPLES})
     # Указываем что нужно собрать приложение выработки ключа из пароля Argon2
     option(CMAKE_BUILD_ARGON2_APP_SAMPLE "Build Argon2 password hashing app sample" ON)
 
+    # Устанавливаем название приложения вывода зашитого в образ ключа
+    SET(EMBED_APP_NAME embed-key)
+    # Указываем что нужно собрать приложение вывода зашитого в образ ключа
+    option(CMAKE_BUILD_EMBED_APP_SAMPLE "Build embedded key derivation app sample" ON)
+
+    # Устанавливаем название приложения укрытого хранилища ключевого материала
+    SET(VAULT_APP_NAME sys-vault)
+    # Указываем что нужно собрать приложение укрытого хранилища ключевого материала
+    option(CMAKE_BUILD_VAULT_APP_SAMPLE "Build sheltered key storage app sample" ON)
+
     # Устанавливаем название приложения упаковки ключа ML-KEM и гибрида
     SET(MLKEM_APP_NAME agreement-mlkem)
     # Указываем что нужно собрать приложение упаковки ключа ML-KEM и гибрида
@@ -1193,6 +1203,30 @@ if (${CMAKE_BUILD_SAMPLES})
         # Выводим сообщение о сборке образца
         message(STATUS "Build sample RAW: No")
     endif (${CMAKE_BUILD_RAW_APP_SAMPLE})
+
+    # Если нужно собрать образец вывода зашитого в образ ключа
+    if (${CMAKE_BUILD_EMBED_APP_SAMPLE})
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample EMBED: Yes")
+        # Выполняем создание приложения вывода зашитого в образ ключа
+        add_sample(${EMBED_APP_NAME} sample/embed/embed.cpp embed)
+    # Если образец вывода зашитого в образ ключа собирать не нужно
+    else()
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample EMBED: No")
+    endif (${CMAKE_BUILD_EMBED_APP_SAMPLE})
+
+    # Если нужно собрать образец укрытого хранилища ключевого материала
+    if (${CMAKE_BUILD_VAULT_APP_SAMPLE})
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample VAULT: Yes")
+        # Выполняем создание приложения укрытого хранилища ключевого материала
+        add_sample(${VAULT_APP_NAME} sample/sys/vault.cpp sys)
+    # Если образец укрытого хранилища ключевого материала собирать не нужно
+    else()
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample VAULT: No")
+    endif (${CMAKE_BUILD_VAULT_APP_SAMPLE})
 endif (${CMAKE_BUILD_SAMPLES})
 
 # Выполняем установку заголовочных файлов проекта
