@@ -4,6 +4,13 @@ cmake_minimum_required(VERSION 3.15)
 # Устанавливаем название и версию проекта
 project(nts VERSION 1.0.0 LANGUAGES CXX)
 
+##
+ # Корень проекта для вложенных списков сборки: через add_subdirectory корневые
+ # переменные CMAKE_SOURCE_DIR и CMAKE_BINARY_DIR указывают на проект потребителя,
+ # потому все пути внутри проекта идут от текущих каталогов и от этой переменной
+ ##
+SET(ANTS_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
+
 # Устанавливаем полное название проекта
 SET(PROJECT_VENDOR_LONG "ANYKS - Network Transport Security (A-NTS)")
 
@@ -65,7 +72,7 @@ find_package(Doxygen QUIET)
 # Если Doxygen найден
 if(Doxygen_FOUND)
     # Предположим, что Doxyfile лежит в корне исходников
-    SET(DOXYFILE_PATH ${CMAKE_SOURCE_DIR}/Doxyfile)
+    SET(DOXYFILE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile)
 
     # Проверяем, что файл существует
     if(EXISTS ${DOXYFILE_PATH})
@@ -81,16 +88,16 @@ if(Doxygen_FOUND)
         # Перебираем все языки документации
         foreach(DOXYGEN_LANGUAGE IN LISTS DOXYGEN_LANGUAGES)
             # Формируем путь к файлу настроек конкретного языка
-            SET(DOXYFILE_LANGUAGE_PATH ${CMAKE_SOURCE_DIR}/Doxyfile.${DOXYGEN_LANGUAGE})
+            SET(DOXYFILE_LANGUAGE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile.${DOXYGEN_LANGUAGE})
 
             # Проверяем, что файл настроек языка существует
             if(EXISTS ${DOXYFILE_LANGUAGE_PATH})
                 # Создаём цель сборки документации на конкретном языке
                 add_custom_target(doc-${DOXYGEN_LANGUAGE}
                     # Каталог назначения создаём сами: Doxygen заводит лишь один уровень вложенности
-                    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_SOURCE_DIR}/doc/${DOXYGEN_LANGUAGE}
+                    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_SOURCE_DIR}/doc/${DOXYGEN_LANGUAGE}
                     COMMAND ${DOXYGEN_EXECUTABLE} ${DOXYFILE_LANGUAGE_PATH}
-                    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+                    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                     COMMENT "Generating API documentation with Doxygen [${DOXYGEN_LANGUAGE}]"
                     VERBATIM
                 )
@@ -114,7 +121,7 @@ if(Doxygen_FOUND)
             # Создаём кастомную цель на основе базового файла настроек
             add_custom_target(doc
                 COMMAND ${DOXYGEN_EXECUTABLE} ${DOXYFILE_PATH}
-                WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                 COMMENT "Generating API documentation with Doxygen"
                 VERBATIM
             )
@@ -133,7 +140,7 @@ else()
 endif()
 
 # Подключаем каталог заголовочных файлов проекта
-include_directories(${CMAKE_SOURCE_DIR}/include)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 ##
  # Подключаем каталог исходных файлов проекта
@@ -141,7 +148,7 @@ include_directories(${CMAKE_SOURCE_DIR}/include)
  # Каталог нужен для внутренних модулей: они лежат в src/internal и подключаются
  # записью вида <internal/имя/имя.hpp> из файлов реализации
  ##
-include_directories(${CMAKE_SOURCE_DIR}/src)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 ##
  # Заслон от вывоза внутренних модулей в наружный вид библиотеки
@@ -154,7 +161,7 @@ include_directories(${CMAKE_SOURCE_DIR}/src)
  # наружного заголовочного файла собирается и работает, и заметить его можно только
  # тогда, когда менять наружный вид уже поздно
  ##
-file(GLOB_RECURSE PUBLIC_HEADERS "${CMAKE_SOURCE_DIR}/include/*.hpp")
+file(GLOB_RECURSE PUBLIC_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/include/*.hpp")
 
 # Выполняем обход наружных заголовочных файлов библиотеки
 foreach (HEADER ${PUBLIC_HEADERS})
@@ -163,7 +170,7 @@ foreach (HEADER ${PUBLIC_HEADERS})
     # Если внутренний модуль подключается из наружного заголовочного файла
     if (HEADER_LINES)
         # Получаем имя файла относительно корня проекта
-        file(RELATIVE_PATH HEADER_NAME "${CMAKE_SOURCE_DIR}" "${HEADER}")
+        file(RELATIVE_PATH HEADER_NAME "${CMAKE_CURRENT_SOURCE_DIR}" "${HEADER}")
         # Обрываем настройку сборки отказом
         message(FATAL_ERROR "Internal module is exposed in the public header ${HEADER_NAME}: ${HEADER_LINES}. Internal modules must be included from .cpp files only")
     endif()
@@ -171,84 +178,84 @@ endforeach()
 
 # Устанавливаем список исходных файлов библиотеки
 SET(SOURCE_FILES
-    "${CMAKE_SOURCE_DIR}/src/sys/machine.cpp"
-    "${CMAKE_SOURCE_DIR}/src/sys/wipe.cpp"
-    "${CMAKE_SOURCE_DIR}/src/sys/vault.cpp"
-    "${CMAKE_SOURCE_DIR}/src/sys/log.cpp"
-    "${CMAKE_SOURCE_DIR}/src/field/field.cpp"
-    "${CMAKE_SOURCE_DIR}/src/asn1/asn1.cpp"
-    "${CMAKE_SOURCE_DIR}/src/x509/x509.cpp"
-    "${CMAKE_SOURCE_DIR}/src/x509/signature.cpp"
-    "${CMAKE_SOURCE_DIR}/src/ocsp/ocsp.cpp"
-    "${CMAKE_SOURCE_DIR}/src/digest/streebog.cpp"
-    "${CMAKE_SOURCE_DIR}/src/digest/sha2.cpp"
-    "${CMAKE_SOURCE_DIR}/src/digest/sha3.cpp"
-    "${CMAKE_SOURCE_DIR}/src/digest/blake2.cpp"
-    "${CMAKE_SOURCE_DIR}/src/digest/argon2.cpp"
-    "${CMAKE_SOURCE_DIR}/src/digest/siphash.cpp"
-    "${CMAKE_SOURCE_DIR}/src/digest/sha1.cpp"
-    "${CMAKE_SOURCE_DIR}/src/digest/md5.cpp"
-    "${CMAKE_SOURCE_DIR}/src/digest/hash.cpp"
-    "${CMAKE_SOURCE_DIR}/src/digest/hkdf.cpp"
-    "${CMAKE_SOURCE_DIR}/src/digest/pbkdf2.cpp"
-    "${CMAKE_SOURCE_DIR}/src/digest/hmac.cpp"
-    "${CMAKE_SOURCE_DIR}/src/digest/kdf.cpp"
-    "${CMAKE_SOURCE_DIR}/src/embed/embed.cpp"
-    "${CMAKE_SOURCE_DIR}/src/cipher/kuznyechik.cpp"
-    "${CMAKE_SOURCE_DIR}/src/cipher/aes.cpp"
-    "${CMAKE_SOURCE_DIR}/src/cipher/magma.cpp"
-    "${CMAKE_SOURCE_DIR}/src/cipher/mode.cpp"
-    "${CMAKE_SOURCE_DIR}/src/cipher/mgm.cpp"
-    "${CMAKE_SOURCE_DIR}/src/cipher/gcm.cpp"
-    "${CMAKE_SOURCE_DIR}/src/cipher/stream.cpp"
-    "${CMAKE_SOURCE_DIR}/src/cipher/chacha.cpp"
-    "${CMAKE_SOURCE_DIR}/src/cipher/poly1305.cpp"
-    "${CMAKE_SOURCE_DIR}/src/cipher/chachapoly.cpp"
-    "${CMAKE_SOURCE_DIR}/src/math/number.cpp"
-    "${CMAKE_SOURCE_DIR}/src/entropy/entropy.cpp"
-    "${CMAKE_SOURCE_DIR}/src/curve/curve.cpp"
-    "${CMAKE_SOURCE_DIR}/src/curve/parameters.cpp"
-    "${CMAKE_SOURCE_DIR}/src/sign/gost.cpp"
-    "${CMAKE_SOURCE_DIR}/src/sign/rsa.cpp"
-    "${CMAKE_SOURCE_DIR}/src/math/integer.cpp"
-    "${CMAKE_SOURCE_DIR}/src/sign/ecdsa.cpp"
-    "${CMAKE_SOURCE_DIR}/src/sign/ed25519.cpp"
-    "${CMAKE_SOURCE_DIR}/src/agreement/x25519.cpp"
-    "${CMAKE_SOURCE_DIR}/src/agreement/x448.cpp"
-    "${CMAKE_SOURCE_DIR}/src/agreement/ffdhe.cpp"
-    "${CMAKE_SOURCE_DIR}/src/agreement/mlkem.cpp"
-    "${CMAKE_SOURCE_DIR}/src/noise/noise.cpp"
-    "${CMAKE_SOURCE_DIR}/src/noise/patterns.cpp"
-    "${CMAKE_SOURCE_DIR}/src/noise/cipher.cpp"
-    "${CMAKE_SOURCE_DIR}/src/noise/symmetric.cpp"
-    "${CMAKE_SOURCE_DIR}/src/noise/handshake.cpp"
-    "${CMAKE_SOURCE_DIR}/src/noise/kem.cpp"
-    "${CMAKE_SOURCE_DIR}/src/math/field25519.cpp"
-    "${CMAKE_SOURCE_DIR}/src/agreement/vko.cpp"
-    "${CMAKE_SOURCE_DIR}/src/hpke/hpke.cpp"
-    "${CMAKE_SOURCE_DIR}/src/ech/ech.cpp"
-    "${CMAKE_SOURCE_DIR}/src/fingerprint/fingerprint.cpp"
-    "${CMAKE_SOURCE_DIR}/src/agreement/ecdhe.cpp"
-    "${CMAKE_SOURCE_DIR}/src/record/record.cpp"
-    "${CMAKE_SOURCE_DIR}/src/protect/protect.cpp"
-    "${CMAKE_SOURCE_DIR}/src/datagram/datagram.cpp"
-    "${CMAKE_SOURCE_DIR}/src/handshake/handshake.cpp"
-    "${CMAKE_SOURCE_DIR}/src/schedule/schedule.cpp"
-    "${CMAKE_SOURCE_DIR}/src/hello/hello.cpp"
-    "${CMAKE_SOURCE_DIR}/src/extension/extension.cpp"
-    "${CMAKE_SOURCE_DIR}/src/message/message.cpp"
-    "${CMAKE_SOURCE_DIR}/src/session/session.cpp"
-    "${CMAKE_SOURCE_DIR}/src/flow/flow.cpp"
-    "${CMAKE_SOURCE_DIR}/src/alert/alert.cpp"
-    "${CMAKE_SOURCE_DIR}/src/context/context.cpp"
-    "${CMAKE_SOURCE_DIR}/src/trust/trust.cpp"
-    "${CMAKE_SOURCE_DIR}/src/pem/pem.cpp"
-    "${CMAKE_SOURCE_DIR}/src/keys/keys.cpp"
-    "${CMAKE_SOURCE_DIR}/src/internal/flight/flight.cpp"
-    "${CMAKE_SOURCE_DIR}/src/internal/ticket/ticket.cpp"
-    "${CMAKE_SOURCE_DIR}/src/internal/engine/engine.cpp"
-    "${CMAKE_SOURCE_DIR}/src/client/client.cpp"
-    "${CMAKE_SOURCE_DIR}/src/server/server.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/sys/machine.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/sys/wipe.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/sys/vault.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/sys/log.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/field/field.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/asn1/asn1.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/x509/x509.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/x509/signature.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ocsp/ocsp.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/digest/streebog.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/digest/sha2.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/digest/sha3.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/digest/blake2.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/digest/argon2.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/digest/siphash.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/digest/sha1.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/digest/md5.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/digest/hash.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/digest/hkdf.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/digest/pbkdf2.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/digest/hmac.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/digest/kdf.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/embed/embed.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/cipher/kuznyechik.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/cipher/aes.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/cipher/magma.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/cipher/mode.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/cipher/mgm.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/cipher/gcm.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/cipher/stream.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/cipher/chacha.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/cipher/poly1305.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/cipher/chachapoly.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/math/number.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/entropy/entropy.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/curve/curve.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/curve/parameters.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/sign/gost.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/sign/rsa.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/math/integer.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/sign/ecdsa.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/sign/ed25519.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/agreement/x25519.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/agreement/x448.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/agreement/ffdhe.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/agreement/mlkem.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/noise/noise.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/noise/patterns.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/noise/cipher.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/noise/symmetric.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/noise/handshake.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/noise/kem.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/math/field25519.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/agreement/vko.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/hpke/hpke.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ech/ech.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/fingerprint/fingerprint.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/agreement/ecdhe.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/record/record.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/protect/protect.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/datagram/datagram.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/handshake/handshake.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/schedule/schedule.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/hello/hello.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/extension/extension.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/message/message.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/session/session.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/flow/flow.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/alert/alert.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/context/context.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/trust/trust.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/pem/pem.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/keys/keys.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/internal/flight/flight.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/internal/ticket/ticket.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/internal/engine/engine.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/client/client.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/server/server.cpp"
 )
 
 ##
@@ -287,27 +294,33 @@ if (CMAKE_CURVE_TABLES)
      #       является, и умножение точки основания там отступает к общему
      ##
     add_library(nts_tables_bootstrap STATIC
-        "${CMAKE_SOURCE_DIR}/src/sys/wipe.cpp"
-        "${CMAKE_SOURCE_DIR}/src/math/number.cpp"
-        "${CMAKE_SOURCE_DIR}/src/field/field.cpp"
-        "${CMAKE_SOURCE_DIR}/src/curve/curve.cpp"
-        "${CMAKE_SOURCE_DIR}/src/curve/parameters.cpp"
-        "${CMAKE_SOURCE_DIR}/src/curve/tables.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/sys/wipe.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/math/number.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/field/field.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/curve/curve.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/curve/parameters.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/curve/tables.cpp"
     )
 
     # Добавляем цель программы вычисления кратных точки основания
-    add_executable(nts-tables "${CMAKE_SOURCE_DIR}/tools/tables.cpp")
+    add_executable(nts-tables "${CMAKE_CURRENT_SOURCE_DIR}/tools/tables.cpp")
 
     # Выполняем подключение зависимостей программы вычисления кратных
+    ##
+     # Вспомогательные цели всегда статические: при сборке динамической библиотеки
+     # заголовки без признака ANTS_STATICLIB объявляют символы импортом из DLL, и
+     # программа вычисления кратных под Windows не связывается
+     ##
+    target_compile_definitions(nts_tables_bootstrap PUBLIC ANTS_STATICLIB)
     target_link_libraries(nts-tables nts_tables_bootstrap)
 
     # Устанавливаем место вычисленного исходного файла кратных
-    SET(CURVE_TABLES_SOURCE "${CMAKE_BINARY_DIR}/generated/tables.cpp")
+    SET(CURVE_TABLES_SOURCE "${CMAKE_CURRENT_BINARY_DIR}/generated/tables.cpp")
 
     # Добавляем правило вычисления кратных точки основания
     add_custom_command(
         OUTPUT ${CURVE_TABLES_SOURCE}
-        COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/generated"
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/generated"
         COMMAND nts-tables > ${CURVE_TABLES_SOURCE}
         DEPENDS nts-tables
         COMMENT "Precomputing the multiples of the base point"
@@ -334,7 +347,7 @@ if (CMAKE_CURVE_TABLES)
 # Если кратные точки основания не заготавливаются
 else (CMAKE_CURVE_TABLES)
     # Добавляем пустые кратные точки основания в состав библиотеки
-    SET(SOURCE_FILES ${SOURCE_FILES} "${CMAKE_SOURCE_DIR}/src/curve/tables.cpp")
+    SET(SOURCE_FILES ${SOURCE_FILES} "${CMAKE_CURRENT_SOURCE_DIR}/src/curve/tables.cpp")
     # Выводим сообщение об отсутствии заготовки
     message(STATUS "Base point tables: none, the general multiplication is used\n")
 endif (CMAKE_CURVE_TABLES)
@@ -425,6 +438,33 @@ else (CMAKE_SHARED_BUILD_LIB)
     target_compile_definitions(${ANTS_LIB_NAME} PUBLIC ANTS_STATICLIB)
 endif (CMAKE_SHARED_BUILD_LIB)
 
+##
+ # Пути заголовков потребителя: в дереве сборки - каталог include проекта, после
+ # установки - каталог include/nts под префиксом. Так цель годна и через
+ # add_subdirectory, и через find_package(nts CONFIG)
+ ##
+target_include_directories(${ANTS_LIB_NAME} PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include/${PROJECT_NAME}>
+)
+
+# Требуемый стандарт языка доезжает до потребителя цели
+target_compile_features(${ANTS_LIB_NAME} PUBLIC cxx_std_17)
+
+# Потоки: замок укрытого хранилища (std::mutex) и обработчик разветвления (pthread_atfork)
+find_package(Threads REQUIRED)
+target_link_libraries(${ANTS_LIB_NAME} PUBLIC Threads::Threads)
+
+# Псевдоним пакета в дереве сборки: потребитель через add_subdirectory зовёт ту же цель nts::nts
+add_library(${PROJECT_NAME}::${ANTS_LIB_NAME} ALIAS ${ANTS_LIB_NAME})
+
+# Версия и имя динамической библиотеки: libnts.so.1 → libnts.so.1.0.0, nts.dll под Windows
+set_target_properties(${ANTS_LIB_NAME} PROPERTIES
+    VERSION ${PROJECT_VERSION}
+    SOVERSION ${PROJECT_VERSION_MAJOR}
+    OUTPUT_NAME ${PROJECT_NAME}
+)
+
 # Если кратные точки основания заготавливаются при сборке
 if (CMAKE_CURVE_TABLES)
     # Ставим вычисление кратных прежде сборки самой библиотеки
@@ -433,8 +473,8 @@ endif (CMAKE_CURVE_TABLES)
 
 # Если сборка ведётся под Windows
 if (WIN32)
-    # Источник случайности системы там живёт в отдельной библиотеке
-    target_link_libraries(${ANTS_LIB_NAME} bcrypt)
+    # Источник случайности системы там живёт в отдельной библиотеке: доезжает и до потребителя статической цели
+    target_link_libraries(${ANTS_LIB_NAME} PUBLIC bcrypt)
 endif (WIN32)
 
 # Если необходимо собрать набор проверок
@@ -484,6 +524,8 @@ if (CMAKE_BUILD_TESTS)
      # а обращения к памяти внутри библиотеки остаются без надзора
      ##
     add_library(${ANTS_LIB_NAME}_test STATIC ${SOURCE_FILES})
+    # Проверочная копия библиотеки всегда статическая: признак доезжает до проверок и при сборке DLL
+    target_compile_definitions(${ANTS_LIB_NAME}_test PUBLIC ANTS_STATICLIB)
 
     # Если кратные точки основания заготавливаются при сборке
     if (CMAKE_CURVE_TABLES)
@@ -492,8 +534,16 @@ if (CMAKE_BUILD_TESTS)
     endif (CMAKE_CURVE_TABLES)
     # Если сборка ведётся под Windows
     if (WIN32)
-        # Источник случайности системы там живёт в отдельной библиотеке
-        target_link_libraries(${ANTS_LIB_NAME}_test bcrypt)
+        # Источник случайности системы там живёт в отдельной библиотеке; оснастка проверок ведёт сокеты Winsock
+        target_link_libraries(${ANTS_LIB_NAME}_test PUBLIC bcrypt ws2_32)
+        ##
+         # Проверки под MinGW и clang связываются со статическим runtime: подмена
+         # operator new в проверке (нехватка памяти, учёт кучи) не видна библиотеке,
+         # если оператор живёт в libstdc++-6.dll / libc++.dll
+         ##
+        if (NOT MSVC)
+            SET(GCC_COVERAGE_LIBS ${GCC_COVERAGE_LIBS} -static-libstdc++ -static-libgcc -static)
+        endif (NOT MSVC)
     endif (WIN32)
     # Включаем флаги компиляции проверок для библиотеки проверок
     target_compile_options(${ANTS_LIB_NAME}_test PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
@@ -547,22 +597,22 @@ if (${CMAKE_BUILD_BENCHMARKS})
     option(CMAKE_BENCHMARK_OPENSSL "Compare benchmarks against the OpenSSL reference" ON)
 
     # Выполняем создание приложения набора замеров
-    add_executable(bench "${CMAKE_SOURCE_DIR}/bench/bench.cpp")
+    add_executable(bench "${CMAKE_CURRENT_SOURCE_DIR}/bench/bench.cpp")
 
     # Подключаем каталог общих заголовочных файлов набора проверок
-    target_include_directories(bench PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+    target_include_directories(bench PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/tests")
 
     # Подключаем каталог образца сжатия: частный кодек цепочки общий с набором замеров
-    target_include_directories(bench PRIVATE "${CMAKE_SOURCE_DIR}/sample/compress")
+    target_include_directories(bench PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/sample/compress")
 
     # Передаём путь к набору ключей для сличения: замер обмена RSA читает подлинность из него
-    target_compile_definitions(bench PRIVATE ANTS_CORPUS="${CMAKE_SOURCE_DIR}/tests/corpus")
+    target_compile_definitions(bench PRIVATE ANTS_CORPUS="${CMAKE_CURRENT_SOURCE_DIR}/tests/corpus")
 
     # Выполняем подключение библиотеки к приложению набора замеров
     target_link_libraries(bench ${ANTS_LIB_NAME})
 
     # Указываем каталог для исполняемого файла набора замеров
-    set_target_properties(bench PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bench)
+    set_target_properties(bench PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bench)
 
     # Если замеры нужно сличать с эталоном OpenSSL
     if (${CMAKE_BENCHMARK_OPENSSL})
@@ -591,7 +641,7 @@ option(CMAKE_BUILD_SAMPLES "Build library samples" OFF)
 # Если необходимо собрать образцы работы с библиотекой
 if (${CMAKE_BUILD_SAMPLES})
     # Указываем каталог для ВСЕХ исполняемых файлов образцов
-    SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/samples)
+    SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/samples)
 
     ##
      # Функция создания образца
@@ -883,7 +933,7 @@ if (${CMAKE_BUILD_SAMPLES})
         # Выполняем создание приложения образца
         add_sample(${name} ${src} ${dir})
         # Передаём путь к набору ключей и ответов
-        target_compile_definitions(${name} PRIVATE ANTS_CORPUS="${CMAKE_SOURCE_DIR}/tests/corpus")
+        target_compile_definitions(${name} PRIVATE ANTS_CORPUS="${CMAKE_CURRENT_SOURCE_DIR}/tests/corpus")
     endfunction()
 
     # Устанавливаем имя приложения рукопожатия издания TLS 1.2
@@ -1247,8 +1297,61 @@ if (${CMAKE_BUILD_SAMPLES})
     endif (${CMAKE_BUILD_LOG_APP_SAMPLE})
 endif (${CMAKE_BUILD_SAMPLES})
 
-# Выполняем установку заголовочных файлов проекта
-install(DIRECTORY "${CMAKE_SOURCE_DIR}/include/" DESTINATION "${CMAKE_INSTALL_PREFIX}/include/${CMAKE_PROJECT_NAME}" FILES_MATCHING PATTERN "*.hpp")
+##
+ # Установка и конфиг пакета для find_package(nts CONFIG)
+ #
+ # Ставятся заголовки в include/nts, библиотека в lib (динамическая под Windows -
+ # в bin), описание целей ntsTargets.cmake и файлы ntsConfig.cmake /
+ # ntsConfigVersion.cmake в lib/cmake/nts. Потребитель пишет:
+ #   find_package(nts CONFIG REQUIRED)
+ #   target_link_libraries(app PRIVATE nts::nts)
+ # Совместимость версий - в пределах старшего номера
+ ##
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
 
-# Выполняем установку библиотеки
-install(TARGETS ${ANTS_LIB_NAME} DESTINATION "${CMAKE_INSTALL_PREFIX}/lib")
+# Выполняем установку заголовочных файлов проекта
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/include/" DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}" FILES_MATCHING PATTERN "*.hpp")
+
+# Выполняем установку библиотеки с описанием цели для экспорта
+install(TARGETS ${ANTS_LIB_NAME}
+    EXPORT ${PROJECT_NAME}Targets
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}
+)
+
+# Выполняем установку описания целей пакета
+install(EXPORT ${PROJECT_NAME}Targets
+    FILE ${PROJECT_NAME}Targets.cmake
+    NAMESPACE ${PROJECT_NAME}::
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
+)
+
+# Составляем файл настройки пакета
+configure_package_config_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/${PROJECT_NAME}Config.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
+)
+
+# Составляем файл версии пакета: совместимость в пределах старшего номера
+write_basic_package_version_file(
+    "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion
+)
+
+# Выполняем установку файлов настройки и версии пакета
+install(FILES
+    "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
+)
+
+# Описание целей доступно и из дерева сборки без установки
+export(EXPORT ${PROJECT_NAME}Targets
+    FILE "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Targets.cmake"
+    NAMESPACE ${PROJECT_NAME}::
+)

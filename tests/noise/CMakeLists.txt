@@ -8,10 +8,10 @@ add_executable(${TEST_NOISE_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/noise.cpp")
 target_compile_options(${TEST_NOISE_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
 
 # Передаём путь к набору ключей
-target_compile_definitions(${TEST_NOISE_NAME} PRIVATE ANTS_CORPUS="${CMAKE_SOURCE_DIR}/tests/corpus")
+target_compile_definitions(${TEST_NOISE_NAME} PRIVATE ANTS_CORPUS="${ANTS_ROOT}/tests/corpus")
 
 # Подключаем каталог общих заголовочных файлов набора проверок
-target_include_directories(${TEST_NOISE_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_include_directories(${TEST_NOISE_NAME} PRIVATE "${ANTS_ROOT}/tests")
 
 # Выполняем подключение зависимостей цели проверок
 target_link_libraries(${TEST_NOISE_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
@@ -35,10 +35,10 @@ add_executable(${TEST_WIREGUARD_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/wireguard.cpp
 target_compile_options(${TEST_WIREGUARD_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
 
 # Передаём путь к набору корпусов
-target_compile_definitions(${TEST_WIREGUARD_NAME} PRIVATE ANTS_CORPUS="${CMAKE_SOURCE_DIR}/tests/corpus")
+target_compile_definitions(${TEST_WIREGUARD_NAME} PRIVATE ANTS_CORPUS="${ANTS_ROOT}/tests/corpus")
 
 # Подключаем каталог общих заголовочных файлов набора проверок
-target_include_directories(${TEST_WIREGUARD_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_include_directories(${TEST_WIREGUARD_NAME} PRIVATE "${ANTS_ROOT}/tests")
 
 # Выполняем подключение зависимостей цели проверок
 target_link_libraries(${TEST_WIREGUARD_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
@@ -62,10 +62,10 @@ add_executable(${TEST_PQNOISE_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/pqnoise.cpp")
 target_compile_options(${TEST_PQNOISE_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
 
 # Передаём путь к набору корпусов
-target_compile_definitions(${TEST_PQNOISE_NAME} PRIVATE ANTS_CORPUS="${CMAKE_SOURCE_DIR}/tests/corpus")
+target_compile_definitions(${TEST_PQNOISE_NAME} PRIVATE ANTS_CORPUS="${ANTS_ROOT}/tests/corpus")
 
 # Подключаем каталог общих заголовочных файлов набора проверок
-target_include_directories(${TEST_PQNOISE_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_include_directories(${TEST_PQNOISE_NAME} PRIVATE "${ANTS_ROOT}/tests")
 
 # Выполняем подключение зависимостей цели проверок
 target_link_libraries(${TEST_PQNOISE_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})

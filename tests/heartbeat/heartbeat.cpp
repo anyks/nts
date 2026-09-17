@@ -353,7 +353,7 @@ TEST(HeartbeatTest, Gnutls){
 		echo.insert(echo.end(), piece.begin(), piece.end());
 	}
 	EXPECT_EQ(string(echo.begin(), echo.end()), message);
-	::close(fd);
+	closing(fd);
 	sentinel.halt();
 	std::string journal;
 	(void) settle(log, journal);

@@ -36,10 +36,7 @@
 #include <algorithm>
 #include <fstream>
 #include <functional>
-#include <unistd.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
+#include <sockets.hpp>
 
 /**
  * Подключаем заголовочные файлы проекта
@@ -96,7 +93,7 @@ namespace {
 	/**
 	 * Миг окончания обещания ответа leaf-ec.short.der: 5 сентября 2026 года 12:39:15
 	 */
-	static constexpr int64_t SHORT = 1788611955;
+	static constexpr int64_t SOON = 1788611955;
 	/**
 	 * Неповторимое значение запроса leaf-ec.nonce.req.der, отвеченное leaf-ec.nonce.der
 	 */
@@ -1175,9 +1172,9 @@ TEST(OcspTest, Verify){
 	// Проверяем срок: обещание короткого ответа вышло
 	ASSERT_EQ(judge("leaf-ec.short.der", "leaf-ec.crt", "mid-ec.crt", MOMENT, 0, none, status), ocsp::error_t::EXPIRED);
 	// Проверяем срок с люфтом: сто секунд за обещанием при люфте двести
-	ASSERT_EQ(judge("leaf-ec.short.der", "leaf-ec.crt", "mid-ec.crt", SHORT + 100, 200, none, status), ocsp::error_t::NONE);
+	ASSERT_EQ(judge("leaf-ec.short.der", "leaf-ec.crt", "mid-ec.crt", SOON + 100, 200, none, status), ocsp::error_t::NONE);
 	// Проверяем срок без люфта: сто секунд за обещанием
-	ASSERT_EQ(judge("leaf-ec.short.der", "leaf-ec.crt", "mid-ec.crt", SHORT + 100, 0, none, status), ocsp::error_t::EXPIRED);
+	ASSERT_EQ(judge("leaf-ec.short.der", "leaf-ec.crt", "mid-ec.crt", SOON + 100, 0, none, status), ocsp::error_t::EXPIRED);
 	// Проверяем срок: миг верности в будущем
 	ASSERT_EQ(judge("leaf-ec.good.der", "leaf-ec.crt", "mid-ec.crt", EARLIER, 0, none, status), ocsp::error_t::EXPIRED);
 	// Проверяем срок: миг верности в будущем в пределах люфта
@@ -2164,7 +2161,7 @@ TEST(OcspTest, Openssl){
 		// Проверяем, что ответ HTTP получен
 		ASSERT_NE(string(reply.begin(), reply.end()).find("HTTP/1.0 200"), string::npos);
 		// Закрываем сокет
-		::close(fd);
+		closing(fd);
 		// Снимаем сервер до удаления журнала: иначе отметка завершения воссоздаст файл
 		sentinel.halt();
 		// Журнал сервера
@@ -2212,9 +2209,9 @@ TEST(OcspTest, Openssl){
 		// Закрываем связь, коли она ещё открыта
 		ASSERT_TRUE(farewell(server, fd));
 		// Закрываем сокет
-		::close(fd);
+		closing(fd);
 		// Закрываем слушающий сокет
-		::close(listener);
+		closing(listener);
 		// Содержимое журнала
 		std::string text;
 		// Клиент обязан завершиться

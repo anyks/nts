@@ -282,6 +282,13 @@ namespace nts {
 		 *
 		 * \~
 		 */
+		/**
+		 * Намеренное решение: windows.h объявляет IN пустым макросом (пометка SAL), а IN -
+		 * каноническое имя узора Noise, и менять его ради Windows нельзя. Макрос снимается
+		 * на время перечня и возвращается следом - чужие заголовки его не теряют
+		 */
+		#pragma push_macro("IN")
+		#undef IN
 		enum class pattern_t : uint8_t {
 			NONE = 0x00, /*!< \~russian Не установлен \~english Not set \~ */
 			N    = 0x01, /*!< \~russian Односторонний, отвечающий известен \~english One-way, the responder is known \~ */
@@ -336,6 +343,7 @@ namespace nts {
 			PQIK = 0x4B, /*!< \~russian PQNoise, отвечающий известен \~english PQNoise, the responder is known \~ */
 			PQIX = 0x4C  /*!< \~russian PQNoise \~english PQNoise \~ */
 		};
+		#pragma pop_macro("IN")
 		/**
 		 * \~russian
 		 * @brief Знаки узора рукопожатия

@@ -1286,7 +1286,7 @@ TEST(EchTest, Boringssl2){
 		EXPECT_NE(text.find("Encrypted ClientHello: yes"), string::npos) << text;
 		EXPECT_NE(text.find("Client sent SNI: secret.example"), string::npos) << text;
 		// Закрываем сокет
-		::close(fd);
+		closing(fd);
 		// Снимаем сервер
 		sentinel.halt();
 		// Журнал
@@ -1335,8 +1335,8 @@ TEST(EchTest, Boringssl2){
 		// Закрываем связь
 		ASSERT_TRUE(farewell(server, fd));
 		// Закрываем сокеты
-		::close(fd);
-		::close(listener);
+		closing(fd);
+		closing(listener);
 		// Текст журнала клиента
 		std::string text;
 		// Клиент обязан завершиться
@@ -1649,21 +1649,21 @@ TEST(EchTest, Boringssl3){
 			// Выдаём билет
 			ASSERT_EQ(server.issue(), context::error_t::NONE);
 			const view_t granting = server.output();
-			ASSERT_EQ(::send(fd, granting.data, granting.size, 0), static_cast <ssize_t> (granting.size));
+			ASSERT_EQ(sending(fd, granting.data, granting.size), static_cast <ssize_t> (granting.size));
 			server.consume(granting.size);
 			tickets = server.tickets();
 			ASSERT_FALSE(tickets.empty());
 			// Первое подключение закрывает сам bssl, получив билет: ждём его закрытия
 			uint8_t buffer[4096];
-			for(size_t i = 0; (i < 8) && (::recv(fd, buffer, sizeof(buffer), 0) > 0); i++)
+			for(size_t i = 0; (i < 8) && (receiving(fd, buffer, sizeof(buffer)) > 0); i++)
 				continue;
 		} else {
 			EXPECT_TRUE(server.shared());
 			ASSERT_TRUE(farewell(server, fd));
 		}
-		::close(fd);
+		closing(fd);
 	}
-	::close(listener);
+	closing(listener);
 	std::string text;
 	ASSERT_TRUE(settle(log, text)) << text;
 	EXPECT_NE(text.find("Encrypted ClientHello: yes"), std::string::npos) << text;

@@ -39,14 +39,10 @@
 #include <fstream>
 #include <iostream>
 #include <algorithm>
-#include <unistd.h>
 #include <signal.h>
 #include <fcntl.h>
 #include <sys/stat.h>
-#include <sys/socket.h>
-#include <sys/select.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
+#include <sockets.hpp>
 
 /**
  * Подключаем заголовочные файлы проекта
@@ -1983,7 +1979,7 @@ TEST(Tls12Test, Openssl){
 			// Сервер openssl видит издание 1.2
 			ASSERT_NE(text.find("TLSv1.2"), string::npos) << text;
 			// Закрываем сокет
-			::close(fd);
+			closing(fd);
 			// Снимаем сервер до удаления журнала: иначе отметка завершения воссоздаст файл
 			sentinel.halt();
 			// Журнал сервера
@@ -2066,9 +2062,9 @@ TEST(Tls12Test, Openssl){
 			// Закрываем связь, коли она ещё открыта
 			ASSERT_TRUE(farewell(server, fd));
 			// Закрываем сокеты
-			::close(fd);
+			closing(fd);
 			// Закрываем слушающий сокет
-			::close(listener);
+			closing(listener);
 			// Текст журнала клиента
 			std::string text;
 			// Клиент обязан завершиться
@@ -2121,9 +2117,9 @@ TEST(Tls12Test, Openssl){
 		// Закрываем связь, коли она ещё открыта
 		ASSERT_TRUE(farewell(server, fd));
 		// Закрываем сокеты
-		::close(fd);
+		closing(fd);
 		// Закрываем слушающий сокет
-		::close(listener);
+		closing(listener);
 		// Текст журнала клиента
 		std::string text;
 		// Клиент обязан завершиться
@@ -2177,7 +2173,7 @@ TEST(Tls12Test, Openssl){
 		// Извещение protocol_version
 		ASSERT_EQ(client.alert().description, alert::description_t::VERSION);
 		// Закрываем сокет
-		::close(fd);
+		closing(fd);
 		// Снимаем сервер до удаления журнала: иначе отметка завершения воссоздаст файл
 		sentinel.halt();
 		// Журнал сервера
@@ -2230,7 +2226,7 @@ TEST(Tls12Test, Openssl){
 			// Место принятых байтов
 			uint8_t buffer[16384];
 			// Принимаем байты клиента
-			const ssize_t received = ::recv(fd, buffer, sizeof(buffer), 0);
+			const ssize_t received = receiving(fd, buffer, sizeof(buffer));
 			// Если байты приняты
 			if(received > 0)
 				// Подаём байты серверу
@@ -2242,7 +2238,7 @@ TEST(Tls12Test, Openssl){
 			// Если серверу есть что отправить
 			if(data.size > 0){
 				// Отправляем байты
-				const ssize_t sent = ::send(fd, data.data, data.size, 0);
+				const ssize_t sent = sending(fd, data.data, data.size);
 				// Если отправлено
 				if(sent > 0)
 					// Снимаем байты
@@ -2258,9 +2254,9 @@ TEST(Tls12Test, Openssl){
 		// Извещение handshake_failure собеседника
 		ASSERT_EQ(server.alert().description, alert::description_t::HANDSHAKE);
 		// Закрываем сокеты
-		::close(fd);
+		closing(fd);
 		// Закрываем слушающий сокет
-		::close(listener);
+		closing(listener);
 		// Текст журнала клиента
 		std::string text;
 		// Клиент обязан завершиться
@@ -2500,7 +2496,7 @@ TEST(Tls12Test, Renegotiation){
 	// Удаляем прежний канал
 	::remove(channel.c_str());
 	// Заводим именованный канал
-	ASSERT_EQ(::mkfifo(channel.c_str(), 0600), 0);
+	ASSERT_EQ(fifo(channel.c_str()), 0);
 	/**
 	 * Сервер openssl читает команды со входа: команда r за рукопожатием шлёт клиенту
 	 * HelloRequest; -state пишет в журнал принятые извещения
@@ -2541,7 +2537,7 @@ TEST(Tls12Test, Renegotiation){
 	// Место принятых байтов
 	uint8_t buffer[16384];
 	// Принимаем просьбу о пересогласовании под защитой
-	const ssize_t received = ::recv(fd, buffer, sizeof(buffer), 0);
+	const ssize_t received = receiving(fd, buffer, sizeof(buffer));
 	// Просьба принята
 	ASSERT_GT(received, 0);
 	// Вид записи в обвязке открыт: это запись рукопожатия
@@ -2557,19 +2553,19 @@ TEST(Tls12Test, Renegotiation){
 	// Вид записи ответа открыт: это извещение
 	ASSERT_EQ(answer.data[0], 0x15);
 	// Отправляем ответ серверу openssl
-	ASSERT_EQ(::send(fd, answer.data, answer.size, 0), static_cast <ssize_t> (answer.size));
+	ASSERT_EQ(sending(fd, answer.data, answer.size), static_cast <ssize_t> (answer.size));
 	// Снимаем ответ с накопителя
 	client.consume(answer.size);
 	// Принимаем ответ сервера openssl: отказ пересогласования он считает роковым
-	const ssize_t closing = ::recv(fd, buffer, sizeof(buffer), 0);
+	const ssize_t closed = receiving(fd, buffer, sizeof(buffer));
 	// Если ответ пришёл
-	if(closing > 0)
+	if(closed > 0)
 		// Подаём ответ клиенту
-		client.push(view_t(buffer, static_cast <size_t> (closing)));
+		client.push(view_t(buffer, static_cast <size_t> (closed)));
 	// Закрываем канал команд: сервер openssl на конце входа завершается
-	::close(channelled);
+	closing(channelled);
 	// Закрываем сокет
-	::close(fd);
+	closing(fd);
 	// Текст журнала сервера
 	std::string text;
 	// Сервер обязан завершиться
@@ -3136,11 +3132,11 @@ TEST(Tls12Test, Exhausted){
 			// Связь закрыта своей стороной
 			ASSERT_EQ(client.state(), context::state_t::CLOSED);
 			// Ушедшие байты
-			const view_t closing = client.output();
+			const view_t closed = client.output();
 			// Ушло извещение: вид записи в заголовке открыт
-			ASSERT_GT(closing.size, record::RECORD_HEADER);
+			ASSERT_GT(closed.size, record::RECORD_HEADER);
 			// Запись извещения
-			ASSERT_EQ(closing.data[0], 0x15);
+			ASSERT_EQ(closed.data[0], 0x15);
 			// Передаём закрытие серверу
 			converse(client, server);
 			// Сервер принял close_notify и ответил своим
@@ -5867,7 +5863,7 @@ TEST(Tls12Test, Interop){
 		// Билет от s_server получен
 		ASSERT_EQ(client.tickets().size(), static_cast <size_t> (1)) << rounds[r].cipher;
 		// Закрываем сокет
-		::close(fd);
+		closing(fd);
 		// Снимаем сервер
 		sentinel.halt();
 		// Журнал
@@ -5960,9 +5956,9 @@ TEST(Tls12Test, Interop){
 		// Закрываем связь, коли она ещё открыта
 		ASSERT_TRUE(farewell(server, fd));
 		// Закрываем
-		::close(fd);
+		closing(fd);
 		// Закрываем слушающий
-		::close(listener);
+		closing(listener);
 		// Текст
 		std::string text;
 		// Клиент завершился
@@ -6014,7 +6010,7 @@ TEST(Tls12Test, Interop){
 		// Извещение handshake_failure
 		ASSERT_EQ(client.alert().description, alert::description_t::HANDSHAKE);
 		// Закрываем
-		::close(fd);
+		closing(fd);
 		// Снимаем
 		sentinel.halt();
 		// Журнал
@@ -6070,9 +6066,9 @@ TEST(Tls12Test, Interop){
 		// Опознаватель дошёл
 		ASSERT_EQ(theirs.seen, theirs.identity);
 		// Закрываем
-		::close(fd);
+		closing(fd);
 		// Закрываем слушающий
-		::close(listener);
+		closing(listener);
 		// Текст
 		std::string text;
 		// Клиент завершился
@@ -6132,9 +6128,9 @@ TEST(Tls12Test, Interop){
 			// Закрываем связь, коли она ещё открыта
 			ASSERT_TRUE(farewell(server, fd));
 			// Закрываем
-			::close(fd);
+			closing(fd);
 			// Закрываем слушающий
-			::close(listener);
+			closing(listener);
 			// Текст
 			std::string text;
 			// Клиент завершился
@@ -6223,7 +6219,7 @@ TEST(Tls12Test, Interop){
 				ticket = client.tickets()[0];
 			}
 			// Закрываем
-			::close(fd);
+			closing(fd);
 		}
 		// Снимаем
 		sentinel.halt();
@@ -7802,7 +7798,7 @@ TEST(Tls12Test, MasterInterop){
 			ASSERT_NE(text.find("HTTP/1.0 200"), string::npos) << text;
 		}
 		// Закрываем сокет
-		::close(fd);
+		closing(fd);
 		// Снимаем сервер до удаления журнала
 		sentinel.halt();
 		// Журнал сервера
@@ -7866,9 +7862,9 @@ TEST(Tls12Test, MasterInterop){
 			ASSERT_TRUE(farewell(server, fd));
 		}
 		// Закрываем сокеты
-		::close(fd);
+		closing(fd);
 		// Закрываем слушающий сокет
-		::close(listener);
+		closing(listener);
 		// Текст журнала клиента
 		std::string text;
 		// Клиент обязан завершиться

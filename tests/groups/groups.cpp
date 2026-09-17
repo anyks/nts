@@ -218,7 +218,7 @@ namespace {
 		const std::string base = "/tmp/ants-groups-self-" + std::to_string(number);
 		const std::string holder = base + ".fifo", log = base + ".server.log", out = base + ".client.log";
 		::remove(holder.c_str());
-		if(::mkfifo(holder.c_str(), 0600) != 0)
+		if(fifo(holder.c_str()) != 0)
 			return false;
 		const std::string edition = (legacy ? "-tls1_2" : "-tls1_3");
 		const bool started = launch("openssl s_server" + accepting(toolkit, number) + " " + edition + " -cert " + crt + " -key " + key + " -groups " + name + once(toolkit) + " <" + holder + " >" + log + " 2>&1", log, log + ".pid", holder);
@@ -291,7 +291,7 @@ namespace {
 		}
 		if(!ok)
 			journal = "отказ " + std::to_string(static_cast <int> (client.error())) + " извещение " + std::to_string(static_cast <int> (client.alert().description)) + " группа " + std::to_string(static_cast <int> (client.group()));
-		::close(fd);
+		closing(fd);
 		sentinel.halt();
 		std::string text;
 		(void) settle(log, text);
@@ -319,7 +319,7 @@ namespace {
 		const std::string log = "/tmp/ants-groups-client-" + std::to_string(number) + ".log";
 		const std::string holder = "/tmp/ants-groups-client-" + std::to_string(number) + ".fifo";
 		::remove(holder.c_str());
-		if(::mkfifo(holder.c_str(), 0600) != 0)
+		if(fifo(holder.c_str()) != 0)
 			return false;
 		if(!launch("openssl s_client -connect 127.0.0.1:" + std::to_string(number) + " " + arguments + " -servername localhost -verify_return_error <" + holder + " >" + log + " 2>&1", log, log + ".pid", holder))
 			return false;
@@ -337,8 +337,8 @@ namespace {
 		if(!ok)
 			journal = "отказ " + std::to_string(static_cast <int> (server.error())) + " группа " + std::to_string(static_cast <int> (server.group()));
 		(void) farewell(server, fd);
-		::close(fd);
-		::close(listener);
+		closing(fd);
+		closing(listener);
 		std::string text;
 		(void) settle(log, text);
 		journal += "\n" + text;

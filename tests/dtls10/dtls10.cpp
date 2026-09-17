@@ -27,11 +27,8 @@
 #include <vector>
 #include <cstring>
 #include <fstream>
-#include <unistd.h>
 #include <sys/stat.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
+#include <sockets.hpp>
 
 /**
  * Подключаем заголовочные файлы проекта
@@ -469,7 +466,7 @@ static bool dtlsable() noexcept {
 	const std::string holder = base + ".fifo", log = base + ".server.log", out = base + ".client.log";
 	::remove(holder.c_str());
 	// Если FIFO завести не удалось
-	if(::mkfifo(holder.c_str(), 0600) != 0)
+	if(fifo(holder.c_str()) != 0)
 		// Выводим отказ
 		return false;
 	// Поднимаем сервер openssl
@@ -532,7 +529,7 @@ TEST(Dtls10Test, Openssl){
 		const std::string log = "/tmp/ants-dtls10-server-" + std::to_string(number) + ".log";
 		const std::string holder = "/tmp/ants-dtls10-server-" + std::to_string(number) + ".fifo";
 		::remove(holder.c_str());
-		ASSERT_EQ(::mkfifo(holder.c_str(), 0600), 0);
+		ASSERT_EQ(fifo(holder.c_str()), 0);
 		ASSERT_TRUE(launch("openssl s_server" + accepting(toolkit, number) + " -dtls1 -listen -no_ticket -cert " + crt + " -key " + key + " -cipher 'ECDHE-ECDSA-AES128-SHA@SECLEVEL=0' -mtu 300" + once(toolkit) + " <" + holder + " >" + log + " 2>&1", log, log + ".pid", holder));
 		sentinel_t sentinel(log + ".pid");
 		std::string text;
@@ -558,7 +555,7 @@ TEST(Dtls10Test, Openssl){
 		ASSERT_TRUE(complete) << "отказ " << static_cast <int> (client.error()) << " извещение " << static_cast <int> (client.alert().description);
 		EXPECT_EQ(client.version(), TLS11);
 		EXPECT_EQ(client.suite(), protect::suite_t::ECDHE_ECDSA_AES_128_CBC_SHA);
-		::close(fd);
+		closing(fd);
 		sentinel.halt();
 		(void) settle(log, text);
 		::remove(log.c_str());
@@ -577,7 +574,7 @@ TEST(Dtls10Test, Openssl){
 		uint8_t buffer[65536];
 		ssize_t received = -1;
 		for(size_t i = 0; (i < 150) && (received <= 0); i++)
-			received = ::recvfrom(fd, buffer, sizeof(buffer), 0, reinterpret_cast <struct sockaddr *> (&peer), &length);
+			received = receivingfrom(fd, buffer, sizeof(buffer), reinterpret_cast <struct sockaddr *> (&peer), &length);
 		ASSERT_GT(received, 0);
 		server::context_t server;
 		server.transport(context::transport_t::DATAGRAMS);
@@ -598,10 +595,10 @@ TEST(Dtls10Test, Openssl){
 		for(size_t i = 0; (i < 400) && (server.state() != context::state_t::FAILED) && (server.state() != context::state_t::CLOSED) && plaintext.empty(); i++){
 			while(server.output().size > 0){
 				const view_t data = server.output();
-				(void) ::sendto(fd, data.data, data.size, 0, reinterpret_cast <const struct sockaddr *> (&peer), length);
+				(void) sendingto(fd, data.data, data.size, reinterpret_cast <const struct sockaddr *> (&peer), length);
 				server.consume(data.size);
 			}
-			received = ::recv(fd, buffer, sizeof(buffer), 0);
+			received = receiving(fd, buffer, sizeof(buffer));
 			if(received > 0)
 				server.push(view_t(buffer, static_cast <size_t> (received)));
 			else if(server.timeout() > 0)
@@ -614,7 +611,7 @@ TEST(Dtls10Test, Openssl){
 		EXPECT_EQ(server.version(), TLS11);
 		EXPECT_EQ(server.suite(), protect::suite_t::ECDHE_ECDSA_AES_128_CBC_SHA);
 		EXPECT_EQ(string(plaintext.begin(), plaintext.end()), request);
-		::close(fd);
+		closing(fd);
 		sentinel.halt();
 		std::string text;
 		(void) settle(log, text);

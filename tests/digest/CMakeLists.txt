@@ -8,7 +8,7 @@ add_executable(${TEST_STREEBOG_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/streebog.cpp")
 target_compile_options(${TEST_STREEBOG_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
 
 # Подключаем каталог общих заголовочных файлов набора проверок
-target_include_directories(${TEST_STREEBOG_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_include_directories(${TEST_STREEBOG_NAME} PRIVATE "${ANTS_ROOT}/tests")
 
 # Выполняем подключение зависимостей цели проверок
 target_link_libraries(${TEST_STREEBOG_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
@@ -26,7 +26,7 @@ add_executable(${TEST_HMAC_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/hmac.cpp")
 target_compile_options(${TEST_HMAC_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
 
 # Подключаем каталог общих заголовочных файлов набора проверок
-target_include_directories(${TEST_HMAC_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_include_directories(${TEST_HMAC_NAME} PRIVATE "${ANTS_ROOT}/tests")
 
 # Выполняем подключение зависимостей цели проверок
 target_link_libraries(${TEST_HMAC_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
@@ -44,7 +44,7 @@ add_executable(${TEST_KDF_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/kdf.cpp")
 target_compile_options(${TEST_KDF_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
 
 # Подключаем каталог общих заголовочных файлов набора проверок
-target_include_directories(${TEST_KDF_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_include_directories(${TEST_KDF_NAME} PRIVATE "${ANTS_ROOT}/tests")
 
 # Выполняем подключение зависимостей цели проверок
 target_link_libraries(${TEST_KDF_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
@@ -61,7 +61,7 @@ add_executable(${TEST_SHA2_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/sha2.cpp")
 target_compile_options(${TEST_SHA2_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
 
 # Подключаем каталог общих заголовочных файлов набора проверок
-target_include_directories(${TEST_SHA2_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_include_directories(${TEST_SHA2_NAME} PRIVATE "${ANTS_ROOT}/tests")
 
 # Выполняем подключение зависимостей цели проверок
 target_link_libraries(${TEST_SHA2_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
@@ -78,7 +78,7 @@ add_executable(${TEST_SHA1_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/sha1.cpp")
 target_compile_options(${TEST_SHA1_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
 
 # Подключаем каталог общих заголовочных файлов набора проверок
-target_include_directories(${TEST_SHA1_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_include_directories(${TEST_SHA1_NAME} PRIVATE "${ANTS_ROOT}/tests")
 
 # Выполняем подключение зависимостей цели проверок
 target_link_libraries(${TEST_SHA1_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
@@ -95,7 +95,7 @@ add_executable(${TEST_MD5_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/md5.cpp")
 target_compile_options(${TEST_MD5_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
 
 # Подключаем каталог общих заголовочных файлов набора проверок
-target_include_directories(${TEST_MD5_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_include_directories(${TEST_MD5_NAME} PRIVATE "${ANTS_ROOT}/tests")
 
 # Выполняем подключение зависимостей цели проверок
 target_link_libraries(${TEST_MD5_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
@@ -112,7 +112,7 @@ add_executable(${TEST_HASH_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/hash.cpp")
 target_compile_options(${TEST_HASH_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
 
 # Подключаем каталог общих заголовочных файлов набора проверок
-target_include_directories(${TEST_HASH_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_include_directories(${TEST_HASH_NAME} PRIVATE "${ANTS_ROOT}/tests")
 
 # Выполняем подключение зависимостей цели проверок
 target_link_libraries(${TEST_HASH_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
@@ -129,7 +129,7 @@ add_executable(${TEST_HKDF_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/hkdf.cpp")
 target_compile_options(${TEST_HKDF_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
 
 # Подключаем каталог общих заголовочных файлов набора проверок
-target_include_directories(${TEST_HKDF_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_include_directories(${TEST_HKDF_NAME} PRIVATE "${ANTS_ROOT}/tests")
 
 # Выполняем подключение зависимостей цели проверок
 target_link_libraries(${TEST_HKDF_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
@@ -146,7 +146,7 @@ add_executable(${TEST_PBKDF2_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/pbkdf2.cpp")
 target_compile_options(${TEST_PBKDF2_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
 
 # Подключаем каталог общих заголовочных файлов набора проверок
-target_include_directories(${TEST_PBKDF2_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_include_directories(${TEST_PBKDF2_NAME} PRIVATE "${ANTS_ROOT}/tests")
 
 # Выполняем подключение зависимостей цели проверок
 target_link_libraries(${TEST_PBKDF2_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
@@ -164,7 +164,7 @@ add_executable(${TEST_SHA3_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/sha3.cpp")
 target_compile_options(${TEST_SHA3_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
 
 # Подключаем каталог общих заголовочных файлов набора проверок
-target_include_directories(${TEST_SHA3_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_include_directories(${TEST_SHA3_NAME} PRIVATE "${ANTS_ROOT}/tests")
 
 # Выполняем подключение зависимостей цели проверок
 target_link_libraries(${TEST_SHA3_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
@@ -182,7 +182,7 @@ add_executable(${TEST_BLAKE2_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/blake2.cpp")
 target_compile_options(${TEST_BLAKE2_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
 
 # Подключаем каталог общих заголовочных файлов набора проверок
-target_include_directories(${TEST_BLAKE2_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_include_directories(${TEST_BLAKE2_NAME} PRIVATE "${ANTS_ROOT}/tests")
 
 # Выполняем подключение зависимостей цели проверок
 target_link_libraries(${TEST_BLAKE2_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
@@ -200,7 +200,7 @@ add_executable(${TEST_ARGON2_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/argon2.cpp")
 target_compile_options(${TEST_ARGON2_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
 
 # Подключаем каталог общих заголовочных файлов набора проверок
-target_include_directories(${TEST_ARGON2_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_include_directories(${TEST_ARGON2_NAME} PRIVATE "${ANTS_ROOT}/tests")
 
 # Выполняем подключение зависимостей цели проверок
 target_link_libraries(${TEST_ARGON2_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
@@ -218,7 +218,7 @@ add_executable(${TEST_SIPHASH_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/siphash.cpp")
 target_compile_options(${TEST_SIPHASH_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
 
 # Подключаем каталог общих заголовочных файлов набора проверок
-target_include_directories(${TEST_SIPHASH_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_include_directories(${TEST_SIPHASH_NAME} PRIVATE "${ANTS_ROOT}/tests")
 
 # Выполняем подключение зависимостей цели проверок
 target_link_libraries(${TEST_SIPHASH_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})

@@ -648,7 +648,7 @@ TEST(HybridTest, NistOpenssl){
 				ASSERT_EQ(client.read(reply), context::error_t::NONE);
 			}
 			EXPECT_NE(string(reply.begin(), reply.end()).find("HTTP/1.0 200"), string::npos) << NAMES[i];
-			::close(fd);
+			closing(fd);
 			sentinel.halt();
 			std::string journal;
 			(void) settle(log, journal);
@@ -672,8 +672,8 @@ TEST(HybridTest, NistOpenssl){
 			ASSERT_EQ(server.error(), context::error_t::NONE);
 			EXPECT_EQ(server.group(), GROUPS[i]) << NAMES[i];
 			ASSERT_TRUE(farewell(server, fd));
-			::close(fd);
-			::close(listener);
+			closing(fd);
+			closing(listener);
 			std::string text;
 			ASSERT_TRUE(settle(log, text)) << text;
 			EXPECT_NE(text.find(std::string("Negotiated TLS1.3 group: ") + NAMES[i]), std::string::npos) << text;
@@ -752,7 +752,7 @@ TEST(HybridTest, Openssl){
 		}
 		const string text(answer.begin(), answer.end());
 		EXPECT_NE(text.find("HTTP/1.0 200"), string::npos) << text;
-		::close(fd);
+		closing(fd);
 		sentinel.halt();
 		std::string journal;
 		(void) settle(log, journal);
@@ -765,7 +765,7 @@ TEST(HybridTest, Openssl){
 		const std::string log = "/tmp/ants-hybrid-client-" + std::to_string(number) + ".log";
 		const std::string holder = "/tmp/ants-hybrid-client-" + std::to_string(number) + ".fifo";
 		::remove(holder.c_str());
-		ASSERT_EQ(::mkfifo(holder.c_str(), 0600), 0);
+		ASSERT_EQ(fifo(holder.c_str()), 0);
 		ASSERT_TRUE(launch("openssl s_client -connect 127.0.0.1:" + std::to_string(number) + " -tls1_3 -CAfile " + crt + " -servername localhost -groups X25519MLKEM768:X25519 -verify_return_error <" + holder + " >" + log + " 2>&1", log, log + ".pid", holder));
 		sentinel_t sentinel(log + ".pid");
 		const int fd = greeted(listener);
@@ -777,8 +777,8 @@ TEST(HybridTest, Openssl){
 		ASSERT_TRUE(serve(server, fd)) << "отказ " << static_cast <int> (server.error());
 		ASSERT_TRUE(server.established());
 		ASSERT_TRUE(farewell(server, fd));
-		::close(fd);
-		::close(listener);
+		closing(fd);
+		closing(listener);
 		std::string text;
 		ASSERT_TRUE(settle(log, text)) << text;
 		EXPECT_NE(text.find("Verify return code: 0 (ok)"), std::string::npos) << text;
@@ -825,7 +825,7 @@ TEST(HybridTest, Boringssl){
 		}
 		const string text(answer.begin(), answer.end());
 		EXPECT_NE(text.find("HTTP/1.0 200"), string::npos) << text;
-		::close(fd);
+		closing(fd);
 		sentinel.halt();
 		std::string journal;
 		(void) settle(log, journal);
@@ -838,7 +838,7 @@ TEST(HybridTest, Boringssl){
 		const std::string log = "/tmp/ants-hybrid-bssl-client-" + std::to_string(number) + ".log";
 		const std::string holder = "/tmp/ants-hybrid-bssl-client-" + std::to_string(number) + ".fifo";
 		::remove(holder.c_str());
-		ASSERT_EQ(::mkfifo(holder.c_str(), 0600), 0);
+		ASSERT_EQ(fifo(holder.c_str()), 0);
 		ASSERT_TRUE(launch(tool + " client -connect 127.0.0.1:" + std::to_string(number) + " -curves X25519MLKEM768:X25519 -root-certs " + crt + " -server-name localhost <" + holder + " >" + log + " 2>&1", log, log + ".pid", holder));
 		sentinel_t sentinel(log + ".pid");
 		const int fd = greeted(listener);
@@ -850,8 +850,8 @@ TEST(HybridTest, Boringssl){
 		ASSERT_TRUE(serve(server, fd)) << "отказ " << static_cast <int> (server.error());
 		ASSERT_TRUE(server.established());
 		ASSERT_TRUE(farewell(server, fd));
-		::close(fd);
-		::close(listener);
+		closing(fd);
+		closing(listener);
 		std::string text;
 		ASSERT_TRUE(settle(log, text)) << text;
 		EXPECT_NE(text.find("X25519MLKEM768"), std::string::npos) << text;

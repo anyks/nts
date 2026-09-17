@@ -8,10 +8,10 @@ add_executable(${TEST_X509_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/x509.cpp")
 target_compile_options(${TEST_X509_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
 
 # Объявляем путь к набору образцов проверок
-target_compile_definitions(${TEST_X509_NAME} PRIVATE ANTS_CORPUS="${CMAKE_SOURCE_DIR}/tests/corpus")
+target_compile_definitions(${TEST_X509_NAME} PRIVATE ANTS_CORPUS="${ANTS_ROOT}/tests/corpus")
 
 # Подключаем каталог общих заголовочных файлов набора проверок
-target_include_directories(${TEST_X509_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_include_directories(${TEST_X509_NAME} PRIVATE "${ANTS_ROOT}/tests")
 
 # Выполняем подключение зависимостей цели проверок
 target_link_libraries(${TEST_X509_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
@@ -29,10 +29,10 @@ add_executable(${TEST_SIGNATURE_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/signature.cpp
 target_compile_options(${TEST_SIGNATURE_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
 
 # Объявляем путь к набору образцов проверок
-target_compile_definitions(${TEST_SIGNATURE_NAME} PRIVATE ANTS_CORPUS="${CMAKE_SOURCE_DIR}/tests/corpus")
+target_compile_definitions(${TEST_SIGNATURE_NAME} PRIVATE ANTS_CORPUS="${ANTS_ROOT}/tests/corpus")
 
 # Подключаем каталог общих заголовочных файлов набора проверок
-target_include_directories(${TEST_SIGNATURE_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_include_directories(${TEST_SIGNATURE_NAME} PRIVATE "${ANTS_ROOT}/tests")
 
 # Выполняем подключение зависимостей цели проверок
 target_link_libraries(${TEST_SIGNATURE_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})

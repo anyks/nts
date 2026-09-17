@@ -363,7 +363,7 @@ TEST(AuthoritiesTest, Openssl){
 		// s_server с -CAfile объявляет владельца файла центров приемлемым издателем
 		ASSERT_EQ(client.authorities().size(), static_cast <size_t> (1));
 		EXPECT_EQ(client.authorities()[0], owner);
-		::close(fd);
+		closing(fd);
 		sentinel.halt();
 		std::string journal;
 		(void) settle(log, journal);
@@ -390,8 +390,8 @@ TEST(AuthoritiesTest, Openssl){
 		ASSERT_EQ(server.error(), context::error_t::NONE);
 		ASSERT_EQ(server.peer().size(), static_cast <size_t> (1));
 		ASSERT_TRUE(farewell(server, fd));
-		::close(fd);
-		::close(listener);
+		closing(fd);
+		closing(listener);
 		std::string text;
 		ASSERT_TRUE(settle(log, text)) << text;
 		// s_client печатает перечень приемлемых центров из запроса подлинности

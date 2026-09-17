@@ -1464,7 +1464,7 @@ TEST(ProfileTest, Openssl){
 			ASSERT_NE(text.find("HTTP/1.0 200"), string::npos) << text;
 		}
 		// Закрываем сокет
-		::close(fd);
+		closing(fd);
 		// Снимаем сервер до удаления журнала
 		sentinel.halt();
 		// Журнал сервера

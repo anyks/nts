@@ -2367,7 +2367,7 @@ TEST(AuditTest, PlainOversizeLimit){
 	const string holder = "/tmp/ants-audit-limit-" + to_string(number) + ".fifo";
 	::remove(log.c_str());
 	::remove(holder.c_str());
-	ASSERT_EQ(::mkfifo(holder.c_str(), 0600), 0);
+	ASSERT_EQ(fifo(holder.c_str()), 0);
 	ASSERT_TRUE(launch("openssl s_server" + accepting(toolkit, number) + " -dtls1_2 -listen -no_ticket -cert " + crt + " -key " + key + " -cipher ECDHE-ECDSA-AES128-GCM-SHA256 -mtu 1400" + once(toolkit) + " <" + holder + " >" + log + " 2>&1", log, log + ".pid", holder));
 	sentinel_t sentinel(log + ".pid");
 	string text;
@@ -2432,7 +2432,7 @@ TEST(AuditTest, PlainOversizeLimit){
 	while(client.output().size > 0){
 		const view_t data = client.output();
 		EXPECT_LE(data.size, static_cast <size_t> (512 + datagram::DATAGRAM_PLAIN_HEADER + 8 + 16));
-		(void) ::sendto(fd, data.data, data.size, 0, reinterpret_cast <const struct sockaddr *> (&peer), sizeof(peer));
+		(void) sendingto(fd, data.data, data.size, reinterpret_cast <const struct sockaddr *> (&peer), sizeof(peer));
 		client.consume(data.size);
 		datagrams++;
 	}
@@ -2440,7 +2440,7 @@ TEST(AuditTest, PlainOversizeLimit){
 	// Сервер данные принял и связи не рвал
 	(void) client.close();
 	relay(client, fd, peer, 2);
-	::close(fd);
+	closing(fd);
 	sentinel.halt();
 	(void) settle(log, text);
 	// Журнал сервера: данные приняты, извещения record_overflow нет

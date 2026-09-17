@@ -96,6 +96,14 @@ namespace nts {
 		 * \~
 		 *
 		 */
+		/**
+		 * Намеренное решение: windows.h объявляет DUPLICATE макросом (0x06), и потребитель
+		 * под Windows, подключивший его прежде нас, получал бы ошибку разбора перечня.
+		 * Имя значения не меняется ради потребителя: макрос снимается на время перечня
+		 * и возвращается следом - чужие заголовки, идущие после, его не теряют
+		 */
+		#pragma push_macro("DUPLICATE")
+		#undef DUPLICATE
 		enum class error_t : uint8_t {
 			NONE      = 0x00, /*!< \~russian Отказа не произошло \~english No failure has occurred \~ */
 			ENCODING  = 0x01, /*!< \~russian Запись не отвечает правилам кодировки DER \~english The record does not meet the rules of the DER encoding \~ */
@@ -110,6 +118,7 @@ namespace nts {
 			MEMORY    = 0x0A, /*!< \~russian Не удалось выделить память под разобранные сведения \~english It was not possible to allocate memory for the parsed information \~ */
 			SIGNATURE = 0x0B  /*!< \~russian Подпись не сошлась либо непригодна для проверки \~english The signature has not converged or is unsuitable for the check \~ */
 		};
+		#pragma pop_macro("DUPLICATE")
 
 		/**
 		 * \~russian

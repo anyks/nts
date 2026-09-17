@@ -35,12 +35,9 @@
 #include <cstring>
 #include <fstream>
 #include <iostream>
-#include <unistd.h>
 #include <signal.h>
 #include <sys/stat.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
+#include <sockets.hpp>
 
 /**
  * Подключаем заголовочные файлы проекта
@@ -1625,7 +1622,7 @@ TEST(GreaseTest, Openssl13){
 			// Проверяем группу в ответе сервера
 			ASSERT_NE(text.find("P-384"), string::npos) << text;
 		// Закрываем сокет
-		::close(fd);
+		closing(fd);
 		// Снимаем сервер до удаления журнала
 		sentinel.halt();
 		// Журнал сервера
@@ -1648,7 +1645,7 @@ TEST(GreaseTest, Openssl13){
 	// Убираем канал, оставшийся от прежнего прогона
 	::remove(holder.c_str());
 	// Заводим именованный канал
-	ASSERT_EQ(::mkfifo(holder.c_str(), 0600), 0);
+	ASSERT_EQ(fifo(holder.c_str()), 0);
 	// Файл сеанса клиента openssl: с ним s_client оглашает принятый билет в журнале
 	const std::string session = "/tmp/ants-grease-client-" + std::to_string(number) + ".sess";
 	// Запускаем клиента openssl со своей подлинностью: запрос подлинности с GREASE ему придёт
@@ -1686,7 +1683,7 @@ TEST(GreaseTest, Openssl13){
 	// Байты билета
 	const view_t granting = server.output();
 	// Отправляем билет
-	ASSERT_EQ(::send(fd, granting.data, granting.size, 0), static_cast <ssize_t> (granting.size));
+	ASSERT_EQ(sending(fd, granting.data, granting.size), static_cast <ssize_t> (granting.size));
 	// Снимаем байты билета
 	server.consume(granting.size);
 	// Признак того, что клиент openssl билет принял
@@ -1710,9 +1707,9 @@ TEST(GreaseTest, Openssl13){
 	// Закрываем связь: по извещению клиент openssl уходит сам и выкладывает журнал
 	ASSERT_TRUE(farewell(server, fd));
 	// Закрываем сокет
-	::close(fd);
+	closing(fd);
 	// Закрываем слушающий сокет
-	::close(listener);
+	closing(listener);
 	// Текст журнала клиента
 	std::string text;
 	// Дожидаемся отметки завершения
@@ -1819,7 +1816,7 @@ TEST(GreaseTest, Openssl12){
 	// Сервер openssl видит издание 1.2
 	ASSERT_NE(text.find("TLSv1.2"), string::npos) << text;
 	// Закрываем сокет
-	::close(fd);
+	closing(fd);
 	// Снимаем сервер до удаления журнала
 	sentinel.halt();
 	// Журнал сервера
@@ -1869,7 +1866,7 @@ TEST(GreaseTest, Dtls){
 	// Убираем канал, оставшийся от прежнего прогона
 	::remove(holder.c_str());
 	// Заводим именованный канал
-	ASSERT_EQ(::mkfifo(holder.c_str(), 0600), 0);
+	ASSERT_EQ(fifo(holder.c_str()), 0);
 	// Запускаем сервер openssl: DTLS 1.2, приём приветствия с меткой, встречная подлинность
 	ASSERT_TRUE(launch("openssl s_server" + accepting(toolkit, number) + " -dtls1_2 -listen -no_ticket -cert " + crt + " -key " + key + " -Verify 1 -CAfile " + crt + " -cipher ECDHE-ECDSA-AES128-GCM-SHA256" + grouping(toolkit, true, extension::group_t::SECP256R1) + " -mtu 300" + once(toolkit) + " <" + holder + " >" + log + " 2>&1", log, log + ".pid", holder));
 	// Сторож сервера openssl
@@ -1935,7 +1932,7 @@ TEST(GreaseTest, Dtls){
 	// Отправляем извещение
 	relay(client, fd, peer, 1);
 	// Закрываем сокет
-	::close(fd);
+	closing(fd);
 	// Снимаем сервер
 	sentinel.halt();
 	// Дожидаемся отметки завершения

@@ -293,7 +293,7 @@ TEST(InteropTest, Server){
 				// Проверяем, что ответ HTTP получен
 				ASSERT_NE(string(answer.begin(), answer.end()).find("HTTP/1.0 200"), string::npos) << ENTRIES[k].name << " " << name << " " << curve;
 				// Закрываем сокет
-				::close(fd);
+				closing(fd);
 				// Снимаем сервер до удаления журнала: иначе отметка завершения воссоздаст файл
 				sentinel.halt();
 				// Журнал сервера
@@ -400,9 +400,9 @@ TEST(InteropTest, Client){
 				// Закрываем связь, коли она ещё открыта
 				ASSERT_TRUE(farewell(server, fd));
 				// Закрываем сокет
-				::close(fd);
+				closing(fd);
 				// Закрываем слушающий сокет
-				::close(listener);
+				closing(listener);
 				// Текст журнала клиента
 				std::string text;
 				// Клиент обязан завершиться

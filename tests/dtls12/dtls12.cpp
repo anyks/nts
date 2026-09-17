@@ -38,12 +38,9 @@
 #include <fstream>
 #include <iostream>
 #include <algorithm>
-#include <unistd.h>
 #include <signal.h>
 #include <sys/stat.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
+#include <sockets.hpp>
 
 /**
  * Подключаем заголовочные файлы проекта
@@ -4105,7 +4102,7 @@ TEST(Dtls12Test, Openssl){
 			// Убираем канал, оставшийся от прежнего прогона
 			::remove(holder.c_str());
 			// Заводим именованный канал
-			ASSERT_EQ(::mkfifo(holder.c_str(), 0600), 0);
+			ASSERT_EQ(fifo(holder.c_str()), 0);
 			/**
 			 * Сервер openssl: DTLS 1.2, приём приветствия с меткой (-listen), взаимная
 			 * подлинность, дробление под 300 байтов, без билетов; вход держится открытым
@@ -4178,7 +4175,7 @@ TEST(Dtls12Test, Openssl){
 			// Отправляем извещение
 			relay(client, fd, peer, 1);
 			// Закрываем сокет
-			::close(fd);
+			closing(fd);
 			// Снимаем сервер
 			sentinel.halt();
 			// Дожидаемся отметки завершения
@@ -4254,7 +4251,7 @@ TEST(Dtls12Test, Openssl){
 			 */
 			for(size_t i = 0; (i < 150) && (received <= 0); i++)
 				// Принимаем дейтаграмму с адресом
-				received = ::recvfrom(fd, buffer, sizeof(buffer), 0, reinterpret_cast <struct sockaddr *> (&peer), &length);
+				received = receivingfrom(fd, buffer, sizeof(buffer), reinterpret_cast <struct sockaddr *> (&peer), &length);
 			// Приветствие принято
 			ASSERT_GT(received, 0) << SUITES[s].title << " " << naming(group);
 			// Связь стороны сервера
@@ -4290,12 +4287,12 @@ TEST(Dtls12Test, Openssl){
 					// Дейтаграмма
 					const view_t data = server.output();
 					// Отправляем клиенту
-					(void) ::sendto(fd, data.data, data.size, 0, reinterpret_cast <const struct sockaddr *> (&peer), length);
+					(void) sendingto(fd, data.data, data.size, reinterpret_cast <const struct sockaddr *> (&peer), length);
 					// Снимаем
 					server.consume(data.size);
 				}
 				// Принимаем дейтаграмму
-				received = ::recv(fd, buffer, sizeof(buffer), 0);
+				received = receiving(fd, buffer, sizeof(buffer));
 				// Если принята
 				if(received > 0)
 					// Подаём серверу
@@ -4332,12 +4329,12 @@ TEST(Dtls12Test, Openssl){
 				// Дейтаграмма
 				const view_t data = server.output();
 				// Отправляем клиенту
-				(void) ::sendto(fd, data.data, data.size, 0, reinterpret_cast <const struct sockaddr *> (&peer), length);
+				(void) sendingto(fd, data.data, data.size, reinterpret_cast <const struct sockaddr *> (&peer), length);
 				// Снимаем
 				server.consume(data.size);
 			}
 			// Закрываем сокет
-			::close(fd);
+			closing(fd);
 			// Текст журнала
 			std::string text;
 			// Клиент обязан завершиться
@@ -5415,7 +5412,7 @@ TEST(Dtls12Test, Interop){
 		// Убираем прежний
 		::remove(holder.c_str());
 		// Заводим
-		ASSERT_EQ(::mkfifo(holder.c_str(), 0600), 0);
+		ASSERT_EQ(fifo(holder.c_str()), 0);
 		// Доводы
 		const std::string arming = ((::strlen(rounds[r].key) == 0) ? std::string(" -nocert -psk_identity anyks -psk 0123456789ABCDEF -psk_hint anyks-hint") : (" -cert " + std::string(CORPUS) + "/" + rounds[r].key + ".crt -key " + std::string(CORPUS) + "/" + rounds[r].key + ".pem"));
 		// Запускаем сервер
@@ -5499,7 +5496,7 @@ TEST(Dtls12Test, Interop){
 		// Извещение
 		relay(client, fd, peer, 1);
 		// Закрываем сокет
-		::close(fd);
+		closing(fd);
 		// Снимаем
 		sentinel.halt();
 		// Дожидаемся
@@ -5542,7 +5539,7 @@ TEST(Dtls12Test, Interop){
 		 */
 		for(size_t i = 0; (i < 150) && (received <= 0); i++)
 			// Принимаем
-			received = ::recvfrom(fd, buffer, sizeof(buffer), 0, reinterpret_cast <struct sockaddr *> (&peer), &length);
+			received = receivingfrom(fd, buffer, sizeof(buffer), reinterpret_cast <struct sockaddr *> (&peer), &length);
 		// Принято
 		ASSERT_GT(received, 0) << rounds[r].cipher;
 		// Связь сервера
@@ -5599,12 +5596,12 @@ TEST(Dtls12Test, Interop){
 				// Дейтаграмма
 				const view_t data = server.output();
 				// Отправляем
-				(void) ::sendto(fd, data.data, data.size, 0, reinterpret_cast <const struct sockaddr *> (&peer), length);
+				(void) sendingto(fd, data.data, data.size, reinterpret_cast <const struct sockaddr *> (&peer), length);
 				// Снимаем
 				server.consume(data.size);
 			}
 			// Принимаем
-			received = ::recv(fd, buffer, sizeof(buffer), 0);
+			received = receiving(fd, buffer, sizeof(buffer));
 			// Если принято
 			if(received > 0)
 				// Подаём
@@ -5639,12 +5636,12 @@ TEST(Dtls12Test, Interop){
 			// Дейтаграмма
 			const view_t data = server.output();
 			// Отправляем
-			(void) ::sendto(fd, data.data, data.size, 0, reinterpret_cast <const struct sockaddr *> (&peer), length);
+			(void) sendingto(fd, data.data, data.size, reinterpret_cast <const struct sockaddr *> (&peer), length);
 			// Снимаем
 			server.consume(data.size);
 		}
 		// Закрываем
-		::close(fd);
+		closing(fd);
 		// Текст
 		std::string text;
 		// Завершился

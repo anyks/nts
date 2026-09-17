@@ -4545,3 +4545,44 @@ Vault); мутации: обрыв не докладывается → Abort; п
 готовности A-NTS и заморозки API; AWH под A-NTS сейчас не меняется, правила стыка (secret_t/
 bytes_t, embed::key/secret, RLIMIT_MEMLOCK, assign) записаны у него как контракт будущего стыка.
 Полный ctest со стоком журнала: 90 проверок, отказов 0.
+
+## Круг 18 (Fable 5.1, 17.09.2026): план владельца до переезда AWH — пункт 8, CMake-конфиг
+
+План владельца (девять пунктов, порядок утверждён: 8 → 1+2 → 7 → 3+4, документация и аудиты
+фоном): 1) Windows Visual Studio и MinGW, x86_64 и ARM64; 2) DLL и .so/.dylib под POSIX;
+3) пробелы производительности; 4) бенчмарки; 5) документация RU+EN (английский — только в
+заголовках, .cpp по-русски намеренно) и README; 6) стенды x86_64; 7) стенды ARM64; 8) CMake-конфиг;
+9) аудиты до нуля дефектов.
+
+**Пункт 8 сделан.** `install(TARGETS … EXPORT ntsTargets)`, `install(EXPORT … NAMESPACE nts::)`,
+`cmake/ntsConfig.cmake.in` (`find_dependency(Threads)`), `ntsConfigVersion.cmake`
+(SameMajorVersion), `export(EXPORT)` для дерева сборки, псевдоним `nts::nts`,
+`target_include_directories` с BUILD/INSTALL_INTERFACE, `target_compile_features(cxx_std_17)`,
+`Threads::Threads` PUBLIC (замок хранилища, atfork), `bcrypt` PUBLIC под Windows, VERSION/SOVERSION
+у цели, GNUInstallDirs. Найден и закрыт дефект: все 51 список сборки шли от `CMAKE_SOURCE_DIR`/
+`CMAKE_BINARY_DIR` — через `add_subdirectory` они указывают на проект потребителя, и подключение
+подмодулем не работало вовсе (`ntsConfig.cmake.in does not exist`, дальше — исходники); заменено
+на `CMAKE_CURRENT_*` в корне и `ANTS_ROOT` во вложенных. Проверка тремя потребителями на macOS:
+установленный статический пакет (find_package, `ok`), установленный динамический
+(`libnts.1.0.0.dylib`, `@rpath/libnts.1.dylib`, сток журнала работает через DLL-границу),
+подмодуль `add_subdirectory` (`nts::nts`, embed::key) — все собраны и запущены с кодом 0.
+Полный ctest после переделки списков — ниже.
+Полный ctest после переделки списков сборки: 90/90 (372 с), образцы пересобраны.
+
+### Круг 18, пункты 1+2 (17.09.2026): Windows — MinGW x86-64, clang ARM64, DLL
+
+Стенды: Windows 10 x86-64 MSYS2 (192.168.53.177: MinGW g++ 16.1, cmake 4.4.2, ninja, gtest;
+Build Tools 2022, MSVC 14.44) и Windows 11 ARM64 (192.168.5.155: MSYS2 clangarm64 clang 22.1.8,
+cmake 4.4.2, ninja, gtest; Visual Studio 2022 Community, MSVC 14.43 с Hostarm64). Дерево — клон
+HEAD 68579da по HTTPS плюс копия правок этого круга через tar по ssh (rsync на стендах нет).
+- **MinGW x86-64, статика, Release, образцы:** собрано без ошибок; sys-vault, sys-log работают.
+- **MinGW x86-64, DLL:** первый заход — `nts-tables.exe` не связывался: вспомогательная
+  библиотека `nts_tables_bootstrap` и проверочная копия `nts_test` собирались без признака
+  `ANTS_STATICLIB`, и заголовки объявляли их символы импортом из DLL. Правка: обе цели несут
+  `ANTS_STATICLIB` PUBLIC. После правки `libnts.dll` + `libnts.dll.a` собраны, образцы sys-vault и
+  tls-connection работают через границу DLL.
+- **clang ARM64 (clangarm64), статика, Release, образцы:** собрано без ошибок; sys-vault, sys-log,
+  tls-connection работают (возобновление, упреждающие данные).
+- **Проверки на ARM64:** `tests/digest/argon2.cpp` не собирался — `::getpid` без `<unistd.h>`
+  (на POSIX заголовок приходил транзитивно); добавлен явный include. Полные наборы на обоих
+  стендах Windows — ниже.

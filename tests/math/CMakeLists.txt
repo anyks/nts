@@ -8,7 +8,7 @@ add_executable(${TEST_NUMBER_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/number.cpp")
 target_compile_options(${TEST_NUMBER_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
 
 # Подключаем каталог общих заголовочных файлов набора проверок
-target_include_directories(${TEST_NUMBER_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_include_directories(${TEST_NUMBER_NAME} PRIVATE "${ANTS_ROOT}/tests")
 
 # Выполняем подключение зависимостей цели проверок
 target_link_libraries(${TEST_NUMBER_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
@@ -26,7 +26,7 @@ add_executable(${TEST_FIELD25519_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/field25519.c
 target_compile_options(${TEST_FIELD25519_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
 
 # Подключаем каталог общих заголовочных файлов набора проверок
-target_include_directories(${TEST_FIELD25519_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_include_directories(${TEST_FIELD25519_NAME} PRIVATE "${ANTS_ROOT}/tests")
 
 # Выполняем подключение зависимостей цели проверок
 target_link_libraries(${TEST_FIELD25519_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
@@ -43,7 +43,7 @@ add_executable(${TEST_INTEGER_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/integer.cpp")
 target_compile_options(${TEST_INTEGER_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
 
 # Подключаем каталог общих заголовочных файлов набора проверок
-target_include_directories(${TEST_INTEGER_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_include_directories(${TEST_INTEGER_NAME} PRIVATE "${ANTS_ROOT}/tests")
 
 # Выполняем подключение зависимостей цели проверок
 target_link_libraries(${TEST_INTEGER_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})

@@ -34,6 +34,17 @@
 #include <sys/machine.hpp>
 
 /**
+ * Установка переменной окружения: у Windows нет setenv, есть _putenv_s
+ */
+static bool assign(const char * name, const char * value) noexcept {
+	#if defined(_WIN32)
+		return (::_putenv_s(name, value) == 0);
+	#else
+		return (::setenv(name, value, 1) == 0);
+	#endif
+}
+
+/**
  * Пространство имён библиотеки
  */
 using namespace nts;
@@ -44,7 +55,7 @@ using namespace nts;
  */
 TEST(MachineTest, Denied) {
 	// Запрещаем окружением расширения AVX2 и SSSE3 до первого обращения к машине
-	ASSERT_EQ(::setenv("ANTS_MACHINE", "0x60", 1), 0);
+	ASSERT_TRUE(::assign("ANTS_MACHINE", "0x60"));
 	// Проверяем, что запрещённые расширения не признаны
 	ASSERT_FALSE(machine::has(machine::feature_t::AVX2));
 	// Проверяем, что запрещённые расширения не признаны

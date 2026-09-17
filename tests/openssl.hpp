@@ -46,13 +46,15 @@
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
+#include <thread>
+#include <chrono>
 #include <unistd.h>
 #include <signal.h>
-#include <sys/socket.h>
-#include <poll.h>
-#include <sys/select.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
+
+/**
+ * Сокеты оснастки: одни имена под POSIX и Windows
+ */
+#include <sockets.hpp>
 
 /**
  * Подключаем заголовочные файлы проекта
@@ -117,9 +119,14 @@ namespace {
 				// Номер процесса
 				long number = 0;
 				// Если номер прочитан и процесс жив
-				if((file >> number) && (number > 0) && (::kill(static_cast <pid_t> (number), 0) == 0))
-					// Снимаем процесс по номеру
-					(void) ::kill(static_cast <pid_t> (number), SIGTERM);
+				#if !defined(_WIN32)
+					if((file >> number) && (number > 0) && (::kill(static_cast <pid_t> (number), 0) == 0))
+						// Снимаем процесс по номеру
+						(void) ::kill(static_cast <pid_t> (number), SIGTERM);
+				#else
+					// Под Windows порождённых процессов openssl оснастка не ведёт: интероп там пропускается
+					(void) number;
+				#endif
 				// Удаляем файл номера процесса
 				::remove(this->_path.c_str());
 				// Забываем путь
@@ -208,7 +215,7 @@ namespace {
 			// Если строки ещё нет, ждём
 			if(!found)
 				// Выдерживаем паузу
-				::usleep(100000);
+				std::this_thread::sleep_for(std::chrono::milliseconds(100));
 		}
 		// Выводим признак того, что строка дождалась
 		return found;
@@ -285,7 +292,7 @@ namespace {
 				// Запоминаем назначенный системой порт
 				result = ntohs(address.sin_port);
 			// Закрываем сокет розыска порта
-			::close(fd);
+			closing(fd);
 			// Если порта нет
 			if(result == 0)
 				// Выводим отсутствие порта
@@ -360,17 +367,15 @@ namespace {
 				// Если подключение удалось
 				if(::connect(fd, address, length) == 0){
 					// Предел ожидания приёма: зависание собеседника не должно вешать проверку
-					struct timeval limit = {60, 0};
-					// Устанавливаем предел ожидания приёма
-					(void) ::setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &limit, sizeof(limit));
+					patience(fd, 60, 0);
 					// Выводим описатель подключённого сокета
 					return fd;
 				}
 				// Закрываем сокет неудавшегося подключения
-				::close(fd);
+				closing(fd);
 			}
 			// Ждём подъёма сервера
-			::usleep(100000);
+			std::this_thread::sleep_for(std::chrono::milliseconds(100));
 		}
 		// Выводим отказ подключения
 		return -1;
@@ -392,7 +397,7 @@ namespace {
 		// Если клиенту есть что отправить
 		if(data.size > 0){
 			// Отправляем байты в сокет
-			const ssize_t sent = ::send(fd, data.data, data.size, 0);
+			const ssize_t sent = sending(fd, data.data, data.size);
 			// Если отправка не удалась
 			if(sent <= 0)
 				// Выводим отсутствие передачи
@@ -405,7 +410,7 @@ namespace {
 		// Место, в которое помещаются принятые байты
 		uint8_t buffer[16384];
 		// Принимаем байты из сокета с ожиданием
-		const ssize_t received = ::recv(fd, buffer, sizeof(buffer), 0);
+		const ssize_t received = receiving(fd, buffer, sizeof(buffer));
 		// Если байты приняты
 		if(received > 0){
 			// Подаём принятые байты связи клиента
@@ -446,7 +451,7 @@ namespace {
 		// Если привязка, чтение адреса либо прослушивание не удались
 		if((::bind(listener, reinterpret_cast <struct sockaddr *> (&address), sizeof(address)) != 0) || (::getsockname(listener, reinterpret_cast <struct sockaddr *> (&address), &length) != 0) || (::listen(listener, 1) != 0)){
 			// Закрываем сокет
-			::close(listener);
+			closing(listener);
 			// Выводим отказ
 			return -1;
 		}
@@ -473,7 +478,7 @@ namespace {
 		waiting.events = POLLIN;
 		waiting.revents = 0;
 		// Если за тридцать секунд никто не подключился
-		if(::poll(&waiting, 1, 30000) <= 0)
+		if(ANTS_POLL(&waiting, 1, 30000) <= 0)
 			// Выводим отказ
 			return -1;
 		// Принимаем подключение
@@ -481,9 +486,7 @@ namespace {
 		// Если подключение принято
 		if(fd >= 0){
 			// Предел ожидания приёма
-			struct timeval limit = {60, 0};
-			// Ставим предел ожидания приёма
-			(void) ::setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &limit, sizeof(limit));
+			patience(fd, 60, 0);
 		}
 		// Выводим описатель
 		return fd;
@@ -511,7 +514,7 @@ namespace {
 			// Место принятых байтов
 			uint8_t buffer[16384];
 			// Принимаем байты клиента
-			const ssize_t received = ::recv(fd, buffer, sizeof(buffer), 0);
+			const ssize_t received = receiving(fd, buffer, sizeof(buffer));
 			// Если байты приняты
 			if(received > 0)
 				// Подаём байты серверу
@@ -521,7 +524,7 @@ namespace {
 			// Если серверу есть что отправить
 			if(data.size > 0){
 				// Отправляем байты
-				const ssize_t sent = ::send(fd, data.data, data.size, 0);
+				const ssize_t sent = sending(fd, data.data, data.size);
 				// Если отправлено
 				if(sent > 0)
 					// Снимаем байты
@@ -554,7 +557,7 @@ namespace {
 		// Байты закрытия
 		const view_t closing = server.output();
 		// Отправляем закрытие
-		(void) ::send(fd, closing.data, closing.size, 0);
+		(void) sending(fd, closing.data, closing.size);
 		// Снимаем байты закрытия
 		server.consume(closing.size);
 		// Выводим успешность закрытия
@@ -591,16 +594,14 @@ namespace {
 		// Если привязка либо чтение адреса не удались
 		if((::bind(fd, reinterpret_cast <struct sockaddr *> (&address), sizeof(address)) != 0) || (::getsockname(fd, reinterpret_cast <struct sockaddr *> (&address), &length) != 0)){
 			// Закрываем сокет
-			::close(fd);
+			closing(fd);
 			// Выводим отказ
 			return -1;
 		}
 		// Запоминаем назначенный порт
 		bound = ntohs(address.sin_port);
 		// Предел ожидания приёма: доля секунды, ибо часы связи ведёт проверка
-		struct timeval limit = {0, 200000};
-		// Устанавливаем предел ожидания приёма
-		(void) ::setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &limit, sizeof(limit));
+		patience(fd, 0, 200000);
 		// Выводим сокет
 		return fd;
 	}
@@ -627,7 +628,7 @@ namespace {
 				// Очередная дейтаграмма
 				const view_t data = client.output();
 				// Отправляем дейтаграмму серверу
-				(void) ::sendto(fd, data.data, data.size, 0, reinterpret_cast <const struct sockaddr *> (&peer), sizeof(peer));
+				(void) sendingto(fd, data.data, data.size, reinterpret_cast <const struct sockaddr *> (&peer), sizeof(peer));
 				// Снимаем дейтаграмму
 				client.consume(data.size);
 			}
@@ -638,7 +639,7 @@ namespace {
 			// Место принятой дейтаграммы
 			uint8_t buffer[65536];
 			// Принимаем дейтаграмму с ожиданием
-			const ssize_t received = ::recv(fd, buffer, sizeof(buffer), 0);
+			const ssize_t received = receiving(fd, buffer, sizeof(buffer));
 			// Если дейтаграмма принята
 			if(received > 0)
 				// Подаём дейтаграмму связи
@@ -787,7 +788,7 @@ namespace {
 		// Если s_client не запустился
 		if(!launch("openssl s_client -connect 127.0.0.1:" + std::to_string(number) + " -tls1_2 </dev/null >" + log + " 2>&1", log, log + ".pid")){
 			// Закрываем слушающий сокет
-			::close(listener);
+			closing(listener);
 			// Выводим отсутствие расширения
 			return false;
 		}
@@ -810,13 +811,11 @@ namespace {
 			// Если подключение принято
 			if(fd >= 0){
 				// Предел ожидания приёма
-				struct timeval pause = {30, 0};
-				// Устанавливаем предел ожидания приёма
-				(void) ::setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &pause, sizeof(pause));
+				patience(fd, 30, 0);
 				// Накопитель приветствия
 				uint8_t buffer[16384];
 				// Принимаем приветствие клиента
-				const ssize_t received = ::recv(fd, buffer, sizeof(buffer), 0);
+				const ssize_t received = receiving(fd, buffer, sizeof(buffer));
 				// Заголовок записи
 				record::header_t header;
 				// Заголовок сообщения
@@ -828,11 +827,11 @@ namespace {
 					// Ищем расширение extended_master_secret
 					result = (hello::extension(hello.extensions, static_cast <uint16_t> (extension::type_t::MASTER)) != nullptr);
 				// Закрываем подключение: s_client завершится сам
-				::close(fd);
+				closing(fd);
 			}
 		}
 		// Закрываем слушающий сокет
-		::close(listener);
+		closing(listener);
 		// Журнал s_client
 		std::string text;
 		// Дожидаемся завершения s_client

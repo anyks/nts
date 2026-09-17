@@ -549,7 +549,7 @@ TEST(NpnTest, Openssl){
 			ASSERT_EQ(client.read(reply), context::error_t::NONE);
 		}
 		ASSERT_NE(string(reply.begin(), reply.end()).find("HTTP/1.0 200"), string::npos);
-		::close(fd);
+		closing(fd);
 		sentinel.halt();
 		std::string journal;
 		(void) settle(log, journal);
@@ -579,8 +579,8 @@ TEST(NpnTest, Openssl){
 		EXPECT_TRUE(server.negotiated());
 		EXPECT_EQ(server.protocol(), "http/1.1");
 		ASSERT_TRUE(farewell(server, fd));
-		::close(fd);
-		::close(listener);
+		closing(fd);
+		closing(listener);
 		std::string text;
 		ASSERT_TRUE(settle(log, text)) << text;
 		EXPECT_NE(text.find("Next protocol: (1) http/1.1"), std::string::npos) << text;

@@ -8,7 +8,7 @@ add_executable(${TEST_VKO_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/vko.cpp")
 target_compile_options(${TEST_VKO_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
 
 # Подключаем каталог общих заголовочных файлов набора проверок
-target_include_directories(${TEST_VKO_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_include_directories(${TEST_VKO_NAME} PRIVATE "${ANTS_ROOT}/tests")
 
 # Выполняем подключение зависимостей цели проверок
 target_link_libraries(${TEST_VKO_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
@@ -26,7 +26,7 @@ add_executable(${TEST_ECDHE_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/ecdhe.cpp")
 target_compile_options(${TEST_ECDHE_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
 
 # Подключаем каталог общих заголовочных файлов набора проверок
-target_include_directories(${TEST_ECDHE_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_include_directories(${TEST_ECDHE_NAME} PRIVATE "${ANTS_ROOT}/tests")
 
 # Выполняем подключение зависимостей цели проверок
 target_link_libraries(${TEST_ECDHE_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
@@ -44,7 +44,7 @@ add_executable(${TEST_X25519_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/x25519.cpp")
 target_compile_options(${TEST_X25519_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
 
 # Подключаем каталог общих заголовочных файлов набора проверок
-target_include_directories(${TEST_X25519_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_include_directories(${TEST_X25519_NAME} PRIVATE "${ANTS_ROOT}/tests")
 
 # Выполняем подключение зависимостей цели проверок
 target_link_libraries(${TEST_X25519_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
@@ -62,10 +62,10 @@ add_executable(${TEST_MLKEM_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/mlkem.cpp")
 target_compile_options(${TEST_MLKEM_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
 
 # Передаём путь к набору векторов
-target_compile_definitions(${TEST_MLKEM_NAME} PRIVATE ANTS_CORPUS="${CMAKE_SOURCE_DIR}/tests/corpus")
+target_compile_definitions(${TEST_MLKEM_NAME} PRIVATE ANTS_CORPUS="${ANTS_ROOT}/tests/corpus")
 
 # Подключаем каталог общих заголовочных файлов набора проверок
-target_include_directories(${TEST_MLKEM_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_include_directories(${TEST_MLKEM_NAME} PRIVATE "${ANTS_ROOT}/tests")
 
 # Выполняем подключение зависимостей цели проверок
 target_link_libraries(${TEST_MLKEM_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
@@ -83,7 +83,7 @@ add_executable(${TEST_X448_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/x448.cpp")
 target_compile_options(${TEST_X448_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
 
 # Подключаем каталог общих заголовочных файлов набора проверок
-target_include_directories(${TEST_X448_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_include_directories(${TEST_X448_NAME} PRIVATE "${ANTS_ROOT}/tests")
 
 # Выполняем подключение зависимостей цели проверок
 target_link_libraries(${TEST_X448_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
@@ -101,7 +101,7 @@ add_executable(${TEST_FFDHE_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/ffdhe.cpp")
 target_compile_options(${TEST_FFDHE_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
 
 # Подключаем каталог общих заголовочных файлов набора проверок
-target_include_directories(${TEST_FFDHE_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_include_directories(${TEST_FFDHE_NAME} PRIVATE "${ANTS_ROOT}/tests")
 
 # Выполняем подключение зависимостей цели проверок
 target_link_libraries(${TEST_FFDHE_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})

@@ -40,10 +40,7 @@
 #include <stdexcept>
 #include <iostream>
 #include <functional>
-#include <unistd.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
+#include <sockets.hpp>
 
 /**
  * Подключаем заголовочные файлы проекта
@@ -1893,7 +1890,7 @@ TEST(CompressTest, Openssl){
 		// Проверяем, что ответ HTTP получен: подлинность клиента сервером принята
 		ASSERT_NE(string(answer.begin(), answer.end()).find("HTTP/1.0 200"), string::npos);
 		// Закрываем сокет
-		::close(fd);
+		closing(fd);
 		// Снимаем сервер до удаления журнала: иначе отметка завершения воссоздаст файл
 		sentinel.halt();
 		// Журнал сервера
@@ -1949,9 +1946,9 @@ TEST(CompressTest, Openssl){
 		// Закрываем связь, коли она ещё открыта
 		ASSERT_TRUE(farewell(server, fd));
 		// Закрываем сокет
-		::close(fd);
+		closing(fd);
 		// Закрываем слушающий сокет
-		::close(listener);
+		closing(listener);
 		// Содержимое журнала
 		std::string text;
 		// Клиент обязан завершиться

@@ -196,6 +196,39 @@ cmake --build . -j
 | `CMAKE_BUILD_COVERAGE` | `ON` при `CMAKE_BUILD_TESTS` | Собирать проверки с подсчётом охвата: замеры на такой сборке негодны |
 | `CMAKE_BUILD_SANITIZE_LIST` | `address,undefined` | Перечень санитайзеров при `CMAKE_BUILD_SANITIZE` |
 
+### Потребителю: find_package, add_subdirectory, динамическая библиотека
+
+Библиотека ставится пакетом CMake и берётся потребителем тремя способами, во всех трёх
+цель одна - `nts::nts`, и она несёт с собой пути заголовков, стандарт языка, признак
+статической сборки и системные библиотеки (потоки, под Windows `bcrypt`):
+
+```cmake
+# 1. Установленный пакет: cmake --install build --prefix /opt/nts
+find_package(nts 1.0 CONFIG REQUIRED)      # -DCMAKE_PREFIX_PATH=/opt/nts
+target_link_libraries(app PRIVATE nts::nts)
+
+# 2. Подмодуль в дереве потребителя: без установки
+add_subdirectory(submodules/anyks-tls nts)
+target_link_libraries(app PRIVATE nts::nts)
+```
+
+Установка кладёт заголовки в `include/nts`, библиотеку в `lib` (динамическую под
+Windows - в `bin`), описание целей и файлы `ntsConfig.cmake`, `ntsConfigVersion.cmake` в
+`lib/cmake/nts`; совместимость версий - в пределах старшего номера. Третий способ - мимо
+CMake, с ручным `-I` и `-l` - описан ниже.
+
+Динамическая библиотека собирается ключом `CMAKE_SHARED_BUILD_LIB=ON`: `libnts.so.1` →
+`libnts.so.1.0.0` под Linux и BSD, `libnts.1.dylib` под macOS, `nts.dll` под Windows;
+символы экспортируются признаком `ANTS_SHARED_LIBRARY_EXPORT` при сборке самой
+библиотеки и импортируются у потребителя без всяких признаков. Пути внутри проекта идут
+от `CMAKE_CURRENT_SOURCE_DIR` и переменной `ANTS_ROOT`, а не от корневых
+`CMAKE_SOURCE_DIR`/`CMAKE_BINARY_DIR`: через `add_subdirectory` корневые переменные
+указывают на проект потребителя, и на этом проект прежде ломался.
+
+Проверено 17.09.2026 на macOS: установленный статический пакет, установленный динамический
+пакет (`@rpath/libnts.1.dylib`) и подмодуль через `add_subdirectory` - три потребителя
+собраны и запущены.
+
 ### Потребителю статической библиотеки
 
 Заголовки различают три сборки: сборку самой динамической библиотеки, её

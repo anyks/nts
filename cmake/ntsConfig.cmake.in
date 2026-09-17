@@ -1,0 +1,19 @@
+##
+ # Файл настройки пакета A-NTS для find_package(nts CONFIG)
+ #
+ # Даёт цель nts::nts со всем нужным потребителю: путями заголовков, признаком
+ # статической сборки (ANTS_STATICLIB) и системными библиотеками (bcrypt под
+ # Windows, потоки под POSIX). Зависимостей у библиотеки нет, потому искать
+ # ничего не приходится
+ ##
+@PACKAGE_INIT@
+
+# Потоки: замок укрытого хранилища и обработчик разветвления
+include(CMakeFindDependencyMacro)
+find_dependency(Threads)
+
+# Подключаем описание целей пакета
+include("${CMAKE_CURRENT_LIST_DIR}/ntsTargets.cmake")
+
+# Проверяем запрошенные составляющие: составляющих у пакета нет
+check_required_components(nts)

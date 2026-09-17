@@ -524,8 +524,8 @@ TEST(SctTest, Openssl){
 	ASSERT_TRUE(complete) << "отказ " << static_cast <int> (server.error());
 	ASSERT_EQ(server.error(), context::error_t::NONE);
 	ASSERT_TRUE(farewell(server, fd));
-	::close(fd);
-	::close(listener);
+	closing(fd);
+	closing(listener);
 	std::string text;
 	ASSERT_TRUE(settle(log, text)) << text;
 	// s_client -ct печатает принятые метки: заголовок SCT validation и по записи на метку

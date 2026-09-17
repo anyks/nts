@@ -31,13 +31,13 @@
 #include <functional>
 #include <algorithm>
 #include <unistd.h>
-#include <poll.h>
 #include <iostream>
 
 /**
  * Заголовочные файлы проверок
  */
 #include <main.hpp>
+#include <sockets.hpp>
 #include <openssl.hpp>
 
 /**
@@ -862,10 +862,10 @@ TEST(LimitTest, Openssl){
 			waiting.fd = fd;
 			waiting.events = POLLIN;
 			waiting.revents = 0;
-			if(::poll(&waiting, 1, 200) <= 0)
+			if(ANTS_POLL(&waiting, 1, 200) <= 0)
 				continue;
 			uint8_t buffer[16384];
-			const ssize_t received = ::recv(fd, buffer, sizeof(buffer), 0);
+			const ssize_t received = receiving(fd, buffer, sizeof(buffer));
 			if(received <= 0)
 				break;
 			ASSERT_EQ(server.push(view_t(buffer, static_cast <size_t> (received))), context::error_t::NONE);
@@ -889,13 +889,13 @@ TEST(LimitTest, Openssl){
 				offset += (5 + length);
 			}
 			EXPECT_LE(widest, 512u + 32u) << FLAGS[i];
-			(void) ::send(fd, data.data, data.size, 0);
+			(void) sending(fd, data.data, data.size);
 			server.consume(data.size);
 		}
 		// Прощаемся
 		ASSERT_TRUE(farewell(server, fd));
-		::close(fd);
-		::close(listener);
+		closing(fd);
+		closing(listener);
 		// Клиент принял тело целиком
 		std::string text;
 		ASSERT_TRUE(settle(log, text)) << text;
@@ -967,7 +967,7 @@ TEST(LimitTest, Gnutls){
 	}
 	EXPECT_GE(echo.size(), message.size());
 	EXPECT_EQ(string(echo.begin(), echo.begin() + static_cast <long> (std::min(echo.size(), message.size()))), message.substr(0, std::min(echo.size(), message.size())));
-	::close(fd);
+	closing(fd);
 	sentinel.halt();
 	std::string journal;
 	(void) settle(log, journal);
