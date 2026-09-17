@@ -1140,8 +1140,12 @@ if (${CMAKE_BUILD_SAMPLES})
         message(STATUS "Build sample COMPRESS: Yes")
         # Выполняем создание приложения сжатия цепочки сертификатов
         add_corpus_sample(${COMPRESS_APP_NAME} sample/compress/compress.cpp compress)
-        # Если образец сличается с системным zlib
-        if (${CMAKE_SAMPLE_COMPRESS_ZLIB})
+        ##
+         # Если образец сличается с системным zlib. Под MSVC поиск пропускается: на
+         # стендах с MSYS2 find_package находит zlib из клона MinGW/clang, и его
+         # заголовки тянут в сборку cl.exe чужой vadefs.h - сборка образца валится
+         ##
+        if (${CMAKE_SAMPLE_COMPRESS_ZLIB} AND NOT MSVC)
             # Выполняем поиск системного zlib
             find_package(ZLIB)
             # Если системный zlib найден
@@ -1157,7 +1161,7 @@ if (${CMAKE_BUILD_SAMPLES})
                 # Выводим сообщение о сличении с zlib
                 message(STATUS "Compression sample zlib: No")
             endif (ZLIB_FOUND)
-        endif (${CMAKE_SAMPLE_COMPRESS_ZLIB})
+        endif (${CMAKE_SAMPLE_COMPRESS_ZLIB} AND NOT MSVC)
     # Если образец сжатия цепочки собирать не нужно
     else()
         # Выводим сообщение о сборке образца

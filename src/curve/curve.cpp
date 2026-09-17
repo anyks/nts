@@ -86,7 +86,7 @@ namespace {
 	 *       перезаписывается область стека, в которой те кадры лежали
 	 *
 	 */
-	__attribute__((noinline)) static void overwrite() noexcept {
+	__ANTS_NOINLINE__ static void overwrite() noexcept {
 		// Область стека, накрывающая кадры удвоения и сложения точек
 		volatile uint8_t area[4096];
 		/**

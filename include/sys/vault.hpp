@@ -583,7 +583,7 @@ namespace nts {
 				 */
 				T * allocate(const size_t count){
 					// Если запрошенная длина не умещается в размер
-					if(count > (numeric_limits <size_t>::max() / sizeof(T)))
+					if(count > ((numeric_limits <size_t>::max)() / sizeof(T)))
 						// Сообщаем об отказе выделения
 						throw bad_alloc();
 					// Берём участок хранилища

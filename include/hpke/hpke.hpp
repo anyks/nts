@@ -630,6 +630,14 @@ namespace nts {
 		 * \~
 		 *
 		 */
+		/**
+		 * Предварительные объявления функций установки состояния: они дружественны
+		 * контексту, а у MSVC первое объявление задаёт связывание - дружественное без
+		 * признака экспорта спорило бы с экспортируемым объявлением ниже (C2375)
+		 */
+		class Context;
+		__ANTS_SHARED_EXPORT__ error_t sender(const suite_t & suite, const regime_t mode, const view_t & point, const view_t & info, const shared_t & psk, const key_t * authenticator, const key_t & ephemeral, uint8_t * enc, Context & context) noexcept;
+		__ANTS_SHARED_EXPORT__ error_t recipient(const suite_t & suite, const regime_t mode, const key_t & own, const view_t & enc, const view_t & info, const shared_t & psk, const view_t & authenticator, Context & context) noexcept;
 		typedef class __ANTS_SHARED_EXPORT__ Context {
 			private:
 				// Признак того, что состояние установлено

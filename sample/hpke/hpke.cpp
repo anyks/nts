@@ -26,6 +26,7 @@
 /**
  * Стандартные модули
  */
+#include <string>
 #include <cstring>
 #include <iomanip>
 #include <iostream>

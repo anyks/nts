@@ -265,7 +265,7 @@ bool sys::Vault::grow(const size_t size) noexcept {
  */
 void * sys::Vault::take(const size_t size) noexcept {
 	// Если длина участка не задана либо не умещается в выравнивание
-	if((size == 0) || (size > (numeric_limits <size_t>::max() - VAULT_ALIGN)))
+	if((size == 0) || (size > ((numeric_limits <size_t>::max)() - VAULT_ALIGN)))
 		// Сообщаем об отказе
 		return nullptr;
 	// Округляем длину участка вверх до выравнивания

@@ -36,6 +36,8 @@
 #include <math/number.hpp>
 #include <sys/wipe.hpp>
 
+#include <math/wide.hpp>
+
 /**
  * Используем стандартное пространство имён
  */
@@ -61,14 +63,8 @@ namespace {
 	 */
 	using namespace nts::math;
 
-	/**
-	 * @brief Целое число двойной разрядности
-	 *
-	 * @details Собиратели GCC и Clang дают такой тип на всех целевых платформах, а
-	 *          иных собирателей у проекта нет
-	 *
-	 */
-	typedef __uint128_t wide_t;
+	// Целое число двойной разрядности: __uint128_t либо своя запись у MSVC (math/wide.hpp)
+	typedef nts::math::wide_t wide_t;
 
 	// Затирание областей памяти берётся из открытого API библиотеки
 	using nts::sys::wipe;
@@ -260,6 +256,32 @@ namespace {
 	 * @param size    число слов модуля
 	 *
 	 */
+	/**
+	 * @brief Приведение по модулю после умножения при числе слов, известном собирателю
+	 *
+	 * @details То же, что lessen, но циклы развёрнуты по WORDS, буфер разности - в WORDS
+	 *          слов, и затирается он ровно в WORDS записей. Общий lessen с длиной во время
+	 *          выполнения стоил у P-256 больше самого умножения Монтгомери
+	 *
+	 * @param value   приводимое значение; итог кладётся сюда же
+	 * @param modulus модуль
+	 * @param carry   перенос из старшего слова умножения
+	 *
+	 */
+	template <size_t WORDS>
+	static void shrink(uint64_t * value, const uint64_t * modulus, const uint64_t carry) noexcept {
+		uint64_t buffer[WORDS];
+		uint64_t borrow = 0;
+		for(size_t i = 0; i < WORDS; i++){
+			const wide_t item = (static_cast <wide_t> (value[i]) - modulus[i] - borrow);
+			buffer[i] = static_cast <uint64_t> (item);
+			borrow = static_cast <uint64_t> ((item >> 64) & 0x01);
+		}
+		const uint64_t mask = (0 - (carry | (borrow ^ 0x01)));
+		for(size_t i = 0; i < WORDS; i++)
+			value[i] = select(mask, buffer[i], value[i]);
+		clean(buffer, WORDS);
+	}
 	static void lessen(uint64_t * value, const uint64_t * modulus, const uint64_t carry, const size_t size) noexcept {
 		// Итог вычитания модуля из уменьшаемого
 		uint64_t buffer[NUMBER_WORDS];
@@ -792,12 +814,11 @@ void nts::math::Modulus::multiply(const number_t & first, const number_t & secon
 	 */
 	if((this->_words == 4) || (this->_words == 8)){
 		// Старшее слово переноса полученного произведения
-		const uint64_t carry = ((this->_words == 4) ?
-			montgomery <4> (first.words, second.words, this->_modulus.words, this->_factor, result.words) :
-			montgomery <8> (first.words, second.words, this->_modulus.words, this->_factor, result.words)
-		);
-		// Выполняем приведение произведения по модулю
-		lessen(result.words, this->_modulus.words, carry, this->_words);
+		// Умножаем и приводим развёрнутыми по числу слов путями
+		if(this->_words == 4)
+			shrink <4> (result.words, this->_modulus.words, montgomery <4> (first.words, second.words, this->_modulus.words, this->_factor, result.words));
+		else
+			shrink <8> (result.words, this->_modulus.words, montgomery <8> (first.words, second.words, this->_modulus.words, this->_factor, result.words));
 		// Выходим из умножения чисел
 		return;
 	}

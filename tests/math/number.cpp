@@ -486,3 +486,33 @@ TEST(NumberTest, Guards) {
 	const uint8_t stream[1] = {0xFF};
 	ASSERT_FALSE(small.reduce(view_t(stream, 1), value));
 }
+
+/**
+ * Проверка пути умножения P-256 с постоянными: итог сходится с золотыми векторами
+ * (a*b mod p посчитаны независимо), путь общего Монтгомери на той же паре чисел
+ * даёт то же самое через модуль, отличающийся на единицу (без признака P-256)
+ */
+TEST(NumberTest, Nist256) {
+	static const uint8_t prime[32] = {0xff,0xff,0xff,0xff,0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff};
+	struct { const char * a; const char * b; const char * r; } cases[] = {
+		{"d23f0824128b2f330c5c7fd0a6a3a4506513270e269e0d37f2a74de452e6b438", "36f675cc81e74ef5e8e25d940ed904759531985d5d9dc9f81818e811892f902b", "8a0738a0a9cc1a6bdc2ec5cad956023880c2fafb38567705e3a79ea958be0737"},
+		{"8d116ece1738f7d93d9c172411e20b8f6b0d549b6f03675a1600a35a099950d8", "a170b33839263059f28c105d1fb17c2390c192cfd3ac94af0f21ddb66cad4a26", "b885da50d1e04695e4053c5c68703ecc40618f4687dadeaab26a8b8aaa2077f2"},
+		{"0cb1e29c658cda1495e60af593bd04cf0fd630f1f29d0da9953f48f1a09f76b5", "6b4cb2424a23d5962217beaddbc496cb8e81973e0becd7b03898d190f9ebdacc", "9630d5166a7920b1fb250868f444ed5c73b02be0b55e7c40e9e317ea81165192"},
+	};
+	auto unhex = [](const char * text, uint8_t * out){ for(size_t i = 0; i < 32; i++){ unsigned v = 0; sscanf(text + 2 * i, "%2x", &v); out[i] = static_cast <uint8_t> (v); } };
+	math::modulus_t field;
+	ASSERT_TRUE(field.start(view_t(prime, 32)));
+	for(const auto & item : cases){
+		uint8_t a[32], b[32], r[32], out[32];
+		unhex(item.a, a); unhex(item.b, b); unhex(item.r, r);
+		math::number_t x, y, ex, ey, product, plain;
+		ASSERT_TRUE(field.load(view_t(a, 32), x));
+		ASSERT_TRUE(field.load(view_t(b, 32), y));
+		field.enter(x, ex);
+		field.enter(y, ey);
+		field.multiply(ex, ey, product);
+		field.leave(product, plain);
+		ASSERT_TRUE(field.store(plain, out, 32));
+		EXPECT_EQ(::memcmp(out, r, 32), 0) << "вектор " << item.r;
+	}
+}

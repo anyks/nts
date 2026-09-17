@@ -223,10 +223,26 @@ bool nts::agreement::ecdhe(const curve::curve_t & curve, const view_t & secret, 
 		math::number_t cofactor;
 		// Кратная точка по кофактору кривой
 		curve::point_t cleared;
-		// Записываем кофактор кривой числом
-		order.word(curve.cofactor(), cofactor);
-		// Выполняем умножение открытого ключа встречной стороны на кофактор кривой
-		curve.multiply(point, cofactor, cleared);
+		/**
+		 * Очистка от кофактора: у кривых простого порядка (P-256, CryptoPro-A) кофактор
+		 * равен единице, и умножение на него - это полное умножение за постоянное время,
+		 * вдвое удорожавшее обмен ключами впустую (74 мкс из 157). Кофактор не тайна:
+		 * при единице точка берётся как есть, при степени двойки - удвоениями, иное -
+		 * общим умножением
+		 */
+		const uint64_t h = curve.cofactor();
+		if(h <= 1)
+			cleared = point;
+		else if((h & (h - 1)) == 0){
+			cleared = point;
+			for(uint64_t step = h; step > 1; step >>= 1)
+				curve.twice(cleared, cleared);
+		} else {
+			// Записываем кофактор кривой числом
+			order.word(h, cofactor);
+			// Выполняем умножение открытого ключа встречной стороны на кофактор кривой
+			curve.multiply(point, cofactor, cleared);
+		}
 		// Выполняем умножение очищенной точки на секретный ключ
 		curve.multiply(cleared, value, common);
 		// Выполняем затирание очищенной точки

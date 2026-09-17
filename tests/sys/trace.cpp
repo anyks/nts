@@ -46,6 +46,13 @@
 	#include <windows.h>
 #else
 	#include <pthread.h>
+	#if defined(__FreeBSD__) || defined(__DragonFly__)
+		#include <pthread_np.h>
+	#endif
+	#if defined(__OpenBSD__)
+		#include <signal.h>
+		#include <pthread_np.h>
+	#endif
 #endif
 #include <main.hpp>
 #include <identity.hpp>
@@ -160,14 +167,33 @@ namespace {
 		const uint8_t * high = const_cast <const uint8_t *> (&marker);
 		const uint8_t * low = nullptr;
 		#if defined(_WIN32)
-			// Нижняя граница стека: начало выделения, в котором лежит текущий кадр (годно и MinGW, и MSVC любого издания)
+			/**
+			 * Нижняя граница: начало ОТОБРАЖЁННОЙ области стека, в которой лежит текущий кадр
+			 * (годно и MinGW, и MSVC любого издания). Ниже неё - сторожевая страница и
+			 * неотображённый запас: чтение туда роняет процесс, а отработавшие кадры лежат
+			 * в той же отображённой области, что и живые
+			 */
 			MEMORY_BASIC_INFORMATION region;
 			if(::VirtualQuery(const_cast <uint8_t *> (high), &region, sizeof(region)) != 0)
-				low = static_cast <const uint8_t *> (region.AllocationBase);
+				low = static_cast <const uint8_t *> (region.BaseAddress);
 		#elif defined(__APPLE__)
 			const uint8_t * top = static_cast <const uint8_t *> (pthread_get_stackaddr_np(pthread_self()));
 			low = (top - pthread_get_stacksize_np(pthread_self()));
+		#elif defined(__OpenBSD__)
+			// У OpenBSD границы стека даёт pthread_stackseg_np: вершина и длина
+			stack_t segment;
+			if(pthread_stackseg_np(pthread_self(), &segment) == 0)
+				low = (static_cast <const uint8_t *> (segment.ss_sp) - segment.ss_size);
+		#elif defined(__FreeBSD__) || defined(__DragonFly__)
+			// У FreeBSD и DragonFly признаки потока берутся pthread_attr_get_np
+			pthread_attr_t attr;
+			void * base = nullptr; size_t length = 0;
+			pthread_attr_init(&attr);
+			if((pthread_attr_get_np(pthread_self(), &attr) == 0) && (pthread_attr_getstack(&attr, &base, &length) == 0))
+				low = static_cast <const uint8_t *> (base);
+			pthread_attr_destroy(&attr);
 		#else
+			// Linux, NetBSD, Solaris: pthread_getattr_np
 			pthread_attr_t attr;
 			void * base = nullptr; size_t length = 0;
 			if((pthread_getattr_np(pthread_self(), &attr) == 0) && (pthread_attr_getstack(&attr, &base, &length) == 0))

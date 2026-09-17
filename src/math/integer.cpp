@@ -34,6 +34,7 @@
 #include <math/integer.hpp>
 #include <entropy/entropy.hpp>
 #include <sys/wipe.hpp>
+#include <math/wide.hpp>
 
 /**
  * Используем стандартное пространство имён
@@ -58,7 +59,8 @@ namespace {
 	/**
 	 * Двойное слово для произведений слов
 	 */
-	typedef __uint128_t wide_t;
+	// Целое число двойной разрядности: __uint128_t либо своя запись у MSVC (math/wide.hpp)
+	typedef nts::math::wide_t wide_t;
 
 	/**
 	 * @brief Число слов накопителя двойной ёмкости
