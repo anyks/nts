@@ -174,6 +174,7 @@ SET(SOURCE_FILES
     "${CMAKE_SOURCE_DIR}/src/sys/machine.cpp"
     "${CMAKE_SOURCE_DIR}/src/sys/wipe.cpp"
     "${CMAKE_SOURCE_DIR}/src/sys/vault.cpp"
+    "${CMAKE_SOURCE_DIR}/src/sys/log.cpp"
     "${CMAKE_SOURCE_DIR}/src/field/field.cpp"
     "${CMAKE_SOURCE_DIR}/src/asn1/asn1.cpp"
     "${CMAKE_SOURCE_DIR}/src/x509/x509.cpp"
@@ -962,6 +963,11 @@ if (${CMAKE_BUILD_SAMPLES})
     # Указываем что нужно собрать приложение укрытого хранилища ключевого материала
     option(CMAKE_BUILD_VAULT_APP_SAMPLE "Build sheltered key storage app sample" ON)
 
+    # Устанавливаем название приложения стока журнала
+    SET(LOG_APP_NAME sys-log)
+    # Указываем что нужно собрать приложение стока журнала
+    option(CMAKE_BUILD_LOG_APP_SAMPLE "Build log sink app sample" ON)
+
     # Устанавливаем название приложения упаковки ключа ML-KEM и гибрида
     SET(MLKEM_APP_NAME agreement-mlkem)
     # Указываем что нужно собрать приложение упаковки ключа ML-KEM и гибрида
@@ -1227,6 +1233,18 @@ if (${CMAKE_BUILD_SAMPLES})
         # Выводим сообщение о сборке образца
         message(STATUS "Build sample VAULT: No")
     endif (${CMAKE_BUILD_VAULT_APP_SAMPLE})
+
+    # Если нужно собрать образец стока журнала
+    if (${CMAKE_BUILD_LOG_APP_SAMPLE})
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample LOG: Yes")
+        # Выполняем создание приложения стока журнала
+        add_corpus_sample(${LOG_APP_NAME} sample/sys/log.cpp sys)
+    # Если образец стока журнала собирать не нужно
+    else()
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample LOG: No")
+    endif (${CMAKE_BUILD_LOG_APP_SAMPLE})
 endif (${CMAKE_BUILD_SAMPLES})
 
 # Выполняем установку заголовочных файлов проекта

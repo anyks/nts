@@ -39,6 +39,7 @@
  */
 #include <asn1/asn1.hpp>
 #include <sign/gost.hpp>
+#include <sys/vault.hpp>
 #include <client/client.hpp>
 #include <server/server.hpp>
 #include <entropy/entropy.hpp>
@@ -529,6 +530,28 @@ int main(int argc, char * argv[]) noexcept {
 	if(!client.tickets().empty())
 		// Выводим сведения о принятом билете возобновления связи
 		cout << "Билет возобновления: тело " << client.tickets()[0].identity.size() << " байт, ключ " << client.tickets()[0].secret.size() << " байт, срок " << client.tickets()[0].lifetime << " секунд, упреждение до " << client.tickets()[0].advance << " байт" << endl;
+	/**
+	 * Ключ билета живёт между вызовами, потому лежит не в обычной куче, а в укрытом
+	 * хранилище (sys::Vault): подкачка запрещена, снимки памяти его не содержат, потомку
+	 * после fork достаётся затёртым. Потребитель хранит билет как прежде - копия ключа тоже
+	 * ложится в хранилище; свои байты в ключ кладутся через assign, а не присваиванием
+	 */
+	if(!client.tickets().empty()){
+		// Сведения об укрытии хранилища: что состоялось на деле
+		const sys::shelter_t shelter = sys::Vault::instance().shelter();
+		// Печатаем, где лежит ключ билета и как он укрыт
+		cout << "Ключ билета в укрытом хранилище: " << (sys::Vault::instance().owns(client.tickets()[0].secret.data()) ? "да" : "нет")
+		     << " (подкачка запрещена - " << (shelter.wired ? "да" : "нет")
+		     << ", вне снимков памяти - " << (shelter.hidden ? "да" : "нет")
+		     << ", потомку затёрто - " << (shelter.forked ? "да" : "нет") << ")" << endl;
+		// Своя копия билета у потребителя: ключ копируется в хранилище вместе с билетом
+		context::ticket_t kept = client.tickets()[0];
+		// Байты ключа из своего источника кладутся через assign: обычный vector сюда не присваивается
+		const vector <uint8_t> raw(kept.secret.begin(), kept.secret.end());
+		kept.secret.assign(raw.begin(), raw.end());
+		// Печатаем итог
+		cout << "Копия билета у потребителя: ключ в хранилище - " << (sys::Vault::instance().owns(kept.secret.data()) ? "да" : "нет") << endl;
+	}
 	// Выполняем закрытие связи стороной клиента
 	client.close();
 	// Выполняем передачу байтов между сторонами связи

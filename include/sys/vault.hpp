@@ -307,6 +307,24 @@ namespace nts {
 				shelter_t shelter() const noexcept;
 				/**
 				 * \~russian
+				 * @brief Метод проверки принадлежности адреса хранилищу
+				 *
+				 * @details Потребителю - убедиться, что байты ключа лежат в укрытой памяти
+				 *          (например, `secret.data()` у билета); проверкам - закрепить это
+				 *
+				 * @param data проверяемый адрес
+				 * @return     признак того, что адрес лежит внутри куска хранилища
+				 *
+				 * \~english
+				 * @brief Method of checking whether an address belongs to the storage
+				 * @param data the address being checked
+				 * @return     the flag of the address lying inside a chunk of the storage
+				 *
+				 * \~
+				 */
+				bool owns(const void * data) const noexcept;
+				/**
+				 * \~russian
 				 * @brief Метод получения числа кусков, взятых у системы
 				 *
 				 * @return число кусков

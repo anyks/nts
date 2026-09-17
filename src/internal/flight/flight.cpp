@@ -111,6 +111,7 @@
 #include <digest/hmac.hpp>
 #include <entropy/entropy.hpp>
 #include <sys/wipe.hpp>
+#include <sys/log.hpp>
 
 /**
  * Используем стандартное пространство имён
@@ -1451,6 +1452,8 @@ context::error_t nts::internal::Flight::retransmit() noexcept {
 		// Останавливаем часы повторной передачи
 		this->_timing = false;
 		// Выводим отказ исчерпания попыток
+		// Сообщаем в сток журнала об исчерпании попыток повторной передачи
+		sys::log::emit(sys::log::level_t::WARNING, "A-NTS: datagram retransmission attempts exhausted, connection timed out");
 		return context::error_t::TIMEOUT;
 	}
 	// Считаем попытку повторной передачи

@@ -45,6 +45,7 @@
  */
 #include <sys/vault.hpp>
 #include <sys/wipe.hpp>
+#include <sys/log.hpp>
 
 /**
  * Подписываемся на пространство имён библиотеки
@@ -161,6 +162,8 @@ bool sys::Vault::grow(const size_t size) noexcept {
 		if(this->_demand && !chunk.shelter.wired){
 			// Возвращаем кусок системе
 			::VirtualFree(chunk.base, 0, MEM_RELEASE);
+			// Сообщаем в сток журнала об отказе под требованием
+			sys::log::emitf(sys::log::level_t::CRITICAL, "A-NTS: vault chunk of %zu bytes refused: swap prohibition demanded but not granted", length);
 			// Сообщаем об отказе
 			return false;
 		}
@@ -215,12 +218,18 @@ bool sys::Vault::grow(const size_t size) noexcept {
 		if(this->_demand && !chunk.shelter.wired){
 			// Возвращаем кусок системе
 			::munmap(chunk.base, length);
+			// Сообщаем в сток журнала об отказе под требованием
+			sys::log::emitf(sys::log::level_t::CRITICAL, "A-NTS: vault chunk of %zu bytes refused: swap prohibition demanded but not granted", length);
 			// Сообщаем об отказе
 			return false;
 		}
 	#endif
 	// Запоминаем длину куска
 	chunk.size = length;
+	// Если укрытие понижено: не отказ, но и не молчание
+	if(!chunk.shelter.wired || !chunk.shelter.hidden || !chunk.shelter.forked)
+		// Сообщаем в сток журнала, что именно не состоялось
+		sys::log::emitf(sys::log::level_t::WARNING, "A-NTS: vault chunk of %zu bytes sheltered partially: wired %s, hidden %s, forked %s", length, (chunk.shelter.wired ? "yes" : "no"), (chunk.shelter.hidden ? "yes" : "no"), (chunk.shelter.forked ? "yes" : "no"));
 	/**
 	 * Заводим запись куска и его единственный свободный участок: контейнеры берут память у
 	 * кучи, и нехватка обращается в отказ взятия
@@ -405,6 +414,30 @@ sys::shelter_t sys::Vault::shelter() const noexcept {
 	}
 	// Выводим сведения об укрытии
 	return result;
+}
+/**
+ * owns Метод проверки принадлежности адреса хранилищу
+ */
+bool sys::Vault::owns(const void * data) const noexcept {
+	// Если адрес не задан
+	if(data == nullptr)
+		// Хранилищу не принадлежит
+		return false;
+	// Проверяемый адрес
+	const uint8_t * address = static_cast <const uint8_t *> (data);
+	// Берём замок хранилища
+	const lock_guard <mutex> lock(this->_lock);
+	/**
+	 * Выполняем перебор кусков
+	 */
+	for(const auto & chunk : this->_chunks){
+		// Если адрес лежит внутри куска
+		if((address >= chunk.base) && (address < (chunk.base + chunk.size)))
+			// Хранилищу принадлежит
+			return true;
+	}
+	// Хранилищу не принадлежит
+	return false;
 }
 /**
  * chunks Метод получения числа кусков, взятых у системы

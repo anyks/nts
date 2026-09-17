@@ -32,6 +32,7 @@
 #include <record/record.hpp>
 #include <handshake/handshake.hpp>
 #include <sign/gost.hpp>
+#include <sys/vault.hpp>
 #include <client/client.hpp>
 #include <server/server.hpp>
 #include <entropy/entropy.hpp>
@@ -6595,4 +6596,65 @@ TEST(ContextTest, Starved){
 	}
 	// Проверяем, что нехватка памяти объявлена отказом хоть раз
 	ASSERT_TRUE(starved);
+}
+
+/**
+ * Проверка договора укрытого хранения с потребителем: ключи билета и PSK лежат в хранилище,
+ * копия билета у потребителя и укладка своих байтов через assign сохраняют укрытие
+ */
+TEST(ContextTest, Sheltered){
+	context::credential_t credentials;
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	client::context_t client;
+	server::context_t server;
+	server.credential(credentials);
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	converse(client, server);
+	ASSERT_TRUE(client.established() && server.established());
+	ASSERT_EQ(server.issue(), context::error_t::NONE);
+	pump(client, server);
+	ASSERT_EQ(client.tickets().size(), static_cast <size_t> (1));
+	// Ключ билета у обеих сторон лежит в хранилище
+	EXPECT_TRUE(sys::Vault::instance().owns(client.tickets()[0].secret.data()));
+	EXPECT_TRUE(sys::Vault::instance().owns(server.tickets()[0].secret.data()));
+	// Тело билета - не тайна, лежит в обычной куче
+	EXPECT_FALSE(sys::Vault::instance().owns(client.tickets()[0].identity.data()));
+	// Копия билета у потребителя: ключ тоже в хранилище, байты те же
+	context::ticket_t kept = client.tickets()[0];
+	EXPECT_TRUE(sys::Vault::instance().owns(kept.secret.data()));
+	EXPECT_NE(kept.secret.data(), client.tickets()[0].secret.data());
+	EXPECT_EQ(kept.secret.size(), client.tickets()[0].secret.size());
+	EXPECT_EQ(::memcmp(kept.secret.data(), client.tickets()[0].secret.data(), kept.secret.size()), 0);
+	// Свои байты кладутся через assign из обычного набора и ложатся в хранилище
+	const vector <uint8_t> raw(kept.secret.begin(), kept.secret.end());
+	kept.secret.assign(raw.begin(), raw.end());
+	EXPECT_TRUE(sys::Vault::instance().owns(kept.secret.data()));
+	EXPECT_EQ(::memcmp(kept.secret.data(), raw.data(), raw.size()), 0);
+	// Перечень билетов у потребителя переносит укрытие с копиями
+	vector <context::ticket_t> mine;
+	mine.push_back(kept);
+	mine.push_back(client.tickets()[0]);
+	for(const auto & item : mine)
+		EXPECT_TRUE(sys::Vault::instance().owns(item.secret.data()));
+	// Возобновление копией из своего перечня
+	client::context_t again;
+	server::context_t peer;
+	peer.credential(credentials);
+	peer.resume(vector <context::ticket_t> {server.tickets()[0]});
+	again.resume(mine[0]);
+	ASSERT_EQ(peer.start(), context::error_t::NONE);
+	ASSERT_EQ(again.start(), context::error_t::NONE);
+	converse(again, peer);
+	ASSERT_TRUE(again.established() && peer.established());
+	// Заранее разделённый ключ у потребителя: assign из обычного набора, память хранилища
+	context::psk_t psk;
+	const vector <uint8_t> key(32, 0x5A);
+	psk.key.assign(key.begin(), key.end());
+	EXPECT_TRUE(sys::Vault::instance().owns(psk.key.data()));
+	EXPECT_EQ(psk.key.size(), key.size());
+	// Копия настроек переносит ключ в хранилище отдельным участком
+	context::psk_t copy = psk;
+	EXPECT_TRUE(sys::Vault::instance().owns(copy.key.data()));
+	EXPECT_NE(copy.key.data(), psk.key.data());
 }

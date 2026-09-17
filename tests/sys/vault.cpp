@@ -154,6 +154,30 @@ TEST(VaultTest, Grow) {
 }
 
 /**
+ * Проверка принадлежности адреса хранилищу: участок - да, стек и куча - нет
+ */
+TEST(VaultTest, Owns) {
+	// Хранилище процесса
+	sys::vault_t & vault = sys::Vault::instance();
+	// Участок укрытой памяти
+	sys::secret_t secret;
+	// Заводим участок
+	ASSERT_TRUE(secret.reserve(24));
+	// Начало и конец участка принадлежат хранилищу
+	EXPECT_TRUE(vault.owns(secret.data()));
+	EXPECT_TRUE(vault.owns(secret.data() + 23));
+	// Набор над хранилищем принадлежит ему
+	sys::bytes_t bytes(16, 0x42);
+	EXPECT_TRUE(vault.owns(bytes.data()));
+	// Стек и обычная куча хранилищу не принадлежат
+	uint8_t local[8];
+	EXPECT_FALSE(vault.owns(local));
+	vector <uint8_t> heap(8, 0);
+	EXPECT_FALSE(vault.owns(heap.data()));
+	EXPECT_FALSE(vault.owns(nullptr));
+}
+
+/**
  * Проверка честности доклада об укрытии
  */
 TEST(VaultTest, Shelter) {

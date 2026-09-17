@@ -162,6 +162,7 @@
 #include <agreement/ecdhe.hpp>
 #include <internal/engine/engine.hpp>
 #include <sys/wipe.hpp>
+#include <sys/log.hpp>
 
 /**
  * Используем стандартное пространство имён
@@ -1629,6 +1630,8 @@ context::error_t nts::internal::Engine::abort(const context::error_t error, cons
 	this->_flight.halt();
 	// Выполняем затирание ключевого материала оборванной связи
 	this->shred();
+	// Сообщаем в сток журнала об обрыве связи: отказ кодом и извещение именем, без тайн
+	sys::log::emitf(sys::log::level_t::CRITICAL, "A-NTS: %s: connection aborted, error %u, alert %s", (this->_server ? "server" : "client"), static_cast <unsigned> (error), alert::name(description));
 	// Выводим отказ, которым связь оборвана
 	return error;
 }
