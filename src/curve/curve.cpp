@@ -528,11 +528,15 @@ void nts::curve::Curve::twice(const point_t & value, point_t & result) const noe
 	math::number_t z;
 	// Выполняем возведение второй координаты точки в квадрат
 	this->_field.multiply(value.y, value.y, square);
-	// Выполняем умножение первой координаты точки на квадрат второй
+	/**
+	 * Квадрат сразу удваивается: удвоенный квадрат служит и учетверённому
+	 * произведению (4xy² = 2x·2y²), и восьмикратной четвёртой степени
+	 * (8y⁴ = 2·(2y²)²) - так два сложения из четырнадцати уходят
+	 */
+	this->_field.add(square, square, square);
+	// Выполняем умножение первой координаты точки на удвоенный квадрат второй
 	this->_field.multiply(value.x, square, product);
 	// Выполняем удвоение полученного произведения
-	this->_field.add(product, product, product);
-	// Выполняем повторное удвоение полученного произведения
 	this->_field.add(product, product, product);
 	/**
 	 * Коэффициент, равный модулю без трёх, обращает множитель касательной в
@@ -585,13 +589,9 @@ void nts::curve::Curve::twice(const point_t & value, point_t & result) const noe
 	this->_field.subtract(product, x, y);
 	// Выполняем умножение разности на множитель уравнения касательной
 	this->_field.multiply(y, factor, y);
-	// Выполняем возведение квадрата второй координаты в квадрат
+	// Выполняем возведение удвоенного квадрата второй координаты в квадрат: 4y⁴
 	this->_field.multiply(square, square, square);
-	// Выполняем удвоение полученной четвёртой степени
-	this->_field.add(square, square, square);
-	// Выполняем повторное удвоение полученной четвёртой степени
-	this->_field.add(square, square, square);
-	// Выполняем третье удвоение полученной четвёртой степени
+	// Выполняем удвоение полученной четвёртой степени: 8y⁴
 	this->_field.add(square, square, square);
 	// Вычитаем восьмикратную четвёртую степень из произведения
 	this->_field.subtract(y, square, result.y);

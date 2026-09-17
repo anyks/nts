@@ -563,3 +563,33 @@ TEST(NumberTest, Carries) {
 		field.subtract(e, f, r); ASSERT_TRUE(field.store(r, out, 32)); ::memcpy(less, prime, 32); less[31] -= 1; EXPECT_EQ(::memcmp(out, less, 32), 0);
 	}
 }
+
+/**
+ * @brief Проверка квадрата Монтгомери по P-256 против умножения числа на копию себя
+ *
+ * @details Совпадающие сомножители идут своим путём с десятью произведениями; итог
+ *          обязан совпадать с общим умножением на копию того же числа на золотых
+ *          векторах и на границах: ноль, единица, p - 1
+ */
+TEST(NumberTest, Squaring) {
+	static const uint8_t prime[32] = {0xff,0xff,0xff,0xff,0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff};
+	const char * values[] = {"d23f0824128b2f330c5c7fd0a6a3a4506513270e269e0d37f2a74de452e6b438", "36f675cc81e74ef5e8e25d940ed904759531985d5d9dc9f81818e811892f902b", "ffffffff00000001000000000000000000000000fffffffffffffffffffffffe", "0000000000000000000000000000000000000000000000000000000000000001", "0000000000000000000000000000000000000000000000000000000000000000", "8000000000000000800000000000000080000000000000008000000000000000"};
+	auto unhex = [](const char * text, uint8_t * out){ for(size_t i = 0; i < 32; i++){ unsigned v = 0; sscanf(text + 2 * i, "%2x", &v); out[i] = static_cast <uint8_t> (v); } };
+	math::modulus_t field;
+	ASSERT_TRUE(field.start(view_t(prime, 32)));
+	for(const char * value : values){
+		uint8_t a[32], first[32], second[32];
+		unhex(value, a);
+		math::number_t x, entered, copy, square, product;
+		ASSERT_TRUE(field.load(view_t(a, 32), x));
+		field.enter(x, entered);
+		copy = entered;
+		// Квадрат своим путём: сомножители по одному адресу
+		field.multiply(entered, entered, square);
+		// Умножение общим путём: сомножители по разным адресам
+		field.multiply(entered, copy, product);
+		ASSERT_TRUE(field.store(square, first, 32));
+		ASSERT_TRUE(field.store(product, second, 32));
+		EXPECT_EQ(::memcmp(first, second, 32), 0) << "значение " << value;
+	}
+}

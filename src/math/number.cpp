@@ -174,6 +174,111 @@ namespace {
 		return buffer[WORDS];
 	}
 	/**
+	 * @brief Метод возведения в квадрат Монтгомери по простому числу кривой P-256
+	 *
+	 * @details Полное произведение считается сперва целиком: у квадрата всякая пара
+	 *          разных слов встречается дважды, и шесть удвоенных произведений вместе с
+	 *          четырьмя квадратами слов заменяют шестнадцать произведений. Приведение
+	 *          затем идёт словами модуля, как у умножения: множитель приведения есть само
+	 *          младшее слово, третье слово модуля не умножается вовсе
+	 *
+	 * @param value  возводимое число
+	 * @param result место, в которое помещается квадрат
+	 *
+	 * @return       старшее слово переноса квадрата
+	 *
+	 */
+	static uint64_t nist256square(const uint64_t * value, uint64_t * result) noexcept {
+		// Слова возводимого числа
+		const uint64_t a0 = value[0], a1 = value[1], a2 = value[2], a3 = value[3];
+		// Полное произведение в восемь слов
+		uint64_t buffer[9] = {};
+		// Перенос между словами
+		uint64_t carry = 0;
+		/**
+		 * Выполняем накопление произведений разных слов: a0·a1, a0·a2, a0·a3, a1·a2, a1·a3, a2·a3
+		 */
+		wide_t item = (static_cast <wide_t> (a0) * a1);
+		buffer[1] = static_cast <uint64_t> (item);
+		carry = static_cast <uint64_t> (item >> 64);
+		item = (static_cast <wide_t> (a0) * a2 + carry);
+		buffer[2] = static_cast <uint64_t> (item);
+		carry = static_cast <uint64_t> (item >> 64);
+		item = (static_cast <wide_t> (a0) * a3 + carry);
+		buffer[3] = static_cast <uint64_t> (item);
+		buffer[4] = static_cast <uint64_t> (item >> 64);
+		item = (static_cast <wide_t> (a1) * a2 + buffer[3]);
+		buffer[3] = static_cast <uint64_t> (item);
+		carry = static_cast <uint64_t> (item >> 64);
+		item = (static_cast <wide_t> (a1) * a3 + buffer[4] + carry);
+		buffer[4] = static_cast <uint64_t> (item);
+		buffer[5] = static_cast <uint64_t> (item >> 64);
+		item = (static_cast <wide_t> (a2) * a3 + buffer[5]);
+		buffer[5] = static_cast <uint64_t> (item);
+		buffer[6] = static_cast <uint64_t> (item >> 64);
+		/**
+		 * Удваиваем накопленное: старший разряд седьмого слова уходит в восьмое
+		 */
+		buffer[7] = (buffer[6] >> 63);
+		buffer[6] = ((buffer[6] << 1) | (buffer[5] >> 63));
+		buffer[5] = ((buffer[5] << 1) | (buffer[4] >> 63));
+		buffer[4] = ((buffer[4] << 1) | (buffer[3] >> 63));
+		buffer[3] = ((buffer[3] << 1) | (buffer[2] >> 63));
+		buffer[2] = ((buffer[2] << 1) | (buffer[1] >> 63));
+		buffer[1] = (buffer[1] << 1);
+		/**
+		 * Прибавляем квадраты слов по диагонали
+		 */
+		item = (static_cast <wide_t> (a0) * a0);
+		buffer[0] = static_cast <uint64_t> (item);
+		carry = nts::math::adc(buffer[1], static_cast <uint64_t> (item >> 64), 0, buffer[1]);
+		item = (static_cast <wide_t> (a1) * a1);
+		carry = nts::math::adc(buffer[2], static_cast <uint64_t> (item), carry, buffer[2]);
+		carry = nts::math::adc(buffer[3], static_cast <uint64_t> (item >> 64), carry, buffer[3]);
+		item = (static_cast <wide_t> (a2) * a2);
+		carry = nts::math::adc(buffer[4], static_cast <uint64_t> (item), carry, buffer[4]);
+		carry = nts::math::adc(buffer[5], static_cast <uint64_t> (item >> 64), carry, buffer[5]);
+		item = (static_cast <wide_t> (a3) * a3);
+		carry = nts::math::adc(buffer[6], static_cast <uint64_t> (item), carry, buffer[6]);
+		carry = nts::math::adc(buffer[7], static_cast <uint64_t> (item >> 64), carry, buffer[7]);
+		/**
+		 * Выполняем приведение Монтгомери по четырём словам: на всяком шаге младшее
+		 * слово обращается в ноль прибавлением произведения множителя на модуль
+		 */
+		for(size_t i = 0; i < 4; i++){
+			// Множитель приведения есть само младшее слово
+			const uint64_t reducer = buffer[i];
+			// Первое слово модуля из всех единиц: произведение с накопителем даёт перенос в размере множителя
+			carry = reducer;
+			// Второе слово модуля 2^32 - 1
+			item = (static_cast <wide_t> (reducer) * 0xFFFFFFFFULL + buffer[i + 1] + carry);
+			buffer[i + 1] = static_cast <uint64_t> (item);
+			carry = static_cast <uint64_t> (item >> 64);
+			// Третье слово модуля нулевое
+			item = (static_cast <wide_t> (buffer[i + 2]) + carry);
+			buffer[i + 2] = static_cast <uint64_t> (item);
+			carry = static_cast <uint64_t> (item >> 64);
+			// Четвёртое слово модуля 2^64 - 2^32 + 1
+			item = (static_cast <wide_t> (reducer) * 0xFFFFFFFF00000001ULL + buffer[i + 3] + carry);
+			buffer[i + 3] = static_cast <uint64_t> (item);
+			carry = static_cast <uint64_t> (item >> 64);
+			// Проносим перенос по старшим словам
+			for(size_t j = i + 4; j < 9; j++){
+				item = (static_cast <wide_t> (buffer[j]) + carry);
+				buffer[j] = static_cast <uint64_t> (item);
+				carry = static_cast <uint64_t> (item >> 64);
+			}
+		}
+		/**
+		 * Выполняем перебор слов приведённого квадрата
+		 */
+		for(size_t i = 0; i < 4; i++)
+			// Записываем очередное слово квадрата
+			result[i] = buffer[i + 4];
+		// Накопитель не затирается по той же причине, что и у общего умножения
+		return buffer[8];
+	}
+	/**
 	 * @brief Метод умножения Монтгомери по простому числу кривой P-256
 	 *
 	 * @param first  первый сомножитель
@@ -894,8 +999,13 @@ void nts::math::Modulus::multiply(const number_t & first, const number_t & secon
 	 */
 	if((this->_words == 4) || (this->_words == 8)){
 		// Если модуль есть простое число кривой P-256, умножаем путём с заложенными словами модуля
-		if(this->_nist)
-			shrink <4> (result.words, this->_modulus.words, nist256(first.words, second.words, result.words));
+		if(this->_nist){
+			// Совпадающие сомножители возводятся в квадрат своим путём
+			if(&first == &second)
+				shrink <4> (result.words, this->_modulus.words, nist256square(first.words, result.words));
+			else
+				shrink <4> (result.words, this->_modulus.words, nist256(first.words, second.words, result.words));
+		}
 		// Умножаем и приводим развёрнутыми по числу слов путями
 		else if(this->_words == 4)
 			shrink <4> (result.words, this->_modulus.words, montgomery <4> (first.words, second.words, this->_modulus.words, this->_factor, result.words));
