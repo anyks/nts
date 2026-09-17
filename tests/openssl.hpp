@@ -48,7 +48,7 @@
 #include <fstream>
 #include <thread>
 #include <chrono>
-#include <unistd.h>
+#include <posix.hpp>
 #include <signal.h>
 
 /**

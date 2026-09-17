@@ -31,6 +31,11 @@
 #define GTEST_HAS_POSIX_RE 0
 
 /**
+ * Подключаем переносимую оснастку вызовов POSIX
+ */
+#include <posix.hpp>
+
+/**
  * Подключаем заголовочные файлы Google Test
  */
 #include <gtest/gtest.h>

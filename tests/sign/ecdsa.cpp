@@ -34,7 +34,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <sstream>
-#include <unistd.h>
+#include <posix.hpp>
 #include <cmath>
 
 /**

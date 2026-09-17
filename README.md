@@ -298,6 +298,12 @@ cmake --build . --target doc
 | Solaris 11.4 | x86-64 | g++ 15 |
 | OpenIndiana | x86-64 | g++ 14 |
 | Windows 10 (MSYS2) | x86-64 | g++ 16.1, MinGW-w64 |
+| Ubuntu | x86-64 | g++ 14, glibc |
+| Fedora | x86-64 | g++ 16, glibc |
+| openSUSE | x86-64 | g++ 15, glibc |
+| Alt Linux | x86-64 | g++ 13, glibc |
+| DragonFly 6.4 | x86-64 | g++ |
+| Windows 11 (MSYS2) | ARM64 | clang, clangarm64 |
 
 **Astra Linux стоит в этом списке особняком** — и не только назначением. У OpenSSL там
 подключён провайдер `gostprov`, несущий ровно наши алгоритмы, и только на этом стенде

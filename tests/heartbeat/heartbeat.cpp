@@ -29,7 +29,7 @@
 #include <fstream>
 #include <functional>
 #include <algorithm>
-#include <unistd.h>
+#include <posix.hpp>
 
 /**
  * Заголовочные файлы проверок

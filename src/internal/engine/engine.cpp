@@ -15055,10 +15055,12 @@ context::error_t nts::internal::Engine::shrouding(hello::client_t & greeting, co
 				return context::error_t::SCHEDULE;
 			// Внутреннее приветствие с настоящей привязкой: тело без заголовка сообщения
 			const view_t patched(this->_inner.data() + 4, this->_inner.size() - 4);
-			// Если внутреннее приветствие с привязкой разобрать не удалось
-			if(hello::parse(patched, inner, (this->_transport == context::transport_t::DATAGRAMS)) != hello::error_t::NONE)
-				// Выводим отказ составления
-				return context::error_t::MESSAGE;
+			// Разбор внутреннего приветствия с привязкой
+			const hello::error_t patching = hello::parse(patched, inner, (this->_transport == context::transport_t::DATAGRAMS));
+			// Если внутреннее приветствие с привязкой разобрать не удалось: нехватка памяти не есть порча сообщения
+			if(patching != hello::error_t::NONE)
+				// Выводим отказ составления либо нехватку памяти
+				return ((patching == hello::error_t::MEMORY) ? context::error_t::MEMORY : context::error_t::MESSAGE);
 			/**
 			 * Выполняем изъятие билета из внешнего приветствия: он принадлежит внутреннему.
 			 * Упреждение остаётся и снаружи: раздел 6.1 RFC 9849 велит нести early_data в обоих
@@ -15472,18 +15474,29 @@ context::error_t nts::internal::Engine::unshrouding(const hello::client_t & gree
 			return context::error_t::MESSAGE;
 		// Восстановленное приветствие
 		hello::client_t restored;
-		// Если восстановленное приветствие не разбирается
-		if(hello::parse(view_t(inner.data(), inner.size()), restored, (this->_transport == context::transport_t::DATAGRAMS)) != hello::error_t::NONE)
-			// Выводим отказ сообщения
-			return context::error_t::MESSAGE;
+		// Разбор восстановленного приветствия
+		const hello::error_t restoring = hello::parse(view_t(inner.data(), inner.size()), restored, (this->_transport == context::transport_t::DATAGRAMS));
+		/**
+		 * Нехватка памяти при разборе не есть порча сообщения: собеседник ни при чём,
+		 * и извещение illegal_parameter ему слать нельзя - отказ идёт как MEMORY
+		 */
+		if(restoring != hello::error_t::NONE)
+			// Выводим отказ сообщения либо нехватку памяти
+			return ((restoring == hello::error_t::MEMORY) ? context::error_t::MEMORY : context::error_t::MESSAGE);
 		// Расширение ECH внутреннего приветствия
 		const hello::extension_t * inward = hello::extension(restored.extensions, ech::ECH_EXTENSION);
 		// Разобранное внутреннее расширение
 		ech::hello_t mark;
 		// Раздел 7.1 RFC 9849: внутреннее приветствие обязано нести ECH внутреннего вида
-		if((inward == nullptr) || (ech::parse(inward->data, mark) != ech::error_t::NONE) || !mark.inner)
+		if(inward == nullptr)
 			// Выводим отказ сообщения
 			return context::error_t::MESSAGE;
+		// Разбор внутреннего расширения ECH
+		const ech::error_t marking = ech::parse(inward->data, mark);
+		// Если расширение не разобралось либо оно не внутреннего вида
+		if((marking != ech::error_t::NONE) || !mark.inner)
+			// Выводим отказ сообщения либо нехватку памяти
+			return ((marking == ech::error_t::MEMORY) ? context::error_t::MEMORY : context::error_t::MESSAGE);
 		// Расширение изданий внутреннего приветствия
 		const hello::extension_t * versions = hello::extension(restored.extensions, static_cast <uint16_t> (extension::type_t::VERSIONS));
 		// Перечень изданий

@@ -35,7 +35,7 @@
  * Системные заголовочные файлы
  */
 #if !defined(_WIN32)
-	#include <unistd.h>
+	#include <posix.hpp>
 	#include <sys/wait.h>
 	#include <sys/resource.h>
 #endif

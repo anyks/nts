@@ -31,7 +31,7 @@
 #include <cstring>
 #include <fstream>
 #include <sstream>
-#include <unistd.h>
+#include <posix.hpp>
 #include <main.hpp>
 #include <starve.hpp>
 #include <sign/gost.hpp>

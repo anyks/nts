@@ -28,7 +28,7 @@
 #include <fstream>
 #include <cstring>
 #include <cstdlib>
-#include <unistd.h>
+#include <posix.hpp>
 #include <sys/stat.h>
 
 /**

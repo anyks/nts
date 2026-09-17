@@ -50,7 +50,7 @@
 	#include <windows.h>
 #else
 	#include <sys/stat.h>
-	#include <unistd.h>
+	#include <posix.hpp>
 	#include <poll.h>
 	#include <sys/socket.h>
 	#include <sys/select.h>

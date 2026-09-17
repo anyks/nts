@@ -33,7 +33,7 @@
 #include <cstring>
 #include <fstream>
 #include <iostream>
-#include <unistd.h>
+#include <posix.hpp>
 
 /**
  * Подключаем заголовочные файлы проекта

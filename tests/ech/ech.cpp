@@ -28,7 +28,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
-#include <unistd.h>
+#include <posix.hpp>
 
 /**
  * Подключаем заголовочные файлы проекта
@@ -1375,13 +1375,17 @@ TEST(EchTest, Hungry){
 		// Отказы сторон
 		context::error_t sideclient = context::error_t::NONE, sideserver = context::error_t::NONE;
 		{
-			// Ограничиваем запас
-			starve::ration_t ration(budget);
 			// Связи сторон
 			client::context_t client;
 			server::context_t server;
-			// Имя клиента
+			/**
+			 * Имя клиента ставится до ограничения запаса: у libc++ короткая строка
+			 * лежит без выделения, у MSVC требует его, и при запасе в одно выделение
+			 * имя не ставилось вовсе - ech() тогда честно отвечал STATE, а не MEMORY
+			 */
 			client.name(secret);
+			// Ограничиваем запас
+			starve::ration_t ration(budget);
 			// Конфигурации клиента
 			configured = client.ech(list);
 			// Подлинность сервера

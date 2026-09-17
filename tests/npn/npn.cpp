@@ -28,7 +28,7 @@
 #include <vector>
 #include <cstring>
 #include <fstream>
-#include <unistd.h>
+#include <posix.hpp>
 
 /**
  * Подключаем заголовочные файлы проекта

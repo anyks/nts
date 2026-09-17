@@ -74,7 +74,7 @@
 #include <math/integer.hpp>
 #include <asn1/asn1.hpp>
 #include <ocsp/ocsp.hpp>
-#include <unistd.h>
+#include <posix.hpp>
 
 /**
  * Подписываемся на пространство имён библиотеки
