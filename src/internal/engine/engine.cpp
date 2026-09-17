@@ -10117,12 +10117,10 @@ void nts::internal::Engine::clear() noexcept {
 	this->_epoch[0] = flow::epoch_t::PLAIN;
 	// Выполняем сброс поры ключей записей сервера
 	this->_epoch[1] = flow::epoch_t::PLAIN;
-	// Выполняем затирание ключей завершения рукопожатия сторон
-	wipe(this->_keys->completion, sizeof(this->_keys->completion));
-	// Выполняем затирание ключевого материала прикладных данных
-	wipe(this->_keys->key, sizeof(this->_keys->key));
-	// Выполняем затирание векторов замены прикладных данных
-	wipe(this->_keys->vector, sizeof(this->_keys->vector));
+	// Если укрытая память ключей заведена: без участка (отказ хранилища под demand) затирать нечего
+	if(this->_keys != nullptr)
+		// Выполняем затирание ключевого материала связи целиком: главный секрет, ключи завершения, ключи, векторы, имитовставки и направления
+		this->_shelter.wipe();
 	/**
 	 * Выполняем перебор мимолётных пар ключей своей стороны
 	 */
@@ -10158,8 +10156,6 @@ void nts::internal::Engine::clear() noexcept {
 	this->_received.clear();
 	// Выполняем сброс признака приёма параметров переноса собеседника
 	this->_acquired = false;
-	// Выполняем затирание значений направлений связи по уровням защиты
-	wipe(this->_keys->traffic, sizeof(this->_keys->traffic));
 	// Выполняем сброс признаков готовности значений направлений
 	::memset(this->_ready, 0, sizeof(this->_ready));
 	// Выполняем сброс длины значений направлений связи
@@ -10274,8 +10270,6 @@ void nts::internal::Engine::clear() noexcept {
 		wipe(this->_promise.secret.data(), this->_promise.secret.size());
 	// Выполняем сброс ожидавшего билета сеанса
 	this->_promise = context::ticket_t();
-	// Выполняем затирание ключей имитовставки сторон
-	wipe(this->_keys->stamp, sizeof(this->_keys->stamp));
 }
 /**
  * @brief Метод подачи связи принятых байтов

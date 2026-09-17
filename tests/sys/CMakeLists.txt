@@ -51,3 +51,39 @@ target_link_libraries(${TEST_VAULT_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main
 
 # Регистрируем цель проверок
 add_test(NAME ${TEST_VAULT_NAME} COMMAND ${TEST_VAULT_NAME})
+
+# Устанавливаем имя цели проверки связи без укрытого участка
+SET(TEST_DEMAND_NAME demand)
+
+# Добавляем цель проверки связи без укрытого участка
+add_executable(${TEST_DEMAND_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/demand.cpp")
+
+# Включаем флаги компиляции проверок
+target_compile_options(${TEST_DEMAND_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
+
+# Подключаем каталог общих заголовочных файлов набора проверок
+target_include_directories(${TEST_DEMAND_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+
+# Выполняем подключение зависимостей цели проверок
+target_link_libraries(${TEST_DEMAND_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
+
+# Регистрируем цель проверок
+add_test(NAME ${TEST_DEMAND_NAME} COMMAND ${TEST_DEMAND_NAME})
+
+# Устанавливаем имя цели проверки следа ключа в куче
+SET(TEST_TRACE_NAME trace)
+
+# Добавляем цель проверки следа ключа в куче
+add_executable(${TEST_TRACE_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/trace.cpp")
+
+# Включаем флаги компиляции проверок
+target_compile_options(${TEST_TRACE_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
+
+# Подключаем каталог общих заголовочных файлов набора проверок
+target_include_directories(${TEST_TRACE_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+
+# Выполняем подключение зависимостей цели проверок
+target_link_libraries(${TEST_TRACE_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
+
+# Регистрируем цель проверок
+add_test(NAME ${TEST_TRACE_NAME} COMMAND ${TEST_TRACE_NAME})
