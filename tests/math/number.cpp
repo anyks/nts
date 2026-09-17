@@ -516,3 +516,50 @@ TEST(NumberTest, Nist256) {
 		EXPECT_EQ(::memcmp(out, r, 32), 0) << "вектор " << item.r;
 	}
 }
+
+/**
+ * @brief Проверка переноса и заёма между словами у сложения и вычитания по модулю
+ *
+ * @details Развёртки на четыре слова ведут перенос и заём командами сложения с
+ *          переносом, а не числом двойной разрядности. Перенос складывается из двух:
+ *          от сложения слов и от прибавления переноса снизу; случай, где второй
+ *          возникает без первого (сумма слов ровно из всех единиц), ловится отдельно,
+ *          как и заём, рождённый только заёмом снизу (разность слов ноль)
+ */
+TEST(NumberTest, Carries) {
+	// Модули: P-256 и 2^256 - 189 (старшее слово из всех единиц)
+	static const uint8_t p256[32] = {0xff,0xff,0xff,0xff,0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff};
+	static const uint8_t full[32] = {0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0x43};
+	const uint8_t * primes[2] = {p256, full};
+	for(const uint8_t * prime : primes){
+		math::modulus_t field;
+		ASSERT_TRUE(field.start(view_t(prime, 32)));
+		uint8_t less[32], out[32];
+		uint8_t one[32] = {}; one[31] = 1;
+		uint8_t two[32] = {}; two[31] = 2;
+		math::number_t a, b, c, d, e, f, r;
+		::memcpy(less, prime, 32); less[31] -= 1;
+		ASSERT_TRUE(field.load(view_t(less, 32), a));
+		ASSERT_TRUE(field.load(view_t(one, 32), b));
+		ASSERT_TRUE(field.load(view_t(two, 32), d));
+		// (p-1) + (p-1) = p - 2: перенос за разрядность у модуля из всех единиц
+		field.add(a, a, r); ASSERT_TRUE(field.store(r, out, 32)); ::memcpy(less, prime, 32); less[31] -= 2; EXPECT_EQ(::memcmp(out, less, 32), 0);
+		// (p-1) + 1 = 0
+		field.add(a, b, r); EXPECT_TRUE(field.zero(r));
+		// 0 - 1 = p - 1: заём сквозь все слова
+		field.subtract(c, b, r); ASSERT_TRUE(field.store(r, out, 32)); ::memcpy(less, prime, 32); less[31] -= 1; EXPECT_EQ(::memcmp(out, less, 32), 0);
+		// 1 - (p-1) = 2
+		field.subtract(b, a, r); ASSERT_TRUE(field.store(r, out, 32)); EXPECT_EQ(::memcmp(out, two, 32), 0);
+		// (2^128 - 1) + 1 = 2^128: перенос рождается только вторым сложением
+		uint8_t high[32] = {}; ::memset(high + 16, 0xff, 16);
+		uint8_t shifted[32] = {}; shifted[15] = 1;
+		ASSERT_TRUE(field.load(view_t(high, 32), e));
+		field.add(e, b, r); ASSERT_TRUE(field.store(r, out, 32)); EXPECT_EQ(::memcmp(out, shifted, 32), 0);
+		// 2^64 - (2^64 + 1) = p - 1: заём рождается только заёмом снизу
+		uint8_t word[32] = {}; word[23] = 1;
+		uint8_t next[32] = {}; next[23] = 1; next[31] = 1;
+		ASSERT_TRUE(field.load(view_t(word, 32), e));
+		ASSERT_TRUE(field.load(view_t(next, 32), f));
+		field.subtract(e, f, r); ASSERT_TRUE(field.store(r, out, 32)); ::memcpy(less, prime, 32); less[31] -= 1; EXPECT_EQ(::memcmp(out, less, 32), 0);
+	}
+}

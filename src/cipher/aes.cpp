@@ -452,6 +452,18 @@ namespace {
 	 * @param counter увеличиваемый блок счётчика
 	 *
 	 */
+	/**
+	 * @brief Метод разворота байтов числа: младшие четыре байта счётчика идут от старшего
+	 *
+	 * @param value разворачиваемое число
+	 *
+	 * @return      число с обратным порядком байтов
+	 *
+	 */
+	static __ANTS_INLINE__ uint32_t reversed(const uint32_t value) noexcept {
+		// Разворачиваем байты сдвигами: собиратель сводит это к одной команде
+		return ((value >> 24) | ((value >> 8) & 0x0000FF00U) | ((value << 8) & 0x00FF0000U) | (value << 24));
+	}
 	static __ANTS_INLINE__ void advance(uint8_t * counter) noexcept {
 		/**
 		 * Выполняем перенос по младшим четырём байтам
@@ -479,83 +491,90 @@ namespace {
 	 *
 	 */
 	static __ANTS_AES_TARGET__ void streamArm(const uint8_t * keys, const size_t rounds, const uint8_t * counter, const size_t blocks, uint8_t * result) noexcept {
-		// Текущий блок счётчика
+		// Текущее значение счётчика
 		uint8_t current[16];
-		// Переносим начальный блок счётчика
+		// Копируем начальное значение счётчика
 		::memcpy(current, counter, sizeof(current));
-		// Последний ключ
+		// Последний ключ раунда
 		const uint8x16_t last = vld1q_u8(keys + (rounds * 16));
-		// Число ещё не выработанных блоков
+		/**
+		 * Счётчик держится в регистре: старшие двенадцать байтов не меняются, а младшие
+		 * четыре идут числом от старшего байта; блок собирается подстановкой числа в
+		 * последнюю дорожку без обращения к памяти. Перенос за пределы четырёх байтов
+		 * не делается, как и у побайтового переноса: младшие четыре байта идут по кругу
+		 */
+		const uint8x16_t base = vld1q_u8(current);
+		// Младшие четыре байта счётчика числом
+		uint32_t tail = (static_cast <uint32_t> (current[12]) << 24) | (static_cast <uint32_t> (current[13]) << 16) | (static_cast <uint32_t> (current[14]) << 8) | static_cast <uint32_t> (current[15]);
+		// Число оставшихся блоков
 		size_t left = blocks;
 		/**
-		 * Выполняем выработку гаммы по четыре блока
+		 * Выполняем выработку гаммы по восемь блоков: столько блоков держит в полёте
+		 * конвейер команд AES, и на всякий раунд восемь команд идут без простоя
 		 */
-		while(left >= 4){
-			// Увеличиваем счётчик
-			advance(current);
-			// Первое состояние
-			uint8x16_t s0 = vld1q_u8(current);
-			// Увеличиваем счётчик
-			advance(current);
-			// Второе состояние
-			uint8x16_t s1 = vld1q_u8(current);
-			// Увеличиваем счётчик
-			advance(current);
-			// Третье состояние
-			uint8x16_t s2 = vld1q_u8(current);
-			// Увеличиваем счётчик
-			advance(current);
-			// Четвёртое состояние
-			uint8x16_t s3 = vld1q_u8(current);
+		while(left >= 8){
+			// Собираем восемь блоков счётчика подряд
+			uint8x16_t s0 = vreinterpretq_u8_u32(vsetq_lane_u32(reversed(tail + 1), vreinterpretq_u32_u8(base), 3));
+			uint8x16_t s1 = vreinterpretq_u8_u32(vsetq_lane_u32(reversed(tail + 2), vreinterpretq_u32_u8(base), 3));
+			uint8x16_t s2 = vreinterpretq_u8_u32(vsetq_lane_u32(reversed(tail + 3), vreinterpretq_u32_u8(base), 3));
+			uint8x16_t s3 = vreinterpretq_u8_u32(vsetq_lane_u32(reversed(tail + 4), vreinterpretq_u32_u8(base), 3));
+			uint8x16_t s4 = vreinterpretq_u8_u32(vsetq_lane_u32(reversed(tail + 5), vreinterpretq_u32_u8(base), 3));
+			uint8x16_t s5 = vreinterpretq_u8_u32(vsetq_lane_u32(reversed(tail + 6), vreinterpretq_u32_u8(base), 3));
+			uint8x16_t s6 = vreinterpretq_u8_u32(vsetq_lane_u32(reversed(tail + 7), vreinterpretq_u32_u8(base), 3));
+			uint8x16_t s7 = vreinterpretq_u8_u32(vsetq_lane_u32(reversed(tail + 8), vreinterpretq_u32_u8(base), 3));
+			// Сдвигаем счётчик на восемь блоков
+			tail += 8;
 			/**
-			 * Выполняем внутренние раунды над четырьмя состояниями разом
+			 * Выполняем раунды шифрования восьми блоков разом
 			 */
 			for(size_t round = 0; (round + 1) < rounds; round++){
-				// Раундовый ключ
+				// Ключ очередного раунда
 				const uint8x16_t key = vld1q_u8(keys + (round * 16));
-				// Выполняем раунд первого состояния
 				s0 = vaesmcq_u8(vaeseq_u8(s0, key));
-				// Выполняем раунд второго состояния
 				s1 = vaesmcq_u8(vaeseq_u8(s1, key));
-				// Выполняем раунд третьего состояния
 				s2 = vaesmcq_u8(vaeseq_u8(s2, key));
-				// Выполняем раунд четвёртого состояния
 				s3 = vaesmcq_u8(vaeseq_u8(s3, key));
+				s4 = vaesmcq_u8(vaeseq_u8(s4, key));
+				s5 = vaesmcq_u8(vaeseq_u8(s5, key));
+				s6 = vaesmcq_u8(vaeseq_u8(s6, key));
+				s7 = vaesmcq_u8(vaeseq_u8(s7, key));
 			}
-			// Предпоследний ключ
+			// Ключ предпоследнего раунда
 			const uint8x16_t key = vld1q_u8(keys + ((rounds - 1) * 16));
-			// Записываем первый блок гаммы
 			vst1q_u8(result, veorq_u8(vaeseq_u8(s0, key), last));
-			// Записываем второй блок гаммы
 			vst1q_u8(result + 16, veorq_u8(vaeseq_u8(s1, key), last));
-			// Записываем третий блок гаммы
 			vst1q_u8(result + 32, veorq_u8(vaeseq_u8(s2, key), last));
-			// Записываем четвёртый блок гаммы
 			vst1q_u8(result + 48, veorq_u8(vaeseq_u8(s3, key), last));
-			// Сдвигаем позицию записи
-			result += 64;
-			// Уменьшаем число не выработанных блоков
-			left -= 4;
+			vst1q_u8(result + 64, veorq_u8(vaeseq_u8(s4, key), last));
+			vst1q_u8(result + 80, veorq_u8(vaeseq_u8(s5, key), last));
+			vst1q_u8(result + 96, veorq_u8(vaeseq_u8(s6, key), last));
+			vst1q_u8(result + 112, veorq_u8(vaeseq_u8(s7, key), last));
+			// Сдвигаем место итога
+			result += 128;
+			// Уменьшаем число оставшихся блоков
+			left -= 8;
 		}
+		// Возвращаем счётчик в байты для хвоста
+		current[12] = static_cast <uint8_t> (tail >> 24);
+		current[13] = static_cast <uint8_t> (tail >> 16);
+		current[14] = static_cast <uint8_t> (tail >> 8);
+		current[15] = static_cast <uint8_t> (tail);
 		/**
-		 * Выполняем выработку остатка по одному блоку
+		 * Выполняем выработку хвоста гаммы по блоку
 		 */
 		while(left > 0){
-			// Увеличиваем счётчик
+			// Сдвигаем счётчик на блок
 			advance(current);
-			// Выполняем зашифрование блока счётчика
+			// Шифруем очередной блок счётчика
 			sealArm(keys, rounds, current, result);
-			// Сдвигаем позицию записи
+			// Сдвигаем место итога
 			result += 16;
-			// Уменьшаем число не выработанных блоков
+			// Уменьшаем число оставшихся блоков
 			left--;
 		}
 		// Выполняем затирание счётчика
 		wipe(current, sizeof(current));
 	}
-/**
- * Если есть ветвь команд AES-NI
- */
 #elif defined(__ANTS_AES_X86__)
 	/**
 	 * @brief Метод выработки гаммы счётчика командами по четыре блока разом
@@ -568,75 +587,85 @@ namespace {
 	 *
 	 */
 	static __ANTS_AES_TARGET__ void streamX86(const uint8_t * keys, const size_t rounds, const uint8_t * counter, const size_t blocks, uint8_t * result) noexcept {
-		// Текущий блок счётчика
+		// Текущее значение счётчика
 		uint8_t current[16];
-		// Переносим начальный блок счётчика
+		// Копируем начальное значение счётчика
 		::memcpy(current, counter, sizeof(current));
-		// Первый и последний ключи
+		// Первый ключ раунда
 		const __m128i first = _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys));
-		// Последний ключ
+		// Последний ключ раунда
 		const __m128i last = _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys + (rounds * 16)));
-		// Число ещё не выработанных блоков
+		/**
+		 * Счётчик держится в регистре: старшие двенадцать байтов не меняются и берутся
+		 * маской, а младшие четыре идут числом от старшего байта и подставляются в
+		 * старшее слово; перенос за пределы четырёх байтов не делается, как и у
+		 * побайтового переноса
+		 */
+		const __m128i head = _mm_and_si128(_mm_loadu_si128(reinterpret_cast <const __m128i *> (current)), _mm_set_epi32(0, -1, -1, -1));
+		// Младшие четыре байта счётчика числом
+		uint32_t tail = (static_cast <uint32_t> (current[12]) << 24) | (static_cast <uint32_t> (current[13]) << 16) | (static_cast <uint32_t> (current[14]) << 8) | static_cast <uint32_t> (current[15]);
+		// Число оставшихся блоков
 		size_t left = blocks;
 		/**
-		 * Выполняем выработку гаммы по четыре блока
+		 * Выполняем выработку гаммы по восемь блоков: столько блоков держит в полёте
+		 * конвейер команд AES
 		 */
-		while(left >= 4){
-			// Увеличиваем счётчик
-			advance(current);
-			// Первое состояние
-			__m128i s0 = _mm_xor_si128(_mm_loadu_si128(reinterpret_cast <const __m128i *> (current)), first);
-			// Увеличиваем счётчик
-			advance(current);
-			// Второе состояние
-			__m128i s1 = _mm_xor_si128(_mm_loadu_si128(reinterpret_cast <const __m128i *> (current)), first);
-			// Увеличиваем счётчик
-			advance(current);
-			// Третье состояние
-			__m128i s2 = _mm_xor_si128(_mm_loadu_si128(reinterpret_cast <const __m128i *> (current)), first);
-			// Увеличиваем счётчик
-			advance(current);
-			// Четвёртое состояние
-			__m128i s3 = _mm_xor_si128(_mm_loadu_si128(reinterpret_cast <const __m128i *> (current)), first);
+		while(left >= 8){
+			// Собираем восемь блоков счётчика подряд с наложением первого ключа
+			__m128i s0 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (reversed(tail + 1)), 0, 0, 0)), first);
+			__m128i s1 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (reversed(tail + 2)), 0, 0, 0)), first);
+			__m128i s2 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (reversed(tail + 3)), 0, 0, 0)), first);
+			__m128i s3 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (reversed(tail + 4)), 0, 0, 0)), first);
+			__m128i s4 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (reversed(tail + 5)), 0, 0, 0)), first);
+			__m128i s5 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (reversed(tail + 6)), 0, 0, 0)), first);
+			__m128i s6 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (reversed(tail + 7)), 0, 0, 0)), first);
+			__m128i s7 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (reversed(tail + 8)), 0, 0, 0)), first);
+			// Сдвигаем счётчик на восемь блоков
+			tail += 8;
 			/**
-			 * Выполняем внутренние раунды над четырьмя состояниями разом
+			 * Выполняем раунды шифрования восьми блоков разом
 			 */
 			for(size_t round = 1; round < rounds; round++){
-				// Раундовый ключ
+				// Ключ очередного раунда
 				const __m128i key = _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys + (round * 16)));
-				// Выполняем раунд первого состояния
 				s0 = _mm_aesenc_si128(s0, key);
-				// Выполняем раунд второго состояния
 				s1 = _mm_aesenc_si128(s1, key);
-				// Выполняем раунд третьего состояния
 				s2 = _mm_aesenc_si128(s2, key);
-				// Выполняем раунд четвёртого состояния
 				s3 = _mm_aesenc_si128(s3, key);
+				s4 = _mm_aesenc_si128(s4, key);
+				s5 = _mm_aesenc_si128(s5, key);
+				s6 = _mm_aesenc_si128(s6, key);
+				s7 = _mm_aesenc_si128(s7, key);
 			}
-			// Записываем первый блок гаммы
 			_mm_storeu_si128(reinterpret_cast <__m128i *> (result), _mm_aesenclast_si128(s0, last));
-			// Записываем второй блок гаммы
 			_mm_storeu_si128(reinterpret_cast <__m128i *> (result + 16), _mm_aesenclast_si128(s1, last));
-			// Записываем третий блок гаммы
 			_mm_storeu_si128(reinterpret_cast <__m128i *> (result + 32), _mm_aesenclast_si128(s2, last));
-			// Записываем четвёртый блок гаммы
 			_mm_storeu_si128(reinterpret_cast <__m128i *> (result + 48), _mm_aesenclast_si128(s3, last));
-			// Сдвигаем позицию записи
-			result += 64;
-			// Уменьшаем число не выработанных блоков
-			left -= 4;
+			_mm_storeu_si128(reinterpret_cast <__m128i *> (result + 64), _mm_aesenclast_si128(s4, last));
+			_mm_storeu_si128(reinterpret_cast <__m128i *> (result + 80), _mm_aesenclast_si128(s5, last));
+			_mm_storeu_si128(reinterpret_cast <__m128i *> (result + 96), _mm_aesenclast_si128(s6, last));
+			_mm_storeu_si128(reinterpret_cast <__m128i *> (result + 112), _mm_aesenclast_si128(s7, last));
+			// Сдвигаем место итога
+			result += 128;
+			// Уменьшаем число оставшихся блоков
+			left -= 8;
 		}
+		// Возвращаем счётчик в байты для хвоста
+		current[12] = static_cast <uint8_t> (tail >> 24);
+		current[13] = static_cast <uint8_t> (tail >> 16);
+		current[14] = static_cast <uint8_t> (tail >> 8);
+		current[15] = static_cast <uint8_t> (tail);
 		/**
-		 * Выполняем выработку остатка по одному блоку
+		 * Выполняем выработку хвоста гаммы по блоку
 		 */
 		while(left > 0){
-			// Увеличиваем счётчик
+			// Сдвигаем счётчик на блок
 			advance(current);
-			// Выполняем зашифрование блока счётчика
+			// Шифруем очередной блок счётчика
 			sealX86(keys, rounds, current, result);
-			// Сдвигаем позицию записи
+			// Сдвигаем место итога
 			result += 16;
-			// Уменьшаем число не выработанных блоков
+			// Уменьшаем число оставшихся блоков
 			left--;
 		}
 		// Выполняем затирание счётчика

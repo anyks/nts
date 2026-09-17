@@ -166,4 +166,75 @@
 	};
 #endif
 
+/**
+ * Перенос и заём между словами
+ */
+namespace nts {
+	namespace math {
+		/**
+		 * @brief Сложение слов с переносом
+		 *
+		 * @details Собиратель сводит это к команде сложения с переносом; сложение через
+		 *          число двойной разрядности стоило вдвое дороже на всякое слово
+		 *
+		 * @param first  первое слагаемое
+		 * @param second второе слагаемое
+		 * @param carry  перенос из младшего слова, ноль либо единица
+		 * @param result место, в которое помещается сумма
+		 *
+		 * @return       перенос в старшее слово, ноль либо единица
+		 *
+		 */
+		static inline uint64_t adc(const uint64_t first, const uint64_t second, const uint64_t carry, uint64_t & result) noexcept {
+		#if defined(_MSC_VER)
+			// Сумма слов без переноса
+			const uint64_t sum = (first + second);
+			// Сумма с переносом
+			result = (sum + carry);
+			// Перенос возникает на любом из двух сложений
+			return (static_cast <uint64_t> (sum < first) | static_cast <uint64_t> (result < sum));
+		#else
+			// Сумма слов без переноса
+			uint64_t sum = 0;
+			// Перенос первого сложения
+			const uint64_t one = static_cast <uint64_t> (__builtin_add_overflow(first, second, &sum));
+			// Перенос второго сложения
+			const uint64_t two = static_cast <uint64_t> (__builtin_add_overflow(sum, carry, &result));
+			// Перенос возникает на любом из двух сложений
+			return (one | two);
+		#endif
+		}
+		/**
+		 * @brief Вычитание слов с заёмом
+		 *
+		 * @param first  уменьшаемое
+		 * @param second вычитаемое
+		 * @param borrow заём из младшего слова, ноль либо единица
+		 * @param result место, в которое помещается разность
+		 *
+		 * @return       заём из старшего слова, ноль либо единица
+		 *
+		 */
+		static inline uint64_t sbb(const uint64_t first, const uint64_t second, const uint64_t borrow, uint64_t & result) noexcept {
+		#if defined(_MSC_VER)
+			// Разность слов без заёма
+			const uint64_t difference = (first - second);
+			// Разность с заёмом
+			result = (difference - borrow);
+			// Заём возникает на любом из двух вычитаний
+			return (static_cast <uint64_t> (first < second) | static_cast <uint64_t> (difference < borrow));
+		#else
+			// Разность слов без заёма
+			uint64_t difference = 0;
+			// Заём первого вычитания
+			const uint64_t one = static_cast <uint64_t> (__builtin_sub_overflow(first, second, &difference));
+			// Заём второго вычитания
+			const uint64_t two = static_cast <uint64_t> (__builtin_sub_overflow(difference, borrow, &result));
+			// Заём возникает на любом из двух вычитаний
+			return (one | two);
+		#endif
+		}
+	};
+};
+
 #endif // __ANTS_MATH_WIDE__

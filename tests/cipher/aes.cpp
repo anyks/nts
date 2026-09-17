@@ -249,3 +249,54 @@ TEST(AesTest, Paths){
 	// Проверяем расшифрование
 	ASSERT_EQ(::memcmp(opened, plain.data(), plain.size()), 0);
 }
+
+/**
+ * @brief Проверка выработки гаммы по многу блоков против поблочного шифрования
+ *
+ * @details Гамма вырабатывается по восемь блоков в полёте со счётчиком в регистре;
+ *          итог обязан совпадать с шифрованием счётчика по блоку с побайтовым переносом,
+ *          в том числе через границу младших четырёх байтов и на обоих путях
+ */
+TEST(AesTest, Stream){
+	// Ключ AES-256
+	const std::vector <uint8_t> key = bytes("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4");
+	// Счётчик за три блока до переполнения младших четырёх байтов
+	uint8_t counter[16] = {0xf0,0xf1,0xf2,0xf3,0xf4,0xf5,0xf6,0xf7,0xf8,0xf9,0xfa,0xfb,0xff,0xff,0xff,0xfd};
+	// Объект шифра
+	cipher::aes_t aes;
+	// Устанавливаем ключ
+	ASSERT_TRUE(aes.key(view_t(key.data(), key.size())));
+	// Число блоков: две восьмёрки и хвост
+	const size_t blocks = 21;
+	// Гамма по многу блоков, поблочно и таблицами
+	uint8_t stream[21 * 16], single[21 * 16], tables[21 * 16];
+	// Выполняем выработку гаммы машинным путём
+	ASSERT_TRUE(aes.stream(counter, blocks, stream));
+	// Запрещаем машинные команды
+	machine::allow(false);
+	// Выполняем выработку гаммы таблицами
+	ASSERT_TRUE(aes.stream(counter, blocks, tables));
+	// Возвращаем машинные команды
+	machine::allow(true);
+	// Текущий счётчик поблочного пути
+	uint8_t current[16];
+	// Копируем счётчик
+	::memcpy(current, counter, sizeof(current));
+	// Выполняем перебор блоков
+	for(size_t b = 0; b < blocks; b++){
+		// Выполняем перенос по младшим четырём байтам
+		for(size_t i = 16; i > 12; i--){
+			if(++current[i - 1] != 0)
+				break;
+		}
+		// Шифруем очередной счётчик
+		ASSERT_TRUE(aes.encrypt(current, single + (b * 16)));
+	}
+	// Проверяем схождение гаммы с поблочным шифрованием
+	ASSERT_EQ(text(stream, sizeof(stream)), text(single, sizeof(single)));
+	// Проверяем схождение путей
+	ASSERT_EQ(text(tables, sizeof(tables)), text(single, sizeof(single)));
+	// Проверяем, что счётчик прошёл границу младших четырёх байтов и старшие не тронуты
+	ASSERT_EQ(current[11], static_cast <uint8_t> (0xfb));
+	ASSERT_EQ(current[15], static_cast <uint8_t> (0xfd + 21));
+}

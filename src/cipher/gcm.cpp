@@ -328,11 +328,11 @@ namespace {
 		high = veorq_u64(high, veorq_u64(p2, vextq_u64(p1, vdupq_n_u64(0), 1)));
 	}
 	/**
-	 * @brief Метод сложения четырёх блоков в накопитель одним приведением командой PMULL
+	 * @brief Метод сложения восьми блоков в накопитель одним приведением командой PMULL
 	 *
 	 * @param powers      степени ключа хеширования от четвёртой до первой, отражённые
 	 * @param accumulator накопитель многочлена, заменяемый итогом
-	 * @param blocks      четыре блока подряд
+	 * @param blocks      восемь блоков подряд
 	 *
 	 */
 	static __ANTS_GHASH_TARGET__ void aggregateArm(const uint64_t (* powers)[2], uint8_t * accumulator, const uint8_t * blocks) noexcept {
@@ -350,6 +350,10 @@ namespace {
 		productArm(vreinterpretq_u64_u8(vrbitq_u8(vld1q_u8(blocks + 32))), vld1q_u64(powers[2]), low, high);
 		// Складываем произведение четвёртого блока с первой степенью
 		productArm(vreinterpretq_u64_u8(vrbitq_u8(vld1q_u8(blocks + 48))), vld1q_u64(powers[3]), low, high);
+		productArm(vreinterpretq_u64_u8(vrbitq_u8(vld1q_u8(blocks + 64))), vld1q_u64(powers[4]), low, high);
+		productArm(vreinterpretq_u64_u8(vrbitq_u8(vld1q_u8(blocks + 80))), vld1q_u64(powers[5]), low, high);
+		productArm(vreinterpretq_u64_u8(vrbitq_u8(vld1q_u8(blocks + 96))), vld1q_u64(powers[6]), low, high);
+		productArm(vreinterpretq_u64_u8(vrbitq_u8(vld1q_u8(blocks + 112))), vld1q_u64(powers[7]), low, high);
 		// Приведение старшей половины: младшее слово, умноженное на многочлен
 		const uint64x2_t f0 = vreinterpretq_u64_p128(vmull_p64(static_cast <poly64_t> (vgetq_lane_u64(high, 0)), r));
 		// Приведение старшей половины: старшее слово, умноженное на многочлен
@@ -437,11 +441,11 @@ namespace {
 		high = _mm_xor_si128(high, _mm_xor_si128(p2, _mm_srli_si128(p1, 8)));
 	}
 	/**
-	 * @brief Метод сложения четырёх блоков в накопитель одним приведением командой PCLMULQDQ
+	 * @brief Метод сложения восьми блоков в накопитель одним приведением командой PCLMULQDQ
 	 *
 	 * @param powers      степени ключа хеширования от четвёртой до первой, отражённые
 	 * @param accumulator накопитель многочлена, заменяемый итогом
-	 * @param blocks      четыре блока подряд
+	 * @param blocks      восемь блоков подряд
 	 *
 	 */
 	static __ANTS_GHASH_TARGET__ void aggregateX86(const uint64_t (* powers)[2], uint8_t * accumulator, const uint8_t * blocks) noexcept {
@@ -459,6 +463,10 @@ namespace {
 		productX86(reflect(_mm_loadu_si128(reinterpret_cast <const __m128i *> (blocks + 32))), _mm_loadu_si128(reinterpret_cast <const __m128i *> (powers[2])), low, high);
 		// Складываем произведение четвёртого блока с первой степенью
 		productX86(reflect(_mm_loadu_si128(reinterpret_cast <const __m128i *> (blocks + 48))), _mm_loadu_si128(reinterpret_cast <const __m128i *> (powers[3])), low, high);
+		productX86(reflect(_mm_loadu_si128(reinterpret_cast <const __m128i *> (blocks + 64))), _mm_loadu_si128(reinterpret_cast <const __m128i *> (powers[4])), low, high);
+		productX86(reflect(_mm_loadu_si128(reinterpret_cast <const __m128i *> (blocks + 80))), _mm_loadu_si128(reinterpret_cast <const __m128i *> (powers[5])), low, high);
+		productX86(reflect(_mm_loadu_si128(reinterpret_cast <const __m128i *> (blocks + 96))), _mm_loadu_si128(reinterpret_cast <const __m128i *> (powers[6])), low, high);
+		productX86(reflect(_mm_loadu_si128(reinterpret_cast <const __m128i *> (blocks + 112))), _mm_loadu_si128(reinterpret_cast <const __m128i *> (powers[7])), low, high);
 		// Приведение младшего слова старшей половины
 		const __m128i f0 = _mm_clmulepi64_si128(high, r, 0x00);
 		// Приведение старшего слова старшей половины
@@ -558,10 +566,10 @@ void nts::cipher::Gcm::multiply(uint8_t * value) const noexcept {
 	store(zl, value + 8);
 }
 /**
- * @brief Метод сложения четырёх блоков в накопитель многочлена одним приведением
+ * @brief Метод сложения восьми блоков в накопитель многочлена одним приведением
  *
  * @param accumulator накопитель многочлена, заменяемый итогом
- * @param blocks      четыре блока подряд
+ * @param blocks      восемь блоков подряд
  *
  * @return            признак того, что машина умножает командами и блоки сложены
  *
@@ -573,7 +581,7 @@ bool nts::cipher::Gcm::aggregate(uint8_t * accumulator, const uint8_t * blocks) 
 #if defined(__ANTS_GHASH_ARM__)
 	// Если машина умножает без переносов командой
 	if(machine::has(machine::feature_t::CARRYLESS)){
-		// Выполняем сложение четырёх блоков командой
+		// Выполняем сложение восьми блоков командой
 		aggregateArm(this->_powers, accumulator, blocks);
 		// Выводим признак сложения
 		return true;
@@ -584,7 +592,7 @@ bool nts::cipher::Gcm::aggregate(uint8_t * accumulator, const uint8_t * blocks) 
 #elif defined(__ANTS_GHASH_X86__)
 	// Если машина умножает без переносов командой
 	if(machine::has(machine::feature_t::CARRYLESS)){
-		// Выполняем сложение четырёх блоков командой
+		// Выполняем сложение восьми блоков командой
 		aggregateX86(this->_powers, accumulator, blocks);
 		// Выводим признак сложения
 		return true;
@@ -643,11 +651,11 @@ void nts::cipher::Gcm::absorb(const uint8_t * data, const size_t size) noexcept 
 	/**
 	 * Выполняем сложение по четыре целых блока одним приведением, пока машина умножает командами
 	 */
-	while((left >= 64) && this->aggregate(this->_accumulator, cursor)){
+	while((left >= 128) && this->aggregate(this->_accumulator, cursor)){
 		// Сдвигаем позицию чтения
-		cursor += 64;
+		cursor += 128;
 		// Уменьшаем число не сложенных байтов
-		left -= 64;
+		left -= 128;
 	}
 	/**
 	 * Выполняем сложение целых блоков с накопителем
@@ -734,17 +742,16 @@ bool nts::cipher::Gcm::cover(const view_t & source, uint8_t * result) noexcept {
 			/**
 			 * Выполняем продвижение счётчика на выработанные блоки
 			 */
-			for(size_t b = 0; b < count; b++){
-				/**
-				 * Выполняем перенос по младшим четырём байтам
-				 */
-				for(size_t i = 16; i > 12; i--){
-					// Если байт не переполнился
-					if(++this->_counter[i - 1] != 0)
-						// Прерываем перенос
-						break;
-				}
-			}
+			/**
+			 * Сдвигаем счётчик на число блоков числом, а не побайтно: младшие четыре
+			 * байта идут от старшего и по кругу, как и у побайтового переноса
+			 */
+			const uint32_t tail = ((static_cast <uint32_t> (this->_counter[12]) << 24) | (static_cast <uint32_t> (this->_counter[13]) << 16) | (static_cast <uint32_t> (this->_counter[14]) << 8) | static_cast <uint32_t> (this->_counter[15])) + static_cast <uint32_t> (count);
+			// Записываем сдвинутый счётчик от старшего байта
+			this->_counter[12] = static_cast <uint8_t> (tail >> 24);
+			this->_counter[13] = static_cast <uint8_t> (tail >> 16);
+			this->_counter[14] = static_cast <uint8_t> (tail >> 8);
+			this->_counter[15] = static_cast <uint8_t> (tail);
 		// Иначе гамма вырабатывается по одному блоку
 		} else {
 			/**
@@ -1087,9 +1094,10 @@ bool nts::cipher::Gcm::start(const block_t & block, const view_t & nonce, const 
 		// Восстанавливаем ключ хеширования из кратного восьми таблицы
 		store(this->_table[8][1], power + 8);
 		/**
-		 * Выполняем построение степеней от первой до четвёртой
+		 * Выполняем построение степеней от первой до восьмой: восемь блоков
+		 * сворачиваются одним приведением
 		 */
-		for(size_t i = 0; i < 4; i++){
+		for(size_t i = 0; i < 8; i++){
 			// Если степень не первая
 			if(i > 0)
 				// Умножаем прежнюю степень на ключ
@@ -1098,11 +1106,11 @@ bool nts::cipher::Gcm::start(const block_t & block, const view_t & nonce, const 
  * Если есть ветвь машинного умножения PMULL
  */
 #if defined(__ANTS_GHASH_ARM__)
-			// Записываем степень отражённой: четвёртая идёт первой
-			mirrorArm(power, this->_powers[3 - i]);
+			// Записываем степень отражённой: восьмая идёт первой
+			mirrorArm(power, this->_powers[7 - i]);
 #else
-			// Записываем степень отражённой: четвёртая идёт первой
-			mirrorX86(power, this->_powers[3 - i]);
+			// Записываем степень отражённой: восьмая идёт первой
+			mirrorX86(power, this->_powers[7 - i]);
 #endif
 		}
 		// Выполняем затирание степени

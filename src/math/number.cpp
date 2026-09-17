@@ -357,9 +357,8 @@ namespace {
 		uint64_t buffer[WORDS];
 		uint64_t borrow = 0;
 		for(size_t i = 0; i < WORDS; i++){
-			const wide_t item = (static_cast <wide_t> (value[i]) - modulus[i] - borrow);
-			buffer[i] = static_cast <uint64_t> (item);
-			borrow = static_cast <uint64_t> ((item >> 64) & 0x01);
+			// Вычитаем очередные слова с заёмом одной командой
+			borrow = nts::math::sbb(value[i], modulus[i], borrow, buffer[i]);
 		}
 		const uint64_t mask = (0 - (carry | (borrow ^ 0x01)));
 		for(size_t i = 0; i < WORDS; i++)
@@ -405,12 +404,8 @@ namespace {
 		 * Выполняем перебор складываемых слов от младшего к старшему
 		 */
 		for(size_t i = 0; i < WORDS; i++){
-			// Складываем очередные слова с переносом
-			const wide_t item = (static_cast <wide_t> (first[i]) + second[i] + carry);
-			// Записываем младшую половину суммы
-			result[i] = static_cast <uint64_t> (item);
-			// Запоминаем перенос в следующее слово
-			carry = static_cast <uint64_t> (item >> 64);
+			// Складываем очередные слова с переносом одной командой
+			carry = nts::math::adc(first[i], second[i], carry, result[i]);
 		}
 		// Итог вычитания модуля из полученной суммы
 		uint64_t buffer[WORDS];
@@ -420,12 +415,8 @@ namespace {
 		 * Выполняем вычитание модуля из полученной суммы
 		 */
 		for(size_t i = 0; i < WORDS; i++){
-			// Вычитаем очередное слово модуля с заёмом
-			const wide_t item = (static_cast <wide_t> (result[i]) - modulus[i] - borrow);
-			// Записываем младшую половину разности
-			buffer[i] = static_cast <uint64_t> (item);
-			// Запоминаем заём из следующего слова
-			borrow = static_cast <uint64_t> ((item >> 64) & 0x01);
+			// Вычитаем очередные слова с заёмом одной командой
+			borrow = nts::math::sbb(result[i], modulus[i], borrow, buffer[i]);
 		}
 		/**
 		 * Модуль вычитается, когда сумма его не меньше: либо вычитание прошло без
@@ -458,12 +449,8 @@ namespace {
 		 * Выполняем перебор вычитаемых слов от младшего к старшему
 		 */
 		for(size_t i = 0; i < WORDS; i++){
-			// Вычитаем очередные слова с заёмом
-			const wide_t item = (static_cast <wide_t> (first[i]) - second[i] - borrow);
-			// Записываем младшую половину разности
-			result[i] = static_cast <uint64_t> (item);
-			// Запоминаем заём из следующего слова
-			borrow = static_cast <uint64_t> ((item >> 64) & 0x01);
+			// Вычитаем очередные слова с заёмом одной командой
+			borrow = nts::math::sbb(first[i], second[i], borrow, result[i]);
 		}
 		// Сумма разности с модулем, применяемая при заёме из старшего слова
 		uint64_t buffer[WORDS];
@@ -473,12 +460,8 @@ namespace {
 		 * Выполняем сложение полученной разности с модулем
 		 */
 		for(size_t i = 0; i < WORDS; i++){
-			// Складываем очередные слова с переносом
-			const wide_t item = (static_cast <wide_t> (result[i]) + modulus[i] + carry);
-			// Записываем младшую половину суммы
-			buffer[i] = static_cast <uint64_t> (item);
-			// Запоминаем перенос в следующее слово
-			carry = static_cast <uint64_t> (item >> 64);
+			// Складываем очередные слова с переносом одной командой
+			carry = nts::math::adc(result[i], modulus[i], carry, buffer[i]);
 		}
 		/**
 		 * Выполняем перебор слов полученной разности
