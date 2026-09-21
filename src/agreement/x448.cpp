@@ -179,11 +179,11 @@ namespace {
 			// A = x2 + z2
 			field.add(x2, z2, a);
 			// AA = A^2
-			field.multiply(a, a, aa);
+			field.square(a, aa);
 			// B = x2 - z2
 			field.subtract(x2, z2, b);
 			// BB = B^2
-			field.multiply(b, b, bb);
+			field.square(b, bb);
 			// E = AA - BB
 			field.subtract(aa, bb, e);
 			// C = x3 + z3
@@ -197,11 +197,11 @@ namespace {
 			// x3 = (DA + CB)^2
 			field.add(da, cb, x3);
 			// Возводим в квадрат
-			field.multiply(x3, x3, x3);
+			field.square(x3, x3);
 			// z3 = x1 * (DA - CB)^2
 			field.subtract(da, cb, z3);
 			// Возводим в квадрат
-			field.multiply(z3, z3, z3);
+			field.square(z3, z3);
 			// Умножаем на первую координату множимой точки
 			field.multiply(z3, point, z3);
 			// x2 = AA * BB

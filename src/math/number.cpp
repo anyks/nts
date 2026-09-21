@@ -21,9 +21,47 @@
  * @note Все действия выполняются на полном числе слов модуля независимо от значений,
  *       ветвление по значениям заменено наложением маски
  *
+ * @note Простые вида 2^(64·слов) - c и 2^(64·слов - 1) + c с c < 2^32 (все кривые
+ *       ГОСТ Р 34.10-2012, кроме CryptoPro-C) опознаются при установке модуля: полное
+ *       произведение сворачивается прибавлением старшей половины, умноженной на c, и
+ *       область Монтгомери таким модулям не нужна вовсе - enter и leave там переписывают
+ *       число как есть. Квадрат считается своим путём: шесть удвоенных произведений и
+ *       четыре квадрата слов вместо шестнадцати произведений. Замер 21.09.2026 (4 слова,
+ *       цепочкой): M4 умножение 13,6 → 11,1 нс, квадрат 14,7 → 9,8; Astra gcc 12
+ *       67,6 → 50,6; Эльбрус квадрат 92 → 62. Путь Монтгомери со словами 2^k - c пробован
+ *       и не взят: цепочки заёмов у него длиннее, и на Эльбрусе он вчетверо медленнее
+ *
+ * @note Квадрат идёт своим входом square, а умножение совпадения сомножителей не
+ *       опознаёт намеренно: ветвление по совпадению внутри одного тела lcc сливал в
+ *       предикатный поток и считал оба пути разом - квадрат через multiply стоил на
+ *       Эльбрусе 159 нс при 74 у ядра порознь. Обращение, степень, координаты точки и
+ *       лестница X448 берут квадраты через square
+ *
+ * @note Буферы условного вычитания у сложения, вычитания и приведения после умножения
+ *       не затираются намеренно, по той же причине, что и накопитель умножения: они
+ *       перезаписываются следующим же действием арифметики, а затирание стоило половину
+ *       сложения у gcc (13,3 против 27,6 нс на четырёх словах)
+ *
+ * @note Обращение идёт окнами по четыре разряда открытого показателя p - 2 с заготовкой
+ *       пятнадцати степеней: 334 умножения вместо 532 на 256 разрядах. Порядок действий
+ *       задан одним лишь модулем, оттого от обращаемого числа время не зависит.
+ *       Приведение потока байтов по модулю берётся умножениями (кусок за куском по
+ *       основанию разрядной сетки), а не удвоениями по байтам: 288 сложений на 32 байта
+ *       стоили 8 мкс на Astra и 11 на Эльбрусе, дважды на подпись
+ *
  * @copyright Copyright © 2026
  *
  */
+
+/**
+ * Автовекторизация gcc ломает цепочки переносов развёрнутых ядер арифметики: удвоение
+ * точки на Astra (gcc 12) стоило 838 нс с нею и 466 без (замер 21.09.2026). Ключ ставится
+ * на весь файл, чтобы у всех функций были одни свойства и встраивание не рвалось;
+ * clang и lcc сюда не входят - у них векторизатор ядрам не мешает
+ */
+#if defined(__GNUC__) && !defined(__clang__) && !defined(__e2k__)
+	#pragma GCC optimize("no-tree-vectorize")
+#endif
 
 /**
  * Стандартные заголовочные файлы
@@ -37,6 +75,7 @@
 #include <sys/wipe.hpp>
 
 #include <math/wide.hpp>
+#include <internal/math/kernels.hpp>
 
 /**
  * Используем стандартное пространство имён
@@ -68,6 +107,8 @@ namespace {
 
 	// Затирание областей памяти берётся из открытого API библиотеки
 	using nts::sys::wipe;
+	// Ядра арифметики известного числа слов и выбор слова наложением маски берутся из внутреннего заголовка
+	using namespace nts::math::kernel;
 	/**
 	 * @brief Метод затирания области памяти словами
 	 *
@@ -91,290 +132,6 @@ namespace {
 		for(size_t i = 0; i < count; i++)
 			// Обнуляем очередное слово области памяти
 			item[i] = 0;
-	}
-	/**
-	 * @brief Метод умножения Монтгомери для модуля известного числа слов
-	 *
-	 * @param first   первый сомножитель
-	 * @param second  второй сомножитель
-	 * @param modulus модуль поля
-	 * @param factor  множитель приведения по модулю
-	 * @param result  место, в которое помещается произведение
-	 *
-	 * @return        старшее слово переноса произведения
-	 *
-	 */
-	template <size_t WORDS>
-	static uint64_t montgomery(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, const uint64_t factor, uint64_t * result) noexcept {
-		// Слова накапливаемого произведения
-		uint64_t buffer[WORDS + 1] = {};
-		/**
-		 * Выполняем перебор слов второго сомножителя от младшего к старшему
-		 */
-		for(size_t i = 0; i < WORDS; i++){
-			// Получаем очередное слово второго сомножителя
-			const uint64_t word = second[i];
-			// Перенос из очередного слова накапливаемого произведения
-			uint64_t carry = 0;
-			/**
-			 * Выполняем умножение первого сомножителя на очередное слово второго
-			 */
-			for(size_t j = 0; j < WORDS; j++){
-				// Складываем накопленное слово с произведением слов и переносом
-				const wide_t item = (static_cast <wide_t> (first[j]) * word + buffer[j] + carry);
-				// Записываем младшую половину полученного значения
-				buffer[j] = static_cast <uint64_t> (item);
-				// Запоминаем перенос в следующее слово
-				carry = static_cast <uint64_t> (item >> 64);
-			}
-			// Складываем старшее слово произведения с переносом
-			const wide_t item = (static_cast <wide_t> (buffer[WORDS]) + carry);
-			// Записываем младшую половину полученного значения
-			buffer[WORDS] = static_cast <uint64_t> (item);
-			// Запоминаем перенос в дополнительное слово произведения
-			const uint64_t extra = static_cast <uint64_t> (item >> 64);
-			/**
-			 * Выработанный множитель обращает младшее слово накопленного произведения
-			 * в ноль: тем приведение по модулю и сводится к сдвигу на слово
-			 */
-			const uint64_t reducer = (buffer[0] * factor);
-			// Складываем младшее слово произведения с произведением множителя на модуль
-			const wide_t value = (static_cast <wide_t> (reducer) * modulus[0] + buffer[0]);
-			// Запоминаем перенос из младшего слова произведения
-			carry = static_cast <uint64_t> (value >> 64);
-			/**
-			 * Выполняем приведение произведения по модулю со сдвигом на слово
-			 */
-			for(size_t j = 1; j < WORDS; j++){
-				// Складываем накопленное слово с произведением множителя на модуль
-				const wide_t step = (static_cast <wide_t> (reducer) * modulus[j] + buffer[j] + carry);
-				// Записываем младшую половину полученного значения со сдвигом на слово
-				buffer[j - 1] = static_cast <uint64_t> (step);
-				// Запоминаем перенос в следующее слово
-				carry = static_cast <uint64_t> (step >> 64);
-			}
-			// Складываем старшее слово произведения с переносом
-			const wide_t last = (static_cast <wide_t> (buffer[WORDS]) + carry);
-			// Записываем младшую половину полученного значения со сдвигом на слово
-			buffer[WORDS - 1] = static_cast <uint64_t> (last);
-			// Складываем дополнительное слово произведения с переносом
-			buffer[WORDS] = static_cast <uint64_t> (extra + (last >> 64));
-		}
-		/**
-		 * Выполняем перебор слов накопленного произведения
-		 */
-		for(size_t i = 0; i < WORDS; i++)
-			// Записываем очередное слово произведения
-			result[i] = buffer[i];
-		/**
-		 * Накопитель не затирается намеренно: умножение зовётся на каждый шаг
-		 * арифметики кривой, и затирание здесь стоило двадцатую часть времени;
-		 * содержимое накопителя перезаписывается следующим же умножением
-		 */
-		return buffer[WORDS];
-	}
-	/**
-	 * @brief Метод возведения в квадрат Монтгомери по простому числу кривой P-256
-	 *
-	 * @details Полное произведение считается сперва целиком: у квадрата всякая пара
-	 *          разных слов встречается дважды, и шесть удвоенных произведений вместе с
-	 *          четырьмя квадратами слов заменяют шестнадцать произведений. Приведение
-	 *          затем идёт словами модуля, как у умножения: множитель приведения есть само
-	 *          младшее слово, третье слово модуля не умножается вовсе
-	 *
-	 * @param value  возводимое число
-	 * @param result место, в которое помещается квадрат
-	 *
-	 * @return       старшее слово переноса квадрата
-	 *
-	 */
-	static uint64_t nist256square(const uint64_t * value, uint64_t * result) noexcept {
-		// Слова возводимого числа
-		const uint64_t a0 = value[0], a1 = value[1], a2 = value[2], a3 = value[3];
-		// Полное произведение в восемь слов
-		uint64_t buffer[9] = {};
-		// Перенос между словами
-		uint64_t carry = 0;
-		/**
-		 * Выполняем накопление произведений разных слов: a0·a1, a0·a2, a0·a3, a1·a2, a1·a3, a2·a3
-		 */
-		wide_t item = (static_cast <wide_t> (a0) * a1);
-		buffer[1] = static_cast <uint64_t> (item);
-		carry = static_cast <uint64_t> (item >> 64);
-		item = (static_cast <wide_t> (a0) * a2 + carry);
-		buffer[2] = static_cast <uint64_t> (item);
-		carry = static_cast <uint64_t> (item >> 64);
-		item = (static_cast <wide_t> (a0) * a3 + carry);
-		buffer[3] = static_cast <uint64_t> (item);
-		buffer[4] = static_cast <uint64_t> (item >> 64);
-		item = (static_cast <wide_t> (a1) * a2 + buffer[3]);
-		buffer[3] = static_cast <uint64_t> (item);
-		carry = static_cast <uint64_t> (item >> 64);
-		item = (static_cast <wide_t> (a1) * a3 + buffer[4] + carry);
-		buffer[4] = static_cast <uint64_t> (item);
-		buffer[5] = static_cast <uint64_t> (item >> 64);
-		item = (static_cast <wide_t> (a2) * a3 + buffer[5]);
-		buffer[5] = static_cast <uint64_t> (item);
-		buffer[6] = static_cast <uint64_t> (item >> 64);
-		/**
-		 * Удваиваем накопленное: старший разряд седьмого слова уходит в восьмое
-		 */
-		buffer[7] = (buffer[6] >> 63);
-		buffer[6] = ((buffer[6] << 1) | (buffer[5] >> 63));
-		buffer[5] = ((buffer[5] << 1) | (buffer[4] >> 63));
-		buffer[4] = ((buffer[4] << 1) | (buffer[3] >> 63));
-		buffer[3] = ((buffer[3] << 1) | (buffer[2] >> 63));
-		buffer[2] = ((buffer[2] << 1) | (buffer[1] >> 63));
-		buffer[1] = (buffer[1] << 1);
-		/**
-		 * Прибавляем квадраты слов по диагонали
-		 */
-		item = (static_cast <wide_t> (a0) * a0);
-		buffer[0] = static_cast <uint64_t> (item);
-		carry = nts::math::adc(buffer[1], static_cast <uint64_t> (item >> 64), 0, buffer[1]);
-		item = (static_cast <wide_t> (a1) * a1);
-		carry = nts::math::adc(buffer[2], static_cast <uint64_t> (item), carry, buffer[2]);
-		carry = nts::math::adc(buffer[3], static_cast <uint64_t> (item >> 64), carry, buffer[3]);
-		item = (static_cast <wide_t> (a2) * a2);
-		carry = nts::math::adc(buffer[4], static_cast <uint64_t> (item), carry, buffer[4]);
-		carry = nts::math::adc(buffer[5], static_cast <uint64_t> (item >> 64), carry, buffer[5]);
-		item = (static_cast <wide_t> (a3) * a3);
-		carry = nts::math::adc(buffer[6], static_cast <uint64_t> (item), carry, buffer[6]);
-		carry = nts::math::adc(buffer[7], static_cast <uint64_t> (item >> 64), carry, buffer[7]);
-		/**
-		 * Выполняем приведение Монтгомери по четырём словам: на всяком шаге младшее
-		 * слово обращается в ноль прибавлением произведения множителя на модуль
-		 */
-		for(size_t i = 0; i < 4; i++){
-			// Множитель приведения есть само младшее слово
-			const uint64_t reducer = buffer[i];
-			// Первое слово модуля из всех единиц: произведение с накопителем даёт перенос в размере множителя
-			carry = reducer;
-			// Второе слово модуля 2^32 - 1
-			item = (static_cast <wide_t> (reducer) * 0xFFFFFFFFULL + buffer[i + 1] + carry);
-			buffer[i + 1] = static_cast <uint64_t> (item);
-			carry = static_cast <uint64_t> (item >> 64);
-			// Третье слово модуля нулевое
-			item = (static_cast <wide_t> (buffer[i + 2]) + carry);
-			buffer[i + 2] = static_cast <uint64_t> (item);
-			carry = static_cast <uint64_t> (item >> 64);
-			// Четвёртое слово модуля 2^64 - 2^32 + 1
-			item = (static_cast <wide_t> (reducer) * 0xFFFFFFFF00000001ULL + buffer[i + 3] + carry);
-			buffer[i + 3] = static_cast <uint64_t> (item);
-			carry = static_cast <uint64_t> (item >> 64);
-			// Проносим перенос по старшим словам
-			for(size_t j = i + 4; j < 9; j++){
-				item = (static_cast <wide_t> (buffer[j]) + carry);
-				buffer[j] = static_cast <uint64_t> (item);
-				carry = static_cast <uint64_t> (item >> 64);
-			}
-		}
-		/**
-		 * Выполняем перебор слов приведённого квадрата
-		 */
-		for(size_t i = 0; i < 4; i++)
-			// Записываем очередное слово квадрата
-			result[i] = buffer[i + 4];
-		// Накопитель не затирается по той же причине, что и у общего умножения
-		return buffer[8];
-	}
-	/**
-	 * @brief Метод умножения Монтгомери по простому числу кривой P-256
-	 *
-	 * @param first  первый сомножитель
-	 * @param second второй сомножитель
-	 * @param result место, в которое помещается произведение
-	 *
-	 * @return       старшее слово переноса произведения
-	 *
-	 */
-	static uint64_t nist256(const uint64_t * first, const uint64_t * second, uint64_t * result) noexcept {
-		/**
-		 * Простое число кривой P-256 в словах, от младшего к старшему, есть
-		 * (2^64 - 1, 2^32 - 1, 0, 2^64 - 2^32 + 1), а обратное к его младшему
-		 * слову со сменой знака равно единице. Оттого множитель приведения есть
-		 * само младшее слово накопителя, произведение множителя на младшее слово
-		 * модуля вместе с накопителем даёт ровно перенос в размере множителя,
-		 * а третье слово модуля не умножается вовсе: на шаг уходит два умножения
-		 * приведения вместо четырёх и ни одного умножения на множитель
-		 */
-		uint64_t buffer[5] = {};
-		/**
-		 * Выполняем перебор слов второго сомножителя от младшего к старшему
-		 */
-		for(size_t i = 0; i < 4; i++){
-			// Получаем очередное слово второго сомножителя
-			const uint64_t word = second[i];
-			// Перенос из очередного слова накапливаемого произведения
-			uint64_t carry = 0;
-			/**
-			 * Выполняем умножение первого сомножителя на очередное слово второго
-			 */
-			for(size_t j = 0; j < 4; j++){
-				// Складываем накопленное слово с произведением слов и переносом
-				const wide_t item = (static_cast <wide_t> (first[j]) * word + buffer[j] + carry);
-				// Записываем младшую половину полученного значения
-				buffer[j] = static_cast <uint64_t> (item);
-				// Запоминаем перенос в следующее слово
-				carry = static_cast <uint64_t> (item >> 64);
-			}
-			// Складываем старшее слово произведения с переносом
-			const wide_t item = (static_cast <wide_t> (buffer[4]) + carry);
-			// Записываем младшую половину полученного значения
-			buffer[4] = static_cast <uint64_t> (item);
-			// Запоминаем перенос в дополнительное слово произведения
-			const uint64_t extra = static_cast <uint64_t> (item >> 64);
-			// Множитель приведения есть само младшее слово накопителя
-			const uint64_t reducer = buffer[0];
-			// Произведение множителя на младшее слово модуля с накопителем даёт перенос в размере множителя
-			carry = reducer;
-			// Складываем второе слово накопителя с произведением множителя на (2^32 - 1) и переносом
-			const wide_t second1 = (static_cast <wide_t> (reducer) * 0xFFFFFFFFULL + buffer[1] + carry);
-			// Записываем младшую половину полученного значения со сдвигом на слово
-			buffer[0] = static_cast <uint64_t> (second1);
-			// Запоминаем перенос в следующее слово
-			carry = static_cast <uint64_t> (second1 >> 64);
-			// Третье слово модуля нулевое: складываем накопитель лишь с переносом
-			const wide_t third = (static_cast <wide_t> (buffer[2]) + carry);
-			// Записываем младшую половину полученного значения со сдвигом на слово
-			buffer[1] = static_cast <uint64_t> (third);
-			// Запоминаем перенос в следующее слово
-			carry = static_cast <uint64_t> (third >> 64);
-			// Складываем четвёртое слово накопителя с произведением множителя на (2^64 - 2^32 + 1) и переносом
-			const wide_t fourth = (static_cast <wide_t> (reducer) * 0xFFFFFFFF00000001ULL + buffer[3] + carry);
-			// Записываем младшую половину полученного значения со сдвигом на слово
-			buffer[2] = static_cast <uint64_t> (fourth);
-			// Запоминаем перенос в следующее слово
-			carry = static_cast <uint64_t> (fourth >> 64);
-			// Складываем старшее слово произведения с переносом
-			const wide_t last = (static_cast <wide_t> (buffer[4]) + carry);
-			// Записываем младшую половину полученного значения со сдвигом на слово
-			buffer[3] = static_cast <uint64_t> (last);
-			// Складываем дополнительное слово произведения с переносом
-			buffer[4] = static_cast <uint64_t> (extra + (last >> 64));
-		}
-		/**
-		 * Выполняем перебор слов накопленного произведения
-		 */
-		for(size_t i = 0; i < 4; i++)
-			// Записываем очередное слово произведения
-			result[i] = buffer[i];
-		// Накопитель не затирается по той же причине, что и у общего умножения
-		return buffer[4];
-	}
-	/**
-	 * @brief Метод выбора одного из двух слов наложением маски
-	 *
-	 * @param mask   маска выбора: все разряды единичны либо все нулевые
-	 * @param first  слово, выбираемое при единичной маске
-	 * @param second слово, выбираемое при нулевой маске
-	 *
-	 * @return       выбранное слово
-	 *
-	 */
-	static uint64_t select(const uint64_t mask, const uint64_t first, const uint64_t second) noexcept {
-		// Выводим выбранное наложением маски слово
-		return (second ^ (mask & (first ^ second)));
 	}
 	/**
 	 * @brief Метод сложения наборов слов
@@ -445,31 +202,6 @@ namespace {
 	 * @param size    число слов модуля
 	 *
 	 */
-	/**
-	 * @brief Приведение по модулю после умножения при числе слов, известном собирателю
-	 *
-	 * @details То же, что lessen, но циклы развёрнуты по WORDS, буфер разности - в WORDS
-	 *          слов, и затирается он ровно в WORDS записей. Общий lessen с длиной во время
-	 *          выполнения стоил у P-256 больше самого умножения Монтгомери
-	 *
-	 * @param value   приводимое значение; итог кладётся сюда же
-	 * @param modulus модуль
-	 * @param carry   перенос из старшего слова умножения
-	 *
-	 */
-	template <size_t WORDS>
-	static void shrink(uint64_t * value, const uint64_t * modulus, const uint64_t carry) noexcept {
-		uint64_t buffer[WORDS];
-		uint64_t borrow = 0;
-		for(size_t i = 0; i < WORDS; i++){
-			// Вычитаем очередные слова с заёмом одной командой
-			borrow = nts::math::sbb(value[i], modulus[i], borrow, buffer[i]);
-		}
-		const uint64_t mask = (0 - (carry | (borrow ^ 0x01)));
-		for(size_t i = 0; i < WORDS; i++)
-			value[i] = select(mask, buffer[i], value[i]);
-		clean(buffer, WORDS);
-	}
 	static void lessen(uint64_t * value, const uint64_t * modulus, const uint64_t carry, const size_t size) noexcept {
 		// Итог вычитания модуля из уменьшаемого
 		uint64_t buffer[NUMBER_WORDS];
@@ -489,94 +221,6 @@ namespace {
 		// Выполняем затирание итога вычитания модуля
 		clean(buffer, size);
 	}
-	/**
-	 * @brief Метод сложения чисел по модулю известного числа слов
-	 *
-	 * @param first   первое слагаемое
-	 * @param second  второе слагаемое
-	 * @param modulus модуль поля
-	 * @param result  место, в которое помещается сумма
-	 *
-	 * @note Число слов заложено в тело постоянной по той же причине, что и у
-	 *       умножения: собиратель разворачивает тогда циклы и держит слова в регистрах
-	 *
-	 */
-	template <size_t WORDS>
-	static void addition(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, uint64_t * result) noexcept {
-		// Перенос из очередного слова суммы
-		uint64_t carry = 0;
-		/**
-		 * Выполняем перебор складываемых слов от младшего к старшему
-		 */
-		for(size_t i = 0; i < WORDS; i++){
-			// Складываем очередные слова с переносом одной командой
-			carry = nts::math::adc(first[i], second[i], carry, result[i]);
-		}
-		// Итог вычитания модуля из полученной суммы
-		uint64_t buffer[WORDS];
-		// Заём из старшего слова разности
-		uint64_t borrow = 0;
-		/**
-		 * Выполняем вычитание модуля из полученной суммы
-		 */
-		for(size_t i = 0; i < WORDS; i++){
-			// Вычитаем очередные слова с заёмом одной командой
-			borrow = nts::math::sbb(result[i], modulus[i], borrow, buffer[i]);
-		}
-		/**
-		 * Модуль вычитается, когда сумма его не меньше: либо вычитание прошло без
-		 * заёма, либо сумма и без того вышла за разрядность своих слов
-		 */
-		const uint64_t mask = (0 - (carry | (borrow ^ 0x01)));
-		/**
-		 * Выполняем перебор слов полученной суммы
-		 */
-		for(size_t i = 0; i < WORDS; i++)
-			// Выбираем очередное слово итога наложением маски
-			result[i] = select(mask, buffer[i], result[i]);
-		// Выполняем затирание итога вычитания модуля
-		clean(buffer, WORDS);
-	}
-	/**
-	 * @brief Метод вычитания чисел по модулю известного числа слов
-	 *
-	 * @param first   уменьшаемое
-	 * @param second  вычитаемое
-	 * @param modulus модуль поля
-	 * @param result  место, в которое помещается разность
-	 *
-	 */
-	template <size_t WORDS>
-	static void subtraction(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, uint64_t * result) noexcept {
-		// Заём из очередного слова разности
-		uint64_t borrow = 0;
-		/**
-		 * Выполняем перебор вычитаемых слов от младшего к старшему
-		 */
-		for(size_t i = 0; i < WORDS; i++){
-			// Вычитаем очередные слова с заёмом одной командой
-			borrow = nts::math::sbb(first[i], second[i], borrow, result[i]);
-		}
-		// Сумма разности с модулем, применяемая при заёме из старшего слова
-		uint64_t buffer[WORDS];
-		// Перенос из очередного слова суммы
-		uint64_t carry = 0;
-		/**
-		 * Выполняем сложение полученной разности с модулем
-		 */
-		for(size_t i = 0; i < WORDS; i++){
-			// Складываем очередные слова с переносом одной командой
-			carry = nts::math::adc(result[i], modulus[i], carry, buffer[i]);
-		}
-		/**
-		 * Выполняем перебор слов полученной разности
-		 */
-		for(size_t i = 0; i < WORDS; i++)
-			// Выбираем очередное слово итога наложением маски заёма
-			result[i] = select(0 - borrow, buffer[i], result[i]);
-		// Выполняем затирание суммы разности с модулем
-		clean(buffer, WORDS);
-	}
 };
 
 /**
@@ -593,6 +237,18 @@ nts::math::Number::Number() noexcept : words{} {}
 bool nts::math::Modulus::ready() const noexcept {
 	// Выводим признак того, что модуль установлен
 	return this->_ready;
+}
+/**
+ * @brief Метод получения устройства модуля для встраиваемой арифметики
+ *
+ * @return устройство модуля
+ *
+ */
+nts::math::Modulus::layout_t nts::math::Modulus::layout() const noexcept {
+	// Собираем устройство модуля
+	const layout_t result = {this->_form, this->_words, this->_factor, this->_tail, this->_modulus.words};
+	// Выводим устройство модуля
+	return result;
 }
 /**
  * @brief Метод получения размера модуля
@@ -664,25 +320,70 @@ bool nts::math::Modulus::start(const view_t & modulus) noexcept {
 	 * Простое число кривой P-256 опознаётся по словам дословно: у него есть свой
 	 * путь умножения, и признак ставится лишь при полном совпадении всех четырёх слов
 	 */
-	this->_nist = (
+	if(
 		(this->_words == 4) &&
 		(this->_modulus.words[0] == 0xFFFFFFFFFFFFFFFFULL) &&
 		(this->_modulus.words[1] == 0x00000000FFFFFFFFULL) &&
 		(this->_modulus.words[2] == 0x0000000000000000ULL) &&
 		(this->_modulus.words[3] == 0xFFFFFFFF00000001ULL)
-	);
+	) this->_form = form_t::NIST;
 	/**
-	 * Выполняем выработку квадрата основания области Монтгомери удвоением единицы:
-	 * всякое удвоение сдвигает значение на разряд, а после двух разрядностей модуля
-	 * удвоений выходит основание, возведённое в квадрат
+	 * Простые вида 2^(64·слов) - c и 2^(64·слов - 1) + c с хвостом c < 2^32 идут прямой
+	 * свёрткой: у первых все старшие слова из единиц, а младшее не меньше 2^64 - 2^32,
+	 * у вторых старшее слово несёт лишь высший разряд, средние нулевые, а младшее и есть
+	 * хвост. Пути заведены лишь на четыре и восемь слов - число слов кривых протокола
 	 */
+	else if((this->_words == 4) || (this->_words == 8)){
+		// Признак модуля вида 2^(64·слов) - c
+		bool minus = (this->_modulus.words[0] >= 0xFFFFFFFF00000000ULL);
+		// Признак модуля вида 2^(64·слов - 1) + c
+		bool plus = ((this->_modulus.words[this->_words - 1] == 0x8000000000000000ULL) && (this->_modulus.words[0] < 0x100000000ULL));
+		/**
+		 * Выполняем сличение средних слов модуля
+		 */
+		for(size_t i = 1; i < this->_words; i++){
+			// Старшие слова модуля вида 2^k - c обязаны состоять из единиц
+			minus = (minus && (this->_modulus.words[i] == 0xFFFFFFFFFFFFFFFFULL));
+			// Средние слова модуля вида 2^k + c обязаны быть нулевыми
+			plus = (plus && (((i + 1) == this->_words) || (this->_modulus.words[i] == 0)));
+		}
+		// Если модуль вида 2^(64·слов) - c
+		if(minus){
+			// Устанавливаем вид модуля
+			this->_form = form_t::MINUS;
+			// Запоминаем хвост модуля
+			this->_tail = (0 - this->_modulus.words[0]);
+			// Основание разрядной сетки сравнимо с хвостом
+			this->_shift.words[0] = this->_tail;
+		// Если модуль вида 2^(64·слов - 1) + c
+		} else if(plus) {
+			// Устанавливаем вид модуля
+			this->_form = form_t::PLUS;
+			// Запоминаем хвост модуля
+			this->_tail = this->_modulus.words[0];
+			// Удвоенный хвост модуля
+			number_t twice;
+			// Записываем удвоенный хвост модуля
+			twice.words[0] = (this->_tail * 2);
+			// Основание разрядной сетки сравнимо с модулем без удвоенного хвоста
+			decrease(this->_modulus.words, twice.words, this->_shift.words, this->_words);
+		}
+	}
+	// Записываем единицу основой квадрата основания области Монтгомери
 	this->_square.words[0] = 1;
 	/**
-	 * Выполняем удвоение значения по модулю
+	 * Область Монтгомери нужна лишь общему пути и пути P-256: квадрат основания у них
+	 * вырабатывается удвоением единицы, ибо всякое удвоение сдвигает значение на разряд,
+	 * а после двух разрядностей модуля удвоений выходит основание, возведённое в квадрат
 	 */
-	for(size_t i = 0; i < (this->_words * 128); i++)
-		// Выполняем очередное удвоение значения
-		this->add(this->_square, this->_square, this->_square);
+	if((this->_form == form_t::GENERAL) || (this->_form == form_t::NIST)){
+		/**
+		 * Выполняем удвоение значения по модулю
+		 */
+		for(size_t i = 0; i < (this->_words * 128); i++)
+			// Выполняем очередное удвоение значения
+			this->add(this->_square, this->_square, this->_square);
+	}
 	// Устанавливаем признак того, что модуль установлен
 	this->_ready = true;
 	// Выводим успешность установки модуля
@@ -699,8 +400,12 @@ void nts::math::Modulus::clear() noexcept {
 	wipe(this->_modulus.words, sizeof(this->_modulus.words));
 	// Сбрасываем обратное к младшему слову модуля значение
 	this->_factor = 0;
-	// Сбрасываем признак простого числа кривой P-256
-	this->_nist = false;
+	// Выполняем затирание основания разрядной сетки по модулю
+	wipe(this->_shift.words, sizeof(this->_shift.words));
+	// Сбрасываем хвост модуля
+	this->_tail = 0;
+	// Сбрасываем вид модуля
+	this->_form = form_t::GENERAL;
 	// Сбрасываем размер модуля в байтах
 	this->_size = 0;
 	// Сбрасываем число слов модуля
@@ -772,23 +477,72 @@ bool nts::math::Modulus::reduce(const view_t & data, number_t & result) const no
 	if((this->_words == 1) && (this->_modulus.words[0] < 256))
 		// Выводим отказ приведения
 		return false;
+	// Число байтов в куске потока, отвечающем разрядной сетке модуля
+	const size_t chunk = (this->_words * 8);
+	// Единица, умножение на которую выводит число из области Монтгомери
+	number_t unit;
+	// Записываем значение единицы
+	unit.words[0] = 1;
+	// Признак того, что первый кусок потока ещё не разобран
+	bool first = true;
 	/**
-	 * Выполняем перебор байтов приводимого потока от старшего к младшему
+	 * Поток разбирается кусками по разрядной сетке модуля от старшего к младшему: всякий
+	 * кусок приводится по модулю, а накопленное значение перед прибавлением куска
+	 * умножается на основание разрядной сетки по модулю. Первый кусок берётся неполным,
+	 * оттого прочие полны, и умножений на весь поток выходит по три на кусок
 	 */
-	for(size_t i = 0; i < data.size; i++){
-		// Очередной байт приводимого потока
+	for(size_t offset = 0; offset < data.size;){
+		// Число байтов, остающихся в потоке
+		const size_t rest = (data.size - offset);
+		// Число байтов очередного куска: первый кусок несёт остаток от деления на сетку
+		const size_t count = (((rest % chunk) == 0) ? chunk : (rest % chunk));
+		// Очередной кусок потока числом
 		number_t item;
 		/**
-		 * Выполняем сдвиг накопленного значения на восемь разрядов удвоением: умножение
-		 * здесь свелось бы к приведению в область Монтгомери и обратно
+		 * Выполняем разбор куска от младшего байта к старшему
 		 */
-		for(size_t j = 0; j < 8; j++)
-			// Выполняем очередное удвоение накопленного значения
-			this->add(result, result, result);
-		// Записываем очередной байт приводимого потока
-		this->word(data.data[i], item);
-		// Складываем накопленное значение с очередным байтом потока
-		this->add(result, item, result);
+		for(size_t i = 0; i < count; i++){
+			// Извлекаем очередной байт куска от его конца
+			const uint64_t value = data.data[offset + count - i - 1];
+			// Записываем очередной байт в своё место внутри слова
+			item.words[i / 8] |= (value << ((i % 8) * 8));
+		}
+		/**
+		 * Кусок не превосходит основания разрядной сетки, но модуля превосходить может:
+		 * у модулей прямой свёртки он меньше удвоенного модуля, и довольно условного
+		 * вычитания; у прочих кусок приводится в область Монтгомери и выводится из неё
+		 */
+		if((this->_form == form_t::MINUS) || (this->_form == form_t::PLUS))
+			// Выполняем условное вычитание модуля
+			lessen(item.words, this->_modulus.words, 0, this->_words);
+		// Иначе приводим кусок умножениями
+		else {
+			// Выполняем умножение куска на квадрат основания области Монтгомери
+			this->multiply(item, this->_square, item);
+			// Выполняем умножение на единицу: кусок выведен из области и приведён по модулю
+			this->multiply(item, unit, item);
+		}
+		// Если это первый кусок потока
+		if(first)
+			// Записываем приведённый кусок накопленным значением
+			result = item;
+		// Иначе сдвигаем накопленное значение на сетку и прибавляем кусок
+		else {
+			/**
+			 * Умножение накопленного значения на основание разрядной сетки по модулю: у
+			 * модулей прямой свёртки это заготовленное основание, у прочих - квадрат
+			 * основания области Монтгомери, ибо умножение Монтгомери снимает одно основание
+			 */
+			if((this->_form == form_t::MINUS) || (this->_form == form_t::PLUS))
+				this->multiply(result, this->_shift, result);
+			else this->multiply(result, this->_square, result);
+			// Прибавляем приведённый кусок к накопленному значению
+			this->add(result, item, result);
+		}
+		// Снимаем признак первого куска
+		first = false;
+		// Сдвигаем место разбора потока
+		offset += count;
 	}
 	// Выводим успешность приведения потока байтов
 	return true;
@@ -901,6 +655,13 @@ bool nts::math::Modulus::equal(const number_t & first, const number_t & second) 
  *
  */
 void nts::math::Modulus::enter(const number_t & value, number_t & result) const noexcept {
+	// Если модуль идёт прямой свёрткой, области Монтгомери у него нет: число остаётся как есть
+	if((this->_form == form_t::MINUS) || (this->_form == form_t::PLUS)){
+		// Переписываем число как есть
+		result = value;
+		// Выходим из приведения
+		return;
+	}
 	// Выполняем умножение числа на квадрат основания области Монтгомери
 	this->multiply(value, this->_square, result);
 }
@@ -912,6 +673,13 @@ void nts::math::Modulus::enter(const number_t & value, number_t & result) const 
  *
  */
 void nts::math::Modulus::leave(const number_t & value, number_t & result) const noexcept {
+	// Если модуль идёт прямой свёрткой, области Монтгомери у него нет: число остаётся как есть
+	if((this->_form == form_t::MINUS) || (this->_form == form_t::PLUS)){
+		// Переписываем число как есть
+		result = value;
+		// Выходим из вывода
+		return;
+	}
 	// Единица, на которую умножается выводимое число
 	number_t unit;
 	// Записываем значение единицы
@@ -998,19 +766,16 @@ void nts::math::Modulus::multiply(const number_t & first, const number_t & secon
 	 * держит накопитель в регистрах, а не в памяти. Прочие числа слов идут общим путём
 	 */
 	if((this->_words == 4) || (this->_words == 8)){
-		// Если модуль есть простое число кривой P-256, умножаем путём с заложенными словами модуля
-		if(this->_nist){
-			// Совпадающие сомножители возводятся в квадрат своим путём
-			if(&first == &second)
-				shrink <4> (result.words, this->_modulus.words, nist256square(first.words, result.words));
-			else
-				shrink <4> (result.words, this->_modulus.words, nist256(first.words, second.words, result.words));
-		}
-		// Умножаем и приводим развёрнутыми по числу слов путями
-		else if(this->_words == 4)
-			shrink <4> (result.words, this->_modulus.words, montgomery <4> (first.words, second.words, this->_modulus.words, this->_factor, result.words));
-		else
-			shrink <8> (result.words, this->_modulus.words, montgomery <8> (first.words, second.words, this->_modulus.words, this->_factor, result.words));
+		// Получаем устройство модуля для ядер арифметики
+		const layout_t layout = this->layout();
+		/**
+		 * Совпадение сомножителей здесь не опознаётся намеренно: квадрат идёт своим
+		 * входом square, а ветвление по совпадению внутри одного тела lcc сливал в
+		 * предикатный поток и считал оба пути разом
+		 */
+		if(this->_words == 4)
+			kernel::multiply <4> (layout, first.words, second.words, result.words);
+		else kernel::multiply <8> (layout, first.words, second.words, result.words);
 		// Выходим из умножения чисел
 		return;
 	}
@@ -1092,6 +857,25 @@ void nts::math::Modulus::multiply(const number_t & first, const number_t & secon
 	clean(buffer, total);
 }
 /**
+ * @brief Метод возведения числа в квадрат по модулю
+ *
+ * @param value  возводимое число в области Монтгомери
+ * @param result место, в которое помещается квадрат в области Монтгомери
+ *
+ */
+void nts::math::Modulus::square(const number_t & value, number_t & result) const noexcept {
+	/**
+	 * Квадрат по модулю в четыре либо в восемь слов идёт своим ядром: перекрёстные
+	 * произведения слов считаются по разу, и это отдельный вход, а не ветвь умножения
+	 */
+	if(this->_words == 4)
+		kernel::square <4> (this->layout(), value.words, result.words);
+	else if(this->_words == 8)
+		kernel::square <8> (this->layout(), value.words, result.words);
+	// Прочие числа слов идут общим умножением: своего квадрата у него нет
+	else this->multiply(value, value, result);
+}
+/**
  * @brief Метод возведения числа в степень по модулю
  *
  * @param base     основание степени в области Монтгомери
@@ -1117,7 +901,7 @@ void nts::math::Modulus::power(const number_t & base, const number_t & exponent,
 		// Извлекаем очередной разряд показателя степени
 		const uint64_t bit = ((exponent.words[(i - 1) / 64] >> ((i - 1) % 64)) & 0x01);
 		// Выполняем возведение накопленной степени в квадрат
-		this->multiply(value, value, value);
+		this->square(value, value);
 		// Выполняем умножение накопленной степени на основание
 		this->multiply(value, base, item);
 		/**
@@ -1152,8 +936,60 @@ void nts::math::Modulus::invert(const number_t & value, number_t & result) const
 	two.words[0] = 2;
 	// Выполняем вычитание двойки из модуля
 	decrease(this->_modulus.words, two.words, exponent.words, this->_words);
-	// Выполняем возведение обращаемого числа в полученную степень
-	this->power(value, exponent, result);
+	// Заготовленные степени обращаемого числа от нулевой до пятнадцатой
+	number_t table[16];
+	// Единица вне области Монтгомери
+	number_t unit;
+	// Записываем значение единицы
+	unit.words[0] = 1;
+	// Выполняем приведение единицы в область: нулевая степень
+	this->enter(unit, table[0]);
+	// Первая степень есть само число
+	table[1] = value;
+	/**
+	 * Выполняем заготовку оставшихся степеней умножением на число
+	 */
+	for(size_t i = 2; i < 16; i++)
+		// Считаем очередную степень
+		this->multiply(table[i - 1], value, table[i]);
+	// Накапливаемая степень
+	number_t item = table[0];
+	// Признак того, что старшее ненулевое окно показателя уже пройдено
+	bool started = false;
+	/**
+	 * Выполняем перебор окон показателя по четыре разряда от старшего к младшему:
+	 * показатель задан одним модулем и открыт, оттого ветвление по его окнам времени
+	 * работы от обращаемого числа не ставит в зависимость
+	 */
+	for(size_t i = (this->_words * 16); i > 0; i--){
+		// Извлекаем значение очередного окна показателя
+		const uint64_t window = ((exponent.words[(i - 1) / 16] >> (((i - 1) % 16) * 4)) & 0x0F);
+		// Если старшее ненулевое окно уже пройдено
+		if(started){
+			/**
+			 * Выполняем возведение накопленной степени в шестнадцатую степень
+			 */
+			for(size_t j = 0; j < 4; j++)
+				// Выполняем возведение накопленной степени в квадрат
+				this->square(item, item);
+			// Если окно показателя ненулевое, умножаем на заготовленную степень
+			if(window != 0)
+				// Выполняем умножение накопленной степени на заготовленную
+				this->multiply(item, table[window], item);
+		// Если очередное окно показателя первое ненулевое
+		} else if(window != 0) {
+			// Записываем заготовленную степень накопленной
+			item = table[window];
+			// Устанавливаем признак того, что старшее ненулевое окно пройдено
+			started = true;
+		}
+	}
+	// Записываем накопленную степень обратным числом
+	result = item;
+	// Выполняем затирание накопленной степени
+	wipe(item.words, sizeof(item.words));
+	// Выполняем затирание заготовленных степеней обращаемого числа
+	wipe(table, sizeof(table));
 	// Выполняем затирание показателя степени обращения числа
 	wipe(exponent.words, sizeof(exponent.words));
 }
@@ -1161,7 +997,7 @@ void nts::math::Modulus::invert(const number_t & value, number_t & result) const
  * @brief Конструктор
  *
  */
-nts::math::Modulus::Modulus() noexcept : _ready(false), _nist(false), _words(0), _size(0), _factor(0) {}
+nts::math::Modulus::Modulus() noexcept : _ready(false), _form(form_t::GENERAL), _words(0), _size(0), _factor(0), _tail(0) {}
 /**
  * @brief Деструктор
  *

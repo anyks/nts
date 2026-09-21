@@ -45,6 +45,14 @@
  */
 
 /**
+ * Автовекторизация gcc ломает цепочки переносов развёрнутых ядер арифметики (см.
+ * math/number.cpp): ключ ставится на весь файл, clang и lcc сюда не входят
+ */
+#if defined(__GNUC__) && !defined(__clang__) && !defined(__e2k__)
+	#pragma GCC optimize("no-tree-vectorize")
+#endif
+
+/**
  * Подключаем заголовочные файлы проекта
  */
 #include <math/field25519.hpp>

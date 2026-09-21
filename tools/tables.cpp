@@ -95,7 +95,7 @@ static bool emit(const char * identifier, const size_t place) noexcept {
 	// Определяем число слов в одной координате точки
 	const size_t words = ((size + 7) / 8);
 	// Определяем число окон, на которые разбит множитель
-	const size_t positions = ((size * 8) / curve::TABLES_WINDOW);
+	const size_t positions = (((size * 8) + curve::TABLES_WINDOW - 1) / curve::TABLES_WINDOW);
 	// Точка, кратные которой заготавливаются на очередном окне
 	curve::point_t step;
 	// Получаем точку основания кривой
@@ -242,7 +242,7 @@ int main() noexcept {
 		// Получаем длину координаты точки кривой в байтах
 		const size_t size = elliptic.size();
 		// Выводим запись описи очередного набора
-		::printf("\t\t{%zu, %zu, MULTIPLES%zu},\n", ((size + 7) / 8), ((size * 8) / curve::TABLES_WINDOW), i);
+		::printf("\t\t{%zu, %zu, MULTIPLES%zu},\n", ((size + 7) / 8), (((size * 8) + curve::TABLES_WINDOW - 1) / curve::TABLES_WINDOW), i);
 	}
 	// Выводим завершение описи и тело метода розыска
 	::printf(

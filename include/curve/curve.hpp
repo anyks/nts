@@ -85,7 +85,8 @@ namespace nts {
 		 *          обходится без обращения по модулю, самого дорогого из действий.
 		 *          Нулевая третья координата означает бесконечно удалённую точку.
 		 *
-		 * @note Координаты хранятся в области Монтгомери поля кривой
+		 * @note Координаты хранятся в области поля кривой: у общего пути и P-256 это область
+		 *       Монтгомери, у простых вида 2^k ± c числа лежат как есть (см. math::Modulus)
 		 *
 		 * \~english
 		 * @brief Point of an elliptic curve
@@ -94,7 +95,9 @@ namespace nts {
 		 *          therefore the addition of the points goes without an inversion by the
 		 *          modulus, the most expensive of the operations. A zero third coordinate
 		 *          means the point at infinity.
-		 * @note The coordinates are stored in the Montgomery domain of the field of the curve
+		 * @note The coordinates are stored in the domain of the field of the curve: at the general
+		 *       path and P-256 it is the Montgomery domain, at the primes of the form 2^k ± c the
+		 *       numbers lie as they are (see math::Modulus)
 		 *
 		 * \~
 		 */
@@ -121,6 +124,15 @@ namespace nts {
 		 *       порядок (раздел 5.2 ГОСТ Р 34.10-2012), у кривых с кофактором единица
 		 *       принадлежность подгруппе следует из уравнения кривой
 		 *
+		 * @note Формулы точек на полях в четыре и восемь слов встраивают ядра арифметики
+		 *       поля прямо в своё тело (внутренний заголовок ядер, устройство модуля из
+		 *       layout), а прочие ширины идут через объект арифметики: вызов через границу
+		 *       модуля стоил до трети умножения и половины сложения, при восьми умножениях и
+		 *       девяти сложениях на удвоение. Перебор заготовленных кратных при этом ведётся в
+		 *       накопителях по числу слов, а не в памяти. Замер 21.09.2026 (M4): удвоение
+		 *       148 → 114 нс, подпись ГОСТ 32 240 → 67 510 в секунду вместе с прочими
+		 *       правками того же дня
+		 *
 		 * \~english
 		 * @brief Elliptic curve over a field of a prime order
 		 * @details The multiplication of a point by a number is performed by a doubling with
@@ -131,6 +143,15 @@ namespace nts {
 		 *       cofactor of 4) are carried: a point outside the subgroup of the order q is rejected
 		 *       at the load by a multiplication by the order (section 5.2 of GOST R 34.10-2012),
 		 *       at the curves with a unit cofactor the membership follows from the equation of the curve
+		 * @note The formulas of the points on the fields of four and eight words inline the kernels
+		 *       of the field arithmetic right into their body (the internal header of the kernels,
+		 *       the layout of the modulus from layout), while the rest of the widths go through the
+		 *       arithmetic object: a call across the module boundary cost up to a third of a
+		 *       multiplication and a half of an addition, at eight multiplications and nine additions
+		 *       per doubling. The scanning of the precomputed multiples goes in the accumulators by the
+		 *       number of words rather than in memory. Measurement of 21.09.2026 (M4): a doubling
+		 *       148 → 114 ns, a GOST signature 32 240 → 67 510 per second together with the other
+		 *       changes of the same day
 		 *
 		 * \~
 		 */
@@ -482,6 +503,11 @@ namespace nts {
 				 *       заготавливаются при сборке библиотеки: умножение обращается в перебор
 				 *       заготовленного, и удвоений не остаётся вовсе
 				 *
+				 * @note Окно множителя - пять разрядов: у 256 разрядов выходит 52 окна и 52
+				 *       смешанных сложения вместо 64 при четырёх, строка окна - 31 кратное, и
+				 *       перебирается она целиком наложением маски в накопителях по числу слов;
+				 *       окно вправе лежать через границу слова, а старшее окно неполно
+				 *
 				 * @note У кривой, кратные которой не заготовлены, метод отступает к общему
 				 *       умножению точки на число, и итог от этого не меняется
 				 *
@@ -492,6 +518,10 @@ namespace nts {
 				 * @note The base point of a curve is the only one and is known beforehand, therefore
 				 *       its multiples are precomputed at the build of the library: the multiplication
 				 *       turns into the scanning of the precomputed ones, and no doublings are left at all
+				 * @note The window of the factor is five bits: at 256 bits it makes 52 windows and 52
+				 *       mixed additions instead of 64 at four, the row of a window holds 31 multiples, and
+				 *       it is scanned whole by an overlay of a mask in the accumulators by the number of
+				 *       words; a window may lie across the boundary of a word, and the top window is partial
 				 * @note At a curve the multiples of which are not precomputed the method falls back to
 				 *       the general multiplication of a point by a number, and the result does not
 				 *       change because of that

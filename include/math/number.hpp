@@ -157,6 +157,16 @@ namespace nts {
 		 * @note Модуль обязан быть простым и нечётным: обращение вычисляется возведением
 		 *       в степень по малой теореме Ферма
 		 *
+		 * @note Простые вида 2^(64·слов) - c и 2^(64·слов - 1) + c с малым c (все кривые
+		 *       ГОСТ Р 34.10-2012, кроме CryptoPro-C, и P-256 своим путём) опознаются при
+		 *       установке модуля, и умножение по ним идёт прямой свёрткой старшей половины
+		 *       произведения без области Монтгомери: enter и leave там обращаются в
+		 *       переписывание, а договор вызовов остаётся тем же. Обращение идёт окнами
+		 *       открытого показателя p - 2 по четыре разряда: 334 умножения вместо 532 на
+		 *       256 разрядах, время от обращаемого числа не зависит
+		 * @note Квадрат идёт своим входом square: он дешевле умножения, а умножение
+		 *       совпадения сомножителей не опознаёт
+		 *
 		 * \~english
 		 * @brief Arithmetic by a prime modulus
 		 * @details The multiplication is carried by Montgomery, therefore the numbers are
@@ -166,15 +176,67 @@ namespace nts {
 		 *          two multiplications for every single one.
 		 * @note The modulus must be prime and odd: the inversion is computed by a raise into
 		 *       a power by the little theorem of Fermat
+		 * @note The primes of the form 2^(64·words) - c and 2^(64·words - 1) + c with a small c
+		 *       (all the curves of GOST R 34.10-2012 except CryptoPro-C, and P-256 by its own path)
+		 *       are recognised at the setting of the modulus, and the multiplication by them goes
+		 *       by a direct folding of the high half of the product without the Montgomery domain:
+		 *       enter and leave turn into a copying there, while the contract of the calls stays
+		 *       the same. The inversion goes by the windows of the public exponent p - 2 of four
+		 *       bits each: 334 multiplications instead of 532 at 256 bits, the time does not depend
+		 *       on the number being inverted
+		 * @note The square goes by its own entry square: it costs less than a multiplication,
+		 *       while the multiplication does not recognise the coincidence of its factors
 		 *
 		 * \~
 		 */
 		typedef class __ANTS_SHARED_EXPORT__ Modulus {
+			public:
+				/**
+				 * \~russian
+				 * @brief Вид модуля, задающий путь умножения
+				 *
+				 * \~english
+				 * @brief Form of the modulus that sets the path of the multiplication
+				 *
+				 * \~
+				 */
+				enum class form_t : uint8_t {
+					GENERAL = 0x00, /*!< \~russian Произвольный модуль: умножение Монтгомери общего вида \~english Arbitrary modulus: the Montgomery multiplication of the general form \~ */
+					NIST    = 0x01, /*!< \~russian Простое число кривой P-256: Монтгомери с заложенными словами модуля \~english Prime of the curve P-256: Montgomery with the embedded words of the modulus \~ */
+					MINUS   = 0x02, /*!< \~russian Простое число вида 2^(64·слов) - c: прямая свёртка без области Монтгомери \~english Prime of the form 2^(64·words) - c: a direct folding without the Montgomery domain \~ */
+					PLUS    = 0x03  /*!< \~russian Простое число вида 2^(64·слов - 1) + c: прямая свёртка без области Монтгомери \~english Prime of the form 2^(64·words - 1) + c: a direct folding without the Montgomery domain \~ */
+				};
+				/**
+				 * \~russian
+				 * @brief Устройство модуля для встраиваемой арифметики
+				 *
+				 * @details Всё, что нужно ядрам умножения, сложения и вычитания известного числа
+				 *          слов: вид модуля, число слов, множитель приведения Монтгомери, хвост c
+				 *          и слова самого модуля. Выдаётся методом layout, чтобы модули кривых
+				 *          встраивали арифметику в свои формулы, минуя вызов через границу модуля
+				 *
+				 * \~english
+				 * @brief Layout of the modulus for the inlined arithmetic
+				 * @details Everything the kernels of the multiplication, addition and subtraction of a
+				 *          known number of words need: the form of the modulus, the number of words, the
+				 *          Montgomery reduction factor, the tail c and the words of the modulus itself.
+				 *          It is given by the method layout so that the curve modules inline the
+				 *          arithmetic into their formulas bypassing a call across the module boundary
+				 *
+				 * \~
+				 */
+				typedef struct Layout {
+					form_t form;              /*!< \~russian Вид модуля \~english Form of the modulus \~ */
+					size_t words;             /*!< \~russian Число слов модуля \~english Number of the words of the modulus \~ */
+					uint64_t factor;          /*!< \~russian Множитель приведения Монтгомери \~english Montgomery reduction factor \~ */
+					uint64_t tail;            /*!< \~russian Хвост c у модулей вида 2^k ± c \~english Tail c of the moduli of the form 2^k ± c \~ */
+					const uint64_t * modulus; /*!< \~russian Слова модуля от младшего к старшему \~english Words of the modulus from the least significant \~ */
+				} layout_t;
 			private:
 				// Признак того, что модуль установлен
 				bool _ready;
-				// Признак того, что модуль есть простое число кривой P-256
-				bool _nist;
+				// Вид модуля
+				form_t _form;
 			private:
 				// Число слов модуля
 				size_t _words;
@@ -183,11 +245,15 @@ namespace nts {
 			private:
 				// Обратное к младшему слову модуля значение со сменой знака
 				uint64_t _factor;
+				// Хвост c у модулей вида 2^k ± c
+				uint64_t _tail;
 			private:
 				// Значение модуля
 				number_t _modulus;
 				// Квадрат основания области Монтгомери по модулю
 				number_t _square;
+				// Основание разрядной сетки по модулю (2^(64·слов) mod p) у модулей вида 2^k ± c
+				number_t _shift;
 			public:
 				/**
 				 * \~russian
@@ -202,6 +268,19 @@ namespace nts {
 				 * \~
 				 */
 				bool ready() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения устройства модуля для встраиваемой арифметики
+				 *
+				 * @return устройство модуля; указатель на слова модуля действителен, пока жив объект
+				 *
+				 * \~english
+				 * @brief Method of getting the layout of the modulus for the inlined arithmetic
+				 * @return the layout of the modulus; the pointer to the words of the modulus is valid while the object lives
+				 *
+				 * \~
+				 */
+				layout_t layout() const noexcept;
 				/**
 				 * \~russian
 				 * @brief Метод получения размера модуля
@@ -460,6 +539,29 @@ namespace nts {
 				void multiply(const number_t & first, const number_t & second, number_t & result) const noexcept;
 				/**
 				 * \~russian
+				 * @brief Метод возведения числа в квадрат по модулю
+				 *
+				 * @param value  возводимое число в области Монтгомери
+				 * @param result место, в которое помещается квадрат в области Монтгомери
+				 *
+				 * @note Место итога вправе совпадать с местом возводимого числа
+				 * @note Квадрат считается своим путём и стоит дешевле умножения; умножение
+				 *       совпадения сомножителей не опознаёт, и квадраты следует брать здесь
+				 *
+				 * \~english
+				 * @brief Method of the squaring of a number by the modulus
+				 * @param value  the number being squared in the Montgomery domain
+				 * @param result the place the square in the Montgomery domain is put into
+				 * @note The place of the result may coincide with the place of the number being squared
+				 * @note The square is computed by its own path and costs less than a multiplication; the
+				 *       multiplication does not recognise the coincidence of its factors, therefore the
+				 *       squares are to be taken here
+				 *
+				 * \~
+				 */
+				void square(const number_t & value, number_t & result) const noexcept;
+				/**
+				 * \~russian
 				 * @brief Метод возведения числа в степень по модулю
 				 *
 				 * @param base     основание степени в области Монтгомери
@@ -488,14 +590,18 @@ namespace nts {
 				 * @param result место, в которое помещается обратное число в области Монтгомери
 				 *
 				 * @note Обращение вычисляется возведением в степень, меньшую модуля на два:
-				 *       это верно лишь при простом модуле
+				 *       это верно лишь при простом модуле. Показатель открыт, оттого степень
+				 *       берётся окнами по четыре разряда с заготовкой пятнадцати степеней, а
+				 *       порядок действий от обращаемого числа не зависит
 				 *
 				 * \~english
 				 * @brief Method of the inversion of a number by the modulus
 				 * @param value  the number being inverted in the Montgomery domain
 				 * @param result the place the inverse number in the Montgomery domain is put into
 				 * @note The inversion is computed by a raise into a power less than the modulus by
-				 *       two: this is true only at a prime modulus
+				 *       two: this is true only at a prime modulus. The exponent is public, therefore
+				 *       the power is taken by the windows of four bits with a preparation of fifteen
+				 *       powers, while the order of the operations does not depend on the number being inverted
 				 *
 				 * \~
 				 */
