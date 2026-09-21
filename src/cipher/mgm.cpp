@@ -484,7 +484,41 @@ namespace {
 		/**
 		 * Выполняем перебор блоков преобразуемого сообщения
 		 */
-		for(size_t offset = 0; ok && (offset < source.size); offset += block.size){
+		// Количество уже покрытых байтов сообщения
+		size_t offset = 0;
+		/**
+		 * Пока впереди не меньше четырёх целых блоков, счётчики шифруются по четыре
+		 * разом: блоки независимы, и шифр ведёт их одним телом
+		 */
+		while(ok && (block.batch != nullptr) && ((source.size - offset) >= (4 * block.size))){
+			// Четыре очередных значения счётчика
+			uint8_t counters[4 * MODE_BLOCK];
+			// Четыре блока гаммы
+			uint8_t gamma[4 * MODE_BLOCK];
+			/**
+			 * Выполняем заполнение четырёх счётчиков
+			 */
+			for(size_t k = 0; k < 4; k++){
+				// Записываем текущее значение счётчика
+				::memcpy(counters + (k * block.size), counter, block.size);
+				// Выполняем увеличение младшей половины счётчика на единицу
+				increment(counter, block.size, false);
+			}
+			// Выполняем зашифрование четырёх счётчиков разом
+			ok = block.batch(block.cipher, counters, 4, gamma);
+			/**
+			 * Выполняем наложение четырёх блоков гаммы
+			 */
+			for(size_t i = 0; ok && (i < (4 * block.size)); i++)
+				// Складываем очередные байты по модулю два
+				result[offset + i] = static_cast <uint8_t> (source.data[offset + i] ^ gamma[i]);
+			// Сдвигаем количество покрытых байтов
+			offset += (4 * block.size);
+			// Выполняем затирание счётчиков и гаммы
+			wipe(counters, sizeof(counters));
+			wipe(gamma, sizeof(gamma));
+		}
+		for(; ok && (offset < source.size); offset += block.size){
 			// Определяем размер очередного блока сообщения
 			const size_t count = ((source.size - offset) < block.size ? (source.size - offset) : block.size);
 			// Выполняем зашифрование текущего значения счётчика

@@ -24,6 +24,11 @@
  *       какой его не обеспечивает базовый алгоритм блочного шифрования: сами
  *       режимы по секретным значениям не ветвятся и в память по ним не обращаются
  *
+ * @note Режим счётчика шифрует счётчики по четыре разом через `block_t::batch`, где
+ *       шифр её даёт (AES, «Кузнечик», «Магма»): блоки гаммы независимы, и шифр ведёт
+ *       их одним телом; хвост короче четырёх идёт по блоку. Сам счётчик и наложение
+ *       гаммы устройством не меняются - пачка лишь переставляет порядок шифрования
+ *
  * @copyright Copyright © 2026
  *
  */
@@ -144,6 +149,51 @@ namespace {
 		return reinterpret_cast <const aes_t *> (cipher)->decrypt(source, result);
 	}
 	/**
+	 * @brief Метод зашифрования нескольких блоков разом шифром «Магма»
+	 *
+	 * @param cipher  объект блочного шифра
+	 * @param sources зашифровываемые блоки подряд
+	 * @param blocks  число блоков
+	 * @param results место, в которое помещаются зашифрованные блоки
+	 *
+	 * @return        признак успешности зашифрования
+	 *
+	 */
+	static bool batchMagma(const void * cipher, const uint8_t * sources, const size_t blocks, uint8_t * results) noexcept {
+		// Выполняем зашифрование блоков шифром «Магма»
+		return reinterpret_cast <const magma_t *> (cipher)->batch(sources, blocks, results);
+	}
+	/**
+	 * @brief Метод зашифрования нескольких блоков разом шифром «Кузнечик»
+	 *
+	 * @param cipher  объект блочного шифра
+	 * @param sources зашифровываемые блоки подряд
+	 * @param blocks  число блоков
+	 * @param results место, в которое помещаются зашифрованные блоки
+	 *
+	 * @return        признак успешности зашифрования
+	 *
+	 */
+	static bool batchKuznyechik(const void * cipher, const uint8_t * sources, const size_t blocks, uint8_t * results) noexcept {
+		// Выполняем зашифрование блоков шифром «Кузнечик»
+		return reinterpret_cast <const kuznyechik_t *> (cipher)->batch(sources, blocks, results);
+	}
+	/**
+	 * @brief Метод зашифрования нескольких блоков разом шифром AES
+	 *
+	 * @param cipher  объект блочного шифра
+	 * @param sources зашифровываемые блоки подряд
+	 * @param blocks  число блоков
+	 * @param results место, в которое помещаются зашифрованные блоки
+	 *
+	 * @return        признак успешности зашифрования
+	 *
+	 */
+	static bool batchAes(const void * cipher, const uint8_t * sources, const size_t blocks, uint8_t * results) noexcept {
+		// Выполняем зашифрование блоков шифром AES
+		return reinterpret_cast <const aes_t *> (cipher)->batch(sources, blocks, results);
+	}
+	/**
 	 * @brief Метод выработки гаммы счётчика шифром AES
 	 *
 	 * @param cipher  объект блочного шифра
@@ -219,7 +269,7 @@ namespace {
  *
  */
 nts::cipher::Block::Block() noexcept :
-	size(0), cipher(nullptr), encrypt(nullptr), decrypt(nullptr), stream(nullptr) {}
+	size(0), cipher(nullptr), encrypt(nullptr), decrypt(nullptr), stream(nullptr), batch(nullptr) {}
 /**
  * @brief Конструктор
  *
@@ -227,7 +277,7 @@ nts::cipher::Block::Block() noexcept :
  *
  */
 nts::cipher::Block::Block(const magma_t & cipher) noexcept :
-	size(MAGMA_BLOCK), cipher(&cipher), encrypt(&encryptMagma), decrypt(&decryptMagma), stream(nullptr) {}
+	size(MAGMA_BLOCK), cipher(&cipher), encrypt(&encryptMagma), decrypt(&decryptMagma), stream(nullptr), batch(&batchMagma) {}
 /**
  * @brief Конструктор
  *
@@ -235,7 +285,7 @@ nts::cipher::Block::Block(const magma_t & cipher) noexcept :
  *
  */
 nts::cipher::Block::Block(const kuznyechik_t & cipher) noexcept :
-	size(KUZNYECHIK_BLOCK), cipher(&cipher), encrypt(&encryptKuznyechik), decrypt(&decryptKuznyechik), stream(nullptr) {}
+	size(KUZNYECHIK_BLOCK), cipher(&cipher), encrypt(&encryptKuznyechik), decrypt(&decryptKuznyechik), stream(nullptr), batch(&batchKuznyechik) {}
 /**
  * @brief Конструктор
  *
@@ -243,7 +293,7 @@ nts::cipher::Block::Block(const kuznyechik_t & cipher) noexcept :
  *
  */
 nts::cipher::Block::Block(const aes_t & cipher) noexcept :
-	size(AES_BLOCK), cipher(&cipher), encrypt(&encryptAes), decrypt(&decryptAes), stream(&streamAes) {}
+	size(AES_BLOCK), cipher(&cipher), encrypt(&encryptAes), decrypt(&decryptAes), stream(&streamAes), batch(&batchAes) {}
 /**
  * @brief Метод проверки готовности режима к работе
  *
@@ -444,6 +494,59 @@ bool nts::cipher::Counter::encrypt(const view_t & source, uint8_t * result) noex
 		return false;
 	// Количество уже обработанных байтов сообщения
 	size_t offset = 0;
+	/**
+	 * Пока гамма израсходована, а впереди не меньше четырёх её блоков, счётчики
+	 * шифруются по четыре разом: блоки независимы, и шифр ведёт их одним телом
+	 */
+	while((this->_rest == 0) && (this->_block.batch != nullptr) && ((source.size - offset) >= (4 * this->_size))){
+		// Четыре очередных значения счётчика
+		uint8_t counters[4 * MODE_BLOCK];
+		// Четыре выхода базового алгоритма блочного шифрования
+		uint8_t buffer[4 * MODE_BLOCK];
+		/**
+		 * Выполняем заполнение четырёх счётчиков
+		 */
+		for(size_t k = 0; k < 4; k++){
+			// Записываем текущее значение счётчика
+			::memcpy(counters + (k * this->_block.size), this->_counter, this->_block.size);
+			/**
+			 * Выполняем увеличение счётчика на единицу от младшего байта
+			 */
+			for(size_t i = this->_block.size; i > 0; i--){
+				// Если очередной байт счётчика переполнения не даёт
+				if(++this->_counter[i - 1] != 0)
+					// Выходим из увеличения счётчика
+					break;
+			}
+		}
+		// Если зашифровать счётчики не удалось
+		if(!this->_block.batch(this->_block.cipher, counters, 4, buffer)){
+			// Выполняем затирание счётчиков и выходов шифра
+			wipe(counters, sizeof(counters));
+			wipe(buffer, sizeof(buffer));
+			// Выводим отказ зашифрования
+			return false;
+		}
+		/**
+		 * Выполняем наложение четырёх блоков гаммы: от всякого выхода шифра берётся
+		 * усечение до размера блока гаммы
+		 */
+		for(size_t k = 0; k < 4; k++){
+			// Выход шифра очередного счётчика
+			const uint8_t * gamma = (buffer + (k * this->_block.size));
+			/**
+			 * Выполняем наложение блока гаммы
+			 */
+			for(size_t i = 0; i < this->_size; i++)
+				// Складываем очередные байты по модулю два
+				result[offset + i] = static_cast <uint8_t> (source.data[offset + i] ^ gamma[i]);
+			// Сдвигаем количество обработанных байтов
+			offset += this->_size;
+		}
+		// Выполняем затирание счётчиков и выходов шифра
+		wipe(counters, sizeof(counters));
+		wipe(buffer, sizeof(buffer));
+	}
 	/**
 	 * Выполняем обработку сообщения до его исчерпания
 	 */

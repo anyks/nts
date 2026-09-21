@@ -177,6 +177,35 @@ namespace nts {
 				bool encrypt(const uint8_t * source, uint8_t * result) const noexcept;
 				/**
 				 * \~russian
+				 * @brief Метод зашифрования нескольких независимых блоков разом
+				 *
+				 * @param sources зашифровываемые блоки подряд
+				 * @param blocks  число блоков
+				 * @param results место, в которое помещаются зашифрованные блоки подряд
+				 *
+				 * @return признак успешности зашифрования
+				 *
+				 * @note Блоки независимы, и шифр ведёт их по четыре в одном теле: чтения
+				 *       таблиц разных блоков идут внахлёст, что даёт выигрыш на процессорах
+				 *       с широкой командой либо глубоким конвейером. Место итога вправе
+				 *       совпадать с местом исходных блоков
+				 *
+				 * \~english
+				 * @brief Method of the encryption of several independent blocks at once
+				 * @param sources the blocks being encrypted, one after another
+				 * @param blocks  the number of the blocks
+				 * @param results the place the encrypted blocks are put into, one after another
+				 * @return the flag of the success of the encryption
+				 * @note The blocks are independent and the cipher drives them four at a time in one
+				 *       body: the table reads of different blocks overlap, which gives a gain on the
+				 *       processors with a wide instruction or a deep pipeline. The place of the result
+				 *       may coincide with the place of the source blocks
+				 *
+				 * \~
+				 */
+				bool batch(const uint8_t * sources, const size_t blocks, uint8_t * results) const noexcept;
+				/**
+				 * \~russian
 				 * @brief Метод расшифрования блока
 				 *
 				 * @param source расшифровываемый блок

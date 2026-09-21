@@ -1130,7 +1130,7 @@ TEST(EchTest, Unsupported){
 	EXPECT_EQ(client.state(), context::state_t::FAILED);
 	EXPECT_EQ(client.error(), context::error_t::ECH);
 	EXPECT_TRUE(client.retry().empty());
-	// С конфигурациями предел изданий ниже 1.3 не ставится, а 1.3 - ставится (находка щупа Григория)
+	// С конфигурациями предел изданий ниже 1.3 не ставится, а 1.3 - ставится (находка внешнего щупа)
 	client::context_t bounded;
 	ASSERT_EQ(bounded.ech(corpus("ech/bssl.list")), context::error_t::NONE);
 	EXPECT_EQ(bounded.versions(0x0303, 0x0304), context::error_t::SETTINGS);

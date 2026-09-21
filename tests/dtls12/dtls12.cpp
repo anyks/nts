@@ -5380,6 +5380,8 @@ TEST(Dtls12Test, Interop){
 		// Пропускаем
 		GTEST_SKIP() << "openssl без DTLS 1.2";
 	}
+	// Ключ -no_etm появился у openssl 3.0: без него круги с ним пропускаются вслух
+	const bool noetmable = (listed("s_server", "no_etm") && listed("s_client", "no_etm"));
 	/**
 	 * @brief Круг обмена
 	 */
@@ -5401,6 +5403,13 @@ TEST(Dtls12Test, Interop){
 	 * Выполняем перебор кругов: наш клиент против s_server
 	 */
 	for(size_t r = 0; r < (sizeof(rounds) / sizeof(rounds[0])); r++){
+		// Если круг требует ключа -no_etm, которого у openssl нет
+		if(rounds[r].noetm && !noetmable){
+			// Сообщаем о пропуске круга вслух
+			cout << "круг " << r << " пропущен: openssl без ключа -no_etm" << endl;
+			// Переходим к следующему кругу
+			continue;
+		}
 		// Порт
 		const uint16_t number = vacant(true);
 		// Порт есть
@@ -5510,6 +5519,13 @@ TEST(Dtls12Test, Interop){
 	 * Выполняем перебор кругов: s_client против нашего сервера
 	 */
 	for(size_t r = 0; r < (sizeof(rounds) / sizeof(rounds[0])); r++){
+		// Если круг требует ключа -no_etm, которого у openssl нет
+		if(rounds[r].noetm && !noetmable){
+			// Сообщаем о пропуске круга вслух
+			cout << "круг " << r << " пропущен: openssl без ключа -no_etm" << endl;
+			// Переходим к следующему кругу
+			continue;
+		}
 		// Порт
 		uint16_t number = 0;
 		// Сокет

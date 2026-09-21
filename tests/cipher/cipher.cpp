@@ -294,3 +294,51 @@ TEST(CipherTest, Refusal) {
 	// Проверяем отказ расшифрования после затирания ключей
 	ASSERT_FALSE(magma.decrypt(block, block));
 }
+
+/**
+ * @brief Проверка зашифрования нескольких блоков разом против поблочного
+ *
+ * @details Пачка ведёт блоки по четыре в одном теле; итог обязан совпадать с
+ *          поблочным зашифрованием на любом числе блоков, включая хвост короче
+ *          четырёх и работу на месте
+ */
+TEST(CipherTest, Batch) {
+	// Ключ проверочного примера стандарта
+	uint8_t key[cipher::KUZNYECHIK_KEY];
+	// Разбираем ключ
+	ASSERT_EQ(bytes("8899aabbccddeeff0011223344556677fedcba98765432100123456789abcdef", key), cipher::KUZNYECHIK_KEY);
+	// Шифр «Кузнечик»
+	cipher::kuznyechik_t kuznyechik;
+	// Шифр «Магма»
+	cipher::magma_t magma;
+	// Устанавливаем ключи
+	ASSERT_TRUE(kuznyechik.key(view_t(key, sizeof(key))));
+	ASSERT_TRUE(magma.key(view_t(key, sizeof(key))));
+	// Число блоков: пять четвёрок и хвост в один блок
+	const size_t blocks = 21;
+	// Исходные блоки «Кузнечика», итог пачкой и поблочно
+	uint8_t source[21 * 16], batched[21 * 16], single[21 * 16];
+	// Заполняем исходные блоки
+	for(size_t i = 0; i < sizeof(source); i++)
+		source[i] = static_cast <uint8_t> (i * 37 + 11);
+	// Шифруем пачкой
+	ASSERT_TRUE(kuznyechik.batch(source, blocks, batched));
+	// Шифруем поблочно
+	for(size_t i = 0; i < blocks; i++)
+		ASSERT_TRUE(kuznyechik.encrypt(source + (i * 16), single + (i * 16)));
+	// Сличаем итоги
+	ASSERT_EQ(::memcmp(batched, single, sizeof(single)), 0);
+	// Шифруем пачкой на месте
+	::memcpy(batched, source, sizeof(source));
+	ASSERT_TRUE(kuznyechik.batch(batched, blocks, batched));
+	ASSERT_EQ(::memcmp(batched, single, sizeof(single)), 0);
+	// «Магма»: те же байты как 42 блока по восемь
+	ASSERT_TRUE(magma.batch(source, blocks * 2, batched));
+	for(size_t i = 0; i < (blocks * 2); i++)
+		ASSERT_TRUE(magma.encrypt(source + (i * 8), single + (i * 8)));
+	ASSERT_EQ(::memcmp(batched, single, sizeof(single)), 0);
+	// Пустая пачка и пачка без ключа
+	ASSERT_TRUE(magma.batch(source, 0, batched));
+	cipher::kuznyechik_t bare;
+	ASSERT_FALSE(bare.batch(source, blocks, batched));
+}

@@ -23,6 +23,9 @@
  *       подстановке идёт по секретному значению. Устранение этого требует
  *       поразрядной реализации и вынесено отдельной работой
  *
+ * @note Пачка `batch` ведёт четыре блока в одном теле: подстановки разных блоков на
+ *       круге не зависят друг от друга, и процессор исполняет их внахлёст
+ *
  * @copyright Copyright © 2026
  *
  */
@@ -236,6 +239,48 @@ namespace {
 	 * @param result  место, в которое помещается преобразованный блок
 	 *
 	 */
+	/**
+	 * @brief Метод преобразования четырёх независимых блоков разом
+	 *
+	 * @details Четыре блока идут одним телом: подстановки разных блоков на круге не
+	 *          зависят друг от друга, и процессор исполняет их внахлёст
+	 *
+	 * @param keys   раундовые ключи в порядке применения
+	 * @param source четыре преобразуемых блока подряд
+	 * @param result место, в которое помещаются четыре преобразованных блока подряд
+	 *
+	 */
+	static void process4(const uint32_t * keys, const uint8_t * source, uint8_t * result) noexcept {
+		// Половины четырёх блоков
+		uint32_t h0 = load(source), l0 = load(source + 4), h1 = load(source + 8), l1 = load(source + 12);
+		uint32_t h2 = load(source + 16), l2 = load(source + 20), h3 = load(source + 24), l3 = load(source + 28);
+		/**
+		 * Выполняем тридцать один круг над четырьмя блоками
+		 */
+		for(size_t i = 0; i < 31; i++){
+			// Ключ круга
+			const uint32_t key = keys[i];
+			// Новые младшие половины четырёх блоков
+			const uint32_t t0 = (round(l0, key) ^ h0), t1 = (round(l1, key) ^ h1), t2 = (round(l2, key) ^ h2), t3 = (round(l3, key) ^ h3);
+			// Сдвигаем половины блоков
+			h0 = l0; l0 = t0;
+			h1 = l1; l1 = t1;
+			h2 = l2; l2 = t2;
+			h3 = l3; l3 = t3;
+		}
+		// Записываем итог последнего круга первого блока
+		store(round(l0, keys[31]) ^ h0, result);
+		store(l0, result + 4);
+		// Записываем итог последнего круга второго блока
+		store(round(l1, keys[31]) ^ h1, result + 8);
+		store(l1, result + 12);
+		// Записываем итог последнего круга третьего блока
+		store(round(l2, keys[31]) ^ h2, result + 16);
+		store(l2, result + 20);
+		// Записываем итог последнего круга четвёртого блока
+		store(round(l3, keys[31]) ^ h3, result + 24);
+		store(l3, result + 28);
+	}
 	static __ANTS_INLINE__ void process(const uint32_t * keys, const uint8_t * source, uint8_t * result) noexcept {
 		// Разбираем старшую половину преобразуемого блока
 		uint32_t high = load(source);
@@ -343,6 +388,45 @@ bool nts::cipher::Magma::encrypt(const uint8_t * source, uint8_t * result) const
  * @return       признак успешности расшифрования
  *
  */
+/**
+ * @brief Метод зашифрования нескольких независимых блоков разом
+ *
+ * @param sources зашифровываемые блоки подряд
+ * @param blocks  число блоков
+ * @param results место, в которое помещаются зашифрованные блоки подряд
+ *
+ * @return        признак успешности зашифрования
+ *
+ */
+bool nts::cipher::Magma::batch(const uint8_t * sources, const size_t blocks, uint8_t * results) const noexcept {
+	// Если ключ не установлен либо места не переданы
+	if(!this->_ready || ((blocks > 0) && ((sources == nullptr) || (results == nullptr))))
+		// Выводим отказ зашифрования
+		return false;
+	// Число оставшихся блоков
+	size_t left = blocks;
+	/**
+	 * Выполняем шифрование по четыре блока разом
+	 */
+	while(left >= 4){
+		// Преобразуем четыре блока одним телом
+		process4(this->_keys, sources, results);
+		// Сдвигаем исходные блоки
+		sources += (4 * MAGMA_BLOCK);
+		// Сдвигаем место итога
+		results += (4 * MAGMA_BLOCK);
+		// Уменьшаем число оставшихся блоков
+		left -= 4;
+	}
+	/**
+	 * Выполняем шифрование хвоста по блоку
+	 */
+	for(size_t i = 0; i < left; i++)
+		// Шифруем очередной блок
+		this->encrypt(sources + (i * MAGMA_BLOCK), results + (i * MAGMA_BLOCK));
+	// Выводим успешность зашифрования
+	return true;
+}
 bool nts::cipher::Magma::decrypt(const uint8_t * source, uint8_t * result) const noexcept {
 	// Если ключ не установлен либо места не переданы
 	if(!this->_ready || (source == nullptr) || (result == nullptr))

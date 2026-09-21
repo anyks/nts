@@ -68,24 +68,34 @@
 /**
  * Если сборка ведётся под x86-64 собирателем семейства GCC
  */
-#elif defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(ANTS_NO_MACHINE)
+#elif (defined(__x86_64__) || defined(__e2k__)) && (defined(__GNUC__) || defined(__clang__)) && !defined(ANTS_NO_MACHINE)
 	/**
 	 * Подключаем заголовочный файл команд x86-64 вплоть до AVX2
 	 */
 	#include <immintrin.h>
 
 	/**
-	 * Разрешаем команды SSE2 одной функции: они входят в основание набора x86-64
+	 * Если сборка ведётся под Эльбрус: собиратель lcc переводит команды x86-64 в свои
+	 * векторные операции, а атрибутов цели не знает - ветви идут без атрибутов
 	 */
-	#define __ANTS_CHACHA_SSE2_TARGET__ __attribute__((target("sse2")))
-	/**
-	 * Разрешаем команды SSSE3 одной функции
-	 */
-	#define __ANTS_CHACHA_SSSE3_TARGET__ __attribute__((target("ssse3")))
-	/**
-	 * Разрешаем команды AVX2 одной функции
-	 */
-	#define __ANTS_CHACHA_AVX2_TARGET__ __attribute__((target("avx2")))
+	#if defined(__e2k__)
+		#define __ANTS_CHACHA_SSE2_TARGET__
+		#define __ANTS_CHACHA_SSSE3_TARGET__
+		#define __ANTS_CHACHA_AVX2_TARGET__
+	#else
+		/**
+		 * Разрешаем команды SSE2 одной функции: они входят в основание набора x86-64
+		 */
+		#define __ANTS_CHACHA_SSE2_TARGET__ __attribute__((target("sse2")))
+		/**
+		 * Разрешаем команды SSSE3 одной функции
+		 */
+		#define __ANTS_CHACHA_SSSE3_TARGET__ __attribute__((target("ssse3")))
+		/**
+		 * Разрешаем команды AVX2 одной функции
+		 */
+		#define __ANTS_CHACHA_AVX2_TARGET__ __attribute__((target("avx2")))
+	#endif
 
 	/**
 	 * Объявляем наличие ветвей команд x86-64

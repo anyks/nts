@@ -41,6 +41,13 @@
 #include <sys/wipe.hpp>
 
 /**
+ * @note Табличный путь ведёт круги развёрнутыми по числу кругов ключа (шаблон на 10, 12
+ *       и 14) и шифрует независимые блоки по четыре в одном теле (гамма счётчика и пачка
+ *       `batch`): шестьдесят четыре чтения таблиц на круг не зависят друг от друга, и
+ *       процессор с широкой командой либо глубоким конвейером исполняет их внахлёст.
+ *       Так решено по замеру на Эльбрусе: один блок 95 МБ/с, четыре - 141, а прежний
+ *       цикл со счётчиком кругов - 79
+ *
  * @note Обе ветви - командами и таблицами - собираются в один двоичный файл, а выбор
  *       делается на исполнении по опознанию машины (sys/machine.hpp). Команды
  *       порождаются в отдельных функциях с атрибутом цели, оттого общих ключей
@@ -90,7 +97,7 @@
 /**
  * Если сборка ведётся под x86-64 собирателем семейства GCC
  */
-#elif defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(ANTS_NO_MACHINE)
+#elif (defined(__x86_64__) || defined(__e2k__)) && (defined(__GNUC__) || defined(__clang__)) && !defined(ANTS_NO_MACHINE)
 	/**
 	 * Подключаем заголовочный файл команд x86-64
 	 */
@@ -476,6 +483,203 @@ namespace {
 		}
 	}
 
+	/**
+	 * @brief Круг шифрования таблицами: четыре слова состояния в четыре новых
+	 *
+	 * @param s0  первое слово состояния
+	 * @param s1  второе слово состояния
+	 * @param s2  третье слово состояния
+	 * @param s3  четвёртое слово состояния
+	 * @param key ключ круга
+	 * @param t0  место первого слова нового состояния
+	 * @param t1  место второго слова нового состояния
+	 * @param t2  место третьего слова нового состояния
+	 * @param t3  место четвёртого слова нового состояния
+	 *
+	 */
+	static __ANTS_INLINE__ void sealRound(const uint32_t s0, const uint32_t s1, const uint32_t s2, const uint32_t s3, const uint32_t * key, uint32_t & t0, uint32_t & t1, uint32_t & t2, uint32_t & t3) noexcept {
+		t0 = (TABLES.te[0][s0 >> 24] ^ TABLES.te[1][(s1 >> 16) & 0xFF] ^ TABLES.te[2][(s2 >> 8) & 0xFF] ^ TABLES.te[3][s3 & 0xFF] ^ key[0]);
+		t1 = (TABLES.te[0][s1 >> 24] ^ TABLES.te[1][(s2 >> 16) & 0xFF] ^ TABLES.te[2][(s3 >> 8) & 0xFF] ^ TABLES.te[3][s0 & 0xFF] ^ key[1]);
+		t2 = (TABLES.te[0][s2 >> 24] ^ TABLES.te[1][(s3 >> 16) & 0xFF] ^ TABLES.te[2][(s0 >> 8) & 0xFF] ^ TABLES.te[3][s1 & 0xFF] ^ key[2]);
+		t3 = (TABLES.te[0][s3 >> 24] ^ TABLES.te[1][(s0 >> 16) & 0xFF] ^ TABLES.te[2][(s1 >> 8) & 0xFF] ^ TABLES.te[3][s2 & 0xFF] ^ key[3]);
+	}
+	/**
+	 * @brief Последний круг шифрования таблицами: подстановка байтов и запись итога
+	 *
+	 * @param s0     первое слово состояния
+	 * @param s1     второе слово состояния
+	 * @param s2     третье слово состояния
+	 * @param s3     четвёртое слово состояния
+	 * @param key    ключ последнего круга
+	 * @param result место, в которое помещается зашифрованный блок
+	 *
+	 */
+	static __ANTS_INLINE__ void sealLast(const uint32_t s0, const uint32_t s1, const uint32_t s2, const uint32_t s3, const uint32_t * key, uint8_t * result) noexcept {
+		store(((static_cast <uint32_t> (TABLES.sbox[s0 >> 24]) << 24) | (static_cast <uint32_t> (TABLES.sbox[(s1 >> 16) & 0xFF]) << 16) | (static_cast <uint32_t> (TABLES.sbox[(s2 >> 8) & 0xFF]) << 8) | static_cast <uint32_t> (TABLES.sbox[s3 & 0xFF])) ^ key[0], result);
+		store(((static_cast <uint32_t> (TABLES.sbox[s1 >> 24]) << 24) | (static_cast <uint32_t> (TABLES.sbox[(s2 >> 16) & 0xFF]) << 16) | (static_cast <uint32_t> (TABLES.sbox[(s3 >> 8) & 0xFF]) << 8) | static_cast <uint32_t> (TABLES.sbox[s0 & 0xFF])) ^ key[1], result + 4);
+		store(((static_cast <uint32_t> (TABLES.sbox[s2 >> 24]) << 24) | (static_cast <uint32_t> (TABLES.sbox[(s3 >> 16) & 0xFF]) << 16) | (static_cast <uint32_t> (TABLES.sbox[(s0 >> 8) & 0xFF]) << 8) | static_cast <uint32_t> (TABLES.sbox[s1 & 0xFF])) ^ key[2], result + 8);
+		store(((static_cast <uint32_t> (TABLES.sbox[s3 >> 24]) << 24) | (static_cast <uint32_t> (TABLES.sbox[(s0 >> 16) & 0xFF]) << 16) | (static_cast <uint32_t> (TABLES.sbox[(s1 >> 8) & 0xFF]) << 8) | static_cast <uint32_t> (TABLES.sbox[s2 & 0xFF])) ^ key[3], result + 12);
+	}
+	/**
+	 * @brief Круг расшифрования таблицами: четыре слова состояния в четыре новых
+	 *
+	 * @param s0  первое слово состояния
+	 * @param s1  второе слово состояния
+	 * @param s2  третье слово состояния
+	 * @param s3  четвёртое слово состояния
+	 * @param key ключ круга
+	 * @param t0  место первого слова нового состояния
+	 * @param t1  место второго слова нового состояния
+	 * @param t2  место третьего слова нового состояния
+	 * @param t3  место четвёртого слова нового состояния
+	 *
+	 */
+	static __ANTS_INLINE__ void openRound(const uint32_t s0, const uint32_t s1, const uint32_t s2, const uint32_t s3, const uint32_t * key, uint32_t & t0, uint32_t & t1, uint32_t & t2, uint32_t & t3) noexcept {
+		t0 = (TABLES.td[0][s0 >> 24] ^ TABLES.td[1][(s3 >> 16) & 0xFF] ^ TABLES.td[2][(s2 >> 8) & 0xFF] ^ TABLES.td[3][s1 & 0xFF] ^ key[0]);
+		t1 = (TABLES.td[0][s1 >> 24] ^ TABLES.td[1][(s0 >> 16) & 0xFF] ^ TABLES.td[2][(s3 >> 8) & 0xFF] ^ TABLES.td[3][s2 & 0xFF] ^ key[1]);
+		t2 = (TABLES.td[0][s2 >> 24] ^ TABLES.td[1][(s1 >> 16) & 0xFF] ^ TABLES.td[2][(s0 >> 8) & 0xFF] ^ TABLES.td[3][s3 & 0xFF] ^ key[2]);
+		t3 = (TABLES.td[0][s3 >> 24] ^ TABLES.td[1][(s2 >> 16) & 0xFF] ^ TABLES.td[2][(s1 >> 8) & 0xFF] ^ TABLES.td[3][s0 & 0xFF] ^ key[3]);
+	}
+	/**
+	 * @brief Последний круг расшифрования таблицами: обратная подстановка и запись итога
+	 *
+	 * @param s0     первое слово состояния
+	 * @param s1     второе слово состояния
+	 * @param s2     третье слово состояния
+	 * @param s3     четвёртое слово состояния
+	 * @param key    ключ последнего круга
+	 * @param result место, в которое помещается расшифрованный блок
+	 *
+	 */
+	static __ANTS_INLINE__ void openLast(const uint32_t s0, const uint32_t s1, const uint32_t s2, const uint32_t s3, const uint32_t * key, uint8_t * result) noexcept {
+		store(((static_cast <uint32_t> (TABLES.inverse[s0 >> 24]) << 24) | (static_cast <uint32_t> (TABLES.inverse[(s3 >> 16) & 0xFF]) << 16) | (static_cast <uint32_t> (TABLES.inverse[(s2 >> 8) & 0xFF]) << 8) | static_cast <uint32_t> (TABLES.inverse[s1 & 0xFF])) ^ key[0], result);
+		store(((static_cast <uint32_t> (TABLES.inverse[s1 >> 24]) << 24) | (static_cast <uint32_t> (TABLES.inverse[(s0 >> 16) & 0xFF]) << 16) | (static_cast <uint32_t> (TABLES.inverse[(s3 >> 8) & 0xFF]) << 8) | static_cast <uint32_t> (TABLES.inverse[s2 & 0xFF])) ^ key[1], result + 4);
+		store(((static_cast <uint32_t> (TABLES.inverse[s2 >> 24]) << 24) | (static_cast <uint32_t> (TABLES.inverse[(s1 >> 16) & 0xFF]) << 16) | (static_cast <uint32_t> (TABLES.inverse[(s0 >> 8) & 0xFF]) << 8) | static_cast <uint32_t> (TABLES.inverse[s3 & 0xFF])) ^ key[2], result + 8);
+		store(((static_cast <uint32_t> (TABLES.inverse[s3 >> 24]) << 24) | (static_cast <uint32_t> (TABLES.inverse[(s2 >> 16) & 0xFF]) << 16) | (static_cast <uint32_t> (TABLES.inverse[(s1 >> 8) & 0xFF]) << 8) | static_cast <uint32_t> (TABLES.inverse[s0 & 0xFF])) ^ key[3], result + 12);
+	}
+	/**
+	 * @brief Метод шифрования одного блока таблицами с известным на сборке числом кругов
+	 *
+	 * @details Число кругов заложено постоянной шаблона: собиратель разворачивает круги
+	 *          целиком и держит состояние в регистрах без счётчика цикла. Полных кругов
+	 *          нечётное число у всех трёх длин ключа (9, 11, 13): они идут парами, а
+	 *          последний полный - отдельно перед заключительной подстановкой
+	 *
+	 * @param keys   развёрнутое расписание ключей шифрования
+	 * @param source шифруемый блок
+	 * @param result место, в которое помещается зашифрованный блок
+	 *
+	 */
+	template <size_t ROUNDS>
+	static void sealTables(const uint32_t * keys, const uint8_t * source, uint8_t * result) noexcept {
+		uint32_t s0 = (load(source) ^ keys[0]), s1 = (load(source + 4) ^ keys[1]);
+		uint32_t s2 = (load(source + 8) ^ keys[2]), s3 = (load(source + 12) ^ keys[3]);
+		uint32_t t0 = 0, t1 = 0, t2 = 0, t3 = 0;
+		for(size_t round = 1; (round + 1) < ROUNDS; round += 2){
+			sealRound(s0, s1, s2, s3, keys + (round * 4), t0, t1, t2, t3);
+			sealRound(t0, t1, t2, t3, keys + ((round + 1) * 4), s0, s1, s2, s3);
+		}
+		sealRound(s0, s1, s2, s3, keys + ((ROUNDS - 1) * 4), t0, t1, t2, t3);
+		sealLast(t0, t1, t2, t3, keys + (ROUNDS * 4), result);
+	}
+	/**
+	 * @brief Метод расшифрования одного блока таблицами с известным на сборке числом кругов
+	 *
+	 * @param keys   развёрнутое расписание ключей расшифрования
+	 * @param source расшифровываемый блок
+	 * @param result место, в которое помещается расшифрованный блок
+	 *
+	 */
+	template <size_t ROUNDS>
+	static void openTables(const uint32_t * keys, const uint8_t * source, uint8_t * result) noexcept {
+		uint32_t s0 = (load(source) ^ keys[0]), s1 = (load(source + 4) ^ keys[1]);
+		uint32_t s2 = (load(source + 8) ^ keys[2]), s3 = (load(source + 12) ^ keys[3]);
+		uint32_t t0 = 0, t1 = 0, t2 = 0, t3 = 0;
+		for(size_t round = 1; (round + 1) < ROUNDS; round += 2){
+			openRound(s0, s1, s2, s3, keys + (round * 4), t0, t1, t2, t3);
+			openRound(t0, t1, t2, t3, keys + ((round + 1) * 4), s0, s1, s2, s3);
+		}
+		openRound(s0, s1, s2, s3, keys + ((ROUNDS - 1) * 4), t0, t1, t2, t3);
+		openLast(t0, t1, t2, t3, keys + (ROUNDS * 4), result);
+	}
+	/**
+	 * @brief Метод шифрования четырёх блоков таблицами разом
+	 *
+	 * @details Четыре независимых блока идут одним телом: на всяком круге шестьдесят
+	 *          четыре чтения таблиц не зависят друг от друга, и процессор с широкой
+	 *          командой либо глубоким конвейером исполняет их внахлёст, тогда как
+	 *          один блок ждёт всякое чтение по очереди. На Эльбрусе это полтора раза
+	 *          сверх одного блока при тех же таблицах
+	 *
+	 * @param keys   развёрнутое расписание ключей шифрования
+	 * @param source четыре шифруемых блока подряд
+	 * @param result место, в которое помещаются четыре зашифрованных блока
+	 *
+	 */
+	template <size_t ROUNDS>
+	static void sealFour(const uint32_t * keys, const uint8_t * source, uint8_t * result) noexcept {
+		uint32_t a0 = (load(source) ^ keys[0]), a1 = (load(source + 4) ^ keys[1]), a2 = (load(source + 8) ^ keys[2]), a3 = (load(source + 12) ^ keys[3]);
+		uint32_t b0 = (load(source + 16) ^ keys[0]), b1 = (load(source + 20) ^ keys[1]), b2 = (load(source + 24) ^ keys[2]), b3 = (load(source + 28) ^ keys[3]);
+		uint32_t c0 = (load(source + 32) ^ keys[0]), c1 = (load(source + 36) ^ keys[1]), c2 = (load(source + 40) ^ keys[2]), c3 = (load(source + 44) ^ keys[3]);
+		uint32_t d0 = (load(source + 48) ^ keys[0]), d1 = (load(source + 52) ^ keys[1]), d2 = (load(source + 56) ^ keys[2]), d3 = (load(source + 60) ^ keys[3]);
+		uint32_t x0 = 0, x1 = 0, x2 = 0, x3 = 0, y0 = 0, y1 = 0, y2 = 0, y3 = 0, z0 = 0, z1 = 0, z2 = 0, z3 = 0, w0 = 0, w1 = 0, w2 = 0, w3 = 0;
+		for(size_t round = 1; (round + 1) < ROUNDS; round += 2){
+			const uint32_t * key = (keys + (round * 4));
+			sealRound(a0, a1, a2, a3, key, x0, x1, x2, x3);
+			sealRound(b0, b1, b2, b3, key, y0, y1, y2, y3);
+			sealRound(c0, c1, c2, c3, key, z0, z1, z2, z3);
+			sealRound(d0, d1, d2, d3, key, w0, w1, w2, w3);
+			key += 4;
+			sealRound(x0, x1, x2, x3, key, a0, a1, a2, a3);
+			sealRound(y0, y1, y2, y3, key, b0, b1, b2, b3);
+			sealRound(z0, z1, z2, z3, key, c0, c1, c2, c3);
+			sealRound(w0, w1, w2, w3, key, d0, d1, d2, d3);
+		}
+		const uint32_t * key = (keys + ((ROUNDS - 1) * 4));
+		sealRound(a0, a1, a2, a3, key, x0, x1, x2, x3);
+		sealRound(b0, b1, b2, b3, key, y0, y1, y2, y3);
+		sealRound(c0, c1, c2, c3, key, z0, z1, z2, z3);
+		sealRound(d0, d1, d2, d3, key, w0, w1, w2, w3);
+		key = (keys + (ROUNDS * 4));
+		sealLast(x0, x1, x2, x3, key, result);
+		sealLast(y0, y1, y2, y3, key, result + 16);
+		sealLast(z0, z1, z2, z3, key, result + 32);
+		sealLast(w0, w1, w2, w3, key, result + 48);
+	}
+	/**
+	 * @brief Метод выработки гаммы таблицами: по четыре блока счётчика разом
+	 *
+	 * @param keys    развёрнутое расписание ключей шифрования
+	 * @param counter начальное значение счётчика
+	 * @param blocks  число блоков гаммы
+	 * @param result  место, в которое помещается гамма
+	 *
+	 */
+	template <size_t ROUNDS>
+	static void streamTables(const uint32_t * keys, const uint8_t * counter, const size_t blocks, uint8_t * result) noexcept {
+		uint8_t current[16];
+		::memcpy(current, counter, sizeof(current));
+		uint8_t counters[64];
+		size_t left = blocks;
+		while(left >= 4){
+			for(size_t i = 0; i < 4; i++){
+				advance(current);
+				::memcpy(counters + (i * 16), current, 16);
+			}
+			sealFour <ROUNDS> (keys, counters, result);
+			result += 64;
+			left -= 4;
+		}
+		while(left > 0){
+			advance(current);
+			sealTables <ROUNDS> (keys, current, result);
+			result += 16;
+			left--;
+		}
+		wipe(counters, sizeof(counters));
+		wipe(current, sizeof(current));
+	}
+
 /**
  * Если есть ветвь команд AES расширения ARMv8
  */
@@ -819,45 +1023,19 @@ bool nts::cipher::Aes::encrypt(const uint8_t * source, uint8_t * result) const n
 	}
 #endif
 	// Раундовые ключи
-	const uint32_t * keys = this->_encryption;
-	// Слова состояния, сложенные с первым раундовым ключом
-	uint32_t s0 = (load(source) ^ keys[0]), s1 = (load(source + 4) ^ keys[1]);
-	// Слова состояния, сложенные с первым раундовым ключом
-	uint32_t s2 = (load(source + 8) ^ keys[2]), s3 = (load(source + 12) ^ keys[3]);
 	/**
-	 * Выполняем внутренние раунды по таблицам
+	 * Число кругов известно с установки ключа: путь с ним, заложенным на сборке,
+	 * разворачивает круги целиком и держит состояние в регистрах
 	 */
-	for(size_t round = 1; round < this->_rounds; round++){
-		// Раундовый ключ
-		const uint32_t * key = (keys + (round * 4));
-		// Первое слово нового состояния
-		const uint32_t t0 = (TABLES.te[0][s0 >> 24] ^ TABLES.te[1][(s1 >> 16) & 0xFF] ^ TABLES.te[2][(s2 >> 8) & 0xFF] ^ TABLES.te[3][s3 & 0xFF] ^ key[0]);
-		// Второе слово нового состояния
-		const uint32_t t1 = (TABLES.te[0][s1 >> 24] ^ TABLES.te[1][(s2 >> 16) & 0xFF] ^ TABLES.te[2][(s3 >> 8) & 0xFF] ^ TABLES.te[3][s0 & 0xFF] ^ key[1]);
-		// Третье слово нового состояния
-		const uint32_t t2 = (TABLES.te[0][s2 >> 24] ^ TABLES.te[1][(s3 >> 16) & 0xFF] ^ TABLES.te[2][(s0 >> 8) & 0xFF] ^ TABLES.te[3][s1 & 0xFF] ^ key[2]);
-		// Четвёртое слово нового состояния
-		const uint32_t t3 = (TABLES.te[0][s3 >> 24] ^ TABLES.te[1][(s0 >> 16) & 0xFF] ^ TABLES.te[2][(s1 >> 8) & 0xFF] ^ TABLES.te[3][s2 & 0xFF] ^ key[3]);
-		// Переносим новое состояние
-		s0 = t0;
-		// Переносим новое состояние
-		s1 = t1;
-		// Переносим новое состояние
-		s2 = t2;
-		// Переносим новое состояние
-		s3 = t3;
+	switch(this->_rounds){
+		// Круги AES-128
+		case 10: sealTables <10> (this->_encryption, source, result); break;
+		// Круги AES-192
+		case 12: sealTables <12> (this->_encryption, source, result); break;
+		// Круги AES-256
+		default: sealTables <14> (this->_encryption, source, result); break;
 	}
-	// Последний раундовый ключ
-	const uint32_t * last = (keys + (this->_rounds * 4));
-	// Последний раунд без перемешивания столбцов: подстановка, сдвиг строк и ключ
-	store(((static_cast <uint32_t> (TABLES.sbox[s0 >> 24]) << 24) | (static_cast <uint32_t> (TABLES.sbox[(s1 >> 16) & 0xFF]) << 16) | (static_cast <uint32_t> (TABLES.sbox[(s2 >> 8) & 0xFF]) << 8) | static_cast <uint32_t> (TABLES.sbox[s3 & 0xFF])) ^ last[0], result);
-	// Второе слово итога
-	store(((static_cast <uint32_t> (TABLES.sbox[s1 >> 24]) << 24) | (static_cast <uint32_t> (TABLES.sbox[(s2 >> 16) & 0xFF]) << 16) | (static_cast <uint32_t> (TABLES.sbox[(s3 >> 8) & 0xFF]) << 8) | static_cast <uint32_t> (TABLES.sbox[s0 & 0xFF])) ^ last[1], result + 4);
-	// Третье слово итога
-	store(((static_cast <uint32_t> (TABLES.sbox[s2 >> 24]) << 24) | (static_cast <uint32_t> (TABLES.sbox[(s3 >> 16) & 0xFF]) << 16) | (static_cast <uint32_t> (TABLES.sbox[(s0 >> 8) & 0xFF]) << 8) | static_cast <uint32_t> (TABLES.sbox[s1 & 0xFF])) ^ last[2], result + 8);
-	// Четвёртое слово итога
-	store(((static_cast <uint32_t> (TABLES.sbox[s3 >> 24]) << 24) | (static_cast <uint32_t> (TABLES.sbox[(s0 >> 16) & 0xFF]) << 16) | (static_cast <uint32_t> (TABLES.sbox[(s1 >> 8) & 0xFF]) << 8) | static_cast <uint32_t> (TABLES.sbox[s2 & 0xFF])) ^ last[3], result + 12);
-	// Выводим успешность зашифрования
+	// Выводим успешность шифрования
 	return true;
 }
 /**
@@ -869,6 +1047,68 @@ bool nts::cipher::Aes::encrypt(const uint8_t * source, uint8_t * result) const n
  * @return       признак успешности расшифрования
  *
  */
+/**
+ * @brief Метод зашифрования нескольких независимых блоков разом
+ *
+ * @param sources зашифровываемые блоки подряд
+ * @param blocks  число блоков
+ * @param results место, в которое помещаются зашифрованные блоки подряд
+ *
+ * @return        признак успешности зашифрования
+ *
+ */
+bool nts::cipher::Aes::batch(const uint8_t * sources, const size_t blocks, uint8_t * results) const noexcept {
+	// Если ключ не установлен либо места не переданы
+	if(!this->_ready || ((blocks > 0) && ((sources == nullptr) || (results == nullptr))))
+		// Выводим отказ зашифрования
+		return false;
+/**
+ * Если есть ветвь команд AES
+ */
+#if defined(__ANTS_AES_ARM__) || defined(__ANTS_AES_X86__)
+	// Если у машины есть команды AES: блок за блоком командами, они и так не ждут таблиц
+	if(machine::has(machine::feature_t::AES)){
+		/**
+		 * Выполняем перебор блоков
+		 */
+		for(size_t i = 0; i < blocks; i++)
+			// Шифруем очередной блок командами
+			this->encrypt(sources + (i * 16), results + (i * 16));
+		// Выводим успешность зашифрования
+		return true;
+	}
+#endif
+	// Число оставшихся блоков
+	size_t left = blocks;
+	/**
+	 * Выполняем шифрование по четыре блока разом с развёрнутыми по числу кругов ключа кругами
+	 */
+	while(left >= 4){
+		// Шифруем четыре блока таблицами одним телом
+		switch(this->_rounds){
+			// Круги AES-128
+			case 10: sealFour <10> (this->_encryption, sources, results); break;
+			// Круги AES-192
+			case 12: sealFour <12> (this->_encryption, sources, results); break;
+			// Круги AES-256
+			default: sealFour <14> (this->_encryption, sources, results); break;
+		}
+		// Сдвигаем исходные блоки
+		sources += 64;
+		// Сдвигаем место итога
+		results += 64;
+		// Уменьшаем число оставшихся блоков
+		left -= 4;
+	}
+	/**
+	 * Выполняем шифрование хвоста по блоку
+	 */
+	for(size_t i = 0; i < left; i++)
+		// Шифруем очередной блок
+		this->encrypt(sources + (i * 16), results + (i * 16));
+	// Выводим успешность зашифрования
+	return true;
+}
 bool nts::cipher::Aes::decrypt(const uint8_t * source, uint8_t * result) const noexcept {
 	// Если ключ не установлен либо блоки не переданы
 	if(!this->_ready || (source == nullptr) || (result == nullptr))
@@ -898,44 +1138,15 @@ bool nts::cipher::Aes::decrypt(const uint8_t * source, uint8_t * result) const n
 	}
 #endif
 	// Раундовые ключи расшифрования
-	const uint32_t * keys = this->_decryption;
-	// Слова состояния, сложенные с первым раундовым ключом
-	uint32_t s0 = (load(source) ^ keys[0]), s1 = (load(source + 4) ^ keys[1]);
-	// Слова состояния, сложенные с первым раундовым ключом
-	uint32_t s2 = (load(source + 8) ^ keys[2]), s3 = (load(source + 12) ^ keys[3]);
-	/**
-	 * Выполняем внутренние раунды по таблицам расшифрования
-	 */
-	for(size_t round = 1; round < this->_rounds; round++){
-		// Раундовый ключ
-		const uint32_t * key = (keys + (round * 4));
-		// Первое слово нового состояния
-		const uint32_t t0 = (TABLES.td[0][s0 >> 24] ^ TABLES.td[1][(s3 >> 16) & 0xFF] ^ TABLES.td[2][(s2 >> 8) & 0xFF] ^ TABLES.td[3][s1 & 0xFF] ^ key[0]);
-		// Второе слово нового состояния
-		const uint32_t t1 = (TABLES.td[0][s1 >> 24] ^ TABLES.td[1][(s0 >> 16) & 0xFF] ^ TABLES.td[2][(s3 >> 8) & 0xFF] ^ TABLES.td[3][s2 & 0xFF] ^ key[1]);
-		// Третье слово нового состояния
-		const uint32_t t2 = (TABLES.td[0][s2 >> 24] ^ TABLES.td[1][(s1 >> 16) & 0xFF] ^ TABLES.td[2][(s0 >> 8) & 0xFF] ^ TABLES.td[3][s3 & 0xFF] ^ key[2]);
-		// Четвёртое слово нового состояния
-		const uint32_t t3 = (TABLES.td[0][s3 >> 24] ^ TABLES.td[1][(s2 >> 16) & 0xFF] ^ TABLES.td[2][(s1 >> 8) & 0xFF] ^ TABLES.td[3][s0 & 0xFF] ^ key[3]);
-		// Переносим новое состояние
-		s0 = t0;
-		// Переносим новое состояние
-		s1 = t1;
-		// Переносим новое состояние
-		s2 = t2;
-		// Переносим новое состояние
-		s3 = t3;
+	// Число кругов известно с установки ключа: круги развёрнуты по нему на сборке
+	switch(this->_rounds){
+		// Круги AES-128
+		case 10: openTables <10> (this->_decryption, source, result); break;
+		// Круги AES-192
+		case 12: openTables <12> (this->_decryption, source, result); break;
+		// Круги AES-256
+		default: openTables <14> (this->_decryption, source, result); break;
 	}
-	// Последний раундовый ключ
-	const uint32_t * last = (keys + (this->_rounds * 4));
-	// Последний раунд: обратная подстановка, обратный сдвиг строк и ключ
-	store(((static_cast <uint32_t> (TABLES.inverse[s0 >> 24]) << 24) | (static_cast <uint32_t> (TABLES.inverse[(s3 >> 16) & 0xFF]) << 16) | (static_cast <uint32_t> (TABLES.inverse[(s2 >> 8) & 0xFF]) << 8) | static_cast <uint32_t> (TABLES.inverse[s1 & 0xFF])) ^ last[0], result);
-	// Второе слово итога
-	store(((static_cast <uint32_t> (TABLES.inverse[s1 >> 24]) << 24) | (static_cast <uint32_t> (TABLES.inverse[(s0 >> 16) & 0xFF]) << 16) | (static_cast <uint32_t> (TABLES.inverse[(s3 >> 8) & 0xFF]) << 8) | static_cast <uint32_t> (TABLES.inverse[s2 & 0xFF])) ^ last[1], result + 4);
-	// Третье слово итога
-	store(((static_cast <uint32_t> (TABLES.inverse[s2 >> 24]) << 24) | (static_cast <uint32_t> (TABLES.inverse[(s1 >> 16) & 0xFF]) << 16) | (static_cast <uint32_t> (TABLES.inverse[(s0 >> 8) & 0xFF]) << 8) | static_cast <uint32_t> (TABLES.inverse[s3 & 0xFF])) ^ last[2], result + 8);
-	// Четвёртое слово итога
-	store(((static_cast <uint32_t> (TABLES.inverse[s3 >> 24]) << 24) | (static_cast <uint32_t> (TABLES.inverse[(s2 >> 16) & 0xFF]) << 16) | (static_cast <uint32_t> (TABLES.inverse[(s1 >> 8) & 0xFF]) << 8) | static_cast <uint32_t> (TABLES.inverse[s0 & 0xFF])) ^ last[3], result + 12);
 	// Выводим успешность расшифрования
 	return true;
 }
@@ -978,21 +1189,16 @@ bool nts::cipher::Aes::stream(const uint8_t * counter, const size_t blocks, uint
 	}
 #endif
 	// Текущий блок счётчика
-	uint8_t current[16];
-	// Переносим начальный блок счётчика
-	::memcpy(current, counter, sizeof(current));
-	/**
-	 * Выполняем выработку гаммы по одному блоку
-	 */
-	for(size_t i = 0; i < blocks; i++){
-		// Увеличиваем счётчик
-		advance(current);
-		// Выполняем зашифрование блока счётчика
-		this->encrypt(current, result + (i * 16));
+	// Гамма таблицами по четыре блока разом, круги развёрнуты по числу кругов ключа
+	switch(this->_rounds){
+		// Круги AES-128
+		case 10: streamTables <10> (this->_encryption, counter, blocks, result); break;
+		// Круги AES-192
+		case 12: streamTables <12> (this->_encryption, counter, blocks, result); break;
+		// Круги AES-256
+		default: streamTables <14> (this->_encryption, counter, blocks, result); break;
 	}
-	// Выполняем затирание счётчика
-	wipe(current, sizeof(current));
-	// Выводим успешность выработки
+	// Выводим успешность выработки гаммы
 	return true;
 }
 /**

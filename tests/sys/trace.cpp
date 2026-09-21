@@ -18,7 +18,7 @@
  *
  * @details Всякий блок кучи учитывается при выдаче и целиком переписывается в журнал при
  *          освобождении; после выдачи билетов и возобновления ключи билетов ищутся и в живых
- *          блоках, и в журнале освобождённых. Находка щупа Григория на Alpine (musl): третья
+ *          блоках, и в журнале освобождённых. Находка внешнего щупа на Alpine (musl): третья
  *          копия ключа в обычной куче, вне хранилища, до 5 из 10 прогонов
  *
  * \~english
@@ -53,6 +53,9 @@
 		#include <signal.h>
 		#include <pthread_np.h>
 	#endif
+#endif
+#if defined(__e2k__)
+	#include <e2kintrin.h>
 #endif
 #include <main.hpp>
 #include <identity.hpp>
@@ -113,27 +116,52 @@ namespace {
 		}
 	}
 	/**
+	 * Чтение байта чужой памяти. У Эльбруса память меченая: слово, оставшееся от
+	 * неинициализированного значения, несёт диагностическую метку, и всякое действие
+	 * над ним роняет процесс сигналом SIGILL. Мера читает отработавшие кадры стека и
+	 * освобождённые блоки, где такие слова законны, - оттого у Эльбруса байт берётся из
+	 * выровненного слова, прочитанного с очисткой метки
+	 */
+	#if defined(__e2k__)
+		static uint8_t peek(const uint8_t * data) noexcept {
+			const uintptr_t address = reinterpret_cast <uintptr_t> (data);
+			const uint64_t word = __builtin_e2k_ld_64s_cleartag(reinterpret_cast <const void *> (address & ~static_cast <uintptr_t> (7)), 0);
+			return static_cast <uint8_t> (word >> ((address & 7) * 8));
+		}
+	#else
+		#if defined(__has_attribute)
+			#if __has_attribute(no_sanitize)
+				__attribute__((no_sanitize("address")))
+			#endif
+		#endif
+		static inline uint8_t peek(const uint8_t * data) noexcept { return *data; }
+	#endif
+	/**
 	 * Сличение байтов без перехватчиков санитайзера: мера читает блоки целиком, включая
 	 * хвост вектора между размером и ёмкостью, который ASan помечает переполнением
 	 * контейнера; для меры это законное чтение своей же учтённой области
 	 */
-	#if defined(__clang__) || defined(__GNUC__)
-		__attribute__((no_sanitize("address")))
+	#if defined(__has_attribute)
+		#if __has_attribute(no_sanitize)
+			__attribute__((no_sanitize("address")))
+		#endif
 	#endif
 	static bool same(const uint8_t * data, const uint8_t * key, const size_t size) noexcept {
 		uint8_t diff = 0;
-		for(size_t i = 0; i < size; i++) diff |= static_cast <uint8_t> (data[i] ^ key[i]);
+		for(size_t i = 0; i < size; i++) diff |= static_cast <uint8_t> (peek(data + i) ^ key[i]);
 		return (diff == 0);
 	}
 	/**
 	 * Копирование байтов без перехватчиков санитайзера: журнал снимает освобождаемый блок целиком
 	 */
-	#if defined(__clang__) || defined(__GNUC__)
-		__attribute__((no_sanitize("address")))
+	#if defined(__has_attribute)
+		#if __has_attribute(no_sanitize)
+			__attribute__((no_sanitize("address")))
+		#endif
 	#endif
 	static void copy(uint8_t * to, const void * from, const size_t size) noexcept {
 		const uint8_t * data = static_cast <const uint8_t *> (from);
-		for(size_t i = 0; i < size; i++) to[i] = data[i];
+		for(size_t i = 0; i < size; i++) to[i] = peek(data + i);
 	}
 	/**
 	 * Снятие блока с учёта с переписыванием содержимого в журнал

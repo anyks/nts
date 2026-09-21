@@ -300,3 +300,46 @@ TEST(AesTest, Stream){
 	ASSERT_EQ(current[11], static_cast <uint8_t> (0xfb));
 	ASSERT_EQ(current[15], static_cast <uint8_t> (0xfd + 21));
 }
+
+/**
+ * @brief Проверка зашифрования нескольких блоков разом против поблочного
+ *
+ * @details Пачка таблицами ведёт блоки по четыре в одном теле; итог обязан
+ *          совпадать с поблочным зашифрованием на обоих путях, с хвостом короче
+ *          четырёх и на месте
+ */
+TEST(AesTest, Batch){
+	// Ключ AES-192: круги числом двенадцать, средний из трёх путей развёртки
+	const std::vector <uint8_t> key = bytes("8e73b0f7da0e6452c810f32b809079e562f8ead2522c6b7b");
+	// Объект шифра
+	cipher::aes_t aes;
+	// Устанавливаем ключ
+	ASSERT_TRUE(aes.key(view_t(key.data(), key.size())));
+	// Число блоков: пять четвёрок и хвост в один блок
+	const size_t blocks = 21;
+	// Исходные блоки, итог пачкой, поблочно и таблицами
+	uint8_t source[21 * 16], batched[21 * 16], single[21 * 16], tables[21 * 16];
+	// Заполняем исходные блоки
+	for(size_t i = 0; i < sizeof(source); i++)
+		source[i] = static_cast <uint8_t> (i * 41 + 3);
+	// Шифруем пачкой машинным путём
+	ASSERT_TRUE(aes.batch(source, blocks, batched));
+	// Шифруем поблочно
+	for(size_t i = 0; i < blocks; i++)
+		ASSERT_TRUE(aes.encrypt(source + (i * 16), single + (i * 16)));
+	// Запрещаем машинные команды
+	machine::allow(false);
+	// Шифруем пачкой таблицами
+	ASSERT_TRUE(aes.batch(source, blocks, tables));
+	// Возвращаем машинные команды
+	machine::allow(true);
+	// Сличаем итоги
+	ASSERT_EQ(text(batched, sizeof(batched)), text(single, sizeof(single)));
+	ASSERT_EQ(text(tables, sizeof(tables)), text(single, sizeof(single)));
+	// Пачка на месте таблицами
+	::memcpy(tables, source, sizeof(source));
+	machine::allow(false);
+	ASSERT_TRUE(aes.batch(tables, blocks, tables));
+	machine::allow(true);
+	ASSERT_EQ(text(tables, sizeof(tables)), text(single, sizeof(single)));
+}

@@ -565,7 +565,7 @@ TEST(GroupsTest, OpensslLegacy){
 	if(!toolkit.present || !toolkit.tls12 || !toolkit.serverGroups || !toolkit.clientGroups){
 		GTEST_SKIP() << "openssl без TLS 1.2 либо без -groups";
 	}
-	// Связь 1.2 без extended_master_secret отвергается намеренно (решение владельца): LibreSSL его не ведёт
+	// Связь 1.2 без extended_master_secret отвергается намеренно (принятое решение): LibreSSL его не ведёт
 	if(!toolkit.master){
 		GTEST_SKIP() << "openssl без extended_master_secret (LibreSSL): связь 1.2 без него не ведётся намеренно";
 	}

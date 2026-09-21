@@ -30,6 +30,11 @@
  *       подстановке идёт по секретному значению. Устранение этого требует
  *       поразрядной реализации и вынесено отдельной работой
  *
+ * @note Пачка `batch` ведёт четыре блока в одном теле развёрнутой таблицы: шестьдесят
+ *       четыре чтения на круг не зависят друг от друга. Таблица в 64 КБ не помещается
+ *       в кеш первого уровня, и один блок ждёт всякое чтение из второго, а четыре
+ *       ждут их внахлёст - на том и выигрыш режимов счётчика и MGM
+ *
  * @copyright Copyright © 2026
  *
  */
@@ -520,6 +525,55 @@ namespace {
 	 * @param key   складываемый ключ
 	 *
 	 */
+	#if !defined(ANTS_CIPHER_COMPACT)
+		/**
+		 * @brief Метод подстановки и линейного преобразования четырёх блоков разом
+		 *
+		 * @details Четыре независимых блока идут одним телом: шестьдесят четыре чтения
+		 *          развёрнутой таблицы на круг не зависят друг от друга, и процессор
+		 *          исполняет их внахлёст, тогда как один блок ждёт всякое чтение
+		 *
+		 * @param first  первый преобразуемый блок
+		 * @param second второй преобразуемый блок
+		 * @param third  третий преобразуемый блок
+		 * @param fourth четвёртый преобразуемый блок
+		 * @param table  развёрнутая таблица преобразования
+		 *
+		 */
+		static void translate4(uint8_t * first, uint8_t * second, uint8_t * third, uint8_t * fourth, const spread_t & table) noexcept {
+			// Накопители половин четырёх блоков
+			uint64_t al = 0, ah = 0, bl = 0, bh = 0, cl = 0, ch = 0, dl = 0, dh = 0;
+			/**
+			 * Выполняем перебор байтов блоков
+			 */
+			for(size_t i = 0; i < KUZNYECHIK_BLOCK; i++){
+				// Складываем строки таблицы по байтам первого блока
+				al ^= table.values[i][first[i]][0];
+				ah ^= table.values[i][first[i]][1];
+				// Складываем строки таблицы по байтам второго блока
+				bl ^= table.values[i][second[i]][0];
+				bh ^= table.values[i][second[i]][1];
+				// Складываем строки таблицы по байтам третьего блока
+				cl ^= table.values[i][third[i]][0];
+				ch ^= table.values[i][third[i]][1];
+				// Складываем строки таблицы по байтам четвёртого блока
+				dl ^= table.values[i][fourth[i]][0];
+				dh ^= table.values[i][fourth[i]][1];
+			}
+			// Записываем половины первого блока
+			::memcpy(first, &al, sizeof(al));
+			::memcpy(first + sizeof(al), &ah, sizeof(ah));
+			// Записываем половины второго блока
+			::memcpy(second, &bl, sizeof(bl));
+			::memcpy(second + sizeof(bl), &bh, sizeof(bh));
+			// Записываем половины третьего блока
+			::memcpy(third, &cl, sizeof(cl));
+			::memcpy(third + sizeof(cl), &ch, sizeof(ch));
+			// Записываем половины четвёртого блока
+			::memcpy(fourth, &dl, sizeof(dl));
+			::memcpy(fourth + sizeof(dl), &dh, sizeof(dh));
+		}
+	#endif // ANTS_CIPHER_COMPACT
 	static void add(uint8_t * block, const uint8_t * key) noexcept {
 		/**
 		 * Выполняем перебор байтов преобразуемого блока
@@ -689,6 +743,72 @@ bool nts::cipher::Kuznyechik::encrypt(const uint8_t * source, uint8_t * result) 
  * @return       признак успешности расшифрования
  *
  */
+/**
+ * @brief Метод зашифрования нескольких независимых блоков разом
+ *
+ * @param sources зашифровываемые блоки подряд
+ * @param blocks  число блоков
+ * @param results место, в которое помещаются зашифрованные блоки подряд
+ *
+ * @return        признак успешности зашифрования
+ *
+ */
+bool nts::cipher::Kuznyechik::batch(const uint8_t * sources, const size_t blocks, uint8_t * results) const noexcept {
+	// Если ключ не установлен либо места не переданы
+	if(!this->_ready || ((blocks > 0) && ((sources == nullptr) || (results == nullptr))))
+		// Выводим отказ зашифрования
+		return false;
+	// Число оставшихся блоков
+	size_t left = blocks;
+	#if !defined(ANTS_CIPHER_COMPACT)
+		// Получаем развёрнутую таблицу прямого преобразования
+		const spread_t & table = forward();
+		// Четыре преобразуемых блока
+		uint8_t block[4][KUZNYECHIK_BLOCK];
+		/**
+		 * Выполняем шифрование по четыре блока разом
+		 */
+		while(left >= 4){
+			// Переносим четыре зашифровываемых блока
+			::memcpy(block, sources, sizeof(block));
+			/**
+			 * Выполняем девять кругов над четырьмя блоками
+			 */
+			for(size_t i = 0; i < 9; i++){
+				// Складываем блоки с раундовым ключом
+				add(block[0], this->_keys[i]);
+				add(block[1], this->_keys[i]);
+				add(block[2], this->_keys[i]);
+				add(block[3], this->_keys[i]);
+				// Выполняем подстановку и линейное преобразование четырёх блоков разом
+				translate4(block[0], block[1], block[2], block[3], table);
+			}
+			// Складываем блоки с последним раундовым ключом
+			add(block[0], this->_keys[9]);
+			add(block[1], this->_keys[9]);
+			add(block[2], this->_keys[9]);
+			add(block[3], this->_keys[9]);
+			// Переносим зашифрованные блоки
+			::memcpy(results, block, sizeof(block));
+			// Сдвигаем исходные блоки
+			sources += sizeof(block);
+			// Сдвигаем место итога
+			results += sizeof(block);
+			// Уменьшаем число оставшихся блоков
+			left -= 4;
+		}
+		// Выполняем затирание преобразуемых блоков
+		wipe(block, sizeof(block));
+	#endif // ANTS_CIPHER_COMPACT
+	/**
+	 * Выполняем шифрование хвоста по блоку
+	 */
+	for(size_t i = 0; i < left; i++)
+		// Шифруем очередной блок
+		this->encrypt(sources + (i * KUZNYECHIK_BLOCK), results + (i * KUZNYECHIK_BLOCK));
+	// Выводим успешность зашифрования
+	return true;
+}
 bool nts::cipher::Kuznyechik::decrypt(const uint8_t * source, uint8_t * result) const noexcept {
 	// Если ключ не установлен либо места не переданы
 	if(!this->_ready || (source == nullptr) || (result == nullptr))

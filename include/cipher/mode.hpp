@@ -133,6 +133,8 @@ namespace nts {
 			bool (* decrypt)(const void * cipher, const uint8_t * source, uint8_t * result) noexcept;
 			// Функция выработки гаммы счётчика по многу блоков разом: у шифров без неё пуста
 			bool (* stream)(const void * cipher, const uint8_t * counter, const size_t blocks, uint8_t * result) noexcept;
+			// Функция зашифрования нескольких независимых блоков разом: у шифров без неё пуста
+			bool (* batch)(const void * cipher, const uint8_t * sources, const size_t blocks, uint8_t * results) noexcept;
 			/**
 			 * \~russian
 			 * @brief Конструктор

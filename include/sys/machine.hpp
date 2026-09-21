@@ -67,11 +67,15 @@ namespace nts {
 	 *          без пересборки
 	 *
 	 * @note Опознание: macOS - sysctlbyname по признакам hw.optional, Linux - getauxval,
-	 *       FreeBSD - elf_aux_info, Windows - IsProcessorFeaturePresent, x86-64 - cpuid.
-	 *       Там, где способа опознания нет, расширения считаются отсутствующими.
-	 *       Векторные команды основания набора (NEON у ARM64, SSE2 у x86-64) есть у
-	 *       всякой машины набора и объявляются признаком VECTOR, чтобы запрет allow(false)
-	 *       переводил и векторные ветви на переносимый путь ради сличения
+	 *       FreeBSD - elf_aux_info, Windows - IsProcessorFeaturePresent, x86-64 - cpuid,
+	 *       Эльбрус - поколение набора команд, закреплённое сборкой (`__iset__`): с пятого
+	 *       поколения векторные операции и перестановка байтов (VECTOR и SSSE3, ими собиратель
+	 *       lcc изображает SSE2 и SSSE3), с шестого - умножение без переносов (CARRYLESS);
+	 *       команд AES и SHA у Эльбруса нет. Там, где способа опознания нет, расширения
+	 *       считаются отсутствующими. Векторные команды основания набора (NEON у ARM64,
+	 *       SSE2 у x86-64, векторные операции Эльбруса) есть у всякой машины набора и
+	 *       объявляются признаком VECTOR, чтобы запрет allow(false) переводил и векторные
+	 *       ветви на переносимый путь ради сличения
 	 *
 	 * \~english
 	 * @brief Namespace of the machine detection
@@ -80,11 +84,15 @@ namespace nts {
 	 *          call. Both branches - by the instructions and by the tables - live in one binary, and
 	 *          it is carried between the machines of one instruction set without a rebuild
 	 * @note Detection: macOS - sysctlbyname by the hw.optional flags, Linux - getauxval, FreeBSD -
-	 *       elf_aux_info, Windows - IsProcessorFeaturePresent, x86-64 - cpuid. Where there is no
-	 *       way of the detection, the extensions are considered absent. The baseline vector
-	 *       instructions (NEON at ARM64, SSE2 at x86-64) exist at every machine of the set and are
-	 *       declared by the VECTOR flag so that the ban allow(false) puts the vector branches onto
-	 *       the portable path too for the sake of the comparison
+	 *       elf_aux_info, Windows - IsProcessorFeaturePresent, x86-64 - cpuid, Elbrus - the
+	 *       generation of the instruction set fixed by the build (`__iset__`): from the fifth
+	 *       generation the vector operations and the byte shuffle (VECTOR and SSSE3, the lcc
+	 *       compiler renders SSE2 and SSSE3 by them), from the sixth - the carry-less multiplication
+	 *       (CARRYLESS); Elbrus has no AES and SHA instructions. Where there is no way of the
+	 *       detection, the extensions are considered absent. The baseline vector instructions
+	 *       (NEON at ARM64, SSE2 at x86-64, the vector operations of Elbrus) exist at every machine
+	 *       of the set and are declared by the VECTOR flag so that the ban allow(false) puts the
+	 *       vector branches onto the portable path too for the sake of the comparison
 	 *
 	 * \~
 	 */
