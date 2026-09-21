@@ -784,6 +784,250 @@ namespace nts {
 				shrink <WORDS> (value, m, 0, result);
 			}
 			/**
+			 * Ядра на четыре слова для AArch64 на встроенном ассемблере: те же действия, что у
+			 * ядер на C++ (полное произведение строками с двумя цепочками переносов, свёртка
+			 * старшей половины умножением на хвост, условное вычитание модуля), но с
+			 * порядком команд, который собиратель из C++ не выводит. Замер 22.09.2026 на M4
+			 * (clang): умножение 11,75 → 10,41 нс, квадрат 10,35 → 9,48, удвоение точки 98 → 88.
+			 * Время работы от значений не зависит: ветвлений нет, выбор итога через csel.
+			 * Входы читаются до первой записи, оттого места сомножителей и итога вправе
+			 * совпадать. Регистр x18 не трогается: у Apple он занят системой
+			 */
+			#if defined(__aarch64__) && !defined(_MSC_VER)
+				/**
+				 * Свёртка старшей половины произведения по модулю 2^256 - c и условное вычитание
+				 * модуля: общий хвост ядер умножения и квадрата. На входе x11…x14 младшая половина,
+				 * x15…x17, x19 старшая; на выходе итог записан по указателю r. Выход первой свёртки
+				 * x15 не превосходит c + 1, а c меньше 2^32, оттого вторая свёртка x15·c умещается
+				 * в слово и старшей половины не имеет: мутация с её учётом не отличима от
+				 * исходного кода, и её нет
+				 */
+				#define __ANTS_AARCH64_FOLD_SHRINK__ \
+					"mul   x20, x15, %[tail]\n\t" "mul   x21, x16, %[tail]\n\t" "mul   x22, x17, %[tail]\n\t" "mul   x23, x19, %[tail]\n\t" \
+					"umulh x3, x15, %[tail]\n\t" "umulh x4, x16, %[tail]\n\t" "umulh x5, x17, %[tail]\n\t" "umulh x6, x19, %[tail]\n\t" \
+					"adds  x11, x11, x20\n\t" "adcs  x12, x12, x21\n\t" "adcs  x13, x13, x22\n\t" "adcs  x14, x14, x23\n\t" "adc   x15, xzr, xzr\n\t" \
+					"adds  x12, x12, x3\n\t" "adcs  x13, x13, x4\n\t" "adcs  x14, x14, x5\n\t" "adc   x15, x15, x6\n\t" \
+					"mul   x20, x15, %[tail]\n\t" \
+					"adds  x11, x11, x20\n\t" "adcs  x12, x12, xzr\n\t" "adcs  x13, x13, xzr\n\t" "adcs  x14, x14, xzr\n\t" "adc   x15, xzr, xzr\n\t" \
+					"ldp   x3, x4, [%[p]]\n\t" "ldp   x5, x6, [%[p], #16]\n\t" \
+					"subs  x20, x11, x3\n\t" "sbcs  x21, x12, x4\n\t" "sbcs  x22, x13, x5\n\t" "sbcs  x23, x14, x6\n\t" "sbcs  xzr, x15, xzr\n\t" \
+					"csel  x11, x20, x11, cs\n\t" "csel  x12, x21, x12, cs\n\t" "csel  x13, x22, x13, cs\n\t" "csel  x14, x23, x14, cs\n\t" \
+					"stp   x11, x12, [%[r]]\n\t" "stp   x13, x14, [%[r], #16]\n\t"
+				/**
+				 * @brief Метод умножения по модулю вида 2^256 - c на встроенном ассемблере AArch64
+				 *
+				 * @param first   первый сомножитель
+				 * @param second  второй сомножитель
+				 * @param tail    хвост c модуля
+				 * @param modulus слова модуля
+				 * @param result  место, в которое помещается произведение
+				 *
+				 */
+				static __ANTS_INLINE__ void multiplyminus4(const uint64_t * first, const uint64_t * second, const uint64_t tail, const uint64_t * modulus, uint64_t * result) noexcept {
+					__asm__ volatile(
+						"ldp x3, x4, [%[a]]\n\t" "ldp x5, x6, [%[a], #16]\n\t" "ldp x7, x8, [%[b]]\n\t" "ldp x9, x10, [%[b], #16]\n\t"
+						// Строка нулевого слова второго сомножителя
+						"mul   x11, x3, x7\n\t" "mul   x12, x4, x7\n\t" "mul   x13, x5, x7\n\t" "mul   x14, x6, x7\n\t"
+						"umulh x20, x3, x7\n\t" "umulh x21, x4, x7\n\t" "umulh x22, x5, x7\n\t" "umulh x15, x6, x7\n\t"
+						"adds  x12, x12, x20\n\t" "adcs  x13, x13, x21\n\t" "adcs  x14, x14, x22\n\t" "adc   x15, x15, xzr\n\t"
+						// Строка первого слова: младшие половины цепочкой, затем старшие
+						"mul   x20, x3, x8\n\t" "mul   x21, x4, x8\n\t" "mul   x22, x5, x8\n\t" "mul   x23, x6, x8\n\t"
+						"adds  x12, x12, x20\n\t" "adcs  x13, x13, x21\n\t" "adcs  x14, x14, x22\n\t" "adcs  x15, x15, x23\n\t" "adc   x16, xzr, xzr\n\t"
+						"umulh x20, x3, x8\n\t" "umulh x21, x4, x8\n\t" "umulh x22, x5, x8\n\t" "umulh x23, x6, x8\n\t"
+						"adds  x13, x13, x20\n\t" "adcs  x14, x14, x21\n\t" "adcs  x15, x15, x22\n\t" "adc   x16, x16, x23\n\t"
+						// Строка второго слова
+						"mul   x20, x3, x9\n\t" "mul   x21, x4, x9\n\t" "mul   x22, x5, x9\n\t" "mul   x23, x6, x9\n\t"
+						"adds  x13, x13, x20\n\t" "adcs  x14, x14, x21\n\t" "adcs  x15, x15, x22\n\t" "adcs  x16, x16, x23\n\t" "adc   x17, xzr, xzr\n\t"
+						"umulh x20, x3, x9\n\t" "umulh x21, x4, x9\n\t" "umulh x22, x5, x9\n\t" "umulh x23, x6, x9\n\t"
+						"adds  x14, x14, x20\n\t" "adcs  x15, x15, x21\n\t" "adcs  x16, x16, x22\n\t" "adc   x17, x17, x23\n\t"
+						// Строка третьего слова
+						"mul   x20, x3, x10\n\t" "mul   x21, x4, x10\n\t" "mul   x22, x5, x10\n\t" "mul   x23, x6, x10\n\t"
+						"adds  x14, x14, x20\n\t" "adcs  x15, x15, x21\n\t" "adcs  x16, x16, x22\n\t" "adcs  x17, x17, x23\n\t" "adc   x19, xzr, xzr\n\t"
+						"umulh x20, x3, x10\n\t" "umulh x21, x4, x10\n\t" "umulh x22, x5, x10\n\t" "umulh x23, x6, x10\n\t"
+						"adds  x15, x15, x20\n\t" "adcs  x16, x16, x21\n\t" "adcs  x17, x17, x22\n\t" "adc   x19, x19, x23\n\t"
+						__ANTS_AARCH64_FOLD_SHRINK__
+						: : [a] "r" (first), [b] "r" (second), [tail] "r" (tail), [p] "r" (modulus), [r] "r" (result)
+						: "x3", "x4", "x5", "x6", "x7", "x8", "x9", "x10", "x11", "x12", "x13", "x14", "x15", "x16", "x17", "x19", "x20", "x21", "x22", "x23", "cc", "memory"
+					);
+				}
+				/**
+				 * @brief Метод возведения в квадрат по модулю вида 2^256 - c на встроенном ассемблере AArch64
+				 *
+				 * @param value   возводимое число
+				 * @param tail    хвост c модуля
+				 * @param modulus слова модуля
+				 * @param result  место, в которое помещается квадрат
+				 *
+				 */
+				static __ANTS_INLINE__ void squareminus4(const uint64_t * value, const uint64_t tail, const uint64_t * modulus, uint64_t * result) noexcept {
+					__asm__ volatile(
+						"ldp x3, x4, [%[a]]\n\t" "ldp x5, x6, [%[a], #16]\n\t"
+						// Произведения разных слов: a0·a1, a0·a2, a0·a3
+						"mul   x12, x3, x4\n\t" "umulh x13, x3, x4\n\t" "mul   x20, x3, x5\n\t" "umulh x14, x3, x5\n\t" "mul   x21, x3, x6\n\t" "umulh x15, x3, x6\n\t"
+						"adds  x13, x13, x20\n\t" "adcs  x14, x14, x21\n\t" "adc   x15, x15, xzr\n\t"
+						// a1·a2, a1·a3
+						"mul   x20, x4, x5\n\t" "umulh x21, x4, x5\n\t" "mul   x22, x4, x6\n\t" "umulh x23, x4, x6\n\t"
+						"adds  x14, x14, x20\n\t" "adcs  x15, x15, x21\n\t" "adc   x16, xzr, xzr\n\t"
+						"adds  x15, x15, x22\n\t" "adcs  x16, x16, x23\n\t" "adc   x17, xzr, xzr\n\t"
+						// a2·a3
+						"mul   x20, x5, x6\n\t" "umulh x21, x5, x6\n\t"
+						"adds  x16, x16, x20\n\t" "adc   x17, x17, x21\n\t"
+						// Удвоение произведений разных слов сдвигом через переносы
+						"adds  x12, x12, x12\n\t" "adcs  x13, x13, x13\n\t" "adcs  x14, x14, x14\n\t" "adcs  x15, x15, x15\n\t" "adcs  x16, x16, x16\n\t" "adcs  x17, x17, x17\n\t" "adc   x19, xzr, xzr\n\t"
+						// Квадраты слов по диагонали
+						"mul   x11, x3, x3\n\t" "umulh x20, x3, x3\n\t" "mul   x21, x4, x4\n\t" "umulh x22, x4, x4\n\t" "mul   x23, x5, x5\n\t" "umulh x7, x5, x5\n\t" "mul   x8, x6, x6\n\t" "umulh x9, x6, x6\n\t"
+						"adds  x12, x12, x20\n\t" "adcs  x13, x13, x21\n\t" "adcs  x14, x14, x22\n\t" "adcs  x15, x15, x23\n\t" "adcs  x16, x16, x7\n\t" "adcs  x17, x17, x8\n\t" "adc   x19, x19, x9\n\t"
+						__ANTS_AARCH64_FOLD_SHRINK__
+						: : [a] "r" (value), [tail] "r" (tail), [p] "r" (modulus), [r] "r" (result)
+						: "x3", "x4", "x5", "x6", "x7", "x8", "x9", "x10", "x11", "x12", "x13", "x14", "x15", "x16", "x17", "x19", "x20", "x21", "x22", "x23", "cc", "memory"
+					);
+				}
+				#undef __ANTS_AARCH64_FOLD_SHRINK__
+				// Признак наличия ядер на ассемблере для четырёх слов
+				#define __ANTS_AARCH64_KERNELS__
+			#endif
+			/**
+			 * Ядра на четыре слова для x86-64 на встроенном ассемблере, только у gcc: его код из
+			 * __int128 хуже ручного на треть (Astra, gcc 12: умножение 46 → 31,5 нс, квадрат 38 →
+			 * 25,5), а у clang ручной код хуже собранного им самим (FreeBSD, clang 19: 26,6 → 32),
+			 * и там остаётся C++. Команды mulx/adx не берутся: их нет у стендов, а без замера
+			 * путь не заводится. Произведение считается по одному слову с проносом переноса
+			 * (add/adc/adc $0), регистров впритык к пятнадцати: тело разбито на два вставных
+			 * блока, между ними накопитель живёт в переменных. Хвост c и указатель на модуль
+			 * передаются через структуру, чтобы не занимать регистры. Времени от значений
+			 * нет: ветвлений нет, выбор итога через cmov. Входы читаются до первой записи
+			 */
+			#if defined(__x86_64__) && defined(__GNUC__) && !defined(__clang__) && !defined(_MSC_VER)
+				/**
+				 * @brief Хвост модуля и его слова для ядер на ассемблере
+				 *
+				 */
+				typedef struct Fold {
+					// Хвост c модуля
+					uint64_t tail;
+					// Слова модуля
+					const uint64_t * modulus;
+				} fold_t;
+				/**
+				 * Свёртка старшей половины произведения по модулю 2^256 - c и условное вычитание
+				 * модуля: общий хвост ядер умножения и квадрата. Слово переноса первой свёртки не
+				 * превосходит c + 1 при c < 2^32, оттого вторая свёртка умещается в слово
+				 */
+				#define __ANTS_X86_64_FOLD_SHRINK__ \
+					"movq %[c4], %%rax\n\t" "mulq 0(%[f])\n\t" "addq %%rax, %[c0]\n\t" "adcq $0, %%rdx\n\t" "movq %%rdx, %[t]\n\t" \
+					"movq %[c5], %%rax\n\t" "mulq 0(%[f])\n\t" "addq %[t], %[c1]\n\t" "adcq $0, %%rdx\n\t" "addq %%rax, %[c1]\n\t" "adcq $0, %%rdx\n\t" "movq %%rdx, %[t]\n\t" \
+					"movq %[c6], %%rax\n\t" "mulq 0(%[f])\n\t" "addq %[t], %[c2]\n\t" "adcq $0, %%rdx\n\t" "addq %%rax, %[c2]\n\t" "adcq $0, %%rdx\n\t" "movq %%rdx, %[t]\n\t" \
+					"movq %[c7], %%rax\n\t" "mulq 0(%[f])\n\t" "addq %[t], %[c3]\n\t" "adcq $0, %%rdx\n\t" "addq %%rax, %[c3]\n\t" "adcq $0, %%rdx\n\t" \
+					"movq %%rdx, %%rax\n\t" "mulq 0(%[f])\n\t" \
+					"addq %%rax, %[c0]\n\t" "adcq $0, %[c1]\n\t" "adcq $0, %[c2]\n\t" "adcq $0, %[c3]\n\t" \
+					"movq $0, %[t]\n\t" "adcq $0, %[t]\n\t" \
+					"movq 8(%[f]), %[m]\n\t" \
+					"movq %[c0], %[c4]\n\t" "movq %[c1], %[c5]\n\t" "movq %[c2], %[c6]\n\t" "movq %[c3], %[c7]\n\t" \
+					"subq 0(%[m]), %[c4]\n\t" "sbbq 8(%[m]), %[c5]\n\t" "sbbq 16(%[m]), %[c6]\n\t" "sbbq 24(%[m]), %[c7]\n\t" "sbbq $0, %[t]\n\t" \
+					"cmovncq %[c4], %[c0]\n\t" "cmovncq %[c5], %[c1]\n\t" "cmovncq %[c6], %[c2]\n\t" "cmovncq %[c7], %[c3]\n\t" \
+					"movq %[c0], 0(%[r])\n\t" "movq %[c1], 8(%[r])\n\t" "movq %[c2], 16(%[r])\n\t" "movq %[c3], 24(%[r])\n\t"
+				/**
+				 * @brief Метод свёртки и условного вычитания модуля на ассемблере x86-64
+				 *
+				 * @param c0 младшие слова произведения, замещаемые итогом
+				 * @param c4 старшие слова произведения
+				 * @param f  хвост и слова модуля
+				 * @param r  место, в которое помещается итог
+				 *
+				 */
+				static __ANTS_INLINE__ void settle4(uint64_t & c0, uint64_t & c1, uint64_t & c2, uint64_t & c3, uint64_t & c4, uint64_t & c5, uint64_t & c6, uint64_t & c7, const fold_t * f, uint64_t * r) noexcept {
+					// Слово переноса и указатель на слова модуля
+					uint64_t t, m;
+					__asm__ volatile(__ANTS_X86_64_FOLD_SHRINK__
+						: [c0] "+r" (c0), [c1] "+r" (c1), [c2] "+r" (c2), [c3] "+r" (c3), [c4] "+r" (c4), [c5] "+r" (c5), [c6] "+r" (c6), [c7] "+r" (c7), [t] "=&r" (t), [m] "=&r" (m)
+						: [f] "r" (f), [r] "r" (r)
+						: "rax", "rdx", "cc", "memory"
+					);
+				}
+				#undef __ANTS_X86_64_FOLD_SHRINK__
+				/**
+				 * @brief Метод умножения по модулю вида 2^256 - c на встроенном ассемблере x86-64
+				 *
+				 * @param first   первый сомножитель
+				 * @param second  второй сомножитель
+				 * @param tail    хвост c модуля
+				 * @param modulus слова модуля
+				 * @param result  место, в которое помещается произведение
+				 *
+				 */
+				static __ANTS_INLINE__ void multiplyminus4(const uint64_t * first, const uint64_t * second, const uint64_t tail, const uint64_t * modulus, uint64_t * result) noexcept {
+					// Хвост и слова модуля
+					const fold_t fold = {tail, modulus};
+					// Слова полного произведения и слово переноса
+					uint64_t c0, c1, c2, c3, c4, c5, c6, c7, t;
+					__asm__ volatile(
+						// Строка нулевого слова второго сомножителя
+						"movq 0(%[a]), %%rax\n\t" "mulq 0(%[b])\n\t" "movq %%rax, %[c0]\n\t" "movq %%rdx, %[c1]\n\t"
+						"movq 8(%[a]), %%rax\n\t" "mulq 0(%[b])\n\t" "addq %%rax, %[c1]\n\t" "adcq $0, %%rdx\n\t" "movq %%rdx, %[c2]\n\t"
+						"movq 16(%[a]), %%rax\n\t" "mulq 0(%[b])\n\t" "addq %%rax, %[c2]\n\t" "adcq $0, %%rdx\n\t" "movq %%rdx, %[c3]\n\t"
+						"movq 24(%[a]), %%rax\n\t" "mulq 0(%[b])\n\t" "addq %%rax, %[c3]\n\t" "adcq $0, %%rdx\n\t" "movq %%rdx, %[c4]\n\t"
+						// Строка первого слова
+						"movq 0(%[a]), %%rax\n\t" "mulq 8(%[b])\n\t" "addq %%rax, %[c1]\n\t" "adcq $0, %%rdx\n\t" "movq %%rdx, %[t]\n\t"
+						"movq 8(%[a]), %%rax\n\t" "mulq 8(%[b])\n\t" "addq %[t], %[c2]\n\t" "adcq $0, %%rdx\n\t" "addq %%rax, %[c2]\n\t" "adcq $0, %%rdx\n\t" "movq %%rdx, %[t]\n\t"
+						"movq 16(%[a]), %%rax\n\t" "mulq 8(%[b])\n\t" "addq %[t], %[c3]\n\t" "adcq $0, %%rdx\n\t" "addq %%rax, %[c3]\n\t" "adcq $0, %%rdx\n\t" "movq %%rdx, %[t]\n\t"
+						"movq 24(%[a]), %%rax\n\t" "mulq 8(%[b])\n\t" "addq %[t], %[c4]\n\t" "adcq $0, %%rdx\n\t" "addq %%rax, %[c4]\n\t" "adcq $0, %%rdx\n\t" "movq %%rdx, %[c5]\n\t"
+						// Строка второго слова
+						"movq 0(%[a]), %%rax\n\t" "mulq 16(%[b])\n\t" "addq %%rax, %[c2]\n\t" "adcq $0, %%rdx\n\t" "movq %%rdx, %[t]\n\t"
+						"movq 8(%[a]), %%rax\n\t" "mulq 16(%[b])\n\t" "addq %[t], %[c3]\n\t" "adcq $0, %%rdx\n\t" "addq %%rax, %[c3]\n\t" "adcq $0, %%rdx\n\t" "movq %%rdx, %[t]\n\t"
+						"movq 16(%[a]), %%rax\n\t" "mulq 16(%[b])\n\t" "addq %[t], %[c4]\n\t" "adcq $0, %%rdx\n\t" "addq %%rax, %[c4]\n\t" "adcq $0, %%rdx\n\t" "movq %%rdx, %[t]\n\t"
+						"movq 24(%[a]), %%rax\n\t" "mulq 16(%[b])\n\t" "addq %[t], %[c5]\n\t" "adcq $0, %%rdx\n\t" "addq %%rax, %[c5]\n\t" "adcq $0, %%rdx\n\t" "movq %%rdx, %[c6]\n\t"
+						// Строка третьего слова
+						"movq 0(%[a]), %%rax\n\t" "mulq 24(%[b])\n\t" "addq %%rax, %[c3]\n\t" "adcq $0, %%rdx\n\t" "movq %%rdx, %[t]\n\t"
+						"movq 8(%[a]), %%rax\n\t" "mulq 24(%[b])\n\t" "addq %[t], %[c4]\n\t" "adcq $0, %%rdx\n\t" "addq %%rax, %[c4]\n\t" "adcq $0, %%rdx\n\t" "movq %%rdx, %[t]\n\t"
+						"movq 16(%[a]), %%rax\n\t" "mulq 24(%[b])\n\t" "addq %[t], %[c5]\n\t" "adcq $0, %%rdx\n\t" "addq %%rax, %[c5]\n\t" "adcq $0, %%rdx\n\t" "movq %%rdx, %[t]\n\t"
+						"movq 24(%[a]), %%rax\n\t" "mulq 24(%[b])\n\t" "addq %[t], %[c6]\n\t" "adcq $0, %%rdx\n\t" "addq %%rax, %[c6]\n\t" "adcq $0, %%rdx\n\t" "movq %%rdx, %[c7]\n\t"
+						: [c0] "=&r" (c0), [c1] "=&r" (c1), [c2] "=&r" (c2), [c3] "=&r" (c3), [c4] "=&r" (c4), [c5] "=&r" (c5), [c6] "=&r" (c6), [c7] "=&r" (c7), [t] "=&r" (t)
+						: [a] "r" (first), [b] "r" (second)
+						: "rax", "rdx", "cc", "memory"
+					);
+					// Выполняем свёртку и условное вычитание модуля с записью итога
+					settle4(c0, c1, c2, c3, c4, c5, c6, c7, &fold, result);
+				}
+				/**
+				 * @brief Метод возведения в квадрат по модулю вида 2^256 - c на встроенном ассемблере x86-64
+				 *
+				 * @param value   возводимое число
+				 * @param tail    хвост c модуля
+				 * @param modulus слова модуля
+				 * @param result  место, в которое помещается квадрат
+				 *
+				 */
+				static __ANTS_INLINE__ void squareminus4(const uint64_t * value, const uint64_t tail, const uint64_t * modulus, uint64_t * result) noexcept {
+					// Хвост и слова модуля
+					const fold_t fold = {tail, modulus};
+					// Слова полного квадрата и слово переноса
+					uint64_t c0, c1, c2, c3, c4, c5, c6, c7, t;
+					__asm__ volatile(
+						// Произведения разных слов: a0·a1, a0·a2, a0·a3, a1·a2, a1·a3, a2·a3
+						"movq 0(%[a]), %%rax\n\t" "mulq 8(%[a])\n\t" "movq %%rax, %[c1]\n\t" "movq %%rdx, %[c2]\n\t"
+						"movq 0(%[a]), %%rax\n\t" "mulq 16(%[a])\n\t" "addq %%rax, %[c2]\n\t" "adcq $0, %%rdx\n\t" "movq %%rdx, %[c3]\n\t"
+						"movq 0(%[a]), %%rax\n\t" "mulq 24(%[a])\n\t" "addq %%rax, %[c3]\n\t" "adcq $0, %%rdx\n\t" "movq %%rdx, %[c4]\n\t"
+						"movq 8(%[a]), %%rax\n\t" "mulq 16(%[a])\n\t" "addq %%rax, %[c3]\n\t" "adcq $0, %%rdx\n\t" "movq %%rdx, %[t]\n\t"
+						"movq 8(%[a]), %%rax\n\t" "mulq 24(%[a])\n\t" "addq %[t], %[c4]\n\t" "adcq $0, %%rdx\n\t" "addq %%rax, %[c4]\n\t" "adcq $0, %%rdx\n\t" "movq %%rdx, %[c5]\n\t"
+						"movq 16(%[a]), %%rax\n\t" "mulq 24(%[a])\n\t" "addq %%rax, %[c5]\n\t" "adcq $0, %%rdx\n\t" "movq %%rdx, %[c6]\n\t"
+						// Удвоение произведений разных слов через переносы
+						"addq %[c1], %[c1]\n\t" "adcq %[c2], %[c2]\n\t" "adcq %[c3], %[c3]\n\t" "adcq %[c4], %[c4]\n\t" "adcq %[c5], %[c5]\n\t" "adcq %[c6], %[c6]\n\t" "movq $0, %[c7]\n\t" "adcq $0, %[c7]\n\t"
+						// Квадраты слов по диагонали
+						"movq 0(%[a]), %%rax\n\t" "mulq %%rax\n\t" "movq %%rax, %[c0]\n\t" "movq %%rdx, %[t]\n\t"
+						"movq 8(%[a]), %%rax\n\t" "mulq %%rax\n\t" "addq %[t], %[c1]\n\t" "adcq %%rax, %[c2]\n\t" "adcq $0, %%rdx\n\t" "movq %%rdx, %[t]\n\t"
+						"movq 16(%[a]), %%rax\n\t" "mulq %%rax\n\t" "addq %[t], %[c3]\n\t" "adcq %%rax, %[c4]\n\t" "adcq $0, %%rdx\n\t" "movq %%rdx, %[t]\n\t"
+						"movq 24(%[a]), %%rax\n\t" "mulq %%rax\n\t" "addq %[t], %[c5]\n\t" "adcq %%rax, %[c6]\n\t" "adcq %%rdx, %[c7]\n\t"
+						: [c0] "=&r" (c0), [c1] "=&r" (c1), [c2] "=&r" (c2), [c3] "=&r" (c3), [c4] "=&r" (c4), [c5] "=&r" (c5), [c6] "=&r" (c6), [c7] "=&r" (c7), [t] "=&r" (t)
+						: [a] "r" (value)
+						: "rax", "rdx", "cc", "memory"
+					);
+					// Выполняем свёртку и условное вычитание модуля с записью итога
+					settle4(c0, c1, c2, c3, c4, c5, c6, c7, &fold, result);
+				}
+				// Признак наличия ядер на ассемблере для четырёх слов
+				#define __ANTS_X86_64_KERNELS__
+			#endif
+			/**
 			 * @brief Метод умножения по модулю вида 2^(64·слов) - c
 			 *
 			 * @param first   первый сомножитель
@@ -799,6 +1043,15 @@ namespace nts {
 			 */
 			template <size_t WORDS>
 			static __ANTS_INLINE__ void multiplyminus(const uint64_t * first, const uint64_t * second, const uint64_t tail, const uint64_t * modulus, uint64_t * result) noexcept {
+				#if defined(__ANTS_AARCH64_KERNELS__) || defined(__ANTS_X86_64_KERNELS__)
+					// Четыре слова на AArch64 и x86-64 (gcc) идут ядром на встроенном ассемблере
+					if constexpr (WORDS == 4){
+						// Выполняем умножение ядром на ассемблере
+						multiplyminus4(first, second, tail, modulus, result);
+						// Выходим из умножения
+						return;
+					}
+				#endif
 				// Полное произведение сомножителей
 				uint64_t wide[2 * WORDS];
 				// Выполняем полное умножение
@@ -821,6 +1074,15 @@ namespace nts {
 			 */
 			template <size_t WORDS>
 			static __ANTS_INLINE__ void squareminus(const uint64_t * value, const uint64_t tail, const uint64_t * modulus, uint64_t * result) noexcept {
+				#if defined(__ANTS_AARCH64_KERNELS__) || defined(__ANTS_X86_64_KERNELS__)
+					// Четыре слова на AArch64 и x86-64 (gcc) идут ядром на встроенном ассемблере
+					if constexpr (WORDS == 4){
+						// Выполняем возведение в квадрат ядром на ассемблере
+						squareminus4(value, tail, modulus, result);
+						// Выходим из возведения в квадрат
+						return;
+					}
+				#endif
 				// Полный квадрат числа
 				uint64_t wide[2 * WORDS];
 				// Выполняем возведение числа в квадрат

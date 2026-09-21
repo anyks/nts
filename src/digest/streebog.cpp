@@ -40,6 +40,14 @@
  *       состояния, векторная запись через разложение подстановки - все не быстрее
  *       либо медленнее. Взята лишь ручная развёртка кругов, и только у clang
  *
+ * @note На x86-64 сжатие идёт своим путём на SSE2: состояние и ключ живут в регистрах
+ *       XMM между кругами, сумма по исключающему ИЛИ берётся четырьмя pxor, а байты
+ *       извлекаются парами через pextrw. Выборки из таблицы и накопление остаются
+ *       скалярными: накопители парами слов в XMM пробованы и медленнее у gcc и NEON.
+ *       Замер 22.09.2026, 64 КБ: Astra (gcc 12) 88 → 101 МБ/с при 97 у gostprov с его
+ *       SSE2, FreeBSD (clang 19) 63 → 101. У ARM64 тот же приём не нужен: там байт
+ *       извлекается одной командой из регистра общего назначения
+ *
  * @copyright Copyright © 2026
  *
  */
@@ -48,6 +56,15 @@
  * Стандартные заголовочные файлы
  */
 #include <cstring>
+
+/**
+ * На x86-64 сжатие держит состояние в регистрах XMM: подключаем встроенные функции SSE2
+ */
+#if defined(__x86_64__) && defined(__SSE2__) && !defined(_MSC_VER)
+	#include <emmintrin.h>
+	// Признак пути сжатия на SSE2
+	#define __ANTS_STREEBOG_SSE2__
+#endif
 
 /**
  * Подключаем заголовочные файлы проекта
@@ -304,6 +321,10 @@ namespace {
 	static constexpr tables_t TABLES = compute();
 
 	/**
+	 * Скалярный путь сжатия: все собиратели, кроме x86-64
+	 */
+	#if !defined(__ANTS_STREEBOG_SSE2__)
+	/**
 	 * @brief Метод совмещённого преобразования LPS над суммой двух векторов
 	 *
 	 * @param first  первое слагаемое исключающего ИЛИ
@@ -425,6 +446,175 @@ namespace {
 			// Складываем очередные слова итога, хеша и блока сообщения
 			hash[i] = (value[i] ^ hash[i] ^ message[i]);
 	}
+	/**
+	 * Путь сжатия на SSE2 для x86-64
+	 */
+	#else
+	/**
+	 * @brief Метод сборки двух слов итога преобразования LPS
+	 *
+	 * @details Слова итога с номерами 2·ROW и 2·ROW + 1 собираются из байтов с теми же
+	 *          номерами всех восьми слов преобразуемого вектора: pextrw снимает пару
+	 *          байтов за раз, слагаемые берутся из таблицы и складываются скалярно
+	 *
+	 * @param x0 нулевое и первое слова преобразуемого вектора
+	 * @param x1 второе и третье слова
+	 * @param x2 четвёртое и пятое слова
+	 * @param x3 шестое и седьмое слова
+	 *
+	 * @return   пара собранных слов итога
+	 *
+	 */
+	template <int ROW>
+	static __ANTS_INLINE__ __m128i gather(const __m128i x0, const __m128i x1, const __m128i x2, const __m128i x3) noexcept {
+		// Пара байтов преобразуемого слова
+		unsigned pair = 0;
+		// Собираемые слова итога
+		uint64_t low = 0, high = 0;
+		// Нулевое слово
+		pair = static_cast <unsigned> (_mm_extract_epi16(x0, ROW));
+		low = TABLES.values[0][pair & 0xFF];
+		high = TABLES.values[0][pair >> 8];
+		// Первое слово
+		pair = static_cast <unsigned> (_mm_extract_epi16(x0, ROW + 4));
+		low ^= TABLES.values[1][pair & 0xFF];
+		high ^= TABLES.values[1][pair >> 8];
+		// Второе слово
+		pair = static_cast <unsigned> (_mm_extract_epi16(x1, ROW));
+		low ^= TABLES.values[2][pair & 0xFF];
+		high ^= TABLES.values[2][pair >> 8];
+		// Третье слово
+		pair = static_cast <unsigned> (_mm_extract_epi16(x1, ROW + 4));
+		low ^= TABLES.values[3][pair & 0xFF];
+		high ^= TABLES.values[3][pair >> 8];
+		// Четвёртое слово
+		pair = static_cast <unsigned> (_mm_extract_epi16(x2, ROW));
+		low ^= TABLES.values[4][pair & 0xFF];
+		high ^= TABLES.values[4][pair >> 8];
+		// Пятое слово
+		pair = static_cast <unsigned> (_mm_extract_epi16(x2, ROW + 4));
+		low ^= TABLES.values[5][pair & 0xFF];
+		high ^= TABLES.values[5][pair >> 8];
+		// Шестое слово
+		pair = static_cast <unsigned> (_mm_extract_epi16(x3, ROW));
+		low ^= TABLES.values[6][pair & 0xFF];
+		high ^= TABLES.values[6][pair >> 8];
+		// Седьмое слово
+		pair = static_cast <unsigned> (_mm_extract_epi16(x3, ROW + 4));
+		low ^= TABLES.values[7][pair & 0xFF];
+		high ^= TABLES.values[7][pair >> 8];
+		// Выводим пару собранных слов
+		return _mm_unpacklo_epi64(_mm_cvtsi64_si128(static_cast <long long> (low)), _mm_cvtsi64_si128(static_cast <long long> (high)));
+	}
+	/**
+	 * @brief Метод преобразования LPSX над состоянием в регистрах
+	 *
+	 * @param s0 нулевое и первое слова состояния, замещаемые итогом
+	 * @param s1 второе и третье слова состояния
+	 * @param s2 четвёртое и пятое слова состояния
+	 * @param s3 шестое и седьмое слова состояния
+	 * @param k0 нулевое и первое слова складываемого вектора
+	 * @param k1 второе и третье слова складываемого вектора
+	 * @param k2 четвёртое и пятое слова складываемого вектора
+	 * @param k3 шестое и седьмое слова складываемого вектора
+	 *
+	 */
+	static __ANTS_INLINE__ void lpsx(__m128i & s0, __m128i & s1, __m128i & s2, __m128i & s3, const __m128i k0, const __m128i k1, const __m128i k2, const __m128i k3) noexcept {
+		// Выполняем сложение состояния с вектором по исключающему ИЛИ
+		s0 = _mm_xor_si128(s0, k0);
+		s1 = _mm_xor_si128(s1, k1);
+		s2 = _mm_xor_si128(s2, k2);
+		s3 = _mm_xor_si128(s3, k3);
+		// Собираем слова итога преобразования по парам
+		const __m128i t0 = gather <0> (s0, s1, s2, s3);
+		const __m128i t1 = gather <1> (s0, s1, s2, s3);
+		const __m128i t2 = gather <2> (s0, s1, s2, s3);
+		const __m128i t3 = gather <3> (s0, s1, s2, s3);
+		// Записываем итог состоянием
+		s0 = t0;
+		s1 = t1;
+		s2 = t2;
+		s3 = t3;
+	}
+	/**
+	 * @brief Метод чтения вектора в регистры
+	 *
+	 * @param value читаемый вектор
+	 * @param x0    нулевое и первое слова
+	 * @param x1    второе и третье слова
+	 * @param x2    четвёртое и пятое слова
+	 * @param x3    шестое и седьмое слова
+	 *
+	 */
+	static __ANTS_INLINE__ void fetch(const uint64_t * value, __m128i & x0, __m128i & x1, __m128i & x2, __m128i & x3) noexcept {
+		// Читаем слова вектора парами
+		x0 = _mm_loadu_si128(reinterpret_cast <const __m128i *> (value));
+		x1 = _mm_loadu_si128(reinterpret_cast <const __m128i *> (value + 2));
+		x2 = _mm_loadu_si128(reinterpret_cast <const __m128i *> (value + 4));
+		x3 = _mm_loadu_si128(reinterpret_cast <const __m128i *> (value + 6));
+	}
+	/**
+	 * @brief Метод сжатия блока сообщения
+	 *
+	 * @details Функция g_N по разделу 8 ГОСТ Р 34.11-2012: ключ и состояние живут в
+	 *          регистрах XMM все двенадцать кругов, в память пишется лишь итог
+	 *
+	 * @param hash    вычисляемое значение хеша
+	 * @param counter число разобранных разрядов сообщения
+	 * @param message сжимаемый блок сообщения
+	 *
+	 */
+	static void compress(uint64_t * hash, const uint64_t * counter, const uint64_t * message) noexcept {
+		// Ключ очередной итерации
+		__m128i k0, k1, k2, k3;
+		// Состояние шифруемого блока
+		__m128i s0, s1, s2, s3;
+		// Складываемый вектор: число разрядов, затем величины итераций
+		__m128i c0, c1, c2, c3;
+		// Читаем хеш и число разрядов
+		fetch(hash, k0, k1, k2, k3);
+		fetch(counter, c0, c1, c2, c3);
+		// Вырабатываем ключ первой итерации
+		lpsx(k0, k1, k2, k3, c0, c1, c2, c3);
+		// Читаем блок сообщения
+		fetch(message, s0, s1, s2, s3);
+		// Выполняем первое применение преобразования к блоку сообщения
+		lpsx(s0, s1, s2, s3, k0, k1, k2, k3);
+		/**
+		 * Выполняем оставшиеся одиннадцать применений преобразования
+		 */
+		for(size_t i = 0; i < 11; i++){
+			// Читаем величину очередной итерации
+			fetch(CONSTANTS[i], c0, c1, c2, c3);
+			// Вырабатываем ключ очередной итерации
+			lpsx(k0, k1, k2, k3, c0, c1, c2, c3);
+			// Применяем преобразование к состоянию шифруемого блока
+			lpsx(s0, s1, s2, s3, k0, k1, k2, k3);
+		}
+		// Читаем величину последней итерации
+		fetch(CONSTANTS[11], c0, c1, c2, c3);
+		// Вырабатываем ключ последней итерации
+		lpsx(k0, k1, k2, k3, c0, c1, c2, c3);
+		// Складываем состояние с ключом последней итерации
+		s0 = _mm_xor_si128(s0, k0);
+		s1 = _mm_xor_si128(s1, k1);
+		s2 = _mm_xor_si128(s2, k2);
+		s3 = _mm_xor_si128(s3, k3);
+		// Читаем хеш и блок сообщения
+		fetch(hash, k0, k1, k2, k3);
+		fetch(message, c0, c1, c2, c3);
+		// Складываем итог шифрования с хешем и блоком сообщения
+		s0 = _mm_xor_si128(_mm_xor_si128(s0, k0), c0);
+		s1 = _mm_xor_si128(_mm_xor_si128(s1, k1), c1);
+		s2 = _mm_xor_si128(_mm_xor_si128(s2, k2), c2);
+		s3 = _mm_xor_si128(_mm_xor_si128(s3, k3), c3);
+		// Записываем новое значение хеша
+		_mm_storeu_si128(reinterpret_cast <__m128i *> (hash), s0);
+		_mm_storeu_si128(reinterpret_cast <__m128i *> (hash + 2), s1);
+		_mm_storeu_si128(reinterpret_cast <__m128i *> (hash + 4), s2);
+		_mm_storeu_si128(reinterpret_cast <__m128i *> (hash + 6), s3);
+	}
+	#endif
 
 	/**
 	 * @brief Метод сложения двоичных векторов по модулю два в степени 512
