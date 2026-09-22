@@ -34,6 +34,7 @@
 #include <main.hpp>
 #include <starve.hpp>
 #include <identity.hpp>
+#include <gost.hpp>
 #include <adversary.hpp>
 #include <pem/pem.hpp>
 #include <alert/alert.hpp>
@@ -217,7 +218,11 @@ TEST(AlpsTest, Loopback){
 	 */
 	for(size_t p = 0; p < (sizeof(POINTS) / sizeof(POINTS[0])); p++){
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		arrange(client, server, credential, "client-h2", "server-h2", POINTS[p]);
 		ASSERT_EQ(client.codepoint(), POINTS[p]);
 		ASSERT_EQ(server.codepoint(), POINTS[p]);
@@ -238,7 +243,11 @@ TEST(AlpsTest, Loopback){
 		EXPECT_EQ(client.tickets()[0].settings, bytes("client-h2"));
 		EXPECT_EQ(client.tickets()[0].obtained, bytes("server-h2"));
 		client::context_t resuming;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(resuming);
 		server::context_t resumed;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(resumed);
 		arrange(resuming, resumed, credential, "client-h2-again", "server-h2-again", POINTS[p]);
 		resuming.resume(client.tickets()[0]);
 		resumed.resume(server.tickets());
@@ -262,7 +271,11 @@ TEST(AlpsTest, Codepoints){
 	context::credential_t credential;
 	ASSERT_TRUE(keyfile("ec256", credential));
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	arrange(client, server, credential, "client-h2", "server-h2", extension::type_t::SETTINGS_OLD);
 	server.codepoint(extension::type_t::SETTINGS);
 	ASSERT_EQ(server.start(), context::error_t::NONE);
@@ -287,7 +300,11 @@ TEST(AlpsTest, Absent){
 	ASSERT_TRUE(keyfile("ec256", credential));
 	{
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		arrange(client, server, credential, "client-h2", nullptr, extension::type_t::SETTINGS);
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
@@ -297,7 +314,11 @@ TEST(AlpsTest, Absent){
 	}
 	{
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		arrange(client, server, credential, "client-h2", nullptr, extension::type_t::SETTINGS);
 		server.protocols(vector <string> {"http/1.1"});
 		server.settings("http/1.1", bytes("server-http"));
@@ -318,7 +339,11 @@ TEST(AlpsTest, Empty){
 	context::credential_t credential;
 	ASSERT_TRUE(keyfile("ec256", credential));
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	arrange(client, server, credential, "", "", extension::type_t::SETTINGS);
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
@@ -337,6 +362,8 @@ TEST(AlpsTest, Lying){
 	context::credential_t credential;
 	ASSERT_TRUE(keyfile("rsa2048", credential));
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	client.protocols(vector <string> {"h2"});
 	client.settings("h2", bytes("client-h2"));
 	ASSERT_EQ(client.start(), context::error_t::NONE);
@@ -356,6 +383,8 @@ TEST(AlpsTest, Missing){
 	context::credential_t credential;
 	ASSERT_TRUE(identity("anyks.com", credential));
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	server.credential(credential);
 	server.suites(vector <protect::suite_t> {protect::suite_t::MAGMA_MGM_L});
 	server.protocols(vector <string> {"h2"});
@@ -368,6 +397,8 @@ TEST(AlpsTest, Missing){
 	EXPECT_TRUE(server.settled());
 	// Пустой перечень протоколов с настройками черновиком запрещён: decode_error
 	server::context_t another;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(another);
 	another.credential(credential);
 	another.suites(vector <protect::suite_t> {protect::suite_t::MAGMA_MGM_L});
 	another.protocols(vector <string> {"h2"});
@@ -390,7 +421,11 @@ TEST(AlpsTest, Resumed){
 	context::credential_t credential;
 	ASSERT_TRUE(keyfile("ec256", credential));
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	arrange(client, server, credential, "client-h2", "server-h2", extension::type_t::SETTINGS);
 	server.advance(true);
 	ASSERT_EQ(server.start(), context::error_t::NONE);
@@ -402,7 +437,11 @@ TEST(AlpsTest, Resumed){
 	ASSERT_EQ(client.tickets().size(), static_cast <size_t> (1));
 	ASSERT_GT(client.tickets()[0].advance, static_cast <uint32_t> (0));
 	client::context_t resuming;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(resuming);
 	server::context_t resumed;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(resumed);
 	arrange(resuming, resumed, credential, "client-h2", "server-h2", extension::type_t::SETTINGS);
 	resumed.advance(true);
 	resuming.advance(true);
@@ -437,7 +476,11 @@ TEST(AlpsTest, Mismatch){
 	 */
 	for(size_t side = 0; side < 3; side++){
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		arrange(client, server, credential, "client-h2", "server-h2", extension::type_t::SETTINGS);
 		server.advance(true);
 		ASSERT_EQ(server.start(), context::error_t::NONE);
@@ -448,7 +491,11 @@ TEST(AlpsTest, Mismatch){
 		converse(client, server);
 		ASSERT_EQ(client.tickets().size(), static_cast <size_t> (1));
 		client::context_t resuming;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(resuming);
 		server::context_t resumed;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(resumed);
 		const bool mine = ((side == 0) || (side == 2)), theirs = ((side == 1) || (side == 2));
 		arrange(resuming, resumed, credential, (mine ? "client-h2-changed" : "client-h2"), (theirs ? "server-h2-changed" : "server-h2"), extension::type_t::SETTINGS);
 		resumed.advance(true);
@@ -471,7 +518,11 @@ TEST(AlpsTest, Mismatch){
 	// Без настроек у нового клиента при билете с согласованными настройками упреждение тоже не идёт
 	{
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		arrange(client, server, credential, "client-h2", "server-h2", extension::type_t::SETTINGS);
 		server.advance(true);
 		ASSERT_EQ(server.start(), context::error_t::NONE);
@@ -481,7 +532,11 @@ TEST(AlpsTest, Mismatch){
 		converse(client, server);
 		ASSERT_EQ(client.tickets().size(), static_cast <size_t> (1));
 		client::context_t resuming;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(resuming);
 		server::context_t resumed;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(resumed);
 		arrange(resuming, resumed, credential, nullptr, "server-h2", extension::type_t::SETTINGS);
 		resumed.advance(true);
 		resuming.advance(true);
@@ -508,6 +563,8 @@ TEST(AlpsTest, Profile){
 	fingerprint::profile_t source;
 	{
 		client::context_t donor;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(donor);
 		donor.name("example.com");
 		donor.protocols(vector <string> {"h2", "http/1.1"});
 		donor.settings("h2", bytes("donor-h2"));
@@ -529,7 +586,11 @@ TEST(AlpsTest, Profile){
 	}
 	ASSERT_TRUE(found);
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	client.name("example.com");
 	ASSERT_EQ(client.profile(source), context::error_t::NONE);
 	EXPECT_EQ(client.codepoint(), extension::type_t::SETTINGS_OLD);
@@ -559,7 +620,11 @@ TEST(AlpsTest, Profile){
 	ASSERT_TRUE(barter(client, server));
 	// Профиль с ALPS против сервера иной точки кода: связь без настроек
 	client::context_t other;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(other);
 	server::context_t another;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(another);
 	other.name("example.com");
 	ASSERT_EQ(other.profile(source), context::error_t::NONE);
 	another.credential(credential);
@@ -624,12 +689,16 @@ TEST(AlpsTest, Refusals){
 	ASSERT_TRUE(keyfile("ec256", credential));
 	{
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		client.protocols(vector <string> {"h2"});
 		client.settings("http/1.1", bytes("x"));
 		EXPECT_EQ(client.start(), context::error_t::PROTOCOL);
 	}
 	{
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		server.credential(credential);
 		server.protocols(vector <string> {"h2"});
 		server.settings("h3", bytes("x"));
@@ -637,6 +706,8 @@ TEST(AlpsTest, Refusals){
 	}
 	{
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		const string longest(256, 'a');
 		client.protocols(vector <string> {longest});
 		client.settings(longest, bytes("x"));
@@ -644,6 +715,8 @@ TEST(AlpsTest, Refusals){
 	}
 	{
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		client.codepoint(extension::type_t::SETTINGS_OLD);
 		client.codepoint(extension::type_t::NAME);
 		EXPECT_EQ(client.codepoint(), extension::type_t::SETTINGS_OLD);
@@ -652,7 +725,11 @@ TEST(AlpsTest, Refusals){
 	}
 	{
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		arrange(client, server, credential, "client-h2", "server-h2", extension::type_t::SETTINGS);
 		ASSERT_EQ(client.versions(0x0303, 0x0303), context::error_t::NONE);
 		ASSERT_EQ(server.versions(0x0303, 0x0303), context::error_t::NONE);
@@ -672,7 +749,11 @@ TEST(AlpsTest, Refusals){
 	{
 		// Повтор по тому же протоколу заменяет настройки
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		arrange(client, server, credential, "first", "server-h2", extension::type_t::SETTINGS);
 		client.settings("h2", bytes("second"));
 		ASSERT_EQ(server.start(), context::error_t::NONE);
@@ -697,7 +778,11 @@ TEST(AlpsTest, Starved){
 	 */
 	for(size_t budget = 0; (budget < 4000) && !complete; budget += ((budget < 200) ? 1 : 37)){
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		arrange(client, server, credential, "client-h2", "server-h2", extension::type_t::SETTINGS);
 		context::error_t first = context::error_t::NONE, second = context::error_t::NONE;
 		{

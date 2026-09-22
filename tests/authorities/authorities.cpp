@@ -35,6 +35,7 @@
 #include <main.hpp>
 #include <starve.hpp>
 #include <adversary.hpp>
+#include <gost.hpp>
 #include <openssl.hpp>
 #include <pem/pem.hpp>
 #include <x509/x509.hpp>
@@ -193,7 +194,11 @@ TEST(AuthoritiesTest, Loopback){
 	EXPECT_EQ(root[0], static_cast <uint8_t> (0x30));
 	{
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		arrange(client, server, mine, theirs, vector <vector <uint8_t>> {root, other});
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
@@ -207,7 +212,11 @@ TEST(AuthoritiesTest, Loopback){
 	}
 	{
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		arrange(client, server, mine, theirs, vector <vector <uint8_t>> ());
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
@@ -218,7 +227,11 @@ TEST(AuthoritiesTest, Loopback){
 	{
 		// Без запроса подлинности перечень не идёт вовсе
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		server.credential(mine);
 		server.authorities(vector <vector <uint8_t>> {root});
 		ASSERT_EQ(server.start(), context::error_t::NONE);
@@ -240,7 +253,11 @@ TEST(AuthoritiesTest, Legacy){
 	ASSERT_FALSE(root.empty());
 	for(size_t named = 0; named < 2; named++){
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		arrange(client, server, mine, theirs, ((named == 1) ? vector <vector <uint8_t>> {root} : vector <vector <uint8_t>> ()));
 		ASSERT_EQ(client.versions(0x0303, 0x0303), context::error_t::NONE);
 		ASSERT_EQ(server.versions(0x0303, 0x0303), context::error_t::NONE);
@@ -267,6 +284,8 @@ TEST(AuthoritiesTest, Lying){
 	for(size_t i = 0; i < (sizeof(MALFORMED) / sizeof(MALFORMED[0])); i++){
 		// Враждебный сервер набора проверок говорит лишь наборами ГОСТ
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		client.suites(vector <protect::suite_t> {protect::suite_t::MAGMA_MGM_L});
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		ASSERT_TRUE(adversary(client, MALFORMED[i])) << i;
@@ -286,6 +305,8 @@ TEST(AuthoritiesTest, Refusals){
 	ASSERT_TRUE(keyfile("ec256", mine));
 	{
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		server.credential(mine);
 		server.request(true);
 		server.authorities(vector <vector <uint8_t>> {vector <uint8_t> ()});
@@ -293,6 +314,8 @@ TEST(AuthoritiesTest, Refusals){
 	}
 	{
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		server.credential(mine);
 		server.request(true);
 		server.authorities(vector <vector <uint8_t>> {vector <uint8_t> {0x31, 0x00}});
@@ -352,6 +375,8 @@ TEST(AuthoritiesTest, Openssl){
 		const int fd = dial(number);
 		ASSERT_GE(fd, 0) << "порт " << number;
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		client.suites(vector <protect::suite_t> {protect::suite_t::AES_128_GCM_SHA256});
 		client.groups(vector <extension::group_t> {extension::group_t::X25519});
 		client.credential(credential);
@@ -379,6 +404,8 @@ TEST(AuthoritiesTest, Openssl){
 		const int fd = greeted(listener);
 		ASSERT_GE(fd, 0);
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		server.suites(vector <protect::suite_t> {protect::suite_t::AES_128_GCM_SHA256});
 		server.groups(vector <extension::group_t> {extension::group_t::X25519});
 		server.credential(credential);
@@ -418,7 +445,11 @@ TEST(AuthoritiesTest, Starved){
 	 */
 	for(size_t budget = 0; (budget < 4000) && !complete; budget += ((budget < 200) ? 1 : 37)){
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		arrange(client, server, mine, theirs, vector <vector <uint8_t>> {root});
 		context::error_t first = context::error_t::NONE, second = context::error_t::NONE;
 		{

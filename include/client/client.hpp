@@ -485,16 +485,42 @@ namespace nts {
 				 *
 				 * @note Наборы перечисляются от предпочтительного к запасному
 				 * @note Пустой список установку пропускает, сохраняя набор, установленный прежде
+				 * @note Умолчание - классика без ГОСТ; наборы ГОСТ («Кузнечик» и «Магма» в MGM)
+				 *       объявляет сам потребитель: как поддержку, дописав их к перечню из
+				 *       получателя suites(), либо как единственный вариант, заменив перечень целиком
 				 *
 				 * \~english
 				 * @brief Method of setting the offered cipher suites
 				 * @param suites the cipher suites being set
 				 * @note The suites are listed from the preferable one to the spare one
 				 * @note An empty list skips the setting, keeping the set having been set before
+				 * @note The default is the classic without GOST; the GOST suites (Kuznyechik and Magma in MGM)
+				 *       are declared by the consumer itself: as a support, appending them to the list from the
+				 *       getter suites(), or as the only option, replacing the list wholly
 				 *
 				 * \~
 				 */
 				void suites(const vector <protect::suite_t> & suites) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения предлагаемых наборов шифрования
+				 *
+				 * @return перечень наборов шифрования: назначенный потребителем либо умолчание
+				 *
+				 * @note Умолчание - классика: AES-256-GCM, ChaCha20-Poly1305, AES-128-GCM и
+				 *       наборы издания 1.2; наборов ГОСТ в нём нет, их потребитель объявляет
+				 *       сам вызовом suites(), дописав к этому перечню либо заменив его целиком
+				 *
+				 * \~english
+				 * @brief Method of getting the offered cipher suites
+				 * @return the list of the cipher suites: the one set by the consumer or the default
+				 * @note The default is the classic: AES-256-GCM, ChaCha20-Poly1305, AES-128-GCM and the suites
+				 *       of the 1.2 edition; there are no GOST suites in it, the consumer declares them by the
+				 *       call of suites(), appending to this list or replacing it wholly
+				 *
+				 * \~
+				 */
+				const vector <protect::suite_t> & suites() const noexcept;
 				/**
 				 * \~russian
 				 * @brief Метод установки пределов издания протокола
@@ -639,16 +665,43 @@ namespace nts {
 				 *
 				 * @note Кривые перечисляются от предпочтительной к запасной
 				 * @note Пустой список установку пропускает, сохраняя набор, установленный прежде
+				 * @note Умолчание - классика без ГОСТ; кривые ГОСТ (GC256A…GC512C) объявляет сам
+				 *       потребитель: как поддержку, дописав их к перечню из получателя groups(),
+				 *       либо как единственный вариант, заменив перечень целиком
 				 *
 				 * \~english
 				 * @brief Method of setting the offered curves of the key exchange
 				 * @param groups the curves of the key exchange being set
 				 * @note The curves are listed from the preferable one to the spare one
 				 * @note An empty list skips the setting, keeping the set having been set before
+				 * @note The default is the classic without GOST; the GOST curves (GC256A…GC512C) are declared by
+				 *       the consumer itself: as a support, appending them to the list from the getter groups(),
+				 *       or as the only option, replacing the list wholly
 				 *
 				 * \~
 				 */
 				void groups(const vector <extension::group_t> & groups) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения предлагаемых кривых обмена ключами
+				 *
+				 * @return перечень кривых обмена ключами: назначенный потребителем либо умолчание
+				 *
+				 * @note Умолчание - то, что предлагают браузеры и OpenSSL 3.5: X25519MLKEM768,
+				 *       X25519, secp256r1, secp384r1; кривых ГОСТ в нём нет, их потребитель
+				 *       объявляет сам вызовом groups(), дописав к этому перечню либо заменив его
+				 *       целиком
+				 *
+				 * \~english
+				 * @brief Method of getting the offered curves of the key exchange
+				 * @return the list of the curves of the key exchange: the one set by the consumer or the default
+				 * @note The default is what the browsers and OpenSSL 3.5 offer: X25519MLKEM768, X25519,
+				 *       secp256r1, secp384r1; there are no GOST curves in it, the consumer declares them by the
+				 *       call of groups(), appending to this list or replacing it wholly
+				 *
+				 * \~
+				 */
+				const vector <extension::group_t> & groups() const noexcept;
 				/**
 				 * \~russian
 				 * @brief Метод установки групп обмена, по которым приветствием шлются доли ключа
@@ -659,7 +712,12 @@ namespace nts {
 				 *          доли ключа шлются по другому, обычно по одной группе. Всякая группа
 				 *          доли обязана входить в перечень поддерживаемых
 				 *
-				 * @note Пустой перечень возвращает умолчание: доля по первой из поддерживаемых
+				 * @note Пустой перечень возвращает умолчание: доля по первой из поддерживаемых и
+				 *       по первой группе каждого ещё не представленного рода - кривые ГОСТ, гибриды
+				 *       с ML-KEM, классические кривые; группы конечного поля долю получают лишь
+				 *       первыми. Так у умолчаний доли идут по X25519MLKEM768 и X25519, как шлют
+				 *       браузеры, и сервер без ML-KEM берёт долю кривой без просьбы о повторе, а у
+				 *       связи с объявленным ГОСТ доля ГОСТ есть всегда
 				 * @note Под группу, связи неведомую, доля шлётся произвольной (RFC 8701)
 				 *
 				 * \~english
@@ -668,12 +726,36 @@ namespace nts {
 				 * @details The section 4.2.8 of RFC 8446: the support of the groups is declared by one list,
 				 *          while the key shares are sent by another one, usually by a single group. Every
 				 *          group of a share is obliged to enter the list of the supported ones
-				 * @note An empty list returns the default: a share by the first of the supported groups
+				 * @note An empty list returns the default: a share by the first of the supported groups and by
+				 *       the first group of every kind not yet represented - the GOST curves, the hybrids with
+				 *       ML-KEM, the classic curves; the finite field groups get a share only being the first. So
+				 *       at the defaults the shares go by X25519MLKEM768 and X25519, as the browsers send, and a
+				 *       server without ML-KEM takes the share of the curve without a request of a retry, while a
+				 *       connection with the declared GOST always has a GOST share
 				 * @note For a group unknown to the connection the share is sent arbitrary (RFC 8701)
 				 *
 				 * \~
 				 */
 				void shares(const vector <extension::group_t> & shares) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения групп обмена, по которым приветствием шлются доли ключа
+				 *
+				 * @return перечень групп долей ключа, назначенный потребителем; пустой при умолчании
+				 *
+				 * @note При умолчании доли идут по первой из поддерживаемых групп и по первой группе
+				 *       каждого ещё не представленного рода: кривые ГОСТ, гибриды с ML-KEM,
+				 *       классические кривые
+				 *
+				 * \~english
+				 * @brief Method of getting the groups of the exchange the key shares are sent by the greeting for
+				 * @return the list of the groups of the key shares set by the consumer; empty at the default
+				 * @note At the default the shares go by the first of the supported groups and by the first group
+				 *       of every kind not yet represented: the GOST curves, the hybrids with ML-KEM, the classic curves
+				 *
+				 * \~
+				 */
+				const vector <extension::group_t> & shares() const noexcept;
 				/**
 				 * \~russian
 				 * @brief Метод установки признаваемых схем подписи
@@ -683,6 +765,10 @@ namespace nts {
 				 * @note Схемы перечисляются от предпочтительной к запасной; перечень объявляется
 				 *       собеседнику и им же выбирается схема своей подписи по своему ключу
 				 * @note Пустой список установку пропускает, сохраняя набор, установленный прежде
+				 * @note Умолчание - классика без ГОСТ; схемы ГОСТ (S256A…S512C) объявляет сам
+				 *       потребитель: как поддержку, дописав их к перечню из получателя schemes(),
+				 *       либо как единственный вариант, заменив перечень целиком. Подлинность ГОСТ
+				 *       без объявленных обеими сторонами схем ГОСТ подписать ничего не сможет
 				 *
 				 * \~english
 				 * @brief Method of setting the recognized signature schemes
@@ -690,10 +776,36 @@ namespace nts {
 				 * @note The schemes are listed from the preferable one to the spare one; the list is declared
 				 *       to the peer and by it the scheme of the own signature is chosen by the own key
 				 * @note An empty list skips the setting, keeping the set having been set before
+				 * @note The default is the classic without GOST; the GOST schemes (S256A…S512C) are declared by
+				 *       the consumer itself: as a support, appending them to the list from the getter schemes(),
+				 *       or as the only option, replacing the list wholly. A GOST credential without the GOST
+				 *       schemes declared by both sides is unable to sign anything
 				 *
 				 * \~
 				 */
 				void schemes(const vector <extension::scheme_t> & schemes) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения признаваемых схем подписи
+				 *
+				 * @return перечень схем подписи: назначенный потребителем либо умолчание
+				 *
+				 * @note Умолчание - классика: ECDSA, RSA-PSS, Ed25519, RSA PKCS #1; схем ГОСТ в нём
+				 *       нет, их потребитель объявляет сам вызовом schemes(), дописав к этому
+				 *       перечню либо заменив его целиком. Подлинность ГОСТ без объявленных схем
+				 *       ГОСТ подписать ничего не сможет
+				 *
+				 * \~english
+				 * @brief Method of getting the recognized signature schemes
+				 * @return the list of the signature schemes: the one set by the consumer or the default
+				 * @note The default is the classic: ECDSA, RSA-PSS, Ed25519, RSA PKCS #1; there are no GOST
+				 *       schemes in it, the consumer declares them by the call of schemes(), appending to this
+				 *       list or replacing it wholly. A GOST credential without the declared GOST schemes is
+				 *       unable to sign anything
+				 *
+				 * \~
+				 */
+				const vector <extension::scheme_t> & schemes() const noexcept;
 				/**
 				 * \~russian
 				 * @brief Метод установки алгоритмов сжатия цепочки сертификатов
@@ -976,11 +1088,18 @@ namespace nts {
 				 * @note Подлинность клиента нужна лишь тогда, когда её запрашивает сервер: без запроса
 				 *       цепочка не отправляется вовсе
 				 *
+				 * @note Ключ подлинности стоит подготовить один раз (credential_t::prepare()):
+				 *       подготовленный ключ разделяется всеми связями, а без подготовки связь
+				 *       готовит его сама при первой надобности
+				 *
 				 * \~english
 				 * @brief Method of setting the authenticity of one's own side of the connection
 				 * @param credential the authenticity of one's own side being set
 				 * @note The authenticity of the client is needed only when the server requests it: without a
 				 *       request the chain is not sent at all
+				 * @note The key of the authenticity is worth preparing once (credential_t::prepare()): a
+				 *       prepared key is shared by all the connections, and without the preparation the
+				 *       connection prepares it itself at the first need
 				 *
 				 * \~
 				 */

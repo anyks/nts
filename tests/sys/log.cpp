@@ -43,6 +43,7 @@
  */
 #include <main.hpp>
 #include <identity.hpp>
+#include <gost.hpp>
 #include <sys/log.hpp>
 #include <sys/vault.hpp>
 #include <client/client.hpp>
@@ -165,7 +166,11 @@ TEST(LogTest, Abort) {
 	context::credential_t credentials;
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	server.credential(credentials);
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	ASSERT_EQ(client.start(), context::error_t::NONE);

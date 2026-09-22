@@ -1434,6 +1434,20 @@ namespace nts {
 				 */
 				context::error_t agree(const extension::group_t group, const view_t & key, uint8_t * result, size_t & length) noexcept;
 				/**
+				 * @brief Метод получения подготовленного секретного ключа своей подлинности
+				 *
+				 * @param result место, в которое помещается указатель на подготовленный ключ
+				 *
+				 * @return       отказ подготовки ключа: SIGNATURE у негодной записи, CERTIFICATE у
+				 *               нечитаемого своего сертификата, MEMORY у нехватки памяти
+				 *
+				 * @details Ключ, подготовленный потребителем в подлинности, берётся общим, если его
+				 *          отпечаток отвечает байтам ключа и сертификата; иначе связь готовит ключ
+				 *          сама при первой надобности и держит его до конца своей жизни
+				 *
+				 */
+				context::error_t signer(const keys::Signer *& result) noexcept;
+				/**
 				 * @brief Метод выработки подписи содержимого своим ключом
 				 *
 				 * @param content   подписываемое содержимое
@@ -1683,9 +1697,9 @@ namespace nts {
 				 */
 				uint16_t version() const noexcept;
 				/**
-				 * @brief Метод установки порядка выбора набора шифрования издания TLS 1.2
+				 * @brief Метод установки порядка выбора набора шифрования и кривой обмена ключами
 				 *
-				 * @param own выбирается ли набор порядком сервера, а не клиента
+				 * @param own выбираются ли набор и кривая порядком сервера, а не клиента
 				 *
 				 */
 				void preference(const bool own) noexcept;
@@ -1810,6 +1824,35 @@ namespace nts {
 				 *
 				 */
 				void schemes(const vector <extension::scheme_t> & schemes) noexcept;
+			public:
+				/**
+				 * @brief Метод получения предлагаемых наборов шифрования
+				 *
+				 * @return перечень наборов шифрования, назначенный потребителем либо умолчание
+				 *
+				 */
+				const vector <protect::suite_t> & suites() const noexcept;
+				/**
+				 * @brief Метод получения предлагаемых кривых обмена ключами
+				 *
+				 * @return перечень кривых обмена ключами, назначенный потребителем либо умолчание
+				 *
+				 */
+				const vector <extension::group_t> & groups() const noexcept;
+				/**
+				 * @brief Метод получения групп обмена, по которым приветствием шлются доли ключа
+				 *
+				 * @return перечень групп долей ключа, назначенный потребителем; пустой при умолчании
+				 *
+				 */
+				const vector <extension::group_t> & shares() const noexcept;
+				/**
+				 * @brief Метод получения признаваемых схем подписи
+				 *
+				 * @return перечень схем подписи, назначенный потребителем либо умолчание
+				 *
+				 */
+				const vector <extension::scheme_t> & schemes() const noexcept;
 				/**
 				 * @brief Метод установки алгоритмов сжатия цепочки сертификатов
 				 *

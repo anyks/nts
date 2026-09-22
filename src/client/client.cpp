@@ -219,6 +219,18 @@ void nts::client::Context::suites(const vector <protect::suite_t> & suites) noex
 		this->_engine->suites(suites);
 }
 /**
+ * @brief Метод получения предлагаемых наборов шифрования
+ *
+ * @return перечень наборов шифрования: назначенный потребителем либо умолчание
+ *
+ */
+const vector <nts::protect::suite_t> & nts::client::Context::suites() const noexcept {
+	// Пустой перечень на случай незаведённого ведения связи
+	static const vector <protect::suite_t> empty;
+	// Выводим перечень предлагаемых наборов шифрования
+	return (this->_engine != nullptr ? this->_engine->suites() : empty);
+}
+/**
  * @brief Метод установки пределов издания протокола
  *
  * @param lowest  наименьшее дозволенное издание протокола
@@ -296,6 +308,18 @@ void nts::client::Context::groups(const vector <extension::group_t> & groups) no
 		this->_engine->groups(groups);
 }
 /**
+ * @brief Метод получения предлагаемых кривых обмена ключами
+ *
+ * @return перечень кривых обмена ключами: назначенный потребителем либо умолчание
+ *
+ */
+const vector <nts::extension::group_t> & nts::client::Context::groups() const noexcept {
+	// Пустой перечень на случай незаведённого ведения связи
+	static const vector <extension::group_t> empty;
+	// Выводим перечень предлагаемых кривых обмена ключами
+	return (this->_engine != nullptr ? this->_engine->groups() : empty);
+}
+/**
  * @brief Метод установки групп обмена, по которым приветствием шлются доли ключа
  *
  * @param shares устанавливаемые группы долей ключа
@@ -308,6 +332,18 @@ void nts::client::Context::shares(const vector <extension::group_t> & shares) no
 		this->_engine->shares(shares);
 }
 /**
+ * @brief Метод получения групп обмена, по которым приветствием шлются доли ключа
+ *
+ * @return перечень групп долей ключа, назначенный потребителем; пустой при умолчании
+ *
+ */
+const vector <nts::extension::group_t> & nts::client::Context::shares() const noexcept {
+	// Пустой перечень на случай незаведённого ведения связи
+	static const vector <extension::group_t> empty;
+	// Выводим перечень групп долей ключа
+	return (this->_engine != nullptr ? this->_engine->shares() : empty);
+}
+/**
  * @brief Метод установки признаваемых схем подписи
  *
  * @param schemes устанавливаемые схемы подписи
@@ -318,6 +354,18 @@ void nts::client::Context::schemes(const vector <extension::scheme_t> & schemes)
 	if(this->_engine != nullptr)
 		// Выполняем установку признаваемых схем подписи
 		this->_engine->schemes(schemes);
+}
+/**
+ * @brief Метод получения признаваемых схем подписи
+ *
+ * @return перечень схем подписи: назначенный потребителем либо умолчание
+ *
+ */
+const vector <nts::extension::scheme_t> & nts::client::Context::schemes() const noexcept {
+	// Пустой перечень на случай незаведённого ведения связи
+	static const vector <extension::scheme_t> empty;
+	// Выводим перечень признаваемых схем подписи
+	return (this->_engine != nullptr ? this->_engine->schemes() : empty);
 }
 /**
  * @brief Метод установки алгоритмов сжатия цепочки сертификатов

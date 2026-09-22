@@ -35,6 +35,7 @@
 #include <main.hpp>
 #include <openssl.hpp>
 #include <identity.hpp>
+#include <gost.hpp>
 #include <pem/pem.hpp>
 #include <hello/hello.hpp>
 #include <record/record.hpp>
@@ -195,7 +196,11 @@ namespace {
 	 */
 	static bool ticketed(const context::credential_t & credential, const vector <protect::suite_t> & suites, context::ticket_t & accepted, vector <context::ticket_t> & issued) noexcept {
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		server.credential(credential);
 		server.advance(true, 16384);
 		if(!suites.empty()){
@@ -234,7 +239,11 @@ TEST(AuditTest, TicketHistory){
 	vector <context::ticket_t> issued;
 	ASSERT_TRUE(ticketed(credential, vector <protect::suite_t> (), accepted, issued));
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	server.credential(credential);
 	ASSERT_EQ(server.versions(0x0303, 0x0303), context::error_t::NONE);
 	server.request(true);
@@ -258,7 +267,11 @@ TEST(AuditTest, TicketReselect){
 	ASSERT_TRUE(ticketed(credential, vector <protect::suite_t> {protect::suite_t::AES_128_GCM_SHA256}, accepted, issued));
 	const vector <protect::suite_t> suites = {protect::suite_t::AES_256_GCM_SHA384, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, protect::suite_t::AES_128_GCM_SHA256};
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	server.credential(credential);
 	server.suites(suites);
 	server.resume(issued);
@@ -283,7 +296,11 @@ TEST(AuditTest, EarlyBeforeRetry){
 	vector <context::ticket_t> issued;
 	ASSERT_TRUE(ticketed(credential, vector <protect::suite_t> (), accepted, issued));
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	server.credential(credential);
 	server.resume(issued);
 	server.advance(true, 16384);
@@ -311,7 +328,11 @@ TEST(AuditTest, StaleTicketBudget){
 	vector <context::ticket_t> issued;
 	ASSERT_TRUE(ticketed(credential, vector <protect::suite_t> (), accepted, issued));
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	server.credential(credential);
 	server.advance(true, 16384);
 	client.resume(accepted);
@@ -332,6 +353,8 @@ TEST(AuditTest, StaleTicketBudget){
  */
 TEST(AuditTest, CookieOnlyRetry){
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	const vector <uint8_t> wire = take(client);
 	handshake::reader_t messages;
@@ -363,6 +386,8 @@ TEST(AuditTest, CookieOnlyRetry){
 	EXPECT_GT(take(client).size(), static_cast <size_t> (0));
 	// Просьба без доли и без метки - отказ
 	client::context_t other;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(other);
 	ASSERT_EQ(other.start(), context::error_t::NONE);
 	(void) take(other);
 	answer.extensions.pop_back();
@@ -383,7 +408,11 @@ TEST(AuditTest, CcsAfterRetry){
 	context::credential_t credential;
 	ASSERT_TRUE(keyfile("ec256", credential));
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	server.credential(credential);
 	server.groups(vector <extension::group_t> {extension::group_t::SECP384R1});
 	client.groups(vector <extension::group_t> {extension::group_t::X25519, extension::group_t::SECP384R1});
@@ -402,6 +431,8 @@ TEST(AuditTest, CcsAfterRetry){
 	EXPECT_TRUE(client.established() && server.established());
 	// До первого приветствия та же запись по-прежнему отвергается
 	server::context_t fresh;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(fresh);
 	fresh.credential(credential);
 	ASSERT_EQ(fresh.start(), context::error_t::NONE);
 	EXPECT_NE(fresh.push(view_t(ccs, sizeof(ccs))), context::error_t::NONE);
@@ -501,6 +532,8 @@ TEST(AuditTest, EchConfigs){
 	EXPECT_NE(ech::parse(view_t(alone.data(), alone.size()), configs), ech::error_t::NONE);
 	// Клиент с таким перечнем заводится по годной конфигурации
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	client.name("secret.example");
 	EXPECT_EQ(client.ech(list), context::error_t::NONE);
 	EXPECT_EQ(client.start(), context::error_t::NONE);
@@ -608,7 +641,11 @@ TEST(AuditTest, PskAfterRetry){
 	vector <context::ticket_t> issued;
 	ASSERT_TRUE(ticketed(credential, vector <protect::suite_t> (), accepted, issued));
 	client::context_t first;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(first);
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	server.credential(credential);
 	server.resume(issued);
 	server.groups(vector <extension::group_t> {extension::group_t::SECP384R1});
@@ -622,6 +659,8 @@ TEST(AuditTest, PskAfterRetry){
 	(void) take(server);
 	// Второе приветствие от стороны без билета по запрошенной группе
 	client::context_t second;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(second);
 	second.groups(vector <extension::group_t> {extension::group_t::SECP384R1});
 	ASSERT_EQ(second.start(), context::error_t::NONE);
 	const vector <uint8_t> again = take(second);
@@ -650,7 +689,11 @@ TEST(AuditTest, TicketEdition){
 	vector <context::ticket_t> issued;
 	{
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		client.transport(context::transport_t::DATAGRAMS);
 		server.transport(context::transport_t::DATAGRAMS);
 		const uint8_t peer[] = {10, 0, 0, 1, 0x12, 0x34};
@@ -673,7 +716,11 @@ TEST(AuditTest, TicketEdition){
 	}
 	// Тот же билет предъявляется связью DTLS 1.0: сервер обязан вести полное рукопожатие, а не возобновлять набором GCM
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	client.transport(context::transport_t::DATAGRAMS);
 	server.transport(context::transport_t::DATAGRAMS);
 	const uint8_t peer[] = {10, 0, 0, 1, 0x12, 0x34};
@@ -701,6 +748,8 @@ TEST(AuditTest, TicketEdition){
  */
 TEST(AuditTest, OuterReference){
 	client::context_t donor;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(donor);
 	donor.name("secret.example");
 	ASSERT_EQ(donor.start(), context::error_t::NONE);
 	const vector <uint8_t> wire = take(donor);
@@ -811,7 +860,11 @@ TEST(AuditTest, PlainInjection){
 	context::credential_t credential;
 	ASSERT_TRUE(keyfile("ec256", credential));
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	client.transport(context::transport_t::DATAGRAMS);
 	server.transport(context::transport_t::DATAGRAMS);
 	const uint8_t peer[] = {10, 0, 0, 1, 0x12, 0x34};
@@ -851,7 +904,13 @@ TEST(AuditTest, AckNudge){
 	context::credential_t credential;
 	ASSERT_TRUE(keyfile("ec256", credential));
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
+	// Доля ключа лишь по GC512C: приветствие обязано уместиться в одну дейтаграмму, проверка ведёт дейтаграммы по одной
+	client.shares(vector <extension::group_t> {extension::group_t::GC512C});
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	client.transport(context::transport_t::DATAGRAMS);
 	server.transport(context::transport_t::DATAGRAMS);
 	const uint8_t peer[] = {10, 0, 0, 1, 0x12, 0x34};
@@ -968,7 +1027,11 @@ TEST(AuditTest, SuiteAfterRetry){
 	ASSERT_TRUE(ticketed(credential, vector <protect::suite_t> {protect::suite_t::AES_128_GCM_SHA256}, accepted, issued));
 	const vector <protect::suite_t> suites = {protect::suite_t::AES_256_GCM_SHA384, protect::suite_t::AES_128_GCM_SHA256};
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	server.credential(credential);
 	server.suites(suites);
 	server.resume(issued);
@@ -1012,7 +1075,11 @@ TEST(AuditTest, OwedUpdate){
 	context::credential_t credential;
 	ASSERT_TRUE(keyfile("ec256", credential));
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	client.transport(context::transport_t::DATAGRAMS);
 	server.transport(context::transport_t::DATAGRAMS);
 	const uint8_t peer[] = {10, 0, 0, 1, 0x12, 0x34};
@@ -1099,7 +1166,11 @@ TEST(AuditTest, ChangeSpoof){
 	context::credential_t credential;
 	ASSERT_TRUE(keyfile("ec256", credential));
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	client.transport(context::transport_t::DATAGRAMS);
 	server.transport(context::transport_t::DATAGRAMS);
 	const uint8_t peer[] = {10, 0, 0, 1, 0x12, 0x34};
@@ -1135,7 +1206,11 @@ TEST(AuditTest, PoisonedWindow){
 	context::credential_t credential;
 	ASSERT_TRUE(keyfile("ec256", credential));
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	client.transport(context::transport_t::DATAGRAMS);
 	server.transport(context::transport_t::DATAGRAMS);
 	const uint8_t peer[] = {10, 0, 0, 1, 0x12, 0x34};
@@ -1280,7 +1355,13 @@ TEST(AuditTest, FormerAck){
 	context::credential_t credential;
 	ASSERT_TRUE(keyfile("ec256", credential));
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
+	// Доля ключа лишь по GC512C: приветствие обязано уместиться в одну дейтаграмму, проверка ведёт дейтаграммы по одной
+	client.shares(vector <extension::group_t> {extension::group_t::GC512C});
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	client.transport(context::transport_t::DATAGRAMS);
 	server.transport(context::transport_t::DATAGRAMS);
 	const uint8_t peer[] = {10, 0, 0, 1, 0x12, 0x34};
@@ -1438,7 +1519,11 @@ TEST(AuditTest, ServerProfileDatagram){
 	context::credential_t credential;
 	ASSERT_TRUE(keyfile("ec256", credential));
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	client.transport(context::transport_t::DATAGRAMS);
 	server.transport(context::transport_t::DATAGRAMS);
 	const uint8_t peer[] = {10, 0, 0, 1, 0x12, 0x34};
@@ -1461,7 +1546,11 @@ TEST(AuditTest, WarningAlert){
 	context::credential_t credential;
 	ASSERT_TRUE(keyfile("ec256", credential));
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	server.credential(credential);
 	ASSERT_EQ(server.versions(0x0303, 0x0303), context::error_t::NONE);
 	ASSERT_EQ(server.start(), context::error_t::NONE);
@@ -1479,7 +1568,11 @@ TEST(AuditTest, WarningAlert){
 	EXPECT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 	// Смертельный уровень рвёт связь по-прежнему
 	client::context_t other;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(other);
 	server::context_t another;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(another);
 	another.credential(credential);
 	ASSERT_EQ(another.versions(0x0303, 0x0303), context::error_t::NONE);
 	ASSERT_EQ(another.start(), context::error_t::NONE);
@@ -1503,7 +1596,11 @@ TEST(AuditTest, StatusAbsent){
 	const vector <uint8_t> answer = corpus("ocsp/rsa2048.good.der");
 	ASSERT_FALSE(answer.empty());
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	server.credential(credential);
 	ASSERT_EQ(server.versions(0x0303, 0x0303), context::error_t::NONE);
 	server.status(answer);
@@ -1548,6 +1645,10 @@ TEST(AuditTest, Heartroom){
 	fingerprint::profile_t profile;
 	{
 		client::context_t donor;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(donor);
+		// Доля ключа лишь по GC512C: приветствие донора обязано уместиться в одну дейтаграмму
+		donor.shares(vector <extension::group_t> {extension::group_t::GC512C});
 		donor.transport(context::transport_t::DATAGRAMS);
 		donor.name("example.com");
 		ASSERT_EQ(donor.start(), context::error_t::NONE);
@@ -1558,7 +1659,11 @@ TEST(AuditTest, Heartroom){
 		profile.extensions.push_back(extension);
 	}
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	client.transport(context::transport_t::DATAGRAMS);
 	server.transport(context::transport_t::DATAGRAMS);
 	const uint8_t peer[] = {10, 0, 0, 1, 0x12, 0x34};
@@ -1630,6 +1735,8 @@ TEST(AuditTest, HeartbeatForbidden){
 		fingerprint::profile_t profile;
 		{
 			client::context_t donor;
+			// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+			gosting(donor);
 			donor.name("example.com");
 			ASSERT_EQ(donor.start(), context::error_t::NONE);
 			ASSERT_EQ(fingerprint::parse(donor.output(), profile), fingerprint::error_t::NONE);
@@ -1639,7 +1746,11 @@ TEST(AuditTest, HeartbeatForbidden){
 			profile.extensions.push_back(extension);
 		}
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		client.name("example.com");
 		ASSERT_EQ(client.profile(profile), context::error_t::NONE);
 		server.credential(credential);
@@ -1665,7 +1776,11 @@ TEST(AuditTest, EchNoSkip){
 	context::credential_t credential;
 	ASSERT_TRUE(keyfile("ec256", credential));
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	server.credential(credential);
 	ASSERT_EQ(server.ech(vector <uint8_t> (), "public.example", 7, 64), context::error_t::NONE);
 	ASSERT_EQ(server.start(), context::error_t::NONE);
@@ -1782,6 +1897,8 @@ TEST(AuditTest, EchProfile){
 	fingerprint::profile_t profile;
 	{
 		client::context_t donor;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(donor);
 		donor.name("example.com");
 		ASSERT_EQ(donor.start(), context::error_t::NONE);
 		ASSERT_EQ(fingerprint::parse(donor.output(), profile), fingerprint::error_t::NONE);
@@ -1795,15 +1912,21 @@ TEST(AuditTest, EchProfile){
 		ASSERT_TRUE(found);
 	}
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	server.credential(credential);
 	ASSERT_EQ(server.ech(vector <uint8_t> (), "public.example", 7, 64), context::error_t::NONE);
 	// ECH, затем профиль с 1.2 - отказ
 	client::context_t first;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(first);
 	first.name("secret.example");
 	ASSERT_EQ(first.ech(server.ech()), context::error_t::NONE);
 	EXPECT_EQ(first.profile(profile), context::error_t::SETTINGS);
 	// Отвергнутый профиль связи не коснулся: перечень наборов приветствия тот же, что у клиента без профиля
 	client::context_t bare;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(bare);
 	bare.name("secret.example");
 	ASSERT_EQ(bare.ech(server.ech()), context::error_t::NONE);
 	ASSERT_EQ(first.start(), context::error_t::NONE);
@@ -1814,6 +1937,8 @@ TEST(AuditTest, EchProfile){
 	EXPECT_EQ(seen.suites.size(), plain.suites.size());
 	// Профиль, затем ECH - издание 1.2 в приветствие не идёт, ECH принят
 	client::context_t second;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(second);
 	second.name("secret.example");
 	ASSERT_EQ(second.profile(profile), context::error_t::NONE);
 	ASSERT_EQ(second.ech(server.ech()), context::error_t::NONE);
@@ -2008,10 +2133,14 @@ TEST(AuditTest, DowngradeAfterRetry){
 	ASSERT_TRUE(keyfile("ec256", credential));
 	const vector <protect::suite_t> suites = {protect::suite_t::AES_128_GCM_SHA256, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256};
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	server.credential(credential);
 	server.suites(suites);
 	server.groups(vector <extension::group_t> {extension::group_t::SECP384R1});
 	client::context_t first;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(first);
 	first.suites(suites);
 	first.groups(vector <extension::group_t> {extension::group_t::X25519, extension::group_t::SECP384R1});
 	first.shares(vector <extension::group_t> {extension::group_t::X25519});
@@ -2024,6 +2153,8 @@ TEST(AuditTest, DowngradeAfterRetry){
 	EXPECT_EQ(server.state(), context::state_t::HANDSHAKE);
 	// Второе приветствие от клиента, зажатого на издании 1.2
 	client::context_t second;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(second);
 	second.suites(suites);
 	second.versions(0x0303, 0x0303);
 	ASSERT_EQ(second.start(), context::error_t::NONE);
@@ -2046,12 +2177,16 @@ TEST(AuditTest, SuitesEmptyKept){
 	context::credential_t credential;
 	ASSERT_TRUE(keyfile("ec256", credential));
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	server.credential(credential);
 	server.suites(vector <protect::suite_t> ());
 	EXPECT_EQ(server.start(), context::error_t::NONE);
 	EXPECT_EQ(server.state(), context::state_t::HANDSHAKE);
 	// Заведение поверх дейтаграмм тоже держится умолчания
 	server::context_t datagrams;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(datagrams);
 	datagrams.credential(credential);
 	datagrams.transport(context::transport_t::DATAGRAMS);
 	datagrams.suites(vector <protect::suite_t> ());
@@ -2068,6 +2203,8 @@ TEST(AuditTest, StapleIndex){
 	context::credential_t credential;
 	ASSERT_TRUE(keyfile("ec256", credential));
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	server.credential(credential);
 	const vector <uint8_t> response(16, 0x30);
 	server.status(response, static_cast <size_t> (-1));
@@ -2094,6 +2231,9 @@ TEST(AuditTest, RetryReset){
 	client.shares(vector <extension::group_t> {extension::group_t::X25519});
 	server.groups(vector <extension::group_t> {extension::group_t::SECP256R1});
 	server.credential(credential);
+	// Подлинность ГОСТ: схемы ГОСТ объявляют обе стороны, умолчания движка - классика без ГОСТ
+	client.schemes(gostlists::SCHEMES);
+	server.schemes(gostlists::SCHEMES);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	const vector <uint8_t> opening = take(client);
@@ -2151,6 +2291,9 @@ TEST(AuditTest, RetryLimitReset){
 	client.shares(vector <extension::group_t> {extension::group_t::X25519});
 	server.groups(vector <extension::group_t> {extension::group_t::SECP256R1});
 	server.credential(credential);
+	// Подлинность ГОСТ: схемы ГОСТ объявляют обе стороны, умолчания движка - классика без ГОСТ
+	client.schemes(gostlists::SCHEMES);
+	server.schemes(gostlists::SCHEMES);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	// Первое приветствие с пределом записи 300 байтов
@@ -2186,7 +2329,11 @@ TEST(AuditTest, ChangeMidflight){
 	context::credential_t credential;
 	ASSERT_TRUE(keyfile("ec256", credential));
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	client.transport(context::transport_t::DATAGRAMS);
 	server.transport(context::transport_t::DATAGRAMS);
 	const uint8_t peer[] = {10, 0, 0, 1, 0x12, 0x34};
@@ -2236,6 +2383,8 @@ TEST(AuditTest, EchGreaseProfile){
 	fingerprint::profile_t profile;
 	{
 		client::context_t donor;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(donor);
 		donor.name("example.com");
 		donor.grease(true);
 		ASSERT_EQ(donor.start(), context::error_t::NONE);
@@ -2246,9 +2395,13 @@ TEST(AuditTest, EchGreaseProfile){
 		ASSERT_TRUE(found);
 	}
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	server.credential(credential);
 	ASSERT_EQ(server.ech(vector <uint8_t> (), "public.example", 7, 64), context::error_t::NONE);
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	client.name("secret.example");
 	ASSERT_EQ(client.profile(profile), context::error_t::NONE);
 	ASSERT_EQ(client.ech(server.ech()), context::error_t::NONE);
@@ -2277,7 +2430,11 @@ TEST(AuditTest, PlainRepeat){
 	context::credential_t credential;
 	ASSERT_TRUE(keyfile("ec256", credential));
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	client.transport(context::transport_t::DATAGRAMS);
 	server.transport(context::transport_t::DATAGRAMS);
 	client.suites(vector <protect::suite_t> {protect::suite_t::AES_128_GCM_SHA256});
@@ -2384,6 +2541,8 @@ TEST(AuditTest, PlainOversizeLimit){
 	fingerprint::profile_t profile;
 	{
 		client::context_t donor;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(donor);
 		donor.transport(context::transport_t::DATAGRAMS);
 		donor.suites(vector <protect::suite_t> {protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256});
 		donor.groups(vector <extension::group_t> {extension::group_t::X25519, extension::group_t::SECP256R1});
@@ -2396,6 +2555,8 @@ TEST(AuditTest, PlainOversizeLimit){
 		profile.extensions.push_back(extension);
 	}
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	client.transport(context::transport_t::DATAGRAMS);
 	client.suites(vector <protect::suite_t> {protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256});
 	client.groups(vector <extension::group_t> {extension::group_t::X25519, extension::group_t::SECP256R1});
@@ -2758,7 +2919,11 @@ TEST(AuditTest, KeyShareNoGroups){
 	context::credential_t credential;
 	ASSERT_TRUE(keyfile("ec256", credential));
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	server.credential(credential);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	ASSERT_EQ(server.start(), context::error_t::NONE);
@@ -2842,7 +3007,11 @@ TEST(AuditTest, ChangeBadBody){
 	context::credential_t credential;
 	ASSERT_TRUE(keyfile("ec256", credential));
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	client.transport(context::transport_t::DATAGRAMS);
 	server.transport(context::transport_t::DATAGRAMS);
 	const uint8_t peer[] = {10, 0, 0, 1, 0x12, 0x34};
@@ -2887,7 +3056,11 @@ TEST(AuditTest, AuthenticationAge){
 	// Первое рукопожатие TLS 1.2 с проверкой подлинности клиента
 	{
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		client.suites(vector <protect::suite_t> {protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256});
 		server.suites(vector <protect::suite_t> {protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256});
 		ASSERT_EQ(client.versions(0x0303, 0x0303), context::error_t::NONE);
@@ -2910,7 +3083,11 @@ TEST(AuditTest, AuthenticationAge){
 	// Возобновление через 6 суток: билет свеж, удостоверение свежо - сокращённое рукопожатие с перевыдачей
 	{
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		client.suites(vector <protect::suite_t> {protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256});
 		server.suites(vector <protect::suite_t> {protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256});
 		ASSERT_EQ(client.versions(0x0303, 0x0303), context::error_t::NONE);
@@ -2935,7 +3112,11 @@ TEST(AuditTest, AuthenticationAge){
 	// Ещё через 6 суток (12 от удостоверения): клиент билет не предъявляет - полное рукопожатие
 	{
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		client.suites(vector <protect::suite_t> {protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256});
 		server.suites(vector <protect::suite_t> {protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256});
 		ASSERT_EQ(client.versions(0x0303, 0x0303), context::error_t::NONE);
@@ -2956,7 +3137,11 @@ TEST(AuditTest, AuthenticationAge){
 	// Сервер сам судит давность: билет с подделанным свежим мигом удостоверения у клиента, состояние сервера помнит прежний
 	{
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		client.suites(vector <protect::suite_t> {protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256});
 		server.suites(vector <protect::suite_t> {protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256});
 		ASSERT_EQ(client.versions(0x0303, 0x0303), context::error_t::NONE);
@@ -2990,7 +3175,11 @@ TEST(AuditTest, TicketEditionMismatch){
 	context::ticket_t ticket;
 	{
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		client.suites(vector <protect::suite_t> {protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256});
 		server.suites(vector <protect::suite_t> {protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256});
 		ASSERT_EQ(client.versions(0x0303, 0x0303), context::error_t::NONE);
@@ -3006,7 +3195,11 @@ TEST(AuditTest, TicketEditionMismatch){
 		EXPECT_FALSE(ticket.ancient);
 	}
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	client.suites(vector <protect::suite_t> {protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256});
 	server.suites(vector <protect::suite_t> {protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256});
 	ASSERT_EQ(client.versions(0x0303, 0x0303), context::error_t::NONE);
@@ -3072,6 +3265,8 @@ TEST(AuditTest, HeartbeatBleed){
 	fingerprint::profile_t profile;
 	{
 		client::context_t donor;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(donor);
 		donor.name("example.com");
 		ASSERT_EQ(donor.start(), context::error_t::NONE);
 		ASSERT_EQ(fingerprint::parse(donor.output(), profile), fingerprint::error_t::NONE);

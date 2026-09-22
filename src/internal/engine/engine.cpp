@@ -128,6 +128,41 @@
  *    затираются по-прежнему. Заказ - требование 2а AWH-KEY-EMBEDDING.md по карте сроков
  *    жизни ключевого материала.
  *
+ * 18. Секретный ключ подлинности готовится один раз, а не на каждой подписи. До круга 29
+ *    (22.09.2026) всякая подпись владения ключом и всякое расшифрование обмена RSA
+ *    разбирали запись PKCS #8 заново и заводили ключ в модуле подписи с его проверками
+ *    и предвычислениями: у RSA-2048 это стоило вдвое дороже самой подписи, у ECDSA -
+ *    вдвое дороже всего рукопожатия. Теперь подлинность несёт подготовленный ключ
+ *    (keys::Signer) общим указателем: потребитель готовит его вызовом prepare() один
+ *    раз, и все связи с этой подлинностью делят его; подпись и расшифрование состояния
+ *    ключа не меняют, потому разделение между потоками безопасно. Связь сличает
+ *    отпечаток подготовки с байтами ключа и сертификата и устаревшую подготовку не
+ *    использует, а без подготовки готовит ключ сама в своей копии подлинности при
+ *    первой надобности - верно, но дорого. Закреплено проверками ContextTest.Prepared
+ *    и ContextTest.Outdated.
+ * 19. Умолчания связи - наибольшая совместимость, а ГОСТ включает потребитель. До круга
+ *    30 (23.09.2026) перечни умолчаний шли с ГОСТ впереди: клиент слал долю ключа лишь
+ *    по GC512C, и всякий собеседник без ГОСТ (OpenSSL, браузеры) отвечал просьбой о
+ *    повторе - лишний круг по сети, зря выработанная пара на кривой 512 бит и потеря
+ *    упреждающих данных. Теперь умолчания - классика, как у браузеров и OpenSSL 3.5:
+ *    группы X25519MLKEM768, X25519, secp256r1, secp384r1 с долями по гибриду и по
+ *    X25519 (сервер без ML-KEM берёт долю кривой без повтора), наборы AES-256-GCM,
+ *    ChaCha20-Poly1305, AES-128-GCM и наборы издания 1.2, схемы подписи ECDSA, RSA-PSS,
+ *    Ed25519, RSA PKCS #1. Кривых, наборов и схем ГОСТ в умолчаниях нет вовсе: кому
+ *    нужен ГОСТ, тот объявляет их сам перечнями groups(), suites() и schemes() - как
+ *    поддержку рядом с классикой либо как единственный вариант; связь с подлинностью
+ *    ГОСТ без объявленных схем ГОСТ подписать ничего не сможет, и это не дефект, а
+ *    отсутствие объявления. Порядок перечня - это и есть предпочтение: без назначения
+ *    долей клиент шлёт долю по первой группе и по первой группе каждого ещё не
+ *    представленного рода (кривые ГОСТ, гибриды с ML-KEM, классические кривые), потому
+ *    у клиента с объявленным ГОСТ доля ГОСТ есть всегда, а сервер выбирает набор и
+ *    кривую своим порядком (ручка preference(true), умолчание) либо порядком клиента
+ *    (preference(false)) - изданиями 1.3 и 1.2 одинаково. Так сервер с ГОСТ впереди
+ *    своего перечня берёт у всякого клиента с поддержкой ГОСТ именно ГОСТ, а у клиента
+ *    без ГОСТ - классику, и всё без просьбы о повторе. Закреплено проверками
+ *    ContextTest.Defaults, ContextTest.Compatible, ContextTest.Gost и
+ *    ContextTest.Preference.
+ *
  * @copyright Copyright © 2026
  *
  */
@@ -213,13 +248,12 @@ namespace {
 	};
 
 	/**
-	 * Схемы подписи, предлагаемые связью по умолчанию
+	 * Схемы подписи, предлагаемые связью по умолчанию: лишь классические. Схем ГОСТ
+	 * (S256A…S512C) в умолчании нет - их потребитель объявляет сам перечнем schemes(),
+	 * как поддержку рядом с классикой либо как единственный вариант (намеренное
+	 * решение 19)
 	 */
 	static const extension::scheme_t SCHEMES[] = {
-		extension::scheme_t::S256A, extension::scheme_t::S256B,
-		extension::scheme_t::S256C, extension::scheme_t::S256D,
-		extension::scheme_t::S512A, extension::scheme_t::S512B,
-		extension::scheme_t::S512C,
 		extension::scheme_t::ECDSA_SECP256R1_SHA256, extension::scheme_t::ECDSA_SECP384R1_SHA384,
 		extension::scheme_t::ECDSA_SECP521R1_SHA512,
 		extension::scheme_t::RSA_PSS_RSAE_SHA256, extension::scheme_t::RSA_PSS_RSAE_SHA384,
@@ -1322,6 +1356,34 @@ namespace {
 		return (extension::finite(group) > 0);
 	}
 	/**
+	 * @brief Метод определения рода группы обмена ключами для умолчания долей ключа
+	 *
+	 * @param group группа обмена ключами
+	 *
+	 * @return      0 у кривых ГОСТ, 1 у гибридов с ML-KEM, 2 у классических кривых; -1 у прочих: группы конечного поля и неведомые долей по умолчанию не получают
+	 *
+	 */
+	static int8_t family(const extension::group_t group) noexcept {
+		// Если группа - кривая ГОСТ: коды 0x0022…0x0028 по RFC 9367
+		if((static_cast <uint16_t> (group) >= static_cast <uint16_t> (extension::group_t::GC256A)) && (static_cast <uint16_t> (group) <= static_cast <uint16_t> (extension::group_t::GC512C)))
+			// Выводим род кривых ГОСТ
+			return 0;
+		// Если группа - гибрид с ML-KEM
+		if(extension::hybrid(group))
+			// Выводим род гибридов
+			return 1;
+		// Если группа - группа конечного поля RFC 7919: доля по ней дорога, и своего рода она не имеет
+		if(extension::finite(group) > 0)
+			// Выводим отсутствие рода
+			return -1;
+		// Если группа - классическая кривая
+		if(classic(group))
+			// Выводим род классических кривых
+			return 2;
+		// Прочие группы своего рода не имеют
+		return -1;
+	}
+	/**
 	 * @brief Метод проверки принадлежности группы обмена кривым Монтгомери
 	 *
 	 * @param group проверяемая группа обмена ключами
@@ -1539,63 +1601,6 @@ namespace {
 		}
 		// Выводим несоответствие неведомой схемы всякому ключу
 		return false;
-	}
-	/**
-	 * @brief Метод разбора секретного ключа подлинности классической ветви
-	 *
-	 * @param credential подлинность своей стороны
-	 * @param result     место, в которое помещается разобранный ключ
-	 *
-	 * @return           отказ разбора секретного ключа: SIGNATURE у негодной записи, MEMORY у нехватки памяти
-	 *
-	 */
-	static context::error_t loading(const context::credential_t & credential, keys::key_t & result) noexcept {
-		// Если секретный ключ подлинности не задан
-		if(credential.secret.empty())
-			// Выводим отказ разбора секретного ключа
-			return context::error_t::SIGNATURE;
-		/**
-		 * Секретный ключ принимается записью PKCS #8 в DER либо в PEM: сперва пробуется
-		 * DER, ибо запись PEM начинается с текста и разбором DER отвергается сразу
-		 */
-		keys::error_t outcome = keys::decodePrivateKeyInfo(view_t(credential.secret.data(), credential.secret.size()), result);
-		// Если памяти под разбор не хватило
-		if(outcome == keys::error_t::MEMORY)
-			// Выводим отказ нехватки памяти
-			return context::error_t::MEMORY;
-		// Если запись DER разобрана
-		if(outcome == keys::error_t::NONE)
-			// Выводим итог наличия секретной части ключа
-			return (result.secret() ? context::error_t::NONE : context::error_t::SIGNATURE);
-		/**
-		 * Выполняем перехват ошибок работы с памятью: текст записи PEM занимает память
-		 */
-		try {
-			// Текст записи PEM секретного ключа: сам ключ в основании 64, затирается до уничтожения
-			string text(reinterpret_cast <const char *> (credential.secret.data()), credential.secret.size());
-			// Разбираем запись PEM секретного ключа
-			outcome = keys::decode(text, view_t(), result);
-			// Если текст записи непуст
-			if(!text.empty())
-				// Выполняем затирание текста записи секретного ключа
-				wipe(reinterpret_cast <uint8_t *> (&text[0]), text.size());
-		/**
-		 * Если памяти под текст записи не хватило
-		 */
-		} catch(const bad_alloc &) {
-			// Выводим отказ нехватки памяти
-			return context::error_t::MEMORY;
-		}
-		// Если памяти под разбор не хватило
-		if(outcome == keys::error_t::MEMORY)
-			// Выводим отказ нехватки памяти
-			return context::error_t::MEMORY;
-		// Если запись PEM разобрать не удалось
-		if(outcome != keys::error_t::NONE)
-			// Выводим отказ разбора секретного ключа
-			return context::error_t::SIGNATURE;
-		// Выводим итог наличия секретной части ключа
-		return (result.secret() ? context::error_t::NONE : context::error_t::SIGNATURE);
 	}
 };
 
@@ -4713,36 +4718,34 @@ context::error_t nts::internal::Engine::signing(const view_t & content, extensio
 			return context::error_t::SCHEME;
 		// Если схема подписи - схема ГОСТ
 		if(extension::hash(item) == digest::hash_t::STREEBOG256 || extension::hash(item) == digest::hash_t::STREEBOG512){
-			// Эллиптическая кривая подписи владения ключом
-			curve::curve_t curve;
-			// Отказ заведения кривой своего ключа
-			failure = translate(x509::parameters(leaf.key(), curve), context::error_t::CERTIFICATE);
-			// Если кривую своего ключа завести не удалось
+			// Подготовленный секретный ключ своей стороны
+			const keys::signer_t * signer = nullptr;
+			// Отказ подготовки секретного ключа своей стороны
+			failure = this->signer(signer);
+			// Если секретный ключ своей стороны подготовить не удалось
 			if(failure != context::error_t::NONE)
-				// Выводим отказ заведения кривой своего ключа
+				// Выводим отказ подготовки секретного ключа
 				return failure;
+			// Если подготовленный ключ - не ключ ГОСТ
+			if(signer->kind() != keys::kind_t::GOST)
+				// Выводим отказ установки секретного ключа
+				return context::error_t::SIGNATURE;
+			// Модуль электронной подписи подготовленного ключа
+			const sign::gost_t & gost = signer->gost();
+			// Длина числа кривой подготовленного ключа
+			const size_t size = signer->curve().size();
 			// Место, в которое помещается хеш подписываемого содержимого
 			uint8_t digest[64];
 			// Определяем длину хеша подписываемого содержимого
-			const digest::type_t type = ((curve.size() == 32) ? digest::type_t::SHORT : digest::type_t::LONG);
+			const digest::type_t type = ((size == 32) ? digest::type_t::SHORT : digest::type_t::LONG);
 			// Если хеш подписываемого содержимого выработать не удалось
-			if(!digest::streebog(type, content, digest, curve.size(), digest::order_t::VECTOR))
+			if(!digest::streebog(type, content, digest, size, digest::order_t::VECTOR))
 				// Выводим отказ выработки хеша подписываемого содержимого
-				return context::error_t::SIGNATURE;
-			// Объект модуля электронной подписи
-			sign::gost_t gost;
-			// Если эллиптическую кривую подписи установить не удалось
-			if(!gost.start(curve))
-				// Выводим отказ установки кривой подписи
-				return context::error_t::SIGNATURE;
-			// Если секретный ключ своей стороны установить не удалось
-			if(!gost.secret(view_t(this->_credential.secret.data(), this->_credential.secret.size())))
-				// Выводим отказ установки секретного ключа
 				return context::error_t::SIGNATURE;
 			// Место, в которое помещается выработанная подпись владения ключом
 			uint8_t signature[math::NUMBER_SIZE * 2];
 			// Если подпись владения ключом выработать не удалось
-			if(!gost.make(view_t(digest, curve.size()), signature))
+			if(!gost.make(view_t(digest, size), signature))
 				// Выводим отказ выработки подписи владения ключом
 				return context::error_t::SIGNATURE;
 			// Место, в которое помещается подпись в записи протокола
@@ -4760,26 +4763,24 @@ context::error_t nts::internal::Engine::signing(const view_t & content, extensio
 			signed_.assign(reversed, reversed + gost.size());
 		// Если схема подписи - классическая
 		} else {
-			// Разобранный секретный ключ своей стороны
-			keys::key_t key;
-			// Разбираем секретный ключ своей стороны
-			failure = loading(this->_credential, key);
-			// Если секретный ключ своей стороны разобрать не удалось
+			// Подготовленный секретный ключ своей стороны
+			const keys::signer_t * signer = nullptr;
+			// Отказ подготовки секретного ключа своей стороны
+			failure = this->signer(signer);
+			// Если секретный ключ своей стороны подготовить не удалось
 			if(failure != context::error_t::NONE)
-				// Выводим отказ разбора секретного ключа
+				// Выводим отказ подготовки секретного ключа
 				return failure;
 			// Хеш подписываемого содержимого по схеме подписи
 			const digest::hash_t algorithm = extension::hash(item);
 			// Если схема подписи - ECDSA
 			if((item == extension::scheme_t::ECDSA_SECP256R1_SHA256) || (item == extension::scheme_t::ECDSA_SECP384R1_SHA384) || (item == extension::scheme_t::ECDSA_SECP521R1_SHA512)){
-				// Эллиптическая кривая подписи владения ключом
-				curve::curve_t curve;
-				// Объект модуля подписи ECDSA
-				sign::ecdsa_t ecdsa;
-				// Если секретный ключ подписи загрузить не удалось
-				if(!key.load(ecdsa, curve))
+				// Если подготовленный ключ - не ключ на кривой Вейерштрасса
+				if(signer->kind() != keys::kind_t::EC)
 					// Выводим отказ установки секретного ключа
 					return context::error_t::SIGNATURE;
+				// Модуль подписи ECDSA подготовленного ключа
+				const sign::ecdsa_t & ecdsa = signer->ecdsa();
 				// Место, в которое помещается хеш подписываемого содержимого
 				uint8_t digest[64];
 				// Если хеш подписываемого содержимого выработать не удалось
@@ -4807,12 +4808,12 @@ context::error_t nts::internal::Engine::signing(const view_t & content, extensio
 				signed_.resize(written);
 			// Если схема подписи - RSASSA-PSS
 			} else if(algorithm != digest::hash_t::NONE){
-				// Объект модуля подписи RSA
-				sign::rsa_t rsa;
-				// Если секретный ключ подписи загрузить не удалось
-				if(!key.load(rsa))
+				// Если подготовленный ключ - не ключ RSA
+				if(signer->kind() != keys::kind_t::RSA)
 					// Выводим отказ установки секретного ключа
 					return context::error_t::SIGNATURE;
+				// Модуль подписи RSA подготовленного ключа
+				const sign::rsa_t & rsa = signer->rsa();
 				// Место, в которое помещается хеш подписываемого содержимого
 				uint8_t digest[64];
 				// Если хеш подписываемого содержимого выработать не удалось
@@ -4831,12 +4832,12 @@ context::error_t nts::internal::Engine::signing(const view_t & content, extensio
 					return context::error_t::SIGNATURE;
 			// Если схема подписи - Ed25519
 			} else {
-				// Объект модуля подписи Ed25519
-				sign::ed25519_t ed25519;
-				// Если секретный ключ подписи загрузить не удалось
-				if(!key.load(ed25519))
+				// Если подготовленный ключ - не ключ Ed25519
+				if(signer->kind() != keys::kind_t::ED25519)
 					// Выводим отказ установки секретного ключа
 					return context::error_t::SIGNATURE;
+				// Модуль подписи Ed25519 подготовленного ключа
+				const sign::ed25519_t & ed25519 = signer->ed25519();
 				// Занимаем место под подпись Ed25519
 				signed_.assign(sign::ed25519_t::SIGNATURE_SIZE, 0);
 				// Если подпись владения ключом выработать не удалось
@@ -5711,21 +5712,27 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 				return this->abort(context::error_t::SUITE, alert::description_t::PARAMETER);
 		}
 		/**
-		 * Выполняем перебор наборов шифрования, предлагаемых связью
+		 * Выполняем перебор наборов шифрования порядком стороны, чьё предпочтение ведёт
+		 * выбор: раздел 4.1.1 RFC 8446 велит выбирать серверу, а порядок задаёт ручка
+		 * preference - свой (умолчание) либо порядок клиента (намеренное решение 19)
 		 */
-		for(size_t i = 0; (i < this->_suites.size()) && !suitable; i++){
-			// Наборы издания TLS 1.2 изданию 1.3 не годны: у них иная защита записей
-			if(protect::legacy(this->_suites[i]))
-				// Переходим к следующему набору шифрования
-				continue;
+		for(size_t i = 0; (i < (this->_own ? this->_suites.size() : greeting.suites.size())) && !suitable; i++){
 			/**
-			 * Выполняем перебор наборов шифрования, предлагаемых клиентом
+			 * Выполняем перебор наборов шифрования встречной стороны
 			 */
-			for(size_t j = 0; (j < greeting.suites.size()) && !suitable; j++){
+			for(size_t j = 0; (j < (this->_own ? greeting.suites.size() : this->_suites.size())) && !suitable; j++){
+				// Свой набор шифрования по порядку перебора
+				const protect::suite_t mine = (this->_own ? this->_suites[i] : this->_suites[j]);
+				// Набор шифрования клиента по порядку перебора
+				const uint16_t theirs = (this->_own ? greeting.suites[j] : greeting.suites[i]);
+				// Наборы издания TLS 1.2 изданию 1.3 не годны: у них иная защита записей
+				if(protect::legacy(mine))
+					// Переходим к следующему набору шифрования
+					continue;
 				// Если набор шифрования предложен обеими сторонами
-				if(greeting.suites[j] == static_cast <uint16_t> (this->_suites[i])){
+				if(theirs == static_cast <uint16_t> (mine)){
 					// Запоминаем выбранный набор шифрования связи
-					this->_suite = this->_suites[i];
+					this->_suite = mine;
 					// Запоминаем, что общий набор шифрования нашёлся
 					suitable = true;
 				}
@@ -6155,21 +6162,27 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 		// Открытая часть ключа обмена, выбранная сервером
 		const extension::share_t * selected = nullptr;
 		/**
-		 * Выполняем перебор кривых обмена ключами, предлагаемых связью
+		 * Выполняем перебор порядком стороны, чьё предпочтение ведёт выбор: своим перечнем
+		 * кривых (умолчание) либо долями клиента в его порядке - ручка preference
+		 * (намеренное решение 19)
 		 */
-		for(size_t i = 0; (i < this->_groups.size()) && (selected == nullptr); i++){
-			// Если группа обмена связи неведома либо изданию 1.3 не дозволена: своё значение GREASE выбирать нельзя
-			if(!known(this->_groups[i]) || !fitting(this->_groups[i], false))
-				// Переходим к следующей группе обмена ключами
-				continue;
+		for(size_t i = 0; (i < (this->_own ? this->_groups.size() : shares.size())) && (selected == nullptr); i++){
 			/**
-			 * Выполняем перебор открытых частей ключей обмена клиента
+			 * Выполняем перебор встречной стороны
 			 */
-			for(size_t j = 0; (j < shares.size()) && (selected == nullptr); j++){
+			for(size_t j = 0; (j < (this->_own ? shares.size() : this->_groups.size())) && (selected == nullptr); j++){
+				// Своя кривая обмена ключами по порядку перебора
+				const extension::group_t mine = (this->_own ? this->_groups[i] : this->_groups[j]);
+				// Доля ключа клиента по порядку перебора
+				const extension::share_t & theirs = (this->_own ? shares[j] : shares[i]);
+				// Если группа обмена связи неведома либо изданию 1.3 не дозволена: своё значение GREASE выбирать нельзя
+				if(!known(mine) || !fitting(mine, false))
+					// Переходим к следующей кривой обмена ключами
+					continue;
 				// Если открытая часть ключа обмена отвечает предлагаемой кривой
-				if(shares[j].group == this->_groups[i])
+				if(theirs.group == mine)
 					// Запоминаем выбранную открытую часть ключа обмена
-					selected = &shares[j];
+					selected = &theirs;
 			}
 		}
 		/**
@@ -6229,21 +6242,26 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 			// Признак того, что общая кривая обмена ключами у сторон нашлась
 			suitable = false;
 			/**
-			 * Выполняем перебор кривых обмена ключами, предлагаемых связью
+			 * Выполняем перебор порядком стороны, чьё предпочтение ведёт выбор: своим
+			 * перечнем кривых (умолчание) либо перечнем клиента - ручка preference
 			 */
-			for(size_t i = 0; (i < this->_groups.size()) && !suitable; i++){
-				// Если группа обмена связи неведома либо изданию 1.3 не дозволена: своё значение GREASE выбирать нельзя
-				if(!known(this->_groups[i]) || !fitting(this->_groups[i], false))
-					// Переходим к следующей группе обмена ключами
-					continue;
+			for(size_t i = 0; (i < (this->_own ? this->_groups.size() : groups.size())) && !suitable; i++){
 				/**
-				 * Выполняем перебор кривых обмена ключами, поддерживаемых клиентом
+				 * Выполняем перебор кривых встречной стороны
 				 */
-				for(size_t j = 0; (j < groups.size()) && !suitable; j++){
+				for(size_t j = 0; (j < (this->_own ? groups.size() : this->_groups.size())) && !suitable; j++){
+					// Своя кривая обмена ключами по порядку перебора
+					const extension::group_t mine = (this->_own ? this->_groups[i] : this->_groups[j]);
+					// Кривая клиента по порядку перебора
+					const extension::group_t theirs = (this->_own ? groups[j] : groups[i]);
+					// Если группа обмена связи неведома либо изданию 1.3 не дозволена: своё значение GREASE выбирать нельзя
+					if(!known(mine) || !fitting(mine, false))
+						// Переходим к следующей кривой обмена ключами
+						continue;
 					// Если кривая обмена ключами поддержана обеими сторонами
-					if(groups[j] == this->_groups[i]){
+					if(theirs == mine){
 						// Запоминаем выбранную кривую обмена ключами
-						this->_group = this->_groups[i];
+						this->_group = mine;
 						// Запоминаем, что общая кривая обмена ключами нашлась
 						suitable = true;
 					}
@@ -8860,6 +8878,46 @@ void nts::internal::Engine::schemes(const vector <extension::scheme_t> & schemes
 	}
 }
 /**
+ * @brief Метод получения предлагаемых наборов шифрования
+ *
+ * @return перечень наборов шифрования, назначенный потребителем либо умолчание
+ *
+ */
+const vector <nts::protect::suite_t> & nts::internal::Engine::suites() const noexcept {
+	// Выводим настройку наборов: рабочий перечень заведение связи поверх дейтаграмм отсеивает, а настройка неизменна
+	return this->_catalog;
+}
+/**
+ * @brief Метод получения предлагаемых кривых обмена ключами
+ *
+ * @return перечень кривых обмена ключами, назначенный потребителем либо умолчание
+ *
+ */
+const vector <nts::extension::group_t> & nts::internal::Engine::groups() const noexcept {
+	// Выводим перечень предлагаемых кривых обмена ключами
+	return this->_groups;
+}
+/**
+ * @brief Метод получения групп обмена, по которым приветствием шлются доли ключа
+ *
+ * @return перечень групп долей ключа, назначенный потребителем; пустой при умолчании
+ *
+ */
+const vector <nts::extension::group_t> & nts::internal::Engine::shares() const noexcept {
+	// Выводим перечень групп долей ключа
+	return this->_shares;
+}
+/**
+ * @brief Метод получения признаваемых схем подписи
+ *
+ * @return перечень схем подписи, назначенный потребителем либо умолчание
+ *
+ */
+const vector <nts::extension::scheme_t> & nts::internal::Engine::schemes() const noexcept {
+	// Выводим перечень признаваемых схем подписи
+	return this->_signatures;
+}
+/**
  * @brief Метод установки алгоритмов сжатия цепочки сертификатов
  *
  * @param codecs    устанавливаемые алгоритмы в порядке предпочтения
@@ -8929,6 +8987,35 @@ void nts::internal::Engine::credential(const context::credential_t & credential)
 		// Запоминаем, что настройкам связи памяти не хватило
 		this->_starved = true;
 	}
+}
+/**
+ * @brief Метод получения подготовленного секретного ключа своей подлинности
+ *
+ * @param result место, в которое помещается указатель на подготовленный ключ
+ *
+ * @return       отказ подготовки ключа
+ *
+ */
+context::error_t nts::internal::Engine::signer(const keys::Signer *& result) noexcept {
+	// Сбрасываем указатель на подготовленный ключ
+	result = nullptr;
+	/**
+	 * Ключ, подготовленный потребителем в подлинности, берётся общим, если его отпечаток
+	 * отвечает байтам ключа и сертификата; иначе связь готовит ключ сама в своей копии
+	 * подлинности и держит его до конца своей жизни
+	 */
+	if(!this->_credential.ready()){
+		// Отказ подготовки ключа связью
+		const context::error_t failure = this->_credential.prepare();
+		// Если ключ подготовить не удалось
+		if(failure != context::error_t::NONE)
+			// Выводим отказ подготовки ключа
+			return failure;
+	}
+	// Запоминаем указатель на подготовленный ключ
+	result = this->_credential.signer.get();
+	// Выводим успешность
+	return context::error_t::NONE;
 }
 /**
  * @brief Метод установки имени узла, запрашиваемого у сервера
@@ -9930,16 +10017,52 @@ context::error_t nts::internal::Engine::start() noexcept {
 		return this->abort(context::error_t::SETTINGS, alert::description_t::INTERNAL);
 	/**
 	 * Доли ключа шлются по группам, назначенным потребителем, а без назначения - по
-	 * первой из поддерживаемых: раздел 4.2.8 RFC 8446 велит слать доли лишь по группам
-	 * из объявленной поддержки, и группа доли вне поддержки есть ошибка настройки
+	 * первой из поддерживаемых и по первой группе каждого ещё не представленного рода:
+	 * кривые ГОСТ, гибриды с ML-KEM, классические кривые. Так у умолчаний доли идут по
+	 * X25519MLKEM768 и X25519, как шлют браузеры, и сервер без ML-KEM берёт долю кривой
+	 * без просьбы о повторе; а у связи с объявленным ГОСТ доля ГОСТ есть всегда, и сервер
+	 * с ГОСТ впереди своего перечня берёт её без повтора (намеренное решение 19). Группы
+	 * конечного поля свою долю получают лишь первыми либо по назначению. Раздел 4.2.8
+	 * RFC 8446 велит слать доли лишь по группам из объявленной поддержки, и группа доли
+	 * вне поддержки есть ошибка настройки
 	 */
 	vector <extension::group_t> shares;
 	/**
 	 * Выполняем перехват ошибок работы с памятью: перечень групп долей занимает память
 	 */
 	try {
-		// Составляем перечень групп долей ключа
-		shares = (this->_shares.empty() ? vector <extension::group_t> {this->_groups[0]} : this->_shares);
+		// Если группы долей назначены потребителем
+		if(!this->_shares.empty())
+			// Берём назначенные группы долей ключа
+			shares = this->_shares;
+		// Если групп долей потребитель не назначал
+		else {
+			// Доля идёт по первой из поддерживаемых групп, какого бы рода та ни была
+			shares.push_back(this->_groups[0]);
+			// Признаки родов групп, доли по которым уже составлены: кривые ГОСТ, гибриды с ML-KEM, классические кривые
+			bool covered[3] = {false, false, false};
+			// Род первой группы
+			const int8_t first = family(this->_groups[0]);
+			// Если первая группа одного из трёх родов
+			if(first >= 0)
+				// Запоминаем, что доля этого рода составлена
+				covered[first] = true;
+			/**
+			 * Выполняем перебор прочих поддерживаемых групп: по первой группе каждого ещё
+			 * не представленного рода идёт своя доля
+			 */
+			for(size_t i = 1; i < this->_groups.size(); i++){
+				// Род группы
+				const int8_t kind = family(this->_groups[i]);
+				// Если группа одного из трёх родов и доли этого рода ещё нет
+				if((kind >= 0) && !covered[kind]){
+					// Добавляем долю по первой группе рода
+					shares.push_back(this->_groups[i]);
+					// Запоминаем, что доля этого рода составлена
+					covered[kind] = true;
+				}
+			}
+		}
 	/**
 	 * Если памяти под перечень групп долей не хватило
 	 */
@@ -13579,20 +13702,20 @@ context::error_t nts::internal::Engine::exchanged(const view_t & body) noexcept 
 			if((scanner.vector(encrypted, 2) != field::error_t::NONE) || (scanner.left() > 0))
 				// Выводим отказ разбора обмена ключами клиента
 				return context::error_t::MESSAGE;
-			// Разобранный секретный ключ своей стороны
-			keys::key_t key;
-			// Разбираем секретный ключ своей стороны
-			failure = loading(this->_credential, key);
-			// Если секретный ключ своей стороны разобрать не удалось
+			// Подготовленный секретный ключ своей стороны
+			const keys::signer_t * signer = nullptr;
+			// Отказ подготовки секретного ключа своей стороны
+			failure = this->signer(signer);
+			// Если секретный ключ своей стороны подготовить не удалось
 			if(failure != context::error_t::NONE)
-				// Выводим отказ разбора секретного ключа
+				// Выводим отказ подготовки секретного ключа
 				return failure;
-			// Объект секретного ключа RSA
-			sign::rsa_t rsa;
-			// Если секретный ключ загрузить не удалось
-			if(!key.load(rsa))
+			// Если подготовленный ключ - не ключ RSA
+			if(signer->kind() != keys::kind_t::RSA)
 				// Выводим отказ установки секретного ключа
 				return context::error_t::SIGNATURE;
+			// Модуль секретного ключа RSA подготовленного ключа
+			const sign::rsa_t & rsa = signer->rsa();
 			/**
 			 * Раздел 7.4.7.1 RFC 5246: защита от Бляйхенбахера - случайное значение
 			 * вырабатывается заранее, а при всяком отказе расшифрования, негодной длине либо
@@ -16115,13 +16238,13 @@ uint16_t nts::internal::Engine::version() const noexcept {
 	return this->_version;
 }
 /**
- * @brief Метод установки порядка выбора набора шифрования издания TLS 1.2
+ * @brief Метод установки порядка выбора набора шифрования и кривой обмена ключами
  *
- * @param own выбирается ли набор порядком сервера, а не клиента
+ * @param own выбираются ли набор и кривая порядком сервера, а не клиента
  *
  */
 void nts::internal::Engine::preference(const bool own) noexcept {
-	// Устанавливаем порядок выбора набора шифрования
+	// Устанавливаем порядок выбора набора шифрования и кривой обмена ключами
 	this->_own = own;
 }
 /**
@@ -16220,18 +16343,18 @@ context::error_t nts::internal::Engine::engraving(const view_t & content, vector
 	 * Выполняем перехват ошибок работы с памятью
 	 */
 	try {
-		// Ключ своей подлинности
-		keys::key_t key;
-		// Отказ заведения ключа
-		const context::error_t failure = loading(this->_credential, key);
-		// Если ключ завести не удалось
+		// Подготовленный ключ своей подлинности
+		const keys::signer_t * signer = nullptr;
+		// Отказ подготовки ключа
+		const context::error_t failure = this->signer(signer);
+		// Если ключ подготовить не удалось
 		if(failure != context::error_t::NONE)
-			// Выводим отказ заведения ключа
+			// Выводим отказ подготовки ключа
 			return failure;
-		// Объект подписи RSA
-		sign::rsa_t rsa;
 		// Если ключ RSA
-		if(key.load(rsa)){
+		if(signer->kind() == keys::kind_t::RSA){
+			// Модуль подписи RSA подготовленного ключа
+			const sign::rsa_t & rsa = signer->rsa();
 			// Хеш MD5 ‖ SHA-1 содержимого
 			uint8_t digest[36];
 			// Раздел 7.4.3 RFC 4346: RSA подписывает MD5 ‖ SHA-1 без DigestInfo
@@ -16247,14 +16370,12 @@ context::error_t nts::internal::Engine::engraving(const view_t & content, vector
 			// Выводим успешность
 			return context::error_t::NONE;
 		}
-		// Кривая ключа ECDSA
-		curve::curve_t curve;
-		// Объект подписи ECDSA
-		sign::ecdsa_t ecdsa;
 		// Если ключ не ECDSA
-		if(!key.load(ecdsa, curve))
+		if(signer->kind() != keys::kind_t::EC)
 			// Выводим отказ выработки подписи
 			return context::error_t::SIGNATURE;
+		// Модуль подписи ECDSA подготовленного ключа
+		const sign::ecdsa_t & ecdsa = signer->ecdsa();
 		// Хеш SHA-1 содержимого
 		uint8_t digest[20];
 		// Раздел 5.4 RFC 4492: ECDSA изданием 1.1 подписывает SHA-1
@@ -17185,14 +17306,13 @@ nts::internal::Engine::Engine(const bool server) noexcept :
 	 */
 	try {
 		/**
-		 * Наборы шифрования по умолчанию идут от стойкого к быстрому: раздел 4 описания
-		 * наборов шифрования на алгоритмах ГОСТ; классика следом за ГОСТ, и в ней
-		 * ChaCha20-Poly1305 идёт за AES-256 - порядок этот лишь умолчание, а перечень
-		 * потребителя не пересортировывается
+		 * Наборы шифрования по умолчанию - классика, понятная любому собеседнику: от
+		 * стойкого к быстрому, ChaCha20-Poly1305 идёт за AES-256, издание 1.2 следом за
+		 * 1.3. Наборов ГОСТ («Кузнечик» и «Магма» в MGM) в умолчании нет - их потребитель
+		 * объявляет сам перечнем suites() (намеренное решение 19). Порядок этот лишь
+		 * умолчание, а перечень потребителя не пересортировывается
 		 */
 		this->_suites = {
-			protect::suite_t::KUZNYECHIK_MGM_L, protect::suite_t::MAGMA_MGM_L,
-			protect::suite_t::KUZNYECHIK_MGM_S, protect::suite_t::MAGMA_MGM_S,
 			protect::suite_t::AES_256_GCM_SHA384, protect::suite_t::CHACHA20_POLY1305_SHA256,
 			protect::suite_t::AES_128_GCM_SHA256,
 			protect::suite_t::ECDHE_ECDSA_AES_256_GCM_SHA384, protect::suite_t::ECDHE_ECDSA_CHACHA20_POLY1305_SHA256,
@@ -17210,16 +17330,17 @@ nts::internal::Engine::Engine(const bool server) noexcept :
 		// Настройка наборов: заведение связи берёт наборы отсюда
 		this->_catalog = this->_suites;
 		/**
-		 * Кривые обмена ключами по умолчанию идут от длинного ключа к короткому, а за
-		 * кривыми ГОСТ - классические группы раздела 4.2.7 RFC 8446; порядок этот лишь
+		 * Кривые обмена ключами по умолчанию - те, что предлагают браузеры и OpenSSL 3.5:
+		 * гибрид X25519MLKEM768 впереди, за ним X25519 и кривые NIST раздела 4.2.7
+		 * RFC 8446. Кривых ГОСТ (GC256A…GC512C) в умолчании нет - их потребитель
+		 * объявляет сам перечнем groups() (намеренное решение 19); порядок этот лишь
 		 * умолчание, и потребитель заменяет его целиком своим перечнем
 		 */
 		this->_groups = {
-			extension::group_t::GC512C, extension::group_t::GC512A,
-			extension::group_t::GC256B, extension::group_t::GC256A,
-			extension::group_t::X25519MLKEM768, extension::group_t::X25519, extension::group_t::SECP256R1, extension::group_t::SECP384R1
+			extension::group_t::X25519MLKEM768, extension::group_t::X25519,
+			extension::group_t::SECP256R1, extension::group_t::SECP384R1
 		};
-		// Схемы подписи по умолчанию: схемы ГОСТ первыми, классические следом
+		// Схемы подписи по умолчанию: лишь классические, схемы ГОСТ объявляет потребитель
 		this->_signatures.assign(SCHEMES, SCHEMES + (sizeof(SCHEMES) / sizeof(extension::scheme_t)));
 	/**
 	 * Если памяти под перечни умолчаний не хватило

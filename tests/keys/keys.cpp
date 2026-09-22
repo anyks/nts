@@ -1606,3 +1606,152 @@ TEST(KeysTest, Starved){
 	// Проверяем, что нехватка памяти объявлена отказом хоть раз
 	ASSERT_TRUE(starved);
 }
+
+/**
+ * Проверка подготовленного ключа: разбор один раз, подпись и сличение всеми видами ключей
+ */
+TEST(KeysTest, Signer){
+	// Хеш подписываемого содержимого
+	uint8_t digest[32];
+	// Вырабатываем хеш подписываемого содержимого
+	ASSERT_TRUE(digest::hash(digest::hash_t::SHA256, view("prepared key"), digest, sizeof(digest)));
+	// Просмотр текста записи
+	const auto text = [](const std::string & data) noexcept -> view_t {
+		// Выводим просмотр текста
+		return view_t(reinterpret_cast <const uint8_t *> (data.data()), data.size());
+	};
+	/**
+	 * Выполняем перебор ключей набора
+	 */
+	for(const entry_t & entry : ENTRIES){
+		// Запись ключа в PEM
+		const std::string pem = corpus(std::string(entry.name) + ".pem");
+		// Запись ключа в DER
+		const std::vector <uint8_t> der = bytes(corpus(std::string(entry.name) + ".der"));
+		// Подготовленный ключ
+		keys::signer_t signer;
+		// Неподготовленный ключ не готов
+		ASSERT_FALSE(signer.ready());
+		ASSERT_EQ(signer.kind(), keys::kind_t::NONE);
+		// Ключ согласования подписи не выполняет
+		if(entry.kind == keys::kind_t::X25519){
+			ASSERT_EQ(signer.prepare(text(pem)), keys::error_t::ALGORITHM) << "Ключ: " << entry.name;
+			ASSERT_FALSE(signer.ready());
+			continue;
+		}
+		// Готовим ключ по записи PEM
+		ASSERT_EQ(signer.prepare(text(pem)), keys::error_t::NONE) << "Ключ: " << entry.name;
+		ASSERT_TRUE(signer.ready()) << "Ключ: " << entry.name;
+		ASSERT_EQ(signer.kind(), entry.kind) << "Ключ: " << entry.name;
+		// Готовим ключ по записи DER
+		keys::signer_t direct;
+		ASSERT_EQ(direct.prepare(view(der)), keys::error_t::NONE) << "Ключ: " << entry.name;
+		ASSERT_EQ(direct.kind(), entry.kind) << "Ключ: " << entry.name;
+		// Открытый ключ для сличения подписей
+		keys::key_t opened;
+		ASSERT_EQ(keys::decode(corpus(std::string(entry.name) + ".pub.pem"), view_t(), opened), keys::error_t::NONE) << "Ключ: " << entry.name;
+		/**
+		 * Определяем вид ключа
+		 */
+		switch(entry.kind){
+			// Ключ RSA
+			case keys::kind_t::RSA: {
+				// Подпись RSA-PSS
+				uint8_t signature[512];
+				// Модуль сличения по открытому ключу
+				sign::rsa_t verifier;
+				ASSERT_TRUE(opened.load(verifier));
+				ASSERT_EQ(signer.rsa().size(), verifier.size());
+				// Подписи подготовленных ключей сличаются открытым ключом
+				ASSERT_TRUE(signer.rsa().make(sign::scheme_t::PSS, digest::hash_t::SHA256, view_t(digest, sizeof(digest)), signature));
+				ASSERT_TRUE(verifier.check(sign::scheme_t::PSS, digest::hash_t::SHA256, view_t(digest, sizeof(digest)), view_t(signature, verifier.size())));
+				ASSERT_TRUE(direct.rsa().make(sign::scheme_t::PKCS1, digest::hash_t::SHA256, view_t(digest, sizeof(digest)), signature));
+				ASSERT_TRUE(verifier.check(sign::scheme_t::PKCS1, digest::hash_t::SHA256, view_t(digest, sizeof(digest)), view_t(signature, verifier.size())));
+				// Модули иных видов пусты
+				ASSERT_FALSE(signer.ecdsa().ready());
+				ASSERT_FALSE(signer.curve().ready());
+			} break;
+			// Ключ на кривой Вейерштрасса
+			case keys::kind_t::EC: {
+				// Сырая подпись r ‖ s
+				uint8_t raw[math::NUMBER_SIZE * 2];
+				// Кривая и модуль сличения по открытому ключу
+				curve::curve_t curve;
+				sign::ecdsa_t verifier;
+				ASSERT_TRUE(opened.load(verifier, curve));
+				ASSERT_TRUE(signer.curve().ready());
+				ASSERT_EQ(signer.curve().size(), entry.size);
+				ASSERT_TRUE(signer.ecdsa().make(digest::hash_t::SHA256, view_t(digest, sizeof(digest)), raw));
+				ASSERT_TRUE(verifier.check(view_t(digest, sizeof(digest)), view_t(raw, verifier.size())));
+				ASSERT_TRUE(direct.ecdsa().make(digest::hash_t::SHA256, view_t(digest, sizeof(digest)), raw));
+				ASSERT_TRUE(verifier.check(view_t(digest, sizeof(digest)), view_t(raw, verifier.size())));
+				ASSERT_FALSE(signer.rsa().ready());
+			} break;
+			// Ключ Ed25519
+			case keys::kind_t::ED25519: {
+				// Подпись Ed25519
+				uint8_t signature[64];
+				// Модуль сличения по открытому ключу
+				sign::ed25519_t verifier;
+				ASSERT_TRUE(opened.load(verifier));
+				ASSERT_TRUE(signer.ed25519().make(view("prepared key"), signature));
+				ASSERT_TRUE(verifier.check(view("prepared key"), view_t(signature, sizeof(signature))));
+				ASSERT_TRUE(direct.ed25519().make(view("prepared key"), signature));
+				ASSERT_TRUE(verifier.check(view("prepared key"), view_t(signature, sizeof(signature))));
+				ASSERT_FALSE(signer.rsa().ready());
+			} break;
+			// Прочие виды здесь не встречаются
+			default: FAIL() << "Ключ: " << entry.name;
+		}
+		// Сброс ключа снимает готовность
+		signer.clear();
+		ASSERT_FALSE(signer.ready());
+		ASSERT_EQ(signer.kind(), keys::kind_t::NONE);
+	}
+	// Ключ ГОСТ по записи PKCS #8
+	keys::key_t made;
+	ASSERT_TRUE(gost("1.2.643.7.1.2.1.1.1", "1.2.643.7.1.1.1.1", made));
+	std::vector <uint8_t> der;
+	ASSERT_EQ(keys::encodePrivateKeyInfo(made, der), keys::error_t::NONE);
+	keys::signer_t packed;
+	ASSERT_EQ(packed.prepare(view(der)), keys::error_t::NONE);
+	ASSERT_EQ(packed.kind(), keys::kind_t::GOST);
+	ASSERT_EQ(packed.curve().size(), static_cast <size_t> (32));
+	// Тот же ключ голым скаляром по кривой
+	curve::curve_t curve;
+	ASSERT_TRUE(curve::parameters("1.2.643.7.1.2.1.1.1", curve));
+	keys::signer_t bare;
+	ASSERT_EQ(bare.prepare(view(made.d), curve), keys::error_t::NONE);
+	ASSERT_EQ(bare.kind(), keys::kind_t::GOST);
+	ASSERT_EQ(bare.curve().size(), static_cast <size_t> (32));
+	// Подпись голого скаляра сличается ключом из записи и наоборот
+	uint8_t signature[128];
+	ASSERT_TRUE(bare.gost().make(view_t(digest, sizeof(digest)), signature));
+	ASSERT_TRUE(packed.gost().check(view_t(digest, sizeof(digest)), view_t(signature, packed.gost().size())));
+	ASSERT_TRUE(packed.gost().make(view_t(digest, sizeof(digest)), signature));
+	ASSERT_TRUE(bare.gost().check(view_t(digest, sizeof(digest)), view_t(signature, bare.gost().size())));
+	// Отказы подготовки
+	keys::signer_t refused;
+	// Пустой скаляр
+	ASSERT_EQ(refused.prepare(view_t(), curve), keys::error_t::EMPTY);
+	// Незаведённая кривая
+	curve::curve_t blank;
+	ASSERT_EQ(refused.prepare(view(made.d), blank), keys::error_t::CURVE);
+	ASSERT_FALSE(refused.ready());
+	// Нулевой скаляр
+	const std::vector <uint8_t> zero(32, 0);
+	ASSERT_EQ(refused.prepare(view(zero), curve), keys::error_t::VALUE);
+	ASSERT_FALSE(refused.ready());
+	ASSERT_FALSE(refused.curve().ready());
+	// Пустая запись
+	ASSERT_EQ(refused.prepare(view_t()), keys::error_t::EMPTY);
+	// Мусор вместо записи
+	ASSERT_NE(refused.prepare(view("garbage instead of a key")), keys::error_t::NONE);
+	ASSERT_FALSE(refused.ready());
+	// Открытый ключ без секретной части
+	ASSERT_EQ(refused.prepare(text(corpus("ec256.pub.pem"))), keys::error_t::EMPTY);
+	ASSERT_FALSE(refused.ready());
+	// Подготовка после отказа возможна
+	ASSERT_EQ(refused.prepare(text(corpus("ec256.pem"))), keys::error_t::NONE);
+	ASSERT_EQ(refused.kind(), keys::kind_t::EC);
+}

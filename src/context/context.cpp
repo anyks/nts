@@ -41,11 +41,17 @@
  * Стандартные заголовочные файлы
  */
 #include <new>
+#include <cstring>
 
 /**
  * Подключаем заголовочные файлы проекта
  */
+#include <keys/keys.hpp>
+#include <x509/x509.hpp>
+#include <x509/signature.hpp>
 #include <field/field.hpp>
+#include <curve/curve.hpp>
+#include <digest/hash.hpp>
 #include <context/context.hpp>
 #include <sys/wipe.hpp>
 
@@ -550,4 +556,143 @@ nts::context::error_t nts::context::decode(const view_t & data, ticket_t & resul
 	}
 	// Выводим успешность чтения билета
 	return error_t::NONE;
+}
+/**
+ * @brief Метод выработки отпечатка байтов ключа и своего сертификата подлинности
+ *
+ * @param credential подлинность, чей отпечаток вырабатывается
+ * @param result     место, в которое помещается отпечаток: тридцать два байта
+ *
+ * @return           признак успешности выработки отпечатка
+ *
+ * @note Отпечаток - SHA-256 над записью ключа и своим сертификатом подряд: по нему
+ *       связь узнаёт, что подготовленный ключ отвечает текущей подлинности
+ *
+ */
+static bool stamping(const nts::context::credential_t & credential, uint8_t * result) noexcept {
+	// Объект выработки хеша
+	nts::digest::hasher_t hasher;
+	// Заводим выработку хеша SHA-256
+	hasher.reset(nts::digest::hash_t::SHA256);
+	// Подаём запись секретного ключа
+	hasher.update(nts::view_t(credential.secret.data(), credential.secret.size()));
+	// Если цепочка сертификатов непуста
+	if(!credential.chain.empty())
+		// Подаём свой сертификат
+		hasher.update(nts::view_t(credential.chain[0].data(), credential.chain[0].size()));
+	// Выводим итог выработки отпечатка
+	return hasher.finish(result, 32);
+}
+/**
+ * @brief Метод подготовки секретного ключа к работе
+ *
+ * @return отказ подготовки ключа
+ *
+ */
+nts::context::error_t nts::context::Credential::prepare() noexcept {
+	// Сбрасываем прежнюю подготовку
+	this->signer.reset();
+	this->stamp.clear();
+	// Если секретный ключ не задан
+	if(this->secret.empty())
+		// Выводим отказ подготовки ключа
+		return error_t::SIGNATURE;
+	/**
+	 * Выполняем перехват ошибок работы с памятью: подготовленный ключ и отпечаток
+	 * занимают память
+	 */
+	try {
+		// Подготовленный ключ: разделяется связями общим указателем
+		shared_ptr <keys::signer_t> item = make_shared <keys::signer_t> ();
+		// Готовим ключ по записи PKCS #8 в DER либо в PEM
+		keys::error_t outcome = item->prepare(view_t(this->secret.data(), this->secret.size()));
+		// Если памяти под подготовку не хватило
+		if(outcome == keys::error_t::MEMORY)
+			// Выводим отказ нехватки памяти
+			return error_t::MEMORY;
+		// Если запись ключа не разобрана
+		if(outcome != keys::error_t::NONE){
+			/**
+			 * Ключ ГОСТ вправе быть записан голым скаляром порядком от старшего байта к
+			 * младшему: кривая тогда берётся из своего сертификата
+			 */
+			if(this->chain.empty())
+				// Выводим отказ подготовки ключа
+				return error_t::SIGNATURE;
+			// Свой сертификат
+			x509::certificate_t leaf;
+			// Отказ разбора своего сертификата
+			const x509::error_t parsed = leaf.parse(view_t(this->chain[0].data(), this->chain[0].size()));
+			// Если памяти под разбор своего сертификата не хватило
+			if(parsed == x509::error_t::MEMORY)
+				// Выводим отказ нехватки памяти
+				return error_t::MEMORY;
+			// Если свой сертификат разобрать не удалось
+			if(parsed != x509::error_t::NONE)
+				// Выводим отказ разбора своего сертификата
+				return error_t::CERTIFICATE;
+			// Кривая ключа своего сертификата
+			curve::curve_t curve;
+			// Отказ заведения кривой ключа сертификата
+			const x509::error_t found = x509::parameters(leaf.key(), curve);
+			// Если памяти под заведение кривой не хватило
+			if(found == x509::error_t::MEMORY)
+				// Выводим отказ нехватки памяти
+				return error_t::MEMORY;
+			// Если ключ сертификата не ключ ГОСТ либо кривая неизвестна
+			if(found != x509::error_t::NONE)
+				// Выводим отказ подготовки ключа
+				return error_t::SIGNATURE;
+			// Готовим ключ по голому скаляру на кривой сертификата
+			outcome = item->prepare(view_t(this->secret.data(), this->secret.size()), curve);
+			// Если памяти под подготовку не хватило
+			if(outcome == keys::error_t::MEMORY)
+				// Выводим отказ нехватки памяти
+				return error_t::MEMORY;
+			// Если скаляр не годится
+			if(outcome != keys::error_t::NONE)
+				// Выводим отказ подготовки ключа
+				return error_t::SIGNATURE;
+		}
+		// Отпечаток байтов ключа и своего сертификата
+		vector <uint8_t> stamp(32, 0);
+		// Если отпечаток выработать не удалось
+		if(!stamping(* this, stamp.data()))
+			// Выводим отказ подготовки ключа
+			return error_t::SIGNATURE;
+		// Запоминаем отпечаток и подготовленный ключ
+		this->stamp = ::move(stamp);
+		this->signer = item;
+		// Выводим успешность подготовки
+		return error_t::NONE;
+	/**
+	 * Если памяти под подготовку не хватило
+	 */
+	} catch(const bad_alloc &) {
+		// Сбрасываем подготовку
+		this->signer.reset();
+		this->stamp.clear();
+		// Выводим отказ нехватки памяти
+		return error_t::MEMORY;
+	}
+}
+/**
+ * @brief Метод проверки готовности секретного ключа
+ *
+ * @return признак подготовленного ключа, отвечающего текущим байтам ключа и сертификата
+ *
+ */
+bool nts::context::Credential::ready() const noexcept {
+	// Если ключ не подготовлен, отпечатка нет либо секретный ключ не задан
+	if(!this->signer || !this->signer->ready() || (this->stamp.size() != 32) || this->secret.empty())
+		// Выводим отсутствие готовности
+		return false;
+	// Отпечаток текущих байтов ключа и сертификата
+	uint8_t current[32];
+	// Если отпечаток выработать не удалось
+	if(!stamping(* this, current))
+		// Выводим отсутствие готовности
+		return false;
+	// Выводим схождение отпечатков
+	return (::memcmp(current, this->stamp.data(), sizeof(current)) == 0);
 }

@@ -49,6 +49,14 @@
  *    секретный ключ в освобождённой памяти нельзя; рост же его буфера затирает прежнюю
  *    память сам (asn1::Writer::grow), потому промежуточных копий записи не остаётся.
  *
+ * 8. Подготовленный ключ (Signer) заводится один раз и не копируется. Разбор записи,
+ *    проверки составляющих RSA делением, выработка открытой точки и предвычисления
+ *    Монтгомери стоят у RSA-2048 вдвое дороже подписи, у ECDSA - вдвое дороже всего
+ *    рукопожатия, и до круга 29 (22.09.2026) связь вела их на каждой подписи. Модули
+ *    подписи на кривых держат указатель на кривую внутри ключа, потому копирование
+ *    запрещено, а связи разделяют ключ общим указателем из подлинности. Закреплено
+ *    проверкой KeysTest.Signer.
+ *
  * @copyright Copyright © 2026
  *
  */
@@ -2111,6 +2119,292 @@ bool nts::keys::Key::load(sign::gost_t & gost, curve::curve_t & curve) const noe
  */
 nts::keys::Key::~Key() noexcept {
 	// Выполняем сброс ключа с затиранием секретных составляющих
+	this->clear();
+}
+/**
+ * @brief Метод проверки готовности ключа
+ *
+ * @return признак подготовленного ключа
+ *
+ */
+bool nts::keys::Signer::ready() const noexcept {
+	// Выводим признак подготовленного ключа
+	return (this->_kind != kind_t::NONE);
+}
+/**
+ * @brief Метод получения вида подготовленного ключа
+ *
+ * @return вид ключа, kind_t::NONE у неподготовленного
+ *
+ */
+nts::keys::kind_t nts::keys::Signer::kind() const noexcept {
+	// Выводим вид подготовленного ключа
+	return this->_kind;
+}
+/**
+ * @brief Метод получения кривой ключа
+ *
+ * @return кривая ключа EC либо ГОСТ
+ *
+ */
+const nts::curve::curve_t & nts::keys::Signer::curve() const noexcept {
+	// Незаведённая кривая для ключей иных видов
+	static const curve::curve_t empty;
+	// Выводим кривую ключа
+	return (this->_curve ? (* this->_curve) : empty);
+}
+/**
+ * @brief Метод получения модуля подписи RSA
+ *
+ * @return модуль подписи с установленным ключом RSA
+ *
+ */
+const nts::sign::rsa_t & nts::keys::Signer::rsa() const noexcept {
+	// Выводим модуль подписи RSA
+	// Пустой модуль для ключей иных видов
+	static const sign::rsa_t empty;
+	// Выводим модуль подписи
+	return (this->_rsa ? (* this->_rsa) : empty);
+}
+/**
+ * @brief Метод получения модуля подписи ECDSA
+ *
+ * @return модуль подписи с установленным ключом на кривой Вейерштрасса
+ *
+ */
+const nts::sign::ecdsa_t & nts::keys::Signer::ecdsa() const noexcept {
+	// Выводим модуль подписи ECDSA
+	// Пустой модуль для ключей иных видов
+	static const sign::ecdsa_t empty;
+	// Выводим модуль подписи
+	return (this->_ecdsa ? (* this->_ecdsa) : empty);
+}
+/**
+ * @brief Метод получения модуля подписи Ed25519
+ *
+ * @return модуль подписи с установленным ключом Ed25519
+ *
+ */
+const nts::sign::ed25519_t & nts::keys::Signer::ed25519() const noexcept {
+	// Выводим модуль подписи Ed25519
+	// Пустой модуль для ключей иных видов
+	static const sign::ed25519_t empty;
+	// Выводим модуль подписи
+	return (this->_ed25519 ? (* this->_ed25519) : empty);
+}
+/**
+ * @brief Метод получения модуля подписи ГОСТ Р 34.10-2012
+ *
+ * @return модуль подписи с установленным ключом ГОСТ
+ *
+ */
+const nts::sign::gost_t & nts::keys::Signer::gost() const noexcept {
+	// Выводим модуль подписи ГОСТ
+	// Пустой модуль для ключей иных видов
+	static const sign::gost_t empty;
+	// Выводим модуль подписи
+	return (this->_gost ? (* this->_gost) : empty);
+}
+/**
+ * @brief Метод подготовки ключа по записи секретного ключа
+ *
+ * @param secret запись PrivateKeyInfo (PKCS #8) в DER либо в PEM без пароля
+ *
+ * @return       отказ подготовки ключа
+ *
+ */
+nts::keys::error_t nts::keys::Signer::prepare(const view_t & secret) noexcept {
+	// Сбрасываем прежний ключ
+	this->clear();
+	// Если запись ключа пуста
+	if((secret.data == nullptr) || (secret.size == 0))
+		// Выводим отказ пустой записи
+		return error_t::EMPTY;
+	// Разобранный ключ: секретные составляющие затираются при его уничтожении
+	key_t key;
+	/**
+	 * Секретный ключ принимается записью PKCS #8 в DER либо в PEM: сперва пробуется
+	 * DER, ибо запись PEM начинается с текста и разбором DER отвергается сразу
+	 */
+	error_t outcome = decodePrivateKeyInfo(secret, key);
+	// Если памяти под разбор не хватило
+	if(outcome == error_t::MEMORY)
+		// Выводим отказ нехватки памяти
+		return outcome;
+	// Если запись DER не разобрана
+	if(outcome != error_t::NONE){
+		/**
+		 * Выполняем перехват ошибок работы с памятью: текст записи PEM занимает память
+		 */
+		try {
+			// Текст записи PEM секретного ключа: затирается до уничтожения
+			string text(reinterpret_cast <const char *> (secret.data), secret.size);
+			// Разбираем запись PEM секретного ключа
+			outcome = decode(text, view_t(), key);
+			// Если текст записи непуст
+			if(!text.empty())
+				// Выполняем затирание текста записи секретного ключа
+				nts::sys::wipe(reinterpret_cast <uint8_t *> (&text[0]), text.size());
+		/**
+		 * Если памяти под текст записи не хватило
+		 */
+		} catch(const bad_alloc &) {
+			// Выводим отказ нехватки памяти
+			return error_t::MEMORY;
+		}
+		// Если запись PEM разобрать не удалось
+		if(outcome != error_t::NONE)
+			// Выводим отказ разбора записи
+			return outcome;
+	}
+	// Если секретной части у ключа нет
+	if(!key.secret())
+		// Выводим отказ отсутствия секретной части
+		return error_t::EMPTY;
+	// Признак заведения ключа в модуле подписи
+	bool loaded = false;
+	/**
+	 * Определяем вид ключа: модуль заводится лишь под свой вид, ибо модули иных видов
+	 * стоили бы затирания их полной ёмкости при уничтожении ключа
+	 */
+	switch(key.kind){
+		// Ключ RSA
+		case kind_t::RSA: {
+			// Заводим модуль подписи RSA
+			this->_rsa.reset(new (nothrow) sign::rsa_t());
+			// Если памяти под модуль не хватило
+			if(!this->_rsa)
+				// Выводим отказ нехватки памяти
+				return error_t::MEMORY;
+			// Заводим ключ в модуле подписи RSA
+			loaded = key.load(* this->_rsa);
+		} break;
+		// Ключ на кривой Вейерштрасса
+		case kind_t::EC: {
+			// Заводим кривую и модуль подписи ECDSA
+			this->_curve.reset(new (nothrow) curve::curve_t());
+			this->_ecdsa.reset(new (nothrow) sign::ecdsa_t());
+			// Если памяти под кривую либо модуль не хватило
+			if(!this->_curve || !this->_ecdsa){
+				// Сбрасываем ключ
+				this->clear();
+				// Выводим отказ нехватки памяти
+				return error_t::MEMORY;
+			}
+			// Заводим ключ в модуле подписи ECDSA вместе с кривой
+			loaded = key.load(* this->_ecdsa, * this->_curve);
+		} break;
+		// Ключ Ed25519
+		case kind_t::ED25519: {
+			// Заводим модуль подписи Ed25519
+			this->_ed25519.reset(new (nothrow) sign::ed25519_t());
+			// Если памяти под модуль не хватило
+			if(!this->_ed25519)
+				// Выводим отказ нехватки памяти
+				return error_t::MEMORY;
+			// Заводим ключ в модуле подписи Ed25519
+			loaded = key.load(* this->_ed25519);
+		} break;
+		// Ключ ГОСТ Р 34.10-2012
+		case kind_t::GOST: {
+			// Заводим кривую и модуль подписи ГОСТ
+			this->_curve.reset(new (nothrow) curve::curve_t());
+			this->_gost.reset(new (nothrow) sign::gost_t());
+			// Если памяти под кривую либо модуль не хватило
+			if(!this->_curve || !this->_gost){
+				// Сбрасываем ключ
+				this->clear();
+				// Выводим отказ нехватки памяти
+				return error_t::MEMORY;
+			}
+			// Заводим ключ в модуле подписи ГОСТ вместе с кривой
+			loaded = key.load(* this->_gost, * this->_curve);
+		} break;
+		// Ключ, подписи не выполняющий
+		default:
+			// Выводим отказ вида ключа
+			return error_t::ALGORITHM;
+	}
+	// Если ключ в модуле подписи не заведён
+	if(!loaded){
+		// Сбрасываем ключ
+		this->clear();
+		// Выводим отказ несогласованных составляющих
+		return error_t::VALUE;
+	}
+	// Запоминаем вид подготовленного ключа
+	this->_kind = key.kind;
+	// Выводим успешность подготовки
+	return error_t::NONE;
+}
+/**
+ * @brief Метод подготовки ключа ГОСТ по голому скаляру
+ *
+ * @param scalar секретный скаляр порядком от старшего байта к младшему
+ * @param curve  заведённая кривая ключа
+ *
+ * @return       отказ подготовки ключа
+ *
+ */
+nts::keys::error_t nts::keys::Signer::prepare(const view_t & scalar, const curve::curve_t & curve) noexcept {
+	// Сбрасываем прежний ключ
+	this->clear();
+	// Если скаляр пуст
+	if((scalar.data == nullptr) || (scalar.size == 0))
+		// Выводим отказ пустого скаляра
+		return error_t::EMPTY;
+	// Если кривая не заведена
+	if(!curve.ready())
+		// Выводим отказ кривой
+		return error_t::CURVE;
+	// Заводим копию кривой ключа и модуль подписи ГОСТ: модуль ссылается на кривую
+	this->_curve.reset(new (nothrow) curve::curve_t(curve));
+	this->_gost.reset(new (nothrow) sign::gost_t());
+	// Если памяти под кривую либо модуль не хватило
+	if(!this->_curve || !this->_gost){
+		// Сбрасываем ключ
+		this->clear();
+		// Выводим отказ нехватки памяти
+		return error_t::MEMORY;
+	}
+	// Если кривую подписи установить либо скаляр завести не удалось
+	if(!this->_gost->start(* this->_curve) || !this->_gost->secret(scalar)){
+		// Сбрасываем ключ
+		this->clear();
+		// Выводим отказ скаляра
+		return error_t::VALUE;
+	}
+	// Запоминаем вид подготовленного ключа
+	this->_kind = kind_t::GOST;
+	// Выводим успешность подготовки
+	return error_t::NONE;
+}
+/**
+ * @brief Метод сброса ключа
+ *
+ */
+void nts::keys::Signer::clear() noexcept {
+	// Сбрасываем вид ключа
+	this->_kind = kind_t::NONE;
+	// Уничтожаем модули подписи с затиранием: они ссылаются на кривую, потому идут первыми
+	this->_rsa.reset();
+	this->_ecdsa.reset();
+	this->_ed25519.reset();
+	this->_gost.reset();
+	// Уничтожаем кривую ключа
+	this->_curve.reset();
+}
+/**
+ * @brief Конструктор
+ *
+ */
+nts::keys::Signer::Signer() noexcept : _kind(kind_t::NONE) {}
+/**
+ * @brief Деструктор
+ *
+ */
+nts::keys::Signer::~Signer() noexcept {
+	// Сбрасываем ключ
 	this->clear();
 }
 /**

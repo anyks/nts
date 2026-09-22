@@ -429,6 +429,23 @@ int main(int argc, char * argv[]) noexcept {
 		client::context_t client;
 		// Связь стороны сервера
 		server::context_t server;
+		/**
+		 * Умолчания связи - классика без ГОСТ, как у браузеров: кому нужен ГОСТ, тот
+		 * объявляет кривые, наборы и схемы подписи сам. Здесь ГОСТ объявляется как
+		 * единственный вариант: перечни заменяются целиком обеим сторонам связи
+		 */
+		client.groups({extension::group_t::GC512C, extension::group_t::GC256A});
+		server.groups({extension::group_t::GC512C, extension::group_t::GC256A});
+		client.suites({protect::suite_t::KUZNYECHIK_MGM_L, protect::suite_t::MAGMA_MGM_L});
+		server.suites({protect::suite_t::KUZNYECHIK_MGM_L, protect::suite_t::MAGMA_MGM_L});
+		client.schemes({
+			extension::scheme_t::S256A, extension::scheme_t::S256B, extension::scheme_t::S256C, extension::scheme_t::S256D,
+			extension::scheme_t::S512A, extension::scheme_t::S512B, extension::scheme_t::S512C
+		});
+		server.schemes({
+			extension::scheme_t::S256A, extension::scheme_t::S256B, extension::scheme_t::S256C, extension::scheme_t::S256D,
+			extension::scheme_t::S512A, extension::scheme_t::S512B, extension::scheme_t::S512C
+		});
 		// Устанавливаем подлинность стороны сервера
 		server.credential(credentials);
 		// Устанавливаем имя узла, за которым идёт клиент
@@ -468,6 +485,23 @@ int main(int argc, char * argv[]) noexcept {
 		client::context_t client;
 		// Связь стороны сервера
 		server::context_t server;
+		/**
+		 * Умолчания связи - классика без ГОСТ, как у браузеров: кому нужен ГОСТ, тот
+		 * объявляет кривые, наборы и схемы подписи сам. Здесь ГОСТ объявляется как
+		 * единственный вариант: перечни заменяются целиком обеим сторонам связи
+		 */
+		client.groups({extension::group_t::GC512C, extension::group_t::GC256A});
+		server.groups({extension::group_t::GC512C, extension::group_t::GC256A});
+		client.suites({protect::suite_t::KUZNYECHIK_MGM_L, protect::suite_t::MAGMA_MGM_L});
+		server.suites({protect::suite_t::KUZNYECHIK_MGM_L, protect::suite_t::MAGMA_MGM_L});
+		client.schemes({
+			extension::scheme_t::S256A, extension::scheme_t::S256B, extension::scheme_t::S256C, extension::scheme_t::S256D,
+			extension::scheme_t::S512A, extension::scheme_t::S512B, extension::scheme_t::S512C
+		});
+		server.schemes({
+			extension::scheme_t::S256A, extension::scheme_t::S256B, extension::scheme_t::S256C, extension::scheme_t::S256D,
+			extension::scheme_t::S512A, extension::scheme_t::S512B, extension::scheme_t::S512C
+		});
 		// Устанавливаем подлинность стороны сервера
 		server.credential(credentials);
 		// Устанавливаем прикладной протокол, предлагаемый клиентом

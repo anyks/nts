@@ -45,6 +45,7 @@
 #include <starve.hpp>
 #include <openssl.hpp>
 #include <identity.hpp>
+#include <gost.hpp>
 #include <pem/pem.hpp>
 #include <ocsp/ocsp.hpp>
 #include <x509/x509.hpp>
@@ -1471,8 +1472,12 @@ TEST(OcspTest, Loopback){
 			for(size_t s = 0; s < (sizeof(SUITES) / sizeof(SUITES[0])); s++){
 				// Связь стороны клиента
 				client::context_t client;
+				// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+				gosting(client);
 				// Связь стороны сервера
 				server::context_t server;
+				// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+				gosting(server);
 				// Настраиваем стороны с подлинностью клиента
 				arrange(client, server, SUITES[s], extension::group_t::X25519, credential, true, (t == 1));
 				// Пустой запас доверия: издатель самоподписанного сертификата - он сам
@@ -1525,8 +1530,12 @@ TEST(OcspTest, Loopback){
 					ASSERT_EQ(client.tickets().size(), static_cast <size_t> (1));
 					// Связь возобновляющего клиента
 					client::context_t resuming;
+					// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+					gosting(resuming);
 					// Связь возобновляющего сервера
 					server::context_t resumed;
+					// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+					gosting(resumed);
 					// Настраиваем стороны без подлинности клиента
 					arrange(resuming, resumed, SUITES[s], extension::group_t::X25519, credential, false, false);
 					// Сервер отдаёт ответ
@@ -1567,8 +1576,12 @@ TEST(OcspTest, Loopback){
 			const vector <uint8_t> answer = vectored("leaf-ec.delegated.der");
 			// Связь стороны клиента
 			client::context_t client;
+			// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+			gosting(client);
 			// Связь стороны сервера
 			server::context_t server;
+			// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+			gosting(server);
 			// Настраиваем стороны без подлинности клиента
 			arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::SECP256R1, credential, false, (t == 1));
 			// Пустой запас доверия: издатель берётся вторым звеном цепочки
@@ -1613,8 +1626,12 @@ TEST(OcspTest, Loopback){
 			const vector <uint8_t> answer = vectored("leaf-ec.good.der");
 			// Связь стороны клиента
 			client::context_t client;
+			// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+			gosting(client);
 			// Связь стороны сервера
 			server::context_t server;
+			// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+			gosting(server);
 			// Настраиваем стороны без подлинности клиента
 			arrange(client, server, protect::suite_t::AES_256_GCM_SHA384, extension::group_t::X25519, credential, false, (t == 1));
 			// Запас доверия с издателем листа
@@ -1657,8 +1674,12 @@ TEST(OcspTest, Loopback){
 			ASSERT_TRUE(gosted(credential, ocsp::status_t::GOOD, answer));
 			// Связь стороны клиента
 			client::context_t client;
+			// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+			gosting(client);
 			// Связь стороны сервера
 			server::context_t server;
+			// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+			gosting(server);
 			// Настраиваем стороны с подлинностью клиента на наборе ГОСТ
 			arrange(client, server, protect::suite_t::KUZNYECHIK_MGM_L, extension::group_t::GC256B, credential, true, (t == 1));
 			// Пустой запас доверия
@@ -1716,8 +1737,12 @@ TEST(OcspTest, Absent){
 	{
 		// Связь стороны клиента
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		// Связь стороны сервера
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		// Настраиваем стороны с подлинностью клиента
 		arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, true, false);
 		// Клиент запрашивает состояние, сервер ответа не имеет
@@ -1746,8 +1771,12 @@ TEST(OcspTest, Absent){
 	{
 		// Связь стороны клиента
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		// Связь стороны сервера
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		// Настраиваем стороны с подлинностью клиента
 		arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, true, false);
 		// Сервер имеет ответ, клиент его не запрашивает
@@ -1770,8 +1799,12 @@ TEST(OcspTest, Absent){
 	{
 		// Связь стороны клиента
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		// Связь стороны сервера
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		// Настраиваем стороны без подлинности клиента
 		arrange(client, server, protect::suite_t::CHACHA20_POLY1305_SHA256, extension::group_t::X25519, credential, false, false);
 		// Ответ revoked
@@ -1852,8 +1885,12 @@ TEST(OcspTest, Refusals){
 		for(size_t c = 0; c < (sizeof(CASES) / sizeof(CASES[0])); c++){
 			// Связь стороны клиента
 			client::context_t client;
+			// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+			gosting(client);
 			// Связь стороны сервера
 			server::context_t server;
+			// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+			gosting(server);
 			// Настраиваем стороны без подлинности клиента
 			arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false, (t == 1));
 			// Сервер отдаёт ответ случая
@@ -1904,8 +1941,12 @@ TEST(OcspTest, Refusals){
 	{
 		// Связь стороны клиента
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		// Связь стороны сервера
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		// Настраиваем стороны с подлинностью клиента
 		arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, true, false);
 		// Клиент отдаёт ответ revoked
@@ -1932,8 +1973,12 @@ TEST(OcspTest, Refusals){
 	{
 		// Связь стороны клиента
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		// Связь стороны сервера
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		// Настраиваем стороны без подлинности клиента
 		arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false, false);
 		// Сервер отдаёт ответ по чужому сертификату с состоянием unknown: опознаватель не сходится
@@ -2025,8 +2070,12 @@ TEST(OcspTest, Refusals){
 		for(size_t i = 0; i < (sizeof(TWISTS) / sizeof(TWISTS[0])); i++){
 			// Связь стороны клиента
 			client::context_t client;
+			// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+			gosting(client);
 			// Связь стороны сервера
 			server::context_t server;
+			// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+			gosting(server);
 			// Настраиваем стороны без подлинности клиента по уровням
 			arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false, true);
 			// Сервер отдаёт ответ
@@ -2115,6 +2164,8 @@ TEST(OcspTest, Openssl){
 		ASSERT_GE(fd, 0) << "порт " << number;
 		// Связь стороны клиента
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		// Наборы клиента
 		client.suites(vector <protect::suite_t> {protect::suite_t::AES_128_GCM_SHA256});
 		// Группы клиента
@@ -2190,6 +2241,8 @@ TEST(OcspTest, Openssl){
 		ASSERT_GE(fd, 0);
 		// Связь стороны сервера
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		// Наборы сервера
 		server.suites(vector <protect::suite_t> {protect::suite_t::AES_128_GCM_SHA256});
 		// Группы сервера
@@ -2236,6 +2289,8 @@ TEST(OcspTest, Alone){
 	{
 		// Связь стороны клиента с одним лишь запросом состояния
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		// Запрашиваем состояние сертификата собеседника
 		client.status(true);
 		// Заводим клиента
@@ -2249,6 +2304,8 @@ TEST(OcspTest, Alone){
 	}{
 		// Связь стороны клиента без запроса состояния
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Приветствие клиента
@@ -2336,8 +2393,12 @@ TEST(OcspTest, Starved){
 		for(size_t budget = 0; (budget < 6000) && !complete; budget += ((budget < 200) ? 1 : 37)){
 			// Связь стороны клиента
 			client::context_t client;
+			// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+			gosting(client);
 			// Связь стороны сервера
 			server::context_t server;
+			// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+			gosting(server);
 			// Настраиваем стороны с подлинностью клиента
 			arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::SECP256R1, credential, true, false);
 			// Сервер отдаёт ответ

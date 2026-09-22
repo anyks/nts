@@ -37,6 +37,7 @@
  */
 #include <string>
 #include <vector>
+#include <memory>
 #include <cstdint>
 #include <cstddef>
 
@@ -63,6 +64,14 @@ namespace nts {
 	 * Подписываемся на стандартное пространство имён
 	 */
 	using namespace std;
+
+	/**
+	 * Подготовленный секретный ключ подлинности (keys/keys.hpp): здесь лишь объявлен,
+	 * подлинность держит его общим указателем
+	 */
+	namespace keys {
+		class __ANTS_SHARED_EXPORT__ Signer;
+	};
 
 	/**
 	 * \~russian
@@ -233,6 +242,10 @@ namespace nts {
 		 * @note Секретный ключ записывается тем же порядком, каким открытый ключ лежит в
 		 *       сертификате, — от старшего байта к младшему
 		 *
+		 * @note Ключ стоит подготовить один раз вызовом prepare(): подготовленный ключ
+		 *       разделяется всеми связями, которым подлинность установлена, а без подготовки
+		 *       каждая связь готовит его сама при первой надобности
+		 *
 		 * \~english
 		 * @brief Authenticity of a side of a connection
 		 * @details The section 4.4.2 of RFC 8446: the chain of the certificates goes from one's own
@@ -240,6 +253,9 @@ namespace nts {
 		 *          to the first of them
 		 * @note The secret key is written by the same order the public key lies in the certificate by —
 		 *       from the senior byte to the junior one
+		 * @note The key is worth preparing once by the prepare() call: a prepared key is shared by all
+		 *       the connections the authenticity is set to, and without the preparation every connection
+		 *       prepares it itself at the first need
 		 *
 		 * \~
 		 */
@@ -248,6 +264,65 @@ namespace nts {
 			vector <uint8_t> secret;
 			// Цепочка сертификатов своей стороны
 			vector <vector <uint8_t>> chain;
+			// Подготовленный секретный ключ, общий для всех связей с этой подлинностью: заводится подготовкой
+			shared_ptr <const keys::Signer> signer;
+			// Отпечаток байтов ключа и своего сертификата, по которым ключ подготовлен
+			vector <uint8_t> stamp;
+			/**
+			 * \~russian
+			 * @brief Метод подготовки секретного ключа к работе
+			 *
+			 * @return отказ подготовки: SIGNATURE у негодной записи ключа и у ключа без секретной
+			 *         части, CERTIFICATE у нечитаемого своего сертификата, MEMORY у нехватки памяти
+			 *
+			 * @details Разбор записи ключа, проверки его составляющих и предвычисления модуля
+			 *          подписи делаются здесь один раз, и подготовленный ключ разделяется всеми
+			 *          связями, которым подлинность установлена после подготовки. Без подготовки
+			 *          каждая связь готовит ключ сама при первой надобности - верно, но дорого:
+			 *          подготовка ключа RSA-2048 стоит вдвое дороже самой подписи, а ключа
+			 *          ECDSA - вдвое дороже всего рукопожатия
+			 *
+			 * @note Ключ ГОСТ, записанный голым скаляром, готовится по кривой своего сертификата:
+			 *       цепочка обязана быть установлена до подготовки
+			 *
+			 * @note Подготовку надлежит повторять после всякой смены ключа либо цепочки: связь
+			 *       сличает отпечаток и устаревшую подготовку не использует, а готовит ключ сама
+			 *
+			 * \~english
+			 * @brief Method of preparing the secret key for the work
+			 * @return the refusal of the preparation: SIGNATURE at an unfit record of the key and at a key
+			 *         without the secret part, CERTIFICATE at an unreadable own certificate, MEMORY at a
+			 *         lack of memory
+			 * @details The parsing of the record of the key, the checks of its components and the
+			 *          precomputations of the signature module are done here once, and the prepared key is
+			 *          shared by all the connections the authenticity is set to after the preparation.
+			 *          Without the preparation every connection prepares the key itself at the first need -
+			 *          correctly but expensively: the preparation of an RSA-2048 key costs twice the
+			 *          signature itself, and of an ECDSA key - twice the whole handshake
+			 * @note A GOST key written by a bare scalar is prepared by the curve of one's own certificate:
+			 *       the chain must be set before the preparation
+			 * @note The preparation is to be repeated after every change of the key or of the chain: a
+			 *       connection compares the stamp and does not use an outdated preparation, but prepares
+			 *       the key itself
+			 *
+			 * \~
+			 */
+			error_t prepare() noexcept;
+			/**
+			 * \~russian
+			 * @brief Метод проверки готовности секретного ключа
+			 *
+			 * @return признак того, что ключ подготовлен и подготовка отвечает текущим байтам
+			 *         ключа и своего сертификата
+			 *
+			 * \~english
+			 * @brief Method of checking the readiness of the secret key
+			 * @return the flag that the key is prepared and the preparation corresponds to the current
+			 *         bytes of the key and of one's own certificate
+			 *
+			 * \~
+			 */
+			bool ready() const noexcept;
 		} credential_t;
 		/**
 		 * \~russian

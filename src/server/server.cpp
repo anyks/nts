@@ -245,6 +245,18 @@ void nts::server::Context::suites(const vector <protect::suite_t> & suites) noex
 		this->_engine->suites(suites);
 }
 /**
+ * @brief Метод получения предлагаемых наборов шифрования
+ *
+ * @return перечень наборов шифрования: назначенный потребителем либо умолчание
+ *
+ */
+const vector <nts::protect::suite_t> & nts::server::Context::suites() const noexcept {
+	// Пустой перечень на случай незаведённого ведения связи
+	static const vector <protect::suite_t> empty;
+	// Выводим перечень предлагаемых наборов шифрования
+	return (this->_engine != nullptr ? this->_engine->suites() : empty);
+}
+/**
  * @brief Метод установки пределов издания протокола
  *
  * @param lowest  наименьшее дозволенное издание протокола
@@ -310,9 +322,9 @@ uint16_t nts::server::Context::version() const noexcept {
 	return (this->_engine != nullptr ? this->_engine->version() : 0);
 }
 /**
- * @brief Метод установки порядка выбора набора шифрования изданием TLS 1.2
+ * @brief Метод установки порядка выбора набора шифрования и кривой обмена ключами
  *
- * @param own выбирается ли набор порядком сервера, а не клиента
+ * @param own выбираются ли набор и кривая порядком сервера, а не клиента
  *
  */
 void nts::server::Context::preference(const bool own) noexcept {
@@ -334,6 +346,18 @@ void nts::server::Context::groups(const vector <extension::group_t> & groups) no
 		this->_engine->groups(groups);
 }
 /**
+ * @brief Метод получения предлагаемых кривых обмена ключами
+ *
+ * @return перечень кривых обмена ключами: назначенный потребителем либо умолчание
+ *
+ */
+const vector <nts::extension::group_t> & nts::server::Context::groups() const noexcept {
+	// Пустой перечень на случай незаведённого ведения связи
+	static const vector <extension::group_t> empty;
+	// Выводим перечень предлагаемых кривых обмена ключами
+	return (this->_engine != nullptr ? this->_engine->groups() : empty);
+}
+/**
  * @brief Метод установки признаваемых схем подписи
  *
  * @param schemes устанавливаемые схемы подписи
@@ -344,6 +368,18 @@ void nts::server::Context::schemes(const vector <extension::scheme_t> & schemes)
 	if(this->_engine != nullptr)
 		// Выполняем установку признаваемых схем подписи
 		this->_engine->schemes(schemes);
+}
+/**
+ * @brief Метод получения признаваемых схем подписи
+ *
+ * @return перечень схем подписи: назначенный потребителем либо умолчание
+ *
+ */
+const vector <nts::extension::scheme_t> & nts::server::Context::schemes() const noexcept {
+	// Пустой перечень на случай незаведённого ведения связи
+	static const vector <extension::scheme_t> empty;
+	// Выводим перечень признаваемых схем подписи
+	return (this->_engine != nullptr ? this->_engine->schemes() : empty);
 }
 /**
  * @brief Метод установки алгоритмов сжатия цепочки сертификатов

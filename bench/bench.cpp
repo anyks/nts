@@ -34,6 +34,16 @@
 /**
  * Стандартные модули
  */
+/**
+ * Под Windows заголовки эталона тянут <windows.h> целиком, а его записи RPC зовут тип
+ * byte: за подпиской заголовков библиотеки на пространство std имя двоится со
+ * std::byte, потому системные заголовки подключаются раньше всех прочих
+ */
+#if defined(ANTS_BENCH_OPENSSL) && defined(_WIN32)
+	#include <winsock2.h>
+	#include <windows.h>
+#endif
+
 #include <string>
 #include <vector>
 #include <chrono>
@@ -93,6 +103,7 @@
 	#include <openssl/ec.h>
 	#include <openssl/rand.h>
 	#include <openssl/rsa.h>
+	#include <openssl/ssl.h>
 #endif // ANTS_BENCH_OPENSSL
 
 /**
@@ -1189,25 +1200,141 @@ int main(int argc, char * argv[]) noexcept {
 		// Выходим из приложения с признаком отказа
 		return EXIT_FAILURE;
 	}
-	// Выполняем замер числа рукопожатий за секунду
-	count("Рукопожатие TLS 1.3", 50, [&credentials]() noexcept -> void {
-		// Связь стороны клиента
+	// Готовим ключ подлинности один раз: так подлинность и служит связям
+	if(credentials.prepare() != context::error_t::NONE){
+		// Выводим сообщение об отказе подготовки ключа
+		cout << "Подготовить ключ подлинности сервера не удалось" << endl;
+		// Выходим из приложения с признаком отказа
+		return EXIT_FAILURE;
+	}
+	// Числа рукопожатий TLS 1.3 и полоса записей, сличаемые с эталоном
+	double shakeDefaults = 0., shakeEcdsa = 0., shakeRsa = 0., records16 = 0., records1200 = 0.;
+	{
+		cout << endl << "Рукопожатия TLS 1.3" << endl << endl;
+		// Классические подлинности из набора ключей
+		context::credential_t ecdsa, rsa;
+		// Если подлинности прочитать либо подготовить не удалось
+		if(!keyed("ec256.pem", "ec256.crt", ecdsa) || !keyed("rsa2048.pem", "rsa2048.crt", rsa) || (ecdsa.prepare() != context::error_t::NONE) || (rsa.prepare() != context::error_t::NONE)){
+			// Выводим сообщение об отказе
+			cout << "Прочитать подлинности из набора ключей не удалось" << endl;
+			// Выходим из приложения с признаком отказа
+			return EXIT_FAILURE;
+		}
+		/**
+		 * Рукопожатие с заданными группами обмена, наборами шифрования и схемами подписи:
+		 * умолчания связи - классика без ГОСТ (X25519MLKEM768, AES-256-GCM), а ГОСТ
+		 * объявляется перечнями, как это делает потребитель; цена рукопожатия
+		 * определяется кривой и набором, а не подлинностью
+		 */
+		const auto shake = [](const context::credential_t & credential, const vector <extension::group_t> * groups, const vector <protect::suite_t> * suites, const vector <extension::scheme_t> * schemes) noexcept -> void {
+			// Связи сторон
+			client::context_t client;
+			server::context_t server;
+			// Если группы обмена заданы
+			if(groups != nullptr){
+				// Устанавливаем группы обмена сторон
+				client.groups(* groups);
+				server.groups(* groups);
+			}
+			// Если наборы шифрования заданы
+			if(suites != nullptr){
+				// Устанавливаем наборы шифрования сторон
+				client.suites(* suites);
+				server.suites(* suites);
+			}
+			// Если схемы подписи заданы
+			if(schemes != nullptr){
+				// Устанавливаем схемы подписи сторон
+				client.schemes(* schemes);
+				server.schemes(* schemes);
+			}
+			// Устанавливаем подлинность стороны сервера
+			server.credential(credential);
+			// Выполняем заведение связей сторон
+			server.start();
+			client.start();
+			/**
+			 * Выполняем передачу байтов между сторонами, пока им есть что сказать
+			 */
+			for(size_t i = 0; (i < 16) && pump(client, server); i++)
+				// Продолжаем передачу байтов между сторонами связи
+				continue;
+		};
+		// Кривые ГОСТ-512 и ГОСТ-256, набор «Кузнечик»-MGM и схемы подписи ГОСТ: объявление ГОСТ потребителем
+		const vector <extension::group_t> gost512 {extension::group_t::GC512C};
+		const vector <extension::group_t> gost256 {extension::group_t::GC256A};
+		const vector <protect::suite_t> mgm {protect::suite_t::KUZNYECHIK_MGM_L};
+		const vector <extension::scheme_t> gostSchemes {
+			extension::scheme_t::S256A, extension::scheme_t::S256B, extension::scheme_t::S256C, extension::scheme_t::S256D,
+			extension::scheme_t::S512A, extension::scheme_t::S512B, extension::scheme_t::S512C
+		};
+		// Группа X25519 и набор AES-128-GCM: условия сличения с эталоном
+		const vector <extension::group_t> mont {extension::group_t::X25519};
+		const vector <protect::suite_t> gcm {protect::suite_t::AES_128_GCM_SHA256};
+		// Выполняем замеры рукопожатий по конфигурациям
+		shakeDefaults = count("TLS 1.3 умолчания ECDSA", 200, [&shake, &ecdsa]() noexcept -> void {
+			// Проводим рукопожатие умолчаниями связи: X25519MLKEM768, AES-256-GCM, ECDSA P-256
+			shake(ecdsa, nullptr, nullptr, nullptr);
+		});
+		count("TLS 1.3 ГОСТ-512 MGM", 50, [&shake, &credentials, &gost512, &mgm, &gostSchemes]() noexcept -> void {
+			// Проводим рукопожатие на кривой ГОСТ-512 набором «Кузнечик»-MGM
+			shake(credentials, &gost512, &mgm, &gostSchemes);
+		});
+		count("TLS 1.3 ГОСТ-256 MGM", 100, [&shake, &credentials, &gost256, &mgm, &gostSchemes]() noexcept -> void {
+			// Проводим рукопожатие на кривой ГОСТ-256 набором «Кузнечик»-MGM
+			shake(credentials, &gost256, &mgm, &gostSchemes);
+		});
+		shakeEcdsa = count("TLS 1.3 X25519 ECDSA GCM", 200, [&shake, &ecdsa, &mont, &gcm]() noexcept -> void {
+			// Проводим рукопожатие классической подлинностью ECDSA
+			shake(ecdsa, &mont, &gcm, nullptr);
+		});
+		shakeRsa = count("TLS 1.3 X25519 RSA GCM", 100, [&shake, &rsa, &mont, &gcm]() noexcept -> void {
+			// Проводим рукопожатие классической подлинностью RSA
+			shake(rsa, &mont, &gcm, nullptr);
+		});
+		// Связи сторон для замера полосы записей: X25519, ECDSA, AES-128-GCM
 		client::context_t client;
-		// Связь стороны сервера
 		server::context_t server;
-		// Устанавливаем подлинность стороны сервера
-		server.credential(credentials);
-		// Выполняем заведение связи стороны сервера
-		server.start();
-		// Выполняем заведение связи стороны клиента
-		client.start();
+		// Устанавливаем группу обмена, набор шифрования и подлинность
+		client.groups(mont);
+		server.groups(mont);
+		client.suites(gcm);
+		server.suites(gcm);
+		server.credential(ecdsa);
+		// Если связи завести не удалось
+		if((server.start() != context::error_t::NONE) || (client.start() != context::error_t::NONE)){
+			// Выводим сообщение об отказе
+			cout << "Завести связь для замера записей не удалось" << endl;
+			// Выходим из приложения с признаком отказа
+			return EXIT_FAILURE;
+		}
 		/**
 		 * Выполняем передачу байтов между сторонами, пока им есть что сказать
 		 */
 		for(size_t i = 0; (i < 16) && pump(client, server); i++)
 			// Продолжаем передачу байтов между сторонами связи
 			continue;
-	});
+		// Если связь не установлена
+		if(!client.established() || !server.established()){
+			// Выводим сообщение об отказе
+			cout << "Установить связь для замера записей не удалось" << endl;
+			// Выходим из приложения с признаком отказа
+			return EXIT_FAILURE;
+		}
+		// Прикладные данные: запись наибольшей длины и запись в 1200 байт
+		const vector <uint8_t> large(record::RECORD_PLAINTEXT, 0x5A), small(1200, 0x5A);
+		// Накопитель принятых данных
+		vector <uint8_t> received;
+		// Выполняем замеры полосы записей: запись шифруется клиентом и расшифровывается сервером
+		records16 = band("TLS 1.3 записи 16 КиБ", 8, large.size() * 64, [&client, &server, &large, &received]() noexcept -> void {
+			// Передаём записи наибольшей длины
+			transfer(client, server, view_t(large.data(), large.size()), 64, received);
+		});
+		records1200 = band("TLS 1.3 записи 1200 байт", 8, small.size() * 256, [&client, &server, &small, &received]() noexcept -> void {
+			// Передаём записи в 1200 байт
+			transfer(client, server, view_t(small.data(), small.size()), 256, received);
+		});
+	}
 	/**
 	 * Замер стойкости обмена RSA ко времени (раздел 7.4.7.1 RFC 5246, Бляйхенбахер):
 	 * время разбора сервером ClientKeyExchange с годным шифртекстом сличается со временем
@@ -1845,6 +1972,268 @@ int main(int argc, char * argv[]) noexcept {
 			// Выполняем освобождение объекта обмена ключами эталона
 			::EVP_PKEY_CTX_free(exchange);
 		});
+		/**
+		 * Рукопожатие TLS 1.3 эталона в памяти парой BIO обеими сторонами в одном потоке:
+		 * X25519, AES-128-GCM, без проверки доверия цепочке, как и у нас
+		 */
+		const auto shakeRef = [](SSL_CTX * sctx, SSL_CTX * cctx) noexcept -> bool {
+			// Стороны связи эталона
+			SSL * s = ::SSL_new(sctx), * c = ::SSL_new(cctx);
+			// Пара BIO, связывающая стороны в памяти
+			BIO * sb = nullptr, * cb = nullptr;
+			// Если стороны либо пару завести не удалось
+			if((s == nullptr) || (c == nullptr) || !::BIO_new_bio_pair(&sb, 0, &cb, 0)){
+				// Освобождаем стороны
+				::SSL_free(s);
+				::SSL_free(c);
+				// Выводим отказ
+				return false;
+			}
+			// Привязываем пару к сторонам
+			::SSL_set_bio(s, sb, sb);
+			::SSL_set_bio(c, cb, cb);
+			::SSL_set_accept_state(s);
+			::SSL_set_connect_state(c);
+			// Признак завершения рукопожатия обеими сторонами
+			bool done = false;
+			/**
+			 * Выполняем ходы рукопожатия, пока обе стороны его не завершат
+			 */
+			for(size_t i = 0; (i < 32) && !done; i++){
+				::SSL_do_handshake(c);
+				::SSL_do_handshake(s);
+				done = (::SSL_is_init_finished(c) && ::SSL_is_init_finished(s));
+			}
+			// Освобождаем стороны вместе с парой
+			::SSL_free(s);
+			::SSL_free(c);
+			// Выводим итог рукопожатия
+			return done;
+		};
+		// Заведение контекстов эталона по подлинности из набора ключей
+		const auto contexts = [](const char * certificate, const char * key, SSL_CTX *& sctx, SSL_CTX *& cctx) noexcept -> bool {
+			// Заводим контексты сторон
+			sctx = ::SSL_CTX_new(::TLS_server_method());
+			cctx = ::SSL_CTX_new(::TLS_client_method());
+			// Если контексты завести не удалось
+			if((sctx == nullptr) || (cctx == nullptr))
+				// Выводим отказ
+				return false;
+			// Путь к набору ключей
+			const string root = (string(ANTS_CORPUS) + "/");
+			// Если подлинность сервера установить не удалось
+			if((::SSL_CTX_use_certificate_chain_file(sctx, (root + certificate).c_str()) != 1) || (::SSL_CTX_use_PrivateKey_file(sctx, (root + key).c_str(), SSL_FILETYPE_PEM) != 1))
+				// Выводим отказ
+				return false;
+			// Издание TLS 1.3, группа X25519, набор AES-128-GCM, без билетов и доверия цепочке
+			::SSL_CTX_set_min_proto_version(sctx, TLS1_3_VERSION);
+			::SSL_CTX_set_min_proto_version(cctx, TLS1_3_VERSION);
+			::SSL_CTX_set1_groups_list(sctx, "X25519");
+			::SSL_CTX_set1_groups_list(cctx, "X25519");
+			::SSL_CTX_set_ciphersuites(sctx, "TLS_AES_128_GCM_SHA256");
+			::SSL_CTX_set_ciphersuites(cctx, "TLS_AES_128_GCM_SHA256");
+			::SSL_CTX_set_verify(cctx, SSL_VERIFY_NONE, nullptr);
+			::SSL_CTX_set_options(sctx, SSL_OP_NO_TICKET);
+			::SSL_CTX_set_options(cctx, SSL_OP_NO_TICKET);
+			::SSL_CTX_set_session_cache_mode(sctx, SSL_SESS_CACHE_OFF);
+			::SSL_CTX_set_session_cache_mode(cctx, SSL_SESS_CACHE_OFF);
+			// Выводим успешность
+			return true;
+		};
+		// Контексты эталона по подлинностям ECDSA и RSA
+		SSL_CTX * ecdsaServer = nullptr, * ecdsaClient = nullptr, * rsaServer = nullptr, * rsaClient = nullptr;
+		// Числа рукопожатий и полоса записей эталона
+		double shakeDefaultsRef = 0., shakeCross = 0., shakeEcdsaRef = 0., shakeRsaRef = 0., records16Ref = 0., records1200Ref = 0.;
+		// Если контексты эталона заведены
+		if(contexts("ec256.crt", "ec256.pem", ecdsaServer, ecdsaClient) && contexts("rsa2048.crt", "rsa2048.pem", rsaServer, rsaClient)){
+			// Выполняем замеры рукопожатий эталона
+			shakeEcdsaRef = count("TLS 1.3 X25519 ECDSA GCM", 200, [&shakeRef, &ecdsaServer, &ecdsaClient]() noexcept -> void {
+				// Проводим рукопожатие эталона подлинностью ECDSA
+				shakeRef(ecdsaServer, ecdsaClient);
+			});
+			shakeRsaRef = count("TLS 1.3 X25519 RSA GCM", 100, [&shakeRef, &rsaServer, &rsaClient]() noexcept -> void {
+				// Проводим рукопожатие эталона подлинностью RSA
+				shakeRef(rsaServer, rsaClient);
+			});
+			// Установленная связь эталона для замера записей
+			SSL * s = ::SSL_new(ecdsaServer), * c = ::SSL_new(ecdsaClient);
+			// Пара BIO с запасом под записи
+			BIO * sb = nullptr, * cb = nullptr;
+			// Если стороны и пара заведены
+			if((s != nullptr) && (c != nullptr) && ::BIO_new_bio_pair(&sb, (1 << 20), &cb, (1 << 20))){
+				// Привязываем пару к сторонам
+				::SSL_set_bio(s, sb, sb);
+				::SSL_set_bio(c, cb, cb);
+				::SSL_set_accept_state(s);
+				::SSL_set_connect_state(c);
+				/**
+				 * Выполняем ходы рукопожатия, пока обе стороны его не завершат
+				 */
+				for(size_t i = 0; (i < 32) && !(::SSL_is_init_finished(c) && ::SSL_is_init_finished(s)); i++){
+					::SSL_do_handshake(c);
+					::SSL_do_handshake(s);
+				}
+				// Если связь эталона установлена
+				if(::SSL_is_init_finished(c) && ::SSL_is_init_finished(s)){
+					// Прикладные данные и накопитель приёма
+					const vector <uint8_t> large(record::RECORD_PLAINTEXT, 0x5A), small(1200, 0x5A);
+					vector <uint8_t> buffer(record::RECORD_PLAINTEXT, 0);
+					// Передача записей клиентом серверу
+					const auto moving = [&s, &c, &buffer](const vector <uint8_t> & payload, const size_t times) noexcept -> void {
+						/**
+						 * Выполняем передачу записей
+						 */
+						for(size_t i = 0; i < times; i++){
+							// Пишем запись клиентом
+							const int written = ::SSL_write(c, payload.data(), static_cast <int> (payload.size()));
+							// Если запись не ушла
+							if(written <= 0)
+								// Прерываем передачу
+								break;
+							// Число принятых байтов
+							size_t taken = 0;
+							/**
+							 * Читаем запись сервером до полного приёма
+							 */
+							while(taken < static_cast <size_t> (written)){
+								// Читаем принятые байты
+								const int got = ::SSL_read(s, buffer.data(), static_cast <int> (buffer.size()));
+								// Если байты не приняты
+								if(got <= 0)
+									// Прерываем приём
+									break;
+								// Учитываем принятые байты
+								taken += static_cast <size_t> (got);
+							}
+						}
+					};
+					// Выполняем замеры полосы записей эталона
+					records16Ref = band("TLS 1.3 записи 16 КиБ", 8, large.size() * 64, [&moving, &large]() noexcept -> void {
+						// Передаём записи наибольшей длины
+						moving(large, 64);
+					});
+					records1200Ref = band("TLS 1.3 записи 1200 байт", 8, small.size() * 256, [&moving, &small]() noexcept -> void {
+						// Передаём записи в 1200 байт
+						moving(small, 256);
+					});
+				}
+			}
+			// Освобождаем стороны вместе с парой
+			::SSL_free(s);
+			::SSL_free(c);
+		// Если контексты эталона завести не удалось
+		} else cout << "Завести связи эталона не удалось" << endl;
+		// Освобождаем контексты эталона
+		::SSL_CTX_free(ecdsaServer);
+		::SSL_CTX_free(ecdsaClient);
+		::SSL_CTX_free(rsaServer);
+		::SSL_CTX_free(rsaClient);
+		/**
+		 * Умолчания против умолчаний: эталон сам с собой без назначения групп и наборов, и
+		 * наш клиент с умолчаниями к серверу эталона с умолчаниями - совместимость
+		 * умолчаний с чужим сервером, где просьбы о повторе быть не должно
+		 */
+		{
+			// Контексты эталона с умолчаниями
+			SSL_CTX * sctx = ::SSL_CTX_new(::TLS_server_method()), * cctx = ::SSL_CTX_new(::TLS_client_method());
+			// Путь к набору ключей
+			const string root = (string(ANTS_CORPUS) + "/");
+			// Если контексты заведены и подлинность ECDSA установлена
+			if((sctx != nullptr) && (cctx != nullptr) && (::SSL_CTX_use_certificate_chain_file(sctx, (root + "ec256.crt").c_str()) == 1) && (::SSL_CTX_use_PrivateKey_file(sctx, (root + "ec256.pem").c_str(), SSL_FILETYPE_PEM) == 1)){
+				// Издание TLS 1.3, без билетов и доверия цепочке; группы и наборы - умолчания эталона
+				::SSL_CTX_set_min_proto_version(sctx, TLS1_3_VERSION);
+				::SSL_CTX_set_min_proto_version(cctx, TLS1_3_VERSION);
+				::SSL_CTX_set_verify(cctx, SSL_VERIFY_NONE, nullptr);
+				::SSL_CTX_set_options(sctx, SSL_OP_NO_TICKET);
+				::SSL_CTX_set_options(cctx, SSL_OP_NO_TICKET);
+				::SSL_CTX_set_session_cache_mode(sctx, SSL_SESS_CACHE_OFF);
+				::SSL_CTX_set_session_cache_mode(cctx, SSL_SESS_CACHE_OFF);
+				// Выполняем замер рукопожатия эталона умолчаниями
+				shakeDefaultsRef = count("TLS 1.3 умолчания ECDSA", 200, [&shakeRef, &sctx, &cctx]() noexcept -> void {
+					// Проводим рукопожатие эталона умолчаниями
+					shakeRef(sctx, cctx);
+				});
+				// Число просьб о повторе от сервера эталона и число рукопожатий, не дошедших до конца
+				size_t retries = 0, failures = 0;
+				// Рукопожатие нашего клиента с умолчаниями к серверу эталона парой BIO
+				const auto crossing = [&sctx, &retries, &failures]() noexcept -> void {
+					// Связь стороны клиента с умолчаниями
+					client::context_t client;
+					// Сторона сервера эталона
+					SSL * s = ::SSL_new(sctx);
+					// Пара BIO, связывающая стороны в памяти
+					BIO * sb = nullptr, * cb = nullptr;
+					// Если сторону либо пару завести не удалось
+					if((s == nullptr) || !::BIO_new_bio_pair(&sb, (1 << 16), &cb, (1 << 16))){
+						// Освобождаем сторону и считаем отказ
+						::SSL_free(s);
+						failures++;
+						// Выходим
+						return;
+					}
+					// Число приветствий сервера: два означают просьбу о повторе
+					size_t hellos = 0;
+					// Привязываем пару к стороне сервера и считаем её приветствия
+					::SSL_set_bio(s, sb, sb);
+					::SSL_set_accept_state(s);
+					::SSL_set_msg_callback(s, +[](int write_p, int, int content_type, const void * buf, size_t len, SSL *, void * arg) noexcept -> void {
+						// Если сервер отправил сообщение рукопожатия вида ServerHello
+						if((write_p != 0) && (content_type == SSL3_RT_HANDSHAKE) && (len > 0) && (static_cast <const uint8_t *> (buf)[0] == 2))
+							// Считаем приветствие сервера
+							(* static_cast <size_t *> (arg))++;
+					});
+					::SSL_set_msg_callback_arg(s, &hellos);
+					// Накопитель байтов от сервера
+					static uint8_t buffer[1 << 16];
+					// Выполняем заведение связи стороны клиента
+					client.start();
+					/**
+					 * Выполняем ходы рукопожатия, пока обе стороны его не завершат
+					 */
+					for(size_t i = 0; (i < 32) && !(client.established() && ::SSL_is_init_finished(s)); i++){
+						// Байты, отправляемые клиентом серверу
+						const view_t out = client.output();
+						// Если клиенту есть что отправить
+						if(out.size > 0){
+							// Передаём байты серверу и снимаем их с накопителя клиента
+							::BIO_write(cb, out.data, static_cast <int> (out.size));
+							client.consume(out.size);
+						}
+						// Даём ход серверу
+						if(!::SSL_is_init_finished(s))
+							::SSL_do_handshake(s);
+						// Число байтов, прочитанных от сервера
+						int n = 0;
+						// Передаём байты сервера клиенту
+						while((n = ::BIO_read(cb, buffer, sizeof(buffer))) > 0)
+							client.push(view_t(buffer, static_cast <size_t> (n)));
+						// Если связь клиента оборвана
+						if(client.error() != context::error_t::NONE)
+							// Выходим из цикла
+							break;
+					}
+					// Если рукопожатие не завершено
+					if(!(client.established() && ::SSL_is_init_finished(s)))
+						// Считаем отказ
+						failures++;
+					// Если сервер приветствовал дважды
+					if(hellos > 1)
+						// Считаем просьбу о повторе
+						retries++;
+					// Освобождаем сторону сервера вместе с её концом пары и свой конец пары
+					::SSL_free(s);
+					::BIO_free(cb);
+				};
+				// Выполняем замер рукопожатия нашего клиента с умолчаниями к серверу эталона
+				shakeCross = count("TLS 1.3 умолчания к серверу эталона", 200, crossing);
+				// Выводим итог совместимости умолчаний
+				cout << "Рукопожатий с сервером эталона не завершено: " << failures << ", просьб о повторе: " << retries << endl;
+			// Если контексты завести не удалось
+			} else cout << "Завести связи эталона умолчаниями не удалось" << endl;
+			// Освобождаем контексты эталона
+			::SSL_CTX_free(sctx);
+			::SSL_CTX_free(cctx);
+		}
 		// Выполняем освобождение ключевой пары X25519 эталона
 		::EVP_PKEY_free(mont);
 		// Выводим заголовок отношений замеров одного рода работы
@@ -1883,6 +2272,12 @@ int main(int argc, char * argv[]) noexcept {
 		relation("RSA-2048 подпись против эталона", rsaSigning, rsaSign);
 		// Выводим отношение сличения подписи RSA-2048 к эталону
 		relation("RSA-2048 сличение против эталона", rsaChecking, rsaVerify);
+		relation("TLS 1.3 умолчания против эталона", shakeDefaults, shakeDefaultsRef);
+		relation("TLS 1.3 умолчания к серверу эталона против эталона", shakeCross, shakeDefaultsRef);
+		relation("TLS 1.3 рукопожатие ECDSA против эталона", shakeEcdsa, shakeEcdsaRef);
+		relation("TLS 1.3 рукопожатие RSA против эталона", shakeRsa, shakeRsaRef);
+		relation("TLS 1.3 записи 16 КиБ против эталона", records16, records16Ref);
+		relation("TLS 1.3 записи 1200 байт против эталона", records1200, records1200Ref);
 		/**
 		 * Эталон на этой машине шифрует и хеширует машинными командами, которых у ГОСТ
 		 * нет ни на одной: чтобы сличить сами алгоритмы, а не оснастку под них, эталон
@@ -1918,6 +2313,11 @@ int main(int argc, char * argv[]) noexcept {
 		(void) checking;
 		// Не используем замер обмена ключами при отключённом сличении
 		(void) exchange;
+		(void) shakeDefaults;
+		(void) shakeEcdsa;
+		(void) shakeRsa;
+		(void) records16;
+		(void) records1200;
 	#endif // ANTS_BENCH_OPENSSL
 	// Выходим из приложения с признаком успеха
 	return EXIT_SUCCESS;

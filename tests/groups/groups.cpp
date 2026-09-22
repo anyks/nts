@@ -624,3 +624,27 @@ TEST(GroupsTest, OpensslEcdsa521){
 	} else
 		EXPECT_NE(journal.find("Peer signing digest: SHA512"), std::string::npos) << journal;
 }
+
+/**
+ * Умолчания связи против openssl s_server с его умолчаниями: связь без просьбы о повторе,
+ * группа - гибрид X25519MLKEM768, если openssl его знает, иначе X25519 по второй доле
+ */
+TEST(GroupsTest, OpensslDefaults){
+	const toolkit_t toolkit = inspect();
+	if(!toolkit.present || !toolkit.tls13){
+		GTEST_SKIP() << "openssl без TLS 1.3";
+	}
+	const std::string crt = std::string(CORPUS) + "/ec256.crt", key = std::string(CORPUS) + "/ec256.pem";
+	// Гибрид берётся, когда openssl его знает; иначе сервер без ML-KEM берёт долю X25519
+	const bool hybrid = (shell("(openssl list -tls-groups 2>/dev/null | tr ':' '\\n' | grep -qw X25519MLKEM768) >/dev/null 2>&1") == 0);
+	const extension::group_t expected = (hybrid ? extension::group_t::X25519MLKEM768 : extension::group_t::X25519);
+	std::string journal;
+	// Пустые перечни оставляют умолчания клиента; -msg кладёт сообщения рукопожатия в журнал сервера
+	const bool ok = against("-tls1_3 -cert " + crt + " -key " + key + " -msg", vector <extension::group_t> (), vector <extension::group_t> (), false, vector <extension::scheme_t> (), expected, journal);
+	EXPECT_TRUE(ok) << journal;
+	// Приветствие клиента в журнале одно: просьбы о повторе не было
+	size_t hellos = 0;
+	for(size_t pos = journal.find("ClientHello"); pos != std::string::npos; pos = journal.find("ClientHello", pos + 11))
+		hellos++;
+	EXPECT_EQ(hellos, static_cast <size_t> (1)) << journal;
+}

@@ -7,6 +7,9 @@ add_executable(${TEST_CONTEXT_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/context.cpp")
 # Включаем флаги компиляции проверок
 target_compile_options(${TEST_CONTEXT_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
 
+# Передаём путь к набору ключей: проверки подготовленных подлинностей читают его по абсолютному пути
+target_compile_definitions(${TEST_CONTEXT_NAME} PRIVATE ANTS_CORPUS="${ANTS_ROOT}/tests/corpus")
+
 # Подключаем каталог общих заголовочных файлов набора проверок
 target_include_directories(${TEST_CONTEXT_NAME} PRIVATE "${ANTS_ROOT}/tests")
 

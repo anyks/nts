@@ -36,6 +36,7 @@
  */
 #include <main.hpp>
 #include <identity.hpp>
+#include <gost.hpp>
 #include <pem/pem.hpp>
 #include <x509/x509.hpp>
 #include <alert/alert.hpp>
@@ -193,8 +194,12 @@ namespace {
 	void converse(const context::credential_t & credentials, const course_t course, const size_t target, const uint8_t mask, vector <uint8_t> (& streams)[2], const size_t chunk, bool (& established)[2]) noexcept {
 		// Связь стороны клиента
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		// Связь стороны сервера
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		// Устанавливаем подлинность стороны сервера
 		server.credential(credentials);
 		// Выполняем сброс потока байтов клиента
@@ -482,6 +487,8 @@ TEST(FuzzerTest, Garbage){
 	for(size_t i = 0; i < 256; i++){
 		// Связь стороны сервера
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		// Устанавливаем подлинность стороны сервера
 		server.credential(credentials);
 		// Выполняем заведение связи стороны сервера

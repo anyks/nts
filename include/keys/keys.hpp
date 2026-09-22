@@ -42,6 +42,7 @@
  */
 #include <string>
 #include <vector>
+#include <memory>
 #include <cstdint>
 #include <cstddef>
 
@@ -352,6 +353,253 @@ namespace nts {
 			 */
 			~Key() noexcept;
 		} key_t;
+
+		/**
+		 * \~russian
+		 * @brief Подготовленный секретный ключ подлинности
+		 *
+		 * @details Запись ключа разбирается, составляющие проверяются, открытая часть
+		 *          выводится и предвычисления модуля подписи делаются один раз, а затем
+		 *          ключ служит любому числу связей и потоков: подпись владения ключом и
+		 *          расшифрование обмена RSA его состояния не меняют. Сама подготовка стоит
+		 *          в сотни раз дороже подписи, и без неё связь вела её на каждом
+		 *          рукопожатии
+		 *
+		 * @note Ключ не копируется: модули подписи на кривых держат указатель на его
+		 *       кривую, и связи разделяют его общим указателем из подлинности
+		 *
+		 * @note Заводится лишь модуль своего вида: модули иных видов отдаются пустыми, и
+		 *       всякое действие ими отказывает
+		 *
+		 * \~english
+		 * @brief A prepared secret key of an authenticity
+		 * @details The record of the key is parsed, the components are checked, the public part
+		 *          is derived and the precomputations of the signature module are done once, and
+		 *          then the key serves any number of connections and threads: the signature of the
+		 *          possession of the key and the decryption of the RSA exchange do not change its
+		 *          state. The preparation itself costs hundreds of times more than a signature, and
+		 *          without it a connection carried it out at every handshake
+		 * @note The key is not copied: the signature modules on the curves keep a pointer to its
+		 *       curve, and the connections share it by a shared pointer from the authenticity
+		 * @note Only the module of its own kind is set up: the modules of the other kinds are given
+		 *       out empty, and every action by them refuses
+		 *
+		 * \~
+		 */
+		typedef class __ANTS_SHARED_EXPORT__ Signer {
+			private:
+				// Вид подготовленного ключа
+				kind_t _kind;
+			private:
+				// Кривая ключа у EC и ГОСТ: заводится лишь под свой вид, как и модули ниже
+				unique_ptr <curve::curve_t> _curve;
+			private:
+				// Модуль подписи RSA
+				unique_ptr <sign::rsa_t> _rsa;
+				// Модуль подписи ECDSA
+				unique_ptr <sign::ecdsa_t> _ecdsa;
+				// Модуль подписи Ed25519
+				unique_ptr <sign::ed25519_t> _ed25519;
+				// Модуль подписи ГОСТ Р 34.10-2012
+				unique_ptr <sign::gost_t> _gost;
+			public:
+				/**
+				 * \~russian
+				 * @brief Метод проверки готовности ключа
+				 *
+				 * @return признак подготовленного ключа
+				 *
+				 * \~english
+				 * @brief Method of checking the readiness of the key
+				 * @return the flag of a prepared key
+				 *
+				 * \~
+				 */
+				bool ready() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения вида подготовленного ключа
+				 *
+				 * @return вид ключа, kind_t::NONE у неподготовленного
+				 *
+				 * \~english
+				 * @brief Method of getting the kind of the prepared key
+				 * @return the kind of the key, kind_t::NONE at an unprepared one
+				 *
+				 * \~
+				 */
+				kind_t kind() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения кривой ключа
+				 *
+				 * @return кривая ключа EC либо ГОСТ, незаведённая у ключей иных видов
+				 *
+				 * \~english
+				 * @brief Method of getting the curve of the key
+				 * @return the curve of an EC or GOST key, not set at the keys of the other kinds
+				 *
+				 * \~
+				 */
+				const curve::curve_t & curve() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения модуля подписи RSA
+				 *
+				 * @return модуль подписи с установленным ключом RSA, пустой у ключей иных видов
+				 *
+				 * \~english
+				 * @brief Method of getting the RSA signature module
+				 * @return the signature module with the RSA key set, empty at the keys of the other kinds
+				 *
+				 * \~
+				 */
+				const sign::rsa_t & rsa() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения модуля подписи ECDSA
+				 *
+				 * @return модуль подписи с установленным ключом на кривой Вейерштрасса, пустой у ключей иных видов
+				 *
+				 * \~english
+				 * @brief Method of getting the ECDSA signature module
+				 * @return the signature module with the key on a Weierstrass curve set, empty at the keys of the other kinds
+				 *
+				 * \~
+				 */
+				const sign::ecdsa_t & ecdsa() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения модуля подписи Ed25519
+				 *
+				 * @return модуль подписи с установленным ключом Ed25519, пустой у ключей иных видов
+				 *
+				 * \~english
+				 * @brief Method of getting the Ed25519 signature module
+				 * @return the signature module with the Ed25519 key set, empty at the keys of the other kinds
+				 *
+				 * \~
+				 */
+				const sign::ed25519_t & ed25519() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения модуля подписи ГОСТ Р 34.10-2012
+				 *
+				 * @return модуль подписи с установленным ключом ГОСТ, пустой у ключей иных видов
+				 *
+				 * \~english
+				 * @brief Method of getting the GOST R 34.10-2012 signature module
+				 * @return the signature module with the GOST key set, empty at the keys of the other kinds
+				 *
+				 * \~
+				 */
+				const sign::gost_t & gost() const noexcept;
+			public:
+				/**
+				 * \~russian
+				 * @brief Метод подготовки ключа по записи секретного ключа
+				 *
+				 * @param secret запись PrivateKeyInfo (PKCS #8) в DER либо в PEM без пароля
+				 *
+				 * @return       отказ подготовки: EMPTY у пустой записи и у ключа без секретной
+				 *               части, ALGORITHM у ключа, подписи не выполняющего (X25519), VALUE у
+				 *               несогласованных составляющих, MEMORY у нехватки памяти под модуль,
+				 *               отказы разбора записи как у decode
+				 *
+				 * @note Сперва пробуется DER: запись PEM начинается с текста и разбором DER
+				 *       отвергается сразу
+				 *
+				 * \~english
+				 * @brief Method of preparing the key by the record of a secret key
+				 * @param secret a PrivateKeyInfo (PKCS #8) record in DER or in PEM without a password
+				 * @return       the refusal of the preparation: EMPTY at an empty record and at a key without
+				 *               the secret part, ALGORITHM at a key not performing signatures (X25519), VALUE at
+				 *               inconsistent components, MEMORY at a lack of memory for the module, the refusals
+				 *               of the parsing of the record as at decode
+				 * @note DER is tried first: a PEM record starts with a text and is rejected by the DER
+				 *       parsing at once
+				 *
+				 * \~
+				 */
+				error_t prepare(const view_t & secret) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод подготовки ключа ГОСТ по голому скаляру
+				 *
+				 * @param scalar секретный скаляр порядком от старшего байта к младшему
+				 * @param curve  заведённая кривая ключа
+				 *
+				 * @return       отказ подготовки: EMPTY у пустого скаляра, CURVE у незаведённой
+				 *               кривой, VALUE у скаляра вне порядка кривой, MEMORY у нехватки памяти
+				 *
+				 * @note Кривая копируется внутрь ключа: подпись на неё ссылается
+				 *
+				 * \~english
+				 * @brief Method of preparing a GOST key by a bare scalar
+				 * @param scalar the secret scalar in the order from the senior byte to the junior one
+				 * @param curve  the established curve of the key
+				 * @return       the refusal of the preparation: EMPTY at an empty scalar, CURVE at a curve not
+				 *               established, VALUE at a scalar outside the order of the curve, MEMORY at a lack of memory
+				 * @note The curve is copied inside the key: the signature refers to it
+				 *
+				 * \~
+				 */
+				error_t prepare(const view_t & scalar, const curve::curve_t & curve) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод сброса ключа
+				 *
+				 * @note Секретные составляющие модулей подписи затираются
+				 *
+				 * \~english
+				 * @brief Method of resetting the key
+				 * @note The secret components of the signature modules are wiped
+				 *
+				 * \~
+				 */
+				void clear() noexcept;
+			public:
+				/**
+				 * \~russian
+				 * @brief Конструктор
+				 *
+				 * \~english
+				 * @brief Constructor
+				 *
+				 * \~
+				 */
+				Signer() noexcept;
+				/**
+				 * \~russian
+				 * @brief Копирование ключа запрещено
+				 *
+				 * \~english
+				 * @brief The copying of the key is forbidden
+				 *
+				 * \~
+				 */
+				Signer(const Signer &) = delete;
+				/**
+				 * \~russian
+				 * @brief Присваивание ключа запрещено
+				 *
+				 * \~english
+				 * @brief The assignment of the key is forbidden
+				 *
+				 * \~
+				 */
+				Signer & operator = (const Signer &) = delete;
+				/**
+				 * \~russian
+				 * @brief Деструктор
+				 *
+				 * \~english
+				 * @brief Destructor
+				 *
+				 * \~
+				 */
+				~Signer() noexcept;
+		} signer_t;
 
 		/**
 		 * \~russian

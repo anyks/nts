@@ -25,12 +25,15 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <cstring>
+#include <fstream>
 #include <main.hpp>
 #include <starve.hpp>
 #include <asn1/asn1.hpp>
 #include <hello/hello.hpp>
 #include <record/record.hpp>
 #include <handshake/handshake.hpp>
+#include <pem/pem.hpp>
+#include <keys/keys.hpp>
 #include <sign/gost.hpp>
 #include <sys/vault.hpp>
 #include <client/client.hpp>
@@ -39,6 +42,7 @@
 #include <digest/streebog.hpp>
 #include <curve/parameters.hpp>
 #include <adversary.hpp>
+#include <gost.hpp>
 
 /**
  * Используем пространство имён проекта
@@ -90,6 +94,37 @@ namespace {
 			return false;
 		// Выводим итог закрытия набора записей имени стороны
 		return writer.close();
+	}
+	/**
+	 * @brief Метод чтения подлинности из набора ключей
+	 *
+	 * @param key         имя файла записи секретного ключа
+	 * @param certificate имя файла сертификата
+	 * @param result      подлинность, в которую помещаются ключ и цепочка
+	 *
+	 * @return            признак успешности чтения подлинности
+	 *
+	 */
+	bool keyed(const char * key, const char * certificate, context::credential_t & result) noexcept {
+		// Чтение файла набора ключей
+		const auto reading = [](const char * name) noexcept -> vector <uint8_t> {
+			// Открываем файл набора
+			ifstream file(string(ANTS_CORPUS) + "/" + name, ios::binary);
+			// Выводим содержимое файла
+			return vector <uint8_t> ((istreambuf_iterator <char> (file)), istreambuf_iterator <char> ());
+		};
+		// Читаем запись секретного ключа
+		result.secret = reading(key);
+		// Читаем текст сертификата
+		const vector <uint8_t> text = reading(certificate);
+		// Если ключ либо сертификат не прочитаны
+		if(result.secret.empty() || text.empty())
+			// Выводим отказ чтения подлинности
+			return false;
+		// Сбрасываем цепочку сертификатов
+		result.chain.clear();
+		// Выводим итог разбора цепочки сертификатов
+		return (pem::certificates(string(text.begin(), text.end()), result.chain) == pem::error_t::NONE);
 	}
 	/**
 	 * @brief Метод выработки подлинности стороны связи
@@ -661,8 +696,12 @@ TEST(ContextTest, Handshake){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Связь стороны сервера
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Выполняем заведение связи стороны сервера
@@ -723,8 +762,12 @@ TEST(ContextTest, Mutual){
 	ASSERT_TRUE(identity("client.anyks.com", second));
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Связь стороны сервера
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(first);
 	// Устанавливаем требование подлинности клиента
@@ -748,6 +791,200 @@ TEST(ContextTest, Mutual){
 }
 
 /**
+ * Проверка рукопожатий с подготовленным ключом подлинности всех видов
+ */
+TEST(ContextTest, Prepared){
+	// Подлинность сервера ГОСТ: голый скаляр по кривой сертификата
+	context::credential_t credentials;
+	// Выполняем выработку подлинности стороны сервера
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Неподготовленная подлинность не готова
+	ASSERT_FALSE(credentials.ready());
+	ASSERT_FALSE(credentials.signer);
+	// Готовим ключ подлинности
+	ASSERT_EQ(credentials.prepare(), context::error_t::NONE);
+	// Проверяем готовность и вид подготовленного ключа
+	ASSERT_TRUE(credentials.ready());
+	ASSERT_TRUE(credentials.signer);
+	ASSERT_EQ(credentials.signer->kind(), keys::kind_t::GOST);
+	ASSERT_EQ(credentials.stamp.size(), static_cast <size_t> (32));
+	/**
+	 * Выполняем два рукопожатия подряд: связи делят один подготовленный ключ
+	 */
+	for(size_t i = 0; i < 2; i++){
+		// Связи сторон
+		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
+		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
+		// Устанавливаем подлинность стороны сервера
+		server.credential(credentials);
+		// Подготовленный ключ разделён связью
+		ASSERT_EQ(credentials.signer.use_count(), 2L);
+		// Выполняем заведение связей
+		ASSERT_EQ(server.start(), context::error_t::NONE);
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		// Выполняем проведение рукопожатия
+		converse(client, server);
+		// Проверяем установленность связи
+		ASSERT_TRUE(client.established());
+		ASSERT_TRUE(server.established());
+		// Проверяем схождение принятого сертификата с отправленным
+		ASSERT_EQ(client.peer().size(), static_cast <size_t> (1));
+		ASSERT_EQ(client.peer()[0], credentials.chain[0]);
+	}
+	// Связи отпустили подготовленный ключ, подготовка цела
+	ASSERT_EQ(credentials.signer.use_count(), 1L);
+	ASSERT_TRUE(credentials.ready());
+	// Встречная подлинность клиента, тоже подготовленная
+	context::credential_t second;
+	ASSERT_TRUE(identity("client.anyks.com", second));
+	ASSERT_EQ(second.prepare(), context::error_t::NONE);
+	{
+		// Связи сторон
+		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
+		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
+		// Устанавливаем подлинности сторон и просьбу о сертификате клиента
+		server.credential(credentials);
+		server.request(true);
+		client.credential(second);
+		// Выполняем заведение связей и рукопожатие
+		ASSERT_EQ(server.start(), context::error_t::NONE);
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		converse(client, server);
+		// Проверяем установленность связи и сертификат клиента у сервера
+		ASSERT_TRUE(client.established());
+		ASSERT_TRUE(server.established());
+		ASSERT_EQ(server.peer().size(), static_cast <size_t> (1));
+		ASSERT_EQ(server.peer()[0], second.chain[0]);
+	}
+	// Классические ключи по записи PKCS #8: ECDSA, RSA, Ed25519
+	const char * files[][2] = {{"ec256.pem", "ec256.crt"}, {"rsa2048.pem", "rsa2048.crt"}, {"ed25519.pem", "ed25519.crt"}};
+	// Ожидаемые виды ключей
+	const keys::kind_t kinds[] = {keys::kind_t::EC, keys::kind_t::RSA, keys::kind_t::ED25519};
+	/**
+	 * Выполняем перебор классических подлинностей
+	 */
+	for(size_t i = 0; i < 3; i++){
+		// Подлинность из набора ключей
+		context::credential_t classic;
+		// Читаем подлинность
+		ASSERT_TRUE(keyed(files[i][0], files[i][1], classic)) << "Ключ: " << files[i][0];
+		// Готовим ключ подлинности
+		ASSERT_EQ(classic.prepare(), context::error_t::NONE) << "Ключ: " << files[i][0];
+		ASSERT_TRUE(classic.ready()) << "Ключ: " << files[i][0];
+		ASSERT_EQ(classic.signer->kind(), kinds[i]) << "Ключ: " << files[i][0];
+		// Связи сторон
+		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
+		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
+		// Группа обмена X25519: классическая подлинность в наборе с классическим обменом
+		client.groups(vector <extension::group_t> {extension::group_t::X25519});
+		server.groups(vector <extension::group_t> {extension::group_t::X25519});
+		// Устанавливаем подлинность стороны сервера
+		server.credential(classic);
+		// Выполняем заведение связей и рукопожатие
+		ASSERT_EQ(server.start(), context::error_t::NONE) << "Ключ: " << files[i][0];
+		ASSERT_EQ(client.start(), context::error_t::NONE) << "Ключ: " << files[i][0];
+		converse(client, server);
+		// Проверяем установленность связи и принятый сертификат
+		ASSERT_TRUE(client.established()) << "Ключ: " << files[i][0];
+		ASSERT_TRUE(server.established()) << "Ключ: " << files[i][0];
+		ASSERT_EQ(client.peer().size(), static_cast <size_t> (1)) << "Ключ: " << files[i][0];
+		ASSERT_EQ(client.peer()[0], classic.chain[0]) << "Ключ: " << files[i][0];
+	}
+	// Подлинность без ключа не готовится
+	context::credential_t empty;
+	ASSERT_EQ(empty.prepare(), context::error_t::SIGNATURE);
+	ASSERT_FALSE(empty.ready());
+	ASSERT_FALSE(empty.signer);
+	// Мусор вместо ключа без цепочки
+	context::credential_t garbage;
+	garbage.secret.assign(16, 0x5A);
+	ASSERT_EQ(garbage.prepare(), context::error_t::SIGNATURE);
+	ASSERT_FALSE(garbage.ready());
+	// Мусор вместо ключа при нечитаемом сертификате
+	garbage.chain.push_back(vector <uint8_t> {0x30, 0x01, 0x00});
+	ASSERT_EQ(garbage.prepare(), context::error_t::CERTIFICATE);
+	ASSERT_FALSE(garbage.ready());
+	// Голый скаляр при сертификате не ГОСТ
+	context::credential_t classic;
+	ASSERT_TRUE(keyed("ec256.pem", "ec256.crt", classic));
+	garbage.chain = classic.chain;
+	ASSERT_EQ(garbage.prepare(), context::error_t::SIGNATURE);
+	ASSERT_FALSE(garbage.ready());
+}
+
+/**
+ * Проверка устаревшей подготовки: связь сличает отпечаток и готовит ключ сама
+ */
+TEST(ContextTest, Outdated){
+	// Подлинности стороны сервера: подготовленная и подменяющая
+	context::credential_t credentials, other;
+	// Выполняем выработку подлинностей
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	ASSERT_TRUE(identity("other.anyks.com", other));
+	// Готовим ключ первой подлинности
+	ASSERT_EQ(credentials.prepare(), context::error_t::NONE);
+	ASSERT_TRUE(credentials.ready());
+	// Подменяем ключ и цепочку, подготовку не повторяем
+	credentials.secret = other.secret;
+	credentials.chain = other.chain;
+	// Подготовка устарела, но ключ ещё висит
+	ASSERT_FALSE(credentials.ready());
+	ASSERT_TRUE(credentials.signer);
+	{
+		// Связи сторон
+		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
+		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
+		// Устанавливаем подменённую подлинность стороны сервера
+		server.credential(credentials);
+		// Выполняем заведение связей и рукопожатие
+		ASSERT_EQ(server.start(), context::error_t::NONE);
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		converse(client, server);
+		/**
+		 * Связь обязана подписать владение новым ключом: клиент сличает подпись с
+		 * сертификатом подменённой цепочки, и устаревший ключ рукопожатие сорвал бы
+		 */
+		ASSERT_TRUE(client.established());
+		ASSERT_TRUE(server.established());
+		ASSERT_EQ(client.peer().size(), static_cast <size_t> (1));
+		ASSERT_EQ(client.peer()[0], other.chain[0]);
+	}
+	// Подготовка потребителя не тронута: связь готовила ключ в своей копии
+	ASSERT_FALSE(credentials.ready());
+	ASSERT_EQ(credentials.signer.use_count(), 1L);
+	// Повторная подготовка возвращает готовность
+	ASSERT_EQ(credentials.prepare(), context::error_t::NONE);
+	ASSERT_TRUE(credentials.ready());
+	ASSERT_EQ(credentials.signer->kind(), keys::kind_t::GOST);
+	// Смена одного лишь своего сертификата тоже устаревает подготовку
+	credentials.chain[0].push_back(0x00);
+	ASSERT_FALSE(credentials.ready());
+	credentials.chain[0].pop_back();
+	ASSERT_TRUE(credentials.ready());
+	// Смена одного лишь ключа тоже устаревает подготовку
+	credentials.secret[0] ^= 0x01;
+	ASSERT_FALSE(credentials.ready());
+	credentials.secret[0] ^= 0x01;
+	ASSERT_TRUE(credentials.ready());
+}
+
+/**
  * Проверка рукопожатия с просьбой о повторе приветствия
  */
 TEST(ContextTest, Retry){
@@ -757,8 +994,12 @@ TEST(ContextTest, Retry){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Связь стороны сервера
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	/**
@@ -790,8 +1031,12 @@ TEST(ContextTest, Corrupted){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Связь стороны сервера
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Выполняем заведение связи стороны сервера
@@ -841,10 +1086,14 @@ TEST(ContextTest, Corrupted){
 TEST(ContextTest, Settings){
 	// Связь стороны сервера
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Проверяем отказ заведения связи сервера без своей подлинности
 	ASSERT_EQ(server.start(), context::error_t::SETTINGS);
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Проверяем отказ повторного заведения связи
@@ -869,8 +1118,12 @@ TEST(ContextTest, Update){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Связь стороны сервера
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Выполняем заведение связи стороны сервера
@@ -936,6 +1189,8 @@ TEST(ContextTest, Update){
 TEST(ContextTest, Rotation){
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Проверяем отказ смены ключевого материала до заведения связи
 	ASSERT_EQ(client.update(false), context::error_t::STATE);
 	// Выполняем заведение связи стороны клиента
@@ -954,8 +1209,12 @@ TEST(ContextTest, Ticket){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Связь стороны сервера
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Выполняем заведение связи стороны сервера
@@ -1023,6 +1282,8 @@ TEST(ContextTest, Ticket){
 TEST(ContextTest, Issue){
 	// Связь стороны сервера
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Проверяем отказ выдачи билета до заведения связи
 	ASSERT_EQ(server.issue(), context::error_t::STATE);
 	// Подлинность стороны сервера
@@ -1053,8 +1314,12 @@ TEST(ContextTest, Resume){
 	{
 		// Связь стороны клиента
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		// Связь стороны сервера
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		// Устанавливаем подлинность стороны сервера
 		server.credential(credentials);
 		// Выполняем заведение связи стороны сервера
@@ -1082,8 +1347,12 @@ TEST(ContextTest, Resume){
 	}
 	// Связь стороны клиента, возобновляющая прошлую
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Связь стороны сервера, признающая выданный билет
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Устанавливаем билеты, признаваемые сервером
@@ -1133,8 +1402,12 @@ TEST(ContextTest, Unknown){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Связь стороны сервера
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Предъявляемый серверу билет возобновления связи
@@ -1187,8 +1460,12 @@ TEST(ContextTest, Binder){
 	offered.secret.assign(32, 0x55);
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Связь стороны сервера
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Устанавливаем билеты, признаваемые сервером
@@ -1227,8 +1504,12 @@ TEST(ContextTest, Retried){
 	{
 		// Связь стороны клиента
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		// Связь стороны сервера
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		// Устанавливаем подлинность стороны сервера
 		server.credential(credentials);
 		// Выполняем заведение связи стороны сервера
@@ -1252,8 +1533,12 @@ TEST(ContextTest, Retried){
 	}
 	// Связь стороны клиента, возобновляющая прошлую
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Связь стороны сервера, признающая выданный билет
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Устанавливаем билеты, признаваемые сервером
@@ -1316,8 +1601,12 @@ namespace {
 	bool granted(const context::credential_t & credentials, vector <context::ticket_t> & issued, context::ticket_t & accepted) noexcept {
 		// Связь стороны клиента
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		// Связь стороны сервера
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		// Устанавливаем подлинность стороны сервера
 		server.credential(credentials);
 		/**
@@ -1378,8 +1667,12 @@ TEST(ContextTest, Disallowed){
 	accepted.advance = 0;
 	// Связь стороны клиента, возобновляющая прошлую
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Связь стороны сервера, признающая выданный билет
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Устанавливаем билеты, признаваемые сервером
@@ -1426,8 +1719,12 @@ TEST(ContextTest, Advance){
 	ASSERT_TRUE(granted(credentials, issued, accepted));
 	// Связь стороны клиента, возобновляющая прошлую
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Связь стороны сервера, признающая выданный билет
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Устанавливаем билеты, признаваемые сервером
@@ -1489,6 +1786,8 @@ TEST(ContextTest, Trailing){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Выполняем рукопожатие враждебного сервера с данными за закрытием
@@ -1516,6 +1815,8 @@ TEST(ContextTest, Farewell){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны сервера
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Устанавливаем набор шифрования, признаваемый сервером
@@ -1553,8 +1854,12 @@ TEST(ContextTest, Dialect){
 	{
 		// Связь стороны клиента, выдающей связи
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		// Связь стороны сервера, выдающей связи
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		// Устанавливаем подлинность стороны сервера
 		server.credential(credentials);
 		// Устанавливаем прикладной протокол, признаваемый сервером
@@ -1588,8 +1893,12 @@ TEST(ContextTest, Dialect){
 	ASSERT_EQ(accepted.protocol, "h2");
 	// Связь стороны клиента, возобновляющая прошлую
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Связь стороны сервера, признающая выданный билет
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	/**
@@ -1648,8 +1957,12 @@ TEST(ContextTest, Divergent){
 	ASSERT_EQ(accepted.suite, protect::suite_t::KUZNYECHIK_MGM_L);
 	// Связь стороны клиента, возобновляющая прошлую
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Связь стороны сервера, признающая выданный билет
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	/**
@@ -1702,8 +2015,12 @@ TEST(ContextTest, Rejected){
 	ASSERT_TRUE(granted(credentials, issued, accepted));
 	// Связь стороны клиента, возобновляющая прошлую
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Связь стороны сервера, признающая выданный билет
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Устанавливаем билеты, признаваемые сервером
@@ -1760,6 +2077,8 @@ TEST(ContextTest, Rejected){
 TEST(ContextTest, Untimely){
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Устанавливаем предложение упреждающих данных сервером
 	client.advance(true);
 	// Выполняем заведение связи стороны клиента
@@ -1781,8 +2100,12 @@ TEST(ContextTest, Protocol){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Связь стороны сервера
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Устанавливаем имя узла, за которым идёт клиент
@@ -1822,8 +2145,12 @@ TEST(ContextTest, Mismatch){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Связь стороны сервера
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Устанавливаем прикладные протоколы, предлагаемые клиентом
@@ -1859,8 +2186,12 @@ TEST(ContextTest, Foreign){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Связь стороны сервера
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Устанавливаем прикладные протоколы, предлагаемые клиентом
@@ -1907,8 +2238,12 @@ TEST(ContextTest, Lifetime){
 	{
 		// Связь стороны клиента
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		// Связь стороны сервера
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		// Устанавливаем подлинность стороны сервера
 		server.credential(credentials);
 		// Устанавливаем миг, которым сервер судит сроки билетов
@@ -1950,8 +2285,12 @@ TEST(ContextTest, Lifetime){
 		const int64_t moment = (issued + ((item == 0) ? 3600 : 100000));
 		// Связь стороны клиента, возобновляющая прошлую
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		// Связь стороны сервера, признающая выданный билет
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		// Устанавливаем подлинность стороны сервера
 		server.credential(credentials);
 		// Устанавливаем миг, которым сервер судит сроки билетов
@@ -1999,8 +2338,12 @@ TEST(ContextTest, Freshness){
 	{
 		// Связь стороны клиента
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		// Связь стороны сервера
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		// Устанавливаем подлинность стороны сервера
 		server.credential(credentials);
 		// Устанавливаем миг, которым сервер судит сроки билетов
@@ -2037,8 +2380,12 @@ TEST(ContextTest, Freshness){
 		const int64_t drift = ((item == 0) ? 0 : 30);
 		// Связь стороны клиента, возобновляющая прошлую
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		// Связь стороны сервера, признающая выданный билет
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		// Устанавливаем подлинность стороны сервера
 		server.credential(credentials);
 		// Устанавливаем миг, которым сервер судит сроки билетов
@@ -2094,8 +2441,12 @@ TEST(ContextTest, Overrun){
 	{
 		// Связь стороны клиента
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		// Связь стороны сервера
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		// Устанавливаем подлинность стороны сервера
 		server.credential(credentials);
 		// Объявляем предел упреждающих данных будущим билетом
@@ -2121,8 +2472,12 @@ TEST(ContextTest, Overrun){
 	}
 	// Связь стороны клиента, возобновляющая прошлую
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Связь стороны сервера, признающая выданный билет
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Устанавливаем предел упреждающих данных стороны сервера
@@ -2180,8 +2535,12 @@ TEST(ContextTest, Excess){
 	{
 		// Связь стороны клиента
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		// Связь стороны сервера
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		// Устанавливаем подлинность стороны сервера
 		server.credential(credentials);
 		// Объявляем предел упреждающих данных будущим билетом
@@ -2210,8 +2569,12 @@ TEST(ContextTest, Excess){
 	tickets[1].advance = (limit * 4);
 	// Связь стороны клиента, возобновляющая прошлую
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Связь стороны сервера, признающая выданный билет
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Устанавливаем предел упреждающих данных стороны сервера
@@ -2305,8 +2668,12 @@ TEST(ContextTest, Echo){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Связь стороны сервера
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Выполняем заведение связи стороны сервера
@@ -2344,8 +2711,12 @@ TEST(ContextTest, Truncated){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Связь стороны сервера
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Выполняем заведение связи стороны сервера
@@ -2423,8 +2794,12 @@ TEST(ContextTest, Downgrade){
 	for(size_t item = 0; item < 2; item++){
 		// Связь стороны клиента
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		// Связь стороны сервера
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		// Устанавливаем подлинность стороны сервера
 		server.credential(credentials);
 		// Выполняем заведение связи стороны сервера
@@ -2462,8 +2837,12 @@ TEST(ContextTest, Chosen){
 	for(size_t item = 0; item < 2; item++){
 		// Связь стороны клиента
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		// Связь стороны сервера
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		// Устанавливаем подлинность стороны сервера
 		server.credential(credentials);
 		/**
@@ -2672,6 +3051,8 @@ TEST(ContextTest, Malformed){
 	for(size_t item = 0; item < 5; item++){
 		// Связь стороны сервера
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		// Устанавливаем подлинность стороны сервера
 		server.credential(credentials);
 		// Устанавливаем набор шифрования, признаваемый сервером
@@ -2770,6 +3151,8 @@ TEST(ContextTest, Signing){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны сервера
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Устанавливаем набор шифрования, признаваемый сервером
@@ -2813,6 +3196,8 @@ TEST(ContextTest, Signing){
 TEST(ContextTest, Adorned){
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Выполняем рукопожатие враждебного сервера с непрошенным расширением записи
@@ -2834,6 +3219,8 @@ TEST(ContextTest, Adorned){
 TEST(ContextTest, Voiceless){
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Выполняем рукопожатие враждебного сервера с запросом без схем подписи
@@ -2859,6 +3246,8 @@ TEST(ContextTest, Ancient){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны сервера
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	/**
@@ -2902,6 +3291,8 @@ TEST(ContextTest, Antique){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны сервера
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	/**
@@ -2939,6 +3330,8 @@ TEST(ContextTest, Estranged){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны сервера
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Устанавливаем набор шифрования, признаваемый сервером
@@ -2971,6 +3364,8 @@ TEST(ContextTest, Naked){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны сервера
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Устанавливаем набор шифрования, признаваемый сервером
@@ -3003,6 +3398,8 @@ TEST(ContextTest, Foreignness){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны сервера
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Устанавливаем набор шифрования, признаваемый сервером
@@ -3035,6 +3432,8 @@ TEST(ContextTest, Voided){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны сервера
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Устанавливаем набор шифрования, признаваемый сервером
@@ -3063,6 +3462,8 @@ TEST(ContextTest, Voided){
 TEST(ContextTest, Precocious){
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Прикладные данные, поданные связи до её установления
@@ -3100,6 +3501,8 @@ TEST(ContextTest, Precocious){
 TEST(ContextTest, Nondescript){
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	/**
@@ -3126,6 +3529,8 @@ TEST(ContextTest, Nondescript){
 TEST(ContextTest, Renewal){
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Накопитель, в который складывается подаваемая запись связи
@@ -3151,6 +3556,8 @@ TEST(ContextTest, Renewal){
 TEST(ContextTest, Granted){
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Накопитель, в который складывается подаваемая запись связи
@@ -3180,6 +3587,8 @@ TEST(ContextTest, Misdirected){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны сервера
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Выполняем заведение связи стороны сервера
@@ -3207,6 +3616,8 @@ TEST(ContextTest, Misdirected){
 TEST(ContextTest, Reversed){
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Накопитель, в который складывается подаваемая запись связи
@@ -3232,6 +3643,8 @@ TEST(ContextTest, Reversed){
 TEST(ContextTest, Unheard){
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	/**
@@ -3270,6 +3683,8 @@ TEST(ContextTest, Unsolicited){
 	{
 		// Связь стороны клиента
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		// Клиент ведёт лишь издание 1.3
 		ASSERT_EQ(client.versions(0x0304, 0x0304), context::error_t::NONE);
 		// Выполняем заведение связи стороны клиента
@@ -3284,6 +3699,8 @@ TEST(ContextTest, Unsolicited){
 	{
 		// Связь стороны сервера
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		// Устанавливаем подлинность стороны сервера
 		server.credential(credentials);
 		// Выполняем заведение связи стороны сервера
@@ -3303,6 +3720,8 @@ TEST(ContextTest, Unsolicited){
 TEST(ContextTest, Speechless){
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	/**
 	 * Клиент ведёт лишь издание 1.3: с умолчанием 1.2…1.3 приветствие сервера без
 	 * расширения издания законно вело бы связь изданием 1.2 (приложение D.1 RFC 8446)
@@ -3335,6 +3754,8 @@ TEST(ContextTest, Speechless){
 TEST(ContextTest, Regressed){
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Выполняем ответ враждебного сервера искажённым приветствием
@@ -3361,6 +3782,8 @@ TEST(ContextTest, Regressed){
 TEST(ContextTest, Keyless){
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Выполняем ответ враждебного сервера искажённым приветствием
@@ -3382,6 +3805,8 @@ TEST(ContextTest, Keyless){
 TEST(ContextTest, Swapped){
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Выполняем ответ враждебного сервера искажённым приветствием
@@ -3407,6 +3832,8 @@ TEST(ContextTest, Wordless){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны сервера
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Выполняем заведение связи стороны сервера
@@ -3434,6 +3861,8 @@ TEST(ContextTest, Wordless){
 TEST(ContextTest, Presumed){
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Выполняем ответ враждебного сервера искажённым приветствием
@@ -3455,6 +3884,8 @@ TEST(ContextTest, Presumed){
 TEST(ContextTest, Unoffered){
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Выполняем ответ враждебного сервера искажённым приветствием
@@ -3477,6 +3908,8 @@ TEST(ContextTest, Unoffered){
 TEST(ContextTest, Synthetic){
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Накопитель, в который складывается подаваемая запись связи
@@ -3513,6 +3946,8 @@ TEST(ContextTest, Modeless){
 	ASSERT_TRUE(granted(credentials, issued, accepted));
 	// Связь стороны сервера
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Устанавливаем билеты, признаваемые сервером
@@ -3553,6 +3988,8 @@ TEST(ContextTest, Garbled){
 	ASSERT_TRUE(granted(credentials, issued, accepted));
 	// Связь стороны сервера
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Устанавливаем билеты, признаваемые сервером
@@ -3593,6 +4030,8 @@ TEST(ContextTest, Spurious){
 	ASSERT_TRUE(granted(credentials, issued, accepted));
 	// Связь стороны сервера
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Устанавливаем билеты, признаваемые сервером
@@ -3623,6 +4062,8 @@ TEST(ContextTest, Spurious){
 TEST(ContextTest, Curtailed){
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	/**
@@ -3653,6 +4094,8 @@ TEST(ContextTest, Mangled){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Выполняем ответ враждебного сервера искажённым сообщением
@@ -3676,6 +4119,8 @@ TEST(ContextTest, Tattered){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Выполняем ответ враждебного сервера искажённым сообщением
@@ -3699,6 +4144,8 @@ TEST(ContextTest, Scrambled){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Выполняем ответ враждебного сервера искажённым сообщением
@@ -3726,6 +4173,8 @@ TEST(ContextTest, Malversion){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны сервера
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Устанавливаем набор шифрования, признаваемый сервером
@@ -3758,6 +4207,8 @@ TEST(ContextTest, Malshare){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны сервера
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Устанавливаем набор шифрования, признаваемый сервером
@@ -3790,6 +4241,8 @@ TEST(ContextTest, Malgroups){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны сервера
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Устанавливаем набор шифрования, признаваемый сервером
@@ -3822,6 +4275,8 @@ TEST(ContextTest, Malcurves){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны сервера
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Устанавливаем набор шифрования, признаваемый сервером
@@ -3854,6 +4309,8 @@ TEST(ContextTest, Malname){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны сервера
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Устанавливаем набор шифрования, признаваемый сервером
@@ -3886,6 +4343,8 @@ TEST(ContextTest, Malprotocol){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны сервера
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Устанавливаем набор шифрования, признаваемый сервером
@@ -3919,6 +4378,8 @@ TEST(ContextTest, Malprotocol){
 TEST(ContextTest, Oddset){
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Выполняем ответ враждебного сервера искажённым приветствием
@@ -3940,6 +4401,8 @@ TEST(ContextTest, Oddset){
 TEST(ContextTest, Prepicked){
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Выполняем ответ враждебного сервера искажённым приветствием
@@ -3966,6 +4429,8 @@ TEST(ContextTest, Prepicked){
 TEST(ContextTest, Belated){
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Выполняем ответ враждебного сервера искажённым приветствием
@@ -3992,6 +4457,8 @@ TEST(ContextTest, Belated){
 TEST(ContextTest, Malselect){
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Выполняем ответ враждебного сервера искажённым приветствием
@@ -4013,6 +4480,8 @@ TEST(ContextTest, Malselect){
 TEST(ContextTest, Maledition){
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Выполняем ответ враждебного сервера искажённым приветствием
@@ -4034,6 +4503,8 @@ TEST(ContextTest, Maledition){
 TEST(ContextTest, Malchosen){
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Выполняем ответ враждебного сервера искажённым приветствием
@@ -4055,6 +4526,8 @@ TEST(ContextTest, Malchosen){
 TEST(ContextTest, Malsharing){
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Выполняем ответ враждебного сервера искажённым приветствием
@@ -4076,6 +4549,8 @@ TEST(ContextTest, Malsharing){
 TEST(ContextTest, Muddled){
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	/**
@@ -4110,6 +4585,8 @@ TEST(ContextTest, Twice){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны сервера
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Устанавливаем набор шифрования, признаваемый сервером
@@ -4138,6 +4615,8 @@ TEST(ContextTest, Twice){
 TEST(ContextTest, Doubled){
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Выполняем ответ враждебного сервера двойным приветствием
@@ -4163,6 +4642,8 @@ TEST(ContextTest, Twinned){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Выполняем ответ враждебного сервера повторными расширениями
@@ -4184,6 +4665,8 @@ TEST(ContextTest, Twinned){
 TEST(ContextTest, Malalpn){
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	/**
 	 * Прикладные протоколы связью предлагаются нарочно: выбор сервера она разбирает
 	 * лишь тогда, когда сама протоколы объявляла
@@ -4214,6 +4697,8 @@ TEST(ContextTest, Maladvance){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Выполняем ответ враждебного сервера билетом с негодным пределом
@@ -4237,6 +4722,8 @@ TEST(ContextTest, Unsettled){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны сервера
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Устанавливаем набор шифрования, признаваемый сервером
@@ -4266,6 +4753,8 @@ TEST(ContextTest, Malcookie){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны сервера
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Устанавливаем набор шифрования, признаваемый сервером
@@ -4294,6 +4783,8 @@ TEST(ContextTest, Malcookie){
 TEST(ContextTest, Recurrent){
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Выполняем ответ враждебного сервера приветствием и просьбою о повторе
@@ -4325,8 +4816,12 @@ TEST(ContextTest, Spoiled){
 	ASSERT_TRUE(granted(credentials, issued, accepted));
 	// Связь стороны клиента, возобновляющая прошлую
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Связь стороны сервера, признающая выданный билет
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Устанавливаем билеты, признаваемые сервером
@@ -4392,6 +4887,8 @@ TEST(ContextTest, Lingering){
 	ASSERT_TRUE(granted(credentials, issued, accepted));
 	// Связь стороны сервера, признающая выданный билет
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Устанавливаем билеты, признаваемые сервером
@@ -4435,8 +4932,12 @@ TEST(ContextTest, Backdated){
 	issued[0].moment = moment;
 	// Связь стороны клиента, возобновляющая прошлую
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Связь стороны сервера, признающая выданный билет
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Устанавливаем билеты, признаваемые сервером
@@ -4494,6 +4995,8 @@ TEST(ContextTest, Misaged){
 	for(size_t item = 0; item < 2; item++){
 		// Связь стороны сервера, признающая выданный билет
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		// Устанавливаем подлинность стороны сервера
 		server.credential(credentials);
 		// Устанавливаем билеты, признаваемые сервером
@@ -4539,6 +5042,8 @@ TEST(ContextTest, Discord){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны сервера
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Устанавливаем набор шифрования, признаваемый сервером
@@ -4568,6 +5073,8 @@ TEST(ContextTest, Discord){
 TEST(ContextTest, Misplaced){
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Выполняем ответ враждебного сервера расширением не в своём месте
@@ -4595,6 +5102,8 @@ TEST(ContextTest, Outplaced){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Выполняем рукопожатие враждебного сервера с билетом не в своём расширении
@@ -4619,6 +5128,8 @@ TEST(ContextTest, Offplaced){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Выполняем ответ враждебного сервера запросом не в своём расширении
@@ -4641,6 +5152,8 @@ TEST(ContextTest, Offplaced){
 TEST(ContextTest, Unwanted){
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Выполняем ответ враждебного сервера непрошенным расширением
@@ -4668,6 +5181,8 @@ TEST(ContextTest, Chain){
 	for(size_t item = 0; item < 2; item++){
 		// Связь стороны клиента
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		// Выполняем заведение связи стороны клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE) << "искажение " << item;
 		// Выполняем ответ враждебного сервера искажённой цепочкой сертификатов
@@ -4697,6 +5212,8 @@ TEST(ContextTest, Declared){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Выполняем ответ враждебного сервера неизвестной схемой подписи
@@ -4715,6 +5232,8 @@ TEST(ContextTest, Declared){
 	ASSERT_FALSE(client.established());
 	// Связь стороны клиента, судящая схему чужой кривой
 	client::context_t foreign;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(foreign);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(foreign.start(), context::error_t::NONE);
 	/**
@@ -4740,6 +5259,8 @@ TEST(ContextTest, Expiry){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Выполняем рукопожатие враждебного сервера с билетом свыше семи суток
@@ -4769,6 +5290,8 @@ TEST(ContextTest, Changing){
 	{
 		// Связь стороны сервера
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		// Устанавливаем подлинность стороны сервера
 		server.credential(credentials);
 		// Выполняем заведение связи стороны сервера
@@ -4797,6 +5320,8 @@ TEST(ContextTest, Changing){
 	{
 		// Связь стороны сервера
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		// Устанавливаем подлинность стороны сервера
 		server.credential(credentials);
 		// Выполняем заведение связи стороны сервера
@@ -4824,8 +5349,12 @@ TEST(ContextTest, Changing){
 	{
 		// Связь стороны клиента
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		// Связь стороны сервера
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		// Устанавливаем подлинность стороны сервера
 		server.credential(credentials);
 		// Выполняем заведение связи стороны сервера
@@ -4858,8 +5387,12 @@ TEST(ContextTest, Changing){
 	{
 		// Связь стороны клиента
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		// Связь стороны сервера
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		// Устанавливаем подлинность стороны сервера
 		server.credential(credentials);
 		// Выполняем заведение связи стороны сервера
@@ -4915,6 +5448,8 @@ TEST(ContextTest, Oversize){
 	const size_t size = sizes[item];
 	// Связь стороны сервера
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Выполняем заведение связи стороны сервера
@@ -4949,6 +5484,8 @@ TEST(ContextTest, Oversize){
 TEST(ContextTest, Divided){
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Выполняем ответ враждебного сервера разорванным сообщением рукопожатия
@@ -4974,6 +5511,8 @@ TEST(ContextTest, Intruder){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны сервера
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Устанавливаем набор шифрования, признаваемый сервером
@@ -5001,6 +5540,8 @@ TEST(ContextTest, Echoed){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны сервера
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Устанавливаем набор шифрования, признаваемый сервером
@@ -5028,6 +5569,8 @@ TEST(ContextTest, Echoed){
 TEST(ContextTest, Label){
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Выполняем просьбу враждебного сервера о повторе приветствия с меткой
@@ -5085,6 +5628,8 @@ TEST(ContextTest, Label){
 TEST(ContextTest, Compression){
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Выполняем рукопожатие враждебного сервера, объявившего способ сжатия
@@ -5106,6 +5651,8 @@ TEST(ContextTest, Compression){
 TEST(ContextTest, Kept){
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Выполняем просьбу враждебного сервера о повторе приветствия
@@ -5133,6 +5680,8 @@ TEST(ContextTest, Kept){
 TEST(ContextTest, Insistent){
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Выполняем первую просьбу враждебного сервера о повторе приветствия
@@ -5160,6 +5709,8 @@ TEST(ContextTest, Insistent){
 TEST(ContextTest, Composition){
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Выполняем ответ враждебного сервера расширением не своего сообщения
@@ -5190,8 +5741,12 @@ TEST(ContextTest, Stateless){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Связь стороны сервера
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	/**
@@ -5230,6 +5785,8 @@ TEST(ContextTest, Stateless){
 TEST(ContextTest, Unprovisioned){
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	/**
 	 * Пустой список установщики пропускают, сохраняя умолчания: опустошить наборы
 	 * шифрования либо кривых обмена ключами через общедоступный договор нельзя, и
@@ -5240,6 +5797,8 @@ TEST(ContextTest, Unprovisioned){
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Связь стороны сервера
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	/**
 	 * Сервер обязан иметь чем себя удостоверить: цепочка сертификатов и секретный ключ
 	 * к ней сверяются ОТДЕЛЬНЫМИ половинами заслона, и подлинность с одной лишь
@@ -5284,8 +5843,12 @@ TEST(ContextTest, Premature){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Связь стороны сервера
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Отправляемые прикладные данные связи
@@ -5349,8 +5912,12 @@ TEST(ContextTest, Timeless){
 		ticket.moment = 0;
 	// Связь стороны клиента, возобновляющая прошлую
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Связь стороны сервера, признающая выданный билет
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Устанавливаем билеты, признаваемые сервером
@@ -5384,6 +5951,8 @@ TEST(ContextTest, Timeless){
 TEST(ContextTest, Hollow){
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Выполняем ответ враждебного сервера защищённой записью с пустым содержимым
@@ -5415,6 +5984,8 @@ TEST(ContextTest, Hollow){
 TEST(ContextTest, Retrograde){
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Выполняем просьбу враждебного сервера о повторе с изданием ниже TLS 1.3
@@ -5443,6 +6014,8 @@ TEST(ContextTest, Lengthy){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Выполняем ответ враждебного сервера подписью непомерной длины
@@ -5470,6 +6043,8 @@ TEST(ContextTest, Malsigned){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Выполняем ответ враждебного сервера испорченной подписью владения ключом
@@ -5497,6 +6072,8 @@ TEST(ContextTest, Malfinished){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Выполняем ответ враждебного сервера испорченным завершением рукопожатия
@@ -5523,6 +6100,8 @@ TEST(ContextTest, Misordered){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны сервера
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Выполняем заведение связи стороны сервера
@@ -5552,6 +6131,8 @@ TEST(ContextTest, Misordered){
 TEST(ContextTest, Offcurve){
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Выполняем ответ враждебного сервера долей обмена вне кривой
@@ -5580,6 +6161,8 @@ TEST(ContextTest, Offpoint){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны сервера
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Выполняем заведение связи стороны сервера
@@ -5601,6 +6184,8 @@ TEST(ContextTest, Offpoint){
 TEST(ContextTest, Synthesized){
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Выполняем ответ враждебного сервера сообщением поддельного вида
@@ -5632,6 +6217,8 @@ TEST(ContextTest, Malschemes){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны сервера
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Выполняем заведение связи стороны сервера
@@ -5656,6 +6243,8 @@ TEST(ContextTest, Malrequest){
 	context::credential_t credentials;
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	ASSERT_TRUE(adversary(client, distortion_t::MALREQUEST, &credentials));
 	// Раздел 4.3.2 RFC 8446: вид расширения объявлен двумя байтами, обрыв на нём - негодное тело
@@ -5671,6 +6260,8 @@ TEST(ContextTest, Overrequest){
 	context::credential_t credentials;
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	ASSERT_TRUE(adversary(client, distortion_t::OVERREQUEST, &credentials));
 	ASSERT_EQ(client.error(), context::error_t::MESSAGE);
@@ -5685,6 +6276,8 @@ TEST(ContextTest, Malreqschemes){
 	context::credential_t credentials;
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	ASSERT_TRUE(adversary(client, distortion_t::MALREQSCHEMES, &credentials));
 	ASSERT_EQ(client.error(), context::error_t::MESSAGE);
@@ -5699,6 +6292,8 @@ TEST(ContextTest, Malchain){
 	context::credential_t credentials;
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	ASSERT_TRUE(adversary(client, distortion_t::MALCHAIN, &credentials));
 	ASSERT_EQ(client.error(), context::error_t::MESSAGE);
@@ -5714,6 +6309,8 @@ TEST(ContextTest, Malverify){
 	context::credential_t credentials;
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	ASSERT_TRUE(adversary(client, distortion_t::MALVERIFY, &credentials));
 	ASSERT_EQ(client.error(), context::error_t::MESSAGE);
@@ -5729,6 +6326,8 @@ TEST(ContextTest, Garbageleaf){
 	context::credential_t credentials;
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	ASSERT_TRUE(adversary(client, distortion_t::GARBAGELEAF, &credentials));
 	ASSERT_EQ(client.error(), context::error_t::CERTIFICATE);
@@ -5742,6 +6341,8 @@ TEST(ContextTest, Oddsign){
 	context::credential_t credentials;
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	ASSERT_TRUE(adversary(client, distortion_t::ODDSIGN, &credentials));
 	// Раздел 2 RFC 9215: подпись - два числа равной длины, нечётная длина на два не делится
@@ -5756,6 +6357,8 @@ TEST(ContextTest, Alientype){
 	context::credential_t credentials;
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	ASSERT_TRUE(adversary(client, distortion_t::ALIENTYPE, &credentials));
 	/**
@@ -5778,6 +6381,8 @@ TEST(ContextTest, Misused){
 	 */
 	// Смена ключевого материала до установления связи - нарушение порядка: раздел 4.6.3 RFC 8446
 	client::context_t hasty;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(hasty);
 	ASSERT_EQ(hasty.start(), context::error_t::NONE);
 	/**
 	 * Отказ приходит состоянием, а не порядком: движок сверяет состояние связи прежде
@@ -5796,7 +6401,11 @@ TEST(ContextTest, Unknownpsk){
 	vector <context::ticket_t> issued;
 	{
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		server.credential(credentials);
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
@@ -5808,6 +6417,8 @@ TEST(ContextTest, Unknownpsk){
 		ASSERT_EQ(issued.size(), static_cast <size_t> (1));
 	}
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	server.credential(credentials);
 	server.resume(issued);
 	ASSERT_EQ(server.start(), context::error_t::NONE);
@@ -5825,6 +6436,8 @@ TEST(ContextTest, Alienleaf){
 	// Удостоверение, ключ которого записан чужим алгоритмом
 	ASSERT_TRUE(identity("anyks.com", credentials, true));
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	ASSERT_TRUE(adversary(client, distortion_t::ALIENLEAF, &credentials));
 	// Раздел 4.4.2.2 RFC 8446: сертификат с ключом непригодного алгоритма отвергается
@@ -5842,8 +6455,12 @@ TEST(ContextTest, Automatic){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Связь стороны сервера
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Устанавливаем смену ключей клиентом по трём записям
@@ -5910,8 +6527,12 @@ TEST(ContextTest, Manual){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Связь стороны сервера
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Устанавливаем ручной порядок смены ключей клиентом с порогом в три записи
@@ -5962,8 +6583,12 @@ TEST(ContextTest, Requested){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Связь стороны сервера
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Устанавливаем ручной порядок смены ключей клиентом: сам он ключи не сменит
@@ -6005,6 +6630,8 @@ TEST(ContextTest, Requested){
  */
 TEST(ContextTest, Unattested){
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	ASSERT_TRUE(adversary(client, distortion_t::UNATTESTED));
 	/**
@@ -6030,6 +6657,8 @@ TEST(ContextTest, Unproven){
 	context::credential_t credentials;
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	server.credential(credentials);
 	server.request(true);
 	ASSERT_EQ(server.start(), context::error_t::NONE);
@@ -6047,6 +6676,8 @@ TEST(ContextTest, Spanning){
 	context::credential_t credentials;
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	ASSERT_TRUE(adversary(client, distortion_t::SPANNING, &credentials));
 	// Раздел 5.1 RFC 8446: сообщение перед сменой ключей кончается на границе записи
@@ -6065,6 +6696,8 @@ TEST(ContextTest, Unpicked){
 	context::ticket_t accepted;
 	ASSERT_TRUE(granted(credentials, issued, accepted));
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	client.resume(accepted);
 	client.advance(true);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
@@ -6085,6 +6718,8 @@ TEST(ContextTest, Endless){
 	context::ticket_t accepted;
 	ASSERT_TRUE(granted(credentials, issued, accepted));
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	server.credential(credentials);
 	server.resume(issued);
 	server.advance(true);
@@ -6106,7 +6741,11 @@ TEST(ContextTest, Stale){
 	context::ticket_t ticket;
 	{
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		server.credential(credentials);
 		server.moment(issued);
 		client.moment(issued);
@@ -6119,6 +6758,8 @@ TEST(ContextTest, Stale){
 		ticket = client.tickets()[0];
 	}
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Билет предъявлен позже своего срока: приветствие его не несёт
 	client.resume(ticket);
 	client.moment(issued + static_cast <int64_t> (ticket.lifetime) + 1);
@@ -6144,7 +6785,11 @@ TEST(ContextTest, Recovered){
 	vector <context::ticket_t> tickets;
 	{
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		server.credential(credentials);
 		server.moment(issued);
 		client.moment(issued);
@@ -6160,11 +6805,15 @@ TEST(ContextTest, Recovered){
 	}
 	// Один и тот же сервер ведёт обе связи подряд
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	server.credential(credentials);
 	server.advance(true);
 	for(size_t item = 0; item < 2; item++){
 		const int64_t drift = ((item == 0) ? 30 : 0);
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		server.clear();
 		server.moment(issued + 3600 + drift);
 		client.moment(issued + 3600);
@@ -6197,7 +6846,11 @@ TEST(ContextTest, Hastened){
 	ASSERT_TRUE(granted(credentials, issued, accepted));
 	for(size_t item = 0; item < 2; item++){
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		server.credential(credentials);
 		server.resume(issued);
 		server.advance(item == 0);
@@ -6239,7 +6892,11 @@ TEST(ContextTest, Shredded){
 	context::ticket_t accepted;
 	ASSERT_TRUE(granted(credentials, issued, accepted));
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	server.credential(credentials);
 	server.resume(issued);
 	server.advance(false);
@@ -6265,7 +6922,11 @@ TEST(ContextTest, Hoarded){
 	context::credential_t credentials;
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	server.credential(credentials);
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
@@ -6289,7 +6950,11 @@ TEST(ContextTest, Amplified){
 	context::credential_t credentials;
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	server.credential(credentials);
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
@@ -6325,12 +6990,16 @@ TEST(ContextTest, Amplified){
  */
 TEST(ContextTest, Unopened){
 	client::context_t idle;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(idle);
 	// Закрывать незаведённую связь нечего
 	ASSERT_EQ(idle.close(), context::error_t::STATE);
 	ASSERT_EQ(idle.state(), context::state_t::NONE);
 	context::credential_t credentials;
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	server.credential(credentials);
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	// Запись смены шифра, пришедшая серверу прежде приветствия клиента
@@ -6351,8 +7020,12 @@ TEST(ContextTest, Halfclosed){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Связь стороны сервера
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Выполняем заведение связи стороны сервера
@@ -6423,8 +7096,12 @@ TEST(ContextTest, Termed){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Связь стороны сервера
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Устанавливаем срок жизни выдаваемых билетов в минуту
@@ -6469,6 +7146,8 @@ TEST(ContextTest, Overgrown){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Выполняем рукопожатие враждебного сервера с непомерным сообщением после
@@ -6494,6 +7173,8 @@ TEST(ContextTest, Impostor){
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	// Выполняем заведение связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Выполняем рукопожатие враждебного сервера с повторной цепочкой после
@@ -6544,8 +7225,12 @@ TEST(ContextTest, Starved){
 		{
 			// Связь стороны клиента, заведённая вне запаса
 			client::context_t client;
+			// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+			gosting(client);
 			// Связь стороны сервера, заведённая вне запаса
 			server::context_t server;
+			// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+			gosting(server);
 			// Отмеряем запас выделений на время ведения связи
 			starve::ration_t ration(budget);
 			// Выполняем ведение связи при отмеренном запасе выделений
@@ -6573,8 +7258,12 @@ TEST(ContextTest, Starved){
 			starve::ration_t ration(budget);
 			// Связь стороны клиента, заведённая внутри запаса
 			client::context_t client;
+			// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+			gosting(client);
 			// Связь стороны сервера, заведённая внутри запаса
 			server::context_t server;
+			// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+			gosting(server);
 			// Выполняем ведение связи при отмеренном запасе выделений
 			breach = starving(client, server, credentials, hungry);
 			// Снимаем запас: дальнейшие выделения принадлежат проверке, а не связи
@@ -6606,7 +7295,11 @@ TEST(ContextTest, Sheltered){
 	context::credential_t credentials;
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	server.credential(credentials);
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
@@ -6639,7 +7332,11 @@ TEST(ContextTest, Sheltered){
 		EXPECT_TRUE(sys::Vault::instance().owns(item.secret.data()));
 	// Возобновление копией из своего перечня
 	client::context_t again;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(again);
 	server::context_t peer;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(peer);
 	peer.credential(credentials);
 	peer.resume(vector <context::ticket_t> {server.tickets()[0]});
 	again.resume(mine[0]);
@@ -6657,4 +7354,753 @@ TEST(ContextTest, Sheltered){
 	context::psk_t copy = psk;
 	EXPECT_TRUE(sys::Vault::instance().owns(copy.key.data()));
 	EXPECT_NE(copy.key.data(), psk.key.data());
+}
+
+/**
+ * Помощники проверок умолчаний связи
+ */
+namespace {
+	/**
+	 * @brief Разобранное приветствие клиента вместе с байтами, на которые оно смотрит
+	 *
+	 * @details Разбор приветствия видов не копирует: расширения смотрят в накопитель
+	 *          сборщика сообщений, и тот обязан жить, пока живо приветствие
+	 *
+	 */
+	typedef struct Opened {
+		// Сборщик записей
+		record::reader_t records;
+		// Сборщик сообщений рукопожатия
+		handshake::reader_t messages;
+		// Разобранное приветствие клиента
+		hello::client_t greeting;
+	} opened_t;
+	/**
+	 * @brief Метод разбора приветствия клиента, сложенного в накопитель заведённой связи
+	 *
+	 * @param client связь стороны клиента после заведения
+	 * @param result приветствие клиента с его байтами, в которое помещается итог разбора
+	 *
+	 * @return       признак того, что приветствие извлечено и разобрано
+	 *
+	 */
+	bool opening(client::context_t & client, opened_t & result) noexcept {
+		// Получаем байты, отправляемые клиентом серверу
+		const view_t sending = client.output();
+		// Если клиент серверу ничего не отправил
+		if(sending.size == 0)
+			// Выводим отказ разбора
+			return false;
+		// Если записи собрать не удалось
+		if(result.records.push(sending) != record::error_t::NONE)
+			// Выводим отказ разбора
+			return false;
+		// Заголовок записи
+		record::header_t header;
+		// Содержимое записи
+		view_t payload;
+		// Если запись извлечь не удалось
+		if(result.records.next(header, payload) != record::error_t::NONE)
+			// Выводим отказ разбора
+			return false;
+		// Если сообщения собрать не удалось
+		if(result.messages.push(payload) != handshake::error_t::NONE)
+			// Выводим отказ разбора
+			return false;
+		// Обвязка сообщения
+		handshake::header_t message;
+		// Тело сообщения
+		view_t body;
+		// Если сообщение извлечь не удалось либо это не приветствие клиента
+		if((result.messages.next(message, body) != handshake::error_t::NONE) || (message.type != handshake::type_t::CLIENT))
+			// Выводим отказ разбора
+			return false;
+		// Выводим итог разбора приветствия клиента
+		return (hello::parse(body, result.greeting) == hello::error_t::NONE);
+	}
+	/**
+	 * @brief Метод проведения рукопожатия со счётом ходов передачи байтов между сторонами
+	 *
+	 * @param client связь стороны клиента
+	 * @param server связь стороны сервера
+	 *
+	 * @return       число ходов, за которые сторонам было что сказать: два без просьбы о повторе, три с ней
+	 *
+	 */
+	size_t rounds(client::context_t & client, server::context_t & server) noexcept {
+		// Число ходов передачи байтов
+		size_t result = 0;
+		/**
+		 * Выполняем передачу байтов между сторонами, пока им есть что сказать
+		 */
+		for(; (result < 16) && pump(client, server); result++)
+			// Продолжаем передачу байтов между сторонами связи
+			continue;
+		// Выводим число ходов
+		return result;
+	}
+	/**
+	 * @brief Метод проверки принадлежности набора шифрования наборам ГОСТ
+	 *
+	 * @param suite набор шифрования
+	 *
+	 * @return      признак набора ГОСТ
+	 *
+	 */
+	bool gostSuite(const protect::suite_t suite) noexcept {
+		// Выводим признак набора «Кузнечик» либо «Магма» в MGM
+		return ((suite == protect::suite_t::KUZNYECHIK_MGM_L) || (suite == protect::suite_t::MAGMA_MGM_L) || (suite == protect::suite_t::KUZNYECHIK_MGM_S) || (suite == protect::suite_t::MAGMA_MGM_S));
+	}
+	/**
+	 * @brief Метод проверки принадлежности схемы подписи схемам ГОСТ
+	 *
+	 * @param scheme схема подписи
+	 *
+	 * @return       признак схемы ГОСТ
+	 *
+	 */
+	bool gostScheme(const extension::scheme_t scheme) noexcept {
+		// Выводим признак схемы ГОСТ Р 34.10-2012
+		return ((extension::hash(scheme) == digest::hash_t::STREEBOG256) || (extension::hash(scheme) == digest::hash_t::STREEBOG512));
+	}
+	/**
+	 * @brief Метод проверки принадлежности группы обмена кривым ГОСТ
+	 *
+	 * @param group группа обмена ключами
+	 *
+	 * @return      признак кривой ГОСТ
+	 *
+	 */
+	bool gostGroup(const extension::group_t group) noexcept {
+		// Выводим признак кривой ГОСТ: коды 0x0022…0x0028
+		return ((static_cast <uint16_t> (group) >= 0x0022) && (static_cast <uint16_t> (group) <= 0x0028));
+	}
+	/**
+	 * Кривые, наборы и схемы подписи ГОСТ, объявляемые потребителем
+	 */
+	static const vector <extension::group_t> GOST_GROUPS = {extension::group_t::GC512C, extension::group_t::GC512A, extension::group_t::GC256B, extension::group_t::GC256A};
+	static const vector <protect::suite_t> GOST_SUITES = {protect::suite_t::KUZNYECHIK_MGM_L, protect::suite_t::MAGMA_MGM_L, protect::suite_t::KUZNYECHIK_MGM_S, protect::suite_t::MAGMA_MGM_S};
+	static const vector <extension::scheme_t> GOST_SCHEMES = {
+		extension::scheme_t::S256A, extension::scheme_t::S256B, extension::scheme_t::S256C, extension::scheme_t::S256D,
+		extension::scheme_t::S512A, extension::scheme_t::S512B, extension::scheme_t::S512C
+	};
+};
+
+/**
+ * Проверка умолчаний связи: классика без ГОСТ, как у браузеров и OpenSSL 3.5, доли ключа
+ * по гибриду X25519MLKEM768 и по X25519, получатели перечней отдают то же, что уходит в
+ * приветствие (намеренное решение 19 движка)
+ */
+TEST(ContextTest, Defaults){
+	// Ожидаемые кривые обмена ключами умолчания
+	const vector <extension::group_t> groups {extension::group_t::X25519MLKEM768, extension::group_t::X25519, extension::group_t::SECP256R1, extension::group_t::SECP384R1};
+	// Ожидаемые схемы подписи умолчания
+	const vector <extension::scheme_t> schemes {
+		extension::scheme_t::ECDSA_SECP256R1_SHA256, extension::scheme_t::ECDSA_SECP384R1_SHA384, extension::scheme_t::ECDSA_SECP521R1_SHA512,
+		extension::scheme_t::RSA_PSS_RSAE_SHA256, extension::scheme_t::RSA_PSS_RSAE_SHA384, extension::scheme_t::RSA_PSS_RSAE_SHA512,
+		extension::scheme_t::ED25519, extension::scheme_t::RSA_PKCS1_SHA256, extension::scheme_t::RSA_PKCS1_SHA384, extension::scheme_t::RSA_PKCS1_SHA512
+	};
+	// Связь стороны клиента
+	client::context_t client;
+	// Связь стороны сервера
+	server::context_t server;
+	// Получатели перечней отдают умолчания обеим сторонам
+	EXPECT_EQ(client.groups(), groups);
+	EXPECT_EQ(server.groups(), groups);
+	EXPECT_EQ(client.schemes(), schemes);
+	EXPECT_EQ(server.schemes(), schemes);
+	// Групп долей потребитель не назначал
+	EXPECT_TRUE(client.shares().empty());
+	// Наборы шифрования: классика издания 1.3 впереди, наборы обеих сторон одни и те же
+	ASSERT_GE(client.suites().size(), static_cast <size_t> (3));
+	EXPECT_EQ(client.suites()[0], protect::suite_t::AES_256_GCM_SHA384);
+	EXPECT_EQ(client.suites()[1], protect::suite_t::CHACHA20_POLY1305_SHA256);
+	EXPECT_EQ(client.suites()[2], protect::suite_t::AES_128_GCM_SHA256);
+	EXPECT_EQ(client.suites(), server.suites());
+	/**
+	 * Выполняем перебор наборов умолчания
+	 */
+	for(size_t i = 0; i < client.suites().size(); i++)
+		// Наборов ГОСТ в умолчании нет
+		EXPECT_FALSE(gostSuite(client.suites()[i])) << "набор " << static_cast <uint16_t> (client.suites()[i]);
+	// Выполняем заведение связи стороны клиента
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	// Разобранное приветствие клиента с его байтами
+	opened_t opened;
+	// Разбираем приветствие клиента
+	ASSERT_TRUE(opening(client, opened));
+	// Приветствие клиента
+	hello::client_t & greeting = opened.greeting;
+	// Разыскиваем расширение перечня кривых обмена ключами
+	const hello::extension_t * extension = hello::extension(greeting.extensions, static_cast <uint16_t> (extension::type_t::GROUPS));
+	// Расширение перечня кривых обязано быть
+	ASSERT_NE(extension, nullptr);
+	// Кривые обмена ключами приветствия
+	vector <extension::group_t> offered;
+	// Разбираем перечень кривых обмена ключами
+	ASSERT_EQ(extension::groups(extension->data, offered), extension::error_t::NONE);
+	// Приветствие несёт умолчание кривых как есть
+	EXPECT_EQ(offered, groups);
+	// Разыскиваем расширение долей ключа
+	extension = hello::extension(greeting.extensions, static_cast <uint16_t> (extension::type_t::SHARE));
+	// Расширение долей ключа обязано быть
+	ASSERT_NE(extension, nullptr);
+	// Доли ключа приветствия
+	vector <extension::share_t> shares;
+	// Разбираем доли ключа
+	ASSERT_EQ(extension::shares(extension->data, shares), extension::error_t::NONE);
+	// Долей две: по гибриду и по его классической половине X25519
+	ASSERT_EQ(shares.size(), static_cast <size_t> (2));
+	EXPECT_EQ(shares[0].group, extension::group_t::X25519MLKEM768);
+	EXPECT_EQ(shares[1].group, extension::group_t::X25519);
+	// Разыскиваем расширение схем подписи
+	extension = hello::extension(greeting.extensions, static_cast <uint16_t> (extension::type_t::SCHEMES));
+	// Расширение схем подписи обязано быть
+	ASSERT_NE(extension, nullptr);
+	// Схемы подписи приветствия
+	vector <extension::scheme_t> declared;
+	// Разбираем схемы подписи
+	ASSERT_EQ(extension::schemes(extension->data, declared), extension::error_t::NONE);
+	// Схемы объявляются в порядке умолчания: ECDSA P-256 первой, и ни одной схемы ГОСТ
+	ASSERT_FALSE(declared.empty());
+	EXPECT_EQ(declared[0], extension::scheme_t::ECDSA_SECP256R1_SHA256);
+	// Место схемы в перечне умолчания
+	size_t place = 0;
+	/**
+	 * Выполняем перебор объявленных схем подписи
+	 */
+	for(size_t i = 0; i < declared.size(); i++){
+		// Схем ГОСТ в приветствии нет
+		EXPECT_FALSE(gostScheme(declared[i])) << "схема " << static_cast <uint16_t> (declared[i]);
+		// Разыскиваем схему в перечне умолчания начиная с места прежней: порядок объявления тот же
+		for(; (place < schemes.size()) && (schemes[place] != declared[i]); place++);
+		// Схема обязана найтись в перечне умолчания
+		EXPECT_LT(place, schemes.size()) << "схема " << static_cast <uint16_t> (declared[i]);
+	}
+	// Наборы шифрования приветствия: классика издания 1.3 впереди, и ни одного набора ГОСТ
+	ASSERT_GE(greeting.suites.size(), static_cast <size_t> (3));
+	EXPECT_EQ(greeting.suites[0], static_cast <uint16_t> (protect::suite_t::AES_256_GCM_SHA384));
+	EXPECT_EQ(greeting.suites[1], static_cast <uint16_t> (protect::suite_t::CHACHA20_POLY1305_SHA256));
+	EXPECT_EQ(greeting.suites[2], static_cast <uint16_t> (protect::suite_t::AES_128_GCM_SHA256));
+	/**
+	 * Выполняем перебор наборов приветствия
+	 */
+	for(size_t i = 0; i < greeting.suites.size(); i++)
+		// Наборов ГОСТ в приветствии нет
+		EXPECT_FALSE(gostSuite(static_cast <protect::suite_t> (greeting.suites[i]))) << "набор " << greeting.suites[i];
+	/**
+	 * Выполняем перебор кривых приветствия
+	 */
+	for(size_t i = 0; i < offered.size(); i++)
+		// Кривых ГОСТ в приветствии нет
+		EXPECT_FALSE(gostGroup(offered[i])) << "кривая " << static_cast <uint16_t> (offered[i]);
+}
+
+/**
+ * Проверка совместимости умолчаний: сервер с умолчаниями берёт гибрид, сервер без ML-KEM
+ * берёт долю X25519 без просьбы о повторе, сервер лишь с P-256 просит повтора и получает
+ * его; вторая доля идёт по классической половине первого гибрида и лишь когда та
+ * объявлена в поддержке, а назначенные потребителем доли умолчание отменяют
+ */
+TEST(ContextTest, Compatible){
+	// Подлинность стороны сервера ключом ECDSA P-256
+	context::credential_t ecdsa;
+	// Читаем подлинность из набора ключей
+	ASSERT_TRUE(keyed("ec256.pem", "ec256.crt", ecdsa));
+	/**
+	 * Умолчания против умолчаний: гибрид X25519MLKEM768 и AES-256-GCM за два хода
+	 */
+	{
+		// Связи сторон
+		client::context_t client;
+		server::context_t server;
+		// Устанавливаем подлинность стороны сервера
+		server.credential(ecdsa);
+		// Выполняем заведение связей сторон
+		ASSERT_EQ(server.start(), context::error_t::NONE);
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		// Рукопожатие идёт за два хода: просьбы о повторе нет
+		EXPECT_EQ(rounds(client, server), static_cast <size_t> (2));
+		// Проверяем установленность связи обеими сторонами
+		ASSERT_TRUE(client.established());
+		ASSERT_TRUE(server.established());
+		// Согласованы гибрид и первый набор умолчания
+		EXPECT_EQ(client.group(), extension::group_t::X25519MLKEM768);
+		EXPECT_EQ(server.group(), extension::group_t::X25519MLKEM768);
+		EXPECT_EQ(client.suite(), protect::suite_t::AES_256_GCM_SHA384);
+		EXPECT_EQ(client.version(), static_cast <uint16_t> (0x0304));
+	}
+	/**
+	 * Сервер без ML-KEM: доля X25519 берётся без просьбы о повторе
+	 */
+	{
+		// Связи сторон
+		client::context_t client;
+		server::context_t server;
+		// Сервер ведёт лишь X25519
+		server.groups({extension::group_t::X25519});
+		// Устанавливаем подлинность стороны сервера
+		server.credential(ecdsa);
+		// Выполняем заведение связей сторон
+		ASSERT_EQ(server.start(), context::error_t::NONE);
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		// Рукопожатие идёт за два хода: сервер взял вторую долю
+		EXPECT_EQ(rounds(client, server), static_cast <size_t> (2));
+		// Проверяем установленность связи обеими сторонами
+		ASSERT_TRUE(client.established());
+		ASSERT_TRUE(server.established());
+		// Согласована X25519
+		EXPECT_EQ(client.group(), extension::group_t::X25519);
+		EXPECT_EQ(server.group(), extension::group_t::X25519);
+	}
+	/**
+	 * Сервер лишь с P-256: долей по ней нет, просьба о повторе и связь за три хода
+	 */
+	{
+		// Связи сторон
+		client::context_t client;
+		server::context_t server;
+		// Сервер ведёт лишь P-256
+		server.groups({extension::group_t::SECP256R1});
+		// Устанавливаем подлинность стороны сервера
+		server.credential(ecdsa);
+		// Выполняем заведение связей сторон
+		ASSERT_EQ(server.start(), context::error_t::NONE);
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		// Рукопожатие идёт за три хода: просьба о повторе
+		EXPECT_EQ(rounds(client, server), static_cast <size_t> (3));
+		// Проверяем установленность связи обеими сторонами
+		ASSERT_TRUE(client.established());
+		ASSERT_TRUE(server.established());
+		// Согласована P-256
+		EXPECT_EQ(client.group(), extension::group_t::SECP256R1);
+		EXPECT_EQ(server.group(), extension::group_t::SECP256R1);
+	}
+	/**
+	 * Первый гибрид с secp256r1: вторая доля идёт по первой классической кривой перечня,
+	 * а не по половине гибрида - порядок перечня и есть предпочтение потребителя
+	 */
+	{
+		// Связь стороны клиента
+		client::context_t client;
+		// Устанавливаем кривые: гибрид NIST впереди, X25519 раньше secp256r1
+		client.groups({extension::group_t::SECP256R1MLKEM768, extension::group_t::X25519, extension::group_t::SECP256R1});
+		// Выполняем заведение связи стороны клиента
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		// Разобранное приветствие клиента с его байтами
+		opened_t opened;
+		// Разбираем приветствие клиента
+		ASSERT_TRUE(opening(client, opened));
+		// Приветствие клиента
+		hello::client_t & greeting = opened.greeting;
+		// Разыскиваем расширение долей ключа
+		const hello::extension_t * extension = hello::extension(greeting.extensions, static_cast <uint16_t> (extension::type_t::SHARE));
+		// Расширение долей ключа обязано быть
+		ASSERT_NE(extension, nullptr);
+		// Доли ключа приветствия
+		vector <extension::share_t> shares;
+		// Разбираем доли ключа
+		ASSERT_EQ(extension::shares(extension->data, shares), extension::error_t::NONE);
+		// Долей две: гибрид и первая классическая кривая
+		ASSERT_EQ(shares.size(), static_cast <size_t> (2));
+		EXPECT_EQ(shares[0].group, extension::group_t::SECP256R1MLKEM768);
+		EXPECT_EQ(shares[1].group, extension::group_t::X25519);
+	}
+	/**
+	 * Половина гибрида в поддержке не объявлена: доля классического рода идёт по той
+	 * кривой, что объявлена, и сервер без ML-KEM обходится без просьбы о повторе
+	 */
+	{
+		// Связь стороны клиента
+		client::context_t client;
+		// Устанавливаем кривые: гибрид с X25519, а из классических лишь secp256r1
+		client.groups({extension::group_t::X25519MLKEM768, extension::group_t::SECP256R1});
+		// Выполняем заведение связи стороны клиента
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		// Разобранное приветствие клиента с его байтами
+		opened_t opened;
+		// Разбираем приветствие клиента
+		ASSERT_TRUE(opening(client, opened));
+		// Приветствие клиента
+		hello::client_t & greeting = opened.greeting;
+		// Разыскиваем расширение долей ключа
+		const hello::extension_t * extension = hello::extension(greeting.extensions, static_cast <uint16_t> (extension::type_t::SHARE));
+		// Расширение долей ключа обязано быть
+		ASSERT_NE(extension, nullptr);
+		// Доли ключа приветствия
+		vector <extension::share_t> shares;
+		// Разбираем доли ключа
+		ASSERT_EQ(extension::shares(extension->data, shares), extension::error_t::NONE);
+		// Долей две: гибрид и secp256r1
+		ASSERT_EQ(shares.size(), static_cast <size_t> (2));
+		EXPECT_EQ(shares[0].group, extension::group_t::X25519MLKEM768);
+		EXPECT_EQ(shares[1].group, extension::group_t::SECP256R1);
+	}
+	/**
+	 * Роды групп: по первой группе каждого рода идёт своя доля - кривые ГОСТ, гибриды,
+	 * классические кривые; группы конечного поля долю получают лишь первыми
+	 */
+	{
+		// Метод снятия групп долей приветствия клиента с заданным перечнем кривых
+		const auto sharing = [](const vector <extension::group_t> & groups, vector <extension::group_t> & result) noexcept -> bool {
+			// Связь стороны клиента
+			client::context_t client;
+			// Устанавливаем кривые обмена ключами
+			client.groups(groups);
+			// Если связь завести не удалось
+			if(client.start() != context::error_t::NONE)
+				// Выводим отказ
+				return false;
+			// Разобранное приветствие клиента с его байтами
+			opened_t opened;
+			// Если приветствие разобрать не удалось
+			if(!opening(client, opened))
+				// Выводим отказ
+				return false;
+			// Приветствие клиента
+			const hello::client_t & greeting = opened.greeting;
+			// Разыскиваем расширение долей ключа
+			const hello::extension_t * extension = hello::extension(greeting.extensions, static_cast <uint16_t> (extension::type_t::SHARE));
+			// Если расширения долей нет
+			if(extension == nullptr)
+				// Выводим отказ
+				return false;
+			// Доли ключа приветствия
+			vector <extension::share_t> shares;
+			// Если доли разобрать не удалось
+			if(extension::shares(extension->data, shares) != extension::error_t::NONE)
+				// Выводим отказ
+				return false;
+			// Сбрасываем итог
+			result.clear();
+			/**
+			 * Выполняем перебор долей
+			 */
+			for(size_t i = 0; i < shares.size(); i++)
+				// Добавляем группу доли в итог
+				result.push_back(shares[i].group);
+			// Выводим успешность
+			return true;
+		};
+		// Группы долей приветствия
+		vector <extension::group_t> result;
+		// Классика впереди, ГОСТ дописан следом: доли по гибриду, по X25519 и по первой кривой ГОСТ
+		ASSERT_TRUE(sharing({extension::group_t::X25519MLKEM768, extension::group_t::X25519, extension::group_t::SECP256R1, extension::group_t::SECP384R1, extension::group_t::GC512C, extension::group_t::GC256A}, result));
+		EXPECT_EQ(result, (vector <extension::group_t> {extension::group_t::X25519MLKEM768, extension::group_t::X25519, extension::group_t::GC512C}));
+		// ГОСТ впереди классики: доли по GC512C, по гибриду и по X25519
+		ASSERT_TRUE(sharing(gostlists::GROUPS, result));
+		EXPECT_EQ(result, (vector <extension::group_t> {extension::group_t::GC512C, extension::group_t::X25519MLKEM768, extension::group_t::X25519}));
+		// Лишь ГОСТ: доля одна
+		ASSERT_TRUE(sharing({extension::group_t::GC256A, extension::group_t::GC512C}, result));
+		EXPECT_EQ(result, (vector <extension::group_t> {extension::group_t::GC256A}));
+		// Кривые без гибридов: доля одна по первой, вторая кривая того же рода доли не получает
+		ASSERT_TRUE(sharing({extension::group_t::X25519, extension::group_t::SECP256R1}, result));
+		EXPECT_EQ(result, (vector <extension::group_t> {extension::group_t::X25519}));
+		// Группа конечного поля следом за кривой доли не получает
+		ASSERT_TRUE(sharing({extension::group_t::X25519, extension::group_t::FFDHE2048}, result));
+		EXPECT_EQ(result, (vector <extension::group_t> {extension::group_t::X25519}));
+		// Группа конечного поля первой долю получает, кривая следом - тоже
+		ASSERT_TRUE(sharing({extension::group_t::FFDHE2048, extension::group_t::X25519}, result));
+		EXPECT_EQ(result, (vector <extension::group_t> {extension::group_t::FFDHE2048, extension::group_t::X25519}));
+	}
+	/**
+	 * Назначенные потребителем доли умолчание отменяют
+	 */
+	{
+		// Связь стороны клиента
+		client::context_t client;
+		// Назначаем долю лишь по X25519
+		client.shares({extension::group_t::X25519});
+		// Получатель отдаёт назначенные доли
+		EXPECT_EQ(client.shares(), vector <extension::group_t> {extension::group_t::X25519});
+		// Выполняем заведение связи стороны клиента
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		// Разобранное приветствие клиента с его байтами
+		opened_t opened;
+		// Разбираем приветствие клиента
+		ASSERT_TRUE(opening(client, opened));
+		// Приветствие клиента
+		hello::client_t & greeting = opened.greeting;
+		// Разыскиваем расширение долей ключа
+		const hello::extension_t * extension = hello::extension(greeting.extensions, static_cast <uint16_t> (extension::type_t::SHARE));
+		// Расширение долей ключа обязано быть
+		ASSERT_NE(extension, nullptr);
+		// Доли ключа приветствия
+		vector <extension::share_t> shares;
+		// Разбираем доли ключа
+		ASSERT_EQ(extension::shares(extension->data, shares), extension::error_t::NONE);
+		// Доля одна: назначенная
+		ASSERT_EQ(shares.size(), static_cast <size_t> (1));
+		EXPECT_EQ(shares[0].group, extension::group_t::X25519);
+	}
+}
+
+/**
+ * Проверка объявления ГОСТ потребителем: как единственный вариант, как поддержка рядом с
+ * классикой (классика впереди - выбирается классика с подписью ГОСТ по ключу сервера,
+ * ГОСТ впереди - выбирается ГОСТ), и отказы без объявления: у сторон без общего набора и
+ * у подлинности ГОСТ при умолчаниях, которой подписать нечем
+ */
+TEST(ContextTest, Gost){
+	// Подлинность стороны сервера ключом ГОСТ
+	context::credential_t credentials;
+	// Выполняем выработку подлинности стороны сервера
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	/**
+	 * ГОСТ как единственный вариант: обе стороны объявляют лишь ГОСТ
+	 */
+	{
+		// Связи сторон
+		client::context_t client;
+		server::context_t server;
+		// Объявляем лишь ГОСТ обеим сторонам
+		client.groups(GOST_GROUPS);
+		server.groups(GOST_GROUPS);
+		client.suites(GOST_SUITES);
+		server.suites(GOST_SUITES);
+		client.schemes(GOST_SCHEMES);
+		server.schemes(GOST_SCHEMES);
+		// Получатели отдают объявленное
+		EXPECT_EQ(client.groups(), GOST_GROUPS);
+		EXPECT_EQ(server.suites(), GOST_SUITES);
+		EXPECT_EQ(client.schemes(), GOST_SCHEMES);
+		// Устанавливаем подлинность стороны сервера
+		server.credential(credentials);
+		// Выполняем заведение связей сторон
+		ASSERT_EQ(server.start(), context::error_t::NONE);
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		// Рукопожатие идёт за два хода
+		EXPECT_EQ(rounds(client, server), static_cast <size_t> (2));
+		// Проверяем установленность связи обеими сторонами
+		ASSERT_TRUE(client.established());
+		ASSERT_TRUE(server.established());
+		// Согласованы первая кривая и первый набор ГОСТ
+		EXPECT_EQ(client.group(), extension::group_t::GC512C);
+		EXPECT_EQ(client.suite(), protect::suite_t::KUZNYECHIK_MGM_L);
+	}
+	/**
+	 * ГОСТ как поддержка за классикой: перечни умолчания с дописанным ГОСТ выбирают
+	 * классику, а подпись владения ключом идёт схемой ГОСТ по ключу сервера
+	 */
+	{
+		// Связи сторон
+		client::context_t client;
+		server::context_t server;
+		// Снимаем умолчания получателями и дописываем ГОСТ следом
+		vector <extension::group_t> groups = client.groups();
+		vector <protect::suite_t> suites = client.suites();
+		vector <extension::scheme_t> schemes = client.schemes();
+		groups.insert(groups.end(), GOST_GROUPS.begin(), GOST_GROUPS.end());
+		suites.insert(suites.end(), GOST_SUITES.begin(), GOST_SUITES.end());
+		schemes.insert(schemes.end(), GOST_SCHEMES.begin(), GOST_SCHEMES.end());
+		// Объявляем перечни обеим сторонам
+		client.groups(groups);
+		server.groups(groups);
+		client.suites(suites);
+		server.suites(suites);
+		client.schemes(schemes);
+		server.schemes(schemes);
+		// Устанавливаем подлинность стороны сервера
+		server.credential(credentials);
+		// Выполняем заведение связей сторон
+		ASSERT_EQ(server.start(), context::error_t::NONE);
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		// Рукопожатие идёт за два хода
+		EXPECT_EQ(rounds(client, server), static_cast <size_t> (2));
+		// Проверяем установленность связи обеими сторонами
+		ASSERT_TRUE(client.established());
+		ASSERT_TRUE(server.established());
+		// Согласованы гибрид и AES-256-GCM: классика впереди перечня
+		EXPECT_EQ(client.group(), extension::group_t::X25519MLKEM768);
+		EXPECT_EQ(client.suite(), protect::suite_t::AES_256_GCM_SHA384);
+	}
+	/**
+	 * ГОСТ как поддержка впереди классики: выбирается ГОСТ
+	 */
+	{
+		// Связи сторон
+		client::context_t client;
+		server::context_t server;
+		// Объявляем ГОСТ впереди классики обеим сторонам
+		gosting(client);
+		gosting(server);
+		// Устанавливаем подлинность стороны сервера
+		server.credential(credentials);
+		// Выполняем заведение связей сторон
+		ASSERT_EQ(server.start(), context::error_t::NONE);
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		// Рукопожатие идёт за два хода
+		EXPECT_EQ(rounds(client, server), static_cast <size_t> (2));
+		// Проверяем установленность связи обеими сторонами
+		ASSERT_TRUE(client.established());
+		ASSERT_TRUE(server.established());
+		// Согласованы GC512C и «Кузнечик»-MGM
+		EXPECT_EQ(client.group(), extension::group_t::GC512C);
+		EXPECT_EQ(client.suite(), protect::suite_t::KUZNYECHIK_MGM_L);
+	}
+	/**
+	 * Сервер с ГОСТ впереди перечня против клиента с классикой впереди и ГОСТ следом:
+	 * у клиента есть доля ГОСТ, и сервер своим порядком берёт ГОСТ без просьбы о повторе
+	 */
+	{
+		// Связи сторон
+		client::context_t client;
+		server::context_t server;
+		// Клиент: умолчания с дописанным следом ГОСТ
+		vector <extension::group_t> groups = client.groups();
+		vector <protect::suite_t> suites = client.suites();
+		vector <extension::scheme_t> schemes = client.schemes();
+		groups.insert(groups.end(), GOST_GROUPS.begin(), GOST_GROUPS.end());
+		suites.insert(suites.end(), GOST_SUITES.begin(), GOST_SUITES.end());
+		schemes.insert(schemes.end(), GOST_SCHEMES.begin(), GOST_SCHEMES.end());
+		client.groups(groups);
+		client.suites(suites);
+		client.schemes(schemes);
+		// Сервер: ГОСТ впереди классики
+		gosting(server);
+		// Устанавливаем подлинность стороны сервера
+		server.credential(credentials);
+		// Выполняем заведение связей сторон
+		ASSERT_EQ(server.start(), context::error_t::NONE);
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		// Рукопожатие идёт за два хода: доля ГОСТ у клиента есть
+		EXPECT_EQ(rounds(client, server), static_cast <size_t> (2));
+		// Проверяем установленность связи обеими сторонами
+		ASSERT_TRUE(client.established());
+		ASSERT_TRUE(server.established());
+		// Согласованы GC512C и «Кузнечик»-MGM: порядок сервера ведёт выбор
+		EXPECT_EQ(client.group(), extension::group_t::GC512C);
+		EXPECT_EQ(client.suite(), protect::suite_t::KUZNYECHIK_MGM_L);
+	}
+	/**
+	 * Без объявления: клиент лишь с ГОСТ против сервера с умолчаниями - общего набора нет
+	 */
+	{
+		// Связи сторон
+		client::context_t client;
+		server::context_t server;
+		// Объявляем лишь ГОСТ стороне клиента
+		client.groups(GOST_GROUPS);
+		client.suites(GOST_SUITES);
+		client.schemes(GOST_SCHEMES);
+		// Устанавливаем подлинность стороны сервера
+		server.credential(credentials);
+		// Выполняем заведение связей сторон
+		ASSERT_EQ(server.start(), context::error_t::NONE);
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		// Выполняем проведение рукопожатия сторон связи
+		converse(client, server);
+		// Связь не установлена: у сторон нет общего набора шифрования
+		EXPECT_FALSE(client.established());
+		EXPECT_FALSE(server.established());
+		EXPECT_EQ(server.error(), context::error_t::SUITE);
+	}
+	/**
+	 * Подлинность ГОСТ при умолчаниях обеих сторон: схем ГОСТ никто не объявил, и
+	 * серверу подписать владение ключом нечем
+	 */
+	{
+		// Связи сторон
+		client::context_t client;
+		server::context_t server;
+		// Устанавливаем подлинность стороны сервера
+		server.credential(credentials);
+		// Выполняем заведение связей сторон
+		ASSERT_EQ(server.start(), context::error_t::NONE);
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		// Выполняем проведение рукопожатия сторон связи
+		converse(client, server);
+		// Связь не установлена: схемы подписи по ключу сервера не объявлено
+		EXPECT_FALSE(client.established());
+		EXPECT_FALSE(server.established());
+		EXPECT_EQ(server.error(), context::error_t::SCHEME);
+	}
+}
+
+/**
+ * Проверка ручки preference изданием 1.3: своим порядком сервер берёт первую свою кривую
+ * и первый свой набор, по которым у клиента есть доля и предложение, порядком клиента -
+ * первую его долю и первый его набор, которые сам поддерживает; так у сторон с ГОСТ и
+ * классикой в разном порядке выбор ведёт та сторона, какую велел потребитель сервера
+ */
+TEST(ContextTest, Preference){
+	// Подлинность стороны сервера ключом ГОСТ
+	context::credential_t credentials;
+	// Выполняем выработку подлинности стороны сервера
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Перечни клиента: ГОСТ впереди классики
+	const vector <extension::group_t> & cgroups = gostlists::GROUPS;
+	const vector <protect::suite_t> & csuites = gostlists::SUITES;
+	// Перечни сервера: классика впереди ГОСТ
+	vector <extension::group_t> sgroups {extension::group_t::X25519MLKEM768, extension::group_t::X25519, extension::group_t::SECP256R1, extension::group_t::SECP384R1};
+	vector <protect::suite_t> ssuites {protect::suite_t::AES_256_GCM_SHA384, protect::suite_t::CHACHA20_POLY1305_SHA256, protect::suite_t::AES_128_GCM_SHA256};
+	sgroups.insert(sgroups.end(), GOST_GROUPS.begin(), GOST_GROUPS.end());
+	ssuites.insert(ssuites.end(), GOST_SUITES.begin(), GOST_SUITES.end());
+	/**
+	 * Выполняем перебор порядков выбора: свой у сервера, затем порядок клиента
+	 */
+	for(size_t own = 0; own < 2; own++){
+		// Связи сторон
+		client::context_t client;
+		server::context_t server;
+		// Устанавливаем перечни клиента: ГОСТ впереди
+		client.groups(cgroups);
+		client.suites(csuites);
+		client.schemes(gostlists::SCHEMES);
+		// Устанавливаем перечни сервера: классика впереди
+		server.groups(sgroups);
+		server.suites(ssuites);
+		server.schemes(gostlists::SCHEMES);
+		// Устанавливаем порядок выбора: свой (own == 0) либо клиента
+		server.preference(own == 0);
+		// Устанавливаем подлинность стороны сервера
+		server.credential(credentials);
+		// Выполняем заведение связей сторон
+		ASSERT_EQ(server.start(), context::error_t::NONE);
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		// Рукопожатие идёт за два хода: у клиента доли по GC512C, гибриду и X25519
+		EXPECT_EQ(rounds(client, server), static_cast <size_t> (2)) << "порядок " << (own == 0 ? "сервера" : "клиента");
+		// Проверяем установленность связи обеими сторонами
+		ASSERT_TRUE(client.established()) << "порядок " << (own == 0 ? "сервера" : "клиента");
+		ASSERT_TRUE(server.established()) << "порядок " << (own == 0 ? "сервера" : "клиента");
+		// Своим порядком сервер берёт классику, порядком клиента - ГОСТ
+		EXPECT_EQ(client.group(), ((own == 0) ? extension::group_t::X25519MLKEM768 : extension::group_t::GC512C)) << "порядок " << (own == 0 ? "сервера" : "клиента");
+		EXPECT_EQ(client.suite(), ((own == 0) ? protect::suite_t::AES_256_GCM_SHA384 : protect::suite_t::KUZNYECHIK_MGM_L)) << "порядок " << (own == 0 ? "сервера" : "клиента");
+		EXPECT_EQ(server.group(), client.group());
+		EXPECT_EQ(server.suite(), client.suite());
+	}
+	/**
+	 * Без единой общей доли просьба о повторе просит кривую порядком той же стороны:
+	 * своим порядком сервер просит первую свою кривую из поддерживаемых клиентом,
+	 * порядком клиента - первую кривую клиента из поддерживаемых сервером
+	 */
+	for(size_t own = 0; own < 2; own++){
+		// Связи сторон
+		client::context_t client;
+		server::context_t server;
+		// Клиент шлёт долю лишь по GC256A, а поддерживает ещё GC512C, X25519 и secp384r1 в этом порядке
+		client.groups({extension::group_t::GC256A, extension::group_t::GC512C, extension::group_t::X25519, extension::group_t::SECP384R1});
+		client.shares({extension::group_t::GC256A});
+		client.suites(csuites);
+		client.schemes(gostlists::SCHEMES);
+		// Сервер ведёт secp384r1 и X25519 в этом порядке
+		server.groups({extension::group_t::SECP384R1, extension::group_t::X25519});
+		server.suites(ssuites);
+		server.schemes(gostlists::SCHEMES);
+		// Устанавливаем порядок выбора: свой (own == 0) либо клиента
+		server.preference(own == 0);
+		// Устанавливаем подлинность стороны сервера
+		server.credential(credentials);
+		// Выполняем заведение связей сторон
+		ASSERT_EQ(server.start(), context::error_t::NONE);
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		// Рукопожатие идёт за три хода: просьба о повторе
+		EXPECT_EQ(rounds(client, server), static_cast <size_t> (3)) << "порядок " << (own == 0 ? "сервера" : "клиента");
+		// Проверяем установленность связи обеими сторонами
+		ASSERT_TRUE(client.established()) << "порядок " << (own == 0 ? "сервера" : "клиента");
+		ASSERT_TRUE(server.established()) << "порядок " << (own == 0 ? "сервера" : "клиента");
+		// Своим порядком сервер просит secp384r1, порядком клиента - X25519
+		EXPECT_EQ(client.group(), ((own == 0) ? extension::group_t::SECP384R1 : extension::group_t::X25519)) << "порядок " << (own == 0 ? "сервера" : "клиента");
+		EXPECT_EQ(server.group(), client.group());
+	}
 }

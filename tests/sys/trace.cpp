@@ -59,6 +59,7 @@
 #endif
 #include <main.hpp>
 #include <identity.hpp>
+#include <gost.hpp>
 #include <client/client.hpp>
 #include <server/server.hpp>
 
@@ -314,7 +315,11 @@ TEST(TraceTest, TicketKey) {
 	recording = true;
 	{
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		server.credential(credentials);
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
@@ -338,7 +343,11 @@ TEST(TraceTest, TicketKey) {
 		}
 		// Возобновление: билет проходит resume() у обеих сторон
 		client::context_t again;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(again);
 		server::context_t peer;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(peer);
 		peer.credential(credentials);
 		peer.resume(vector <context::ticket_t> {server.tickets()[0]});
 		again.resume(client.tickets()[0]);

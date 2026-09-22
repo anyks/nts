@@ -407,6 +407,32 @@ int main(int argc, char * argv[]) noexcept {
 	client::context_t client;
 	// Связь стороны сервера
 	server::context_t server;
+	/**
+	 * Умолчания связи - классика без ГОСТ, как у браузеров: кому нужен ГОСТ, тот
+	 * объявляет кривые, наборы и схемы подписи сам. Здесь ГОСТ объявляется как
+	 * поддержка: дописывается впереди умолчания, снятого получателями перечней, и
+	 * обе стороны его понимают - оттого и выбирают его; собеседник без ГОСТ выбрал бы
+	 * классику из того же перечня
+	 */
+	vector <extension::group_t> groups = client.groups();
+	vector <protect::suite_t> suites = client.suites();
+	vector <extension::scheme_t> schemes = client.schemes();
+	// Дописываем кривые обмена ключами ГОСТ впереди классических
+	groups.insert(groups.begin(), {extension::group_t::GC512C, extension::group_t::GC256A});
+	// Дописываем наборы шифрования ГОСТ впереди классических
+	suites.insert(suites.begin(), {protect::suite_t::KUZNYECHIK_MGM_L, protect::suite_t::MAGMA_MGM_L});
+	// Дописываем схемы подписи ГОСТ впереди классических
+	schemes.insert(schemes.begin(), {
+		extension::scheme_t::S256A, extension::scheme_t::S256B, extension::scheme_t::S256C, extension::scheme_t::S256D,
+		extension::scheme_t::S512A, extension::scheme_t::S512B, extension::scheme_t::S512C
+	});
+	// Устанавливаем перечни обеим сторонам связи
+	client.groups(groups);
+	server.groups(groups);
+	client.suites(suites);
+	server.suites(suites);
+	client.schemes(schemes);
+	server.schemes(schemes);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
 	// Устанавливаем имя узла, запрашиваемого клиентом у сервера
@@ -566,6 +592,13 @@ int main(int argc, char * argv[]) noexcept {
 	client::context_t resumed;
 	// Связь стороны сервера, признающая выданный билет
 	server::context_t answered;
+	// Возобновляемая связь ведётся теми же перечнями: билет годен лишь набору с тем же хешем
+	resumed.groups(groups);
+	answered.groups(groups);
+	resumed.suites(suites);
+	answered.suites(suites);
+	resumed.schemes(schemes);
+	answered.schemes(schemes);
 	// Устанавливаем подлинность стороны сервера
 	answered.credential(credentials);
 	// Устанавливаем билеты, признаваемые сервером

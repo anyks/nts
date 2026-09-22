@@ -626,7 +626,7 @@ if (${CMAKE_BUILD_BENCHMARKS})
             # Объявляем сборке набора замеров наличие эталона
             target_compile_definitions(bench PRIVATE ANTS_BENCH_OPENSSL)
             # Выполняем подключение эталона к приложению набора замеров
-            target_link_libraries(bench OpenSSL::Crypto)
+            target_link_libraries(bench OpenSSL::SSL OpenSSL::Crypto)
         # Если эталона OpenSSL в системе нет
         else()
             # Выводим сообщение о сличении замеров с эталоном

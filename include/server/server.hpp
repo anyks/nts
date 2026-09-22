@@ -517,16 +517,42 @@ namespace nts {
 				 *
 				 * @note Наборы перечисляются от предпочтительного к запасному
 				 * @note Пустой список установку пропускает, сохраняя набор, установленный прежде
+				 * @note Умолчание - классика без ГОСТ; наборы ГОСТ («Кузнечик» и «Магма» в MGM)
+				 *       объявляет сам потребитель: как поддержку, дописав их к перечню из
+				 *       получателя suites(), либо как единственный вариант, заменив перечень целиком
 				 *
 				 * \~english
 				 * @brief Method of setting the offered cipher suites
 				 * @param suites the cipher suites being set
 				 * @note The suites are listed from the preferable one to the spare one
 				 * @note An empty list skips the setting, keeping the set having been set before
+				 * @note The default is the classic without GOST; the GOST suites (Kuznyechik and Magma in MGM)
+				 *       are declared by the consumer itself: as a support, appending them to the list from the
+				 *       getter suites(), or as the only option, replacing the list wholly
 				 *
 				 * \~
 				 */
 				void suites(const vector <protect::suite_t> & suites) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения предлагаемых наборов шифрования
+				 *
+				 * @return перечень наборов шифрования: назначенный потребителем либо умолчание
+				 *
+				 * @note Умолчание - классика: AES-256-GCM, ChaCha20-Poly1305, AES-128-GCM и
+				 *       наборы издания 1.2; наборов ГОСТ в нём нет, их потребитель объявляет
+				 *       сам вызовом suites(), дописав к этому перечню либо заменив его целиком
+				 *
+				 * \~english
+				 * @brief Method of getting the offered cipher suites
+				 * @return the list of the cipher suites: the one set by the consumer or the default
+				 * @note The default is the classic: AES-256-GCM, ChaCha20-Poly1305, AES-128-GCM and the suites
+				 *       of the 1.2 edition; there are no GOST suites in it, the consumer declares them by the
+				 *       call of suites(), appending to this list or replacing it wholly
+				 *
+				 * \~
+				 */
+				const vector <protect::suite_t> & suites() const noexcept;
 				/**
 				 * \~russian
 				 * @brief Метод установки пределов издания протокола
@@ -665,20 +691,28 @@ namespace nts {
 				uint16_t version() const noexcept;
 				/**
 				 * \~russian
-				 * @brief Метод установки порядка выбора набора шифрования изданием TLS 1.2
+				 * @brief Метод установки порядка выбора набора шифрования и кривой обмена ключами
 				 *
-				 * @param own выбирается ли набор порядком сервера (умолчание), а не клиента
+				 * @param own выбираются ли набор и кривая порядком сервера (умолчание), а не клиента
 				 *
-				 * @details Раздел 7.4.1.2 RFC 5246 велит выбирать набор серверу; порядком клиента
-				 *          сервер выбирает, когда потребитель так велел. Издания TLS 1.3 настройка
-				 *          не касается: там выбор идёт порядком сервера как прежде
+				 * @details Разделы 7.4.1.2 RFC 5246 и 4.1.1 RFC 8446 велят выбирать серверу; порядком
+				 *          клиента сервер выбирает, когда потребитель так велел. Настройка ведёт выбор
+				 *          набора обоих изданий и кривой обмена издания 1.3: своим порядком сервер
+				 *          берёт первую свою кривую, по которой у клиента есть доля, порядком клиента -
+				 *          первую его долю, которую сам поддерживает; просьба о повторе идёт лишь без
+				 *          единой общей доли. Порядок перечней - это и есть предпочтение: сервер с ГОСТ
+				 *          впереди перечня берёт у клиента с поддержкой ГОСТ именно ГОСТ
 				 *
 				 * \~english
-				 * @brief Method of setting the order of the choice of the cipher suite by the TLS 1.2 edition
-				 * @param own whether the suite is chosen by the order of the server (the default) and not of the client
-				 * @details The section 7.4.1.2 of RFC 5246 orders the server to choose the suite; the server chooses
-				 *          by the order of the client when the consumer has told so. The setting does not touch the
-				 *          TLS 1.3 edition: there the choice goes by the order of the server as before
+				 * @brief Method of setting the order of the choice of the cipher suite and of the curve of the key exchange
+				 * @param own whether the suite and the curve are chosen by the order of the server (the default) and not of the client
+				 * @details The sections 7.4.1.2 of RFC 5246 and 4.1.1 of RFC 8446 order the server to choose; the
+				 *          server chooses by the order of the client when the consumer has told so. The setting leads
+				 *          the choice of the suite of both editions and of the curve of the exchange of the 1.3
+				 *          edition: by its own order the server takes its first curve the client has a share for, by
+				 *          the order of the client - its first share the server supports itself; a request of a retry
+				 *          goes only without a single common share. The order of the lists is the preference itself:
+				 *          a server with GOST ahead of its list takes exactly GOST from a client with the GOST support
 				 *
 				 * \~
 				 */
@@ -691,16 +725,43 @@ namespace nts {
 				 *
 				 * @note Кривые перечисляются от предпочтительной к запасной
 				 * @note Пустой список установку пропускает, сохраняя набор, установленный прежде
+				 * @note Умолчание - классика без ГОСТ; кривые ГОСТ (GC256A…GC512C) объявляет сам
+				 *       потребитель: как поддержку, дописав их к перечню из получателя groups(),
+				 *       либо как единственный вариант, заменив перечень целиком
 				 *
 				 * \~english
 				 * @brief Method of setting the offered curves of the key exchange
 				 * @param groups the curves of the key exchange being set
 				 * @note The curves are listed from the preferable one to the spare one
 				 * @note An empty list skips the setting, keeping the set having been set before
+				 * @note The default is the classic without GOST; the GOST curves (GC256A…GC512C) are declared by
+				 *       the consumer itself: as a support, appending them to the list from the getter groups(),
+				 *       or as the only option, replacing the list wholly
 				 *
 				 * \~
 				 */
 				void groups(const vector <extension::group_t> & groups) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения предлагаемых кривых обмена ключами
+				 *
+				 * @return перечень кривых обмена ключами: назначенный потребителем либо умолчание
+				 *
+				 * @note Умолчание - то, что предлагают браузеры и OpenSSL 3.5: X25519MLKEM768,
+				 *       X25519, secp256r1, secp384r1; кривых ГОСТ в нём нет, их потребитель
+				 *       объявляет сам вызовом groups(), дописав к этому перечню либо заменив его
+				 *       целиком
+				 *
+				 * \~english
+				 * @brief Method of getting the offered curves of the key exchange
+				 * @return the list of the curves of the key exchange: the one set by the consumer or the default
+				 * @note The default is what the browsers and OpenSSL 3.5 offer: X25519MLKEM768, X25519,
+				 *       secp256r1, secp384r1; there are no GOST curves in it, the consumer declares them by the
+				 *       call of groups(), appending to this list or replacing it wholly
+				 *
+				 * \~
+				 */
+				const vector <extension::group_t> & groups() const noexcept;
 				/**
 				 * \~russian
 				 * @brief Метод установки признаваемых схем подписи
@@ -710,6 +771,10 @@ namespace nts {
 				 * @note Схемы перечисляются от предпочтительной к запасной; перечень объявляется
 				 *       собеседнику и им же выбирается схема своей подписи по своему ключу
 				 * @note Пустой список установку пропускает, сохраняя набор, установленный прежде
+				 * @note Умолчание - классика без ГОСТ; схемы ГОСТ (S256A…S512C) объявляет сам
+				 *       потребитель: как поддержку, дописав их к перечню из получателя schemes(),
+				 *       либо как единственный вариант, заменив перечень целиком. Подлинность ГОСТ
+				 *       без объявленных обеими сторонами схем ГОСТ подписать ничего не сможет
 				 *
 				 * \~english
 				 * @brief Method of setting the recognized signature schemes
@@ -717,10 +782,36 @@ namespace nts {
 				 * @note The schemes are listed from the preferable one to the spare one; the list is declared
 				 *       to the peer and by it the scheme of the own signature is chosen by the own key
 				 * @note An empty list skips the setting, keeping the set having been set before
+				 * @note The default is the classic without GOST; the GOST schemes (S256A…S512C) are declared by
+				 *       the consumer itself: as a support, appending them to the list from the getter schemes(),
+				 *       or as the only option, replacing the list wholly. A GOST credential without the GOST
+				 *       schemes declared by both sides is unable to sign anything
 				 *
 				 * \~
 				 */
 				void schemes(const vector <extension::scheme_t> & schemes) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения признаваемых схем подписи
+				 *
+				 * @return перечень схем подписи: назначенный потребителем либо умолчание
+				 *
+				 * @note Умолчание - классика: ECDSA, RSA-PSS, Ed25519, RSA PKCS #1; схем ГОСТ в нём
+				 *       нет, их потребитель объявляет сам вызовом schemes(), дописав к этому
+				 *       перечню либо заменив его целиком. Подлинность ГОСТ без объявленных схем
+				 *       ГОСТ подписать ничего не сможет
+				 *
+				 * \~english
+				 * @brief Method of getting the recognized signature schemes
+				 * @return the list of the signature schemes: the one set by the consumer or the default
+				 * @note The default is the classic: ECDSA, RSA-PSS, Ed25519, RSA PKCS #1; there are no GOST
+				 *       schemes in it, the consumer declares them by the call of schemes(), appending to this
+				 *       list or replacing it wholly. A GOST credential without the declared GOST schemes is
+				 *       unable to sign anything
+				 *
+				 * \~
+				 */
+				const vector <extension::scheme_t> & schemes() const noexcept;
 				/**
 				 * \~russian
 				 * @brief Метод установки алгоритмов сжатия цепочки сертификатов
@@ -917,11 +1008,18 @@ namespace nts {
 				 * @note Подлинность сервера обязательна: без своего сертификата и ключа связь не
 				 *       заводится вовсе
 				 *
+				 * @note Ключ подлинности стоит подготовить один раз (credential_t::prepare()):
+				 *       подготовленный ключ разделяется всеми связями, а без подготовки связь
+				 *       готовит его сама при первой надобности
+				 *
 				 * \~english
 				 * @brief Method of setting the authenticity of one's own side of the connection
 				 * @param credential the authenticity of one's own side being set
 				 * @note The authenticity of the server is obligatory: without one’s own certificate and key the
 				 *       connection is not established at all
+				 * @note The key of the authenticity is worth preparing once (credential_t::prepare()): a
+				 *       prepared key is shared by all the connections, and without the preparation the
+				 *       connection prepares it itself at the first need
 				 *
 				 * \~
 				 */

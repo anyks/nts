@@ -35,6 +35,7 @@
 #include <main.hpp>
 #include <starve.hpp>
 #include <identity.hpp>
+#include <gost.hpp>
 #include <adversary.hpp>
 #include <openssl.hpp>
 #include <pem/pem.hpp>
@@ -223,7 +224,11 @@ TEST(SctTest, Loopback){
 	ASSERT_FALSE(list.empty());
 	{
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		arrange(client, server, credential, true, list);
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
@@ -241,7 +246,11 @@ TEST(SctTest, Loopback){
 		converse(client, server);
 		ASSERT_EQ(client.tickets().size(), static_cast <size_t> (1));
 		client::context_t resuming;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(resuming);
 		server::context_t resumed;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(resumed);
 		arrange(resuming, resumed, credential, true, list);
 		resuming.resume(client.tickets()[0]);
 		resumed.resume(server.tickets());
@@ -253,7 +262,11 @@ TEST(SctTest, Loopback){
 	}
 	{
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		arrange(client, server, credential, false, list);
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
@@ -263,7 +276,11 @@ TEST(SctTest, Loopback){
 	}
 	{
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		arrange(client, server, credential, true, vector <uint8_t> ());
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
@@ -282,7 +299,11 @@ TEST(SctTest, Legacy){
 	ASSERT_TRUE(chained("ec", credential));
 	const vector <uint8_t> list = listing();
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	arrange(client, server, credential, true, list);
 	ASSERT_EQ(client.versions(0x0303, 0x0303), context::error_t::NONE);
 	ASSERT_EQ(server.versions(0x0303, 0x0303), context::error_t::NONE);
@@ -295,7 +316,11 @@ TEST(SctTest, Legacy){
 	EXPECT_EQ(client.timestamps(), list);
 	ASSERT_EQ(client.tickets().size(), static_cast <size_t> (1));
 	client::context_t resuming;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(resuming);
 	server::context_t resumed;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(resumed);
 	arrange(resuming, resumed, credential, true, list);
 	ASSERT_EQ(resuming.versions(0x0303, 0x0303), context::error_t::NONE);
 	ASSERT_EQ(resumed.versions(0x0303, 0x0303), context::error_t::NONE);
@@ -321,6 +346,8 @@ TEST(SctTest, Profile){
 	fingerprint::profile_t source;
 	{
 		client::context_t donor;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(donor);
 		donor.name("example.com");
 		donor.timestamps(true);
 		ASSERT_EQ(donor.start(), context::error_t::NONE);
@@ -338,7 +365,11 @@ TEST(SctTest, Profile){
 	}
 	ASSERT_TRUE(found);
 	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	client.name("example.com");
 	ASSERT_EQ(client.profile(source), context::error_t::NONE);
 	server.credential(credential);
@@ -373,6 +404,8 @@ TEST(SctTest, Lying){
 	 */
 	for(size_t i = 0; i < (sizeof(MALFORMED) / sizeof(MALFORMED[0])); i++){
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		client.suites(vector <protect::suite_t> {protect::suite_t::MAGMA_MGM_L});
 		client.timestamps(true);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
@@ -384,6 +417,8 @@ TEST(SctTest, Lying){
 	}
 	{
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		client.suites(vector <protect::suite_t> {protect::suite_t::MAGMA_MGM_L});
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		ASSERT_TRUE(adversary(client, distortion_t::UNASKEDSCT, &credential));
@@ -393,6 +428,8 @@ TEST(SctTest, Lying){
 	}
 	{
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		client.timestamps(true);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		ASSERT_TRUE(adversary(client, distortion_t::SCTHELLO));
@@ -410,6 +447,8 @@ TEST(SctTest, Greedy){
 	context::credential_t credential;
 	ASSERT_TRUE(identity("anyks.com", credential));
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	server.credential(credential);
 	server.suites(vector <protect::suite_t> {protect::suite_t::MAGMA_MGM_L});
 	server.timestamps(listing());
@@ -432,18 +471,24 @@ TEST(SctTest, Refusals){
 	static const uint8_t EMPTYLIST[] = {0x00, 0x00}, HOLLOWLIST[] = {0x00, 0x02, 0x00, 0x00}, TRAILLIST[] = {0x00, 0x03, 0x00, 0x01, 0xAA, 0xFF};
 	{
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		server.credential(credential);
 		server.timestamps(vector <uint8_t> (EMPTYLIST, EMPTYLIST + sizeof(EMPTYLIST)));
 		EXPECT_EQ(server.start(), context::error_t::SETTINGS);
 	}
 	{
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		server.credential(credential);
 		server.timestamps(vector <uint8_t> (HOLLOWLIST, HOLLOWLIST + sizeof(HOLLOWLIST)));
 		EXPECT_EQ(server.start(), context::error_t::SETTINGS);
 	}
 	{
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		server.credential(credential);
 		server.timestamps(vector <uint8_t> (TRAILLIST, TRAILLIST + sizeof(TRAILLIST)));
 		EXPECT_EQ(server.start(), context::error_t::SETTINGS);
@@ -515,6 +560,8 @@ TEST(SctTest, Openssl){
 	const int fd = greeted(listener);
 	ASSERT_GE(fd, 0);
 	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
 	server.suites(vector <protect::suite_t> {protect::suite_t::AES_128_GCM_SHA256});
 	server.groups(vector <extension::group_t> {extension::group_t::X25519});
 	server.credential(credential);
@@ -551,7 +598,11 @@ TEST(SctTest, Starved){
 	 */
 	for(size_t budget = 0; (budget < 4000) && !complete; budget += ((budget < 200) ? 1 : 37)){
 		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+		gosting(client);
 		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+		gosting(server);
 		arrange(client, server, credential, true, list);
 		context::error_t first = context::error_t::NONE, second = context::error_t::NONE;
 		{
