@@ -61,10 +61,12 @@ namespace nts {
 	 * \~russian
 	 * @brief Пространство имён модуля источника случайных значений
 	 *
-	 * @details Случайность берётся у ядра системы и своим порождателем не разбавляется:
+	 * @details Случайность берётся у системы и своим порождателем не разбавляется:
 	 *          собственный порождатель пришлось бы наполнять из того же источника, а
 	 *          всякое лишнее звено между ядром и потребителем - это ещё одно место, где
-	 *          случайность вырождается незаметно.
+	 *          случайность вырождается незаметно. У macOS и BSD источником служит
+	 *          порождатель самой libc (arc4random_buf), названный системой предпочтительным
+	 *          и наполняемый её ядром, у Linux и Windows - вызов ядра
 	 *
 	 * @note Пространство названо entropy, а не random: свободная функция random входит
 	 *       в POSIX, и одноимённое пространство имён сделало бы её вызов у потребителя,
@@ -72,10 +74,12 @@ namespace nts {
 	 *
 	 * \~english
 	 * @brief Namespace of the module of the source of the random values
-	 * @details The randomness is taken from the kernel of the system and is not diluted by
-	 *          a generator of its own: a generator of its own would have to be filled from
-	 *          the same source, while every extra link between the kernel and the consumer
-	 *          is one more place where the randomness degenerates unnoticed.
+	 * @details The randomness is taken from the system and is not diluted by a generator of
+	 *          its own: a generator of its own would have to be filled from the same source,
+	 *          while every extra link between the kernel and the consumer is one more place
+	 *          where the randomness degenerates unnoticed. At macOS and BSD the source is the
+	 *          generator of the libc itself (arc4random_buf), named by the system as the
+	 *          preferred one and filled by its kernel, at Linux and Windows a call of the kernel
 	 * @note The namespace is named entropy and not random: the free function random is a part
 	 *       of POSIX, and a namespace of the same name would make its call ambiguous for a
 	 *       consumer who wrote using namespace nts

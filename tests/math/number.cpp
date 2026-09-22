@@ -783,15 +783,28 @@ TEST(NumberTest, Inverse) {
 		{"ffffffff00000001000000000000000000000000ffffffffffffffffffffffff", "7eda1fca69a3e9a58f6aa4b93364aad344f45befbfab26db022bdd5559bb22f2", "461e4016eed14fe21b637a1ef382f2ad8c4618f181367f47e1ddc8c24e7002f0"},
 		{"4531acd1fe0023c7550d267b6b2fee80922b14b2ffb90f04d4eb7c09b5d2d15da82f2d7ecb1dbac719905c5eecc423f1d86e25edbe23c595d644aaf187e6e6df", "15a18eb2e9066d94493f0556e9b8a466f2dd77d55565e21df8cc013f05bd729c4e70b96f9eab1ba961a5749e249a47ef27c42632314839f029f44f8cf1e92481", "05ac39a1758e6f33bedeb233cb6b32d46cb7aad39ece6df14dddb6438b325ad3c7c9edc83b450db95b46b9ff6a2b51fcd8135258c26951869be539c4f24fe9b2"},
 		/**
-		 * Модули вида 2^k ± c идут цепочкой сложений показателя, а не окнами: 2^256 - 617
-		 * (CryptoPro-A), 2^255 + 3225 (CryptoPro-B), 2^512 - 569 и 2^511 + 111 (наборы 512
-		 * разрядов), а также p - 1, обратное самому себе
+		 * Модули прямой свёртки: 2^256 - 617 (CryptoPro-A), 2^255 + 3225 (CryptoPro-B),
+		 * 2^512 - 569 и 2^511 + 111 (наборы 512 разрядов), а также p - 1, обратное самому
+		 * себе: у таких модулей области Монтгомери нет, и обратное берётся как есть
 		 */
 		{"fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd97", "5c9a4b56088704ce240a488c3ab368b26df5dfb876b897efadd43e771030055f", "f036fd515a09961de7f9adda07d00f7a5419fd7b6416e5716bcab9ffcdcae8dc"},
 		{"8000000000000000000000000000000000000000000000000000000000000c99", "3b77e4dd8ac585fad29b4bd454bf551f72b536eb5cc8bf534630c5c638bfdd2c", "0815f4454eba010932d523b70e9a5b0f3bb8e9882dfaf232ef884c1258a057c4"},
 		{"fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffdc7", "6e3c33237f2e86cac108143f29efe27864599c8f65b211282c9d709cdc53bfe8ec41e52b92e308d9298af1b854a5afc73a956b5ad50cf25b842089abd34ca117", "1179ea9f62c7c85a24b66f1357b2df110f0ecdf773cc2c9cfcf5d62ad7a4d4e4449d02df3d445908881ec3fb3cfc2871afff586f90af9ef185d4c86107498f4d"},
 		{"8000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000006f", "131fac4bf1537ad24884eba32ed8ea9183d22067ec95f13be2e21c367edc51b456acbf180849a9fd3d98b9c9076e87ce673f5c00cf1851ceb3a3f73ed2ec24ac", "6b6f85264d7e77217606255a81657e7999490e0bacee2bcd1816a981f6a1ce9df378baf8b19e2b246ce2cfc33ded256241870aac25c9ca29c0a0b32d3ba090e4"},
-		{"fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd97", "fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd96", "fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd96"}
+		{"fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd97", "fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd96", "fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd96"},
+		/**
+		 * Обращение идёт шагами деления Бернстайна и Янга проходами по 62 шага, и число
+		 * проходов задано разрядностью модуля: 12 на четырёх словах, 18 на шести, 24 на
+		 * восьми и 27 на девяти. Число по порядку CryptoPro-A ниже требует 562 шага, то
+		 * есть десять проходов из двенадцати - больше всех из 20 000 случайных: оно ловит
+		 * недобор проходов. Порядки P-384 и P-521 и поле P-521 закрепляют шесть и девять
+		 * слов модуля, где порция разрядов ложится через границу слова иначе, чем на
+		 * четырёх и восьми
+		 */
+		{"ffffffffffffffffffffffffffffffff6c611070995ad10045841b09b761b893", "521780d0690d570c1406c689310f9412d858daf5583fb71a2e46b9c02469a877", "677af82fa67181fa1137326d50a77f1dde629dbea47e8d7ca54bb9d2ceb678e2"},
+		{"ffffffffffffffffffffffffffffffffffffffffffffffffc7634d81f4372ddf581a0db248b0a77aecec196accc52973", "cd112a77dbdb12da98d1110ae98b680073a0068f5eeac54c6b306901653c8c66f9911a4a9d7426e383b0900ee64f1433", "9cb0e83241c5875988118dbd0772320b97d47200957a20343ebda28656bc59b23148d0c0f7ba5d7af80c59e1194cf742"},
+		{"01fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffa51868783bf2f966b7fcc0148f709a5d03bb5c9b8899c47aebb6fb71e91386409", "01f668b5e1684861c243754dec13edcdfaad1e740b9b452c5b4ad3e3f4e26c17732ffc9e23d83cbd2b4da922397160494991be8e5e3844f97fd78fa34ba78dff9a41", "01265c447d7d5aec945f898e2e0145e2f1c6e54ea134e933ff60ae645f4def184c816299c263ca3f6fb4b8e13d12dd795736240eea22b107280bea835e8395ef5b0a"},
+		{"01ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", "0110e727fad29c8fffa8bfecf8f181c7e979efb06af6b55059f173cdb013494f5fa18119831e52c29337509f929d46e0d400e046f12a51b50c4b4c271704028ae57e", "01a1672cb9a252d758493cf4d9472e9432f6c5309b582c72959682093868b3b1c9affc95d06af571b41983193cd3f584b47b59250dbf93aefd474fa466d29d32f7cb"}
 	};
 	uint8_t buffer[math::NUMBER_SIZE];
 	for(size_t i = 0; i < (sizeof(ITEMS) / sizeof(ITEMS[0])); i++){

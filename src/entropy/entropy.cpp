@@ -59,11 +59,28 @@
 		 */
 		#define __ANTS_ENTROPY_CALL__ 1
 		/**
+		 * @note У macOS и четырёх BSD случайные байты выдаёт порождатель самой libc
+		 *       (arc4random_buf: ChaCha20, наполняемый ядром, с переналивкой по счётчику
+		 *       и при ветвлении процесса) - он и назван системой предпочтительным
+		 *       источником, а вызов ядра getentropy там заведён для наполнения таких
+		 *       порождателей. Вызов ядра стоит 0,86 мкс на M4 против 0,15 у порождателя
+		 *       libc, на подписи ГОСТ это была восьмая часть времени (замер 22.09.2026).
+		 *       У Linux порождателя в libc нет (arc4random там лишь обёртка над вызовом
+		 *       ядра), и остаётся getentropy
+		 */
+		#if defined(__APPLE__) || defined(__MACH__) || defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__) || defined(__DragonFly__)
+			/**
+			 * Признак наличия порождателя случайных байтов у libc
+			 */
+			#define __ANTS_ENTROPY_LIBC__ 1
+		#endif
+		/**
 		 * Заголовочные файлы вызова ядра, выдающего случайные байты
 		 */
 		#if defined(__OpenBSD__) || defined(__NetBSD__) || defined(__FreeBSD__) || defined(__DragonFly__)
 			#include <stdlib.h>
 		#else
+			#include <stdlib.h>
 			#include <sys/random.h>
 		#endif
 	#endif
@@ -99,9 +116,10 @@ namespace {
 	using nts::sys::wipe;
 	/**
 	 * Устройство случайных байтов существует лишь у систем Unix: у Windows этого пути
-	 * нет вовсе, и помощник там не заводится - иначе он оставался бы неупотребимым
+	 * нет вовсе, а у систем с порождателем libc он не нужен, и помощник там не
+	 * заводится - иначе он оставался бы неупотребимым
 	 */
-	#if !defined(_MSC_VER) && !defined(WIN64) && !defined(_WIN64) && !defined(__WIN64__) && !defined(WIN32) && !defined(_WIN32) && !defined(__WIN32__) && !defined(__NT__)
+	#if !defined(_MSC_VER) && !defined(WIN64) && !defined(_WIN64) && !defined(__WIN64__) && !defined(WIN32) && !defined(_WIN32) && !defined(__WIN32__) && !defined(__NT__) && !defined(__ANTS_ENTROPY_LIBC__)
 	/**
 	 * @brief Метод чтения случайных байтов из устройства системы
 	 *
@@ -183,9 +201,17 @@ bool nts::entropy::bytes(uint8_t * data, const size_t size) noexcept {
 		));
 	#else
 		/**
+		 * Если у libc есть порождатель случайных байтов
+		 */
+		#if defined(__ANTS_ENTROPY_LIBC__)
+			// Выполняем получение случайных байтов у порождателя libc: отказать он не может
+			::arc4random_buf(data, size);
+			// Выводим успешность получения случайных байтов
+			return true;
+		/**
 		 * Если вызова ядра, выдающего случайные байты, у системы нет
 		 */
-		#if !defined(__ANTS_ENTROPY_CALL__)
+		#elif !defined(__ANTS_ENTROPY_CALL__)
 			// Выводим итог чтения случайных байтов из устройства системы
 			return device(data, size);
 		#else

@@ -589,24 +589,28 @@ namespace nts {
 				 * @param value  обращаемое число в области Монтгомери
 				 * @param result место, в которое помещается обратное число в области Монтгомери
 				 *
-				 * @note Обращение вычисляется возведением в степень, меньшую модуля на два:
-				 *       это верно лишь при простом модуле. Показатель открыт, оттого у модулей
-				 *       вида 2^k ± c степень берётся цепочкой сложений показателя по его
-				 *       известному строению (k - 1 квадратов и около пятнадцати умножений), а у
-				 *       прочих - окнами по четыре разряда с заготовкой пятнадцати степеней;
-				 *       порядок действий от обращаемого числа не зависит
+				 * @note Обращение идёт алгоритмом Бернстайна и Янга: шаги деления по младшим
+				 *       разрядам собираются в матрицу переходов по 62 за проход, а число
+				 *       проходов задано разрядностью модуля по теореме 11.2 их статьи 2019
+				 *       года; ветвлений по значениям нет, и время работы от обращаемого числа
+				 *       не зависит. Модуль обязан быть нечётным, а обратное верно лишь при
+				 *       числе, взаимно простом с модулем; обратное к нулю есть ноль. У MSVC,
+				 *       где нет знакового целого двойной разрядности, обращение идёт
+				 *       возведением в степень p - 2 окнами по четыре разряда
 				 *
 				 * \~english
 				 * @brief Method of the inversion of a number by the modulus
 				 * @param value  the number being inverted in the Montgomery domain
 				 * @param result the place the inverse number in the Montgomery domain is put into
-				 * @note The inversion is computed by a raise into a power less than the modulus by
-				 *       two: this is true only at a prime modulus. The exponent is public, therefore
-				 *       at the moduli of the form 2^k ± c the power is taken by an addition chain of
-				 *       the exponent by its known structure (k - 1 squarings and about fifteen
-				 *       multiplications), and at the rest by the windows of four bits with a
-				 *       preparation of fifteen powers; the order of the operations does not depend
-				 *       on the number being inverted
+				 * @note The inversion goes by the algorithm of Bernstein and Yang: the division steps
+				 *       by the low bits are gathered into a transition matrix by 62 per batch, while
+				 *       the number of the batches is set by the width of the modulus according to the
+				 *       theorem 11.2 of their paper of 2019; there are no branches on the values, and
+				 *       the running time does not depend on the number being inverted. The modulus
+				 *       must be odd, and the inverse is true only at a number coprime with the modulus;
+				 *       the inverse of zero is zero. Under MSVC, which has no signed integer of the
+				 *       double width, the inversion goes by a raise into the power p - 2 by the
+				 *       windows of four bits
 				 *
 				 * \~
 				 */
