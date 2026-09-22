@@ -1038,6 +1038,13 @@ int main(int argc, char * argv[]) noexcept {
 		// Выходим из приложения с признаком отказа
 		return EXIT_FAILURE;
 	}
+	// Место, в которое помещаются случайные байты
+	uint8_t random[32];
+	// Выполняем замер числа выдач случайных байтов за секунду: длина ключа и секретного числа подписи
+	const double randomness = count("Случайные байты (32)", 20000, [&random]() noexcept -> void {
+		// Выполняем получение случайных байтов
+		entropy::bytes(random, sizeof(random));
+	});
 	// Место, в которое помещается подпись хеша
 	uint8_t signature[64];
 	// Выполняем замер числа подписей за секунду
@@ -1735,6 +1742,13 @@ int main(int argc, char * argv[]) noexcept {
 		});
 		// Выполняем освобождение объекта работы с подписью эталона
 		::EVP_MD_CTX_free(digest);
+		// Место, в которое помещаются случайные байты эталона
+		uint8_t randomRef[32];
+		// Выполняем замер числа выдач случайных байтов эталона за секунду
+		const double randomnessRef = count("RAND_bytes (32)", 20000, [&randomRef]() noexcept -> void {
+			// Выполняем получение случайных байтов эталона
+			::RAND_bytes(randomRef, static_cast <int> (sizeof(randomRef)));
+		});
 		// Место, в которое помещается общее значение обмена эталона
 		vector <uint8_t> common(32, 0);
 		// Выполняем замер числа обменов ключами эталона за секунду
@@ -1800,6 +1814,8 @@ int main(int argc, char * argv[]) noexcept {
 		relation("ChaCha20 против эталона", chachaStream, chachaRef);
 		// Выводим отношение замеров ChaCha20-Poly1305 к эталону
 		relation("ChaCha20-Poly1305 против эталона", chachaAead, chachapolyRef);
+		// Выводим отношение замеров выдачи случайных байтов
+		relation("Случайные байты против эталона", randomness, randomnessRef);
 		// Выводим отношение замеров выработки подписи
 		relation("Подпись", signing, ecdsa);
 		// Выводим отношение замеров сличения подписи

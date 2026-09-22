@@ -1234,7 +1234,12 @@ namespace nts {
 			 * ядра заведены и у clang. Простое P-256 идёт теми же телами произведения и квадрата
 			 * (макросы __ANTS_X86_64_PRODUCT4__ и __ANTS_X86_64_SQUARE4__) с приведением
 			 * Монтгомери сдвигами и вычитаниями (settlenist4) и своими сложением и вычитанием:
-			 * числа по стендам в CONFORMANCE.md, круг 24. Команды mulx/adx не берутся: их нет у стендов, а без
+			 * числа по стендам в CONFORMANCE.md, круг 24. Формулы точки собираются из ядер на
+			 * значениях (multiplyminus4v и прочие ниже): итог умножения остаётся в регистрах,
+			 * сложения и вычитания идут целиком в регистрах - удвоение точки P-256 FreeBSD 281 → 260 нс,
+			 * Astra 274 → 235, MinGW 280 → 257 при 194…199 у ecp_nistz256, умножение точки 98…100 → 87…94 мкс;
+			 * сличение и обмен ГОСТ на x86 сравнялись с ECDSA и ECDH P-256 на ассемблере (CONFORMANCE.md,
+			 * круг 26). Команды mulx/adx не берутся: их нет у стендов, а без
 			 * замера путь не заводится. Произведение считается по одному слову с проносом переноса
 			 * (add/adc/adc $0), регистров впритык к пятнадцати: тело разбито на два вставных
 			 * блока, между ними накопитель живёт в переменных. Хвост c и указатель на модуль
@@ -1314,7 +1319,11 @@ namespace nts {
 					"movq 8(%[f]), %[m]\n\t" \
 					"movq %[c0], %[c4]\n\t" "movq %[c1], %[c5]\n\t" "movq %[c2], %[c6]\n\t" "movq %[c3], %[c7]\n\t" \
 					"subq 0(%[m]), %[c4]\n\t" "sbbq 8(%[m]), %[c5]\n\t" "sbbq 16(%[m]), %[c6]\n\t" "sbbq 24(%[m]), %[c7]\n\t" "sbbq $0, %[t]\n\t" \
-					"cmovncq %[c4], %[c0]\n\t" "cmovncq %[c5], %[c1]\n\t" "cmovncq %[c6], %[c2]\n\t" "cmovncq %[c7], %[c3]\n\t" \
+					"cmovncq %[c4], %[c0]\n\t" "cmovncq %[c5], %[c1]\n\t" "cmovncq %[c6], %[c2]\n\t" "cmovncq %[c7], %[c3]\n\t"
+				/**
+				 * Запись четырёх слов итога по указателю r: хвост ядер через указатели
+				 */
+				#define __ANTS_X86_64_STORE4__ \
 					"movq %[c0], 0(%[r])\n\t" "movq %[c1], 8(%[r])\n\t" "movq %[c2], 16(%[r])\n\t" "movq %[c3], 24(%[r])\n\t"
 				/**
 				 * @brief Метод свёртки и условного вычитания модуля на ассемблере x86-64
@@ -1328,9 +1337,29 @@ namespace nts {
 				static __ANTS_INLINE__ void settle4(uint64_t & c0, uint64_t & c1, uint64_t & c2, uint64_t & c3, uint64_t & c4, uint64_t & c5, uint64_t & c6, uint64_t & c7, const fold_t * f, uint64_t * r) noexcept {
 					// Слово переноса и указатель на слова модуля
 					uint64_t t, m;
-					__asm__ volatile(__ANTS_X86_64_FOLD_SHRINK__
+					__asm__ volatile(__ANTS_X86_64_FOLD_SHRINK__ __ANTS_X86_64_STORE4__
 						: [c0] "+r" (c0), [c1] "+r" (c1), [c2] "+r" (c2), [c3] "+r" (c3), [c4] "+r" (c4), [c5] "+r" (c5), [c6] "+r" (c6), [c7] "+r" (c7), [t] "=&r" (t), [m] "=&r" (m)
 						: [f] "r" (f), [r] "r" (r)
+						: "rax", "rdx", "cc", "memory"
+					);
+				}
+				/**
+				 * @brief Метод свёртки и условного вычитания модуля на ассемблере x86-64 с итогом в регистрах
+				 *
+				 * @details Записи итога нет: слова остаются в c0…c3, и собиратель сам решает,
+				 *          держать их в регистрах для следующего ядра либо сложить в память
+				 *
+				 * @param c0 младшие слова произведения, замещаемые итогом
+				 * @param c4 старшие слова произведения
+				 * @param f  хвост и слова модуля
+				 *
+				 */
+				static __ANTS_INLINE__ void settle4v(uint64_t & c0, uint64_t & c1, uint64_t & c2, uint64_t & c3, uint64_t & c4, uint64_t & c5, uint64_t & c6, uint64_t & c7, const fold_t * f) noexcept {
+					// Слово переноса и указатель на слова модуля
+					uint64_t t, m;
+					__asm__(__ANTS_X86_64_FOLD_SHRINK__
+						: [c0] "+r" (c0), [c1] "+r" (c1), [c2] "+r" (c2), [c3] "+r" (c3), [c4] "+r" (c4), [c5] "+r" (c5), [c6] "+r" (c6), [c7] "+r" (c7), [t] "=&r" (t), [m] "=&r" (m)
+						: [f] "r" (f)
 						: "rax", "rdx", "cc", "memory"
 					);
 				}
@@ -1357,8 +1386,7 @@ namespace nts {
 					"addq %[c4], %[c0]\n\t" "adcq %[c5], %[c1]\n\t" "adcq %[c6], %[c2]\n\t" "adcq %[c7], %[c3]\n\t" "movq $0, %[t]\n\t" "adcq $0, %[t]\n\t" \
 					"movq %[c0], %[c4]\n\t" "movq %[c1], %[c5]\n\t" "movq %[c2], %[c6]\n\t" "movq %[c3], %[c7]\n\t" \
 					"subq $-1, %[c4]\n\t" "movabsq $0xffffffff, %[m]\n\t" "sbbq %[m], %[c5]\n\t" "sbbq $0, %[c6]\n\t" "movabsq $0xffffffff00000001, %[m]\n\t" "sbbq %[m], %[c7]\n\t" "sbbq $0, %[t]\n\t" \
-					"cmovncq %[c4], %[c0]\n\t" "cmovncq %[c5], %[c1]\n\t" "cmovncq %[c6], %[c2]\n\t" "cmovncq %[c7], %[c3]\n\t" \
-					"movq %[c0], 0(%[r])\n\t" "movq %[c1], 8(%[r])\n\t" "movq %[c2], 16(%[r])\n\t" "movq %[c3], 24(%[r])\n\t"
+					"cmovncq %[c4], %[c0]\n\t" "cmovncq %[c5], %[c1]\n\t" "cmovncq %[c6], %[c2]\n\t" "cmovncq %[c7], %[c3]\n\t"
 				/**
 				 * @brief Метод приведения Монтгомери по простому P-256 и условного вычитания модуля на ассемблере x86-64
 				 *
@@ -1370,13 +1398,30 @@ namespace nts {
 				static __ANTS_INLINE__ void settlenist4(uint64_t & c0, uint64_t & c1, uint64_t & c2, uint64_t & c3, uint64_t & c4, uint64_t & c5, uint64_t & c6, uint64_t & c7, uint64_t * r) noexcept {
 					// Временные слова приведения
 					uint64_t t, m;
-					__asm__ volatile(__ANTS_X86_64_NIST_SHRINK__
+					__asm__ volatile(__ANTS_X86_64_NIST_SHRINK__ __ANTS_X86_64_STORE4__
 						: [c0] "+r" (c0), [c1] "+r" (c1), [c2] "+r" (c2), [c3] "+r" (c3), [c4] "+r" (c4), [c5] "+r" (c5), [c6] "+r" (c6), [c7] "+r" (c7), [t] "=&r" (t), [m] "=&r" (m)
 						: [r] "r" (r)
 						: "rax", "rdx", "cc", "memory"
 					);
 				}
+				/**
+				 * @brief Метод приведения Монтгомери по простому P-256 и условного вычитания модуля на ассемблере x86-64 с итогом в регистрах
+				 *
+				 * @param c0 младшие слова произведения, замещаемые итогом
+				 * @param c4 старшие слова произведения
+				 *
+				 */
+				static __ANTS_INLINE__ void settlenist4v(uint64_t & c0, uint64_t & c1, uint64_t & c2, uint64_t & c3, uint64_t & c4, uint64_t & c5, uint64_t & c6, uint64_t & c7) noexcept {
+					// Временные слова приведения
+					uint64_t t, m;
+					__asm__(__ANTS_X86_64_NIST_SHRINK__
+						: [c0] "+r" (c0), [c1] "+r" (c1), [c2] "+r" (c2), [c3] "+r" (c3), [c4] "+r" (c4), [c5] "+r" (c5), [c6] "+r" (c6), [c7] "+r" (c7), [t] "=&r" (t), [m] "=&r" (m)
+						:
+						: "rax", "rdx", "cc"
+					);
+				}
 				#undef __ANTS_X86_64_NIST_SHRINK__
+				#undef __ANTS_X86_64_STORE4__
 				/**
 				 * @brief Метод умножения Монтгомери по простому P-256 на встроенном ассемблере x86-64
 				 *
@@ -1581,6 +1626,254 @@ namespace nts {
 						: [a] "r" (first), [b] "r" (second), [t] "r" (tail), [r] "r" (result)
 						: "cc", "memory"
 					);
+				}
+				/**
+				 * Ядра на значениях для x86-64: сомножители читаются ядром из памяти по указателям
+				 * (регистров на восемь слов входов и восемь слов произведения разом не хватает, а
+				 * mulq берёт множитель из памяти сам), итог остаётся в регистрах; сложение и
+				 * вычитание идут целиком в регистрах, оба операнда только в регистрах. Собиратель
+				 * держит значения формулы точки в регистрах поперёк ядер и кладёт в память лишь
+				 * то, что умножению нужно прочитать. Так устроен и путь ecp_nistz256: итог каждого
+				 * действия остаётся в регистрах для следующего. Испробованы и отвергнуты (FreeBSD
+				 * clang 19, MinGW gcc 16, 22.09.2026): пословные операнды памяти (%[a0]…%[b3]) вместо
+				 * указателей - при -O0 каждому операнду нужен свой регистр адреса, clang отказывает
+				 * «requires more registers», gcc 12 не собирает часами; операнды вида rm у сложений -
+				 * clang обращает их в копии слагаемого через стек (сложение цепочкой 6,5 нс при 3,4 у
+				 * вычитания на регистрах), gcc 16 с ними на 2 % быстрее, а gcc 12 на 5…7 % медленнее
+				 * (Astra: удвоение 235 → 253 нс) - оставлен r у всех; входы умножения в регистрах со сбросом в рабочий буфер
+				 * самим ядром - у gcc хуже на 3…13 % по всем формулам точки; лишние операнды памяти
+				 * «для сведения собирателя» считаются регистрами базы и не умещаются при хранимом
+				 * указателе кадра. Числа по стендам в CONFORMANCE.md, круг 26
+				 */
+				/**
+				 * @brief Метод умножения по модулю вида 2^256 - c на значениях x86-64
+				 *
+				 * @param first   первый сомножитель
+				 * @param second  второй сомножитель
+				 * @param tail    хвост c модуля
+				 * @param modulus слова модуля
+				 * @param result  место, в которое помещается произведение: вправе совпадать с сомножителем
+				 *
+				 */
+				static __ANTS_INLINE__ void multiplyminus4v(const Words <4> & first, const Words <4> & second, const uint64_t tail, const uint64_t * modulus, Words <4> & result) noexcept {
+					// Хвост и слова модуля
+					const fold_t fold = {tail, modulus};
+					// Слова полного произведения и слово переноса
+					uint64_t c0, c1, c2, c3, c4, c5, c6, c7, t;
+					__asm__(
+						__ANTS_X86_64_PRODUCT4__
+						: [c0] "=&r" (c0), [c1] "=&r" (c1), [c2] "=&r" (c2), [c3] "=&r" (c3), [c4] "=&r" (c4), [c5] "=&r" (c5), [c6] "=&r" (c6), [c7] "=&r" (c7), [t] "=&r" (t)
+						: [a] "r" (first.w), [b] "r" (second.w)
+						: "rax", "rdx", "cc", "memory"
+					);
+					// Выполняем свёртку и условное вычитание модуля в регистрах
+					settle4v(c0, c1, c2, c3, c4, c5, c6, c7, &fold);
+					// Записываем слова произведения
+					result.w[0] = c0;
+					result.w[1] = c1;
+					result.w[2] = c2;
+					result.w[3] = c3;
+				}
+				/**
+				 * @brief Метод возведения в квадрат по модулю вида 2^256 - c на значениях x86-64
+				 *
+				 * @param value   возводимое число
+				 * @param tail    хвост c модуля
+				 * @param modulus слова модуля
+				 * @param result  место, в которое помещается квадрат: вправе совпадать с числом
+				 *
+				 */
+				static __ANTS_INLINE__ void squareminus4v(const Words <4> & value, const uint64_t tail, const uint64_t * modulus, Words <4> & result) noexcept {
+					// Хвост и слова модуля
+					const fold_t fold = {tail, modulus};
+					// Слова полного квадрата и слово переноса
+					uint64_t c0, c1, c2, c3, c4, c5, c6, c7, t;
+					__asm__(
+						__ANTS_X86_64_SQUARE4__
+						: [c0] "=&r" (c0), [c1] "=&r" (c1), [c2] "=&r" (c2), [c3] "=&r" (c3), [c4] "=&r" (c4), [c5] "=&r" (c5), [c6] "=&r" (c6), [c7] "=&r" (c7), [t] "=&r" (t)
+						: [a] "r" (value.w)
+						: "rax", "rdx", "cc", "memory"
+					);
+					// Выполняем свёртку и условное вычитание модуля в регистрах
+					settle4v(c0, c1, c2, c3, c4, c5, c6, c7, &fold);
+					// Записываем слова квадрата
+					result.w[0] = c0;
+					result.w[1] = c1;
+					result.w[2] = c2;
+					result.w[3] = c3;
+				}
+				/**
+				 * @brief Метод умножения Монтгомери по простому P-256 на значениях x86-64
+				 *
+				 * @param first  первый сомножитель в области Монтгомери
+				 * @param second второй сомножитель в области Монтгомери
+				 * @param result место, в которое помещается произведение: вправе совпадать с сомножителем
+				 *
+				 */
+				static __ANTS_INLINE__ void nistmultiply4v(const Words <4> & first, const Words <4> & second, Words <4> & result) noexcept {
+					// Слова полного произведения и слово переноса
+					uint64_t c0, c1, c2, c3, c4, c5, c6, c7, t;
+					__asm__(
+						__ANTS_X86_64_PRODUCT4__
+						: [c0] "=&r" (c0), [c1] "=&r" (c1), [c2] "=&r" (c2), [c3] "=&r" (c3), [c4] "=&r" (c4), [c5] "=&r" (c5), [c6] "=&r" (c6), [c7] "=&r" (c7), [t] "=&r" (t)
+						: [a] "r" (first.w), [b] "r" (second.w)
+						: "rax", "rdx", "cc", "memory"
+					);
+					// Выполняем приведение и условное вычитание модуля в регистрах
+					settlenist4v(c0, c1, c2, c3, c4, c5, c6, c7);
+					// Записываем слова произведения
+					result.w[0] = c0;
+					result.w[1] = c1;
+					result.w[2] = c2;
+					result.w[3] = c3;
+				}
+				/**
+				 * @brief Метод возведения в квадрат Монтгомери по простому P-256 на значениях x86-64
+				 *
+				 * @param value  возводимое число в области Монтгомери
+				 * @param result место, в которое помещается квадрат: вправе совпадать с числом
+				 *
+				 */
+				static __ANTS_INLINE__ void nistsquare4v(const Words <4> & value, Words <4> & result) noexcept {
+					// Слова полного квадрата и слово переноса
+					uint64_t c0, c1, c2, c3, c4, c5, c6, c7, t;
+					__asm__(
+						__ANTS_X86_64_SQUARE4__
+						: [c0] "=&r" (c0), [c1] "=&r" (c1), [c2] "=&r" (c2), [c3] "=&r" (c3), [c4] "=&r" (c4), [c5] "=&r" (c5), [c6] "=&r" (c6), [c7] "=&r" (c7), [t] "=&r" (t)
+						: [a] "r" (value.w)
+						: "rax", "rdx", "cc", "memory"
+					);
+					// Выполняем приведение и условное вычитание модуля в регистрах
+					settlenist4v(c0, c1, c2, c3, c4, c5, c6, c7);
+					// Записываем слова квадрата
+					result.w[0] = c0;
+					result.w[1] = c1;
+					result.w[2] = c2;
+					result.w[3] = c3;
+				}
+				/**
+				 * @brief Метод сложения по модулю вида 2^256 - c на значениях x86-64
+				 *
+				 * @details Слова первого слагаемого входят в регистрах и замещаются суммой, слова
+				 *          второго - в регистрах либо в памяти, как удобнее собирателю. Хвост
+				 *          прибавляется всегда, а назад вычитается под маской: сумма не меньше
+				 *          модуля тогда и только тогда, когда за разрядную сетку вышла она сама либо
+				 *          она с хвостом (оба выхода разом невозможны: сумма меньше удвоенного
+				 *          модуля). Временных регистров ядру не нужно: их у формулы точки и так впритык
+				 *
+				 * @param first  первое слагаемое
+				 * @param second второе слагаемое
+				 * @param tail   хвост c модуля
+				 * @param result место, в которое помещается сумма: вправе совпадать со слагаемым
+				 *
+				 */
+				static __ANTS_INLINE__ void addminus4v(const Words <4> & first, const Words <4> & second, const uint64_t tail, Words <4> & result) noexcept {
+					// Слова суммы и маска возврата хвоста
+					uint64_t c0 = first.w[0], c1 = first.w[1], c2 = first.w[2], c3 = first.w[3], k;
+					__asm__(
+						"addq %[b0], %[c0]\n\t" "adcq %[b1], %[c1]\n\t" "adcq %[b2], %[c2]\n\t" "adcq %[b3], %[c3]\n\t"
+						"sbbq %[k], %[k]\n\t"
+						"addq %[t], %[c0]\n\t" "adcq $0, %[c1]\n\t" "adcq $0, %[c2]\n\t" "adcq $0, %[c3]\n\t"
+						"sbbq $0, %[k]\n\t"
+						"notq %[k]\n\t"
+						"andq %[t], %[k]\n\t"
+						"subq %[k], %[c0]\n\t" "sbbq $0, %[c1]\n\t" "sbbq $0, %[c2]\n\t" "sbbq $0, %[c3]\n\t"
+						: [c0] "+&r" (c0), [c1] "+&r" (c1), [c2] "+&r" (c2), [c3] "+&r" (c3), [k] "=&r" (k)
+						: [b0] "r" (second.w[0]), [b1] "r" (second.w[1]), [b2] "r" (second.w[2]), [b3] "r" (second.w[3]), [t] "r" (tail)
+						: "cc"
+					);
+					// Записываем слова суммы
+					result.w[0] = c0;
+					result.w[1] = c1;
+					result.w[2] = c2;
+					result.w[3] = c3;
+				}
+				/**
+				 * @brief Метод вычитания по модулю вида 2^256 - c на значениях x86-64
+				 *
+				 * @param first  уменьшаемое
+				 * @param second вычитаемое
+				 * @param tail   хвост c модуля
+				 * @param result место, в которое помещается разность: вправе совпадать с уменьшаемым
+				 *
+				 */
+				static __ANTS_INLINE__ void subtractminus4v(const Words <4> & first, const Words <4> & second, const uint64_t tail, Words <4> & result) noexcept {
+					// Слова разности и маска займа
+					uint64_t c0 = first.w[0], c1 = first.w[1], c2 = first.w[2], c3 = first.w[3], k;
+					__asm__(
+						"subq %[b0], %[c0]\n\t" "sbbq %[b1], %[c1]\n\t" "sbbq %[b2], %[c2]\n\t" "sbbq %[b3], %[c3]\n\t"
+						"sbbq %[k], %[k]\n\t"
+						"andq %[t], %[k]\n\t"
+						"subq %[k], %[c0]\n\t" "sbbq $0, %[c1]\n\t" "sbbq $0, %[c2]\n\t" "sbbq $0, %[c3]\n\t"
+						: [c0] "+&r" (c0), [c1] "+&r" (c1), [c2] "+&r" (c2), [c3] "+&r" (c3), [k] "=&r" (k)
+						: [b0] "r" (second.w[0]), [b1] "r" (second.w[1]), [b2] "r" (second.w[2]), [b3] "r" (second.w[3]), [t] "r" (tail)
+						: "cc"
+					);
+					// Записываем слова разности
+					result.w[0] = c0;
+					result.w[1] = c1;
+					result.w[2] = c2;
+					result.w[3] = c3;
+				}
+				/**
+				 * @brief Метод сложения по простому P-256 на значениях x86-64
+				 *
+				 * @details Модуль вычитается всегда, а прибавляется назад под маской: маска
+				 *          поднята, когда сумма за разрядную сетку не вышла, а вычитание заняло.
+				 *          Младшее слово модуля из одних единиц есть сама маска, второе и четвёртое
+				 *          берутся по маске; временных регистров, кроме двух под слова модуля, нет
+				 *
+				 * @param first  первое слагаемое
+				 * @param second второе слагаемое
+				 * @param result место, в которое помещается сумма: вправе совпадать со слагаемым
+				 *
+				 */
+				static __ANTS_INLINE__ void addnist4v(const Words <4> & first, const Words <4> & second, Words <4> & result) noexcept {
+					// Слова суммы и маска возврата модуля
+					uint64_t c0 = first.w[0], c1 = first.w[1], c2 = first.w[2], c3 = first.w[3], k;
+					__asm__(
+						"addq %[b0], %[c0]\n\t" "adcq %[b1], %[c1]\n\t" "adcq %[b2], %[c2]\n\t" "adcq %[b3], %[c3]\n\t"
+						"sbbq %[k], %[k]\n\t" "negq %[k]\n\t"
+						"subq $-1, %[c0]\n\t" "movabsq $0xffffffff, %%rax\n\t" "sbbq %%rax, %[c1]\n\t" "sbbq $0, %[c2]\n\t" "movabsq $0xffffffff00000001, %%rdx\n\t" "sbbq %%rdx, %[c3]\n\t"
+						"sbbq $0, %[k]\n\t"
+						"sbbq %[k], %[k]\n\t"
+						"andq %[k], %%rax\n\t" "andq %[k], %%rdx\n\t"
+						"addq %[k], %[c0]\n\t" "adcq %%rax, %[c1]\n\t" "adcq $0, %[c2]\n\t" "adcq %%rdx, %[c3]\n\t"
+						: [c0] "+&r" (c0), [c1] "+&r" (c1), [c2] "+&r" (c2), [c3] "+&r" (c3), [k] "=&r" (k)
+						: [b0] "r" (second.w[0]), [b1] "r" (second.w[1]), [b2] "r" (second.w[2]), [b3] "r" (second.w[3])
+						: "rax", "rdx", "cc"
+					);
+					// Записываем слова суммы
+					result.w[0] = c0;
+					result.w[1] = c1;
+					result.w[2] = c2;
+					result.w[3] = c3;
+				}
+				/**
+				 * @brief Метод вычитания по простому P-256 на значениях x86-64
+				 *
+				 * @param first  уменьшаемое
+				 * @param second вычитаемое
+				 * @param result место, в которое помещается разность: вправе совпадать с уменьшаемым
+				 *
+				 */
+				static __ANTS_INLINE__ void subtractnist4v(const Words <4> & first, const Words <4> & second, Words <4> & result) noexcept {
+					// Слова разности и маска займа
+					uint64_t c0 = first.w[0], c1 = first.w[1], c2 = first.w[2], c3 = first.w[3], k;
+					__asm__(
+						"subq %[b0], %[c0]\n\t" "sbbq %[b1], %[c1]\n\t" "sbbq %[b2], %[c2]\n\t" "sbbq %[b3], %[c3]\n\t"
+						"sbbq %[k], %[k]\n\t"
+						"movabsq $0xffffffff, %%rax\n\t" "andq %[k], %%rax\n\t" "movabsq $0xffffffff00000001, %%rdx\n\t" "andq %[k], %%rdx\n\t"
+						"addq %[k], %[c0]\n\t" "adcq %%rax, %[c1]\n\t" "adcq $0, %[c2]\n\t" "adcq %%rdx, %[c3]\n\t"
+						: [c0] "+&r" (c0), [c1] "+&r" (c1), [c2] "+&r" (c2), [c3] "+&r" (c3), [k] "=&r" (k)
+						: [b0] "r" (second.w[0]), [b1] "r" (second.w[1]), [b2] "r" (second.w[2]), [b3] "r" (second.w[3])
+						: "rax", "rdx", "cc"
+					);
+					// Записываем слова разности
+					result.w[0] = c0;
+					result.w[1] = c1;
+					result.w[2] = c2;
+					result.w[3] = c3;
 				}
 				#undef __ANTS_X86_64_PRODUCT4__
 				#undef __ANTS_X86_64_SQUARE4__
@@ -1917,6 +2210,19 @@ namespace nts {
 							return;
 						}
 					}
+				#elif defined(__ANTS_X86_64_KERNELS__)
+					// На x86-64 произведение считается ядром на значениях: входы из памяти, итог в регистрах
+					if constexpr (WORDS == 4){
+						if(layout.form == Modulus::form_t::MINUS){
+							multiplyminus4v(first, second, layout.tail, layout.modulus, result);
+							return;
+						}
+						// У простого P-256 - своим ядром на значениях
+						if(layout.form == Modulus::form_t::NIST){
+							nistmultiply4v(first, second, result);
+							return;
+						}
+					}
 				#endif
 				// Выполняем умножение ядром через указатели прямо в приёмник
 				multiply <WORDS> (layout, first.w, second.w, result.w);
@@ -1941,6 +2247,19 @@ namespace nts {
 						// У простого P-256 - своим регистровым ядром
 						if(layout.form == Modulus::form_t::NIST){
 							result = squarenist4r(value);
+							return;
+						}
+					}
+				#elif defined(__ANTS_X86_64_KERNELS__)
+					// На x86-64 квадрат считается ядром на значениях: входы из памяти, итог в регистрах
+					if constexpr (WORDS == 4){
+						if(layout.form == Modulus::form_t::MINUS){
+							squareminus4v(value, layout.tail, layout.modulus, result);
+							return;
+						}
+						// У простого P-256 - своим ядром на значениях
+						if(layout.form == Modulus::form_t::NIST){
+							nistsquare4v(value, result);
 							return;
 						}
 					}
@@ -1972,6 +2291,19 @@ namespace nts {
 							return;
 						}
 					}
+				#elif defined(__ANTS_X86_64_KERNELS__)
+					// На x86-64 сумма считается ядром на значениях: входы из памяти, итог в регистрах
+					if constexpr (WORDS == 4){
+						if(layout.form == Modulus::form_t::MINUS){
+							addminus4v(first, second, layout.tail, result);
+							return;
+						}
+						// У простого P-256 - своим ядром на значениях
+						if(layout.form == Modulus::form_t::NIST){
+							addnist4v(first, second, result);
+							return;
+						}
+					}
 				#endif
 				// Выполняем сложение ядром через указатели прямо в приёмник
 				add <WORDS> (layout, first.w, second.w, result.w);
@@ -1997,6 +2329,19 @@ namespace nts {
 						// У простого P-256 - своим регистровым ядром
 						if(layout.form == Modulus::form_t::NIST){
 							result = subtractnist4r(first, second);
+							return;
+						}
+					}
+				#elif defined(__ANTS_X86_64_KERNELS__)
+					// На x86-64 разность считается ядром на значениях: входы из памяти, итог в регистрах
+					if constexpr (WORDS == 4){
+						if(layout.form == Modulus::form_t::MINUS){
+							subtractminus4v(first, second, layout.tail, result);
+							return;
+						}
+						// У простого P-256 - своим ядром на значениях
+						if(layout.form == Modulus::form_t::NIST){
+							subtractnist4v(first, second, result);
 							return;
 						}
 					}

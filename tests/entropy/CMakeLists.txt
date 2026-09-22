@@ -7,8 +7,8 @@ add_executable(${TEST_ENTROPY_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/entropy.cpp")
 # Включаем флаги компиляции проверок
 target_compile_options(${TEST_ENTROPY_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
 
-# Подключаем каталог общих заголовочных файлов набора проверок
-target_include_directories(${TEST_ENTROPY_NAME} PRIVATE "${ANTS_ROOT}/tests")
+# Подключаем каталог общих заголовочных файлов набора проверок и внутренних заголовков библиотеки
+target_include_directories(${TEST_ENTROPY_NAME} PRIVATE "${ANTS_ROOT}/tests" "${ANTS_ROOT}/src")
 
 # Выполняем подключение зависимостей цели проверок
 target_link_libraries(${TEST_ENTROPY_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})

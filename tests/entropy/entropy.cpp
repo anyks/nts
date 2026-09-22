@@ -28,9 +28,21 @@
  */
 #include <set>
 #include <string>
+#include <vector>
+#include <thread>
+#include <cerrno>
 #include <cstring>
 #include <main.hpp>
 #include <entropy/entropy.hpp>
+#include <internal/entropy/generator.hpp>
+
+/**
+ * Разветвление процесса существует лишь у систем Unix
+ */
+#if !defined(_WIN32) && !defined(_WIN64)
+	#include <unistd.h>
+	#include <sys/wait.h>
+#endif
 
 /**
  * Используем пространство имён проекта
@@ -203,3 +215,235 @@ TEST(EntropyTest, Number) {
 	// Проверяем отказ получения случайного числа по неустановленному модулю
 	ASSERT_FALSE(entropy::number(empty, value));
 }
+/**
+ * @brief Проверка затирания выданного и смены ключа при наполнении запаса
+ *
+ * @details Закрепляет устройство «ключ стирается на ходу»: перенесённые в ключ и
+ *          заполнение байты запаса затёрты, выданные потребителю байты затёрты, а ключ
+ *          после исчерпания запаса иной, чем до него
+ *
+ */
+TEST(EntropyTest, Erasure) {
+	// Порождатель текущего потока
+	internal::generator_t & generator = internal::generator();
+	// Место, в которое помещаются случайные байты
+	uint8_t buffer[64];
+	// Выполняем получение случайных байтов: порождатель наполнен
+	ASSERT_TRUE(entropy::bytes(buffer, sizeof(buffer)));
+	// Проверяем, что порождатель наполнен от системы
+	ASSERT_TRUE(generator.seeded);
+	/**
+	 * Проверяем затирание перенесённых в ключ и заполнение байтов запаса
+	 */
+	for(size_t i = 0; i < internal::generator_t::TAKEN; i++)
+		// Проверяем затирание очередного байта
+		ASSERT_EQ(generator.buffer[i], 0) << "Место: " << i;
+	// Если запаса на выдачу с остатком не хватает
+	if(generator.rest < (2 * sizeof(buffer))){
+		// Хвост запаса, исчерпание которого ведёт к наполнению
+		std::vector <uint8_t> tail(generator.rest + 1, 0);
+		// Выполняем исчерпание запаса: следом идёт наполнение
+		ASSERT_TRUE(entropy::bytes(tail.data(), tail.size()));
+	}
+	// Запас перед выдачей
+	const size_t rest = generator.rest;
+	// Проверяем, что запаса на выдачу с остатком хватает
+	ASSERT_GE(rest, 2 * sizeof(buffer));
+	// Ключ перед выдачей
+	uint8_t key[internal::generator_t::KEY];
+	// Запоминаем ключ
+	::memcpy(key, generator.key, sizeof(key));
+	// Выполняем получение случайных байтов из запаса
+	ASSERT_TRUE(entropy::bytes(buffer, sizeof(buffer)));
+	// Проверяем, что выдача взята из запаса
+	ASSERT_EQ(generator.rest, rest - sizeof(buffer));
+	// Место выданных байтов в запасе
+	const uint8_t * place = (generator.buffer + (internal::generator_t::BUFFER - rest));
+	/**
+	 * Проверяем затирание выданных байтов в запасе
+	 */
+	for(size_t i = 0; i < sizeof(buffer); i++)
+		// Проверяем затирание очередного выданного байта
+		ASSERT_EQ(place[i], 0) << "Место: " << i;
+	// Собираемое объединение неизрасходованного остатка запаса
+	uint8_t item = 0;
+	/**
+	 * Выполняем перебор неизрасходованного остатка запаса
+	 */
+	for(size_t i = sizeof(buffer); i < rest; i++)
+		// Собираем объединение остатка
+		item = static_cast <uint8_t> (item | place[i]);
+	// Проверяем, что неизрасходованный остаток нулями не оказался
+	ASSERT_NE(item, 0);
+	// Проверяем, что выдача из запаса ключа не меняет
+	ASSERT_EQ(::memcmp(key, generator.key, sizeof(key)), 0);
+	// Хвост запаса, исчерпание которого ведёт к наполнению
+	std::vector <uint8_t> tail(generator.rest + 1, 0);
+	// Выполняем исчерпание запаса: следом идёт наполнение
+	ASSERT_TRUE(entropy::bytes(tail.data(), tail.size()));
+	// Проверяем, что наполнение сменило ключ
+	ASSERT_NE(::memcmp(key, generator.key, sizeof(key)), 0);
+	// Проверяем, что запас наполнен заново
+	ASSERT_EQ(generator.rest, internal::generator_t::REST - 1);
+}
+/**
+ * @brief Проверка переналивки от системы по счёту наполнений
+ *
+ */
+TEST(EntropyTest, Reseed) {
+	// Порождатель текущего потока
+	internal::generator_t & generator = internal::generator();
+	// Место, в которое помещаются случайные байты
+	uint8_t buffer[16];
+	// Выполняем получение случайных байтов: порождатель наполнен
+	ASSERT_TRUE(entropy::bytes(buffer, sizeof(buffer)));
+	// Число переналивок перед выдачей
+	const size_t stirs = generator.stirs;
+	// Проверяем, что порождатель хотя бы раз наполнен от системы
+	ASSERT_GE(stirs, static_cast <size_t> (1));
+	// Выдача, превышающая выдачу между переналивками
+	std::vector <uint8_t> big((internal::generator_t::RESEED + 1) * internal::generator_t::REST, 0);
+	// Выполняем получение случайных байтов
+	ASSERT_TRUE(entropy::bytes(big.data(), big.size()));
+	// Проверяем, что переналивка от системы состоялась
+	ASSERT_GE(generator.stirs, stirs + 1);
+	// Проверяем, что счёт наполнений не перерастает предела переналивки
+	ASSERT_LE(generator.refills, internal::generator_t::RESEED);
+	// Проверяем, что выдача до и после переналивки различна
+	ASSERT_NE(::memcmp(big.data(), big.data() + (big.size() / 2), 64), 0);
+}
+/**
+ * @brief Проверка раздельности порождателей потоков
+ *
+ */
+TEST(EntropyTest, Threads) {
+	// Число потоков
+	constexpr size_t COUNT = 4;
+	// Выдачи потоков
+	std::vector <std::vector <uint8_t>> items(COUNT, std::vector <uint8_t> (2048, 0));
+	// Итоги выдач потоков
+	bool outcomes[COUNT] = {false, false, false, false};
+	// Потоки
+	std::vector <std::thread> workers;
+	/**
+	 * Выполняем запуск потоков
+	 */
+	for(size_t i = 0; i < COUNT; i++)
+		// Запускаем очередной поток
+		workers.emplace_back([&items, &outcomes, i]() noexcept -> void {
+			// Выполняем получение случайных байтов в потоке
+			outcomes[i] = entropy::bytes(items[i].data(), items[i].size());
+		});
+	/**
+	 * Выполняем ожидание потоков
+	 */
+	for(auto & worker : workers)
+		// Дожидаемся очередного потока
+		worker.join();
+	// Место, в которое помещаются случайные байты потока проверки
+	uint8_t buffer[64];
+	// Выполняем получение случайных байтов в потоке проверки
+	ASSERT_TRUE(entropy::bytes(buffer, sizeof(buffer)));
+	/**
+	 * Выполняем перебор выдач потоков
+	 */
+	for(size_t i = 0; i < COUNT; i++){
+		// Проверяем успешность выдачи потока
+		ASSERT_TRUE(outcomes[i]) << "Поток: " << i;
+		// Проверяем, что выдача потока отлична от выдачи потока проверки
+		ASSERT_NE(::memcmp(buffer, items[i].data(), sizeof(buffer)), 0) << "Поток: " << i;
+		/**
+		 * Выполняем перебор прочих потоков
+		 */
+		for(size_t j = (i + 1); j < COUNT; j++)
+			// Проверяем, что выдачи потоков различны
+			ASSERT_NE(::memcmp(items[i].data(), items[j].data(), sizeof(buffer)), 0) << "Потоки: " << i << " и " << j;
+	}
+}
+/**
+ * Разветвление процесса существует лишь у систем Unix
+ */
+#if !defined(_WIN32) && !defined(_WIN64)
+/**
+ * @brief Проверка переналивки у потомка после разветвления процесса
+ *
+ * @details Потомок наследует состояние порождателя родителя: без переналивки его выдача
+ *          совпала бы с последующей выдачей родителя. Потомок сообщает выдачу через канал
+ *          и завершается без раскрутки набора проверок
+ *
+ */
+TEST(EntropyTest, Fork) {
+	// Место, в которое помещаются случайные байты до разветвления
+	uint8_t before[64];
+	// Выполняем получение случайных байтов: порождатель потока наполнен до разветвления
+	ASSERT_TRUE(entropy::bytes(before, sizeof(before)));
+	// Канал сообщения выдачи потомка
+	int channel[2] = {-1, -1};
+	// Заводим канал
+	ASSERT_EQ(::pipe(channel), 0);
+	// Выполняем разветвление процесса
+	const pid_t child = ::fork();
+	// Проверяем успешность разветвления
+	ASSERT_GE(child, 0);
+	// Если это потомок
+	if(child == 0){
+		// Выдача потомка
+		uint8_t mine[sizeof(before)];
+		// Итог выдачи потомка
+		const uint8_t outcome = (entropy::bytes(mine, sizeof(mine)) ? 1 : 0);
+		// Закрываем чтение канала
+		::close(channel[0]);
+		// Сообщаем итог выдачи
+		(void) !::write(channel[1], &outcome, sizeof(outcome));
+		// Сообщаем выдачу
+		(void) !::write(channel[1], mine, sizeof(mine));
+		// Закрываем запись канала
+		::close(channel[1]);
+		// Завершаем потомка без раскрутки набора проверок
+		::_exit(0);
+	}
+	// Закрываем запись канала
+	::close(channel[1]);
+	// Сообщение потомка: итог и выдача
+	uint8_t message[1 + sizeof(before)];
+	// Выполняем обнуление сообщения
+	::memset(message, 0, sizeof(message));
+	// Число принятых байтов сообщения
+	size_t received = 0;
+	/**
+	 * Выполняем приём сообщения потомка
+	 */
+	while(received < sizeof(message)){
+		// Выполняем чтение очередной части сообщения
+		const ssize_t count = ::read(channel[0], message + received, sizeof(message) - received);
+		// Если чтение прервано сигналом
+		if((count < 0) && (errno == EINTR))
+			// Выполняем повторное чтение
+			continue;
+		// Если сообщение оборвано
+		if(count <= 0)
+			// Прекращаем приём
+			break;
+		// Увеличиваем число принятых байтов
+		received += static_cast <size_t> (count);
+	}
+	// Закрываем чтение канала
+	::close(channel[0]);
+	// Состояние завершения потомка
+	int status = 0;
+	// Дожидаемся потомка
+	ASSERT_EQ(::waitpid(child, &status, 0), child);
+	// Место, в которое помещаются случайные байты после разветвления
+	uint8_t after[sizeof(before)];
+	// Выполняем получение случайных байтов после разветвления
+	ASSERT_TRUE(entropy::bytes(after, sizeof(after)));
+	// Проверяем, что сообщение потомка принято целиком
+	ASSERT_EQ(received, sizeof(message));
+	// Проверяем успешность выдачи потомка
+	ASSERT_EQ(message[0], 1);
+	// Проверяем, что выдача потомка отлична от выдачи родителя после разветвления
+	ASSERT_NE(::memcmp(message + 1, after, sizeof(after)), 0);
+	// Проверяем, что выдача потомка отлична от выдачи родителя до разветвления
+	ASSERT_NE(::memcmp(message + 1, before, sizeof(before)), 0);
+}
+#endif
