@@ -781,7 +781,17 @@ TEST(NumberTest, Inverse) {
 	static const item_t ITEMS[] = {
 		{"ffffffffffffffffffffffffffffffff6c611070995ad10045841b09b761b893", "9069aef3a98d5a4176765b474bfe95fe9a49e13d1b0cb0edde079eaea48e8c67", "72bc0089a5cfb0d5ac12769bb5fcb40c88f2a47f70ed4cdffa91efd3492c4be8"},
 		{"ffffffff00000001000000000000000000000000ffffffffffffffffffffffff", "7eda1fca69a3e9a58f6aa4b93364aad344f45befbfab26db022bdd5559bb22f2", "461e4016eed14fe21b637a1ef382f2ad8c4618f181367f47e1ddc8c24e7002f0"},
-		{"4531acd1fe0023c7550d267b6b2fee80922b14b2ffb90f04d4eb7c09b5d2d15da82f2d7ecb1dbac719905c5eecc423f1d86e25edbe23c595d644aaf187e6e6df", "15a18eb2e9066d94493f0556e9b8a466f2dd77d55565e21df8cc013f05bd729c4e70b96f9eab1ba961a5749e249a47ef27c42632314839f029f44f8cf1e92481", "05ac39a1758e6f33bedeb233cb6b32d46cb7aad39ece6df14dddb6438b325ad3c7c9edc83b450db95b46b9ff6a2b51fcd8135258c26951869be539c4f24fe9b2"}
+		{"4531acd1fe0023c7550d267b6b2fee80922b14b2ffb90f04d4eb7c09b5d2d15da82f2d7ecb1dbac719905c5eecc423f1d86e25edbe23c595d644aaf187e6e6df", "15a18eb2e9066d94493f0556e9b8a466f2dd77d55565e21df8cc013f05bd729c4e70b96f9eab1ba961a5749e249a47ef27c42632314839f029f44f8cf1e92481", "05ac39a1758e6f33bedeb233cb6b32d46cb7aad39ece6df14dddb6438b325ad3c7c9edc83b450db95b46b9ff6a2b51fcd8135258c26951869be539c4f24fe9b2"},
+		/**
+		 * Модули вида 2^k ± c идут цепочкой сложений показателя, а не окнами: 2^256 - 617
+		 * (CryptoPro-A), 2^255 + 3225 (CryptoPro-B), 2^512 - 569 и 2^511 + 111 (наборы 512
+		 * разрядов), а также p - 1, обратное самому себе
+		 */
+		{"fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd97", "5c9a4b56088704ce240a488c3ab368b26df5dfb876b897efadd43e771030055f", "f036fd515a09961de7f9adda07d00f7a5419fd7b6416e5716bcab9ffcdcae8dc"},
+		{"8000000000000000000000000000000000000000000000000000000000000c99", "3b77e4dd8ac585fad29b4bd454bf551f72b536eb5cc8bf534630c5c638bfdd2c", "0815f4454eba010932d523b70e9a5b0f3bb8e9882dfaf232ef884c1258a057c4"},
+		{"fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffdc7", "6e3c33237f2e86cac108143f29efe27864599c8f65b211282c9d709cdc53bfe8ec41e52b92e308d9298af1b854a5afc73a956b5ad50cf25b842089abd34ca117", "1179ea9f62c7c85a24b66f1357b2df110f0ecdf773cc2c9cfcf5d62ad7a4d4e4449d02df3d445908881ec3fb3cfc2871afff586f90af9ef185d4c86107498f4d"},
+		{"8000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000006f", "131fac4bf1537ad24884eba32ed8ea9183d22067ec95f13be2e21c367edc51b456acbf180849a9fd3d98b9c9076e87ce673f5c00cf1851ceb3a3f73ed2ec24ac", "6b6f85264d7e77217606255a81657e7999490e0bacee2bcd1816a981f6a1ce9df378baf8b19e2b246ce2cfc33ded256241870aac25c9ca29c0a0b32d3ba090e4"},
+		{"fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd97", "fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd96", "fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd96"}
 	};
 	uint8_t buffer[math::NUMBER_SIZE];
 	for(size_t i = 0; i < (sizeof(ITEMS) / sizeof(ITEMS[0])); i++){

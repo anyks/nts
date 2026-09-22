@@ -590,8 +590,10 @@ namespace nts {
 				 * @param result место, в которое помещается обратное число в области Монтгомери
 				 *
 				 * @note Обращение вычисляется возведением в степень, меньшую модуля на два:
-				 *       это верно лишь при простом модуле. Показатель открыт, оттого степень
-				 *       берётся окнами по четыре разряда с заготовкой пятнадцати степеней, а
+				 *       это верно лишь при простом модуле. Показатель открыт, оттого у модулей
+				 *       вида 2^k ± c степень берётся цепочкой сложений показателя по его
+				 *       известному строению (k - 1 квадратов и около пятнадцати умножений), а у
+				 *       прочих - окнами по четыре разряда с заготовкой пятнадцати степеней;
 				 *       порядок действий от обращаемого числа не зависит
 				 *
 				 * \~english
@@ -600,8 +602,11 @@ namespace nts {
 				 * @param result the place the inverse number in the Montgomery domain is put into
 				 * @note The inversion is computed by a raise into a power less than the modulus by
 				 *       two: this is true only at a prime modulus. The exponent is public, therefore
-				 *       the power is taken by the windows of four bits with a preparation of fifteen
-				 *       powers, while the order of the operations does not depend on the number being inverted
+				 *       at the moduli of the form 2^k ± c the power is taken by an addition chain of
+				 *       the exponent by its known structure (k - 1 squarings and about fifteen
+				 *       multiplications), and at the rest by the windows of four bits with a
+				 *       preparation of fifteen powers; the order of the operations does not depend
+				 *       on the number being inverted
 				 *
 				 * \~
 				 */

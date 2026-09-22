@@ -132,6 +132,14 @@ namespace nts {
 		 *       накопителях по числу слов, а не в памяти. Замер 21.09.2026 (M4): удвоение
 		 *       148 → 114 нс, подпись ГОСТ 32 240 → 67 510 в секунду вместе с прочими
 		 *       правками того же дня
+		 * @note Формулы точек собираются из ядер на значениях поля в регистрах, а не на
+		 *       числах в памяти, как ассемблерные формулы OpenSSL (ecp_nistz256): стык двух
+		 *       ядер не стоит записи с чтением. Умножение на секретное число идёт знаковыми
+		 *       окнами по пять разрядов (кодирование Бута), точка основания - заготовленными
+		 *       знаковыми окнами по шесть, сумма двух произведений сличения подписи - порознь
+		 *       с одним сложением, выборка кратных - векторно. Замер 22.09.2026 (M4): удвоение
+		 *       80 → 57 нс при 53 у nistz256, подпись ГОСТ 79 700 → 134 000 в секунду при
+		 *       83 000 у ECDSA P-256 OpenSSL, обмен ключами 26 800 → 41 600 при 38 400
 		 *
 		 * \~english
 		 * @brief Elliptic curve over a field of a prime order
@@ -152,6 +160,15 @@ namespace nts {
 		 *       number of words rather than in memory. Measurement of 21.09.2026 (M4): a doubling
 		 *       148 → 114 ns, a GOST signature 32 240 → 67 510 per second together with the other
 		 *       changes of the same day
+		 * @note The formulas of the points are assembled from the kernels on the values of the field
+		 *       in the registers rather than on the numbers in memory, like the assembly formulas of
+		 *       OpenSSL (ecp_nistz256): a junction of two kernels does not cost a store with a load.
+		 *       The multiplication by a secret number goes by the signed windows of five bits (the
+		 *       Booth recoding), the base point by the precomputed signed windows of six bits, the sum
+		 *       of two products of the signature verification separately with one addition, the
+		 *       selection of the multiples by vectors. Measurement of 22.09.2026 (M4): a doubling
+		 *       80 → 57 ns at 53 of nistz256, a GOST signature 79 700 → 134 000 per second at 83 000
+		 *       of ECDSA P-256 of OpenSSL, a key exchange 26 800 → 41 600 at 38 400
 		 *
 		 * \~
 		 */

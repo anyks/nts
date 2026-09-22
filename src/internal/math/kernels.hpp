@@ -44,6 +44,17 @@
  *       16,8 → 18,0, FreeBSD (clang 19) 24,2 → 25,0; вместе с чтением входов наперёд
  *       M4 71,5…73,0, Astra 17,6…18,3, FreeBSD 24,8…25,4
  *
+ * @note Формулы точки кривой собираются из ядер на ЗНАЧЕНИЯХ (Words <WORDS> по значению),
+ *       а не через указатели: между ядрами значение живёт в регистрах, и стык двух ядер не
+ *       стоит записи с чтением. Это была половина отставания от ассемблерных формул
+ *       OpenSSL (ecp_nistz256): та же формула удвоения, собранная из их же ядер через
+ *       память, стоила 82 нс при 53 у родной. На AArch64 у модуля 2^256 - c ядра
+ *       умножения, квадрата, сложения и вычитания идут с регистровыми операндами; на
+ *       x86-64 (gcc) сложение и вычитание получили ядра на ассемблере через память, ибо
+ *       их C++ у gcc 12 стоил 11 нс против 6; у прочих собирателей и видов модуля ядра на
+ *       значениях - обёртки над ядрами через указатели. Замер 22.09.2026: M4 удвоение
+ *       точки 80 → 57 нс (nistz256 53), Astra 334 → 260 (197)
+ *
  * @copyright Copyright © 2026
  *
  */
@@ -82,6 +93,59 @@ namespace nts {
 		 *
 		 */
 		namespace kernel {
+			/**
+			 * @brief Значение поля известного числа слов, передаваемое по значению
+			 *
+			 * @details Формулы точки кривой собираются из ядер на таких значениях: между
+			 *          ядрами значение живёт в регистрах, а не в памяти, и стык двух ядер
+			 *          не стоит записи с последующим чтением. Замер 22.09.2026 на M4: та же
+			 *          формула удвоения через память 80 нс, на значениях 57 при 53 у
+			 *          ассемблерного point_double OpenSSL (ecp_nistz256); Astra (gcc 12)
+			 *          удвоение 334 → 260 за счёт сложений на ассемблере
+			 *
+			 */
+			template <size_t WORDS>
+			struct Words {
+				// Слова значения от младшего к старшему
+				uint64_t w[WORDS];
+			};
+			/**
+			 * @brief Метод чтения значения из памяти
+			 *
+			 * @param value слова значения
+			 *
+			 * @return      значение в регистрах
+			 *
+			 */
+			template <size_t WORDS>
+			static __ANTS_INLINE__ Words <WORDS> fetch(const uint64_t * value) noexcept {
+				// Читаемое значение
+				Words <WORDS> result;
+				/**
+				 * Выполняем чтение слов
+				 */
+				for(size_t i = 0; i < WORDS; i++)
+					// Читаем очередное слово
+					result.w[i] = value[i];
+				// Выводим прочитанное значение
+				return result;
+			}
+			/**
+			 * @brief Метод записи значения в память
+			 *
+			 * @param value  записываемое значение
+			 * @param result место, в которое записываются слова
+			 *
+			 */
+			template <size_t WORDS>
+			static __ANTS_INLINE__ void put(const Words <WORDS> & value, uint64_t * result) noexcept {
+				/**
+				 * Выполняем запись слов
+				 */
+				for(size_t i = 0; i < WORDS; i++)
+					// Записываем очередное слово
+					result[i] = value.w[i];
+			}
 			/**
 			 * @brief Метод умножения Монтгомери для модуля известного числа слов
 			 *
@@ -786,103 +850,199 @@ namespace nts {
 			/**
 			 * Ядра на четыре слова для AArch64 на встроенном ассемблере: те же действия, что у
 			 * ядер на C++ (полное произведение строками с двумя цепочками переносов, свёртка
-			 * старшей половины умножением на хвост, условное вычитание модуля), но с
-			 * порядком команд, который собиратель из C++ не выводит. Замер 22.09.2026 на M4
-			 * (clang): умножение 11,75 → 10,41 нс, квадрат 10,35 → 9,48, удвоение точки 98 → 88.
-			 * Время работы от значений не зависит: ветвлений нет, выбор итога через csel.
-			 * Входы читаются до первой записи, оттого места сомножителей и итога вправе
-			 * совпадать. Регистр x18 не трогается: у Apple он занят системой
+			 * старшей половины умножением на хвост, условное вычитание модуля), но входы и
+			 * итог идут в регистрах (Words <4> по значению), а не через память. Так формула
+			 * точки собирается без записи в память между ядрами - как ассемблерные формулы
+			 * OpenSSL (ecp_nistz256), у которых значение поля живёт в регистрах от операции до
+			 * операции. Замер 22.09.2026 на M4 (clang), та же формула: удвоение точки через
+			 * память 80 нс, на значениях 57 при 53 у point_double nistz256; смешанное сложение
+			 * 96 → 72 при 71; полное 119 → 93 при 95; сами ядра цепочкой 9,4 → 8,5 и 8,6 → 7,2.
+			 * Условное вычитание модуля 2^256 - c берётся прибавлением c: сумма выходит за
+			 * 2^256 тогда и только тогда, когда значение не меньше модуля, и слова модуля не
+			 * нужны вовсе. Время работы от значений не зависит: ветвлений нет, выбор через csel.
+			 * Регистр x18 не трогается: у Apple он занят системой. Ядра через указатели ниже
+			 * лишь читают входы, зовут регистровые и пишут итог
 			 */
 			#if defined(__aarch64__) && !defined(_MSC_VER)
 				/**
 				 * Свёртка старшей половины произведения по модулю 2^256 - c и условное вычитание
-				 * модуля: общий хвост ядер умножения и квадрата. На входе x11…x14 младшая половина,
-				 * x15…x17, x19 старшая; на выходе итог записан по указателю r. Выход первой свёртки
-				 * x15 не превосходит c + 1, а c меньше 2^32, оттого вторая свёртка x15·c умещается
-				 * в слово и старшей половины не имеет: мутация с её учётом не отличима от
-				 * исходного кода, и её нет
+				 * модуля: общий хвост ядер умножения и квадрата. На входе c0…c3 младшая половина,
+				 * x13…x16 старшая; на выходе итог в c0…c3. Выход первой свёртки x9 не превосходит
+				 * c + 1, а c меньше 2^32, оттого вторая свёртка x9·c умещается в слово и старшей
+				 * половины не имеет
 				 */
 				#define __ANTS_AARCH64_FOLD_SHRINK__ \
-					"mul   x20, x15, %[tail]\n\t" "mul   x21, x16, %[tail]\n\t" "mul   x22, x17, %[tail]\n\t" "mul   x23, x19, %[tail]\n\t" \
-					"umulh x3, x15, %[tail]\n\t" "umulh x4, x16, %[tail]\n\t" "umulh x5, x17, %[tail]\n\t" "umulh x6, x19, %[tail]\n\t" \
-					"adds  x11, x11, x20\n\t" "adcs  x12, x12, x21\n\t" "adcs  x13, x13, x22\n\t" "adcs  x14, x14, x23\n\t" "adc   x15, xzr, xzr\n\t" \
-					"adds  x12, x12, x3\n\t" "adcs  x13, x13, x4\n\t" "adcs  x14, x14, x5\n\t" "adc   x15, x15, x6\n\t" \
-					"mul   x20, x15, %[tail]\n\t" \
-					"adds  x11, x11, x20\n\t" "adcs  x12, x12, xzr\n\t" "adcs  x13, x13, xzr\n\t" "adcs  x14, x14, xzr\n\t" "adc   x15, xzr, xzr\n\t" \
-					"ldp   x3, x4, [%[p]]\n\t" "ldp   x5, x6, [%[p], #16]\n\t" \
-					"subs  x20, x11, x3\n\t" "sbcs  x21, x12, x4\n\t" "sbcs  x22, x13, x5\n\t" "sbcs  x23, x14, x6\n\t" "sbcs  xzr, x15, xzr\n\t" \
-					"csel  x11, x20, x11, cs\n\t" "csel  x12, x21, x12, cs\n\t" "csel  x13, x22, x13, cs\n\t" "csel  x14, x23, x14, cs\n\t" \
-					"stp   x11, x12, [%[r]]\n\t" "stp   x13, x14, [%[r], #16]\n\t"
+					"mul   x9, x13, %[t]\n\t" "umulh x10, x13, %[t]\n\t" "mul   x11, x14, %[t]\n\t" "umulh x12, x14, %[t]\n\t" \
+					"mul   x13, x15, %[t]\n\t" "umulh x14, x15, %[t]\n\t" "mul   x15, x16, %[t]\n\t" "umulh x16, x16, %[t]\n\t" \
+					"adds  %[c0], %[c0], x9\n\t" "adcs  %[c1], %[c1], x11\n\t" "adcs  %[c2], %[c2], x13\n\t" "adcs  %[c3], %[c3], x15\n\t" "adc   x9, xzr, xzr\n\t" \
+					"adds  %[c1], %[c1], x10\n\t" "adcs  %[c2], %[c2], x12\n\t" "adcs  %[c3], %[c3], x14\n\t" "adc   x9, x9, x16\n\t" \
+					"mul   x10, x9, %[t]\n\t" \
+					"adds  %[c0], %[c0], x10\n\t" "adcs  %[c1], %[c1], xzr\n\t" "adcs  %[c2], %[c2], xzr\n\t" "adcs  %[c3], %[c3], xzr\n\t" "adc   x9, xzr, xzr\n\t" \
+					"adds  x10, %[c0], %[t]\n\t" "adcs  x11, %[c1], xzr\n\t" "adcs  x12, %[c2], xzr\n\t" "adcs  x13, %[c3], xzr\n\t" "adc   x9, x9, xzr\n\t" \
+					"cmp   x9, #0\n\t" \
+					"csel  %[c0], x10, %[c0], ne\n\t" "csel  %[c1], x11, %[c1], ne\n\t" "csel  %[c2], x12, %[c2], ne\n\t" "csel  %[c3], x13, %[c3], ne\n\t"
 				/**
-				 * @brief Метод умножения по модулю вида 2^256 - c на встроенном ассемблере AArch64
+				 * @brief Метод умножения по модулю вида 2^256 - c в регистрах
+				 *
+				 * @param first  первый сомножитель
+				 * @param second второй сомножитель
+				 * @param tail   хвост c модуля
+				 *
+				 * @return       произведение
+				 *
+				 */
+				static __ANTS_INLINE__ Words <4> multiplyminus4r(const Words <4> & first, const Words <4> & second, const uint64_t tail) noexcept {
+					// Произведение
+					Words <4> result;
+					__asm__(
+						// Строка нулевого слова второго сомножителя
+						"mul   %[c0], %[a0], %[b0]\n\t" "mul   %[c1], %[a1], %[b0]\n\t" "mul   %[c2], %[a2], %[b0]\n\t" "mul   %[c3], %[a3], %[b0]\n\t"
+						"umulh x9, %[a0], %[b0]\n\t" "umulh x10, %[a1], %[b0]\n\t" "umulh x11, %[a2], %[b0]\n\t" "umulh x13, %[a3], %[b0]\n\t"
+						"adds  %[c1], %[c1], x9\n\t" "adcs  %[c2], %[c2], x10\n\t" "adcs  %[c3], %[c3], x11\n\t" "adc   x13, x13, xzr\n\t"
+						// Строка первого слова: младшие половины цепочкой, затем старшие
+						"mul   x9, %[a0], %[b1]\n\t" "mul   x10, %[a1], %[b1]\n\t" "mul   x11, %[a2], %[b1]\n\t" "mul   x12, %[a3], %[b1]\n\t"
+						"adds  %[c1], %[c1], x9\n\t" "adcs  %[c2], %[c2], x10\n\t" "adcs  %[c3], %[c3], x11\n\t" "adcs  x13, x13, x12\n\t" "adc   x14, xzr, xzr\n\t"
+						"umulh x9, %[a0], %[b1]\n\t" "umulh x10, %[a1], %[b1]\n\t" "umulh x11, %[a2], %[b1]\n\t" "umulh x12, %[a3], %[b1]\n\t"
+						"adds  %[c2], %[c2], x9\n\t" "adcs  %[c3], %[c3], x10\n\t" "adcs  x13, x13, x11\n\t" "adc   x14, x14, x12\n\t"
+						// Строка второго слова
+						"mul   x9, %[a0], %[b2]\n\t" "mul   x10, %[a1], %[b2]\n\t" "mul   x11, %[a2], %[b2]\n\t" "mul   x12, %[a3], %[b2]\n\t"
+						"adds  %[c2], %[c2], x9\n\t" "adcs  %[c3], %[c3], x10\n\t" "adcs  x13, x13, x11\n\t" "adcs  x14, x14, x12\n\t" "adc   x15, xzr, xzr\n\t"
+						"umulh x9, %[a0], %[b2]\n\t" "umulh x10, %[a1], %[b2]\n\t" "umulh x11, %[a2], %[b2]\n\t" "umulh x12, %[a3], %[b2]\n\t"
+						"adds  %[c3], %[c3], x9\n\t" "adcs  x13, x13, x10\n\t" "adcs  x14, x14, x11\n\t" "adc   x15, x15, x12\n\t"
+						// Строка третьего слова
+						"mul   x9, %[a0], %[b3]\n\t" "mul   x10, %[a1], %[b3]\n\t" "mul   x11, %[a2], %[b3]\n\t" "mul   x12, %[a3], %[b3]\n\t"
+						"adds  %[c3], %[c3], x9\n\t" "adcs  x13, x13, x10\n\t" "adcs  x14, x14, x11\n\t" "adcs  x15, x15, x12\n\t" "adc   x16, xzr, xzr\n\t"
+						"umulh x9, %[a0], %[b3]\n\t" "umulh x10, %[a1], %[b3]\n\t" "umulh x11, %[a2], %[b3]\n\t" "umulh x12, %[a3], %[b3]\n\t"
+						"adds  x13, x13, x9\n\t" "adcs  x14, x14, x10\n\t" "adcs  x15, x15, x11\n\t" "adc   x16, x16, x12\n\t"
+						__ANTS_AARCH64_FOLD_SHRINK__
+						: [c0] "=&r" (result.w[0]), [c1] "=&r" (result.w[1]), [c2] "=&r" (result.w[2]), [c3] "=&r" (result.w[3])
+						: [a0] "r" (first.w[0]), [a1] "r" (first.w[1]), [a2] "r" (first.w[2]), [a3] "r" (first.w[3]), [b0] "r" (second.w[0]), [b1] "r" (second.w[1]), [b2] "r" (second.w[2]), [b3] "r" (second.w[3]), [t] "r" (tail)
+						: "x9", "x10", "x11", "x12", "x13", "x14", "x15", "x16", "cc"
+					);
+					// Выводим произведение
+					return result;
+				}
+				/**
+				 * @brief Метод возведения в квадрат по модулю вида 2^256 - c в регистрах
+				 *
+				 * @param value возводимое число
+				 * @param tail  хвост c модуля
+				 *
+				 * @return      квадрат
+				 *
+				 */
+				static __ANTS_INLINE__ Words <4> squareminus4r(const Words <4> & value, const uint64_t tail) noexcept {
+					// Квадрат
+					Words <4> result;
+					// Слова возводимого числа: по ходу счёта замещаются квадратами слов
+					uint64_t a0 = value.w[0], a1 = value.w[1], a2 = value.w[2], a3 = value.w[3];
+					__asm__(
+						// Произведения разных слов: a0·a1, a0·a2, a0·a3
+						"mul   %[c1], %[a0], %[a1]\n\t" "umulh %[c2], %[a0], %[a1]\n\t" "mul   x9, %[a0], %[a2]\n\t" "umulh %[c3], %[a0], %[a2]\n\t" "mul   x10, %[a0], %[a3]\n\t" "umulh x13, %[a0], %[a3]\n\t"
+						"adds  %[c2], %[c2], x9\n\t" "adcs  %[c3], %[c3], x10\n\t" "adc   x13, x13, xzr\n\t"
+						// a1·a2, a1·a3
+						"mul   x9, %[a1], %[a2]\n\t" "umulh x10, %[a1], %[a2]\n\t" "mul   x11, %[a1], %[a3]\n\t" "umulh x12, %[a1], %[a3]\n\t"
+						"adds  %[c3], %[c3], x9\n\t" "adcs  x13, x13, x10\n\t" "adc   x14, xzr, xzr\n\t"
+						"adds  x13, x13, x11\n\t" "adcs  x14, x14, x12\n\t" "adc   x15, xzr, xzr\n\t"
+						// a2·a3
+						"mul   x9, %[a2], %[a3]\n\t" "umulh x10, %[a2], %[a3]\n\t"
+						"adds  x14, x14, x9\n\t" "adc   x15, x15, x10\n\t"
+						// Удвоение произведений разных слов сдвигом через переносы
+						"adds  %[c1], %[c1], %[c1]\n\t" "adcs  %[c2], %[c2], %[c2]\n\t" "adcs  %[c3], %[c3], %[c3]\n\t" "adcs  x13, x13, x13\n\t" "adcs  x14, x14, x14\n\t" "adcs  x15, x15, x15\n\t" "adc   x16, xzr, xzr\n\t"
+						// Квадраты слов по диагонали: старшие половины квадратов a2 и a3 занимают отработавшие слова
+						"mul   %[c0], %[a0], %[a0]\n\t" "umulh x9, %[a0], %[a0]\n\t" "mul   x10, %[a1], %[a1]\n\t" "umulh x11, %[a1], %[a1]\n\t" "mul   x12, %[a2], %[a2]\n\t" "umulh %[a0], %[a2], %[a2]\n\t" "mul   %[a1], %[a3], %[a3]\n\t" "umulh %[a2], %[a3], %[a3]\n\t"
+						"adds  %[c1], %[c1], x9\n\t" "adcs  %[c2], %[c2], x10\n\t" "adcs  %[c3], %[c3], x11\n\t" "adcs  x13, x13, x12\n\t" "adcs  x14, x14, %[a0]\n\t" "adcs  x15, x15, %[a1]\n\t" "adc   x16, x16, %[a2]\n\t"
+						__ANTS_AARCH64_FOLD_SHRINK__
+						: [c0] "=&r" (result.w[0]), [c1] "=&r" (result.w[1]), [c2] "=&r" (result.w[2]), [c3] "=&r" (result.w[3]), [a0] "+&r" (a0), [a1] "+&r" (a1), [a2] "+&r" (a2), [a3] "+&r" (a3)
+						: [t] "r" (tail)
+						: "x9", "x10", "x11", "x12", "x13", "x14", "x15", "x16", "cc"
+					);
+					// Выводим квадрат
+					return result;
+				}
+				#undef __ANTS_AARCH64_FOLD_SHRINK__
+				/**
+				 * @brief Метод сложения по модулю вида 2^256 - c в регистрах
+				 *
+				 * @param first  первое слагаемое
+				 * @param second второе слагаемое
+				 * @param tail   хвост c модуля
+				 *
+				 * @return       сумма
+				 *
+				 */
+				static __ANTS_INLINE__ Words <4> addminus4r(const Words <4> & first, const Words <4> & second, const uint64_t tail) noexcept {
+					// Сумма
+					Words <4> result;
+					__asm__(
+						"adds %[c0], %[a0], %[b0]\n\t" "adcs %[c1], %[a1], %[b1]\n\t" "adcs %[c2], %[a2], %[b2]\n\t" "adcs %[c3], %[a3], %[b3]\n\t" "adc x9, xzr, xzr\n\t"
+						// Вычитание модуля есть прибавление хвоста: берётся при выходе за 2^256 самой суммы либо суммы с хвостом
+						"adds x10, %[c0], %[t]\n\t" "adcs x11, %[c1], xzr\n\t" "adcs x12, %[c2], xzr\n\t" "adcs x13, %[c3], xzr\n\t" "adc x9, x9, xzr\n\t"
+						"cmp x9, #0\n\t"
+						"csel %[c0], x10, %[c0], ne\n\t" "csel %[c1], x11, %[c1], ne\n\t" "csel %[c2], x12, %[c2], ne\n\t" "csel %[c3], x13, %[c3], ne\n\t"
+						: [c0] "=&r" (result.w[0]), [c1] "=&r" (result.w[1]), [c2] "=&r" (result.w[2]), [c3] "=&r" (result.w[3])
+						: [a0] "r" (first.w[0]), [a1] "r" (first.w[1]), [a2] "r" (first.w[2]), [a3] "r" (first.w[3]), [b0] "r" (second.w[0]), [b1] "r" (second.w[1]), [b2] "r" (second.w[2]), [b3] "r" (second.w[3]), [t] "r" (tail)
+						: "x9", "x10", "x11", "x12", "x13", "cc"
+					);
+					// Выводим сумму
+					return result;
+				}
+				/**
+				 * @brief Метод вычитания по модулю вида 2^256 - c в регистрах
+				 *
+				 * @param first  уменьшаемое
+				 * @param second вычитаемое
+				 * @param tail   хвост c модуля
+				 *
+				 * @return       разность
+				 *
+				 */
+				static __ANTS_INLINE__ Words <4> subtractminus4r(const Words <4> & first, const Words <4> & second, const uint64_t tail) noexcept {
+					// Разность
+					Words <4> result;
+					__asm__(
+						"subs %[c0], %[a0], %[b0]\n\t" "sbcs %[c1], %[a1], %[b1]\n\t" "sbcs %[c2], %[a2], %[b2]\n\t" "sbcs %[c3], %[a3], %[b3]\n\t" "csetm x9, cc\n\t"
+						// Прибавление модуля при займе есть вычитание хвоста
+						"and x9, x9, %[t]\n\t"
+						"subs %[c0], %[c0], x9\n\t" "sbcs %[c1], %[c1], xzr\n\t" "sbcs %[c2], %[c2], xzr\n\t" "sbc %[c3], %[c3], xzr\n\t"
+						: [c0] "=&r" (result.w[0]), [c1] "=&r" (result.w[1]), [c2] "=&r" (result.w[2]), [c3] "=&r" (result.w[3])
+						: [a0] "r" (first.w[0]), [a1] "r" (first.w[1]), [a2] "r" (first.w[2]), [a3] "r" (first.w[3]), [b0] "r" (second.w[0]), [b1] "r" (second.w[1]), [b2] "r" (second.w[2]), [b3] "r" (second.w[3]), [t] "r" (tail)
+						: "x9", "cc"
+					);
+					// Выводим разность
+					return result;
+				}
+				/**
+				 * @brief Метод умножения по модулю вида 2^256 - c через указатели
 				 *
 				 * @param first   первый сомножитель
 				 * @param second  второй сомножитель
 				 * @param tail    хвост c модуля
-				 * @param modulus слова модуля
+				 * @param modulus слова модуля: регистровому ядру не нужны
 				 * @param result  место, в которое помещается произведение
 				 *
 				 */
 				static __ANTS_INLINE__ void multiplyminus4(const uint64_t * first, const uint64_t * second, const uint64_t tail, const uint64_t * modulus, uint64_t * result) noexcept {
-					__asm__ volatile(
-						"ldp x3, x4, [%[a]]\n\t" "ldp x5, x6, [%[a], #16]\n\t" "ldp x7, x8, [%[b]]\n\t" "ldp x9, x10, [%[b], #16]\n\t"
-						// Строка нулевого слова второго сомножителя
-						"mul   x11, x3, x7\n\t" "mul   x12, x4, x7\n\t" "mul   x13, x5, x7\n\t" "mul   x14, x6, x7\n\t"
-						"umulh x20, x3, x7\n\t" "umulh x21, x4, x7\n\t" "umulh x22, x5, x7\n\t" "umulh x15, x6, x7\n\t"
-						"adds  x12, x12, x20\n\t" "adcs  x13, x13, x21\n\t" "adcs  x14, x14, x22\n\t" "adc   x15, x15, xzr\n\t"
-						// Строка первого слова: младшие половины цепочкой, затем старшие
-						"mul   x20, x3, x8\n\t" "mul   x21, x4, x8\n\t" "mul   x22, x5, x8\n\t" "mul   x23, x6, x8\n\t"
-						"adds  x12, x12, x20\n\t" "adcs  x13, x13, x21\n\t" "adcs  x14, x14, x22\n\t" "adcs  x15, x15, x23\n\t" "adc   x16, xzr, xzr\n\t"
-						"umulh x20, x3, x8\n\t" "umulh x21, x4, x8\n\t" "umulh x22, x5, x8\n\t" "umulh x23, x6, x8\n\t"
-						"adds  x13, x13, x20\n\t" "adcs  x14, x14, x21\n\t" "adcs  x15, x15, x22\n\t" "adc   x16, x16, x23\n\t"
-						// Строка второго слова
-						"mul   x20, x3, x9\n\t" "mul   x21, x4, x9\n\t" "mul   x22, x5, x9\n\t" "mul   x23, x6, x9\n\t"
-						"adds  x13, x13, x20\n\t" "adcs  x14, x14, x21\n\t" "adcs  x15, x15, x22\n\t" "adcs  x16, x16, x23\n\t" "adc   x17, xzr, xzr\n\t"
-						"umulh x20, x3, x9\n\t" "umulh x21, x4, x9\n\t" "umulh x22, x5, x9\n\t" "umulh x23, x6, x9\n\t"
-						"adds  x14, x14, x20\n\t" "adcs  x15, x15, x21\n\t" "adcs  x16, x16, x22\n\t" "adc   x17, x17, x23\n\t"
-						// Строка третьего слова
-						"mul   x20, x3, x10\n\t" "mul   x21, x4, x10\n\t" "mul   x22, x5, x10\n\t" "mul   x23, x6, x10\n\t"
-						"adds  x14, x14, x20\n\t" "adcs  x15, x15, x21\n\t" "adcs  x16, x16, x22\n\t" "adcs  x17, x17, x23\n\t" "adc   x19, xzr, xzr\n\t"
-						"umulh x20, x3, x10\n\t" "umulh x21, x4, x10\n\t" "umulh x22, x5, x10\n\t" "umulh x23, x6, x10\n\t"
-						"adds  x15, x15, x20\n\t" "adcs  x16, x16, x21\n\t" "adcs  x17, x17, x22\n\t" "adc   x19, x19, x23\n\t"
-						__ANTS_AARCH64_FOLD_SHRINK__
-						: : [a] "r" (first), [b] "r" (second), [tail] "r" (tail), [p] "r" (modulus), [r] "r" (result)
-						: "x3", "x4", "x5", "x6", "x7", "x8", "x9", "x10", "x11", "x12", "x13", "x14", "x15", "x16", "x17", "x19", "x20", "x21", "x22", "x23", "cc", "memory"
-					);
+					// Слова модуля регистровому ядру не нужны
+					(void) modulus;
+					// Выполняем умножение регистровым ядром с записью итога
+					put <4> (multiplyminus4r(fetch <4> (first), fetch <4> (second), tail), result);
 				}
 				/**
-				 * @brief Метод возведения в квадрат по модулю вида 2^256 - c на встроенном ассемблере AArch64
+				 * @brief Метод возведения в квадрат по модулю вида 2^256 - c через указатели
 				 *
 				 * @param value   возводимое число
 				 * @param tail    хвост c модуля
-				 * @param modulus слова модуля
+				 * @param modulus слова модуля: регистровому ядру не нужны
 				 * @param result  место, в которое помещается квадрат
 				 *
 				 */
 				static __ANTS_INLINE__ void squareminus4(const uint64_t * value, const uint64_t tail, const uint64_t * modulus, uint64_t * result) noexcept {
-					__asm__ volatile(
-						"ldp x3, x4, [%[a]]\n\t" "ldp x5, x6, [%[a], #16]\n\t"
-						// Произведения разных слов: a0·a1, a0·a2, a0·a3
-						"mul   x12, x3, x4\n\t" "umulh x13, x3, x4\n\t" "mul   x20, x3, x5\n\t" "umulh x14, x3, x5\n\t" "mul   x21, x3, x6\n\t" "umulh x15, x3, x6\n\t"
-						"adds  x13, x13, x20\n\t" "adcs  x14, x14, x21\n\t" "adc   x15, x15, xzr\n\t"
-						// a1·a2, a1·a3
-						"mul   x20, x4, x5\n\t" "umulh x21, x4, x5\n\t" "mul   x22, x4, x6\n\t" "umulh x23, x4, x6\n\t"
-						"adds  x14, x14, x20\n\t" "adcs  x15, x15, x21\n\t" "adc   x16, xzr, xzr\n\t"
-						"adds  x15, x15, x22\n\t" "adcs  x16, x16, x23\n\t" "adc   x17, xzr, xzr\n\t"
-						// a2·a3
-						"mul   x20, x5, x6\n\t" "umulh x21, x5, x6\n\t"
-						"adds  x16, x16, x20\n\t" "adc   x17, x17, x21\n\t"
-						// Удвоение произведений разных слов сдвигом через переносы
-						"adds  x12, x12, x12\n\t" "adcs  x13, x13, x13\n\t" "adcs  x14, x14, x14\n\t" "adcs  x15, x15, x15\n\t" "adcs  x16, x16, x16\n\t" "adcs  x17, x17, x17\n\t" "adc   x19, xzr, xzr\n\t"
-						// Квадраты слов по диагонали
-						"mul   x11, x3, x3\n\t" "umulh x20, x3, x3\n\t" "mul   x21, x4, x4\n\t" "umulh x22, x4, x4\n\t" "mul   x23, x5, x5\n\t" "umulh x7, x5, x5\n\t" "mul   x8, x6, x6\n\t" "umulh x9, x6, x6\n\t"
-						"adds  x12, x12, x20\n\t" "adcs  x13, x13, x21\n\t" "adcs  x14, x14, x22\n\t" "adcs  x15, x15, x23\n\t" "adcs  x16, x16, x7\n\t" "adcs  x17, x17, x8\n\t" "adc   x19, x19, x9\n\t"
-						__ANTS_AARCH64_FOLD_SHRINK__
-						: : [a] "r" (value), [tail] "r" (tail), [p] "r" (modulus), [r] "r" (result)
-						: "x3", "x4", "x5", "x6", "x7", "x8", "x9", "x10", "x11", "x12", "x13", "x14", "x15", "x16", "x17", "x19", "x20", "x21", "x22", "x23", "cc", "memory"
-					);
+					// Слова модуля регистровому ядру не нужны
+					(void) modulus;
+					// Выполняем возведение в квадрат регистровым ядром с записью итога
+					put <4> (squareminus4r(fetch <4> (value), tail), result);
 				}
-				#undef __ANTS_AARCH64_FOLD_SHRINK__
 				// Признак наличия ядер на ассемблере для четырёх слов
 				#define __ANTS_AARCH64_KERNELS__
 			#endif
@@ -1025,6 +1185,64 @@ namespace nts {
 					settle4(c0, c1, c2, c3, c4, c5, c6, c7, &fold, result);
 				}
 				// Признак наличия ядер на ассемблере для четырёх слов
+				/**
+				 * @brief Метод сложения по модулю вида 2^256 - c на встроенном ассемблере x86-64
+				 *
+				 * @details Сложения на C++ у gcc 12 стоят через память 11 нс цепочкой против 6 у
+				 *          ассемблера (Astra, 22.09.2026): удвоение точки с ними 311 → 260 нс.
+				 *          Вычитание модуля берётся прибавлением хвоста: сумма не меньше модуля
+				 *          тогда и только тогда, когда сумма с хвостом выходит за 2^256
+				 *
+				 * @param first  первое слагаемое
+				 * @param second второе слагаемое
+				 * @param tail   хвост c модуля
+				 * @param result место, в которое помещается сумма
+				 *
+				 */
+				static __ANTS_INLINE__ void addminus4(const uint64_t * first, const uint64_t * second, const uint64_t tail, uint64_t * result) noexcept {
+					// Слова суммы и признак выхода за разрядную сетку
+					uint64_t c0, c1, c2, c3, k;
+					__asm__ volatile(
+						"movq 0(%[a]), %[c0]\n\t" "movq 8(%[a]), %[c1]\n\t" "movq 16(%[a]), %[c2]\n\t" "movq 24(%[a]), %[c3]\n\t"
+						"addq 0(%[b]), %[c0]\n\t" "adcq 8(%[b]), %[c1]\n\t" "adcq 16(%[b]), %[c2]\n\t" "adcq 24(%[b]), %[c3]\n\t"
+						"sbbq %[k], %[k]\n\t"
+						"movq %[c0], %%r8\n\t" "movq %[c1], %%r9\n\t" "movq %[c2], %%r10\n\t" "movq %[c3], %%r11\n\t"
+						"addq %[t], %%r8\n\t" "adcq $0, %%r9\n\t" "adcq $0, %%r10\n\t" "adcq $0, %%r11\n\t"
+						"sbbq $0, %[k]\n\t"
+						"testq %[k], %[k]\n\t"
+						"cmovnzq %%r8, %[c0]\n\t" "cmovnzq %%r9, %[c1]\n\t" "cmovnzq %%r10, %[c2]\n\t" "cmovnzq %%r11, %[c3]\n\t"
+						"movq %[c0], 0(%[r])\n\t" "movq %[c1], 8(%[r])\n\t" "movq %[c2], 16(%[r])\n\t" "movq %[c3], 24(%[r])\n\t"
+						: [c0] "=&r" (c0), [c1] "=&r" (c1), [c2] "=&r" (c2), [c3] "=&r" (c3), [k] "=&r" (k)
+						: [a] "r" (first), [b] "r" (second), [t] "r" (tail), [r] "r" (result)
+						: "r8", "r9", "r10", "r11", "cc", "memory"
+					);
+				}
+				/**
+				 * @brief Метод вычитания по модулю вида 2^256 - c на встроенном ассемблере x86-64
+				 *
+				 * @details Прибавление модуля при займе есть вычитание хвоста
+				 *
+				 * @param first  уменьшаемое
+				 * @param second вычитаемое
+				 * @param tail   хвост c модуля
+				 * @param result место, в которое помещается разность
+				 *
+				 */
+				static __ANTS_INLINE__ void subtractminus4(const uint64_t * first, const uint64_t * second, const uint64_t tail, uint64_t * result) noexcept {
+					// Слова разности и маска займа
+					uint64_t c0, c1, c2, c3, k;
+					__asm__ volatile(
+						"movq 0(%[a]), %[c0]\n\t" "movq 8(%[a]), %[c1]\n\t" "movq 16(%[a]), %[c2]\n\t" "movq 24(%[a]), %[c3]\n\t"
+						"subq 0(%[b]), %[c0]\n\t" "sbbq 8(%[b]), %[c1]\n\t" "sbbq 16(%[b]), %[c2]\n\t" "sbbq 24(%[b]), %[c3]\n\t"
+						"sbbq %[k], %[k]\n\t"
+						"andq %[t], %[k]\n\t"
+						"subq %[k], %[c0]\n\t" "sbbq $0, %[c1]\n\t" "sbbq $0, %[c2]\n\t" "sbbq $0, %[c3]\n\t"
+						"movq %[c0], 0(%[r])\n\t" "movq %[c1], 8(%[r])\n\t" "movq %[c2], 16(%[r])\n\t" "movq %[c3], 24(%[r])\n\t"
+						: [c0] "=&r" (c0), [c1] "=&r" (c1), [c2] "=&r" (c2), [c3] "=&r" (c3), [k] "=&r" (k)
+						: [a] "r" (first), [b] "r" (second), [t] "r" (tail), [r] "r" (result)
+						: "cc", "memory"
+					);
+				}
 				#define __ANTS_X86_64_KERNELS__
 			#endif
 			/**
@@ -1236,6 +1454,15 @@ namespace nts {
 			 */
 			template <size_t WORDS>
 			static __ANTS_INLINE__ void add(const Modulus::layout_t & layout, const uint64_t * first, const uint64_t * second, uint64_t * result) noexcept {
+				#if defined(__ANTS_X86_64_KERNELS__)
+					// У модуля вида 2^256 - c сложение идёт ядром на ассемблере
+					if constexpr (WORDS == 4){
+						if(layout.form == Modulus::form_t::MINUS){
+							addminus4(first, second, layout.tail, result);
+							return;
+						}
+					}
+				#endif
 				// Выполняем сложение развёрнутым ядром
 				addition <WORDS> (first, second, layout.modulus, result);
 			}
@@ -1250,8 +1477,258 @@ namespace nts {
 			 */
 			template <size_t WORDS>
 			static __ANTS_INLINE__ void subtract(const Modulus::layout_t & layout, const uint64_t * first, const uint64_t * second, uint64_t * result) noexcept {
+				#if defined(__ANTS_X86_64_KERNELS__)
+					// У модуля вида 2^256 - c вычитание идёт ядром на ассемблере
+					if constexpr (WORDS == 4){
+						if(layout.form == Modulus::form_t::MINUS){
+							subtractminus4(first, second, layout.tail, result);
+							return;
+						}
+					}
+				#endif
 				// Выполняем вычитание развёрнутым ядром
 				subtraction <WORDS> (first, second, layout.modulus, result);
+			}
+			/**
+			 * Ядра на значениях в регистрах: те же действия, что у ядер через указатели, но
+			 * входы и итог передаются значениями (Words <WORDS>). На AArch64 у модуля вида
+			 * 2^256 - c это регистровые ядра на ассемблере, у прочих собирателей и видов модуля -
+			 * ядра через указатели поверх слов значения: собиратель встраивает их и держит слова
+			 * в регистрах сам, где может. Итог идёт выходным параметром, а не возвратом: gcc и
+			 * lcc возврат структуры по значению обращают в копию через память на всякой операции
+			 * (Astra удвоение точки 354 нс против 260 у той же формулы на массивах, Эльбрус 2 470
+			 * против 983), clang же оба вида собирает одинаково. Замер 22.09.2026. Формулы точки
+			 * кривой собираются только из этих ядер
+			 */
+			/**
+			 * @brief Метод умножения значений по модулю
+			 *
+			 * @param layout устройство модуля
+			 * @param first  первый сомножитель
+			 * @param second второй сомножитель
+			 * @param result место, в которое помещается произведение
+			 *
+			 */
+			template <size_t WORDS>
+			static __ANTS_INLINE__ void multiply(const Modulus::layout_t & layout, const Words <WORDS> & first, const Words <WORDS> & second, Words <WORDS> & result) noexcept {
+				#if defined(__ANTS_AARCH64_KERNELS__)
+					// У модуля вида 2^256 - c произведение считается регистровым ядром
+					if constexpr (WORDS == 4){
+						if(layout.form == Modulus::form_t::MINUS){
+							result = multiplyminus4r(first, second, layout.tail);
+							return;
+						}
+					}
+				#endif
+				// Выполняем умножение ядром через указатели прямо в приёмник
+				multiply <WORDS> (layout, first.w, second.w, result.w);
+			}
+			/**
+			 * @brief Метод возведения значения в квадрат по модулю
+			 *
+			 * @param layout устройство модуля
+			 * @param value  возводимое значение
+			 * @param result место, в которое помещается квадрат
+			 *
+			 */
+			template <size_t WORDS>
+			static __ANTS_INLINE__ void square(const Modulus::layout_t & layout, const Words <WORDS> & value, Words <WORDS> & result) noexcept {
+				#if defined(__ANTS_AARCH64_KERNELS__)
+					// У модуля вида 2^256 - c квадрат считается регистровым ядром
+					if constexpr (WORDS == 4){
+						if(layout.form == Modulus::form_t::MINUS){
+							result = squareminus4r(value, layout.tail);
+							return;
+						}
+					}
+				#endif
+				// Выполняем возведение в квадрат ядром через указатели прямо в приёмник
+				square <WORDS> (layout, value.w, result.w);
+			}
+			/**
+			 * @brief Метод сложения значений по модулю
+			 *
+			 * @param layout устройство модуля
+			 * @param first  первое слагаемое
+			 * @param second второе слагаемое
+			 * @param result место, в которое помещается сумма
+			 *
+			 */
+			template <size_t WORDS>
+			static __ANTS_INLINE__ void add(const Modulus::layout_t & layout, const Words <WORDS> & first, const Words <WORDS> & second, Words <WORDS> & result) noexcept {
+				#if defined(__ANTS_AARCH64_KERNELS__)
+					// У модуля вида 2^256 - c сумма считается регистровым ядром
+					if constexpr (WORDS == 4){
+						if(layout.form == Modulus::form_t::MINUS){
+							result = addminus4r(first, second, layout.tail);
+							return;
+						}
+					}
+				#endif
+				// Выполняем сложение ядром через указатели прямо в приёмник
+				add <WORDS> (layout, first.w, second.w, result.w);
+			}
+			/**
+			 * @brief Метод вычитания значений по модулю
+			 *
+			 * @param layout устройство модуля
+			 * @param first  уменьшаемое
+			 * @param second вычитаемое
+			 * @param result место, в которое помещается разность
+			 *
+			 */
+			template <size_t WORDS>
+			static __ANTS_INLINE__ void subtract(const Modulus::layout_t & layout, const Words <WORDS> & first, const Words <WORDS> & second, Words <WORDS> & result) noexcept {
+				#if defined(__ANTS_AARCH64_KERNELS__)
+					// У модуля вида 2^256 - c разность считается регистровым ядром
+					if constexpr (WORDS == 4){
+						if(layout.form == Modulus::form_t::MINUS){
+							result = subtractminus4r(first, second, layout.tail);
+							return;
+						}
+					}
+				#endif
+				// Выполняем вычитание ядром через указатели прямо в приёмник
+				subtract <WORDS> (layout, first.w, second.w, result.w);
+			}
+			/**
+			 * @brief Метод умножения значений по модулю с возвратом
+			 *
+			 * @param layout устройство модуля
+			 * @param first  первый сомножитель
+			 * @param second второй сомножитель
+			 *
+			 * @return       произведение
+			 *
+			 */
+			template <size_t WORDS>
+			static __ANTS_INLINE__ Words <WORDS> multiply(const Modulus::layout_t & layout, const Words <WORDS> & first, const Words <WORDS> & second) noexcept {
+				// Произведение
+				Words <WORDS> result;
+				// Выполняем умножение в приёмник
+				multiply <WORDS> (layout, first, second, result);
+				// Выводим произведение
+				return result;
+			}
+			/**
+			 * @brief Метод возведения значения в квадрат по модулю с возвратом
+			 *
+			 * @param layout устройство модуля
+			 * @param value  возводимое значение
+			 *
+			 * @return       квадрат
+			 *
+			 */
+			template <size_t WORDS>
+			static __ANTS_INLINE__ Words <WORDS> square(const Modulus::layout_t & layout, const Words <WORDS> & value) noexcept {
+				// Квадрат
+				Words <WORDS> result;
+				// Выполняем возведение в квадрат в приёмник
+				square <WORDS> (layout, value, result);
+				// Выводим квадрат
+				return result;
+			}
+			/**
+			 * @brief Метод сложения значений по модулю с возвратом
+			 *
+			 * @param layout устройство модуля
+			 * @param first  первое слагаемое
+			 * @param second второе слагаемое
+			 *
+			 * @return       сумма
+			 *
+			 */
+			template <size_t WORDS>
+			static __ANTS_INLINE__ Words <WORDS> add(const Modulus::layout_t & layout, const Words <WORDS> & first, const Words <WORDS> & second) noexcept {
+				// Сумма
+				Words <WORDS> result;
+				// Выполняем сложение в приёмник
+				add <WORDS> (layout, first, second, result);
+				// Выводим сумму
+				return result;
+			}
+			/**
+			 * @brief Метод вычитания значений по модулю с возвратом
+			 *
+			 * @param layout устройство модуля
+			 * @param first  уменьшаемое
+			 * @param second вычитаемое
+			 *
+			 * @return       разность
+			 *
+			 */
+			template <size_t WORDS>
+			static __ANTS_INLINE__ Words <WORDS> subtract(const Modulus::layout_t & layout, const Words <WORDS> & first, const Words <WORDS> & second) noexcept {
+				// Разность
+				Words <WORDS> result;
+				// Выполняем вычитание в приёмник
+				subtract <WORDS> (layout, first, second, result);
+				// Выводим разность
+				return result;
+			}
+			/**
+			 * @brief Метод выбора одного из двух значений наложением маски в приёмник
+			 *
+			 * @param mask   маска выбора: все единицы выбирают первое значение, ноль - второе
+			 * @param first  значение, выбираемое при единичной маске
+			 * @param second значение, выбираемое при нулевой маске
+			 * @param result место, в которое помещается выбранное значение: вправе совпадать со вторым
+			 *
+			 */
+			template <size_t WORDS>
+			static __ANTS_INLINE__ void choose(const uint64_t mask, const Words <WORDS> & first, const Words <WORDS> & second, Words <WORDS> & result) noexcept {
+				/**
+				 * Выполняем выбор слов наложением маски
+				 */
+				for(size_t i = 0; i < WORDS; i++)
+					// Выбираем очередное слово
+					result.w[i] = select(mask, first.w[i], second.w[i]);
+			}
+			/**
+			 * @brief Метод выбора одного из двух значений наложением маски
+			 *
+			 * @param mask   маска выбора: все единицы выбирают первое значение, ноль - второе
+			 * @param first  значение, выбираемое при единичной маске
+			 * @param second значение, выбираемое при нулевой маске
+			 *
+			 * @return       выбранное значение
+			 *
+			 */
+			template <size_t WORDS>
+			static __ANTS_INLINE__ Words <WORDS> choose(const uint64_t mask, const Words <WORDS> & first, const Words <WORDS> & second) noexcept {
+				// Выбранное значение
+				Words <WORDS> result;
+				/**
+				 * Выполняем выбор слов наложением маски
+				 */
+				for(size_t i = 0; i < WORDS; i++)
+					// Выбираем очередное слово
+					result.w[i] = select(mask, first.w[i], second.w[i]);
+				// Выводим выбранное значение
+				return result;
+			}
+			/**
+			 * @brief Метод получения маски равенства значения нулю
+			 *
+			 * @param value проверяемое значение
+			 *
+			 * @return      все единицы у нулевого значения и ноль у всякого иного
+			 *
+			 * @note Сличение идёт без ветвления: значение вправе зависеть от секретного числа
+			 *
+			 */
+			template <size_t WORDS>
+			static __ANTS_INLINE__ uint64_t zero(const Words <WORDS> & value) noexcept {
+				// Объединение слов значения
+				uint64_t item = 0;
+				/**
+				 * Выполняем накопление слов
+				 */
+				for(size_t i = 0; i < WORDS; i++)
+					// Накапливаем очередное слово
+					item |= value.w[i];
+				// Выводим маску: старший разряд объединения с обратным знаком поднят лишь у ненулевого
+				return (0 - ((((item | (0 - item)) >> 63) ^ 0x01)));
 			}
 		};
 	};

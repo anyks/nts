@@ -19,11 +19,38 @@
  *       модулю, стоящее сотен умножений, требуется лишь однажды при выводе
  *       аффинных координат
  *
- * @note Перебор кратных с наложением маски ведётся в накопителях с числом слов,
- *       известным собирателю (четыре либо восемь), а выбранная точка записывается
- *       однажды в конце: накопитель в памяти с переменным числом слов стоил на Эльбрусе
- *       1 372 нс на окно у product и 1 270 у multiply (в регистрах 130 и 92), то есть
- *       88 мкс из 173 у умножения точки основания. Замер 21.09.2026
+ * @note Формулы точки собираются из ядер на ЗНАЧЕНИЯХ поля (kernel::Words), а не на
+ *       числах в памяти: значение живёт в регистрах от ядра до ядра, и стык двух ядер
+ *       не стоит записи с последующим чтением. Так устроены ассемблерные формулы
+ *       OpenSSL (ecp_nistz256), и это была половина отставания от них: та же формула
+ *       удвоения через память стоила на M4 80 нс, а собранная из ядер nistz256 через
+ *       память - 82 при 53 у их родной. Независимые действия формул идут первыми, чтобы
+ *       процессор перекрывал их: удвоение на значениях 66 → 57 нс. Итог всякого ядра
+ *       идёт ВЫХОДНЫМ ПАРАМЕТРОМ, а не возвратом по значению: gcc и lcc возврат структуры
+ *       обращают в копию через память на всякой операции (Astra удвоение 354 нс против
+ *       260 у той же формулы на массивах, Эльбрус 2 470 против 983), а clang собирает оба
+ *       вида одинаково. Формулы вправе писать итог на место входа: входы дочитываются до
+ *       первой записи в приёмник. Замер 22.09.2026: M4 удвоение 80 → 57 (nistz256 53),
+ *       смешанное сложение 96 → 72 (71), полное 119 → 93 (95)
+ *
+ * @note Умножение точки на секретное число идёт знаковыми окнами по пять разрядов
+ *       (кодирование Бута): кратные от первого до шестнадцатого и смена знака второй
+ *       координаты наложением маски дают 52 сложения на 256 разрядов вместо 64 у
+ *       беззнаковых окон по четыре при той же таблице в шестнадцать кратных, а сама
+ *       таблица строится восемью удвоениями и семью сложениями вместо четырнадцати
+ *       сложений. Так устроено и умножение у OpenSSL (ecp_nistz256, w = 5)
+ *
+ * @note Перебор кратных с наложением маски ведётся на значениях с числом слов,
+ *       известным собирателю (четыре либо восемь), векторными командами там, где они
+ *       есть: накопитель в памяти с переменным числом слов стоил на Эльбрусе 1 372 нс
+ *       на окно у product и 1 270 у multiply (в регистрах 130 и 92), то есть 88 мкс из
+ *       173 у умножения точки основания. Замер 21.09.2026
+ *
+ * @note Сумма двух произведений (сличение подписи) считается порознь: точка основания
+ *       заготовленными кратными без единого удвоения, вторая точка окнами Бута, и
+ *       одно сложение в конце. Совместные окна по два разряда стоили 256 удвоений и
+ *       около 135 сложений с ветвлениями против 255 удвоений и 52 + 43 сложений.
+ *       Замер 22.09.2026
  *
  * @copyright Copyright © 2026
  *
@@ -47,6 +74,19 @@
 #include <internal/math/kernels.hpp>
 #include <cstring>
 #include <sys/wipe.hpp>
+
+/**
+ * Выборка кратного из таблицы перебором всей таблицы под маской идёт векторными
+ * командами: на AArch64 через NEON, на x86-64 через SSE2. Скалярный перебор стоил
+ * на окно 25 нс у M4 и 109 у gcc 12 на Astra при 32 кратных по восемь слов
+ */
+#if defined(__aarch64__) && defined(__ARM_NEON) && !defined(_MSC_VER)
+	#include <arm_neon.h>
+	#define __ANTS_CURVE_NEON__
+#elif defined(__x86_64__) && defined(__SSE2__) && !defined(_MSC_VER)
+	#include <emmintrin.h>
+	#define __ANTS_CURVE_SSE2__
+#endif
 
 /**
  * Используем стандартное пространство имён
@@ -81,20 +121,6 @@ namespace {
 		wipe(value.words, sizeof(value.words));
 	}
 	/**
-	 * @brief Метод затирания точки кривой
-	 *
-	 * @param value затираемая точка
-	 *
-	 */
-	static void wipe(point_t & value) noexcept {
-		// Выполняем затирание первой координаты точки
-		wipe(value.x);
-		// Выполняем затирание второй координаты точки
-		wipe(value.y);
-		// Выполняем затирание третьей координаты точки
-		wipe(value.z);
-	}
-	/**
 	 * @brief Метод перезаписи кадров стека, оставленных шагами умножения
 	 *
 	 * @note Удвоение и сложение точек зовутся на каждый разряд множителя, и
@@ -102,38 +128,20 @@ namespace {
 	 *       времени умножения; вместо того по окончании умножения один раз
 	 *       перезаписывается область стека, в которой те кадры лежали
 	 *
+	 * @note Область перезаписывается словами, а не байтами: побайтная запись через
+	 *       volatile стоила 0,94 мкс на M4 и 1,7 мкс на x86 за каждое умножение точки,
+	 *       у подписи это была седьмая часть времени. Замер 22.09.2026
+	 *
 	 */
 	__ANTS_NOINLINE__ static void overwrite() noexcept {
 		// Область стека, накрывающая кадры удвоения и сложения точек
-		volatile uint8_t area[4096];
+		volatile uint64_t area[512];
 		/**
 		 * Выполняем перезапись области стека
 		 */
-		for(size_t i = 0; i < sizeof(area); i++)
-			// Обнуляем очередной байт области
+		for(size_t i = 0; i < (sizeof(area) / sizeof(area[0])); i++)
+			// Обнуляем очередное слово области
 			area[i] = 0;
-	}
-	/**
-	 * @brief Метод выбора одного из двух чисел наложением маски
-	 *
-	 * @param mask   маска выбора: единица выбирает первое число, ноль - второе
-	 * @param first  число, выбираемое при единичной маске
-	 * @param second число, выбираемое при нулевой маске
-	 * @param result место, в которое помещается выбранное число
-	 * @param words  число слов поля, в котором лежат числа
-	 *
-	 */
-	static void select(const uint64_t mask, const math::number_t & first, const math::number_t & second, math::number_t & result, const size_t words) noexcept {
-		// Получаем маску выбора, растянутую на все разряды слова
-		const uint64_t value = (0 - (mask & 0x01));
-		/**
-		 * Выполняем перебор слов выбираемых чисел по ширине поля: старшие слова числа
-		 * у координат точек всегда нулевые, и перебирать их значило бы тратить на выбор
-		 * кратного вдвое больше, чем на само сложение точек
-		 */
-		for(size_t i = 0; i < words; i++)
-			// Выбираем очередное слово итога наложением маски
-			result.words[i] = (second.words[i] ^ (value & (second.words[i] ^ first.words[i])));
 	}
 	/**
 	 * @brief Метод получения маски совпадения двух чисел
@@ -141,245 +149,284 @@ namespace {
 	 * @param first  первое сличаемое число
 	 * @param second второе сличаемое число
 	 *
-	 * @return       единица при совпадении чисел и ноль при расхождении
+	 * @return       все единицы при совпадении чисел и ноль при расхождении
 	 *
 	 * @note Сличение идёт без ветвления: сравнение чисел здесь идёт по значению разрядов
 	 *       множителя, а множитель этот секретен
 	 *
 	 */
-	static uint64_t equal(const uint64_t first, const uint64_t second) noexcept {
+	static __ANTS_INLINE__ uint64_t same(const uint64_t first, const uint64_t second) noexcept {
 		// Получаем разность сличаемых чисел по модулю два
 		const uint64_t value = (first ^ second);
-		// Выводим единицу при нулевой разности и ноль при всякой иной
-		return (((value | (~value + 1)) >> 63) ^ 0x01);
+		// Выводим все единицы при нулевой разности и ноль при всякой иной
+		return (0 - (((value | (~value + 1)) >> 63) ^ 0x01));
 	}
 	/**
-	 * @brief Метод выбора одной из двух точек наложением маски
+	 * @brief Метод извлечения разрядов множителя
 	 *
-	 * @param mask   маска выбора: единица выбирает первую точку, ноль - вторую
-	 * @param first  точка, выбираемая при единичной маске
-	 * @param second точка, выбираемая при нулевой маске
-	 * @param result место, в которое помещается выбранная точка
-	 * @param words  число слов поля, в котором лежат координаты
+	 * @details Разряды вправе лежать через границу слова: тогда старшие берутся из
+	 *          следующего слова. Слова выше разрядности множителя нулевые, оттого
+	 *          неполное старшее окно дополняется нулями само собой
+	 *
+	 * @param factor множитель, из которого извлекаются разряды
+	 * @param bit    номер младшего извлекаемого разряда
+	 * @param count  число извлекаемых разрядов
+	 *
+	 * @return       извлечённые разряды числом
+	 *
+	 * @note Ветвление здесь идёт по номеру разряда, а не по значению множителя: номер
+	 *       открыт, и времени работы от множителя это не ставит в зависимость
 	 *
 	 */
-	static void choose(const uint64_t mask, const point_t & first, const point_t & second, point_t & result, const size_t words) noexcept {
-		// Выбираем первую координату точки
-		select(mask, first.x, second.x, result.x, words);
-		// Выбираем вторую координату точки
-		select(mask, first.y, second.y, result.y, words);
-		// Выбираем третью координату точки
-		select(mask, first.z, second.z, result.z, words);
+	static __ANTS_INLINE__ uint64_t slice(const math::number_t & factor, const size_t bit, const size_t count) noexcept {
+		// Номер слова, несущего младший разряд
+		const size_t index = (bit / 64);
+		// Сдвиг младшего разряда внутри слова
+		const size_t shift = (bit % 64);
+		// Разряды из своего слова
+		uint64_t value = (factor.words[index] >> shift);
+		// Если разряды выходят за границу слова, дополняем их разрядами следующего слова
+		if(((shift + count) > 64) && ((index + 1) < math::NUMBER_WORDS))
+			// Дополняем младшими разрядами следующего слова
+			value |= (factor.words[index + 1] << (64 - shift));
+		// Выводим извлечённые разряды
+		return (value & ((static_cast <uint64_t> (1) << count) - 1));
 	}
 	/**
-	 * @brief Метод извлечения окна множителя
+	 * @brief Метод получения знакового окна множителя (кодирование Бута)
 	 *
-	 * @details Окно вправе лежать через границу слова: тогда его старшие разряды
-	 *          берутся из следующего слова. Слова выше разрядности множителя нулевые,
-	 *          оттого неполное старшее окно дополняется нулями само собой
+	 * @details Окно ширины w берётся вместе с разрядом ниже себя: тот несёт перенос из
+	 *          предыдущего окна. Старший разряд окна обращается в знак: окно со старшим
+	 *          разрядом даёт отрицательную цифру, а единица переносится в следующее окно
+	 *          через его младший разряд. Цифры лежат от -2^(w-1) до 2^(w-1), и сумма
+	 *          цифр по степеням 2^w равна множителю, покуда разряд выше последнего окна
+	 *          нулевой: число окон берётся с запасом в один разряд
 	 *
-	 * @param factor   множитель, из которого извлекается окно
+	 * @param factor   множитель
 	 * @param position номер окна от младшего
 	 * @param width    разрядность окна
+	 * @param sign     место, в которое помещается единица у отрицательной цифры
 	 *
-	 * @return         значение окна
+	 * @return         величина цифры окна
 	 *
-	 * @note Ветвление здесь идёт по номеру окна, а не по значению множителя: номер
-	 *       окна открыт, и времени работы от множителя это не ставит в зависимость
+	 * @note Кодирование идёт наложением масок без ветвления: разряды множителя секретны
 	 *
 	 */
-	static uint64_t window(const math::number_t & factor, const size_t position, const size_t width) noexcept {
+	static __ANTS_INLINE__ uint64_t digit(const math::number_t & factor, const size_t position, const size_t width, uint64_t & sign) noexcept {
 		// Номер младшего разряда окна
 		const size_t bit = (position * width);
-		// Номер слова, несущего младший разряд окна
-		const size_t index = (bit / 64);
-		// Сдвиг младшего разряда окна внутри слова
-		const size_t shift = (bit % 64);
-		// Разряды окна из своего слова
-		uint64_t value = (factor.words[index] >> shift);
-		// Если окно выходит за границу слова, дополняем его разрядами следующего слова
-		if(((shift + width) > 64) && ((index + 1) < math::NUMBER_WORDS))
-			// Дополняем окно младшими разрядами следующего слова
-			value |= (factor.words[index + 1] << (64 - shift));
-		// Выводим значение окна
-		return (value & ((static_cast <uint64_t> (1) << width) - 1));
+		// Разряды окна вместе с разрядом ниже: у младшего окна разряда ниже нет
+		const uint64_t value = ((bit == 0) ? (slice(factor, 0, width) << 1) : slice(factor, bit - 1, width + 1));
+		// Маска знака: старший разряд окна
+		const uint64_t negative = (0 - ((value >> width) & 0x01));
+		// Дополнение разрядов внутри окна с разрядом ниже
+		uint64_t item = (((static_cast <uint64_t> (1) << (width + 1)) - 1) - value);
+		// У отрицательной цифры берётся дополнение, у положительной - разряды как есть
+		item = ((item & negative) | (value & ~negative));
+		// Записываем знак цифры
+		sign = (negative & 0x01);
+		// Выводим величину цифры: разряды окна с переносом из разряда ниже
+		return ((item >> 1) + (item & 0x01));
 	}
 	/**
-	 * @brief Метод выбора кратного из строки заготовленных аффинных кратных
-	 *
-	 * @details Строка перебирается целиком, и выбор идёт наложением маски совпадения
-	 *          номера кратного со значением окна: время работы от значения окна не
-	 *          зависит. Накопители держатся по числу слов, известному собирателю, а
-	 *          точка записывается однажды в конце
-	 *
-	 * @param row    начало строки заготовленных кратных: по две координаты на кратное
-	 * @param window значение окна множителя
-	 * @param result место, в которое помещается выбранное кратное
+	 * @brief Точка кривой на значениях поля
 	 *
 	 */
-	template <size_t WORDS>
-	static void gather(const uint64_t * row, const uint64_t window, point_t & result) noexcept {
-		// Накопители координат выбираемого кратного
-		uint64_t x[WORDS], y[WORDS];
-		/**
-		 * Выполняем обнуление накопителей
-		 */
-		for(size_t w = 0; w < WORDS; w++){
-			// Обнуляем накопитель первой координаты
-			x[w] = 0;
-			// Обнуляем накопитель второй координаты
-			y[w] = 0;
-		}
-		/**
-		 * Выполняем перебор всей строки заготовленных кратных
-		 */
-		for(size_t j = 1; j <= TABLES_MULTIPLES; j++){
-			// Получаем маску совпадения значения окна с номером кратного
-			const uint64_t mask = (0 - equal(window, static_cast <uint64_t> (j)));
-			// Получаем место очередного кратного строки
-			const uint64_t * place = (row + ((j - 1) * 2 * WORDS));
-			/**
-			 * Выполняем накопление слов координат под маской
-			 */
-			for(size_t w = 0; w < WORDS; w++){
-				// Накапливаем очередное слово первой координаты
-				x[w] |= (place[w] & mask);
-				// Накапливаем очередное слово второй координаты
-				y[w] |= (place[WORDS + w] & mask);
-			}
-		}
-		// Выполняем обнуление выбираемого кратного
-		result = point_t();
-		/**
-		 * Выполняем запись накопленных координат
-		 */
-		for(size_t w = 0; w < WORDS; w++){
-			// Записываем очередное слово первой координаты
-			result.x.words[w] = x[w];
-			// Записываем очередное слово второй координаты
-			result.y.words[w] = y[w];
-		}
-	}
-	/**
-	 * @brief Метод выбора кратного из таблицы кратных точки
-	 *
-	 * @details То же, что gather, но для таблицы точек в координатах Якоби: три
-	 *          координаты, кратные от нулевого
-	 *
-	 * @param table  таблица кратных точки
-	 * @param count  число кратных в таблице
-	 * @param window значение окна множителя
-	 * @param result место, в которое помещается выбранное кратное
-	 *
-	 */
-	template <size_t WORDS>
-	static void pick(const point_t * table, const size_t count, const uint64_t window, point_t & result) noexcept {
-		// Накопители координат выбираемого кратного
-		uint64_t x[WORDS], y[WORDS], z[WORDS];
-		/**
-		 * Выполняем обнуление накопителей
-		 */
-		for(size_t w = 0; w < WORDS; w++){
-			// Обнуляем накопитель первой координаты
-			x[w] = 0;
-			// Обнуляем накопитель второй координаты
-			y[w] = 0;
-			// Обнуляем накопитель третьей координаты
-			z[w] = 0;
-		}
-		/**
-		 * Выполняем перебор всех кратных таблицы
-		 */
-		for(size_t j = 0; j < count; j++){
-			// Получаем маску совпадения значения окна с номером кратного
-			const uint64_t mask = (0 - equal(window, static_cast <uint64_t> (j)));
-			/**
-			 * Выполняем накопление слов координат под маской
-			 */
-			for(size_t w = 0; w < WORDS; w++){
-				// Накапливаем очередное слово первой координаты
-				x[w] |= (table[j].x.words[w] & mask);
-				// Накапливаем очередное слово второй координаты
-				y[w] |= (table[j].y.words[w] & mask);
-				// Накапливаем очередное слово третьей координаты
-				z[w] |= (table[j].z.words[w] & mask);
-			}
-		}
-		// Выполняем обнуление выбираемого кратного
-		result = point_t();
-		/**
-		 * Выполняем запись накопленных координат
-		 */
-		for(size_t w = 0; w < WORDS; w++){
-			// Записываем очередное слово первой координаты
-			result.x.words[w] = x[w];
-			// Записываем очередное слово второй координаты
-			result.y.words[w] = y[w];
-			// Записываем очередное слово третьей координаты
-			result.z.words[w] = z[w];
-		}
-	}
+	template <typename V>
+	struct Triple {
+		// Первая координата точки
+		V x;
+		// Вторая координата точки
+		V y;
+		// Третья координата точки
+		V z;
+	};
 	/**
 	 * @brief Арифметика поля, встраиваемая по числу слов
 	 *
 	 * @details Ядра умножения, сложения и вычитания берутся из внутреннего заголовка и
-	 *          встраиваются в формулы точки: число слов заложено в тело, а вызова через
-	 *          границу модуля нет
+	 *          встраиваются в формулы точки: число слов заложено в тело, значения идут в
+	 *          регистрах, итог пишется прямо в приёмник, а вызова через границу модуля нет
 	 *
 	 */
 	template <size_t WORDS>
 	struct Fast {
+		// Значение поля
+		typedef math::kernel::Words <WORDS> value_t;
 		// Устройство модуля поля
 		const math::Modulus::layout_t layout;
 		/**
 		 * @brief Метод умножения по модулю
 		 */
-		__ANTS_INLINE__ void multiply(const math::number_t & first, const math::number_t & second, math::number_t & result) const noexcept {
+		__ANTS_INLINE__ void multiply(const value_t & first, const value_t & second, value_t & result) const noexcept {
 			// Выполняем умножение встраиваемым ядром
-			math::kernel::multiply <WORDS> (this->layout, first.words, second.words, result.words);
+			math::kernel::multiply <WORDS> (this->layout, first, second, result);
 		}
 		/**
 		 * @brief Метод возведения в квадрат по модулю
 		 */
-		__ANTS_INLINE__ void square(const math::number_t & value, math::number_t & result) const noexcept {
+		__ANTS_INLINE__ void square(const value_t & value, value_t & result) const noexcept {
 			// Выполняем возведение в квадрат встраиваемым ядром
-			math::kernel::square <WORDS> (this->layout, value.words, result.words);
+			math::kernel::square <WORDS> (this->layout, value, result);
 		}
 		/**
 		 * @brief Метод сложения по модулю
 		 */
-		__ANTS_INLINE__ void add(const math::number_t & first, const math::number_t & second, math::number_t & result) const noexcept {
+		__ANTS_INLINE__ void add(const value_t & first, const value_t & second, value_t & result) const noexcept {
 			// Выполняем сложение встраиваемым ядром
-			math::kernel::add <WORDS> (this->layout, first.words, second.words, result.words);
+			math::kernel::add <WORDS> (this->layout, first, second, result);
 		}
 		/**
 		 * @brief Метод вычитания по модулю
 		 */
-		__ANTS_INLINE__ void subtract(const math::number_t & first, const math::number_t & second, math::number_t & result) const noexcept {
+		__ANTS_INLINE__ void subtract(const value_t & first, const value_t & second, value_t & result) const noexcept {
 			// Выполняем вычитание встраиваемым ядром
-			math::kernel::subtract <WORDS> (this->layout, first.words, second.words, result.words);
+			math::kernel::subtract <WORDS> (this->layout, first, second, result);
 		}
 		/**
-		 * @brief Метод проверки числа на равенство нулю
+		 * @brief Метод выбора одного из двух значений наложением маски
 		 */
-		__ANTS_INLINE__ bool zero(const math::number_t & value) const noexcept {
-			// Накопленное объединение слов числа
-			uint64_t item = 0;
+		__ANTS_INLINE__ void choose(const uint64_t mask, const value_t & first, const value_t & second, value_t & result) const noexcept {
+			// Выполняем выбор наложением маски
+			math::kernel::choose <WORDS> (mask, first, second, result);
+		}
+		/**
+		 * @brief Метод получения маски равенства значения нулю
+		 */
+		__ANTS_INLINE__ uint64_t zero(const value_t & value) const noexcept {
+			// Выводим маску равенства нулю
+			return math::kernel::zero <WORDS> (value);
+		}
+		/**
+		 * @brief Метод чтения значения из слов числа
+		 */
+		__ANTS_INLINE__ void load(const math::number_t & number, value_t & result) const noexcept {
 			/**
-			 * Выполняем перебор слов числа
+			 * Выполняем чтение слов числа по ширине поля
 			 */
 			for(size_t i = 0; i < WORDS; i++)
-				// Накапливаем очередное слово
-				item |= value.words[i];
-			// Выводим признак равенства нулю
-			return (item == 0);
+				// Читаем очередное слово
+				result.w[i] = number.words[i];
 		}
 		/**
-		 * @brief Метод получения числа слов поля
+		 * @brief Метод чтения значения из слов в памяти
 		 */
-		__ANTS_INLINE__ size_t count() const noexcept {
-			// Выводим число слов поля
-			return WORDS;
+		__ANTS_INLINE__ void read(const uint64_t * place, value_t & result) const noexcept {
+			/**
+			 * Выполняем чтение слов по ширине поля
+			 */
+			for(size_t i = 0; i < WORDS; i++)
+				// Читаем очередное слово
+				result.w[i] = place[i];
+		}
+		/**
+		 * @brief Метод записи значения в число
+		 */
+		__ANTS_INLINE__ void store(const value_t & value, math::number_t & number) const noexcept {
+			// Выполняем обнуление числа: слова выше ширины поля нулевые
+			number = math::number_t();
+			// Записываем слова значения
+			math::kernel::put <WORDS> (value, number.words);
+		}
+		/**
+		 * @brief Метод выборки строки слов из таблицы наложением маски
+		 *
+		 * @details Все строки таблицы перебираются, и слова строки с совпавшим номером
+		 *          накапливаются под маской: время работы от номера не зависит. Перебор
+		 *          идёт векторными командами по два слова
+		 *
+		 * @param table  таблица строк слов, идущих подряд
+		 * @param stride число слов в строке таблицы
+		 * @param count  число строк таблицы
+		 * @param first  номер, отвечающий первой строке
+		 * @param index  номер искомой строки
+		 * @param result место, в которое накапливаются слова выбранной строки
+		 * @param length число накапливаемых слов строки: кратно двум
+		 */
+		__ANTS_INLINE__ void gather(const uint64_t * table, const size_t stride, const size_t count, const uint64_t first, const uint64_t index, uint64_t * result, const size_t length) const noexcept {
+			#if defined(__ANTS_CURVE_NEON__)
+				// Накопители по два слова
+				uint64x2_t acc[(3 * WORDS) / 2];
+				/**
+				 * Выполняем обнуление накопителей
+				 */
+				for(size_t k = 0; k < (length / 2); k++)
+					// Обнуляем очередной накопитель
+					acc[k] = vdupq_n_u64(0);
+				/**
+				 * Выполняем перебор всех строк таблицы
+				 */
+				for(size_t j = 0; j < count; j++){
+					// Маска совпадения номера строки с искомым
+					const uint64x2_t mask = vdupq_n_u64(same(index, first + j));
+					// Место строки
+					const uint64_t * place = (table + (j * stride));
+					/**
+					 * Выполняем накопление слов строки под маской
+					 */
+					for(size_t k = 0; k < (length / 2); k++)
+						// Накапливаем очередную пару слов
+						acc[k] = vorrq_u64(acc[k], vandq_u64(vld1q_u64(place + (2 * k)), mask));
+				}
+				/**
+				 * Выполняем запись накопленных слов
+				 */
+				for(size_t k = 0; k < (length / 2); k++)
+					// Записываем очередную пару слов
+					vst1q_u64(result + (2 * k), acc[k]);
+			#elif defined(__ANTS_CURVE_SSE2__)
+				// Накопители по два слова
+				__m128i acc[(3 * WORDS) / 2];
+				/**
+				 * Выполняем обнуление накопителей
+				 */
+				for(size_t k = 0; k < (length / 2); k++)
+					// Обнуляем очередной накопитель
+					acc[k] = _mm_setzero_si128();
+				/**
+				 * Выполняем перебор всех строк таблицы
+				 */
+				for(size_t j = 0; j < count; j++){
+					// Маска совпадения номера строки с искомым
+					const __m128i mask = _mm_set1_epi64x(static_cast <long long> (same(index, first + j)));
+					// Место строки
+					const uint64_t * place = (table + (j * stride));
+					/**
+					 * Выполняем накопление слов строки под маской
+					 */
+					for(size_t k = 0; k < (length / 2); k++)
+						// Накапливаем очередную пару слов
+						acc[k] = _mm_or_si128(acc[k], _mm_and_si128(_mm_loadu_si128(reinterpret_cast <const __m128i *> (place + (2 * k))), mask));
+				}
+				/**
+				 * Выполняем запись накопленных слов
+				 */
+				for(size_t k = 0; k < (length / 2); k++)
+					// Записываем очередную пару слов
+					_mm_storeu_si128(reinterpret_cast <__m128i *> (result + (2 * k)), acc[k]);
+			#else
+				/**
+				 * Выполняем обнуление накопителя
+				 */
+				for(size_t k = 0; k < length; k++)
+					// Обнуляем очередное слово
+					result[k] = 0;
+				/**
+				 * Выполняем перебор всех строк таблицы
+				 */
+				for(size_t j = 0; j < count; j++){
+					// Маска совпадения номера строки с искомым
+					const uint64_t mask = same(index, first + j);
+					// Место строки
+					const uint64_t * place = (table + (j * stride));
+					/**
+					 * Выполняем накопление слов строки под маской
+					 */
+					for(size_t k = 0; k < length; k++)
+						// Накапливаем очередное слово
+						result[k] |= (place[k] & mask);
+				}
+			#endif
 		}
 	};
 	/**
@@ -390,53 +437,144 @@ namespace {
 	 *
 	 */
 	struct Slow {
+		// Значение поля
+		typedef math::number_t value_t;
 		// Арифметика поля кривой
 		const math::modulus_t & field;
 		/**
 		 * @brief Метод умножения по модулю
 		 */
-		void multiply(const math::number_t & first, const math::number_t & second, math::number_t & result) const noexcept {
+		void multiply(const value_t & first, const value_t & second, value_t & result) const noexcept {
 			// Выполняем умножение через объект арифметики
 			this->field.multiply(first, second, result);
 		}
 		/**
 		 * @brief Метод возведения в квадрат по модулю
 		 */
-		void square(const math::number_t & value, math::number_t & result) const noexcept {
+		void square(const value_t & value, value_t & result) const noexcept {
 			// Выполняем возведение в квадрат через объект арифметики
 			this->field.square(value, result);
 		}
 		/**
 		 * @brief Метод сложения по модулю
 		 */
-		void add(const math::number_t & first, const math::number_t & second, math::number_t & result) const noexcept {
+		void add(const value_t & first, const value_t & second, value_t & result) const noexcept {
 			// Выполняем сложение через объект арифметики
 			this->field.add(first, second, result);
 		}
 		/**
 		 * @brief Метод вычитания по модулю
 		 */
-		void subtract(const math::number_t & first, const math::number_t & second, math::number_t & result) const noexcept {
+		void subtract(const value_t & first, const value_t & second, value_t & result) const noexcept {
 			// Выполняем вычитание через объект арифметики
 			this->field.subtract(first, second, result);
 		}
 		/**
-		 * @brief Метод проверки числа на равенство нулю
+		 * @brief Метод выбора одного из двух значений наложением маски
 		 */
-		bool zero(const math::number_t & value) const noexcept {
-			// Выводим признак равенства нулю через объект арифметики
-			return this->field.zero(value);
+		void choose(const uint64_t mask, const value_t & first, const value_t & second, value_t & result) const noexcept {
+			/**
+			 * Выполняем выбор слов наложением маски
+			 */
+			for(size_t i = 0; i < math::NUMBER_WORDS; i++)
+				// Выбираем очередное слово
+				result.words[i] = (second.words[i] ^ (mask & (second.words[i] ^ first.words[i])));
 		}
 		/**
-		 * @brief Метод получения числа слов поля
+		 * @brief Метод получения маски равенства значения нулю
 		 */
-		size_t count() const noexcept {
-			// Выводим число слов поля
-			return ((this->field.size() + 7) / 8);
+		uint64_t zero(const value_t & value) const noexcept {
+			// Выводим маску равенства нулю через объект арифметики
+			return (this->field.zero(value) ? 0xFFFFFFFFFFFFFFFFULL : 0);
+		}
+		/**
+		 * @brief Метод чтения значения из слов числа
+		 */
+		void load(const math::number_t & number, value_t & result) const noexcept {
+			// Число и есть значение
+			result = number;
+		}
+		/**
+		 * @brief Метод чтения значения из слов в памяти
+		 */
+		void read(const uint64_t * place, value_t & result) const noexcept {
+			// Выполняем обнуление значения
+			result = value_t();
+			/**
+			 * Выполняем чтение слов по ширине поля
+			 */
+			for(size_t i = 0; i < ((this->field.size() + 7) / 8); i++)
+				// Читаем очередное слово
+				result.words[i] = place[i];
+		}
+		/**
+		 * @brief Метод записи значения в число
+		 */
+		void store(const value_t & value, math::number_t & number) const noexcept {
+			// Значение и есть число
+			number = value;
 		}
 	};
 	/**
+	 * @brief Метод перевода точки на значения поля
+	 *
+	 * @param f      арифметика поля
+	 * @param value  переводимая точка
+	 * @param result место, в которое помещается точка на значениях
+	 *
+	 */
+	template <typename F>
+	static __ANTS_INLINE__ void enter(const F & f, const point_t & value, Triple <typename F::value_t> & result) noexcept {
+		// Читаем первую координату
+		f.load(value.x, result.x);
+		// Читаем вторую координату
+		f.load(value.y, result.y);
+		// Читаем третью координату
+		f.load(value.z, result.z);
+	}
+	/**
+	 * @brief Метод перевода точки со значений поля в числа
+	 *
+	 * @param f      арифметика поля
+	 * @param value  переводимая точка
+	 * @param result место, в которое помещается точка
+	 *
+	 */
+	template <typename F>
+	static __ANTS_INLINE__ void leave(const F & f, const Triple <typename F::value_t> & value, point_t & result) noexcept {
+		// Записываем первую координату
+		f.store(value.x, result.x);
+		// Записываем вторую координату
+		f.store(value.y, result.y);
+		// Записываем третью координату
+		f.store(value.z, result.z);
+	}
+	/**
+	 * @brief Метод выбора одной из двух точек наложением маски
+	 *
+	 * @param f      арифметика поля
+	 * @param mask   маска выбора: все единицы выбирают первую точку, ноль - вторую
+	 * @param first  точка, выбираемая при единичной маске
+	 * @param second точка, выбираемая при нулевой маске
+	 * @param result место, в которое помещается выбранная точка: вправе совпадать со второй
+	 *
+	 */
+	template <typename F>
+	static __ANTS_INLINE__ void choose(const F & f, const uint64_t mask, const Triple <typename F::value_t> & first, const Triple <typename F::value_t> & second, Triple <typename F::value_t> & result) noexcept {
+		// Выбираем первую координату
+		f.choose(mask, first.x, second.x, result.x);
+		// Выбираем вторую координату
+		f.choose(mask, first.y, second.y, result.y);
+		// Выбираем третью координату
+		f.choose(mask, first.z, second.z, result.z);
+	}
+	/**
 	 * @brief Метод удвоения точки кривой
+	 *
+	 * @details Независимые действия идут первыми: квадраты второй и третьей координат и
+	 *          произведение удвоенной второй на третью не зависят друг от друга, и
+	 *          процессор считает их разом. Приёмник вправе совпадать с удваиваемой точкой:
+	 *          всякая координата дочитывается до первой записи в неё
 	 *
 	 * @param f           арифметика поля
 	 * @param shortened   признак того, что первый коэффициент кривой равен модулю без трёх
@@ -446,33 +584,23 @@ namespace {
 	 *
 	 */
 	template <typename F>
-	static void doubling(const F & f, const bool shortened, const math::number_t & coefficient, const point_t & value, point_t & result) noexcept {
+	static void doubling(const F & f, const bool shortened, const typename F::value_t & coefficient, const Triple <typename F::value_t> & value, Triple <typename F::value_t> & result) noexcept {
+		// Значение поля
+		typedef typename F::value_t V;
 		// Квадрат второй координаты удваиваемой точки
-		math::number_t square;
-		// Промежуточное произведение первой координаты на квадрат второй
-		math::number_t product;
-		// Множитель уравнения касательной к кривой
-		math::number_t factor;
-		// Промежуточное значение степеней третьей координаты
-		math::number_t item;
-		// Первая координата удвоенной точки
-		math::number_t x;
-		// Вторая координата удвоенной точки
-		math::number_t y;
-		// Третья координата удвоенной точки
-		math::number_t z;
-		// Выполняем возведение второй координаты точки в квадрат
+		V square;
+		// Выполняем возведение второй координаты в квадрат
 		f.square(value.y, square);
-		/**
-		 * Квадрат сразу удваивается: удвоенный квадрат служит и учетверённому
-		 * произведению (4xy² = 2x·2y²), и восьмикратной четвёртой степени
-		 * (8y⁴ = 2·(2y²)²) - так два сложения из четырнадцати уходят
-		 */
-		f.add(square, square, square);
-		// Выполняем умножение первой координаты точки на удвоенный квадрат второй
-		f.multiply(value.x, square, product);
-		// Выполняем удвоение полученного произведения
-		f.add(product, product, product);
+		// Квадрат третьей координаты
+		V item;
+		// Выполняем возведение третьей координаты в квадрат
+		f.square(value.z, item);
+		// Удвоенная вторая координата
+		V doubled;
+		// Выполняем удвоение второй координаты
+		f.add(value.y, value.y, doubled);
+		// Множитель уравнения касательной к кривой
+		V factor;
 		/**
 		 * Коэффициент, равный модулю без трёх, обращает множитель касательной в
 		 * произведение разности и суммы первой координаты с квадратом третьей: два
@@ -480,63 +608,71 @@ namespace {
 		 */
 		if(shortened){
 			// Разность первой координаты с квадратом третьей
-			math::number_t difference;
-			// Выполняем возведение третьей координаты точки в квадрат
-			f.square(value.z, item);
-			// Вычитаем квадрат третьей координаты из первой координаты
+			V difference;
+			// Выполняем вычитание квадрата третьей координаты из первой
 			f.subtract(value.x, item, difference);
-			// Складываем первую координату с квадратом третьей координаты
+			// Складываем первую координату с квадратом третьей
 			f.add(value.x, item, item);
-			// Выполняем умножение разности на полученную сумму
+			// Выполняем умножение разности на сумму
 			f.multiply(difference, item, factor);
-			// Выполняем удвоение полученного произведения
+			// Выполняем удвоение произведения
 			f.add(factor, factor, item);
 			// Складываем удвоенное произведение с оставшимся его значением
 			f.add(item, factor, factor);
 		// Если первый коэффициент уравнения кривой произволен
 		} else {
-			// Выполняем возведение первой координаты точки в квадрат
+			// Утроенный квадрат первой координаты
+			V triple;
+			// Выполняем возведение первой координаты в квадрат
 			f.square(value.x, factor);
-			// Выполняем удвоение полученного квадрата первой координаты
-			f.add(factor, factor, item);
+			// Выполняем удвоение квадрата
+			f.add(factor, factor, triple);
 			// Складываем удвоенный квадрат с оставшимся его значением
-			f.add(item, factor, factor);
-			// Выполняем возведение третьей координаты точки в квадрат
-			f.square(value.z, item);
-			// Выполняем возведение третьей координаты точки в четвёртую степень
+			f.add(triple, factor, factor);
+			// Выполняем возведение третьей координаты в четвёртую степень
 			f.square(item, item);
-			// Выполняем умножение полученной степени на первый коэффициент уравнения
+			// Выполняем умножение четвёртой степени на первый коэффициент уравнения
 			f.multiply(item, coefficient, item);
-			// Складываем утроенный квадрат первой координаты с полученным произведением
+			// Складываем утроенный квадрат с полученным произведением
 			f.add(factor, item, factor);
 		}
-		// Выполняем удвоение второй координаты точки
-		f.add(value.y, value.y, item);
-		// Выполняем умножение удвоенной второй координаты на третью
-		f.multiply(item, value.z, z);
-		// Выполняем возведение множителя уравнения касательной в квадрат
-		f.square(factor, x);
-		// Вычитаем из полученного квадрата учетверённое произведение
-		f.subtract(x, product, x);
-		// Вычитаем оставшуюся часть учетверённого произведения
-		f.subtract(x, product, x);
-		// Вычитаем полученную первую координату из учетверённого произведения
-		f.subtract(product, x, y);
-		// Выполняем умножение разности на множитель уравнения касательной
-		f.multiply(y, factor, y);
-		// Выполняем возведение удвоенного квадрата второй координаты в квадрат: 4y⁴
-		f.square(square, square);
-		// Выполняем удвоение полученной четвёртой степени: 8y⁴
+		/**
+		 * Квадрат удваивается: удвоенный квадрат служит и учетверённому произведению
+		 * (4xy² = 2x·2y²), и восьмикратной четвёртой степени (8y⁴ = 2·(2y²)²)
+		 */
 		f.add(square, square, square);
-		// Вычитаем восьмикратную четвёртую степень из произведения
-		f.subtract(y, square, result.y);
-		// Записываем полученную третью координату удвоенной точки
-		result.z = z;
-		// Записываем полученную первую координату удвоенной точки
-		result.x = x;
+		// Произведение первой координаты на удвоенный квадрат второй
+		V product;
+		// Выполняем умножение первой координаты на удвоенный квадрат второй
+		f.multiply(value.x, square, product);
+		// Третья координата удвоенной точки: удвоенная вторая на третью
+		f.multiply(doubled, value.z, result.z);
+		// Учетверённая четвёртая степень второй координаты
+		V quad;
+		// Выполняем возведение удвоенного квадрата в квадрат
+		f.square(square, quad);
+		// Выполняем удвоение произведения: учетверённое произведение
+		f.add(product, product, product);
+		// Первая координата: квадрат множителя касательной
+		f.square(factor, result.x);
+		// Вычитаем учетверённое произведение
+		f.subtract(result.x, product, result.x);
+		// Вычитаем оставшуюся часть учетверённого произведения
+		f.subtract(result.x, product, result.x);
+		// Разность учетверённого произведения с первой координатой
+		f.subtract(product, result.x, product);
+		// Произведение разности на множитель касательной
+		f.multiply(product, factor, product);
+		// Восьмикратная четвёртая степень второй координаты
+		f.add(quad, quad, quad);
+		// Вторая координата удвоенной точки
+		f.subtract(product, quad, result.y);
 	}
 	/**
 	 * @brief Метод сложения точек кривой без ветвления
+	 *
+	 * @details Приёмник вправе совпадать с первым слагаемым: его координаты дочитываются
+	 *          до первой записи в приёмник
 	 *
 	 * @param f      арифметика поля
 	 * @param first  первое слагаемое
@@ -545,75 +681,88 @@ namespace {
 	 *
 	 */
 	template <typename F>
-	static void attaching(const F & f, const point_t & first, const point_t & second, point_t & result) noexcept {
-		// Приведённые первые координаты слагаемых
-		math::number_t u1, u2;
-		// Приведённые вторые координаты слагаемых
-		math::number_t s1, s2;
-		// Разности приведённых координат слагаемых
-		math::number_t h, r;
-		// Промежуточное значение степеней третьих координат
-		math::number_t item;
-		// Собираемая сумма точек
-		point_t value;
+	static void attaching(const F & f, const Triple <typename F::value_t> & first, const Triple <typename F::value_t> & second, Triple <typename F::value_t> & result) noexcept {
+		// Значение поля
+		typedef typename F::value_t V;
+		// Квадраты третьих координат слагаемых: независимы друг от друга
+		V z2, z1;
 		// Выполняем возведение третьей координаты второго слагаемого в квадрат
-		f.square(second.z, item);
-		// Выполняем приведение первой координаты первого слагаемого
-		f.multiply(first.x, item, u1);
-		// Выполняем возведение третьей координаты второго слагаемого в куб
-		f.multiply(item, second.z, item);
-		// Выполняем приведение второй координаты первого слагаемого
-		f.multiply(first.y, item, s1);
+		f.square(second.z, z2);
 		// Выполняем возведение третьей координаты первого слагаемого в квадрат
-		f.square(first.z, item);
+		f.square(first.z, z1);
+		// Приведённые первые координаты слагаемых
+		V u1, u2;
+		// Выполняем приведение первой координаты первого слагаемого
+		f.multiply(first.x, z2, u1);
 		// Выполняем приведение первой координаты второго слагаемого
-		f.multiply(second.x, item, u2);
+		f.multiply(second.x, z1, u2);
+		// Выполняем возведение третьей координаты второго слагаемого в куб
+		f.multiply(z2, second.z, z2);
 		// Выполняем возведение третьей координаты первого слагаемого в куб
-		f.multiply(item, first.z, item);
+		f.multiply(z1, first.z, z1);
+		// Приведённые вторые координаты слагаемых
+		V s1, s2;
+		// Выполняем приведение второй координаты первого слагаемого
+		f.multiply(first.y, z2, s1);
 		// Выполняем приведение второй координаты второго слагаемого
-		f.multiply(second.y, item, s2);
-		// Вычисляем разность приведённых первых координат слагаемых
+		f.multiply(second.y, z1, s2);
+		// Разности приведённых координат слагаемых
+		V h, r;
+		// Вычисляем разность приведённых первых координат
 		f.subtract(u2, u1, h);
-		// Вычисляем разность приведённых вторых координат слагаемых
+		// Вычисляем разность приведённых вторых координат
 		f.subtract(s2, s1, r);
-		// Квадрат и куб разности приведённых первых координат
-		math::number_t square, cube;
+		// Квадрат разности первых координат
+		V square;
 		// Выполняем возведение разности первых координат в квадрат
 		f.square(h, square);
+		// Произведение третьих координат слагаемых
+		V zz;
+		// Выполняем умножение третьих координат слагаемых
+		f.multiply(first.z, second.z, zz);
+		// Маски удалённости слагаемых: снимаются до первой записи в приёмник
+		const uint64_t empty2 = f.zero(second.z), empty1 = f.zero(first.z);
+		// Куб разности первых координат
+		V cube;
 		// Выполняем возведение разности первых координат в куб
 		f.multiply(square, h, cube);
 		// Выполняем умножение приведённой первой координаты на квадрат разности
 		f.multiply(u1, square, u1);
+		// Квадрат разности вторых координат
+		V item;
 		// Выполняем возведение разности вторых координат в квадрат
 		f.square(r, item);
-		// Вычитаем куб разности первых координат из полученного квадрата
+		// Собираемая сумма точек
+		Triple <V> value;
+		// Третья координата суммы
+		f.multiply(zz, h, value.z);
+		// Вычитаем куб разности первых координат из квадрата разности вторых
 		f.subtract(item, cube, item);
-		// Вычитаем полученное произведение из разности
+		// Вычитаем произведение
 		f.subtract(item, u1, item);
-		// Вычитаем оставшуюся часть произведения из разности
+		// Первая координата суммы: вычитаем оставшуюся часть произведения
 		f.subtract(item, u1, value.x);
-		// Вычитаем полученную первую координату из произведения
+		// Разность произведения с первой координатой
 		f.subtract(u1, value.x, u1);
-		// Выполняем умножение разности на разность вторых координат
+		// Произведение разности на разность вторых координат
 		f.multiply(u1, r, u1);
-		// Выполняем умножение приведённой второй координаты на куб разности
+		// Произведение приведённой второй координаты на куб разности
 		f.multiply(s1, cube, cube);
-		// Вычитаем полученное произведение из разности
+		// Вторая координата суммы
 		f.subtract(u1, cube, value.y);
-		// Выполняем умножение третьих координат слагаемых
-		f.multiply(first.z, second.z, item);
-		// Выполняем умножение полученного произведения на разность первых координат
-		f.multiply(item, h, value.z);
 		/**
 		 * Бесконечно удалённое слагаемое обращает сумму в другое слагаемое: выбор ведётся
 		 * наложением маски, оттого удалённость слагаемого временем работы не выдаётся
 		 */
-		choose(f.zero(second.z) ? 1 : 0, first, value, value, f.count());
+		choose(f, empty2, first, value, value);
 		// Выбираем сумму точек наложением маски удалённости первого слагаемого
-		choose(f.zero(first.z) ? 1 : 0, second, value, result, f.count());
+		choose(f, empty1, second, value, result);
 	}
 	/**
 	 * @brief Метод сложения точек кривой с аффинным вторым слагаемым
+	 *
+	 * @details Приёмник вправе совпадать с первым слагаемым: его координаты дочитываются
+	 *          до первой записи в приёмник
 	 *
 	 * @param f      арифметика поля
 	 * @param first  первое слагаемое
@@ -622,76 +771,85 @@ namespace {
 	 *
 	 */
 	template <typename F>
-	static void joining(const F & f, const point_t & first, const point_t & second, point_t & result) noexcept {
-		// Приведённые первые координаты слагаемых
-		math::number_t u1, u2;
-		// Приведённые вторые координаты слагаемых
-		math::number_t s1, s2;
-		// Разности приведённых координат слагаемых
-		math::number_t h, r;
-		// Промежуточное значение степеней третьих координат
-		math::number_t item;
-		// Собираемая сумма точек
-		point_t value;
+	static void joining(const F & f, const Triple <typename F::value_t> & first, const Triple <typename F::value_t> & second, Triple <typename F::value_t> & result) noexcept {
+		// Значение поля
+		typedef typename F::value_t V;
 		/**
 		 * Третья координата второго слагаемого равна единице поля, оттого приведение
 		 * координат первого слагаемого обращается в переписывание: умножение на единицу и
 		 * возведение её в квадрат с кубом делать нечего
 		 */
-		u1 = first.x;
-		// Записываем приведённую вторую координату первого слагаемого
-		s1 = first.y;
+		V z1;
 		// Выполняем возведение третьей координаты первого слагаемого в квадрат
-		f.square(first.z, item);
+		f.square(first.z, z1);
+		// Приведённая первая координата второго слагаемого
+		V u2;
 		// Выполняем приведение первой координаты второго слагаемого
-		f.multiply(second.x, item, u2);
+		f.multiply(second.x, z1, u2);
 		// Выполняем возведение третьей координаты первого слагаемого в куб
-		f.multiply(item, first.z, item);
+		f.multiply(z1, first.z, z1);
+		// Приведённая вторая координата второго слагаемого
+		V s2;
 		// Выполняем приведение второй координаты второго слагаемого
-		f.multiply(second.y, item, s2);
-		// Вычисляем разность приведённых первых координат слагаемых
-		f.subtract(u2, u1, h);
-		// Вычисляем разность приведённых вторых координат слагаемых
-		f.subtract(s2, s1, r);
-		// Квадрат и куб разности приведённых первых координат
-		math::number_t square, cube;
+		f.multiply(second.y, z1, s2);
+		// Разности приведённых координат слагаемых
+		V h, r;
+		// Вычисляем разность приведённых первых координат
+		f.subtract(u2, first.x, h);
+		// Вычисляем разность приведённых вторых координат
+		f.subtract(s2, first.y, r);
+		// Квадрат разности первых координат
+		V square;
 		// Выполняем возведение разности первых координат в квадрат
 		f.square(h, square);
-		// Выполняем возведение разности первых координат в куб
-		f.multiply(square, h, cube);
-		// Выполняем умножение приведённой первой координаты на квадрат разности
-		f.multiply(u1, square, u1);
-		// Выполняем возведение разности вторых координат в квадрат
-		f.square(r, item);
-		// Вычитаем куб разности первых координат из полученного квадрата
-		f.subtract(item, cube, item);
-		// Вычитаем полученное произведение из разности
-		f.subtract(item, u1, item);
-		// Вычитаем оставшуюся часть произведения из разности
-		f.subtract(item, u1, value.x);
-		// Вычитаем полученную первую координату из произведения
-		f.subtract(u1, value.x, u1);
-		// Выполняем умножение разности на разность вторых координат
-		f.multiply(u1, r, u1);
-		// Выполняем умножение приведённой второй координаты на куб разности
-		f.multiply(s1, cube, cube);
-		// Вычитаем полученное произведение из разности
-		f.subtract(u1, cube, value.y);
+		// Маски удалённости слагаемых: снимаются до первой записи в приёмник
+		const uint64_t empty2 = f.zero(second.z), empty1 = f.zero(first.z);
+		// Собираемая сумма точек
+		Triple <V> value;
 		/**
 		 * Произведение третьих координат слагаемых равно третьей координате первого:
 		 * третья координата второго есть единица поля
 		 */
 		f.multiply(first.z, h, value.z);
+		// Куб разности первых координат
+		V cube;
+		// Выполняем возведение разности первых координат в куб
+		f.multiply(square, h, cube);
+		// Произведение первой координаты на квадрат разности
+		V u1;
+		// Выполняем умножение первой координаты на квадрат разности
+		f.multiply(first.x, square, u1);
+		// Квадрат разности вторых координат
+		V item;
+		// Выполняем возведение разности вторых координат в квадрат
+		f.square(r, item);
+		// Вычитаем куб разности первых координат
+		f.subtract(item, cube, item);
+		// Вычитаем произведение
+		f.subtract(item, u1, item);
+		// Первая координата суммы: вычитаем оставшуюся часть произведения
+		f.subtract(item, u1, value.x);
+		// Разность произведения с первой координатой
+		f.subtract(u1, value.x, u1);
+		// Произведение разности на разность вторых координат
+		f.multiply(u1, r, u1);
+		// Произведение второй координаты на куб разности
+		f.multiply(first.y, cube, cube);
+		// Вторая координата суммы
+		f.subtract(u1, cube, value.y);
 		/**
 		 * Бесконечно удалённое слагаемое обращает сумму в другое слагаемое: выбор ведётся
 		 * наложением маски, оттого удалённость слагаемого временем работы не выдаётся
 		 */
-		choose(f.zero(second.z) ? 1 : 0, first, value, value, f.count());
+		choose(f, empty2, first, value, value);
 		// Выбираем сумму точек наложением маски удалённости первого слагаемого
-		choose(f.zero(first.z) ? 1 : 0, second, value, result, f.count());
+		choose(f, empty1, second, value, result);
 	}
 	/**
 	 * @brief Метод сложения точек кривой
+	 *
+	 * @details Приёмник вправе совпадать с любым слагаемым: координаты дочитываются до
+	 *          первой записи в приёмник
 	 *
 	 * @param f           арифметика поля
 	 * @param shortened   признак того, что первый коэффициент кривой равен модулю без трёх
@@ -700,91 +858,498 @@ namespace {
 	 * @param second      второе слагаемое
 	 * @param result      место, в которое помещается сумма точек
 	 *
+	 * @warning Ветвления идут по значениям точек: метод положен лишь открытым точкам
+	 *
 	 */
 	template <typename F>
-	static void adding(const F & f, const bool shortened, const math::number_t & coefficient, const point_t & first, const point_t & second, point_t & result) noexcept {
+	static void adding(const F & f, const bool shortened, const typename F::value_t & coefficient, const Triple <typename F::value_t> & first, const Triple <typename F::value_t> & second, Triple <typename F::value_t> & result) noexcept {
+		// Значение поля
+		typedef typename F::value_t V;
 		// Если первое слагаемое бесконечно удалено
-		if(f.zero(first.z)){
-			// Записываем второе слагаемое суммой точек
+		if(f.zero(first.z) != 0){
+			// Второе слагаемое и есть сумма точек
 			result = second;
 			// Выходим из сложения точек
 			return;
 		}
 		// Если второе слагаемое бесконечно удалено
-		if(f.zero(second.z)){
-			// Записываем первое слагаемое суммой точек
+		if(f.zero(second.z) != 0){
+			// Первое слагаемое и есть сумма точек
 			result = first;
 			// Выходим из сложения точек
 			return;
 		}
-		// Промежуточные значения сложения точек
-		math::number_t u1, u2, s1, s2, h, r, item;
+		// Квадраты третьих координат слагаемых
+		V z2, z1;
 		// Выполняем возведение третьей координаты второго слагаемого в квадрат
-		f.square(second.z, item);
-		// Выполняем приведение первой координаты первого слагаемого
-		f.multiply(first.x, item, u1);
-		// Выполняем приведение второй координаты первого слагаемого
-		f.multiply(item, second.z, item);
-		// Выполняем умножение второй координаты первого слагаемого
-		f.multiply(first.y, item, s1);
+		f.square(second.z, z2);
 		// Выполняем возведение третьей координаты первого слагаемого в квадрат
-		f.square(first.z, item);
+		f.square(first.z, z1);
+		// Приведённые первые координаты слагаемых
+		V u1, u2;
+		// Выполняем приведение первой координаты первого слагаемого
+		f.multiply(first.x, z2, u1);
 		// Выполняем приведение первой координаты второго слагаемого
-		f.multiply(second.x, item, u2);
+		f.multiply(second.x, z1, u2);
+		// Выполняем возведение третьей координаты второго слагаемого в куб
+		f.multiply(z2, second.z, z2);
+		// Выполняем возведение третьей координаты первого слагаемого в куб
+		f.multiply(z1, first.z, z1);
+		// Приведённые вторые координаты слагаемых
+		V s1, s2;
+		// Выполняем приведение второй координаты первого слагаемого
+		f.multiply(first.y, z2, s1);
 		// Выполняем приведение второй координаты второго слагаемого
-		f.multiply(item, first.z, item);
-		// Выполняем умножение второй координаты второго слагаемого
-		f.multiply(second.y, item, s2);
-		// Вычисляем разность приведённых первых координат слагаемых
+		f.multiply(second.y, z1, s2);
+		// Разности приведённых координат слагаемых
+		V h, r;
+		// Вычисляем разность приведённых первых координат
 		f.subtract(u2, u1, h);
-		// Вычисляем разность приведённых вторых координат слагаемых
+		// Вычисляем разность приведённых вторых координат
 		f.subtract(s2, s1, r);
 		// Если приведённые первые координаты слагаемых совпали
-		if(f.zero(h)){
+		if(f.zero(h) != 0){
 			// Если совпали и приведённые вторые координаты слагаемых
-			if(f.zero(r))
-				// Выполняем удвоение первого слагаемого
+			if(f.zero(r) != 0)
+				// Сумма равных точек есть удвоение
 				doubling(f, shortened, coefficient, first, result);
-			// Если слагаемые оказались противоположны
-			else {
-				// Выполняем сброс суммы точек в бесконечно удалённую точку
-				result = point_t();
-			}
+			// Противоположные слагаемые дают бесконечно удалённую точку
+			else result = Triple <V> ();
 			// Выходим из сложения точек
 			return;
 		}
-		// Промежуточные значения степеней разности координат
-		math::number_t square, cube, value;
+		// Квадрат разности первых координат
+		V square;
 		// Выполняем возведение разности первых координат в квадрат
 		f.square(h, square);
+		// Произведение третьих координат слагаемых
+		V zz;
+		// Выполняем умножение третьих координат слагаемых
+		f.multiply(first.z, second.z, zz);
+		// Куб разности первых координат
+		V cube;
 		// Выполняем возведение разности первых координат в куб
 		f.multiply(square, h, cube);
 		// Выполняем умножение приведённой первой координаты на квадрат разности
-		f.multiply(u1, square, value);
+		f.multiply(u1, square, u1);
+		// Квадрат разности вторых координат
+		V item;
 		// Выполняем возведение разности вторых координат в квадрат
 		f.square(r, item);
-		// Вычитаем куб разности первых координат из полученного квадрата
+		// Третья координата суммы: все чтения третьих координат позади
+		f.multiply(zz, h, result.z);
+		// Вычитаем куб разности первых координат
 		f.subtract(item, cube, item);
-		// Вычитаем полученное произведение из разности
-		f.subtract(item, value, item);
-		// Вычитаем оставшуюся часть произведения из разности
-		f.subtract(item, value, item);
-		// Вычитаем полученную первую координату из произведения
-		f.subtract(value, item, value);
-		// Выполняем умножение разности на разность вторых координат
-		f.multiply(value, r, value);
-		// Выполняем умножение приведённой второй координаты на куб разности
+		// Вычитаем произведение
+		f.subtract(item, u1, item);
+		// Первая координата суммы: вычитаем оставшуюся часть произведения
+		f.subtract(item, u1, result.x);
+		// Разность произведения с первой координатой
+		f.subtract(u1, result.x, u1);
+		// Произведение разности на разность вторых координат
+		f.multiply(u1, r, u1);
+		// Произведение приведённой второй координаты на куб разности
 		f.multiply(s1, cube, cube);
-		// Вычитаем полученное произведение из разности
-		f.subtract(value, cube, cube);
-		// Выполняем умножение третьих координат слагаемых
-		f.multiply(first.z, second.z, value);
-		// Выполняем умножение полученного произведения на разность первых координат
-		f.multiply(value, h, result.z);
-		// Записываем полученную вторую координату суммы точек
-		result.y = cube;
-		// Записываем полученную первую координату суммы точек
-		result.x = item;
+		// Вторая координата суммы
+		f.subtract(u1, cube, result.y);
+	}
+	/**
+	 * @brief Метод выбора кратного из таблицы точек наложением маски
+	 *
+	 * @details Таблица перебирается целиком, и выбор идёт наложением маски совпадения
+	 *          номера кратного с искомым: время работы от номера не зависит
+	 *
+	 * @param f      арифметика поля
+	 * @param table  таблица кратных
+	 * @param count  число кратных в таблице
+	 * @param index  номер искомого кратного
+	 * @param result место, в которое помещается выбранное кратное
+	 *
+	 */
+	template <typename F>
+	static __ANTS_INLINE__ void pick(const F & f, const Triple <typename F::value_t> * table, const size_t count, const uint64_t index, Triple <typename F::value_t> & result) noexcept {
+		// Накопитель выбираемого кратного: нулевое кратное таблицы
+		result = table[0];
+		/**
+		 * Выполняем перебор всей таблицы кратных
+		 */
+		for(size_t j = 1; j < count; j++)
+			// Выбираем очередное кратное наложением маски совпадения номера
+			choose(f, same(index, static_cast <uint64_t> (j)), table[j], result, result);
+	}
+	/**
+	 * @brief Метод выбора кратного из таблицы точек на значениях известного числа слов
+	 *
+	 * @details Точки таблицы лежат подряд тремя координатами по WORDS слов: выборка идёт
+	 *          векторным перебором строк таблицы под маской
+	 *
+	 * @param f      арифметика поля
+	 * @param table  таблица кратных
+	 * @param count  число кратных в таблице
+	 * @param index  номер искомого кратного
+	 * @param result место, в которое помещается выбранное кратное
+	 *
+	 */
+	template <size_t WORDS>
+	static __ANTS_INLINE__ void pick(const Fast <WORDS> & f, const Triple <math::kernel::Words <WORDS>> * table, const size_t count, const uint64_t index, Triple <math::kernel::Words <WORDS>> & result) noexcept {
+		// Выполняем выборку строки таблицы: три координаты подряд
+		f.gather(table[0].x.w, (3 * WORDS), count, 0, index, result.x.w, (3 * WORDS));
+	}
+	/**
+	 * @brief Метод умножения точки кривой на число
+	 *
+	 * @details Множитель раскладывается на знаковые окна по пять разрядов: кратные от
+	 *          первого до шестнадцатого заготавливаются восемью удвоениями и семью
+	 *          сложениями, а отрицательная цифра берёт кратное со сменой знака второй
+	 *          координаты наложением маски. На окно приходится пять удвоений, выбор
+	 *          кратного перебором таблицы и одно сложение без ветвлений
+	 *
+	 * @param f           арифметика поля
+	 * @param shortened   признак того, что первый коэффициент кривой равен модулю без трёх
+	 * @param coefficient первый коэффициент уравнения кривой в области поля
+	 * @param value       умножаемая точка
+	 * @param factor      число, на которое умножается точка
+	 * @param bits        разрядность множителя
+	 * @param result      место, в которое помещается произведение
+	 *
+	 */
+	template <typename F>
+	static void multiplying(const F & f, const bool shortened, const typename F::value_t & coefficient, const Triple <typename F::value_t> & value, const math::number_t & factor, const size_t bits, Triple <typename F::value_t> & result) noexcept {
+		// Значение поля
+		typedef typename F::value_t V;
+		// Разрядность знакового окна множителя
+		static constexpr size_t WINDOW = 5;
+		// Число кратных умножаемой точки: величина цифры окна не превосходит 2^(w-1)
+		static constexpr size_t MULTIPLES = (1 << (WINDOW - 1));
+		/**
+		 * Кратные умножаемой точки от нулевого до шестнадцатого
+		 *
+		 * @note Таблица считается от самой точки, а не от множителя: точка эта открыта, и
+		 *       время её счёта секрета не выдаёт
+		 */
+		Triple <V> table[MULTIPLES + 1];
+		// Нулевое кратное бесконечно удалено
+		table[0] = Triple <V> ();
+		// Первое кратное есть сама точка
+		table[1] = value;
+		/**
+		 * Выполняем счёт оставшихся кратных: чётные удвоением половины, нечётные
+		 * сложением предыдущего с точкой
+		 */
+		for(size_t i = 2; i <= MULTIPLES; i++){
+			// Если кратное чётное
+			if((i % 2) == 0)
+				// Считаем кратное удвоением половины
+				doubling(f, shortened, coefficient, table[i / 2], table[i]);
+			// Если кратное нечётное
+			else adding(f, shortened, coefficient, table[i - 1], value, table[i]);
+		}
+		// Число окон множителя: с запасом в разряд, чтобы старшее окно не несло знака
+		const size_t positions = ((bits / WINDOW) + 1);
+		// Накапливаемое произведение: бесконечно удалённая точка
+		result = Triple <V> ();
+		// Кратное точки, выбранное цифрой окна
+		Triple <V> chosen;
+		// Вторая координата кратного со сменой знака
+		V negated;
+		/**
+		 * Выполняем перебор окон множителя от старшего к младшему
+		 */
+		for(size_t i = positions; i > 0; i--){
+			/**
+			 * Выполняем удвоение накопленного произведения по числу разрядов окна:
+			 * у старшего окна накопленное произведение пусто, и удвоений нет
+			 */
+			if(i < positions){
+				/**
+				 * Выполняем удвоения по разрядам окна на месте
+				 */
+				for(size_t j = 0; j < WINDOW; j++)
+					// Выполняем удвоение накопленного произведения
+					doubling(f, shortened, coefficient, result, result);
+			}
+			// Знак цифры окна
+			uint64_t sign = 0;
+			// Величина цифры окна
+			const uint64_t index = digit(factor, (i - 1), WINDOW, sign);
+			/**
+			 * Выбираем кратное перебором всей таблицы: чтение таблицы по значению цифры
+			 * выдало бы разряды множителя временем работы через кеш
+			 */
+			pick(f, table, (MULTIPLES + 1), index, chosen);
+			// Вторая координата со сменой знака: нулевое кратное несёт ноль поля
+			f.subtract(table[0].y, chosen.y, negated);
+			// Отрицательная цифра берёт кратное со сменой знака второй координаты
+			f.choose((0 - sign), negated, chosen.y, chosen.y);
+			// Выполняем сложение накопленного произведения с выбранным кратным на месте
+			attaching(f, result, chosen, result);
+		}
+	}
+	/**
+	 * @brief Метод выборки кратного из строки заготовленных кратных общим путём
+	 *
+	 * @param f      арифметика поля
+	 * @param row    строка заготовленных кратных: по две координаты на кратное
+	 * @param words  число слов координаты
+	 * @param index  величина цифры окна
+	 * @param chosen место, в которое помещаются координаты выбранного кратного
+	 *
+	 */
+	static void gathering(const Slow & f, const uint64_t * row, const size_t words, const uint64_t index, Triple <Slow::value_t> & chosen) noexcept {
+		// Координаты очередного кратного
+		Slow::value_t x, y;
+		/**
+		 * Выполняем перебор всей строки заготовленных кратных
+		 */
+		for(size_t j = 1; j <= TABLES_MULTIPLES; j++){
+			// Маска совпадения величины цифры с номером кратного
+			const uint64_t mask = same(index, static_cast <uint64_t> (j));
+			// Место очередного кратного строки
+			const uint64_t * place = (row + ((j - 1) * 2 * words));
+			// Читаем первую координату кратного
+			f.read(place, x);
+			// Читаем вторую координату кратного
+			f.read(place + words, y);
+			// Выбираем первую координату кратного
+			f.choose(mask, x, chosen.x, chosen.x);
+			// Выбираем вторую координату кратного
+			f.choose(mask, y, chosen.y, chosen.y);
+		}
+	}
+	/**
+	 * @brief Метод выборки кратного из строки заготовленных кратных на значениях
+	 *
+	 * @details Координаты кратного лежат в строке подряд: выборка идёт векторным
+	 *          перебором строки под маской в две координаты разом
+	 *
+	 * @param f      арифметика поля
+	 * @param row    строка заготовленных кратных: по две координаты на кратное
+	 * @param words  число слов координаты: равно числу слов арифметики
+	 * @param index  величина цифры окна
+	 * @param chosen место, в которое помещаются координаты выбранного кратного
+	 *
+	 */
+	template <size_t WORDS>
+	static __ANTS_INLINE__ void gathering(const Fast <WORDS> & f, const uint64_t * row, const size_t words, const uint64_t index, Triple <math::kernel::Words <WORDS>> & chosen) noexcept {
+		// Число слов координаты заложено в арифметику
+		(void) words;
+		// Выполняем выборку строки: кратные от первого, координаты подряд
+		f.gather(row, (2 * WORDS), TABLES_MULTIPLES, 1, index, chosen.x.w, (2 * WORDS));
+	}
+	/**
+	 * @brief Метод умножения точки основания кривой на число
+	 *
+	 * @details Кратные заготовлены на всякое знаковое окно отдельно, и удвоений между
+	 *          окнами не требуется вовсе: на окно приходится выбор кратного перебором
+	 *          строки и одно смешанное сложение
+	 *
+	 * @param f         арифметика поля
+	 * @param multiples заготовленные кратные точки основания
+	 * @param unit      единица поля
+	 * @param factor    число, на которое умножается точка основания
+	 * @param result    место, в которое помещается произведение
+	 *
+	 */
+	template <typename F>
+	static void producing(const F & f, const precomputed_t * multiples, const typename F::value_t & unit, const math::number_t & factor, Triple <typename F::value_t> & result) noexcept {
+		// Значение поля
+		typedef typename F::value_t V;
+		// Ноль поля
+		const V zero = V();
+		// Накапливаемое произведение: бесконечно удалённая точка
+		result = Triple <V> ();
+		// Выбираемое кратное
+		Triple <V> chosen;
+		// Вторая координата кратного со сменой знака
+		V negated;
+		/**
+		 * Выполняем обход окон множителя от младшего к старшему
+		 */
+		for(size_t i = 0; i < multiples->positions; i++){
+			// Знак цифры окна
+			uint64_t sign = 0;
+			// Величина цифры окна
+			const uint64_t index = digit(factor, i, TABLES_WINDOW, sign);
+			// Начало строки заготовленных кратных очередного окна
+			const uint64_t * row = (multiples->data + (i * TABLES_MULTIPLES * 2 * multiples->words));
+			// Выбираемое кратное: нулевое кратное бесконечно удалено
+			chosen = Triple <V> ();
+			/**
+			 * Выполняем перебор ВСЕЙ строки заготовленных кратных: выбор идёт наложением
+			 * маски совпадения, а не переходом, оттого время работы от значения окна не
+			 * зависит и о секретном множителе не говорит
+			 */
+			gathering(f, row, multiples->words, index, chosen);
+			/**
+			 * Кратные заготовлены аффинными, и третья координата их равна единице. У
+			 * нулевой же цифры кратного нет вовсе: место его занимает бесконечно
+			 * удалённая точка, а её признак есть нулевая третья координата
+			 */
+			f.choose(same(index, 0), zero, unit, chosen.z);
+			// Вторая координата со сменой знака
+			f.subtract(zero, chosen.y, negated);
+			// Отрицательная цифра берёт кратное со сменой знака второй координаты
+			f.choose((0 - sign), negated, chosen.y, chosen.y);
+			/**
+			 * Сложение берётся смешанное: третья координата выбранного кратного равна
+			 * единице поля, и пять умножений поля из двенадцати обращаются в переписывание.
+			 * Нулевая цифра единицы этой не несёт, и там смешанное сложение считает мусор -
+			 * тот же самый мусор, что считает и сложение общего вида, и снимается он тою же
+			 * маской удалённости слагаемого
+			 */
+			joining(f, result, chosen, result);
+		}
+	}
+	/**
+	 * @brief Метод удвоения точки через арифметику поля
+	 *
+	 * @param f         арифметика поля
+	 * @param shortened признак того, что первый коэффициент кривой равен модулю без трёх
+	 * @param first     первый коэффициент уравнения кривой числом
+	 * @param value     удваиваемая точка
+	 * @param result    место, в которое помещается удвоенная точка
+	 *
+	 */
+	template <typename F>
+	static void twicing(const F & f, const bool shortened, const math::number_t & first, const point_t & value, point_t & result) noexcept {
+		// Первый коэффициент на значениях
+		typename F::value_t coefficient;
+		// Читаем первый коэффициент
+		f.load(first, coefficient);
+		// Точка на значениях и итог
+		Triple <typename F::value_t> item, doubled;
+		// Переводим точку на значения
+		enter(f, value, item);
+		// Выполняем удвоение
+		doubling(f, shortened, coefficient, item, doubled);
+		// Записываем удвоенную точку
+		leave(f, doubled, result);
+	}
+	/**
+	 * @brief Метод сложения точек без ветвления через арифметику поля
+	 *
+	 * @param f      арифметика поля
+	 * @param first  первое слагаемое
+	 * @param second второе слагаемое
+	 * @param result место, в которое помещается сумма точек
+	 *
+	 */
+	template <typename F>
+	static void attachment(const F & f, const point_t & first, const point_t & second, point_t & result) noexcept {
+		// Слагаемые на значениях и итог
+		Triple <typename F::value_t> left, right, sum;
+		// Переводим первое слагаемое на значения
+		enter(f, first, left);
+		// Переводим второе слагаемое на значения
+		enter(f, second, right);
+		// Выполняем сложение
+		attaching(f, left, right, sum);
+		// Записываем сумму точек
+		leave(f, sum, result);
+	}
+	/**
+	 * @brief Метод смешанного сложения точек через арифметику поля
+	 *
+	 * @param f      арифметика поля
+	 * @param first  первое слагаемое
+	 * @param second второе слагаемое, третья координата которого равна единице поля
+	 * @param result место, в которое помещается сумма точек
+	 *
+	 */
+	template <typename F>
+	static void junction(const F & f, const point_t & first, const point_t & second, point_t & result) noexcept {
+		// Слагаемые на значениях и итог
+		Triple <typename F::value_t> left, right, sum;
+		// Переводим первое слагаемое на значения
+		enter(f, first, left);
+		// Переводим второе слагаемое на значения
+		enter(f, second, right);
+		// Выполняем смешанное сложение
+		joining(f, left, right, sum);
+		// Записываем сумму точек
+		leave(f, sum, result);
+	}
+	/**
+	 * @brief Метод сложения точек через арифметику поля
+	 *
+	 * @param f         арифметика поля
+	 * @param shortened признак того, что первый коэффициент кривой равен модулю без трёх
+	 * @param first     первый коэффициент уравнения кривой числом
+	 * @param left      первое слагаемое
+	 * @param right     второе слагаемое
+	 * @param result    место, в которое помещается сумма точек
+	 *
+	 */
+	template <typename F>
+	static void summation(const F & f, const bool shortened, const math::number_t & first, const point_t & left, const point_t & right, point_t & result) noexcept {
+		// Первый коэффициент на значениях
+		typename F::value_t coefficient;
+		// Читаем первый коэффициент
+		f.load(first, coefficient);
+		// Слагаемые на значениях и итог
+		Triple <typename F::value_t> one, two, sum;
+		// Переводим первое слагаемое на значения
+		enter(f, left, one);
+		// Переводим второе слагаемое на значения
+		enter(f, right, two);
+		// Выполняем сложение
+		adding(f, shortened, coefficient, one, two, sum);
+		// Записываем сумму точек
+		leave(f, sum, result);
+	}
+	/**
+	 * @brief Метод умножения точки на число через арифметику поля
+	 *
+	 * @param f         арифметика поля
+	 * @param shortened признак того, что первый коэффициент кривой равен модулю без трёх
+	 * @param first     первый коэффициент уравнения кривой числом
+	 * @param value     умножаемая точка
+	 * @param factor    число, на которое умножается точка
+	 * @param bits      разрядность множителя
+	 * @param result    место, в которое помещается произведение
+	 *
+	 */
+	template <typename F>
+	static void multiplication(const F & f, const bool shortened, const math::number_t & first, const point_t & value, const math::number_t & factor, const size_t bits, point_t & result) noexcept {
+		// Первый коэффициент на значениях
+		typename F::value_t coefficient;
+		// Читаем первый коэффициент
+		f.load(first, coefficient);
+		// Точка на значениях и произведение
+		Triple <typename F::value_t> item, product;
+		// Переводим точку на значения
+		enter(f, value, item);
+		// Выполняем умножение
+		multiplying(f, shortened, coefficient, item, factor, bits, product);
+		// Записываем произведение
+		leave(f, product, result);
+		// Выполняем затирание произведения на значениях: оно выведено из секретного множителя
+		wipe(&product, sizeof(product));
+	}
+	/**
+	 * @brief Метод умножения точки основания на число через арифметику поля
+	 *
+	 * @param f         арифметика поля
+	 * @param multiples заготовленные кратные точки основания
+	 * @param unit      единица поля числом
+	 * @param factor    число, на которое умножается точка основания
+	 * @param result    место, в которое помещается произведение
+	 *
+	 */
+	template <typename F>
+	static void production(const F & f, const precomputed_t * multiples, const math::number_t & unit, const math::number_t & factor, point_t & result) noexcept {
+		// Единица поля на значениях
+		typename F::value_t one;
+		// Читаем единицу поля
+		f.load(unit, one);
+		// Произведение на значениях
+		Triple <typename F::value_t> product;
+		// Выполняем умножение точки основания
+		producing(f, multiples, one, factor, product);
+		// Записываем произведение
+		leave(f, product, result);
+		// Выполняем затирание произведения на значениях: оно выведено из секретного множителя
+		wipe(&product, sizeof(product));
 	}
 };
 
@@ -1148,11 +1713,12 @@ void nts::curve::Curve::twice(const point_t & value, point_t & result) const noe
 	const size_t words = ((this->_field.size() + 7) / 8);
 	// Формула идёт встраиваемой арифметикой по числу слов поля, прочие ширины - общим путём
 	if(words == 4)
-		doubling(Fast <4> {this->_field.layout()}, this->_shortened, this->_first, value, result);
+		twicing(Fast <4> {this->_field.layout()}, this->_shortened, this->_first, value, result);
 	else if(words == 8)
-		doubling(Fast <8> {this->_field.layout()}, this->_shortened, this->_first, value, result);
-	else doubling(Slow {this->_field}, this->_shortened, this->_first, value, result);
-}/**
+		twicing(Fast <8> {this->_field.layout()}, this->_shortened, this->_first, value, result);
+	else twicing(Slow {this->_field}, this->_shortened, this->_first, value, result);
+}
+/**
  * @brief Метод сложения точек кривой без ветвления
  *
  * @param first  первое слагаемое
@@ -1165,11 +1731,12 @@ void nts::curve::Curve::attach(const point_t & first, const point_t & second, po
 	const size_t words = ((this->_field.size() + 7) / 8);
 	// Формула идёт встраиваемой арифметикой по числу слов поля, прочие ширины - общим путём
 	if(words == 4)
-		attaching(Fast <4> {this->_field.layout()}, first, second, result);
+		attachment(Fast <4> {this->_field.layout()}, first, second, result);
 	else if(words == 8)
-		attaching(Fast <8> {this->_field.layout()}, first, second, result);
-	else attaching(Slow {this->_field}, first, second, result);
-}/**
+		attachment(Fast <8> {this->_field.layout()}, first, second, result);
+	else attachment(Slow {this->_field}, first, second, result);
+}
+/**
  * @brief Метод сложения точек кривой с аффинным вторым слагаемым
  *
  * @param first  первое слагаемое
@@ -1182,11 +1749,12 @@ void nts::curve::Curve::join(const point_t & first, const point_t & second, poin
 	const size_t words = ((this->_field.size() + 7) / 8);
 	// Формула идёт встраиваемой арифметикой по числу слов поля, прочие ширины - общим путём
 	if(words == 4)
-		joining(Fast <4> {this->_field.layout()}, first, second, result);
+		junction(Fast <4> {this->_field.layout()}, first, second, result);
 	else if(words == 8)
-		joining(Fast <8> {this->_field.layout()}, first, second, result);
-	else joining(Slow {this->_field}, first, second, result);
-}/**
+		junction(Fast <8> {this->_field.layout()}, first, second, result);
+	else junction(Slow {this->_field}, first, second, result);
+}
+/**
  * @brief Метод сложения точек кривой
  *
  * @param first  первое слагаемое
@@ -1199,11 +1767,12 @@ void nts::curve::Curve::add(const point_t & first, const point_t & second, point
 	const size_t words = ((this->_field.size() + 7) / 8);
 	// Формула идёт встраиваемой арифметикой по числу слов поля, прочие ширины - общим путём
 	if(words == 4)
-		adding(Fast <4> {this->_field.layout()}, this->_shortened, this->_first, first, second, result);
+		summation(Fast <4> {this->_field.layout()}, this->_shortened, this->_first, first, second, result);
 	else if(words == 8)
-		adding(Fast <8> {this->_field.layout()}, this->_shortened, this->_first, first, second, result);
-	else adding(Slow {this->_field}, this->_shortened, this->_first, first, second, result);
-}/**
+		summation(Fast <8> {this->_field.layout()}, this->_shortened, this->_first, first, second, result);
+	else summation(Slow {this->_field}, this->_shortened, this->_first, first, second, result);
+}
+/**
  * @brief Метод умножения точки кривой на число
  *
  * @param value  умножаемая точка
@@ -1212,95 +1781,20 @@ void nts::curve::Curve::add(const point_t & first, const point_t & second, point
  *
  */
 void nts::curve::Curve::multiply(const point_t & value, const math::number_t & factor, point_t & result) const noexcept {
-	/**
-	 * Разрядность окна, которым перебирается множитель
-	 *
-	 * @note Разрядность обязана делить разрядность множителя нацело: остаток окна
-	 *       перебор оставил бы без внимания, и произведение вышло бы неверным
-	 */
-	static constexpr size_t WINDOW = 4;
-	// Число кратных точек, укладывающихся в окно
-	static constexpr size_t MULTIPLES = (1 << WINDOW);
-	/**
-	 * Кратные умножаемой точки от нулевого до пятнадцатого
-	 *
-	 * @note Таблица считается от самой точки, а не от множителя: точка эта открыта, и
-	 *       время её счёта секрета не выдаёт
-	 */
-	point_t table[MULTIPLES];
-	// Записываем первое кратное умножаемой точки
-	table[1] = value;
-	/**
-	 * Выполняем счёт оставшихся кратных умножаемой точки
-	 */
-	for(size_t i = 2; i < MULTIPLES; i++)
-		// Считаем очередное кратное сложением с умножаемой точкой
-		this->add(table[i - 1], value, table[i]);
-	// Накапливаемое произведение точки на число
-	point_t item;
-	// Кратное точки, выбранное значением окна
-	point_t chosen;
-	// Удвоенное накопленное произведение
-	point_t twice;
-	// Сумма накопленного произведения с выбранным кратным
-	point_t sum;
-	// Число слов поля кривой: выбор кратных перебирает лишь их
+	// Число слов поля кривой
 	const size_t words = ((this->_field.size() + 7) / 8);
-	/**
-	 * Выполняем перебор окон множителя от старшего к младшему
-	 */
-	for(size_t i = (this->_order.size() * 8); i >= WINDOW; i -= WINDOW){
-		/**
-		 * Выполняем удвоение накопленного произведения по числу разрядов окна
-		 */
-		for(size_t j = 0; j < WINDOW; j++){
-			// Выполняем удвоение накопленного произведения
-			this->twice(item, twice);
-			// Запоминаем удвоенное накопленное произведение
-			item = twice;
-		}
-		// Извлекаем значение очередного окна множителя
-		const uint64_t window = ((factor.words[(i - WINDOW) / 64] >> ((i - WINDOW) % 64)) & (MULTIPLES - 1));
-		/**
-		 * Выполняем перебор всех кратных умножаемой точки
-		 *
-		 * @note Перебираются все кратные, а не одно: чтение таблицы по значению окна
-		 *       выдало бы разряды множителя временем работы через кеш. Перебор идёт в
-		 *       накопителях по числу слов поля, а общий путь оставлен прочим ширинам
-		 */
-		if(words == 4)
-			// Выбираем кратное перебором с четырьмя словами накопителей
-			pick <4> (table, MULTIPLES, window, chosen);
-		else if(words == 8)
-			// Выбираем кратное перебором с восемью словами накопителей
-			pick <8> (table, MULTIPLES, window, chosen);
-		else {
-			/**
-			 * Выполняем перебор всех кратных умножаемой точки общим путём
-			 */
-			for(size_t j = 0; j < MULTIPLES; j++)
-				// Выбираем кратное точки наложением маски совпадения со значением окна
-				choose(equal(window, static_cast <uint64_t> (j)), table[j], chosen, chosen, words);
-		}
-		// Выполняем сложение накопленного произведения с выбранным кратным
-		this->attach(item, chosen, sum);
-		// Запоминаем накопленное произведение
-		item = sum;
-	}
-	// Записываем накопленное произведение
-	result = item;
+	// Разрядность множителя: разрядность порядка подгруппы точек кривой
+	const size_t bits = (this->_order.size() * 8);
+	// Умножение идёт встраиваемой арифметикой по числу слов поля, прочие ширины - общим путём
+	if(words == 4)
+		multiplication(Fast <4> {this->_field.layout()}, this->_shortened, this->_first, value, factor, bits, result);
+	else if(words == 8)
+		multiplication(Fast <8> {this->_field.layout()}, this->_shortened, this->_first, value, factor, bits, result);
+	else multiplication(Slow {this->_field}, this->_shortened, this->_first, value, factor, bits, result);
 	/**
 	 * Накопленное произведение и выбранные кратные выведены из множителя, а
-	 * множитель секретен: затираются они, а не таблица кратных открытой точки
+	 * множитель секретен: кадры стека шагов умножения перезаписываются
 	 */
-	wipe(sum);
-	// Выполняем затирание удвоенного накопленного произведения
-	wipe(twice);
-	// Выполняем затирание выбранного кратного точки
-	wipe(chosen);
-	// Выполняем затирание накопленного произведения
-	wipe(item);
-	// Выполняем перезапись кадров стека шагов умножения
 	overwrite();
 }
 /**
@@ -1320,86 +1814,12 @@ void nts::curve::Curve::product(const math::number_t & factor, point_t & result)
 		// Выходим из умножения точки основания
 		return;
 	}
-	// Накапливаемое произведение точки основания на число
-	point_t item;
-	// Кратное точки основания, выбранное значением окна
-	point_t chosen;
-	// Сумма накопленного произведения с выбранным кратным
-	point_t sum;
-	/**
-	 * Выполняем обход окон множителя от младшего к старшему: кратные заготовлены на
-	 * всякое окно отдельно, и удвоений между окнами не требуется вовсе
-	 */
-	for(size_t i = 0; i < multiples->positions; i++){
-		// Извлекаем значение очередного окна множителя
-		const uint64_t value = ::window(factor, i, TABLES_WINDOW);
-		// Получаем начало строки заготовленных кратных очередного окна
-		const uint64_t * row = (multiples->data + (i * TABLES_MULTIPLES * 2 * multiples->words));
-		/**
-		 * Выполняем перебор ВСЕЙ строки заготовленных кратных: выбор идёт наложением
-		 * маски совпадения, а не переходом, оттого время работы от значения окна не
-		 * зависит и о секретном множителе не говорит. Перебор идёт в накопителях по
-		 * числу слов поля, а общий путь оставлен прочим ширинам
-		 */
-		if(multiples->words == 4)
-			// Выбираем кратное перебором с четырьмя словами накопителей
-			gather <4> (row, value, chosen);
-		else if(multiples->words == 8)
-			// Выбираем кратное перебором с восемью словами накопителей
-			gather <8> (row, value, chosen);
-		else {
-			// Выполняем обнуление выбираемого кратного точки основания
-			chosen = point_t();
-			/**
-			 * Выполняем перебор всей строки заготовленных кратных общим путём
-			 */
-			for(size_t j = 1; j <= TABLES_MULTIPLES; j++){
-				// Получаем маску совпадения значения окна с номером кратного
-				const uint64_t mask = (0 - equal(value, static_cast <uint64_t> (j)));
-				// Получаем место очередного кратного строки
-				const uint64_t * place = (row + ((j - 1) * 2 * multiples->words));
-				/**
-				 * Выполняем обход слов координат очередного кратного
-				 */
-				for(size_t w = 0; w < multiples->words; w++){
-					// Выбираем очередное слово первой координаты наложением маски
-					chosen.x.words[w] |= (place[w] & mask);
-					// Выбираем очередное слово второй координаты наложением маски
-					chosen.y.words[w] |= (place[multiples->words + w] & mask);
-				}
-			}
-		}
-		/**
-		 * Кратные заготовлены аффинными, и третья координата их равна единице. У
-		 * нулевого же окна кратного нет вовсе: место его занимает бесконечно
-		 * удалённая точка, а её признак есть нулевая третья координата
-		 */
-		const uint64_t living = (0 - (equal(value, 0) ^ 0x01));
-		/**
-		 * Выполняем сборку третьей координаты выбранного кратного
-		 */
-		for(size_t w = 0; w < math::NUMBER_WORDS; w++)
-			// Записываем очередное слово третьей координаты наложением маски
-			chosen.z.words[w] = (this->_unit.words[w] & living);
-		/**
-		 * Сложение берётся смешанное: третья координата выбранного кратного равна
-		 * единице поля, и пять умножений поля из двенадцати обращаются в переписывание.
-		 * Нулевое окно единицы этой не несёт, и там смешанное сложение считает мусор -
-		 * тот же самый мусор, что считает и сложение общего вида, и снимается он тою же
-		 * маской удалённости слагаемого
-		 */
-		this->join(item, chosen, sum);
-		// Запоминаем накопленное произведение
-		item = sum;
-	}
-	// Записываем накопленное произведение итогом умножения
-	result = item;
-	// Выполняем затирание суммы накопленного произведения с кратным
-	wipe(sum);
-	// Выполняем затирание выбранного кратного точки основания
-	wipe(chosen);
-	// Выполняем затирание накопленного произведения
-	wipe(item);
+	// Умножение идёт встраиваемой арифметикой по числу слов заготовки, прочие ширины - общим путём
+	if(multiples->words == 4)
+		production(Fast <4> {this->_field.layout()}, multiples, this->_unit, factor, result);
+	else if(multiples->words == 8)
+		production(Fast <8> {this->_field.layout()}, multiples, this->_unit, factor, result);
+	else production(Slow {this->_field}, multiples, this->_unit, factor, result);
 	// Выполняем перезапись кадров стека шагов умножения
 	overwrite();
 }
@@ -1412,85 +1832,25 @@ void nts::curve::Curve::product(const math::number_t & factor, point_t & result)
  * @param pair   число, на которое умножается вторая точка
  * @param result место, в которое помещается сумма произведений
  *
- * @warning Время работы зависит от чисел: метод положен лишь сличению подписи
+ * @note Произведения считаются порознь: точка основания заготовленными кратными без
+ *       единого удвоения, иная точка окнами Бута, и сумма их берётся одним сложением.
+ *       Совместные окна по два разряда стоили 256 удвоений и около 135 сложений с
+ *       ветвлениями против 255 удвоений и 52 + 43 сложений здесь
  *
  */
 void nts::curve::Curve::combine(const point_t & first, const math::number_t & single, const point_t & second, const math::number_t & pair, point_t & result) const noexcept {
-	// Разрядность окна, которым перебираются оба множителя разом
-	static constexpr size_t WINDOW = 2;
-	// Число кратных, укладывающихся в окно одного множителя
-	static constexpr size_t MULTIPLES = (1 << WINDOW);
-	/**
-	 * Кратные слагаемых от нулевого до третьего по каждому из множителей
-	 *
-	 * @note Таблица считается по обеим точкам разом: в ней лежат суммы, а не кратные
-	 *       порознь, - оттого окно обоих множителей берёт из неё одно слагаемое
-	 */
-	point_t table[MULTIPLES][MULTIPLES];
-	// Записываем первое кратное первой точки
-	table[1][0] = first;
-	// Записываем первое кратное второй точки
-	table[0][1] = second;
-	/**
-	 * Выполняем счёт кратных первой точки
-	 */
-	for(size_t i = 2; i < MULTIPLES; i++)
-		// Считаем очередное кратное сложением с первой точкой
-		this->add(table[i - 1][0], first, table[i][0]);
-	/**
-	 * Выполняем счёт кратных второй точки
-	 */
-	for(size_t j = 2; j < MULTIPLES; j++)
-		// Считаем очередное кратное сложением со второй точкой
-		this->add(table[0][j - 1], second, table[0][j]);
-	/**
-	 * Выполняем счёт сумм кратных обеих точек
-	 */
-	for(size_t i = 1; i < MULTIPLES; i++){
-		/**
-		 * Выполняем перебор кратных второй точки
-		 */
-		for(size_t j = 1; j < MULTIPLES; j++)
-			// Складываем кратное первой точки с кратным второй
-			this->add(table[i][0], table[0][j], table[i][j]);
-	}
-	// Накапливаемая сумма произведений
-	point_t item;
-	// Удвоенная накопленная сумма произведений
-	point_t doubled;
-	// Сумма накопленного значения с выбранным слагаемым
-	point_t sum;
-	/**
-	 * Выполняем перебор окон обоих множителей от старшего к младшему
-	 */
-	for(size_t i = (this->_order.size() * 8); i >= WINDOW; i -= WINDOW){
-		/**
-		 * Выполняем удвоение накопленной суммы по числу разрядов окна
-		 */
-		for(size_t j = 0; j < WINDOW; j++){
-			// Выполняем удвоение накопленной суммы произведений
-			this->twice(item, doubled);
-			// Запоминаем удвоенную накопленную сумму
-			item = doubled;
-		}
-		// Извлекаем значение очередного окна первого множителя
-		const uint64_t left = ((single.words[(i - WINDOW) / 64] >> ((i - WINDOW) % 64)) & (MULTIPLES - 1));
-		// Извлекаем значение очередного окна второго множителя
-		const uint64_t right = ((pair.words[(i - WINDOW) / 64] >> ((i - WINDOW) % 64)) & (MULTIPLES - 1));
-		// Если оба окна множителей пусты
-		if((left == 0) && (right == 0))
-			// Переходим к следующему окну множителей
-			continue;
-		/**
-		 * Слагаемое берётся из таблицы прямо по значениям окон: числа здесь открыты, и
-		 * прятать их время работы не от кого
-		 */
-		this->add(item, table[left][right], sum);
-		// Запоминаем накопленную сумму произведений
-		item = sum;
-	}
-	// Записываем накопленную сумму произведений
-	result = item;
+	// Произведения точек на числа
+	point_t left, right;
+	// Если первая точка есть точка основания, произведение берётся заготовленными кратными
+	if(::memcmp(&first, &this->_base, sizeof(point_t)) == 0)
+		// Выполняем умножение точки основания на число
+		this->product(single, left);
+	// Иную точку множим общим путём
+	else this->multiply(first, single, left);
+	// Выполняем умножение второй точки на число
+	this->multiply(second, pair, right);
+	// Выполняем сложение произведений
+	this->add(left, right, result);
 }
 /**
  * @brief Конструктор
