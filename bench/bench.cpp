@@ -92,6 +92,7 @@
 	#include <openssl/evp.h>
 	#include <openssl/ec.h>
 	#include <openssl/rand.h>
+	#include <openssl/rsa.h>
 #endif // ANTS_BENCH_OPENSSL
 
 /**
@@ -1158,6 +1159,27 @@ int main(int argc, char * argv[]) noexcept {
 		// Выполняем выработку общего ключа VKO
 		agreement::vko(curve, view_t(owned, sizeof(owned)), view_t(x, sizeof(x)), view_t(y, sizeof(y)), view_t(material, sizeof(material)), shared, sizeof(shared));
 	});
+	// Ключ RSA-2048 для замера подписи и сличения
+	sign::rsa_t rsa;
+	// Если ключ RSA породить не удалось
+	if(!rsa.generate(2048)){
+		// Выводим сообщение об отказе
+		cout << "Породить ключ RSA-2048 не удалось" << endl;
+		// Выходим из приложения с признаком отказа
+		return EXIT_FAILURE;
+	}
+	// Подпись RSA
+	uint8_t rsaSignature[256];
+	// Выполняем замер числа подписей RSA-2048 PSS за секунду: секретное действие по китайской теореме об остатках с ослеплением
+	const double rsaSigning = count("RSA-2048 подпись PSS", 200, [&rsa, &hash, &rsaSignature]() noexcept -> void {
+		// Выполняем подпись RSA-PSS хеша SHA-256
+		rsa.make(sign::scheme_t::PSS, digest::hash_t::SHA256, view_t(hash, 32), rsaSignature);
+	});
+	// Выполняем замер числа сличений подписи RSA-2048 PSS за секунду: открытое действие
+	const double rsaChecking = count("RSA-2048 сличение PSS", 2000, [&rsa, &hash, &rsaSignature]() noexcept -> void {
+		// Выполняем сличение подписи RSA-PSS
+		rsa.check(sign::scheme_t::PSS, digest::hash_t::SHA256, view_t(hash, 32), view_t(rsaSignature, sizeof(rsaSignature)));
+	});
 	// Подлинность стороны сервера
 	context::credential_t credentials;
 	// Если подлинность стороны сервера выработать не удалось
@@ -1749,6 +1771,37 @@ int main(int argc, char * argv[]) noexcept {
 			// Выполняем получение случайных байтов эталона
 			::RAND_bytes(randomRef, static_cast <int> (sizeof(randomRef)));
 		});
+		// Ключ RSA-2048 эталона
+		EVP_PKEY * rsaKey = ::EVP_RSA_gen(2048);
+		// Объекты подписи и сличения RSA-PSS эталона
+		EVP_PKEY_CTX * rsaSigner = ::EVP_PKEY_CTX_new(rsaKey, nullptr), * rsaChecker = ::EVP_PKEY_CTX_new(rsaKey, nullptr);
+		// Заводим подпись RSA-PSS хеша SHA-256 эталона
+		::EVP_PKEY_sign_init(rsaSigner);
+		::EVP_PKEY_CTX_set_rsa_padding(rsaSigner, RSA_PKCS1_PSS_PADDING);
+		::EVP_PKEY_CTX_set_signature_md(rsaSigner, ::EVP_sha256());
+		// Заводим сличение подписи RSA-PSS эталона
+		::EVP_PKEY_verify_init(rsaChecker);
+		::EVP_PKEY_CTX_set_rsa_padding(rsaChecker, RSA_PKCS1_PSS_PADDING);
+		::EVP_PKEY_CTX_set_signature_md(rsaChecker, ::EVP_sha256());
+		// Подпись RSA эталона и её длина
+		uint8_t rsaSealing[256];
+		size_t rsaLength = sizeof(rsaSealing);
+		// Выполняем замер числа подписей RSA-2048 PSS эталона за секунду
+		const double rsaSign = count("RSA-2048 подпись PSS", 200, [&rsaSigner, &hash, &rsaSealing, &rsaLength]() noexcept -> void {
+			// Длина подписи
+			rsaLength = sizeof(rsaSealing);
+			// Выполняем подпись эталона
+			::EVP_PKEY_sign(rsaSigner, rsaSealing, &rsaLength, hash, 32);
+		});
+		// Выполняем замер числа сличений подписи RSA-2048 PSS эталона за секунду
+		const double rsaVerify = count("RSA-2048 сличение PSS", 2000, [&rsaChecker, &hash, &rsaSealing, &rsaLength]() noexcept -> void {
+			// Выполняем сличение подписи эталона
+			::EVP_PKEY_verify(rsaChecker, rsaSealing, rsaLength, hash, 32);
+		});
+		// Выполняем освобождение объектов RSA эталона
+		::EVP_PKEY_CTX_free(rsaSigner);
+		::EVP_PKEY_CTX_free(rsaChecker);
+		::EVP_PKEY_free(rsaKey);
 		// Место, в которое помещается общее значение обмена эталона
 		vector <uint8_t> common(32, 0);
 		// Выполняем замер числа обменов ключами эталона за секунду
@@ -1826,6 +1879,10 @@ int main(int argc, char * argv[]) noexcept {
 		relation("ECDH P-256 против эталона", nistExchange, ecdh);
 		// Выводим отношение замеров обмена ключами X25519 к эталону
 		relation("X25519 против эталона", montExchange, montRef);
+		// Выводим отношение подписи RSA-2048 к эталону
+		relation("RSA-2048 подпись против эталона", rsaSigning, rsaSign);
+		// Выводим отношение сличения подписи RSA-2048 к эталону
+		relation("RSA-2048 сличение против эталона", rsaChecking, rsaVerify);
 		/**
 		 * Эталон на этой машине шифрует и хеширует машинными командами, которых у ГОСТ
 		 * нет ни на одной: чтобы сличить сами алгоритмы, а не оснастку под них, эталон

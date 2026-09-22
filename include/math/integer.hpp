@@ -138,6 +138,11 @@ namespace nts {
 		 */
 		typedef class __ANTS_SHARED_EXPORT__ Integer {
 			private:
+				/**
+				 * Класс арифметики Монтгомери работает прямо со словами числа
+				 */
+				friend class Montgomery;
+			private:
 				// Слова числа от младшего к старшему
 				uint64_t _words[INTEGER_WORDS];
 			public:
@@ -712,6 +717,303 @@ namespace nts {
 				 */
 				~Integer() noexcept;
 		} integer_t;
+		/**
+		 * \~russian
+		 * @brief Арифметика Монтгомери по нечётному модулю
+		 *
+		 * @details Модуль устанавливается один раз, и при установке считаются множитель
+		 *          приведения, единица области Монтгомери R mod m и квадрат R² mod m: всякое
+		 *          последующее действие идёт умножениями Монтгомери без делений и без
+		 *          предвычислений. Умножение, возведение в квадрат, возведение в степень с
+		 *          секретным показателем, приведение и обращение идут за постоянное время: ни
+		 *          ветвлений, ни обращений в память по значениям нет. Модулю RSA n и его
+		 *          сомножителям p и q такие объекты заводятся при установке ключа, оттого
+		 *          подпись и сличение не платят за предвычисления на каждом вызове
+		 *
+		 * @note Обращение идёт алгоритмом Бернстайна и Янга (шаги деления divstep пачками по
+		 *       шестьдесят два) за постоянное время; собиратели без 128-разрядных чисел со
+		 *       знаком (MSVC) идут двоичным расширенным алгоритмом Евклида за переменное
+		 *
+		 * \~english
+		 * @brief Montgomery arithmetic by an odd modulus
+		 * @details The modulus is set once, and at the setting the reduction factor, the unit of the
+		 *          Montgomery domain R mod m and the square R² mod m are computed: every subsequent
+		 *          operation goes by Montgomery multiplications without divisions and without
+		 *          precomputations. The multiplication, the squaring, the raise into a power with a
+		 *          secret exponent, the reduction and the inversion work in a constant time: there
+		 *          are neither branches nor memory addresses by the values. Such objects are set up
+		 *          for the RSA modulus n and its factors p and q at the setting of the key, therefore
+		 *          the signature and the verification do not pay for the precomputations at every call
+		 * @note The inversion goes by the algorithm of Bernstein and Yang (division steps divstep in
+		 *       batches of sixty two) in a constant time; the compilers without signed 128-bit
+		 *       numbers (MSVC) go by the binary extended Euclidean algorithm in a variable time
+		 *
+		 * \~
+		 */
+		typedef class __ANTS_SHARED_EXPORT__ Montgomery {
+			private:
+				// Признак того, что модуль установлен
+				bool _ready;
+			private:
+				// Число слов модуля
+				size_t _words;
+				// Множитель приведения: слово, обращающее младшее слово произведения в ноль
+				uint64_t _inverse;
+			private:
+				// Слова модуля от младшего к старшему
+				uint64_t _modulus[INTEGER_WORDS];
+				// Единица области Монтгомери R mod m
+				uint64_t _unit[INTEGER_WORDS];
+				// Квадрат R² mod m: множитель перевода в область
+				uint64_t _square[INTEGER_WORDS];
+			public:
+				/**
+				 * \~russian
+				 * @brief Метод проверки того, что модуль установлен
+				 *
+				 * @return признак установленного модуля
+				 *
+				 * \~english
+				 * @brief Method of the check that the modulus is set
+				 * @return the flag of the set modulus
+				 *
+				 * \~
+				 */
+				bool ready() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения числа слов модуля
+				 *
+				 * @return число слов модуля до старшего ненулевого включительно
+				 *
+				 * \~english
+				 * @brief Method of the getting of the number of the words of the modulus
+				 * @return the number of the words of the modulus up to the senior nonzero one inclusive
+				 *
+				 * \~
+				 */
+				size_t words() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод установки модуля
+				 *
+				 * @details Считаются множитель приведения, единица области и квадрат R²:
+				 *          удвоениями по модулю за постоянное время, по два прохода на разряд
+				 *          ширины модуля
+				 *
+				 * @param modulus нечётный модуль
+				 * @return        признак успешности установки: модуль нечётный и ненулевой
+				 *
+				 * \~english
+				 * @brief Method of the setting of the modulus
+				 * @details The reduction factor, the unit of the domain and the square R² are computed:
+				 *          by doublings by the modulus in a constant time, two passes per a bit of the
+				 *          width of the modulus
+				 * @param modulus the odd modulus
+				 * @return        the flag of the success of the setting: the modulus is odd and nonzero
+				 *
+				 * \~
+				 */
+				bool start(const Integer & modulus) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод сброса модуля с затиранием предвычислений
+				 *
+				 * \~english
+				 * @brief Method of the reset of the modulus with the wiping of the precomputations
+				 *
+				 * \~
+				 */
+				void clear() noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод перевода числа в область Монтгомери
+				 *
+				 * @param value  число, меньшее модуля
+				 * @param result место, в которое помещается число в области: value·R mod m
+				 * @return       признак успешности перевода: модуль установлен, число меньше модуля
+				 *
+				 * \~english
+				 * @brief Method of the transfer of a number into the Montgomery domain
+				 * @param value  the number less than the modulus
+				 * @param result the place the number in the domain is put into: value·R mod m
+				 * @return       the flag of the success of the transfer: the modulus is set, the number is less than the modulus
+				 *
+				 * \~
+				 */
+				bool enter(const Integer & value, Integer & result) const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод вывода числа из области Монтгомери
+				 *
+				 * @param value  число в области, меньшее модуля
+				 * @param result место, в которое помещается число: value·R⁻¹ mod m
+				 * @return       признак успешности вывода: модуль установлен, число меньше модуля
+				 *
+				 * \~english
+				 * @brief Method of the transfer of a number out of the Montgomery domain
+				 * @param value  the number in the domain less than the modulus
+				 * @param result the place the number is put into: value·R⁻¹ mod m
+				 * @return       the flag of the success of the transfer: the modulus is set, the number is less than the modulus
+				 *
+				 * \~
+				 */
+				bool leave(const Integer & value, Integer & result) const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод умножения Монтгомери
+				 *
+				 * @details Оба сомножителя в области Монтгомери, произведение остаётся в ней:
+				 *          first·second·R⁻¹ mod m
+				 *
+				 * @param first  первый сомножитель, меньший модуля
+				 * @param second второй сомножитель, меньший модуля
+				 * @param result место, в которое помещается произведение: вправе совпадать с сомножителем
+				 * @return       признак успешности умножения: модуль установлен, сомножители меньше модуля
+				 *
+				 * \~english
+				 * @brief Method of the Montgomery multiplication
+				 * @details Both multiplicands are in the Montgomery domain, the product stays in it:
+				 *          first·second·R⁻¹ mod m
+				 * @param first  the first multiplicand less than the modulus
+				 * @param second the second multiplicand less than the modulus
+				 * @param result the place the product is put into: it may coincide with a multiplicand
+				 * @return       the flag of the success of the multiplication: the modulus is set, the multiplicands are less than the modulus
+				 *
+				 * \~
+				 */
+				bool multiply(const Integer & first, const Integer & second, Integer & result) const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод умножения по модулю чисел вне области
+				 *
+				 * @details Первый сомножитель переводится в область и умножается на второй:
+				 *          два умножения Монтгомери дают first·second mod m
+				 *
+				 * @param first  первый сомножитель, меньший модуля
+				 * @param second второй сомножитель, меньший модуля
+				 * @param result место, в которое помещается произведение: вправе совпадать с сомножителем
+				 * @return       признак успешности умножения: модуль установлен, сомножители меньше модуля
+				 *
+				 * \~english
+				 * @brief Method of the multiplication by the modulus of the numbers out of the domain
+				 * @details The first multiplicand is transferred into the domain and multiplied by the
+				 *          second one: two Montgomery multiplications give first·second mod m
+				 * @param first  the first multiplicand less than the modulus
+				 * @param second the second multiplicand less than the modulus
+				 * @param result the place the product is put into: it may coincide with a multiplicand
+				 * @return       the flag of the success of the multiplication: the modulus is set, the multiplicands are less than the modulus
+				 *
+				 * \~
+				 */
+				bool mulmod(const Integer & first, const Integer & second, Integer & result) const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод возведения в степень по модулю
+				 *
+				 * @details Основание переводится в область, итог выводится из неё. При секретном
+				 *          показателе перебор идёт окнами в пять разрядов по всей разрядности слов
+				 *          модуля, значение из окна выбирается перебором всей таблицы наложением
+				 *          масок, и показатель обязан умещаться в слова модуля. При открытом
+				 *          показателе перебор идёт двоичным методом по его значимым разрядам:
+				 *          короткому открытому показателю RSA таблица окон не нужна
+				 *
+				 * @param base     основание, меньшее модуля
+				 * @param exponent показатель
+				 * @param secret   признак секретного показателя
+				 * @param result   место, в которое помещается степень: вправе совпадать с основанием
+				 * @return         признак успешности возведения: модуль установлен, основание меньше модуля, секретный показатель умещается в слова модуля
+				 *
+				 * \~english
+				 * @brief Method of the raise into a power by the modulus
+				 * @details The base is transferred into the domain, the result is transferred out of it.
+				 *          With a secret exponent the scan goes by windows of five bits over the whole
+				 *          bit width of the words of the modulus, the value from the window is chosen
+				 *          by a scan of the whole table by masks, and the exponent must fit into the
+				 *          words of the modulus. With a public exponent the scan goes by the binary
+				 *          method over its significant bits: a short public exponent of RSA needs no
+				 *          table of the windows
+				 * @param base     the base less than the modulus
+				 * @param exponent the exponent
+				 * @param secret   the flag of a secret exponent
+				 * @param result   the place the power is put into: it may coincide with the base
+				 * @return         the flag of the success of the raise: the modulus is set, the base is less than the modulus, the secret exponent fits into the words of the modulus
+				 *
+				 * \~
+				 */
+				bool power(const Integer & base, const Integer & exponent, const bool secret, Integer & result) const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод приведения числа по модулю
+				 *
+				 * @details Число любой ширины приводится проходами приведения Монтгомери по слову,
+				 *          по проходу на каждую ширину модуля, и возвращается в область умножением
+				 *          на степень R: делений нет, время зависит лишь от числа значимых слов
+				 *          приводимого числа, но не от их значений
+				 *
+				 * @param value  приводимое число
+				 * @param result место, в которое помещается остаток: вправе совпадать с числом
+				 * @return       признак успешности приведения: модуль установлен
+				 *
+				 * \~english
+				 * @brief Method of the reduction of a number by the modulus
+				 * @details A number of any width is reduced by passes of the Montgomery reduction by a
+				 *          word, one pass per each width of the modulus, and is returned into the domain
+				 *          by a multiplication by a power of R: there are no divisions, the time depends
+				 *          only on the number of the significant words of the reduced number, but not
+				 *          on their values
+				 * @param value  the reduced number
+				 * @param result the place the remainder is put into: it may coincide with the number
+				 * @return       the flag of the success of the reduction: the modulus is set
+				 *
+				 * \~
+				 */
+				bool reduce(const Integer & value, Integer & result) const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод обращения числа по модулю за постоянное время
+				 *
+				 * @details Обращение идёт алгоритмом Бернстайна и Янга; обратимость проверяется
+				 *          умножением найденного на число: единица подтверждает, иное отвергает
+				 *
+				 * @param value  обращаемое число, меньшее модуля
+				 * @param result место, в которое помещается обратное число вне области: вправе совпадать с числом
+				 * @return       признак успешности обращения: модуль установлен, число меньше модуля и взаимно просто с ним
+				 *
+				 * \~english
+				 * @brief Method of the inversion of a number by the modulus in a constant time
+				 * @details The inversion goes by the algorithm of Bernstein and Yang; the invertibility
+				 *          is checked by a multiplication of the found number by the number: the unit
+				 *          confirms, anything else rejects
+				 * @param value  the inverted number less than the modulus
+				 * @param result the place the inverse number out of the domain is put into: it may coincide with the number
+				 * @return       the flag of the success of the inversion: the modulus is set, the number is less than the modulus and coprime with it
+				 *
+				 * \~
+				 */
+				bool invert(const Integer & value, Integer & result) const noexcept;
+			public:
+				/**
+				 * \~russian
+				 * @brief Конструктор
+				 *
+				 * \~english
+				 * @brief Constructor
+				 *
+				 * \~
+				 */
+				Montgomery() noexcept;
+				/**
+				 * \~russian
+				 * @brief Деструктор
+				 *
+				 * \~english
+				 * @brief Destructor
+				 *
+				 * \~
+				 */
+				~Montgomery() noexcept;
+		} montgomery_t;
 	};
 };
 

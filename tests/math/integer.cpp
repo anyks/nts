@@ -644,6 +644,200 @@ TEST(IntegerTest, Prime) {
  * @brief Проверка границ разбора, записи и сдвигов
  *
  */
+/**
+ * @brief Метод возведения в степень по модулю эталонным двоичным методом через деление
+ *
+ * @param base     основание
+ * @param exponent показатель
+ * @param modulus  модуль
+ * @return         степень по модулю
+ *
+ */
+static math::integer_t reference(const math::integer_t & base, const math::integer_t & exponent, const math::integer_t & modulus) {
+	// Накопитель степени
+	math::integer_t result;
+	// Накопитель начинается с единицы
+	result.word(1);
+	/**
+	 * Выполняем перебор разрядов показателя от старшего к младшему
+	 */
+	for(size_t i = exponent.bits(); i > 0; i--){
+		// Возводим накопитель в квадрат делением
+		result.mulmod(result, result, modulus, false);
+		// Если разряд единичный, умножаем на основание
+		if(exponent.bit(i - 1))
+			result.mulmod(result, base, modulus, false);
+	}
+	// Выводим степень
+	return result;
+}
+/**
+ * @brief Метод сверки арифметики Монтгомери с арифметикой через деление по одному модулю
+ *
+ * @param modulus нечётный модуль
+ * @param rounds  число случайных проверок
+ *
+ */
+static void montgomery(const math::integer_t & modulus, const size_t rounds) {
+	// Арифметика Монтгомери
+	math::montgomery_t field;
+	// Заводим арифметику по модулю
+	ASSERT_TRUE(field.start(modulus));
+	// Арифметика заведена, число слов совпадает с модулем
+	ASSERT_TRUE(field.ready());
+	ASSERT_EQ(field.words(), (modulus.bits() + 63) / 64);
+	// Единица и число на единицу меньше модуля
+	math::integer_t one, last;
+	one.word(1);
+	ASSERT_TRUE(last.subtract(modulus, one));
+	// Итоги действий
+	math::integer_t entered, left, product, expected, power, remainder, inverse, check;
+	/**
+	 * Выполняем случайные проверки
+	 */
+	for(size_t i = 0; i < rounds; i++){
+		// Случайные числа, приведённые по модулю делением
+		math::integer_t first, second, wide, exponent;
+		ASSERT_TRUE(first.random(modulus.bits()));
+		ASSERT_TRUE(second.random(modulus.bits()));
+		ASSERT_TRUE(first.reduce(first, modulus));
+		ASSERT_TRUE(second.reduce(second, modulus));
+		// Перевод в область и обратно возвращает число
+		ASSERT_TRUE(field.enter(first, entered));
+		ASSERT_TRUE(field.leave(entered, left));
+		ASSERT_TRUE(left.equal(first));
+		// Умножение вне области сходится с умножением через деление
+		ASSERT_TRUE(expected.mulmod(first, second, modulus, false));
+		ASSERT_TRUE(field.mulmod(first, second, product));
+		ASSERT_TRUE(product.equal(expected));
+		// Умножение в области: произведение чисел в области выводится в то же произведение
+		math::integer_t other;
+		ASSERT_TRUE(field.enter(second, other));
+		ASSERT_TRUE(field.multiply(entered, other, product));
+		ASSERT_TRUE(field.leave(product, left));
+		ASSERT_TRUE(left.equal(expected));
+		// Приёмник вправе совпадать с сомножителем
+		ASSERT_TRUE(field.mulmod(first, second, first));
+		ASSERT_TRUE(first.equal(expected));
+		ASSERT_TRUE(first.reduce(first, modulus));
+		// Возведение в степень с секретным показателем во всю ширину модуля сходится с открытым и с прежним перебором
+		ASSERT_TRUE(exponent.random(modulus.bits()));
+		ASSERT_TRUE(expected.power(first, exponent, modulus, true));
+		ASSERT_TRUE(field.power(first, exponent, true, power));
+		ASSERT_TRUE(power.equal(expected));
+		ASSERT_TRUE(field.power(first, exponent, false, power));
+		ASSERT_TRUE(power.equal(expected));
+		// Короткий показатель сходится с эталоном через деление: не шире слов модуля
+		ASSERT_TRUE(exponent.random((modulus.bits() < 96) ? modulus.bits() : 96));
+		expected = reference(first, exponent, modulus);
+		ASSERT_TRUE(field.power(first, exponent, true, power));
+		ASSERT_TRUE(power.equal(expected));
+		ASSERT_TRUE(field.power(first, exponent, false, power));
+		ASSERT_TRUE(power.equal(expected));
+		// Приведение числа двойной и тройной ширины сходится с делением
+		ASSERT_TRUE(wide.random(2 * modulus.bits()));
+		ASSERT_TRUE(expected.reduce(wide, modulus));
+		ASSERT_TRUE(field.reduce(wide, remainder));
+		ASSERT_TRUE(remainder.equal(expected));
+		if((3 * modulus.bits()) <= math::INTEGER_BITS){
+			ASSERT_TRUE(wide.random(3 * modulus.bits()));
+			ASSERT_TRUE(expected.reduce(wide, modulus));
+			ASSERT_TRUE(field.reduce(wide, remainder));
+			ASSERT_TRUE(remainder.equal(expected));
+		}
+		// Обращение: произведение числа на обратное даёт единицу, а само обратное сходится с Евклидом
+		if(!second.zero()){
+			// Наибольший общий делитель
+			math::integer_t divisor;
+			ASSERT_TRUE(divisor.gcd(second, modulus));
+			// Если число взаимно просто с модулем
+			if(divisor.equal(one)){
+				ASSERT_TRUE(field.invert(second, inverse));
+				ASSERT_TRUE(check.mulmod(second, inverse, modulus, false));
+				ASSERT_TRUE(check.equal(one));
+				ASSERT_TRUE(expected.invert(second, modulus));
+				ASSERT_TRUE(inverse.equal(expected));
+			// Если число с модулем не взаимно просто
+			} else ASSERT_FALSE(field.invert(second, inverse));
+		}
+	}
+	// Края: ноль, единица и число на единицу меньше модуля
+	math::integer_t zero, two;
+	two.word(2);
+	ASSERT_TRUE(field.power(zero, two, true, power));
+	ASSERT_TRUE(power.zero());
+	ASSERT_TRUE(field.power(last, two, true, power));
+	ASSERT_TRUE(power.equal(one));
+	ASSERT_TRUE(field.power(last, two, false, power));
+	ASSERT_TRUE(power.equal(one));
+	ASSERT_TRUE(field.power(last, zero, false, power));
+	ASSERT_TRUE(power.equal(one));
+	ASSERT_TRUE(field.power(last, one, true, power));
+	ASSERT_TRUE(power.equal(last));
+	ASSERT_TRUE(field.invert(one, inverse));
+	ASSERT_TRUE(inverse.equal(one));
+	ASSERT_TRUE(field.invert(last, inverse));
+	ASSERT_TRUE(inverse.equal(last));
+	ASSERT_FALSE(field.invert(zero, inverse));
+	// Числа не меньше модуля отвергаются
+	ASSERT_FALSE(field.enter(modulus, entered));
+	ASSERT_FALSE(field.mulmod(modulus, one, product));
+	ASSERT_FALSE(field.power(modulus, one, false, power));
+	ASSERT_FALSE(field.invert(modulus, inverse));
+	// Секретный показатель шире слов модуля отвергается
+	math::integer_t huge;
+	huge.word(1);
+	huge.left(huge, field.words() * 64);
+	ASSERT_FALSE(field.power(one, huge, true, power));
+	ASSERT_TRUE(field.power(one, huge, false, power));
+	ASSERT_TRUE(power.equal(one));
+}
+/**
+ * Арифметика Монтгомери с предвычислениями: перевод в область, умножение, степень,
+ * приведение и обращение за постоянное время сверяются с арифметикой через деление
+ * на модулях разной ширины, простых и составных
+ */
+TEST(IntegerTest, Montgomery) {
+	// Незаведённая арифметика отвергает всё
+	math::montgomery_t empty;
+	math::integer_t one, result;
+	one.word(1);
+	ASSERT_FALSE(empty.ready());
+	ASSERT_FALSE(empty.enter(one, result));
+	ASSERT_FALSE(empty.power(one, one, true, result));
+	// Чётный и нулевой модули отвергаются
+	math::integer_t even, zero;
+	even.word(10);
+	ASSERT_FALSE(empty.start(even));
+	ASSERT_FALSE(empty.start(zero));
+	// Простой модуль в шестнадцать слов
+	montgomery(number(PRIME1024), 4);
+	// Простой модуль в восемь слов
+	montgomery(number(PRIME512), 4);
+	// Составной модуль
+	montgomery(number(COMPOSITE), 4);
+	// Модуль в одно слово: простое 2^64 - 59
+	math::integer_t small;
+	small.word(0xFFFFFFFFFFFFFFC5ULL);
+	montgomery(small, 8);
+	// Нечётный модуль в семнадцать слов: 2^1024 + 1
+	math::integer_t odd;
+	odd.word(1);
+	odd.left(odd, 1024);
+	ASSERT_TRUE(odd.add(odd, one));
+	montgomery(odd, 2);
+	// Составной модуль в двадцать четыре слова: произведение простых
+	math::integer_t product;
+	ASSERT_TRUE(product.multiply(number(PRIME1024), number(PRIME512)));
+	montgomery(product, 2);
+	// Случайный нечётный модуль в шестьдесят четыре слова
+	math::integer_t large;
+	ASSERT_TRUE(large.random(4096));
+	ASSERT_TRUE(large.add(large, one));
+	if(!large.odd())
+		ASSERT_TRUE(large.add(large, one));
+	montgomery(large, 1);
+}
 TEST(IntegerTest, Edges) {
 	// Байты числа с запасом
 	uint8_t buffer[math::INTEGER_SIZE + 2] = {};

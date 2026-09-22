@@ -18,9 +18,29 @@
  *          RSASSA-PKCS1-v1_5 и RSASSA-PSS раздела 8, схемы шифрования
  *          RSAES-PKCS1-v1_5 и RSAES-OAEP раздела 7, кодирование ключей
  *          приложения A.1. Секретное действие ведётся по китайской теореме об
- *          остатках с ослеплением случайным числом: показатели секретны, оттого
- *          возведение в степень идёт за постоянное время, а приведения ослеплённых
- *          значений по сомножителям - за переменное, что ослеплением и оправдано
+ *          остатках с ослеплением случайным числом по каждому сомножителю: показатели
+ *          секретны, оттого возведение в степень, приведение, обращение и сборка идут
+ *          за постоянное время арифметикой Монтгомери с предвычислениями,
+ *          заведёнными при установке ключа
+ *
+ * @section Намеренные решения
+ * 1. Ослепление ведётся по сомножителям порознь: вычет числа по p умножается на
+ *    r₁^e, вычет по q - на r₂^e, а после секретной степени итог умножается на r₁⁻¹ и
+ *    r₂⁻¹ (секретная степень открытой степени ослепляющего числа есть само число).
+ *    Обратные числа считаются алгоритмом Бернстайна и Янга за постоянное время
+ *    (8,8 мкс на 1024 разрядах), а не малой теоремой Ферма: две экспоненты p - 2 и
+ *    q - 2 стоили столько же, сколько сами секретные степени, - половину действия.
+ *    Ослепление на каждый вызов свежее: сохранённая пара с обновлением квадратами,
+ *    как у OpenSSL, требовала бы изменяемого состояния и замка в неизменяемом ключе,
+ *    а стоит она восемь сотых действия. Условие пересмотра: измеренная нехватка этих
+ *    сотых до эталона.
+ * 2. Предвычисления Монтгомери по n, p и q и коэффициент qInv в области по p
+ *    заводятся при установке ключа (prepare), оттого подпись и сличение не платят за
+ *    них: прежде сличение подписи RSA-2048 стоило 308 мкс, из которых сами
+ *    восемнадцать умножений - 22 (круг 28, CONFORMANCE.md).
+ * 3. Итог секретного действия сверяется открытой степенью с исходным числом: сбой
+ *    в одной из ветвей китайской теоремы выдаёт сомножитель модуля (Ленстра), и
+ *    расходящийся итог не выдаётся.
  *
  * @copyright Copyright © 2026
  *
@@ -603,6 +623,11 @@ void nts::sign::Rsa::clear() noexcept {
 	this->_exponent2.clear();
 	// Затираем коэффициент
 	this->_coefficient.clear();
+	// Сбрасываем предвычисления по модулю и сомножителям
+	this->_field.clear();
+	this->_field1.clear();
+	this->_field2.clear();
+	this->_reverse.clear();
 }
 /**
  * @brief Метод порождения ключа
@@ -670,8 +695,12 @@ bool nts::sign::Rsa::generate(const size_t bits, const uint64_t exponent) noexce
 			this->_public = true;
 			// Выставляем признак секретного ключа
 			this->_secret = true;
-			// Выводим признак успешности
-			return true;
+			// Если предвычисления по ключу выполнены
+			if(this->prepare())
+				// Выводим признак успешности
+				return true;
+			// Предвычисления не удались: ключ сбрасывается
+			break;
 		}
 	}
 	// Сбрасываем состояние модуля
@@ -716,6 +745,13 @@ bool nts::sign::Rsa::key(const view_t & modulus, const view_t & exponent) noexce
 	}
 	// Выставляем признак открытого ключа
 	this->_public = true;
+	// Если предвычисления по открытому ключу не удались
+	if(!this->prepare()){
+		// Сбрасываем состояние модуля
+		this->clear();
+		// Выводим отказ
+		return false;
+	}
 	// Выводим признак успешности
 	return true;
 }
@@ -790,6 +826,13 @@ bool nts::sign::Rsa::key(const view_t & modulus, const view_t & exponent, const 
 	}
 	// Выставляем признак секретного ключа
 	this->_secret = true;
+	// Если предвычисления по секретному ключу не удались
+	if(!this->prepare()){
+		// Сбрасываем состояние модуля
+		this->clear();
+		// Выводим отказ
+		return false;
+	}
 	// Выводим признак успешности
 	return true;
 }
@@ -1047,8 +1090,8 @@ bool nts::sign::Rsa::encipher(const view_t & input, uint8_t * output) const noex
 		return false;
 	// Итог действия
 	math::integer_t result;
-	// Возводим число в открытую степень: показатель открыт
-	if(!result.power(value, this->_exponent, this->_modulus, false))
+	// Возводим число в открытую степень арифметикой Монтгомери с предвычислениями: показатель открыт
+	if(!this->_field.power(value, this->_exponent, false, result))
 		// Выводим отказ
 		return false;
 	// Выводим итог записи
@@ -1068,26 +1111,48 @@ bool nts::sign::Rsa::encipher(const view_t & input, uint8_t * output) const noex
  *
  */
 bool nts::sign::Rsa::garner(const math::integer_t & first, const math::integer_t & second, math::integer_t & result) const noexcept {
-	// Вычет по второму сомножителю, приведённый к первому, и разность вычетов
+	// Второй вычет, приведённый по первому сомножителю, его разность с первым вычетом, множитель и произведение
 	math::integer_t reduced, difference, factor, product;
-	// Приводим вычет по второму сомножителю к первому: второй сомножитель может быть больше
-	if(!reduced.residue(second, this->_prime1))
+	// Приводим второй вычет по первому сомножителю за постоянное время: второй сомножитель бывает шире первого
+	if(!this->_field1.reduce(second, reduced))
 		// Выводим отказ
 		return false;
-	// Вычитаем вычеты по первому сомножителю
+	// Вычитаем по первому сомножителю за постоянное время
 	if(!difference.submod(first, reduced, this->_prime1))
 		// Выводим отказ
 		return false;
-	// Умножаем разность на коэффициент по первому сомножителю
-	if(!factor.mulmod(difference, this->_coefficient, this->_prime1, true))
+	// Умножаем разность на коэффициент qInv: коэффициент лежит в области Монтгомери, оттого одно умножение
+	if(!this->_field1.multiply(difference, this->_reverse, factor))
 		// Выводим отказ
 		return false;
-	// Умножаем коэффициент Гарнера на второй сомножитель
+	// Умножаем множитель на второй сомножитель
 	if(!product.multiply(factor, this->_prime2))
 		// Выводим отказ
 		return false;
-	// Собираем итог
+	// Складываем со вторым вычетом
 	return result.add(second, product);
+}
+/**
+ * @brief Метод предвычислений по установленному ключу
+ *
+ * @return признак успешности предвычислений
+ *
+ */
+bool nts::sign::Rsa::prepare() noexcept {
+	// Если открытого ключа нет либо арифметика по модулю не завелась
+	if(!this->_public || !this->_field.start(this->_modulus))
+		// Выводим отказ
+		return false;
+	// Если секретный ключ не установлен
+	if(!this->_secret)
+		// Выводим признак успешности
+		return true;
+	// Если арифметика по сомножителям не завелась
+	if(!this->_field1.start(this->_prime1) || !this->_field2.start(this->_prime2))
+		// Выводим отказ
+		return false;
+	// Переводим коэффициент qInv в область Монтгомери по первому сомножителю
+	return this->_field1.enter(this->_coefficient, this->_reverse);
 }
 /**
  * @brief Метод секретного действия RSA
@@ -1104,91 +1169,67 @@ bool nts::sign::Rsa::decipher(const view_t & input, uint8_t * output) const noex
 		return false;
 	// Входное число
 	math::integer_t value;
-	// Разбираем входное число
+	// Разбираем входное число: оно обязано быть меньше модуля
 	if(!value.load(input) || (value.compare(this->_modulus) >= 0))
 		// Выводим отказ
 		return false;
-	// Двойка и сомножители без двойки: показатели обращения по малой теореме Ферма
-	math::integer_t two, fermat1, fermat2;
-	// Записываем двойку
-	two.word(2);
-	// Вычисляем сомножители без двойки
-	if(!fermat1.subtract(this->_prime1, two) || !fermat2.subtract(this->_prime2, two))
+	// Вычеты числа по сомножителям
+	math::integer_t part1, part2;
+	// Приводим число по сомножителям за постоянное время
+	if(!this->_field1.reduce(value, part1) || !this->_field2.reduce(value, part2))
 		// Выводим отказ
 		return false;
-	// Ослепляющее число и его вычеты по сомножителям
-	math::integer_t blind, blind1, blind2;
-	// Признак выработки ослепляющего числа
+	// Ослепляющие числа по сомножителям и обратные к ним
+	math::integer_t blind1, blind2, inverse1, inverse2;
+	// Признак того, что ослепляющие числа найдены
 	bool found = false;
 	/**
-	 * Выполняем выработку ослепляющего числа: случайного на разряд короче модуля,
-	 * оттого всегда меньшего его, и взаимно простого с ним - вычеты по обоим
-	 * сомножителям ненулевые. Приведение по сомножителям ведётся за постоянное
-	 * время: деление столбиком выдало бы сомножитель временем работы
+	 * Выбираем ослепляющие числа: ненулевые и обратимые по своим сомножителям
 	 */
 	for(size_t i = 0; (i < BLINDING) && !found; i++){
-		// Вырабатываем случайное число
-		if(!blind.random(this->_bits - 1))
+		// Берём случайные числа на разряд короче сомножителей: они заведомо меньше их
+		if(!blind1.random(this->_prime1.bits() - 1) || !blind2.random(this->_prime2.bits() - 1))
 			// Выводим отказ
 			return false;
-		// Приводим ослепляющее число по сомножителям
-		if(!blind1.residue(blind, this->_prime1) || !blind2.residue(blind, this->_prime2))
-			// Выводим отказ
-			return false;
-		// Число годится, если его вычеты по обоим сомножителям ненулевые
-		found = (!blind1.zero() && !blind2.zero());
+		// Числа годны, когда ненулевые и обратимые: обращение идёт за постоянное время
+		found = (!blind1.zero() && !blind2.zero() && this->_field1.invert(blind1, inverse1) && this->_field2.invert(blind2, inverse2));
 	}
-	// Если ослепляющее число не выработано
+	// Если ослепляющие числа не найдены
 	if(!found)
 		// Выводим отказ
 		return false;
-	// Ослепляющее число в открытой степени и ослеплённое входное число
-	math::integer_t raised, blinded;
-	// Возводим ослепляющее число в открытую степень
-	if(!raised.power(blind, this->_exponent, this->_modulus, false))
+	// Ослепляющие числа в открытой степени
+	math::integer_t raised1, raised2;
+	// Возводим ослепляющие числа в открытую степень по сомножителям
+	if(!this->_field1.power(blind1, this->_exponent, false, raised1) || !this->_field2.power(blind2, this->_exponent, false, raised2))
 		// Выводим отказ
 		return false;
-	// Ослепляем входное число
-	if(!blinded.mulmod(value, raised, this->_modulus, true))
+	// Ослеплённые вычеты
+	math::integer_t blinded1, blinded2;
+	// Ослепляем вычеты
+	if(!this->_field1.mulmod(part1, raised1, blinded1) || !this->_field2.mulmod(part2, raised2, blinded2))
 		// Выводим отказ
 		return false;
-	// Ослеплённое число по сомножителям
-	math::integer_t part1, part2;
-	// Приводим ослеплённое число по сомножителям за постоянное время
-	if(!part1.residue(blinded, this->_prime1) || !part2.residue(blinded, this->_prime2))
+	// Степени по сомножителям
+	math::integer_t power1, power2;
+	// Возводим ослеплённые вычеты в секретные степени за постоянное время
+	if(!this->_field1.power(blinded1, this->_exponent1, true, power1) || !this->_field2.power(blinded2, this->_exponent2, true, power2))
 		// Выводим отказ
 		return false;
-	// Степени по сомножителям и обратные к ослепляющему числу по сомножителям
-	math::integer_t power1, power2, inverse1, inverse2;
-	// Возводим в секретные степени по сомножителям
-	if(!power1.power(part1, this->_exponent1, this->_prime1, true) || !power2.power(part2, this->_exponent2, this->_prime2, true))
+	// Снимаем ослепление: секретная степень открытой степени ослепляющего числа есть само число
+	if(!this->_field1.mulmod(power1, inverse1, power1) || !this->_field2.mulmod(power2, inverse2, power2))
 		// Выводим отказ
 		return false;
-	/**
-	 * Обращаем ослепляющее число по сомножителям малой теоремой Ферма: возведение в
-	 * степень идёт за постоянное время, тогда как Евклид выдал бы число следом ветвлений
-	 */
-	if(!inverse1.power(blind1, fermat1, this->_prime1, true) || !inverse2.power(blind2, fermat2, this->_prime2, true))
+	// Итог действия
+	math::integer_t result;
+	// Собираем итог по китайской теореме об остатках
+	if(!this->garner(power1, power2, result))
 		// Выводим отказ
 		return false;
-	// Собранные по китайской теореме об остатках степень и обратное к ослепляющему числу
-	math::integer_t joined, unblind, result;
-	// Собираем степень и обратное число по сомножителям
-	if(!this->garner(power1, power2, joined) || !this->garner(inverse1, inverse2, unblind))
-		// Выводим отказ
-		return false;
-	// Снимаем ослепление
-	if(!result.mulmod(joined, unblind, this->_modulus, true))
-		// Выводим отказ
-		return false;
-	/**
-	 * Защита от сбоя вычисления (Boneh-DeMillo-Lipton): одиночный сбой в одной из
-	 * половин CRT даёт s', и gcd(s'^e - m, n) выдаёт множитель модуля. Итог сверяется
-	 * возведением в открытый показатель - при расхождении отказ, наружу ничего не уходит
-	 */
+	// Проверка итога
 	math::integer_t check;
-	// Если сверка не удалась либо разошлась с входом
-	if(!check.power(result, this->_exponent, this->_modulus, false) || !check.equal(value))
+	// Возводим итог в открытую степень: расхождение со значением выдаёт сбой вычисления, и итог не выдаётся
+	if(!this->_field.power(result, this->_exponent, false, check) || !check.equal(value))
 		// Выводим отказ
 		return false;
 	// Выводим итог записи

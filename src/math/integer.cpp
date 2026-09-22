@@ -24,6 +24,29 @@
  *          двоичный расширенный алгоритм Евклида (алгоритм 14.61 «Handbook of
  *          Applied Cryptography»), оба за переменное время
  *
+ * @section Намеренные решения
+ * 1. Арифметика Монтгомери с предвычислениями вынесена в отдельный класс Montgomery:
+ *    множитель приведения, единица области R mod m и квадрат R² mod m считаются один
+ *    раз при установке модуля (удвоениями по модулю за постоянное время, 94 мкс на
+ *    1024 разрядах и 241 мкс на 2048 на M4), а не на каждом действии. Прежде power,
+ *    mulmod и residue считали их всякий раз: секретное действие RSA-2048 тратило на
+ *    это половину своих 3,9 мс, а сличение подписи 308 мкс из 308 (круг 28, CONFORMANCE.md).
+ *    Методы Integer::power, mulmod и residue оставлены как есть ради прежних вызовов
+ *    (проверка простоты, порождение ключей): им предвычисления не мешают.
+ * 2. Открытый показатель идёт двоичным методом по значимым разрядам: показателю RSA
+ *    в семнадцать разрядов таблица окон в тридцать две степени стоила дороже самого
+ *    возведения. Секретный показатель идёт окнами в пять разрядов по всей ширине слов
+ *    модуля с выбором из таблицы наложением масок, как и прежде.
+ * 3. Обращение за постоянное время - алгоритм Бернстайна и Янга на конечностях по
+ *    шестьдесят два разряда, тот же, что у арифметики кривых (math/number.cpp), но с
+ *    числом конечностей, задаваемым на исполнении: модули RSA бывают любой ширины, а
+ *    шаблон на каждую ширину раздул бы код. Обратимость проверяется умножением на
+ *    найденное: у составного модуля алгоритм выдаёт мусор молча. Обращение
+ *    ослепляющего числа RSA-1024 стоит 8,8 мкс против 490 у возведения в степень p - 2.
+ * 4. Ядро умножения Монтгомери затирает лишь использованные слова накопителя:
+ *    затирание всей ёмкости (два килобайта) стоило десятую часть самого умножения на
+ *    шестнадцати словах.
+ *
  * @copyright Copyright © 2026
  *
  */
@@ -614,10 +637,10 @@ namespace {
 		for(size_t i = 0; i < count; i++)
 			// Записываем выбранное слово итога
 			result[i] = select(mask, lessened[i], buffer[i]);
-		// Затираем накопитель
-		wipe(buffer, sizeof(buffer));
-		// Затираем разность
-		wipe(lessened, sizeof(lessened));
+		// Затираем использованные слова накопителя: затирание всей ёмкости стоило десятую часть умножения
+		wipe(buffer, (count + 2) * sizeof(uint64_t));
+		// Затираем использованные слова разности
+		wipe(lessened, count * sizeof(uint64_t));
 	}
 	/**
 	 * @brief Метод удвоения числа по модулю за постоянное время
@@ -1021,6 +1044,370 @@ namespace {
 		// Выводим шестьдесят четыре оборота для коротких чисел
 		return 64;
 	}
+	/**
+	 * @brief Метод сравнения чисел по словам за постоянное время
+	 *
+	 * @param first  первое число
+	 * @param second второе число
+	 * @param count  число слов
+	 * @return       признак того, что первое число меньше второго
+	 *
+	 */
+	static bool smaller(const uint64_t * first, const uint64_t * second, const size_t count) noexcept {
+		// Признаки «меньше» и «исход решён»
+		uint64_t less = 0, done = 0;
+		/**
+		 * Выполняем обход слов от старшего к младшему без ветвлений
+		 */
+		for(size_t i = count; i > 0; i--){
+			// Признаки «слово первого меньше» и «слово второго меньше»
+			const uint64_t lower = below(first[i - 1], second[i - 1]);
+			const uint64_t upper = below(second[i - 1], first[i - 1]);
+			// Запоминаем исход первого расхождения
+			less |= (~done & lower);
+			// Отмечаем, что исход решён
+			done |= (lower | upper);
+		}
+		// Выводим признак
+		return ((less & 1) != 0);
+	}
+	/**
+	 * Обращение по модулю за постоянное время: алгоритм Бернстайна и Янга на конечностях по
+	 * шестьдесят два разряда, как у арифметики кривых (math/number.cpp), но с числом
+	 * конечностей, задаваемым на исполнении: модули RSA бывают любой ширины. Собиратели
+	 * без 128-разрядных чисел со знаком (MSVC) обращают алгоритмом Евклида за переменное время
+	 */
+	#if !defined(_MSC_VER)
+		/**
+		 * @brief Знаковое число двойной ёмкости для произведений конечностей
+		 *
+		 */
+		typedef __int128_t twin_t;
+		/**
+		 * @brief Ширина конечности в разрядах
+		 *
+		 */
+		static constexpr size_t SLICE = 62;
+		/**
+		 * @brief Маска конечности
+		 *
+		 */
+		static constexpr uint64_t SLICE_MASK = ((static_cast <uint64_t> (1) << SLICE) - 1);
+		/**
+		 * @brief Наибольшее число конечностей: ширина модуля, знак и запас в конечность
+		 *
+		 */
+		static constexpr size_t SLICES = (((INTEGER_BITS + 64) / SLICE) + 1);
+		/**
+		 * @brief Метод сокрытия маски от собирателя
+		 *
+		 * @details Пустая вставка не даёт собирателю обратить наложение маски в ветвление
+		 *
+		 * @param mask маска
+		 * @return     та же маска
+		 *
+		 */
+		static inline int64_t hide(int64_t mask) noexcept {
+			__asm__ __volatile__("" : "+r"(mask));
+			return mask;
+		}
+		/**
+		 * @brief Матрица перехода пачки шагов деления
+		 *
+		 */
+		typedef struct Transition {
+			int64_t u; // Множитель первого числа в первой строке
+			int64_t v; // Множитель второго числа в первой строке
+			int64_t q; // Множитель первого числа во второй строке
+			int64_t r; // Множитель второго числа во второй строке
+		} transition_t;
+		/**
+		 * @brief Метод пачки шагов деления по младшим конечностям
+		 *
+		 * @param eta    показатель хода
+		 * @param first  младшая конечность первого числа
+		 * @param second младшая конечность второго числа
+		 * @param result место, в которое помещается матрица перехода
+		 * @return       показатель хода после пачки
+		 *
+		 */
+		static int64_t divsteps(int64_t eta, const uint64_t first, const uint64_t second, transition_t & result) noexcept {
+			// Множители матрицы перехода
+			uint64_t u = 1, v = 0, q = 0, r = 1;
+			// Младшие конечности чисел
+			uint64_t f = first, g = second;
+			/**
+			 * Выполняем шаги деления без ветвлений
+			 */
+			for(size_t i = 0; i < SLICE; i++){
+				// Маска обмена по знаку показателя хода
+				uint64_t swap = static_cast <uint64_t> (hide(eta >> 63));
+				// Маска нечётности второго числа
+				const uint64_t odd = static_cast <uint64_t> (hide(0 - static_cast <int64_t> (g & 0x01)));
+				// Числа со сменой знака под маской обмена
+				const uint64_t x = ((f ^ swap) - swap);
+				const uint64_t y = ((u ^ swap) - swap);
+				const uint64_t z = ((v ^ swap) - swap);
+				// Складываем под маской нечётности
+				g += (x & odd);
+				q += (y & odd);
+				r += (z & odd);
+				// Обмен идёт лишь при нечётном втором числе
+				swap &= odd;
+				// Обновляем показатель хода
+				eta = static_cast <int64_t> ((static_cast <uint64_t> (eta) ^ swap) - (swap + 1));
+				// Выполняем обмен под маской
+				f += (g & swap);
+				u += (q & swap);
+				v += (r & swap);
+				// Делим второе число пополам, удваиваем множители первой строки
+				g >>= 1;
+				u <<= 1;
+				v <<= 1;
+			}
+			// Записываем матрицу перехода
+			result.u = static_cast <int64_t> (u);
+			result.v = static_cast <int64_t> (v);
+			result.q = static_cast <int64_t> (q);
+			result.r = static_cast <int64_t> (r);
+			// Выводим показатель хода
+			return eta;
+		}
+		/**
+		 * @brief Метод применения матрицы перехода к делимым числам
+		 *
+		 * @param f     первое число на конечностях, заменяется итогом
+		 * @param g     второе число на конечностях, заменяется итогом
+		 * @param limbs число конечностей
+		 * @param t     матрица перехода
+		 *
+		 */
+		static void advance(int64_t * f, int64_t * g, const size_t limbs, const transition_t & t) noexcept {
+			// Накопители строк с переносом
+			twin_t cf = ((static_cast <twin_t> (t.u) * f[0]) + (static_cast <twin_t> (t.v) * g[0]));
+			twin_t cg = ((static_cast <twin_t> (t.q) * f[0]) + (static_cast <twin_t> (t.r) * g[0]));
+			// Младшая конечность выбывает: она делится нацело
+			cf >>= SLICE;
+			cg >>= SLICE;
+			/**
+			 * Выполняем обход конечностей
+			 */
+			for(size_t i = 1; i < limbs; i++){
+				// Накапливаем очередные конечности
+				cf += ((static_cast <twin_t> (t.u) * f[i]) + (static_cast <twin_t> (t.v) * g[i]));
+				cg += ((static_cast <twin_t> (t.q) * f[i]) + (static_cast <twin_t> (t.r) * g[i]));
+				// Записываем конечности со сдвигом на одну
+				f[i - 1] = static_cast <int64_t> (static_cast <uint64_t> (cf) & SLICE_MASK);
+				g[i - 1] = static_cast <int64_t> (static_cast <uint64_t> (cg) & SLICE_MASK);
+				// Переносим остаток
+				cf >>= SLICE;
+				cg >>= SLICE;
+			}
+			// Записываем старшие конечности со знаком
+			f[limbs - 1] = static_cast <int64_t> (cf);
+			g[limbs - 1] = static_cast <int64_t> (cg);
+		}
+		/**
+		 * @brief Метод применения матрицы перехода к множителям Безу по модулю
+		 *
+		 * @param d       первый множитель на конечностях, заменяется итогом
+		 * @param e       второй множитель на конечностях, заменяется итогом
+		 * @param limbs   число конечностей
+		 * @param t       матрица перехода
+		 * @param modulus модуль на конечностях
+		 * @param inverse обратное к младшей конечности модуля по 2^62
+		 *
+		 */
+		static void advance(int64_t * d, int64_t * e, const size_t limbs, const transition_t & t, const int64_t * modulus, const uint64_t inverse) noexcept {
+			// Маски знаков множителей
+			const int64_t sd = hide(d[limbs - 1] >> 63);
+			const int64_t se = hide(e[limbs - 1] >> 63);
+			// Поправки на знак
+			int64_t md = ((t.u & sd) + (t.v & se));
+			int64_t me = ((t.q & sd) + (t.r & se));
+			// Накопители строк
+			twin_t cd = ((static_cast <twin_t> (t.u) * d[0]) + (static_cast <twin_t> (t.v) * e[0]));
+			twin_t ce = ((static_cast <twin_t> (t.q) * d[0]) + (static_cast <twin_t> (t.r) * e[0]));
+			// Множители модуля, обращающие младшие конечности в ноль
+			md -= static_cast <int64_t> (((inverse * static_cast <uint64_t> (cd)) + static_cast <uint64_t> (md)) & SLICE_MASK);
+			me -= static_cast <int64_t> (((inverse * static_cast <uint64_t> (ce)) + static_cast <uint64_t> (me)) & SLICE_MASK);
+			// Прибавляем кратные модуля
+			cd += (static_cast <twin_t> (modulus[0]) * md);
+			ce += (static_cast <twin_t> (modulus[0]) * me);
+			// Младшие конечности выбывают
+			cd >>= SLICE;
+			ce >>= SLICE;
+			/**
+			 * Выполняем обход конечностей
+			 */
+			for(size_t i = 1; i < limbs; i++){
+				// Накапливаем очередные конечности с кратными модуля
+				cd += ((static_cast <twin_t> (t.u) * d[i]) + (static_cast <twin_t> (t.v) * e[i]) + (static_cast <twin_t> (modulus[i]) * md));
+				ce += ((static_cast <twin_t> (t.q) * d[i]) + (static_cast <twin_t> (t.r) * e[i]) + (static_cast <twin_t> (modulus[i]) * me));
+				// Записываем конечности со сдвигом на одну
+				d[i - 1] = static_cast <int64_t> (static_cast <uint64_t> (cd) & SLICE_MASK);
+				e[i - 1] = static_cast <int64_t> (static_cast <uint64_t> (ce) & SLICE_MASK);
+				// Переносим остаток
+				cd >>= SLICE;
+				ce >>= SLICE;
+			}
+			// Записываем старшие конечности со знаком
+			d[limbs - 1] = static_cast <int64_t> (cd);
+			e[limbs - 1] = static_cast <int64_t> (ce);
+		}
+		/**
+		 * @brief Метод приведения множителя Безу к остатку по модулю
+		 *
+		 * @param value   множитель на конечностях, заменяется остатком
+		 * @param limbs   число конечностей
+		 * @param sign    знак первого делимого числа: отрицательный обращает знак итога
+		 * @param modulus модуль на конечностях
+		 *
+		 */
+		static void settle(int64_t * value, const size_t limbs, const int64_t sign, const int64_t * modulus) noexcept {
+			// Маска отрицательности
+			int64_t negative = hide(value[limbs - 1] >> 63);
+			/**
+			 * Прибавляем модуль под маской отрицательности
+			 */
+			for(size_t i = 0; i < limbs; i++)
+				value[i] += (modulus[i] & negative);
+			// Маска смены знака
+			const int64_t flip = hide(sign >> 63);
+			/**
+			 * Меняем знак под маской
+			 */
+			for(size_t i = 0; i < limbs; i++)
+				value[i] = ((value[i] ^ flip) - flip);
+			/**
+			 * Проносим переносы по конечностям
+			 */
+			for(size_t i = 0; (i + 1) < limbs; i++){
+				value[i + 1] += (value[i] >> SLICE);
+				value[i] &= static_cast <int64_t> (SLICE_MASK);
+			}
+			// Маска отрицательности после смены знака
+			negative = hide(value[limbs - 1] >> 63);
+			/**
+			 * Прибавляем модуль под маской отрицательности
+			 */
+			for(size_t i = 0; i < limbs; i++)
+				value[i] += (modulus[i] & negative);
+			/**
+			 * Проносим переносы по конечностям
+			 */
+			for(size_t i = 0; (i + 1) < limbs; i++){
+				value[i + 1] += (value[i] >> SLICE);
+				value[i] &= static_cast <int64_t> (SLICE_MASK);
+			}
+		}
+		/**
+		 * @brief Метод разложения слов числа на конечности
+		 *
+		 * @param words  слова числа
+		 * @param count  число слов
+		 * @param result место, в которое помещаются конечности
+		 * @param limbs  число конечностей
+		 *
+		 */
+		static void slice(const uint64_t * words, const size_t count, int64_t * result, const size_t limbs) noexcept {
+			/**
+			 * Выполняем обход конечностей
+			 */
+			for(size_t i = 0; i < limbs; i++){
+				// Разряд, слово и смещение начала конечности
+				const size_t bit = (SLICE * i), word = (bit / 64), offset = (bit % 64);
+				// Собираем конечность из одного либо двух слов
+				uint64_t item = ((word < count) ? (words[word] >> offset) : 0);
+				if((offset > (64 - SLICE)) && ((word + 1) < count))
+					item |= (words[word + 1] << (64 - offset));
+				// Записываем конечность
+				result[i] = static_cast <int64_t> (item & SLICE_MASK);
+			}
+		}
+		/**
+		 * @brief Метод сборки слов числа из конечностей
+		 *
+		 * @param value  конечности приведённого числа
+		 * @param limbs  число конечностей
+		 * @param result место, в которое помещаются слова
+		 * @param count  число слов
+		 *
+		 */
+		static void gather(const int64_t * value, const size_t limbs, uint64_t * result, const size_t count) noexcept {
+			/**
+			 * Обнуляем слова
+			 */
+			for(size_t i = 0; i < count; i++)
+				result[i] = 0;
+			/**
+			 * Выполняем обход конечностей
+			 */
+			for(size_t i = 0; i < limbs; i++){
+				// Разряд, слово и смещение начала конечности
+				const size_t bit = (SLICE * i), word = (bit / 64), offset = (bit % 64);
+				// Раскладываем конечность по одному либо двум словам
+				if(word < count)
+					result[word] |= (static_cast <uint64_t> (value[i]) << offset);
+				if((offset > (64 - SLICE)) && ((word + 1) < count))
+					result[word + 1] |= (static_cast <uint64_t> (value[i]) >> (64 - offset));
+			}
+		}
+		/**
+		 * @brief Метод обращения по нечётному модулю за постоянное время
+		 *
+		 * @param modulus слова модуля
+		 * @param words   число слов модуля
+		 * @param factor  множитель приведения Монтгомери младшего слова модуля
+		 * @param value   слова обращаемого числа, меньшего модуля
+		 * @param result  место, в которое помещаются слова обратного числа
+		 *
+		 */
+		static void safegcd(const uint64_t * modulus, const size_t words, const uint64_t factor, const uint64_t * value, uint64_t * result) noexcept {
+			// Число конечностей: ширина модуля, знак и запас в конечность
+			const size_t limbs = ((((64 * words) + 64) / SLICE) + 1);
+			// Число шагов деления по оценке Бернстайна и Янга и число пачек
+			const size_t steps = (((49 * 64 * words) + 57) / 17);
+			const size_t batches = ((steps + (SLICE - 1)) / SLICE);
+			// Модуль и делимые числа на конечностях
+			int64_t m[SLICES], f[SLICES], g[SLICES];
+			// Множители Безу на конечностях
+			int64_t d[SLICES] = {}, e[SLICES] = {};
+			// Раскладываем модуль и число
+			slice(modulus, words, m, limbs);
+			slice(modulus, words, f, limbs);
+			slice(value, words, g, limbs);
+			// Второй множитель начинается с единицы
+			e[0] = 1;
+			// Обратное к младшей конечности модуля по 2^62
+			const uint64_t inverse = ((0 - factor) & SLICE_MASK);
+			// Показатель хода
+			int64_t eta = -1;
+			// Матрица перехода
+			transition_t t;
+			/**
+			 * Выполняем пачки шагов деления
+			 */
+			for(size_t i = 0; i < batches; i++){
+				// Считаем матрицу перехода по младшим конечностям
+				eta = divsteps(eta, static_cast <uint64_t> (f[0]), static_cast <uint64_t> (g[0]), t);
+				// Применяем матрицу к множителям и к делимым
+				advance(d, e, limbs, t, m, inverse);
+				advance(f, g, limbs, t);
+			}
+			// Приводим первый множитель к остатку по модулю со знаком первого числа
+			settle(d, limbs, f[limbs - 1], m);
+			// Собираем слова обратного числа
+			gather(d, limbs, result, words);
+			// Затираем рабочие числа
+			wipe(m, sizeof(m));
+			wipe(f, sizeof(f));
+			wipe(g, sizeof(g));
+			wipe(d, sizeof(d));
+			wipe(e, sizeof(e));
+			wipe(&t, sizeof(t));
+		}
+	#endif
 };
 
 /**
@@ -2081,4 +2468,435 @@ nts::math::Integer::Integer() noexcept : _words{} {}
 nts::math::Integer::~Integer() noexcept {
 	// Затираем слова числа
 	wipe(this->_words, sizeof(this->_words));
+}
+/**
+ * @brief Метод проверки того, что модуль установлен
+ *
+ * @return признак установленного модуля
+ *
+ */
+bool nts::math::Montgomery::ready() const noexcept {
+	// Выводим признак
+	return this->_ready;
+}
+/**
+ * @brief Метод получения числа слов модуля
+ *
+ * @return число слов модуля до старшего ненулевого включительно
+ *
+ */
+size_t nts::math::Montgomery::words() const noexcept {
+	// Выводим число слов
+	return this->_words;
+}
+/**
+ * @brief Метод установки модуля
+ *
+ * @param modulus нечётный модуль
+ * @return        признак успешности установки
+ *
+ */
+bool nts::math::Montgomery::start(const Integer & modulus) noexcept {
+	// Сбрасываем прежний модуль
+	this->clear();
+	// Число слов модуля
+	const size_t words = top(modulus._words, INTEGER_WORDS);
+	// Если модуль нулевой либо чётный
+	if((words == 0) || ((modulus._words[0] & 1) == 0))
+		// Выходим отказом
+		return false;
+	// Запоминаем число слов и слова модуля
+	this->_words = words;
+	transfer(modulus._words, this->_modulus, words);
+	// Считаем множитель приведения
+	this->_inverse = factor(modulus._words[0]);
+	// Считаем единицу области и квадрат R² удвоениями по модулю
+	domain(this->_modulus, words, this->_unit, this->_square);
+	// Отмечаем модуль установленным
+	this->_ready = true;
+	// Выходим успехом
+	return true;
+}
+/**
+ * @brief Метод сброса модуля с затиранием предвычислений
+ *
+ */
+void nts::math::Montgomery::clear() noexcept {
+	// Сбрасываем признак, число слов и множитель
+	this->_ready = false;
+	this->_words = 0;
+	this->_inverse = 0;
+	// Затираем слова модуля и предвычисления
+	wipe(this->_modulus, sizeof(this->_modulus));
+	wipe(this->_unit, sizeof(this->_unit));
+	wipe(this->_square, sizeof(this->_square));
+}
+/**
+ * @brief Метод перевода числа в область Монтгомери
+ *
+ * @param value  число, меньшее модуля
+ * @param result место, в которое помещается число в области
+ * @return       признак успешности перевода
+ *
+ */
+bool nts::math::Montgomery::enter(const Integer & value, Integer & result) const noexcept {
+	// Если модуль не установлен либо число не меньше модуля
+	if(!this->_ready || (beyond(value._words, INTEGER_WORDS, this->_words * 64) != 0) || !smaller(value._words, this->_modulus, this->_words))
+		// Выходим отказом
+		return false;
+	// Слова итога
+	uint64_t outcome[INTEGER_WORDS];
+	// Умножаем число на квадрат R²
+	montgomery(value._words, this->_square, this->_modulus, this->_words, this->_inverse, outcome);
+	// Записываем итог
+	result.clear();
+	transfer(outcome, result._words, this->_words);
+	// Затираем итог
+	wipe(outcome, this->_words * sizeof(uint64_t));
+	// Выходим успехом
+	return true;
+}
+/**
+ * @brief Метод вывода числа из области Монтгомери
+ *
+ * @param value  число в области, меньшее модуля
+ * @param result место, в которое помещается число
+ * @return       признак успешности вывода
+ *
+ */
+bool nts::math::Montgomery::leave(const Integer & value, Integer & result) const noexcept {
+	// Если модуль не установлен либо число не меньше модуля
+	if(!this->_ready || (beyond(value._words, INTEGER_WORDS, this->_words * 64) != 0) || !smaller(value._words, this->_modulus, this->_words))
+		// Выходим отказом
+		return false;
+	// Единица вне области
+	uint64_t one[INTEGER_WORDS];
+	clean(one, this->_words);
+	one[0] = 1;
+	// Слова итога
+	uint64_t outcome[INTEGER_WORDS];
+	// Умножаем число на единицу: множитель R⁻¹ выводит из области
+	montgomery(value._words, one, this->_modulus, this->_words, this->_inverse, outcome);
+	// Записываем итог
+	result.clear();
+	transfer(outcome, result._words, this->_words);
+	// Затираем итог
+	wipe(outcome, this->_words * sizeof(uint64_t));
+	// Выходим успехом
+	return true;
+}
+/**
+ * @brief Метод умножения Монтгомери
+ *
+ * @param first  первый сомножитель в области, меньший модуля
+ * @param second второй сомножитель в области, меньший модуля
+ * @param result место, в которое помещается произведение
+ * @return       признак успешности умножения
+ *
+ */
+bool nts::math::Montgomery::multiply(const Integer & first, const Integer & second, Integer & result) const noexcept {
+	// Если модуль не установлен либо сомножители не меньше модуля
+	if(!this->_ready ||
+	   (beyond(first._words, INTEGER_WORDS, this->_words * 64) != 0) || !smaller(first._words, this->_modulus, this->_words) ||
+	   (beyond(second._words, INTEGER_WORDS, this->_words * 64) != 0) || !smaller(second._words, this->_modulus, this->_words))
+		// Выходим отказом
+		return false;
+	// Слова итога
+	uint64_t outcome[INTEGER_WORDS];
+	// Выполняем умножение Монтгомери
+	montgomery(first._words, second._words, this->_modulus, this->_words, this->_inverse, outcome);
+	// Записываем итог
+	result.clear();
+	transfer(outcome, result._words, this->_words);
+	// Затираем итог
+	wipe(outcome, this->_words * sizeof(uint64_t));
+	// Выходим успехом
+	return true;
+}
+/**
+ * @brief Метод умножения по модулю чисел вне области
+ *
+ * @param first  первый сомножитель, меньший модуля
+ * @param second второй сомножитель, меньший модуля
+ * @param result место, в которое помещается произведение
+ * @return       признак успешности умножения
+ *
+ */
+bool nts::math::Montgomery::mulmod(const Integer & first, const Integer & second, Integer & result) const noexcept {
+	// Если модуль не установлен либо сомножители не меньше модуля
+	if(!this->_ready ||
+	   (beyond(first._words, INTEGER_WORDS, this->_words * 64) != 0) || !smaller(first._words, this->_modulus, this->_words) ||
+	   (beyond(second._words, INTEGER_WORDS, this->_words * 64) != 0) || !smaller(second._words, this->_modulus, this->_words))
+		// Выходим отказом
+		return false;
+	// Первый сомножитель в области и слова итога
+	uint64_t entered[INTEGER_WORDS], outcome[INTEGER_WORDS];
+	// Переводим первый сомножитель в область
+	montgomery(first._words, this->_square, this->_modulus, this->_words, this->_inverse, entered);
+	// Умножаем на второй: множитель R сокращается
+	montgomery(entered, second._words, this->_modulus, this->_words, this->_inverse, outcome);
+	// Записываем итог
+	result.clear();
+	transfer(outcome, result._words, this->_words);
+	// Затираем итог и сомножитель в области
+	wipe(outcome, this->_words * sizeof(uint64_t));
+	wipe(entered, this->_words * sizeof(uint64_t));
+	// Выходим успехом
+	return true;
+}
+/**
+ * @brief Метод возведения в степень по модулю
+ *
+ * @param base     основание, меньшее модуля
+ * @param exponent показатель
+ * @param secret   признак секретного показателя
+ * @param result   место, в которое помещается степень
+ * @return         признак успешности возведения
+ *
+ */
+bool nts::math::Montgomery::power(const Integer & base, const Integer & exponent, const bool secret, Integer & result) const noexcept {
+	// Если модуль не установлен либо основание не меньше модуля
+	if(!this->_ready || (beyond(base._words, INTEGER_WORDS, this->_words * 64) != 0) || !smaller(base._words, this->_modulus, this->_words))
+		// Выходим отказом
+		return false;
+	// Число слов модуля
+	const size_t words = this->_words;
+	// Число разрядов перебора: у секретного показателя вся разрядность слов модуля, у открытого - его значимые разряды
+	const size_t bits = (secret ? (words * 64) : width(exponent._words, INTEGER_WORDS));
+	// Если секретный показатель не умещается в слова модуля
+	if(secret && (beyond(exponent._words, INTEGER_WORDS, bits) != 0))
+		// Выходим отказом
+		return false;
+	// Основание в области и накопитель степени
+	uint64_t entered[INTEGER_WORDS], accumulator[INTEGER_WORDS];
+	// Переводим основание в область
+	montgomery(base._words, this->_square, this->_modulus, words, this->_inverse, entered);
+	// Накопитель начинается с единицы области
+	transfer(this->_unit, accumulator, words);
+	// Если показатель секретный
+	if(secret){
+		// Таблица степеней окна и выбранное значение
+		uint64_t table[TABLE][INTEGER_WORDS], chosen[INTEGER_WORDS];
+		// Нулевая степень есть единица области, первая - основание
+		transfer(this->_unit, table[0], words);
+		transfer(entered, table[1], words);
+		/**
+		 * Заполняем таблицу степеней
+		 */
+		for(size_t i = 2; i < TABLE; i++)
+			// Считаем очередную степень
+			montgomery(table[i - 1], table[1], this->_modulus, words, this->_inverse, table[i]);
+		/**
+		 * Выполняем перебор окон от старшего к младшему
+		 */
+		for(size_t i = ((bits + WINDOW - 1) / WINDOW); i > 0; i--){
+			// Положение и ширина окна
+			const size_t position = ((i - 1) * WINDOW);
+			const size_t count = (((bits - position) < WINDOW) ? (bits - position) : WINDOW);
+			/**
+			 * Возводим накопитель в квадрат по ширине окна
+			 */
+			for(size_t j = 0; j < count; j++)
+				// Выполняем возведение в квадрат
+				montgomery(accumulator, accumulator, this->_modulus, words, this->_inverse, accumulator);
+			// Значение окна
+			const uint64_t index = window(exponent._words, position, count);
+			// Обнуляем выбранное значение
+			clean(chosen, words);
+			/**
+			 * Выбираем степень перебором всей таблицы наложением масок
+			 */
+			for(size_t j = 0; j < TABLE; j++){
+				// Маска совпадения номера с окном
+				const uint64_t mask = nil(static_cast <uint64_t> (j) ^ index);
+				/**
+				 * Накапливаем слова под маской
+				 */
+				for(size_t k = 0; k < words; k++)
+					// Накапливаем очередное слово
+					chosen[k] |= (table[j][k] & mask);
+			}
+			// Умножаем накопитель на выбранную степень
+			montgomery(accumulator, chosen, this->_modulus, words, this->_inverse, accumulator);
+		}
+		// Затираем таблицу и выбранное значение
+		wipe(table, sizeof(table));
+		wipe(chosen, words * sizeof(uint64_t));
+	// Если показатель открытый
+	} else {
+		/**
+		 * Выполняем перебор разрядов от старшего к младшему двоичным методом
+		 */
+		for(size_t i = bits; i > 0; i--){
+			// Выполняем возведение в квадрат
+			montgomery(accumulator, accumulator, this->_modulus, words, this->_inverse, accumulator);
+			// Если разряд показателя единичный
+			if(((exponent._words[(i - 1) / 64] >> ((i - 1) % 64)) & 1) != 0)
+				// Умножаем накопитель на основание
+				montgomery(accumulator, entered, this->_modulus, words, this->_inverse, accumulator);
+		}
+	}
+	// Единица вне области
+	uint64_t one[INTEGER_WORDS];
+	clean(one, words);
+	one[0] = 1;
+	// Слова итога
+	uint64_t outcome[INTEGER_WORDS];
+	// Выводим степень из области
+	montgomery(accumulator, one, this->_modulus, words, this->_inverse, outcome);
+	// Записываем итог
+	result.clear();
+	transfer(outcome, result._words, words);
+	// Затираем рабочие слова
+	wipe(outcome, words * sizeof(uint64_t));
+	wipe(accumulator, words * sizeof(uint64_t));
+	wipe(entered, words * sizeof(uint64_t));
+	// Выходим успехом
+	return true;
+}
+/**
+ * @brief Метод приведения числа по модулю
+ *
+ * @param value  приводимое число
+ * @param result место, в которое помещается остаток
+ * @return       признак успешности приведения
+ *
+ */
+bool nts::math::Montgomery::reduce(const Integer & value, Integer & result) const noexcept {
+	// Если модуль не установлен
+	if(!this->_ready)
+		// Выходим отказом
+		return false;
+	// Число слов модуля
+	const size_t words = this->_words;
+	// Число значимых слов числа, длина накопителя и число проходов приведения
+	const size_t counted = top(value._words, INTEGER_WORDS);
+	const size_t length = ((counted > words) ? counted : words);
+	const size_t passes = ((length + words - 1) / words);
+	// Накопитель приведения
+	uint64_t buffer[INTEGER_WORDS + INTEGER_WORDS + 1];
+	// Обнуляем накопитель и переносим число
+	clean(buffer, sizeof(buffer) / sizeof(buffer[0]));
+	transfer(value._words, buffer, INTEGER_WORDS);
+	/**
+	 * Выполняем проходы приведения по слову: каждый делит на R по модулю
+	 */
+	for(size_t i = 0; i < passes; i++)
+		// Выполняем очередной проход
+		descend(buffer, length, this->_modulus, words, this->_inverse);
+	// Слова разности с модулем
+	uint64_t lessened[INTEGER_WORDS];
+	// Вычитаем модуль из накопителя
+	const uint64_t borrow = decrease(buffer, this->_modulus, lessened, words);
+	// Маска выбора разности: накопитель не умещается в слова либо не меньше модуля
+	const uint64_t mask = (0 - ((buffer[words] | (borrow ^ 1)) & 1));
+	/**
+	 * Записываем выбранные слова
+	 */
+	for(size_t i = 0; i < words; i++)
+		// Записываем очередное слово
+		buffer[i] = select(mask, lessened[i], buffer[i]);
+	// Множитель возврата: степень R по числу проходов и одна сверх на умножение
+	uint64_t restorer[INTEGER_WORDS];
+	transfer(this->_square, restorer, words);
+	/**
+	 * Возводим множитель возврата в нужную степень R
+	 */
+	for(size_t i = 1; i < passes; i++)
+		// Умножаем на квадрат R²
+		montgomery(restorer, this->_square, this->_modulus, words, this->_inverse, restorer);
+	// Слова итога
+	uint64_t outcome[INTEGER_WORDS];
+	// Возвращаем множитель R за проходы
+	montgomery(buffer, restorer, this->_modulus, words, this->_inverse, outcome);
+	// Записываем итог
+	result.clear();
+	transfer(outcome, result._words, words);
+	// Затираем рабочие слова
+	wipe(outcome, words * sizeof(uint64_t));
+	wipe(restorer, words * sizeof(uint64_t));
+	wipe(lessened, words * sizeof(uint64_t));
+	wipe(buffer, sizeof(buffer));
+	// Выходим успехом
+	return true;
+}
+/**
+ * @brief Метод обращения числа по модулю за постоянное время
+ *
+ * @param value  обращаемое число, меньшее модуля
+ * @param result место, в которое помещается обратное число вне области
+ * @return       признак успешности обращения
+ *
+ */
+bool nts::math::Montgomery::invert(const Integer & value, Integer & result) const noexcept {
+	// Если модуль не установлен либо число не меньше модуля
+	if(!this->_ready || (beyond(value._words, INTEGER_WORDS, this->_words * 64) != 0) || !smaller(value._words, this->_modulus, this->_words))
+		// Выходим отказом
+		return false;
+	// Число слов модуля
+	const size_t words = this->_words;
+	// Слова обратного числа
+	uint64_t inverse[INTEGER_WORDS];
+	/**
+	 * Собиратели с 128-разрядными числами со знаком обращают за постоянное время
+	 */
+	#if !defined(_MSC_VER)
+		// Выполняем обращение алгоритмом Бернстайна и Янга
+		safegcd(this->_modulus, words, this->_inverse, value._words, inverse);
+	/**
+	 * Иные собиратели обращают алгоритмом Евклида за переменное время
+	 */
+	#else
+		// Модуль числом и обратное число
+		Integer modulus, found;
+		transfer(this->_modulus, modulus._words, words);
+		// Выполняем обращение
+		if(!found.invert(value, modulus))
+			// Выходим отказом
+			return false;
+		// Переносим слова обратного числа
+		transfer(found._words, inverse, words);
+	#endif
+	// Число в области и произведение проверки
+	uint64_t entered[INTEGER_WORDS], product[INTEGER_WORDS];
+	// Переводим число в область и умножаем на найденное обратное
+	montgomery(value._words, this->_square, this->_modulus, words, this->_inverse, entered);
+	montgomery(entered, inverse, this->_modulus, words, this->_inverse, product);
+	// Накопитель расхождения произведения с единицей
+	uint64_t difference = (product[0] ^ 1);
+	/**
+	 * Накапливаем расхождение по всем словам
+	 */
+	for(size_t i = 1; i < words; i++)
+		// Накапливаем очередное слово
+		difference |= product[i];
+	// Маска обратимости: единица подтверждает обратное число
+	const uint64_t mask = nil(difference);
+	// Записываем итог под маской обратимости
+	result.clear();
+	/**
+	 * Записываем слова обратного числа под маской
+	 */
+	for(size_t i = 0; i < words; i++)
+		// Записываем очередное слово
+		result._words[i] = (inverse[i] & mask);
+	// Затираем рабочие слова
+	wipe(inverse, words * sizeof(uint64_t));
+	wipe(entered, words * sizeof(uint64_t));
+	wipe(product, words * sizeof(uint64_t));
+	// Выводим признак обратимости
+	return ((mask & 1) != 0);
+}
+/**
+ * @brief Конструктор
+ *
+ */
+nts::math::Montgomery::Montgomery() noexcept : _ready(false), _words(0), _inverse(0), _modulus{}, _unit{}, _square{} {}
+/**
+ * @brief Деструктор
+ *
+ */
+nts::math::Montgomery::~Montgomery() noexcept {
+	// Затираем модуль и предвычисления
+	this->clear();
 }

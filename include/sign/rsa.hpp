@@ -174,6 +174,36 @@ namespace nts {
 				// Коэффициент qInv
 				math::integer_t _coefficient;
 			private:
+				// Арифметика Монтгомери по модулю n
+				math::montgomery_t _field;
+				// Арифметика Монтгомери по сомножителю p
+				math::montgomery_t _field1;
+				// Арифметика Монтгомери по сомножителю q
+				math::montgomery_t _field2;
+				// Коэффициент qInv в области Монтгомери по p
+				math::integer_t _reverse;
+			private:
+				/**
+				 * \~russian
+				 * @brief Метод предвычислений по установленному ключу
+				 *
+				 * @details Заводится арифметика Монтгомери по модулю n, а при секретном ключе - и
+				 *          по сомножителям p и q, и коэффициент qInv переводится в область по p:
+				 *          подпись и сличение затем не платят за предвычисления на каждом вызове
+				 *
+				 * @return признак успешности предвычислений
+				 *
+				 * \~english
+				 * @brief Method of the precomputations by the set key
+				 * @details The Montgomery arithmetic by the modulus n is set up, and with a secret key -
+				 *          also by the factors p and q, and the coefficient qInv is transferred into the
+				 *          domain by p: the signature and the verification then do not pay for the
+				 *          precomputations at every call
+				 * @return the flag of the success of the precomputations
+				 *
+				 * \~
+				 */
+				bool prepare() noexcept;
 				/**
 				 * \~russian
 				 * @brief Метод сборки числа по китайской теореме об остатках за постоянное время
