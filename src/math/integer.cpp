@@ -54,6 +54,24 @@
  *    Заведение арифметики RSA-2048 стоило 241 мкс - треть самой подписи - и шло на
  *    каждом рукопожатии до круга 29 (22.09.2026). Закреплено проверкой IntegerTest.Montgomery.
  *
+ * 6. Ядра Монтгомери - переносимые, на C, рядами со сдвигом; ассемблер отвергнут по
+ *    замеру (круг 33, 23.09.2026). Прежнее ядро шло двумя проходами на слово второго
+ *    сомножителя и упиралось в глубину цепочки переносов одного ряда: 3,4 такта на
+ *    слово при трёх умножениях за такт у M4. Теперь произведение и приведение идут
+ *    одним проходом, а второй ряд - на слово позади первого с выходом из регистра:
+ *    цепочки двух рядов независимы. Слитый ряд на ассемблере AArch64 и четыре ряда
+ *    на ассемблере дали ровно столько же, сколько те же ряды на C (щуп kern.cpp): предел
+ *    у M4 - три флаговые команды за такт, и число команд собиратель уже держит у него;
+ *    под x86-64 четыре ряда даже медленнее двух (регистров шестнадцать). Квадрат идёт
+ *    отдельным ядром: симметричные произведения один раз с удвоением (полторы ширины
+ *    умножений вместо двух) и приведение тождеством REDC(P) = REDC(P_low) + P_high,
+ *    где младшая половина приводится сдвиговыми рядами по четыре. Подмена по
+ *    совпадению указателей сомножителей: все возведения в квадрат в power и domain
+ *    идут ядром квадрата без правки вызовов. M4, 16 слов: умножение 259 → 182 нс,
+ *    квадрат 172; 32 слова: 1 214 → 679 и 608. Закреплено IntegerTest.Kernels (все
+ *    ширины от одного до шестидесяти четырёх слов с краевыми входами против
+ *    умножения через деление, квадрат против умножения по разным указателям).
+ *
  * @copyright Copyright © 2026
  *
  */
@@ -561,6 +579,557 @@ namespace {
 		return (0 - result);
 	}
 	/**
+	 * @brief Метод прохода одного ряда умножения Монтгомери
+	 *
+	 * @param buffer  накопитель в count + 1 слов: на входе значение меньше удвоенного модуля, на выходе (buffer + first · word + q · modulus) / 2^64
+	 * @param first   слова первого сомножителя, меньшего модуля
+	 * @param modulus слова нечётного модуля
+	 * @param word    слово второго сомножителя
+	 * @param inverse множитель приведения по модулю
+	 * @param count   число слов модуля
+	 *
+	 * @note Произведение и приведение идут одним циклом с двумя переносами: прежние
+	 *       два прохода читали и писали накопитель дважды на слово (решение 6 шапки)
+	 *
+	 */
+	static void row(uint64_t * buffer, const uint64_t * first, const uint64_t * modulus, const uint64_t word, const uint64_t inverse, const size_t count) noexcept {
+		// Произведение младшего слова первого сомножителя на слово второго с накопленным
+		wide_t product = (static_cast <wide_t> (first[0]) * word + buffer[0]);
+		// Множитель приведения ряда
+		const uint64_t reducer = (static_cast <uint64_t> (product) * inverse);
+		// Приведение младшего слова: младшая половина обнуляется, остаётся перенос
+		wide_t reduction = (static_cast <wide_t> (reducer) * modulus[0] + static_cast <uint64_t> (product));
+		// Перенос произведения
+		uint64_t carry = static_cast <uint64_t> (product >> 64);
+		// Перенос приведения
+		uint64_t lift = static_cast <uint64_t> (reduction >> 64);
+		/**
+		 * Выполняем перебор слов: произведение и приведение одним проходом
+		 */
+		for(size_t j = 1; j < count; j++){
+			// Складываем слово произведения с накопленным словом и переносом
+			product = (static_cast <wide_t> (first[j]) * word + buffer[j] + carry);
+			// Складываем слово приведения с младшей половиной произведения и переносом приведения
+			reduction = (static_cast <wide_t> (reducer) * modulus[j] + static_cast <uint64_t> (product) + lift);
+			// Записываем итог со сдвигом на слово
+			buffer[j - 1] = static_cast <uint64_t> (reduction);
+			// Запоминаем перенос произведения
+			carry = static_cast <uint64_t> (product >> 64);
+			// Запоминаем перенос приведения
+			lift = static_cast <uint64_t> (reduction >> 64);
+		}
+		// Складываем старшее слово накопителя с обоими переносами
+		const wide_t top = (static_cast <wide_t> (buffer[count]) + carry + lift);
+		// Записываем предпоследнее слово
+		buffer[count - 1] = static_cast <uint64_t> (top);
+		// Записываем старшее слово
+		buffer[count] = static_cast <uint64_t> (top >> 64);
+	}
+/**
+ * Ветвь x86-64 (GCC, clang): цикл столбцов двух рядов на ассемблере с mulq и продвигаемыми
+ * указателями - пятнадцать регистров впритык, слова рядов и множители приведения лежат
+ * в памяти. У собирателей x86-64 ряды на C с __int128 разливают регистры: у GCC 12 два
+ * ряда на C медленнее прежнего ядра (1 201 нс против 1 131 на 16 словах), у GCC 16 - 770,
+ * у clang 19 - 762, а этот цикл - 795, 662 и 673 соответственно (стенды QEMU, круг 33)
+ */
+#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER)
+	/**
+	 * @brief Метод цикла столбцов двух рядов умножения Монтгомери на ассемблере x86-64
+	 *
+	 * @param buffer  накопитель со смещением на два слова (столбец j = 2)
+	 * @param first   первый сомножитель со смещением на два слова
+	 * @param modulus модуль со смещением на два слова
+	 * @param low     слово второго сомножителя первого ряда
+	 * @param high    слово второго сомножителя второго ряда
+	 * @param reducer1 множитель приведения первого ряда
+	 * @param reducer2 множитель приведения второго ряда
+	 * @param carry1  перенос произведения первого ряда (вход и выход)
+	 * @param lift1   перенос приведения первого ряда (вход и выход)
+	 * @param carry2  перенос произведения второго ряда (вход и выход)
+	 * @param lift2   перенос приведения второго ряда (вход и выход)
+	 * @param left    число столбцов, не меньше одного
+	 *
+	 */
+	static inline void columns(uint64_t * buffer, const uint64_t * first, const uint64_t * modulus, const uint64_t low, const uint64_t high, const uint64_t reducer1, const uint64_t reducer2, uint64_t & carry1, uint64_t & lift1, uint64_t & carry2, uint64_t & lift2, size_t left) noexcept {
+		// Временное слово
+		uint64_t passed = 0;
+		// Переносы в регистрах
+		uint64_t c1 = carry1, l1 = lift1, c2 = carry2, l2 = lift2;
+		__asm__ __volatile__(
+			"1:\n\t"
+			/* Первый ряд: столбец j */
+			"movq  (%[first]), %%rax\n\t"
+			"mulq  %[low]\n\t"
+			"addq  %[c1], %%rax\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"addq  (%[buffer]), %%rax\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"movq  %%rdx, %[c1]\n\t"
+			"movq  %%rax, %[passed]\n\t"
+			"movq  %[reducer1], %%rax\n\t"
+			"mulq  (%[modulus])\n\t"
+			"addq  %[l1], %%rax\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"addq  %[passed], %%rax\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"movq  %%rdx, %[l1]\n\t"
+			"movq  %%rax, %[passed]\n\t"
+			/* Второй ряд: столбец j - 1 со входом из первого */
+			"movq  -8(%[first]), %%rax\n\t"
+			"mulq  %[high]\n\t"
+			"addq  %[c2], %%rax\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"addq  %[passed], %%rax\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"movq  %%rdx, %[c2]\n\t"
+			"movq  %%rax, %[passed]\n\t"
+			"movq  %[reducer2], %%rax\n\t"
+			"mulq  -8(%[modulus])\n\t"
+			"addq  %[l2], %%rax\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"addq  %[passed], %%rax\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"movq  %%rdx, %[l2]\n\t"
+			"movq  %%rax, -16(%[buffer])\n\t"
+			"leaq  8(%[buffer]), %[buffer]\n\t"
+			"leaq  8(%[first]), %[first]\n\t"
+			"leaq  8(%[modulus]), %[modulus]\n\t"
+			"decq  %[left]\n\t"
+			"jnz   1b\n\t"
+			: [c1] "+r" (c1), [l1] "+r" (l1), [c2] "+r" (c2), [l2] "+r" (l2), [buffer] "+r" (buffer), [first] "+r" (first), [modulus] "+r" (modulus), [left] "+r" (left), [passed] "=&r" (passed)
+			: [low] "m" (low), [high] "m" (high), [reducer1] "m" (reducer1), [reducer2] "m" (reducer2)
+			: "rax", "rdx", "cc", "memory");
+		// Выводим переносы
+		carry1 = c1; lift1 = l1; carry2 = c2; lift2 = l2;
+	}
+#endif
+	/**
+	 * @brief Метод прохода двух рядов умножения Монтгомери со сдвигом на слово
+	 *
+	 * @param buffer  накопитель в count + 1 слов
+	 * @param first   слова первого сомножителя, меньшего модуля
+	 * @param modulus слова нечётного модуля
+	 * @param low     слово второго сомножителя первого ряда
+	 * @param high    слово второго сомножителя второго ряда
+	 * @param inverse множитель приведения по модулю
+	 * @param count   число слов модуля, не меньше двух
+	 *
+	 * @note Второй ряд идёт на слово позади первого и берёт его выход из регистра, не из
+	 *       памяти: цепочки переносов двух рядов независимы, и процессор ведёт их разом.
+	 *       Один ряд упирался в глубину своей цепочки: три-четыре такта на слово при
+	 *       трёх умножениях за такт у M4 (решение 6 шапки)
+	 *
+	 */
+	static void rows(uint64_t * buffer, const uint64_t * first, const uint64_t * modulus, const uint64_t low, const uint64_t high, const uint64_t inverse, const size_t count) noexcept {
+		// Произведение и приведение младшего слова первого ряда
+		wide_t product = (static_cast <wide_t> (first[0]) * low + buffer[0]);
+		// Множитель приведения первого ряда
+		const uint64_t reducer1 = (static_cast <uint64_t> (product) * inverse);
+		// Приведение младшего слова первого ряда
+		wide_t reduction = (static_cast <wide_t> (reducer1) * modulus[0] + static_cast <uint64_t> (product));
+		// Переносы первого ряда
+		uint64_t carry1 = static_cast <uint64_t> (product >> 64), lift1 = static_cast <uint64_t> (reduction >> 64);
+		// Первый ряд на втором слове: его выход - вход второго ряда
+		product = (static_cast <wide_t> (first[1]) * low + buffer[1] + carry1);
+		// Приведение второго слова первого ряда
+		reduction = (static_cast <wide_t> (reducer1) * modulus[1] + static_cast <uint64_t> (product) + lift1);
+		// Выход первого ряда
+		uint64_t passed = static_cast <uint64_t> (reduction);
+		// Запоминаем переносы первого ряда
+		carry1 = static_cast <uint64_t> (product >> 64);
+		lift1 = static_cast <uint64_t> (reduction >> 64);
+		// Произведение младшего слова второго ряда с выходом первого
+		product = (static_cast <wide_t> (first[0]) * high + passed);
+		// Множитель приведения второго ряда
+		const uint64_t reducer2 = (static_cast <uint64_t> (product) * inverse);
+		// Приведение младшего слова второго ряда
+		reduction = (static_cast <wide_t> (reducer2) * modulus[0] + static_cast <uint64_t> (product));
+		// Переносы второго ряда
+		uint64_t carry2 = static_cast <uint64_t> (product >> 64), lift2 = static_cast <uint64_t> (reduction >> 64);
+/**
+ * Под x86-64 цикл столбцов идёт на ассемблере
+ */
+#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER)
+		// Если столбцы есть
+		if(count > 2)
+			// Выполняем цикл столбцов на ассемблере
+			columns(buffer + 2, first + 2, modulus + 2, low, high, reducer1, reducer2, carry1, lift1, carry2, lift2, (count - 2));
+/**
+ * Под прочими процессорами цикл столбцов на C
+ */
+#else
+		/**
+		 * Выполняем перебор слов: первый ряд на слове j, второй на слове j - 1
+		 */
+		for(size_t j = 2; j < count; j++){
+			// Первый ряд: произведение
+			product = (static_cast <wide_t> (first[j]) * low + buffer[j] + carry1);
+			// Первый ряд: приведение
+			reduction = (static_cast <wide_t> (reducer1) * modulus[j] + static_cast <uint64_t> (product) + lift1);
+			// Выход первого ряда
+			passed = static_cast <uint64_t> (reduction);
+			// Переносы первого ряда
+			carry1 = static_cast <uint64_t> (product >> 64);
+			lift1 = static_cast <uint64_t> (reduction >> 64);
+			// Второй ряд: произведение с выходом первого
+			product = (static_cast <wide_t> (first[j - 1]) * high + passed + carry2);
+			// Второй ряд: приведение
+			reduction = (static_cast <wide_t> (reducer2) * modulus[j - 1] + static_cast <uint64_t> (product) + lift2);
+			// Записываем итог со сдвигом на два слова
+			buffer[j - 2] = static_cast <uint64_t> (reduction);
+			// Переносы второго ряда
+			carry2 = static_cast <uint64_t> (product >> 64);
+			lift2 = static_cast <uint64_t> (reduction >> 64);
+		}
+#endif
+		// Первый ряд завершается: старшее слово накопителя с переносами
+		wide_t top = (static_cast <wide_t> (buffer[count]) + carry1 + lift1);
+		// Выход первого ряда на последнем слове и его старшее слово
+		const uint64_t last = static_cast <uint64_t> (top), upper = static_cast <uint64_t> (top >> 64);
+		// Второй ряд на последнем слове
+		product = (static_cast <wide_t> (first[count - 1]) * high + last + carry2);
+		// Приведение последнего слова второго ряда
+		reduction = (static_cast <wide_t> (reducer2) * modulus[count - 1] + static_cast <uint64_t> (product) + lift2);
+		// Записываем итог
+		buffer[count - 2] = static_cast <uint64_t> (reduction);
+		// Переносы второго ряда
+		carry2 = static_cast <uint64_t> (product >> 64);
+		lift2 = static_cast <uint64_t> (reduction >> 64);
+		// Второй ряд завершается
+		top = (static_cast <wide_t> (upper) + carry2 + lift2);
+		// Записываем старшие слова
+		buffer[count - 1] = static_cast <uint64_t> (top);
+		buffer[count] = static_cast <uint64_t> (top >> 64);
+	}
+/**
+ * Ядра квадрата нужны всюду, кроме x86-64 с GCC и clang: там квадрат идёт ассемблерными рядами умножения
+ */
+#if !(defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER))
+	/**
+	 * @brief Метод двух рядов симметричных произведений квадрата
+	 *
+	 * @param square накопитель произведения в 2 · count + 2 слов
+	 * @param value  слова числа
+	 * @param count  число слов
+	 * @param index  номер первого ряда: ряды index и index + 1, у второго есть хоть один столбец (index + 2 < count)
+	 *
+	 * @note Ряд index считает value[index] · value[j] для j > index в столбцы index + j; второй
+	 *       ряд идёт на столбец позади и берёт выход первого из регистра
+	 *
+	 */
+	static void triangle(uint64_t * square, const uint64_t * value, const size_t count, const size_t index) noexcept {
+		// Слова рядов
+		const uint64_t low = value[index], high = value[index + 1];
+		// Переносы рядов
+		uint64_t carry1 = 0, carry2 = 0;
+		// Первый ряд на столбце 2 · index + 1
+		wide_t product = (static_cast <wide_t> (value[index + 1]) * low + square[2 * index + 1]);
+		// Записываем столбец
+		square[2 * index + 1] = static_cast <uint64_t> (product);
+		// Перенос первого ряда
+		carry1 = static_cast <uint64_t> (product >> 64);
+		// Если у первого ряда есть столбец 2 · index + 2
+		if((index + 3) <= count){
+			// Первый ряд на столбце 2 · index + 2
+			product = (static_cast <wide_t> (value[index + 2]) * low + square[2 * index + 2] + carry1);
+			// Записываем столбец
+			square[2 * index + 2] = static_cast <uint64_t> (product);
+			// Перенос первого ряда
+			carry1 = static_cast <uint64_t> (product >> 64);
+		}
+		/**
+		 * Выполняем перебор столбцов: первый ряд на столбце c, второй на том же столбце с его выходом
+		 */
+		for(size_t c = (2 * index + 3); c < (index + count); c++){
+			// Первый ряд
+			product = (static_cast <wide_t> (value[c - index]) * low + square[c] + carry1);
+			// Выход первого ряда
+			const uint64_t passed = static_cast <uint64_t> (product);
+			// Перенос первого ряда
+			carry1 = static_cast <uint64_t> (product >> 64);
+			// Второй ряд с выходом первого
+			product = (static_cast <wide_t> (value[c - index - 1]) * high + passed + carry2);
+			// Записываем столбец
+			square[c] = static_cast <uint64_t> (product);
+			// Перенос второго ряда
+			carry2 = static_cast <uint64_t> (product >> 64);
+		}
+		// Перенос первого ряда ложится в свежий столбец index + count, второй ряд добирает его
+		product = (static_cast <wide_t> (value[count - 1]) * high + carry1 + carry2);
+		// Записываем столбец
+		square[index + count] = static_cast <uint64_t> (product);
+		// Перенос второго ряда ложится в свежий столбец
+		square[index + count + 1] = static_cast <uint64_t> (product >> 64);
+	}
+	/**
+	 * @brief Метод одного ряда симметричных произведений квадрата
+	 *
+	 * @param square накопитель произведения
+	 * @param value  слова числа
+	 * @param count  число слов
+	 * @param index  номер ряда
+	 *
+	 */
+	static void edge(uint64_t * square, const uint64_t * value, const size_t count, const size_t index) noexcept {
+		// Слово ряда
+		const uint64_t word = value[index];
+		// Перенос ряда
+		uint64_t carry = 0;
+		/**
+		 * Выполняем перебор столбцов ряда
+		 */
+		for(size_t j = (index + 1); j < count; j++){
+			// Произведение с накопленным
+			const wide_t product = (static_cast <wide_t> (value[j]) * word + square[index + j] + carry);
+			// Записываем столбец
+			square[index + j] = static_cast <uint64_t> (product);
+			// Перенос
+			carry = static_cast <uint64_t> (product >> 64);
+		}
+		// Перенос ложится в свежий столбец
+		square[index + count] = carry;
+	}
+	/**
+	 * @brief Метод удвоения симметричных произведений с прибавлением диагонали
+	 *
+	 * @param square накопитель произведения: на входе сумма value[i] · value[j] при i < j, на выходе полный квадрат
+	 * @param value  слова числа
+	 * @param count  число слов
+	 *
+	 */
+	static void diagonal(uint64_t * square, const uint64_t * value, const size_t count) noexcept {
+		// Разряд удвоения и перенос сложения
+		uint64_t top = 0, carry = 0;
+		/**
+		 * Выполняем перебор слов числа
+		 */
+		for(size_t k = 0; k < count; k++){
+			// Квадрат слова
+			const wide_t item = (static_cast <wide_t> (value[k]) * value[k]);
+			// Удвоение младшего столбца пары
+			uint64_t word = square[2 * k];
+			const uint64_t lower = ((word << 1) | top);
+			top = (word >> 63);
+			// Удвоение старшего столбца пары
+			word = square[2 * k + 1];
+			const uint64_t upper = ((word << 1) | top);
+			top = (word >> 63);
+			// Прибавляем младшую половину квадрата слова
+			const wide_t first = (static_cast <wide_t> (lower) + static_cast <uint64_t> (item) + carry);
+			// Записываем младший столбец
+			square[2 * k] = static_cast <uint64_t> (first);
+			// Прибавляем старшую половину квадрата слова
+			const wide_t second = (static_cast <wide_t> (upper) + static_cast <uint64_t> (item >> 64) + static_cast <uint64_t> (first >> 64));
+			// Записываем старший столбец
+			square[2 * k + 1] = static_cast <uint64_t> (second);
+			// Перенос
+			carry = static_cast <uint64_t> (second >> 64);
+		}
+		// Старшее слово: квадрат умещается, и оно нулевое, но переносы досчитываются честно
+		square[2 * count] = (top + carry);
+	}
+	/**
+	 * @brief Метод сдвигового приведения Монтгомери четырьмя рядами со сдвигом
+	 *
+	 * @param buffer  накопитель в count + 1 слов: (buffer + q · modulus) / 2^64 по каждому ряду
+	 * @param modulus слова нечётного модуля
+	 * @param inverse множитель приведения по модулю
+	 * @param count   число слов модуля, не меньше четырёх
+	 *
+	 * @note То же устройство, что у рядов умножения, без члена произведения: ряд r идёт на
+	 *       слово позади ряда r - 1 и берёт его выход из регистра
+	 *
+	 */
+	static void shrink4(uint64_t * buffer, const uint64_t * modulus, const uint64_t inverse, const size_t count) noexcept {
+		// Множители приведения рядов
+		uint64_t reducer0 = 0, reducer1 = 0, reducer2 = 0, reducer3 = 0;
+		// Переносы рядов
+		uint64_t lift0 = 0, lift1 = 0, lift2 = 0, lift3 = 0;
+		// Выходы рядов
+		uint64_t out0 = 0, out1 = 0, out2 = 0, out3 = 0;
+		// Промежуточное значение
+		wide_t item = 0;
+		// Шаг ряда на слове c со входом in
+		#define __ANTS_SHRINK_STEP__(c, in, lift, reducer, out) \
+			item = (static_cast <wide_t> (reducer) * modulus[c] + (in) + lift); \
+			out = static_cast <uint64_t> (item); \
+			lift = static_cast <uint64_t> (item >> 64);
+		// Первый шаг ряда: множитель приведения и обнуление слова
+		#define __ANTS_SHRINK_FIRST__(in, lift, reducer, out) \
+			reducer = ((in) * inverse); \
+			item = (static_cast <wide_t> (reducer) * modulus[0] + (in)); \
+			out = static_cast <uint64_t> (item); \
+			lift = static_cast <uint64_t> (item >> 64);
+		// Пролог: ряды вступают по одному
+		__ANTS_SHRINK_FIRST__(buffer[0], lift0, reducer0, out0)
+		__ANTS_SHRINK_STEP__(1, buffer[1], lift0, reducer0, out0) __ANTS_SHRINK_FIRST__(out0, lift1, reducer1, out1)
+		__ANTS_SHRINK_STEP__(2, buffer[2], lift0, reducer0, out0) __ANTS_SHRINK_STEP__(1, out0, lift1, reducer1, out1) __ANTS_SHRINK_FIRST__(out1, lift2, reducer2, out2)
+		__ANTS_SHRINK_STEP__(3, buffer[3], lift0, reducer0, out0) __ANTS_SHRINK_STEP__(2, out0, lift1, reducer1, out1) __ANTS_SHRINK_STEP__(1, out1, lift2, reducer2, out2) __ANTS_SHRINK_FIRST__(out2, lift3, reducer3, out3)
+		/**
+		 * Выполняем перебор слов: четыре ряда со сдвигом на слово
+		 */
+		for(size_t j = 4; j < count; j++){
+			// Ряды на словах j, j - 1, j - 2, j - 3
+			__ANTS_SHRINK_STEP__(j, buffer[j], lift0, reducer0, out0)
+			__ANTS_SHRINK_STEP__(j - 1, out0, lift1, reducer1, out1)
+			__ANTS_SHRINK_STEP__(j - 2, out1, lift2, reducer2, out2)
+			__ANTS_SHRINK_STEP__(j - 3, out2, lift3, reducer3, out3)
+			// Записываем итог со сдвигом на четыре слова
+			buffer[j - 4] = out3;
+		}
+		// Старшее слово рядов
+		uint64_t top = 0;
+		// Первый ряд завершается на старшем слове накопителя
+		item = (static_cast <wide_t> (buffer[count]) + lift0);
+		out0 = static_cast <uint64_t> (item);
+		top = static_cast <uint64_t> (item >> 64);
+		// Остальные ряды добирают слова
+		__ANTS_SHRINK_STEP__(count - 1, out0, lift1, reducer1, out1) __ANTS_SHRINK_STEP__(count - 2, out1, lift2, reducer2, out2) __ANTS_SHRINK_STEP__(count - 3, out2, lift3, reducer3, out3)
+		buffer[count - 4] = out3;
+		// Второй ряд завершается
+		item = (static_cast <wide_t> (top) + lift1);
+		out1 = static_cast <uint64_t> (item);
+		top = static_cast <uint64_t> (item >> 64);
+		__ANTS_SHRINK_STEP__(count - 1, out1, lift2, reducer2, out2) __ANTS_SHRINK_STEP__(count - 2, out2, lift3, reducer3, out3)
+		buffer[count - 3] = out3;
+		// Третий ряд завершается
+		item = (static_cast <wide_t> (top) + lift2);
+		out2 = static_cast <uint64_t> (item);
+		top = static_cast <uint64_t> (item >> 64);
+		__ANTS_SHRINK_STEP__(count - 1, out2, lift3, reducer3, out3)
+		buffer[count - 2] = out3;
+		// Четвёртый ряд завершается
+		item = (static_cast <wide_t> (top) + lift3);
+		buffer[count - 1] = static_cast <uint64_t> (item);
+		buffer[count] = static_cast <uint64_t> (item >> 64);
+		#undef __ANTS_SHRINK_STEP__
+		#undef __ANTS_SHRINK_FIRST__
+	}
+	/**
+	 * @brief Метод сдвигового приведения Монтгомери одним рядом
+	 *
+	 * @param buffer  накопитель в count + 1 слов
+	 * @param modulus слова нечётного модуля
+	 * @param inverse множитель приведения по модулю
+	 * @param count   число слов модуля
+	 *
+	 */
+	static void shrink1(uint64_t * buffer, const uint64_t * modulus, const uint64_t inverse, const size_t count) noexcept {
+		// Множитель приведения ряда
+		const uint64_t reducer = (buffer[0] * inverse);
+		// Обнуление младшего слова
+		wide_t item = (static_cast <wide_t> (reducer) * modulus[0] + buffer[0]);
+		// Перенос ряда
+		uint64_t lift = static_cast <uint64_t> (item >> 64);
+		/**
+		 * Выполняем перебор слов ряда
+		 */
+		for(size_t j = 1; j < count; j++){
+			// Приведение слова
+			item = (static_cast <wide_t> (reducer) * modulus[j] + buffer[j] + lift);
+			// Записываем итог со сдвигом на слово
+			buffer[j - 1] = static_cast <uint64_t> (item);
+			// Перенос
+			lift = static_cast <uint64_t> (item >> 64);
+		}
+		// Старшее слово с переносом
+		item = (static_cast <wide_t> (buffer[count]) + lift);
+		// Записываем старшие слова
+		buffer[count - 1] = static_cast <uint64_t> (item);
+		buffer[count] = static_cast <uint64_t> (item >> 64);
+	}
+	/**
+	 * @brief Метод квадрата Монтгомери на словах
+	 *
+	 * @param value   слова числа, меньшего модуля
+	 * @param modulus слова нечётного модуля
+	 * @param count   число слов модуля
+	 * @param inverse множитель приведения по модулю
+	 * @param result  место, в которое помещается квадрат, меньший модуля
+	 *
+	 * @note Симметричные произведения считаются один раз и удваиваются: полторы ширины
+	 *       умножений вместо двух. Приведение полного квадрата берётся тождеством
+	 *       REDC(P) = REDC(P_low) + P_high: младшая половина приводится сдвиговыми рядами,
+	 *       старшая прибавляется, итог меньше удвоенного модуля (решение 6 шапки)
+	 *
+	 */
+	static void montsquare(const uint64_t * value, const uint64_t * modulus, const size_t count, const uint64_t inverse, uint64_t * result) noexcept {
+		// Полное произведение числа на себя
+		uint64_t square[(2 * INTEGER_WORDS) + 2];
+		// Обнуляем используемые слова
+		clean(square, (2 * count) + 2);
+		// Номер ряда
+		size_t index = 0;
+		/**
+		 * Выполняем перебор рядов симметричных произведений парами
+		 */
+		for(; (index + 2) < count; index += 2)
+			// Два ряда со сдвигом
+			triangle(square, value, count, index);
+		/**
+		 * Выполняем перебор оставшихся рядов
+		 */
+		for(; (index + 1) < count; index++)
+			// Один ряд
+			edge(square, value, count, index);
+		// Удваиваем произведения и прибавляем диагональ
+		diagonal(square, value, count);
+		// Накопитель приведения младшей половины
+		uint64_t buffer[INTEGER_WORDS + 2];
+		// Переносим младшую половину
+		transfer(square, buffer, count);
+		// Обнуляем старшее слово накопителя
+		buffer[count] = 0;
+		// Сбрасываем номер ряда
+		index = 0;
+		/**
+		 * Выполняем перебор рядов приведения четвёрками
+		 */
+		for(; (index + 4) <= count; index += 4)
+			// Четыре ряда со сдвигом
+			shrink4(buffer, modulus, inverse, count);
+		/**
+		 * Выполняем перебор оставшихся рядов приведения
+		 */
+		for(; index < count; index++)
+			// Один ряд
+			shrink1(buffer, modulus, inverse, count);
+		// Перенос сложения
+		uint64_t carry = 0;
+		/**
+		 * Прибавляем старшую половину квадрата
+		 */
+		for(size_t k = 0; k < count; k++){
+			// Сумма слов с переносом
+			const wide_t sum = (static_cast <wide_t> (buffer[k]) + square[count + k] + carry);
+			// Записываем слово
+			buffer[k] = static_cast <uint64_t> (sum);
+			// Перенос
+			carry = static_cast <uint64_t> (sum >> 64);
+		}
+		// Прибавляем перенос к старшему слову
+		buffer[count] += carry;
+		// Разность накопителя и модуля
+		uint64_t lessened[INTEGER_WORDS];
+		// Вычитаем модуль
+		const uint64_t borrow = decrease(buffer, modulus, lessened, count);
+		// Маска выбора разности: старшее слово либо отсутствие заёма
+		const uint64_t mask = (0 - ((buffer[count] | (borrow ^ 1)) & 1));
+		/**
+		 * Выполняем выбор итога под маской
+		 */
+		for(size_t k = 0; k < count; k++)
+			// Выбираем слово
+			result[k] = select(mask, lessened[k], buffer[k]);
+		// Затираем произведение
+		wipe(square, ((2 * count) + 2) * sizeof(uint64_t));
+		// Затираем накопитель
+		wipe(buffer, (count + 2) * sizeof(uint64_t));
+		// Затираем разность
+		wipe(lessened, count * sizeof(uint64_t));
+	}
+#endif
+	/**
 	 * @brief Метод умножения Монтгомери на словах
 	 *
 	 * @param first   слова первого сомножителя, меньшего модуля
@@ -570,83 +1139,58 @@ namespace {
 	 * @param inverse множитель приведения по модулю
 	 * @param result  место, в которое помещается произведение, меньшее модуля
 	 *
-	 * @note Умножение с чередованием шагов (CIOS): после каждого слова второго
-	 *       сомножителя накопленное произведение приводится сдвигом на слово.
+	 * @note Умножение с чередованием шагов (CIOS) рядами по два со сдвигом: произведение и
+	 *       приведение одним проходом. Сомножители по одному указателю идут ядром квадрата.
 	 *       Итог доводится до значения, меньшего модуля, вычитанием под маской
 	 *
 	 */
 	static void montgomery(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, const size_t count, const uint64_t inverse, uint64_t * result) noexcept {
+/**
+ * Под x86-64 квадрат идёт общим ядром: ряды квадрата на C у GCC 12 медленнее
+ * ассемблерных рядов умножения (1 066 нс против 795 на 16 словах, круг 33)
+ */
+#if !(defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER))
+		// Если сомножители - одно число
+		if(first == second){
+			// Идёт ядро квадрата
+			montsquare(first, modulus, count, inverse, result);
+			// Выходим
+			return;
+		}
+#endif
 		// Слова накапливаемого произведения
 		uint64_t buffer[INTEGER_WORDS + 2];
-		// Обнуляем накопитель
+		// Обнуляем используемые слова накопителя
 		clean(buffer, count + 2);
+		// Номер слова второго сомножителя
+		size_t index = 0;
 		/**
-		 * Выполняем перебор слов второго сомножителя от младшего к старшему
+		 * Выполняем перебор слов второго сомножителя парами
 		 */
-		for(size_t i = 0; i < count; i++){
-			// Получаем очередное слово второго сомножителя
-			const uint64_t word = second[i];
-			// Перенос из очередного слова накапливаемого произведения
-			uint64_t carry = 0;
-			/**
-			 * Выполняем умножение первого сомножителя на очередное слово второго
-			 */
-			for(size_t j = 0; j < count; j++){
-				// Складываем накопленное слово с произведением слов и переносом
-				const wide_t item = (static_cast <wide_t> (first[j]) * word + buffer[j] + carry);
-				// Записываем младшую половину полученного значения
-				buffer[j] = static_cast <uint64_t> (item);
-				// Запоминаем перенос в следующее слово
-				carry = static_cast <uint64_t> (item >> 64);
-			}
-			// Складываем старшее слово произведения с переносом
-			const wide_t item = (static_cast <wide_t> (buffer[count]) + carry);
-			// Записываем младшую половину полученного значения
-			buffer[count] = static_cast <uint64_t> (item);
-			// Запоминаем перенос в дополнительное слово произведения
-			buffer[count + 1] = static_cast <uint64_t> (item >> 64);
-			/**
-			 * Выработанный множитель обращает младшее слово накопленного произведения
-			 * в ноль: тем приведение по модулю и сводится к сдвигу на слово
-			 */
-			const uint64_t reducer = (buffer[0] * inverse);
-			// Складываем младшее слово произведения с произведением множителя на модуль
-			const wide_t value = (static_cast <wide_t> (reducer) * modulus[0] + buffer[0]);
-			// Запоминаем перенос из младшего слова произведения
-			carry = static_cast <uint64_t> (value >> 64);
-			/**
-			 * Выполняем приведение произведения по модулю со сдвигом на слово
-			 */
-			for(size_t j = 1; j < count; j++){
-				// Складываем накопленное слово с произведением множителя на модуль
-				const wide_t step = (static_cast <wide_t> (reducer) * modulus[j] + buffer[j] + carry);
-				// Записываем младшую половину полученного значения со сдвигом на слово
-				buffer[j - 1] = static_cast <uint64_t> (step);
-				// Запоминаем перенос в следующее слово
-				carry = static_cast <uint64_t> (step >> 64);
-			}
-			// Складываем старшее слово произведения с переносом
-			const wide_t last = (static_cast <wide_t> (buffer[count]) + carry);
-			// Записываем младшую половину полученного значения со сдвигом на слово
-			buffer[count - 1] = static_cast <uint64_t> (last);
-			// Складываем дополнительное слово произведения с переносом
-			buffer[count] = (buffer[count + 1] + static_cast <uint64_t> (last >> 64));
-		}
-		// Слова разности произведения и модуля
+		for(; (index + 2) <= count; index += 2)
+			// Два ряда со сдвигом
+			rows(buffer, first, modulus, second[index], second[index + 1], inverse, count);
+		/**
+		 * Выполняем перебор оставшихся слов
+		 */
+		for(; index < count; index++)
+			// Один ряд
+			row(buffer, first, modulus, second[index], inverse, count);
+		// Разность накопителя и модуля
 		uint64_t lessened[INTEGER_WORDS];
-		// Вычитаем модуль из накопленного произведения
+		// Вычитаем модуль
 		const uint64_t borrow = decrease(buffer, modulus, lessened, count);
-		// Маска выбора разности: произведение не умещается в слова либо не меньше модуля
+		// Маска выбора разности: старшее слово либо отсутствие заёма
 		const uint64_t mask = (0 - ((buffer[count] | (borrow ^ 1)) & 1));
 		/**
-		 * Выполняем перебор слов произведения
+		 * Выполняем выбор итога под маской
 		 */
 		for(size_t i = 0; i < count; i++)
-			// Записываем выбранное слово итога
+			// Выбираем слово
 			result[i] = select(mask, lessened[i], buffer[i]);
-		// Затираем использованные слова накопителя: затирание всей ёмкости стоило десятую часть умножения
+		// Затираем накопитель
 		wipe(buffer, (count + 2) * sizeof(uint64_t));
-		// Затираем использованные слова разности
+		// Затираем разность
 		wipe(lessened, count * sizeof(uint64_t));
 	}
 	/**

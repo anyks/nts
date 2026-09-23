@@ -926,3 +926,139 @@ TEST(IntegerTest, Edges) {
 	// Проверяем ноль
 	ASSERT_TRUE(value.zero());
 }
+/**
+ * Проверка ядер Монтгомери по всем ширинам модуля с краевыми входами: умножение рядами
+ * со сдвигом против умножения через деление, ядро квадрата (сомножители по одному
+ * указателю) против умножения того же числа по разным указателям, возведение в степень
+ * против эталона (решение 6 шапки integer.cpp)
+ */
+TEST(IntegerTest, Kernels) {
+	// Единица
+	math::integer_t one;
+	// Записываем единицу
+	one.word(1);
+	/**
+	 * Выполняем перебор ширин модуля в словах
+	 */
+	for(size_t words = 1; words <= 64; words++){
+		/**
+		 * Выполняем перебор видов модуля
+		 */
+		for(int kind = 0; kind < 4; kind++){
+			// Модуль
+			math::integer_t modulus;
+			/**
+			 * Определяем вид модуля
+			 */
+			switch(kind){
+				// Случайный нечётный со старшим разрядом
+				case 0: {
+					// Вырабатываем случайное число
+					ASSERT_TRUE(modulus.random(words * 64));
+					// Старший разряд
+					math::integer_t bit;
+					bit.word(1);
+					bit.left(bit, (words * 64) - 1);
+					// Ставим старший разряд: сложение с числом без него
+					if(!modulus.bit((words * 64) - 1))
+						ASSERT_TRUE(modulus.add(modulus, bit));
+				} break;
+				// Все разряды единицы: 2^(64 · words) - 1
+				case 1: {
+					math::integer_t power;
+					power.word(1);
+					power.left(power, words * 64);
+					ASSERT_TRUE(modulus.subtract(power, one));
+				} break;
+				// Короткое старшее слово: 2^(64 · (words - 1)) + 1, у одного слова - три
+				case 2: {
+					if(words == 1) modulus.word(3);
+					else {
+						modulus.word(1);
+						modulus.left(modulus, (words - 1) * 64);
+						ASSERT_TRUE(modulus.add(modulus, one));
+					}
+				} break;
+				// Случайный нечётный без старшего разряда
+				default: {
+					ASSERT_TRUE(modulus.random((words * 64) - 1));
+					if(modulus.zero()) modulus.word(1);
+				} break;
+			}
+			// Делаем модуль нечётным
+			if(!modulus.odd())
+				ASSERT_TRUE(modulus.add(modulus, one));
+			// Арифметика Монтгомери
+			math::montgomery_t field;
+			// Заводим арифметику
+			ASSERT_TRUE(field.start(modulus)) << "слов " << words << ", вид " << kind;
+			// Число на единицу меньше модуля
+			math::integer_t last;
+			ASSERT_TRUE(last.subtract(modulus, one));
+			/**
+			 * Выполняем перебор входов: случайные, оба меньше модуля на единицу, ноль, единица
+			 */
+			for(int input = 0; input < 4; input++){
+				// Сомножители
+				math::integer_t first, second;
+				/**
+				 * Определяем вход
+				 */
+				switch(input){
+					// Случайные, приведённые по модулю
+					case 0: {
+						ASSERT_TRUE(first.random(words * 64));
+						ASSERT_TRUE(second.random(words * 64));
+						ASSERT_TRUE(first.reduce(first, modulus));
+						ASSERT_TRUE(second.reduce(second, modulus));
+					} break;
+					// Оба на единицу меньше модуля
+					case 1: { first = last; second = last; } break;
+					// Ноль и число меньше модуля
+					case 2: { second = last; } break;
+					// Единица и случайное
+					default: {
+						first.word(1);
+						ASSERT_TRUE(second.random(words * 64));
+						ASSERT_TRUE(second.reduce(second, modulus));
+					} break;
+				}
+				// Ожидаемые и полученные итоги
+				math::integer_t expected, product, square, twin;
+				// Умножение через деление
+				ASSERT_TRUE(expected.mulmod(first, second, modulus, false));
+				// Умножение Монтгомери рядами
+				ASSERT_TRUE(field.mulmod(first, second, product));
+				// Проверяем сходимость
+				ASSERT_TRUE(product.equal(expected)) << "умножение: слов " << words << ", вид " << kind << ", вход " << input;
+				// Квадрат через деление
+				ASSERT_TRUE(expected.mulmod(second, second, modulus, false));
+				// Квадрат ядром квадрата: сомножители по одному указателю
+				ASSERT_TRUE(field.mulmod(second, second, square));
+				// Проверяем сходимость квадрата
+				ASSERT_TRUE(square.equal(expected)) << "квадрат: слов " << words << ", вид " << kind << ", вход " << input;
+				// Копия второго сомножителя: тот же квадрат общим ядром по разным указателям
+				math::integer_t copy = second;
+				ASSERT_TRUE(field.mulmod(second, copy, twin));
+				// Проверяем сходимость ядер
+				ASSERT_TRUE(twin.equal(square)) << "квадрат против умножения: слов " << words << ", вид " << kind << ", вход " << input;
+			}
+			// Возведение в степень у нескольких ширин: секретный и открытый пути
+			if((words == 1) || (words == 3) || (words == 4) || (words == 8) || (words == 16) || (words == 17) || (words == 32)){
+				// Основание и показатель
+				math::integer_t base, exponent, power, expected;
+				ASSERT_TRUE(base.random(words * 64));
+				ASSERT_TRUE(base.reduce(base, modulus));
+				ASSERT_TRUE(exponent.random(64));
+				// Эталон
+				expected = reference(base, exponent, modulus);
+				// Секретный путь: окна по всей ширине слов
+				ASSERT_TRUE(field.power(base, exponent, true, power));
+				ASSERT_TRUE(power.equal(expected)) << "степень секретная: слов " << words << ", вид " << kind;
+				// Открытый путь: двоичный метод по значимым разрядам
+				ASSERT_TRUE(field.power(base, exponent, false, power));
+				ASSERT_TRUE(power.equal(expected)) << "степень открытая: слов " << words << ", вид " << kind;
+			}
+		}
+	}
+}
