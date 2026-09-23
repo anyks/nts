@@ -69,3 +69,31 @@ TEST(MachineTest, Denied) {
 		ASSERT_TRUE(machine::has(machine::feature_t::VECTOR));
 	#endif
 }
+
+/**
+ * Проверка признаков x86-64, снимаемых опросом машины: кодировка VEX и загрузка с
+ * перестановкой байтов обязаны сходиться с ответом собирателя о той же машине;
+ * маска запрета из проверки выше их не называет
+ */
+TEST(MachineTest, Flags) {
+	#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
+		// Если собиратель видит у машины AVX, разрешённый системой
+		if(__builtin_cpu_supports("avx"))
+			// Проверяем, что кодировка VEX признана
+			ASSERT_TRUE(machine::has(machine::feature_t::AVX));
+		// Иначе кодировка VEX не признаётся
+		else
+			ASSERT_FALSE(machine::has(machine::feature_t::AVX));
+		// Если собиратель видит у машины MOVBE
+		if(__builtin_cpu_supports("movbe"))
+			// Проверяем, что загрузка с перестановкой байтов признана
+			ASSERT_TRUE(machine::has(machine::feature_t::MOVBE));
+		// Иначе загрузка с перестановкой байтов не признаётся
+		else
+			ASSERT_FALSE(machine::has(machine::feature_t::MOVBE));
+	#else
+		// У прочих машин признаков x86-64 нет
+		ASSERT_FALSE(machine::has(machine::feature_t::AVX));
+		ASSERT_FALSE(machine::has(machine::feature_t::MOVBE));
+	#endif
+}

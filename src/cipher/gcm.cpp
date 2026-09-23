@@ -40,7 +40,18 @@
  *       операндов есть переставленное произведение, сдвинутое на разряд вправо, и
  *       сдвиг ключа возмещает это заранее (приём Гуэрона, как у OpenSSL и BoringSSL);
  *       умножение Карацубы на трёх командах вместо четырёх, суммы младших, старших и
- *       средних произведений копятся порознь на восемь блоков и приводятся один раз
+ *       средних произведений копятся порознь на восемь блоков и приводятся один раз.
+ *       Счётчики восьмёрки (круг 38, 23.09.2026) собираются сложениями в векторе, пока
+ *       младший байт не переполняется внутри восьмёрки, и по одному через скаляр на
+ *       переносе: сборка через скаляр на каждый блок стоила на Xeon E5-2630 v4
+ *       23 такта из 180 на восьмёрку.
+ *       Сшитое ядро на ассемблере x86-64 (круг 38, 24.09.2026): собиратель выносил все
+ *       умножения без переносов клубком после кругов AES и не давал переплести их с
+ *       кругами, а на Broadwell перестановки байтов делят порт с aesenc. Ядро на
+ *       ассемблере с кодировкой VEX хеширует прежнюю восьмёрку по блоку между кругами,
+ *       переставляет половины блока загрузкой movbe через память и множит половины
+ *       порознь без слияния и без Карацубы: Xeon E5-2630 v4 178 → 137 тактов на 128 байт
+ *       при 142 у OpenSSL. Ядро требует AVX и MOVBE; без них остаётся ядро на интринсиках
  *
  * @copyright Copyright © 2026
  *
@@ -413,6 +424,10 @@ namespace {
 		const uint8x16_t final = vld1q_u8(keys + ((rounds - 1) * 16));
 		// Основание счётчика: заполнение и старшие разряды
 		const uint8x16_t base = vld1q_u8(counter);
+		// Шаги счётчика в переставленном слове: единица, двойка и четвёрка в старшем байте слова
+		const uint32x4_t step1 = vsetq_lane_u32(0x01000000U, vdupq_n_u32(0), 3);
+		const uint32x4_t step2 = vaddq_u32(step1, step1);
+		const uint32x4_t step4 = vaddq_u32(step2, step2);
 		// Младшие 32 разряда счётчика числом
 		uint32_t tail = ((static_cast <uint32_t> (counter[12]) << 24) | (static_cast <uint32_t> (counter[13]) << 16) | (static_cast <uint32_t> (counter[14]) << 8) | static_cast <uint32_t> (counter[15]));
 		/**
@@ -429,14 +444,42 @@ namespace {
 			else if(c > 0)
 				aggregateArm(powers, accumulator, result - 128);
 			// Восемь блоков счётчика
-			uint8x16_t s0 = vreinterpretq_u8_u32(vsetq_lane_u32(__builtin_bswap32(tail + 1), vreinterpretq_u32_u8(base), 3));
-			uint8x16_t s1 = vreinterpretq_u8_u32(vsetq_lane_u32(__builtin_bswap32(tail + 2), vreinterpretq_u32_u8(base), 3));
-			uint8x16_t s2 = vreinterpretq_u8_u32(vsetq_lane_u32(__builtin_bswap32(tail + 3), vreinterpretq_u32_u8(base), 3));
-			uint8x16_t s3 = vreinterpretq_u8_u32(vsetq_lane_u32(__builtin_bswap32(tail + 4), vreinterpretq_u32_u8(base), 3));
-			uint8x16_t s4 = vreinterpretq_u8_u32(vsetq_lane_u32(__builtin_bswap32(tail + 5), vreinterpretq_u32_u8(base), 3));
-			uint8x16_t s5 = vreinterpretq_u8_u32(vsetq_lane_u32(__builtin_bswap32(tail + 6), vreinterpretq_u32_u8(base), 3));
-			uint8x16_t s6 = vreinterpretq_u8_u32(vsetq_lane_u32(__builtin_bswap32(tail + 7), vreinterpretq_u32_u8(base), 3));
-			uint8x16_t s7 = vreinterpretq_u8_u32(vsetq_lane_u32(__builtin_bswap32(tail + 8), vreinterpretq_u32_u8(base), 3));
+			uint8x16_t s0, s1, s2, s3, s4, s5, s6, s7;
+			/**
+			 * Пока младший байт счётчика не переполняется внутри восьмёрки, переставленное
+			 * слово растёт прибавлением к своему старшему байту, и восемь счётчиков
+			 * собираются сложениями в векторе деревом на трёх шагах (приём aesni-x86_64
+			 * OpenSSL); на переносе через младший байт - не чаще раза на тридцать две
+			 * восьмёрки - счётчики собираются по одному через скаляр. Сборка через
+			 * скаляр на каждый блок стоила на Xeon E5-2630 v4 23 такта из 180 на восьмёрку
+			 */
+			if((tail & 0xFFU) < 0xF8U){
+				// Переставленный счётчик восьмёрки
+				const uint32x4_t c0 = vaddq_u32(vsetq_lane_u32(__builtin_bswap32(tail), vreinterpretq_u32_u8(base), 3), step1);
+				const uint32x4_t c1 = vaddq_u32(c0, step1);
+				const uint32x4_t c2 = vaddq_u32(c0, step2);
+				const uint32x4_t c3 = vaddq_u32(c1, step2);
+				// Собираем восемь блоков счётчика сложениями
+				s0 = vreinterpretq_u8_u32(c0);
+				s1 = vreinterpretq_u8_u32(c1);
+				s2 = vreinterpretq_u8_u32(c2);
+				s3 = vreinterpretq_u8_u32(c3);
+				s4 = vreinterpretq_u8_u32(vaddq_u32(c0, step4));
+				s5 = vreinterpretq_u8_u32(vaddq_u32(c1, step4));
+				s6 = vreinterpretq_u8_u32(vaddq_u32(c2, step4));
+				s7 = vreinterpretq_u8_u32(vaddq_u32(c3, step4));
+			// Иначе младший байт переполняется внутри восьмёрки
+			} else {
+				// Собираем восемь блоков счётчика по одному
+				s0 = vreinterpretq_u8_u32(vsetq_lane_u32(__builtin_bswap32(tail + 1), vreinterpretq_u32_u8(base), 3));
+				s1 = vreinterpretq_u8_u32(vsetq_lane_u32(__builtin_bswap32(tail + 2), vreinterpretq_u32_u8(base), 3));
+				s2 = vreinterpretq_u8_u32(vsetq_lane_u32(__builtin_bswap32(tail + 3), vreinterpretq_u32_u8(base), 3));
+				s3 = vreinterpretq_u8_u32(vsetq_lane_u32(__builtin_bswap32(tail + 4), vreinterpretq_u32_u8(base), 3));
+				s4 = vreinterpretq_u8_u32(vsetq_lane_u32(__builtin_bswap32(tail + 5), vreinterpretq_u32_u8(base), 3));
+				s5 = vreinterpretq_u8_u32(vsetq_lane_u32(__builtin_bswap32(tail + 6), vreinterpretq_u32_u8(base), 3));
+				s6 = vreinterpretq_u8_u32(vsetq_lane_u32(__builtin_bswap32(tail + 7), vreinterpretq_u32_u8(base), 3));
+				s7 = vreinterpretq_u8_u32(vsetq_lane_u32(__builtin_bswap32(tail + 8), vreinterpretq_u32_u8(base), 3));
+			}
 			// Продвигаем счётчик на восемь блоков
 			tail += 8;
 			/**
@@ -638,6 +681,10 @@ namespace {
 		const __m128i last = _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys + (rounds * 16)));
 		// Основание счётчика: заполнение и старшие разряды без младшего слова
 		const __m128i head = _mm_and_si128(_mm_loadu_si128(reinterpret_cast <const __m128i *> (counter)), _mm_set_epi32(0, -1, -1, -1));
+		// Шаги счётчика в переставленном слове: единица, двойка и четвёрка в старшем байте слова
+		const __m128i step1 = _mm_set_epi32(0x01000000, 0, 0, 0);
+		const __m128i step2 = _mm_add_epi32(step1, step1);
+		const __m128i step4 = _mm_add_epi32(step2, step2);
 		// Младшие 32 разряда счётчика числом
 		uint32_t tail = ((static_cast <uint32_t> (counter[12]) << 24) | (static_cast <uint32_t> (counter[13]) << 16) | (static_cast <uint32_t> (counter[14]) << 8) | static_cast <uint32_t> (counter[15]));
 		/**
@@ -653,15 +700,43 @@ namespace {
 			// При зашифровании хеш берётся от шифртекста прежней восьмёрки
 			else if(c > 0)
 				aggregateX86(powers, accumulator, result - 128);
-			// Восемь блоков счётчика, сложенных с ключом первого круга
-			__m128i s0 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__builtin_bswap32(tail + 1)), 0, 0, 0)), first);
-			__m128i s1 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__builtin_bswap32(tail + 2)), 0, 0, 0)), first);
-			__m128i s2 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__builtin_bswap32(tail + 3)), 0, 0, 0)), first);
-			__m128i s3 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__builtin_bswap32(tail + 4)), 0, 0, 0)), first);
-			__m128i s4 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__builtin_bswap32(tail + 5)), 0, 0, 0)), first);
-			__m128i s5 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__builtin_bswap32(tail + 6)), 0, 0, 0)), first);
-			__m128i s6 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__builtin_bswap32(tail + 7)), 0, 0, 0)), first);
-			__m128i s7 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__builtin_bswap32(tail + 8)), 0, 0, 0)), first);
+			// Восемь блоков счётчика
+			__m128i s0, s1, s2, s3, s4, s5, s6, s7;
+			/**
+			 * Пока младший байт счётчика не переполняется внутри восьмёрки, переставленное
+			 * слово растёт прибавлением к своему старшему байту, и восемь счётчиков
+			 * собираются сложениями в векторе деревом на трёх шагах (приём aesni-x86_64
+			 * OpenSSL); на переносе через младший байт - не чаще раза на тридцать две
+			 * восьмёрки - счётчики собираются по одному через скаляр. Сборка через
+			 * скаляр на каждый блок стоила на Xeon E5-2630 v4 23 такта из 180 на восьмёрку
+			 */
+			if((tail & 0xFFU) < 0xF8U){
+				// Переставленный счётчик восьмёрки
+				const __m128i c0 = _mm_add_epi32(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__builtin_bswap32(tail)), 0, 0, 0)), step1);
+				const __m128i c1 = _mm_add_epi32(c0, step1);
+				const __m128i c2 = _mm_add_epi32(c0, step2);
+				const __m128i c3 = _mm_add_epi32(c1, step2);
+				// Собираем восемь блоков счётчика сложениями под первым ключом
+				s0 = _mm_xor_si128(c0, first);
+				s1 = _mm_xor_si128(c1, first);
+				s2 = _mm_xor_si128(c2, first);
+				s3 = _mm_xor_si128(c3, first);
+				s4 = _mm_xor_si128(_mm_add_epi32(c0, step4), first);
+				s5 = _mm_xor_si128(_mm_add_epi32(c1, step4), first);
+				s6 = _mm_xor_si128(_mm_add_epi32(c2, step4), first);
+				s7 = _mm_xor_si128(_mm_add_epi32(c3, step4), first);
+			// Иначе младший байт переполняется внутри восьмёрки
+			} else {
+				// Собираем восемь блоков счётчика по одному под первым ключом
+				s0 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__builtin_bswap32(tail + 1)), 0, 0, 0)), first);
+				s1 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__builtin_bswap32(tail + 2)), 0, 0, 0)), first);
+				s2 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__builtin_bswap32(tail + 3)), 0, 0, 0)), first);
+				s3 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__builtin_bswap32(tail + 4)), 0, 0, 0)), first);
+				s4 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__builtin_bswap32(tail + 5)), 0, 0, 0)), first);
+				s5 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__builtin_bswap32(tail + 6)), 0, 0, 0)), first);
+				s6 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__builtin_bswap32(tail + 7)), 0, 0, 0)), first);
+				s7 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__builtin_bswap32(tail + 8)), 0, 0, 0)), first);
+			}
 			// Продвигаем счётчик на восемь блоков
 			tail += 8;
 			/**
@@ -701,6 +776,254 @@ namespace {
 		counter[14] = static_cast <uint8_t> (tail >> 8);
 		counter[15] = static_cast <uint8_t> (tail);
 	}
+/**
+ * Если собиратель семейства GCC: встроенный ассемблер
+ */
+#if defined(__GNUC__) || defined(__clang__)
+	/**
+	 * @brief Метод слитого хода целых восьмёрок на ассемблере x86-64: сшивка AES-CTR и GHASH
+	 *
+	 * @details Ядро на интринсиках упиралось не в порты: на Broadwell перестановки байтов
+	 *          vpshufb и vpshufd делят порт с aesenc, и каждая стоила такт потока AES, а
+	 *          собиратель к тому же выносил все умножения без переносов клубком после кругов.
+	 *          Здесь хеш прежней восьмёрки идёт по блоку между кругами AES с первого по
+	 *          восьмой; половины хешируемого блока переставляются загрузкой movbe в
+	 *          регистры общего назначения, пишутся в ячейки и грузятся порознь двумя vmovq
+	 *          (порты загрузки и записи, ни одной перестановки), а четыре умножения без
+	 *          переносов берут по половине из двух регистров: слияние половин и приём
+	 *          Карацубы не нужны. Приведение суммы произведений идёт после записи итога,
+	 *          вне кругов; счётчики следующей восьмёрки собираются прибавлением к основанию.
+	 *          Xeon E5-2630 v4: 178 тактов на 128 байт у ядра на интринсиках, 137 здесь при
+	 *          142 у OpenSSL, 112 - одни круги AES. Ключ круга грузится в регистр, степени
+	 *          ключа хеша идут операндами в памяти: регистров ровно шестнадцать
+	 *
+	 * @note Хеш обязан быть на каждой восьмёрке: первую восьмёрку зашифрования, у которой
+	 *       прежней нет, ведёт снаружи гамма шифра без хеша. Младший байт счётчика не вправе
+	 *       переполняться внутри хода: число восьмёрок ограничивает водитель
+	 *
+	 * @param keys        расписание ключа шифрования
+	 * @param rounds      число кругов: 10, 12 либо 14
+	 * @param counter     блок счётчика: младшие четыре байта растут от старшего байта, первый блок - плюс один
+	 * @param powers      степени ключа хеша от восьмой к первой, сдвинутые на разряд
+	 * @param accumulator накопитель хеша в порядке байтов GCM, заменяемый итогом
+	 * @param hash        хешируемые блоки: прежняя восьмёрка итога при зашифровании, исходные при расшифровании
+	 * @param source      исходные данные
+	 * @param result      место под итог
+	 * @param chunks      число восьмёрок: не меньше одной
+	 *
+	 */
+	static void stitchX86(const uint8_t * keys, const size_t rounds, const uint8_t * counter, const uint64_t (* powers)[3], uint8_t * accumulator, const uint8_t * hash, const uint8_t * source, uint8_t * result, const size_t chunks) noexcept {
+		// Шаги счётчика в старшем байте старшего слова и маска перестановки байтов
+		static const uint8_t STEPS[144] = {
+			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2,
+			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3,
+			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4,
+			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5,
+			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6,
+			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7,
+			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8,
+			15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0
+		};
+		/**
+		 * Стол ядра: шаги (0), маска (128), основание счётчика (144), ячейки половин (160),
+		 * число средних кругов (288), накопитель (304)
+		 */
+		alignas(16) uint8_t table[320];
+		// Записываем шаги и маску
+		::memcpy(table, STEPS, sizeof(STEPS));
+		// Записываем основание счётчика
+		::memcpy(table + 144, counter, 16);
+		// Число кругов с девятого до предпоследнего
+		const uint64_t middle = static_cast <uint64_t> (rounds - 9);
+		// Записываем число средних кругов
+		::memcpy(table + 288, &middle, sizeof(middle));
+		// Записываем накопитель
+		::memcpy(table + 304, accumulator, 16);
+		// Шаг хешируемых блоков
+		const size_t step = 128;
+		// Позиция ключа круга и число кругов средней части
+		const uint8_t * kp = nullptr;
+		size_t n = 0;
+		// Половины хешируемого блока
+		uint64_t t0 = 0, t1 = 0;
+		// Число восьмёрок хода
+		size_t count = chunks;
+		/**
+		 * Выполняем слитый ход: регистры 0…7 - блоки, 8…10 - суммы младших, старших и средних
+		 * произведений, 11 и 12 - половины хешируемого блока, 13 - произведение и старшая
+		 * половина накопителя, 14 - ключ круга, 15 - накопитель переставленный
+		 */
+		__asm__ __volatile__ (
+			// Накопитель переставленный и его старшая половина младшей половиной регистра
+			"vmovdqu 128(%[tab]), %%xmm11\n\t"
+			"vmovdqu 304(%[tab]), %%xmm15\n\t"
+			"vpshufb %%xmm11, %%xmm15, %%xmm15\n\t"
+			"vpsrldq $8, %%xmm15, %%xmm13\n\t"
+			// Счётчики первой восьмёрки под первым ключом
+			"vmovdqu 144(%[tab]), %%xmm11\n\t"
+			"vpaddd 0(%[tab]), %%xmm11, %%xmm0\n\t" "vpaddd 16(%[tab]), %%xmm11, %%xmm1\n\t" "vpaddd 32(%[tab]), %%xmm11, %%xmm2\n\t" "vpaddd 48(%[tab]), %%xmm11, %%xmm3\n\t"
+			"vpaddd 64(%[tab]), %%xmm11, %%xmm4\n\t" "vpaddd 80(%[tab]), %%xmm11, %%xmm5\n\t" "vpaddd 96(%[tab]), %%xmm11, %%xmm6\n\t" "vpaddd 112(%[tab]), %%xmm11, %%xmm7\n\t"
+			"vpxor (%[keys]), %%xmm0, %%xmm0\n\t" "vpxor (%[keys]), %%xmm1, %%xmm1\n\t" "vpxor (%[keys]), %%xmm2, %%xmm2\n\t" "vpxor (%[keys]), %%xmm3, %%xmm3\n\t" "vpxor (%[keys]), %%xmm4, %%xmm4\n\t" "vpxor (%[keys]), %%xmm5, %%xmm5\n\t" "vpxor (%[keys]), %%xmm6, %%xmm6\n\t" "vpxor (%[keys]), %%xmm7, %%xmm7\n\t"
+			"1:\n\t"
+			// Суммы произведений
+			"vpxor %%xmm8, %%xmm8, %%xmm8\n\t" "vpxor %%xmm9, %%xmm9, %%xmm9\n\t" "vpxor %%xmm10, %%xmm10, %%xmm10\n\t"
+			// Круг 1 и блок 0 хеша с накопителем
+			"vmovdqu 16(%[keys]), %%xmm14\n\t" "vaesenc %%xmm14, %%xmm0, %%xmm0\n\t" "vaesenc %%xmm14, %%xmm1, %%xmm1\n\t" "vaesenc %%xmm14, %%xmm2, %%xmm2\n\t" "vaesenc %%xmm14, %%xmm3, %%xmm3\n\t" "vaesenc %%xmm14, %%xmm4, %%xmm4\n\t" "vaesenc %%xmm14, %%xmm5, %%xmm5\n\t" "vaesenc %%xmm14, %%xmm6, %%xmm6\n\t" "vaesenc %%xmm14, %%xmm7, %%xmm7\n\t"
+			"movbe 0(%[hash]), %[t0]\n\t" "movbe 8(%[hash]), %[t1]\n\t" "movq %[t1], 160(%[tab])\n\t" "movq %[t0], 168(%[tab])\n\t" "vmovq 160(%[tab]), %%xmm11\n\t" "vmovq 168(%[tab]), %%xmm12\n\t" "vpxor %%xmm15, %%xmm11, %%xmm11\n\t" "vpxor %%xmm13, %%xmm12, %%xmm12\n\t"
+			"vpclmulqdq $0x00, 0(%[pow]), %%xmm11, %%xmm13\n\t" "vpxor %%xmm13, %%xmm8, %%xmm8\n\t" "vpclmulqdq $0x10, 0(%[pow]), %%xmm11, %%xmm13\n\t" "vpxor %%xmm13, %%xmm10, %%xmm10\n\t" "vpclmulqdq $0x00, 0(%[pow]), %%xmm12, %%xmm13\n\t" "vpxor %%xmm13, %%xmm10, %%xmm10\n\t" "vpclmulqdq $0x10, 0(%[pow]), %%xmm12, %%xmm13\n\t" "vpxor %%xmm13, %%xmm9, %%xmm9\n\t"
+			// Круг 2 и блок 1 хеша
+			"vmovdqu 32(%[keys]), %%xmm14\n\t" "vaesenc %%xmm14, %%xmm0, %%xmm0\n\t" "vaesenc %%xmm14, %%xmm1, %%xmm1\n\t" "vaesenc %%xmm14, %%xmm2, %%xmm2\n\t" "vaesenc %%xmm14, %%xmm3, %%xmm3\n\t" "vaesenc %%xmm14, %%xmm4, %%xmm4\n\t" "vaesenc %%xmm14, %%xmm5, %%xmm5\n\t" "vaesenc %%xmm14, %%xmm6, %%xmm6\n\t" "vaesenc %%xmm14, %%xmm7, %%xmm7\n\t"
+			"movbe 16(%[hash]), %[t0]\n\t" "movbe 24(%[hash]), %[t1]\n\t" "movq %[t1], 176(%[tab])\n\t" "movq %[t0], 184(%[tab])\n\t" "vmovq 176(%[tab]), %%xmm11\n\t" "vmovq 184(%[tab]), %%xmm12\n\t" "vpclmulqdq $0x00, 24(%[pow]), %%xmm11, %%xmm13\n\t" "vpxor %%xmm13, %%xmm8, %%xmm8\n\t" "vpclmulqdq $0x10, 24(%[pow]), %%xmm11, %%xmm13\n\t" "vpxor %%xmm13, %%xmm10, %%xmm10\n\t" "vpclmulqdq $0x00, 24(%[pow]), %%xmm12, %%xmm13\n\t" "vpxor %%xmm13, %%xmm10, %%xmm10\n\t" "vpclmulqdq $0x10, 24(%[pow]), %%xmm12, %%xmm13\n\t" "vpxor %%xmm13, %%xmm9, %%xmm9\n\t"
+			// Круг 3 и блок 2 хеша
+			"vmovdqu 48(%[keys]), %%xmm14\n\t" "vaesenc %%xmm14, %%xmm0, %%xmm0\n\t" "vaesenc %%xmm14, %%xmm1, %%xmm1\n\t" "vaesenc %%xmm14, %%xmm2, %%xmm2\n\t" "vaesenc %%xmm14, %%xmm3, %%xmm3\n\t" "vaesenc %%xmm14, %%xmm4, %%xmm4\n\t" "vaesenc %%xmm14, %%xmm5, %%xmm5\n\t" "vaesenc %%xmm14, %%xmm6, %%xmm6\n\t" "vaesenc %%xmm14, %%xmm7, %%xmm7\n\t"
+			"movbe 32(%[hash]), %[t0]\n\t" "movbe 40(%[hash]), %[t1]\n\t" "movq %[t1], 192(%[tab])\n\t" "movq %[t0], 200(%[tab])\n\t" "vmovq 192(%[tab]), %%xmm11\n\t" "vmovq 200(%[tab]), %%xmm12\n\t" "vpclmulqdq $0x00, 48(%[pow]), %%xmm11, %%xmm13\n\t" "vpxor %%xmm13, %%xmm8, %%xmm8\n\t" "vpclmulqdq $0x10, 48(%[pow]), %%xmm11, %%xmm13\n\t" "vpxor %%xmm13, %%xmm10, %%xmm10\n\t" "vpclmulqdq $0x00, 48(%[pow]), %%xmm12, %%xmm13\n\t" "vpxor %%xmm13, %%xmm10, %%xmm10\n\t" "vpclmulqdq $0x10, 48(%[pow]), %%xmm12, %%xmm13\n\t" "vpxor %%xmm13, %%xmm9, %%xmm9\n\t"
+			// Круг 4 и блок 3 хеша
+			"vmovdqu 64(%[keys]), %%xmm14\n\t" "vaesenc %%xmm14, %%xmm0, %%xmm0\n\t" "vaesenc %%xmm14, %%xmm1, %%xmm1\n\t" "vaesenc %%xmm14, %%xmm2, %%xmm2\n\t" "vaesenc %%xmm14, %%xmm3, %%xmm3\n\t" "vaesenc %%xmm14, %%xmm4, %%xmm4\n\t" "vaesenc %%xmm14, %%xmm5, %%xmm5\n\t" "vaesenc %%xmm14, %%xmm6, %%xmm6\n\t" "vaesenc %%xmm14, %%xmm7, %%xmm7\n\t"
+			"movbe 48(%[hash]), %[t0]\n\t" "movbe 56(%[hash]), %[t1]\n\t" "movq %[t1], 208(%[tab])\n\t" "movq %[t0], 216(%[tab])\n\t" "vmovq 208(%[tab]), %%xmm11\n\t" "vmovq 216(%[tab]), %%xmm12\n\t" "vpclmulqdq $0x00, 72(%[pow]), %%xmm11, %%xmm13\n\t" "vpxor %%xmm13, %%xmm8, %%xmm8\n\t" "vpclmulqdq $0x10, 72(%[pow]), %%xmm11, %%xmm13\n\t" "vpxor %%xmm13, %%xmm10, %%xmm10\n\t" "vpclmulqdq $0x00, 72(%[pow]), %%xmm12, %%xmm13\n\t" "vpxor %%xmm13, %%xmm10, %%xmm10\n\t" "vpclmulqdq $0x10, 72(%[pow]), %%xmm12, %%xmm13\n\t" "vpxor %%xmm13, %%xmm9, %%xmm9\n\t"
+			// Круг 5 и блок 4 хеша
+			"vmovdqu 80(%[keys]), %%xmm14\n\t" "vaesenc %%xmm14, %%xmm0, %%xmm0\n\t" "vaesenc %%xmm14, %%xmm1, %%xmm1\n\t" "vaesenc %%xmm14, %%xmm2, %%xmm2\n\t" "vaesenc %%xmm14, %%xmm3, %%xmm3\n\t" "vaesenc %%xmm14, %%xmm4, %%xmm4\n\t" "vaesenc %%xmm14, %%xmm5, %%xmm5\n\t" "vaesenc %%xmm14, %%xmm6, %%xmm6\n\t" "vaesenc %%xmm14, %%xmm7, %%xmm7\n\t"
+			"movbe 64(%[hash]), %[t0]\n\t" "movbe 72(%[hash]), %[t1]\n\t" "movq %[t1], 224(%[tab])\n\t" "movq %[t0], 232(%[tab])\n\t" "vmovq 224(%[tab]), %%xmm11\n\t" "vmovq 232(%[tab]), %%xmm12\n\t" "vpclmulqdq $0x00, 96(%[pow]), %%xmm11, %%xmm13\n\t" "vpxor %%xmm13, %%xmm8, %%xmm8\n\t" "vpclmulqdq $0x10, 96(%[pow]), %%xmm11, %%xmm13\n\t" "vpxor %%xmm13, %%xmm10, %%xmm10\n\t" "vpclmulqdq $0x00, 96(%[pow]), %%xmm12, %%xmm13\n\t" "vpxor %%xmm13, %%xmm10, %%xmm10\n\t" "vpclmulqdq $0x10, 96(%[pow]), %%xmm12, %%xmm13\n\t" "vpxor %%xmm13, %%xmm9, %%xmm9\n\t"
+			// Круг 6 и блок 5 хеша
+			"vmovdqu 96(%[keys]), %%xmm14\n\t" "vaesenc %%xmm14, %%xmm0, %%xmm0\n\t" "vaesenc %%xmm14, %%xmm1, %%xmm1\n\t" "vaesenc %%xmm14, %%xmm2, %%xmm2\n\t" "vaesenc %%xmm14, %%xmm3, %%xmm3\n\t" "vaesenc %%xmm14, %%xmm4, %%xmm4\n\t" "vaesenc %%xmm14, %%xmm5, %%xmm5\n\t" "vaesenc %%xmm14, %%xmm6, %%xmm6\n\t" "vaesenc %%xmm14, %%xmm7, %%xmm7\n\t"
+			"movbe 80(%[hash]), %[t0]\n\t" "movbe 88(%[hash]), %[t1]\n\t" "movq %[t1], 240(%[tab])\n\t" "movq %[t0], 248(%[tab])\n\t" "vmovq 240(%[tab]), %%xmm11\n\t" "vmovq 248(%[tab]), %%xmm12\n\t" "vpclmulqdq $0x00, 120(%[pow]), %%xmm11, %%xmm13\n\t" "vpxor %%xmm13, %%xmm8, %%xmm8\n\t" "vpclmulqdq $0x10, 120(%[pow]), %%xmm11, %%xmm13\n\t" "vpxor %%xmm13, %%xmm10, %%xmm10\n\t" "vpclmulqdq $0x00, 120(%[pow]), %%xmm12, %%xmm13\n\t" "vpxor %%xmm13, %%xmm10, %%xmm10\n\t" "vpclmulqdq $0x10, 120(%[pow]), %%xmm12, %%xmm13\n\t" "vpxor %%xmm13, %%xmm9, %%xmm9\n\t"
+			// Круг 7 и блок 6 хеша
+			"vmovdqu 112(%[keys]), %%xmm14\n\t" "vaesenc %%xmm14, %%xmm0, %%xmm0\n\t" "vaesenc %%xmm14, %%xmm1, %%xmm1\n\t" "vaesenc %%xmm14, %%xmm2, %%xmm2\n\t" "vaesenc %%xmm14, %%xmm3, %%xmm3\n\t" "vaesenc %%xmm14, %%xmm4, %%xmm4\n\t" "vaesenc %%xmm14, %%xmm5, %%xmm5\n\t" "vaesenc %%xmm14, %%xmm6, %%xmm6\n\t" "vaesenc %%xmm14, %%xmm7, %%xmm7\n\t"
+			"movbe 96(%[hash]), %[t0]\n\t" "movbe 104(%[hash]), %[t1]\n\t" "movq %[t1], 256(%[tab])\n\t" "movq %[t0], 264(%[tab])\n\t" "vmovq 256(%[tab]), %%xmm11\n\t" "vmovq 264(%[tab]), %%xmm12\n\t" "vpclmulqdq $0x00, 144(%[pow]), %%xmm11, %%xmm13\n\t" "vpxor %%xmm13, %%xmm8, %%xmm8\n\t" "vpclmulqdq $0x10, 144(%[pow]), %%xmm11, %%xmm13\n\t" "vpxor %%xmm13, %%xmm10, %%xmm10\n\t" "vpclmulqdq $0x00, 144(%[pow]), %%xmm12, %%xmm13\n\t" "vpxor %%xmm13, %%xmm10, %%xmm10\n\t" "vpclmulqdq $0x10, 144(%[pow]), %%xmm12, %%xmm13\n\t" "vpxor %%xmm13, %%xmm9, %%xmm9\n\t"
+			// Круг 8 и блок 7 хеша
+			"vmovdqu 128(%[keys]), %%xmm14\n\t" "vaesenc %%xmm14, %%xmm0, %%xmm0\n\t" "vaesenc %%xmm14, %%xmm1, %%xmm1\n\t" "vaesenc %%xmm14, %%xmm2, %%xmm2\n\t" "vaesenc %%xmm14, %%xmm3, %%xmm3\n\t" "vaesenc %%xmm14, %%xmm4, %%xmm4\n\t" "vaesenc %%xmm14, %%xmm5, %%xmm5\n\t" "vaesenc %%xmm14, %%xmm6, %%xmm6\n\t" "vaesenc %%xmm14, %%xmm7, %%xmm7\n\t"
+			"movbe 112(%[hash]), %[t0]\n\t" "movbe 120(%[hash]), %[t1]\n\t" "movq %[t1], 272(%[tab])\n\t" "movq %[t0], 280(%[tab])\n\t" "vmovq 272(%[tab]), %%xmm11\n\t" "vmovq 280(%[tab]), %%xmm12\n\t" "vpclmulqdq $0x00, 168(%[pow]), %%xmm11, %%xmm13\n\t" "vpxor %%xmm13, %%xmm8, %%xmm8\n\t" "vpclmulqdq $0x10, 168(%[pow]), %%xmm11, %%xmm13\n\t" "vpxor %%xmm13, %%xmm10, %%xmm10\n\t" "vpclmulqdq $0x00, 168(%[pow]), %%xmm12, %%xmm13\n\t" "vpxor %%xmm13, %%xmm10, %%xmm10\n\t" "vpclmulqdq $0x10, 168(%[pow]), %%xmm12, %%xmm13\n\t" "vpxor %%xmm13, %%xmm9, %%xmm9\n\t"
+			// Круги с девятого до предпоследнего
+			"leaq 144(%[keys]), %[kp]\n\t" "movq 288(%[tab]), %[n]\n\t"
+			"3:\n\t"
+			"vmovdqu (%[kp]), %%xmm14\n\t" "vaesenc %%xmm14, %%xmm0, %%xmm0\n\t" "vaesenc %%xmm14, %%xmm1, %%xmm1\n\t" "vaesenc %%xmm14, %%xmm2, %%xmm2\n\t" "vaesenc %%xmm14, %%xmm3, %%xmm3\n\t" "vaesenc %%xmm14, %%xmm4, %%xmm4\n\t" "vaesenc %%xmm14, %%xmm5, %%xmm5\n\t" "vaesenc %%xmm14, %%xmm6, %%xmm6\n\t" "vaesenc %%xmm14, %%xmm7, %%xmm7\n\t"
+			"addq $16, %[kp]\n\t" "decq %[n]\n\t" "jnz 3b\n\t"
+			// Последний круг, наложение гаммы и запись итога
+			"vmovdqu (%[kp]), %%xmm14\n\t" "vaesenclast %%xmm14, %%xmm0, %%xmm0\n\t" "vaesenclast %%xmm14, %%xmm1, %%xmm1\n\t" "vaesenclast %%xmm14, %%xmm2, %%xmm2\n\t" "vaesenclast %%xmm14, %%xmm3, %%xmm3\n\t" "vaesenclast %%xmm14, %%xmm4, %%xmm4\n\t" "vaesenclast %%xmm14, %%xmm5, %%xmm5\n\t" "vaesenclast %%xmm14, %%xmm6, %%xmm6\n\t" "vaesenclast %%xmm14, %%xmm7, %%xmm7\n\t"
+			"vpxor (%[src]), %%xmm0, %%xmm0\n\t" "vmovdqu %%xmm0, (%[dst])\n\t"
+			"vpxor 16(%[src]), %%xmm1, %%xmm1\n\t" "vmovdqu %%xmm1, 16(%[dst])\n\t"
+			"vpxor 32(%[src]), %%xmm2, %%xmm2\n\t" "vmovdqu %%xmm2, 32(%[dst])\n\t"
+			"vpxor 48(%[src]), %%xmm3, %%xmm3\n\t" "vmovdqu %%xmm3, 48(%[dst])\n\t"
+			"vpxor 64(%[src]), %%xmm4, %%xmm4\n\t" "vmovdqu %%xmm4, 64(%[dst])\n\t"
+			"vpxor 80(%[src]), %%xmm5, %%xmm5\n\t" "vmovdqu %%xmm5, 80(%[dst])\n\t"
+			"vpxor 96(%[src]), %%xmm6, %%xmm6\n\t" "vmovdqu %%xmm6, 96(%[dst])\n\t"
+			"vpxor 112(%[src]), %%xmm7, %%xmm7\n\t" "vmovdqu %%xmm7, 112(%[dst])\n\t"
+			// Приведение суммы произведений в накопитель: средняя часть полная, без поправки Карацубы
+			"vpslldq $8, %%xmm10, %%xmm11\n\t" "vpxor %%xmm11, %%xmm8, %%xmm8\n\t"
+			"vpsrldq $8, %%xmm10, %%xmm11\n\t" "vpxor %%xmm11, %%xmm9, %%xmm9\n\t"
+			"vpsllq $5, %%xmm8, %%xmm11\n\t" "vpxor %%xmm8, %%xmm11, %%xmm12\n\t"
+			"vpsllq $1, %%xmm11, %%xmm11\n\t" "vpxor %%xmm12, %%xmm11, %%xmm11\n\t"
+			"vpsllq $57, %%xmm11, %%xmm11\n\t"
+			"vpslldq $8, %%xmm11, %%xmm12\n\t" "vpxor %%xmm12, %%xmm8, %%xmm8\n\t"
+			"vpsrldq $8, %%xmm11, %%xmm12\n\t" "vpxor %%xmm12, %%xmm9, %%xmm9\n\t"
+			"vpxor %%xmm8, %%xmm9, %%xmm9\n\t"
+			"vpsrlq $1, %%xmm8, %%xmm11\n\t" "vpxor %%xmm8, %%xmm11, %%xmm12\n\t"
+			"vpsrlq $5, %%xmm11, %%xmm11\n\t" "vpxor %%xmm12, %%xmm11, %%xmm11\n\t"
+			"vpsrlq $1, %%xmm11, %%xmm11\n\t"
+			"vpxor %%xmm11, %%xmm9, %%xmm15\n\t"
+			"vpsrldq $8, %%xmm15, %%xmm13\n\t"
+			// Следующие хешируемые блоки, исходные данные и итог
+			"addq %[step], %[hash]\n\t" "addq $128, %[src]\n\t" "addq $128, %[dst]\n\t"
+			// Счётчики следующей восьмёрки под первым ключом
+			"vmovdqu 144(%[tab]), %%xmm11\n\t" "vpaddd 112(%[tab]), %%xmm11, %%xmm11\n\t" "vmovdqu %%xmm11, 144(%[tab])\n\t"
+			"vpaddd 0(%[tab]), %%xmm11, %%xmm0\n\t" "vpaddd 16(%[tab]), %%xmm11, %%xmm1\n\t" "vpaddd 32(%[tab]), %%xmm11, %%xmm2\n\t" "vpaddd 48(%[tab]), %%xmm11, %%xmm3\n\t"
+			"vpaddd 64(%[tab]), %%xmm11, %%xmm4\n\t" "vpaddd 80(%[tab]), %%xmm11, %%xmm5\n\t" "vpaddd 96(%[tab]), %%xmm11, %%xmm6\n\t" "vpaddd 112(%[tab]), %%xmm11, %%xmm7\n\t"
+			"vpxor (%[keys]), %%xmm0, %%xmm0\n\t" "vpxor (%[keys]), %%xmm1, %%xmm1\n\t" "vpxor (%[keys]), %%xmm2, %%xmm2\n\t" "vpxor (%[keys]), %%xmm3, %%xmm3\n\t" "vpxor (%[keys]), %%xmm4, %%xmm4\n\t" "vpxor (%[keys]), %%xmm5, %%xmm5\n\t" "vpxor (%[keys]), %%xmm6, %%xmm6\n\t" "vpxor (%[keys]), %%xmm7, %%xmm7\n\t"
+			"decq %[cnt]\n\t" "jnz 1b\n\t"
+			// Накопитель обратно в порядок байтов GCM
+			"vmovdqu 128(%[tab]), %%xmm11\n\t" "vpshufb %%xmm11, %%xmm15, %%xmm15\n\t" "vmovdqu %%xmm15, 304(%[tab])\n\t"
+			"vzeroupper\n\t"
+			: [src] "+r" (source), [dst] "+r" (result), [hash] "+r" (hash), [cnt] "+r" (count), [kp] "=&r" (kp), [n] "=&r" (n), [t0] "=&r" (t0), [t1] "=&r" (t1)
+			: [keys] "r" (keys), [pow] "r" (powers), [tab] "r" (table), [step] "r" (step)
+			: "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", "xmm8", "xmm9", "xmm10", "xmm11", "xmm12", "xmm13", "xmm14", "xmm15", "cc", "memory"
+		);
+		// Забираем накопитель
+		::memcpy(accumulator, table + 304, 16);
+		// Выполняем затирание стола
+		wipe(table, sizeof(table));
+	}
+	/**
+	 * @brief Метод слитого хода целых восьмёрок сшитым ядром с водителем счётчика
+	 *
+	 * @details Сшитое ядро ведёт лишь восьмёрки, внутри которых младший байт счётчика не
+	 *          переполняется, и хеширует прежнюю восьмёрку на каждой. Водитель режет ход на
+	 *          такие пробеги; первую восьмёрку зашифрования и восьмёрку с переносом через
+	 *          младший байт - не чаще одной на тридцать две - ведёт гамма шифра без хеша,
+	 *          а хеш прежней восьмёрки перед ними и последней после хода берётся порознь.
+	 *          При расшифровании хешируются исходные данные той же восьмёрки: отставания нет
+	 *
+	 * @param block       блочный шифр с расписанием ключа и выработкой гаммы
+	 * @param counter     блок счётчика, продвигаемый на выработанные блоки
+	 * @param powers      степени ключа хеша от восьмой к первой, сдвинутые на разряд
+	 * @param accumulator накопитель хеша, заменяемый итогом
+	 * @param sealing     признак зашифрования
+	 * @param source      исходные данные
+	 * @param result      место под итог
+	 * @param chunks      число восьмёрок: не меньше одной
+	 *
+	 * @return            признак успешности хода
+	 *
+	 */
+	static bool stitchedX86(const block_t & block, uint8_t * counter, const uint64_t (* powers)[3], uint8_t * accumulator, const bool sealing, const uint8_t * source, uint8_t * result, const size_t chunks) noexcept {
+		// Младшие четыре байта счётчика числом
+		uint32_t tail = ((static_cast <uint32_t> (counter[12]) << 24) | (static_cast <uint32_t> (counter[13]) << 16) | (static_cast <uint32_t> (counter[14]) << 8) | static_cast <uint32_t> (counter[15]));
+		/**
+		 * Выполняем ход по восьмёркам пробегами
+		 */
+		for(size_t c = 0; c < chunks;){
+			// Записываем текущие младшие байты счётчика
+			counter[12] = static_cast <uint8_t> (tail >> 24);
+			counter[13] = static_cast <uint8_t> (tail >> 16);
+			counter[14] = static_cast <uint8_t> (tail >> 8);
+			counter[15] = static_cast <uint8_t> (tail);
+			// Число восьмёрок до переноса через младший байт счётчика
+			size_t run = (((tail & 0xFFU) <= 0xF7U) ? (((0xF7U - (tail & 0xFFU)) / 8U) + 1U) : 0U);
+			// Ограничиваем пробег оставшимися восьмёрками
+			if(run > (chunks - c))
+				// Пробег не длиннее хода
+				run = (chunks - c);
+			/**
+			 * Если восьмёрку ведёт гамма шифра: первая при зашифровании либо перенос через младший байт
+			 */
+			if((sealing && (c == 0)) || (run == 0)){
+				// При зашифровании прежняя восьмёрка ещё не хеширована
+				if(sealing && (c > 0))
+					// Хешируем прежнюю восьмёрку итога
+					aggregateX86(powers, accumulator, result + ((c - 1) * 128));
+				// Если гамму на восьмёрку наложить не удалось
+				if(!block.stream(block.cipher, counter, 8, source + (c * 128), result + (c * 128)))
+					// Выводим отказ хода
+					return false;
+				// При расшифровании хешируются исходные данные восьмёрки
+				if(!sealing)
+					// Хешируем восьмёрку исходных данных
+					aggregateX86(powers, accumulator, source + (c * 128));
+				// Сдвигаем счётчик на восьмёрку
+				tail += 8;
+				// Переходим к следующей восьмёрке
+				c++;
+			// Иначе пробег ведёт сшитое ядро
+			} else {
+				// Выполняем пробег сшитым ядром: при зашифровании хешируется прежняя восьмёрка итога, при расшифровании - исходные данные
+				stitchX86(block.schedule, block.rounds, counter, powers, accumulator, (sealing ? (result + ((c - 1) * 128)) : (source + (c * 128))), source + (c * 128), result + (c * 128), run);
+				// Сдвигаем счётчик на пробег
+				tail += static_cast <uint32_t> (run * 8);
+				// Переходим к восьмёрке за пробегом
+				c += run;
+			}
+		}
+		// При зашифровании хеш последней восьмёрки итога берётся после хода
+		if(sealing)
+			aggregateX86(powers, accumulator, result + ((chunks - 1) * 128));
+		// Записываем продвинутый счётчик
+		counter[12] = static_cast <uint8_t> (tail >> 24);
+		counter[13] = static_cast <uint8_t> (tail >> 16);
+		counter[14] = static_cast <uint8_t> (tail >> 8);
+		counter[15] = static_cast <uint8_t> (tail);
+		// Выводим успешность хода
+		return true;
+	}
+#endif
 #endif
 };
 
@@ -731,6 +1054,15 @@ bool nts::cipher::Gcm::travel(const bool sealing, const uint8_t * source, uint8_
 		// Выполняем слитый ход командами ARMv8
 		fusedArm(this->_block.schedule, this->_block.rounds, this->_counter, this->_powers, this->_accumulator, sealing, source, result, chunks);
 	#else
+		/**
+		 * Если есть сшитое ядро на ассемблере, а машина несёт кодировку VEX и MOVBE
+		 */
+		#if defined(__GNUC__) || defined(__clang__)
+			// Если машина несёт кодировку VEX, загрузку с перестановкой байтов и гамму шифра
+			if(machine::has(machine::feature_t::AVX) && machine::has(machine::feature_t::MOVBE) && (this->_block.stream != nullptr))
+				// Выводим итог слитого хода сшитым ядром
+				return stitchedX86(this->_block, this->_counter, this->_powers, this->_accumulator, sealing, source, result, chunks);
+		#endif
 		// Выполняем слитый ход командами x86-64
 		fusedX86(this->_block.schedule, this->_block.rounds, this->_counter, this->_powers, this->_accumulator, sealing, source, result, chunks);
 	#endif
@@ -973,7 +1305,7 @@ bool nts::cipher::Gcm::cover(const view_t & source, uint8_t * result) noexcept {
 		// Если шифр умеет вырабатывать гамму по многу блоков
 		if(this->_block.stream != nullptr){
 			// Если гамму выработать не удалось
-			if(!this->_block.stream(this->_block.cipher, this->_counter, count, gamma)){
+			if(!this->_block.stream(this->_block.cipher, this->_counter, count, nullptr, gamma)){
 				// Выполняем затирание гаммы
 				wipe(gamma, sizeof(gamma));
 				// Выводим отказ наложения

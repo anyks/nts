@@ -271,11 +271,11 @@ TEST(AesTest, Stream){
 	// Гамма по многу блоков, поблочно и таблицами
 	uint8_t stream[21 * 16], single[21 * 16], tables[21 * 16];
 	// Выполняем выработку гаммы машинным путём
-	ASSERT_TRUE(aes.stream(counter, blocks, stream));
+	ASSERT_TRUE(aes.stream(counter, blocks, nullptr, stream));
 	// Запрещаем машинные команды
 	machine::allow(false);
 	// Выполняем выработку гаммы таблицами
-	ASSERT_TRUE(aes.stream(counter, blocks, tables));
+	ASSERT_TRUE(aes.stream(counter, blocks, nullptr, tables));
 	// Возвращаем машинные команды
 	machine::allow(true);
 	// Текущий счётчик поблочного пути
@@ -299,6 +299,98 @@ TEST(AesTest, Stream){
 	// Проверяем, что счётчик прошёл границу младших четырёх байтов и старшие не тронуты
 	ASSERT_EQ(current[11], static_cast <uint8_t> (0xfb));
 	ASSERT_EQ(current[15], static_cast <uint8_t> (0xfd + 21));
+}
+
+/**
+ * @brief Проверка сборки счётчиков восьмёрки и наложения гаммы ядром на исходные данные
+ *
+ * @details Восемь счётчиков собираются сложениями в векторе, пока младший байт не
+ *          переполняется внутри восьмёрки, и по одному через скаляр на переносе; проверка
+ *          ставит младший байт на обе стороны порога (0xF7 и 0xF8), на самый край байта и
+ *          на переполнение всех четырёх младших байтов. Гамма с исходными данными обязана
+ *          равняться сумме самой гаммы и данных на обоих путях, в том числе на месте
+ */
+TEST(AesTest, StreamCounters){
+	// Ключ AES-128: и десять кругов тоже
+	const std::vector <uint8_t> key = bytes("2b7e151628aed2a6abf7158809cf4f3c");
+	// Объект шифра
+	cipher::aes_t aes;
+	// Устанавливаем ключ
+	ASSERT_TRUE(aes.key(view_t(key.data(), key.size())));
+	// Младшие четыре байта счётчика по обе стороны порога, на краю байта и на переполнении
+	const uint32_t tails[6] = {0x00000000U, 0x000000F7U, 0x000000F8U, 0x000000FFU, 0xFFFFFF00U, 0xFFFFFFF9U};
+	// Число блоков: две восьмёрки и хвост
+	const size_t blocks = 19;
+	// Исходные данные
+	uint8_t source[19 * 16];
+	// Заполняем исходные данные
+	for(size_t i = 0; i < sizeof(source); i++)
+		source[i] = static_cast <uint8_t> ((i * 37) + 11);
+	/**
+	 * Выполняем перебор младших байтов счётчика
+	 */
+	for(const uint32_t tail : tails){
+		// Счётчик: старшие байты постоянны
+		uint8_t counter[16] = {0x10,0x11,0x12,0x13,0x14,0x15,0x16,0x17,0x18,0x19,0x1a,0x1b, static_cast <uint8_t> (tail >> 24), static_cast <uint8_t> (tail >> 16), static_cast <uint8_t> (tail >> 8), static_cast <uint8_t> (tail)};
+		// Гамма и данные под ней машинным путём, поблочно и таблицами
+		uint8_t stream[19 * 16], covered[19 * 16], single[19 * 16], tables[19 * 16], inplace[19 * 16];
+		// Выполняем выработку гаммы машинным путём
+		ASSERT_TRUE(aes.stream(counter, blocks, nullptr, stream));
+		// Выполняем наложение гаммы машинным путём
+		ASSERT_TRUE(aes.stream(counter, blocks, source, covered));
+		// Копируем исходные данные под наложение на месте
+		::memcpy(inplace, source, sizeof(inplace));
+		// Выполняем наложение гаммы на месте
+		ASSERT_TRUE(aes.stream(counter, blocks, inplace, inplace));
+		// Запрещаем машинные команды
+		machine::allow(false);
+		// Выполняем наложение гаммы таблицами
+		ASSERT_TRUE(aes.stream(counter, blocks, source, tables));
+		// Гамма таблицами на месте
+		uint8_t inplaceTables[19 * 16];
+		// Копируем исходные данные под наложение на месте таблицами
+		::memcpy(inplaceTables, source, sizeof(inplaceTables));
+		// Выполняем наложение гаммы таблицами на месте
+		ASSERT_TRUE(aes.stream(counter, blocks, inplaceTables, inplaceTables));
+		// Возвращаем машинные команды
+		machine::allow(true);
+		// Текущий счётчик поблочного пути
+		uint8_t current[16];
+		// Копируем счётчик
+		::memcpy(current, counter, sizeof(current));
+		/**
+		 * Выполняем перебор блоков
+		 */
+		for(size_t b = 0; b < blocks; b++){
+			/**
+			 * Выполняем перенос по младшим четырём байтам
+			 */
+			for(size_t i = 16; i > 12; i--){
+				// Если байт не переполнился
+				if(++current[i - 1] != 0)
+					// Прерываем перенос
+					break;
+			}
+			// Шифруем очередной счётчик
+			ASSERT_TRUE(aes.encrypt(current, single + (b * 16)));
+		}
+		// Проверяем схождение гаммы с поблочным шифрованием
+		ASSERT_EQ(text(stream, sizeof(stream)), text(single, sizeof(single))) << "tail " << tail;
+		/**
+		 * Выполняем наложение гаммы на исходные данные вручную
+		 */
+		for(size_t i = 0; i < sizeof(single); i++)
+			// Накладываем гамму на байт
+			single[i] ^= source[i];
+		// Проверяем наложение гаммы машинным путём
+		ASSERT_EQ(text(covered, sizeof(covered)), text(single, sizeof(single))) << "tail " << tail;
+		// Проверяем наложение гаммы на месте
+		ASSERT_EQ(text(inplace, sizeof(inplace)), text(single, sizeof(single))) << "tail " << tail;
+		// Проверяем наложение гаммы таблицами
+		ASSERT_EQ(text(tables, sizeof(tables)), text(single, sizeof(single))) << "tail " << tail;
+		// Проверяем наложение гаммы таблицами на месте
+		ASSERT_EQ(text(inplaceTables, sizeof(inplaceTables)), text(single, sizeof(single))) << "tail " << tail;
+	}
 }
 
 /**

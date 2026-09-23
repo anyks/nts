@@ -199,14 +199,15 @@ namespace {
 	 * @param cipher  объект блочного шифра
 	 * @param counter начальный блок счётчика
 	 * @param blocks  число блоков гаммы
-	 * @param result  место, в которое помещается гамма
+	 * @param source  исходные данные, на которые гамма накладывается: пусто, если нужна сама гамма
+	 * @param result  место, в которое помещается гамма либо исходные данные под ней
 	 *
 	 * @return        признак успешности выработки
 	 *
 	 */
-	static bool streamAes(const void * cipher, const uint8_t * counter, const size_t blocks, uint8_t * result) noexcept {
+	static bool streamAes(const void * cipher, const uint8_t * counter, const size_t blocks, const uint8_t * source, uint8_t * result) noexcept {
 		// Выполняем выработку гаммы шифром AES
-		return reinterpret_cast <const aes_t *> (cipher)->stream(counter, blocks, result);
+		return reinterpret_cast <const aes_t *> (cipher)->stream(counter, blocks, source, result);
 	}
 	// Затирание областей памяти берётся из открытого API библиотеки
 	using nts::sys::wipe;
@@ -497,34 +498,29 @@ bool nts::cipher::Counter::encrypt(const view_t & source, uint8_t * result) noex
 	/**
 	 * Если гамма израсходована, блок гаммы равен блоку шифра в шестнадцать байтов, а шифр
 	 * умеет вырабатывать гамму по многу блоков разом (AES), целые блоки идут ядром шифра
-	 * по сто двадцать восемь блоков (по тридцать два давали на M4 8,6 ГБ/с, по сто двадцать
-	 * восемь - 9,2 при 13,7 у OpenSSL: цена вызова ядра). Ядро продвигает лишь младшие
-	 * четыре байта счётчика по кругу,
-	 * оттого пачка берётся, лишь пока они не переполняются, а перенос в старшие байты
-	 * делается здесь как у числа от старшего байта; хвост короче блока идёт прежним путём
+	 * одним вызовом, и гамму на них накладывает само ядро: буфер гаммы по сто двадцать
+	 * восемь блоков с наложением по словам стоил на Xeon E5-2630 v4 четверть времени
+	 * ядра (круг 38, 23.09.2026). Ядро продвигает лишь младшие четыре байта счётчика
+	 * по кругу, оттого вызов берёт блоки, лишь пока они не переполняются, а перенос в
+	 * старшие байты делается здесь как у числа от старшего байта; хвост короче блока
+	 * идёт прежним путём
 	 */
 	if((this->_rest == 0) && (this->_block.stream != nullptr) && (this->_size == 16) && (this->_block.size == 16)){
-		// Гамма на сто двадцать восемь блоков
-		uint8_t gamma[2048];
 		// Основание счётчика для ядра: ядро начинает с приращения, оттого младшие четыре байта на единицу меньше
 		uint8_t base[16];
 		/**
-		 * Выполняем покрытие целых блоков пачками
+		 * Выполняем покрытие целых блоков вызовами ядра
 		 */
 		while((source.size - offset) >= 16){
 			// Младшие 32 разряда счётчика от старшего байта
 			const uint32_t tail = ((static_cast <uint32_t> (this->_counter[12]) << 24) | (static_cast <uint32_t> (this->_counter[13]) << 16) | (static_cast <uint32_t> (this->_counter[14]) << 8) | static_cast <uint32_t> (this->_counter[15]));
 			// Число блоков до переполнения младших четырёх байтов
 			const uint64_t room = ((static_cast <uint64_t> (UINT32_MAX) - tail) + 1);
-			// Число блоков пачки: целые блоки сообщения, но не больше тридцати двух
+			// Число блоков вызова: целые блоки сообщения
 			size_t count = ((source.size - offset) / 16);
-			// Ограничиваем пачку ста двадцатью восемью блоками
-			if(count > 128)
-				// Пачка не длиннее гаммы
-				count = 128;
-			// Если пачка дошла бы до переполнения младших байтов
+			// Если вызов дошёл бы до переполнения младших байтов
 			if(static_cast <uint64_t> (count) > room)
-				// Ограничиваем пачку блоками до переполнения
+				// Ограничиваем вызов блоками до переполнения
 				count = static_cast <size_t> (room);
 			// Младшие четыре байта основания: на единицу меньше по кругу
 			const uint32_t previous = (tail - 1);
@@ -535,10 +531,9 @@ bool nts::cipher::Counter::encrypt(const view_t & source, uint8_t * result) noex
 			base[13] = static_cast <uint8_t> (previous >> 16);
 			base[14] = static_cast <uint8_t> (previous >> 8);
 			base[15] = static_cast <uint8_t> (previous);
-			// Если гамму выработать не удалось
-			if(!this->_block.stream(this->_block.cipher, base, count, gamma)){
-				// Выполняем затирание гаммы и основания
-				wipe(gamma, sizeof(gamma));
+			// Если наложить гамму ядром не удалось
+			if(!this->_block.stream(this->_block.cipher, base, count, source.data + offset, result + offset)){
+				// Выполняем затирание основания
 				wipe(base, sizeof(base));
 				// Выводим отказ зашифрования
 				return false;
@@ -556,28 +551,10 @@ bool nts::cipher::Counter::encrypt(const view_t & source, uint8_t * result) noex
 				// Оставляем перенос в следующий байт
 				carry >>= 8;
 			}
-			/**
-			 * Выполняем наложение гаммы словами по восемь байтов
-			 */
-			for(size_t i = 0; i < (count * 2); i++){
-				// Слово исходных данных
-				uint64_t word = 0;
-				// Слово гаммы
-				uint64_t mask = 0;
-				// Считываем слово исходных данных
-				::memcpy(&word, source.data + offset + (i * 8), 8);
-				// Считываем слово гаммы
-				::memcpy(&mask, gamma + (i * 8), 8);
-				// Накладываем гамму на слово
-				word ^= mask;
-				// Записываем слово итога
-				::memcpy(result + offset + (i * 8), &word, 8);
-			}
 			// Увеличиваем количество обработанных байтов сообщения
 			offset += (count * 16);
 		}
-		// Выполняем затирание гаммы и основания
-		wipe(gamma, sizeof(gamma));
+		// Выполняем затирание основания
 		wipe(base, sizeof(base));
 	}
 	/**

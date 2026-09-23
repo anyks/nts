@@ -612,3 +612,67 @@ TEST(GcmTest, Fused){
 		}
 	}
 }
+
+/**
+ * @brief Проверка сшитого ядра: пробеги восьмёрок с переносом через младший байт счётчика
+ *
+ * @details Сшитое ядро x86-64 ведёт восьмёрки пробегами до переноса через младший байт
+ *          счётчика, первую восьмёрку зашифрования и восьмёрку с переносом ведёт гамма
+ *          шифра, а хеш прежней и последней восьмёрок берётся порознь. Длины покрывают
+ *          одну восьмёрку, две, тридцать две и больше (перенос на тридцать второй при
+ *          синхропосылке в двенадцать байтов), а синхропосылки в шестнадцать байтов дают
+ *          счётчик из хеша с младшим байтом в разных местах. Итог обязан сходиться с
+ *          переносимым путём в обе стороны на ключах AES-128 и AES-256
+ */
+TEST(GcmTest, Stitch){
+	const std::vector <uint8_t> keys[2] = {bytes("feffe9928665731c6d6a8f9467308308"), bytes("feffe9928665731c6d6a8f9467308308feffe9928665731c6d6a8f9467308308")};
+	const std::vector <uint8_t> nonces[5] = {bytes("cafebabefacedbaddecaf888"), bytes("cafebabefacedbaddecaf888000000f0"), bytes("cafebabefacedbaddecaf888000000f7"), bytes("cafebabefacedbaddecaf888000000f8"), bytes("cafebabefacedbaddecaf888ffffffff")};
+	const std::vector <uint8_t> associated = bytes("feedfacedeadbeeffeedfacedeadbeefabaddad2");
+	const size_t SIZES[] = {128, 256, 384, 1200, 4096, 4103, 4224, 8192, 16484, 65536};
+	cipher::aes_t aes;
+	cipher::gcm_t gcm;
+	/**
+	 * Выполняем перебор ключей
+	 */
+	for(size_t w = 0; w < 2; w++){
+		/**
+		 * Выполняем перебор синхропосылок
+		 */
+		for(size_t v = 0; v < 5; v++){
+			/**
+			 * Выполняем перебор длин
+			 */
+			for(size_t k = 0; k < (sizeof(SIZES) / sizeof(SIZES[0])); k++){
+				const size_t size = SIZES[k];
+				std::vector <uint8_t> plain(size), sealed(size), expected(size), back(size);
+				/**
+				 * Выполняем заполнение открытого текста
+				 */
+				for(size_t i = 0; i < size; i++)
+					plain[i] = static_cast <uint8_t> ((i * 29 + k + v) & 0xFF);
+				uint8_t tag[16], tagExpected[16];
+				// Путь машины
+				ASSERT_TRUE(aes.key(view_t(keys[w].data(), keys[w].size()))) << "ключ " << w << " синхропосылка " << v << " длина " << size;
+				ASSERT_TRUE(gcm.start(cipher::block_t(aes), view_t(nonces[v].data(), nonces[v].size()))) << "ключ " << w << " синхропосылка " << v << " длина " << size;
+				ASSERT_TRUE(gcm.encrypt(view_t(associated.data(), associated.size()), view_t(plain.data(), size), sealed.data(), tag)) << "ключ " << w << " синхропосылка " << v << " длина " << size;
+				// Переносимый путь
+				machine::allow(false);
+				ASSERT_TRUE(aes.key(view_t(keys[w].data(), keys[w].size()))) << "ключ " << w << " синхропосылка " << v << " длина " << size;
+				ASSERT_TRUE(gcm.start(cipher::block_t(aes), view_t(nonces[v].data(), nonces[v].size()))) << "ключ " << w << " синхропосылка " << v << " длина " << size;
+				ASSERT_TRUE(gcm.encrypt(view_t(associated.data(), associated.size()), view_t(plain.data(), size), expected.data(), tagExpected)) << "ключ " << w << " синхропосылка " << v << " длина " << size;
+				machine::allow(true);
+				ASSERT_EQ(text(sealed.data(), size), text(expected.data(), size)) << "ключ " << w << " синхропосылка " << v << " длина " << size;
+				ASSERT_EQ(text(tag, sizeof(tag)), text(tagExpected, sizeof(tagExpected))) << "ключ " << w << " синхропосылка " << v << " длина " << size;
+				// Расшифрование путём машины
+				ASSERT_TRUE(aes.key(view_t(keys[w].data(), keys[w].size()))) << "ключ " << w << " синхропосылка " << v << " длина " << size;
+				ASSERT_TRUE(gcm.start(cipher::block_t(aes), view_t(nonces[v].data(), nonces[v].size()))) << "ключ " << w << " синхропосылка " << v << " длина " << size;
+				ASSERT_TRUE(gcm.decrypt(view_t(associated.data(), associated.size()), view_t(sealed.data(), size), back.data(), view_t(tag, sizeof(tag)))) << "ключ " << w << " синхропосылка " << v << " длина " << size;
+				ASSERT_EQ(text(back.data(), size), text(plain.data(), size)) << "ключ " << w << " синхропосылка " << v << " длина " << size;
+				// Порченый байт последней восьмёрки отвергается меткой
+				sealed[size - 1] = static_cast <uint8_t> (sealed[size - 1] ^ 0x01);
+				ASSERT_TRUE(gcm.restart(view_t(nonces[v].data(), nonces[v].size()))) << "ключ " << w << " синхропосылка " << v << " длина " << size;
+				ASSERT_FALSE(gcm.decrypt(view_t(associated.data(), associated.size()), view_t(sealed.data(), size), back.data(), view_t(tag, sizeof(tag)))) << "ключ " << w << " синхропосылка " << v << " длина " << size;
+			}
+		}
+	}
+}

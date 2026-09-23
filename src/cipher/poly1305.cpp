@@ -21,7 +21,7 @@
  *          с пятью по модулю. Переносы проводятся после каждого блока не до конца,
  *          а лишь так, чтобы конечности не переполнились; полное приведение
  *          выполняется единожды при снятии метки без единого ветвления по данным.
- *          Векторные ветви ведут четыре блока разом на четырёх дорожках
+ *          Векторные ветви ведут восемь блоков разом на восьми дорожках
  *
  * @copyright Copyright © 2026
  *
@@ -59,7 +59,14 @@
  *       против 2,0) - оно упирается в число команд умножения; не взято. Эльбрус
  *       остаётся на переносимом пути: число в 128 разрядов у lcc есть, но произведения
  *       через него вдвое медленнее пар (1,28 → 0,85 ГБ/с). Векторная ветвь берётся от
- *       256 байтов целых блоков
+ *       256 байтов целых блоков.
+ *       NEON двумя четвёрками (круг 38, 24.09.2026): четыре пары дорожек в массиве под
+ *       циклом собиратель держал в памяти, грузя и сохраняя конечности на каждой паре, а
+ *       перенос между конечностями произведения переставлял в начало цепочки умножений
+ *       следующей конечности, вытягивая двадцать пять умножений пары в одну цепочку.
+ *       Теперь восемь блоков идут двумя четвёрками дорожек по 32 разряда в регистрах, а
+ *       произведения закрепляются пустыми вставками ассемблера до переносов: M4 5,2 →
+ *       9,2 ГБ/с при 8,2 у OpenSSL (221 команда на восьмёрку вместо 332)
  */
 
 /**
@@ -523,134 +530,177 @@ namespace {
  */
 #if defined(__ANTS_POLY1305_NEON__)
 	/**
-	 * @brief Метод сложения пяти произведений конечностей пары дорожек на множитель
+	 * @brief Метод разбора четырёх блоков на конечности по 26 разрядов дорожками вектора
 	 *
-	 * @param h      конечности пары дорожек
-	 * @param r      конечности множителя по дорожкам
-	 * @param s      конечности множителя, умноженные на пять
-	 * @param result место под пять конечностей произведения в 64 разряда
+	 * @details Слова пар блоков переставляются в младшие и старшие, конечности берутся
+	 *          сдвигами с сужением сразу в четыре дорожки по 32 разряда; стык слов
+	 *          собирается сдвигом со вставкой
+	 *
+	 * @param data четыре блока подряд
+	 * @param m    место под пять конечностей по четырём дорожкам
 	 *
 	 */
-	static __ANTS_INLINE__ void productNeon(const uint32x2_t * h, const uint32x2_t * r, const uint32x2_t * s, uint64x2_t * result) noexcept {
+	static __ANTS_INLINE__ void splitQuadNeon(const uint8_t * data, uint32x4_t * m) noexcept {
+		// Маска конечности по 32 разрядам
+		const uint32x4_t mask = vdupq_n_u32(0x3FFFFFF);
+		// Слова четырёх блоков
+		const uint64x2_t a = vreinterpretq_u64_u8(vld1q_u8(data));
+		const uint64x2_t b = vreinterpretq_u64_u8(vld1q_u8(data + 16));
+		const uint64x2_t c = vreinterpretq_u64_u8(vld1q_u8(data + 32));
+		const uint64x2_t d = vreinterpretq_u64_u8(vld1q_u8(data + 48));
+		// Младшие и старшие слова первой пары блоков
+		const uint64x2_t low01 = vtrn1q_u64(a, b), high01 = vtrn2q_u64(a, b);
+		// Младшие и старшие слова второй пары блоков
+		const uint64x2_t low23 = vtrn1q_u64(c, d), high23 = vtrn2q_u64(c, d);
+		// Первая конечность: младшие 26 разрядов младших слов
+		m[0] = vandq_u32(vuzp1q_u32(vreinterpretq_u32_u64(low01), vreinterpretq_u32_u64(low23)), mask);
+		// Вторая конечность
+		m[1] = vandq_u32(vshrn_high_n_u64(vshrn_n_u64(low01, 26), low23, 26), mask);
+		// Третья конечность: стык слов - старшие 12 разрядов младшего слова под младшими старшего
+		const uint64x2_t seam01 = vsliq_n_u64(vshrq_n_u64(low01, 52), high01, 12);
+		const uint64x2_t seam23 = vsliq_n_u64(vshrq_n_u64(low23, 52), high23, 12);
+		m[2] = vandq_u32(vuzp1q_u32(vreinterpretq_u32_u64(seam01), vreinterpretq_u32_u64(seam23)), mask);
+		// Четвёртая конечность
+		m[3] = vandq_u32(vshrn_high_n_u64(vshrn_n_u64(high01, 14), high23, 14), mask);
+		// Пятая конечность со старшим разрядом 2^128: сдвиг на сорок шире сужающего, оттого сужение перестановкой
+		m[4] = vorrq_u32(vuzp1q_u32(vreinterpretq_u32_u64(vshrq_n_u64(high01, 40)), vreinterpretq_u32_u64(vshrq_n_u64(high23, 40))), vdupq_n_u32(static_cast <uint32_t> (1) << 24));
+	}
+	/**
+	 * @brief Метод сложения пяти произведений конечностей четырёх дорожек на r^8 по дорожкам вектора
+	 *
+	 * @details Конечности r^8 лежат в трёх векторах, и умножение берёт нужную дорожкой
+	 *          команды: множитель не размножается по регистрам. Младшая пара дорожек
+	 *          идёт нижней половиной вектора, старшая - верхней командой на старшие дорожки
+	 *
+	 * @param h    конечности четырёх дорожек
+	 * @param ra   конечности r^8: r0, r1, r2, r3
+	 * @param rb   конечности r^8: r4 и 5·r1, 5·r2, 5·r3
+	 * @param rc   конечность 5·r4 первой дорожкой
+	 * @param low  место под пять конечностей произведения младшей пары в 64 разряда
+	 * @param high место под пять конечностей произведения старшей пары в 64 разряда
+	 *
+	 */
+	static __ANTS_INLINE__ void productQuadNeon(const uint32x4_t * h, const uint32x4_t ra, const uint32x4_t rb, const uint32x4_t rc, uint64x2_t * low, uint64x2_t * high) noexcept {
+		// Младшие пары конечностей
+		const uint32x2_t h0 = vget_low_u32(h[0]), h1 = vget_low_u32(h[1]), h2 = vget_low_u32(h[2]), h3 = vget_low_u32(h[3]), h4 = vget_low_u32(h[4]);
 		// Первая конечность произведения
-		result[0] = vmlal_u32(vmlal_u32(vmlal_u32(vmlal_u32(vmull_u32(h[0], r[0]), h[1], s[4]), h[2], s[3]), h[3], s[2]), h[4], s[1]);
+		low[0] = vmlal_laneq_u32(vmlal_laneq_u32(vmlal_laneq_u32(vmlal_laneq_u32(vmull_laneq_u32(h0, ra, 0), h1, rc, 0), h2, rb, 3), h3, rb, 2), h4, rb, 1);
+		high[0] = vmlal_high_laneq_u32(vmlal_high_laneq_u32(vmlal_high_laneq_u32(vmlal_high_laneq_u32(vmull_high_laneq_u32(h[0], ra, 0), h[1], rc, 0), h[2], rb, 3), h[3], rb, 2), h[4], rb, 1);
 		// Вторая конечность произведения
-		result[1] = vmlal_u32(vmlal_u32(vmlal_u32(vmlal_u32(vmull_u32(h[0], r[1]), h[1], r[0]), h[2], s[4]), h[3], s[3]), h[4], s[2]);
+		low[1] = vmlal_laneq_u32(vmlal_laneq_u32(vmlal_laneq_u32(vmlal_laneq_u32(vmull_laneq_u32(h0, ra, 1), h1, ra, 0), h2, rc, 0), h3, rb, 3), h4, rb, 2);
+		high[1] = vmlal_high_laneq_u32(vmlal_high_laneq_u32(vmlal_high_laneq_u32(vmlal_high_laneq_u32(vmull_high_laneq_u32(h[0], ra, 1), h[1], ra, 0), h[2], rc, 0), h[3], rb, 3), h[4], rb, 2);
 		// Третья конечность произведения
-		result[2] = vmlal_u32(vmlal_u32(vmlal_u32(vmlal_u32(vmull_u32(h[0], r[2]), h[1], r[1]), h[2], r[0]), h[3], s[4]), h[4], s[3]);
+		low[2] = vmlal_laneq_u32(vmlal_laneq_u32(vmlal_laneq_u32(vmlal_laneq_u32(vmull_laneq_u32(h0, ra, 2), h1, ra, 1), h2, ra, 0), h3, rc, 0), h4, rb, 3);
+		high[2] = vmlal_high_laneq_u32(vmlal_high_laneq_u32(vmlal_high_laneq_u32(vmlal_high_laneq_u32(vmull_high_laneq_u32(h[0], ra, 2), h[1], ra, 1), h[2], ra, 0), h[3], rc, 0), h[4], rb, 3);
 		// Четвёртая конечность произведения
-		result[3] = vmlal_u32(vmlal_u32(vmlal_u32(vmlal_u32(vmull_u32(h[0], r[3]), h[1], r[2]), h[2], r[1]), h[3], r[0]), h[4], s[4]);
+		low[3] = vmlal_laneq_u32(vmlal_laneq_u32(vmlal_laneq_u32(vmlal_laneq_u32(vmull_laneq_u32(h0, ra, 3), h1, ra, 2), h2, ra, 1), h3, ra, 0), h4, rc, 0);
+		high[3] = vmlal_high_laneq_u32(vmlal_high_laneq_u32(vmlal_high_laneq_u32(vmlal_high_laneq_u32(vmull_high_laneq_u32(h[0], ra, 3), h[1], ra, 2), h[2], ra, 1), h[3], ra, 0), h[4], rc, 0);
 		// Пятая конечность произведения
-		result[4] = vmlal_u32(vmlal_u32(vmlal_u32(vmlal_u32(vmull_u32(h[0], r[4]), h[1], r[3]), h[2], r[2]), h[3], r[1]), h[4], r[0]);
+		low[4] = vmlal_laneq_u32(vmlal_laneq_u32(vmlal_laneq_u32(vmlal_laneq_u32(vmull_laneq_u32(h0, rb, 0), h1, ra, 3), h2, ra, 2), h3, ra, 1), h4, ra, 0);
+		high[4] = vmlal_high_laneq_u32(vmlal_high_laneq_u32(vmlal_high_laneq_u32(vmlal_high_laneq_u32(vmull_high_laneq_u32(h[0], rb, 0), h[1], ra, 3), h[2], ra, 2), h[3], ra, 1), h[4], ra, 0);
+	}
+	/**
+	 * @brief Метод сложения пяти произведений конечностей четырёх дорожек на свои множители
+	 *
+	 * @details Последняя восьмёрка умножается на степени r^8…r по дорожкам: множители
+	 *          лежат по дорожкам векторов, и произведение берёт дорожку на дорожку
+	 *
+	 * @param h    конечности четырёх дорожек
+	 * @param r    конечности множителей по дорожкам
+	 * @param s    конечности множителей, умноженные на пять
+	 * @param low  место под пять конечностей произведения младшей пары в 64 разряда
+	 * @param high место под пять конечностей произведения старшей пары в 64 разряда
+	 *
+	 */
+	static __ANTS_INLINE__ void productLanesNeon(const uint32x4_t * h, const uint32x4_t * r, const uint32x4_t * s, uint64x2_t * low, uint64x2_t * high) noexcept {
+		// Младшие пары конечностей
+		const uint32x2_t h0 = vget_low_u32(h[0]), h1 = vget_low_u32(h[1]), h2 = vget_low_u32(h[2]), h3 = vget_low_u32(h[3]), h4 = vget_low_u32(h[4]);
+		// Младшие пары множителей
+		const uint32x2_t r0 = vget_low_u32(r[0]), r1 = vget_low_u32(r[1]), r2 = vget_low_u32(r[2]), r3 = vget_low_u32(r[3]), r4 = vget_low_u32(r[4]);
+		const uint32x2_t s1 = vget_low_u32(s[1]), s2 = vget_low_u32(s[2]), s3 = vget_low_u32(s[3]), s4 = vget_low_u32(s[4]);
+		// Первая конечность произведения
+		low[0] = vmlal_u32(vmlal_u32(vmlal_u32(vmlal_u32(vmull_u32(h0, r0), h1, s4), h2, s3), h3, s2), h4, s1);
+		high[0] = vmlal_high_u32(vmlal_high_u32(vmlal_high_u32(vmlal_high_u32(vmull_high_u32(h[0], r[0]), h[1], s[4]), h[2], s[3]), h[3], s[2]), h[4], s[1]);
+		// Вторая конечность произведения
+		low[1] = vmlal_u32(vmlal_u32(vmlal_u32(vmlal_u32(vmull_u32(h0, r1), h1, r0), h2, s4), h3, s3), h4, s2);
+		high[1] = vmlal_high_u32(vmlal_high_u32(vmlal_high_u32(vmlal_high_u32(vmull_high_u32(h[0], r[1]), h[1], r[0]), h[2], s[4]), h[3], s[3]), h[4], s[2]);
+		// Третья конечность произведения
+		low[2] = vmlal_u32(vmlal_u32(vmlal_u32(vmlal_u32(vmull_u32(h0, r2), h1, r1), h2, r0), h3, s4), h4, s3);
+		high[2] = vmlal_high_u32(vmlal_high_u32(vmlal_high_u32(vmlal_high_u32(vmull_high_u32(h[0], r[2]), h[1], r[1]), h[2], r[0]), h[3], s[4]), h[4], s[3]);
+		// Четвёртая конечность произведения
+		low[3] = vmlal_u32(vmlal_u32(vmlal_u32(vmlal_u32(vmull_u32(h0, r3), h1, r2), h2, r1), h3, r0), h4, s4);
+		high[3] = vmlal_high_u32(vmlal_high_u32(vmlal_high_u32(vmlal_high_u32(vmull_high_u32(h[0], r[3]), h[1], r[2]), h[2], r[1]), h[3], r[0]), h[4], s[4]);
+		// Пятая конечность произведения
+		low[4] = vmlal_u32(vmlal_u32(vmlal_u32(vmlal_u32(vmull_u32(h0, r4), h1, r3), h2, r2), h3, r1), h4, r0);
+		high[4] = vmlal_high_u32(vmlal_high_u32(vmlal_high_u32(vmlal_high_u32(vmull_high_u32(h[0], r[4]), h[1], r[3]), h[2], r[2]), h[3], r[1]), h[4], r[0]);
+	}
+	/**
+	 * @brief Метод закрепления произведений обеих пар дорожек до переносов
+	 *
+	 * @details Перенос из конечности в следующую - сложение, и собиратель волен переставить
+	 *          его в начало цепочки умножений следующей конечности: так он и делал, ставя
+	 *          сдвиг первой конечности начальным накопителем пяти умножений второй, и все
+	 *          двадцать пять умножений пары вытягивались в одну цепочку - 95 тактов на
+	 *          восьмёрку при 45 у цепочки из пяти. Пустые вставки ассемблера делают
+	 *          произведения непрозрачными: переносы идут после всех умножений
+	 *
+	 * @param low  конечности произведения младшей пары
+	 * @param high конечности произведения старшей пары
+	 *
+	 */
+	static __ANTS_INLINE__ void pinNeon(uint64x2_t * low, uint64x2_t * high) noexcept {
+		// Закрепляем все конечности обеих пар
+		__asm__ ("" : "+w" (low[0]), "+w" (low[1]), "+w" (low[2]), "+w" (low[3]), "+w" (low[4]));
+		__asm__ ("" : "+w" (high[0]), "+w" (high[1]), "+w" (high[2]), "+w" (high[3]), "+w" (high[4]));
 	}
 	/**
 	 * @brief Метод проведения переносов произведения пары дорожек в конечности по 26 разрядов
 	 *
-	 * @param product конечности произведения в 64 разряда
-	 * @param h       место под приведённые конечности пары дорожек
+	 * @details Перенос из пятой конечности возвращается в первую умноженным на пять:
+	 *          сумма переноса с его учетверением, а не умножение - собиратель сворачивает
+	 *          сдвиг со сложением в умножение на пять, у которого нет векторной формы на
+	 *          64 разряда, и считает его через скалярные регистры шестью командами;
+	 *          пустая вставка ассемблера держит учетверение в векторе
+	 *
+	 * @param product конечности произведения пары дорожек в 64 разряда, приводимые на месте
 	 *
 	 */
-	static __ANTS_INLINE__ void carryNeon(uint64x2_t * product, uint32x2_t * h) noexcept {
+	static __ANTS_INLINE__ void carryPairNeon(uint64x2_t * product) noexcept {
 		// Маска конечности
 		const uint64x2_t mask = vdupq_n_u64(0x3FFFFFF);
-		// Перенос из первой конечности во вторую
-		product[1] = vaddq_u64(product[1], vshrq_n_u64(product[0], 26));
-		// Первая конечность без переноса
+		// Переносы по цепочке конечностей: сдвиг с накоплением
+		product[1] = vsraq_n_u64(product[1], product[0], 26);
 		product[0] = vandq_u64(product[0], mask);
-		// Перенос из второй конечности в третью
-		product[2] = vaddq_u64(product[2], vshrq_n_u64(product[1], 26));
-		// Вторая конечность без переноса
+		product[2] = vsraq_n_u64(product[2], product[1], 26);
 		product[1] = vandq_u64(product[1], mask);
-		// Перенос из третьей конечности в четвёртую
-		product[3] = vaddq_u64(product[3], vshrq_n_u64(product[2], 26));
-		// Третья конечность без переноса
+		product[3] = vsraq_n_u64(product[3], product[2], 26);
 		product[2] = vandq_u64(product[2], mask);
-		// Перенос из четвёртой конечности в пятую
-		product[4] = vaddq_u64(product[4], vshrq_n_u64(product[3], 26));
-		// Четвёртая конечность без переноса
+		product[4] = vsraq_n_u64(product[4], product[3], 26);
 		product[3] = vandq_u64(product[3], mask);
-		// Перенос из пятой конечности: уходит за 2^130
+		// Перенос из пятой конечности
 		const uint64x2_t carry = vshrq_n_u64(product[4], 26);
-		// Пятая конечность без переноса
 		product[4] = vandq_u64(product[4], mask);
+		// Учетверённый перенос
+		uint64x2_t four = vshlq_n_u64(carry, 2);
+		// Держим учетверение в векторе
+		__asm__ ("" : "+w" (four));
 		// Возвращаем перенос в первую конечность умноженным на пять
-		product[0] = vaddq_u64(product[0], vaddq_u64(carry, vshlq_n_u64(carry, 2)));
+		product[0] = vaddq_u64(product[0], vaddq_u64(four, carry));
 		// Перенос из первой конечности во вторую
-		product[1] = vaddq_u64(product[1], vshrq_n_u64(product[0], 26));
-		// Первая конечность без переноса
+		product[1] = vsraq_n_u64(product[1], product[0], 26);
 		product[0] = vandq_u64(product[0], mask);
-		/**
-		 * Выполняем сужение конечностей до 32 разрядов
-		 */
-		for(size_t i = 0; i < 5; i++)
-			// Сужаем очередную конечность
-			h[i] = vmovn_u64(product[i]);
 	}
 	/**
-	 * @brief Метод разбора двух блоков на пять конечностей пары дорожек
+	 * @brief Метод сложения целых восьмёрок блоков в накопитель на NEON
 	 *
-	 * @param first  первый блок в 16 байтов
-	 * @param second второй блок в 16 байтов
-	 * @param m      место под пять конечностей пары дорожек
-	 *
-	 */
-	static __ANTS_INLINE__ void splitNeon(const uint8_t * first, const uint8_t * second, uint32x2_t * m) noexcept {
-		// Маска конечности
-		const uint64x2_t mask = vdupq_n_u64(0x3FFFFFF);
-		// Слова первого блока
-		const uint64x2_t a = vreinterpretq_u64_u8(vld1q_u8(first));
-		// Слова второго блока
-		const uint64x2_t b = vreinterpretq_u64_u8(vld1q_u8(second));
-		// Младшие слова обоих блоков
-		const uint64x2_t low = vtrn1q_u64(a, b);
-		// Старшие слова обоих блоков
-		const uint64x2_t high = vtrn2q_u64(a, b);
-		// Первая конечность
-		m[0] = vmovn_u64(vandq_u64(low, mask));
-		// Вторая конечность
-		m[1] = vmovn_u64(vandq_u64(vshrq_n_u64(low, 26), mask));
-		// Третья конечность: стык слов
-		m[2] = vmovn_u64(vandq_u64(vorrq_u64(vshrq_n_u64(low, 52), vshlq_n_u64(high, 12)), mask));
-		// Четвёртая конечность
-		m[3] = vmovn_u64(vandq_u64(vshrq_n_u64(high, 14), mask));
-		// Пятая конечность со старшим разрядом 2^128
-		m[4] = vmovn_u64(vorrq_u64(vshrq_n_u64(high, 40), vdupq_n_u64(static_cast <uint64_t> (1) << 24)));
-	}
-	/**
-	 * @brief Метод сложения пяти произведений конечностей пары дорожек на r^8 по дорожкам вектора
-	 *
-	 * @details Конечности r^8 лежат в трёх векторах, и умножение берёт нужную дорожкой
-	 *          команды: множитель не размножается по регистрам, и цикл не теряет их
-	 *
-	 * @param h      конечности пары дорожек
-	 * @param ra     конечности r^8: r0, r1, r2, r3
-	 * @param rb     конечности r^8: r4 и 5·r1, 5·r2, 5·r3
-	 * @param rc     конечность 5·r4 первой дорожкой
-	 * @param result место под пять конечностей произведения в 64 разряда
-	 *
-	 */
-	static __ANTS_INLINE__ void productLaneNeon(const uint32x2_t * h, const uint32x4_t ra, const uint32x4_t rb, const uint32x4_t rc, uint64x2_t * result) noexcept {
-		// Первая конечность произведения: h0·r0 + h1·5r4 + h2·5r3 + h3·5r2 + h4·5r1
-		result[0] = vmlal_laneq_u32(vmlal_laneq_u32(vmlal_laneq_u32(vmlal_laneq_u32(vmull_laneq_u32(h[0], ra, 0), h[1], rc, 0), h[2], rb, 3), h[3], rb, 2), h[4], rb, 1);
-		// Вторая конечность произведения: h0·r1 + h1·r0 + h2·5r4 + h3·5r3 + h4·5r2
-		result[1] = vmlal_laneq_u32(vmlal_laneq_u32(vmlal_laneq_u32(vmlal_laneq_u32(vmull_laneq_u32(h[0], ra, 1), h[1], ra, 0), h[2], rc, 0), h[3], rb, 3), h[4], rb, 2);
-		// Третья конечность произведения: h0·r2 + h1·r1 + h2·r0 + h3·5r4 + h4·5r3
-		result[2] = vmlal_laneq_u32(vmlal_laneq_u32(vmlal_laneq_u32(vmlal_laneq_u32(vmull_laneq_u32(h[0], ra, 2), h[1], ra, 1), h[2], ra, 0), h[3], rc, 0), h[4], rb, 3);
-		// Четвёртая конечность произведения: h0·r3 + h1·r2 + h2·r1 + h3·r0 + h4·5r4
-		result[3] = vmlal_laneq_u32(vmlal_laneq_u32(vmlal_laneq_u32(vmlal_laneq_u32(vmull_laneq_u32(h[0], ra, 3), h[1], ra, 2), h[2], ra, 1), h[3], ra, 0), h[4], rc, 0);
-		// Пятая конечность произведения: h0·r4 + h1·r3 + h2·r2 + h3·r1 + h4·r0
-		result[4] = vmlal_laneq_u32(vmlal_laneq_u32(vmlal_laneq_u32(vmlal_laneq_u32(vmull_laneq_u32(h[0], rb, 0), h[1], ra, 3), h[2], ra, 2), h[3], ra, 1), h[4], ra, 0);
-	}
-	/**
-	 * @brief Метод сложения восьмёрок целых блоков командами NEON
-	 *
-	 * @details Восемь дорожек в четырёх парах: дорожка ведёт свою сумму - перед всякой
-	 *          восьмёркой, кроме первой, умножается на r^8 и складывается с блоком, -
-	 *          после последней восьмёрки дорожки умножаются на r^8…r и складываются в
-	 *          накопитель. Цепочка произведение - переносы одной пары тянется десятки
-	 *          тактов, и четыре независимые пары нужны, чтобы занять устройства машины;
-	 *          цикл однороден - выбор множителя внутри него заставлял собиратель держать
-	 *          степени в памяти и выбирать их маской на каждой четвёрке блоков
+	 * @details Восемь блоков идут двумя четвёрками дорожек по 32 разряда: младшая
+	 *          четвёрка - блоки с первого по четвёртый, старшая - с пятого по восьмой.
+	 *          Каждая восьмёрка умножается на r^8 и складывается со следующей, последняя -
+	 *          на r^8…r по дорожкам, и дорожки сходятся в накопитель. Четвёрки и
+	 *          произведения живут в регистрах: прежние четыре пары в массиве под циклом
+	 *          собиратель держал в памяти, грузя и сохраняя пять конечностей на каждой
+	 *          паре - 332 команды на восьмёрку при ста умножениях, 5,2 ГБ/с на M4 при
+	 *          8,2 у OpenSSL
 	 *
 	 * @param powers степени множителя r…r^8 по 26 разрядов
 	 * @param h0     младшая конечность накопителя, заменяемая итогом
@@ -665,88 +715,110 @@ namespace {
 		const uint32_t octet[12] = {powers[7][0], powers[7][1], powers[7][2], powers[7][3], powers[7][4], (powers[7][1] * 5), (powers[7][2] * 5), (powers[7][3] * 5), (powers[7][4] * 5), 0, 0, 0};
 		// Векторы конечностей r^8
 		const uint32x4_t ra = vld1q_u32(octet), rb = vld1q_u32(octet + 4), rc = vld1q_u32(octet + 8);
-		// Накопитель по 26 разрядов
+		// Конечности накопителя по 26 разрядов
 		uint32_t limbs[5];
 		// Переводим накопитель в конечности по 26 разрядов
 		widen(h0, h1, h2, limbs);
-		// Конечности четырёх пар дорожек
-		uint32x2_t lanes[4][5];
-		/**
-		 * Выполняем заведение пар дорожек первой восьмёркой блоков
-		 */
-		for(size_t k = 0; k < 4; k++)
-			// Разбираем очередную пару блоков
-			splitNeon(data + (k * 32), data + (k * 32) + 16, lanes[k]);
+		// Младшая и старшая четвёрки дорожек
+		uint32x4_t a[5], b[5];
+		// Разбираем первую восьмёрку блоков по четвёркам
+		splitQuadNeon(data, a);
+		splitQuadNeon(data + 64, b);
 		/**
 		 * Выполняем сложение накопителя с первой дорожкой
 		 */
-		for(size_t i = 0; i < 5; i++){
-			// Пара конечностей с накопителем в первой дорожке
-			const uint32_t pair[2] = {limbs[i], 0};
-			// Конечности первой пары с накопителем
-			lanes[0][i] = vadd_u32(lanes[0][i], vld1_u32(pair));
-		}
-		// Переходим ко второй восьмёрке
+		for(size_t i = 0; i < 5; i++)
+			// Складываем конечность накопителя с первой дорожкой
+			a[i] = vaddq_u32(a[i], vsetq_lane_u32(limbs[i], vdupq_n_u32(0), 0));
+		// Сдвигаем позицию чтения
 		data += 128;
 		/**
-		 * Выполняем перебор прочих восьмёрок: дорожки умножаются на r^8 и складываются с блоками
+		 * Выполняем сложение восьмёрок: каждая умножается на r^8 и складывается со следующей
 		 */
 		for(size_t g = 1; g < groups; g++){
+			// Конечности произведений пар дорожек
+			uint64x2_t low[5], high[5];
+			// Конечности следующей восьмёрки
+			uint32x4_t m[5];
+			// Умножаем младшую четвёрку на r^8
+			productQuadNeon(a, ra, rb, rc, low, high);
+			// Закрепляем произведения до переносов
+			pinNeon(low, high);
+			// Проводим переносы обеих пар
+			carryPairNeon(low);
+			carryPairNeon(high);
 			/**
-			 * Выполняем перебор пар дорожек
+			 * Выполняем сужение конечностей младшей четвёрки
 			 */
-			for(size_t k = 0; k < 4; k++){
-				// Конечности произведений
-				uint64x2_t product[5];
-				// Конечности пары блоков
-				uint32x2_t m[5];
-				// Умножаем пару дорожек на r^8
-				productLaneNeon(lanes[k], ra, rb, rc, product);
-				// Проводим переносы пары
-				carryNeon(product, lanes[k]);
-				// Разбираем пару блоков
-				splitNeon(data + (k * 32), data + (k * 32) + 16, m);
-				/**
-				 * Выполняем сложение пары блоков с дорожками
-				 */
-				for(size_t i = 0; i < 5; i++)
-					// Складываем очередную конечность
-					lanes[k][i] = vadd_u32(lanes[k][i], m[i]);
-			}
-			// Переходим к следующей восьмёрке
+			for(size_t i = 0; i < 5; i++)
+				// Собираем четыре дорожки из младших слов пар
+				a[i] = vuzp1q_u32(vreinterpretq_u32_u64(low[i]), vreinterpretq_u32_u64(high[i]));
+			// Умножаем старшую четвёрку на r^8
+			productQuadNeon(b, ra, rb, rc, low, high);
+			// Закрепляем произведения до переносов
+			pinNeon(low, high);
+			// Проводим переносы обеих пар
+			carryPairNeon(low);
+			carryPairNeon(high);
+			/**
+			 * Выполняем сужение конечностей старшей четвёрки
+			 */
+			for(size_t i = 0; i < 5; i++)
+				// Собираем четыре дорожки из младших слов пар
+				b[i] = vuzp1q_u32(vreinterpretq_u32_u64(low[i]), vreinterpretq_u32_u64(high[i]));
+			// Разбираем младшую четвёрку следующей восьмёрки
+			splitQuadNeon(data, m);
+			/**
+			 * Выполняем сложение младшей четвёрки со следующей
+			 */
+			for(size_t i = 0; i < 5; i++)
+				// Складываем конечности
+				a[i] = vaddq_u32(a[i], m[i]);
+			// Разбираем старшую четвёрку следующей восьмёрки
+			splitQuadNeon(data + 64, m);
+			/**
+			 * Выполняем сложение старшей четвёрки со следующей
+			 */
+			for(size_t i = 0; i < 5; i++)
+				// Складываем конечности
+				b[i] = vaddq_u32(b[i], m[i]);
+			// Сдвигаем позицию чтения
 			data += 128;
 		}
 		// Суммы дорожек по конечностям
 		uint64_t total[5] = {0, 0, 0, 0, 0};
+		// Конечности произведений пар дорожек
+		uint64x2_t low[5], high[5];
 		/**
-		 * Выполняем последнее умножение пар дорожек на свои степени: r^8 и r^7, r^6 и r^5, r^4 и r^3, r^2 и r
+		 * Выполняем умножение четвёрок на свои степени: r^8…r^5 младшей и r^4…r старшей
 		 */
-		for(size_t k = 0; k < 4; k++){
-			// Конечности степеней пары и они же на пять
-			uint32x2_t r[5], s[5];
+		for(size_t k = 0; k < 2; k++){
+			// Множители по дорожкам и их пятикратные
+			uint32x4_t r[5], s[5];
 			/**
-			 * Выполняем раскладку степеней по дорожкам пары
+			 * Выполняем сборку множителей по дорожкам
 			 */
 			for(size_t i = 0; i < 5; i++){
-				// Пара конечностей степеней
-				const uint32_t pair[2] = {powers[7 - (k * 2)][i], powers[6 - (k * 2)][i]};
-				// Конечности степеней пары
-				r[i] = vld1_u32(pair);
-				// Конечности степеней, умноженные на пять
-				s[i] = vmul_n_u32(r[i], 5);
+				// Конечности степеней по дорожкам: r^8, r^7, r^6, r^5 либо r^4, r^3, r^2, r
+				const uint32_t quad[4] = {powers[7 - (k * 4)][i], powers[6 - (k * 4)][i], powers[5 - (k * 4)][i], powers[4 - (k * 4)][i]};
+				// Загружаем конечности множителей
+				r[i] = vld1q_u32(quad);
+				// Умножаем конечности на пять
+				s[i] = vmulq_n_u32(r[i], 5);
 			}
-			// Конечности произведений
-			uint64x2_t product[5];
-			// Умножаем пару дорожек на степени
-			productNeon(lanes[k], r, s, product);
-			// Проводим переносы пары
-			carryNeon(product, lanes[k]);
+			// Умножаем четвёрку на степени
+			productLanesNeon((k == 0 ? a : b), r, s, low, high);
+			// Закрепляем произведения до переносов
+			pinNeon(low, high);
+			// Проводим переносы обеих пар
+			carryPairNeon(low);
+			carryPairNeon(high);
 			/**
-			 * Выполняем сложение дорожек пары в суммы
+			 * Выполняем сложение дорожек в суммы
 			 */
 			for(size_t i = 0; i < 5; i++)
-				// Складываем обе дорожки пары
-				total[i] += vaddlv_u32(lanes[k][i]);
+				// Складываем четыре дорожки
+				total[i] += (vaddvq_u64(low[i]) + vaddvq_u64(high[i]));
 		}
 		// Переводим сумму дорожек в конечности накопителя
 		narrow(total, h0, h1, h2);

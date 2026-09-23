@@ -267,29 +267,35 @@ namespace nts {
 				 *
 				 * @param counter начальный блок счётчика: младшие 32 разряда растут от старшего байта
 				 * @param blocks  число блоков гаммы
-				 * @param result  место, в которое записывается гамма: 16 байтов на блок
+				 * @param source  исходные данные, на которые гамма накладывается: 16 байтов на блок, пусто, если нужна сама гамма
+				 * @param result  место, в которое записывается гамма либо исходные данные под ней: 16 байтов на блок
 				 *
 				 * @return        признак успешности выработки
 				 *
 				 * @details Первый блок гаммы - зашифрованный счётчик, увеличенный на единицу;
 				 *          так устроен счётчик GCM. Командами машины блоки шифруются по
-				 *          четыре разом с ключами в регистрах: в этом и выигрыш против
-				 *          поблочного вызова
+				 *          восемь разом с ключами в регистрах: в этом и выигрыш против
+				 *          поблочного вызова. Наложение гаммы на переданные исходные данные
+				 *          делается тем же проходом: отдельный буфер гаммы стоил на x86-64
+				 *          четверть времени ядра. Исходные данные вправе совпадать с местом записи
 				 *
 				 * \~english
 				 * @brief Method of the production of the counter gamma
 				 * @param counter the initial counter block: the low 32 bits grow from the senior byte
 				 * @param blocks  the number of the gamma blocks
-				 * @param result  the place the gamma is written into: 16 bytes per block
+				 * @param source  the source data the gamma is applied to: 16 bytes per block, empty when the gamma itself is needed
+				 * @param result  the place the gamma or the source data under it is written into: 16 bytes per block
 				 * @return        the flag of the success of the production
 				 * @details The first block of the gamma is the encrypted counter increased by one; so is
 				 *          the GCM counter arranged. By the machine instructions the blocks are encrypted
-				 *          four at once with the keys in the registers: that is the gain against the
-				 *          per-block call
+				 *          eight at once with the keys in the registers: that is the gain against the
+				 *          per-block call. The application of the gamma to the passed source data is done
+				 *          by the same pass: a separate gamma buffer cost a quarter of the kernel time on
+				 *          x86-64. The source data may coincide with the place of the writing
 				 *
 				 * \~
 				 */
-				bool stream(const uint8_t * counter, const size_t blocks, uint8_t * result) const noexcept;
+				bool stream(const uint8_t * counter, const size_t blocks, const uint8_t * source, uint8_t * result) const noexcept;
 				/**
 				 * \~russian
 				 * @brief Метод получения расписания ключа зашифрования для слитых ядер режимов

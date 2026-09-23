@@ -131,8 +131,8 @@ namespace nts {
 			bool (* encrypt)(const void * cipher, const uint8_t * source, uint8_t * result) noexcept;
 			// Функция расшифрования блока базовым алгоритмом блочного шифрования
 			bool (* decrypt)(const void * cipher, const uint8_t * source, uint8_t * result) noexcept;
-			// Функция выработки гаммы счётчика по многу блоков разом: у шифров без неё пуста
-			bool (* stream)(const void * cipher, const uint8_t * counter, const size_t blocks, uint8_t * result) noexcept;
+			// Функция выработки гаммы счётчика по многу блоков разом с наложением на исходные данные, если те переданы: у шифров без неё пуста
+			bool (* stream)(const void * cipher, const uint8_t * counter, const size_t blocks, const uint8_t * source, uint8_t * result) noexcept;
 			// Функция зашифрования нескольких независимых блоков разом: у шифров без неё пуста
 			bool (* batch)(const void * cipher, const uint8_t * sources, const size_t blocks, uint8_t * results) noexcept;
 			// Расписание ключа зашифрования AES для слитых ядер режимов: у прочих шифров и без команд машины пусто
@@ -341,8 +341,9 @@ namespace nts {
 		 *       подаваться кусками произвольного размера
 		 *
 		 * @note У шифров, вырабатывающих гамму по многу блоков разом (AES), целые блоки
-		 *       идут ядром шифра по сто двадцать восемь блоков, а хвост короче блока -
-		 *       поблочно; итог от пути не зависит
+		 *       идут ядром шифра одним вызовом до переполнения младших четырёх байтов
+		 *       счётчика, и гамма накладывается самим ядром без буфера; хвост короче
+		 *       блока - поблочно; итог от пути не зависит
 		 *
 		 * \~english
 		 * @brief Counter mode (CTR)
@@ -355,8 +356,10 @@ namespace nts {
 		 * @note The state of the gamma is carried between the calls, therefore the message
 		 *       may be fed by the pieces of an arbitrary size
 		 * @note With the ciphers producing the gamma by many blocks at once (AES), the whole
-		 *       blocks go by the kernel of the cipher by one hundred twenty eight blocks, and the
-		 *       tail shorter than a block - block by block; the result does not depend on the path
+		 *       blocks go by the kernel of the cipher in a single call up to the overflow of the
+		 *       low four bytes of the counter, and the gamma is applied by the kernel itself
+		 *       without a buffer; the tail shorter than a block - block by block; the result
+		 *       does not depend on the path
 		 *
 		 * \~
 		 */

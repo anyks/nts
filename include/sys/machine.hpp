@@ -106,14 +106,16 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		enum class feature_t : uint8_t {
+		enum class feature_t : uint16_t {
 			AES       = 0x01, /*!< \~russian Команды AES: ARMv8 AESE/AESD либо AES-NI \~english AES instructions: ARMv8 AESE/AESD or AES-NI \~ */
 			CARRYLESS = 0x02, /*!< \~russian Умножение без переносов: PMULL либо PCLMULQDQ \~english Carry-less multiplication: PMULL or PCLMULQDQ \~ */
 			SHA256    = 0x04, /*!< \~russian Команды SHA-256: ARMv8 SHA256H либо SHA-NI \~english SHA-256 instructions: ARMv8 SHA256H or SHA-NI \~ */
 			SHA512    = 0x08, /*!< \~russian Команды SHA-512 расширения ARMv8.2 \~english SHA-512 instructions of the ARMv8.2 extension \~ */
 			VECTOR    = 0x10, /*!< \~russian Векторные команды основания набора: NEON у ARM64 либо SSE2 у x86-64 \~english Baseline vector instructions: NEON at ARM64 or SSE2 at x86-64 \~ */
 			SSSE3     = 0x20, /*!< \~russian Перестановка байтов PSHUFB расширения SSSE3 у x86-64 \~english PSHUFB byte shuffle of the SSSE3 extension at x86-64 \~ */
-			AVX2      = 0x40  /*!< \~russian Векторы в 256 разрядов расширения AVX2 у x86-64, разрешённые системой \~english 256-bit vectors of the AVX2 extension at x86-64, enabled by the system \~ */
+			AVX2      = 0x40, /*!< \~russian Векторы в 256 разрядов расширения AVX2 у x86-64, разрешённые системой \~english 256-bit vectors of the AVX2 extension at x86-64, enabled by the system \~ */
+			AVX       = 0x80, /*!< \~russian Кодировка VEX команд на 128 разрядов расширения AVX у x86-64, разрешённая системой \~english VEX encoding of the 128-bit instructions of the AVX extension at x86-64, enabled by the system \~ */
+			MOVBE     = 0x100 /*!< \~russian Загрузка с перестановкой байтов MOVBE у x86-64 \~english MOVBE byte-swapping load at x86-64 \~ */
 		};
 
 		/**
