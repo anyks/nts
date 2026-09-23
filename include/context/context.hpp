@@ -234,6 +234,50 @@ namespace nts {
 
 		/**
 		 * \~russian
+		 * @brief Классы затирания памяти связи
+		 *
+		 * @details Что связь затирает вызовом sys::wipe, выбирает потребитель по классам:
+		 *          у разных задач разная тайна и разная цена. SECRETS - секреты рукопожатия
+		 *          и ключи на путях связи затираются сразу, как только из них нечего более
+		 *          выводить: цена одноразовая и малая. PLAINTEXT - открытый текст принятых
+		 *          записей затирается между записями, после выдачи потребителю и при
+		 *          закрытии: цена на каждую запись (у OpenSSL то же - SSL_OP_CLEANSE_PLAINTEXT,
+		 *          умолчанием выключенная; BoringSSL открытый текст не затирает вовсе).
+		 *          Умолчание связи - только SECRETS
+		 *
+		 * @note Классов не касается то, что затирается по договору своего объекта всегда:
+		 *       укрытое хранилище ключевого материала при возврате участка, объекты-значения
+		 *       (билет, заранее разделённый ключ, мимолётная пара) в разрушителе, примитивы
+		 *       (шифры, хеши, расписание ключей, защита записей) при сбросе состояния и во
+		 *       временных буферах вызова. Копия, выданная потребителю вызовом read, - его:
+		 *       её затирание за ним
+		 *
+		 * \~english
+		 * @brief Classes of the wiping of the memory of a connection
+		 * @details What the connection wipes by the sys::wipe call is chosen by the consumer by classes:
+		 *          different tasks have different secrets and different costs. SECRETS - the secrets of the
+		 *          handshake and the keys on the paths of the connection are wiped as soon as there is
+		 *          nothing more to derive from them: the cost is one-off and small. PLAINTEXT - the plaintext
+		 *          of the received records is wiped between the records, after the hand-over to the consumer
+		 *          and on closing: the cost is per record (OpenSSL has the same - SSL_OP_CLEANSE_PLAINTEXT,
+		 *          disabled by default; BoringSSL does not wipe the plaintext at all). The default of a
+		 *          connection is SECRETS only
+		 * @note The classes do not concern what is always wiped by the contract of its own object: the
+		 *       sheltered vault of the key material on the return of a piece, the value objects (the ticket,
+		 *       the pre-shared key, the ephemeral pair) in the destructor, the primitives (the ciphers, the
+		 *       hashes, the key schedule, the protection of records) on the reset of the state and in the
+		 *       temporary buffers of a call. The copy handed to the consumer by the read call is theirs: its
+		 *       wiping is up to them
+		 *
+		 * \~
+		 */
+		enum class wiping_t : uint8_t {
+			SECRETS   = 0x01, /*!< \~russian Секреты рукопожатия и ключи на путях связи сразу после использования \~english The secrets of the handshake and the keys on the paths of the connection right after the use \~ */
+			PLAINTEXT = 0x02  /*!< \~russian Открытый текст принятых записей: между записями, после выдачи потребителю и при закрытии \~english The plaintext of the received records: between the records, after the hand-over to the consumer and on closing \~ */
+		};
+
+		/**
+		 * \~russian
 		 * @brief Подлинность стороны связи
 		 *
 		 * @details Раздел 4.4.2 RFC 8446: цепочка сертификатов идёт от своего сертификата к

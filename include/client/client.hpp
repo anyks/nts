@@ -1376,6 +1376,52 @@ namespace nts {
 				bool grease() const noexcept;
 				/**
 				 * \~russian
+				 * @brief Метод установки классов затирания памяти связи
+				 *
+				 * @param classes классы затирания context::wiping_t
+				 *
+				 * @details Умолчание связи - только SECRETS: секреты рукопожатия и ключи
+				 *          затираются сразу, как только из них нечего более выводить. Класс
+				 *          PLAINTEXT добавляет затирание открытого текста принятых записей
+				 *          между записями, после выдачи вызовом read и при закрытии - на
+				 *          каждую запись, как SSL_OP_CLEANSE_PLAINTEXT у OpenSSL. Пустой
+				 *          перечень выключает затирания связи вовсе; укрытое хранилище,
+				 *          объекты-значения и примитивы затирают своё всегда
+				 *
+				 * @note Копия принятых данных, выданная вызовом read, - потребителя: её
+				 *       затирание за ним (sys::wipe)
+				 *
+				 * \~english
+				 * @brief Method of setting the classes of the wiping of the memory of the connection
+				 * @param classes the classes of the wiping context::wiping_t
+				 * @details The default of a connection is SECRETS only: the secrets of the handshake and the
+				 *          keys are wiped as soon as there is nothing more to derive from them. The PLAINTEXT
+				 *          class adds the wiping of the plaintext of the received records between the records,
+				 *          after the hand-over by the read call and on closing - per record, like
+				 *          SSL_OP_CLEANSE_PLAINTEXT of OpenSSL. An empty list disables the wipings of the
+				 *          connection at all; the sheltered vault, the value objects and the primitives always
+				 *          wipe their own
+				 * @note The copy of the received data handed over by the read call is the consumer's: its
+				 *       wiping is up to them (sys::wipe)
+				 *
+				 * \~
+				 */
+				void wiping(const vector <context::wiping_t> & classes) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения классов затирания памяти связи
+				 *
+				 * @return классы затирания, объявленные потребителем; умолчание - SECRETS
+				 *
+				 * \~english
+				 * @brief Method of getting the classes of the wiping of the memory of the connection
+				 * @return the classes of the wiping declared by the consumer; the default is SECRETS
+				 *
+				 * \~
+				 */
+				const vector <context::wiping_t> & wiping() const noexcept;
+				/**
+				 * \~russian
 				 * @brief Метод установки профиля отпечатка, по которому складывается приветствие клиента
 				 *
 				 * @param profile профиль отпечатка, снятый с приветствия обозревателя (`fingerprint::parse`, `fingerprint::load`)

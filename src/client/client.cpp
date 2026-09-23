@@ -673,6 +673,30 @@ bool nts::client::Context::grease() const noexcept {
 	return ((this->_engine != nullptr) && this->_engine->grease());
 }
 /**
+ * @brief Метод установки классов затирания памяти связи
+ *
+ * @param classes классы затирания context::wiping_t
+ *
+ */
+void nts::client::Context::wiping(const vector <context::wiping_t> & classes) noexcept {
+	// Если ведение связи заведено
+	if(this->_engine != nullptr)
+		// Выполняем установку классов затирания
+		this->_engine->wiping(classes);
+}
+/**
+ * @brief Метод получения классов затирания памяти связи
+ *
+ * @return классы затирания, объявленные потребителем; умолчание - SECRETS
+ *
+ */
+const vector <context::wiping_t> & nts::client::Context::wiping() const noexcept {
+	// Пустой перечень на случай незаведённого ведения связи
+	static const vector <context::wiping_t> NOTHING;
+	// Выводим классы затирания
+	return ((this->_engine != nullptr) ? this->_engine->wiping() : NOTHING);
+}
+/**
  * @brief Метод установки профиля отпечатка, по которому складывается приветствие клиента
  *
  * @param profile профиль отпечатка, снятый с приветствия обозревателя

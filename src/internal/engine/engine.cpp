@@ -163,6 +163,21 @@
  *    ContextTest.Defaults, ContextTest.Compatible, ContextTest.Gost и
  *    ContextTest.Preference.
  *
+ * 20. Что связь затирает - выбирает потребитель классами context::wiping_t (круг 32,
+ *    23.09.2026). Затирание секретов на путях движка идёт единственным входом purge()
+ *    по классу SECRETS (умолчание); затирание накопителей открытого текста принятых
+ *    записей (_plain, _opened, содержимое снятых дейтаграмм) - входом cleanse() по
+ *    классу PLAINTEXT, умолчанием выключенному: оно стоит на каждую запись, а защищает
+ *    лишь окно до следующей записи - копия, выданная потребителю вызовом read, ему
+ *    недоступна. У OpenSSL то же самое - SSL_OP_CLEANSE_PLAINTEXT, умолчанием
+ *    выключенная; BoringSSL открытый текст записей не затирает вовсе. Классов не
+ *    касаются затирания по договору своего объекта: укрытое хранилище при возврате
+ *    участка, разрушители значений (Exchange, билет, PSK), примитивы при сбросе
+ *    состояния и во временных буферах вызова (защита записей ГОСТ и CBC). Голых
+ *    вызовов wipe() в движке нет: всякое затирание идёт через purge() либо cleanse().
+ *    Закреплено AuditTest.PlaintextCleansing (накопители нулевые лишь с классом),
+ *    AuditTest.SecretsViaPurge (голых wipe() в движке нет) и ContextTest.Wiping.
+ *
  * @copyright Copyright © 2026
  *
  */
@@ -1685,24 +1700,24 @@ void nts::internal::Engine::shred() noexcept {
 		// Если секретный мимолётный ключ пары выработан
 		if(!this->_exchanges[i].secret.empty())
 			// Выполняем затирание секретного мимолётного ключа
-			wipe(this->_exchanges[i].secret.data(), this->_exchanges[i].secret.size());
+			this->purge(this->_exchanges[i].secret.data(), this->_exchanges[i].secret.size());
 		// Если общий секрет инкапсуляции есть
 		if(!this->_exchanges[i].shared.empty())
 			// Выполняем затирание общего секрета инкапсуляции
-			wipe(this->_exchanges[i].shared.data(), this->_exchanges[i].shared.size());
+			this->purge(this->_exchanges[i].shared.data(), this->_exchanges[i].shared.size());
 	}
 	// Выполняем сброс мимолётных пар ключей своей стороны
 	this->_exchanges.clear();
 	// Если привязка билета возобновления выработана
 	if(!this->_binding.empty())
 		// Выполняем затирание привязки билета возобновления
-		wipe(this->_binding.data(), this->_binding.size());
+		this->purge(this->_binding.data(), this->_binding.size());
 	// Выполняем сброс привязки билета возобновления
 	this->_binding.clear();
 	// Если обещанный билет несёт копию главного секрета
 	if(!this->_promise.secret.empty())
 		// Выполняем затирание копии главного секрета в обещанном билете
-		wipe(this->_promise.secret.data(), this->_promise.secret.size());
+		this->purge(this->_promise.secret.data(), this->_promise.secret.size());
 	// Выполняем сброс обещанного билета
 	this->_promise = context::ticket_t();
 	// Выполняем затирание секретов издания TLS 1.2
@@ -1716,15 +1731,40 @@ void nts::internal::Engine::scrub() noexcept {
 	// Если общее значение обмена ключами ещё не израсходовано
 	if(!this->_premaster.empty())
 		// Выполняем затирание общего значения обмена ключами
-		wipe(this->_premaster.data(), this->_premaster.size());
+		this->purge(this->_premaster.data(), this->_premaster.size());
 	// Выполняем сброс общего значения обмена ключами
 	this->_premaster.clear();
 	// Если заранее разделённый ключ связи выработан
 	if(!this->_preshared.empty())
 		// Выполняем затирание заранее разделённого ключа связи
-		wipe(this->_preshared.data(), this->_preshared.size());
+		this->purge(this->_preshared.data(), this->_preshared.size());
 	// Выполняем сброс заранее разделённого ключа связи
 	this->_preshared.clear();
+}
+/**
+ * @brief Метод затирания секрета на пути связи по классу SECRETS
+ *
+ * @param data затираемая область памяти
+ * @param size размер затираемой области памяти в байтах
+ *
+ */
+void nts::internal::Engine::purge(void * data, const size_t size) const noexcept {
+	// Если класс SECRETS объявлен потребителем
+	if(this->_scrubbing)
+		// Выполняем затирание области памяти
+		wipe(data, size);
+}
+/**
+ * @brief Метод затирания накопителя открытого текста по классу PLAINTEXT
+ *
+ * @param data накопитель открытого текста; его длина остаётся прежней
+ *
+ */
+void nts::internal::Engine::cleanse(vector <uint8_t> & data) const noexcept {
+	// Если класс PLAINTEXT объявлен потребителем и накопитель не пуст
+	if(this->_cleansing && !data.empty())
+		// Выполняем затирание накопителя
+		wipe(data.data(), data.size());
 }
 /**
  * @brief Метод отказа собеседнику в пересогласовании издания TLS 1.2
@@ -2169,15 +2209,15 @@ context::error_t nts::internal::Engine::encapsulating(const extension::group_t g
 		item.shared.assign(agreement::MLKEM_SHARED, 0);
 		// Если инкапсуляцию на ключе клиента провести не удалось
 		if(!agreement::encapsulate(kem, view_t(peer.data + kemat, opened), item.opened.data() + (kemfirst(group) ? 0 : point), item.shared.data())){
-			wipe(item.shared.data(), item.shared.size());
+			this->purge(item.shared.data(), item.shared.size());
 			return context::error_t::EXCHANGE;
 		}
 		// Если половина - X25519
 		if(half == extension::group_t::X25519){
 			// Если секрет и точку X25519 выработать не удалось
 			if(!entropy::bytes(item.secret.data(), item.secret.size()) || !agreement::x25519(view_t(item.secret.data(), item.secret.size()), item.opened.data() + (kemfirst(group) ? cipher : 0))){
-				wipe(item.secret.data(), item.secret.size());
-				wipe(item.shared.data(), item.shared.size());
+				this->purge(item.secret.data(), item.secret.size());
+				this->purge(item.shared.data(), item.shared.size());
 				return context::error_t::EXCHANGE;
 			}
 		// Если половина - кривая NIST
@@ -2186,8 +2226,8 @@ context::error_t nts::internal::Engine::encapsulating(const extension::group_t g
 			uint8_t raw[math::NUMBER_SIZE * 2];
 			// Если пару кривой породить не удалось
 			if(!agreement::generate(curve, item.secret.data(), raw)){
-				wipe(item.secret.data(), item.secret.size());
-				wipe(item.shared.data(), item.shared.size());
+				this->purge(item.secret.data(), item.secret.size());
+				this->purge(item.shared.data(), item.shared.size());
 				return context::error_t::EXCHANGE;
 			}
 			// Кодируем точку в несжатом виде
@@ -2195,7 +2235,7 @@ context::error_t nts::internal::Engine::encapsulating(const extension::group_t g
 			item.opened[at] = 0x04;
 			reverse(raw, item.opened.data() + at + 1, scalar);
 			reverse(raw + scalar, item.opened.data() + at + 1 + scalar, scalar);
-			wipe(raw, sizeof(raw));
+			this->purge(raw, sizeof(raw));
 		}
 		// Запоминаем пару и группу
 		this->_exchanges.push_back(::move(item));
@@ -2272,7 +2312,7 @@ context::error_t nts::internal::Engine::agree(const extension::group_t group, co
 		if(half == extension::group_t::X25519){
 			// Если общее значение X25519 выработать не удалось
 			if(!agreement::x25519(view_t(scalar, agreement::X25519_SIZE), view_t(peer, agreement::X25519_SIZE), curveout)){
-				wipe(result, agreement::MLKEM_SHARED + agreement::X25519_SIZE);
+				this->purge(result, agreement::MLKEM_SHARED + agreement::X25519_SIZE);
 				return context::error_t::EXCHANGE;
 			}
 		// Если половина - кривая NIST
@@ -2281,7 +2321,7 @@ context::error_t nts::internal::Engine::agree(const extension::group_t group, co
 			curve::curve_t curve;
 			// Если параметры кривой не найдены либо точка не в несжатом виде
 			if(!curve::parameters(extension::curve(half), curve) || (peer[0] != 0x04) || (curve.size() != curveshared)){
-				wipe(result, agreement::MLKEM_SHARED + curveshared);
+				this->purge(result, agreement::MLKEM_SHARED + curveshared);
 				return context::error_t::EXCHANGE;
 			}
 			// Точка младшим байтом вперёд
@@ -2292,14 +2332,14 @@ context::error_t nts::internal::Engine::agree(const extension::group_t group, co
 			uint8_t little[math::NUMBER_SIZE];
 			// Если общее значение кривой выработать не удалось
 			if(!agreement::ecdhe(curve, view_t(scalar, scalarsize), view_t(raw, curveshared * 2), little)){
-				wipe(raw, sizeof(raw));
-				wipe(result, agreement::MLKEM_SHARED + curveshared);
+				this->purge(raw, sizeof(raw));
+				this->purge(result, agreement::MLKEM_SHARED + curveshared);
 				return context::error_t::EXCHANGE;
 			}
 			// Переводим в старший байт вперёд, как велит RFC 8446 для кривых NIST
 			reverse(little, curveout, curveshared);
-			wipe(little, sizeof(little));
-			wipe(raw, sizeof(raw));
+			this->purge(little, sizeof(little));
+			this->purge(raw, sizeof(raw));
 		}
 		// Длина общего значения
 		length = (agreement::MLKEM_SHARED + curveshared);
@@ -2377,12 +2417,12 @@ context::error_t nts::internal::Engine::agree(const extension::group_t group, co
 		// Если общее значение обмена мимолётными ключами выработать не удалось
 		if(!agreement::ecdhe(curve, view_t(own->secret.data(), own->secret.size()), view_t(point, size * 2), shared)){
 			// Выполняем затирание записи точки
-			wipe(point, sizeof(point));
+			this->purge(point, sizeof(point));
 			// Выводим отказ выработки общего значения обмена
 			return context::error_t::EXCHANGE;
 		}
 		// Выполняем затирание записи точки
-		wipe(point, sizeof(point));
+		this->purge(point, sizeof(point));
 		// Если группа обмена - кривая NIST
 		if(classic(group)){
 			// Место, в которое помещается общее значение прямой записью
@@ -2395,7 +2435,7 @@ context::error_t nts::internal::Engine::agree(const extension::group_t group, co
 			// Переносим общее значение прямой записью на место итога
 			::memcpy(shared, straight, size);
 			// Выполняем затирание общего значения прямой записи
-			wipe(straight, sizeof(straight));
+			this->purge(straight, sizeof(straight));
 		}
 		// Запоминаем длину общего значения
 		length = size;
@@ -2436,7 +2476,7 @@ context::error_t nts::internal::Engine::derive(const extension::group_t group, c
 		// Если общее значение выработать не удалось
 		if(agreed != context::error_t::NONE){
 			// Выполняем затирание общего значения обмена мимолётными ключами
-			wipe(shared, sizeof(shared));
+			this->purge(shared, sizeof(shared));
 			// Выводим отказ выработки общего значения
 			return agreed;
 		}
@@ -2472,7 +2512,7 @@ context::error_t nts::internal::Engine::derive(const extension::group_t group, c
 			// Выполняем вывод ступени рукопожатия расписания ключей
 			ok = (this->_secrets.handshake(view_t(shared, length), view_t(transcript, this->_transcript.size())) == session::error_t::NONE);
 		// Выполняем затирание общего значения обмена мимолётными ключами
-		wipe(shared, sizeof(shared));
+		this->purge(shared, sizeof(shared));
 		// Если ступень рукопожатия расписания ключей вывести не удалось
 		if(!ok)
 			// Выводим отказ вывода ключевого материала связи
@@ -2514,9 +2554,9 @@ context::error_t nts::internal::Engine::derive(const extension::group_t group, c
 			 */
 			const bool installed = ((this->_transport == context::transport_t::LEVELS) || protection.start(this->_suite, view_t(material, protect::key(this->_suite)), view_t(element, protect::block(this->_suite))));
 			// Выполняем затирание вектора замены направления связи
-			wipe(element, sizeof(element));
+			this->purge(element, sizeof(element));
 			// Выполняем затирание корневого ключа направления связи
-			wipe(material, sizeof(material));
+			this->purge(material, sizeof(material));
 			// Если ключевой материал направления связи установить не удалось
 			if(!installed)
 				// Выводим отказ установки ключевого материала направления
@@ -2673,11 +2713,11 @@ context::error_t nts::internal::Engine::earliest() noexcept {
 			// Выполняем установку ключевого материала упреждающих данных
 			ok = this->_early.start(this->_ticket, view_t(material, protect::key(this->_ticket)), view_t(element, protect::block(this->_ticket)));
 		// Выполняем затирание вектора замены упреждающих данных
-		wipe(element, sizeof(element));
+		this->purge(element, sizeof(element));
 		// Выполняем затирание корневого ключа упреждающих данных
-		wipe(material, sizeof(material));
+		this->purge(material, sizeof(material));
 		// Выполняем затирание значения упреждающих данных связи
-		wipe(traffic, sizeof(traffic));
+		this->purge(traffic, sizeof(traffic));
 		// Если ключевой материал упреждающих данных установить не удалось
 		if(!ok)
 			// Выводим отказ установки ключевого материала
@@ -2749,14 +2789,14 @@ context::error_t nts::internal::Engine::exchange(const extension::group_t group)
 			item.opened.assign(opened + point, 0);
 			// Если пару ML-KEM породить не удалось
 			if(!agreement::generate(kem, item.opened.data() + kemat, item.secret.data())){
-				wipe(item.secret.data(), item.secret.size());
+				this->purge(item.secret.data(), item.secret.size());
 				return context::error_t::EXCHANGE;
 			}
 			// Если половина - X25519
 			if(half == extension::group_t::X25519){
 				// Если секрет и точку X25519 выработать не удалось
 				if(!entropy::bytes(item.secret.data() + secret, agreement::X25519_SIZE) || !agreement::x25519(view_t(item.secret.data() + secret, agreement::X25519_SIZE), item.opened.data() + curveat)){
-					wipe(item.secret.data(), item.secret.size());
+					this->purge(item.secret.data(), item.secret.size());
 					return context::error_t::EXCHANGE;
 				}
 			// Если половина - кривая NIST: точка в несжатом виде 04 ‖ X ‖ Y старшим байтом вперёд
@@ -2765,14 +2805,14 @@ context::error_t nts::internal::Engine::exchange(const extension::group_t group)
 				uint8_t raw[math::NUMBER_SIZE * 2];
 				// Если пару кривой породить не удалось
 				if((half != curveof(group)) || !agreement::generate(curve, item.secret.data() + secret, raw)){
-					wipe(item.secret.data(), item.secret.size());
+					this->purge(item.secret.data(), item.secret.size());
 					return context::error_t::EXCHANGE;
 				}
 				// Кодируем точку
 				item.opened[curveat] = 0x04;
 				reverse(raw, item.opened.data() + curveat + 1, scalar);
 				reverse(raw + scalar, item.opened.data() + curveat + 1 + scalar, scalar);
-				wipe(raw, sizeof(raw));
+				this->purge(raw, sizeof(raw));
 			}
 		} else if(montgomery(group)){
 			// Длина ключей кривой Монтгомери
@@ -2784,7 +2824,7 @@ context::error_t nts::internal::Engine::exchange(const extension::group_t group)
 			// Если секретный мимолётный ключ выработать не удалось
 			if(!entropy::bytes(item.secret.data(), item.secret.size())){
 				// Затираем недовыработанный секрет
-				wipe(item.secret.data(), item.secret.size());
+				this->purge(item.secret.data(), item.secret.size());
 				// Выводим отказ выработки мимолётной пары ключей
 				return context::error_t::EXCHANGE;
 			}
@@ -2796,7 +2836,7 @@ context::error_t nts::internal::Engine::exchange(const extension::group_t group)
 			// Если открытый мимолётный ключ выработать не удалось
 			if(!produced){
 				// Выполняем затирание секретного мимолётного ключа
-				wipe(item.secret.data(), item.secret.size());
+				this->purge(item.secret.data(), item.secret.size());
 				// Выводим отказ выработки мимолётной пары ключей
 				return context::error_t::EXCHANGE;
 			}
@@ -2811,7 +2851,7 @@ context::error_t nts::internal::Engine::exchange(const extension::group_t group)
 			// Если пару ключей группы выработать не удалось
 			if(!agreement::pairffdhe(size, item.secret.data(), item.opened.data())){
 				// Выполняем затирание секретного показателя
-				wipe(item.secret.data(), item.secret.size());
+				this->purge(item.secret.data(), item.secret.size());
 				// Выводим отказ выработки мимолётной пары ключей
 				return context::error_t::EXCHANGE;
 			}
@@ -2832,7 +2872,7 @@ context::error_t nts::internal::Engine::exchange(const extension::group_t group)
 			// Если мимолётную пару ключей своей стороны выработать не удалось
 			if(!agreement::generate(curve, item.secret.data(), point)){
 				// Выполняем затирание секретного мимолётного ключа
-				wipe(item.secret.data(), item.secret.size());
+				this->purge(item.secret.data(), item.secret.size());
 				// Выводим отказ выработки мимолётной пары ключей
 				return context::error_t::EXCHANGE;
 			}
@@ -2851,7 +2891,7 @@ context::error_t nts::internal::Engine::exchange(const extension::group_t group)
 				// Переносим координаты точки обратной записью как есть
 				item.opened.assign(point, point + (size * 2));
 			// Выполняем затирание координат открытого ключа
-			wipe(point, sizeof(point));
+			this->purge(point, sizeof(point));
 		}
 		// Добавляем пару ключей к парам своей стороны
 		this->_exchanges.push_back(::move(item));
@@ -6874,9 +6914,9 @@ context::error_t nts::internal::Engine::outgoing(const view_t & body, const view
 				 */
 				for(size_t i = 0; i < this->_exchanges.size(); i++){
 					// Затираем секрет доли
-					wipe(this->_exchanges[i].secret.data(), this->_exchanges[i].secret.size());
+					this->purge(this->_exchanges[i].secret.data(), this->_exchanges[i].secret.size());
 					// Затираем общее значение доли
-					wipe(this->_exchanges[i].shared.data(), this->_exchanges[i].shared.size());
+					this->purge(this->_exchanges[i].shared.data(), this->_exchanges[i].shared.size());
 				}
 				this->_exchanges.clear();
 				// Выполняем выработку мимолётной пары ключей на выбранной кривой
@@ -7052,9 +7092,9 @@ context::error_t nts::internal::Engine::rotate(const session::side_t side) noexc
 		 */
 		const bool installed = protection.start(this->_suite, view_t(material, protect::key(this->_suite)), view_t(element, protect::block(this->_suite)));
 		// Выполняем затирание вектора замены направления связи
-		wipe(element, sizeof(element));
+		this->purge(element, sizeof(element));
 		// Выполняем затирание корневого ключа направления связи
-		wipe(material, sizeof(material));
+		this->purge(material, sizeof(material));
 		// Если ключевой материал установить не удалось
 		if(!installed)
 			// Выводим отказ установки ключевого материала
@@ -7295,7 +7335,7 @@ context::error_t nts::internal::Engine::accept(const view_t & body) noexcept {
 			 */
 			if(this->_tickets.size() >= 16){
 				// Выполняем затирание ключа вытесняемого билета
-				wipe(this->_tickets.front().secret.data(), this->_tickets.front().secret.size());
+				this->purge(this->_tickets.front().secret.data(), this->_tickets.front().secret.size());
 				// Выполняем вытеснение старейшего билета
 				this->_tickets.erase(this->_tickets.begin());
 			}
@@ -7306,12 +7346,12 @@ context::error_t nts::internal::Engine::accept(const view_t & body) noexcept {
 		 */
 		} catch(const bad_alloc &) {
 			// Выполняем затирание ключа принятого билета
-			wipe(secret, sizeof(secret));
+			this->purge(secret, sizeof(secret));
 			// Выводим отказ нехватки памяти: сообщение уже снято со сборщика, связь обрывается
 			return this->abort(context::error_t::MEMORY, alert::description_t::INTERNAL);
 		}
 		// Выполняем затирание ключа принятого билета
-		wipe(secret, sizeof(secret));
+		this->purge(secret, sizeof(secret));
 		// Выводим успешность разбора билета возобновления связи
 		return context::error_t::NONE;
 	/**
@@ -8963,7 +9003,7 @@ void nts::internal::Engine::credential(const context::credential_t & credential)
 		// Если прежняя подлинность несёт секретный ключ
 		if(!this->_credential.secret.empty())
 			// Выполняем затирание прежнего секретного ключа
-			wipe(this->_credential.secret.data(), this->_credential.secret.size());
+			this->purge(this->_credential.secret.data(), this->_credential.secret.size());
 		// Запоминаем подлинность своей стороны связи
 		this->_credential = credential;
 	/**
@@ -9866,7 +9906,7 @@ context::error_t nts::internal::Engine::start() noexcept {
 		// Признак успешности заведения ключа билетов из случайного секрета
 		const bool stashed = this->_keeper.stash(view_t(secret, sizeof(secret)));
 		// Выполняем затирание случайного секрета
-		wipe(secret, sizeof(secret));
+		this->purge(secret, sizeof(secret));
 		// Если ключ билетов завести не удалось
 		if(!stashed)
 			// Выводим отказ нехватки настроек связи
@@ -10242,24 +10282,20 @@ void nts::internal::Engine::clear() noexcept {
 		// Если секретный мимолётный ключ пары выработан
 		if(!this->_exchanges[i].secret.empty())
 			// Выполняем затирание секретного мимолётного ключа
-			wipe(this->_exchanges[i].secret.data(), this->_exchanges[i].secret.size());
+			this->purge(this->_exchanges[i].secret.data(), this->_exchanges[i].secret.size());
 		// Если общий секрет инкапсуляции есть
 		if(!this->_exchanges[i].shared.empty())
 			// Выполняем затирание общего секрета инкапсуляции
-			wipe(this->_exchanges[i].shared.data(), this->_exchanges[i].shared.size());
+			this->purge(this->_exchanges[i].shared.data(), this->_exchanges[i].shared.size());
 	}
 	// Выполняем сброс мимолётных пар ключей своей стороны
 	this->_exchanges.clear();
-	// Если накопитель принятых прикладных данных не пуст
-	if(!this->_plain.empty())
-		// Выполняем затирание принятых прикладных данных
-		wipe(this->_plain.data(), this->_plain.size());
+	// Выполняем затирание принятых прикладных данных по классу PLAINTEXT
+	this->cleanse(this->_plain);
 	// Выполняем сброс накопителя принятых прикладных данных
 	this->_plain.clear();
-	// Если накопитель открытого содержимого записи не пуст
-	if(!this->_opened.empty())
-		// Выполняем затирание накопителя открытого содержимого записи
-		wipe(this->_opened.data(), this->_opened.size());
+	// Выполняем затирание накопителя открытого содержимого записи по классу PLAINTEXT
+	this->cleanse(this->_opened);
 	// Сбрасываем накопитель открытого содержимого записи
 	this->_opened.clear();
 	// Выполняем сброс накопителя отправляемых байтов связи
@@ -10308,7 +10344,7 @@ void nts::internal::Engine::clear() noexcept {
 	 */
 	for(size_t i = 0; i < this->_tickets.size(); i++)
 		// Выполняем затирание ключа очередного билета возобновления связи
-		wipe(this->_tickets[i].secret.data(), this->_tickets[i].secret.size());
+		this->purge(this->_tickets[i].secret.data(), this->_tickets[i].secret.size());
 	// Выполняем сброс билетов возобновления связи
 	this->_tickets.clear();
 	// Выполняем сброс опознавателя связи
@@ -10331,9 +10367,9 @@ void nts::internal::Engine::clear() noexcept {
 	this->_sealer.clear();
 	this->_opener.clear();
 	// Выполняем затирание случайного значения внутреннего приветствия
-	wipe(this->_innerandom, sizeof(this->_innerandom));
+	this->purge(this->_innerandom, sizeof(this->_innerandom));
 	// Выполняем затирание случайного значения своего приветствия
-	wipe(this->_random, sizeof(this->_random));
+	this->purge(this->_random, sizeof(this->_random));
 	// Сбрасываем признак просьбы о доле ключа
 	this->_reshare = true;
 	// Выполняем сброс переноса дейтаграммами
@@ -10365,7 +10401,7 @@ void nts::internal::Engine::clear() noexcept {
 	// Сбрасываем признак отдельного сообщения состояния сертификата
 	this->_stapling = false;
 	// Выполняем затирание случайного значения собеседника
-	wipe(this->_foreign, sizeof(this->_foreign));
+	this->purge(this->_foreign, sizeof(this->_foreign));
 	// Выполняем затирание секретов издания TLS 1.2
 	this->scrub();
 	// Выполняем сброс переписки подряд издания TLS 1.2
@@ -10387,7 +10423,7 @@ void nts::internal::Engine::clear() noexcept {
 	// Если ожидавший билет сеанса принят
 	if(!this->_promise.secret.empty())
 		// Выполняем затирание главного секрета ожидавшего билета
-		wipe(this->_promise.secret.data(), this->_promise.secret.size());
+		this->purge(this->_promise.secret.data(), this->_promise.secret.size());
 	// Выполняем сброс ожидавшего билета сеанса
 	this->_promise = context::ticket_t();
 }
@@ -10505,6 +10541,8 @@ context::error_t nts::internal::Engine::push(const view_t & data) noexcept {
 		const session::side_t side = (this->_server ? session::side_t::CLIENT : session::side_t::SERVER);
 		// Вид содержимого принятой записи связи
 		record::type_t type = header.type;
+		// Выполняем затирание открытого содержимого предыдущей записи по классу PLAINTEXT
+		this->cleanse(this->_opened);
 		// Опустошаем накопитель открытого содержимого записи: память его остаётся с движком
 		this->_opened.clear();
 		// Просмотр открытого содержимого принятой записи
@@ -10762,6 +10800,8 @@ context::error_t nts::internal::Engine::push(const view_t & data) noexcept {
 			default: return this->abort(context::error_t::RECORD, alert::description_t::UNEXPECTED);
 		}
 	}
+	// Выполняем затирание открытого содержимого последней записи по классу PLAINTEXT
+	this->cleanse(this->_opened);
 	// Если ответная смена ключей задолжена собеседнику и своя смена подтверждена
 	if(this->_owed && (this->_state == context::state_t::ESTABLISHED) && !this->rotating()){
 		// Сбрасываем признак задолженной смены ключей
@@ -10940,10 +10980,8 @@ context::error_t nts::internal::Engine::read(vector <uint8_t> & result) noexcept
 		// Выводим отказ нехватки памяти
 		return context::error_t::MEMORY;
 	}
-	// Если накопитель принятых прикладных данных не пуст
-	if(!this->_plain.empty())
-		// Выполняем затирание принятых прикладных данных
-		wipe(this->_plain.data(), this->_plain.size());
+	// Выполняем затирание принятых прикладных данных по классу PLAINTEXT
+	this->cleanse(this->_plain);
 	// Выполняем сброс накопителя принятых прикладных данных
 	this->_plain.clear();
 	// Выводим успешность получения принятых прикладных данных
@@ -11147,7 +11185,7 @@ context::error_t nts::internal::Engine::issue() noexcept {
 			// Если предел упреждающих данных составить не удалось
 			if(failure != context::error_t::NONE){
 				// Выполняем затирание ключа выдаваемого билета
-				wipe(secret, sizeof(secret));
+				this->purge(secret, sizeof(secret));
 				// Выводим отказ составления сообщения билета
 				return failure;
 			}
@@ -11165,7 +11203,7 @@ context::error_t nts::internal::Engine::issue() noexcept {
 		// Если тело сообщения билета составить не удалось
 		if(failure != context::error_t::NONE){
 			// Выполняем затирание ключа выдаваемого билета
-			wipe(secret, sizeof(secret));
+			this->purge(secret, sizeof(secret));
 			// Выводим отказ составления сообщения билета
 			return failure;
 		}
@@ -11176,7 +11214,7 @@ context::error_t nts::internal::Engine::issue() noexcept {
 		// Если сообщение билета возобновления связи составить не удалось
 		if(failure != context::error_t::NONE){
 			// Выполняем затирание ключа выдаваемого билета
-			wipe(secret, sizeof(secret));
+			this->purge(secret, sizeof(secret));
 			// Выводим отказ составления сообщения билета
 			return failure;
 		}
@@ -11185,7 +11223,7 @@ context::error_t nts::internal::Engine::issue() noexcept {
 		// Если сообщение билета отправить не удалось
 		if(error != context::error_t::NONE){
 			// Выполняем затирание ключа выдаваемого билета
-			wipe(secret, sizeof(secret));
+			this->purge(secret, sizeof(secret));
 			// Выводим отказ отправки сообщения билета
 			return error;
 		}
@@ -11199,7 +11237,7 @@ context::error_t nts::internal::Engine::issue() noexcept {
 			 * сличает её сам с собою: заслон недостижим и стоит обороною
 			 */
 			// Выполняем затирание ключа выдаваемого билета
-			wipe(secret, sizeof(secret));
+			this->purge(secret, sizeof(secret));
 			// Выводим отказ объявления сообщения не в свой черёд
 			return this->abort(context::error_t::ORDER, alert::description_t::UNEXPECTED);
 		}
@@ -11226,12 +11264,12 @@ context::error_t nts::internal::Engine::issue() noexcept {
 		 */
 		} catch(const bad_alloc &) {
 			// Выполняем затирание ключа выданного билета
-			wipe(secret, sizeof(secret));
+			this->purge(secret, sizeof(secret));
 			// Выводим отказ нехватки памяти: сообщение уже снято со сборщика, связь обрывается
 			return this->abort(context::error_t::MEMORY, alert::description_t::INTERNAL);
 		}
 		// Выполняем затирание ключа выданного билета
-		wipe(secret, sizeof(secret));
+		this->purge(secret, sizeof(secret));
 		// Если связь ведётся поверх дейтаграмм
 		if(this->_transport == context::transport_t::DATAGRAMS)
 			// Выводим итог раскладки залпа по дейтаграммам
@@ -11243,7 +11281,7 @@ context::error_t nts::internal::Engine::issue() noexcept {
 	 */
 	} catch(const bad_alloc &) {
 		// Затираем ключ билета: выделение ниже вывода ключа могло бросить, оставив его в кадре
-		wipe(secret, sizeof(secret));
+		this->purge(secret, sizeof(secret));
 		// Выводим отказ нехватки памяти
 		return context::error_t::MEMORY;
 	}
@@ -11712,7 +11750,7 @@ context::error_t nts::internal::Engine::legacy(const handshake::type_t type, con
 			// Добавляем принятый билет в перечень билетов связи
 			this->_tickets.push_back(this->_promise);
 			// Выполняем затирание главного секрета ожидавшего билета
-			wipe(this->_promise.secret.data(), this->_promise.secret.size());
+			this->purge(this->_promise.secret.data(), this->_promise.secret.size());
 			// Выполняем сброс ожидавшего билета
 			this->_promise = context::ticket_t();
 		}
@@ -13108,11 +13146,11 @@ context::error_t nts::internal::Engine::agreed(const view_t & body) noexcept {
 					// Если прежний ключ связи выработан
 					if(!this->_preshared.empty())
 						// Выполняем затирание прежнего ключа
-						wipe(this->_preshared.data(), this->_preshared.size());
+						this->purge(this->_preshared.data(), this->_preshared.size());
 					// Переносим выбранный ключ в укрытую память
 					this->_preshared.assign(key.begin(), key.end());
 					// Выполняем затирание ключа в обычной куче
-					wipe(key.data(), key.size());
+					this->purge(key.data(), key.size());
 				}
 			}
 			// Раздел 2 RFC 4279: у чистого PSK за подсказкой ничего не идёт
@@ -13225,7 +13263,7 @@ context::error_t nts::internal::Engine::agreed(const view_t & body) noexcept {
 		// Если общее значение выработать не удалось
 		if(failure != context::error_t::NONE){
 			// Выполняем затирание общего значения
-			wipe(shared, sizeof(shared));
+			this->purge(shared, sizeof(shared));
 			// Выводим отказ выработки общего значения
 			return failure;
 		}
@@ -13241,12 +13279,12 @@ context::error_t nts::internal::Engine::agreed(const view_t & body) noexcept {
 		 */
 		} catch(const bad_alloc &) {
 			// Выполняем затирание общего значения
-			wipe(shared, sizeof(shared));
+			this->purge(shared, sizeof(shared));
 			// Выводим отказ нехватки памяти
 			return context::error_t::MEMORY;
 		}
 		// Выполняем затирание общего значения
-		wipe(shared, sizeof(shared));
+		this->purge(shared, sizeof(shared));
 		// Выводим успешность разбора обмена ключами сервера
 		return context::error_t::NONE;
 	/**
@@ -13549,11 +13587,11 @@ context::error_t nts::internal::Engine::exchanging() noexcept {
 			// Если прежнее общее значение выработано
 			if(!this->_premaster.empty())
 				// Выполняем затирание прежнего общего значения
-				wipe(this->_premaster.data(), this->_premaster.size());
+				this->purge(this->_premaster.data(), this->_premaster.size());
 			// Составляем общее значение обмена: len(other) ‖ other ‖ len(psk) ‖ psk
 			outcome = premastering(view_t(other.data(), other.size()), view_t(this->_preshared.data(), this->_preshared.size()), this->_premaster);
 			// Выполняем затирание первой половины
-			wipe(other.data(), other.size());
+			this->purge(other.data(), other.size());
 			// Если общее значение составить не удалось
 			if(outcome != field::error_t::NONE)
 				// Выводим отказ составления общего значения
@@ -13568,7 +13606,7 @@ context::error_t nts::internal::Engine::exchanging() noexcept {
 		// Выполняем вывод главного секрета и ключевого материала связи
 		const context::error_t expanded = this->expanding(view_t(this->_premaster.data(), this->_premaster.size()));
 		// Выполняем затирание общего значения обмена ключами
-		wipe(this->_premaster.data(), this->_premaster.size());
+		this->purge(this->_premaster.data(), this->_premaster.size());
 		// Выполняем сброс общего значения обмена ключами
 		this->_premaster.clear();
 		// Выводим итог вывода ключевого материала связи
@@ -13620,7 +13658,7 @@ context::error_t nts::internal::Engine::exchanged(const view_t & body) noexcept 
 			// Если прежний ключ связи выработан
 			if(!this->_preshared.empty())
 				// Выполняем затирание прежнего ключа
-				wipe(this->_preshared.data(), this->_preshared.size());
+				this->purge(this->_preshared.data(), this->_preshared.size());
 			// Выполняем сброс прежнего ключа
 			this->_preshared.clear();
 			// Если вызов ключа по опознавателю не задан: набор не был бы выбран, заслон стоит обороною
@@ -13634,11 +13672,11 @@ context::error_t nts::internal::Engine::exchanged(const view_t & body) noexcept 
 			// Переносим выданный ключ в укрытую память
 			this->_preshared.assign(issued.begin(), issued.end());
 			// Выполняем затирание ключа в обычной куче
-			wipe(issued.data(), issued.size());
+			this->purge(issued.data(), issued.size());
 			// Раздел 5.3 RFC 4279: выданный ключ не длиннее 64 байтов и непуст - иное есть отказ настроек потребителя, а не неизвестный опознаватель
 			if(known && (this->_preshared.empty() || (this->_preshared.size() > PRESHARED))){
 				// Выполняем затирание негодного ключа
-				wipe(this->_preshared.data(), this->_preshared.size());
+				this->purge(this->_preshared.data(), this->_preshared.size());
 				// Выполняем сброс негодного ключа
 				this->_preshared.clear();
 				// Выводим отказ настроек связи
@@ -13683,7 +13721,7 @@ context::error_t nts::internal::Engine::exchanged(const view_t & body) noexcept 
 				// Переносим общее значение кривой
 				other.assign(shared, shared + length);
 			// Выполняем затирание общего значения
-			wipe(shared, sizeof(shared));
+			this->purge(shared, sizeof(shared));
 			// Если общее значение выработать не удалось
 			if(failure != context::error_t::NONE)
 				// Выводим отказ выработки общего значения
@@ -13742,7 +13780,7 @@ context::error_t nts::internal::Engine::exchanged(const view_t & body) noexcept 
 				// Выбираем очередной байт под маской
 				other[i] = static_cast <uint8_t> ((decrypted[i] & mask) | (other[i] & static_cast <uint8_t> (~mask)));
 			// Выполняем затирание расшифрованного значения
-			wipe(decrypted.data(), decrypted.size());
+			this->purge(decrypted.data(), decrypted.size());
 		// Если набор чистого PSK: за опознавателем ничего не идёт
 		} else if(scanner.left() > 0)
 			// Выводим отказ разбора обмена ключами клиента
@@ -13758,7 +13796,7 @@ context::error_t nts::internal::Engine::exchanged(const view_t & body) noexcept 
 			// Составляем общее значение обмена: len(other) ‖ other ‖ len(psk) ‖ psk
 			const field::error_t outcome = premastering(view_t(other.data(), other.size()), view_t(this->_preshared.data(), this->_preshared.size()), composed);
 			// Выполняем затирание первой половины
-			wipe(other.data(), other.size());
+			this->purge(other.data(), other.size());
 			// Если общее значение составить не удалось
 			if(outcome != field::error_t::NONE)
 				// Выводим отказ составления общего значения
@@ -13766,12 +13804,12 @@ context::error_t nts::internal::Engine::exchanged(const view_t & body) noexcept 
 			// Переносим составленное общее значение: распределители разные, перенос идёт копией
 			other.assign(composed.begin(), composed.end());
 			// Выполняем затирание прежней первой половины, ушедшей обменом
-			wipe(composed.data(), composed.size());
+			this->purge(composed.data(), composed.size());
 		}
 		// Выполняем вывод главного секрета и ключевого материала связи
 		failure = this->expanding(view_t(other.data(), other.size()));
 		// Выполняем затирание общего значения
-		wipe(other.data(), other.size());
+		this->purge(other.data(), other.size());
 		// Выводим итог разбора обмена ключами клиента
 		return failure;
 	/**
@@ -14046,7 +14084,7 @@ context::error_t nts::internal::Engine::keying() noexcept {
 	// Раздел 6.3 RFC 5246: ключевой материал из главного секрета меткой и затравкой
 	if(!this->sequencing(view_t(this->_keys->master, sizeof(this->_keys->master)), expansion, view_t(seed, sizeof(seed)), material, (stamp + width + size) * 2)){
 		// Выполняем затирание ключевого материала
-		wipe(material, sizeof(material));
+		this->purge(material, sizeof(material));
 		// Выводим отказ вывода ключевого материала
 		return context::error_t::SCHEDULE;
 	}
@@ -14088,7 +14126,7 @@ context::error_t nts::internal::Engine::keying() noexcept {
 		// Устанавливаем ключевой материал приёма
 		ok = this->_input.start(this->_suite, (this->_server ? clientKey : serverKey), (this->_server ? clientVector : serverVector), (this->_server ? clientMac : serverMac));
 	// Выполняем затирание ключевого материала
-	wipe(material, sizeof(material));
+	this->purge(material, sizeof(material));
 	// Если ключевой материал установить не удалось
 	if(!ok)
 		// Выводим отказ установки ключевого материала
@@ -14205,7 +14243,7 @@ context::error_t nts::internal::Engine::granting() noexcept {
 		// Добавляем выданный билет в перечень билетов связи
 		this->_tickets.push_back(item);
 		// Выполняем затирание главного секрета в записи билета
-		wipe(item.secret.data(), item.secret.size());
+		this->purge(item.secret.data(), item.secret.size());
 		// Выводим успешность отправки билета сеанса
 		return context::error_t::NONE;
 	/**
@@ -14432,7 +14470,7 @@ void nts::internal::Engine::psk(const context::psk_t & psk) noexcept {
 		// Если прежний ключ задан
 		if(!this->_psk.key.empty())
 			// Выполняем затирание прежнего ключа
-			wipe(this->_psk.key.data(), this->_psk.key.size());
+			this->purge(this->_psk.key.data(), this->_psk.key.size());
 		// Запоминаем настройки заранее разделённого ключа
 		this->_psk = psk;
 	/**
@@ -14502,6 +14540,68 @@ void nts::internal::Engine::grease(const bool grease) noexcept {
 bool nts::internal::Engine::grease() const noexcept {
 	// Выводим признак вставки значений GREASE
 	return this->_greasing;
+}
+/**
+ * @brief Метод установки классов затирания памяти связи
+ *
+ * @param classes классы затирания (context::wiping_t)
+ *
+ */
+void nts::internal::Engine::wiping(const vector <context::wiping_t> & classes) noexcept {
+	/**
+	 * Выполняем перехват ошибок работы с памятью: установщик отказа не выводит, и
+	 * нехватка памяти помнится до заведения связи
+	 */
+	try {
+		// Запоминаем классы затирания
+		this->_wiping = classes;
+		// Сбрасываем признак затирания секретов
+		this->_scrubbing = false;
+		// Сбрасываем признак затирания открытого текста
+		this->_cleansing = false;
+		/**
+		 * Выполняем перебор классов затирания
+		 */
+		for(size_t i = 0; i < classes.size(); i++){
+			/**
+			 * Определяем класс затирания
+			 */
+			switch(static_cast <uint8_t> (classes[i])){
+				// Если класс - секреты
+				case static_cast <uint8_t> (context::wiping_t::SECRETS):
+					// Включаем затирание секретов
+					this->_scrubbing = true;
+				break;
+				// Если класс - открытый текст записей
+				case static_cast <uint8_t> (context::wiping_t::PLAINTEXT):
+					// Включаем затирание открытого текста
+					this->_cleansing = true;
+				break;
+			}
+		}
+	/**
+	 * Если памяти под перечень классов не хватило
+	 */
+	} catch(const bad_alloc &) {
+		// Сбрасываем перечень классов
+		this->_wiping.clear();
+		// Сбрасываем признак затирания секретов
+		this->_scrubbing = false;
+		// Сбрасываем признак затирания открытого текста
+		this->_cleansing = false;
+		// Запоминаем нехватку памяти
+		this->_starved = true;
+	}
+}
+/**
+ * @brief Метод получения классов затирания памяти связи
+ *
+ * @return классы затирания, объявленные потребителем
+ *
+ */
+const vector <context::wiping_t> & nts::internal::Engine::wiping() const noexcept {
+	// Выводим классы затирания
+	return this->_wiping;
 }
 /**
  * @brief Метод проверки, есть ли набор шифрования среди наборов профиля отпечатка
@@ -16140,7 +16240,7 @@ context::error_t nts::internal::Engine::deciding(const bool resumed) noexcept {
 	// Если рукопожатие полное: билет сервером не признан, за приветствием идёт цепочка либо обмен ключами
 	if(!resumed){
 		// Выполняем затирание главного секрета билета: он не пригодился
-		wipe(this->_keys->master, sizeof(this->_keys->master));
+		this->purge(this->_keys->master, sizeof(this->_keys->master));
 		// Переходим к ожиданию цепочки сертификатов либо обмена ключами у наборов PSK
 		this->_phase = (preshared(this->_suite) ? phase_t::AGREEMENT : phase_t::CERTIFICATE);
 		// Выводим успешность суждения
@@ -16724,11 +16824,11 @@ context::error_t nts::internal::Engine::adopt(const session::side_t side, const 
 	// Отказ заведения поры ключей переносом
 	const context::error_t error = (derived ? this->_flight.adopt((side != own), (level == context::level_t::HANDSHAKE), this->_suite, view_t(material, protect::key(this->_suite)), view_t(element, protect::block(this->_suite)), view_t(sn, protect::key(this->_suite))) : context::error_t::SCHEDULE);
 	// Выполняем затирание ключа шифрования номера записи
-	wipe(sn, sizeof(sn));
+	this->purge(sn, sizeof(sn));
 	// Выполняем затирание вектора замены направления связи
-	wipe(element, sizeof(element));
+	this->purge(element, sizeof(element));
 	// Выполняем затирание корневого ключа направления связи
-	wipe(material, sizeof(material));
+	this->purge(material, sizeof(material));
 	// Выводим итог заведения поры ключей
 	return error;
 }
@@ -16751,6 +16851,27 @@ context::error_t nts::internal::Engine::receive(const view_t & data) noexcept {
 	const uint16_t before = this->_flight.epoch(true);
 	// Записи дейтаграммы, вскрытые переносом
 	vector <opened_t> records;
+	/**
+	 * Сторож открытого текста дейтаграмм: по классу PLAINTEXT содержимое снятых записей
+	 * затирается на всяком выходе из разбора, а не только на удачном
+	 */
+	struct guard_t {
+		// Связь, чьи классы затирания действуют
+		const Engine & engine;
+		// Снятые записи дейтаграмм
+		vector <opened_t> & records;
+		/**
+		 * @brief Деструктор: затирание содержимого снятых записей
+		 */
+		~guard_t() noexcept {
+			/**
+			 * Выполняем перебор снятых записей
+			 */
+			for(size_t i = 0; i < this->records.size(); i++)
+				// Выполняем затирание содержимого записи по классу PLAINTEXT
+				this->engine.cleanse(this->records[i].content);
+		}
+	} guard{*this, records};
 	// Отказ вскрытия записей дейтаграммы
 	context::error_t error = this->_flight.receive(data, records);
 	// Если памяти под вскрытие записей не хватило
@@ -17263,7 +17384,7 @@ nts::internal::Engine::Engine(const bool server) noexcept :
 	_inquiring(false), _inquired(false), _verifying(false), _leeway(0), _certified(ocsp::status_t::NONE), _stamping(false), _stamped(false), _outgoing(record::RECORD_PLAINTEXT), _incoming(record::RECORD_PLAINTEXT), _sizing(0), _bounded(0), _fragmented(0), _bounding(0), _fragmenting(0), _sized{0, 0}, _heartbeating(false), _permitted(false), _answering(false), _beating(false), _pulses(0), _negotiating(false), _negotiated(false), _announced(false), _reshare(true), _greasing(false), _profiled(false), _ech(ech_t::NONE), _shroud(0), _echaccepted(false), _echrejected(false), _unshrouding(false),
 	_queries(0), _confirmed(false), _delivered(0), _switched(false),
 	_lowest(LEGACY), _highest(MODERN), _version(0), _legacy(false), _ancient(false), _proposed(false), _own(true), _phase(phase_t::NONE), _sealing(false), _opening(false), _stapling(false),
-	_claimed(0), _etm(false), _strict(false), _ticketing(false), _presented(false), _resumed(false), _authenticated(0) {
+	_claimed(0), _etm(false), _strict(false), _ticketing(false), _presented(false), _resumed(false), _authenticated(0), _scrubbing(true), _cleansing(false) {
 	// Сбрасываем ключевой материал связи до заведения участка
 	this->_keys = nullptr;
 	/**
@@ -17306,6 +17427,8 @@ nts::internal::Engine::Engine(const bool server) noexcept :
 		 * объявляет сам перечнем suites() (намеренное решение 19). Порядок этот лишь
 		 * умолчание, а перечень потребителя не пересортировывается
 		 */
+		// Классы затирания памяти связи по умолчанию - только секреты (намеренное решение 20)
+		this->_wiping = {context::wiping_t::SECRETS};
 		this->_suites = {
 			protect::suite_t::AES_256_GCM_SHA384, protect::suite_t::CHACHA20_POLY1305_SHA256,
 			protect::suite_t::AES_128_GCM_SHA256,
@@ -17360,9 +17483,9 @@ nts::internal::Engine::~Engine() noexcept {
 	// Если подлинность несёт секретный ключ
 	if(!this->_credential.secret.empty())
 		// Выполняем затирание секретного ключа своей подлинности
-		wipe(this->_credential.secret.data(), this->_credential.secret.size());
+		this->purge(this->_credential.secret.data(), this->_credential.secret.size());
 	// Ключи билетов сеансов затирает их хранитель; если заранее разделённый ключ задан
 	if(!this->_psk.key.empty())
 		// Выполняем затирание заранее разделённого ключа
-		wipe(this->_psk.key.data(), this->_psk.key.size());
+		this->purge(this->_psk.key.data(), this->_psk.key.size());
 }

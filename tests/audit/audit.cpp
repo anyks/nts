@@ -3249,7 +3249,7 @@ TEST(AuditTest, IssueTicketSecretScopedBeforeTry){
 	const size_t outer = body.rfind("catch(const bad_alloc &)");
 	ASSERT_NE(outer, std::string::npos) << "внешний catch(bad_alloc) не найден";
 	const std::string tail = body.substr(outer);
-	EXPECT_NE(tail.find("wipe(secret"), std::string::npos) << "внешний catch(bad_alloc) не затирает ключ билета (регрессия круга 9)";
+	EXPECT_NE(tail.find("purge(secret"), std::string::npos) << "внешний catch(bad_alloc) не затирает ключ билета (регрессия круга 9; с круга 32 затирание идёт через purge() по классу SECRETS)";
 }
 
 /**
@@ -3331,4 +3331,264 @@ TEST(AuditTest, HeartbeatBleed){
 			EXPECT_EQ(server.output().size, static_cast <size_t> (0)) << item;
 		}
 	}
+}
+
+/**
+ * Признак сборки с ограждением адресов: чтение буфера контейнера за его размером там
+ * считается переполнением, и с него снимается отрава перед сличением
+ */
+#if defined(__SANITIZE_ADDRESS__)
+	#define ANTS_AUDIT_ASAN 1
+#elif defined(__has_feature)
+	#if __has_feature(address_sanitizer)
+		#define ANTS_AUDIT_ASAN 1
+	#endif
+#endif
+
+/**
+ * Снятие отравы с области под ограждением адресов
+ */
+#if defined(ANTS_AUDIT_ASAN)
+	#include <sanitizer/asan_interface.h>
+	#define ANTS_AUDIT_UNPOISON(data, size) ASAN_UNPOISON_MEMORY_REGION(data, size)
+#else
+	#define ANTS_AUDIT_UNPOISON(data, size) ((void) 0)
+#endif
+
+/**
+ * Заглядывание в закрытые накопители движка законным способом языка: явное порождение
+ * шаблона не подчиняется ограничениям доступа (пункт 12 [temp.explicit] C++17), а
+ * дружественная функция, порождённая вместе с ним, отдаёт указатель на закрытый член.
+ * Производственного кода это не касается: ни друзей, ни открытых доступов движку не
+ * добавлено, и снять пин можно, ничего в движке не трогая
+ */
+namespace {
+	/**
+	 * @brief Шаблон порождения дружественной функции, отдающей указатель на член
+	 */
+	template <typename Tag, typename Tag::type Member>
+	struct Peek {
+		/**
+		 * @brief Дружественная функция: указатель на член по метке
+		 */
+		friend typename Tag::type peek(Tag){ return Member; }
+	};
+	/**
+	 * @brief Метка накопителя принятых прикладных данных движка
+	 */
+	struct PlainTag {
+		// Вид указателя на член
+		typedef vector <uint8_t> internal::Engine::* type;
+		// Объявление дружественной функции
+		friend type peek(PlainTag);
+	};
+	/**
+	 * @brief Метка накопителя открытого содержимого записи движка
+	 */
+	struct OpenedTag {
+		// Вид указателя на член
+		typedef vector <uint8_t> internal::Engine::* type;
+		// Объявление дружественной функции
+		friend type peek(OpenedTag);
+	};
+	/**
+	 * Явные порождения: доступ к закрытым членам здесь дозволен языком
+	 */
+	template struct Peek <PlainTag, &internal::Engine::_plain>;
+	template struct Peek <OpenedTag, &internal::Engine::_opened>;
+	/**
+	 * @brief Метод счёта нулевых байтов области
+	 *
+	 * @param data область байтов
+	 * @param size длина области
+	 *
+	 * @return     число нулевых байтов
+	 *
+	 */
+	static size_t zeros(const uint8_t * data, const size_t size) noexcept {
+		// Число нулевых байтов
+		size_t result = 0;
+		/**
+		 * Выполняем перебор байтов
+		 */
+		for(size_t i = 0; i < size; i++)
+			// Учитываем нулевой байт
+			result += ((data[i] == 0) ? 1 : 0);
+		// Выводим число нулевых байтов
+		return result;
+	}
+};
+
+/**
+ * Проверка затирания открытого текста принятых записей по классу PLAINTEXT (решение 20
+ * шапки движка): без класса накопители движка после выдачи данных вызовом read держат
+ * принятые байты как есть (умолчание, как у OpenSSL без SSL_OP_CLEANSE_PLAINTEXT), с
+ * классом - и накопитель прикладных данных, и накопитель открытого содержимого
+ * последней записи нулевые
+ */
+TEST(AuditTest, PlaintextCleansing){
+	// Подлинность стороны сервера
+	context::credential_t credential;
+	// Выполняем чтение подлинности из набора
+	ASSERT_TRUE(keyfile("ec256", credential));
+	// Прикладные данные без нулевых байтов
+	vector <uint8_t> payload(700);
+	/**
+	 * Выполняем заполнение прикладных данных
+	 */
+	for(size_t i = 0; i < payload.size(); i++)
+		// Заполняем байт ненулевым значением
+		payload[i] = static_cast <uint8_t> (0x21 + (i % 90));
+	/**
+	 * Выполняем перебор режимов: без класса и с классом
+	 */
+	for(uint8_t mode = 0; mode < 2; mode++){
+		// Движки сторон связи
+		internal::engine_t client(false), server(true);
+		// Устанавливаем имя узла клиенту
+		client.name("example.com");
+		// Устанавливаем подлинность серверу
+		server.credential(credential);
+		// Если режим с классом открытого текста
+		if(mode == 1)
+			// Устанавливаем классы затирания серверу
+			server.wiping(vector <context::wiping_t> {context::wiping_t::SECRETS, context::wiping_t::PLAINTEXT});
+		// Выполняем заведение связи стороны сервера
+		ASSERT_EQ(server.start(), context::error_t::NONE);
+		// Выполняем заведение связи стороны клиента
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		/**
+		 * Выполняем проведение рукопожатия сторон связи
+		 */
+		for(size_t round = 0; round < 16; round++){
+			// Признак передачи байтов
+			bool moved = false;
+			// Байты клиента серверу
+			view_t data = client.output();
+			// Если байты есть
+			if(data.size > 0){ vector <uint8_t> buffer(data.data, data.data + data.size); client.consume(buffer.size()); server.push(view_t(buffer.data(), buffer.size())); moved = true; }
+			// Байты сервера клиенту
+			data = server.output();
+			// Если байты есть
+			if(data.size > 0){ vector <uint8_t> buffer(data.data, data.data + data.size); server.consume(buffer.size()); client.push(view_t(buffer.data(), buffer.size())); moved = true; }
+			// Если передавать нечего
+			if(!moved) break;
+		}
+		// Проверяем установленность связи стороной сервера
+		ASSERT_EQ(server.state(), context::state_t::ESTABLISHED) << "режим " << static_cast <int> (mode);
+		// Выполняем отправку прикладных данных клиентом
+		ASSERT_EQ(client.write(view_t(payload.data(), payload.size())), context::error_t::NONE);
+		// Байты клиента серверу
+		const view_t data = client.output();
+		// Проверяем наличие записи
+		ASSERT_GT(data.size, static_cast <size_t> (0));
+		// Копия записи
+		const vector <uint8_t> buffer(data.data, data.data + data.size);
+		// Выполняем снятие записи с накопителя клиента
+		client.consume(buffer.size());
+		// Выполняем подачу записи серверу
+		ASSERT_EQ(server.push(view_t(buffer.data(), buffer.size())), context::error_t::NONE) << "режим " << static_cast <int> (mode);
+		// Накопитель принятых данных
+		vector <uint8_t> received;
+		// Выполняем получение принятых сервером прикладных данных
+		ASSERT_EQ(server.read(received), context::error_t::NONE);
+		// Проверяем схождение принятых данных с отправленными
+		ASSERT_EQ(received, payload) << "режим " << static_cast <int> (mode);
+		// Накопитель принятых прикладных данных движка
+		vector <uint8_t> & plain = (server.*peek(PlainTag()));
+		// Накопитель открытого содержимого записи движка
+		vector <uint8_t> & opened = (server.*peek(OpenedTag()));
+		// Проверяем опустошение накопителя прикладных данных выдачей
+		ASSERT_TRUE(plain.empty()) << "режим " << static_cast <int> (mode);
+		// Проверяем сохранность буфера накопителя: память остаётся с движком
+		ASSERT_GE(plain.capacity(), payload.size()) << "режим " << static_cast <int> (mode);
+		// Проверяем длину накопителя открытого содержимого: последняя запись целиком
+		ASSERT_EQ(opened.size(), payload.size()) << "режим " << static_cast <int> (mode);
+		// Снимаем отраву с буфера накопителя за его размером
+		ANTS_AUDIT_UNPOISON(plain.data(), payload.size());
+		// Число нулевых байтов в буфере прикладных данных
+		const size_t blanked = zeros(plain.data(), payload.size());
+		// Число нулевых байтов в накопителе открытого содержимого
+		const size_t cleared = zeros(opened.data(), opened.size());
+		// Если режим без класса
+		if(mode == 0){
+			// Проверяем сохранность принятых байтов в буфере: затирания нет
+			EXPECT_EQ(blanked, static_cast <size_t> (0)) << "без класса PLAINTEXT буфер прикладных данных затёрт";
+			// Проверяем сохранность открытого содержимого: затирания нет
+			EXPECT_EQ(cleared, static_cast <size_t> (0)) << "без класса PLAINTEXT открытое содержимое затёрто";
+		// Если режим с классом
+		} else {
+			// Проверяем затирание буфера прикладных данных целиком
+			EXPECT_EQ(blanked, payload.size()) << "с классом PLAINTEXT буфер прикладных данных не затёрт";
+			// Проверяем затирание открытого содержимого целиком
+			EXPECT_EQ(cleared, payload.size()) << "с классом PLAINTEXT открытое содержимое не затёрто";
+		}
+	}
+}
+
+/**
+ * Пин формы решения 20 шапки движка: голых вызовов wipe() в движке нет - всякое
+ * затирание секретов идёт через purge() по классу SECRETS, накопителей открытого
+ * текста через cleanse() по классу PLAINTEXT; сами purge() и cleanse() - два
+ * единственных места с голым wipe()
+ */
+TEST(AuditTest, SecretsViaPurge){
+	// Открываем исходник движка
+	std::ifstream file(ANTS_ENGINE_SRC, std::ios::binary);
+	// Проверяем открытие исходника
+	ASSERT_TRUE(file.is_open()) << "нет исходника движка: " << ANTS_ENGINE_SRC;
+	// Исходник целиком
+	const std::string source((std::istreambuf_iterator <char> (file)), std::istreambuf_iterator <char> ());
+	// Число голых вызовов wipe() в начале оператора
+	size_t bare = 0;
+	// Число вызовов через purge()
+	size_t purged = 0;
+	// Число вызовов через cleanse()
+	size_t cleansed = 0;
+	// Начало очередной строки
+	size_t offset = 0;
+	/**
+	 * Выполняем перебор строк исходника
+	 */
+	while(offset < source.size()){
+		// Конец строки
+		size_t end = source.find('\n', offset);
+		// Если конца строки нет
+		if(end == std::string::npos) end = source.size();
+		// Строка
+		const std::string line = source.substr(offset, end - offset);
+		// Начало содержимого строки без отступа
+		const size_t start = line.find_first_not_of('\t');
+		// Если строка не пуста
+		if(start != std::string::npos){
+			// Если строка - голый вызов wipe()
+			if(line.compare(start, 5, "wipe(") == 0) bare++;
+			// Если строка - вызов purge()
+			else if(line.compare(start, 12, "this->purge(") == 0) purged++;
+			// Если строка - вызов cleanse()
+			else if(line.compare(start, 14, "this->cleanse(") == 0) cleansed++;
+		}
+		// Переходим к следующей строке
+		offset = (end + 1);
+	}
+	// Проверяем: голых wipe() ровно два - тела purge() и cleanse()
+	EXPECT_EQ(bare, static_cast <size_t> (2)) << "голый wipe() вне purge()/cleanse() - затирание мимо классов (решение 20)";
+	// Проверяем наличие затираний секретов через purge()
+	EXPECT_GE(purged, static_cast <size_t> (80)) << "затирания секретов движка идут не через purge()";
+	// Проверяем наличие затираний открытого текста через cleanse()
+	EXPECT_GE(cleansed, static_cast <size_t> (5)) << "затирания накопителей открытого текста идут не через cleanse()";
+	// Тело purge(): голый wipe() внутри
+	const size_t purge = source.find("Engine::purge(void * data, const size_t size) const noexcept {");
+	// Проверяем наличие purge()
+	ASSERT_NE(purge, std::string::npos) << "purge() не найден";
+	// Проверяем голый wipe() в purge()
+	EXPECT_NE(source.find("wipe(data, size);", purge), std::string::npos) << "purge() не затирает";
+	// Проверяем условие класса SECRETS в purge()
+	EXPECT_NE(source.find("if(this->_scrubbing)", purge), std::string::npos) << "purge() не смотрит на класс SECRETS";
+	// Тело cleanse(): голый wipe() внутри
+	const size_t cleanse = source.find("Engine::cleanse(vector <uint8_t> & data) const noexcept {");
+	// Проверяем наличие cleanse()
+	ASSERT_NE(cleanse, std::string::npos) << "cleanse() не найден";
+	// Проверяем условие класса PLAINTEXT в cleanse()
+	EXPECT_NE(source.find("if(this->_cleansing && !data.empty())", cleanse), std::string::npos) << "cleanse() не смотрит на класс PLAINTEXT";
 }

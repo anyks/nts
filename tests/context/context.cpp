@@ -8104,3 +8104,104 @@ TEST(ContextTest, Preference){
 		EXPECT_EQ(server.group(), client.group());
 	}
 }
+/**
+ * Проверка классов затирания памяти связи: умолчание - только секреты, перечень
+ * потребителя возвращается получателем как есть, и связь при всяком перечне
+ * (пустом, с открытым текстом, с обоими классами) проходит рукопожатие, обмен
+ * записями в обе стороны и закрытие
+ */
+TEST(ContextTest, Wiping){
+	// Подлинность стороны сервера
+	context::credential_t credentials;
+	// Выполняем выработку подлинности стороны сервера
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	/**
+	 * Умолчание связи - только секреты, у обеих ролей
+	 */
+	{
+		// Связь стороны клиента
+		client::context_t client;
+		// Проверяем умолчание клиента
+		ASSERT_EQ(client.wiping().size(), static_cast <size_t> (1));
+		// Проверяем класс умолчания клиента
+		EXPECT_EQ(client.wiping()[0], context::wiping_t::SECRETS);
+		// Связь стороны сервера
+		server::context_t server;
+		// Проверяем умолчание сервера
+		ASSERT_EQ(server.wiping().size(), static_cast <size_t> (1));
+		// Проверяем класс умолчания сервера
+		EXPECT_EQ(server.wiping()[0], context::wiping_t::SECRETS);
+	}
+	// Перечни классов затирания: пустой, открытый текст, оба класса
+	const vector <vector <context::wiping_t>> policies = {
+		{},
+		{context::wiping_t::PLAINTEXT},
+		{context::wiping_t::SECRETS, context::wiping_t::PLAINTEXT}
+	};
+	/**
+	 * Выполняем перебор перечней классов затирания
+	 */
+	for(size_t i = 0; i < policies.size(); i++){
+		// Связь стороны клиента
+		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента
+		gosting(client);
+		// Связь стороны сервера
+		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера
+		gosting(server);
+		// Устанавливаем классы затирания клиенту
+		client.wiping(policies[i]);
+		// Устанавливаем классы затирания серверу
+		server.wiping(policies[i]);
+		// Проверяем возврат перечня клиентом
+		EXPECT_EQ(client.wiping(), policies[i]) << "перечень " << i;
+		// Проверяем возврат перечня сервером
+		EXPECT_EQ(server.wiping(), policies[i]) << "перечень " << i;
+		// Устанавливаем подлинность стороны сервера
+		server.credential(credentials);
+		// Выполняем заведение связи стороны сервера
+		ASSERT_EQ(server.start(), context::error_t::NONE) << "перечень " << i;
+		// Выполняем заведение связи стороны клиента
+		ASSERT_EQ(client.start(), context::error_t::NONE) << "перечень " << i;
+		// Выполняем проведение рукопожатия сторон связи
+		converse(client, server);
+		// Проверяем установленность связи стороной клиента
+		ASSERT_TRUE(client.established()) << "перечень " << i;
+		// Проверяем установленность связи стороной сервера
+		ASSERT_TRUE(server.established()) << "перечень " << i;
+		// Накопитель, в который помещаются принятые прикладные данные
+		vector <uint8_t> received;
+		/**
+		 * Выполняем два круга обмена: затирание между записями касается второй записи
+		 */
+		for(size_t round = 0; round < 2; round++){
+			// Прикладные данные, отправляемые клиентом
+			const string request = ("Запрос " + std::to_string(round));
+			// Выполняем отправку прикладных данных клиентом
+			ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
+			// Выполняем передачу байтов между сторонами связи
+			pump(client, server);
+			// Выполняем получение принятых сервером прикладных данных
+			ASSERT_EQ(server.read(received), context::error_t::NONE);
+			// Проверяем схождение принятых данных с отправленными
+			ASSERT_EQ(string(received.begin(), received.end()), request) << "перечень " << i << ", круг " << round;
+			// Прикладные данные, отправляемые сервером
+			const string answer = ("Ответ " + std::to_string(round));
+			// Выполняем отправку прикладных данных сервером
+			ASSERT_EQ(server.write(view_t(reinterpret_cast <const uint8_t *> (answer.data()), answer.size())), context::error_t::NONE);
+			// Выполняем передачу байтов между сторонами связи
+			pump(client, server);
+			// Выполняем получение принятых клиентом прикладных данных
+			ASSERT_EQ(client.read(received), context::error_t::NONE);
+			// Проверяем схождение принятых данных с отправленными
+			ASSERT_EQ(string(received.begin(), received.end()), answer) << "перечень " << i << ", круг " << round;
+		}
+		// Выполняем закрытие связи стороной клиента
+		ASSERT_EQ(client.close(), context::error_t::NONE);
+		// Выполняем передачу байтов между сторонами связи
+		pump(client, server);
+		// Проверяем закрытие связи стороной сервера
+		ASSERT_EQ(server.state(), context::state_t::CLOSED) << "перечень " << i;
+	}
+}

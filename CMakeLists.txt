@@ -1018,6 +1018,11 @@ if (${CMAKE_BUILD_SAMPLES})
     # Указываем что нужно собрать приложение стока журнала
     option(CMAKE_BUILD_LOG_APP_SAMPLE "Build log sink app sample" ON)
 
+    # Устанавливаем имя приложения затирания памяти с тайнами
+    SET(WIPE_APP_NAME sys-wipe)
+    # Указываем что нужно собрать приложение затирания памяти с тайнами
+    option(CMAKE_BUILD_WIPE_APP_SAMPLE "Build memory wiping app sample" ON)
+
     # Устанавливаем название приложения упаковки ключа ML-KEM и гибрида
     SET(MLKEM_APP_NAME agreement-mlkem)
     # Указываем что нужно собрать приложение упаковки ключа ML-KEM и гибрида
@@ -1287,6 +1292,18 @@ if (${CMAKE_BUILD_SAMPLES})
         # Выводим сообщение о сборке образца
         message(STATUS "Build sample VAULT: No")
     endif (${CMAKE_BUILD_VAULT_APP_SAMPLE})
+
+    # Если нужно собрать образец затирания памяти с тайнами
+    if (${CMAKE_BUILD_WIPE_APP_SAMPLE})
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample WIPE: Yes")
+        # Выполняем создание приложения затирания памяти с тайнами
+        add_sample(${WIPE_APP_NAME} sample/sys/wipe.cpp sys)
+    # Если образец затирания памяти с тайнами собирать не нужно
+    else()
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample WIPE: No")
+    endif (${CMAKE_BUILD_WIPE_APP_SAMPLE})
 
     # Если нужно собрать образец стока журнала
     if (${CMAKE_BUILD_LOG_APP_SAMPLE})

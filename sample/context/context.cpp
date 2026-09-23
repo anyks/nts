@@ -39,6 +39,7 @@
  */
 #include <asn1/asn1.hpp>
 #include <sign/gost.hpp>
+#include <sys/wipe.hpp>
 #include <sys/vault.hpp>
 #include <client/client.hpp>
 #include <server/server.hpp>
@@ -442,6 +443,15 @@ int main(int argc, char * argv[]) noexcept {
 	 * предел расширением билета, и без него будущая связь упреждения не предложит
 	 */
 	server.advance(true, 4096);
+	/**
+	 * Классы затирания памяти связи: умолчание - только секреты рукопожатия и ключи,
+	 * их затирание одноразово и дёшево. Кому принятые данные - тайна, тот добавляет
+	 * класс PLAINTEXT: открытый текст записей затирается между записями, после выдачи
+	 * вызовом read и при закрытии - на каждую запись, как SSL_OP_CLEANSE_PLAINTEXT у
+	 * OpenSSL. Копия, выданная read, - потребителя: её затирание за ним (sys::wipe)
+	 */
+	client.wiping({context::wiping_t::SECRETS, context::wiping_t::PLAINTEXT});
+	server.wiping({context::wiping_t::SECRETS, context::wiping_t::PLAINTEXT});
 	// Если связь стороны сервера завести не удалось
 	if(server.start() != context::error_t::NONE){
 		// Выводим сообщение об отказе заведения связи
@@ -511,6 +521,8 @@ int main(int argc, char * argv[]) noexcept {
 	client.read(received);
 	// Выводим принятые клиентом прикладные данные
 	cout << "Клиент принял     : " << string(received.begin(), received.end()) << endl;
+	// Копия принятых данных - потребителя: разобрав, он затирает её сам
+	sys::wipe(received);
 	/**
 	 * Выполняем смену ключевого материала сервером с просьбою о встречной смене:
 	 * связь при этом не прерывается, а счётчик записей начинается заново

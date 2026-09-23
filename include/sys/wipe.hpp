@@ -72,33 +72,43 @@ namespace nts {
 		 * \~russian
 		 * @brief Метод затирания области памяти
 		 *
-		 * @details Запись идёт через изменчивый указатель, оттого собиратель не вправе
-		 *          выбросить её как бесполезную, даже если после затирания область не
-		 *          читается. Обычный memset такой гарантии не даёт: правило «как если бы»
-		 *          дозволяет убрать запись, итог которой никто не наблюдает
+		 * @details Затирание идёт вызовом memset через изменчивый указатель на функцию, а за
+		 *          вызовом стоит барьер собирателя. Голый memset собиратель вправе выбросить
+		 *          по правилу «как если бы», когда итог записи никто не читает; вызов же по
+		 *          указателю, прочитанному из изменчивой переменной, обязан состояться, а
+		 *          барьер объявляет область прочитанной. Скорость - как у самого memset
 		 *
 		 * @param data затираемая область памяти
 		 * @param size размер затираемой области памяти в байтах
 		 *
-		 * @note Намеренное решение: поразрядная запись через изменчивый указатель не
-		 *       заменяется ни на memset, ни на memset_s, ни на что-либо «быстрее». Разбор
-		 *       порождённого кода показал: с memset собиратель убирает и затирание, и сам
-		 *       ключ со стека; с изменчивой записью вызов сохраняется. Под сквозной
-		 *       оптимизацией (-flto, у AWH включена под Windows) проверкой это не поймать,
-		 *       гарантию даёт только исходник
+		 * @note Намеренное решение: голый memset здесь запрещён. Разбор порождённого кода
+		 *       clang, GCC и lcc (круг 32 CONFORMANCE.md) показал: с голым memset выпадает и
+		 *       затирание, и байты ключа остаются на стеке, а под сквозной оптимизацией
+		 *       (-flto, у AWH включена под Windows) проверкой этого не поймать. Вызов через
+		 *       изменчивый указатель (путь OpenSSL, crypto/mem_clr.c) и барьер (путь BoringSSL
+		 *       и libsodium) удерживают затирание у всех трёх собирателей и под -flto. До круга
+		 *       32 затирание шло пословной изменчивой записью: гарантия та же, полоса 35 ГБ/с
+		 *       на M4 и 6 на Эльбрусе против 140 и 43 у memset. Гарантия сверяется разбором
+		 *       порождённого кода щупом tools/wipe, а не проверкой
 		 *
 		 * \~english
 		 * @brief Method of the wiping of a memory area
-		 * @details The write goes through a volatile pointer, hence the compiler may not drop it as
-		 *          useless even if the area is not read after the wiping. A plain memset gives no
-		 *          such guarantee: the as-if rule allows to remove a write whose result nobody observes
+		 * @details The wiping goes by a memset call through a volatile function pointer, and a compiler
+		 *          barrier stands after the call. A plain memset may be dropped by the compiler by the as-if
+		 *          rule when nobody reads the result of the write; a call through a pointer read from a
+		 *          volatile variable has to take place, and the barrier declares the area read. The speed
+		 *          is that of memset itself
 		 * @param data the memory area being wiped
 		 * @param size the size of the memory area being wiped in bytes
-		 * @note Deliberate decision: the byte-wise write through a volatile pointer is not to be replaced
-		 *       by memset, memset_s or anything "faster". The inspection of the generated code showed:
-		 *       with memset the compiler removes both the wiping and the key itself from the stack; with
-		 *       the volatile write the call is kept. Under the link-time optimization (-flto, enabled at
-		 *       AWH on Windows) a test cannot catch this, only the source gives the guarantee
+		 * @note Deliberate decision: a plain memset is forbidden here. The inspection of the generated code
+		 *       of clang, GCC and lcc (round 32 of CONFORMANCE.md) showed: with a plain memset both the wiping
+		 *       drops out and the bytes of the key remain on the stack, and under the link-time optimization
+		 *       (-flto, enabled at AWH on Windows) a test cannot catch this. The call through a volatile
+		 *       pointer (the way of OpenSSL, crypto/mem_clr.c) and the barrier (the way of BoringSSL and
+		 *       libsodium) keep the wiping at all three compilers and under -flto. Before round 32 the wiping
+		 *       went by a word-wise volatile write: the same guarantee, a bandwidth of 35 GB/s on M4 and 6 on
+		 *       Elbrus against 140 and 43 of memset. The guarantee is verified by the inspection of the
+		 *       generated code with the tools/wipe probe, not by a test
 		 *
 		 * \~
 		 */

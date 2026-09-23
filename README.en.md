@@ -1418,6 +1418,76 @@ and does not remain on the stack), `tests/context` (`Sheltered`: the keys of the
 vault, the contract `assign`). The samples are `sys/sys-vault`, `context/tls-connection`,
 `tls12/tls12-psk`. The acceptance by a third-party walk of the memory on ten systems is in CONFORMANCE.md, round 17.
 
+## Memory wiping: the mechanism and the classes
+
+A secret that has served its purpose must not remain in memory: a foreign read of the memory, a
+dump of the process or a reuse of a freed block would carry it out. The wiping is done by `sys::wipe`
+(`include/sys/wipe.hpp`): an area by a pointer and a length, a byte vector and a string with emptying.
+What and when the connection wipes is chosen by the consumer with the wiping classes.
+
+**The mechanism.** A plain `memset` is unfit for wiping: by the as-if rule the compiler may drop a
+write whose result nobody reads, and the wiping itself drops out with it. This is not a theory: the
+inspection of the generated code of a function where a key on the stack serves its purpose showed
+one and the same thing at clang 21, GCC 12, GCC 16 and lcc 1.27 - with a plain `memset` there is no
+zeroing, and the bytes of the key remain on the stack; under the link-time optimization (`-flto`,
+enabled at AWH on Windows) a test cannot catch this, since a program cannot observe whether a dead
+write was dropped. Hence `sys::wipe` calls `memset` through a volatile function pointer (the way of
+OpenSSL without assembly, `crypto/mem_clr.c`): the compiler has to read the pointer at every call and
+may not know that `memset` stands behind it - and a compiler barrier stands after the call (the way of
+BoringSSL and libsodium): an empty asm insertion with the pointer as an argument and the `memory`
+mark, declaring the area read. Both keep the wiping at all three compilers and under `-flto`, and both
+go at the full speed of `memset`. Before round 32 the wiping went by a word-wise volatile write - the
+same guarantee, but a bandwidth of 35 GB/s on M4 and 6 on Elbrus against 140 and 43 of `memset`;
+the assembly `OPENSSL_cleanse` of OpenSSL, by the way, is word-wise too. The system `memset_s` and
+`explicit_bzero` are unfit as a replacement: the former exists only on macOS and FreeBSD, the latter
+on FreeBSD, glibc and Elbrus but not on macOS and MinGW, and `SecureZeroMemory` of Windows is
+byte-wise. The limit of every way: the register spills with the bytes of the key, which the compiler
+makes around the calls, are wiped by nobody.
+
+The guarantee is verified not by a test but by the inspection of the generated code: `tools/wipe/probe.sh`
+builds five ways of wiping (a plain `memset`, `memset` with the barrier, the word-wise volatile write,
+the same by four words, `memset` through the volatile pointer) with the given compiler and flags, prints
+for each the number of instructions, of `memset` calls and of lines with zeroing in the function with the
+key on the stack, and then the bandwidth of the wiping of 16 KiB. The plain `memset` has to show the
+absence of the wiping, the others its presence. The header `wipe.hpp` carries this as a deliberate
+decision: a plain `memset` in `sys::wipe` is forbidden.
+
+**The wiping classes of a connection** - `context::wiping_t`, the knob `wiping(vector)` at
+`client::Context` and `server::Context`, the getter `wiping()`:
+
+| Class | What is wiped | When | Cost | Default |
+|---|---|---|---|---|
+| `SECRETS` | The secrets of the handshake and the keys on the paths of the connection: the ephemeral keys and shared values, the premaster, the PSK binders, the ticket keys, the intermediate values of the key derivation | As soon as there is nothing more to derive from them, and on the reset of the connection | One-off, small | Enabled |
+| `PLAINTEXT` | The plaintext of the received records: the accumulator of the application data, the accumulator of the opened content of a record, the content of the opened DTLS datagrams | Between the records, after the hand-over by the `read` call and on the reset | Per record | Disabled |
+
+The default is `SECRETS` only: the wiping of the secrets is one-off and cheap, the wiping of the
+plaintext costs per record and protects only the window until the next record - the copy handed to the
+consumer by the `read` call is out of reach, and its wiping is up to the consumer (`sys::wipe`). OpenSSL
+has the same - `SSL_OP_CLEANSE_PLAINTEXT`, disabled by default; BoringSSL does not wipe the plaintext
+of the records at all. An empty list disables the wipings of the connection: one who has no secrets in the
+connection (measurements, public data) pays nothing. The classes do not concern what is always wiped by
+the contract of its own object: the sheltered vault of the key material on the return of a piece, the value
+objects (the ticket, the pre-shared key, the ephemeral pair) in the destructor, the primitives (the ciphers,
+the hashes, the key schedule, the protection of records) on the reset of the state and in the temporary
+buffers of a call. There are no bare `wipe` calls in the engine: the secrets go through `purge` by the
+`SECRETS` class, the plaintext accumulators through `cleanse` by the `PLAINTEXT` class (deliberate
+decision 20 of the engine header).
+
+```cpp
+client::context_t client;
+// The default is the secrets only
+client.wiping({context::wiping_t::SECRETS, context::wiping_t::PLAINTEXT}); // the received data is a secret
+server::context_t server;
+server.wiping({}); // no secrets at all: the connection wipes nothing
+```
+
+Pins: `tests/sys/wipe.cpp` (the bounds, empty arguments, containers with emptying, a large unaligned
+area), `tests/context` (`Wiping`: the default, the return of the list, a connection under every list),
+`tests/audit` (`PlaintextCleansing`: the accumulators of the engine are zero only with the `PLAINTEXT`
+class, without it they hold the received bytes; `SecretsViaPurge`: no bare `wipe` in the engine). The
+samples are `sys/sys-wipe`, `context/tls-connection`. The inspection of the generated code on five
+stands, the bandwidth and the cost on the record path are in CONFORMANCE.md, round 32.
+
 ## Log sink
 
 The library keeps no log — it has only a **sink** (`include/sys/log.hpp`): one
@@ -1519,7 +1589,7 @@ The built samples are put into `samples` of the build directory:
 | `session/session-state` | The handshake transcript, passing through the key schedule and transfer of a record with the derived keys |
 | `handshake/handshake-flow` | A full handshake as a whole: from the hellos to the application data, with key switching |
 | `agreement/agreement-ecdhe` | Ephemeral key exchange: the key pairs of the sides and convergence of the shared value |
-| `context/tls-connection` | A connection as a whole: handshake, key update, ticket, resumption and early data |
+| `context/tls-connection` | A connection as a whole: handshake, key update, ticket, resumption and early data; the wiping classes `wiping` and the wiping of the copy by the consumer |
 | `trust/trust-chain` | Trust in a chain: the connection accepts it, and the decision is made by the trusted store |
 | `pem/pem-storage` | Writing the authentication of a side into text and raising it from there back into a connection |
 | `protocol/alpn-choice` | Choice of the application protocol by the server and declaration of the host name by the client |
@@ -1542,6 +1612,7 @@ The built samples are put into `samples` of the build directory:
 | `embed/embed-key` | A key embedded into the image: `embed::key` from the material in sheltered memory with the binding of the hash of the image region and the version (a change of the version and a substitution of the region give a different key), `embed::secret` from a password by Argon2id |
 | `sys/sys-vault` | The sheltered vault of secrets: the piece `sys::Secret` with a single owner and moving, wiping on return, the set `sys::bytes_t` over the vault, the report `shelter()` about what has happened in fact, the demand `demand()` |
 | `sys/sys-log` | The log sink: without a sink the library stays silent, the adapter with one function to a static log of the consumer (as at AWH), the abort of a connection and the lowering of the sheltering in the log, removal of the sink |
+| `sys/sys-wipe` | Wiping of the memory with secrets: an area on the stack with exact bounds, a byte vector and a string with emptying, the bandwidth of wiping 16 KiB, the wiping classes of a connection `wiping` (the default, with the plaintext, without wipings) and the copy of the consumer |
 
 The samples of version 1.2, datagrams, levels, OCSP stapling and compression read the keys, certificates
 and the responses of the responder from the set `tests/corpus` (the path is passed by the build): generating
