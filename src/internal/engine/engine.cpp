@@ -1819,43 +1819,31 @@ context::error_t nts::internal::Engine::emit(const record::type_t type, const vi
 		 * до своей смены записи идут открытыми, за нею - под ключами связи
 		 */
 		if(this->_legacy && this->_sealing){
-			// Накопитель, в который складывается защищённая запись
-			vector <uint8_t> sealed;
-			// Отказ наложения защиты на запись
-			failure = translate(this->_output.seal(type, data, sealed, 0), context::error_t::PROTECTION);
+			// Отказ наложения защиты на запись: запись ложится в накопитель отправки сразу, без промежуточной копии
+			failure = translate(this->_output.seal(type, data, this->_wire, 0), context::error_t::PROTECTION);
 			// Если наложить защиту на запись не удалось
 			if(failure != context::error_t::NONE)
 				// Выводим отказ наложения защиты на запись
 				return failure;
-			// Выполняем складывание защищённой записи в накопитель
-			this->_wire.insert(this->_wire.end(), sealed.begin(), sealed.end());
 		/**
 		 * Записи упреждающих данных защищаются своими ключами: сервер о них ещё
 		 * ничего не ответил, и ключей рукопожатия у клиента на этот миг нет вовсе
 		 */
 		} else if(!this->_server && this->_earlying){
-			// Накопитель, в который складывается защищённая запись
-			vector <uint8_t> sealed;
-			// Отказ наложения защиты на запись
-			failure = translate(this->_early.seal(type, data, sealed, 0), context::error_t::PROTECTION);
+			// Отказ наложения защиты на запись: запись ложится в накопитель отправки сразу, без промежуточной копии
+			failure = translate(this->_early.seal(type, data, this->_wire, 0), context::error_t::PROTECTION);
 			// Если наложить защиту упреждающих данных на запись не удалось
 			if(failure != context::error_t::NONE)
 				// Выводим отказ наложения защиты на запись
 				return failure;
-			// Выполняем складывание защищённой записи в накопитель
-			this->_wire.insert(this->_wire.end(), sealed.begin(), sealed.end());
 		// Если записи своей стороны защищены ключами связи
 		} else if(!this->_legacy && (this->_machine.epoch(side) != flow::epoch_t::PLAIN)){
-			// Накопитель, в который складывается защищённая запись
-			vector <uint8_t> sealed;
-			// Отказ наложения защиты на запись
-			failure = translate(this->_output.seal(type, data, sealed, 0), context::error_t::PROTECTION);
+			// Отказ наложения защиты на запись: запись ложится в накопитель отправки сразу, без промежуточной копии
+			failure = translate(this->_output.seal(type, data, this->_wire, 0), context::error_t::PROTECTION);
 			// Если наложить защиту на запись не удалось
 			if(failure != context::error_t::NONE)
 				// Выводим отказ наложения защиты на запись
 				return failure;
-			// Выполняем складывание защищённой записи в накопитель
-			this->_wire.insert(this->_wire.end(), sealed.begin(), sealed.end());
 		// Если записи своей стороны идут без защиты
 		} else {
 			// Объект нарезчика отправляемых записей
@@ -10268,6 +10256,12 @@ void nts::internal::Engine::clear() noexcept {
 		wipe(this->_plain.data(), this->_plain.size());
 	// Выполняем сброс накопителя принятых прикладных данных
 	this->_plain.clear();
+	// Если накопитель открытого содержимого записи не пуст
+	if(!this->_opened.empty())
+		// Выполняем затирание накопителя открытого содержимого записи
+		wipe(this->_opened.data(), this->_opened.size());
+	// Сбрасываем накопитель открытого содержимого записи
+	this->_opened.clear();
 	// Выполняем сброс накопителя отправляемых байтов связи
 	this->_wire.clear();
 	/**
@@ -10511,14 +10505,14 @@ context::error_t nts::internal::Engine::push(const view_t & data) noexcept {
 		const session::side_t side = (this->_server ? session::side_t::CLIENT : session::side_t::SERVER);
 		// Вид содержимого принятой записи связи
 		record::type_t type = header.type;
-		// Накопитель, в который складывается открытое содержимое записи
-		vector <uint8_t> opened;
+		// Опустошаем накопитель открытого содержимого записи: память его остаётся с движком
+		this->_opened.clear();
 		// Просмотр открытого содержимого принятой записи
 		view_t content = payload;
 		// Если связь ведётся изданием TLS 1.2 под ключами собеседника
 		if(this->_legacy && this->_opening){
 			// Отказ снятия защиты с принятой записи
-			failure = translate(this->_input.open(header, payload, type, opened), context::error_t::PROTECTION);
+			failure = translate(this->_input.open(header, payload, type, this->_opened), context::error_t::PROTECTION);
 			/**
 			 * Раздел 6.2.3.3 RFC 5246: несошедшаяся метка целостности обрывает связь
 			 * извещением bad_record_mac - в отличие от DTLS, где запись лишь отбрасывается
@@ -10527,21 +10521,21 @@ context::error_t nts::internal::Engine::push(const view_t & data) noexcept {
 				// Выводим отказ снятия защиты с принятой записи
 				return this->abort(failure, blame(failure, alert::description_t::MAC));
 			// Получаем открытое содержимое принятой записи
-			content = view_t(opened.data(), opened.size());
+			content = view_t(this->_opened.data(), this->_opened.size());
 		// Если принимаются упреждающие данные клиента
 		} else if(this->_server && this->_earlying){
 			// Отказ снятия защиты с принятой записи
-			failure = translate(this->_early.open(header, payload, type, opened), context::error_t::PROTECTION);
+			failure = translate(this->_early.open(header, payload, type, this->_opened), context::error_t::PROTECTION);
 			// Если снять защиту упреждающих данных с принятой записи не удалось
 			if(failure != context::error_t::NONE)
 				// Выводим отказ снятия защиты с принятой записи
 				return this->abort(failure, blame(failure, alert::description_t::MAC));
 			// Получаем открытое содержимое принятой записи
-			content = view_t(opened.data(), opened.size());
+			content = view_t(this->_opened.data(), this->_opened.size());
 		// Если записи собеседника защищены ключами связи
 		} else if(!this->_legacy && (this->_machine.epoch(side) != flow::epoch_t::PLAIN)){
 			// Отказ снятия защиты с принятой записи
-			failure = translate(this->_input.open(header, payload, type, opened), context::error_t::PROTECTION);
+			failure = translate(this->_input.open(header, payload, type, this->_opened), context::error_t::PROTECTION);
 			// Если снять защиту с принятой записи не удалось
 			if(failure != context::error_t::NONE){
 				/**
@@ -10564,7 +10558,7 @@ context::error_t nts::internal::Engine::push(const view_t & data) noexcept {
 			 */
 			this->_skipped = 0;
 			// Получаем открытое содержимое принятой записи
-			content = view_t(opened.data(), opened.size());
+			content = view_t(this->_opened.data(), this->_opened.size());
 			/**
 			 * Раздел 5.5 RFC 8446 велит сменять ключи впереди предела порядковых номеров.
 			 * Направление собеседника сменить самим нельзя - оттого у него испрашивается

@@ -458,3 +458,157 @@ TEST(GcmTest, Paths){
 	// Проверяем схождение открытого текста
 	ASSERT_EQ(::memcmp(opened.data(), plain.data(), plain.size()), 0);
 }
+
+/**
+ * Проверка смены заполнения у запущенного режима: таблица кратных остаётся, начальный блок ставится заново
+ */
+TEST(GcmTest, Restart){
+	const std::vector <uint8_t> key = bytes("feffe9928665731c6d6a8f9467308308");
+	const std::vector <uint8_t> first = bytes("cafebabefacedbaddecaf888");
+	const std::vector <uint8_t> second = bytes("000102030405060708090a0b");
+	const std::vector <uint8_t> longer = bytes("cafebabefacedbad");
+	const std::vector <uint8_t> associated = bytes("feedfacedeadbeeffeedfacedeadbeefabaddad2");
+	std::vector <uint8_t> plain(100);
+	/**
+	 * Выполняем заполнение открытого текста
+	 */
+	for(size_t i = 0; i < plain.size(); i++)
+		plain[i] = static_cast <uint8_t> (i * 7 + 3);
+	cipher::aes_t aes;
+	ASSERT_TRUE(aes.key(view_t(key.data(), key.size())));
+	cipher::gcm_t gcm;
+	// До запуска смена заполнения отвергается: таблицы нет
+	ASSERT_FALSE(gcm.restart(view_t(first.data(), first.size())));
+	ASSERT_TRUE(gcm.start(cipher::block_t(aes), view_t(first.data(), first.size())));
+	// Пустое заполнение отвергается
+	ASSERT_FALSE(gcm.restart(view_t(nullptr, 0)));
+	ASSERT_FALSE(gcm.restart(view_t(first.data(), 0)));
+	uint8_t one[100], tagOne[16];
+	ASSERT_TRUE(gcm.encrypt(view_t(associated.data(), associated.size()), view_t(plain.data(), plain.size()), one, tagOne));
+	// Повтор на израсходованном заполнении отвергается
+	ASSERT_FALSE(gcm.encrypt(view_t(associated.data(), associated.size()), view_t(plain.data(), plain.size()), one, tagOne));
+	// Смена заполнения даёт тот же итог, что свежий запуск с этим заполнением
+	ASSERT_TRUE(gcm.restart(view_t(second.data(), second.size())));
+	uint8_t two[100], tagTwo[16];
+	ASSERT_TRUE(gcm.encrypt(view_t(associated.data(), associated.size()), view_t(plain.data(), plain.size()), two, tagTwo));
+	cipher::gcm_t fresh;
+	ASSERT_TRUE(fresh.start(cipher::block_t(aes), view_t(second.data(), second.size())));
+	uint8_t reference[100], tagReference[16];
+	ASSERT_TRUE(fresh.encrypt(view_t(associated.data(), associated.size()), view_t(plain.data(), plain.size()), reference, tagReference));
+	ASSERT_EQ(text(two, sizeof(two)), text(reference, sizeof(reference)));
+	ASSERT_EQ(text(tagTwo, sizeof(tagTwo)), text(tagReference, sizeof(tagReference)));
+	// Шифртексты разных заполнений различны
+	ASSERT_NE(text(one, sizeof(one)), text(two, sizeof(two)));
+	// Возврат к первому заполнению воспроизводит первый итог: таблица цела
+	ASSERT_TRUE(gcm.restart(view_t(first.data(), first.size())));
+	uint8_t again[100], tagAgain[16];
+	ASSERT_TRUE(gcm.encrypt(view_t(associated.data(), associated.size()), view_t(plain.data(), plain.size()), again, tagAgain));
+	ASSERT_EQ(text(again, sizeof(again)), text(one, sizeof(one)));
+	ASSERT_EQ(text(tagAgain, sizeof(tagAgain)), text(tagOne, sizeof(tagOne)));
+	// Расшифрование после смены заполнения
+	ASSERT_TRUE(gcm.restart(view_t(second.data(), second.size())));
+	uint8_t back[100];
+	ASSERT_TRUE(gcm.decrypt(view_t(associated.data(), associated.size()), view_t(two, sizeof(two)), back, view_t(tagTwo, sizeof(tagTwo))));
+	ASSERT_EQ(text(back, sizeof(back)), text(plain.data(), plain.size()));
+	// Заполнение иной длины идёт через хеш и сходится со свежим запуском
+	ASSERT_TRUE(gcm.restart(view_t(longer.data(), longer.size())));
+	uint8_t three[100], tagThree[16];
+	ASSERT_TRUE(gcm.encrypt(view_t(associated.data(), associated.size()), view_t(plain.data(), plain.size()), three, tagThree));
+	cipher::gcm_t hashed;
+	ASSERT_TRUE(hashed.start(cipher::block_t(aes), view_t(longer.data(), longer.size())));
+	uint8_t expected[100], tagExpected[16];
+	ASSERT_TRUE(hashed.encrypt(view_t(associated.data(), associated.size()), view_t(plain.data(), plain.size()), expected, tagExpected));
+	ASSERT_EQ(text(three, sizeof(three)), text(expected, sizeof(expected)));
+	ASSERT_EQ(text(tagThree, sizeof(tagThree)), text(tagExpected, sizeof(tagExpected)));
+	// Поточный путь после смены заполнения сходится с разовым
+	ASSERT_TRUE(gcm.restart(view_t(second.data(), second.size())));
+	ASSERT_TRUE(gcm.associate(view_t(associated.data(), associated.size())));
+	uint8_t part[100], tagPart[16];
+	ASSERT_TRUE(gcm.encrypt(view_t(plain.data(), 37), part));
+	ASSERT_TRUE(gcm.encrypt(view_t(plain.data() + 37, 63), part + 37));
+	ASSERT_TRUE(gcm.finish(tagPart));
+	ASSERT_EQ(text(part, sizeof(part)), text(two, sizeof(two)));
+	ASSERT_EQ(text(tagPart, sizeof(tagPart)), text(tagTwo, sizeof(tagTwo)));
+	// После сброса смена вновь отвергается
+	gcm.clear();
+	ASSERT_FALSE(gcm.restart(view_t(first.data(), first.size())));
+}
+
+/**
+ * Проверка слитого ядра: целые восьмёрки блоков сходятся с переносимым путём, с поточной подачей кусками и в обе стороны
+ */
+TEST(GcmTest, Fused){
+	const std::vector <uint8_t> key = bytes("feffe9928665731c6d6a8f9467308308");
+	const std::vector <uint8_t> nonce = bytes("cafebabefacedbaddecaf888");
+	const std::vector <uint8_t> associated = bytes("feedfacedeadbeeffeedfacedeadbeefabaddad2");
+	const size_t SIZES[] = {128, 129, 255, 256, 1200, 4103, 16384, 16484};
+	const size_t PIECES[] = {128, 200, 333, 1024, 4096};
+	cipher::aes_t aes;
+	cipher::gcm_t gcm;
+	/**
+	 * Выполняем перебор длин
+	 */
+	for(size_t k = 0; k < (sizeof(SIZES) / sizeof(SIZES[0])); k++){
+		const size_t size = SIZES[k];
+		std::vector <uint8_t> plain(size), sealed(size), expected(size), back(size);
+		/**
+		 * Выполняем заполнение открытого текста
+		 */
+		for(size_t i = 0; i < size; i++)
+			plain[i] = static_cast <uint8_t> ((i * 31 + k) & 0xFF);
+		uint8_t tag[16], tagExpected[16];
+		// Путь машины: слитое ядро на целых восьмёрках, остаток порознь
+		ASSERT_TRUE(aes.key(view_t(key.data(), key.size()))) << "длина " << size;
+		ASSERT_TRUE(gcm.start(cipher::block_t(aes), view_t(nonce.data(), nonce.size()))) << "длина " << size;
+		ASSERT_TRUE(gcm.encrypt(view_t(associated.data(), associated.size()), view_t(plain.data(), size), sealed.data(), tag)) << "длина " << size;
+		// Переносимый путь
+		machine::allow(false);
+		ASSERT_TRUE(aes.key(view_t(key.data(), key.size()))) << "длина " << size;
+		ASSERT_TRUE(gcm.start(cipher::block_t(aes), view_t(nonce.data(), nonce.size()))) << "длина " << size;
+		ASSERT_TRUE(gcm.encrypt(view_t(associated.data(), associated.size()), view_t(plain.data(), size), expected.data(), tagExpected)) << "длина " << size;
+		machine::allow(true);
+		ASSERT_EQ(text(sealed.data(), size), text(expected.data(), size)) << "длина " << size;
+		ASSERT_EQ(text(tag, sizeof(tag)), text(tagExpected, sizeof(tagExpected))) << "длина " << size;
+		// Расшифрование путём машины
+		ASSERT_TRUE(aes.key(view_t(key.data(), key.size()))) << "длина " << size;
+		ASSERT_TRUE(gcm.start(cipher::block_t(aes), view_t(nonce.data(), nonce.size()))) << "длина " << size;
+		ASSERT_TRUE(gcm.decrypt(view_t(associated.data(), associated.size()), view_t(sealed.data(), size), back.data(), view_t(tag, sizeof(tag)))) << "длина " << size;
+		ASSERT_EQ(text(back.data(), size), text(plain.data(), size)) << "длина " << size;
+		// Порченый байт внутри восьмёрки отвергается меткой
+		sealed[size / 2] = static_cast <uint8_t> (sealed[size / 2] ^ 0x40);
+		ASSERT_TRUE(gcm.restart(view_t(nonce.data(), nonce.size()))) << "длина " << size;
+		ASSERT_FALSE(gcm.decrypt(view_t(associated.data(), associated.size()), view_t(sealed.data(), size), back.data(), view_t(tag, sizeof(tag)))) << "длина " << size;
+		sealed[size / 2] = static_cast <uint8_t> (sealed[size / 2] ^ 0x40);
+		/**
+		 * Выполняем перебор размеров кусков поточной подачи
+		 */
+		for(size_t p = 0; p < (sizeof(PIECES) / sizeof(PIECES[0])); p++){
+			std::vector <uint8_t> piecewise(size);
+			uint8_t tagPiecewise[16];
+			ASSERT_TRUE(gcm.restart(view_t(nonce.data(), nonce.size()))) << "длина " << size << " кусок " << PIECES[p];
+			ASSERT_TRUE(gcm.associate(view_t(associated.data(), associated.size()))) << "длина " << size << " кусок " << PIECES[p];
+			/**
+			 * Выполняем поточное зашифрование кусками
+			 */
+			for(size_t offset = 0; offset < size; offset += PIECES[p]){
+				const size_t piece = (((size - offset) < PIECES[p]) ? (size - offset) : PIECES[p]);
+				ASSERT_TRUE(gcm.encrypt(view_t(plain.data() + offset, piece), piecewise.data() + offset)) << "длина " << size << " кусок " << PIECES[p];
+			}
+			ASSERT_TRUE(gcm.finish(tagPiecewise)) << "длина " << size << " кусок " << PIECES[p];
+			ASSERT_EQ(text(piecewise.data(), size), text(sealed.data(), size)) << "длина " << size << " кусок " << PIECES[p];
+			ASSERT_EQ(text(tagPiecewise, sizeof(tagPiecewise)), text(tag, sizeof(tag))) << "длина " << size << " кусок " << PIECES[p];
+			// Поточное расшифрование теми же кусками
+			ASSERT_TRUE(gcm.restart(view_t(nonce.data(), nonce.size()))) << "длина " << size << " кусок " << PIECES[p];
+			ASSERT_TRUE(gcm.associate(view_t(associated.data(), associated.size()))) << "длина " << size << " кусок " << PIECES[p];
+			/**
+			 * Выполняем поточное расшифрование кусками
+			 */
+			for(size_t offset = 0; offset < size; offset += PIECES[p]){
+				const size_t piece = (((size - offset) < PIECES[p]) ? (size - offset) : PIECES[p]);
+				ASSERT_TRUE(gcm.decrypt(view_t(sealed.data() + offset, piece), back.data() + offset)) << "длина " << size << " кусок " << PIECES[p];
+			}
+			ASSERT_TRUE(gcm.verify(view_t(tag, sizeof(tag)))) << "длина " << size << " кусок " << PIECES[p];
+			ASSERT_EQ(text(back.data(), size), text(plain.data(), size)) << "длина " << size << " кусок " << PIECES[p];
+		}
+	}
+}

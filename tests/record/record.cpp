@@ -545,3 +545,61 @@ TEST(RecordTest, Starved){
 	// Проверяем, что нехватка памяти объявлена отказом хоть раз
 	ASSERT_TRUE(starved);
 }
+
+/**
+ * @brief Метод составления записи с заголовком издания 1.2
+ *
+ * @param type   вид содержимого записи
+ * @param body   содержимое записи
+ * @param stream накопитель, в конец которого дописывается запись
+ *
+ */
+static void framing(const uint8_t type, const std::vector <uint8_t> & body, std::vector <uint8_t> & stream) {
+	stream.push_back(type);
+	stream.push_back(0x03);
+	stream.push_back(0x03);
+	stream.push_back(static_cast <uint8_t> (body.size() >> 8));
+	stream.push_back(static_cast <uint8_t> (body.size() & 0xFF));
+	stream.insert(stream.end(), body.begin(), body.end());
+}
+
+/**
+ * Проверка уплотнения накопителя сборщика: разобранные записи снимаются с начала, недособранная сохраняется, разобранный целиком опустошается
+ */
+TEST(RecordTest, Compaction){
+	record::reader_t reader;
+	std::vector <uint8_t> stream;
+	framing(0x16, {0x01, 0x02, 0x03}, stream);
+	framing(0x17, {0x04, 0x05, 0x06, 0x07}, stream);
+	framing(0x15, {0x08, 0x09}, stream);
+	const size_t whole = stream.size();
+	record::header_t header;
+	view_t payload;
+	// Две целые записи и половина третьей одной подачей
+	ASSERT_EQ(reader.push(view_t(stream.data(), whole - 1)), record::error_t::NONE);
+	ASSERT_EQ(reader.next(header, payload), record::error_t::NONE);
+	ASSERT_EQ(header.type, record::type_t::HANDSHAKE);
+	ASSERT_EQ(payload.size, static_cast <size_t> (3));
+	ASSERT_EQ(payload.data[0], static_cast <uint8_t> (0x01));
+	ASSERT_EQ(reader.next(header, payload), record::error_t::NONE);
+	ASSERT_EQ(header.type, record::type_t::APPLICATION);
+	ASSERT_EQ(payload.size, static_cast <size_t> (4));
+	ASSERT_EQ(reader.next(header, payload), record::error_t::HUNGRY);
+	ASSERT_EQ(reader.pending(), static_cast <size_t> (record::RECORD_HEADER + 2 - 1));
+	// Остаток подаётся: разобранные записи сняты с начала, недособранная сохранена и дособрана
+	ASSERT_EQ(reader.push(view_t(stream.data() + whole - 1, 1)), record::error_t::NONE);
+	ASSERT_EQ(reader.pending(), static_cast <size_t> (record::RECORD_HEADER + 2));
+	ASSERT_EQ(reader.next(header, payload), record::error_t::NONE);
+	ASSERT_EQ(header.type, record::type_t::ALERT);
+	ASSERT_EQ(payload.size, static_cast <size_t> (2));
+	ASSERT_EQ(payload.data[1], static_cast <uint8_t> (0x09));
+	ASSERT_EQ(reader.pending(), static_cast <size_t> (0));
+	// Накопитель, разобранный целиком, опустошён: новая запись читается с нуля
+	ASSERT_EQ(reader.push(view_t(stream.data(), record::RECORD_HEADER + 3)), record::error_t::NONE);
+	ASSERT_EQ(reader.pending(), static_cast <size_t> (record::RECORD_HEADER + 3));
+	ASSERT_EQ(reader.next(header, payload), record::error_t::NONE);
+	ASSERT_EQ(header.type, record::type_t::HANDSHAKE);
+	ASSERT_EQ(payload.data[2], static_cast <uint8_t> (0x03));
+	ASSERT_EQ(reader.pending(), static_cast <size_t> (0));
+	ASSERT_EQ(reader.next(header, payload), record::error_t::HUNGRY);
+}

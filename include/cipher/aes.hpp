@@ -290,6 +290,37 @@ namespace nts {
 				 * \~
 				 */
 				bool stream(const uint8_t * counter, const size_t blocks, uint8_t * result) const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения расписания ключа зашифрования для слитых ядер режимов
+				 *
+				 * @return расписание ключа: ключей на один больше числа кругов, по шестнадцать байтов; пусто без ключа либо без команд машины
+				 *
+				 * @note Расписание принадлежит шифру и живёт, пока жив он: режимы лишь читают его в
+				 *       своих ядрах, где гамма счётчика и хеш идут одним проходом
+				 *
+				 * \~english
+				 * @brief Method of getting the encryption key schedule for the fused kernels of the modes
+				 * @return the key schedule: one key more than the rounds, sixteen bytes each; empty without a key or without the machine instructions
+				 * @note The schedule belongs to the cipher and lives as long as it does: the modes only read
+				 *       it in their kernels, where the counter gamma and the hash go in one pass
+				 *
+				 * \~
+				 */
+				const uint8_t * schedule() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения числа кругов шифра
+				 *
+				 * @return число кругов: 10, 12 либо 14 по длине ключа, ноль без ключа
+				 *
+				 * \~english
+				 * @brief Method of getting the number of the rounds of the cipher
+				 * @return the number of the rounds: 10, 12 or 14 by the length of the key, zero without a key
+				 *
+				 * \~
+				 */
+				size_t rounds() const noexcept;
 			public:
 				/**
 				 * \~russian

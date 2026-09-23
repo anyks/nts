@@ -32,6 +32,7 @@
 #include <string>
 #include <vector>
 #include <cstring>
+#include <algorithm>
 #include <limits>
 #include <main.hpp>
 #include <starve.hpp>
@@ -1473,5 +1474,84 @@ TEST(ProtectTest, LegacyUnified){
 		EXPECT_EQ(protection.seal(view_t(associated, sizeof(associated)), 1, record::type_t::APPLICATION, view_t(content, sizeof(content)), result, 0), protect::error_t::STATE) << s;
 		record::type_t type = record::type_t::NONE;
 		EXPECT_EQ(protection.open(view_t(associated, sizeof(associated)), 1, view_t(content, sizeof(content)), type, result), protect::error_t::STATE) << s;
+	}
+}
+
+/**
+ * Проверка работы прямо в накопителе вызывающей стороны: прежнее содержимое цело, при отказе накопитель прежний
+ */
+TEST(ProtectTest, Accumulate){
+	const protect::suite_t suites[] = {protect::suite_t::AES_128_GCM_SHA256, protect::suite_t::CHACHA20_POLY1305_SHA256, protect::suite_t::KUZNYECHIK_MGM_S};
+	/**
+	 * Выполняем перебор наборов шифрования
+	 */
+	for(size_t s = 0; s < 3; s++){
+		std::vector <uint8_t> key(protect::key(suites[s])), vector(protect::block(suites[s]));
+		/**
+		 * Выполняем заполнение ключа
+		 */
+		for(size_t i = 0; i < key.size(); i++)
+			key[i] = static_cast <uint8_t> (i + 1);
+		/**
+		 * Выполняем заполнение вектора замены
+		 */
+		for(size_t i = 0; i < vector.size(); i++)
+			vector[i] = static_cast <uint8_t> (0x10 + i);
+		protect::protection_t sealer, opener;
+		ASSERT_TRUE(sealer.start(suites[s], view_t(key.data(), key.size()), view_t(vector.data(), vector.size()))) << "набор " << s;
+		ASSERT_TRUE(opener.start(suites[s], view_t(key.data(), key.size()), view_t(vector.data(), vector.size()))) << "набор " << s;
+		std::vector <uint8_t> content(3000);
+		/**
+		 * Выполняем заполнение содержимого
+		 */
+		for(size_t i = 0; i < content.size(); i++)
+			content[i] = static_cast <uint8_t> (i * 13 + s);
+		const std::vector <uint8_t> prefix = {0xAA, 0xBB, 0xCC};
+		// Наложение защиты дописывает запись за прежним содержимым накопителя, дополнение длиннее куска шифрования
+		std::vector <uint8_t> sealed(prefix);
+		ASSERT_EQ(sealer.seal(record::type_t::APPLICATION, view_t(content.data(), content.size()), sealed, 700), protect::error_t::NONE) << "набор " << s;
+		ASSERT_EQ(sealed.size(), (prefix.size() + record::RECORD_HEADER + content.size() + 1 + 700 + protect::tag(suites[s]))) << "набор " << s;
+		ASSERT_TRUE(std::equal(prefix.begin(), prefix.end(), sealed.begin())) << "набор " << s;
+		record::header_t header;
+		ASSERT_EQ(record::parse(view_t(sealed.data() + prefix.size(), sealed.size() - prefix.size()), header), record::error_t::NONE) << "набор " << s;
+		// Снятие защиты дописывает лишь содержимое: дополнение и вид отброшены, прежнее содержимое накопителя цело
+		std::vector <uint8_t> opened = {0x11, 0x22};
+		record::type_t type = record::type_t::NONE;
+		ASSERT_EQ(opener.open(header, view_t(sealed.data() + prefix.size() + record::RECORD_HEADER, header.size), type, opened), protect::error_t::NONE) << "набор " << s;
+		ASSERT_EQ(type, record::type_t::APPLICATION) << "набор " << s;
+		ASSERT_EQ(opened.size(), (2 + content.size())) << "набор " << s;
+		ASSERT_EQ(opened[0], static_cast <uint8_t> (0x11)) << "набор " << s;
+		ASSERT_EQ(opened[1], static_cast <uint8_t> (0x22)) << "набор " << s;
+		ASSERT_TRUE(std::equal(content.begin(), content.end(), opened.begin() + 2)) << "набор " << s;
+		// Порченая метка: накопитель остаётся прежним и по длине, и по содержимому
+		std::vector <uint8_t> damaged(sealed);
+		damaged.back() = static_cast <uint8_t> (damaged.back() ^ 0x01);
+		const std::vector <uint8_t> before(opened);
+		ASSERT_EQ(opener.open(header, view_t(damaged.data() + prefix.size() + record::RECORD_HEADER, header.size), type, opened), protect::error_t::TAG) << "набор " << s;
+		ASSERT_EQ(opened, before) << "набор " << s;
+		// Порченый шифртекст: то же
+		damaged = sealed;
+		damaged[prefix.size() + record::RECORD_HEADER + 10] = static_cast <uint8_t> (damaged[prefix.size() + record::RECORD_HEADER + 10] ^ 0x80);
+		ASSERT_EQ(opener.open(header, view_t(damaged.data() + prefix.size() + record::RECORD_HEADER, header.size), type, opened), protect::error_t::TAG) << "набор " << s;
+		ASSERT_EQ(opened, before) << "набор " << s;
+		// Вторая запись тем же объектом: заполнение сменилось, таблица режима та же
+		std::vector <uint8_t> second;
+		ASSERT_EQ(sealer.seal(record::type_t::HANDSHAKE, view_t(content.data(), 100), second, 0), protect::error_t::NONE) << "набор " << s;
+		ASSERT_EQ(record::parse(view_t(second.data(), second.size()), header), record::error_t::NONE) << "набор " << s;
+		opened.clear();
+		ASSERT_EQ(opener.open(header, view_t(second.data() + record::RECORD_HEADER, header.size), type, opened), protect::error_t::NONE) << "набор " << s;
+		ASSERT_EQ(type, record::type_t::HANDSHAKE) << "набор " << s;
+		ASSERT_EQ(opened.size(), static_cast <size_t> (100)) << "набор " << s;
+		ASSERT_TRUE(std::equal(opened.begin(), opened.end(), content.begin())) << "набор " << s;
+		// Шифртексты записей с разными номерами различны на одном открытом тексте: заполнение действительно сменилось
+		ASSERT_NE(::memcmp(sealed.data() + prefix.size() + record::RECORD_HEADER, second.data() + record::RECORD_HEADER, 100), 0) << "набор " << s;
+		// Пустая запись с одним лишь видом содержимого
+		std::vector <uint8_t> empty;
+		ASSERT_EQ(sealer.seal(record::type_t::APPLICATION, view_t(nullptr, 0), empty, 0), protect::error_t::NONE) << "набор " << s;
+		ASSERT_EQ(record::parse(view_t(empty.data(), empty.size()), header), record::error_t::NONE) << "набор " << s;
+		opened = prefix;
+		ASSERT_EQ(opener.open(header, view_t(empty.data() + record::RECORD_HEADER, header.size), type, opened), protect::error_t::NONE) << "набор " << s;
+		ASSERT_EQ(type, record::type_t::APPLICATION) << "набор " << s;
+		ASSERT_EQ(opened, prefix) << "набор " << s;
 	}
 }

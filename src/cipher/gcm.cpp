@@ -25,7 +25,13 @@
  *       ключ. На машинах без команды умножения без переносов (Эльбрус, стенды под
  *       QEMU) это удваивает GHASH: 77 → 150 МБ/с на Эльбрус-8С2, 319 → 509 на ARM64 без
  *       PMULL; таблица остатков считается при заведении, а не зашита, чтобы её нельзя
- *       было испортить незаметно для золотых векторов
+ *       было испортить незаметно для золотых векторов.
+ *       Слитое ядро (круг 31, 23.09.2026): на машинах с командами AES и умножения без
+ *       переносов гамма счётчика и хеш идут одним проходом по восемь блоков прямо по
+ *       расписанию ключа шифра - порознь CTR 13,7 ГБ/с и GHASH 10,5 давали вместе 6,5 на
+ *       Apple M4, слитно 9,6 при 10,4 у OpenSSL; остаток короче восьми блоков идёт
+ *       прежними путями. Смена заполнения restart оставляет таблицы от запуска: режим
+ *       ведёт много сообщений одним ключом, не строя таблицу на каждое
  *
  * @copyright Copyright © 2026
  *
@@ -86,6 +92,11 @@
 	 * Объявляем наличие ветви машинного умножения
 	 */
 	#define __ANTS_GHASH_ARM__ 1
+
+	/**
+	 * Цель слитого ядра: расширение crypto несёт и AES, и умножение без переносов
+	 */
+	#define __ANTS_FUSED_TARGET__ __ANTS_GHASH_TARGET__
 /**
  * Если сборка ведётся под x86-64 собирателем семейства GCC
  */
@@ -115,6 +126,21 @@
 	 * Объявляем наличие ветви машинного умножения
 	 */
 	#define __ANTS_GHASH_X86__ 1
+
+	/**
+	 * Если команды AES и умножения без переносов уже разрешены ключами сборки
+	 */
+	#if defined(__AES__) && defined(__PCLMUL__) && defined(__SSSE3__)
+		/**
+		 * Атрибут цели слитого ядра не нужен
+		 */
+		#define __ANTS_FUSED_TARGET__
+	#else
+		/**
+		 * Разрешаем команды расширений слитого ядра одной функции
+		 */
+		#define __ANTS_FUSED_TARGET__ __attribute__((target("aes,pclmul,ssse3,sse2")))
+	#endif
 #endif
 
 /**
@@ -362,6 +388,85 @@ namespace {
 		// Записываем итог, отразив разряды байтов обратно
 		vst1q_u8(accumulator, vrbitq_u8(vreinterpretq_u8_u64(low)));
 	}
+	/**
+	 * @brief Метод слитого хода режима: гамма счётчика AES и хеш GHASH по восемь блоков в одном проходе
+	 *
+	 * @param keys        расписание ключа зашифрования AES
+	 * @param rounds      число кругов AES
+	 * @param counter     блок счётчика: младшие 32 разряда растут от старшего байта и продвигаются на пройденные блоки
+	 * @param powers      степени ключа хеширования от восьмой до первой, отражённые
+	 * @param accumulator накопитель хеша
+	 * @param sealing     признак зашифрования: хеш берётся от итога, при расшифровании - от источника
+	 * @param source      источник: открытый текст либо шифртекст
+	 * @param result      место, в которое записывается итог той же длины
+	 * @param chunks      число восьмёрок блоков
+	 *
+	 */
+	static __ANTS_FUSED_TARGET__ void fusedArm(const uint8_t * keys, const size_t rounds, uint8_t * counter, const uint64_t (* powers)[2], uint8_t * accumulator, const bool sealing, const uint8_t * source, uint8_t * result, const size_t chunks) noexcept {
+		// Ключ, складываемый после последнего круга
+		const uint8x16_t last = vld1q_u8(keys + (rounds * 16));
+		// Ключ последнего круга подстановки
+		const uint8x16_t final = vld1q_u8(keys + ((rounds - 1) * 16));
+		// Основание счётчика: заполнение и старшие разряды
+		const uint8x16_t base = vld1q_u8(counter);
+		// Младшие 32 разряда счётчика числом
+		uint32_t tail = ((static_cast <uint32_t> (counter[12]) << 24) | (static_cast <uint32_t> (counter[13]) << 16) | (static_cast <uint32_t> (counter[14]) << 8) | static_cast <uint32_t> (counter[15]));
+		/**
+		 * Выполняем перебор восьмёрок блоков: хеш соседней восьмёрки и гамма следующей
+		 * идут вперемешку на разных устройствах машины
+		 */
+		for(size_t c = 0; c < chunks; c++){
+			// При расшифровании хеш берётся от шифртекста до снятия гаммы
+			if(!sealing)
+				aggregateArm(powers, accumulator, source);
+			// Восемь блоков счётчика
+			uint8x16_t s0 = vreinterpretq_u8_u32(vsetq_lane_u32(__builtin_bswap32(tail + 1), vreinterpretq_u32_u8(base), 3));
+			uint8x16_t s1 = vreinterpretq_u8_u32(vsetq_lane_u32(__builtin_bswap32(tail + 2), vreinterpretq_u32_u8(base), 3));
+			uint8x16_t s2 = vreinterpretq_u8_u32(vsetq_lane_u32(__builtin_bswap32(tail + 3), vreinterpretq_u32_u8(base), 3));
+			uint8x16_t s3 = vreinterpretq_u8_u32(vsetq_lane_u32(__builtin_bswap32(tail + 4), vreinterpretq_u32_u8(base), 3));
+			uint8x16_t s4 = vreinterpretq_u8_u32(vsetq_lane_u32(__builtin_bswap32(tail + 5), vreinterpretq_u32_u8(base), 3));
+			uint8x16_t s5 = vreinterpretq_u8_u32(vsetq_lane_u32(__builtin_bswap32(tail + 6), vreinterpretq_u32_u8(base), 3));
+			uint8x16_t s6 = vreinterpretq_u8_u32(vsetq_lane_u32(__builtin_bswap32(tail + 7), vreinterpretq_u32_u8(base), 3));
+			uint8x16_t s7 = vreinterpretq_u8_u32(vsetq_lane_u32(__builtin_bswap32(tail + 8), vreinterpretq_u32_u8(base), 3));
+			// Продвигаем счётчик на восемь блоков
+			tail += 8;
+			/**
+			 * Выполняем круги подстановки
+			 */
+			for(size_t round = 0; (round + 1) < rounds; round++){
+				// Ключ круга
+				const uint8x16_t key = vld1q_u8(keys + (round * 16));
+				s0 = vaesmcq_u8(vaeseq_u8(s0, key));
+				s1 = vaesmcq_u8(vaeseq_u8(s1, key));
+				s2 = vaesmcq_u8(vaeseq_u8(s2, key));
+				s3 = vaesmcq_u8(vaeseq_u8(s3, key));
+				s4 = vaesmcq_u8(vaeseq_u8(s4, key));
+				s5 = vaesmcq_u8(vaeseq_u8(s5, key));
+				s6 = vaesmcq_u8(vaeseq_u8(s6, key));
+				s7 = vaesmcq_u8(vaeseq_u8(s7, key));
+			}
+			// Накладываем гамму на источник
+			vst1q_u8(result, veorq_u8(veorq_u8(vaeseq_u8(s0, final), last), vld1q_u8(source)));
+			vst1q_u8(result + 16, veorq_u8(veorq_u8(vaeseq_u8(s1, final), last), vld1q_u8(source + 16)));
+			vst1q_u8(result + 32, veorq_u8(veorq_u8(vaeseq_u8(s2, final), last), vld1q_u8(source + 32)));
+			vst1q_u8(result + 48, veorq_u8(veorq_u8(vaeseq_u8(s3, final), last), vld1q_u8(source + 48)));
+			vst1q_u8(result + 64, veorq_u8(veorq_u8(vaeseq_u8(s4, final), last), vld1q_u8(source + 64)));
+			vst1q_u8(result + 80, veorq_u8(veorq_u8(vaeseq_u8(s5, final), last), vld1q_u8(source + 80)));
+			vst1q_u8(result + 96, veorq_u8(veorq_u8(vaeseq_u8(s6, final), last), vld1q_u8(source + 96)));
+			vst1q_u8(result + 112, veorq_u8(veorq_u8(vaeseq_u8(s7, final), last), vld1q_u8(source + 112)));
+			// При зашифровании хеш берётся от шифртекста
+			if(sealing)
+				aggregateArm(powers, accumulator, result);
+			// Переходим к следующей восьмёрке
+			source += 128;
+			result += 128;
+		}
+		// Записываем продвинутый счётчик
+		counter[12] = static_cast <uint8_t> (tail >> 24);
+		counter[13] = static_cast <uint8_t> (tail >> 16);
+		counter[14] = static_cast <uint8_t> (tail >> 8);
+		counter[15] = static_cast <uint8_t> (tail);
+	}
 /**
  * Если есть ветвь машинного умножения PCLMULQDQ
  */
@@ -475,9 +580,129 @@ namespace {
 		// Записываем итог, отразив разряды байтов обратно
 		_mm_storeu_si128(reinterpret_cast <__m128i *> (accumulator), reflect(low));
 	}
+	/**
+	 * @brief Метод слитого хода режима: гамма счётчика AES-NI и хеш GHASH по восемь блоков в одном проходе
+	 *
+	 * @param keys        расписание ключа зашифрования AES
+	 * @param rounds      число кругов AES
+	 * @param counter     блок счётчика: младшие 32 разряда растут от старшего байта и продвигаются на пройденные блоки
+	 * @param powers      степени ключа хеширования от восьмой до первой, отражённые
+	 * @param accumulator накопитель хеша
+	 * @param sealing     признак зашифрования: хеш берётся от итога, при расшифровании - от источника
+	 * @param source      источник: открытый текст либо шифртекст
+	 * @param result      место, в которое записывается итог той же длины
+	 * @param chunks      число восьмёрок блоков
+	 *
+	 */
+	static __ANTS_FUSED_TARGET__ void fusedX86(const uint8_t * keys, const size_t rounds, uint8_t * counter, const uint64_t (* powers)[2], uint8_t * accumulator, const bool sealing, const uint8_t * source, uint8_t * result, const size_t chunks) noexcept {
+		// Ключ первого круга
+		const __m128i first = _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys));
+		// Ключ последнего круга
+		const __m128i last = _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys + (rounds * 16)));
+		// Основание счётчика: заполнение и старшие разряды без младшего слова
+		const __m128i head = _mm_and_si128(_mm_loadu_si128(reinterpret_cast <const __m128i *> (counter)), _mm_set_epi32(0, -1, -1, -1));
+		// Младшие 32 разряда счётчика числом
+		uint32_t tail = ((static_cast <uint32_t> (counter[12]) << 24) | (static_cast <uint32_t> (counter[13]) << 16) | (static_cast <uint32_t> (counter[14]) << 8) | static_cast <uint32_t> (counter[15]));
+		/**
+		 * Выполняем перебор восьмёрок блоков: хеш соседней восьмёрки и гамма следующей
+		 * идут вперемешку на разных устройствах машины
+		 */
+		for(size_t c = 0; c < chunks; c++){
+			// При расшифровании хеш берётся от шифртекста до снятия гаммы
+			if(!sealing)
+				aggregateX86(powers, accumulator, source);
+			// Восемь блоков счётчика, сложенных с ключом первого круга
+			__m128i s0 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__builtin_bswap32(tail + 1)), 0, 0, 0)), first);
+			__m128i s1 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__builtin_bswap32(tail + 2)), 0, 0, 0)), first);
+			__m128i s2 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__builtin_bswap32(tail + 3)), 0, 0, 0)), first);
+			__m128i s3 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__builtin_bswap32(tail + 4)), 0, 0, 0)), first);
+			__m128i s4 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__builtin_bswap32(tail + 5)), 0, 0, 0)), first);
+			__m128i s5 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__builtin_bswap32(tail + 6)), 0, 0, 0)), first);
+			__m128i s6 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__builtin_bswap32(tail + 7)), 0, 0, 0)), first);
+			__m128i s7 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__builtin_bswap32(tail + 8)), 0, 0, 0)), first);
+			// Продвигаем счётчик на восемь блоков
+			tail += 8;
+			/**
+			 * Выполняем круги подстановки
+			 */
+			for(size_t round = 1; round < rounds; round++){
+				// Ключ круга
+				const __m128i key = _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys + (round * 16)));
+				s0 = _mm_aesenc_si128(s0, key);
+				s1 = _mm_aesenc_si128(s1, key);
+				s2 = _mm_aesenc_si128(s2, key);
+				s3 = _mm_aesenc_si128(s3, key);
+				s4 = _mm_aesenc_si128(s4, key);
+				s5 = _mm_aesenc_si128(s5, key);
+				s6 = _mm_aesenc_si128(s6, key);
+				s7 = _mm_aesenc_si128(s7, key);
+			}
+			// Накладываем гамму на источник
+			_mm_storeu_si128(reinterpret_cast <__m128i *> (result), _mm_xor_si128(_mm_aesenclast_si128(s0, last), _mm_loadu_si128(reinterpret_cast <const __m128i *> (source))));
+			_mm_storeu_si128(reinterpret_cast <__m128i *> (result + 16), _mm_xor_si128(_mm_aesenclast_si128(s1, last), _mm_loadu_si128(reinterpret_cast <const __m128i *> (source + 16))));
+			_mm_storeu_si128(reinterpret_cast <__m128i *> (result + 32), _mm_xor_si128(_mm_aesenclast_si128(s2, last), _mm_loadu_si128(reinterpret_cast <const __m128i *> (source + 32))));
+			_mm_storeu_si128(reinterpret_cast <__m128i *> (result + 48), _mm_xor_si128(_mm_aesenclast_si128(s3, last), _mm_loadu_si128(reinterpret_cast <const __m128i *> (source + 48))));
+			_mm_storeu_si128(reinterpret_cast <__m128i *> (result + 64), _mm_xor_si128(_mm_aesenclast_si128(s4, last), _mm_loadu_si128(reinterpret_cast <const __m128i *> (source + 64))));
+			_mm_storeu_si128(reinterpret_cast <__m128i *> (result + 80), _mm_xor_si128(_mm_aesenclast_si128(s5, last), _mm_loadu_si128(reinterpret_cast <const __m128i *> (source + 80))));
+			_mm_storeu_si128(reinterpret_cast <__m128i *> (result + 96), _mm_xor_si128(_mm_aesenclast_si128(s6, last), _mm_loadu_si128(reinterpret_cast <const __m128i *> (source + 96))));
+			_mm_storeu_si128(reinterpret_cast <__m128i *> (result + 112), _mm_xor_si128(_mm_aesenclast_si128(s7, last), _mm_loadu_si128(reinterpret_cast <const __m128i *> (source + 112))));
+			// При зашифровании хеш берётся от шифртекста
+			if(sealing)
+				aggregateX86(powers, accumulator, result);
+			// Переходим к следующей восьмёрке
+			source += 128;
+			result += 128;
+		}
+		// Записываем продвинутый счётчик
+		counter[12] = static_cast <uint8_t> (tail >> 24);
+		counter[13] = static_cast <uint8_t> (tail >> 16);
+		counter[14] = static_cast <uint8_t> (tail >> 8);
+		counter[15] = static_cast <uint8_t> (tail);
+	}
 #endif
 };
 
+/**
+ * @brief Метод слитого хода режима: гамма счётчика AES и хеш по восемь блоков в одном проходе
+ *
+ * @param sealing признак зашифрования
+ * @param source  источник целыми восьмёрками блоков
+ * @param result  место под итог той же длины
+ * @param chunks  число восьмёрок блоков
+ *
+ * @return        признак того, что ход выполнен
+ *
+ */
+bool nts::cipher::Gcm::travel(const bool sealing, const uint8_t * source, uint8_t * result, const size_t chunks) noexcept {
+/**
+ * Если есть ветвь машинного умножения
+ */
+#if defined(__ANTS_GHASH_ARM__) || defined(__ANTS_GHASH_X86__)
+	// Если расписания ключа AES нет либо команд машины нет: путь идёт порознь
+	if((this->_block.schedule == nullptr) || (chunks == 0) || !machine::has(machine::feature_t::CARRYLESS) || !machine::has(machine::feature_t::AES))
+		// Выводим отказ слитого хода
+		return false;
+	/**
+	 * Если есть ветвь машинного умножения PMULL
+	 */
+	#if defined(__ANTS_GHASH_ARM__)
+		// Выполняем слитый ход командами ARMv8
+		fusedArm(this->_block.schedule, this->_block.rounds, this->_counter, this->_powers, this->_accumulator, sealing, source, result, chunks);
+	#else
+		// Выполняем слитый ход командами x86-64
+		fusedX86(this->_block.schedule, this->_block.rounds, this->_counter, this->_powers, this->_accumulator, sealing, source, result, chunks);
+	#endif
+	// Выводим успешность слитого хода
+	return true;
+#else
+	(void) sealing;
+	(void) source;
+	(void) result;
+	(void) chunks;
+	// Выводим отказ слитого хода: ветви машины нет
+	return false;
+#endif
+}
 /**
  * @brief Метод умножения значения на ключ хеширования в поле GF(2^128)
  *
@@ -1111,6 +1336,30 @@ bool nts::cipher::Gcm::start(const block_t & block, const view_t & nonce, const 
 		wipe(power, sizeof(power));
 	}
 #endif
+	// Запоминаем готовность режима: таблицы построены, начальный блок ставит смена заполнения
+	this->_ready = true;
+	// Выводим итог установки начального заполнения
+	return this->restart(nonce);
+}
+/**
+ * @brief Метод смены начального заполнения у запущенного режима
+ *
+ * @param nonce начальное заполнение любой ненулевой длины, 12 байтов - прямой путь
+ *
+ * @return      признак успешности смены
+ *
+ */
+bool nts::cipher::Gcm::restart(const view_t & nonce) noexcept {
+	// Если режим не запущен: таблиц кратных ключа хеширования нет
+	if(!this->_ready)
+		// Выводим отказ смены заполнения
+		return false;
+	// Если заполнение не передано
+	if((nonce.data == nullptr) || (nonce.size == 0))
+		// Выводим отказ смены заполнения
+		return false;
+	// Заполнение новое: прежнее израсходованным более не считается
+	this->_spent = false;
 	// Если заполнение в 12 байтов
 	if(nonce.size == 12){
 		// Переносим заполнение в начальный блок счётчика
@@ -1140,9 +1389,7 @@ bool nts::cipher::Gcm::start(const block_t & block, const view_t & nonce, const 
 	}
 	// Выполняем сброс состояния потока от начального блока
 	this->reset();
-	// Запоминаем готовность режима
-	this->_ready = true;
-	// Выводим успешность запуска
+	// Выводим успешность смены заполнения
 	return true;
 }
 /**
@@ -1233,15 +1480,27 @@ bool nts::cipher::Gcm::encrypt(const view_t & source, uint8_t * result) noexcept
 	if(!this->proceed(1))
 		// Выводим отказ зашифрования
 		return false;
-	// Если гамму наложить не удалось
-	if(!this->cover(source, result)){
-		// Закрываем поток
-		this->_stage = 3;
-		// Выводим отказ зашифрования
-		return false;
+	// Длина, пройденная слитым ядром
+	size_t passed = 0;
+	/**
+	 * Целые восьмёрки блоков при выровненном потоке идут слитым ядром: гамма и хеш в
+	 * одном проходе, остаток - порознь, как прежде
+	 */
+	if((this->_rest == 0) && (this->_filled == 0) && (source.size >= 128) && this->travel(true, source.data, result, (source.size / 128)))
+		// Запоминаем длину, пройденную слитым ядром
+		passed = ((source.size / 128) * 128);
+	// Если остался хвост либо слитого ядра нет
+	if(passed < source.size){
+		// Если гамму наложить не удалось
+		if(!this->cover(view_t(source.data + passed, source.size - passed), result + passed)){
+			// Закрываем поток
+			this->_stage = 3;
+			// Выводим отказ зашифрования
+			return false;
+		}
+		// Выполняем сложение шифртекста в накопитель
+		this->absorb(result + passed, source.size - passed);
 	}
-	// Выполняем сложение шифртекста в накопитель
-	this->absorb(result, source.size);
 	// Увеличиваем длину шифртекста
 	this->_sealed += static_cast <uint64_t> (source.size);
 	// Выводим успешность зашифрования
@@ -1279,12 +1538,21 @@ bool nts::cipher::Gcm::decrypt(const view_t & source, uint8_t * result) noexcept
 	if(!this->proceed(2))
 		// Выводим отказ расшифрования
 		return false;
-	// Выполняем сложение шифртекста в накопитель
-	this->absorb(source.data, source.size);
+	// Длина, пройденная слитым ядром
+	size_t passed = 0;
+	/**
+	 * Целые восьмёрки блоков при выровненном потоке идут слитым ядром: хеш от
+	 * шифртекста и гамма в одном проходе, остаток - порознь, как прежде
+	 */
+	if((this->_rest == 0) && (this->_filled == 0) && (source.size >= 128) && this->travel(false, source.data, result, (source.size / 128)))
+		// Запоминаем длину, пройденную слитым ядром
+		passed = ((source.size / 128) * 128);
+	// Выполняем сложение остатка шифртекста в накопитель
+	this->absorb(source.data + passed, source.size - passed);
 	// Увеличиваем длину шифртекста
 	this->_sealed += static_cast <uint64_t> (source.size);
-	// Если гамму снять не удалось
-	if(!this->cover(source, result)){
+	// Если гамму с остатка снять не удалось
+	if((passed < source.size) && !this->cover(view_t(source.data + passed, source.size - passed), result + passed)){
 		// Выполняем затирание неполного открытого текста
 		wipe(result, source.size);
 		// Закрываем поток

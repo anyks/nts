@@ -1202,6 +1202,35 @@ bool nts::cipher::Aes::stream(const uint8_t * counter, const size_t blocks, uint
 	return true;
 }
 /**
+ * @brief Метод получения расписания ключа зашифрования для слитых ядер режимов
+ *
+ * @return расписание ключа; пусто без ключа либо без команд машины
+ *
+ */
+const uint8_t * nts::cipher::Aes::schedule() const noexcept {
+/**
+ * Если есть ветвь машинных команд AES
+ */
+#if defined(__ANTS_AES_ARM__) || defined(__ANTS_AES_X86__)
+	// Если ключ установлен и команды AES у машины есть
+	if(this->_ready && machine::has(machine::feature_t::AES))
+		// Выводим расписание ключа зашифрования
+		return this->_sealing;
+#endif
+	// Выводим пустое расписание: слитым ядрам режимов нечего взять
+	return nullptr;
+}
+/**
+ * @brief Метод получения числа кругов шифра
+ *
+ * @return число кругов; ноль без ключа
+ *
+ */
+size_t nts::cipher::Aes::rounds() const noexcept {
+	// Выводим число кругов установленного ключа
+	return (this->_ready ? this->_rounds : 0);
+}
+/**
  * @brief Конструктор
  *
  */

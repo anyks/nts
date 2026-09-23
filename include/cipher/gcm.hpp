@@ -240,6 +240,28 @@ namespace nts {
 				bool cover(const view_t & source, uint8_t * result) noexcept;
 				/**
 				 * \~russian
+				 * @brief Метод слитого хода режима: гамма счётчика AES и хеш по восемь блоков в одном проходе
+				 *
+				 * @param sealing признак зашифрования: хеш берётся от итога, при расшифровании - от источника
+				 * @param source  источник целыми восьмёрками блоков
+				 * @param result  место, в которое записывается итог той же длины
+				 * @param chunks  число восьмёрок блоков
+				 *
+				 * @return        признак того, что ход выполнен: без расписания ключа AES либо команд машины - отказ, и путь идёт порознь
+				 *
+				 * \~english
+				 * @brief Method of the fused pass of the mode: the AES counter gamma and the hash by eight blocks in one pass
+				 * @param sealing the flag of the encryption: the hash is taken from the result, at the decryption - from the source
+				 * @param source  the source by whole eights of blocks
+				 * @param result  the place the result of the same length is written into
+				 * @param chunks  the number of the eights of blocks
+				 * @return        the flag that the pass is done: without an AES key schedule or the machine instructions - a refusal, and the path goes apart
+				 *
+				 * \~
+				 */
+				bool travel(const bool sealing, const uint8_t * source, uint8_t * result, const size_t chunks) noexcept;
+				/**
+				 * \~russian
 				 * @brief Метод завершения многочлена GHASH блоком длин
 				 *
 				 * @param result место в 16 байтов, в которое записывается значение многочлена
@@ -341,6 +363,31 @@ namespace nts {
 				 * \~
 				 */
 				bool start(const block_t & block, const view_t & nonce, const size_t size = 0) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод смены начального заполнения у запущенного режима
+				 *
+				 * @details Таблицы кратных ключа хеширования остаются от запуска: заново вычисляется
+				 *          лишь начальный блок счётчика, и поток начинается сначала. Так режим ведёт
+				 *          много сообщений одним ключом, не строя таблицу на каждое; заполнение
+				 *          обязано быть новым для ключа
+				 *
+				 * @param nonce начальное заполнение любой ненулевой длины, 12 байтов - прямой путь
+				 *
+				 * @return      признак успешности смены: отказ у незапущенного режима либо пустого заполнения
+				 *
+				 * \~english
+				 * @brief Method of changing the nonce of a started mode
+				 * @details The tables of the multiples of the hash key remain from the start: only the
+				 *          initial counter block is computed anew and the stream begins over. So the mode
+				 *          carries many messages under one key without building the table for each one;
+				 *          the nonce must be fresh for the key
+				 * @param nonce the nonce of any nonzero length, 12 bytes - the direct path
+				 * @return      the flag of the success of the change: a refusal at a mode not started or at an empty nonce
+				 *
+				 * \~
+				 */
+				bool restart(const view_t & nonce) noexcept;
 				/**
 				 * \~russian
 				 * @brief Метод сброса режима

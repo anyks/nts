@@ -269,7 +269,7 @@ namespace {
  *
  */
 nts::cipher::Block::Block() noexcept :
-	size(0), cipher(nullptr), encrypt(nullptr), decrypt(nullptr), stream(nullptr), batch(nullptr) {}
+	size(0), cipher(nullptr), encrypt(nullptr), decrypt(nullptr), stream(nullptr), batch(nullptr), schedule(nullptr), rounds(0) {}
 /**
  * @brief Конструктор
  *
@@ -277,7 +277,7 @@ nts::cipher::Block::Block() noexcept :
  *
  */
 nts::cipher::Block::Block(const magma_t & cipher) noexcept :
-	size(MAGMA_BLOCK), cipher(&cipher), encrypt(&encryptMagma), decrypt(&decryptMagma), stream(nullptr), batch(&batchMagma) {}
+	size(MAGMA_BLOCK), cipher(&cipher), encrypt(&encryptMagma), decrypt(&decryptMagma), stream(nullptr), batch(&batchMagma), schedule(nullptr), rounds(0) {}
 /**
  * @brief Конструктор
  *
@@ -285,7 +285,7 @@ nts::cipher::Block::Block(const magma_t & cipher) noexcept :
  *
  */
 nts::cipher::Block::Block(const kuznyechik_t & cipher) noexcept :
-	size(KUZNYECHIK_BLOCK), cipher(&cipher), encrypt(&encryptKuznyechik), decrypt(&decryptKuznyechik), stream(nullptr), batch(&batchKuznyechik) {}
+	size(KUZNYECHIK_BLOCK), cipher(&cipher), encrypt(&encryptKuznyechik), decrypt(&decryptKuznyechik), stream(nullptr), batch(&batchKuznyechik), schedule(nullptr), rounds(0) {}
 /**
  * @brief Конструктор
  *
@@ -293,7 +293,7 @@ nts::cipher::Block::Block(const kuznyechik_t & cipher) noexcept :
  *
  */
 nts::cipher::Block::Block(const aes_t & cipher) noexcept :
-	size(AES_BLOCK), cipher(&cipher), encrypt(&encryptAes), decrypt(&decryptAes), stream(&streamAes), batch(&batchAes) {}
+	size(AES_BLOCK), cipher(&cipher), encrypt(&encryptAes), decrypt(&decryptAes), stream(&streamAes), batch(&batchAes), schedule(cipher.schedule()), rounds(cipher.rounds()) {}
 /**
  * @brief Метод проверки готовности режима к работе
  *

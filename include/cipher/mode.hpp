@@ -135,6 +135,10 @@ namespace nts {
 			bool (* stream)(const void * cipher, const uint8_t * counter, const size_t blocks, uint8_t * result) noexcept;
 			// Функция зашифрования нескольких независимых блоков разом: у шифров без неё пуста
 			bool (* batch)(const void * cipher, const uint8_t * sources, const size_t blocks, uint8_t * results) noexcept;
+			// Расписание ключа зашифрования AES для слитых ядер режимов: у прочих шифров и без команд машины пусто
+			const uint8_t * schedule;
+			// Число кругов AES при заданном расписании
+			size_t rounds;
 			/**
 			 * \~russian
 			 * @brief Конструктор

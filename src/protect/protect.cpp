@@ -34,14 +34,21 @@
  *    одноразового значения не гасится (раздел 5.3 RFC 8446). Предел записей на одном ключе
  *    взят по разделу 5.5 RFC 8446: около 2^24,5 записей полной длины для AES-GCM.
  *
- * 6. Режим GCM заводится заново на всякую запись: примитив привязывает одноразовое значение
- *    при заведении, а оно у всякой записи своё. Таблица умножения при этом строится заново,
- *    и это плата за общность примитива, а не за протокол.
+ * 6. Режим GCM заводится один раз на ключ: таблица кратных ключа хеширования строится при
+ *    установке ключевого материала, а на всякую запись меняется лишь заполнение (restart).
+ *    До круга 31 (23.09.2026) режим заводился заново на каждую запись, и три затирания
+ *    таблицы с её построением стоили около 0,8 мкс на запись - вчетверо дороже самого
+ *    шифрования 1200 байтов. Содержимое, вид и дополнение шифруются потоком прямо из места
+ *    вызова в накопитель, без сборки открытого текста в памяти; снятие защиты идёт прямо в
+ *    накопитель вызывающей стороны, а хвост записи и, при отказе, весь открытый текст
+ *    затираются до возврата. Наборы ГОСТ собирают открытый текст в памяти по-прежнему:
+ *    у режима MGM поточного вызова нет.
  *
  * 7. Набор ChaCha20-Poly1305 живёт тем же классическим путём, что и AES-GCM: одноразовое
  *    значение, связанные данные и предел длины у них общие (разделы 5.2 и 5.3 RFC 8446), а
- *    различие лишь в примитиве - AEAD берётся у chachapoly_t разовым вызовом на запись, и
- *    базовый блочный шифр ему не готовится вовсе. Предел записей на ключе взят в 2^62:
+ *    различие лишь в примитиве - AEAD берётся у chachapoly_t на запись (его заведение - копия
+ *    ключа и один блок гаммы под ключ Poly1305, чего требует сам RFC 8439), и базовый блочный
+ *    шифр ему не готовится вовсе. Предел записей на ключе взят в 2^62:
  *    раздел 5.5 RFC 8446 предела ChaCha20 не ставит (порядковый номер переполнится
  *    раньше), а недостижимый предел оставляет заслон номеров живым и не подпускает
  *    счётчик к переполнению.
@@ -94,6 +101,59 @@ namespace {
 	 * Пространство имён библиотеки
 	 */
 	using namespace nts;
+
+	/**
+	 * @brief Метод поточного наложения защиты на запись: содержимое, истинный вид и дополнение шифруются прямо из места вызова
+	 *
+	 * @param aead       заведённый примитив AEAD с установленным заполнением
+	 * @param associated связанные данные записи
+	 * @param data       защищаемое содержимое записи
+	 * @param total      длина содержимого записи
+	 * @param type       истинный вид содержимого записи
+	 * @param padding    длина дополнения записи
+	 * @param cipher     место под шифртекст записи с меткой целостности следом
+	 *
+	 * @return           признак успешности наложения защиты
+	 *
+	 */
+	template <typename T>
+	static bool sealing(T & aead, const view_t & associated, const view_t & data, const size_t total, const record::type_t type, const size_t padding, uint8_t * cipher) noexcept {
+		// Если связанные данные подать не удалось
+		if(!aead.associate(associated))
+			// Выводим отказ наложения защиты
+			return false;
+		// Если содержимое записи зашифровать не удалось
+		if((total > 0) && !aead.encrypt(view_t(data.data, total), cipher))
+			// Выводим отказ наложения защиты
+			return false;
+		// Истинный вид содержимого записи
+		const uint8_t inner = static_cast <uint8_t> (type);
+		// Если истинный вид содержимого зашифровать не удалось
+		if(!aead.encrypt(view_t(&inner, 1), cipher + total))
+			// Выводим отказ наложения защиты
+			return false;
+		// Смещение дополнения в шифртексте записи
+		size_t offset = (total + 1);
+		// Нулевые байты дополнения: шифруются кусками, чтобы не занимать память под всё дополнение
+		static const uint8_t ZEROS[256] = {0};
+		/**
+		 * Выполняем шифрование дополнения кусками
+		 */
+		for(size_t rest = padding; rest > 0;){
+			// Длина очередного куска дополнения
+			const size_t piece = ((rest > sizeof(ZEROS)) ? sizeof(ZEROS) : rest);
+			// Если кусок дополнения зашифровать не удалось
+			if(!aead.encrypt(view_t(ZEROS, piece), cipher + offset))
+				// Выводим отказ наложения защиты
+				return false;
+			// Сдвигаем смещение на длину куска
+			offset += piece;
+			// Уменьшаем остаток дополнения
+			rest -= piece;
+		}
+		// Выводим итог выработки метки целостности следом за шифртекстом
+		return aead.finish(cipher + offset);
+	}
 
 	/**
 	 * Пространство имён модуля
@@ -770,6 +830,23 @@ bool nts::protect::Protection::start(const suite_t suite, const view_t & key, co
 		// Выводим отказ установки ключевого материала
 		return false;
 	}
+	/**
+	 * Классическим наборам AEAD режим GCM заводится один раз на ключ: таблица кратных
+	 * ключа хеширования строится здесь, а заполнение ставится на всякую запись сменой
+	 */
+	if(this->_classic && !this->_stream && !this->_cbc){
+		// Заполнение-заглушка: настоящее ставится на каждую запись
+		uint8_t zeros[12];
+		// Выполняем обнуление заглушки
+		::memset(zeros, 0, sizeof(zeros));
+		// Если режим GCM завести не удалось
+		if(!this->_gcm.start(block, view_t(zeros, sizeof(zeros)), this->_tag)){
+			// Выполняем сброс состояния защиты записей
+			this->clear();
+			// Выводим отказ установки ключевого материала
+			return false;
+		}
+	}
 	// Отмечаем готовность защиты записей
 	this->_ready = true;
 	// Выводим успешность установки ключевого материала
@@ -790,6 +867,8 @@ void nts::protect::Protection::clear() noexcept {
 	this->_kuznyechik.clear();
 	// Выполняем сброс базового шифра AES
 	this->_aes.clear();
+	// Выполняем сброс режима GCM: таблица кратных ключа хеширования затирается
+	this->_gcm.clear();
 	// Сбрасываем набор шифрования направления связи
 	this->_suite = suite_t::NONE;
 	// Сбрасываем длину вектора замены
@@ -1023,14 +1102,6 @@ nts::protect::error_t nts::protect::Protection::seal(const view_t & associated, 
 	 * дополнением, и памяти под неё может не хватить
 	 */
 	try {
-		// Открытый текст записи вместе с видом содержимого и дополнением
-		vector <uint8_t> plain(length, 0);
-		// Если содержимое записи передано
-		if(total > 0)
-			// Переносим содержимое записи в открытый текст
-			::memcpy(plain.data(), data.data, total);
-		// Записываем истинный вид содержимого следом за содержимым
-		plain[total] = static_cast <uint8_t> (type);
 		// Смещение шифртекста записи в накопителе
 		const size_t offset = result.size();
 		// Занимаем место под шифртекст и метку целостности записи
@@ -1043,26 +1114,34 @@ nts::protect::error_t nts::protect::Protection::seal(const view_t & associated, 
 		if(this->_stream){
 			// Объект AEAD ChaCha20-Poly1305
 			cipher::chachapoly_t chachapoly;
-			// Если AEAD запустить не удалось
+			// Если AEAD запустить удалось: содержимое, вид и дополнение шифруются потоком прямо из места вызова
 			if(chachapoly.start(view_t(this->_key, this->_width), view_t(nonce, this->_size)))
 				// Выполняем наложение шифрования с проверкой целостности
-				ok = chachapoly.encrypt(associated, view_t(plain.data(), plain.size()), cipher, (cipher + length));
+				ok = sealing(chachapoly, associated, data, total, type, padding, cipher);
 		// Если набор шифрования классический на AES-GCM
 		} else if(this->_classic) {
-			// Объект режима GCM
-			cipher::gcm_t gcm;
-			// Если режим GCM запустить не удалось
-			if(gcm.start(block, view_t(nonce, this->_size), this->_tag))
+			// Если заполнение записи установить удалось: таблица режима построена при заведении ключа
+			if(this->_gcm.restart(view_t(nonce, this->_size)))
 				// Выполняем наложение шифрования с проверкой целостности
-				ok = gcm.encrypt(associated, view_t(plain.data(), plain.size()), cipher, (cipher + length));
+				ok = sealing(this->_gcm, associated, data, total, type, padding, cipher);
 		// Если набор шифрования на алгоритмах ГОСТ
 		} else {
+			// Открытый текст записи вместе с видом содержимого и дополнением: режиму MGM он нужен целиком
+			vector <uint8_t> plain(length, 0);
+			// Если содержимое записи передано
+			if(total > 0)
+				// Переносим содержимое записи в открытый текст
+				::memcpy(plain.data(), data.data, total);
+			// Записываем истинный вид содержимого следом за содержимым
+			plain[total] = static_cast <uint8_t> (type);
 			// Объект режима MGM
 			cipher::galois_t galois;
-			// Если режим MGM запустить не удалось
+			// Если режим MGM запустить удалось
 			if(galois.start(block, view_t(nonce, this->_size), this->_tag))
 				// Выполняем наложение шифрования с проверкой целостности
 				ok = galois.encrypt(associated, view_t(plain.data(), plain.size()), cipher, (cipher + length));
+			// Выполняем затирание открытого текста записи
+			wipe(plain.data(), plain.size());
 		}
 		// Если наложить шифрование не удалось
 		if(!ok){
@@ -1071,8 +1150,6 @@ nts::protect::error_t nts::protect::Protection::seal(const view_t & associated, 
 			// Запоминаем отказ базового шифра
 			outcome = error_t::CIPHER;
 		}
-		// Выполняем затирание открытого текста записи
-		wipe(plain.data(), plain.size());
 	/**
 	 * Если памяти под открытый текст либо накопитель не хватило
 	 */
@@ -1144,35 +1221,41 @@ nts::protect::error_t nts::protect::Protection::open(const view_t & associated, 
 	 * под неё может не хватить
 	 */
 	try {
-		// Открытый текст записи вместе с видом содержимого и дополнением
-		vector <uint8_t> plain(length, 0);
+		// Смещение открытого содержимого записи в накопителе
+		const size_t offset = result.size();
+		// Занимаем место под открытый текст записи вместе с видом содержимого и дополнением
+		result.resize(offset + length, 0);
+		// Место, в которое помещается открытый текст записи
+		uint8_t * plain = (result.data() + offset);
 		// Признак успешности снятия шифрования с проверкой целостности
 		bool ok = false;
 		// Если набор шифрования - ChaCha20-Poly1305
 		if(this->_stream){
 			// Объект AEAD ChaCha20-Poly1305
 			cipher::chachapoly_t chachapoly;
-			// Если AEAD запустить не удалось
+			// Если AEAD запустить удалось
 			if(chachapoly.start(view_t(this->_key, this->_width), view_t(nonce, this->_size)))
-				// Выполняем снятие шифрования с проверкой целостности
-				ok = chachapoly.decrypt(associated, view_t(data.data, length), plain.data(), view_t((data.data + length), this->_tag));
+				// Выполняем снятие шифрования с проверкой целостности прямо в накопитель
+				ok = chachapoly.decrypt(associated, view_t(data.data, length), plain, view_t((data.data + length), this->_tag));
 		// Если набор шифрования классический на AES-GCM
 		} else if(this->_classic) {
-			// Объект режима GCM
-			cipher::gcm_t gcm;
-			// Если режим GCM запустить не удалось
-			if(gcm.start(block, view_t(nonce, this->_size), this->_tag))
-				// Выполняем снятие шифрования с проверкой целостности
-				ok = gcm.decrypt(associated, view_t(data.data, length), plain.data(), view_t((data.data + length), this->_tag));
+			/**
+			 * Снятие защиты идёт поточными вызовами: слитое ядро режима считает хеш и снимает
+			 * гамму одним проходом, а метка сверяется в конце; при расхождении расшифрованное
+			 * затирается ниже вместе с хвостом записи
+			 */
+			ok = (this->_gcm.restart(view_t(nonce, this->_size)) && this->_gcm.associate(associated) && this->_gcm.decrypt(view_t(data.data, length), plain) && this->_gcm.verify(view_t((data.data + length), this->_tag)));
 		// Если набор шифрования на алгоритмах ГОСТ
 		} else {
 			// Объект режима MGM
 			cipher::galois_t galois;
-			// Если режим MGM запустить не удалось
+			// Если режим MGM запустить удалось
 			if(galois.start(block, view_t(nonce, this->_size), this->_tag))
-				// Выполняем снятие шифрования с проверкой целостности
-				ok = galois.decrypt(associated, view_t(data.data, length), plain.data(), view_t((data.data + length), this->_tag));
+				// Выполняем снятие шифрования с проверкой целостности прямо в накопитель
+				ok = galois.decrypt(associated, view_t(data.data, length), plain, view_t((data.data + length), this->_tag));
 		}
+		// Длина открытого содержимого записи без дополнения и вида: ноль остаётся при отказе
+		size_t inner = 0;
 		// Если метка целостности записи не сошлась
 		if(!ok)
 			// Запоминаем отказ метки целостности
@@ -1180,36 +1263,38 @@ nts::protect::error_t nts::protect::Protection::open(const view_t & associated, 
 		// Если защита снята
 		else {
 			// Смещение истинного вида содержимого в открытом тексте
-			size_t offset = length;
+			size_t position = length;
 			/**
 			 * Выполняем пропуск дополнения с конца открытого текста
 			 */
-			while((offset > 0) && (plain[offset - 1] == 0x00))
+			while((position > 0) && (plain[position - 1] == 0x00))
 				// Уменьшаем смещение истинного вида содержимого
-				offset--;
+				position--;
 			// Если истинного вида содержимого в открытом тексте нет
-			if(offset == 0)
+			if(position == 0)
 				// Запоминаем отказ вида содержимого
 				outcome = error_t::TYPE;
 			// Если истинный вид содержимого найден
 			else {
 				// Получаем истинный вид содержимого записи
-				const record::type_t inner = static_cast <record::type_t> (plain[offset - 1]);
+				const record::type_t found = static_cast <record::type_t> (plain[position - 1]);
 				// Если вид содержимого протоколом не определён
-				if(!record::known(inner))
+				if(!record::known(found))
 					// Запоминаем отказ вида содержимого
 					outcome = error_t::TYPE;
 				// Если вид содержимого протоколом определён
 				else {
 					// Устанавливаем истинный вид содержимого записи
-					type = inner;
-					// Складываем открытое содержимое записи в накопитель
-					result.insert(result.end(), plain.data(), (plain.data() + offset - 1));
+					type = found;
+					// Запоминаем длину открытого содержимого записи
+					inner = (position - 1);
 				}
 			}
 		}
-		// Выполняем затирание открытого текста записи
-		wipe(plain.data(), plain.size());
+		// Выполняем затирание хвоста открытого текста: вида и дополнения, а при отказе - всего расшифрованного
+		wipe(plain + inner, (length - inner));
+		// Возвращаем накопитель к длине открытого содержимого: при отказе - к прежней
+		result.resize(offset + inner);
 	/**
 	 * Если памяти под открытый текст либо накопитель не хватило
 	 */
@@ -1420,12 +1505,10 @@ nts::protect::error_t nts::protect::Protection::wrap(const uint64_t sequence, co
 				ok = chachapoly.encrypt(view_t(associated, sizeof(associated)), view_t(data.data, total), cipher, (cipher + total));
 		// Если набор шифрования - AES-GCM
 		} else {
-			// Объект режима GCM
-			cipher::gcm_t gcm;
 			// Если режим GCM запустить не удалось
-			if(gcm.start(block, view_t(nonce, LEGACY_SALT + LEGACY_EXPLICIT), this->_tag))
+			if(this->_gcm.restart(view_t(nonce, LEGACY_SALT + LEGACY_EXPLICIT)))
 				// Выполняем наложение шифрования с проверкой целостности
-				ok = gcm.encrypt(view_t(associated, sizeof(associated)), view_t(data.data, total), cipher, (cipher + total));
+				ok = this->_gcm.encrypt(view_t(associated, sizeof(associated)), view_t(data.data, total), cipher, (cipher + total));
 		}
 		// Если наложить шифрование не удалось
 		if(!ok){
@@ -1580,12 +1663,10 @@ nts::protect::error_t nts::protect::Protection::unwrap(const uint64_t sequence, 
 				ok = chachapoly.decrypt(view_t(associated, sizeof(associated)), view_t(data.data + prefix, length), plain.data(), view_t((data.data + prefix + length), this->_tag));
 		// Если набор шифрования - AES-GCM
 		} else {
-			// Объект режима GCM
-			cipher::gcm_t gcm;
 			// Если режим GCM запустить не удалось
-			if(gcm.start(block, view_t(nonce, LEGACY_SALT + LEGACY_EXPLICIT), this->_tag))
+			if(this->_gcm.restart(view_t(nonce, LEGACY_SALT + LEGACY_EXPLICIT)))
 				// Выполняем снятие шифрования с проверкой целостности
-				ok = gcm.decrypt(view_t(associated, sizeof(associated)), view_t(data.data + prefix, length), plain.data(), view_t((data.data + prefix + length), this->_tag));
+				ok = this->_gcm.decrypt(view_t(associated, sizeof(associated)), view_t(data.data + prefix, length), plain.data(), view_t((data.data + prefix + length), this->_tag));
 		}
 		// Если метка целостности записи не сошлась
 		if(!ok)
