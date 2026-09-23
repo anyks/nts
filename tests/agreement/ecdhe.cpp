@@ -356,3 +356,76 @@ TEST(EcdheTest, Torsion){
 	ASSERT_TRUE(agreement::generate(curve, mine, opened));
 	ASSERT_TRUE(agreement::ecdhe(curve, view_t(mine, sizeof(mine)), view_t(opened, sizeof(opened)), result));
 }
+
+/**
+ * @brief Проверка снятия кручения умножением на кофактор без проверки подгруппы
+ *
+ * @details Раздел 6.1.1 RFC 9367 велит проверить принадлежность чужой точки кривой,
+ *          умножить её на кофактор с секретом и отвергнуть нулевой итог; проверки
+ *          q·Q = O он не просит. Точка Q + T с T порядка два после умножения на
+ *          кофактор кручения не несёт: 4·(Q + T) = 4·Q, и общее значение то же, что у Q
+ *
+ */
+TEST(EcdheTest, Cleared){
+	// Разбор шестнадцатеричной записи от старшего байта к младшему
+	const auto decode = [](const char * text, uint8_t * place, const size_t size) noexcept -> void {
+		for(size_t i = 0; i < size; i++){ unsigned v = 0; ::sscanf(text + i * 2, "%2x", &v); place[i] = static_cast <uint8_t> (v); }
+	};
+	// Запись координат ключа обмена: от младшего байта к старшему
+	const auto little = [](const uint8_t * x, const uint8_t * y, uint8_t * key, const size_t size) noexcept -> void {
+		for(size_t i = 0; i < size; i++){ key[i] = x[size - 1 - i]; key[size + i] = y[size - 1 - i]; }
+	};
+	// Наборы с кофактором четыре: GC256A и GC512C, их значения и точки T порядка два
+	struct sample_t { const char * oid; size_t size; const char * p, * a, * b, * n, * gx, * gy, * tx; };
+	static const sample_t SAMPLES[] = {
+		{"1.2.643.7.1.2.1.1.1", 32,
+			"fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd97",
+			"c2173f1513981673af4892c23035a27ce25e2013bf95aa33b22c656f277e7335",
+			"295f9bae7428ed9ccc20e7c359a9d41a22fccd9108e17bf7ba9337a6f8ae9513",
+			"400000000000000000000000000000000fd8cddfc87b6635c115af556c360c67",
+			"91e38443a5e82c0d880923425712b2bb658b9196932e02c78b2582fe742daa28",
+			"32879423ab1a0375895786c4bb46e9565fde0b5344766740af268adb32322e5c",
+			"0100fe73f595ff158e974b44d478d9588744fe5c192ac47ea63075dce7a14aaa"},
+		{"1.2.643.7.1.2.1.2.3", 64,
+			"fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffdc7",
+			"dc9203e514a721875485a529d2c722fb187bc8980eb866644de41c68e143064546e861c0e2c9edd92ade71f46fcf50ff2ad97f951fda9f2a2eb6546f39689bd3",
+			"b4c4ee28cebc6c2c8ac12952cf37f16ac7efb6a9f69f4b57ffda2e4f0de5ade038cbc2fff719d2c18de0284b8bfef3b52b8cc7a5f5bf0a3c8d2319a5312557e1",
+			"3fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc98cdba46506ab004c33a9ff5147502cc8eda9e7a769a12694623cef47f023ed",
+			"e2e31edfc23de7bdebe241ce593ef5de2295b7a9cbaef021d385f7074cea043aa27272a7ae602bf2a7b9033db9ed3610c6fb85487eae97aac5bc7928c1950148",
+			"f5ce40d95b5eb899abbccff5911cb8577939804d6527378b8c108c3d2090ff9be18e2d33e3021ed2ef32d85822423b6304f726aa854bae07d0396e9a9addc40f",
+			"9a628f975594ecefd89ba28a2539ffb79c8ab238aeed0851fa5c1abb02b80b44c6734501b83a011dd625cd0b5145091a6d9acd4b1f5c5b1e21b2b249ddfd1271"}
+	};
+	for(const sample_t & sample : SAMPLES){
+		const size_t size = sample.size;
+		curve::curve_t curve;
+		ASSERT_TRUE(curve::parameters(sample.oid, curve)) << "Набор: " << sample.oid;
+		ASSERT_EQ(curve.cofactor(), static_cast <uint64_t> (4)) << "Набор: " << sample.oid;
+		uint8_t p[64], a[64], b[64], n[64], gx[64], gy[64], tx[64], ty[64] = {0};
+		decode(sample.p, p, size); decode(sample.a, a, size); decode(sample.b, b, size);
+		decode(sample.n, n, size); decode(sample.gx, gx, size); decode(sample.gy, gy, size); decode(sample.tx, tx, size);
+		// Та же кривая с кофактором один: T читается как есть, и G + T складывается её арифметикой
+		curve::curve_t loose;
+		ASSERT_TRUE(loose.start(view_t(p, size), view_t(a, size), view_t(b, size), view_t(n, size), view_t(gx, size), view_t(gy, size), 1)) << "Набор: " << sample.oid;
+		curve::point_t torsion, base, sum;
+		ASSERT_TRUE(loose.point(view_t(tx, size), view_t(ty, size), torsion)) << "Набор: " << sample.oid;
+		loose.base(base);
+		loose.add(base, torsion, sum);
+		uint8_t sx[64], sy[64];
+		ASSERT_TRUE(loose.coordinates(sum, sx, sy, size)) << "Набор: " << sample.oid;
+		// Чужие ключи в записи протокола: G + T, G и одна T
+		uint8_t outside[128], inside[128], bare[128];
+		little(sx, sy, outside, size);
+		little(gx, gy, inside, size);
+		little(tx, ty, bare, size);
+		// Свой секрет: меньше порядка подгруппы у обоих наборов
+		uint8_t secret[64];
+		::memset(secret, 0x1a, size);
+		uint8_t first[64], second[64];
+		// Точка вне подгруппы, но на кривой, принимается, и общее значение по ней равно значению по G
+		ASSERT_TRUE(agreement::ecdhe(curve, view_t(secret, size), view_t(outside, size * 2), first)) << "Набор: " << sample.oid;
+		ASSERT_TRUE(agreement::ecdhe(curve, view_t(secret, size), view_t(inside, size * 2), second)) << "Набор: " << sample.oid;
+		EXPECT_EQ(::memcmp(first, second, size), 0) << "Набор: " << sample.oid;
+		// Одна лишь T обращается кофактором в ноль и отвергается
+		EXPECT_FALSE(agreement::ecdhe(curve, view_t(secret, size), view_t(bare, size * 2), first)) << "Набор: " << sample.oid;
+	}
+}

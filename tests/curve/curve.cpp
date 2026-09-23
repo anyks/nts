@@ -667,4 +667,31 @@ TEST(CurveTest, Subgroup){
 	// А саму G принимает
 	curve::point_t inside;
 	EXPECT_TRUE(curve.point(view_t(gx, 32), view_t(gy, 32), inside));
+	/**
+	 * Без просьбы о подгруппе разбор проверяет лишь принадлежность кривой: G + T и T
+	 * принимаются (кручение снимает потребитель умножением на кофактор), а точка вне
+	 * кривой отвергается по-прежнему
+	 */
+	EXPECT_TRUE(curve.point(view_t(sx, 32), view_t(sy, 32), outside, false));
+	EXPECT_TRUE(curve.point(view_t(tx, 32), view_t(ty, 32), torsion, false));
+	sy[31] ^= 0x01;
+	EXPECT_FALSE(curve.point(view_t(sx, 32), view_t(sy, 32), outside, false));
+	/**
+	 * Та же проверка на GC512C: точка порядка два (корень x^3 + a·x + b, найден отдельно
+	 * разложением кубического уравнения по модулю) с просьбой о подгруппе отвергается,
+	 * без неё принимается
+	 */
+	curve::curve_t wide;
+	ASSERT_TRUE(curve::parameters("1.2.643.7.1.2.1.2.3", wide));
+	ASSERT_EQ(wide.cofactor(), static_cast <uint64_t> (4));
+	static const char * WX = "9a628f975594ecefd89ba28a2539ffb79c8ab238aeed0851fa5c1abb02b80b44c6734501b83a011dd625cd0b5145091a6d9acd4b1f5c5b1e21b2b249ddfd1271";
+	uint8_t wx[64], wy[64] = {0};
+	for(size_t i = 0; i < 64; i++){ unsigned v = 0; ::sscanf(WX + i * 2, "%2x", &v); wx[i] = static_cast <uint8_t> (v); }
+	curve::point_t far;
+	EXPECT_FALSE(wide.point(view_t(wx, 64), view_t(wy, 64), far));
+	EXPECT_TRUE(wide.point(view_t(wx, 64), view_t(wy, 64), far, false));
+	// Точка порядка два обращается в ноль двумя удвоениями
+	wide.twice(far, far);
+	wide.twice(far, far);
+	EXPECT_TRUE(wide.infinity(far));
 }

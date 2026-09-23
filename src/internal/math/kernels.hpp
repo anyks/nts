@@ -26,6 +26,18 @@
  *       циклы и держит накопители в регистрах. Пути заведены на четыре и восемь слов -
  *       число слов кривых протокола, прочие ширины идут общим путём в number.cpp
  *
+ * @note Восемь слов (кривые ГОСТ-512) на AArch64 идут ядрами на встроенном ассемблере
+ *       через указатели (круг 34, 23.09.2026): произведение рядами со скользящим окном в
+ *       девять регистров, квадрат треугольником с удвоением и диагональю, свёртка хвостом
+ *       2^512 - c; модуль 2^511 + c берёт те же произведение и квадрат целиком в память
+ *       и общую свёртку foldplus. M4: умножение поля 47 → 20 нс, квадрат 23 → 18,
+ *       удвоение точки 323 → 195, умножение точки GC512C 235 → 133 мкс. Ядра порождены
+ *       сценарием tools/math/eightwords.py, сличены с ядрами на C++ на 300 000 входах с
+ *       краями (щуп k8probe) и закреплены золотыми векторами NumberTest.Folding по
+ *       2^512 - 569 и 2^511 + 111. На x86-64 восемь слов идут C++: умножение поля там
+ *       100 нс у clang 19 (FreeBSD), 137…141 у gcc 12 (Astra), 115…119 у gcc 16 (MinGW),
+ *       и ядро на mulq в этот круг не бралось - см. CONFORMANCE.md, круг 34
+ *
  * @note Сложение, вычитание, условное вычитание модуля и Монтгомери читают входы в
  *       регистры до первой записи и пишут итог одной записью в конце: места входов и
  *       итога вправе совпадать, а при возможном наложении указателей собиратель обязан
@@ -1218,6 +1230,305 @@ namespace nts {
 					// Выполняем возведение в квадрат регистровым ядром с записью итога
 					put <4> (squareminus4r(fetch <4> (value), tail), result);
 				}
+				/**
+				 * Ядра на восемь слов (кривые ГОСТ-512, модуль 2^512 - c) через указатели: значения
+				 * в шестьдесят четыре байта в регистрах между ядрами не живут, а формулы точки на
+				 * восьми словах держат три координаты и временные - тридцать с лишним слов, и
+				 * регистров на них нет. Произведение считается рядами по слову второго
+				 * сомножителя со скользящим окном в девять регистров: строка i складывает младшие
+				 * половины восьми произведений одной цепочкой переносов, старшие - второй, а
+				 * готовое младшее слово уходит в память; после восьми строк младшая половина
+				 * лежит в итоге, старшая - в окне. Свёртка старшей половины хвостом c читает
+				 * младшую обратно (восемь загрузок), вторая свёртка переноса умещается в слово, и
+				 * модуль вычитается условно прибавлением хвоста, как у ядер на четыре слова.
+				 * Квадрат идёт треугольником произведений разных слов в область памяти
+				 * (шестнадцать слов), затем удвоение цепочкой с диагональю квадратов слов и та же
+				 * свёртка. Замер 23.09.2026 на M4 против ядер на C++ (щуп k8probe, сходимость на
+				 * 300 000 входах с краями): умножение цепочкой 47,5 → 20,0 нс, порознь 39,9 → 15,1;
+				 * квадрат 22,8 → 18,1 и 16,9 → 13,5 - собиратель и сам собирает треугольник неплохо,
+				 * выигрыш квадрата в цепочках удвоения и диагонали. Модуль вида 2^511 + c
+				 * (набор B) берёт те же произведение и квадрат целиком в память и сворачивает их
+				 * общим foldplus. Место итога вправе совпадать с любым из входов: слова первого
+				 * сомножителя читаются в регистры до первой записи, а слово второго - строкой
+				 * раньше, чем в его место ложится итог. Ядра порождены сценарием (tools/math/
+				 * eightwords.py), правки вносятся в него
+				 */
+				#define __ANTS_AARCH64_PRODUCT8__ \
+					"ldr %[m], [%[b], #0]\n\t" "mul %[w0], %[a0], %[m]\n\t" "mul %[w1], %[a1], %[m]\n\t" "mul %[w2], %[a2], %[m]\n\t" \
+					"mul %[w3], %[a3], %[m]\n\t" "mul %[w4], %[a4], %[m]\n\t" "mul %[w5], %[a5], %[m]\n\t" "mul %[w6], %[a6], %[m]\n\t" \
+					"mul %[w7], %[a7], %[m]\n\t" "umulh %[t0], %[a0], %[m]\n\t" "umulh %[t1], %[a1], %[m]\n\t" "umulh %[t2], %[a2], %[m]\n\t" \
+					"umulh %[t3], %[a3], %[m]\n\t" "adds %[w1], %[w1], %[t0]\n\t" "adcs %[w2], %[w2], %[t1]\n\t" "adcs %[w3], %[w3], %[t2]\n\t" \
+					"adcs %[w4], %[w4], %[t3]\n\t" "umulh %[t0], %[a4], %[m]\n\t" "umulh %[t1], %[a5], %[m]\n\t" "umulh %[t2], %[a6], %[m]\n\t" \
+					"umulh %[t3], %[a7], %[m]\n\t" "adcs %[w5], %[w5], %[t0]\n\t" "adcs %[w6], %[w6], %[t1]\n\t" "adcs %[w7], %[w7], %[t2]\n\t" \
+					"adc %[w8], %[t3], xzr\n\t" "str %[w0], [%[r], #0]\n\t" "ldr %[m], [%[b], #8]\n\t" "mul %[t0], %[a0], %[m]\n\t" \
+					"mul %[t1], %[a1], %[m]\n\t" "mul %[t2], %[a2], %[m]\n\t" "mul %[t3], %[a3], %[m]\n\t" "adds %[w1], %[w1], %[t0]\n\t" \
+					"adcs %[w2], %[w2], %[t1]\n\t" "adcs %[w3], %[w3], %[t2]\n\t" "adcs %[w4], %[w4], %[t3]\n\t" "mul %[t0], %[a4], %[m]\n\t" \
+					"mul %[t1], %[a5], %[m]\n\t" "mul %[t2], %[a6], %[m]\n\t" "mul %[t3], %[a7], %[m]\n\t" "adcs %[w5], %[w5], %[t0]\n\t" \
+					"adcs %[w6], %[w6], %[t1]\n\t" "adcs %[w7], %[w7], %[t2]\n\t" "adcs %[w8], %[w8], %[t3]\n\t" "adc %[w0], xzr, xzr\n\t" \
+					"umulh %[t0], %[a0], %[m]\n\t" "umulh %[t1], %[a1], %[m]\n\t" "umulh %[t2], %[a2], %[m]\n\t" "umulh %[t3], %[a3], %[m]\n\t" \
+					"adds %[w2], %[w2], %[t0]\n\t" "adcs %[w3], %[w3], %[t1]\n\t" "adcs %[w4], %[w4], %[t2]\n\t" "adcs %[w5], %[w5], %[t3]\n\t" \
+					"umulh %[t0], %[a4], %[m]\n\t" "umulh %[t1], %[a5], %[m]\n\t" "umulh %[t2], %[a6], %[m]\n\t" "umulh %[t3], %[a7], %[m]\n\t" \
+					"adcs %[w6], %[w6], %[t0]\n\t" "adcs %[w7], %[w7], %[t1]\n\t" "adcs %[w8], %[w8], %[t2]\n\t" "adc %[w0], %[w0], %[t3]\n\t" \
+					"str %[w1], [%[r], #8]\n\t" "ldr %[m], [%[b], #16]\n\t" "mul %[t0], %[a0], %[m]\n\t" "mul %[t1], %[a1], %[m]\n\t" \
+					"mul %[t2], %[a2], %[m]\n\t" "mul %[t3], %[a3], %[m]\n\t" "adds %[w2], %[w2], %[t0]\n\t" "adcs %[w3], %[w3], %[t1]\n\t" \
+					"adcs %[w4], %[w4], %[t2]\n\t" "adcs %[w5], %[w5], %[t3]\n\t" "mul %[t0], %[a4], %[m]\n\t" "mul %[t1], %[a5], %[m]\n\t" \
+					"mul %[t2], %[a6], %[m]\n\t" "mul %[t3], %[a7], %[m]\n\t" "adcs %[w6], %[w6], %[t0]\n\t" "adcs %[w7], %[w7], %[t1]\n\t" \
+					"adcs %[w8], %[w8], %[t2]\n\t" "adcs %[w0], %[w0], %[t3]\n\t" "adc %[w1], xzr, xzr\n\t" "umulh %[t0], %[a0], %[m]\n\t" \
+					"umulh %[t1], %[a1], %[m]\n\t" "umulh %[t2], %[a2], %[m]\n\t" "umulh %[t3], %[a3], %[m]\n\t" "adds %[w3], %[w3], %[t0]\n\t" \
+					"adcs %[w4], %[w4], %[t1]\n\t" "adcs %[w5], %[w5], %[t2]\n\t" "adcs %[w6], %[w6], %[t3]\n\t" "umulh %[t0], %[a4], %[m]\n\t" \
+					"umulh %[t1], %[a5], %[m]\n\t" "umulh %[t2], %[a6], %[m]\n\t" "umulh %[t3], %[a7], %[m]\n\t" "adcs %[w7], %[w7], %[t0]\n\t" \
+					"adcs %[w8], %[w8], %[t1]\n\t" "adcs %[w0], %[w0], %[t2]\n\t" "adc %[w1], %[w1], %[t3]\n\t" "str %[w2], [%[r], #16]\n\t" \
+					"ldr %[m], [%[b], #24]\n\t" "mul %[t0], %[a0], %[m]\n\t" "mul %[t1], %[a1], %[m]\n\t" "mul %[t2], %[a2], %[m]\n\t" \
+					"mul %[t3], %[a3], %[m]\n\t" "adds %[w3], %[w3], %[t0]\n\t" "adcs %[w4], %[w4], %[t1]\n\t" "adcs %[w5], %[w5], %[t2]\n\t" \
+					"adcs %[w6], %[w6], %[t3]\n\t" "mul %[t0], %[a4], %[m]\n\t" "mul %[t1], %[a5], %[m]\n\t" "mul %[t2], %[a6], %[m]\n\t" \
+					"mul %[t3], %[a7], %[m]\n\t" "adcs %[w7], %[w7], %[t0]\n\t" "adcs %[w8], %[w8], %[t1]\n\t" "adcs %[w0], %[w0], %[t2]\n\t" \
+					"adcs %[w1], %[w1], %[t3]\n\t" "adc %[w2], xzr, xzr\n\t" "umulh %[t0], %[a0], %[m]\n\t" "umulh %[t1], %[a1], %[m]\n\t" \
+					"umulh %[t2], %[a2], %[m]\n\t" "umulh %[t3], %[a3], %[m]\n\t" "adds %[w4], %[w4], %[t0]\n\t" "adcs %[w5], %[w5], %[t1]\n\t" \
+					"adcs %[w6], %[w6], %[t2]\n\t" "adcs %[w7], %[w7], %[t3]\n\t" "umulh %[t0], %[a4], %[m]\n\t" "umulh %[t1], %[a5], %[m]\n\t" \
+					"umulh %[t2], %[a6], %[m]\n\t" "umulh %[t3], %[a7], %[m]\n\t" "adcs %[w8], %[w8], %[t0]\n\t" "adcs %[w0], %[w0], %[t1]\n\t" \
+					"adcs %[w1], %[w1], %[t2]\n\t" "adc %[w2], %[w2], %[t3]\n\t" "str %[w3], [%[r], #24]\n\t" "ldr %[m], [%[b], #32]\n\t" \
+					"mul %[t0], %[a0], %[m]\n\t" "mul %[t1], %[a1], %[m]\n\t" "mul %[t2], %[a2], %[m]\n\t" "mul %[t3], %[a3], %[m]\n\t" \
+					"adds %[w4], %[w4], %[t0]\n\t" "adcs %[w5], %[w5], %[t1]\n\t" "adcs %[w6], %[w6], %[t2]\n\t" "adcs %[w7], %[w7], %[t3]\n\t" \
+					"mul %[t0], %[a4], %[m]\n\t" "mul %[t1], %[a5], %[m]\n\t" "mul %[t2], %[a6], %[m]\n\t" "mul %[t3], %[a7], %[m]\n\t" \
+					"adcs %[w8], %[w8], %[t0]\n\t" "adcs %[w0], %[w0], %[t1]\n\t" "adcs %[w1], %[w1], %[t2]\n\t" "adcs %[w2], %[w2], %[t3]\n\t" \
+					"adc %[w3], xzr, xzr\n\t" "umulh %[t0], %[a0], %[m]\n\t" "umulh %[t1], %[a1], %[m]\n\t" "umulh %[t2], %[a2], %[m]\n\t" \
+					"umulh %[t3], %[a3], %[m]\n\t" "adds %[w5], %[w5], %[t0]\n\t" "adcs %[w6], %[w6], %[t1]\n\t" "adcs %[w7], %[w7], %[t2]\n\t" \
+					"adcs %[w8], %[w8], %[t3]\n\t" "umulh %[t0], %[a4], %[m]\n\t" "umulh %[t1], %[a5], %[m]\n\t" "umulh %[t2], %[a6], %[m]\n\t" \
+					"umulh %[t3], %[a7], %[m]\n\t" "adcs %[w0], %[w0], %[t0]\n\t" "adcs %[w1], %[w1], %[t1]\n\t" "adcs %[w2], %[w2], %[t2]\n\t" \
+					"adc %[w3], %[w3], %[t3]\n\t" "str %[w4], [%[r], #32]\n\t" "ldr %[m], [%[b], #40]\n\t" "mul %[t0], %[a0], %[m]\n\t" \
+					"mul %[t1], %[a1], %[m]\n\t" "mul %[t2], %[a2], %[m]\n\t" "mul %[t3], %[a3], %[m]\n\t" "adds %[w5], %[w5], %[t0]\n\t" \
+					"adcs %[w6], %[w6], %[t1]\n\t" "adcs %[w7], %[w7], %[t2]\n\t" "adcs %[w8], %[w8], %[t3]\n\t" "mul %[t0], %[a4], %[m]\n\t" \
+					"mul %[t1], %[a5], %[m]\n\t" "mul %[t2], %[a6], %[m]\n\t" "mul %[t3], %[a7], %[m]\n\t" "adcs %[w0], %[w0], %[t0]\n\t" \
+					"adcs %[w1], %[w1], %[t1]\n\t" "adcs %[w2], %[w2], %[t2]\n\t" "adcs %[w3], %[w3], %[t3]\n\t" "adc %[w4], xzr, xzr\n\t" \
+					"umulh %[t0], %[a0], %[m]\n\t" "umulh %[t1], %[a1], %[m]\n\t" "umulh %[t2], %[a2], %[m]\n\t" "umulh %[t3], %[a3], %[m]\n\t" \
+					"adds %[w6], %[w6], %[t0]\n\t" "adcs %[w7], %[w7], %[t1]\n\t" "adcs %[w8], %[w8], %[t2]\n\t" "adcs %[w0], %[w0], %[t3]\n\t" \
+					"umulh %[t0], %[a4], %[m]\n\t" "umulh %[t1], %[a5], %[m]\n\t" "umulh %[t2], %[a6], %[m]\n\t" "umulh %[t3], %[a7], %[m]\n\t" \
+					"adcs %[w1], %[w1], %[t0]\n\t" "adcs %[w2], %[w2], %[t1]\n\t" "adcs %[w3], %[w3], %[t2]\n\t" "adc %[w4], %[w4], %[t3]\n\t" \
+					"str %[w5], [%[r], #40]\n\t" "ldr %[m], [%[b], #48]\n\t" "mul %[t0], %[a0], %[m]\n\t" "mul %[t1], %[a1], %[m]\n\t" \
+					"mul %[t2], %[a2], %[m]\n\t" "mul %[t3], %[a3], %[m]\n\t" "adds %[w6], %[w6], %[t0]\n\t" "adcs %[w7], %[w7], %[t1]\n\t" \
+					"adcs %[w8], %[w8], %[t2]\n\t" "adcs %[w0], %[w0], %[t3]\n\t" "mul %[t0], %[a4], %[m]\n\t" "mul %[t1], %[a5], %[m]\n\t" \
+					"mul %[t2], %[a6], %[m]\n\t" "mul %[t3], %[a7], %[m]\n\t" "adcs %[w1], %[w1], %[t0]\n\t" "adcs %[w2], %[w2], %[t1]\n\t" \
+					"adcs %[w3], %[w3], %[t2]\n\t" "adcs %[w4], %[w4], %[t3]\n\t" "adc %[w5], xzr, xzr\n\t" "umulh %[t0], %[a0], %[m]\n\t" \
+					"umulh %[t1], %[a1], %[m]\n\t" "umulh %[t2], %[a2], %[m]\n\t" "umulh %[t3], %[a3], %[m]\n\t" "adds %[w7], %[w7], %[t0]\n\t" \
+					"adcs %[w8], %[w8], %[t1]\n\t" "adcs %[w0], %[w0], %[t2]\n\t" "adcs %[w1], %[w1], %[t3]\n\t" "umulh %[t0], %[a4], %[m]\n\t" \
+					"umulh %[t1], %[a5], %[m]\n\t" "umulh %[t2], %[a6], %[m]\n\t" "umulh %[t3], %[a7], %[m]\n\t" "adcs %[w2], %[w2], %[t0]\n\t" \
+					"adcs %[w3], %[w3], %[t1]\n\t" "adcs %[w4], %[w4], %[t2]\n\t" "adc %[w5], %[w5], %[t3]\n\t" "str %[w6], [%[r], #48]\n\t" \
+					"ldr %[m], [%[b], #56]\n\t" "mul %[t0], %[a0], %[m]\n\t" "mul %[t1], %[a1], %[m]\n\t" "mul %[t2], %[a2], %[m]\n\t" \
+					"mul %[t3], %[a3], %[m]\n\t" "adds %[w7], %[w7], %[t0]\n\t" "adcs %[w8], %[w8], %[t1]\n\t" "adcs %[w0], %[w0], %[t2]\n\t" \
+					"adcs %[w1], %[w1], %[t3]\n\t" "mul %[t0], %[a4], %[m]\n\t" "mul %[t1], %[a5], %[m]\n\t" "mul %[t2], %[a6], %[m]\n\t" \
+					"mul %[t3], %[a7], %[m]\n\t" "adcs %[w2], %[w2], %[t0]\n\t" "adcs %[w3], %[w3], %[t1]\n\t" "adcs %[w4], %[w4], %[t2]\n\t" \
+					"adcs %[w5], %[w5], %[t3]\n\t" "adc %[w6], xzr, xzr\n\t" "umulh %[t0], %[a0], %[m]\n\t" "umulh %[t1], %[a1], %[m]\n\t" \
+					"umulh %[t2], %[a2], %[m]\n\t" "umulh %[t3], %[a3], %[m]\n\t" "adds %[w8], %[w8], %[t0]\n\t" "adcs %[w0], %[w0], %[t1]\n\t" \
+					"adcs %[w1], %[w1], %[t2]\n\t" "adcs %[w2], %[w2], %[t3]\n\t" "umulh %[t0], %[a4], %[m]\n\t" "umulh %[t1], %[a5], %[m]\n\t" \
+					"umulh %[t2], %[a6], %[m]\n\t" "umulh %[t3], %[a7], %[m]\n\t" "adcs %[w3], %[w3], %[t0]\n\t" "adcs %[w4], %[w4], %[t1]\n\t" \
+					"adcs %[w5], %[w5], %[t2]\n\t" "adc %[w6], %[w6], %[t3]\n\t" "str %[w7], [%[r], #56]\n\t"
+				#define __ANTS_AARCH64_HIGH8_PRODUCT__ \
+					"stp %[w8], %[w0], [%[r], #64]\n\t" "stp %[w1], %[w2], [%[r], #80]\n\t" "stp %[w3], %[w4], [%[r], #96]\n\t" "stp %[w5], %[w6], [%[r], #112]\n\t"
+				#define __ANTS_AARCH64_FOLD8_PRODUCT__ \
+					"ldp %[a0], %[a1], [%[r], #0]\n\t" "ldp %[a2], %[a3], [%[r], #16]\n\t" "ldp %[a4], %[a5], [%[r], #32]\n\t" "ldp %[a6], %[a7], [%[r], #48]\n\t" \
+					"mul %[t0], %[w8], %[c]\n\t" "mul %[t1], %[w0], %[c]\n\t" "mul %[t2], %[w1], %[c]\n\t" "mul %[t3], %[w2], %[c]\n\t" \
+					"adds %[a0], %[a0], %[t0]\n\t" "adcs %[a1], %[a1], %[t1]\n\t" "adcs %[a2], %[a2], %[t2]\n\t" "adcs %[a3], %[a3], %[t3]\n\t" \
+					"mul %[t0], %[w3], %[c]\n\t" "mul %[t1], %[w4], %[c]\n\t" "mul %[t2], %[w5], %[c]\n\t" "mul %[t3], %[w6], %[c]\n\t" \
+					"adcs %[a4], %[a4], %[t0]\n\t" "adcs %[a5], %[a5], %[t1]\n\t" "adcs %[a6], %[a6], %[t2]\n\t" "adcs %[a7], %[a7], %[t3]\n\t" \
+					"adc %[m], xzr, xzr\n\t" "umulh %[t0], %[w8], %[c]\n\t" "umulh %[t1], %[w0], %[c]\n\t" "umulh %[t2], %[w1], %[c]\n\t" \
+					"umulh %[t3], %[w2], %[c]\n\t" "adds %[a1], %[a1], %[t0]\n\t" "adcs %[a2], %[a2], %[t1]\n\t" "adcs %[a3], %[a3], %[t2]\n\t" \
+					"adcs %[a4], %[a4], %[t3]\n\t" "umulh %[t0], %[w3], %[c]\n\t" "umulh %[t1], %[w4], %[c]\n\t" "umulh %[t2], %[w5], %[c]\n\t" \
+					"umulh %[t3], %[w6], %[c]\n\t" "adcs %[a5], %[a5], %[t0]\n\t" "adcs %[a6], %[a6], %[t1]\n\t" "adcs %[a7], %[a7], %[t2]\n\t" \
+					"adc %[m], %[m], %[t3]\n\t" "mul %[t0], %[m], %[c]\n\t" "adds %[a0], %[a0], %[t0]\n\t" "adcs %[a1], %[a1], xzr\n\t" \
+					"adcs %[a2], %[a2], xzr\n\t" "adcs %[a3], %[a3], xzr\n\t" "adcs %[a4], %[a4], xzr\n\t" "adcs %[a5], %[a5], xzr\n\t" \
+					"adcs %[a6], %[a6], xzr\n\t" "adcs %[a7], %[a7], xzr\n\t" "adc %[m], xzr, xzr\n\t" "adds %[w8], %[a0], %[c]\n\t" \
+					"adcs %[w0], %[a1], xzr\n\t" "adcs %[w1], %[a2], xzr\n\t" "adcs %[w2], %[a3], xzr\n\t" "adcs %[w3], %[a4], xzr\n\t" \
+					"adcs %[w4], %[a5], xzr\n\t" "adcs %[w5], %[a6], xzr\n\t" "adcs %[w6], %[a7], xzr\n\t" "adc %[m], %[m], xzr\n\t" \
+					"cmp %[m], #0\n\t" "csel %[a0], %[w8], %[a0], ne\n\t" "csel %[a1], %[w0], %[a1], ne\n\t" "csel %[a2], %[w1], %[a2], ne\n\t" \
+					"csel %[a3], %[w2], %[a3], ne\n\t" "csel %[a4], %[w3], %[a4], ne\n\t" "csel %[a5], %[w4], %[a5], ne\n\t" "csel %[a6], %[w5], %[a6], ne\n\t" \
+					"csel %[a7], %[w6], %[a7], ne\n\t" "stp %[a0], %[a1], [%[r], #0]\n\t" "stp %[a2], %[a3], [%[r], #16]\n\t" "stp %[a4], %[a5], [%[r], #32]\n\t" \
+					"stp %[a6], %[a7], [%[r], #48]\n\t"
+				#define __ANTS_AARCH64_TRIANGLE8__ \
+					"str xzr, [%[q], #0]\n\t" "str xzr, [%[q], #120]\n\t" "mul %[w1], %[a0], %[a1]\n\t" "mul %[w2], %[a0], %[a2]\n\t" \
+					"mul %[w3], %[a0], %[a3]\n\t" "mul %[w4], %[a0], %[a4]\n\t" "mul %[w5], %[a0], %[a5]\n\t" "mul %[w6], %[a0], %[a6]\n\t" \
+					"mul %[w7], %[a0], %[a7]\n\t" "umulh %[t0], %[a0], %[a1]\n\t" "umulh %[t1], %[a0], %[a2]\n\t" "umulh %[t2], %[a0], %[a3]\n\t" \
+					"umulh %[t3], %[a0], %[a4]\n\t" "adds %[w2], %[w2], %[t0]\n\t" "adcs %[w3], %[w3], %[t1]\n\t" "adcs %[w4], %[w4], %[t2]\n\t" \
+					"adcs %[w5], %[w5], %[t3]\n\t" "umulh %[t0], %[a0], %[a5]\n\t" "umulh %[t1], %[a0], %[a6]\n\t" "umulh %[t2], %[a0], %[a7]\n\t" \
+					"adcs %[w6], %[w6], %[t0]\n\t" "adcs %[w7], %[w7], %[t1]\n\t" "adc %[w8], %[t2], xzr\n\t" "str %[w1], [%[q], #8]\n\t" \
+					"str %[w2], [%[q], #16]\n\t" "mul %[t0], %[a1], %[a2]\n\t" "mul %[t1], %[a1], %[a3]\n\t" "mul %[t2], %[a1], %[a4]\n\t" \
+					"mul %[t3], %[a1], %[a5]\n\t" "adds %[w3], %[w3], %[t0]\n\t" "adcs %[w4], %[w4], %[t1]\n\t" "adcs %[w5], %[w5], %[t2]\n\t" \
+					"adcs %[w6], %[w6], %[t3]\n\t" "mul %[t0], %[a1], %[a6]\n\t" "mul %[t1], %[a1], %[a7]\n\t" "adcs %[w7], %[w7], %[t0]\n\t" \
+					"adcs %[w8], %[w8], %[t1]\n\t" "adc %[w0], xzr, xzr\n\t" "umulh %[t0], %[a1], %[a2]\n\t" "umulh %[t1], %[a1], %[a3]\n\t" \
+					"umulh %[t2], %[a1], %[a4]\n\t" "umulh %[t3], %[a1], %[a5]\n\t" "adds %[w4], %[w4], %[t0]\n\t" "adcs %[w5], %[w5], %[t1]\n\t" \
+					"adcs %[w6], %[w6], %[t2]\n\t" "adcs %[w7], %[w7], %[t3]\n\t" "umulh %[t0], %[a1], %[a6]\n\t" "umulh %[t1], %[a1], %[a7]\n\t" \
+					"adcs %[w8], %[w8], %[t0]\n\t" "adc %[w0], %[w0], %[t1]\n\t" "str %[w3], [%[q], #24]\n\t" "str %[w4], [%[q], #32]\n\t" \
+					"mul %[t0], %[a2], %[a3]\n\t" "mul %[t1], %[a2], %[a4]\n\t" "mul %[t2], %[a2], %[a5]\n\t" "mul %[t3], %[a2], %[a6]\n\t" \
+					"adds %[w5], %[w5], %[t0]\n\t" "adcs %[w6], %[w6], %[t1]\n\t" "adcs %[w7], %[w7], %[t2]\n\t" "adcs %[w8], %[w8], %[t3]\n\t" \
+					"mul %[t0], %[a2], %[a7]\n\t" "adcs %[w0], %[w0], %[t0]\n\t" "adc %[w1], xzr, xzr\n\t" "umulh %[t0], %[a2], %[a3]\n\t" \
+					"umulh %[t1], %[a2], %[a4]\n\t" "umulh %[t2], %[a2], %[a5]\n\t" "umulh %[t3], %[a2], %[a6]\n\t" "adds %[w6], %[w6], %[t0]\n\t" \
+					"adcs %[w7], %[w7], %[t1]\n\t" "adcs %[w8], %[w8], %[t2]\n\t" "adcs %[w0], %[w0], %[t3]\n\t" "umulh %[t0], %[a2], %[a7]\n\t" \
+					"adc %[w1], %[w1], %[t0]\n\t" "str %[w5], [%[q], #40]\n\t" "str %[w6], [%[q], #48]\n\t" "mul %[t0], %[a3], %[a4]\n\t" \
+					"mul %[t1], %[a3], %[a5]\n\t" "mul %[t2], %[a3], %[a6]\n\t" "mul %[t3], %[a3], %[a7]\n\t" "adds %[w7], %[w7], %[t0]\n\t" \
+					"adcs %[w8], %[w8], %[t1]\n\t" "adcs %[w0], %[w0], %[t2]\n\t" "adcs %[w1], %[w1], %[t3]\n\t" "adc %[w2], xzr, xzr\n\t" \
+					"umulh %[t0], %[a3], %[a4]\n\t" "umulh %[t1], %[a3], %[a5]\n\t" "umulh %[t2], %[a3], %[a6]\n\t" "umulh %[t3], %[a3], %[a7]\n\t" \
+					"adds %[w8], %[w8], %[t0]\n\t" "adcs %[w0], %[w0], %[t1]\n\t" "adcs %[w1], %[w1], %[t2]\n\t" "adc %[w2], %[w2], %[t3]\n\t" \
+					"str %[w7], [%[q], #56]\n\t" "str %[w8], [%[q], #64]\n\t" "mul %[t0], %[a4], %[a5]\n\t" "mul %[t1], %[a4], %[a6]\n\t" \
+					"mul %[t2], %[a4], %[a7]\n\t" "adds %[w0], %[w0], %[t0]\n\t" "adcs %[w1], %[w1], %[t1]\n\t" "adcs %[w2], %[w2], %[t2]\n\t" \
+					"adc %[w3], xzr, xzr\n\t" "umulh %[t0], %[a4], %[a5]\n\t" "umulh %[t1], %[a4], %[a6]\n\t" "umulh %[t2], %[a4], %[a7]\n\t" \
+					"adds %[w1], %[w1], %[t0]\n\t" "adcs %[w2], %[w2], %[t1]\n\t" "adc %[w3], %[w3], %[t2]\n\t" "str %[w0], [%[q], #72]\n\t" \
+					"str %[w1], [%[q], #80]\n\t" "mul %[t0], %[a5], %[a6]\n\t" "mul %[t1], %[a5], %[a7]\n\t" "adds %[w2], %[w2], %[t0]\n\t" \
+					"adcs %[w3], %[w3], %[t1]\n\t" "adc %[w4], xzr, xzr\n\t" "umulh %[t0], %[a5], %[a6]\n\t" "umulh %[t1], %[a5], %[a7]\n\t" \
+					"adds %[w3], %[w3], %[t0]\n\t" "adc %[w4], %[w4], %[t1]\n\t" "str %[w2], [%[q], #88]\n\t" "str %[w3], [%[q], #96]\n\t" \
+					"mul %[t0], %[a6], %[a7]\n\t" "adds %[w4], %[w4], %[t0]\n\t" "adc %[w5], xzr, xzr\n\t" "umulh %[t0], %[a6], %[a7]\n\t" \
+					"add %[w5], %[w5], %[t0]\n\t" "str %[w4], [%[q], #104]\n\t" "str %[w5], [%[q], #112]\n\t"
+				#define __ANTS_AARCH64_DIAGONAL8__ \
+					"ldp %[w0], %[w1], [%[q], #0]\n\t" "ldp %[w2], %[w3], [%[q], #16]\n\t" "ldp %[w4], %[w5], [%[q], #32]\n\t" "ldp %[w6], %[w7], [%[q], #48]\n\t" \
+					"adds %[w0], %[w0], %[w0]\n\t" "adcs %[w1], %[w1], %[w1]\n\t" "adcs %[w2], %[w2], %[w2]\n\t" "adcs %[w3], %[w3], %[w3]\n\t" \
+					"adcs %[w4], %[w4], %[w4]\n\t" "adcs %[w5], %[w5], %[w5]\n\t" "adcs %[w6], %[w6], %[w6]\n\t" "adcs %[w7], %[w7], %[w7]\n\t" \
+					"adc %[w8], xzr, xzr\n\t" "mul %[t0], %[a0], %[a0]\n\t" "umulh %[t1], %[a0], %[a0]\n\t" "mul %[t2], %[a1], %[a1]\n\t" \
+					"umulh %[t3], %[a1], %[a1]\n\t" "adds %[w0], %[w0], %[t0]\n\t" "adcs %[w1], %[w1], %[t1]\n\t" "adcs %[w2], %[w2], %[t2]\n\t" \
+					"adcs %[w3], %[w3], %[t3]\n\t" "mul %[t0], %[a2], %[a2]\n\t" "umulh %[t1], %[a2], %[a2]\n\t" "mul %[t2], %[a3], %[a3]\n\t" \
+					"umulh %[t3], %[a3], %[a3]\n\t" "adcs %[w4], %[w4], %[t0]\n\t" "adcs %[w5], %[w5], %[t1]\n\t" "adcs %[w6], %[w6], %[t2]\n\t" \
+					"adcs %[w7], %[w7], %[t3]\n\t" "adc %[m], xzr, xzr\n\t" "stp %[w0], %[w1], [%[r], #0]\n\t" "stp %[w2], %[w3], [%[r], #16]\n\t" \
+					"stp %[w4], %[w5], [%[r], #32]\n\t" "stp %[w6], %[w7], [%[r], #48]\n\t" "ldp %[w0], %[w1], [%[q], #64]\n\t" "ldp %[w2], %[w3], [%[q], #80]\n\t" \
+					"ldp %[w4], %[w5], [%[q], #96]\n\t" "ldp %[w6], %[w7], [%[q], #112]\n\t" "cmp %[w8], #1\n\t" "adcs %[w0], %[w0], %[w0]\n\t" \
+					"adcs %[w1], %[w1], %[w1]\n\t" "adcs %[w2], %[w2], %[w2]\n\t" "adcs %[w3], %[w3], %[w3]\n\t" "adcs %[w4], %[w4], %[w4]\n\t" \
+					"adcs %[w5], %[w5], %[w5]\n\t" "adcs %[w6], %[w6], %[w6]\n\t" "adcs %[w7], %[w7], %[w7]\n\t" "cmp %[m], #1\n\t" \
+					"mul %[t0], %[a4], %[a4]\n\t" "umulh %[t1], %[a4], %[a4]\n\t" "mul %[t2], %[a5], %[a5]\n\t" "umulh %[t3], %[a5], %[a5]\n\t" \
+					"adcs %[w0], %[w0], %[t0]\n\t" "adcs %[w1], %[w1], %[t1]\n\t" "adcs %[w2], %[w2], %[t2]\n\t" "adcs %[w3], %[w3], %[t3]\n\t" \
+					"mul %[t0], %[a6], %[a6]\n\t" "umulh %[t1], %[a6], %[a6]\n\t" "mul %[t2], %[a7], %[a7]\n\t" "umulh %[t3], %[a7], %[a7]\n\t" \
+					"adcs %[w4], %[w4], %[t0]\n\t" "adcs %[w5], %[w5], %[t1]\n\t" "adcs %[w6], %[w6], %[t2]\n\t" "adcs %[w7], %[w7], %[t3]\n\t"
+				#define __ANTS_AARCH64_HIGH8_SQUARE__ \
+					"stp %[w0], %[w1], [%[r], #64]\n\t" "stp %[w2], %[w3], [%[r], #80]\n\t" "stp %[w4], %[w5], [%[r], #96]\n\t" "stp %[w6], %[w7], [%[r], #112]\n\t"
+				#define __ANTS_AARCH64_FOLD8_SQUARE__ \
+					"ldp %[a0], %[a1], [%[r], #0]\n\t" "ldp %[a2], %[a3], [%[r], #16]\n\t" "ldp %[a4], %[a5], [%[r], #32]\n\t" "ldp %[a6], %[a7], [%[r], #48]\n\t" \
+					"mul %[t0], %[w0], %[c]\n\t" "mul %[t1], %[w1], %[c]\n\t" "mul %[t2], %[w2], %[c]\n\t" "mul %[t3], %[w3], %[c]\n\t" \
+					"adds %[a0], %[a0], %[t0]\n\t" "adcs %[a1], %[a1], %[t1]\n\t" "adcs %[a2], %[a2], %[t2]\n\t" "adcs %[a3], %[a3], %[t3]\n\t" \
+					"mul %[t0], %[w4], %[c]\n\t" "mul %[t1], %[w5], %[c]\n\t" "mul %[t2], %[w6], %[c]\n\t" "mul %[t3], %[w7], %[c]\n\t" \
+					"adcs %[a4], %[a4], %[t0]\n\t" "adcs %[a5], %[a5], %[t1]\n\t" "adcs %[a6], %[a6], %[t2]\n\t" "adcs %[a7], %[a7], %[t3]\n\t" \
+					"adc %[m], xzr, xzr\n\t" "umulh %[t0], %[w0], %[c]\n\t" "umulh %[t1], %[w1], %[c]\n\t" "umulh %[t2], %[w2], %[c]\n\t" \
+					"umulh %[t3], %[w3], %[c]\n\t" "adds %[a1], %[a1], %[t0]\n\t" "adcs %[a2], %[a2], %[t1]\n\t" "adcs %[a3], %[a3], %[t2]\n\t" \
+					"adcs %[a4], %[a4], %[t3]\n\t" "umulh %[t0], %[w4], %[c]\n\t" "umulh %[t1], %[w5], %[c]\n\t" "umulh %[t2], %[w6], %[c]\n\t" \
+					"umulh %[t3], %[w7], %[c]\n\t" "adcs %[a5], %[a5], %[t0]\n\t" "adcs %[a6], %[a6], %[t1]\n\t" "adcs %[a7], %[a7], %[t2]\n\t" \
+					"adc %[m], %[m], %[t3]\n\t" "mul %[t0], %[m], %[c]\n\t" "adds %[a0], %[a0], %[t0]\n\t" "adcs %[a1], %[a1], xzr\n\t" \
+					"adcs %[a2], %[a2], xzr\n\t" "adcs %[a3], %[a3], xzr\n\t" "adcs %[a4], %[a4], xzr\n\t" "adcs %[a5], %[a5], xzr\n\t" \
+					"adcs %[a6], %[a6], xzr\n\t" "adcs %[a7], %[a7], xzr\n\t" "adc %[m], xzr, xzr\n\t" "adds %[w0], %[a0], %[c]\n\t" \
+					"adcs %[w1], %[a1], xzr\n\t" "adcs %[w2], %[a2], xzr\n\t" "adcs %[w3], %[a3], xzr\n\t" "adcs %[w4], %[a4], xzr\n\t" \
+					"adcs %[w5], %[a5], xzr\n\t" "adcs %[w6], %[a6], xzr\n\t" "adcs %[w7], %[a7], xzr\n\t" "adc %[m], %[m], xzr\n\t" \
+					"cmp %[m], #0\n\t" "csel %[a0], %[w0], %[a0], ne\n\t" "csel %[a1], %[w1], %[a1], ne\n\t" "csel %[a2], %[w2], %[a2], ne\n\t" \
+					"csel %[a3], %[w3], %[a3], ne\n\t" "csel %[a4], %[w4], %[a4], ne\n\t" "csel %[a5], %[w5], %[a5], ne\n\t" "csel %[a6], %[w6], %[a6], ne\n\t" \
+					"csel %[a7], %[w7], %[a7], ne\n\t" "stp %[a0], %[a1], [%[r], #0]\n\t" "stp %[a2], %[a3], [%[r], #16]\n\t" "stp %[a4], %[a5], [%[r], #32]\n\t" \
+					"stp %[a6], %[a7], [%[r], #48]\n\t"
+				/**
+				 * @brief Метод полного произведения восьми слов на восемь на ассемблере
+				 *
+				 * @param first  первый сомножитель
+				 * @param second второй сомножитель
+				 * @param result место, в которое помещается произведение в шестнадцать слов
+				 *
+				 */
+				static __ANTS_INLINE__ void product8(const uint64_t * first, const uint64_t * second, uint64_t * result) noexcept {
+					// Слова первого сомножителя, снятые в регистры до первой записи
+					uint64_t a0 = first[0], a1 = first[1], a2 = first[2], a3 = first[3], a4 = first[4], a5 = first[5], a6 = first[6], a7 = first[7];
+					// Окно накопителя, временные и слово второго сомножителя
+					uint64_t w0, w1, w2, w3, w4, w5, w6, w7, w8, t0, t1, t2, t3, m;
+					__asm__ volatile(
+						__ANTS_AARCH64_PRODUCT8__
+						__ANTS_AARCH64_HIGH8_PRODUCT__
+						: [w0] "=&r" (w0), [w1] "=&r" (w1), [w2] "=&r" (w2), [w3] "=&r" (w3), [w4] "=&r" (w4), [w5] "=&r" (w5), [w6] "=&r" (w6), [w7] "=&r" (w7), [w8] "=&r" (w8), [t0] "=&r" (t0), [t1] "=&r" (t1), [t2] "=&r" (t2), [t3] "=&r" (t3), [m] "=&r" (m)
+						: [a0] "r" (a0), [a1] "r" (a1), [a2] "r" (a2), [a3] "r" (a3), [a4] "r" (a4), [a5] "r" (a5), [a6] "r" (a6), [a7] "r" (a7), [b] "r" (second), [r] "r" (result)
+						: "cc", "memory"
+					);
+				}
+				/**
+				 * @brief Метод полного квадрата восьми слов на ассемблере
+				 *
+				 * @param value  возводимое число
+				 * @param result место, в которое помещается квадрат в шестнадцать слов
+				 *
+				 */
+				static __ANTS_INLINE__ void square8(const uint64_t * value, uint64_t * result) noexcept {
+					// Треугольник произведений разных слов
+					uint64_t q[16];
+					// Слова числа, снятые в регистры до первой записи
+					uint64_t a0 = value[0], a1 = value[1], a2 = value[2], a3 = value[3], a4 = value[4], a5 = value[5], a6 = value[6], a7 = value[7];
+					// Окно накопителя, временные и слово переноса
+					uint64_t w0, w1, w2, w3, w4, w5, w6, w7, w8, t0, t1, t2, t3, m;
+					__asm__ volatile(
+						__ANTS_AARCH64_TRIANGLE8__
+						: [w0] "=&r" (w0), [w1] "=&r" (w1), [w2] "=&r" (w2), [w3] "=&r" (w3), [w4] "=&r" (w4), [w5] "=&r" (w5), [w6] "=&r" (w6), [w7] "=&r" (w7), [w8] "=&r" (w8), [t0] "=&r" (t0), [t1] "=&r" (t1), [t2] "=&r" (t2), [t3] "=&r" (t3)
+						: [a0] "r" (a0), [a1] "r" (a1), [a2] "r" (a2), [a3] "r" (a3), [a4] "r" (a4), [a5] "r" (a5), [a6] "r" (a6), [a7] "r" (a7), [q] "r" (q)
+						: "cc", "memory"
+					);
+					__asm__ volatile(
+						__ANTS_AARCH64_DIAGONAL8__
+						__ANTS_AARCH64_HIGH8_SQUARE__
+						: [w0] "=&r" (w0), [w1] "=&r" (w1), [w2] "=&r" (w2), [w3] "=&r" (w3), [w4] "=&r" (w4), [w5] "=&r" (w5), [w6] "=&r" (w6), [w7] "=&r" (w7), [w8] "=&r" (w8), [t0] "=&r" (t0), [t1] "=&r" (t1), [t2] "=&r" (t2), [t3] "=&r" (t3), [m] "=&r" (m)
+						: [a0] "r" (a0), [a1] "r" (a1), [a2] "r" (a2), [a3] "r" (a3), [a4] "r" (a4), [a5] "r" (a5), [a6] "r" (a6), [a7] "r" (a7), [q] "r" (q), [r] "r" (result)
+						: "cc", "memory"
+					);
+				}
+				/**
+				 * @brief Метод умножения по модулю вида 2^512 - c на ассемблере
+				 *
+				 * @param first   первый сомножитель
+				 * @param second  второй сомножитель
+				 * @param tail    хвост c модуля
+				 * @param modulus слова модуля: ядру не нужны, вычитание модуля идёт прибавлением хвоста
+				 * @param result  место, в которое помещается произведение
+				 *
+				 */
+				static __ANTS_INLINE__ void multiplyminus8(const uint64_t * first, const uint64_t * second, const uint64_t tail, const uint64_t * modulus, uint64_t * result) noexcept {
+					// Слова модуля ядру не нужны
+					(void) modulus;
+					// Слова первого сомножителя, снятые в регистры до первой записи; при свёртке замещаются младшей половиной
+					uint64_t a0 = first[0], a1 = first[1], a2 = first[2], a3 = first[3], a4 = first[4], a5 = first[5], a6 = first[6], a7 = first[7];
+					// Окно накопителя, временные и слово второго сомножителя
+					uint64_t w0, w1, w2, w3, w4, w5, w6, w7, w8, t0, t1, t2, t3, m;
+					__asm__ volatile(
+						__ANTS_AARCH64_PRODUCT8__
+						__ANTS_AARCH64_FOLD8_PRODUCT__
+						: [a0] "+&r" (a0), [a1] "+&r" (a1), [a2] "+&r" (a2), [a3] "+&r" (a3), [a4] "+&r" (a4), [a5] "+&r" (a5), [a6] "+&r" (a6), [a7] "+&r" (a7), [w0] "=&r" (w0), [w1] "=&r" (w1), [w2] "=&r" (w2), [w3] "=&r" (w3), [w4] "=&r" (w4), [w5] "=&r" (w5), [w6] "=&r" (w6), [w7] "=&r" (w7), [w8] "=&r" (w8), [t0] "=&r" (t0), [t1] "=&r" (t1), [t2] "=&r" (t2), [t3] "=&r" (t3), [m] "=&r" (m)
+						: [b] "r" (second), [c] "r" (tail), [r] "r" (result)
+						: "cc", "memory"
+					);
+				}
+				/**
+				 * @brief Метод возведения в квадрат по модулю вида 2^512 - c на ассемблере
+				 *
+				 * @param value   возводимое число
+				 * @param tail    хвост c модуля
+				 * @param modulus слова модуля: ядру не нужны
+				 * @param result  место, в которое помещается квадрат
+				 *
+				 */
+				static __ANTS_INLINE__ void squareminus8(const uint64_t * value, const uint64_t tail, const uint64_t * modulus, uint64_t * result) noexcept {
+					// Слова модуля ядру не нужны
+					(void) modulus;
+					// Треугольник произведений разных слов
+					uint64_t q[16];
+					// Слова числа, снятые в регистры до первой записи; при свёртке замещаются младшей половиной
+					uint64_t a0 = value[0], a1 = value[1], a2 = value[2], a3 = value[3], a4 = value[4], a5 = value[5], a6 = value[6], a7 = value[7];
+					// Окно накопителя, временные и слово переноса
+					uint64_t w0, w1, w2, w3, w4, w5, w6, w7, w8, t0, t1, t2, t3, m;
+					__asm__ volatile(
+						__ANTS_AARCH64_TRIANGLE8__
+						: [w0] "=&r" (w0), [w1] "=&r" (w1), [w2] "=&r" (w2), [w3] "=&r" (w3), [w4] "=&r" (w4), [w5] "=&r" (w5), [w6] "=&r" (w6), [w7] "=&r" (w7), [w8] "=&r" (w8), [t0] "=&r" (t0), [t1] "=&r" (t1), [t2] "=&r" (t2), [t3] "=&r" (t3)
+						: [a0] "r" (a0), [a1] "r" (a1), [a2] "r" (a2), [a3] "r" (a3), [a4] "r" (a4), [a5] "r" (a5), [a6] "r" (a6), [a7] "r" (a7), [q] "r" (q)
+						: "cc", "memory"
+					);
+					__asm__ volatile(
+						__ANTS_AARCH64_DIAGONAL8__
+						__ANTS_AARCH64_FOLD8_SQUARE__
+						: [a0] "+&r" (a0), [a1] "+&r" (a1), [a2] "+&r" (a2), [a3] "+&r" (a3), [a4] "+&r" (a4), [a5] "+&r" (a5), [a6] "+&r" (a6), [a7] "+&r" (a7), [w0] "=&r" (w0), [w1] "=&r" (w1), [w2] "=&r" (w2), [w3] "=&r" (w3), [w4] "=&r" (w4), [w5] "=&r" (w5), [w6] "=&r" (w6), [w7] "=&r" (w7), [w8] "=&r" (w8), [t0] "=&r" (t0), [t1] "=&r" (t1), [t2] "=&r" (t2), [t3] "=&r" (t3), [m] "=&r" (m)
+						: [q] "r" (q), [c] "r" (tail), [r] "r" (result)
+						: "cc", "memory"
+					);
+				}
+				#undef __ANTS_AARCH64_PRODUCT8__
+				#undef __ANTS_AARCH64_HIGH8_PRODUCT__
+				#undef __ANTS_AARCH64_FOLD8_PRODUCT__
+				#undef __ANTS_AARCH64_TRIANGLE8__
+				#undef __ANTS_AARCH64_DIAGONAL8__
+				#undef __ANTS_AARCH64_HIGH8_SQUARE__
+				#undef __ANTS_AARCH64_FOLD8_SQUARE__
+				// Признак наличия ядер на ассемблере для восьми слов
+				#define __ANTS_AARCH64_KERNELS8__
 				#undef __ANTS_AARCH64_PRODUCT4__
 				#undef __ANTS_AARCH64_SQUARE4__
 				// Признак наличия ядер на ассемблере для четырёх слов
@@ -2022,6 +2333,15 @@ namespace nts {
 						return;
 					}
 				#endif
+				#if defined(__ANTS_AARCH64_KERNELS8__)
+					// Восемь слов на AArch64 идут ядром на встроенном ассемблере
+					if constexpr (WORDS == 8){
+						// Выполняем умножение ядром на ассемблере
+						multiplyminus8(first, second, tail, modulus, result);
+						// Выходим из умножения
+						return;
+					}
+				#endif
 				// Полное произведение сомножителей
 				uint64_t wide[2 * WORDS];
 				// Выполняем полное умножение
@@ -2053,6 +2373,15 @@ namespace nts {
 						return;
 					}
 				#endif
+				#if defined(__ANTS_AARCH64_KERNELS8__)
+					// Восемь слов на AArch64 идут ядром на встроенном ассемблере
+					if constexpr (WORDS == 8){
+						// Выполняем возведение в квадрат ядром на ассемблере
+						squareminus8(value, tail, modulus, result);
+						// Выходим из возведения в квадрат
+						return;
+					}
+				#endif
 				// Полный квадрат числа
 				uint64_t wide[2 * WORDS];
 				// Выполняем возведение числа в квадрат
@@ -2078,6 +2407,12 @@ namespace nts {
 			static __ANTS_INLINE__ void multiplyplus(const uint64_t * first, const uint64_t * second, const uint64_t tail, const uint64_t * modulus, uint64_t * result) noexcept {
 				// Полное произведение сомножителей
 				uint64_t wide[2 * WORDS];
+				#if defined(__ANTS_AARCH64_KERNELS8__)
+					// Восемь слов на AArch64: произведение ядром на ассемблере
+					if constexpr (WORDS == 8)
+						product8(first, second, wide);
+					else
+				#endif
 				// Выполняем полное умножение
 				product <WORDS> (first, second, wide);
 				// Выполняем свёртку произведения по модулю
@@ -2096,6 +2431,12 @@ namespace nts {
 			static __ANTS_INLINE__ void squareplus(const uint64_t * value, const uint64_t tail, const uint64_t * modulus, uint64_t * result) noexcept {
 				// Полный квадрат числа
 				uint64_t wide[2 * WORDS];
+				#if defined(__ANTS_AARCH64_KERNELS8__)
+					// Восемь слов на AArch64: квадрат ядром на ассемблере
+					if constexpr (WORDS == 8)
+						square8(value, wide);
+					else
+				#endif
 				// Выполняем возведение числа в квадрат
 				squared <WORDS> (value, wide);
 				// Выполняем свёртку квадрата по модулю

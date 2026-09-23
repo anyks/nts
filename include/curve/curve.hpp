@@ -381,25 +381,46 @@ namespace nts {
 				 * \~russian
 				 * @brief Метод разбора точки из координат
 				 *
-				 * @param x      первая координата разбираемой точки
-				 * @param y      вторая координата разбираемой точки
-				 * @param result место, в которое помещается разобранная точка
+				 * @param x        первая координата разбираемой точки
+				 * @param y        вторая координата разбираемой точки
+				 * @param result   место, в которое помещается разобранная точка
+				 * @param subgroup признак проверки принадлежности точки подгруппе порядка q
 				 *
 				 * @return признак успешности разбора точки
 				 *
-				 * @note Точка, не принадлежащая кривой, разбору не подлежит
+				 * @note Точка, не принадлежащая кривой, разбору не подлежит при любом значении
+				 *       признака подгруппы: принадлежность кривой проверяется всегда
+				 *
+				 * @note Принадлежность подгруппе порядка q у кривых с кофактором больше единицы
+				 *       стоит умножения точки на порядок (полное умножение точки: 30 мкс на 256
+				 *       разрядах и 245 на 512 у M4) и нужна ключу проверки подписи по разделу 5.2
+				 *       ГОСТ Р 34.10-2012. Потребитель, снимающий кручение сам, вправе её не
+				 *       просить: обмен ключами по разделу 6.1.1 RFC 9367 и выработка ключа VKO по
+				 *       разделу 4.3 RFC 7836 множат кофактором, и от точки требуют лишь
+				 *       принадлежности кривой. У кривых с кофактором единица признак ничего не
+				 *       меняет: там всякая точка кривой лежит в подгруппе
 				 *
 				 * \~english
 				 * @brief Method of the parsing of a point from the coordinates
-				 * @param x      the first coordinate of the point being parsed
-				 * @param y      the second coordinate of the point being parsed
-				 * @param result the place the parsed point is put into
+				 * @param x        the first coordinate of the point being parsed
+				 * @param y        the second coordinate of the point being parsed
+				 * @param result   the place the parsed point is put into
+				 * @param subgroup the flag of checking that the point belongs to the subgroup of the order q
 				 * @return the flag of the success of the parsing of the point
-				 * @note A point not belonging to the curve is not subject to the parsing
+				 * @note A point not belonging to the curve is not subject to the parsing whatever the value of
+				 *       the subgroup flag: the belonging to the curve is always checked
+				 * @note On the curves with a cofactor above one the belonging to the subgroup of the order q
+				 *       costs a multiplication of the point by the order (a full point multiplication: 30 us on
+				 *       256 bits and 245 on 512 on M4) and is needed for a signature verification key by the
+				 *       section 5.2 of GOST R 34.10-2012. A consumer clearing the torsion itself is free not to
+				 *       ask for it: the key exchange of the section 6.1.1 of RFC 9367 and the VKO key derivation
+				 *       of the section 4.3 of RFC 7836 multiply by the cofactor and require of the point only
+				 *       the belonging to the curve. On the curves with the cofactor one the flag changes nothing:
+				 *       there every point of the curve lies in the subgroup
 				 *
 				 * \~
 				 */
-				bool point(const view_t & x, const view_t & y, point_t & result) const noexcept;
+				bool point(const view_t & x, const view_t & y, point_t & result, const bool subgroup = true) const noexcept;
 				/**
 				 * \~russian
 				 * @brief Метод записи координат точки

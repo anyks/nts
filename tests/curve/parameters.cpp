@@ -36,6 +36,7 @@
 #include <sign/ecdsa.hpp>
 #include <entropy/entropy.hpp>
 #include <cstring>
+#include <chrono>
 
 /**
  * Используем пространство имён проекта
@@ -228,4 +229,66 @@ TEST(ParametersTest, Deferred) {
 		signature[3] ^= 0x01;
 		ASSERT_FALSE(ecdsa.check(view_t(digest, sizeof(digest)), view_t(signature, SIZES[i] * 2))) << OIDS[i];
 	}
+}
+
+/**
+ * @brief Проверка того, что кривые известных наборов заводятся один раз на процесс
+ *
+ * @details Заведение кривой проверяет точку основания умножением на порядок подгруппы -
+ *          полное умножение точки; установка по опознавателю обязана отдавать копию
+ *          заведённой кривой, а не заводить её заново. Пин круга 34: пятьдесят установок
+ *          набора GC512C по опознавателю дешевле одного заведения того же набора значениями
+ *
+ */
+TEST(ParametersTest, Prepared) {
+	// Опознаватель набора GC512C: кофактор четыре, самая дорогая проверка точки основания
+	static const char * OID = "1.2.643.7.1.2.1.2.3";
+	// Две установки одного набора
+	curve::curve_t first, second;
+	ASSERT_TRUE(curve::parameters(OID, first));
+	ASSERT_TRUE(curve::parameters(OID, second));
+	ASSERT_TRUE(first.ready() && second.ready());
+	ASSERT_EQ(first.size(), static_cast <size_t> (64));
+	ASSERT_EQ(first.cofactor(), static_cast <uint64_t> (4));
+	// Образующие точки установленных кривых совпадают слово в слово
+	curve::point_t one, two;
+	first.base(one);
+	second.base(two);
+	ASSERT_EQ(::memcmp(&one, &two, sizeof(one)), 0);
+	// Значения набора GC512C (id-tc26-gost-3410-2012-512-paramSetC) от старшего байта к младшему
+	static const char * P = "fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffdc7";
+	static const char * A = "dc9203e514a721875485a529d2c722fb187bc8980eb866644de41c68e143064546e861c0e2c9edd92ade71f46fcf50ff2ad97f951fda9f2a2eb6546f39689bd3";
+	static const char * B = "b4c4ee28cebc6c2c8ac12952cf37f16ac7efb6a9f69f4b57ffda2e4f0de5ade038cbc2fff719d2c18de0284b8bfef3b52b8cc7a5f5bf0a3c8d2319a5312557e1";
+	static const char * N = "3fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc98cdba46506ab004c33a9ff5147502cc8eda9e7a769a12694623cef47f023ed";
+	static const char * GX = "e2e31edfc23de7bdebe241ce593ef5de2295b7a9cbaef021d385f7074cea043aa27272a7ae602bf2a7b9033db9ed3610c6fb85487eae97aac5bc7928c1950148";
+	static const char * GY = "f5ce40d95b5eb899abbccff5911cb8577939804d6527378b8c108c3d2090ff9be18e2d33e3021ed2ef32d85822423b6304f726aa854bae07d0396e9a9addc40f";
+	uint8_t p[64], a[64], b[64], n[64], gx[64], gy[64];
+	const char * texts[6] = {P, A, B, N, GX, GY};
+	uint8_t * places[6] = {p, a, b, n, gx, gy};
+	for(size_t k = 0; k < 6; k++)
+		for(size_t i = 0; i < 64; i++){ unsigned v = 0; ::sscanf(texts[k] + i * 2, "%2x", &v); places[k][i] = static_cast <uint8_t> (v); }
+	// Заведение кривой значениями извне: проверка точки основания идёт целиком
+	curve::curve_t manual;
+	const auto before = std::chrono::steady_clock::now();
+	ASSERT_TRUE(manual.start(view_t(p, 64), view_t(a, 64), view_t(b, 64), view_t(n, 64), view_t(gx, 64), view_t(gy, 64), 4));
+	const double alone = std::chrono::duration <double, std::micro> (std::chrono::steady_clock::now() - before).count();
+	// Кривая, заведённая значениями, совпадает с установленной по опознавателю
+	manual.base(two);
+	ASSERT_EQ(::memcmp(&one, &two, sizeof(one)), 0);
+	// Пятьдесят установок по опознавателю: лучшее из трёх повторов
+	double copies = 1e300;
+	for(size_t r = 0; r < 3; r++){
+		const auto start = std::chrono::steady_clock::now();
+		for(size_t i = 0; i < 50; i++){
+			curve::curve_t copy;
+			ASSERT_TRUE(curve::parameters(OID, copy));
+		}
+		const double spent = std::chrono::duration <double, std::micro> (std::chrono::steady_clock::now() - start).count();
+		if(spent < copies) copies = spent;
+	}
+	/**
+	 * Без заготовленных кривых пятьдесят установок стоили бы пятьдесят заведений -
+	 * на два порядка дороже одного; с ними - пятьдесят копий, дешевле одного заведения
+	 */
+	EXPECT_LT(copies, alone) << "50 установок " << copies << " мкс, одно заведение " << alone << " мкс";
 }

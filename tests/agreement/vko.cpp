@@ -455,8 +455,17 @@ TEST(VkoTest, Torsion) {
 	 */
 	uint8_t x[32], y[32], secret[32];
 	ASSERT_EQ(bytes("0100fe73f595ff158e974b44d478d9588744fe5c192ac47ea63075dce7a14aaa", x), static_cast <size_t> (32));
+	/**
+	 * Помощник bytes() разворачивает запись к младшему байту вперёд, а координаты
+	 * точки подаются от старшего: без разворота обратно точка на кривой не лежала
+	 * бы вовсе, и отказ ничего о кручении не говорил бы (поправлено кругом 34)
+	 */
+	for(size_t i = 0; i < 16; i++){ const uint8_t item = x[i]; x[i] = x[31 - i]; x[31 - i] = item; }
 	::memset(y, 0, sizeof(y));
 	::memset(secret, 0x01, sizeof(secret));
+	// Точка порядка два лежит на кривой: без просьбы о подгруппе разбор её принимает
+	curve::point_t torsion;
+	ASSERT_TRUE(curve.point(view_t(x, 32), view_t(y, 32), torsion, false));
 	/**
 	 * Разбор точки обязан её отвергнуть: умножение на кофактор обращает её в ноль
 	 */
@@ -479,4 +488,50 @@ TEST(VkoTest, Torsion) {
 		sec[i] = mine[31 - i];
 	}
 	ASSERT_TRUE(agreement::vko(curve, view_t(sec, 32), view_t(px, 32), view_t(py, 32), view_t(), key, 32));
+}
+
+/**
+ * @brief Проверка снятия кручения умножением на кофактор без проверки подгруппы
+ *
+ * @details Раздел 4.3 RFC 7836 множит кофактором и от чужой точки требует лишь
+ *          принадлежности кривой. Точка Q + T с T порядка два после умножения на
+ *          кофактор кручения не несёт: 4·(Q + T) = 4·Q, и общий ключ тот же, что у Q
+ *
+ */
+TEST(VkoTest, Cleared) {
+	curve::curve_t curve;
+	// Набор параметров с кофактором четыре: группа TLS GC256A
+	ASSERT_TRUE(curve::parameters(std::string("1.2.643.7.1.2.1.1.1"), curve));
+	ASSERT_EQ(curve.cofactor(), static_cast <uint64_t> (4));
+	// Значения набора и точка T порядка два (корень x^3 + a·x + b при y = 0) от старшего байта
+	const auto decode = [](const char * text, uint8_t * place) noexcept -> void {
+		for(size_t i = 0; i < 32; i++){ unsigned v = 0; ::sscanf(text + i * 2, "%2x", &v); place[i] = static_cast <uint8_t> (v); }
+	};
+	uint8_t p[32], a[32], b[32], n[32], gx[32], gy[32], tx[32], ty[32] = {0};
+	decode("fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd97", p);
+	decode("c2173f1513981673af4892c23035a27ce25e2013bf95aa33b22c656f277e7335", a);
+	decode("295f9bae7428ed9ccc20e7c359a9d41a22fccd9108e17bf7ba9337a6f8ae9513", b);
+	decode("400000000000000000000000000000000fd8cddfc87b6635c115af556c360c67", n);
+	decode("91e38443a5e82c0d880923425712b2bb658b9196932e02c78b2582fe742daa28", gx);
+	decode("32879423ab1a0375895786c4bb46e9565fde0b5344766740af268adb32322e5c", gy);
+	decode("0100fe73f595ff158e974b44d478d9588744fe5c192ac47ea63075dce7a14aaa", tx);
+	// Та же кривая с кофактором один: T читается как есть, и G + T складывается её арифметикой
+	curve::curve_t loose;
+	ASSERT_TRUE(loose.start(view_t(p, 32), view_t(a, 32), view_t(b, 32), view_t(n, 32), view_t(gx, 32), view_t(gy, 32), 1));
+	curve::point_t torsion, base, sum;
+	ASSERT_TRUE(loose.point(view_t(tx, 32), view_t(ty, 32), torsion));
+	loose.base(base);
+	loose.add(base, torsion, sum);
+	uint8_t sx[32], sy[32];
+	ASSERT_TRUE(loose.coordinates(sum, sx, sy, 32));
+	// Свой секрет: меньше порядка подгруппы
+	uint8_t secret[32];
+	::memset(secret, 0x1a, sizeof(secret));
+	uint8_t first[32], second[32];
+	// Точка G + T вне подгруппы, но на кривой, принимается, и общий ключ по ней равен ключу по G
+	ASSERT_TRUE(agreement::vko(curve, view_t(secret, 32), view_t(sx, 32), view_t(sy, 32), view_t(), first, 32));
+	ASSERT_TRUE(agreement::vko(curve, view_t(secret, 32), view_t(gx, 32), view_t(gy, 32), view_t(), second, 32));
+	EXPECT_EQ(::memcmp(first, second, 32), 0);
+	// Одна лишь T обращается кофактором в ноль и отвергается (VkoTest.Torsion)
+	EXPECT_FALSE(agreement::vko(curve, view_t(secret, 32), view_t(tx, 32), view_t(ty, 32), view_t(), first, 32));
 }

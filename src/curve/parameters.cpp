@@ -403,6 +403,76 @@ namespace {
 		{"1.3.132.0.35", 11},
 		{"1.3.132.0.10", 12}
 	};
+	/**
+	 * @brief Метод заведения кривой по набору значений параметров
+	 *
+	 * @param sample набор значений параметров кривой
+	 * @param result место, в которое помещается заведённая кривая
+	 *
+	 * @return       признак успешности заведения кривой
+	 *
+	 */
+	static bool setup(const sample_t & sample, curve::curve_t & result) noexcept {
+		// Места, в которые помещаются разобранные значения параметров
+		uint8_t modulus[math::NUMBER_SIZE], first[math::NUMBER_SIZE], second[math::NUMBER_SIZE];
+		// Места, в которые помещаются разобранные значения параметров
+		uint8_t order[math::NUMBER_SIZE], x[math::NUMBER_SIZE], y[math::NUMBER_SIZE];
+		// Выводим итог установки параметров кривой
+		return result.start(
+			view_t(modulus, bytes(sample.modulus, modulus)),
+			view_t(first, bytes(sample.first, first)),
+			view_t(second, bytes(sample.second, second)),
+			view_t(order, bytes(sample.order, order)),
+			view_t(x, bytes(sample.x, x)),
+			view_t(y, bytes(sample.y, y)),
+			sample.cofactor
+		);
+	}
+	/**
+	 * @brief Кривые известных наборов параметров, заведённые один раз на процесс
+	 *
+	 * @details Заведение кривой (Curve::start) проверяет точку основания умножением на
+	 *          порядок подгруппы - это полное умножение точки: 30 мкс на 256 разрядах и
+	 *          245 на 512 (M4, замер 23.09.2026). Движок заводил кривую на каждую долю
+	 *          обмена, движок подписи и разбор ключей - на каждый ключ: четыре заведения
+	 *          на рукопожатие по GC512C стоили 43 % его времени (разбор образцами стека,
+	 *          щуп hs512 круга 34). Кривые известных наборов заводятся по первому
+	 *          обращению, один раз на процесс и под защитой заведения местной статики,
+	 *          а parameters() отдаёт копию заведённой (около килобайта, без обращений
+	 *          к куче). Заведение кривой параметрами извне (Curve::start) проверяет
+	 *          их по-прежнему: заготовленное здесь касается лишь известных наборов
+	 *
+	 */
+	typedef struct Prepared {
+		// Заведённые кривые по местам наборов значений
+		curve::curve_t curves[sizeof(SAMPLES) / sizeof(sample_t)];
+		// Признаки удачного заведения кривых
+		bool ready[sizeof(SAMPLES) / sizeof(sample_t)];
+		/**
+		 * @brief Конструктор: заводит кривые всех известных наборов
+		 *
+		 */
+		Prepared() noexcept {
+			/**
+			 * Выполняем заведение кривых всех известных наборов
+			 */
+			for(size_t i = 0; i < (sizeof(SAMPLES) / sizeof(sample_t)); i++)
+				// Заводим кривую очередного набора
+				this->ready[i] = setup(SAMPLES[i], this->curves[i]);
+		}
+	} prepared_t;
+	/**
+	 * @brief Метод получения заведённых кривых известных наборов
+	 *
+	 * @return заведённые кривые: строятся при первом обращении
+	 *
+	 */
+	static const prepared_t & prepared() noexcept {
+		// Заведённые кривые известных наборов: местная статика заводится потокобезопасно
+		static const prepared_t instance;
+		// Выводим заведённые кривые
+		return instance;
+	}
 };
 
 /**
@@ -441,22 +511,19 @@ bool nts::curve::parameters(const char * oid, curve_t & result) noexcept {
 		if(::strcmp(oid, RECORDS[i].oid) != 0)
 			// Переходим к следующему опознавателю набора параметров
 			continue;
-		// Извлекаем набор значений параметров кривой
-		const sample_t & sample = SAMPLES[RECORDS[i].index];
-		// Места, в которые помещаются разобранные значения параметров
-		uint8_t modulus[math::NUMBER_SIZE], first[math::NUMBER_SIZE], second[math::NUMBER_SIZE];
-		// Места, в которые помещаются разобранные значения параметров
-		uint8_t order[math::NUMBER_SIZE], x[math::NUMBER_SIZE], y[math::NUMBER_SIZE];
-		// Выводим итог установки параметров кривой
-		return result.start(
-			view_t(modulus, bytes(sample.modulus, modulus)),
-			view_t(first, bytes(sample.first, first)),
-			view_t(second, bytes(sample.second, second)),
-			view_t(order, bytes(sample.order, order)),
-			view_t(x, bytes(sample.x, x)),
-			view_t(y, bytes(sample.y, y)),
-			sample.cofactor
-		);
+		// Место набора значений параметров кривой
+		const size_t index = RECORDS[i].index;
+		// Получаем кривые известных наборов, заведённые один раз на процесс
+		const prepared_t & cache = prepared();
+		// Если кривая набора заведена
+		if(cache.ready[index]){
+			// Отдаём копию заведённой кривой
+			result = cache.curves[index];
+			// Выводим успешность установки кривой
+			return true;
+		}
+		// Иначе заводим кривую по значениям набора заново
+		return setup(SAMPLES[index], result);
 	}
 	// Выводим отказ установки кривой: набор параметров неизвестен
 	return false;
