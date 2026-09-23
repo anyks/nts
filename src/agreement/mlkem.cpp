@@ -23,7 +23,26 @@
  *
  * 1. Приведение по модулю делается редукцией Барретта с условным вычитанием по маске:
  *    ни ветвления, ни обращения к памяти по секретному значению. Умножения 16-разрядных
- *    коэффициентов держатся в 32 разрядах, переполнения нет.
+ *    коэффициентов держатся в 32 разрядах, переполнения нет. Полная редукция берётся
+ *    лишь на произведениях и суммах произведений (до трёх слагаемых ниже 2^25 - в её
+ *    границах с двумя поправками), а сумма и разность приведённых коэффициентов ниже
+ *    удвоенного модуля приводятся одним условным вычитанием (once): бабочки NTT стоили
+ *    три редукции на пару, стало по одной, умножение в области NTT - шесть на пару, стало
+ *    три (круг 35, 23.09.2026: прямое NTT на M4 1 005 → 584 нс, обратное 465 → 358). Сами
+ *    бабочки NTT идут на 16 разрядах умножением Монтгомери (fqmul): степени ζ хранятся в
+ *    таблице умноженными на 2^16, произведение выходит в обычной форме, коэффициенты между
+ *    слоями держатся со знаком без приведения (семь слоёв поднимают модуль не выше 8q < 2^15),
+ *    и лишь на выходе приводятся к [0, q) редукцией Барретта и знаком. Так устроена эталонная
+ *    реализация Kyber; арифметика умещается в 32 разряда без 64-разрядного умножения, и
+ *    собиратель кладёт бабочки на векторные команды: прямое NTT M4 584 → 151 нс, FreeBSD
+ *    3 866 → 1 300 (щуп nttprobe). Умножение в области NTT (accumulate) осталось на редукции
+ *    Барретта в 32 разрядах: у него произведения нужны в обычной форме, а не с множителем 2^-16.
+ *
+ * 6. Поток SHAKE128 при выборке матрицы выжимается блоками по 168 байтов (56 троек), а не
+ *    по три байта; биномиальная выборка считает суммы разрядов масками 0x55 и 0x249249
+ *    по байту и по трём байтам, а не разрядом за разрядом. Так же устроены выборки у
+ *    OpenSSL (crypto/ml_kem/ml_kem.c: sample_scalar, cbd_2, cbd_3). Щуп kemprobe круга 35:
+ *    выборка многочлена матрицы 1 119 → 731 нс, биномиальная 524 → 173 (M4).
  *
  * 2. Таблица степеней ζ считается один раз при первом обращении, а не выписывается
  *    числами: так она сверяется с определением стандарта, а не с чьей-то распечаткой.
@@ -185,14 +204,95 @@ namespace {
 		return reduce(first * second);
 	}
 	/**
+	 * @brief Метод условного вычитания модуля из значения ниже удвоенного модуля
+	 *
+	 * @param value приводимое значение из [0, 2q)
+	 *
+	 * @return      значение из [0, q)
+	 *
+	 * @note Сумма и разность приведённых коэффициентов не выходят за удвоенный модуль,
+	 *       и полная редукция Барретта им не нужна: бабочки NTT стоили три редукции на
+	 *       пару коэффициентов, стало по одной на произведение (круг 35, 23.09.2026)
+	 */
+	static inline int16_t once(const int32_t value) noexcept {
+		// Разность с модулем
+		const int32_t difference = (value - Q);
+		// Выводим разность, если она не отрицательна, иначе само значение
+		return static_cast <int16_t> (difference + (Q & (difference >> 31)));
+	}
+	/**
 	 * @brief Таблицы степеней ζ = 17: по BitRev7 для бабочек и нечётные для умножения пар
 	 *
 	 */
+	/**
+	 * @brief Метод приведения значения из [0, q) к полуинтервалу (-q/2, q/2]
+	 *
+	 * @param value приводимое значение
+	 *
+	 * @return      значение в 16 разрядах со знаком
+	 *
+	 */
+	static inline int16_t centered(const int32_t value) noexcept {
+		// Выводим значение, уменьшенное на модуль, если оно выше половины модуля
+		return static_cast <int16_t> ((value > (Q / 2)) ? (value - Q) : value);
+	}
+	/**
+	 * @brief Метод умножения Монтгомери на 16 разрядах
+	 *
+	 * @param first  первый сомножитель, |first| < 2^15
+	 * @param second второй сомножитель, |second| < 2^15
+	 *
+	 * @return       first·second·2^(-16) mod q в полуинтервале (-q, q)
+	 *
+	 * @note Так устроены бабочки NTT эталонной реализации Kyber: степень ζ хранится
+	 *       умноженной на 2^16, оттого произведение выходит в обычной форме - ζ·x, а вся
+	 *       арифметика умещается в 32 разряда без деления и без 64-разрядного умножения,
+	 *       и собиратель кладёт бабочки на векторные команды (NEON, SSE2). Щуп nttprobe
+	 *       круга 35 (23.09.2026): прямое NTT M4 582 → 150 нс, FreeBSD 3 866 → 1 300
+	 */
+	static inline int16_t fqmul(const int16_t first, const int16_t second) noexcept {
+		// Полное произведение
+		const int32_t wide = (static_cast <int32_t> (first) * second);
+		// Множитель, обращающий младшие 16 разрядов произведения в ноль: -q^(-1) mod 2^16 = 3327
+		const int16_t factor = static_cast <int16_t> (static_cast <uint16_t> (static_cast <int32_t> (static_cast <int16_t> (static_cast <uint16_t> (wide))) * -3327));
+		// Выводим старшие 16 разрядов разности произведения и множителя на модуль
+		return static_cast <int16_t> ((wide - (static_cast <int32_t> (factor) * Q)) >> 16);
+	}
+	/**
+	 * @brief Метод редукции Барретта на 16 разрядах
+	 *
+	 * @param value приводимое значение
+	 *
+	 * @return      значение, сравнимое с исходным по модулю q, из [-q/2, q/2]
+	 *
+	 */
+	static inline int16_t barrett(const int16_t value) noexcept {
+		// Частное с округлением: 2^26 / q = 20159
+		const int16_t quotient = static_cast <int16_t> (((static_cast <int32_t> (value) * 20159) + (1 << 25)) >> 26);
+		// Выводим остаток
+		return static_cast <int16_t> (value - (static_cast <int32_t> (quotient) * Q));
+	}
+	/**
+	 * @brief Метод приведения значения из (-q, q) к [0, q)
+	 *
+	 * @param value приводимое значение
+	 *
+	 * @return      значение из [0, q)
+	 *
+	 */
+	static inline int16_t canonical(const int16_t value) noexcept {
+		// Прибавляем модуль под маской знака
+		return static_cast <int16_t> (value + (Q & (value >> 15)));
+	}
 	typedef struct Tables {
 		// Степени ζ^BitRev7(i) для бабочек преобразования
 		int16_t zetas[128];
 		// Степени ζ^(2·BitRev7(2i)+1) для умножения пар коэффициентов: группа i из двух пар с противоположными степенями
 		int16_t gammas[64];
+		// Степени ζ в форме Монтгомери: ζ·2^16 mod q, приведённые к (-q/2, q/2]
+		int16_t montgomery[128];
+		// Обратное к 128 в форме Монтгомери: 128^(-1)·2^16 mod q
+		int16_t inverse;
 		/**
 		 * @brief Конструктор: таблицы считаются по определению стандарта
 		 *
@@ -220,11 +320,15 @@ namespace {
 					power = product(power, 17);
 				// Записываем степень бабочки
 				this->zetas[i] = static_cast <int16_t> (power);
+				// Та же степень в форме Монтгомери
+				this->montgomery[i] = centered(reduce(static_cast <int32_t> ((static_cast <int64_t> (power) << 16) % Q)));
 				// Если место в пределах таблицы умножения пар
 				if(i < 64)
 					// Записываем степень ζ^(2·BitRev7(2i)+1) = ζ^(BitRev7(i)+1) пары с номером 2i
 					this->gammas[i] = product(power, 17);
 			}
+			// Обратное к 128 в форме Монтгомери
+			this->inverse = centered(reduce(static_cast <int32_t> ((static_cast <int64_t> (INVERSE) << 16) % Q)));
 		}
 	} tables_t;
 	/**
@@ -246,8 +350,10 @@ namespace {
 	 *
 	 */
 	static void forward(poly_t & poly) noexcept {
-		// Таблица степеней ζ
-		const int16_t * table = tables().zetas;
+		// Таблица степеней ζ в форме Монтгомери
+		const int16_t * table = tables().montgomery;
+		// Коэффициенты многочлена: между слоями держатся со знаком, растут не более чем на q за слой
+		int16_t * values = poly.values;
 		// Место в таблице степеней
 		size_t index = 1;
 		/**
@@ -259,20 +365,27 @@ namespace {
 			 */
 			for(size_t start = 0; start < N; start += (2 * length)){
 				// Степень ζ участка
-				const int32_t zeta = table[index++];
+				const int16_t zeta = table[index++];
 				/**
-				 * Выполняем перебор пар участка
+				 * Выполняем перебор пар участка: одно умножение Монтгомери, сумма и разность
+				 * без приведения - семь слоёв поднимают модуль коэффициента не выше 8q < 2^15
 				 */
 				for(size_t j = start; j < (start + length); j++){
 					// Произведение степени и второго коэффициента пары
-					const int32_t t = product(zeta, poly.values[j + length]);
+					const int16_t t = fqmul(zeta, values[j + length]);
 					// Разность пары
-					poly.values[j + length] = reduce(poly.values[j] - t);
+					values[j + length] = static_cast <int16_t> (values[j] - t);
 					// Сумма пары
-					poly.values[j] = reduce(poly.values[j] + t);
+					values[j] = static_cast <int16_t> (values[j] + t);
 				}
 			}
 		}
+		/**
+		 * Выполняем приведение коэффициентов к [0, q)
+		 */
+		for(size_t i = 0; i < N; i++)
+			// Приводим коэффициент редукцией Барретта и знаком
+			values[i] = canonical(barrett(values[i]));
 	}
 	/**
 	 * @brief Метод обратного преобразования NTT многочлена
@@ -281,8 +394,10 @@ namespace {
 	 *
 	 */
 	static void inverse(poly_t & poly) noexcept {
-		// Таблица степеней ζ
-		const int16_t * table = tables().zetas;
+		// Таблица степеней ζ в форме Монтгомери
+		const tables_t & table = tables();
+		// Коэффициенты многочлена
+		int16_t * values = poly.values;
 		// Место в таблице степеней
 		size_t index = 127;
 		/**
@@ -294,17 +409,18 @@ namespace {
 			 */
 			for(size_t start = 0; start < N; start += (2 * length)){
 				// Степень ζ участка
-				const int32_t zeta = table[index--];
+				const int16_t zeta = table.montgomery[index--];
 				/**
-				 * Выполняем перебор пар участка
+				 * Выполняем перебор пар участка: сумма приводится редукцией Барретта,
+				 * разность умножается на степень умножением Монтгомери
 				 */
 				for(size_t j = start; j < (start + length); j++){
 					// Первый коэффициент пары
-					const int32_t t = poly.values[j];
+					const int16_t t = values[j];
 					// Сумма пары
-					poly.values[j] = reduce(t + poly.values[j + length]);
+					values[j] = barrett(static_cast <int16_t> (t + values[j + length]));
 					// Произведение степени и разности пары
-					poly.values[j + length] = product(zeta, poly.values[j + length] - t);
+					values[j + length] = fqmul(zeta, static_cast <int16_t> (values[j + length] - t));
 				}
 			}
 		}
@@ -312,8 +428,8 @@ namespace {
 		 * Выполняем перебор коэффициентов
 		 */
 		for(size_t i = 0; i < N; i++)
-			// Умножаем на обратное к 128
-			poly.values[i] = product(poly.values[i], INVERSE);
+			// Умножаем на обратное к 128 в форме Монтгомери и приводим к [0, q)
+			values[i] = canonical(fqmul(values[i], table.inverse));
 	}
 	/**
 	 * @brief Метод умножения двух многочленов в области NTT с накоплением
@@ -347,9 +463,9 @@ namespace {
 				// Произведение старших коэффициентов
 				const int32_t high = product(a1, b1);
 				// Младший коэффициент произведения
-				result.values[at] = reduce(result.values[at] + product(a0, b0) + product(high, sign));
+				result.values[at] = reduce(result.values[at] + (a0 * b0) + (high * sign));
 				// Старший коэффициент произведения
-				result.values[at + 1] = reduce(result.values[at + 1] + product(a0, b1) + product(a1, b0));
+				result.values[at + 1] = reduce(result.values[at + 1] + (a0 * b1) + (a1 * b0));
 			}
 		}
 	}
@@ -526,25 +642,33 @@ namespace {
 		// Число набранных коэффициентов
 		size_t count = 0;
 		/**
+		 * Поток выжимается блоками SHAKE128 по 168 байтов - 56 троек: выжимание по три
+		 * байта стоило вызов на тройку, а блок кратен тройке, и тройки не рвутся по краям
+		 */
+		uint8_t block[168];
+		/**
 		 * Выполняем выборку до заполнения многочлена
 		 */
 		while(count < N){
-			// Три байта потока
-			uint8_t bytes[3];
-			// Выжимаем три байта
-			xof.squeeze(bytes, sizeof(bytes));
-			// Первый претендент
-			const uint16_t first = static_cast <uint16_t> (bytes[0] | ((bytes[1] & 0x0F) << 8));
-			// Второй претендент
-			const uint16_t second = static_cast <uint16_t> ((bytes[1] >> 4) | (bytes[2] << 4));
-			// Если первый претендент годен
-			if(first < Q)
-				// Записываем коэффициент
-				poly.values[count++] = static_cast <int16_t> (first);
-			// Если второй претендент годен и место есть
-			if((second < Q) && (count < N))
-				// Записываем коэффициент
-				poly.values[count++] = static_cast <int16_t> (second);
+			// Выжимаем блок потока
+			xof.squeeze(block, sizeof(block));
+			/**
+			 * Выполняем перебор троек байтов блока
+			 */
+			for(size_t at = 0; (at < sizeof(block)) && (count < N); at += 3){
+				// Первый претендент
+				const uint16_t first = static_cast <uint16_t> (block[at] | ((block[at + 1] & 0x0F) << 8));
+				// Второй претендент
+				const uint16_t second = static_cast <uint16_t> ((block[at + 1] >> 4) | (block[at + 2] << 4));
+				// Если первый претендент годен
+				if(first < Q)
+					// Записываем коэффициент
+					poly.values[count++] = static_cast <int16_t> (first);
+				// Если второй претендент годен и место есть
+				if((second < Q) && (count < N))
+					// Записываем коэффициент
+					poly.values[count++] = static_cast <int16_t> (second);
+			}
 		}
 	}
 	/**
@@ -557,39 +681,58 @@ namespace {
 	 *
 	 */
 	static void binomial(const uint8_t * sigma, const uint8_t nonce, const size_t eta, poly_t & poly) noexcept {
-		// Байты PRF: 64·η
+		// Байты псевдослучайного потока: 64·η байтов
 		uint8_t bytes[64 * 3];
-		// Поток SHAKE256 над σ || номер
+		// Функция переменного выхода потока
 		digest::keccak_t prf(digest::sha3_t::SHAKE256);
-		// Поглощаем зерно
+		// Поглощаем затравку
 		prf.update(view_t(sigma, SEED));
-		// Поглощаем номер
+		// Поглощаем порядковый номер
 		prf.update(view_t(&nonce, 1));
-		// Выжимаем байты
+		// Выжимаем поток
 		prf.squeeze(bytes, 64 * eta);
-		/**
-		 * Выполняем перебор коэффициентов
-		 */
-		for(size_t i = 0; i < N; i++){
-			// Сумма первых η разрядов
-			int32_t first = 0;
-			// Сумма вторых η разрядов
-			int32_t second = 0;
+		// Если η равно двум
+		if(eta == 2){
 			/**
-			 * Выполняем перебор разрядов
+			 * Каждый байт даёт два коэффициента: суммы пар разрядов считаются разом маской
+			 * 0x55 - сложение разряда с соседом даёт двухразрядные суммы в каждой четвёрке.
+			 * Прежний ход по разряду стоил 524 нс на многочлен на M4 (круг 35, 23.09.2026)
 			 */
-			for(size_t j = 0; j < eta; j++){
-				// Место первого разряда
-				const size_t at = (2 * i * eta) + j;
-				// Прибавляем первый разряд
-				first += ((bytes[at / 8] >> (at % 8)) & 1);
-				// Прибавляем второй разряд
-				second += ((bytes[(at + eta) / 8] >> ((at + eta) % 8)) & 1);
+			for(size_t i = 0; i < (N / 2); i++){
+				// Очередной байт потока
+				const uint32_t byte = bytes[i];
+				// Суммы соседних разрядов по парам: по два разряда на пару
+				const uint32_t sums = ((byte & 0x55) + ((byte >> 1) & 0x55));
+				// Первый коэффициент: разность сумм первой и второй пары
+				poly.values[2 * i] = once(static_cast <int32_t> (sums & 3) - static_cast <int32_t> ((sums >> 2) & 3) + Q);
+				// Второй коэффициент: разность сумм третьей и четвёртой пары
+				poly.values[(2 * i) + 1] = once(static_cast <int32_t> ((sums >> 4) & 3) - static_cast <int32_t> ((sums >> 6) & 3) + Q);
 			}
-			// Записываем разность сумм по модулю
-			poly.values[i] = reduce(first - second);
+		// Если η равно трём: три байта дают четыре коэффициента
+		} else {
+			/**
+			 * Каждые три байта - 24 разряда - дают четыре коэффициента по шести разрядам:
+			 * суммы троек разрядов считаются разом маской 0x249249
+			 */
+			for(size_t i = 0; i < (N / 4); i++){
+				// Очередные три байта потока одним словом
+				const uint32_t word = (static_cast <uint32_t> (bytes[3 * i]) | (static_cast <uint32_t> (bytes[(3 * i) + 1]) << 8) | (static_cast <uint32_t> (bytes[(3 * i) + 2]) << 16));
+				// Суммы троек разрядов: по три разряда на тройку
+				const uint32_t sums = ((word & 0x00249249) + ((word >> 1) & 0x00249249) + ((word >> 2) & 0x00249249));
+				/**
+				 * Выполняем перебор четырёх коэффициентов слова
+				 */
+				for(size_t j = 0; j < 4; j++){
+					// Сумма первой тройки разрядов
+					const int32_t first = static_cast <int32_t> ((sums >> (6 * j)) & 7);
+					// Сумма второй тройки разрядов
+					const int32_t second = static_cast <int32_t> ((sums >> ((6 * j) + 3)) & 7);
+					// Коэффициент: разность сумм
+					poly.values[(4 * i) + j] = once((first - second) + Q);
+				}
+			}
 		}
-		// Выполняем затирание байтов PRF
+		// Выполняем затирание байтов потока
 		wipe(bytes, sizeof(bytes));
 	}
 	/**
