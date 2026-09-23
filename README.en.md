@@ -152,8 +152,20 @@ remains usable where there is nothing and no reason to match the signature with.
 | `PSK_AES_128/256_CBC_SHA`, `ECDHE_PSK_AES_128/256_CBC_SHA`, `ECDHE_PSK_CHACHA20_POLY1305_SHA256` | 0x008C, 0x008D, 0xC035, 0xC036, 0xCCAC | TLS 1.2: pre-shared key (RFC 4279, RFC 5489, RFC 7905), without certificates | SHA-256 (PRF) | PSK or ECDHE ‖ PSK | none |
 
 Suites, groups and signature schemes are declared by the consumer per connection, in the
-order of preference; the defaults are GOST first, the classic ones next (0x1302, 0x1303, 0x1301),
-the list of the consumer is not re-sorted. A resumption ticket is fit only for a suite
+order of preference; the defaults are the classics without GOST, as at the browsers and OpenSSL 3.5:
+the groups X25519MLKEM768, X25519, secp256r1, secp384r1 with the key shares by the hybrid and by
+X25519, the suites 0x1302, 0x1303, 0x1301 and the suites of the edition 1.2, the schemes ECDSA,
+RSA-PSS, Ed25519, RSA PKCS #1. Whoever needs GOST declares the curves, the suites and the schemes
+by the lists `groups()`, `suites()` and `schemes()` — as a support, appending them to the default
+taken from the getters of the same names, or as the only option, replacing the lists entirely;
+the list of the consumer is not re-sorted. The order of the list is the preference itself: without
+assigned shares the client sends a share by the first group and by the first group of every kind
+not yet represented (the GOST curves, the hybrids with ML-KEM, the classic curves), and the server
+chooses the suite and the curve by its own order (`preference(true)`, the default) or by the order
+of the client (`preference(false)`). So a server with GOST ahead of its list takes GOST from a
+client with GOST support and the classics from a client without GOST, all without a retry request
+(`ContextTest.Defaults`, `ContextTest.Compatible`, `ContextTest.Gost`, `ContextTest.Preference`).
+A resumption ticket is fit only for a suite
 with the same hash (§4.6.1): 0x1301 ↔ 0x1303 resume each other, 0x1302 does not with them
 (`ClassicTest.Crossing`, `ClassicTest.Reselect`). Values unknown to the connection
 (GREASE, RFC 8701) are silently skipped in the lists of the peer; own GREASE values are
@@ -1162,7 +1174,9 @@ expected J(z||c)) in `tests/corpus/mlkem`; comparison with `openssl pkeyutl -enc
 By draft-ietf-tls-ecdhe-mlkem: the share of the client is the ML-KEM-768 encapsulation key and an X25519 point
 (1216 bytes), the share of the server is the ciphertext and a point (1120 bytes), the shared value is the
 encapsulation secret and the shared value of the curve (64 bytes). The group `extension::group_t::X25519MLKEM768`
-is in the list of defaults between the GOST groups and X25519; `extension::hybrid(group)` distinguishes it,
+is the first in the list of defaults, and its share goes in every default hello together with the
+X25519 share (since 23.09.2026; before that it stood between the GOST groups and X25519 with a single
+share by the first group of the list); `extension::hybrid(group)` distinguishes it,
 `extension::length(group)` gives the length of the client share. The server generates its share by
 encapsulation to the share of the client (`Engine::encapsulating`), the client opens the ciphertext with its
 key (`Engine::agree`); for version TLS 1.2 the hybrid is unfit on both sides. The retry request
