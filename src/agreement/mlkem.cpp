@@ -61,6 +61,19 @@
  *    у накопителя (щуп packprobe круга 36), упаковка многочлена 250 → 64 нс, инкапсуляция
  *    12,0 → 11,2 мкс, раскрытие 15,7 → 14,3.
  *
+ * 8. Прямое и обратное NTT идут на векторной прослойке (vec_t и v-функции: SSE2 на x86-64,
+ *    пакетные команды Эльбруса __builtin_e2k_qp* с набором команд 5 и старше; та же прослойка
+ *    держит подготовку, умножение и приведение решения 1): слои с длиной от 8 - целыми
+ *    векторами по восемь коэффициентов, слои длины 4 и 2 - шестнадцатью коэффициентами за шаг с
+ *    перестановками 64-разрядных половин и пар двойных слов (степени ζ этих слоёв заготовлены по
+ *    местам векторов: forward4, forward2, inverse4, inverse2), редукция Барретта на местах с тем
+ *    же округлением, что у скалярной ((старшая половина произведения + 512) >> 10). Итог побитово
+ *    равен переносимому пути: щуп nttcheck (круг 36, 23.09.2026) сличил хеш итогов NTT, умножения
+ *    и упаковки на 200 многочленах с краями между M4, x86 и Эльбрусом - у lcc 9 402 → 2 249 нс на
+ *    прямое NTT и 8 981 → 2 250 на обратное (скалярные бабочки он не векторизует), ML-KEM-768 там
+ *    110 / 125 / 177 → 62,6 / 70,6 / 94,8 мкс; числа x86 - CONFORMANCE.md, круг 36. Переносимый путь
+ *    остаётся у прочих: на M4 clang кладёт скалярные бабочки на NEON сам (151 нс).
+ *
  * 2. Таблица степеней ζ считается один раз при первом обращении, а не выписывается
  *    числами: так она сверяется с определением стандарта, а не с чьей-то распечаткой.
  *
@@ -85,14 +98,23 @@
 #include <cstring>
 
 /**
- * Векторные команды SSE2 под умножение в области NTT: на x86-64 они есть всегда
+ * Векторные команды под арифметику NTT: SSE2 на x86-64 (есть на всякой x86-64) и пакетные
+ * команды Эльбруса с набором команд 5 и старше (128-разрядные регистры, восемь мест по 16
+ * разрядов); обе ветви идут через одну прослойку (vec_t и v-функции ниже)
  */
-#if defined(__x86_64__) && defined(__SSE2__) && !defined(_MSC_VER)
+#if defined(__x86_64__) && defined(__SSE2__) && !defined(_MSC_VER) && !defined(ANTS_NO_MACHINE)
 	#include <emmintrin.h>
 	/**
-	 * Признак наличия векторного пути умножения
+	 * Признаки векторного пути: команды SSE2
 	 */
 	#define __ANTS_MLKEM_SSE2__
+	#define __ANTS_MLKEM_VECTOR__
+#elif defined(__e2k__) && defined(__iset__) && (__iset__ >= 5) && !defined(ANTS_NO_MACHINE)
+	/**
+	 * Признаки векторного пути: пакетные команды Эльбруса
+	 */
+	#define __ANTS_MLKEM_E2K__
+	#define __ANTS_MLKEM_VECTOR__
 #endif
 
 /**
@@ -141,12 +163,145 @@ namespace {
 	 */
 	static constexpr int32_t INVERSE = 3303;
 	/**
+	 * Векторная прослойка: восемь 16-разрядных либо четыре 32-разрядных места в одном регистре
+	 */
+	#if defined(__ANTS_MLKEM_SSE2__)
+		/**
+		 * Вектор в 128 разрядов
+		 */
+		typedef __m128i vec_t;
+		// Загрузка и запись выровненного вектора
+		static inline vec_t vload(const void * data) noexcept { return _mm_load_si128(reinterpret_cast <const __m128i *> (data)); }
+		static inline void vstore(void * result, const vec_t value) noexcept { _mm_store_si128(reinterpret_cast <__m128i *> (result), value); }
+		// Заполнение всех мест одним значением
+		static inline vec_t vset16(const int16_t value) noexcept { return _mm_set1_epi16(value); }
+		static inline vec_t vset32(const int32_t value) noexcept { return _mm_set1_epi32(value); }
+		// Произведения 16-разрядных мест: младшие и старшие половины, суммы соседних произведений в 32 разрядах
+		static inline vec_t vmullo16(const vec_t first, const vec_t second) noexcept { return _mm_mullo_epi16(first, second); }
+		static inline vec_t vmulhi16(const vec_t first, const vec_t second) noexcept { return _mm_mulhi_epi16(first, second); }
+		static inline vec_t vmadd16(const vec_t first, const vec_t second) noexcept { return _mm_madd_epi16(first, second); }
+		// Суммы и разности
+		static inline vec_t vadd16(const vec_t first, const vec_t second) noexcept { return _mm_add_epi16(first, second); }
+		static inline vec_t vsub16(const vec_t first, const vec_t second) noexcept { return _mm_sub_epi16(first, second); }
+		static inline vec_t vadd32(const vec_t first, const vec_t second) noexcept { return _mm_add_epi32(first, second); }
+		static inline vec_t vsub32(const vec_t first, const vec_t second) noexcept { return _mm_sub_epi32(first, second); }
+		// Арифметические сдвиги вправо
+		static inline vec_t vsra16(const vec_t value, const int count) noexcept { return _mm_srai_epi16(value, count); }
+		static inline vec_t vsra32(const vec_t value, const int count) noexcept { return _mm_srai_epi32(value, count); }
+		// Поразрядные операции
+		static inline vec_t vand(const vec_t first, const vec_t second) noexcept { return _mm_and_si128(first, second); }
+		// Перестановка соседних 16-разрядных мест
+		static inline vec_t vswap16(const vec_t value) noexcept { return _mm_shufflehi_epi16(_mm_shufflelo_epi16(value, 0xB1), 0xB1); }
+		// Младшие и старшие 64-разрядные половины двух векторов рядом
+		static inline vec_t vlow64(const vec_t first, const vec_t second) noexcept { return _mm_unpacklo_epi64(first, second); }
+		static inline vec_t vhigh64(const vec_t first, const vec_t second) noexcept { return _mm_unpackhi_epi64(first, second); }
+		// Переплетение младших и старших пар 32-разрядных мест двух векторов
+		static inline vec_t vlow32(const vec_t first, const vec_t second) noexcept { return _mm_unpacklo_epi32(first, second); }
+		static inline vec_t vhigh32(const vec_t first, const vec_t second) noexcept { return _mm_unpackhi_epi32(first, second); }
+		// Чётные 32-разрядные места вперёд, нечётные назад
+		static inline vec_t vevenodd32(const vec_t value) noexcept { return _mm_shuffle_epi32(value, 0xD8); }
+		// Переплетение младших половин 32-разрядных мест двух векторов в 16-разрядные места: старшие половины мест пусты
+		static inline vec_t vinterleave16(const vec_t even, const vec_t odd) noexcept { return _mm_or_si128(even, _mm_slli_epi32(odd, 16)); }
+	#elif defined(__ANTS_MLKEM_E2K__)
+		/**
+		 * Вектор в 128 разрядов: тот же тип, что __v2di заголовков lcc
+		 */
+		typedef long long vec_t __attribute__ ((__vector_size__ (16)));
+		// Загрузка и запись выровненного вектора
+		static inline vec_t vload(const void * data) noexcept { return (* reinterpret_cast <const vec_t *> (data)); }
+		static inline void vstore(void * result, const vec_t value) noexcept { (* reinterpret_cast <vec_t *> (result)) = value; }
+		// Вектор из двух 64-разрядных слов: старшее и младшее
+		static inline vec_t vwords(const uint64_t high, const uint64_t low) noexcept { return __builtin_e2k_qppackdl(high, low); }
+		// Заполнение всех мест одним значением
+		static inline vec_t vset16(const int16_t value) noexcept { const uint64_t word = (static_cast <uint64_t> (static_cast <uint16_t> (value)) * 0x0001000100010001ULL); return vwords(word, word); }
+		static inline vec_t vset32(const int32_t value) noexcept { const uint64_t word = (static_cast <uint64_t> (static_cast <uint32_t> (value)) * 0x0000000100000001ULL); return vwords(word, word); }
+		// Произведения 16-разрядных мест
+		static inline vec_t vmullo16(const vec_t first, const vec_t second) noexcept { return __builtin_e2k_qpmullh(first, second); }
+		static inline vec_t vmulhi16(const vec_t first, const vec_t second) noexcept { return __builtin_e2k_qpmulhh(first, second); }
+		static inline vec_t vmadd16(const vec_t first, const vec_t second) noexcept { return __builtin_e2k_qpmaddh(first, second); }
+		// Суммы и разности
+		static inline vec_t vadd16(const vec_t first, const vec_t second) noexcept { return __builtin_e2k_qpaddh(first, second); }
+		static inline vec_t vsub16(const vec_t first, const vec_t second) noexcept { return __builtin_e2k_qpsubh(first, second); }
+		static inline vec_t vadd32(const vec_t first, const vec_t second) noexcept { return __builtin_e2k_qpaddw(first, second); }
+		static inline vec_t vsub32(const vec_t first, const vec_t second) noexcept { return __builtin_e2k_qpsubw(first, second); }
+		// Арифметические сдвиги вправо
+		static inline vec_t vsra16(const vec_t value, const int count) noexcept { return __builtin_e2k_qpsrah(value, count); }
+		static inline vec_t vsra32(const vec_t value, const int count) noexcept { return __builtin_e2k_qpsraw(value, count); }
+		// Поразрядные операции
+		static inline vec_t vand(const vec_t first, const vec_t second) noexcept { return __builtin_e2k_qpand(first, second); }
+		/**
+		 * Перестановки байтов: места 0…15 маски берут байты второго довода qppermb, 16…31 - первого
+		 * (так устроен перенос ChaCha OpenSSL под Эльбрус: crypto/chacha/chacha_e2k.c)
+		 */
+		static inline vec_t vswap16(const vec_t value) noexcept { return __builtin_e2k_qppermb(value, value, vwords(0x0d0c0f0e09080b0aULL, 0x0504070601000302ULL)); }
+		static inline vec_t vlow64(const vec_t first, const vec_t second) noexcept { return __builtin_e2k_qppermb(second, first, vwords(0x1716151413121110ULL, 0x0706050403020100ULL)); }
+		static inline vec_t vhigh64(const vec_t first, const vec_t second) noexcept { return __builtin_e2k_qppermb(second, first, vwords(0x1f1e1d1c1b1a1918ULL, 0x0f0e0d0c0b0a0908ULL)); }
+		static inline vec_t vlow32(const vec_t first, const vec_t second) noexcept { return __builtin_e2k_qppermb(second, first, vwords(0x1716151407060504ULL, 0x1312111003020100ULL)); }
+		static inline vec_t vhigh32(const vec_t first, const vec_t second) noexcept { return __builtin_e2k_qppermb(second, first, vwords(0x1f1e1d1c0f0e0d0cULL, 0x1b1a19180b0a0908ULL)); }
+		static inline vec_t vevenodd32(const vec_t value) noexcept { return __builtin_e2k_qppermb(value, value, vwords(0x0f0e0d0c07060504ULL, 0x0b0a090803020100ULL)); }
+		static inline vec_t vinterleave16(const vec_t even, const vec_t odd) noexcept { return __builtin_e2k_qppermb(odd, even, vwords(0x1d1c0d0c19180908ULL, 0x1514050411100100ULL)); }
+	#endif
+	/**
+	 * Векторная арифметика кольца поверх прослойки
+	 */
+	#if defined(__ANTS_MLKEM_VECTOR__)
+		/**
+		 * @brief Умножение Монтгомери восьми пар 16-разрядных значений
+		 *
+		 * @param first  первые сомножители
+		 * @param second вторые сомножители
+		 *
+		 * @return       произведения, делённые на 2^16, по модулю q в (-q, q)
+		 *
+		 * @note Младшие 16 разрядов произведения и множителя на модуль равны, оттого разность
+		 *       старших половин и есть итог редукции - без заёма (тот же приём у эталонной
+		 *       реализации Kyber на AVX2)
+		 */
+		static inline vec_t vfqmul(const vec_t first, const vec_t second) noexcept {
+			// Младшие и старшие половины произведений
+			const vec_t low = vmullo16(first, second), high = vmulhi16(first, second);
+			// Множители, обращающие младшие половины в ноль: q^(-1) mod 2^16 = -3327
+			const vec_t zeroing = vmullo16(low, vset16(-3327));
+			// Выводим разность старших половин произведений и множителей на модуль
+			return vsub16(high, vmulhi16(zeroing, vset16(static_cast <int16_t> (Q))));
+		}
+		/**
+		 * @brief Редукция Барретта восьми 16-разрядных значений
+		 *
+		 * @param value приводимые значения
+		 *
+		 * @return      значения из [-q/2, q/2], те же, что у скалярной barrett
+		 *
+		 * @note Частное ((value·20159) + 2^25) >> 26 берётся как (старшие 16 разрядов
+		 *       произведения + 512) >> 10: вложенные округления вниз с целыми делителями
+		 *       дают то же, что одно
+		 */
+		static inline vec_t vbarrett(const vec_t value) noexcept {
+			// Частное с округлением
+			const vec_t quotient = vsra16(vadd16(vmulhi16(value, vset16(20159)), vset16(512)), 10);
+			// Выводим остаток
+			return vsub16(value, vmullo16(quotient, vset16(static_cast <int16_t> (Q))));
+		}
+		/**
+		 * @brief Приведение восьми значений из (-q, q) к [0, q)
+		 *
+		 * @param value приводимые значения
+		 *
+		 * @return      значения из [0, q)
+		 *
+		 */
+		static inline vec_t vcanonical(const vec_t value) noexcept {
+			// Прибавляем модуль под маской знака
+			return vadd16(value, vand(vsra16(value, 15), vset16(static_cast <int16_t> (Q))));
+		}
+	#endif
+	/**
 	 * @brief Многочлен кольца
 	 *
 	 */
 	typedef struct Poly {
-		// Коэффициенты многочлена
-		int16_t values[N];
+		// Коэффициенты многочлена: выровнены под векторные загрузки
+		alignas(16) int16_t values[N];
 	} poly_t;
 	/**
 	 * @brief Описание набора параметров
@@ -265,6 +420,10 @@ namespace {
 		return static_cast <int16_t> ((value > (Q / 2)) ? (value - Q) : value);
 	}
 	/**
+	 * Скалярная арифметика Монтгомери и Барретта нужна лишь переносимому пути
+	 */
+	#if !defined(__ANTS_MLKEM_VECTOR__)
+	/**
 	 * @brief Метод редукции Монтгомери 32-разрядного значения
 	 *
 	 * @param wide приводимое значение, |wide| < q·2^15
@@ -326,6 +485,7 @@ namespace {
 		// Прибавляем модуль под маской знака
 		return static_cast <int16_t> (value + (Q & (value >> 15)));
 	}
+	#endif
 	typedef struct Tables {
 		// Степени ζ^BitRev7(i) для бабочек преобразования
 		int16_t zetas[128];
@@ -334,7 +494,13 @@ namespace {
 		// 2^32 mod q: множитель перевода коэффициента в форму Монтгомери умножением fqmul
 		int16_t square;
 		// Множители подготовки по местам коэффициентов: на чётных square, на нечётных скрутка пары
-		int16_t lanes[N];
+		alignas(16) int16_t lanes[N];
+		// Степени ζ слоёв длины 4 и 2 по местам векторов: прямое преобразование (по восемь мест на шестнадцать коэффициентов)
+		alignas(16) int16_t forward4[N / 2];
+		alignas(16) int16_t forward2[N / 2];
+		// То же для обратного преобразования: порядок степеней обратный
+		alignas(16) int16_t inverse4[N / 2];
+		alignas(16) int16_t inverse2[N / 2];
 		// Степени ζ в форме Монтгомери: ζ·2^16 mod q, приведённые к (-q/2, q/2]
 		int16_t montgomery[128];
 		// Обратное к 128 в форме Монтгомери: 128^(-1)·2^16 mod q
@@ -391,6 +557,22 @@ namespace {
 				// Нечётное место: скрутка пары
 				this->lanes[i + 1] = this->twists[i / 2];
 			}
+			/**
+			 * Выполняем перебор шестнадцаток коэффициентов: слои длины 4 и 2 идут парами векторов
+			 */
+			for(size_t k = 0; k < (N / 16); k++){
+				/**
+				 * Выполняем перебор мест вектора
+				 */
+				for(size_t lane = 0; lane < 8; lane++){
+					// Слой длины 4: участок из восьми коэффициентов, по два участка на шаг
+					this->forward4[(8 * k) + lane] = this->montgomery[32 + (2 * k) + (lane / 4)];
+					this->inverse4[(8 * k) + lane] = this->montgomery[63 - (2 * k) - (lane / 4)];
+					// Слой длины 2: участок из четырёх коэффициентов, по четыре участка на шаг
+					this->forward2[(8 * k) + lane] = this->montgomery[64 + (4 * k) + (lane / 2)];
+					this->inverse2[(8 * k) + lane] = this->montgomery[127 - (4 * k) - (lane / 2)];
+				}
+			}
 		}
 	} tables_t;
 	/**
@@ -412,6 +594,72 @@ namespace {
 	 *
 	 */
 	static void forward(poly_t & poly) noexcept {
+		/**
+		 * Векторный путь: слои с длиной от 128 до 8 идут целыми векторами, слои длины 4 и 2 -
+		 * шестнадцатью коэффициентами за шаг с перестановками половин и пар двойных слов
+		 */
+		#if defined(__ANTS_MLKEM_VECTOR__)
+			// Таблицы степеней
+			const tables_t & table = tables();
+			// Коэффициенты многочлена
+			int16_t * values = poly.values;
+			// Место в таблице степеней
+			size_t index = 1;
+			/**
+			 * Выполняем перебор длин бабочек от 128 до 8
+			 */
+			for(size_t length = 128; length >= 8; length /= 2){
+				/**
+				 * Выполняем перебор начал участков
+				 */
+				for(size_t start = 0; start < N; start += (2 * length)){
+					// Степень ζ участка по всем местам
+					const vec_t zeta = vset16(table.montgomery[index++]);
+					/**
+					 * Выполняем перебор восьмёрок пар участка
+					 */
+					for(size_t j = start; j < (start + length); j += 8){
+						// Произведения степени и вторых коэффициентов пар
+						const vec_t t = vfqmul(vload(values + j + length), zeta);
+						// Первые коэффициенты пар
+						const vec_t u = vload(values + j);
+						// Разности и суммы пар
+						vstore(values + j + length, vsub16(u, t));
+						vstore(values + j, vadd16(u, t));
+					}
+				}
+			}
+			/**
+			 * Выполняем перебор шестнадцаток коэффициентов: слои длины 4 и 2 и приведение
+			 */
+			for(size_t i = 0, m = 0; i < N; i += 16, m += 8){
+				// Два вектора по восемь коэффициентов
+				const vec_t a = vload(values + i), b = vload(values + i + 8);
+				// Слой длины 4: младшие четвёрки обоих векторов против старших
+				vec_t low = vlow64(a, b), high = vhigh64(a, b);
+				// Произведения степеней и старших четвёрок
+				vec_t t = vfqmul(high, vload(table.forward4 + m));
+				// Разности и суммы
+				high = vsub16(low, t);
+				low = vadd16(low, t);
+				// Обратно в порядок коэффициентов, затем чётные пары двойных слов вперёд
+				const vec_t ae = vevenodd32(vlow64(low, high)), be = vevenodd32(vhigh64(low, high));
+				// Слой длины 2: первые пары четвёрок против вторых
+				low = vlow64(ae, be);
+				high = vhigh64(ae, be);
+				// Произведения степеней и вторых пар
+				t = vfqmul(high, vload(table.forward2 + m));
+				// Разности и суммы
+				high = vsub16(low, t);
+				low = vadd16(low, t);
+				// Обратно в порядок коэффициентов с приведением к [0, q)
+				vstore(values + i, vcanonical(vbarrett(vlow32(low, high))));
+				vstore(values + i + 8, vcanonical(vbarrett(vhigh32(low, high))));
+			}
+		/**
+		 * Переносимый путь
+		 */
+		#else
 		// Таблица степеней ζ в форме Монтгомери
 		const int16_t * table = tables().montgomery;
 		// Коэффициенты многочлена: между слоями держатся со знаком, растут не более чем на q за слой
@@ -448,6 +696,7 @@ namespace {
 		for(size_t i = 0; i < N; i++)
 			// Приводим коэффициент редукцией Барретта и знаком
 			values[i] = canonical(barrett(values[i]));
+		#endif
 	}
 	/**
 	 * @brief Метод обратного преобразования NTT многочлена
@@ -456,6 +705,79 @@ namespace {
 	 *
 	 */
 	static void inverse(poly_t & poly) noexcept {
+		/**
+		 * Векторный путь: слои длины 2 и 4 шестнадцатью коэффициентами за шаг с перестановками,
+		 * слои с длиной от 8 до 128 целыми векторами
+		 */
+		#if defined(__ANTS_MLKEM_VECTOR__)
+			// Таблицы степеней
+			const tables_t & table = tables();
+			// Коэффициенты многочлена
+			int16_t * values = poly.values;
+			/**
+			 * Выполняем перебор шестнадцаток коэффициентов: слои длины 2 и 4
+			 */
+			for(size_t i = 0, m = 0; i < N; i += 16, m += 8){
+				// Два вектора по восемь коэффициентов, чётные пары двойных слов вперёд
+				const vec_t ae = vevenodd32(vload(values + i)), be = vevenodd32(vload(values + i + 8));
+				// Слой длины 2: первые пары четвёрок против вторых
+				vec_t low = vlow64(ae, be), high = vhigh64(ae, be);
+				// Первые коэффициенты пар
+				vec_t t = low;
+				// Суммы пар с редукцией и произведения степеней и разностей
+				low = vbarrett(vadd16(t, high));
+				high = vfqmul(vsub16(high, t), vload(table.inverse2 + m));
+				// Обратно в порядок коэффициентов
+				const vec_t a = vlow32(low, high), b = vhigh32(low, high);
+				// Слой длины 4: младшие четвёрки против старших
+				low = vlow64(a, b);
+				high = vhigh64(a, b);
+				// Первые коэффициенты пар
+				t = low;
+				// Суммы пар с редукцией и произведения степеней и разностей
+				low = vbarrett(vadd16(t, high));
+				high = vfqmul(vsub16(high, t), vload(table.inverse4 + m));
+				// Обратно в порядок коэффициентов
+				vstore(values + i, vlow64(low, high));
+				vstore(values + i + 8, vhigh64(low, high));
+			}
+			// Место в таблице степеней после слоёв длины 2 и 4
+			size_t index = 31;
+			/**
+			 * Выполняем перебор длин бабочек от 8 до 128
+			 */
+			for(size_t length = 8; length <= 128; length *= 2){
+				/**
+				 * Выполняем перебор начал участков
+				 */
+				for(size_t start = 0; start < N; start += (2 * length)){
+					// Степень ζ участка по всем местам
+					const vec_t zeta = vset16(table.montgomery[index--]);
+					/**
+					 * Выполняем перебор восьмёрок пар участка
+					 */
+					for(size_t j = start; j < (start + length); j += 8){
+						// Первые и вторые коэффициенты пар
+						const vec_t t = vload(values + j), u = vload(values + j + length);
+						// Суммы пар с редукцией
+						vstore(values + j, vbarrett(vadd16(t, u)));
+						// Произведения степени и разностей пар
+						vstore(values + j + length, vfqmul(vsub16(u, t), zeta));
+					}
+				}
+			}
+			// Обратное к 128 в форме Монтгомери по всем местам
+			const vec_t scale = vset16(table.inverse);
+			/**
+			 * Выполняем перебор восьмёрок коэффициентов
+			 */
+			for(size_t i = 0; i < N; i += 8)
+				// Умножаем на обратное к 128 и приводим к [0, q)
+				vstore(values + i, vcanonical(vfqmul(vload(values + i), scale)));
+		/**
+		 * Переносимый путь
+		 */
+		#else
 		// Таблица степеней ζ в форме Монтгомери
 		const tables_t & table = tables();
 		// Коэффициенты многочлена
@@ -492,6 +814,7 @@ namespace {
 		for(size_t i = 0; i < N; i++)
 			// Умножаем на обратное к 128 в форме Монтгомери и приводим к [0, q)
 			values[i] = canonical(fqmul(values[i], table.inverse));
+		#endif
 	}
 	/**
 	 * @brief Второй сомножитель умножения в области NTT, подготовленный один раз
@@ -507,9 +830,9 @@ namespace {
 	 */
 	typedef struct Twisted {
 		// Коэффициенты в форме Монтгомери, нечётные умножены на ±γ: b0·R, b1·γ·R, b2·R, b3·(-γ)·R, …
-		int16_t twisted[N];
+		alignas(16) int16_t twisted[N];
 		// Коэффициенты пар местами в форме Монтгомери: b1·R, b0·R, b3·R, b2·R, …
-		int16_t swapped[N];
+		alignas(16) int16_t swapped[N];
 	} twisted_t;
 	/**
 	 * @brief Накопитель произведений в области NTT: 32 разряда на коэффициент
@@ -520,7 +843,7 @@ namespace {
 	 */
 	typedef struct Wide {
 		// Накопленные произведения
-		int32_t values[N];
+		alignas(16) int32_t values[N];
 	} wide_t;
 	/**
 	 * @brief Метод подготовки второго сомножителя умножения в области NTT
@@ -535,40 +858,19 @@ namespace {
 		/**
 		 * Векторный путь: умножение Монтгомери восьми коэффициентов за шаг
 		 */
-		#if defined(__ANTS_MLKEM_SSE2__)
-			// Множитель q^(-1) mod 2^16 = -3327 и модуль по 16-разрядным местам
-			const __m128i factor = _mm_set1_epi16(-3327), modulus = _mm_set1_epi16(static_cast <int16_t> (Q));
+		#if defined(__ANTS_MLKEM_VECTOR__)
 			// Множитель перевода в форму Монтгомери по местам
-			const __m128i square = _mm_set1_epi16(table.square);
-			/**
-			 * @brief Умножение Монтгомери восьми пар 16-разрядных значений
-			 *
-			 * @param first  первые сомножители
-			 * @param second вторые сомножители
-			 *
-			 * @return       произведения, делённые на 2^16, по модулю q в (-q, q)
-			 *
-			 * @note Младшие 16 разрядов произведения и множителя на модуль равны, оттого
-			 *       разность старших половин и есть итог редукции - без заёма
-			 */
-			auto fqmul = [&factor, &modulus](const __m128i first, const __m128i second) noexcept -> __m128i {
-				// Младшие и старшие половины произведений
-				const __m128i low = _mm_mullo_epi16(first, second), high = _mm_mulhi_epi16(first, second);
-				// Множители, обращающие младшие половины в ноль
-				const __m128i zeroing = _mm_mullo_epi16(low, factor);
-				// Выводим разность старших половин произведений и множителей на модуль
-				return _mm_sub_epi16(high, _mm_mulhi_epi16(zeroing, modulus));
-			};
+			const vec_t square = vset16(table.square);
 			/**
 			 * Выполняем перебор восьмёрок коэффициентов
 			 */
 			for(size_t i = 0; i < N; i += 8){
 				// Коэффициенты многочлена
-				const __m128i values = _mm_loadu_si128(reinterpret_cast <const __m128i *> (poly.values + i));
+				const vec_t values = vload(poly.values + i);
 				// Скрученные коэффициенты: множители по местам
-				_mm_storeu_si128(reinterpret_cast <__m128i *> (result.twisted + i), fqmul(values, _mm_loadu_si128(reinterpret_cast <const __m128i *> (table.lanes + i))));
+				vstore(result.twisted + i, vfqmul(values, vload(table.lanes + i)));
 				// Коэффициенты пар местами в форме Монтгомери
-				_mm_storeu_si128(reinterpret_cast <__m128i *> (result.swapped + i), fqmul(_mm_shufflehi_epi16(_mm_shufflelo_epi16(values, 0xB1), 0xB1), square));
+				vstore(result.swapped + i, vfqmul(vswap16(values), square));
 			}
 		/**
 		 * Переносимый путь
@@ -603,24 +905,20 @@ namespace {
 	 */
 	static void multiply(const poly_t & first, const twisted_t & second, wide_t & result) noexcept {
 		/**
-		 * Векторный путь: восемь коэффициентов за шаг, суммы произведений соседних мест командой pmaddwd
+		 * Векторный путь: восемь коэффициентов за шаг, суммы произведений соседних мест одной командой (pmaddwd, qpmaddh)
 		 */
-		#if defined(__ANTS_MLKEM_SSE2__)
+		#if defined(__ANTS_MLKEM_VECTOR__)
 			/**
 			 * Выполняем перебор восьмёрок коэффициентов
 			 */
 			for(size_t i = 0; i < N; i += 8){
 				// Коэффициенты первого сомножителя
-				const __m128i a = _mm_loadu_si128(reinterpret_cast <const __m128i *> (first.values + i));
-				// Скрученные и переставленные коэффициенты второго
-				const __m128i twisted = _mm_loadu_si128(reinterpret_cast <const __m128i *> (second.twisted + i));
-				const __m128i swapped = _mm_loadu_si128(reinterpret_cast <const __m128i *> (second.swapped + i));
+				const vec_t a = vload(first.values + i);
 				// Накопители чётных и нечётных коэффициентов восьмёрки
-				__m128i * even = reinterpret_cast <__m128i *> (result.values + i);
-				__m128i * odd = reinterpret_cast <__m128i *> (result.values + i + 4);
+				int32_t * even = (result.values + i), * odd = (result.values + i + 4);
 				// Складываем суммы произведений соседних мест с накопителями
-				_mm_storeu_si128(even, _mm_add_epi32(_mm_loadu_si128(even), _mm_madd_epi16(a, twisted)));
-				_mm_storeu_si128(odd, _mm_add_epi32(_mm_loadu_si128(odd), _mm_madd_epi16(a, swapped)));
+				vstore(even, vadd32(vload(even), vmadd16(a, vload(second.twisted + i))));
+				vstore(odd, vadd32(vload(odd), vmadd16(a, vload(second.swapped + i))));
 			}
 		/**
 		 * Переносимый путь
@@ -650,11 +948,11 @@ namespace {
 		/**
 		 * Векторный путь: редукция Монтгомери четырёх 32-разрядных значений за шаг
 		 */
-		#if defined(__ANTS_MLKEM_SSE2__)
+		#if defined(__ANTS_MLKEM_VECTOR__)
 			// Множитель q^(-1) mod 2^16 = -3327 в младших половинах 32-разрядных мест, старшие половины нули
-			const __m128i factor = _mm_set1_epi32(0x0000F301);
+			const vec_t factor = vset32(0x0000F301);
 			// Модуль в младших половинах мест
-			const __m128i modulus = _mm_set1_epi32(Q);
+			const vec_t modulus = vset32(Q);
 			/**
 			 * @brief Редукция Монтгомери четырёх значений с приведением к [0, q)
 			 *
@@ -663,13 +961,13 @@ namespace {
 			 * @return      четыре значения из [0, q) в 32-разрядных местах
 			 *
 			 */
-			auto reduce = [&factor, &modulus](const __m128i value) noexcept -> __m128i {
+			auto reduce = [&factor, &modulus](const vec_t value) noexcept -> vec_t {
 				// Младшие 16 разрядов значения на множитель: старшие половины мест обнуляются нулём множителя
-				const __m128i low = _mm_mullo_epi16(value, factor);
+				const vec_t low = vmullo16(value, factor);
 				// Разность значения и произведения множителя на модуль, делённая на 2^16
-				__m128i reduced = _mm_srai_epi32(_mm_sub_epi32(value, _mm_madd_epi16(low, modulus)), 16);
+				vec_t reduced = vsra32(vsub32(value, vmadd16(low, modulus)), 16);
 				// Прибавляем модуль под маской знака
-				reduced = _mm_add_epi32(reduced, _mm_and_si128(_mm_srai_epi32(reduced, 31), modulus));
+				reduced = vadd32(reduced, vand(vsra32(reduced, 31), modulus));
 				// Выводим приведённые значения
 				return reduced;
 			};
@@ -678,10 +976,9 @@ namespace {
 			 */
 			for(size_t i = 0; i < N; i += 8){
 				// Приведённые чётные и нечётные коэффициенты восьмёрки
-				const __m128i even = reduce(_mm_loadu_si128(reinterpret_cast <const __m128i *> (wide.values + i)));
-				const __m128i odd = reduce(_mm_loadu_si128(reinterpret_cast <const __m128i *> (wide.values + i + 4)));
-				// Переплетаем чётные и нечётные в 16-разрядные места: старшие половины чётных пусты
-				_mm_storeu_si128(reinterpret_cast <__m128i *> (result.values + i), _mm_or_si128(even, _mm_slli_epi32(odd, 16)));
+				const vec_t even = reduce(vload(wide.values + i)), odd = reduce(vload(wide.values + i + 4));
+				// Переплетаем чётные и нечётные в 16-разрядные места
+				vstore(result.values + i, vinterleave16(even, odd));
 			}
 		/**
 		 * Переносимый путь
