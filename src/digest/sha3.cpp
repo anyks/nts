@@ -40,6 +40,17 @@
  * 3. После первого выжимания поглощение отвергается: губка FIPS 202 не двусторонняя,
  *    и продолжение поглощения после выжимания дало бы итог, не описанный стандартом.
  *
+ * 4. На x86-64 у gcc и clang перестановка идёт ядром на встроенном ассемблере
+ *    (src/internal/digest/keccak.hpp, порождается сценарием tools/digest/keccak.py, который
+ *    сличает порождённый список команд с эталонной перестановкой до выдачи текста): полосы
+ *    в двух накопителях памяти, чётности θ в регистрах, строки по одной, шесть полос хранятся
+ *    инвертированными (дополнение полос), оттого χ обходится одним not на строку. Собранная
+ *    из C++ перестановка на четырнадцати регистрах не умещается: gcc 12 и clang 19 давали на
+ *    стендах x86 689…742 нс, ядро - 606…615 (FreeBSD clang 19 705 → 615, Astra gcc 12 741 → 612,
+ *    MinGW gcc 16 689 → 606; круг 36, 23.09.2026), SHA3-256 ключа ML-KEM в 1 184 байта 5,6…6,0 мкс
+ *    при 5,2…5,4 у ассемблера OpenSSL. На M4 и Эльбрусе собиратель и так кладёт развёртку в
+ *    регистры (145 и 421 нс), там остаётся переносимая перестановка, как и у прочих собирателей.
+ *
  * @copyright Copyright © 2026
  *
  */
@@ -54,6 +65,7 @@
  */
 #include <digest/sha3.hpp>
 #include <sys/wipe.hpp>
+#include <internal/digest/keccak.hpp>
 
 /**
  * @brief Служебные объекты модуля
@@ -76,18 +88,23 @@ namespace {
 		0x8000000080008081ULL, 0x8000000000008080ULL, 0x0000000080000001ULL, 0x8000000080008008ULL
 	};
 	/**
-	 * @brief Метод кругового сдвига полосы влево
-	 *
-	 * @param lane  сдвигаемая полоса
-	 * @param count число разрядов сдвига
-	 *
-	 * @return      сдвинутая полоса
-	 *
+	 * Круговой сдвиг нужен лишь переносимой перестановке
 	 */
-	static inline uint64_t spin(const uint64_t lane, const size_t count) noexcept {
-		// Выводим круговой сдвиг полосы
-		return ((lane << count) | (lane >> (64 - count)));
-	}
+	#if !defined(__ANTS_KECCAK_X86_64__)
+		/**
+		 * @brief Метод кругового сдвига полосы влево
+		 *
+		 * @param lane  сдвигаемая полоса
+		 * @param count число разрядов сдвига
+		 *
+		 * @return      сдвинутая полоса
+		 *
+		 */
+		static inline uint64_t spin(const uint64_t lane, const size_t count) noexcept {
+			// Выводим круговой сдвиг полосы
+			return ((lane << count) | (lane >> (64 - count)));
+		}
+	#endif
 	/**
 	 * @brief Метод чтения полосы из восьми байтов от младшего
 	 *
@@ -149,6 +166,16 @@ namespace {
  *
  */
 void nts::digest::Keccak::permute() noexcept {
+	/**
+	 * Ядро на ассемблере x86-64 (решение 4)
+	 */
+	#if defined(__ANTS_KECCAK_X86_64__)
+		// Выполняем перестановку ядром на ассемблере
+		kernel::keccak(this->_state, IOTA);
+	/**
+	 * Переносимая перестановка
+	 */
+	#else
 	// Полосы состояния в переменных: a[x + 5y], x - столбец, y - строка (раздел 3.1.2 FIPS 202)
 	uint64_t a00 = this->_state[0], a01 = this->_state[1], a02 = this->_state[2], a03 = this->_state[3], a04 = this->_state[4], a05 = this->_state[5], a06 = this->_state[6], a07 = this->_state[7], a08 = this->_state[8], a09 = this->_state[9], a10 = this->_state[10], a11 = this->_state[11], a12 = this->_state[12], a13 = this->_state[13], a14 = this->_state[14], a15 = this->_state[15], a16 = this->_state[16], a17 = this->_state[17], a18 = this->_state[18], a19 = this->_state[19], a20 = this->_state[20], a21 = this->_state[21], a22 = this->_state[22], a23 = this->_state[23], a24 = this->_state[24];
 	// Полосы после шагов ρ и π
@@ -213,6 +240,7 @@ void nts::digest::Keccak::permute() noexcept {
 	this->_state[22] = a22;
 	this->_state[23] = a23;
 	this->_state[24] = a24;
+	#endif
 }
 /**
  * @brief Метод дополнения сообщения и перехода к выжиманию

@@ -10,7 +10,14 @@
  *          новее, где есть ML-KEM). Числа круга 35 (23.09.2026, M4): выработка пары 28,9 → 15,5 мкс
  *          при 23,6 у OpenSSL, инкапсуляция 29,2 → 14,3 при 15,4, раскрытие 37,3 → 19,6 при 24,2;
  *          доли: выборка многочлена матрицы 1 119 → 557 нс, биномиальная 524 → 171, прямое NTT
- *          1 005 → 583, обратное 465 → 357, умножение в NTT 239 → 108, SHA3-256 ключа 2 913 → 1 365
+ *          1 005 → 583, обратное 465 → 357, умножение в NTT 239 → 108, SHA3-256 ключа 2 913 → 1 365.
+ *          Круг 36 (23.09.2026): умножение в области NTT на подготовленном сомножителе (prepare,
+ *          multiply, settle - скалярное произведение k = 3 на M4 339 → 126 нс, FreeBSD 3 633 → 271),
+ *          упаковка узорами (M4 250 → 64), ядро Keccak на ассемблере x86-64 (FreeBSD перестановка
+ *          705 → 615): M4 12,7 / 12,9 / 16,8 → 12,5 / 11,2 / 14,3 мкс при 23,8 / 15,4 / 24,2 у OpenSSL,
+ *          FreeBSD 63,8 / 75,3 / 98,3 → 51,1 / 52,8 / 68,0 при 75,1 / 50,1 / 73,5. Оговорка сличения:
+ *          OpenSSL считает H(ek) и разворачивает матрицу при разборе ключа (parse_pubkey), а не в
+ *          инкапсуляции и раскрытии - в его числах этой работы нет, в наших есть
  * @copyright Copyright © 2026
  */
 
@@ -50,8 +57,11 @@ int main(){
 	show("binomial eta=2 (SHAKE256, 128 байт)", best([&]{ binomial(sigma, 3, 2, b); }, N1 * 5));
 	show("forward NTT", best([&]{ forward(a); }, N1 * 20));
 	show("inverse NTT", best([&]{ inverse(a); }, N1 * 20));
-	memset(c.values, 0, sizeof(c.values));
-	show("accumulate (умножение в NTT)", best([&]{ accumulate(a, b, c); }, N1 * 20));
+	twisted_t prepared; wide_t wide; memset(wide.values, 0, sizeof(wide.values));
+	show("prepare (сомножитель к умножению)", best([&]{ prepare(b, prepared); }, N1 * 20));
+	show("multiply (умножение в NTT с накоплением)", best([&]{ multiply(a, prepared, wide); memset(wide.values, 0, sizeof(wide.values)); }, N1 * 20));
+	show("settle (приведение накопителя)", best([&]{ settle(wide, c); }, N1 * 20));
+	show("multiply ×3 + settle (скалярное произведение k=3)", best([&]{ memset(wide.values, 0, sizeof(wide.values)); multiply(a, prepared, wide); multiply(b, prepared, wide); multiply(c, prepared, wide); settle(wide, c); }, N1 * 20));
 	uint8_t out[384];
 	show("encode", best([&]{ encode(a, out); }, N1 * 20));
 	show("decode", best([&]{ decode(out, a); }, N1 * 20));

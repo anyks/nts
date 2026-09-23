@@ -35,14 +35,31 @@
  *    и лишь на выходе приводятся к [0, q) редукцией Барретта и знаком. Так устроена эталонная
  *    реализация Kyber; арифметика умещается в 32 разряда без 64-разрядного умножения, и
  *    собиратель кладёт бабочки на векторные команды: прямое NTT M4 584 → 151 нс, FreeBSD
- *    3 866 → 1 300 (щуп nttprobe). Умножение в области NTT (accumulate) осталось на редукции
- *    Барретта в 32 разрядах: у него произведения нужны в обычной форме, а не с множителем 2^-16.
+ *    3 866 → 1 300 (щуп nttprobe). Умножение в области NTT идёт на подготовленном втором
+ *    сомножителе (prepare, круг 36, 23.09.2026): его коэффициенты переводятся в форму
+ *    Монтгомери, нечётные места ещё умножаются на ±γ пары, а пары хранятся и местами; тогда
+ *    оба коэффициента произведения пар - суммы двух произведений соседних мест, они копятся
+ *    в 32-разрядном накопителе по всем слагаемым скалярного произведения (не выше четырёх,
+ *    ниже q·2^15) и приводятся один раз редукцией Монтгомери (settle) - вместо трёх редукций
+ *    Барретта на пару на каждом слагаемом. На x86-64 накопление - команда pmaddwd, подготовка
+ *    и приведение тоже на SSE2 (они есть на всякой x86-64). Скалярное произведение k = 3:
+ *    M4 339 → 126 нс, FreeBSD 3 633 → 278; инкапсуляция M4 12,9 → 12,0 мкс, FreeBSD 75,3 → 55,4
+ *    (вместе с ядром Keccak круга 36); эталонная реализация Kyber на AVX2 держит тот же
+ *    «кэш умножения» с нечётными местами, умноженными на степень пары.
  *
  * 6. Поток SHAKE128 при выборке матрицы выжимается блоками по 168 байтов (56 троек), а не
  *    по три байта; биномиальная выборка считает суммы разрядов масками 0x55 и 0x249249
  *    по байту и по трём байтам, а не разрядом за разрядом. Так же устроены выборки у
  *    OpenSSL (crypto/ml_kem/ml_kem.c: sample_scalar, cbd_2, cbd_3). Щуп kemprobe круга 35:
  *    выборка многочлена матрицы 1 119 → 731 нс, биномиальная 524 → 173 (M4).
+ *
+ * 7. Сжатие коэффициентов идёт умножением на обратное 2^36/q в 64 разрядах, а не делением на q:
+ *    у clang и gcc деление на константу и так обращается в такое умножение, у lcc на Эльбрусе
+ *    остаётся делением (упаковка многочлена там стоила 4 326 нс при 930…1 030 на x86). Записи
+ *    разрядностей 4, 5, 10 и 11 - всех у наборов FIPS 203 - пишутся и читаются жёсткими узорами
+ *    байтов, а побитовый накопитель оставлен прочим разрядностям: узор на M4 13 нс против 155
+ *    у накопителя (щуп packprobe круга 36), упаковка многочлена 250 → 64 нс, инкапсуляция
+ *    12,0 → 11,2 мкс, раскрытие 15,7 → 14,3.
  *
  * 2. Таблица степеней ζ считается один раз при первом обращении, а не выписывается
  *    числами: так она сверяется с определением стандарта, а не с чьей-то распечаткой.
@@ -66,6 +83,17 @@
  * Стандартные заголовочные файлы
  */
 #include <cstring>
+
+/**
+ * Векторные команды SSE2 под умножение в области NTT: на x86-64 они есть всегда
+ */
+#if defined(__x86_64__) && defined(__SSE2__) && !defined(_MSC_VER)
+	#include <emmintrin.h>
+	/**
+	 * Признак наличия векторного пути умножения
+	 */
+	#define __ANTS_MLKEM_SSE2__
+#endif
 
 /**
  * Подключаем заголовочные файлы проекта
@@ -237,6 +265,24 @@ namespace {
 		return static_cast <int16_t> ((value > (Q / 2)) ? (value - Q) : value);
 	}
 	/**
+	 * @brief Метод редукции Монтгомери 32-разрядного значения
+	 *
+	 * @param wide приводимое значение, |wide| < q·2^15
+	 *
+	 * @return     wide·2^(-16) mod q в полуинтервале (-q, q)
+	 *
+	 * @note Множитель -3327 обращает младшие 16 разрядов в ноль: q·3327 = 169·2^16 - 1,
+	 *       оттого разность wide - factor·q делится на 2^16 нацело, а её старшие разряды
+	 *       и есть итог. Тем же приведением снимается множитель 2^16 с накопителя
+	 *       произведений в области NTT (settle)
+	 */
+	static inline int16_t montgomery(const int32_t wide) noexcept {
+		// Множитель, обращающий младшие 16 разрядов значения в ноль: q^(-1) mod 2^16 = -3327
+		const int16_t factor = static_cast <int16_t> (static_cast <uint16_t> (static_cast <int32_t> (static_cast <int16_t> (static_cast <uint16_t> (wide))) * -3327));
+		// Выводим старшие 16 разрядов разности значения и произведения множителя на модуль
+		return static_cast <int16_t> ((wide - (static_cast <int32_t> (factor) * Q)) >> 16);
+	}
+	/**
 	 * @brief Метод умножения Монтгомери на 16 разрядах
 	 *
 	 * @param first  первый сомножитель, |first| < 2^15
@@ -251,12 +297,8 @@ namespace {
 	 *       круга 35 (23.09.2026): прямое NTT M4 582 → 150 нс, FreeBSD 3 866 → 1 300
 	 */
 	static inline int16_t fqmul(const int16_t first, const int16_t second) noexcept {
-		// Полное произведение
-		const int32_t wide = (static_cast <int32_t> (first) * second);
-		// Множитель, обращающий младшие 16 разрядов произведения в ноль: -q^(-1) mod 2^16 = 3327
-		const int16_t factor = static_cast <int16_t> (static_cast <uint16_t> (static_cast <int32_t> (static_cast <int16_t> (static_cast <uint16_t> (wide))) * -3327));
-		// Выводим старшие 16 разрядов разности произведения и множителя на модуль
-		return static_cast <int16_t> ((wide - (static_cast <int32_t> (factor) * Q)) >> 16);
+		// Выводим редукцию Монтгомери полного произведения
+		return montgomery(static_cast <int32_t> (first) * second);
 	}
 	/**
 	 * @brief Метод редукции Барретта на 16 разрядах
@@ -287,8 +329,12 @@ namespace {
 	typedef struct Tables {
 		// Степени ζ^BitRev7(i) для бабочек преобразования
 		int16_t zetas[128];
-		// Степени ζ^(2·BitRev7(2i)+1) для умножения пар коэффициентов: группа i из двух пар с противоположными степенями
-		int16_t gammas[64];
+		// Скрутки пар: ±γ·2^32 mod q, где γ = ζ^(2·BitRev7(i)+1) степень пары i; у нечётной пары группы знак противоположный
+		int16_t twists[128];
+		// 2^32 mod q: множитель перевода коэффициента в форму Монтгомери умножением fqmul
+		int16_t square;
+		// Множители подготовки по местам коэффициентов: на чётных square, на нечётных скрутка пары
+		int16_t lanes[N];
 		// Степени ζ в форме Монтгомери: ζ·2^16 mod q, приведённые к (-q/2, q/2]
 		int16_t montgomery[128];
 		// Обратное к 128 в форме Монтгомери: 128^(-1)·2^16 mod q
@@ -322,13 +368,29 @@ namespace {
 				this->zetas[i] = static_cast <int16_t> (power);
 				// Та же степень в форме Монтгомери
 				this->montgomery[i] = centered(reduce(static_cast <int32_t> ((static_cast <int64_t> (power) << 16) % Q)));
-				// Если место в пределах таблицы умножения пар
-				if(i < 64)
-					// Записываем степень ζ^(2·BitRev7(2i)+1) = ζ^(BitRev7(i)+1) пары с номером 2i
-					this->gammas[i] = product(power, 17);
+				// Если место в пределах таблицы скруток пар
+				if(i < 64){
+					// Степень пары ζ^(2·BitRev7(2i)+1) = ζ^(BitRev7(i)+1), умноженная на 2^32
+					const int16_t twist = centered(reduce(static_cast <int32_t> ((static_cast <int64_t> (product(power, 17)) << 32) % Q)));
+					// Записываем скрутку чётной пары группы
+					this->twists[2 * i] = twist;
+					// Записываем скрутку нечётной пары группы: степень противоположная
+					this->twists[(2 * i) + 1] = static_cast <int16_t> (-twist);
+				}
 			}
 			// Обратное к 128 в форме Монтгомери
 			this->inverse = centered(reduce(static_cast <int32_t> ((static_cast <int64_t> (INVERSE) << 16) % Q)));
+			// Множитель перевода в форму Монтгомери
+			this->square = centered(reduce(static_cast <int32_t> ((static_cast <int64_t> (1) << 32) % Q)));
+			/**
+			 * Выполняем перебор пар коэффициентов
+			 */
+			for(size_t i = 0; i < N; i += 2){
+				// Чётное место: перевод в форму Монтгомери
+				this->lanes[i] = this->square;
+				// Нечётное место: скрутка пары
+				this->lanes[i + 1] = this->twists[i / 2];
+			}
 		}
 	} tables_t;
 	/**
@@ -432,42 +494,206 @@ namespace {
 			values[i] = canonical(fqmul(values[i], table.inverse));
 	}
 	/**
-	 * @brief Метод умножения двух многочленов в области NTT с накоплением
+	 * @brief Второй сомножитель умножения в области NTT, подготовленный один раз
 	 *
-	 * @param first  первый множитель
-	 * @param second второй множитель
-	 * @param result накопитель произведения
+	 * @details Умножение пар (a0 + a1·X)·(b0 + b1·X) mod (X² - γ) даёт r0 = a0·b0 + a1·b1·γ и
+	 *          r1 = a0·b1 + a1·b0. Коэффициенты второго сомножителя держатся в форме Монтгомери
+	 *          (умноженными на 2^16): в массиве twisted нечётные места ещё умножены на ±γ, в
+	 *          массиве swapped коэффициенты пары стоят местами. Тогда r0 и r1 - суммы двух
+	 *          произведений соседних мест, они копятся в 32 разрядах без приведения по всем
+	 *          слагаемым скалярного произведения векторов, и лишь накопитель приводится
+	 *          редукцией Монтгомери, снимающей множитель 2^16. На x86-64 сумма двух произведений
+	 *          соседних 16-разрядных мест - одна команда pmaddwd
+	 */
+	typedef struct Twisted {
+		// Коэффициенты в форме Монтгомери, нечётные умножены на ±γ: b0·R, b1·γ·R, b2·R, b3·(-γ)·R, …
+		int16_t twisted[N];
+		// Коэффициенты пар местами в форме Монтгомери: b1·R, b0·R, b3·R, b2·R, …
+		int16_t swapped[N];
+	} twisted_t;
+	/**
+	 * @brief Накопитель произведений в области NTT: 32 разряда на коэффициент
+	 *
+	 * @note Порядок коэффициентов внутри накопителя принадлежит паре методов multiply и
+	 *       settle: у векторного пути в каждой восьмёрке сперва идут четыре чётных
+	 *       коэффициента, затем четыре нечётных
+	 */
+	typedef struct Wide {
+		// Накопленные произведения
+		int32_t values[N];
+	} wide_t;
+	/**
+	 * @brief Метод подготовки второго сомножителя умножения в области NTT
+	 *
+	 * @param poly   многочлен в области NTT с коэффициентами из [0, q)
+	 * @param result место, в которое помещается подготовленный сомножитель
 	 *
 	 */
-	static void accumulate(const poly_t & first, const poly_t & second, poly_t & result) noexcept {
-		// Таблица степеней умножения пар
-		const int16_t * table = tables().gammas;
+	static void prepare(const poly_t & poly, twisted_t & result) noexcept {
+		// Таблицы степеней
+		const tables_t & table = tables();
 		/**
-		 * Выполняем перебор пар коэффициентов
+		 * Векторный путь: умножение Монтгомери восьми коэффициентов за шаг
 		 */
-		for(size_t i = 0; i < 64; i++){
-			// Степень группы: у первой пары прямая, у второй противоположная
-			const int32_t gamma = table[i];
+		#if defined(__ANTS_MLKEM_SSE2__)
+			// Множитель q^(-1) mod 2^16 = -3327 и модуль по 16-разрядным местам
+			const __m128i factor = _mm_set1_epi16(-3327), modulus = _mm_set1_epi16(static_cast <int16_t> (Q));
+			// Множитель перевода в форму Монтгомери по местам
+			const __m128i square = _mm_set1_epi16(table.square);
 			/**
-			 * Выполняем перебор двух пар с противоположными степенями
+			 * @brief Умножение Монтгомери восьми пар 16-разрядных значений
+			 *
+			 * @param first  первые сомножители
+			 * @param second вторые сомножители
+			 *
+			 * @return       произведения, делённые на 2^16, по модулю q в (-q, q)
+			 *
+			 * @note Младшие 16 разрядов произведения и множителя на модуль равны, оттого
+			 *       разность старших половин и есть итог редукции - без заёма
 			 */
-			for(size_t half = 0; half < 2; half++){
-				// Место первой из пары
-				const size_t at = (4 * i) + (2 * half);
-				// Степень пары: у второй половины противоположная
-				const int32_t sign = ((half == 0) ? gamma : (Q - gamma));
-				// Коэффициенты первого множителя
-				const int32_t a0 = first.values[at], a1 = first.values[at + 1];
-				// Коэффициенты второго множителя
-				const int32_t b0 = second.values[at], b1 = second.values[at + 1];
-				// Произведение старших коэффициентов
-				const int32_t high = product(a1, b1);
-				// Младший коэффициент произведения
-				result.values[at] = reduce(result.values[at] + (a0 * b0) + (high * sign));
-				// Старший коэффициент произведения
-				result.values[at + 1] = reduce(result.values[at + 1] + (a0 * b1) + (a1 * b0));
+			auto fqmul = [&factor, &modulus](const __m128i first, const __m128i second) noexcept -> __m128i {
+				// Младшие и старшие половины произведений
+				const __m128i low = _mm_mullo_epi16(first, second), high = _mm_mulhi_epi16(first, second);
+				// Множители, обращающие младшие половины в ноль
+				const __m128i zeroing = _mm_mullo_epi16(low, factor);
+				// Выводим разность старших половин произведений и множителей на модуль
+				return _mm_sub_epi16(high, _mm_mulhi_epi16(zeroing, modulus));
+			};
+			/**
+			 * Выполняем перебор восьмёрок коэффициентов
+			 */
+			for(size_t i = 0; i < N; i += 8){
+				// Коэффициенты многочлена
+				const __m128i values = _mm_loadu_si128(reinterpret_cast <const __m128i *> (poly.values + i));
+				// Скрученные коэффициенты: множители по местам
+				_mm_storeu_si128(reinterpret_cast <__m128i *> (result.twisted + i), fqmul(values, _mm_loadu_si128(reinterpret_cast <const __m128i *> (table.lanes + i))));
+				// Коэффициенты пар местами в форме Монтгомери
+				_mm_storeu_si128(reinterpret_cast <__m128i *> (result.swapped + i), fqmul(_mm_shufflehi_epi16(_mm_shufflelo_epi16(values, 0xB1), 0xB1), square));
 			}
-		}
+		/**
+		 * Переносимый путь
+		 */
+		#else
+			/**
+			 * Выполняем перебор пар коэффициентов
+			 */
+			for(size_t i = 0; i < N; i += 2){
+				// Чётный и нечётный коэффициенты пары в форме Монтгомери
+				const int16_t even = fqmul(poly.values[i], table.square), odd = fqmul(poly.values[i + 1], table.square);
+				// Чётное место скрученного массива: коэффициент как есть
+				result.twisted[i] = even;
+				// Нечётное место скрученного массива: коэффициент, умноженный на степень пары
+				result.twisted[i + 1] = fqmul(poly.values[i + 1], table.twists[i / 2]);
+				// Переставленные коэффициенты пары
+				result.swapped[i] = odd;
+				result.swapped[i + 1] = even;
+			}
+		#endif
+	}
+	/**
+	 * @brief Метод умножения многочлена на подготовленный сомножитель с накоплением
+	 *
+	 * @param first  первый сомножитель с коэффициентами из [0, q)
+	 * @param second подготовленный второй сомножитель
+	 * @param result накопитель произведений
+	 *
+	 * @note Слагаемое накопителя ниже 2·q² < 2^25, а слагаемых у скалярного произведения
+	 *       не больше четырёх (размерность модуля): накопитель остаётся ниже q·2^15,
+	 *       в границах редукции Монтгомери
+	 */
+	static void multiply(const poly_t & first, const twisted_t & second, wide_t & result) noexcept {
+		/**
+		 * Векторный путь: восемь коэффициентов за шаг, суммы произведений соседних мест командой pmaddwd
+		 */
+		#if defined(__ANTS_MLKEM_SSE2__)
+			/**
+			 * Выполняем перебор восьмёрок коэффициентов
+			 */
+			for(size_t i = 0; i < N; i += 8){
+				// Коэффициенты первого сомножителя
+				const __m128i a = _mm_loadu_si128(reinterpret_cast <const __m128i *> (first.values + i));
+				// Скрученные и переставленные коэффициенты второго
+				const __m128i twisted = _mm_loadu_si128(reinterpret_cast <const __m128i *> (second.twisted + i));
+				const __m128i swapped = _mm_loadu_si128(reinterpret_cast <const __m128i *> (second.swapped + i));
+				// Накопители чётных и нечётных коэффициентов восьмёрки
+				__m128i * even = reinterpret_cast <__m128i *> (result.values + i);
+				__m128i * odd = reinterpret_cast <__m128i *> (result.values + i + 4);
+				// Складываем суммы произведений соседних мест с накопителями
+				_mm_storeu_si128(even, _mm_add_epi32(_mm_loadu_si128(even), _mm_madd_epi16(a, twisted)));
+				_mm_storeu_si128(odd, _mm_add_epi32(_mm_loadu_si128(odd), _mm_madd_epi16(a, swapped)));
+			}
+		/**
+		 * Переносимый путь
+		 */
+		#else
+			/**
+			 * Выполняем перебор пар коэффициентов
+			 */
+			for(size_t i = 0; i < N; i += 2){
+				// Коэффициенты первого сомножителя
+				const int32_t a0 = first.values[i], a1 = first.values[i + 1];
+				// Чётный коэффициент произведения: a0·b0 + a1·b1·γ
+				result.values[i] += ((a0 * second.twisted[i]) + (a1 * second.twisted[i + 1]));
+				// Нечётный коэффициент произведения: a0·b1 + a1·b0
+				result.values[i + 1] += ((a0 * second.swapped[i]) + (a1 * second.swapped[i + 1]));
+			}
+		#endif
+	}
+	/**
+	 * @brief Метод приведения накопителя произведений к многочлену
+	 *
+	 * @param wide   накопитель произведений
+	 * @param result место, в которое помещается многочлен с коэффициентами из [0, q)
+	 *
+	 */
+	static void settle(const wide_t & wide, poly_t & result) noexcept {
+		/**
+		 * Векторный путь: редукция Монтгомери четырёх 32-разрядных значений за шаг
+		 */
+		#if defined(__ANTS_MLKEM_SSE2__)
+			// Множитель q^(-1) mod 2^16 = -3327 в младших половинах 32-разрядных мест, старшие половины нули
+			const __m128i factor = _mm_set1_epi32(0x0000F301);
+			// Модуль в младших половинах мест
+			const __m128i modulus = _mm_set1_epi32(Q);
+			/**
+			 * @brief Редукция Монтгомери четырёх значений с приведением к [0, q)
+			 *
+			 * @param value четыре 32-разрядных значения
+			 *
+			 * @return      четыре значения из [0, q) в 32-разрядных местах
+			 *
+			 */
+			auto reduce = [&factor, &modulus](const __m128i value) noexcept -> __m128i {
+				// Младшие 16 разрядов значения на множитель: старшие половины мест обнуляются нулём множителя
+				const __m128i low = _mm_mullo_epi16(value, factor);
+				// Разность значения и произведения множителя на модуль, делённая на 2^16
+				__m128i reduced = _mm_srai_epi32(_mm_sub_epi32(value, _mm_madd_epi16(low, modulus)), 16);
+				// Прибавляем модуль под маской знака
+				reduced = _mm_add_epi32(reduced, _mm_and_si128(_mm_srai_epi32(reduced, 31), modulus));
+				// Выводим приведённые значения
+				return reduced;
+			};
+			/**
+			 * Выполняем перебор восьмёрок коэффициентов
+			 */
+			for(size_t i = 0; i < N; i += 8){
+				// Приведённые чётные и нечётные коэффициенты восьмёрки
+				const __m128i even = reduce(_mm_loadu_si128(reinterpret_cast <const __m128i *> (wide.values + i)));
+				const __m128i odd = reduce(_mm_loadu_si128(reinterpret_cast <const __m128i *> (wide.values + i + 4)));
+				// Переплетаем чётные и нечётные в 16-разрядные места: старшие половины чётных пусты
+				_mm_storeu_si128(reinterpret_cast <__m128i *> (result.values + i), _mm_or_si128(even, _mm_slli_epi32(odd, 16)));
+			}
+		/**
+		 * Переносимый путь
+		 */
+		#else
+			/**
+			 * Выполняем перебор коэффициентов
+			 */
+			for(size_t i = 0; i < N; i++)
+				// Приводим накопленное значение редукцией Монтгомери и знаком
+				result.values[i] = canonical(montgomery(wide.values[i]));
+		#endif
 	}
 	/**
 	 * @brief Метод записи многочлена по двенадцать разрядов на коэффициент
@@ -533,8 +759,14 @@ namespace {
 	 *
 	 */
 	static inline uint32_t compress(const int32_t value, const size_t bits) noexcept {
-		// Округлённое частное (value · 2^bits + q/2) / q: деление на константу собиратель заменяет умножением
-		return ((((static_cast <uint32_t> (value) << bits) + (static_cast <uint32_t> (Q) / 2)) / static_cast <uint32_t> (Q)) & ((1u << bits) - 1));
+		// Числитель округлённого частного value·2^bits + q/2: ниже 2^23 при bits ≤ 11
+		const uint32_t numerator = ((static_cast <uint32_t> (value) << bits) + (static_cast <uint32_t> (Q) / 2));
+		/**
+		 * Частное умножением на обратное: 2^36/q, округлённое вверх, есть 20642679, его избыток над
+		 * 2^36/q равен 1655/2^36, и частное точно при числителе ниже 2^36/1655 (щуп packprobe круга 36
+		 * сличил с делением все value < q при bits от 1 до 11); деление на q у lcc остаётся делением
+		 */
+		return (static_cast <uint32_t> ((static_cast <uint64_t> (numerator) * 20642679ULL) >> 36) & ((1u << bits) - 1));
 	}
 	/**
 	 * @brief Метод расширения сжатого значения до коэффициента
@@ -556,32 +788,115 @@ namespace {
 	 * @param bits   разрядность сжатия
 	 * @param result место, в которое помещаются 32·bits байтов записи
 	 *
+	 * @note Разрядности наборов FIPS 203 - 10 и 11 у вектора u, 4 и 5 у многочлена v - пишутся
+	 *       жёсткими узорами байтов: четыре коэффициента в пять байтов, восемь в одиннадцать,
+	 *       два в один, восемь в пять. Побитовый накопитель оставлен для прочих разрядностей:
+	 *       он стоил на многочлене 155 нс на M4 против 13 у узора (щуп packprobe круга 36)
 	 */
 	static void pack(const poly_t & poly, const size_t bits, uint8_t * result) noexcept {
-		// Накопитель разрядов
-		uint32_t buffer = 0;
-		// Число разрядов в накопителе
-		size_t count = 0;
-		// Место записи
-		size_t offset = 0;
+		// Сжатые коэффициенты
+		uint16_t values[N];
 		/**
-		 * Выполняем перебор коэффициентов
+		 * Выполняем сжатие коэффициентов
 		 */
-		for(size_t i = 0; i < N; i++){
-			// Складываем сжатый коэффициент в накопитель
-			buffer |= (compress(poly.values[i], bits) << count);
-			// Увеличиваем число разрядов
-			count += bits;
-			/**
-			 * Выдаём полные байты накопителя
-			 */
-			while(count >= 8){
-				// Записываем младший байт накопителя
-				result[offset++] = static_cast <uint8_t> (buffer);
-				// Сдвигаем накопитель
-				buffer >>= 8;
-				// Уменьшаем число разрядов
-				count -= 8;
+		for(size_t i = 0; i < N; i++)
+			// Сжимаем коэффициент
+			values[i] = static_cast <uint16_t> (compress(poly.values[i], bits));
+		/**
+		 * Определяем разрядность сжатия
+		 */
+		switch(bits){
+			// Четыре разряда: два коэффициента в байт
+			case 4: {
+				/**
+				 * Выполняем перебор пар коэффициентов
+				 */
+				for(size_t i = 0; i < N; i += 2)
+					// Записываем байт
+					result[i / 2] = static_cast <uint8_t> (values[i] | (values[i + 1] << 4));
+			} break;
+			// Пять разрядов: восемь коэффициентов в пять байтов
+			case 5: {
+				/**
+				 * Выполняем перебор восьмёрок коэффициентов
+				 */
+				for(size_t i = 0; i < N; i += 8, result += 5){
+					// Коэффициенты восьмёрки
+					const uint16_t * v = (values + i);
+					// Записываем байты узора
+					result[0] = static_cast <uint8_t> (v[0] | (v[1] << 5));
+					result[1] = static_cast <uint8_t> ((v[1] >> 3) | (v[2] << 2) | (v[3] << 7));
+					result[2] = static_cast <uint8_t> ((v[3] >> 1) | (v[4] << 4));
+					result[3] = static_cast <uint8_t> ((v[4] >> 4) | (v[5] << 1) | (v[6] << 6));
+					result[4] = static_cast <uint8_t> ((v[6] >> 2) | (v[7] << 3));
+				}
+			} break;
+			// Десять разрядов: четыре коэффициента в пять байтов
+			case 10: {
+				/**
+				 * Выполняем перебор четвёрок коэффициентов
+				 */
+				for(size_t i = 0; i < N; i += 4, result += 5){
+					// Коэффициенты четвёрки
+					const uint16_t * v = (values + i);
+					// Записываем байты узора
+					result[0] = static_cast <uint8_t> (v[0]);
+					result[1] = static_cast <uint8_t> ((v[0] >> 8) | (v[1] << 2));
+					result[2] = static_cast <uint8_t> ((v[1] >> 6) | (v[2] << 4));
+					result[3] = static_cast <uint8_t> ((v[2] >> 4) | (v[3] << 6));
+					result[4] = static_cast <uint8_t> (v[3] >> 2);
+				}
+			} break;
+			// Одиннадцать разрядов: восемь коэффициентов в одиннадцать байтов
+			case 11: {
+				/**
+				 * Выполняем перебор восьмёрок коэффициентов
+				 */
+				for(size_t i = 0; i < N; i += 8, result += 11){
+					// Коэффициенты восьмёрки
+					const uint16_t * v = (values + i);
+					// Записываем байты узора
+					result[0] = static_cast <uint8_t> (v[0]);
+					result[1] = static_cast <uint8_t> ((v[0] >> 8) | (v[1] << 3));
+					result[2] = static_cast <uint8_t> ((v[1] >> 5) | (v[2] << 6));
+					result[3] = static_cast <uint8_t> (v[2] >> 2);
+					result[4] = static_cast <uint8_t> ((v[2] >> 10) | (v[3] << 1));
+					result[5] = static_cast <uint8_t> ((v[3] >> 7) | (v[4] << 4));
+					result[6] = static_cast <uint8_t> ((v[4] >> 4) | (v[5] << 7));
+					result[7] = static_cast <uint8_t> (v[5] >> 1);
+					result[8] = static_cast <uint8_t> ((v[5] >> 9) | (v[6] << 2));
+					result[9] = static_cast <uint8_t> ((v[6] >> 6) | (v[7] << 5));
+					result[10] = static_cast <uint8_t> (v[7] >> 3);
+				}
+			} break;
+			// Прочие разрядности: побитовый накопитель
+			default: {
+				// Накопитель разрядов
+				uint32_t buffer = 0;
+				// Число разрядов в накопителе
+				size_t count = 0;
+				// Место записи
+				size_t offset = 0;
+				/**
+				 * Выполняем перебор коэффициентов
+				 */
+				for(size_t i = 0; i < N; i++){
+					// Складываем сжатый коэффициент в накопитель
+					buffer |= (static_cast <uint32_t> (values[i]) << count);
+					// Увеличиваем число разрядов
+					count += bits;
+					/**
+					 * Выдаём полные байты накопителя
+					 */
+					while(count >= 8){
+						// Записываем младший байт накопителя
+						result[offset++] = static_cast <uint8_t> (buffer);
+						// Сдвигаем накопитель
+						buffer >>= 8;
+						// Уменьшаем число разрядов
+						count -= 8;
+					}
+				}
 			}
 		}
 	}
@@ -592,34 +907,115 @@ namespace {
 	 * @param bits разрядность сжатия
 	 * @param poly место, в которое помещается многочлен
 	 *
+	 * @note Узоры байтов зеркальны узорам записи; побитовый накопитель - для прочих разрядностей
 	 */
 	static void unpack(const uint8_t * data, const size_t bits, poly_t & poly) noexcept {
-		// Накопитель разрядов
-		uint32_t buffer = 0;
-		// Число разрядов в накопителе
-		size_t count = 0;
-		// Место чтения
-		size_t offset = 0;
+		// Сжатые коэффициенты
+		uint16_t values[N];
 		/**
-		 * Выполняем перебор коэффициентов
+		 * Определяем разрядность сжатия
 		 */
-		for(size_t i = 0; i < N; i++){
-			/**
-			 * Добираем байты в накопитель
-			 */
-			while(count < bits){
-				// Складываем очередной байт в накопитель
-				buffer |= (static_cast <uint32_t> (data[offset++]) << count);
-				// Увеличиваем число разрядов
-				count += 8;
+		switch(bits){
+			// Четыре разряда: байт на два коэффициента
+			case 4: {
+				/**
+				 * Выполняем перебор пар коэффициентов
+				 */
+				for(size_t i = 0; i < N; i += 2){
+					// Читаем коэффициенты байта
+					values[i] = static_cast <uint16_t> (data[i / 2] & 0x0F);
+					values[i + 1] = static_cast <uint16_t> (data[i / 2] >> 4);
+				}
+			} break;
+			// Пять разрядов: пять байтов на восемь коэффициентов
+			case 5: {
+				/**
+				 * Выполняем перебор восьмёрок коэффициентов
+				 */
+				for(size_t i = 0; i < N; i += 8, data += 5){
+					// Коэффициенты восьмёрки
+					uint16_t * v = (values + i);
+					// Читаем коэффициенты узора
+					v[0] = static_cast <uint16_t> (data[0] & 0x1F);
+					v[1] = static_cast <uint16_t> (((data[0] >> 5) | (data[1] << 3)) & 0x1F);
+					v[2] = static_cast <uint16_t> ((data[1] >> 2) & 0x1F);
+					v[3] = static_cast <uint16_t> (((data[1] >> 7) | (data[2] << 1)) & 0x1F);
+					v[4] = static_cast <uint16_t> (((data[2] >> 4) | (data[3] << 4)) & 0x1F);
+					v[5] = static_cast <uint16_t> ((data[3] >> 1) & 0x1F);
+					v[6] = static_cast <uint16_t> (((data[3] >> 6) | (data[4] << 2)) & 0x1F);
+					v[7] = static_cast <uint16_t> (data[4] >> 3);
+				}
+			} break;
+			// Десять разрядов: пять байтов на четыре коэффициента
+			case 10: {
+				/**
+				 * Выполняем перебор четвёрок коэффициентов
+				 */
+				for(size_t i = 0; i < N; i += 4, data += 5){
+					// Коэффициенты четвёрки
+					uint16_t * v = (values + i);
+					// Читаем коэффициенты узора
+					v[0] = static_cast <uint16_t> ((data[0] | (data[1] << 8)) & 0x3FF);
+					v[1] = static_cast <uint16_t> (((data[1] >> 2) | (data[2] << 6)) & 0x3FF);
+					v[2] = static_cast <uint16_t> (((data[2] >> 4) | (data[3] << 4)) & 0x3FF);
+					v[3] = static_cast <uint16_t> (((data[3] >> 6) | (data[4] << 2)) & 0x3FF);
+				}
+			} break;
+			// Одиннадцать разрядов: одиннадцать байтов на восемь коэффициентов
+			case 11: {
+				/**
+				 * Выполняем перебор восьмёрок коэффициентов
+				 */
+				for(size_t i = 0; i < N; i += 8, data += 11){
+					// Коэффициенты восьмёрки
+					uint16_t * v = (values + i);
+					// Читаем коэффициенты узора
+					v[0] = static_cast <uint16_t> ((data[0] | (data[1] << 8)) & 0x7FF);
+					v[1] = static_cast <uint16_t> (((data[1] >> 3) | (data[2] << 5)) & 0x7FF);
+					v[2] = static_cast <uint16_t> (((data[2] >> 6) | (data[3] << 2) | (data[4] << 10)) & 0x7FF);
+					v[3] = static_cast <uint16_t> (((data[4] >> 1) | (data[5] << 7)) & 0x7FF);
+					v[4] = static_cast <uint16_t> (((data[5] >> 4) | (data[6] << 4)) & 0x7FF);
+					v[5] = static_cast <uint16_t> (((data[6] >> 7) | (data[7] << 1) | (data[8] << 9)) & 0x7FF);
+					v[6] = static_cast <uint16_t> (((data[8] >> 2) | (data[9] << 6)) & 0x7FF);
+					v[7] = static_cast <uint16_t> (((data[9] >> 5) | (data[10] << 3)) & 0x7FF);
+				}
+			} break;
+			// Прочие разрядности: побитовый накопитель
+			default: {
+				// Накопитель разрядов
+				uint32_t buffer = 0;
+				// Число разрядов в накопителе
+				size_t count = 0;
+				// Место чтения
+				size_t offset = 0;
+				/**
+				 * Выполняем перебор коэффициентов
+				 */
+				for(size_t i = 0; i < N; i++){
+					/**
+					 * Добираем байты в накопитель
+					 */
+					while(count < bits){
+						// Складываем очередной байт в накопитель
+						buffer |= (static_cast <uint32_t> (data[offset++]) << count);
+						// Увеличиваем число разрядов
+						count += 8;
+					}
+					// Читаем сжатое значение
+					values[i] = static_cast <uint16_t> (buffer & ((1u << bits) - 1));
+					// Сдвигаем накопитель
+					buffer >>= bits;
+					// Уменьшаем число разрядов
+					count -= bits;
+				}
 			}
-			// Расширяем сжатое значение до коэффициента
-			poly.values[i] = decompress(buffer & ((1u << bits) - 1), bits);
-			// Сдвигаем накопитель
-			buffer >>= bits;
-			// Уменьшаем число разрядов
-			count -= bits;
 		}
+		/**
+		 * Выполняем расширение коэффициентов
+		 */
+		for(size_t i = 0; i < N; i++)
+			// Расширяем сжатое значение до коэффициента
+			poly.values[i] = decompress(values[i], bits);
 	}
 	/**
 	 * @brief Метод выборки многочлена в области NTT из потока XOF
@@ -774,16 +1170,22 @@ namespace {
 			decode(key + (i * POLY), t[i]);
 		// Зерно матрицы
 		const uint8_t * rho = (key + (sample.k * POLY));
-		// Вектор r в области NTT
-		poly_t r[K];
+		// Вектор r в области NTT, подготовленный к умножению
+		twisted_t r[K];
 		/**
 		 * Выполняем выборку вектора r
 		 */
 		for(size_t i = 0; i < sample.k; i++){
+			// Многочлен r_i
+			poly_t poly;
 			// Выбираем многочлен
-			binomial(seed, static_cast <uint8_t> (i), sample.eta1, r[i]);
+			binomial(seed, static_cast <uint8_t> (i), sample.eta1, poly);
 			// Переводим в область NTT
-			forward(r[i]);
+			forward(poly);
+			// Готовим к умножению
+			prepare(poly, r[i]);
+			// Выполняем затирание многочлена
+			wipe(poly.values, sizeof(poly.values));
 		}
 		// Вектор u
 		poly_t u[K];
@@ -791,8 +1193,10 @@ namespace {
 		 * Выполняем вычисление u = A^T r + e1
 		 */
 		for(size_t i = 0; i < sample.k; i++){
+			// Накопитель произведений
+			wide_t wide;
 			// Обнуляем накопитель
-			::memset(u[i].values, 0, sizeof(u[i].values));
+			::memset(wide.values, 0, sizeof(wide.values));
 			/**
 			 * Выполняем перебор столбцов
 			 */
@@ -802,8 +1206,10 @@ namespace {
 				// Выбираем элемент
 				sampling(rho, static_cast <uint8_t> (j), static_cast <uint8_t> (i), a);
 				// Накапливаем произведение
-				accumulate(a, r[j], u[i]);
+				multiply(a, r[j], wide);
 			}
+			// Приводим накопитель
+			settle(wide, u[i]);
 			// Переводим из области NTT
 			inverse(u[i]);
 			// Шум e1
@@ -815,20 +1221,24 @@ namespace {
 			 */
 			for(size_t c = 0; c < N; c++)
 				// Складываем коэффициенты
-				u[i].values[c] = reduce(u[i].values[c] + e.values[c]);
+				u[i].values[c] = once(u[i].values[c] + e.values[c]);
 			// Выполняем затирание шума: вместе с u и матрицей он раскрывает r
 			wipe(e.values, sizeof(e.values));
 		}
-		// Многочлен v
-		poly_t v;
+		// Накопитель произведений t^T r
+		wide_t wide;
 		// Обнуляем накопитель
-		::memset(v.values, 0, sizeof(v.values));
+		::memset(wide.values, 0, sizeof(wide.values));
 		/**
 		 * Выполняем вычисление t^T r
 		 */
 		for(size_t i = 0; i < sample.k; i++)
 			// Накапливаем произведение
-			accumulate(t[i], r[i], v);
+			multiply(t[i], r[i], wide);
+		// Многочлен v
+		poly_t v;
+		// Приводим накопитель
+		settle(wide, v);
 		// Переводим из области NTT
 		inverse(v);
 		// Шум e2
@@ -871,10 +1281,10 @@ namespace {
 	 *
 	 */
 	static void decrypt(const sample_t & sample, const uint8_t * secret, const uint8_t * cipher, uint8_t * message) noexcept {
-		// Многочлен w = v - s^T u
-		poly_t w;
+		// Накопитель произведений s^T NTT(u)
+		wide_t wide;
 		// Обнуляем накопитель
-		::memset(w.values, 0, sizeof(w.values));
+		::memset(wide.values, 0, sizeof(wide.values));
 		/**
 		 * Выполняем вычисление s^T NTT(u)
 		 */
@@ -885,17 +1295,27 @@ namespace {
 			unpack(cipher + (i * 32 * sample.du), sample.du, u);
 			// Переводим в область NTT
 			forward(u);
+			// Многочлен u_i, подготовленный к умножению: готовится он, открытый, а не секрет
+			twisted_t prepared;
+			// Готовим к умножению
+			prepare(u, prepared);
 			// Многочлен s_i
 			poly_t s;
 			// Разбираем многочлен
 			decode(secret + (i * POLY), s);
 			// Накапливаем произведение
-			accumulate(s, u, w);
+			multiply(s, prepared, wide);
 			// Выполняем затирание секретного многочлена
 			wipe(s.values, sizeof(s.values));
 		}
+		// Многочлен w = v - s^T u
+		poly_t w;
+		// Приводим накопитель
+		settle(wide, w);
 		// Переводим из области NTT
 		inverse(w);
+		// Выполняем затирание накопителя: он раскрывает секрет
+		wipe(wide.values, sizeof(wide.values));
 		// Многочлен v
 		poly_t v;
 		// Разбираем многочлен с расширением
@@ -1067,6 +1487,8 @@ bool nts::agreement::generate(const kem_t kem, const view_t & seed, uint8_t * ke
 	const uint8_t * sigma = (seeds + SEED);
 	// Вектор секрета s в области NTT
 	poly_t s[K];
+	// Секрет, подготовленный к умножению
+	twisted_t prepared[K];
 	/**
 	 * Выполняем выборку секрета
 	 */
@@ -1075,6 +1497,8 @@ bool nts::agreement::generate(const kem_t kem, const view_t & seed, uint8_t * ke
 		binomial(sigma, static_cast <uint8_t> (i), sample.eta1, s[i]);
 		// Переводим в область NTT
 		forward(s[i]);
+		// Готовим к умножению
+		prepare(s[i], prepared[i]);
 	}
 	// Длина ключа инкапсуляции
 	const size_t length = encapsulation(kem);
@@ -1088,6 +1512,10 @@ bool nts::agreement::generate(const kem_t kem, const view_t & seed, uint8_t * ke
 		binomial(sigma, static_cast <uint8_t> (sample.k + i), sample.eta1, t);
 		// Переводим шум в область NTT
 		forward(t);
+		// Накопитель произведений строки
+		wide_t wide;
+		// Обнуляем накопитель
+		::memset(wide.values, 0, sizeof(wide.values));
 		/**
 		 * Выполняем перебор столбцов
 		 */
@@ -1097,8 +1525,18 @@ bool nts::agreement::generate(const kem_t kem, const view_t & seed, uint8_t * ke
 			// Выбираем элемент
 			sampling(rho, static_cast <uint8_t> (i), static_cast <uint8_t> (j), a);
 			// Накапливаем произведение
-			accumulate(a, s[j], t);
+			multiply(a, prepared[j], wide);
 		}
+		// Произведение строки на секрет
+		poly_t product;
+		// Приводим накопитель
+		settle(wide, product);
+		/**
+		 * Выполняем сложение произведения с шумом
+		 */
+		for(size_t c = 0; c < N; c++)
+			// Складываем коэффициенты
+			t.values[c] = once(t.values[c] + product.values[c]);
 		// Записываем многочлен t_i в ключ инкапсуляции
 		encode(t, key + (i * POLY));
 		// Записываем многочлен s_i в ключ декапсуляции
@@ -1114,6 +1552,8 @@ bool nts::agreement::generate(const kem_t kem, const view_t & seed, uint8_t * ke
 	::memcpy(secret + (sample.k * POLY) + length + SEED, seed.data + SEED, SEED);
 	// Выполняем затирание секрета
 	wipe(s, sizeof(s));
+	// Выполняем затирание подготовленного секрета
+	wipe(prepared, sizeof(prepared));
 	// Выполняем затирание зёрен
 	wipe(seeds, sizeof(seeds));
 	// Выводим успешность выработки
