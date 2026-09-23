@@ -340,6 +340,10 @@ namespace nts {
 		 * @note Состояние гаммы переносится между вызовами, оттого сообщение вправе
 		 *       подаваться кусками произвольного размера
 		 *
+		 * @note У шифров, вырабатывающих гамму по многу блоков разом (AES), целые блоки
+		 *       идут ядром шифра по сто двадцать восемь блоков, а хвост короче блока -
+		 *       поблочно; итог от пути не зависит
+		 *
 		 * \~english
 		 * @brief Counter mode (CTR)
 		 * @details Section 5.2 of GOST R 34.13-2015. The initialization vector occupies a
@@ -350,6 +354,9 @@ namespace nts {
 		 *       pairwise different: a repetition reveals the sum of the plain texts
 		 * @note The state of the gamma is carried between the calls, therefore the message
 		 *       may be fed by the pieces of an arbitrary size
+		 * @note With the ciphers producing the gamma by many blocks at once (AES), the whole
+		 *       blocks go by the kernel of the cipher by one hundred twenty eight blocks, and the
+		 *       tail shorter than a block - block by block; the result does not depend on the path
 		 *
 		 * \~
 		 */

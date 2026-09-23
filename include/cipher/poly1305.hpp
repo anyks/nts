@@ -101,15 +101,18 @@ namespace nts {
 		 * @note Ключ одноразовый: две метки на одном ключе раскрывают r, а с ним и
 		 *       возможность подделки. У AEAD ключ вырабатывается на каждое сообщение
 		 *
-		 * @note Намеренные решения: арифметика на пяти конечностях по 26 разрядов с
-		 *       произведениями в 64 разряда; ни деления, ни ветвления по данным -
-		 *       окончательное приведение выбирает между накопителем и накопителем
-		 *       минус модуль маской. Целые блоки складываются парами по разделу
-		 *       2.5.1 RFC 8439: (h + m0) * r^2 + m1 * r, где оба произведения
-		 *       независимы, а переносы проводятся один раз на пару; квадрат r
-		 *       считается при запуске, итог тот же, что и поблочно. Памяти не
-		 *       выделяется, исключений нет. Снятие метки finish завершает объект:
-		 *       повтор требует нового start
+		 * @note Намеренные решения: ни деления, ни ветвления по данным - окончательное
+		 *       приведение выбирает между накопителем и накопителем минус модуль маской.
+		 *       Переносимый путь - пять конечностей по 26 разрядов с произведениями в 64
+		 *       разряда, целые блоки парами по разделу 2.5.1 RFC 8439: (h + m0) * r^2 +
+		 *       m1 * r, где оба произведения независимы, а переносы проводятся один раз
+		 *       на пару. У собирателей с числом в 128 разрядов - три конечности по 64
+		 *       разряда и пять произведений на блок; машины с NEON либо AVX2 ведут
+		 *       восемь блоков разом на восьми дорожках по 26 разрядов (дорожка умножается
+		 *       на r^8, последняя восьмёрка - на r^8…r), степени r считаются при первом
+		 *       входе в ветвь. Итог всех путей один и тот же, что и поблочно.
+		 *       Памяти не выделяется, исключений нет. Снятие метки finish завершает
+		 *       объект: повтор требует нового start
 		 *
 		 * \~english
 		 * @brief The Poly1305 one-time authenticator
@@ -119,14 +122,17 @@ namespace nts {
 		 *          the accumulator added to s modulo 2^128
 		 * @note The key is one-time: two tags under a single key reveal r and with it the ability
 		 *       of a forgery. At AEAD the key is produced for every message
-		 * @note Deliberate decisions: the arithmetic on five 26-bit limbs with 64-bit products;
-		 *       neither division nor data-dependent branching - the final reduction chooses between
-		 *       the accumulator and the accumulator minus the modulus by a mask. The whole blocks
-		 *       are absorbed by pairs according to section 2.5.1 of RFC 8439: (h + m0) * r^2 + m1 * r,
-		 *       where both products are independent and the carries are propagated once per pair;
-		 *       the square of r is computed at the start, the result is the same as block by block.
-		 *       No memory is allocated, there are no exceptions. The taking of the tag by finish
-		 *       finishes the object: a repetition requires a new start
+		 * @note Deliberate decisions: neither division nor data-dependent branching - the final
+		 *       reduction chooses between the accumulator and the accumulator minus the modulus by
+		 *       a mask. The portable path is five 26-bit limbs with 64-bit products, the whole blocks
+		 *       by pairs according to section 2.5.1 of RFC 8439: (h + m0) * r^2 + m1 * r, where both
+		 *       products are independent and the carries are propagated once per pair. With the
+		 *       compilers having a 128-bit number - three 64-bit limbs and five products per block;
+		 *       the machines with NEON or AVX2 lead eight blocks at once on eight 26-bit lanes (a lane
+		 *       is multiplied by r^8, the last octet - by r^8…r), the powers of r are computed at
+		 *       the first entry into the branch. The result of every path is the same
+		 *       as block by block. No memory is allocated, there are no exceptions. The taking of the
+		 *       tag by finish finishes the object: a repetition requires a new start
 		 *
 		 * \~
 		 */
@@ -134,16 +140,18 @@ namespace nts {
 			private:
 				// Признак того, что имитовставка готова к работе
 				bool _ready;
+				// Признак того, что степени множителя под векторные ветви посчитаны
+				bool _prepared;
 			private:
 				// Число накопленных байтов неполного блока
 				size_t _filled;
 			private:
-				// Обрезанный множитель r по 26 разрядов
-				uint32_t _r[5];
-				// Квадрат множителя r по 26 разрядов: под сложение блоков парами
-				uint32_t _r2[5];
-				// Накопитель по 26 разрядов
+				// Степени множителя r^1…r^8 по пять конечностей в 26 разрядов: переносимый путь берёт r и r^2 под сложение блоков парами, векторные ветви - все восемь
+				uint32_t _powers[8][5];
+				// Накопитель переносимого пути по 26 разрядов
 				uint32_t _h[5];
+				// Накопитель и множитель 64-разрядного пути: h0, h1, h2, r0, r1 и r1 + r1 / 4
+				uint64_t _wide[6];
 				// Слагаемое s по 32 разряда
 				uint32_t _s[4];
 			private:

@@ -29,6 +29,10 @@
 #include <cstring>
 #include <main.hpp>
 #include <cipher/mode.hpp>
+#include <cipher/aes.hpp>
+#include <sys/machine.hpp>
+#include <random>
+#include <vector>
 
 /**
  * Используем пространство имён проекта
@@ -1158,4 +1162,97 @@ TEST(ModeTest, AesChaining) {
 		// Третий и четвёртый блоки целы
 		ASSERT_EQ(::memcmp(back + 32, plain + 32, 32), 0);
 	}
+}
+/**
+ * @brief Проверка гаммы AES ядром шифра по многу блоков: итог тот же, что поблочно, при любой нарезке
+ *
+ */
+TEST(ModeTest, AesCounterStream) {
+	// Ключ шифрования
+	uint8_t secret[32];
+	// Синхропосылка
+	uint8_t iv[8];
+	/**
+	 * Выполняем заполнение ключа
+	 */
+	for(size_t i = 0; i < sizeof(secret); i++)
+		// Записываем очередной байт ключа
+		secret[i] = static_cast <uint8_t> ((i * 7) + 3);
+	/**
+	 * Выполняем заполнение синхропосылки
+	 */
+	for(size_t i = 0; i < sizeof(iv); i++)
+		// Записываем очередной байт синхропосылки
+		iv[i] = static_cast <uint8_t> (0xF0 + i);
+	// Объект блочного шифра
+	cipher::aes_t base;
+	// Выполняем установку ключа шифрования
+	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
+	// Описание шифра с ядром гаммы
+	const cipher::block_t kernel(base);
+	// Описание того же шифра без ядра гаммы и без пачек: гамма поблочно
+	cipher::block_t blockwise(base);
+	// Снимаем ядро гаммы
+	blockwise.stream = nullptr;
+	// Снимаем пачки
+	blockwise.batch = nullptr;
+	// Генератор данных и длин кусков с закреплённым зерном
+	std::mt19937 generator(20260923);
+	// Длины сообщений: границы блока, пачек в тридцать два и сто двадцать восемь блоков и запись
+	const size_t lengths[] = {0, 1, 15, 16, 17, 63, 64, 65, 511, 512, 513, 1023, 1024, 1025, 1200, 1201, 2047, 2048, 4103};
+	/**
+	 * Выполняем перебор путей шифра: команды машины и таблицы
+	 */
+	for(size_t pass = 0; pass < 2; pass++){
+		// Разрешаем либо запрещаем машинные команды
+		machine::allow(pass == 0);
+		/**
+		 * Выполняем перебор длин
+		 */
+		for(const size_t length : lengths){
+			// Открытый текст, шифртексты обоих путей и раскрытый текст
+			std::vector <uint8_t> plain(length), first(length), second(length), opened(length);
+			/**
+			 * Выполняем заполнение открытого текста
+			 */
+			for(size_t i = 0; i < length; i++)
+				// Записываем очередной байт
+				plain[i] = static_cast <uint8_t> (generator());
+			// Объект режима гаммирования
+			cipher::counter_t mode;
+			// Проверяем запуск режима с ядром гаммы
+			ASSERT_TRUE(mode.start(kernel, view_t(iv, sizeof(iv))));
+			// Проверяем зашифрование целиком ядром гаммы
+			ASSERT_TRUE(mode.encrypt(view_t(plain.data(), length), first.data()));
+			// Проверяем запуск режима поблочно
+			ASSERT_TRUE(mode.start(blockwise, view_t(iv, sizeof(iv))));
+			// Проверяем зашифрование целиком поблочно
+			ASSERT_TRUE(mode.encrypt(view_t(plain.data(), length), second.data()));
+			// Проверяем схождение шифртекстов обоих путей
+			ASSERT_EQ(::memcmp(first.data(), second.data(), length), 0) << "pass " << pass << " length " << length;
+			// Проверяем перезапуск режима с ядром гаммы
+			ASSERT_TRUE(mode.start(kernel, view_t(iv, sizeof(iv))));
+			// Позиция внутри данных
+			size_t position = 0;
+			/**
+			 * Выполняем расшифрование кусками случайной длины через границы пачек
+			 */
+			while(position < length){
+				// Длина очередного куска
+				size_t chunk = (1 + (generator() % 700));
+				// Если кусок длиннее остатка
+				if(chunk > (length - position))
+					// Ограничиваем кусок остатком
+					chunk = (length - position);
+				// Проверяем расшифрование куска
+				ASSERT_TRUE(mode.decrypt(view_t(first.data() + position, chunk), opened.data() + position));
+				// Сдвигаем позицию
+				position += chunk;
+			}
+			// Проверяем возврат открытого текста кусками
+			ASSERT_EQ(::memcmp(opened.data(), plain.data(), length), 0) << "pass " << pass << " length " << length;
+		}
+	}
+	// Возвращаем машинные команды
+	machine::allow(true);
 }

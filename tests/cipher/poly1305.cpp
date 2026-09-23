@@ -279,6 +279,75 @@ TEST(Poly1305Test, Starved){
 }
 
 /**
+ * Проверка входа в векторную ветвь с ненулевым накопителем: сообщение кусками, среди
+ * которых длинные от 256 байтов, даёт ту же метку, что целиком - сложение восьмёрок
+ * блоков начинается с накопителем от прежних кусков, а не с нуля
+ */
+TEST(Poly1305Test, Resume){
+	// Генератор ключей, сообщений и нарезки с закреплённым зерном
+	std::mt19937 generator(20260923);
+	// Объект имитовставки
+	cipher::poly1305_t poly;
+	// Длины сообщений: от двух восьмёрок блоков до нескольких тысяч байтов
+	const size_t lengths[] = {256, 300, 512, 640, 777, 1024, 1200, 2048, 2303, 4096};
+	/**
+	 * Выполняем перебор длин
+	 */
+	for(const size_t length : lengths){
+		/**
+		 * Выполняем несколько нарезок на каждую длину
+		 */
+		for(size_t round = 0; round < 8; round++){
+			// Ключ и сообщение
+			std::vector <uint8_t> key(cipher::POLY1305_KEY), message(length);
+			/**
+			 * Выполняем заполнение ключа
+			 */
+			for(size_t i = 0; i < key.size(); i++)
+				// Записываем очередной байт
+				key[i] = static_cast <uint8_t> (generator());
+			/**
+			 * Выполняем заполнение сообщения
+			 */
+			for(size_t i = 0; i < message.size(); i++)
+				// Записываем очередной байт
+				message[i] = static_cast <uint8_t> (generator());
+			// Метки сообщения целиком и кусками
+			uint8_t whole[cipher::POLY1305_TAG], pieces[cipher::POLY1305_TAG];
+			// Проверяем запуск имитовставки
+			ASSERT_TRUE(poly.start(view_t(key.data(), key.size())));
+			// Проверяем подачу сообщения целиком
+			ASSERT_TRUE(poly.update(view_t(message.data(), message.size())));
+			// Проверяем снятие метки
+			ASSERT_TRUE(poly.finish(whole));
+			// Проверяем перезапуск имитовставки
+			ASSERT_TRUE(poly.start(view_t(key.data(), key.size())));
+			// Позиция внутри сообщения
+			size_t position = 0;
+			/**
+			 * Выполняем подачу кусками, среди которых длинные: путь машины входит в
+			 * сложение восьмёрок с ненулевым накопителем от прежних кусков
+			 */
+			while(position < length){
+				// Длина куска: каждый третий короткий, прочие от 256 до 767 байтов
+				size_t chunk = (((generator() % 3) == 0) ? (1 + (generator() % 40)) : (256 + (generator() % 512)));
+				// Если кусок длиннее остатка
+				if(chunk > (length - position))
+					// Ограничиваем кусок остатком
+					chunk = (length - position);
+				// Проверяем подачу очередного куска
+				ASSERT_TRUE(poly.update(view_t(message.data() + position, chunk)));
+				// Сдвигаем позицию
+				position += chunk;
+			}
+			// Проверяем снятие метки
+			ASSERT_TRUE(poly.finish(pieces));
+			// Проверяем схождение метки кусками с меткой целиком
+			ASSERT_EQ(text(whole, sizeof(whole)), text(pieces, sizeof(pieces))) << "length " << length << " round " << round;
+		}
+	}
+}
+/**
  * Проверка схождения сложения блоков парами со сложением поблочно: сообщение целиком
  * идёт парами (h + m0) * r^2 + m1 * r, кусками по 16 байтов - только одиночными
  * блоками, а по одному байту - через накопитель неполного блока; метки на длинах

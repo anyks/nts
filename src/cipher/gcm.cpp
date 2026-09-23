@@ -31,7 +31,16 @@
  *       расписанию ключа шифра - порознь CTR 13,7 ГБ/с и GHASH 10,5 давали вместе 6,5 на
  *       Apple M4, слитно 9,6 при 10,4 у OpenSSL; остаток короче восьми блоков идёт
  *       прежними путями. Смена заполнения restart оставляет таблицы от запуска: режим
- *       ведёт много сообщений одним ключом, не строя таблицу на каждое
+ *       ведёт много сообщений одним ключом, не строя таблицу на каждое.
+ *       GHASH на PCLMULQDQ (круг 37, 23.09.2026): у x86-64 нет команды отражения
+ *       разрядов, и отражение каждого блока двумя перестановками полубайтов стоило
+ *       дороже самого умножения - Xeon E5-2630 v4 давал 2,8 ГБ/с при 6,3 у OpenSSL.
+ *       Теперь блоки лишь переставляются байтами, а ключ и его степени хранятся
+ *       сдвинутыми на разряд влево с приведением: произведение переставленных
+ *       операндов есть переставленное произведение, сдвинутое на разряд вправо, и
+ *       сдвиг ключа возмещает это заранее (приём Гуэрона, как у OpenSSL и BoringSSL);
+ *       умножение Карацубы на трёх командах вместо четырёх, суммы младших, старших и
+ *       средних произведений копятся порознь на восемь блоков и приводятся один раз
  *
  * @copyright Copyright © 2026
  *
@@ -179,27 +188,22 @@ namespace {
  */
 #if defined(__ANTS_GHASH_X86__)
 	/**
-	 * @brief Метод отражения разрядов внутри каждого байта
+	 * @brief Метод перестановки байтов блока от старшего к младшему
 	 *
-	 * @details Команды отражения у x86-64 нет: полубайты отражаются двумя таблицами
-	 *          перестановки и меняются местами
+	 * @details Блок GCM читается от старшего байта, а команда умножения без переносов
+	 *          считает слова от младшего: после перестановки разряды многочлена идут
+	 *          в обратном порядке, и произведение переставленных операндов равно
+	 *          переставленному произведению, сдвинутому на разряд вправо - сдвиг
+	 *          возмещается ключом, хранимым сдвинутым на разряд влево
 	 *
-	 * @param value отражаемые байты
+	 * @param value переставляемые байты
 	 *
-	 * @return      байты с отражёнными разрядами
+	 * @return      байты в обратном порядке
 	 *
 	 */
-	static __ANTS_GHASH_TARGET__ __ANTS_INLINE__ __m128i reflect(const __m128i value) noexcept {
-		// Таблица отражения полубайта
-		const __m128i table = _mm_setr_epi8(0x00, 0x08, 0x04, 0x0C, 0x02, 0x0A, 0x06, 0x0E, 0x01, 0x09, 0x05, 0x0D, 0x03, 0x0B, 0x07, 0x0F);
-		// Маска младшего полубайта
-		const __m128i mask = _mm_set1_epi8(0x0F);
-		// Отражённые младшие полубайты, идущие в старшие
-		const __m128i low = _mm_shuffle_epi8(table, _mm_and_si128(value, mask));
-		// Отражённые старшие полубайты, идущие в младшие
-		const __m128i high = _mm_shuffle_epi8(table, _mm_and_si128(_mm_srli_epi16(value, 4), mask));
-		// Выводим байты с отражёнными разрядами
-		return _mm_or_si128(_mm_slli_epi16(low, 4), high);
+	static __ANTS_GHASH_TARGET__ __ANTS_INLINE__ __m128i swap(const __m128i value) noexcept {
+		// Выводим байты в обратном порядке
+		return _mm_shuffle_epi8(value, _mm_setr_epi8(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0));
 	}
 #endif
 
@@ -356,7 +360,7 @@ namespace {
 	 * @param blocks      восемь блоков подряд
 	 *
 	 */
-	static __ANTS_GHASH_TARGET__ void aggregateArm(const uint64_t (* powers)[2], uint8_t * accumulator, const uint8_t * blocks) noexcept {
+	static __ANTS_GHASH_TARGET__ void aggregateArm(const uint64_t (* powers)[3], uint8_t * accumulator, const uint8_t * blocks) noexcept {
 		// Многочлен приведения x^7 + x^2 + x + 1
 		const poly64_t r = static_cast <poly64_t> (0x87ULL);
 		// Накопитель, сложенный с первым блоком, отражённый
@@ -402,7 +406,7 @@ namespace {
 	 * @param chunks      число восьмёрок блоков
 	 *
 	 */
-	static __ANTS_FUSED_TARGET__ void fusedArm(const uint8_t * keys, const size_t rounds, uint8_t * counter, const uint64_t (* powers)[2], uint8_t * accumulator, const bool sealing, const uint8_t * source, uint8_t * result, const size_t chunks) noexcept {
+	static __ANTS_FUSED_TARGET__ void fusedArm(const uint8_t * keys, const size_t rounds, uint8_t * counter, const uint64_t (* powers)[3], uint8_t * accumulator, const bool sealing, const uint8_t * source, uint8_t * result, const size_t chunks) noexcept {
 		// Ключ, складываемый после последнего круга
 		const uint8x16_t last = vld1q_u8(keys + (rounds * 16));
 		// Ключ последнего круга подстановки
@@ -413,12 +417,17 @@ namespace {
 		uint32_t tail = ((static_cast <uint32_t> (counter[12]) << 24) | (static_cast <uint32_t> (counter[13]) << 16) | (static_cast <uint32_t> (counter[14]) << 8) | static_cast <uint32_t> (counter[15]));
 		/**
 		 * Выполняем перебор восьмёрок блоков: хеш соседней восьмёрки и гамма следующей
-		 * идут вперемешку на разных устройствах машины
+		 * идут вперемешку на разных устройствах машины. При зашифровании хеш берётся от
+		 * шифртекста прежней восьмёрки, а не только что выработанного: иначе умножение
+		 * ждало бы всю цепочку кругов AES, и восьмёрки не накладывались бы друг на друга
 		 */
 		for(size_t c = 0; c < chunks; c++){
 			// При расшифровании хеш берётся от шифртекста до снятия гаммы
 			if(!sealing)
 				aggregateArm(powers, accumulator, source);
+			// При зашифровании хеш берётся от шифртекста прежней восьмёрки
+			else if(c > 0)
+				aggregateArm(powers, accumulator, result - 128);
 			// Восемь блоков счётчика
 			uint8x16_t s0 = vreinterpretq_u8_u32(vsetq_lane_u32(__builtin_bswap32(tail + 1), vreinterpretq_u32_u8(base), 3));
 			uint8x16_t s1 = vreinterpretq_u8_u32(vsetq_lane_u32(__builtin_bswap32(tail + 2), vreinterpretq_u32_u8(base), 3));
@@ -454,13 +463,13 @@ namespace {
 			vst1q_u8(result + 80, veorq_u8(veorq_u8(vaeseq_u8(s5, final), last), vld1q_u8(source + 80)));
 			vst1q_u8(result + 96, veorq_u8(veorq_u8(vaeseq_u8(s6, final), last), vld1q_u8(source + 96)));
 			vst1q_u8(result + 112, veorq_u8(veorq_u8(vaeseq_u8(s7, final), last), vld1q_u8(source + 112)));
-			// При зашифровании хеш берётся от шифртекста
-			if(sealing)
-				aggregateArm(powers, accumulator, result);
 			// Переходим к следующей восьмёрке
 			source += 128;
 			result += 128;
 		}
+		// При зашифровании хеш последней восьмёрки шифртекста берётся после цикла
+		if(sealing)
+			aggregateArm(powers, accumulator, result - 128);
 		// Записываем продвинутый счётчик
 		counter[12] = static_cast <uint8_t> (tail >> 24);
 		counter[13] = static_cast <uint8_t> (tail >> 16);
@@ -472,113 +481,141 @@ namespace {
  */
 #elif defined(__ANTS_GHASH_X86__)
 	/**
-	 * @brief Метод записи ключа хеширования с отражёнными разрядами байтов
+	 * @brief Метод записи ключа хеширования в виде под команду PCLMULQDQ
 	 *
-	 * @param key    ключ хеширования
-	 * @param mirror место, в которое записывается отражённый ключ
+	 * @details Байты переставляются от старшего к младшему, и ключ сдвигается на разряд
+	 *          влево с приведением вынесенного разряда по многочлену поля: так сдвиг
+	 *          произведения переставленных операндов возмещается заранее. Третьим
+	 *          словом хранится сумма половин ключа под умножение Карацубы
+	 *
+	 * @param key   ключ хеширования либо его степень в порядке GCM
+	 * @param twist место под три слова: сдвинутый ключ и сумма его половин
 	 *
 	 */
-	static __ANTS_GHASH_TARGET__ void mirrorX86(const uint8_t * key, uint64_t * mirror) noexcept {
-		// Записываем ключ хеширования с отражёнными разрядами байтов
-		_mm_storeu_si128(reinterpret_cast <__m128i *> (mirror), reflect(_mm_loadu_si128(reinterpret_cast <const __m128i *> (key))));
+	static __ANTS_GHASH_TARGET__ void twistX86(const uint8_t * key, uint64_t * twist) noexcept {
+		// Ключ с переставленными байтами
+		const __m128i value = swap(_mm_loadu_si128(reinterpret_cast <const __m128i *> (key)));
+		// Ключ, сдвинутый на разряд влево по словам, со старшими разрядами слов, перешедшими в соседнее слово
+		__m128i result = _mm_or_si128(_mm_slli_epi64(value, 1), _mm_slli_si128(_mm_srli_epi64(value, 63), 8));
+		// Маска старшего разряда ключа: все единицы, если он вынесен за край поля
+		const __m128i mask = _mm_shuffle_epi32(_mm_srai_epi32(value, 31), 0xFF);
+		// Приведение вынесенного разряда: многочлен x^7 + x^2 + x + 1 в переставленном виде
+		result = _mm_xor_si128(result, _mm_and_si128(mask, _mm_set_epi64x(static_cast <int64_t> (0xC200000000000000ULL), 1)));
+		// Записываем сдвинутый ключ
+		_mm_storeu_si128(reinterpret_cast <__m128i *> (twist), result);
+		// Записываем сумму половин ключа
+		twist[2] = (twist[0] ^ twist[1]);
+	}
+	/**
+	 * @brief Метод умножения Карацубы двух переставленных многочленов без приведения
+	 *
+	 * @details Три команды умножения вместо четырёх: произведения младших половин,
+	 *          старших половин и сумм половин; средние произведения копятся порознь и
+	 *          складываются с крайними один раз при приведении
+	 *
+	 * @param a      первый множитель: блок с переставленными байтами
+	 * @param b      второй множитель: сдвинутый ключ либо его степень
+	 * @param ab     сумма половин второго множителя в обоих словах
+	 * @param low    произведения младших половин, складываемые с накопленными
+	 * @param high   произведения старших половин, складываемые с накопленными
+	 * @param middle произведения сумм половин, складываемые с накопленными
+	 *
+	 */
+	static __ANTS_GHASH_TARGET__ __ANTS_INLINE__ void productX86(const __m128i a, const __m128i b, const __m128i ab, __m128i & low, __m128i & high, __m128i & middle) noexcept {
+		// Складываем произведение младших половин
+		low = _mm_xor_si128(low, _mm_clmulepi64_si128(a, b, 0x00));
+		// Складываем произведение старших половин
+		high = _mm_xor_si128(high, _mm_clmulepi64_si128(a, b, 0x11));
+		// Складываем произведение сумм половин: сумма половин первого множителя в обоих словах
+		middle = _mm_xor_si128(middle, _mm_clmulepi64_si128(_mm_xor_si128(a, _mm_shuffle_epi32(a, 0x4E)), ab, 0x00));
+	}
+	/**
+	 * @brief Метод приведения суммы произведений по многочлену поля в переставленном виде
+	 *
+	 * @details Средние произведения Карацубы складываются с крайними и делятся между
+	 *          половинами, затем старшая половина сворачивается в младшую: умножение
+	 *          на x^7 + x^2 + x + 1 в переставленном виде - это сдвиги на 63, 62 и 57
+	 *          разрядов влево и на 1, 2 и 7 вправо по словам с переносом между словами
+	 *
+	 * @param low    сумма произведений младших половин
+	 * @param high   сумма произведений старших половин
+	 * @param middle сумма произведений сумм половин
+	 *
+	 * @return       приведённое произведение с переставленными байтами
+	 *
+	 */
+	static __ANTS_GHASH_TARGET__ __ANTS_INLINE__ __m128i reduceX86(__m128i low, __m128i high, __m128i middle) noexcept {
+		// Средние произведения без крайних: перекрёстные произведения половин
+		middle = _mm_xor_si128(middle, _mm_xor_si128(low, high));
+		// Младшая половина произведения с младшим словом перекрёстных
+		low = _mm_xor_si128(low, _mm_slli_si128(middle, 8));
+		// Старшая половина произведения со старшим словом перекрёстных
+		high = _mm_xor_si128(high, _mm_srli_si128(middle, 8));
+		// Первая ступень: младшая половина, сдвинутая на 63, 62 и 57 разрядов влево по словам
+		__m128i shifted = _mm_slli_epi64(low, 5);
+		// Сумма сдвигов на 5 и 0
+		const __m128i partial = _mm_xor_si128(low, shifted);
+		// Сумма сдвигов на 6, 5 и 0
+		shifted = _mm_xor_si128(_mm_slli_epi64(shifted, 1), partial);
+		// Сумма сдвигов на 63, 62 и 57
+		shifted = _mm_slli_epi64(shifted, 57);
+		// Младшая половина с перенесённым в старшее слово младшим словом сдвига
+		low = _mm_xor_si128(low, _mm_slli_si128(shifted, 8));
+		// Старшая половина со старшим словом сдвига
+		high = _mm_xor_si128(high, _mm_srli_si128(shifted, 8));
+		// Вторая ступень: старшая половина, сложенная с младшей
+		high = _mm_xor_si128(high, low);
+		// Младшая половина, сдвинутая на разряд вправо
+		shifted = _mm_srli_epi64(low, 1);
+		// Сумма сдвигов на 1 и 0
+		const __m128i mixed = _mm_xor_si128(low, shifted);
+		// Сумма сдвигов на 6, 1 и 0
+		shifted = _mm_xor_si128(_mm_srli_epi64(shifted, 5), mixed);
+		// Сумма сдвигов на 7, 2 и 1
+		shifted = _mm_srli_epi64(shifted, 1);
+		// Выводим приведённое произведение
+		return _mm_xor_si128(shifted, high);
 	}
 	/**
 	 * @brief Метод умножения значения на ключ хеширования командой PCLMULQDQ
 	 *
-	 * @param mirror ключ хеширования с отражёнными разрядами байтов
-	 * @param value  умножаемое значение, заменяемое произведением
+	 * @param twist сдвинутый ключ хеширования с суммой половин
+	 * @param value умножаемое значение в порядке GCM, заменяемое произведением
 	 *
 	 */
-	static __ANTS_GHASH_TARGET__ void multiplyX86(const uint64_t * mirror, uint8_t * value) noexcept {
-		// Значение с отражёнными разрядами байтов
-		const __m128i a = reflect(_mm_loadu_si128(reinterpret_cast <const __m128i *> (value)));
-		// Ключ хеширования, хранимый отражённым
-		const __m128i b = _mm_loadu_si128(reinterpret_cast <const __m128i *> (mirror));
-		// Многочлен приведения x^7 + x^2 + x + 1
-		const __m128i r = _mm_set_epi64x(0, 0x87);
-		// Произведение младших половин
-		const __m128i p0 = _mm_clmulepi64_si128(a, b, 0x00);
-		// Произведение старших половин
-		const __m128i p2 = _mm_clmulepi64_si128(a, b, 0x11);
-		// Перекрёстные произведения
-		const __m128i p1 = _mm_xor_si128(_mm_clmulepi64_si128(a, b, 0x10), _mm_clmulepi64_si128(a, b, 0x01));
-		// Младшие 128 разрядов произведения
-		__m128i low = _mm_xor_si128(p0, _mm_slli_si128(p1, 8));
-		// Старшие 128 разрядов произведения
-		const __m128i high = _mm_xor_si128(p2, _mm_srli_si128(p1, 8));
-		// Приведение младшего слова старшей половины
-		const __m128i f0 = _mm_clmulepi64_si128(high, r, 0x00);
-		// Приведение старшего слова старшей половины
-		const __m128i f1 = _mm_clmulepi64_si128(high, r, 0x01);
-		// Складываем приведение младшего слова
-		low = _mm_xor_si128(low, f0);
-		// Складываем младшую половину приведения старшего слова, сдвинутую на 64
-		low = _mm_xor_si128(low, _mm_slli_si128(f1, 8));
-		// Остаток приведения старшего слова, ушедший за 128 разрядов, приводится ещё раз
-		low = _mm_xor_si128(low, _mm_clmulepi64_si128(_mm_srli_si128(f1, 8), r, 0x00));
-		// Записываем произведение, отразив разряды байтов обратно
-		_mm_storeu_si128(reinterpret_cast <__m128i *> (value), reflect(low));
-	}
-	/**
-	 * @brief Метод неприведённого умножения двух отражённых многочленов
-	 *
-	 * @param a    первый множитель
-	 * @param b    второй множитель
-	 * @param low  младшие 128 разрядов произведения, складываемые с накопленными
-	 * @param high старшие 128 разрядов произведения, складываемые с накопленными
-	 *
-	 */
-	static __ANTS_GHASH_TARGET__ __ANTS_INLINE__ void productX86(const __m128i a, const __m128i b, __m128i & low, __m128i & high) noexcept {
-		// Произведение младших половин
-		const __m128i p0 = _mm_clmulepi64_si128(a, b, 0x00);
-		// Произведение старших половин
-		const __m128i p2 = _mm_clmulepi64_si128(a, b, 0x11);
-		// Перекрёстные произведения
-		const __m128i p1 = _mm_xor_si128(_mm_clmulepi64_si128(a, b, 0x10), _mm_clmulepi64_si128(a, b, 0x01));
-		// Складываем младшие 128 разрядов
-		low = _mm_xor_si128(low, _mm_xor_si128(p0, _mm_slli_si128(p1, 8)));
-		// Складываем старшие 128 разрядов
-		high = _mm_xor_si128(high, _mm_xor_si128(p2, _mm_srli_si128(p1, 8)));
+	static __ANTS_GHASH_TARGET__ void multiplyX86(const uint64_t * twist, uint8_t * value) noexcept {
+		// Значение с переставленными байтами
+		const __m128i a = swap(_mm_loadu_si128(reinterpret_cast <const __m128i *> (value)));
+		// Суммы произведений
+		__m128i low = _mm_setzero_si128(), high = _mm_setzero_si128(), middle = _mm_setzero_si128();
+		// Умножаем значение на ключ
+		productX86(a, _mm_loadu_si128(reinterpret_cast <const __m128i *> (twist)), _mm_set1_epi64x(static_cast <int64_t> (twist[2])), low, high, middle);
+		// Записываем приведённое произведение в порядке GCM
+		_mm_storeu_si128(reinterpret_cast <__m128i *> (value), swap(reduceX86(low, high, middle)));
 	}
 	/**
 	 * @brief Метод сложения восьми блоков в накопитель одним приведением командой PCLMULQDQ
 	 *
-	 * @param powers      степени ключа хеширования от четвёртой до первой, отражённые
+	 * @param powers      степени ключа хеширования от восьмой до первой, сдвинутые, с суммами половин
 	 * @param accumulator накопитель многочлена, заменяемый итогом
 	 * @param blocks      восемь блоков подряд
 	 *
 	 */
-	static __ANTS_GHASH_TARGET__ void aggregateX86(const uint64_t (* powers)[2], uint8_t * accumulator, const uint8_t * blocks) noexcept {
-		// Многочлен приведения x^7 + x^2 + x + 1
-		const __m128i r = _mm_set_epi64x(0, 0x87);
-		// Накопитель, сложенный с первым блоком, отражённый
-		const __m128i z = reflect(_mm_xor_si128(_mm_loadu_si128(reinterpret_cast <const __m128i *> (accumulator)), _mm_loadu_si128(reinterpret_cast <const __m128i *> (blocks))));
-		// Младшие и старшие 128 разрядов суммы произведений
-		__m128i low = _mm_setzero_si128(), high = _mm_setzero_si128();
-		// Складываем произведение суммы с четвёртой степенью
-		productX86(z, _mm_loadu_si128(reinterpret_cast <const __m128i *> (powers[0])), low, high);
-		// Складываем произведение второго блока с третьей степенью
-		productX86(reflect(_mm_loadu_si128(reinterpret_cast <const __m128i *> (blocks + 16))), _mm_loadu_si128(reinterpret_cast <const __m128i *> (powers[1])), low, high);
-		// Складываем произведение третьего блока со второй степенью
-		productX86(reflect(_mm_loadu_si128(reinterpret_cast <const __m128i *> (blocks + 32))), _mm_loadu_si128(reinterpret_cast <const __m128i *> (powers[2])), low, high);
-		// Складываем произведение четвёртого блока с первой степенью
-		productX86(reflect(_mm_loadu_si128(reinterpret_cast <const __m128i *> (blocks + 48))), _mm_loadu_si128(reinterpret_cast <const __m128i *> (powers[3])), low, high);
-		productX86(reflect(_mm_loadu_si128(reinterpret_cast <const __m128i *> (blocks + 64))), _mm_loadu_si128(reinterpret_cast <const __m128i *> (powers[4])), low, high);
-		productX86(reflect(_mm_loadu_si128(reinterpret_cast <const __m128i *> (blocks + 80))), _mm_loadu_si128(reinterpret_cast <const __m128i *> (powers[5])), low, high);
-		productX86(reflect(_mm_loadu_si128(reinterpret_cast <const __m128i *> (blocks + 96))), _mm_loadu_si128(reinterpret_cast <const __m128i *> (powers[6])), low, high);
-		productX86(reflect(_mm_loadu_si128(reinterpret_cast <const __m128i *> (blocks + 112))), _mm_loadu_si128(reinterpret_cast <const __m128i *> (powers[7])), low, high);
-		// Приведение младшего слова старшей половины
-		const __m128i f0 = _mm_clmulepi64_si128(high, r, 0x00);
-		// Приведение старшего слова старшей половины
-		const __m128i f1 = _mm_clmulepi64_si128(high, r, 0x01);
-		// Складываем приведение младшего слова
-		low = _mm_xor_si128(low, f0);
-		// Складываем младшую половину приведения старшего слова, сдвинутую на 64
-		low = _mm_xor_si128(low, _mm_slli_si128(f1, 8));
-		// Остаток приведения старшего слова, ушедший за 128 разрядов, приводится ещё раз
-		low = _mm_xor_si128(low, _mm_clmulepi64_si128(_mm_srli_si128(f1, 8), r, 0x00));
-		// Записываем итог, отразив разряды байтов обратно
-		_mm_storeu_si128(reinterpret_cast <__m128i *> (accumulator), reflect(low));
+	static __ANTS_GHASH_TARGET__ void aggregateX86(const uint64_t (* powers)[3], uint8_t * accumulator, const uint8_t * blocks) noexcept {
+		// Суммы произведений
+		__m128i low = _mm_setzero_si128(), high = _mm_setzero_si128(), middle = _mm_setzero_si128();
+		// Накопитель, сложенный с первым блоком, с переставленными байтами
+		const __m128i z = swap(_mm_xor_si128(_mm_loadu_si128(reinterpret_cast <const __m128i *> (accumulator)), _mm_loadu_si128(reinterpret_cast <const __m128i *> (blocks))));
+		// Складываем произведение суммы с восьмой степенью
+		productX86(z, _mm_loadu_si128(reinterpret_cast <const __m128i *> (powers[0])), _mm_set1_epi64x(static_cast <int64_t> (powers[0][2])), low, high, middle);
+		/**
+		 * Выполняем сложение произведений прочих блоков со степенями от седьмой до первой
+		 */
+		for(size_t i = 1; i < 8; i++)
+			// Складываем произведение очередного блока с очередной степенью
+			productX86(swap(_mm_loadu_si128(reinterpret_cast <const __m128i *> (blocks + (i * 16)))), _mm_loadu_si128(reinterpret_cast <const __m128i *> (powers[i])), _mm_set1_epi64x(static_cast <int64_t> (powers[i][2])), low, high, middle);
+		// Записываем приведённый итог в порядке GCM
+		_mm_storeu_si128(reinterpret_cast <__m128i *> (accumulator), swap(reduceX86(low, high, middle)));
 	}
 	/**
 	 * @brief Метод слитого хода режима: гамма счётчика AES-NI и хеш GHASH по восемь блоков в одном проходе
@@ -586,7 +623,7 @@ namespace {
 	 * @param keys        расписание ключа зашифрования AES
 	 * @param rounds      число кругов AES
 	 * @param counter     блок счётчика: младшие 32 разряда растут от старшего байта и продвигаются на пройденные блоки
-	 * @param powers      степени ключа хеширования от восьмой до первой, отражённые
+	 * @param powers      степени ключа хеширования от восьмой до первой, сдвинутые, с суммами половин
 	 * @param accumulator накопитель хеша
 	 * @param sealing     признак зашифрования: хеш берётся от итога, при расшифровании - от источника
 	 * @param source      источник: открытый текст либо шифртекст
@@ -594,7 +631,7 @@ namespace {
 	 * @param chunks      число восьмёрок блоков
 	 *
 	 */
-	static __ANTS_FUSED_TARGET__ void fusedX86(const uint8_t * keys, const size_t rounds, uint8_t * counter, const uint64_t (* powers)[2], uint8_t * accumulator, const bool sealing, const uint8_t * source, uint8_t * result, const size_t chunks) noexcept {
+	static __ANTS_FUSED_TARGET__ void fusedX86(const uint8_t * keys, const size_t rounds, uint8_t * counter, const uint64_t (* powers)[3], uint8_t * accumulator, const bool sealing, const uint8_t * source, uint8_t * result, const size_t chunks) noexcept {
 		// Ключ первого круга
 		const __m128i first = _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys));
 		// Ключ последнего круга
@@ -605,12 +642,17 @@ namespace {
 		uint32_t tail = ((static_cast <uint32_t> (counter[12]) << 24) | (static_cast <uint32_t> (counter[13]) << 16) | (static_cast <uint32_t> (counter[14]) << 8) | static_cast <uint32_t> (counter[15]));
 		/**
 		 * Выполняем перебор восьмёрок блоков: хеш соседней восьмёрки и гамма следующей
-		 * идут вперемешку на разных устройствах машины
+		 * идут вперемешку на разных устройствах машины. При зашифровании хеш берётся от
+		 * шифртекста прежней восьмёрки, а не только что выработанного: иначе умножение
+		 * ждало бы всю цепочку кругов AES, и восьмёрки не накладывались бы друг на друга
 		 */
 		for(size_t c = 0; c < chunks; c++){
 			// При расшифровании хеш берётся от шифртекста до снятия гаммы
 			if(!sealing)
 				aggregateX86(powers, accumulator, source);
+			// При зашифровании хеш берётся от шифртекста прежней восьмёрки
+			else if(c > 0)
+				aggregateX86(powers, accumulator, result - 128);
 			// Восемь блоков счётчика, сложенных с ключом первого круга
 			__m128i s0 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__builtin_bswap32(tail + 1)), 0, 0, 0)), first);
 			__m128i s1 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__builtin_bswap32(tail + 2)), 0, 0, 0)), first);
@@ -646,13 +688,13 @@ namespace {
 			_mm_storeu_si128(reinterpret_cast <__m128i *> (result + 80), _mm_xor_si128(_mm_aesenclast_si128(s5, last), _mm_loadu_si128(reinterpret_cast <const __m128i *> (source + 80))));
 			_mm_storeu_si128(reinterpret_cast <__m128i *> (result + 96), _mm_xor_si128(_mm_aesenclast_si128(s6, last), _mm_loadu_si128(reinterpret_cast <const __m128i *> (source + 96))));
 			_mm_storeu_si128(reinterpret_cast <__m128i *> (result + 112), _mm_xor_si128(_mm_aesenclast_si128(s7, last), _mm_loadu_si128(reinterpret_cast <const __m128i *> (source + 112))));
-			// При зашифровании хеш берётся от шифртекста
-			if(sealing)
-				aggregateX86(powers, accumulator, result);
 			// Переходим к следующей восьмёрке
 			source += 128;
 			result += 128;
 		}
+		// При зашифровании хеш последней восьмёрки шифртекста берётся после цикла
+		if(sealing)
+			aggregateX86(powers, accumulator, result - 128);
 		// Записываем продвинутый счётчик
 		counter[12] = static_cast <uint8_t> (tail >> 24);
 		counter[13] = static_cast <uint8_t> (tail >> 16);
@@ -1236,7 +1278,7 @@ bool nts::cipher::Gcm::start(const block_t & block, const view_t & nonce, const 
 	// Если машина умножает без переносов командой: отражение само идёт командами
 	if(machine::has(machine::feature_t::CARRYLESS))
 		// Записываем ключ хеширования с отражёнными разрядами байтов
-		mirrorX86(key, this->_mirror);
+		twistX86(key, this->_mirror);
 #endif
 	// Старшее и младшее слова ключа хеширования
 	uint64_t high = load(key), low = load(key + 8);
@@ -1328,8 +1370,8 @@ bool nts::cipher::Gcm::start(const block_t & block, const view_t & nonce, const 
 			// Записываем степень отражённой: восьмая идёт первой
 			mirrorArm(power, this->_powers[7 - i]);
 #else
-			// Записываем степень отражённой: восьмая идёт первой
-			mirrorX86(power, this->_powers[7 - i]);
+			// Записываем степень сдвинутой с суммой половин: восьмая идёт первой
+			twistX86(power, this->_powers[7 - i]);
 #endif
 		}
 		// Выполняем затирание степени
