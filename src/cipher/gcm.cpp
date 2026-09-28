@@ -45,6 +45,16 @@
  *       младший байт не переполняется внутри восьмёрки, и по одному через скаляр на
  *       переносе: сборка через скаляр на каждый блок стоила на Xeon E5-2630 v4
  *       23 такта из 180 на восьмёрку.
+ *       Хеш пачками (круг 42, 28.09.2026): связанные данные и хвосты шли по восьмёрке на
+ *       вызов с перестановкой накопителя на каждой и ядром на интринсиках в кодировке SSE
+ *       (Xeon E5-2630 v4 5,2 ГБ/с при 6,3 у OpenSSL), а на машинах без умножения без
+ *       переносов - по блоку через multiply с побайтовым сложением (стенды под QEMU
+ *       210…270 МБ/с при 350 у gcm_ghash_4bit OpenSSL). Теперь восьмёрки идут циклом внутри
+ *       ядра на ассемблере с кодировкой VEX конвейером: приведение прошлой восьмёрки идёт
+ *       вперемешку с произведениями текущей, а блок с накопителем множится последним - без
+ *       конвейера ядро упиралось в цепочку накопитель → произведение → приведение (50 тактов
+ *       на восьмёрку при 24 умножениях по такту), с ним 40 при 37 у gcm_ghash_avx; табличный
+ *       путь ведёт все целые блоки одним проходом с накопителем в двух словах регистров
  *       Сшитое ядро на ассемблере x86-64 (круг 38, 24.09.2026): собиратель выносил все
  *       умножения без переносов клубком после кругов AES и не давал переплести их с
  *       кругами, а на Broadwell перестановки байтов делят порт с aesenc. Ядро на
@@ -277,6 +287,59 @@ namespace {
 			difference = static_cast <uint8_t> (difference | (first[i] ^ second[i]));
 		// Выводим признак отсутствия различий
 		return (difference == 0);
+	}
+	/**
+	 * @brief Метод сложения целых блоков в накопитель умножением по байтовой таблице
+	 *
+	 * @details Накопитель держится двумя словами в регистрах на все блоки: блок складывается
+	 *          с ним словами, и байты суммы дают пятнадцать шагов сдвига с приведением по
+	 *          таблице остатков и сложением с кратным - те же шаги, что у умножения одного
+	 *          значения, без записи и чтения накопителя на каждом блоке
+	 *
+	 * @param table       таблица кратных ключа хеширования по байту
+	 * @param remainders  таблица остатков вынесенного байта
+	 * @param accumulator накопитель многочлена в порядке GCM, заменяемый итогом
+	 * @param blocks      блоки подряд
+	 * @param count       число блоков: не меньше одного
+	 *
+	 */
+	static void absorbTable(const uint64_t (* table)[2], const uint16_t * remainders, uint8_t * accumulator, const uint8_t * blocks, size_t count) noexcept {
+		// Слова накопителя
+		uint64_t zh = load(accumulator), zl = load(accumulator + 8);
+		/**
+		 * Выполняем перебор блоков
+		 */
+		for(; count > 0; count--, blocks += 16){
+			// Слова суммы накопителя с блоком: старшее и младшее
+			const uint64_t high = (zh ^ load(blocks)), low = (zl ^ load(blocks + 8));
+			// Кратное последнего байта суммы
+			zh = table[low & 0xFF][0];
+			// Кратное последнего байта суммы
+			zl = table[low & 0xFF][1];
+			/**
+			 * Выполняем пятнадцать шагов по байтам суммы от четырнадцатого к нулевому
+			 */
+			for(size_t index = 15; index > 0; index--){
+				// Очередной байт суммы от старшего: младшее слово несёт байты с восьмого по пятнадцатый
+				const size_t byte = static_cast <size_t> (((index > 8) ? (low >> ((16 - index) * 8)) : (high >> ((8 - index) * 8))) & 0xFF);
+				// Вынесенный за младший край байт накопленного значения
+				const uint8_t rem = static_cast <uint8_t> (zl);
+				// Сдвигаем накопленное значение на байт
+				zl = ((zh << 56) | (zl >> 8));
+				// Сдвигаем старшую половину на байт
+				zh >>= 8;
+				// Приводим вынесенный байт по таблице остатков
+				zh ^= (static_cast <uint64_t> (remainders[rem]) << 48);
+				// Складываем с кратным очередного байта суммы
+				zh ^= table[byte][0];
+				// Складываем с кратным очередного байта суммы
+				zl ^= table[byte][1];
+			}
+		}
+		// Записываем старшую половину накопителя
+		store(zh, accumulator);
+		// Записываем младшую половину накопителя
+		store(zl, accumulator + 8);
 	}
 
 /**
@@ -660,6 +723,150 @@ namespace {
 		// Записываем приведённый итог в порядке GCM
 		_mm_storeu_si128(reinterpret_cast <__m128i *> (accumulator), swap(reduceX86(low, high, middle)));
 	}
+	/**
+	 * Если собиратель семейства GCC под x86-64: ядро сложения восьмёрок на ассемблере
+	 */
+	#if (defined(__GNUC__) || defined(__clang__)) && defined(__x86_64__)
+	/**
+	 * @brief Метод сложения восьмёрок блоков в накопитель ядром на ассемблере с кодировкой VEX
+	 *
+	 * @details Восьмёрки идут циклом внутри вставки конвейером, как у gcm_ghash_avx OpenSSL:
+	 *          блок множится на степень ключа умножением Карацубы тремя командами, суммы
+	 *          младших, старших и средних произведений копятся на восьмёрку, а приводятся на
+	 *          следующей - вперемешку с её произведениями, двумя умножениями на многочлен и
+	 *          перестановками слов; блок с накопителем идёт в восьмёрке последним, оттого
+	 *          цепочка зависимости через накопитель короче пропускной способности умножений.
+	 *          Накопитель живёт в регистре переставленным и переставляется обратно один раз
+	 *          на выходе. Ядро требует AVX и PCLMULQDQ; без AVX остаётся ядро на интринсиках
+	 *
+	 * @param powers      степени ключа хеширования от восьмой до первой, сдвинутые, с суммами половин
+	 * @param accumulator накопитель многочлена в порядке GCM, заменяемый итогом
+	 * @param blocks      восьмёрки блоков подряд
+	 * @param count       число восьмёрок: не меньше одной
+	 *
+	 */
+	static void aggregateVexX86(const uint64_t (* powers)[3], uint8_t * accumulator, const uint8_t * blocks, size_t count) noexcept {
+		// Маска перестановки байтов от старшего к младшему
+		alignas(16) static const uint8_t SWAP[16] = {15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0};
+		// Многочлен приведения в переставленном виде: x^63 + x^62 + x^57 старшим словом
+		alignas(16) static const uint64_t POLY[2] = {1, 0xC200000000000000ULL};
+		/**
+		 * Выполняем сложение: регистры 0 и 1 - блоки попеременно, 2 и 3 - суммы половин блоков,
+		 * 4 - произведение, 5…7 - суммы прошлой восьмёрки на приведении, 8…10 - суммы текущей,
+		 * 11 - сумма половин степени, 12 - временный, 13 - многочлен, 14 - накопитель, 15 - маска
+		 */
+		__asm__ __volatile__ (
+			// Маска перестановки, многочлен приведения, накопитель переставленный
+			"vmovdqa (%[mask]), %%xmm15\n\t" "vmovdqa (%[poly]), %%xmm13\n\t" "vmovdqu (%[acc]), %%xmm14\n\t" "vpshufb %%xmm15, %%xmm14, %%xmm14\n\t"
+			// Первая восьмёрка: произведения без приведения, блок с накопителем последним
+			// Блок 7: перестановка байтов, сумма половин, произведения со степенью 1 прямо в суммы
+			"vmovdqu 112(%[blk]), %%xmm1\n\t" "vpshufb %%xmm15, %%xmm1, %%xmm1\n\t"
+			"vpshufd $0x4E, %%xmm1, %%xmm3\n\t" "vpxor %%xmm1, %%xmm3, %%xmm3\n\t" "vmovddup 184(%[pow]), %%xmm11\n\t"
+			"vpclmulqdq $0x00, 168(%[pow]), %%xmm1, %%xmm8\n\t" "vpclmulqdq $0x11, 168(%[pow]), %%xmm1, %%xmm9\n\t" "vpclmulqdq $0x00, %%xmm11, %%xmm3, %%xmm10\n\t"
+			// Блок 6: перестановка байтов, сумма половин, произведения со степенью 2
+			"vmovdqu 96(%[blk]), %%xmm0\n\t" "vpshufb %%xmm15, %%xmm0, %%xmm0\n\t"
+			"vpshufd $0x4E, %%xmm0, %%xmm2\n\t" "vpxor %%xmm0, %%xmm2, %%xmm2\n\t" "vmovddup 160(%[pow]), %%xmm11\n\t"
+			"vpclmulqdq $0x00, 144(%[pow]), %%xmm0, %%xmm4\n\t" "vpxor %%xmm4, %%xmm8, %%xmm8\n\t" "vpclmulqdq $0x11, 144(%[pow]), %%xmm0, %%xmm4\n\t" "vpxor %%xmm4, %%xmm9, %%xmm9\n\t" "vpclmulqdq $0x00, %%xmm11, %%xmm2, %%xmm4\n\t" "vpxor %%xmm4, %%xmm10, %%xmm10\n\t"
+			// Блок 5: перестановка байтов, сумма половин, произведения со степенью 3
+			"vmovdqu 80(%[blk]), %%xmm1\n\t" "vpshufb %%xmm15, %%xmm1, %%xmm1\n\t"
+			"vpshufd $0x4E, %%xmm1, %%xmm3\n\t" "vpxor %%xmm1, %%xmm3, %%xmm3\n\t" "vmovddup 136(%[pow]), %%xmm11\n\t"
+			"vpclmulqdq $0x00, 120(%[pow]), %%xmm1, %%xmm4\n\t" "vpxor %%xmm4, %%xmm8, %%xmm8\n\t" "vpclmulqdq $0x11, 120(%[pow]), %%xmm1, %%xmm4\n\t" "vpxor %%xmm4, %%xmm9, %%xmm9\n\t" "vpclmulqdq $0x00, %%xmm11, %%xmm3, %%xmm4\n\t" "vpxor %%xmm4, %%xmm10, %%xmm10\n\t"
+			// Блок 4: перестановка байтов, сумма половин, произведения со степенью 4
+			"vmovdqu 64(%[blk]), %%xmm0\n\t" "vpshufb %%xmm15, %%xmm0, %%xmm0\n\t"
+			"vpshufd $0x4E, %%xmm0, %%xmm2\n\t" "vpxor %%xmm0, %%xmm2, %%xmm2\n\t" "vmovddup 112(%[pow]), %%xmm11\n\t"
+			"vpclmulqdq $0x00, 96(%[pow]), %%xmm0, %%xmm4\n\t" "vpxor %%xmm4, %%xmm8, %%xmm8\n\t" "vpclmulqdq $0x11, 96(%[pow]), %%xmm0, %%xmm4\n\t" "vpxor %%xmm4, %%xmm9, %%xmm9\n\t" "vpclmulqdq $0x00, %%xmm11, %%xmm2, %%xmm4\n\t" "vpxor %%xmm4, %%xmm10, %%xmm10\n\t"
+			// Блок 3: перестановка байтов, сумма половин, произведения со степенью 5
+			"vmovdqu 48(%[blk]), %%xmm1\n\t" "vpshufb %%xmm15, %%xmm1, %%xmm1\n\t"
+			"vpshufd $0x4E, %%xmm1, %%xmm3\n\t" "vpxor %%xmm1, %%xmm3, %%xmm3\n\t" "vmovddup 88(%[pow]), %%xmm11\n\t"
+			"vpclmulqdq $0x00, 72(%[pow]), %%xmm1, %%xmm4\n\t" "vpxor %%xmm4, %%xmm8, %%xmm8\n\t" "vpclmulqdq $0x11, 72(%[pow]), %%xmm1, %%xmm4\n\t" "vpxor %%xmm4, %%xmm9, %%xmm9\n\t" "vpclmulqdq $0x00, %%xmm11, %%xmm3, %%xmm4\n\t" "vpxor %%xmm4, %%xmm10, %%xmm10\n\t"
+			// Блок 2: перестановка байтов, сумма половин, произведения со степенью 6
+			"vmovdqu 32(%[blk]), %%xmm0\n\t" "vpshufb %%xmm15, %%xmm0, %%xmm0\n\t"
+			"vpshufd $0x4E, %%xmm0, %%xmm2\n\t" "vpxor %%xmm0, %%xmm2, %%xmm2\n\t" "vmovddup 64(%[pow]), %%xmm11\n\t"
+			"vpclmulqdq $0x00, 48(%[pow]), %%xmm0, %%xmm4\n\t" "vpxor %%xmm4, %%xmm8, %%xmm8\n\t" "vpclmulqdq $0x11, 48(%[pow]), %%xmm0, %%xmm4\n\t" "vpxor %%xmm4, %%xmm9, %%xmm9\n\t" "vpclmulqdq $0x00, %%xmm11, %%xmm2, %%xmm4\n\t" "vpxor %%xmm4, %%xmm10, %%xmm10\n\t"
+			// Блок 1: перестановка байтов, сумма половин, произведения со степенью 7
+			"vmovdqu 16(%[blk]), %%xmm1\n\t" "vpshufb %%xmm15, %%xmm1, %%xmm1\n\t"
+			"vpshufd $0x4E, %%xmm1, %%xmm3\n\t" "vpxor %%xmm1, %%xmm3, %%xmm3\n\t" "vmovddup 40(%[pow]), %%xmm11\n\t"
+			"vpclmulqdq $0x00, 24(%[pow]), %%xmm1, %%xmm4\n\t" "vpxor %%xmm4, %%xmm8, %%xmm8\n\t" "vpclmulqdq $0x11, 24(%[pow]), %%xmm1, %%xmm4\n\t" "vpxor %%xmm4, %%xmm9, %%xmm9\n\t" "vpclmulqdq $0x00, %%xmm11, %%xmm3, %%xmm4\n\t" "vpxor %%xmm4, %%xmm10, %%xmm10\n\t"
+			// Блок 0: перестановка байтов и сложение с накопителем, сумма половин, произведения со степенью 8
+			"vmovdqu 0(%[blk]), %%xmm0\n\t" "vpshufb %%xmm15, %%xmm0, %%xmm0\n\t" "vpxor %%xmm14, %%xmm0, %%xmm0\n\t"
+			"vpshufd $0x4E, %%xmm0, %%xmm2\n\t" "vpxor %%xmm0, %%xmm2, %%xmm2\n\t" "vmovddup 16(%[pow]), %%xmm11\n\t"
+			"vpclmulqdq $0x00, 0(%[pow]), %%xmm0, %%xmm4\n\t" "vpxor %%xmm4, %%xmm8, %%xmm8\n\t" "vpclmulqdq $0x11, 0(%[pow]), %%xmm0, %%xmm4\n\t" "vpxor %%xmm4, %%xmm9, %%xmm9\n\t" "vpclmulqdq $0x00, %%xmm11, %%xmm2, %%xmm4\n\t" "vpxor %%xmm4, %%xmm10, %%xmm10\n\t"
+			"addq $128, %[blk]\n\t" "decq %[cnt]\n\t" "jz 2f\n\t"
+			"1:\n\t"
+			// Суммы прошлой восьмёрки в регистры 5…7, приведение их идёт вперемешку с произведениями текущей
+			"vmovdqa %%xmm8, %%xmm5\n\t" "vmovdqa %%xmm9, %%xmm6\n\t" "vmovdqa %%xmm10, %%xmm7\n\t"
+			// Блок 7: перестановка байтов, сумма половин, произведения со степенью 1 прямо в суммы
+			"vmovdqu 112(%[blk]), %%xmm1\n\t" "vpshufb %%xmm15, %%xmm1, %%xmm1\n\t"
+			"vpshufd $0x4E, %%xmm1, %%xmm3\n\t" "vpxor %%xmm1, %%xmm3, %%xmm3\n\t" "vmovddup 184(%[pow]), %%xmm11\n\t"
+			"vpclmulqdq $0x00, 168(%[pow]), %%xmm1, %%xmm8\n\t" "vpclmulqdq $0x11, 168(%[pow]), %%xmm1, %%xmm9\n\t" "vpclmulqdq $0x00, %%xmm11, %%xmm3, %%xmm10\n\t"
+			// Приведение прошлой восьмёрки: поправка Карацубы
+			"vpxor %%xmm5, %%xmm7, %%xmm7\n\t" "vpxor %%xmm6, %%xmm7, %%xmm7\n\t"
+			// Блок 6: перестановка байтов, сумма половин, произведения со степенью 2
+			"vmovdqu 96(%[blk]), %%xmm0\n\t" "vpshufb %%xmm15, %%xmm0, %%xmm0\n\t"
+			"vpshufd $0x4E, %%xmm0, %%xmm2\n\t" "vpxor %%xmm0, %%xmm2, %%xmm2\n\t" "vmovddup 160(%[pow]), %%xmm11\n\t"
+			"vpclmulqdq $0x00, 144(%[pow]), %%xmm0, %%xmm4\n\t" "vpxor %%xmm4, %%xmm8, %%xmm8\n\t" "vpclmulqdq $0x11, 144(%[pow]), %%xmm0, %%xmm4\n\t" "vpxor %%xmm4, %%xmm9, %%xmm9\n\t" "vpclmulqdq $0x00, %%xmm11, %%xmm2, %%xmm4\n\t" "vpxor %%xmm4, %%xmm10, %%xmm10\n\t"
+			// Раздача средних произведений по половинам
+			"vpslldq $8, %%xmm7, %%xmm12\n\t" "vpxor %%xmm12, %%xmm5, %%xmm5\n\t" "vpsrldq $8, %%xmm7, %%xmm12\n\t" "vpxor %%xmm12, %%xmm6, %%xmm6\n\t"
+			// Блок 5: перестановка байтов, сумма половин, произведения со степенью 3
+			"vmovdqu 80(%[blk]), %%xmm1\n\t" "vpshufb %%xmm15, %%xmm1, %%xmm1\n\t"
+			"vpshufd $0x4E, %%xmm1, %%xmm3\n\t" "vpxor %%xmm1, %%xmm3, %%xmm3\n\t" "vmovddup 136(%[pow]), %%xmm11\n\t"
+			"vpclmulqdq $0x00, 120(%[pow]), %%xmm1, %%xmm4\n\t" "vpxor %%xmm4, %%xmm8, %%xmm8\n\t" "vpclmulqdq $0x11, 120(%[pow]), %%xmm1, %%xmm4\n\t" "vpxor %%xmm4, %%xmm9, %%xmm9\n\t" "vpclmulqdq $0x00, %%xmm11, %%xmm3, %%xmm4\n\t" "vpxor %%xmm4, %%xmm10, %%xmm10\n\t"
+			// Первая ступень: младшее слово на многочлен x^63 + x^62 + x^57
+			"vpclmulqdq $0x10, %%xmm13, %%xmm5, %%xmm12\n\t"
+			// Блок 4: перестановка байтов, сумма половин, произведения со степенью 4
+			"vmovdqu 64(%[blk]), %%xmm0\n\t" "vpshufb %%xmm15, %%xmm0, %%xmm0\n\t"
+			"vpshufd $0x4E, %%xmm0, %%xmm2\n\t" "vpxor %%xmm0, %%xmm2, %%xmm2\n\t" "vmovddup 112(%[pow]), %%xmm11\n\t"
+			"vpclmulqdq $0x00, 96(%[pow]), %%xmm0, %%xmm4\n\t" "vpxor %%xmm4, %%xmm8, %%xmm8\n\t" "vpclmulqdq $0x11, 96(%[pow]), %%xmm0, %%xmm4\n\t" "vpxor %%xmm4, %%xmm9, %%xmm9\n\t" "vpclmulqdq $0x00, %%xmm11, %%xmm2, %%xmm4\n\t" "vpxor %%xmm4, %%xmm10, %%xmm10\n\t"
+			// Перестановка слов и сложение
+			"vpalignr $8, %%xmm5, %%xmm5, %%xmm5\n\t" "vpxor %%xmm12, %%xmm5, %%xmm5\n\t"
+			// Блок 3: перестановка байтов, сумма половин, произведения со степенью 5
+			"vmovdqu 48(%[blk]), %%xmm1\n\t" "vpshufb %%xmm15, %%xmm1, %%xmm1\n\t"
+			"vpshufd $0x4E, %%xmm1, %%xmm3\n\t" "vpxor %%xmm1, %%xmm3, %%xmm3\n\t" "vmovddup 88(%[pow]), %%xmm11\n\t"
+			"vpclmulqdq $0x00, 72(%[pow]), %%xmm1, %%xmm4\n\t" "vpxor %%xmm4, %%xmm8, %%xmm8\n\t" "vpclmulqdq $0x11, 72(%[pow]), %%xmm1, %%xmm4\n\t" "vpxor %%xmm4, %%xmm9, %%xmm9\n\t" "vpclmulqdq $0x00, %%xmm11, %%xmm3, %%xmm4\n\t" "vpxor %%xmm4, %%xmm10, %%xmm10\n\t"
+			// Вторая ступень
+			"vpclmulqdq $0x10, %%xmm13, %%xmm5, %%xmm12\n\t"
+			// Блок 2: перестановка байтов, сумма половин, произведения со степенью 6
+			"vmovdqu 32(%[blk]), %%xmm0\n\t" "vpshufb %%xmm15, %%xmm0, %%xmm0\n\t"
+			"vpshufd $0x4E, %%xmm0, %%xmm2\n\t" "vpxor %%xmm0, %%xmm2, %%xmm2\n\t" "vmovddup 64(%[pow]), %%xmm11\n\t"
+			"vpclmulqdq $0x00, 48(%[pow]), %%xmm0, %%xmm4\n\t" "vpxor %%xmm4, %%xmm8, %%xmm8\n\t" "vpclmulqdq $0x11, 48(%[pow]), %%xmm0, %%xmm4\n\t" "vpxor %%xmm4, %%xmm9, %%xmm9\n\t" "vpclmulqdq $0x00, %%xmm11, %%xmm2, %%xmm4\n\t" "vpxor %%xmm4, %%xmm10, %%xmm10\n\t"
+			// Перестановка слов и сложение
+			"vpalignr $8, %%xmm5, %%xmm5, %%xmm5\n\t" "vpxor %%xmm12, %%xmm5, %%xmm5\n\t"
+			// Блок 1: перестановка байтов, сумма половин, произведения со степенью 7
+			"vmovdqu 16(%[blk]), %%xmm1\n\t" "vpshufb %%xmm15, %%xmm1, %%xmm1\n\t"
+			"vpshufd $0x4E, %%xmm1, %%xmm3\n\t" "vpxor %%xmm1, %%xmm3, %%xmm3\n\t" "vmovddup 40(%[pow]), %%xmm11\n\t"
+			"vpclmulqdq $0x00, 24(%[pow]), %%xmm1, %%xmm4\n\t" "vpxor %%xmm4, %%xmm8, %%xmm8\n\t" "vpclmulqdq $0x11, 24(%[pow]), %%xmm1, %%xmm4\n\t" "vpxor %%xmm4, %%xmm9, %%xmm9\n\t" "vpclmulqdq $0x00, %%xmm11, %%xmm3, %%xmm4\n\t" "vpxor %%xmm4, %%xmm10, %%xmm10\n\t"
+			// Накопитель: старшая половина, сложенная с приведённой младшей
+			"vpxor %%xmm6, %%xmm5, %%xmm14\n\t"
+			// Блок 0: перестановка байтов и сложение с накопителем, сумма половин, произведения со степенью 8
+			"vmovdqu 0(%[blk]), %%xmm0\n\t" "vpshufb %%xmm15, %%xmm0, %%xmm0\n\t" "vpxor %%xmm14, %%xmm0, %%xmm0\n\t"
+			"vpshufd $0x4E, %%xmm0, %%xmm2\n\t" "vpxor %%xmm0, %%xmm2, %%xmm2\n\t" "vmovddup 16(%[pow]), %%xmm11\n\t"
+			"vpclmulqdq $0x00, 0(%[pow]), %%xmm0, %%xmm4\n\t" "vpxor %%xmm4, %%xmm8, %%xmm8\n\t" "vpclmulqdq $0x11, 0(%[pow]), %%xmm0, %%xmm4\n\t" "vpxor %%xmm4, %%xmm9, %%xmm9\n\t" "vpclmulqdq $0x00, %%xmm11, %%xmm2, %%xmm4\n\t" "vpxor %%xmm4, %%xmm10, %%xmm10\n\t"
+			"addq $128, %[blk]\n\t" "decq %[cnt]\n\t" "jnz 1b\n\t"
+			"2:\n\t"
+			// Приведение последней восьмёрки
+			"vmovdqa %%xmm8, %%xmm5\n\t" "vmovdqa %%xmm9, %%xmm6\n\t" "vmovdqa %%xmm10, %%xmm7\n\t"
+			// Приведение прошлой восьмёрки: поправка Карацубы
+			"vpxor %%xmm5, %%xmm7, %%xmm7\n\t" "vpxor %%xmm6, %%xmm7, %%xmm7\n\t"
+			// Раздача средних произведений по половинам
+			"vpslldq $8, %%xmm7, %%xmm12\n\t" "vpxor %%xmm12, %%xmm5, %%xmm5\n\t" "vpsrldq $8, %%xmm7, %%xmm12\n\t" "vpxor %%xmm12, %%xmm6, %%xmm6\n\t"
+			// Первая ступень: младшее слово на многочлен x^63 + x^62 + x^57
+			"vpclmulqdq $0x10, %%xmm13, %%xmm5, %%xmm12\n\t"
+			// Перестановка слов и сложение
+			"vpalignr $8, %%xmm5, %%xmm5, %%xmm5\n\t" "vpxor %%xmm12, %%xmm5, %%xmm5\n\t"
+			// Вторая ступень
+			"vpclmulqdq $0x10, %%xmm13, %%xmm5, %%xmm12\n\t"
+			// Перестановка слов и сложение
+			"vpalignr $8, %%xmm5, %%xmm5, %%xmm5\n\t" "vpxor %%xmm12, %%xmm5, %%xmm5\n\t"
+			// Накопитель: старшая половина, сложенная с приведённой младшей
+			"vpxor %%xmm6, %%xmm5, %%xmm14\n\t"
+			// Накопитель обратно в порядок байтов GCM
+			"vpshufb %%xmm15, %%xmm14, %%xmm14\n\t" "vmovdqu %%xmm14, (%[acc])\n\t"
+			: [blk] "+r" (blocks), [cnt] "+r" (count)
+			: [pow] "r" (powers), [acc] "r" (accumulator), [mask] "r" (SWAP), [poly] "r" (POLY)
+			: "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", "xmm8", "xmm9", "xmm10", "xmm11", "xmm12", "xmm13", "xmm14", "xmm15", "cc", "memory"
+		);
+	}
+	#endif
 	/**
 	 * @brief Метод слитого хода режима: гамма счётчика AES-NI и хеш GHASH по восемь блоков в одном проходе
 	 *
@@ -1139,23 +1346,28 @@ void nts::cipher::Gcm::multiply(uint8_t * value) const noexcept {
 	store(zl, value + 8);
 }
 /**
- * @brief Метод сложения восьми блоков в накопитель многочлена одним приведением
+ * @brief Метод сложения восьмёрок блоков в накопитель многочлена по одному приведению на восьмёрку
  *
  * @param accumulator накопитель многочлена, заменяемый итогом
- * @param blocks      восемь блоков подряд
+ * @param blocks      восьмёрки блоков подряд
+ * @param count       число восьмёрок: не меньше одной
  *
- * @return            признак того, что машина умножает командами и блоки сложены
+ * @return            признак того, что машина умножает командами и восьмёрки сложены
  *
  */
-bool nts::cipher::Gcm::aggregate(uint8_t * accumulator, const uint8_t * blocks) const noexcept {
+bool nts::cipher::Gcm::aggregate(uint8_t * accumulator, const uint8_t * blocks, const size_t count) const noexcept {
 /**
  * Если есть ветвь машинного умножения PMULL
  */
 #if defined(__ANTS_GHASH_ARM__)
 	// Если машина умножает без переносов командой
 	if(machine::has(machine::feature_t::CARRYLESS)){
-		// Выполняем сложение восьми блоков командой
-		aggregateArm(this->_powers, accumulator, blocks);
+		/**
+		 * Выполняем сложение восьмёрок командой
+		 */
+		for(size_t i = 0; i < count; i++)
+			// Складываем очередную восьмёрку
+			aggregateArm(this->_powers, accumulator, blocks + (i * 128));
 		// Выводим признак сложения
 		return true;
 	}
@@ -1165,8 +1377,24 @@ bool nts::cipher::Gcm::aggregate(uint8_t * accumulator, const uint8_t * blocks) 
 #elif defined(__ANTS_GHASH_X86__)
 	// Если машина умножает без переносов командой
 	if(machine::has(machine::feature_t::CARRYLESS)){
-		// Выполняем сложение восьми блоков командой
-		aggregateX86(this->_powers, accumulator, blocks);
+	/**
+	 * Если есть ядро на ассемблере
+	 */
+	#if (defined(__GNUC__) || defined(__clang__)) && defined(__x86_64__)
+		// Если машина несёт кодировку VEX
+		if(machine::has(machine::feature_t::AVX)){
+			// Выполняем сложение восьмёрок ядром одним вызовом
+			aggregateVexX86(this->_powers, accumulator, blocks, count);
+			// Выводим признак сложения
+			return true;
+		}
+	#endif
+		/**
+		 * Выполняем сложение восьмёрок командой
+		 */
+		for(size_t i = 0; i < count; i++)
+			// Складываем очередную восьмёрку
+			aggregateX86(this->_powers, accumulator, blocks + (i * 128));
 		// Выводим признак сложения
 		return true;
 	}
@@ -1175,6 +1403,8 @@ bool nts::cipher::Gcm::aggregate(uint8_t * accumulator, const uint8_t * blocks) 
 	(void) accumulator;
 	// Довод блоков без ветви команд не используется
 	(void) blocks;
+	// Довод числа восьмёрок без ветви команд не используется
+	(void) count;
 	// Выводим отсутствие ветви команд
 	return false;
 }
@@ -1221,17 +1451,40 @@ void nts::cipher::Gcm::absorb(const uint8_t * data, const size_t size) noexcept 
 		// Сбрасываем число накопленных байтов
 		this->_filled = 0;
 	}
-	/**
-	 * Выполняем сложение по четыре целых блока одним приведением, пока машина умножает командами
-	 */
-	while((left >= 128) && this->aggregate(this->_accumulator, cursor)){
+	// Признак умножения командами машины
+	bool commands = false;
+/**
+ * Если есть ветвь машинного умножения
+ */
+#if defined(__ANTS_GHASH_ARM__) || defined(__ANTS_GHASH_X86__)
+	// Запоминаем, умножает ли машина без переносов командой
+	commands = machine::has(machine::feature_t::CARRYLESS);
+#endif
+	// Если впереди хотя бы восьмёрка целых блоков, а машина умножает командами
+	if(commands && (left >= 128)){
+		// Число восьмёрок целых блоков
+		const size_t groups = (left / 128);
+		// Если восьмёрки сложены одним вызовом по одному приведению на восьмёрку
+		if(this->aggregate(this->_accumulator, cursor, groups)){
+			// Сдвигаем позицию чтения
+			cursor += (groups * 128);
+			// Уменьшаем число не сложенных байтов
+			left -= (groups * 128);
+		}
+	}
+	// Если умножение идёт таблицей и впереди хотя бы целый блок
+	if(!commands && (left >= 16)){
+		// Число целых блоков
+		const size_t whole = (left / 16);
+		// Выполняем сложение целых блоков одним проходом с накопителем в регистрах
+		absorbTable(this->_table, this->_remainders, this->_accumulator, cursor, whole);
 		// Сдвигаем позицию чтения
-		cursor += 128;
+		cursor += (whole * 16);
 		// Уменьшаем число не сложенных байтов
-		left -= 128;
+		left -= (whole * 16);
 	}
 	/**
-	 * Выполняем сложение целых блоков с накопителем
+	 * Выполняем сложение целых блоков остатка с накопителем по одному
 	 */
 	while(left >= 16){
 		/**

@@ -189,22 +189,24 @@ namespace nts {
 				void multiply(uint8_t * value) const noexcept;
 				/**
 				 * \~russian
-				 * @brief Метод сложения четырёх блоков в накопитель многочлена одним приведением
+				 * @brief Метод сложения восьмёрок блоков в накопитель многочлена по одному приведению на восьмёрку
 				 *
 				 * @param accumulator накопитель многочлена, заменяемый итогом
-				 * @param blocks      четыре блока подряд
+				 * @param blocks      восьмёрки блоков подряд
+				 * @param count       число восьмёрок: не меньше одной
 				 *
-				 * @return            признак того, что машина умножает командами и блоки сложены
+				 * @return            признак того, что машина умножает командами и восьмёрки сложены
 				 *
 				 * \~english
-				 * @brief Method of the addition of four blocks into the polynomial accumulator by one reduction
+				 * @brief Method of the addition of groups of eight blocks into the polynomial accumulator by one reduction per group
 				 * @param accumulator the polynomial accumulator, replaced by the result
-				 * @param blocks      four blocks in a row
-				 * @return            the flag of the machine multiplying by the instructions and the blocks being added
+				 * @param blocks      groups of eight blocks in a row
+				 * @param count       the number of groups: at least one
+				 * @return            the flag of the machine multiplying by the instructions and the groups being added
 				 *
 				 * \~
 				 */
-				bool aggregate(uint8_t * accumulator, const uint8_t * blocks) const noexcept;
+				bool aggregate(uint8_t * accumulator, const uint8_t * blocks, const size_t count) const noexcept;
 				/**
 				 * \~russian
 				 * @brief Метод сложения байтов в накопитель многочлена GHASH

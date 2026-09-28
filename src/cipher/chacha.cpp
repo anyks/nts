@@ -22,7 +22,8 @@
  *          модулю два; остаток неполного блока хранится до следующего куска.
  *          Пачки целых блоков идут векторными командами - по четыре блока разом
  *          у SSE2/SSSE3, по восемь у NEON (двумя четвёрками вперемешку) и у AVX2, -
- *          с выбором на исполнении
+ *          с выбором на исполнении; на x86-64 у gcc и clang пачки ведут ядра на
+ *          ассемблере из internal/cipher/chacha.hpp
  *
  * @copyright Copyright © 2026
  *
@@ -39,6 +40,7 @@
 #include <cipher/chacha.hpp>
 #include <sys/machine.hpp>
 #include <sys/wipe.hpp>
+#include <internal/cipher/chacha.hpp>
 
 /**
  * @note Переносимый путь и векторные ветви собираются в один двоичный файл, а выбор
@@ -56,7 +58,15 @@
  *       устройствами и задержкой команды в два такта простаивала наполовину - полоса
  *       упиралась в задержку, а не в число устройств; две четвёрки вперемешку дают
  *       восемь цепочек: на Apple M4 1,86 → 2,8 ГБ/с при 3,0 у OpenSSL, ведущего шесть
- *       блоков векторами и два скалярами. Хвост от четырёх до семи блоков идёт четвёркой
+ *       блоков векторами и два скалярами. Хвост от четырёх до семи блоков идёт четвёркой.
+ *       Ядра на ассемблере x86-64 (круг 42, 28.09.2026): ветви на интринсиках отдавали
+ *       собирателю шестнадцать векторов слов, две маски и приращения - регистров на это нет,
+ *       и раунды шли с перегрузкой слов через стек: Xeon E5-2630 v4 давал 1 487 МБ/с при
+ *       1 755 у OpenSSL, стенды на SSSE3 - 1,12…1,19 к нему. Ядра из tools/cipher/chacha.py
+ *       держат слова a, b и d в регистрах, третьи слова - в памяти по паре в регистрах, пары
+ *       четвертьраундов идут вперемешку, стол слов состояния строится раз на вызов, а пачки
+ *       идут циклом внутри вставки; ветви на интринсиках остаются собирателям без ядер и
+ *       сборке под ASan без оптимизации
  */
 
 /**
@@ -73,9 +83,9 @@
 	 */
 	#define __ANTS_CHACHA_NEON__ 1
 /**
- * Если сборка ведётся под x86-64 собирателем семейства GCC
+ * Если сборка ведётся под x86-64 собирателем семейства GCC без ядер на ассемблере
  */
-#elif (defined(__x86_64__) || defined(__e2k__)) && (defined(__GNUC__) || defined(__clang__)) && !defined(ANTS_NO_MACHINE)
+#elif (defined(__x86_64__) || defined(__e2k__)) && (defined(__GNUC__) || defined(__clang__)) && !defined(ANTS_NO_MACHINE) && !defined(__ANTS_CHACHA_X86_64__)
 	/**
 	 * Подключаем заголовочный файл команд x86-64 вплоть до AVX2
 	 */
@@ -922,9 +932,75 @@ bool nts::cipher::Chacha::advance() noexcept {
  */
 void nts::cipher::Chacha::pack(const uint8_t * & cursor, uint8_t * & output, size_t & left) noexcept {
 /**
- * Если есть ветви команд x86-64
+ * Если есть ядра на ассемблере x86-64
  */
-#if defined(__ANTS_CHACHA_X86__)
+#if defined(__ANTS_CHACHA_X86_64__)
+	// Если машина несёт векторы в 128 разрядов: ядра требуют хотя бы SSE2
+	if(!this->_exhausted && machine::has(machine::feature_t::VECTOR)){
+		// Кадр ядра: стол слов состояния и рабочие ячейки третьих слов
+		alignas(32) uint8_t frame[kernel::FRAME8];
+		// Признак векторов в 256 разрядов
+		const bool avx2 = machine::has(machine::feature_t::AVX2);
+		// Признак перестановки байтов SSSE3
+		const bool shuffle = machine::has(machine::feature_t::SSSE3);
+		// Признак того, что ядро вызывалось и кадр требует затирания
+		bool used = false;
+		/**
+		 * Выполняем покрытие пачками: по восемь блоков у AVX2, затем хвост по четыре
+		 */
+		for(size_t pack = (avx2 ? PACK8 : PACK4); pack >= PACK4; pack -= PACK4){
+			// Число блоков до переполнения счётчика: не меньше одного
+			const uint64_t room = ((static_cast <uint64_t> (UINT32_MAX) - this->_state[12]) + 1);
+			// Число пачек, умещающихся в данные
+			size_t count = (left / (pack * CHACHA_BLOCK));
+			// Если пачек больше, чем умещается в счётчик
+			if(count > (room / pack))
+				// Ограничиваем число пачек счётчиком
+				count = static_cast <size_t> (room / pack);
+			// Если пачек нет
+			if(count == 0)
+				// Переходим к меньшей пачке
+				continue;
+			// Если пачка восьмёрка
+			if(pack == PACK8)
+				// Выполняем покрытие ядром AVX2
+				kernel::chacha8xavx2(this->_state, frame, cursor, output, count);
+			// Если перестановка байтов есть
+			else if(shuffle)
+				// Выполняем покрытие ядром SSSE3
+				kernel::chacha4xssse3(this->_state, frame, cursor, output, count);
+			// Иначе обходимся сдвигами
+			else kernel::chacha4xsse2(this->_state, frame, cursor, output, count);
+			// Число покрытых блоков: не больше умещающихся в счётчик
+			const uint64_t blocks = (static_cast <uint64_t> (count) * pack);
+			// Продвигаем счётчик на покрытые блоки: при исчерпании обращается в ноль
+			this->_state[12] = static_cast <uint32_t> (this->_state[12] + blocks);
+			// Если счётчик исчерпан
+			if(blocks == room)
+				// Запоминаем переполнение счётчика
+				this->_exhausted = true;
+			// Сдвигаем позицию чтения
+			cursor += (blocks * CHACHA_BLOCK);
+			// Сдвигаем позицию записи
+			output += (blocks * CHACHA_BLOCK);
+			// Уменьшаем число не покрытых байтов
+			left -= (blocks * CHACHA_BLOCK);
+			// Запоминаем вызов ядра
+			used = true;
+			// Если счётчик исчерпан
+			if(this->_exhausted)
+				// Выходим из цикла
+				break;
+		}
+		// Если ядро вызывалось
+		if(used)
+			// Выполняем затирание кадра: в столе лежат слова ключа
+			wipe(frame, sizeof(frame));
+	}
+/**
+ * Если есть ветви команд x86-64 на интринсиках
+ */
+#elif defined(__ANTS_CHACHA_X86__)
 	// Если машина несёт векторы в 256 разрядов
 	if(machine::has(machine::feature_t::AVX2)){
 		/**

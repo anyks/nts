@@ -18,6 +18,7 @@
 #include <string>
 #include <vector>
 #include <cstring>
+#include <random>
 
 /**
  * Подключаем заголовочные файлы проекта
@@ -457,6 +458,74 @@ TEST(GcmTest, Paths){
 	ASSERT_EQ(text(tag1, sizeof(tag1)), text(tag2, sizeof(tag2)));
 	// Проверяем схождение открытого текста
 	ASSERT_EQ(::memcmp(opened.data(), plain.data(), plain.size()), 0);
+}
+
+/**
+ * Проверка пачек: связанные данные и данные всякой длины сходятся между путём машины и таблицами;
+ * длины закрывают восьмёрки блоков подряд (ядро циклом), хвосты короче восьмёрки и неполные блоки
+ */
+TEST(GcmTest, Batches){
+	// Ключ
+	const std::vector <uint8_t> key = bytes("feffe9928665731c6d6a8f9467308308feffe9928665731c6d6a8f9467308308");
+	// Заполнение в 12 байтов
+	const std::vector <uint8_t> nonce = bytes("cafebabefacedbaddecaf888");
+	// Генератор данных и длин с закреплённым зерном
+	std::mt19937 generator(20260928);
+	// Объект шифра
+	cipher::aes_t aes;
+	// Объект режима
+	cipher::gcm_t gcm;
+	/**
+	 * Выполняем перебор длин данных шагом от одного до пяти байтов
+	 */
+	for(size_t length = 0; length <= 1600; length += (1 + (generator() % 5))){
+		// Длина связанных данных: своя на каждую длину данных, до восьмидесяти блоков
+		const size_t associated = ((length * 7) % 1300);
+		// Открытый текст и связанные данные
+		std::vector <uint8_t> plain(length), extra(associated);
+		/**
+		 * Выполняем заполнение открытого текста
+		 */
+		for(size_t i = 0; i < plain.size(); i++)
+			// Записываем очередной байт
+			plain[i] = static_cast <uint8_t> (generator());
+		/**
+		 * Выполняем заполнение связанных данных
+		 */
+		for(size_t i = 0; i < extra.size(); i++)
+			// Записываем очередной байт
+			extra[i] = static_cast <uint8_t> (generator());
+		// Шифртексты обоих путей и раскрытый текст
+		std::vector <uint8_t> first(length), second(length), opened(length);
+		// Метки обоих путей
+		uint8_t tag1[16], tag2[16];
+		// Проверяем установку ключа на пути, выбранном машиной
+		ASSERT_TRUE(aes.key(view_t(key.data(), key.size())));
+		// Проверяем запуск режима
+		ASSERT_TRUE(gcm.start(cipher::block_t(aes), view_t(nonce.data(), nonce.size())));
+		// Проверяем зашифрование на пути, выбранном машиной
+		ASSERT_TRUE(gcm.encrypt(view_t(extra.data(), extra.size()), view_t(plain.data(), plain.size()), first.data(), tag1)) << "length " << length;
+		// Запрещаем машинные команды
+		machine::allow(false);
+		// Проверяем установку ключа заново: таблицы шифра строятся при установке
+		ASSERT_TRUE(aes.key(view_t(key.data(), key.size())));
+		// Проверяем запуск режима таблицами
+		ASSERT_TRUE(gcm.start(cipher::block_t(aes), view_t(nonce.data(), nonce.size())));
+		// Проверяем зашифрование таблицами
+		ASSERT_TRUE(gcm.encrypt(view_t(extra.data(), extra.size()), view_t(plain.data(), plain.size()), second.data(), tag2)) << "length " << length;
+		// Проверяем перезапуск таблицами
+		ASSERT_TRUE(gcm.start(cipher::block_t(aes), view_t(nonce.data(), nonce.size())));
+		// Проверяем расшифрование таблицами того, что зашифровано на пути машины
+		ASSERT_TRUE(gcm.decrypt(view_t(extra.data(), extra.size()), view_t(first.data(), first.size()), opened.data(), view_t(tag1, sizeof(tag1)))) << "length " << length;
+		// Возвращаем машинные команды
+		machine::allow(true);
+		// Проверяем схождение шифртекстов
+		ASSERT_EQ(text(first.data(), first.size()), text(second.data(), second.size())) << "length " << length;
+		// Проверяем схождение меток
+		ASSERT_EQ(text(tag1, sizeof(tag1)), text(tag2, sizeof(tag2))) << "length " << length << " associated " << associated;
+		// Проверяем схождение открытого текста
+		ASSERT_EQ(::memcmp(opened.data(), plain.data(), plain.size()), 0) << "length " << length;
+	}
 }
 
 /**
