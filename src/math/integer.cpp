@@ -630,9 +630,11 @@ namespace {
  * указателями - пятнадцать регистров впритык, слова рядов и множители приведения лежат
  * в памяти. У собирателей x86-64 ряды на C с __int128 разливают регистры: у GCC 12 два
  * ряда на C медленнее прежнего ядра (1 201 нс против 1 131 на 16 словах), у GCC 16 - 770,
- * у clang 19 - 762, а этот цикл - 795, 662 и 673 соответственно (стенды QEMU, круг 33)
+ * у clang 19 - 762, а этот цикл - 795, 662 и 673 соответственно (стенды QEMU, круг 33).
+ * Под ASan без оптимизации ветвь не берётся: вставка занимает все регистры общего
+ * назначения, и собирателю их не хватает (признак __ANTS_ASAN_UNOPTIMIZED__, круг 38)
  */
-#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER)
+#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER) && !defined(__ANTS_ASAN_UNOPTIMIZED__)
 	/**
 	 * @brief Метод цикла столбцов двух рядов умножения Монтгомери на ассемблере x86-64
 	 *
@@ -749,7 +751,7 @@ namespace {
 /**
  * Под x86-64 цикл столбцов идёт на ассемблере
  */
-#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER)
+#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER) && !defined(__ANTS_ASAN_UNOPTIMIZED__)
 		// Если столбцы есть
 		if(count > 2)
 			// Выполняем цикл столбцов на ассемблере
@@ -804,7 +806,7 @@ namespace {
 /**
  * Ядра квадрата нужны всюду, кроме x86-64 с GCC и clang: там квадрат идёт ассемблерными рядами умножения
  */
-#if !(defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER))
+#if !(defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER) && !defined(__ANTS_ASAN_UNOPTIMIZED__))
 	/**
 	 * @brief Метод двух рядов симметричных произведений квадрата
 	 *
@@ -1149,7 +1151,7 @@ namespace {
  * Под x86-64 квадрат идёт общим ядром: ряды квадрата на C у GCC 12 медленнее
  * ассемблерных рядов умножения (1 066 нс против 795 на 16 словах, круг 33)
  */
-#if !(defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER))
+#if !(defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER) && !defined(__ANTS_ASAN_UNOPTIMIZED__))
 		// Если сомножители - одно число
 		if(first == second){
 			// Идёт ядро квадрата

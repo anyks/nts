@@ -777,9 +777,10 @@ namespace {
 		counter[15] = static_cast <uint8_t> (tail);
 	}
 /**
- * Если собиратель семейства GCC: встроенный ассемблер
+ * Если собиратель семейства GCC под x86-64: встроенный ассемблер (lcc Эльбруса изображает
+ * умножение без переносов, но не команды x86-64)
  */
-#if defined(__GNUC__) || defined(__clang__)
+#if (defined(__GNUC__) || defined(__clang__)) && defined(__x86_64__)
 	/**
 	 * @brief Метод слитого хода целых восьмёрок на ассемблере x86-64: сшивка AES-CTR и GHASH
 	 *
@@ -1057,7 +1058,7 @@ bool nts::cipher::Gcm::travel(const bool sealing, const uint8_t * source, uint8_
 		/**
 		 * Если есть сшитое ядро на ассемблере, а машина несёт кодировку VEX и MOVBE
 		 */
-		#if defined(__GNUC__) || defined(__clang__)
+		#if (defined(__GNUC__) || defined(__clang__)) && defined(__x86_64__)
 			// Если машина несёт кодировку VEX, загрузку с перестановкой байтов и гамму шифра
 			if(machine::has(machine::feature_t::AVX) && machine::has(machine::feature_t::MOVBE) && (this->_block.stream != nullptr))
 				// Выводим итог слитого хода сшитым ядром

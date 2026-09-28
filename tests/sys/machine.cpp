@@ -34,6 +34,16 @@
 #include <sys/machine.hpp>
 
 /**
+ * Если сборка ведётся под x86-64 собирателем семейства GCC
+ */
+#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
+	/**
+	 * Подключаем заголовочный файл опроса машины
+	 */
+	#include <cpuid.h>
+#endif
+
+/**
  * Установка переменной окружения: у Windows нет setenv, есть _putenv_s
  */
 static bool assign(const char * name, const char * value) noexcept {
@@ -84,8 +94,10 @@ TEST(MachineTest, Flags) {
 		// Иначе кодировка VEX не признаётся
 		else
 			ASSERT_FALSE(machine::has(machine::feature_t::AVX));
-		// Если собиратель видит у машины MOVBE
-		if(__builtin_cpu_supports("movbe"))
+		// Регистры опроса первого листа: clang не знает имени movbe у встроенной проверки, оттого опрос прямой
+		unsigned int eax = 0, ebx = 0, ecx = 0, edx = 0;
+		// Если первый лист опроса снят и несёт MOVBE: разряд 22 ECX
+		if(::__get_cpuid(1, &eax, &ebx, &ecx, &edx) && (ecx & (1U << 22)))
 			// Проверяем, что загрузка с перестановкой байтов признана
 			ASSERT_TRUE(machine::has(machine::feature_t::MOVBE));
 		// Иначе загрузка с перестановкой байтов не признаётся
