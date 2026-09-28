@@ -116,6 +116,21 @@
  *    ширинах (квадрат против умножения по разным указателям и против квадрата через деление;
  *    под x86-64 прогон и с ANTS_MACHINE=0x200 - полосы).
  *
+ * 9. Квадрат блоками по восемь слов на mulq для x86-64 без BMI2 и ADX (круг 44, 28.09.2026):
+ *    на стендах без этих расширений (QEMU, процессоры до Broadwell и Zen) квадрат шёл общим
+ *    ядром рядов-столбцов, и подпись RSA-2048 отставала от эталона в 1,5 раза - у OpenSSL на
+ *    mulq квадрат bn_sqr8x_mont стоит 0,78 умножения bn_mul4x_mont, а умножение вровень с
+ *    нашими столбцами. Ядро из порождателя tools/math/mont.py (src/internal/math/mont.hpp) -
+ *    то же устройство трёх проходов, что и решение 8, но перенос живёт в регистре и каждое
+ *    произведение складывается четырьмя флаговыми командами (add, adc, add, adc), а ряды
+ *    перекрываются переупорядочением машины; перенос прибавления накопленного к окну
+ *    откладывается до следующего прибавления - сложенный в старшее слово первого ряда он
+ *    терялся на предельных входах (все единицы), что и поймал интерпретатор порождателя.
+ *    Ряд полосами на mulq (одна цепочка вместо двух у ADX) пробован и отвергнут: медленнее
+ *    столбцов (Xeon без ADX 1 693 против 1 505 TSC на 16 словах). FreeBSD QEMU, 16 слов:
+ *    квадрат 1 417 → 1 093 TSC (0,77 умножения), 32 слова 5 280 → 4 024. Закреплено
+ *    IntegerTest.Kernels под ANTS_MACHINE=0x200 на x86-64.
+ *
  * @copyright Copyright © 2026
  *
  */
@@ -128,6 +143,11 @@
 #include <sys/wipe.hpp>
 #include <math/wide.hpp>
 #include <sys/machine.hpp>
+
+/**
+ * Подключаем внутренний модуль квадрата Монтгомери на mulq для x86-64 без BMI2 и ADX
+ */
+#include <internal/math/mont.hpp>
 
 /**
  * Векторные команды выбора записи таблицы окна: NEON под AArch64, SSE2 под x86-64
@@ -3316,6 +3336,25 @@ namespace {
 		#undef __ANTS_SQUARE8X_READY__
 #endif
 /**
+ * Под x86-64 без BMI2 и ADX квадрат ширины, кратной восьми, идёт тем же устройством на mulq из
+ * порождателя tools/math/mont.py (решение 9 шапки): три четверти умножений против рядов-столбцов
+ */
+#if defined(__ANTS_MONT_SQUARE8X_MULQ__)
+		// Если сомножители - одно число, ширина кратна восьми, а MULX и ADCX/ADOX у машины нет
+		if((first == second) && ((count % 8) == 0) && !machine::has(machine::feature_t::ADX)){
+			// Слова квадрата удвоенной ширины
+			uint64_t buffer[(2 * INTEGER_WORDS) + 2];
+			// Квадрат блоками по восемь слов на mulq
+			kernel::square8xMulq(buffer, first, modulus, count, inverse);
+			// Доводим старшую половину до значения, меньшего модуля
+			settle(buffer + count, modulus, count, result);
+			// Затираем отложенные множители приведения
+			wipe(buffer, count * sizeof(uint64_t));
+			// Выходим
+			return;
+		}
+#endif
+/**
  * Ряды полосами по четыре слова на ассемблере: под AArch64 всегда, под x86-64 при
  * расширениях BMI2 и ADX у машины; ширина кратна четырём (решение 7 шапки). Квадрат
  * прочих ширин тоже идёт этим ядром: оно быстрее рядов квадрата на C
@@ -4446,22 +4485,28 @@ bool nts::math::Integer::subtract(const Integer & first, const Integer & second)
  *
  */
 bool nts::math::Integer::multiply(const Integer & first, const Integer & second) noexcept {
+	// Число значимых слов сомножителей: произведение стоит их произведение, а не квадрат ёмкости
+	const size_t count1 = top(first._words, INTEGER_WORDS), count2 = top(second._words, INTEGER_WORDS);
+	// Число слов произведения
+	const size_t count = (count1 + count2);
 	// Накопитель произведения двойной ёмкости
 	uint64_t buffer[DOUBLE_WORDS];
-	// Вычисляем произведение целиком
-	product(first._words, INTEGER_WORDS, second._words, INTEGER_WORDS, buffer);
+	// Обнуляем слова накопителя выше произведения
+	clean(buffer + count, DOUBLE_WORDS - count);
+	// Вычисляем произведение по значимым словам
+	product(first._words, count1, second._words, count2, buffer);
 	// Записываем младшую половину произведения
 	transfer(buffer, this->_words, INTEGER_WORDS);
 	// Объединение слов старшей половины
 	uint64_t excess = 0;
 	/**
-	 * Выполняем перебор слов старшей половины произведения
+	 * Выполняем перебор слов произведения выше ёмкости
 	 */
-	for(size_t i = INTEGER_WORDS; i < DOUBLE_WORDS; i++)
+	for(size_t i = INTEGER_WORDS; i < count; i++)
 		// Учитываем очередное слово
 		excess |= buffer[i];
-	// Затираем накопитель
-	wipe(buffer, sizeof(buffer));
+	// Затираем слова произведения
+	wipe(buffer, count * sizeof(uint64_t));
 	// Выводим признак того, что произведение уместилось
 	return (excess == 0);
 }

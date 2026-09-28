@@ -813,6 +813,36 @@ TEST(RsaTest, Sign) {
 	ASSERT_FALSE(rsa.make(sign::scheme_t::PKCS1, digest::hash_t::SHA256, view_t(hash, size), signature));
 }
 /**
+ * @brief Проверка сохранённой пары ослепления: обновления квадратами и смена каждые тридцать два действия
+ *
+ */
+TEST(RsaTest, Blinding) {
+	// Модуль RSA с секретным ключом
+	sign::rsa_t rsa;
+	// Разбираем секретный ключ OpenSSL
+	ASSERT_TRUE(rsa.decode(view(bytes(KEY_DER))));
+	// Хеш сообщения
+	uint8_t hash[64];
+	// Вырабатываем хеш SHA-256
+	const size_t size = hashed(digest::hash_t::SHA256, hash);
+	// Место подписи
+	uint8_t signature[256];
+	/**
+	 * Выполняем семьдесят подписей подряд: пара ослепления обновляется квадратами и дважды сменяется свежей;
+	 * подпись PKCS #1 детерминирована и сличается с подписью OpenSSL на каждом действии
+	 */
+	for(size_t i = 0; i < 70; i++){
+		// Вырабатываем подпись по PKCS #1 v1.5
+		ASSERT_TRUE(rsa.make(sign::scheme_t::PKCS1, digest::hash_t::SHA256, view_t(hash, size), signature)) << "действие " << i;
+		// Сличаем с подписью OpenSSL байт в байт
+		ASSERT_EQ(text(signature, sizeof(signature)), std::string(SIGNATURE_PKCS1)) << "действие " << i;
+	}
+	// Смена ключа требует свежей пары: подпись тем же ключом после повторного разбора сходится
+	ASSERT_TRUE(rsa.decode(view(bytes(KEY_DER))));
+	ASSERT_TRUE(rsa.make(sign::scheme_t::PKCS1, digest::hash_t::SHA256, view_t(hash, size), signature));
+	ASSERT_EQ(text(signature, sizeof(signature)), std::string(SIGNATURE_PKCS1));
+}
+/**
  * @brief Проверка расшифрования шифротекстов OpenSSL
  *
  */

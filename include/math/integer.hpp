@@ -386,11 +386,16 @@ namespace nts {
 				 * @param second второй сомножитель
 				 * @return       признак успешности: произведение умещается в ёмкость
 				 *
+				 * @note Произведение считается по значимым словам сомножителей: время зависит от
+				 *       их ширины в словах, а не от значений
+				 *
 				 * \~english
 				 * @brief Method of the multiplication of the numbers
 				 * @param first  the first multiplier
 				 * @param second the second multiplier
 				 * @return       the flag of the success: the product fits into the capacity
+				 * @note The product is computed over the significant words of the multipliers: the time
+				 *       depends on their width in words, not on the values
 				 *
 				 * \~
 				 */

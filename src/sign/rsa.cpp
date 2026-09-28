@@ -30,10 +30,16 @@
  *    Обратные числа считаются алгоритмом Бернстайна и Янга за постоянное время
  *    (8,8 мкс на 1024 разрядах), а не малой теоремой Ферма: две экспоненты p - 2 и
  *    q - 2 стоили столько же, сколько сами секретные степени, - половину действия.
- *    Ослепление на каждый вызов свежее: сохранённая пара с обновлением квадратами,
- *    как у OpenSSL, требовала бы изменяемого состояния и замка в неизменяемом ключе,
- *    а стоит она восемь сотых действия. Условие пересмотра: измеренная нехватка этих
- *    сотых до эталона.
+ *    До круга 44 (28.09.2026) ослепление на каждый вызов было свежим, а условием
+ *    пересмотра стояла измеренная нехватка его сотых до эталона: она наступила -
+ *    на Xeon E5-2630 v4 подпись RSA-2048 1 259 мкс при 932 у OpenSSL, из них два
+ *    обращения, две открытые степени и четыре умножения по модулю 79 мкс. Теперь пара
+ *    r^e и r⁻¹ по каждому сомножителю хранится в объекте в области Монтгомери и
+ *    обновляется квадратами на каждом действии ((r²)^e = (r^e)², (r²)⁻¹ = (r⁻¹)²), а
+ *    свежая берётся каждые тридцать два действия (счётчик BN_BLINDING OpenSSL и
+ *    BoringSSL): 79 → 4 мкс. Состояние изменяемое без замка - объекты библиотеки
+ *    между потоками не разделяются; при гонке пара расходится, итог не проходит
+ *    проверку открытой степенью (решение 3) и не выдаётся.
  * 2. Предвычисления Монтгомери по n, p и q и коэффициент qInv в области по p
  *    заводятся при установке ключа (prepare), оттого подпись и сличение не платят за
  *    них: прежде сличение подписи RSA-2048 стоило 308 мкс, из которых сами
@@ -126,6 +132,14 @@ namespace {
 	 *
 	 */
 	static constexpr size_t BLINDING = 100;
+	/**
+	 * @brief Число секретных действий с одной парой ослепления
+	 *
+	 * @details Пара обновляется квадратами на каждом действии, а свежая берётся, когда
+	 *          счётчик доходит до предела (решение 1 шапки)
+	 *
+	 */
+	static constexpr size_t REFRESH = 32;
 
 	// Затирание областей памяти берётся из открытого API библиотеки
 	using nts::sys::wipe;
@@ -628,6 +642,13 @@ void nts::sign::Rsa::clear() noexcept {
 	this->_field1.clear();
 	this->_field2.clear();
 	this->_reverse.clear();
+	// Затираем сохранённую пару ослепления
+	this->_raised1.clear();
+	this->_inverse1.clear();
+	this->_raised2.clear();
+	this->_inverse2.clear();
+	// Сбрасываем счётчик действий с парой
+	this->_uses = 0;
 }
 /**
  * @brief Метод порождения ключа
@@ -1151,6 +1172,8 @@ bool nts::sign::Rsa::prepare() noexcept {
 	if(!this->_field1.start(this->_prime1) || !this->_field2.start(this->_prime2))
 		// Выводим отказ
 		return false;
+	// Новому ключу нужна свежая пара ослепления
+	this->_uses = 0;
 	// Переводим коэффициент qInv в область Монтгомери по первому сомножителю
 	return this->_field1.enter(this->_coefficient, this->_reverse);
 }
@@ -1179,35 +1202,51 @@ bool nts::sign::Rsa::decipher(const view_t & input, uint8_t * output) const noex
 	if(!this->_field1.reduce(value, part1) || !this->_field2.reduce(value, part2))
 		// Выводим отказ
 		return false;
-	// Ослепляющие числа по сомножителям и обратные к ним
-	math::integer_t blind1, blind2, inverse1, inverse2;
-	// Признак того, что ослепляющие числа найдены
-	bool found = false;
 	/**
-	 * Выбираем ослепляющие числа: ненулевые и обратимые по своим сомножителям
+	 * Если сохранённой пары ослепления нет либо она отработала своё: берётся свежая
 	 */
-	for(size_t i = 0; (i < BLINDING) && !found; i++){
-		// Берём случайные числа на разряд короче сомножителей: они заведомо меньше их
-		if(!blind1.random(this->_prime1.bits() - 1) || !blind2.random(this->_prime2.bits() - 1))
+	if((this->_uses == 0) || (this->_uses >= REFRESH)){
+		// Ослепляющие числа по сомножителям, обратные к ним и их открытые степени
+		math::integer_t blind1, blind2, inverse1, inverse2, raised1, raised2;
+		// Признак того, что ослепляющие числа найдены
+		bool found = false;
+		/**
+		 * Выбираем ослепляющие числа: ненулевые и обратимые по своим сомножителям
+		 */
+		for(size_t i = 0; (i < BLINDING) && !found; i++){
+			// Берём случайные числа на разряд короче сомножителей: они заведомо меньше их
+			if(!blind1.random(this->_prime1.bits() - 1) || !blind2.random(this->_prime2.bits() - 1))
+				// Выводим отказ
+				return false;
+			// Числа годны, когда ненулевые и обратимые: обращение идёт за постоянное время
+			found = (!blind1.zero() && !blind2.zero() && this->_field1.invert(blind1, inverse1) && this->_field2.invert(blind2, inverse2));
+		}
+		// Если ослепляющие числа не найдены
+		if(!found)
 			// Выводим отказ
 			return false;
-		// Числа годны, когда ненулевые и обратимые: обращение идёт за постоянное время
-		found = (!blind1.zero() && !blind2.zero() && this->_field1.invert(blind1, inverse1) && this->_field2.invert(blind2, inverse2));
-	}
-	// Если ослепляющие числа не найдены
-	if(!found)
+		// Возводим ослепляющие числа в открытую степень по сомножителям
+		if(!this->_field1.power(blind1, this->_exponent, false, raised1) || !this->_field2.power(blind2, this->_exponent, false, raised2))
+			// Выводим отказ
+			return false;
+		// Сохраняем пару в области Монтгомери: умножение на неё - одно умножение Монтгомери
+		if(!this->_field1.enter(raised1, this->_raised1) || !this->_field1.enter(inverse1, this->_inverse1) ||
+		   !this->_field2.enter(raised2, this->_raised2) || !this->_field2.enter(inverse2, this->_inverse2))
+			// Выводим отказ
+			return false;
+		// Пара свежая
+		this->_uses = 0;
+	// Иначе пара обновляется квадратами: (r²)^e = (r^e)², (r²)⁻¹ = (r⁻¹)²
+	} else if(!this->_field1.multiply(this->_raised1, this->_raised1, this->_raised1) || !this->_field1.multiply(this->_inverse1, this->_inverse1, this->_inverse1) ||
+	          !this->_field2.multiply(this->_raised2, this->_raised2, this->_raised2) || !this->_field2.multiply(this->_inverse2, this->_inverse2, this->_inverse2))
 		// Выводим отказ
 		return false;
-	// Ослепляющие числа в открытой степени
-	math::integer_t raised1, raised2;
-	// Возводим ослепляющие числа в открытую степень по сомножителям
-	if(!this->_field1.power(blind1, this->_exponent, false, raised1) || !this->_field2.power(blind2, this->_exponent, false, raised2))
-		// Выводим отказ
-		return false;
+	// Учитываем действие с парой
+	this->_uses++;
 	// Ослеплённые вычеты
 	math::integer_t blinded1, blinded2;
-	// Ослепляем вычеты
-	if(!this->_field1.mulmod(part1, raised1, blinded1) || !this->_field2.mulmod(part2, raised2, blinded2))
+	// Ослепляем вычеты: сомножитель в области, оттого множитель R сокращается одним умножением
+	if(!this->_field1.multiply(part1, this->_raised1, blinded1) || !this->_field2.multiply(part2, this->_raised2, blinded2))
 		// Выводим отказ
 		return false;
 	// Степени по сомножителям
@@ -1217,7 +1256,7 @@ bool nts::sign::Rsa::decipher(const view_t & input, uint8_t * output) const noex
 		// Выводим отказ
 		return false;
 	// Снимаем ослепление: секретная степень открытой степени ослепляющего числа есть само число
-	if(!this->_field1.mulmod(power1, inverse1, power1) || !this->_field2.mulmod(power2, inverse2, power2))
+	if(!this->_field1.multiply(power1, this->_inverse1, power1) || !this->_field2.multiply(power2, this->_inverse2, power2))
 		// Выводим отказ
 		return false;
 	// Итог действия
@@ -1863,7 +1902,7 @@ bool nts::sign::Rsa::decrypt(const scheme_t scheme, const digest::hash_t algorit
  * @brief Конструктор
  *
  */
-nts::sign::Rsa::Rsa() noexcept : _public(false), _secret(false), _bits(0) {}
+nts::sign::Rsa::Rsa() noexcept : _public(false), _secret(false), _bits(0), _uses(0) {}
 /**
  * @brief Деструктор
  *

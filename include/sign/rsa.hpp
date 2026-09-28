@@ -131,7 +131,12 @@ namespace nts {
 		 *
 		 * @note Памяти криптография не выделяет и исключений не возбуждает: выделяет
 		 *       лишь запись ключа в DER, где нехватка памяти отдаётся отказом.
-		 *       Секретные составляющие затираются при сбросе и уничтожении объекта
+		 *       Секретные составляющие затираются при сбросе и уничтожении объекта.
+		 *       Пара ослепления секретного действия хранится в объекте и обновляется
+		 *       квадратами, свежая - каждые тридцать два действия: объект ключа не
+		 *       разделяется между потоками без внешней синхронизации, как и прочие
+		 *       объекты библиотеки; при гонке итог расходится с проверкой открытой
+		 *       степенью и не выдаётся
 		 *
 		 * \~english
 		 * @brief RSA according to PKCS #1 v2.2
@@ -143,7 +148,11 @@ namespace nts {
 		 *          depend on the content
 		 * @note The cryptography does not allocate memory and raises no exceptions: only the writing
 		 *       of the key into DER allocates, where the lack of memory is given as a refusal. The
-		 *       secret components are wiped at the reset and at the destruction of the object
+		 *       secret components are wiped at the reset and at the destruction of the object. The
+		 *       blinding pair of the secret operation is kept in the object and updated by squaring,
+		 *       a fresh one every thirty-two operations: the key object is not shared between threads
+		 *       without an external synchronization, like the other objects of the library; at a race
+		 *       the outcome diverges from the check by the public power and is not given out
 		 *
 		 * \~
 		 */
@@ -182,6 +191,14 @@ namespace nts {
 				math::montgomery_t _field2;
 				// Коэффициент qInv в области Монтгомери по p
 				math::integer_t _reverse;
+			private:
+				// Сохранённая пара ослепления по сомножителям в области Монтгомери: r^e и r^-1 по p и по q, обновляемые квадратами на каждом действии
+				mutable math::integer_t _raised1;
+				mutable math::integer_t _inverse1;
+				mutable math::integer_t _raised2;
+				mutable math::integer_t _inverse2;
+				// Число секретных действий с сохранённой парой: нулевое требует свежей пары
+				mutable size_t _uses;
 			private:
 				/**
 				 * \~russian
