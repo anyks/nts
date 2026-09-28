@@ -218,26 +218,62 @@ TEST(Sha2Test, Refusals){
  * Проверка схождения обоих путей SHA-256: командами машины и таблицами
  */
 TEST(Sha2Test, Paths){
-	// Сообщение в 70 000 байтов
-	std::string message(70000, 'x');
+	// Генератор сообщений и длин кусков с закреплённым зерном
+	std::mt19937 generator(20260928);
 	/**
-	 * Выполняем заполнение сообщения
+	 * Выполняем перебор длин: пачки блоков любой чётности и хвосты через границы блоков
 	 */
-	for(size_t i = 0; i < message.size(); i++)
-		// Записываем очередной знак
-		message[i] = static_cast <char> (i * 13 + 5);
-	// Хеш на пути, выбранном машиной
-	const std::string first = whole(digest::sha_t::SHA256, message);
-	// Запрещаем машинные команды
-	machine::allow(false);
-	// Хеш таблицами
-	const std::string second = whole(digest::sha_t::SHA256, message);
-	// Возвращаем машинные команды
-	machine::allow(true);
-	// Проверяем схождение хешей
-	ASSERT_EQ(first, second);
-	// Проверяем длину хеша
-	ASSERT_EQ(first.size(), 64u);
+	for(size_t length = 0; length <= 4096; length++){
+		// Сообщение
+		std::string message(length, 'x');
+		/**
+		 * Выполняем заполнение сообщения
+		 */
+		for(size_t i = 0; i < message.size(); i++)
+			// Записываем очередной знак
+			message[i] = static_cast <char> (generator());
+		// Хеши целиком на пути, выбранном машиной
+		const std::string first256 = whole(digest::sha_t::SHA256, message), first224 = whole(digest::sha_t::SHA224, message);
+		// Объект хеширования SHA-256 на пути машины
+		digest::sha2_t hasher(digest::sha_t::SHA256);
+		// Позиция внутри сообщения
+		size_t position = 0;
+		/**
+		 * Выполняем подачу сообщения кусками случайной длины
+		 */
+		while(position < length){
+			// Длина очередного куска
+			size_t chunk = (1 + (generator() % 300));
+			// Если кусок длиннее остатка
+			if(chunk > (length - position))
+				// Ограничиваем кусок остатком
+				chunk = (length - position);
+			// Подаём очередной кусок
+			hasher.update(view_t(reinterpret_cast <const uint8_t *> (message.data()) + position, chunk));
+			// Сдвигаем позицию
+			position += chunk;
+		}
+		// Место, в которое записывается хеш
+		uint8_t result[32];
+		// Проверяем снятие хеша
+		ASSERT_TRUE(hasher.finish(result, sizeof(result)));
+		// Запись хеша кусками на пути машины
+		const std::string chunked = text(result, sizeof(result));
+		// Запрещаем машинные команды
+		machine::allow(false);
+		// Хеши целиком переносимым путём
+		const std::string second256 = whole(digest::sha_t::SHA256, message), second224 = whole(digest::sha_t::SHA224, message);
+		// Возвращаем машинные команды
+		machine::allow(true);
+		// Проверяем схождение путей SHA-256
+		ASSERT_EQ(first256, second256) << "SHA-256, длина " << length;
+		// Проверяем схождение подачи кусками с подачей целиком
+		ASSERT_EQ(first256, chunked) << "SHA-256 кусками, длина " << length;
+		// Проверяем схождение путей SHA-224
+		ASSERT_EQ(first224, second224) << "SHA-224, длина " << length;
+		// Проверяем длину хеша
+		ASSERT_EQ(first256.size(), 64u);
+	}
 }
 
 /**

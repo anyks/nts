@@ -19,13 +19,29 @@
  *          (80 кругов). SHA-224 и SHA-384 - те же преобразования с иным начальным
  *          значением и усечённым итогом. Слова читаются и пишутся от старшего байта.
  *          На ARM64 оба преобразования идут машинными командами расширений SHA2 и
- *          SHA512 (ARMv8.2) с выбором на исполнении; переносимый путь остаётся
+ *          SHA512 (ARMv8.2), на x86-64 - ядрами на встроенном ассемблере (AVX2, AVX либо
+ *          SSSE3), с выбором на исполнении; переносимый путь остаётся
  *
  * @note Круги идут восьмёрками с переименованием переменных вместо сдвига (a…h не
  *       переносятся, меняются лишь d и h), а расписание считается на кольце из
  *       шестнадцати слов перед самим кругом, а не раскладывается заранее в 64 либо 80:
  *       собиратель перемежает расписание с кругами и держит всё в регистрах. На
  *       Эльбрусе это 112 → 166 МБ/с у SHA-256 и 130 → 208 у SHA-512
+ *
+ * @note Блоки разбираются пачками (круг 41, 28.09.2026): целые блоки куска уходят в ядро
+ *       одним вызовом, и состояние живёт в регистрах между блоками, а выбор пути и перенос
+ *       состояния в слова делаются раз на пачку, не на блок. На M4 командами SHA-256 это
+ *       2 287 → 2 943 МБ/с при 2 930 у OpenSSL (SHA-512 1 603 → 1 693 при 1 640); вставка с порядком
+ *       команд по образцу sha256_block_armv8 против интринсиков того же порядка - 2 947 при 2 463.
+ *       Под x86-64 у gcc и clang - ядра на встроенном ассемблере из src/internal/digest/sha2.hpp
+ *       (порождаются сценарием tools/digest/sha2.py, сличающим порождённый список команд
+ *       с эталоном до выдачи текста): круги развёрнуты с переименованием регистров,
+ *       расписание с постоянными считается векторно и лежит в кадре на стеке; ветвь AVX2 с
+ *       BMI2 ведёт два блока разом (расписание обоих в двух полосах ymm), ветвь AVX с BMI2 -
+ *       по блоку на rorx, ветвь SSSE3 - по блоку на ror; признак BMI2 берётся из признака
+ *       ADX (BMI2 и ADX вместе). Xeon E5-2630 v4: SHA-256 125 → 259 МБ/с при 269 у
+ *       OpenSSL (переносимый путь 17,6 такта на байт при 8,2 у ассемблера AVX2), SHA-512
+ *       199 → 372 при 402; стенды QEMU без AVX (ветвь SSSE3): SHA-256 216…220 при 246…251 (1,13…1,16), SHA-512 300…304 при 300…303 (0,99…1,01)
  *
  * @copyright Copyright © 2026
  *
@@ -41,6 +57,7 @@
  */
 #include <sys/machine.hpp>
 #include <sys/wipe.hpp>
+#include <internal/digest/sha2.hpp>
 
 /**
  * Если сборка ведётся под ARM64
@@ -144,7 +161,7 @@ namespace {
 	 *          чисел, раздел 4.2.2 FIPS 180-4
 	 *
 	 */
-	static constexpr uint32_t K256[64] = {
+	alignas(16) static constexpr uint32_t K256[64] = {
 		0x428A2F98, 0x71374491, 0xB5C0FBCF, 0xE9B5DBA5, 0x3956C25B, 0x59F111F1, 0x923F82A4, 0xAB1C5ED5,
 		0xD807AA98, 0x12835B01, 0x243185BE, 0x550C7DC3, 0x72BE5D74, 0x80DEB1FE, 0x9BDC06A7, 0xC19BF174,
 		0xE49B69C1, 0xEFBE4786, 0x0FC19DC6, 0x240CA1CC, 0x2DE92C6F, 0x4A7484AA, 0x5CB0A9DC, 0x76F988DA,
@@ -162,7 +179,7 @@ namespace {
 	 *          чисел, раздел 4.2.3 FIPS 180-4
 	 *
 	 */
-	static constexpr uint64_t K512[80] = {
+	alignas(16) static constexpr uint64_t K512[80] = {
 		0x428A2F98D728AE22ULL, 0x7137449123EF65CDULL, 0xB5C0FBCFEC4D3B2FULL, 0xE9B5DBA58189DBBCULL,
 		0x3956C25BF348B538ULL, 0x59F111F1B605D019ULL, 0x923F82A4AF194F9BULL, 0xAB1C5ED5DA6D8118ULL,
 		0xD807AA98A3030242ULL, 0x12835B0145706FBEULL, 0x243185BE4EE4B28CULL, 0x550C7DC3D5FFB4E2ULL,
@@ -485,13 +502,24 @@ namespace {
  */
 #if defined(__ANTS_SHA256_ARM__)
 	/**
-	 * @brief Метод разбора блока в 64 байта командами SHA256H, SHA256H2, SHA256SU0 и SHA256SU1
+	 * @brief Метод разбора пачки блоков в 64 байта командами SHA256H, SHA256H2, SHA256SU0 и SHA256SU1
 	 *
-	 * @param block разбираемый блок сообщения
-	 * @param hash  значение хеша, в которое складывается итог блока
+	 * @param data  блоки сообщения
+	 * @param count число блоков, не меньше одного
+	 * @param hash  значение хеша, в которое складывается итог блоков
+	 *
+	 * @note Вставка на ассемблере с порядком команд по образцу sha256_block_armv8 OpenSSL:
+	 *       постоянные четвёрки кругов читаются на четвёрку вперёд и складываются со словами
+	 *       расписания до кругов, расширение расписания начинается (SHA256SU0) до кругов
+	 *       четвёрки и завершается (SHA256SU1) после них, копия половины abcd - одной orr.
+	 *       Интринсики в том же порядке собиратель раскладывал хуже: 2 463 МБ/с против
+	 *       2 947 у вставки на M4 при 2 936 у OpenSSL. Состояние живёт в v0 и v1 между
+	 *       блоками, перенос в слова хеша - раз на пачку. Регистры: x0 - данные, x1 -
+	 *       постоянные, x2 - счётчик, x3 - состояние, v3…v6 - четвёрки расписания, v16 и v17
+	 *       - слова четвёрки с постоянными, v18 и v19 - состояние на входе блока
 	 *
 	 */
-	static __ANTS_SHA256_TARGET__ void compressArm(const uint8_t * block, uint64_t * hash) noexcept {
+	static __ANTS_SHA256_TARGET__ void compressArm(const uint8_t * data, const size_t count, uint64_t * hash) noexcept {
 		// Значение хеша словами в 32 разряда
 		uint32_t words[8];
 		/**
@@ -500,53 +528,155 @@ namespace {
 		for(size_t i = 0; i < 8; i++)
 			// Переносим очередное слово
 			words[i] = static_cast <uint32_t> (hash[i]);
-		// Половины состояния: abcd и efgh
-		uint32x4_t abcd = vld1q_u32(words), efgh = vld1q_u32(words + 4);
-		// Сохранённые половины для сложения в конце
-		const uint32x4_t abcd0 = abcd, efgh0 = efgh;
-		// Четвёрки слов сообщения от старшего байта
-		uint32x4_t m0 = vreinterpretq_u32_u8(vrev32q_u8(vld1q_u8(block)));
-		// Четвёрки слов сообщения от старшего байта
-		uint32x4_t m1 = vreinterpretq_u32_u8(vrev32q_u8(vld1q_u8(block + 16)));
-		// Четвёрки слов сообщения от старшего байта
-		uint32x4_t m2 = vreinterpretq_u32_u8(vrev32q_u8(vld1q_u8(block + 32)));
-		// Четвёрки слов сообщения от старшего байта
-		uint32x4_t m3 = vreinterpretq_u32_u8(vrev32q_u8(vld1q_u8(block + 48)));
-		/**
-		 * Выполняем шестнадцать четвёрок кругов: по четыре круга на команду
-		 */
-		for(size_t i = 0; i < 16; i++){
-			// Слова расписания, сложенные с постоянными четырёх кругов
-			const uint32x4_t t = vaddq_u32(m0, vld1q_u32(K256 + (i * 4)));
-			// Сохранённая половина abcd
-			const uint32x4_t saved = abcd;
-			// Выполняем четыре круга над половиной abcd
-			abcd = vsha256hq_u32(abcd, efgh, t);
-			// Выполняем четыре круга над половиной efgh
-			efgh = vsha256h2q_u32(efgh, saved, t);
-			// Если расписание ещё расширяется
-			if(i < 12)
-				// Складываем следующую четвёрку слов расписания
-				m0 = vsha256su1q_u32(vsha256su0q_u32(m0, m1), m2, m3);
-			// Сдвигаем четвёрки слов по кругу
-			const uint32x4_t shifted = m0;
-			// Сдвигаем четвёрки слов по кругу
-			m0 = m1;
-			// Сдвигаем четвёрки слов по кругу
-			m1 = m2;
-			// Сдвигаем четвёрки слов по кругу
-			m2 = m3;
-			// Сдвигаем четвёрки слов по кругу
-			m3 = shifted;
-		}
-		// Складываем итог с прежним значением хеша
-		abcd = vaddq_u32(abcd, abcd0);
-		// Складываем итог с прежним значением хеша
-		efgh = vaddq_u32(efgh, efgh0);
-		// Записываем половину abcd
-		vst1q_u32(words, abcd);
-		// Записываем половину efgh
-		vst1q_u32(words + 4, efgh);
+		// Доводы вставки в закреплённых регистрах
+		register const uint8_t * x0 __asm__("x0") = data;
+		// Доводы вставки в закреплённых регистрах
+		register const uint32_t * x1 __asm__("x1") = K256;
+		// Доводы вставки в закреплённых регистрах
+		register size_t x2 __asm__("x2") = count;
+		// Доводы вставки в закреплённых регистрах
+		register uint32_t * x3 __asm__("x3") = words;
+		__asm__ __volatile__(
+			"ld1   {v0.4s, v1.4s}, [x3]\n\t"
+			/* Блок: четвёрки слов от старшего байта, первая четвёрка расписания с постоянными, копия состояния */
+			"1:\n\t"
+			"ld1   {v3.16b, v4.16b, v5.16b, v6.16b}, [x0], #64\n\t"
+			"sub   x2, x2, #1\n\t"
+			"ld1   {v16.4s}, [x1], #16\n\t"
+			"rev32 v3.16b, v3.16b\n\t"
+			"rev32 v4.16b, v4.16b\n\t"
+			"rev32 v5.16b, v5.16b\n\t"
+			"rev32 v6.16b, v6.16b\n\t"
+			"orr   v18.16b, v0.16b, v0.16b\n\t"
+			"orr   v19.16b, v1.16b, v1.16b\n\t"
+			"add   v16.4s, v16.4s, v3.4s\n\t"
+			/* Четвёрка кругов 1…4 */
+			"ld1   {v17.4s}, [x1], #16\n\t"
+			"sha256su0 v3.4s, v4.4s\n\t"
+			"orr   v2.16b, v0.16b, v0.16b\n\t"
+			"sha256h q0, q1, v16.4s\n\t"
+			"sha256h2 q1, q2, v16.4s\n\t"
+			"add   v17.4s, v17.4s, v4.4s\n\t"
+			"sha256su1 v3.4s, v5.4s, v6.4s\n\t"
+			/* Четвёрка кругов 5…8 */
+			"ld1   {v16.4s}, [x1], #16\n\t"
+			"sha256su0 v4.4s, v5.4s\n\t"
+			"orr   v2.16b, v0.16b, v0.16b\n\t"
+			"sha256h q0, q1, v17.4s\n\t"
+			"sha256h2 q1, q2, v17.4s\n\t"
+			"add   v16.4s, v16.4s, v5.4s\n\t"
+			"sha256su1 v4.4s, v6.4s, v3.4s\n\t"
+			/* Четвёрка кругов 9…12 */
+			"ld1   {v17.4s}, [x1], #16\n\t"
+			"sha256su0 v5.4s, v6.4s\n\t"
+			"orr   v2.16b, v0.16b, v0.16b\n\t"
+			"sha256h q0, q1, v16.4s\n\t"
+			"sha256h2 q1, q2, v16.4s\n\t"
+			"add   v17.4s, v17.4s, v6.4s\n\t"
+			"sha256su1 v5.4s, v3.4s, v4.4s\n\t"
+			/* Четвёрка кругов 13…16 */
+			"ld1   {v16.4s}, [x1], #16\n\t"
+			"sha256su0 v6.4s, v3.4s\n\t"
+			"orr   v2.16b, v0.16b, v0.16b\n\t"
+			"sha256h q0, q1, v17.4s\n\t"
+			"sha256h2 q1, q2, v17.4s\n\t"
+			"add   v16.4s, v16.4s, v3.4s\n\t"
+			"sha256su1 v6.4s, v4.4s, v5.4s\n\t"
+			/* Четвёрка кругов 17…20 */
+			"ld1   {v17.4s}, [x1], #16\n\t"
+			"sha256su0 v3.4s, v4.4s\n\t"
+			"orr   v2.16b, v0.16b, v0.16b\n\t"
+			"sha256h q0, q1, v16.4s\n\t"
+			"sha256h2 q1, q2, v16.4s\n\t"
+			"add   v17.4s, v17.4s, v4.4s\n\t"
+			"sha256su1 v3.4s, v5.4s, v6.4s\n\t"
+			/* Четвёрка кругов 21…24 */
+			"ld1   {v16.4s}, [x1], #16\n\t"
+			"sha256su0 v4.4s, v5.4s\n\t"
+			"orr   v2.16b, v0.16b, v0.16b\n\t"
+			"sha256h q0, q1, v17.4s\n\t"
+			"sha256h2 q1, q2, v17.4s\n\t"
+			"add   v16.4s, v16.4s, v5.4s\n\t"
+			"sha256su1 v4.4s, v6.4s, v3.4s\n\t"
+			/* Четвёрка кругов 25…28 */
+			"ld1   {v17.4s}, [x1], #16\n\t"
+			"sha256su0 v5.4s, v6.4s\n\t"
+			"orr   v2.16b, v0.16b, v0.16b\n\t"
+			"sha256h q0, q1, v16.4s\n\t"
+			"sha256h2 q1, q2, v16.4s\n\t"
+			"add   v17.4s, v17.4s, v6.4s\n\t"
+			"sha256su1 v5.4s, v3.4s, v4.4s\n\t"
+			/* Четвёрка кругов 29…32 */
+			"ld1   {v16.4s}, [x1], #16\n\t"
+			"sha256su0 v6.4s, v3.4s\n\t"
+			"orr   v2.16b, v0.16b, v0.16b\n\t"
+			"sha256h q0, q1, v17.4s\n\t"
+			"sha256h2 q1, q2, v17.4s\n\t"
+			"add   v16.4s, v16.4s, v3.4s\n\t"
+			"sha256su1 v6.4s, v4.4s, v5.4s\n\t"
+			/* Четвёрка кругов 33…36 */
+			"ld1   {v17.4s}, [x1], #16\n\t"
+			"sha256su0 v3.4s, v4.4s\n\t"
+			"orr   v2.16b, v0.16b, v0.16b\n\t"
+			"sha256h q0, q1, v16.4s\n\t"
+			"sha256h2 q1, q2, v16.4s\n\t"
+			"add   v17.4s, v17.4s, v4.4s\n\t"
+			"sha256su1 v3.4s, v5.4s, v6.4s\n\t"
+			/* Четвёрка кругов 37…40 */
+			"ld1   {v16.4s}, [x1], #16\n\t"
+			"sha256su0 v4.4s, v5.4s\n\t"
+			"orr   v2.16b, v0.16b, v0.16b\n\t"
+			"sha256h q0, q1, v17.4s\n\t"
+			"sha256h2 q1, q2, v17.4s\n\t"
+			"add   v16.4s, v16.4s, v5.4s\n\t"
+			"sha256su1 v4.4s, v6.4s, v3.4s\n\t"
+			/* Четвёрка кругов 41…44 */
+			"ld1   {v17.4s}, [x1], #16\n\t"
+			"sha256su0 v5.4s, v6.4s\n\t"
+			"orr   v2.16b, v0.16b, v0.16b\n\t"
+			"sha256h q0, q1, v16.4s\n\t"
+			"sha256h2 q1, q2, v16.4s\n\t"
+			"add   v17.4s, v17.4s, v6.4s\n\t"
+			"sha256su1 v5.4s, v3.4s, v4.4s\n\t"
+			/* Четвёрка кругов 45…48 */
+			"ld1   {v16.4s}, [x1], #16\n\t"
+			"sha256su0 v6.4s, v3.4s\n\t"
+			"orr   v2.16b, v0.16b, v0.16b\n\t"
+			"sha256h q0, q1, v17.4s\n\t"
+			"sha256h2 q1, q2, v17.4s\n\t"
+			"add   v16.4s, v16.4s, v3.4s\n\t"
+			"sha256su1 v6.4s, v4.4s, v5.4s\n\t"
+			/* Четвёрка кругов 49…52 */
+			"ld1   {v17.4s}, [x1], #16\n\t"
+			"orr   v2.16b, v0.16b, v0.16b\n\t"
+			"sha256h q0, q1, v16.4s\n\t"
+			"sha256h2 q1, q2, v16.4s\n\t"
+			"add   v17.4s, v17.4s, v4.4s\n\t"
+			/* Четвёрка кругов 53…56 */
+			"ld1   {v16.4s}, [x1], #16\n\t"
+			"orr   v2.16b, v0.16b, v0.16b\n\t"
+			"sha256h q0, q1, v17.4s\n\t"
+			"sha256h2 q1, q2, v17.4s\n\t"
+			"add   v16.4s, v16.4s, v5.4s\n\t"
+			/* Четвёрка кругов 57…60 */
+			"ld1   {v17.4s}, [x1], #16\n\t"
+			"orr   v2.16b, v0.16b, v0.16b\n\t"
+			"sha256h q0, q1, v16.4s\n\t"
+			"sha256h2 q1, q2, v16.4s\n\t"
+			"add   v17.4s, v17.4s, v6.4s\n\t"
+			/* Четвёрка кругов 61…64 */
+			"orr   v2.16b, v0.16b, v0.16b\n\t"
+			"sha256h q0, q1, v17.4s\n\t"
+			"sha256h2 q1, q2, v17.4s\n\t"
+			/* Итог блока с прежним состоянием, постоянные с начала */
+			"add   v0.4s, v0.4s, v18.4s\n\t"
+			"add   v1.4s, v1.4s, v19.4s\n\t"
+			"sub   x1, x1, #256\n\t"
+			"cbnz  x2, 1b\n\t"
+			"st1   {v0.4s, v1.4s}, [x3]\n\t"
+			: "+r" (x0), "+r" (x1), "+r" (x2)
+			: "r" (x3)
+			: "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v16", "v17", "v18", "v19", "cc", "memory");
 		/**
 		 * Выполняем перенос слов в значение хеша
 		 */
@@ -566,18 +696,6 @@ namespace {
 	 *
 	 */
 	static void compress256(const uint8_t * block, uint64_t * hash) noexcept {
-/**
- * Если есть ветвь команд SHA-256 расширения ARMv8
- */
-#if defined(__ANTS_SHA256_ARM__)
-		// Если машина хеширует командами
-		if(machine::has(machine::feature_t::SHA256)){
-			// Выполняем разбор блока командами
-			compressArm(block, hash);
-			// Выходим из метода
-			return;
-		}
-#endif
 		// Кольцо слов расписания: шестнадцать слов, дальнейшие вырабатываются на ходу
 		uint32_t w[16];
 		/**
@@ -680,28 +798,34 @@ namespace {
 		return vreinterpretq_u64_u8(vrev64q_u8(vld1q_u8(data)));
 	}
 	/**
-	 * @brief Метод разбора блока в 128 байтов командами SHA-512 расширения ARMv8.2
+	 * @brief Метод разбора пачки блоков в 128 байтов командами SHA-512 расширения ARMv8.2
 	 *
 	 * @details Восемь пар слов расписания и четыре пары состояния; 80 кругов идут
 	 *          пятью проходами по восемь шагов в два круга, и роли пар состояния за
 	 *          восемь шагов дважды обходят круг, возвращаясь на места. На последнем
-	 *          проходе расписание не расширяется
+	 *          проходе расписание не расширяется. Состояние живёт в регистрах между
+	 *          блоками пачки
 	 *
-	 * @param block разбираемый блок сообщения
-	 * @param hash  значение хеша, в которое складывается итог блока
+	 * @param data  блоки сообщения
+	 * @param count число блоков
+	 * @param hash  значение хеша, в которое складывается итог блоков
 	 *
 	 */
-	static __ANTS_SHA512_TARGET__ void compressArm512(const uint8_t * block, uint64_t * hash) noexcept {
+	static __ANTS_SHA512_TARGET__ void compressArm512(const uint8_t * data, const size_t count, uint64_t * hash) noexcept {
 		// Пары состояния: ab, cd, ef и gh
 		uint64x2_t ab = vld1q_u64(hash), cd = vld1q_u64(hash + 2);
 		// Пары состояния: ab, cd, ef и gh
 		uint64x2_t ef = vld1q_u64(hash + 4), gh = vld1q_u64(hash + 6);
-		// Сохранённые пары для сложения в конце
+		/**
+		 * Выполняем перебор блоков пачки
+		 */
+		for(size_t block = 0; block < count; block++, data += 128){
+		// Сохранённые пары для сложения в конце блока
 		const uint64x2_t ab0 = ab, cd0 = cd, ef0 = ef, gh0 = gh;
 		// Пары слов расписания
-		uint64x2_t m0 = pair(block), m1 = pair(block + 16), m2 = pair(block + 32), m3 = pair(block + 48);
+		uint64x2_t m0 = pair(data), m1 = pair(data + 16), m2 = pair(data + 32), m3 = pair(data + 48);
 		// Пары слов расписания
-		uint64x2_t m4 = pair(block + 64), m5 = pair(block + 80), m6 = pair(block + 96), m7 = pair(block + 112);
+		uint64x2_t m4 = pair(data + 64), m5 = pair(data + 80), m6 = pair(data + 96), m7 = pair(data + 112);
 		/**
 		 * Выполняем пять проходов по шестнадцать кругов
 		 */
@@ -727,14 +851,23 @@ namespace {
 			// Круги пятнадцатый и шестнадцатый прохода
 			__ANTS_SHA512_STEP__(ab, gh, ef, cd, m7, k + 14, m0, m6, m3, m4, extend)
 		}
-		// Складываем итог с прежним значением хеша
-		vst1q_u64(hash, vaddq_u64(ab, ab0));
-		// Складываем итог с прежним значением хеша
-		vst1q_u64(hash + 2, vaddq_u64(cd, cd0));
-		// Складываем итог с прежним значением хеша
-		vst1q_u64(hash + 4, vaddq_u64(ef, ef0));
-		// Складываем итог с прежним значением хеша
-		vst1q_u64(hash + 6, vaddq_u64(gh, gh0));
+		// Складываем итог блока с прежним значением хеша
+		ab = vaddq_u64(ab, ab0);
+		// Складываем итог блока с прежним значением хеша
+		cd = vaddq_u64(cd, cd0);
+		// Складываем итог блока с прежним значением хеша
+		ef = vaddq_u64(ef, ef0);
+		// Складываем итог блока с прежним значением хеша
+		gh = vaddq_u64(gh, gh0);
+		}
+		// Записываем пары состояния
+		vst1q_u64(hash, ab);
+		// Записываем пары состояния
+		vst1q_u64(hash + 2, cd);
+		// Записываем пары состояния
+		vst1q_u64(hash + 4, ef);
+		// Записываем пары состояния
+		vst1q_u64(hash + 6, gh);
 	}
 #endif
 
@@ -748,18 +881,6 @@ namespace {
 	 *
 	 */
 	static void compress512(const uint8_t * block, uint64_t * hash) noexcept {
-/**
- * Если есть ветвь команд SHA-512 расширения ARMv8.2
- */
-#if defined(__ANTS_SHA512_ARM__)
-		// Если машина хеширует командами
-		if(machine::has(machine::feature_t::SHA512)){
-			// Выполняем разбор блока командами
-			compressArm512(block, hash);
-			// Выходим из метода
-			return;
-		}
-#endif
 		// Расписание слов сообщения
 		// Кольцо слов расписания: шестнадцать слов, дальнейшие вырабатываются на ходу
 		uint64_t w[16];
@@ -801,6 +922,151 @@ namespace {
 		// Складываем итог круга с прежним значением хеша
 		hash[7] += h;
 	}
+
+	/**
+	 * @brief Метод разбора пачки блоков в 64 байта преобразованием SHA-256
+	 *
+	 * @param data  блоки сообщения
+	 * @param count число блоков, не меньше одного
+	 * @param hash  значение хеша, в которое складывается итог блоков
+	 *
+	 * @note Путь выбирается раз на пачку: команды SHA-256 на ARM64; на x86-64 ядро AVX2 с
+	 *       BMI2 парами блоков (нечётный остаток - ядром AVX), ядро AVX с BMI2 либо ядро
+	 *       SSSE3; иначе переносимый разбор по блокам. Признак BMI2 берётся из признака ADX
+	 */
+	static void blocks256(const uint8_t * data, const size_t count, uint64_t * hash) noexcept {
+/**
+ * Если есть ветвь команд SHA-256 расширения ARMv8
+ */
+#if defined(__ANTS_SHA256_ARM__)
+		// Если машина хеширует командами
+		if(machine::has(machine::feature_t::SHA256)){
+			// Выполняем разбор пачки командами
+			compressArm(data, count, hash);
+			// Выходим из метода
+			return;
+		}
+#endif
+/**
+ * Если есть ядра на ассемблере x86-64
+ */
+#if defined(__ANTS_SHA2_X86_64__)
+		// Если перестановка байтов SSSE3 есть
+		if(machine::has(machine::feature_t::SSSE3)){
+			// Значение хеша словами в 32 разряда
+			uint32_t words[8];
+			/**
+			 * Выполняем перенос значения хеша в слова
+			 */
+			for(size_t i = 0; i < 8; i++)
+				// Переносим очередное слово
+				words[i] = static_cast <uint32_t> (hash[i]);
+			// Если есть AVX2 и BMI2
+			if(machine::has(machine::feature_t::AVX2) && machine::has(machine::feature_t::ADX)){
+				// Если пар блоков хотя бы одна
+				if(count >= 2)
+					// Выполняем разбор пар блоков ядром AVX2
+					kernel::sha256avx2(words, data, count / 2, K256);
+				// Если остался нечётный блок
+				if((count & 1) != 0)
+					// Выполняем разбор последнего блока ядром AVX
+					kernel::sha256avx(words, data + ((count & ~static_cast <size_t> (1)) * 64), 1, K256);
+			// Если есть AVX и BMI2
+			} else if(machine::has(machine::feature_t::AVX) && machine::has(machine::feature_t::ADX))
+				// Выполняем разбор блоков ядром AVX
+				kernel::sha256avx(words, data, count, K256);
+			// Иначе разбираем блоки ядром SSSE3
+			else kernel::sha256ssse3(words, data, count, K256);
+			/**
+			 * Выполняем перенос слов в значение хеша
+			 */
+			for(size_t i = 0; i < 8; i++)
+				// Переносим очередное слово
+				hash[i] = words[i];
+			// Выходим из метода
+			return;
+		}
+#endif
+		/**
+		 * Выполняем перебор блоков переносимым путём
+		 */
+		for(size_t block = 0; block < count; block++)
+			// Выполняем разбор очередного блока
+			compress256(data + (block * 64), hash);
+	}
+	/**
+	 * @brief Метод разбора пачки блоков в 128 байтов преобразованием SHA-512
+	 *
+	 * @param data  блоки сообщения
+	 * @param count число блоков, не меньше одного
+	 * @param hash  значение хеша, в которое складывается итог блоков
+	 *
+	 * @note Пути те же, что у SHA-256: команды SHA-512 ARMv8.2, ядра AVX2, AVX либо SSSE3
+	 *       на x86-64, переносимый разбор по блокам
+	 */
+	static void blocks512(const uint8_t * data, const size_t count, uint64_t * hash) noexcept {
+/**
+ * Если есть ветвь команд SHA-512 расширения ARMv8.2
+ */
+#if defined(__ANTS_SHA512_ARM__)
+		// Если машина хеширует командами
+		if(machine::has(machine::feature_t::SHA512)){
+			// Выполняем разбор пачки командами
+			compressArm512(data, count, hash);
+			// Выходим из метода
+			return;
+		}
+#endif
+/**
+ * Если есть ядра на ассемблере x86-64
+ */
+#if defined(__ANTS_SHA2_X86_64__)
+		// Если перестановка байтов SSSE3 есть
+		if(machine::has(machine::feature_t::SSSE3)){
+			// Если есть AVX2 и BMI2
+			if(machine::has(machine::feature_t::AVX2) && machine::has(machine::feature_t::ADX)){
+				// Если пар блоков хотя бы одна
+				if(count >= 2)
+					// Выполняем разбор пар блоков ядром AVX2
+					kernel::sha512avx2(hash, data, count / 2, K512);
+				// Если остался нечётный блок
+				if((count & 1) != 0)
+					// Выполняем разбор последнего блока ядром AVX
+					kernel::sha512avx(hash, data + ((count & ~static_cast <size_t> (1)) * 128), 1, K512);
+			// Если есть AVX и BMI2
+			} else if(machine::has(machine::feature_t::AVX) && machine::has(machine::feature_t::ADX))
+				// Выполняем разбор блоков ядром AVX
+				kernel::sha512avx(hash, data, count, K512);
+			// Иначе разбираем блоки ядром SSSE3
+			else kernel::sha512ssse3(hash, data, count, K512);
+			// Выходим из метода
+			return;
+		}
+#endif
+		/**
+		 * Выполняем перебор блоков переносимым путём
+		 */
+		for(size_t block = 0; block < count; block++)
+			// Выполняем разбор очередного блока
+			compress512(data + (block * 128), hash);
+	}
+	/**
+	 * @brief Метод разбора пачки блоков сообщения
+	 *
+	 * @param width размер блока: 64 либо 128 байтов
+	 * @param data  блоки сообщения
+	 * @param count число блоков, не меньше одного
+	 * @param hash  значение хеша, в которое складывается итог блоков
+	 *
+	 */
+	static void blocks(const size_t width, const uint8_t * data, const size_t count, uint64_t * hash) noexcept {
+		// Если хеш вырабатывается над словами в 64 разряда
+		if(width == 128)
+			// Выполняем разбор пачки преобразованием SHA-512
+			blocks512(data, count, hash);
+		// Иначе хеш вырабатывается над словами в 32 разряда
+		else blocks256(data, count, hash);
+	}
 };
 
 /**
@@ -810,12 +1076,8 @@ namespace {
  *
  */
 void nts::digest::Sha2::compress(const uint8_t * block) noexcept {
-	// Если хеш вырабатывается над словами в 64 разряда
-	if(this->block() == 128)
-		// Выполняем разбор блока преобразованием SHA-512
-		compress512(block, this->_hash);
-	// Иначе хеш вырабатывается над словами в 32 разряда
-	else compress256(block, this->_hash);
+	// Выполняем разбор одного блока
+	blocks(this->block(), block, 1, this->_hash);
 }
 /**
  * @brief Метод получения разновидности вырабатываемого хеша
@@ -964,17 +1226,19 @@ void nts::digest::Sha2::update(const view_t & data) noexcept {
 		// Иначе весь кусок ушёл в накопитель, и блок ещё не полон
 		} else return;
 	}
-	/**
-	 * Выполняем разбор целых блоков куска прямо из него: слова читаются побайтно,
-	 * оттого выравнивание куска значения не имеет
-	 */
-	while(left >= width){
-		// Выполняем разбор очередного блока куска
-		this->compress(cursor);
+	// Число целых блоков куска
+	const size_t whole = (left / width);
+	// Если целые блоки есть
+	if(whole > 0){
+		/**
+		 * Выполняем разбор целых блоков куска одной пачкой прямо из него: ядра читают
+		 * слова невыровненными загрузками, оттого выравнивание куска значения не имеет
+		 */
+		blocks(width, cursor, whole, this->_hash);
 		// Сдвигаем позицию чтения куска
-		cursor += width;
+		cursor += (whole * width);
 		// Уменьшаем число не разобранных байтов
-		left -= width;
+		left -= (whole * width);
 	}
 	/**
 	 * Выполняем перенос хвоста куска в накопитель
