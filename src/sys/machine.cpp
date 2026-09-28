@@ -233,6 +233,10 @@ namespace {
 			if(ebx & (1U << 29))
 				// Записываем разряд расширения
 				result = static_cast <uint16_t> (result | static_cast <uint16_t> (feature_t::SHA256));
+			// Если умножение MULX (BMI2, разряд 8 EBX) и сложения ADCX/ADOX (ADX, разряд 19 EBX) есть вместе
+			if((ebx & (1U << 8)) && (ebx & (1U << 19)))
+				// Записываем разряд расширения
+				result = static_cast <uint16_t> (result | static_cast <uint16_t> (feature_t::ADX));
 		}
 		// Регистры повторного опроса первого листа
 		unsigned int eax1 = 0, ebx1 = 0, ecx1 = 0, edx1 = 0;

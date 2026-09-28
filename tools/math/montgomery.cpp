@@ -17,6 +17,18 @@
  *       флаговые команды за такт, а не умножитель (три умножения за такт); под x86-64
  *       четыре ряда медленнее двух. В библиотеку взяты два ряда и квадрат (решение 6
  *       шапки src/math/integer.cpp). Собирается отдельно: c++ -O3 -std=c++17 montgomery.cpp
+ * @note Круг 39 (28.09.2026): ряд полосами по четыре слова накопителя в регистрах - две с
+ *       половиной флаговые команды на произведение вместо четырёх у рядов на C (образец
+ *       bn_mul4x_mont): M4 16 слов 187 → 127 нс при 134 у BN_mod_mul_montgomery, Xeon
+ *       E5-2630 v4 на mulx/adcx/adox 713 → 564 при 468. Ядра библиотеки (stripes, решение 7
+ *       шапки) включены сюда как есть и сличаются с эталоном; сборка с OpenSSL:
+ *       c++ -O3 -std=c++17 -DWITH_OPENSSL montgomery.cpp -lcrypto. Отвергнуто по замеру
+ *       (M4, 16 слов): четыре ряда разом с окном в регистрах - 168, два ряда переплетением -
+ *       148, квадрат рядами с удвоенным маскированным множимым - 180 (Xeon 610 при 561 у
+ *       умножения; полоса только приведения стоит 73 % полной): ядро упирается в задержку
+ *       цепочки полосы, а не в число умножений; bn_sqr8x_mont (M4 94) держит восемь слов
+ *       накопителя в регистрах на восемь рядов - остаток. Микрозамеры M4: умножитель ~2,6
+ *       команды mul/umulh за такт, флаговые ~3,4, смесь полосы 7,3 такта при 8,1…8,7 у ядра
  * @copyright Copyright © 2026
  */
 
@@ -645,6 +657,300 @@ extern "C" __attribute__((noinline)) void mont_sqr3(const uint64_t * first, cons
 	finish(t, modulus, count, result);
 }
 
+
+/**
+ * Ядра библиотеки круга 39: ряд полосами по четыре слова (src/math/integer.cpp, решение 7 шапки)
+ */
+namespace library {
+/**
+ * Ветвь AArch64 (GCC, clang): ряд умножения Монтгомери полосами по четыре слова на ассемблере
+ * (решение 7 шапки). Регистр x18 у Apple закреплён за системой и не берётся
+ */
+#if defined(__aarch64__) && (defined(__GNUC__) || defined(__clang__))
+	/**
+	 * @brief Метод одного ряда умножения Монтгомери полосами по четыре слова на ассемблере AArch64
+	 *
+	 * @param buffer  накопитель в count + 1 слов: на входе значение меньше удвоенного модуля, на выходе (buffer + first · word + q · modulus) / 2^64
+	 * @param first   слова первого сомножителя, меньшего модуля
+	 * @param modulus слова нечётного модуля
+	 * @param word    слово второго сомножителя
+	 * @param inverse множитель приведения по модулю
+	 * @param count   число слов модуля, кратное четырём и не меньшее четырёх
+	 *
+	 * @note Полоса - четыре слова накопителя в регистрах: младшие половины четырёх произведений
+	 *       ложатся одной цепочкой adds/adcs, старшие - второй, со сдвигом на слово; переносы
+	 *       полосы в следующую - слово старшей половины последнего произведения с разрядом
+	 *       переноса (умещается: сумма полосы меньше 2^320). Так на произведение приходится
+	 *       две с половиной флаговые команды вместо четырёх у рядов на C
+	 *
+	 */
+	static inline void stripes(uint64_t * buffer, const uint64_t * first, const uint64_t * modulus, const uint64_t word, const uint64_t inverse, const size_t count){
+		__asm__ __volatile__(
+			"mov   x24, %[buffer]\n\t"
+			"mov   x25, %[first]\n\t"
+			"mov   x26, %[modulus]\n\t"
+			"ldr   x21, %[word]\n\t"
+			"sub   x27, %[count], #4\n\t"
+			/* Полоса 0: произведения a[0..3] · b, множитель приведения, n[0..3] · q */
+			"ldp   x4, x5, [x25]\n\t"
+			"ldp   x6, x7, [x25, #16]\n\t"
+			"ldp   x12, x13, [x24]\n\t"
+			"ldp   x14, x15, [x24, #16]\n\t"
+			"mul   x16, x4, x21\n\t"
+			"mul   x17, x5, x21\n\t"
+			"mul   x19, x6, x21\n\t"
+			"mul   x20, x7, x21\n\t"
+			"adds  x12, x12, x16\n\t"
+			"adcs  x13, x13, x17\n\t"
+			"adcs  x14, x14, x19\n\t"
+			"adcs  x15, x15, x20\n\t"
+			"adc   x23, xzr, xzr\n\t"
+			"ldr   x22, %[inverse]\n\t"
+			"mul   x22, x12, x22\n\t"
+			"umulh x16, x4, x21\n\t"
+			"umulh x17, x5, x21\n\t"
+			"umulh x19, x6, x21\n\t"
+			"umulh x20, x7, x21\n\t"
+			"ldp   x4, x5, [x26]\n\t"
+			"ldp   x6, x7, [x26, #16]\n\t"
+			"adds  x13, x13, x16\n\t"
+			"adcs  x14, x14, x17\n\t"
+			"adcs  x15, x15, x19\n\t"
+			"adc   x9, x20, x23\n\t"
+			"mul   x16, x4, x22\n\t"
+			"mul   x17, x5, x22\n\t"
+			"mul   x19, x6, x22\n\t"
+			"mul   x20, x7, x22\n\t"
+			"cmn   x12, x16\n\t"
+			"adcs  x13, x13, x17\n\t"
+			"adcs  x14, x14, x19\n\t"
+			"adcs  x15, x15, x20\n\t"
+			"adc   x23, xzr, xzr\n\t"
+			"umulh x16, x4, x22\n\t"
+			"umulh x17, x5, x22\n\t"
+			"umulh x19, x6, x22\n\t"
+			"umulh x20, x7, x22\n\t"
+			"adds  x13, x13, x16\n\t"
+			"adcs  x14, x14, x17\n\t"
+			"adcs  x15, x15, x19\n\t"
+			"adc   x10, x20, x23\n\t"
+			"stp   x13, x14, [x24]\n\t"
+			"str   x15, [x24, #16]\n\t"
+			"cbz   x27, 2f\n\t"
+			/* Полосы k = 4, 8, …: x24 указывает на слово k - 4 накопителя */
+			"1:\n\t"
+			"ldp   x4, x5, [x25, #32]!\n\t"
+			"ldp   x6, x7, [x25, #16]\n\t"
+			"ldp   x12, x13, [x24, #32]\n\t"
+			"ldp   x14, x15, [x24, #48]\n\t"
+			"mul   x16, x4, x21\n\t"
+			"mul   x17, x5, x21\n\t"
+			"mul   x19, x6, x21\n\t"
+			"mul   x20, x7, x21\n\t"
+			"adds  x12, x12, x16\n\t"
+			"adcs  x13, x13, x17\n\t"
+			"adcs  x14, x14, x19\n\t"
+			"adcs  x15, x15, x20\n\t"
+			"adc   x23, xzr, xzr\n\t"
+			"umulh x16, x4, x21\n\t"
+			"umulh x17, x5, x21\n\t"
+			"umulh x19, x6, x21\n\t"
+			"umulh x20, x7, x21\n\t"
+			"ldp   x4, x5, [x26, #32]!\n\t"
+			"ldp   x6, x7, [x26, #16]\n\t"
+			"adds  x12, x12, x9\n\t"
+			"adcs  x13, x13, x16\n\t"
+			"adcs  x14, x14, x17\n\t"
+			"adcs  x15, x15, x19\n\t"
+			"adc   x9, x20, x23\n\t"
+			"mul   x16, x4, x22\n\t"
+			"mul   x17, x5, x22\n\t"
+			"mul   x19, x6, x22\n\t"
+			"mul   x20, x7, x22\n\t"
+			"adds  x12, x12, x16\n\t"
+			"adcs  x13, x13, x17\n\t"
+			"adcs  x14, x14, x19\n\t"
+			"adcs  x15, x15, x20\n\t"
+			"adc   x23, xzr, xzr\n\t"
+			"umulh x16, x4, x22\n\t"
+			"umulh x17, x5, x22\n\t"
+			"umulh x19, x6, x22\n\t"
+			"umulh x20, x7, x22\n\t"
+			"adds  x12, x12, x10\n\t"
+			"adcs  x13, x13, x16\n\t"
+			"adcs  x14, x14, x17\n\t"
+			"adcs  x15, x15, x19\n\t"
+			"adc   x10, x20, x23\n\t"
+			"str   x12, [x24, #24]\n\t"
+			"stp   x13, x14, [x24, #32]\n\t"
+			"str   x15, [x24, #48]\n\t"
+			"add   x24, x24, #32\n\t"
+			"subs  x27, x27, #4\n\t"
+			"b.ne  1b\n\t"
+			"2:\n\t"
+			/* Старшие слова: предпоследнее - старшее слово накопителя с переносами полос, последнее - перенос */
+			"ldr   x16, [x24, #32]\n\t"
+			"adds  x16, x16, x9\n\t"
+			"adc   x17, xzr, xzr\n\t"
+			"adds  x16, x16, x10\n\t"
+			"adc   x17, x17, xzr\n\t"
+			"stp   x16, x17, [x24, #24]\n\t"
+			:
+			: [buffer] "r" (buffer), [first] "r" (first), [modulus] "r" (modulus), [count] "r" (count), [word] "m" (word), [inverse] "m" (inverse)
+			: "x4", "x5", "x6", "x7", "x9", "x10", "x12", "x13", "x14", "x15", "x16", "x17", "x19", "x20", "x21", "x22", "x23", "x24", "x25", "x26", "x27", "cc", "memory");
+	}
+/**
+ * Ветвь x86-64 (GCC, clang) с расширениями BMI2 и ADX: ряд полосами по четыре слова на MULX и
+ * двух независимых цепочках переносов ADCX/ADOX (решение 7 шапки). Под ASan без оптимизации
+ * ветвь не берётся: вставка занимает все регистры общего назначения (признак __ANTS_ASAN_UNOPTIMIZED__)
+ */
+#elif defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER) && !defined(__ANTS_ASAN_UNOPTIMIZED__)
+	/**
+	 * @brief Метод одного ряда умножения Монтгомери полосами по четыре слова на ассемблере x86-64 (BMI2, ADX)
+	 *
+	 * @param buffer  накопитель в count + 1 слов: на входе значение меньше удвоенного модуля, на выходе (buffer + first · word + q · modulus) / 2^64
+	 * @param first   слова первого сомножителя, меньшего модуля
+	 * @param modulus слова нечётного модуля
+	 * @param word    слово второго сомножителя
+	 * @param inverse множитель приведения по модулю
+	 * @param count   число слов модуля, кратное четырём и не меньшее четырёх
+	 *
+	 * @note MULX не трогает флаги, потому младшие половины произведений с накопителем идут
+	 *       цепочкой ADCX по переносу CF, а старшие - цепочкой ADOX по переносу OF, и обе
+	 *       цепочки живут разом. Множитель приведения тоже считается MULX: IMUL портит оба
+	 *       переноса посреди цепочек. Сравнение конца полос ведётся в порядке, оставляющем
+	 *       CF и OF нулевыми: обнуление флагов на каждой полосе не нужно. Порядок команд -
+	 *       умножения вперемежку с цепочками, как у OpenSSL: окно планировщика Broadwell
+	 *       мало, и порядок в потоке команд стоит до восьми процентов
+	 *
+	 */
+	static inline void stripes(uint64_t * buffer, const uint64_t * first, const uint64_t * modulus, const uint64_t word, const uint64_t inverse, const size_t count){
+		// Конец слов первого сомножителя
+		const uint64_t * end = (first + count);
+		__asm__ __volatile__(
+			"movq  %[buffer], %%rcx\n\t"
+			"movq  %[first], %%rsi\n\t"
+			"movq  %[modulus], %%rdi\n\t"
+			"movq  %[word], %%rdx\n\t"
+			"xorl  %%ebx, %%ebx\n\t"
+			/* Полоса 0: произведения a[0..3] · b, множитель приведения через MULX, n[0..3] · q */
+			"mulx  0(%%rsi), %%r8, %%rax\n\t"
+			"mulx  8(%%rsi), %%r9, %%r15\n\t"
+			"mulx  16(%%rsi), %%r10, %%r12\n\t"
+			"mulx  24(%%rsi), %%r11, %%r14\n\t"
+			"movq  %[inverse], %%rdx\n\t"
+			"adcx  0(%%rcx), %%r8\n\t"
+			"adox  %%rax, %%r9\n\t"
+			"mulx  %%r8, %%r13, %%rax\n\t"
+			"adcx  8(%%rcx), %%r9\n\t"
+			"adox  %%r15, %%r10\n\t"
+			"movq  %%r13, %%rdx\n\t"
+			"adcx  16(%%rcx), %%r10\n\t"
+			"adox  %%r12, %%r11\n\t"
+			"adcx  24(%%rcx), %%r11\n\t"
+			"adox  %%rbx, %%r14\n\t"
+			"adcx  %%rbx, %%r14\n\t"
+			"mulx  0(%%rdi), %%rax, %%r15\n\t"
+			"adcx  %%rax, %%r8\n\t"
+			"adox  %%r15, %%r9\n\t"
+			"mulx  8(%%rdi), %%rax, %%r15\n\t"
+			"adcx  %%rax, %%r9\n\t"
+			"adox  %%r15, %%r10\n\t"
+			"mulx  16(%%rdi), %%rax, %%r15\n\t"
+			"adcx  %%rax, %%r10\n\t"
+			"adox  %%r15, %%r11\n\t"
+			"mulx  24(%%rdi), %%rax, %%r12\n\t"
+			"movq  %[word], %%rdx\n\t"
+			"movq  %%r9, 0(%%rcx)\n\t"
+			"adcx  %%rax, %%r11\n\t"
+			"adox  %%rbx, %%r12\n\t"
+			"movq  %%r10, 8(%%rcx)\n\t"
+			"adcx  %%rbx, %%r12\n\t"
+			"movq  %%r11, 16(%%rcx)\n\t"
+			"leaq  32(%%rsi), %%rsi\n\t"
+			"leaq  32(%%rdi), %%rdi\n\t"
+			"leaq  32(%%rcx), %%rcx\n\t"
+			"cmpq  %%rsi, %[end]\n\t"
+			"je    2f\n\t"
+			/* Полосы k = 4, 8, …: rcx указывает на слово k накопителя, CF и OF нулевые */
+			".p2align 5\n\t"
+			"1:\n\t"
+			"mulx  0(%%rsi), %%r8, %%rax\n\t"
+			"adox  %%r14, %%r8\n\t"
+			"mulx  8(%%rsi), %%r9, %%r15\n\t"
+			"adcx  0(%%rcx), %%r8\n\t"
+			"adox  %%rax, %%r9\n\t"
+			"mulx  16(%%rsi), %%r10, %%rax\n\t"
+			"adcx  8(%%rcx), %%r9\n\t"
+			"adox  %%r15, %%r10\n\t"
+			"mulx  24(%%rsi), %%r11, %%r14\n\t"
+			"movq  %%r13, %%rdx\n\t"
+			"adcx  16(%%rcx), %%r10\n\t"
+			"adox  %%rax, %%r11\n\t"
+			"adcx  24(%%rcx), %%r11\n\t"
+			"adox  %%rbx, %%r14\n\t"
+			"leaq  32(%%rsi), %%rsi\n\t"
+			"adcx  %%rbx, %%r14\n\t"
+			"adox  %%r12, %%r8\n\t"
+			"mulx  0(%%rdi), %%rax, %%r15\n\t"
+			"adcx  %%rax, %%r8\n\t"
+			"adox  %%r15, %%r9\n\t"
+			"mulx  8(%%rdi), %%rax, %%r15\n\t"
+			"adcx  %%rax, %%r9\n\t"
+			"adox  %%r15, %%r10\n\t"
+			"mulx  16(%%rdi), %%rax, %%r15\n\t"
+			"movq  %%r8, -8(%%rcx)\n\t"
+			"adcx  %%rax, %%r10\n\t"
+			"adox  %%r15, %%r11\n\t"
+			"mulx  24(%%rdi), %%rax, %%r12\n\t"
+			"movq  %[word], %%rdx\n\t"
+			"movq  %%r9, 0(%%rcx)\n\t"
+			"movq  %%r10, 8(%%rcx)\n\t"
+			"adcx  %%rax, %%r11\n\t"
+			"adox  %%rbx, %%r12\n\t"
+			"leaq  32(%%rdi), %%rdi\n\t"
+			"adcx  %%rbx, %%r12\n\t"
+			"movq  %%r11, 16(%%rcx)\n\t"
+			"leaq  32(%%rcx), %%rcx\n\t"
+			"cmpq  %%rsi, %[end]\n\t"
+			"jne   1b\n\t"
+			"2:\n\t"
+			/* Старшие слова: предпоследнее - старшее слово накопителя с переносами полос, последнее - перенос */
+			"movq  0(%%rcx), %%rax\n\t"
+			"xorl  %%ebx, %%ebx\n\t"
+			"addq  %%r14, %%rax\n\t"
+			"adcq  $0, %%rbx\n\t"
+			"addq  %%r12, %%rax\n\t"
+			"adcq  $0, %%rbx\n\t"
+			"movq  %%rax, -8(%%rcx)\n\t"
+			"movq  %%rbx, 0(%%rcx)\n\t"
+			:
+			: [buffer] "m" (buffer), [first] "m" (first), [modulus] "m" (modulus), [end] "m" (end), [word] "m" (word), [inverse] "m" (inverse)
+			: "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15", "cc", "memory");
+	}
+#endif
+}
+#if (defined(__aarch64__) && (defined(__GNUC__) || defined(__clang__))) || (defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER))
+#define __ANTS_PROBE_STRIPES__ 1
+extern "C" __attribute__((noinline)) void mont_stripes(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, const size_t count, const uint64_t inverse, uint64_t * result){
+	uint64_t buffer[130]; memset(buffer, 0, (count + 2) * 8);
+	for(size_t i = 0; i < count; i++) library::stripes(buffer, first, modulus, second[i], inverse, count);
+	finish(buffer, modulus, count, result);
+}
+#endif
+#if defined(WITH_OPENSSL)
+#include <openssl/bn.h>
+// Полоса эталона: BN_mod_mul_montgomery того же OpenSSL, умножение и квадрат
+static void opensslmont(size_t n, const uint64_t * m, const uint64_t * a, const uint64_t * b){
+	BN_CTX * ctx = BN_CTX_new(); BIGNUM * M = BN_lebin2bn((const unsigned char *) m, n * 8, nullptr); BIGNUM * A = BN_lebin2bn((const unsigned char *) a, n * 8, nullptr); BIGNUM * B = BN_lebin2bn((const unsigned char *) b, n * 8, nullptr);
+	BN_MONT_CTX * mont = BN_MONT_CTX_new(); BN_MONT_CTX_set(mont, M, ctx);
+	const int N = (n <= 16 ? 200000 : 60000); double t0 = now();
+	for(int i = 0; i < N; i++) BN_mod_mul_montgomery(A, A, B, mont, ctx);
+	double t1 = now(); printf("  OpenSSL %6.1f нс", (t1 - t0) / N * 1e9);
+	t0 = now(); for(int i = 0; i < N; i++) BN_mod_mul_montgomery(A, A, A, mont, ctx); t1 = now(); printf("  OpenSSL квадрат %6.1f нс", (t1 - t0) / N * 1e9);
+	BN_MONT_CTX_free(mont); BN_free(A); BN_free(B); BN_free(M); BN_CTX_free(ctx);
+}
+#endif
 typedef void (* kernel_t)(const uint64_t *, const uint64_t *, const uint64_t *, size_t, uint64_t, uint64_t *);
 static uint64_t inverse64(uint64_t n0){ uint64_t x = 1; for(int i = 0; i < 6; i++) x *= (2 - n0 * x); return (0 - x); }
 static uint64_t seed = 0x9E3779B97F4A7C15ull;
@@ -656,8 +962,15 @@ int main(int argc, char **){
 #if defined(__aarch64__)
 		mont_row, mont_rows2, mont_rows4,
 #endif
+#if defined(__ANTS_PROBE_STRIPES__)
+		mont_stripes,
+#endif
 	};
-	const char * names[] = { "два прохода C", "слитый проход C", "два ряда C", "четыре ряда C", "четыре ряда прямые C", "слитый ряд asm", "два ряда asm", "четыре ряда asm" };
+	const char * names[] = { "два прохода C", "слитый проход C", "два ряда C", "четыре ряда C", "четыре ряда прямые C",
+#if defined(__aarch64__)
+		"слитый ряд asm", "два ряда asm", "четыре ряда asm",
+#endif
+		"полосы 4 asm (библиотека)" };
 	const int K = sizeof(kernels) / sizeof(kernels[0]);
 	// Сходимость: случайные и краевые входы
 	size_t bad = 0, total = 0;
@@ -678,8 +991,8 @@ int main(int argc, char **){
 			if(kind == 6){ for(size_t i = 0; i < n; i++) a[i] = 0; }                                       // a = 0
 			if(kind == 7){ for(size_t i = 0; i < n; i++) b[i] = 0; b[0] = 1; }                            // b = 1
 			const uint64_t inv = inverse64(m[0]);
-			for(int k = 0; k < K; k++) kernels[k](a, b, m, n, inv, r[k]);
-			for(int k = 1; k < K; k++){ total++; if(memcmp(r[0], r[k], n * 8) != 0){ bad++; if(bad < 5) printf("РАСХОЖДЕНИЕ %s n=%zu kind=%d\n", names[k], n, kind); } }
+			for(int k = 0; k < K; k++){ if((k == K - 1) && ((n % 4) != 0)) continue; kernels[k](a, b, m, n, inv, r[k]); }
+			for(int k = 1; k < K; k++){ if((k == K - 1) && ((n % 4) != 0)) continue; total++; if(memcmp(r[0], r[k], n * 8) != 0){ bad++; if(bad < 5) printf("РАСХОЖДЕНИЕ %s n=%zu kind=%d\n", names[k], n, kind); } }
 		}
 	}
 	printf("сходимость: расхождений %zu из %zu\n", bad, total);
@@ -705,6 +1018,9 @@ int main(int argc, char **){
 			if(argc > 99) printf("%llu", (unsigned long long) x[0]);
 		}
 		{ uint64_t x[64]; memcpy(x, a, n * 8); const int N = (n <= 16 ? 200000 : 60000); double t0 = now(); for(int i = 0; i < N; i++) mont_sqr3(x, x, m, n, inv, x); double t1 = now(); printf("  квадрат3 C %6.1f нс", (t1 - t0) / N * 1e9); }
+#if defined(WITH_OPENSSL)
+		opensslmont(n, m, a, b);
+#endif
 		printf("\n");
 	}
 	return 0;

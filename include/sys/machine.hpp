@@ -115,7 +115,8 @@ namespace nts {
 			SSSE3     = 0x20, /*!< \~russian Перестановка байтов PSHUFB расширения SSSE3 у x86-64 \~english PSHUFB byte shuffle of the SSSE3 extension at x86-64 \~ */
 			AVX2      = 0x40, /*!< \~russian Векторы в 256 разрядов расширения AVX2 у x86-64, разрешённые системой \~english 256-bit vectors of the AVX2 extension at x86-64, enabled by the system \~ */
 			AVX       = 0x80, /*!< \~russian Кодировка VEX команд на 128 разрядов расширения AVX у x86-64, разрешённая системой \~english VEX encoding of the 128-bit instructions of the AVX extension at x86-64, enabled by the system \~ */
-			MOVBE     = 0x100 /*!< \~russian Загрузка с перестановкой байтов MOVBE у x86-64 \~english MOVBE byte-swapping load at x86-64 \~ */
+			MOVBE     = 0x100, /*!< \~russian Загрузка с перестановкой байтов MOVBE у x86-64 \~english MOVBE byte-swapping load at x86-64 \~ */
+			ADX       = 0x200 /*!< \~russian Умножение без флагов MULX и сложения с раздельными переносами ADCX/ADOX у x86-64: расширения BMI2 и ADX вместе \~english Flag-free MULX multiplication and ADCX/ADOX additions with separate carries at x86-64: the BMI2 and ADX extensions together \~ */
 		};
 
 		/**

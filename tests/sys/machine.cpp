@@ -103,9 +103,19 @@ TEST(MachineTest, Flags) {
 		// Иначе загрузка с перестановкой байтов не признаётся
 		else
 			ASSERT_FALSE(machine::has(machine::feature_t::MOVBE));
+		// Регистры опроса седьмого листа
+		unsigned int eax7 = 0, ebx7 = 0, ecx7 = 0, edx7 = 0;
+		// Если седьмой лист снят и несёт BMI2 (разряд 8 EBX) вместе с ADX (разряд 19 EBX)
+		if(::__get_cpuid_count(7, 0, &eax7, &ebx7, &ecx7, &edx7) && (ebx7 & (1U << 8)) && (ebx7 & (1U << 19)))
+			// Проверяем, что умножение без флагов признано
+			ASSERT_TRUE(machine::has(machine::feature_t::ADX));
+		// Иначе умножение без флагов не признаётся
+		else
+			ASSERT_FALSE(machine::has(machine::feature_t::ADX));
 	#else
 		// У прочих машин признаков x86-64 нет
 		ASSERT_FALSE(machine::has(machine::feature_t::AVX));
 		ASSERT_FALSE(machine::has(machine::feature_t::MOVBE));
+		ASSERT_FALSE(machine::has(machine::feature_t::ADX));
 	#endif
 }
