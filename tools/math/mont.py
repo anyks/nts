@@ -12,6 +12,14 @@
 # произведение складывается с накопленным четырьмя флаговыми командами (add, adc, add, adc), и
 # ряды перекрываются переупорядочением машины; регистров четырнадцать - окно, rax, rdx, перенос
 # и три указателя, счётчиков нет: шаги окна развёрнуты, а концы циклов сравниваются с памятью.
+# Порядок сложений произведения - как у bn_sqr8x_mont: сперва накопленное слово окна (от переноса
+# не зависит), потом перенос прошлого произведения, и критическая цепочка через регистр переноса -
+# два такта на произведение, а не три (круг 48: Xeon E5-2630 v4 без ADX, 16 слов - ядро 1 158 →
+# 1 040 тактов TSC, вровень с эталоном; решение 12 шапки integer.cpp). Обнуляются лишь младшие
+# count слов накопителя: старшие каждый блок пишет прежде, чем читает следующий; самопроверка
+# заполняет накопитель мусором. Множитель произведения в регистре вместо памяти пробован и
+# отвергнут по замеру: 16 слов - 1 153 → 1 152, 32 слова - 4 271 → 4 487 (загрузка операнда mulq
+# ничего не стоит).
 #
 # Правки ядра вносятся сюда, а не в заголовок: интерпретатор ниже исполняет порождённый список
 # команд на случайных числах и модулях и сличает с точной арифметикой Python - порождение
@@ -33,13 +41,14 @@ class Kernel:
 		return str(self.labels)
 	def m(self, base, off):
 		return ('m', base, off)
-	# Произведение rax = [src] на множитель mult (в памяти) с прибавлением к слову окна acc через перенос rbx
+	# Произведение rax = [src] на множитель mult (в памяти) с прибавлением к слову окна acc через перенос rbx:
+	# сперва накопленное (от переноса не зависит), потом перенос - цепочка через rbx в два такта, а не в три
 	def product(self, src, mult, acc, first):
 		self.e('mov', 'rax', src)
 		self.e('mulq', mult)
-		if not first:
-			self.e('add', 'rax', 'rbx'); self.e('adc', 'rdx', 0)
 		self.e('add', acc, 'rax'); self.e('adc', 'rdx', 0)
+		if not first:
+			self.e('add', acc, 'rbx'); self.e('adc', 'rdx', 0)
 		self.e('mov', 'rbx', 'rdx')
 	# Прибавление накопленного к окну с отложенным переносом прошлого прибавления: перенос вносится в начало цепочки, новый откладывается
 	def accumulate(self, w):
@@ -52,7 +61,7 @@ class Kernel:
 		for k in range(8): self.e('adc', w[k], 0)
 	def build(self):
 		w = ['r%d' % i for i in range(8, 16)]
-		# Пролог: обнуление удвоенной ширины накопителя
+		# Пролог: обнуление младших count слов накопителя парами (старшие каждый блок пишет прежде чтения)
 		self.e('mov', 'rcx', self.m('args', 0)); self.e('mov', 'rsi', self.m('args', 24))
 		self.e('xor', 'rax')
 		L = self.label()
@@ -104,9 +113,9 @@ class Kernel:
 		self.e('mov', 'rcx', 'rdi'); self.e('sub', 'rcx', self.m('args', 8)); self.e('add', 'rcx', 'rcx'); self.e('add', 'rcx', self.m('args', 0))
 		self.e('lea', 'rdi', 64)
 		self.e('jmp', B)
-		# Последний блок: слова 8 … 14 окна, старшее слово квадрата без удвоения - ноль
+		# Последний блок: слова 8 … 15 окна (старшее - ноль по построению, но накопитель выше count слов не обнулён)
 		self.e('label', E)
-		for k in range(7): self.e('store', self.m('rcx', 8 * k), w[k])
+		for k in range(8): self.e('store', self.m('rcx', 8 * k), w[k])
 		# Проход 2: удвоение сдвигом с квадратами диагонали; перенос между шагами в rcx через neg
 		self.e('mov', 'rsi', self.m('args', 0)); self.e('mov', 'rdi', self.m('args', 8)); self.e('xor', 'rbx'); self.e('xor', 'rcx')
 		D = self.label()
@@ -142,8 +151,8 @@ class Kernel:
 			self.e('neg', w[0]); self.e('adc', 'rdx', 0); self.e('mov', 'rbx', 'rdx')
 			for k in range(1, 8):
 				self.e('mov', 'rax', self.m('rcx', 8 * i)); self.e('mulq', self.m('rsi', 8 * k))
-				self.e('add', 'rax', 'rbx'); self.e('adc', 'rdx', 0)
 				self.e('add', w[k], 'rax'); self.e('adc', 'rdx', 0)
+				self.e('add', w[k], 'rbx'); self.e('adc', 'rdx', 0)
 				self.e('mov', 'rbx', 'rdx')
 			self.e('mov', w[0], 'rbx')
 			w = w[1:] + w[:1]
@@ -307,10 +316,11 @@ class VM:
 		if isinstance(o, tuple): self.store(o, v)
 		else: self.r[o] = v
 
-def run(ins, value, modulus, count, inverse):
-	mem = {'buf': bytearray(8 * (2 * count + 2)) , 'val': bytearray(b''.join(v.to_bytes(8, 'little') for v in value)), 'mod': bytearray(b''.join(v.to_bytes(8, 'little') for v in modulus))}
-	# Доводы: 0 buffer, 8 value, 16 modulus, 24 count (пар слов для обнуления), 32 конец числа, 40 inverse, 48 перенос, 56 конец модуля, 64 конец накопителя блоков, 72 старшее слово
-	args = [('buf', 0), ('val', 0), ('mod', 0), count, ('val', 8 * count), inverse, 0, ('mod', 8 * count), ('buf', 8 * count), ('buf', 16 * count), 0]
+def run(ins, value, modulus, count, inverse, rng):
+	# Накопитель заполняется мусором: ядро обязано обнулить всё, что читает прежде записи
+	mem = {'buf': bytearray(rng.getrandbits(8) for _ in range(8 * (2 * count + 2))), 'val': bytearray(b''.join(v.to_bytes(8, 'little') for v in value)), 'mod': bytearray(b''.join(v.to_bytes(8, 'little') for v in modulus))}
+	# Доводы: 0 buffer, 8 value, 16 modulus, 24 count / 2 (пар слов для обнуления), 32 конец числа, 40 inverse, 48 перенос, 56 конец модуля, 64 конец накопителя блоков, 72 старшее слово, 80 отложенный перенос окна
+	args = [('buf', 0), ('val', 0), ('mod', 0), count // 2, ('val', 8 * count), inverse, 0, ('mod', 8 * count), ('buf', 8 * count), ('buf', 16 * count), 0]
 	vm = VM(ins, mem, args)
 	vm.run()
 	return [int.from_bytes(mem['buf'][8 * i:8 * i + 8], 'little') for i in range(2 * count + 2)]
@@ -327,7 +337,7 @@ def selfcheck(ins):
 		inverse = (-pow(m, -1, 1 << 64)) & M64
 		value = [(a >> (64 * i)) & M64 for i in range(count)]
 		modulus = [(m >> (64 * i)) & M64 for i in range(count)]
-		out = run(ins, value, modulus, count, inverse)
+		out = run(ins, value, modulus, count, inverse, rng)
 		# Отложенные множители в младших словах, итог в старших: (a² + q·m) / R, где q составлено из множителей
 		q = sum(out[i] << (64 * i) for i in range(count))
 		high = sum(out[count + i] << (64 * i) for i in range(count + 1))
@@ -359,7 +369,8 @@ HEADER = """/**
  *          integer.cpp на mulq с переносом в регистре: три прохода (произведения ниже диагонали
  *          окном накопителя из восьми регистров, удвоение с квадратами диагонали, приведение по
  *          восемь рядов на блок с отложенными множителями), четыре флаговые команды на
- *          произведение, ряды перекрываются переупорядочением машины; доводы одним указателем
+ *          произведение - сперва накопленное, потом перенос (цепочка в два такта, круг 48), ряды
+ *          перекрываются переупорядочением машины; доводы операндами в памяти
  *
  * @copyright Copyright © 2026
  *
@@ -417,8 +428,8 @@ HEADER = """/**
 				 *
 				 */
 				static void square8xMulq(uint64_t * buffer, const uint64_t * value, const uint64_t * modulus, const size_t count, const uint64_t inverse) noexcept {
-					// Доводы ядра операндами в памяти: число пар слов накопителя, конец числа, конец модуля, конец накопителя блоков, старшее слово
-					const uint64_t pairs = count;
+					// Доводы ядра операндами в памяти: число пар обнуляемых слов накопителя, конец числа, конец модуля, конец накопителя блоков, старшее слово
+					const uint64_t pairs = (count / 2);
 					const uint64_t * end = (value + count);
 					const uint64_t * last = (modulus + count);
 					uint64_t * blocks = (buffer + count);
