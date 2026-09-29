@@ -410,3 +410,94 @@ TEST(Poly1305Test, Pairs){
 		ASSERT_EQ(text(whole, sizeof(whole)), text(bytes, sizeof(bytes))) << "length " << length;
 	}
 }
+
+/**
+ * Проверка повторного применения объекта без затирания между сообщениями: накопители обнуляются при запуске,
+ * степени множителя и стол ядра строятся заново под новый ключ, неполный блок брошенного сообщения не переносится
+ */
+TEST(Poly1305Test, Reuse){
+	// Генератор ключей и сообщений с закреплённым зерном
+	std::mt19937 generator(20260929);
+	// Объект имитовставки, живущий через все сообщения
+	cipher::poly1305_t poly;
+	// Метка объекта и ожидаемая метка
+	uint8_t tag[cipher::POLY1305_TAG], expected[cipher::POLY1305_TAG];
+	// Ключ и сообщение вектора раздела 2.5.2 RFC 8439
+	const std::vector <uint8_t> k = bytes("85d6be7857556d337f4452fe42d506a80103808afb0db2fd4abff6af4149f51b"), m = bytes("43727970746f6772617068696320466f72756d2052657365617263682047726f7570");
+	// Длины сообщений вперемешку: длинные ведут векторные ветви со степенями, короткие - неполный блок
+	static const size_t LENGTHS[] = {1200, 34, 1200, 5, 0, 1201, 17, 2048, 15, 16, 1024, 1};
+	/**
+	 * Выполняем три круга по длинам
+	 */
+	for(size_t round = 0; round < 3; round++){
+		/**
+		 * Выполняем перебор длин
+		 */
+		for(const size_t length : LENGTHS){
+			// Ключ и сообщение
+			std::vector <uint8_t> key(cipher::POLY1305_KEY), message(length);
+			/**
+			 * Выполняем заполнение ключа
+			 */
+			for(size_t i = 0; i < key.size(); i++)
+				// Записываем очередной байт
+				key[i] = static_cast <uint8_t> (generator());
+			/**
+			 * Выполняем заполнение сообщения
+			 */
+			for(size_t i = 0; i < message.size(); i++)
+				// Записываем очередной байт
+				message[i] = static_cast <uint8_t> (generator());
+			// Свежий объект - эталон метки
+			cipher::poly1305_t fresh;
+			// Проверяем запуск свежего объекта
+			ASSERT_TRUE(fresh.start(view_t(key.data(), key.size())));
+			// Проверяем подачу сообщения целиком
+			ASSERT_TRUE(fresh.update(view_t(message.data(), message.size())));
+			// Проверяем снятие эталонной метки
+			ASSERT_TRUE(fresh.finish(expected));
+			// Проверяем перезапуск живущего объекта под новый ключ
+			ASSERT_TRUE(poly.start(view_t(key.data(), key.size()))) << "длина " << length << " круг " << round;
+			/**
+			 * Выполняем подачу сообщения кусками по семь байтов: неполный блок на каждом шаге
+			 */
+			for(size_t offset = 0; offset < length; offset += 7)
+				// Проверяем подачу очередного куска
+				ASSERT_TRUE(poly.update(view_t(message.data() + offset, (((length - offset) < 7) ? (length - offset) : 7)))) << "длина " << length << " круг " << round;
+			// Проверяем снятие метки
+			ASSERT_TRUE(poly.finish(tag)) << "длина " << length << " круг " << round;
+			// Проверяем схождение метки живущего объекта с эталоном
+			ASSERT_EQ(text(tag, sizeof(tag)), text(expected, sizeof(expected))) << "длина " << length << " круг " << round;
+		}
+		// Проверяем запуск известного вектора на том же объекте после длинных сообщений
+		ASSERT_TRUE(poly.start(view_t(k.data(), k.size())));
+		// Проверяем подачу сообщения
+		ASSERT_TRUE(poly.update(view_t(m.data(), m.size())));
+		// Проверяем снятие метки
+		ASSERT_TRUE(poly.finish(tag));
+		// Проверяем метку раздела 2.5.2
+		ASSERT_EQ(text(tag, sizeof(tag)), std::string("a8061dc1305136c6c22b8baf0c0127a9")) << "круг " << round;
+	}
+	// Брошенное сообщение с неполным блоком: запуск, подача без снятия метки
+	std::vector <uint8_t> abandoned(1205);
+	/**
+	 * Выполняем заполнение брошенного сообщения
+	 */
+	for(size_t i = 0; i < abandoned.size(); i++)
+		// Записываем очередной байт
+		abandoned[i] = static_cast <uint8_t> (generator());
+	// Проверяем запуск под ключ вектора
+	ASSERT_TRUE(poly.start(view_t(k.data(), k.size())));
+	// Проверяем подачу брошенного сообщения: степени построены, неполный блок накоплен
+	ASSERT_TRUE(poly.update(view_t(abandoned.data(), abandoned.size())));
+	// Проверяем отказ запуска негодным ключом: он не портит следующий запуск
+	ASSERT_FALSE(poly.start(view_t(k.data(), 5)));
+	// Проверяем перезапуск известного вектора поверх брошенного сообщения
+	ASSERT_TRUE(poly.start(view_t(k.data(), k.size())));
+	// Проверяем подачу сообщения
+	ASSERT_TRUE(poly.update(view_t(m.data(), m.size())));
+	// Проверяем снятие метки
+	ASSERT_TRUE(poly.finish(tag));
+	// Проверяем метку раздела 2.5.2: ни накопитель, ни неполный блок брошенного сообщения не перенеслись
+	ASSERT_EQ(text(tag, sizeof(tag)), std::string("a8061dc1305136c6c22b8baf0c0127a9"));
+}

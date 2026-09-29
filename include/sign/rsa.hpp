@@ -39,6 +39,7 @@
 #include <vector>
 #include <cstdint>
 #include <cstddef>
+#include <atomic>
 
 /**
  * Подключаем заголовочные файлы проекта
@@ -133,10 +134,11 @@ namespace nts {
 		 *       лишь запись ключа в DER, где нехватка памяти отдаётся отказом.
 		 *       Секретные составляющие затираются при сбросе и уничтожении объекта.
 		 *       Пара ослепления секретного действия хранится в объекте и обновляется
-		 *       квадратами, свежая - каждые тридцать два действия: объект ключа не
-		 *       разделяется между потоками без внешней синхронизации, как и прочие
-		 *       объекты библиотеки; при гонке итог расходится с проверкой открытой
-		 *       степенью и не выдаётся
+		 *       квадратами, свежая - каждые тридцать два действия. Пару забирает
+		 *       атомарный признак занятости без ожидания: секретное действие, заставшее
+		 *       пару занятой другим потоком, берёт свежее ослепление на стеке, оттого
+		 *       один объект ключа служит нескольким потокам разом без отказов и без
+		 *       замка, а одновременные вызовы платят лишь ценой свежего ослепления
 		 *
 		 * \~english
 		 * @brief RSA according to PKCS #1 v2.2
@@ -150,9 +152,11 @@ namespace nts {
 		 *       of the key into DER allocates, where the lack of memory is given as a refusal. The
 		 *       secret components are wiped at the reset and at the destruction of the object. The
 		 *       blinding pair of the secret operation is kept in the object and updated by squaring,
-		 *       a fresh one every thirty-two operations: the key object is not shared between threads
-		 *       without an external synchronization, like the other objects of the library; at a race
-		 *       the outcome diverges from the check by the public power and is not given out
+		 *       a fresh one every thirty-two operations. The pair is taken by an atomic busy flag
+		 *       without waiting: a secret operation that finds the pair busy by another thread takes
+		 *       a fresh blinding on the stack, hence one key object serves several threads at once
+		 *       without refusals and without a lock, and the simultaneous calls pay only the price
+		 *       of the fresh blinding
 		 *
 		 * \~
 		 */
@@ -199,6 +203,8 @@ namespace nts {
 				mutable math::integer_t _inverse2;
 				// Число секретных действий с сохранённой парой: нулевое требует свежей пары
 				mutable size_t _uses;
+				// Признак занятости сохранённой пары: забирается без ожидания, заставший её занятой берёт свежее ослепление на стеке
+				mutable std::atomic <bool> _busy;
 			private:
 				/**
 				 * \~russian
@@ -221,6 +227,56 @@ namespace nts {
 				 * \~
 				 */
 				bool prepare() noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод выработки свежей пары ослепления по сомножителям
+				 *
+				 * @param raised1  место открытой степени r₁^e в области Монтгомери по p
+				 * @param inverse1 место обратного r₁⁻¹ в области Монтгомери по p
+				 * @param raised2  место открытой степени r₂^e в области Монтгомери по q
+				 * @param inverse2 место обратного r₂⁻¹ в области Монтгомери по q
+				 * @return         признак успешности выработки
+				 *
+				 * \~english
+				 * @brief Method of the production of a fresh blinding pair by the factors
+				 * @param raised1  the place of the public power r₁^e in the Montgomery domain by p
+				 * @param inverse1 the place of the inverse r₁⁻¹ in the Montgomery domain by p
+				 * @param raised2  the place of the public power r₂^e in the Montgomery domain by q
+				 * @param inverse2 the place of the inverse r₂⁻¹ in the Montgomery domain by q
+				 * @return         the flag of the success of the production
+				 *
+				 * \~
+				 */
+				bool renew(math::integer_t & raised1, math::integer_t & inverse1, math::integer_t & raised2, math::integer_t & inverse2) const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод секретной степени с ослеплением по сомножителям
+				 *
+				 * @param stored   признак хранимой пары: она обновляется квадратами и сменяется свежей по счётчику, пара на стеке вырабатывается свежей
+				 * @param part1    вычет числа по первому сомножителю
+				 * @param part2    вычет числа по второму сомножителю
+				 * @param raised1  открытая степень r₁^e в области Монтгомери по p
+				 * @param inverse1 обратное r₁⁻¹ в области Монтгомери по p
+				 * @param raised2  открытая степень r₂^e в области Монтгомери по q
+				 * @param inverse2 обратное r₂⁻¹ в области Монтгомери по q
+				 * @param result   место итога, собранного по китайской теореме об остатках
+				 * @return         признак успешности действия
+				 *
+				 * \~english
+				 * @brief Method of the secret power with the blinding by the factors
+				 * @param stored   the flag of the kept pair: it is updated by squaring and replaced by a fresh one by the counter, a pair on the stack is produced fresh
+				 * @param part1    the residue of the number by the first factor
+				 * @param part2    the residue of the number by the second factor
+				 * @param raised1  the public power r₁^e in the Montgomery domain by p
+				 * @param inverse1 the inverse r₁⁻¹ in the Montgomery domain by p
+				 * @param raised2  the public power r₂^e in the Montgomery domain by q
+				 * @param inverse2 the inverse r₂⁻¹ in the Montgomery domain by q
+				 * @param result   the place of the outcome assembled by the Chinese remainder theorem
+				 * @return         the flag of the success of the operation
+				 *
+				 * \~
+				 */
+				bool blinded(const bool stored, const math::integer_t & part1, const math::integer_t & part2, math::integer_t & raised1, math::integer_t & inverse1, math::integer_t & raised2, math::integer_t & inverse2, math::integer_t & result) const noexcept;
 				/**
 				 * \~russian
 				 * @brief Метод сборки числа по китайской теореме об остатках за постоянное время

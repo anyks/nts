@@ -38,6 +38,8 @@
 #include <string>
 #include <vector>
 #include <cstring>
+#include <thread>
+#include <atomic>
 #include <main.hpp>
 #include <starve.hpp>
 #include <sign/rsa.hpp>
@@ -840,6 +842,70 @@ TEST(RsaTest, Blinding) {
 	// Смена ключа требует свежей пары: подпись тем же ключом после повторного разбора сходится
 	ASSERT_TRUE(rsa.decode(view(bytes(KEY_DER))));
 	ASSERT_TRUE(rsa.make(sign::scheme_t::PKCS1, digest::hash_t::SHA256, view_t(hash, size), signature));
+	ASSERT_EQ(text(signature, sizeof(signature)), std::string(SIGNATURE_PKCS1));
+}
+/**
+ * @brief Проверка одновременных подписей одним объектом ключа из нескольких потоков
+ *
+ * @details Хранимую пару ослепления забирает признак занятости без ожидания, заставший её занятой
+ *          берёт свежее ослепление на стеке: ни один поток не получает отказа, каждая подпись
+ *          PKCS #1 сходится с подписью OpenSSL байт в байт, а после потоков объект подписывает как прежде
+ *
+ */
+TEST(RsaTest, Concurrent) {
+	// Модуль RSA с секретным ключом
+	sign::rsa_t rsa;
+	// Разбираем секретный ключ OpenSSL
+	ASSERT_TRUE(rsa.decode(view(bytes(KEY_DER))));
+	// Хеш сообщения
+	uint8_t hash[64];
+	// Вырабатываем хеш SHA-256
+	const size_t size = hashed(digest::hash_t::SHA256, hash);
+	// Ожидаемая подпись OpenSSL
+	const std::vector <uint8_t> expected = bytes(SIGNATURE_PKCS1);
+	// Число потоков и подписей на поток
+	static const size_t THREADS = 4, ROUNDS = 20;
+	// Счётчики отказов и расхождений по потокам
+	std::atomic <size_t> refusals{0}, mismatches{0};
+	// Потоки подписи
+	std::vector <std::thread> threads;
+	/**
+	 * Выполняем запуск потоков: каждый подписывает одним и тем же объектом ключа
+	 */
+	for(size_t t = 0; t < THREADS; t++)
+		// Запускаем очередной поток
+		threads.emplace_back([&]{
+			// Место подписи
+			uint8_t signature[256];
+			/**
+			 * Выполняем подписи подряд
+			 */
+			for(size_t i = 0; i < ROUNDS; i++){
+				// Если подпись не выработалась
+				if(!rsa.make(sign::scheme_t::PKCS1, digest::hash_t::SHA256, view_t(hash, size), signature))
+					// Учитываем отказ
+					refusals++;
+				// Если подпись разошлась с подписью OpenSSL
+				else if(::memcmp(signature, expected.data(), sizeof(signature)) != 0)
+					// Учитываем расхождение
+					mismatches++;
+			}
+		});
+	/**
+	 * Выполняем ожидание потоков
+	 */
+	for(auto & thread : threads)
+		// Ожидаем очередной поток
+		thread.join();
+	// Проверяем отсутствие отказов: заставший пару занятой берёт свежее ослепление, а не отказывает
+	ASSERT_EQ(refusals.load(), 0u);
+	// Проверяем отсутствие расхождений: пара не разделяется между потоками
+	ASSERT_EQ(mismatches.load(), 0u);
+	// Место подписи
+	uint8_t signature[256];
+	// Проверяем подпись после потоков: пара отпущена, объект подписывает как прежде
+	ASSERT_TRUE(rsa.make(sign::scheme_t::PKCS1, digest::hash_t::SHA256, view_t(hash, size), signature));
+	// Сличаем с подписью OpenSSL байт в байт
 	ASSERT_EQ(text(signature, sizeof(signature)), std::string(SIGNATURE_PKCS1));
 }
 /**

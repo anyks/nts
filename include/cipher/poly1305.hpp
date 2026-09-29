@@ -112,7 +112,11 @@ namespace nts {
 		 *       на r^8, последняя восьмёрка - на r^8…r), степени r считаются при первом
 		 *       входе в ветвь. Итог всех путей один и тот же, что и поблочно.
 		 *       Памяти не выделяется, исключений нет. Снятие метки finish завершает
-		 *       объект: повтор требует нового start
+		 *       объект: повтор требует нового start. Секретные поля затираются в clear
+		 *       и при уничтожении объекта, а не при снятии метки и не при запуске: ключ
+		 *       одноразовый, у AEAD он выведен из гаммы под ключом сеанса, который живёт
+		 *       в объекте шифра, и остаток одноразового ключа между сообщениями ничего
+		 *       не раскрывает; кому нужно стирание сразу после метки, тот зовёт clear
 		 *
 		 * \~english
 		 * @brief The Poly1305 one-time authenticator
@@ -132,7 +136,12 @@ namespace nts {
 		 *       is multiplied by r^8, the last octet - by r^8…r), the powers of r are computed at
 		 *       the first entry into the branch. The result of every path is the same
 		 *       as block by block. No memory is allocated, there are no exceptions. The taking of the
-		 *       tag by finish finishes the object: a repetition requires a new start
+		 *       tag by finish finishes the object: a repetition requires a new start. The secret fields
+		 *       are wiped in clear and at the destruction of the object, neither at the taking of the
+		 *       tag nor at the start: the key is one-time, at AEAD it is derived from the keystream
+		 *       under the session key that lives in the cipher object, and the remainder of a one-time
+		 *       key between the messages reveals nothing; whoever needs the erasure right after the
+		 *       tag calls clear
 		 *
 		 * \~
 		 */
@@ -146,7 +155,7 @@ namespace nts {
 				// Число накопленных байтов неполного блока
 				size_t _filled;
 			private:
-				// Секретные поля от степеней до неполного блока идут подряд под одним доступом и затираются одним вызовом: у имитовставки ключ свой на каждое сообщение, и затирание по полям было видно на коротких записях
+				// Секретные поля от степеней до неполного блока идут подряд под одним доступом и затираются одним вызовом в clear и разрушителе: между сообщениями они не затираются, ключ одноразовый, а затирание на каждое сообщение было видно на коротких записях
 				// Степени множителя r^1…r^8 по пять конечностей в 26 разрядов: переносимый путь берёт r и r^2 под сложение блоков парами, векторные ветви - все восемь
 				uint32_t _powers[8][5];
 				// Стол ядра AVX2 на ассемблере x86-64: степени множителя по дорожкам, маска конечности и старший разряд (88 слов), затем дорожки итога (20) и конечности накопителя (4); строится вместе со степенями

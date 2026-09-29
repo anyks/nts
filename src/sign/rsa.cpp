@@ -37,9 +37,17 @@
  *    r^e и r⁻¹ по каждому сомножителю хранится в объекте в области Монтгомери и
  *    обновляется квадратами на каждом действии ((r²)^e = (r^e)², (r²)⁻¹ = (r⁻¹)²), а
  *    свежая берётся каждые тридцать два действия (счётчик BN_BLINDING OpenSSL и
- *    BoringSSL): 79 → 4 мкс. Состояние изменяемое без замка - объекты библиотеки
- *    между потоками не разделяются; при гонке пара расходится, итог не проходит
- *    проверку открытой степенью (решение 3) и не выдаётся.
+ *    BoringSSL): 79 → 4 мкс. Пару забирает атомарный признак занятости без
+ *    ожидания (круг 45, 29.09.2026): движок берёт ключ сервера по ссылке из
+ *    keys::Signer, один объект на все рукопожатия контекста, и одновременные
+ *    подписи одним ключом из разных потоков без признака давали отказ (пара
+ *    расходилась, итог не проходил проверку решения 3). Замок не взят: он ставил
+ *    бы одновременные подписи в очередь на миллисекунду каждая, а OpenSSL и
+ *    BoringSSL держат замок лишь вокруг выдачи пары, не вокруг степени. Заставший
+ *    пару занятой берёт свежее ослепление на стеке, как до круга 44: один поток
+ *    всегда идёт быстрым путём, одновременные платят 75 мкс на Xeon вместо отказа.
+ *    Разветвление процесса посреди чужой подписи оставляет признак у потомка
+ *    занятым до установки ключа, и потомок идёт путём свежего ослепления.
  * 2. Предвычисления Монтгомери по n, p и q и коэффициент qInv в области по p
  *    заводятся при установке ключа (prepare), оттого подпись и сличение не платят за
  *    них: прежде сличение подписи RSA-2048 стоило 308 мкс, из которых сами
@@ -649,6 +657,8 @@ void nts::sign::Rsa::clear() noexcept {
 	this->_inverse2.clear();
 	// Сбрасываем счётчик действий с парой
 	this->_uses = 0;
+	// Отпускаем пару: новому ключу она не принадлежит никому
+	this->_busy.store(false, std::memory_order_relaxed);
 }
 /**
  * @brief Метод порождения ключа
@@ -1174,8 +1184,102 @@ bool nts::sign::Rsa::prepare() noexcept {
 		return false;
 	// Новому ключу нужна свежая пара ослепления
 	this->_uses = 0;
+	// Отпускаем пару: у потомка разветвления она могла остаться занятой
+	this->_busy.store(false, std::memory_order_relaxed);
 	// Переводим коэффициент qInv в область Монтгомери по первому сомножителю
 	return this->_field1.enter(this->_coefficient, this->_reverse);
+}
+/**
+ * @brief Метод выработки свежей пары ослепления по сомножителям
+ *
+ * @param raised1  место открытой степени r₁^e в области Монтгомери по p
+ * @param inverse1 место обратного r₁⁻¹ в области Монтгомери по p
+ * @param raised2  место открытой степени r₂^e в области Монтгомери по q
+ * @param inverse2 место обратного r₂⁻¹ в области Монтгомери по q
+ * @return         признак успешности выработки
+ *
+ */
+bool nts::sign::Rsa::renew(math::integer_t & raised1, math::integer_t & inverse1, math::integer_t & raised2, math::integer_t & inverse2) const noexcept {
+	// Ослепляющие числа по сомножителям, обратные к ним и их открытые степени
+	math::integer_t blind1, blind2, reverse1, reverse2, power1, power2;
+	// Признак того, что ослепляющие числа найдены
+	bool found = false;
+	/**
+	 * Выбираем ослепляющие числа: ненулевые и обратимые по своим сомножителям
+	 */
+	for(size_t i = 0; (i < BLINDING) && !found; i++){
+		// Берём случайные числа на разряд короче сомножителей: они заведомо меньше их
+		if(!blind1.random(this->_prime1.bits() - 1) || !blind2.random(this->_prime2.bits() - 1))
+			// Выводим отказ
+			return false;
+		// Числа годны, когда ненулевые и обратимые: обращение идёт за постоянное время
+		found = (!blind1.zero() && !blind2.zero() && this->_field1.invert(blind1, reverse1) && this->_field2.invert(blind2, reverse2));
+	}
+	// Если ослепляющие числа не найдены
+	if(!found)
+		// Выводим отказ
+		return false;
+	// Возводим ослепляющие числа в открытую степень по сомножителям
+	if(!this->_field1.power(blind1, this->_exponent, false, power1) || !this->_field2.power(blind2, this->_exponent, false, power2))
+		// Выводим отказ
+		return false;
+	// Переводим пару в область Монтгомери: умножение на неё - одно умножение Монтгомери
+	return (this->_field1.enter(power1, raised1) && this->_field1.enter(reverse1, inverse1) && this->_field2.enter(power2, raised2) && this->_field2.enter(reverse2, inverse2));
+}
+/**
+ * @brief Метод секретной степени с ослеплением по сомножителям
+ *
+ * @param stored   признак хранимой пары: она обновляется квадратами и сменяется свежей по счётчику, пара на стеке вырабатывается свежей
+ * @param part1    вычет числа по первому сомножителю
+ * @param part2    вычет числа по второму сомножителю
+ * @param raised1  открытая степень r₁^e в области Монтгомери по p
+ * @param inverse1 обратное r₁⁻¹ в области Монтгомери по p
+ * @param raised2  открытая степень r₂^e в области Монтгомери по q
+ * @param inverse2 обратное r₂⁻¹ в области Монтгомери по q
+ * @param result   место итога, собранного по китайской теореме об остатках
+ * @return         признак успешности действия
+ *
+ */
+bool nts::sign::Rsa::blinded(const bool stored, const math::integer_t & part1, const math::integer_t & part2, math::integer_t & raised1, math::integer_t & inverse1, math::integer_t & raised2, math::integer_t & inverse2, math::integer_t & result) const noexcept {
+	/**
+	 * Если пара на стеке, хранимой ещё нет либо она отработала своё: берётся свежая
+	 */
+	if(!stored || (this->_uses == 0) || (this->_uses >= REFRESH)){
+		// Если пара хранимая
+		if(stored)
+			// Пара свежая: при отказе выработки следующее действие возьмёт свежую заново, а не квадрат недописанной
+			this->_uses = 0;
+		// Если свежая пара не выработалась
+		if(!this->renew(raised1, inverse1, raised2, inverse2))
+			// Выводим отказ
+			return false;
+	// Иначе пара обновляется квадратами: (r²)^e = (r^e)², (r²)⁻¹ = (r⁻¹)²
+	} else if(!this->_field1.multiply(raised1, raised1, raised1) || !this->_field1.multiply(inverse1, inverse1, inverse1) ||
+	          !this->_field2.multiply(raised2, raised2, raised2) || !this->_field2.multiply(inverse2, inverse2, inverse2))
+		// Выводим отказ
+		return false;
+	// Если пара хранимая
+	if(stored)
+		// Учитываем действие с парой
+		this->_uses++;
+	// Ослеплённые вычеты
+	math::integer_t blinded1, blinded2;
+	// Ослепляем вычеты: сомножитель в области, оттого множитель R сокращается одним умножением
+	if(!this->_field1.multiply(part1, raised1, blinded1) || !this->_field2.multiply(part2, raised2, blinded2))
+		// Выводим отказ
+		return false;
+	// Степени по сомножителям
+	math::integer_t power1, power2;
+	// Возводим ослеплённые вычеты в секретные степени за постоянное время
+	if(!this->_field1.power(blinded1, this->_exponent1, true, power1) || !this->_field2.power(blinded2, this->_exponent2, true, power2))
+		// Выводим отказ
+		return false;
+	// Снимаем ослепление: секретная степень открытой степени ослепляющего числа есть само число
+	if(!this->_field1.multiply(power1, inverse1, power1) || !this->_field2.multiply(power2, inverse2, power2))
+		// Выводим отказ
+		return false;
+	// Собираем итог по китайской теореме об остатках
+	return this->garner(power1, power2, result);
 }
 /**
  * @brief Метод секретного действия RSA
@@ -1202,67 +1306,20 @@ bool nts::sign::Rsa::decipher(const view_t & input, uint8_t * output) const noex
 	if(!this->_field1.reduce(value, part1) || !this->_field2.reduce(value, part2))
 		// Выводим отказ
 		return false;
-	/**
-	 * Если сохранённой пары ослепления нет либо она отработала своё: берётся свежая
-	 */
-	if((this->_uses == 0) || (this->_uses >= REFRESH)){
-		// Ослепляющие числа по сомножителям, обратные к ним и их открытые степени
-		math::integer_t blind1, blind2, inverse1, inverse2, raised1, raised2;
-		// Признак того, что ослепляющие числа найдены
-		bool found = false;
-		/**
-		 * Выбираем ослепляющие числа: ненулевые и обратимые по своим сомножителям
-		 */
-		for(size_t i = 0; (i < BLINDING) && !found; i++){
-			// Берём случайные числа на разряд короче сомножителей: они заведомо меньше их
-			if(!blind1.random(this->_prime1.bits() - 1) || !blind2.random(this->_prime2.bits() - 1))
-				// Выводим отказ
-				return false;
-			// Числа годны, когда ненулевые и обратимые: обращение идёт за постоянное время
-			found = (!blind1.zero() && !blind2.zero() && this->_field1.invert(blind1, inverse1) && this->_field2.invert(blind2, inverse2));
-		}
-		// Если ослепляющие числа не найдены
-		if(!found)
-			// Выводим отказ
-			return false;
-		// Возводим ослепляющие числа в открытую степень по сомножителям
-		if(!this->_field1.power(blind1, this->_exponent, false, raised1) || !this->_field2.power(blind2, this->_exponent, false, raised2))
-			// Выводим отказ
-			return false;
-		// Сохраняем пару в области Монтгомери: умножение на неё - одно умножение Монтгомери
-		if(!this->_field1.enter(raised1, this->_raised1) || !this->_field1.enter(inverse1, this->_inverse1) ||
-		   !this->_field2.enter(raised2, this->_raised2) || !this->_field2.enter(inverse2, this->_inverse2))
-			// Выводим отказ
-			return false;
-		// Пара свежая
-		this->_uses = 0;
-	// Иначе пара обновляется квадратами: (r²)^e = (r^e)², (r²)⁻¹ = (r⁻¹)²
-	} else if(!this->_field1.multiply(this->_raised1, this->_raised1, this->_raised1) || !this->_field1.multiply(this->_inverse1, this->_inverse1, this->_inverse1) ||
-	          !this->_field2.multiply(this->_raised2, this->_raised2, this->_raised2) || !this->_field2.multiply(this->_inverse2, this->_inverse2, this->_inverse2))
-		// Выводим отказ
-		return false;
-	// Учитываем действие с парой
-	this->_uses++;
-	// Ослеплённые вычеты
-	math::integer_t blinded1, blinded2;
-	// Ослепляем вычеты: сомножитель в области, оттого множитель R сокращается одним умножением
-	if(!this->_field1.multiply(part1, this->_raised1, blinded1) || !this->_field2.multiply(part2, this->_raised2, blinded2))
-		// Выводим отказ
-		return false;
-	// Степени по сомножителям
-	math::integer_t power1, power2;
-	// Возводим ослеплённые вычеты в секретные степени за постоянное время
-	if(!this->_field1.power(blinded1, this->_exponent1, true, power1) || !this->_field2.power(blinded2, this->_exponent2, true, power2))
-		// Выводим отказ
-		return false;
-	// Снимаем ослепление: секретная степень открытой степени ослепляющего числа есть само число
-	if(!this->_field1.multiply(power1, this->_inverse1, power1) || !this->_field2.multiply(power2, this->_inverse2, power2))
-		// Выводим отказ
-		return false;
+	// Забираем хранимую пару ослепления, когда она свободна: занятую другим потоком не ждём
+	const bool stored = !this->_busy.exchange(true, std::memory_order_acquire);
+	// Пара ослепления на стеке на случай занятой хранимой
+	math::integer_t raised1, inverse1, raised2, inverse2;
 	// Итог действия
 	math::integer_t result;
-	// Собираем итог по китайской теореме об остатках
-	if(!this->garner(power1, power2, result))
+	// Ведём секретную степень с хранимой парой либо со свежей на стеке
+	const bool done = this->blinded(stored, part1, part2, (stored ? this->_raised1 : raised1), (stored ? this->_inverse1 : inverse1), (stored ? this->_raised2 : raised2), (stored ? this->_inverse2 : inverse2), result);
+	// Если пара была хранимой
+	if(stored)
+		// Отпускаем пару
+		this->_busy.store(false, std::memory_order_release);
+	// Если действие не удалось
+	if(!done)
 		// Выводим отказ
 		return false;
 	// Проверка итога
@@ -1902,7 +1959,7 @@ bool nts::sign::Rsa::decrypt(const scheme_t scheme, const digest::hash_t algorit
  * @brief Конструктор
  *
  */
-nts::sign::Rsa::Rsa() noexcept : _public(false), _secret(false), _bits(0), _uses(0) {}
+nts::sign::Rsa::Rsa() noexcept : _public(false), _secret(false), _bits(0), _uses(0), _busy(false) {}
 /**
  * @brief Деструктор
  *
