@@ -72,6 +72,7 @@
 #include <curve/curve.hpp>
 #include <internal/curve/tables.hpp>
 #include <internal/math/kernels.hpp>
+#include <sys/machine.hpp>
 #include <cstring>
 #include <sys/wipe.hpp>
 
@@ -262,14 +263,39 @@ namespace {
 		V z;
 	};
 	/**
+	 * @brief Метод снятия признака машины для выбора ядер поля
+	 *
+	 * @return признак MULX и ADCX/ADOX у машины под x86-64 с ядрами на них, иначе ложь
+	 *
+	 * @note Снимается один раз на вызов кривой и передаётся арифметике поля: вызов machine::has
+	 *       на каждое умножение поля стоил бы четверть ядра (7 нс при 25), см. решение 15 шапки
+	 *       math/integer.cpp
+	 *
+	 */
+	static bool extended() noexcept {
+/**
+ * Ядра на MULX и ADCX/ADOX есть лишь под x86-64 с GCC и clang
+ */
+#if defined(__ANTS_X86_64_ADX_KERNELS__)
+		// Выводим признак MULX и ADCX/ADOX у машины
+		return machine::has(machine::feature_t::ADX);
+#else
+		// Ядра от машины не зависят
+		return false;
+#endif
+	}
+	/**
 	 * @brief Арифметика поля, встраиваемая по числу слов
 	 *
 	 * @details Ядра умножения, сложения и вычитания берутся из внутреннего заголовка и
 	 *          встраиваются в формулы точки: число слов заложено в тело, значения идут в
-	 *          регистрах, итог пишется прямо в приёмник, а вызова через границу модуля нет
+	 *          регистрах, итог пишется прямо в приёмник, а вызова через границу модуля нет.
+	 *          Признак MULX и ADCX/ADOX у машины заложен в шаблон (ADX): формулы точки
+	 *          собираются дважды на четыре слова, и путь без MULX остаётся тем же, что был -
+	 *          ветвление по признаку внутри ядра стоило ему 4 % (круг 54)
 	 *
 	 */
-	template <size_t WORDS>
+	template <size_t WORDS, bool ADX = false>
 	struct Fast {
 		// Значение поля
 		typedef math::kernel::Words <WORDS> value_t;
@@ -279,15 +305,15 @@ namespace {
 		 * @brief Метод умножения по модулю
 		 */
 		__ANTS_INLINE__ void multiply(const value_t & first, const value_t & second, value_t & result) const noexcept {
-			// Выполняем умножение встраиваемым ядром
-			math::kernel::multiply <WORDS> (this->layout, first, second, result);
+			// Выполняем умножение встраиваемым ядром: ядра MULX у простого P-256 по признаку шаблона
+			math::kernel::multiply <WORDS, ADX> (this->layout, first, second, result);
 		}
 		/**
 		 * @brief Метод возведения в квадрат по модулю
 		 */
 		__ANTS_INLINE__ void square(const value_t & value, value_t & result) const noexcept {
-			// Выполняем возведение в квадрат встраиваемым ядром
-			math::kernel::square <WORDS> (this->layout, value, result);
+			// Выполняем возведение в квадрат встраиваемым ядром: ядра MULX у простого P-256 по признаку шаблона
+			math::kernel::square <WORDS, ADX> (this->layout, value, result);
 		}
 		/**
 		 * @brief Метод сложения по модулю
@@ -1010,8 +1036,8 @@ namespace {
 	 * @param result место, в которое помещается выбранное кратное
 	 *
 	 */
-	template <size_t WORDS>
-	static __ANTS_INLINE__ void pick(const Fast <WORDS> & f, const Triple <math::kernel::Words <WORDS>> * table, const size_t count, const uint64_t index, Triple <math::kernel::Words <WORDS>> & result) noexcept {
+	template <size_t WORDS, bool ADX>
+	static __ANTS_INLINE__ void pick(const Fast <WORDS, ADX> & f, const Triple <math::kernel::Words <WORDS>> * table, const size_t count, const uint64_t index, Triple <math::kernel::Words <WORDS>> & result) noexcept {
 		// Выполняем выборку строки таблицы: три координаты подряд
 		f.gather(table[0].x.w, (3 * WORDS), count, 0, index, result.x.w, (3 * WORDS));
 	}
@@ -1149,8 +1175,8 @@ namespace {
 	 * @param chosen место, в которое помещаются координаты выбранного кратного
 	 *
 	 */
-	template <size_t WORDS>
-	static __ANTS_INLINE__ void gathering(const Fast <WORDS> & f, const uint64_t * row, const size_t words, const uint64_t index, Triple <math::kernel::Words <WORDS>> & chosen) noexcept {
+	template <size_t WORDS, bool ADX>
+	static __ANTS_INLINE__ void gathering(const Fast <WORDS, ADX> & f, const uint64_t * row, const size_t words, const uint64_t index, Triple <math::kernel::Words <WORDS>> & chosen) noexcept {
 		// Число слов координаты заложено в арифметику
 		(void) words;
 		// Выполняем выборку строки: кратные от первого, координаты подряд
@@ -1735,9 +1761,12 @@ void nts::curve::Curve::twice(const point_t & value, point_t & result) const noe
 	// Число слов поля кривой
 	const size_t words = ((this->_field.size() + 7) / 8);
 	// Формула идёт встраиваемой арифметикой по числу слов поля, прочие ширины - общим путём
-	if(words == 4)
-		twicing(Fast <4> {this->_field.layout()}, this->_shortened, this->_first, value, result);
-	else if(words == 8)
+	if(words == 4){
+		// На четырёх словах путь выбирается по признаку MULX и ADCX/ADOX у машины, снятому один раз
+		if(extended())
+			twicing(Fast <4, true> {this->_field.layout()}, this->_shortened, this->_first, value, result);
+		else twicing(Fast <4> {this->_field.layout()}, this->_shortened, this->_first, value, result);
+	} else if(words == 8)
 		twicing(Fast <8> {this->_field.layout()}, this->_shortened, this->_first, value, result);
 	else twicing(Slow {this->_field}, this->_shortened, this->_first, value, result);
 }
@@ -1753,9 +1782,12 @@ void nts::curve::Curve::attach(const point_t & first, const point_t & second, po
 	// Число слов поля кривой
 	const size_t words = ((this->_field.size() + 7) / 8);
 	// Формула идёт встраиваемой арифметикой по числу слов поля, прочие ширины - общим путём
-	if(words == 4)
-		attachment(Fast <4> {this->_field.layout()}, first, second, result);
-	else if(words == 8)
+	if(words == 4){
+		// На четырёх словах путь выбирается по признаку MULX и ADCX/ADOX у машины, снятому один раз
+		if(extended())
+			attachment(Fast <4, true> {this->_field.layout()}, first, second, result);
+		else attachment(Fast <4> {this->_field.layout()}, first, second, result);
+	} else if(words == 8)
 		attachment(Fast <8> {this->_field.layout()}, first, second, result);
 	else attachment(Slow {this->_field}, first, second, result);
 }
@@ -1771,9 +1803,12 @@ void nts::curve::Curve::join(const point_t & first, const point_t & second, poin
 	// Число слов поля кривой
 	const size_t words = ((this->_field.size() + 7) / 8);
 	// Формула идёт встраиваемой арифметикой по числу слов поля, прочие ширины - общим путём
-	if(words == 4)
-		junction(Fast <4> {this->_field.layout()}, first, second, result);
-	else if(words == 8)
+	if(words == 4){
+		// На четырёх словах путь выбирается по признаку MULX и ADCX/ADOX у машины, снятому один раз
+		if(extended())
+			junction(Fast <4, true> {this->_field.layout()}, first, second, result);
+		else junction(Fast <4> {this->_field.layout()}, first, second, result);
+	} else if(words == 8)
 		junction(Fast <8> {this->_field.layout()}, first, second, result);
 	else junction(Slow {this->_field}, first, second, result);
 }
@@ -1789,9 +1824,12 @@ void nts::curve::Curve::add(const point_t & first, const point_t & second, point
 	// Число слов поля кривой
 	const size_t words = ((this->_field.size() + 7) / 8);
 	// Формула идёт встраиваемой арифметикой по числу слов поля, прочие ширины - общим путём
-	if(words == 4)
-		summation(Fast <4> {this->_field.layout()}, this->_shortened, this->_first, first, second, result);
-	else if(words == 8)
+	if(words == 4){
+		// На четырёх словах путь выбирается по признаку MULX и ADCX/ADOX у машины, снятому один раз
+		if(extended())
+			summation(Fast <4, true> {this->_field.layout()}, this->_shortened, this->_first, first, second, result);
+		else summation(Fast <4> {this->_field.layout()}, this->_shortened, this->_first, first, second, result);
+	} else if(words == 8)
 		summation(Fast <8> {this->_field.layout()}, this->_shortened, this->_first, first, second, result);
 	else summation(Slow {this->_field}, this->_shortened, this->_first, first, second, result);
 }
@@ -1809,9 +1847,12 @@ void nts::curve::Curve::multiply(const point_t & value, const math::number_t & f
 	// Разрядность множителя: разрядность порядка подгруппы точек кривой
 	const size_t bits = (this->_order.size() * 8);
 	// Умножение идёт встраиваемой арифметикой по числу слов поля, прочие ширины - общим путём
-	if(words == 4)
-		multiplication(Fast <4> {this->_field.layout()}, this->_shortened, this->_first, value, factor, bits, result);
-	else if(words == 8)
+	if(words == 4){
+		// На четырёх словах путь выбирается по признаку MULX и ADCX/ADOX у машины, снятому один раз
+		if(extended())
+			multiplication(Fast <4, true> {this->_field.layout()}, this->_shortened, this->_first, value, factor, bits, result);
+		else multiplication(Fast <4> {this->_field.layout()}, this->_shortened, this->_first, value, factor, bits, result);
+	} else if(words == 8)
 		multiplication(Fast <8> {this->_field.layout()}, this->_shortened, this->_first, value, factor, bits, result);
 	else multiplication(Slow {this->_field}, this->_shortened, this->_first, value, factor, bits, result);
 	/**
@@ -1838,9 +1879,12 @@ void nts::curve::Curve::product(const math::number_t & factor, point_t & result)
 		return;
 	}
 	// Умножение идёт встраиваемой арифметикой по числу слов заготовки, прочие ширины - общим путём
-	if(multiples->words == 4)
-		production(Fast <4> {this->_field.layout()}, multiples, this->_unit, factor, result);
-	else if(multiples->words == 8)
+	if(multiples->words == 4){
+		// На четырёх словах путь выбирается по признаку MULX и ADCX/ADOX у машины, снятому один раз
+		if(extended())
+			production(Fast <4, true> {this->_field.layout()}, multiples, this->_unit, factor, result);
+		else production(Fast <4> {this->_field.layout()}, multiples, this->_unit, factor, result);
+	} else if(multiples->words == 8)
 		production(Fast <8> {this->_field.layout()}, multiples, this->_unit, factor, result);
 	else production(Slow {this->_field}, multiples, this->_unit, factor, result);
 	// Выполняем перезапись кадров стека шагов умножения

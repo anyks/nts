@@ -295,6 +295,7 @@ if (CMAKE_CURVE_TABLES)
      ##
     add_library(nts_tables_bootstrap STATIC
         "${CMAKE_CURRENT_SOURCE_DIR}/src/sys/wipe.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/sys/machine.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/math/number.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/field/field.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/curve/curve.cpp"

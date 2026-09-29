@@ -2265,6 +2265,282 @@ namespace nts {
 					result.w[2] = c2;
 					result.w[3] = c3;
 				}
+				/**
+				 * Ядра P-256 на MULX и ADCX/ADOX: перевод __ecp_nistz256_mul_montx и __ecp_nistz256_sqr_montx
+				 * из ecp_nistz256-x86_64.pl OpenSSL (круг 54, 29.09.2026). Произведение по одному слову второго
+				 * сомножителя двумя цепочками переносов ADCX и ADOX, приведение по младшему слову переплетено
+				 * со строками: слово сдвигается на 32 разряда в обе стороны командами SHLX/SHRX без флагов и
+				 * умножается MULX на старшее слово модуля. Регистров ровно четырнадцать: rbp не берётся,
+				 * временное t1 живёт в rax, указатель второго сомножителя после последней строки служит
+				 * копией под условное вычитание, а у квадрата указатель числа - счётчиком сдвига и словом
+				 * модуля; оттого указатели объявлены изменяемыми с ранним запретом. Берутся при MULX и
+				 * ADCX/ADOX у машины по признаку, снятому вызывающим (curve.cpp): на Xeon E5-2630 v4 умножение
+				 * цепочкой 30,8 → 24,9 нс при 25,8 у ecp_nistz256_mul_mont, квадрат 23,0 → 22,0 при 20,6.
+				 * Под ASan без оптимизации и при ANTS_NO_MACHINE не собираются
+				 */
+				#if !defined(__ANTS_ASAN_UNOPTIMIZED__) && !defined(ANTS_NO_MACHINE)
+					/**
+					 * Признак наличия ядер P-256 на MULX и ADCX/ADOX
+					 */
+					#define __ANTS_X86_64_ADX_KERNELS__
+					/**
+					 * @brief Метод умножения Монтгомери по простому P-256 на MULX и ADCX/ADOX
+					 *
+					 * @param first  первый сомножитель в области Монтгомери
+					 * @param second второй сомножитель в области Монтгомери
+					 * @param result место, в которое помещается произведение: вправе совпадать с сомножителем
+					 *
+					 */
+					static __ANTS_INLINE__ void nistmultiply4x(const Words <4> & first, const Words <4> & second, Words <4> & result) noexcept {
+						// Указатель второго сомножителя: после последней строки служит копией слова
+						const uint64_t * b = second.w;
+						__asm__ __volatile__(
+						"mov   8*0(%[b]), %%rdx\n\t"
+						"mov   8*0(%[a]), %%r9\n\t"
+						"mov   8*1(%[a]), %%r10\n\t"
+						"mov   8*2(%[a]), %%r11\n\t"
+						"mov   8*3(%[a]), %%r12\n\t"
+						"mulx  %%r9, %%r8, %%r9\n\t"
+						"mulx  %%r10, %%rcx, %%r10\n\t"
+						"mov   $32, %%r14\n\t"
+						"xor   %%r13, %%r13\n\t"
+						"mulx  %%r11, %%rax, %%r11\n\t"
+						"movabs $0xffffffff00000001, %%r15\n\t"
+						"adc   %%rcx, %%r9\n\t"
+						"mulx  %%r12, %%rcx, %%r12\n\t"
+						"mov   %%r8, %%rdx\n\t"
+						"adc   %%rax, %%r10\n\t"
+						"shlx  %%r14, %%r8, %%rax\n\t"
+						"adc   %%rcx, %%r11\n\t"
+						"shrx  %%r14, %%r8, %%rcx\n\t"
+						"adc   $0, %%r12\n\t"
+						"add   %%rax, %%r9\n\t"
+						"adc   %%rcx, %%r10\n\t"
+						"mulx  %%r15, %%rcx, %%rax\n\t"
+						"mov   8*1(%[b]), %%rdx\n\t"
+						"adc   %%rcx, %%r11\n\t"
+						"adc   %%rax, %%r12\n\t"
+						"adc   $0, %%r13\n\t"
+						"xor   %%r8, %%r8\n\t"
+						"mulx  8*0(%[a]), %%rcx, %%rax\n\t"
+						"adcx  %%rcx, %%r9\n\t"
+						"adox  %%rax, %%r10\n\t"
+						"mulx  8*1(%[a]), %%rcx, %%rax\n\t"
+						"adcx  %%rcx, %%r10\n\t"
+						"adox  %%rax, %%r11\n\t"
+						"mulx  8*2(%[a]), %%rcx, %%rax\n\t"
+						"adcx  %%rcx, %%r11\n\t"
+						"adox  %%rax, %%r12\n\t"
+						"mulx  8*3(%[a]), %%rcx, %%rax\n\t"
+						"mov   %%r9, %%rdx\n\t"
+						"adcx  %%rcx, %%r12\n\t"
+						"shlx  %%r14, %%r9, %%rcx\n\t"
+						"adox  %%rax, %%r13\n\t"
+						"shrx  %%r14, %%r9, %%rax\n\t"
+						"adcx  %%r8, %%r13\n\t"
+						"adox  %%r8, %%r8\n\t"
+						"adc   $0, %%r8\n\t"
+						"add   %%rcx, %%r10\n\t"
+						"adc   %%rax, %%r11\n\t"
+						"mulx  %%r15, %%rcx, %%rax\n\t"
+						"mov   8*2(%[b]), %%rdx\n\t"
+						"adc   %%rcx, %%r12\n\t"
+						"adc   %%rax, %%r13\n\t"
+						"adc   $0, %%r8\n\t"
+						"xor   %%r9, %%r9\n\t"
+						"mulx  8*0(%[a]), %%rcx, %%rax\n\t"
+						"adcx  %%rcx, %%r10\n\t"
+						"adox  %%rax, %%r11\n\t"
+						"mulx  8*1(%[a]), %%rcx, %%rax\n\t"
+						"adcx  %%rcx, %%r11\n\t"
+						"adox  %%rax, %%r12\n\t"
+						"mulx  8*2(%[a]), %%rcx, %%rax\n\t"
+						"adcx  %%rcx, %%r12\n\t"
+						"adox  %%rax, %%r13\n\t"
+						"mulx  8*3(%[a]), %%rcx, %%rax\n\t"
+						"mov   %%r10, %%rdx\n\t"
+						"adcx  %%rcx, %%r13\n\t"
+						"shlx  %%r14, %%r10, %%rcx\n\t"
+						"adox  %%rax, %%r8\n\t"
+						"shrx  %%r14, %%r10, %%rax\n\t"
+						"adcx  %%r9, %%r8\n\t"
+						"adox  %%r9, %%r9\n\t"
+						"adc   $0, %%r9\n\t"
+						"add   %%rcx, %%r11\n\t"
+						"adc   %%rax, %%r12\n\t"
+						"mulx  %%r15, %%rcx, %%rax\n\t"
+						"mov   8*3(%[b]), %%rdx\n\t"
+						"adc   %%rcx, %%r13\n\t"
+						"adc   %%rax, %%r8\n\t"
+						"adc   $0, %%r9\n\t"
+						"xor   %%r10, %%r10\n\t"
+						"mulx  8*0(%[a]), %%rcx, %%rax\n\t"
+						"adcx  %%rcx, %%r11\n\t"
+						"adox  %%rax, %%r12\n\t"
+						"mulx  8*1(%[a]), %%rcx, %%rax\n\t"
+						"adcx  %%rcx, %%r12\n\t"
+						"adox  %%rax, %%r13\n\t"
+						"mulx  8*2(%[a]), %%rcx, %%rax\n\t"
+						"adcx  %%rcx, %%r13\n\t"
+						"adox  %%rax, %%r8\n\t"
+						"mulx  8*3(%[a]), %%rcx, %%rax\n\t"
+						"mov   %%r11, %%rdx\n\t"
+						"adcx  %%rcx, %%r8\n\t"
+						"shlx  %%r14, %%r11, %%rcx\n\t"
+						"adox  %%rax, %%r9\n\t"
+						"shrx  %%r14, %%r11, %%rax\n\t"
+						"adcx  %%r10, %%r9\n\t"
+						"adox  %%r10, %%r10\n\t"
+						"adc   $0, %%r10\n\t"
+						"add   %%rcx, %%r12\n\t"
+						"adc   %%rax, %%r13\n\t"
+						"mulx  %%r15, %%rcx, %%rax\n\t"
+						"mov   %%r12, %[b]\n\t"
+						"movabs $0x00000000ffffffff, %%r14\n\t"
+						"adc   %%rcx, %%r8\n\t"
+						"mov   %%r13, %%rdx\n\t"
+						"adc   %%rax, %%r9\n\t"
+						"adc   $0, %%r10\n\t"
+						"xor   %%eax, %%eax\n\t"
+						"mov   %%r8, %%rcx\n\t"
+						"sbb   $-1, %%r12\n\t"
+						"sbb   %%r14, %%r13\n\t"
+						"sbb   $0, %%r8\n\t"
+						"mov   %%r9, %%rax\n\t"
+						"sbb   %%r15, %%r9\n\t"
+						"sbb   $0, %%r10\n\t"
+						"cmovc %[b], %%r12\n\t"
+						"cmovc %%rdx, %%r13\n\t"
+						"mov   %%r12, 8*0(%[h])\n\t"
+						"cmovc %%rcx, %%r8\n\t"
+						"mov   %%r13, 8*1(%[h])\n\t"
+						"cmovc %%rax, %%r9\n\t"
+						"mov   %%r8, 8*2(%[h])\n\t"
+						"mov   %%r9, 8*3(%[h])\n\t"
+							: [b] "+&r" (b)
+							: [a] "r" (first.w), [h] "r" (result.w)
+							: "rax", "rcx", "rdx", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15", "cc", "memory"
+						);
+					}
+					/**
+					 * @brief Метод возведения в квадрат Монтгомери по простому P-256 на MULX и ADCX/ADOX
+					 *
+					 * @param value  возводимое число в области Монтгомери
+					 * @param result место, в которое помещается квадрат: вправе совпадать с числом
+					 *
+					 */
+					static __ANTS_INLINE__ void nistsquare4x(const Words <4> & value, Words <4> & result) noexcept {
+						// Указатель числа: после чтения слов служит счётчиком сдвига и словом модуля
+						const uint64_t * a = value.w;
+						__asm__ __volatile__(
+						"mov   8*0(%[a]), %%rdx\n\t"
+						"mov   8*1(%[a]), %%r14\n\t"
+						"mov   8*2(%[a]), %%r15\n\t"
+						"mov   8*3(%[a]), %%r8\n\t"
+						"mulx  %%r14, %%r9, %%r10\n\t"
+						"mulx  %%r15, %%rcx, %%r11\n\t"
+						"xor   %%eax, %%eax\n\t"
+						"adc   %%rcx, %%r10\n\t"
+						"mulx  %%r8, %%rbx, %%r12\n\t"
+						"mov   %%r14, %%rdx\n\t"
+						"adc   %%rbx, %%r11\n\t"
+						"adc   $0, %%r12\n\t"
+						"xor   %%r13, %%r13\n\t"
+						"mulx  %%r15, %%rcx, %%rbx\n\t"
+						"adcx  %%rcx, %%r11\n\t"
+						"adox  %%rbx, %%r12\n\t"
+						"mulx  %%r8, %%rcx, %%rbx\n\t"
+						"mov   %%r15, %%rdx\n\t"
+						"adcx  %%rcx, %%r12\n\t"
+						"adox  %%rbx, %%r13\n\t"
+						"adc   $0, %%r13\n\t"
+						"mulx  %%r8, %%rcx, %%r14\n\t"
+						"mov   8*0(%[a]), %%rdx\n\t"
+						"xor   %%r15, %%r15\n\t"
+						"adcx  %%r9, %%r9\n\t"
+						"adox  %%rcx, %%r13\n\t"
+						"adcx  %%r10, %%r10\n\t"
+						"adox  %%r15, %%r14\n\t"
+						"mulx  %%rdx, %%r8, %%rbx\n\t"
+						"mov   8*1(%[a]), %%rdx\n\t"
+						"adcx  %%r11, %%r11\n\t"
+						"adox  %%rbx, %%r9\n\t"
+						"adcx  %%r12, %%r12\n\t"
+						"mulx  %%rdx, %%rcx, %%rax\n\t"
+						"mov   8*2(%[a]), %%rdx\n\t"
+						"adcx  %%r13, %%r13\n\t"
+						"adox  %%rcx, %%r10\n\t"
+						"adcx  %%r14, %%r14\n\t"
+						"mulx  %%rdx, %%rcx, %%rbx\n\t"
+						"mov   8*3(%[a]), %%rdx\n\t"
+						"adox  %%rax, %%r11\n\t"
+						"adcx  %%r15, %%r15\n\t"
+						"adox  %%rcx, %%r12\n\t"
+						"mov   $32, %[a]\n\t"
+						"adox  %%rbx, %%r13\n\t"
+						"mulx  %%rdx, %%rcx, %%rax\n\t"
+						"movabs $0xffffffff00000001, %%rdx\n\t"
+						"adox  %%rcx, %%r14\n\t"
+						"shlx  %[a], %%r8, %%rcx\n\t"
+						"adox  %%rax, %%r15\n\t"
+						"shrx  %[a], %%r8, %%rax\n\t"
+						"mov   %%rdx, %%rbx\n\t"
+						"add   %%rcx, %%r9\n\t"
+						"adc   %%rax, %%r10\n\t"
+						"mulx  %%r8, %%rcx, %%r8\n\t"
+						"adc   %%rcx, %%r11\n\t"
+						"shlx  %[a], %%r9, %%rcx\n\t"
+						"adc   $0, %%r8\n\t"
+						"shrx  %[a], %%r9, %%rax\n\t"
+						"add   %%rcx, %%r10\n\t"
+						"adc   %%rax, %%r11\n\t"
+						"mulx  %%r9, %%rcx, %%r9\n\t"
+						"adc   %%rcx, %%r8\n\t"
+						"shlx  %[a], %%r10, %%rcx\n\t"
+						"adc   $0, %%r9\n\t"
+						"shrx  %[a], %%r10, %%rax\n\t"
+						"add   %%rcx, %%r11\n\t"
+						"adc   %%rax, %%r8\n\t"
+						"mulx  %%r10, %%rcx, %%r10\n\t"
+						"adc   %%rcx, %%r9\n\t"
+						"shlx  %[a], %%r11, %%rcx\n\t"
+						"adc   $0, %%r10\n\t"
+						"shrx  %[a], %%r11, %%rax\n\t"
+						"add   %%rcx, %%r8\n\t"
+						"adc   %%rax, %%r9\n\t"
+						"mulx  %%r11, %%rcx, %%r11\n\t"
+						"adc   %%rcx, %%r10\n\t"
+						"adc   $0, %%r11\n\t"
+						"xor   %%rdx, %%rdx\n\t"
+						"add   %%r8, %%r12\n\t"
+						"movabs $0x00000000ffffffff, %[a]\n\t"
+						"adc   %%r9, %%r13\n\t"
+						"mov   %%r12, %%r8\n\t"
+						"adc   %%r10, %%r14\n\t"
+						"adc   %%r11, %%r15\n\t"
+						"mov   %%r13, %%r9\n\t"
+						"adc   $0, %%rdx\n\t"
+						"sub   $-1, %%r12\n\t"
+						"mov   %%r14, %%r10\n\t"
+						"sbb   %[a], %%r13\n\t"
+						"sbb   $0, %%r14\n\t"
+						"mov   %%r15, %%r11\n\t"
+						"sbb   %%rbx, %%r15\n\t"
+						"sbb   $0, %%rdx\n\t"
+						"cmovc %%r8, %%r12\n\t"
+						"cmovc %%r9, %%r13\n\t"
+						"mov   %%r12, 8*0(%[h])\n\t"
+						"cmovc %%r10, %%r14\n\t"
+						"mov   %%r13, 8*1(%[h])\n\t"
+						"cmovc %%r11, %%r15\n\t"
+						"mov   %%r14, 8*2(%[h])\n\t"
+						"mov   %%r15, 8*3(%[h])\n\t"
+							: [a] "+&r" (a)
+							: [h] "r" (result.w)
+							: "rax", "rbx", "rcx", "rdx", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15", "cc", "memory"
+						);
+					}
+				#endif
 				#undef __ANTS_X86_64_PRODUCT4__
 				#undef __ANTS_X86_64_SQUARE4__
 				#undef __ANTS_X86_64_NIST_MULMONT__
@@ -2615,8 +2891,11 @@ namespace nts {
 			 * @param second второй сомножитель
 			 * @param result место, в которое помещается произведение
 			 *
+			 * @tparam ADX признак MULX и ADCX/ADOX у машины, снятый вызывающим: под x86-64 у простого P-256 выбирает
+			 *             ядра на этапе сборки шаблона - ветвление по признаку внутри ядра стоило пути на mulq 4 %
+			 *
 			 */
-			template <size_t WORDS>
+			template <size_t WORDS, bool ADX = false>
 			static __ANTS_INLINE__ void multiply(const Modulus::layout_t & layout, const Words <WORDS> & first, const Words <WORDS> & second, Words <WORDS> & result) noexcept {
 				#if defined(__ANTS_AARCH64_KERNELS__)
 					// У модуля вида 2^256 - c и у простого P-256 произведение считается регистровым ядром
@@ -2638,8 +2917,14 @@ namespace nts {
 							multiplyminus4v(first, second, layout.tail, layout.modulus, result);
 							return;
 						}
-						// У простого P-256 - своим ядром на значениях
+						// У простого P-256 - своим ядром на значениях: на MULX и ADCX/ADOX по признаку машины
 						if(layout.form == Modulus::form_t::NIST){
+							#if defined(__ANTS_X86_64_ADX_KERNELS__)
+								if constexpr (ADX){
+									nistmultiply4x(first, second, result);
+									return;
+								}
+							#endif
 							nistmultiply4v(first, second, result);
 							return;
 						}
@@ -2655,8 +2940,11 @@ namespace nts {
 			 * @param value  возводимое значение
 			 * @param result место, в которое помещается квадрат
 			 *
+			 * @tparam ADX признак MULX и ADCX/ADOX у машины, снятый вызывающим: под x86-64 у простого P-256 выбирает
+			 *             ядра на этапе сборки шаблона
+			 *
 			 */
-			template <size_t WORDS>
+			template <size_t WORDS, bool ADX = false>
 			static __ANTS_INLINE__ void square(const Modulus::layout_t & layout, const Words <WORDS> & value, Words <WORDS> & result) noexcept {
 				#if defined(__ANTS_AARCH64_KERNELS__)
 					// У модуля вида 2^256 - c и у простого P-256 квадрат считается регистровым ядром
@@ -2678,8 +2966,14 @@ namespace nts {
 							squareminus4v(value, layout.tail, layout.modulus, result);
 							return;
 						}
-						// У простого P-256 - своим ядром на значениях
+						// У простого P-256 - своим ядром на значениях: на MULX и ADCX/ADOX по признаку машины
 						if(layout.form == Modulus::form_t::NIST){
+							#if defined(__ANTS_X86_64_ADX_KERNELS__)
+								if constexpr (ADX){
+									nistsquare4x(value, result);
+									return;
+								}
+							#endif
 							nistsquare4v(value, result);
 							return;
 						}

@@ -40,6 +40,20 @@
  *    по ИЛИ: обход выполняется целиком при всяком значении, а итог выводится из
  *    накопленного одним преобразованием без ветвлений.
  *
+ * 6. Переносы после произведения двумя переплетёнными цепочками, ядра во внутреннем заголовочном
+ *    файле (круг 53, 29.09.2026). Щуп лестницы X25519 против fe51 OpenSSL показал три причины
+ *    отставания: волна переносов на каждом сложении и вычитании (3,6 нс против 0,3 без неё на M4 -
+ *    восемь на шаг лестницы), одна нить переносов после произведения через все конечности (семь
+ *    зависимых шагов; у fe51_mul OpenSSL две переплетённые нити: третья → четвёртая → старшая →
+ *    младшая → вторая и младшая → вторая → третья → четвёртая, четыре шага) и вызов умножения и
+ *    квадрата через границу единицы трансляции (седьмая часть умножения точки). Умножение, квадрат и
+ *    умножение на малое число вынесены в src/internal/math/field25519.hpp (пространство имён
+ *    kernel) с завершением finish двумя цепочками: квадрат 6,75 → 6,16 нс на M4, умножение на малое
+ *    число 5,58 → 3,58; общие сложение и вычитание с волной здесь остаются - их зовут формулы Ed25519
+ *    без учёта запаса конечностей, а лестница X25519 берёт из того же файла plus и minus без волны
+ *    (решение 6 x25519.cpp). Закреплено Field25519Test.Multiplication, Squaring, Scaling, Inversion,
+ *    Root и мутациями (CONFORMANCE.md, круг 53).
+ *
  * @copyright Copyright © 2026
  *
  */
@@ -57,6 +71,7 @@
  */
 #include <math/field25519.hpp>
 #include <math/wide.hpp>
+#include <internal/math/field25519.hpp>
 
 /**
  * Используем стандартное пространство имён
@@ -411,46 +426,8 @@ void nts::math::field25519::sub(const element_t & first, const element_t & secon
  *
  */
 void nts::math::field25519::mul(const element_t & first, const element_t & second, element_t & result) noexcept {
-	// Конечности первого сомножителя
-	const uint64_t a0 = first.limbs[0], a1 = first.limbs[1], a2 = first.limbs[2], a3 = first.limbs[3], a4 = first.limbs[4];
-	// Конечности второго сомножителя
-	const uint64_t b0 = second.limbs[0], b1 = second.limbs[1], b2 = second.limbs[2], b3 = second.limbs[3], b4 = second.limbs[4];
-	// Конечности второго сомножителя с множителем сворачивания
-	const uint64_t c1 = (b1 * 19), c2 = (b2 * 19), c3 = (b3 * 19), c4 = (b4 * 19);
-	// Младшая конечность произведения: разряды сверх 2^255 свёрнуты множителем девятнадцать
-	wide_t r0 = ((static_cast <wide_t> (a0) * b0) + (static_cast <wide_t> (a1) * c4) + (static_cast <wide_t> (a2) * c3) + (static_cast <wide_t> (a3) * c2) + (static_cast <wide_t> (a4) * c1));
-	// Вторая конечность произведения
-	wide_t r1 = ((static_cast <wide_t> (a0) * b1) + (static_cast <wide_t> (a1) * b0) + (static_cast <wide_t> (a2) * c4) + (static_cast <wide_t> (a3) * c3) + (static_cast <wide_t> (a4) * c2));
-	// Третья конечность произведения
-	wide_t r2 = ((static_cast <wide_t> (a0) * b2) + (static_cast <wide_t> (a1) * b1) + (static_cast <wide_t> (a2) * b0) + (static_cast <wide_t> (a3) * c4) + (static_cast <wide_t> (a4) * c3));
-	// Четвёртая конечность произведения
-	wide_t r3 = ((static_cast <wide_t> (a0) * b3) + (static_cast <wide_t> (a1) * b2) + (static_cast <wide_t> (a2) * b1) + (static_cast <wide_t> (a3) * b0) + (static_cast <wide_t> (a4) * c4));
-	// Старшая конечность произведения
-	wide_t r4 = ((static_cast <wide_t> (a0) * b4) + (static_cast <wide_t> (a1) * b3) + (static_cast <wide_t> (a2) * b2) + (static_cast <wide_t> (a3) * b1) + (static_cast <wide_t> (a4) * b0));
-	// Переносим разряды младшей конечности сверх пятидесяти одного во вторую
-	r1 += static_cast <uint64_t> (r0 >> 51);
-	// Отбрасываем перенесённые разряды младшей конечности
-	result.limbs[0] = (static_cast <uint64_t> (r0) & MASK);
-	// Переносим разряды второй конечности сверх пятидесяти одного в третью
-	r2 += static_cast <uint64_t> (r1 >> 51);
-	// Отбрасываем перенесённые разряды второй конечности
-	result.limbs[1] = (static_cast <uint64_t> (r1) & MASK);
-	// Переносим разряды третьей конечности сверх пятидесяти одного в четвёртую
-	r3 += static_cast <uint64_t> (r2 >> 51);
-	// Отбрасываем перенесённые разряды третьей конечности
-	result.limbs[2] = (static_cast <uint64_t> (r2) & MASK);
-	// Переносим разряды четвёртой конечности сверх пятидесяти одного в старшую
-	r4 += static_cast <uint64_t> (r3 >> 51);
-	// Отбрасываем перенесённые разряды четвёртой конечности
-	result.limbs[3] = (static_cast <uint64_t> (r3) & MASK);
-	// Сворачиваем разряды старшей конечности сверх пятидесяти одного в младшую
-	result.limbs[0] += (static_cast <uint64_t> (r4 >> 51) * 19);
-	// Отбрасываем перенесённые разряды старшей конечности
-	result.limbs[4] = (static_cast <uint64_t> (r4) & MASK);
-	// Переносим разряды младшей конечности сверх пятидесяти одного во вторую
-	result.limbs[1] += (result.limbs[0] >> 51);
-	// Отбрасываем перенесённые разряды младшей конечности
-	result.limbs[0] &= MASK;
+	// Умножаем ядром
+	kernel::multiply(first, second, result);
 }
 /**
  * @brief Метод возведения элемента поля в квадрат
@@ -460,49 +437,8 @@ void nts::math::field25519::mul(const element_t & first, const element_t & secon
  *
  */
 void nts::math::field25519::square(const element_t & value, element_t & result) noexcept {
-	// Конечности возводимого элемента
-	const uint64_t a0 = value.limbs[0], a1 = value.limbs[1], a2 = value.limbs[2], a3 = value.limbs[3], a4 = value.limbs[4];
-	/**
-	 * Удвоенные конечности: у квадрата всякая пара разных конечностей встречается
-	 * дважды, и удвоение одной из них заменяет второе произведение сложением
-	 */
-	const uint64_t d0 = (a0 << 1), d1 = (a1 << 1), d2 = (a2 << 1), d3 = (a3 << 1);
-	// Старшие конечности с множителем сворачивания
-	const uint64_t c3 = (a3 * 19), c4 = (a4 * 19);
-	// Младшая конечность квадрата: разряды сверх 2^255 свёрнуты множителем девятнадцать
-	wide_t r0 = ((static_cast <wide_t> (a0) * a0) + (static_cast <wide_t> (d1) * c4) + (static_cast <wide_t> (d2) * c3));
-	// Вторая конечность квадрата
-	wide_t r1 = ((static_cast <wide_t> (d0) * a1) + (static_cast <wide_t> (d2) * c4) + (static_cast <wide_t> (a3) * c3));
-	// Третья конечность квадрата
-	wide_t r2 = ((static_cast <wide_t> (d0) * a2) + (static_cast <wide_t> (a1) * a1) + (static_cast <wide_t> (d3) * c4));
-	// Четвёртая конечность квадрата
-	wide_t r3 = ((static_cast <wide_t> (d0) * a3) + (static_cast <wide_t> (d1) * a2) + (static_cast <wide_t> (a4) * c4));
-	// Старшая конечность квадрата
-	wide_t r4 = ((static_cast <wide_t> (d0) * a4) + (static_cast <wide_t> (d1) * a3) + (static_cast <wide_t> (a2) * a2));
-	// Переносим разряды младшей конечности сверх пятидесяти одного во вторую
-	r1 += static_cast <uint64_t> (r0 >> 51);
-	// Отбрасываем перенесённые разряды младшей конечности
-	result.limbs[0] = (static_cast <uint64_t> (r0) & MASK);
-	// Переносим разряды второй конечности сверх пятидесяти одного в третью
-	r2 += static_cast <uint64_t> (r1 >> 51);
-	// Отбрасываем перенесённые разряды второй конечности
-	result.limbs[1] = (static_cast <uint64_t> (r1) & MASK);
-	// Переносим разряды третьей конечности сверх пятидесяти одного в четвёртую
-	r3 += static_cast <uint64_t> (r2 >> 51);
-	// Отбрасываем перенесённые разряды третьей конечности
-	result.limbs[2] = (static_cast <uint64_t> (r2) & MASK);
-	// Переносим разряды четвёртой конечности сверх пятидесяти одного в старшую
-	r4 += static_cast <uint64_t> (r3 >> 51);
-	// Отбрасываем перенесённые разряды четвёртой конечности
-	result.limbs[3] = (static_cast <uint64_t> (r3) & MASK);
-	// Сворачиваем разряды старшей конечности сверх пятидесяти одного в младшую
-	result.limbs[0] += (static_cast <uint64_t> (r4 >> 51) * 19);
-	// Отбрасываем перенесённые разряды старшей конечности
-	result.limbs[4] = (static_cast <uint64_t> (r4) & MASK);
-	// Переносим разряды младшей конечности сверх пятидесяти одного во вторую
-	result.limbs[1] += (result.limbs[0] >> 51);
-	// Отбрасываем перенесённые разряды младшей конечности
-	result.limbs[0] &= MASK;
+	// Возводим в квадрат ядром
+	kernel::square(value, result);
 }
 /**
  * @brief Метод умножения элемента поля на малое число
@@ -513,40 +449,8 @@ void nts::math::field25519::square(const element_t & value, element_t & result) 
  *
  */
 void nts::math::field25519::mul(const element_t & value, const uint64_t factor, element_t & result) noexcept {
-	// Произведения конечностей на множитель: конечность до 2^54, множитель до 2^32
-	wide_t r0 = (static_cast <wide_t> (value.limbs[0]) * factor);
-	// Вторая конечность произведения
-	wide_t r1 = (static_cast <wide_t> (value.limbs[1]) * factor);
-	// Третья конечность произведения
-	wide_t r2 = (static_cast <wide_t> (value.limbs[2]) * factor);
-	// Четвёртая конечность произведения
-	wide_t r3 = (static_cast <wide_t> (value.limbs[3]) * factor);
-	// Старшая конечность произведения
-	wide_t r4 = (static_cast <wide_t> (value.limbs[4]) * factor);
-	// Переносим разряды младшей конечности сверх пятидесяти одного во вторую
-	r1 += static_cast <uint64_t> (r0 >> 51);
-	// Отбрасываем перенесённые разряды младшей конечности
-	result.limbs[0] = (static_cast <uint64_t> (r0) & MASK);
-	// Переносим разряды второй конечности сверх пятидесяти одного в третью
-	r2 += static_cast <uint64_t> (r1 >> 51);
-	// Отбрасываем перенесённые разряды второй конечности
-	result.limbs[1] = (static_cast <uint64_t> (r1) & MASK);
-	// Переносим разряды третьей конечности сверх пятидесяти одного в четвёртую
-	r3 += static_cast <uint64_t> (r2 >> 51);
-	// Отбрасываем перенесённые разряды третьей конечности
-	result.limbs[2] = (static_cast <uint64_t> (r2) & MASK);
-	// Переносим разряды четвёртой конечности сверх пятидесяти одного в старшую
-	r4 += static_cast <uint64_t> (r3 >> 51);
-	// Отбрасываем перенесённые разряды четвёртой конечности
-	result.limbs[3] = (static_cast <uint64_t> (r3) & MASK);
-	// Сворачиваем разряды старшей конечности сверх пятидесяти одного в младшую
-	result.limbs[0] += (static_cast <uint64_t> (r4 >> 51) * 19);
-	// Отбрасываем перенесённые разряды старшей конечности
-	result.limbs[4] = (static_cast <uint64_t> (r4) & MASK);
-	// Переносим разряды младшей конечности сверх пятидесяти одного во вторую
-	result.limbs[1] += (result.limbs[0] >> 51);
-	// Отбрасываем перенесённые разряды младшей конечности
-	result.limbs[0] &= MASK;
+	// Умножаем на малое число ядром
+	kernel::scale(value, factor, result);
 }
 /**
  * @brief Метод обращения элемента поля
