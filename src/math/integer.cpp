@@ -231,6 +231,28 @@
  *    bn_mul_mont_gather5. Закреплено IntegerTest.Kernels, Montgomery, Modular, Prime и мутациями (CONFORMANCE.md,
  *    круг 50).
  *
+ * 15. Признаки машины снимаются один раз на степень, диспетчер встраивается в циклы окон (круг 52, 29.09.2026).
+ *    Щуп степени RSA-1024 (16 слов, Xeon E5-2630 v4, TSC; прототипы с кадром дерева): вызов machine::has стоил
+ *    7 тактов, а вместе с входом в диспетчер montgomery - вызов, ветвления по ширине и указателям, сохранение
+ *    шести регистров под ядро - 28 на каждое из 1 229 умножений, 3,5 % степени: прототип с признаком, снятым
+ *    один раз, и ядрами в теле цикла 975,7k → 941,2k при 956,5k у BN_mod_exp_mont_consttime (1,020 → 0,984); без
+ *    ADX 1 519,2k → 1 480,7k, без AVX2 1 004,9k → 969,3k. Диспетчер получил признак ADX параметром и встраивается
+ *    (always_inline) в циклы окон Montgomery::power и Integer::power - там признак снят один раз; подготовка
+ *    таблицы, вход и выход из области и одиночные умножения идут через обёртку, которая снимает признак на
+ *    вызов и не встраивается: иначе тело диспетчера с ядрами размножалось по всем одиночным вызовам (объект
+ *    x86-64 62 → 170 КБ, с обёрткой 93). Выбор записи окна получил признак AVX2 параметром. Отвергнуто по
+ *    замеру перекрытие выбора записи с квадратами (запись не зависит от накопителя): сбор всей записи до
+ *    квадратов окна 947,8k (+0,7 %), кусками слов перед каждым квадратом 1 007,1k (+7 %) - цикл степени упирается
+ *    в выдачу микроопераций (около 2,3 на такт при полном буфере переупорядочения), а не в задержку цепочки:
+ *    сбор стоит своих микроопераций, где бы ни стоял, а куски платят за маски и вызов. Дерево: степень
+ *    982,3k → 946,1k при 956,5k (1,027 → 0,989), без ADX 1 524,9k → 1 511,1k, без AVX2 1 011,3k → 979,1k;
+ *    подпись RSA-2048 по bench 1 056 → 1 079…1 090 в секунду при 1 065…1 066 (1,01 → 0,98…0,99), без ADX у обеих
+ *    сторон (ANTS_MACHINE=0x200, OPENSSL_ia32cap) 698…699 при 724…725 (1,05 → 1,04); M4 3 371…3 411 → 3 440…3 441
+ *    при 2 924…2 935 (0,87 → 0,85). Закреплено IntegerTest.Kernels, Montgomery, Modular, Prime, RsaTest.Sign, Verify
+ *    под масками ANTS_MACHINE; мутация признака AVX2 (выбор без признака) укушена на QEMU без AVX2 отказом по
+ *    недопустимой команде, мутации признака ADX на стендах не наблюдаемы: QEMU исполняет MULX и ADCX/ADOX при
+ *    скрытых разрядах CPUID, а обе ветви ядер верны - пин на них лишь замер (CONFORMANCE.md, круг 52).
+ *
  * @copyright Copyright © 2026
  *
  */
@@ -2695,15 +2717,16 @@ namespace {
 	 * @param index   номер выбираемой записи
 	 * @param words   число слов записи
 	 * @param chosen  место, в которое помещается выбранная запись
+	 * @param avx2    признак AVX2 у машины, снятый вызывающим один раз на степень
 	 *
 	 * @note Ни ветвления, ни адрес обращения от номера не зависят: столбец читается целиком
 	 *       под масками совпадения. AVX2 при наличии у машины, иначе SSE2 парами записей:
 	 *       равенство по 64 разрядам собирается из сравнения по 32
 	 *
 	 */
-	static void chooseColumns(const uint64_t columns[][TABLE], const uint64_t index, const size_t words, uint64_t * chosen) noexcept {
+	static void chooseColumns(const uint64_t columns[][TABLE], const uint64_t index, const size_t words, uint64_t * chosen, const bool avx2) noexcept {
 		// Если у машины есть AVX2
-		if(machine::has(machine::feature_t::AVX2)){
+		if(avx2){
 			// Выбираем запись командами AVX2
 			chooseColumnsAvx2(columns, index, words, chosen);
 			// Выходим
@@ -3212,6 +3235,27 @@ namespace {
 	}
 #endif
 	/**
+	 * @brief Метод снятия признака машины для выбора ядер умножения Монтгомери
+	 *
+	 * @return признак MULX и ADCX/ADOX у машины под x86-64 с GCC и clang, иначе ложь: там ядра от машины не зависят
+	 *
+	 * @note Возведение в степень снимает признак один раз и передаёт его диспетчеру на каждое
+	 *       умножение; одиночные умножения снимают его на каждый вызов (решение 15 шапки)
+	 *
+	 */
+	static bool adxReady() noexcept {
+/**
+ * Под x86-64 с GCC и clang ядра выбираются по расширениям BMI2 и ADX машины
+ */
+#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER) && !defined(__ANTS_ASAN_UNOPTIMIZED__)
+		// Выводим признак MULX и ADCX/ADOX у машины
+		return machine::has(machine::feature_t::ADX);
+#else
+		// Ядра от машины не зависят
+		return false;
+#endif
+	}
+	/**
 	 * @brief Метод умножения Монтгомери на словах
 	 *
 	 * @param first   слова первого сомножителя, меньшего модуля
@@ -3221,13 +3265,24 @@ namespace {
 	 * @param inverse множитель приведения по модулю
 	 * @param result  место, в которое помещается произведение, меньшее модуля
 	 * @param scratch буфер ядра в 2 · count + 2 слов: не затирается, за него отвечает вызывающий
+	 * @param adx     признак MULX и ADCX/ADOX у машины, снятый вызывающим: под x86-64 выбирает ядра, иначе не используется
 	 *
 	 * @note Умножение с чередованием шагов (CIOS) рядами по два со сдвигом: произведение и
 	 *       приведение одним проходом. Сомножители по одному указателю идут ядром квадрата.
-	 *       Итог доводится до значения, меньшего модуля, вычитанием под маской
+	 *       Итог доводится до значения, меньшего модуля, вычитанием под маской. Признак машины
+	 *       снимает вызывающий, тело встраивается в циклы степени: вызов machine::has, вход в
+	 *       диспетчер и сохранение регистров под ядро на каждое из 1 229 умножений степени
+	 *       RSA-1024 стоили 28 тактов на умножение - 3,5 % степени (решение 15 шапки)
 	 *
 	 */
-	static void montgomery(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, const size_t count, const uint64_t inverse, uint64_t * result, uint64_t * scratch) noexcept {
+	static __ANTS_INLINE__ void montgomery(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, const size_t count, const uint64_t inverse, uint64_t * result, uint64_t * scratch, const bool adx) noexcept {
+/**
+ * Признак машины выбирает ядра лишь под x86-64 с GCC и clang
+ */
+#if !(defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER) && !defined(__ANTS_ASAN_UNOPTIMIZED__))
+		// Вне x86-64 выбор ядра от признака не зависит
+		(void) adx;
+#endif
 /**
  * Квадрат ширины, кратной восьми, идёт блочным ядром: под AArch64 всегда, под x86-64 при
  * расширениях BMI2 и ADX у машины (решение 8 шапки): три четверти умножений и окно
@@ -3238,7 +3293,7 @@ namespace {
 		#define __ANTS_SQUARE8X_READY__ ((count % 8) == 0)
 #elif defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER) && !defined(__ANTS_ASAN_UNOPTIMIZED__)
 		// Квадрат блоками берётся у ширины, кратной восьми, при MULX и ADCX/ADOX у машины
-		#define __ANTS_SQUARE8X_READY__ (((count % 8) == 0) && machine::has(machine::feature_t::ADX))
+		#define __ANTS_SQUARE8X_READY__ (((count % 8) == 0) && adx)
 #endif
 #if defined(__ANTS_SQUARE8X_READY__)
 		// Если сомножители - одно число, и квадрат блоками берётся
@@ -3258,7 +3313,7 @@ namespace {
  */
 #if defined(__ANTS_MONT_SQUARE8X_MULQ__)
 		// Если сомножители - одно число, ширина кратна восьми, а MULX и ADCX/ADOX у машины нет
-		if((first == second) && ((count % 8) == 0) && !machine::has(machine::feature_t::ADX)){
+		if((first == second) && ((count % 8) == 0) && !adx){
 			// Квадрат блоками по восемь слов на mulq
 			kernel::square8xMulq(scratch, first, modulus, count, inverse);
 			// Доводим старшую половину до значения, меньшего модуля
@@ -3279,7 +3334,7 @@ namespace {
 		#define __ANTS_STRIPES_READY__ ((count % 4) == 0)
 #elif defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER) && !defined(__ANTS_ASAN_UNOPTIMIZED__)
 		// Ряды полосами берутся у ширины, кратной четырём, при MULX и ADCX/ADOX у машины
-		#define __ANTS_STRIPES_READY__ (((count % 4) == 0) && (count >= 8) && machine::has(machine::feature_t::ADX))
+		#define __ANTS_STRIPES_READY__ (((count % 4) == 0) && (count >= 8) && adx)
 #endif
 #if defined(__ANTS_STRIPES_READY__)
 		// Если ряды полосами берутся
@@ -3341,6 +3396,27 @@ namespace {
 			row(scratch, first, modulus, second[index], inverse, count);
 		// Доводим итог до значения, меньшего модуля
 		settle(scratch, modulus, count, result);
+	}
+	/**
+	 * @brief Метод умножения Монтгомери на словах со снятием признака машины
+	 *
+	 * @param first   слова первого сомножителя, меньшего модуля
+	 * @param second  слова второго сомножителя, меньшего модуля
+	 * @param modulus слова нечётного модуля
+	 * @param count   число слов модуля
+	 * @param inverse множитель приведения по модулю
+	 * @param result  место, в которое помещается произведение, меньшее модуля
+	 * @param scratch буфер ядра в 2 · count + 2 слов: не затирается, за него отвечает вызывающий
+	 *
+	 * @note Для одиночных умножений: признак машины снимается на каждый вызов. Обёртка не
+	 *       встраивается, иначе тело диспетчера с ядрами размножается по всем одиночным
+	 *       вызовам (объект x86-64 62 → 170 КБ); циклы степени зовут тело прямо с признаком,
+	 *       снятым один раз (решение 15 шапки)
+	 *
+	 */
+	static __ANTS_NOINLINE__ void montgomery(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, const size_t count, const uint64_t inverse, uint64_t * result, uint64_t * scratch) noexcept {
+		// Умножаем по снятому признаку машины
+		montgomery(first, second, modulus, count, inverse, result, scratch, adxReady());
 	}
 	/**
 	 * @brief Метод умножения Монтгомери на словах с затиранием буфера
@@ -4950,9 +5026,13 @@ bool nts::math::Integer::power(const Integer & base, const Integer & exponent, c
 	alignas(32) uint64_t columns[INTEGER_WORDS][TABLE];
 	// Перекладываем таблицу столбцами
 	pivot(table, words, columns);
+	// Признак AVX2 у машины для выбора записи: снимается один раз на степень
+	const bool avx2 = machine::has(machine::feature_t::AVX2);
 #endif
 	// Начинаем с единицы в области Монтгомери
 	transfer(unit, result, words);
+	// Признак машины для выбора ядер окон: снимается один раз на степень
+	const bool adx = adxReady();
 	/**
 	 * Выполняем перебор окон показателя от старшего к младшему
 	 */
@@ -4966,17 +5046,17 @@ bool nts::math::Integer::power(const Integer & base, const Integer & exponent, c
 		 */
 		for(size_t j = 0; j < count; j++)
 			// Возводим накопитель в квадрат
-			montgomery(result, result, field, words, inverse, result, scratch);
+			montgomery(result, result, field, words, inverse, result, scratch, adx);
 		// Извлекаем значение окна
 		const uint64_t index = window(exponent._words, position, count);
 		// Выбираем запись перебором всей таблицы под масками: ни ветвления, ни адрес обращения от показателя не зависят
 #if defined(__ANTS_CHOOSE_COLUMNS__)
-		chooseColumns(columns, index, words, chosen);
+		chooseColumns(columns, index, words, chosen, avx2);
 #else
 		choose(table, index, words, chosen);
 #endif
 		// Умножаем накопитель на выбранную запись
-		montgomery(result, chosen, field, words, inverse, result, scratch);
+		montgomery(result, chosen, field, words, inverse, result, scratch, adx);
 	}
 	// Единица для вывода из области Монтгомери
 	clean(chosen, words);
@@ -5490,6 +5570,8 @@ bool nts::math::Montgomery::power(const Integer & base, const Integer & exponent
 	transfer(this->_unit, accumulator, words);
 	// Если показатель секретный
 	if(secret){
+		// Признак машины для выбора ядер окон: снимается один раз на степень
+		const bool adx = adxReady();
 		// Таблица степеней окна
 		alignas(32) uint64_t table[TABLE][INTEGER_WORDS];
 		// Нулевая степень есть единица области, первая - основание
@@ -5514,6 +5596,8 @@ bool nts::math::Montgomery::power(const Integer & base, const Integer & exponent
 	alignas(32) uint64_t columns[INTEGER_WORDS][TABLE];
 	// Перекладываем таблицу столбцами
 	pivot(table, words, columns);
+	// Признак AVX2 у машины для выбора записи: снимается один раз на степень
+	const bool avx2 = machine::has(machine::feature_t::AVX2);
 #endif
 		/**
 		 * Выполняем перебор окон от старшего к младшему
@@ -5527,17 +5611,17 @@ bool nts::math::Montgomery::power(const Integer & base, const Integer & exponent
 			 */
 			for(size_t j = 0; j < count; j++)
 				// Выполняем возведение в квадрат
-				montgomery(accumulator, accumulator, modulus, words, this->_inverse, accumulator, scratch);
+				montgomery(accumulator, accumulator, modulus, words, this->_inverse, accumulator, scratch, adx);
 			// Значение окна
 			const uint64_t index = window(exponent._words, position, count);
 			// Выбираем степень перебором всей таблицы под масками
 #if defined(__ANTS_CHOOSE_COLUMNS__)
-			chooseColumns(columns, index, words, chosen);
+			chooseColumns(columns, index, words, chosen, avx2);
 #else
 			choose(table, index, words, chosen);
 #endif
 			// Умножаем накопитель на выбранную степень
-			montgomery(accumulator, chosen, modulus, words, this->_inverse, accumulator, scratch);
+			montgomery(accumulator, chosen, modulus, words, this->_inverse, accumulator, scratch, adx);
 		}
 		// Затираем таблицу
 		wipe(table, sizeof(table));
