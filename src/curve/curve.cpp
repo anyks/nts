@@ -52,6 +52,19 @@
  *       около 135 сложений с ветвлениями против 255 удвоений и 52 + 43 сложений.
  *       Замер 22.09.2026
  *
+ * @note Под x86-64 при MULX и ADCX/ADOX у машины ядра умножения и квадрата по простому P-256
+ *       идут переводом __ecp_nistz256_mul_montx и __ecp_nistz256_sqr_montx (круг 54, 29.09.2026):
+ *       эталон на Xeon E5-2630 v4 берёт этот путь, а наши ядра на mulq стоили 30,8 нс против
+ *       25,8 у ecp_nistz256_mul_mont - обмен ECDH P-256 1,14 по bench при 0,96…1,05 на стендах
+ *       без ADX. Признак машины снимает вызывающий один раз на вызов кривой (extended) и несёт
+ *       его в арифметике поля: вызов machine::has на каждое умножение поля стоил бы четверть
+ *       ядра. Щуп по частям: умножение поля 30,8 → 24,9 нс при 25,8, квадрат 23,0 → 22,0 при
+ *       20,6, удвоение точки 248 → 217 при 196 у ecp_nistz256_point_double, полное сложение
+ *       452 → 362 при 333, смешанное 330 → 278 при 244, умножение точки 97,1 → 82,5 мкс при
+ *       73,5 у EC_POINT_mul; обращение 5,2 при 5,9. По bench обмен 9 666 → 11 181…11 189 в секунду при
+ *       11 035…11 057 у nistz256 (1,14 → 0,99). Остаток над nistz256 в
+ *       формулах 8…14 % - расписание руки внутри одного тела против стыков вставок
+ *
  * @copyright Copyright © 2026
  *
  */
@@ -265,22 +278,27 @@ namespace {
 	/**
 	 * @brief Метод снятия признака машины для выбора ядер поля
 	 *
-	 * @return признак MULX и ADCX/ADOX у машины под x86-64 с ядрами на них, иначе ложь
+	 * @param layout устройство модуля поля
 	 *
-	 * @note Снимается один раз на вызов кривой и передаётся арифметике поля: вызов machine::has
-	 *       на каждое умножение поля стоил бы четверть ядра (7 нс при 25), см. решение 15 шапки
-	 *       math/integer.cpp
+	 * @return признак того, что поле - простое P-256, а у машины есть MULX и ADCX/ADOX с ядрами
+	 *         на них под x86-64; иначе ложь
+	 *
+	 * @note Снимается один раз на вызов кривой и выбирает сборку формул (Fast <4, true>): вызов
+	 *       machine::has на каждое умножение поля стоил бы четверть ядра (7 нс при 25), см. решение
+	 *       15 шапки math/integer.cpp. Поля иных видов (кривые ГОСТ, 2^256 - c) идут прежней
+	 *       сборкой: у них ядра на MULX нет, а вторая сборка тех же формул стоила им 1…2 %
 	 *
 	 */
-	static bool extended() noexcept {
+	static bool extended(const math::Modulus::layout_t & layout) noexcept {
 /**
- * Ядра на MULX и ADCX/ADOX есть лишь под x86-64 с GCC и clang
+ * Ядра на MULX и ADCX/ADOX есть лишь под x86-64 с GCC и clang и лишь у простого P-256
  */
 #if defined(__ANTS_X86_64_ADX_KERNELS__)
-		// Выводим признак MULX и ADCX/ADOX у машины
-		return machine::has(machine::feature_t::ADX);
+		// Выводим признак: поле P-256 и MULX с ADCX/ADOX у машины
+		return ((layout.form == math::Modulus::form_t::NIST) && machine::has(machine::feature_t::ADX));
 #else
 		// Ядра от машины не зависят
+		(void) layout;
 		return false;
 #endif
 	}
@@ -1762,8 +1780,8 @@ void nts::curve::Curve::twice(const point_t & value, point_t & result) const noe
 	const size_t words = ((this->_field.size() + 7) / 8);
 	// Формула идёт встраиваемой арифметикой по числу слов поля, прочие ширины - общим путём
 	if(words == 4){
-		// На четырёх словах путь выбирается по признаку MULX и ADCX/ADOX у машины, снятому один раз
-		if(extended())
+		// На четырёх словах у простого P-256 путь выбирается по признаку MULX и ADCX/ADOX у машины, снятому один раз
+		if(extended(this->_field.layout()))
 			twicing(Fast <4, true> {this->_field.layout()}, this->_shortened, this->_first, value, result);
 		else twicing(Fast <4> {this->_field.layout()}, this->_shortened, this->_first, value, result);
 	} else if(words == 8)
@@ -1783,8 +1801,8 @@ void nts::curve::Curve::attach(const point_t & first, const point_t & second, po
 	const size_t words = ((this->_field.size() + 7) / 8);
 	// Формула идёт встраиваемой арифметикой по числу слов поля, прочие ширины - общим путём
 	if(words == 4){
-		// На четырёх словах путь выбирается по признаку MULX и ADCX/ADOX у машины, снятому один раз
-		if(extended())
+		// На четырёх словах у простого P-256 путь выбирается по признаку MULX и ADCX/ADOX у машины, снятому один раз
+		if(extended(this->_field.layout()))
 			attachment(Fast <4, true> {this->_field.layout()}, first, second, result);
 		else attachment(Fast <4> {this->_field.layout()}, first, second, result);
 	} else if(words == 8)
@@ -1804,8 +1822,8 @@ void nts::curve::Curve::join(const point_t & first, const point_t & second, poin
 	const size_t words = ((this->_field.size() + 7) / 8);
 	// Формула идёт встраиваемой арифметикой по числу слов поля, прочие ширины - общим путём
 	if(words == 4){
-		// На четырёх словах путь выбирается по признаку MULX и ADCX/ADOX у машины, снятому один раз
-		if(extended())
+		// На четырёх словах у простого P-256 путь выбирается по признаку MULX и ADCX/ADOX у машины, снятому один раз
+		if(extended(this->_field.layout()))
 			junction(Fast <4, true> {this->_field.layout()}, first, second, result);
 		else junction(Fast <4> {this->_field.layout()}, first, second, result);
 	} else if(words == 8)
@@ -1825,8 +1843,8 @@ void nts::curve::Curve::add(const point_t & first, const point_t & second, point
 	const size_t words = ((this->_field.size() + 7) / 8);
 	// Формула идёт встраиваемой арифметикой по числу слов поля, прочие ширины - общим путём
 	if(words == 4){
-		// На четырёх словах путь выбирается по признаку MULX и ADCX/ADOX у машины, снятому один раз
-		if(extended())
+		// На четырёх словах у простого P-256 путь выбирается по признаку MULX и ADCX/ADOX у машины, снятому один раз
+		if(extended(this->_field.layout()))
 			summation(Fast <4, true> {this->_field.layout()}, this->_shortened, this->_first, first, second, result);
 		else summation(Fast <4> {this->_field.layout()}, this->_shortened, this->_first, first, second, result);
 	} else if(words == 8)
@@ -1848,8 +1866,8 @@ void nts::curve::Curve::multiply(const point_t & value, const math::number_t & f
 	const size_t bits = (this->_order.size() * 8);
 	// Умножение идёт встраиваемой арифметикой по числу слов поля, прочие ширины - общим путём
 	if(words == 4){
-		// На четырёх словах путь выбирается по признаку MULX и ADCX/ADOX у машины, снятому один раз
-		if(extended())
+		// На четырёх словах у простого P-256 путь выбирается по признаку MULX и ADCX/ADOX у машины, снятому один раз
+		if(extended(this->_field.layout()))
 			multiplication(Fast <4, true> {this->_field.layout()}, this->_shortened, this->_first, value, factor, bits, result);
 		else multiplication(Fast <4> {this->_field.layout()}, this->_shortened, this->_first, value, factor, bits, result);
 	} else if(words == 8)
@@ -1880,8 +1898,8 @@ void nts::curve::Curve::product(const math::number_t & factor, point_t & result)
 	}
 	// Умножение идёт встраиваемой арифметикой по числу слов заготовки, прочие ширины - общим путём
 	if(multiples->words == 4){
-		// На четырёх словах путь выбирается по признаку MULX и ADCX/ADOX у машины, снятому один раз
-		if(extended())
+		// На четырёх словах у простого P-256 путь выбирается по признаку MULX и ADCX/ADOX у машины, снятому один раз
+		if(extended(this->_field.layout()))
 			production(Fast <4, true> {this->_field.layout()}, multiples, this->_unit, factor, result);
 		else production(Fast <4> {this->_field.layout()}, multiples, this->_unit, factor, result);
 	} else if(multiples->words == 8)
