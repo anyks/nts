@@ -45,7 +45,9 @@
  *    ослепляющего числа RSA-1024 стоит 8,8 мкс против 490 у возведения в степень p - 2.
  * 4. Ядро умножения Монтгомери затирает лишь использованные слова накопителя:
  *    затирание всей ёмкости (два килобайта) стоило десятую часть самого умножения на
- *    шестнадцати словах.
+ *    шестнадцати словах. С круга 46 доводка не затирает ничего: ядро пишет в буфер
+ *    вызывающего, обёртка montgomery затирает его по концу вызова, а возведение в степень
+ *    держит один буфер на все умножения и затирает раз (решение 10).
  *
  * 5. Основание области Монтгомери и его квадрат считаются шестьюдесятью четырьмя
  *    удвоениями и цепочкой квадратов Монтгомери, а не удвоением единицы по числу
@@ -131,6 +133,26 @@
  *    квадрат 1 417 → 1 093 TSC (0,77 умножения), 32 слова 5 280 → 4 024. Закреплено
  *    IntegerTest.Kernels под ANTS_MACHINE=0x200 на x86-64.
  *
+ * 10. Накладные вокруг ядер и выбор из таблицы (круг 46, 29.09.2026): щуп по частям на Xeon
+ *    E5-2630 v4 показал, что возведение в секретную степень RSA-1024 (555 мкс при 436 у
+ *    OpenSSL) складывается из ядер (квадрат 740 тактов TSC, ряды полосами 1 214 на 16 словах)
+ *    и накладных на вызов: доводка по словам 81 такт, два затирания на квадрат 42, выбор из
+ *    таблицы перебором строк 315 (двадцатая часть степени). Сделано: доводка четвёрками слов
+ *    с выбором парами SSE2 (81 → 45); затирание убрано из доводки - буфер ядра принадлежит
+ *    вызывающему (решение 4); таблица окна под x86-64 перекладывается столбцами и выбирается по
+ *    столбцу командами AVX2 либо SSE2 по образцу bn_gather5 OpenSSL (315 → 130…190 на AVX2, на
+ *    SSE2 на пятую часть меньше строк; под AArch64 столбцы медленнее строк - M4 42 против 35 нс,
+ *    там остаётся перебор строк). Xeon: степень 555 → 515 мкс, подпись RSA-2048 845 → 928 в
+ *    секунду при 1 064…1 072 (1,27 → 1,15), без ADX 592 → 622 при 713 (1,22 → 1,15); стенды
+ *    QEMU 1,18…1,24 → 1,13…1,17; M4 3 105 → 3 243 при 2 886…2 910. Остаток - в самих ядрах:
+ *    цикл полосы умножения совпадает с циклом bn_mulx4x_mont OpenSSL командой в команду
+ *    (дизассемблер libcrypto той же машины), но ряд стоит 76 тактов при ~62 у эталона; слово
+ *    второго сомножителя в регистре вместо перезагрузки, слив переносов как у OpenSSL, развёртка
+ *    цикла и выравнивание на 64 разницы не дали (микрозамер), два ряда одним вызовом - 5 %.
+ *    Без счётчиков машины (на QEMU их нет, на Xeon нет прав на hwpmc) причина не найдена;
+ *    кандидаты дальше - все ряды одним вызовом, удвоение внутри треугольника квадрата как у
+ *    bn_sqrx8x_mont вместо отдельного прохода, доводка внутри ядра.
+ *
  * @copyright Copyright © 2026
  *
  */
@@ -156,6 +178,7 @@
 	#include <arm_neon.h>
 #elif (defined(__x86_64__) || defined(_M_X64)) && !defined(ANTS_NO_MACHINE)
 	#include <emmintrin.h>
+	#include <immintrin.h>
 #endif
 
 /**
@@ -2701,7 +2724,8 @@ namespace {
 	 * @param result  место, в которое помещается итог
 	 *
 	 * @note Вычитание модуля под маской: разность берётся, если старшее слово накопителя
-	 *       ненулевое либо заёма не было. Накопитель и разность затираются
+	 *       ненулевое либо заёма не было. Накопитель не затирается: за него отвечает
+	 *       вызывающий, чтобы возведение в степень затирало один буфер один раз (круг 46)
 	 *
 	 */
 	static void settle(uint64_t * buffer, const uint64_t * modulus, const size_t count, uint64_t * result) noexcept {
@@ -2784,20 +2808,35 @@ namespace {
 			: [buffer] "r" (buffer), [modulus] "r" (modulus), [result] "r" (result), [count] "r" (count)
 			: "x4", "x5", "x6", "x7", "x8", "x9", "x10", "x11", "cc", "memory");
 /**
- * Под x86-64 разность идёт цепочкой sbb с счётчиком dec, не трогающим перенос, выбор -
- * наложением маски без ветвлений
+ * Под x86-64 разность идёт цепочкой sbb четвёрками слов со счётчиком dec, не трогающим
+ * перенос, выбор - наложением маски парами слов командами SSE2 основания набора без ветвлений;
+ * ширина, не кратная четырём, идёт по словам (круг 46: по словам доводка стоила 81 такта TSC
+ * из 805 у квадрата на 16 словах)
  */
 #elif defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER)
 		__asm__ __volatile__(
-			"xorl  %%eax, %%eax\n\t"
 			"movq  %[count], %%rcx\n\t"
 			"xorl  %%edx, %%edx\n\t"
-			/* Разность с заёмом по словам */
+			"testq $3, %%rcx\n\t"
+			"jnz   3f\n\t"
+			"shrq  $2, %%rcx\n\t"
+			"xorl  %%eax, %%eax\n\t"
+			/* Разность с заёмом четвёрками слов: заём переходит через флаг переноса, lea и dec его не трогают */
+			".p2align 4\n\t"
 			"1:\n\t"
-			"movq  (%[buffer], %%rdx, 8), %%rax\n\t"
-			"sbbq  (%[modulus], %%rdx, 8), %%rax\n\t"
-			"movq  %%rax, (%[result], %%rdx, 8)\n\t"
-			"leaq  1(%%rdx), %%rdx\n\t"
+			"movq  0(%[buffer], %%rdx, 8), %%rax\n\t"
+			"movq  8(%[buffer], %%rdx, 8), %%rsi\n\t"
+			"movq  16(%[buffer], %%rdx, 8), %%r8\n\t"
+			"movq  24(%[buffer], %%rdx, 8), %%r9\n\t"
+			"sbbq  0(%[modulus], %%rdx, 8), %%rax\n\t"
+			"sbbq  8(%[modulus], %%rdx, 8), %%rsi\n\t"
+			"sbbq  16(%[modulus], %%rdx, 8), %%r8\n\t"
+			"sbbq  24(%[modulus], %%rdx, 8), %%r9\n\t"
+			"movq  %%rax, 0(%[result], %%rdx, 8)\n\t"
+			"movq  %%rsi, 8(%[result], %%rdx, 8)\n\t"
+			"movq  %%r8, 16(%[result], %%rdx, 8)\n\t"
+			"movq  %%r9, 24(%[result], %%rdx, 8)\n\t"
+			"leaq  4(%%rdx), %%rdx\n\t"
 			"decq  %%rcx\n\t"
 			"jnz   1b\n\t"
 			/* Маска выбора разности: заёма не было либо старшее слово ненулевое */
@@ -2808,9 +2847,49 @@ namespace {
 			"sbbq  %%rcx, %%rcx\n\t"
 			"orq   %%rcx, %%rax\n\t"
 			"movq  %[count], %%rcx\n\t"
+			"shrq  $2, %%rcx\n\t"
 			"xorl  %%edx, %%edx\n\t"
-			/* Выбор по словам: накопитель ^ (маска & (разность ^ накопитель)) */
+			"movq  %%rax, %%xmm0\n\t"
+			"punpcklqdq %%xmm0, %%xmm0\n\t"
+			/* Выбор четвёрками слов парами SSE2: накопитель ^ (маска & (разность ^ накопитель)) */
+			".p2align 4\n\t"
 			"2:\n\t"
+			"movdqu 0(%[result], %%rdx, 8), %%xmm1\n\t"
+			"movdqu 16(%[result], %%rdx, 8), %%xmm3\n\t"
+			"movdqu 0(%[buffer], %%rdx, 8), %%xmm2\n\t"
+			"movdqu 16(%[buffer], %%rdx, 8), %%xmm4\n\t"
+			"pxor  %%xmm2, %%xmm1\n\t"
+			"pxor  %%xmm4, %%xmm3\n\t"
+			"pand  %%xmm0, %%xmm1\n\t"
+			"pand  %%xmm0, %%xmm3\n\t"
+			"pxor  %%xmm2, %%xmm1\n\t"
+			"pxor  %%xmm4, %%xmm3\n\t"
+			"movdqu %%xmm1, 0(%[result], %%rdx, 8)\n\t"
+			"movdqu %%xmm3, 16(%[result], %%rdx, 8)\n\t"
+			"leaq  4(%%rdx), %%rdx\n\t"
+			"decq  %%rcx\n\t"
+			"jnz   2b\n\t"
+			"jmp   6f\n\t"
+			/* Ширина, не кратная четырём: разность с заёмом по словам */
+			"3:\n\t"
+			"xorl  %%eax, %%eax\n\t"
+			"4:\n\t"
+			"movq  (%[buffer], %%rdx, 8), %%rax\n\t"
+			"sbbq  (%[modulus], %%rdx, 8), %%rax\n\t"
+			"movq  %%rax, (%[result], %%rdx, 8)\n\t"
+			"leaq  1(%%rdx), %%rdx\n\t"
+			"decq  %%rcx\n\t"
+			"jnz   4b\n\t"
+			"sbbq  %%rax, %%rax\n\t"
+			"notq  %%rax\n\t"
+			"movq  (%[buffer], %%rdx, 8), %%rcx\n\t"
+			"negq  %%rcx\n\t"
+			"sbbq  %%rcx, %%rcx\n\t"
+			"orq   %%rcx, %%rax\n\t"
+			"movq  %[count], %%rcx\n\t"
+			"xorl  %%edx, %%edx\n\t"
+			/* Выбор по словам */
+			"5:\n\t"
 			"movq  (%[result], %%rdx, 8), %%rsi\n\t"
 			"xorq  (%[buffer], %%rdx, 8), %%rsi\n\t"
 			"andq  %%rax, %%rsi\n\t"
@@ -2818,10 +2897,11 @@ namespace {
 			"movq  %%rsi, (%[result], %%rdx, 8)\n\t"
 			"leaq  1(%%rdx), %%rdx\n\t"
 			"decq  %%rcx\n\t"
-			"jnz   2b\n\t"
+			"jnz   5b\n\t"
+			"6:\n\t"
 			:
 			: [buffer] "r" (buffer), [modulus] "r" (modulus), [result] "r" (result), [count] "m" (count)
-			: "rax", "rcx", "rdx", "rsi", "cc", "memory");
+			: "rax", "rcx", "rdx", "rsi", "r8", "r9", "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "cc", "memory");
 #else
 		// Вычитаем модуль прямо в итог
 		const uint64_t borrow = decrease(buffer, modulus, result, count);
@@ -2834,9 +2914,156 @@ namespace {
 			// Выбираем слово
 			result[i] = select(mask, result[i], buffer[i]);
 #endif
-		// Затираем накопитель
-		wipe(buffer, (count + 2) * sizeof(uint64_t));
 	}
+/**
+ * Под x86-64 с GCC и clang таблица окна перекладывается столбцами (слово k всех записей подряд,
+ * как у bn_gather5 OpenSSL), и запись выбирается по столбцам: командами AVX2 там, где они есть у
+ * машины (функция собирается с атрибутом цели, признак машины проверяется на каждом вызове), иначе
+ * SSE2 основания набора. Перебор строк стоил 315 тактов TSC на 16 словах, двадцатую часть возведения
+ * в степень RSA-1024; столбцы - 130 на AVX2 и на пятую часть меньше строк на SSE2 (круг 46). Под
+ * AArch64 столбцы медленнее строк (M4 42 против 35 нс), там остаётся перебор строк
+ */
+#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER) && !defined(ANTS_NO_MACHINE)
+	/**
+	 * @brief Метод перекладки таблицы окна столбцами
+	 *
+	 * @param table   таблица степеней окна строками
+	 * @param words   число слов записи
+	 * @param columns место столбцов: слово k всех записей подряд
+	 *
+	 */
+	static void pivot(const uint64_t table[][INTEGER_WORDS], const size_t words, uint64_t columns[][TABLE]) noexcept {
+		/**
+		 * Выполняем перебор записей
+		 */
+		for(size_t j = 0; j < TABLE; j++){
+			/**
+			 * Выполняем перебор слов записи
+			 */
+			for(size_t k = 0; k < words; k++)
+				// Кладём слово в столбец
+				columns[k][j] = table[j][k];
+		}
+	}
+	/**
+	 * @brief Метод выбора записи таблицы окна по столбцам командами AVX2
+	 *
+	 * @param columns таблица степеней окна столбцами
+	 * @param index   номер выбираемой записи
+	 * @param words   число слов записи
+	 * @param chosen  место, в которое помещается выбранная запись
+	 *
+	 * @note Маски совпадения номера по восьми четвёркам записей считаются один раз, слово
+	 *       собирается восемью загрузками столбца под масками и сложением дорожек
+	 *
+	 */
+	__attribute__((target("avx2"))) static void chooseColumnsAvx2(const uint64_t columns[][TABLE], const uint64_t index, const size_t words, uint64_t * chosen) noexcept {
+		// Номер записи по дорожкам
+		const __m256i wanted = _mm256_set1_epi64x(static_cast <long long> (index));
+		// Шаг номеров четвёрки
+		const __m256i step = _mm256_set1_epi64x(4);
+		// Номера записей четвёрки
+		__m256i number = _mm256_set_epi64x(3, 2, 1, 0);
+		// Маски совпадения по четвёркам записей
+		__m256i masks[TABLE / 4];
+		/**
+		 * Выполняем вычисление масок
+		 */
+		for(size_t i = 0; i < (TABLE / 4); i++){
+			// Маска совпадения четвёрки
+			masks[i] = _mm256_cmpeq_epi64(number, wanted);
+			// Переходим к следующей четвёрке
+			number = _mm256_add_epi64(number, step);
+		}
+		/**
+		 * Выполняем перебор слов записи
+		 */
+		for(size_t k = 0; k < words; k++){
+			// Столбец слова
+			const __m256i * column = reinterpret_cast <const __m256i *> (columns[k]);
+			// Накопитель дорожек
+			__m256i sum = _mm256_and_si256(_mm256_loadu_si256(column), masks[0]);
+			/**
+			 * Выполняем перебор четвёрок столбца
+			 */
+			for(size_t i = 1; i < (TABLE / 4); i++)
+				// Накапливаем четвёрку под маской
+				sum = _mm256_or_si256(sum, _mm256_and_si256(_mm256_loadu_si256(column + i), masks[i]));
+			// Сложение половин
+			const __m128i half = _mm_or_si128(_mm256_castsi256_si128(sum), _mm256_extracti128_si256(sum, 1));
+			// Записываем слово
+			chosen[k] = static_cast <uint64_t> (_mm_cvtsi128_si64(_mm_or_si128(half, _mm_unpackhi_epi64(half, half))));
+		}
+		// Снимаем старшие половины регистров: переход к SSE2 без штрафа
+		_mm256_zeroupper();
+	}
+	/**
+	 * @brief Метод выбора записи таблицы окна по столбцам
+	 *
+	 * @param columns таблица степеней окна столбцами
+	 * @param index   номер выбираемой записи
+	 * @param words   число слов записи
+	 * @param chosen  место, в которое помещается выбранная запись
+	 *
+	 * @note Ни ветвления, ни адрес обращения от номера не зависят: столбец читается целиком
+	 *       под масками совпадения. AVX2 при наличии у машины, иначе SSE2 парами записей:
+	 *       равенство по 64 разрядам собирается из сравнения по 32
+	 *
+	 */
+	static void chooseColumns(const uint64_t columns[][TABLE], const uint64_t index, const size_t words, uint64_t * chosen) noexcept {
+		// Если у машины есть AVX2
+		if(machine::has(machine::feature_t::AVX2)){
+			// Выбираем запись командами AVX2
+			chooseColumnsAvx2(columns, index, words, chosen);
+			// Выходим
+			return;
+		}
+		// Номер записи по дорожкам
+		const __m128i wanted = _mm_set1_epi64x(static_cast <long long> (index));
+		// Шаг номеров пары
+		const __m128i step = _mm_set1_epi64x(2);
+		// Номера записей пары
+		__m128i number = _mm_set_epi64x(1, 0);
+		// Маски совпадения по парам записей
+		__m128i masks[TABLE / 2];
+		/**
+		 * Выполняем вычисление масок
+		 */
+		for(size_t i = 0; i < (TABLE / 2); i++){
+			// Совпадение по половинам слов
+			const __m128i equal = _mm_cmpeq_epi32(number, wanted);
+			// Маска совпадения пары: обе половины слова равны
+			masks[i] = _mm_and_si128(equal, _mm_shuffle_epi32(equal, 0xB1));
+			// Переходим к следующей паре
+			number = _mm_add_epi64(number, step);
+		}
+		/**
+		 * Выполняем перебор слов записи
+		 */
+		for(size_t k = 0; k < words; k++){
+			// Столбец слова
+			const __m128i * column = reinterpret_cast <const __m128i *> (columns[k]);
+			// Накопитель дорожек
+			__m128i sum = _mm_and_si128(_mm_loadu_si128(column), masks[0]);
+			/**
+			 * Выполняем перебор пар столбца
+			 */
+			for(size_t i = 1; i < (TABLE / 2); i++)
+				// Накапливаем пару под маской
+				sum = _mm_or_si128(sum, _mm_and_si128(_mm_loadu_si128(column + i), masks[i]));
+			// Записываем слово
+			chosen[k] = static_cast <uint64_t> (_mm_cvtsi128_si64(_mm_or_si128(sum, _mm_unpackhi_epi64(sum, sum))));
+		}
+	}
+	/**
+	 * Объявляем выбор из таблицы по столбцам
+	 */
+	#define __ANTS_CHOOSE_COLUMNS__ 1
+#endif
+/**
+ * Перебор строк нужен там, где нет столбцов: AArch64, MSVC, сборки без признаков машины
+ */
+#if !defined(__ANTS_CHOOSE_COLUMNS__)
 	/**
 	 * @brief Метод выбора записи таблицы окна перебором всей таблицы под масками
 	 *
@@ -2977,6 +3204,7 @@ namespace {
 				chosen[k] |= (table[j][k] & nil(static_cast <uint64_t> (j) ^ index));
 		}
 	}
+#endif
 /**
  * Ядра квадрата нужны всюду, кроме x86-64 с GCC и clang: там квадрат идёт ассемблерными рядами умножения
  */
@@ -3287,7 +3515,8 @@ namespace {
 		buffer[count] += carry;
 		// Доводим итог до значения, меньшего модуля
 		settle(buffer, modulus, count, result);
-		// Затираем произведение
+		// Затираем накопитель и произведение
+		wipe(buffer, (count + 2) * sizeof(uint64_t));
 		wipe(square, ((2 * count) + 2) * sizeof(uint64_t));
 	}
 #endif
@@ -3300,13 +3529,14 @@ namespace {
 	 * @param count   число слов модуля
 	 * @param inverse множитель приведения по модулю
 	 * @param result  место, в которое помещается произведение, меньшее модуля
+	 * @param scratch буфер ядра в 2 · count + 2 слов: не затирается, за него отвечает вызывающий
 	 *
 	 * @note Умножение с чередованием шагов (CIOS) рядами по два со сдвигом: произведение и
 	 *       приведение одним проходом. Сомножители по одному указателю идут ядром квадрата.
 	 *       Итог доводится до значения, меньшего модуля, вычитанием под маской
 	 *
 	 */
-	static void montgomery(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, const size_t count, const uint64_t inverse, uint64_t * result) noexcept {
+	static void montgomery(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, const size_t count, const uint64_t inverse, uint64_t * result, uint64_t * scratch) noexcept {
 /**
  * Квадрат ширины, кратной восьми, идёт блочным ядром: под AArch64 всегда, под x86-64 при
  * расширениях BMI2 и ADX у машины (решение 8 шапки): три четверти умножений и окно
@@ -3322,14 +3552,10 @@ namespace {
 #if defined(__ANTS_SQUARE8X_READY__)
 		// Если сомножители - одно число, и квадрат блоками берётся
 		if((first == second) && __ANTS_SQUARE8X_READY__){
-			// Слова квадрата удвоенной ширины
-			uint64_t buffer[(2 * INTEGER_WORDS) + 2];
 			// Квадрат блоками по восемь слов
-			square8x(buffer, first, modulus, count, inverse);
+			square8x(scratch, first, modulus, count, inverse);
 			// Доводим старшую половину до значения, меньшего модуля
-			settle(buffer + count, modulus, count, result);
-			// Затираем отложенные множители приведения
-			wipe(buffer, count * sizeof(uint64_t));
+			settle(scratch + count, modulus, count, result);
 			// Выходим
 			return;
 		}
@@ -3342,14 +3568,10 @@ namespace {
 #if defined(__ANTS_MONT_SQUARE8X_MULQ__)
 		// Если сомножители - одно число, ширина кратна восьми, а MULX и ADCX/ADOX у машины нет
 		if((first == second) && ((count % 8) == 0) && !machine::has(machine::feature_t::ADX)){
-			// Слова квадрата удвоенной ширины
-			uint64_t buffer[(2 * INTEGER_WORDS) + 2];
 			// Квадрат блоками по восемь слов на mulq
-			kernel::square8xMulq(buffer, first, modulus, count, inverse);
+			kernel::square8xMulq(scratch, first, modulus, count, inverse);
 			// Доводим старшую половину до значения, меньшего модуля
-			settle(buffer + count, modulus, count, result);
-			// Затираем отложенные множители приведения
-			wipe(buffer, count * sizeof(uint64_t));
+			settle(scratch + count, modulus, count, result);
 			// Выходим
 			return;
 		}
@@ -3369,18 +3591,16 @@ namespace {
 #if defined(__ANTS_STRIPES_READY__)
 		// Если ряды полосами берутся
 		if(__ANTS_STRIPES_READY__){
-			// Слова накапливаемого произведения
-			uint64_t buffer[INTEGER_WORDS + 2];
 			// Обнуляем используемые слова накопителя
-			clean(buffer, count + 2);
+			clean(scratch, count + 2);
 			/**
 			 * Выполняем перебор слов второго сомножителя
 			 */
 			for(size_t index = 0; index < count; index++)
 				// Ряд полосами
-				stripes(buffer, first, modulus, second[index], inverse, count);
+				stripes(scratch, first, modulus, second[index], inverse, count);
 			// Доводим итог до значения, меньшего модуля
-			settle(buffer, modulus, count, result);
+			settle(scratch, modulus, count, result);
 			// Выходим
 			return;
 		}
@@ -3399,10 +3619,8 @@ namespace {
 			return;
 		}
 #endif
-		// Слова накапливаемого произведения
-		uint64_t buffer[INTEGER_WORDS + 2];
 		// Обнуляем используемые слова накопителя
-		clean(buffer, count + 2);
+		clean(scratch, count + 2);
 		// Номер слова второго сомножителя
 		size_t index = 0;
 		/**
@@ -3410,15 +3628,37 @@ namespace {
 		 */
 		for(; (index + 2) <= count; index += 2)
 			// Два ряда со сдвигом
-			rows(buffer, first, modulus, second[index], second[index + 1], inverse, count);
+			rows(scratch, first, modulus, second[index], second[index + 1], inverse, count);
 		/**
 		 * Выполняем перебор оставшихся слов
 		 */
 		for(; index < count; index++)
 			// Один ряд
-			row(buffer, first, modulus, second[index], inverse, count);
+			row(scratch, first, modulus, second[index], inverse, count);
 		// Доводим итог до значения, меньшего модуля
-		settle(buffer, modulus, count, result);
+		settle(scratch, modulus, count, result);
+	}
+	/**
+	 * @brief Метод умножения Монтгомери на словах с затиранием буфера
+	 *
+	 * @param first   слова первого сомножителя, меньшего модуля
+	 * @param second  слова второго сомножителя, меньшего модуля
+	 * @param modulus слова нечётного модуля
+	 * @param count   число слов модуля
+	 * @param inverse множитель приведения по модулю
+	 * @param result  место, в которое помещается произведение, меньшее модуля
+	 *
+	 * @note Буфер ядра живёт в вызове и затирается по его концу; возведение в степень
+	 *       держит свой буфер на все умножения и затирает его один раз (круг 46)
+	 *
+	 */
+	static void montgomery(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, const size_t count, const uint64_t inverse, uint64_t * result) noexcept {
+		// Буфер ядра: удвоенная ширина с двумя словами сверху под квадрат блоками
+		uint64_t scratch[(2 * INTEGER_WORDS) + 2];
+		// Выполняем умножение
+		montgomery(first, second, modulus, count, inverse, result, scratch);
+		// Затираем буфер
+		wipe(scratch, ((2 * count) + 2) * sizeof(uint64_t));
 	}
 	/**
 	 * @brief Метод удвоения числа по модулю за постоянное время
@@ -4920,22 +5160,33 @@ bool nts::math::Integer::power(const Integer & base, const Integer & exponent, c
 		return false;
 	// Основание области Монтгомери и его квадрат по модулю
 	uint64_t unit[INTEGER_WORDS], square[INTEGER_WORDS];
+	// Буфер ядра на все умножения: затирается один раз по концу
+	uint64_t scratch[(2 * INTEGER_WORDS) + 2];
 	// Вычисляем основание области и его квадрат
 	domain(modulus._words, words, unit, square);
 	// Множитель приведения по модулю
 	const uint64_t inverse = factor(modulus._words[0]);
 	// Таблица степеней основания в области Монтгомери
-	uint64_t table[TABLE][INTEGER_WORDS];
+	alignas(32) uint64_t table[TABLE][INTEGER_WORDS];
 	// Единица в области Монтгомери - само основание области
 	transfer(unit, table[0], words);
 	// Приводим основание степени в область Монтгомери
-	montgomery(base._words, square, modulus._words, words, inverse, table[1]);
+	montgomery(base._words, square, modulus._words, words, inverse, table[1], scratch);
 	/**
 	 * Выполняем заполнение таблицы степеней основания
 	 */
 	for(size_t i = 2; i < TABLE; i++)
 		// Вычисляем очередную степень основания
-		montgomery(table[i - 1], table[1], modulus._words, words, inverse, table[i]);
+		montgomery(table[i - 1], table[1], modulus._words, words, inverse, table[i], scratch);
+/**
+ * Под x86-64 таблица перекладывается столбцами: выбор читает по столбцу
+ */
+#if defined(__ANTS_CHOOSE_COLUMNS__)
+	// Таблица степеней столбцами
+	alignas(32) uint64_t columns[INTEGER_WORDS][TABLE];
+	// Перекладываем таблицу столбцами
+	pivot(table, words, columns);
+#endif
 	// Число разрядов показателя: вся разрядность слов модуля при секретном показателе
 	// Накопитель степени и выбранная запись таблицы
 	uint64_t result[INTEGER_WORDS], chosen[INTEGER_WORDS];
@@ -4954,13 +5205,17 @@ bool nts::math::Integer::power(const Integer & base, const Integer & exponent, c
 		 */
 		for(size_t j = 0; j < count; j++)
 			// Возводим накопитель в квадрат
-			montgomery(result, result, modulus._words, words, inverse, result);
+			montgomery(result, result, modulus._words, words, inverse, result, scratch);
 		// Извлекаем значение окна
 		const uint64_t index = window(exponent._words, position, count);
 		// Выбираем запись перебором всей таблицы под масками: ни ветвления, ни адрес обращения от показателя не зависят
+#if defined(__ANTS_CHOOSE_COLUMNS__)
+		chooseColumns(columns, index, words, chosen);
+#else
 		choose(table, index, words, chosen);
+#endif
 		// Умножаем накопитель на выбранную запись
-		montgomery(result, chosen, modulus._words, words, inverse, result);
+		montgomery(result, chosen, modulus._words, words, inverse, result, scratch);
 	}
 	// Единица для вывода из области Монтгомери
 	clean(chosen, words);
@@ -4970,7 +5225,7 @@ bool nts::math::Integer::power(const Integer & base, const Integer & exponent, c
 	// Итог в отдельное место: модуль вправе совпадать с итогом (алиасинг)
 	uint64_t outcome[INTEGER_WORDS];
 	// Выводим из области Монтгомери
-	montgomery(result, chosen, modulus._words, words, inverse, outcome);
+	montgomery(result, chosen, modulus._words, words, inverse, outcome, scratch);
 	// Сбрасываем итог
 	this->clear();
 	// Переносим итог
@@ -4979,6 +5234,10 @@ bool nts::math::Integer::power(const Integer & base, const Integer & exponent, c
 	wipe(outcome, sizeof(outcome));
 	// Затираем таблицу степеней
 	wipe(table, sizeof(table));
+#if defined(__ANTS_CHOOSE_COLUMNS__)
+	// Затираем столбцы
+	wipe(columns, sizeof(columns));
+#endif
 	// Затираем накопитель
 	wipe(result, sizeof(result));
 	// Затираем выбранную запись
@@ -4987,6 +5246,8 @@ bool nts::math::Integer::power(const Integer & base, const Integer & exponent, c
 	wipe(unit, sizeof(unit));
 	// Затираем квадрат основания
 	wipe(square, sizeof(square));
+	// Затираем буфер ядра
+	wipe(scratch, ((2 * words) + 2) * sizeof(uint64_t));
 	// Выводим признак успешности
 	return true;
 }
@@ -5464,14 +5725,16 @@ bool nts::math::Montgomery::power(const Integer & base, const Integer & exponent
 		return false;
 	// Основание в области и накопитель степени
 	uint64_t entered[INTEGER_WORDS], accumulator[INTEGER_WORDS];
+	// Буфер ядра на все умножения: затирается один раз по концу
+	uint64_t scratch[(2 * INTEGER_WORDS) + 2];
 	// Переводим основание в область
-	montgomery(base._words, this->_square, this->_modulus, words, this->_inverse, entered);
+	montgomery(base._words, this->_square, this->_modulus, words, this->_inverse, entered, scratch);
 	// Накопитель начинается с единицы области
 	transfer(this->_unit, accumulator, words);
 	// Если показатель секретный
 	if(secret){
 		// Таблица степеней окна и выбранное значение
-		uint64_t table[TABLE][INTEGER_WORDS], chosen[INTEGER_WORDS];
+		alignas(32) uint64_t table[TABLE][INTEGER_WORDS], chosen[INTEGER_WORDS];
 		// Нулевая степень есть единица области, первая - основание
 		transfer(this->_unit, table[0], words);
 		transfer(entered, table[1], words);
@@ -5480,7 +5743,16 @@ bool nts::math::Montgomery::power(const Integer & base, const Integer & exponent
 		 */
 		for(size_t i = 2; i < TABLE; i++)
 			// Считаем очередную степень
-			montgomery(table[i - 1], table[1], this->_modulus, words, this->_inverse, table[i]);
+			montgomery(table[i - 1], table[1], this->_modulus, words, this->_inverse, table[i], scratch);
+/**
+ * Под x86-64 таблица перекладывается столбцами: выбор читает по столбцу
+ */
+#if defined(__ANTS_CHOOSE_COLUMNS__)
+	// Таблица степеней столбцами
+	alignas(32) uint64_t columns[INTEGER_WORDS][TABLE];
+	// Перекладываем таблицу столбцами
+	pivot(table, words, columns);
+#endif
 		/**
 		 * Выполняем перебор окон от старшего к младшему
 		 */
@@ -5493,16 +5765,24 @@ bool nts::math::Montgomery::power(const Integer & base, const Integer & exponent
 			 */
 			for(size_t j = 0; j < count; j++)
 				// Выполняем возведение в квадрат
-				montgomery(accumulator, accumulator, this->_modulus, words, this->_inverse, accumulator);
+				montgomery(accumulator, accumulator, this->_modulus, words, this->_inverse, accumulator, scratch);
 			// Значение окна
 			const uint64_t index = window(exponent._words, position, count);
 			// Выбираем степень перебором всей таблицы под масками
+#if defined(__ANTS_CHOOSE_COLUMNS__)
+			chooseColumns(columns, index, words, chosen);
+#else
 			choose(table, index, words, chosen);
+#endif
 			// Умножаем накопитель на выбранную степень
-			montgomery(accumulator, chosen, this->_modulus, words, this->_inverse, accumulator);
+			montgomery(accumulator, chosen, this->_modulus, words, this->_inverse, accumulator, scratch);
 		}
 		// Затираем таблицу и выбранное значение
 		wipe(table, sizeof(table));
+#if defined(__ANTS_CHOOSE_COLUMNS__)
+	// Затираем столбцы
+	wipe(columns, sizeof(columns));
+#endif
 		wipe(chosen, words * sizeof(uint64_t));
 	// Если показатель открытый
 	} else {
@@ -5511,11 +5791,11 @@ bool nts::math::Montgomery::power(const Integer & base, const Integer & exponent
 		 */
 		for(size_t i = bits; i > 0; i--){
 			// Выполняем возведение в квадрат
-			montgomery(accumulator, accumulator, this->_modulus, words, this->_inverse, accumulator);
+			montgomery(accumulator, accumulator, this->_modulus, words, this->_inverse, accumulator, scratch);
 			// Если разряд показателя единичный
 			if(((exponent._words[(i - 1) / 64] >> ((i - 1) % 64)) & 1) != 0)
 				// Умножаем накопитель на основание
-				montgomery(accumulator, entered, this->_modulus, words, this->_inverse, accumulator);
+				montgomery(accumulator, entered, this->_modulus, words, this->_inverse, accumulator, scratch);
 		}
 	}
 	// Единица вне области
@@ -5525,7 +5805,7 @@ bool nts::math::Montgomery::power(const Integer & base, const Integer & exponent
 	// Слова итога
 	uint64_t outcome[INTEGER_WORDS];
 	// Выводим степень из области
-	montgomery(accumulator, one, this->_modulus, words, this->_inverse, outcome);
+	montgomery(accumulator, one, this->_modulus, words, this->_inverse, outcome, scratch);
 	// Записываем итог
 	result.clear();
 	transfer(outcome, result._words, words);
@@ -5533,6 +5813,8 @@ bool nts::math::Montgomery::power(const Integer & base, const Integer & exponent
 	wipe(outcome, words * sizeof(uint64_t));
 	wipe(accumulator, words * sizeof(uint64_t));
 	wipe(entered, words * sizeof(uint64_t));
+	// Затираем буфер ядра
+	wipe(scratch, ((2 * words) + 2) * sizeof(uint64_t));
 	// Выходим успехом
 	return true;
 }
