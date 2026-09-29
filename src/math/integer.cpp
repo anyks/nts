@@ -149,9 +149,26 @@
  *    (дизассемблер libcrypto той же машины), но ряд стоит 76 тактов при ~62 у эталона; слово
  *    второго сомножителя в регистре вместо перезагрузки, слив переносов как у OpenSSL, развёртка
  *    цикла и выравнивание на 64 разницы не дали (микрозамер), два ряда одним вызовом - 5 %.
- *    Без счётчиков машины (на QEMU их нет, на Xeon нет прав на hwpmc) причина не найдена;
- *    кандидаты дальше - все ряды одним вызовом, удвоение внутри треугольника квадрата как у
- *    bn_sqrx8x_mont вместо отдельного прохода, доводка внутри ядра.
+ *    Без счётчиков машины (на QEMU их нет, на Xeon нет прав на hwpmc) причина тогда не была
+ *    найдена: она в устройстве вызова, а не в цикле полосы (решение 11).
+ *
+ * 11. Ядра x86-64 по устройству вызова OpenSSL (круг 47, 29.09.2026): по источнику x86_64-mont.pl и
+ *    x86_64-mont5.pl сличены не циклы, а устройство. Умножение: у bn_mulx4x_mont все ряды идут одной
+ *    функцией, и первый ряд накопитель не читает - он и есть нулевой; у нас ряд был отдельным вызовом
+ *    (76 тактов TSC при ~62), а перед первым шло обнуление count + 2 слов. Теперь multiply4x ведёт все
+ *    ряды одной вставкой, первый - без чтения накопителя; слово ряда и указатель на следующее живут на
+ *    кадре. Квадрат: у __bn_sqrx8x_reduction множитель приведения следующего ряда считается посреди
+ *    текущего, как только готово его младшее слово, и задержка MULX в четыре такта на границе ряда не
+ *    ждётся; удвоение же у bn_sqrx8x_mont идёт отдельным проходом (.Lsqrx4x_shift_n_add), как и у нас, -
+ *    запись решения 10 об удвоении внутри треугольника была неверна. Теперь множитель следующего ряда
+ *    первого окна считается посреди ряда и ждёт в RBX (нуль цепочек - из RAX); обнуляются парами слов
+ *    SSE2 лишь младшие count слов накопителя: окно каждого блока пишется прежде, чем его читает
+ *    следующий (закреплено мутацией). Xeon E5-2630 v4, 16 слов, TSC, щуп ядер: умножение с доводкой
+ *    1 180 → 1 023 при 1 029 у BN_mod_mul_montgomery, квадрат с доводкой 730 → 705 при 674; щуп по
+ *    частям: степень RSA-1024 515 → 470 мкс при 436 (1,18 → 1,08), RSA-2048 3 315 → 3 160 при 3 008
+ *    (1,10 → 1,05); подпись RSA-2048 928 → 1 006…1 012 в секунду при 1 066…1 073 (1,15 → 1,06),
+ *    сличение 28 752 → 29 622…29 679 при 31 870…31 970. Ширины, не кратные четырём, машины без ADX и
+ *    AArch64 идут прежними путями (решения 6…9). Закреплено IntegerTest.Kernels и Montgomery.
  *
  * @copyright Copyright © 2026
  *
@@ -1038,20 +1055,21 @@ namespace {
 			: "x4", "x5", "x6", "x7", "x9", "x10", "x12", "x13", "x14", "x15", "x16", "x17", "x19", "x20", "x21", "x22", "x23", "x24", "x25", "x26", "x27", "cc", "memory");
 	}
 /**
- * Ветвь x86-64 (GCC, clang) с расширениями BMI2 и ADX: ряд полосами по четыре слова на MULX и
- * двух независимых цепочках переносов ADCX/ADOX (решение 7 шапки). Под ASan без оптимизации
- * ветвь не берётся: вставка занимает все регистры общего назначения (признак __ANTS_ASAN_UNOPTIMIZED__)
+ * Ветвь x86-64 (GCC, clang) с расширениями BMI2 и ADX: умножение целиком - все ряды полосами по
+ * четыре слова на MULX и двух независимых цепочках переносов ADCX/ADOX одним вызовом (решения 7
+ * и 11 шапки). Под ASan без оптимизации ветвь не берётся: вставка занимает все регистры общего
+ * назначения (признак __ANTS_ASAN_UNOPTIMIZED__)
  */
 #elif defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER) && !defined(__ANTS_ASAN_UNOPTIMIZED__)
 	/**
-	 * @brief Метод одного ряда умножения Монтгомери полосами по четыре слова на ассемблере x86-64 (BMI2, ADX)
+	 * @brief Метод умножения Монтгомери полосами по четыре слова всеми рядами одним вызовом на ассемблере x86-64 (BMI2, ADX)
 	 *
-	 * @param buffer  накопитель в count + 1 слов: на входе значение меньше удвоенного модуля, на выходе (buffer + first · word + q · modulus) / 2^64
+	 * @param buffer  накопитель в count + 1 слов: обнуления не требует, на выходе значение меньше удвоенного модуля
 	 * @param first   слова первого сомножителя, меньшего модуля
+	 * @param second  слова второго сомножителя, меньшего модуля
 	 * @param modulus слова нечётного модуля
-	 * @param word    слово второго сомножителя
-	 * @param inverse множитель приведения по модулю
 	 * @param count   число слов модуля, кратное четырём и не меньшее четырёх
+	 * @param inverse множитель приведения по модулю
 	 *
 	 * @note MULX не трогает флаги, потому младшие половины произведений с накопителем идут
 	 *       цепочкой ADCX по переносу CF, а старшие - цепочкой ADOX по переносу OF, и обе
@@ -1059,17 +1077,113 @@ namespace {
 	 *       переноса посреди цепочек. Сравнение конца полос ведётся в порядке, оставляющем
 	 *       CF и OF нулевыми: обнуление флагов на каждой полосе не нужно. Порядок команд -
 	 *       умножения вперемежку с цепочками, как у OpenSSL: окно планировщика Broadwell
-	 *       мало, и порядок в потоке команд стоит до восьми процентов
+	 *       мало, и порядок в потоке команд стоит до восьми процентов. Все ряды идут одной
+	 *       вставкой по образцу bn_mulx4x_mont: первый ряд накопитель не читает (он считается
+	 *       нулевым, и обнуление не нужно), слово ряда и указатель на следующее живут на кадре.
+	 *       Ряд отдельным вызовом стоил 76 тактов TSC на 16 словах при 62 у эталона (круг 47)
 	 *
 	 */
-	static inline void stripes(uint64_t * buffer, const uint64_t * first, const uint64_t * modulus, const uint64_t word, const uint64_t inverse, const size_t count) noexcept {
-		// Конец слов первого сомножителя
+	static void multiply4x(uint64_t * buffer, const uint64_t * first, const uint64_t * second, const uint64_t * modulus, const size_t count, const uint64_t inverse) noexcept {
+		// Конец слов первого сомножителя, конец слов второго, следующее слово второго, слово ряда
 		const uint64_t * end = (first + count);
+		const uint64_t * last = (second + count);
+		const uint64_t * next = (second + 1);
+		uint64_t word = second[0];
 		__asm__ __volatile__(
 			"movq  %[buffer], %%rcx\n\t"
 			"movq  %[first], %%rsi\n\t"
 			"movq  %[modulus], %%rdi\n\t"
 			"movq  %[word], %%rdx\n\t"
+			"xorl  %%ebx, %%ebx\n\t"
+			/* Первый ряд, полоса 0: накопитель не читается */
+			"mulx  0(%%rsi), %%r8, %%rax\n\t"
+			"mulx  8(%%rsi), %%r9, %%r15\n\t"
+			"mulx  16(%%rsi), %%r10, %%r12\n\t"
+			"mulx  24(%%rsi), %%r11, %%r14\n\t"
+			"movq  %[inverse], %%rdx\n\t"
+			"adox  %%rax, %%r9\n\t"
+			"mulx  %%r8, %%r13, %%rax\n\t"
+			"adox  %%r15, %%r10\n\t"
+			"movq  %%r13, %%rdx\n\t"
+			"adox  %%r12, %%r11\n\t"
+			"adox  %%rbx, %%r14\n\t"
+			"mulx  0(%%rdi), %%rax, %%r15\n\t"
+			"adcx  %%rax, %%r8\n\t"
+			"adox  %%r15, %%r9\n\t"
+			"mulx  8(%%rdi), %%rax, %%r15\n\t"
+			"adcx  %%rax, %%r9\n\t"
+			"adox  %%r15, %%r10\n\t"
+			"mulx  16(%%rdi), %%rax, %%r15\n\t"
+			"adcx  %%rax, %%r10\n\t"
+			"adox  %%r15, %%r11\n\t"
+			"mulx  24(%%rdi), %%rax, %%r12\n\t"
+			"movq  %[word], %%rdx\n\t"
+			"movq  %%r9, 0(%%rcx)\n\t"
+			"adcx  %%rax, %%r11\n\t"
+			"adox  %%rbx, %%r12\n\t"
+			"movq  %%r10, 8(%%rcx)\n\t"
+			"adcx  %%rbx, %%r12\n\t"
+			"movq  %%r11, 16(%%rcx)\n\t"
+			"leaq  32(%%rsi), %%rsi\n\t"
+			"leaq  32(%%rdi), %%rdi\n\t"
+			"leaq  32(%%rcx), %%rcx\n\t"
+			"cmpq  %%rsi, %[end]\n\t"
+			"je    5f\n\t"
+			/* Первый ряд, полосы k = 4, 8, …: без чтения накопителя */
+			".p2align 5\n\t"
+			"4:\n\t"
+			"mulx  0(%%rsi), %%r8, %%rax\n\t"
+			"adox  %%r14, %%r8\n\t"
+			"mulx  8(%%rsi), %%r9, %%r15\n\t"
+			"adox  %%rax, %%r9\n\t"
+			"mulx  16(%%rsi), %%r10, %%rax\n\t"
+			"adox  %%r15, %%r10\n\t"
+			"mulx  24(%%rsi), %%r11, %%r14\n\t"
+			"movq  %%r13, %%rdx\n\t"
+			"adox  %%rax, %%r11\n\t"
+			"adox  %%rbx, %%r14\n\t"
+			"leaq  32(%%rsi), %%rsi\n\t"
+			"adox  %%r12, %%r8\n\t"
+			"mulx  0(%%rdi), %%rax, %%r15\n\t"
+			"adcx  %%rax, %%r8\n\t"
+			"adox  %%r15, %%r9\n\t"
+			"mulx  8(%%rdi), %%rax, %%r15\n\t"
+			"adcx  %%rax, %%r9\n\t"
+			"adox  %%r15, %%r10\n\t"
+			"mulx  16(%%rdi), %%rax, %%r15\n\t"
+			"movq  %%r8, -8(%%rcx)\n\t"
+			"adcx  %%rax, %%r10\n\t"
+			"adox  %%r15, %%r11\n\t"
+			"mulx  24(%%rdi), %%rax, %%r12\n\t"
+			"movq  %[word], %%rdx\n\t"
+			"movq  %%r9, 0(%%rcx)\n\t"
+			"movq  %%r10, 8(%%rcx)\n\t"
+			"adcx  %%rax, %%r11\n\t"
+			"adox  %%rbx, %%r12\n\t"
+			"leaq  32(%%rdi), %%rdi\n\t"
+			"adcx  %%rbx, %%r12\n\t"
+			"movq  %%r11, 16(%%rcx)\n\t"
+			"leaq  32(%%rcx), %%rcx\n\t"
+			"cmpq  %%rsi, %[end]\n\t"
+			"jne   4b\n\t"
+			"5:\n\t"
+			/* Старшие слова первого ряда: переносы полос, старшего слова накопителя нет */
+			"xorl  %%ebx, %%ebx\n\t"
+			"movq  %%r14, %%rax\n\t"
+			"addq  %%r12, %%rax\n\t"
+			"adcq  $0, %%rbx\n\t"
+			"movq  %%rax, -8(%%rcx)\n\t"
+			"movq  %%rbx, 0(%%rcx)\n\t"
+			/* Ряды 1 … count - 1: слово ряда берётся по указателю на кадре */
+			"movq  %[next], %%rax\n\t"
+			"3:\n\t"
+			"movq  (%%rax), %%rdx\n\t"
+			"movq  %%rdx, %[word]\n\t"
+			"leaq  8(%%rax), %%rax\n\t"
+			"movq  %%rax, %[next]\n\t"
+			"movq  %[buffer], %%rcx\n\t"
+			"movq  %[first], %%rsi\n\t"
+			"movq  %[modulus], %%rdi\n\t"
 			"xorl  %%ebx, %%ebx\n\t"
 			/* Полоса 0: произведения a[0..3] · b, множитель приведения через MULX, n[0..3] · q */
 			"mulx  0(%%rsi), %%r8, %%rax\n\t"
@@ -1162,8 +1276,11 @@ namespace {
 			"adcq  $0, %%rbx\n\t"
 			"movq  %%rax, -8(%%rcx)\n\t"
 			"movq  %%rbx, 0(%%rcx)\n\t"
-			:
-			: [buffer] "m" (buffer), [first] "m" (first), [modulus] "m" (modulus), [end] "m" (end), [word] "m" (word), [inverse] "m" (inverse)
+			"movq  %[next], %%rax\n\t"
+			"cmpq  %%rax, %[last]\n\t"
+			"jne   3b\n\t"
+			: [next] "+m" (next), [word] "+m" (word)
+			: [buffer] "m" (buffer), [first] "m" (first), [modulus] "m" (modulus), [end] "m" (end), [last] "m" (last), [inverse] "m" (inverse)
 			: "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15", "cc", "memory");
 	}
 #endif
@@ -1654,7 +1771,12 @@ namespace {
 	 *       окно ровно восемь слов, и на каждом шаге оба переноса нулевые (сумма окна и
 	 *       произведения слова на окно меньше 2^576). Множитель приведения считается MULX:
 	 *       IMUL портит оба переноса. Удвоение и диагональ идут двумя цепочками разом,
-	 *       счётчик прохода - LEA и JRCXZ, флагов не трогающие
+	 *       счётчик прохода - LEA и JRCXZ, флагов не трогающие. Обнуляются лишь младшие
+	 *       count слов накопителя парами слов SSE2: окно каждого блока пишется прежде, чем
+	 *       его читает следующий блок. Множитель приведения следующего ряда первого окна считается
+	 *       посреди текущего ряда, как только готово его младшее слово, и ждёт в RBX
+	 *       (образец __bn_sqrx8x_reduction OpenSSL): на границе ряда задержка MULX ждалась
+	 *       бы впустую; нуль для замыкания цепочек ряда берётся из RAX (круг 47)
 	 *
 	 */
 	static void square8x(uint64_t * buffer, const uint64_t * value, const uint64_t * modulus, const size_t count, const uint64_t inverse) noexcept {
@@ -1665,14 +1787,17 @@ namespace {
 		const uint64_t * last = (modulus + count);
 		uint64_t * high = (buffer + count);
 		__asm__ __volatile__(
-			/* Обнуление удвоенной ширины накопителя */
+			/* Обнуление младших count слов накопителя парами слов SSE2 по 64 байта за шаг: старшие слова каждый блок пишет прежде, чем читает */
 			"movq  %[buffer], %%rdi\n\t"
 			"movq  %[count], %%rcx\n\t"
-			"xorl  %%eax, %%eax\n\t"
+			"pxor  %%xmm0, %%xmm0\n\t"
+			"shrq  $3, %%rcx\n\t"
 			"1:\n\t"
-			"movq  %%rax, 0(%%rdi)\n\t"
-			"movq  %%rax, 8(%%rdi)\n\t"
-			"leaq  16(%%rdi), %%rdi\n\t"
+			"movdqu %%xmm0, 0(%%rdi)\n\t"
+			"movdqu %%xmm0, 16(%%rdi)\n\t"
+			"movdqu %%xmm0, 32(%%rdi)\n\t"
+			"movdqu %%xmm0, 48(%%rdi)\n\t"
+			"leaq  64(%%rdi), %%rdi\n\t"
 			"decq  %%rcx\n\t"
 			"jnz   1b\n\t"
 			/* Проход 1, блок I: окно накопителя - слова 16I … 16I + 7 (rdi), слова блока a[8I … 8I + 7] (rcx) */
@@ -2170,7 +2295,7 @@ namespace {
 			"movq  %[modulus], %%rsi\n\t"
 			"movq  %%rdi, %%rcx\n\t"
 			"xorl  %%eax, %%eax\n\t"
-			/* Восемь рядов: множитель ряда через MULX без флагов, младшее слово окна обнуляется по построению (перенос - признак его ненулевости) */
+			/* Восемь рядов: множитель ряда через MULX без флагов, младшее слово окна обнуляется по построению (перенос - признак его ненулевости); множитель следующего ряда считается посреди текущего, как только готово его младшее слово, и ждёт в RBX */
 			"movq  %%r8, %%rdx\n\t"
 			"mulx  %[inverse], %%rdx, %%rax\n\t"
 			"movq  %%rdx, 0(%%rcx)\n\t"
@@ -2184,6 +2309,10 @@ namespace {
 			"mulx  16(%%rsi), %%rax, %%r10\n\t"
 			"adcx  %%rax, %%r9\n\t"
 			"adox  %%r11, %%r10\n\t"
+			"movq  %%rdx, %%rax\n\t"
+			"movq  %%r8, %%rdx\n\t"
+			"mulx  %[inverse], %%rbx, %%rdx\n\t"
+			"movq  %%rax, %%rdx\n\t"
 			"mulx  24(%%rsi), %%rax, %%r11\n\t"
 			"adcx  %%rax, %%r10\n\t"
 			"adox  %%r12, %%r11\n\t"
@@ -2197,12 +2326,11 @@ namespace {
 			"adcx  %%rax, %%r13\n\t"
 			"adox  %%r15, %%r14\n\t"
 			"mulx  56(%%rsi), %%rax, %%r15\n\t"
-			"movl  $0, %%ebx\n\t"
 			"adcx  %%rax, %%r14\n\t"
-			"adox  %%rbx, %%r15\n\t"
-			"adcx  %%rbx, %%r15\n\t"
-			"movq  %%r8, %%rdx\n\t"
-			"mulx  %[inverse], %%rdx, %%rax\n\t"
+			"movl  $0, %%eax\n\t"
+			"adox  %%rax, %%r15\n\t"
+			"adcx  %%rax, %%r15\n\t"
+			"movq  %%rbx, %%rdx\n\t"
 			"movq  %%rdx, 8(%%rcx)\n\t"
 			"movq  %%r8, %%rbx\n\t"
 			"mulx  0(%%rsi), %%rax, %%r8\n\t"
@@ -2214,6 +2342,10 @@ namespace {
 			"mulx  16(%%rsi), %%rax, %%r10\n\t"
 			"adcx  %%rax, %%r9\n\t"
 			"adox  %%r11, %%r10\n\t"
+			"movq  %%rdx, %%rax\n\t"
+			"movq  %%r8, %%rdx\n\t"
+			"mulx  %[inverse], %%rbx, %%rdx\n\t"
+			"movq  %%rax, %%rdx\n\t"
 			"mulx  24(%%rsi), %%rax, %%r11\n\t"
 			"adcx  %%rax, %%r10\n\t"
 			"adox  %%r12, %%r11\n\t"
@@ -2227,12 +2359,11 @@ namespace {
 			"adcx  %%rax, %%r13\n\t"
 			"adox  %%r15, %%r14\n\t"
 			"mulx  56(%%rsi), %%rax, %%r15\n\t"
-			"movl  $0, %%ebx\n\t"
 			"adcx  %%rax, %%r14\n\t"
-			"adox  %%rbx, %%r15\n\t"
-			"adcx  %%rbx, %%r15\n\t"
-			"movq  %%r8, %%rdx\n\t"
-			"mulx  %[inverse], %%rdx, %%rax\n\t"
+			"movl  $0, %%eax\n\t"
+			"adox  %%rax, %%r15\n\t"
+			"adcx  %%rax, %%r15\n\t"
+			"movq  %%rbx, %%rdx\n\t"
 			"movq  %%rdx, 16(%%rcx)\n\t"
 			"movq  %%r8, %%rbx\n\t"
 			"mulx  0(%%rsi), %%rax, %%r8\n\t"
@@ -2244,6 +2375,10 @@ namespace {
 			"mulx  16(%%rsi), %%rax, %%r10\n\t"
 			"adcx  %%rax, %%r9\n\t"
 			"adox  %%r11, %%r10\n\t"
+			"movq  %%rdx, %%rax\n\t"
+			"movq  %%r8, %%rdx\n\t"
+			"mulx  %[inverse], %%rbx, %%rdx\n\t"
+			"movq  %%rax, %%rdx\n\t"
 			"mulx  24(%%rsi), %%rax, %%r11\n\t"
 			"adcx  %%rax, %%r10\n\t"
 			"adox  %%r12, %%r11\n\t"
@@ -2257,12 +2392,11 @@ namespace {
 			"adcx  %%rax, %%r13\n\t"
 			"adox  %%r15, %%r14\n\t"
 			"mulx  56(%%rsi), %%rax, %%r15\n\t"
-			"movl  $0, %%ebx\n\t"
 			"adcx  %%rax, %%r14\n\t"
-			"adox  %%rbx, %%r15\n\t"
-			"adcx  %%rbx, %%r15\n\t"
-			"movq  %%r8, %%rdx\n\t"
-			"mulx  %[inverse], %%rdx, %%rax\n\t"
+			"movl  $0, %%eax\n\t"
+			"adox  %%rax, %%r15\n\t"
+			"adcx  %%rax, %%r15\n\t"
+			"movq  %%rbx, %%rdx\n\t"
 			"movq  %%rdx, 24(%%rcx)\n\t"
 			"movq  %%r8, %%rbx\n\t"
 			"mulx  0(%%rsi), %%rax, %%r8\n\t"
@@ -2274,6 +2408,10 @@ namespace {
 			"mulx  16(%%rsi), %%rax, %%r10\n\t"
 			"adcx  %%rax, %%r9\n\t"
 			"adox  %%r11, %%r10\n\t"
+			"movq  %%rdx, %%rax\n\t"
+			"movq  %%r8, %%rdx\n\t"
+			"mulx  %[inverse], %%rbx, %%rdx\n\t"
+			"movq  %%rax, %%rdx\n\t"
 			"mulx  24(%%rsi), %%rax, %%r11\n\t"
 			"adcx  %%rax, %%r10\n\t"
 			"adox  %%r12, %%r11\n\t"
@@ -2287,12 +2425,11 @@ namespace {
 			"adcx  %%rax, %%r13\n\t"
 			"adox  %%r15, %%r14\n\t"
 			"mulx  56(%%rsi), %%rax, %%r15\n\t"
-			"movl  $0, %%ebx\n\t"
 			"adcx  %%rax, %%r14\n\t"
-			"adox  %%rbx, %%r15\n\t"
-			"adcx  %%rbx, %%r15\n\t"
-			"movq  %%r8, %%rdx\n\t"
-			"mulx  %[inverse], %%rdx, %%rax\n\t"
+			"movl  $0, %%eax\n\t"
+			"adox  %%rax, %%r15\n\t"
+			"adcx  %%rax, %%r15\n\t"
+			"movq  %%rbx, %%rdx\n\t"
 			"movq  %%rdx, 32(%%rcx)\n\t"
 			"movq  %%r8, %%rbx\n\t"
 			"mulx  0(%%rsi), %%rax, %%r8\n\t"
@@ -2304,6 +2441,10 @@ namespace {
 			"mulx  16(%%rsi), %%rax, %%r10\n\t"
 			"adcx  %%rax, %%r9\n\t"
 			"adox  %%r11, %%r10\n\t"
+			"movq  %%rdx, %%rax\n\t"
+			"movq  %%r8, %%rdx\n\t"
+			"mulx  %[inverse], %%rbx, %%rdx\n\t"
+			"movq  %%rax, %%rdx\n\t"
 			"mulx  24(%%rsi), %%rax, %%r11\n\t"
 			"adcx  %%rax, %%r10\n\t"
 			"adox  %%r12, %%r11\n\t"
@@ -2317,12 +2458,11 @@ namespace {
 			"adcx  %%rax, %%r13\n\t"
 			"adox  %%r15, %%r14\n\t"
 			"mulx  56(%%rsi), %%rax, %%r15\n\t"
-			"movl  $0, %%ebx\n\t"
 			"adcx  %%rax, %%r14\n\t"
-			"adox  %%rbx, %%r15\n\t"
-			"adcx  %%rbx, %%r15\n\t"
-			"movq  %%r8, %%rdx\n\t"
-			"mulx  %[inverse], %%rdx, %%rax\n\t"
+			"movl  $0, %%eax\n\t"
+			"adox  %%rax, %%r15\n\t"
+			"adcx  %%rax, %%r15\n\t"
+			"movq  %%rbx, %%rdx\n\t"
 			"movq  %%rdx, 40(%%rcx)\n\t"
 			"movq  %%r8, %%rbx\n\t"
 			"mulx  0(%%rsi), %%rax, %%r8\n\t"
@@ -2334,6 +2474,10 @@ namespace {
 			"mulx  16(%%rsi), %%rax, %%r10\n\t"
 			"adcx  %%rax, %%r9\n\t"
 			"adox  %%r11, %%r10\n\t"
+			"movq  %%rdx, %%rax\n\t"
+			"movq  %%r8, %%rdx\n\t"
+			"mulx  %[inverse], %%rbx, %%rdx\n\t"
+			"movq  %%rax, %%rdx\n\t"
 			"mulx  24(%%rsi), %%rax, %%r11\n\t"
 			"adcx  %%rax, %%r10\n\t"
 			"adox  %%r12, %%r11\n\t"
@@ -2347,12 +2491,11 @@ namespace {
 			"adcx  %%rax, %%r13\n\t"
 			"adox  %%r15, %%r14\n\t"
 			"mulx  56(%%rsi), %%rax, %%r15\n\t"
-			"movl  $0, %%ebx\n\t"
 			"adcx  %%rax, %%r14\n\t"
-			"adox  %%rbx, %%r15\n\t"
-			"adcx  %%rbx, %%r15\n\t"
-			"movq  %%r8, %%rdx\n\t"
-			"mulx  %[inverse], %%rdx, %%rax\n\t"
+			"movl  $0, %%eax\n\t"
+			"adox  %%rax, %%r15\n\t"
+			"adcx  %%rax, %%r15\n\t"
+			"movq  %%rbx, %%rdx\n\t"
 			"movq  %%rdx, 48(%%rcx)\n\t"
 			"movq  %%r8, %%rbx\n\t"
 			"mulx  0(%%rsi), %%rax, %%r8\n\t"
@@ -2364,6 +2507,10 @@ namespace {
 			"mulx  16(%%rsi), %%rax, %%r10\n\t"
 			"adcx  %%rax, %%r9\n\t"
 			"adox  %%r11, %%r10\n\t"
+			"movq  %%rdx, %%rax\n\t"
+			"movq  %%r8, %%rdx\n\t"
+			"mulx  %[inverse], %%rbx, %%rdx\n\t"
+			"movq  %%rax, %%rdx\n\t"
 			"mulx  24(%%rsi), %%rax, %%r11\n\t"
 			"adcx  %%rax, %%r10\n\t"
 			"adox  %%r12, %%r11\n\t"
@@ -2377,12 +2524,11 @@ namespace {
 			"adcx  %%rax, %%r13\n\t"
 			"adox  %%r15, %%r14\n\t"
 			"mulx  56(%%rsi), %%rax, %%r15\n\t"
-			"movl  $0, %%ebx\n\t"
 			"adcx  %%rax, %%r14\n\t"
-			"adox  %%rbx, %%r15\n\t"
-			"adcx  %%rbx, %%r15\n\t"
-			"movq  %%r8, %%rdx\n\t"
-			"mulx  %[inverse], %%rdx, %%rax\n\t"
+			"movl  $0, %%eax\n\t"
+			"adox  %%rax, %%r15\n\t"
+			"adcx  %%rax, %%r15\n\t"
+			"movq  %%rbx, %%rdx\n\t"
 			"movq  %%rdx, 56(%%rcx)\n\t"
 			"movq  %%r8, %%rbx\n\t"
 			"mulx  0(%%rsi), %%rax, %%r8\n\t"
@@ -2712,7 +2858,7 @@ namespace {
 			"movq  %%rax, (%%rdi, %%rcx, 8)\n\t"
 			:
 			: [buffer] "m" (buffer), [value] "m" (value), [modulus] "m" (modulus), [count] "m" (count), [inverse] "m" (inverse), [carry] "m" (carry), [top] "m" (top), [end] "m" (end), [last] "m" (last), [high] "m" (high)
-			: "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15", "cc", "memory");
+			: "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15", "xmm0", "cc", "memory");
 	}
 #endif
 	/**
@@ -3579,7 +3725,8 @@ namespace {
 /**
  * Ряды полосами по четыре слова на ассемблере: под AArch64 всегда, под x86-64 при
  * расширениях BMI2 и ADX у машины; ширина кратна четырём (решение 7 шапки). Квадрат
- * прочих ширин тоже идёт этим ядром: оно быстрее рядов квадрата на C
+ * прочих ширин тоже идёт этим ядром: оно быстрее рядов квадрата на C. Под x86-64 все
+ * ряды идут одним вызовом ядра, и первый ряд накопитель не читает (решение 11 шапки)
  */
 #if defined(__aarch64__) && (defined(__GNUC__) || defined(__clang__))
 		// Ряды полосами берутся у ширины, кратной четырём
@@ -3591,6 +3738,16 @@ namespace {
 #if defined(__ANTS_STRIPES_READY__)
 		// Если ряды полосами берутся
 		if(__ANTS_STRIPES_READY__){
+/**
+ * Под x86-64 все ряды идут одним вызовом ядра: первый ряд накопитель не читает, обнуление не нужно
+ */
+#if defined(__x86_64__)
+			// Все ряды полосами одним вызовом
+			multiply4x(scratch, first, second, modulus, count, inverse);
+/**
+ * Под AArch64 ряд за рядом по словам второго сомножителя
+ */
+#else
 			// Обнуляем используемые слова накопителя
 			clean(scratch, count + 2);
 			/**
@@ -3599,6 +3756,7 @@ namespace {
 			for(size_t index = 0; index < count; index++)
 				// Ряд полосами
 				stripes(scratch, first, modulus, second[index], inverse, count);
+#endif
 			// Доводим итог до значения, меньшего модуля
 			settle(scratch, modulus, count, result);
 			// Выходим
