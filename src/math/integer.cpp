@@ -187,6 +187,19 @@
  *    на столбец, а не в цепочку). Умножение на mulq остаётся 1,10 к bn_mul4x_mont. Закреплено
  *    IntegerTest.Kernels под ANTS_MACHINE=0x200 и мутациями (CONFORMANCE.md, круг 48).
  *
+ * 13. Открытая степень и разбор числа (круг 49, 29.09.2026). Открытый показатель шёл двоичным
+ *    методом от старшего разряда включительно: первый шаг возводил в квадрат единицу области, и у
+ *    e = 65537 выходило 17 квадратов и 2 умножения при 16 и 1 у BN_mod_exp_mont; теперь перебор
+ *    начинается с основания (нулевой показатель даёт единицу). Разбор и запись числа шли побайтово
+ *    (256 байтов: 865 и 1 730 тактов TSC при 618 и 1 594 у BN_bin2bn и BN_bn2binpad) - на машинах с
+ *    младшим байтом впереди целые слова читаются и пишутся разом с перестановкой байтов (111 и 34).
+ *    Выход из области проходом descend вместо умножения на единицу пробован и отвергнут по замеру:
+ *    32 слова с ADX 5 224 против 3 804 тактов, без ADX 5 214 против 5 789 (полпроцента сличения).
+ *    Xeon E5-2630 v4, 32 слова: открытая степень 59,1k → 52,4k тактов при 53,9k у OpenSSL, сличение
+ *    RSA-2048 PSS 74,1k → 62,5k при 68,8k у EVP_PKEY_verify (1,08 → 0,91); без ADX степень 89,8k →
+ *    80,1k при 84,6k, сличение PKCS #1 v1.5 97,2k → 82,8k при 89,9k у openssl speed. Закреплено
+ *    IntegerTest.Montgomery (открытые показатели 1, 0 и 2) и мутациями (CONFORMANCE.md, круг 49).
+ *
  * @copyright Copyright © 2026
  *
  */
@@ -204,6 +217,14 @@
  * Подключаем внутренний модуль квадрата Монтгомери на mulq для x86-64 без BMI2 и ADX
  */
 #include <internal/math/mont.hpp>
+
+/**
+ * Копирование байтов слова при разборе и записи числа; перестановка байтов слова под MSVC библиотечная
+ */
+#include <cstring>
+#if defined(_MSC_VER)
+	#include <stdlib.h>
+#endif
 
 /**
  * Векторные команды выбора записи таблицы окна: NEON под AArch64, SSE2 под x86-64
@@ -438,6 +459,28 @@ namespace {
 	 * @return      число разрядов до старшего единичного включительно
 	 *
 	 */
+/**
+ * Признак машины с младшим байтом впереди: целые слова числа читаются и пишутся разом
+ */
+#if defined(_WIN32) || (defined(__BYTE_ORDER__) && defined(__ORDER_LITTLE_ENDIAN__) && (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__))
+	#define __ANTS_LITTLE_ENDIAN__ 1
+#endif
+#if defined(__ANTS_LITTLE_ENDIAN__)
+	/**
+	 * @brief Метод перестановки байтов слова
+	 *
+	 * @param value слово
+	 * @return      слово с байтами в обратном порядке
+	 *
+	 */
+	static inline uint64_t swap64(const uint64_t value) noexcept {
+#if defined(_MSC_VER)
+		return ::_byteswap_uint64(value);
+#else
+		return __builtin_bswap64(value);
+#endif
+	}
+#endif
 	static size_t width(const uint64_t * data, const size_t count) noexcept {
 		// Число значимых слов
 		const size_t words = top(data, count);
@@ -4800,10 +4843,30 @@ bool nts::math::Integer::load(const view_t & data) noexcept {
 		return false;
 	// Обнуляем число
 	this->clear();
+	// Число значимых байтов и номер первого байта, не вошедшего в целые слова
+	const size_t total = (data.size - excess);
+	size_t i = 0;
+/**
+ * На машинах с младшим байтом впереди целые слова читаются разом с перестановкой байтов:
+ * побайтовый разбор стоил 865 тактов TSC на 256 байтах при 618 у BN_bin2bn (круг 49)
+ */
+#if defined(__ANTS_LITTLE_ENDIAN__)
 	/**
-	 * Выполняем перебор байтов от младшего к старшему
+	 * Выполняем перебор целых слов от младшего к старшему
 	 */
-	for(size_t i = 0; i < (data.size - excess); i++)
+	for(; (i + 8) <= total; i += 8){
+		// Слово в порядке записи: от старшего байта к младшему
+		uint64_t word = 0;
+		// Копируем восемь байтов слова
+		::memcpy(&word, data.data + (data.size - i - 8), sizeof(word));
+		// Записываем слово в порядке машины
+		this->_words[i / 8] = swap64(word);
+	}
+#endif
+	/**
+	 * Выполняем перебор оставшихся байтов от младшего к старшему
+	 */
+	for(; i < total; i++)
 		// Записываем очередной байт в своё слово
 		this->_words[i / 8] |= (static_cast <uint64_t> (data.data[data.size - 1 - i]) << ((i % 8) * 8));
 	// Выводим признак успешности
@@ -4823,11 +4886,29 @@ bool nts::math::Integer::store(uint8_t * data, const size_t size) const noexcept
 		// Выводим отказ
 		return false;
 	// Объединение байтов, не умещающихся в размер
-	uint8_t excess = 0;
+	uint64_t excess = 0;
+	// Номер очередного байта ёмкости
+	size_t i = 0;
+/**
+ * На машинах с младшим байтом впереди целые слова пишутся разом с перестановкой байтов, а
+ * слова сверх размера объединяются целиком: побайтовая запись стоила 1 730 тактов TSC на 256
+ * байтах при 1 611 у BN_bn2binpad (круг 49)
+ */
+#if defined(__ANTS_LITTLE_ENDIAN__)
 	/**
-	 * Выполняем перебор байтов ёмкости от младшего к старшему
+	 * Выполняем перебор целых слов, умещающихся в размер, от младшего к старшему
 	 */
-	for(size_t i = 0; i < INTEGER_SIZE; i++){
+	for(; ((i + 8) <= size) && ((i + 8) <= INTEGER_SIZE); i += 8){
+		// Слово в порядке записи: от старшего байта к младшему
+		const uint64_t word = swap64(this->_words[i / 8]);
+		// Записываем восемь байтов слова
+		::memcpy(data + (size - i - 8), &word, sizeof(word));
+	}
+#endif
+	/**
+	 * Выполняем перебор оставшихся байтов ёмкости до конца слова с байтом сверх размера либо до конца ёмкости
+	 */
+	for(; (i < INTEGER_SIZE) && ((i < size) || ((i % 8) != 0)); i++){
 		// Извлекаем очередной байт числа
 		const uint8_t item = static_cast <uint8_t> (this->_words[i / 8] >> ((i % 8) * 8));
 		// Если байт умещается в размер
@@ -4838,11 +4919,17 @@ bool nts::math::Integer::store(uint8_t * data, const size_t size) const noexcept
 		else excess |= item;
 	}
 	/**
+	 * Выполняем объединение целых слов сверх размера
+	 */
+	for(; i < INTEGER_SIZE; i += 8)
+		// Учитываем очередное слово
+		excess |= this->_words[i / 8];
+	/**
 	 * Выполняем дополнение ведущими нулями места сверх ёмкости
 	 */
-	for(size_t i = INTEGER_SIZE; i < size; i++)
+	for(size_t j = INTEGER_SIZE; j < size; j++)
 		// Записываем ведущий ноль
-		data[size - 1 - i] = 0;
+		data[size - 1 - j] = 0;
 	// Выводим признак того, что число уместилось
 	return (excess == 0);
 }
@@ -5965,12 +6052,14 @@ bool nts::math::Montgomery::power(const Integer & base, const Integer & exponent
 	wipe(columns, sizeof(columns));
 #endif
 		wipe(chosen, words * sizeof(uint64_t));
-	// Если показатель открытый
-	} else {
+	// Если показатель открытый и ненулевой: накопитель начинается с основания, старший разряд единичный по построению
+	} else if(bits > 0){
+		// Накопитель - основание в области
+		transfer(entered, accumulator, words);
 		/**
-		 * Выполняем перебор разрядов от старшего к младшему двоичным методом
+		 * Выполняем перебор разрядов ниже старшего от старшего к младшему двоичным методом
 		 */
-		for(size_t i = bits; i > 0; i--){
+		for(size_t i = (bits - 1); i > 0; i--){
 			// Выполняем возведение в квадрат
 			montgomery(accumulator, accumulator, this->_modulus, words, this->_inverse, accumulator, scratch);
 			// Если разряд показателя единичный

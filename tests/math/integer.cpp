@@ -734,6 +734,16 @@ static void montgomery(const math::integer_t & modulus, const size_t rounds) {
 		ASSERT_TRUE(power.equal(expected));
 		ASSERT_TRUE(field.power(first, exponent, false, power));
 		ASSERT_TRUE(power.equal(expected));
+		// Крайние открытые показатели: единица возвращает основание, ноль - единицу, двойка - квадрат (открытый перебор начинается с основания)
+		math::integer_t zero, two, square;
+		two.word(2);
+		ASSERT_TRUE(field.power(first, one, false, power));
+		ASSERT_TRUE(power.equal(first));
+		ASSERT_TRUE(field.power(first, zero, false, power));
+		ASSERT_TRUE(power.equal(one));
+		ASSERT_TRUE(square.mulmod(first, first, modulus, false));
+		ASSERT_TRUE(field.power(first, two, false, power));
+		ASSERT_TRUE(power.equal(square));
 		// Приведение числа двойной и тройной ширины сходится с делением
 		ASSERT_TRUE(wide.random(2 * modulus.bits()));
 		ASSERT_TRUE(expected.reduce(wide, modulus));
