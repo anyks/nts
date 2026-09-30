@@ -34,6 +34,13 @@
  *       X25519 на них 47,8 мкс против 55,7 у libcrypto на Xeon E5-2630 v4 (0,86) при
  *       72,5 у конечностей на C++ (решение 7 x25519.cpp)
  *
+ * @note Под x86-64 без MULX и ADCX/ADOX шаг лестницы идёт ядрами конечностей на MULQ по
+ *       столбцам (пространство имён columns): произведения те же, что у kernel, но столбец
+ *       итога собирается и приводится сразу, столбцы попеременно в две пары регистров.
+ *       Собиратели дают ядрам kernel разную цену (gcc 12 на стендах KVM отставал от fe51
+ *       на ассемблере OpenSSL на 8…10 %, clang на 5 %, gcc 16 вровень), а ядра во
+ *       вставке от собирателя не зависят (решение 8 x25519.cpp, круг 57, 30.09.2026)
+ *
  * @copyright Copyright © 2026
  *
  */
@@ -321,9 +328,10 @@ namespace nts {
 };
 
 /**
- * Под x86-64 с GCC и clang при MULX и ADCX/ADOX у машины лестница идёт на четырёх словах по
- * шестьдесят четыре разряда: ядра - перевод x25519_fe64_mul и x25519_fe64_sqr из
- * x25519-x86_64.pl OpenSSL во встроенный ассемблер. Под ASan без оптимизации не берётся
+ * Под x86-64 с GCC и clang у лестницы два набора ядер во встроенном ассемблере: при MULX и
+ * ADCX/ADOX у машины - четыре слова по шестьдесят четыре разряда (перевод x25519_fe64_mul и
+ * x25519_fe64_sqr из x25519-x86_64.pl OpenSSL), иначе - пять конечностей по пятьдесят одному
+ * разряду на MULQ по столбцам (пространство имён columns). Под ASan без оптимизации не берётся
  * (регистры общего назначения заняты целиком, признак __ANTS_ASAN_UNOPTIMIZED__ из sys/global.hpp)
  */
 #if defined(__x86_64__) && defined(__GNUC__) && !defined(_MSC_VER) && !defined(__ANTS_ASAN_UNOPTIMIZED__) && !defined(ANTS_NO_MACHINE)
@@ -331,6 +339,10 @@ namespace nts {
 	 * Признак наличия ядер на словах
 	 */
 	#define __ANTS_FIELD25519_WORDS__
+	/**
+	 * Признак наличия ядер конечностей по столбцам на MULQ
+	 */
+	#define __ANTS_FIELD25519_COLUMNS__
 	/**
 	 * Заголовочный файл встроенных команд переносов
 	 */
@@ -347,6 +359,442 @@ namespace nts {
 			 * @brief Пространство имён арифметики поля по модулю 2^255 - 19
 			 */
 			namespace field25519 {
+				/**
+				 * @brief Пространство имён ядер конечностей на MULQ для шага лестницы
+				 *
+				 * @note Ядра на пяти конечностях по пятьдесят одному разряду без BMI2 и ADX: те же
+				 *       произведения, что у kernel, но по столбцам итога - столбец собирается в паре
+				 *       регистров и сразу приводится, столбцы идут попеременно в две пары, перенос
+				 *       прошлого столбца прибавляется после произведений, и произведения не ждут
+				 *       приведения. Регистров ровно четырнадцать без rbp: два под MULQ, две пары
+				 *       накопителей, шесть под готовые конечности и множители, два указателя;
+				 *       адрес итога и маска берутся из памяти. Договор тот же, что у kernel:
+				 *       конечности до 2^54 на входе, меньше 2^51 + 2^13 на выходе; итог пишется
+				 *       после всех чтений, и место итога вправе совпадать с сомножителем. Ядра для
+				 *       шага лестницы, где соседние ядра независимы и упор в выдачу микроопераций;
+				 *       обращение и общее поле остаются на kernel - там цепочка зависимая, и ядра
+				 *       на C++ по задержке не хуже (решение 8 x25519.cpp)
+				 */
+				namespace columns {
+					/**
+					 * @brief Маска пятидесяти одного разряда конечности в памяти: регистра под неё нет
+					 *
+					 */
+					static const uint64_t MASK = ((static_cast <uint64_t> (1) << 51) - 1);
+					/**
+					 * @brief Метод умножения элементов поля по столбцам
+					 *
+					 * @details Столбец k итога собирает произведения f_i · g_(k-i) и f_i · 19·g_(5+k-i)
+					 *          в паре регистров: чётные столбцы в r13:r14, нечётные в r10:r11; после
+					 *          произведений столбца прибавляется перенос прошлого, разряды сверх
+					 *          пятидесяти одного уходят переносом дальше, перенос старшего столбца
+					 *          сворачивается множителем девятнадцать в младшую конечность. Конечности
+					 *          второго сомножителя держатся в регистрах, пока их хватает, в поздних
+					 *          столбцах читаются операндами MULQ из памяти
+					 *
+					 * @param first  первый сомножитель с конечностями до 2^54
+					 * @param second второй сомножитель с конечностями до 2^54
+					 * @param result место, в которое помещается произведение
+					 *
+					 */
+					static __ANTS_INLINE__ void multiply(const element_t & first, const element_t & second, element_t & result) noexcept {
+						// Адрес итога: берётся из памяти в конце, регистров под него нет
+						uint64_t * const hp = result.limbs;
+						__asm__ __volatile__(
+							/* Младшая конечность второго сомножителя и старшие, свёрнутые множителем девятнадцать */
+							"mov   8*0(%[g]), %%r12\n\t"
+							"imulq $19, 8*1(%[g]), %%r8\n\t"
+							"imulq $19, 8*2(%[g]), %%r9\n\t"
+							"imulq $19, 8*3(%[g]), %%rbx\n\t"
+							"imulq $19, 8*4(%[g]), %%rcx\n\t"
+							/* Столбец 0 в r13:r14: f0·g0 + f1·19g4 + f2·19g3 + f3·19g2 + f4·19g1, итог в r15 */
+							"mov  8*0(%[f]), %%rax\n\t"
+							"mulq %%r12\n\t"
+							"mov  %%rax, %%r13\n\t"
+							"mov  %%rdx, %%r14\n\t"
+							"mov  8*1(%[f]), %%rax\n\t"
+							"mulq %%rcx\n\t"
+							"add  %%rax, %%r13\n\t"
+							"adc  %%rdx, %%r14\n\t"
+							"mov  8*2(%[f]), %%rax\n\t"
+							"mulq %%rbx\n\t"
+							"add  %%rax, %%r13\n\t"
+							"adc  %%rdx, %%r14\n\t"
+							"mov  8*3(%[f]), %%rax\n\t"
+							"mulq %%r9\n\t"
+							"add  %%rax, %%r13\n\t"
+							"adc  %%rdx, %%r14\n\t"
+							"mov  8*4(%[f]), %%rax\n\t"
+							"mulq %%r8\n\t"
+							"add  %%rax, %%r13\n\t"
+							"adc  %%rdx, %%r14\n\t"
+							"mov  %%r13, %%r15\n\t"
+							"and  %[mask], %%r15\n\t"
+							"shr  $51, %%r13\n\t"
+							"shl  $13, %%r14\n\t"
+							"or   %%r14, %%r13\n\t"
+							"mov  8*1(%[g]), %%r8\n\t"
+							/* Столбец 1 в r10:r11: f0·g1 + f1·g0 + f2·19g4 + f3·19g3 + f4·19g2, перенос столбца 0 из r13, итог в r9 */
+							"mov  8*0(%[f]), %%rax\n\t"
+							"mulq %%r8\n\t"
+							"mov  %%rax, %%r10\n\t"
+							"mov  %%rdx, %%r11\n\t"
+							"mov  8*1(%[f]), %%rax\n\t"
+							"mulq %%r12\n\t"
+							"add  %%rax, %%r10\n\t"
+							"adc  %%rdx, %%r11\n\t"
+							"mov  8*2(%[f]), %%rax\n\t"
+							"mulq %%rcx\n\t"
+							"add  %%rax, %%r10\n\t"
+							"adc  %%rdx, %%r11\n\t"
+							"mov  8*3(%[f]), %%rax\n\t"
+							"mulq %%rbx\n\t"
+							"add  %%rax, %%r10\n\t"
+							"adc  %%rdx, %%r11\n\t"
+							"mov  8*4(%[f]), %%rax\n\t"
+							"mulq %%r9\n\t"
+							"add  %%rax, %%r10\n\t"
+							"adc  %%rdx, %%r11\n\t"
+							"add  %%r13, %%r10\n\t"
+							"adc  $0, %%r11\n\t"
+							"mov  %%r10, %%r9\n\t"
+							"and  %[mask], %%r9\n\t"
+							"shr  $51, %%r10\n\t"
+							"shl  $13, %%r11\n\t"
+							"or   %%r11, %%r10\n\t"
+							/* Столбец 2 в r13:r14: f0·g2 + f1·g1 + f2·g0 + f3·19g4 + f4·19g3, g2 операндом из памяти, итог в rbx */
+							"mov  8*0(%[f]), %%rax\n\t"
+							"mulq 8*2(%[g])\n\t"
+							"mov  %%rax, %%r13\n\t"
+							"mov  %%rdx, %%r14\n\t"
+							"mov  8*1(%[f]), %%rax\n\t"
+							"mulq %%r8\n\t"
+							"add  %%rax, %%r13\n\t"
+							"adc  %%rdx, %%r14\n\t"
+							"mov  8*2(%[f]), %%rax\n\t"
+							"mulq %%r12\n\t"
+							"add  %%rax, %%r13\n\t"
+							"adc  %%rdx, %%r14\n\t"
+							"mov  8*3(%[f]), %%rax\n\t"
+							"mulq %%rcx\n\t"
+							"add  %%rax, %%r13\n\t"
+							"adc  %%rdx, %%r14\n\t"
+							"mov  8*4(%[f]), %%rax\n\t"
+							"mulq %%rbx\n\t"
+							"add  %%rax, %%r13\n\t"
+							"adc  %%rdx, %%r14\n\t"
+							"add  %%r10, %%r13\n\t"
+							"adc  $0, %%r14\n\t"
+							"mov  %%r13, %%rbx\n\t"
+							"and  %[mask], %%rbx\n\t"
+							"shr  $51, %%r13\n\t"
+							"shl  $13, %%r14\n\t"
+							"or   %%r14, %%r13\n\t"
+							/* Столбец 3 в r10:r11: f0·g3 + f1·g2 + f2·g1 + f3·g0 + f4·19g4, g3 и g2 из памяти, итог в rcx */
+							"mov  8*0(%[f]), %%rax\n\t"
+							"mulq 8*3(%[g])\n\t"
+							"mov  %%rax, %%r10\n\t"
+							"mov  %%rdx, %%r11\n\t"
+							"mov  8*1(%[f]), %%rax\n\t"
+							"mulq 8*2(%[g])\n\t"
+							"add  %%rax, %%r10\n\t"
+							"adc  %%rdx, %%r11\n\t"
+							"mov  8*2(%[f]), %%rax\n\t"
+							"mulq %%r8\n\t"
+							"add  %%rax, %%r10\n\t"
+							"adc  %%rdx, %%r11\n\t"
+							"mov  8*3(%[f]), %%rax\n\t"
+							"mulq %%r12\n\t"
+							"add  %%rax, %%r10\n\t"
+							"adc  %%rdx, %%r11\n\t"
+							"mov  8*4(%[f]), %%rax\n\t"
+							"mulq %%rcx\n\t"
+							"add  %%rax, %%r10\n\t"
+							"adc  %%rdx, %%r11\n\t"
+							"add  %%r13, %%r10\n\t"
+							"adc  $0, %%r11\n\t"
+							"mov  %%r10, %%rcx\n\t"
+							"and  %[mask], %%rcx\n\t"
+							"shr  $51, %%r10\n\t"
+							"shl  $13, %%r11\n\t"
+							"or   %%r11, %%r10\n\t"
+							/* Столбец 4 в r13:r14: f0·g4 + f1·g3 + f2·g2 + f3·g1 + f4·g0, g4, g3 и g2 из памяти */
+							"mov  8*0(%[f]), %%rax\n\t"
+							"mulq 8*4(%[g])\n\t"
+							"mov  %%rax, %%r13\n\t"
+							"mov  %%rdx, %%r14\n\t"
+							"mov  8*1(%[f]), %%rax\n\t"
+							"mulq 8*3(%[g])\n\t"
+							"add  %%rax, %%r13\n\t"
+							"adc  %%rdx, %%r14\n\t"
+							"mov  8*2(%[f]), %%rax\n\t"
+							"mulq 8*2(%[g])\n\t"
+							"add  %%rax, %%r13\n\t"
+							"adc  %%rdx, %%r14\n\t"
+							"mov  8*3(%[f]), %%rax\n\t"
+							"mulq %%r8\n\t"
+							"add  %%rax, %%r13\n\t"
+							"adc  %%rdx, %%r14\n\t"
+							"mov  8*4(%[f]), %%rax\n\t"
+							"mulq %%r12\n\t"
+							"add  %%rax, %%r13\n\t"
+							"adc  %%rdx, %%r14\n\t"
+							"add  %%r10, %%r13\n\t"
+							"adc  $0, %%r14\n\t"
+							/* Старший перенос множителем девятнадцать в младшую конечность, её перенос во вторую, запись итога */
+							"mov  %%r13, %%rax\n\t"
+							"shr  $51, %%rax\n\t"
+							"shl  $13, %%r14\n\t"
+							"or   %%rax, %%r14\n\t"
+							"and  %[mask], %%r13\n\t"
+							"lea  (%%r14,%%r14,8), %%rax\n\t"
+							"lea  (%%r14,%%rax,2), %%rax\n\t"
+							"add  %%rax, %%r15\n\t"
+							"mov  %%r15, %%rax\n\t"
+							"shr  $51, %%rax\n\t"
+							"add  %%rax, %%r9\n\t"
+							"and  %[mask], %%r15\n\t"
+							"mov  %[hp], %%rax\n\t"
+							"mov  %%r15, 8*0(%%rax)\n\t"
+							"mov  %%r9, 8*1(%%rax)\n\t"
+							"mov  %%rbx, 8*2(%%rax)\n\t"
+							"mov  %%rcx, 8*3(%%rax)\n\t"
+							"mov  %%r13, 8*4(%%rax)\n\t"
+							: : [f] "r" (first.limbs), [g] "r" (second.limbs), [hp] "m" (hp), [mask] "m" (MASK)
+							: "rax", "rbx", "rcx", "rdx", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15", "cc", "memory"
+						);
+					}
+					/**
+					 * @brief Метод возведения элемента поля в квадрат по столбцам
+					 *
+					 * @details Всякая пара разных конечностей встречается в квадрате дважды: одна из них
+					 *          удваивается по пути в RAX, старшие получают множитель девятнадцать;
+					 *          пятнадцать произведений вместо двадцати пяти, столбцы и переносы как
+					 *          у умножения
+					 *
+					 * @param value  возводимый элемент с конечностями до 2^54
+					 * @param result место, в которое помещается квадрат
+					 *
+					 */
+					static __ANTS_INLINE__ void square(const element_t & value, element_t & result) noexcept {
+						// Адрес итога: берётся из памяти в конце, регистров под него нет
+						uint64_t * const hp = result.limbs;
+						__asm__ __volatile__(
+							/* Свёрнутые множителем девятнадцать старшие конечности и удвоенная младшая */
+							"imulq $19, 8*4(%[g]), %%r15\n\t"
+							"imulq $19, 8*3(%[g]), %%rbx\n\t"
+							"mov   8*0(%[g]), %%rcx\n\t"
+							"add   %%rcx, %%rcx\n\t"
+							/* Столбец 0 в r13:r14: g0·g0 + 2g1·19g4 + 2g2·19g3, итог в r8 */
+							"mov  8*0(%[g]), %%rax\n\t"
+							"mulq %%rax\n\t"
+							"mov  %%rax, %%r13\n\t"
+							"mov  %%rdx, %%r14\n\t"
+							"mov  8*1(%[g]), %%rax\n\t"
+							"add  %%rax, %%rax\n\t"
+							"mulq %%r15\n\t"
+							"add  %%rax, %%r13\n\t"
+							"adc  %%rdx, %%r14\n\t"
+							"mov  8*2(%[g]), %%rax\n\t"
+							"add  %%rax, %%rax\n\t"
+							"mulq %%rbx\n\t"
+							"add  %%rax, %%r13\n\t"
+							"adc  %%rdx, %%r14\n\t"
+							"mov  %%r13, %%r8\n\t"
+							"and  %[mask], %%r8\n\t"
+							"shr  $51, %%r13\n\t"
+							"shl  $13, %%r14\n\t"
+							"or   %%r14, %%r13\n\t"
+							"mov  8*1(%[g]), %%r12\n\t"
+							/* Столбец 1 в r10:r11: 2g0·g1 + 2g2·19g4 + g3·19g3, перенос столбца 0 из r13, итог в r9 */
+							"mov  %%rcx, %%rax\n\t"
+							"mulq %%r12\n\t"
+							"mov  %%rax, %%r10\n\t"
+							"mov  %%rdx, %%r11\n\t"
+							"mov  8*2(%[g]), %%rax\n\t"
+							"add  %%rax, %%rax\n\t"
+							"mulq %%r15\n\t"
+							"add  %%rax, %%r10\n\t"
+							"adc  %%rdx, %%r11\n\t"
+							"mov  8*3(%[g]), %%rax\n\t"
+							"mulq %%rbx\n\t"
+							"add  %%rax, %%r10\n\t"
+							"adc  %%rdx, %%r11\n\t"
+							"add  %%r13, %%r10\n\t"
+							"adc  $0, %%r11\n\t"
+							"mov  %%r10, %%r9\n\t"
+							"and  %[mask], %%r9\n\t"
+							"shr  $51, %%r10\n\t"
+							"shl  $13, %%r11\n\t"
+							"or   %%r11, %%r10\n\t"
+							"mov  8*2(%[g]), %%rbx\n\t"
+							/* Столбец 2 в r13:r14: 2g0·g2 + g1·g1 + 2g3·19g4, итог в r12 */
+							"mov  %%rcx, %%rax\n\t"
+							"mulq %%rbx\n\t"
+							"mov  %%rax, %%r13\n\t"
+							"mov  %%rdx, %%r14\n\t"
+							"mov  8*1(%[g]), %%rax\n\t"
+							"mulq %%rax\n\t"
+							"add  %%rax, %%r13\n\t"
+							"adc  %%rdx, %%r14\n\t"
+							"mov  8*3(%[g]), %%rax\n\t"
+							"add  %%rax, %%rax\n\t"
+							"mulq %%r15\n\t"
+							"add  %%rax, %%r13\n\t"
+							"adc  %%rdx, %%r14\n\t"
+							"add  %%r10, %%r13\n\t"
+							"adc  $0, %%r14\n\t"
+							"mov  %%r13, %%r12\n\t"
+							"and  %[mask], %%r12\n\t"
+							"shr  $51, %%r13\n\t"
+							"shl  $13, %%r14\n\t"
+							"or   %%r14, %%r13\n\t"
+							/* Столбец 3 в r10:r11: 2g0·g3 + 2g1·g2 + g4·19g4, g3 операндом из памяти, итог в r15 */
+							"mov  %%rcx, %%rax\n\t"
+							"mulq 8*3(%[g])\n\t"
+							"mov  %%rax, %%r10\n\t"
+							"mov  %%rdx, %%r11\n\t"
+							"mov  8*1(%[g]), %%rax\n\t"
+							"add  %%rax, %%rax\n\t"
+							"mulq %%rbx\n\t"
+							"add  %%rax, %%r10\n\t"
+							"adc  %%rdx, %%r11\n\t"
+							"mov  8*4(%[g]), %%rax\n\t"
+							"mulq %%r15\n\t"
+							"add  %%rax, %%r10\n\t"
+							"adc  %%rdx, %%r11\n\t"
+							"add  %%r13, %%r10\n\t"
+							"adc  $0, %%r11\n\t"
+							"mov  %%r10, %%r15\n\t"
+							"and  %[mask], %%r15\n\t"
+							"shr  $51, %%r10\n\t"
+							"shl  $13, %%r11\n\t"
+							"or   %%r11, %%r10\n\t"
+							"mov  8*3(%[g]), %%rbx\n\t"
+							/* Столбец 4 в r13:r14: 2g0·g4 + 2g1·g3 + g2·g2, g4 из памяти */
+							"mov  %%rcx, %%rax\n\t"
+							"mulq 8*4(%[g])\n\t"
+							"mov  %%rax, %%r13\n\t"
+							"mov  %%rdx, %%r14\n\t"
+							"mov  8*1(%[g]), %%rax\n\t"
+							"add  %%rax, %%rax\n\t"
+							"mulq %%rbx\n\t"
+							"add  %%rax, %%r13\n\t"
+							"adc  %%rdx, %%r14\n\t"
+							"mov  8*2(%[g]), %%rax\n\t"
+							"mulq %%rax\n\t"
+							"add  %%rax, %%r13\n\t"
+							"adc  %%rdx, %%r14\n\t"
+							"add  %%r10, %%r13\n\t"
+							"adc  $0, %%r14\n\t"
+							/* Старший перенос множителем девятнадцать в младшую конечность, её перенос во вторую, запись итога */
+							"mov  %%r13, %%rax\n\t"
+							"shr  $51, %%rax\n\t"
+							"shl  $13, %%r14\n\t"
+							"or   %%rax, %%r14\n\t"
+							"and  %[mask], %%r13\n\t"
+							"lea  (%%r14,%%r14,8), %%rax\n\t"
+							"lea  (%%r14,%%rax,2), %%rax\n\t"
+							"add  %%rax, %%r8\n\t"
+							"mov  %%r8, %%rax\n\t"
+							"shr  $51, %%rax\n\t"
+							"add  %%rax, %%r9\n\t"
+							"and  %[mask], %%r8\n\t"
+							"mov  %[hp], %%rax\n\t"
+							"mov  %%r8, 8*0(%%rax)\n\t"
+							"mov  %%r9, 8*1(%%rax)\n\t"
+							"mov  %%r12, 8*2(%%rax)\n\t"
+							"mov  %%r15, 8*3(%%rax)\n\t"
+							"mov  %%r13, 8*4(%%rax)\n\t"
+							: : [g] "r" (value.limbs), [hp] "m" (hp), [mask] "m" (MASK)
+							: "rax", "rbx", "rcx", "rdx", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15", "cc", "memory"
+						);
+					}
+					/**
+					 * @brief Метод умножения элемента поля на малое число по столбцам
+					 *
+					 * @param value  умножаемый элемент с конечностями до 2^54
+					 * @param factor множитель, не больше 2^32
+					 * @param result место, в которое помещается произведение
+					 *
+					 */
+					static __ANTS_INLINE__ void scale(const element_t & value, const uint64_t factor, element_t & result) noexcept {
+						// Адрес итога: берётся из памяти в конце, регистров под него нет
+						uint64_t * const hp = result.limbs;
+						__asm__ __volatile__(
+							/* Произведения конечностей на множитель столбцами попеременно в две пары */
+							"mov  8*0(%[g]), %%rax\n\t"
+							"mulq %[k]\n\t"
+							"mov  %%rax, %%r13\n\t"
+							"mov  %%rdx, %%r14\n\t"
+							"mov  %%r13, %%r8\n\t"
+							"and  %[mask], %%r8\n\t"
+							"shr  $51, %%r13\n\t"
+							"shl  $13, %%r14\n\t"
+							"or   %%r14, %%r13\n\t"
+							"mov  8*1(%[g]), %%rax\n\t"
+							"mulq %[k]\n\t"
+							"mov  %%rax, %%r10\n\t"
+							"mov  %%rdx, %%r11\n\t"
+							"add  %%r13, %%r10\n\t"
+							"adc  $0, %%r11\n\t"
+							"mov  %%r10, %%r9\n\t"
+							"and  %[mask], %%r9\n\t"
+							"shr  $51, %%r10\n\t"
+							"shl  $13, %%r11\n\t"
+							"or   %%r11, %%r10\n\t"
+							"mov  8*2(%[g]), %%rax\n\t"
+							"mulq %[k]\n\t"
+							"mov  %%rax, %%r13\n\t"
+							"mov  %%rdx, %%r14\n\t"
+							"add  %%r10, %%r13\n\t"
+							"adc  $0, %%r14\n\t"
+							"mov  %%r13, %%r12\n\t"
+							"and  %[mask], %%r12\n\t"
+							"shr  $51, %%r13\n\t"
+							"shl  $13, %%r14\n\t"
+							"or   %%r14, %%r13\n\t"
+							"mov  8*3(%[g]), %%rax\n\t"
+							"mulq %[k]\n\t"
+							"mov  %%rax, %%r10\n\t"
+							"mov  %%rdx, %%r11\n\t"
+							"add  %%r13, %%r10\n\t"
+							"adc  $0, %%r11\n\t"
+							"mov  %%r10, %%r15\n\t"
+							"and  %[mask], %%r15\n\t"
+							"shr  $51, %%r10\n\t"
+							"shl  $13, %%r11\n\t"
+							"or   %%r11, %%r10\n\t"
+							"mov  8*4(%[g]), %%rax\n\t"
+							"mulq %[k]\n\t"
+							"mov  %%rax, %%r13\n\t"
+							"mov  %%rdx, %%r14\n\t"
+							"add  %%r10, %%r13\n\t"
+							"adc  $0, %%r14\n\t"
+							/* Старший перенос множителем девятнадцать в младшую конечность, её перенос во вторую, запись итога */
+							"mov  %%r13, %%rax\n\t"
+							"shr  $51, %%rax\n\t"
+							"shl  $13, %%r14\n\t"
+							"or   %%rax, %%r14\n\t"
+							"and  %[mask], %%r13\n\t"
+							"lea  (%%r14,%%r14,8), %%rax\n\t"
+							"lea  (%%r14,%%rax,2), %%rax\n\t"
+							"add  %%rax, %%r8\n\t"
+							"mov  %%r8, %%rax\n\t"
+							"shr  $51, %%rax\n\t"
+							"add  %%rax, %%r9\n\t"
+							"and  %[mask], %%r8\n\t"
+							"mov  %[hp], %%rax\n\t"
+							"mov  %%r8, 8*0(%%rax)\n\t"
+							"mov  %%r9, 8*1(%%rax)\n\t"
+							"mov  %%r12, 8*2(%%rax)\n\t"
+							"mov  %%r15, 8*3(%%rax)\n\t"
+							"mov  %%r13, 8*4(%%rax)\n\t"
+							: : [g] "r" (value.limbs), [k] "r" (factor), [hp] "m" (hp), [mask] "m" (MASK)
+							: "rax", "rdx", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15", "cc", "memory"
+						);
+					}
+				};
 				/**
 				 * @brief Пространство имён ядер поля на четырёх словах
 				 *

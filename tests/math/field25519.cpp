@@ -28,6 +28,7 @@
 #include <string>
 #include <main.hpp>
 #include <math/field25519.hpp>
+#include <internal/math/field25519.hpp>
 
 /**
  * Используем пространство имён проекта
@@ -443,3 +444,101 @@ TEST(Field25519Test, Swap) {
 	// Проверяем, что элементы различны
 	ASSERT_FALSE(math::field25519::equal(first, second));
 }
+
+/**
+ * Под x86-64 ядра шага лестницы по столбцам на MULQ сличаются с ядрами на C++
+ */
+#if defined(__ANTS_FIELD25519_COLUMNS__)
+/**
+ * @brief Проверка ядер по столбцам на MULQ против ядер на C++
+ *
+ * @details Шаг лестницы X25519 под x86-64 без ADX идёт ядрами columns внутреннего заголовочного
+ *          файла (решение 8 x25519.cpp): умножение, квадрат и малый множитель обязаны давать то
+ *          же, что ядра kernel, на всех допустимых конечностях - по границам до 2^54 и на
+ *          случайных, и когда место итога совпадает с сомножителем
+ *
+ */
+TEST(Field25519Test, Columns) {
+	// Границы конечностей: приведённая, за пределом приведения, на верхней границе умножения
+	static const uint64_t limits[] = {0, 1, ((static_cast <uint64_t> (1) << 51) - 1), (static_cast <uint64_t> (1) << 51), ((static_cast <uint64_t> (1) << 53) - 1), ((static_cast <uint64_t> (1) << 54) - 1)};
+	// Число проверенных сочетаний
+	size_t count = 0;
+	// Состояние вырабатывателя случайных конечностей
+	uint64_t state = 0x9E3779B97F4A7C15ull;
+	// Выполняем перебор сочетаний: по границам и случайные до 2^54
+	for(size_t n = 0; n < 4216; n++){
+		// Сомножители
+		math::field25519::element_t first, second;
+		// Если сочетание по границам
+		if(n < 216){
+			// Индексы границ
+			const size_t i = (n / 36), j = ((n / 6) % 6), k = (n % 6);
+			// Записываем конечности первого сомножителя
+			first.limbs[0] = limits[i];
+			first.limbs[1] = limits[j];
+			first.limbs[2] = limits[k];
+			first.limbs[3] = limits[(i + j) % 6];
+			first.limbs[4] = limits[(j + k) % 6];
+			// Записываем конечности второго сомножителя сдвигом границ
+			second.limbs[0] = limits[(k + 1) % 6];
+			second.limbs[1] = limits[(i + 2) % 6];
+			second.limbs[2] = limits[(j + 3) % 6];
+			second.limbs[3] = limits[(i + k + 4) % 6];
+			second.limbs[4] = limits[(j + k + 5) % 6];
+		// Иначе сочетание случайное
+		} else {
+			// Разряды конечностей: до 2^51 либо до 2^54
+			const uint64_t mask = ((static_cast <uint64_t> (1) << ((n & 1) ? 54 : 51)) - 1);
+			// Выполняем выработку конечностей
+			for(size_t i = 0; i < math::field25519::LIMBS; i++){
+				// Шаг вырабатывателя xorshift
+				state ^= (state << 13); state ^= (state >> 7); state ^= (state << 17);
+				// Записываем конечность первого сомножителя
+				first.limbs[i] = (state & mask);
+				// Шаг вырабатывателя xorshift
+				state ^= (state << 13); state ^= (state >> 7); state ^= (state << 17);
+				// Записываем конечность второго сомножителя
+				second.limbs[i] = (state & mask);
+			}
+		}
+		// Итоги ядер на C++ и по столбцам
+		math::field25519::element_t expected, actual;
+		// Умножение
+		math::field25519::kernel::multiply(first, second, expected);
+		math::field25519::columns::multiply(first, second, actual);
+		// Сличаем записи произведений
+		ASSERT_EQ(record(actual), record(expected)) << "умножение " << n;
+		// Квадрат
+		math::field25519::kernel::square(first, expected);
+		math::field25519::columns::square(first, actual);
+		// Сличаем записи квадратов
+		ASSERT_EQ(record(actual), record(expected)) << "квадрат " << n;
+		// Малый множитель на границе 2^32 и множитель лестницы
+		const uint64_t factor = ((n & 2) ? (static_cast <uint64_t> (1) << 32) : 121666);
+		math::field25519::kernel::scale(first, factor, expected);
+		math::field25519::columns::scale(first, factor, actual);
+		// Сличаем записи произведений на малое число
+		ASSERT_EQ(record(actual), record(expected)) << "малый множитель " << n;
+		// Итог поверх сомножителя: умножение в место первого, квадрат в место довода, квадрат умножением на себя
+		expected = first; actual = first;
+		math::field25519::kernel::multiply(expected, second, expected);
+		math::field25519::columns::multiply(actual, second, actual);
+		// Сличаем записи произведений на месте
+		ASSERT_EQ(record(actual), record(expected)) << "умножение на месте " << n;
+		expected = first; actual = first;
+		math::field25519::kernel::square(expected, expected);
+		math::field25519::columns::square(actual, actual);
+		// Сличаем записи квадратов на месте
+		ASSERT_EQ(record(actual), record(expected)) << "квадрат на месте " << n;
+		expected = first; actual = first;
+		math::field25519::kernel::multiply(expected, expected, expected);
+		math::field25519::columns::multiply(actual, actual, actual);
+		// Сличаем записи произведений элемента на себя на месте
+		ASSERT_EQ(record(actual), record(expected)) << "умножение на себя на месте " << n;
+		// Считаем проверенное сочетание
+		count++;
+	}
+	// Сличаем число проверенных сочетаний
+	ASSERT_EQ(count, static_cast <size_t> (4216));
+}
+#endif
