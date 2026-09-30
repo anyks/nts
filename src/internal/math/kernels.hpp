@@ -34,9 +34,17 @@
  *       удвоение точки 323 → 195, умножение точки GC512C 235 → 133 мкс. Ядра порождены
  *       сценарием tools/math/eightwords.py, сличены с ядрами на C++ на 300 000 входах с
  *       краями (щуп k8probe) и закреплены золотыми векторами NumberTest.Folding по
- *       2^512 - 569 и 2^511 + 111. На x86-64 восемь слов идут C++: умножение поля там
- *       100 нс у clang 19 (FreeBSD), 137…141 у gcc 12 (Astra), 115…119 у gcc 16 (MinGW),
- *       и ядро на mulq в этот круг не бралось - см. CONFORMANCE.md, круг 34
+ *       2^512 - 569 и 2^511 + 111. На x86-64 восемь слов шли C++ (умножение поля 100 нс у
+ *       clang 19 на FreeBSD, 137…141 у gcc 12 на Astra, 115…119 у gcc 16 на MinGW; ядро на mulq
+ *       в круг 34 не бралось) до круга 61 (01.10.2026): полное произведение и квадрат столбцами
+ *       и свёртка по 2^512 - c на mulq из порождателя tools/math/eightx86.py (регистров восемь у
+ *       произведения и квадрата, свёртка по 2^511 + c остаётся на C++). Умножение поля по
+ *       2^512 - 569 цепочкой: Xeon E5-2630 v4 99,7 → 79,8 нс, FreeBSD clang 19 86,9 → 70,4,
+ *       Astra gcc 12 151 → 74, MinGW gcc 16 108 → 71; квадрат 70,9 → 64,6, 59,2 → 56,9,
+ *       109 → 58, 81 → 58; умножение точки paramSetA Xeon 726 → 516 мкс, FreeBSD 610 → 457,
+ *       Astra 1 051 → 567, MinGW 697 → 465. По 2^511 + 111 квадрат у clang на 4 % дороже C++
+ *       (свёртка на C++ поверх ядра), умножение и точка выигрывают везде - ядро взято для
+ *       обоих видов
  *
  * @note Сложение, вычитание, условное вычитание модуля и Монтгомери читают входы в
  *       регистры до первой записи и пишут итог одной записью в конце: места входов и
@@ -2276,11 +2284,22 @@ namespace nts {
 				 * модуля; оттого указатели объявлены изменяемыми с ранним запретом. Берутся при MULX и
 				 * ADCX/ADOX у машины по признаку, снятому вызывающим (curve.cpp): на Xeon E5-2630 v4 умножение
 				 * цепочкой 30,8 → 24,9 нс при 25,8 у ecp_nistz256_mul_mont, квадрат 23,0 → 22,0 при 20,6.
-				 * Под ASan без оптимизации и при ANTS_NO_MACHINE не собираются
+				 * Под ASan без оптимизации и при ANTS_NO_MACHINE не собираются.
+				 *
+				 * Ядра модуля вида 2^256 - c (кривые ГОСТ CryptoPro-A и ТК26 на 256 разрядов) на тех же
+				 * командах (круг 61, 01.10.2026): произведение по одному слову второго сомножителя двумя
+				 * цепочками ADCX и ADOX, квадрат - произведения разных слов двумя цепочками, удвоение цепочкой
+				 * ADCX вперемешку с квадратами слов по диагонали цепочкой ADOX; свёртка старшей половины
+				 * хвостом одним MULX на слово, выход за сетку - IMUL на хвост (не больше c² при c < 2^32),
+				 * условное вычитание модуля прибавлением хвоста. Операнды у этих ядер только в памяти (слова
+				 * сомножителей, хвост, итог): при встраивании в формулы точки они лежат в кадре, регистров
+				 * порчи одиннадцать, и ядро собирается и с указателем кадра. На Xeon E5-2630 v4 умножение
+				 * цепочкой 34,3 → 29,9 нс (ядро на mulq → на MULX), квадрат 28,3 → 24,8; удвоение точки
+				 * 262 → 221, полное сложение 450 → 343, смешанное 354 → 287, умножение точки 95,8 → 81,3 мкс
 				 */
 				#if !defined(__ANTS_ASAN_UNOPTIMIZED__) && !defined(ANTS_NO_MACHINE)
 					/**
-					 * Признак наличия ядер P-256 на MULX и ADCX/ADOX
+					 * Признак наличия ядер P-256 и модуля вида 2^256 - c на MULX и ADCX/ADOX
 					 */
 					#define __ANTS_X86_64_ADX_KERNELS__
 					/**
@@ -2540,7 +2559,439 @@ namespace nts {
 							: "rax", "rbx", "rcx", "rdx", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15", "cc", "memory"
 						);
 					}
+					/**
+					 * Свёртка произведения в r8…r15 по модулю 2^256 - c на MULX и ADCX/ADOX с условным
+					 * вычитанием модуля прибавлением хвоста: хвост c читается операндом в памяти (t), итог
+					 * пишется операндами в памяти h0…h3. Первая свёртка - старшая половина, умноженная на
+					 * хвост, двумя цепочками переносов; её выход за сетку не превосходит c при c < 2^32 и
+					 * сворачивается вторым произведением в одно слово. Значение после свёрток меньше
+					 * 2^256 + c² и не меньше модуля ровно тогда, когда прибавление хвоста выходит за 2^256
+					 * либо разряд 2^256 уже стоит: выбор cmovc по знаку суммы переносов. Регистровых
+					 * операндов у ядер нет намеренно: сомножители, хвост и итог - операнды в памяти, и
+					 * при встраивании в формулы точки они лежат в кадре, а одиннадцать регистров порчи
+					 * укладываются и в сборку с указателем кадра
+					 */
+					#define __ANTS_X86_64_MINUS_FOLD_ADX__ \
+						"mov   %[t], %%rdx\n\t" \
+						"xor   %%ecx, %%ecx\n\t" \
+						"mulx  %%r12, %%rcx, %%rax\n\t" \
+						"adcx  %%rcx, %%r8\n\t" \
+						"adox  %%rax, %%r9\n\t" \
+						"mulx  %%r13, %%rcx, %%rax\n\t" \
+						"adcx  %%rcx, %%r9\n\t" \
+						"adox  %%rax, %%r10\n\t" \
+						"mulx  %%r14, %%rcx, %%rax\n\t" \
+						"adcx  %%rcx, %%r10\n\t" \
+						"adox  %%rax, %%r11\n\t" \
+						"mulx  %%r15, %%rcx, %%rax\n\t" \
+						"adcx  %%rcx, %%r11\n\t" \
+						"mov   $0, %%ecx\n\t" \
+						"adox  %%rcx, %%rax\n\t" \
+						"adc   %%rcx, %%rax\n\t" \
+						"imul  %%rdx, %%rax\n\t" \
+						"add   %%rax, %%r8\n\t" \
+						"adc   $0, %%r9\n\t" \
+						"adc   $0, %%r10\n\t" \
+						"adc   $0, %%r11\n\t" \
+						"adc   %%rcx, %%rcx\n\t" \
+						"mov   %%r8, %%r12\n\t" \
+						"mov   %%r9, %%r13\n\t" \
+						"mov   %%r10, %%r14\n\t" \
+						"mov   %%r11, %%r15\n\t" \
+						"add   %%rdx, %%r12\n\t" \
+						"adc   $0, %%r13\n\t" \
+						"adc   $0, %%r14\n\t" \
+						"adc   $0, %%r15\n\t" \
+						"adc   $0, %%rcx\n\t" \
+						"neg   %%rcx\n\t" \
+						"cmovc %%r12, %%r8\n\t" \
+						"cmovc %%r13, %%r9\n\t" \
+						"cmovc %%r14, %%r10\n\t" \
+						"cmovc %%r15, %%r11\n\t" \
+						"mov   %%r8, %[h0]\n\t" \
+						"mov   %%r9, %[h1]\n\t" \
+						"mov   %%r10, %[h2]\n\t" \
+						"mov   %%r11, %[h3]\n\t"
+					/**
+					 * @brief Метод умножения по модулю вида 2^256 - c на MULX и ADCX/ADOX
+					 *
+					 * @param first  первый сомножитель
+					 * @param second второй сомножитель
+					 * @param tail   хвост c модуля, меньший 2^32
+					 * @param result место, в которое помещается произведение: вправе совпадать с сомножителем
+					 *
+					 */
+					static __ANTS_INLINE__ void multiplyminus4x(const Words <4> & first, const Words <4> & second, const uint64_t & tail, Words <4> & result) noexcept {
+						__asm__ __volatile__(
+						"mov   %[b0], %%rdx\n\t"
+						"mulx  %[a0], %%r8, %%r9\n\t"
+						"mulx  %[a1], %%rcx, %%r10\n\t"
+						"add   %%rcx, %%r9\n\t"
+						"mulx  %[a2], %%rcx, %%r11\n\t"
+						"adc   %%rcx, %%r10\n\t"
+						"mulx  %[a3], %%rcx, %%r12\n\t"
+						"adc   %%rcx, %%r11\n\t"
+						"adc   $0, %%r12\n\t"
+						"mov   %[b1], %%rdx\n\t"
+						"xor   %%r13, %%r13\n\t"
+						"mulx  %[a0], %%rcx, %%rax\n\t"
+						"adcx  %%rcx, %%r9\n\t"
+						"adox  %%rax, %%r10\n\t"
+						"mulx  %[a1], %%rcx, %%rax\n\t"
+						"adcx  %%rcx, %%r10\n\t"
+						"adox  %%rax, %%r11\n\t"
+						"mulx  %[a2], %%rcx, %%rax\n\t"
+						"adcx  %%rcx, %%r11\n\t"
+						"adox  %%rax, %%r12\n\t"
+						"mulx  %[a3], %%rcx, %%rax\n\t"
+						"adcx  %%rcx, %%r12\n\t"
+						"adox  %%rax, %%r13\n\t"
+						"adc   $0, %%r13\n\t"
+						"mov   %[b2], %%rdx\n\t"
+						"xor   %%r14, %%r14\n\t"
+						"mulx  %[a0], %%rcx, %%rax\n\t"
+						"adcx  %%rcx, %%r10\n\t"
+						"adox  %%rax, %%r11\n\t"
+						"mulx  %[a1], %%rcx, %%rax\n\t"
+						"adcx  %%rcx, %%r11\n\t"
+						"adox  %%rax, %%r12\n\t"
+						"mulx  %[a2], %%rcx, %%rax\n\t"
+						"adcx  %%rcx, %%r12\n\t"
+						"adox  %%rax, %%r13\n\t"
+						"mulx  %[a3], %%rcx, %%rax\n\t"
+						"adcx  %%rcx, %%r13\n\t"
+						"adox  %%rax, %%r14\n\t"
+						"adc   $0, %%r14\n\t"
+						"mov   %[b3], %%rdx\n\t"
+						"xor   %%r15, %%r15\n\t"
+						"mulx  %[a0], %%rcx, %%rax\n\t"
+						"adcx  %%rcx, %%r11\n\t"
+						"adox  %%rax, %%r12\n\t"
+						"mulx  %[a1], %%rcx, %%rax\n\t"
+						"adcx  %%rcx, %%r12\n\t"
+						"adox  %%rax, %%r13\n\t"
+						"mulx  %[a2], %%rcx, %%rax\n\t"
+						"adcx  %%rcx, %%r13\n\t"
+						"adox  %%rax, %%r14\n\t"
+						"mulx  %[a3], %%rcx, %%rax\n\t"
+						"adcx  %%rcx, %%r14\n\t"
+						"adox  %%rax, %%r15\n\t"
+						"adc   $0, %%r15\n\t"
+						__ANTS_X86_64_MINUS_FOLD_ADX__
+							: [h0] "=m" (result.w[0]), [h1] "=m" (result.w[1]), [h2] "=m" (result.w[2]), [h3] "=m" (result.w[3])
+							: [a0] "m" (first.w[0]), [a1] "m" (first.w[1]), [a2] "m" (first.w[2]), [a3] "m" (first.w[3]),
+							  [b0] "m" (second.w[0]), [b1] "m" (second.w[1]), [b2] "m" (second.w[2]), [b3] "m" (second.w[3]), [t] "m" (tail)
+							: "rax", "rcx", "rdx", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15", "cc", "memory"
+						);
+					}
+					/**
+					 * @brief Метод возведения в квадрат по модулю вида 2^256 - c на MULX и ADCX/ADOX
+					 *
+					 * @details Произведения разных слов двумя цепочками, удвоение цепочкой ADCX вперемешку
+					 *          с квадратами слов по диагонали цепочкой ADOX; временных регистров два
+					 *
+					 * @param value  возводимое число
+					 * @param tail   хвост c модуля, меньший 2^32
+					 * @param result место, в которое помещается квадрат: вправе совпадать с числом
+					 *
+					 */
+					static __ANTS_INLINE__ void squareminus4x(const Words <4> & value, const uint64_t & tail, Words <4> & result) noexcept {
+						__asm__ __volatile__(
+						"mov   %[a0], %%rdx\n\t"
+						"mulx  %[a1], %%r9, %%r10\n\t"
+						"mulx  %[a2], %%rcx, %%r11\n\t"
+						"add   %%rcx, %%r10\n\t"
+						"mulx  %[a3], %%rcx, %%r12\n\t"
+						"mov   %[a1], %%rdx\n\t"
+						"adc   %%rcx, %%r11\n\t"
+						"adc   $0, %%r12\n\t"
+						"xor   %%r13, %%r13\n\t"
+						"mulx  %[a2], %%rcx, %%rax\n\t"
+						"adcx  %%rcx, %%r11\n\t"
+						"adox  %%rax, %%r12\n\t"
+						"mulx  %[a3], %%rcx, %%rax\n\t"
+						"mov   %[a2], %%rdx\n\t"
+						"adcx  %%rcx, %%r12\n\t"
+						"adox  %%rax, %%r13\n\t"
+						"adc   $0, %%r13\n\t"
+						"mulx  %[a3], %%rcx, %%r14\n\t"
+						"mov   %[a0], %%rdx\n\t"
+						"xor   %%r15, %%r15\n\t"
+						"adcx  %%r9, %%r9\n\t"
+						"adox  %%rcx, %%r13\n\t"
+						"adcx  %%r10, %%r10\n\t"
+						"adox  %%r15, %%r14\n\t"
+						"mulx  %%rdx, %%r8, %%rax\n\t"
+						"mov   %[a1], %%rdx\n\t"
+						"adcx  %%r11, %%r11\n\t"
+						"adox  %%rax, %%r9\n\t"
+						"adcx  %%r12, %%r12\n\t"
+						"mulx  %%rdx, %%rcx, %%rax\n\t"
+						"mov   %[a2], %%rdx\n\t"
+						"adcx  %%r13, %%r13\n\t"
+						"adox  %%rcx, %%r10\n\t"
+						"adcx  %%r14, %%r14\n\t"
+						"adox  %%rax, %%r11\n\t"
+						"mulx  %%rdx, %%rcx, %%rax\n\t"
+						"mov   %[a3], %%rdx\n\t"
+						"adcx  %%r15, %%r15\n\t"
+						"adox  %%rcx, %%r12\n\t"
+						"adox  %%rax, %%r13\n\t"
+						"mulx  %%rdx, %%rcx, %%rax\n\t"
+						"adox  %%rcx, %%r14\n\t"
+						"adox  %%rax, %%r15\n\t"
+						__ANTS_X86_64_MINUS_FOLD_ADX__
+							: [h0] "=m" (result.w[0]), [h1] "=m" (result.w[1]), [h2] "=m" (result.w[2]), [h3] "=m" (result.w[3])
+							: [a0] "m" (value.w[0]), [a1] "m" (value.w[1]), [a2] "m" (value.w[2]), [a3] "m" (value.w[3]), [t] "m" (tail)
+							: "rax", "rcx", "rdx", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15", "cc", "memory"
+						);
+					}
+					#undef __ANTS_X86_64_MINUS_FOLD_ADX__
 				#endif
+				/**
+				 * Ядра на восемь слов для x86-64 без расширений (mulq): полное произведение 8×8 и полный
+				 * квадрат столбцами (comba) в шестнадцать слов памяти и свёртка по модулю 2^512 - c;
+				 * порождены сценарием tools/math/eightx86.py и сличены его интерпретатором с точной
+				 * арифметикой на 3 000 пробах с краями (круг 61, 01.10.2026). Три накопителя столбца:
+				 * произведение прибавляется тремя флаговыми командами, готовое младшее слово столбца
+				 * уходит в память, роли накопителей сдвигаются переименованием у порождателя, старший
+				 * обнуляется вне цепочки; у квадрата произведение разных слов удваивается до накопления
+				 * с переносом удвоения в третий накопитель, квадраты диагонали прибавляются как есть.
+				 * Регистров у произведения и квадрата восемь - rax, rdx, три накопителя и три указателя;
+				 * слова сомножителей - операнды mulq в памяти. Свёртка: младшая половина в восьми
+				 * регистрах, старшая умножается на хвост по слову с переносом в регистре, выход за сетку
+				 * (не больше c при c < 2^32) сворачивается вторым произведением в слово, условное
+				 * вычитание модуля - прибавлением хвоста с выбором cmovnc из копии в памяти; итог -
+				 * операнды в памяти. Свёртка по модулю 2^511 + c остаётся на C++ (foldplus)
+				 */
+				/**
+				 * Признак наличия ядер на восемь слов x86-64
+				 */
+				#define __ANTS_X86_64_KERNELS8__
+				/**
+				 * @brief Метод полного произведения восьми слов на восемь на ассемблере x86-64
+				 *
+				 * @param first  слова первого сомножителя
+				 * @param second слова второго сомножителя
+				 * @param result место, в которое помещаются шестнадцать слов произведения
+				 *
+				 */
+				static __ANTS_INLINE__ void product8(const uint64_t * first, const uint64_t * second, uint64_t * result) noexcept {
+					__asm__ __volatile__(
+					"xorl  %%r9d, %%r9d\n\t" "xorl  %%r10d, %%r10d\n\t" "movq  (%[a]), %%rax\n\t" "mulq  (%[b])\n\t" "movq  %%rax, %%r8\n\t"
+					"movq  %%rdx, %%r9\n\t" "movq  %%r8, (%[r])\n\t"
+					"xorl  %%r8d, %%r8d\n\t" "movq  (%[a]), %%rax\n\t" "mulq  8(%[b])\n\t" "addq  %%rax, %%r9\n\t" "adcq  %%rdx, %%r10\n\t"
+					"adcq  $0, %%r8\n\t" "movq  8(%[a]), %%rax\n\t" "mulq  (%[b])\n\t" "addq  %%rax, %%r9\n\t" "adcq  %%rdx, %%r10\n\t"
+					"adcq  $0, %%r8\n\t" "movq  %%r9, 8(%[r])\n\t"
+					"xorl  %%r9d, %%r9d\n\t" "movq  (%[a]), %%rax\n\t" "mulq  16(%[b])\n\t" "addq  %%rax, %%r10\n\t" "adcq  %%rdx, %%r8\n\t"
+					"adcq  $0, %%r9\n\t" "movq  8(%[a]), %%rax\n\t" "mulq  8(%[b])\n\t" "addq  %%rax, %%r10\n\t" "adcq  %%rdx, %%r8\n\t"
+					"adcq  $0, %%r9\n\t" "movq  16(%[a]), %%rax\n\t" "mulq  (%[b])\n\t" "addq  %%rax, %%r10\n\t" "adcq  %%rdx, %%r8\n\t"
+					"adcq  $0, %%r9\n\t" "movq  %%r10, 16(%[r])\n\t"
+					"xorl  %%r10d, %%r10d\n\t" "movq  (%[a]), %%rax\n\t" "mulq  24(%[b])\n\t" "addq  %%rax, %%r8\n\t" "adcq  %%rdx, %%r9\n\t"
+					"adcq  $0, %%r10\n\t" "movq  8(%[a]), %%rax\n\t" "mulq  16(%[b])\n\t" "addq  %%rax, %%r8\n\t" "adcq  %%rdx, %%r9\n\t"
+					"adcq  $0, %%r10\n\t" "movq  16(%[a]), %%rax\n\t" "mulq  8(%[b])\n\t" "addq  %%rax, %%r8\n\t" "adcq  %%rdx, %%r9\n\t"
+					"adcq  $0, %%r10\n\t" "movq  24(%[a]), %%rax\n\t" "mulq  (%[b])\n\t" "addq  %%rax, %%r8\n\t" "adcq  %%rdx, %%r9\n\t"
+					"adcq  $0, %%r10\n\t" "movq  %%r8, 24(%[r])\n\t"
+					"xorl  %%r8d, %%r8d\n\t" "movq  (%[a]), %%rax\n\t" "mulq  32(%[b])\n\t" "addq  %%rax, %%r9\n\t" "adcq  %%rdx, %%r10\n\t"
+					"adcq  $0, %%r8\n\t" "movq  8(%[a]), %%rax\n\t" "mulq  24(%[b])\n\t" "addq  %%rax, %%r9\n\t" "adcq  %%rdx, %%r10\n\t"
+					"adcq  $0, %%r8\n\t" "movq  16(%[a]), %%rax\n\t" "mulq  16(%[b])\n\t" "addq  %%rax, %%r9\n\t" "adcq  %%rdx, %%r10\n\t"
+					"adcq  $0, %%r8\n\t" "movq  24(%[a]), %%rax\n\t" "mulq  8(%[b])\n\t" "addq  %%rax, %%r9\n\t" "adcq  %%rdx, %%r10\n\t"
+					"adcq  $0, %%r8\n\t" "movq  32(%[a]), %%rax\n\t" "mulq  (%[b])\n\t" "addq  %%rax, %%r9\n\t" "adcq  %%rdx, %%r10\n\t"
+					"adcq  $0, %%r8\n\t" "movq  %%r9, 32(%[r])\n\t"
+					"xorl  %%r9d, %%r9d\n\t" "movq  (%[a]), %%rax\n\t" "mulq  40(%[b])\n\t" "addq  %%rax, %%r10\n\t" "adcq  %%rdx, %%r8\n\t"
+					"adcq  $0, %%r9\n\t" "movq  8(%[a]), %%rax\n\t" "mulq  32(%[b])\n\t" "addq  %%rax, %%r10\n\t" "adcq  %%rdx, %%r8\n\t"
+					"adcq  $0, %%r9\n\t" "movq  16(%[a]), %%rax\n\t" "mulq  24(%[b])\n\t" "addq  %%rax, %%r10\n\t" "adcq  %%rdx, %%r8\n\t"
+					"adcq  $0, %%r9\n\t" "movq  24(%[a]), %%rax\n\t" "mulq  16(%[b])\n\t" "addq  %%rax, %%r10\n\t" "adcq  %%rdx, %%r8\n\t"
+					"adcq  $0, %%r9\n\t" "movq  32(%[a]), %%rax\n\t" "mulq  8(%[b])\n\t" "addq  %%rax, %%r10\n\t" "adcq  %%rdx, %%r8\n\t"
+					"adcq  $0, %%r9\n\t" "movq  40(%[a]), %%rax\n\t" "mulq  (%[b])\n\t" "addq  %%rax, %%r10\n\t" "adcq  %%rdx, %%r8\n\t"
+					"adcq  $0, %%r9\n\t" "movq  %%r10, 40(%[r])\n\t"
+					"xorl  %%r10d, %%r10d\n\t" "movq  (%[a]), %%rax\n\t" "mulq  48(%[b])\n\t" "addq  %%rax, %%r8\n\t" "adcq  %%rdx, %%r9\n\t"
+					"adcq  $0, %%r10\n\t" "movq  8(%[a]), %%rax\n\t" "mulq  40(%[b])\n\t" "addq  %%rax, %%r8\n\t" "adcq  %%rdx, %%r9\n\t"
+					"adcq  $0, %%r10\n\t" "movq  16(%[a]), %%rax\n\t" "mulq  32(%[b])\n\t" "addq  %%rax, %%r8\n\t" "adcq  %%rdx, %%r9\n\t"
+					"adcq  $0, %%r10\n\t" "movq  24(%[a]), %%rax\n\t" "mulq  24(%[b])\n\t" "addq  %%rax, %%r8\n\t" "adcq  %%rdx, %%r9\n\t"
+					"adcq  $0, %%r10\n\t" "movq  32(%[a]), %%rax\n\t" "mulq  16(%[b])\n\t" "addq  %%rax, %%r8\n\t" "adcq  %%rdx, %%r9\n\t"
+					"adcq  $0, %%r10\n\t" "movq  40(%[a]), %%rax\n\t" "mulq  8(%[b])\n\t" "addq  %%rax, %%r8\n\t" "adcq  %%rdx, %%r9\n\t"
+					"adcq  $0, %%r10\n\t" "movq  48(%[a]), %%rax\n\t" "mulq  (%[b])\n\t" "addq  %%rax, %%r8\n\t" "adcq  %%rdx, %%r9\n\t"
+					"adcq  $0, %%r10\n\t" "movq  %%r8, 48(%[r])\n\t"
+					"xorl  %%r8d, %%r8d\n\t" "movq  (%[a]), %%rax\n\t" "mulq  56(%[b])\n\t" "addq  %%rax, %%r9\n\t" "adcq  %%rdx, %%r10\n\t"
+					"adcq  $0, %%r8\n\t" "movq  8(%[a]), %%rax\n\t" "mulq  48(%[b])\n\t" "addq  %%rax, %%r9\n\t" "adcq  %%rdx, %%r10\n\t"
+					"adcq  $0, %%r8\n\t" "movq  16(%[a]), %%rax\n\t" "mulq  40(%[b])\n\t" "addq  %%rax, %%r9\n\t" "adcq  %%rdx, %%r10\n\t"
+					"adcq  $0, %%r8\n\t" "movq  24(%[a]), %%rax\n\t" "mulq  32(%[b])\n\t" "addq  %%rax, %%r9\n\t" "adcq  %%rdx, %%r10\n\t"
+					"adcq  $0, %%r8\n\t" "movq  32(%[a]), %%rax\n\t" "mulq  24(%[b])\n\t" "addq  %%rax, %%r9\n\t" "adcq  %%rdx, %%r10\n\t"
+					"adcq  $0, %%r8\n\t" "movq  40(%[a]), %%rax\n\t" "mulq  16(%[b])\n\t" "addq  %%rax, %%r9\n\t" "adcq  %%rdx, %%r10\n\t"
+					"adcq  $0, %%r8\n\t" "movq  48(%[a]), %%rax\n\t" "mulq  8(%[b])\n\t" "addq  %%rax, %%r9\n\t" "adcq  %%rdx, %%r10\n\t"
+					"adcq  $0, %%r8\n\t" "movq  56(%[a]), %%rax\n\t" "mulq  (%[b])\n\t" "addq  %%rax, %%r9\n\t" "adcq  %%rdx, %%r10\n\t"
+					"adcq  $0, %%r8\n\t" "movq  %%r9, 56(%[r])\n\t"
+					"xorl  %%r9d, %%r9d\n\t" "movq  8(%[a]), %%rax\n\t" "mulq  56(%[b])\n\t" "addq  %%rax, %%r10\n\t" "adcq  %%rdx, %%r8\n\t"
+					"adcq  $0, %%r9\n\t" "movq  16(%[a]), %%rax\n\t" "mulq  48(%[b])\n\t" "addq  %%rax, %%r10\n\t" "adcq  %%rdx, %%r8\n\t"
+					"adcq  $0, %%r9\n\t" "movq  24(%[a]), %%rax\n\t" "mulq  40(%[b])\n\t" "addq  %%rax, %%r10\n\t" "adcq  %%rdx, %%r8\n\t"
+					"adcq  $0, %%r9\n\t" "movq  32(%[a]), %%rax\n\t" "mulq  32(%[b])\n\t" "addq  %%rax, %%r10\n\t" "adcq  %%rdx, %%r8\n\t"
+					"adcq  $0, %%r9\n\t" "movq  40(%[a]), %%rax\n\t" "mulq  24(%[b])\n\t" "addq  %%rax, %%r10\n\t" "adcq  %%rdx, %%r8\n\t"
+					"adcq  $0, %%r9\n\t" "movq  48(%[a]), %%rax\n\t" "mulq  16(%[b])\n\t" "addq  %%rax, %%r10\n\t" "adcq  %%rdx, %%r8\n\t"
+					"adcq  $0, %%r9\n\t" "movq  56(%[a]), %%rax\n\t" "mulq  8(%[b])\n\t" "addq  %%rax, %%r10\n\t" "adcq  %%rdx, %%r8\n\t"
+					"adcq  $0, %%r9\n\t" "movq  %%r10, 64(%[r])\n\t"
+					"xorl  %%r10d, %%r10d\n\t" "movq  16(%[a]), %%rax\n\t" "mulq  56(%[b])\n\t" "addq  %%rax, %%r8\n\t" "adcq  %%rdx, %%r9\n\t"
+					"adcq  $0, %%r10\n\t" "movq  24(%[a]), %%rax\n\t" "mulq  48(%[b])\n\t" "addq  %%rax, %%r8\n\t" "adcq  %%rdx, %%r9\n\t"
+					"adcq  $0, %%r10\n\t" "movq  32(%[a]), %%rax\n\t" "mulq  40(%[b])\n\t" "addq  %%rax, %%r8\n\t" "adcq  %%rdx, %%r9\n\t"
+					"adcq  $0, %%r10\n\t" "movq  40(%[a]), %%rax\n\t" "mulq  32(%[b])\n\t" "addq  %%rax, %%r8\n\t" "adcq  %%rdx, %%r9\n\t"
+					"adcq  $0, %%r10\n\t" "movq  48(%[a]), %%rax\n\t" "mulq  24(%[b])\n\t" "addq  %%rax, %%r8\n\t" "adcq  %%rdx, %%r9\n\t"
+					"adcq  $0, %%r10\n\t" "movq  56(%[a]), %%rax\n\t" "mulq  16(%[b])\n\t" "addq  %%rax, %%r8\n\t" "adcq  %%rdx, %%r9\n\t"
+					"adcq  $0, %%r10\n\t" "movq  %%r8, 72(%[r])\n\t"
+					"xorl  %%r8d, %%r8d\n\t" "movq  24(%[a]), %%rax\n\t" "mulq  56(%[b])\n\t" "addq  %%rax, %%r9\n\t" "adcq  %%rdx, %%r10\n\t"
+					"adcq  $0, %%r8\n\t" "movq  32(%[a]), %%rax\n\t" "mulq  48(%[b])\n\t" "addq  %%rax, %%r9\n\t" "adcq  %%rdx, %%r10\n\t"
+					"adcq  $0, %%r8\n\t" "movq  40(%[a]), %%rax\n\t" "mulq  40(%[b])\n\t" "addq  %%rax, %%r9\n\t" "adcq  %%rdx, %%r10\n\t"
+					"adcq  $0, %%r8\n\t" "movq  48(%[a]), %%rax\n\t" "mulq  32(%[b])\n\t" "addq  %%rax, %%r9\n\t" "adcq  %%rdx, %%r10\n\t"
+					"adcq  $0, %%r8\n\t" "movq  56(%[a]), %%rax\n\t" "mulq  24(%[b])\n\t" "addq  %%rax, %%r9\n\t" "adcq  %%rdx, %%r10\n\t"
+					"adcq  $0, %%r8\n\t" "movq  %%r9, 80(%[r])\n\t"
+					"xorl  %%r9d, %%r9d\n\t" "movq  32(%[a]), %%rax\n\t" "mulq  56(%[b])\n\t" "addq  %%rax, %%r10\n\t" "adcq  %%rdx, %%r8\n\t"
+					"adcq  $0, %%r9\n\t" "movq  40(%[a]), %%rax\n\t" "mulq  48(%[b])\n\t" "addq  %%rax, %%r10\n\t" "adcq  %%rdx, %%r8\n\t"
+					"adcq  $0, %%r9\n\t" "movq  48(%[a]), %%rax\n\t" "mulq  40(%[b])\n\t" "addq  %%rax, %%r10\n\t" "adcq  %%rdx, %%r8\n\t"
+					"adcq  $0, %%r9\n\t" "movq  56(%[a]), %%rax\n\t" "mulq  32(%[b])\n\t" "addq  %%rax, %%r10\n\t" "adcq  %%rdx, %%r8\n\t"
+					"adcq  $0, %%r9\n\t" "movq  %%r10, 88(%[r])\n\t"
+					"xorl  %%r10d, %%r10d\n\t" "movq  40(%[a]), %%rax\n\t" "mulq  56(%[b])\n\t" "addq  %%rax, %%r8\n\t" "adcq  %%rdx, %%r9\n\t"
+					"adcq  $0, %%r10\n\t" "movq  48(%[a]), %%rax\n\t" "mulq  48(%[b])\n\t" "addq  %%rax, %%r8\n\t" "adcq  %%rdx, %%r9\n\t"
+					"adcq  $0, %%r10\n\t" "movq  56(%[a]), %%rax\n\t" "mulq  40(%[b])\n\t" "addq  %%rax, %%r8\n\t" "adcq  %%rdx, %%r9\n\t"
+					"adcq  $0, %%r10\n\t" "movq  %%r8, 96(%[r])\n\t"
+					"xorl  %%r8d, %%r8d\n\t" "movq  48(%[a]), %%rax\n\t" "mulq  56(%[b])\n\t" "addq  %%rax, %%r9\n\t" "adcq  %%rdx, %%r10\n\t"
+					"adcq  $0, %%r8\n\t" "movq  56(%[a]), %%rax\n\t" "mulq  48(%[b])\n\t" "addq  %%rax, %%r9\n\t" "adcq  %%rdx, %%r10\n\t"
+					"adcq  $0, %%r8\n\t" "movq  %%r9, 104(%[r])\n\t"
+					"xorl  %%r9d, %%r9d\n\t" "movq  56(%[a]), %%rax\n\t" "mulq  56(%[b])\n\t" "addq  %%rax, %%r10\n\t" "adcq  %%rdx, %%r8\n\t"
+					"adcq  $0, %%r9\n\t" "movq  %%r10, 112(%[r])\n\t"
+					"movq  %%r8, 120(%[r])\n\t"
+						:
+						: [a] "r" (first), [b] "r" (second), [r] "r" (result)
+						: "rax", "rdx", "r8", "r9", "r10", "cc", "memory"
+					);
+				}
+				/**
+				 * @brief Метод полного квадрата восьми слов на ассемблере x86-64
+				 *
+				 * @param value  слова числа
+				 * @param result место, в которое помещаются шестнадцать слов квадрата
+				 *
+				 */
+				static __ANTS_INLINE__ void square8(const uint64_t * value, uint64_t * result) noexcept {
+					__asm__ __volatile__(
+					"xorl  %%r9d, %%r9d\n\t" "xorl  %%r10d, %%r10d\n\t" "movq  (%[a]), %%rax\n\t" "mulq  %%rax\n\t" "movq  %%rax, %%r8\n\t"
+					"movq  %%rdx, %%r9\n\t" "movq  %%r8, (%[r])\n\t"
+					"xorl  %%r8d, %%r8d\n\t" "movq  (%[a]), %%rax\n\t" "mulq  8(%[a])\n\t" "addq  %%rax, %%rax\n\t" "adcq  %%rdx, %%rdx\n\t"
+					"adcq  $0, %%r8\n\t" "addq  %%rax, %%r9\n\t" "adcq  %%rdx, %%r10\n\t" "adcq  $0, %%r8\n\t" "movq  %%r9, 8(%[r])\n\t"
+					"xorl  %%r9d, %%r9d\n\t" "movq  (%[a]), %%rax\n\t" "mulq  16(%[a])\n\t" "addq  %%rax, %%rax\n\t" "adcq  %%rdx, %%rdx\n\t"
+					"adcq  $0, %%r9\n\t" "addq  %%rax, %%r10\n\t" "adcq  %%rdx, %%r8\n\t" "adcq  $0, %%r9\n\t" "movq  8(%[a]), %%rax\n\t"
+					"mulq  %%rax\n\t" "addq  %%rax, %%r10\n\t" "adcq  %%rdx, %%r8\n\t" "adcq  $0, %%r9\n\t" "movq  %%r10, 16(%[r])\n\t"
+					"xorl  %%r10d, %%r10d\n\t" "movq  (%[a]), %%rax\n\t" "mulq  24(%[a])\n\t" "addq  %%rax, %%rax\n\t" "adcq  %%rdx, %%rdx\n\t"
+					"adcq  $0, %%r10\n\t" "addq  %%rax, %%r8\n\t" "adcq  %%rdx, %%r9\n\t" "adcq  $0, %%r10\n\t" "movq  8(%[a]), %%rax\n\t"
+					"mulq  16(%[a])\n\t" "addq  %%rax, %%rax\n\t" "adcq  %%rdx, %%rdx\n\t" "adcq  $0, %%r10\n\t" "addq  %%rax, %%r8\n\t"
+					"adcq  %%rdx, %%r9\n\t" "adcq  $0, %%r10\n\t" "movq  %%r8, 24(%[r])\n\t"
+					"xorl  %%r8d, %%r8d\n\t" "movq  (%[a]), %%rax\n\t" "mulq  32(%[a])\n\t" "addq  %%rax, %%rax\n\t" "adcq  %%rdx, %%rdx\n\t"
+					"adcq  $0, %%r8\n\t" "addq  %%rax, %%r9\n\t" "adcq  %%rdx, %%r10\n\t" "adcq  $0, %%r8\n\t" "movq  8(%[a]), %%rax\n\t"
+					"mulq  24(%[a])\n\t" "addq  %%rax, %%rax\n\t" "adcq  %%rdx, %%rdx\n\t" "adcq  $0, %%r8\n\t" "addq  %%rax, %%r9\n\t"
+					"adcq  %%rdx, %%r10\n\t" "adcq  $0, %%r8\n\t" "movq  16(%[a]), %%rax\n\t" "mulq  %%rax\n\t" "addq  %%rax, %%r9\n\t"
+					"adcq  %%rdx, %%r10\n\t" "adcq  $0, %%r8\n\t" "movq  %%r9, 32(%[r])\n\t"
+					"xorl  %%r9d, %%r9d\n\t" "movq  (%[a]), %%rax\n\t" "mulq  40(%[a])\n\t" "addq  %%rax, %%rax\n\t" "adcq  %%rdx, %%rdx\n\t"
+					"adcq  $0, %%r9\n\t" "addq  %%rax, %%r10\n\t" "adcq  %%rdx, %%r8\n\t" "adcq  $0, %%r9\n\t" "movq  8(%[a]), %%rax\n\t"
+					"mulq  32(%[a])\n\t" "addq  %%rax, %%rax\n\t" "adcq  %%rdx, %%rdx\n\t" "adcq  $0, %%r9\n\t" "addq  %%rax, %%r10\n\t"
+					"adcq  %%rdx, %%r8\n\t" "adcq  $0, %%r9\n\t" "movq  16(%[a]), %%rax\n\t" "mulq  24(%[a])\n\t" "addq  %%rax, %%rax\n\t"
+					"adcq  %%rdx, %%rdx\n\t" "adcq  $0, %%r9\n\t" "addq  %%rax, %%r10\n\t" "adcq  %%rdx, %%r8\n\t" "adcq  $0, %%r9\n\t"
+					"movq  %%r10, 40(%[r])\n\t"
+					"xorl  %%r10d, %%r10d\n\t" "movq  (%[a]), %%rax\n\t" "mulq  48(%[a])\n\t" "addq  %%rax, %%rax\n\t" "adcq  %%rdx, %%rdx\n\t"
+					"adcq  $0, %%r10\n\t" "addq  %%rax, %%r8\n\t" "adcq  %%rdx, %%r9\n\t" "adcq  $0, %%r10\n\t" "movq  8(%[a]), %%rax\n\t"
+					"mulq  40(%[a])\n\t" "addq  %%rax, %%rax\n\t" "adcq  %%rdx, %%rdx\n\t" "adcq  $0, %%r10\n\t" "addq  %%rax, %%r8\n\t"
+					"adcq  %%rdx, %%r9\n\t" "adcq  $0, %%r10\n\t" "movq  16(%[a]), %%rax\n\t" "mulq  32(%[a])\n\t" "addq  %%rax, %%rax\n\t"
+					"adcq  %%rdx, %%rdx\n\t" "adcq  $0, %%r10\n\t" "addq  %%rax, %%r8\n\t" "adcq  %%rdx, %%r9\n\t" "adcq  $0, %%r10\n\t"
+					"movq  24(%[a]), %%rax\n\t" "mulq  %%rax\n\t" "addq  %%rax, %%r8\n\t" "adcq  %%rdx, %%r9\n\t" "adcq  $0, %%r10\n\t"
+					"movq  %%r8, 48(%[r])\n\t"
+					"xorl  %%r8d, %%r8d\n\t" "movq  (%[a]), %%rax\n\t" "mulq  56(%[a])\n\t" "addq  %%rax, %%rax\n\t" "adcq  %%rdx, %%rdx\n\t"
+					"adcq  $0, %%r8\n\t" "addq  %%rax, %%r9\n\t" "adcq  %%rdx, %%r10\n\t" "adcq  $0, %%r8\n\t" "movq  8(%[a]), %%rax\n\t"
+					"mulq  48(%[a])\n\t" "addq  %%rax, %%rax\n\t" "adcq  %%rdx, %%rdx\n\t" "adcq  $0, %%r8\n\t" "addq  %%rax, %%r9\n\t"
+					"adcq  %%rdx, %%r10\n\t" "adcq  $0, %%r8\n\t" "movq  16(%[a]), %%rax\n\t" "mulq  40(%[a])\n\t" "addq  %%rax, %%rax\n\t"
+					"adcq  %%rdx, %%rdx\n\t" "adcq  $0, %%r8\n\t" "addq  %%rax, %%r9\n\t" "adcq  %%rdx, %%r10\n\t" "adcq  $0, %%r8\n\t"
+					"movq  24(%[a]), %%rax\n\t" "mulq  32(%[a])\n\t" "addq  %%rax, %%rax\n\t" "adcq  %%rdx, %%rdx\n\t" "adcq  $0, %%r8\n\t"
+					"addq  %%rax, %%r9\n\t" "adcq  %%rdx, %%r10\n\t" "adcq  $0, %%r8\n\t" "movq  %%r9, 56(%[r])\n\t"
+					"xorl  %%r9d, %%r9d\n\t" "movq  8(%[a]), %%rax\n\t" "mulq  56(%[a])\n\t" "addq  %%rax, %%rax\n\t" "adcq  %%rdx, %%rdx\n\t"
+					"adcq  $0, %%r9\n\t" "addq  %%rax, %%r10\n\t" "adcq  %%rdx, %%r8\n\t" "adcq  $0, %%r9\n\t" "movq  16(%[a]), %%rax\n\t"
+					"mulq  48(%[a])\n\t" "addq  %%rax, %%rax\n\t" "adcq  %%rdx, %%rdx\n\t" "adcq  $0, %%r9\n\t" "addq  %%rax, %%r10\n\t"
+					"adcq  %%rdx, %%r8\n\t" "adcq  $0, %%r9\n\t" "movq  24(%[a]), %%rax\n\t" "mulq  40(%[a])\n\t" "addq  %%rax, %%rax\n\t"
+					"adcq  %%rdx, %%rdx\n\t" "adcq  $0, %%r9\n\t" "addq  %%rax, %%r10\n\t" "adcq  %%rdx, %%r8\n\t" "adcq  $0, %%r9\n\t"
+					"movq  32(%[a]), %%rax\n\t" "mulq  %%rax\n\t" "addq  %%rax, %%r10\n\t" "adcq  %%rdx, %%r8\n\t" "adcq  $0, %%r9\n\t"
+					"movq  %%r10, 64(%[r])\n\t"
+					"xorl  %%r10d, %%r10d\n\t" "movq  16(%[a]), %%rax\n\t" "mulq  56(%[a])\n\t" "addq  %%rax, %%rax\n\t" "adcq  %%rdx, %%rdx\n\t"
+					"adcq  $0, %%r10\n\t" "addq  %%rax, %%r8\n\t" "adcq  %%rdx, %%r9\n\t" "adcq  $0, %%r10\n\t" "movq  24(%[a]), %%rax\n\t"
+					"mulq  48(%[a])\n\t" "addq  %%rax, %%rax\n\t" "adcq  %%rdx, %%rdx\n\t" "adcq  $0, %%r10\n\t" "addq  %%rax, %%r8\n\t"
+					"adcq  %%rdx, %%r9\n\t" "adcq  $0, %%r10\n\t" "movq  32(%[a]), %%rax\n\t" "mulq  40(%[a])\n\t" "addq  %%rax, %%rax\n\t"
+					"adcq  %%rdx, %%rdx\n\t" "adcq  $0, %%r10\n\t" "addq  %%rax, %%r8\n\t" "adcq  %%rdx, %%r9\n\t" "adcq  $0, %%r10\n\t"
+					"movq  %%r8, 72(%[r])\n\t"
+					"xorl  %%r8d, %%r8d\n\t" "movq  24(%[a]), %%rax\n\t" "mulq  56(%[a])\n\t" "addq  %%rax, %%rax\n\t" "adcq  %%rdx, %%rdx\n\t"
+					"adcq  $0, %%r8\n\t" "addq  %%rax, %%r9\n\t" "adcq  %%rdx, %%r10\n\t" "adcq  $0, %%r8\n\t" "movq  32(%[a]), %%rax\n\t"
+					"mulq  48(%[a])\n\t" "addq  %%rax, %%rax\n\t" "adcq  %%rdx, %%rdx\n\t" "adcq  $0, %%r8\n\t" "addq  %%rax, %%r9\n\t"
+					"adcq  %%rdx, %%r10\n\t" "adcq  $0, %%r8\n\t" "movq  40(%[a]), %%rax\n\t" "mulq  %%rax\n\t" "addq  %%rax, %%r9\n\t"
+					"adcq  %%rdx, %%r10\n\t" "adcq  $0, %%r8\n\t" "movq  %%r9, 80(%[r])\n\t"
+					"xorl  %%r9d, %%r9d\n\t" "movq  32(%[a]), %%rax\n\t" "mulq  56(%[a])\n\t" "addq  %%rax, %%rax\n\t" "adcq  %%rdx, %%rdx\n\t"
+					"adcq  $0, %%r9\n\t" "addq  %%rax, %%r10\n\t" "adcq  %%rdx, %%r8\n\t" "adcq  $0, %%r9\n\t" "movq  40(%[a]), %%rax\n\t"
+					"mulq  48(%[a])\n\t" "addq  %%rax, %%rax\n\t" "adcq  %%rdx, %%rdx\n\t" "adcq  $0, %%r9\n\t" "addq  %%rax, %%r10\n\t"
+					"adcq  %%rdx, %%r8\n\t" "adcq  $0, %%r9\n\t" "movq  %%r10, 88(%[r])\n\t"
+					"xorl  %%r10d, %%r10d\n\t" "movq  40(%[a]), %%rax\n\t" "mulq  56(%[a])\n\t" "addq  %%rax, %%rax\n\t" "adcq  %%rdx, %%rdx\n\t"
+					"adcq  $0, %%r10\n\t" "addq  %%rax, %%r8\n\t" "adcq  %%rdx, %%r9\n\t" "adcq  $0, %%r10\n\t" "movq  48(%[a]), %%rax\n\t"
+					"mulq  %%rax\n\t" "addq  %%rax, %%r8\n\t" "adcq  %%rdx, %%r9\n\t" "adcq  $0, %%r10\n\t" "movq  %%r8, 96(%[r])\n\t"
+					"xorl  %%r8d, %%r8d\n\t" "movq  48(%[a]), %%rax\n\t" "mulq  56(%[a])\n\t" "addq  %%rax, %%rax\n\t" "adcq  %%rdx, %%rdx\n\t"
+					"adcq  $0, %%r8\n\t" "addq  %%rax, %%r9\n\t" "adcq  %%rdx, %%r10\n\t" "adcq  $0, %%r8\n\t" "movq  %%r9, 104(%[r])\n\t"
+					"xorl  %%r9d, %%r9d\n\t" "movq  56(%[a]), %%rax\n\t" "mulq  %%rax\n\t" "addq  %%rax, %%r10\n\t" "adcq  %%rdx, %%r8\n\t"
+					"adcq  $0, %%r9\n\t" "movq  %%r10, 112(%[r])\n\t"
+					"movq  %%r8, 120(%[r])\n\t"
+						:
+						: [a] "r" (value), [r] "r" (result)
+						: "rax", "rdx", "r8", "r9", "r10", "cc", "memory"
+					);
+				}
+				/**
+				 * @brief Метод свёртки произведения шестнадцати слов по модулю вида 2^512 - c на ассемблере x86-64
+				 *
+				 * @param wide   шестнадцать слов произведения: младшая половина затирается копией под выбор
+				 * @param tail   хвост c модуля, меньший 2^32
+				 * @param result место, в которое помещаются восемь слов итога, меньшего модуля
+				 *
+				 */
+				static __ANTS_INLINE__ void foldminus8(uint64_t * wide, const uint64_t tail, uint64_t * result) noexcept {
+					__asm__ __volatile__(
+					"movq  (%[r]), %%r8\n\t" "movq  8(%[r]), %%r9\n\t" "movq  16(%[r]), %%r10\n\t" "movq  24(%[r]), %%r11\n\t" "movq  32(%[r]), %%r12\n\t"
+					"movq  40(%[r]), %%r13\n\t" "movq  48(%[r]), %%r14\n\t" "movq  56(%[r]), %%r15\n\t" "xorl  %%ecx, %%ecx\n\t" "movq  64(%[r]), %%rax\n\t"
+					"mulq  %%rbx\n\t" "addq  %%rax, %%r8\n\t" "adcq  $0, %%rdx\n\t" "addq  %%rcx, %%r8\n\t" "adcq  $0, %%rdx\n\t"
+					"movq  %%rdx, %%rcx\n\t" "movq  72(%[r]), %%rax\n\t" "mulq  %%rbx\n\t" "addq  %%rax, %%r9\n\t" "adcq  $0, %%rdx\n\t"
+					"addq  %%rcx, %%r9\n\t" "adcq  $0, %%rdx\n\t" "movq  %%rdx, %%rcx\n\t" "movq  80(%[r]), %%rax\n\t" "mulq  %%rbx\n\t"
+					"addq  %%rax, %%r10\n\t" "adcq  $0, %%rdx\n\t" "addq  %%rcx, %%r10\n\t" "adcq  $0, %%rdx\n\t" "movq  %%rdx, %%rcx\n\t"
+					"movq  88(%[r]), %%rax\n\t" "mulq  %%rbx\n\t" "addq  %%rax, %%r11\n\t" "adcq  $0, %%rdx\n\t" "addq  %%rcx, %%r11\n\t"
+					"adcq  $0, %%rdx\n\t" "movq  %%rdx, %%rcx\n\t" "movq  96(%[r]), %%rax\n\t" "mulq  %%rbx\n\t" "addq  %%rax, %%r12\n\t"
+					"adcq  $0, %%rdx\n\t" "addq  %%rcx, %%r12\n\t" "adcq  $0, %%rdx\n\t" "movq  %%rdx, %%rcx\n\t" "movq  104(%[r]), %%rax\n\t"
+					"mulq  %%rbx\n\t" "addq  %%rax, %%r13\n\t" "adcq  $0, %%rdx\n\t" "addq  %%rcx, %%r13\n\t" "adcq  $0, %%rdx\n\t"
+					"movq  %%rdx, %%rcx\n\t" "movq  112(%[r]), %%rax\n\t" "mulq  %%rbx\n\t" "addq  %%rax, %%r14\n\t" "adcq  $0, %%rdx\n\t"
+					"addq  %%rcx, %%r14\n\t" "adcq  $0, %%rdx\n\t" "movq  %%rdx, %%rcx\n\t" "movq  120(%[r]), %%rax\n\t" "mulq  %%rbx\n\t"
+					"addq  %%rax, %%r15\n\t" "adcq  $0, %%rdx\n\t" "addq  %%rcx, %%r15\n\t" "adcq  $0, %%rdx\n\t" "movq  %%rdx, %%rcx\n\t"
+					"movq  %%rcx, %%rax\n\t" "mulq  %%rbx\n\t" "addq  %%rax, %%r8\n\t" "adcq  $0, %%r9\n\t" "adcq  $0, %%r10\n\t"
+					"adcq  $0, %%r11\n\t" "adcq  $0, %%r12\n\t" "adcq  $0, %%r13\n\t" "adcq  $0, %%r14\n\t" "adcq  $0, %%r15\n\t"
+					"adcq  $0, %%rdx\n\t" "movq  %%r8, (%[r])\n\t"
+					"movq  %%r9, 8(%[r])\n\t"
+					"movq  %%r10, 16(%[r])\n\t"
+					"movq  %%r11, 24(%[r])\n\t"
+					"movq  %%r12, 32(%[r])\n\t"
+					"movq  %%r13, 40(%[r])\n\t"
+					"movq  %%r14, 48(%[r])\n\t"
+					"movq  %%r15, 56(%[r])\n\t"
+					"addq  %%rbx, %%r8\n\t" "adcq  $0, %%r9\n\t" "adcq  $0, %%r10\n\t" "adcq  $0, %%r11\n\t" "adcq  $0, %%r12\n\t"
+					"adcq  $0, %%r13\n\t" "adcq  $0, %%r14\n\t" "adcq  $0, %%r15\n\t" "adcq  $0, %%rdx\n\t" "negq  %%rdx\n\t"
+					"cmovncq (%[r]), %%r8\n\t" "cmovncq 8(%[r]), %%r9\n\t" "cmovncq 16(%[r]), %%r10\n\t" "cmovncq 24(%[r]), %%r11\n\t" "cmovncq 32(%[r]), %%r12\n\t"
+					"cmovncq 40(%[r]), %%r13\n\t" "cmovncq 48(%[r]), %%r14\n\t" "cmovncq 56(%[r]), %%r15\n\t" "movq  %%r8, %[h0]\n\t"
+					"movq  %%r9, %[h1]\n\t"
+					"movq  %%r10, %[h2]\n\t"
+					"movq  %%r11, %[h3]\n\t"
+					"movq  %%r12, %[h4]\n\t"
+					"movq  %%r13, %[h5]\n\t"
+					"movq  %%r14, %[h6]\n\t"
+					"movq  %%r15, %[h7]\n\t"
+						: [h0] "=m" (result[0]), [h1] "=m" (result[1]), [h2] "=m" (result[2]), [h3] "=m" (result[3]), [h4] "=m" (result[4]), [h5] "=m" (result[5]), [h6] "=m" (result[6]), [h7] "=m" (result[7])
+						: [r] "r" (wide), "b" (tail)
+						: "rax", "rcx", "rdx", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15", "cc", "memory"
+					);
+				}
 				#undef __ANTS_X86_64_PRODUCT4__
 				#undef __ANTS_X86_64_SQUARE4__
 				#undef __ANTS_X86_64_NIST_MULMONT__
@@ -2618,6 +3069,19 @@ namespace nts {
 						return;
 					}
 				#endif
+				#if defined(__ANTS_X86_64_KERNELS8__)
+					// Восемь слов на x86-64: произведение и свёртка ядрами на ассемблере
+					if constexpr (WORDS == 8){
+						// Полное произведение сомножителей
+						uint64_t wide[2 * WORDS];
+						// Выполняем полное умножение ядром на ассемблере
+						product8(first, second, wide);
+						// Выполняем свёртку с условным вычитанием модуля ядром на ассемблере
+						foldminus8(wide, tail, result);
+						// Выходим из умножения
+						return;
+					}
+				#endif
 				// Полное произведение сомножителей
 				uint64_t wide[2 * WORDS];
 				// Выполняем полное умножение
@@ -2658,6 +3122,19 @@ namespace nts {
 						return;
 					}
 				#endif
+				#if defined(__ANTS_X86_64_KERNELS8__)
+					// Восемь слов на x86-64: квадрат и свёртка ядрами на ассемблере
+					if constexpr (WORDS == 8){
+						// Полный квадрат числа
+						uint64_t wide[2 * WORDS];
+						// Выполняем возведение числа в квадрат ядром на ассемблере
+						square8(value, wide);
+						// Выполняем свёртку с условным вычитанием модуля ядром на ассемблере
+						foldminus8(wide, tail, result);
+						// Выходим из возведения в квадрат
+						return;
+					}
+				#endif
 				// Полный квадрат числа
 				uint64_t wide[2 * WORDS];
 				// Выполняем возведение числа в квадрат
@@ -2683,8 +3160,8 @@ namespace nts {
 			static __ANTS_INLINE__ void multiplyplus(const uint64_t * first, const uint64_t * second, const uint64_t tail, const uint64_t * modulus, uint64_t * result) noexcept {
 				// Полное произведение сомножителей
 				uint64_t wide[2 * WORDS];
-				#if defined(__ANTS_AARCH64_KERNELS8__)
-					// Восемь слов на AArch64: произведение ядром на ассемблере
+				#if defined(__ANTS_AARCH64_KERNELS8__) || defined(__ANTS_X86_64_KERNELS8__)
+					// Восемь слов на AArch64 и x86-64: произведение ядром на ассемблере
 					if constexpr (WORDS == 8)
 						product8(first, second, wide);
 					else
@@ -2707,8 +3184,8 @@ namespace nts {
 			static __ANTS_INLINE__ void squareplus(const uint64_t * value, const uint64_t tail, const uint64_t * modulus, uint64_t * result) noexcept {
 				// Полный квадрат числа
 				uint64_t wide[2 * WORDS];
-				#if defined(__ANTS_AARCH64_KERNELS8__)
-					// Восемь слов на AArch64: квадрат ядром на ассемблере
+				#if defined(__ANTS_AARCH64_KERNELS8__) || defined(__ANTS_X86_64_KERNELS8__)
+					// Восемь слов на AArch64 и x86-64: квадрат ядром на ассемблере
 					if constexpr (WORDS == 8)
 						square8(value, wide);
 					else
@@ -2891,8 +3368,8 @@ namespace nts {
 			 * @param second второй сомножитель
 			 * @param result место, в которое помещается произведение
 			 *
-			 * @tparam ADX признак MULX и ADCX/ADOX у машины, снятый вызывающим: под x86-64 у простого P-256 выбирает
-			 *             ядра на этапе сборки шаблона - ветвление по признаку внутри ядра стоило пути на mulq 4 %
+			 * @tparam ADX признак MULX и ADCX/ADOX у машины, снятый вызывающим: под x86-64 у простого P-256 и у
+			 *             модуля вида 2^256 - c выбирает ядра на этапе сборки шаблона - ветвление по признаку внутри ядра стоило пути на mulq 4 %
 			 *
 			 */
 			template <size_t WORDS, bool ADX = false>
@@ -2914,6 +3391,13 @@ namespace nts {
 					// На x86-64 произведение считается ядром на значениях: входы из памяти, итог в регистрах
 					if constexpr (WORDS == 4){
 						if(layout.form == Modulus::form_t::MINUS){
+							// На MULX и ADCX/ADOX по признаку машины, снятому вызывающим
+							#if defined(__ANTS_X86_64_ADX_KERNELS__)
+								if constexpr (ADX){
+									multiplyminus4x(first, second, layout.tail, result);
+									return;
+								}
+							#endif
 							multiplyminus4v(first, second, layout.tail, layout.modulus, result);
 							return;
 						}
@@ -2940,8 +3424,8 @@ namespace nts {
 			 * @param value  возводимое значение
 			 * @param result место, в которое помещается квадрат
 			 *
-			 * @tparam ADX признак MULX и ADCX/ADOX у машины, снятый вызывающим: под x86-64 у простого P-256 выбирает
-			 *             ядра на этапе сборки шаблона
+			 * @tparam ADX признак MULX и ADCX/ADOX у машины, снятый вызывающим: под x86-64 у простого P-256 и у
+			 *             модуля вида 2^256 - c выбирает ядра на этапе сборки шаблона
 			 *
 			 */
 			template <size_t WORDS, bool ADX = false>
@@ -2963,6 +3447,13 @@ namespace nts {
 					// На x86-64 квадрат считается ядром на значениях: входы из памяти, итог в регистрах
 					if constexpr (WORDS == 4){
 						if(layout.form == Modulus::form_t::MINUS){
+							// На MULX и ADCX/ADOX по признаку машины, снятому вызывающим
+							#if defined(__ANTS_X86_64_ADX_KERNELS__)
+								if constexpr (ADX){
+									squareminus4x(value, layout.tail, result);
+									return;
+								}
+							#endif
 							squareminus4v(value, layout.tail, layout.modulus, result);
 							return;
 						}

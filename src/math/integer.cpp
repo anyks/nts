@@ -882,7 +882,12 @@ namespace {
 	 *       перенос их в регистры (конец цикла по указателю, регистров ровно четырнадцать) дал на
 	 *       Xeon E5-2630 v4 без ADX 1 496 → 1 530 тактов TSC на 16 словах; сложение накопленного
 	 *       прежде переноса (укоротившее цепочку квадрата на mulq, круг 48) здесь 1 485 → 1 505:
-	 *       цикл упирается не в цепочку, а в число команд на столбец. Оба варианта отвергнуты
+	 *       цикл упирается не в цепочку, а в число команд на столбец. Оба варианта отвергнуты.
+	 *       Цикл развёрнут по четыре столбца с хвостом по одному (круг 61, 01.10.2026): шесть
+	 *       команд цикла на четыре столбца вместо пяти на столбец - Xeon E5-2630 v4 без ADX,
+	 *       умножение 16 слов 1 594 → 1 495 тактов TSC при 1 410 у bn_mul4x_mont (1,13 → 1,06),
+	 *       24 слова 3 420 → 3 200 при 3 140, 32 слова 6 020 → 5 530 при 5 550 (вровень), 64 слова
+	 *       23 950 → 21 000 при 21 950; квадрат на mulq этим циклом не идёт (square8xMulq)
 	 *
 	 */
 	static inline void columns(uint64_t * buffer, const uint64_t * first, const uint64_t * modulus, const uint64_t low, const uint64_t high, const uint64_t reducer1, const uint64_t reducer2, uint64_t & carry1, uint64_t & lift1, uint64_t & carry2, uint64_t & lift2, size_t left) noexcept {
@@ -891,46 +896,33 @@ namespace {
 		// Переносы в регистрах
 		uint64_t c1 = carry1, l1 = lift1, c2 = carry2, l2 = lift2;
 		__asm__ __volatile__(
+			"cmpq  $4, %[left]\n\t" "jb    2f\n\t"
 			"1:\n\t"
-			/* Первый ряд: столбец j */
-			"movq  (%[first]), %%rax\n\t"
-			"mulq  %[low]\n\t"
-			"addq  %[c1], %%rax\n\t"
-			"adcq  $0, %%rdx\n\t"
-			"addq  (%[buffer]), %%rax\n\t"
-			"adcq  $0, %%rdx\n\t"
-			"movq  %%rdx, %[c1]\n\t"
-			"movq  %%rax, %[passed]\n\t"
-			"movq  %[reducer1], %%rax\n\t"
-			"mulq  (%[modulus])\n\t"
-			"addq  %[l1], %%rax\n\t"
-			"adcq  $0, %%rdx\n\t"
-			"addq  %[passed], %%rax\n\t"
-			"adcq  $0, %%rdx\n\t"
-			"movq  %%rdx, %[l1]\n\t"
-			"movq  %%rax, %[passed]\n\t"
-			/* Второй ряд: столбец j - 1 со входом из первого */
-			"movq  -8(%[first]), %%rax\n\t"
-			"mulq  %[high]\n\t"
-			"addq  %[c2], %%rax\n\t"
-			"adcq  $0, %%rdx\n\t"
-			"addq  %[passed], %%rax\n\t"
-			"adcq  $0, %%rdx\n\t"
-			"movq  %%rdx, %[c2]\n\t"
-			"movq  %%rax, %[passed]\n\t"
-			"movq  %[reducer2], %%rax\n\t"
-			"mulq  -8(%[modulus])\n\t"
-			"addq  %[l2], %%rax\n\t"
-			"adcq  $0, %%rdx\n\t"
-			"addq  %[passed], %%rax\n\t"
-			"adcq  $0, %%rdx\n\t"
-			"movq  %%rdx, %[l2]\n\t"
-			"movq  %%rax, -16(%[buffer])\n\t"
-			"leaq  8(%[buffer]), %[buffer]\n\t"
-			"leaq  8(%[first]), %[first]\n\t"
-			"leaq  8(%[modulus]), %[modulus]\n\t"
-			"decq  %[left]\n\t"
-			"jnz   1b\n\t"
+			"movq  (%[first]), %%rax\n\t" "mulq  %[low]\n\t" "addq  %[c1], %%rax\n\t" "adcq  $0, %%rdx\n\t" "addq  (%[buffer]), %%rax\n\t" "adcq  $0, %%rdx\n\t" "movq  %%rdx, %[c1]\n\t" "movq  %%rax, %[passed]\n\t"
+			"movq  %[reducer1], %%rax\n\t" "mulq  (%[modulus])\n\t" "addq  %[l1], %%rax\n\t" "adcq  $0, %%rdx\n\t" "addq  %[passed], %%rax\n\t" "adcq  $0, %%rdx\n\t" "movq  %%rdx, %[l1]\n\t" "movq  %%rax, %[passed]\n\t"
+			"movq  -8(%[first]), %%rax\n\t" "mulq  %[high]\n\t" "addq  %[c2], %%rax\n\t" "adcq  $0, %%rdx\n\t" "addq  %[passed], %%rax\n\t" "adcq  $0, %%rdx\n\t" "movq  %%rdx, %[c2]\n\t" "movq  %%rax, %[passed]\n\t"
+			"movq  %[reducer2], %%rax\n\t" "mulq  -8(%[modulus])\n\t" "addq  %[l2], %%rax\n\t" "adcq  $0, %%rdx\n\t" "addq  %[passed], %%rax\n\t" "adcq  $0, %%rdx\n\t" "movq  %%rdx, %[l2]\n\t" "movq  %%rax, -16(%[buffer])\n\t"
+			"movq  8(%[first]), %%rax\n\t" "mulq  %[low]\n\t" "addq  %[c1], %%rax\n\t" "adcq  $0, %%rdx\n\t" "addq  8(%[buffer]), %%rax\n\t" "adcq  $0, %%rdx\n\t" "movq  %%rdx, %[c1]\n\t" "movq  %%rax, %[passed]\n\t"
+			"movq  %[reducer1], %%rax\n\t" "mulq  8(%[modulus])\n\t" "addq  %[l1], %%rax\n\t" "adcq  $0, %%rdx\n\t" "addq  %[passed], %%rax\n\t" "adcq  $0, %%rdx\n\t" "movq  %%rdx, %[l1]\n\t" "movq  %%rax, %[passed]\n\t"
+			"movq  0(%[first]), %%rax\n\t" "mulq  %[high]\n\t" "addq  %[c2], %%rax\n\t" "adcq  $0, %%rdx\n\t" "addq  %[passed], %%rax\n\t" "adcq  $0, %%rdx\n\t" "movq  %%rdx, %[c2]\n\t" "movq  %%rax, %[passed]\n\t"
+			"movq  %[reducer2], %%rax\n\t" "mulq  0(%[modulus])\n\t" "addq  %[l2], %%rax\n\t" "adcq  $0, %%rdx\n\t" "addq  %[passed], %%rax\n\t" "adcq  $0, %%rdx\n\t" "movq  %%rdx, %[l2]\n\t" "movq  %%rax, -8(%[buffer])\n\t"
+			"movq  16(%[first]), %%rax\n\t" "mulq  %[low]\n\t" "addq  %[c1], %%rax\n\t" "adcq  $0, %%rdx\n\t" "addq  16(%[buffer]), %%rax\n\t" "adcq  $0, %%rdx\n\t" "movq  %%rdx, %[c1]\n\t" "movq  %%rax, %[passed]\n\t"
+			"movq  %[reducer1], %%rax\n\t" "mulq  16(%[modulus])\n\t" "addq  %[l1], %%rax\n\t" "adcq  $0, %%rdx\n\t" "addq  %[passed], %%rax\n\t" "adcq  $0, %%rdx\n\t" "movq  %%rdx, %[l1]\n\t" "movq  %%rax, %[passed]\n\t"
+			"movq  8(%[first]), %%rax\n\t" "mulq  %[high]\n\t" "addq  %[c2], %%rax\n\t" "adcq  $0, %%rdx\n\t" "addq  %[passed], %%rax\n\t" "adcq  $0, %%rdx\n\t" "movq  %%rdx, %[c2]\n\t" "movq  %%rax, %[passed]\n\t"
+			"movq  %[reducer2], %%rax\n\t" "mulq  8(%[modulus])\n\t" "addq  %[l2], %%rax\n\t" "adcq  $0, %%rdx\n\t" "addq  %[passed], %%rax\n\t" "adcq  $0, %%rdx\n\t" "movq  %%rdx, %[l2]\n\t" "movq  %%rax, 0(%[buffer])\n\t"
+			"movq  24(%[first]), %%rax\n\t" "mulq  %[low]\n\t" "addq  %[c1], %%rax\n\t" "adcq  $0, %%rdx\n\t" "addq  24(%[buffer]), %%rax\n\t" "adcq  $0, %%rdx\n\t" "movq  %%rdx, %[c1]\n\t" "movq  %%rax, %[passed]\n\t"
+			"movq  %[reducer1], %%rax\n\t" "mulq  24(%[modulus])\n\t" "addq  %[l1], %%rax\n\t" "adcq  $0, %%rdx\n\t" "addq  %[passed], %%rax\n\t" "adcq  $0, %%rdx\n\t" "movq  %%rdx, %[l1]\n\t" "movq  %%rax, %[passed]\n\t"
+			"movq  16(%[first]), %%rax\n\t" "mulq  %[high]\n\t" "addq  %[c2], %%rax\n\t" "adcq  $0, %%rdx\n\t" "addq  %[passed], %%rax\n\t" "adcq  $0, %%rdx\n\t" "movq  %%rdx, %[c2]\n\t" "movq  %%rax, %[passed]\n\t"
+			"movq  %[reducer2], %%rax\n\t" "mulq  16(%[modulus])\n\t" "addq  %[l2], %%rax\n\t" "adcq  $0, %%rdx\n\t" "addq  %[passed], %%rax\n\t" "adcq  $0, %%rdx\n\t" "movq  %%rdx, %[l2]\n\t" "movq  %%rax, 8(%[buffer])\n\t"
+			"leaq  32(%[buffer]), %[buffer]\n\t" "leaq  32(%[first]), %[first]\n\t" "leaq  32(%[modulus]), %[modulus]\n\t" "subq  $4, %[left]\n\t" "cmpq  $4, %[left]\n\t" "jae   1b\n\t"
+			"2:\n\t" "testq %[left], %[left]\n\t" "jz    4f\n\t"
+			"3:\n\t"
+			"movq  (%[first]), %%rax\n\t" "mulq  %[low]\n\t" "addq  %[c1], %%rax\n\t" "adcq  $0, %%rdx\n\t" "addq  (%[buffer]), %%rax\n\t" "adcq  $0, %%rdx\n\t" "movq  %%rdx, %[c1]\n\t" "movq  %%rax, %[passed]\n\t"
+			"movq  %[reducer1], %%rax\n\t" "mulq  (%[modulus])\n\t" "addq  %[l1], %%rax\n\t" "adcq  $0, %%rdx\n\t" "addq  %[passed], %%rax\n\t" "adcq  $0, %%rdx\n\t" "movq  %%rdx, %[l1]\n\t" "movq  %%rax, %[passed]\n\t"
+			"movq  -8(%[first]), %%rax\n\t" "mulq  %[high]\n\t" "addq  %[c2], %%rax\n\t" "adcq  $0, %%rdx\n\t" "addq  %[passed], %%rax\n\t" "adcq  $0, %%rdx\n\t" "movq  %%rdx, %[c2]\n\t" "movq  %%rax, %[passed]\n\t"
+			"movq  %[reducer2], %%rax\n\t" "mulq  -8(%[modulus])\n\t" "addq  %[l2], %%rax\n\t" "adcq  $0, %%rdx\n\t" "addq  %[passed], %%rax\n\t" "adcq  $0, %%rdx\n\t" "movq  %%rdx, %[l2]\n\t" "movq  %%rax, -16(%[buffer])\n\t"
+			"leaq  8(%[buffer]), %[buffer]\n\t" "leaq  8(%[first]), %[first]\n\t" "leaq  8(%[modulus]), %[modulus]\n\t" "decq  %[left]\n\t" "jnz   3b\n\t"
+			"4:\n\t"
 			: [c1] "+r" (c1), [l1] "+r" (l1), [c2] "+r" (c2), [l2] "+r" (l2), [buffer] "+r" (buffer), [first] "+r" (first), [modulus] "+r" (modulus), [left] "+r" (left), [passed] "=&r" (passed)
 			: [low] "m" (low), [high] "m" (high), [reducer1] "m" (reducer1), [reducer2] "m" (reducer2)
 			: "rax", "rdx", "cc", "memory");

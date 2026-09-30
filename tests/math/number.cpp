@@ -818,3 +818,120 @@ TEST(NumberTest, Inverse) {
 		ASSERT_EQ(number(modulus, result), std::string(ITEMS[i].inverse)) << "модуль " << i;
 	}
 }
+
+#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER)
+#include <sys/machine.hpp>
+#include <internal/math/kernels.hpp>
+/**
+ * Проверка ядер поля вида 2^256 - c на значениях (сборка формул точки под x86-64, круг 61): умножение и
+ * квадрат kernel::multiply <4, true> и kernel::square <4, true> (MULX и ADCX/ADOX) сличаются с ядрами той
+ * же сборки без ADX (mulq) и с арифметикой modulus_t по модулю 2^256 - 617 на краях - 0, 1, 2, p - 2,
+ * p - 1, p, p + 1, 2^256 - 1, 2^255, 2^255 - 1, c, 2^256 - 2c, 2^256 - c² - и на 20 000 случайных парах со
+ * старшими словами из единиц, в том числе на место сомножителя и на место числа. Без MULX и ADCX/ADOX у
+ * машины (или под ANTS_MACHINE, запрещающим ADX) сборка под ADX кривой не берётся и здесь не зовётся:
+ * сличаются лишь ядра без ADX с modulus_t, о чём проверка сообщает
+ */
+TEST(NumberTest, FoldingMulx) {
+	typedef math::kernel::Words <4> value_t;
+	// Место, в которое помещается разбираемая запись модуля
+	uint8_t buffer[math::NUMBER_SIZE];
+	// Модуль 2^256 - 617 (кривая CryptoPro-A)
+	math::modulus_t modulus;
+	ASSERT_TRUE(modulus.start(view_t(buffer, bytes("fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd97", buffer))));
+	// Устройство модуля: вид 2^256 - c с хвостом 617
+	const math::Modulus::layout_t layout = modulus.layout();
+	ASSERT_EQ(static_cast <int> (layout.form), static_cast <int> (math::Modulus::form_t::MINUS));
+	ASSERT_EQ(layout.tail, static_cast <uint64_t> (617));
+	// Признак MULX и ADCX/ADOX у машины: без него сборка под ADX не зовётся
+	const bool adx = machine::has(machine::feature_t::ADX);
+	#if !defined(__ANTS_X86_64_ADX_KERNELS__)
+		// В этой сборке ядер на MULX нет вовсе (ASan без оптимизации либо ANTS_NO_MACHINE)
+		const bool kernels = false;
+	#else
+		const bool kernels = true;
+	#endif
+	// Число сличений
+	size_t count = 0;
+	// Печать значения для сообщения
+	auto hex = [](const uint64_t * w) noexcept -> std::string {
+		char text[65];
+		::snprintf(text, sizeof(text), "%016llx%016llx%016llx%016llx", static_cast <unsigned long long> (w[3]), static_cast <unsigned long long> (w[2]), static_cast <unsigned long long> (w[1]), static_cast <unsigned long long> (w[0]));
+		return std::string(text);
+	};
+	// Сличение произведения и квадрата пары значений всеми путями
+	auto check = [&](const uint64_t * a, const uint64_t * b, const std::string & where) noexcept -> void {
+		// Эталон - арифметика modulus_t (ядра через указатели)
+		math::number_t na, nb, np, ns;
+		::memcpy(na.words, a, 32);
+		::memcpy(nb.words, b, 32);
+		modulus.multiply(na, nb, np);
+		modulus.square(na, ns);
+		// Значения для ядер на значениях
+		value_t va, vb, vr;
+		::memcpy(va.w, a, 32);
+		::memcpy(vb.w, b, 32);
+		// Ядра сборки без ADX
+		math::kernel::multiply <4, false> (layout, va, vb, vr);
+		EXPECT_EQ(::memcmp(vr.w, np.words, 32), 0) << where << ": умножение без ADX " << hex(vr.w) << " при " << hex(np.words);
+		math::kernel::square <4, false> (layout, va, vr);
+		EXPECT_EQ(::memcmp(vr.w, ns.words, 32), 0) << where << ": квадрат без ADX " << hex(vr.w) << " при " << hex(ns.words);
+		// Ядра сборки под ADX, если машина их исполняет
+		if(kernels && adx){
+			math::kernel::multiply <4, true> (layout, va, vb, vr);
+			EXPECT_EQ(::memcmp(vr.w, np.words, 32), 0) << where << ": умножение на MULX " << hex(vr.w) << " при " << hex(np.words);
+			math::kernel::square <4, true> (layout, va, vr);
+			EXPECT_EQ(::memcmp(vr.w, ns.words, 32), 0) << where << ": квадрат на MULX " << hex(vr.w) << " при " << hex(ns.words);
+			// На место первого сомножителя, на место второго и на место возводимого числа
+			value_t vc = va;
+			math::kernel::multiply <4, true> (layout, vc, vb, vc);
+			EXPECT_EQ(::memcmp(vc.w, np.words, 32), 0) << where << ": умножение на MULX на место первого сомножителя";
+			value_t vd = vb;
+			math::kernel::multiply <4, true> (layout, va, vd, vd);
+			EXPECT_EQ(::memcmp(vd.w, np.words, 32), 0) << where << ": умножение на MULX на место второго сомножителя";
+			value_t ve = va;
+			math::kernel::square <4, true> (layout, ve, ve);
+			EXPECT_EQ(::memcmp(ve.w, ns.words, 32), 0) << where << ": квадрат на MULX на место числа";
+		}
+		count++;
+	};
+	// Края: p - 1 и соседи, границы сетки, хвост и его кратные
+	const uint64_t p0 = layout.modulus[0];
+	const uint64_t EDGES[][4] = {
+		{0, 0, 0, 0}, {1, 0, 0, 0}, {2, 0, 0, 0},
+		{p0 - 2, ~0ull, ~0ull, ~0ull}, {p0 - 1, ~0ull, ~0ull, ~0ull}, {p0, ~0ull, ~0ull, ~0ull}, {p0 + 1, ~0ull, ~0ull, ~0ull},
+		{~0ull, ~0ull, ~0ull, ~0ull}, {0, 0, 0, 0x8000000000000000ull}, {~0ull, ~0ull, ~0ull, 0x7FFFFFFFFFFFFFFFull},
+		{617, 0, 0, 0}, {0 - 2 * 617ull, ~0ull, ~0ull, ~0ull}, {0 - 617ull * 617ull, ~0ull, ~0ull, ~0ull}
+	};
+	const size_t edges = (sizeof(EDGES) / sizeof(EDGES[0]));
+	for(size_t i = 0; i < edges; i++)
+		for(size_t j = 0; j < edges; j++)
+			check(EDGES[i], EDGES[j], "края " + std::to_string(i) + " и " + std::to_string(j));
+	// Случайные пары от постоянного зерна: каждое третье значение со старшими словами из единиц
+	uint64_t seed = 0x9E3779B97F4A7C15ull;
+	auto next = [&seed]() noexcept -> uint64_t {
+		seed ^= (seed << 13);
+		seed ^= (seed >> 7);
+		seed ^= (seed << 17);
+		return seed;
+	};
+	for(size_t n = 0; n < 20000; n++){
+		uint64_t a[4], b[4];
+		for(size_t i = 0; i < 4; i++){
+			a[i] = next();
+			b[i] = next();
+		}
+		if((n % 3) == 0)
+			a[3] = a[2] = ~0ull;
+		if((n % 5) == 0)
+			b[3] = b[2] = b[1] = ~0ull;
+		if((n % 7) == 0)
+			b[0] = (p0 - (n % 4));
+		check(a, b, "случайная пара " + std::to_string(n));
+	}
+	// Число сличений: все пары краёв и все случайные пары
+	ASSERT_EQ(count, (edges * edges) + 20000);
+	// Без MULX и ADCX/ADOX у машины сборка под ADX не наблюдаема
+	if(!(kernels && adx))
+		std::cout << "[   INFO   ] ядра на MULX и ADCX/ADOX здесь не исполняются: сличены лишь ядра без ADX с modulus_t" << std::endl;
+}
+#endif
