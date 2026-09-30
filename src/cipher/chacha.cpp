@@ -213,16 +213,16 @@ namespace {
 	 */
 	static constexpr size_t PACK8 = 8;
 
+/**
+ * Если есть ветвь команд NEON
+ */
+#if defined(__ANTS_CHACHA_NEON__)
 	/**
 	 * @brief Число блоков гаммы в пачке NEON из двух четвёрок векторами и двух блоков скалярно
 	 *
 	 */
 	static constexpr size_t PACK10 = 10;
 
-/**
- * Если есть ветвь команд NEON
- */
-#if defined(__ANTS_CHACHA_NEON__)
 	/**
 	 * @brief Перестановка байтов вращения четырёх слов влево на восемь разрядов
 	 *

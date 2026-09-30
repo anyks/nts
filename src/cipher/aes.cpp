@@ -618,6 +618,28 @@ namespace {
 		}
 	}
 
+/**
+ * Слова состояния табличного пути на Эльбрусе держатся в 64 разряда (круг 59, 30.09.2026): индекс
+ * таблицы из слова в 32 разряда lcc расширяет до адреса отдельной командой на каждое из шестнадцати
+ * чтений круга, а из слова в 64 разряда извлекает полем сразу; значения слов при этом не выходят за
+ * 32 разряда, ибо приходят из таблиц, ключей и слов блока, а счётчик гаммы считается в 32 разрядах.
+ * Эльбрус-8С2, lcc 1.27, 64 КиБ AES-256-CTR: 172 → 195 МБ/с при 188 у OpenSSL 1.1.1n (1,09 → 0,96).
+ * Таблицы вчетверо с индексом полем из десяти разрядов (байт и два разряда соседнего байта, без
+ * сдвига индекса) пробовали и не взяли: 1,18 при словах в 32 разряда и 1,06 при 64. Иные машины
+ * идут командами AES, а их табличный путь под запретом команд оставлен на словах в 32 разряда
+ */
+#if defined(__e2k__)
+	/**
+	 * Слово состояния табличного пути
+	 */
+	typedef uint64_t word_t;
+#else
+	/**
+	 * Слово состояния табличного пути
+	 */
+	typedef uint32_t word_t;
+#endif
+
 	/**
 	 * @brief Круг шифрования таблицами: четыре слова состояния в четыре новых
 	 *
@@ -632,7 +654,7 @@ namespace {
 	 * @param t3  место четвёртого слова нового состояния
 	 *
 	 */
-	static __ANTS_INLINE__ void sealRound(const uint32_t s0, const uint32_t s1, const uint32_t s2, const uint32_t s3, const uint32_t * key, uint32_t & t0, uint32_t & t1, uint32_t & t2, uint32_t & t3) noexcept {
+	static __ANTS_INLINE__ void sealRound(const word_t s0, const word_t s1, const word_t s2, const word_t s3, const uint32_t * key, word_t & t0, word_t & t1, word_t & t2, word_t & t3) noexcept {
 		t0 = (TABLES.te[0][s0 >> 24] ^ TABLES.te[1][(s1 >> 16) & 0xFF] ^ TABLES.te[2][(s2 >> 8) & 0xFF] ^ TABLES.te[3][s3 & 0xFF] ^ key[0]);
 		t1 = (TABLES.te[0][s1 >> 24] ^ TABLES.te[1][(s2 >> 16) & 0xFF] ^ TABLES.te[2][(s3 >> 8) & 0xFF] ^ TABLES.te[3][s0 & 0xFF] ^ key[1]);
 		t2 = (TABLES.te[0][s2 >> 24] ^ TABLES.te[1][(s3 >> 16) & 0xFF] ^ TABLES.te[2][(s0 >> 8) & 0xFF] ^ TABLES.te[3][s1 & 0xFF] ^ key[2]);
@@ -652,11 +674,11 @@ namespace {
 	 * @param g3  место четвёртого слова зашифрованного блока
 	 *
 	 */
-	static __ANTS_INLINE__ void sealLast(const uint32_t s0, const uint32_t s1, const uint32_t s2, const uint32_t s3, const uint32_t * key, uint32_t & g0, uint32_t & g1, uint32_t & g2, uint32_t & g3) noexcept {
-		g0 = (((static_cast <uint32_t> (TABLES.sbox[s0 >> 24]) << 24) | (static_cast <uint32_t> (TABLES.sbox[(s1 >> 16) & 0xFF]) << 16) | (static_cast <uint32_t> (TABLES.sbox[(s2 >> 8) & 0xFF]) << 8) | static_cast <uint32_t> (TABLES.sbox[s3 & 0xFF])) ^ key[0]);
-		g1 = (((static_cast <uint32_t> (TABLES.sbox[s1 >> 24]) << 24) | (static_cast <uint32_t> (TABLES.sbox[(s2 >> 16) & 0xFF]) << 16) | (static_cast <uint32_t> (TABLES.sbox[(s3 >> 8) & 0xFF]) << 8) | static_cast <uint32_t> (TABLES.sbox[s0 & 0xFF])) ^ key[1]);
-		g2 = (((static_cast <uint32_t> (TABLES.sbox[s2 >> 24]) << 24) | (static_cast <uint32_t> (TABLES.sbox[(s3 >> 16) & 0xFF]) << 16) | (static_cast <uint32_t> (TABLES.sbox[(s0 >> 8) & 0xFF]) << 8) | static_cast <uint32_t> (TABLES.sbox[s1 & 0xFF])) ^ key[2]);
-		g3 = (((static_cast <uint32_t> (TABLES.sbox[s3 >> 24]) << 24) | (static_cast <uint32_t> (TABLES.sbox[(s0 >> 16) & 0xFF]) << 16) | (static_cast <uint32_t> (TABLES.sbox[(s1 >> 8) & 0xFF]) << 8) | static_cast <uint32_t> (TABLES.sbox[s2 & 0xFF])) ^ key[3]);
+	static __ANTS_INLINE__ void sealLast(const word_t s0, const word_t s1, const word_t s2, const word_t s3, const uint32_t * key, word_t & g0, word_t & g1, word_t & g2, word_t & g3) noexcept {
+		g0 = (((static_cast <word_t> (TABLES.sbox[s0 >> 24]) << 24) | (static_cast <word_t> (TABLES.sbox[(s1 >> 16) & 0xFF]) << 16) | (static_cast <word_t> (TABLES.sbox[(s2 >> 8) & 0xFF]) << 8) | static_cast <word_t> (TABLES.sbox[s3 & 0xFF])) ^ key[0]);
+		g1 = (((static_cast <word_t> (TABLES.sbox[s1 >> 24]) << 24) | (static_cast <word_t> (TABLES.sbox[(s2 >> 16) & 0xFF]) << 16) | (static_cast <word_t> (TABLES.sbox[(s3 >> 8) & 0xFF]) << 8) | static_cast <word_t> (TABLES.sbox[s0 & 0xFF])) ^ key[1]);
+		g2 = (((static_cast <word_t> (TABLES.sbox[s2 >> 24]) << 24) | (static_cast <word_t> (TABLES.sbox[(s3 >> 16) & 0xFF]) << 16) | (static_cast <word_t> (TABLES.sbox[(s0 >> 8) & 0xFF]) << 8) | static_cast <word_t> (TABLES.sbox[s1 & 0xFF])) ^ key[2]);
+		g3 = (((static_cast <word_t> (TABLES.sbox[s3 >> 24]) << 24) | (static_cast <word_t> (TABLES.sbox[(s0 >> 16) & 0xFF]) << 16) | (static_cast <word_t> (TABLES.sbox[(s1 >> 8) & 0xFF]) << 8) | static_cast <word_t> (TABLES.sbox[s2 & 0xFF])) ^ key[3]);
 	}
 	/**
 	 * @brief Круг расшифрования таблицами: четыре слова состояния в четыре новых
@@ -672,7 +694,7 @@ namespace {
 	 * @param t3  место четвёртого слова нового состояния
 	 *
 	 */
-	static __ANTS_INLINE__ void openRound(const uint32_t s0, const uint32_t s1, const uint32_t s2, const uint32_t s3, const uint32_t * key, uint32_t & t0, uint32_t & t1, uint32_t & t2, uint32_t & t3) noexcept {
+	static __ANTS_INLINE__ void openRound(const word_t s0, const word_t s1, const word_t s2, const word_t s3, const uint32_t * key, word_t & t0, word_t & t1, word_t & t2, word_t & t3) noexcept {
 		t0 = (TABLES.td[0][s0 >> 24] ^ TABLES.td[1][(s3 >> 16) & 0xFF] ^ TABLES.td[2][(s2 >> 8) & 0xFF] ^ TABLES.td[3][s1 & 0xFF] ^ key[0]);
 		t1 = (TABLES.td[0][s1 >> 24] ^ TABLES.td[1][(s0 >> 16) & 0xFF] ^ TABLES.td[2][(s3 >> 8) & 0xFF] ^ TABLES.td[3][s2 & 0xFF] ^ key[1]);
 		t2 = (TABLES.td[0][s2 >> 24] ^ TABLES.td[1][(s1 >> 16) & 0xFF] ^ TABLES.td[2][(s0 >> 8) & 0xFF] ^ TABLES.td[3][s3 & 0xFF] ^ key[2]);
@@ -692,11 +714,11 @@ namespace {
 	 * @param g3  место четвёртого слова расшифрованного блока
 	 *
 	 */
-	static __ANTS_INLINE__ void openLast(const uint32_t s0, const uint32_t s1, const uint32_t s2, const uint32_t s3, const uint32_t * key, uint32_t & g0, uint32_t & g1, uint32_t & g2, uint32_t & g3) noexcept {
-		g0 = (((static_cast <uint32_t> (TABLES.inverse[s0 >> 24]) << 24) | (static_cast <uint32_t> (TABLES.inverse[(s3 >> 16) & 0xFF]) << 16) | (static_cast <uint32_t> (TABLES.inverse[(s2 >> 8) & 0xFF]) << 8) | static_cast <uint32_t> (TABLES.inverse[s1 & 0xFF])) ^ key[0]);
-		g1 = (((static_cast <uint32_t> (TABLES.inverse[s1 >> 24]) << 24) | (static_cast <uint32_t> (TABLES.inverse[(s0 >> 16) & 0xFF]) << 16) | (static_cast <uint32_t> (TABLES.inverse[(s3 >> 8) & 0xFF]) << 8) | static_cast <uint32_t> (TABLES.inverse[s2 & 0xFF])) ^ key[1]);
-		g2 = (((static_cast <uint32_t> (TABLES.inverse[s2 >> 24]) << 24) | (static_cast <uint32_t> (TABLES.inverse[(s1 >> 16) & 0xFF]) << 16) | (static_cast <uint32_t> (TABLES.inverse[(s0 >> 8) & 0xFF]) << 8) | static_cast <uint32_t> (TABLES.inverse[s3 & 0xFF])) ^ key[2]);
-		g3 = (((static_cast <uint32_t> (TABLES.inverse[s3 >> 24]) << 24) | (static_cast <uint32_t> (TABLES.inverse[(s2 >> 16) & 0xFF]) << 16) | (static_cast <uint32_t> (TABLES.inverse[(s1 >> 8) & 0xFF]) << 8) | static_cast <uint32_t> (TABLES.inverse[s0 & 0xFF])) ^ key[3]);
+	static __ANTS_INLINE__ void openLast(const word_t s0, const word_t s1, const word_t s2, const word_t s3, const uint32_t * key, word_t & g0, word_t & g1, word_t & g2, word_t & g3) noexcept {
+		g0 = (((static_cast <word_t> (TABLES.inverse[s0 >> 24]) << 24) | (static_cast <word_t> (TABLES.inverse[(s3 >> 16) & 0xFF]) << 16) | (static_cast <word_t> (TABLES.inverse[(s2 >> 8) & 0xFF]) << 8) | static_cast <word_t> (TABLES.inverse[s1 & 0xFF])) ^ key[0]);
+		g1 = (((static_cast <word_t> (TABLES.inverse[s1 >> 24]) << 24) | (static_cast <word_t> (TABLES.inverse[(s0 >> 16) & 0xFF]) << 16) | (static_cast <word_t> (TABLES.inverse[(s3 >> 8) & 0xFF]) << 8) | static_cast <word_t> (TABLES.inverse[s2 & 0xFF])) ^ key[1]);
+		g2 = (((static_cast <word_t> (TABLES.inverse[s2 >> 24]) << 24) | (static_cast <word_t> (TABLES.inverse[(s1 >> 16) & 0xFF]) << 16) | (static_cast <word_t> (TABLES.inverse[(s0 >> 8) & 0xFF]) << 8) | static_cast <word_t> (TABLES.inverse[s3 & 0xFF])) ^ key[2]);
+		g3 = (((static_cast <word_t> (TABLES.inverse[s3 >> 24]) << 24) | (static_cast <word_t> (TABLES.inverse[(s2 >> 16) & 0xFF]) << 16) | (static_cast <word_t> (TABLES.inverse[(s1 >> 8) & 0xFF]) << 8) | static_cast <word_t> (TABLES.inverse[s0 & 0xFF])) ^ key[3]);
 	}
 	/**
 	 * @brief Метод кругов шифрования одного блока прямой линией
@@ -715,11 +737,11 @@ namespace {
 	 *
 	 */
 	template <size_t ROUNDS>
-	static __ANTS_INLINE__ void sealWords(const uint32_t * keys, uint32_t & s0, uint32_t & s1, uint32_t & s2, uint32_t & s3) noexcept {
+	static __ANTS_INLINE__ void sealWords(const uint32_t * keys, word_t & s0, word_t & s1, word_t & s2, word_t & s3) noexcept {
 		// Складываем блок с первым ключом
 		s0 ^= keys[0], s1 ^= keys[1], s2 ^= keys[2], s3 ^= keys[3];
 		// Второе состояние пары кругов
-		uint32_t t0 = 0, t1 = 0, t2 = 0, t3 = 0;
+		word_t t0 = 0, t1 = 0, t2 = 0, t3 = 0;
 		sealRound(s0, s1, s2, s3, keys + 4, t0, t1, t2, t3);
 		sealRound(t0, t1, t2, t3, keys + 8, s0, s1, s2, s3);
 		sealRound(s0, s1, s2, s3, keys + 12, t0, t1, t2, t3);
@@ -755,11 +777,11 @@ namespace {
 	 *
 	 */
 	template <size_t ROUNDS>
-	static __ANTS_INLINE__ void openWords(const uint32_t * keys, uint32_t & s0, uint32_t & s1, uint32_t & s2, uint32_t & s3) noexcept {
+	static __ANTS_INLINE__ void openWords(const uint32_t * keys, word_t & s0, word_t & s1, word_t & s2, word_t & s3) noexcept {
 		// Складываем блок с первым ключом
 		s0 ^= keys[0], s1 ^= keys[1], s2 ^= keys[2], s3 ^= keys[3];
 		// Второе состояние пары кругов
-		uint32_t t0 = 0, t1 = 0, t2 = 0, t3 = 0;
+		word_t t0 = 0, t1 = 0, t2 = 0, t3 = 0;
 		openRound(s0, s1, s2, s3, keys + 4, t0, t1, t2, t3);
 		openRound(t0, t1, t2, t3, keys + 8, s0, s1, s2, s3);
 		openRound(s0, s1, s2, s3, keys + 12, t0, t1, t2, t3);
@@ -796,7 +818,7 @@ namespace {
 	 * @param w0…w3 место слов нового состояния блока
 	 *
 	 */
-	static __ANTS_INLINE__ void sealMany(const uint32_t * key, const uint32_t a0, const uint32_t a1, const uint32_t a2, const uint32_t a3, const uint32_t b0, const uint32_t b1, const uint32_t b2, const uint32_t b3, const uint32_t c0, const uint32_t c1, const uint32_t c2, const uint32_t c3, const uint32_t d0, const uint32_t d1, const uint32_t d2, const uint32_t d3, uint32_t & x0, uint32_t & x1, uint32_t & x2, uint32_t & x3, uint32_t & y0, uint32_t & y1, uint32_t & y2, uint32_t & y3, uint32_t & z0, uint32_t & z1, uint32_t & z2, uint32_t & z3, uint32_t & w0, uint32_t & w1, uint32_t & w2, uint32_t & w3) noexcept {
+	static __ANTS_INLINE__ void sealMany(const uint32_t * key, const word_t a0, const word_t a1, const word_t a2, const word_t a3, const word_t b0, const word_t b1, const word_t b2, const word_t b3, const word_t c0, const word_t c1, const word_t c2, const word_t c3, const word_t d0, const word_t d1, const word_t d2, const word_t d3, word_t & x0, word_t & x1, word_t & x2, word_t & x3, word_t & y0, word_t & y1, word_t & y2, word_t & y3, word_t & z0, word_t & z1, word_t & z2, word_t & z3, word_t & w0, word_t & w1, word_t & w2, word_t & w3) noexcept {
 		sealRound(a0, a1, a2, a3, key, x0, x1, x2, x3);
 		sealRound(b0, b1, b2, b3, key, y0, y1, y2, y3);
 		sealRound(c0, c1, c2, c3, key, z0, z1, z2, z3);
@@ -819,14 +841,14 @@ namespace {
 	 *
 	 */
 	template <size_t ROUNDS>
-	static __ANTS_INLINE__ void sealManyWords(const uint32_t * keys, uint32_t & a0, uint32_t & a1, uint32_t & a2, uint32_t & a3, uint32_t & b0, uint32_t & b1, uint32_t & b2, uint32_t & b3, uint32_t & c0, uint32_t & c1, uint32_t & c2, uint32_t & c3, uint32_t & d0, uint32_t & d1, uint32_t & d2, uint32_t & d3) noexcept {
+	static __ANTS_INLINE__ void sealManyWords(const uint32_t * keys, word_t & a0, word_t & a1, word_t & a2, word_t & a3, word_t & b0, word_t & b1, word_t & b2, word_t & b3, word_t & c0, word_t & c1, word_t & c2, word_t & c3, word_t & d0, word_t & d1, word_t & d2, word_t & d3) noexcept {
 		// Складываем блоки с первым ключом
 		a0 ^= keys[0], a1 ^= keys[1], a2 ^= keys[2], a3 ^= keys[3];
 		b0 ^= keys[0], b1 ^= keys[1], b2 ^= keys[2], b3 ^= keys[3];
 		c0 ^= keys[0], c1 ^= keys[1], c2 ^= keys[2], c3 ^= keys[3];
 		d0 ^= keys[0], d1 ^= keys[1], d2 ^= keys[2], d3 ^= keys[3];
 		// Вторые состояния пары кругов
-		uint32_t x0 = 0, x1 = 0, x2 = 0, x3 = 0, y0 = 0, y1 = 0, y2 = 0, y3 = 0, z0 = 0, z1 = 0, z2 = 0, z3 = 0, w0 = 0, w1 = 0, w2 = 0, w3 = 0;
+		word_t x0 = 0, x1 = 0, x2 = 0, x3 = 0, y0 = 0, y1 = 0, y2 = 0, y3 = 0, z0 = 0, z1 = 0, z2 = 0, z3 = 0, w0 = 0, w1 = 0, w2 = 0, w3 = 0;
 		sealMany(keys + 4, a0, a1, a2, a3, b0, b1, b2, b3, c0, c1, c2, c3, d0, d1, d2, d3, x0, x1, x2, x3, y0, y1, y2, y3, z0, z1, z2, z3, w0, w1, w2, w3);
 		sealMany(keys + 8, x0, x1, x2, x3, y0, y1, y2, y3, z0, z1, z2, z3, w0, w1, w2, w3, a0, a1, a2, a3, b0, b1, b2, b3, c0, c1, c2, c3, d0, d1, d2, d3);
 		sealMany(keys + 12, a0, a1, a2, a3, b0, b1, b2, b3, c0, c1, c2, c3, d0, d1, d2, d3, x0, x1, x2, x3, y0, y1, y2, y3, z0, z1, z2, z3, w0, w1, w2, w3);
@@ -863,7 +885,7 @@ namespace {
 	template <size_t ROUNDS>
 	static void sealTables(const uint32_t * keys, const uint8_t * source, uint8_t * result) noexcept {
 		// Слова блока от старшего байта
-		uint32_t s0 = load(source), s1 = load(source + 4), s2 = load(source + 8), s3 = load(source + 12);
+		word_t s0 = load(source), s1 = load(source + 4), s2 = load(source + 8), s3 = load(source + 12);
 		// Шифруем блок прямой линией кругов
 		sealWords <ROUNDS> (keys, s0, s1, s2, s3);
 		// Записываем зашифрованный блок
@@ -880,7 +902,7 @@ namespace {
 	template <size_t ROUNDS>
 	static void openTables(const uint32_t * keys, const uint8_t * source, uint8_t * result) noexcept {
 		// Слова блока от старшего байта
-		uint32_t s0 = load(source), s1 = load(source + 4), s2 = load(source + 8), s3 = load(source + 12);
+		word_t s0 = load(source), s1 = load(source + 4), s2 = load(source + 8), s3 = load(source + 12);
 		// Расшифровываем блок прямой линией кругов
 		openWords <ROUNDS> (keys, s0, s1, s2, s3);
 		// Записываем расшифрованный блок
@@ -897,10 +919,10 @@ namespace {
 	template <size_t ROUNDS>
 	static void sealFour(const uint32_t * keys, const uint8_t * source, uint8_t * result) noexcept {
 		// Слова блоков от старшего байта
-		uint32_t a0 = load(source + 0), a1 = load(source + 4), a2 = load(source + 8), a3 = load(source + 12);
-		uint32_t b0 = load(source + 16), b1 = load(source + 20), b2 = load(source + 24), b3 = load(source + 28);
-		uint32_t c0 = load(source + 32), c1 = load(source + 36), c2 = load(source + 40), c3 = load(source + 44);
-		uint32_t d0 = load(source + 48), d1 = load(source + 52), d2 = load(source + 56), d3 = load(source + 60);
+		word_t a0 = load(source + 0), a1 = load(source + 4), a2 = load(source + 8), a3 = load(source + 12);
+		word_t b0 = load(source + 16), b1 = load(source + 20), b2 = load(source + 24), b3 = load(source + 28);
+		word_t c0 = load(source + 32), c1 = load(source + 36), c2 = load(source + 40), c3 = load(source + 44);
+		word_t d0 = load(source + 48), d1 = load(source + 52), d2 = load(source + 56), d3 = load(source + 60);
 		// Шифруем блоки одним телом
 		sealManyWords <ROUNDS> (keys, a0, a1, a2, a3, b0, b1, b2, b3, c0, c1, c2, c3, d0, d1, d2, d3);
 		// Записываем зашифрованные блоки
@@ -927,7 +949,7 @@ namespace {
 	template <size_t ROUNDS>
 	static void streamTables(const uint32_t * keys, const uint8_t * counter, const size_t blocks, const uint8_t * source, uint8_t * result) noexcept {
 		// Старшие двенадцать байтов счётчика словами: не меняются
-		const uint32_t head0 = load(counter), head1 = load(counter + 4), head2 = load(counter + 8);
+		const word_t head0 = load(counter), head1 = load(counter + 4), head2 = load(counter + 8);
 		// Младшие четыре байта счётчика числом по кругу: ядро начинает с приращения
 		uint32_t tail = (load(counter + 12) + 1);
 		// Число оставшихся блоков
@@ -937,10 +959,10 @@ namespace {
 		 */
 		while(left >= 4){
 			// Блоки счётчика словами
-			uint32_t a0 = head0, a1 = head1, a2 = head2, a3 = tail;
-			uint32_t b0 = head0, b1 = head1, b2 = head2, b3 = (tail + 1);
-			uint32_t c0 = head0, c1 = head1, c2 = head2, c3 = (tail + 2);
-			uint32_t d0 = head0, d1 = head1, d2 = head2, d3 = (tail + 3);
+			word_t a0 = head0, a1 = head1, a2 = head2, a3 = tail;
+			word_t b0 = head0, b1 = head1, b2 = head2, b3 = (tail + 1);
+			word_t c0 = head0, c1 = head1, c2 = head2, c3 = (tail + 2);
+			word_t d0 = head0, d1 = head1, d2 = head2, d3 = (tail + 3);
 			// Шифруем блоки счётчика разом в гамму
 			sealManyWords <ROUNDS> (keys, a0, a1, a2, a3, b0, b1, b2, b3, c0, c1, c2, c3, d0, d1, d2, d3);
 			// Если гамма накладывается на исходные данные
@@ -971,7 +993,7 @@ namespace {
 		 */
 		while(left > 0){
 			// Блок счётчика словами
-			uint32_t s0 = head0, s1 = head1, s2 = head2, s3 = tail;
+			word_t s0 = head0, s1 = head1, s2 = head2, s3 = tail;
 			// Шифруем блок счётчика в гамму
 			sealWords <ROUNDS> (keys, s0, s1, s2, s3);
 			// Если гамма накладывается на исходные данные

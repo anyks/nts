@@ -78,6 +78,22 @@
  *       ChaCha20 и Poly1305); gcc считает оба имени одним регистром, xmmN у обоих собирателей
  *       охватывает и старшую половину ymm
  *
+ * @note Постоянные у парных ядер AVX2 (круг 59, 30.09.2026) берутся из удвоенной таблицы: группа
+ *       лежит дважды подряд под обе полосы ymm и складывается с расписанием одним операндом в памяти,
+ *       как из таблицы sha512-x86_64.pl OpenSSL, а не рассылается командой vbroadcasti128 на группу.
+ *       Xeon E5-2630 v4, щуп по ядрам: SHA-256 237,1 → 234,5 нс на блок при 226,3 у OpenSSL
+ *       (1,048 → 1,036), SHA-512 320,3 → 318,5 при 303,0 (1,057 → 1,051). Сложения круга командой
+ *       lea вместо add (как в bodyx_00_15 OpenSSL) пробовали и не взяли: 1,14 и 1,13. Сдвиг кадра стека
+ *       и смещение входа на время не влияют (разброс до 1,2 % по 64 сдвигам каждого), таблицы постоянных
+ *       обе стороны читают одинаково - остаток 3…5 % статически не виден, счётчиками стенд не располагает
+ *
+ * @note Переносимый путь SHA-512 под lcc (круг 59, 30.09.2026): большинство считается командой plog от трёх слов
+ *       (см. majority): эталон - sha512.c OpenSSL 1.1.1n, собранный иным lcc, - на блок из 410 широких команд
+ *       раскладывает 128 plog, наш lcc 1.27 сам plog не порождает, а идёт она лишь по двум каналам из шести,
+ *       оттого выгодна не везде: у SHA-512 1,06 → 1,00 (347 нс на блок против 347 у эталона), сигмы круга,
+ *       выбор и всё то же у SHA-256 на словах в 32 разряда - хуже (1,06…1,47). Слова в 64 разряда у SHA-512
+ *       собираются lcc в 541 широкую команду на блок против 410 у эталона при 3 299 операциях против 2 769
+ *
  * @copyright Copyright © 2026
  *
  */
@@ -237,6 +253,100 @@ namespace {
 		0x4CC5D4BECB3E42B6ULL, 0x597F299CFC657E2AULL, 0x5FCB6FAB3AD6FAECULL, 0x6C44198C4A475817ULL
 	};
 
+/**
+ * Если есть ядра x86-64
+ */
+#if defined(__ANTS_SHA2_X86_64__)
+	/**
+	 * @brief Таблица круговых постоянных SHA-256 под парные ядра AVX2
+	 *
+	 */
+	typedef struct Pairs256 {
+		// Слова таблицы: каждая группа из четырёх постоянных лежит дважды подряд
+		alignas(32) uint32_t words[128];
+	} pairs256_t;
+
+	/**
+	 * @brief Таблица круговых постоянных SHA-512 под парные ядра AVX2
+	 *
+	 */
+	typedef struct Pairs512 {
+		// Слова таблицы: каждая пара постоянных лежит дважды подряд
+		alignas(32) uint64_t words[160];
+	} pairs512_t;
+
+	/**
+	 * @brief Метод построения таблицы постоянных SHA-256 под парные ядра
+	 *
+	 * @details Парное ядро складывает слова расписания обоих блоков с постоянными группы одной
+	 *          командой над двумя полосами ymm и читает группу 32 байтами разом, оттого каждая
+	 *          группа лежит в таблице дважды подряд - так устроена таблица sha512-x86_64.pl OpenSSL;
+	 *          рассылка группы командой vbroadcasti128 стоила около 1 % (круг 59, 30.09.2026)
+	 *
+	 * @return таблица, вычисленная из круговых постоянных
+	 *
+	 */
+	static constexpr pairs256_t buildPairs256() noexcept {
+		// Таблица постоянных
+		pairs256_t table{};
+		/**
+		 * Выполняем перебор групп постоянных
+		 */
+		for(size_t group = 0; group < 16; group++){
+			/**
+			 * Выполняем перебор слов группы
+			 */
+			for(size_t word = 0; word < 4; word++){
+				// Кладём слово в первую полосу
+				table.words[(group * 8) + word] = K256[(group * 4) + word];
+				// Кладём слово во вторую полосу
+				table.words[(group * 8) + 4 + word] = K256[(group * 4) + word];
+			}
+		}
+		// Выводим таблицу
+		return table;
+	}
+
+	/**
+	 * @brief Метод построения таблицы постоянных SHA-512 под парные ядра
+	 *
+	 * @return таблица, вычисленная из круговых постоянных
+	 *
+	 */
+	static constexpr pairs512_t buildPairs512() noexcept {
+		// Таблица постоянных
+		pairs512_t table{};
+		/**
+		 * Выполняем перебор групп постоянных
+		 */
+		for(size_t group = 0; group < 40; group++){
+			/**
+			 * Выполняем перебор слов группы
+			 */
+			for(size_t word = 0; word < 2; word++){
+				// Кладём слово в первую полосу
+				table.words[(group * 4) + word] = K512[(group * 2) + word];
+				// Кладём слово во вторую полосу
+				table.words[(group * 4) + 2 + word] = K512[(group * 2) + word];
+			}
+		}
+		// Выводим таблицу
+		return table;
+	}
+
+	/**
+	 * @brief Таблица круговых постоянных SHA-256 под парные ядра AVX2, вычисленная при сборке
+	 *
+	 */
+	static constexpr pairs256_t PAIRS256 = buildPairs256();
+
+	/**
+	 * @brief Таблица круговых постоянных SHA-512 под парные ядра AVX2, вычисленная при сборке
+	 *
+	 */
+	static constexpr pairs512_t PAIRS512 = buildPairs512();
+#endif
+
 	/**
 	 * @brief Начальные значения хеша SHA-224
 	 *
@@ -278,6 +388,56 @@ namespace {
 		0x6A09E667F3BCC908ULL, 0xBB67AE8584CAA73BULL, 0x3C6EF372FE94F82BULL, 0xA54FF53A5F1D36F1ULL,
 		0x510E527FADE682D1ULL, 0x9B05688C2B3E6C1FULL, 0x1F83D9ABFB41BD6BULL, 0x5BE0CD19137E2179ULL
 	};
+
+/**
+ * Собиратель lcc на Эльбрусе с набором команд от пятого умеет plog - логическую операцию от трёх слов по
+ * таблице истинности одной командой, но сам тройные выражения в неё не сворачивает (круг 59, 30.09.2026).
+ * Команда идёт лишь по двум каналам широкой команды из шести, оттого выгодна не везде: у SHA-512 большинство
+ * одной командой дают 1,06 → 1,00 к OpenSSL (эталон собран иным lcc, который так и делает), а сигмы круга и
+ * выбор через plog (1,14…1,29), как и любая plog у SHA-256 на словах в 32 разряда (0,99 → 1,06…1,47), - хуже
+ */
+#if defined(__e2k__) && defined(__LCC__) && defined(__iset__) && (__iset__ >= 5)
+	/**
+	 * Объявляем логику от трёх слов одной командой у SHA-512
+	 */
+	#define __ANTS_SHA512_PLOG__ 1
+#endif
+
+	/**
+	 * @brief Метод функции большинства Maj(a, b, c) раздела 4.1 FIPS 180-4 над словами в 64 разряда
+	 *
+	 * @details Без команды plog большинство считается через суммы a ^ b соседних кругов:
+	 *          ((a ^ b) & (b ^ c)) ^ b - две операции вместо пяти, сумма a ^ b переносится
+	 *          в следующий круг как b ^ c (круг 51)
+	 *
+	 * @param a     первое слово
+	 * @param b     второе слово
+	 * @param c     третье слово
+	 * @param fresh сумма a ^ b этого круга
+	 * @param stale сумма a ^ b прежнего круга: она же b ^ c этого
+	 *
+	 * @return      разряд, установленный хотя бы в двух словах из трёх
+	 *
+	 */
+	static __ANTS_INLINE__ uint64_t majority(const uint64_t a, const uint64_t b, const uint64_t c, const uint64_t fresh, const uint64_t stale) noexcept {
+/**
+ * Если логика от трёх слов идёт одной командой
+ */
+#if defined(__ANTS_SHA512_PLOG__)
+		// Суммы соседних кругов не нужны
+		(void) fresh; (void) stale;
+		// Выводим большинство одной командой: таблица 0xE8 - разряд, установленный хотя бы в двух словах
+		return static_cast <uint64_t> (__builtin_e2k_plog(0xE8, a, b, c));
+/**
+ * Иначе логика идёт обычными операциями
+ */
+#else
+		// Слова a и c порознь не нужны
+		(void) a; (void) c;
+		// Выводим большинство через суммы
+		return ((fresh & stale) ^ b);
+#endif
+	}
 
 	/**
 	 * @brief Метод кругового сдвига слова в 32 разряда вправо
@@ -543,6 +703,7 @@ namespace {
 	 *
 	 * @param a     первая рабочая переменная
 	 * @param b     вторая рабочая переменная
+	 * @param c     третья рабочая переменная
 	 * @param d     четвёртая рабочая переменная: заменяется суммой с первым временным значением
 	 * @param e     пятая рабочая переменная
 	 * @param f     шестая рабочая переменная
@@ -554,7 +715,7 @@ namespace {
 	 * @param stale сумма a ^ b прежнего круга: она же b ^ c этого
 	 *
 	 */
-	static __ANTS_INLINE__ void round512(const uint64_t a, const uint64_t b, uint64_t & d, const uint64_t e, const uint64_t f, const uint64_t g, uint64_t & h, const uint64_t k, const uint64_t w, uint64_t & fresh, const uint64_t stale) noexcept {
+	static __ANTS_INLINE__ void round512(const uint64_t a, const uint64_t b, const uint64_t c, uint64_t & d, const uint64_t e, const uint64_t f, const uint64_t g, uint64_t & h, const uint64_t k, const uint64_t w, uint64_t & fresh, const uint64_t stale) noexcept {
 		// Большая сигма первая от переменной e
 		const uint64_t s1 = (rotr(e, 14) ^ rotr(e, 18) ^ rotr(e, 41));
 		// Функция выбора по переменной e
@@ -563,8 +724,8 @@ namespace {
 		const uint64_t s0 = (rotr(a, 28) ^ rotr(a, 34) ^ rotr(a, 39));
 		// Сумма a ^ b этого круга
 		fresh = (a ^ b);
-		// Функция большинства по переменным a, b, c через две суммы
-		const uint64_t maj = ((fresh & stale) ^ b);
+		// Функция большинства по переменным a, b, c
+		const uint64_t maj = majority(a, b, c, fresh, stale);
 		// Первое временное значение круга: слагаемые без e прежде сигмы
 		const uint64_t t1 = (((h + k) + w) + (ch + s1));
 		// Складываем новое значение переменной e на месте d
@@ -638,14 +799,14 @@ namespace {
 	 *
 	 */
 	static __ANTS_INLINE__ void eight512(uint64_t & a, uint64_t & b, uint64_t & c, uint64_t & d, uint64_t & e, uint64_t & f, uint64_t & g, uint64_t & h, const uint64_t * k, uint64_t & x0, uint64_t & x1, uint64_t & p0, uint64_t & p1, uint64_t & p2, uint64_t & p3, uint64_t & p4, uint64_t & p5, uint64_t & p6, uint64_t & p7, uint64_t & p8, uint64_t & p9, uint64_t & p10, uint64_t & p11, uint64_t & p12, uint64_t & p13, uint64_t & p14, uint64_t & p15, const bool expand) noexcept {
-		round512(a, b, d, e, f, g, h, k[0], (expand ? expand512(p0, p1, p9, p14) : p0), x1, x0);
-		round512(h, a, c, d, e, f, g, k[1], (expand ? expand512(p1, p2, p10, p15) : p1), x0, x1);
-		round512(g, h, b, c, d, e, f, k[2], (expand ? expand512(p2, p3, p11, p0) : p2), x1, x0);
-		round512(f, g, a, b, c, d, e, k[3], (expand ? expand512(p3, p4, p12, p1) : p3), x0, x1);
-		round512(e, f, h, a, b, c, d, k[4], (expand ? expand512(p4, p5, p13, p2) : p4), x1, x0);
-		round512(d, e, g, h, a, b, c, k[5], (expand ? expand512(p5, p6, p14, p3) : p5), x0, x1);
-		round512(c, d, f, g, h, a, b, k[6], (expand ? expand512(p6, p7, p15, p4) : p6), x1, x0);
-		round512(b, c, e, f, g, h, a, k[7], (expand ? expand512(p7, p8, p0, p5) : p7), x0, x1);
+		round512(a, b, c, d, e, f, g, h, k[0], (expand ? expand512(p0, p1, p9, p14) : p0), x1, x0);
+		round512(h, a, b, c, d, e, f, g, k[1], (expand ? expand512(p1, p2, p10, p15) : p1), x0, x1);
+		round512(g, h, a, b, c, d, e, f, k[2], (expand ? expand512(p2, p3, p11, p0) : p2), x1, x0);
+		round512(f, g, h, a, b, c, d, e, k[3], (expand ? expand512(p3, p4, p12, p1) : p3), x0, x1);
+		round512(e, f, g, h, a, b, c, d, k[4], (expand ? expand512(p4, p5, p13, p2) : p4), x1, x0);
+		round512(d, e, f, g, h, a, b, c, k[5], (expand ? expand512(p5, p6, p14, p3) : p5), x0, x1);
+		round512(c, d, e, f, g, h, a, b, k[6], (expand ? expand512(p6, p7, p15, p4) : p6), x1, x0);
+		round512(b, c, d, e, f, g, h, a, k[7], (expand ? expand512(p7, p8, p0, p5) : p7), x0, x1);
 	}
 
 /**
@@ -1166,7 +1327,7 @@ namespace {
 				// Если пар блоков хотя бы одна
 				if(count >= 2)
 					// Выполняем разбор пар блоков ядром AVX2
-					kernel::sha256avx2(words, data, count / 2, K256);
+					kernel::sha256avx2(words, data, count / 2, PAIRS256.words);
 				// Если остался нечётный блок
 				if((count & 1) != 0)
 					// Выполняем разбор последнего блока ядром AVX
@@ -1228,7 +1389,7 @@ namespace {
 				// Если пар блоков хотя бы одна
 				if(count >= 2)
 					// Выполняем разбор пар блоков ядром AVX2
-					kernel::sha512avx2(hash, data, count / 2, K512);
+					kernel::sha512avx2(hash, data, count / 2, PAIRS512.words);
 				// Если остался нечётный блок
 				if((count & 1) != 0)
 					// Выполняем разбор последнего блока ядром AVX

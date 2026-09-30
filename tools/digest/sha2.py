@@ -19,6 +19,9 @@
 # ((a^b)&(b^c))^b с переносом a^b в следующий круг. Ветвь AVX2 ведёт два блока разом:
 # расписание обоих в двух полосах ymm (команды перестановки и сдвига действуют в полосах),
 # круги первого блока перемежаются с расписанием, круги второго идут без векторной работы;
+# постоянные у пар берутся из удвоенной таблицы (группа из 16 / G слов лежит дважды подряд, под обе
+# полосы ymm) одним операндом в памяти, как из таблицы sha512-x86_64.pl OpenSSL: рассылка
+# vbroadcasti128 на группу стоила на Xeon E5-2630 v4 около 1 % (круг 59);
 # кадр у пар адресуется бегущим rsi (rsp стоит), а указатель постоянных лежит в кадре и
 # перечитывается в rax перед чтением - rax мёртв между кругами, и перечитывание не отрывается
 # от чтения при раздаче векторных команд по кругам.
@@ -127,9 +130,9 @@ class Kernel:
 		self.vop('pshufb', t2, t2, self.masks[1])       # sigma1(X[16..17]) в слова 2, 3
 		self.vop('paddd', X0, X0, t2)
 		if wide:
-			if kreg: self.e('movq', kreg, ('frame', 40)); self.vop('bcast', t3, ('mem', kreg, koff * 4))
-			else: self.vop('bcast', t3, ('K', koff))
-			self.vop('paddd', t2, X0, t3)
+			# постоянные группы у пар лежат дважды подряд: обе полосы читаются одним операндом в памяти
+			if kreg: self.e('movq', kreg, ('frame', 40)); self.vop('paddd', t2, X0, ('mem', kreg, koff * 8))
+			else: self.vop('paddd', t2, X0, ('K', 2 * koff))
 		else: self.vop('paddd', t2, X0, ('K', koff))
 		self.vop('store', dest if dest else ('frame', self.FRAME + stride * j), t2)
 	def rotr64(self, dst, src, n, tmp):
@@ -154,9 +157,9 @@ class Kernel:
 		self.vop('pxor', t1, t1, t2)                    # sigma1
 		self.vop('paddq', X[0], X[0], t1)
 		if wide:
-			if kreg: self.e('movq', kreg, ('frame', 40)); self.vop('bcast', t3, ('mem', kreg, koff * 8))
-			else: self.vop('bcast', t3, ('K', koff))
-			self.vop('paddq', t2, X[0], t3)
+			# постоянные группы у пар лежат дважды подряд: обе полосы читаются одним операндом в памяти
+			if kreg: self.e('movq', kreg, ('frame', 40)); self.vop('paddq', t2, X[0], ('mem', kreg, koff * 16))
+			else: self.vop('paddq', t2, X[0], ('K', 2 * koff))
 		else: self.vop('paddq', t2, X[0], ('K', koff))
 		self.vop('store', dest if dest else ('frame', self.FRAME + stride * j), t2)
 	def build(self):
@@ -201,11 +204,10 @@ class Kernel:
 		self.e('movq', ('frame', 24), 'rsi')
 		self.e('movq', 'rsi', ('frame', 32))
 		for k in range(nx):
-			self.vop('bcast', T[0], ('K', G * k))
-			self.vop('paddx', T[0], X[k], T[0])
+			self.vop('paddx', T[0], X[k], ('K', 2 * G * k))
 			self.vop('store', ('frame', self.FRAME + 32 * k), T[0])
-		# бегущий указатель постоянных: за первые шестнадцать слов; бегущий указатель кадра
-		self.e('lea', 'rax', 'rsi', 16 * W)
+		# бегущий указатель постоянных: за первые шестнадцать слов удвоенной таблицы; бегущий указатель кадра
+		self.e('lea', 'rax', 'rsi', 32 * W)
 		self.e('movq', ('frame', 40), 'rax')
 		self.e('lea', 'rsi', 'rsp', self.FRAME)
 		bc, ab = 'rdx', 'rcx'
@@ -217,7 +219,7 @@ class Kernel:
 				if i == 16:
 					# конец прохода: кадр на P групп вперёд; у блока A ещё постоянные на шестнадцать слов
 					self.e('lea', 'rsi', 'rsi', 32 * P)
-					if blk == 0: self.e('addm', ('frame', 40), 16 * W)
+					if blk == 0: self.e('addm', ('frame', 40), 32 * W)
 					self.e('lea', 'rax', 'rsp', self.FRAME + 32 * P * ((R - 16) // 16 if blk == 0 else R // 16))
 					self.e('cmp', 'rsi', 'rax')
 					self.e('jb', 'inner' if blk == 0 else 'innerb')
@@ -251,7 +253,7 @@ class Kernel:
 		# перечитанный указатель постоянных читается следующей же командой: между ними нет круга, портящего rax
 		for n, ins in enumerate(self.ins):
 			if ins == ('movq', 'rax', ('frame', 40)):
-				assert self.ins[n + 1][:2] == ('v', 'bcast') and self.ins[n + 1][3][:2] == ('mem', 'rax'), ('перечитывание указателя постоянных оторвано от чтения', n)
+				assert self.ins[n + 1][0] == 'v' and self.ins[n + 1][1] in ('paddd', 'paddq') and self.ins[n + 1][4][:2] == ('mem', 'rax'), ('перечитывание указателя постоянных оторвано от чтения', n)
 		return self.ins
 	def buildsingle(self):
 		r = self.reg; W = self.W; R = self.R; G = self.G
@@ -419,7 +421,8 @@ def kernel_cpp(kern, name, legacy, brief):
 	word = 'uint32_t' if kern.bits == 256 else 'uint64_t'
 	mtab = 'MASK256' if kern.bits == 256 else 'MASK512'
 	countdoc = 'число пар блоков' if kern.pairs else 'число блоков'
-	head = ('\t\t\t\t/**\n\t\t\t\t * @brief %s\n\t\t\t\t *\n\t\t\t\t * @param state     состояние: восемь слов\n\t\t\t\t * @param data      блоки сообщения\n\t\t\t\t * @param count     %s, не меньше одного\n\t\t\t\t * @param constants круговые постоянные\n\t\t\t\t *\n\t\t\t\t */\n' % (brief, countdoc)
+	kdoc = 'круговые постоянные, удвоенные по группам: каждая группа из %d слов лежит дважды подряд' % kern.G if kern.pairs else 'круговые постоянные'
+	head = ('\t\t\t\t/**\n\t\t\t\t * @brief %s\n\t\t\t\t *\n\t\t\t\t * @param state     состояние: восемь слов\n\t\t\t\t * @param data      блоки сообщения\n\t\t\t\t * @param count     %s, не меньше одного\n\t\t\t\t * @param constants %s\n\t\t\t\t *\n\t\t\t\t */\n' % (brief, countdoc, kdoc)
 		+ '\t\t\t\tstatic void %s(%s * state, const uint8_t * data, size_t count, const %s * constants) noexcept {\n\t\t\t\t\t// Указатели на постоянные и маски перестановки байтов: читаются вставкой до сдвига стека\n\t\t\t\t\tconst void * kp = constants;\n\t\t\t\t\tconst void * mp = %s;\n\t\t\t\t\t__asm__ __volatile__(\n' % (name, word, word, mtab))
 	tail = ('\n\t\t\t\t\t\t: [data] "+S" (data), [state] "+D" (state), [count] "+d" (count)\n\t\t\t\t\t\t: [kp] "m" (kp), [mp] "m" (mp)\n\t\t\t\t\t\t: "rax", "rbx", "rcx", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15", %s, "cc", "memory");\n\t\t\t\t}\n' % regs)
 	return head + asmtext(render(kern, legacy), '\t\t\t\t\t\t') + tail
@@ -552,7 +555,9 @@ def run(kern, message):
 	frame = bytearray(4096)
 	xmm = {}
 	masktab = (bytes([3,2,1,0,7,6,5,4,11,10,9,8,15,14,13,12]) if W == 4 else bytes([7,6,5,4,3,2,1,0,15,14,13,12,11,10,9,8])) + bytes([0,1,2,3,8,9,10,11] + [0x80] * 8) + bytes([0x80] * 8 + [0,1,2,3,8,9,10,11])
-	Kbytes = b''.join(k.to_bytes(W, 'little') for k in kern.K)
+	# у пар таблица постоянных удвоена по группам: каждая группа из 16 / G слов лежит дважды подряд
+	Ktab = ([k for j in range(kern.R // kern.G) for _ in (0, 1) for k in kern.K[kern.G * j:kern.G * j + kern.G]] if kern.pairs else kern.K)
+	Kbytes = b''.join(k.to_bytes(W, 'little') for k in Ktab)
 	def memread(addr, width):
 		if regs['rsp'] <= addr < regs['rsp'] + 4096: return bytes(frame[addr - regs['rsp']:addr - regs['rsp'] + width])
 		if DATA <= addr < KB: return bytes(blocks[addr - DATA:addr - DATA + width])
