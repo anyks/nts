@@ -21,9 +21,9 @@
  *          байта, как велит стандарт. Гамма накладывается на данные сложением по
  *          модулю два; остаток неполного блока хранится до следующего куска.
  *          Пачки целых блоков идут векторными командами - по четыре блока разом
- *          у SSE2/SSSE3, по восемь у NEON (двумя четвёрками вперемешку) и у AVX2, -
- *          с выбором на исполнении; на x86-64 у gcc и clang пачки ведут ядра на
- *          ассемблере из internal/cipher/chacha.hpp
+ *          у SSE2/SSSE3, по восемь у AVX2, у NEON по десять (две четвёрки векторами
+ *          и два блока скалярно вперемешку), - с выбором на исполнении; на x86-64 у
+ *          gcc и clang пачки ведут ядра на ассемблере из internal/cipher/chacha.hpp
  *
  * @copyright Copyright © 2026
  *
@@ -59,6 +59,16 @@
  *       упиралась в задержку, а не в число устройств; две четвёрки вперемешку дают
  *       восемь цепочек: на Apple M4 1,86 → 2,8 ГБ/с при 3,0 у OpenSSL, ведущего шесть
  *       блоков векторами и два скалярами. Хвост от четырёх до семи блоков идёт четвёркой.
+ *       Два скалярных блока к восьми векторным (круг 58, 30.09.2026): восемь блоков двумя
+ *       четвёрками занимают все четыре векторных устройства M4 (224 команды NEON на двойной
+ *       раунд без сбросов, 2 850 МБ/с при 3 000…3 050 у OpenSSL), а шесть целочисленных
+ *       стоят без дела; два скалярных блока по очереди - по два двойных раунда на векторный,
+ *       полураундами между группами четвертьраундов - дают десять блоков за проход: 3 510…3 540
+ *       МБ/с на 1 МиБ (0,86 к OpenSSL), 3 440 на 16 КиБ (0,88); по bench ChaCha20 1,06 → 0,83…0,84,
+ *       ChaCha20-Poly1305 1,00 → 0,86…0,88, записи 16 КиБ щупом symmetric 1,03 → 0,85…0,86. Один скалярный блок дал 0,95,
+ *       три - не лучше двух (скалярная цепочка становится узким местом), зернистость
+ *       перемежения на итог не влияет - машина переупорядочивает сама. Хвост от восьми
+ *       до девяти блоков идёт восьмёркой, от четырёх до семи - четвёркой.
  *       Ядра на ассемблере x86-64 (круг 42, 28.09.2026): ветви на интринсиках отдавали
  *       собирателю шестнадцать векторов слов, две маски и приращения - регистров на это нет,
  *       и раунды шли с перегрузкой слов через стек: Xeon E5-2630 v4 давал 1 487 МБ/с при
@@ -202,6 +212,12 @@ namespace {
 	 *
 	 */
 	static constexpr size_t PACK8 = 8;
+
+	/**
+	 * @brief Число блоков гаммы в пачке NEON из двух четвёрок векторами и двух блоков скалярно
+	 *
+	 */
+	static constexpr size_t PACK10 = 10;
 
 /**
  * Если есть ветвь команд NEON
@@ -454,6 +470,224 @@ namespace {
 				// Записываем данные первой четвёрки, сложенные с гаммой по модулю два
 				vst1q_u8(result + low, veorq_u8(vld1q_u8(source + low), vreinterpretq_u8_u32(first[(i * 4) + j])));
 				// Записываем данные второй четвёрки, сложенные с гаммой по модулю два
+				vst1q_u8(result + high, veorq_u8(vld1q_u8(source + high), vreinterpretq_u8_u32(second[(i * 4) + j])));
+			}
+		}
+	}
+	/**
+	 * @brief Метод четвертьраунда над словами скалярного блока
+	 *
+	 * @param a первое слово, заменяемое итогом
+	 * @param b второе слово, заменяемое итогом
+	 * @param c третье слово, заменяемое итогом
+	 * @param d четвёртое слово, заменяемое итогом
+	 *
+	 */
+	static __ANTS_INLINE__ void quarterWord(uint32_t & a, uint32_t & b, uint32_t & c, uint32_t & d) noexcept {
+		// Первая половина четвертьраунда: вращения на шестнадцать и двенадцать
+		a += b; d ^= a; d = rotate(d, 16);
+		c += d; b ^= c; b = rotate(b, 12);
+		// Вторая половина четвертьраунда: вращения на восемь и семь
+		a += b; d ^= a; d = rotate(d, 8);
+		c += d; b ^= c; b = rotate(b, 7);
+	}
+	/**
+	 * @brief Метод заведения скалярного блока пачки
+	 *
+	 * @param state   состояние шифра: постоянные, ключ, счётчик, заполнение
+	 * @param counter счётчик блока
+	 * @param words   место, в которое помещаются рабочие слова блока
+	 *
+	 */
+	static __ANTS_INLINE__ void beginWord(const uint32_t * state, const uint32_t counter, uint32_t * words) noexcept {
+		/**
+		 * Выполняем перенос слов состояния в рабочие
+		 */
+		for(size_t i = 0; i < 16; i++)
+			// Переносим очередное слово состояния
+			words[i] = state[i];
+		// Ставим счётчик блока
+		words[12] = counter;
+	}
+	/**
+	 * @brief Метод завершения скалярного блока пачки: сложение с состоянием и наложение гаммы
+	 *
+	 * @param state   состояние шифра: постоянные, ключ, счётчик, заполнение
+	 * @param counter счётчик блока
+	 * @param words   рабочие слова блока после двадцати раундов
+	 * @param source  покрываемые данные блока в 64 байта
+	 * @param result  место, в которое записываются покрытые данные
+	 *
+	 */
+	static __ANTS_INLINE__ void finishWord(const uint32_t * state, const uint32_t counter, uint32_t * words, const uint8_t * source, uint8_t * result) noexcept {
+		/**
+		 * Выполняем сложение рабочих слов с исходными
+		 */
+		for(size_t i = 0; i < 16; i++)
+			// Складываем очередное слово с исходным, у счётчика - со счётчиком блока
+			words[i] += ((i == 12) ? counter : state[i]);
+		/**
+		 * Выполняем наложение гаммы словами: чтение слов гаммы вектором заставило бы
+		 * собирателя держать рабочие слова в векторных регистрах и вынимать их по
+		 * дорожкам на всяком раунде (mov.s) - скалярный путь обязан оставаться скалярным
+		 */
+		for(size_t i = 0; i < 16; i++){
+			// Слово данных
+			uint32_t word = 0;
+			// Читаем слово данных
+			::memcpy(&word, source + (i * 4), sizeof(word));
+			// Накладываем слово гаммы
+			word ^= words[i];
+			// Записываем покрытое слово
+			::memcpy(result + (i * 4), &word, sizeof(word));
+		}
+	}
+	/**
+	 * @brief Метод двойного раунда над двумя четвёрками NEON вперемешку с двумя двойными раундами скалярного блока
+	 *
+	 * @details Полураунды скалярного блока (столбцы, диагонали) стоят между группами
+	 *          четвертьраундов четвёрок: машина переупорядочивает команды сама, и
+	 *          зернистость перемежения на итог не влияет, а так собирателю проще держать
+	 *          слова обоих путей в регистрах
+	 *
+	 * @param first  рабочие слова первой четвёрки блоков
+	 * @param second рабочие слова второй четвёрки блоков
+	 * @param words  рабочие слова скалярного блока
+	 * @param table  перестановка байтов вращения на восемь
+	 *
+	 */
+	static __ANTS_INLINE__ void roundNeon10(uint32x4_t * first, uint32x4_t * second, uint32_t * words, const uint8x16_t table) noexcept {
+		// Первые два столбца четвёрок
+		quarterNeon(first[0], first[4], first[8], first[12], table);
+		quarterNeon(second[0], second[4], second[8], second[12], table);
+		quarterNeon(first[1], first[5], first[9], first[13], table);
+		quarterNeon(second[1], second[5], second[9], second[13], table);
+		// Столбцы скалярного блока: первый двойной раунд
+		quarterWord(words[0], words[4], words[8], words[12]);
+		quarterWord(words[1], words[5], words[9], words[13]);
+		quarterWord(words[2], words[6], words[10], words[14]);
+		quarterWord(words[3], words[7], words[11], words[15]);
+		// Вторые два столбца четвёрок
+		quarterNeon(first[2], first[6], first[10], first[14], table);
+		quarterNeon(second[2], second[6], second[10], second[14], table);
+		quarterNeon(first[3], first[7], first[11], first[15], table);
+		quarterNeon(second[3], second[7], second[11], second[15], table);
+		// Диагонали скалярного блока: первый двойной раунд
+		quarterWord(words[0], words[5], words[10], words[15]);
+		quarterWord(words[1], words[6], words[11], words[12]);
+		quarterWord(words[2], words[7], words[8], words[13]);
+		quarterWord(words[3], words[4], words[9], words[14]);
+		// Первые две диагонали четвёрок
+		quarterNeon(first[0], first[5], first[10], first[15], table);
+		quarterNeon(second[0], second[5], second[10], second[15], table);
+		quarterNeon(first[1], first[6], first[11], first[12], table);
+		quarterNeon(second[1], second[6], second[11], second[12], table);
+		// Столбцы скалярного блока: второй двойной раунд
+		quarterWord(words[0], words[4], words[8], words[12]);
+		quarterWord(words[1], words[5], words[9], words[13]);
+		quarterWord(words[2], words[6], words[10], words[14]);
+		quarterWord(words[3], words[7], words[11], words[15]);
+		// Вторые две диагонали четвёрок
+		quarterNeon(first[2], first[7], first[8], first[13], table);
+		quarterNeon(second[2], second[7], second[8], second[13], table);
+		quarterNeon(first[3], first[4], first[9], first[14], table);
+		quarterNeon(second[3], second[4], second[9], second[14], table);
+		// Диагонали скалярного блока: второй двойной раунд
+		quarterWord(words[0], words[5], words[10], words[15]);
+		quarterWord(words[1], words[6], words[11], words[12]);
+		quarterWord(words[2], words[7], words[8], words[13]);
+		quarterWord(words[3], words[4], words[9], words[14]);
+	}
+	/**
+	 * @brief Метод покрытия гаммой десяти целых блоков разом: восемь двумя четвёрками NEON и два скалярно
+	 *
+	 * @details Восемь блоков двумя четвёрками занимают все векторные устройства, и два
+	 *          скалярных блока идут на целочисленных устройствах в те же такты: первый
+	 *          скалярный блок (счётчик плюс восемь) проходит свои двадцать раундов за
+	 *          первые пять двойных раундов четвёрок, второй (плюс девять) - за вторые
+	 *
+	 * @param state  состояние шифра: постоянные, ключ, счётчик, заполнение
+	 * @param source покрываемые данные в 640 байтов
+	 * @param result место, в которое записываются покрытые данные
+	 *
+	 */
+	static void streamNeon10(const uint32_t * state, const uint8_t * source, uint8_t * result) noexcept {
+		// Приращения счётчиков четвёрки и сдвиг второй четвёрки
+		const uint32x4_t steps = vld1q_u32(STEPS4);
+		const uint32x4_t shift = vdupq_n_u32(PACK4);
+		// Перестановка байтов вращения на восемь
+		const uint8x16_t table = vld1q_u8(ROTATE8);
+		// Рабочие слова обеих четвёрок
+		uint32x4_t first[16], second[16];
+		/**
+		 * Выполняем размножение слов состояния на обе четвёрки
+		 */
+		for(size_t i = 0; i < 16; i++){
+			// Размножаем очередное слово на первую четвёрку
+			first[i] = vdupq_n_u32(state[i]);
+			// Размножаем то же слово на вторую четвёрку
+			second[i] = first[i];
+		}
+		// Ставим счётчики блоков первой четвёрки
+		first[12] = vaddq_u32(first[12], steps);
+		// Ставим счётчики блоков второй четвёрки
+		second[12] = vaddq_u32(vaddq_u32(second[12], steps), shift);
+		// Рабочие слова скалярного блока
+		uint32_t words[16];
+		// Заводим первый скалярный блок: счётчик плюс восемь
+		beginWord(state, (state[12] + static_cast <uint32_t> (PACK8)), words);
+		/**
+		 * Выполняем первые пять двойных раундов четвёрок вперемешку с первым скалярным блоком
+		 */
+		for(size_t i = 0; i < 5; i++)
+			// Выполняем двойной раунд четвёрок и два двойных раунда скалярного блока
+			roundNeon10(first, second, words, table);
+		// Завершаем первый скалярный блок: блок с восьмым смещением пачки
+		finishWord(state, (state[12] + static_cast <uint32_t> (PACK8)), words, source + (PACK8 * CHACHA_BLOCK), result + (PACK8 * CHACHA_BLOCK));
+		// Заводим второй скалярный блок: счётчик плюс девять
+		beginWord(state, (state[12] + static_cast <uint32_t> (PACK8 + 1)), words);
+		/**
+		 * Выполняем вторые пять двойных раундов четвёрок вперемешку со вторым скалярным блоком
+		 */
+		for(size_t i = 0; i < 5; i++)
+			// Выполняем двойной раунд четвёрок и два двойных раунда скалярного блока
+			roundNeon10(first, second, words, table);
+		// Завершаем второй скалярный блок: блок с девятым смещением пачки
+		finishWord(state, (state[12] + static_cast <uint32_t> (PACK8 + 1)), words, source + ((PACK8 + 1) * CHACHA_BLOCK), result + ((PACK8 + 1) * CHACHA_BLOCK));
+		/**
+		 * Выполняем сложение рабочих слов четвёрок с исходными, взятыми из состояния заново
+		 */
+		for(size_t i = 0; i < 16; i++){
+			// Исходное слово состояния
+			const uint32x4_t word = vdupq_n_u32(state[i]);
+			// Складываем слово первой четвёрки
+			first[i] = vaddq_u32(first[i], word);
+			// Складываем слово второй четвёрки
+			second[i] = vaddq_u32(second[i], word);
+		}
+		// Складываем счётчики первой четвёрки
+		first[12] = vaddq_u32(first[12], steps);
+		// Складываем счётчики второй четвёрки
+		second[12] = vaddq_u32(vaddq_u32(second[12], steps), shift);
+		/**
+		 * Выполняем перестановку по блокам и наложение гаммы четвёрками слов
+		 */
+		for(size_t i = 0; i < 4; i++){
+			// Переставляем очередные четыре слова первой четвёрки по блокам
+			transposeNeon(first[i * 4], first[(i * 4) + 1], first[(i * 4) + 2], first[(i * 4) + 3]);
+			// Переставляем те же слова второй четвёрки
+			transposeNeon(second[i * 4], second[(i * 4) + 1], second[(i * 4) + 2], second[(i * 4) + 3]);
+			/**
+			 * Выполняем наложение гаммы на очередную четвёрку слов каждого блока
+			 */
+			for(size_t j = 0; j < PACK4; j++){
+				// Смещение четвёрки слов блока первой четвёрки
+				const size_t low = ((j * CHACHA_BLOCK) + (i * 16));
+				// Смещение той же четвёрки слов блока второй четвёрки
+				const size_t high = (low + (PACK4 * CHACHA_BLOCK));
+				// Накладываем гамму блока первой четвёрки
+				vst1q_u8(result + low, veorq_u8(vld1q_u8(source + low), vreinterpretq_u8_u32(first[(i * 4) + j])));
+				// Накладываем гамму блока второй четвёрки
 				vst1q_u8(result + high, veorq_u8(vld1q_u8(source + high), vreinterpretq_u8_u32(second[(i * 4) + j])));
 			}
 		}
@@ -1030,6 +1264,26 @@ void nts::cipher::Chacha::pack(const uint8_t * & cursor, uint8_t * & output, siz
 #if defined(__ANTS_CHACHA_NEON__)
 	// Если машина несёт векторы в 128 разрядов
 	if(machine::has(machine::feature_t::VECTOR)){
+		/**
+		 * Выполняем покрытие пачками по десять блоков: восемь двумя четвёрками NEON и два
+		 * скалярно вперемешку, пока счётчики умещаются
+		 */
+		while(!this->_exhausted && (left >= (PACK10 * CHACHA_BLOCK)) && (this->_state[12] <= (UINT32_MAX - (PACK10 - 1)))){
+			// Выполняем покрытие пачки
+			streamNeon10(this->_state, cursor, output);
+			// Сдвигаем счётчик блоков на пачку
+			this->_state[12] += PACK10;
+			// Если счётчик переполнился, гамма исчерпана
+			if(this->_state[12] == 0)
+				// Отмечаем исчерпание гаммы
+				this->_exhausted = true;
+			// Сдвигаем данные на пачку
+			cursor += (PACK10 * CHACHA_BLOCK);
+			// Сдвигаем место записи на пачку
+			output += (PACK10 * CHACHA_BLOCK);
+			// Уменьшаем остаток на пачку
+			left -= (PACK10 * CHACHA_BLOCK);
+		}
 		/**
 		 * Выполняем покрытие пачками по восемь блоков двумя четвёрками вперемешку, пока счётчики умещаются
 		 */
