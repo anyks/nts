@@ -2203,14 +2203,18 @@ namespace nts {
 				 * @return       отказ получения принятых прикладных данных
 				 *
 				 * @note Принятые данные с накопителя связи снимаются: повторный вызов выдаст
-				 *       лишь то, что пришло после
+				 *       лишь то, что пришло после. Выдача идёт обменом накопителей без копии:
+				 *       прежнее содержимое накопителя result уходит связи под следующие записи
+				 *       и затирается по классу PLAINTEXT
 				 *
 				 * \~english
 				 * @brief Method of getting the received application data
 				 * @param result the accumulator the received data is transferred into
 				 * @return       the failure of getting the received application data
 				 * @note The received data is removed from the accumulator of the connection: a repeated call
-				 *       will output only what came after
+				 *       will output only what came after. The hand-over swaps the accumulators without a copy:
+				 *       the previous contents of result go to the connection for the following records and
+				 *       are wiped by the PLAINTEXT class
 				 *
 				 * \~
 				 */

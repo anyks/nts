@@ -3420,11 +3420,12 @@ namespace {
 };
 
 /**
- * Проверка затирания открытого текста принятых записей по классу PLAINTEXT (решение 20
- * шапки движка): без класса накопители движка после выдачи данных вызовом read держат
- * принятые байты как есть (умолчание, как у OpenSSL без SSL_OP_CLEANSE_PLAINTEXT), с
- * классом - и накопитель прикладных данных, и накопитель открытого содержимого
- * последней записи нулевые
+ * Проверка затирания открытого текста принятых записей по классу PLAINTEXT (решения 20
+ * и 21 шапки движка): прикладные данные вскрываются прямо в накопитель прикладных
+ * данных и выдаются потребителю обменом накопителей - копий открытого текста в движке
+ * после read нет; без класса прежний накопитель потребителя, взятый обменом, и накопитель
+ * открытого содержимого последней записи рукопожатия держат байты как есть (умолчание,
+ * как у OpenSSL без SSL_OP_CLEANSE_PLAINTEXT), с классом - оба нулевые
  */
 TEST(AuditTest, PlaintextCleansing){
 	// Подлинность стороны сервера
@@ -3476,6 +3477,38 @@ TEST(AuditTest, PlaintextCleansing){
 		}
 		// Проверяем установленность связи стороной сервера
 		ASSERT_EQ(server.state(), context::state_t::ESTABLISHED) << "режим " << static_cast <int> (mode);
+		// Накопитель принятых прикладных данных движка
+		vector <uint8_t> & plain = (server.*peek(PlainTag()));
+		// Накопитель открытого содержимого записи движка
+		vector <uint8_t> & opened = (server.*peek(OpenedTag()));
+		/**
+		 * Последняя запись рукопожатия клиента (Finished) вскрыта прямо в накопитель
+		 * прикладных данных и перенесена в накопитель открытого содержимого (решение 21):
+		 * по завершении подачи он затёрт лишь с классом
+		 */
+		ASSERT_GT(opened.size(), static_cast <size_t> (0)) << "режим " << static_cast <int> (mode);
+		// Число нулевых байтов в накопителе открытого содержимого
+		const size_t cleared = zeros(opened.data(), opened.size());
+		// Проверяем: накопитель прикладных данных после отзыва пуст, память его остаётся с движком
+		ASSERT_TRUE(plain.empty()) << "режим " << static_cast <int> (mode);
+		ASSERT_GE(plain.capacity(), opened.size()) << "режим " << static_cast <int> (mode);
+		// Снимаем отраву с буфера накопителя за его размером
+		ANTS_AUDIT_UNPOISON(plain.data(), opened.size());
+		// Число нулевых байтов в отозванном хвосте накопителя прикладных данных
+		const size_t retracted = zeros(plain.data(), opened.size());
+		// Если режим без класса
+		if(mode == 0){
+			// Проверяем сохранность открытого содержимого: затирания нет (нули заголовка сообщения не в счёт)
+			EXPECT_LT(cleared, opened.size()) << "без класса PLAINTEXT открытое содержимое затёрто";
+			// Проверяем сохранность отозванного хвоста: затирания нет
+			EXPECT_LT(retracted, opened.size()) << "без класса PLAINTEXT отозванный хвост затёрт";
+		// Если режим с классом
+		} else {
+			// Проверяем затирание открытого содержимого целиком
+			EXPECT_EQ(cleared, opened.size()) << "с классом PLAINTEXT открытое содержимое не затёрто";
+			// Проверяем затирание отозванного хвоста целиком
+			EXPECT_EQ(retracted, opened.size()) << "с классом PLAINTEXT отозванный хвост не затёрт";
+		}
 		// Выполняем отправку прикладных данных клиентом
 		ASSERT_EQ(client.write(view_t(payload.data(), payload.size())), context::error_t::NONE);
 		// Байты клиента серверу
@@ -3488,41 +3521,41 @@ TEST(AuditTest, PlaintextCleansing){
 		client.consume(buffer.size());
 		// Выполняем подачу записи серверу
 		ASSERT_EQ(server.push(view_t(buffer.data(), buffer.size())), context::error_t::NONE) << "режим " << static_cast <int> (mode);
+		// Проверяем: прикладные данные лежат в накопителе прикладных данных без копии
+		ASSERT_EQ(plain.size(), payload.size()) << "режим " << static_cast <int> (mode);
+		// Проверяем: накопитель открытого содержимого прикладных данных не держит
+		ASSERT_TRUE(opened.empty()) << "режим " << static_cast <int> (mode);
 		// Накопитель принятых данных
 		vector <uint8_t> received;
 		// Выполняем получение принятых сервером прикладных данных
 		ASSERT_EQ(server.read(received), context::error_t::NONE);
 		// Проверяем схождение принятых данных с отправленными
 		ASSERT_EQ(received, payload) << "режим " << static_cast <int> (mode);
-		// Накопитель принятых прикладных данных движка
-		vector <uint8_t> & plain = (server.*peek(PlainTag()));
-		// Накопитель открытого содержимого записи движка
-		vector <uint8_t> & opened = (server.*peek(OpenedTag()));
-		// Проверяем опустошение накопителя прикладных данных выдачей
+		// Проверяем: выдача обменом - открытого текста в движке не осталось
 		ASSERT_TRUE(plain.empty()) << "режим " << static_cast <int> (mode);
-		// Проверяем сохранность буфера накопителя: память остаётся с движком
+		/**
+		 * Повторная выдача: потребитель отдаёт обменом накопитель с прежними данными,
+		 * движок берёт его под следующие записи и затирает лишь с классом
+		 */
+		ASSERT_EQ(server.read(received), context::error_t::NONE);
+		// Проверяем: данных к выдаче не было
+		ASSERT_TRUE(received.empty()) << "режим " << static_cast <int> (mode);
+		// Проверяем опустошение накопителя прикладных данных
+		ASSERT_TRUE(plain.empty()) << "режим " << static_cast <int> (mode);
+		// Проверяем: память прежнего накопителя потребителя осталась с движком
 		ASSERT_GE(plain.capacity(), payload.size()) << "режим " << static_cast <int> (mode);
-		// Проверяем длину накопителя открытого содержимого: последняя запись целиком
-		ASSERT_EQ(opened.size(), payload.size()) << "режим " << static_cast <int> (mode);
 		// Снимаем отраву с буфера накопителя за его размером
 		ANTS_AUDIT_UNPOISON(plain.data(), payload.size());
 		// Число нулевых байтов в буфере прикладных данных
 		const size_t blanked = zeros(plain.data(), payload.size());
-		// Число нулевых байтов в накопителе открытого содержимого
-		const size_t cleared = zeros(opened.data(), opened.size());
 		// Если режим без класса
-		if(mode == 0){
-			// Проверяем сохранность принятых байтов в буфере: затирания нет
+		if(mode == 0)
+			// Проверяем сохранность прежних байтов в буфере: затирания нет
 			EXPECT_EQ(blanked, static_cast <size_t> (0)) << "без класса PLAINTEXT буфер прикладных данных затёрт";
-			// Проверяем сохранность открытого содержимого: затирания нет
-			EXPECT_EQ(cleared, static_cast <size_t> (0)) << "без класса PLAINTEXT открытое содержимое затёрто";
 		// Если режим с классом
-		} else {
+		else
 			// Проверяем затирание буфера прикладных данных целиком
 			EXPECT_EQ(blanked, payload.size()) << "с классом PLAINTEXT буфер прикладных данных не затёрт";
-			// Проверяем затирание открытого содержимого целиком
-			EXPECT_EQ(cleared, payload.size()) << "с классом PLAINTEXT открытое содержимое не затёрто";
-		}
 	}
 }
 
@@ -3585,10 +3618,18 @@ TEST(AuditTest, SecretsViaPurge){
 	EXPECT_NE(source.find("wipe(data, size);", purge), std::string::npos) << "purge() не затирает";
 	// Проверяем условие класса SECRETS в purge()
 	EXPECT_NE(source.find("if(this->_scrubbing)", purge), std::string::npos) << "purge() не смотрит на класс SECRETS";
-	// Тело cleanse(): голый wipe() внутри
-	const size_t cleanse = source.find("Engine::cleanse(vector <uint8_t> & data) const noexcept {");
-	// Проверяем наличие cleanse()
-	ASSERT_NE(cleanse, std::string::npos) << "cleanse() не найден";
+	// Тело cleanse() над накопителем: делегирует cleanse() над областью
+	const size_t vectored = source.find("Engine::cleanse(vector <uint8_t> & data) const noexcept {");
+	// Проверяем наличие cleanse() над накопителем
+	ASSERT_NE(vectored, std::string::npos) << "cleanse() над накопителем не найден";
+	// Проверяем делегирование cleanse() над областью
+	EXPECT_NE(source.find("this->cleanse(data.data(), data.size());", vectored), std::string::npos) << "cleanse() над накопителем не делегирует cleanse() над областью";
+	// Тело cleanse() над областью: голый wipe() внутри (решение 21 - отзыв хвоста накопителя прикладных данных)
+	const size_t cleanse = source.find("Engine::cleanse(uint8_t * data, const size_t size) const noexcept {");
+	// Проверяем наличие cleanse() над областью
+	ASSERT_NE(cleanse, std::string::npos) << "cleanse() над областью не найден";
 	// Проверяем условие класса PLAINTEXT в cleanse()
-	EXPECT_NE(source.find("if(this->_cleansing && !data.empty())", cleanse), std::string::npos) << "cleanse() не смотрит на класс PLAINTEXT";
+	EXPECT_NE(source.find("if(this->_cleansing && (data != nullptr) && (size > 0))", cleanse), std::string::npos) << "cleanse() не смотрит на класс PLAINTEXT";
+	// Проверяем голый wipe() в cleanse() над областью
+	EXPECT_NE(source.find("wipe(data, size);", cleanse), std::string::npos) << "cleanse() не затирает";
 }
