@@ -18,7 +18,13 @@
 # либо последовательные повороты одной копии, выбор Ch - and и andn (BMI1) либо четырьмя командами; большинство -
 # ((a^b)&(b^c))^b с переносом a^b в следующий круг. Ветвь AVX2 ведёт два блока разом:
 # расписание обоих в двух полосах ymm (команды перестановки и сдвига действуют в полосах),
-# круги первого блока перемежаются с расписанием, круги второго идут без векторной работы;
+# круги первого блока перемежаются с расписанием, круги второго идут без векторной работы; хвост
+# первого блока (шестнадцать кругов без расписания) и весь второй блок идут одним циклом по восемь
+# кругов (кольцо регистров замыкается и через восемь): бегущий указатель кадра у второго блока
+# смещён на шестнадцать байтов (его полоса в слотах кольца), конец прохода лежит в слоте 48 кадра, а
+# чей проход кончился, говорит разряд 16 указателя. Ядро в 1 386 команд (SHA-256) не помещалось в
+# кэш декодированных микроопераций (46 % микроопераций из него против 75 % у эталона, счётчики
+# hwpmc на Xeon E5-2630 v4), с общим циклом 817 команд и 99,6 % (круг 60);
 # постоянные у пар берутся из удвоенной таблицы (группа из 16 / G слов лежит дважды подряд, под обе
 # полосы ymm) одним операндом в памяти, как из таблицы sha512-x86_64.pl OpenSSL: рассылка
 # vbroadcasti128 на группу стоила на Xeon E5-2630 v4 около 1 % (круг 59);
@@ -212,39 +218,59 @@ class Kernel:
 		self.e('lea', 'rsi', 'rsp', self.FRAME)
 		bc, ab = 'rdx', 'rcx'
 		ring = list(self.ring)
-		for blk in range(2):
-			self.e('mov', r(bc), r(ring[1])); self.e('xor', r(bc), r(ring[2]))
-			self.e('label', 'inner' if blk == 0 else 'innerb')
-			for i in range(R):
-				if i == 16:
-					# конец прохода: кадр на P групп вперёд; у блока A ещё постоянные на шестнадцать слов
-					self.e('lea', 'rsi', 'rsi', 32 * P)
-					if blk == 0: self.e('addm', ('frame', 40), 32 * W)
-					self.e('lea', 'rax', 'rsp', self.FRAME + 32 * P * ((R - 16) // 16 if blk == 0 else R // 16))
-					self.e('cmp', 'rsi', 'rax')
-					self.e('jb', 'inner' if blk == 0 else 'innerb')
-				if blk == 0 and i < 16 and i % G == 0:
-					j = i // G
-					mark = len(self.ins)
-					if self.bits == 256: self.schedule256(j, X, T, 32, True, G * j, ('mem', 'rsi', 32 * (P + j)), 'rax')
-					else: self.schedule512(j, X, T, 32, True, G * j, ('mem', 'rsi', 32 * (P + j)), 'rax')
-					self.pending = self.ins[mark:]; del self.ins[mark:]
-					X = X[1:] + X[:1]
-				elif 16 <= i < (R - 16 if blk == 0 else R): continue
-				self.round(i, ring, ab, bc, ('mem', 'rsi', 32 * ((i // G) % P) + 16 * blk + W * (i % G)))
-				ab, bc = bc, ab
-				ring = ring[-1:] + ring[:-1]
-				if blk == 0 and getattr(self, 'pending', None):
-					share = (len(self.pending) + (G - 1 - (i % G))) // (G - (i % G))
-					# перечитывание указателя постоянных не отрывать от чтения: rax жив лишь внутри доли
-					if share < len(self.pending) and self.pending[share - 1][0] == 'movq' and self.pending[share - 1][1] == 'rax': share += 1
-					chunk, self.pending = self.pending[:share], self.pending[share:]
-					self.ins.extend(chunk)
-			self.e('movq', 'rdi', ('frame', 0))
-			for k in range(8):
-				self.e('add', r(self.ring[k]), ('mem', 'rdi', k * W))
-				self.e('store', ('mem', 'rdi', k * W), r(self.ring[k]))
-			if blk == 0: self.e('lea', 'rsi', 'rsp', self.FRAME)
+		blk = 0
+		self.e('mov', r(bc), r(ring[1])); self.e('xor', r(bc), r(ring[2]))
+		self.e('label', 'inner')
+		for i in range(16):
+			if i % G == 0:
+				j = i // G
+				mark = len(self.ins)
+				if self.bits == 256: self.schedule256(j, X, T, 32, True, G * j, ('mem', 'rsi', 32 * (P + j)), 'rax')
+				else: self.schedule512(j, X, T, 32, True, G * j, ('mem', 'rsi', 32 * (P + j)), 'rax')
+				self.pending = self.ins[mark:]; del self.ins[mark:]
+				X = X[1:] + X[:1]
+			self.round(i, ring, ab, bc, ('mem', 'rsi', 32 * ((i // G) % P) + W * (i % G)))
+			ab, bc = bc, ab
+			ring = ring[-1:] + ring[:-1]
+			if getattr(self, 'pending', None):
+				share = (len(self.pending) + (G - 1 - (i % G))) // (G - (i % G))
+				if share < len(self.pending) and self.pending[share - 1][0] == 'movq' and self.pending[share - 1][1] == 'rax': share += 1
+				chunk, self.pending = self.pending[:share], self.pending[share:]
+				self.ins.extend(chunk)
+		# конец прохода с расписанием: кадр на P групп вперёд, постоянные на шестнадцать слов удвоенной таблицы
+		self.e('lea', 'rsi', 'rsi', 32 * P)
+		self.e('addm', ('frame', 40), 32 * W)
+		self.e('lea', 'rax', 'rsp', self.FRAME + 32 * P * ((R - 16) // 16))
+		self.e('cmp', 'rsi', 'rax')
+		self.e('jb', 'inner')
+		# общий цикл кругов без расписания: хвост блока A (rsi у хвоста) и весь блок B (rsi от кадра + 16); конец прохода в слоте 48
+		self.e('lea', 'rax', 'rsp', self.FRAME + 32 * P * (R // 16))
+		self.e('movq', ('frame', 48), 'rax')
+		self.e('label', 'innerb')
+		for i in range(8):
+			self.round(i, ring, ab, bc, ('mem', 'rsi', 32 * ((i // G) % P) + W * (i % G)))
+			ab, bc = bc, ab
+			ring = ring[-1:] + ring[:-1]
+		self.e('lea', 'rsi', 'rsi', 32 * (8 // G))
+		self.e('cmp', 'rsi', ('frame', 48))
+		self.e('jb', 'innerb')
+		# чей проход кончился: у блока B бегущий указатель кадра смещён на шестнадцать
+		self.e('test', 'rsi', 16)
+		self.e('jnz', 'done')
+		self.e('movq', 'rdi', ('frame', 0))
+		for k in range(8):
+			self.e('add', r(self.ring[k]), ('mem', 'rdi', k * W))
+			self.e('store', ('mem', 'rdi', k * W), r(self.ring[k]))
+		self.e('lea', 'rsi', 'rsp', self.FRAME + 16)
+		self.e('lea', 'rax', 'rsp', self.FRAME + 32 * P * (R // 16) + 16)
+		self.e('movq', ('frame', 48), 'rax')
+		self.e('mov', r(bc), r(ring[1])); self.e('xor', r(bc), r(ring[2]))
+		self.e('jmp', 'innerb')
+		self.e('label', 'done')
+		self.e('movq', 'rdi', ('frame', 0))
+		for k in range(8):
+			self.e('add', r(self.ring[k]), ('mem', 'rdi', k * W))
+			self.e('store', ('mem', 'rdi', k * W), r(self.ring[k]))
 		self.e('movq', 'rsi', ('frame', 24))
 		self.e('cmp', 'rsi', ('frame', 8))
 		self.e('jb', 'loop')
@@ -368,7 +394,7 @@ def render(kern, legacy):
 	vsfx = 'd' if W == 4 else 'q'
 	for ins in kern.ins:
 		op = ins[0]
-		if op == 'label': out.append({'loop': '1', 'inner': '2', 'innerb': '3'}[ins[1]] + ':'); continue
+		if op == 'label': out.append({'loop': '1', 'inner': '2', 'innerb': '3', 'done': '4'}[ins[1]] + ':'); continue
 		if op == 'v':
 			_, vo, d, s1, s2, imm = ins
 			if isinstance(s1, tuple) and s1[0] == 'K': s1 = ('K', s1[1], W)
@@ -407,7 +433,10 @@ def render(kern, legacy):
 		if op == 'andn': out.append('andn%s %s, %s, %s' % (width(ins[1]), operand(ins[3]), operand(ins[2]), operand(ins[1]))); continue
 		if op == 'shl': out.append('shlq $%d, %s' % (ins[2], operand(ins[1]))); continue
 		if op == 'lea': out.append('leaq %d(%s), %s' % (ins[3], operand(ins[2]), operand(ins[1]))); continue
-		if op == 'jb': out.append('jb %sb' % {'loop': '1', 'inner': '2', 'innerb': '3'}[ins[1]]); continue
+		if op == 'jb': out.append('jb %sb' % {'loop': '1', 'inner': '2', 'innerb': '3', 'done': '4'}[ins[1]]); continue
+		if op == 'jnz': out.append('jnz %sf' % {'loop': '1', 'inner': '2', 'innerb': '3', 'done': '4'}[ins[1]]); continue
+		if op == 'jmp': out.append('jmp %sb' % {'loop': '1', 'inner': '2', 'innerb': '3', 'done': '4'}[ins[1]]); continue
+		if op == 'test': out.append('testq $%d, %s' % (ins[2], operand(ins[1]))); continue
 		if op == 'addm': out.append('addq $%d, %s' % (ins[2], operand(ins[1]))); continue
 		if op == 'vzeroupper': out.append('vzeroupper'); continue
 		raise Exception(ins)
@@ -452,10 +481,14 @@ HEADER = """/**
  *          кольце из шестнадцати слов в кадре на стеке, круг берёт их операндом в памяти;
  *          сигмы - rorx (BMI2) либо ror, выбор - andn (BMI1) либо четыре команды. Три ветви
  *          на преобразование: AVX2 с BMI2 - два блока разом (расписание обоих в двух полосах
- *          ymm, круги первого перемежаются с расписанием, круги второго идут без векторной
- *          работы, кадр адресуется бегущим rsi), AVX с BMI2 - по одному блоку, SSSE3 - по
- *          одному блоку без VEX и rorx. Кадр строится сдвигом rsp внутри вставки, доводы
- *          приходят регистрами; порча регистров объявлена именами xmmN и у ядер на ymm
+ *          ymm и удвоенная таблица постоянных, круги первого перемежаются с расписанием, хвост
+ *          первого и все круги второго идут одним циклом по восемь кругов без векторной
+ *          работы - у второго бегущий указатель кадра смещён на его полосу, конец прохода в
+ *          слоте кадра, чей проход кончился, говорит разряд указателя; так ядро в 817 команд
+ *          помещается в кэш декодированных микроопераций, а в 1 386 не помещалось), AVX с
+ *          BMI2 - по одному блоку, SSSE3 - по одному блоку без VEX и rorx. Кадр строится
+ *          сдвигом rsp внутри вставки, доводы приходят регистрами; порча регистров объявлена
+ *          именами xmmN и у ядер на ymm
  *
  * @copyright Copyright © 2026
  *
@@ -659,6 +692,11 @@ def run(kern, message):
 		if op == 'shl': wr(ins[1], rd(ins[1], 8) << ins[2], 8); continue
 		if op == 'lea': wr(ins[1], rd(ins[2], 8) + ins[3], 8); continue
 		if op == 'cmp': flag = rd(ins[1], 8) < rd(ins[2], 8); continue
+		if op == 'test': zero = ((rd(ins[1], 8) & ins[2]) == 0); continue
+		if op == 'jnz':
+			if not zero: pc = labels[ins[1]]
+			continue
+		if op == 'jmp': pc = labels[ins[1]]; continue
 		if op == 'jb':
 			if flag: pc = labels[ins[1]]
 			continue

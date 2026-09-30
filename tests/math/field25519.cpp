@@ -541,4 +541,104 @@ TEST(Field25519Test, Columns) {
 	// Сличаем число проверенных сочетаний
 	ASSERT_EQ(count, static_cast <size_t> (4216));
 }
+/**
+ * @brief Шаг лестницы одной вставкой против ядер kernel в порядке шага x25519.cpp
+ *
+ * @details Кадры по границам конечностей (0, 1, 2^51 - 1, 2^51, 2^51 + 2^13 - 1 - предел итогов
+ *          ядер) и случайные до 2^51 + 2^13 при приведённой множимой точке, оба признака обмена;
+ *          сличаются все семь элементов кадра, включая промежуточные значения
+ */
+TEST(Field25519Test, Step) {
+	// Границы конечностей координат
+	static const uint64_t limits[] = {0, 1, ((static_cast <uint64_t> (1) << 51) - 1), (static_cast <uint64_t> (1) << 51), (((static_cast <uint64_t> (1) << 51) + (static_cast <uint64_t> (1) << 13)) - 1)};
+	// Предел конечностей итогов ядер
+	const uint64_t bound = ((static_cast <uint64_t> (1) << 51) + (static_cast <uint64_t> (1) << 13));
+	// Число проверенных кадров
+	size_t count = 0;
+	// Состояние вырабатывателя случайных конечностей
+	uint64_t state = 0xD1B54A32D192ED03ull;
+	// Выполняем перебор кадров: по границам и случайные
+	for(size_t n = 0; n < 4125; n++){
+		// Кадр шага одной вставкой
+		math::field25519::columns::ladder_t actual;
+		// Элементы кадра подряд
+		math::field25519::element_t * items = &actual.x2;
+		// Если кадр по границам
+		if(n < 125){
+			// Индексы границ
+			const size_t i = (n / 25), j = ((n / 5) % 5), k = (n % 5);
+			/**
+			 * Выполняем перебор элементов кадра
+			 */
+			for(size_t e = 0; e < 7; e++){
+				/**
+				 * Выполняем перебор конечностей элемента
+				 */
+				for(size_t l = 0; l < math::field25519::LIMBS; l++)
+					// Записываем конечность по границам со сдвигом
+					items[e].limbs[l] = limits[(i + (j * l) + (k * e)) % 5];
+			}
+			// Множимая точка приведена
+			items[4].limbs[0] &= ((static_cast <uint64_t> (1) << 51) - 1);
+		// Иначе кадр случайный
+		} else {
+			/**
+			 * Выполняем перебор элементов кадра
+			 */
+			for(size_t e = 0; e < 7; e++){
+				/**
+				 * Выполняем перебор конечностей элемента
+				 */
+				for(size_t l = 0; l < math::field25519::LIMBS; l++){
+					// Шаг вырабатывателя xorshift
+					state ^= (state << 13); state ^= (state >> 7); state ^= (state << 17);
+					// Записываем конечность: множимая точка приведена, остальные до предела итогов ядер
+					items[e].limbs[l] = ((e == 4) ? (state & ((static_cast <uint64_t> (1) << 51) - 1)) : (state % bound));
+				}
+			}
+		}
+		// Признак обмена
+		const uint64_t flag = (n & 1);
+		// Кадр эталона: тот же шаг ядрами kernel в порядке x25519.cpp
+		math::field25519::columns::ladder_t expected = actual;
+		// Выполняем условный обмен первых координат точек
+		math::field25519::swap(expected.x2, expected.x3, flag);
+		// Выполняем условный обмен вторых координат точек
+		math::field25519::swap(expected.z2, expected.z3, flag);
+		math::field25519::kernel::minus(expected.x3, expected.z3, expected.first);
+		math::field25519::kernel::minus(expected.x2, expected.z2, expected.second);
+		math::field25519::kernel::plus(expected.x2, expected.z2, expected.x2);
+		math::field25519::kernel::plus(expected.x3, expected.z3, expected.z2);
+		math::field25519::kernel::multiply(expected.x2, expected.first, expected.z3);
+		math::field25519::kernel::multiply(expected.z2, expected.second, expected.z2);
+		math::field25519::kernel::square(expected.second, expected.first);
+		math::field25519::kernel::square(expected.x2, expected.second);
+		math::field25519::kernel::plus(expected.z3, expected.z2, expected.x3);
+		math::field25519::kernel::minus(expected.z3, expected.z2, expected.z2);
+		math::field25519::kernel::multiply(expected.second, expected.first, expected.x2);
+		math::field25519::kernel::minus(expected.second, expected.first, expected.second);
+		math::field25519::kernel::square(expected.z2, expected.z2);
+		math::field25519::kernel::scale(expected.second, 121666, expected.z3);
+		math::field25519::kernel::square(expected.x3, expected.x3);
+		math::field25519::kernel::plus(expected.first, expected.z3, expected.first);
+		math::field25519::kernel::multiply(expected.x1, expected.z2, expected.z3);
+		math::field25519::kernel::multiply(expected.second, expected.first, expected.z2);
+		// Выполняем шаг одной вставкой
+		math::field25519::columns::step(actual, flag);
+		// Элементы кадра эталона подряд
+		const math::field25519::element_t * wanted = &expected.x2;
+		// Имена элементов кадра
+		static const char * const names[7] = {"x2", "z2", "x3", "z3", "x1", "first", "second"};
+		/**
+		 * Выполняем сличение всех элементов кадра
+		 */
+		for(size_t e = 0; e < 7; e++)
+			// Сличаем записи элементов
+			ASSERT_EQ(record(items[e]), record(wanted[e])) << "кадр " << n << ", элемент " << names[e];
+		// Считаем проверенный кадр
+		count++;
+	}
+	// Сличаем число проверенных кадров
+	ASSERT_EQ(count, static_cast <size_t> (4125));
+}
 #endif
