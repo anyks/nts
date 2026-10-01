@@ -18,6 +18,7 @@
 #include <string>
 #include <vector>
 #include <random>
+#include <cstring>
 
 /**
  * Подключаем заголовочные файлы проекта
@@ -90,6 +91,50 @@ TEST(Sha2Test, Abc){
 	ASSERT_EQ(whole(digest::sha_t::SHA384, "abc"), "cb00753f45a35e8bb5a03d699ac65007272c32ab0eded1631a8b605a43ff5bed8086072ba1e7cc2358baeca134c825a7");
 	// Хеш SHA-512 сообщения «abc»
 	ASSERT_EQ(whole(digest::sha_t::SHA512, "abc"), "ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f");
+}
+
+/**
+ * Вход и итог по любому адресу: полные блоки с хвостом, машинный и переносимый пути.
+ * Эталоны для 257 байтов 00…FF 00 вычислены независимо через hashlib
+ */
+TEST(Sha2Test, Alignment) {
+	// Все разновидности SHA-2 и их независимые эталоны
+	const digest::sha_t types[] = {digest::sha_t::SHA224, digest::sha_t::SHA256, digest::sha_t::SHA384, digest::sha_t::SHA512};
+	const char * expected[] = {
+		"18e30b6ab754291770ae234bbd0832f0c5fcc29ec53f04451c11e7c3",
+		"54acfbfedc4d8da40f76f275e1a98f10af8ef1fb9fb39e5a67a00aabcbe6597c",
+		"601cf6212265e735247e224c5a4a323acfb6cf0fbf59b11bd4e7bcf3e5cba09489f9d0b1a5db70d3856864b22ecd180a",
+		"b00ad21342988b64ec9a44cd800a8f022a3fbcc018b95b87d35d80134f7e47f6db8e69b2d79301121402b2cdb029e3e592a53128cb54a648e7dd240ac1162cb2"
+	};
+	// Выравнивание начала позволяет проверить все смещения внутри слова
+	alignas(8) uint8_t input[264], output[80];
+	// Перебираем машинный и переносимый пути
+	for(size_t path = 0; path < 2; path++){
+		// Перебираем разновидности хеша
+		for(size_t type = 0; type < (sizeof(types) / sizeof(types[0])); type++){
+			// Перебираем смещения внутри восьмибайтового слова
+			for(size_t offset = 0; offset < 8; offset++){
+				// Заполняем сообщение полным рядом байтов и хвостом
+				for(size_t i = 0; i < 257; i++)
+					input[offset + i] = static_cast <uint8_t> (i);
+				// Обрамление итога должно сохраниться после записи хеша
+				memset(output, 0xA5, sizeof(output));
+				machine::allow(path == 0);
+				const bool valid = digest::sha2(types[type], view_t(input + offset, 257), output + offset, sizeof(output) - offset);
+				// Возвращаем машинные команды до проверок, способных завершить тест
+				machine::allow(true);
+				ASSERT_TRUE(valid);
+				const size_t size = static_cast <size_t> (types[type]);
+				ASSERT_EQ(text(output + offset, size), expected[type]);
+				// Проверяем нетронутый префикс
+				for(size_t i = 0; i < offset; i++)
+					ASSERT_EQ(output[i], 0xA5);
+				// Проверяем нетронутый хвост
+				for(size_t i = (offset + size); i < sizeof(output); i++)
+					ASSERT_EQ(output[i], 0xA5);
+			}
+		}
+	}
 }
 
 /**

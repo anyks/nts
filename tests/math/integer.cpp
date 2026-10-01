@@ -1055,6 +1055,14 @@ TEST(IntegerTest, VectorSquare) {
 			for(size_t i = 0; i < 40; i++)
 				ASSERT_EQ(alias[i], result[i]);
 		}
+		// Совпадение двух читаемых входов допустимо при отдельном результате
+		math::kernel::square29Avx2(buffer, result, modulus, modulus, inverse, 5);
+		decode(result, actual);
+		ASSERT_TRUE(actual.reduce(actual, module));
+		ASSERT_TRUE(actual.zero());
+		// Модуль сохраняется после всех квадратов, включая совпадение читаемых входов
+		decode(modulus, actual);
+		ASSERT_TRUE(actual.equal(module));
 	}
 }
 #endif
