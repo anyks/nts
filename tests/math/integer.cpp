@@ -848,6 +848,123 @@ TEST(IntegerTest, Montgomery) {
 		ASSERT_TRUE(large.add(large, one));
 	montgomery(large, 1);
 }
+/**
+ * Степень на границах векторной ширины: независимая двоичная степень, нулевые и полные
+ * показатели, короткий старший разряд модуля и совпадение результата с каждым входом
+ */
+TEST(IntegerTest, VectorPower) {
+	// Единица и воспроизводимый источник разрядов
+	math::integer_t one;
+	one.word(1);
+	uint64_t state = 0x6329517382159781ULL;
+	// Ширины по обе стороны шестнадцати слов
+	for(size_t words = 15; words <= 17; words++){
+		// Краевые и случайные сочетания модуля, основания и показателя
+		for(size_t sample = 0; sample < 6; sample++){
+			// Место для наибольшей проверяемой ширины
+			uint8_t buffer[17 * 8];
+			// Вырабатываем воспроизводимое нечётное число
+			for(size_t i = 0; i < (words * 8); i++){
+				state ^= (state << 13);
+				state ^= (state >> 7);
+				state ^= (state << 17);
+				buffer[i] = static_cast <uint8_t> (state);
+			}
+			// У одного модуля все разряды единичные
+			if(sample == 0)
+				memset(buffer, 0xFF, words * 8);
+			// У другого старшее слово содержит только младший разряд
+			else if(sample == 1){
+				memset(buffer, 0, 8);
+				buffer[7] = 1;
+			}
+			// Остальные модули имеют полную разрядность
+			else buffer[0] |= 0x80;
+			// Модуль обязан быть нечётным
+			buffer[(words * 8) - 1] |= 1;
+			math::integer_t modulus, base, exponent, expected, result;
+			ASSERT_TRUE(modulus.load(view_t(buffer, words * 8)));
+			math::montgomery_t field;
+			ASSERT_TRUE(field.start(modulus));
+			// Основания: ноль, единица, модуль минус один и случайный остаток
+			if(sample == 1)
+				base.word(1);
+			else if(sample == 2){
+				ASSERT_TRUE(base.subtract(modulus, one));
+			} else if(sample > 2){
+				// Иная последовательность байтов основания
+				for(size_t i = 0; i < (words * 8); i++)
+					buffer[i] ^= static_cast <uint8_t> ((i * 37) + sample);
+				ASSERT_TRUE(base.load(view_t(buffer, words * 8)));
+				ASSERT_TRUE(base.residue(base, modulus));
+			}
+			// Показатели: ноль, единица, все разряды и граница первого окна
+			if(sample == 1)
+				exponent.word(1);
+			else if((sample == 2) || (sample == 3)){
+				memset(buffer, 0xFF, words * 8);
+				ASSERT_TRUE(exponent.load(view_t(buffer, words * 8)));
+			} else if(sample > 3)
+				exponent.left(one, (words * 64) - ((sample == 4) ? 1 : 5));
+			// Двоичный путь открытого показателя служит независимым эталоном окна
+			ASSERT_TRUE(field.power(base, exponent, false, expected));
+			ASSERT_TRUE(field.power(base, exponent, true, result));
+			ASSERT_TRUE(result.equal(expected));
+			ASSERT_TRUE(result.power(base, exponent, modulus, true));
+			ASSERT_TRUE(result.equal(expected));
+			ASSERT_TRUE(result.power(base, exponent, modulus, words * 64));
+			ASSERT_TRUE(result.equal(expected));
+			// Метод с предвычислениями допускает совпадение итога с основанием
+			result = base;
+			ASSERT_TRUE(field.power(result, exponent, true, result));
+			ASSERT_TRUE(result.equal(expected));
+			// Тот же метод допускает совпадение итога с показателем
+			result = exponent;
+			ASSERT_TRUE(field.power(base, result, true, result));
+			ASSERT_TRUE(result.equal(expected));
+			// Обычная степень допускает совпадение итога с любым из трёх входов
+			result = base;
+			ASSERT_TRUE(result.power(result, exponent, modulus, true));
+			ASSERT_TRUE(result.equal(expected));
+			result = exponent;
+			ASSERT_TRUE(result.power(base, result, modulus, true));
+			ASSERT_TRUE(result.equal(expected));
+			result = modulus;
+			ASSERT_TRUE(result.power(base, exponent, result, true));
+			ASSERT_TRUE(result.equal(expected));
+			// Показатель за пределами секретной ширины отвергается без изменения итога
+			exponent.left(one, words * 64);
+			result.word(53);
+			ASSERT_FALSE(field.power(base, exponent, true, result));
+			ASSERT_EQ(text(result), std::string("35"));
+			ASSERT_FALSE(result.power(base, exponent, modulus, true));
+			ASSERT_EQ(text(result), std::string("35"));
+		}
+	}
+	// Открытый показатель может быть шире шестнадцати слов модуля
+	const math::integer_t modulus = number(PRIME1024);
+	math::montgomery_t field;
+	ASSERT_TRUE(field.start(modulus));
+	math::integer_t base, exponent, expected, result;
+	base.word(2);
+	exponent.left(one, 1024);
+	ASSERT_TRUE(expected.power(base, exponent, modulus, false));
+	ASSERT_TRUE(field.power(base, exponent, false, result));
+	ASSERT_TRUE(result.equal(expected));
+	// Неполная заданная ширина остаётся на обычном пути
+	exponent.left(one, 1022);
+	ASSERT_TRUE(field.power(base, exponent, false, expected));
+	ASSERT_TRUE(result.power(base, exponent, modulus, static_cast <size_t> (1023)));
+	ASSERT_TRUE(result.equal(expected));
+	// Недостаточная ширина и основание, равное модулю, отвергаются до выбора ядра
+	result.word(53);
+	ASSERT_FALSE(result.power(base, exponent, modulus, static_cast <size_t> (1022)));
+	ASSERT_EQ(text(result), std::string("35"));
+	ASSERT_FALSE(field.power(modulus, one, true, result));
+	ASSERT_EQ(text(result), std::string("35"));
+	ASSERT_FALSE(result.power(modulus, one, modulus, true));
+	ASSERT_EQ(text(result), std::string("35"));
+}
 TEST(IntegerTest, Edges) {
 	// Байты числа с запасом
 	uint8_t buffer[math::INTEGER_SIZE + 2] = {};
