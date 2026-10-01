@@ -16,7 +16,8 @@
  *
  * @details Самостоятельная арифметика Монтгомери на 36 коэффициентах по 29 разрядов,
  *          основание области R = 2^1044. Произведение чередует четыре ряда с приведением;
- *          квадрат отдельно накапливает симметричную свёртку и приводит её. Развёртка
+ *          квадрат отдельно накапливает симметричную свёртку и приводит её парами коэффициентов.
+ *          Недиагональная сумма удваивается целиком; диагональ не удваивается. Развёртка
  *          четырёх коэффициентов квадрата намеренная: шаблонная запись оказалась медленнее.
  *
  * @section Намеренные решения
@@ -28,11 +29,23 @@
  *    Доводка до m выполняется один раз после выхода из области, в обычных словах.
  * 2. Секретный показатель всегда перебирается по 1024 разрядам. Выбор записи читает всю
  *    таблицу в одном порядке; даже смещение внутри строки кеша от показателя не зависит.
- *    Произведение, младшие коэффициенты и маски индекса живут в кадре степени и затираются
- *    перед выходом. Буфер ядра не пересекается с числами, итог может совпадать с входом.
+ *    Произведение и младшие коэффициенты живут в кадре степени и затираются перед выходом.
+ *    Буфер ядра не пересекается с числами, итог может совпадать с входом.
  * 3. Путь выбирается лишь для шестнадцати слов на AVX2 без ADX: ширины, признак машины и
  *    допустимость основания проверяются до вызова. Чужой код в реализации не используется;
  *    сторонняя арифметика служит эталоном результата и скорости.
+ * 4. Два множителя приведения получаем сразу: B = 2^29, T = low[0] + B * low[1],
+ *    Q = -T / m по модулю B². Младшие и старшие 29 разрядов Q совпадают с двумя
+ *    последовательными множителями. Шаг inverse * (2 + m * inverse) наращивает известные
+ *    29 разрядов отрицательного обратного до 58. Беззнаковое переполнение при упаковке
+ *    и умножении намеренное: остаются лишь младшие 58 разрядов. Скалярные переносы и
+ *    границы накопителей прежние; произведение остаётся на одиночном приведении по замеру.
+ * 5. Свёртка квадрата вынесена в невстраиваемый метод: её временные векторы не живут
+ *    одновременно с состоянием приведения. Диагональные коэффициенты выбираются масками
+ *    после произведения; недиагональные суммы удваиваются один раз на четыре коэффициента.
+ * 6. Выбор степени держит девять накопителей и одну текущую маску, читая все 32 записи.
+ *    Отдельного массива масок нет. В строке подготовительной таблицы ровно 40 слов,
+ *    включая нулевое дополнение; шаг строки 320 байтов сохраняет нужное выравнивание.
  *
  * @copyright Copyright © 2026
  *
@@ -373,7 +386,406 @@
 					// Завершаем работу с верхними половинами векторных регистров
 					_mm256_zeroupper();
 				}
-
+				/**
+				 * @brief Метод симметричной свёртки квадрата на коэффициентах по 29 разрядов
+				 *
+				 * @param product итог из 72 коэффициентов; не пересекается с value
+				 * @param value   исходное число в 40 словах с нулевым дополнением
+				 *
+				 * @note Коэффициенты ограничены договором файла. Недиагональные произведения
+				 *       суммируются один раз и удваиваются перед добавлением диагонали.
+				 *       Дополнение за 72 коэффициентами подготавливает вызывающий
+				 *
+				 */
+				__attribute__((target("avx2"), noinline)) static void product29Avx2(uint64_t * __restrict__ product, const uint64_t * value) noexcept {
+					// Нулевой вектор для накопителя и отсутствующих коэффициентов
+					const __m256i zero = _mm256_setzero_si256();
+					// Четыре коэффициента произведения, начиная с номера 0
+					{
+						__m256i sum = zero;
+						// В младшей дорожке диагональ, остальные произведения берутся дважды
+						const __m256i lower = _mm256_mul_epu32(_mm256_set1_epi64x(value[0]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 0)));
+						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_add_epi64(lower, lower), lower, 3));
+						// Следующая диагональ в третьей дорожке; младшие две здесь отсутствуют
+						const __m256i upper = _mm256_mul_epu32(_mm256_set1_epi64x(value[1]), _mm256_set_epi64x(value[2], value[1], 0, 0));
+						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_blend_epi32(_mm256_add_epi64(upper, upper), upper, 0x30), zero, 0x0F));
+						_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 0), sum);
+					}
+					// Четыре коэффициента произведения, начиная с номера 4
+					{
+						__m256i sum = zero;
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[0]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 4))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[1]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 3))));
+						// Удваиваем накопленную недиагональную часть
+						sum = _mm256_add_epi64(sum, sum);
+						// В младшей дорожке диагональ, остальные произведения берутся дважды
+						const __m256i lower = _mm256_mul_epu32(_mm256_set1_epi64x(value[2]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 2)));
+						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_add_epi64(lower, lower), lower, 3));
+						// Следующая диагональ в третьей дорожке; младшие две здесь отсутствуют
+						const __m256i upper = _mm256_mul_epu32(_mm256_set1_epi64x(value[3]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 1)));
+						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_blend_epi32(_mm256_add_epi64(upper, upper), upper, 0x30), zero, 0x0F));
+						_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 4), sum);
+					}
+					// Четыре коэффициента произведения, начиная с номера 8
+					{
+						__m256i sum = zero;
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[0]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 8))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[1]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 7))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[2]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 6))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[3]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 5))));
+						// Удваиваем накопленную недиагональную часть
+						sum = _mm256_add_epi64(sum, sum);
+						// В младшей дорожке диагональ, остальные произведения берутся дважды
+						const __m256i lower = _mm256_mul_epu32(_mm256_set1_epi64x(value[4]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 4)));
+						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_add_epi64(lower, lower), lower, 3));
+						// Следующая диагональ в третьей дорожке; младшие две здесь отсутствуют
+						const __m256i upper = _mm256_mul_epu32(_mm256_set1_epi64x(value[5]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 3)));
+						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_blend_epi32(_mm256_add_epi64(upper, upper), upper, 0x30), zero, 0x0F));
+						_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 8), sum);
+					}
+					// Четыре коэффициента произведения, начиная с номера 12
+					{
+						__m256i sum = zero;
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[0]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 12))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[1]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 11))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[2]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 10))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[3]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 9))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[4]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 8))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[5]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 7))));
+						// Удваиваем накопленную недиагональную часть
+						sum = _mm256_add_epi64(sum, sum);
+						// В младшей дорожке диагональ, остальные произведения берутся дважды
+						const __m256i lower = _mm256_mul_epu32(_mm256_set1_epi64x(value[6]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 6)));
+						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_add_epi64(lower, lower), lower, 3));
+						// Следующая диагональ в третьей дорожке; младшие две здесь отсутствуют
+						const __m256i upper = _mm256_mul_epu32(_mm256_set1_epi64x(value[7]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 5)));
+						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_blend_epi32(_mm256_add_epi64(upper, upper), upper, 0x30), zero, 0x0F));
+						_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 12), sum);
+					}
+					// Четыре коэффициента произведения, начиная с номера 16
+					{
+						__m256i sum = zero;
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[0]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 16))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[1]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 15))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[2]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 14))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[3]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 13))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[4]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 12))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[5]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 11))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[6]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 10))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[7]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 9))));
+						// Удваиваем накопленную недиагональную часть
+						sum = _mm256_add_epi64(sum, sum);
+						// В младшей дорожке диагональ, остальные произведения берутся дважды
+						const __m256i lower = _mm256_mul_epu32(_mm256_set1_epi64x(value[8]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 8)));
+						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_add_epi64(lower, lower), lower, 3));
+						// Следующая диагональ в третьей дорожке; младшие две здесь отсутствуют
+						const __m256i upper = _mm256_mul_epu32(_mm256_set1_epi64x(value[9]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 7)));
+						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_blend_epi32(_mm256_add_epi64(upper, upper), upper, 0x30), zero, 0x0F));
+						_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 16), sum);
+					}
+					// Четыре коэффициента произведения, начиная с номера 20
+					{
+						__m256i sum = zero;
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[0]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 20))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[1]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 19))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[2]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 18))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[3]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 17))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[4]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 16))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[5]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 15))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[6]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 14))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[7]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 13))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[8]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 12))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[9]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 11))));
+						// Удваиваем накопленную недиагональную часть
+						sum = _mm256_add_epi64(sum, sum);
+						// В младшей дорожке диагональ, остальные произведения берутся дважды
+						const __m256i lower = _mm256_mul_epu32(_mm256_set1_epi64x(value[10]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 10)));
+						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_add_epi64(lower, lower), lower, 3));
+						// Следующая диагональ в третьей дорожке; младшие две здесь отсутствуют
+						const __m256i upper = _mm256_mul_epu32(_mm256_set1_epi64x(value[11]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 9)));
+						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_blend_epi32(_mm256_add_epi64(upper, upper), upper, 0x30), zero, 0x0F));
+						_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 20), sum);
+					}
+					// Четыре коэффициента произведения, начиная с номера 24
+					{
+						__m256i sum = zero;
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[0]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 24))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[1]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 23))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[2]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 22))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[3]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 21))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[4]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 20))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[5]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 19))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[6]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 18))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[7]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 17))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[8]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 16))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[9]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 15))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[10]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 14))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[11]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 13))));
+						// Удваиваем накопленную недиагональную часть
+						sum = _mm256_add_epi64(sum, sum);
+						// В младшей дорожке диагональ, остальные произведения берутся дважды
+						const __m256i lower = _mm256_mul_epu32(_mm256_set1_epi64x(value[12]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 12)));
+						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_add_epi64(lower, lower), lower, 3));
+						// Следующая диагональ в третьей дорожке; младшие две здесь отсутствуют
+						const __m256i upper = _mm256_mul_epu32(_mm256_set1_epi64x(value[13]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 11)));
+						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_blend_epi32(_mm256_add_epi64(upper, upper), upper, 0x30), zero, 0x0F));
+						_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 24), sum);
+					}
+					// Четыре коэффициента произведения, начиная с номера 28
+					{
+						__m256i sum = zero;
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[0]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 28))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[1]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 27))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[2]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 26))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[3]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 25))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[4]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 24))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[5]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 23))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[6]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 22))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[7]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 21))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[8]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 20))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[9]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 19))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[10]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 18))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[11]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 17))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[12]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 16))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[13]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 15))));
+						// Удваиваем накопленную недиагональную часть
+						sum = _mm256_add_epi64(sum, sum);
+						// В младшей дорожке диагональ, остальные произведения берутся дважды
+						const __m256i lower = _mm256_mul_epu32(_mm256_set1_epi64x(value[14]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 14)));
+						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_add_epi64(lower, lower), lower, 3));
+						// Следующая диагональ в третьей дорожке; младшие две здесь отсутствуют
+						const __m256i upper = _mm256_mul_epu32(_mm256_set1_epi64x(value[15]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 13)));
+						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_blend_epi32(_mm256_add_epi64(upper, upper), upper, 0x30), zero, 0x0F));
+						_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 28), sum);
+					}
+					// Четыре коэффициента произведения, начиная с номера 32
+					{
+						__m256i sum = zero;
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[0]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 32))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[1]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 31))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[2]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 30))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[3]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 29))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[4]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 28))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[5]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 27))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[6]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 26))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[7]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 25))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[8]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 24))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[9]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 23))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[10]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 22))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[11]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 21))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[12]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 20))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[13]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 19))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[14]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 18))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[15]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 17))));
+						// Удваиваем накопленную недиагональную часть
+						sum = _mm256_add_epi64(sum, sum);
+						// В младшей дорожке диагональ, остальные произведения берутся дважды
+						const __m256i lower = _mm256_mul_epu32(_mm256_set1_epi64x(value[16]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 16)));
+						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_add_epi64(lower, lower), lower, 3));
+						// Следующая диагональ в третьей дорожке; младшие две здесь отсутствуют
+						const __m256i upper = _mm256_mul_epu32(_mm256_set1_epi64x(value[17]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 15)));
+						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_blend_epi32(_mm256_add_epi64(upper, upper), upper, 0x30), zero, 0x0F));
+						_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 32), sum);
+					}
+					// Четыре коэффициента произведения, начиная с номера 36
+					{
+						__m256i sum = zero;
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[1]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 35))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[2]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 34))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[3]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 33))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[4]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 32))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[5]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 31))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[6]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 30))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[7]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 29))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[8]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 28))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[9]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 27))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[10]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 26))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[11]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 25))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[12]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 24))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[13]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 23))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[14]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 22))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[15]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 21))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[16]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 20))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[17]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 19))));
+						// Удваиваем накопленную недиагональную часть
+						sum = _mm256_add_epi64(sum, sum);
+						// В младшей дорожке диагональ, остальные произведения берутся дважды
+						const __m256i lower = _mm256_mul_epu32(_mm256_set1_epi64x(value[18]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 18)));
+						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_add_epi64(lower, lower), lower, 3));
+						// Следующая диагональ в третьей дорожке; младшие две здесь отсутствуют
+						const __m256i upper = _mm256_mul_epu32(_mm256_set1_epi64x(value[19]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 17)));
+						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_blend_epi32(_mm256_add_epi64(upper, upper), upper, 0x30), zero, 0x0F));
+						_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 36), sum);
+					}
+					// Четыре коэффициента произведения, начиная с номера 40
+					{
+						__m256i sum = zero;
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[5]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 35))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[6]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 34))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[7]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 33))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[8]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 32))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[9]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 31))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[10]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 30))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[11]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 29))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[12]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 28))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[13]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 27))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[14]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 26))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[15]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 25))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[16]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 24))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[17]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 23))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[18]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 22))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[19]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 21))));
+						// Удваиваем накопленную недиагональную часть
+						sum = _mm256_add_epi64(sum, sum);
+						// В младшей дорожке диагональ, остальные произведения берутся дважды
+						const __m256i lower = _mm256_mul_epu32(_mm256_set1_epi64x(value[20]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 20)));
+						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_add_epi64(lower, lower), lower, 3));
+						// Следующая диагональ в третьей дорожке; младшие две здесь отсутствуют
+						const __m256i upper = _mm256_mul_epu32(_mm256_set1_epi64x(value[21]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 19)));
+						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_blend_epi32(_mm256_add_epi64(upper, upper), upper, 0x30), zero, 0x0F));
+						_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 40), sum);
+					}
+					// Четыре коэффициента произведения, начиная с номера 44
+					{
+						__m256i sum = zero;
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[9]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 35))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[10]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 34))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[11]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 33))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[12]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 32))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[13]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 31))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[14]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 30))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[15]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 29))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[16]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 28))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[17]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 27))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[18]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 26))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[19]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 25))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[20]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 24))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[21]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 23))));
+						// Удваиваем накопленную недиагональную часть
+						sum = _mm256_add_epi64(sum, sum);
+						// В младшей дорожке диагональ, остальные произведения берутся дважды
+						const __m256i lower = _mm256_mul_epu32(_mm256_set1_epi64x(value[22]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 22)));
+						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_add_epi64(lower, lower), lower, 3));
+						// Следующая диагональ в третьей дорожке; младшие две здесь отсутствуют
+						const __m256i upper = _mm256_mul_epu32(_mm256_set1_epi64x(value[23]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 21)));
+						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_blend_epi32(_mm256_add_epi64(upper, upper), upper, 0x30), zero, 0x0F));
+						_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 44), sum);
+					}
+					// Четыре коэффициента произведения, начиная с номера 48
+					{
+						__m256i sum = zero;
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[13]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 35))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[14]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 34))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[15]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 33))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[16]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 32))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[17]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 31))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[18]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 30))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[19]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 29))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[20]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 28))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[21]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 27))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[22]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 26))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[23]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 25))));
+						// Удваиваем накопленную недиагональную часть
+						sum = _mm256_add_epi64(sum, sum);
+						// В младшей дорожке диагональ, остальные произведения берутся дважды
+						const __m256i lower = _mm256_mul_epu32(_mm256_set1_epi64x(value[24]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 24)));
+						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_add_epi64(lower, lower), lower, 3));
+						// Следующая диагональ в третьей дорожке; младшие две здесь отсутствуют
+						const __m256i upper = _mm256_mul_epu32(_mm256_set1_epi64x(value[25]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 23)));
+						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_blend_epi32(_mm256_add_epi64(upper, upper), upper, 0x30), zero, 0x0F));
+						_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 48), sum);
+					}
+					// Четыре коэффициента произведения, начиная с номера 52
+					{
+						__m256i sum = zero;
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[17]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 35))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[18]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 34))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[19]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 33))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[20]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 32))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[21]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 31))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[22]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 30))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[23]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 29))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[24]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 28))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[25]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 27))));
+						// Удваиваем накопленную недиагональную часть
+						sum = _mm256_add_epi64(sum, sum);
+						// В младшей дорожке диагональ, остальные произведения берутся дважды
+						const __m256i lower = _mm256_mul_epu32(_mm256_set1_epi64x(value[26]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 26)));
+						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_add_epi64(lower, lower), lower, 3));
+						// Следующая диагональ в третьей дорожке; младшие две здесь отсутствуют
+						const __m256i upper = _mm256_mul_epu32(_mm256_set1_epi64x(value[27]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 25)));
+						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_blend_epi32(_mm256_add_epi64(upper, upper), upper, 0x30), zero, 0x0F));
+						_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 52), sum);
+					}
+					// Четыре коэффициента произведения, начиная с номера 56
+					{
+						__m256i sum = zero;
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[21]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 35))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[22]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 34))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[23]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 33))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[24]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 32))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[25]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 31))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[26]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 30))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[27]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 29))));
+						// Удваиваем накопленную недиагональную часть
+						sum = _mm256_add_epi64(sum, sum);
+						// В младшей дорожке диагональ, остальные произведения берутся дважды
+						const __m256i lower = _mm256_mul_epu32(_mm256_set1_epi64x(value[28]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 28)));
+						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_add_epi64(lower, lower), lower, 3));
+						// Следующая диагональ в третьей дорожке; младшие две здесь отсутствуют
+						const __m256i upper = _mm256_mul_epu32(_mm256_set1_epi64x(value[29]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 27)));
+						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_blend_epi32(_mm256_add_epi64(upper, upper), upper, 0x30), zero, 0x0F));
+						_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 56), sum);
+					}
+					// Четыре коэффициента произведения, начиная с номера 60
+					{
+						__m256i sum = zero;
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[25]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 35))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[26]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 34))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[27]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 33))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[28]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 32))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[29]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 31))));
+						// Удваиваем накопленную недиагональную часть
+						sum = _mm256_add_epi64(sum, sum);
+						// В младшей дорожке диагональ, остальные произведения берутся дважды
+						const __m256i lower = _mm256_mul_epu32(_mm256_set1_epi64x(value[30]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 30)));
+						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_add_epi64(lower, lower), lower, 3));
+						// Следующая диагональ в третьей дорожке; младшие две здесь отсутствуют
+						const __m256i upper = _mm256_mul_epu32(_mm256_set1_epi64x(value[31]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 29)));
+						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_blend_epi32(_mm256_add_epi64(upper, upper), upper, 0x30), zero, 0x0F));
+						_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 60), sum);
+					}
+					// Четыре коэффициента произведения, начиная с номера 64
+					{
+						__m256i sum = zero;
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[29]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 35))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[30]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 34))));
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[31]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 33))));
+						// Удваиваем накопленную недиагональную часть
+						sum = _mm256_add_epi64(sum, sum);
+						// В младшей дорожке диагональ, остальные произведения берутся дважды
+						const __m256i lower = _mm256_mul_epu32(_mm256_set1_epi64x(value[32]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 32)));
+						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_add_epi64(lower, lower), lower, 3));
+						// Следующая диагональ в третьей дорожке; младшие две здесь отсутствуют
+						const __m256i upper = _mm256_mul_epu32(_mm256_set1_epi64x(value[33]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 31)));
+						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_blend_epi32(_mm256_add_epi64(upper, upper), upper, 0x30), zero, 0x0F));
+						_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 64), sum);
+					}
+					// Четыре коэффициента произведения, начиная с номера 68
+					{
+						__m256i sum = zero;
+						sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(value[33]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 35))));
+						// Удваиваем накопленную недиагональную часть
+						sum = _mm256_add_epi64(sum, sum);
+						// В младшей дорожке диагональ, остальные произведения берутся дважды
+						const __m256i lower = _mm256_mul_epu32(_mm256_set1_epi64x(value[34]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 34)));
+						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_add_epi64(lower, lower), lower, 3));
+						// Следующая диагональ в третьей дорожке; младшие две здесь отсутствуют
+						const __m256i upper = _mm256_mul_epu32(_mm256_set1_epi64x(value[35]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 33)));
+						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_blend_epi32(_mm256_add_epi64(upper, upper), upper, 0x30), zero, 0x0F));
+						_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 68), sum);
+					}
+				}
 				/**
 				 * @brief Метод квадрата Монтгомери на коэффициентах по 29 разрядов
 				 *
@@ -392,6 +804,8 @@
 				__attribute__((target("avx2"))) static void square29Avx2(uint64_t * __restrict__ buffer, uint64_t * result, const uint64_t * value, const uint64_t * modulus, const uint64_t inverse, const size_t repeat) noexcept {
 					// Маска коэффициента и нулевой вектор
 					const __m256i mask = _mm256_set1_epi64x(0x1FFFFFFF), zero = _mm256_setzero_si256();
+					// Наращиваем отрицательный обратный множитель до 58 разрядов
+					const uint64_t paired = (inverse * (2 + ((modulus[0] + (modulus[1] << 29)) * inverse)));
 					// Произведение и младшие коэффициенты находятся в затираемом кадре вызывающего
 					uint64_t * product = buffer;
 					uint64_t * low = (buffer + 80);
@@ -400,285 +814,8 @@
 						product[i] = 0;
 					// Последовательные квадраты окна сохраняют тот же модуль и рабочее место
 					for(size_t round = 0; round < repeat; round++){
-						// Четыре коэффициента произведения, начиная с номера 0
-						{
-							__m256i sum = zero;
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set_epi64x(2 * value[0], 2 * value[0], 2 * value[0], value[0]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 0))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set_epi64x(2 * value[1], value[1], 0, 0), _mm256_set_epi64x(value[2], value[1], 0, 0)));
-							_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 0), sum);
-						}
-						// Четыре коэффициента произведения, начиная с номера 4
-						{
-							__m256i sum = zero;
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[0]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 4))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[1]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 3))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set_epi64x(2 * value[2], 2 * value[2], 2 * value[2], value[2]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 2))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set_epi64x(2 * value[3], value[3], 0, 0), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 1))));
-							_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 4), sum);
-						}
-						// Четыре коэффициента произведения, начиная с номера 8
-						{
-							__m256i sum = zero;
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[0]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 8))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[1]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 7))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[2]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 6))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[3]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 5))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set_epi64x(2 * value[4], 2 * value[4], 2 * value[4], value[4]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 4))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set_epi64x(2 * value[5], value[5], 0, 0), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 3))));
-							_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 8), sum);
-						}
-						// Четыре коэффициента произведения, начиная с номера 12
-						{
-							__m256i sum = zero;
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[0]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 12))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[1]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 11))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[2]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 10))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[3]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 9))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[4]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 8))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[5]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 7))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set_epi64x(2 * value[6], 2 * value[6], 2 * value[6], value[6]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 6))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set_epi64x(2 * value[7], value[7], 0, 0), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 5))));
-							_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 12), sum);
-						}
-						// Четыре коэффициента произведения, начиная с номера 16
-						{
-							__m256i sum = zero;
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[0]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 16))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[1]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 15))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[2]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 14))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[3]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 13))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[4]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 12))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[5]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 11))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[6]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 10))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[7]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 9))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set_epi64x(2 * value[8], 2 * value[8], 2 * value[8], value[8]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 8))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set_epi64x(2 * value[9], value[9], 0, 0), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 7))));
-							_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 16), sum);
-						}
-						// Четыре коэффициента произведения, начиная с номера 20
-						{
-							__m256i sum = zero;
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[0]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 20))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[1]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 19))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[2]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 18))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[3]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 17))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[4]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 16))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[5]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 15))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[6]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 14))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[7]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 13))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[8]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 12))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[9]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 11))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set_epi64x(2 * value[10], 2 * value[10], 2 * value[10], value[10]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 10))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set_epi64x(2 * value[11], value[11], 0, 0), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 9))));
-							_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 20), sum);
-						}
-						// Четыре коэффициента произведения, начиная с номера 24
-						{
-							__m256i sum = zero;
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[0]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 24))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[1]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 23))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[2]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 22))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[3]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 21))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[4]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 20))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[5]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 19))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[6]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 18))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[7]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 17))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[8]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 16))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[9]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 15))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[10]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 14))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[11]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 13))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set_epi64x(2 * value[12], 2 * value[12], 2 * value[12], value[12]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 12))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set_epi64x(2 * value[13], value[13], 0, 0), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 11))));
-							_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 24), sum);
-						}
-						// Четыре коэффициента произведения, начиная с номера 28
-						{
-							__m256i sum = zero;
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[0]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 28))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[1]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 27))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[2]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 26))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[3]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 25))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[4]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 24))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[5]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 23))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[6]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 22))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[7]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 21))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[8]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 20))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[9]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 19))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[10]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 18))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[11]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 17))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[12]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 16))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[13]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 15))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set_epi64x(2 * value[14], 2 * value[14], 2 * value[14], value[14]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 14))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set_epi64x(2 * value[15], value[15], 0, 0), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 13))));
-							_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 28), sum);
-						}
-						// Четыре коэффициента произведения, начиная с номера 32
-						{
-							__m256i sum = zero;
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[0]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 32))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[1]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 31))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[2]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 30))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[3]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 29))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[4]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 28))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[5]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 27))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[6]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 26))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[7]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 25))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[8]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 24))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[9]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 23))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[10]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 22))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[11]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 21))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[12]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 20))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[13]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 19))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[14]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 18))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[15]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 17))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set_epi64x(2 * value[16], 2 * value[16], 2 * value[16], value[16]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 16))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set_epi64x(2 * value[17], value[17], 0, 0), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 15))));
-							_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 32), sum);
-						}
-						// Четыре коэффициента произведения, начиная с номера 36
-						{
-							__m256i sum = zero;
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[1]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 35))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[2]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 34))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[3]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 33))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[4]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 32))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[5]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 31))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[6]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 30))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[7]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 29))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[8]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 28))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[9]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 27))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[10]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 26))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[11]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 25))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[12]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 24))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[13]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 23))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[14]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 22))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[15]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 21))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[16]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 20))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[17]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 19))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set_epi64x(2 * value[18], 2 * value[18], 2 * value[18], value[18]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 18))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set_epi64x(2 * value[19], value[19], 0, 0), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 17))));
-							_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 36), sum);
-						}
-						// Четыре коэффициента произведения, начиная с номера 40
-						{
-							__m256i sum = zero;
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[5]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 35))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[6]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 34))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[7]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 33))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[8]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 32))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[9]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 31))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[10]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 30))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[11]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 29))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[12]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 28))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[13]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 27))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[14]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 26))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[15]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 25))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[16]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 24))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[17]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 23))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[18]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 22))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[19]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 21))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set_epi64x(2 * value[20], 2 * value[20], 2 * value[20], value[20]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 20))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set_epi64x(2 * value[21], value[21], 0, 0), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 19))));
-							_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 40), sum);
-						}
-						// Четыре коэффициента произведения, начиная с номера 44
-						{
-							__m256i sum = zero;
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[9]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 35))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[10]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 34))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[11]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 33))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[12]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 32))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[13]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 31))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[14]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 30))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[15]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 29))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[16]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 28))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[17]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 27))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[18]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 26))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[19]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 25))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[20]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 24))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[21]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 23))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set_epi64x(2 * value[22], 2 * value[22], 2 * value[22], value[22]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 22))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set_epi64x(2 * value[23], value[23], 0, 0), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 21))));
-							_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 44), sum);
-						}
-						// Четыре коэффициента произведения, начиная с номера 48
-						{
-							__m256i sum = zero;
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[13]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 35))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[14]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 34))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[15]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 33))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[16]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 32))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[17]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 31))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[18]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 30))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[19]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 29))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[20]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 28))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[21]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 27))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[22]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 26))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[23]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 25))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set_epi64x(2 * value[24], 2 * value[24], 2 * value[24], value[24]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 24))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set_epi64x(2 * value[25], value[25], 0, 0), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 23))));
-							_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 48), sum);
-						}
-						// Четыре коэффициента произведения, начиная с номера 52
-						{
-							__m256i sum = zero;
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[17]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 35))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[18]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 34))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[19]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 33))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[20]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 32))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[21]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 31))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[22]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 30))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[23]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 29))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[24]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 28))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[25]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 27))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set_epi64x(2 * value[26], 2 * value[26], 2 * value[26], value[26]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 26))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set_epi64x(2 * value[27], value[27], 0, 0), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 25))));
-							_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 52), sum);
-						}
-						// Четыре коэффициента произведения, начиная с номера 56
-						{
-							__m256i sum = zero;
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[21]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 35))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[22]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 34))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[23]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 33))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[24]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 32))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[25]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 31))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[26]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 30))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[27]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 29))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set_epi64x(2 * value[28], 2 * value[28], 2 * value[28], value[28]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 28))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set_epi64x(2 * value[29], value[29], 0, 0), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 27))));
-							_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 56), sum);
-						}
-						// Четыре коэффициента произведения, начиная с номера 60
-						{
-							__m256i sum = zero;
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[25]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 35))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[26]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 34))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[27]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 33))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[28]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 32))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[29]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 31))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set_epi64x(2 * value[30], 2 * value[30], 2 * value[30], value[30]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 30))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set_epi64x(2 * value[31], value[31], 0, 0), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 29))));
-							_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 60), sum);
-						}
-						// Четыре коэффициента произведения, начиная с номера 64
-						{
-							__m256i sum = zero;
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[29]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 35))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[30]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 34))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[31]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 33))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set_epi64x(2 * value[32], 2 * value[32], 2 * value[32], value[32]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 32))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set_epi64x(2 * value[33], value[33], 0, 0), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 31))));
-							_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 64), sum);
-						}
-						// Четыре коэффициента произведения, начиная с номера 68
-						{
-							__m256i sum = zero;
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set1_epi64x(2 * value[33]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 35))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set_epi64x(2 * value[34], 2 * value[34], 2 * value[34], value[34]), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 34))));
-							sum = _mm256_add_epi64(sum, _mm256_mul_epu32(_mm256_set_epi64x(2 * value[35], value[35], 0, 0), _mm256_loadu_si256(reinterpret_cast <const __m256i *> (value + 33))));
-							_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 68), sum);
-						}
+						// Свёртка отдельно от приведения освобождает регистры её временных значений
+						product29Avx2(product, value);
 						// Младшие четыре коэффициента приводятся цепочкой скалярных переносов
 						uint64_t carry = 0;
 						for(size_t i = 0; i < 4; i++)
@@ -698,77 +835,85 @@
 							const __m256i high = _mm256_permute4x64_epi64(_mm256_srli_epi64(c3, 29), 0x93);
 							c3 = _mm256_add_epi64(_mm256_and_si256(c3, mask), _mm256_blend_epi32(high, zero, 3));
 							c4 = _mm256_add_epi64(c4, _mm256_blend_epi32(zero, high, 3));
-							// Ряд 1: младший коэффициент становится кратным 2^29
+							// Первая пара множителей определяется младшими 58 разрядами
 							{
-								const uint64_t reducer = ((low[0] * inverse) & 0x1FFFFFFF);
-								const __m256i reducerVector = _mm256_set1_epi64x(reducer);
-								low[0] += (reducer * modulus[0]);
-								low[1] += (reducer * modulus[1]);
-								low[2] += (reducer * modulus[2]);
-								low[3] += (reducer * modulus[3]);
-								carry = (low[0] >> 29);
-								low[1] += carry;
-								c1 = _mm256_add_epi64(c1, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 4))));
-								c2 = _mm256_add_epi64(c2, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 8))));
-								c3 = _mm256_add_epi64(c3, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 12))));
-								c4 = _mm256_add_epi64(c4, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 16))));
-								c5 = _mm256_add_epi64(c5, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 20))));
-								c6 = _mm256_add_epi64(c6, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 24))));
-								c7 = _mm256_add_epi64(c7, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 28))));
-								c8 = _mm256_add_epi64(c8, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 32))));
+								const uint64_t packed = ((low[0] + (low[1] << 29)) * paired) & 0x03FFFFFFFFFFFFFFULL;
+								// Младший множитель и его обычный перенос
+								{
+									const uint64_t reducer = (packed & 0x1FFFFFFF);
+									const __m256i reducerVector = _mm256_set1_epi64x(reducer);
+									low[0] += (reducer * modulus[0]);
+									low[1] += (reducer * modulus[1]);
+									low[2] += (reducer * modulus[2]);
+									low[3] += (reducer * modulus[3]);
+									carry = (low[0] >> 29);
+									low[1] += carry;
+									c1 = _mm256_add_epi64(c1, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 4))));
+									c2 = _mm256_add_epi64(c2, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 8))));
+									c3 = _mm256_add_epi64(c3, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 12))));
+									c4 = _mm256_add_epi64(c4, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 16))));
+									c5 = _mm256_add_epi64(c5, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 20))));
+									c6 = _mm256_add_epi64(c6, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 24))));
+									c7 = _mm256_add_epi64(c7, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 28))));
+									c8 = _mm256_add_epi64(c8, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 32))));
+								}
+								// Старший множитель уже известен независимо от предыдущего переноса
+								{
+									const uint64_t reducer = (packed >> 29);
+									const __m256i reducerVector = _mm256_set1_epi64x(reducer);
+									low[1] += (reducer * modulus[0]);
+									low[2] += (reducer * modulus[1]);
+									low[3] += (reducer * modulus[2]);
+									carry = (low[1] >> 29);
+									low[2] += carry;
+									c1 = _mm256_add_epi64(c1, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 3))));
+									c2 = _mm256_add_epi64(c2, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 7))));
+									c3 = _mm256_add_epi64(c3, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 11))));
+									c4 = _mm256_add_epi64(c4, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 15))));
+									c5 = _mm256_add_epi64(c5, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 19))));
+									c6 = _mm256_add_epi64(c6, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 23))));
+									c7 = _mm256_add_epi64(c7, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 27))));
+									c8 = _mm256_add_epi64(c8, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 31))));
+									c9 = _mm256_add_epi64(c9, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 35))));
+								}
 							}
-							// Ряд 2: младший коэффициент становится кратным 2^29
+							// Вторая пара множителей определяется младшими 58 разрядами
 							{
-								const uint64_t reducer = ((low[1] * inverse) & 0x1FFFFFFF);
-								const __m256i reducerVector = _mm256_set1_epi64x(reducer);
-								low[1] += (reducer * modulus[0]);
-								low[2] += (reducer * modulus[1]);
-								low[3] += (reducer * modulus[2]);
-								carry = (low[1] >> 29);
-								low[2] += carry;
-								c1 = _mm256_add_epi64(c1, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 3))));
-								c2 = _mm256_add_epi64(c2, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 7))));
-								c3 = _mm256_add_epi64(c3, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 11))));
-								c4 = _mm256_add_epi64(c4, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 15))));
-								c5 = _mm256_add_epi64(c5, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 19))));
-								c6 = _mm256_add_epi64(c6, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 23))));
-								c7 = _mm256_add_epi64(c7, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 27))));
-								c8 = _mm256_add_epi64(c8, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 31))));
-								c9 = _mm256_add_epi64(c9, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 35))));
-							}
-							// Ряд 3: младший коэффициент становится кратным 2^29
-							{
-								const uint64_t reducer = ((low[2] * inverse) & 0x1FFFFFFF);
-								const __m256i reducerVector = _mm256_set1_epi64x(reducer);
-								low[2] += (reducer * modulus[0]);
-								low[3] += (reducer * modulus[1]);
-								carry = (low[2] >> 29);
-								low[3] += carry;
-								c1 = _mm256_add_epi64(c1, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 2))));
-								c2 = _mm256_add_epi64(c2, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 6))));
-								c3 = _mm256_add_epi64(c3, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 10))));
-								c4 = _mm256_add_epi64(c4, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 14))));
-								c5 = _mm256_add_epi64(c5, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 18))));
-								c6 = _mm256_add_epi64(c6, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 22))));
-								c7 = _mm256_add_epi64(c7, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 26))));
-								c8 = _mm256_add_epi64(c8, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 30))));
-								c9 = _mm256_add_epi64(c9, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 34))));
-							}
-							// Ряд 4: младший коэффициент становится кратным 2^29
-							{
-								const uint64_t reducer = ((low[3] * inverse) & 0x1FFFFFFF);
-								const __m256i reducerVector = _mm256_set1_epi64x(reducer);
-								low[3] += (reducer * modulus[0]);
-								carry = (low[3] >> 29);
-								c1 = _mm256_add_epi64(c1, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 1))));
-								c2 = _mm256_add_epi64(c2, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 5))));
-								c3 = _mm256_add_epi64(c3, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 9))));
-								c4 = _mm256_add_epi64(c4, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 13))));
-								c5 = _mm256_add_epi64(c5, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 17))));
-								c6 = _mm256_add_epi64(c6, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 21))));
-								c7 = _mm256_add_epi64(c7, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 25))));
-								c8 = _mm256_add_epi64(c8, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 29))));
-								c9 = _mm256_add_epi64(c9, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 33))));
+								const uint64_t packed = ((low[2] + (low[3] << 29)) * paired) & 0x03FFFFFFFFFFFFFFULL;
+								// Младший множитель и его обычный перенос
+								{
+									const uint64_t reducer = (packed & 0x1FFFFFFF);
+									const __m256i reducerVector = _mm256_set1_epi64x(reducer);
+									low[2] += (reducer * modulus[0]);
+									low[3] += (reducer * modulus[1]);
+									carry = (low[2] >> 29);
+									low[3] += carry;
+									c1 = _mm256_add_epi64(c1, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 2))));
+									c2 = _mm256_add_epi64(c2, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 6))));
+									c3 = _mm256_add_epi64(c3, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 10))));
+									c4 = _mm256_add_epi64(c4, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 14))));
+									c5 = _mm256_add_epi64(c5, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 18))));
+									c6 = _mm256_add_epi64(c6, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 22))));
+									c7 = _mm256_add_epi64(c7, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 26))));
+									c8 = _mm256_add_epi64(c8, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 30))));
+									c9 = _mm256_add_epi64(c9, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 34))));
+								}
+								// Старший множитель уже известен независимо от предыдущего переноса
+								{
+									const uint64_t reducer = (packed >> 29);
+									const __m256i reducerVector = _mm256_set1_epi64x(reducer);
+									low[3] += (reducer * modulus[0]);
+									carry = (low[3] >> 29);
+									c1 = _mm256_add_epi64(c1, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 1))));
+									c2 = _mm256_add_epi64(c2, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 5))));
+									c3 = _mm256_add_epi64(c3, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 9))));
+									c4 = _mm256_add_epi64(c4, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 13))));
+									c5 = _mm256_add_epi64(c5, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 17))));
+									c6 = _mm256_add_epi64(c6, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 21))));
+									c7 = _mm256_add_epi64(c7, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 25))));
+									c8 = _mm256_add_epi64(c8, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 29))));
+									c9 = _mm256_add_epi64(c9, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 33))));
+								}
 							}
 							// Отбрасываем четыре нулевых младших коэффициента
 							_mm256_storeu_si256(reinterpret_cast <__m256i *> (low), c1);
@@ -900,7 +1045,6 @@
 					// Завершаем работу с верхними половинами векторных регистров
 					_mm256_zeroupper();
 				}
-
 				/**
 				 * @brief Метод перевода шестнадцати слов в коэффициенты по 29 разрядов
 				 *
@@ -932,36 +1076,88 @@
 				 * @param table  таблица из 32 степеней: по четыре коэффициента в каждом из девяти блоков
 				 * @param index  номер степени от нуля до 31
 				 * @param result выбранное число в 40 словах
-				 * @param masks  шестнадцать векторных масок в затираемом кадре вызывающего
 				 *
-				 * @note Все записи читаются в одном порядке при любом индексе. Таблица,
-				 *       результат и маски выровнены на 32 байта
+				 * @note Все записи читаются в одном порядке при любом индексе. Таблица и
+				 *       результат выровнены на 32 байта
 				 *
 				 */
-				__attribute__((target("avx2"))) static void choose29Avx2(const uint32_t table[9][32][4], const uint64_t index, uint64_t * result, __m256i * masks) noexcept {
+				__attribute__((target("avx2"))) static void choose29Avx2(const uint32_t table[9][32][4], const uint64_t index, uint64_t * result) noexcept {
 					// Искомый номер во всех дорожках
 					const __m256i wanted = _mm256_set1_epi32(static_cast <int> (index));
-					// Каждая маска охватывает две соседние записи
+					// За проход читаются две соседние записи
+					const __m256i step = _mm256_set1_epi32(2);
+					// Номера первой пары записей
+					__m256i positions = _mm256_set_epi32(1, 1, 1, 1, 0, 0, 0, 0);
+					// Девять накопителей охватывают все 36 коэффициентов
+					__m256i c0 = _mm256_setzero_si256();
+					__m256i c1 = _mm256_setzero_si256();
+					__m256i c2 = _mm256_setzero_si256();
+					__m256i c3 = _mm256_setzero_si256();
+					__m256i c4 = _mm256_setzero_si256();
+					__m256i c5 = _mm256_setzero_si256();
+					__m256i c6 = _mm256_setzero_si256();
+					__m256i c7 = _mm256_setzero_si256();
+					__m256i c8 = _mm256_setzero_si256();
+					// Порядок чтения всех записей одинаков при любом индексе
 					for(size_t i = 0; i < 16; i++){
-						// Номера записей открыты и помещаются в int
-						const int first = static_cast <int> (2 * i), second = (first + 1);
-						// Совпадение даёт все единицы в соответствующей половине вектора
-						masks[i] = _mm256_cmpeq_epi32(wanted, _mm256_set_epi32(second, second, second, second, first, first, first, first));
+						// Одна маска обслуживает оба номера во всех блоках
+						const __m256i mask = _mm256_cmpeq_epi32(wanted, positions);
+						c0 = _mm256_or_si256(c0, _mm256_and_si256(mask, _mm256_load_si256(reinterpret_cast <const __m256i *> (table[0]) + i)));
+						c1 = _mm256_or_si256(c1, _mm256_and_si256(mask, _mm256_load_si256(reinterpret_cast <const __m256i *> (table[1]) + i)));
+						c2 = _mm256_or_si256(c2, _mm256_and_si256(mask, _mm256_load_si256(reinterpret_cast <const __m256i *> (table[2]) + i)));
+						c3 = _mm256_or_si256(c3, _mm256_and_si256(mask, _mm256_load_si256(reinterpret_cast <const __m256i *> (table[3]) + i)));
+						c4 = _mm256_or_si256(c4, _mm256_and_si256(mask, _mm256_load_si256(reinterpret_cast <const __m256i *> (table[4]) + i)));
+						c5 = _mm256_or_si256(c5, _mm256_and_si256(mask, _mm256_load_si256(reinterpret_cast <const __m256i *> (table[5]) + i)));
+						c6 = _mm256_or_si256(c6, _mm256_and_si256(mask, _mm256_load_si256(reinterpret_cast <const __m256i *> (table[6]) + i)));
+						c7 = _mm256_or_si256(c7, _mm256_and_si256(mask, _mm256_load_si256(reinterpret_cast <const __m256i *> (table[7]) + i)));
+						c8 = _mm256_or_si256(c8, _mm256_and_si256(mask, _mm256_load_si256(reinterpret_cast <const __m256i *> (table[8]) + i)));
+						// Переходим к следующей открытой паре номеров
+						positions = _mm256_add_epi32(positions, step);
 					}
-					// Читаем каждый блок целиком, адреса от индекса не зависят
-					for(size_t k = 0; k < 9; k++){
-						// Начало блока из 32 записей по четыре коэффициента
-						const __m256i * data = reinterpret_cast <const __m256i *> (table[k]);
-						// Первая пара записей
-						__m256i sum = _mm256_and_si256(_mm256_load_si256(data), masks[0]);
-						// Остальные пары записей
-						for(size_t i = 1; i < 16; i++)
-							// Накапливаем единственную выбранную запись
-							sum = _mm256_or_si256(sum, _mm256_and_si256(_mm256_load_si256(data + i), masks[i]));
-						// Объединяем половины: только одна может быть ненулевой
-						const __m128i half = _mm_or_si128(_mm256_castsi256_si128(sum), _mm256_extracti128_si256(sum, 1));
-						// Расширяем четыре коэффициента до 64 разрядов
-						_mm256_store_si256(reinterpret_cast <__m256i *> (result + (4 * k)), _mm256_cvtepu32_epi64(half));
+					// Объединяем половины и расширяем четыре коэффициента блока 0
+					{
+						const __m128i half = _mm_or_si128(_mm256_castsi256_si128(c0), _mm256_extracti128_si256(c0, 1));
+						_mm256_store_si256(reinterpret_cast <__m256i *> (result + 0), _mm256_cvtepu32_epi64(half));
+					}
+					// Объединяем половины и расширяем четыре коэффициента блока 1
+					{
+						const __m128i half = _mm_or_si128(_mm256_castsi256_si128(c1), _mm256_extracti128_si256(c1, 1));
+						_mm256_store_si256(reinterpret_cast <__m256i *> (result + 4), _mm256_cvtepu32_epi64(half));
+					}
+					// Объединяем половины и расширяем четыре коэффициента блока 2
+					{
+						const __m128i half = _mm_or_si128(_mm256_castsi256_si128(c2), _mm256_extracti128_si256(c2, 1));
+						_mm256_store_si256(reinterpret_cast <__m256i *> (result + 8), _mm256_cvtepu32_epi64(half));
+					}
+					// Объединяем половины и расширяем четыре коэффициента блока 3
+					{
+						const __m128i half = _mm_or_si128(_mm256_castsi256_si128(c3), _mm256_extracti128_si256(c3, 1));
+						_mm256_store_si256(reinterpret_cast <__m256i *> (result + 12), _mm256_cvtepu32_epi64(half));
+					}
+					// Объединяем половины и расширяем четыре коэффициента блока 4
+					{
+						const __m128i half = _mm_or_si128(_mm256_castsi256_si128(c4), _mm256_extracti128_si256(c4, 1));
+						_mm256_store_si256(reinterpret_cast <__m256i *> (result + 16), _mm256_cvtepu32_epi64(half));
+					}
+					// Объединяем половины и расширяем четыре коэффициента блока 5
+					{
+						const __m128i half = _mm_or_si128(_mm256_castsi256_si128(c5), _mm256_extracti128_si256(c5, 1));
+						_mm256_store_si256(reinterpret_cast <__m256i *> (result + 20), _mm256_cvtepu32_epi64(half));
+					}
+					// Объединяем половины и расширяем четыре коэффициента блока 6
+					{
+						const __m128i half = _mm_or_si128(_mm256_castsi256_si128(c6), _mm256_extracti128_si256(c6, 1));
+						_mm256_store_si256(reinterpret_cast <__m256i *> (result + 24), _mm256_cvtepu32_epi64(half));
+					}
+					// Объединяем половины и расширяем четыре коэффициента блока 7
+					{
+						const __m128i half = _mm_or_si128(_mm256_castsi256_si128(c7), _mm256_extracti128_si256(c7, 1));
+						_mm256_store_si256(reinterpret_cast <__m256i *> (result + 28), _mm256_cvtepu32_epi64(half));
+					}
+					// Объединяем половины и расширяем четыре коэффициента блока 8
+					{
+						const __m128i half = _mm_or_si128(_mm256_castsi256_si128(c8), _mm256_extracti128_si256(c8, 1));
+						_mm256_store_si256(reinterpret_cast <__m256i *> (result + 32), _mm256_cvtepu32_epi64(half));
 					}
 					// Нулевое дополнение выбранного числа
 					for(size_t i = 36; i < 40; i++)
@@ -1002,18 +1198,16 @@
 				 *
 				 * @note Наличие AVX2, ширину чисел и допустимость основания проверяет вызывающий.
 				 *       Первое окно имеет четыре разряда, следующие 204 окна - по пять.
-				 *       Рабочие массивы и маски выбора затираются перед выходом
+				 *       Рабочие массивы затираются перед выходом
 				 *
 				 */
 				__attribute__((target("avx2"))) static void power16Avx2(const uint64_t * base, const uint64_t * exponent, const uint64_t * modulus, const uint64_t * rr, const uint64_t inverse, uint64_t * result) noexcept {
 					// Общий буфер произведения и младших коэффициентов
 					alignas(1024) uint64_t scratch[128];
-					// Маски индекса остаются в кадре до общего затирания
-					alignas(32) __m256i masks[16];
 					// Рабочие числа с отдельным выравниванием
 					alignas(512) uint64_t field[64], entered[64], square[64], one[64] = {}, adjustment[64] = {}, accumulator[64], chosen[64];
-					// Таблица степеней и её запись по блокам для полного перебора
-					alignas(512) uint64_t table[32][64];
+					// По 40 слов на степень, включая нулевое дополнение; шаг строки кратен 64 байтам
+					alignas(512) uint64_t table[32][40];
 					alignas(32) uint32_t columns[9][32][4];
 					// Единица и поправка 2^80 для перехода между основаниями областей
 					one[0] = 1;
@@ -1047,7 +1241,7 @@
 						}
 					}
 					// Начинаем с записи первого окна, включая нулевую степень
-					choose29Avx2(columns, window29Avx2(exponent, 1020, 4), accumulator, masks);
+					choose29Avx2(columns, window29Avx2(exponent, 1020, 4), accumulator);
 					// Перебираем оставшиеся окна по открытому счётчику
 					for(size_t position = 1020; position > 0;){
 						// Положение следующего окна
@@ -1055,7 +1249,7 @@
 						// Пять квадратов окна одним вызовом
 						square29Avx2(scratch, accumulator, accumulator, field, inverse, 5);
 						// Выбираем запись полным перебором таблицы
-						choose29Avx2(columns, window29Avx2(exponent, position, 5), chosen, masks);
+						choose29Avx2(columns, window29Avx2(exponent, position, 5), chosen);
 						// Дополняем степень выбранным множителем
 						multiply29Avx2(scratch, accumulator, accumulator, chosen, field, inverse);
 					}
@@ -1080,9 +1274,8 @@
 							// Записываем оставшуюся часть в следующее слово
 							result[slot + 1] |= (word >> (64 - shift));
 					}
-					// Затираем все явно выделенные рабочие массивы и маски индекса
+					// Затираем все явно выделенные рабочие массивы
 					sys::wipe(scratch, sizeof(scratch));
-					sys::wipe(masks, sizeof(masks));
 					sys::wipe(field, sizeof(field));
 					sys::wipe(entered, sizeof(entered));
 					sys::wipe(square, sizeof(square));
