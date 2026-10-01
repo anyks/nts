@@ -30,6 +30,8 @@
 #include <cstring>
 #include <main.hpp>
 #include <math/integer.hpp>
+#include <sys/machine.hpp>
+#include <internal/math/power.hpp>
 
 /**
  * Используем пространство имён проекта
@@ -965,6 +967,97 @@ TEST(IntegerTest, VectorPower) {
 	ASSERT_FALSE(result.power(modulus, one, modulus, true));
 	ASSERT_EQ(text(result), std::string("35"));
 }
+#if defined(__ANTS_POWER16_AVX2__)
+/**
+ * Квадрат на избыточных коэффициентах: предельная середина свёртки, нулевые входы,
+ * короткий модуль, повторения и совпадение выхода с входом. Эталон использует
+ * обычное произведение целых чисел и деление, независимо от векторного приведения
+ */
+TEST(IntegerTest, VectorSquare) {
+	// Сборка ядра ещё не означает, что процессор разрешает векторные команды
+	if(!machine::has(machine::feature_t::AVX2))
+		GTEST_SKIP() << "Машинный путь AVX2 недоступен";
+	// Основание коэффициентов и воспроизводимый источник разрядов
+	const uint64_t radix = 0x20000000;
+	uint64_t state = 0x7258931461279531ULL;
+	// Число собирается сложением коэффициентов, включая их избыточные старшие части
+	auto decode = [](const uint64_t * words, math::integer_t & result) noexcept -> void {
+		result.word(0);
+		math::integer_t term;
+		for(size_t i = 36; i > 0; i--){
+			result.left(result, 29);
+			term.word(words[i - 1]);
+			ASSERT_TRUE(result.add(result, term));
+		}
+	};
+	// Предельные случаи и случайные коэффициенты проверяются тем же независимым путём
+	for(size_t sample = 0; sample < 32; sample++){
+		uint64_t value[40] = {}, modulus[40] = {}, buffer[84], result[40], alias[40];
+		for(size_t i = 0; i < 35; i++){
+			state ^= (state << 13);
+			state ^= (state >> 7);
+			state ^= (state << 17);
+			modulus[i] = ((sample < 2) ? (radix - 1) : (state & (radix - 1)));
+			value[i] = ((sample < 2) ? (radix + ((sample == 0) ? 64 : 0)) : ((state >> 32) & (radix - 1)));
+		}
+		modulus[0] |= 1;
+		modulus[35] = (((sample % 3) == 2) ? 1 : 511);
+		value[35] = ((sample < 2) ? 1021 : (modulus[35] - 1));
+		// Избыток младшего коэффициента и дефицит остальных дают плотные множители приведения
+		if(sample == 1){
+			value[0] = (radix + 64);
+			for(size_t i = 1; i < 35; i++)
+				value[i] = (radix - 2);
+			value[35] = 1023;
+		}
+		// Ноль и единица дополняют плотные входы
+		if((sample == 2) || (sample == 3)){
+			memset(value, 0, sizeof(value));
+			value[0] = (sample - 2);
+		}
+		// Отрицательный обратный множитель для младшего коэффициента
+		uint64_t inverse = modulus[0];
+		for(size_t i = 0; i < 6; i++)
+			inverse *= (2 - (modulus[0] * inverse));
+		inverse = (0 - inverse);
+		// В обычных целых числах готовим модуль, предел 2m и обратное к R = 2^1044
+		math::integer_t module, twice, scale, reciprocal, expected, actual;
+		decode(modulus, module);
+		twice.left(module, 1);
+		scale.word(1);
+		scale.left(scale, 1044);
+		ASSERT_TRUE(scale.reduce(scale, module));
+		ASSERT_TRUE(reciprocal.invert(scale, module));
+		decode(value, expected);
+		ASSERT_LT(expected.compare(twice), 0);
+		for(size_t repeat = 1; repeat <= 5; repeat++){
+			// Каждый следующий эталон равен квадрату предыдущего, делённому на R
+			ASSERT_TRUE(expected.multiply(expected, expected));
+			ASSERT_TRUE(expected.reduce(expected, module));
+			ASSERT_TRUE(expected.multiply(expected, reciprocal));
+			ASSERT_TRUE(expected.reduce(expected, module));
+			// Ядро обязано полностью записать итог при непустом рабочем буфере
+			memset(buffer, 0xA5, sizeof(buffer));
+			memset(result, 0xA5, sizeof(result));
+			math::kernel::square29Avx2(buffer, result, value, modulus, inverse, repeat);
+			for(size_t i = 0; i < 36; i++)
+				ASSERT_LE(result[i], radix + 64);
+			ASSERT_LE(result[35], static_cast <uint64_t> (1024));
+			for(size_t i = 36; i < 40; i++)
+				ASSERT_EQ(result[i], static_cast <uint64_t> (0));
+			decode(result, actual);
+			ASSERT_LT(actual.compare(twice), 0);
+			ASSERT_TRUE(actual.reduce(actual, module));
+			ASSERT_TRUE(actual.equal(expected)) << "набор " << sample << ", повторений " << repeat;
+			// Совпадение выхода с входом сохраняет все коэффициенты и дополнение
+			memcpy(alias, value, sizeof(value));
+			math::kernel::square29Avx2(buffer, alias, alias, modulus, inverse, repeat);
+			for(size_t i = 0; i < 40; i++)
+				ASSERT_EQ(alias[i], result[i]);
+		}
+	}
+}
+#endif
 TEST(IntegerTest, Edges) {
 	// Байты числа с запасом
 	uint8_t buffer[math::INTEGER_SIZE + 2] = {};

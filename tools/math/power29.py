@@ -20,7 +20,9 @@ m + 4m²/R < 2m дополнительно возвращает старший �
 следующий коэффициент. Поэтому ниже сохраняется проверка обычных рядов:
 меняется только способ получения множителей, каждый остаётся не больше B - 1.
 Удвоение половинной свёртки до добавления диагонали имеет ту же верхнюю
-границу, поскольку все произведения неотрицательны.
+границу, поскольку все произведения неотрицательны. После свёртки квадрата
+один перенос коэффициентов 28…39 заменяет переносы внутри каждого блока:
+полная сумма сохраняется, а границы ниже учитывают новое место переноса.
 
 @license LicenseRef-A-NTS-1.0
 @author Yuriy Lobarev
@@ -59,12 +61,19 @@ def bounds(square):
 			for j in range(36):
 				accumulator[i + j] = add(accumulator[i + j], value[i] * value[j])
 
+		# Перед приведением квадрата переносим только середину готовой свёртки.
+		high = [item // BASE for item in accumulator[28:40]]
+		for i in range(12):
+			accumulator[28 + i] = add(BASE - 1, 0 if i == 0 else high[i - 1])
+		accumulator[40] = add(accumulator[40], high[-1])
+
 	for block in range(0, 36, 4):
-		# Перенос внутри c3 и из его последней дорожки в первую дорожку c4.
-		high = [item // BASE for item in accumulator[12:16]]
-		for i in range(4):
-			accumulator[12 + i] = add(BASE - 1, 0 if i == 0 else high[i - 1])
-		accumulator[16] = add(accumulator[16], high[3])
+		if not square:
+			# Перенос внутри c3 и из его последней дорожки в первую дорожку c4.
+			high = [item // BASE for item in accumulator[12:16]]
+			for i in range(4):
+				accumulator[12 + i] = add(BASE - 1, 0 if i == 0 else high[i - 1])
+			accumulator[16] = add(accumulator[16], high[3])
 
 		# Умножение дополняет накопитель произведением очередного ряда;
 		# у квадрата произведение уже лежит в накопителе целиком.
