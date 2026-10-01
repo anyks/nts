@@ -1041,6 +1041,13 @@ TEST(IntegerTest, Kernels) {
 				ASSERT_TRUE(field.mulmod(first, second, product));
 				// Проверяем сходимость
 				ASSERT_TRUE(product.equal(expected)) << "умножение: слов " << words << ", вид " << kind << ", вход " << input;
+				// Итог вправе совпадать с каждым сомножителем
+				math::integer_t inplace = first;
+				ASSERT_TRUE(field.mulmod(inplace, second, inplace));
+				ASSERT_TRUE(inplace.equal(expected)) << "итог на первом: слов " << words << ", вид " << kind << ", вход " << input;
+				inplace = second;
+				ASSERT_TRUE(field.mulmod(first, inplace, inplace));
+				ASSERT_TRUE(inplace.equal(expected)) << "итог на втором: слов " << words << ", вид " << kind << ", вход " << input;
 				// Квадрат через деление
 				ASSERT_TRUE(expected.mulmod(second, second, modulus, false));
 				// Квадрат ядром квадрата: сомножители по одному указателю
@@ -1053,8 +1060,9 @@ TEST(IntegerTest, Kernels) {
 				// Проверяем сходимость ядер
 				ASSERT_TRUE(twin.equal(square)) << "квадрат против умножения: слов " << words << ", вид " << kind << ", вход " << input;
 			}
-			// Возведение в степень у нескольких ширин: секретный и открытый пути
-			if((words == 1) || (words == 3) || (words == 4) || (words == 8) || (words == 16) || (words == 17) || (words == 32)){
+			// Секретный и открытый пути: ширины ядер и соседи границ их выбора
+			if((words == 1) || (words == 3) || (words == 4) || (words == 7) || (words == 8) || (words == 12) ||
+			   (words == 15) || (words == 16) || (words == 17) || (words == 20) || (words == 32)){
 				// Основание и показатель
 				math::integer_t base, exponent, power, expected;
 				ASSERT_TRUE(base.random(words * 64));

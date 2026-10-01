@@ -253,6 +253,29 @@
  *    недопустимой команде, мутации признака ADX на стендах не наблюдаемы: QEMU исполняет MULX и ADCX/ADOX при
  *    скрытых разрядах CPUID, а обе ветви ядер верны - пин на них лишь замер (CONFORMANCE.md, круг 52).
  *
+ * 16. Умножение без BMI2 и ADX одной вставкой на mulq (круг 62, 01.10.2026): ширины 8, 12 и 16 слов
+ *    идут рядами по одному с развёрткой столбцов по четыре (образец bn_mul4x_mont из x86_64-mont.pl).
+ *    Уточнение к кругу 61: у образца четыре столбца, а не четыре ряда за проход. Произведение и
+ *    приведение чередуются, переносы живут в двух парах регистров; первый ряд накопитель не читает.
+ *    Все ряды, вычитание модуля с учётом старшего слова и выбор итога SSE2 - одна вставка: rbp и rsp
+ *    не меняются, доводы в памяти, четырнадцать регистров заданы явно. Модуль в rcx вместо r12
+ *    уменьшает длину команд и помогает gcc MinGW; адреса и ветвления зависят лишь от ширины.
+ *    Итог пишется после чтения сомножителей, поэтому совпадение с любым из них допустимо. Буфер
+ *    в count + 1 слов затирает вызывающий. Четыре слова исключены: начало развёртки требует восьми;
+ *    ширины больше 16 оставлены рядам решения 6 по замеру (Xeon 32 слова: 5 344 против 5 576 TSC
+ *    у новой вставки). Квадрат кратной восьми ширины по-прежнему идёт отдельным ядром решения 9.
+ *    Полная подпись RSA-2048 PSS на одном ключе у обеих сторон, ADX и AVX2 выключены у обеих:
+ *    Xeon E5-2630 v4 - 1 461 → 1 420 мкс при 1 380 у OpenSSL, отношение 1,060 → 1,029;
+ *    сличение 41,4 против 44,8 мкс. Паритет полной подписи пока не достигнут. Прежняя маска
+ *    ANTS_MACHINE=0x200 оставляла AVX2 у нас, а OPENSSL_ia32cap=:~0x80120 выключала у эталона:
+ *    для этого сличения взята ANTS_MACHINE=0x240. При AVX2 без ADX эталон включает другое ядро,
+ *    RSAZ_1024_mod_exp_avx2: с масками 0x200 и :~0x80100 отношение 1,528 → 1,495; обёртка символа
+ *    подтверждает два вызова RSAZ на подпись, при обычных признаках и без AVX2 вызовов нет.
+ *    Это отдельный остаток, перенос mulq его не закрывает. Перестройка выбора таблицы, выравнивание
+ *    циклов, принудительное встраивание, слияние доводки квадрата и цепочки квадратов окна
+ *    ощутимого выигрыша не дали и не взяты. Закреплено IntegerTest.Kernels и мутациями переноса
+ *    ряда, маски доводки и заслонов ширины; подробности сличения и проверок - CONFORMANCE.md, круг 62.
+ *
  * @copyright Copyright © 2026
  *
  */
@@ -928,6 +951,347 @@ namespace {
 			: "rax", "rdx", "cc", "memory");
 		// Выводим переносы
 		carry1 = c1; lift1 = l1; carry2 = c2; lift2 = l2;
+	}
+	/**
+	 * @brief Метод умножения Монтгомери на mulq с приведением итога одной вставкой x86-64
+	 *
+	 * @param buffer  накопитель в count + 1 слов: обнуления не требует, затирается вызывающим
+	 * @param first   слова первого сомножителя, меньшего модуля
+	 * @param second  слова второго сомножителя, меньшего модуля
+	 * @param modulus слова нечётного модуля
+	 * @param count   число слов модуля, кратное четырём и не меньшее восьми
+	 * @param inverse множитель приведения по модулю
+	 * @param result  место, в которое помещается произведение, меньшее модуля: вправе совпадать с сомножителем
+	 *
+	 * @note Ряды по одному с развёрткой столбцов по четыре (образец bn_mul4x_mont OpenSSL,
+	 *       x86_64-mont.pl): произведение и приведение чередуются, старшие половины с переносами
+	 *       живут в двух парах регистров, следующее слово заранее загружается в rax. Первый
+	 *       ряд накопитель не читает; старшее слово переносится между остальными рядами.
+	 *       Вычитание модуля и выбор по заёму командами SSE2 входят в ту же вставку. Ветвления
+	 *       и адреса зависят лишь от ширины; итог пишется после чтения обоих сомножителей.
+	 *       Регистры: r8 - накопитель, rsi - первый сомножитель, rcx - модуль, r9 - ширина,
+	 *       rbx и r12 - слово ряда и множитель приведения, r10/r11 и r13/rdi - накопители,
+	 *       r14/r15 - счётчики. Доводы читаются из памяти, rbp и rsp вставка не меняет
+	 *
+	 */
+	static void multiply4xMulq(uint64_t * buffer, const uint64_t * first, const uint64_t * second, const uint64_t * modulus, const size_t count, const uint64_t inverse, uint64_t * result) noexcept {
+		__asm__ __volatile__(
+			"movq  %[buffer], %%r8\n\t"
+			"movq  %[first], %%rsi\n\t"
+			"movq  %[modulus], %%rcx\n\t"
+			"movq  %[count], %%r9\n\t"
+			/* Первый ряд: слово нулевое второго сомножителя, накопитель не читается */
+			"movq  %[second], %%rbx\n\t"
+			"movq  (%%rbx), %%rbx\n\t"
+			"movq  (%%rsi), %%rax\n\t"
+			"xorl  %%r14d, %%r14d\n\t"
+			"xorl  %%r15d, %%r15d\n\t"
+			"movq  %[inverse], %%r12\n\t"
+			"mulq  %%rbx\n\t"
+			"movq  %%rax, %%r10\n\t"
+			"movq  (%%rcx), %%rax\n\t"
+			"imulq %%r10, %%r12\n\t"
+			"movq  %%rdx, %%r11\n\t"
+			"mulq  %%r12\n\t"
+			"addq  %%rax, %%r10\n\t"
+			"movq  8(%%rsi), %%rax\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"movq  %%rdx, %%rdi\n\t"
+			"mulq  %%rbx\n\t"
+			"addq  %%rax, %%r11\n\t"
+			"movq  8(%%rcx), %%rax\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"movq  %%rdx, %%r10\n\t"
+			"mulq  %%r12\n\t"
+			"addq  %%rax, %%rdi\n\t"
+			"movq  16(%%rsi), %%rax\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"addq  %%r11, %%rdi\n\t"
+			"leaq  4(%%r15), %%r15\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"movq  %%rdi, (%%r8)\n\t"
+			"movq  %%rdx, %%r13\n\t"
+			"jmp   1f\n\t"
+			".p2align 4\n\t"
+			"1:\n\t"
+			"mulq  %%rbx\n\t"
+			"addq  %%rax, %%r10\n\t"
+			"movq  -16(%%rcx,%%r15,8), %%rax\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"movq  %%rdx, %%r11\n\t"
+			"mulq  %%r12\n\t"
+			"addq  %%rax, %%r13\n\t"
+			"movq  -8(%%rsi,%%r15,8), %%rax\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"addq  %%r10, %%r13\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"movq  %%r13, -24(%%r8,%%r15,8)\n\t"
+			"movq  %%rdx, %%rdi\n\t"
+			"mulq  %%rbx\n\t"
+			"addq  %%rax, %%r11\n\t"
+			"movq  -8(%%rcx,%%r15,8), %%rax\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"movq  %%rdx, %%r10\n\t"
+			"mulq  %%r12\n\t"
+			"addq  %%rax, %%rdi\n\t"
+			"movq  (%%rsi,%%r15,8), %%rax\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"addq  %%r11, %%rdi\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"movq  %%rdi, -16(%%r8,%%r15,8)\n\t"
+			"movq  %%rdx, %%r13\n\t"
+			"mulq  %%rbx\n\t"
+			"addq  %%rax, %%r10\n\t"
+			"movq  (%%rcx,%%r15,8), %%rax\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"movq  %%rdx, %%r11\n\t"
+			"mulq  %%r12\n\t"
+			"addq  %%rax, %%r13\n\t"
+			"movq  8(%%rsi,%%r15,8), %%rax\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"addq  %%r10, %%r13\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"movq  %%r13, -8(%%r8,%%r15,8)\n\t"
+			"movq  %%rdx, %%rdi\n\t"
+			"mulq  %%rbx\n\t"
+			"addq  %%rax, %%r11\n\t"
+			"movq  8(%%rcx,%%r15,8), %%rax\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"leaq  4(%%r15), %%r15\n\t"
+			"movq  %%rdx, %%r10\n\t"
+			"mulq  %%r12\n\t"
+			"addq  %%rax, %%rdi\n\t"
+			"movq  -16(%%rsi,%%r15,8), %%rax\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"addq  %%r11, %%rdi\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"movq  %%rdi, -32(%%r8,%%r15,8)\n\t"
+			"movq  %%rdx, %%r13\n\t"
+			"cmpq  %%r9, %%r15\n\t"
+			"jb    1b\n\t"
+			"mulq  %%rbx\n\t"
+			"addq  %%rax, %%r10\n\t"
+			"movq  -16(%%rcx,%%r15,8), %%rax\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"movq  %%rdx, %%r11\n\t"
+			"mulq  %%r12\n\t"
+			"addq  %%rax, %%r13\n\t"
+			"movq  -8(%%rsi,%%r15,8), %%rax\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"addq  %%r10, %%r13\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"movq  %%r13, -24(%%r8,%%r15,8)\n\t"
+			"movq  %%rdx, %%rdi\n\t"
+			"mulq  %%rbx\n\t"
+			"addq  %%rax, %%r11\n\t"
+			"movq  -8(%%rcx,%%r15,8), %%rax\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"movq  %%rdx, %%r10\n\t"
+			"mulq  %%r12\n\t"
+			"addq  %%rax, %%rdi\n\t"
+			"movq  (%%rsi), %%rax\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"addq  %%r11, %%rdi\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"movq  %%rdi, -16(%%r8,%%r15,8)\n\t"
+			"movq  %%rdx, %%r13\n\t"
+			"xorl  %%edi, %%edi\n\t"
+			"addq  %%r10, %%r13\n\t"
+			"adcq  $0, %%rdi\n\t"
+			"movq  %%r13, -8(%%r8,%%r15,8)\n\t"
+			"movq  %%rdi, (%%r8,%%r15,8)\n\t"
+			"leaq  1(%%r14), %%r14\n\t"
+			/* Остальные ряды: слово i второго сомножителя, накопитель читается со сдвигом на слово */
+			".p2align 2\n\t"
+			"2:\n\t"
+			"movq  %[second], %%rbx\n\t"
+			"movq  (%%rbx,%%r14,8), %%rbx\n\t"
+			"xorl  %%r15d, %%r15d\n\t"
+			"movq  (%%r8), %%r10\n\t"
+			"movq  %[inverse], %%r12\n\t"
+			"mulq  %%rbx\n\t"
+			"addq  %%rax, %%r10\n\t"
+			"movq  (%%rcx), %%rax\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"imulq %%r10, %%r12\n\t"
+			"movq  %%rdx, %%r11\n\t"
+			"mulq  %%r12\n\t"
+			"addq  %%rax, %%r10\n\t"
+			"movq  8(%%rsi), %%rax\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"movq  %%rdx, %%rdi\n\t"
+			"mulq  %%rbx\n\t"
+			"addq  %%rax, %%r11\n\t"
+			"movq  8(%%rcx), %%rax\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"addq  8(%%r8), %%r11\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"movq  %%rdx, %%r10\n\t"
+			"mulq  %%r12\n\t"
+			"addq  %%rax, %%rdi\n\t"
+			"movq  16(%%rsi), %%rax\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"addq  %%r11, %%rdi\n\t"
+			"leaq  4(%%r15), %%r15\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"movq  %%rdi, (%%r8)\n\t"
+			"movq  %%rdx, %%r13\n\t"
+			"jmp   3f\n\t"
+			".p2align 4\n\t"
+			"3:\n\t"
+			"mulq  %%rbx\n\t"
+			"addq  %%rax, %%r10\n\t"
+			"movq  -16(%%rcx,%%r15,8), %%rax\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"addq  -16(%%r8,%%r15,8), %%r10\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"movq  %%rdx, %%r11\n\t"
+			"mulq  %%r12\n\t"
+			"addq  %%rax, %%r13\n\t"
+			"movq  -8(%%rsi,%%r15,8), %%rax\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"addq  %%r10, %%r13\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"movq  %%r13, -24(%%r8,%%r15,8)\n\t"
+			"movq  %%rdx, %%rdi\n\t"
+			"mulq  %%rbx\n\t"
+			"addq  %%rax, %%r11\n\t"
+			"movq  -8(%%rcx,%%r15,8), %%rax\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"addq  -8(%%r8,%%r15,8), %%r11\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"movq  %%rdx, %%r10\n\t"
+			"mulq  %%r12\n\t"
+			"addq  %%rax, %%rdi\n\t"
+			"movq  (%%rsi,%%r15,8), %%rax\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"addq  %%r11, %%rdi\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"movq  %%rdi, -16(%%r8,%%r15,8)\n\t"
+			"movq  %%rdx, %%r13\n\t"
+			"mulq  %%rbx\n\t"
+			"addq  %%rax, %%r10\n\t"
+			"movq  (%%rcx,%%r15,8), %%rax\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"addq  (%%r8,%%r15,8), %%r10\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"movq  %%rdx, %%r11\n\t"
+			"mulq  %%r12\n\t"
+			"addq  %%rax, %%r13\n\t"
+			"movq  8(%%rsi,%%r15,8), %%rax\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"addq  %%r10, %%r13\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"movq  %%r13, -8(%%r8,%%r15,8)\n\t"
+			"movq  %%rdx, %%rdi\n\t"
+			"mulq  %%rbx\n\t"
+			"addq  %%rax, %%r11\n\t"
+			"movq  8(%%rcx,%%r15,8), %%rax\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"addq  8(%%r8,%%r15,8), %%r11\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"leaq  4(%%r15), %%r15\n\t"
+			"movq  %%rdx, %%r10\n\t"
+			"mulq  %%r12\n\t"
+			"addq  %%rax, %%rdi\n\t"
+			"movq  -16(%%rsi,%%r15,8), %%rax\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"addq  %%r11, %%rdi\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"movq  %%rdi, -32(%%r8,%%r15,8)\n\t"
+			"movq  %%rdx, %%r13\n\t"
+			"cmpq  %%r9, %%r15\n\t"
+			"jb    3b\n\t"
+			"mulq  %%rbx\n\t"
+			"addq  %%rax, %%r10\n\t"
+			"movq  -16(%%rcx,%%r15,8), %%rax\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"addq  -16(%%r8,%%r15,8), %%r10\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"movq  %%rdx, %%r11\n\t"
+			"mulq  %%r12\n\t"
+			"addq  %%rax, %%r13\n\t"
+			"movq  -8(%%rsi,%%r15,8), %%rax\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"addq  %%r10, %%r13\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"movq  %%r13, -24(%%r8,%%r15,8)\n\t"
+			"movq  %%rdx, %%rdi\n\t"
+			"mulq  %%rbx\n\t"
+			"addq  %%rax, %%r11\n\t"
+			"movq  -8(%%rcx,%%r15,8), %%rax\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"addq  -8(%%r8,%%r15,8), %%r11\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"leaq  1(%%r14), %%r14\n\t"
+			"movq  %%rdx, %%r10\n\t"
+			"mulq  %%r12\n\t"
+			"addq  %%rax, %%rdi\n\t"
+			"movq  (%%rsi), %%rax\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"addq  %%r11, %%rdi\n\t"
+			"adcq  $0, %%rdx\n\t"
+			"movq  %%rdi, -16(%%r8,%%r15,8)\n\t"
+			"movq  %%rdx, %%r13\n\t"
+			"xorl  %%edi, %%edi\n\t"
+			"addq  %%r10, %%r13\n\t"
+			"adcq  $0, %%rdi\n\t"
+			"addq  (%%r8,%%r9,8), %%r13\n\t"
+			"adcq  $0, %%rdi\n\t"
+			"movq  %%r13, -8(%%r8,%%r15,8)\n\t"
+			"movq  %%rdi, (%%r8,%%r15,8)\n\t"
+			"cmpq  %%r9, %%r14\n\t"
+			"jb    2b\n\t"
+			/* Доводим итог до значения, меньшего модуля, с учётом старшего слова */
+			"movq  %[result], %%r13\n\t"
+			"movq  %%r9, %%r15\n\t"
+			"shrq  $2, %%r15\n\t"
+			"xorl  %%r14d, %%r14d\n\t"
+			".p2align 4\n\t"
+			"4:\n\t"
+			"movq  0(%%r8,%%r14,8), %%rbx\n\t"
+			"movq  8(%%r8,%%r14,8), %%r12\n\t"
+			"movq  16(%%r8,%%r14,8), %%r10\n\t"
+			"movq  24(%%r8,%%r14,8), %%r11\n\t"
+			"sbbq  0(%%rcx,%%r14,8), %%rbx\n\t"
+			"sbbq  8(%%rcx,%%r14,8), %%r12\n\t"
+			"sbbq  16(%%rcx,%%r14,8), %%r10\n\t"
+			"sbbq  24(%%rcx,%%r14,8), %%r11\n\t"
+			"movq  %%rbx, 0(%%r13,%%r14,8)\n\t"
+			"movq  %%r12, 8(%%r13,%%r14,8)\n\t"
+			"movq  %%r10, 16(%%r13,%%r14,8)\n\t"
+			"movq  %%r11, 24(%%r13,%%r14,8)\n\t"
+			"leaq  4(%%r14), %%r14\n\t"
+			"decq  %%r15\n\t"
+			"jnz   4b\n\t"
+			"movq  (%%r8,%%r9,8), %%rax\n\t"
+			"sbbq  $0, %%rax\n\t"
+			"sbbq  %%rax, %%rax\n\t"
+			"movq  %%rax, %%xmm0\n\t"
+			"punpcklqdq %%xmm0, %%xmm0\n\t"
+			"movq  %%r9, %%r15\n\t"
+			"shrq  $2, %%r15\n\t"
+			"xorl  %%r14d, %%r14d\n\t"
+			".p2align 4\n\t"
+			"5:\n\t"
+			"movdqu 0(%%r13,%%r14,8), %%xmm1\n\t"
+			"movdqu 16(%%r13,%%r14,8), %%xmm3\n\t"
+			"movdqu 0(%%r8,%%r14,8), %%xmm2\n\t"
+			"movdqu 16(%%r8,%%r14,8), %%xmm4\n\t"
+			"pxor  %%xmm1, %%xmm2\n\t"
+			"pxor  %%xmm3, %%xmm4\n\t"
+			"pand  %%xmm0, %%xmm2\n\t"
+			"pand  %%xmm0, %%xmm4\n\t"
+			"pxor  %%xmm2, %%xmm1\n\t"
+			"pxor  %%xmm4, %%xmm3\n\t"
+			"movdqu %%xmm1, 0(%%r13,%%r14,8)\n\t"
+			"movdqu %%xmm3, 16(%%r13,%%r14,8)\n\t"
+			"leaq  4(%%r14), %%r14\n\t"
+			"decq  %%r15\n\t"
+			"jnz   5b\n\t"
+			:
+			: [buffer] "m" (buffer), [first] "m" (first), [modulus] "m" (modulus), [count] "m" (count), [second] "m" (second), [inverse] "m" (inverse), [result] "m" (result)
+			: "rax", "rdx", "rbx", "rcx", "r10", "r11", "r13", "rdi", "r14", "r15", "r8", "rsi", "r12", "r9", "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "cc", "memory");
 	}
 #endif
 	/**
@@ -3356,6 +3720,21 @@ namespace {
 			return;
 		}
 		#undef __ANTS_STRIPES_READY__
+#endif
+/**
+ * Под x86-64 без BMI2 и ADX ширины 8, 12 и 16 слов идут ядром на mulq: все ряды, вычитание
+ * модуля и выбор итога одной вставкой (решение 16 шапки); квадрат кратной восьми ширины уже
+ * обработан отдельным ядром выше. Остальные ширины идут рядами со сдвигом: на больших
+ * ширинах они быстрее по замеру, а четыре слова не годятся для начала развёртки
+ */
+#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER) && !defined(__ANTS_ASAN_UNOPTIMIZED__)
+		// Если ширина годится для развёртки и расширения ADX не берутся
+		if(((count % 4) == 0) && (count >= 8) && (count <= 16) && !adx){
+			// Умножаем и доводим итог до значения, меньшего модуля
+			multiply4xMulq(scratch, first, second, modulus, count, inverse, result);
+			// Выходим
+			return;
+		}
 #endif
 /**
  * Под x86-64 квадрат идёт общим ядром: ряды квадрата на C у GCC 12 медленнее
