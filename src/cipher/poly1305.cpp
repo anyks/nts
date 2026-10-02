@@ -186,25 +186,25 @@ namespace {
 	// Затирание областей памяти берётся из открытого API библиотеки
 	using nts::sys::wipe;
 
-/**
- * Если есть векторные ветви
- */
-#if defined(__ANTS_POLY1305_VECTOR__)
 	/**
-	 * Если есть ядро AVX2 на ассемблере
+	 * Если есть векторные ветви
 	 */
-	#if defined(__ANTS_POLY1305_X86_64__)
+	#if defined(__ANTS_POLY1305_VECTOR__)
 		/**
-		 * @brief Число степеней множителя, нужных векторной ветви: ядро ведёт четыре дорожки на r^4
+		 * Если есть ядро AVX2 на ассемблере
 		 */
-		static constexpr size_t POWERS = 4;
-	#else
-		/**
-		 * @brief Число степеней множителя, нужных векторной ветви: восемь дорожек на r^8
-		 */
-		static constexpr size_t POWERS = 8;
+		#if defined(__ANTS_POLY1305_X86_64__)
+			/**
+			 * @brief Число степеней множителя, нужных векторной ветви: ядро ведёт четыре дорожки на r^4
+			 */
+			static constexpr size_t POWERS = 4;
+		#else
+			/**
+			 * @brief Число степеней множителя, нужных векторной ветви: восемь дорожек на r^8
+			 */
+			static constexpr size_t POWERS = 8;
+		#endif
 	#endif
-#endif
 	/**
 	 * @brief Метод чтения слова в 32 разряда от младшего байта
 	 *
@@ -234,205 +234,205 @@ namespace {
 		// Записываем старший байт
 		data[3] = static_cast <uint8_t> (value >> 24);
 	}
-/**
- * Если переносимый путь либо векторные ветви нуждаются в арифметике по 26 разрядов
- */
-#if !defined(__ANTS_POLY1305_WIDE__) || defined(__ANTS_POLY1305_VECTOR__)
 	/**
-	 * @brief Метод умножения конечностей на множитель с прибавлением к произведению
-	 *
-	 * @details Произведение по модулю 2^130 - 5 без переносов: конечности, ушедшие
-	 *          за 2^130, возвращаются умноженными на пять. Каждая конечность итога -
-	 *          сумма пяти произведений по 26 разрядов, и на два таких умножения
-	 *          64 разрядов хватает без переносов между ними
-	 *
-	 * @param limbs   конечности множимого
-	 * @param r       конечности множителя
-	 * @param s       конечности множителя, умноженные на пять; первая не нужна
-	 * @param product конечности произведения, к которым прибавляется итог
-	 *
+	 * Если переносимый путь либо векторные ветви нуждаются в арифметике по 26 разрядов
 	 */
-	static inline void multiply(const uint32_t * limbs, const uint32_t * r, const uint32_t * s, uint64_t * product) noexcept {
-		// Первая конечность произведения
-		product[0] += ((static_cast <uint64_t> (limbs[0]) * r[0]) + (static_cast <uint64_t> (limbs[1]) * s[4]) + (static_cast <uint64_t> (limbs[2]) * s[3]) + (static_cast <uint64_t> (limbs[3]) * s[2]) + (static_cast <uint64_t> (limbs[4]) * s[1]));
-		// Вторая конечность произведения
-		product[1] += ((static_cast <uint64_t> (limbs[0]) * r[1]) + (static_cast <uint64_t> (limbs[1]) * r[0]) + (static_cast <uint64_t> (limbs[2]) * s[4]) + (static_cast <uint64_t> (limbs[3]) * s[3]) + (static_cast <uint64_t> (limbs[4]) * s[2]));
-		// Третья конечность произведения
-		product[2] += ((static_cast <uint64_t> (limbs[0]) * r[2]) + (static_cast <uint64_t> (limbs[1]) * r[1]) + (static_cast <uint64_t> (limbs[2]) * r[0]) + (static_cast <uint64_t> (limbs[3]) * s[4]) + (static_cast <uint64_t> (limbs[4]) * s[3]));
-		// Четвёртая конечность произведения
-		product[3] += ((static_cast <uint64_t> (limbs[0]) * r[3]) + (static_cast <uint64_t> (limbs[1]) * r[2]) + (static_cast <uint64_t> (limbs[2]) * r[1]) + (static_cast <uint64_t> (limbs[3]) * r[0]) + (static_cast <uint64_t> (limbs[4]) * s[4]));
-		// Пятая конечность произведения
-		product[4] += ((static_cast <uint64_t> (limbs[0]) * r[4]) + (static_cast <uint64_t> (limbs[1]) * r[3]) + (static_cast <uint64_t> (limbs[2]) * r[2]) + (static_cast <uint64_t> (limbs[3]) * r[1]) + (static_cast <uint64_t> (limbs[4]) * r[0]));
-	}
-	/**
-	 * @brief Метод проведения переносов произведения в конечности по 26 разрядов
-	 *
-	 * @details Итог приведён не до конца: вторая конечность может нести малый
-	 *          перенос сверх 26 разрядов, что следующему умножению не мешает, а
-	 *          окончательное приведение делается при снятии имитовставки
-	 *
-	 * @param product конечности произведения
-	 * @param limbs   место под приведённые конечности
-	 *
-	 */
-	static inline void reduce(uint64_t * product, uint32_t * limbs) noexcept {
-		// Перенос из первой конечности
-		uint32_t carry = static_cast <uint32_t> (product[0] >> 26);
-		// Первая конечность
-		limbs[0] = (static_cast <uint32_t> (product[0]) & 0x3FFFFFF);
-		// Добавляем перенос ко второй конечности
-		product[1] += carry;
-		// Перенос из второй конечности
-		carry = static_cast <uint32_t> (product[1] >> 26);
-		// Вторая конечность
-		limbs[1] = (static_cast <uint32_t> (product[1]) & 0x3FFFFFF);
-		// Добавляем перенос к третьей конечности
-		product[2] += carry;
-		// Перенос из третьей конечности
-		carry = static_cast <uint32_t> (product[2] >> 26);
-		// Третья конечность
-		limbs[2] = (static_cast <uint32_t> (product[2]) & 0x3FFFFFF);
-		// Добавляем перенос к четвёртой конечности
-		product[3] += carry;
-		// Перенос из четвёртой конечности
-		carry = static_cast <uint32_t> (product[3] >> 26);
-		// Четвёртая конечность
-		limbs[3] = (static_cast <uint32_t> (product[3]) & 0x3FFFFFF);
-		// Добавляем перенос к пятой конечности
-		product[4] += carry;
-		// Перенос из пятой конечности: уходит за 2^130
-		carry = static_cast <uint32_t> (product[4] >> 26);
-		// Пятая конечность
-		limbs[4] = (static_cast <uint32_t> (product[4]) & 0x3FFFFFF);
+	#if !defined(__ANTS_POLY1305_WIDE__) || defined(__ANTS_POLY1305_VECTOR__)
 		/**
-		 * Складываем перенос, умноженный на пять, в шестидесяти четырёх разрядах: на
-		 * двухблочном пути конечности r^2 не зажаты, перенос из старшей конечности доходит
-		 * до ~2^30, и carry * 5 в тридцати двух разрядах усекался - метка расходилась с
-		 * RFC 8439 на редких парах ключ/сообщение (свидетель в tests/audit)
+		 * @brief Метод умножения конечностей на множитель с прибавлением к произведению
+		 *
+		 * @details Произведение по модулю 2^130 - 5 без переносов: конечности, ушедшие
+		 *          за 2^130, возвращаются умноженными на пять. Каждая конечность итога -
+		 *          сумма пяти произведений по 26 разрядов, и на два таких умножения
+		 *          64 разрядов хватает без переносов между ними
+		 *
+		 * @param limbs   конечности множимого
+		 * @param r       конечности множителя
+		 * @param s       конечности множителя, умноженные на пять; первая не нужна
+		 * @param product конечности произведения, к которым прибавляется итог
+		 *
 		 */
-		const uint64_t low = (static_cast <uint64_t> (limbs[0]) + (static_cast <uint64_t> (carry) * 5));
-		// Младшая конечность
-		limbs[0] = static_cast <uint32_t> (low & 0x3FFFFFF);
-		// Перенос в следующую конечность
-		limbs[1] += static_cast <uint32_t> (low >> 26);
-	}
+		static inline void multiply(const uint32_t * limbs, const uint32_t * r, const uint32_t * s, uint64_t * product) noexcept {
+			// Первая конечность произведения
+			product[0] += ((static_cast <uint64_t> (limbs[0]) * r[0]) + (static_cast <uint64_t> (limbs[1]) * s[4]) + (static_cast <uint64_t> (limbs[2]) * s[3]) + (static_cast <uint64_t> (limbs[3]) * s[2]) + (static_cast <uint64_t> (limbs[4]) * s[1]));
+			// Вторая конечность произведения
+			product[1] += ((static_cast <uint64_t> (limbs[0]) * r[1]) + (static_cast <uint64_t> (limbs[1]) * r[0]) + (static_cast <uint64_t> (limbs[2]) * s[4]) + (static_cast <uint64_t> (limbs[3]) * s[3]) + (static_cast <uint64_t> (limbs[4]) * s[2]));
+			// Третья конечность произведения
+			product[2] += ((static_cast <uint64_t> (limbs[0]) * r[2]) + (static_cast <uint64_t> (limbs[1]) * r[1]) + (static_cast <uint64_t> (limbs[2]) * r[0]) + (static_cast <uint64_t> (limbs[3]) * s[4]) + (static_cast <uint64_t> (limbs[4]) * s[3]));
+			// Четвёртая конечность произведения
+			product[3] += ((static_cast <uint64_t> (limbs[0]) * r[3]) + (static_cast <uint64_t> (limbs[1]) * r[2]) + (static_cast <uint64_t> (limbs[2]) * r[1]) + (static_cast <uint64_t> (limbs[3]) * r[0]) + (static_cast <uint64_t> (limbs[4]) * s[4]));
+			// Пятая конечность произведения
+			product[4] += ((static_cast <uint64_t> (limbs[0]) * r[4]) + (static_cast <uint64_t> (limbs[1]) * r[3]) + (static_cast <uint64_t> (limbs[2]) * r[2]) + (static_cast <uint64_t> (limbs[3]) * r[1]) + (static_cast <uint64_t> (limbs[4]) * r[0]));
+		}
+		/**
+		 * @brief Метод проведения переносов произведения в конечности по 26 разрядов
+		 *
+		 * @details Итог приведён не до конца: вторая конечность может нести малый
+		 *          перенос сверх 26 разрядов, что следующему умножению не мешает, а
+		 *          окончательное приведение делается при снятии имитовставки
+		 *
+		 * @param product конечности произведения
+		 * @param limbs   место под приведённые конечности
+		 *
+		 */
+		static inline void reduce(uint64_t * product, uint32_t * limbs) noexcept {
+			// Перенос из первой конечности
+			uint32_t carry = static_cast <uint32_t> (product[0] >> 26);
+			// Первая конечность
+			limbs[0] = (static_cast <uint32_t> (product[0]) & 0x3FFFFFF);
+			// Добавляем перенос ко второй конечности
+			product[1] += carry;
+			// Перенос из второй конечности
+			carry = static_cast <uint32_t> (product[1] >> 26);
+			// Вторая конечность
+			limbs[1] = (static_cast <uint32_t> (product[1]) & 0x3FFFFFF);
+			// Добавляем перенос к третьей конечности
+			product[2] += carry;
+			// Перенос из третьей конечности
+			carry = static_cast <uint32_t> (product[2] >> 26);
+			// Третья конечность
+			limbs[2] = (static_cast <uint32_t> (product[2]) & 0x3FFFFFF);
+			// Добавляем перенос к четвёртой конечности
+			product[3] += carry;
+			// Перенос из четвёртой конечности
+			carry = static_cast <uint32_t> (product[3] >> 26);
+			// Четвёртая конечность
+			limbs[3] = (static_cast <uint32_t> (product[3]) & 0x3FFFFFF);
+			// Добавляем перенос к пятой конечности
+			product[4] += carry;
+			// Перенос из пятой конечности: уходит за 2^130
+			carry = static_cast <uint32_t> (product[4] >> 26);
+			// Пятая конечность
+			limbs[4] = (static_cast <uint32_t> (product[4]) & 0x3FFFFFF);
+			/**
+			 * Складываем перенос, умноженный на пять, в шестидесяти четырёх разрядах: на
+			 * двухблочном пути конечности r^2 не зажаты, перенос из старшей конечности доходит
+			 * до ~2^30, и carry * 5 в тридцати двух разрядах усекался - метка расходилась с
+			 * RFC 8439 на редких парах ключ/сообщение (свидетель в tests/audit)
+			 */
+			const uint64_t low = (static_cast <uint64_t> (limbs[0]) + (static_cast <uint64_t> (carry) * 5));
+			// Младшая конечность
+			limbs[0] = static_cast <uint32_t> (low & 0x3FFFFFF);
+			// Перенос в следующую конечность
+			limbs[1] += static_cast <uint32_t> (low >> 26);
+		}
+		/**
+		 * @brief Метод разбора множителя r из ключа на пять конечностей по 26 разрядов с обрезкой по стандарту
+		 *
+		 * @param key   ключ имитовставки
+		 * @param limbs место под пять конечностей
+		 *
+		 */
+		static inline void clamp(const uint8_t * key, uint32_t * limbs) noexcept {
+			// Первая конечность r: обрезка по стандарту
+			limbs[0] = (load(key) & 0x3FFFFFF);
+			// Вторая конечность r: обрезка старших двух разрядов байтов 4 и 7
+			limbs[1] = ((load(key + 3) >> 2) & 0x3FFFF03);
+			// Третья конечность r: обрезка старших двух разрядов байта 8 и младших двух байта 11
+			limbs[2] = ((load(key + 6) >> 4) & 0x3FFC0FF);
+			// Четвёртая конечность r: обрезка старших двух разрядов байта 12 и младших двух байта 15
+			limbs[3] = ((load(key + 9) >> 6) & 0x3F03FFF);
+			// Пятая конечность r: обрезка старших четырёх разрядов
+			limbs[4] = ((load(key + 12) >> 8) & 0x00FFFFF);
+		}
+		/**
+		 * @brief Метод вычисления следующей степени множителя по 26 разрядов
+		 *
+		 * @param power  конечности прежней степени
+		 * @param r      конечности множителя
+		 * @param result место под конечности следующей степени
+		 *
+		 */
+		static inline void raise(const uint32_t * power, const uint32_t * r, uint32_t * result) noexcept {
+			// Конечности множителя, умноженные на пять
+			const uint32_t s[5] = {0, (r[1] * 5), (r[2] * 5), (r[3] * 5), (r[4] * 5)};
+			// Конечности произведения
+			uint64_t product[5] = {0, 0, 0, 0, 0};
+			// Умножаем прежнюю степень на множитель
+			multiply(power, r, s, product);
+			// Проводим переносы в следующую степень
+			reduce(product, result);
+		}
+	#endif
 	/**
-	 * @brief Метод разбора множителя r из ключа на пять конечностей по 26 разрядов с обрезкой по стандарту
-	 *
-	 * @param key   ключ имитовставки
-	 * @param limbs место под пять конечностей
-	 *
+	 * Если переносимый путь
 	 */
-	static inline void clamp(const uint8_t * key, uint32_t * limbs) noexcept {
-		// Первая конечность r: обрезка по стандарту
-		limbs[0] = (load(key) & 0x3FFFFFF);
-		// Вторая конечность r: обрезка старших двух разрядов байтов 4 и 7
-		limbs[1] = ((load(key + 3) >> 2) & 0x3FFFF03);
-		// Третья конечность r: обрезка старших двух разрядов байта 8 и младших двух байта 11
-		limbs[2] = ((load(key + 6) >> 4) & 0x3FFC0FF);
-		// Четвёртая конечность r: обрезка старших двух разрядов байта 12 и младших двух байта 15
-		limbs[3] = ((load(key + 9) >> 6) & 0x3F03FFF);
-		// Пятая конечность r: обрезка старших четырёх разрядов
-		limbs[4] = ((load(key + 12) >> 8) & 0x00FFFFF);
-	}
+	#if !defined(__ANTS_POLY1305_WIDE__)
+		/**
+		 * @brief Метод разбора блока на пять конечностей по 26 разрядов
+		 *
+		 * @param block разбираемый блок в 16 байтов
+		 * @param hibit старший разряд блока: 2^128 у целого, ничего у дополненного
+		 * @param limbs место под пять конечностей
+		 *
+		 */
+		static inline void split(const uint8_t * block, const uint32_t hibit, uint32_t * limbs) noexcept {
+			// Первая конечность блока
+			limbs[0] = (load(block) & 0x3FFFFFF);
+			// Вторая конечность блока
+			limbs[1] = ((load(block + 3) >> 2) & 0x3FFFFFF);
+			// Третья конечность блока
+			limbs[2] = ((load(block + 6) >> 4) & 0x3FFFFFF);
+			// Четвёртая конечность блока
+			limbs[3] = ((load(block + 9) >> 6) & 0x3FFFFFF);
+			// Пятая конечность блока со старшим разрядом
+			limbs[4] = ((load(block + 12) >> 8) | hibit);
+		}
 	/**
-	 * @brief Метод вычисления следующей степени множителя по 26 разрядов
-	 *
-	 * @param power  конечности прежней степени
-	 * @param r      конечности множителя
-	 * @param result место под конечности следующей степени
-	 *
+	 * Если 64-разрядный путь
 	 */
-	static inline void raise(const uint32_t * power, const uint32_t * r, uint32_t * result) noexcept {
-		// Конечности множителя, умноженные на пять
-		const uint32_t s[5] = {0, (r[1] * 5), (r[2] * 5), (r[3] * 5), (r[4] * 5)};
-		// Конечности произведения
-		uint64_t product[5] = {0, 0, 0, 0, 0};
-		// Умножаем прежнюю степень на множитель
-		multiply(power, r, s, product);
-		// Проводим переносы в следующую степень
-		reduce(product, result);
-	}
-#endif
-/**
- * Если переносимый путь
- */
-#if !defined(__ANTS_POLY1305_WIDE__)
-	/**
-	 * @brief Метод разбора блока на пять конечностей по 26 разрядов
-	 *
-	 * @param block разбираемый блок в 16 байтов
-	 * @param hibit старший разряд блока: 2^128 у целого, ничего у дополненного
-	 * @param limbs место под пять конечностей
-	 *
-	 */
-	static inline void split(const uint8_t * block, const uint32_t hibit, uint32_t * limbs) noexcept {
-		// Первая конечность блока
-		limbs[0] = (load(block) & 0x3FFFFFF);
-		// Вторая конечность блока
-		limbs[1] = ((load(block + 3) >> 2) & 0x3FFFFFF);
-		// Третья конечность блока
-		limbs[2] = ((load(block + 6) >> 4) & 0x3FFFFFF);
-		// Четвёртая конечность блока
-		limbs[3] = ((load(block + 9) >> 6) & 0x3FFFFFF);
-		// Пятая конечность блока со старшим разрядом
-		limbs[4] = ((load(block + 12) >> 8) | hibit);
-	}
-/**
- * Если 64-разрядный путь
- */
-#else
-	/**
-	 * @brief Число в 128 разрядов под произведения 64-разрядного пути
-	 *
-	 */
-	typedef unsigned __int128 wide_t;
+	#else
+		/**
+		 * @brief Число в 128 разрядов под произведения 64-разрядного пути
+		 *
+		 */
+		typedef unsigned __int128 wide_t;
 
-	/**
-	 * @brief Метод чтения слова в 64 разряда от младшего байта
-	 *
-	 * @param data читаемые байты
-	 *
-	 * @return     прочитанное слово
-	 *
-	 */
-	static inline uint64_t load64(const uint8_t * data) noexcept {
-		// Выводим слово, собранное из двух половин от младшего байта
-		return (static_cast <uint64_t> (load(data)) | (static_cast <uint64_t> (load(data + 4)) << 32));
-	}
-#endif
-/**
- * Если есть ядро блоков на ассемблере x86-64
- */
-#if defined(__ANTS_POLY1305_X86_ASM__)
-	/**
-	 * @brief Метод сложения целых блоков в накопитель на ассемблере x86-64
-	 *
-	 * @details Та же арифметика трёх конечностей по 64 разряда, что и у пути на числе в
-	 *          128 разрядов, по образцу poly1305_blocks OpenSSL: GCC переводит произведения
-	 *          через число в 128 разрядов в лишние копии и переносы - Astra с gcc 12 давала
-	 *          1,2 ГБ/с при 2,0 у clang и 2,2 у OpenSSL; пять команд умножения на блок,
-	 *          возврат разрядов выше 2^130 маской -4 и сдвигом
-	 *
-	 * @param h      три конечности накопителя, заменяемые итогом
-	 * @param r0     младшая конечность множителя
-	 * @param r1     старшая конечность множителя
-	 * @param s1     старшая конечность с четвертью: r1 + r1 / 4
-	 * @param data   складываемые байты
-	 * @param blocks число блоков: не меньше одного
-	 * @param hibit  старший разряд блока: единица у целого, ноль у дополненного
-	 *
-	 */
-	static void blocksX86(uint64_t * h, const uint64_t r0, const uint64_t r1, const uint64_t s1, const uint8_t * data, size_t blocks, const uint64_t hibit) noexcept {
-		// Конечности накопителя
-		uint64_t h0 = h[0], h1 = h[1], h2 = h[2];
-		// Конечности произведения
-		uint64_t d1 = 0, d2 = 0, d3 = 0;
 		/**
-		 * Выполняем сложение блоков: накопление блока с переносами, пять произведений,
-		 * сборка конечностей и возврат разрядов выше 2^130 умноженными на пять
+		 * @brief Метод чтения слова в 64 разряда от младшего байта
+		 *
+		 * @param data читаемые байты
+		 *
+		 * @return     прочитанное слово
+		 *
 		 */
-		__asm__ __volatile__ (
+		static inline uint64_t load64(const uint8_t * data) noexcept {
+			// Выводим слово, собранное из двух половин от младшего байта
+			return (static_cast <uint64_t> (load(data)) | (static_cast <uint64_t> (load(data + 4)) << 32));
+		}
+	#endif
+	/**
+	 * Если есть ядро блоков на ассемблере x86-64
+	 */
+	#if defined(__ANTS_POLY1305_X86_ASM__)
+		/**
+		 * @brief Метод сложения целых блоков в накопитель на ассемблере x86-64
+		 *
+		 * @details Та же арифметика трёх конечностей по 64 разряда, что и у пути на числе в
+		 *          128 разрядов, по образцу poly1305_blocks OpenSSL: GCC переводит произведения
+		 *          через число в 128 разрядов в лишние копии и переносы - Astra с gcc 12 давала
+		 *          1,2 ГБ/с при 2,0 у clang и 2,2 у OpenSSL; пять команд умножения на блок,
+		 *          возврат разрядов выше 2^130 маской -4 и сдвигом
+		 *
+		 * @param h      три конечности накопителя, заменяемые итогом
+		 * @param r0     младшая конечность множителя
+		 * @param r1     старшая конечность множителя
+		 * @param s1     старшая конечность с четвертью: r1 + r1 / 4
+		 * @param data   складываемые байты
+		 * @param blocks число блоков: не меньше одного
+		 * @param hibit  старший разряд блока: единица у целого, ноль у дополненного
+		 *
+		 */
+		static void blocksX86(uint64_t * h, const uint64_t r0, const uint64_t r1, const uint64_t s1, const uint8_t * data, size_t blocks, const uint64_t hibit) noexcept {
+			// Конечности накопителя
+			uint64_t h0 = h[0], h1 = h[1], h2 = h[2];
+			// Конечности произведения
+			uint64_t d1 = 0, d2 = 0, d3 = 0;
+			/**
+			 * Выполняем сложение блоков: накопление блока с переносами, пять произведений,
+			 * сборка конечностей и возврат разрядов выше 2^130 умноженными на пять
+			 */
+			__asm__ __volatile__ (
 			"1:\n\t"
 			"addq (%[inp]), %[h0]\n\t"
 			"adcq 8(%[inp]), %[h1]\n\t"
@@ -476,678 +476,678 @@ namespace {
 			: [h0] "+r" (h0), [h1] "+r" (h1), [h2] "+r" (h2), [inp] "+r" (data), [n] "+r" (blocks), [d1] "=&r" (d1), [d2] "=&r" (d2), [d3] "=&r" (d3)
 			: [r0] "rm" (r0), [r1] "rm" (r1), [s1] "rm" (s1), [pad] "rm" (hibit)
 			: "rax", "rdx", "cc", "memory"
-		);
-		// Записываем младшую конечность накопителя
-		h[0] = h0;
-		// Записываем среднюю конечность накопителя
-		h[1] = h1;
-		// Записываем старшую конечность накопителя
-		h[2] = h2;
-	}
-#endif
-/**
- * Если есть векторные ветви
- */
-#if defined(__ANTS_POLY1305_VECTOR__)
+			);
+			// Записываем младшую конечность накопителя
+			h[0] = h0;
+			// Записываем среднюю конечность накопителя
+			h[1] = h1;
+			// Записываем старшую конечность накопителя
+			h[2] = h2;
+		}
+	#endif
 	/**
-	 * @brief Метод перевода накопителя из трёх конечностей по 64 разряда в пять по 26
-	 *
-	 * @param h0    младшая конечность накопителя
-	 * @param h1    средняя конечность накопителя
-	 * @param h2    старшая конечность накопителя: не больше нескольких единиц
-	 * @param limbs место под пять конечностей
-	 *
+	 * Если есть векторные ветви
 	 */
-	static inline void widen(const uint64_t h0, const uint64_t h1, const uint64_t h2, uint32_t * limbs) noexcept {
-		// Первая конечность
-		limbs[0] = static_cast <uint32_t> (h0 & 0x3FFFFFF);
-		// Вторая конечность
-		limbs[1] = static_cast <uint32_t> ((h0 >> 26) & 0x3FFFFFF);
-		// Третья конечность: стык младшей и средней конечностей
-		limbs[2] = static_cast <uint32_t> (((h0 >> 52) | (h1 << 12)) & 0x3FFFFFF);
-		// Четвёртая конечность
-		limbs[3] = static_cast <uint32_t> ((h1 >> 14) & 0x3FFFFFF);
-		// Пятая конечность со старшей конечностью: малый избыток сверх 26 разрядов ветви допустим
-		limbs[4] = static_cast <uint32_t> ((h1 >> 40) | (h2 << 24));
-	}
-	/**
-	 * @brief Метод перевода накопителя из пяти конечностей по 64 разряда в три по 64
-	 *
-	 * @details Конечности приходят суммой восьми дорожек и приведены не до конца:
-	 *          сперва проводятся переносы, затем конечности собираются в число
-	 *
-	 * @param limbs пять конечностей по 26 разрядов с избытком
-	 * @param h0    место под младшую конечность накопителя
-	 * @param h1    место под среднюю конечность накопителя
-	 * @param h2    место под старшую конечность накопителя
-	 *
-	 */
-	static inline void narrow(uint64_t * limbs, uint64_t & h0, uint64_t & h1, uint64_t & h2) noexcept {
-		// Перенос из первой конечности
-		uint64_t carry = (limbs[0] >> 26);
-		// Первая конечность
-		limbs[0] &= 0x3FFFFFF;
-		// Добавляем перенос ко второй конечности
-		limbs[1] += carry;
-		// Перенос из второй конечности
-		carry = (limbs[1] >> 26);
-		// Вторая конечность
-		limbs[1] &= 0x3FFFFFF;
-		// Добавляем перенос к третьей конечности
-		limbs[2] += carry;
-		// Перенос из третьей конечности
-		carry = (limbs[2] >> 26);
-		// Третья конечность
-		limbs[2] &= 0x3FFFFFF;
-		// Добавляем перенос к четвёртой конечности
-		limbs[3] += carry;
-		// Перенос из четвёртой конечности
-		carry = (limbs[3] >> 26);
-		// Четвёртая конечность
-		limbs[3] &= 0x3FFFFFF;
-		// Добавляем перенос к пятой конечности
-		limbs[4] += carry;
-		// Перенос из пятой конечности: уходит за 2^130
-		carry = (limbs[4] >> 26);
-		// Пятая конечность
-		limbs[4] &= 0x3FFFFFF;
-		// Возвращаем перенос в первую конечность умноженным на пять
-		limbs[0] += (carry * 5);
-		// Младшая половина числа: три конечности с переносом
-		const wide_t low = (static_cast <wide_t> (limbs[0]) + (static_cast <wide_t> (limbs[1]) << 26) + (static_cast <wide_t> (limbs[2]) << 52));
-		// Младшая конечность накопителя
-		h0 = static_cast <uint64_t> (low);
-		// Старшая половина числа: перенос младшей, четвёртая и пятая конечности
-		const wide_t high = (static_cast <wide_t> (static_cast <uint64_t> (low >> 64)) + (static_cast <wide_t> (limbs[3]) << 14) + (static_cast <wide_t> (limbs[4] & 0xFFFFFF) << 40));
-		// Средняя конечность накопителя
-		h1 = static_cast <uint64_t> (high);
-		// Старшая конечность накопителя: разряды выше 128
-		h2 = ((limbs[4] >> 24) + static_cast <uint64_t> (high >> 64));
-	}
-#endif
-/**
- * Если есть ветвь команд NEON
- */
-#if defined(__ANTS_POLY1305_NEON__)
-	/**
-	 * @brief Метод разбора четырёх блоков на конечности по 26 разрядов дорожками вектора
-	 *
-	 * @details Слова пар блоков переставляются в младшие и старшие, конечности берутся
-	 *          сдвигами с сужением сразу в четыре дорожки по 32 разряда; стык слов
-	 *          собирается сдвигом со вставкой
-	 *
-	 * @param data четыре блока подряд
-	 * @param m    место под пять конечностей по четырём дорожкам
-	 *
-	 */
-	static __ANTS_INLINE__ void splitQuadNeon(const uint8_t * data, uint32x4_t * m) noexcept {
-		// Маска конечности по 32 разрядам
-		const uint32x4_t mask = vdupq_n_u32(0x3FFFFFF);
-		// Слова четырёх блоков
-		const uint64x2_t a = vreinterpretq_u64_u8(vld1q_u8(data));
-		const uint64x2_t b = vreinterpretq_u64_u8(vld1q_u8(data + 16));
-		const uint64x2_t c = vreinterpretq_u64_u8(vld1q_u8(data + 32));
-		const uint64x2_t d = vreinterpretq_u64_u8(vld1q_u8(data + 48));
-		// Младшие и старшие слова первой пары блоков
-		const uint64x2_t low01 = vtrn1q_u64(a, b), high01 = vtrn2q_u64(a, b);
-		// Младшие и старшие слова второй пары блоков
-		const uint64x2_t low23 = vtrn1q_u64(c, d), high23 = vtrn2q_u64(c, d);
-		// Первая конечность: младшие 26 разрядов младших слов
-		m[0] = vandq_u32(vuzp1q_u32(vreinterpretq_u32_u64(low01), vreinterpretq_u32_u64(low23)), mask);
-		// Вторая конечность
-		m[1] = vandq_u32(vshrn_high_n_u64(vshrn_n_u64(low01, 26), low23, 26), mask);
-		// Третья конечность: стык слов - старшие 12 разрядов младшего слова под младшими старшего
-		const uint64x2_t seam01 = vsliq_n_u64(vshrq_n_u64(low01, 52), high01, 12);
-		const uint64x2_t seam23 = vsliq_n_u64(vshrq_n_u64(low23, 52), high23, 12);
-		m[2] = vandq_u32(vuzp1q_u32(vreinterpretq_u32_u64(seam01), vreinterpretq_u32_u64(seam23)), mask);
-		// Четвёртая конечность
-		m[3] = vandq_u32(vshrn_high_n_u64(vshrn_n_u64(high01, 14), high23, 14), mask);
-		// Пятая конечность со старшим разрядом 2^128: сдвиг на сорок шире сужающего, оттого сужение перестановкой
-		m[4] = vorrq_u32(vuzp1q_u32(vreinterpretq_u32_u64(vshrq_n_u64(high01, 40)), vreinterpretq_u32_u64(vshrq_n_u64(high23, 40))), vdupq_n_u32(static_cast <uint32_t> (1) << 24));
-	}
-	/**
-	 * @brief Метод сложения пяти произведений конечностей четырёх дорожек на r^8 по дорожкам вектора
-	 *
-	 * @details Конечности r^8 лежат в трёх векторах, и умножение берёт нужную дорожкой
-	 *          команды: множитель не размножается по регистрам. Младшая пара дорожек
-	 *          идёт нижней половиной вектора, старшая - верхней командой на старшие дорожки
-	 *
-	 * @param h    конечности четырёх дорожек
-	 * @param ra   конечности r^8: r0, r1, r2, r3
-	 * @param rb   конечности r^8: r4 и 5·r1, 5·r2, 5·r3
-	 * @param rc   конечность 5·r4 первой дорожкой
-	 * @param low  место под пять конечностей произведения младшей пары в 64 разряда
-	 * @param high место под пять конечностей произведения старшей пары в 64 разряда
-	 *
-	 */
-	static __ANTS_INLINE__ void productQuadNeon(const uint32x4_t * h, const uint32x4_t ra, const uint32x4_t rb, const uint32x4_t rc, uint64x2_t * low, uint64x2_t * high) noexcept {
-		// Младшие пары конечностей
-		const uint32x2_t h0 = vget_low_u32(h[0]), h1 = vget_low_u32(h[1]), h2 = vget_low_u32(h[2]), h3 = vget_low_u32(h[3]), h4 = vget_low_u32(h[4]);
-		// Первая конечность произведения
-		low[0] = vmlal_laneq_u32(vmlal_laneq_u32(vmlal_laneq_u32(vmlal_laneq_u32(vmull_laneq_u32(h0, ra, 0), h1, rc, 0), h2, rb, 3), h3, rb, 2), h4, rb, 1);
-		high[0] = vmlal_high_laneq_u32(vmlal_high_laneq_u32(vmlal_high_laneq_u32(vmlal_high_laneq_u32(vmull_high_laneq_u32(h[0], ra, 0), h[1], rc, 0), h[2], rb, 3), h[3], rb, 2), h[4], rb, 1);
-		// Вторая конечность произведения
-		low[1] = vmlal_laneq_u32(vmlal_laneq_u32(vmlal_laneq_u32(vmlal_laneq_u32(vmull_laneq_u32(h0, ra, 1), h1, ra, 0), h2, rc, 0), h3, rb, 3), h4, rb, 2);
-		high[1] = vmlal_high_laneq_u32(vmlal_high_laneq_u32(vmlal_high_laneq_u32(vmlal_high_laneq_u32(vmull_high_laneq_u32(h[0], ra, 1), h[1], ra, 0), h[2], rc, 0), h[3], rb, 3), h[4], rb, 2);
-		// Третья конечность произведения
-		low[2] = vmlal_laneq_u32(vmlal_laneq_u32(vmlal_laneq_u32(vmlal_laneq_u32(vmull_laneq_u32(h0, ra, 2), h1, ra, 1), h2, ra, 0), h3, rc, 0), h4, rb, 3);
-		high[2] = vmlal_high_laneq_u32(vmlal_high_laneq_u32(vmlal_high_laneq_u32(vmlal_high_laneq_u32(vmull_high_laneq_u32(h[0], ra, 2), h[1], ra, 1), h[2], ra, 0), h[3], rc, 0), h[4], rb, 3);
-		// Четвёртая конечность произведения
-		low[3] = vmlal_laneq_u32(vmlal_laneq_u32(vmlal_laneq_u32(vmlal_laneq_u32(vmull_laneq_u32(h0, ra, 3), h1, ra, 2), h2, ra, 1), h3, ra, 0), h4, rc, 0);
-		high[3] = vmlal_high_laneq_u32(vmlal_high_laneq_u32(vmlal_high_laneq_u32(vmlal_high_laneq_u32(vmull_high_laneq_u32(h[0], ra, 3), h[1], ra, 2), h[2], ra, 1), h[3], ra, 0), h[4], rc, 0);
-		// Пятая конечность произведения
-		low[4] = vmlal_laneq_u32(vmlal_laneq_u32(vmlal_laneq_u32(vmlal_laneq_u32(vmull_laneq_u32(h0, rb, 0), h1, ra, 3), h2, ra, 2), h3, ra, 1), h4, ra, 0);
-		high[4] = vmlal_high_laneq_u32(vmlal_high_laneq_u32(vmlal_high_laneq_u32(vmlal_high_laneq_u32(vmull_high_laneq_u32(h[0], rb, 0), h[1], ra, 3), h[2], ra, 2), h[3], ra, 1), h[4], ra, 0);
-	}
-	/**
-	 * @brief Метод сложения пяти произведений конечностей четырёх дорожек на свои множители
-	 *
-	 * @details Последняя восьмёрка умножается на степени r^8…r по дорожкам: множители
-	 *          лежат по дорожкам векторов, и произведение берёт дорожку на дорожку
-	 *
-	 * @param h    конечности четырёх дорожек
-	 * @param r    конечности множителей по дорожкам
-	 * @param s    конечности множителей, умноженные на пять
-	 * @param low  место под пять конечностей произведения младшей пары в 64 разряда
-	 * @param high место под пять конечностей произведения старшей пары в 64 разряда
-	 *
-	 */
-	static __ANTS_INLINE__ void productLanesNeon(const uint32x4_t * h, const uint32x4_t * r, const uint32x4_t * s, uint64x2_t * low, uint64x2_t * high) noexcept {
-		// Младшие пары конечностей
-		const uint32x2_t h0 = vget_low_u32(h[0]), h1 = vget_low_u32(h[1]), h2 = vget_low_u32(h[2]), h3 = vget_low_u32(h[3]), h4 = vget_low_u32(h[4]);
-		// Младшие пары множителей
-		const uint32x2_t r0 = vget_low_u32(r[0]), r1 = vget_low_u32(r[1]), r2 = vget_low_u32(r[2]), r3 = vget_low_u32(r[3]), r4 = vget_low_u32(r[4]);
-		const uint32x2_t s1 = vget_low_u32(s[1]), s2 = vget_low_u32(s[2]), s3 = vget_low_u32(s[3]), s4 = vget_low_u32(s[4]);
-		// Первая конечность произведения
-		low[0] = vmlal_u32(vmlal_u32(vmlal_u32(vmlal_u32(vmull_u32(h0, r0), h1, s4), h2, s3), h3, s2), h4, s1);
-		high[0] = vmlal_high_u32(vmlal_high_u32(vmlal_high_u32(vmlal_high_u32(vmull_high_u32(h[0], r[0]), h[1], s[4]), h[2], s[3]), h[3], s[2]), h[4], s[1]);
-		// Вторая конечность произведения
-		low[1] = vmlal_u32(vmlal_u32(vmlal_u32(vmlal_u32(vmull_u32(h0, r1), h1, r0), h2, s4), h3, s3), h4, s2);
-		high[1] = vmlal_high_u32(vmlal_high_u32(vmlal_high_u32(vmlal_high_u32(vmull_high_u32(h[0], r[1]), h[1], r[0]), h[2], s[4]), h[3], s[3]), h[4], s[2]);
-		// Третья конечность произведения
-		low[2] = vmlal_u32(vmlal_u32(vmlal_u32(vmlal_u32(vmull_u32(h0, r2), h1, r1), h2, r0), h3, s4), h4, s3);
-		high[2] = vmlal_high_u32(vmlal_high_u32(vmlal_high_u32(vmlal_high_u32(vmull_high_u32(h[0], r[2]), h[1], r[1]), h[2], r[0]), h[3], s[4]), h[4], s[3]);
-		// Четвёртая конечность произведения
-		low[3] = vmlal_u32(vmlal_u32(vmlal_u32(vmlal_u32(vmull_u32(h0, r3), h1, r2), h2, r1), h3, r0), h4, s4);
-		high[3] = vmlal_high_u32(vmlal_high_u32(vmlal_high_u32(vmlal_high_u32(vmull_high_u32(h[0], r[3]), h[1], r[2]), h[2], r[1]), h[3], r[0]), h[4], s[4]);
-		// Пятая конечность произведения
-		low[4] = vmlal_u32(vmlal_u32(vmlal_u32(vmlal_u32(vmull_u32(h0, r4), h1, r3), h2, r2), h3, r1), h4, r0);
-		high[4] = vmlal_high_u32(vmlal_high_u32(vmlal_high_u32(vmlal_high_u32(vmull_high_u32(h[0], r[4]), h[1], r[3]), h[2], r[2]), h[3], r[1]), h[4], r[0]);
-	}
-	/**
-	 * @brief Метод закрепления произведений обеих пар дорожек до переносов
-	 *
-	 * @details Перенос из конечности в следующую - сложение, и собиратель волен переставить
-	 *          его в начало цепочки умножений следующей конечности: так он и делал, ставя
-	 *          сдвиг первой конечности начальным накопителем пяти умножений второй, и все
-	 *          двадцать пять умножений пары вытягивались в одну цепочку - 95 тактов на
-	 *          восьмёрку при 45 у цепочки из пяти. Пустые вставки ассемблера делают
-	 *          произведения непрозрачными: переносы идут после всех умножений
-	 *
-	 * @param low  конечности произведения младшей пары
-	 * @param high конечности произведения старшей пары
-	 *
-	 */
-	static __ANTS_INLINE__ void pinNeon(uint64x2_t * low, uint64x2_t * high) noexcept {
-		// Закрепляем все конечности обеих пар
-		__asm__ ("" : "+w" (low[0]), "+w" (low[1]), "+w" (low[2]), "+w" (low[3]), "+w" (low[4]));
-		__asm__ ("" : "+w" (high[0]), "+w" (high[1]), "+w" (high[2]), "+w" (high[3]), "+w" (high[4]));
-	}
-	/**
-	 * @brief Метод проведения переносов произведения пары дорожек в конечности по 26 разрядов
-	 *
-	 * @details Перенос из пятой конечности возвращается в первую умноженным на пять:
-	 *          сумма переноса с его учетверением, а не умножение - собиратель сворачивает
-	 *          сдвиг со сложением в умножение на пять, у которого нет векторной формы на
-	 *          64 разряда, и считает его через скалярные регистры шестью командами;
-	 *          пустая вставка ассемблера держит учетверение в векторе
-	 *
-	 * @param product конечности произведения пары дорожек в 64 разряда, приводимые на месте
-	 *
-	 */
-	static __ANTS_INLINE__ void carryPairNeon(uint64x2_t * product) noexcept {
-		// Маска конечности
-		const uint64x2_t mask = vdupq_n_u64(0x3FFFFFF);
-		// Переносы по цепочке конечностей: сдвиг с накоплением
-		product[1] = vsraq_n_u64(product[1], product[0], 26);
-		product[0] = vandq_u64(product[0], mask);
-		product[2] = vsraq_n_u64(product[2], product[1], 26);
-		product[1] = vandq_u64(product[1], mask);
-		product[3] = vsraq_n_u64(product[3], product[2], 26);
-		product[2] = vandq_u64(product[2], mask);
-		product[4] = vsraq_n_u64(product[4], product[3], 26);
-		product[3] = vandq_u64(product[3], mask);
-		// Перенос из пятой конечности
-		const uint64x2_t carry = vshrq_n_u64(product[4], 26);
-		product[4] = vandq_u64(product[4], mask);
-		// Учетверённый перенос
-		uint64x2_t four = vshlq_n_u64(carry, 2);
-		// Держим учетверение в векторе
-		__asm__ ("" : "+w" (four));
-		// Возвращаем перенос в первую конечность умноженным на пять
-		product[0] = vaddq_u64(product[0], vaddq_u64(four, carry));
-		// Перенос из первой конечности во вторую
-		product[1] = vsraq_n_u64(product[1], product[0], 26);
-		product[0] = vandq_u64(product[0], mask);
-	}
-	/**
-	 * @brief Метод сложения целых восьмёрок блоков в накопитель на NEON
-	 *
-	 * @details Восемь блоков идут двумя четвёрками дорожек по 32 разряда: младшая
-	 *          четвёрка - блоки с первого по четвёртый, старшая - с пятого по восьмой.
-	 *          Каждая восьмёрка умножается на r^8 и складывается со следующей, последняя -
-	 *          на r^8…r по дорожкам, и дорожки сходятся в накопитель. Четвёрки и
-	 *          произведения живут в регистрах: прежние четыре пары в массиве под циклом
-	 *          собиратель держал в памяти, грузя и сохраняя пять конечностей на каждой
-	 *          паре - 332 команды на восьмёрку при ста умножениях, 5,2 ГБ/с на M4 при
-	 *          8,2 у OpenSSL
-	 *
-	 * @param powers степени множителя r…r^8 по 26 разрядов
-	 * @param h0     младшая конечность накопителя, заменяемая итогом
-	 * @param h1     средняя конечность накопителя, заменяемая итогом
-	 * @param h2     старшая конечность накопителя, заменяемая итогом
-	 * @param data   складываемые байты
-	 * @param groups число восьмёрок блоков: не меньше одной
-	 *
-	 */
-	static void absorbNeon(const uint32_t (* powers)[5], uint64_t & h0, uint64_t & h1, uint64_t & h2, const uint8_t * data, const size_t groups) noexcept {
-		// Конечности r^8 по дорожкам векторов: r0…r3, затем r4 и 5·r1…5·r3, затем 5·r4
-		const uint32_t octet[12] = {powers[7][0], powers[7][1], powers[7][2], powers[7][3], powers[7][4], (powers[7][1] * 5), (powers[7][2] * 5), (powers[7][3] * 5), (powers[7][4] * 5), 0, 0, 0};
-		// Векторы конечностей r^8
-		const uint32x4_t ra = vld1q_u32(octet), rb = vld1q_u32(octet + 4), rc = vld1q_u32(octet + 8);
-		// Конечности накопителя по 26 разрядов
-		uint32_t limbs[5];
-		// Переводим накопитель в конечности по 26 разрядов
-		widen(h0, h1, h2, limbs);
-		// Младшая и старшая четвёрки дорожек
-		uint32x4_t a[5], b[5];
-		// Разбираем первую восьмёрку блоков по четвёркам
-		splitQuadNeon(data, a);
-		splitQuadNeon(data + 64, b);
+	#if defined(__ANTS_POLY1305_VECTOR__)
 		/**
-		 * Выполняем сложение накопителя с первой дорожкой
+		 * @brief Метод перевода накопителя из трёх конечностей по 64 разряда в пять по 26
+		 *
+		 * @param h0    младшая конечность накопителя
+		 * @param h1    средняя конечность накопителя
+		 * @param h2    старшая конечность накопителя: не больше нескольких единиц
+		 * @param limbs место под пять конечностей
+		 *
 		 */
-		for(size_t i = 0; i < 5; i++)
+		static inline void widen(const uint64_t h0, const uint64_t h1, const uint64_t h2, uint32_t * limbs) noexcept {
+			// Первая конечность
+			limbs[0] = static_cast <uint32_t> (h0 & 0x3FFFFFF);
+			// Вторая конечность
+			limbs[1] = static_cast <uint32_t> ((h0 >> 26) & 0x3FFFFFF);
+			// Третья конечность: стык младшей и средней конечностей
+			limbs[2] = static_cast <uint32_t> (((h0 >> 52) | (h1 << 12)) & 0x3FFFFFF);
+			// Четвёртая конечность
+			limbs[3] = static_cast <uint32_t> ((h1 >> 14) & 0x3FFFFFF);
+			// Пятая конечность со старшей конечностью: малый избыток сверх 26 разрядов ветви допустим
+			limbs[4] = static_cast <uint32_t> ((h1 >> 40) | (h2 << 24));
+		}
+		/**
+		 * @brief Метод перевода накопителя из пяти конечностей по 64 разряда в три по 64
+		 *
+		 * @details Конечности приходят суммой восьми дорожек и приведены не до конца:
+		 *          сперва проводятся переносы, затем конечности собираются в число
+		 *
+		 * @param limbs пять конечностей по 26 разрядов с избытком
+		 * @param h0    место под младшую конечность накопителя
+		 * @param h1    место под среднюю конечность накопителя
+		 * @param h2    место под старшую конечность накопителя
+		 *
+		 */
+		static inline void narrow(uint64_t * limbs, uint64_t & h0, uint64_t & h1, uint64_t & h2) noexcept {
+			// Перенос из первой конечности
+			uint64_t carry = (limbs[0] >> 26);
+			// Первая конечность
+			limbs[0] &= 0x3FFFFFF;
+			// Добавляем перенос ко второй конечности
+			limbs[1] += carry;
+			// Перенос из второй конечности
+			carry = (limbs[1] >> 26);
+			// Вторая конечность
+			limbs[1] &= 0x3FFFFFF;
+			// Добавляем перенос к третьей конечности
+			limbs[2] += carry;
+			// Перенос из третьей конечности
+			carry = (limbs[2] >> 26);
+			// Третья конечность
+			limbs[2] &= 0x3FFFFFF;
+			// Добавляем перенос к четвёртой конечности
+			limbs[3] += carry;
+			// Перенос из четвёртой конечности
+			carry = (limbs[3] >> 26);
+			// Четвёртая конечность
+			limbs[3] &= 0x3FFFFFF;
+			// Добавляем перенос к пятой конечности
+			limbs[4] += carry;
+			// Перенос из пятой конечности: уходит за 2^130
+			carry = (limbs[4] >> 26);
+			// Пятая конечность
+			limbs[4] &= 0x3FFFFFF;
+			// Возвращаем перенос в первую конечность умноженным на пять
+			limbs[0] += (carry * 5);
+			// Младшая половина числа: три конечности с переносом
+			const wide_t low = (static_cast <wide_t> (limbs[0]) + (static_cast <wide_t> (limbs[1]) << 26) + (static_cast <wide_t> (limbs[2]) << 52));
+			// Младшая конечность накопителя
+			h0 = static_cast <uint64_t> (low);
+			// Старшая половина числа: перенос младшей, четвёртая и пятая конечности
+			const wide_t high = (static_cast <wide_t> (static_cast <uint64_t> (low >> 64)) + (static_cast <wide_t> (limbs[3]) << 14) + (static_cast <wide_t> (limbs[4] & 0xFFFFFF) << 40));
+			// Средняя конечность накопителя
+			h1 = static_cast <uint64_t> (high);
+			// Старшая конечность накопителя: разряды выше 128
+			h2 = ((limbs[4] >> 24) + static_cast <uint64_t> (high >> 64));
+		}
+	#endif
+	/**
+	 * Если есть ветвь команд NEON
+	 */
+	#if defined(__ANTS_POLY1305_NEON__)
+		/**
+		 * @brief Метод разбора четырёх блоков на конечности по 26 разрядов дорожками вектора
+		 *
+		 * @details Слова пар блоков переставляются в младшие и старшие, конечности берутся
+		 *          сдвигами с сужением сразу в четыре дорожки по 32 разряда; стык слов
+		 *          собирается сдвигом со вставкой
+		 *
+		 * @param data четыре блока подряд
+		 * @param m    место под пять конечностей по четырём дорожкам
+		 *
+		 */
+		static __ANTS_INLINE__ void splitQuadNeon(const uint8_t * data, uint32x4_t * m) noexcept {
+			// Маска конечности по 32 разрядам
+			const uint32x4_t mask = vdupq_n_u32(0x3FFFFFF);
+			// Слова четырёх блоков
+			const uint64x2_t a = vreinterpretq_u64_u8(vld1q_u8(data));
+			const uint64x2_t b = vreinterpretq_u64_u8(vld1q_u8(data + 16));
+			const uint64x2_t c = vreinterpretq_u64_u8(vld1q_u8(data + 32));
+			const uint64x2_t d = vreinterpretq_u64_u8(vld1q_u8(data + 48));
+			// Младшие и старшие слова первой пары блоков
+			const uint64x2_t low01 = vtrn1q_u64(a, b), high01 = vtrn2q_u64(a, b);
+			// Младшие и старшие слова второй пары блоков
+			const uint64x2_t low23 = vtrn1q_u64(c, d), high23 = vtrn2q_u64(c, d);
+			// Первая конечность: младшие 26 разрядов младших слов
+			m[0] = vandq_u32(vuzp1q_u32(vreinterpretq_u32_u64(low01), vreinterpretq_u32_u64(low23)), mask);
+			// Вторая конечность
+			m[1] = vandq_u32(vshrn_high_n_u64(vshrn_n_u64(low01, 26), low23, 26), mask);
+			// Третья конечность: стык слов - старшие 12 разрядов младшего слова под младшими старшего
+			const uint64x2_t seam01 = vsliq_n_u64(vshrq_n_u64(low01, 52), high01, 12);
+			const uint64x2_t seam23 = vsliq_n_u64(vshrq_n_u64(low23, 52), high23, 12);
+			m[2] = vandq_u32(vuzp1q_u32(vreinterpretq_u32_u64(seam01), vreinterpretq_u32_u64(seam23)), mask);
+			// Четвёртая конечность
+			m[3] = vandq_u32(vshrn_high_n_u64(vshrn_n_u64(high01, 14), high23, 14), mask);
+			// Пятая конечность со старшим разрядом 2^128: сдвиг на сорок шире сужающего, оттого сужение перестановкой
+			m[4] = vorrq_u32(vuzp1q_u32(vreinterpretq_u32_u64(vshrq_n_u64(high01, 40)), vreinterpretq_u32_u64(vshrq_n_u64(high23, 40))), vdupq_n_u32(static_cast <uint32_t> (1) << 24));
+		}
+		/**
+		 * @brief Метод сложения пяти произведений конечностей четырёх дорожек на r^8 по дорожкам вектора
+		 *
+		 * @details Конечности r^8 лежат в трёх векторах, и умножение берёт нужную дорожкой
+		 *          команды: множитель не размножается по регистрам. Младшая пара дорожек
+		 *          идёт нижней половиной вектора, старшая - верхней командой на старшие дорожки
+		 *
+		 * @param h    конечности четырёх дорожек
+		 * @param ra   конечности r^8: r0, r1, r2, r3
+		 * @param rb   конечности r^8: r4 и 5·r1, 5·r2, 5·r3
+		 * @param rc   конечность 5·r4 первой дорожкой
+		 * @param low  место под пять конечностей произведения младшей пары в 64 разряда
+		 * @param high место под пять конечностей произведения старшей пары в 64 разряда
+		 *
+		 */
+		static __ANTS_INLINE__ void productQuadNeon(const uint32x4_t * h, const uint32x4_t ra, const uint32x4_t rb, const uint32x4_t rc, uint64x2_t * low, uint64x2_t * high) noexcept {
+			// Младшие пары конечностей
+			const uint32x2_t h0 = vget_low_u32(h[0]), h1 = vget_low_u32(h[1]), h2 = vget_low_u32(h[2]), h3 = vget_low_u32(h[3]), h4 = vget_low_u32(h[4]);
+			// Первая конечность произведения
+			low[0] = vmlal_laneq_u32(vmlal_laneq_u32(vmlal_laneq_u32(vmlal_laneq_u32(vmull_laneq_u32(h0, ra, 0), h1, rc, 0), h2, rb, 3), h3, rb, 2), h4, rb, 1);
+			high[0] = vmlal_high_laneq_u32(vmlal_high_laneq_u32(vmlal_high_laneq_u32(vmlal_high_laneq_u32(vmull_high_laneq_u32(h[0], ra, 0), h[1], rc, 0), h[2], rb, 3), h[3], rb, 2), h[4], rb, 1);
+			// Вторая конечность произведения
+			low[1] = vmlal_laneq_u32(vmlal_laneq_u32(vmlal_laneq_u32(vmlal_laneq_u32(vmull_laneq_u32(h0, ra, 1), h1, ra, 0), h2, rc, 0), h3, rb, 3), h4, rb, 2);
+			high[1] = vmlal_high_laneq_u32(vmlal_high_laneq_u32(vmlal_high_laneq_u32(vmlal_high_laneq_u32(vmull_high_laneq_u32(h[0], ra, 1), h[1], ra, 0), h[2], rc, 0), h[3], rb, 3), h[4], rb, 2);
+			// Третья конечность произведения
+			low[2] = vmlal_laneq_u32(vmlal_laneq_u32(vmlal_laneq_u32(vmlal_laneq_u32(vmull_laneq_u32(h0, ra, 2), h1, ra, 1), h2, ra, 0), h3, rc, 0), h4, rb, 3);
+			high[2] = vmlal_high_laneq_u32(vmlal_high_laneq_u32(vmlal_high_laneq_u32(vmlal_high_laneq_u32(vmull_high_laneq_u32(h[0], ra, 2), h[1], ra, 1), h[2], ra, 0), h[3], rc, 0), h[4], rb, 3);
+			// Четвёртая конечность произведения
+			low[3] = vmlal_laneq_u32(vmlal_laneq_u32(vmlal_laneq_u32(vmlal_laneq_u32(vmull_laneq_u32(h0, ra, 3), h1, ra, 2), h2, ra, 1), h3, ra, 0), h4, rc, 0);
+			high[3] = vmlal_high_laneq_u32(vmlal_high_laneq_u32(vmlal_high_laneq_u32(vmlal_high_laneq_u32(vmull_high_laneq_u32(h[0], ra, 3), h[1], ra, 2), h[2], ra, 1), h[3], ra, 0), h[4], rc, 0);
+			// Пятая конечность произведения
+			low[4] = vmlal_laneq_u32(vmlal_laneq_u32(vmlal_laneq_u32(vmlal_laneq_u32(vmull_laneq_u32(h0, rb, 0), h1, ra, 3), h2, ra, 2), h3, ra, 1), h4, ra, 0);
+			high[4] = vmlal_high_laneq_u32(vmlal_high_laneq_u32(vmlal_high_laneq_u32(vmlal_high_laneq_u32(vmull_high_laneq_u32(h[0], rb, 0), h[1], ra, 3), h[2], ra, 2), h[3], ra, 1), h[4], ra, 0);
+		}
+		/**
+		 * @brief Метод сложения пяти произведений конечностей четырёх дорожек на свои множители
+		 *
+		 * @details Последняя восьмёрка умножается на степени r^8…r по дорожкам: множители
+		 *          лежат по дорожкам векторов, и произведение берёт дорожку на дорожку
+		 *
+		 * @param h    конечности четырёх дорожек
+		 * @param r    конечности множителей по дорожкам
+		 * @param s    конечности множителей, умноженные на пять
+		 * @param low  место под пять конечностей произведения младшей пары в 64 разряда
+		 * @param high место под пять конечностей произведения старшей пары в 64 разряда
+		 *
+		 */
+		static __ANTS_INLINE__ void productLanesNeon(const uint32x4_t * h, const uint32x4_t * r, const uint32x4_t * s, uint64x2_t * low, uint64x2_t * high) noexcept {
+			// Младшие пары конечностей
+			const uint32x2_t h0 = vget_low_u32(h[0]), h1 = vget_low_u32(h[1]), h2 = vget_low_u32(h[2]), h3 = vget_low_u32(h[3]), h4 = vget_low_u32(h[4]);
+			// Младшие пары множителей
+			const uint32x2_t r0 = vget_low_u32(r[0]), r1 = vget_low_u32(r[1]), r2 = vget_low_u32(r[2]), r3 = vget_low_u32(r[3]), r4 = vget_low_u32(r[4]);
+			const uint32x2_t s1 = vget_low_u32(s[1]), s2 = vget_low_u32(s[2]), s3 = vget_low_u32(s[3]), s4 = vget_low_u32(s[4]);
+			// Первая конечность произведения
+			low[0] = vmlal_u32(vmlal_u32(vmlal_u32(vmlal_u32(vmull_u32(h0, r0), h1, s4), h2, s3), h3, s2), h4, s1);
+			high[0] = vmlal_high_u32(vmlal_high_u32(vmlal_high_u32(vmlal_high_u32(vmull_high_u32(h[0], r[0]), h[1], s[4]), h[2], s[3]), h[3], s[2]), h[4], s[1]);
+			// Вторая конечность произведения
+			low[1] = vmlal_u32(vmlal_u32(vmlal_u32(vmlal_u32(vmull_u32(h0, r1), h1, r0), h2, s4), h3, s3), h4, s2);
+			high[1] = vmlal_high_u32(vmlal_high_u32(vmlal_high_u32(vmlal_high_u32(vmull_high_u32(h[0], r[1]), h[1], r[0]), h[2], s[4]), h[3], s[3]), h[4], s[2]);
+			// Третья конечность произведения
+			low[2] = vmlal_u32(vmlal_u32(vmlal_u32(vmlal_u32(vmull_u32(h0, r2), h1, r1), h2, r0), h3, s4), h4, s3);
+			high[2] = vmlal_high_u32(vmlal_high_u32(vmlal_high_u32(vmlal_high_u32(vmull_high_u32(h[0], r[2]), h[1], r[1]), h[2], r[0]), h[3], s[4]), h[4], s[3]);
+			// Четвёртая конечность произведения
+			low[3] = vmlal_u32(vmlal_u32(vmlal_u32(vmlal_u32(vmull_u32(h0, r3), h1, r2), h2, r1), h3, r0), h4, s4);
+			high[3] = vmlal_high_u32(vmlal_high_u32(vmlal_high_u32(vmlal_high_u32(vmull_high_u32(h[0], r[3]), h[1], r[2]), h[2], r[1]), h[3], r[0]), h[4], s[4]);
+			// Пятая конечность произведения
+			low[4] = vmlal_u32(vmlal_u32(vmlal_u32(vmlal_u32(vmull_u32(h0, r4), h1, r3), h2, r2), h3, r1), h4, r0);
+			high[4] = vmlal_high_u32(vmlal_high_u32(vmlal_high_u32(vmlal_high_u32(vmull_high_u32(h[0], r[4]), h[1], r[3]), h[2], r[2]), h[3], r[1]), h[4], r[0]);
+		}
+		/**
+		 * @brief Метод закрепления произведений обеих пар дорожек до переносов
+		 *
+		 * @details Перенос из конечности в следующую - сложение, и собиратель волен переставить
+		 *          его в начало цепочки умножений следующей конечности: так он и делал, ставя
+		 *          сдвиг первой конечности начальным накопителем пяти умножений второй, и все
+		 *          двадцать пять умножений пары вытягивались в одну цепочку - 95 тактов на
+		 *          восьмёрку при 45 у цепочки из пяти. Пустые вставки ассемблера делают
+		 *          произведения непрозрачными: переносы идут после всех умножений
+		 *
+		 * @param low  конечности произведения младшей пары
+		 * @param high конечности произведения старшей пары
+		 *
+		 */
+		static __ANTS_INLINE__ void pinNeon(uint64x2_t * low, uint64x2_t * high) noexcept {
+			// Закрепляем все конечности обеих пар
+			__asm__ ("" : "+w" (low[0]), "+w" (low[1]), "+w" (low[2]), "+w" (low[3]), "+w" (low[4]));
+			__asm__ ("" : "+w" (high[0]), "+w" (high[1]), "+w" (high[2]), "+w" (high[3]), "+w" (high[4]));
+		}
+		/**
+		 * @brief Метод проведения переносов произведения пары дорожек в конечности по 26 разрядов
+		 *
+		 * @details Перенос из пятой конечности возвращается в первую умноженным на пять:
+		 *          сумма переноса с его учетверением, а не умножение - собиратель сворачивает
+		 *          сдвиг со сложением в умножение на пять, у которого нет векторной формы на
+		 *          64 разряда, и считает его через скалярные регистры шестью командами;
+		 *          пустая вставка ассемблера держит учетверение в векторе
+		 *
+		 * @param product конечности произведения пары дорожек в 64 разряда, приводимые на месте
+		 *
+		 */
+		static __ANTS_INLINE__ void carryPairNeon(uint64x2_t * product) noexcept {
+			// Маска конечности
+			const uint64x2_t mask = vdupq_n_u64(0x3FFFFFF);
+			// Переносы по цепочке конечностей: сдвиг с накоплением
+			product[1] = vsraq_n_u64(product[1], product[0], 26);
+			product[0] = vandq_u64(product[0], mask);
+			product[2] = vsraq_n_u64(product[2], product[1], 26);
+			product[1] = vandq_u64(product[1], mask);
+			product[3] = vsraq_n_u64(product[3], product[2], 26);
+			product[2] = vandq_u64(product[2], mask);
+			product[4] = vsraq_n_u64(product[4], product[3], 26);
+			product[3] = vandq_u64(product[3], mask);
+			// Перенос из пятой конечности
+			const uint64x2_t carry = vshrq_n_u64(product[4], 26);
+			product[4] = vandq_u64(product[4], mask);
+			// Учетверённый перенос
+			uint64x2_t four = vshlq_n_u64(carry, 2);
+			// Держим учетверение в векторе
+			__asm__ ("" : "+w" (four));
+			// Возвращаем перенос в первую конечность умноженным на пять
+			product[0] = vaddq_u64(product[0], vaddq_u64(four, carry));
+			// Перенос из первой конечности во вторую
+			product[1] = vsraq_n_u64(product[1], product[0], 26);
+			product[0] = vandq_u64(product[0], mask);
+		}
+		/**
+		 * @brief Метод сложения целых восьмёрок блоков в накопитель на NEON
+		 *
+		 * @details Восемь блоков идут двумя четвёрками дорожек по 32 разряда: младшая
+		 *          четвёрка - блоки с первого по четвёртый, старшая - с пятого по восьмой.
+		 *          Каждая восьмёрка умножается на r^8 и складывается со следующей, последняя -
+		 *          на r^8…r по дорожкам, и дорожки сходятся в накопитель. Четвёрки и
+		 *          произведения живут в регистрах: прежние четыре пары в массиве под циклом
+		 *          собиратель держал в памяти, грузя и сохраняя пять конечностей на каждой
+		 *          паре - 332 команды на восьмёрку при ста умножениях, 5,2 ГБ/с на M4 при
+		 *          8,2 у OpenSSL
+		 *
+		 * @param powers степени множителя r…r^8 по 26 разрядов
+		 * @param h0     младшая конечность накопителя, заменяемая итогом
+		 * @param h1     средняя конечность накопителя, заменяемая итогом
+		 * @param h2     старшая конечность накопителя, заменяемая итогом
+		 * @param data   складываемые байты
+		 * @param groups число восьмёрок блоков: не меньше одной
+		 *
+		 */
+		static void absorbNeon(const uint32_t (* powers)[5], uint64_t & h0, uint64_t & h1, uint64_t & h2, const uint8_t * data, const size_t groups) noexcept {
+			// Конечности r^8 по дорожкам векторов: r0…r3, затем r4 и 5·r1…5·r3, затем 5·r4
+			const uint32_t octet[12] = {powers[7][0], powers[7][1], powers[7][2], powers[7][3], powers[7][4], (powers[7][1] * 5), (powers[7][2] * 5), (powers[7][3] * 5), (powers[7][4] * 5), 0, 0, 0};
+			// Векторы конечностей r^8
+			const uint32x4_t ra = vld1q_u32(octet), rb = vld1q_u32(octet + 4), rc = vld1q_u32(octet + 8);
+			// Конечности накопителя по 26 разрядов
+			uint32_t limbs[5];
+			// Переводим накопитель в конечности по 26 разрядов
+			widen(h0, h1, h2, limbs);
+			// Младшая и старшая четвёрки дорожек
+			uint32x4_t a[5], b[5];
+			// Разбираем первую восьмёрку блоков по четвёркам
+			splitQuadNeon(data, a);
+			splitQuadNeon(data + 64, b);
+			/**
+			 * Выполняем сложение накопителя с первой дорожкой
+			 */
+			for(size_t i = 0; i < 5; i++)
 			// Складываем конечность накопителя с первой дорожкой
 			a[i] = vaddq_u32(a[i], vsetq_lane_u32(limbs[i], vdupq_n_u32(0), 0));
-		// Сдвигаем позицию чтения
-		data += 128;
-		/**
-		 * Выполняем сложение восьмёрок: каждая умножается на r^8 и складывается со следующей
-		 */
-		for(size_t g = 1; g < groups; g++){
-			// Конечности произведений пар дорожек
-			uint64x2_t low[5], high[5];
-			// Конечности следующей восьмёрки
-			uint32x4_t m[5];
-			// Умножаем младшую четвёрку на r^8
-			productQuadNeon(a, ra, rb, rc, low, high);
-			// Закрепляем произведения до переносов
-			pinNeon(low, high);
-			// Проводим переносы обеих пар
-			carryPairNeon(low);
-			carryPairNeon(high);
-			/**
-			 * Выполняем сужение конечностей младшей четвёрки
-			 */
-			for(size_t i = 0; i < 5; i++)
-				// Собираем четыре дорожки из младших слов пар
-				a[i] = vuzp1q_u32(vreinterpretq_u32_u64(low[i]), vreinterpretq_u32_u64(high[i]));
-			// Умножаем старшую четвёрку на r^8
-			productQuadNeon(b, ra, rb, rc, low, high);
-			// Закрепляем произведения до переносов
-			pinNeon(low, high);
-			// Проводим переносы обеих пар
-			carryPairNeon(low);
-			carryPairNeon(high);
-			/**
-			 * Выполняем сужение конечностей старшей четвёрки
-			 */
-			for(size_t i = 0; i < 5; i++)
-				// Собираем четыре дорожки из младших слов пар
-				b[i] = vuzp1q_u32(vreinterpretq_u32_u64(low[i]), vreinterpretq_u32_u64(high[i]));
-			// Разбираем младшую четвёрку следующей восьмёрки
-			splitQuadNeon(data, m);
-			/**
-			 * Выполняем сложение младшей четвёрки со следующей
-			 */
-			for(size_t i = 0; i < 5; i++)
-				// Складываем конечности
-				a[i] = vaddq_u32(a[i], m[i]);
-			// Разбираем старшую четвёрку следующей восьмёрки
-			splitQuadNeon(data + 64, m);
-			/**
-			 * Выполняем сложение старшей четвёрки со следующей
-			 */
-			for(size_t i = 0; i < 5; i++)
-				// Складываем конечности
-				b[i] = vaddq_u32(b[i], m[i]);
 			// Сдвигаем позицию чтения
 			data += 128;
-		}
-		// Суммы дорожек по конечностям
-		uint64_t total[5] = {0, 0, 0, 0, 0};
-		// Конечности произведений пар дорожек
-		uint64x2_t low[5], high[5];
-		/**
-		 * Выполняем умножение четвёрок на свои степени: r^8…r^5 младшей и r^4…r старшей
-		 */
-		for(size_t k = 0; k < 2; k++){
-			// Множители по дорожкам и их пятикратные
-			uint32x4_t r[5], s[5];
 			/**
-			 * Выполняем сборку множителей по дорожкам
+			 * Выполняем сложение восьмёрок: каждая умножается на r^8 и складывается со следующей
 			 */
-			for(size_t i = 0; i < 5; i++){
-				// Конечности степеней по дорожкам: r^8, r^7, r^6, r^5 либо r^4, r^3, r^2, r
-				const uint32_t quad[4] = {powers[7 - (k * 4)][i], powers[6 - (k * 4)][i], powers[5 - (k * 4)][i], powers[4 - (k * 4)][i]};
-				// Загружаем конечности множителей
-				r[i] = vld1q_u32(quad);
-				// Умножаем конечности на пять
-				s[i] = vmulq_n_u32(r[i], 5);
-			}
-			// Умножаем четвёрку на степени
-			productLanesNeon((k == 0 ? a : b), r, s, low, high);
-			// Закрепляем произведения до переносов
-			pinNeon(low, high);
-			// Проводим переносы обеих пар
-			carryPairNeon(low);
-			carryPairNeon(high);
-			/**
-			 * Выполняем сложение дорожек в суммы
-			 */
-			for(size_t i = 0; i < 5; i++)
-				// Складываем четыре дорожки
-				total[i] += (vaddvq_u64(low[i]) + vaddvq_u64(high[i]));
-		}
-		// Переводим сумму дорожек в конечности накопителя
-		narrow(total, h0, h1, h2);
-	}
-#endif
-/**
- * Если есть ветвь команд AVX2
- */
-#if defined(__ANTS_POLY1305_AVX2__) && !defined(__ANTS_POLY1305_X86_64__)
-	/**
-	 * @brief Метод сложения пяти произведений конечностей четырёх дорожек на множитель
-	 *
-	 * @param h      конечности дорожек
-	 * @param r      конечности множителя по дорожкам
-	 * @param s      конечности множителя, умноженные на пять
-	 * @param result место под пять конечностей произведения в 64 разряда
-	 *
-	 */
-	static __ANTS_POLY1305_AVX2_TARGET__ __ANTS_INLINE__ void productAvx2(const __m256i * h, const __m256i * r, const __m256i * s, __m256i * result) noexcept {
-		// Первая конечность произведения
-		result[0] = _mm256_add_epi64(_mm256_add_epi64(_mm256_mul_epu32(h[0], r[0]), _mm256_mul_epu32(h[1], s[4])), _mm256_add_epi64(_mm256_add_epi64(_mm256_mul_epu32(h[2], s[3]), _mm256_mul_epu32(h[3], s[2])), _mm256_mul_epu32(h[4], s[1])));
-		// Вторая конечность произведения
-		result[1] = _mm256_add_epi64(_mm256_add_epi64(_mm256_mul_epu32(h[0], r[1]), _mm256_mul_epu32(h[1], r[0])), _mm256_add_epi64(_mm256_add_epi64(_mm256_mul_epu32(h[2], s[4]), _mm256_mul_epu32(h[3], s[3])), _mm256_mul_epu32(h[4], s[2])));
-		// Третья конечность произведения
-		result[2] = _mm256_add_epi64(_mm256_add_epi64(_mm256_mul_epu32(h[0], r[2]), _mm256_mul_epu32(h[1], r[1])), _mm256_add_epi64(_mm256_add_epi64(_mm256_mul_epu32(h[2], r[0]), _mm256_mul_epu32(h[3], s[4])), _mm256_mul_epu32(h[4], s[3])));
-		// Четвёртая конечность произведения
-		result[3] = _mm256_add_epi64(_mm256_add_epi64(_mm256_mul_epu32(h[0], r[3]), _mm256_mul_epu32(h[1], r[2])), _mm256_add_epi64(_mm256_add_epi64(_mm256_mul_epu32(h[2], r[1]), _mm256_mul_epu32(h[3], r[0])), _mm256_mul_epu32(h[4], s[4])));
-		// Пятая конечность произведения
-		result[4] = _mm256_add_epi64(_mm256_add_epi64(_mm256_mul_epu32(h[0], r[4]), _mm256_mul_epu32(h[1], r[3])), _mm256_add_epi64(_mm256_add_epi64(_mm256_mul_epu32(h[2], r[2]), _mm256_mul_epu32(h[3], r[1])), _mm256_mul_epu32(h[4], r[0])));
-	}
-	/**
-	 * @brief Метод проведения переносов произведения четырёх дорожек в конечности по 26 разрядов
-	 *
-	 * @param product конечности произведения, заменяемые приведёнными
-	 *
-	 */
-	static __ANTS_POLY1305_AVX2_TARGET__ __ANTS_INLINE__ void carryAvx2(__m256i * product) noexcept {
-		// Маска конечности
-		const __m256i mask = _mm256_set1_epi64x(0x3FFFFFF);
-		// Перенос из первой конечности во вторую
-		product[1] = _mm256_add_epi64(product[1], _mm256_srli_epi64(product[0], 26));
-		// Первая конечность без переноса
-		product[0] = _mm256_and_si256(product[0], mask);
-		// Перенос из второй конечности в третью
-		product[2] = _mm256_add_epi64(product[2], _mm256_srli_epi64(product[1], 26));
-		// Вторая конечность без переноса
-		product[1] = _mm256_and_si256(product[1], mask);
-		// Перенос из третьей конечности в четвёртую
-		product[3] = _mm256_add_epi64(product[3], _mm256_srli_epi64(product[2], 26));
-		// Третья конечность без переноса
-		product[2] = _mm256_and_si256(product[2], mask);
-		// Перенос из четвёртой конечности в пятую
-		product[4] = _mm256_add_epi64(product[4], _mm256_srli_epi64(product[3], 26));
-		// Четвёртая конечность без переноса
-		product[3] = _mm256_and_si256(product[3], mask);
-		// Перенос из пятой конечности: уходит за 2^130
-		const __m256i carry = _mm256_srli_epi64(product[4], 26);
-		// Пятая конечность без переноса
-		product[4] = _mm256_and_si256(product[4], mask);
-		// Возвращаем перенос в первую конечность умноженным на пять
-		product[0] = _mm256_add_epi64(product[0], _mm256_add_epi64(carry, _mm256_slli_epi64(carry, 2)));
-		// Перенос из первой конечности во вторую
-		product[1] = _mm256_add_epi64(product[1], _mm256_srli_epi64(product[0], 26));
-		// Первая конечность без переноса
-		product[0] = _mm256_and_si256(product[0], mask);
-	}
-	/**
-	 * @brief Метод разбора четырёх блоков на пять конечностей четырёх дорожек
-	 *
-	 * @details Слова блоков раскладываются по дорожкам чередованием внутри половин
-	 *          вектора, оттого порядок дорожек - первый, третий, второй, четвёртый
-	 *          блоки; степени последней четвёрки раскладываются в том же порядке
-	 *
-	 * @param data четыре блока подряд
-	 * @param m    место под пять конечностей дорожек
-	 *
-	 */
-	static __ANTS_POLY1305_AVX2_TARGET__ __ANTS_INLINE__ void splitAvx2(const uint8_t * data, __m256i * m) noexcept {
-		// Маска конечности
-		const __m256i mask = _mm256_set1_epi64x(0x3FFFFFF);
-		// Слова первого и второго блоков
-		const __m256i a = _mm256_loadu_si256(reinterpret_cast <const __m256i *> (data));
-		// Слова третьего и четвёртого блоков
-		const __m256i b = _mm256_loadu_si256(reinterpret_cast <const __m256i *> (data + 32));
-		// Младшие слова блоков в порядке дорожек
-		const __m256i low = _mm256_unpacklo_epi64(a, b);
-		// Старшие слова блоков в порядке дорожек
-		const __m256i high = _mm256_unpackhi_epi64(a, b);
-		// Первая конечность
-		m[0] = _mm256_and_si256(low, mask);
-		// Вторая конечность
-		m[1] = _mm256_and_si256(_mm256_srli_epi64(low, 26), mask);
-		// Третья конечность: стык слов
-		m[2] = _mm256_and_si256(_mm256_or_si256(_mm256_srli_epi64(low, 52), _mm256_slli_epi64(high, 12)), mask);
-		// Четвёртая конечность
-		m[3] = _mm256_and_si256(_mm256_srli_epi64(high, 14), mask);
-		// Пятая конечность со старшим разрядом 2^128
-		m[4] = _mm256_or_si256(_mm256_srli_epi64(high, 40), _mm256_set1_epi64x(static_cast <int64_t> (1) << 24));
-	}
-	/**
-	 * @brief Метод сложения восьмёрок целых блоков командами AVX2
-	 *
-	 * @details Восемь дорожек в двух векторах: дорожка ведёт свою сумму - перед всякой
-	 *          восьмёркой, кроме первой, умножается на r^8 и складывается с блоком, -
-	 *          после последней восьмёрки дорожки умножаются на r^8…r в порядке разбора
-	 *          и складываются в накопитель; цикл однороден, две независимые цепочки
-	 *
-	 * @param powers степени множителя r…r^8 по 26 разрядов
-	 * @param h0     младшая конечность накопителя, заменяемая итогом
-	 * @param h1     средняя конечность накопителя, заменяемая итогом
-	 * @param h2     старшая конечность накопителя, заменяемая итогом
-	 * @param data   складываемые байты
-	 * @param groups число восьмёрок блоков: не меньше одной
-	 *
-	 */
-	static __ANTS_POLY1305_AVX2_TARGET__ void absorbAvx2(const uint32_t (* powers)[5], uint64_t & h0, uint64_t & h1, uint64_t & h2, const uint8_t * data, const size_t groups) noexcept {
-		// Конечности r^8 на все дорожки и они же, умноженные на пять
-		__m256i r8[5], s8[5];
-		/**
-		 * Выполняем размножение конечностей r^8 по дорожкам
-		 */
-		for(size_t i = 0; i < 5; i++){
-			// Конечность r^8 на все дорожки
-			r8[i] = _mm256_set1_epi64x(powers[7][i]);
-			// Конечность r^8, умноженная на пять
-			s8[i] = _mm256_set1_epi64x(static_cast <int64_t> (powers[7][i]) * 5);
-		}
-		// Накопитель по 26 разрядов
-		uint32_t limbs[5];
-		// Переводим накопитель в конечности по 26 разрядов
-		widen(h0, h1, h2, limbs);
-		// Конечности двух четвёрок дорожек
-		__m256i lanes[2][5];
-		// Разбираем первую четвёрку блоков
-		splitAvx2(data, lanes[0]);
-		// Разбираем вторую четвёрку блоков
-		splitAvx2(data + 64, lanes[1]);
-		/**
-		 * Выполняем сложение накопителя с первой дорожкой
-		 */
-		for(size_t i = 0; i < 5; i++)
-			// Конечности первой четвёрки с накопителем в первой дорожке
-			lanes[0][i] = _mm256_add_epi64(lanes[0][i], _mm256_set_epi64x(0, 0, 0, limbs[i]));
-		// Переходим ко второй восьмёрке
-		data += 128;
-		/**
-		 * Выполняем перебор прочих восьмёрок: дорожки умножаются на r^8 и складываются с блоками
-		 */
-		for(size_t g = 1; g < groups; g++){
-			/**
-			 * Выполняем перебор четвёрок дорожек
-			 */
-			for(size_t k = 0; k < 2; k++){
-				// Конечности произведений
-				__m256i product[5];
-				// Конечности блоков четвёрки
-				__m256i m[5];
-				// Умножаем четвёрку дорожек на r^8
-				productAvx2(lanes[k], r8, s8, product);
-				// Проводим переносы
-				carryAvx2(product);
-				// Разбираем четвёрку блоков
-				splitAvx2(data + (k * 64), m);
+			for(size_t g = 1; g < groups; g++){
+				// Конечности произведений пар дорожек
+				uint64x2_t low[5], high[5];
+				// Конечности следующей восьмёрки
+				uint32x4_t m[5];
+				// Умножаем младшую четвёрку на r^8
+				productQuadNeon(a, ra, rb, rc, low, high);
+				// Закрепляем произведения до переносов
+				pinNeon(low, high);
+				// Проводим переносы обеих пар
+				carryPairNeon(low);
+				carryPairNeon(high);
 				/**
-				 * Выполняем сложение блоков с дорожками
+				 * Выполняем сужение конечностей младшей четвёрки
 				 */
 				for(size_t i = 0; i < 5; i++)
+				// Собираем четыре дорожки из младших слов пар
+				a[i] = vuzp1q_u32(vreinterpretq_u32_u64(low[i]), vreinterpretq_u32_u64(high[i]));
+				// Умножаем старшую четвёрку на r^8
+				productQuadNeon(b, ra, rb, rc, low, high);
+				// Закрепляем произведения до переносов
+				pinNeon(low, high);
+				// Проводим переносы обеих пар
+				carryPairNeon(low);
+				carryPairNeon(high);
+				/**
+				 * Выполняем сужение конечностей старшей четвёрки
+				 */
+				for(size_t i = 0; i < 5; i++)
+				// Собираем четыре дорожки из младших слов пар
+				b[i] = vuzp1q_u32(vreinterpretq_u32_u64(low[i]), vreinterpretq_u32_u64(high[i]));
+				// Разбираем младшую четвёрку следующей восьмёрки
+				splitQuadNeon(data, m);
+				/**
+				 * Выполняем сложение младшей четвёрки со следующей
+				 */
+				for(size_t i = 0; i < 5; i++)
+				// Складываем конечности
+				a[i] = vaddq_u32(a[i], m[i]);
+				// Разбираем старшую четвёрку следующей восьмёрки
+				splitQuadNeon(data + 64, m);
+				/**
+				 * Выполняем сложение старшей четвёрки со следующей
+				 */
+				for(size_t i = 0; i < 5; i++)
+				// Складываем конечности
+				b[i] = vaddq_u32(b[i], m[i]);
+				// Сдвигаем позицию чтения
+				data += 128;
+			}
+			// Суммы дорожек по конечностям
+			uint64_t total[5] = {0, 0, 0, 0, 0};
+			// Конечности произведений пар дорожек
+			uint64x2_t low[5], high[5];
+			/**
+			 * Выполняем умножение четвёрок на свои степени: r^8…r^5 младшей и r^4…r старшей
+			 */
+			for(size_t k = 0; k < 2; k++){
+				// Множители по дорожкам и их пятикратные
+				uint32x4_t r[5], s[5];
+				/**
+				 * Выполняем сборку множителей по дорожкам
+				 */
+				for(size_t i = 0; i < 5; i++){
+					// Конечности степеней по дорожкам: r^8, r^7, r^6, r^5 либо r^4, r^3, r^2, r
+					const uint32_t quad[4] = {powers[7 - (k * 4)][i], powers[6 - (k * 4)][i], powers[5 - (k * 4)][i], powers[4 - (k * 4)][i]};
+					// Загружаем конечности множителей
+					r[i] = vld1q_u32(quad);
+					// Умножаем конечности на пять
+					s[i] = vmulq_n_u32(r[i], 5);
+				}
+				// Умножаем четвёрку на степени
+				productLanesNeon((k == 0 ? a : b), r, s, low, high);
+				// Закрепляем произведения до переносов
+				pinNeon(low, high);
+				// Проводим переносы обеих пар
+				carryPairNeon(low);
+				carryPairNeon(high);
+				/**
+				 * Выполняем сложение дорожек в суммы
+				 */
+				for(size_t i = 0; i < 5; i++)
+				// Складываем четыре дорожки
+				total[i] += (vaddvq_u64(low[i]) + vaddvq_u64(high[i]));
+			}
+			// Переводим сумму дорожек в конечности накопителя
+			narrow(total, h0, h1, h2);
+		}
+	#endif
+	/**
+	 * Если есть ветвь команд AVX2
+	 */
+	#if defined(__ANTS_POLY1305_AVX2__) && !defined(__ANTS_POLY1305_X86_64__)
+		/**
+		 * @brief Метод сложения пяти произведений конечностей четырёх дорожек на множитель
+		 *
+		 * @param h      конечности дорожек
+		 * @param r      конечности множителя по дорожкам
+		 * @param s      конечности множителя, умноженные на пять
+		 * @param result место под пять конечностей произведения в 64 разряда
+		 *
+		 */
+		static __ANTS_POLY1305_AVX2_TARGET__ __ANTS_INLINE__ void productAvx2(const __m256i * h, const __m256i * r, const __m256i * s, __m256i * result) noexcept {
+			// Первая конечность произведения
+			result[0] = _mm256_add_epi64(_mm256_add_epi64(_mm256_mul_epu32(h[0], r[0]), _mm256_mul_epu32(h[1], s[4])), _mm256_add_epi64(_mm256_add_epi64(_mm256_mul_epu32(h[2], s[3]), _mm256_mul_epu32(h[3], s[2])), _mm256_mul_epu32(h[4], s[1])));
+			// Вторая конечность произведения
+			result[1] = _mm256_add_epi64(_mm256_add_epi64(_mm256_mul_epu32(h[0], r[1]), _mm256_mul_epu32(h[1], r[0])), _mm256_add_epi64(_mm256_add_epi64(_mm256_mul_epu32(h[2], s[4]), _mm256_mul_epu32(h[3], s[3])), _mm256_mul_epu32(h[4], s[2])));
+			// Третья конечность произведения
+			result[2] = _mm256_add_epi64(_mm256_add_epi64(_mm256_mul_epu32(h[0], r[2]), _mm256_mul_epu32(h[1], r[1])), _mm256_add_epi64(_mm256_add_epi64(_mm256_mul_epu32(h[2], r[0]), _mm256_mul_epu32(h[3], s[4])), _mm256_mul_epu32(h[4], s[3])));
+			// Четвёртая конечность произведения
+			result[3] = _mm256_add_epi64(_mm256_add_epi64(_mm256_mul_epu32(h[0], r[3]), _mm256_mul_epu32(h[1], r[2])), _mm256_add_epi64(_mm256_add_epi64(_mm256_mul_epu32(h[2], r[1]), _mm256_mul_epu32(h[3], r[0])), _mm256_mul_epu32(h[4], s[4])));
+			// Пятая конечность произведения
+			result[4] = _mm256_add_epi64(_mm256_add_epi64(_mm256_mul_epu32(h[0], r[4]), _mm256_mul_epu32(h[1], r[3])), _mm256_add_epi64(_mm256_add_epi64(_mm256_mul_epu32(h[2], r[2]), _mm256_mul_epu32(h[3], r[1])), _mm256_mul_epu32(h[4], r[0])));
+		}
+		/**
+		 * @brief Метод проведения переносов произведения четырёх дорожек в конечности по 26 разрядов
+		 *
+		 * @param product конечности произведения, заменяемые приведёнными
+		 *
+		 */
+		static __ANTS_POLY1305_AVX2_TARGET__ __ANTS_INLINE__ void carryAvx2(__m256i * product) noexcept {
+			// Маска конечности
+			const __m256i mask = _mm256_set1_epi64x(0x3FFFFFF);
+			// Перенос из первой конечности во вторую
+			product[1] = _mm256_add_epi64(product[1], _mm256_srli_epi64(product[0], 26));
+			// Первая конечность без переноса
+			product[0] = _mm256_and_si256(product[0], mask);
+			// Перенос из второй конечности в третью
+			product[2] = _mm256_add_epi64(product[2], _mm256_srli_epi64(product[1], 26));
+			// Вторая конечность без переноса
+			product[1] = _mm256_and_si256(product[1], mask);
+			// Перенос из третьей конечности в четвёртую
+			product[3] = _mm256_add_epi64(product[3], _mm256_srli_epi64(product[2], 26));
+			// Третья конечность без переноса
+			product[2] = _mm256_and_si256(product[2], mask);
+			// Перенос из четвёртой конечности в пятую
+			product[4] = _mm256_add_epi64(product[4], _mm256_srli_epi64(product[3], 26));
+			// Четвёртая конечность без переноса
+			product[3] = _mm256_and_si256(product[3], mask);
+			// Перенос из пятой конечности: уходит за 2^130
+			const __m256i carry = _mm256_srli_epi64(product[4], 26);
+			// Пятая конечность без переноса
+			product[4] = _mm256_and_si256(product[4], mask);
+			// Возвращаем перенос в первую конечность умноженным на пять
+			product[0] = _mm256_add_epi64(product[0], _mm256_add_epi64(carry, _mm256_slli_epi64(carry, 2)));
+			// Перенос из первой конечности во вторую
+			product[1] = _mm256_add_epi64(product[1], _mm256_srli_epi64(product[0], 26));
+			// Первая конечность без переноса
+			product[0] = _mm256_and_si256(product[0], mask);
+		}
+		/**
+		 * @brief Метод разбора четырёх блоков на пять конечностей четырёх дорожек
+		 *
+		 * @details Слова блоков раскладываются по дорожкам чередованием внутри половин
+		 *          вектора, оттого порядок дорожек - первый, третий, второй, четвёртый
+		 *          блоки; степени последней четвёрки раскладываются в том же порядке
+		 *
+		 * @param data четыре блока подряд
+		 * @param m    место под пять конечностей дорожек
+		 *
+		 */
+		static __ANTS_POLY1305_AVX2_TARGET__ __ANTS_INLINE__ void splitAvx2(const uint8_t * data, __m256i * m) noexcept {
+			// Маска конечности
+			const __m256i mask = _mm256_set1_epi64x(0x3FFFFFF);
+			// Слова первого и второго блоков
+			const __m256i a = _mm256_loadu_si256(reinterpret_cast <const __m256i *> (data));
+			// Слова третьего и четвёртого блоков
+			const __m256i b = _mm256_loadu_si256(reinterpret_cast <const __m256i *> (data + 32));
+			// Младшие слова блоков в порядке дорожек
+			const __m256i low = _mm256_unpacklo_epi64(a, b);
+			// Старшие слова блоков в порядке дорожек
+			const __m256i high = _mm256_unpackhi_epi64(a, b);
+			// Первая конечность
+			m[0] = _mm256_and_si256(low, mask);
+			// Вторая конечность
+			m[1] = _mm256_and_si256(_mm256_srli_epi64(low, 26), mask);
+			// Третья конечность: стык слов
+			m[2] = _mm256_and_si256(_mm256_or_si256(_mm256_srli_epi64(low, 52), _mm256_slli_epi64(high, 12)), mask);
+			// Четвёртая конечность
+			m[3] = _mm256_and_si256(_mm256_srli_epi64(high, 14), mask);
+			// Пятая конечность со старшим разрядом 2^128
+			m[4] = _mm256_or_si256(_mm256_srli_epi64(high, 40), _mm256_set1_epi64x(static_cast <int64_t> (1) << 24));
+		}
+		/**
+		 * @brief Метод сложения восьмёрок целых блоков командами AVX2
+		 *
+		 * @details Восемь дорожек в двух векторах: дорожка ведёт свою сумму - перед всякой
+		 *          восьмёркой, кроме первой, умножается на r^8 и складывается с блоком, -
+		 *          после последней восьмёрки дорожки умножаются на r^8…r в порядке разбора
+		 *          и складываются в накопитель; цикл однороден, две независимые цепочки
+		 *
+		 * @param powers степени множителя r…r^8 по 26 разрядов
+		 * @param h0     младшая конечность накопителя, заменяемая итогом
+		 * @param h1     средняя конечность накопителя, заменяемая итогом
+		 * @param h2     старшая конечность накопителя, заменяемая итогом
+		 * @param data   складываемые байты
+		 * @param groups число восьмёрок блоков: не меньше одной
+		 *
+		 */
+		static __ANTS_POLY1305_AVX2_TARGET__ void absorbAvx2(const uint32_t (* powers)[5], uint64_t & h0, uint64_t & h1, uint64_t & h2, const uint8_t * data, const size_t groups) noexcept {
+			// Конечности r^8 на все дорожки и они же, умноженные на пять
+			__m256i r8[5], s8[5];
+			/**
+			 * Выполняем размножение конечностей r^8 по дорожкам
+			 */
+			for(size_t i = 0; i < 5; i++){
+				// Конечность r^8 на все дорожки
+				r8[i] = _mm256_set1_epi64x(powers[7][i]);
+				// Конечность r^8, умноженная на пять
+				s8[i] = _mm256_set1_epi64x(static_cast <int64_t> (powers[7][i]) * 5);
+			}
+			// Накопитель по 26 разрядов
+			uint32_t limbs[5];
+			// Переводим накопитель в конечности по 26 разрядов
+			widen(h0, h1, h2, limbs);
+			// Конечности двух четвёрок дорожек
+			__m256i lanes[2][5];
+			// Разбираем первую четвёрку блоков
+			splitAvx2(data, lanes[0]);
+			// Разбираем вторую четвёрку блоков
+			splitAvx2(data + 64, lanes[1]);
+			/**
+			 * Выполняем сложение накопителя с первой дорожкой
+			 */
+			for(size_t i = 0; i < 5; i++)
+			// Конечности первой четвёрки с накопителем в первой дорожке
+			lanes[0][i] = _mm256_add_epi64(lanes[0][i], _mm256_set_epi64x(0, 0, 0, limbs[i]));
+			// Переходим ко второй восьмёрке
+			data += 128;
+			/**
+			 * Выполняем перебор прочих восьмёрок: дорожки умножаются на r^8 и складываются с блоками
+			 */
+			for(size_t g = 1; g < groups; g++){
+				/**
+				 * Выполняем перебор четвёрок дорожек
+				 */
+				for(size_t k = 0; k < 2; k++){
+					// Конечности произведений
+					__m256i product[5];
+					// Конечности блоков четвёрки
+					__m256i m[5];
+					// Умножаем четвёрку дорожек на r^8
+					productAvx2(lanes[k], r8, s8, product);
+					// Проводим переносы
+					carryAvx2(product);
+					// Разбираем четвёрку блоков
+					splitAvx2(data + (k * 64), m);
+					/**
+					 * Выполняем сложение блоков с дорожками
+					 */
+					for(size_t i = 0; i < 5; i++)
 					// Складываем очередную конечность
 					lanes[k][i] = _mm256_add_epi64(product[i], m[i]);
+				}
+				// Переходим к следующей восьмёрке
+				data += 128;
 			}
-			// Переходим к следующей восьмёрке
-			data += 128;
-		}
-		// Суммы дорожек по конечностям
-		uint64_t total[5] = {0, 0, 0, 0, 0};
-		/**
-		 * Выполняем последнее умножение четвёрок дорожек на свои степени: r^8, r^6, r^7, r^5 и r^4, r^2, r^3, r в порядке разбора
-		 */
-		for(size_t k = 0; k < 2; k++){
-			// Конечности степеней четвёрки и они же на пять
-			__m256i r[5], s[5];
+			// Суммы дорожек по конечностям
+			uint64_t total[5] = {0, 0, 0, 0, 0};
 			/**
-			 * Выполняем раскладку степеней по дорожкам в порядке разбора блоков
+			 * Выполняем последнее умножение четвёрок дорожек на свои степени: r^8, r^6, r^7, r^5 и r^4, r^2, r^3, r в порядке разбора
+			 */
+			for(size_t k = 0; k < 2; k++){
+				// Конечности степеней четвёрки и они же на пять
+				__m256i r[5], s[5];
+				/**
+				 * Выполняем раскладку степеней по дорожкам в порядке разбора блоков
+				 */
+				for(size_t i = 0; i < 5; i++){
+					// Конечности степеней: старшая степень первой дорожке, затем через одну
+					r[i] = _mm256_set_epi64x(powers[4 - (k * 4)][i], powers[6 - (k * 4)][i], powers[5 - (k * 4)][i], powers[7 - (k * 4)][i]);
+					// Конечности степеней, умноженные на пять
+					s[i] = _mm256_add_epi64(r[i], _mm256_slli_epi64(r[i], 2));
+				}
+				// Конечности произведений
+				__m256i product[5];
+				// Умножаем четвёрку дорожек на степени
+				productAvx2(lanes[k], r, s, product);
+				// Проводим переносы
+				carryAvx2(product);
+				/**
+				 * Выполняем сложение дорожек четвёрки в суммы
+				 */
+				for(size_t i = 0; i < 5; i++){
+					// Сумма половин вектора
+					const __m128i sum = _mm_add_epi64(_mm256_castsi256_si128(product[i]), _mm256_extracti128_si256(product[i], 1));
+					// Сумма всех четырёх дорожек
+					total[i] += (static_cast <uint64_t> (_mm_cvtsi128_si64(sum)) + static_cast <uint64_t> (_mm_cvtsi128_si64(_mm_unpackhi_epi64(sum, sum))));
+				}
+			}
+			// Переводим сумму дорожек в конечности накопителя
+			narrow(total, h0, h1, h2);
+		}
+	#endif
+	/**
+	 * Если есть ядро AVX2 на ассемблере
+	 */
+	#if defined(__ANTS_POLY1305_X86_64__)
+		/**
+		 * @brief Метод построения стола ядра AVX2 на ассемблере
+		 *
+		 * @details Конечности r^4 и 5·r^4 по дорожкам, степени r^4, r^2, r^3 и r по дорожкам в
+		 *          порядке разбора блоков и они же на пять, маска конечности и старший разряд;
+		 *          стол строится раз на ключ вместе со степенями векторными записями по строке
+		 *          на конечность: на записи в 1 200 байтов постройка по словам была видна
+		 *
+		 * @param powers степени множителя r…r^4 по 26 разрядов
+		 * @param table  место под стол в POLY_TABLE байтов, выровненное на 32
+		 *
+		 */
+		static __ANTS_POLY1305_AVX2_TARGET__ void tableAvx2(const uint32_t (* powers)[5], uint64_t * table) noexcept {
+			// Место под стол векторами
+			__m256i * rows = reinterpret_cast <__m256i *> (table);
+			/**
+			 * Выполняем раскладку конечностей по дорожкам: строка стола - одна конечность на четыре дорожки
 			 */
 			for(size_t i = 0; i < 5; i++){
-				// Конечности степеней: старшая степень первой дорожке, затем через одну
-				r[i] = _mm256_set_epi64x(powers[4 - (k * 4)][i], powers[6 - (k * 4)][i], powers[5 - (k * 4)][i], powers[7 - (k * 4)][i]);
-				// Конечности степеней, умноженные на пять
-				s[i] = _mm256_add_epi64(r[i], _mm256_slli_epi64(r[i], 2));
+				// Конечность r^4 на все дорожки
+				const __m256i r4 = _mm256_set1_epi64x(static_cast <int64_t> (powers[3][i]));
+				// Конечности степеней по дорожкам в порядке разбора блоков: r^4, r^2, r^3, r
+				const __m256i rl = _mm256_set_epi64x(static_cast <int64_t> (powers[0][i]), static_cast <int64_t> (powers[2][i]), static_cast <int64_t> (powers[1][i]), static_cast <int64_t> (powers[3][i]));
+				// Конечность r^4 на дорожки
+				_mm256_store_si256(rows + (kernel::POLY_R4 / 32) + i, r4);
+				// Конечность 5·r^4 на дорожки
+				_mm256_store_si256(rows + (kernel::POLY_S4 / 32) + i, _mm256_add_epi64(r4, _mm256_slli_epi64(r4, 2)));
+				// Конечности степеней дорожек
+				_mm256_store_si256(rows + (kernel::POLY_RL / 32) + i, rl);
+				// Конечности степеней дорожек на пять
+				_mm256_store_si256(rows + (kernel::POLY_SL / 32) + i, _mm256_add_epi64(rl, _mm256_slli_epi64(rl, 2)));
 			}
-			// Конечности произведений
-			__m256i product[5];
-			// Умножаем четвёрку дорожек на степени
-			productAvx2(lanes[k], r, s, product);
-			// Проводим переносы
-			carryAvx2(product);
+			// Маска конечности по дорожкам
+			_mm256_store_si256(rows + (kernel::POLY_MASK / 32), _mm256_set1_epi64x(0x3FFFFFF));
+			// Старший разряд 2^128 в пятой конечности по дорожкам
+			_mm256_store_si256(rows + (kernel::POLY_HIBIT / 32), _mm256_set1_epi64x(static_cast <int64_t> (1) << 24));
+			// Сбрасываем верхние половины векторов перед возвратом к командам SSE
+			_mm256_zeroupper();
+		}
+		/**
+		 * @brief Метод сложения четвёрок целых блоков ядром AVX2 на ассемблере
+		 *
+		 * @details Накопитель переводится в конечности на месте, дорожки итога суммируются и
+		 *          переводятся обратно; стол ядра построен заранее вместе со степенями, а место
+		 *          под дорожки и конечности лежит за ним и затирается вместе с объектом
+		 *
+		 * @param table стол ядра: степени по дорожкам, маска и старший разряд, за ними место под дорожки итога и конечности накопителя
+		 * @param h0    младшая конечность накопителя, заменяемая итогом
+		 * @param h1    средняя конечность накопителя, заменяемая итогом
+		 * @param h2    старшая конечность накопителя, заменяемая итогом
+		 * @param data  складываемые байты
+		 * @param quads число четвёрок блоков: не меньше одной
+		 *
+		 */
+		static void absorbKernelAvx2(uint64_t * table, uint64_t & h0, uint64_t & h1, uint64_t & h2, const uint8_t * data, const size_t quads) noexcept {
+			// Дорожки итога за столом: пять конечностей четырёх дорожек, затираются вместе со столом
+			uint64_t * lanes = (table + (kernel::POLY_TABLE / sizeof(uint64_t)));
+			// Накопитель по 26 разрядов за дорожками
+			uint32_t * limbs = reinterpret_cast <uint32_t *> (lanes + 20);
+			// Переводим накопитель в конечности по 26 разрядов
+			widen(h0, h1, h2, limbs);
+			// Выполняем сложение четвёрок ядром
+			kernel::poly1305avx2(lanes, limbs, table, data, quads);
+			// Суммы дорожек по конечностям
+			uint64_t total[5];
 			/**
-			 * Выполняем сложение дорожек четвёрки в суммы
+			 * Выполняем суммирование дорожек
 			 */
-			for(size_t i = 0; i < 5; i++){
-				// Сумма половин вектора
-				const __m128i sum = _mm_add_epi64(_mm256_castsi256_si128(product[i]), _mm256_extracti128_si256(product[i], 1));
-				// Сумма всех четырёх дорожек
-				total[i] += (static_cast <uint64_t> (_mm_cvtsi128_si64(sum)) + static_cast <uint64_t> (_mm_cvtsi128_si64(_mm_unpackhi_epi64(sum, sum))));
-			}
-		}
-		// Переводим сумму дорожек в конечности накопителя
-		narrow(total, h0, h1, h2);
-	}
-#endif
-/**
- * Если есть ядро AVX2 на ассемблере
- */
-#if defined(__ANTS_POLY1305_X86_64__)
-	/**
-	 * @brief Метод построения стола ядра AVX2 на ассемблере
-	 *
-	 * @details Конечности r^4 и 5·r^4 по дорожкам, степени r^4, r^2, r^3 и r по дорожкам в
-	 *          порядке разбора блоков и они же на пять, маска конечности и старший разряд;
-	 *          стол строится раз на ключ вместе со степенями векторными записями по строке
-	 *          на конечность: на записи в 1 200 байтов постройка по словам была видна
-	 *
-	 * @param powers степени множителя r…r^4 по 26 разрядов
-	 * @param table  место под стол в POLY_TABLE байтов, выровненное на 32
-	 *
-	 */
-	static __ANTS_POLY1305_AVX2_TARGET__ void tableAvx2(const uint32_t (* powers)[5], uint64_t * table) noexcept {
-		// Место под стол векторами
-		__m256i * rows = reinterpret_cast <__m256i *> (table);
-		/**
-		 * Выполняем раскладку конечностей по дорожкам: строка стола - одна конечность на четыре дорожки
-		 */
-		for(size_t i = 0; i < 5; i++){
-			// Конечность r^4 на все дорожки
-			const __m256i r4 = _mm256_set1_epi64x(static_cast <int64_t> (powers[3][i]));
-			// Конечности степеней по дорожкам в порядке разбора блоков: r^4, r^2, r^3, r
-			const __m256i rl = _mm256_set_epi64x(static_cast <int64_t> (powers[0][i]), static_cast <int64_t> (powers[2][i]), static_cast <int64_t> (powers[1][i]), static_cast <int64_t> (powers[3][i]));
-			// Конечность r^4 на дорожки
-			_mm256_store_si256(rows + (kernel::POLY_R4 / 32) + i, r4);
-			// Конечность 5·r^4 на дорожки
-			_mm256_store_si256(rows + (kernel::POLY_S4 / 32) + i, _mm256_add_epi64(r4, _mm256_slli_epi64(r4, 2)));
-			// Конечности степеней дорожек
-			_mm256_store_si256(rows + (kernel::POLY_RL / 32) + i, rl);
-			// Конечности степеней дорожек на пять
-			_mm256_store_si256(rows + (kernel::POLY_SL / 32) + i, _mm256_add_epi64(rl, _mm256_slli_epi64(rl, 2)));
-		}
-		// Маска конечности по дорожкам
-		_mm256_store_si256(rows + (kernel::POLY_MASK / 32), _mm256_set1_epi64x(0x3FFFFFF));
-		// Старший разряд 2^128 в пятой конечности по дорожкам
-		_mm256_store_si256(rows + (kernel::POLY_HIBIT / 32), _mm256_set1_epi64x(static_cast <int64_t> (1) << 24));
-		// Сбрасываем верхние половины векторов перед возвратом к командам SSE
-		_mm256_zeroupper();
-	}
-	/**
-	 * @brief Метод сложения четвёрок целых блоков ядром AVX2 на ассемблере
-	 *
-	 * @details Накопитель переводится в конечности на месте, дорожки итога суммируются и
-	 *          переводятся обратно; стол ядра построен заранее вместе со степенями, а место
-	 *          под дорожки и конечности лежит за ним и затирается вместе с объектом
-	 *
-	 * @param table стол ядра: степени по дорожкам, маска и старший разряд, за ними место под дорожки итога и конечности накопителя
-	 * @param h0    младшая конечность накопителя, заменяемая итогом
-	 * @param h1    средняя конечность накопителя, заменяемая итогом
-	 * @param h2    старшая конечность накопителя, заменяемая итогом
-	 * @param data  складываемые байты
-	 * @param quads число четвёрок блоков: не меньше одной
-	 *
-	 */
-	static void absorbKernelAvx2(uint64_t * table, uint64_t & h0, uint64_t & h1, uint64_t & h2, const uint8_t * data, const size_t quads) noexcept {
-		// Дорожки итога за столом: пять конечностей четырёх дорожек, затираются вместе со столом
-		uint64_t * lanes = (table + (kernel::POLY_TABLE / sizeof(uint64_t)));
-		// Накопитель по 26 разрядов за дорожками
-		uint32_t * limbs = reinterpret_cast <uint32_t *> (lanes + 20);
-		// Переводим накопитель в конечности по 26 разрядов
-		widen(h0, h1, h2, limbs);
-		// Выполняем сложение четвёрок ядром
-		kernel::poly1305avx2(lanes, limbs, table, data, quads);
-		// Суммы дорожек по конечностям
-		uint64_t total[5];
-		/**
-		 * Выполняем суммирование дорожек
-		 */
-		for(size_t i = 0; i < 5; i++)
+			for(size_t i = 0; i < 5; i++)
 			// Сумма четырёх дорожек конечности
 			total[i] = (lanes[i * 4] + lanes[(i * 4) + 1] + lanes[(i * 4) + 2] + lanes[(i * 4) + 3]);
-		// Переводим сумму дорожек в конечности накопителя
-		narrow(total, h0, h1, h2);
-	}
-#endif
+			// Переводим сумму дорожек в конечности накопителя
+			narrow(total, h0, h1, h2);
+		}
+	#endif
 };
 
 /**
@@ -1163,248 +1163,248 @@ void nts::cipher::Poly1305::absorb(const uint8_t * data, const size_t size, cons
 	size_t left = size;
 	// Позиция чтения
 	const uint8_t * cursor = data;
-/**
- * Если 64-разрядный путь
- */
-#if defined(__ANTS_POLY1305_WIDE__)
-	// Конечности накопителя
-	uint64_t h0 = this->_wide[0], h1 = this->_wide[1], h2 = this->_wide[2];
 	/**
-	 * Если есть векторные ветви
+	 * Если 64-разрядный путь
 	 */
-	#if defined(__ANTS_POLY1305_VECTOR__)
-	// Если впереди хотя бы две восьмёрки целых блоков со старшим разрядом
-	if(!last && (left >= 256)){
-		// Признак того, что машина ведёт векторную ветвь
-		bool vectors = false;
+	#if defined(__ANTS_POLY1305_WIDE__)
+		// Конечности накопителя
+		uint64_t h0 = this->_wide[0], h1 = this->_wide[1], h2 = this->_wide[2];
 		/**
-		 * Если есть ветвь команд NEON
+		 * Если есть векторные ветви
 		 */
-		#if defined(__ANTS_POLY1305_NEON__)
-			// Векторы основания набора есть у всякой машины ARM64
-			vectors = machine::has(machine::feature_t::VECTOR);
-		/**
-		 * Иначе ветвь команд AVX2
-		 */
-		#else
-			// Векторы в 256 разрядов
-			vectors = machine::has(machine::feature_t::AVX2);
-		#endif
-		// Если машина ведёт векторную ветвь
-		if(vectors){
-			// Если степени множителя ещё не посчитаны
-			if(!this->_prepared){
+		#if defined(__ANTS_POLY1305_VECTOR__)
+			// Если впереди хотя бы две восьмёрки целых блоков со старшим разрядом
+			if(!last && (left >= 256)){
+				// Признак того, что машина ведёт векторную ветвь
+				bool vectors = false;
 				/**
-				 * Выполняем вычисление степеней r^2…r^8 умножением на r: ядру на ассемблере нужны лишь r^2…r^4
+				 * Если есть ветвь команд NEON
 				 */
-				for(size_t i = 1; i < POWERS; i++)
-					// Считаем очередную степень
-					raise(this->_powers[i - 1], this->_powers[0], this->_powers[i]);
-		/**
-		 * Если есть ядро AVX2 на ассемблере
-		 */
-		#if defined(__ANTS_POLY1305_X86_64__)
-				// Строим стол ядра по степеням
-				tableAvx2(this->_powers, this->_table);
-		#endif
-				// Запоминаем готовность степеней
-				this->_prepared = true;
+				#if defined(__ANTS_POLY1305_NEON__)
+					// Векторы основания набора есть у всякой машины ARM64
+					vectors = machine::has(machine::feature_t::VECTOR);
+				/**
+				 * Иначе ветвь команд AVX2
+				 */
+				#else
+					// Векторы в 256 разрядов
+					vectors = machine::has(machine::feature_t::AVX2);
+				#endif
+				// Если машина ведёт векторную ветвь
+				if(vectors){
+					// Если степени множителя ещё не посчитаны
+					if(!this->_prepared){
+						/**
+						 * Выполняем вычисление степеней r^2…r^8 умножением на r: ядру на ассемблере нужны лишь r^2…r^4
+						 */
+						for(size_t i = 1; i < POWERS; i++)
+						// Считаем очередную степень
+						raise(this->_powers[i - 1], this->_powers[0], this->_powers[i]);
+						/**
+						 * Если есть ядро AVX2 на ассемблере
+						 */
+						#if defined(__ANTS_POLY1305_X86_64__)
+							// Строим стол ядра по степеням
+							tableAvx2(this->_powers, this->_table);
+						#endif
+						// Запоминаем готовность степеней
+						this->_prepared = true;
+					}
+					/**
+					 * Если есть ядро AVX2 на ассемблере
+					 */
+					#if defined(__ANTS_POLY1305_X86_64__)
+						// Число четвёрок блоков
+						const size_t groups = (left / 64);
+						// Складываем четвёрки блоков ядром
+						absorbKernelAvx2(this->_table, h0, h1, h2, cursor, groups);
+						// Сдвигаем позицию чтения
+						cursor += (groups * 64);
+						// Уменьшаем число не сложенных байтов
+						left -= (groups * 64);
+					#else
+						// Число восьмёрок блоков
+						const size_t groups = (left / 128);
+						/**
+						 * Если есть ветвь команд NEON
+						 */
+						#if defined(__ANTS_POLY1305_NEON__)
+							// Складываем восьмёрки блоков командами NEON
+							absorbNeon(this->_powers, h0, h1, h2, cursor, groups);
+						/**
+						 * Иначе ветвь команд AVX2
+						 */
+						#else
+							// Складываем восьмёрки блоков командами AVX2
+							absorbAvx2(this->_powers, h0, h1, h2, cursor, groups);
+						#endif
+						// Сдвигаем позицию чтения
+						cursor += (groups * 128);
+						// Уменьшаем число не сложенных байтов
+						left -= (groups * 128);
+					#endif
+				}
 			}
-		/**
-		 * Если есть ядро AVX2 на ассемблере
-		 */
-		#if defined(__ANTS_POLY1305_X86_64__)
-			// Число четвёрок блоков
-			const size_t groups = (left / 64);
-			// Складываем четвёрки блоков ядром
-			absorbKernelAvx2(this->_table, h0, h1, h2, cursor, groups);
-			// Сдвигаем позицию чтения
-			cursor += (groups * 64);
-			// Уменьшаем число не сложенных байтов
-			left -= (groups * 64);
-		#else
-			// Число восьмёрок блоков
-			const size_t groups = (left / 128);
-		/**
-		 * Если есть ветвь команд NEON
-		 */
-		#if defined(__ANTS_POLY1305_NEON__)
-			// Складываем восьмёрки блоков командами NEON
-			absorbNeon(this->_powers, h0, h1, h2, cursor, groups);
-		/**
-		 * Иначе ветвь команд AVX2
-		 */
-		#else
-			// Складываем восьмёрки блоков командами AVX2
-			absorbAvx2(this->_powers, h0, h1, h2, cursor, groups);
 		#endif
-			// Сдвигаем позицию чтения
-			cursor += (groups * 128);
-			// Уменьшаем число не сложенных байтов
-			left -= (groups * 128);
+		// Старший разряд блока: 2^128 у целого блока, ничего у дополненного неполного
+		const uint64_t hibit = (last ? 0 : 1);
+		// Конечности множителя и его вторая конечность с четвертью: r1 + r1 / 4 под возврат из-за 2^130
+		const uint64_t r0 = this->_wide[3], r1 = this->_wide[4], s1 = this->_wide[5];
+		/**
+		 * Если есть ядро блоков на ассемблере x86-64
+		 */
+		#if defined(__ANTS_POLY1305_X86_ASM__)
+			// Если целые блоки остались
+			if(left >= POLY1305_TAG){
+				// Конечности накопителя под ядро
+				uint64_t limbs[3] = {h0, h1, h2};
+				// Число целых блоков
+				const size_t blocks = (left / POLY1305_TAG);
+				// Складываем блоки ядром
+				blocksX86(limbs, r0, r1, s1, cursor, blocks, hibit);
+				// Забираем конечности накопителя
+				h0 = limbs[0];
+				h1 = limbs[1];
+				h2 = limbs[2];
+				// Сдвигаем позицию чтения
+				cursor += (blocks * POLY1305_TAG);
+				// Уменьшаем число не сложенных байтов
+				left -= (blocks * POLY1305_TAG);
+			}
 		#endif
+		/**
+		 * Выполняем сложение блоков по одному: пять произведений 64×64 на блок
+		 */
+		while(left >= POLY1305_TAG){
+			// Сумма младшей конечности с младшим словом блока
+			wide_t sum = (static_cast <wide_t> (h0) + load64(cursor));
+			// Младшая конечность накопителя
+			h0 = static_cast <uint64_t> (sum);
+			// Сумма средней конечности со старшим словом блока и переносом
+			sum = (static_cast <wide_t> (h1) + load64(cursor + 8) + static_cast <uint64_t> (sum >> 64));
+			// Средняя конечность накопителя
+			h1 = static_cast <uint64_t> (sum);
+			// Старшая конечность накопителя со старшим разрядом блока и переносом
+			h2 += (hibit + static_cast <uint64_t> (sum >> 64));
+			// Младшая конечность произведения: слагаемое h1 * r1 * 2^128 возвращается через r1 + r1 / 4
+			const wide_t d0 = ((static_cast <wide_t> (h0) * r0) + (static_cast <wide_t> (h1) * s1));
+			// Средняя конечность произведения
+			const wide_t d1 = ((static_cast <wide_t> (h0) * r1) + (static_cast <wide_t> (h1) * r0) + (h2 * s1));
+			// Старшая конечность произведения: старшая конечность накопителя мала
+			h2 *= r0;
+			// Младшая конечность накопителя
+			h0 = static_cast <uint64_t> (d0);
+			// Средняя конечность с переносом младшей
+			const wide_t d2 = (d1 + static_cast <uint64_t> (d0 >> 64));
+			// Средняя конечность накопителя
+			h1 = static_cast <uint64_t> (d2);
+			// Старшая конечность с переносом средней
+			h2 += static_cast <uint64_t> (d2 >> 64);
+			// Возврат разрядов выше 2^130 умноженными на пять: (h2 >> 2) * 5 = (h2 >> 2) + (h2 & ~3)
+			const uint64_t carry = ((h2 >> 2) + (h2 & ~static_cast <uint64_t> (3)));
+			// Старшая конечность без возвращённых разрядов
+			h2 &= 3;
+			// Сумма младшей конечности с возвратом
+			sum = (static_cast <wide_t> (h0) + carry);
+			// Младшая конечность накопителя
+			h0 = static_cast <uint64_t> (sum);
+			// Сумма средней конечности с переносом
+			sum = (static_cast <wide_t> (h1) + static_cast <uint64_t> (sum >> 64));
+			// Средняя конечность накопителя
+			h1 = static_cast <uint64_t> (sum);
+			// Старшая конечность с переносом
+			h2 += static_cast <uint64_t> (sum >> 64);
+			// Сдвигаем позицию чтения
+			cursor += POLY1305_TAG;
+			// Уменьшаем число не сложенных байтов
+			left -= POLY1305_TAG;
 		}
-	}
-	#endif
-	// Старший разряд блока: 2^128 у целого блока, ничего у дополненного неполного
-	const uint64_t hibit = (last ? 0 : 1);
-	// Конечности множителя и его вторая конечность с четвертью: r1 + r1 / 4 под возврат из-за 2^130
-	const uint64_t r0 = this->_wide[3], r1 = this->_wide[4], s1 = this->_wide[5];
+		// Записываем младшую конечность накопителя
+		this->_wide[0] = h0;
+		// Записываем среднюю конечность накопителя
+		this->_wide[1] = h1;
+		// Записываем старшую конечность накопителя
+		this->_wide[2] = h2;
 	/**
-	 * Если есть ядро блоков на ассемблере x86-64
+	 * Если переносимый путь
 	 */
-	#if defined(__ANTS_POLY1305_X86_ASM__)
-	// Если целые блоки остались
-	if(left >= POLY1305_TAG){
-		// Конечности накопителя под ядро
-		uint64_t limbs[3] = {h0, h1, h2};
-		// Число целых блоков
-		const size_t blocks = (left / POLY1305_TAG);
-		// Складываем блоки ядром
-		blocksX86(limbs, r0, r1, s1, cursor, blocks, hibit);
-		// Забираем конечности накопителя
-		h0 = limbs[0];
-		h1 = limbs[1];
-		h2 = limbs[2];
-		// Сдвигаем позицию чтения
-		cursor += (blocks * POLY1305_TAG);
-		// Уменьшаем число не сложенных байтов
-		left -= (blocks * POLY1305_TAG);
-	}
-	#endif
-	/**
-	 * Выполняем сложение блоков по одному: пять произведений 64×64 на блок
-	 */
-	while(left >= POLY1305_TAG){
-		// Сумма младшей конечности с младшим словом блока
-		wide_t sum = (static_cast <wide_t> (h0) + load64(cursor));
-		// Младшая конечность накопителя
-		h0 = static_cast <uint64_t> (sum);
-		// Сумма средней конечности со старшим словом блока и переносом
-		sum = (static_cast <wide_t> (h1) + load64(cursor + 8) + static_cast <uint64_t> (sum >> 64));
-		// Средняя конечность накопителя
-		h1 = static_cast <uint64_t> (sum);
-		// Старшая конечность накопителя со старшим разрядом блока и переносом
-		h2 += (hibit + static_cast <uint64_t> (sum >> 64));
-		// Младшая конечность произведения: слагаемое h1 * r1 * 2^128 возвращается через r1 + r1 / 4
-		const wide_t d0 = ((static_cast <wide_t> (h0) * r0) + (static_cast <wide_t> (h1) * s1));
-		// Средняя конечность произведения
-		const wide_t d1 = ((static_cast <wide_t> (h0) * r1) + (static_cast <wide_t> (h1) * r0) + (h2 * s1));
-		// Старшая конечность произведения: старшая конечность накопителя мала
-		h2 *= r0;
-		// Младшая конечность накопителя
-		h0 = static_cast <uint64_t> (d0);
-		// Средняя конечность с переносом младшей
-		const wide_t d2 = (d1 + static_cast <uint64_t> (d0 >> 64));
-		// Средняя конечность накопителя
-		h1 = static_cast <uint64_t> (d2);
-		// Старшая конечность с переносом средней
-		h2 += static_cast <uint64_t> (d2 >> 64);
-		// Возврат разрядов выше 2^130 умноженными на пять: (h2 >> 2) * 5 = (h2 >> 2) + (h2 & ~3)
-		const uint64_t carry = ((h2 >> 2) + (h2 & ~static_cast <uint64_t> (3)));
-		// Старшая конечность без возвращённых разрядов
-		h2 &= 3;
-		// Сумма младшей конечности с возвратом
-		sum = (static_cast <wide_t> (h0) + carry);
-		// Младшая конечность накопителя
-		h0 = static_cast <uint64_t> (sum);
-		// Сумма средней конечности с переносом
-		sum = (static_cast <wide_t> (h1) + static_cast <uint64_t> (sum >> 64));
-		// Средняя конечность накопителя
-		h1 = static_cast <uint64_t> (sum);
-		// Старшая конечность с переносом
-		h2 += static_cast <uint64_t> (sum >> 64);
-		// Сдвигаем позицию чтения
-		cursor += POLY1305_TAG;
-		// Уменьшаем число не сложенных байтов
-		left -= POLY1305_TAG;
-	}
-	// Записываем младшую конечность накопителя
-	this->_wide[0] = h0;
-	// Записываем среднюю конечность накопителя
-	this->_wide[1] = h1;
-	// Записываем старшую конечность накопителя
-	this->_wide[2] = h2;
-/**
- * Если переносимый путь
- */
-#else
-	// Старший разряд блока: 2^128 у целого блока, ничего у дополненного неполного
-	const uint32_t hibit = (last ? 0 : (static_cast <uint32_t> (1) << 24));
-	// Конечности множителя r
-	const uint32_t * r = this->_powers[0];
-	// Конечности квадрата множителя
-	const uint32_t * r2 = this->_powers[1];
-	// Конечности множителя r, умноженные на пять: возврат из-за 2^130
-	const uint32_t s[5] = {0, (r[1] * 5), (r[2] * 5), (r[3] * 5), (r[4] * 5)};
-	// Конечности квадрата множителя, умноженные на пять
-	const uint32_t s2[5] = {0, (r2[1] * 5), (r2[2] * 5), (r2[3] * 5), (r2[4] * 5)};
-	// Конечности накопителя
-	uint32_t h[5] = {this->_h[0], this->_h[1], this->_h[2], this->_h[3], this->_h[4]};
-	/**
-	 * Выполняем сложение блоков парами: (h + m0) * r^2 + m1 * r, произведения
-	 * независимы и считаются параллельно, переносы проводятся один раз на пару
-	 */
-	while(left >= (2 * POLY1305_TAG)){
-		// Конечности первого блока пары, сложенного с накопителем
-		uint32_t first[5];
-		// Конечности второго блока пары
-		uint32_t second[5];
-		// Конечности произведения
-		uint64_t product[5] = {0, 0, 0, 0, 0};
-		// Разбираем первый блок пары
-		split(cursor, hibit, first);
-		// Разбираем второй блок пары
-		split(cursor + POLY1305_TAG, hibit, second);
+	#else
+		// Старший разряд блока: 2^128 у целого блока, ничего у дополненного неполного
+		const uint32_t hibit = (last ? 0 : (static_cast <uint32_t> (1) << 24));
+		// Конечности множителя r
+		const uint32_t * r = this->_powers[0];
+		// Конечности квадрата множителя
+		const uint32_t * r2 = this->_powers[1];
+		// Конечности множителя r, умноженные на пять: возврат из-за 2^130
+		const uint32_t s[5] = {0, (r[1] * 5), (r[2] * 5), (r[3] * 5), (r[4] * 5)};
+		// Конечности квадрата множителя, умноженные на пять
+		const uint32_t s2[5] = {0, (r2[1] * 5), (r2[2] * 5), (r2[3] * 5), (r2[4] * 5)};
+		// Конечности накопителя
+		uint32_t h[5] = {this->_h[0], this->_h[1], this->_h[2], this->_h[3], this->_h[4]};
 		/**
-		 * Выполняем сложение первого блока с накопителем
+		 * Выполняем сложение блоков парами: (h + m0) * r^2 + m1 * r, произведения
+		 * независимы и считаются параллельно, переносы проводятся один раз на пару
 		 */
-		for(size_t i = 0; i < 5; i++)
+		while(left >= (2 * POLY1305_TAG)){
+			// Конечности первого блока пары, сложенного с накопителем
+			uint32_t first[5];
+			// Конечности второго блока пары
+			uint32_t second[5];
+			// Конечности произведения
+			uint64_t product[5] = {0, 0, 0, 0, 0};
+			// Разбираем первый блок пары
+			split(cursor, hibit, first);
+			// Разбираем второй блок пары
+			split(cursor + POLY1305_TAG, hibit, second);
+			/**
+			 * Выполняем сложение первого блока с накопителем
+			 */
+			for(size_t i = 0; i < 5; i++)
 			// Складываем очередную конечность
 			first[i] += h[i];
-		// Умножаем первый блок с накопителем на квадрат множителя
-		multiply(first, r2, s2, product);
-		// Умножаем второй блок на множитель
-		multiply(second, r, s, product);
-		// Проводим переносы в накопитель
-		reduce(product, h);
-		// Сдвигаем позицию чтения
-		cursor += (2 * POLY1305_TAG);
-		// Уменьшаем число не сложенных байтов
-		left -= (2 * POLY1305_TAG);
-	}
-	/**
-	 * Выполняем сложение оставшегося одиночного блока с накопителем и умножение на r
-	 */
-	while(left >= POLY1305_TAG){
-		// Конечности блока, сложенного с накопителем
-		uint32_t limbs[5];
-		// Конечности произведения
-		uint64_t product[5] = {0, 0, 0, 0, 0};
-		// Разбираем блок
-		split(cursor, hibit, limbs);
+			// Умножаем первый блок с накопителем на квадрат множителя
+			multiply(first, r2, s2, product);
+			// Умножаем второй блок на множитель
+			multiply(second, r, s, product);
+			// Проводим переносы в накопитель
+			reduce(product, h);
+			// Сдвигаем позицию чтения
+			cursor += (2 * POLY1305_TAG);
+			// Уменьшаем число не сложенных байтов
+			left -= (2 * POLY1305_TAG);
+		}
 		/**
-		 * Выполняем сложение блока с накопителем
+		 * Выполняем сложение оставшегося одиночного блока с накопителем и умножение на r
 		 */
-		for(size_t i = 0; i < 5; i++)
+		while(left >= POLY1305_TAG){
+			// Конечности блока, сложенного с накопителем
+			uint32_t limbs[5];
+			// Конечности произведения
+			uint64_t product[5] = {0, 0, 0, 0, 0};
+			// Разбираем блок
+			split(cursor, hibit, limbs);
+			/**
+			 * Выполняем сложение блока с накопителем
+			 */
+			for(size_t i = 0; i < 5; i++)
 			// Складываем очередную конечность
 			limbs[i] += h[i];
-		// Умножаем блок с накопителем на множитель
-		multiply(limbs, r, s, product);
-		// Проводим переносы в накопитель
-		reduce(product, h);
-		// Сдвигаем позицию чтения
-		cursor += POLY1305_TAG;
-		// Уменьшаем число не сложенных байтов
-		left -= POLY1305_TAG;
-	}
-	/**
-	 * Выполняем запись конечностей накопителя
-	 */
-	for(size_t i = 0; i < 5; i++)
+			// Умножаем блок с накопителем на множитель
+			multiply(limbs, r, s, product);
+			// Проводим переносы в накопитель
+			reduce(product, h);
+			// Сдвигаем позицию чтения
+			cursor += POLY1305_TAG;
+			// Уменьшаем число не сложенных байтов
+			left -= POLY1305_TAG;
+		}
+		/**
+		 * Выполняем запись конечностей накопителя
+		 */
+		for(size_t i = 0; i < 5; i++)
 		// Записываем очередную конечность
 		this->_h[i] = h[i];
-#endif
+	#endif
 }
 /**
  * @brief Метод проверки готовности имитовставки к работе
@@ -1447,32 +1447,32 @@ bool nts::cipher::Poly1305::start(const view_t & key) noexcept {
 	if((key.data == nullptr) || (key.size != POLY1305_KEY))
 		// Выводим отказ запуска
 		return false;
-/**
- * Если 64-разрядный путь
- */
-#if defined(__ANTS_POLY1305_WIDE__)
-	// Младшая конечность множителя с обрезкой по стандарту
-	this->_wide[3] = (load64(key.data) & 0x0FFFFFFC0FFFFFFFULL);
-	// Старшая конечность множителя с обрезкой по стандарту: младшие два разряда чисты
-	this->_wide[4] = (load64(key.data + 8) & 0x0FFFFFFC0FFFFFFCULL);
-	// Старшая конечность с четвертью: r1 * 5 / 4 под возврат слагаемых из-за 2^130
-	this->_wide[5] = (this->_wide[4] + (this->_wide[4] >> 2));
 	/**
-	 * Если есть векторные ветви
+	 * Если 64-разрядный путь
 	 */
-	#if defined(__ANTS_POLY1305_VECTOR__)
-		// Множитель по 26 разрядов под векторные ветви: степени считаются при первом входе в ветвь
+	#if defined(__ANTS_POLY1305_WIDE__)
+		// Младшая конечность множителя с обрезкой по стандарту
+		this->_wide[3] = (load64(key.data) & 0x0FFFFFFC0FFFFFFFULL);
+		// Старшая конечность множителя с обрезкой по стандарту: младшие два разряда чисты
+		this->_wide[4] = (load64(key.data + 8) & 0x0FFFFFFC0FFFFFFCULL);
+		// Старшая конечность с четвертью: r1 * 5 / 4 под возврат слагаемых из-за 2^130
+		this->_wide[5] = (this->_wide[4] + (this->_wide[4] >> 2));
+		/**
+		 * Если есть векторные ветви
+		 */
+		#if defined(__ANTS_POLY1305_VECTOR__)
+			// Множитель по 26 разрядов под векторные ветви: степени считаются при первом входе в ветвь
+			clamp(key.data, this->_powers[0]);
+		#endif
+	/**
+	 * Если переносимый путь
+	 */
+	#else
+		// Множитель по 26 разрядов с обрезкой по стандарту
 		clamp(key.data, this->_powers[0]);
+		// Квадрат множителя под сложение блоков парами
+		raise(this->_powers[0], this->_powers[0], this->_powers[1]);
 	#endif
-/**
- * Если переносимый путь
- */
-#else
-	// Множитель по 26 разрядов с обрезкой по стандарту
-	clamp(key.data, this->_powers[0]);
-	// Квадрат множителя под сложение блоков парами
-	raise(this->_powers[0], this->_powers[0], this->_powers[1]);
-#endif
 	/**
 	 * Выполняем чтение слов слагаемого s от младшего байта
 	 */
@@ -1597,167 +1597,167 @@ bool nts::cipher::Poly1305::finish(uint8_t * tag) noexcept {
 		// Сбрасываем число накопленных байтов
 		this->_filled = 0;
 	}
-/**
- * Если 64-разрядный путь
- */
-#if defined(__ANTS_POLY1305_WIDE__)
-	// Конечности накопителя
-	uint64_t h0 = this->_wide[0], h1 = this->_wide[1];
-	// Накопитель плюс пять: младшая конечность с переносом
-	wide_t sum = (static_cast <wide_t> (h0) + 5);
-	// Младшая конечность разности накопителя и модуля
-	uint64_t g0 = static_cast <uint64_t> (sum);
-	// Средняя конечность разности с переносом
-	sum = (static_cast <wide_t> (h1) + static_cast <uint64_t> (sum >> 64));
-	// Средняя конечность разности
-	uint64_t g1 = static_cast <uint64_t> (sum);
-	// Старшая конечность разности: разряд 2^130 стоит, если накопитель не меньше модуля
-	const uint64_t g2 = (this->_wide[2] + static_cast <uint64_t> (sum >> 64));
-	// Маска выбора: все единицы, если накопитель не меньше модуля
-	uint64_t mask = (0 - (g2 >> 2));
-	// Оставляем разность, если она выбрана
-	g0 &= mask;
-	// Оставляем разность, если она выбрана
-	g1 &= mask;
-	// Обращаем маску для накопителя
-	mask = ~mask;
-	// Выбираем младшую конечность
-	h0 = ((h0 & mask) | g0);
-	// Выбираем среднюю конечность
-	h1 = ((h1 & mask) | g1);
-	// Сумма младшей конечности со слагаемым
-	sum = (static_cast <wide_t> (h0) + (static_cast <uint64_t> (this->_s[0]) | (static_cast <uint64_t> (this->_s[1]) << 32)));
-	// Младшая конечность метки
-	h0 = static_cast <uint64_t> (sum);
-	// Средняя конечность метки со слагаемым и переносом
-	h1 = (h1 + (static_cast <uint64_t> (this->_s[2]) | (static_cast <uint64_t> (this->_s[3]) << 32)) + static_cast <uint64_t> (sum >> 64));
-	// Записываем первое слово метки
-	store(static_cast <uint32_t> (h0), tag);
-	// Записываем второе слово метки
-	store(static_cast <uint32_t> (h0 >> 32), tag + 4);
-	// Записываем третье слово метки
-	store(static_cast <uint32_t> (h1), tag + 8);
-	// Записываем четвёртое слово метки
-	store(static_cast <uint32_t> (h1 >> 32), tag + 12);
-/**
- * Если переносимый путь
- */
-#else
-	// Конечности накопителя
-	uint32_t h0 = this->_h[0], h1 = this->_h[1], h2 = this->_h[2], h3 = this->_h[3], h4 = this->_h[4];
-	// Перенос из второй конечности
-	uint32_t carry = (h1 >> 26);
-	// Вторая конечность без переноса
-	h1 &= 0x3FFFFFF;
-	// Добавляем перенос к третьей конечности
-	h2 += carry;
-	// Перенос из третьей конечности
-	carry = (h2 >> 26);
-	// Третья конечность без переноса
-	h2 &= 0x3FFFFFF;
-	// Добавляем перенос к четвёртой конечности
-	h3 += carry;
-	// Перенос из четвёртой конечности
-	carry = (h3 >> 26);
-	// Четвёртая конечность без переноса
-	h3 &= 0x3FFFFFF;
-	// Добавляем перенос к пятой конечности
-	h4 += carry;
-	// Перенос из пятой конечности: уходит за 2^130
-	carry = (h4 >> 26);
-	// Пятая конечность без переноса
-	h4 &= 0x3FFFFFF;
-	// Возвращаем перенос в первую конечность умноженным на пять
-	h0 += (carry * 5);
-	// Перенос из первой конечности
-	carry = (h0 >> 26);
-	// Первая конечность без переноса
-	h0 &= 0x3FFFFFF;
-	// Добавляем перенос ко второй конечности
-	h1 += carry;
-	// Накопитель минус модуль: первая конечность, прибавление пяти
-	uint32_t g0 = (h0 + 5);
-	// Перенос из первой конечности
-	carry = (g0 >> 26);
-	// Первая конечность без переноса
-	g0 &= 0x3FFFFFF;
-	// Вторая конечность с переносом
-	uint32_t g1 = (h1 + carry);
-	// Перенос из второй конечности
-	carry = (g1 >> 26);
-	// Вторая конечность без переноса
-	g1 &= 0x3FFFFFF;
-	// Третья конечность с переносом
-	uint32_t g2 = (h2 + carry);
-	// Перенос из третьей конечности
-	carry = (g2 >> 26);
-	// Третья конечность без переноса
-	g2 &= 0x3FFFFFF;
-	// Четвёртая конечность с переносом
-	uint32_t g3 = (h3 + carry);
-	// Перенос из четвёртой конечности
-	carry = (g3 >> 26);
-	// Четвёртая конечность без переноса
-	g3 &= 0x3FFFFFF;
-	// Пятая конечность с переносом минус 2^130: отрицательна, если накопитель меньше модуля
-	uint32_t g4 = (h4 + carry - (static_cast <uint32_t> (1) << 26));
-	// Маска выбора: все единицы, если накопитель не меньше модуля
-	uint32_t mask = ((g4 >> 31) - 1);
-	// Оставляем разность, если она выбрана
-	g0 &= mask;
-	// Оставляем разность, если она выбрана
-	g1 &= mask;
-	// Оставляем разность, если она выбрана
-	g2 &= mask;
-	// Оставляем разность, если она выбрана
-	g3 &= mask;
-	// Оставляем разность, если она выбрана
-	g4 &= mask;
-	// Обращаем маску для накопителя
-	mask = ~mask;
-	// Выбираем первую конечность
-	h0 = ((h0 & mask) | g0);
-	// Выбираем вторую конечность
-	h1 = ((h1 & mask) | g1);
-	// Выбираем третью конечность
-	h2 = ((h2 & mask) | g2);
-	// Выбираем четвёртую конечность
-	h3 = ((h3 & mask) | g3);
-	// Выбираем пятую конечность
-	h4 = ((h4 & mask) | g4);
-	// Первое слово накопителя по модулю 2^128
-	h0 = (h0 | (h1 << 26));
-	// Второе слово накопителя по модулю 2^128
-	h1 = ((h1 >> 6) | (h2 << 20));
-	// Третье слово накопителя по модулю 2^128
-	h2 = ((h2 >> 12) | (h3 << 14));
-	// Четвёртое слово накопителя по модулю 2^128
-	h3 = ((h3 >> 18) | (h4 << 8));
-	// Сумма первого слова со слагаемым
-	uint64_t sum = (static_cast <uint64_t> (h0) + this->_s[0]);
-	// Первое слово метки
-	h0 = static_cast <uint32_t> (sum);
-	// Сумма второго слова со слагаемым и переносом
-	sum = (static_cast <uint64_t> (h1) + this->_s[1] + (sum >> 32));
-	// Второе слово метки
-	h1 = static_cast <uint32_t> (sum);
-	// Сумма третьего слова со слагаемым и переносом
-	sum = (static_cast <uint64_t> (h2) + this->_s[2] + (sum >> 32));
-	// Третье слово метки
-	h2 = static_cast <uint32_t> (sum);
-	// Сумма четвёртого слова со слагаемым и переносом
-	sum = (static_cast <uint64_t> (h3) + this->_s[3] + (sum >> 32));
-	// Четвёртое слово метки
-	h3 = static_cast <uint32_t> (sum);
-	// Записываем первое слово метки
-	store(h0, tag);
-	// Записываем второе слово метки
-	store(h1, tag + 4);
-	// Записываем третье слово метки
-	store(h2, tag + 8);
-	// Записываем четвёртое слово метки
-	store(h3, tag + 12);
-#endif
+	/**
+	 * Если 64-разрядный путь
+	 */
+	#if defined(__ANTS_POLY1305_WIDE__)
+		// Конечности накопителя
+		uint64_t h0 = this->_wide[0], h1 = this->_wide[1];
+		// Накопитель плюс пять: младшая конечность с переносом
+		wide_t sum = (static_cast <wide_t> (h0) + 5);
+		// Младшая конечность разности накопителя и модуля
+		uint64_t g0 = static_cast <uint64_t> (sum);
+		// Средняя конечность разности с переносом
+		sum = (static_cast <wide_t> (h1) + static_cast <uint64_t> (sum >> 64));
+		// Средняя конечность разности
+		uint64_t g1 = static_cast <uint64_t> (sum);
+		// Старшая конечность разности: разряд 2^130 стоит, если накопитель не меньше модуля
+		const uint64_t g2 = (this->_wide[2] + static_cast <uint64_t> (sum >> 64));
+		// Маска выбора: все единицы, если накопитель не меньше модуля
+		uint64_t mask = (0 - (g2 >> 2));
+		// Оставляем разность, если она выбрана
+		g0 &= mask;
+		// Оставляем разность, если она выбрана
+		g1 &= mask;
+		// Обращаем маску для накопителя
+		mask = ~mask;
+		// Выбираем младшую конечность
+		h0 = ((h0 & mask) | g0);
+		// Выбираем среднюю конечность
+		h1 = ((h1 & mask) | g1);
+		// Сумма младшей конечности со слагаемым
+		sum = (static_cast <wide_t> (h0) + (static_cast <uint64_t> (this->_s[0]) | (static_cast <uint64_t> (this->_s[1]) << 32)));
+		// Младшая конечность метки
+		h0 = static_cast <uint64_t> (sum);
+		// Средняя конечность метки со слагаемым и переносом
+		h1 = (h1 + (static_cast <uint64_t> (this->_s[2]) | (static_cast <uint64_t> (this->_s[3]) << 32)) + static_cast <uint64_t> (sum >> 64));
+		// Записываем первое слово метки
+		store(static_cast <uint32_t> (h0), tag);
+		// Записываем второе слово метки
+		store(static_cast <uint32_t> (h0 >> 32), tag + 4);
+		// Записываем третье слово метки
+		store(static_cast <uint32_t> (h1), tag + 8);
+		// Записываем четвёртое слово метки
+		store(static_cast <uint32_t> (h1 >> 32), tag + 12);
+	/**
+	 * Если переносимый путь
+	 */
+	#else
+		// Конечности накопителя
+		uint32_t h0 = this->_h[0], h1 = this->_h[1], h2 = this->_h[2], h3 = this->_h[3], h4 = this->_h[4];
+		// Перенос из второй конечности
+		uint32_t carry = (h1 >> 26);
+		// Вторая конечность без переноса
+		h1 &= 0x3FFFFFF;
+		// Добавляем перенос к третьей конечности
+		h2 += carry;
+		// Перенос из третьей конечности
+		carry = (h2 >> 26);
+		// Третья конечность без переноса
+		h2 &= 0x3FFFFFF;
+		// Добавляем перенос к четвёртой конечности
+		h3 += carry;
+		// Перенос из четвёртой конечности
+		carry = (h3 >> 26);
+		// Четвёртая конечность без переноса
+		h3 &= 0x3FFFFFF;
+		// Добавляем перенос к пятой конечности
+		h4 += carry;
+		// Перенос из пятой конечности: уходит за 2^130
+		carry = (h4 >> 26);
+		// Пятая конечность без переноса
+		h4 &= 0x3FFFFFF;
+		// Возвращаем перенос в первую конечность умноженным на пять
+		h0 += (carry * 5);
+		// Перенос из первой конечности
+		carry = (h0 >> 26);
+		// Первая конечность без переноса
+		h0 &= 0x3FFFFFF;
+		// Добавляем перенос ко второй конечности
+		h1 += carry;
+		// Накопитель минус модуль: первая конечность, прибавление пяти
+		uint32_t g0 = (h0 + 5);
+		// Перенос из первой конечности
+		carry = (g0 >> 26);
+		// Первая конечность без переноса
+		g0 &= 0x3FFFFFF;
+		// Вторая конечность с переносом
+		uint32_t g1 = (h1 + carry);
+		// Перенос из второй конечности
+		carry = (g1 >> 26);
+		// Вторая конечность без переноса
+		g1 &= 0x3FFFFFF;
+		// Третья конечность с переносом
+		uint32_t g2 = (h2 + carry);
+		// Перенос из третьей конечности
+		carry = (g2 >> 26);
+		// Третья конечность без переноса
+		g2 &= 0x3FFFFFF;
+		// Четвёртая конечность с переносом
+		uint32_t g3 = (h3 + carry);
+		// Перенос из четвёртой конечности
+		carry = (g3 >> 26);
+		// Четвёртая конечность без переноса
+		g3 &= 0x3FFFFFF;
+		// Пятая конечность с переносом минус 2^130: отрицательна, если накопитель меньше модуля
+		uint32_t g4 = (h4 + carry - (static_cast <uint32_t> (1) << 26));
+		// Маска выбора: все единицы, если накопитель не меньше модуля
+		uint32_t mask = ((g4 >> 31) - 1);
+		// Оставляем разность, если она выбрана
+		g0 &= mask;
+		// Оставляем разность, если она выбрана
+		g1 &= mask;
+		// Оставляем разность, если она выбрана
+		g2 &= mask;
+		// Оставляем разность, если она выбрана
+		g3 &= mask;
+		// Оставляем разность, если она выбрана
+		g4 &= mask;
+		// Обращаем маску для накопителя
+		mask = ~mask;
+		// Выбираем первую конечность
+		h0 = ((h0 & mask) | g0);
+		// Выбираем вторую конечность
+		h1 = ((h1 & mask) | g1);
+		// Выбираем третью конечность
+		h2 = ((h2 & mask) | g2);
+		// Выбираем четвёртую конечность
+		h3 = ((h3 & mask) | g3);
+		// Выбираем пятую конечность
+		h4 = ((h4 & mask) | g4);
+		// Первое слово накопителя по модулю 2^128
+		h0 = (h0 | (h1 << 26));
+		// Второе слово накопителя по модулю 2^128
+		h1 = ((h1 >> 6) | (h2 << 20));
+		// Третье слово накопителя по модулю 2^128
+		h2 = ((h2 >> 12) | (h3 << 14));
+		// Четвёртое слово накопителя по модулю 2^128
+		h3 = ((h3 >> 18) | (h4 << 8));
+		// Сумма первого слова со слагаемым
+		uint64_t sum = (static_cast <uint64_t> (h0) + this->_s[0]);
+		// Первое слово метки
+		h0 = static_cast <uint32_t> (sum);
+		// Сумма второго слова со слагаемым и переносом
+		sum = (static_cast <uint64_t> (h1) + this->_s[1] + (sum >> 32));
+		// Второе слово метки
+		h1 = static_cast <uint32_t> (sum);
+		// Сумма третьего слова со слагаемым и переносом
+		sum = (static_cast <uint64_t> (h2) + this->_s[2] + (sum >> 32));
+		// Третье слово метки
+		h2 = static_cast <uint32_t> (sum);
+		// Сумма четвёртого слова со слагаемым и переносом
+		sum = (static_cast <uint64_t> (h3) + this->_s[3] + (sum >> 32));
+		// Четвёртое слово метки
+		h3 = static_cast <uint32_t> (sum);
+		// Записываем первое слово метки
+		store(h0, tag);
+		// Записываем второе слово метки
+		store(h1, tag + 4);
+		// Записываем третье слово метки
+		store(h2, tag + 8);
+		// Записываем четвёртое слово метки
+		store(h3, tag + 12);
+	#endif
 	// Завершаем объект: повтор требует нового start; секретные поля не затираются - ключ одноразовый, затирают clear и разрушитель
 	this->_ready = false;
 	// Выводим успешность снятия

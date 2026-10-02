@@ -324,23 +324,23 @@ namespace {
 	 */
 	static constexpr tables_t TABLES = build();
 
-/**
- * Слова от старшего байта читаются и пишутся одной командой с перестановкой байтов там, где
- * собиратель семейства GCC даёт встроенную перестановку, а машина читает слова по любому адресу
- * (x86-64, ARM64, Эльбрус): lcc не сворачивает четыре чтения байтов со сдвигами в одно чтение,
- * а чтение через memcpy проводит через кадр стека (круг 51, 29.09.2026)
- */
-#if (defined(__GNUC__) || defined(__clang__)) && (defined(__x86_64__) || defined(__aarch64__) || defined(__e2k__)) && defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
 	/**
-	 * Объявляем чтение слов одной командой с перестановкой байтов
+	 * Слова от старшего байта читаются и пишутся одной командой с перестановкой байтов там, где
+	 * собиратель семейства GCC даёт встроенную перестановку, а машина читает слова по любому адресу
+	 * (x86-64, ARM64, Эльбрус): lcc не сворачивает четыре чтения байтов со сдвигами в одно чтение,
+	 * а чтение через memcpy проводит через кадр стека (круг 51, 29.09.2026)
 	 */
-	#define __ANTS_AES_SWAP__ 1
+	#if (defined(__GNUC__) || defined(__clang__)) && (defined(__x86_64__) || defined(__aarch64__) || defined(__e2k__)) && defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
+		/**
+		 * Объявляем чтение слов одной командой с перестановкой байтов
+		 */
+		#define __ANTS_AES_SWAP__ 1
 
-	/**
-	 * Слово, совместимое по памяти с любым типом
-	 */
-	typedef uint32_t __attribute__((may_alias)) aliased_t;
-#endif
+		/**
+		 * Слово, совместимое по памяти с любым типом
+		 */
+		typedef uint32_t __attribute__((may_alias)) aliased_t;
+	#endif
 
 	/**
 	 * @brief Метод чтения слова от старшего байта
@@ -351,20 +351,20 @@ namespace {
 	 *
 	 */
 	static __ANTS_INLINE__ uint32_t load(const uint8_t * data) noexcept {
-/**
- * Если слово читается одной командой с перестановкой байтов
- */
-#if defined(__ANTS_AES_SWAP__)
-		// Выводим слово, прочитанное разом и переставленное от старшего байта
-		return __builtin_bswap32(* reinterpret_cast <const aliased_t *> (data));
-/**
- * Иначе слово собирается из байтов
- */
-#else
-		// Выводим слово, собранное от старшего байта
-		return ((static_cast <uint32_t> (data[0]) << 24) | (static_cast <uint32_t> (data[1]) << 16) |
-		        (static_cast <uint32_t> (data[2]) << 8) | static_cast <uint32_t> (data[3]));
-#endif
+		/**
+		 * Если слово читается одной командой с перестановкой байтов
+		 */
+		#if defined(__ANTS_AES_SWAP__)
+			// Выводим слово, прочитанное разом и переставленное от старшего байта
+			return __builtin_bswap32(* reinterpret_cast <const aliased_t *> (data));
+		/**
+		 * Иначе слово собирается из байтов
+		 */
+		#else
+			// Выводим слово, собранное от старшего байта
+			return ((static_cast <uint32_t> (data[0]) << 24) | (static_cast <uint32_t> (data[1]) << 16) |
+			        (static_cast <uint32_t> (data[2]) << 8) | static_cast <uint32_t> (data[3]));
+		#endif
 	}
 
 	/**
@@ -375,25 +375,25 @@ namespace {
 	 *
 	 */
 	static __ANTS_INLINE__ void store(const uint32_t value, uint8_t * data) noexcept {
-/**
- * Если слово пишется одной командой с перестановкой байтов
- */
-#if defined(__ANTS_AES_SWAP__)
-		// Записываем слово разом, переставив байты от старшего
-		(* reinterpret_cast <aliased_t *> (data)) = __builtin_bswap32(value);
-/**
- * Иначе слово пишется байтами
- */
-#else
-		// Записываем старший байт слова
-		data[0] = static_cast <uint8_t> (value >> 24);
-		// Записываем второй байт слова
-		data[1] = static_cast <uint8_t> (value >> 16);
-		// Записываем третий байт слова
-		data[2] = static_cast <uint8_t> (value >> 8);
-		// Записываем младший байт слова
-		data[3] = static_cast <uint8_t> (value);
-#endif
+		/**
+		 * Если слово пишется одной командой с перестановкой байтов
+		 */
+		#if defined(__ANTS_AES_SWAP__)
+			// Записываем слово разом, переставив байты от старшего
+			(* reinterpret_cast <aliased_t *> (data)) = __builtin_bswap32(value);
+		/**
+		 * Иначе слово пишется байтами
+		 */
+		#else
+			// Записываем старший байт слова
+			data[0] = static_cast <uint8_t> (value >> 24);
+			// Записываем второй байт слова
+			data[1] = static_cast <uint8_t> (value >> 16);
+			// Записываем третий байт слова
+			data[2] = static_cast <uint8_t> (value >> 8);
+			// Записываем младший байт слова
+			data[3] = static_cast <uint8_t> (value);
+		#endif
 	}
 
 	/**
@@ -410,19 +410,19 @@ namespace {
 	 *
 	 */
 	static __ANTS_INLINE__ uint32_t native(const uint8_t * data) noexcept {
-/**
- * Если слово читается одной командой
- */
-#if defined(__ANTS_AES_SWAP__)
-		// Выводим слово, прочитанное разом
-		return (* reinterpret_cast <const aliased_t *> (data));
-/**
- * Иначе слово читается от старшего байта
- */
-#else
-		// Выводим слово от старшего байта
-		return load(data);
-#endif
+		/**
+		 * Если слово читается одной командой
+		 */
+		#if defined(__ANTS_AES_SWAP__)
+			// Выводим слово, прочитанное разом
+			return (* reinterpret_cast <const aliased_t *> (data));
+		/**
+		 * Иначе слово читается от старшего байта
+		 */
+		#else
+			// Выводим слово от старшего байта
+			return load(data);
+		#endif
 	}
 
 	/**
@@ -433,19 +433,19 @@ namespace {
 	 *
 	 */
 	static __ANTS_INLINE__ void nativeStore(const uint32_t value, uint8_t * data) noexcept {
-/**
- * Если слово пишется одной командой
- */
-#if defined(__ANTS_AES_SWAP__)
-		// Записываем слово разом
-		(* reinterpret_cast <aliased_t *> (data)) = value;
-/**
- * Иначе слово пишется от старшего байта
- */
-#else
-		// Записываем слово от старшего байта
-		store(value, data);
-#endif
+		/**
+		 * Если слово пишется одной командой
+		 */
+		#if defined(__ANTS_AES_SWAP__)
+			// Записываем слово разом
+			(* reinterpret_cast <aliased_t *> (data)) = value;
+		/**
+		 * Иначе слово пишется от старшего байта
+		 */
+		#else
+			// Записываем слово от старшего байта
+			store(value, data);
+		#endif
 	}
 
 	/**
@@ -457,19 +457,19 @@ namespace {
 	 *
 	 */
 	static __ANTS_INLINE__ uint32_t swap(const uint32_t value) noexcept {
-/**
- * Если слова читаются одной командой
- */
-#if defined(__ANTS_AES_SWAP__)
-		// Выводим слово с переставленными байтами
-		return __builtin_bswap32(value);
-/**
- * Иначе слова и так идут от старшего байта
- */
-#else
-		// Выводим слово как есть
-		return value;
-#endif
+		/**
+		 * Если слова читаются одной командой
+		 */
+		#if defined(__ANTS_AES_SWAP__)
+			// Выводим слово с переставленными байтами
+			return __builtin_bswap32(value);
+		/**
+		 * Иначе слова и так идут от старшего байта
+		 */
+		#else
+			// Выводим слово как есть
+			return value;
+		#endif
 	}
 
 	/**
@@ -486,107 +486,107 @@ namespace {
 		        (static_cast <uint32_t> (TABLES.sbox[(value >> 8) & 0xFF]) << 8) | static_cast <uint32_t> (TABLES.sbox[value & 0xFF]));
 	}
 
-/**
- * Если есть ветвь команд AES расширения ARMv8
- */
-#if defined(__ANTS_AES_ARM__)
 	/**
-	 * @brief Метод зашифрования блока командами AESE и AESMC
-	 *
-	 * @param keys   раундовые ключи байтами в порядке памяти
-	 * @param rounds число раундов
-	 * @param source исходный блок
-	 * @param result место, в которое записывается зашифрованный блок
-	 *
+	 * Если есть ветвь команд AES расширения ARMv8
 	 */
-	static __ANTS_AES_TARGET__ void sealArm(const uint8_t * keys, const size_t rounds, const uint8_t * source, uint8_t * result) noexcept {
-		// Состояние шифра
-		uint8x16_t state = vld1q_u8(source);
+	#if defined(__ANTS_AES_ARM__)
 		/**
-		 * Выполняем внутренние раунды: подстановка со сдвигом и ключом, затем перемешивание
+		 * @brief Метод зашифрования блока командами AESE и AESMC
+		 *
+		 * @param keys   раундовые ключи байтами в порядке памяти
+		 * @param rounds число раундов
+		 * @param source исходный блок
+		 * @param result место, в которое записывается зашифрованный блок
+		 *
 		 */
-		for(size_t round = 0; (round + 1) < rounds; round++)
+		static __ANTS_AES_TARGET__ void sealArm(const uint8_t * keys, const size_t rounds, const uint8_t * source, uint8_t * result) noexcept {
+			// Состояние шифра
+			uint8x16_t state = vld1q_u8(source);
+			/**
+			 * Выполняем внутренние раунды: подстановка со сдвигом и ключом, затем перемешивание
+			 */
+			for(size_t round = 0; (round + 1) < rounds; round++)
 			// Выполняем раунд командами AESE и AESMC
 			state = vaesmcq_u8(vaeseq_u8(state, vld1q_u8(keys + (round * 16))));
-		// Выполняем последний раунд без перемешивания и складываем с последним ключом
-		state = veorq_u8(vaeseq_u8(state, vld1q_u8(keys + ((rounds - 1) * 16))), vld1q_u8(keys + (rounds * 16)));
-		// Записываем зашифрованный блок
-		vst1q_u8(result, state);
-	}
-	/**
-	 * @brief Метод расшифрования блока командами AESD и AESIMC
-	 *
-	 * @param keys   раундовые ключи расшифрования байтами в порядке памяти
-	 * @param rounds число раундов
-	 * @param source зашифрованный блок
-	 * @param result место, в которое записывается расшифрованный блок
-	 *
-	 */
-	static __ANTS_AES_TARGET__ void openArm(const uint8_t * keys, const size_t rounds, const uint8_t * source, uint8_t * result) noexcept {
-		// Состояние шифра
-		uint8x16_t state = vld1q_u8(source);
+			// Выполняем последний раунд без перемешивания и складываем с последним ключом
+			state = veorq_u8(vaeseq_u8(state, vld1q_u8(keys + ((rounds - 1) * 16))), vld1q_u8(keys + (rounds * 16)));
+			// Записываем зашифрованный блок
+			vst1q_u8(result, state);
+		}
 		/**
-		 * Выполняем внутренние раунды: ключи расшифрования уже пропущены через обратное перемешивание
+		 * @brief Метод расшифрования блока командами AESD и AESIMC
+		 *
+		 * @param keys   раундовые ключи расшифрования байтами в порядке памяти
+		 * @param rounds число раундов
+		 * @param source зашифрованный блок
+		 * @param result место, в которое записывается расшифрованный блок
+		 *
 		 */
-		for(size_t round = 0; (round + 1) < rounds; round++)
+		static __ANTS_AES_TARGET__ void openArm(const uint8_t * keys, const size_t rounds, const uint8_t * source, uint8_t * result) noexcept {
+			// Состояние шифра
+			uint8x16_t state = vld1q_u8(source);
+			/**
+			 * Выполняем внутренние раунды: ключи расшифрования уже пропущены через обратное перемешивание
+			 */
+			for(size_t round = 0; (round + 1) < rounds; round++)
 			// Выполняем раунд командами AESD и AESIMC
 			state = vaesimcq_u8(vaesdq_u8(state, vld1q_u8(keys + (round * 16))));
-		// Выполняем последний раунд без перемешивания и складываем с последним ключом
-		state = veorq_u8(vaesdq_u8(state, vld1q_u8(keys + ((rounds - 1) * 16))), vld1q_u8(keys + (rounds * 16)));
-		// Записываем расшифрованный блок
-		vst1q_u8(result, state);
-	}
-/**
- * Если есть ветвь команд AES-NI
- */
-#elif defined(__ANTS_AES_X86__)
+			// Выполняем последний раунд без перемешивания и складываем с последним ключом
+			state = veorq_u8(vaesdq_u8(state, vld1q_u8(keys + ((rounds - 1) * 16))), vld1q_u8(keys + (rounds * 16)));
+			// Записываем расшифрованный блок
+			vst1q_u8(result, state);
+		}
 	/**
-	 * @brief Метод зашифрования блока командами AESENC
-	 *
-	 * @param keys   раундовые ключи байтами в порядке памяти
-	 * @param rounds число раундов
-	 * @param source исходный блок
-	 * @param result место, в которое записывается зашифрованный блок
-	 *
+	 * Если есть ветвь команд AES-NI
 	 */
-	static __ANTS_AES_TARGET__ void sealX86(const uint8_t * keys, const size_t rounds, const uint8_t * source, uint8_t * result) noexcept {
-		// Состояние шифра, сложенное с первым ключом
-		__m128i state = _mm_xor_si128(_mm_loadu_si128(reinterpret_cast <const __m128i *> (source)), _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys)));
+	#elif defined(__ANTS_AES_X86__)
 		/**
-		 * Выполняем внутренние раунды командой AESENC
+		 * @brief Метод зашифрования блока командами AESENC
+		 *
+		 * @param keys   раундовые ключи байтами в порядке памяти
+		 * @param rounds число раундов
+		 * @param source исходный блок
+		 * @param result место, в которое записывается зашифрованный блок
+		 *
 		 */
-		for(size_t round = 1; round < rounds; round++)
+		static __ANTS_AES_TARGET__ void sealX86(const uint8_t * keys, const size_t rounds, const uint8_t * source, uint8_t * result) noexcept {
+			// Состояние шифра, сложенное с первым ключом
+			__m128i state = _mm_xor_si128(_mm_loadu_si128(reinterpret_cast <const __m128i *> (source)), _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys)));
+			/**
+			 * Выполняем внутренние раунды командой AESENC
+			 */
+			for(size_t round = 1; round < rounds; round++)
 			// Выполняем очередной раунд
 			state = _mm_aesenc_si128(state, _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys + (round * 16))));
-		// Выполняем последний раунд командой AESENCLAST
-		state = _mm_aesenclast_si128(state, _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys + (rounds * 16))));
-		// Записываем зашифрованный блок
-		_mm_storeu_si128(reinterpret_cast <__m128i *> (result), state);
-	}
-	/**
-	 * @brief Метод расшифрования блока командами AESDEC
-	 *
-	 * @param keys   раундовые ключи расшифрования байтами в порядке памяти
-	 * @param rounds число раундов
-	 * @param source зашифрованный блок
-	 * @param result место, в которое записывается расшифрованный блок
-	 *
-	 */
-	static __ANTS_AES_TARGET__ void openX86(const uint8_t * keys, const size_t rounds, const uint8_t * source, uint8_t * result) noexcept {
-		// Состояние шифра, сложенное с первым ключом
-		__m128i state = _mm_xor_si128(_mm_loadu_si128(reinterpret_cast <const __m128i *> (source)), _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys)));
+			// Выполняем последний раунд командой AESENCLAST
+			state = _mm_aesenclast_si128(state, _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys + (rounds * 16))));
+			// Записываем зашифрованный блок
+			_mm_storeu_si128(reinterpret_cast <__m128i *> (result), state);
+		}
 		/**
-		 * Выполняем внутренние раунды командой AESDEC
+		 * @brief Метод расшифрования блока командами AESDEC
+		 *
+		 * @param keys   раундовые ключи расшифрования байтами в порядке памяти
+		 * @param rounds число раундов
+		 * @param source зашифрованный блок
+		 * @param result место, в которое записывается расшифрованный блок
+		 *
 		 */
-		for(size_t round = 1; round < rounds; round++)
+		static __ANTS_AES_TARGET__ void openX86(const uint8_t * keys, const size_t rounds, const uint8_t * source, uint8_t * result) noexcept {
+			// Состояние шифра, сложенное с первым ключом
+			__m128i state = _mm_xor_si128(_mm_loadu_si128(reinterpret_cast <const __m128i *> (source)), _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys)));
+			/**
+			 * Выполняем внутренние раунды командой AESDEC
+			 */
+			for(size_t round = 1; round < rounds; round++)
 			// Выполняем очередной раунд
 			state = _mm_aesdec_si128(state, _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys + (round * 16))));
-		// Выполняем последний раунд командой AESDECLAST
-		state = _mm_aesdeclast_si128(state, _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys + (rounds * 16))));
-		// Записываем расшифрованный блок
-		_mm_storeu_si128(reinterpret_cast <__m128i *> (result), state);
-	}
-#endif
+			// Выполняем последний раунд командой AESDECLAST
+			state = _mm_aesdeclast_si128(state, _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys + (rounds * 16))));
+			// Записываем расшифрованный блок
+			_mm_storeu_si128(reinterpret_cast <__m128i *> (result), state);
+		}
+	#endif
 
 	/**
 	 * @brief Метод увеличения младших 32 разрядов счётчика от старшего байта
@@ -618,27 +618,27 @@ namespace {
 		}
 	}
 
-/**
- * Слова состояния табличного пути на Эльбрусе держатся в 64 разряда (круг 59, 30.09.2026): индекс
- * таблицы из слова в 32 разряда lcc расширяет до адреса отдельной командой на каждое из шестнадцати
- * чтений круга, а из слова в 64 разряда извлекает полем сразу; значения слов при этом не выходят за
- * 32 разряда, ибо приходят из таблиц, ключей и слов блока, а счётчик гаммы считается в 32 разрядах.
- * Эльбрус-8С2, lcc 1.27, 64 КиБ AES-256-CTR: 172 → 195 МБ/с при 188 у OpenSSL 1.1.1n (1,09 → 0,96).
- * Таблицы вчетверо с индексом полем из десяти разрядов (байт и два разряда соседнего байта, без
- * сдвига индекса) пробовали и не взяли: 1,18 при словах в 32 разряда и 1,06 при 64. Иные машины
- * идут командами AES, а их табличный путь под запретом команд оставлен на словах в 32 разряда
- */
-#if defined(__e2k__)
 	/**
-	 * Слово состояния табличного пути
+	 * Слова состояния табличного пути на Эльбрусе держатся в 64 разряда (круг 59, 30.09.2026): индекс
+	 * таблицы из слова в 32 разряда lcc расширяет до адреса отдельной командой на каждое из шестнадцати
+	 * чтений круга, а из слова в 64 разряда извлекает полем сразу; значения слов при этом не выходят за
+	 * 32 разряда, ибо приходят из таблиц, ключей и слов блока, а счётчик гаммы считается в 32 разрядах.
+	 * Эльбрус-8С2, lcc 1.27, 64 КиБ AES-256-CTR: 172 → 195 МБ/с при 188 у OpenSSL 1.1.1n (1,09 → 0,96).
+	 * Таблицы вчетверо с индексом полем из десяти разрядов (байт и два разряда соседнего байта, без
+	 * сдвига индекса) пробовали и не взяли: 1,18 при словах в 32 разряда и 1,06 при 64. Иные машины
+	 * идут командами AES, а их табличный путь под запретом команд оставлен на словах в 32 разряда
 	 */
-	typedef uint64_t word_t;
-#else
-	/**
-	 * Слово состояния табличного пути
-	 */
-	typedef uint32_t word_t;
-#endif
+	#if defined(__e2k__)
+		/**
+		 * Слово состояния табличного пути
+		 */
+		typedef uint64_t word_t;
+	#else
+		/**
+		 * Слово состояния табличного пути
+		 */
+		typedef uint32_t word_t;
+	#endif
 
 	/**
 	 * @brief Круг шифрования таблицами: четыре слова состояния в четыре новых
@@ -1015,323 +1015,323 @@ namespace {
 		}
 	}
 
-/**
- * Если есть ветвь команд AES расширения ARMv8
- */
-#if defined(__ANTS_AES_ARM__)
 	/**
-	 * @brief Метод выработки гаммы счётчика командами по четыре блока разом
-	 *
-	 * @param keys    раундовые ключи байтами в порядке памяти
-	 * @param rounds  число раундов
-	 * @param counter начальный блок счётчика
-	 * @param blocks  число блоков гаммы
-	 * @param source  исходные данные, на которые гамма накладывается: пусто, если нужна сама гамма
-	 * @param result  место, в которое записывается гамма либо исходные данные под ней
-	 *
+	 * Если есть ветвь команд AES расширения ARMv8
 	 */
-	static __ANTS_AES_TARGET__ void streamArm(const uint8_t * keys, const size_t rounds, const uint8_t * counter, const size_t blocks, const uint8_t * source, uint8_t * result) noexcept {
-		// Текущее значение счётчика
-		uint8_t current[16];
-		// Копируем начальное значение счётчика
-		::memcpy(current, counter, sizeof(current));
-		// Последний ключ раунда
-		const uint8x16_t last = vld1q_u8(keys + (rounds * 16));
-		// Начальный блок счётчика словами: младшие четыре байта подставляются в старшее слово
-		const uint32x4_t base = vreinterpretq_u32_u8(vld1q_u8(current));
-		// Шаги счётчика в переставленном слове: единица, двойка и четвёрка в старшем байте слова
-		const uint32x4_t step1 = vsetq_lane_u32(0x01000000U, vdupq_n_u32(0), 3);
-		const uint32x4_t step2 = vaddq_u32(step1, step1);
-		const uint32x4_t step4 = vaddq_u32(step2, step2);
-		// Младшие четыре байта счётчика числом
-		uint32_t tail = (static_cast <uint32_t> (current[12]) << 24) | (static_cast <uint32_t> (current[13]) << 16) | (static_cast <uint32_t> (current[14]) << 8) | static_cast <uint32_t> (current[15]);
-		// Число оставшихся блоков
-		size_t left = blocks;
+	#if defined(__ANTS_AES_ARM__)
 		/**
-		 * Выполняем выработку гаммы по восемь блоков: столько блоков держит в полёте
-		 * конвейер команд AES
+		 * @brief Метод выработки гаммы счётчика командами по четыре блока разом
+		 *
+		 * @param keys    раундовые ключи байтами в порядке памяти
+		 * @param rounds  число раундов
+		 * @param counter начальный блок счётчика
+		 * @param blocks  число блоков гаммы
+		 * @param source  исходные данные, на которые гамма накладывается: пусто, если нужна сама гамма
+		 * @param result  место, в которое записывается гамма либо исходные данные под ней
+		 *
 		 */
-		while(left >= 8){
-			// Восемь блоков счётчика
-			uint8x16_t s0, s1, s2, s3, s4, s5, s6, s7;
+		static __ANTS_AES_TARGET__ void streamArm(const uint8_t * keys, const size_t rounds, const uint8_t * counter, const size_t blocks, const uint8_t * source, uint8_t * result) noexcept {
+			// Текущее значение счётчика
+			uint8_t current[16];
+			// Копируем начальное значение счётчика
+			::memcpy(current, counter, sizeof(current));
+			// Последний ключ раунда
+			const uint8x16_t last = vld1q_u8(keys + (rounds * 16));
+			// Начальный блок счётчика словами: младшие четыре байта подставляются в старшее слово
+			const uint32x4_t base = vreinterpretq_u32_u8(vld1q_u8(current));
+			// Шаги счётчика в переставленном слове: единица, двойка и четвёрка в старшем байте слова
+			const uint32x4_t step1 = vsetq_lane_u32(0x01000000U, vdupq_n_u32(0), 3);
+			const uint32x4_t step2 = vaddq_u32(step1, step1);
+			const uint32x4_t step4 = vaddq_u32(step2, step2);
+			// Младшие четыре байта счётчика числом
+			uint32_t tail = (static_cast <uint32_t> (current[12]) << 24) | (static_cast <uint32_t> (current[13]) << 16) | (static_cast <uint32_t> (current[14]) << 8) | static_cast <uint32_t> (current[15]);
+			// Число оставшихся блоков
+			size_t left = blocks;
 			/**
-			 * Пока младший байт счётчика не переполняется внутри восьмёрки, переставленное
-			 * слово растёт прибавлением к своему старшему байту, и восемь счётчиков
-			 * собираются сложениями в векторе деревом на трёх шагах (приём aesni-x86_64
-			 * OpenSSL); на переносе через младший байт - не чаще раза на тридцать две
-			 * восьмёрки - счётчики собираются по одному через скаляр. Сборка через
-			 * скаляр на каждый блок стоила на Xeon E5-2630 v4 23 такта из 180 на восьмёрку
+			 * Выполняем выработку гаммы по восемь блоков: столько блоков держит в полёте
+			 * конвейер команд AES
 			 */
-			if((tail & 0xFFU) < 0xF8U){
-				// Переставленный счётчик восьмёрки
-				const uint32x4_t c0 = vaddq_u32(vsetq_lane_u32(reversed(tail), base, 3), step1);
-				const uint32x4_t c1 = vaddq_u32(c0, step1);
-				const uint32x4_t c2 = vaddq_u32(c0, step2);
-				const uint32x4_t c3 = vaddq_u32(c1, step2);
-				// Собираем восемь блоков счётчика сложениями
-				s0 = vreinterpretq_u8_u32(c0);
-				s1 = vreinterpretq_u8_u32(c1);
-				s2 = vreinterpretq_u8_u32(c2);
-				s3 = vreinterpretq_u8_u32(c3);
-				s4 = vreinterpretq_u8_u32(vaddq_u32(c0, step4));
-				s5 = vreinterpretq_u8_u32(vaddq_u32(c1, step4));
-				s6 = vreinterpretq_u8_u32(vaddq_u32(c2, step4));
-				s7 = vreinterpretq_u8_u32(vaddq_u32(c3, step4));
-			// Иначе младший байт переполняется внутри восьмёрки
-			} else {
-				// Собираем восемь блоков счётчика по одному
-				s0 = vreinterpretq_u8_u32(vsetq_lane_u32(reversed(tail + 1), base, 3));
-				s1 = vreinterpretq_u8_u32(vsetq_lane_u32(reversed(tail + 2), base, 3));
-				s2 = vreinterpretq_u8_u32(vsetq_lane_u32(reversed(tail + 3), base, 3));
-				s3 = vreinterpretq_u8_u32(vsetq_lane_u32(reversed(tail + 4), base, 3));
-				s4 = vreinterpretq_u8_u32(vsetq_lane_u32(reversed(tail + 5), base, 3));
-				s5 = vreinterpretq_u8_u32(vsetq_lane_u32(reversed(tail + 6), base, 3));
-				s6 = vreinterpretq_u8_u32(vsetq_lane_u32(reversed(tail + 7), base, 3));
-				s7 = vreinterpretq_u8_u32(vsetq_lane_u32(reversed(tail + 8), base, 3));
+			while(left >= 8){
+				// Восемь блоков счётчика
+				uint8x16_t s0, s1, s2, s3, s4, s5, s6, s7;
+				/**
+				 * Пока младший байт счётчика не переполняется внутри восьмёрки, переставленное
+				 * слово растёт прибавлением к своему старшему байту, и восемь счётчиков
+				 * собираются сложениями в векторе деревом на трёх шагах (приём aesni-x86_64
+				 * OpenSSL); на переносе через младший байт - не чаще раза на тридцать две
+				 * восьмёрки - счётчики собираются по одному через скаляр. Сборка через
+				 * скаляр на каждый блок стоила на Xeon E5-2630 v4 23 такта из 180 на восьмёрку
+				 */
+				if((tail & 0xFFU) < 0xF8U){
+					// Переставленный счётчик восьмёрки
+					const uint32x4_t c0 = vaddq_u32(vsetq_lane_u32(reversed(tail), base, 3), step1);
+					const uint32x4_t c1 = vaddq_u32(c0, step1);
+					const uint32x4_t c2 = vaddq_u32(c0, step2);
+					const uint32x4_t c3 = vaddq_u32(c1, step2);
+					// Собираем восемь блоков счётчика сложениями
+					s0 = vreinterpretq_u8_u32(c0);
+					s1 = vreinterpretq_u8_u32(c1);
+					s2 = vreinterpretq_u8_u32(c2);
+					s3 = vreinterpretq_u8_u32(c3);
+					s4 = vreinterpretq_u8_u32(vaddq_u32(c0, step4));
+					s5 = vreinterpretq_u8_u32(vaddq_u32(c1, step4));
+					s6 = vreinterpretq_u8_u32(vaddq_u32(c2, step4));
+					s7 = vreinterpretq_u8_u32(vaddq_u32(c3, step4));
+				// Иначе младший байт переполняется внутри восьмёрки
+				} else {
+					// Собираем восемь блоков счётчика по одному
+					s0 = vreinterpretq_u8_u32(vsetq_lane_u32(reversed(tail + 1), base, 3));
+					s1 = vreinterpretq_u8_u32(vsetq_lane_u32(reversed(tail + 2), base, 3));
+					s2 = vreinterpretq_u8_u32(vsetq_lane_u32(reversed(tail + 3), base, 3));
+					s3 = vreinterpretq_u8_u32(vsetq_lane_u32(reversed(tail + 4), base, 3));
+					s4 = vreinterpretq_u8_u32(vsetq_lane_u32(reversed(tail + 5), base, 3));
+					s5 = vreinterpretq_u8_u32(vsetq_lane_u32(reversed(tail + 6), base, 3));
+					s6 = vreinterpretq_u8_u32(vsetq_lane_u32(reversed(tail + 7), base, 3));
+					s7 = vreinterpretq_u8_u32(vsetq_lane_u32(reversed(tail + 8), base, 3));
+				}
+				// Сдвигаем счётчик на восемь блоков
+				tail += 8;
+				/**
+				 * Выполняем круги шифрования восьми блоков разом
+				 */
+				for(size_t round = 0; (round + 1) < rounds; round++){
+					// Ключ круга
+					const uint8x16_t key = vld1q_u8(keys + (round * 16));
+					// Выполняем круг для каждого блока
+					s0 = vaesmcq_u8(vaeseq_u8(s0, key));
+					s1 = vaesmcq_u8(vaeseq_u8(s1, key));
+					s2 = vaesmcq_u8(vaeseq_u8(s2, key));
+					s3 = vaesmcq_u8(vaeseq_u8(s3, key));
+					s4 = vaesmcq_u8(vaeseq_u8(s4, key));
+					s5 = vaesmcq_u8(vaeseq_u8(s5, key));
+					s6 = vaesmcq_u8(vaeseq_u8(s6, key));
+					s7 = vaesmcq_u8(vaeseq_u8(s7, key));
+				}
+				// Ключ последнего круга
+				const uint8x16_t key = vld1q_u8(keys + ((rounds - 1) * 16));
+				// Если гамма накладывается на исходные данные
+				if(source != nullptr){
+					// Записываем восемь блоков исходных данных под гаммой
+					vst1q_u8(result, veorq_u8(veorq_u8(vaeseq_u8(s0, key), last), vld1q_u8(source)));
+					vst1q_u8(result + 16, veorq_u8(veorq_u8(vaeseq_u8(s1, key), last), vld1q_u8(source + 16)));
+					vst1q_u8(result + 32, veorq_u8(veorq_u8(vaeseq_u8(s2, key), last), vld1q_u8(source + 32)));
+					vst1q_u8(result + 48, veorq_u8(veorq_u8(vaeseq_u8(s3, key), last), vld1q_u8(source + 48)));
+					vst1q_u8(result + 64, veorq_u8(veorq_u8(vaeseq_u8(s4, key), last), vld1q_u8(source + 64)));
+					vst1q_u8(result + 80, veorq_u8(veorq_u8(vaeseq_u8(s5, key), last), vld1q_u8(source + 80)));
+					vst1q_u8(result + 96, veorq_u8(veorq_u8(vaeseq_u8(s6, key), last), vld1q_u8(source + 96)));
+					vst1q_u8(result + 112, veorq_u8(veorq_u8(vaeseq_u8(s7, key), last), vld1q_u8(source + 112)));
+					// Сдвигаем позицию чтения
+					source += 128;
+				// Иначе записывается сама гамма
+				} else {
+					// Записываем восемь блоков гаммы
+					vst1q_u8(result, veorq_u8(vaeseq_u8(s0, key), last));
+					vst1q_u8(result + 16, veorq_u8(vaeseq_u8(s1, key), last));
+					vst1q_u8(result + 32, veorq_u8(vaeseq_u8(s2, key), last));
+					vst1q_u8(result + 48, veorq_u8(vaeseq_u8(s3, key), last));
+					vst1q_u8(result + 64, veorq_u8(vaeseq_u8(s4, key), last));
+					vst1q_u8(result + 80, veorq_u8(vaeseq_u8(s5, key), last));
+					vst1q_u8(result + 96, veorq_u8(vaeseq_u8(s6, key), last));
+					vst1q_u8(result + 112, veorq_u8(vaeseq_u8(s7, key), last));
+				}
+				// Сдвигаем позицию записи
+				result += 128;
+				// Уменьшаем число оставшихся блоков
+				left -= 8;
 			}
-			// Сдвигаем счётчик на восемь блоков
-			tail += 8;
+			// Записываем сдвинутый счётчик от старшего байта
+			current[12] = static_cast <uint8_t> (tail >> 24);
+			current[13] = static_cast <uint8_t> (tail >> 16);
+			current[14] = static_cast <uint8_t> (tail >> 8);
+			current[15] = static_cast <uint8_t> (tail);
 			/**
-			 * Выполняем круги шифрования восьми блоков разом
+			 * Выполняем выработку хвоста гаммы по блоку
 			 */
-			for(size_t round = 0; (round + 1) < rounds; round++){
-				// Ключ круга
-				const uint8x16_t key = vld1q_u8(keys + (round * 16));
-				// Выполняем круг для каждого блока
-				s0 = vaesmcq_u8(vaeseq_u8(s0, key));
-				s1 = vaesmcq_u8(vaeseq_u8(s1, key));
-				s2 = vaesmcq_u8(vaeseq_u8(s2, key));
-				s3 = vaesmcq_u8(vaeseq_u8(s3, key));
-				s4 = vaesmcq_u8(vaeseq_u8(s4, key));
-				s5 = vaesmcq_u8(vaeseq_u8(s5, key));
-				s6 = vaesmcq_u8(vaeseq_u8(s6, key));
-				s7 = vaesmcq_u8(vaeseq_u8(s7, key));
-			}
-			// Ключ последнего круга
-			const uint8x16_t key = vld1q_u8(keys + ((rounds - 1) * 16));
-			// Если гамма накладывается на исходные данные
-			if(source != nullptr){
-				// Записываем восемь блоков исходных данных под гаммой
-				vst1q_u8(result, veorq_u8(veorq_u8(vaeseq_u8(s0, key), last), vld1q_u8(source)));
-				vst1q_u8(result + 16, veorq_u8(veorq_u8(vaeseq_u8(s1, key), last), vld1q_u8(source + 16)));
-				vst1q_u8(result + 32, veorq_u8(veorq_u8(vaeseq_u8(s2, key), last), vld1q_u8(source + 32)));
-				vst1q_u8(result + 48, veorq_u8(veorq_u8(vaeseq_u8(s3, key), last), vld1q_u8(source + 48)));
-				vst1q_u8(result + 64, veorq_u8(veorq_u8(vaeseq_u8(s4, key), last), vld1q_u8(source + 64)));
-				vst1q_u8(result + 80, veorq_u8(veorq_u8(vaeseq_u8(s5, key), last), vld1q_u8(source + 80)));
-				vst1q_u8(result + 96, veorq_u8(veorq_u8(vaeseq_u8(s6, key), last), vld1q_u8(source + 96)));
-				vst1q_u8(result + 112, veorq_u8(veorq_u8(vaeseq_u8(s7, key), last), vld1q_u8(source + 112)));
-				// Сдвигаем позицию чтения
-				source += 128;
-			// Иначе записывается сама гамма
-			} else {
-				// Записываем восемь блоков гаммы
-				vst1q_u8(result, veorq_u8(vaeseq_u8(s0, key), last));
-				vst1q_u8(result + 16, veorq_u8(vaeseq_u8(s1, key), last));
-				vst1q_u8(result + 32, veorq_u8(vaeseq_u8(s2, key), last));
-				vst1q_u8(result + 48, veorq_u8(vaeseq_u8(s3, key), last));
-				vst1q_u8(result + 64, veorq_u8(vaeseq_u8(s4, key), last));
-				vst1q_u8(result + 80, veorq_u8(vaeseq_u8(s5, key), last));
-				vst1q_u8(result + 96, veorq_u8(vaeseq_u8(s6, key), last));
-				vst1q_u8(result + 112, veorq_u8(vaeseq_u8(s7, key), last));
-			}
-			// Сдвигаем позицию записи
-			result += 128;
-			// Уменьшаем число оставшихся блоков
-			left -= 8;
-		}
-		// Записываем сдвинутый счётчик от старшего байта
-		current[12] = static_cast <uint8_t> (tail >> 24);
-		current[13] = static_cast <uint8_t> (tail >> 16);
-		current[14] = static_cast <uint8_t> (tail >> 8);
-		current[15] = static_cast <uint8_t> (tail);
-		/**
-		 * Выполняем выработку хвоста гаммы по блоку
-		 */
-		while(left > 0){
-			// Увеличиваем счётчик
-			advance(current);
-			// Если гамма накладывается на исходные данные
-			if(source != nullptr){
-				// Блок исходных данных читается до шифрования: он вправе совпадать с местом записи
-				const uint8x16_t plain = vld1q_u8(source);
+			while(left > 0){
+				// Увеличиваем счётчик
+				advance(current);
+				// Если гамма накладывается на исходные данные
+				if(source != nullptr){
+					// Блок исходных данных читается до шифрования: он вправе совпадать с местом записи
+					const uint8x16_t plain = vld1q_u8(source);
+					// Шифруем блок счётчика
+					sealArm(keys, rounds, current, result);
+					// Накладываем гамму на блок исходных данных
+					vst1q_u8(result, veorq_u8(vld1q_u8(result), plain));
+					// Сдвигаем позицию чтения
+					source += 16;
+				// Иначе гамма пишется сразу на место
+				} else
 				// Шифруем блок счётчика
 				sealArm(keys, rounds, current, result);
-				// Накладываем гамму на блок исходных данных
-				vst1q_u8(result, veorq_u8(vld1q_u8(result), plain));
-				// Сдвигаем позицию чтения
-				source += 16;
-			// Иначе гамма пишется сразу на место
-			} else
-				// Шифруем блок счётчика
-				sealArm(keys, rounds, current, result);
-			// Сдвигаем позицию записи
-			result += 16;
-			// Уменьшаем число оставшихся блоков
-			left--;
+				// Сдвигаем позицию записи
+				result += 16;
+				// Уменьшаем число оставшихся блоков
+				left--;
+			}
+			// Выполняем затирание счётчика
+			wipe(current, sizeof(current));
 		}
-		// Выполняем затирание счётчика
-		wipe(current, sizeof(current));
-	}
-#elif defined(__ANTS_AES_X86__)
-	/**
-	 * @brief Метод выработки гаммы счётчика командами по четыре блока разом
-	 *
-	 * @param keys    раундовые ключи байтами в порядке памяти
-	 * @param rounds  число раундов
-	 * @param counter начальный блок счётчика
-	 * @param blocks  число блоков гаммы
-	 * @param source  исходные данные, на которые гамма накладывается: пусто, если нужна сама гамма
-	 * @param result  место, в которое записывается гамма либо исходные данные под ней
-	 *
-	 */
-	static __ANTS_AES_TARGET__ void streamX86(const uint8_t * keys, const size_t rounds, const uint8_t * counter, const size_t blocks, const uint8_t * source, uint8_t * result) noexcept {
-		// Текущее значение счётчика
-		uint8_t current[16];
-		// Копируем начальное значение счётчика
-		::memcpy(current, counter, sizeof(current));
-		// Первый ключ раунда
-		const __m128i first = _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys));
-		// Последний ключ раунда
-		const __m128i last = _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys + (rounds * 16)));
+	#elif defined(__ANTS_AES_X86__)
 		/**
-		 * Счётчик держится в регистре: старшие двенадцать байтов не меняются и берутся
-		 * маской, а младшие четыре идут числом от старшего байта и подставляются в
-		 * старшее слово; перенос за пределы четырёх байтов не делается, как и у
-		 * побайтового переноса
+		 * @brief Метод выработки гаммы счётчика командами по четыре блока разом
+		 *
+		 * @param keys    раундовые ключи байтами в порядке памяти
+		 * @param rounds  число раундов
+		 * @param counter начальный блок счётчика
+		 * @param blocks  число блоков гаммы
+		 * @param source  исходные данные, на которые гамма накладывается: пусто, если нужна сама гамма
+		 * @param result  место, в которое записывается гамма либо исходные данные под ней
+		 *
 		 */
-		const __m128i head = _mm_and_si128(_mm_loadu_si128(reinterpret_cast <const __m128i *> (current)), _mm_set_epi32(0, -1, -1, -1));
-		// Шаги счётчика в переставленном слове: единица, двойка и четвёрка в старшем байте слова
-		const __m128i step1 = _mm_set_epi32(0x01000000, 0, 0, 0);
-		const __m128i step2 = _mm_add_epi32(step1, step1);
-		const __m128i step4 = _mm_add_epi32(step2, step2);
-		// Младшие четыре байта счётчика числом
-		uint32_t tail = (static_cast <uint32_t> (current[12]) << 24) | (static_cast <uint32_t> (current[13]) << 16) | (static_cast <uint32_t> (current[14]) << 8) | static_cast <uint32_t> (current[15]);
-		// Число оставшихся блоков
-		size_t left = blocks;
-		/**
-		 * Выполняем выработку гаммы по восемь блоков: столько блоков держит в полёте
-		 * конвейер команд AES
-		 */
-		while(left >= 8){
-			// Восемь блоков счётчика
-			__m128i s0, s1, s2, s3, s4, s5, s6, s7;
+		static __ANTS_AES_TARGET__ void streamX86(const uint8_t * keys, const size_t rounds, const uint8_t * counter, const size_t blocks, const uint8_t * source, uint8_t * result) noexcept {
+			// Текущее значение счётчика
+			uint8_t current[16];
+			// Копируем начальное значение счётчика
+			::memcpy(current, counter, sizeof(current));
+			// Первый ключ раунда
+			const __m128i first = _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys));
+			// Последний ключ раунда
+			const __m128i last = _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys + (rounds * 16)));
 			/**
-			 * Пока младший байт счётчика не переполняется внутри восьмёрки, переставленное
-			 * слово растёт прибавлением к своему старшему байту, и восемь счётчиков
-			 * собираются сложениями в векторе деревом на трёх шагах (приём aesni-x86_64
-			 * OpenSSL); на переносе через младший байт - не чаще раза на тридцать две
-			 * восьмёрки - счётчики собираются по одному через скаляр. Сборка через
-			 * скаляр на каждый блок стоила на Xeon E5-2630 v4 23 такта из 180 на восьмёрку
+			 * Счётчик держится в регистре: старшие двенадцать байтов не меняются и берутся
+			 * маской, а младшие четыре идут числом от старшего байта и подставляются в
+			 * старшее слово; перенос за пределы четырёх байтов не делается, как и у
+			 * побайтового переноса
 			 */
-			if((tail & 0xFFU) < 0xF8U){
-				// Переставленный счётчик восьмёрки
-				const __m128i c0 = _mm_add_epi32(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (reversed(tail)), 0, 0, 0)), step1);
-				const __m128i c1 = _mm_add_epi32(c0, step1);
-				const __m128i c2 = _mm_add_epi32(c0, step2);
-				const __m128i c3 = _mm_add_epi32(c1, step2);
-				// Собираем восемь блоков счётчика сложениями под первым ключом
-				s0 = _mm_xor_si128(c0, first);
-				s1 = _mm_xor_si128(c1, first);
-				s2 = _mm_xor_si128(c2, first);
-				s3 = _mm_xor_si128(c3, first);
-				s4 = _mm_xor_si128(_mm_add_epi32(c0, step4), first);
-				s5 = _mm_xor_si128(_mm_add_epi32(c1, step4), first);
-				s6 = _mm_xor_si128(_mm_add_epi32(c2, step4), first);
-				s7 = _mm_xor_si128(_mm_add_epi32(c3, step4), first);
-			// Иначе младший байт переполняется внутри восьмёрки
-			} else {
-				// Собираем восемь блоков счётчика по одному под первым ключом
-				s0 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (reversed(tail + 1)), 0, 0, 0)), first);
-				s1 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (reversed(tail + 2)), 0, 0, 0)), first);
-				s2 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (reversed(tail + 3)), 0, 0, 0)), first);
-				s3 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (reversed(tail + 4)), 0, 0, 0)), first);
-				s4 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (reversed(tail + 5)), 0, 0, 0)), first);
-				s5 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (reversed(tail + 6)), 0, 0, 0)), first);
-				s6 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (reversed(tail + 7)), 0, 0, 0)), first);
-				s7 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (reversed(tail + 8)), 0, 0, 0)), first);
-			}
-			// Сдвигаем счётчик на восемь блоков
-			tail += 8;
+			const __m128i head = _mm_and_si128(_mm_loadu_si128(reinterpret_cast <const __m128i *> (current)), _mm_set_epi32(0, -1, -1, -1));
+			// Шаги счётчика в переставленном слове: единица, двойка и четвёрка в старшем байте слова
+			const __m128i step1 = _mm_set_epi32(0x01000000, 0, 0, 0);
+			const __m128i step2 = _mm_add_epi32(step1, step1);
+			const __m128i step4 = _mm_add_epi32(step2, step2);
+			// Младшие четыре байта счётчика числом
+			uint32_t tail = (static_cast <uint32_t> (current[12]) << 24) | (static_cast <uint32_t> (current[13]) << 16) | (static_cast <uint32_t> (current[14]) << 8) | static_cast <uint32_t> (current[15]);
+			// Число оставшихся блоков
+			size_t left = blocks;
 			/**
-			 * Выполняем круги шифрования восьми блоков разом
+			 * Выполняем выработку гаммы по восемь блоков: столько блоков держит в полёте
+			 * конвейер команд AES
 			 */
-			for(size_t round = 1; round < rounds; round++){
-				// Ключ круга
-				const __m128i key = _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys + (round * 16)));
-				// Выполняем круг для каждого блока
-				s0 = _mm_aesenc_si128(s0, key);
-				s1 = _mm_aesenc_si128(s1, key);
-				s2 = _mm_aesenc_si128(s2, key);
-				s3 = _mm_aesenc_si128(s3, key);
-				s4 = _mm_aesenc_si128(s4, key);
-				s5 = _mm_aesenc_si128(s5, key);
-				s6 = _mm_aesenc_si128(s6, key);
-				s7 = _mm_aesenc_si128(s7, key);
+			while(left >= 8){
+				// Восемь блоков счётчика
+				__m128i s0, s1, s2, s3, s4, s5, s6, s7;
+				/**
+				 * Пока младший байт счётчика не переполняется внутри восьмёрки, переставленное
+				 * слово растёт прибавлением к своему старшему байту, и восемь счётчиков
+				 * собираются сложениями в векторе деревом на трёх шагах (приём aesni-x86_64
+				 * OpenSSL); на переносе через младший байт - не чаще раза на тридцать две
+				 * восьмёрки - счётчики собираются по одному через скаляр. Сборка через
+				 * скаляр на каждый блок стоила на Xeon E5-2630 v4 23 такта из 180 на восьмёрку
+				 */
+				if((tail & 0xFFU) < 0xF8U){
+					// Переставленный счётчик восьмёрки
+					const __m128i c0 = _mm_add_epi32(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (reversed(tail)), 0, 0, 0)), step1);
+					const __m128i c1 = _mm_add_epi32(c0, step1);
+					const __m128i c2 = _mm_add_epi32(c0, step2);
+					const __m128i c3 = _mm_add_epi32(c1, step2);
+					// Собираем восемь блоков счётчика сложениями под первым ключом
+					s0 = _mm_xor_si128(c0, first);
+					s1 = _mm_xor_si128(c1, first);
+					s2 = _mm_xor_si128(c2, first);
+					s3 = _mm_xor_si128(c3, first);
+					s4 = _mm_xor_si128(_mm_add_epi32(c0, step4), first);
+					s5 = _mm_xor_si128(_mm_add_epi32(c1, step4), first);
+					s6 = _mm_xor_si128(_mm_add_epi32(c2, step4), first);
+					s7 = _mm_xor_si128(_mm_add_epi32(c3, step4), first);
+				// Иначе младший байт переполняется внутри восьмёрки
+				} else {
+					// Собираем восемь блоков счётчика по одному под первым ключом
+					s0 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (reversed(tail + 1)), 0, 0, 0)), first);
+					s1 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (reversed(tail + 2)), 0, 0, 0)), first);
+					s2 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (reversed(tail + 3)), 0, 0, 0)), first);
+					s3 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (reversed(tail + 4)), 0, 0, 0)), first);
+					s4 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (reversed(tail + 5)), 0, 0, 0)), first);
+					s5 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (reversed(tail + 6)), 0, 0, 0)), first);
+					s6 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (reversed(tail + 7)), 0, 0, 0)), first);
+					s7 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (reversed(tail + 8)), 0, 0, 0)), first);
+				}
+				// Сдвигаем счётчик на восемь блоков
+				tail += 8;
+				/**
+				 * Выполняем круги шифрования восьми блоков разом
+				 */
+				for(size_t round = 1; round < rounds; round++){
+					// Ключ круга
+					const __m128i key = _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys + (round * 16)));
+					// Выполняем круг для каждого блока
+					s0 = _mm_aesenc_si128(s0, key);
+					s1 = _mm_aesenc_si128(s1, key);
+					s2 = _mm_aesenc_si128(s2, key);
+					s3 = _mm_aesenc_si128(s3, key);
+					s4 = _mm_aesenc_si128(s4, key);
+					s5 = _mm_aesenc_si128(s5, key);
+					s6 = _mm_aesenc_si128(s6, key);
+					s7 = _mm_aesenc_si128(s7, key);
+				}
+				// Если гамма накладывается на исходные данные
+				if(source != nullptr){
+					// Записываем восемь блоков исходных данных под гаммой
+					_mm_storeu_si128(reinterpret_cast <__m128i *> (result), _mm_xor_si128(_mm_aesenclast_si128(s0, last), _mm_loadu_si128(reinterpret_cast <const __m128i *> (source))));
+					_mm_storeu_si128(reinterpret_cast <__m128i *> (result + 16), _mm_xor_si128(_mm_aesenclast_si128(s1, last), _mm_loadu_si128(reinterpret_cast <const __m128i *> (source + 16))));
+					_mm_storeu_si128(reinterpret_cast <__m128i *> (result + 32), _mm_xor_si128(_mm_aesenclast_si128(s2, last), _mm_loadu_si128(reinterpret_cast <const __m128i *> (source + 32))));
+					_mm_storeu_si128(reinterpret_cast <__m128i *> (result + 48), _mm_xor_si128(_mm_aesenclast_si128(s3, last), _mm_loadu_si128(reinterpret_cast <const __m128i *> (source + 48))));
+					_mm_storeu_si128(reinterpret_cast <__m128i *> (result + 64), _mm_xor_si128(_mm_aesenclast_si128(s4, last), _mm_loadu_si128(reinterpret_cast <const __m128i *> (source + 64))));
+					_mm_storeu_si128(reinterpret_cast <__m128i *> (result + 80), _mm_xor_si128(_mm_aesenclast_si128(s5, last), _mm_loadu_si128(reinterpret_cast <const __m128i *> (source + 80))));
+					_mm_storeu_si128(reinterpret_cast <__m128i *> (result + 96), _mm_xor_si128(_mm_aesenclast_si128(s6, last), _mm_loadu_si128(reinterpret_cast <const __m128i *> (source + 96))));
+					_mm_storeu_si128(reinterpret_cast <__m128i *> (result + 112), _mm_xor_si128(_mm_aesenclast_si128(s7, last), _mm_loadu_si128(reinterpret_cast <const __m128i *> (source + 112))));
+					// Сдвигаем позицию чтения
+					source += 128;
+				// Иначе записывается сама гамма
+				} else {
+					// Записываем восемь блоков гаммы
+					_mm_storeu_si128(reinterpret_cast <__m128i *> (result), _mm_aesenclast_si128(s0, last));
+					_mm_storeu_si128(reinterpret_cast <__m128i *> (result + 16), _mm_aesenclast_si128(s1, last));
+					_mm_storeu_si128(reinterpret_cast <__m128i *> (result + 32), _mm_aesenclast_si128(s2, last));
+					_mm_storeu_si128(reinterpret_cast <__m128i *> (result + 48), _mm_aesenclast_si128(s3, last));
+					_mm_storeu_si128(reinterpret_cast <__m128i *> (result + 64), _mm_aesenclast_si128(s4, last));
+					_mm_storeu_si128(reinterpret_cast <__m128i *> (result + 80), _mm_aesenclast_si128(s5, last));
+					_mm_storeu_si128(reinterpret_cast <__m128i *> (result + 96), _mm_aesenclast_si128(s6, last));
+					_mm_storeu_si128(reinterpret_cast <__m128i *> (result + 112), _mm_aesenclast_si128(s7, last));
+				}
+				// Сдвигаем позицию записи
+				result += 128;
+				// Уменьшаем число оставшихся блоков
+				left -= 8;
 			}
-			// Если гамма накладывается на исходные данные
-			if(source != nullptr){
-				// Записываем восемь блоков исходных данных под гаммой
-				_mm_storeu_si128(reinterpret_cast <__m128i *> (result), _mm_xor_si128(_mm_aesenclast_si128(s0, last), _mm_loadu_si128(reinterpret_cast <const __m128i *> (source))));
-				_mm_storeu_si128(reinterpret_cast <__m128i *> (result + 16), _mm_xor_si128(_mm_aesenclast_si128(s1, last), _mm_loadu_si128(reinterpret_cast <const __m128i *> (source + 16))));
-				_mm_storeu_si128(reinterpret_cast <__m128i *> (result + 32), _mm_xor_si128(_mm_aesenclast_si128(s2, last), _mm_loadu_si128(reinterpret_cast <const __m128i *> (source + 32))));
-				_mm_storeu_si128(reinterpret_cast <__m128i *> (result + 48), _mm_xor_si128(_mm_aesenclast_si128(s3, last), _mm_loadu_si128(reinterpret_cast <const __m128i *> (source + 48))));
-				_mm_storeu_si128(reinterpret_cast <__m128i *> (result + 64), _mm_xor_si128(_mm_aesenclast_si128(s4, last), _mm_loadu_si128(reinterpret_cast <const __m128i *> (source + 64))));
-				_mm_storeu_si128(reinterpret_cast <__m128i *> (result + 80), _mm_xor_si128(_mm_aesenclast_si128(s5, last), _mm_loadu_si128(reinterpret_cast <const __m128i *> (source + 80))));
-				_mm_storeu_si128(reinterpret_cast <__m128i *> (result + 96), _mm_xor_si128(_mm_aesenclast_si128(s6, last), _mm_loadu_si128(reinterpret_cast <const __m128i *> (source + 96))));
-				_mm_storeu_si128(reinterpret_cast <__m128i *> (result + 112), _mm_xor_si128(_mm_aesenclast_si128(s7, last), _mm_loadu_si128(reinterpret_cast <const __m128i *> (source + 112))));
-				// Сдвигаем позицию чтения
-				source += 128;
-			// Иначе записывается сама гамма
-			} else {
-				// Записываем восемь блоков гаммы
-				_mm_storeu_si128(reinterpret_cast <__m128i *> (result), _mm_aesenclast_si128(s0, last));
-				_mm_storeu_si128(reinterpret_cast <__m128i *> (result + 16), _mm_aesenclast_si128(s1, last));
-				_mm_storeu_si128(reinterpret_cast <__m128i *> (result + 32), _mm_aesenclast_si128(s2, last));
-				_mm_storeu_si128(reinterpret_cast <__m128i *> (result + 48), _mm_aesenclast_si128(s3, last));
-				_mm_storeu_si128(reinterpret_cast <__m128i *> (result + 64), _mm_aesenclast_si128(s4, last));
-				_mm_storeu_si128(reinterpret_cast <__m128i *> (result + 80), _mm_aesenclast_si128(s5, last));
-				_mm_storeu_si128(reinterpret_cast <__m128i *> (result + 96), _mm_aesenclast_si128(s6, last));
-				_mm_storeu_si128(reinterpret_cast <__m128i *> (result + 112), _mm_aesenclast_si128(s7, last));
-			}
-			// Сдвигаем позицию записи
-			result += 128;
-			// Уменьшаем число оставшихся блоков
-			left -= 8;
-		}
-		// Записываем сдвинутый счётчик от старшего байта
-		current[12] = static_cast <uint8_t> (tail >> 24);
-		current[13] = static_cast <uint8_t> (tail >> 16);
-		current[14] = static_cast <uint8_t> (tail >> 8);
-		current[15] = static_cast <uint8_t> (tail);
-		/**
-		 * Выполняем выработку хвоста гаммы по блоку
-		 */
-		while(left > 0){
-			// Увеличиваем счётчик
-			advance(current);
-			// Если гамма накладывается на исходные данные
-			if(source != nullptr){
-				// Блок исходных данных читается до шифрования: он вправе совпадать с местом записи
-				const __m128i plain = _mm_loadu_si128(reinterpret_cast <const __m128i *> (source));
+			// Записываем сдвинутый счётчик от старшего байта
+			current[12] = static_cast <uint8_t> (tail >> 24);
+			current[13] = static_cast <uint8_t> (tail >> 16);
+			current[14] = static_cast <uint8_t> (tail >> 8);
+			current[15] = static_cast <uint8_t> (tail);
+			/**
+			 * Выполняем выработку хвоста гаммы по блоку
+			 */
+			while(left > 0){
+				// Увеличиваем счётчик
+				advance(current);
+				// Если гамма накладывается на исходные данные
+				if(source != nullptr){
+					// Блок исходных данных читается до шифрования: он вправе совпадать с местом записи
+					const __m128i plain = _mm_loadu_si128(reinterpret_cast <const __m128i *> (source));
+					// Шифруем блок счётчика
+					sealX86(keys, rounds, current, result);
+					// Накладываем гамму на блок исходных данных
+					_mm_storeu_si128(reinterpret_cast <__m128i *> (result), _mm_xor_si128(_mm_loadu_si128(reinterpret_cast <const __m128i *> (result)), plain));
+					// Сдвигаем позицию чтения
+					source += 16;
+				// Иначе гамма пишется сразу на место
+				} else
 				// Шифруем блок счётчика
 				sealX86(keys, rounds, current, result);
-				// Накладываем гамму на блок исходных данных
-				_mm_storeu_si128(reinterpret_cast <__m128i *> (result), _mm_xor_si128(_mm_loadu_si128(reinterpret_cast <const __m128i *> (result)), plain));
-				// Сдвигаем позицию чтения
-				source += 16;
-			// Иначе гамма пишется сразу на место
-			} else
-				// Шифруем блок счётчика
-				sealX86(keys, rounds, current, result);
-			// Сдвигаем позицию записи
-			result += 16;
-			// Уменьшаем число оставшихся блоков
-			left--;
+				// Сдвигаем позицию записи
+				result += 16;
+				// Уменьшаем число оставшихся блоков
+				left--;
+			}
+			// Выполняем затирание счётчика
+			wipe(current, sizeof(current));
 		}
-		// Выполняем затирание счётчика
-		wipe(current, sizeof(current));
-	}
-#endif
+	#endif
 };
 
 /**
@@ -1455,29 +1455,29 @@ bool nts::cipher::Aes::encrypt(const uint8_t * source, uint8_t * result) const n
 	if(!this->_ready || (source == nullptr) || (result == nullptr))
 		// Выводим отказ зашифрования
 		return false;
-/**
- * Если есть ветвь команд AES расширения ARMv8
- */
-#if defined(__ANTS_AES_ARM__)
-	// Если машина шифрует командами
-	if(machine::has(machine::feature_t::AES)){
-		// Выполняем зашифрование командами
-		sealArm(this->_sealing, this->_rounds, source, result);
-		// Выводим успешность зашифрования
-		return true;
-	}
-/**
- * Если есть ветвь команд AES-NI
- */
-#elif defined(__ANTS_AES_X86__)
-	// Если машина шифрует командами
-	if(machine::has(machine::feature_t::AES)){
-		// Выполняем зашифрование командами
-		sealX86(this->_sealing, this->_rounds, source, result);
-		// Выводим успешность зашифрования
-		return true;
-	}
-#endif
+	/**
+	 * Если есть ветвь команд AES расширения ARMv8
+	 */
+	#if defined(__ANTS_AES_ARM__)
+		// Если машина шифрует командами
+		if(machine::has(machine::feature_t::AES)){
+			// Выполняем зашифрование командами
+			sealArm(this->_sealing, this->_rounds, source, result);
+			// Выводим успешность зашифрования
+			return true;
+		}
+	/**
+	 * Если есть ветвь команд AES-NI
+	 */
+	#elif defined(__ANTS_AES_X86__)
+		// Если машина шифрует командами
+		if(machine::has(machine::feature_t::AES)){
+			// Выполняем зашифрование командами
+			sealX86(this->_sealing, this->_rounds, source, result);
+			// Выводим успешность зашифрования
+			return true;
+		}
+	#endif
 	// Раундовые ключи
 	/**
 	 * Число кругов известно с установки ключа: путь с ним, заложенным на сборке,
@@ -1518,22 +1518,22 @@ bool nts::cipher::Aes::batch(const uint8_t * sources, const size_t blocks, uint8
 	if(!this->_ready || ((blocks > 0) && ((sources == nullptr) || (results == nullptr))))
 		// Выводим отказ зашифрования
 		return false;
-/**
- * Если есть ветвь команд AES
- */
-#if defined(__ANTS_AES_ARM__) || defined(__ANTS_AES_X86__)
-	// Если у машины есть команды AES: блок за блоком командами, они и так не ждут таблиц
-	if(machine::has(machine::feature_t::AES)){
-		/**
-		 * Выполняем перебор блоков
-		 */
-		for(size_t i = 0; i < blocks; i++)
+	/**
+	 * Если есть ветвь команд AES
+	 */
+	#if defined(__ANTS_AES_ARM__) || defined(__ANTS_AES_X86__)
+		// Если у машины есть команды AES: блок за блоком командами, они и так не ждут таблиц
+		if(machine::has(machine::feature_t::AES)){
+			/**
+			 * Выполняем перебор блоков
+			 */
+			for(size_t i = 0; i < blocks; i++)
 			// Шифруем очередной блок командами
 			this->encrypt(sources + (i * 16), results + (i * 16));
-		// Выводим успешность зашифрования
-		return true;
-	}
-#endif
+			// Выводим успешность зашифрования
+			return true;
+		}
+	#endif
 	// Число оставшихся блоков
 	size_t left = blocks;
 	/**
@@ -1570,29 +1570,29 @@ bool nts::cipher::Aes::decrypt(const uint8_t * source, uint8_t * result) const n
 	if(!this->_ready || (source == nullptr) || (result == nullptr))
 		// Выводим отказ расшифрования
 		return false;
-/**
- * Если есть ветвь команд AES расширения ARMv8
- */
-#if defined(__ANTS_AES_ARM__)
-	// Если машина шифрует командами
-	if(machine::has(machine::feature_t::AES)){
-		// Выполняем расшифрование командами
-		openArm(this->_opening, this->_rounds, source, result);
-		// Выводим успешность расшифрования
-		return true;
-	}
-/**
- * Если есть ветвь команд AES-NI
- */
-#elif defined(__ANTS_AES_X86__)
-	// Если машина шифрует командами
-	if(machine::has(machine::feature_t::AES)){
-		// Выполняем расшифрование командами
-		openX86(this->_opening, this->_rounds, source, result);
-		// Выводим успешность расшифрования
-		return true;
-	}
-#endif
+	/**
+	 * Если есть ветвь команд AES расширения ARMv8
+	 */
+	#if defined(__ANTS_AES_ARM__)
+		// Если машина шифрует командами
+		if(machine::has(machine::feature_t::AES)){
+			// Выполняем расшифрование командами
+			openArm(this->_opening, this->_rounds, source, result);
+			// Выводим успешность расшифрования
+			return true;
+		}
+	/**
+	 * Если есть ветвь команд AES-NI
+	 */
+	#elif defined(__ANTS_AES_X86__)
+		// Если машина шифрует командами
+		if(machine::has(machine::feature_t::AES)){
+			// Выполняем расшифрование командами
+			openX86(this->_opening, this->_rounds, source, result);
+			// Выводим успешность расшифрования
+			return true;
+		}
+	#endif
 	// Раундовые ключи расшифрования
 	// Число кругов известно с установки ключа: круги развёрнуты по нему на сборке
 	switch(this->_rounds){
@@ -1622,29 +1622,29 @@ bool nts::cipher::Aes::stream(const uint8_t * counter, const size_t blocks, cons
 	if(!this->_ready || (counter == nullptr) || ((blocks > 0) && (result == nullptr)))
 		// Выводим отказ выработки
 		return false;
-/**
- * Если есть ветвь команд AES расширения ARMv8
- */
-#if defined(__ANTS_AES_ARM__)
-	// Если машина шифрует командами
-	if(machine::has(machine::feature_t::AES)){
-		// Выполняем выработку гаммы командами
-		streamArm(this->_sealing, this->_rounds, counter, blocks, source, result);
-		// Выводим успешность выработки
-		return true;
-	}
-/**
- * Если есть ветвь команд AES-NI
- */
-#elif defined(__ANTS_AES_X86__)
-	// Если машина шифрует командами
-	if(machine::has(machine::feature_t::AES)){
-		// Выполняем выработку гаммы командами
-		streamX86(this->_sealing, this->_rounds, counter, blocks, source, result);
-		// Выводим успешность выработки
-		return true;
-	}
-#endif
+	/**
+	 * Если есть ветвь команд AES расширения ARMv8
+	 */
+	#if defined(__ANTS_AES_ARM__)
+		// Если машина шифрует командами
+		if(machine::has(machine::feature_t::AES)){
+			// Выполняем выработку гаммы командами
+			streamArm(this->_sealing, this->_rounds, counter, blocks, source, result);
+			// Выводим успешность выработки
+			return true;
+		}
+	/**
+	 * Если есть ветвь команд AES-NI
+	 */
+	#elif defined(__ANTS_AES_X86__)
+		// Если машина шифрует командами
+		if(machine::has(machine::feature_t::AES)){
+			// Выполняем выработку гаммы командами
+			streamX86(this->_sealing, this->_rounds, counter, blocks, source, result);
+			// Выводим успешность выработки
+			return true;
+		}
+	#endif
 	// Текущий блок счётчика
 	// Гамма таблицами по четыре блоков разом, круги прямой линией по числу кругов ключа
 	switch(this->_rounds){
@@ -1665,15 +1665,15 @@ bool nts::cipher::Aes::stream(const uint8_t * counter, const size_t blocks, cons
  *
  */
 const uint8_t * nts::cipher::Aes::schedule() const noexcept {
-/**
- * Если есть ветвь машинных команд AES
- */
-#if defined(__ANTS_AES_ARM__) || defined(__ANTS_AES_X86__)
-	// Если ключ установлен и команды AES у машины есть
-	if(this->_ready && machine::has(machine::feature_t::AES))
+	/**
+	 * Если есть ветвь машинных команд AES
+	 */
+	#if defined(__ANTS_AES_ARM__) || defined(__ANTS_AES_X86__)
+		// Если ключ установлен и команды AES у машины есть
+		if(this->_ready && machine::has(machine::feature_t::AES))
 		// Выводим расписание ключа зашифрования
 		return this->_sealing;
-#endif
+	#endif
 	// Выводим пустое расписание: слитым ядрам режимов нечего взять
 	return nullptr;
 }

@@ -304,17 +304,17 @@ namespace {
 	 *
 	 */
 	static bool extended(const math::Modulus::layout_t & layout) noexcept {
-/**
- * Ядра на MULX и ADCX/ADOX есть лишь под x86-64 с GCC и clang и лишь у простого P-256
- */
-#if defined(__ANTS_X86_64_ADX_KERNELS__)
-		// Выводим признак: поле P-256 либо вида 2^256 - c и MULX с ADCX/ADOX у машины
-		return (((layout.form == math::Modulus::form_t::NIST) || (layout.form == math::Modulus::form_t::MINUS)) && machine::has(machine::feature_t::ADX));
-#else
-		// Ядра от машины не зависят
-		(void) layout;
-		return false;
-#endif
+		/**
+		 * Ядра на MULX и ADCX/ADOX есть лишь под x86-64 с GCC и clang и лишь у простого P-256
+		 */
+		#if defined(__ANTS_X86_64_ADX_KERNELS__)
+			// Выводим признак: поле P-256 либо вида 2^256 - c и MULX с ADCX/ADOX у машины
+			return (((layout.form == math::Modulus::form_t::NIST) || (layout.form == math::Modulus::form_t::MINUS)) && machine::has(machine::feature_t::ADX));
+		#else
+			// Ядра от машины не зависят
+			(void) layout;
+			return false;
+		#endif
 	}
 	/**
 	 * @brief Арифметика поля, встраиваемая по числу слов

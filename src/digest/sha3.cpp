@@ -186,70 +186,70 @@ void nts::digest::Keccak::permute() noexcept {
 	 * Переносимая перестановка
 	 */
 	#else
-	// Полосы состояния в переменных: a[x + 5y], x - столбец, y - строка (раздел 3.1.2 FIPS 202)
-	uint64_t a00 = this->_state[0], a01 = this->_state[1], a02 = this->_state[2], a03 = this->_state[3], a04 = this->_state[4], a05 = this->_state[5], a06 = this->_state[6], a07 = this->_state[7], a08 = this->_state[8], a09 = this->_state[9], a10 = this->_state[10], a11 = this->_state[11], a12 = this->_state[12], a13 = this->_state[13], a14 = this->_state[14], a15 = this->_state[15], a16 = this->_state[16], a17 = this->_state[17], a18 = this->_state[18], a19 = this->_state[19], a20 = this->_state[20], a21 = this->_state[21], a22 = this->_state[22], a23 = this->_state[23], a24 = this->_state[24];
-	// Полосы после шагов ρ и π
-	uint64_t b00, b01, b02, b03, b04, b05, b06, b07, b08, b09, b10, b11, b12, b13, b14, b15, b16, b17, b18, b19, b20, b21, b22, b23, b24;
-	/**
-	 * Выполняем перебор кругов перестановки
-	 */
-	for(size_t round = 0; round < ROUNDS; round++){
-		// Шаг θ: чётность каждого столбца
-		const uint64_t c0 = (a00 ^ a05 ^ a10 ^ a15 ^ a20), c1 = (a01 ^ a06 ^ a11 ^ a16 ^ a21), c2 = (a02 ^ a07 ^ a12 ^ a17 ^ a22), c3 = (a03 ^ a08 ^ a13 ^ a18 ^ a23), c4 = (a04 ^ a09 ^ a14 ^ a19 ^ a24);
-		// Шаг θ: слагаемое столбца из чётностей соседей
-		const uint64_t d0 = (c4 ^ spin(c1, 1)), d1 = (c0 ^ spin(c2, 1)), d2 = (c1 ^ spin(c3, 1)), d3 = (c2 ^ spin(c4, 1)), d4 = (c3 ^ spin(c0, 1));
-		// Шаг θ: сложение слагаемого с каждой полосой столбца
-		a00 ^= d0; a05 ^= d0; a10 ^= d0; a15 ^= d0; a20 ^= d0;
-		a01 ^= d1; a06 ^= d1; a11 ^= d1; a16 ^= d1; a21 ^= d1;
-		a02 ^= d2; a07 ^= d2; a12 ^= d2; a17 ^= d2; a22 ^= d2;
-		a03 ^= d3; a08 ^= d3; a13 ^= d3; a18 ^= d3; a23 ^= d3;
-		a04 ^= d4; a09 ^= d4; a14 ^= d4; a19 ^= d4; a24 ^= d4;
+		// Полосы состояния в переменных: a[x + 5y], x - столбец, y - строка (раздел 3.1.2 FIPS 202)
+		uint64_t a00 = this->_state[0], a01 = this->_state[1], a02 = this->_state[2], a03 = this->_state[3], a04 = this->_state[4], a05 = this->_state[5], a06 = this->_state[6], a07 = this->_state[7], a08 = this->_state[8], a09 = this->_state[9], a10 = this->_state[10], a11 = this->_state[11], a12 = this->_state[12], a13 = this->_state[13], a14 = this->_state[14], a15 = this->_state[15], a16 = this->_state[16], a17 = this->_state[17], a18 = this->_state[18], a19 = this->_state[19], a20 = this->_state[20], a21 = this->_state[21], a22 = this->_state[22], a23 = this->_state[23], a24 = this->_state[24];
+		// Полосы после шагов ρ и π
+		uint64_t b00, b01, b02, b03, b04, b05, b06, b07, b08, b09, b10, b11, b12, b13, b14, b15, b16, b17, b18, b19, b20, b21, b22, b23, b24;
 		/**
-		 * Шаги ρ и π: полоса (x, y) сдвигается на своё число разрядов и переносится на
-		 * место (y, 2x + 3y mod 5) - подстановка выписана по разделам 3.2.2 и 3.2.3
+		 * Выполняем перебор кругов перестановки
 		 */
-		b00 = a00; b10 = spin(a01, 1); b20 = spin(a02, 62); b05 = spin(a03, 28); b15 = spin(a04, 27);
-		b16 = spin(a05, 36); b01 = spin(a06, 44); b11 = spin(a07, 6); b21 = spin(a08, 55); b06 = spin(a09, 20);
-		b07 = spin(a10, 3); b17 = spin(a11, 10); b02 = spin(a12, 43); b12 = spin(a13, 25); b22 = spin(a14, 39);
-		b23 = spin(a15, 41); b08 = spin(a16, 45); b18 = spin(a17, 15); b03 = spin(a18, 21); b13 = spin(a19, 8);
-		b14 = spin(a20, 18); b24 = spin(a21, 2); b09 = spin(a22, 61); b19 = spin(a23, 56); b04 = spin(a24, 14);
-		// Шаг χ: нелинейное смешение полос каждой строки с двумя соседями по строке
-		a00 = (b00 ^ ((~b01) & b02)); a01 = (b01 ^ ((~b02) & b03)); a02 = (b02 ^ ((~b03) & b04)); a03 = (b03 ^ ((~b04) & b00)); a04 = (b04 ^ ((~b00) & b01));
-		a05 = (b05 ^ ((~b06) & b07)); a06 = (b06 ^ ((~b07) & b08)); a07 = (b07 ^ ((~b08) & b09)); a08 = (b08 ^ ((~b09) & b05)); a09 = (b09 ^ ((~b05) & b06));
-		a10 = (b10 ^ ((~b11) & b12)); a11 = (b11 ^ ((~b12) & b13)); a12 = (b12 ^ ((~b13) & b14)); a13 = (b13 ^ ((~b14) & b10)); a14 = (b14 ^ ((~b10) & b11));
-		a15 = (b15 ^ ((~b16) & b17)); a16 = (b16 ^ ((~b17) & b18)); a17 = (b17 ^ ((~b18) & b19)); a18 = (b18 ^ ((~b19) & b15)); a19 = (b19 ^ ((~b15) & b16));
-		a20 = (b20 ^ ((~b21) & b22)); a21 = (b21 ^ ((~b22) & b23)); a22 = (b22 ^ ((~b23) & b24)); a23 = (b23 ^ ((~b24) & b20)); a24 = (b24 ^ ((~b20) & b21));
-		// Шаг ι: сложение константы круга с первой полосой
-		a00 ^= IOTA[round];
-	}
-	/**
-	 * Выполняем запись полос в состояние
-	 */
-	this->_state[0] = a00;
-	this->_state[1] = a01;
-	this->_state[2] = a02;
-	this->_state[3] = a03;
-	this->_state[4] = a04;
-	this->_state[5] = a05;
-	this->_state[6] = a06;
-	this->_state[7] = a07;
-	this->_state[8] = a08;
-	this->_state[9] = a09;
-	this->_state[10] = a10;
-	this->_state[11] = a11;
-	this->_state[12] = a12;
-	this->_state[13] = a13;
-	this->_state[14] = a14;
-	this->_state[15] = a15;
-	this->_state[16] = a16;
-	this->_state[17] = a17;
-	this->_state[18] = a18;
-	this->_state[19] = a19;
-	this->_state[20] = a20;
-	this->_state[21] = a21;
-	this->_state[22] = a22;
-	this->_state[23] = a23;
-	this->_state[24] = a24;
+		for(size_t round = 0; round < ROUNDS; round++){
+			// Шаг θ: чётность каждого столбца
+			const uint64_t c0 = (a00 ^ a05 ^ a10 ^ a15 ^ a20), c1 = (a01 ^ a06 ^ a11 ^ a16 ^ a21), c2 = (a02 ^ a07 ^ a12 ^ a17 ^ a22), c3 = (a03 ^ a08 ^ a13 ^ a18 ^ a23), c4 = (a04 ^ a09 ^ a14 ^ a19 ^ a24);
+			// Шаг θ: слагаемое столбца из чётностей соседей
+			const uint64_t d0 = (c4 ^ spin(c1, 1)), d1 = (c0 ^ spin(c2, 1)), d2 = (c1 ^ spin(c3, 1)), d3 = (c2 ^ spin(c4, 1)), d4 = (c3 ^ spin(c0, 1));
+			// Шаг θ: сложение слагаемого с каждой полосой столбца
+			a00 ^= d0; a05 ^= d0; a10 ^= d0; a15 ^= d0; a20 ^= d0;
+			a01 ^= d1; a06 ^= d1; a11 ^= d1; a16 ^= d1; a21 ^= d1;
+			a02 ^= d2; a07 ^= d2; a12 ^= d2; a17 ^= d2; a22 ^= d2;
+			a03 ^= d3; a08 ^= d3; a13 ^= d3; a18 ^= d3; a23 ^= d3;
+			a04 ^= d4; a09 ^= d4; a14 ^= d4; a19 ^= d4; a24 ^= d4;
+			/**
+			 * Шаги ρ и π: полоса (x, y) сдвигается на своё число разрядов и переносится на
+			 * место (y, 2x + 3y mod 5) - подстановка выписана по разделам 3.2.2 и 3.2.3
+			 */
+			b00 = a00; b10 = spin(a01, 1); b20 = spin(a02, 62); b05 = spin(a03, 28); b15 = spin(a04, 27);
+			b16 = spin(a05, 36); b01 = spin(a06, 44); b11 = spin(a07, 6); b21 = spin(a08, 55); b06 = spin(a09, 20);
+			b07 = spin(a10, 3); b17 = spin(a11, 10); b02 = spin(a12, 43); b12 = spin(a13, 25); b22 = spin(a14, 39);
+			b23 = spin(a15, 41); b08 = spin(a16, 45); b18 = spin(a17, 15); b03 = spin(a18, 21); b13 = spin(a19, 8);
+			b14 = spin(a20, 18); b24 = spin(a21, 2); b09 = spin(a22, 61); b19 = spin(a23, 56); b04 = spin(a24, 14);
+			// Шаг χ: нелинейное смешение полос каждой строки с двумя соседями по строке
+			a00 = (b00 ^ ((~b01) & b02)); a01 = (b01 ^ ((~b02) & b03)); a02 = (b02 ^ ((~b03) & b04)); a03 = (b03 ^ ((~b04) & b00)); a04 = (b04 ^ ((~b00) & b01));
+			a05 = (b05 ^ ((~b06) & b07)); a06 = (b06 ^ ((~b07) & b08)); a07 = (b07 ^ ((~b08) & b09)); a08 = (b08 ^ ((~b09) & b05)); a09 = (b09 ^ ((~b05) & b06));
+			a10 = (b10 ^ ((~b11) & b12)); a11 = (b11 ^ ((~b12) & b13)); a12 = (b12 ^ ((~b13) & b14)); a13 = (b13 ^ ((~b14) & b10)); a14 = (b14 ^ ((~b10) & b11));
+			a15 = (b15 ^ ((~b16) & b17)); a16 = (b16 ^ ((~b17) & b18)); a17 = (b17 ^ ((~b18) & b19)); a18 = (b18 ^ ((~b19) & b15)); a19 = (b19 ^ ((~b15) & b16));
+			a20 = (b20 ^ ((~b21) & b22)); a21 = (b21 ^ ((~b22) & b23)); a22 = (b22 ^ ((~b23) & b24)); a23 = (b23 ^ ((~b24) & b20)); a24 = (b24 ^ ((~b20) & b21));
+			// Шаг ι: сложение константы круга с первой полосой
+			a00 ^= IOTA[round];
+		}
+		/**
+		 * Выполняем запись полос в состояние
+		 */
+		this->_state[0] = a00;
+		this->_state[1] = a01;
+		this->_state[2] = a02;
+		this->_state[3] = a03;
+		this->_state[4] = a04;
+		this->_state[5] = a05;
+		this->_state[6] = a06;
+		this->_state[7] = a07;
+		this->_state[8] = a08;
+		this->_state[9] = a09;
+		this->_state[10] = a10;
+		this->_state[11] = a11;
+		this->_state[12] = a12;
+		this->_state[13] = a13;
+		this->_state[14] = a14;
+		this->_state[15] = a15;
+		this->_state[16] = a16;
+		this->_state[17] = a17;
+		this->_state[18] = a18;
+		this->_state[19] = a19;
+		this->_state[20] = a20;
+		this->_state[21] = a21;
+		this->_state[22] = a22;
+		this->_state[23] = a23;
+		this->_state[24] = a24;
 	#endif
 }
 /**

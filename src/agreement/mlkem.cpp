@@ -423,68 +423,68 @@ namespace {
 	 * Скалярная арифметика Монтгомери и Барретта нужна лишь переносимому пути
 	 */
 	#if !defined(__ANTS_MLKEM_VECTOR__)
-	/**
-	 * @brief Метод редукции Монтгомери 32-разрядного значения
-	 *
-	 * @param wide приводимое значение, |wide| < q·2^15
-	 *
-	 * @return     wide·2^(-16) mod q в полуинтервале (-q, q)
-	 *
-	 * @note Множитель -3327 обращает младшие 16 разрядов в ноль: q·3327 = 169·2^16 - 1,
-	 *       оттого разность wide - factor·q делится на 2^16 нацело, а её старшие разряды
-	 *       и есть итог. Тем же приведением снимается множитель 2^16 с накопителя
-	 *       произведений в области NTT (settle)
-	 */
-	static inline int16_t montgomery(const int32_t wide) noexcept {
-		// Множитель, обращающий младшие 16 разрядов значения в ноль: q^(-1) mod 2^16 = -3327
-		const int16_t factor = static_cast <int16_t> (static_cast <uint16_t> (static_cast <int32_t> (static_cast <int16_t> (static_cast <uint16_t> (wide))) * -3327));
-		// Выводим старшие 16 разрядов разности значения и произведения множителя на модуль
-		return static_cast <int16_t> ((wide - (static_cast <int32_t> (factor) * Q)) >> 16);
-	}
-	/**
-	 * @brief Метод умножения Монтгомери на 16 разрядах
-	 *
-	 * @param first  первый сомножитель, |first| < 2^15
-	 * @param second второй сомножитель, |second| < 2^15
-	 *
-	 * @return       first·second·2^(-16) mod q в полуинтервале (-q, q)
-	 *
-	 * @note Так устроены бабочки NTT эталонной реализации Kyber: степень ζ хранится
-	 *       умноженной на 2^16, оттого произведение выходит в обычной форме - ζ·x, а вся
-	 *       арифметика умещается в 32 разряда без деления и без 64-разрядного умножения,
-	 *       и собиратель кладёт бабочки на векторные команды (NEON, SSE2). Щуп nttprobe
-	 *       круга 35 (23.09.2026): прямое NTT M4 582 → 150 нс, FreeBSD 3 866 → 1 300
-	 */
-	static inline int16_t fqmul(const int16_t first, const int16_t second) noexcept {
-		// Выводим редукцию Монтгомери полного произведения
-		return montgomery(static_cast <int32_t> (first) * second);
-	}
-	/**
-	 * @brief Метод редукции Барретта на 16 разрядах
-	 *
-	 * @param value приводимое значение
-	 *
-	 * @return      значение, сравнимое с исходным по модулю q, из [-q/2, q/2]
-	 *
-	 */
-	static inline int16_t barrett(const int16_t value) noexcept {
-		// Частное с округлением: 2^26 / q = 20159
-		const int16_t quotient = static_cast <int16_t> (((static_cast <int32_t> (value) * 20159) + (1 << 25)) >> 26);
-		// Выводим остаток
-		return static_cast <int16_t> (value - (static_cast <int32_t> (quotient) * Q));
-	}
-	/**
-	 * @brief Метод приведения значения из (-q, q) к [0, q)
-	 *
-	 * @param value приводимое значение
-	 *
-	 * @return      значение из [0, q)
-	 *
-	 */
-	static inline int16_t canonical(const int16_t value) noexcept {
-		// Прибавляем модуль под маской знака
-		return static_cast <int16_t> (value + (Q & (value >> 15)));
-	}
+		/**
+		 * @brief Метод редукции Монтгомери 32-разрядного значения
+		 *
+		 * @param wide приводимое значение, |wide| < q·2^15
+		 *
+		 * @return     wide·2^(-16) mod q в полуинтервале (-q, q)
+		 *
+		 * @note Множитель -3327 обращает младшие 16 разрядов в ноль: q·3327 = 169·2^16 - 1,
+		 *       оттого разность wide - factor·q делится на 2^16 нацело, а её старшие разряды
+		 *       и есть итог. Тем же приведением снимается множитель 2^16 с накопителя
+		 *       произведений в области NTT (settle)
+		 */
+		static inline int16_t montgomery(const int32_t wide) noexcept {
+			// Множитель, обращающий младшие 16 разрядов значения в ноль: q^(-1) mod 2^16 = -3327
+			const int16_t factor = static_cast <int16_t> (static_cast <uint16_t> (static_cast <int32_t> (static_cast <int16_t> (static_cast <uint16_t> (wide))) * -3327));
+			// Выводим старшие 16 разрядов разности значения и произведения множителя на модуль
+			return static_cast <int16_t> ((wide - (static_cast <int32_t> (factor) * Q)) >> 16);
+		}
+		/**
+		 * @brief Метод умножения Монтгомери на 16 разрядах
+		 *
+		 * @param first  первый сомножитель, |first| < 2^15
+		 * @param second второй сомножитель, |second| < 2^15
+		 *
+		 * @return       first·second·2^(-16) mod q в полуинтервале (-q, q)
+		 *
+		 * @note Так устроены бабочки NTT эталонной реализации Kyber: степень ζ хранится
+		 *       умноженной на 2^16, оттого произведение выходит в обычной форме - ζ·x, а вся
+		 *       арифметика умещается в 32 разряда без деления и без 64-разрядного умножения,
+		 *       и собиратель кладёт бабочки на векторные команды (NEON, SSE2). Щуп nttprobe
+		 *       круга 35 (23.09.2026): прямое NTT M4 582 → 150 нс, FreeBSD 3 866 → 1 300
+		 */
+		static inline int16_t fqmul(const int16_t first, const int16_t second) noexcept {
+			// Выводим редукцию Монтгомери полного произведения
+			return montgomery(static_cast <int32_t> (first) * second);
+		}
+		/**
+		 * @brief Метод редукции Барретта на 16 разрядах
+		 *
+		 * @param value приводимое значение
+		 *
+		 * @return      значение, сравнимое с исходным по модулю q, из [-q/2, q/2]
+		 *
+		 */
+		static inline int16_t barrett(const int16_t value) noexcept {
+			// Частное с округлением: 2^26 / q = 20159
+			const int16_t quotient = static_cast <int16_t> (((static_cast <int32_t> (value) * 20159) + (1 << 25)) >> 26);
+			// Выводим остаток
+			return static_cast <int16_t> (value - (static_cast <int32_t> (quotient) * Q));
+		}
+		/**
+		 * @brief Метод приведения значения из (-q, q) к [0, q)
+		 *
+		 * @param value приводимое значение
+		 *
+		 * @return      значение из [0, q)
+		 *
+		 */
+		static inline int16_t canonical(const int16_t value) noexcept {
+			// Прибавляем модуль под маской знака
+			return static_cast <int16_t> (value + (Q & (value >> 15)));
+		}
 	#endif
 	typedef struct Tables {
 		// Степени ζ^BitRev7(i) для бабочек преобразования
@@ -660,40 +660,40 @@ namespace {
 		 * Переносимый путь
 		 */
 		#else
-		// Таблица степеней ζ в форме Монтгомери
-		const int16_t * table = tables().montgomery;
-		// Коэффициенты многочлена: между слоями держатся со знаком, растут не более чем на q за слой
-		int16_t * values = poly.values;
-		// Место в таблице степеней
-		size_t index = 1;
-		/**
-		 * Выполняем перебор длин бабочек
-		 */
-		for(size_t length = 128; length >= 2; length /= 2){
+			// Таблица степеней ζ в форме Монтгомери
+			const int16_t * table = tables().montgomery;
+			// Коэффициенты многочлена: между слоями держатся со знаком, растут не более чем на q за слой
+			int16_t * values = poly.values;
+			// Место в таблице степеней
+			size_t index = 1;
 			/**
-			 * Выполняем перебор начал участков
+			 * Выполняем перебор длин бабочек
 			 */
-			for(size_t start = 0; start < N; start += (2 * length)){
-				// Степень ζ участка
-				const int16_t zeta = table[index++];
+			for(size_t length = 128; length >= 2; length /= 2){
 				/**
-				 * Выполняем перебор пар участка: одно умножение Монтгомери, сумма и разность
-				 * без приведения - семь слоёв поднимают модуль коэффициента не выше 8q < 2^15
+				 * Выполняем перебор начал участков
 				 */
-				for(size_t j = start; j < (start + length); j++){
-					// Произведение степени и второго коэффициента пары
-					const int16_t t = fqmul(zeta, values[j + length]);
-					// Разность пары
-					values[j + length] = static_cast <int16_t> (values[j] - t);
-					// Сумма пары
-					values[j] = static_cast <int16_t> (values[j] + t);
+				for(size_t start = 0; start < N; start += (2 * length)){
+					// Степень ζ участка
+					const int16_t zeta = table[index++];
+					/**
+					 * Выполняем перебор пар участка: одно умножение Монтгомери, сумма и разность
+					 * без приведения - семь слоёв поднимают модуль коэффициента не выше 8q < 2^15
+					 */
+					for(size_t j = start; j < (start + length); j++){
+						// Произведение степени и второго коэффициента пары
+						const int16_t t = fqmul(zeta, values[j + length]);
+						// Разность пары
+						values[j + length] = static_cast <int16_t> (values[j] - t);
+						// Сумма пары
+						values[j] = static_cast <int16_t> (values[j] + t);
+					}
 				}
 			}
-		}
-		/**
-		 * Выполняем приведение коэффициентов к [0, q)
-		 */
-		for(size_t i = 0; i < N; i++)
+			/**
+			 * Выполняем приведение коэффициентов к [0, q)
+			 */
+			for(size_t i = 0; i < N; i++)
 			// Приводим коэффициент редукцией Барретта и знаком
 			values[i] = canonical(barrett(values[i]));
 		#endif
@@ -778,40 +778,40 @@ namespace {
 		 * Переносимый путь
 		 */
 		#else
-		// Таблица степеней ζ в форме Монтгомери
-		const tables_t & table = tables();
-		// Коэффициенты многочлена
-		int16_t * values = poly.values;
-		// Место в таблице степеней
-		size_t index = 127;
-		/**
-		 * Выполняем перебор длин бабочек
-		 */
-		for(size_t length = 2; length <= 128; length *= 2){
+			// Таблица степеней ζ в форме Монтгомери
+			const tables_t & table = tables();
+			// Коэффициенты многочлена
+			int16_t * values = poly.values;
+			// Место в таблице степеней
+			size_t index = 127;
 			/**
-			 * Выполняем перебор начал участков
+			 * Выполняем перебор длин бабочек
 			 */
-			for(size_t start = 0; start < N; start += (2 * length)){
-				// Степень ζ участка
-				const int16_t zeta = table.montgomery[index--];
+			for(size_t length = 2; length <= 128; length *= 2){
 				/**
-				 * Выполняем перебор пар участка: сумма приводится редукцией Барретта,
-				 * разность умножается на степень умножением Монтгомери
+				 * Выполняем перебор начал участков
 				 */
-				for(size_t j = start; j < (start + length); j++){
-					// Первый коэффициент пары
-					const int16_t t = values[j];
-					// Сумма пары
-					values[j] = barrett(static_cast <int16_t> (t + values[j + length]));
-					// Произведение степени и разности пары
-					values[j + length] = fqmul(zeta, static_cast <int16_t> (values[j + length] - t));
+				for(size_t start = 0; start < N; start += (2 * length)){
+					// Степень ζ участка
+					const int16_t zeta = table.montgomery[index--];
+					/**
+					 * Выполняем перебор пар участка: сумма приводится редукцией Барретта,
+					 * разность умножается на степень умножением Монтгомери
+					 */
+					for(size_t j = start; j < (start + length); j++){
+						// Первый коэффициент пары
+						const int16_t t = values[j];
+						// Сумма пары
+						values[j] = barrett(static_cast <int16_t> (t + values[j + length]));
+						// Произведение степени и разности пары
+						values[j + length] = fqmul(zeta, static_cast <int16_t> (values[j + length] - t));
+					}
 				}
 			}
-		}
-		/**
-		 * Выполняем перебор коэффициентов
-		 */
-		for(size_t i = 0; i < N; i++)
+			/**
+			 * Выполняем перебор коэффициентов
+			 */
+			for(size_t i = 0; i < N; i++)
 			// Умножаем на обратное к 128 в форме Монтгомери и приводим к [0, q)
 			values[i] = canonical(fqmul(values[i], table.inverse));
 		#endif
