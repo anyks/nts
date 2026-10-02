@@ -3076,6 +3076,8 @@ namespace {
 		/**
 		 * Выполняем перебор слов записи
 		 */
+		// Разворачиваем по четыре слова, сокращая переходы при прежнем чтении всей таблицы
+		#pragma GCC unroll 4
 		for(size_t k = 0; k < words; k++){
 			// Столбец слова
 			const __m256i * column = reinterpret_cast <const __m256i *> (columns[k]);
