@@ -1236,64 +1236,64 @@
 								c8 = _mm256_add_epi64(_mm256_and_si256(c8, mask), _mm256_blend_epi32(high, previous, 3));
 							}
 						}
-						// Проводим переносы на один коэффициент: оставляем ограниченную избыточность
+						// Второй перенос сразу записывает готовую четвёрку для следующей свёртки
+						// Входы уже прочитаны, поэтому совпадение result и value по-прежнему допустимо
 						{
 							__m256i previous = zero;
 							{
 								const __m256i high = _mm256_permute4x64_epi64(_mm256_srli_epi64(c0, 29), 0x93);
 								c0 = _mm256_add_epi64(_mm256_and_si256(c0, mask), _mm256_blend_epi32(high, previous, 3));
+								_mm256_storeu_si256(reinterpret_cast <__m256i *> (result + 0), c0);
 								previous = high;
 							}
 							{
 								const __m256i high = _mm256_permute4x64_epi64(_mm256_srli_epi64(c1, 29), 0x93);
 								c1 = _mm256_add_epi64(_mm256_and_si256(c1, mask), _mm256_blend_epi32(high, previous, 3));
+								_mm256_storeu_si256(reinterpret_cast <__m256i *> (result + 4), c1);
 								previous = high;
 							}
 							{
 								const __m256i high = _mm256_permute4x64_epi64(_mm256_srli_epi64(c2, 29), 0x93);
 								c2 = _mm256_add_epi64(_mm256_and_si256(c2, mask), _mm256_blend_epi32(high, previous, 3));
+								_mm256_storeu_si256(reinterpret_cast <__m256i *> (result + 8), c2);
 								previous = high;
 							}
 							{
 								const __m256i high = _mm256_permute4x64_epi64(_mm256_srli_epi64(c3, 29), 0x93);
 								c3 = _mm256_add_epi64(_mm256_and_si256(c3, mask), _mm256_blend_epi32(high, previous, 3));
+								_mm256_storeu_si256(reinterpret_cast <__m256i *> (result + 12), c3);
 								previous = high;
 							}
 							{
 								const __m256i high = _mm256_permute4x64_epi64(_mm256_srli_epi64(c4, 29), 0x93);
 								c4 = _mm256_add_epi64(_mm256_and_si256(c4, mask), _mm256_blend_epi32(high, previous, 3));
+								_mm256_storeu_si256(reinterpret_cast <__m256i *> (result + 16), c4);
 								previous = high;
 							}
 							{
 								const __m256i high = _mm256_permute4x64_epi64(_mm256_srli_epi64(c5, 29), 0x93);
 								c5 = _mm256_add_epi64(_mm256_and_si256(c5, mask), _mm256_blend_epi32(high, previous, 3));
+								_mm256_storeu_si256(reinterpret_cast <__m256i *> (result + 20), c5);
 								previous = high;
 							}
 							{
 								const __m256i high = _mm256_permute4x64_epi64(_mm256_srli_epi64(c6, 29), 0x93);
 								c6 = _mm256_add_epi64(_mm256_and_si256(c6, mask), _mm256_blend_epi32(high, previous, 3));
+								_mm256_storeu_si256(reinterpret_cast <__m256i *> (result + 24), c6);
 								previous = high;
 							}
 							{
 								const __m256i high = _mm256_permute4x64_epi64(_mm256_srli_epi64(c7, 29), 0x93);
 								c7 = _mm256_add_epi64(_mm256_and_si256(c7, mask), _mm256_blend_epi32(high, previous, 3));
+								_mm256_storeu_si256(reinterpret_cast <__m256i *> (result + 28), c7);
 								previous = high;
 							}
 							{
 								const __m256i high = _mm256_permute4x64_epi64(_mm256_srli_epi64(c8, 29), 0x93);
 								c8 = _mm256_add_epi64(_mm256_and_si256(c8, mask), _mm256_blend_epi32(high, previous, 3));
+								_mm256_storeu_si256(reinterpret_cast <__m256i *> (result + 32), c8);
 							}
 						}
-						// Записываем итог после чтения входов: совпадение указателей допустимо
-						_mm256_storeu_si256(reinterpret_cast <__m256i *> (result + 0), c0);
-						_mm256_storeu_si256(reinterpret_cast <__m256i *> (result + 4), c1);
-						_mm256_storeu_si256(reinterpret_cast <__m256i *> (result + 8), c2);
-						_mm256_storeu_si256(reinterpret_cast <__m256i *> (result + 12), c3);
-						_mm256_storeu_si256(reinterpret_cast <__m256i *> (result + 16), c4);
-						_mm256_storeu_si256(reinterpret_cast <__m256i *> (result + 20), c5);
-						_mm256_storeu_si256(reinterpret_cast <__m256i *> (result + 24), c6);
-						_mm256_storeu_si256(reinterpret_cast <__m256i *> (result + 28), c7);
-						_mm256_storeu_si256(reinterpret_cast <__m256i *> (result + 32), c8);
 						// Последние четыре коэффициента служат нулевым дополнением для векторных загрузок
 						for(size_t i = 36; i < 40; i++)
 							result[i] = 0;
