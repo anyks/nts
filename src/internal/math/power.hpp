@@ -56,12 +56,17 @@
  *    В степени модуль лежит в отдельном field; совпадение итога с value допустимо. Читаемые
  *    value и modulus также могут совпадать при отдельном итоге. Девять проходов приведения
  *    разворачиваются по три: это быстрее полной развёртки по замеру.
- * 9. В свёртке второй сомножитель vpmuludq читается прямо из памяти: собиратель не держит
- *    перекрывающиеся векторы между блоками и не переносит их через кадр стека. Первый
- *    сомножитель остаётся вектором, чтобы сохранялось повторное использование рассылки.
- *    Во вставке явно объявлено чтение четырёх слов; арифметика и адреса прежние.
- * 10. В обычном произведении та же вставка читает модуль прямо из памяти. Векторы первого
+ * 9. Свёртка выполняется одной вставкой без обращений к стеку. Двенадцать регистров
+ *    сохраняют рассылки; при порождении вытесняется коэффициент с наиболее далёким
+ *    следующим чтением. Обычные произведения читают второй сомножитель из памяти.
+ *    Адреса фиксированы, объявлены чтение 40 слов и запись 72; вход и итог не пересекаются.
+ * 10. В обычном произведении term29Avx2 читает модуль прямо из памяти. Векторы первого
  *     сомножителя остаются на интринсиках: их повторные загрузки замедляют полную подпись.
+ * 11. Две соседние верхние диагонали свёртки объединены: [a², ab, c², cd] вычисляется
+ *     одним vpmuludq, нечётные дорожки удваиваются, пары добавляются в соседние блоки.
+ *     Это сокращает число векторных произведений со 189 до 180. Порождатель
+ *     tools/math/product29.py проверяет полином каждой дорожки и границы всех команд;
+ *     расписание и маски меняются через него. Приведение и договор коэффициентов прежние.
  *
  * @copyright Copyright © 2026
  *
@@ -429,397 +434,557 @@
 				 *
 				 * @note Коэффициенты ограничены договором файла. Недиагональные произведения
 				 *       суммируются один раз и удваиваются перед добавлением диагонали.
-				 *       Дополнение за 72 коэффициентами подготавливает вызывающий
+				 *       Дополнение за 72 коэффициентами подготавливает вызывающий.
+				 *       Расписание и полиномы проверяет tools/math/product29.py
 				 *
 				 */
 				__attribute__((target("avx2"), noinline)) static void product29Avx2(uint64_t * __restrict__ product, const uint64_t * value) noexcept {
-					// Нулевой вектор для накопителя и отсутствующих коэффициентов
-					const __m256i zero = _mm256_setzero_si256();
-					// Четыре коэффициента произведения, начиная с номера 0
-					{
-						__m256i sum = zero;
-						// В младшей дорожке диагональ, остальные произведения берутся дважды
-						const __m256i lower = term29Avx2(_mm256_set1_epi64x(value[0]), value + 0);
-						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_add_epi64(lower, lower), lower, 3));
-						// Следующая диагональ в третьей дорожке; младшие две здесь отсутствуют
-						const __m256i upper = _mm256_mul_epu32(_mm256_set1_epi64x(value[1]), _mm256_set_epi64x(value[2], value[1], 0, 0));
-						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_blend_epi32(_mm256_add_epi64(upper, upper), upper, 0x30), zero, 0x0F));
-						_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 0), sum);
-					}
-					// Четыре коэффициента произведения, начиная с номера 4
-					{
-						__m256i sum = zero;
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[0]), value + 4));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[1]), value + 3));
-						// Удваиваем накопленную недиагональную часть
-						sum = _mm256_add_epi64(sum, sum);
-						// В младшей дорожке диагональ, остальные произведения берутся дважды
-						const __m256i lower = term29Avx2(_mm256_set1_epi64x(value[2]), value + 2);
-						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_add_epi64(lower, lower), lower, 3));
-						// Следующая диагональ в третьей дорожке; младшие две здесь отсутствуют
-						const __m256i upper = term29Avx2(_mm256_set1_epi64x(value[3]), value + 1);
-						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_blend_epi32(_mm256_add_epi64(upper, upper), upper, 0x30), zero, 0x0F));
-						_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 4), sum);
-					}
-					// Четыре коэффициента произведения, начиная с номера 8
-					{
-						__m256i sum = zero;
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[0]), value + 8));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[1]), value + 7));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[2]), value + 6));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[3]), value + 5));
-						// Удваиваем накопленную недиагональную часть
-						sum = _mm256_add_epi64(sum, sum);
-						// В младшей дорожке диагональ, остальные произведения берутся дважды
-						const __m256i lower = term29Avx2(_mm256_set1_epi64x(value[4]), value + 4);
-						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_add_epi64(lower, lower), lower, 3));
-						// Следующая диагональ в третьей дорожке; младшие две здесь отсутствуют
-						const __m256i upper = term29Avx2(_mm256_set1_epi64x(value[5]), value + 3);
-						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_blend_epi32(_mm256_add_epi64(upper, upper), upper, 0x30), zero, 0x0F));
-						_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 8), sum);
-					}
-					// Четыре коэффициента произведения, начиная с номера 12
-					{
-						__m256i sum = zero;
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[0]), value + 12));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[1]), value + 11));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[2]), value + 10));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[3]), value + 9));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[4]), value + 8));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[5]), value + 7));
-						// Удваиваем накопленную недиагональную часть
-						sum = _mm256_add_epi64(sum, sum);
-						// В младшей дорожке диагональ, остальные произведения берутся дважды
-						const __m256i lower = term29Avx2(_mm256_set1_epi64x(value[6]), value + 6);
-						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_add_epi64(lower, lower), lower, 3));
-						// Следующая диагональ в третьей дорожке; младшие две здесь отсутствуют
-						const __m256i upper = term29Avx2(_mm256_set1_epi64x(value[7]), value + 5);
-						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_blend_epi32(_mm256_add_epi64(upper, upper), upper, 0x30), zero, 0x0F));
-						_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 12), sum);
-					}
-					// Четыре коэффициента произведения, начиная с номера 16
-					{
-						__m256i sum = zero;
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[0]), value + 16));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[1]), value + 15));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[2]), value + 14));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[3]), value + 13));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[4]), value + 12));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[5]), value + 11));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[6]), value + 10));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[7]), value + 9));
-						// Удваиваем накопленную недиагональную часть
-						sum = _mm256_add_epi64(sum, sum);
-						// В младшей дорожке диагональ, остальные произведения берутся дважды
-						const __m256i lower = term29Avx2(_mm256_set1_epi64x(value[8]), value + 8);
-						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_add_epi64(lower, lower), lower, 3));
-						// Следующая диагональ в третьей дорожке; младшие две здесь отсутствуют
-						const __m256i upper = term29Avx2(_mm256_set1_epi64x(value[9]), value + 7);
-						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_blend_epi32(_mm256_add_epi64(upper, upper), upper, 0x30), zero, 0x0F));
-						_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 16), sum);
-					}
-					// Четыре коэффициента произведения, начиная с номера 20
-					{
-						__m256i sum = zero;
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[0]), value + 20));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[1]), value + 19));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[2]), value + 18));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[3]), value + 17));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[4]), value + 16));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[5]), value + 15));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[6]), value + 14));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[7]), value + 13));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[8]), value + 12));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[9]), value + 11));
-						// Удваиваем накопленную недиагональную часть
-						sum = _mm256_add_epi64(sum, sum);
-						// В младшей дорожке диагональ, остальные произведения берутся дважды
-						const __m256i lower = term29Avx2(_mm256_set1_epi64x(value[10]), value + 10);
-						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_add_epi64(lower, lower), lower, 3));
-						// Следующая диагональ в третьей дорожке; младшие две здесь отсутствуют
-						const __m256i upper = term29Avx2(_mm256_set1_epi64x(value[11]), value + 9);
-						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_blend_epi32(_mm256_add_epi64(upper, upper), upper, 0x30), zero, 0x0F));
-						_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 20), sum);
-					}
-					// Четыре коэффициента произведения, начиная с номера 24
-					{
-						__m256i sum = zero;
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[0]), value + 24));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[1]), value + 23));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[2]), value + 22));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[3]), value + 21));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[4]), value + 20));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[5]), value + 19));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[6]), value + 18));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[7]), value + 17));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[8]), value + 16));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[9]), value + 15));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[10]), value + 14));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[11]), value + 13));
-						// Удваиваем накопленную недиагональную часть
-						sum = _mm256_add_epi64(sum, sum);
-						// В младшей дорожке диагональ, остальные произведения берутся дважды
-						const __m256i lower = term29Avx2(_mm256_set1_epi64x(value[12]), value + 12);
-						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_add_epi64(lower, lower), lower, 3));
-						// Следующая диагональ в третьей дорожке; младшие две здесь отсутствуют
-						const __m256i upper = term29Avx2(_mm256_set1_epi64x(value[13]), value + 11);
-						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_blend_epi32(_mm256_add_epi64(upper, upper), upper, 0x30), zero, 0x0F));
-						_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 24), sum);
-					}
-					// Четыре коэффициента произведения, начиная с номера 28
-					{
-						__m256i sum = zero;
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[0]), value + 28));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[1]), value + 27));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[2]), value + 26));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[3]), value + 25));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[4]), value + 24));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[5]), value + 23));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[6]), value + 22));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[7]), value + 21));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[8]), value + 20));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[9]), value + 19));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[10]), value + 18));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[11]), value + 17));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[12]), value + 16));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[13]), value + 15));
-						// Удваиваем накопленную недиагональную часть
-						sum = _mm256_add_epi64(sum, sum);
-						// В младшей дорожке диагональ, остальные произведения берутся дважды
-						const __m256i lower = term29Avx2(_mm256_set1_epi64x(value[14]), value + 14);
-						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_add_epi64(lower, lower), lower, 3));
-						// Следующая диагональ в третьей дорожке; младшие две здесь отсутствуют
-						const __m256i upper = term29Avx2(_mm256_set1_epi64x(value[15]), value + 13);
-						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_blend_epi32(_mm256_add_epi64(upper, upper), upper, 0x30), zero, 0x0F));
-						_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 28), sum);
-					}
-					// Четыре коэффициента произведения, начиная с номера 32
-					{
-						__m256i sum = zero;
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[0]), value + 32));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[1]), value + 31));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[2]), value + 30));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[3]), value + 29));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[4]), value + 28));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[5]), value + 27));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[6]), value + 26));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[7]), value + 25));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[8]), value + 24));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[9]), value + 23));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[10]), value + 22));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[11]), value + 21));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[12]), value + 20));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[13]), value + 19));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[14]), value + 18));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[15]), value + 17));
-						// Удваиваем накопленную недиагональную часть
-						sum = _mm256_add_epi64(sum, sum);
-						// В младшей дорожке диагональ, остальные произведения берутся дважды
-						const __m256i lower = term29Avx2(_mm256_set1_epi64x(value[16]), value + 16);
-						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_add_epi64(lower, lower), lower, 3));
-						// Следующая диагональ в третьей дорожке; младшие две здесь отсутствуют
-						const __m256i upper = term29Avx2(_mm256_set1_epi64x(value[17]), value + 15);
-						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_blend_epi32(_mm256_add_epi64(upper, upper), upper, 0x30), zero, 0x0F));
-						_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 32), sum);
-					}
-					// Четыре коэффициента произведения, начиная с номера 36
-					{
-						__m256i sum = zero;
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[1]), value + 35));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[2]), value + 34));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[3]), value + 33));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[4]), value + 32));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[5]), value + 31));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[6]), value + 30));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[7]), value + 29));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[8]), value + 28));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[9]), value + 27));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[10]), value + 26));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[11]), value + 25));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[12]), value + 24));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[13]), value + 23));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[14]), value + 22));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[15]), value + 21));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[16]), value + 20));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[17]), value + 19));
-						// Удваиваем накопленную недиагональную часть
-						sum = _mm256_add_epi64(sum, sum);
-						// В младшей дорожке диагональ, остальные произведения берутся дважды
-						const __m256i lower = term29Avx2(_mm256_set1_epi64x(value[18]), value + 18);
-						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_add_epi64(lower, lower), lower, 3));
-						// Следующая диагональ в третьей дорожке; младшие две здесь отсутствуют
-						const __m256i upper = term29Avx2(_mm256_set1_epi64x(value[19]), value + 17);
-						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_blend_epi32(_mm256_add_epi64(upper, upper), upper, 0x30), zero, 0x0F));
-						_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 36), sum);
-					}
-					// Четыре коэффициента произведения, начиная с номера 40
-					{
-						__m256i sum = zero;
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[5]), value + 35));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[6]), value + 34));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[7]), value + 33));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[8]), value + 32));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[9]), value + 31));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[10]), value + 30));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[11]), value + 29));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[12]), value + 28));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[13]), value + 27));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[14]), value + 26));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[15]), value + 25));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[16]), value + 24));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[17]), value + 23));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[18]), value + 22));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[19]), value + 21));
-						// Удваиваем накопленную недиагональную часть
-						sum = _mm256_add_epi64(sum, sum);
-						// В младшей дорожке диагональ, остальные произведения берутся дважды
-						const __m256i lower = term29Avx2(_mm256_set1_epi64x(value[20]), value + 20);
-						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_add_epi64(lower, lower), lower, 3));
-						// Следующая диагональ в третьей дорожке; младшие две здесь отсутствуют
-						const __m256i upper = term29Avx2(_mm256_set1_epi64x(value[21]), value + 19);
-						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_blend_epi32(_mm256_add_epi64(upper, upper), upper, 0x30), zero, 0x0F));
-						_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 40), sum);
-					}
-					// Четыре коэффициента произведения, начиная с номера 44
-					{
-						__m256i sum = zero;
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[9]), value + 35));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[10]), value + 34));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[11]), value + 33));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[12]), value + 32));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[13]), value + 31));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[14]), value + 30));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[15]), value + 29));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[16]), value + 28));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[17]), value + 27));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[18]), value + 26));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[19]), value + 25));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[20]), value + 24));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[21]), value + 23));
-						// Удваиваем накопленную недиагональную часть
-						sum = _mm256_add_epi64(sum, sum);
-						// В младшей дорожке диагональ, остальные произведения берутся дважды
-						const __m256i lower = term29Avx2(_mm256_set1_epi64x(value[22]), value + 22);
-						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_add_epi64(lower, lower), lower, 3));
-						// Следующая диагональ в третьей дорожке; младшие две здесь отсутствуют
-						const __m256i upper = term29Avx2(_mm256_set1_epi64x(value[23]), value + 21);
-						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_blend_epi32(_mm256_add_epi64(upper, upper), upper, 0x30), zero, 0x0F));
-						_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 44), sum);
-					}
-					// Четыре коэффициента произведения, начиная с номера 48
-					{
-						__m256i sum = zero;
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[13]), value + 35));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[14]), value + 34));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[15]), value + 33));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[16]), value + 32));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[17]), value + 31));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[18]), value + 30));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[19]), value + 29));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[20]), value + 28));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[21]), value + 27));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[22]), value + 26));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[23]), value + 25));
-						// Удваиваем накопленную недиагональную часть
-						sum = _mm256_add_epi64(sum, sum);
-						// В младшей дорожке диагональ, остальные произведения берутся дважды
-						const __m256i lower = term29Avx2(_mm256_set1_epi64x(value[24]), value + 24);
-						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_add_epi64(lower, lower), lower, 3));
-						// Следующая диагональ в третьей дорожке; младшие две здесь отсутствуют
-						const __m256i upper = term29Avx2(_mm256_set1_epi64x(value[25]), value + 23);
-						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_blend_epi32(_mm256_add_epi64(upper, upper), upper, 0x30), zero, 0x0F));
-						_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 48), sum);
-					}
-					// Четыре коэффициента произведения, начиная с номера 52
-					{
-						__m256i sum = zero;
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[17]), value + 35));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[18]), value + 34));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[19]), value + 33));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[20]), value + 32));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[21]), value + 31));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[22]), value + 30));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[23]), value + 29));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[24]), value + 28));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[25]), value + 27));
-						// Удваиваем накопленную недиагональную часть
-						sum = _mm256_add_epi64(sum, sum);
-						// В младшей дорожке диагональ, остальные произведения берутся дважды
-						const __m256i lower = term29Avx2(_mm256_set1_epi64x(value[26]), value + 26);
-						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_add_epi64(lower, lower), lower, 3));
-						// Следующая диагональ в третьей дорожке; младшие две здесь отсутствуют
-						const __m256i upper = term29Avx2(_mm256_set1_epi64x(value[27]), value + 25);
-						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_blend_epi32(_mm256_add_epi64(upper, upper), upper, 0x30), zero, 0x0F));
-						_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 52), sum);
-					}
-					// Четыре коэффициента произведения, начиная с номера 56
-					{
-						__m256i sum = zero;
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[21]), value + 35));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[22]), value + 34));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[23]), value + 33));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[24]), value + 32));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[25]), value + 31));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[26]), value + 30));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[27]), value + 29));
-						// Удваиваем накопленную недиагональную часть
-						sum = _mm256_add_epi64(sum, sum);
-						// В младшей дорожке диагональ, остальные произведения берутся дважды
-						const __m256i lower = term29Avx2(_mm256_set1_epi64x(value[28]), value + 28);
-						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_add_epi64(lower, lower), lower, 3));
-						// Следующая диагональ в третьей дорожке; младшие две здесь отсутствуют
-						const __m256i upper = term29Avx2(_mm256_set1_epi64x(value[29]), value + 27);
-						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_blend_epi32(_mm256_add_epi64(upper, upper), upper, 0x30), zero, 0x0F));
-						_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 56), sum);
-					}
-					// Четыре коэффициента произведения, начиная с номера 60
-					{
-						__m256i sum = zero;
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[25]), value + 35));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[26]), value + 34));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[27]), value + 33));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[28]), value + 32));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[29]), value + 31));
-						// Удваиваем накопленную недиагональную часть
-						sum = _mm256_add_epi64(sum, sum);
-						// В младшей дорожке диагональ, остальные произведения берутся дважды
-						const __m256i lower = term29Avx2(_mm256_set1_epi64x(value[30]), value + 30);
-						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_add_epi64(lower, lower), lower, 3));
-						// Следующая диагональ в третьей дорожке; младшие две здесь отсутствуют
-						const __m256i upper = term29Avx2(_mm256_set1_epi64x(value[31]), value + 29);
-						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_blend_epi32(_mm256_add_epi64(upper, upper), upper, 0x30), zero, 0x0F));
-						_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 60), sum);
-					}
-					// Четыре коэффициента произведения, начиная с номера 64
-					{
-						__m256i sum = zero;
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[29]), value + 35));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[30]), value + 34));
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[31]), value + 33));
-						// Удваиваем накопленную недиагональную часть
-						sum = _mm256_add_epi64(sum, sum);
-						// В младшей дорожке диагональ, остальные произведения берутся дважды
-						const __m256i lower = term29Avx2(_mm256_set1_epi64x(value[32]), value + 32);
-						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_add_epi64(lower, lower), lower, 3));
-						// Следующая диагональ в третьей дорожке; младшие две здесь отсутствуют
-						const __m256i upper = term29Avx2(_mm256_set1_epi64x(value[33]), value + 31);
-						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_blend_epi32(_mm256_add_epi64(upper, upper), upper, 0x30), zero, 0x0F));
-						_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 64), sum);
-					}
-					// Четыре коэффициента произведения, начиная с номера 68
-					{
-						__m256i sum = zero;
-						sum = _mm256_add_epi64(sum, term29Avx2(_mm256_set1_epi64x(value[33]), value + 35));
-						// Удваиваем накопленную недиагональную часть
-						sum = _mm256_add_epi64(sum, sum);
-						// В младшей дорожке диагональ, остальные произведения берутся дважды
-						const __m256i lower = term29Avx2(_mm256_set1_epi64x(value[34]), value + 34);
-						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_add_epi64(lower, lower), lower, 3));
-						// Следующая диагональ в третьей дорожке; младшие две здесь отсутствуют
-						const __m256i upper = term29Avx2(_mm256_set1_epi64x(value[35]), value + 33);
-						sum = _mm256_add_epi64(sum, _mm256_blend_epi32(_mm256_blend_epi32(_mm256_add_epi64(upper, upper), upper, 0x30), zero, 0x0F));
-						_mm256_storeu_si256(reinterpret_cast <__m256i *> (product + 68), sum);
-					}
+					// Порождатель и проверка полиномов: tools/math/product29.py
+					// ymm0…11 сохраняют рассылки, ymm13 — диагонали двух соседних блоков
+					__asm__(
+						// Коэффициенты 0…3
+						"vpbroadcastq 0(%[value]), %%ymm0\n\t"
+						"vpmuludq 0(%[value]), %%ymm0, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm15, %%ymm12\n\t"
+						"vpblendd $3, %%ymm15, %%ymm12, %%ymm14\n\t"
+						"vmovdqu 8(%[value]), %%ymm15\n\t"
+						"vpermq $160, %%ymm15, %%ymm12\n\t"
+						"vpmuludq %%ymm15, %%ymm12, %%ymm13\n\t"
+						"vpaddq %%ymm13, %%ymm13, %%ymm15\n\t"
+						"vpblendd $51, %%ymm13, %%ymm15, %%ymm13\n\t"
+						"vperm2i128 $8, %%ymm13, %%ymm13, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vmovdqu %%ymm14, 0(%[product])\n\t"
+						// Коэффициенты 4…7
+						"vpmuludq 32(%[value]), %%ymm0, %%ymm14\n\t"
+						"vpbroadcastq 8(%[value]), %%ymm1\n\t"
+						"vpmuludq 24(%[value]), %%ymm1, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpaddq %%ymm14, %%ymm14, %%ymm14\n\t"
+						"vpbroadcastq 16(%[value]), %%ymm2\n\t"
+						"vpmuludq 16(%[value]), %%ymm2, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm15, %%ymm12\n\t"
+						"vpblendd $3, %%ymm15, %%ymm12, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vperm2i128 $24, %%ymm13, %%ymm13, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vmovdqu %%ymm14, 32(%[product])\n\t"
+						// Коэффициенты 8…11
+						"vpmuludq 64(%[value]), %%ymm0, %%ymm14\n\t"
+						"vpmuludq 56(%[value]), %%ymm1, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 48(%[value]), %%ymm2, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpbroadcastq 24(%[value]), %%ymm3\n\t"
+						"vpmuludq 40(%[value]), %%ymm3, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpaddq %%ymm14, %%ymm14, %%ymm14\n\t"
+						"vpbroadcastq 32(%[value]), %%ymm4\n\t"
+						"vpmuludq 32(%[value]), %%ymm4, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm15, %%ymm12\n\t"
+						"vpblendd $3, %%ymm15, %%ymm12, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vmovdqu 40(%[value]), %%ymm15\n\t"
+						"vpermq $160, %%ymm15, %%ymm12\n\t"
+						"vpmuludq %%ymm15, %%ymm12, %%ymm13\n\t"
+						"vpaddq %%ymm13, %%ymm13, %%ymm15\n\t"
+						"vpblendd $51, %%ymm13, %%ymm15, %%ymm13\n\t"
+						"vperm2i128 $8, %%ymm13, %%ymm13, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vmovdqu %%ymm14, 64(%[product])\n\t"
+						// Коэффициенты 12…15
+						"vpmuludq 96(%[value]), %%ymm0, %%ymm14\n\t"
+						"vpmuludq 88(%[value]), %%ymm1, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 80(%[value]), %%ymm2, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 72(%[value]), %%ymm3, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 64(%[value]), %%ymm4, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpbroadcastq 40(%[value]), %%ymm5\n\t"
+						"vpmuludq 56(%[value]), %%ymm5, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpaddq %%ymm14, %%ymm14, %%ymm14\n\t"
+						"vpbroadcastq 48(%[value]), %%ymm6\n\t"
+						"vpmuludq 48(%[value]), %%ymm6, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm15, %%ymm12\n\t"
+						"vpblendd $3, %%ymm15, %%ymm12, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vperm2i128 $24, %%ymm13, %%ymm13, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vmovdqu %%ymm14, 96(%[product])\n\t"
+						// Коэффициенты 16…19
+						"vpmuludq 128(%[value]), %%ymm0, %%ymm14\n\t"
+						"vpmuludq 120(%[value]), %%ymm1, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 112(%[value]), %%ymm2, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 104(%[value]), %%ymm3, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 96(%[value]), %%ymm4, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 88(%[value]), %%ymm5, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 80(%[value]), %%ymm6, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpbroadcastq 56(%[value]), %%ymm7\n\t"
+						"vpmuludq 72(%[value]), %%ymm7, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpaddq %%ymm14, %%ymm14, %%ymm14\n\t"
+						"vpbroadcastq 64(%[value]), %%ymm8\n\t"
+						"vpmuludq 64(%[value]), %%ymm8, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm15, %%ymm12\n\t"
+						"vpblendd $3, %%ymm15, %%ymm12, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vmovdqu 72(%[value]), %%ymm15\n\t"
+						"vpermq $160, %%ymm15, %%ymm12\n\t"
+						"vpmuludq %%ymm15, %%ymm12, %%ymm13\n\t"
+						"vpaddq %%ymm13, %%ymm13, %%ymm15\n\t"
+						"vpblendd $51, %%ymm13, %%ymm15, %%ymm13\n\t"
+						"vperm2i128 $8, %%ymm13, %%ymm13, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vmovdqu %%ymm14, 128(%[product])\n\t"
+						// Коэффициенты 20…23
+						"vpmuludq 160(%[value]), %%ymm0, %%ymm14\n\t"
+						"vpmuludq 152(%[value]), %%ymm1, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 144(%[value]), %%ymm2, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 136(%[value]), %%ymm3, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 128(%[value]), %%ymm4, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 120(%[value]), %%ymm5, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 112(%[value]), %%ymm6, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 104(%[value]), %%ymm7, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 96(%[value]), %%ymm8, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpbroadcastq 72(%[value]), %%ymm9\n\t"
+						"vpmuludq 88(%[value]), %%ymm9, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpaddq %%ymm14, %%ymm14, %%ymm14\n\t"
+						"vpbroadcastq 80(%[value]), %%ymm10\n\t"
+						"vpmuludq 80(%[value]), %%ymm10, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm15, %%ymm12\n\t"
+						"vpblendd $3, %%ymm15, %%ymm12, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vperm2i128 $24, %%ymm13, %%ymm13, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vmovdqu %%ymm14, 160(%[product])\n\t"
+						// Коэффициенты 24…27
+						"vpmuludq 192(%[value]), %%ymm0, %%ymm14\n\t"
+						"vpmuludq 184(%[value]), %%ymm1, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 176(%[value]), %%ymm2, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 168(%[value]), %%ymm3, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 160(%[value]), %%ymm4, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 152(%[value]), %%ymm5, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 144(%[value]), %%ymm6, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 136(%[value]), %%ymm7, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 128(%[value]), %%ymm8, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 120(%[value]), %%ymm9, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 112(%[value]), %%ymm10, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpbroadcastq 88(%[value]), %%ymm11\n\t"
+						"vpmuludq 104(%[value]), %%ymm11, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpaddq %%ymm14, %%ymm14, %%ymm14\n\t"
+						"vpbroadcastq 96(%[value]), %%ymm11\n\t"
+						"vpmuludq 96(%[value]), %%ymm11, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm15, %%ymm12\n\t"
+						"vpblendd $3, %%ymm15, %%ymm12, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vmovdqu 104(%[value]), %%ymm15\n\t"
+						"vpermq $160, %%ymm15, %%ymm12\n\t"
+						"vpmuludq %%ymm15, %%ymm12, %%ymm13\n\t"
+						"vpaddq %%ymm13, %%ymm13, %%ymm15\n\t"
+						"vpblendd $51, %%ymm13, %%ymm15, %%ymm13\n\t"
+						"vperm2i128 $8, %%ymm13, %%ymm13, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vmovdqu %%ymm14, 192(%[product])\n\t"
+						// Коэффициенты 28…31
+						"vpmuludq 224(%[value]), %%ymm0, %%ymm14\n\t"
+						"vpmuludq 216(%[value]), %%ymm1, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 208(%[value]), %%ymm2, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 200(%[value]), %%ymm3, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 192(%[value]), %%ymm4, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 184(%[value]), %%ymm5, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 176(%[value]), %%ymm6, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 168(%[value]), %%ymm7, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 160(%[value]), %%ymm8, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 152(%[value]), %%ymm9, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 144(%[value]), %%ymm10, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpbroadcastq 88(%[value]), %%ymm10\n\t"
+						"vpmuludq 136(%[value]), %%ymm10, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 128(%[value]), %%ymm11, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpbroadcastq 104(%[value]), %%ymm11\n\t"
+						"vpmuludq 120(%[value]), %%ymm11, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpaddq %%ymm14, %%ymm14, %%ymm14\n\t"
+						"vpbroadcastq 112(%[value]), %%ymm11\n\t"
+						"vpmuludq 112(%[value]), %%ymm11, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm15, %%ymm12\n\t"
+						"vpblendd $3, %%ymm15, %%ymm12, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vperm2i128 $24, %%ymm13, %%ymm13, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vmovdqu %%ymm14, 224(%[product])\n\t"
+						// Коэффициенты 32…35
+						"vpmuludq 256(%[value]), %%ymm0, %%ymm14\n\t"
+						"vpmuludq 248(%[value]), %%ymm1, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 240(%[value]), %%ymm2, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 232(%[value]), %%ymm3, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 224(%[value]), %%ymm4, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 216(%[value]), %%ymm5, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 208(%[value]), %%ymm6, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 200(%[value]), %%ymm7, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 192(%[value]), %%ymm8, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 184(%[value]), %%ymm9, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpbroadcastq 80(%[value]), %%ymm0\n\t"
+						"vpmuludq 176(%[value]), %%ymm0, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 168(%[value]), %%ymm10, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpbroadcastq 96(%[value]), %%ymm10\n\t"
+						"vpmuludq 160(%[value]), %%ymm10, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpbroadcastq 104(%[value]), %%ymm10\n\t"
+						"vpmuludq 152(%[value]), %%ymm10, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 144(%[value]), %%ymm11, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpbroadcastq 120(%[value]), %%ymm11\n\t"
+						"vpmuludq 136(%[value]), %%ymm11, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpaddq %%ymm14, %%ymm14, %%ymm14\n\t"
+						"vpbroadcastq 128(%[value]), %%ymm11\n\t"
+						"vpmuludq 128(%[value]), %%ymm11, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm15, %%ymm12\n\t"
+						"vpblendd $3, %%ymm15, %%ymm12, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vmovdqu 136(%[value]), %%ymm15\n\t"
+						"vpermq $160, %%ymm15, %%ymm12\n\t"
+						"vpmuludq %%ymm15, %%ymm12, %%ymm13\n\t"
+						"vpaddq %%ymm13, %%ymm13, %%ymm15\n\t"
+						"vpblendd $51, %%ymm13, %%ymm15, %%ymm13\n\t"
+						"vperm2i128 $8, %%ymm13, %%ymm13, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vmovdqu %%ymm14, 256(%[product])\n\t"
+						// Коэффициенты 36…39
+						"vpmuludq 280(%[value]), %%ymm1, %%ymm14\n\t"
+						"vpmuludq 272(%[value]), %%ymm2, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 264(%[value]), %%ymm3, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 256(%[value]), %%ymm4, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 248(%[value]), %%ymm5, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 240(%[value]), %%ymm6, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 232(%[value]), %%ymm7, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 224(%[value]), %%ymm8, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 216(%[value]), %%ymm9, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 208(%[value]), %%ymm0, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpbroadcastq 88(%[value]), %%ymm1\n\t"
+						"vpmuludq 200(%[value]), %%ymm1, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpbroadcastq 96(%[value]), %%ymm2\n\t"
+						"vpmuludq 192(%[value]), %%ymm2, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 184(%[value]), %%ymm10, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpbroadcastq 112(%[value]), %%ymm3\n\t"
+						"vpmuludq 176(%[value]), %%ymm3, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpbroadcastq 120(%[value]), %%ymm4\n\t"
+						"vpmuludq 168(%[value]), %%ymm4, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 160(%[value]), %%ymm11, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpbroadcastq 136(%[value]), %%ymm11\n\t"
+						"vpmuludq 152(%[value]), %%ymm11, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpaddq %%ymm14, %%ymm14, %%ymm14\n\t"
+						"vpbroadcastq 144(%[value]), %%ymm11\n\t"
+						"vpmuludq 144(%[value]), %%ymm11, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm15, %%ymm12\n\t"
+						"vpblendd $3, %%ymm15, %%ymm12, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vperm2i128 $24, %%ymm13, %%ymm13, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vmovdqu %%ymm14, 288(%[product])\n\t"
+						// Коэффициенты 40…43
+						"vpmuludq 280(%[value]), %%ymm5, %%ymm14\n\t"
+						"vpmuludq 272(%[value]), %%ymm6, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 264(%[value]), %%ymm7, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 256(%[value]), %%ymm8, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 248(%[value]), %%ymm9, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 240(%[value]), %%ymm0, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 232(%[value]), %%ymm1, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 224(%[value]), %%ymm2, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 216(%[value]), %%ymm10, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 208(%[value]), %%ymm3, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 200(%[value]), %%ymm4, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpbroadcastq 128(%[value]), %%ymm5\n\t"
+						"vpmuludq 192(%[value]), %%ymm5, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpbroadcastq 136(%[value]), %%ymm6\n\t"
+						"vpmuludq 184(%[value]), %%ymm6, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 176(%[value]), %%ymm11, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpbroadcastq 152(%[value]), %%ymm7\n\t"
+						"vpmuludq 168(%[value]), %%ymm7, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpaddq %%ymm14, %%ymm14, %%ymm14\n\t"
+						"vpbroadcastq 160(%[value]), %%ymm8\n\t"
+						"vpmuludq 160(%[value]), %%ymm8, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm15, %%ymm12\n\t"
+						"vpblendd $3, %%ymm15, %%ymm12, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vmovdqu 168(%[value]), %%ymm15\n\t"
+						"vpermq $160, %%ymm15, %%ymm12\n\t"
+						"vpmuludq %%ymm15, %%ymm12, %%ymm13\n\t"
+						"vpaddq %%ymm13, %%ymm13, %%ymm15\n\t"
+						"vpblendd $51, %%ymm13, %%ymm15, %%ymm13\n\t"
+						"vperm2i128 $8, %%ymm13, %%ymm13, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vmovdqu %%ymm14, 320(%[product])\n\t"
+						// Коэффициенты 44…47
+						"vpmuludq 280(%[value]), %%ymm9, %%ymm14\n\t"
+						"vpmuludq 272(%[value]), %%ymm0, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 264(%[value]), %%ymm1, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 256(%[value]), %%ymm2, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 248(%[value]), %%ymm10, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 240(%[value]), %%ymm3, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 232(%[value]), %%ymm4, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 224(%[value]), %%ymm5, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 216(%[value]), %%ymm6, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 208(%[value]), %%ymm11, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 200(%[value]), %%ymm7, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 192(%[value]), %%ymm8, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpbroadcastq 168(%[value]), %%ymm9\n\t"
+						"vpmuludq 184(%[value]), %%ymm9, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpaddq %%ymm14, %%ymm14, %%ymm14\n\t"
+						"vpbroadcastq 176(%[value]), %%ymm0\n\t"
+						"vpmuludq 176(%[value]), %%ymm0, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm15, %%ymm12\n\t"
+						"vpblendd $3, %%ymm15, %%ymm12, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vperm2i128 $24, %%ymm13, %%ymm13, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vmovdqu %%ymm14, 352(%[product])\n\t"
+						// Коэффициенты 48…51
+						"vpmuludq 280(%[value]), %%ymm10, %%ymm14\n\t"
+						"vpmuludq 272(%[value]), %%ymm3, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 264(%[value]), %%ymm4, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 256(%[value]), %%ymm5, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 248(%[value]), %%ymm6, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 240(%[value]), %%ymm11, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 232(%[value]), %%ymm7, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 224(%[value]), %%ymm8, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 216(%[value]), %%ymm9, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 208(%[value]), %%ymm0, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpbroadcastq 184(%[value]), %%ymm10\n\t"
+						"vpmuludq 200(%[value]), %%ymm10, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpaddq %%ymm14, %%ymm14, %%ymm14\n\t"
+						"vpbroadcastq 192(%[value]), %%ymm1\n\t"
+						"vpmuludq 192(%[value]), %%ymm1, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm15, %%ymm12\n\t"
+						"vpblendd $3, %%ymm15, %%ymm12, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vmovdqu 200(%[value]), %%ymm15\n\t"
+						"vpermq $160, %%ymm15, %%ymm12\n\t"
+						"vpmuludq %%ymm15, %%ymm12, %%ymm13\n\t"
+						"vpaddq %%ymm13, %%ymm13, %%ymm15\n\t"
+						"vpblendd $51, %%ymm13, %%ymm15, %%ymm13\n\t"
+						"vperm2i128 $8, %%ymm13, %%ymm13, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vmovdqu %%ymm14, 384(%[product])\n\t"
+						// Коэффициенты 52…55
+						"vpmuludq 280(%[value]), %%ymm6, %%ymm14\n\t"
+						"vpmuludq 272(%[value]), %%ymm11, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 264(%[value]), %%ymm7, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 256(%[value]), %%ymm8, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 248(%[value]), %%ymm9, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 240(%[value]), %%ymm0, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 232(%[value]), %%ymm10, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 224(%[value]), %%ymm1, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpbroadcastq 200(%[value]), %%ymm2\n\t"
+						"vpmuludq 216(%[value]), %%ymm2, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpaddq %%ymm14, %%ymm14, %%ymm14\n\t"
+						"vpbroadcastq 208(%[value]), %%ymm3\n\t"
+						"vpmuludq 208(%[value]), %%ymm3, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm15, %%ymm12\n\t"
+						"vpblendd $3, %%ymm15, %%ymm12, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vperm2i128 $24, %%ymm13, %%ymm13, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vmovdqu %%ymm14, 416(%[product])\n\t"
+						// Коэффициенты 56…59
+						"vpmuludq 280(%[value]), %%ymm9, %%ymm14\n\t"
+						"vpmuludq 272(%[value]), %%ymm0, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 264(%[value]), %%ymm10, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 256(%[value]), %%ymm1, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 248(%[value]), %%ymm2, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 240(%[value]), %%ymm3, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpbroadcastq 216(%[value]), %%ymm4\n\t"
+						"vpmuludq 232(%[value]), %%ymm4, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpaddq %%ymm14, %%ymm14, %%ymm14\n\t"
+						"vpbroadcastq 224(%[value]), %%ymm11\n\t"
+						"vpmuludq 224(%[value]), %%ymm11, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm15, %%ymm12\n\t"
+						"vpblendd $3, %%ymm15, %%ymm12, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vmovdqu 232(%[value]), %%ymm15\n\t"
+						"vpermq $160, %%ymm15, %%ymm12\n\t"
+						"vpmuludq %%ymm15, %%ymm12, %%ymm13\n\t"
+						"vpaddq %%ymm13, %%ymm13, %%ymm15\n\t"
+						"vpblendd $51, %%ymm13, %%ymm15, %%ymm13\n\t"
+						"vperm2i128 $8, %%ymm13, %%ymm13, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vmovdqu %%ymm14, 448(%[product])\n\t"
+						// Коэффициенты 60…63
+						"vpmuludq 280(%[value]), %%ymm2, %%ymm14\n\t"
+						"vpmuludq 272(%[value]), %%ymm3, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 264(%[value]), %%ymm4, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpmuludq 256(%[value]), %%ymm11, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpbroadcastq 232(%[value]), %%ymm5\n\t"
+						"vpmuludq 248(%[value]), %%ymm5, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpaddq %%ymm14, %%ymm14, %%ymm14\n\t"
+						"vpbroadcastq 240(%[value]), %%ymm6\n\t"
+						"vpmuludq 240(%[value]), %%ymm6, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm15, %%ymm12\n\t"
+						"vpblendd $3, %%ymm15, %%ymm12, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vperm2i128 $24, %%ymm13, %%ymm13, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vmovdqu %%ymm14, 480(%[product])\n\t"
+						// Коэффициенты 64…67
+						"vpmuludq 280(%[value]), %%ymm5, %%ymm14\n\t"
+						"vpmuludq 272(%[value]), %%ymm6, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpbroadcastq 248(%[value]), %%ymm7\n\t"
+						"vpmuludq 264(%[value]), %%ymm7, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vpaddq %%ymm14, %%ymm14, %%ymm14\n\t"
+						"vpbroadcastq 256(%[value]), %%ymm8\n\t"
+						"vpmuludq 256(%[value]), %%ymm8, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm15, %%ymm12\n\t"
+						"vpblendd $3, %%ymm15, %%ymm12, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vmovdqu 264(%[value]), %%ymm15\n\t"
+						"vpermq $160, %%ymm15, %%ymm12\n\t"
+						"vpmuludq %%ymm15, %%ymm12, %%ymm13\n\t"
+						"vpaddq %%ymm13, %%ymm13, %%ymm15\n\t"
+						"vpblendd $51, %%ymm13, %%ymm15, %%ymm13\n\t"
+						"vperm2i128 $8, %%ymm13, %%ymm13, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vmovdqu %%ymm14, 512(%[product])\n\t"
+						// Коэффициенты 68…71
+						"vpbroadcastq 264(%[value]), %%ymm9\n\t"
+						"vpmuludq 280(%[value]), %%ymm9, %%ymm14\n\t"
+						"vpaddq %%ymm14, %%ymm14, %%ymm14\n\t"
+						"vpbroadcastq 272(%[value]), %%ymm0\n\t"
+						"vpmuludq 272(%[value]), %%ymm0, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm15, %%ymm12\n\t"
+						"vpblendd $3, %%ymm15, %%ymm12, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vperm2i128 $24, %%ymm13, %%ymm13, %%ymm15\n\t"
+						"vpaddq %%ymm15, %%ymm14, %%ymm14\n\t"
+						"vmovdqu %%ymm14, 544(%[product])\n\t"
+						: [output] "=m" (* reinterpret_cast <uint64_t (*)[72]> (product))
+						: [product] "r" (product), [value] "r" (value), [input] "m" (* reinterpret_cast <const uint64_t (*)[40]> (value))
+						: "ymm0", "ymm1", "ymm2", "ymm3", "ymm4", "ymm5", "ymm6", "ymm7", "ymm8", "ymm9", "ymm10", "ymm11", "ymm12", "ymm13", "ymm14", "ymm15"
+					);
 				}
 				/**
 				 * @brief Метод квадрата Монтгомери на коэффициентах по 29 разрядов
