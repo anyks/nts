@@ -60,6 +60,8 @@
  *    перекрывающиеся векторы между блоками и не переносит их через кадр стека. Первый
  *    сомножитель остаётся вектором, чтобы сохранялось повторное использование рассылки.
  *    Во вставке явно объявлено чтение четырёх слов; арифметика и адреса прежние.
+ * 10. В обычном произведении та же вставка читает модуль прямо из памяти. Векторы первого
+ *     сомножителя остаются на интринсиках: их повторные загрузки замедляют полную подпись.
  *
  * @copyright Copyright © 2026
  *
@@ -110,6 +112,25 @@
 			 *
 			 */
 			namespace kernel {
+				/**
+				 * @brief Метод четырёх произведений с чтением второго сомножителя из памяти
+				 *
+				 * @param first  вектор первых сомножителей, младшие 32 разряда каждой дорожки
+				 * @param second четыре слова вторых сомножителей по произвольному выравниванию
+				 * @return       четыре произведения беззнаковых чисел в 64-разрядных дорожках
+				 *
+				 * @note Операнд памяти описывает все читаемые байты. Рассылку первого сомножителя
+				 *       собиратель вправе использовать повторно, второй читается самой командой
+				 *
+				 */
+				__attribute__((target("avx2"), always_inline)) static inline __m256i term29Avx2(const __m256i first, const uint64_t * second) noexcept {
+					// Место четырёх произведений
+					__m256i result;
+					// Читаем четыре слова без промежуточного вектора в кадре стека
+					__asm__("vpmuludq %2, %1, %0" : "=x" (result) : "x" (first), "m" (* reinterpret_cast <const uint64_t (*)[4]> (second)));
+					// Выводим произведения в том же порядке дорожек
+					return result;
+				}
 				/**
 				 * @brief Метод умножения Монтгомери на коэффициентах по 29 разрядов
 				 *
@@ -165,21 +186,21 @@
 							carry = (low[0] >> 29);
 							low[1] += carry;
 							c1 = _mm256_add_epi64(c1, _mm256_mul_epu32(wordVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (first + 4))));
-							c1 = _mm256_add_epi64(c1, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 4))));
+							c1 = _mm256_add_epi64(c1, term29Avx2(reducerVector, modulus + 4));
 							c2 = _mm256_add_epi64(c2, _mm256_mul_epu32(wordVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (first + 8))));
-							c2 = _mm256_add_epi64(c2, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 8))));
+							c2 = _mm256_add_epi64(c2, term29Avx2(reducerVector, modulus + 8));
 							c3 = _mm256_add_epi64(c3, _mm256_mul_epu32(wordVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (first + 12))));
-							c3 = _mm256_add_epi64(c3, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 12))));
+							c3 = _mm256_add_epi64(c3, term29Avx2(reducerVector, modulus + 12));
 							c4 = _mm256_add_epi64(c4, _mm256_mul_epu32(wordVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (first + 16))));
-							c4 = _mm256_add_epi64(c4, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 16))));
+							c4 = _mm256_add_epi64(c4, term29Avx2(reducerVector, modulus + 16));
 							c5 = _mm256_add_epi64(c5, _mm256_mul_epu32(wordVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (first + 20))));
-							c5 = _mm256_add_epi64(c5, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 20))));
+							c5 = _mm256_add_epi64(c5, term29Avx2(reducerVector, modulus + 20));
 							c6 = _mm256_add_epi64(c6, _mm256_mul_epu32(wordVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (first + 24))));
-							c6 = _mm256_add_epi64(c6, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 24))));
+							c6 = _mm256_add_epi64(c6, term29Avx2(reducerVector, modulus + 24));
 							c7 = _mm256_add_epi64(c7, _mm256_mul_epu32(wordVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (first + 28))));
-							c7 = _mm256_add_epi64(c7, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 28))));
+							c7 = _mm256_add_epi64(c7, term29Avx2(reducerVector, modulus + 28));
 							c8 = _mm256_add_epi64(c8, _mm256_mul_epu32(wordVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (first + 32))));
-							c8 = _mm256_add_epi64(c8, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 32))));
+							c8 = _mm256_add_epi64(c8, term29Avx2(reducerVector, modulus + 32));
 						}
 						// Ряд 2: младший коэффициент становится кратным 2^29
 						{
@@ -196,23 +217,23 @@
 							carry = (low[1] >> 29);
 							low[2] += carry;
 							c1 = _mm256_add_epi64(c1, _mm256_mul_epu32(wordVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (first + 3))));
-							c1 = _mm256_add_epi64(c1, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 3))));
+							c1 = _mm256_add_epi64(c1, term29Avx2(reducerVector, modulus + 3));
 							c2 = _mm256_add_epi64(c2, _mm256_mul_epu32(wordVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (first + 7))));
-							c2 = _mm256_add_epi64(c2, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 7))));
+							c2 = _mm256_add_epi64(c2, term29Avx2(reducerVector, modulus + 7));
 							c3 = _mm256_add_epi64(c3, _mm256_mul_epu32(wordVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (first + 11))));
-							c3 = _mm256_add_epi64(c3, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 11))));
+							c3 = _mm256_add_epi64(c3, term29Avx2(reducerVector, modulus + 11));
 							c4 = _mm256_add_epi64(c4, _mm256_mul_epu32(wordVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (first + 15))));
-							c4 = _mm256_add_epi64(c4, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 15))));
+							c4 = _mm256_add_epi64(c4, term29Avx2(reducerVector, modulus + 15));
 							c5 = _mm256_add_epi64(c5, _mm256_mul_epu32(wordVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (first + 19))));
-							c5 = _mm256_add_epi64(c5, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 19))));
+							c5 = _mm256_add_epi64(c5, term29Avx2(reducerVector, modulus + 19));
 							c6 = _mm256_add_epi64(c6, _mm256_mul_epu32(wordVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (first + 23))));
-							c6 = _mm256_add_epi64(c6, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 23))));
+							c6 = _mm256_add_epi64(c6, term29Avx2(reducerVector, modulus + 23));
 							c7 = _mm256_add_epi64(c7, _mm256_mul_epu32(wordVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (first + 27))));
-							c7 = _mm256_add_epi64(c7, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 27))));
+							c7 = _mm256_add_epi64(c7, term29Avx2(reducerVector, modulus + 27));
 							c8 = _mm256_add_epi64(c8, _mm256_mul_epu32(wordVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (first + 31))));
-							c8 = _mm256_add_epi64(c8, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 31))));
+							c8 = _mm256_add_epi64(c8, term29Avx2(reducerVector, modulus + 31));
 							c9 = _mm256_add_epi64(c9, _mm256_mul_epu32(wordVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (first + 35))));
-							c9 = _mm256_add_epi64(c9, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 35))));
+							c9 = _mm256_add_epi64(c9, term29Avx2(reducerVector, modulus + 35));
 						}
 						// Ряд 3: младший коэффициент становится кратным 2^29
 						{
@@ -227,23 +248,23 @@
 							carry = (low[2] >> 29);
 							low[3] += carry;
 							c1 = _mm256_add_epi64(c1, _mm256_mul_epu32(wordVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (first + 2))));
-							c1 = _mm256_add_epi64(c1, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 2))));
+							c1 = _mm256_add_epi64(c1, term29Avx2(reducerVector, modulus + 2));
 							c2 = _mm256_add_epi64(c2, _mm256_mul_epu32(wordVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (first + 6))));
-							c2 = _mm256_add_epi64(c2, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 6))));
+							c2 = _mm256_add_epi64(c2, term29Avx2(reducerVector, modulus + 6));
 							c3 = _mm256_add_epi64(c3, _mm256_mul_epu32(wordVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (first + 10))));
-							c3 = _mm256_add_epi64(c3, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 10))));
+							c3 = _mm256_add_epi64(c3, term29Avx2(reducerVector, modulus + 10));
 							c4 = _mm256_add_epi64(c4, _mm256_mul_epu32(wordVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (first + 14))));
-							c4 = _mm256_add_epi64(c4, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 14))));
+							c4 = _mm256_add_epi64(c4, term29Avx2(reducerVector, modulus + 14));
 							c5 = _mm256_add_epi64(c5, _mm256_mul_epu32(wordVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (first + 18))));
-							c5 = _mm256_add_epi64(c5, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 18))));
+							c5 = _mm256_add_epi64(c5, term29Avx2(reducerVector, modulus + 18));
 							c6 = _mm256_add_epi64(c6, _mm256_mul_epu32(wordVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (first + 22))));
-							c6 = _mm256_add_epi64(c6, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 22))));
+							c6 = _mm256_add_epi64(c6, term29Avx2(reducerVector, modulus + 22));
 							c7 = _mm256_add_epi64(c7, _mm256_mul_epu32(wordVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (first + 26))));
-							c7 = _mm256_add_epi64(c7, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 26))));
+							c7 = _mm256_add_epi64(c7, term29Avx2(reducerVector, modulus + 26));
 							c8 = _mm256_add_epi64(c8, _mm256_mul_epu32(wordVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (first + 30))));
-							c8 = _mm256_add_epi64(c8, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 30))));
+							c8 = _mm256_add_epi64(c8, term29Avx2(reducerVector, modulus + 30));
 							c9 = _mm256_add_epi64(c9, _mm256_mul_epu32(wordVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (first + 34))));
-							c9 = _mm256_add_epi64(c9, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 34))));
+							c9 = _mm256_add_epi64(c9, term29Avx2(reducerVector, modulus + 34));
 						}
 						// Ряд 4: младший коэффициент становится кратным 2^29
 						{
@@ -255,23 +276,23 @@
 							low[3] += (reducer * modulus[0]);
 							carry = (low[3] >> 29);
 							c1 = _mm256_add_epi64(c1, _mm256_mul_epu32(wordVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (first + 1))));
-							c1 = _mm256_add_epi64(c1, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 1))));
+							c1 = _mm256_add_epi64(c1, term29Avx2(reducerVector, modulus + 1));
 							c2 = _mm256_add_epi64(c2, _mm256_mul_epu32(wordVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (first + 5))));
-							c2 = _mm256_add_epi64(c2, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 5))));
+							c2 = _mm256_add_epi64(c2, term29Avx2(reducerVector, modulus + 5));
 							c3 = _mm256_add_epi64(c3, _mm256_mul_epu32(wordVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (first + 9))));
-							c3 = _mm256_add_epi64(c3, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 9))));
+							c3 = _mm256_add_epi64(c3, term29Avx2(reducerVector, modulus + 9));
 							c4 = _mm256_add_epi64(c4, _mm256_mul_epu32(wordVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (first + 13))));
-							c4 = _mm256_add_epi64(c4, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 13))));
+							c4 = _mm256_add_epi64(c4, term29Avx2(reducerVector, modulus + 13));
 							c5 = _mm256_add_epi64(c5, _mm256_mul_epu32(wordVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (first + 17))));
-							c5 = _mm256_add_epi64(c5, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 17))));
+							c5 = _mm256_add_epi64(c5, term29Avx2(reducerVector, modulus + 17));
 							c6 = _mm256_add_epi64(c6, _mm256_mul_epu32(wordVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (first + 21))));
-							c6 = _mm256_add_epi64(c6, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 21))));
+							c6 = _mm256_add_epi64(c6, term29Avx2(reducerVector, modulus + 21));
 							c7 = _mm256_add_epi64(c7, _mm256_mul_epu32(wordVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (first + 25))));
-							c7 = _mm256_add_epi64(c7, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 25))));
+							c7 = _mm256_add_epi64(c7, term29Avx2(reducerVector, modulus + 25));
 							c8 = _mm256_add_epi64(c8, _mm256_mul_epu32(wordVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (first + 29))));
-							c8 = _mm256_add_epi64(c8, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 29))));
+							c8 = _mm256_add_epi64(c8, term29Avx2(reducerVector, modulus + 29));
 							c9 = _mm256_add_epi64(c9, _mm256_mul_epu32(wordVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (first + 33))));
-							c9 = _mm256_add_epi64(c9, _mm256_mul_epu32(reducerVector, _mm256_loadu_si256(reinterpret_cast <const __m256i *> (modulus + 33))));
+							c9 = _mm256_add_epi64(c9, term29Avx2(reducerVector, modulus + 33));
 						}
 						// Отбрасываем четыре нулевых младших коэффициента
 						_mm256_storeu_si256(reinterpret_cast <__m256i *> (low), c1);
@@ -399,25 +420,6 @@
 						result[i] = 0;
 					// Завершаем работу с верхними половинами векторных регистров
 					_mm256_zeroupper();
-				}
-				/**
-				 * @brief Метод четырёх произведений с чтением второго сомножителя из памяти
-				 *
-				 * @param first  вектор первых сомножителей, младшие 32 разряда каждой дорожки
-				 * @param second четыре слова вторых сомножителей по произвольному выравниванию
-				 * @return       четыре произведения беззнаковых чисел в 64-разрядных дорожках
-				 *
-				 * @note Операнд памяти описывает все читаемые байты. Рассылку первого сомножителя
-				 *       собиратель вправе использовать повторно, второй читается самой командой
-				 *
-				 */
-				__attribute__((target("avx2"), always_inline)) static inline __m256i term29Avx2(const __m256i first, const uint64_t * second) noexcept {
-					// Место четырёх произведений
-					__m256i result;
-					// Читаем четыре слова без промежуточного вектора в кадре стека
-					__asm__("vpmuludq %2, %1, %0" : "=x" (result) : "x" (first), "m" (* reinterpret_cast <const uint64_t (*)[4]> (second)));
-					// Выводим произведения в том же порядке дорожек
-					return result;
 				}
 				/**
 				 * @brief Метод симметричной свёртки квадрата на коэффициентах по 29 разрядов
