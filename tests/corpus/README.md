@@ -27,6 +27,10 @@
 * `ec256.sec1.pem` — SEC 1 ECPrivateKey, `rsa2048.pkcs1.pem` — PKCS #1 RSAPrivateKey.
 * `chain-rsa.pem`, `chain-ec.pem` — цепочки из трёх звеньев: лист, промежуточный
   (`basicConstraints=critical,CA:TRUE`), корень. Звенья лежат и по отдельности.
+* `chain-mldsa.pem` — такая же цепочка ML-DSA-65 по RFC 9881: лист
+  (`test.anyks.com`), промежуточный, корень (`ca-mldsa.crt`, CA:TRUE, keyCertSign),
+  выписана местным openssl 3.6.3; звенья и ключи — `ca-mldsa`, `mid-mldsa`,
+  `leaf-mldsa` (`.crt`, `.pem`).
 * `ca-long.crt` — корень со сроком 2015…2035, чтобы срок листа проверялся отдельно
   от срока издателя.
 * `expired.crt` — лист со сроком 1…2 января 2020 года, издан `ca-long.crt`.

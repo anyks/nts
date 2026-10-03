@@ -737,6 +737,11 @@ namespace {
 				// Записываем опознаватель алгоритма: настроек у него нет
 				object(writer, OID_X25519);
 			break;
+			// Если записывается ключ ML-DSA: настроек у него нет (раздел 5 RFC 9881)
+			case static_cast <uint8_t> (kind_t::MLDSA):
+				// Записываем опознаватель алгоритма ключа
+				writer.oid(key.algorithm);
+			break;
 			// Если записывается ключ ГОСТ
 			case static_cast <uint8_t> (kind_t::GOST): {
 				// Записываем опознаватель алгоритма
@@ -1880,6 +1885,35 @@ namespace {
 				// Выводим итог записи
 				return ((writer.err() == asn1::error_t::NONE) ? error_t::NONE : translate(writer.err()));
 			}
+			// Если записывается ключ ML-DSA
+			case static_cast <uint8_t> (kind_t::MLDSA): {
+				// Если записано зерно: оно пишется с неявной меткой [0] (раздел 6 RFC 9881)
+				if(key.d.size() == 32)
+					// Выводим итог записи зерна
+					return (writer.element(asn1::cls_t::CONTEXT, false, 0, view_t(key.d.data(), key.d.size())) ? error_t::NONE : translate(writer.err()));
+				// Размер открытой части по размеру развёрнутого ключа
+				size_t size = 0;
+				// Если развёрнутый ключ набора ML-DSA-44
+				if(key.d.size() == 2560)
+					// Устанавливаем размер ML-DSA-44
+					size = 1312;
+				// Если развёрнутый ключ набора ML-DSA-65
+				else if(key.d.size() == 4032)
+					// Устанавливаем размер ML-DSA-65
+					size = 1952;
+				// Если развёрнутый ключ набора ML-DSA-87
+				else if(key.d.size() == 4896)
+					// Устанавливаем размер ML-DSA-87
+					size = 2592;
+				// Если размер не набора либо записанная открытая часть не согласована
+				if((size == 0) || (!key.key.empty() && (key.key.size() != size)))
+					// Выводим отказ негодного значения
+					return error_t::VALUE;
+				// Записываем развёрнутый ключ строкой байтов
+				writer.octets(view_t(key.d.data(), key.d.size()));
+				// Выводим итог записи
+				return ((writer.err() == asn1::error_t::NONE) ? error_t::NONE : translate(writer.err()));
+			}
 			// Если записывается ключ ГОСТ
 			case static_cast <uint8_t> (kind_t::GOST): {
 				// Кривая ключа
@@ -2903,6 +2937,17 @@ nts::keys::error_t nts::keys::encodeSubjectPublicKeyInfo(const key_t & key, vect
 		case static_cast <uint8_t> (kind_t::X25519): {
 			// Если открытый ключ записан не своей длиной
 			if(key.key.size() != CURVE25519)
+				// Выводим отказ пустого ключа
+				return error_t::EMPTY;
+			// Если открытый ключ скопировать не удалось
+			if(!copy(key.key.data(), key.key.size(), point))
+				// Выводим отказ нехватки памяти
+				return error_t::MEMORY;
+		} break;
+		// Если записывается ключ ML-DSA
+		case static_cast <uint8_t> (kind_t::MLDSA): {
+			// Если размер записи не отвечает ни одному набору
+			if((key.key.size() != 1312) && (key.key.size() != 1952) && (key.key.size() != 2592))
 				// Выводим отказ пустого ключа
 				return error_t::EMPTY;
 			// Если открытый ключ скопировать не удалось

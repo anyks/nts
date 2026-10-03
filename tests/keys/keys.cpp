@@ -1822,3 +1822,97 @@ TEST(KeysTest, Mldsa){
 		}
 	}
 }
+
+/**
+ * @brief Проверка круга записи и чтения ключей ML-DSA по RFC 9881
+ *
+ * @note Запись секретного ключа: развёрнутый ключ строкой байтов из записей набора,
+ *       зерно с неявной меткой [0]; открытый ключ - SubjectPublicKeyInfo без настроек
+ *
+ */
+TEST(KeysTest, MldsaRoundtrip){
+	// Наборы параметров и опознаватели их алгоритмов
+	static const struct Suit {
+		// Запись набора
+		const char * name;
+		// Опознаватель алгоритма
+		const char * oid;
+	} SUITS[] = {
+		{"44", "2.16.840.1.101.3.4.3.17"},
+		{"65", "2.16.840.1.101.3.4.3.18"},
+		{"87", "2.16.840.1.101.3.4.3.19"}
+	};
+	/**
+	 * Выполняем перебор наборов параметров
+	 */
+	for(const Suit & suit : SUITS){
+		// Разобранный ключ набора
+		keys::key_t key;
+		// Проверяем разбор секретного ключа набора
+		ASSERT_EQ(keys::decode(corpus(std::string("mldsa") + suit.name + ".pem"), view_t(), key), keys::error_t::NONE) << "Набор: " << suit.name;
+		ASSERT_EQ(key.kind, keys::kind_t::MLDSA) << "Набор: " << suit.name;
+		// Текст записи
+		std::string text;
+		// Проверяем запись секретного ключа в обёртке PEM
+		ASSERT_EQ(keys::encode(key, keys::container_t::PRIVATE, text), keys::error_t::NONE) << "Набор: " << suit.name;
+		// Разобранный вновь ключ
+		keys::key_t again;
+		// Проверяем разбор записанного текста
+		ASSERT_EQ(keys::decode(text, view_t(), again), keys::error_t::NONE) << "Набор: " << suit.name;
+		// Проверяем совпадение частей ключа
+		ASSERT_TRUE(alike(key, again)) << "Набор: " << suit.name;
+		ASSERT_EQ(again.d, key.d) << "Набор: " << suit.name;
+		// Проверяем запись открытого ключа в обёртке PEM
+		ASSERT_EQ(keys::encode(key, keys::container_t::PUBLIC, text), keys::error_t::NONE) << "Набор: " << suit.name;
+		// Разобранный вновь открытый ключ
+		keys::key_t reopened;
+		// Проверяем разбор записанного текста
+		ASSERT_EQ(keys::decode(text, view_t(), reopened), keys::error_t::NONE) << "Набор: " << suit.name;
+		// Проверяем совпадение частей ключа
+		ASSERT_TRUE(alike(key, reopened)) << "Набор: " << suit.name;
+		// Проверяем запись секретного ключа в кодировке DER без обёртки
+		std::vector <uint8_t> der;
+		ASSERT_EQ(keys::encodePrivateKeyInfo(key, der), keys::error_t::NONE) << "Набор: " << suit.name;
+		// Разобранный вновь ключ из DER
+		keys::key_t direct;
+		ASSERT_EQ(keys::decodePrivateKeyInfo(view(der), direct), keys::error_t::NONE) << "Набор: " << suit.name;
+		// Проверяем совпадение частей ключа
+		ASSERT_TRUE(alike(key, direct)) << "Набор: " << suit.name;
+		ASSERT_EQ(direct.d, key.d) << "Набор: " << suit.name;
+		// Проверяем запись открытого ключа в кодировке DER без обёртки
+		ASSERT_EQ(keys::encodeSubjectPublicKeyInfo(key, der), keys::error_t::NONE) << "Набор: " << suit.name;
+		// Разобранный вновь открытый ключ из DER
+		keys::key_t subject;
+		ASSERT_EQ(keys::decodeSubjectPublicKeyInfo(view(der), subject), keys::error_t::NONE) << "Набор: " << suit.name;
+		// Проверяем совпадение частей ключа
+		ASSERT_TRUE(alike(key, subject)) << "Набор: " << suit.name;
+	}
+	{
+		// Ключ ML-DSA-44 с зерном в секретной части
+		keys::key_t seeded;
+		// Устанавливаем вид ключа и опознаватель алгоритма
+		seeded.kind = keys::kind_t::MLDSA;
+		seeded.algorithm = "2.16.840.1.101.3.4.3.17";
+		// Зерно ключа
+		seeded.d.assign(32, 0);
+		for(size_t i = 0; i < 32; i++)
+			seeded.d[i] = static_cast <uint8_t> (i);
+		// Запись секретного ключа в кодировке DER
+		std::vector <uint8_t> der;
+		// Проверяем запись зерна
+		ASSERT_EQ(keys::encodePrivateKeyInfo(seeded, der), keys::error_t::NONE);
+		// Признак неявной метки зерна в записи
+		bool tagged = false;
+		// Проверяем наличие метки [0] зерна в записи
+		for(size_t i = 0; i + 1 < der.size(); i++)
+			tagged = (tagged || ((der[i] == 0x80) && (der[i + 1] == 0x20)));
+		ASSERT_TRUE(tagged);
+		// Разобранный вновь ключ из записи зерна
+		keys::key_t again;
+		// Проверяем разбор записи зерна
+		ASSERT_EQ(keys::decodePrivateKeyInfo(view(der), again), keys::error_t::NONE);
+		// Проверяем вид ключа и размер развёрнутого секрета из зерна
+		ASSERT_EQ(again.kind, keys::kind_t::MLDSA);
+		ASSERT_EQ(again.d.size(), static_cast <size_t> (2560));
+	}
+}

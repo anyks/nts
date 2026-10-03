@@ -1440,6 +1440,57 @@ static bool corpus(const char * name, vector <vector <uint8_t>> & result) {
 	return (pem::certificates(text, result) == pem::error_t::NONE);
 }
 /**
+ * Проверка доверия цепочке ML-DSA набора образцов: подписи звеньев и корня по
+ * FIPS 204, разбор сертификатов RFC 9881 без параметров у открытых ключей
+ */
+TEST(TrustTest, Mldsa){
+	// Запись цепочки ML-DSA набора образцов: лист, промежуточный издатель, корень
+	vector <vector <uint8_t>> chain;
+	// Выполняем чтение цепочки набора образцов
+	ASSERT_TRUE(corpus("chain-mldsa.pem", chain));
+	// Проверяем, что цепочка состоит из трёх звеньев
+	ASSERT_EQ(chain.size(), static_cast <size_t> (3));
+	// Получаем записи звеньев цепочки
+	const vector <uint8_t> & leaf = chain[0], & mid = chain[1], & root = chain[2];
+	// Запас доверенных сертификатов
+	trust::store_t store;
+	// Проверяем отказ доверия при пустом запасе
+	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> ({leaf, mid}), store, MOMENT), trust::error_t::AUTHORITY);
+	// Выполняем добавление корня в запас доверенных
+	ASSERT_TRUE(store.add(view_t(root.data(), root.size())));
+	// Проверяем доверие цепочке из листа и промежуточного издателя
+	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> ({leaf, mid}), store, MOMENT), trust::error_t::NONE);
+	// Проверяем доверие цепочке вместе с корнем
+	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> ({leaf, mid, root}), store, MOMENT), trust::error_t::NONE);
+	// Проверяем отказ доверия листу без промежуточного издателя: издателя листа в запасе нет
+	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> ({leaf}), store, MOMENT), trust::error_t::AUTHORITY);
+	// Проверяем отказ доверия цепочке с пропущенным звеном
+	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> ({leaf, root}), store, MOMENT), trust::error_t::ISSUER);
+	// Проверяем отказ доверия цепочке до начала срока действия листа
+	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> ({leaf, mid}), store, 1000000000), trust::error_t::EXPIRED);
+	// Проверяем отказ доверия цепочке после окончания срока действия листа
+	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> ({leaf, mid}), store, 2200000000), trust::error_t::EXPIRED);
+	// Проверяем сличение имени узла с именами листа
+	ASSERT_EQ(trust::belongs(view_t(leaf.data(), leaf.size()), "test.anyks.com"), trust::error_t::NONE);
+	// Проверяем сличение имени узла без учёта регистра
+	ASSERT_EQ(trust::belongs(view_t(leaf.data(), leaf.size()), "TEST.anyks.com"), trust::error_t::NONE);
+	// Проверяем отказ сличения чужого имени узла
+	ASSERT_EQ(trust::belongs(view_t(leaf.data(), leaf.size()), "anyks.com"), trust::error_t::NAME);
+	// Копия записи листа
+	vector <uint8_t> spoiled = leaf;
+	// Портим последний байт записи листа: он принадлежит подписи
+	spoiled[spoiled.size() - 1] = static_cast <uint8_t> (spoiled[spoiled.size() - 1] ^ 0x01);
+	// Проверяем отказ доверия цепочке с испорченной подписью листа
+	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> ({spoiled, mid}), store, MOMENT), trust::error_t::SIGNATURE);
+	/**
+	 * Цепочка, поставленная с ног на голову: назначение ключа листа проверяется прежде
+	 * сличения издателей, а ключ промежуточного издателя назначен одному подписыванию
+	 * сертификатов и списков отзыва - подпись владения он ставить не вправе
+	 */
+	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> ({mid, leaf}), store, MOMENT), trust::error_t::PURPOSE);
+}
+
+/**
  * Проверка доверия классическим цепочкам набора образцов
  */
 TEST(TrustTest, Classic){
