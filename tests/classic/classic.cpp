@@ -251,7 +251,8 @@ namespace {
 		NONE     = 0x00, // Искажения нет: честное рукопожатие
 		PKCS1    = 0x01, // Подпись владения ключом схемой PKCS #1 v1.5 (0x0401)
 		OFFCURVE = 0x02, // Доля ключа сервера вне кривой P-256
-		ODDSCHEME = 0x03 // Подпись схемой, клиентом не предложенной (0x0805 при предложении 0x0804)
+		ODDSCHEME = 0x03, // Подпись схемой, клиентом не предложенной (0x0805 при предложении 0x0804)
+		FORGED   = 0x04  // Порченый байт подписи владения ключом
 	};
 	/**
 	 * @brief Метод ответа враждебного сервера классической ветви на приветствие клиента
@@ -573,32 +574,63 @@ namespace {
 		if(keys::decode(std::string(credential.secret.begin(), credential.secret.end()), view_t(), key) != keys::error_t::NONE)
 			// Выводим отказ ответа
 			return false;
-		// Объект подписи RSA
-		sign::rsa_t rsa;
-		// Если ключ RSA загрузить не удалось
-		if(!key.load(rsa))
-			// Выводим отказ ответа
-			return false;
-		// Хеш подписываемого содержимого
-		const digest::hash_t algorithm = ((hostility == hostility_t::ODDSCHEME) ? digest::hash_t::SHA384 : digest::hash_t::SHA256);
-		// Хеш подписываемого содержимого
-		uint8_t hashed[64];
-		// Если хеш вычислить не удалось
-		if(!digest::hash(algorithm, view_t(content.data(), content.size()), hashed, sizeof(hashed)))
-			// Выводим отказ ответа
-			return false;
 		// Подпись владения ключом
-		vector <uint8_t> signature(rsa.size(), 0);
-		// Схема подписи: PKCS #1 v1.5 по заказу, иначе RSASSA-PSS
-		const bool legacy = (hostility == hostility_t::PKCS1);
-		// Если подпись выработать не удалось
-		if(!rsa.make((legacy ? sign::scheme_t::PKCS1 : sign::scheme_t::PSS), algorithm, view_t(hashed, digest::length(algorithm)), signature.data(), digest::length(algorithm)))
-			// Выводим отказ ответа
-			return false;
+		vector <uint8_t> signature;
+		// Схема подписи владения ключом
+		extension::scheme_t scheme = extension::scheme_t::NONE;
+		// Если ключ ML-DSA
+		if(key.kind == keys::kind_t::MLDSA){
+			// Объект подписи ML-DSA
+			sign::mldsa_t mldsa;
+			// Если ключ ML-DSA загрузить не удалось
+			if(!key.load(mldsa))
+				// Выводим отказ ответа
+				return false;
+			// Занимаем место под подпись набора ключа
+			signature.assign(mldsa.size(), 0);
+			/**
+			 * draft-ietf-tls-mldsa-06: чистый ML-DSA без предхеширования, контекст
+			 * пустой - подписывается само содержимое владения ключом
+			 */
+			if(!mldsa.make(view_t(content.data(), content.size()), view_t(nullptr, 0), signature.data()))
+				// Выводим отказ ответа
+				return false;
+			// Устанавливаем схему ML-DSA-44: проверка зовёт с ключом mldsa44
+			scheme = extension::scheme_t::MLDSA44;
+		// Если ключ RSA
+		} else {
+			// Объект подписи RSA
+			sign::rsa_t rsa;
+			// Если ключ RSA загрузить не удалось
+			if(!key.load(rsa))
+				// Выводим отказ ответа
+				return false;
+			// Хеш подписываемого содержимого
+			const digest::hash_t algorithm = ((hostility == hostility_t::ODDSCHEME) ? digest::hash_t::SHA384 : digest::hash_t::SHA256);
+			// Хеш подписываемого содержимого
+			uint8_t hashed[64];
+			// Если хеш вычислить не удалось
+			if(!digest::hash(algorithm, view_t(content.data(), content.size()), hashed, sizeof(hashed)))
+				// Выводим отказ ответа
+				return false;
+			// Занимаем место под подпись длиною в модуль ключа
+			signature.assign(rsa.size(), 0);
+			// Схема подписи: PKCS #1 v1.5 по заказу, иначе RSASSA-PSS
+			const bool legacy = (hostility == hostility_t::PKCS1);
+			// Если подпись выработать не удалось
+			if(!rsa.make((legacy ? sign::scheme_t::PKCS1 : sign::scheme_t::PSS), algorithm, view_t(hashed, digest::length(algorithm)), signature.data(), digest::length(algorithm)))
+				// Выводим отказ ответа
+				return false;
+			// Устанавливаем схему подписи: 0x0401 у PKCS #1 v1.5
+			scheme = (legacy ? static_cast <extension::scheme_t> (0x0401) : ((hostility == hostility_t::ODDSCHEME) ? extension::scheme_t::RSA_PSS_RSAE_SHA384 : extension::scheme_t::RSA_PSS_RSAE_SHA256));
+		}
+		// Порча байта подписи по заказу проверки
+		if(hostility == hostility_t::FORGED)
+			signature[100] ^= 1;
 		// Сообщение подписи владения ключом
 		message::verify_t verify;
-		// Устанавливаем схему подписи: 0x0401 у PKCS #1 v1.5
-		verify.scheme = (legacy ? static_cast <extension::scheme_t> (0x0401) : ((hostility == hostility_t::ODDSCHEME) ? extension::scheme_t::RSA_PSS_RSAE_SHA384 : extension::scheme_t::RSA_PSS_RSAE_SHA256));
+		// Устанавливаем схему подписи
+		verify.scheme = scheme;
 		// Устанавливаем подпись
 		verify.signature = view_t(signature.data(), signature.size());
 		// Тело сообщения подписи
@@ -1358,6 +1390,120 @@ TEST(ClassicTest, Loopback){
 				ASSERT_TRUE(barter(resuming, resumed));
 			}
 		}
+	}
+}
+
+/**
+ * Проверка рукопожатий с сертификатами ML-DSA всех трёх наборов: подпись
+ * CertificateVerify обеими ролями по draft-ietf-tls-mldsa-06, отказ на несвоей схеме
+ */
+TEST(ClassicTest, Mldsa){
+	// Ключи ML-DSA набора и схемы их подписи
+	static const struct Entry {
+		// Имя ключа набора
+		const char * name;
+		// Схема подписи ключа
+		extension::scheme_t scheme;
+	} ENTRIES[] = {
+		{"mldsa44", extension::scheme_t::MLDSA44},
+		{"mldsa65", extension::scheme_t::MLDSA65},
+		{"mldsa87", extension::scheme_t::MLDSA87}
+	};
+	/**
+	 * Выполняем перебор ключей ML-DSA набора
+	 */
+	for(size_t k = 0; k < (sizeof(ENTRIES) / sizeof(ENTRIES[0])); k++){
+		// Подлинность стороны
+		context::credential_t credential;
+		// Составляем подлинность из ключей набора
+		ASSERT_TRUE(identity(ENTRIES[k].name, credential)) << "ключ " << ENTRIES[k].name;
+		// Готовим подлинность один раз
+		ASSERT_EQ(credential.prepare(), context::error_t::NONE) << "ключ " << ENTRIES[k].name;
+		// Связь стороны клиента
+		client::context_t client;
+		// Связь стороны сервера
+		server::context_t server;
+		// Настраиваем стороны с подлинностью клиента
+		arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, true);
+		// Устанавливаем схему подписи обеим сторонам
+		client.schemes(vector <extension::scheme_t> {ENTRIES[k].scheme});
+		// Устанавливаем схему подписи серверу
+		server.schemes(vector <extension::scheme_t> {ENTRIES[k].scheme});
+		// Заводим сервер
+		ASSERT_EQ(server.start(), context::error_t::NONE) << ENTRIES[k].name;
+		// Заводим клиента
+		ASSERT_EQ(client.start(), context::error_t::NONE) << ENTRIES[k].name;
+		// Проводим рукопожатие
+		converse(client, server);
+		// Проверяем установленность связи клиентом
+		ASSERT_TRUE(client.established()) << ENTRIES[k].name << " " << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
+		// Проверяем установленность связи сервером
+		ASSERT_TRUE(server.established()) << ENTRIES[k].name;
+		// Проверяем цепочку сервера у клиента
+		ASSERT_EQ(client.peer().size(), static_cast <size_t> (1));
+		// Проверяем цепочку клиента у сервера
+		ASSERT_EQ(server.peer().size(), static_cast <size_t> (1));
+		// Проверяем обмен данными
+		ASSERT_TRUE(barter(client, server)) << ENTRIES[k].name;
+	}
+	// Подлинность сервера ML-DSA-44
+	context::credential_t credential;
+	// Составляем подлинность из ключей набора
+	ASSERT_TRUE(identity("mldsa44", credential));
+	// Готовим подлинность один раз
+	ASSERT_EQ(credential.prepare(), context::error_t::NONE);
+	// Связь стороны клиента
+	client::context_t client;
+	// Связь стороны сервера
+	server::context_t server;
+	// Настраиваем стороны без подлинности клиента
+	arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
+	// Устанавливаем несовпадающую с ключом схему ML-DSA-65 обеим сторонам
+	client.schemes(vector <extension::scheme_t> {extension::scheme_t::MLDSA65});
+	// Устанавливаем несовпадающую с ключом схему ML-DSA-65 серверу
+	server.schemes(vector <extension::scheme_t> {extension::scheme_t::MLDSA65});
+	// Заводим сервер
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	// Заводим клиента
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	// Проводим рукопожатие
+	converse(client, server);
+	// Проверяем обрыв связи: подпись несвоей схемой ключ ML-DSA-44 выполнять не вправе
+	ASSERT_FALSE(client.established());
+	ASSERT_FALSE(server.established());
+	{
+		// Честный ответ враждебного сервера с ключом ML-DSA-44 проходит
+		client::context_t client;
+		// Настраиваем клиента
+		client.suites(vector <protect::suite_t> {protect::suite_t::AES_128_GCM_SHA256});
+		// Группа X25519
+		client.groups(vector <extension::group_t> {extension::group_t::X25519});
+		// Схема ML-DSA-44 клиента
+		client.schemes(vector <extension::scheme_t> {extension::scheme_t::MLDSA44});
+		// Заводим клиента
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		// Отвечаем честным сервером
+		ASSERT_TRUE(hostile(client, hostility_t::NONE, credential));
+		// Проверяем установленность связи
+		ASSERT_TRUE(client.established()) << static_cast <int> (client.error());
+	}
+	{
+		// Враждебный сервер шлёт порченую подпись ML-DSA-44
+		client::context_t client;
+		// Настраиваем клиента
+		client.suites(vector <protect::suite_t> {protect::suite_t::AES_128_GCM_SHA256});
+		// Группа X25519
+		client.groups(vector <extension::group_t> {extension::group_t::X25519});
+		// Схема ML-DSA-44 клиента
+		client.schemes(vector <extension::scheme_t> {extension::scheme_t::MLDSA44});
+		// Заводим клиента
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		// Отвечаем враждебным сервером с порченой подписью
+		ASSERT_TRUE(hostile(client, hostility_t::FORGED, credential));
+		// Проверяем отказ клиента по подписи
+		ASSERT_EQ(client.error(), context::error_t::SIGNATURE);
+		// Проверяем неустановленность связи
+		ASSERT_FALSE(client.established());
 	}
 }
 

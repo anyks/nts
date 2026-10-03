@@ -682,6 +682,21 @@ namespace {
 	static const char * ED_KEY = "1.3.101.112";
 
 	/**
+	 * Опознаватель ключа ML-DSA-44 по RFC 9881
+	 */
+	static const char * MLDSA44_KEY = "2.16.840.1.101.3.4.3.17";
+
+	/**
+	 * Опознаватель ключа ML-DSA-65 по RFC 9881
+	 */
+	static const char * MLDSA65_KEY = "2.16.840.1.101.3.4.3.18";
+
+	/**
+	 * Опознаватель ключа ML-DSA-87 по RFC 9881
+	 */
+	static const char * MLDSA87_KEY = "2.16.840.1.101.3.4.3.19";
+
+	/**
 	 * Место расширения: приветствие сервера
 	 */
 	static constexpr uint8_t PLACE_HELLO = 0x01;
@@ -1537,7 +1552,7 @@ namespace {
 			return context::error_t::NONE;
 		}
 		// Отмечаем пригодность ключа RSA либо Ed25519
-		suitable = ((key.algorithm.compare(RSA_KEY) == 0) || (key.algorithm.compare(ED_KEY) == 0));
+		suitable = ((key.algorithm.compare(RSA_KEY) == 0) || (key.algorithm.compare(ED_KEY) == 0) || (key.algorithm.compare(MLDSA44_KEY) == 0) || (key.algorithm.compare(MLDSA65_KEY) == 0) || (key.algorithm.compare(MLDSA87_KEY) == 0));
 		// Выводим успешность разбора
 		return context::error_t::NONE;
 	}
@@ -1627,6 +1642,18 @@ namespace {
 			case static_cast <uint16_t> (extension::scheme_t::ED25519):
 				// Выводим итог сличения алгоритма ключа с Ed25519
 				return (key.algorithm.compare(ED_KEY) == 0);
+			// Схема подписи ML-DSA-44
+			case static_cast <uint16_t> (extension::scheme_t::MLDSA44):
+				// Выводим итог сличения алгоритма ключа с ML-DSA-44
+				return (key.algorithm.compare(MLDSA44_KEY) == 0);
+			// Схема подписи ML-DSA-65
+			case static_cast <uint16_t> (extension::scheme_t::MLDSA65):
+				// Выводим итог сличения алгоритма ключа с ML-DSA-65
+				return (key.algorithm.compare(MLDSA65_KEY) == 0);
+			// Схема подписи ML-DSA-87
+			case static_cast <uint16_t> (extension::scheme_t::MLDSA87):
+				// Выводим итог сличения алгоритма ключа с ML-DSA-87
+				return (key.algorithm.compare(MLDSA87_KEY) == 0);
 		}
 		// Выводим несоответствие неведомой схемы всякому ключу
 		return false;
@@ -4896,6 +4923,27 @@ context::error_t nts::internal::Engine::signing(const view_t & content, extensio
 				 * а изданию TLS 1.2 дозволена ради чужих сторон (раздел 7.4.1.4.1 RFC 5246)
 				 */
 				if(!rsa.make((pkcs1(item) ? sign::scheme_t::PKCS1 : sign::scheme_t::PSS), algorithm, view_t(digest, digest::length(algorithm)), signed_.data(), digest::length(algorithm)))
+					// Выводим отказ выработки подписи владения ключом
+					return context::error_t::SIGNATURE;
+			// Если схема подписи - ML-DSA
+			} else if((item == extension::scheme_t::MLDSA44) || (item == extension::scheme_t::MLDSA65) || (item == extension::scheme_t::MLDSA87)){
+				// Если подготовленный ключ - не ключ ML-DSA
+				if(signer->kind() != keys::kind_t::MLDSA)
+					// Выводим отказ установки секретного ключа
+					return context::error_t::SIGNATURE;
+				// Модуль подписи ML-DSA подготовленного ключа
+				const sign::mldsa_t & mldsa = signer->mldsa();
+				// Если набор ключа не отвечает схеме
+				if(((item == extension::scheme_t::MLDSA44) && (mldsa.set() != sign::mldsa_t::set_t::DSA44)) || ((item == extension::scheme_t::MLDSA65) && (mldsa.set() != sign::mldsa_t::set_t::DSA65)) || ((item == extension::scheme_t::MLDSA87) && (mldsa.set() != sign::mldsa_t::set_t::DSA87)))
+					// Выводим отказ установки секретного ключа
+					return context::error_t::SIGNATURE;
+				// Занимаем место под подпись набора ключа
+				signed_.assign(mldsa.size(), 0);
+				/**
+				 * draft-ietf-tls-mldsa-06: чистый ML-DSA без предхеширования, контекст
+				 * пустой - подписывается само содержимое владения ключом
+				 */
+				if(!mldsa.make(content, view_t(nullptr, 0), signed_.data()))
 					// Выводим отказ выработки подписи владения ключом
 					return context::error_t::SIGNATURE;
 			// Если схема подписи - Ed25519

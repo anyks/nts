@@ -415,3 +415,227 @@ TEST(InteropTest, Client){
 		}
 	}
 }
+
+/**
+ * @brief Метод пробы умения ML-DSA у openssl
+ *
+ * @return признак того, что openssl умеет ML-DSA (проба возможности)
+ *
+ */
+static bool mldsaCapable() noexcept {
+	// Пробуем выработку ключа ML-DSA-65 у openssl
+	return (shell("openssl genpkey -algorithm ML-DSA-65 >/dev/null 2>&1") == 0);
+}
+
+/**
+ * Проверка обмена с настоящим openssl: наш клиент против s_server с сертификатами
+ * ML-DSA всех трёх наборов, схема ML-DSA по draft-ietf-tls-mldsa-06 у обеих сторон
+ */
+TEST(InteropTest, MldsaServer){
+	// Способности системного openssl, снятые щупами
+	const toolkit_t toolkit = inspect();
+	// Если openssl недоступен
+	if(!toolkit.present){
+		// Пропускаем проверку вслух
+		GTEST_SKIP() << "openssl недоступен";
+	}
+	// Если openssl не умеет TLS 1.3 (проба возможности, не по номеру издания)
+	if(!toolkit.tls13){
+		// Пропускаем проверку вслух
+		GTEST_SKIP() << "openssl без TLS 1.3";
+	}
+	// Если openssl не умеет ML-DSA (проба возможности)
+	if(!mldsaCapable()){
+		// Пропускаем проверку вслух
+		GTEST_SKIP() << "openssl без ML-DSA";
+	}
+	// Ключи ML-DSA набора и схемы их подписи
+	static const struct Entry {
+		// Имя ключа набора
+		const char * name;
+		// Схема подписи ключа
+		extension::scheme_t scheme;
+		// Имя схемы у openssl
+		const char * title;
+	} ENTRIES[] = {
+		{"mldsa44", extension::scheme_t::MLDSA44, "ML-DSA-44"},
+		{"mldsa65", extension::scheme_t::MLDSA65, "ML-DSA-65"},
+		{"mldsa87", extension::scheme_t::MLDSA87, "ML-DSA-87"}
+	};
+	/**
+	 * Выполняем перебор ключей ML-DSA набора
+	 */
+	for(size_t k = 0; k < (sizeof(ENTRIES) / sizeof(ENTRIES[0])); k++){
+		// Подлинность стороны
+		context::credential_t credential;
+		// Составляем подлинность
+		ASSERT_TRUE(identity(ENTRIES[k].name, credential));
+		// Пути к сертификату и ключу
+		const std::string crt = std::string(CORPUS) + "/" + ENTRIES[k].name + ".crt", key = std::string(CORPUS) + "/" + ENTRIES[k].name + ".pem";
+		// Свободный порт
+		const uint16_t number = vacant(false);
+		// Проверяем наличие порта
+		ASSERT_NE(number, 0);
+		// Журнал сервера openssl
+		const std::string log = "/tmp/ants-interop-mldsa-server-" + std::to_string(number) + ".log";
+		// Запускаем сервер openssl в один приём с ответом HTTP, со схемой ML-DSA и с запросом подлинности клиента той же схемой
+		ASSERT_TRUE(launch("openssl s_server" + accepting(toolkit, number) + " -tls1_3 -cert " + crt + " -key " + key + " -Verify 1 -CAfile " + crt + " -ciphersuites TLS_AES_128_GCM_SHA256 -groups X25519 -sigalgs " + ENTRIES[k].title + " -client_sigalgs " + ENTRIES[k].title + " -www" + once(toolkit) + " </dev/null >" + log + " 2>&1", log, log + ".pid"));
+		// Сторож сервера openssl: снимается по номеру и при отказе посреди проверки
+		sentinel_t sentinel(log + ".pid");
+		// Подключаемся к серверу openssl
+		const int fd = dial(number);
+		// Проверяем подключение
+		ASSERT_GE(fd, 0) << "порт " << number;
+		// Связь стороны клиента
+		client::context_t client;
+		// Наборы клиента
+		client.suites(vector <protect::suite_t> {protect::suite_t::AES_128_GCM_SHA256});
+		// Группы клиента
+		client.groups(vector <extension::group_t> {extension::group_t::X25519});
+		// Схема подписи клиента
+		client.schemes(vector <extension::scheme_t> {ENTRIES[k].scheme});
+		// Подлинность клиента тем же ключом
+		client.credential(credential);
+		// Имя узла
+		client.name("localhost");
+		// Заводим клиента
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		/**
+		 * Выполняем передачу байтов до установления связи
+		 */
+		for(size_t i = 0; (i < 8) && !client.established() && (client.state() != context::state_t::FAILED); i++)
+			// Передаём байты
+			relay(client, fd);
+		// Проверяем установленность связи
+		ASSERT_TRUE(client.established()) << ENTRIES[k].name << " отказ " << static_cast <int> (client.error()) << " извещение " << static_cast <int> (client.alert().description);
+		// Проверяем цепочку сервера
+		ASSERT_EQ(client.peer().size(), static_cast <size_t> (1));
+		// Запрос HTTP серверу openssl
+		const string request = "GET / HTTP/1.0\r\n\r\n";
+		// Отправляем запрос
+		ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
+		// Накопитель ответа
+		vector <uint8_t> answer;
+		/**
+		 * Выполняем передачу байтов до получения ответа
+		 */
+		for(size_t i = 0; (i < 16) && answer.empty(); i++){
+			// Передаём байты
+			relay(client, fd);
+			// Читаем принятые данные
+			ASSERT_EQ(client.read(answer), context::error_t::NONE);
+		}
+		// Проверяем, что ответ HTTP получен
+		ASSERT_NE(string(answer.begin(), answer.end()).find("HTTP/1.0 200"), string::npos) << ENTRIES[k].name;
+		// Закрываем сокет
+		closing(fd);
+		// Снимаем сервер до удаления журнала: иначе отметка завершения воссоздаст файл
+		sentinel.halt();
+		// Журнал сервера
+		std::string journal;
+		// Дожидаемся отметки завершения снятого сервера
+		(void) settle(log, journal);
+		// Удаляем журнал
+		::remove(log.c_str());
+	}
+}
+
+/**
+ * Проверка обмена с настоящим openssl: s_client со схемой ML-DSA против нашего сервера
+ * с сертификатами ML-DSA всех трёх наборов, подлинность клиента той же схемой
+ */
+TEST(InteropTest, MldsaClient){
+	// Способности системного openssl, снятые щупами
+	const toolkit_t toolkit = inspect();
+	// Если openssl недоступен
+	if(!toolkit.present){
+		// Пропускаем проверку вслух
+		GTEST_SKIP() << "openssl недоступен";
+	}
+	// Если openssl не умеет TLS 1.3 (проба возможности, не по номеру издания)
+	if(!toolkit.tls13){
+		// Пропускаем проверку вслух
+		GTEST_SKIP() << "openssl без TLS 1.3";
+	}
+	// Если openssl не умеет ML-DSA (проба возможности)
+	if(!mldsaCapable()){
+		// Пропускаем проверку вслух
+		GTEST_SKIP() << "openssl без ML-DSA";
+	}
+	// Ключи ML-DSA набора и схемы их подписи
+	static const struct Entry {
+		// Имя ключа набора
+		const char * name;
+		// Схема подписи ключа
+		extension::scheme_t scheme;
+		// Имя схемы у openssl
+		const char * title;
+	} ENTRIES[] = {
+		{"mldsa44", extension::scheme_t::MLDSA44, "ML-DSA-44"},
+		{"mldsa65", extension::scheme_t::MLDSA65, "ML-DSA-65"},
+		{"mldsa87", extension::scheme_t::MLDSA87, "ML-DSA-87"}
+	};
+	/**
+	 * Выполняем перебор ключей ML-DSA набора
+	 */
+	for(size_t k = 0; k < (sizeof(ENTRIES) / sizeof(ENTRIES[0])); k++){
+		// Подлинность стороны
+		context::credential_t credential;
+		// Составляем подлинность
+		ASSERT_TRUE(identity(ENTRIES[k].name, credential));
+		// Пути к сертификату и ключу
+		const std::string crt = std::string(CORPUS) + "/" + ENTRIES[k].name + ".crt", key = std::string(CORPUS) + "/" + ENTRIES[k].name + ".pem";
+		// Порт сервера
+		uint16_t number = 0;
+		// Слушающий сокет
+		const int listener = harbour(number);
+		// Проверяем сокет
+		ASSERT_GE(listener, 0);
+		// Журнал клиента openssl
+		const std::string log = "/tmp/ants-interop-mldsa-client-" + std::to_string(number) + ".log";
+		// Запускаем клиента openssl со схемой ML-DSA: подлинность клиента тем же ключом, сервер проверяется по своему сертификату
+		ASSERT_TRUE(launch("openssl s_client -connect 127.0.0.1:" + std::to_string(number) + " -tls1_3 -CAfile " + crt + " -cert " + crt + " -key " + key + " -ciphersuites TLS_AES_128_GCM_SHA256 -groups X25519 -sigalgs " + ENTRIES[k].title + " -servername localhost -verify_return_error </dev/null >" + log + " 2>&1", log, log + ".pid"));
+		// Сторож клиента openssl
+		sentinel_t sentinel(log + ".pid");
+		// Принимаем подключение
+		const int fd = greeted(listener);
+		// Проверяем подключение
+		ASSERT_GE(fd, 0);
+		// Связь стороны сервера
+		server::context_t server;
+		// Наборы сервера
+		server.suites(vector <protect::suite_t> {protect::suite_t::AES_128_GCM_SHA256});
+		// Группы сервера
+		server.groups(vector <extension::group_t> {extension::group_t::X25519});
+		// Схема подписи сервера
+		server.schemes(vector <extension::scheme_t> {ENTRIES[k].scheme});
+		// Подлинность сервера
+		server.credential(credential);
+		// Запрашиваем подлинность клиента
+		server.request(true);
+		// Заводим сервер
+		ASSERT_EQ(server.start(), context::error_t::NONE);
+		// Ведём связь до конца рукопожатия
+		const bool complete = serve(server, fd);
+		// Проверяем, что рукопожатие дошло до конца
+		ASSERT_TRUE(complete) << ENTRIES[k].name << " отказ " << static_cast <int> (server.error());
+		// Проверяем, что отказа не было
+		ASSERT_EQ(server.error(), context::error_t::NONE) << ENTRIES[k].name;
+		// Проверяем подлинность клиента
+		ASSERT_EQ(server.peer().size(), static_cast <size_t> (1));
+		// Закрываем связь, коли она ещё открыта
+		ASSERT_TRUE(farewell(server, fd));
+		// Закрываем сокет
+		closing(fd);
+		// Закрываем слушающий сокет
+		closing(listener);
+		// Текст журнала клиента
+		std::string text;
+		// Клиент обязан завершиться
+		ASSERT_TRUE(settle(log, text)) << text;
+		// Проверка подлинности сервера у клиента обязана сойтись
+		ASSERT_NE(text.find("Verify return code: 0 (ok)"), std::string::npos) << text;
+		// Удаляем журнал
+		::remove(log.c_str());
+	}
+}

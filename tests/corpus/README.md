@@ -16,6 +16,14 @@
 * `rsa2048`, `ec256`, `ec384`, `ed25519`, `x25519` — закрытый ключ (`.pem`, `.der`),
   открытый (`.pub.pem`, `.pub.der`) и закрытый под паролем в трёх разрядностях
   (`.aes-128-cbc.enc.pem`, `.aes-192-cbc.enc.pem`, `.aes-256-cbc.enc.pem`).
+* `mldsa44`, `mldsa65`, `mldsa87` — самоподписанный сертификат ML-DSA (`.crt`) и его
+  закрытый ключ PKCS #8 (`.pem`, форма «зерно и развёрнутый ключ»), выписаны местным
+  openssl 3.6.3 (`openssl req -x509 -newkey ML-DSA-44/65/87`).
+* `mldsa/` — контрольные примеры ML-DSA: записи ACVP и Wycheproof, переложенные
+  сценарием `tools/sign/mldsa.py` из подмодуля OpenSSL (`keygen.txt`, `siggen.txt`,
+  `sigver.txt`, `wycheproof{44,65,87}-{sign,verify}.txt`), и ключи шести видов записи
+  из `15-test_ml_dsa_codecs_data` (`mldsaNN-seed-only`, `-priv-only`, `-seed-priv`,
+  `-bare-seed`, `-bare-priv`, `-oqskeypair`, плюс открытый `-pub`).
 * `ec256.sec1.pem` — SEC 1 ECPrivateKey, `rsa2048.pkcs1.pem` — PKCS #1 RSAPrivateKey.
 * `chain-rsa.pem`, `chain-ec.pem` — цепочки из трёх звеньев: лист, промежуточный
   (`basicConstraints=critical,CA:TRUE`), корень. Звенья лежат и по отдельности.

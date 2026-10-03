@@ -54,6 +54,7 @@
 #include <sign/gost.hpp>
 #include <sign/ecdsa.hpp>
 #include <sign/ed25519.hpp>
+#include <sign/mldsa.hpp>
 #include <curve/curve.hpp>
 
 /**
@@ -139,7 +140,8 @@ namespace nts {
 			EC      = 0x02, /*!< \~russian Ключ на кривой Вейерштрасса по RFC 5480 \~english Key on a Weierstrass curve according to RFC 5480 \~ */
 			ED25519 = 0x03, /*!< \~russian Ключ подписи Ed25519 по RFC 8410 \~english Ed25519 signature key according to RFC 8410 \~ */
 			X25519  = 0x04, /*!< \~russian Ключ согласования X25519 по RFC 8410 \~english X25519 agreement key according to RFC 8410 \~ */
-			GOST    = 0x05  /*!< \~russian Ключ по ГОСТ Р 34.10-2012 по RFC 9215 \~english GOST R 34.10-2012 key according to RFC 9215 \~ */
+			GOST    = 0x05, /*!< \~russian Ключ по ГОСТ Р 34.10-2012 по RFC 9215 \~english GOST R 34.10-2012 key according to RFC 9215 \~ */
+			MLDSA   = 0x06  /*!< \~russian Ключ подписи ML-DSA по FIPS 204 и RFC 9881 \~english ML-DSA signature key according to FIPS 204 and RFC 9881 \~ */
 		};
 
 		/**
@@ -334,6 +336,22 @@ namespace nts {
 			bool load(sign::gost_t & gost, curve::curve_t & curve) const noexcept;
 			/**
 			 * \~russian
+			 * @brief Метод установки ключа ML-DSA из разобранного ключа
+			 *
+			 * @param mldsa примитив, в который устанавливается ключ
+			 *
+			 * @return      признак успешности установки ключа
+			 *
+			 * \~english
+			 * @brief Method of the installation of an ML-DSA key from the parsed key
+			 * @param mldsa the primitive the key is installed into
+			 * @return      the flag of the success of the installation of the key
+			 *
+			 * \~
+			 */
+			bool load(sign::mldsa_t & mldsa) const noexcept;
+			/**
+			 * \~russian
 			 * @brief Конструктор
 			 *
 			 * \~english
@@ -402,6 +420,8 @@ namespace nts {
 				unique_ptr <sign::ed25519_t> _ed25519;
 				// Модуль подписи ГОСТ Р 34.10-2012
 				unique_ptr <sign::gost_t> _gost;
+				// Модуль подписи ML-DSA
+				unique_ptr <sign::mldsa_t> _mldsa;
 			public:
 				/**
 				 * \~russian
@@ -494,6 +514,19 @@ namespace nts {
 				 * \~
 				 */
 				const sign::gost_t & gost() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения модуля подписи ML-DSA
+				 *
+				 * @return модуль подписи с установленным ключом ML-DSA, пустой у ключей иных видов
+				 *
+				 * \~english
+				 * @brief Method of getting the ML-DSA signature module
+				 * @return the signature module with the ML-DSA key set, empty at the keys of the other kinds
+				 *
+				 * \~
+				 */
+				const sign::mldsa_t & mldsa() const noexcept;
 			public:
 				/**
 				 * \~russian

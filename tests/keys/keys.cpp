@@ -1755,3 +1755,70 @@ TEST(KeysTest, Signer){
 	ASSERT_EQ(refused.prepare(text(corpus("ec256.pem"))), keys::error_t::NONE);
 	ASSERT_EQ(refused.kind(), keys::kind_t::EC);
 }
+
+/**
+ * @brief Проверка подготовки ключей ML-DSA по записям всех видов из набора
+ *
+ * @note Записи ключа: зерно с меткой [0], развёрнутый ключ, оба вида набором, голые
+ *       зерно и развёрнутый ключ издания v1 и запись oqsprovider с открытой частью
+ *       следом (набор tests/corpus/mldsa из 15-test_ml_dsa_codecs_data OpenSSL)
+ *
+ */
+TEST(KeysTest, Mldsa){
+	// Виды записей ключа ML-DSA в наборе
+	static const char * FORMS[] = {"seed-only", "priv-only", "seed-priv", "bare-seed", "bare-priv", "oqskeypair"};
+	// Наборы параметров и размеры их подписей
+	static const struct Suit {
+		// Запись набора
+		const char * name;
+		// Набор параметров
+		sign::mldsa_t::set_t set;
+	} SUITS[] = {
+		{"44", sign::mldsa_t::set_t::DSA44},
+		{"65", sign::mldsa_t::set_t::DSA65},
+		{"87", sign::mldsa_t::set_t::DSA87}
+	};
+	// Просмотр текста записи
+	const auto text = [](const std::string & data) noexcept -> view_t {
+		// Выводим просмотр текста
+		return view_t(reinterpret_cast <const uint8_t *> (data.data()), data.size());
+	};
+	/**
+	 * Выполняем перебор наборов параметров
+	 */
+	for(const Suit & suit : SUITS){
+		// Открытый ключ набора в записи PEM
+		keys::key_t opened;
+		ASSERT_EQ(keys::decode(corpus(std::string("mldsa/") + "mldsa" + suit.name + "-pub.pem"), view_t(), opened), keys::error_t::NONE) << "Набор: " << suit.name;
+		ASSERT_EQ(opened.kind, keys::kind_t::MLDSA) << "Набор: " << suit.name;
+		// Модуль сличения по открытому ключу
+		sign::mldsa_t verifier;
+		ASSERT_TRUE(opened.load(verifier)) << "Набор: " << suit.name;
+		ASSERT_EQ(verifier.set(), suit.set);
+		/**
+		 * Выполняем перебор видов записей ключа
+		 */
+		for(const char * form : FORMS){
+			// Запись ключа очередного вида
+			const std::string pem = corpus(std::string("mldsa/") + "mldsa" + suit.name + "-" + form + ".pem");
+			// Подготовленный ключ
+			keys::signer_t signer;
+			// Готовим ключ по записи PEM
+			ASSERT_EQ(signer.prepare(text(pem)), keys::error_t::NONE) << "Ключ: mldsa" << suit.name << "-" << form;
+			ASSERT_TRUE(signer.ready()) << "Ключ: mldsa" << suit.name << "-" << form;
+			ASSERT_EQ(signer.kind(), keys::kind_t::MLDSA) << "Ключ: mldsa" << suit.name << "-" << form;
+			ASSERT_EQ(signer.mldsa().set(), suit.set) << "Ключ: mldsa" << suit.name << "-" << form;
+			// Место подписи набора
+			std::vector <uint8_t> signature(sign::mldsa_t::signatureSize(suit.set));
+			// Подпись подготовленного ключа сличается открытым ключом
+			ASSERT_TRUE(signer.mldsa().make(view("prepared key"), view_t(nullptr, 0), signature.data())) << "Ключ: mldsa" << suit.name << "-" << form;
+			ASSERT_TRUE(verifier.check(view("prepared key"), view_t(nullptr, 0), view_t(signature.data(), signature.size()))) << "Ключ: mldsa" << suit.name << "-" << form;
+			// Модули иных видов пусты
+			ASSERT_FALSE(signer.rsa().ready());
+			ASSERT_FALSE(signer.curve().ready());
+			// Сброс ключа снимает готовность
+			signer.clear();
+			ASSERT_FALSE(signer.ready());
+		}
+	}
+}

@@ -65,6 +65,7 @@
  * Стандартные заголовочные файлы
  */
 #include <new>
+#include <cstring>
 
 /**
  * Подключаем заголовочные файлы проекта
@@ -156,6 +157,21 @@ namespace {
 	 * Опознаватель ключа ГОСТ Р 34.10-2001
 	 */
 	static const char * OID_GOST2001 = "1.2.643.2.2.19";
+
+	/**
+	 * Опознаватель ключа ML-DSA-44 по RFC 9881
+	 */
+	static const char * OID_MLDSA44 = "2.16.840.1.101.3.4.3.17";
+
+	/**
+	 * Опознаватель ключа ML-DSA-65 по RFC 9881
+	 */
+	static const char * OID_MLDSA65 = "2.16.840.1.101.3.4.3.18";
+
+	/**
+	 * Опознаватель ключа ML-DSA-87 по RFC 9881
+	 */
+	static const char * OID_MLDSA87 = "2.16.840.1.101.3.4.3.19";
 
 	/**
 	 * Опознаватель схемы PBES2 по RFC 8018
@@ -990,6 +1006,51 @@ namespace {
 				// Выводим успешность выведения
 				return error_t::NONE;
 			}
+			// Если выводится ключ ML-DSA
+			case static_cast <uint8_t> (kind_t::MLDSA): {
+				// Если секретной части нет
+				if(!key.secret()){
+					// Если размер записи не отвечает ни одному набору
+					if((key.key.size() != 1312) && (key.key.size() != 1952) && (key.key.size() != 2592))
+						// Выводим отказ негодного значения
+						return error_t::VALUE;
+					// Примитив ML-DSA, которым проверяется запись
+					sign::mldsa_t mldsa;
+					// Выводим итог проверки записи открытого ключа
+					return (key.load(mldsa) ? error_t::NONE : error_t::VALUE);
+				}
+				// Примитив ML-DSA, которым выводится открытая часть
+				sign::mldsa_t mldsa;
+				// Если ключ примитивом не принят
+				if(!key.load(mldsa))
+					// Выводим отказ негодного значения
+					return error_t::VALUE;
+				// Запись выведенной открытой части
+				uint8_t exposed[2592];
+				// Если открытую часть вывести не удалось
+				if(!mldsa.key(exposed, sizeof(exposed)))
+					// Выводим отказ негодного значения
+					return error_t::VALUE;
+				// Размер открытой части набора ключа
+				const size_t size = sign::mldsa_t::publicSize(mldsa.set());
+				// Если открытая часть в ключе записана
+				if(!key.key.empty()){
+					// Выведенная открытая часть
+					vector <uint8_t> derived;
+					// Если открытую часть скопировать не удалось
+					if(!copy(exposed, size, derived))
+						// Выводим отказ нехватки памяти
+						return error_t::MEMORY;
+					// Выводим итог сличения записанной открытой части с выведенной
+					return (same(derived, key.key) ? error_t::NONE : error_t::VALUE);
+				}
+				// Если открытую часть скопировать не удалось
+				if(!copy(exposed, size, key.key))
+					// Выводим отказ нехватки памяти
+					return error_t::MEMORY;
+				// Выводим успешность выведения
+				return error_t::NONE;
+			}
 		}
 		// Выводим отказ пустого ключа
 		return error_t::EMPTY;
@@ -1417,6 +1478,157 @@ namespace {
 		key.kind = kind;
 		// Выводим итог выведения открытой части ключа
 		return derive(key);
+	}
+	/**
+	 * @brief Метод разбора секретного ключа ML-DSA по разделу 6 RFC 9881
+	 *
+	 * @details Внутри дозволены три вида записи: зерно с меткой [0] (32 байта,
+	 *          рекомендовано), развёрнутый ключ строкой байтов без метки и оба вида
+	 *          набором с меткой [2]; у обоих видов зерно разворачивается, а запись
+	 *          сличается с поданной - несогласованность отвергается
+	 *
+	 * @param der       разбираемая запись ключа
+	 * @param algorithm опознаватель алгоритма ключа
+	 * @param key       ключ, в который помещается итог разбора
+	 *
+	 * @return          отказ разбора записи
+	 *
+	 */
+	static error_t mldsaSecret(const view_t & der, const string & algorithm, key_t & key) noexcept {
+		// Если запись не передана
+		if((der.data == nullptr) || (der.size == 0))
+			// Выводим отказ устройства записи
+			return error_t::STRUCTURE;
+		// Набор параметров по опознавателю алгоритма
+		sign::mldsa_t::set_t set = sign::mldsa_t::set_t::NONE;
+		// Если опознаватель ML-DSA-44
+		if(algorithm.compare(OID_MLDSA44) == 0)
+			// Устанавливаем набор ML-DSA-44
+			set = sign::mldsa_t::set_t::DSA44;
+		// Если опознаватель ML-DSA-65
+		else if(algorithm.compare(OID_MLDSA65) == 0)
+			// Устанавливаем набор ML-DSA-65
+			set = sign::mldsa_t::set_t::DSA65;
+		// Если опознаватель ML-DSA-87
+		else if(algorithm.compare(OID_MLDSA87) == 0)
+			// Устанавливаем набор ML-DSA-87
+			set = sign::mldsa_t::set_t::DSA87;
+		// Если опознаватель не опознан
+		if(set == sign::mldsa_t::set_t::NONE)
+			// Выводим отказ алгоритма
+			return error_t::ALGORITHM;
+		// Просмотры зерна и развёрнутого ключа
+		view_t seed, expanded;
+		// Открытая часть, записанная следом за развёрнутым ключом старой записи OpenSSL
+		view_t appended;
+		// Если записано голое зерно без обёртки (старая запись OpenSSL издания v1)
+		if(der.size == 32)
+			// Запоминаем зерно целиком
+			seed = der;
+		// Если записан голый развёрнутый ключ без обёртки (старая запись OpenSSL издания v1)
+		else if(der.size == sign::mldsa_t::secretSize(set))
+			// Запоминаем развёрнутый ключ целиком
+			expanded = der;
+		// Иначе запись с разновидностью ключа по разделу 6 RFC 9881
+		else {
+			// Разборщик записи
+			asn1::reader_t reader(der);
+			// Элемент разновидности ключа
+			asn1::element_t element;
+			// Если элемент разновидности разобрать не удалось
+			if(!reader.next(element))
+				// Выводим переведённый отказ разбора
+				return translate(reader.err());
+			// Если после разновидности остался хвост
+			if(!reader.empty())
+				// Выводим отказ устройства записи
+				return error_t::STRUCTURE;
+			// Если записано зерно: неявная метка [0] строки байтов
+			if(tagged(element, asn1::cls_t::CONTEXT, 0, false))
+				// Запоминаем зерно
+				seed = element.content;
+			// Если записан развёрнутый ключ: строка байтов без метки
+			else if(tagged(element, asn1::cls_t::UNIVERSAL, static_cast <uint32_t> (asn1::tag_t::OCTET_STRING), false)){
+				// Запоминаем развёрнутый ключ
+				expanded = element.content;
+				// Если следом записана открытая часть (старая запись oqsprovider OpenSSL)
+				if(expanded.size == (sign::mldsa_t::secretSize(set) + sign::mldsa_t::publicSize(set))){
+					// Отделяем открытую часть от развёрнутого ключа
+					appended = view_t((expanded.data + sign::mldsa_t::secretSize(set)), sign::mldsa_t::publicSize(set));
+					// Усекаем развёрнутый ключ до его длины
+					expanded.size = sign::mldsa_t::secretSize(set);
+				}
+			// Если записаны оба вида: набор, с меткой [2] либо без неё (как пишет OpenSSL)
+			} else if(tagged(element, asn1::cls_t::CONTEXT, 2, true) || tagged(element, asn1::cls_t::UNIVERSAL, static_cast <uint32_t> (asn1::tag_t::SEQUENCE), true)){
+				// Разборщик набора видов
+				asn1::reader_t inside(element.content);
+				// Если строку байтов зерна разобрать не удалось
+				if(!inside.next(asn1::tag_t::OCTET_STRING, element) || element.constructed)
+					// Выводим переведённый отказ разбора
+					return translate(inside.err());
+				// Запоминаем зерно
+				seed = element.content;
+				// Если строку байтов развёрнутого ключа разобрать не удалось
+				if(!inside.next(asn1::tag_t::OCTET_STRING, element) || element.constructed)
+					// Выводим переведённый отказ разбора
+					return translate(inside.err());
+				// Запоминаем развёрнутый ключ
+				expanded = element.content;
+				// Если после видов остался хвост
+				if(!inside.empty())
+					// Выводим отказ устройства записи
+					return error_t::STRUCTURE;
+			// Иначе разновидность ключа не опознана
+			} else return error_t::STRUCTURE;
+		}
+		// Модуль ML-DSA, которым разворачивается и проверяется ключ
+		sign::mldsa_t mldsa;
+		// Места развёрнутого ключа и выведенной открытой части
+		uint8_t record[4896], exposed[2592];
+		// Если записано зерно
+		if(seed.data != nullptr){
+			// Если ключ из зерна развернуть не удалось
+			if(!mldsa.generate(set, seed, exposed, record))
+				// Выводим отказ негодного значения
+				return error_t::VALUE;
+			// Если подан и развёрнутый ключ, а с развёрнутым из зерна не сошёлся
+			if((expanded.data != nullptr) && ((expanded.size != sign::mldsa_t::secretSize(set)) || (::memcmp(record, expanded.data, expanded.size) != 0))){
+				// Выводим отказ негодного значения
+				return error_t::VALUE;
+			}
+		// Иначе записан лишь развёрнутый ключ: устанавливаем его с проверкой трассировки
+		} else if(!mldsa.secret(set, expanded))
+			// Выводим отказ негодного значения
+			return error_t::VALUE;
+		// Если записан лишь развёрнутый ключ
+		if(seed.data == nullptr){
+			// Выводим открытую часть из установленного ключа
+			if(!mldsa.key(exposed, sizeof(exposed)))
+				// Выводим отказ негодного значения
+				return error_t::VALUE;
+			// Если развёрнутый ключ скопировать не удалось
+			if(!copy(expanded.data, expanded.size, key.d))
+				// Выводим отказ нехватки памяти
+				return error_t::MEMORY;
+		// Иначе ключ развёрнут из зерна
+		} else {
+			// Если развёрнутый ключ скопировать не удалось
+			if(!copy(record, sign::mldsa_t::secretSize(set), key.d))
+				// Выводим отказ нехватки памяти
+				return error_t::MEMORY;
+		}
+		// Если открытую часть скопировать не удалось
+		if(!copy(exposed, sign::mldsa_t::publicSize(set), key.key))
+			// Выводим отказ нехватки памяти
+			return error_t::MEMORY;
+		// Если записанная следом открытая часть с выведенной не сошлась
+		if((appended.data != nullptr) && (::memcmp(exposed, appended.data, appended.size) != 0))
+			// Выводим отказ негодного значения
+			return error_t::VALUE;
+		// Устанавливаем вид ключа
+		key.kind = kind_t::MLDSA;
+		// Выводим успешность разбора
+		return error_t::NONE;
 	}
 	/**
 	 * @brief Метод разбора секретного ключа ГОСТ по разделу 6 RFC 9215
@@ -2114,6 +2326,63 @@ bool nts::keys::Key::load(sign::gost_t & gost, curve::curve_t & curve) const noe
 	return gost.key(view_t(this->x.data(), this->x.size()), view_t(this->y.data(), this->y.size()));
 }
 /**
+ * @brief Метод установки ключа ML-DSA из разобранного ключа
+ *
+ * @param mldsa примитив, в который устанавливается ключ
+ *
+ * @return      признак успешности установки ключа
+ *
+ */
+bool nts::keys::Key::load(sign::mldsa_t & mldsa) const noexcept {
+	// Выполняем сброс примитива
+	mldsa.clear();
+	// Если ключ не ML-DSA
+	if(this->kind != kind_t::MLDSA)
+		// Выводим отказ установки
+		return false;
+	// Набор параметров ключа
+	sign::mldsa_t::set_t set = sign::mldsa_t::set_t::NONE;
+	// Если ключ несёт секретную часть
+	if(this->secret()){
+		// Если запись секрета длиной набора ML-DSA-44
+		if(this->d.size() == 2560)
+			// Устанавливаем набор ML-DSA-44
+			set = sign::mldsa_t::set_t::DSA44;
+		// Если запись секрета длиной набора ML-DSA-65
+		else if(this->d.size() == 4032)
+			// Устанавливаем набор ML-DSA-65
+			set = sign::mldsa_t::set_t::DSA65;
+		// Если запись секрета длиной набора ML-DSA-87
+		else if(this->d.size() == 4896)
+			// Устанавливаем набор ML-DSA-87
+			set = sign::mldsa_t::set_t::DSA87;
+		// Если набор не определён
+		if(set == sign::mldsa_t::set_t::NONE)
+			// Выводим отказ установки
+			return false;
+		// Выводим итог установки ключа подписи
+		return mldsa.secret(set, view_t(this->d.data(), this->d.size()));
+	}
+	// Если запись открытого ключа длиной набора ML-DSA-44
+	if(this->key.size() == 1312)
+		// Устанавливаем набор ML-DSA-44
+		set = sign::mldsa_t::set_t::DSA44;
+	// Если запись открытого ключа длиной набора ML-DSA-65
+	else if(this->key.size() == 1952)
+		// Устанавливаем набор ML-DSA-65
+		set = sign::mldsa_t::set_t::DSA65;
+	// Если запись открытого ключа длиной набора ML-DSA-87
+	else if(this->key.size() == 2592)
+		// Устанавливаем набор ML-DSA-87
+		set = sign::mldsa_t::set_t::DSA87;
+	// Если набор не определён
+	if(set == sign::mldsa_t::set_t::NONE)
+		// Выводим отказ установки
+		return false;
+	// Выводим итог установки ключа проверки подписи
+	return mldsa.key(set, view_t(this->key.data(), this->key.size()));
+}
+/**
  * @brief Деструктор
  *
  */
@@ -2204,6 +2473,18 @@ const nts::sign::gost_t & nts::keys::Signer::gost() const noexcept {
 	static const sign::gost_t empty;
 	// Выводим модуль подписи
 	return (this->_gost ? (* this->_gost) : empty);
+}
+/**
+ * @brief Метод получения модуля подписи ML-DSA
+ *
+ * @return модуль подписи с установленным ключом ML-DSA
+ *
+ */
+const nts::sign::mldsa_t & nts::keys::Signer::mldsa() const noexcept {
+	// Пустой модуль для ключей иных видов
+	static const sign::mldsa_t empty;
+	// Выводим модуль подписи
+	return (this->_mldsa ? (* this->_mldsa) : empty);
 }
 /**
  * @brief Метод подготовки ключа по записи секретного ключа
@@ -2320,6 +2601,17 @@ nts::keys::error_t nts::keys::Signer::prepare(const view_t & secret) noexcept {
 			// Заводим ключ в модуле подписи ГОСТ вместе с кривой
 			loaded = key.load(* this->_gost, * this->_curve);
 		} break;
+		// Ключ ML-DSA
+		case kind_t::MLDSA: {
+			// Заводим модуль подписи ML-DSA
+			this->_mldsa.reset(new (nothrow) sign::mldsa_t());
+			// Если памяти под модуль не хватило
+			if(!this->_mldsa)
+				// Выводим отказ нехватки памяти
+				return error_t::MEMORY;
+			// Заводим ключ в модуле подписи ML-DSA
+			loaded = key.load(* this->_mldsa);
+		} break;
 		// Ключ, подписи не выполняющий
 		default:
 			// Выводим отказ вида ключа
@@ -2391,6 +2683,7 @@ void nts::keys::Signer::clear() noexcept {
 	this->_ecdsa.reset();
 	this->_ed25519.reset();
 	this->_gost.reset();
+	this->_mldsa.reset();
 	// Уничтожаем кривую ключа
 	this->_curve.reset();
 }
@@ -2513,6 +2806,24 @@ nts::keys::error_t nts::keys::decodeSubjectPublicKeyInfo(const view_t & der, key
 		key.kind = ((algorithm.compare(OID_ED25519) == 0) ? kind_t::ED25519 : kind_t::X25519);
 		// Выполняем проверку открытого ключа
 		outcome = derive(key);
+	// Если ключ ML-DSA
+	} else if((algorithm.compare(OID_MLDSA44) == 0) || (algorithm.compare(OID_MLDSA65) == 0) || (algorithm.compare(OID_MLDSA87) == 0)){
+		// Если настройки записаны: раздел 5 RFC 9881 их запрещает
+		if(present)
+			// Выводим отказ алгоритма
+			return error_t::ALGORITHM;
+		// Если размер открытого ключа не отвечает опознавателю набора
+		if(((algorithm.compare(OID_MLDSA44) == 0) && (bytes.size != 1312)) || ((algorithm.compare(OID_MLDSA65) == 0) && (bytes.size != 1952)) || ((algorithm.compare(OID_MLDSA87) == 0) && (bytes.size != 2592)))
+			// Выводим отказ негодного значения
+			return error_t::VALUE;
+		// Устанавливаем опознаватель алгоритма: обмен памяти не выделяет
+		key.algorithm.swap(algorithm);
+		// Если открытый ключ скопировать не удалось
+		if(!copy(bytes.data, bytes.size, key.key))
+			// Выводим отказ нехватки памяти
+			return error_t::MEMORY;
+		// Устанавливаем вид ключа
+		key.kind = kind_t::MLDSA;
 	// Если ключ ГОСТ
 	} else if((algorithm.compare(OID_GOST256) == 0) || (algorithm.compare(OID_GOST512) == 0) || (algorithm.compare(OID_GOST2001) == 0)){
 		// Если настройки не записаны
@@ -2799,6 +3110,20 @@ nts::keys::error_t nts::keys::decodePrivateKeyInfo(const view_t & der, key_t & r
 		}
 		// Выполняем разбор зерна
 		outcome = seedSecret(body, ((algorithm.compare(OID_ED25519) == 0) ? kind_t::ED25519 : kind_t::X25519), key);
+	// Если ключ ML-DSA
+	} else if((algorithm.compare(OID_MLDSA44) == 0) || (algorithm.compare(OID_MLDSA65) == 0) || (algorithm.compare(OID_MLDSA87) == 0)){
+		// Если настройки записаны: раздел 5 RFC 9881 их запрещает
+		if(present)
+			// Выводим отказ алгоритма
+			return error_t::ALGORITHM;
+		// Устанавливаем опознаватель алгоритма: обмен памяти не выделяет
+		key.algorithm.swap(algorithm);
+		// Выполняем разбор секретного ключа
+		outcome = mldsaSecret(body, key.algorithm, key);
+		// Если ключ разобран, а обёртка несёт открытый ключ, а с выведенным не сошёлся
+		if((outcome == error_t::NONE) && (opened.data != nullptr) && ((opened.size != key.key.size()) || (::memcmp(opened.data, key.key.data(), key.key.size()) != 0)))
+			// Устанавливаем отказ негодного значения
+			outcome = error_t::VALUE;
 	// Если ключ ГОСТ
 	} else if((algorithm.compare(OID_GOST256) == 0) || (algorithm.compare(OID_GOST512) == 0) || (algorithm.compare(OID_GOST2001) == 0)){
 		// Если настройки не записаны

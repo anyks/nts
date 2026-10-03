@@ -42,6 +42,7 @@
 #include <sign/gost.hpp>
 #include <sign/ecdsa.hpp>
 #include <sign/ed25519.hpp>
+#include <sign/mldsa.hpp>
 #include <asn1/asn1.hpp>
 #include <digest/hash.hpp>
 #include <digest/streebog.hpp>
@@ -72,7 +73,8 @@ namespace {
 		ECDSA   = 0x01, // Подпись ECDSA с хешем SHA-2
 		PKCS1   = 0x02, // Подпись RSA по схеме PKCS #1 v1.5
 		PSS     = 0x03, // Подпись RSA по схеме RSASSA-PSS
-		ED25519 = 0x04  // Подпись Ed25519
+		ED25519 = 0x04, // Подпись Ed25519
+		MLDSA   = 0x05  // Подпись ML-DSA по FIPS 204
 	};
 
 	/**
@@ -128,7 +130,13 @@ namespace {
 		// Подпись RSASSA-PSS: хеш задаётся настройками алгоритма, раздел 3.1 RFC 4055
 		{"1.2.840.113549.1.1.10", family_t::PSS, digest::hash_t::NONE},
 		// Подпись Ed25519: хеша нет, подписывается само сообщение, раздел 3 RFC 8410
-		{"1.3.101.112", family_t::ED25519, digest::hash_t::NONE}
+		{"1.3.101.112", family_t::ED25519, digest::hash_t::NONE},
+		// Подпись ML-DSA-44: хеша нет, подписывается само сообщение, раздел 4 RFC 9881
+		{"2.16.840.1.101.3.4.3.17", family_t::MLDSA, digest::hash_t::NONE},
+		// Подпись ML-DSA-65
+		{"2.16.840.1.101.3.4.3.18", family_t::MLDSA, digest::hash_t::NONE},
+		// Подпись ML-DSA-87
+		{"2.16.840.1.101.3.4.3.19", family_t::MLDSA, digest::hash_t::NONE}
 	};
 
 	/**
@@ -187,6 +195,21 @@ namespace {
 	 * Опознаватель алгоритма открытого ключа Ed25519: раздел 3 RFC 8410
 	 */
 	static const char * ED_KEY = "1.3.101.112";
+
+	/**
+	 * Опознаватель алгоритма открытого ключа ML-DSA-44: раздел 5 RFC 9881
+	 */
+	static const char * MLDSA44_KEY = "2.16.840.1.101.3.4.3.17";
+
+	/**
+	 * Опознаватель алгоритма открытого ключа ML-DSA-65: раздел 5 RFC 9881
+	 */
+	static const char * MLDSA65_KEY = "2.16.840.1.101.3.4.3.18";
+
+	/**
+	 * Опознаватель алгоритма открытого ключа ML-DSA-87: раздел 5 RFC 9881
+	 */
+	static const char * MLDSA87_KEY = "2.16.840.1.101.3.4.3.19";
 
 	/**
 	 * Длина соли подписи RSASSA-PSS по умолчанию: раздел 3.1 RFC 4055
@@ -1062,6 +1085,69 @@ namespace {
 		// Выводим итог проверки подписи: хеша нет, подписано само содержимое
 		return (ed25519.check(content, signature) ? nts::x509::error_t::NONE : nts::x509::error_t::SIGNATURE);
 	}
+	/**
+	 * @brief Метод заведения открытого ключа ML-DSA в примитив
+	 *
+	 * @param key   сведения об открытом ключе подписавшей стороны
+	 * @param mldsa примитив, в который заводится открытый ключ
+	 *
+	 * @return      отказ заведения открытого ключа
+	 *
+	 */
+	static nts::x509::error_t mldsa(const nts::x509::key_t & key, sign::mldsa_t & mldsa) noexcept {
+		// Набор параметров по опознавателю алгоритма
+		sign::mldsa_t::set_t set = sign::mldsa_t::set_t::NONE;
+		// Если алгоритм открытого ключа ML-DSA-44
+		if(key.algorithm.compare(MLDSA44_KEY) == 0)
+			// Устанавливаем набор ML-DSA-44
+			set = sign::mldsa_t::set_t::DSA44;
+		// Если алгоритм открытого ключа ML-DSA-65
+		else if(key.algorithm.compare(MLDSA65_KEY) == 0)
+			// Устанавливаем набор ML-DSA-65
+			set = sign::mldsa_t::set_t::DSA65;
+		// Если алгоритм открытого ключа ML-DSA-87
+		else if(key.algorithm.compare(MLDSA87_KEY) == 0)
+			// Устанавливаем набор ML-DSA-87
+			set = sign::mldsa_t::set_t::DSA87;
+		// Если алгоритм открытого ключа не ML-DSA
+		else return nts::x509::error_t::KEY;
+		// Если ключ несёт настройки, которых у алгоритма нет: раздел 5 RFC 9881
+		if((key.parameters.data != nullptr) && (key.parameters.size != 0))
+			// Выводим отказ заведения открытого ключа
+			return nts::x509::error_t::SIGNATURE;
+		// Если запись открытого ключа занимает неполное число байтов либо не той длины
+		if((key.unused != 0) || (key.key.data == nullptr) || (key.key.size != sign::mldsa_t::publicSize(set)))
+			// Выводим отказ заведения открытого ключа
+			return nts::x509::error_t::SIGNATURE;
+		// Выводим итог установки открытого ключа подписавшей стороны
+		return (mldsa.key(set, key.key) ? nts::x509::error_t::NONE : nts::x509::error_t::SIGNATURE);
+	}
+	/**
+	 * @brief Метод проверки подписи ML-DSA
+	 *
+	 * @param content   подписанное содержимое
+	 * @param signature проверяемая подпись c~ ‖ z ‖ h по набору
+	 * @param key       сведения об открытом ключе подписавшей стороны
+	 *
+	 * @return          отказ проверки подписи
+	 *
+	 */
+	static nts::x509::error_t mldsa(const view_t & content, const view_t & signature, const nts::x509::key_t & key) noexcept {
+		// Объект модуля электронной подписи
+		sign::mldsa_t mldsa;
+		// Итог заведения открытого ключа
+		const nts::x509::error_t established = ::mldsa(key, mldsa);
+		// Если открытый ключ завести не удалось
+		if(established != nts::x509::error_t::NONE)
+			// Выводим отказ заведения открытого ключа
+			return established;
+		// Если подпись не занимает положенной набором длины
+		if(signature.size != sign::mldsa_t::signatureSize(mldsa.set()))
+			// Выводим отказ проверки подписи
+			return nts::x509::error_t::SIGNATURE;
+		// Выводим итог проверки подписи: хеша нет, подписано само содержимое, контекст пуст
+		return (mldsa.check(content, view_t(nullptr, 0), signature) ? nts::x509::error_t::NONE : nts::x509::error_t::SIGNATURE);
+	}
 };
 
 /**
@@ -1126,6 +1212,10 @@ nts::x509::error_t nts::x509::verify(const view_t & body, const view_t & signatu
 		case family_t::ED25519:
 			// Выводим итог проверки подписи Ed25519
 			return ::ed25519(body, signature, key);
+		// Подпись ML-DSA
+		case family_t::MLDSA:
+			// Выводим итог проверки подписи ML-DSA
+			return ::mldsa(body, signature, key);
 	}
 	// Выводим отказ проверки подписи: вид алгоритма неизвестен
 	return nts::x509::error_t::SIGNATURE;
@@ -1304,6 +1394,10 @@ nts::x509::error_t nts::x509::check(const key_t & key, const digest::hash_t algo
 	if(key.algorithm.compare(ED_KEY) == 0)
 		// Выводим итог проверки подписи Ed25519
 		return ::ed25519(content, signature, key);
+	// Если ключ ML-DSA, подпись сырая, а хеш не считается вовсе
+	if((key.algorithm.compare(MLDSA44_KEY) == 0) || (key.algorithm.compare(MLDSA65_KEY) == 0) || (key.algorithm.compare(MLDSA87_KEY) == 0))
+		// Выводим итог проверки подписи ML-DSA: контекст пуст
+		return ::mldsa(content, signature, key);
 	// Выводим отказ ключа чужого алгоритма
 	return nts::x509::error_t::KEY;
 }
