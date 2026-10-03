@@ -43,6 +43,7 @@
 #include <sign/ecdsa.hpp>
 #include <sign/ed25519.hpp>
 #include <sign/mldsa.hpp>
+#include <sign/slhdsa.hpp>
 #include <asn1/asn1.hpp>
 #include <digest/hash.hpp>
 #include <digest/streebog.hpp>
@@ -74,7 +75,8 @@ namespace {
 		PKCS1   = 0x02, // Подпись RSA по схеме PKCS #1 v1.5
 		PSS     = 0x03, // Подпись RSA по схеме RSASSA-PSS
 		ED25519 = 0x04, // Подпись Ed25519
-		MLDSA   = 0x05  // Подпись ML-DSA по FIPS 204
+		MLDSA   = 0x05, // Подпись ML-DSA по FIPS 204
+		SLHDSA  = 0x06  // Подпись SLH-DSA по FIPS 205
 	};
 
 	/**
@@ -136,7 +138,31 @@ namespace {
 		// Подпись ML-DSA-65
 		{"2.16.840.1.101.3.4.3.18", family_t::MLDSA, digest::hash_t::NONE},
 		// Подпись ML-DSA-87
-		{"2.16.840.1.101.3.4.3.19", family_t::MLDSA, digest::hash_t::NONE}
+		{"2.16.840.1.101.3.4.3.19", family_t::MLDSA, digest::hash_t::NONE},
+		// Подпись SLH-DSA-SHA2-128s: хеша нет, подписывается само сообщение, раздел 4 RFC 9909
+		{"2.16.840.1.101.3.4.3.20", family_t::SLHDSA, digest::hash_t::NONE},
+		// Подпись SLH-DSA-SHA2-128f
+		{"2.16.840.1.101.3.4.3.21", family_t::SLHDSA, digest::hash_t::NONE},
+		// Подпись SLH-DSA-SHAKE-128s
+		{"2.16.840.1.101.3.4.3.22", family_t::SLHDSA, digest::hash_t::NONE},
+		// Подпись SLH-DSA-SHAKE-128f
+		{"2.16.840.1.101.3.4.3.23", family_t::SLHDSA, digest::hash_t::NONE},
+		// Подпись SLH-DSA-SHA2-192s
+		{"2.16.840.1.101.3.4.3.24", family_t::SLHDSA, digest::hash_t::NONE},
+		// Подпись SLH-DSA-SHA2-192f
+		{"2.16.840.1.101.3.4.3.25", family_t::SLHDSA, digest::hash_t::NONE},
+		// Подпись SLH-DSA-SHAKE-192s
+		{"2.16.840.1.101.3.4.3.26", family_t::SLHDSA, digest::hash_t::NONE},
+		// Подпись SLH-DSA-SHAKE-192f
+		{"2.16.840.1.101.3.4.3.27", family_t::SLHDSA, digest::hash_t::NONE},
+		// Подпись SLH-DSA-SHA2-256s
+		{"2.16.840.1.101.3.4.3.28", family_t::SLHDSA, digest::hash_t::NONE},
+		// Подпись SLH-DSA-SHA2-256f
+		{"2.16.840.1.101.3.4.3.29", family_t::SLHDSA, digest::hash_t::NONE},
+		// Подпись SLH-DSA-SHAKE-256s
+		{"2.16.840.1.101.3.4.3.30", family_t::SLHDSA, digest::hash_t::NONE},
+		// Подпись SLH-DSA-SHAKE-256f
+		{"2.16.840.1.101.3.4.3.31", family_t::SLHDSA, digest::hash_t::NONE}
 	};
 
 	/**
@@ -210,6 +236,30 @@ namespace {
 	 * Опознаватель алгоритма открытого ключа ML-DSA-87: раздел 5 RFC 9881
 	 */
 	static const char * MLDSA87_KEY = "2.16.840.1.101.3.4.3.19";
+
+	/**
+	 * Опознаватели алгоритмов открытых ключей SLH-DSA: раздел 4 RFC 9909
+	 */
+	static const char * SLHDSA_KEYS[12] = {
+		"2.16.840.1.101.3.4.3.20", "2.16.840.1.101.3.4.3.21",
+		"2.16.840.1.101.3.4.3.22", "2.16.840.1.101.3.4.3.23",
+		"2.16.840.1.101.3.4.3.24", "2.16.840.1.101.3.4.3.25",
+		"2.16.840.1.101.3.4.3.26", "2.16.840.1.101.3.4.3.27",
+		"2.16.840.1.101.3.4.3.28", "2.16.840.1.101.3.4.3.29",
+		"2.16.840.1.101.3.4.3.30", "2.16.840.1.101.3.4.3.31"
+	};
+
+	/**
+	 * Наборы SLH-DSA по месту опознавателя: сперва SHA2, затем SHAKE (раздел 4 RFC 9909)
+	 */
+	static const sign::slhdsa_t::set_t SLHDSA_SETS[12] = {
+		sign::slhdsa_t::set_t::SHA2_128S, sign::slhdsa_t::set_t::SHA2_128F,
+		sign::slhdsa_t::set_t::SHA2_192S, sign::slhdsa_t::set_t::SHA2_192F,
+		sign::slhdsa_t::set_t::SHA2_256S, sign::slhdsa_t::set_t::SHA2_256F,
+		sign::slhdsa_t::set_t::SHAKE_128S, sign::slhdsa_t::set_t::SHAKE_128F,
+		sign::slhdsa_t::set_t::SHAKE_192S, sign::slhdsa_t::set_t::SHAKE_192F,
+		sign::slhdsa_t::set_t::SHAKE_256S, sign::slhdsa_t::set_t::SHAKE_256F
+	};
 
 	/**
 	 * Длина соли подписи RSASSA-PSS по умолчанию: раздел 3.1 RFC 4055
@@ -1148,6 +1198,67 @@ namespace {
 		// Выводим итог проверки подписи: хеша нет, подписано само содержимое, контекст пуст
 		return (mldsa.check(content, view_t(nullptr, 0), signature) ? nts::x509::error_t::NONE : nts::x509::error_t::SIGNATURE);
 	}
+	/**
+	 * @brief Метод заведения открытого ключа SLH-DSA в примитив
+	 *
+	 * @param key    сведения об открытом ключе подписавшей стороны
+	 * @param slhdsa примитив, в который заводится открытый ключ
+	 *
+	 * @return       отказ заведения открытого ключа
+	 *
+	 */
+	static nts::x509::error_t slhdsa(const nts::x509::key_t & key, sign::slhdsa_t & slhdsa) noexcept {
+		// Набор параметров по опознавателю алгоритма
+		sign::slhdsa_t::set_t set = sign::slhdsa_t::set_t::NONE;
+		// Перебор опознавателей наборов SLH-DSA
+		for(size_t i = 0; i < (sizeof(SLHDSA_KEYS) / sizeof(SLHDSA_KEYS[0])); i++){
+			if(key.algorithm.compare(SLHDSA_KEYS[i]) == 0){
+				// Устанавливаем набор по месту опознавателя
+				set = SLHDSA_SETS[i];
+				break;
+			}
+		}
+		// Если алгоритм открытого ключа не SLH-DSA
+		if(set == sign::slhdsa_t::set_t::NONE)
+			// Выводим отказ ключа чужого алгоритма
+			return nts::x509::error_t::KEY;
+		// Если ключ несёт настройки, которых у алгоритма нет: раздел 4 RFC 9909
+		if((key.parameters.data != nullptr) && (key.parameters.size != 0))
+			// Выводим отказ заведения открытого ключа
+			return nts::x509::error_t::SIGNATURE;
+		// Если запись открытого ключа занимает неполное число байтов либо не той длины
+		if((key.unused != 0) || (key.key.data == nullptr) || (key.key.size != sign::slhdsa_t::publicSize(set)))
+			// Выводим отказ заведения открытого ключа
+			return nts::x509::error_t::SIGNATURE;
+		// Выводим итог установки открытого ключа подписавшей стороны
+		return (slhdsa.key(set, key.key) ? nts::x509::error_t::NONE : nts::x509::error_t::SIGNATURE);
+	}
+	/**
+	 * @brief Метод проверки подписи SLH-DSA
+	 *
+	 * @param content   подписанное содержимое
+	 * @param signature проверяемая подпись R ‖ FORS ‖ HT по набору
+	 * @param key       сведения об открытом ключе подписавшей стороны
+	 *
+	 * @return          отказ проверки подписи
+	 *
+	 */
+	static nts::x509::error_t slhdsa(const view_t & content, const view_t & signature, const nts::x509::key_t & key) noexcept {
+		// Объект модуля электронной подписи
+		sign::slhdsa_t slhdsa;
+		// Итог заведения открытого ключа
+		const nts::x509::error_t established = ::slhdsa(key, slhdsa);
+		// Если открытый ключ завести не удалось
+		if(established != nts::x509::error_t::NONE)
+			// Выводим отказ заведения открытого ключа
+			return established;
+		// Если подпись не занимает положенной набором длины
+		if(signature.size != sign::slhdsa_t::signatureSize(slhdsa.set()))
+			// Выводим отказ проверки подписи
+			return nts::x509::error_t::SIGNATURE;
+		// Выводим итог проверки подписи: хеша нет, подписано само содержимое, контекст пуст
+		return (slhdsa.check(content, view_t(nullptr, 0), signature) ? nts::x509::error_t::NONE : nts::x509::error_t::SIGNATURE);
+	}
 };
 
 /**
@@ -1216,6 +1327,10 @@ nts::x509::error_t nts::x509::verify(const view_t & body, const view_t & signatu
 		case family_t::MLDSA:
 			// Выводим итог проверки подписи ML-DSA
 			return ::mldsa(body, signature, key);
+		// Подпись SLH-DSA
+		case family_t::SLHDSA:
+			// Выводим итог проверки подписи SLH-DSA
+			return ::slhdsa(body, signature, key);
 	}
 	// Выводим отказ проверки подписи: вид алгоритма неизвестен
 	return nts::x509::error_t::SIGNATURE;

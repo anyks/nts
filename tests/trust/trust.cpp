@@ -1491,6 +1491,45 @@ TEST(TrustTest, Mldsa){
 }
 
 /**
+ * Проверка доверия цепочке SLH-DSA набора образцов: подписи звеньев и корня по
+ * FIPS 205, разбор сертификатов RFC 9909 без параметров у открытых ключей
+ */
+TEST(TrustTest, Slhdsa){
+	// Запись цепочки SLH-DSA набора образцов: лист, промежуточный издатель, корень
+	vector <vector <uint8_t>> chain;
+	// Выполняем чтение цепочки набора образцов
+	ASSERT_TRUE(corpus("chain-slhdsa.pem", chain));
+	// Проверяем, что цепочка состоит из трёх звеньев
+	ASSERT_EQ(chain.size(), static_cast <size_t> (3));
+	// Получаем записи звеньев цепочки
+	const vector <uint8_t> & leaf = chain[0], & mid = chain[1], & root = chain[2];
+	// Запас доверенных сертификатов
+	trust::store_t store;
+	// Проверяем отказ доверия при пустом запасе
+	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> ({leaf, mid}), store, MOMENT), trust::error_t::AUTHORITY);
+	// Выполняем добавление корня в запас доверенных
+	ASSERT_TRUE(store.add(view_t(root.data(), root.size())));
+	// Проверяем доверие цепочке из листа и промежуточного издателя
+	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> ({leaf, mid}), store, MOMENT), trust::error_t::NONE);
+	// Проверяем доверие цепочке вместе с корнем
+	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> ({leaf, mid, root}), store, MOMENT), trust::error_t::NONE);
+	// Проверяем отказ доверия цепочке с пропущенным звеном
+	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> ({leaf, root}), store, MOMENT), trust::error_t::ISSUER);
+	// Проверяем отказ доверия цепочке до начала срока действия листа
+	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> ({leaf, mid}), store, 1000000000), trust::error_t::EXPIRED);
+	// Проверяем отказ доверия цепочке после окончания срока действия листа
+	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> ({leaf, mid}), store, 2200000000), trust::error_t::EXPIRED);
+	// Проверяем сличение имени узла с именами листа
+	ASSERT_EQ(trust::belongs(view_t(leaf.data(), leaf.size()), "test.anyks.com"), trust::error_t::NONE);
+	// Копия записи листа
+	vector <uint8_t> spoiled = leaf;
+	// Портим последний байт записи листа: он принадлежит подписи
+	spoiled[spoiled.size() - 1] = static_cast <uint8_t> (spoiled[spoiled.size() - 1] ^ 0x01);
+	// Проверяем отказ доверия цепочке с испорченной подписью листа
+	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> ({spoiled, mid}), store, MOMENT), trust::error_t::SIGNATURE);
+}
+
+/**
  * Проверка доверия классическим цепочкам набора образцов
  */
 TEST(TrustTest, Classic){

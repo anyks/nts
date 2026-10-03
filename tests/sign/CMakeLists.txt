@@ -87,3 +87,23 @@ target_link_libraries(${TEST_MLDSA_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main
 
 # Регистрируем цель проверок
 add_test(NAME ${TEST_MLDSA_NAME} COMMAND ${TEST_MLDSA_NAME})
+
+SET(TEST_SLHDSA_NAME slhdsa)
+
+# Добавляем цель проверок модуля электронной подписи SLH-DSA
+add_executable(${TEST_SLHDSA_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/slhdsa.cpp")
+
+# Включаем флаги компиляции проверок
+target_compile_options(${TEST_SLHDSA_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
+
+# Подключаем каталог общих заголовочных файлов набора проверок
+target_include_directories(${TEST_SLHDSA_NAME} PRIVATE "${ANTS_ROOT}/tests")
+
+# Передаем расположение набора контрольных примеров
+target_compile_definitions(${TEST_SLHDSA_NAME} PRIVATE ANTS_CORPUS="${ANTS_ROOT}/tests/corpus")
+
+# Выполняем подключение зависимостей цели проверок
+target_link_libraries(${TEST_SLHDSA_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
+
+# Регистрируем цель проверок
+add_test(NAME ${TEST_SLHDSA_NAME} COMMAND ${TEST_SLHDSA_NAME})

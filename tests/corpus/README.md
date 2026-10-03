@@ -31,6 +31,14 @@
   (`test.anyks.com`), промежуточный, корень (`ca-mldsa.crt`, CA:TRUE, keyCertSign),
   выписана местным openssl 3.6.3; звенья и ключи — `ca-mldsa`, `mid-mldsa`,
   `leaf-mldsa` (`.crt`, `.pem`).
+* `chain-slhdsa.pem` — такая же цепочка SLH-DSA-SHAKE-128s по RFC 9909: лист
+  (`test.anyks.com`), промежуточный, корень (`ca-slhdsa.crt`, CA:TRUE, keyCertSign),
+  выписана местным openssl 3.6.3; звенья и ключи — `ca-slhdsa`, `mid-slhdsa`,
+  `leaf-slhdsa` (`.crt`, `.pem`).
+* `slhdsa/` — контрольные примеры SLH-DSA: записи ACVP `evppkey_slh_dsa_*`,
+  переложенные сценарием `tools/sign/slhdsa.py` из подмодуля OpenSSL (`keygen.txt`,
+  `siggen.txt`, `sigver.txt`). Блоки `message-encoding:0` (сырое сообщение —
+  расширение OpenSSL вне FIPS 205) пропущены.
 * `ca-long.crt` — корень со сроком 2015…2035, чтобы срок листа проверялся отдельно
   от срока издателя.
 * `expired.crt` — лист со сроком 1…2 января 2020 года, издан `ca-long.crt`.
