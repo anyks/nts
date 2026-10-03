@@ -217,6 +217,7 @@ SET(SOURCE_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/curve/parameters.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/sign/gost.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/sign/rsa.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/sign/mldsa.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/math/integer.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/sign/ecdsa.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/sign/ed25519.cpp"

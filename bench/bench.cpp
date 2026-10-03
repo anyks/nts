@@ -78,6 +78,7 @@
 #include <pem/pem.hpp>
 #include <x509/x509.hpp>
 #include <sign/rsa.hpp>
+#include <sign/mldsa.hpp>
 #include <hello/hello.hpp>
 #include <record/record.hpp>
 #include <handshake/handshake.hpp>
@@ -1191,6 +1192,34 @@ int main(int argc, char * argv[]) noexcept {
 		// Выполняем сличение подписи RSA-PSS
 		rsa.check(sign::scheme_t::PSS, digest::hash_t::SHA256, view_t(hash, 32), view_t(rsaSignature, sizeof(rsaSignature)));
 	});
+	// Ключ ML-DSA-65 для замера подписи и сличения
+	sign::mldsa_t mldsa;
+	// Места записей ключей ML-DSA-65
+	uint8_t mldsaPublic[1952], mldsaSecret[4032];
+	// Если ключ ML-DSA породить не удалось
+	if(!mldsa.generate(sign::mldsa_t::set_t::DSA65, mldsaPublic, mldsaSecret)){
+		// Выводим сообщение об отказе
+		cout << "Породить ключ ML-DSA-65 не удалось" << endl;
+		// Выходим из приложения с признаком отказа
+		return EXIT_FAILURE;
+	}
+	// Выполняем замер порождения ключа ML-DSA-65: отбор SHAKE и матрица заново
+	const double mldsaGenerate = count("ML-DSA-65 порождение ключа", 100, [&mldsa, &mldsaPublic, &mldsaSecret]() noexcept -> void {
+		// Выполняем порождение ключа ML-DSA-65 из источника случайности
+		mldsa.generate(sign::mldsa_t::set_t::DSA65, mldsaPublic, mldsaSecret);
+	});
+	// Подпись ML-DSA-65
+	uint8_t mldsaSignature[3309];
+	// Выполняем замер числа подписей ML-DSA-65 за секунду: хеджированная выработка
+	const double mldsaSigning = count("ML-DSA-65 подпись", 200, [&mldsa, &hash, &mldsaSignature]() noexcept -> void {
+		// Выполняем подпись ML-DSA-65 с пустым контекстом
+		mldsa.make(view_t(hash, 32), view_t(nullptr, 0), mldsaSignature);
+	});
+	// Выполняем замер числа сличений подписи ML-DSA-65 за секунду: открытое действие
+	const double mldsaChecking = count("ML-DSA-65 сличение", 500, [&mldsa, &hash, &mldsaSignature]() noexcept -> void {
+		// Выполняем сличение подписи ML-DSA-65 с пустым контекстом
+		mldsa.check(view_t(hash, 32), view_t(nullptr, 0), view_t(mldsaSignature, sizeof(mldsaSignature)));
+	});
 	// Подлинность стороны сервера
 	context::credential_t credentials;
 	// Если подлинность стороны сервера выработать не удалось
@@ -1929,6 +1958,45 @@ int main(int argc, char * argv[]) noexcept {
 		::EVP_PKEY_CTX_free(rsaSigner);
 		::EVP_PKEY_CTX_free(rsaChecker);
 		::EVP_PKEY_free(rsaKey);
+		// Замеры ML-DSA-65 эталона: у эталона без ML-DSA замеров нет
+		double mldsaGenerateRef = 0., mldsaSignRef = 0., mldsaVerifyRef = 0.;
+		// Ключевая пара ML-DSA-65 эталона
+		EVP_PKEY * mldsaKey = ::EVP_PKEY_Q_keygen(nullptr, nullptr, "ML-DSA-65");
+		// Если ключевая пара ML-DSA эталона выработалась
+		if(mldsaKey != nullptr){
+			// Объект работы с подписью ML-DSA эталона: без хеша, сообщение целиком
+			EVP_MD_CTX * mldsaDigest = ::EVP_MD_CTX_new();
+			// Подпись ML-DSA эталона и её длина
+			uint8_t mldsaSealing[3309];
+			size_t mldsaLength = sizeof(mldsaSealing);
+			// Выполняем замер порождения ключа ML-DSA-65 эталона за секунду
+			mldsaGenerateRef = count("ML-DSA-65 порождение ключа", 100, []() noexcept -> void {
+				// Выполняем порождение ключевой пары ML-DSA-65 эталона
+				::EVP_PKEY_free(::EVP_PKEY_Q_keygen(nullptr, nullptr, "ML-DSA-65"));
+			});
+			// Выполняем замер числа подписей ML-DSA-65 эталона за секунду
+			mldsaSignRef = count("ML-DSA-65 подпись", 200, [&mldsaDigest, &mldsaKey, &hash, &mldsaSealing, &mldsaLength]() noexcept -> void {
+				// Длина подписи
+				mldsaLength = sizeof(mldsaSealing);
+				// Выполняем заведение выработки подписи ML-DSA эталона
+				::EVP_DigestSignInit(mldsaDigest, nullptr, nullptr, nullptr, mldsaKey);
+				// Выполняем подпись ML-DSA эталона
+				::EVP_DigestSign(mldsaDigest, mldsaSealing, &mldsaLength, hash, 32);
+			});
+			// Выполняем замер числа сличений подписи ML-DSA-65 эталона за секунду
+			mldsaVerifyRef = count("ML-DSA-65 сличение", 500, [&mldsaDigest, &mldsaKey, &hash, &mldsaSealing, &mldsaLength]() noexcept -> void {
+				// Выполняем заведение сличения подписи ML-DSA эталона
+				::EVP_DigestVerifyInit(mldsaDigest, nullptr, nullptr, nullptr, mldsaKey);
+				// Выполняем сличение подписи ML-DSA эталона
+				::EVP_DigestVerify(mldsaDigest, mldsaSealing, mldsaLength, hash, 32);
+			});
+			// Выполняем освобождение объектов ML-DSA эталона
+			::EVP_MD_CTX_free(mldsaDigest);
+			::EVP_PKEY_free(mldsaKey);
+		} else {
+			// Выводим примету отсутствия ML-DSA у эталона
+			cout << "У эталона ML-DSA нет, сличение пропускается" << endl;
+		}
 		// Место, в которое помещается общее значение обмена эталона
 		vector <uint8_t> common(32, 0);
 		// Выполняем замер числа обменов ключами эталона за секунду
@@ -2272,6 +2340,12 @@ int main(int argc, char * argv[]) noexcept {
 		relation("RSA-2048 подпись против эталона", rsaSigning, rsaSign);
 		// Выводим отношение сличения подписи RSA-2048 к эталону
 		relation("RSA-2048 сличение против эталона", rsaChecking, rsaVerify);
+		// Выводим отношение порождения ключа ML-DSA-65 к эталону
+		relation("ML-DSA-65 порождение против эталона", mldsaGenerate, mldsaGenerateRef);
+		// Выводим отношение подписи ML-DSA-65 к эталону
+		relation("ML-DSA-65 подпись против эталона", mldsaSigning, mldsaSignRef);
+		// Выводим отношение сличения подписи ML-DSA-65 к эталону
+		relation("ML-DSA-65 сличение против эталона", mldsaChecking, mldsaVerifyRef);
 		relation("TLS 1.3 умолчания против эталона", shakeDefaults, shakeDefaultsRef);
 		relation("TLS 1.3 умолчания к серверу эталона против эталона", shakeCross, shakeDefaultsRef);
 		relation("TLS 1.3 рукопожатие ECDSA против эталона", shakeEcdsa, shakeEcdsaRef);
@@ -2311,6 +2385,10 @@ int main(int argc, char * argv[]) noexcept {
 		(void) signing;
 		// Не используем замер сличения подписи при отключённом сличении
 		(void) checking;
+		// Не используем замеры ML-DSA-65 при отключённом сличении
+		(void) mldsaGenerate;
+		(void) mldsaSigning;
+		(void) mldsaChecking;
 		// Не используем замер обмена ключами при отключённом сличении
 		(void) exchange;
 		(void) shakeDefaults;

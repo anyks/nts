@@ -67,3 +67,23 @@ target_link_libraries(${TEST_RSA_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main $
 
 # Регистрируем цель проверок
 add_test(NAME ${TEST_RSA_NAME} COMMAND ${TEST_RSA_NAME})
+
+SET(TEST_MLDSA_NAME mldsa)
+
+# Добавляем цель проверок модуля электронной подписи ML-DSA
+add_executable(${TEST_MLDSA_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/mldsa.cpp")
+
+# Включаем флаги компиляции проверок
+target_compile_options(${TEST_MLDSA_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
+
+# Подключаем каталог общих заголовочных файлов набора проверок
+target_include_directories(${TEST_MLDSA_NAME} PRIVATE "${ANTS_ROOT}/tests")
+
+# Передаем расположение набора контрольных примеров
+target_compile_definitions(${TEST_MLDSA_NAME} PRIVATE ANTS_CORPUS="${ANTS_ROOT}/tests/corpus")
+
+# Выполняем подключение зависимостей цели проверок
+target_link_libraries(${TEST_MLDSA_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
+
+# Регистрируем цель проверок
+add_test(NAME ${TEST_MLDSA_NAME} COMMAND ${TEST_MLDSA_NAME})
