@@ -93,7 +93,9 @@ namespace nts {
 			SHA3_384 = 0x30, /*!< \~russian Хеш SHA3-384 \~english The SHA3-384 hash \~ */
 			SHA3_512 = 0x40, /*!< \~russian Хеш SHA3-512 \~english The SHA3-512 hash \~ */
 			SHAKE128 = 0x81, /*!< \~russian Функция переменного выхода SHAKE128 \~english The SHAKE128 extendable-output function \~ */
-			SHAKE256 = 0x82  /*!< \~russian Функция переменного выхода SHAKE256 \~english The SHAKE256 extendable-output function \~ */
+			SHAKE256 = 0x82, /*!< \~russian Функция переменного выхода SHAKE256 \~english The SHAKE256 extendable-output function \~ */
+			CSHAKE128 = 0x91, /*!< \~russian Настраиваемая функция переменного выхода cSHAKE128 (SP 800-185) \~english The customizable extendable-output function cSHAKE128 (SP 800-185) \~ */
+			CSHAKE256 = 0x92  /*!< \~russian Настраиваемая функция переменного выхода cSHAKE256 (SP 800-185) \~english The customizable extendable-output function cSHAKE256 (SP 800-185) \~ */
 		};
 		/**
 		 * \~russian

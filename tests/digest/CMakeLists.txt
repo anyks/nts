@@ -172,6 +172,24 @@ target_link_libraries(${TEST_SHA3_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main 
 # Регистрируем цель проверок
 add_test(NAME ${TEST_SHA3_NAME} COMMAND ${TEST_SHA3_NAME})
 
+# Устанавливаем имя цели проверок модуля cSHAKE и KMAC
+SET(TEST_CSHAKE_NAME cshake)
+
+# Добавляем цель проверок модуля cSHAKE и KMAC
+add_executable(${TEST_CSHAKE_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/cshake.cpp")
+
+# Включаем флаги компиляции проверок
+target_compile_options(${TEST_CSHAKE_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
+
+# Подключаем каталог общих заголовочных файлов набора проверок
+target_include_directories(${TEST_CSHAKE_NAME} PRIVATE "${ANTS_ROOT}/tests")
+
+# Выполняем подключение зависимостей цели проверок
+target_link_libraries(${TEST_CSHAKE_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
+
+# Регистрируем цель проверок
+add_test(NAME ${TEST_CSHAKE_NAME} COMMAND ${TEST_CSHAKE_NAME})
+
 # Устанавливаем имя цели проверок модуля blake2
 SET(TEST_BLAKE2_NAME blake2)
 

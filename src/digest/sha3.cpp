@@ -257,8 +257,16 @@ void nts::digest::Keccak::permute() noexcept {
  *
  */
 void nts::digest::Keccak::seal() noexcept {
-	// Байт начала дополнения по разновидности: 0x06 у хешей, 0x1F у функций переменного выхода
-	const uint8_t opening = (((this->_type == sha3_t::SHAKE128) || (this->_type == sha3_t::SHAKE256)) ? 0x1F : 0x06);
+	// Байт начала дополнения по разновидности: 0x06 у хешей, 0x1F у функций переменного выхода, 0x04 у настраиваемых (SP 800-185)
+	uint8_t opening = 0x06;
+	// Если разновидность - функция переменного выхода
+	if((this->_type == sha3_t::SHAKE128) || (this->_type == sha3_t::SHAKE256))
+		// Байт начала дополнения функций переменного выхода
+		opening = 0x1F;
+	// Иначе, если разновидность - настраиваемая функция переменного выхода
+	else if((this->_type == sha3_t::CSHAKE128) || (this->_type == sha3_t::CSHAKE256))
+		// Байт начала дополнения настраиваемых функций переменного выхода
+		opening = 0x04;
 	// Складываем байт начала дополнения с полосой по смещению незавершённого блока
 	this->_state[this->_size / 8] ^= (static_cast <uint64_t> (opening) << ((this->_size % 8) * 8));
 	// Складываем разряд окончания дополнения с последней полосой блока
@@ -428,7 +436,7 @@ bool nts::digest::Keccak::update(const view_t & data) noexcept {
  */
 bool nts::digest::Keccak::squeeze(uint8_t * result, const size_t size) noexcept {
 	// Если разновидность не функция переменного выхода
-	if((this->_type != sha3_t::SHAKE128) && (this->_type != sha3_t::SHAKE256))
+	if((this->_type != sha3_t::SHAKE128) && (this->_type != sha3_t::SHAKE256) && (this->_type != sha3_t::CSHAKE128) && (this->_type != sha3_t::CSHAKE256))
 		// Выводим отказ выжимания
 		return false;
 	// Если место под кусок итога не передано
@@ -514,7 +522,7 @@ bool nts::digest::Keccak::finish(uint8_t * result, const size_t size) noexcept {
 		// Выводим отказ снятия итога
 		return false;
 	// Если разновидность - функция переменного выхода
-	if((this->_type == sha3_t::SHAKE128) || (this->_type == sha3_t::SHAKE256))
+	if((this->_type == sha3_t::SHAKE128) || (this->_type == sha3_t::SHAKE256) || (this->_type == sha3_t::CSHAKE128) || (this->_type == sha3_t::CSHAKE256))
 		// Выжимаем итог запрошенной длины
 		return this->squeeze(result, size);
 	// Если длина места не сходится с длиной разновидности
@@ -632,10 +640,14 @@ size_t nts::digest::rate(const sha3_t type) noexcept {
 			return (SHA3_STATE - (static_cast <size_t> (type) * 2));
 		// SHAKE128: скорость 1344 разряда
 		case static_cast <uint8_t> (sha3_t::SHAKE128):
+		// cSHAKE128: скорость та же (SP 800-185, раздел 3)
+		case static_cast <uint8_t> (sha3_t::CSHAKE128):
 			// Выводим скорость функции переменного выхода
 			return 168;
 		// SHAKE256: скорость 1088 разрядов
 		case static_cast <uint8_t> (sha3_t::SHAKE256):
+		// cSHAKE256: скорость та же (SP 800-185, раздел 3)
+		case static_cast <uint8_t> (sha3_t::CSHAKE256):
 			// Выводим скорость функции переменного выхода
 			return 136;
 	}

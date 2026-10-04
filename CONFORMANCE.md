@@ -9107,6 +9107,13 @@ mpint делает SSH), rsa-sha2-256/512 (PKCS #1 v1.5); шифры chacha20-po
 Г13. Малые стандарты, объём мал - брать как полноту по стандарту, низкий приоритет: cSHAKE и KMAC по SP 800-185 (около
     150 строк поверх SHA-3, векторы NIST; удобно вместе с А4); KDF SNMPv3 по RFC 3414 и prf+ IKEv2 по RFC 7296 §2.13
     (десятки строк на HMAC, под модули SNMP и IKE); LMS/HSS по RFC 8554 и SP 800-208 - только
+    **Круг 87 (05.10.2026)**: cSHAKE и KMAC сделаны. Разновидности CSHAKE128/CSHAKE256 в digest::sha3_t (суффикс
+    дополнения 0x04 в seal(), скорости те же, squeeze/finish по ветке XOF). Модуль digest::cshake: left_encode/
+    right_encode/encode_string/bytepad по SP 800-185 §2.2; cshake() (пустые N и S дают ровно SHAKE), kmac()
+    (bytepad(encode_string(K)) ‖ X ‖ right_encode(L), имя «KMAC»), kmacxof() (right_encode(0)). Пины на официальных
+    образцах NIST (cSHAKE_samples.pdf, KMAC_samples.pdf): cSHAKE128 #1-2, cSHAKE256 #3-4, KMAC128 #1-3, KMAC256 #4-6,
+    тождество SHAKE, префикс KMACXOF. ctest 95/95 зелёные.
+    Открыто по Г13: KDF SNMPv3 (RFC 3414), prf+ IKEv2 (RFC 7296 §2.13), LMS/HSS (RFC 8554, SP 800-208) - по запросу.
     сличение, как у OpenSSL (843 строки C; подпись с состоянием не брать), нужно проверке подписей прошивок по CNSA 2.0,
     в TLS не входит.
 Г14. Семейство SM по RFC 8998 (SM2, SM3, SM4; наборы TLS_SM4_GCM_SM3 0x00C6 и TLS_SM4_CCM_SM3 0x00C7, схема sm2sig_sm3
