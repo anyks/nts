@@ -510,6 +510,18 @@ const vector <uint8_t> & nts::client::Context::status() const noexcept {
 	return ((this->_engine != nullptr) ? this->_engine->status() : empty);
 }
 /**
+ * @brief Метод получения ответов о состоянии сертификатов цепочки собеседника
+ *
+ * @return записи ответов OCSP по местам в цепочке либо пустой накопитель
+ *
+ */
+const vector <vector <uint8_t>> & nts::client::Context::statuses() const noexcept {
+	// Пустой накопитель на случай незаведённой связи
+	static const vector <vector <uint8_t>> empty;
+	// Выводим ответы о состоянии сертификатов цепочки собеседника
+	return ((this->_engine != nullptr) ? this->_engine->statuses() : empty);
+}
+/**
  * @brief Метод установки проверки принятого ответа о состоянии сертификата
  *
  * @param verify проверяется ли принятый ответ связью

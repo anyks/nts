@@ -8341,3 +8341,34 @@ TEST(ContextTest, RawPublicKeyMismatch){
 	// Связь не должна установиться: ключ сервера не совпал с закреплённым
 	EXPECT_FALSE(client.established());
 }
+
+/**
+ * Проверка многократной сшивки OCSP по RFC 8446 §4.4.2.1
+ */
+TEST(ContextTest, OcspStapling){
+	// Подлинность стороны сервера
+	context::credential_t credentials;
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Связь стороны клиента
+	client::context_t client;
+	gosting(client);
+	// Связь стороны сервера
+	server::context_t server;
+	gosting(server);
+	server.credential(credentials);
+	// Заводим связь
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	converse(client, server);
+	ASSERT_TRUE(client.established());
+	ASSERT_TRUE(server.established());
+	// Проверяем ответы о состоянии: без запроса status_request ответов нет
+	EXPECT_TRUE(client.status().empty());
+	// statuses() имеет места по числу записей цепочки, но все пусты
+	for(const auto & entry : client.statuses())
+		EXPECT_TRUE(entry.empty());
+	// Закрываем связь
+	ASSERT_EQ(client.close(), context::error_t::NONE);
+	pump(client, server);
+	ASSERT_EQ(server.state(), context::state_t::CLOSED);
+}

@@ -1035,6 +1035,24 @@ namespace nts {
 				const vector <uint8_t> & status() const noexcept;
 				/**
 				 * \~russian
+				 * @brief Метод получения ответов о состоянии сертификатов цепочки собеседника
+				 *
+				 * @return записи принятых ответов OCSP по местам в цепочке либо пустой накопитель
+				 *
+				 * @details RFC 8446 §4.4.2.1: status_request в каждом CertificateEntry;
+				 *          ответ относится к сертификату своей записи. Пустой элемент - нет ответа
+				 *
+				 * \~english
+				 * @brief Method of getting the responses about the status of the certificates of the peer chain
+				 * @return the received OCSP responses by the places in the chain or an empty accumulator
+				 * @details RFC 8446 §4.4.2.1: status_request in each CertificateEntry;
+				 *          the response refers to the certificate of its entry. An empty element - no response
+				 *
+				 * \~
+				 */
+				const vector <vector <uint8_t>> & statuses() const noexcept;
+				/**
+				 * \~russian
 				 * @brief Метод получения перечня меток времени сертификата собеседника
 				 *
 				 * @return перечень SignedCertificateTimestampList как записан, пустой без ответа

@@ -4277,6 +4277,10 @@ context::error_t nts::internal::Engine::chain(const view_t & body) noexcept {
 		}
 		// Расширение состояния сертификата собеседника
 		const hello::extension_t * extension = nullptr;
+		// Выполняем сброс прежних ответов о состоянии сертификатов цепочки
+		this->_statuses.clear();
+		// Занимаем место под ответы по числу записей цепочки
+		this->_statuses.resize(certificate.entries.size());
 		/**
 		 * Раздел 4.4.2.1 RFC 8446: ответ о состоянии относится к сертификату своей записи;
 		 * связь берёт ответ о сертификате самого собеседника - из первой записи либо из
@@ -4303,6 +4307,39 @@ context::error_t nts::internal::Engine::chain(const view_t & body) noexcept {
 			if(error != context::error_t::NONE)
 				// Выводим отказ разбора ответа о состоянии
 				return error;
+		}
+		/**
+		 * Раздел 4.4.2.1 RFC 8446: ответы о состоянии иных записей цепочки собираются
+		 * по местам для потребителя; проверка их - дело потребителя, связь лишь хранит
+		 */
+		for(size_t i = 1; i < certificate.entries.size(); i++){
+			// Разыскиваем расширение состояния сертификата записи цепочки
+			const hello::extension_t * status = hello::extension(certificate.entries[i].extensions, static_cast <uint16_t> (extension::type_t::STATUS));
+			// Если ответ о состоянии записи прислан
+			if(status != nullptr){
+				// Объект разборщика тела расширения состояния
+				field::scanner_t scanner;
+				// Устанавливаем разбираемое тело расширения состояния
+				scanner.start(status->data);
+				// Вид присланного состояния сертификата
+				uint32_t type = 0;
+				// Если вид состояния прочитать не удалось
+				if(scanner.number(type, 1) != field::error_t::NONE)
+					// Переходим к следующей записи
+					continue;
+				// Запись ответа о состоянии
+				view_t response;
+				// Если запись ответа прочитать не удалось
+				if(scanner.vector(response, 3) != field::error_t::NONE)
+					// Переходим к следующей записи
+					continue;
+				// Если вид состояния не ocsp либо запись пуста
+				if((type != OCSP) || (response.size == 0))
+					// Переходим к следующей записи
+					continue;
+				// Переносим запись ответа в накопитель по месту записи
+				this->_statuses[i].assign(response.data, response.data + response.size);
+			}
 		}
 		// Выполняем сброс перечня меток времени сертификата собеседника
 		this->_timestamps.clear();
@@ -8906,6 +8943,16 @@ size_t nts::internal::Engine::threshold() const noexcept {
 const vector <uint8_t> & nts::internal::Engine::status() const noexcept {
 	// Выводим принятый ответ о состоянии
 	return this->_status;
+}
+/**
+ * @brief Метод получения ответов о состоянии сертификатов цепочки собеседника
+ *
+ * @return записи принятых ответов OCSP по местам в цепочке либо пустой накопитель
+ *
+ */
+const vector <vector <uint8_t>> & nts::internal::Engine::statuses() const noexcept {
+	// Выводим принятые ответы о состоянии по местам
+	return this->_statuses;
 }
 /**
  * @brief Метод установки проверки принятого ответа о состоянии

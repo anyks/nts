@@ -459,6 +459,8 @@ namespace nts {
 				vector <vector <uint8_t>> _staples;
 				// Ответ о состоянии сертификата собеседника, принятый связью
 				vector <uint8_t> _status;
+				// Ответы о состоянии сертификатов цепочки собеседника по местам: пустой - нет ответа
+				vector <vector <uint8_t>> _statuses;
 			private:
 				// Признак того, что метки времени сертификата собеседника связью запрашиваются (RFC 6962)
 				bool _stamping;
@@ -2058,6 +2060,16 @@ namespace nts {
 				 *
 				 */
 				const vector <uint8_t> & status() const noexcept;
+				/**
+				 * @brief Метод получения ответов о состоянии сертификатов цепочки собеседника
+				 *
+				 * @return записи принятых ответов OCSP по местам в цепочке либо пустой накопитель
+				 *
+				 * @details RFC 8446 §4.4.2.1: status_request в каждом CertificateEntry;
+				 *          ответ относится к сертификату своей записи. Пустой элемент - нет ответа
+				 *
+				 */
+				const vector <vector <uint8_t>> & statuses() const noexcept;
 				/**
 				 * @brief Метод установки проверки принятого ответа о состоянии
 				 *
