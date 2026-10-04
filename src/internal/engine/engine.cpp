@@ -797,6 +797,7 @@ namespace {
 		{static_cast <uint16_t> (extension::type_t::FRAGMENT),  PLACE_GUARDED},
 		{static_cast <uint16_t> (extension::type_t::LIMIT),     PLACE_GUARDED},
 		{static_cast <uint16_t> (extension::type_t::PROTOCOLS), PLACE_GUARDED},
+		{static_cast <uint16_t> (extension::type_t::PROFILES),  (PLACE_HELLO | PLACE_GUARDED)},
 		{static_cast <uint16_t> (extension::type_t::SETTINGS),  PLACE_GUARDED},
 		{static_cast <uint16_t> (extension::type_t::SETTINGS_OLD), PLACE_GUARDED},
 		{static_cast <uint16_t> (extension::type_t::SECRET),    PLACE_HELLO},
@@ -3058,7 +3059,7 @@ context::error_t nts::internal::Engine::greeting() noexcept {
 			// Вставляем набор GREASE в начало перечня наборов
 			greeting.suites.insert(greeting.suites.begin(), this->greasing(grease_t::SUITE));
 		// Накопители, в которых лежат тела расширений приветствия
-		vector <uint8_t> versions, groups, schemes, shares, name, protocols, certtypes;
+		vector <uint8_t> versions, groups, schemes, shares, name, protocols, certtypes, profiles;
 		// Перечень предлагаемых изданий протокола от старшего к младшему
 		vector <uint16_t> editions;
 		// Запоминаем, предлагается ли издание 1.3 приветствием
@@ -3174,6 +3175,17 @@ context::error_t nts::internal::Engine::greeting() noexcept {
 				// Добавляем расширение вида сертификата сервера
 				greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::SERVER_CERT_TYPE), view_t(certtypes.data(), certtypes.size())));
 			}
+		}
+		// Если профили защиты RTP связью предлагаются
+		if(!this->_srtps.empty()){
+			// Отказ составления расширения приветствия
+			const context::error_t failure = translate(extension::profiles(this->_srtps, profiles), context::error_t::MESSAGE);
+			// Если перечень профилей защиты RTP составить не удалось
+			if(failure != context::error_t::NONE)
+				// Выводим отказ составления расширения приветствия
+				return failure;
+			// Добавляем расширение перечня профилей защиты RTP
+			greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::PROFILES), view_t(profiles.data(), profiles.size())));
 		}
 		// Доли ключа положены лишь изданию TLS 1.3: раздел 4.2.8 RFC 8446
 		if(modern)
@@ -6062,6 +6074,41 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 					return this->abort(context::error_t::PROTOCOL, alert::description_t::PROTOCOL);
 			}
 		}
+		// Если профили защиты RTP сервером признаются
+		if(!this->_srtps.empty()){
+			// Разыскиваем расширение перечня профилей защиты RTP
+			extension = hello::extension(greeting.extensions, static_cast <uint16_t> (extension::type_t::PROFILES));
+			// Если профили защиты RTP приветствием объявлены
+			if(extension != nullptr){
+				// Перечень профилей защиты RTP, предложенных клиентом
+				vector <uint16_t> offer;
+				// Отказ разбора расширения приветствия
+				failure = translate(extension::profiles(extension->data, offer), context::error_t::MESSAGE);
+				// Если перечень профилей защиты RTP разобрать не удалось
+				if(failure != context::error_t::NONE)
+					// Выводим отказ разбора расширения приветствия
+					return this->abort(failure, blame(failure, alert::description_t::DECODE));
+				/**
+				 * Выполняем перебор профилей защиты RTP сервера: выбор идёт его порядком,
+				 * как у прикладных протоколов (раздел 3.2 RFC 7301)
+				 */
+				for(size_t i = 0; (i < this->_srtps.size()) && (this->_srtp == 0); i++){
+					/**
+					 * Выполняем перебор профилей защиты RTP, предложенных клиентом
+					 */
+					for(size_t j = 0; (j < offer.size()) && (this->_srtp == 0); j++){
+						// Если профиль защиты RTP предложен обеими сторонами
+						if(offer[j] == this->_srtps[i])
+							// Запоминаем выбранный сторонами профиль защиты RTP
+							this->_srtp = this->_srtps[i];
+					}
+				}
+				// Если общего профиля защиты RTP у сторон не нашлось
+				if(this->_srtp == 0)
+					// Выводим отказ отсутствия общего профиля защиты RTP
+					return this->abort(context::error_t::PROTOCOL, alert::description_t::PROTOCOL);
+			}
+		}
 		// Свои прикладные настройки выбранного протокола
 		view_t applied;
 		/**
@@ -6560,6 +6607,8 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 		vector <hello::extension_t> items;
 		// Накопитель, в котором лежит тело расширения прикладного протокола
 		vector <uint8_t> protocol;
+		// Накопитель, в котором лежит тело расширения профиля защиты RTP
+		vector <uint8_t> protection;
 		// Если упреждающие данные клиента приняты
 		if(this->_accepted)
 			// Объявляем клиенту приём упреждающих данных
@@ -6590,6 +6639,17 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 				return this->abort(failure, blame(failure, alert::description_t::INTERNAL));
 			// Объявляем клиенту выбранный прикладной протокол
 			items.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::PROTOCOLS), view_t(protocol.data(), protocol.size())));
+		}
+		// Если профиль защиты RTP сторонами выбран
+		if(this->_srtp != 0){
+			// Отказ составления сообщения защищённых расширений
+			failure = translate(extension::profiles(vector <uint16_t> (1, this->_srtp), protection), context::error_t::MESSAGE);
+			// Если выбранный профиль защиты RTP составить не удалось
+			if(failure != context::error_t::NONE)
+				// Выводим отказ составления сообщения защищённых расширений
+				return this->abort(failure, blame(failure, alert::description_t::INTERNAL));
+			// Объявляем клиенту выбранный профиль защиты RTP
+			items.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::PROFILES), view_t(protection.data(), protection.size())));
 		}
 		/**
 		 * Черновик draft-vvv-tls-alps: свои настройки идут под защитой, а при принятом
@@ -7986,6 +8046,37 @@ context::error_t nts::internal::Engine::handle(const handshake::type_t type, con
 						return this->abort(context::error_t::MEMORY, alert::description_t::INTERNAL);
 					}
 				}
+				// Тело расширения выбранного сервером профиля защиты RTP
+				view_t picked;
+				// Если профиль защиты RTP сервером объявлен
+				if(announced(body, static_cast <uint16_t> (extension::type_t::PROFILES), picked)){
+					// Перечень профилей защиты RTP, выбранный сервером
+					vector <uint16_t> offer;
+					// Отказ разбора защищённых расширений сервера
+					failure = translate(extension::profiles(picked, offer), context::error_t::MESSAGE);
+					// Если выбранный сервером профиль защиты RTP разобрать не удалось
+					if(failure != context::error_t::NONE)
+						// Выводим отказ разбора защищённых расширений сервера
+						return this->abort(failure, blame(failure, alert::description_t::DECODE));
+					// Раздел 4.1.1 RFC 5764: сервер выбирает ровно один профиль из предложенных
+					if(offer.size() != 1)
+						// Выводим отказ негодного расширения
+						return this->abort(context::error_t::MESSAGE, alert::description_t::PARAMETER);
+					// Признак того, что выбранный профиль связью предлагался
+					bool suitable = false;
+					/**
+					 * Выполняем перебор профилей защиты RTP, предложенных связью
+					 */
+					for(size_t i = 0; (i < this->_srtps.size()) && !suitable; i++)
+						// Запоминаем, предлагался ли выбранный сервером профиль связью
+						suitable = (offer[0] == this->_srtps[i]);
+					// Профиль вне предложения принимать нельзя, как и протокол вне предложения (раздел 3.2 RFC 7301)
+					if(!suitable)
+						// Выводим отказ отсутствия общего профиля защиты RTP
+						return this->abort(context::error_t::PROTOCOL, alert::description_t::PROTOCOL);
+					// Запоминаем выбранный сторонами профиль защиты RTP
+					this->_srtp = offer[0];
+				}
 				/**
 				 * Раздел 8.1 RFC 9001: под QUIC прикладной протокол обязателен, и сервер, его
 				 * не выбравший, обрывает связь извещением no_application_protocol
@@ -8406,6 +8497,38 @@ const string & nts::internal::Engine::name() const noexcept {
 const string & nts::internal::Engine::protocol() const noexcept {
 	// Выводим прикладной протокол, выбранный сторонами связи
 	return this->_protocol;
+}
+/**
+ * @brief Метод установки профилей защиты RTP, предлагаемых связью
+ *
+ * @param profiles предлагаемые профили защиты RTP
+ *
+ */
+void nts::internal::Engine::profiles(const vector <uint16_t> & profiles) noexcept {
+	/**
+	 * Выполняем перехват ошибок работы с памятью: перечень занимает память, а
+	 * установщик отказа не выводит, и нехватка памяти помнится до заведения связи
+	 */
+	try {
+		// Переносим перечень предлагаемых профилей защиты RTP
+		this->_srtps = profiles;
+	/**
+	 * Если памяти под перечень профилей не хватило
+	 */
+	} catch(const bad_alloc &) {
+		// Сбрасываем перечень предлагаемых профилей защиты RTP
+		this->_srtps.clear();
+	}
+}
+/**
+ * @brief Метод получения профиля защиты RTP, выбранного сторонами связи
+ *
+ * @return выбранный профиль защиты RTP; 0, если профиль не выбран
+ *
+ */
+uint16_t nts::internal::Engine::profile() const noexcept {
+	// Выводим профиль защиты RTP, выбранный сторонами связи
+	return this->_srtp;
 }
 /**
  * @brief Метод установки запроса состояния сертификата собеседника
@@ -12199,6 +12322,40 @@ context::error_t nts::internal::Engine::welcome(const hello::client_t & greeting
 					return this->abort(context::error_t::PROTOCOL, alert::description_t::PROTOCOL);
 			}
 		}
+		// Если профили защиты RTP сервером признаются
+		if(!this->_srtps.empty()){
+			// Разыскиваем расширение перечня профилей защиты RTP
+			extension = hello::extension(greeting.extensions, static_cast <uint16_t> (extension::type_t::PROFILES));
+			// Если профили защиты RTP приветствием объявлены
+			if(extension != nullptr){
+				// Перечень профилей защиты RTP, предложенных клиентом
+				vector <uint16_t> offer;
+				// Отказ разбора расширения приветствия
+				failure = translate(extension::profiles(extension->data, offer), context::error_t::MESSAGE);
+				// Если перечень профилей защиты RTP разобрать не удалось
+				if(failure != context::error_t::NONE)
+					// Выводим отказ разбора расширения приветствия
+					return this->abort(failure, blame(failure, alert::description_t::DECODE));
+				/**
+				 * Выполняем перебор профилей защиты RTP сервера: выбор идёт его порядком (раздел 3.2 RFC 7301)
+				 */
+				for(size_t i = 0; (i < this->_srtps.size()) && (this->_srtp == 0); i++){
+					/**
+					 * Выполняем перебор профилей защиты RTP, предложенных клиентом
+					 */
+					for(size_t j = 0; (j < offer.size()) && (this->_srtp == 0); j++){
+						// Если профиль защиты RTP предложен обеими сторонами
+						if(offer[j] == this->_srtps[i])
+							// Запоминаем выбранный сторонами профиль защиты RTP
+							this->_srtp = this->_srtps[i];
+					}
+				}
+				// Если общего профиля защиты RTP у сторон не нашлось
+				if(this->_srtp == 0)
+					// Выводим отказ отсутствия общего профиля защиты RTP
+					return this->abort(context::error_t::PROTOCOL, alert::description_t::PROTOCOL);
+			}
+		}
 		// Разбираем предложенные клиентом пределы длины записи (RFC 8449, раздел 4 RFC 6066)
 		failure = this->sizing(greeting);
 		// Если пределы не приняты
@@ -12478,6 +12635,8 @@ context::error_t nts::internal::Engine::welcome(const hello::client_t & greeting
 		answer.method = 0x00;
 		// Накопитель, в котором лежит тело расширения выбранного прикладного протокола
 		vector <uint8_t> protocol;
+		// Накопитель, в котором лежит тело расширения профиля защиты RTP
+		vector <uint8_t> protection;
 		// Раздел 5.2 RFC 7627: сервер отвечает пустым расширением расширенного главного секрета лишь клиенту, его предложившему
 		if(this->_extending)
 			// Добавляем подтверждение расширенного главного секрета
@@ -12504,6 +12663,17 @@ context::error_t nts::internal::Engine::welcome(const hello::client_t & greeting
 				return this->abort(failure, blame(failure, alert::description_t::INTERNAL));
 			// Добавляем расширение выбранного прикладного протокола
 			answer.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::PROTOCOLS), view_t(protocol.data(), protocol.size())));
+		}
+		// Если профиль защиты RTP сторонами выбран
+		if(this->_srtp != 0){
+			// Отказ составления расширения приветствия
+			failure = translate(extension::profiles(vector <uint16_t> (1, this->_srtp), protection), context::error_t::MESSAGE);
+			// Если выбранный профиль защиты RTP составить не удалось
+			if(failure != context::error_t::NONE)
+				// Выводим отказ составления расширения приветствия
+				return this->abort(failure, blame(failure, alert::description_t::INTERNAL));
+			// Добавляем расширение выбранного профиля защиты RTP
+			answer.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::PROFILES), view_t(protection.data(), protection.size())));
 		}
 		// Если предел длины записи договорён, отвечаем клиенту своим расширением
 		if(this->_sizing != 0){
@@ -12858,6 +13028,35 @@ context::error_t nts::internal::Engine::greeted(const hello::server_t & answer, 
 						return this->abort(context::error_t::PROTOCOL, alert::description_t::PROTOCOL);
 					// Запоминаем выбранный сторонами прикладной протокол
 					this->_protocol = ::move(selected);
+				} break;
+				// Раздел 4.1.1 RFC 5764: сервер объявляет выбранный профиль защиты RTP
+				case static_cast <uint16_t> (extension::type_t::PROFILES): {
+					// Перечень профилей защиты RTP, выбранный сервером
+					vector <uint16_t> offer;
+					// Отказ разбора расширения приветствия
+					failure = translate(extension::profiles(data, offer), context::error_t::MESSAGE);
+					// Если выбранный сервером профиль защиты RTP разобрать не удалось
+					if(failure != context::error_t::NONE)
+						// Выводим отказ разбора расширения приветствия
+						return this->abort(failure, blame(failure, alert::description_t::DECODE));
+					// Раздел 4.1.1 RFC 5764: сервер выбирает ровно один профиль из предложенных
+					if(offer.size() != 1)
+						// Выводим отказ негодного расширения
+						return this->abort(context::error_t::MESSAGE, alert::description_t::PARAMETER);
+					// Признак того, что выбранный профиль связью предлагался
+					bool suitable = false;
+					/**
+					 * Выполняем перебор профилей защиты RTP, предложенных связью
+					 */
+					for(size_t j = 0; (j < this->_srtps.size()) && !suitable; j++)
+						// Запоминаем, предлагался ли выбранный сервером профиль связью
+						suitable = (offer[0] == this->_srtps[j]);
+					// Профиль вне предложения принимать нельзя, как и протокол вне предложения (раздел 3.2 RFC 7301)
+					if(!suitable)
+						// Выводим отказ отсутствия общего профиля защиты RTP
+						return this->abort(context::error_t::PROTOCOL, alert::description_t::PROTOCOL);
+					// Запоминаем выбранный сторонами профиль защиты RTP
+					this->_srtp = offer[0];
 				} break;
 				// Раздел 8 RFC 6066: состояние сертификата объявляется пустым расширением
 				// Черновик draft-agl-tls-nextprotoneg: перечень протоколов сервера для выработки NPN
@@ -17790,7 +17989,7 @@ nts::internal::Engine::Engine(const bool server) noexcept :
 	_inquiring(false), _inquired(false), _verifying(false), _leeway(0), _certified(ocsp::status_t::NONE), _stamping(false), _stamped(false), _outgoing(record::RECORD_PLAINTEXT), _incoming(record::RECORD_PLAINTEXT), _sizing(0), _bounded(0), _fragmented(0), _bounding(0), _fragmenting(0), _sized{0, 0}, _heartbeating(false), _permitted(false), _answering(false), _beating(false), _pulses(0), _negotiating(false), _negotiated(false), _announced(false), _reshare(true), _greasing(false), _profiled(false), _ech(ech_t::NONE), _shroud(0), _echaccepted(false), _echrejected(false), _unshrouding(false),
 	_queries(0), _confirmed(false), _delivered(0), _switched(false),
 	_lowest(LEGACY), _highest(MODERN), _version(0), _legacy(false), _ancient(false), _proposed(false), _own(true), _phase(phase_t::NONE), _sealing(false), _opening(false), _stapling(false),
-	_claimed(0), _etm(false), _strict(false), _ticketing(false), _presented(false), _resumed(false), _authenticated(0), _scrubbing(true), _cleansing(false), _certtype(extension::cert_t::X509) {
+	_claimed(0), _etm(false), _strict(false), _ticketing(false), _presented(false), _resumed(false), _authenticated(0), _scrubbing(true), _cleansing(false), _certtype(extension::cert_t::X509), _srtp(0) {
 	// Сбрасываем ключевой материал связи до заведения участка
 	this->_keys = nullptr;
 	/**

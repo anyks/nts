@@ -1044,6 +1044,41 @@ namespace nts {
 				context::error_t exporting(const view_t & label, const view_t & context, uint8_t * result, const size_t size) const noexcept;
 				/**
 				 * \~russian
+				 * @brief Метод установки профилей защиты RTP, предлагаемых связью
+				 *
+				 * @param profiles предлагаемые профили защиты RTP
+				 *
+				 * @details RFC 5764 §4.1.2 и RFC 7714: SRTP_AES128_CM_HMAC_SHA1_80 (0x0001),
+				 *          SRTP_AES128_CM_HMAC_SHA1_32 (0x0002), SRTP_AEAD_AES_128_GCM (0x0007),
+				 *          SRTP_AEAD_AES_256_GCM (0x0008); ключи SRTP выводятся exporting()
+				 *          меткой «EXTRACTOR-dtls_srtp»
+				 *
+				 * \~english
+				 * @brief Method of the setting of the protection profiles of the RTP offered by the connection
+				 * @param profiles the protection profiles of the RTP being offered
+				 * @details RFC 5764 §4.1.2 and RFC 7714: SRTP_AES128_CM_HMAC_SHA1_80 (0x0001),
+				 *          SRTP_AES128_CM_HMAC_SHA1_32 (0x0002), SRTP_AEAD_AES_128_GCM (0x0007),
+				 *          SRTP_AEAD_AES_256_GCM (0x0008); the SRTP keys are derived by exporting()
+				 *          with the «EXTRACTOR-dtls_srtp» label
+				 *
+				 * \~
+				 */
+				void profiles(const vector <uint16_t> & profiles) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения профиля защиты RTP, выбранного сторонами связи
+				 *
+				 * @return выбранный профиль защиты RTP; 0, если профиль не выбран
+				 *
+				 * \~english
+				 * @brief Method of getting the protection profile of the RTP chosen by the parties of the connection
+				 * @return the chosen protection profile of the RTP; 0 if no profile is chosen
+				 *
+				 * \~
+				 */
+				uint16_t profile() const noexcept;
+				/**
+				 * \~russian
 				 * @brief Метод установки проверки принятого ответа о состоянии сертификата
 				 *
 				 * @param verify проверяется ли принятый ответ связью

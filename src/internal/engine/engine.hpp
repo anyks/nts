@@ -409,6 +409,11 @@ namespace nts {
 				// Согласованный вид сертификата собеседника: X.509 либо RawPublicKey
 				extension::cert_t _certtype;
 			private:
+				// Профили защиты RTP, предлагаемые связью (RFC 5764)
+				vector <uint16_t> _srtps;
+				// Профиль защиты RTP, выбранный сторонами связи; 0, если не выбран
+				uint16_t _srtp;
+			private:
 				// Способ переноса рукопожатия связи
 				context::transport_t _transport;
 			private:
@@ -1850,6 +1855,20 @@ namespace nts {
 				 *
 				 */
 				const string & protocol() const noexcept;
+				/**
+				 * @brief Метод установки профилей защиты RTP, предлагаемых связью
+				 *
+				 * @param profiles предлагаемые профили защиты RTP по RFC 5764 §4.1.2 и RFC 7714
+				 *
+				 */
+				void profiles(const vector <uint16_t> & profiles) noexcept;
+				/**
+				 * @brief Метод получения профиля защиты RTP, выбранного сторонами связи
+				 *
+				 * @return выбранный профиль защиты RTP; 0, если профиль не выбран
+				 *
+				 */
+				uint16_t profile() const noexcept;
 				/**
 				 * @brief Метод проверки согласования прикладных настроек ALPS
 				 *

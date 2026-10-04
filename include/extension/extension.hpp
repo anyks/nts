@@ -110,6 +110,7 @@ namespace nts {
 			FORMATS   = 0x000B, /*!< \~russian Записи точек кривой ec_point_formats (раздел 5.1.2 RFC 8422, TLS 1.2) \~english The ec_point_formats of the points of a curve (the section 5.1.2 of RFC 8422, TLS 1.2) \~ */
 			SCHEMES   = 0x000D, /*!< \~russian Поддерживаемые схемы подписи \~english The supported signature schemes \~ */
 			PROTOCOLS = 0x0010, /*!< \~russian Перечень прикладных протоколов связи \~english The list of the application protocols of a connection \~ */
+			PROFILES  = 0x000E, /*!< \~russian Перечень профилей защиты RTP use_srtp (RFC 5764) \~english The list of the protection profiles of the RTP use_srtp (RFC 5764) \~ */
 			ETM       = 0x0016, /*!< \~russian Порядок «шифрование, затем имитовставка» encrypt_then_mac (RFC 7366, TLS 1.2) \~english The encrypt_then_mac order (RFC 7366, TLS 1.2) \~ */
 			MASTER    = 0x0017, /*!< \~russian Расширенный главный секрет extended_master_secret (RFC 7627, TLS 1.2) \~english The extended_master_secret (RFC 7627, TLS 1.2) \~ */
 			TICKET    = 0x0023, /*!< \~russian Билет сеанса session_ticket (RFC 5077, TLS 1.2) \~english The session_ticket (RFC 5077, TLS 1.2) \~ */
@@ -739,6 +740,56 @@ namespace nts {
 		 * \~
 		 */
 		__ANTS_SHARED_EXPORT__ error_t certtypes(const vector <cert_t> & types, vector <uint8_t> & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод разбора перечня профилей защиты RTP use_srtp
+		 *
+		 * @param data   разбираемое тело расширения
+		 * @param result перечень, в который помещаются объявленные профили
+		 *
+		 * @return       отказ разбора тела расширения
+		 *
+		 * @details Раздел 4.1.1 RFC 5764: перечень профилей с двухбайтовой длиной и
+		 *          двухбайтовыми записями, непустой; за ним идёт однобайтовая длина
+		 *          опознавателя MKI и сам опознаватель. Опознаватель связью не
+		 *          признаётся и пропускается
+		 *
+		 * \~english
+		 * @brief Method of the parsing of the list of the protection profiles of the RTP use_srtp
+		 * @param data   the body of the extension being parsed
+		 * @param result the list the announced profiles are put into
+		 * @return       the failure of the parsing of the body of the extension
+		 * @details The section 4.1.1 of RFC 5764: a list of the profiles with a two-byte
+		 *          length and two-byte entries, non-empty; it is followed by a one-byte
+		 *          length of the MKI identifier and the identifier itself. The identifier
+		 *          is not recognized by the connection and is skipped
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ error_t profiles(const view_t & data, vector <uint16_t> & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод составления перечня профилей защиты RTP use_srtp
+		 *
+		 * @param profiles составляемый перечень профилей защиты
+		 * @param result   накопитель, в конец которого дописывается тело расширения
+		 *
+		 * @return         отказ составления тела расширения
+		 *
+		 * @details Раздел 4.1.1 RFC 5764: за перечнем профилей записывается пустой
+		 *          опознаватель MKI - связь опознавателей не заводит
+		 *
+		 * \~english
+		 * @brief Method of the composition of the list of the protection profiles of the RTP use_srtp
+		 * @param profiles the list of the protection profiles being composed
+		 * @param result   the accumulator the body of the extension is appended to the end of
+		 * @return         the failure of the composition of the body of the extension
+		 * @details The section 4.1.1 of RFC 5764: an empty MKI identifier is written after
+		 *          the list of the profiles — the connection does not set up identifiers
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ error_t profiles(const vector <uint16_t> & profiles, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод разбора перечня записей точек кривой ec_point_formats

@@ -868,6 +868,111 @@ nts::extension::error_t nts::extension::certtypes(const vector <cert_t> & types,
 	return compose(values, 1, 1, result);
 }
 /**
+ * @brief Метод разбора перечня профилей защиты RTP use_srtp
+ *
+ * @param data   разбираемое тело расширения
+ * @param result перечень, в который помещаются объявленные профили
+ *
+ * @return       отказ разбора тела расширения
+ *
+ */
+nts::extension::error_t nts::extension::profiles(const view_t & data, vector <uint16_t> & result) noexcept {
+	// Объект разборщика полей тела расширения
+	field::scanner_t scanner;
+	// Устанавливаем разбираемое тело расширения
+	scanner.start(data);
+	// Содержимое перечня профилей тела расширения
+	view_t body;
+	// Раздел 4.1.1 RFC 5764: перечень профилей с двухбайтовой длиной
+	if(scanner.vector(body, 2) != field::error_t::NONE)
+		// Выводим отказ обрыва тела расширения
+		return error_t::HUNGRY;
+	// Если перечень профилей пуст
+	if(body.size == 0)
+		// Выводим отказ пустого перечня тела расширения
+		return error_t::EMPTY;
+	// Если перечень профилей оборван посреди записи
+	if((body.size % 2) != 0)
+		// Выводим отказ обрыва тела расширения
+		return error_t::HUNGRY;
+	// Содержимое опознавателя MKI тела расширения
+	view_t mki;
+	// Раздел 4.1.1 RFC 5764: за перечнем идёт однобайтовая длина опознавателя MKI и сам он
+	if(scanner.vector(mki, 1) != field::error_t::NONE)
+		// Выводим отказ обрыва тела расширения
+		return error_t::HUNGRY;
+	// Если за опознавателем идут лишние байты
+	if(scanner.left() > 0)
+		// Выводим отказ лишних байтов за телом расширения
+		return error_t::TRAILING;
+	// Объект разборщика записей перечня профилей
+	field::scanner_t reader;
+	// Устанавливаем разбираемое содержимое перечня профилей
+	reader.start(body);
+	/**
+	 * Выполняем перехват ошибок работы с памятью
+	 */
+	try {
+		/**
+		 * Выполняем перебор записей перечня профилей
+		 */
+		while(reader.left() > 0){
+			// Очередная прочитанная запись перечня профилей
+			uint32_t value = 0;
+			// Выполняем чтение очередной записи перечня профилей
+			reader.number(value, 2);
+			// Добавляем очередной профиль в перечень
+			result.push_back(static_cast <uint16_t> (value));
+		}
+	/**
+	 * Если памяти под перечень профилей не хватило
+	 */
+	} catch(const std::bad_alloc &) {
+		// Выводим отказ нехватки памяти
+		return error_t::MEMORY;
+	}
+	// Выводим успешность разбора тела расширения
+	return error_t::NONE;
+}
+/**
+ * @brief Метод составления перечня профилей защиты RTP use_srtp
+ *
+ * @param profiles составляемый перечень профилей защиты
+ * @param result   накопитель, в конец которого дописывается тело расширения
+ *
+ * @return         отказ составления тела расширения
+ *
+ */
+nts::extension::error_t nts::extension::profiles(const vector <uint16_t> & profiles, vector <uint8_t> & result) noexcept {
+	// Составляемый перечень профилей защиты
+	vector <uint32_t> values;
+	/**
+	 * Выполняем перехват ошибок работы с памятью
+	 */
+	try {
+		/**
+		 * Выполняем перебор составляемых профилей защиты
+		 */
+		for(auto & item : profiles)
+			// Добавляем очередной профиль в перечень
+			values.push_back(static_cast <uint32_t> (item));
+	/**
+	 * Если памяти под перечень профилей не хватило
+	 */
+	} catch(const std::bad_alloc &) {
+		// Выводим отказ нехватки памяти
+		return error_t::MEMORY;
+	}
+	// Отказ составления перечня профилей защиты
+	const error_t error = compose(values, 2, 2, result);
+	// Если перечень профилей составлен
+	if(error == error_t::NONE)
+		// Раздел 4.1.1 RFC 5764: за перечнем записывается пустой опознаватель MKI
+		result.push_back(0);
+	// Выводим итог составления тела расширения
+	return error;
+}
+/**
  * @brief Метод разбора перечня записей точек кривой ec_point_formats
  *
  * @param data   разбираемое тело расширения

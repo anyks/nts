@@ -499,6 +499,28 @@ context::error_t nts::server::Context::exporting(const view_t & label, const vie
 	return this->_engine->exporting(label, context, result, size);
 }
 /**
+ * @brief Метод установки профилей защиты RTP, предлагаемых связью
+ *
+ * @param profiles предлагаемые профили защиты RTP
+ *
+ */
+void nts::server::Context::profiles(const vector <uint16_t> & profiles) noexcept {
+	// Если ведение связи заведено
+	if(this->_engine != nullptr)
+		// Устанавливаем перечень предлагаемых профилей защиты RTP
+		this->_engine->profiles(profiles);
+}
+/**
+ * @brief Метод получения профиля защиты RTP, выбранного сторонами связи
+ *
+ * @return выбранный профиль защиты RTP; 0, если профиль не выбран
+ *
+ */
+uint16_t nts::server::Context::profile() const noexcept {
+	// Выводим выбранный профиль защиты RTP либо ноль без связи
+	return ((this->_engine != nullptr) ? this->_engine->profile() : 0);
+}
+/**
  * @brief Метод установки проверки принятого ответа о состоянии сертификата
  *
  * @param verify проверяется ли принятый ответ связью

@@ -8483,3 +8483,117 @@ TEST(ContextTest, ExportingLegacy){
 	pump(client, server);
 	ASSERT_EQ(server.state(), context::state_t::CLOSED);
 }
+
+/**
+ * Проверка согласования профиля защиты RTP изданием 1.3 (RFC 5764)
+ */
+TEST(ContextTest, Srtp){
+	// Подлинность стороны сервера
+	context::credential_t credentials;
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Связь стороны клиента: профили AEAD AES-256 GCM и AES-128 GCM (RFC 7714)
+	client::context_t client;
+	gosting(client);
+	client.profiles({0x0008, 0x0007});
+	// Связь стороны сервера: профили AES-128 GCM и AES-256 GCM, порядок иной
+	server::context_t server;
+	gosting(server);
+	server.profiles({0x0007, 0x0008});
+	server.credential(credentials);
+	// Заводим связь
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	converse(client, server);
+	ASSERT_TRUE(client.established());
+	ASSERT_TRUE(server.established());
+	// Выбран первый профиль порядка сервера из предложенных клиентом
+	EXPECT_EQ(client.profile(), 0x0007);
+	EXPECT_EQ(server.profile(), 0x0007);
+	// Ключи SRTP выводятся экспортом меткой EXTRACTOR-dtls_srtp (раздел 4.2 RFC 5764)
+	const view_t label(reinterpret_cast <const uint8_t *> ("EXTRACTOR-dtls_srtp"), 19);
+	uint8_t outgoing[60], incoming[60];
+	ASSERT_EQ(client.exporting(label, view_t(nullptr, 0), outgoing, sizeof(outgoing)), context::error_t::NONE);
+	ASSERT_EQ(server.exporting(label, view_t(nullptr, 0), incoming, sizeof(incoming)), context::error_t::NONE);
+	// Обе стороны выводят одинаковый материал ключей SRTP
+	EXPECT_EQ(::memcmp(outgoing, incoming, sizeof(outgoing)), 0);
+	// Закрываем связь
+	ASSERT_EQ(client.close(), context::error_t::NONE);
+	pump(client, server);
+	ASSERT_EQ(server.state(), context::state_t::CLOSED);
+}
+
+/**
+ * Проверка согласования профиля защиты RTP изданием 1.2 (RFC 5764)
+ */
+TEST(ContextTest, SrtpLegacy){
+	// Подлинность стороны сервера из корпуса: наборы издания 1.2 просят ECDSA/RSA
+	context::credential_t credentials;
+	{
+		// Читаем секретный ключ в записи PEM
+		std::ifstream key(std::string(ANTS_CORPUS) + "/ec256.pem", std::ios::binary);
+		ASSERT_TRUE(key.is_open());
+		credentials.secret.assign(std::istreambuf_iterator <char> (key), std::istreambuf_iterator <char> ());
+		// Читаем сертификат в записи PEM
+		std::ifstream crt(std::string(ANTS_CORPUS) + "/ec256.crt", std::ios::binary);
+		ASSERT_TRUE(crt.is_open());
+		const vector <uint8_t> text((std::istreambuf_iterator <char> (crt)), std::istreambuf_iterator <char> ());
+		// Разбираем цепочку сертификатов из записи PEM
+		ASSERT_EQ(pem::certificates(std::string(text.begin(), text.end()), credentials.chain), pem::error_t::NONE);
+	}
+	// Связь стороны клиента: лишь издание 1.2, профиль AES-128 CM SHA1-80 (RFC 5764 §4.1.2)
+	client::context_t client;
+	gosting(client);
+	ASSERT_EQ(client.versions(0x0303, 0x0303), context::error_t::NONE);
+	client.profiles({0x0001});
+	// Связь стороны сервера: лишь издание 1.2
+	server::context_t server;
+	gosting(server);
+	ASSERT_EQ(server.versions(0x0303, 0x0303), context::error_t::NONE);
+	server.profiles({0x0001});
+	server.credential(credentials);
+	// Заводим связь
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	converse(client, server);
+	ASSERT_TRUE(client.established());
+	ASSERT_TRUE(server.established());
+	// Профиль выбран обеими сторонами
+	EXPECT_EQ(client.profile(), 0x0001);
+	EXPECT_EQ(server.profile(), 0x0001);
+	// Ключи SRTP выводятся экспортом и изданием 1.2
+	const view_t label(reinterpret_cast <const uint8_t *> ("EXTRACTOR-dtls_srtp"), 19);
+	uint8_t outgoing[60], incoming[60];
+	ASSERT_EQ(client.exporting(label, view_t(nullptr, 0), outgoing, sizeof(outgoing)), context::error_t::NONE);
+	ASSERT_EQ(server.exporting(label, view_t(nullptr, 0), incoming, sizeof(incoming)), context::error_t::NONE);
+	EXPECT_EQ(::memcmp(outgoing, incoming, sizeof(outgoing)), 0);
+	// Закрываем связь
+	ASSERT_EQ(client.close(), context::error_t::NONE);
+	pump(client, server);
+	ASSERT_EQ(server.state(), context::state_t::CLOSED);
+}
+
+/**
+ * Проверка отказа связи без общего профиля защиты RTP
+ */
+TEST(ContextTest, SrtpMismatch){
+	// Подлинность стороны сервера
+	context::credential_t credentials;
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Связь стороны клиента: лишь AES-256 GCM
+	client::context_t client;
+	gosting(client);
+	client.profiles({0x0008});
+	// Связь стороны сервера: лишь AES-128 GCM
+	server::context_t server;
+	gosting(server);
+	server.profiles({0x0007});
+	server.credential(credentials);
+	// Заводим связь
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	converse(client, server);
+	// Связь оборвана отсутствием общего профиля
+	ASSERT_FALSE(client.established());
+	ASSERT_FALSE(server.established());
+	EXPECT_EQ(server.error(), context::error_t::PROTOCOL);
+}
