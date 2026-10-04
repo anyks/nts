@@ -108,3 +108,21 @@ target_link_libraries(${TEST_FFDHE_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main
 
 # Регистрируем цель проверок
 add_test(NAME ${TEST_FFDHE_NAME} COMMAND ${TEST_FFDHE_NAME})
+
+# Устанавливаем имя цели проверок модуля инкапсуляции ключа sntrup761
+SET(TEST_SNTRUP761_NAME sntrup761)
+
+# Добавляем цель проверок модуля инкапсуляции ключа sntrup761
+add_executable(${TEST_SNTRUP761_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/sntrup761.cpp")
+
+# Включаем флаги компиляции проверок
+target_compile_options(${TEST_SNTRUP761_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
+
+# Подключаем каталог общих заголовочных файлов набора проверок
+target_include_directories(${TEST_SNTRUP761_NAME} PRIVATE "${ANTS_ROOT}/tests")
+
+# Выполняем подключение зависимостей цели проверок
+target_link_libraries(${TEST_SNTRUP761_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
+
+# Регистрируем цель проверок
+add_test(NAME ${TEST_SNTRUP761_NAME} COMMAND ${TEST_SNTRUP761_NAME})

@@ -226,6 +226,7 @@ SET(SOURCE_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/agreement/x448.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/agreement/ffdhe.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/agreement/mlkem.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/agreement/sntrup761.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/noise/noise.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/noise/patterns.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/noise/cipher.cpp"
