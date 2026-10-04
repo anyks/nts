@@ -9013,6 +9013,17 @@ mpint делает SSH), rsa-sha2-256/512 (PKCS #1 v1.5); шифры chacha20-po
 В3. Формат ключей openssh-key-v1 в `keys`/`pem`: незашифрованный - разбор и запись; зашифрованный - bcrypt_pbkdf
     (Blowfish eksblowfish, bcrypt_hash, 16 кругов по умолчанию) и aes256-ctr; открытая строка «ssh-ed25519 AAAA…
     комментарий», known_hosts с HMAC-SHA1, отпечатки SHA256 в base64.
+    **Круг 81 (04.10.2026)**: сделано. Модули `cipher::blowfish` (~400 строк: P-array и S-boxes из цифр π,
+    init/expand0/expand/encipher/encrypt/stream2word), `digest::bcrypt` (bcrypt_pbkdf по OpenBSD: SHA-512
+    пароля и соли, 64 круга expand0/expand, «OxychromaticBlowfishSwatDynamite», перемешивание выхода),
+    `keys::openssh` (разбор и запись openssh-key-v1: магия, SSH-строки uint32+bytes, ciphername/kdfname/kdfoptions,
+    секретный блок с checkint, типом, ключами, комментарием и дополнением; aes256-ctr вручную через aes.encrypt
+    и инкремент счётчика big-endian, так как cipher::Counter требует IV в половину блока). Поддерживаются
+    ciphername «none»/«aes256-ctr», kdfname «none»/«bcrypt» с 16 кругами. Строка authorized_keys
+    «ssh-ed25519 AAAA… комментарий» и отпечаток «SHA256:base64-без-padding». Пины: OpensshTest.Roundtrip
+    (запись и разбор своего ключа, с паролем и без, неверный пароль отвергается), Publish (строка и отпечаток);
+    интероп с ssh-keygen пропущен в sandbox (нет доступа к /usr/bin/ssh-keygen). ctest 94/94 зелёные.
+    Открыто: known_hosts с HMAC-SHA1, замеры на Xeon/Эльбрусе по подтверждению потребителя проекта.
 В4. UMAC-64/128 (umac-64@openssh.com, RFC 4418) - низкий приоритет: сервер берёт первый алгоритм клиента, который сам
     знает, а с AEAD-шифрами имитовставка не нужна, потому связь с OpenSSH складывается и без него.
 В5. Устаревшие алгоритмы - лишь явным включением, выключены по умолчанию, как у OpenSSH: ssh-rsa на SHA-1 (нужен SHA-1 в
