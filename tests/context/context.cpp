@@ -8205,3 +8205,62 @@ TEST(ContextTest, Wiping){
 		ASSERT_EQ(server.state(), context::state_t::CLOSED) << "перечень " << i;
 	}
 }
+
+/**
+ * Проверка журнала секретов связи
+ */
+TEST(ContextTest, Keylog){
+	// Записи журнала
+	struct Log {
+		// Метки и секреты
+		std::vector <std::pair <std::string, std::vector <uint8_t>>> entries;
+		// Счётчик вызовов
+		size_t calls = 0;
+	} log;
+	// Вызов журнала
+	auto logger = [](const char * label, const view_t & random, const view_t & secret, void * context) {
+		Log * log = static_cast <Log *> (context);
+		log->entries.emplace_back(label, std::vector <uint8_t> (secret.data, secret.data + secret.size));
+		log->calls++;
+		// Проверяем длину client_random
+		EXPECT_EQ(random.size, 32u);
+	};
+	// Подлинность стороны сервера
+	context::credential_t credentials;
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Связь стороны клиента
+	client::context_t client;
+	gosting(client);
+	// Устанавливаем журнал секретов клиента
+	client.keylog(context::keylog_t(logger, &log));
+	// Связь стороны сервера
+	server::context_t server;
+	gosting(server);
+	server.credential(credentials);
+	// Заводим связь
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	converse(client, server);
+	ASSERT_TRUE(client.established());
+	ASSERT_TRUE(server.established());
+	// Проверяем записи журнала: TLS 1.3 даёт 4 записи (handshake + application)
+	EXPECT_GE(log.calls, 4u);
+	// Проверяем метки
+	bool hs_client = false, hs_server = false, ap_client = false, ap_server = false;
+	for(const auto & entry : log.entries){
+		if(entry.first == "CLIENT_HANDSHAKE_TRAFFIC_SECRET") hs_client = true;
+		if(entry.first == "SERVER_HANDSHAKE_TRAFFIC_SECRET") hs_server = true;
+		if(entry.first == "CLIENT_TRAFFIC_SECRET_0") ap_client = true;
+		if(entry.first == "SERVER_TRAFFIC_SECRET_0") ap_server = true;
+		// Секреты непустые
+		EXPECT_FALSE(entry.second.empty());
+	}
+	EXPECT_TRUE(hs_client);
+	EXPECT_TRUE(hs_server);
+	EXPECT_TRUE(ap_client);
+	EXPECT_TRUE(ap_server);
+	// Закрываем связь
+	ASSERT_EQ(client.close(), context::error_t::NONE);
+	pump(client, server);
+	ASSERT_EQ(server.state(), context::state_t::CLOSED);
+}

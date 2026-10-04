@@ -9042,6 +9042,13 @@ mpint делает SSH), rsa-sha2-256/512 (PKCS #1 v1.5); шифры chacha20-po
     наших пинов GREASE и ECH.
 Г3. Журнал секретов SSLKEYLOGFILE (OpenSSL 3.5, `enable-sslkeylog`): у нас нет; отклик `keylog` с записями CLIENT_RANDOM,
     CLIENT_HANDSHAKE_TRAFFIC_SECRET и прочими для Wireshark - дёшево, нужно AWH при отладке.
+    **Круг 82 (04.10.2026)**: сделано. Отклик `context::keylog_t` (вызов + контекст потребителя) и методы
+    `keylog()` у `client::Context` и `server::Context`. Вызовы в `Engine::store()` для TLS 1.3
+    (CLIENT/SERVER_HANDSHAKE_TRAFFIC_SECRET, CLIENT/SERVER_TRAFFIC_SECRET_0) и в `Engine::expanding()` для
+    TLS 1.2 (CLIENT_RANDOM). client_random выбирается по стороне: у клиента своё приветствие `_random`,
+    у сервера - приветствие собеседника `_foreign`. Пин ContextTest.Keylog: 4 записи TLS 1.3, метки
+    и непустые секреты проверены. ctest 94/94 зелёные. Открыто: EXPORTER_SECRET, EARLY_EXPORTER_SECRET
+    по запросу потребителя проекта.
 Г4. Сырые открытые ключи RFC 7250 (у OpenSSL с 3.2, `-expected-rpks` в 4.0): у нас нет; для DTLS, IoT и служб AWH без
     X.509 (закрепление SPKI).
 Г5. Многократная сшивка OCSP в TLS 1.3 (OpenSSL 3.6): status_request в каждом CertificateEntry, у нас лишь у листа -

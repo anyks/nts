@@ -503,6 +503,30 @@ namespace nts {
 				void suites(const vector <protect::suite_t> & suites) noexcept;
 				/**
 				 * \~russian
+				 * @brief Метод установки журнала секретов связи
+				 *
+				 * @param keylog журнал секретов: вызов и контекст потребителя
+				 *
+				 * @details NSS Key Log Format: записи CLIENT_RANDOM (TLS 1.2),
+				 *          CLIENT_HANDSHAKE_TRAFFIC_SECRET, SERVER_HANDSHAKE_TRAFFIC_SECRET,
+				 *          CLIENT_TRAFFIC_SECRET_0, SERVER_TRAFFIC_SECRET_0 (TLS 1.3)
+				 *          для Wireshark
+				 *
+				 * \~english
+				 * @brief Method of setting the connection secrets log
+				 *
+				 * @param keylog the secrets log: the call and the context of the consumer
+				 *
+				 * @details NSS Key Log Format: records CLIENT_RANDOM (TLS 1.2),
+				 *          CLIENT_HANDSHAKE_TRAFFIC_SECRET, SERVER_HANDSHAKE_TRAFFIC_SECRET,
+				 *          CLIENT_TRAFFIC_SECRET_0, SERVER_TRAFFIC_SECRET_0 (TLS 1.3)
+				 *          for Wireshark
+				 *
+				 * \~
+				 */
+				void keylog(const context::keylog_t & keylog) noexcept;
+				/**
+				 * \~russian
 				 * @brief Метод получения предлагаемых наборов шифрования
 				 *
 				 * @return перечень наборов шифрования: назначенный потребителем либо умолчание

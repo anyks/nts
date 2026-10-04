@@ -2035,6 +2035,11 @@ context::error_t nts::internal::Engine::store(const context::level_t level) noex
 		case static_cast <uint8_t> (context::level_t::APPLICATION): {
 			// Место уровня защиты среди сохранённых значений
 			const size_t place = ((level == context::level_t::HANDSHAKE) ? 1 : 2);
+			// Метки журнала секретов по уровням и сторонам
+			static const char * LABELS[2][2] = {
+				{"CLIENT_HANDSHAKE_TRAFFIC_SECRET", "SERVER_HANDSHAKE_TRAFFIC_SECRET"},
+				{"CLIENT_TRAFFIC_SECRET_0", "SERVER_TRAFFIC_SECRET_0"}
+			};
 			/**
 			 * Выполняем перебор сторон связи
 			 */
@@ -2045,6 +2050,8 @@ context::error_t nts::internal::Engine::store(const context::level_t level) noex
 				if(this->_secrets.traffic(side, this->_keys->traffic[place][i]) != session::error_t::NONE)
 					// Выводим отказ вывода значения расписания ключей
 					return context::error_t::SCHEDULE;
+				// Вызываем журнал секретов связи
+				this->keylog(LABELS[place - 1][i], view_t(this->_keys->traffic[place][i], this->_secrets.size()));
 			}
 			// Запоминаем длину значений направлений связи
 			this->_width = this->_secrets.size();
@@ -14005,6 +14012,8 @@ context::error_t nts::internal::Engine::expanding(const view_t & premaster) noex
 		if(!this->sequencing(premaster, master, view_t(seed, sizeof(seed)), this->_keys->master, sizeof(this->_keys->master)))
 			// Выводим отказ вывода главного секрета
 			return context::error_t::SCHEDULE;
+		// Вызываем журнал секретов связи
+		this->keylog("CLIENT_RANDOM", view_t(this->_keys->master, sizeof(this->_keys->master)));
 		// Выводим итог вывода ключевого материала из главного секрета
 		return this->keying();
 	}
@@ -14014,6 +14023,8 @@ context::error_t nts::internal::Engine::expanding(const view_t & premaster) noex
 	if(!this->sequencing(premaster, extended, view_t(transcript, width), this->_keys->master, sizeof(this->_keys->master)))
 		// Выводим отказ вывода главного секрета
 		return context::error_t::SCHEDULE;
+	// Вызываем журнал секретов связи
+	this->keylog("CLIENT_RANDOM", view_t(this->_keys->master, sizeof(this->_keys->master)));
 	// Выводим итог вывода ключевого материала из главного секрета
 	return this->keying();
 }
@@ -16455,6 +16466,33 @@ context::error_t nts::internal::Engine::deciding(const bool resumed) noexcept {
 	this->_phase = phase_t::CHANGE;
 	// Выводим итог вывода ключевого материала связи из главного секрета билета
 	return this->keying();
+}
+/**
+ * @brief Метод установки журнала секретов связи
+ *
+ * @param keylog журнал секретов: вызов и контекст потребителя
+ *
+ */
+void nts::internal::Engine::keylog(const context::keylog_t & keylog) noexcept {
+	// Запоминаем журнал секретов
+	this->_keylog = keylog;
+}
+/**
+ * @brief Метод вызова журнала секретов связи
+ *
+ * @param label  метка записи
+ * @param secret секрет связи
+ *
+ */
+void nts::internal::Engine::keylog(const char * label, const view_t & secret) const noexcept {
+	// Если журнал не установлен
+	if(this->_keylog.log == nullptr)
+		// Выходим
+		return;
+	// Выбираем client_random: у клиента своё приветствие, у сервера - приветствие собеседника
+	const view_t random = (this->_server ? view_t(this->_foreign, sizeof(this->_foreign)) : view_t(this->_random, sizeof(this->_random)));
+	// Вызываем журнал
+	this->_keylog.log(label, random, secret, this->_keylog.context);
 }
 /**
  * @brief Метод установки пределов издания протокола

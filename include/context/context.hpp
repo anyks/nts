@@ -789,6 +789,83 @@ namespace nts {
 		 * \~
 		 */
 		__ANTS_SHARED_EXPORT__ error_t decode(const view_t & data, ticket_t & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Вызов журнала секретов связи
+		 *
+		 * @details NSS Key Log Format: метка, client_random и секрет в шестнадцатеричной
+		 *          записи через пробел. Метки: CLIENT_RANDOM (TLS 1.2 master_secret),
+		 *          CLIENT_HANDSHAKE_TRAFFIC_SECRET, SERVER_HANDSHAKE_TRAFFIC_SECRET,
+		 *          CLIENT_TRAFFIC_SECRET_0, SERVER_TRAFFIC_SECRET_0, EXPORTER_SECRET (TLS 1.3)
+		 *
+		 * @param label   метка записи
+		 * @param random  client_random связи (32 байта)
+		 * @param secret  секрет связи
+		 * @param context указатель контекста потребителя
+		 *
+		 * \~english
+		 * @brief Call of the connection secrets log
+		 *
+		 * @details NSS Key Log Format: label, client_random and secret in hexadecimal
+		 *          separated by spaces. Labels: CLIENT_RANDOM (TLS 1.2 master_secret),
+		 *          CLIENT_HANDSHAKE_TRAFFIC_SECRET, SERVER_HANDSHAKE_TRAFFIC_SECRET,
+		 *          CLIENT_TRAFFIC_SECRET_0, SERVER_TRAFFIC_SECRET_0, EXPORTER_SECRET (TLS 1.3)
+		 *
+		 * @param label   the label of the record
+		 * @param random  the client_random of the connection (32 bytes)
+		 * @param secret  the secret of the connection
+		 * @param context the pointer of the context of the consumer
+		 *
+		 * \~
+		 */
+		typedef void (* keylog_fn_t)(const char * label, const view_t & random, const view_t & secret, void * context);
+		/**
+		 * \~russian
+		 * @brief Журнал секретов связи
+		 *
+		 * @details Отклик вызывается при выработке секретов рукопожатия и трафика.
+		 *          Потребитель пишет записи в файл SSLKEYLOGFILE для Wireshark
+		 *
+		 * \~english
+		 * @brief Connection secrets log
+		 *
+		 * @details The callback is called at the production of handshake and traffic secrets.
+		 *          The consumer writes records to an SSLKEYLOGFILE for Wireshark
+		 *
+		 * \~
+		 */
+		typedef struct __ANTS_SHARED_EXPORT__ Keylog {
+			// Вызов журнала
+			keylog_fn_t log;
+			// Указатель контекста потребителя, передаваемый вызову как есть
+			void * context;
+			/**
+			 * \~russian
+			 * @brief Конструктор
+			 *
+			 *
+			 * \~english
+			 * @brief Constructor
+			 *
+			 * \~
+			 */
+			Keylog() noexcept : log(nullptr), context(nullptr) {}
+			/**
+			 * \~russian
+			 * @brief Конструктор
+			 *
+			 * @param log     вызов журнала
+			 * @param context указатель контекста потребителя
+			 *
+			 * \~english
+			 * @brief Constructor
+			 * @param log     the log call
+			 * @param context the pointer of the context of the consumer
+			 *
+			 * \~
+			 */
+			Keylog(keylog_fn_t log, void * context = nullptr) noexcept : log(log), context(context) {}
+		} keylog_t;
 	};
 };
 

@@ -566,6 +566,9 @@ namespace nts {
 				// Признак того, что смена набора шифрования собеседника пришла раньше своего черёда и ждёт его
 				bool _switched;
 			private:
+				// Журнал секретов связи: вызов и контекст потребителя
+				context::keylog_t _keylog;
+			private:
 				/**
 				 * @brief Метод обрыва связи отказом
 				 *
@@ -1699,6 +1702,22 @@ namespace nts {
 				 *
 				 */
 				context::error_t finished(const view_t & body) noexcept;
+			public:
+				/**
+				 * @brief Метод установки журнала секретов связи
+				 *
+				 * @param keylog журнал секретов: вызов и контекст потребителя
+				 *
+				 */
+				void keylog(const context::keylog_t & keylog) noexcept;
+				/**
+				 * @brief Метод вызова журнала секретов связи
+				 *
+				 * @param label  метка записи
+				 * @param secret секрет связи
+				 *
+				 */
+				void keylog(const char * label, const view_t & secret) const noexcept;
 			public:
 				/**
 				 * @brief Метод установки пределов издания протокола

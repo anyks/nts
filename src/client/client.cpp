@@ -219,6 +219,18 @@ void nts::client::Context::suites(const vector <protect::suite_t> & suites) noex
 		this->_engine->suites(suites);
 }
 /**
+ * @brief Метод установки журнала секретов связи
+ *
+ * @param keylog журнал секретов: вызов и контекст потребителя
+ *
+ */
+void nts::client::Context::keylog(const context::keylog_t & keylog) noexcept {
+	// Если ведение связи заведено
+	if(this->_engine != nullptr)
+		// Выполняем установку журнала секретов
+		this->_engine->keylog(keylog);
+}
+/**
  * @brief Метод получения предлагаемых наборов шифрования
  *
  * @return перечень наборов шифрования: назначенный потребителем либо умолчание
