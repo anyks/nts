@@ -25,6 +25,8 @@
 #include <vector>
 #include <cstring>
 #include <algorithm>
+#include <fstream>
+#include <sstream>
 
 /**
  * Подключаем заголовочные файлы проекта
@@ -98,6 +100,18 @@ namespace {
 	static view_t viewed(const std::vector <uint8_t> & data) noexcept {
 		// Выводим просмотр накопителя
 		return view_t(data.empty() ? nullptr : data.data(), data.size());
+	}
+	/**
+	 * @brief Метод составления просмотра области байтов
+	 *
+	 * @param data область байтов
+	 * @param size размер области
+	 * @return     просмотр области
+	 *
+	 */
+	static view_t viewed(const uint8_t * data, const size_t size) noexcept {
+		// Выводим просмотр области
+		return view_t(data, size);
 	}
 	/**
 	 * @brief Метод составления набора по вектору
@@ -1074,4 +1088,275 @@ TEST(HpkeTest, Starved){
 		// Проверяем открытый текст
 		ASSERT_EQ(opened, plain);
 	}
+}
+
+/**
+ * Каталог набора контрольных примеров
+ */
+static const char * CORPUS = ANTS_CORPUS;
+
+/**
+ * @brief Контрольный пример HPKE с постквантовым способом инкапсуляции
+ *
+ */
+typedef struct VectorPQ {
+	// Способ инкапсуляции, функция выработки ключа, шифр
+	uint16_t kem, kdf, aead;
+	// Материал и ключи получателя
+	std::vector <uint8_t> ikmR, skRm, pkRm;
+	// Материал отправителя, инкапсулированный ключ, общее значение
+	std::vector <uint8_t> ikmE, enc, shared;
+	// Привязка, ключ, начальное заполнение, секрет экспорта состояния
+	std::vector <uint8_t> info, key, nonce, exporter;
+	// Пример экспорта: привязка, длина, значение
+	std::vector <uint8_t> exportContext, exportValue;
+	// Пример зашифрования: связанные данные, открытый текст, шифртекст
+	std::vector <uint8_t> aad, pt, ct;
+} vectorpq_t;
+
+/**
+ * @brief Метод чтения контрольных примеров из набора
+ *
+ * @param result накопитель примеров
+ *
+ */
+static void readpq(std::vector <vectorpq_t> & result){
+	// Поток чтения набора
+	std::ifstream input(std::string(CORPUS) + "/hpke/vectors.txt");
+	// Строка набора
+	std::string line;
+	/**
+	 * Выполняем обход строк набора
+	 */
+	while(std::getline(input, line)){
+		// Разборщик строки
+		std::istringstream fields(line);
+		// Поля записи
+		std::string kem, kdf, aead, ikmR, skRm, pkRm, ikmE, enc, shared, info, key, nonce, exporter, expCtx, expL, expVal, aad, pt, ct;
+		// Разбираем поля записи
+		fields >> kem >> kdf >> aead >> ikmR >> skRm >> pkRm >> ikmE >> enc >> shared >> info >> key >> nonce >> exporter >> expCtx >> expL >> expVal >> aad >> pt >> ct;
+		// Пример
+		vectorpq_t item;
+		// Способ инкапсуляции
+		item.kem = static_cast <uint16_t> (std::stoul(kem, nullptr, 16));
+		// Функция выработки ключа
+		item.kdf = static_cast <uint16_t> (std::stoul(kdf, nullptr, 16));
+		// Шифр
+		item.aead = static_cast <uint16_t> (std::stoul(aead, nullptr, 16));
+		// Материал и ключи
+		item.ikmR = bytes(ikmR);
+		item.skRm = bytes(skRm);
+		item.pkRm = bytes(pkRm);
+		item.ikmE = bytes(ikmE);
+		item.enc = bytes(enc);
+		item.shared = bytes(shared);
+		item.info = bytes(info);
+		item.key = bytes(key);
+		item.nonce = bytes(nonce);
+		item.exporter = bytes(exporter);
+		item.exportContext = bytes(expCtx);
+		item.exportValue = bytes(expVal);
+		item.aad = bytes(aad);
+		item.pt = bytes(pt);
+		item.ct = bytes(ct);
+		// Добавляем пример
+		result.push_back(item);
+	}
+}
+
+/**
+ * @brief Метод заведения мимолётной пары примера
+ *
+ * @param kem       способ инкапсуляции
+ * @param ikmE      материал отправителя
+ * @param ephemeral пара ключей отправителя
+ * @return          признак успешности заведения
+ *
+ */
+static bool ephemerate(const hpke::kem_t kem, const std::vector <uint8_t> & ikmE, hpke::key_t & ephemeral){
+	// Если способ чистый ML-KEM: зерно = ikmE ‖ ikmE, сообщение = первые 32 байта
+	if((kem == hpke::kem_t::MLKEM512) || (kem == hpke::kem_t::MLKEM768) || (kem == hpke::kem_t::MLKEM1024)){
+		// Зерно
+		std::vector <uint8_t> seed(ikmE);
+		// Дополняем зерно
+		seed.insert(seed.end(), ikmE.begin(), ikmE.end());
+		// Заводим пару по зерну
+		return (ephemeral.set(kem, viewed(seed)) == hpke::error_t::NONE);
+	}
+	// Заводим пару из материала
+	return (ephemeral.derive(kem, viewed(ikmE)) == hpke::error_t::NONE);
+}
+
+/**
+ * @brief Проверка контрольных примеров draft-ietf-hpke-pq побайтно
+ *
+ */
+TEST(HpkeTest, PostQuantum){
+	// Накопитель примеров
+	std::vector <vectorpq_t> items;
+	// Читаем примеры
+	readpq(items);
+	// Проверяем число примеров
+	ASSERT_EQ(items.size(), 13u);
+	/**
+	 * Выполняем обход примеров
+	 */
+	for(size_t i = 0; i < items.size(); i++){
+		// Пример
+		const vectorpq_t & item = items[i];
+		// Способ инкапсуляции
+		const hpke::kem_t kem = static_cast <hpke::kem_t> (item.kem);
+		// Набор
+		const hpke::suite_t suite(kem, static_cast <hpke::kdf_t> (item.kdf), static_cast <hpke::aead_t> (item.aead));
+		// Пара получателя
+		hpke::key_t own;
+		// Вырабатываем пару получателя из материала
+		ASSERT_EQ(own.derive(kem, viewed(item.ikmR)), hpke::error_t::NONE) << "пример " << i;
+		// Проверяем секретный ключ
+		ASSERT_EQ(text(own.secret().data, own.secret().size), text(item.skRm.data(), item.skRm.size())) << "пример " << i;
+		// Проверяем открытый ключ
+		ASSERT_EQ(text(own.point().data, own.point().size), text(item.pkRm.data(), item.pkRm.size())) << "пример " << i;
+		// Признак гибридного способа
+		const bool mixed = ((kem == hpke::kem_t::MLKEM768_P256) || (kem == hpke::kem_t::MLKEM1024_P384) || (kem == hpke::kem_t::MLKEM768_X25519));
+		// Если способ не гибридный: отправитель воспроизводится полностью
+		if(!mixed){
+			// Мимолётная пара
+			hpke::key_t ephemeral;
+			// Заводим мимолётную пару
+			ASSERT_TRUE(ephemerate(kem, item.ikmE, ephemeral)) << "пример " << i;
+			// Состояние отправителя
+			hpke::context_t sealer;
+			// Инкапсулированный ключ
+			uint8_t enc[1665];
+			// Устанавливаем состояние отправителя
+			ASSERT_EQ(hpke::sender(suite, hpke::regime_t::BASE, own.point(), viewed(item.info), hpke::shared_t(), nullptr, ephemeral, enc, sealer), hpke::error_t::NONE) << "пример " << i;
+			// Проверяем инкапсулированный ключ
+			ASSERT_EQ(text(enc, hpke::overhead(kem)), text(item.enc.data(), item.enc.size())) << "пример " << i;
+			// Состояние получателя
+			hpke::context_t opener;
+			// Устанавливаем состояние получателя
+			ASSERT_EQ(hpke::recipient(suite, hpke::regime_t::BASE, own, viewed(enc, hpke::overhead(kem)), viewed(item.info), hpke::shared_t(), view_t(), opener), hpke::error_t::NONE) << "пример " << i;
+			// Секрет экспорта отправителя
+			uint8_t outS[32];
+			// Вырабатываем секрет экспорта отправителем
+			ASSERT_EQ(sealer.exporter(viewed(item.exportContext), outS, sizeof(outS)), hpke::error_t::NONE) << "пример " << i;
+			// Секрет экспорта получателя
+			uint8_t outR[32];
+			// Вырабатываем секрет экспорта получателем
+			ASSERT_EQ(opener.exporter(viewed(item.exportContext), outR, sizeof(outR)), hpke::error_t::NONE) << "пример " << i;
+			// Проверяем секрет экспорта
+			ASSERT_EQ(text(outS, sizeof(outS)), text(item.exportValue.data(), item.exportValue.size())) << "пример " << i;
+			// Проверяем совпадение сторон
+			ASSERT_EQ(::memcmp(outS, outR, sizeof(outS)), 0) << "пример " << i;
+			// Шифртекст
+			std::vector <uint8_t> ct(item.pt.size() + hpke::TAG_SIZE);
+			// Зашифровываем сообщение
+			ASSERT_EQ(sealer.seal(viewed(item.aad), viewed(item.pt), ct.data()), hpke::error_t::NONE) << "пример " << i;
+			// Проверяем шифртекст
+			ASSERT_EQ(text(ct.data(), ct.size()), text(item.ct.data(), item.ct.size())) << "пример " << i;
+			// Открытый текст
+			std::vector <uint8_t> back(item.pt.size());
+			// Расшифровываем сообщение
+			ASSERT_EQ(opener.open(viewed(item.aad), viewed(ct.data(), ct.size()), back.data()), hpke::error_t::NONE) << "пример " << i;
+			// Проверяем открытый текст
+			ASSERT_EQ(text(back.data(), back.size()), text(item.pt.data(), item.pt.size())) << "пример " << i;
+		// Если способ гибридный: отправитель не воспроизводится через зерно 32, сличаем recipient-сторону
+		} else {
+			// Общее значение
+			uint8_t shared[64];
+			// Декапсулируем ключ
+			ASSERT_EQ(hpke::decapsulate(own, viewed(item.enc), view_t(), shared), hpke::error_t::NONE) << "пример " << i;
+			// Проверяем общее значение
+			ASSERT_EQ(text(shared, 32), text(item.shared.data(), item.shared.size())) << "пример " << i;
+			// Состояние получателя
+			hpke::context_t opener;
+			// Устанавливаем состояние получателя
+			ASSERT_EQ(hpke::recipient(suite, hpke::regime_t::BASE, own, viewed(item.enc), viewed(item.info), hpke::shared_t(), view_t(), opener), hpke::error_t::NONE) << "пример " << i;
+			// Секрет экспорта получателя
+			uint8_t outR[32];
+			// Вырабатываем секрет экспорта получателем
+			ASSERT_EQ(opener.exporter(viewed(item.exportContext), outR, sizeof(outR)), hpke::error_t::NONE) << "пример " << i;
+			// Проверяем секрет экспорта
+			ASSERT_EQ(text(outR, sizeof(outR)), text(item.exportValue.data(), item.exportValue.size())) << "пример " << i;
+		}
+	}
+}
+
+/**
+ * @brief Проверка кругов выработки, инкапсуляции и декапсуляции по всем способам
+ *
+ */
+TEST(HpkeTest, Mechanisms){
+	// Способы инкапсуляции
+	const hpke::kem_t kems[] = {
+		hpke::kem_t::P256_HKDF_SHA256, hpke::kem_t::P384_HKDF_SHA384, hpke::kem_t::P521_HKDF_SHA512,
+		hpke::kem_t::X25519_HKDF_SHA256, hpke::kem_t::X448_HKDF_SHA512,
+		hpke::kem_t::MLKEM512, hpke::kem_t::MLKEM768, hpke::kem_t::MLKEM1024,
+		hpke::kem_t::MLKEM768_P256, hpke::kem_t::MLKEM1024_P384, hpke::kem_t::MLKEM768_X25519
+	};
+	/**
+	 * Выполняем обход способов
+	 */
+	for(size_t i = 0; i < 11; i++){
+		// Способ
+		const hpke::kem_t kem = kems[i];
+		// Пара получателя
+		hpke::key_t own;
+		// Вырабатываем пару из случайных байтов
+		ASSERT_EQ(own.generate(kem), hpke::error_t::NONE) << "способ " << i;
+		// Проверяем длины ключей
+		ASSERT_EQ(own.secret().size, hpke::secret(kem)) << "способ " << i;
+		// Проверяем длину открытого ключа
+		ASSERT_EQ(own.point().size, hpke::length(kem)) << "способ " << i;
+		// Мимолётная пара
+		hpke::key_t ephemeral;
+		// Вырабатываем мимолётную пару
+		ASSERT_EQ(ephemeral.generate(kem), hpke::error_t::NONE) << "способ " << i;
+		// Общее значение и инкапсулированный ключ
+		uint8_t shared[64], enc[1665];
+		// Инкапсулируем ключ
+		ASSERT_EQ(hpke::encapsulate(ephemeral, own.point(), nullptr, shared, enc), hpke::error_t::NONE) << "способ " << i;
+		// Общее значение обратно
+		uint8_t back[64];
+		// Декапсулируем ключ
+		ASSERT_EQ(hpke::decapsulate(own, viewed(enc, hpke::overhead(kem)), view_t(), back), hpke::error_t::NONE) << "способ " << i;
+		// Длина общего значения
+		const size_t size = (((kem == hpke::kem_t::X448_HKDF_SHA512) || (kem == hpke::kem_t::P521_HKDF_SHA512)) ? 64 : 32);
+		// Проверяем совпадение общего значения
+		ASSERT_EQ(::memcmp(shared, back, size), 0) << "способ " << i;
+		// Проверяем длину инкапсулированного ключа
+		ASSERT_EQ(hpke::overhead(kem) > 0, true) << "способ " << i;
+	}
+}
+
+/**
+ * @brief Проверка отказов режимов с подлинностью у постквантовых способов
+ *
+ */
+TEST(HpkeTest, Authenticated){
+	// Пара получателя и отправителя
+	hpke::key_t own, authenticator;
+	// Вырабатываем пары
+	ASSERT_EQ(own.generate(hpke::kem_t::MLKEM768), hpke::error_t::NONE);
+	ASSERT_EQ(authenticator.generate(hpke::kem_t::MLKEM768), hpke::error_t::NONE);
+	// Набор
+	const hpke::suite_t suite(hpke::kem_t::MLKEM768, hpke::kdf_t::HKDF_SHA256, hpke::aead_t::AES_128_GCM);
+	// Состояние отправителя
+	hpke::context_t sealer;
+	// Инкапсулированный ключ
+	uint8_t enc[1665];
+	// Проверяем отказ режима AUTH у чистого ML-KEM: раздел 7.2 draft-ietf-hpke-pq
+	ASSERT_EQ(hpke::sender(suite, hpke::regime_t::AUTH, own.point(), view_t(), hpke::shared_t(), &authenticator, enc, sealer), hpke::error_t::MODE);
+	// Проверяем отказ режима AUTH_PSK у чистого ML-KEM
+	const std::vector <uint8_t> psk(32, 0x42), identity(4, 0x24);
+	ASSERT_EQ(hpke::sender(suite, hpke::regime_t::AUTH_PSK, own.point(), view_t(), hpke::shared_t(viewed(psk), viewed(identity)), &authenticator, enc, sealer), hpke::error_t::MODE);
+	// Проверяем допустимость режима BASE у чистого ML-KEM
+	ASSERT_EQ(hpke::sender(suite, hpke::regime_t::BASE, own.point(), view_t(), hpke::shared_t(), nullptr, enc, sealer), hpke::error_t::NONE);
+	// Проверяем допустимость режима PSK у чистого ML-KEM
+	ASSERT_EQ(hpke::sender(suite, hpke::regime_t::PSK, own.point(), view_t(), hpke::shared_t(viewed(psk), viewed(identity)), nullptr, enc, sealer), hpke::error_t::NONE);
+	// Проверяем признак подлинности у способов
+	ASSERT_TRUE(hpke::authenticated(hpke::kem_t::X25519_HKDF_SHA256));
+	ASSERT_TRUE(hpke::authenticated(hpke::kem_t::P256_HKDF_SHA256));
+	ASSERT_FALSE(hpke::authenticated(hpke::kem_t::MLKEM768));
+	ASSERT_FALSE(hpke::authenticated(hpke::kem_t::MLKEM768_X25519));
 }

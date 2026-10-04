@@ -15098,6 +15098,22 @@ context::error_t nts::internal::Engine::ech(const view_t & secret, const string 
 	return this->serving(secret, name, id, length, true);
 }
 /**
+ * @brief Метод установки ключа ECH серверу со способом инкапсуляции
+ *
+ * @param kem    способ инкапсуляции ключа
+ * @param secret секретный ключ способа либо пусто
+ * @param name   публичное имя конфигурации
+ * @param id     опознаватель конфигурации
+ * @param length наибольшая длина имени для заполнения клиента
+ *
+ * @return       отказ установки
+ *
+ */
+context::error_t nts::internal::Engine::ech(const hpke::kem_t kem, const view_t & secret, const string & name, const uint8_t id, const uint8_t length) noexcept {
+	// Добавляем объявляемую конфигурацию со способом
+	return this->serving(kem, secret, name, id, length, true);
+}
+/**
  * @brief Метод установки удержанной конфигурации ECH серверу: принимается, но не объявляется
  *
  * @param secret секретный ключ X25519 либо пусто
@@ -15113,6 +15129,22 @@ context::error_t nts::internal::Engine::retain(const view_t & secret, const stri
 	return this->serving(secret, name, id, length, false);
 }
 /**
+ * @brief Метод установки удержанной конфигурации ECH серверу со способом инкапсуляции: принимается, но не объявляется
+ *
+ * @param kem    способ инкапсуляции ключа
+ * @param secret секретный ключ способа либо пусто
+ * @param name   публичное имя конфигурации
+ * @param id     опознаватель конфигурации
+ * @param length наибольшая длина имени
+ *
+ * @return       отказ установки
+ *
+ */
+context::error_t nts::internal::Engine::retain(const hpke::kem_t kem, const view_t & secret, const string & name, const uint8_t id, const uint8_t length) noexcept {
+	// Добавляем удержанную конфигурацию со способом
+	return this->serving(kem, secret, name, id, length, false);
+}
+/**
  * @brief Метод добавления служимой конфигурации ECH
  *
  * @param secret     секретный ключ X25519 либо пусто
@@ -15125,6 +15157,23 @@ context::error_t nts::internal::Engine::retain(const view_t & secret, const stri
  *
  */
 context::error_t nts::internal::Engine::serving(const view_t & secret, const string & name, const uint8_t id, const uint8_t length, const bool advertised) noexcept {
+	// Добавляем конфигурацию со способом X25519
+	return this->serving(hpke::kem_t::X25519_HKDF_SHA256, secret, name, id, length, advertised);
+}
+/**
+ * @brief Метод добавления служимой конфигурации ECH со способом инкапсуляции
+ *
+ * @param kem        способ инкапсуляции ключа
+ * @param secret     секретный ключ способа либо пусто
+ * @param name       публичное имя конфигурации
+ * @param id         опознаватель конфигурации
+ * @param length     наибольшая длина имени
+ * @param advertised признак объявления конфигурации в перечне
+ *
+ * @return           отказ установки
+ *
+ */
+context::error_t nts::internal::Engine::serving(const hpke::kem_t kem, const view_t & secret, const string & name, const uint8_t id, const uint8_t length, const bool advertised) noexcept {
 	// Ключ ставится лишь до заведения связи
 	if(this->_state != context::state_t::NONE)
 		// Выводим отказ негодного состояния связи
@@ -15133,8 +15182,8 @@ context::error_t nts::internal::Engine::serving(const view_t & secret, const str
 	if(this->_starved)
 		// Выводим отказ нехватки памяти
 		return context::error_t::MEMORY;
-	// Ключ годен лишь серверу, имя обязательно и не длиннее дозволенного
-	if(!this->_server || name.empty() || (name.size() > ech::ECH_NAME))
+	// Ключ годен лишь серверу, имя обязательно и не длиннее дозволенного, способ поддерживаемый
+	if(!this->_server || name.empty() || (name.size() > ech::ECH_NAME) || (hpke::length(kem) == 0))
 		// Выводим отказ настроек связи
 		return context::error_t::SETTINGS;
 	// Место прежней конфигурации с тем же опознавателем: она заменяется, ведь клиенту не подобрать ключ по одному опознавателю на два ключа (раздел 7.1 RFC 9849)
@@ -15157,7 +15206,7 @@ context::error_t nts::internal::Engine::serving(const view_t & secret, const str
 		// Признак объявления
 		item.advertised = advertised;
 		// Отказ заведения ключа: заданный секрет либо порождение
-		const hpke::error_t keyed = ((secret.size == 0) ? item.key.generate(hpke::kem_t::X25519_HKDF_SHA256) : item.key.set(hpke::kem_t::X25519_HKDF_SHA256, secret));
+		const hpke::error_t keyed = ((secret.size == 0) ? item.key.generate(kem) : item.key.set(kem, secret));
 		// Если ключ завести не удалось
 		if(keyed != hpke::error_t::NONE)
 			// Выводим отказ: нехватка памяти своим кодом, прочее - настройками
@@ -15169,7 +15218,7 @@ context::error_t nts::internal::Engine::serving(const view_t & secret, const str
 		// Наибольшая длина имени
 		config.length = length;
 		// Способ инкапсуляции
-		config.kem = hpke::kem_t::X25519_HKDF_SHA256;
+		config.kem = kem;
 		// Открытая часть ключа
 		config.key.assign(item.key.point().data, item.key.point().data + item.key.point().size);
 		// Наборы: обязательный AES-128-GCM и ChaCha20-Poly1305, оба на HKDF-SHA256
@@ -15332,8 +15381,8 @@ context::error_t nts::internal::Engine::shrouding(hello::client_t & greeting, co
 			item.kdf = suite.kdf;
 			// Шифр
 			item.aead = suite.aead;
-			// Место инкапсулированного ключа X25519
-			uint8_t encapsulated[agreement::X25519_SIZE];
+			// Место инкапсулированного ключа способа конфигурации
+			uint8_t encapsulated[hpke::KEM_CIPHER];
 			// Отказ заведения отправителя HPKE
 			const hpke::error_t established = hpke::sender(item, hpke::regime_t::BASE, view_t(config.key.data(), config.key.size()), view_t(info.data(), info.size()), hpke::shared_t(), nullptr, encapsulated, this->_sealer);
 			// Если отправителя завести не удалось
@@ -15341,7 +15390,7 @@ context::error_t nts::internal::Engine::shrouding(hello::client_t & greeting, co
 				// Выводим отказ: нехватка памяти своим кодом, прочее - конфигурациями
 				return ((established == hpke::error_t::MEMORY) ? context::error_t::MEMORY : context::error_t::ECH);
 			// Переносим инкапсулированный ключ
-			enc.assign(encapsulated, encapsulated + sizeof(encapsulated));
+			enc.assign(encapsulated, encapsulated + hpke::overhead(item.kem));
 		// Если приветствие повторное, а отправитель не заведён
 		} else if(!this->_sealer.ready())
 			// Выводим отказ конфигураций ECH
@@ -15785,7 +15834,7 @@ context::error_t nts::internal::Engine::unshrouding(const hello::client_t & gree
 				}
 			}
 			// Если конфигурации по опознавателю и набору нет либо ключ негодной длины: ECH отвергается
-			if((chosen == nullptr) || (hello.enc.size() != agreement::X25519_SIZE)){
+			if((chosen == nullptr) || (hello.enc.size() != hpke::overhead(chosen->config.kem))){
 				// Запоминаем отказ ECH: клиент получит запасные конфигурации
 				this->_echrejected = true;
 				// Выводим успешность: связь идёт по внешнему приветствию

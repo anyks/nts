@@ -804,6 +804,46 @@ context::error_t nts::server::Context::retain(const vector <uint8_t> & secret, c
 	return this->_engine->retain(view_t(secret.data(), secret.size()), name, id, length);
 }
 /**
+ * @brief Метод установки ключа ECH серверу со способом инкапсуляции
+ *
+ * @param kem    способ инкапсуляции ключа HPKE
+ * @param secret секретный ключ способа либо пусто
+ * @param name   публичное имя конфигурации
+ * @param id     опознаватель конфигурации
+ * @param length наибольшая длина имени узла
+ *
+ * @return       отказ установки
+ *
+ */
+context::error_t nts::server::Context::ech(const hpke::kem_t kem, const vector <uint8_t> & secret, const string & name, const uint8_t id, const uint8_t length) noexcept {
+	// Если ведение связи не заведено
+	if(this->_engine == nullptr)
+		// Выводим отказ нехватки памяти
+		return context::error_t::MEMORY;
+	// Выводим итог установки ключа со способом
+	return this->_engine->ech(kem, view_t(secret.data(), secret.size()), name, id, length);
+}
+/**
+ * @brief Метод установки удержанной конфигурации ECH серверу со способом инкапсуляции
+ *
+ * @param kem    способ инкапсуляции ключа HPKE
+ * @param secret секретный ключ способа либо пусто
+ * @param name   публичное имя конфигурации
+ * @param id     опознаватель конфигурации
+ * @param length наибольшая длина имени узла
+ *
+ * @return       отказ установки
+ *
+ */
+context::error_t nts::server::Context::retain(const hpke::kem_t kem, const vector <uint8_t> & secret, const string & name, const uint8_t id, const uint8_t length) noexcept {
+	// Если ведение связи не заведено
+	if(this->_engine == nullptr)
+		// Выводим отказ нехватки памяти
+		return context::error_t::MEMORY;
+	// Выводим итог установки удержанной конфигурации со способом
+	return this->_engine->retain(kem, view_t(secret.data(), secret.size()), name, id, length);
+}
+/**
  * @brief Метод получения перечня конфигураций ECH для записи DNS HTTPS
  *
  * @return перечень ECHConfigList байтами

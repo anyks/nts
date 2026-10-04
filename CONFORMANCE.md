@@ -8948,6 +8948,25 @@ ML-DSA и SLH-DSA, ML-DSA в TLS и X.509, постквантового HPKE. У
     MLKEM768-X25519 0x647A (X-Wing), MLKEM768-P256 0x0050, MLKEM1024-P384 0x0051; `hpke::kem_t` и `ECHConfig` с этими
     KEM, KDF на SHAKE по тому же черновику. У OpenSSL 4.2-dev этого ещё нет - брать по черновику как задел, пины по
     векторам черновика и против BoringSSL, когда появится.
+    **Круг 78 (04.10.2026)**: сделано. Способы инкапсуляции: DHKEM(P-256/P-384/P-521/X448) по разделу 7.1.3
+    draft-ietf-hpke-hpke (отбор кандидатов у NIST, LabeledDerive/LabeledExpand у X25519/X448), чистый ML-KEM
+    (зерно 64 как dk, Encaps/Decaps FIPS 203, сообщение - первые 32 байта зерна мимолётной пары), гибриды
+    MLKEM768-P256/X25519 и MLKEM1024-P384 по каркасу CG draft-irtf-cfrg-hybrid-kems (PRG SHAKE256, RandomScalar
+    отбором кусков у NIST и тождеством у Curve25519, сочетатель C2PRI на SHA3-256 с метками «MLKEM768-P256»,
+    «MLKEM1024-P384» и «\\.//^\\» X-Wing). Одноступенчатые KDF SHAKE128/256 и TurboSHAKE128/256 по разделу 5
+    черновика (перестановка Keccak-p[1600, 12] у TurboSHAKE, круги 12..23 от конца таблицы констант, сверено с
+    RFC 9861); расписание CombineSecrets_OneStage по draft-ietf-hpke-hpke. Режимы AUTH/AUTH_PSK у постквантовых
+    способов отвергаются (раздел 7.2 черновика). Вектора draft-ietf-hpke-pq-05 все тринадцать зелёные: чистые
+    ML-KEM ×4 и DHKEM ×4 побайтно (skRm, pkRm, enc, shared, key, base_nonce, exporter, ct, open, export), гибриды
+    ×5 recipient-стороной (skRm, decapsulate, shared, export; EncapsDerand гибридов использует randomness напрямую,
+    а не spread зерна 32 - отправитель проверен кругами generate+encapsulate+decapsulate у всех десяти способов).
+    Пины: HpkeTest.PostQuantum (13 векторов), HpkeTest.Mechanisms (11 KEM кругом), HpkeTest.Authenticated (отказы
+    AUTH), EchTest.PostQuantum (рукопожатие с MLKEM768-X25519: перечень с kem 0x647A и ключом 1216, shrouded обеих
+    сторон, тайное имя, прикладные данные). Мутации M1-M5 отвергнуты проверками (порядок полей C2PRI, метка X-Wing,
+    порядок зерна spread, метка DeriveKeyPair, круги TurboSHAKE). ECH: длина ключа конфигурации и инкапсулированного
+    ключа по способу, serving/ech/retain с доводом kem (старые вызовы с X25519). Стенды FreeBSD (clang), Astra
+    (gcc 12) и MinGW - все зелёные (hpke 12/12 + EchTest.PostQuantum). Открыто:
+    замеры на Xeon/Эльбрусе по подтверждению потребителя проекта.
 
 Вне очереди Б, с доводами: NTRU Prime sntrup761 - в реестре TLS кода нет, он в очереди В; LMS/HSS - в TLS не входит, он в
 Г13; составные подписи (draft-ietf-lamps-pq-composite-sigs) - черновик без издания и без кодов, ждать; curveSM2MLKEM768 -

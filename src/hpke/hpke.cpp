@@ -159,7 +159,7 @@ namespace {
 	/**
 	 * Круговой сдвиг нужен лишь переносимой перестановке
 	 */
-	#if !defined(__ANTS_KECCAK_X86_64__) && !defined(__ANTS_KECCAK_AARCH64__)
+	#if true
 		/**
 		 * @brief Метод кругового сдвига полосы влево
 		 *
@@ -186,9 +186,11 @@ namespace {
 	 */
 	static void permute(uint64_t * state, const size_t rounds) noexcept {
 		/**
-		 * Ядро на ассемблере x86-64 либо на командах SHA-3 AArch64
+		 * Ядро на ассемблере x86-64 либо на командах SHA-3 AArch64 делает ровно двадцать
+		 * четыре круга от переданной таблицы констант: для полной перестановки Keccak-f[1600]
+		 * оно годится, для усечённой Keccak-p[1600, 12] TurboSHAKE остаётся переносимая ветвь
 		 */
-		#if defined(__ANTS_KECCAK_X86_64__) || defined(__ANTS_KECCAK_AARCH64__)
+		#if (defined(__ANTS_KECCAK_X86_64__) || defined(__ANTS_KECCAK_AARCH64__)) && 0
 			// Выполняем перестановку ядром от конца таблицы констант
 			digest::kernel::keccak(state, KECCAK_IOTA + (KECCAK_ROUNDS - rounds));
 		/**
@@ -905,7 +907,15 @@ namespace {
 		if(puremlkem(kem) || hybrid(kem))
 			// Выводим длину общего значения
 			return 32;
-		// У способов Диффи-Хеллмана общее значение длиной в размер кривой
+		// У DHKEM(X448, HKDF-SHA512) общее значение в шестьдесят четыре байта
+		if(kem == kem_t::X448_HKDF_SHA512)
+			// Выводим длину общего значения
+			return 64;
+		// У DHKEM(P-521, HKDF-SHA512) общее значение в шестьдесят четыре байта
+		if(kem == kem_t::P521_HKDF_SHA512)
+			// Выводим длину общего значения
+			return 64;
+		// У прочих способов Диффи-Хеллмана общее значение длиной в размер кривой
 		return secret(kem);
 	}
 
@@ -1253,7 +1263,7 @@ namespace {
 		// Набор параметров ML-KEM
 		const agreement::kem_t set = mlkemset(kem);
 		// Ключ декапсуляции полной записью стандарта: dk_PKE ‖ ek ‖ H(ek) ‖ z
-		uint8_t expanded[2400];
+		uint8_t expanded[3168];
 		// Вырабатываем пару ключей из зерна
 		const bool status = agreement::generate(set, seed, point, expanded);
 		// Стираем ключ декапсуляции
@@ -1821,6 +1831,10 @@ nts::hpke::error_t nts::hpke::Key::generate(const kem_t kem) noexcept {
 		case static_cast <uint16_t> (kem_t::MLKEM768_X25519):
 			// Вырабатываем зерно из случайных байтов и пару ключей из зерна
 			status = (entropy::bytes(seed, HYBRID_SEED_SIZE) && this->grown(kem, view_t(seed, HYBRID_SEED_SIZE)));
+			// Переносим зерно в секретный ключ
+			if(status)
+				// Копируем зерно
+				::memcpy(this->_secret, seed, HYBRID_SEED_SIZE);
 			break;
 	}
 	// Стираем зерно
@@ -1897,6 +1911,10 @@ nts::hpke::error_t nts::hpke::Key::derive(const kem_t kem, const view_t & materi
 		status = labeled(derivation(kem), view_t(suite, sizeof(suite)), "DeriveKeyPair", view_t(), material, seed, sizeof(seed));
 		// Вырабатываем пару ключей из зерна
 		status = (status && this->grown(kem, view_t(seed, sizeof(seed))));
+		// Переносим зерно в секретный ключ
+		if(status)
+			// Копируем зерно
+			::memcpy(this->_secret, seed, sizeof(seed));
 		// Стираем зерно
 		wipe(seed, sizeof(seed));
 	}
@@ -2570,8 +2588,18 @@ nts::hpke::error_t nts::hpke::Context::exporter(const view_t & context, uint8_t 
 	uint8_t identifier[SUITE_STAMP];
 	// Составляем опознаватель набора
 	stamp(this->_suite, identifier);
-	// Растягиваем секрет экспорта
-	if(!unfold(hashing(this->_suite.kdf), view_t(this->_exporter, length), view_t(identifier, sizeof(identifier)), "sec", context, result, size)){
+	// Признак успешности выработки
+	bool status = false;
+	// Если функция выработки ключа одноступенчатая
+	if(onestage(this->_suite.kdf))
+		// Вырабатываем секрет экспорта меченой выработкой: LabeledDerive(exporter_secret, "sec", context, L)
+		status = labeled(this->_suite.kdf, view_t(identifier, sizeof(identifier)), "sec", context, view_t(this->_exporter, length), result, size);
+	// Иначе растягиваем секрет экспорта: LabeledExpand(exporter_secret, "sec", context, L)
+	else
+		// Вырабатываем секрет растяжением
+		status = unfold(hashing(this->_suite.kdf), view_t(this->_exporter, length), view_t(identifier, sizeof(identifier)), "sec", context, result, size);
+	// Если выработка не удалась
+	if(!status){
 		// Стираем место под секрет
 		wipe(result, size);
 		// Выводим отказ набора
@@ -2741,30 +2769,28 @@ nts::hpke::error_t nts::hpke::encapsulate(const key_t & ephemeral, const view_t 
 		if(!agreement::validate(set, view_t(point.data, pksize)))
 			// Выводим отказ инкапсуляции
 			return error_t::ENCAPSULATION;
+		// Зёрна составляющих из зерна мимолётной пары: сообщение ML-KEM и зерно группы
+		uint8_t pq[MLKEM_SEED_SIZE], trad[128];
+		// Растягиваем зерно мимолётной пары в зёрна составляющих
+		spread(kem, ephemeral.secret(), pq, trad);
 		// Общие значения составляющих
 		uint8_t ssPQ[MLKEM_SHARED_SIZE], ssT[SCALAR_SIZE];
-		// Инкапсулируем ключ ML-KEM на мимолётном зерне как сообщении
-		status = agreement::encapsulate(set, view_t(point.data, pksize), view_t(ephemeral.secret().data, MLKEM_MESSAGE_SIZE), result, ssPQ);
+		// Инкапсулируем ключ ML-KEM на зерне как сообщении
+		status = agreement::encapsulate(set, view_t(point.data, pksize), view_t(pq, MLKEM_MESSAGE_SIZE), result, ssPQ);
 		// Если способ с группой Curve25519
 		if(status && (kem == kem_t::MLKEM768_X25519)){
-			// Мимолётный скаляр: зерно традиционной составляющей из зерна пары
-			uint8_t scalar[X25519_SIZE];
-			// Копируем скаляр из зерна мимолётной пары
-			::memcpy(scalar, ephemeral.secret().data + MLKEM_MESSAGE_SIZE, sizeof(scalar));
-			// Вырабатываем мимолётный открытый ключ
-			status = agreement::x25519(view_t(scalar, sizeof(scalar)), result + ctsize);
+			// Вырабатываем мимолётный открытый ключ из зерна как скаляра
+			status = agreement::x25519(view_t(trad, X25519_SIZE), result + ctsize);
 			// Вырабатываем общее значение традиционной составляющей
-			status = (status && agreement::x25519(view_t(scalar, sizeof(scalar)), view_t(point.data + pksize, X25519_SIZE), ssT));
-			// Стираем скаляр
-			wipe(scalar, sizeof(scalar));
+			status = (status && agreement::x25519(view_t(trad, X25519_SIZE), view_t(point.data + pksize, X25519_SIZE), ssT));
 		// Если способ с кривой NIST
 		} else if(status){
 			// Размер кривой
 			const size_t size = (((kem == kem_t::MLKEM768_P256)) ? 32 : 48);
-			// Мимолётный скаляр: зерно традиционной составляющей из зерна пары
+			// Мимолётный скаляр: зерно традиционной составляющей
 			uint8_t scalar[SCALAR_SIZE];
-			// Отбираем скаляр из зерна мимолётной пары
-			status = pick(kem, view_t(ephemeral.secret().data + MLKEM_MESSAGE_SIZE, tradition(kem)), scalar);
+			// Отбираем скаляр из зерна
+			status = pick(kem, view_t(trad, tradition(kem)), scalar);
 			// Вырабатываем мимолётный открытый ключ
 			status = (status && publish(kem, view_t(scalar, size), result + ctsize));
 			// Вырабатываем общее значение традиционной составляющей
@@ -2772,6 +2798,9 @@ nts::hpke::error_t nts::hpke::encapsulate(const key_t & ephemeral, const view_t 
 			// Стираем скаляр
 			wipe(scalar, sizeof(scalar));
 		}
+		// Стираем зёрна
+		wipe(pq, sizeof(pq));
+		wipe(trad, sizeof(trad));
 		// Если составляющие выработаны
 		if(status){
 			// Длина традиционной части ключа и шифртекста
@@ -2892,7 +2921,7 @@ nts::hpke::error_t nts::hpke::decapsulate(const key_t & own, const view_t & enc,
 		// Набор параметров ML-KEM
 		const agreement::kem_t set = mlkemset(kem);
 		// Ключ декапсуляции полной записью стандарта из зерна
-		uint8_t expanded[2400];
+		uint8_t expanded[3168];
 		// Открытый ключ из зерна
 		uint8_t opened[KEM_PUBLIC];
 		// Разворачиваем зерно в ключ декапсуляции
@@ -2915,7 +2944,7 @@ nts::hpke::error_t nts::hpke::decapsulate(const key_t & own, const view_t & enc,
 		// Растягиваем зерно пары в зёрна составляющих
 		status = spread(kem, own.secret(), pq, trad);
 		// Ключ декапсуляции полной записью стандарта из зерна
-		uint8_t expanded[2400];
+		uint8_t expanded[3168];
 		// Открытый ключ ML-KEM из зерна
 		uint8_t opened[1568];
 		// Разворачиваем зерно ML-KEM в ключ декапсуляции

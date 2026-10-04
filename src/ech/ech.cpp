@@ -428,8 +428,8 @@ nts::ech::error_t nts::ech::parse(const view_t & data, vector <config_t> & resul
 			for(size_t at = 0; usable && ((at + 4) <= config.extensions.size()); at += (4 + twain(config.extensions.data() + at + 2)))
 				// Обязательное расширение делает конфигурацию негодной
 				usable = ((config.extensions[at] & 0x80) == 0);
-			// Если ключ не длиной ключа KEM: у X25519 тридцать два байта
-			if(usable && (config.key.size() != agreement::X25519_SIZE))
+			// Если ключ не длиной ключа KEM способа конфигурации
+			if(usable && (config.key.size() != hpke::length(config.kem)))
 				// Конфигурация негодна
 				usable = false;
 			// Раздел 4 RFC 9849: конфигурация с публичным именем не вида DNS пропускается

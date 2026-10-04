@@ -10,6 +10,9 @@ target_compile_options(${TEST_HPKE_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
 # Подключаем каталог общих заголовочных файлов набора проверок
 target_include_directories(${TEST_HPKE_NAME} PRIVATE "${ANTS_ROOT}/tests" "${CMAKE_CURRENT_SOURCE_DIR}")
 
+# Определяем каталог контрольных примеров
+target_compile_definitions(${TEST_HPKE_NAME} PRIVATE ANTS_CORPUS="${ANTS_ROOT}/tests/corpus")
+
 # Выполняем подключение зависимостей цели проверок
 target_link_libraries(${TEST_HPKE_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
 

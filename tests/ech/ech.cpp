@@ -439,7 +439,7 @@ TEST(EchTest, Boringssl){
 	EXPECT_TRUE(ech::supported(config.kem, config.suites[0]));
 	EXPECT_TRUE(ech::supported(config.kem, config.suites[1]));
 	EXPECT_FALSE(ech::supported(config.kem, ech::suite_t(hpke::kdf_t::HKDF_SHA256, hpke::aead_t::EXPORT_ONLY)));
-	EXPECT_FALSE(ech::supported(static_cast <hpke::kem_t> (0x0010), config.suites[0]));
+	EXPECT_FALSE(ech::supported(static_cast <hpke::kem_t> (0x0001), config.suites[0]));
 }
 
 /**
@@ -489,7 +489,7 @@ TEST(EchTest, Configs){
 	// Конфигурация без признаваемых наборов пропускается
 	ech::config_t config = configs[0];
 	// Наборы чужие
-	config.suites = vector <ech::suite_t> {ech::suite_t(static_cast <hpke::kdf_t> (0x0010), hpke::aead_t::AES_128_GCM)};
+	config.suites = vector <ech::suite_t> {ech::suite_t(static_cast <hpke::kdf_t> (0x0004), hpke::aead_t::AES_128_GCM)};
 	// Перечень из такой конфигурации
 	vector <uint8_t> unusable;
 	// Составляем перечень
@@ -1880,4 +1880,67 @@ TEST(EchTest, Rotation){
 		ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 		EXPECT_TRUE(server.shrouded());
 	}
+}
+
+/**
+ * Проверка принятия ECH с постквантовым способом инкапсуляции MLKEM768-X25519
+ *
+ */
+TEST(EchTest, PostQuantum){
+	// Связи сторон
+	client::context_t client;
+	server::context_t server;
+	// Подлинность сервера
+	context::credential_t credential;
+	// Составляем подлинность
+	ASSERT_TRUE(identity("ec256", credential));
+	// Подлинность сервера
+	server.credential(credential);
+	// Прикладные протоколы сервера
+	server.protocols(vector <string> {"h2"});
+	// Устанавливаем ключ сервера с гибридным способом MLKEM768-X25519
+	ASSERT_EQ(server.ech(hpke::kem_t::MLKEM768_X25519, vector <uint8_t> (), "public.example", 7, 64), context::error_t::NONE);
+	// Перечень сервера для DNS
+	const vector <uint8_t> & list = server.ech();
+	// Проверяем перечень
+	ASSERT_FALSE(list.empty());
+	// Разбираем перечень
+	vector <ech::config_t> configs;
+	ASSERT_EQ(ech::parse(view_t(list.data(), list.size()), configs), ech::error_t::NONE);
+	// Проверяем конфигурацию
+	ASSERT_EQ(configs.size(), static_cast <size_t> (1));
+	EXPECT_EQ(configs[0].kem, hpke::kem_t::MLKEM768_X25519);
+	EXPECT_EQ(configs[0].key.size(), static_cast <size_t> (1216));
+	EXPECT_EQ(configs[0].name, "public.example");
+	// Имя узла у клиента: скрываемое
+	client.name("secret.example");
+	// Прикладные протоколы клиента
+	client.protocols(vector <string> {"h2"});
+	// Устанавливаем конфигурации клиента из перечня сервера
+	ASSERT_EQ(client.ech(list), context::error_t::NONE);
+	// Заводим стороны
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	// Проводим рукопожатие
+	converse(client, server);
+	// Проверяем установленность связи
+	ASSERT_TRUE(client.established() && server.established()) << "client " << static_cast <int> (client.error()) << " server " << static_cast <int> (server.error());
+	// Обе стороны считают ECH принятым
+	EXPECT_TRUE(client.shrouded()) << "client shrouded";
+	EXPECT_TRUE(server.shrouded()) << "server shrouded";
+	// Сервер видел тайное имя из внутреннего приветствия
+	EXPECT_EQ(server.name(), "secret.example");
+	// Прикладной протокол согласован
+	EXPECT_EQ(client.protocol(), "h2");
+	// Обмен прикладными данными
+	const string request = "Запрос под ECH с MLKEM768-X25519";
+	// Отправляем
+	ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
+	// Передаём
+	converse(client, server);
+	// Принятое
+	vector <uint8_t> received;
+	// Читаем
+	ASSERT_EQ(server.read(received), context::error_t::NONE);
+	EXPECT_EQ(string(received.begin(), received.end()), request);
 }

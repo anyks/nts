@@ -48,6 +48,7 @@
 #include <context/context.hpp>
 #include <fingerprint/fingerprint.hpp>
 #include <datagram/datagram.hpp>
+#include <hpke/hpke.hpp>
 
 /**
  * \~russian
@@ -1564,6 +1565,36 @@ namespace nts {
 				context::error_t ech(const vector <uint8_t> & secret, const string & name, const uint8_t id, const uint8_t length) noexcept;
 				/**
 				 * \~russian
+				 * @brief Метод установки ключа ECH серверу со способом инкапсуляции (RFC 9849)
+				 *
+				 * @param kem    способ инкапсуляции ключа HPKE
+				 * @param secret секретный ключ способа либо пусто - ключ порождается
+				 * @param name   публичное имя конфигурации: им идёт внешнее приветствие клиента
+				 * @param id     опознаватель конфигурации (один случайный байт у потребителя)
+				 * @param length наибольшая длина имени узла в множестве анонимности: правит заполнение клиента
+				 * @return       отказ установки: STATE после `start()`, SETTINGS при негодном ключе, имени либо способе, MEMORY
+				 *
+				 * @details Сервер складывает конфигурацию издания 0xFE0D с заданным способом инкапсуляции
+				 *          (постквантовые ML-KEM и гибриды ML-KEM с ECDH по draft-ietf-hpke-pq) и наборами
+				 *          AES-128-GCM и ChaCha20-Poly1305 на HKDF-SHA256
+				 *
+				 * \~english
+				 * @brief Method of setting the key of the encrypted client hello ECH at the server with an encapsulation mechanism (RFC 9849)
+				 * @param kem    the HPKE key encapsulation mechanism
+				 * @param secret the secret key of the mechanism or empty - the key is generated
+				 * @param name   the public name of the configuration: the outer greeting of the client goes by it
+				 * @param id     the identifier of the configuration (a single random byte at the consumer)
+				 * @param length the greatest length of a host name in the anonymity set: rules the padding of the client
+				 * @return       the failure of the setting: STATE after `start()`, SETTINGS at an invalid key, name or mechanism, MEMORY
+				 * @details The server composes a configuration of the edition 0xFE0D with the given encapsulation
+				 *          mechanism (the post-quantum ML-KEM and the hybrids of ML-KEM with ECDH by draft-ietf-hpke-pq)
+				 *          and the AES-128-GCM and ChaCha20-Poly1305 suites on HKDF-SHA256
+				 *
+				 * \~
+				 */
+				context::error_t ech(const hpke::kem_t kem, const vector <uint8_t> & secret, const string & name, const uint8_t id, const uint8_t length) noexcept;
+				/**
+				 * \~russian
 				 * @brief Метод установки удержанной конфигурации ECH серверу: принимается, но не объявляется
 				 *
 				 * @param secret секретный ключ X25519 (32 байта) либо пусто - ключ порождается
@@ -1596,6 +1627,29 @@ namespace nts {
 				 * \~
 				 */
 				context::error_t retain(const vector <uint8_t> & secret, const string & name, const uint8_t id, const uint8_t length) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод установки удержанной конфигурации ECH серверу со способом инкапсуляции: принимается, но не объявляется
+				 *
+				 * @param kem    способ инкапсуляции ключа HPKE
+				 * @param secret секретный ключ способа либо пусто - ключ порождается
+				 * @param name   публичное имя конфигурации
+				 * @param id     опознаватель конфигурации: занятый прежней конфигурацией заменяет её
+				 * @param length наибольшая длина имени узла
+				 * @return       отказ установки: STATE после `start()`, SETTINGS при негодном ключе, имени либо способе, MEMORY
+				 *
+				 * \~english
+				 * @brief Method of setting a retained ECH configuration at the server with an encapsulation mechanism: accepted but not advertised
+				 * @param kem    the HPKE key encapsulation mechanism
+				 * @param secret the secret key of the mechanism or empty - the key is generated
+				 * @param name   the public name of the configuration
+				 * @param id     the identifier of the configuration: one taken by a former configuration replaces it
+				 * @param length the greatest length of a host name
+				 * @return       the failure of the setting: STATE after `start()`, SETTINGS at an invalid key, name or mechanism, MEMORY
+				 *
+				 * \~
+				 */
+				context::error_t retain(const hpke::kem_t kem, const vector <uint8_t> & secret, const string & name, const uint8_t id, const uint8_t length) noexcept;
 				/**
 				 * \~russian
 				 * @brief Метод получения перечня конфигураций ECH для записи DNS HTTPS

@@ -39,6 +39,10 @@
   переложенные сценарием `tools/sign/slhdsa.py` из подмодуля OpenSSL (`keygen.txt`,
   `siggen.txt`, `sigver.txt`). Блоки `message-encoding:0` (сырое сообщение —
   расширение OpenSSL вне FIPS 205) пропущены.
+* `hpke/` — контрольные примеры HPKE с постквантовыми способами инкапсуляции:
+  записи `test-vectors.json` hpkewg/hpke-pq (draft-ietf-hpke-pq-05), переложенные
+  сценарием `tools/hpke/pq.py` (`vectors.txt`). Тринадцать наборов: чистые
+  ML-KEM ×4, DHKEM ×4, гибриды ×5.
 * `ca-long.crt` — корень со сроком 2015…2035, чтобы срок листа проверялся отдельно
   от срока издателя.
 * `expired.crt` — лист со сроком 1…2 января 2020 года, издан `ca-long.crt`.

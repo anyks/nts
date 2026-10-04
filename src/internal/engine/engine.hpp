@@ -2234,6 +2234,16 @@ namespace nts {
 				 */
 				context::error_t ech(const view_t & secret, const string & name, const uint8_t id, const uint8_t length) noexcept;
 				/**
+				 * @brief Метод установки ключа ECH серверу со способом инкапсуляции
+				 * @param kem    способ инкапсуляции ключа
+				 * @param secret секретный ключ способа либо пусто - порождается
+				 * @param name   публичное имя конфигурации
+				 * @param id     опознаватель конфигурации: занятый заменяет прежнюю конфигурацию
+				 * @param length наибольшая длина имени для заполнения клиента
+				 * @return       отказ установки
+				 */
+				context::error_t ech(const hpke::kem_t kem, const view_t & secret, const string & name, const uint8_t id, const uint8_t length) noexcept;
+				/**
 				 * @brief Метод установки удержанной конфигурации ECH серверу: принимается, но не объявляется
 				 * @param secret секретный ключ X25519 (32 байта) либо пусто - порождается
 				 * @param name   публичное имя конфигурации
@@ -2242,6 +2252,16 @@ namespace nts {
 				 * @return       отказ установки
 				 */
 				context::error_t retain(const view_t & secret, const string & name, const uint8_t id, const uint8_t length) noexcept;
+				/**
+				 * @brief Метод установки удержанной конфигурации ECH серверу со способом инкапсуляции: принимается, но не объявляется
+				 * @param kem    способ инкапсуляции ключа
+				 * @param secret секретный ключ способа либо пусто - порождается
+				 * @param name   публичное имя конфигурации
+				 * @param id     опознаватель конфигурации: занятый заменяет прежнюю конфигурацию
+				 * @param length наибольшая длина имени для заполнения клиента
+				 * @return       отказ установки
+				 */
+				context::error_t retain(const hpke::kem_t kem, const view_t & secret, const string & name, const uint8_t id, const uint8_t length) noexcept;
 				/**
 				 * @brief Метод добавления служимой конфигурации ECH
 				 * @param secret     секретный ключ X25519 (32 байта) либо пусто - порождается
@@ -2252,6 +2272,17 @@ namespace nts {
 				 * @return           отказ установки
 				 */
 				context::error_t serving(const view_t & secret, const string & name, const uint8_t id, const uint8_t length, const bool advertised) noexcept;
+				/**
+				 * @brief Метод добавления служимой конфигурации ECH со способом инкапсуляции
+				 * @param kem        способ инкапсуляции ключа
+				 * @param secret     секретный ключ способа либо пусто - порождается
+				 * @param name       публичное имя конфигурации
+				 * @param id         опознаватель конфигурации
+				 * @param length     наибольшая длина имени для заполнения клиента
+				 * @param advertised признак объявления конфигурации в перечне
+				 * @return           отказ установки
+				 */
+				context::error_t serving(const hpke::kem_t kem, const view_t & secret, const string & name, const uint8_t id, const uint8_t length, const bool advertised) noexcept;
 				/**
 				 * @brief Метод получения перечня конфигураций ECH
 				 *
