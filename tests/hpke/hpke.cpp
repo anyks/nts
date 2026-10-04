@@ -206,7 +206,7 @@ TEST(HpkeTest, Lengths){
 	// Проверяем пустой набор
 	ASSERT_FALSE(hpke::supported(hpke::suite_t()));
 	// Проверяем чужой способ инкапсуляции
-	ASSERT_FALSE(hpke::supported(hpke::suite_t(static_cast <hpke::kem_t> (0x0010), hpke::kdf_t::HKDF_SHA256, hpke::aead_t::AES_128_GCM)));
+	ASSERT_FALSE(hpke::supported(hpke::suite_t(static_cast <hpke::kem_t> (0x0001), hpke::kdf_t::HKDF_SHA256, hpke::aead_t::AES_128_GCM)));
 	// Проверяем чужую функцию выработки ключа
 	ASSERT_FALSE(hpke::supported(hpke::suite_t(hpke::kem_t::X25519_HKDF_SHA256, static_cast <hpke::kdf_t> (0x0004), hpke::aead_t::AES_128_GCM)));
 	// Проверяем чужой шифр
@@ -280,7 +280,7 @@ TEST(HpkeTest, Derive){
 		// Проверяем неготовность
 		ASSERT_FALSE(key.ready());
 		// Проверяем отказ чужого способа
-		ASSERT_EQ(key.derive(static_cast <hpke::kem_t> (0x0010), viewed(brief)), hpke::error_t::SUITE);
+		ASSERT_EQ(key.derive(static_cast <hpke::kem_t> (0x0001), viewed(brief)), hpke::error_t::SUITE);
 		// Проверяем отказ неверной длины секретного ключа
 		ASSERT_EQ(key.set(hpke::kem_t::X25519_HKDF_SHA256, viewed(brief)), hpke::error_t::KEY);
 		// Проверяем отказ пустого секретного ключа

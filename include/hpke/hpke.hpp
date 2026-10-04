@@ -138,7 +138,17 @@ namespace nts {
 		 */
 		enum class kem_t : uint16_t {
 			NONE              = 0x0000, /*!< \~russian Способ не установлен \~english The mechanism is not set \~ */
-			X25519_HKDF_SHA256 = 0x0020 /*!< \~russian DHKEM(X25519, HKDF-SHA256) \~english DHKEM(X25519, HKDF-SHA256) \~ */
+			P256_HKDF_SHA256  = 0x0010, /*!< \~russian DHKEM(P-256, HKDF-SHA256) \~english DHKEM(P-256, HKDF-SHA256) \~ */
+			P384_HKDF_SHA384  = 0x0011, /*!< \~russian DHKEM(P-384, HKDF-SHA384) \~english DHKEM(P-384, HKDF-SHA384) \~ */
+			P521_HKDF_SHA512  = 0x0012, /*!< \~russian DHKEM(P-521, HKDF-SHA512) \~english DHKEM(P-521, HKDF-SHA512) \~ */
+			X25519_HKDF_SHA256 = 0x0020, /*!< \~russian DHKEM(X25519, HKDF-SHA256) \~english DHKEM(X25519, HKDF-SHA256) \~ */
+			X448_HKDF_SHA512  = 0x0021, /*!< \~russian DHKEM(X448, HKDF-SHA512) \~english DHKEM(X448, HKDF-SHA512) \~ */
+			MLKEM512          = 0x0040, /*!< \~russian ML-KEM-512 по draft-ietf-hpke-pq: секретный ключ - зерно в шестьдесят четыре байта \~english ML-KEM-512 by draft-ietf-hpke-pq: the secret key is a seed of sixty four bytes \~ */
+			MLKEM768          = 0x0041, /*!< \~russian ML-KEM-768 по draft-ietf-hpke-pq: секретный ключ - зерно в шестьдесят четыре байта \~english ML-KEM-768 by draft-ietf-hpke-pq: the secret key is a seed of sixty four bytes \~ */
+			MLKEM1024         = 0x0042, /*!< \~russian ML-KEM-1024 по draft-ietf-hpke-pq: секретный ключ - зерно в шестьдесят четыре байта \~english ML-KEM-1024 by draft-ietf-hpke-pq: the secret key is a seed of sixty four bytes \~ */
+			MLKEM768_P256     = 0x0050, /*!< \~russian Гибрид ML-KEM-768 и P-256 по draft-irtf-cfrg-concrete-hybrid-kems: секретный ключ - зерно в тридцать два байта \~english The hybrid of ML-KEM-768 and P-256 by draft-irtf-cfrg-concrete-hybrid-kems: the secret key is a seed of thirty two bytes \~ */
+			MLKEM1024_P384    = 0x0051, /*!< \~russian Гибрид ML-KEM-1024 и P-384 по draft-irtf-cfrg-concrete-hybrid-kems: секретный ключ - зерно в тридцать два байта \~english The hybrid of ML-KEM-1024 and P-384 by draft-irtf-cfrg-concrete-hybrid-kems: the secret key is a seed of thirty two bytes \~ */
+			MLKEM768_X25519   = 0x647A  /*!< \~russian Гибрид ML-KEM-768 и X25519 (X-Wing) по draft-irtf-cfrg-concrete-hybrid-kems: секретный ключ - зерно в тридцать два байта \~english The hybrid of ML-KEM-768 and X25519 (X-Wing) by draft-irtf-cfrg-concrete-hybrid-kems: the secret key is a seed of thirty two bytes \~ */
 		};
 
 		/**
@@ -155,10 +165,14 @@ namespace nts {
 		 *
 		 */
 		enum class kdf_t : uint16_t {
-			NONE        = 0x0000, /*!< \~russian Функция не установлена \~english The function is not set \~ */
-			HKDF_SHA256 = 0x0001, /*!< \~russian HKDF-SHA256 \~english HKDF-SHA256 \~ */
-			HKDF_SHA384 = 0x0002, /*!< \~russian HKDF-SHA384 \~english HKDF-SHA384 \~ */
-			HKDF_SHA512 = 0x0003  /*!< \~russian HKDF-SHA512 \~english HKDF-SHA512 \~ */
+			NONE          = 0x0000, /*!< \~russian Функция не установлена \~english The function is not set \~ */
+			HKDF_SHA256   = 0x0001, /*!< \~russian HKDF-SHA256 \~english HKDF-SHA256 \~ */
+			HKDF_SHA384   = 0x0002, /*!< \~russian HKDF-SHA384 \~english HKDF-SHA384 \~ */
+			HKDF_SHA512   = 0x0003, /*!< \~russian HKDF-SHA512 \~english HKDF-SHA512 \~ */
+			SHAKE128      = 0x0010, /*!< \~russian Одноступенчатая функция SHAKE128 по draft-ietf-hpke-pq \~english The one-stage function SHAKE128 by draft-ietf-hpke-pq \~ */
+			SHAKE256      = 0x0011, /*!< \~russian Одноступенчатая функция SHAKE256 по draft-ietf-hpke-pq \~english The one-stage function SHAKE256 by draft-ietf-hpke-pq \~ */
+			TURBOSHAKE128 = 0x0012, /*!< \~russian Одноступенчатая функция TurboSHAKE128 по draft-ietf-hpke-pq \~english The one-stage function TurboSHAKE128 by draft-ietf-hpke-pq \~ */
+			TURBOSHAKE256 = 0x0013  /*!< \~russian Одноступенчатая функция TurboSHAKE256 по draft-ietf-hpke-pq \~english The one-stage function TurboSHAKE256 by draft-ietf-hpke-pq \~ */
 		};
 
 		/**
@@ -213,6 +227,73 @@ namespace nts {
 		 *
 		 */
 		static constexpr size_t X25519_SIZE = 32;
+
+		/**
+		 * \~russian
+		 * @brief Наибольшая длина открытого ключа способа инкапсуляции в байтах:
+		 *        1665 у гибрида ML-KEM-1024 и P-384
+		 *
+		 * \~english
+		 * @brief Greatest length of the public key of the encapsulation mechanism in bytes:
+		 *        1665 at the hybrid of ML-KEM-1024 and P-384
+		 *
+		 * \~
+		 *
+		 */
+		static constexpr size_t KEM_PUBLIC = 1665;
+		/**
+		 * \~russian
+		 * @brief Наибольшая длина секретного ключа способа инкапсуляции в байтах:
+		 *        66 у DHKEM(P-521, HKDF-SHA512)
+		 *
+		 * \~english
+		 * @brief Greatest length of the secret key of the encapsulation mechanism in bytes:
+		 *        66 at DHKEM(P-521, HKDF-SHA512)
+		 *
+		 * \~
+		 *
+		 */
+		static constexpr size_t KEM_SECRET = 66;
+		/**
+		 * \~russian
+		 * @brief Наибольшая длина инкапсулированного ключа в байтах:
+		 *        1665 у гибрида ML-KEM-1024 и P-384
+		 *
+		 * \~english
+		 * @brief Greatest length of the encapsulated key in bytes:
+		 *        1665 at the hybrid of ML-KEM-1024 and P-384
+		 *
+		 * \~
+		 *
+		 */
+		static constexpr size_t KEM_CIPHER = 1665;
+		/**
+		 * \~russian
+		 * @brief Наибольшая длина исходного материала выработки пары ключей в байтах:
+		 *        64 у чистого ML-KEM
+		 *
+		 * \~english
+		 * @brief Greatest length of the input keying material of the production of a key pair
+		 *        in bytes: 64 at the pure ML-KEM
+		 *
+		 * \~
+		 *
+		 */
+		static constexpr size_t KEM_SEED = 64;
+
+		/**
+		 * \~russian
+		 * @brief Наибольшая длина общего значения способа инкапсуляции в байтах:
+		 *        Nsecret раздела 7.1 RFC 9180 и таблиц draft-ietf-hpke-pq
+		 *
+		 * \~english
+		 * @brief Greatest length of the shared secret of the encapsulation mechanism in bytes:
+		 *        Nsecret of the section 7.1 of RFC 9180 and of the tables of draft-ietf-hpke-pq
+		 *
+		 * \~
+		 *
+		 */
+		static constexpr size_t KEM_SHARED = 64;
 
 		/**
 		 * \~russian
@@ -382,6 +463,93 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ size_t length(const kdf_t kdf) noexcept;
 		/**
 		 * \~russian
+		 * @brief Метод извлечения длины открытого ключа способа инкапсуляции
+		 *
+		 * @param kem способ инкапсуляции ключа
+		 * @return    длина открытого ключа в байтах либо ноль у неизвестного способа
+		 *
+		 * \~english
+		 * @brief Method of getting the length of the public key of the encapsulation mechanism
+		 * @param kem the key encapsulation mechanism
+		 * @return    the length of the public key in bytes or zero for an unknown mechanism
+		 *
+		 * \~
+		 *
+		 */
+		__ANTS_SHARED_EXPORT__ size_t length(const kem_t kem) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод извлечения длины секретного ключа способа инкапсуляции
+		 *
+		 * @param kem способ инкапсуляции ключа
+		 * @return    длина секретного ключа в байтах либо ноль у неизвестного способа
+		 *
+		 * \~english
+		 * @brief Method of getting the length of the secret key of the encapsulation mechanism
+		 * @param kem the key encapsulation mechanism
+		 * @return    the length of the secret key in bytes or zero for an unknown mechanism
+		 *
+		 * \~
+		 *
+		 */
+		__ANTS_SHARED_EXPORT__ size_t secret(const kem_t kem) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод извлечения длины инкапсулированного ключа способа инкапсуляции
+		 *
+		 * @param kem способ инкапсуляции ключа
+		 * @return    длина инкапсулированного ключа в байтах либо ноль у неизвестного способа
+		 *
+		 * \~english
+		 * @brief Method of getting the length of the encapsulated key of the encapsulation mechanism
+		 * @param kem the key encapsulation mechanism
+		 * @return    the length of the encapsulated key in bytes or zero for an unknown mechanism
+		 *
+		 * \~
+		 *
+		 */
+		__ANTS_SHARED_EXPORT__ size_t overhead(const kem_t kem) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод извлечения длины исходного материала выработки пары ключей
+		 *
+		 * @param kem способ инкапсуляции ключа
+		 * @return    наименьшая длина исходного материала в байтах либо ноль у неизвестного способа
+		 *
+		 * \~english
+		 * @brief Method of getting the length of the input keying material of the production of a key pair
+		 * @param kem the key encapsulation mechanism
+		 * @return    the least length of the input keying material in bytes or zero for an unknown mechanism
+		 *
+		 * \~
+		 *
+		 */
+		__ANTS_SHARED_EXPORT__ size_t material(const kem_t kem) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод проверки признака подлинности отправителя у способа инкапсуляции
+		 *
+		 * @param kem способ инкапсуляции ключа
+		 * @return    признак того, что способ поддерживает режимы AUTH и AUTH_PSK
+		 *
+		 * @details Раздел 7.2 draft-ietf-hpke-pq: постквантовые способы и гибриды режимы с
+		 *          подлинностью отправителя по ключу не поддерживают - ими доступны лишь
+		 *          режимы BASE и PSK
+		 *
+		 * \~english
+		 * @brief Method of checking the flag of the sender authentication of the encapsulation mechanism
+		 * @param kem the key encapsulation mechanism
+		 * @return    the flag that the mechanism supports the modes AUTH and AUTH_PSK
+		 * @details The section 7.2 of draft-ietf-hpke-pq: the post-quantum mechanisms and the hybrids do
+		 *          not support the modes with the sender authentication by a key - only the modes BASE
+		 *          and PSK are available with them
+		 *
+		 * \~
+		 *
+		 */
+		__ANTS_SHARED_EXPORT__ bool authenticated(const kem_t kem) noexcept;
+		/**
+		 * \~russian
 		 * @brief Метод извлечения длины ключа шифра
 		 *
 		 * @param aead шифр с проверкой подлинности
@@ -453,10 +621,42 @@ namespace nts {
 				// Способ инкапсуляции ключа
 				kem_t _kem;
 			private:
+				// Длина занятой части секретного ключа
+				uint16_t _secretSize;
+				// Длина занятой части открытого ключа
+				uint16_t _pointSize;
+			private:
 				// Секретный ключ
-				uint8_t _secret[X25519_SIZE];
+				uint8_t _secret[KEM_SECRET];
 				// Открытый ключ
-				uint8_t _point[X25519_SIZE];
+				uint8_t _point[KEM_PUBLIC];
+			private:
+				/**
+				 * \~russian
+				 * @brief Метод выработки пары ключей гибридного способа из зерна
+				 *
+				 * @param kem  способ инкапсуляции ключа
+				 * @param seed зерно в тридцать два байта
+				 * @return     признак успешности выработки
+				 *
+				 * @details Функция DeriveKeyPair раздела 5.5 draft-irtf-cfrg-hybrid-kems (каркас CG):
+				 *          зерно растягивается SHAKE256 в зерно ML-KEM и зерно группы, из первого
+				 *          вырабатывается пара ML-KEM, из второго отбирается скаляр группы
+				 *
+				 * \~english
+				 * @brief Method of the production of a key pair of the hybrid mechanism from a seed
+				 * @param kem  the key encapsulation mechanism
+				 * @param seed the seed of thirty two bytes
+				 * @return     the flag of the success of the production
+				 * @details The function DeriveKeyPair of the section 5.5 of draft-irtf-cfrg-hybrid-kems
+				 *          (the CG framework): the seed is expanded by SHAKE256 into the ML-KEM seed and
+				 *          the group seed, the ML-KEM key pair is produced from the first, the group
+				 *          scalar is selected from the second
+				 *
+				 * \~
+				 *
+				 */
+				bool grown(const kem_t kem, const view_t & seed) noexcept;
 			public:
 				/**
 				 * \~russian
@@ -536,20 +736,26 @@ namespace nts {
 				 * @brief Метод выработки пары ключей из исходного материала
 				 *
 				 * @param kem      способ инкапсуляции ключа
-				 * @param material исходный ключевой материал длиной не короче ключа
+				 * @param material исходный ключевой материал длиной не короче material(kem)
 				 * @return         причина отказа либо NONE
 				 *
-				 * @details Функция DeriveKeyPair раздела 7.1.3 RFC 9180: секретный ключ выводится
-				 *          растяжением метки «sk» из извлечения материала с меткой «dkp_prk»
+				 * @details Функция DeriveKeyPair раздела 7.1.3 RFC 9180 у способов Диффи-Хеллмана:
+				 *          секретный ключ выводится растяжением метки «sk» из извлечения материала
+				 *          с меткой «dkp_prk» (у кривых NIST - отбором кандидатов с меткой
+				 *          «candidate»). У чистого ML-KEM и гибридов - вывод зерна одноступенчатой
+				 *          функцией SHAKE256 с меткой «DeriveKeyPair» по draft-ietf-hpke-pq
 				 *
 				 * \~english
 				 * @brief Method of the production of a key pair from the input keying material
 				 * @param kem      the key encapsulation mechanism
-				 * @param material the input keying material no shorter than the key
+				 * @param material the input keying material no shorter than material(kem)
 				 * @return         the reason of a failure or NONE
-				 * @details The function DeriveKeyPair of the section 7.1.3 of RFC 9180: the secret key is
-				 *          derived by the expansion of the label «sk» from the extraction of the material
-				 *          with the label «dkp_prk»
+				 * @details The function DeriveKeyPair of the section 7.1.3 of RFC 9180 at the Diffie-Hellman
+				 *          mechanisms: the secret key is derived by the expansion of the label «sk» from the
+				 *          extraction of the material with the label «dkp_prk» (at the NIST curves - by the
+				 *          selection of candidates with the label «candidate»). At the pure ML-KEM and the
+				 *          hybrids - the derivation of a seed by the one-stage function SHAKE256 with the
+				 *          label «DeriveKeyPair» by draft-ietf-hpke-pq
 				 *
 				 * \~
 				 *
@@ -560,13 +766,13 @@ namespace nts {
 				 * @brief Метод установки пары ключей по секретному ключу
 				 *
 				 * @param kem    способ инкапсуляции ключа
-				 * @param secret секретный ключ длиной в тридцать два байта
+				 * @param secret секретный ключ длиной secret(kem)
 				 * @return       причина отказа либо NONE
 				 *
 				 * \~english
 				 * @brief Method of setting the key pair by the secret key
 				 * @param kem    the key encapsulation mechanism
-				 * @param secret the secret key with the length of thirty two bytes
+				 * @param secret the secret key with the length secret(kem)
 				 * @return       the reason of a failure or NONE
 				 *
 				 * \~
@@ -921,10 +1127,10 @@ namespace nts {
 		 * @brief Метод инкапсуляции ключа
 		 *
 		 * @param ephemeral     мимолётная пара ключей отправителя
-		 * @param point         открытый ключ получателя длиной X25519_SIZE
+		 * @param point         открытый ключ получателя длиной length(suite.kem)
 		 * @param authenticator пара ключей отправителя для подлинности либо nullptr
-		 * @param shared        место под общее значение длиной X25519_SIZE
-		 * @param result        место под инкапсулированный ключ длиной X25519_SIZE
+		 * @param shared        место под общее значение длиной не короче KEM_SHARED
+		 * @param result        место под инкапсулированный ключ длиной overhead(suite.kem)
 		 * @return              причина отказа либо NONE
 		 *
 		 * @details Функции Encap и AuthEncap раздела 7.1.1 RFC 9180. Мимолётная пара подаётся
@@ -933,10 +1139,10 @@ namespace nts {
 		 * \~english
 		 * @brief Method of the key encapsulation
 		 * @param ephemeral     the ephemeral key pair of the sender
-		 * @param point         the public key of the recipient with the length X25519_SIZE
+		 * @param point         the public key of the recipient with the length length(suite.kem)
 		 * @param authenticator the key pair of the sender for the authentication or nullptr
-		 * @param shared        the room for the shared secret with the length X25519_SIZE
-		 * @param result        the room for the encapsulated key with the length X25519_SIZE
+		 * @param shared        the room for the shared secret no shorter than KEM_SHARED
+		 * @param result        the room for the encapsulated key with the length overhead(suite.kem)
 		 * @return              the reason of a failure or NONE
 		 * @details The functions Encap and AuthEncap of the section 7.1.1 of RFC 9180. The ephemeral
 		 *          key pair is given as an argument for the reproducibility; in the work it is
@@ -951,9 +1157,9 @@ namespace nts {
 		 * @brief Метод декапсуляции ключа
 		 *
 		 * @param own           пара ключей получателя
-		 * @param enc           инкапсулированный ключ длиной X25519_SIZE
+		 * @param enc           инкапсулированный ключ длиной overhead(suite.kem)
 		 * @param authenticator открытый ключ отправителя для подлинности либо пустой просмотр
-		 * @param shared        место под общее значение длиной X25519_SIZE
+		 * @param shared        место под общее значение длиной не короче KEM_SHARED
 		 * @return              причина отказа либо NONE
 		 *
 		 * @details Функции Decap и AuthDecap раздела 7.1.1 RFC 9180
@@ -961,9 +1167,9 @@ namespace nts {
 		 * \~english
 		 * @brief Method of the key decapsulation
 		 * @param own           the key pair of the recipient
-		 * @param enc           the encapsulated key with the length X25519_SIZE
+		 * @param enc           the encapsulated key with the length overhead(suite.kem)
 		 * @param authenticator the public key of the sender for the authentication or an empty view
-		 * @param shared        the room for the shared secret with the length X25519_SIZE
+		 * @param shared        the room for the shared secret no shorter than KEM_SHARED
 		 * @return              the reason of a failure or NONE
 		 * @details The functions Decap and AuthDecap of the section 7.1.1 of RFC 9180
 		 *
@@ -978,12 +1184,12 @@ namespace nts {
 		 *
 		 * @param suite         набор алгоритмов
 		 * @param mode          режим работы
-		 * @param point         открытый ключ получателя длиной X25519_SIZE
+		 * @param point         открытый ключ получателя длиной length(suite.kem)
 		 * @param info          привязка к применению, вправе быть пустой
 		 * @param psk           заранее разделённый ключ с опознавателем: непустой в режимах PSK и AUTH_PSK
 		 * @param authenticator пара ключей отправителя: задана в режимах AUTH и AUTH_PSK, иначе nullptr
 		 * @param ephemeral     мимолётная пара ключей отправителя
-		 * @param enc           место под инкапсулированный ключ длиной X25519_SIZE
+		 * @param enc           место под инкапсулированный ключ длиной overhead(suite.kem)
 		 * @param context       состояние связи отправителя
 		 * @return              причина отказа либо NONE
 		 *
@@ -994,12 +1200,12 @@ namespace nts {
 		 * @brief Method of setting up the context of the sender by a given ephemeral key pair
 		 * @param suite         the ciphersuite
 		 * @param mode          the mode of the work
-		 * @param point         the public key of the recipient with the length X25519_SIZE
+		 * @param point         the public key of the recipient with the length length(suite.kem)
 		 * @param info          the application binding, may be empty
 		 * @param psk           the pre-shared key with the identifier: non-empty in the modes PSK and AUTH_PSK
 		 * @param authenticator the key pair of the sender: given in the modes AUTH and AUTH_PSK, otherwise nullptr
 		 * @param ephemeral     the ephemeral key pair of the sender
-		 * @param enc           the room for the encapsulated key with the length X25519_SIZE
+		 * @param enc           the room for the encapsulated key with the length overhead(suite.kem)
 		 * @param context       the context of the sender
 		 * @return              the reason of a failure or NONE
 		 * @details The functions SetupBaseS, SetupPSKS, SetupAuthS and SetupAuthPSKS of the section 5.1
@@ -1016,11 +1222,11 @@ namespace nts {
 		 *
 		 * @param suite         набор алгоритмов
 		 * @param mode          режим работы
-		 * @param point         открытый ключ получателя длиной X25519_SIZE
+		 * @param point         открытый ключ получателя длиной length(suite.kem)
 		 * @param info          привязка к применению, вправе быть пустой
 		 * @param psk           заранее разделённый ключ с опознавателем: непустой в режимах PSK и AUTH_PSK
 		 * @param authenticator пара ключей отправителя: задана в режимах AUTH и AUTH_PSK, иначе nullptr
-		 * @param enc           место под инкапсулированный ключ длиной X25519_SIZE
+		 * @param enc           место под инкапсулированный ключ длиной overhead(suite.kem)
 		 * @param context       состояние связи отправителя
 		 * @return              причина отказа либо NONE
 		 *
@@ -1030,11 +1236,11 @@ namespace nts {
 		 * @brief Method of setting up the context of the sender
 		 * @param suite         the ciphersuite
 		 * @param mode          the mode of the work
-		 * @param point         the public key of the recipient with the length X25519_SIZE
+		 * @param point         the public key of the recipient with the length length(suite.kem)
 		 * @param info          the application binding, may be empty
 		 * @param psk           the pre-shared key with the identifier: non-empty in the modes PSK and AUTH_PSK
 		 * @param authenticator the key pair of the sender: given in the modes AUTH and AUTH_PSK, otherwise nullptr
-		 * @param enc           the room for the encapsulated key with the length X25519_SIZE
+		 * @param enc           the room for the encapsulated key with the length overhead(suite.kem)
 		 * @param context       the context of the sender
 		 * @return              the reason of a failure or NONE
 		 * @details The ephemeral key pair is produced from random bytes and is wiped
@@ -1050,7 +1256,7 @@ namespace nts {
 		 * @param suite         набор алгоритмов
 		 * @param mode          режим работы
 		 * @param own           пара ключей получателя
-		 * @param enc           инкапсулированный ключ длиной X25519_SIZE
+		 * @param enc           инкапсулированный ключ длиной overhead(suite.kem)
 		 * @param info          привязка к применению, вправе быть пустой
 		 * @param psk           заранее разделённый ключ с опознавателем: непустой в режимах PSK и AUTH_PSK
 		 * @param authenticator открытый ключ отправителя: задан в режимах AUTH и AUTH_PSK, иначе пустой просмотр
@@ -1064,7 +1270,7 @@ namespace nts {
 		 * @param suite         the ciphersuite
 		 * @param mode          the mode of the work
 		 * @param own           the key pair of the recipient
-		 * @param enc           the encapsulated key with the length X25519_SIZE
+		 * @param enc           the encapsulated key with the length overhead(suite.kem)
 		 * @param info          the application binding, may be empty
 		 * @param psk           the pre-shared key with the identifier: non-empty in the modes PSK and AUTH_PSK
 		 * @param authenticator the public key of the sender: given in the modes AUTH and AUTH_PSK, otherwise an empty view
@@ -1083,7 +1289,7 @@ namespace nts {
 		 *
 		 * @param suite         набор алгоритмов
 		 * @param mode          режим работы
-		 * @param point         открытый ключ получателя длиной X25519_SIZE
+		 * @param point         открытый ключ получателя длиной length(suite.kem)
 		 * @param info          привязка к применению, вправе быть пустой
 		 * @param psk           заранее разделённый ключ с опознавателем по режиму
 		 * @param authenticator пара ключей отправителя по режиму либо nullptr
@@ -1099,7 +1305,7 @@ namespace nts {
 		 * @brief Method of sealing a single message
 		 * @param suite         the ciphersuite
 		 * @param mode          the mode of the work
-		 * @param point         the public key of the recipient with the length X25519_SIZE
+		 * @param point         the public key of the recipient with the length length(suite.kem)
 		 * @param info          the application binding, may be empty
 		 * @param psk           the pre-shared key with the identifier according to the mode
 		 * @param authenticator the key pair of the sender according to the mode or nullptr
@@ -1121,7 +1327,7 @@ namespace nts {
 		 * @param suite         набор алгоритмов
 		 * @param mode          режим работы
 		 * @param own           пара ключей получателя
-		 * @param enc           инкапсулированный ключ длиной X25519_SIZE
+		 * @param enc           инкапсулированный ключ длиной overhead(suite.kem)
 		 * @param info          привязка к применению, вправе быть пустой
 		 * @param psk           заранее разделённый ключ с опознавателем по режиму
 		 * @param authenticator открытый ключ отправителя по режиму либо пустой просмотр
@@ -1137,7 +1343,7 @@ namespace nts {
 		 * @param suite         the ciphersuite
 		 * @param mode          the mode of the work
 		 * @param own           the key pair of the recipient
-		 * @param enc           the encapsulated key with the length X25519_SIZE
+		 * @param enc           the encapsulated key with the length overhead(suite.kem)
 		 * @param info          the application binding, may be empty
 		 * @param psk           the pre-shared key with the identifier according to the mode
 		 * @param authenticator the public key of the sender according to the mode or an empty view
@@ -1157,7 +1363,7 @@ namespace nts {
 		 *
 		 * @param suite         набор алгоритмов
 		 * @param mode          режим работы
-		 * @param point         открытый ключ получателя длиной X25519_SIZE
+		 * @param point         открытый ключ получателя длиной length(suite.kem)
 		 * @param info          привязка к применению, вправе быть пустой
 		 * @param psk           заранее разделённый ключ с опознавателем по режиму
 		 * @param authenticator пара ключей отправителя по режиму либо nullptr
@@ -1173,7 +1379,7 @@ namespace nts {
 		 * @brief Method of the production of an exported secret by the sender in a single step
 		 * @param suite         the ciphersuite
 		 * @param mode          the mode of the work
-		 * @param point         the public key of the recipient with the length X25519_SIZE
+		 * @param point         the public key of the recipient with the length length(suite.kem)
 		 * @param info          the application binding, may be empty
 		 * @param psk           the pre-shared key with the identifier according to the mode
 		 * @param authenticator the key pair of the sender according to the mode or nullptr
@@ -1195,7 +1401,7 @@ namespace nts {
 		 * @param suite         набор алгоритмов
 		 * @param mode          режим работы
 		 * @param own           пара ключей получателя
-		 * @param enc           инкапсулированный ключ длиной X25519_SIZE
+		 * @param enc           инкапсулированный ключ длиной overhead(suite.kem)
 		 * @param info          привязка к применению, вправе быть пустой
 		 * @param psk           заранее разделённый ключ с опознавателем по режиму
 		 * @param authenticator открытый ключ отправителя по режиму либо пустой просмотр
@@ -1211,7 +1417,7 @@ namespace nts {
 		 * @param suite         the ciphersuite
 		 * @param mode          the mode of the work
 		 * @param own           the key pair of the recipient
-		 * @param enc           the encapsulated key with the length X25519_SIZE
+		 * @param enc           the encapsulated key with the length overhead(suite.kem)
 		 * @param info          the application binding, may be empty
 		 * @param psk           the pre-shared key with the identifier according to the mode
 		 * @param authenticator the public key of the sender according to the mode or an empty view
