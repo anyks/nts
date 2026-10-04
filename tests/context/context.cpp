@@ -8264,3 +8264,80 @@ TEST(ContextTest, Keylog){
 	pump(client, server);
 	ASSERT_EQ(server.state(), context::state_t::CLOSED);
 }
+
+/**
+ * Проверка сырых открытых ключей RFC 7250
+ */
+TEST(ContextTest, RawPublicKey){
+	// Подлинность стороны сервера
+	context::credential_t credentials;
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Извлекаем SPKI листа цепочки
+	x509::certificate_t leaf;
+	ASSERT_EQ(leaf.parse(view_t(credentials.chain[0].data(), credentials.chain[0].size())), x509::error_t::NONE);
+	const view_t spki = leaf.key().element;
+	ASSERT_TRUE(spki.data != nullptr);
+	ASSERT_TRUE(spki.size > 0);
+	// Связь стороны клиента с закреплённым ключом
+	client::context_t client;
+	gosting(client);
+	client.pinned(spki);
+	// Связь стороны сервера
+	server::context_t server;
+	gosting(server);
+	server.credential(credentials);
+	// Заводим связь
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	converse(client, server);
+	// Проверяем установленность связи
+	ASSERT_TRUE(client.established());
+	ASSERT_TRUE(server.established());
+	// Проверяем согласованный вид сертификата: сервер ответил X.509, не поддерживая RawPublicKey
+	EXPECT_EQ(client.certtype(), extension::cert_t::X509);
+	// Прикладные данные
+	const string request = "Запрос по сырому ключу";
+	ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
+	pump(client, server);
+	vector <uint8_t> received;
+	ASSERT_EQ(server.read(received), context::error_t::NONE);
+	EXPECT_EQ(string(received.begin(), received.end()), request);
+	// Закрываем связь
+	ASSERT_EQ(client.close(), context::error_t::NONE);
+	pump(client, server);
+	ASSERT_EQ(server.state(), context::state_t::CLOSED);
+}
+
+/**
+ * Проверка отказа на чужом сыром ключе
+ */
+TEST(ContextTest, RawPublicKeyMismatch){
+	// Подлинность стороны сервера
+	context::credential_t credentials;
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Чужой ключ: вырабатываем свой
+	keys::key_t foreign;
+	foreign.kind = keys::kind_t::ED25519;
+	foreign.d.assign(32, 0);
+	sign::ed25519_t ed;
+	ASSERT_TRUE(ed.generate(foreign.d.data(), foreign.d.size()));
+	foreign.key.assign(32, 0);
+	ASSERT_TRUE(ed.key(foreign.key.data(), foreign.key.size()));
+	// Записываем SPKI чужого ключа
+	string spki;
+	ASSERT_EQ(keys::encode(foreign, keys::container_t::PUBLIC, spki), keys::error_t::NONE);
+	// Связь стороны клиента с чужим закреплённым ключом
+	client::context_t client;
+	gosting(client);
+	client.pinned(view_t(reinterpret_cast <const uint8_t *> (spki.data()), spki.size()));
+	// Связь стороны сервера
+	server::context_t server;
+	gosting(server);
+	server.credential(credentials);
+	// Заводим связь
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	converse(client, server);
+	// Связь не должна установиться: ключ сервера не совпал с закреплённым
+	EXPECT_FALSE(client.established());
+}

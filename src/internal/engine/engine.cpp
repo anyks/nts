@@ -3058,7 +3058,7 @@ context::error_t nts::internal::Engine::greeting() noexcept {
 			// Вставляем набор GREASE в начало перечня наборов
 			greeting.suites.insert(greeting.suites.begin(), this->greasing(grease_t::SUITE));
 		// Накопители, в которых лежат тела расширений приветствия
-		vector <uint8_t> versions, groups, schemes, shares, name, protocols;
+		vector <uint8_t> versions, groups, schemes, shares, name, protocols, certtypes;
 		// Перечень предлагаемых изданий протокола от старшего к младшему
 		vector <uint16_t> editions;
 		// Запоминаем, предлагается ли издание 1.3 приветствием
@@ -3163,6 +3163,18 @@ context::error_t nts::internal::Engine::greeting() noexcept {
 		greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::GROUPS), view_t(groups.data(), groups.size())));
 		// Добавляем расширение перечня схем подписи
 		greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::SCHEMES), view_t(schemes.data(), schemes.size())));
+		// Если задан закреплённый сырой открытый ключ
+		if(!this->_pinned.empty()){
+			// Перечень видов сертификатов: RawPublicKey и X.509
+			const extension::cert_t types[] = {extension::cert_t::RAW, extension::cert_t::X509};
+			// Составляем перечень видов сертификатов
+			if(extension::certtypes(vector <extension::cert_t> (types, types + 2), certtypes) == extension::error_t::NONE){
+				// Добавляем расширение вида сертификата клиента
+				greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::CLIENT_CERT_TYPE), view_t(certtypes.data(), certtypes.size())));
+				// Добавляем расширение вида сертификата сервера
+				greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::SERVER_CERT_TYPE), view_t(certtypes.data(), certtypes.size())));
+			}
+		}
 		// Доли ключа положены лишь изданию TLS 1.3: раздел 4.2.8 RFC 8446
 		if(modern)
 			// Добавляем расширение открытых частей ключей обмена
@@ -4245,6 +4257,24 @@ context::error_t nts::internal::Engine::chain(const view_t & body) noexcept {
 		this->_status.clear();
 		// Выполняем сброс прежнего состояния сертификата собеседника
 		this->_certified = ocsp::status_t::NONE;
+		// Если задан закреплённый сырой открытый ключ
+		if(!this->_pinned.empty()){
+			// Если согласован сырой открытый ключ
+			if(this->_certtype == extension::cert_t::RAW){
+				// Если цепочка пуста либо ключ не совпал с закреплённым
+				if(this->_peer.empty() || (this->_peer[0].size() != this->_pinned.size()) || (::memcmp(this->_peer[0].data(), this->_pinned.data(), this->_pinned.size()) != 0))
+					// Выводим отказ несовпадения сырого ключа с закреплённым
+					return context::error_t::CERTIFICATE;
+			// Иначе извлекаем SPKI из X.509 листа и сверяем с закреплённым
+			} else if(!this->_peer.empty()){
+				// Разбираем лист цепочки
+				x509::certificate_t leaf;
+				// Если лист разобрался и его SPKI не совпал с закреплённым
+				if((leaf.parse(view_t(this->_peer[0].data(), this->_peer[0].size())) == x509::error_t::NONE) && ((leaf.key().element.size != this->_pinned.size()) || (::memcmp(leaf.key().element.data, this->_pinned.data(), this->_pinned.size()) != 0)))
+					// Выводим отказ несовпадения ключа сертификата с закреплённым
+					return context::error_t::CERTIFICATE;
+			}
+		}
 		// Расширение состояния сертификата собеседника
 		const hello::extension_t * extension = nullptr;
 		/**
@@ -6130,6 +6160,26 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 			if(failure != context::error_t::NONE)
 				// Выводим отказ разбора расширения приветствия
 				return this->abort(failure, blame(failure, alert::description_t::DECODE));
+		}
+		// Если задан закреплённый сырой открытый ключ
+		if(!this->_pinned.empty()){
+			// Разыскиваем расширение вида сертификата сервера
+			extension = hello::extension(greeting.extensions, static_cast <uint16_t> (extension::type_t::SERVER_CERT_TYPE));
+			// Если вид сертификата сервера объявлен
+			if(extension != nullptr){
+				// Перечень видов сертификатов
+				vector <extension::cert_t> types;
+				// Отказ разбора расширения
+				failure = translate(extension::certtypes(extension->data, types), context::error_t::MESSAGE);
+				// Если виды сертификатов разобрать не удалось
+				if(failure != context::error_t::NONE)
+					// Выводим отказ разбора расширения
+					return this->abort(failure, blame(failure, alert::description_t::DECODE));
+				// Если сервер выбрал RawPublicKey
+				if(!types.empty() && (types[0] == extension::cert_t::RAW))
+					// Запоминаем согласованный вид сертификата
+					this->_certtype = extension::cert_t::RAW;
+			}
 		}
 		// Выполняем разбор предложения заранее разделённых ключей клиента
 		const context::error_t offered = this->offered(greeting.extensions, greeting.suites, message);
@@ -16495,6 +16545,33 @@ void nts::internal::Engine::keylog(const char * label, const view_t & secret) co
 	this->_keylog.log(label, random, secret, this->_keylog.context);
 }
 /**
+ * @brief Метод установки закреплённого сырого открытого ключа собеседника
+ *
+ * @param pinned закреплённый ключ SPKI DER; пустой - проверка X.509
+ *
+ */
+void nts::internal::Engine::pinned(const view_t & pinned) noexcept {
+	// Выполняем перехват ошибок работы с памятью
+	try {
+		// Запоминаем закреплённый ключ
+		this->_pinned.assign(pinned.data, pinned.data + pinned.size);
+	// Если памяти под ключ не хватило
+	} catch(const bad_alloc &) {
+		// Оставляем ключ пустым
+		this->_pinned.clear();
+	}
+}
+/**
+ * @brief Метод получения согласованного вида сертификата собеседника
+ *
+ * @return вид сертификата: X.509 либо RawPublicKey
+ *
+ */
+nts::extension::cert_t nts::internal::Engine::certtype() const noexcept {
+	// Выводим согласованный вид сертификата
+	return this->_certtype;
+}
+/**
  * @brief Метод установки пределов издания протокола
  *
  * @param lowest  наименьшее дозволенное издание: 0x0303 либо 0x0304
@@ -17613,7 +17690,7 @@ nts::internal::Engine::Engine(const bool server) noexcept :
 	_inquiring(false), _inquired(false), _verifying(false), _leeway(0), _certified(ocsp::status_t::NONE), _stamping(false), _stamped(false), _outgoing(record::RECORD_PLAINTEXT), _incoming(record::RECORD_PLAINTEXT), _sizing(0), _bounded(0), _fragmented(0), _bounding(0), _fragmenting(0), _sized{0, 0}, _heartbeating(false), _permitted(false), _answering(false), _beating(false), _pulses(0), _negotiating(false), _negotiated(false), _announced(false), _reshare(true), _greasing(false), _profiled(false), _ech(ech_t::NONE), _shroud(0), _echaccepted(false), _echrejected(false), _unshrouding(false),
 	_queries(0), _confirmed(false), _delivered(0), _switched(false),
 	_lowest(LEGACY), _highest(MODERN), _version(0), _legacy(false), _ancient(false), _proposed(false), _own(true), _phase(phase_t::NONE), _sealing(false), _opening(false), _stapling(false),
-	_claimed(0), _etm(false), _strict(false), _ticketing(false), _presented(false), _resumed(false), _authenticated(0), _scrubbing(true), _cleansing(false) {
+	_claimed(0), _etm(false), _strict(false), _ticketing(false), _presented(false), _resumed(false), _authenticated(0), _scrubbing(true), _cleansing(false), _certtype(extension::cert_t::X509) {
 	// Сбрасываем ключевой материал связи до заведения участка
 	this->_keys = nullptr;
 	/**

@@ -105,6 +105,8 @@ namespace nts {
 			FRAGMENT  = 0x0001, /*!< \~russian Наибольшая длина открытого содержимого записи по разделу 4 RFC 6066 (max_fragment_length) \~english The greatest length of the plaintext content of a record by the section 4 of RFC 6066 (max_fragment_length) \~ */
 			STATUS    = 0x0005, /*!< \~russian Запрос состояния сертификата OCSP (RFC 6066, раздел 4.4.2.1 RFC 8446) \~english The request of the certificate status OCSP (RFC 6066, the section 4.4.2.1 of RFC 8446) \~ */
 			GROUPS    = 0x000A, /*!< \~russian Поддерживаемые группы обмена ключами \~english The supported groups of the exchange of the keys \~ */
+			CLIENT_CERT_TYPE = 0x0013, /*!< \~russian Вид сертификата клиента client_certificate_type (RFC 7250) \~english The certificate type of the client client_certificate_type (RFC 7250) \~ */
+			SERVER_CERT_TYPE = 0x0014, /*!< \~russian Вид сертификата сервера server_certificate_type (RFC 7250) \~english The certificate type of the server server_certificate_type (RFC 7250) \~ */
 			FORMATS   = 0x000B, /*!< \~russian Записи точек кривой ec_point_formats (раздел 5.1.2 RFC 8422, TLS 1.2) \~english The ec_point_formats of the points of a curve (the section 5.1.2 of RFC 8422, TLS 1.2) \~ */
 			SCHEMES   = 0x000D, /*!< \~russian Поддерживаемые схемы подписи \~english The supported signature schemes \~ */
 			PROTOCOLS = 0x0010, /*!< \~russian Перечень прикладных протоколов связи \~english The list of the application protocols of a connection \~ */
@@ -294,6 +296,23 @@ namespace nts {
 		enum class regime_t : uint8_t {
 			SECRET = 0x00, /*!< \~russian Обмен одним заранее разделённым ключом \~english The exchange by a pre-shared key alone \~ */
 			SHARED = 0x01  /*!< \~russian Обмен заранее разделённым ключом вместе с ключом кривой \~english The exchange by a pre-shared key together with a key of a curve \~ */
+		};
+
+		/**
+		 * \~russian
+		 * @brief Виды сертификатов по RFC 7250
+		 *
+		 * @details Раздел 4.1 RFC 7250: перечисление CertificateType
+		 *
+		 * \~english
+		 * @brief Certificate types by RFC 7250
+		 * @details The section 4.1 of RFC 7250: the CertificateType enumeration
+		 *
+		 * \~
+		 */
+		enum class cert_t : uint8_t {
+			X509  = 0x00, /*!< \~russian Сертификат X.509 \~english The X.509 certificate \~ */
+			RAW   = 0x01  /*!< \~russian Сырой открытый ключ RawPublicKey \~english The raw public key RawPublicKey \~ */
 		};
 
 		/**
@@ -679,6 +698,47 @@ namespace nts {
 		 * \~
 		 */
 		__ANTS_SHARED_EXPORT__ error_t schemes(const vector <scheme_t> & schemes, vector <uint8_t> & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод разбора перечня видов сертификатов certificate_type
+		 *
+		 * @param data   разбираемое тело расширения
+		 * @param result перечень, в который помещаются объявленные виды
+		 *
+		 * @return       отказ разбора тела расширения
+		 *
+		 * @details Раздел 4.1 RFC 7250: перечень с однобайтовой длиной и однобайтовыми
+		 *          записями, непустой и без лишних байтов
+		 *
+		 * \~english
+		 * @brief Method of the parsing of the list of the certificate types certificate_type
+		 * @param data   the body of the extension being parsed
+		 * @param result the list the announced types are put into
+		 * @return       the failure of the parsing of the body of the extension
+		 * @details The section 4.1 of RFC 7250: a list with a one-byte length and one-byte entries,
+		 *          non-empty and without trailing bytes
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ error_t certtypes(const view_t & data, vector <cert_t> & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод составления перечня видов сертификатов certificate_type
+		 *
+		 * @param types  составляемый перечень видов сертификатов
+		 * @param result накопитель, в конец которого дописывается тело расширения
+		 *
+		 * @return       отказ составления тела расширения
+		 *
+		 * \~english
+		 * @brief Method of the composition of the list of the certificate types certificate_type
+		 * @param types  the list of the certificate types being composed
+		 * @param result the accumulator the body of the extension is appended to the end of
+		 * @return       the failure of the composition of the body of the extension
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ error_t certtypes(const vector <cert_t> & types, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Метод разбора перечня записей точек кривой ec_point_formats

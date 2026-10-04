@@ -257,6 +257,18 @@ void nts::server::Context::keylog(const context::keylog_t & keylog) noexcept {
 		this->_engine->keylog(keylog);
 }
 /**
+ * @brief Метод установки закреплённого сырого открытого ключа клиента
+ *
+ * @param pinned закреплённый ключ SPKI DER; пустой - проверка X.509
+ *
+ */
+void nts::server::Context::pinned(const view_t & pinned) noexcept {
+	// Если ведение связи заведено
+	if(this->_engine != nullptr)
+		// Выполняем установку закреплённого ключа
+		this->_engine->pinned(pinned);
+}
+/**
  * @brief Метод получения предлагаемых наборов шифрования
  *
  * @return перечень наборов шифрования: назначенный потребителем либо умолчание

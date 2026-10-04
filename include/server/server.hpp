@@ -560,6 +560,28 @@ namespace nts {
 				void keylog(const context::keylog_t & keylog) noexcept;
 				/**
 				 * \~russian
+				 * @brief Метод установки закреплённого сырого открытого ключа клиента
+				 *
+				 * @param pinned закреплённый ключ SPKI DER; пустой - проверка X.509
+				 *
+				 * @details RFC 7250: при заданном ключе связь предлагает RawPublicKey,
+				 *          а принятый ключ сверяется с закреплённым побайтно. Для DTLS,
+				 *          IoT и служб без X.509
+				 *
+				 * \~english
+				 * @brief Method of setting the pinned raw public key of the client
+				 *
+				 * @param pinned the pinned SPKI DER key; empty - X.509 verification
+				 *
+				 * @details RFC 7250: when the key is set, the connection offers RawPublicKey,
+				 *          and the received key is compared with the pinned one byte by byte.
+				 *          For DTLS, IoT and services without X.509
+				 *
+				 * \~
+				 */
+				void pinned(const view_t & pinned) noexcept;
+				/**
+				 * \~russian
 				 * @brief Метод получения предлагаемых наборов шифрования
 				 *
 				 * @return перечень наборов шифрования: назначенный потребителем либо умолчание

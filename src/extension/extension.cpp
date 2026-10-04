@@ -798,6 +798,76 @@ nts::extension::error_t nts::extension::schemes(const vector <scheme_t> & scheme
 	return compose(values, 2, 2, result);
 }
 /**
+ * @brief Метод разбора перечня видов сертификатов certificate_type
+ *
+ * @param data   разбираемое тело расширения
+ * @param result перечень, в который помещаются объявленные виды
+ *
+ * @return       отказ разбора тела расширения
+ *
+ */
+nts::extension::error_t nts::extension::certtypes(const view_t & data, vector <cert_t> & result) noexcept {
+	// Прочитанный перечень видов сертификатов
+	vector <uint32_t> values;
+	// Раздел 4.1 RFC 7250: перечень с однобайтовой длиной и однобайтовыми записями
+	const error_t error = numbers(data, 1, 1, values);
+	// Если перечень видов сертификатов разобрать не удалось
+	if(error != error_t::NONE)
+		// Выводим отказ разбора тела расширения
+		return error;
+	/**
+	 * Выполняем перехват ошибок работы с памятью
+	 */
+	try {
+		/**
+		 * Выполняем перебор прочитанных видов сертификатов
+		 */
+		for(auto & item : values)
+			// Добавляем очередной вид сертификата в перечень
+			result.push_back(static_cast <cert_t> (item));
+	/**
+	 * Если памяти под перечень видов не хватило
+	 */
+	} catch(const std::bad_alloc &) {
+		// Выводим отказ нехватки памяти
+		return error_t::MEMORY;
+	}
+	// Выводим успешность разбора тела расширения
+	return error_t::NONE;
+}
+/**
+ * @brief Метод составления перечня видов сертификатов certificate_type
+ *
+ * @param types  составляемый перечень видов сертификатов
+ * @param result накопитель, в конец которого дописывается тело расширения
+ *
+ * @return       отказ составления тела расширения
+ *
+ */
+nts::extension::error_t nts::extension::certtypes(const vector <cert_t> & types, vector <uint8_t> & result) noexcept {
+	// Составляемый перечень видов сертификатов
+	vector <uint32_t> values;
+	/**
+	 * Выполняем перехват ошибок работы с памятью
+	 */
+	try {
+		/**
+		 * Выполняем перебор составляемых видов сертификатов
+		 */
+		for(auto & item : types)
+			// Добавляем очередной вид сертификата в перечень
+			values.push_back(static_cast <uint32_t> (item));
+	/**
+	 * Если памяти под перечень видов не хватило
+	 */
+	} catch(const std::bad_alloc &) {
+		// Выводим отказ нехватки памяти
+		return error_t::MEMORY;
+	}
+	// Выводим итог составления перечня видов сертификатов
+	return compose(values, 1, 1, result);
+}
+/**
  * @brief Метод разбора перечня записей точек кривой ec_point_formats
  *
  * @param data   разбираемое тело расширения

@@ -404,6 +404,11 @@ namespace nts {
 				// Цепочка сертификатов собеседника
 				vector <vector <uint8_t>> _peer;
 			private:
+				// Закреплённый сырой открытый ключ собеседника (SPKI DER), пустой - проверка X.509
+				vector <uint8_t> _pinned;
+				// Согласованный вид сертификата собеседника: X.509 либо RawPublicKey
+				extension::cert_t _certtype;
+			private:
 				// Способ переноса рукопожатия связи
 				context::transport_t _transport;
 			private:
@@ -1718,6 +1723,24 @@ namespace nts {
 				 *
 				 */
 				void keylog(const char * label, const view_t & secret) const noexcept;
+			public:
+				/**
+				 * @brief Метод установки закреплённого сырого открытого ключа собеседника
+				 *
+				 * @param pinned закреплённый ключ SPKI DER; пустой - проверка X.509
+				 *
+				 * @details RFC 7250: при заданном ключе связь предлагает RawPublicKey,
+				 *          а принятый ключ сверяется с закреплённым побайтно
+				 *
+				 */
+				void pinned(const view_t & pinned) noexcept;
+				/**
+				 * @brief Метод получения согласованного вида сертификата собеседника
+				 *
+				 * @return вид сертификата: X.509 либо RawPublicKey
+				 *
+				 */
+				extension::cert_t certtype() const noexcept;
 			public:
 				/**
 				 * @brief Метод установки пределов издания протокола

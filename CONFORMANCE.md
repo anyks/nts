@@ -9051,6 +9051,14 @@ mpint делает SSH), rsa-sha2-256/512 (PKCS #1 v1.5); шифры chacha20-po
     по запросу потребителя проекта.
 Г4. Сырые открытые ключи RFC 7250 (у OpenSSL с 3.2, `-expected-rpks` в 4.0): у нас нет; для DTLS, IoT и служб AWH без
     X.509 (закрепление SPKI).
+    **Круг 83 (04.10.2026)**: сделано. Расширения client_certificate_type=19 (0x0013) и server_certificate_type=20
+    (0x0014) по IANA, enum `extension::cert_t` (X509=0, RAW=1), функции `certtypes()` разбора/составления.
+    Поле `_pinned` в Engine: закреплённый SPKI DER; при заданном клиент шлёт оба расширения с перечнем RAW+X509.
+    Разбор ответа сервера в EncryptedExtensions: при выборе RAW запоминается `_certtype`. Проверка в `chain()`:
+    при RAW сравнение `_peer[0]` с `_pinned` побайтно; при X509 извлечение SPKI из листа и сверка с `_pinned`.
+    API `pinned()` и `certtype()` у client/server. Пины: ContextTest.RawPublicKey (связь с закреплённым ключом,
+    сервер отвечает X509, SPKI сверен), RawPublicKeyMismatch (чужой ключ отвергнут). ctest 94/94 зелёные.
+    Открыто: серверная сторона RawPublicKey (ответ SPKI вместо цепочки), замеры на Xeon/Эльбрусе по запросу.
 Г5. Многократная сшивка OCSP в TLS 1.3 (OpenSSL 3.6): status_request в каждом CertificateEntry, у нас лишь у листа -
     малое дополнение.
 Г6. `SSL_OP_SERVER_PREFERENCE` (OpenSSL 3.6) - то же, что наш `preference()` после круга 30; «плавающая доля» OpenSSL 4.0
