@@ -1053,6 +1053,35 @@ namespace nts {
 				const vector <vector <uint8_t>> & statuses() const noexcept;
 				/**
 				 * \~russian
+				 * @brief Метод вывода экспортируемого ключевого материала связи
+				 *
+				 * @param label   метка назначения экспортируемого материала
+				 * @param context привязка экспортируемого материала к потребителю
+				 * @param result  место, в которое помещается экспортируемый материал
+				 * @param size    требуемая длина экспортируемого материала в байтах
+				 *
+				 * @return        отказ вывода экспортируемого материала
+				 *
+				 * @details RFC 8446 §7.5 (издание 1.3) и RFC 5705 (издания 1.0-1.2): обе
+				 *          стороны выводят одинаковый материал по установленной связи; до
+				 *          установления связи вывод отвергается
+				 *
+				 * \~english
+				 * @brief Method of the derivation of the exported key material of the connection
+				 * @param label   the label of the purpose of the material being exported
+				 * @param context the binding of the material being exported to the consumer
+				 * @param result  the place the exported material is put into
+				 * @param size    the required length of the exported material in bytes
+				 * @return        the failure of the derivation of the exported material
+				 * @details RFC 8446 §7.5 (edition 1.3) and RFC 5705 (editions 1.0-1.2): both
+				 *          parties derive the same material over the established connection; before
+				 *          the establishment of the connection the derivation is rejected
+				 *
+				 * \~
+				 */
+				context::error_t exporting(const view_t & label, const view_t & context, uint8_t * result, const size_t size) const noexcept;
+				/**
+				 * \~russian
 				 * @brief Метод получения перечня меток времени сертификата собеседника
 				 *
 				 * @return перечень SignedCertificateTimestampList как записан, пустой без ответа

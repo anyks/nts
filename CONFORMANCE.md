@@ -9082,6 +9082,14 @@ mpint делает SSH), rsa-sha2-256/512 (PKCS #1 v1.5); шифры chacha20-po
     связи TLS и DTLS его нет. Это пробел ядра стандарта, а не частность: он нужен DTLS-SRTP (метка EXTRACTOR-dtls_srtp),
     привязке канала tls-exporter по RFC 9266 (SCRAM у XMPP, IMAP, SMTP, LDAP, PostgreSQL), EAP-TLS по RFC 9190. Брать
     рано, объём малый.
+    **Круг 85 (04.10.2026)**: сделано. В `session::Secrets` поле `exporter` и вывод значения экспорта меткой «exp master»
+    в `application()` (RFC 8446 §7.1); метод `Secrets::exporting(label, context, result, size)`: Derive-Secret по метке от
+    хеша пустой переписки, затем HKDF-Expand хешем привязки (RFC 8446 §7.5). В движке `Engine::exporting()`: издание 1.3 —
+    расписанием; издания 1.0–1.2 — PRF из главного секрета затравкой client_random ‖ server_random [‖ Hash(context)]
+    (RFC 5705, `sequencing()`). API `exporting()` у client и server; до установления связи — отказ STATE. Пины
+    ContextTest.Exporting (1.3: стороны сходятся, метка/привязка разводят, длина произвольна, начало длинного совпадает
+    с коротким) и ContextTest.ExportingLegacy (1.2, подлинность ec256 из корпуса). ctest 94/94 зелёные.
+    Открыто: метки EXPORTER_SECRET/EARLY_EXPORTER_SECRET журнала секретов, ранний экспорт из early_exporter_secret.
 Г12. WebRTC: от A-NTS нужны use_srtp (RFC 5764 с профилями §4.1.2 и SRTP_AEAD_AES_128/256_GCM по
     RFC 7714; сейчас отвергается явно), экспорт Г11, сама защита SRTP по RFC 3711 и RFC 7714 (AES-CM, HMAC-SHA1-80,
     AES-GCM, вывод ключей RFC 3711 §4.3 - у OpenSSL 4.0 это EVP_KDF-SRTPKDF), выпуск самоподписанного сертификата на

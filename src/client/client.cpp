@@ -522,6 +522,25 @@ const vector <vector <uint8_t>> & nts::client::Context::statuses() const noexcep
 	return ((this->_engine != nullptr) ? this->_engine->statuses() : empty);
 }
 /**
+ * @brief Метод вывода экспортируемого ключевого материала связи
+ *
+ * @param label   метка назначения экспортируемого материала
+ * @param context привязка экспортируемого материала к потребителю
+ * @param result  место, в которое помещается экспортируемый материал
+ * @param size    требуемая длина экспортируемого материала в байтах
+ *
+ * @return        отказ вывода экспортируемого материала
+ *
+ */
+context::error_t nts::client::Context::exporting(const view_t & label, const view_t & context, uint8_t * result, const size_t size) const noexcept {
+	// Если ведение связи не заведено
+	if(this->_engine == nullptr)
+		// Выводим отказ вызова не в том состоянии связи
+		return context::error_t::STATE;
+	// Выводим итог вывода экспортируемого материала связи
+	return this->_engine->exporting(label, context, result, size);
+}
+/**
  * @brief Метод установки проверки принятого ответа о состоянии сертификата
  *
  * @param verify проверяется ли принятый ответ связью

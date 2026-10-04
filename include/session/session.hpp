@@ -522,6 +522,8 @@ namespace nts {
 					uint8_t resumption[schedule::SCHEDULE_WIDEST];
 					// Значение упреждающих данных связи
 					uint8_t early[schedule::SCHEDULE_WIDEST];
+					// Значение экспорта ключевого материала связи
+					uint8_t exporter[schedule::SCHEDULE_WIDEST];
 				} keys_t;
 			private:
 				// Участок укрытой памяти под значения расписания ключей
@@ -904,6 +906,45 @@ namespace nts {
 				 * \~
 				 */
 				error_t early(uint8_t * result) const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод вывода экспортируемого ключевого материала связи
+				 *
+				 * @param label   метка назначения экспортируемого материала
+				 * @param context привязка экспортируемого материала к потребителю
+				 * @param result  место, в которое помещается экспортируемый материал
+				 * @param size    требуемая длина экспортируемого материала в байтах
+				 *
+				 * @return        отказ вывода экспортируемого материала
+				 *
+				 * @details Раздел 7.5 RFC 8446: материал выводится из значения экспорта
+				 *          связи в два шага - сперва выводится значение по метке назначения
+				 *          от хеша пустой переписки, затем оно растягивается хешем привязки
+				 *          до требуемой длины. Тем материал связан и с перепиской
+				 *          рукопожатия, и с назначением, и с привязкой потребителя
+				 *
+				 * @note Вывод дозволен лишь на ступени прикладных данных: значение экспорта
+				 *       выводится на ней и раньше её не существует
+				 *
+				 * \~english
+				 * @brief Method of the derivation of the exported key material of the connection
+				 * @param label   the label of the purpose of the material being exported
+				 * @param context the binding of the material being exported to the consumer
+				 * @param result  the place the exported material is put into
+				 * @param size    the required length of the exported material in bytes
+				 * @return        the failure of the derivation of the exported material
+				 * @details The section 7.5 of RFC 8446: the material is derived from the value of the
+				 *          export of the connection in two steps — first a value is derived by the
+				 *          label of the purpose from the hash of an empty transcript, then it is
+				 *          expanded by the hash of the binding up to the required length. By that the
+				 *          material is bound both to the transcript of the handshake, and to the
+				 *          purpose, and to the binding of the consumer
+				 * @note The derivation is allowed only at the stage of the application data: the value
+				 *       of the export is derived at it and does not exist earlier
+				 *
+				 * \~
+				 */
+				error_t exporting(const view_t & label, const view_t & context, uint8_t * result, const size_t size) const noexcept;
 			public:
 				/**
 				 * \~russian

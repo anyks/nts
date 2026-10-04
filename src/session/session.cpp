@@ -149,6 +149,11 @@ namespace {
 	 */
 	static const char * EARLY = "c e traffic";
 
+	/**
+	 * Метка вывода значения экспорта ключевого материала связи
+	 */
+	static const char * EXPORTER = "exp master";
+
 	// Затирание областей памяти берётся из открытого API библиотеки
 	using nts::sys::wipe;
 	/**
@@ -657,6 +662,10 @@ nts::session::error_t nts::session::Secrets::application(const view_t & transcri
 	if(!schedule::secret(this->_algorithm, view_t(this->_keys->secret, this->_length), ::label(SERVER_APPLICATION), transcript, this->_keys->server))
 		// Выводим отказ вывода ступени прикладных данных
 		return error_t::SCHEDULE;
+	// Если значение экспорта ключевого материала вывести не удалось
+	if(!schedule::secret(this->_algorithm, view_t(this->_keys->secret, this->_length), ::label(EXPORTER), transcript, this->_keys->exporter))
+		// Выводим отказ вывода ступени прикладных данных
+		return error_t::SCHEDULE;
 	// Отмечаем прохождение ступени прикладных данных
 	this->_stage = stage_t::APPLICATION;
 	// Выводим успешность вывода ступени прикладных данных
@@ -820,6 +829,63 @@ nts::session::error_t nts::session::Secrets::early(uint8_t * result) const noexc
 	::memcpy(result, this->_keys->early, this->_length);
 	// Выводим успешность получения значения упреждающих данных
 	return error_t::NONE;
+}
+/**
+ * @brief Метод вывода экспортируемого ключевого материала связи
+ *
+ * @param label   метка назначения экспортируемого материала
+ * @param context привязка экспортируемого материала к потребителю
+ * @param result  место, в которое помещается экспортируемый материал
+ * @param size    требуемая длина экспортируемого материала в байтах
+ *
+ * @return        отказ вывода экспортируемого материала
+ *
+ */
+nts::session::error_t nts::session::Secrets::exporting(const view_t & label, const view_t & context, uint8_t * result, const size_t size) const noexcept {
+	// Если укрытой памяти под значения расписания нет
+	if(this->_keys == nullptr)
+		// Выводим отказ состояния расписания
+		return error_t::STATE;
+	// Если ступень прикладных данных не пройдена
+	if(this->_stage != stage_t::APPLICATION)
+		// Выводим отказ вывода экспортируемого материала
+		return error_t::STATE;
+	// Если метка назначения либо место итога не переданы
+	if((label.data == nullptr) || (label.size == 0) || (result == nullptr) || (size == 0))
+		// Выводим отказ вывода экспортируемого материала
+		return error_t::EMPTY;
+	// Место, в которое помещается хеш пустой переписки
+	uint8_t empty[schedule::SCHEDULE_WIDEST];
+	// Если хеш пустой переписки вычислить не удалось
+	if(!digest::hash(this->_algorithm, view_t(nullptr, 0), empty, sizeof(empty)))
+		// Выводим отказ вывода экспортируемого материала
+		return error_t::SCHEDULE;
+	// Место, в которое помещается значение по метке назначения
+	uint8_t secret[schedule::SCHEDULE_WIDEST];
+	// Если значение по метке назначения вывести не удалось
+	if(!schedule::secret(this->_algorithm, view_t(this->_keys->exporter, this->_length), label, view_t(empty, this->_length), secret)){
+		// Выполняем затирание значения по метке назначения
+		wipe(secret, sizeof(secret));
+		// Выводим отказ вывода экспортируемого материала
+		return error_t::SCHEDULE;
+	}
+	// Место, в которое помещается хеш привязки потребителя
+	uint8_t hashed[schedule::SCHEDULE_WIDEST];
+	// Если привязка не задана, хеш берётся от пустой переписки
+	const view_t binding(((context.data != nullptr) && (context.size > 0)) ? context : view_t(nullptr, 0));
+	// Если хеш привязки вычислить не удалось
+	if(!digest::hash(this->_algorithm, binding, hashed, sizeof(hashed))){
+		// Выполняем затирание значения по метке назначения
+		wipe(secret, sizeof(secret));
+		// Выводим отказ вывода экспортируемого материала
+		return error_t::SCHEDULE;
+	}
+	// Выполняем растяжение значения по метке хешем привязки до требуемой длины
+	const bool ok = schedule::expand(this->_algorithm, view_t(secret, this->_length), view_t(hashed, this->_length), result, size);
+	// Выполняем затирание значения по метке назначения
+	wipe(secret, sizeof(secret));
+	// Выводим итог вывода экспортируемого материала
+	return (ok ? error_t::NONE : error_t::SCHEDULE);
 }
 /**
  * @brief Метод вывода ключа завершения рукопожатия

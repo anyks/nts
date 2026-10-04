@@ -8955,6 +8955,59 @@ const vector <vector <uint8_t>> & nts::internal::Engine::statuses() const noexce
 	return this->_statuses;
 }
 /**
+ * @brief Метод вывода экспортируемого ключевого материала связи
+ *
+ * @param label   метка назначения экспортируемого материала
+ * @param context привязка экспортируемого материала к потребителю
+ * @param result  место, в которое помещается экспортируемый материал
+ * @param size    требуемая длина экспортируемого материала в байтах
+ *
+ * @return        отказ вывода экспортируемого материала
+ *
+ */
+context::error_t nts::internal::Engine::exporting(const view_t & label, const view_t & context, uint8_t * result, const size_t size) const noexcept {
+	// Если связь не установлена либо метка назначения не передана
+	if((this->_state != context::state_t::ESTABLISHED) || (label.data == nullptr) || (label.size == 0) || (result == nullptr) || (size == 0))
+		// Выводим отказ вызова не в том состоянии связи
+		return context::error_t::STATE;
+	// Если связь ведётся изданием 1.3
+	if(this->_version == MODERN)
+		// Выводим итог вывода экспортируемого материала расписанием ключей
+		return ((this->_secrets.exporting(label, context, result, size) == session::error_t::NONE) ? context::error_t::NONE : context::error_t::SCHEDULE);
+	// Если ключевого материала связи нет
+	if(this->_keys == nullptr)
+		// Выводим отказ вывода ключевого материала
+		return context::error_t::SCHEDULE;
+	/**
+	 * Раздел 4 RFC 5705: материал изданий 1.0-1.2 выводится псевдослучайной
+	 * последовательностью из главного секрета, затравкой из случайных значений
+	 * приветствий обеих сторон и, при заданной привязке, хеша привязки
+	 */
+	uint8_t seed[64 + schedule::SCHEDULE_WIDEST];
+	// Записываем случайное значение клиента
+	::memcpy(seed, (this->_server ? this->_foreign : this->_random), 32);
+	// Записываем случайное значение сервера
+	::memcpy(seed + 32, (this->_server ? this->_random : this->_foreign), 32);
+	// Длина собранной затравки
+	size_t width = 64;
+	// Если привязка потребителя задана
+	if((context.data != nullptr) && (context.size > 0)){
+		// Хеш, которым берётся хеш привязки: изданием 1.1 - SHA-1, изданием 1.2 - хеш набора
+		const digest::hash_t algorithm = (this->_ancient ? digest::hash_t::SHA1 : protect::hash(this->_suite));
+		// Длина хеша привязки
+		const size_t length = digest::length(algorithm);
+		// Если хеш привязки выработать не удалось
+		if((length == 0) || (length > schedule::SCHEDULE_WIDEST) || !digest::hash(algorithm, context, seed + 64, length)){
+			// Выводим отказ вывода экспортируемого материала
+			return context::error_t::SCHEDULE;
+		}
+		// Дописываем длину хеша привязки к затравке
+		width += length;
+	}
+	// Выводим итог выработки экспортируемого материала из главного секрета
+	return (this->sequencing(view_t(this->_keys->master, sizeof(this->_keys->master)), label, view_t(seed, width), result, size) ? context::error_t::NONE : context::error_t::SCHEDULE);
+}
+/**
  * @brief Метод установки проверки принятого ответа о состоянии
  *
  * @param verify проверяется ли принятый ответ

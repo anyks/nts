@@ -8372,3 +8372,114 @@ TEST(ContextTest, OcspStapling){
 	pump(client, server);
 	ASSERT_EQ(server.state(), context::state_t::CLOSED);
 }
+
+/**
+ * Проверка экспорта ключевого материала связи издания 1.3 (RFC 8446 §7.5)
+ */
+TEST(ContextTest, Exporting){
+	// Подлинность стороны сервера
+	context::credential_t credentials;
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Связь стороны клиента
+	client::context_t client;
+	gosting(client);
+	// Связь стороны сервера
+	server::context_t server;
+	gosting(server);
+	server.credential(credentials);
+	// Метка назначения и привязка потребителя
+	const view_t label(reinterpret_cast <const uint8_t *> ("EXPERIMENTAL ants"), 16);
+	const view_t binding(reinterpret_cast <const uint8_t *> ("вязка"), 10);
+	// Места под экспортируемый материал сторон
+	uint8_t outgoing[32], incoming[32];
+	// До установления связи вывод отвергается
+	EXPECT_EQ(client.exporting(label, view_t(nullptr, 0), outgoing, sizeof(outgoing)), context::error_t::STATE);
+	// Заводим связь
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	converse(client, server);
+	ASSERT_TRUE(client.established());
+	ASSERT_TRUE(server.established());
+	// Обе стороны выводят одинаковый материал без привязки
+	ASSERT_EQ(client.exporting(label, view_t(nullptr, 0), outgoing, sizeof(outgoing)), context::error_t::NONE);
+	ASSERT_EQ(server.exporting(label, view_t(nullptr, 0), incoming, sizeof(incoming)), context::error_t::NONE);
+	EXPECT_EQ(::memcmp(outgoing, incoming, sizeof(outgoing)), 0);
+	// Обе стороны выводят одинаковый материал с привязкой
+	ASSERT_EQ(client.exporting(label, binding, outgoing, sizeof(outgoing)), context::error_t::NONE);
+	ASSERT_EQ(server.exporting(label, binding, incoming, sizeof(incoming)), context::error_t::NONE);
+	EXPECT_EQ(::memcmp(outgoing, incoming, sizeof(outgoing)), 0);
+	// Привязка разводит значения: материал с привязкой иной, чем без неё
+	uint8_t unbound[32];
+	ASSERT_EQ(client.exporting(label, view_t(nullptr, 0), unbound, sizeof(unbound)), context::error_t::NONE);
+	EXPECT_NE(::memcmp(outgoing, unbound, sizeof(outgoing)), 0);
+	// Метка разводит значения: иная метка даёт иной материал
+	const view_t other(reinterpret_cast <const uint8_t *> ("EXPERIMENTAL bnts"), 16);
+	uint8_t divergent[32];
+	ASSERT_EQ(client.exporting(other, binding, divergent, sizeof(divergent)), context::error_t::NONE);
+	EXPECT_NE(::memcmp(outgoing, divergent, sizeof(outgoing)), 0);
+	// Длина экспортируемого материала произвольна
+	uint8_t lengthy[64];
+	ASSERT_EQ(client.exporting(label, binding, lengthy, sizeof(lengthy)), context::error_t::NONE);
+	// Начало длинного материала совпадает с коротким: растяжение одно
+	EXPECT_EQ(::memcmp(lengthy, outgoing, sizeof(outgoing)), 0);
+	// Закрываем связь
+	ASSERT_EQ(client.close(), context::error_t::NONE);
+	pump(client, server);
+	ASSERT_EQ(server.state(), context::state_t::CLOSED);
+}
+
+/**
+ * Проверка экспорта ключевого материала связи издания 1.2 (RFC 5705)
+ */
+TEST(ContextTest, ExportingLegacy){
+	// Подлинность стороны сервера из корпуса: наборы издания 1.2 просят ECDSA/RSA
+	context::credential_t credentials;
+	{
+		// Читаем секретный ключ в записи PEM
+		std::ifstream key(std::string(ANTS_CORPUS) + "/ec256.pem", std::ios::binary);
+		ASSERT_TRUE(key.is_open());
+		credentials.secret.assign(std::istreambuf_iterator <char> (key), std::istreambuf_iterator <char> ());
+		// Читаем сертификат в записи PEM
+		std::ifstream crt(std::string(ANTS_CORPUS) + "/ec256.crt", std::ios::binary);
+		ASSERT_TRUE(crt.is_open());
+		const vector <uint8_t> text((std::istreambuf_iterator <char> (crt)), std::istreambuf_iterator <char> ());
+		// Разбираем цепочку сертификатов из записи PEM
+		ASSERT_EQ(pem::certificates(std::string(text.begin(), text.end()), credentials.chain), pem::error_t::NONE);
+	}
+	// Связь стороны клиента: лишь издание 1.2
+	client::context_t client;
+	gosting(client);
+	ASSERT_EQ(client.versions(0x0303, 0x0303), context::error_t::NONE);
+	// Связь стороны сервера: лишь издание 1.2
+	server::context_t server;
+	gosting(server);
+	ASSERT_EQ(server.versions(0x0303, 0x0303), context::error_t::NONE);
+	server.credential(credentials);
+	// Метка назначения и привязка потребителя
+	const view_t label(reinterpret_cast <const uint8_t *> ("EXPERIMENTAL ants"), 16);
+	const view_t binding(reinterpret_cast <const uint8_t *> ("вязка"), 10);
+	// Места под экспортируемый материал сторон
+	uint8_t outgoing[32], incoming[32];
+	// Заводим связь
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	converse(client, server);
+	ASSERT_TRUE(client.established());
+	ASSERT_TRUE(server.established());
+	// Обе стороны выводят одинаковый материал без привязки
+	ASSERT_EQ(client.exporting(label, view_t(nullptr, 0), outgoing, sizeof(outgoing)), context::error_t::NONE);
+	ASSERT_EQ(server.exporting(label, view_t(nullptr, 0), incoming, sizeof(incoming)), context::error_t::NONE);
+	EXPECT_EQ(::memcmp(outgoing, incoming, sizeof(outgoing)), 0);
+	// Обе стороны выводят одинаковый материал с привязкой
+	ASSERT_EQ(client.exporting(label, binding, outgoing, sizeof(outgoing)), context::error_t::NONE);
+	ASSERT_EQ(server.exporting(label, binding, incoming, sizeof(incoming)), context::error_t::NONE);
+	EXPECT_EQ(::memcmp(outgoing, incoming, sizeof(outgoing)), 0);
+	// Привязка разводит значения: материал с привязкой иной, чем без неё
+	uint8_t unbound[32];
+	ASSERT_EQ(client.exporting(label, view_t(nullptr, 0), unbound, sizeof(unbound)), context::error_t::NONE);
+	EXPECT_NE(::memcmp(outgoing, unbound, sizeof(outgoing)), 0);
+	// Закрываем связь
+	ASSERT_EQ(client.close(), context::error_t::NONE);
+	pump(client, server);
+	ASSERT_EQ(server.state(), context::state_t::CLOSED);
+}
