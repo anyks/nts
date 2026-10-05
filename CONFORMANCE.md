@@ -9170,4 +9170,14 @@ mpint делает SSH), rsa-sha2-256/512 (PKCS #1 v1.5); шифры chacha20-po
     делается сборкой содержимого, а не element() поверх готовой записи (двойная обёртка); статический хелпер
     identifier в безымянном пространстве скрывается одноимённым nts::x509::identifier из signature.hpp -
     переименован в oidOf. request 4/4, issue 5/5, ctest 101/101 зелёные.
-    Открыто по Г15: CRL, ACME, CMS, CMP - по мере очереди.
+    **Круг 91 (06.10.2026)**: CRL сделано. Модуль x509::crl по разделу 5 RFC 5280: разбор CertificateList
+    (TBSCertList {version v2, signature, issuer, thisUpdate, nextUpdate?, revokedCertificates?, crlExtensions
+    [0]}, signatureAlgorithm, signature) - записи отзывов с серийником, датой и расширениями записи (reasonCode
+    и прочие), расширения списка (CRL Number и прочие), сличение внутреннего и наружного опознавателей алгоритма
+    подписи (5.1.1.2), правило записи времени по 4.1.2.5 (UTCTime лишь 1950…2049). Проверка подписи
+    переупотребляет x509::verify. Пин CrlTest на записях openssl ca: ca-rsa.crl и ca-ec.crl с отозванными
+    leaf-rsa/leaf-ec (серийник 03, reasonCode keyCompromise/cessationOfOperation, CRL Number) - разбор полей,
+    подпись ключом ЦС, отказы на порченой подписи, обрезанной, пустой и чужой записи, чужой ключ, розыск
+    серийника. Ловушка выработки эталона: index.txt openssl ca несёт поля табуляцией с пустым полем отзыва
+    (V\t<expiry>\t\t<serial>\tunknown\t/DN). crl 3/3, ctest 102/102 зелёные.
+    Открыто по Г15: ACME, CMS, CMP - по мере очереди.
