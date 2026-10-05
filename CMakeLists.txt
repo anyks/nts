@@ -187,6 +187,7 @@ SET(SOURCE_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/x509/x509.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/x509/signature.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/x509/request.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/x509/issue.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ocsp/ocsp.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/digest/streebog.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/digest/sm3.cpp"
