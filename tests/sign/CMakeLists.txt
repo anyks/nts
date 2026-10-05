@@ -51,6 +51,24 @@ target_link_libraries(${TEST_ECDSA_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main
 # Регистрируем цель проверок
 add_test(NAME ${TEST_ECDSA_NAME} COMMAND ${TEST_ECDSA_NAME})
 
+# Устанавливаем имя цели проверок модуля электронной подписи SM2
+SET(TEST_SM2_NAME sm2)
+
+# Добавляем цель проверок модуля электронной подписи SM2
+add_executable(${TEST_SM2_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/sm2.cpp")
+
+# Включаем флаги компиляции проверок
+target_compile_options(${TEST_SM2_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
+
+# Подключаем каталог общих заголовочных файлов набора проверок
+target_include_directories(${TEST_SM2_NAME} PRIVATE "${ANTS_ROOT}/tests")
+
+# Выполняем подключение зависимостей цели проверок
+target_link_libraries(${TEST_SM2_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
+
+# Регистрируем цель проверок
+add_test(NAME ${TEST_SM2_NAME} COMMAND ${TEST_SM2_NAME})
+
 SET(TEST_RSA_NAME rsa)
 
 # Добавляем цель проверок модуля RSA

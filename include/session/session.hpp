@@ -200,7 +200,7 @@ namespace nts {
 				 *
 				 * \~
 				 */
-				static constexpr size_t CANDIDATES = 3;
+				static constexpr size_t CANDIDATES = 4;
 			private:
 				// Хеш переписки, выбранный набором шифрования
 				digest::hash_t _selected;

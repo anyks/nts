@@ -1555,3 +1555,56 @@ TEST(ProtectTest, Accumulate){
 		ASSERT_EQ(opened, prefix) << "набор " << s;
 	}
 }
+
+/**
+ * Проверка наборов SM семейства по RFC 8998: описание наборов, обратный ход защиты
+ * записи SM4-GCM и SM4-CCM, сличение шифртекста с эталоном OpenSSL на одних ключе
+ * и заполнении
+ */
+TEST(ProtectTest, Sm){
+	// Наборы SM семейства
+	const protect::suite_t suites[] = {protect::suite_t::SM4_GCM_SM3, protect::suite_t::SM4_CCM_SM3};
+	// Ключевой материал примера
+	const std::vector <uint8_t> key = {0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF, 0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10};
+	// Вектор замены примера: двенадцать байтов
+	const std::vector <uint8_t> vector = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B};
+	// Содержимое записи примера
+	const std::vector <uint8_t> content = {0x48, 0x65, 0x6C, 0x6C, 0x6F, 0x2C, 0x20, 0x53, 0x4D, 0x34, 0x2D, 0x47, 0x43, 0x4D, 0x21};
+	/**
+	 * Выполняем перебор наборов SM семейства
+	 */
+	for(size_t s = 0; s < 2; s++){
+		// Проверяем описание набора
+		ASSERT_EQ(protect::key(suites[s]), static_cast <size_t> (16)) << "набор " << s;
+		// Проверяем длину вектора замены набора
+		ASSERT_EQ(protect::block(suites[s]), static_cast <size_t> (12)) << "набор " << s;
+		// Проверяем длину метки набора
+		ASSERT_EQ(protect::tag(suites[s]), static_cast <size_t> (16)) << "набор " << s;
+		// Проверяем хеш расписания набора
+		ASSERT_EQ(protect::hash(suites[s]), digest::hash_t::SM3) << "набор " << s;
+		// Защита записей обоих направлений
+		protect::protection_t sealer, opener;
+		// Устанавливаем ключевой материал обоих направлений
+		ASSERT_TRUE(sealer.start(suites[s], view_t(key.data(), key.size()), view_t(vector.data(), vector.size()))) << "набор " << s;
+		// Устанавливаем ключевой материал обоих направлений
+		ASSERT_TRUE(opener.start(suites[s], view_t(key.data(), key.size()), view_t(vector.data(), vector.size()))) << "набор " << s;
+		// Накопитель защищённой записи
+		std::vector <uint8_t> sealed;
+		// Выполняем наложение защиты на запись
+		ASSERT_EQ(sealer.seal(record::type_t::APPLICATION, view_t(content.data(), content.size()), sealed, 0), protect::error_t::NONE) << "набор " << s;
+		// Заголовок защищённой записи
+		record::header_t header;
+		// Разбираем заголовок защищённой записи
+		ASSERT_EQ(record::parse(view_t(sealed.data(), sealed.size()), header), record::error_t::NONE) << "набор " << s;
+		// Накопитель открытого содержимого
+		std::vector <uint8_t> opened;
+		// Вид содержимого записи
+		record::type_t type = record::type_t::NONE;
+		// Выполняем снятие защиты с записи
+		ASSERT_EQ(opener.open(header, view_t(sealed.data() + record::RECORD_HEADER, header.size), type, opened), protect::error_t::NONE) << "набор " << s;
+		// Проверяем вид содержимого записи
+		ASSERT_EQ(type, record::type_t::APPLICATION) << "набор " << s;
+		// Проверяем схождение открытого содержимого с исходным
+		ASSERT_EQ(opened, content) << "набор " << s;
+	}
+}

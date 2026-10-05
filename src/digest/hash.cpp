@@ -50,6 +50,8 @@ size_t nts::digest::length(const hash_t algorithm) noexcept {
 		// Если выбран SHA-256 либо «Стрибог» длиной 256 разрядов
 		case static_cast <uint8_t> (hash_t::SHA256):
 		case static_cast <uint8_t> (hash_t::STREEBOG256): return 32;
+		// Если выбран SM3
+		case static_cast <uint8_t> (hash_t::SM3): return 32;
 		// Если выбран SHA-384
 		case static_cast <uint8_t> (hash_t::SHA384): return 48;
 		// Если выбран SHA-512 либо «Стрибог» длиной 512 разрядов
@@ -81,7 +83,8 @@ size_t nts::digest::block(const hash_t algorithm) noexcept {
 		case static_cast <uint8_t> (hash_t::SHA224):
 		case static_cast <uint8_t> (hash_t::SHA256):
 		case static_cast <uint8_t> (hash_t::STREEBOG256):
-		case static_cast <uint8_t> (hash_t::STREEBOG512): return 64;
+		case static_cast <uint8_t> (hash_t::STREEBOG512):
+		case static_cast <uint8_t> (hash_t::SM3): return 64;
 		// Блоки BLAKE2s и BLAKE2b
 		case static_cast <uint8_t> (hash_t::BLAKE2S256): return 64;
 		case static_cast <uint8_t> (hash_t::BLAKE2B512): return 128;
@@ -136,6 +139,8 @@ void nts::digest::Hasher::reset(const hash_t algorithm) noexcept {
 		// BLAKE2 заводится без ключа на полную длину
 		case static_cast <uint8_t> (hash_t::BLAKE2S256): this->_blake2.start(blake_t::BLAKE2S, BLAKE2S_LENGTH, view_t()); break;
 		case static_cast <uint8_t> (hash_t::BLAKE2B512): this->_blake2.start(blake_t::BLAKE2B, BLAKE2B_LENGTH, view_t()); break;
+		// Если выбран SM3
+		case static_cast <uint8_t> (hash_t::SM3): this->_sm3.reset(); break;
 		// Если алгоритм не установлен
 		default: this->_type = hash_t::NONE;
 	}
@@ -173,6 +178,8 @@ void nts::digest::Hasher::update(const view_t & data) noexcept {
 		// BLAKE2
 		case static_cast <uint8_t> (hash_t::BLAKE2S256):
 		case static_cast <uint8_t> (hash_t::BLAKE2B512): this->_blake2.update(data); break;
+		// Если выбран SM3
+		case static_cast <uint8_t> (hash_t::SM3): this->_sm3.update(data); break;
 		// Если алгоритм не установлен
 		default: break;
 	}
@@ -231,6 +238,8 @@ bool nts::digest::Hasher::finish(uint8_t * result, const size_t size) noexcept {
 			// Выводим итог снятия
 			return this->_blake2.finish(result, needed);
 		}
+		// Если выбран SM3
+		case static_cast <uint8_t> (hash_t::SM3): return this->_sm3.finish(result, size);
 		// Если алгоритм не установлен
 		default: return false;
 	}

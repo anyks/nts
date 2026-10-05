@@ -54,6 +54,8 @@
 #include <cipher/magma.hpp>
 #include <cipher/kuznyechik.hpp>
 #include <cipher/chachapoly.hpp>
+#include <cipher/ccm.hpp>
+#include <cipher/sm4.hpp>
 #include <record/record.hpp>
 
 /**
@@ -203,6 +205,8 @@ namespace nts {
 			AES_128_GCM_SHA256 = 0x1301, /*!< \~russian AES-128 в режиме GCM с расписанием на SHA-256 \~english AES-128 in the GCM mode with the schedule on SHA-256 \~ */
 			AES_256_GCM_SHA384 = 0x1302, /*!< \~russian AES-256 в режиме GCM с расписанием на SHA-384 \~english AES-256 in the GCM mode with the schedule on SHA-384 \~ */
 			CHACHA20_POLY1305_SHA256 = 0x1303, /*!< \~russian ChaCha20-Poly1305 с расписанием на SHA-256 \~english ChaCha20-Poly1305 with the schedule on SHA-256 \~ */
+			SM4_GCM_SM3 = 0x00C6, /*!< \~russian SM4 в режиме GCM с расписанием на SM3 (RFC 8998) \~english SM4 in the GCM mode with the schedule on SM3 (RFC 8998) \~ */
+			SM4_CCM_SM3 = 0x00C7, /*!< \~russian SM4 в режиме CCM с расписанием на SM3 (RFC 8998) \~english SM4 in the CCM mode with the schedule on SM3 (RFC 8998) \~ */
 			ECDHE_ECDSA_AES_128_GCM_SHA256       = 0xC02B, /*!< \~russian TLS 1.2: ECDHE с подписью ECDSA, AES-128-GCM, PRF на SHA-256 (RFC 5289) \~english TLS 1.2: ECDHE with an ECDSA signature, AES-128-GCM, the PRF on SHA-256 (RFC 5289) \~ */
 			ECDHE_ECDSA_AES_256_GCM_SHA384       = 0xC02C, /*!< \~russian TLS 1.2: ECDHE с подписью ECDSA, AES-256-GCM, PRF на SHA-384 (RFC 5289) \~english TLS 1.2: ECDHE with an ECDSA signature, AES-256-GCM, the PRF on SHA-384 (RFC 5289) \~ */
 			ECDHE_RSA_AES_128_GCM_SHA256         = 0xC02F, /*!< \~russian TLS 1.2: ECDHE с подписью RSA, AES-128-GCM, PRF на SHA-256 (RFC 5289) \~english TLS 1.2: ECDHE with an RSA signature, AES-128-GCM, the PRF on SHA-256 (RFC 5289) \~ */
@@ -575,6 +579,8 @@ namespace nts {
 			private:
 				// Признак набора CBC с имитовставкой по разделу 6.2.3.2 RFC 5246
 				bool _cbc;
+				// Признак набора SM4-CCM с режимом CCM по RFC 3610 вместо GCM
+				bool _ccm;
 				// Признак порядка «шифрование, затем имитовставка» по RFC 7366
 				bool _etm;
 				// Хеш имитовставки набора CBC
@@ -606,8 +612,14 @@ namespace nts {
 				// Объект базового шифра AES классических наборов
 				cipher::aes_t _aes;
 			private:
+				// Объект базового шифра SM4 наборов RFC 8998
+				cipher::sm4_t _sm4;
+			private:
 				// Объект режима GCM классических наборов: таблица кратных ключа хеширования строится один раз на ключ
 				cipher::gcm_t _gcm;
+			private:
+				// Объект режима CCM набора SM4-CCM
+				cipher::ccm_t _mode;
 			private:
 				/**
 				 * \~russian

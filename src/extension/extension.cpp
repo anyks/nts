@@ -115,7 +115,7 @@ namespace {
 		const char * oid;
 		// Длина ключа подписи на кривой группы в байтах
 		size_t size;
-	} SAMPLES[13] = {
+	} SAMPLES[14] = {
 		{group_t::GC256A, scheme_t::S256A, "1.2.643.7.1.2.1.1.1", 32},
 		{group_t::GC256B, scheme_t::S256B, "1.2.643.2.2.35.1",    32},
 		{group_t::GC256C, scheme_t::S256C, "1.2.643.2.2.35.2",    32},
@@ -128,7 +128,8 @@ namespace {
 		{group_t::X25519,    scheme_t::NONE,                   "1.3.101.110",         32},
 		{group_t::X448,      scheme_t::NONE,                   "1.3.101.111",         56},
 		{group_t::SECP521R1, scheme_t::ECDSA_SECP521R1_SHA512, "1.3.132.0.35",        66},
-		{group_t::SECP256K1, scheme_t::NONE,                   "1.3.132.0.10",        32}
+		{group_t::SECP256K1, scheme_t::NONE,                   "1.3.132.0.10",        32},
+		{group_t::CURVESM2,  scheme_t::SM2SIG_SM3,             "1.2.156.10197.1.301", 32}
 	};
 
 	/**
@@ -140,7 +141,7 @@ namespace {
 		scheme_t scheme;
 		// Хеш схемы подписи
 		digest::hash_t hash;
-	} HASHES[20] = {
+	} HASHES[21] = {
 		{scheme_t::RSA_PKCS1_SHA256, digest::hash_t::SHA256},
 		{scheme_t::RSA_PKCS1_SHA384, digest::hash_t::SHA384},
 		{scheme_t::RSA_PKCS1_SHA512, digest::hash_t::SHA512},
@@ -160,7 +161,8 @@ namespace {
 		{scheme_t::ED25519, digest::hash_t::NONE},
 		{scheme_t::MLDSA44, digest::hash_t::NONE},
 		{scheme_t::MLDSA65, digest::hash_t::NONE},
-		{scheme_t::MLDSA87, digest::hash_t::NONE}
+		{scheme_t::MLDSA87, digest::hash_t::NONE},
+		{scheme_t::SM2SIG_SM3, digest::hash_t::SM3}
 	};
 
 	/**
@@ -483,8 +485,8 @@ size_t nts::extension::length(const group_t group) noexcept {
 	if(finite(group) > 0)
 		// Выводим длину модуля
 		return finite(group);
-	// Если группа обмена - кривая NIST либо secp256k1
-	if((group == group_t::SECP256R1) || (group == group_t::SECP384R1) || (group == group_t::SECP521R1) || (group == group_t::SECP256K1)){
+	// Если группа обмена - кривая NIST, secp256k1 либо curveSM2: доля есть несжатая точка 0x04||X||Y
+	if((group == group_t::SECP256R1) || (group == group_t::SECP384R1) || (group == group_t::SECP521R1) || (group == group_t::SECP256K1) || (group == group_t::CURVESM2)){
 		/**
 		 * Выполняем перебор описаний групп обмена ключами
 		 */

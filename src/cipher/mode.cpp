@@ -209,6 +209,34 @@ namespace {
 		// Выполняем выработку гаммы шифром AES
 		return reinterpret_cast <const aes_t *> (cipher)->stream(counter, blocks, source, result);
 	}
+	/**
+	 * @brief Метод зашифрования блока шифром SM4
+	 *
+	 * @param cipher объект блочного шифра
+	 * @param source зашифровываемый блок
+	 * @param result место, в которое помещается зашифрованный блок
+	 *
+	 * @return       признак успешности зашифрования
+	 *
+	 */
+	static bool encryptSm4(const void * cipher, const uint8_t * source, uint8_t * result) noexcept {
+		// Выполняем зашифрование блока шифром SM4
+		return reinterpret_cast <const sm4_t *> (cipher)->encrypt(source, result);
+	}
+	/**
+	 * @brief Метод расшифрования блока шифром SM4
+	 *
+	 * @param cipher объект блочного шифра
+	 * @param source расшифровываемый блок
+	 * @param result место, в которое помещается расшифрованный блок
+	 *
+	 * @return       признак успешности расшифрования
+	 *
+	 */
+	static bool decryptSm4(const void * cipher, const uint8_t * source, uint8_t * result) noexcept {
+		// Выполняем расшифрование блока шифром SM4
+		return reinterpret_cast <const sm4_t *> (cipher)->decrypt(source, result);
+	}
 	// Затирание областей памяти берётся из открытого API библиотеки
 	using nts::sys::wipe;
 	/**
@@ -295,6 +323,14 @@ nts::cipher::Block::Block(const kuznyechik_t & cipher) noexcept :
  */
 nts::cipher::Block::Block(const aes_t & cipher) noexcept :
 	size(AES_BLOCK), cipher(&cipher), encrypt(&encryptAes), decrypt(&decryptAes), stream(&streamAes), batch(&batchAes), schedule(cipher.schedule()), rounds(cipher.rounds()) {}
+/**
+ * @brief Конструктор
+ *
+ * @param cipher объект блочного шифра SM4
+ *
+ */
+nts::cipher::Block::Block(const sm4_t & cipher) noexcept :
+	size(SM4_BLOCK), cipher(&cipher), encrypt(&encryptSm4), decrypt(&decryptSm4), stream(nullptr), batch(nullptr), schedule(nullptr), rounds(0) {}
 /**
  * @brief Метод проверки готовности режима к работе
  *

@@ -174,6 +174,11 @@ namespace {
 	static const char * OID_MLDSA87 = "2.16.840.1.101.3.4.3.19";
 
 	/**
+	 * Опознаватель ключа SM2 по GB/T 32918 и RFC 8998
+	 */
+	static const char * OID_SM2 = "1.2.156.10197.1.301";
+
+	/**
 	 * Опознаватель схемы PBES2 по RFC 8018
 	 */
 	static const char * OID_PBES2 = "1.2.840.113549.1.5.13";
@@ -2311,6 +2316,34 @@ bool nts::keys::Key::load(sign::ecdsa_t & ecdsa, curve::curve_t & curve) const n
 	return ecdsa.key(view_t(this->x.data(), this->x.size()), view_t(this->y.data(), this->y.size()));
 }
 /**
+ * @brief Метод установки ключа SM2 из разобранного ключа
+ *
+ * @param sm2   примитив, в который устанавливается ключ
+ * @param curve кривая, которая устанавливается по опознавателю ключа
+ * @param id    опознаватель подписывающего для выработки Z_A
+ *
+ * @return      признак успешности установки ключа
+ *
+ */
+bool nts::keys::Key::load(sign::sm2_t & sm2, curve::curve_t & curve, const view_t & id) const noexcept {
+	// Выполняем сброс примитива
+	sm2.clear();
+	// Если ключ не SM2 либо кривую по опознавателю установить не удалось
+	if((this->kind != kind_t::SM2) || (curveOf(* this, curve) != error_t::NONE))
+		// Выводим отказ установки
+		return false;
+	// Если кривую в примитив установить не удалось
+	if(!sm2.start(curve))
+		// Выводим отказ установки
+		return false;
+	// Если ключ несёт секретную часть
+	if(this->secret())
+		// Выводим итог установки ключа подписи
+		return sm2.secret(view_t(this->d.data(), this->d.size()), id);
+	// Выводим итог установки ключа проверки подписи
+	return sm2.key(view_t(this->x.data(), this->x.size()), view_t(this->y.data(), this->y.size()), id);
+}
+/**
  * @brief Метод установки ключа Ed25519 из разобранного ключа
  *
  * @param ed25519 примитив, в который устанавливается ключ
@@ -2521,6 +2554,18 @@ const nts::sign::mldsa_t & nts::keys::Signer::mldsa() const noexcept {
 	return (this->_mldsa ? (* this->_mldsa) : empty);
 }
 /**
+ * @brief Метод получения модуля подписи SM2
+ *
+ * @return модуль подписи с установленным ключом SM2, пустой у ключей иных видов
+ *
+ */
+const nts::sign::sm2_t & nts::keys::Signer::sm2() const noexcept {
+	// Пустой модуль для ключей иных видов
+	static const sign::sm2_t empty;
+	// Выводим модуль подписи
+	return (this->_sm2 ? (* this->_sm2) : empty);
+}
+/**
  * @brief Метод подготовки ключа по записи секретного ключа
  *
  * @param secret запись PrivateKeyInfo (PKCS #8) в DER либо в PEM без пароля
@@ -2646,6 +2691,23 @@ nts::keys::error_t nts::keys::Signer::prepare(const view_t & secret) noexcept {
 			// Заводим ключ в модуле подписи ML-DSA
 			loaded = key.load(* this->_mldsa);
 		} break;
+		// Ключ SM2
+		case kind_t::SM2: {
+			// Заводим кривую и модуль подписи SM2
+			this->_curve.reset(new (nothrow) curve::curve_t());
+			this->_sm2.reset(new (nothrow) sign::sm2_t());
+			// Если памяти под кривую либо модуль не хватило
+			if(!this->_curve || !this->_sm2){
+				// Сбрасываем ключ
+				this->clear();
+				// Выводим отказ нехватки памяти
+				return error_t::MEMORY;
+			}
+			// Опознаватель подписи сертификата по RFC 8998
+			static const char * ID = "1234567812345678";
+			// Заводим ключ в модуле подписи SM2 вместе с кривой
+			loaded = key.load(* this->_sm2, * this->_curve, view_t(reinterpret_cast <const uint8_t *> (ID), 16));
+		} break;
 		// Ключ, подписи не выполняющий
 		default:
 			// Выводим отказ вида ключа
@@ -2718,6 +2780,7 @@ void nts::keys::Signer::clear() noexcept {
 	this->_ed25519.reset();
 	this->_gost.reset();
 	this->_mldsa.reset();
+	this->_sm2.reset();
 	// Уничтожаем кривую ключа
 	this->_curve.reset();
 }
@@ -2822,8 +2885,28 @@ nts::keys::error_t nts::keys::decodeSubjectPublicKeyInfo(const view_t & der, key
 		if(outcome != error_t::NONE)
 			// Выводим отказ установки
 			return outcome;
+		// Устанавливаем вид ключа: ключ на кривой curveSM2 есть ключ SM2, прочие EC - ECDSA
+		key.kind = ((key.oid.compare(OID_SM2) == 0) ? kind_t::SM2 : kind_t::EC);
+		// Выполняем разбор несжатой точки
+		outcome = pointOf(bytes, curve, key.x, key.y);
+	// Если ключ SM2
+	} else if(algorithm.compare(OID_SM2) == 0){
+		// Если настройки записаны: GB/T 32918 их не несёт, кривая curveSM2 подразумевается
+		if(present)
+			// Выводим отказ алгоритма
+			return error_t::ALGORITHM;
+		// Запоминаем опознаватель кривой curveSM2
+		key.oid = OID_SM2;
+		// Кривая ключа
+		curve::curve_t curve;
+		// Итог установки кривой
+		outcome = curveOf(key, curve);
+		// Если кривую установить не удалось
+		if(outcome != error_t::NONE)
+			// Выводим отказ установки
+			return outcome;
 		// Устанавливаем вид ключа
-		key.kind = kind_t::EC;
+		key.kind = kind_t::SM2;
 		// Выполняем разбор несжатой точки
 		outcome = pointOf(bytes, curve, key.x, key.y);
 	// Если ключ Ed25519 либо X25519
@@ -3123,6 +3206,41 @@ nts::keys::error_t nts::keys::decodePrivateKeyInfo(const view_t & der, key_t & r
 			return outcome;
 		// Выполняем разбор ECPrivateKey внутри обёртки
 		outcome = ecSecret(body, true, key);
+		// Если ключ разобран, а кривая его - curveSM2: вид ключа есть SM2, а не ECDSA
+		if((outcome == error_t::NONE) && (key.oid.compare(OID_SM2) == 0))
+			// Устанавливаем вид ключа
+			key.kind = kind_t::SM2;
+		// Если ключ разобран, а обёртка несёт открытый ключ
+		if((outcome == error_t::NONE) && (opened.data != nullptr)){
+			// Кривая ключа
+			curve::curve_t curve;
+			// Итог установки кривой
+			outcome = curveOf(key, curve);
+			// Записанные координаты открытого ключа
+			vector <uint8_t> x, y;
+			// Если кривая установлена
+			if(outcome == error_t::NONE)
+				// Выполняем разбор несжатой точки
+				outcome = pointOf(opened, curve, x, y);
+			// Если точка разобрана, а с выведенной не сошлась
+			if((outcome == error_t::NONE) && (!same(x, key.x) || !same(y, key.y)))
+				// Устанавливаем отказ негодного значения
+				outcome = error_t::VALUE;
+		}
+	// Если ключ SM2
+	} else if(algorithm.compare(OID_SM2) == 0){
+		// Если настройки записаны: GB/T 32918 их не несёт, кривая curveSM2 подразумевается
+		if(present)
+			// Выводим отказ алгоритма
+			return error_t::ALGORITHM;
+		// Запоминаем опознаватель кривой curveSM2
+		key.oid = OID_SM2;
+		// Выполняем разбор ECPrivateKey внутри обёртки
+		outcome = ecSecret(body, true, key);
+		// Если ключ разобран, вид его - SM2
+		if(outcome == error_t::NONE)
+			// Устанавливаем вид ключа
+			key.kind = kind_t::SM2;
 		// Если ключ разобран, а обёртка несёт открытый ключ
 		if((outcome == error_t::NONE) && (opened.data != nullptr)){
 			// Кривая ключа

@@ -91,7 +91,7 @@ namespace {
 	 * Хеши, которыми переписка ведётся до выбора набора шифрования
 	 */
 	static const digest::hash_t CANDIDATES[session::Transcript::CANDIDATES] = {
-		digest::hash_t::STREEBOG256, digest::hash_t::SHA256, digest::hash_t::SHA384
+		digest::hash_t::STREEBOG256, digest::hash_t::SHA256, digest::hash_t::SHA384, digest::hash_t::SM3
 	};
 
 	/**

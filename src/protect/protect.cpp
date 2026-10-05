@@ -254,20 +254,29 @@ namespace {
 		digest::hash_t hash;
 		// Признак набора издания TLS 1.2 с защитой записей по разделу 6.2.3.3 RFC 5246
 		bool legacy;
+		// Признак набора SM4-CCM с режимом CCM по RFC 3610 вместо GCM
+		bool ccm;
 		// Алгоритм подписи, требуемый набором TLS 1.2 от сертификата
 		signer_t signer;
 		// Способ обмена ключами набора TLS 1.2
 		exchange_t exchange;
 		// Хеш имитовставки набора CBC, NONE у наборов AEAD
 		digest::hash_t mac;
-	} SAMPLES[30] = {
-		{suite_t::KUZNYECHIK_MGM_L,         false, false, {0xF800000000000000ULL, 0xFFFFFFF000000000ULL, 0xFFFFFFFFFFFFE000ULL}, 0xFFFFFFFFFFFFFFFFULL, 16, 32, 16, digest::hash_t::STREEBOG256, false, signer_t::NONE, exchange_t::NONE, digest::hash_t::NONE},
-		{suite_t::MAGMA_MGM_L,              false, false, {0xFFE0000000000000ULL, 0xFFFFFFFFC0000000ULL, 0xFFFFFFFFFFFFFF80ULL}, 0xFFFFFFFFFFFFFFFFULL, 8,  32, 8,  digest::hash_t::STREEBOG256, false, signer_t::NONE, exchange_t::NONE, digest::hash_t::NONE},
-		{suite_t::KUZNYECHIK_MGM_S,         false, false, {0xFFFFFFFFE0000000ULL, 0xFFFFFFFFFFFF0000ULL, 0xFFFFFFFFFFFFFFF8ULL}, 0x000003FFFFFFFFFFULL, 16, 32, 16, digest::hash_t::STREEBOG256, false, signer_t::NONE, exchange_t::NONE, digest::hash_t::NONE},
-		{suite_t::MAGMA_MGM_S,              false, false, {0xFFFFFFFFFC000000ULL, 0xFFFFFFFFFFFFE000ULL, 0xFFFFFFFFFFFFFFFFULL}, 0x0000007FFFFFFFFFULL, 8,  32, 8,  digest::hash_t::STREEBOG256, false, signer_t::NONE, exchange_t::NONE, digest::hash_t::NONE},
-		{suite_t::AES_128_GCM_SHA256,       true,  false, {0ULL, 0ULL, 0ULL}, CLASSIC_LIMIT, CLASSIC_VECTOR, 16, CLASSIC_TAG, digest::hash_t::SHA256, false, signer_t::NONE, exchange_t::NONE, digest::hash_t::NONE},
-		{suite_t::AES_256_GCM_SHA384,       true,  false, {0ULL, 0ULL, 0ULL}, CLASSIC_LIMIT, CLASSIC_VECTOR, 32, CLASSIC_TAG, digest::hash_t::SHA384, false, signer_t::NONE, exchange_t::NONE, digest::hash_t::NONE},
-		{suite_t::CHACHA20_POLY1305_SHA256, true,  true,  {0ULL, 0ULL, 0ULL}, STREAM_LIMIT,  CLASSIC_VECTOR, 32, CLASSIC_TAG, digest::hash_t::SHA256, false, signer_t::NONE, exchange_t::NONE, digest::hash_t::NONE},
+	} SAMPLES[32] = {
+		{suite_t::KUZNYECHIK_MGM_L,         false, false, {0xF800000000000000ULL, 0xFFFFFFF000000000ULL, 0xFFFFFFFFFFFFE000ULL}, 0xFFFFFFFFFFFFFFFFULL, 16, 32, 16, digest::hash_t::STREEBOG256, false, false, signer_t::NONE, exchange_t::NONE, digest::hash_t::NONE},
+		{suite_t::MAGMA_MGM_L,              false, false, {0xFFE0000000000000ULL, 0xFFFFFFFFC0000000ULL, 0xFFFFFFFFFFFFFF80ULL}, 0xFFFFFFFFFFFFFFFFULL, 8,  32, 8,  digest::hash_t::STREEBOG256, false, false, signer_t::NONE, exchange_t::NONE, digest::hash_t::NONE},
+		{suite_t::KUZNYECHIK_MGM_S,         false, false, {0xFFFFFFFFE0000000ULL, 0xFFFFFFFFFFFF0000ULL, 0xFFFFFFFFFFFFFFF8ULL}, 0x000003FFFFFFFFFFULL, 16, 32, 16, digest::hash_t::STREEBOG256, false, false, signer_t::NONE, exchange_t::NONE, digest::hash_t::NONE},
+		{suite_t::MAGMA_MGM_S,              false, false, {0xFFFFFFFFFC000000ULL, 0xFFFFFFFFFFFFE000ULL, 0xFFFFFFFFFFFFFFFFULL}, 0x0000007FFFFFFFFFULL, 8,  32, 8,  digest::hash_t::STREEBOG256, false, false, signer_t::NONE, exchange_t::NONE, digest::hash_t::NONE},
+		{suite_t::AES_128_GCM_SHA256,       true,  false, {0ULL, 0ULL, 0ULL}, CLASSIC_LIMIT, CLASSIC_VECTOR, 16, CLASSIC_TAG, digest::hash_t::SHA256, false, false, signer_t::NONE, exchange_t::NONE, digest::hash_t::NONE},
+		{suite_t::AES_256_GCM_SHA384,       true,  false, {0ULL, 0ULL, 0ULL}, CLASSIC_LIMIT, CLASSIC_VECTOR, 32, CLASSIC_TAG, digest::hash_t::SHA384, false, false, signer_t::NONE, exchange_t::NONE, digest::hash_t::NONE},
+		{suite_t::CHACHA20_POLY1305_SHA256, true,  true,  {0ULL, 0ULL, 0ULL}, STREAM_LIMIT,  CLASSIC_VECTOR, 32, CLASSIC_TAG, digest::hash_t::SHA256, false, false, signer_t::NONE, exchange_t::NONE, digest::hash_t::NONE},
+		/**
+		 * Наборы SM семейства по RFC 8998: SM4-GCM и SM4-CCM с расписанием на SM3,
+		 * вектор замены в двенадцать байтов, ключ и метка по шестнадцать; предел
+		 * записей тот же 2^24,5, что у AES-GCM (раздел 5.5 RFC 8446)
+		 */
+		{suite_t::SM4_GCM_SM3,                true,  false, {0ULL, 0ULL, 0ULL}, CLASSIC_LIMIT, CLASSIC_VECTOR, 16, CLASSIC_TAG, digest::hash_t::SM3, false, false, signer_t::NONE, exchange_t::NONE, digest::hash_t::NONE},
+		{suite_t::SM4_CCM_SM3,                true,  false, {0ULL, 0ULL, 0ULL}, CLASSIC_LIMIT, CLASSIC_VECTOR, 16, CLASSIC_TAG, digest::hash_t::SM3, false, true,  signer_t::NONE, exchange_t::NONE, digest::hash_t::NONE},
 		/**
 		 * Наборы TLS 1.2 (RFC 5289, RFC 7905): у AES-GCM вектор замены занимает четыре байта
 		 * соли (раздел 3 RFC 5288), у ChaCha20-Poly1305 - двенадцать (раздел 2 RFC 7905).
@@ -275,12 +284,12 @@ namespace {
 		 * шифра не зависит от способа сложения одноразового значения, а смены ключей в
 		 * TLS 1.2 нет - дойдя до предела, связь закрывается извещением close_notify
 		 */
-		{suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256,       true, false, {0ULL, 0ULL, 0ULL}, CLASSIC_LIMIT, LEGACY_SALT,    16, CLASSIC_TAG, digest::hash_t::SHA256, true, signer_t::ECDSA, exchange_t::ECDHE, digest::hash_t::NONE},
-		{suite_t::ECDHE_ECDSA_AES_256_GCM_SHA384,       true, false, {0ULL, 0ULL, 0ULL}, CLASSIC_LIMIT, LEGACY_SALT,    32, CLASSIC_TAG, digest::hash_t::SHA384, true, signer_t::ECDSA, exchange_t::ECDHE, digest::hash_t::NONE},
-		{suite_t::ECDHE_RSA_AES_128_GCM_SHA256,         true, false, {0ULL, 0ULL, 0ULL}, CLASSIC_LIMIT, LEGACY_SALT,    16, CLASSIC_TAG, digest::hash_t::SHA256, true, signer_t::RSA, exchange_t::ECDHE, digest::hash_t::NONE},
-		{suite_t::ECDHE_RSA_AES_256_GCM_SHA384,         true, false, {0ULL, 0ULL, 0ULL}, CLASSIC_LIMIT, LEGACY_SALT,    32, CLASSIC_TAG, digest::hash_t::SHA384, true, signer_t::RSA, exchange_t::ECDHE, digest::hash_t::NONE},
-		{suite_t::ECDHE_RSA_CHACHA20_POLY1305_SHA256,   true, true,  {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, CLASSIC_VECTOR, 32, CLASSIC_TAG, digest::hash_t::SHA256, true, signer_t::RSA, exchange_t::ECDHE, digest::hash_t::NONE},
-		{suite_t::ECDHE_ECDSA_CHACHA20_POLY1305_SHA256, true, true,  {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, CLASSIC_VECTOR, 32, CLASSIC_TAG, digest::hash_t::SHA256, true, signer_t::ECDSA, exchange_t::ECDHE, digest::hash_t::NONE},
+		{suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256,       true, false, {0ULL, 0ULL, 0ULL}, CLASSIC_LIMIT, LEGACY_SALT,    16, CLASSIC_TAG, digest::hash_t::SHA256, true, false, signer_t::ECDSA, exchange_t::ECDHE, digest::hash_t::NONE},
+		{suite_t::ECDHE_ECDSA_AES_256_GCM_SHA384,       true, false, {0ULL, 0ULL, 0ULL}, CLASSIC_LIMIT, LEGACY_SALT,    32, CLASSIC_TAG, digest::hash_t::SHA384, true, false, signer_t::ECDSA, exchange_t::ECDHE, digest::hash_t::NONE},
+		{suite_t::ECDHE_RSA_AES_128_GCM_SHA256,         true, false, {0ULL, 0ULL, 0ULL}, CLASSIC_LIMIT, LEGACY_SALT,    16, CLASSIC_TAG, digest::hash_t::SHA256, true, false, signer_t::RSA, exchange_t::ECDHE, digest::hash_t::NONE},
+		{suite_t::ECDHE_RSA_AES_256_GCM_SHA384,         true, false, {0ULL, 0ULL, 0ULL}, CLASSIC_LIMIT, LEGACY_SALT,    32, CLASSIC_TAG, digest::hash_t::SHA384, true, false, signer_t::RSA, exchange_t::ECDHE, digest::hash_t::NONE},
+		{suite_t::ECDHE_RSA_CHACHA20_POLY1305_SHA256,   true, true,  {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, CLASSIC_VECTOR, 32, CLASSIC_TAG, digest::hash_t::SHA256, true, false, signer_t::RSA, exchange_t::ECDHE, digest::hash_t::NONE},
+		{suite_t::ECDHE_ECDSA_CHACHA20_POLY1305_SHA256, true, true,  {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, CLASSIC_VECTOR, 32, CLASSIC_TAG, digest::hash_t::SHA256, true, false, signer_t::ECDSA, exchange_t::ECDHE, digest::hash_t::NONE},
 		/**
 		 * Наборы CBC издания TLS 1.2 (раздел 6.2.3.2 RFC 5246, RFC 5289, RFC 8422, RFC 4279, RFC 5489):
 		 * вектор замены явный и в ключевой материал не входит (размер вектора ноль), длина
@@ -288,23 +297,23 @@ namespace {
 		 * записей 2^62 - режим CBC предела стойкости по номеру не ставит, а недостижимый предел
 		 * держит заслон номеров живым. Наборы обмена RSA на AES-GCM устроены как ECDHE-наборы
 		 */
-		{suite_t::ECDHE_ECDSA_AES_128_CBC_SHA256,       true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 16, 32, digest::hash_t::SHA256, true, signer_t::ECDSA, exchange_t::ECDHE,     digest::hash_t::SHA256},
-		{suite_t::ECDHE_RSA_AES_128_CBC_SHA256,         true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 16, 32, digest::hash_t::SHA256, true, signer_t::RSA,   exchange_t::ECDHE,     digest::hash_t::SHA256},
-		{suite_t::ECDHE_ECDSA_AES_128_CBC_SHA,          true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 16, 20, digest::hash_t::SHA256, true, signer_t::ECDSA, exchange_t::ECDHE,     digest::hash_t::SHA1},
-		{suite_t::ECDHE_ECDSA_AES_256_CBC_SHA,          true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 32, 20, digest::hash_t::SHA256, true, signer_t::ECDSA, exchange_t::ECDHE,     digest::hash_t::SHA1},
-		{suite_t::ECDHE_RSA_AES_128_CBC_SHA,            true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 16, 20, digest::hash_t::SHA256, true, signer_t::RSA,   exchange_t::ECDHE,     digest::hash_t::SHA1},
-		{suite_t::ECDHE_RSA_AES_256_CBC_SHA,            true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 32, 20, digest::hash_t::SHA256, true, signer_t::RSA,   exchange_t::ECDHE,     digest::hash_t::SHA1},
-		{suite_t::RSA_AES_128_CBC_SHA,                  true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 16, 20, digest::hash_t::SHA256, true, signer_t::RSA,   exchange_t::RSA,       digest::hash_t::SHA1},
-		{suite_t::RSA_AES_256_CBC_SHA,                  true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 32, 20, digest::hash_t::SHA256, true, signer_t::RSA,   exchange_t::RSA,       digest::hash_t::SHA1},
-		{suite_t::RSA_AES_128_CBC_SHA256,               true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 16, 32, digest::hash_t::SHA256, true, signer_t::RSA,   exchange_t::RSA,       digest::hash_t::SHA256},
-		{suite_t::RSA_AES_256_CBC_SHA256,               true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 32, 32, digest::hash_t::SHA256, true, signer_t::RSA,   exchange_t::RSA,       digest::hash_t::SHA256},
-		{suite_t::RSA_AES_128_GCM_SHA256,               true, false, {0ULL, 0ULL, 0ULL}, CLASSIC_LIMIT, LEGACY_SALT, 16, CLASSIC_TAG, digest::hash_t::SHA256, true, signer_t::RSA, exchange_t::RSA, digest::hash_t::NONE},
-		{suite_t::RSA_AES_256_GCM_SHA384,               true, false, {0ULL, 0ULL, 0ULL}, CLASSIC_LIMIT, LEGACY_SALT, 32, CLASSIC_TAG, digest::hash_t::SHA384, true, signer_t::RSA, exchange_t::RSA, digest::hash_t::NONE},
-		{suite_t::PSK_AES_128_CBC_SHA,                  true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 16, 20, digest::hash_t::SHA256, true, signer_t::NONE,  exchange_t::PSK,       digest::hash_t::SHA1},
-		{suite_t::PSK_AES_256_CBC_SHA,                  true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 32, 20, digest::hash_t::SHA256, true, signer_t::NONE,  exchange_t::PSK,       digest::hash_t::SHA1},
-		{suite_t::ECDHE_PSK_AES_128_CBC_SHA,            true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 16, 20, digest::hash_t::SHA256, true, signer_t::NONE,  exchange_t::ECDHE_PSK, digest::hash_t::SHA1},
-		{suite_t::ECDHE_PSK_AES_256_CBC_SHA,            true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 32, 20, digest::hash_t::SHA256, true, signer_t::NONE,  exchange_t::ECDHE_PSK, digest::hash_t::SHA1},
-		{suite_t::ECDHE_PSK_CHACHA20_POLY1305_SHA256,   true, true,  {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, CLASSIC_VECTOR, 32, CLASSIC_TAG, digest::hash_t::SHA256, true, signer_t::NONE, exchange_t::ECDHE_PSK, digest::hash_t::NONE}
+		{suite_t::ECDHE_ECDSA_AES_128_CBC_SHA256,       true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 16, 32, digest::hash_t::SHA256, true, false, signer_t::ECDSA, exchange_t::ECDHE,     digest::hash_t::SHA256},
+		{suite_t::ECDHE_RSA_AES_128_CBC_SHA256,         true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 16, 32, digest::hash_t::SHA256, true, false, signer_t::RSA,   exchange_t::ECDHE,     digest::hash_t::SHA256},
+		{suite_t::ECDHE_ECDSA_AES_128_CBC_SHA,          true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 16, 20, digest::hash_t::SHA256, true, false, signer_t::ECDSA, exchange_t::ECDHE,     digest::hash_t::SHA1},
+		{suite_t::ECDHE_ECDSA_AES_256_CBC_SHA,          true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 32, 20, digest::hash_t::SHA256, true, false, signer_t::ECDSA, exchange_t::ECDHE,     digest::hash_t::SHA1},
+		{suite_t::ECDHE_RSA_AES_128_CBC_SHA,            true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 16, 20, digest::hash_t::SHA256, true, false, signer_t::RSA,   exchange_t::ECDHE,     digest::hash_t::SHA1},
+		{suite_t::ECDHE_RSA_AES_256_CBC_SHA,            true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 32, 20, digest::hash_t::SHA256, true, false, signer_t::RSA,   exchange_t::ECDHE,     digest::hash_t::SHA1},
+		{suite_t::RSA_AES_128_CBC_SHA,                  true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 16, 20, digest::hash_t::SHA256, true, false, signer_t::RSA,   exchange_t::RSA,       digest::hash_t::SHA1},
+		{suite_t::RSA_AES_256_CBC_SHA,                  true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 32, 20, digest::hash_t::SHA256, true, false, signer_t::RSA,   exchange_t::RSA,       digest::hash_t::SHA1},
+		{suite_t::RSA_AES_128_CBC_SHA256,               true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 16, 32, digest::hash_t::SHA256, true, false, signer_t::RSA,   exchange_t::RSA,       digest::hash_t::SHA256},
+		{suite_t::RSA_AES_256_CBC_SHA256,               true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 32, 32, digest::hash_t::SHA256, true, false, signer_t::RSA,   exchange_t::RSA,       digest::hash_t::SHA256},
+		{suite_t::RSA_AES_128_GCM_SHA256,               true, false, {0ULL, 0ULL, 0ULL}, CLASSIC_LIMIT, LEGACY_SALT, 16, CLASSIC_TAG, digest::hash_t::SHA256, true, false, signer_t::RSA, exchange_t::RSA, digest::hash_t::NONE},
+		{suite_t::RSA_AES_256_GCM_SHA384,               true, false, {0ULL, 0ULL, 0ULL}, CLASSIC_LIMIT, LEGACY_SALT, 32, CLASSIC_TAG, digest::hash_t::SHA384, true, false, signer_t::RSA, exchange_t::RSA, digest::hash_t::NONE},
+		{suite_t::PSK_AES_128_CBC_SHA,                  true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 16, 20, digest::hash_t::SHA256, true, false, signer_t::NONE,  exchange_t::PSK,       digest::hash_t::SHA1},
+		{suite_t::PSK_AES_256_CBC_SHA,                  true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 32, 20, digest::hash_t::SHA256, true, false, signer_t::NONE,  exchange_t::PSK,       digest::hash_t::SHA1},
+		{suite_t::ECDHE_PSK_AES_128_CBC_SHA,            true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 16, 20, digest::hash_t::SHA256, true, false, signer_t::NONE,  exchange_t::ECDHE_PSK, digest::hash_t::SHA1},
+		{suite_t::ECDHE_PSK_AES_256_CBC_SHA,            true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 32, 20, digest::hash_t::SHA256, true, false, signer_t::NONE,  exchange_t::ECDHE_PSK, digest::hash_t::SHA1},
+		{suite_t::ECDHE_PSK_CHACHA20_POLY1305_SHA256,   true, true,  {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, CLASSIC_VECTOR, 32, CLASSIC_TAG, digest::hash_t::SHA256, true, false, signer_t::NONE, exchange_t::ECDHE_PSK, digest::hash_t::NONE}
 	};
 
 	/**
@@ -626,6 +635,20 @@ nts::protect::error_t nts::protect::Protection::prepare(const uint64_t sequence,
 		return error_t::NONE;
 	// Если набор шифрования классический
 	if(sample->classic){
+		// Если набор шифрования - SM4-GCM либо SM4-CCM по RFC 8998
+		if((this->_suite == suite_t::SM4_GCM_SM3) || (this->_suite == suite_t::SM4_CCM_SM3)){
+			// Если ключ базового шифра ещё не установлен
+			if(!this->_ready){
+				// Если ключ базового шифра SM4 установить не удалось
+				if(!this->_sm4.key(view_t(this->_key, this->_width)))
+					// Выводим отказ подготовки базового шифра
+					return error_t::CIPHER;
+			}
+			// Устанавливаем описание базового шифра SM4
+			block = cipher::block_t(this->_sm4);
+			// Выводим успешность подготовки базового шифра
+			return error_t::NONE;
+		}
 		// Если ключ базового шифра ещё не установлен
 		if(!this->_ready){
 			// Если ключ базового шифра установить не удалось
@@ -793,6 +816,8 @@ bool nts::protect::Protection::start(const suite_t suite, const view_t & key, co
 		return false;
 	// Запоминаем признак набора CBC
 	this->_cbc = (sample->mac != digest::hash_t::NONE);
+	// Запоминаем признак набора SM4-CCM
+	this->_ccm = sample->ccm;
 	// Запоминаем хеш имитовставки набора
 	this->_digest = sample->mac;
 	// Если ключ имитовставки положен набору
@@ -839,8 +864,17 @@ bool nts::protect::Protection::start(const suite_t suite, const view_t & key, co
 		uint8_t zeros[12];
 		// Выполняем обнуление заглушки
 		::memset(zeros, 0, sizeof(zeros));
+		// Если набор шифрования - SM4-CCM по RFC 8998
+		if(this->_ccm){
+			// Если режим CCM завести не удалось
+			if(!this->_mode.start(block, view_t(zeros, sizeof(zeros)), this->_tag)){
+				// Выполняем сброс состояния защиты записей
+				this->clear();
+				// Выводим отказ установки ключевого материала
+				return false;
+			}
 		// Если режим GCM завести не удалось
-		if(!this->_gcm.start(block, view_t(zeros, sizeof(zeros)), this->_tag)){
+		} else if(!this->_gcm.start(block, view_t(zeros, sizeof(zeros)), this->_tag)){
 			// Выполняем сброс состояния защиты записей
 			this->clear();
 			// Выводим отказ установки ключевого материала
@@ -867,8 +901,12 @@ void nts::protect::Protection::clear() noexcept {
 	this->_kuznyechik.clear();
 	// Выполняем сброс базового шифра AES
 	this->_aes.clear();
+	// Выполняем сброс базового шифра SM4
+	this->_sm4.clear();
 	// Выполняем сброс режима GCM: таблица кратных ключа хеширования затирается
 	this->_gcm.clear();
+	// Выполняем сброс режима CCM
+	this->_mode.clear();
 	// Сбрасываем набор шифрования направления связи
 	this->_suite = suite_t::NONE;
 	// Сбрасываем длину вектора замены
@@ -1118,7 +1156,23 @@ nts::protect::error_t nts::protect::Protection::seal(const view_t & associated, 
 			if(chachapoly.start(view_t(this->_key, this->_width), view_t(nonce, this->_size)))
 				// Выполняем наложение шифрования с проверкой целостности
 				ok = sealing(chachapoly, associated, data, total, type, padding, cipher);
-		// Если набор шифрования классический на AES-GCM
+		// Если набор шифрования - SM4-CCM по RFC 8998
+		} else if(this->_ccm) {
+			// Открытый текст записи вместе с видом содержимого и дополнением: режиму CCM он нужен целиком
+			vector <uint8_t> plain(length, 0);
+			// Если содержимое записи передано
+			if(total > 0)
+				// Переносим содержимое записи в открытый текст
+				::memcpy(plain.data(), data.data, total);
+			// Записываем истинный вид содержимого следом за содержимым
+			plain[total] = static_cast <uint8_t> (type);
+			// Если заполнение записи установить удалось
+			if(this->_mode.restart(view_t(nonce, this->_size)))
+				// Выполняем наложение шифрования с проверкой целостности
+				ok = this->_mode.encrypt(associated, view_t(plain.data(), plain.size()), cipher, (cipher + length));
+			// Выполняем затирание открытого текста записи
+			wipe(plain.data(), plain.size());
+		// Если набор шифрования классический на AES-GCM либо SM4-GCM
 		} else if(this->_classic) {
 			// Если заполнение записи установить удалось: таблица режима построена при заведении ключа
 			if(this->_gcm.restart(view_t(nonce, this->_size)))
@@ -1237,7 +1291,13 @@ nts::protect::error_t nts::protect::Protection::open(const view_t & associated, 
 			if(chachapoly.start(view_t(this->_key, this->_width), view_t(nonce, this->_size)))
 				// Выполняем снятие шифрования с проверкой целостности прямо в накопитель
 				ok = chachapoly.decrypt(associated, view_t(data.data, length), plain, view_t((data.data + length), this->_tag));
-		// Если набор шифрования классический на AES-GCM
+		// Если набор шифрования - SM4-CCM по RFC 8998
+		} else if(this->_ccm) {
+			// Если заполнение записи установить удалось
+			if(this->_mode.restart(view_t(nonce, this->_size)))
+				// Выполняем снятие шифрования с проверкой целостности прямо в накопитель
+				ok = this->_mode.decrypt(associated, view_t(data.data, length), view_t((data.data + length), this->_tag), plain);
+		// Если набор шифрования классический на AES-GCM либо SM4-GCM
 		} else if(this->_classic) {
 			/**
 			 * Снятие защиты идёт поточными вызовами: слитое ядро режима считает хеш и снимает

@@ -45,6 +45,7 @@
 #include <cipher/magma.hpp>
 #include <cipher/kuznyechik.hpp>
 #include <cipher/aes.hpp>
+#include <cipher/sm4.hpp>
 
 /**
  * \~russian
@@ -189,6 +190,19 @@ namespace nts {
 			 * \~
 			 */
 			Block(const aes_t & cipher) noexcept;
+			/**
+			 * \~russian
+			 * @brief Конструктор
+			 *
+			 * @param cipher объект блочного шифра SM4
+			 *
+			 * \~english
+			 * @brief Constructor
+			 * @param cipher the object of the SM4 block cipher
+			 *
+			 * \~
+			 */
+			Block(const sm4_t & cipher) noexcept;
 		} block_t;
 
 		/**

@@ -69,6 +69,42 @@ target_link_libraries(${TEST_AES_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main $
 # Регистрируем цель проверок
 add_test(NAME ${TEST_AES_NAME} COMMAND ${TEST_AES_NAME})
 
+# Устанавливаем имя цели проверок модуля блочного шифра SM4
+SET(TEST_SM4_NAME sm4)
+
+# Добавляем цель проверок модуля блочного шифра SM4
+add_executable(${TEST_SM4_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/sm4.cpp")
+
+# Включаем флаги компиляции проверок
+target_compile_options(${TEST_SM4_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
+
+# Подключаем каталог общих заголовочных файлов набора проверок
+target_include_directories(${TEST_SM4_NAME} PRIVATE "${ANTS_ROOT}/tests")
+
+# Выполняем подключение зависимостей цели проверок
+target_link_libraries(${TEST_SM4_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
+
+# Регистрируем цель проверок
+add_test(NAME ${TEST_SM4_NAME} COMMAND ${TEST_SM4_NAME})
+
+# Устанавливаем имя цели проверок модуля режима CCM
+SET(TEST_CCM_NAME ccm)
+
+# Добавляем цель проверок модуля режима CCM
+add_executable(${TEST_CCM_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/ccm.cpp")
+
+# Включаем флаги компиляции проверок
+target_compile_options(${TEST_CCM_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
+
+# Подключаем каталог общих заголовочных файлов набора проверок
+target_include_directories(${TEST_CCM_NAME} PRIVATE "${ANTS_ROOT}/tests")
+
+# Выполняем подключение зависимостей цели проверок
+target_link_libraries(${TEST_CCM_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
+
+# Регистрируем цель проверок
+add_test(NAME ${TEST_CCM_NAME} COMMAND ${TEST_CCM_NAME})
+
 SET(TEST_GCM_NAME gcm)
 
 # Добавляем цель проверок модуля режима шифрования с проверкой целостности

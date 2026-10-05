@@ -166,6 +166,7 @@ namespace nts {
 			X448      = 0x001E, /*!< \~russian Кривая Curve448 по RFC 7748 \~english The Curve448 curve by RFC 7748 \~ */
 			SECP521R1 = 0x0019, /*!< \~russian Кривая secp521r1 (NIST P-521) по разделу 4.2.7 RFC 8446 \~english The secp521r1 (NIST P-521) curve by the section 4.2.7 of RFC 8446 \~ */
 			SECP256K1 = 0x0016, /*!< \~russian Кривая secp256k1 по RFC 8422: лишь TLS 1.2, изданием 1.3 не допускается \~english The secp256k1 curve by RFC 8422: TLS 1.2 only, not allowed by the edition 1.3 \~ */
+			CURVESM2  = 0x0029, /*!< \~russian Кривая curveSM2 по GB/T 32918.5 (RFC 8998) \~english The curveSM2 curve by GB/T 32918.5 (RFC 8998) \~ */
 			FFDHE2048 = 0x0100, /*!< \~russian Группа конечного поля ffdhe2048 по RFC 7919 \~english The ffdhe2048 finite field group by RFC 7919 \~ */
 			FFDHE3072 = 0x0101, /*!< \~russian Группа конечного поля ffdhe3072 по RFC 7919 \~english The ffdhe3072 finite field group by RFC 7919 \~ */
 			FFDHE4096 = 0x0102, /*!< \~russian Группа конечного поля ffdhe4096 по RFC 7919 \~english The ffdhe4096 finite field group by RFC 7919 \~ */
@@ -249,7 +250,8 @@ namespace nts {
 			ED25519                = 0x0807, /*!< \~russian Подпись Ed25519 по RFC 8032 \~english The Ed25519 signature by RFC 8032 \~ */
 			MLDSA44                = 0x0904, /*!< \~russian Подпись ML-DSA-44 по FIPS 204 (draft-ietf-tls-mldsa-06) \~english The ML-DSA-44 signature by FIPS 204 (draft-ietf-tls-mldsa-06) \~ */
 			MLDSA65                = 0x0905, /*!< \~russian Подпись ML-DSA-65 по FIPS 204 (draft-ietf-tls-mldsa-06) \~english The ML-DSA-65 signature by FIPS 204 (draft-ietf-tls-mldsa-06) \~ */
-			MLDSA87                = 0x0906  /*!< \~russian Подпись ML-DSA-87 по FIPS 204 (draft-ietf-tls-mldsa-06) \~english The ML-DSA-87 signature by FIPS 204 (draft-ietf-tls-mldsa-06) \~ */
+			MLDSA87                = 0x0906, /*!< \~russian Подпись ML-DSA-87 по FIPS 204 (draft-ietf-tls-mldsa-06) \~english The ML-DSA-87 signature by FIPS 204 (draft-ietf-tls-mldsa-06) \~ */
+			SM2SIG_SM3             = 0x0708  /*!< \~russian Подпись SM2 на кривой curveSM2 с хешем SM3 (RFC 8998) \~english The SM2 signature on the curveSM2 curve with the SM3 hash (RFC 8998) \~ */
 		};
 
 		/**

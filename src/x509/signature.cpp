@@ -41,6 +41,7 @@
 #include <sign/rsa.hpp>
 #include <sign/gost.hpp>
 #include <sign/ecdsa.hpp>
+#include <sign/sm2.hpp>
 #include <sign/ed25519.hpp>
 #include <sign/mldsa.hpp>
 #include <sign/slhdsa.hpp>
@@ -221,6 +222,11 @@ namespace {
 	 * Опознаватель алгоритма открытого ключа Ed25519: раздел 3 RFC 8410
 	 */
 	static const char * ED_KEY = "1.3.101.112";
+
+	/**
+	 * Опознаватель алгоритма открытого ключа SM2: GB/T 32918 и RFC 8998
+	 */
+	static const char * SM2_KEY = "1.2.156.10197.1.301";
 
 	/**
 	 * Опознаватель алгоритма открытого ключа ML-DSA-44: раздел 5 RFC 9881
@@ -997,6 +1003,98 @@ namespace {
 	 * @return          отказ проверки подписи
 	 *
 	 */
+	/**
+	 * @brief Метод проверки подписи SM2 содержимого открытым ключом
+	 *
+	 * @param content   подписанное содержимое
+	 * @param signature подпись в записи протокола: SEQUENCE {INTEGER r, INTEGER s}
+	 * @param key       сведения об открытом ключе подписавшей стороны
+	 * @param id        опознаватель подписывающего для выработки Z_A
+	 *
+	 * @return          отказ проверки подписи
+	 *
+	 * @details Подписываемое значение e = SM3(Z_A ‖ M): Z_A вяжет подпись с
+	 *          опознавателем, параметрами кривой и ключом; хеш считается самим
+	 *          модулем, отдельного хеширования содержимого здесь не ведётся
+	 *
+	 */
+	static nts::x509::error_t sm2(const view_t & content, const view_t & signature, const nts::x509::key_t & key, const view_t & id) noexcept {
+		// Если ключ не эллиптической кривой: ключ SM2 идёт записью id-ecPublicKey с кривой curveSM2
+		if(key.algorithm.compare(EC_KEY) != 0)
+			// Выводим отказ ключа чужого алгоритма
+			return nts::x509::error_t::KEY;
+		// Эллиптическая кривая проверки подписи
+		curve::curve_t curve;
+		// Если запись настроек алгоритма ключа не передана
+		if((key.parameters.data == nullptr) || (key.parameters.size == 0))
+			// Выводим отказ заведения открытого ключа
+			return nts::x509::error_t::SIGNATURE;
+		// Разборщик записи настроек алгоритма ключа
+		asn1::Reader reader(key.parameters);
+		// Разбираемый элемент записи настроек
+		asn1::element_t element;
+		// Если опознаватель именованной кривой разобрать не удалось
+		if(!reader.next(asn1::tag_t::OBJECT, element))
+			// Выводим отказ заведения открытого ключа
+			return nts::x509::error_t::SIGNATURE;
+		// Опознаватель именованной кривой
+		string oid;
+		// Итог извлечения опознавателя именованной кривой
+		const asn1::error_t outcome = asn1::oid(element, oid);
+		// Если памяти под опознаватель не хватило
+		if(outcome == asn1::error_t::MEMORY)
+			// Выводим отказ нехватки памяти
+			return nts::x509::error_t::MEMORY;
+		// Если опознаватель именованной кривой извлечь не удалось
+		if(outcome != asn1::error_t::NONE)
+			// Выводим отказ заведения открытого ключа
+			return nts::x509::error_t::SIGNATURE;
+		// Если кривая ключа - не curveSM2
+		if(oid.compare(SM2_KEY) != 0)
+			// Выводим отказ ключа чужой кривой
+			return nts::x509::error_t::KEY;
+		// Если кривую curveSM2 установить не удалось
+		if(!curve::parameters(oid, curve))
+			// Выводим отказ заведения открытого ключа
+			return nts::x509::error_t::SIGNATURE;
+		// Если запись открытого ключа занимает неполное число байтов
+		if((key.unused != 0) || (key.key.data == nullptr))
+			// Выводим отказ заведения открытого ключа
+			return nts::x509::error_t::SIGNATURE;
+		// Если запись точки не несжатая либо не занимает двух координат
+		if((key.key.size != ((curve.size() * 2) + 1)) || (key.key.data[0] != 0x04))
+			// Выводим отказ заведения открытого ключа
+			return nts::x509::error_t::SIGNATURE;
+		// Объект модуля электронной подписи
+		sign::sm2_t sm2;
+		// Если кривую в модуль установить не удалось
+		if(!sm2.start(curve))
+			// Выводим отказ заведения открытого ключа
+			return nts::x509::error_t::SIGNATURE;
+		// Если открытый ключ подписавшей стороны установить не удалось
+		if(!sm2.key(view_t(key.key.data + 1, curve.size()), view_t(key.key.data + 1 + curve.size(), curve.size()), id))
+			// Выводим отказ заведения открытого ключа
+			return nts::x509::error_t::SIGNATURE;
+		// Место, в которое помещается подпись в сыром виде
+		uint8_t raw[64];
+		// Если запись подписи разобрать не удалось
+		if(!sign::decode(signature, raw, sizeof(raw)))
+			// Выводим отказ проверки подписи
+			return nts::x509::error_t::SIGNATURE;
+		// Выводим итог проверки подписи
+		return (sm2.check(content, view_t(raw, sizeof(raw))) ? nts::x509::error_t::NONE : nts::x509::error_t::SIGNATURE);
+	}
+	/**
+	 * @brief Метод проверки подписи ECDSA содержимого открытым ключом
+	 *
+	 * @param hash      алгоритм хеша подписанного содержимого
+	 * @param content   подписанное содержимое
+	 * @param signature подпись в записи протокола
+	 * @param key       сведения об открытом ключе подписавшей стороны
+	 *
+	 * @return          отказ проверки подписи
+	 *
+	 */
 	static nts::x509::error_t ecdsa(const digest::hash_t hash, const view_t & content, const view_t & signature, const nts::x509::key_t & key) noexcept {
 		// Если алгоритм хеша не установлен
 		if(hash == digest::hash_t::NONE)
@@ -1493,9 +1591,24 @@ nts::x509::error_t nts::x509::check(const key_t & key, const digest::hash_t algo
 		// Выводим итог проверки подписи содержимого ключом ГОСТ
 		return nts::x509::check(key, content, signature);
 	// Если ключ эллиптической кривой, подпись записана набором SEQUENCE {r, s}
-	if(key.algorithm.compare(EC_KEY) == 0)
+	if(key.algorithm.compare(EC_KEY) == 0){
+		// Если хеш подписи - SM3: ключ на кривой curveSM2, и подпись идёт с опознавателем владения ключом по RFC 8998
+		if(algorithm == digest::hash_t::SM3){
+			// Опознаватель подписи владения ключом по RFC 8998
+			static const char * ID = "TLSv1.3+GM+Cipher+Suite";
+			// Выводим итог проверки подписи SM2
+			return ::sm2(content, signature, key, view_t(reinterpret_cast <const uint8_t *> (ID), 22));
+		}
 		// Выводим итог проверки подписи ECDSA
 		return ::ecdsa(algorithm, content, signature, key);
+	}
+	// Если ключ SM2, подпись идёт с опознавателем владения ключом по RFC 8998
+	if(key.algorithm.compare(SM2_KEY) == 0){
+		// Опознаватель подписи владения ключом по RFC 8998
+		static const char * ID = "TLSv1.3+GM+Cipher+Suite";
+		// Выводим итог проверки подписи SM2
+		return ::sm2(content, signature, key, view_t(reinterpret_cast <const uint8_t *> (ID), 22));
+	}
 	// Если ключ RSA, подпись по схеме RSASSA-PSS с солью длиной в хеш: раздел 4.2.3 RFC 8446
 	if((key.algorithm.compare(RSA_KEY) == 0) || (key.algorithm.compare(PSS_KEY) == 0)){
 		// Если настройки ключа id-RSASSA-PSS подписи не дозволяют (раздел 3.3 RFC 4055)

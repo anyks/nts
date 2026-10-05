@@ -45,6 +45,7 @@
 #include <digest/md5.hpp>
 #include <digest/sha1.hpp>
 #include <digest/sha2.hpp>
+#include <digest/sm3.hpp>
 #include <digest/streebog.hpp>
 #include <digest/blake2.hpp>
 
@@ -103,7 +104,8 @@ namespace nts {
 			STREEBOG256 = 0x07, /*!< \~russian «Стрибог» по ГОСТ Р 34.11-2012, 256 разрядов \~english «Streebog» according to GOST R 34.11-2012, 256 bits \~ */
 			STREEBOG512 = 0x08, /*!< \~russian «Стрибог» по ГОСТ Р 34.11-2012, 512 разрядов \~english «Streebog» according to GOST R 34.11-2012, 512 bits \~ */
 			BLAKE2S256  = 0x09, /*!< \~russian BLAKE2s по RFC 7693, 256 разрядов, блок 64 байта (Noise, WireGuard) \~english BLAKE2s according to RFC 7693, 256 bits, 64-byte block (Noise, WireGuard) \~ */
-			BLAKE2B512  = 0x0A  /*!< \~russian BLAKE2b по RFC 7693, 512 разрядов, блок 128 байтов \~english BLAKE2b according to RFC 7693, 512 bits, 128-byte block \~ */
+			BLAKE2B512  = 0x0A, /*!< \~russian BLAKE2b по RFC 7693, 512 разрядов, блок 128 байтов \~english BLAKE2b according to RFC 7693, 512 bits, 128-byte block \~ */
+			SM3         = 0x0B  /*!< \~russian SM3 по GB/T 32905-2016, 256 разрядов (RFC 8998) \~english SM3 according to GB/T 32905-2016, 256 bits (RFC 8998) \~ */
 		};
 
 		/**
@@ -178,6 +180,8 @@ namespace nts {
 				streebog_t _streebog;
 				// Хеш BLAKE2 без ключа: ключевой режим потребитель берёт у blake2_t напрямую, HMAC идёт поверх
 				blake2_t _blake2;
+				// Хеширование SM3
+				sm3_t _sm3;
 			public:
 				/**
 				 * \~russian

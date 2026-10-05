@@ -53,6 +53,7 @@
 #include <sign/rsa.hpp>
 #include <sign/gost.hpp>
 #include <sign/ecdsa.hpp>
+#include <sign/sm2.hpp>
 #include <sign/ed25519.hpp>
 #include <sign/mldsa.hpp>
 #include <curve/curve.hpp>
@@ -141,7 +142,8 @@ namespace nts {
 			ED25519 = 0x03, /*!< \~russian Ключ подписи Ed25519 по RFC 8410 \~english Ed25519 signature key according to RFC 8410 \~ */
 			X25519  = 0x04, /*!< \~russian Ключ согласования X25519 по RFC 8410 \~english X25519 agreement key according to RFC 8410 \~ */
 			GOST    = 0x05, /*!< \~russian Ключ по ГОСТ Р 34.10-2012 по RFC 9215 \~english GOST R 34.10-2012 key according to RFC 9215 \~ */
-			MLDSA   = 0x06  /*!< \~russian Ключ подписи ML-DSA по FIPS 204 и RFC 9881 \~english ML-DSA signature key according to FIPS 204 and RFC 9881 \~ */
+			MLDSA   = 0x06, /*!< \~russian Ключ подписи ML-DSA по FIPS 204 и RFC 9881 \~english ML-DSA signature key according to FIPS 204 and RFC 9881 \~ */
+			SM2     = 0x07  /*!< \~russian Ключ подписи SM2 на кривой curveSM2 по GB/T 32918 и RFC 8998 \~english SM2 signature key on the curveSM2 curve according to GB/T 32918 and RFC 8998 \~ */
 		};
 
 		/**
@@ -299,6 +301,26 @@ namespace nts {
 			bool load(sign::ecdsa_t & ecdsa, curve::curve_t & curve) const noexcept;
 			/**
 			 * \~russian
+			 * @brief Метод установки ключа SM2 из разобранного ключа
+			 *
+			 * @param sm2   примитив, в который устанавливается ключ
+			 * @param curve кривая, которая устанавливается по опознавателю ключа
+			 * @param id    опознаватель подписывающего для выработки Z_A
+			 *
+			 * @return      признак успешности установки ключа
+			 *
+			 * \~english
+			 * @brief Method of the installation of an SM2 key from the parsed key
+			 * @param sm2   the primitive the key is installed into
+			 * @param curve the curve which is installed by the identifier of the key
+			 * @param id    the identifier of the signer for the production of Z_A
+			 * @return      the flag of the success of the installation of the key
+			 *
+			 * \~
+			 */
+			bool load(sign::sm2_t & sm2, curve::curve_t & curve, const view_t & id) const noexcept;
+			/**
+			 * \~russian
 			 * @brief Метод установки ключа Ed25519 из разобранного ключа
 			 *
 			 * @param ed25519 примитив, в который устанавливается ключ
@@ -422,6 +444,8 @@ namespace nts {
 				unique_ptr <sign::gost_t> _gost;
 				// Модуль подписи ML-DSA
 				unique_ptr <sign::mldsa_t> _mldsa;
+				// Модуль подписи SM2
+				unique_ptr <sign::sm2_t> _sm2;
 			public:
 				/**
 				 * \~russian
@@ -527,6 +551,19 @@ namespace nts {
 				 * \~
 				 */
 				const sign::mldsa_t & mldsa() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения модуля подписи SM2
+				 *
+				 * @return модуль подписи с установленным ключом SM2, пустой у ключей иных видов
+				 *
+				 * \~english
+				 * @brief Method of getting the SM2 signature module
+				 * @return the signature module with the SM2 key set, empty at the keys of the other kinds
+				 *
+				 * \~
+				 */
+				const sign::sm2_t & sm2() const noexcept;
 			public:
 				/**
 				 * \~russian

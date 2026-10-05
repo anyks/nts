@@ -697,6 +697,11 @@ namespace {
 	static const char * MLDSA87_KEY = "2.16.840.1.101.3.4.3.19";
 
 	/**
+	 * Опознаватель ключа SM2 по GB/T 32918 и RFC 8998
+	 */
+	static const char * SM2_KEY = "1.2.156.10197.1.301";
+
+	/**
 	 * Место расширения: приветствие сервера
 	 */
 	static constexpr uint8_t PLACE_HELLO = 0x01;
@@ -1394,6 +1399,7 @@ namespace {
 			case static_cast <uint16_t> (extension::group_t::SECP384R1):
 			case static_cast <uint16_t> (extension::group_t::SECP521R1):
 			case static_cast <uint16_t> (extension::group_t::SECP256K1):
+			case static_cast <uint16_t> (extension::group_t::CURVESM2):
 				// Выводим признак классической группы обмена ключами
 				return true;
 		}
@@ -1553,7 +1559,7 @@ namespace {
 			return context::error_t::NONE;
 		}
 		// Отмечаем пригодность ключа RSA либо Ed25519
-		suitable = ((key.algorithm.compare(RSA_KEY) == 0) || (key.algorithm.compare(ED_KEY) == 0) || (key.algorithm.compare(MLDSA44_KEY) == 0) || (key.algorithm.compare(MLDSA65_KEY) == 0) || (key.algorithm.compare(MLDSA87_KEY) == 0));
+		suitable = ((key.algorithm.compare(RSA_KEY) == 0) || (key.algorithm.compare(ED_KEY) == 0) || (key.algorithm.compare(MLDSA44_KEY) == 0) || (key.algorithm.compare(MLDSA65_KEY) == 0) || (key.algorithm.compare(MLDSA87_KEY) == 0) || (key.algorithm.compare(SM2_KEY) == 0));
 		// Выводим успешность разбора
 		return context::error_t::NONE;
 	}
@@ -1655,6 +1661,25 @@ namespace {
 			case static_cast <uint16_t> (extension::scheme_t::MLDSA87):
 				// Выводим итог сличения алгоритма ключа с ML-DSA-87
 				return (key.algorithm.compare(MLDSA87_KEY) == 0);
+			// Схема подписи SM2
+			case static_cast <uint16_t> (extension::scheme_t::SM2SIG_SM3): {
+				// Если ключ сертификата не ключ EC: ключ SM2 идёт записью id-ecPublicKey с кривой curveSM2
+				if(key.algorithm.compare(EC_KEY) != 0)
+					// Выводим несоответствие схемы ключу
+					return false;
+				// Опознаватель именованной кривой ключа
+				string identifier;
+				// Извлекаем опознаватель именованной кривой
+				const x509::error_t outcome = named(key, identifier);
+				// Запоминаем нехватку памяти при разборе
+				memory = (outcome == x509::error_t::MEMORY);
+				// Если опознаватель кривой ключа извлечь не удалось
+				if(outcome != x509::error_t::NONE)
+					// Выводим несоответствие схемы ключу
+					return false;
+				// Выводим итог сличения кривой ключа с curveSM2
+				return (identifier.compare(SM2_KEY) == 0);
+			}
 		}
 		// Выводим несоответствие неведомой схемы всякому ключу
 		return false;
@@ -4954,8 +4979,56 @@ context::error_t nts::internal::Engine::signing(const view_t & content, extensio
 				return failure;
 			// Хеш подписываемого содержимого по схеме подписи
 			const digest::hash_t algorithm = extension::hash(item);
+			// Если схема подписи - SM2
+			if(item == extension::scheme_t::SM2SIG_SM3){
+				// Если подготовленный ключ - не ключ SM2
+				if(signer->kind() != keys::kind_t::SM2)
+					// Выводим отказ установки секретного ключа
+					return context::error_t::SIGNATURE;
+				// Модуль подписи SM2 подготовленного ключа
+				const sign::sm2_t & sm2 = signer->sm2();
+				// Опознаватель подписи владения ключом по RFC 8998
+				static const char * ID = "TLSv1.3+GM+Cipher+Suite";
+				// Если опознаватель подписи владения ключом установить не удалось
+				if(!sm2.reidentify(view_t(reinterpret_cast <const uint8_t *> (ID), 22)))
+					// Выводим отказ установки опознавателя
+					return context::error_t::SIGNATURE;
+				// Место, в которое помещается подпись в записи выработки
+				uint8_t raw[64];
+				// Случайное число выработки подписи
+				uint8_t random[32];
+				// Признак успешности выработки подписи
+				bool made = false;
+				/**
+				 * GB/T 32918.2: неудачный выбор случайного числа (нулевое r, нулевое s
+				 * либо r + k = n) велит выбрать новое число и повторить выработку
+				 */
+				for(size_t attempt = 0; !made && (attempt < 128); attempt++){
+					// Если случайное число выработать не удалось
+					if(!entropy::bytes(random, sizeof(random)))
+						// Выводим отказ выработки случайного числа
+						return context::error_t::SIGNATURE;
+					// Выполняем выработку подписи владения ключом
+					made = sm2.make(content, view_t(random, sizeof(random)), raw);
+				}
+				// Выполняем затирание случайного числа выработки подписи
+				this->purge(random, sizeof(random));
+				// Если подпись выработать не удалось
+				if(!made)
+					// Выводим отказ выработки подписи владения ключом
+					return context::error_t::SIGNATURE;
+				// Выделяем место под запись подписи по её пределу: ведущий нуль у обоих чисел
+				signed_.assign(72, 0);
+				// Длина записи подписи
+				size_t written = signed_.size();
+				// Если подпись в запись DER перевести не удалось
+				if(!sign::encode(view_t(raw, sizeof(raw)), signed_.data(), written))
+					// Выводим отказ записи подписи владения ключом
+					return context::error_t::SIGNATURE;
+				// Усекаем запись до её длины: усечение памяти не выделяет
+				signed_.resize(written);
 			// Если схема подписи - ECDSA
-			if((item == extension::scheme_t::ECDSA_SECP256R1_SHA256) || (item == extension::scheme_t::ECDSA_SECP384R1_SHA384) || (item == extension::scheme_t::ECDSA_SECP521R1_SHA512)){
+			} else if((item == extension::scheme_t::ECDSA_SECP256R1_SHA256) || (item == extension::scheme_t::ECDSA_SECP384R1_SHA384) || (item == extension::scheme_t::ECDSA_SECP521R1_SHA512)){
 				// Если подготовленный ключ - не ключ на кривой Вейерштрасса
 				if(signer->kind() != keys::kind_t::EC)
 					// Выводим отказ установки секретного ключа
