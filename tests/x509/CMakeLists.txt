@@ -39,3 +39,45 @@ target_link_libraries(${TEST_SIGNATURE_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_
 
 # Регистрируем цель проверок
 add_test(NAME ${TEST_SIGNATURE_NAME} COMMAND ${TEST_SIGNATURE_NAME})
+
+# Устанавливаем имя цели проверок модуля запросов на сертификат PKCS #10
+SET(TEST_REQUEST_NAME request)
+
+# Добавляем цель проверок модуля запросов на сертификат PKCS #10
+add_executable(${TEST_REQUEST_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/request.cpp")
+
+# Включаем флаги компиляции проверок
+target_compile_options(${TEST_REQUEST_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
+
+# Объявляем путь к набору образцов проверок
+target_compile_definitions(${TEST_REQUEST_NAME} PRIVATE ANTS_CORPUS="${ANTS_ROOT}/tests/corpus")
+
+# Подключаем каталог общих заголовочных файлов набора проверок
+target_include_directories(${TEST_REQUEST_NAME} PRIVATE "${ANTS_ROOT}/tests")
+
+# Выполняем подключение зависимостей цели проверок
+target_link_libraries(${TEST_REQUEST_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
+
+# Регистрируем цель проверок
+add_test(NAME ${TEST_REQUEST_NAME} COMMAND ${TEST_REQUEST_NAME})
+
+# Устанавливаем имя цели проверок модуля выпуска сертификатов X.509
+SET(TEST_ISSUE_NAME issue)
+
+# Добавляем цель проверок модуля выпуска сертификатов X.509
+add_executable(${TEST_ISSUE_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/issue.cpp")
+
+# Включаем флаги компиляции проверок
+target_compile_options(${TEST_ISSUE_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
+
+# Объявляем путь к набору образцов проверок
+target_compile_definitions(${TEST_ISSUE_NAME} PRIVATE ANTS_CORPUS="${ANTS_ROOT}/tests/corpus")
+
+# Подключаем каталог общих заголовочных файлов набора проверок
+target_include_directories(${TEST_ISSUE_NAME} PRIVATE "${ANTS_ROOT}/tests")
+
+# Выполняем подключение зависимостей цели проверок
+target_link_libraries(${TEST_ISSUE_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
+
+# Регистрируем цель проверок
+add_test(NAME ${TEST_ISSUE_NAME} COMMAND ${TEST_ISSUE_NAME})

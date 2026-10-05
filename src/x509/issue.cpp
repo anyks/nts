@@ -42,6 +42,7 @@
 #include <sign/gost.hpp>
 #include <sign/mldsa.hpp>
 #include <sign/sm2.hpp>
+#include <sys/wipe.hpp>
 #include <entropy/entropy.hpp>
 
 /**
@@ -634,7 +635,7 @@ namespace {
 	 * @return           отказ сборки и подписи сертификата
 	 *
 	 */
-	static nts::x509::error_t build(const name_t & issuer, const name_t & subject, const key_t & key, const keys::signer_t & signer, const digest::hash_t hash, const view_t & serial, const int64_t before, const int64_t after, const vector <extension_t> & extensions, vector <uint8_t> & result) noexcept {
+	static nts::x509::error_t build(const name_t & issuer, const name_t & subject, const nts::x509::key_t & key, const keys::signer_t & signer, const digest::hash_t hash, const view_t & serial, const int64_t before, const int64_t after, const vector <extension_t> & extensions, vector <uint8_t> & result) noexcept {
 		// Если ключ не подготовлен
 		if(!signer.ready())
 			// Выводим отказ ключа
@@ -741,26 +742,49 @@ namespace {
 		if(outcome != nts::x509::error_t::NONE)
 			// Выводим отказ подписи
 			return outcome;
-		// Записчик записи сертификата
-		asn1::writer_t writer;
-		// Открываем набор записи сертификата
-		writer.open(asn1::tag_t::SEQUENCE);
-		// Записываем подписываемую часть как есть
-		writer.element(asn1::cls_t::UNIVERSAL, true, static_cast <uint32_t> (asn1::tag_t::SEQUENCE), body.data());
+		// Записчик хвоста записи сертификата: опознаватель алгоритма подписи и сама подпись
+		asn1::writer_t tail;
 		// Открываем набор алгоритма подписи
-		writer.open(asn1::tag_t::SEQUENCE);
+		tail.open(asn1::tag_t::SEQUENCE);
 		// Записываем опознаватель алгоритма подписи
-		object(writer, algorithm);
+		object(tail, algorithm);
 		// Если алгоритм подписи несёт настройки NULL (RSA)
 		if(signer.kind() == keys::kind_t::RSA)
 			// Записываем пустые настройки
-			writer.nothing();
+			tail.nothing();
 		// Закрываем набор алгоритма подписи
-		writer.close();
+		tail.close();
 		// Записываем подпись строкой битов
-		writer.bits(view_t(signature.data(), signature.size()));
-		// Закрываем набор записи сертификата
-		writer.close();
+		tail.bits(view_t(signature.data(), signature.size()));
+		// Если хвост записи сертификата записать не удалось
+		if(tail.err() != asn1::error_t::NONE)
+			// Выводим переведённый отказ записи
+			return translate(tail.err());
+		// Получаем просмотр подписываемой части
+		const view_t signedPart = body.data();
+		// Получаем просмотр хвоста записи
+		const view_t tailPart = tail.data();
+		// Содержимое записи сертификата: подписываемая часть и хвост
+		vector <uint8_t> content;
+		/**
+		 * Сборка содержимого выделяет память: нехватка её отдаётся отказом
+		 */
+		try {
+			// Выполняем сборку содержимого записи сертификата
+			content.reserve(signedPart.size + tailPart.size);
+			// Дописываем подписываемую часть
+			content.insert(content.end(), signedPart.data, signedPart.data + signedPart.size);
+			// Дописываем хвост записи
+			content.insert(content.end(), tailPart.data, tailPart.data + tailPart.size);
+		// Если памяти не хватило
+		} catch(const bad_alloc &) {
+			// Выводим отказ нехватки памяти
+			return nts::x509::error_t::MEMORY;
+		}
+		// Записчик записи сертификата
+		asn1::writer_t writer;
+		// Записываем набор записи сертификата с собранным содержимым
+		writer.element(asn1::cls_t::UNIVERSAL, true, static_cast <uint32_t> (asn1::tag_t::SEQUENCE), view_t(content.data(), content.size()));
 		// Если запись сертификата записать не удалось
 		if(writer.err() != asn1::error_t::NONE)
 			// Выводим переведённый отказ записи
@@ -799,7 +823,7 @@ namespace {
  * @return           отказ выпуска сертификата
  *
  */
-nts::x509::error_t nts::x509::issueSelfSigned(const name_t & subject, const key_t & key, const keys::signer_t & signer, const digest::hash_t hash, const view_t & serial, const int64_t before, const int64_t after, const vector <extension_t> & extensions, vector <uint8_t> & result) noexcept {
+nts::x509::error_t nts::x509::issueSelfSigned(const name_t & subject, const nts::x509::key_t & key, const keys::signer_t & signer, const digest::hash_t hash, const view_t & serial, const int64_t before, const int64_t after, const vector <extension_t> & extensions, vector <uint8_t> & result) noexcept {
 	// Выводим итог сборки и подписи сертификата: издатель и владелец одно имя
 	return build(subject, subject, key, signer, hash, serial, before, after, extensions, result);
 }

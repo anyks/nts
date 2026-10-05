@@ -43,6 +43,7 @@
 #include <sign/gost.hpp>
 #include <sign/mldsa.hpp>
 #include <sign/sm2.hpp>
+#include <sys/wipe.hpp>
 #include <entropy/entropy.hpp>
 
 /**
@@ -221,7 +222,7 @@ namespace {
 	 * @return        отказ разбора опознавателя
 	 *
 	 */
-	static nts::x509::error_t identifier(const asn1::element_t & element, string & result) noexcept {
+	static nts::x509::error_t oidOf(const asn1::element_t & element, string & result) noexcept {
 		// Итог разбора опознавателя
 		const asn1::error_t outcome = asn1::oid(element, result);
 		// Выводим переведённый отказ разбора, если он есть
@@ -269,7 +270,7 @@ namespace {
 			// Выводим переведённый отказ разбора
 			return translate(items.err());
 		// Итог разбора опознавателя алгоритма
-		const nts::x509::error_t outcome = identifier(element, oid);
+		const nts::x509::error_t outcome = oidOf(element, oid);
 		// Если опознаватель алгоритма разобрать не удалось
 		if(outcome != nts::x509::error_t::NONE)
 			// Выводим отказ разбора
@@ -353,7 +354,7 @@ namespace {
 				// Опознаватель кривой
 				string oid;
 				// Итог разбора опознавателя кривой
-				const nts::x509::error_t outcome = identifier(element, oid);
+				const nts::x509::error_t outcome = oidOf(element, oid);
 				// Если опознаватель кривой разобрать не удалось
 				if(outcome != nts::x509::error_t::NONE)
 					// Выводим отказ разбора
@@ -393,7 +394,7 @@ namespace {
 				// Опознаватель кривой
 				string oid;
 				// Итог разбора опознавателя кривой
-				const nts::x509::error_t outcome = identifier(element, oid);
+				const nts::x509::error_t outcome = oidOf(element, oid);
 				// Если опознаватель кривой разобрать не удалось
 				if(outcome != nts::x509::error_t::NONE)
 					// Выводим отказ разбора
@@ -409,7 +410,7 @@ namespace {
 					// Опознаватель хеша
 					string digest;
 					// Итог разбора опознавателя хеша
-					const nts::x509::error_t extracted = identifier(element, digest);
+					const nts::x509::error_t extracted = oidOf(element, digest);
 					// Если опознаватель хеша разобрать не удалось
 					if(extracted != nts::x509::error_t::NONE)
 						// Выводим отказ разбора
@@ -474,6 +475,143 @@ namespace {
 		} else return nts::x509::error_t::KEY;
 		// Выводим итог записи
 		return ((writer.err() == asn1::error_t::NONE) ? nts::x509::error_t::NONE : translate(writer.err()));
+	}
+	/**
+	 * @brief Метод разбора отличительного имени
+	 *
+	 * @param element разбираемый элемент записи имени
+	 * @param result  объект имени, в который производится разбор
+	 *
+	 * @return        причина отказа либо nts::x509::error_t::NONE
+	 *
+	 * @note Разборщик повторяет разборщик имени сертификата: запрос несёт имя
+	 *       по тем же правилам X.501, и негодная запись отвергается так же строго
+	 *
+	 */
+	static nts::x509::error_t distinguished(const asn1::element_t & element, nts::x509::name_t & result) noexcept {
+		// Если запись имени имеет простой вид метки
+		if(!element.constructed)
+			// Выводим причину отказа
+			return nts::x509::error_t::STRUCTURE;
+		// Запоминаем запись имени целиком
+		result.element = element.element;
+		/**
+		 * Разбор имени собирает признаки и составляющие, а значит выделяет память:
+		 * нехватка её обязана дойти до вызывающего причиной отказа, а не завершить
+		 * процесс. Метод объявлен noexcept, и перехват в разборе запроса сюда не
+		 * дотягивается - бросок обязан быть пойман здесь же
+		 */
+		try {
+			// Создаём разборщик содержимого записи имени
+			asn1::reader_t reader(element.content);
+			/**
+			 * Выполняем обход составляющих имени
+			 */
+			while(!reader.empty()){
+				// Объект разобранной составляющей имени
+				asn1::element_t item;
+				// Выполняем разбор составляющей имени
+				if(!reader.next(asn1::tag_t::SET, item))
+					// Выводим причину отказа
+					return nts::x509::error_t::ENCODING;
+				// Если составляющая имени имеет простой вид метки
+				if(!item.constructed)
+					// Выводим причину отказа
+					return nts::x509::error_t::STRUCTURE;
+				// Создаём разборщик содержимого составляющей имени
+				asn1::reader_t items(item.content);
+				/**
+				 * Составляющая имени без единого признака устройством имени запрещена:
+				 * пустая составляющая ничего не обозначает, но участвует в сличении имён
+				 */
+				if(items.empty())
+					// Выводим причину отказа
+					return nts::x509::error_t::NAME;
+				// Набор признаков составляющей имени
+				vector <nts::x509::attribute_t> part;
+				/**
+				 * Выполняем обход признаков составляющей имени
+				 */
+				while(!items.empty()){
+					// Объект разобранного признака
+					asn1::element_t pair;
+					// Выполняем разбор признака
+					if(!items.next(asn1::tag_t::SEQUENCE, pair))
+						// Выводим причину отказа
+						return nts::x509::error_t::ENCODING;
+					// Если признак имеет простой вид метки
+					if(!pair.constructed)
+						// Выводим причину отказа
+						return nts::x509::error_t::STRUCTURE;
+					// Создаём разборщик содержимого признака
+					asn1::reader_t fields(pair.content);
+					// Объект разобранного поля признака
+					asn1::element_t field;
+					// Разбираемый признак имени
+					nts::x509::attribute_t attribute;
+					// Выполняем разбор опознавателя признака
+					if(!fields.next(asn1::tag_t::OBJECT, field))
+						// Выводим причину отказа
+						return nts::x509::error_t::ENCODING;
+					// Итог извлечения опознавателя признака
+					const asn1::error_t named = asn1::oid(field, attribute.oid);
+					// Если память под опознаватель признака выделить не удалось
+					if(named == asn1::error_t::MEMORY)
+						// Выводим отказ нехватки памяти
+						return nts::x509::error_t::MEMORY;
+					// Если извлечение опознавателя признака не удалось
+					if(named != asn1::error_t::NONE)
+						// Выводим причину отказа
+						return nts::x509::error_t::NAME;
+					// Выполняем разбор значения признака
+					if(!fields.next(field))
+						// Выводим причину отказа
+						return nts::x509::error_t::ENCODING;
+					// Если значение признака записано меткой не универсального класса
+					if(field.cls != asn1::cls_t::UNIVERSAL)
+						// Выводим причину отказа
+						return nts::x509::error_t::NAME;
+					// Запоминаем вид записи значения признака
+					attribute.type = static_cast <asn1::tag_t> (field.tag);
+					// Итог извлечения значения признака
+					const asn1::error_t valued = asn1::text(field, attribute.type, attribute.value);
+					// Если память под значение признака выделить не удалось
+					if(valued == asn1::error_t::MEMORY)
+						// Выводим отказ нехватки памяти
+						return nts::x509::error_t::MEMORY;
+					// Если извлечение значения признака не удалось
+					if(valued != asn1::error_t::NONE)
+						// Выводим причину отказа
+						return nts::x509::error_t::NAME;
+					// Если после значения признака остались лишние поля
+					if(!fields.empty())
+						// Выводим причину отказа
+						return nts::x509::error_t::STRUCTURE;
+					/**
+					 * Раздел 4.1.2.4 RFC 5280 и X.501: признаки одной составляющей имени
+					 * различны по виду, повтор вида - оплошность записи
+					 */
+					for(size_t i = 0; i < part.size(); i++){
+						// Если признак такого вида в составляющей уже есть
+						if(part[i].oid.compare(attribute.oid) == 0)
+							// Выводим отказ повторного признака
+							return nts::x509::error_t::DUPLICATE;
+					}
+					// Добавляем признак в набор признаков составляющей
+					part.push_back(attribute);
+				}
+				// Добавляем составляющую в набор составляющих имени
+				result.parts.push_back(part);
+			}
+		/**
+		 * Если память выделить не удалось
+		 */
+		} catch(const bad_alloc &) {
+			// Выводим причину отказа
+			return nts::x509::error_t::MEMORY;
+		}
+		// Выводим успешность разбора
+		return nts::x509::error_t::NONE;
 	}
 	/**
 	 * @brief Метод записи имени
@@ -826,10 +964,6 @@ nts::x509::error_t nts::x509::Request::parse(const view_t & data) noexcept {
 		this->_body = body.element;
 		// Объект разобранного элемента
 		asn1::element_t item;
-		// Выполняем разбор опознавателя алгоритма подписи
-		if(!top.next(asn1::tag_t::SEQUENCE, item))
-			// Запоминаем причину отказа
-			return (this->_error = error_t::ENCODING);
 		// Просмотр записи настроек алгоритма подписи
 		asn1::element_t params;
 		// Признак наличия настроек алгоритма подписи
@@ -896,10 +1030,6 @@ nts::x509::error_t nts::x509::Request::parse(const view_t & data) noexcept {
 			asn1::reader_t info(item.content);
 			// Объект разобранного поля сведений об открытом ключе
 			asn1::element_t field;
-			// Выполняем разбор опознавателя алгоритма ключа
-			if(!info.next(asn1::tag_t::SEQUENCE, field))
-				// Запоминаем причину отказа
-				return (this->_error = error_t::ENCODING);
 			// Выполняем извлечение опознавателя алгоритма ключа
 			this->_error = algorithmIdentifier(info, this->_key.algorithm, params, present);
 			// Если извлечение опознавателя алгоритма ключа не удалось
@@ -926,8 +1056,9 @@ nts::x509::error_t nts::x509::Request::parse(const view_t & data) noexcept {
 		if(!inner.next(item))
 			// Запоминаем причину отказа
 			return (this->_error = error_t::ENCODING);
-		// Если атрибуты записаны неявным [0] примитивной формы: раздел 4.1 RFC 2986
-		if((item.cls != asn1::cls_t::CONTEXT) || (item.tag != 0) || item.constructed)
+		// Если атрибуты записаны неявным [0] составной формы: раздел 4.1 RFC 2986,
+		// неявная метка наследует составной вид от SET OF, которым объявлены атрибуты
+		if((item.cls != asn1::cls_t::CONTEXT) || (item.tag != 0) || !item.constructed)
 			// Запоминаем причину отказа
 			return (this->_error = error_t::STRUCTURE);
 		// Создаём разборщик содержимого атрибутов
@@ -957,7 +1088,7 @@ nts::x509::error_t nts::x509::Request::parse(const view_t & data) noexcept {
 			// Опознаватель атрибута
 			string oid;
 			// Итог извлечения опознавателя атрибута
-			const error_t named = identifier(field, oid);
+			const error_t named = oidOf(field, oid);
 			// Если извлечение опознавателя атрибута не удалось
 			if(named != error_t::NONE)
 				// Запоминаем причину отказа
@@ -1011,7 +1142,7 @@ nts::x509::error_t nts::x509::Request::parse(const view_t & data) noexcept {
 						// Запоминаем причину отказа
 						return (this->_error = error_t::ENCODING);
 					// Итог извлечения опознавателя расширения
-					const error_t status = identifier(extField, extension.oid);
+					const error_t status = oidOf(extField, extension.oid);
 					// Если извлечение опознавателя расширения не удалось
 					if(status != error_t::NONE)
 						// Запоминаем причину отказа
@@ -1196,7 +1327,7 @@ nts::x509::Request::Request() noexcept : _error(error_t::NONE), _unused(0) {}
  * @return           отказ записи запроса
  *
  */
-nts::x509::error_t nts::x509::encode(const name_t & subject, const key_t & key, const vector <extension_t> & extensions, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept {
+nts::x509::error_t nts::x509::encode(const name_t & subject, const nts::x509::key_t & key, const vector <extension_t> & extensions, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept {
 	// Если ключ не подготовлен
 	if(!signer.ready())
 		// Выводим отказ ключа
@@ -1235,7 +1366,7 @@ nts::x509::error_t nts::x509::encode(const name_t & subject, const key_t & key, 
 		return outcome;
 	// Закрываем набор сведений об открытом ключе
 	body.close();
-	// Открываем атрибуты запроса: неявный [0] примитивной формы
+	// Открываем атрибуты запроса: неявный [0] составной формы
 	body.open(asn1::cls_t::CONTEXT, 0);
 	// Открываем атрибут extensionRequest
 	body.open(asn1::tag_t::SEQUENCE);
@@ -1269,26 +1400,49 @@ nts::x509::error_t nts::x509::encode(const name_t & subject, const key_t & key, 
 	if(outcome != error_t::NONE)
 		// Выводим отказ подписи
 		return outcome;
-	// Записчик записи запроса
-	asn1::writer_t writer;
-	// Открываем набор записи запроса
-	writer.open(asn1::tag_t::SEQUENCE);
-	// Записываем подписываемую часть как есть
-	writer.element(asn1::cls_t::UNIVERSAL, true, static_cast <uint32_t> (asn1::tag_t::SEQUENCE), body.data());
+	// Записчик хвоста записи запроса: опознаватель алгоритма подписи и сама подпись
+	asn1::writer_t tail;
 	// Открываем набор алгоритма подписи
-	writer.open(asn1::tag_t::SEQUENCE);
+	tail.open(asn1::tag_t::SEQUENCE);
 	// Записываем опознаватель алгоритма подписи
-	object(writer, algorithm);
+	object(tail, algorithm);
 	// Если алгоритм подписи несёт настройки NULL (RSA)
 	if(signer.kind() == keys::kind_t::RSA)
 		// Записываем пустые настройки
-		writer.nothing();
+		tail.nothing();
 	// Закрываем набор алгоритма подписи
-	writer.close();
+	tail.close();
 	// Записываем подпись строкой битов
-	writer.bits(view_t(signature.data(), signature.size()));
-	// Закрываем набор записи запроса
-	writer.close();
+	tail.bits(view_t(signature.data(), signature.size()));
+	// Если хвост записи запроса записать не удалось
+	if(tail.err() != asn1::error_t::NONE)
+		// Выводим переведённый отказ записи
+		return translate(tail.err());
+	// Получаем просмотр подписываемой части
+	const view_t signedPart = body.data();
+	// Получаем просмотр хвоста записи
+	const view_t tailPart = tail.data();
+	// Содержимое записи запроса: подписываемая часть и хвост
+	vector <uint8_t> content;
+	/**
+	 * Сборка содержимого выделяет память: нехватка её отдаётся отказом
+	 */
+	try {
+		// Выполняем сборку содержимого записи запроса
+		content.reserve(signedPart.size + tailPart.size);
+		// Дописываем подписываемую часть
+		content.insert(content.end(), signedPart.data, signedPart.data + signedPart.size);
+		// Дописываем хвост записи
+		content.insert(content.end(), tailPart.data, tailPart.data + tailPart.size);
+	// Если памяти не хватило
+	} catch(const bad_alloc &) {
+		// Выводим отказ нехватки памяти
+		return error_t::MEMORY;
+	}
+	// Записчик записи запроса
+	asn1::writer_t writer;
+	// Записываем набор записи запроса с собранным содержимым
+	writer.element(asn1::cls_t::UNIVERSAL, true, static_cast <uint32_t> (asn1::tag_t::SEQUENCE), view_t(content.data(), content.size()));
 	// Если запись запроса записать не удалось
 	if(writer.err() != asn1::error_t::NONE)
 		// Выводим переведённый отказ записи
@@ -1319,7 +1473,7 @@ nts::x509::error_t nts::x509::encode(const name_t & subject, const key_t & key, 
  * @return        отказ проверки подписи
  *
  */
-nts::x509::error_t nts::x509::verify(const request_t & request, const key_t & key) noexcept {
+nts::x509::error_t nts::x509::verify(const request_t & request, const nts::x509::key_t & key) noexcept {
 	// Число неиспользуемых разрядов последнего байта подписи
 	uint8_t unused = 0;
 	// Получаем подпись проверяемого запроса

@@ -9152,4 +9152,22 @@ mpint делает SSH), rsa-sha2-256/512 (PKCS #1 v1.5); шифры chacha20-po
     имитовставке, порченая и пустая запись. Ловушки формата: DigestInfo несёт AlgorithmIdentifier первым и digest
     вторым (не OBJECT напрямую), EncryptedData несёт version первым, ciphertext идёт неявным [0] примитивной формы,
     OID хеша в DigestInfo - NIST sha256, не hmacWithSHA256. keys 17/17 зелёные.
-    Открыто по Г15: PKCS #10 и выпуск сертификатов, CRL, ACME, CMS, CMP - по мере очереди.
+    **Круг 90 (06.10.2026)**: PKCS #10 и выпуск сертификатов сделано. Модуль x509::request по RFC 2986: разбор
+    CertificationRequest (CertificationRequestInfo {version 0, subject, SubjectPublicKeyInfo, attributes [0]},
+    signatureAlgorithm, signature), запись с подписью ключом keys::signer_t, проверка подписи переупотреблением
+    x509::verify; атрибут extensionRequest (1.2.840.113549.1.9.14) с набором Extensions разбирается и записывается
+    всегда, как велит раздел 4. Модуль x509::issue: сборка TBSCertificate {version [0] (v3 при расширениях, иначе
+    v1), serialNumber (до 20 байтов по 4.1.2.2), signature, issuer, validity (UTC_TIME), subject,
+    subjectPublicKeyInfo, extensions [3]}, подпись и обёртка в Certificate; выпуск самоподписанного
+    (issueSelfSigned) и по запросу подписью ЦС (issueByCA, имя и ключ владельца из запроса, расширения запроса не
+    копируются - вызывающий решает сам). Подписи всех видов ключей: RSA PKCS #1 v1.5, ECDSA (DER-пара), Ed25519,
+    ГОСТ (s||r по RFC 9215), ML-DSA, SM2 (с Z_A и кругом энтропии). Пины: RequestTest (разбор пяти CSR набора от
+    OpenSSL - RSA/EC, сличение имён, алгоритмов и подписи; отказы на порченой, обрезанной и чужой записи; круговая
+    запись с расширением; приём записи openssl req -verify) и IssueTest (самоподписанный v3 и v1, выпуск по CSR
+    подписью ЦС, сличение полей и подписей, отказы на неподготовленном ключе, пустом и длинном серийнике,
+    перевёрнутом сроке; приём openssl verify -CAfile). Ловушки: атрибуты [0] IMPLICIT наследуют составной вид от
+    SET OF (openssl пишет constructed, не primitive); встройка готовой подписываемой части во внешнюю SEQUENCE
+    делается сборкой содержимого, а не element() поверх готовой записи (двойная обёртка); статический хелпер
+    identifier в безымянном пространстве скрывается одноимённым nts::x509::identifier из signature.hpp -
+    переименован в oidOf. request 4/4, issue 5/5, ctest 101/101 зелёные.
+    Открыто по Г15: CRL, ACME, CMS, CMP - по мере очереди.
