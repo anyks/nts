@@ -817,6 +817,64 @@ TEST(KeysTest, Sealed){
 }
 
 /**
+ * Проверка разбора записи PKCS #12, выработанной openssl: ключ и цепочка
+ * сертификатов сходятся с исходными, чужой пароль отвергается имитовставкой
+ */
+TEST(KeysTest, Pkcs12){
+	// Запись PKCS #12 набора
+	const std::vector <uint8_t> der = bytes(corpus("test.p12"));
+	// Проверяем наличие записи
+	ASSERT_FALSE(der.empty());
+	// Разобранный ключ
+	keys::key_t key;
+	// Разобранная цепочка сертификатов
+	std::vector <std::vector <uint8_t>> chain;
+	// Проверяем разбор записи паролем набора
+	ASSERT_EQ(keys::decodePkcs12(view(der), view("secret"), key, chain), keys::error_t::NONE);
+	// Проверяем вид ключа: EC на кривой P-256
+	ASSERT_EQ(key.kind, keys::kind_t::EC);
+	// Проверяем опознаватель кривой ключа
+	ASSERT_EQ(key.oid, P256);
+	// Проверяем наличие секретной части ключа
+	ASSERT_TRUE(key.secret());
+	// Эталонный ключ набора
+	keys::key_t reference;
+	// Проверяем разбор эталонного ключа
+	ASSERT_EQ(keys::decode(corpus("p12key.pem"), view_t(), reference), keys::error_t::NONE);
+	// Проверяем совпадение секретных частей ключей
+	ASSERT_EQ(key.d, reference.d);
+	// Проверяем совпадение открытых частей ключей
+	ASSERT_EQ(key.x, reference.x);
+	// Проверяем совпадение открытых частей ключей
+	ASSERT_EQ(key.y, reference.y);
+	// Проверяем число сертификатов цепочки
+	ASSERT_EQ(chain.size(), static_cast <size_t> (1));
+	// Эталонный сертификат набора
+	const std::string pem = corpus("p12crt.pem");
+	// Проверяем наличие эталонного сертификата
+	ASSERT_FALSE(pem.empty());
+	// Цепочка эталонного сертификата
+	std::vector <std::vector <uint8_t>> expected;
+	// Разбираем эталонный сертификат из записи PEM
+	ASSERT_EQ(pem::certificates(pem, expected), pem::error_t::NONE);
+	// Проверяем совпадение сертификата цепочки с эталоном байт в байт
+	ASSERT_EQ(chain[0], expected[0]);
+	// Проверяем отказ по чужому паролю: имитовставка записи не сходится
+	ASSERT_EQ(keys::decodePkcs12(view(der), view("другой"), key, chain), keys::error_t::PASSWORD);
+	// Проверяем, что после отказа ключ и цепочка сброшены
+	ASSERT_EQ(key.kind, keys::kind_t::NONE);
+	// Проверяем, что цепочка пуста
+	ASSERT_TRUE(chain.empty());
+	// Порченая запись: последний байт перевёрнут
+	std::vector <uint8_t> damaged(der);
+	damaged[damaged.size() - 1] = static_cast <uint8_t> (damaged[damaged.size() - 1] ^ 0xFF);
+	// Проверяем отказ разбора порченой записи
+	ASSERT_NE(keys::decodePkcs12(view(damaged), view("secret"), key, chain), keys::error_t::NONE);
+	// Проверяем отказ разбора пустой записи
+	ASSERT_NE(keys::decodePkcs12(view_t(), view("secret"), key, chain), keys::error_t::NONE);
+}
+
+/**
  * Проверка подписей набора: подпись openssl по data.bin сходится с загруженным ключом
  */
 TEST(KeysTest, Signatures){

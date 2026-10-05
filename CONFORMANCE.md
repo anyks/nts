@@ -9143,3 +9143,13 @@ mpint делает SSH), rsa-sha2-256/512 (PKCS #1 v1.5); шифры chacha20-po
     RFC 5652 (подписанные и зашифрованные сообщения, S/MIME, цепочки .p7b, KEMRecipientInfo по RFC 9629 для ML-KEM) и CMP
     по RFC 4210 (выдача и обновление сертификатов у ЦС) - большой объём ASN.1, потому после малых пунктов, а не вместо
     них. Не относится к нам лишь EVP_SKEY - обвязка непрозрачных ключей HSM внутри OpenSSL.
+    **Круг 89 (05.10.2026)**: PKCS #12 сделано. Модуль keys::decodePkcs12 по RFC 7292: разбор PFX (version 3,
+    ContentInfo pkcs7-data с AuthenticatedSafe, MacData), мешки SafeContents - keyBag (PrivateKeyInfo),
+    pkcs8ShroudedKeyBag (EncryptedPrivateKeyInfo) и certBag (X.509); защищённые мешки расшифровываются схемой PBES2
+    (PBKDF2 + AES-CBC, переиспользованная из EncryptedPrivateKeyInfo), целостность записи сверяется имитовставкой
+    HMAC по разделу 6 с выводом ключа по приложению B.2 (diversifier 3) от пароля BMPString. Пин KeysTest.Pkcs12:
+    разбор test.p12 от OpenSSL (ключ EC P-256 и сертификат), совпадение с эталонами, отказ по чужому паролю по
+    имитовставке, порченая и пустая запись. Ловушки формата: DigestInfo несёт AlgorithmIdentifier первым и digest
+    вторым (не OBJECT напрямую), EncryptedData несёт version первым, ciphertext идёт неявным [0] примитивной формы,
+    OID хеша в DigestInfo - NIST sha256, не hmacWithSHA256. keys 17/17 зелёные.
+    Открыто по Г15: PKCS #10 и выпуск сертификатов, CRL, ACME, CMS, CMP - по мере очереди.

@@ -916,6 +916,46 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ error_t decodeEncryptedPrivateKeyInfo(const view_t & der, const view_t & password, key_t & result) noexcept;
 		/**
 		 * \~russian
+		 * @brief Метод разбора записи PKCS #12 по RFC 7292: ключа с цепочкой сертификатов
+		 *
+		 * @param der      разбираемая запись PFX в кодировке DER
+		 * @param password пароль последовательностью октетов
+		 * @param key      ключ, в который помещается итог разбора
+		 * @param chain    цепочка сертификатов, в которую помещаются разобранные записи DER
+		 *
+		 * @return         отказ разбора записи
+		 *
+		 * @details Разбираются мешки keyBag, pkcs8ShroudedKeyBag и certBag: ключ выходит
+		 *          разбором PrivateKeyInfo, сертификаты - записями X.509. Мешки, защищённые
+		 *          паролем, расшифровываются схемой PBES2 по RFC 8018 (PBKDF2 и AES-CBC),
+		 *          целостность записи сверяется имитовставкой HMAC по разделу 6 RFC 7292
+		 *          с выводом ключа по приложению B. Пароль подаётся октетами и обращается
+		 *          в строку BMPString самим разбором
+		 *
+		 * @note Неверный пароль различается имитовставкой записи: она несёт отдельный
+		 *       признак подлинности, которого схема PBES2 не имеет
+		 *
+		 * \~english
+		 * @brief Method of the parsing of a PKCS #12 record according to RFC 7292: a key with a chain of the certificates
+		 * @param der      the PFX record being parsed in the DER encoding
+		 * @param password the password as a sequence of the octets
+		 * @param key      the key the result of the parsing is put into
+		 * @param chain    the chain of the certificates the parsed DER records are put into
+		 * @return         the failure of the parsing of the record
+		 * @details The bags keyBag, pkcs8ShroudedKeyBag and certBag are parsed: the key comes out by
+		 *          the parsing of a PrivateKeyInfo, the certificates by the X.509 records. The bags
+		 *          protected by a password are decrypted by the PBES2 scheme of RFC 8018 (PBKDF2 and
+		 *          AES-CBC), the integrity of the record is checked by the HMAC authentication code
+		 *          according to the section 6 of RFC 7292 with the key derivation of the appendix B.
+		 *          The password is fed by octets and is turned into a BMPString by the parsing itself
+		 * @note A wrong password is told by the authentication code of the record: it carries a separate
+		 *       authenticity flag the PBES2 scheme does not have
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ error_t decodePkcs12(const view_t & der, const view_t & password, key_t & key, vector <vector <uint8_t>> & chain) noexcept;
+		/**
+		 * \~russian
 		 * @brief Метод записи EncryptedPrivateKeyInfo по схеме PBES2 из RFC 8018
 		 *
 		 * @param key        записываемый ключ

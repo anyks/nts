@@ -76,6 +76,7 @@
 #include <cipher/aes.hpp>
 #include <cipher/mode.hpp>
 #include <digest/hash.hpp>
+#include <digest/hmac.hpp>
 #include <digest/pbkdf2.hpp>
 #include <entropy/entropy.hpp>
 #include <agreement/x25519.hpp>
@@ -187,6 +188,86 @@ namespace {
 	 * Опознаватель выработки ключа PBKDF2 по RFC 8018
 	 */
 	static const char * OID_PBKDF2 = "1.2.840.113549.1.5.12";
+
+	/**
+	 * Опознаватель содержимого данных PKCS #7: раздел 4 RFC 2315
+	 */
+	static const char * OID_DATA = "1.2.840.113549.1.7.1";
+
+	/**
+	 * Опознаватель зашифрованного содержимого PKCS #7: раздел 13 RFC 2315
+	 */
+	static const char * OID_ENCRYPTED = "1.2.840.113549.1.7.6";
+
+	/**
+	 * Опознаватель мешка ключа PKCS #12: раздел 4.2.1 RFC 7292
+	 */
+	static const char * OID_KEYBAG = "1.2.840.113549.1.12.10.1.1";
+
+	/**
+	 * Опознаватель мешка защищённого ключа PKCS #8: раздел 4.2.2 RFC 7292
+	 */
+	static const char * OID_SHROUDED = "1.2.840.113549.1.12.10.1.2";
+
+	/**
+	 * Опознаватель мешка сертификата PKCS #12: раздел 4.2.3 RFC 7292
+	 */
+	static const char * OID_CERTBAG = "1.2.840.113549.1.12.10.1.3";
+
+	/**
+	 * Опознаватель вида сертификата X.509 в мешке: раздел 4.2.3 RFC 7292
+	 */
+	static const char * OID_X509 = "1.2.840.113549.1.9.22.1";
+
+	/**
+	 * Опознаватель имитовставки HMAC-SHA1: раздел 7.2.1 RFC 8018
+	 */
+	static const char * OID_HMAC_SHA1 = "1.2.840.113549.2.7";
+
+	/**
+	 * Опознаватель имитовставки HMAC-SHA224: раздел 7.2.2 RFC 8018
+	 */
+	static const char * OID_HMAC_SHA224 = "1.2.840.113549.2.8";
+
+	/**
+	 * Опознаватель имитовставки HMAC-SHA256: раздел 7.2.3 RFC 8018
+	 */
+	static const char * OID_HMAC_SHA256 = "1.2.840.113549.2.9";
+
+	/**
+	 * Опознаватель имитовставки HMAC-SHA384: раздел 7.2.4 RFC 8018
+	 */
+	static const char * OID_HMAC_SHA384 = "1.2.840.113549.2.10";
+
+	/**
+	 * Опознаватель имитовставки HMAC-SHA512: раздел 7.2.5 RFC 8018
+	 */
+	static const char * OID_HMAC_SHA512 = "1.2.840.113549.2.11";
+
+	/**
+	 * Опознаватель хеша SHA-1: раздел 2.2 RFC 8018, он же алгоритм DigestInfo имитовставки записи PKCS #12
+	 */
+	static const char * OID_DIGEST_SHA1 = "1.3.14.3.2.26";
+
+	/**
+	 * Опознаватель хеша SHA-224 по FIPS 180-4: алгоритм DigestInfo имитовставки записи PKCS #12
+	 */
+	static const char * OID_DIGEST_SHA224 = "2.16.840.1.101.3.4.2.4";
+
+	/**
+	 * Опознаватель хеша SHA-256 по FIPS 180-4: алгоритм DigestInfo имитовставки записи PKCS #12
+	 */
+	static const char * OID_DIGEST_SHA256 = "2.16.840.1.101.3.4.2.1";
+
+	/**
+	 * Опознаватель хеша SHA-384 по FIPS 180-4: алгоритм DigestInfo имитовставки записи PKCS #12
+	 */
+	static const char * OID_DIGEST_SHA384 = "2.16.840.1.101.3.4.2.2";
+
+	/**
+	 * Опознаватель хеша SHA-512 по FIPS 180-4: алгоритм DigestInfo имитовставки записи PKCS #12
+	 */
+	static const char * OID_DIGEST_SHA512 = "2.16.840.1.101.3.4.2.3";
 
 	/**
 	 * Метка записи открытого ключа
@@ -2184,6 +2265,485 @@ namespace {
 		// Выводим отказ метки
 		return error_t::LABEL;
 	}
+	/**
+	 * @brief Метод обращения пароля в строку BMPString
+	 *
+	 * @details Приложение B.1 RFC 7292: пароль записывается знаками UCS-2 от старшего
+	 *          байта с завершающим нулевым знаком; октеты пароля читаются как ASCII
+	 *
+	 * @param password пароль последовательностью октетов
+	 * @param result   место, в которое помещается строка BMPString
+	 *
+	 * @return         признак успешности обращения: памяти достало
+	 *
+	 */
+	static bool bmpstring(const view_t & password, vector <uint8_t> & result) noexcept {
+		/**
+		 * Обращение выделяет память: нехватка её отдаётся отказом
+		 */
+		try {
+			// Выделяем место под строку: по два байта на октет пароля и завершающий нулевой знак
+			result.assign((password.size + 1) * 2, 0);
+		// Если памяти не хватило
+		} catch(const bad_alloc &) {
+			// Выводим отказ обращения
+			return false;
+		}
+		/**
+		 * Выполняем перебор октетов пароля
+		 */
+		for(size_t i = 0; i < password.size; i++)
+			// Записываем очередной знак UCS-2: старший байт нулевой
+			result[(i * 2) + 1] = password.data[i];
+		// Выводим успешность обращения
+		return true;
+	}
+	/**
+	 * @brief Метод выработки ключа PKCS #12 по приложению B.2 RFC 7292
+	 *
+	 * @details Ключ выводится повторением хеша от дополненного пароля и соли: материал
+	 *          собирается блоками хеша, всякий следующий - хешем от предыдущего с
+	 *          дополнением из пароля. Признак diversifier задаёт назначение ключа:
+	 *          1 - шифрование, 2 - синхропосылка, 3 - имитовставка записи
+	 *
+	 * @param algorithm алгоритм хеширования
+	 * @param password  пароль строкой BMPString
+	 * @param salt      соль
+	 * @param iterations число оборотов
+	 * @param id        признак назначения ключа
+	 * @param result    место, в которое помещается ключ
+	 * @param size      длина ключа в байтах
+	 *
+	 * @return          признак успешности выработки ключа
+	 *
+	 */
+	static bool pkcs12kdf(const digest::hash_t algorithm, const view_t & password, const view_t & salt, const uint32_t iterations, const uint8_t id, uint8_t * result, const size_t size) noexcept {
+		// Длина хеша и размер блока алгоритма
+		const size_t length = digest::length(algorithm), block = digest::block(algorithm);
+		// Если алгоритм неизвестен либо место не задано
+		if((length == 0) || (result == nullptr) || (size == 0))
+			// Выводим отказ выработки ключа
+			return false;
+		// Число блоков хеша в материале
+		const size_t blocks = ((size + length - 1) / length);
+		// Дополнение признака назначения до блока
+		vector <uint8_t> diversifier;
+		// Дополнение соли до кратного блоку
+		vector <uint8_t> salted;
+		// Дополнение пароля до кратного блоку
+		vector <uint8_t> passkey;
+		/**
+		 * Сборка выделяет память: нехватка её отдаётся отказом
+		 */
+		try {
+			// Заполняем дополнение признака назначения
+			diversifier.assign(block, id);
+			// Число блоков дополнения соли
+			const size_t salting = (block * ((salt.size + block - 1) / block));
+			// Заполняем дополнение соли повторением
+			salted.assign(salting, 0);
+			// Если соль задана
+			if(salt.data != nullptr)
+				// Выполняем перенос соли с повторением
+				for(size_t i = 0; i < salting; i++)
+					// Переносим очередной байт соли
+					salted[i] = salt.data[i % salt.size];
+			// Число блоков дополнения пароля
+			const size_t passing = (block * ((password.size + block - 1) / block));
+			// Если пароль задан
+			if(password.size > 0){
+				// Заполняем дополнение пароля повторением
+				passkey.assign(passing, 0);
+				// Выполняем перенос пароля с повторением
+				for(size_t i = 0; i < passing; i++)
+					// Переносим очередной байт пароля
+					passkey[i] = password.data[i % password.size];
+			}
+		// Если памяти не хватило
+		} catch(const bad_alloc &) {
+			// Выводим отказ выработки ключа
+			return false;
+		}
+		// Текущий блок материала
+		uint8_t item[64];
+		// Объект хеширования
+		digest::hasher_t hasher(algorithm);
+		// Подаём дополнение признака назначения
+		hasher.update(view_t(diversifier.data(), diversifier.size()));
+		// Подаём дополнение соли
+		hasher.update(view_t(salted.data(), salted.size()));
+		// Подаём дополнение пароля
+		if(!passkey.empty())
+			// Подаём дополнение пароля
+			hasher.update(view_t(passkey.data(), passkey.size()));
+		// Если первый блок материала снять не удалось
+		if(!hasher.finish(item, length)){
+			// Выполняем затирание дополнений
+			erase(diversifier);
+			// Выполняем затирание дополнений
+			erase(salted);
+			// Выполняем затирание дополнений
+			erase(passkey);
+			// Выводим отказ выработки ключа
+			return false;
+		}
+		/**
+		 * Выполняем обороты выработки первого блока
+		 */
+		for(uint32_t i = 1; i < iterations; i++){
+			// Если очередной оборот не удался
+			if(!digest::hash(algorithm, view_t(item, length), item, length)){
+				// Выполняем затирание текущего блока
+				wipe(item, sizeof(item));
+				// Выводим отказ выработки ключа
+				return false;
+			}
+		}
+		// Позиция записи материала
+		size_t written = 0;
+		/**
+		 * Выполняем перебор блоков материала
+		 */
+		for(size_t b = 0; b < blocks; b++){
+			// Число байтов, записываемых из очередного блока
+			const size_t taken = (((size - written) < length) ? (size - written) : length);
+			// Переносим очередной кусок материала
+			::memcpy(result + written, item, taken);
+			// Сдвигаем позицию записи материала
+			written += taken;
+			// Если материал выработан целиком
+			if(written >= size)
+				// Прерываем перебор блоков
+				break;
+			// Следующий блок: хеш от текущего с дополнением пароля
+			digest::hasher_t next(algorithm);
+			// Подаём текущий блок
+			next.update(view_t(item, length));
+			// Подаём дополнение пароля
+			if(!passkey.empty())
+				// Подаём дополнение пароля
+				next.update(view_t(passkey.data(), passkey.size()));
+			// Если следующий блок снять не удалось
+			if(!next.finish(item, length)){
+				// Выполняем затирание текущего блока
+				wipe(item, sizeof(item));
+				// Выводим отказ выработки ключа
+				return false;
+			}
+			/**
+			 * Выполняем обороты выработки следующего блока
+			 */
+			for(uint32_t i = 1; i < iterations; i++){
+				// Если очередной оборот не удался
+				if(!digest::hash(algorithm, view_t(item, length), item, length)){
+					// Выполняем затирание текущего блока
+					wipe(item, sizeof(item));
+					// Выводим отказ выработки ключа
+					return false;
+				}
+			}
+		}
+		// Выполняем затирание текущего блока
+		wipe(item, sizeof(item));
+		// Выполняем затирание дополнений
+		erase(diversifier);
+		// Выполняем затирание дополнений
+		erase(salted);
+		// Выполняем затирание дополнений
+		erase(passkey);
+		// Выводим успешность выработки ключа
+		return true;
+	}
+	/**
+	 * @brief Метод получения алгоритма хеша имитовставки по её опознавателю
+	 *
+	 * @param oid опознаватель имитовставки
+	 *
+	 * @return    алгоритм хеша, NONE у неизвестной имитовставки
+	 *
+	 */
+	static digest::hash_t hmacOf(const string & oid) noexcept {
+		// Если опознаватель - HMAC-SHA1 либо сам SHA-1 DigestInfo
+		if((oid.compare(OID_HMAC_SHA1) == 0) || (oid.compare(OID_DIGEST_SHA1) == 0))
+			// Выводим алгоритм SHA-1
+			return digest::hash_t::SHA1;
+		// Если опознаватель - HMAC-SHA224 либо сам SHA-224 DigestInfo
+		if((oid.compare(OID_HMAC_SHA224) == 0) || (oid.compare(OID_DIGEST_SHA224) == 0))
+			// Выводим алгоритм SHA-224
+			return digest::hash_t::SHA224;
+		// Если опознаватель - HMAC-SHA256 либо сам SHA-256 DigestInfo
+		if((oid.compare(OID_HMAC_SHA256) == 0) || (oid.compare(OID_DIGEST_SHA256) == 0))
+			// Выводим алгоритм SHA-256
+			return digest::hash_t::SHA256;
+		// Если опознаватель - HMAC-SHA384 либо сам SHA-384 DigestInfo
+		if((oid.compare(OID_HMAC_SHA384) == 0) || (oid.compare(OID_DIGEST_SHA384) == 0))
+			// Выводим алгоритм SHA-384
+			return digest::hash_t::SHA384;
+		// Если опознаватель - HMAC-SHA512 либо сам SHA-512 DigestInfo
+		if((oid.compare(OID_HMAC_SHA512) == 0) || (oid.compare(OID_DIGEST_SHA512) == 0))
+			// Выводим алгоритм SHA-512
+			return digest::hash_t::SHA512;
+		// Выводим признак неизвестной имитовставки
+		return digest::hash_t::NONE;
+	}
+	/**
+	 * @brief Метод расшифрования содержимого мешка схемой PBES2
+	 *
+	 * @param params   настройки схемы PBES2
+	 * @param encrypted зашифрованное содержимое
+	 * @param password пароль последовательностью октетов
+	 * @param plain    место, в которое помещается расшифрованное содержимое
+	 *
+	 * @return         отказ расшифрования
+	 *
+	 */
+	static error_t undress(const asn1::element_t & params, const view_t & encrypted, const view_t & password, vector <uint8_t> & plain) noexcept {
+		// Просмотр соли
+		view_t salt;
+		// Число оборотов выработки ключа
+		uint32_t iterations = 0;
+		// Алгоритм имитовставки
+		digest::hash_t prf = digest::hash_t::NONE;
+		// Длина ключа шифра в разрядах
+		size_t bits = 0;
+		// Просмотр синхропосылки
+		view_t iv;
+		// Итог разбора настроек схемы
+		error_t outcome = pbes2(params, salt, iterations, prf, bits, iv);
+		// Если настройки схемы разобрать не удалось
+		if(outcome != error_t::NONE)
+			// Выводим отказ разбора
+			return outcome;
+		// Если шифртекст не занимает целого числа блоков
+		if((encrypted.size < BLOCK) || ((encrypted.size % BLOCK) != 0))
+			// Выводим отказ устройства записи
+			return error_t::STRUCTURE;
+		// Ключ шифра
+		uint8_t secret[cipher::AES_KEY];
+		// Если ключ шифра из пароля вывести не удалось
+		if(!digest::pbkdf2(prf, password, salt, iterations, secret, bits / 8)){
+			// Выполняем затирание ключа шифра
+			wipe(secret, sizeof(secret));
+			// Выводим отказ схемы
+			return error_t::CIPHER;
+		}
+		// Шифр AES
+		cipher::aes_t aes;
+		// Признак установки ключа шифра
+		const bool keyed = aes.key(view_t(secret, bits / 8));
+		// Выполняем затирание ключа шифра
+		wipe(secret, sizeof(secret));
+		// Режим сцепления блоков
+		cipher::chaining_t chaining;
+		// Если ключ шифра либо синхропосылку установить не удалось
+		if(!keyed || !chaining.start(cipher::block_t(aes), iv))
+			// Выводим отказ схемы
+			return error_t::CIPHER;
+		/**
+		 * Расшифрование выделяет память: нехватка её отдаётся отказом
+		 */
+		try {
+			// Выделяем место под расшифрованную запись
+			plain.assign(encrypted.size, 0);
+		// Если памяти не хватило
+		} catch(const bad_alloc &) {
+			// Выводим отказ нехватки памяти
+			return error_t::MEMORY;
+		}
+		// Если расшифровать запись не удалось
+		if(!chaining.decrypt(encrypted, plain.data())){
+			// Выполняем затирание расшифрованной записи
+			erase(plain);
+			// Выводим отказ схемы
+			return error_t::CIPHER;
+		}
+		// Длина дополнения PKCS #7
+		const size_t padding = plain[plain.size() - 1];
+		// Признак годности дополнения
+		bool padded = ((padding >= 1) && (padding <= BLOCK));
+		/**
+		 * Выполняем проверку байтов дополнения: все они обязаны нести его длину
+		 */
+		for(size_t i = 0; padded && (i < padding); i++)
+			// Учитываем годность очередного байта дополнения
+			padded = (plain[plain.size() - i - 1] == padding);
+		// Если дополнение негодно: пароль не подошёл
+		if(!padded){
+			// Выполняем затирание расшифрованной записи
+			erase(plain);
+			// Выводим отказ пароля
+			return error_t::PASSWORD;
+		}
+		// Усекаем запись до содержимого: усечение памяти не выделяет
+		plain.resize(plain.size() - padding);
+		// Выводим успешность расшифрования
+		return error_t::NONE;
+	}
+	/**
+	 * @brief Метод разбора одного мешка SafeBag записи PKCS #12
+	 *
+	 * @param bag      разбираемый мешок SafeBag
+	 * @param bmp      пароль строкой BMPString для мешков, защищённых паролем
+	 * @param key      ключ, в который помещается итог разбора мешка ключа
+	 * @param chain    цепочка, в которую помещаются сертификаты мешков certBag
+	 * @param keyed    место, в которое помещается признак разобранного ключа
+	 *
+	 * @return         отказ разбора мешка
+	 *
+	 */
+	static error_t pkcs12bag(const asn1::element_t & bag, const view_t & bmp, key_t & key, vector <vector <uint8_t>> & chain, bool & keyed) noexcept {
+		// Разборщик содержимого мешка
+		asn1::reader_t fields(bag.content);
+		// Разбираемый элемент мешка
+		asn1::element_t element;
+		// Если опознаватель мешка разобрать не удалось
+		if(!fields.next(asn1::tag_t::OBJECT, element))
+			// Выводим переведённый отказ разбора
+			return translate(fields.err());
+		// Опознаватель вида мешка
+		string kind;
+		// Итог разбора опознавателя вида мешка
+		error_t outcome = identifier(element, kind);
+		// Если опознаватель вида мешка разобрать не удалось
+		if(outcome != error_t::NONE)
+			// Выводим отказ разбора
+			return outcome;
+		// Если значение мешка не записано явным [0]
+		if(!fields.next(element) || !tagged(element, asn1::cls_t::CONTEXT, 0, true))
+			// Выводим переведённый отказ разбора
+			return translate(fields.err());
+		// Если мешок - мешок ключа keyBag: значение есть PrivateKeyInfo
+		if(kind.compare(OID_KEYBAG) == 0){
+			// Разборщик явного значения
+			asn1::reader_t holder(element.content);
+			// Сведения о ключе
+			asn1::element_t body;
+			// Если сведения о ключе разобрать не удалось
+			if(!holder.next(asn1::tag_t::SEQUENCE, body) || !body.constructed)
+				// Выводим переведённый отказ разбора
+				return translate(holder.err());
+			// Если ключ уже разобран: второго ключа записи не бывает
+			if(keyed)
+				// Выводим отказ устройства записи
+				return error_t::STRUCTURE;
+			// Итог разбора PrivateKeyInfo
+			outcome = decodePrivateKeyInfo(body.element, key);
+			// Если PrivateKeyInfo разобрать не удалось
+			if(outcome != error_t::NONE)
+				// Выводим отказ разбора
+				return outcome;
+			// Отмечаем, что ключ разобран
+			keyed = true;
+			// Выводим успешность разбора
+			return error_t::NONE;
+		}
+		// Если мешок - мешок защищённого ключа pkcs8ShroudedKeyBag: значение есть EncryptedPrivateKeyInfo
+		if(kind.compare(OID_SHROUDED) == 0){
+			// Разборщик явного значения
+			asn1::reader_t holder(element.content);
+			// Сведения о ключе
+			asn1::element_t body;
+			// Если сведения о ключе разобрать не удалось
+			if(!holder.next(asn1::tag_t::SEQUENCE, body) || !body.constructed)
+				// Выводим переведённый отказ разбора
+				return translate(holder.err());
+			// Если ключ уже разобран: второго ключа записи не бывает
+			if(keyed)
+				// Выводим отказ устройства записи
+				return error_t::STRUCTURE;
+			// Пароль октетами из строки BMPString: знаки UCS-2 без старших байтов и завершающего нуля
+			vector <uint8_t> password;
+			/**
+			 * Обращение выделяет память: нехватка её отдаётся отказом
+			 */
+			try {
+				// Выделяем место под пароль октетами
+				password.assign((bmp.size / 2) - 1, 0);
+			// Если памяти не хватило
+			} catch(const bad_alloc &) {
+				// Выводим отказ нехватки памяти
+				return error_t::MEMORY;
+			}
+			/**
+			 * Выполняем перебор знаков пароля
+			 */
+			for(size_t i = 0; i < password.size(); i++)
+				// Записываем младший байт очередного знака
+				password[i] = bmp.data[(i * 2) + 1];
+			// Итог разбора EncryptedPrivateKeyInfo
+			outcome = decodeEncryptedPrivateKeyInfo(body.element, view_t(password.data(), password.size()), key);
+			// Выполняем затирание пароля октетами
+			erase(password);
+			// Если EncryptedPrivateKeyInfo разобрать не удалось
+			if(outcome != error_t::NONE)
+				// Выводим отказ разбора
+				return outcome;
+			// Отмечаем, что ключ разобран
+			keyed = true;
+			// Выводим успешность разбора
+			return error_t::NONE;
+		}
+		// Если мешок - мешок сертификата certBag: значение есть сведения о сертификате
+		if(kind.compare(OID_CERTBAG) == 0){
+			// Разборщик явного значения
+			asn1::reader_t holder(element.content);
+			// Сведения о сертификате
+			asn1::element_t body;
+			// Если сведения о сертификате разобрать не удалось
+			if(!holder.next(asn1::tag_t::SEQUENCE, body) || !body.constructed)
+				// Выводим переведённый отказ разбора
+				return translate(holder.err());
+			// Разборщик сведений о сертификате
+			asn1::reader_t inner(body.content);
+			// Опознаватель вида сертификата
+			string view;
+			// Если опознаватель вида сертификата разобрать не удалось
+			if(!inner.next(asn1::tag_t::OBJECT, element))
+				// Выводим переведённый отказ разбора
+				return translate(inner.err());
+			// Итог разбора опознавателя вида сертификата
+			outcome = identifier(element, view);
+			// Если опознаватель вида сертификата разобрать не удалось
+			if(outcome != error_t::NONE)
+				// Выводим отказ разбора
+				return outcome;
+			// Если сертификат не X.509
+			if(view.compare(OID_X509) != 0)
+				// Выводим отказ устройства записи
+				return error_t::STRUCTURE;
+			// Если запись сертификата не записана явным [0]
+			if(!inner.next(element) || !tagged(element, asn1::cls_t::CONTEXT, 0, true))
+				// Выводим переведённый отказ разбора
+				return translate(inner.err());
+			// Разборщик явной записи сертификата
+			asn1::reader_t certificate(element.content);
+			// Если строку байтов сертификата разобрать не удалось
+			if(!certificate.next(asn1::tag_t::OCTET_STRING, element) || element.constructed)
+				// Выводим переведённый отказ разбора
+				return translate(certificate.err());
+			// Запись сертификата
+			vector <uint8_t> record;
+			// Если запись сертификата скопировать не удалось
+			if(!copy(element.content.data, element.content.size, record))
+				// Выводим отказ нехватки памяти
+				return error_t::MEMORY;
+			/**
+			 * Добавление выделяет память: нехватка её отдаётся отказом
+			 */
+			try {
+				// Добавляем сертификат в цепочку
+				chain.push_back(::move(record));
+			// Если памяти не хватило
+			} catch(const bad_alloc &) {
+				// Выводим отказ нехватки памяти
+				return error_t::MEMORY;
+			}
+			// Выводим успешность разбора
+			return error_t::NONE;
+		}
+		// Мешки неведомых видов пропускаются: раздел 4.2 RFC 7292 ведёт лишь три
+		return error_t::NONE;
+	}
 };
 
 /**
@@ -3654,17 +4214,511 @@ nts::keys::error_t nts::keys::decodeEncryptedPrivateKeyInfo(const view_t & der, 
 	return outcome;
 }
 /**
- * @brief Метод записи EncryptedPrivateKeyInfo по схеме PBES2 из RFC 8018
+ * @brief Метод разбора записи PKCS #12 по RFC 7292: ключа с цепочкой сертификатов
  *
- * @param key        записываемый ключ
- * @param password   пароль последовательностью октетов
- * @param result     место, в которое помещается запись в кодировке DER
- * @param bits       длина ключа AES в разрядах: 128, 192 либо 256
- * @param iterations число оборотов PBKDF2, не меньше одного
+ * @param der      разбираемая запись PFX в кодировке DER
+ * @param password пароль последовательностью октетов
+ * @param key      ключ, в который помещается итог разбора
+ * @param chain    цепочка сертификатов, в которую помещаются разобранные записи DER
  *
- * @return           отказ записи
+ * @return         отказ разбора записи
  *
  */
+nts::keys::error_t nts::keys::decodePkcs12(const view_t & der, const view_t & password, key_t & key, vector <vector <uint8_t>> & chain) noexcept {
+	// Выполняем сброс ключа
+	key.clear();
+	// Выполняем сброс цепочки сертификатов
+	chain.clear();
+	// Набор верхней записи PFX
+	asn1::element_t pfx;
+	// Итог разбора верхней записи
+	error_t outcome = outer(der, pfx);
+	// Если верхнюю запись разобрать не удалось
+	if(outcome != error_t::NONE)
+		// Выводим отказ разбора
+		return outcome;
+	// Разборщик содержимого записи PFX
+	asn1::reader_t fields(pfx.content);
+	// Разбираемый элемент записи
+	asn1::element_t element;
+	// Если издание записи разобрать не удалось
+	if(!fields.next(asn1::tag_t::INTEGER, element))
+		// Выводим переведённый отказ разбора
+		return translate(fields.err());
+	// Издание записи
+	int64_t version = -1;
+	// Итог разбора издания записи
+	outcome = smallInteger(element, version);
+	// Если издание записи разобрать не удалось
+	if(outcome != error_t::NONE)
+		// Выводим отказ разбора
+		return outcome;
+	// Если издание записи не третье: раздел 4.1 RFC 7292
+	if(version != 3)
+		// Выводим отказ устройства записи
+		return error_t::STRUCTURE;
+	// Сведения о содержимом AuthenticatedSafe
+	asn1::element_t content;
+	// Если сведения о содержимом разобрать не удалось
+	if(!fields.next(asn1::tag_t::SEQUENCE, content) || !content.constructed)
+		// Выводим переведённый отказ разбора
+		return translate(fields.err());
+	// Разборщик сведений о содержимом
+	asn1::reader_t wrapper(content.content);
+	// Опознаватель вида содержимого
+	string kind;
+	// Если опознаватель вида содержимого разобрать не удалось
+	if(!wrapper.next(asn1::tag_t::OBJECT, element))
+		// Выводим переведённый отказ разбора
+		return translate(wrapper.err());
+	// Итог разбора опознавателя вида содержимого
+	outcome = identifier(element, kind);
+	// Если опознаватель вида содержимого разобрать не удалось
+	if(outcome != error_t::NONE)
+		// Выводим отказ разбора
+		return outcome;
+	// Если содержимое не данные PKCS #7
+	if(kind.compare(OID_DATA) != 0)
+		// Выводим отказ устройства записи
+		return error_t::STRUCTURE;
+	// Если содержимое данных не записано явным образом
+	if(!wrapper.next(element) || !tagged(element, asn1::cls_t::CONTEXT, 0, true))
+		// Выводим переведённый отказ разбора
+		return translate(wrapper.err());
+	// Разборщик явного содержимого
+	asn1::reader_t explicit_(element.content);
+	// Если строку байтов AuthenticatedSafe разобрать не удалось
+	if(!explicit_.next(asn1::tag_t::OCTET_STRING, element) || element.constructed)
+		// Выводим переведённый отказ разбора
+		return translate(explicit_.err());
+	// Просмотр записи AuthenticatedSafe
+	const view_t safe = element.content;
+	// Просмотр соли имитовставки записи
+	view_t macSalt;
+	// Число оборотов имитовставки записи
+	uint32_t macIterations = 0;
+	// Алгоритм хеша имитовставки записи
+	digest::hash_t macHash = digest::hash_t::NONE;
+	// Просмотр имитовставки записи
+	view_t macValue;
+	// Признак наличия имитовставки записи
+	bool macPresent = false;
+	// Если запись продолжается: за содержимым идут сведения имитовставки MacData
+	if(!fields.empty()){
+		// Если сведения имитовставки разобрать не удалось
+		if(!fields.next(asn1::tag_t::SEQUENCE, element) || !element.constructed)
+			// Выводим переведённый отказ разбора
+			return translate(fields.err());
+		// Разборщик сведений имитовставки
+		asn1::reader_t mac(element.content);
+		// Сведения о хеше имитовставки
+		asn1::element_t digest;
+		// Если сведения о хеше разобрать не удалось
+		if(!mac.next(asn1::tag_t::SEQUENCE, digest) || !digest.constructed)
+			// Выводим переведённый отказ разбора
+			return translate(mac.err());
+		// Разборщик сведений о хеше
+		asn1::reader_t info(digest.content);
+		// Сведения об алгоритме хеша AlgorithmIdentifier
+		asn1::element_t algorithmId;
+		// Если сведения об алгоритме хеша разобрать не удалось: DigestInfo несёт AlgorithmIdentifier первым
+		if(!info.next(asn1::tag_t::SEQUENCE, algorithmId) || !algorithmId.constructed)
+			// Выводим переведённый отказ разбора
+			return translate(info.err());
+		// Разборщик сведений об алгоритме хеша
+		asn1::reader_t inner(algorithmId.content);
+		// Опознаватель алгоритма хеша
+		string algorithm;
+		// Если опознаватель алгоритма хеша разобрать не удалось
+		if(!inner.next(asn1::tag_t::OBJECT, element))
+			// Выводим переведённый отказ разбора
+			return translate(inner.err());
+		// Итог разбора опознавателя алгоритма хеша
+		outcome = identifier(element, algorithm);
+		// Если опознаватель алгоритма хеша разобрать не удалось
+		if(outcome != error_t::NONE)
+			// Выводим отказ разбора
+			return outcome;
+		// Устанавливаем алгоритм хеша имитовставки
+		macHash = hmacOf(algorithm);
+		// Если алгоритм хеша неизвестен
+		if(macHash == digest::hash_t::NONE)
+			// Выводим отказ схемы
+			return error_t::CIPHER;
+		// Если имитовставку из сведений о хеше разобрать не удалось: DigestInfo несёт её вторым элементом
+		if(!info.next(asn1::tag_t::OCTET_STRING, element) || element.constructed)
+			// Выводим переведённый отказ разбора
+			return translate(info.err());
+		// Устанавливаем просмотр имитовставки
+		macValue = element.content;
+		// Если соль имитовставки разобрать не удалось
+		if(!mac.next(asn1::tag_t::OCTET_STRING, element) || element.constructed){
+			// Выводим переведённый отказ разбора
+			return translate(mac.err());
+		}
+		// Устанавливаем просмотр соли имитовставки
+		macSalt = element.content;
+		// Если число оборотов записано
+		if(!mac.empty()){
+			// Если число оборотов разобрать не удалось
+			if(!mac.next(asn1::tag_t::INTEGER, element))
+				// Выводим переведённый отказ разбора
+				return translate(mac.err());
+			// Число оборотов из записи
+			int64_t count = 0;
+			// Итог разбора числа оборотов
+			outcome = smallInteger(element, count);
+			// Если число оборотов разобрать не удалось
+			if(outcome != error_t::NONE)
+				// Выводим отказ разбора
+				return outcome;
+			// Если число оборотов не укладывается в дозволенное
+			if((count < 1) || (count > PBKDF2_MOST))
+				// Выводим отказ схемы
+				return error_t::CIPHER;
+			// Устанавливаем число оборотов
+			macIterations = static_cast <uint32_t> (count);
+		// Иначе число оборотов по умолчанию: раздел 6.1 RFC 7292
+		} else macIterations = 1;
+		// Если после сведений имитовставки остался хвост
+		if(!mac.empty())
+			// Выводим отказ устройства записи
+		return error_t::STRUCTURE;
+		// Отмечаем наличие имитовставки записи
+		macPresent = true;
+	}
+	// Если после записи остался хвост
+	if(!fields.empty())
+		// Выводим отказ устройства записи
+		return error_t::STRUCTURE;
+	// Строка BMPString пароля
+	vector <uint8_t> bmp;
+	// Если пароль в строку BMPString обратить не удалось
+	if(!bmpstring(password, bmp))
+		// Выводим отказ нехватки памяти
+		return error_t::MEMORY;
+	// Если имитовставка записи задана: сверяем её прежде разбора мешков
+	if(macPresent){
+		// Ключ имитовставки записи
+		uint8_t secret[64];
+		// Длина ключа имитовставки: длина хеша алгоритма
+		const size_t width = digest::length(macHash);
+		// Если ключ имитовставки вывести не удалось: назначение 3 - имитовставка записи
+		if(!pkcs12kdf(macHash, view_t(bmp.data(), bmp.size()), macSalt, macIterations, 3, secret, width)){
+			// Выполняем затирание строки пароля
+			erase(bmp);
+			// Выводим отказ схемы
+			return error_t::CIPHER;
+		}
+		// Выработанная имитовставка записи
+		uint8_t computed[64];
+		// Объект выработки имитовставки
+		digest::mac_t macer;
+		// Если ключ имитовставки установить не удалось
+		if(!macer.start(macHash, view_t(secret, width))){
+			// Выполняем затирание ключа имитовставки
+			wipe(secret, sizeof(secret));
+			// Выполняем затирание строки пароля
+			erase(bmp);
+			// Выводим отказ схемы
+			return error_t::CIPHER;
+		}
+		// Подаём запись AuthenticatedSafe
+		macer.update(safe);
+		// Снимаем выработанную имитовставку
+		const bool made = macer.finish(computed, width);
+		// Выполняем затирание ключа имитовставки
+		wipe(secret, sizeof(secret));
+		// Если имитовставку выработать не удалось
+		if(!made){
+			// Выполняем затирание строки пароля
+			erase(bmp);
+			// Выводим отказ схемы
+			return error_t::CIPHER;
+		}
+		// Если имитовставка записи не сошлась: пароль не подошёл
+		if((macValue.size != width) || (::memcmp(macValue.data, computed, width) != 0)){
+			// Выполняем затирание выработанной имитовставки
+			wipe(computed, sizeof(computed));
+			// Выполняем затирание строки пароля
+			erase(bmp);
+			// Выводим отказ пароля
+			return error_t::PASSWORD;
+		}
+		// Выполняем затирание выработанной имитовставки
+		wipe(computed, sizeof(computed));
+	}
+	// Набор записи AuthenticatedSafe
+	asn1::element_t sequence;
+	// Итог разбора записи AuthenticatedSafe
+	outcome = outer(safe, sequence);
+	// Если запись AuthenticatedSafe разобрать не удалось
+	if(outcome != error_t::NONE){
+		// Выполняем затирание строки пароля
+		erase(bmp);
+		// Выводим отказ разбора
+		return outcome;
+	}
+	// Разборщик содержимого AuthenticatedSafe: сведений о содержимом мешков
+	asn1::reader_t contents(sequence.content);
+	// Признак того, что ключ разобран
+	bool keyed = false;
+	/**
+	 * Выполняем перебор сведений о содержимом мешков
+	 */
+	while(!contents.empty()){
+		// Если очередные сведения о содержимом разобрать не удалось
+		if(!contents.next(asn1::tag_t::SEQUENCE, content) || !content.constructed){
+			// Выполняем затирание строки пароля
+			erase(bmp);
+			// Выводим переведённый отказ разбора
+			return translate(contents.err());
+		}
+		// Разборщик сведений о содержимом
+		asn1::reader_t inner(content.content);
+		// Опознаватель вида содержимого
+		string bag;
+		// Если опознаватель вида содержимого разобрать не удалось
+		if(!inner.next(asn1::tag_t::OBJECT, element)){
+			// Выполняем затирание строки пароля
+			erase(bmp);
+			// Выводим переведённый отказ разбора
+			return translate(inner.err());
+		}
+		// Итог разбора опознавателя вида содержимого
+		outcome = identifier(element, bag);
+		// Если опознаватель вида содержимого разобрать не удалось
+		if(outcome != error_t::NONE){
+			// Выполняем затирание строки пароля
+			erase(bmp);
+			// Выводим отказ разбора
+			return outcome;
+		}
+		// Просмотр записи SafeContents мешка
+		view_t bags;
+		// Если содержимое - данные PKCS #7: мешки открыты
+		if(bag.compare(OID_DATA) == 0){
+			// Если содержимое данных не записано явным образом
+			if(!inner.next(element) || !tagged(element, asn1::cls_t::CONTEXT, 0, true)){
+				// Выполняем затирание строки пароля
+				erase(bmp);
+				// Выводим переведённый отказ разбора
+				return translate(inner.err());
+			}
+			// Разборщик явного содержимого
+			asn1::reader_t holder(element.content);
+			// Если строку байтов SafeContents разобрать не удалось
+			if(!holder.next(asn1::tag_t::OCTET_STRING, element) || element.constructed){
+				// Выполняем затирание строки пароля
+				erase(bmp);
+				// Выводим переведённый отказ разбора
+				return translate(holder.err());
+			}
+			// Устанавливаем просмотр записи SafeContents
+			bags = element.content;
+		// Если содержимое - зашифрованные данные PKCS #7: мешки защищены паролем
+		} else if(bag.compare(OID_ENCRYPTED) == 0){
+			// Если содержимое не записано явным образом
+			if(!inner.next(element) || !tagged(element, asn1::cls_t::CONTEXT, 0, true)){
+				// Выполняем затирание строки пароля
+				erase(bmp);
+				// Выводим переведённый отказ разбора
+				return translate(inner.err());
+			}
+			// Разборщик явного содержимого
+			asn1::reader_t holder(element.content);
+			// Сведения зашифрованного содержимого
+			asn1::element_t encrypted;
+			// Если сведения зашифрованного содержимого разобрать не удалось
+			if(!holder.next(asn1::tag_t::SEQUENCE, encrypted) || !encrypted.constructed){
+				// Выполняем затирание строки пароля
+				erase(bmp);
+				// Выводим переведённый отказ разбора
+				return translate(holder.err());
+			}
+			// Разборщик сведений зашифрованного содержимого
+			asn1::reader_t body(encrypted.content);
+			// Если издание зашифрованного содержимого разобрать не удалось: EncryptedData несёт его первым
+			if(!body.next(asn1::tag_t::INTEGER, element)){
+				// Выполняем затирание строки пароля
+				erase(bmp);
+				// Выводим переведённый отказ разбора
+				return translate(body.err());
+			}
+			// Сведения о зашифрованном содержимом EncryptedContentInfo
+			asn1::element_t contentInfo;
+			// Если сведения о зашифрованном содержимом разобрать не удалось
+			if(!body.next(asn1::tag_t::SEQUENCE, contentInfo) || !contentInfo.constructed){
+				// Выполняем затирание строки пароля
+				erase(bmp);
+				// Выводим переведённый отказ разбора
+				return translate(body.err());
+			}
+			// Разборщик сведений о зашифрованном содержимом
+			asn1::reader_t info(contentInfo.content);
+			// Опознаватель вида зашифрованного содержимого
+			string view;
+			// Если опознаватель вида разобрать не удалось
+			if(!info.next(asn1::tag_t::OBJECT, element)){
+				// Выполняем затирание строки пароля
+				erase(bmp);
+				// Выводим переведённый отказ разбора
+				return translate(info.err());
+			}
+			// Итог разбора опознавателя вида
+			outcome = identifier(element, view);
+			// Если опознаватель вида разобрать не удалось
+			if(outcome != error_t::NONE){
+				// Выполняем затирание строки пароля
+				erase(bmp);
+				// Выводим отказ разбора
+				return outcome;
+			}
+			// Если зашифрованное содержимое не данные
+			if(view.compare(OID_DATA) != 0){
+				// Выполняем затирание строки пароля
+				erase(bmp);
+				// Выводим отказ устройства записи
+		return error_t::STRUCTURE;
+			}
+			// Опознаватель схемы защиты
+			string scheme;
+			// Настройки схемы защиты
+			asn1::element_t params;
+			// Признак наличия настроек схемы
+			bool present = false;
+			// Итог разбора схемы защиты
+			outcome = algorithmIdentifier(info, scheme, params, present);
+			// Если схему защиты разобрать не удалось
+			if(outcome != error_t::NONE){
+				// Выполняем затирание строки пароля
+				erase(bmp);
+				// Выводим отказ разбора
+				return outcome;
+			}
+			// Если схема защиты не PBES2 либо настроек нет
+			if((scheme.compare(OID_PBES2) != 0) || !present){
+				// Выполняем затирание строки пароля
+				erase(bmp);
+				// Выводим отказ схемы
+				return error_t::CIPHER;
+			}
+			// Если шифртекст разобрать не удалось: он идёт неявным [0] примитивной формы,
+			// содержимое его есть сам шифртекст (раздел 13.3 RFC 2315)
+			if(!info.next(element) || (element.cls != asn1::cls_t::CONTEXT) || (element.tag != 0)){
+				// Выполняем затирание строки пароля
+				erase(bmp);
+				// Выводим переведённый отказ разбора
+				return translate(info.err());
+			}
+			// Расшифрованная запись SafeContents
+			vector <uint8_t> plain;
+			// Итог расшифрования содержимого
+			outcome = undress(params, element.content, password, plain);
+			// Если содержимое расшифровать не удалось
+			if(outcome != error_t::NONE){
+				// Выполняем затирание строки пароля
+				erase(bmp);
+				// Выводим отказ расшифрования
+				return outcome;
+			}
+			// Набор расшифрованной записи SafeContents
+			asn1::element_t unwrapped;
+			// Итог разбора расшифрованной записи
+			outcome = outer(view_t(plain.data(), plain.size()), unwrapped);
+			// Если расшифрованную запись разобрать не удалось: пароль не подошёл
+			if(outcome != error_t::NONE){
+				// Выполняем затирание расшифрованной записи
+				erase(plain);
+				// Выполняем затирание строки пароля
+				erase(bmp);
+				// Выводим отказ пароля
+				return error_t::PASSWORD;
+			}
+			// Устанавливаем просмотр записи SafeContents: она живёт в plain до конца разбора мешков
+			bags = unwrapped.content;
+			// Разборщик мешков SafeContents
+			asn1::reader_t reader(bags);
+			/**
+			 * Выполняем перебор мешков SafeContents
+			 */
+			while(!reader.empty()){
+				// Если очередной мешок разобрать не удалось
+				if(!reader.next(asn1::tag_t::SEQUENCE, element) || !element.constructed){
+					// Выполняем затирание расшифрованной записи
+					erase(plain);
+					// Выполняем затирание строки пароля
+					erase(bmp);
+					// Выводим переведённый отказ разбора
+					return translate(reader.err());
+				}
+				// Итог разбора мешка
+				outcome = pkcs12bag(element, view_t(bmp.data(), bmp.size()), key, chain, keyed);
+				// Если мешок разобрать не удалось
+				if(outcome != error_t::NONE){
+					// Выполняем затирание расшифрованной записи
+					erase(plain);
+					// Выполняем затирание строки пароля
+					erase(bmp);
+					// Выводим отказ разбора
+					return outcome;
+				}
+			}
+			// Выполняем затирание расшифрованной записи
+			erase(plain);
+			// Переходим к следующим сведениям о содержимом
+			continue;
+		// Иначе вид содержимого неведом
+		} else {
+			// Выполняем затирание строки пароля
+			erase(bmp);
+			// Выводим отказ устройства записи
+		return error_t::STRUCTURE;
+		}
+		// Набор записи SafeContents
+		asn1::element_t unwrapped;
+		// Итог разбора записи SafeContents
+		outcome = outer(bags, unwrapped);
+		// Если запись SafeContents разобрать не удалось
+		if(outcome != error_t::NONE){
+			// Выполняем затирание строки пароля
+			erase(bmp);
+			// Выводим отказ разбора
+			return outcome;
+		}
+		// Разборщик мешков SafeContents
+		asn1::reader_t reader(unwrapped.content);
+		/**
+		 * Выполняем перебор мешков SafeContents
+		 */
+		while(!reader.empty()){
+			// Если очередной мешок разобрать не удалось
+			if(!reader.next(asn1::tag_t::SEQUENCE, element) || !element.constructed){
+				// Выполняем затирание строки пароля
+				erase(bmp);
+				// Выводим переведённый отказ разбора
+				return translate(reader.err());
+			}
+			// Итог разбора мешка
+			outcome = pkcs12bag(element, view_t(bmp.data(), bmp.size()), key, chain, keyed);
+			// Если мешок разобрать не удалось
+			if(outcome != error_t::NONE){
+				// Выполняем затирание строки пароля
+				erase(bmp);
+				// Выводим отказ разбора
+				return outcome;
+			}
+		}
+	}
+	// Выполняем затирание строки пароля
+	erase(bmp);
+	// Если ключ так и не разобран
+	if(!keyed)
+		// Выводим отказ пустой записи
+		return error_t::EMPTY;
+	// Выводим успешность разбора
+	return error_t::NONE;
+}
 nts::keys::error_t nts::keys::encodeEncryptedPrivateKeyInfo(const key_t & key, const view_t & password, vector <uint8_t> & result, const size_t bits, const uint32_t iterations) noexcept {
 	// Опознаватель шифра по длине ключа
 	const char * oid = nullptr;
