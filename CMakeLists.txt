@@ -233,6 +233,7 @@ SET(SOURCE_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/sign/rsa.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/sign/mldsa.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/sign/slhdsa.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/sign/lms.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/math/integer.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/sign/ecdsa.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/sign/sm2.cpp"

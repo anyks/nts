@@ -173,3 +173,67 @@ TEST(KdfTest, Refusals) {
 	// Проверяем, что метка назначения на выработанный ключ влияет
 	ASSERT_NE(::memcmp(bare, result, sizeof(bare)), 0);
 }
+
+/**
+ * Проверка выработки ключа пользователя SNMPv3 по приложению A.5 RFC 3414
+ */
+TEST(KdfTest, Snmpv3) {
+	// Опознаватель движка SNMP контрольного примера (12 байтов)
+	uint8_t engine[12] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02};
+	// Пароль пользователя контрольного примера
+	const uint8_t password[] = {'n', 'e', 'w', 's', 'y', 'r', 'u', 'p'};
+	// Локализованный ключ SHA-1 контрольного примера A.5.2
+	uint8_t wantSha[20];
+	bytes("78e2dcce79d59403b58c1bbaa5bff46391f1cd25", wantSha);
+	// Место локализованного ключа
+	uint8_t kul[20];
+	// Выработка SHA-1 обязана удаться
+	ASSERT_TRUE(digest::snmpv3(digest::hash_t::SHA1, view_t(password, sizeof(password)), view_t(engine, sizeof(engine)), kul));
+	// Ключ обязан совпасть с контрольным примером побайтно
+	ASSERT_EQ(::memcmp(kul, wantSha, sizeof(wantSha)), 0);
+	// Локализованный ключ MD5 контрольного примера A.5.1
+	uint8_t wantMd5[16];
+	bytes("87021d7bd9d101ba05ea6e3bf9d9bd4a", wantMd5);
+	// Выработка MD5 обязана удаться
+	ASSERT_TRUE(digest::snmpv3(digest::hash_t::MD5, view_t(password, sizeof(password)), view_t(engine, sizeof(engine)), kul));
+	// Ключ обязан совпасть с контрольным примером побайтно
+	ASSERT_EQ(::memcmp(kul, wantMd5, sizeof(wantMd5)), 0);
+	// Выработка с неизвестным алгоритмом обязана отказать
+	ASSERT_FALSE(digest::snmpv3(digest::hash_t::NONE, view_t(password, sizeof(password)), view_t(engine, sizeof(engine)), kul));
+	// Выработка с пустым паролем обязана отказать
+	ASSERT_FALSE(digest::snmpv3(digest::hash_t::SHA1, view_t(nullptr, 0), view_t(engine, sizeof(engine)), kul));
+	// Выработка в непереданное место обязана отказать
+	ASSERT_FALSE(digest::snmpv3(digest::hash_t::SHA1, view_t(password, sizeof(password)), view_t(engine, sizeof(engine)), nullptr));
+}
+
+/**
+ * Проверка выработки ключевого материала prf+ протокола IKEv2 по разделу 2.13 RFC 7296
+ */
+TEST(KdfTest, PrfPlus) {
+	// Ключ псевдослучайной функции
+	const uint8_t key[] = {0x01, 0x02, 0x03, 0x04};
+	// Затравка выработки
+	const uint8_t seed[] = {0x09, 0x08, 0x07};
+	// Место ключевого материала
+	uint8_t result[64];
+	// Выработка обязана удаться
+	ASSERT_TRUE(digest::prfplus(digest::hash_t::SHA256, view_t(key, sizeof(key)), view_t(seed, sizeof(seed)), result, sizeof(result)));
+	/**
+	 * Эталон первых 32 байтов, вычисленный независимо по определению:
+	 * T1 = prf(K, S ‖ 0x01), T2 = prf(K, T1 ‖ S ‖ 0x02)
+	 */
+	uint8_t want[32];
+	bytes("cbba4a22fdeb59f8044dbc78fce7130e19b21dea23339aba3d698f2c1e48d0bd", want);
+	// Материал обязан совпасть с эталоном побайтно
+	ASSERT_EQ(::memcmp(result, want, sizeof(want)), 0);
+	// Начало длинной выработки обязано совпадать с короткой
+	uint8_t shorter[16];
+	ASSERT_TRUE(digest::prfplus(digest::hash_t::SHA256, view_t(key, sizeof(key)), view_t(seed, sizeof(seed)), shorter, sizeof(shorter)));
+	ASSERT_EQ(::memcmp(result, shorter, sizeof(shorter)), 0);
+	// Выработка с неизвестным алгоритмом обязана отказать
+	ASSERT_FALSE(digest::prfplus(digest::hash_t::NONE, view_t(key, sizeof(key)), view_t(seed, sizeof(seed)), result, sizeof(result)));
+	// Выработка в непереданное место обязана отказать
+	ASSERT_FALSE(digest::prfplus(digest::hash_t::SHA256, view_t(key, sizeof(key)), view_t(seed, sizeof(seed)), nullptr, sizeof(result)));
+	// Выработка нулевой длины обязана отказать
+	ASSERT_FALSE(digest::prfplus(digest::hash_t::SHA256, view_t(key, sizeof(key)), view_t(seed, sizeof(seed)), result, 0));
+}

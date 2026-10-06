@@ -41,6 +41,7 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <sys/global.hpp>
+#include <digest/hash.hpp>
 
 /**
  * \~russian
@@ -129,6 +130,71 @@ namespace nts {
 		 * \~
 		 */
 		__ANTS_SHARED_EXPORT__ bool kdf(const view_t & key, const view_t & label, const view_t & seed, uint8_t * result) noexcept;
+
+		/**
+		 * \~russian
+		 * @brief Метод выработки ключа пользователя SNMPv3 из пароля
+		 *
+		 * @param algorithm алгоритм хеша: MD5, SHA-1 либо SHA-2 по RFC 7860
+		 * @param password  пароль пользователя
+		 * @param engine    опознаватель полномочного движка SNMP (snmpEngineID)
+		 * @param result    место, в которое помещается локализованный ключ
+		 *
+		 * @return          признак успешности выработки ключа
+		 *
+		 * @details Приложение A RFC 3414: сперва пароль повторяется до одного
+		 *          мегабайта и хешируется (ключ Ku), затем локализуется хешем
+		 *          строки Ku ‖ engineID ‖ Ku (ключ Kul). Место итога обязано
+		 *          вмещать длину хеша алгоритма
+		 *
+		 * \~english
+		 * @brief Method of the derivation of the SNMPv3 user key from a password
+		 * @param algorithm the hash algorithm: MD5, SHA-1 or SHA-2 according to RFC 7860
+		 * @param password  the password of the user
+		 * @param engine    the identifier of the authoritative SNMP engine (snmpEngineID)
+		 * @param result    the place the localized key is put into
+		 * @return          the flag of the success of the derivation of the key
+		 * @details The appendix A of RFC 3414: first the password is repeated up to one
+		 *          megabyte and hashed (the Ku key), then it is localized by the hash of
+		 *          the string Ku ‖ engineID ‖ Ku (the Kul key). The place of the outcome
+		 *          is obliged to hold the length of the hash of the algorithm
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ bool snmpv3(const hash_t algorithm, const view_t & password, const view_t & engine, uint8_t * result) noexcept;
+
+		/**
+		 * \~russian
+		 * @brief Метод выработки ключевого материала prf+ протокола IKEv2
+		 *
+		 * @param algorithm алгоритм хеша псевдослучайной функции
+		 * @param key       ключ псевдослучайной функции
+		 * @param seed      затравка выработки
+		 * @param result    место, в которое помещается ключевой материал
+		 * @param size      требуемая длина ключевого материала в байтах
+		 *
+		 * @return          признак успешности выработки ключевого материала
+		 *
+		 * @details Раздел 2.13 RFC 7296: T1 = prf(K, S ‖ 0x01), T2 = prf(K, T1 ‖ S ‖ 0x02),
+		 *          и так далее до требуемой длины; материал берётся из слитной строки
+		 *          T1 ‖ T2 ‖ ... без оглядки на границы звеньев
+		 *
+		 * \~english
+		 * @brief Method of the derivation of the IKEv2 prf+ key material
+		 * @param algorithm the hash algorithm of the pseudorandom function
+		 * @param key       the key of the pseudorandom function
+		 * @param seed      the seed of the derivation
+		 * @param result    the place the key material is put into
+		 * @param size      the required length of the key material in bytes
+		 * @return          the flag of the success of the derivation of the key material
+		 * @details The section 2.13 of RFC 7296: T1 = prf(K, S ‖ 0x01), T2 = prf(K, T1 ‖ S ‖ 0x02),
+		 *          and so on up to the required length; the material is taken from the
+		 *          concatenated string T1 ‖ T2 ‖ ... without regard to the boundaries
+		 *          of the links
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ bool prfplus(const hash_t algorithm, const view_t & key, const view_t & seed, uint8_t * result, const size_t size) noexcept;
 	};
 };
 
