@@ -9227,4 +9227,28 @@ mpint делает SSH), rsa-sha2-256/512 (PKCS #1 v1.5); шифры chacha20-po
     а не сообщения; openssl cms -sign по умолчанию отделяет содержимое (-nodetach вкладывает);
     позиционный файл сертификата получателя openssl cms -encrypt обязан идти после всех опций.
     ctest 106/106 зелёные.
-    Открыто по Г15: CMP - по мере очереди.
+    **Круг 94 (06.10.2026)**: CMP сделано, пункт Г15 закрыт целиком. Модуль cmp по RFC 4210
+    (с опорой на CRMF RFC 4211): разбор и сборка записей PKIMessage - заголовок PKIHeader
+    (pvno, sender/recipient GeneralName, messageTime, protectionAlg, senderKID/recipKID,
+    transactionID, senderNonce/recipNonce, freeText, generalInfo; метки полей явные по
+    модулю ASN.1 RFC 4210), тело PKIBody всех видов по разделу 5.1.2 (ir/cr/kur/krr/ccr
+    с CertReqMessages по RFC 4211, ip/cp/kup/ccp с CertRepMessage, p10cr, popdecc/popdecr,
+    krp, rr/rp, ckuann/cann/rann/crlann, pkiconf, nested, genm/genp, error, certConf,
+    pollReq/pollRep), защита PKIProtection и дополнительные сертификаты extraCerts.
+    Защита сообщения: подпись ключом keys::signer_t (RSA, ECDSA, Ed25519, ML-DSA) над
+    записью ProtectedPart {header, body} по разделу 5.1.3 с проверкой вызовом x509::verify
+    и парольная имитовставка PBM по разделу 5.1.3.1 (PBMParameter: соль, OWF, число
+    повторов, HMAC) с постоянной сверкой имитовставки. Подтверждение владения в запросах
+    ставится видом signature (подпись над CertReq по примечанию к POPOSigningKey в RFC
+    4211) либо raVerified под защитой PBM. Пины CmpTest 12/12: круговые сборка-разбор-
+    проверка запросов ir/cr, ответа ip, подтверждений certConf/pkiConf, отзыва rr, общего
+    genm и отказа error ключами набора (RSA, EC), интероп с OpenSSL (разбор и проверка
+    записей openssl cmp -reqout_only с защитой PBM и подписью, разбор ответа ip мок-
+    сервера openssl cmp -use_mock_srv с выданным сертификатом, приём нашей записи
+    мок-сервером), отказы разбора. Ловушки: тела PKIBody пишутся записью своего типа под
+    меткой вида (ir несёт [0] { SEQUENCE OF CertReqMsg }), а не подменой метки выбора;
+    подпись и имитовставка ставятся под записью SEQUENCE { header, body }, а не под
+    срезом полей; ключом HMAC в PBM служит весь BASEKEY длиною в хеш OWF (эталон OpenSSL),
+    а не усечение до длины итога имитовставки; мок-сервер openssl cmp требует -srv_ref,
+    -srv_secret и -rsp_cert для ответа ip. ctest 107/107 зелёные.
+    Пункт Г15 закрыт: PKCS #12, PKCS #10 и выпуск, CRL, ACME, CMS и CMP сделаны.
