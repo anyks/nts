@@ -354,3 +354,92 @@ TEST(OpensshTest, InteropWrite) {
 	// Убираем
 	run("rm -rf " + dir);
 }
+
+/**
+ * Проверка записей known_hosts: открытой и хешированной HMAC-SHA1
+ */
+TEST(OpensshTest, KnownHosts) {
+	// Вырабатываем ключ
+	keys::key_t key;
+	key.kind = keys::kind_t::ED25519;
+	key.d.assign(32, 0);
+	sign::ed25519_t ed;
+	ASSERT_TRUE(ed.generate(key.d.data(), key.d.size()));
+	key.key.assign(32, 0);
+	ASSERT_TRUE(ed.key(key.key.data(), key.key.size()));
+	// Открытая запись: сборка
+	std::string plain;
+	ASSERT_TRUE(keys::openssh::knownHosts("example.com", key, "тестовый узел", false, plain));
+	// Открытая запись обязана начинаться с хозяина
+	EXPECT_EQ(plain.compare(0, 11, "example.com"), 0);
+	// Открытая запись: разбор
+	keys::openssh::known_host_t record;
+	ASSERT_TRUE(keys::openssh::knownHosts(plain, record));
+	EXPECT_FALSE(record.hashed);
+	EXPECT_EQ(record.host, "example.com");
+	EXPECT_EQ(record.type, "ssh-ed25519");
+	EXPECT_EQ(record.comment, "тестовый узел");
+	EXPECT_FALSE(record.key.empty());
+	// Сверка хозяина: свой сходится, чужой отвергается
+	EXPECT_TRUE(keys::openssh::knownHostsMatch(record, "example.com"));
+	EXPECT_FALSE(keys::openssh::knownHostsMatch(record, "other.com"));
+	// Хешированная запись: сборка
+	std::string hashed;
+	ASSERT_TRUE(keys::openssh::knownHosts("example.com", key, "", true, hashed));
+	// Хешированная запись обязана начинаться с маркера
+	EXPECT_EQ(hashed.compare(0, 3, "|1|"), 0);
+	// Хешированная запись не обязана нести хозяина открытым текстом
+	EXPECT_EQ(hashed.find("example.com"), std::string::npos);
+	// Хешированная запись: разбор
+	keys::openssh::known_host_t hrecord;
+	ASSERT_TRUE(keys::openssh::knownHosts(hashed, hrecord));
+	EXPECT_TRUE(hrecord.hashed);
+	EXPECT_EQ(hrecord.salt.size(), 20U);
+	EXPECT_EQ(hrecord.hash.size(), 20U);
+	EXPECT_EQ(hrecord.type, "ssh-ed25519");
+	// Сверка хозяина: свой сходится, чужой отвергается
+	EXPECT_TRUE(keys::openssh::knownHostsMatch(hrecord, "example.com"));
+	EXPECT_FALSE(keys::openssh::knownHostsMatch(hrecord, "other.com"));
+	// Две хешированные записи одного хозяина различаются (случайная соль)
+	std::string another;
+	ASSERT_TRUE(keys::openssh::knownHosts("example.com", key, "", true, another));
+	EXPECT_NE(hashed, another);
+	// Обе сверяются с хозяином
+	keys::openssh::known_host_t arecord;
+	ASSERT_TRUE(keys::openssh::knownHosts(another, arecord));
+	EXPECT_TRUE(keys::openssh::knownHostsMatch(arecord, "example.com"));
+}
+
+/**
+ * Проверка отказов разбора known_hosts
+ */
+TEST(OpensshTest, KnownHostsRefusals) {
+	// Вырабатываем ключ
+	keys::key_t key;
+	key.kind = keys::kind_t::ED25519;
+	key.d.assign(32, 0);
+	sign::ed25519_t ed;
+	ASSERT_TRUE(ed.generate(key.d.data(), key.d.size()));
+	key.key.assign(32, 0);
+	ASSERT_TRUE(ed.key(key.key.data(), key.key.size()));
+	// Пустая строка отвергается
+	keys::openssh::known_host_t record;
+	EXPECT_FALSE(keys::openssh::knownHosts("", record));
+	// Строка без типа и ключа отвергается
+	EXPECT_FALSE(keys::openssh::knownHosts("example.com", record));
+	// Строка с негодным base64 отвергается
+	EXPECT_FALSE(keys::openssh::knownHosts("example.com ssh-ed25519 !!!", record));
+	// Хешированная запись без второго разделителя отвергается
+	EXPECT_FALSE(keys::openssh::knownHosts("|1|AAAA ssh-ed25519 AAAA", record));
+	// Сборка с пустым хозяином отвергается
+	std::string line;
+	EXPECT_FALSE(keys::openssh::knownHosts("", key, "", false, line));
+	// Сборка с негодным ключом отвергается
+	keys::key_t bad;
+	bad.kind = keys::kind_t::ED25519;
+	EXPECT_FALSE(keys::openssh::knownHosts("example.com", bad, "", false, line));
+	// Сверка с записью без соли и хеша отвергается
+	keys::openssh::known_host_t empty;
+	empty.hashed = true;
+	EXPECT_FALSE(keys::openssh::knownHostsMatch(empty, "example.com"));
+}

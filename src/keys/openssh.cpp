@@ -32,6 +32,7 @@
  */
 #include <keys/openssh.hpp>
 #include <digest/bcrypt.hpp>
+#include <digest/hmac.hpp>
 #include <digest/sha2.hpp>
 #include <cipher/aes.hpp>
 #include <cipher/mode.hpp>
@@ -686,4 +687,189 @@ string nts::keys::openssh::fingerprint(const key_t & key) noexcept {
 	while(!b64.empty() && b64.back() == '=')
 		b64.pop_back();
 	return "SHA256:" + b64;
+}
+
+/**
+ * \~russian
+ * @brief Метод разбора строки known_hosts
+ *
+ * \~english
+ * @brief Method of the parsing of a known_hosts line
+ *
+ * \~
+ */
+bool nts::keys::openssh::knownHosts(const string & line, known_host_t & result) noexcept {
+	// Сбрасываем сведения о записи
+	result = known_host_t();
+	// Если строка пуста
+	if(line.empty())
+		// Выводим отказ разбора
+		return false;
+	// Место чтения строки
+	size_t offset = 0;
+	/**
+	 * Метод чтения очередного поля строки до пробела
+	 */
+	auto field = [&line](size_t & at, string & value) noexcept -> bool {
+		// Если строка кончилась
+		if(at >= line.size())
+			// Выводим отказ
+			return false;
+		// Место конца поля
+		const size_t end = line.find(' ', at);
+		// Запоминаем поле
+		value = line.substr(at, (end == string::npos) ? string::npos : (end - at));
+		// Сдвигаем место за поле и пробел
+		at = ((end == string::npos) ? line.size() : (end + 1));
+		// Выводим признак наличия поля
+		return !value.empty();
+	};
+	// Первое поле строки: хозяин либо маркер хеширования
+	string marker;
+	// Если первое поле прочитать не удалось
+	if(!field(offset, marker))
+		// Выводим отказ разбора
+		return false;
+	// Если запись хешированная: маркер |1|base64(соль)|base64(хеш)
+	if(marker.compare(0, 3, "|1|") == 0){
+		// Место второго разделителя маркера
+		const size_t separator = marker.find('|', 3);
+		// Если разделителя нет
+		if(separator == string::npos)
+			// Выводим отказ разбора
+			return false;
+		// Записываем соль и хеш из base64
+		if(!base64_decode(marker.substr(3, separator - 3), result.salt) || !base64_decode(marker.substr(separator + 1), result.hash))
+			// Выводим отказ разбора
+			return false;
+		// Если соль либо хеш пусты
+		if(result.salt.empty() || result.hash.empty())
+			// Выводим отказ разбора
+			return false;
+		// Отмечаем хешированную запись
+		result.hashed = true;
+	// Иначе хозяин открытым текстом
+	} else {
+		// Запоминаем хозяина
+		result.host = marker;
+		// Если хозяин пуст либо несёт запрещённые знаки
+		if(result.host.empty() || (result.host.find('*') != string::npos) || (result.host.find('?') != string::npos))
+			// Выводим отказ разбора
+			return false;
+	}
+	// Тип ключа
+	if(!field(offset, result.type))
+		// Выводим отказ разбора
+		return false;
+	// Открытый ключ из base64
+	string encoded;
+	// Если поле ключа прочитать либо декодировать не удалось
+	if(!field(offset, encoded) || !base64_decode(encoded, result.key))
+		// Выводим отказ разбора
+		return false;
+	// Если ключ пуст
+	if(result.key.empty())
+		// Выводим отказ разбора
+		return false;
+	// Комментарий: остаток строки за ключом
+	if(offset < line.size())
+		// Запоминаем комментарий
+		result.comment = line.substr(offset);
+	// Выводим признак успешности разбора
+	return true;
+}
+
+/**
+ * \~russian
+ * @brief Метод сборки строки known_hosts
+ *
+ * \~english
+ * @brief Method of the building of a known_hosts line
+ *
+ * \~
+ */
+bool nts::keys::openssh::knownHosts(const string & host, const key_t & key, const string & comment, const bool hashed, string & result) noexcept {
+	// Если хозяин пуст либо ключ негоден
+	if(host.empty() || (key.kind != kind_t::ED25519) || (key.key.size() != 32))
+		// Выводим отказ сборки
+		return false;
+	// Формируем блок открытого ключа
+	vector <uint8_t> pubblock;
+	Writer pubwriter(pubblock);
+	pubwriter.string("ssh-ed25519");
+	pubwriter.string(key.key);
+	// Начало строки: хозяин открытым текстом либо хешем
+	string beginning;
+	// Если хозяин идёт хешем
+	if(hashed){
+		// Соль хеша: двадцать случайных байтов
+		uint8_t salt[20];
+		// Если случайные байты выработать не удалось
+		if(!entropy::bytes(salt, sizeof(salt)))
+			// Выводим отказ сборки
+			return false;
+		// Хеш хозяина HMAC-SHA1
+		uint8_t hash[20];
+		// Если хеш вычислить не удалось
+		if(!digest::hmac(digest::hash_t::SHA1, view_t(salt, sizeof(salt)), view_t(reinterpret_cast <const uint8_t *> (host.data()), host.size()), hash, sizeof(hash))){
+			// Выполняем затирание соли
+			wipe(salt, sizeof(salt));
+			// Выводим отказ сборки
+			return false;
+		}
+		// Собираем маркер хеширования
+		beginning = "|1|" + base64_encode(salt, sizeof(salt)) + "|" + base64_encode(hash, sizeof(hash));
+		// Выполняем затирание рабочих областей
+		wipe(salt, sizeof(salt));
+		wipe(hash, sizeof(hash));
+	// Иначе хозяин открытым текстом
+	} else
+		// Запоминаем хозяина
+		beginning = host;
+	// Собираем строку
+	result = beginning + " ssh-ed25519 " + base64_encode(pubblock.data(), pubblock.size());
+	// Если комментарий задан
+	if(!comment.empty())
+		// Дописываем комментарий
+		result += " " + comment;
+	// Выводим признак успешности сборки
+	return true;
+}
+
+/**
+ * \~russian
+ * @brief Метод сверки хозяина с записью known_hosts
+ *
+ * \~english
+ * @brief Method of the matching of a host against a known_hosts record
+ *
+ * \~
+ */
+bool nts::keys::openssh::knownHostsMatch(const known_host_t & record, const string & host) noexcept {
+	// Если запись открытая
+	if(!record.hashed)
+		// Хозяин сличается строкой
+		return (record.host == host);
+	// Если соли либо хеша нет
+	if(record.salt.empty() || record.hash.empty())
+		// Выводим несовпадение
+		return false;
+	// Хеш сверяемого хозяина HMAC-SHA1
+	uint8_t computed[64];
+	// Длина хеша записи
+	const size_t width = record.hash.size();
+	// Если длина хеша непомерна либо хеш вычислить не удалось
+	if((width > sizeof(computed)) || !digest::hmac(digest::hash_t::SHA1, view_t(record.salt.data(), record.salt.size()), view_t(reinterpret_cast <const uint8_t *> (host.data()), host.size()), computed, width))
+		// Выводим несовпадение
+		return false;
+	// Накопитель расхождения
+	uint8_t diff = 0;
+	// Проходим по байтам хеша без раннего выхода
+	for(size_t i = 0; i < width; i++)
+		// Накапливаем расхождение
+		diff |= static_cast <uint8_t> (computed[i] ^ record.hash[i]);
+	// Выполняем затирание вычисленного хеша
+	wipe(computed, sizeof(computed));
+	// Хозяин совпадает при нулевом расхождении
+	return (diff == 0);
 }

@@ -203,6 +203,127 @@ namespace nts {
 			 * \~
 			 */
 			__ANTS_SHARED_EXPORT__ string fingerprint(const key_t & key) noexcept;
+			/**
+			 * \~russian
+			 * @brief Сведения о записи known_hosts
+			 *
+			 * @details Запись known_hosts: хозяин (открытым текстом либо хешем
+			 *          HMAC-SHA1), тип ключа, открытый ключ, комментарий
+			 *
+			 * \~english
+			 * @brief Info of a known_hosts record
+			 * @details A known_hosts record: the host (in plain text or by an
+			 *          HMAC-SHA1 hash), the key type, the public key, the comment
+			 *
+			 * \~
+			 *
+			 */
+			typedef struct __ANTS_SHARED_EXPORT__ KnownHost {
+				// Хозяин открытым текстом; пусто у хешированной записи
+				string host;
+				// Признак хешированной записи (хозяин под HMAC-SHA1)
+				bool hashed;
+				// Соль хеша хозяина (у хешированной записи)
+				vector <uint8_t> salt;
+				// Хеш хозяина HMAC-SHA1 (у хешированной записи)
+				vector <uint8_t> hash;
+				// Тип ключа («ssh-ed25519»)
+				string type;
+				// Открытый ключ (запись SSH-строки типа и ключа)
+				vector <uint8_t> key;
+				// Комментарий
+				string comment;
+				/**
+				 * \~russian
+				 * @brief Конструктор
+				 *
+				 *
+				 * \~english
+				 * @brief Constructor
+				 *
+				 * \~
+				 *
+				 */
+				KnownHost() noexcept : hashed(false) {}
+			} known_host_t;
+			/**
+			 * \~russian
+			 * @brief Метод разбора строки known_hosts
+			 *
+			 * @param line   строка known_hosts
+			 * @param result место, в которое помещаются сведения о записи
+			 *
+			 * @return       признак успешности разбора
+			 *
+			 * @details Принимаются оба вида: открытая «хозяин тип ключ комментарий»
+			 *          и хешированная «|1|base64(соль)|base64(HMAC-SHA1(соль, хозяин))
+			 *          тип ключ комментарий»
+			 *
+			 * \~english
+			 * @brief Method of the parsing of a known_hosts line
+			 * @param line   the known_hosts line
+			 * @param result the place the record info is put into
+			 * @return       the flag of the success of the parsing
+			 * @details Both kinds are accepted: the plain «host type key comment»
+			 *          and the hashed «|1|base64(salt)|base64(HMAC-SHA1(salt, host))
+			 *          type key comment»
+			 *
+			 * \~
+			 */
+			__ANTS_SHARED_EXPORT__ bool knownHosts(const string & line, known_host_t & result) noexcept;
+			/**
+			 * \~russian
+			 * @brief Метод сборки строки known_hosts
+			 *
+			 * @param host    хозяин
+			 * @param key     открытый ключ
+			 * @param comment комментарий
+			 * @param hashed  признак хеширования хозяина HMAC-SHA1
+			 * @param result  место, в которое помещается строка known_hosts
+			 *
+			 * @return        признак успешности сборки
+			 *
+			 * @details При hashed хозяин идёт хешем HMAC-SHA1 со случайной солью
+			 *          в двадцать байтов; иначе - открытым текстом
+			 *
+			 * \~english
+			 * @brief Method of the building of a known_hosts line
+			 * @param host    the host
+			 * @param key     the public key
+			 * @param comment the comment
+			 * @param hashed  the flag of the hashing of the host by HMAC-SHA1
+			 * @param result  the place the known_hosts line is put into
+			 * @return        the flag of the success of the building
+			 * @details At hashed the host goes by an HMAC-SHA1 hash with a random
+			 *          salt of twenty bytes; otherwise - in plain text
+			 *
+			 * \~
+			 */
+			__ANTS_SHARED_EXPORT__ bool knownHosts(const string & host, const key_t & key, const string & comment, const bool hashed, string & result) noexcept;
+			/**
+			 * \~russian
+			 * @brief Метод сверки хозяина с записью known_hosts
+			 *
+			 * @param record сведения о записи known_hosts
+			 * @param host   сверяемый хозяин
+			 *
+			 * @return       признак совпадения хозяина
+			 *
+			 * @details У открытой записи хозяин сличается строкой; у хешированной -
+			 *          вычислением HMAC-SHA1(соль, хозяин) и постоянной сверкой
+			 *
+			 * \~english
+			 * @brief Method of the matching of a host against a known_hosts record
+			 * @param record the known_hosts record info
+			 * @param host   the host being matched
+			 * @return       the flag of the match of the host
+			 * @details At a plain record the host is compared as a string; at a hashed
+			 *          one - by computing HMAC-SHA1(salt, host) and a constant-time
+			 *          comparison
+			 *
+			 * \~
+			 */
+			__ANTS_SHARED_EXPORT__ bool knownHostsMatch(const known_host_t & record, const string & host) noexcept;
 		};
 	};
 };

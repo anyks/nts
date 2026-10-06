@@ -126,3 +126,21 @@ target_link_libraries(${TEST_SNTRUP761_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_
 
 # Регистрируем цель проверок
 add_test(NAME ${TEST_SNTRUP761_NAME} COMMAND ${TEST_SNTRUP761_NAME})
+
+# Устанавливаем имя цели проверок модуля гибридного обмена sntrup761x25519
+SET(TEST_SNTRUP761X25519_NAME sntrup761x25519)
+
+# Добавляем цель проверок модуля гибридного обмена sntrup761x25519
+add_executable(${TEST_SNTRUP761X25519_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/sntrup761x25519.cpp")
+
+# Включаем флаги компиляции проверок
+target_compile_options(${TEST_SNTRUP761X25519_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
+
+# Подключаем каталог общих заголовочных файлов набора проверок
+target_include_directories(${TEST_SNTRUP761X25519_NAME} PRIVATE "${ANTS_ROOT}/tests")
+
+# Выполняем подключение зависимостей цели проверок
+target_link_libraries(${TEST_SNTRUP761X25519_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
+
+# Регистрируем цель проверок
+add_test(NAME ${TEST_SNTRUP761X25519_NAME} COMMAND ${TEST_SNTRUP761X25519_NAME})
