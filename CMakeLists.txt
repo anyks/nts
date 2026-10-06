@@ -193,6 +193,7 @@ SET(SOURCE_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/acme/acme.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/cms/cms.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/cmp/cmp.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/srtp/srtp.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ocsp/ocsp.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/digest/streebog.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/digest/sm3.cpp"
