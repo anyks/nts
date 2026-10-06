@@ -126,7 +126,10 @@ namespace nts {
 			NONE     = 0x00, /*!< \~russian Запись не разобрана \~english The record is not parsed \~ */
 			DATA     = 0x01, /*!< \~russian Данные id-data по разделу 4 RFC 5652 \~english The id-data content according to the section 4 of RFC 5652 \~ */
 			SIGNED   = 0x02, /*!< \~russian Подписанные данные id-signedData по разделу 5 RFC 5652 \~english The id-signedData content according to the section 5 of RFC 5652 \~ */
-			ENVELOPED = 0x03 /*!< \~russian Зашифрованные данные id-envelopedData по разделу 6 RFC 5652 \~english The id-envelopedData content according to the section 6 of RFC 5652 \~ */
+			ENVELOPED = 0x03, /*!< \~russian Зашифрованные данные id-envelopedData по разделу 6 RFC 5652 \~english The id-envelopedData content according to the section 6 of RFC 5652 \~ */
+			DIGESTED = 0x04, /*!< \~russian Хешированные данные id-digestedData по разделу 7 RFC 5652 \~english The id-digestedData content according to the section 7 of RFC 5652 \~ */
+			ENCRYPTED = 0x05, /*!< \~russian Зашифрованные данные id-encryptedData по разделу 8 RFC 5652 \~english The id-encryptedData content according to the section 8 of RFC 5652 \~ */
+			AUTHENTICATED = 0x06 /*!< \~russian Данные с имитовставкой id-authenticatedData по разделу 9 RFC 5652 \~english The id-authenticatedData content according to the section 9 of RFC 5652 \~ */
 		};
 
 		/**
@@ -749,6 +752,527 @@ namespace nts {
 		 * \~
 		 */
 		__ANTS_SHARED_EXPORT__ error_t unenvelop(const enveloped_t & enveloped, const agreement::kem_t kem, const view_t & secret, vector <uint8_t> & result) noexcept;
+
+		/**
+		 * \~russian
+		 * @brief Хешированное сообщение DigestedData
+		 *
+		 * @details Объект хранит разобранные сведения записи и просмотры внутрь
+		 *          разбираемой записи. Запись обязана пережить объект.
+		 *
+		 * \~english
+		 * @brief A DigestedData digested message
+		 * @details The object keeps the parsed info of the record and the views inside
+		 *          the record being parsed. The record must outlive the object.
+		 *
+		 * \~
+		 *
+		 */
+		typedef class __ANTS_SHARED_EXPORT__ Digested {
+			private:
+				// Причина последнего отказа
+				error_t _error;
+			private:
+				// Опознаватель алгоритма хеша
+				string _algorithm;
+			private:
+				// Просмотр содержимого
+				view_t _content;
+			private:
+				// Просмотр содержимого хеша
+				view_t _digest;
+			public:
+				/**
+				 * \~russian
+				 * @brief Метод разбора записи ContentInfo вида id-digestedData
+				 *
+				 * @param data просмотр разбираемой записи
+				 * @return     причина отказа либо error_t::NONE
+				 *
+				 * \~english
+				 * @brief Method of parsing a ContentInfo record of the id-digestedData kind
+				 * @param data the view of the record being parsed
+				 * @return     the reason of the failure or error_t::NONE
+				 *
+				 * \~
+				 *
+				 */
+				error_t parse(const view_t & data) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод очистки разобранных сведений
+				 *
+				 * \~english
+				 * @brief Method of clearing the parsed info
+				 *
+				 * \~
+				 *
+				 */
+				void clear() noexcept;
+			public:
+				/**
+				 * \~russian
+				 * @brief Метод извлечения причины последнего отказа
+				 *
+				 * @return причина последнего отказа
+				 *
+				 * \~english
+				 * @brief Method of getting the reason of the last failure
+				 * @return the reason of the last failure
+				 *
+				 * \~
+				 *
+				 */
+				error_t err() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод извлечения опознавателя алгоритма хеша
+				 *
+				 * @return опознаватель алгоритма хеша
+				 *
+				 * \~english
+				 * @brief Method of getting the hash algorithm identifier
+				 * @return the hash algorithm identifier
+				 *
+				 * \~
+				 *
+				 */
+				const string & algorithm() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод извлечения содержимого
+				 *
+				 * @return просмотр содержимого
+				 *
+				 * \~english
+				 * @brief Method of getting the content
+				 * @return the view of the content
+				 *
+				 * \~
+				 *
+				 */
+				const view_t & content() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод извлечения хеша содержимого
+				 *
+				 * @return просмотр содержимого хеша
+				 *
+				 * \~english
+				 * @brief Method of getting the content digest
+				 * @return the view of the digest content
+				 *
+				 * \~
+				 *
+				 */
+				const view_t & digest() const noexcept;
+			public:
+				/**
+				 * \~russian
+				 * @brief Конструктор
+				 *
+				 * \~english
+				 * @brief Constructor
+				 *
+				 * \~
+				 *
+				 */
+				Digested() noexcept;
+				/**
+				 * \~russian
+				 * @brief Деструктор
+				 *
+				 * \~english
+				 * @brief Destructor
+				 *
+				 * \~
+				 *
+				 */
+				~Digested() noexcept {}
+		} digested_t;
+
+		/**
+		 * \~russian
+		 * @brief Зашифрованное сообщение EncryptedData
+		 *
+		 * \~english
+		 * @brief An EncryptedData encrypted message
+		 *
+		 * \~
+		 *
+		 */
+		typedef class __ANTS_SHARED_EXPORT__ Encrypted {
+			private:
+				// Причина последнего отказа
+				error_t _error;
+			private:
+				// Опознаватель алгоритма шифрования содержимого
+				string _algorithm;
+			private:
+				// Просмотр записи настроек алгоритма шифрования (вектор инициализации)
+				view_t _parameters;
+			private:
+				// Просмотр зашифрованного содержимого
+				view_t _content;
+			public:
+				/**
+				 * \~russian
+				 * @brief Метод разбора записи ContentInfo вида id-encryptedData
+				 *
+				 * @param data просмотр разбираемой записи
+				 * @return     причина отказа либо error_t::NONE
+				 *
+				 * \~english
+				 * @brief Method of parsing a ContentInfo record of the id-encryptedData kind
+				 * @param data the view of the record being parsed
+				 * @return     the reason of the failure or error_t::NONE
+				 *
+				 * \~
+				 *
+				 */
+				error_t parse(const view_t & data) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод очистки разобранных сведений
+				 *
+				 * \~english
+				 * @brief Method of clearing the parsed info
+				 *
+				 * \~
+				 *
+				 */
+				void clear() noexcept;
+			public:
+				/**
+				 * \~russian
+				 * @brief Метод извлечения причины последнего отказа
+				 *
+				 * @return причина последнего отказа
+				 *
+				 * \~english
+				 * @brief Method of getting the reason of the last failure
+				 * @return the reason of the last failure
+				 *
+				 * \~
+				 *
+				 */
+				error_t err() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод извлечения опознавателя алгоритма шифрования
+				 *
+				 * @return опознаватель алгоритма шифрования содержимого
+				 *
+				 * \~english
+				 * @brief Method of getting the encryption algorithm identifier
+				 * @return the content encryption algorithm identifier
+				 *
+				 * \~
+				 *
+				 */
+				const string & algorithm() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод извлечения настроек алгоритма шифрования
+				 *
+				 * @return просмотр записи настроек алгоритма (вектор инициализации)
+				 *
+				 * \~english
+				 * @brief Method of getting the encryption algorithm parameters
+				 * @return the view of the algorithm parameters record (the initialization vector)
+				 *
+				 * \~
+				 *
+				 */
+				const view_t & parameters() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод извлечения зашифрованного содержимого
+				 *
+				 * @return просмотр зашифрованного содержимого
+				 *
+				 * \~english
+				 * @brief Method of getting the encrypted content
+				 * @return the view of the encrypted content
+				 *
+				 * \~
+				 *
+				 */
+				const view_t & content() const noexcept;
+			public:
+				/**
+				 * \~russian
+				 * @brief Конструктор
+				 *
+				 * \~english
+				 * @brief Constructor
+				 *
+				 * \~
+				 *
+				 */
+				Encrypted() noexcept;
+				/**
+				 * \~russian
+				 * @brief Деструктор
+				 *
+				 * \~english
+				 * @brief Destructor
+				 *
+				 * \~
+				 *
+				 */
+				~Encrypted() noexcept {}
+		} encrypted_t;
+
+		/**
+		 * \~russian
+		 * @brief Сообщение с имитовставкой AuthenticatedData
+		 *
+		 * \~english
+		 * @brief An AuthenticatedData authenticated message
+		 *
+		 * \~
+		 *
+		 */
+		typedef class __ANTS_SHARED_EXPORT__ Authenticated {
+			private:
+				// Причина последнего отказа
+				error_t _error;
+			private:
+				// Опознаватель алгоритма имитовставки
+				string _algorithm;
+			private:
+				// Просмотр содержимого
+				view_t _content;
+			private:
+				// Просмотр содержимого имитовставки
+				view_t _mac;
+			public:
+				/**
+				 * \~russian
+				 * @brief Метод разбора записи ContentInfo вида id-authenticatedData
+				 *
+				 * @param data просмотр разбираемой записи
+				 * @return     причина отказа либо error_t::NONE
+				 *
+				 * \~english
+				 * @brief Method of parsing a ContentInfo record of the id-authenticatedData kind
+				 * @param data the view of the record being parsed
+				 * @return     the reason of the failure or error_t::NONE
+				 *
+				 * \~
+				 *
+				 */
+				error_t parse(const view_t & data) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод очистки разобранных сведений
+				 *
+				 * \~english
+				 * @brief Method of clearing the parsed info
+				 *
+				 * \~
+				 *
+				 */
+				void clear() noexcept;
+			public:
+				/**
+				 * \~russian
+				 * @brief Метод извлечения причины последнего отказа
+				 *
+				 * @return причина последнего отказа
+				 *
+				 * \~english
+				 * @brief Method of getting the reason of the last failure
+				 * @return the reason of the last failure
+				 *
+				 * \~
+				 *
+				 */
+				error_t err() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод извлечения опознавателя алгоритма имитовставки
+				 *
+				 * @return опознаватель алгоритма имитовставки
+				 *
+				 * \~english
+				 * @brief Method of getting the MAC algorithm identifier
+				 * @return the MAC algorithm identifier
+				 *
+				 * \~
+				 *
+				 */
+				const string & algorithm() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод извлечения содержимого
+				 *
+				 * @return просмотр содержимого
+				 *
+				 * \~english
+				 * @brief Method of getting the content
+				 * @return the view of the content
+				 *
+				 * \~
+				 *
+				 */
+				const view_t & content() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод извлечения имитовставки
+				 *
+				 * @return просмотр содержимого имитовставки
+				 *
+				 * \~english
+				 * @brief Method of getting the MAC
+				 * @return the view of the MAC content
+				 *
+				 * \~
+				 *
+				 */
+				const view_t & mac() const noexcept;
+			public:
+				/**
+				 * \~russian
+				 * @brief Конструктор
+				 *
+				 * \~english
+				 * @brief Constructor
+				 *
+				 * \~
+				 *
+				 */
+				Authenticated() noexcept;
+				/**
+				 * \~russian
+				 * @brief Деструктор
+				 *
+				 * \~english
+				 * @brief Destructor
+				 *
+				 * \~
+				 *
+				 */
+				~Authenticated() noexcept {}
+		} authenticated_t;
+
+		/**
+		 * \~russian
+		 * @brief Метод сборки записи DigestedData
+		 *
+		 * @param content хешируемое содержимое
+		 * @param hash    алгоритм хеша
+		 * @param result  место, в которое помещается запись ContentInfo
+		 * @return        причина отказа либо error_t::NONE
+		 *
+		 * \~english
+		 * @brief Method of building a DigestedData record
+		 * @param content the content being digested
+		 * @param hash    the hashing algorithm
+		 * @param result  the place the ContentInfo record is put into
+		 * @return        the reason of the failure or error_t::NONE
+		 *
+		 * \~
+		 *
+		 */
+		__ANTS_SHARED_EXPORT__ error_t digest(const view_t & content, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод проверки записи DigestedData
+		 *
+		 * @param digested разобранная запись
+		 * @return         причина отказа либо error_t::NONE
+		 *
+		 * \~english
+		 * @brief Method of checking a DigestedData record
+		 * @param digested the parsed record
+		 * @return         the reason of the failure or error_t::NONE
+		 *
+		 * \~
+		 *
+		 */
+		__ANTS_SHARED_EXPORT__ error_t digestVerify(const digested_t & digested) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод сборки записи EncryptedData
+		 *
+		 * @param content  шифруемое содержимое
+		 * @param key      ключ шифрования содержимого (16/24/32 байта AES)
+		 * @param result   место, в которое помещается запись ContentInfo
+		 * @return         причина отказа либо error_t::NONE
+		 *
+		 * \~english
+		 * @brief Method of building an EncryptedData record
+		 * @param content  the content being encrypted
+		 * @param key      the content encryption key (16/24/32 bytes of AES)
+		 * @param result   the place the ContentInfo record is put into
+		 * @return         the reason of the failure or error_t::NONE
+		 *
+		 * \~
+		 *
+		 */
+		__ANTS_SHARED_EXPORT__ error_t encrypt(const view_t & content, const view_t & key, vector <uint8_t> & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод расшифрования записи EncryptedData
+		 *
+		 * @param encrypted разобранная запись
+		 * @param key       ключ шифрования содержимого
+		 * @param result    место, в которое помещается расшифрованное содержимое
+		 * @return          причина отказа либо error_t::NONE
+		 *
+		 * \~english
+		 * @brief Method of decrypting an EncryptedData record
+		 * @param encrypted the parsed record
+		 * @param key       the content encryption key
+		 * @param result    the place the decrypted content is put into
+		 * @return          the reason of the failure or error_t::NONE
+		 *
+		 * \~
+		 *
+		 */
+		__ANTS_SHARED_EXPORT__ error_t decrypt(const encrypted_t & encrypted, const view_t & key, vector <uint8_t> & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод сборки записи AuthenticatedData
+		 *
+		 * @param content  содержимое под имитовставку
+		 * @param key      ключ имитовставки
+		 * @param hash     алгоритм хеша имитовставки HMAC
+		 * @param result   место, в которое помещается запись ContentInfo
+		 * @return         причина отказа либо error_t::NONE
+		 *
+		 * \~english
+		 * @brief Method of building an AuthenticatedData record
+		 * @param content  the content being authenticated
+		 * @param key      the MAC key
+		 * @param hash     the hashing algorithm of the HMAC MAC
+		 * @param result   the place the ContentInfo record is put into
+		 * @return         the reason of the failure or error_t::NONE
+		 *
+		 * \~
+		 *
+		 */
+		__ANTS_SHARED_EXPORT__ error_t authenticate(const view_t & content, const view_t & key, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод проверки записи AuthenticatedData
+		 *
+		 * @param authenticated разобранная запись
+		 * @param key           ключ имитовставки
+		 * @return              причина отказа либо error_t::NONE
+		 *
+		 * \~english
+		 * @brief Method of checking an AuthenticatedData record
+		 * @param authenticated the parsed record
+		 * @param key           the MAC key
+		 * @return              the reason of the failure or error_t::NONE
+		 *
+		 * \~
+		 *
+		 */
+		__ANTS_SHARED_EXPORT__ error_t authenticateVerify(const authenticated_t & authenticated, const view_t & key) noexcept;
 	};
 };
 

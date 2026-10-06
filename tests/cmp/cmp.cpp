@@ -845,3 +845,542 @@ TEST(CmpTest, Refusals) {
 	// Проверка паролем отвергается
 	ASSERT_EQ(cmp::verify(parsed, view_t()), cmp::error_t::EMPTY);
 }
+
+/**
+ * @brief Проверка круговой сборки и разбора запроса p10cr (PKCS #10)
+ *
+ */
+TEST(CmpTest, Pkcs10Roundtrip) {
+	// Песочница файлов проверки
+	sandbox_t sandbox;
+	// Запись сертификата и набор блоков PEM
+	std::string text;
+	// Набор блоков PEM
+	std::vector <pem::block_t> blocks;
+	// Сертификат владельца
+	x509::certificate_t certificate;
+	// Разбираем сертификат
+	load(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
+	// Секретный ключ подписи
+	keys::signer_t signer;
+	// Подготавливаем ключ подписи
+	ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/leaf-rsa.key"))), keys::error_t::NONE);
+	// Вырабатываем запрос PKCS #10 эталоном
+	if(shell(std::string("openssl req -new -key ") + CORPUS + "/leaf-rsa.key -out " + sandbox.file("csr.der") + " -outform DER -subj \"/CN=cmp-test\" 2>/dev/null") != 0)
+		// Пропускаем проверку, если OpenSSL недоступен
+		GTEST_SKIP() << "openssl req is not available";
+	// Читаем запись запроса
+	const std::string csr = slurp(sandbox.file("csr.der"));
+	// Если записи нет
+	if(csr.empty())
+		// Пропускаем проверку
+		GTEST_SKIP() << "openssl req produced no record";
+	// Записи имён отправителя и получателя
+	std::vector <uint8_t> sender, recipient;
+	// Собираем имена отправителя и получателя
+	nameOf("cmp-client", sender);
+	nameOf("cmp-ca", recipient);
+	// Запись сообщения
+	std::vector <uint8_t> record;
+	// Собираем запрос p10cr с защитой подписью
+	ASSERT_EQ(cmp::requestPkcs10(view(sender), view(recipient), view(csr), signer, digest::hash_t::SHA256, record), cmp::error_t::NONE);
+	// Разбираем запись сообщения
+	cmp::message_t parsed;
+	// Разбор обязан удаться
+	ASSERT_EQ(parsed.parse(view(record)), cmp::error_t::NONE);
+	// Вид тела обязан быть p10cr
+	ASSERT_EQ(parsed.kind(), cmp::body_t::P10CR);
+	// Запись запроса обязана совпасть
+	ASSERT_EQ(parsed.body().size, csr.size());
+	ASSERT_EQ(::memcmp(parsed.body().data, csr.data(), csr.size()), 0);
+	// Проверка защиты ключом владельца обязана удаться
+	ASSERT_EQ(cmp::verify(parsed, certificate.key()), cmp::error_t::NONE);
+}
+
+/**
+ * @brief Проверка круговой сборки и разбора вызовов popdecc/popdecr
+ *
+ */
+TEST(CmpTest, ChallengeRoundtrip) {
+	// Песочница файлов проверки
+	sandbox_t sandbox;
+	// Запись сертификата и набор блоков PEM
+	std::string text;
+	// Набор блоков PEM
+	std::vector <pem::block_t> blocks;
+	// Сертификат владельца
+	x509::certificate_t certificate;
+	// Разбираем сертификат
+	load(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
+	// Секретный ключ подписи
+	keys::signer_t signer;
+	// Подготавливаем ключ подписи
+	ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/leaf-rsa.key"))), keys::error_t::NONE);
+	// Записи имён отправителя и получателя
+	std::vector <uint8_t> sender, recipient;
+	// Собираем имена отправителя и получателя
+	nameOf("cmp-ca", sender);
+	nameOf("cmp-client", recipient);
+	// Вызов подтверждения владения
+	cmp::challenge_t challenge;
+	// Свидетель и вызов
+	static const uint8_t WITNESS[] = {0x01, 0x02, 0x03, 0x04};
+	static const uint8_t CHALLENGE[] = {0x05, 0x06, 0x07, 0x08};
+	// Запоминаем свидетеля и вызов
+	challenge.witness = view_t(WITNESS, sizeof(WITNESS));
+	challenge.challenge = view_t(CHALLENGE, sizeof(CHALLENGE));
+	// Запись сообщения
+	std::vector <uint8_t> record;
+	// Собираем вызовы popdecc
+	ASSERT_EQ(cmp::challenge(view(sender), view(recipient), {challenge}, signer, digest::hash_t::SHA256, record), cmp::error_t::NONE);
+	// Разбираем запись сообщения
+	cmp::message_t parsed;
+	// Разбор обязан удаться
+	ASSERT_EQ(parsed.parse(view(record)), cmp::error_t::NONE);
+	// Вид тела обязан быть popdecc
+	ASSERT_EQ(parsed.kind(), cmp::body_t::POPDECC);
+	// Разбираем вызовы тела
+	std::vector <cmp::challenge_t> challenges;
+	// Разбор обязан удаться
+	ASSERT_EQ(cmp::challenges(parsed.body(), challenges), cmp::error_t::NONE);
+	// Вызов обязан быть один
+	ASSERT_EQ(challenges.size(), 1);
+	// Свидетель и вызов обязаны совпасть
+	ASSERT_EQ(challenges[0].witness.size, sizeof(WITNESS));
+	ASSERT_EQ(::memcmp(challenges[0].witness.data, WITNESS, sizeof(WITNESS)), 0);
+	ASSERT_EQ(challenges[0].challenge.size, sizeof(CHALLENGE));
+	ASSERT_EQ(::memcmp(challenges[0].challenge.data, CHALLENGE, sizeof(CHALLENGE)), 0);
+	// Проверка защиты ключом ЦС обязана удаться
+	ASSERT_EQ(cmp::verify(parsed, certificate.key()), cmp::error_t::NONE);
+	// Запись ответа popdecr
+	std::vector <uint8_t> reply;
+	// Собираем ответы popdecr
+	ASSERT_EQ(cmp::challengeReply(view(recipient), view(sender), {42, 7}, signer, digest::hash_t::SHA256, reply), cmp::error_t::NONE);
+	// Разбираем запись ответа
+	cmp::message_t parsedReply;
+	// Разбор обязан удаться
+	ASSERT_EQ(parsedReply.parse(view(reply)), cmp::error_t::NONE);
+	// Вид тела обязан быть popdecr
+	ASSERT_EQ(parsedReply.kind(), cmp::body_t::POPDECR);
+	// Разбираем ответы тела
+	std::vector <int64_t> answers;
+	// Разбор обязан удаться
+	ASSERT_EQ(cmp::challengeAnswers(parsedReply.body(), answers), cmp::error_t::NONE);
+	// Ответов обязано быть два
+	ASSERT_EQ(answers.size(), 2);
+	// Числа обязаны совпасть
+	ASSERT_EQ(answers[0], 42);
+	ASSERT_EQ(answers[1], 7);
+}
+
+/**
+ * @brief Проверка круговой сборки и разбора ответа восстановления ключа krp
+ *
+ */
+TEST(CmpTest, RecoveryRoundtrip) {
+	// Песочница файлов проверки
+	sandbox_t sandbox;
+	// Запись сертификата ЦС и набор блоков PEM
+	std::string text;
+	// Набор блоков PEM
+	std::vector <pem::block_t> blocks;
+	// Сертификат ЦС
+	x509::certificate_t certificate;
+	// Разбираем сертификат ЦС
+	load(std::string(CORPUS) + "/ca-rsa.crt", text, blocks, certificate);
+	// Секретный ключ подписи ЦС
+	keys::signer_t signer;
+	// Подготавливаем ключ подписи ЦС
+	ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/ca-rsa.key"))), keys::error_t::NONE);
+	// Записи имён отправителя и получателя
+	std::vector <uint8_t> sender, recipient;
+	// Собираем имена отправителя и получателя
+	nameOf("cmp-ca", sender);
+	nameOf("cmp-client", recipient);
+	// Ответ восстановления ключа
+	cmp::recovery_t recovery;
+	// Статус принятия
+	recovery.status.status = cmp::status_t::ACCEPTED;
+	// Запись нового сертификата подписи
+	recovery.certificate = view(blocks[0].data);
+	// Записи сертификатов ЦС
+	recovery.caCertificates.push_back(view(blocks[0].data));
+	// Запись сообщения
+	std::vector <uint8_t> record;
+	// Собираем ответ krp
+	ASSERT_EQ(cmp::recovered(view(sender), view(recipient), recovery, signer, digest::hash_t::SHA256, record), cmp::error_t::NONE);
+	// Разбираем запись сообщения
+	cmp::message_t parsed;
+	// Разбор обязан удаться
+	ASSERT_EQ(parsed.parse(view(record)), cmp::error_t::NONE);
+	// Вид тела обязан быть krp
+	ASSERT_EQ(parsed.kind(), cmp::body_t::KRP);
+	// Разбираем ответ тела
+	cmp::recovery_t parsedRecovery;
+	// Разбор обязан удаться
+	ASSERT_EQ(cmp::recovery(parsed.body(), parsedRecovery), cmp::error_t::NONE);
+	// Статус обязан быть принятием
+	ASSERT_EQ(parsedRecovery.status.status, cmp::status_t::ACCEPTED);
+	// Запись сертификата обязана совпасть
+	ASSERT_EQ(parsedRecovery.certificate.size, blocks[0].data.size());
+	// Сертификат ЦС обязан быть один
+	ASSERT_EQ(parsedRecovery.caCertificates.size(), 1);
+	// Проверка защиты ключом ЦС обязана удаться
+	ASSERT_EQ(cmp::verify(parsed, certificate.key()), cmp::error_t::NONE);
+}
+
+/**
+ * @brief Проверка круговой сборки и разбора ответа отзыва rp
+ *
+ */
+TEST(CmpTest, RevokedRoundtrip) {
+	// Песочница файлов проверки
+	sandbox_t sandbox;
+	// Запись сертификата ЦС и набор блоков PEM
+	std::string text;
+	// Набор блоков PEM
+	std::vector <pem::block_t> blocks;
+	// Сертификат ЦС
+	x509::certificate_t certificate;
+	// Разбираем сертификат ЦС
+	load(std::string(CORPUS) + "/ca-rsa.crt", text, blocks, certificate);
+	// Секретный ключ подписи ЦС
+	keys::signer_t signer;
+	// Подготавливаем ключ подписи ЦС
+	ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/ca-rsa.key"))), keys::error_t::NONE);
+	// Записи имён отправителя и получателя
+	std::vector <uint8_t> sender, recipient;
+	// Собираем имена отправителя и получателя
+	nameOf("cmp-ca", sender);
+	nameOf("cmp-client", recipient);
+	// Сведения о статусе отзыва
+	cmp::status_info_t status;
+	// Статус принятия
+	status.status = cmp::status_t::ACCEPTED;
+	// Запись сообщения
+	std::vector <uint8_t> record;
+	// Собираем ответ rp
+	ASSERT_EQ(cmp::revoked(view(sender), view(recipient), {status}, signer, digest::hash_t::SHA256, record), cmp::error_t::NONE);
+	// Разбираем запись сообщения
+	cmp::message_t parsed;
+	// Разбор обязан удаться
+	ASSERT_EQ(parsed.parse(view(record)), cmp::error_t::NONE);
+	// Вид тела обязан быть rp
+	ASSERT_EQ(parsed.kind(), cmp::body_t::RP);
+	// Разбираем ответ тела
+	cmp::revoked_t revoked;
+	// Разбор обязан удаться
+	ASSERT_EQ(cmp::revoked(parsed.body(), revoked), cmp::error_t::NONE);
+	// Статус обязан быть один
+	ASSERT_EQ(revoked.statuses.size(), 1);
+	// Статус обязан быть принятием
+	ASSERT_EQ(revoked.statuses[0].status, cmp::status_t::ACCEPTED);
+	// Проверка защиты ключом ЦС обязана удаться
+	ASSERT_EQ(cmp::verify(parsed, certificate.key()), cmp::error_t::NONE);
+}
+
+/**
+ * @brief Проверка круговой сборки и разбора объявлений ckuann/cann/crlann
+ *
+ */
+TEST(CmpTest, AnnouncementsRoundtrip) {
+	// Песочница файлов проверки
+	sandbox_t sandbox;
+	// Запись сертификата ЦС и набор блоков PEM
+	std::string text;
+	// Набор блоков PEM
+	std::vector <pem::block_t> blocks;
+	// Сертификат ЦС
+	x509::certificate_t certificate;
+	// Разбираем сертификат ЦС
+	load(std::string(CORPUS) + "/ca-rsa.crt", text, blocks, certificate);
+	// Секретный ключ подписи ЦС
+	keys::signer_t signer;
+	// Подготавливаем ключ подписи ЦС
+	ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/ca-rsa.key"))), keys::error_t::NONE);
+	// Записи имён отправителя и получателя
+	std::vector <uint8_t> sender, recipient;
+	// Собираем имена отправителя и получателя
+	nameOf("cmp-ca", sender);
+	nameOf("cmp-client", recipient);
+	// Запись сообщения ckuann
+	std::vector <uint8_t> ckuann;
+	// Собираем объявление обновления ключа ЦС
+	ASSERT_EQ(cmp::caKeyUpdate(view(sender), view(recipient), view(blocks[0].data), view(blocks[0].data), view(blocks[0].data), signer, digest::hash_t::SHA256, ckuann), cmp::error_t::NONE);
+	// Разбираем запись сообщения
+	cmp::message_t parsedCkuann;
+	// Разбор обязан удаться
+	ASSERT_EQ(parsedCkuann.parse(view(ckuann)), cmp::error_t::NONE);
+	// Вид тела обязан быть ckuann
+	ASSERT_EQ(parsedCkuann.kind(), cmp::body_t::CKUANN);
+	// Разбираем объявление тела
+	view_t oldWithNew, newWithOld, newWithNew;
+	// Разбор обязан удаться
+	ASSERT_EQ(cmp::caKeyUpdate(parsedCkuann.body(), oldWithNew, newWithOld, newWithNew), cmp::error_t::NONE);
+	// Записи сертификатов обязаны совпасть
+	ASSERT_EQ(oldWithNew.size, blocks[0].data.size());
+	ASSERT_EQ(newWithOld.size, blocks[0].data.size());
+	ASSERT_EQ(newWithNew.size, blocks[0].data.size());
+	// Проверка защиты ключом ЦС обязана удаться
+	ASSERT_EQ(cmp::verify(parsedCkuann, certificate.key()), cmp::error_t::NONE);
+	// Запись сообщения cann
+	std::vector <uint8_t> cann;
+	// Собираем объявление сертификата
+	ASSERT_EQ(cmp::announce(view(sender), view(recipient), view(blocks[0].data), signer, digest::hash_t::SHA256, cann), cmp::error_t::NONE);
+	// Разбираем запись сообщения
+	cmp::message_t parsedCann;
+	// Разбор обязан удаться
+	ASSERT_EQ(parsedCann.parse(view(cann)), cmp::error_t::NONE);
+	// Вид тела обязан быть cann
+	ASSERT_EQ(parsedCann.kind(), cmp::body_t::CANN);
+	// Запись сертификата обязана совпасть
+	ASSERT_EQ(parsedCann.body().size, blocks[0].data.size());
+	// Проверка защиты ключом ЦС обязана удаться
+	ASSERT_EQ(cmp::verify(parsedCann, certificate.key()), cmp::error_t::NONE);
+	// Запись сообщения crlann
+	std::vector <uint8_t> crlann;
+	// Читаем запись списка отзыва набора
+	const std::string crlText = slurp(std::string(CORPUS) + "/ca-rsa.crl");
+	// Если записи нет
+	ASSERT_FALSE(crlText.empty());
+	// Набор блоков PEM списка отзыва
+	std::vector <pem::block_t> crlBlocks;
+	// Разбираем запись PEM списка отзыва
+	ASSERT_EQ(pem::decode(crlText, crlBlocks), pem::error_t::NONE);
+	// Собираем объявление списков отзыва
+	ASSERT_EQ(cmp::announceCrls(view(sender), view(recipient), {view(crlBlocks[0].data)}, signer, digest::hash_t::SHA256, crlann), cmp::error_t::NONE);
+	// Разбираем запись сообщения
+	cmp::message_t parsedCrlann;
+	// Разбор обязан удаться
+	ASSERT_EQ(parsedCrlann.parse(view(crlann)), cmp::error_t::NONE);
+	// Вид тела обязан быть crlann
+	ASSERT_EQ(parsedCrlann.kind(), cmp::body_t::CRLANN);
+	// Разбираем объявление тела
+	std::vector <view_t> crls;
+	// Разбор обязан удаться
+	ASSERT_EQ(cmp::crlAnnouncement(parsedCrlann.body(), crls), cmp::error_t::NONE);
+	// Список обязан быть один
+	ASSERT_EQ(crls.size(), 1);
+	// Запись списка обязана совпасть
+	ASSERT_EQ(crls[0].size, crlBlocks[0].data.size());
+	// Проверка защиты ключом ЦС обязана удаться
+	ASSERT_EQ(cmp::verify(parsedCrlann, certificate.key()), cmp::error_t::NONE);
+}
+
+/**
+ * @brief Проверка круговой сборки и разбора объявления отзыва rann
+ *
+ */
+TEST(CmpTest, RevAnnouncementRoundtrip) {
+	// Песочница файлов проверки
+	sandbox_t sandbox;
+	// Запись сертификата ЦС и набор блоков PEM
+	std::string text;
+	// Набор блоков PEM
+	std::vector <pem::block_t> blocks;
+	// Сертификат ЦС
+	x509::certificate_t certificate;
+	// Разбираем сертификат ЦС
+	load(std::string(CORPUS) + "/ca-rsa.crt", text, blocks, certificate);
+	// Секретный ключ подписи ЦС
+	keys::signer_t signer;
+	// Подготавливаем ключ подписи ЦС
+	ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/ca-rsa.key"))), keys::error_t::NONE);
+	// Записи имён отправителя и получателя
+	std::vector <uint8_t> sender, recipient;
+	// Собираем имена отправителя и получателя
+	nameOf("cmp-ca", sender);
+	nameOf("cmp-client", recipient);
+	// Объявление отзыва
+	cmp::announcement_t announcement;
+	// Статус извещения об отзыве
+	announcement.status = cmp::status_t::REVOCATION_NOTIFICATION;
+	// Время занесения и компрометации
+	announcement.willBeRevokedAt = 1780000000;
+	announcement.badSinceDate = 1770000000;
+	// Опознаватель сертификата CertId: собираем записью issuer+serial
+	// Запись опознавателя сертификата (хранится вне блока записчика)
+	std::vector <uint8_t> certIdRecord;
+	{
+		// Записчик записи CertId
+		asn1::writer_t certId;
+		// Открываем запись CertId
+		ASSERT_TRUE(certId.open(asn1::tag_t::SEQUENCE));
+		// Переносим запись имени издателя под явной меткой [4] (directoryName)
+		ASSERT_TRUE(certId.open(asn1::cls_t::CONTEXT, 4));
+		// Разборщик записи имени издателя
+		asn1::reader_t reader(certificate.issuers().element);
+		// Элемент записи имени
+		asn1::element_t name;
+		// Разбор обязан удаться
+		ASSERT_TRUE(reader.next(name));
+		// Переносим содержимое имени
+		ASSERT_TRUE(certId.element(name.cls, name.constructed, name.tag, name.content));
+		// Закрываем явную метку [4]
+		ASSERT_TRUE(certId.close());
+		// Записываем порядковый номер
+		ASSERT_TRUE(certId.element(asn1::cls_t::UNIVERSAL, false, static_cast <uint32_t> (asn1::tag_t::INTEGER), certificate.number()));
+		// Закрываем запись CertId
+		ASSERT_TRUE(certId.close());
+		// Переносим запись опознавателя в набор байтов: просмотр записчика недолговечен
+		certIdRecord.assign(certId.data().data, certId.data().data + certId.data().size);
+	}
+	// Запоминаем запись опознавателя
+	announcement.certificate = view(certIdRecord);
+	// Запись сообщения
+	std::vector <uint8_t> record;
+	// Собираем объявление отзыва
+	ASSERT_EQ(cmp::announceRevocation(view(sender), view(recipient), announcement, signer, digest::hash_t::SHA256, record), cmp::error_t::NONE);
+	// Разбираем запись сообщения
+	cmp::message_t parsed;
+	// Разбор обязан удаться
+	ASSERT_EQ(parsed.parse(view(record)), cmp::error_t::NONE);
+	// Вид тела обязан быть rann
+	ASSERT_EQ(parsed.kind(), cmp::body_t::RANN);
+	// Разбираем объявление тела
+	cmp::announcement_t parsedAnnouncement;
+	// Разбор обязан удаться
+	ASSERT_EQ(cmp::announcement(parsed.body(), parsedAnnouncement), cmp::error_t::NONE);
+	// Статус обязан быть извещением об отзыве
+	ASSERT_EQ(parsedAnnouncement.status, cmp::status_t::REVOCATION_NOTIFICATION);
+	// Время обязано совпасть
+	ASSERT_EQ(parsedAnnouncement.willBeRevokedAt, 1780000000);
+	ASSERT_EQ(parsedAnnouncement.badSinceDate, 1770000000);
+	// Проверка защиты ключом ЦС обязана удаться
+	ASSERT_EQ(cmp::verify(parsed, certificate.key()), cmp::error_t::NONE);
+}
+
+/**
+ * @brief Проверка круговой сборки и разбора вложенных сообщений nested
+ *
+ */
+TEST(CmpTest, NestedRoundtrip) {
+	// Песочница файлов проверки
+	sandbox_t sandbox;
+	// Запись сертификата и набор блоков PEM
+	std::string text;
+	// Набор блоков PEM
+	std::vector <pem::block_t> blocks;
+	// Сертификат владельца
+	x509::certificate_t certificate;
+	// Разбираем сертификат
+	load(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
+	// Секретный ключ подписи
+	keys::signer_t signer;
+	// Подготавливаем ключ подписи
+	ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/leaf-rsa.key"))), keys::error_t::NONE);
+	// Записи имён отправителя и получателя
+	std::vector <uint8_t> sender, recipient;
+	// Собираем имена отправителя и получателя
+	nameOf("cmp-client", sender);
+	nameOf("cmp-ca", recipient);
+	// Запись шаблона сертификата
+	std::vector <uint8_t> certTemplate;
+	// Собираем шаблон сертификата
+	ASSERT_EQ(cmp::certTemplate(certificate.subjects().element, certificate.key().element, certTemplate), cmp::error_t::NONE);
+	// Запись вложенного сообщения ir
+	std::vector <uint8_t> inner;
+	// Собираем запрос ir
+	ASSERT_EQ(cmp::request(cmp::body_t::IR, view(sender), view(recipient), {view(certTemplate)}, signer, digest::hash_t::SHA256, inner), cmp::error_t::NONE);
+	// Запись сообщения nested
+	std::vector <uint8_t> record;
+	// Собираем вложенное сообщение
+	ASSERT_EQ(cmp::nest(view(sender), view(recipient), {view(inner)}, signer, digest::hash_t::SHA256, record), cmp::error_t::NONE);
+	// Разбираем запись сообщения
+	cmp::message_t parsed;
+	// Разбор обязан удаться
+	ASSERT_EQ(parsed.parse(view(record)), cmp::error_t::NONE);
+	// Вид тела обязан быть nested
+	ASSERT_EQ(parsed.kind(), cmp::body_t::NESTED);
+	// Разбираем вложенные сообщения
+	std::vector <view_t> messages;
+	// Разбор обязан удаться
+	ASSERT_EQ(cmp::nested(parsed.body(), messages), cmp::error_t::NONE);
+	// Вложенное сообщение обязано быть одно
+	ASSERT_EQ(messages.size(), 1);
+	// Разбираем вложенное сообщение
+	cmp::message_t parsedInner;
+	// Разбор обязан удаться
+	ASSERT_EQ(parsedInner.parse(messages[0]), cmp::error_t::NONE);
+	// Вид тела вложенного обязан быть ir
+	ASSERT_EQ(parsedInner.kind(), cmp::body_t::IR);
+	// Проверка защиты вложенного обязана удаться
+	ASSERT_EQ(cmp::verify(parsedInner, certificate.key()), cmp::error_t::NONE);
+	// Проверка защиты внешнего обязана удаться
+	ASSERT_EQ(cmp::verify(parsed, certificate.key()), cmp::error_t::NONE);
+}
+
+/**
+ * @brief Проверка круговой сборки и разбора опроса pollReq/pollRep
+ *
+ */
+TEST(CmpTest, PollRoundtrip) {
+	// Песочница файлов проверки
+	sandbox_t sandbox;
+	// Запись сертификата и набор блоков PEM
+	std::string text;
+	// Набор блоков PEM
+	std::vector <pem::block_t> blocks;
+	// Сертификат владельца
+	x509::certificate_t certificate;
+	// Разбираем сертификат
+	load(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
+	// Секретный ключ подписи
+	keys::signer_t signer;
+	// Подготавливаем ключ подписи
+	ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/leaf-rsa.key"))), keys::error_t::NONE);
+	// Записи имён отправителя и получателя
+	std::vector <uint8_t> sender, recipient;
+	// Собираем имена отправителя и получателя
+	nameOf("cmp-client", sender);
+	nameOf("cmp-ca", recipient);
+	// Запись сообщения pollReq
+	std::vector <uint8_t> pollReq;
+	// Собираем запрос опроса
+	ASSERT_EQ(cmp::pollRequest(view(sender), view(recipient), {0, 1}, signer, digest::hash_t::SHA256, pollReq), cmp::error_t::NONE);
+	// Разбираем запись сообщения
+	cmp::message_t parsedReq;
+	// Разбор обязан удаться
+	ASSERT_EQ(parsedReq.parse(view(pollReq)), cmp::error_t::NONE);
+	// Вид тела обязан быть pollReq
+	ASSERT_EQ(parsedReq.kind(), cmp::body_t::POLLREQ);
+	// Разбираем опрос тела
+	std::vector <cmp::poll_t> reqs;
+	// Разбор обязан удаться
+	ASSERT_EQ(cmp::poll(parsedReq.body(), reqs), cmp::error_t::NONE);
+	// Записей обязано быть две
+	ASSERT_EQ(reqs.size(), 2);
+	// Опознаватели обязаны совпасть
+	ASSERT_EQ(reqs[0].id, 0);
+	ASSERT_EQ(reqs[1].id, 1);
+	// Запись сообщения pollRep
+	std::vector <uint8_t> pollRep;
+	// Запись опроса ответа
+	cmp::poll_t poll;
+	// Опознаватель и время ожидания
+	poll.id = 0;
+	poll.checkAfter = 60;
+	// Строка причины
+	poll.reason.push_back("waiting");
+	// Собираем ответ опроса
+	ASSERT_EQ(cmp::pollReply(view(recipient), view(sender), {poll}, signer, digest::hash_t::SHA256, pollRep), cmp::error_t::NONE);
+	// Разбираем запись сообщения
+	cmp::message_t parsedRep;
+	// Разбор обязан удаться
+	ASSERT_EQ(parsedRep.parse(view(pollRep)), cmp::error_t::NONE);
+	// Вид тела обязан быть pollRep
+	ASSERT_EQ(parsedRep.kind(), cmp::body_t::POLLREP);
+	// Разбираем опрос тела
+	std::vector <cmp::poll_t> reps;
+	// Разбор обязан удаться
+	ASSERT_EQ(cmp::poll(parsedRep.body(), reps), cmp::error_t::NONE);
+	// Запись обязана быть одна
+	ASSERT_EQ(reps.size(), 1);
+	// Поля обязаны совпасть
+	ASSERT_EQ(reps[0].id, 0);
+	ASSERT_EQ(reps[0].checkAfter, 60);
+	ASSERT_EQ(reps[0].reason.size(), 1);
+	ASSERT_EQ(reps[0].reason[0], "waiting");
+	// Проверка защиты обязана удаться
+	ASSERT_EQ(cmp::verify(parsedRep, certificate.key()), cmp::error_t::NONE);
+}

@@ -9252,3 +9252,22 @@ mpint делает SSH), rsa-sha2-256/512 (PKCS #1 v1.5); шифры chacha20-po
     а не усечение до длины итога имитовставки; мок-сервер openssl cmp требует -srv_ref,
     -srv_secret и -rsp_cert для ответа ip. ctest 107/107 зелёные.
     Пункт Г15 закрыт: PKCS #12, PKCS #10 и выпуск, CRL, ACME, CMS и CMP сделаны.
+    **Круг 95 (06.10.2026)**: CMS и CMP доведены до полного покрытия. Модуль cms дополнен
+    видами содержимого ContentInfo по RFC 5652: DigestedData (раздел 7 - хеш содержимого
+    с проверкой постоянной сверкой), EncryptedData (раздел 8 - AES-128/192/256-CBC с
+    дополнением PKCS #7, ключ вне записи), AuthenticatedData (раздел 9 - имитовставка
+    HMAC содержимого с постоянной сверкой); определение вида content() знает все шесть
+    видов. Модуль cmp дополнен всеми видами PKIBody по разделу 5.1.2 RFC 4210: сборка и
+    разбор p10cr (запрос PKCS #10 по RFC 2986), popdecc/popdecr (вызовы и ответы
+    подтверждения владения Challenge по разделу 5.2.8.3), krp (KeyRecRepContent с
+    newSigCert/caCerts/keyPairHist), rp (RevRepContent), ckuann (CAKeyUpdAnnContent),
+    cann (CertAnnContent), rann (RevAnnContent), crlann (CRLAnnContent), nested
+    (NestedMessageContent), pollReq/pollRep (PollReq/PollRepContent). Пины: CmsTest
+    13/13 (+DigestRoundtrip, EncryptRoundtrip, AuthenticateRoundtrip), CmpTest 20/20
+    (+Pkcs10Roundtrip на записи openssl req, ChallengeRoundtrip, RecoveryRoundtrip,
+    RevokedRoundtrip, AnnouncementsRoundtrip, RevAnnouncementRoundtrip, NestedRoundtrip,
+    PollRoundtrip). Ловушки: ca-rsa.crl набора - запись PEM, перед встройкой в crlann
+    декодируется в DER; просмотр writer.data() недолговечен - запись CertId для rann
+    переносится в набор байтов до конца блока записчика; чужой ключ EncryptedData
+    отказвает отказом STRUCTURE (дополнение PKCS #7 не сходится), а не KEY. ctest
+    107/107 зелёные.

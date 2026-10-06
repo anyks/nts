@@ -650,6 +650,298 @@ namespace nts {
 
 		/**
 		 * \~russian
+		 * @brief Вызов подтверждения владения Challenge
+		 *
+		 * \~english
+		 * @brief A Challenge possession challenge
+		 *
+		 * \~
+		 *
+		 */
+		typedef struct __ANTS_SHARED_EXPORT__ Challenge {
+			// Опознаватель алгоритма односторонней функции, пустой при отсутствии
+			string owf;
+			// Просмотр содержимого свидетеля witness
+			view_t witness;
+			// Просмотр содержимого вызова challenge
+			view_t challenge;
+		} challenge_t;
+
+		/**
+		 * \~russian
+		 * @brief Ответ восстановления ключа KeyRecRepContent
+		 *
+		 * \~english
+		 * @brief A KeyRecRepContent key recovery response
+		 *
+		 * \~
+		 *
+		 */
+		typedef struct __ANTS_SHARED_EXPORT__ Recovery {
+			// Сведения о статусе
+			status_info_t status;
+			// Просмотр записи нового сертификата подписи newSigCert, пустой при отсутствии
+			view_t certificate;
+			// Просмотры записей сертификатов ЦС caCerts
+			vector <view_t> caCertificates;
+			// Просмотры записей пар ключей keyPairHist (CertifiedKeyPair)
+			vector <view_t> history;
+		} recovery_t;
+
+		/**
+		 * \~russian
+		 * @brief Ответ отзыва RevRepContent
+		 *
+		 * \~english
+		 * @brief A RevRepContent revocation response
+		 *
+		 * \~
+		 *
+		 */
+		typedef struct __ANTS_SHARED_EXPORT__ Revoked {
+			// Сведения о статусах
+			vector <status_info_t> statuses;
+			// Просмотры записей опознавателей сертификатов revCerts (CertId)
+			vector <view_t> certificates;
+			// Просмотры записей списков отзыва crls (CertificateList)
+			vector <view_t> crls;
+		} revoked_t;
+
+		/**
+		 * \~russian
+		 * @brief Объявление отзыва RevAnnContent
+		 *
+		 * \~english
+		 * @brief A RevAnnContent revocation announcement
+		 *
+		 * \~
+		 *
+		 */
+		typedef struct __ANTS_SHARED_EXPORT__ Announcement {
+			// Статус отзыва
+			status_t status;
+			// Просмотр записи опознавателя сертификата CertId
+			view_t certificate;
+			// Время занесения в список отзыва willBeRevokedAt
+			int64_t willBeRevokedAt;
+			// Время компрометации badSinceDate
+			int64_t badSinceDate;
+			// Просмотр записи расширений crlDetails, пустой при отсутствии
+			view_t crlDetails;
+			/**
+			 * \~russian
+			 * @brief Конструктор
+			 *
+			 *
+			 * \~english
+			 * @brief Constructor
+			 *
+			 * \~
+			 *
+			 */
+			Announcement() noexcept : status(status_t::ACCEPTED), willBeRevokedAt(0), badSinceDate(0) {}
+		} announcement_t;
+
+		/**
+		 * \~russian
+		 * @brief Ответ опроса PollRepContent (запись одного запроса)
+		 *
+		 * \~english
+		 * @brief A PollRepContent polling response (a single request record)
+		 *
+		 * \~
+		 *
+		 */
+		typedef struct __ANTS_SHARED_EXPORT__ Poll {
+			// Опознаватель запроса certReqId
+			int64_t id;
+			// Время ожидания в секундах checkAfter (для pollRep), ноль для pollReq
+			int64_t checkAfter;
+			// Строки причины reason (для pollRep)
+			vector <string> reason;
+			/**
+			 * \~russian
+			 * @brief Конструктор
+			 *
+			 *
+			 * \~english
+			 * @brief Constructor
+			 *
+			 * \~
+			 *
+			 */
+			Poll() noexcept : id(0), checkAfter(0) {}
+		} poll_t;
+
+		/**
+		 * \~russian
+		 * @brief Метод разбора вызовов подтверждения владения POPODecKeyChallContent
+		 *
+		 * @param body   просмотр содержимого тела (для вида popdecc)
+		 * @param result место, в которое помещаются вызовы
+		 * @return       причина отказа либо error_t::NONE
+		 *
+		 * \~english
+		 * @brief Method of parsing the POPODecKeyChallContent possession challenges
+		 * @param body   the view of the body content (for the popdecc kind)
+		 * @param result the place the challenges are put into
+		 * @return       the reason of the failure or error_t::NONE
+		 *
+		 * \~
+		 *
+		 */
+		__ANTS_SHARED_EXPORT__ error_t challenges(const view_t & body, vector <challenge_t> & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод разбора ответов подтверждения владения POPODecKeyRespContent
+		 *
+		 * @param body   просмотр содержимого тела (для вида popdecr)
+		 * @param result место, в которое помещаются числа ответов
+		 * @return       причина отказа либо error_t::NONE
+		 *
+		 * \~english
+		 * @brief Method of parsing the POPODecKeyRespContent possession responses
+		 * @param body   the view of the body content (for the popdecr kind)
+		 * @param result the place the response numbers are put into
+		 * @return       the reason of the failure or error_t::NONE
+		 *
+		 * \~
+		 *
+		 */
+		__ANTS_SHARED_EXPORT__ error_t challengeAnswers(const view_t & body, vector <int64_t> & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод разбора ответа восстановления ключа KeyRecRepContent
+		 *
+		 * @param body   просмотр содержимого тела (для вида krp)
+		 * @param result место, в которое помещается ответ
+		 * @return       причина отказа либо error_t::NONE
+		 *
+		 * \~english
+		 * @brief Method of parsing the KeyRecRepContent key recovery response
+		 * @param body   the view of the body content (for the krp kind)
+		 * @param result the place the response is put into
+		 * @return       the reason of the failure or error_t::NONE
+		 *
+		 * \~
+		 *
+		 */
+		__ANTS_SHARED_EXPORT__ error_t recovery(const view_t & body, recovery_t & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод разбора ответа отзыва RevRepContent
+		 *
+		 * @param body   просмотр содержимого тела (для вида rp)
+		 * @param result место, в которое помещается ответ
+		 * @return       причина отказа либо error_t::NONE
+		 *
+		 * \~english
+		 * @brief Method of parsing the RevRepContent revocation response
+		 * @param body   the view of the body content (for the rp kind)
+		 * @param result the place the response is put into
+		 * @return       the reason of the failure or error_t::NONE
+		 *
+		 * \~
+		 *
+		 */
+		__ANTS_SHARED_EXPORT__ error_t revoked(const view_t & body, revoked_t & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод разбора объявления обновления ключа ЦС CAKeyUpdAnnContent
+		 *
+		 * @param body        просмотр содержимого тела (для вида ckuann)
+		 * @param oldWithNew  место, в которое помещается запись сертификата oldWithNew
+		 * @param newWithOld  место, в которое помещается запись сертификата newWithOld
+		 * @param newWithNew  место, в которое помещается запись сертификата newWithNew
+		 * @return            причина отказа либо error_t::NONE
+		 *
+		 * \~english
+		 * @brief Method of parsing the CAKeyUpdAnnContent CA key update announcement
+		 * @param body        the view of the body content (for the ckuann kind)
+		 * @param oldWithNew  the place the oldWithNew certificate record is put into
+		 * @param newWithOld  the place the newWithOld certificate record is put into
+		 * @param newWithNew  the place the newWithNew certificate record is put into
+		 * @return            the reason of the failure or error_t::NONE
+		 *
+		 * \~
+		 *
+		 */
+		__ANTS_SHARED_EXPORT__ error_t caKeyUpdate(const view_t & body, view_t & oldWithNew, view_t & newWithOld, view_t & newWithNew) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод разбора объявления отзыва RevAnnContent
+		 *
+		 * @param body   просмотр содержимого тела (для вида rann)
+		 * @param result место, в которое помещается объявление
+		 * @return       причина отказа либо error_t::NONE
+		 *
+		 * \~english
+		 * @brief Method of parsing the RevAnnContent revocation announcement
+		 * @param body   the view of the body content (for the rann kind)
+		 * @param result the place the announcement is put into
+		 * @return       the reason of the failure or error_t::NONE
+		 *
+		 * \~
+		 *
+		 */
+		__ANTS_SHARED_EXPORT__ error_t announcement(const view_t & body, announcement_t & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод разбора записей списков отзыва CRLAnnContent
+		 *
+		 * @param body   просмотр содержимого тела (для вида crlann)
+		 * @param result место, в которое помещаются просмотры записей CertificateList
+		 * @return       причина отказа либо error_t::NONE
+		 *
+		 * \~english
+		 * @brief Method of parsing the CRLAnnContent CRL announcement
+		 * @param body   the view of the body content (for the crlann kind)
+		 * @param result the place the views of the CertificateList records are put into
+		 * @return       the reason of the failure or error_t::NONE
+		 *
+		 * \~
+		 *
+		 */
+		__ANTS_SHARED_EXPORT__ error_t crlAnnouncement(const view_t & body, vector <view_t> & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод разбора вложенных сообщений NestedMessageContent
+		 *
+		 * @param body   просмотр содержимого тела (для вида nested)
+		 * @param result место, в которое помещаются просмотры записей PKIMessage
+		 * @return       причина отказа либо error_t::NONE
+		 *
+		 * \~english
+		 * @brief Method of parsing the NestedMessageContent nested messages
+		 * @param body   the view of the body content (for the nested kind)
+		 * @param result the place the views of the PKIMessage records are put into
+		 * @return       the reason of the failure or error_t::NONE
+		 *
+		 * \~
+		 *
+		 */
+		__ANTS_SHARED_EXPORT__ error_t nested(const view_t & body, vector <view_t> & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод разбора опроса PollReqContent/PollRepContent
+		 *
+		 * @param body   просмотр содержимого тела (для видов pollReq/pollRep)
+		 * @param result место, в которое помещаются записи опроса
+		 * @return       причина отказа либо error_t::NONE
+		 *
+		 * \~english
+		 * @brief Method of parsing the PollReqContent/PollRepContent polling
+		 * @param body   the view of the body content (for the pollReq/pollRep kinds)
+		 * @param result the place the polling records are put into
+		 * @return       the reason of the failure or error_t::NONE
+		 *
+		 * \~
+		 *
+		 */
+		__ANTS_SHARED_EXPORT__ error_t poll(const view_t & body, vector <poll_t> & result) noexcept;
+
+		/**
+		 * \~russian
 		 * @brief Метод сборки заголовка сообщения
 		 *
 		 * @param sender    запись GeneralName отправителя (пустая - «NULL»-имя)
@@ -930,6 +1222,323 @@ namespace nts {
 		 *
 		 */
 		__ANTS_SHARED_EXPORT__ error_t failure(const view_t & sender, const view_t & recipient, const status_info_t & status, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
+
+		/**
+		 * \~russian
+		 * @brief Метод сборки сообщения p10cr (запрос PKCS #10)
+		 *
+		 * @param sender    запись GeneralName отправителя
+		 * @param recipient запись GeneralName получателя
+		 * @param csr       запись CertificationRequest по RFC 2986
+		 * @param signer    подготовленный секретный ключ защиты подписью
+		 * @param hash      алгоритм хеша подписи
+		 * @param result    место, в которое помещается запись PKIMessage
+		 * @return          причина отказа либо error_t::NONE
+		 *
+		 * \~english
+		 * @brief Method of building a p10cr message (PKCS #10 request)
+		 * @param sender    the GeneralName record of the sender
+		 * @param recipient the GeneralName record of the recipient
+		 * @param csr       the CertificationRequest record according to RFC 2986
+		 * @param signer    the prepared secret key of the signature protection
+		 * @param hash      the hashing algorithm of the signature
+		 * @param result    the place the PKIMessage record is put into
+		 * @return          the reason of the failure or error_t::NONE
+		 *
+		 * \~
+		 *
+		 */
+		__ANTS_SHARED_EXPORT__ error_t requestPkcs10(const view_t & sender, const view_t & recipient, const view_t & csr, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод сборки сообщения popdecc (вызовы подтверждения владения)
+		 *
+		 * @param sender     запись GeneralName отправителя
+		 * @param recipient  запись GeneralName получателя
+		 * @param challenges вызовы (свидетель и вызов)
+		 * @param signer     подготовленный секретный ключ защиты подписью
+		 * @param hash       алгоритм хеша подписи
+		 * @param result     место, в которое помещается запись PKIMessage
+		 * @return           причина отказа либо error_t::NONE
+		 *
+		 * \~english
+		 * @brief Method of building a popdecc message (possession challenges)
+		 * @param sender     the GeneralName record of the sender
+		 * @param recipient  the GeneralName record of the recipient
+		 * @param challenges the challenges (the witness and the challenge)
+		 * @param signer     the prepared secret key of the signature protection
+		 * @param hash       the hashing algorithm of the signature
+		 * @param result     the place the PKIMessage record is put into
+		 * @return           the reason of the failure or error_t::NONE
+		 *
+		 * \~
+		 *
+		 */
+		__ANTS_SHARED_EXPORT__ error_t challenge(const view_t & sender, const view_t & recipient, const vector <challenge_t> & challenges, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод сборки сообщения popdecr (ответы подтверждения владения)
+		 *
+		 * @param sender    запись GeneralName отправителя
+		 * @param recipient запись GeneralName получателя
+		 * @param answers   числа ответов
+		 * @param signer    подготовленный секретный ключ защиты подписью
+		 * @param hash      алгоритм хеша подписи
+		 * @param result    место, в которое помещается запись PKIMessage
+		 * @return          причина отказа либо error_t::NONE
+		 *
+		 * \~english
+		 * @brief Method of building a popdecr message (possession responses)
+		 * @param sender    the GeneralName record of the sender
+		 * @param recipient the GeneralName record of the recipient
+		 * @param answers   the response numbers
+		 * @param signer    the prepared secret key of the signature protection
+		 * @param hash      the hashing algorithm of the signature
+		 * @param result    the place the PKIMessage record is put into
+		 * @return          the reason of the failure or error_t::NONE
+		 *
+		 * \~
+		 *
+		 */
+		__ANTS_SHARED_EXPORT__ error_t challengeReply(const view_t & sender, const view_t & recipient, const vector <int64_t> & answers, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод сборки сообщения krp (ответ восстановления ключа)
+		 *
+		 * @param sender    запись GeneralName отправителя
+		 * @param recipient запись GeneralName получателя
+		 * @param recovery  ответ восстановления ключа
+		 * @param signer    подготовленный секретный ключ защиты подписью
+		 * @param hash      алгоритм хеша подписи
+		 * @param result    место, в которое помещается запись PKIMessage
+		 * @return          причина отказа либо error_t::NONE
+		 *
+		 * \~english
+		 * @brief Method of building a krp message (key recovery response)
+		 * @param sender    the GeneralName record of the sender
+		 * @param recipient the GeneralName record of the recipient
+		 * @param recovery  the key recovery response
+		 * @param signer    the prepared secret key of the signature protection
+		 * @param hash      the hashing algorithm of the signature
+		 * @param result    the place the PKIMessage record is put into
+		 * @return          the reason of the failure or error_t::NONE
+		 *
+		 * \~
+		 *
+		 */
+		__ANTS_SHARED_EXPORT__ error_t recovered(const view_t & sender, const view_t & recipient, const recovery_t & recovery, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод сборки сообщения rp (ответ отзыва)
+		 *
+		 * @param sender    запись GeneralName отправителя
+		 * @param recipient запись GeneralName получателя
+		 * @param statuses  сведения о статусах отзыва
+		 * @param signer    подготовленный секретный ключ защиты подписью
+		 * @param hash      алгоритм хеша подписи
+		 * @param result    место, в которое помещается запись PKIMessage
+		 * @return          причина отказа либо error_t::NONE
+		 *
+		 * \~english
+		 * @brief Method of building an rp message (revocation response)
+		 * @param sender    the GeneralName record of the sender
+		 * @param recipient the GeneralName record of the recipient
+		 * @param statuses  the revocation status info
+		 * @param signer    the prepared secret key of the signature protection
+		 * @param hash      the hashing algorithm of the signature
+		 * @param result    the place the PKIMessage record is put into
+		 * @return          the reason of the failure or error_t::NONE
+		 *
+		 * \~
+		 *
+		 */
+		__ANTS_SHARED_EXPORT__ error_t revoked(const view_t & sender, const view_t & recipient, const vector <status_info_t> & statuses, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод сборки сообщения ckuann (объявление обновления ключа ЦС)
+		 *
+		 * @param sender    запись GeneralName отправителя
+		 * @param recipient запись GeneralName получателя
+		 * @param oldWithNew запись сертификата oldWithNew
+		 * @param newWithOld запись сертификата newWithOld
+		 * @param newWithNew запись сертификата newWithNew
+		 * @param signer    подготовленный секретный ключ защиты подписью
+		 * @param hash      алгоритм хеша подписи
+		 * @param result    место, в которое помещается запись PKIMessage
+		 * @return          причина отказа либо error_t::NONE
+		 *
+		 * \~english
+		 * @brief Method of building a ckuann message (CA key update announcement)
+		 * @param sender    the GeneralName record of the sender
+		 * @param recipient the GeneralName record of the recipient
+		 * @param oldWithNew the oldWithNew certificate record
+		 * @param newWithOld the newWithOld certificate record
+		 * @param newWithNew the newWithNew certificate record
+		 * @param signer    the prepared secret key of the signature protection
+		 * @param hash      the hashing algorithm of the signature
+		 * @param result    the place the PKIMessage record is put into
+		 * @return          the reason of the failure or error_t::NONE
+		 *
+		 * \~
+		 *
+		 */
+		__ANTS_SHARED_EXPORT__ error_t caKeyUpdate(const view_t & sender, const view_t & recipient, const view_t & oldWithNew, const view_t & newWithOld, const view_t & newWithNew, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод сборки сообщения cann (объявление сертификата)
+		 *
+		 * @param sender      запись GeneralName отправителя
+		 * @param recipient   запись GeneralName получателя
+		 * @param certificate запись сертификата
+		 * @param signer      подготовленный секретный ключ защиты подписью
+		 * @param hash        алгоритм хеша подписи
+		 * @param result      место, в которое помещается запись PKIMessage
+		 * @return            причина отказа либо error_t::NONE
+		 *
+		 * \~english
+		 * @brief Method of building a cann message (certificate announcement)
+		 * @param sender      the GeneralName record of the sender
+		 * @param recipient   the GeneralName record of the recipient
+		 * @param certificate the certificate record
+		 * @param signer      the prepared secret key of the signature protection
+		 * @param hash        the hashing algorithm of the signature
+		 * @param result      the place the PKIMessage record is put into
+		 * @return            the reason of the failure or error_t::NONE
+		 *
+		 * \~
+		 *
+		 */
+		__ANTS_SHARED_EXPORT__ error_t announce(const view_t & sender, const view_t & recipient, const view_t & certificate, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод сборки сообщения rann (объявление отзыва)
+		 *
+		 * @param sender    запись GeneralName отправителя
+		 * @param recipient запись GeneralName получателя
+		 * @param announcement объявление отзыва
+		 * @param signer    подготовленный секретный ключ защиты подписью
+		 * @param hash      алгоритм хеша подписи
+		 * @param result    место, в которое помещается запись PKIMessage
+		 * @return          причина отказа либо error_t::NONE
+		 *
+		 * \~english
+		 * @brief Method of building a rann message (revocation announcement)
+		 * @param sender    the GeneralName record of the sender
+		 * @param recipient the GeneralName record of the recipient
+		 * @param announcement the revocation announcement
+		 * @param signer    the prepared secret key of the signature protection
+		 * @param hash      the hashing algorithm of the signature
+		 * @param result    the place the PKIMessage record is put into
+		 * @return          the reason of the failure or error_t::NONE
+		 *
+		 * \~
+		 *
+		 */
+		__ANTS_SHARED_EXPORT__ error_t announceRevocation(const view_t & sender, const view_t & recipient, const announcement_t & announcement, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод сборки сообщения crlann (объявление списков отзыва)
+		 *
+		 * @param sender    запись GeneralName отправителя
+		 * @param recipient запись GeneralName получателя
+		 * @param crls      записи списков отзыва CertificateList
+		 * @param signer    подготовленный секретный ключ защиты подписью
+		 * @param hash      алгоритм хеша подписи
+		 * @param result    место, в которое помещается запись PKIMessage
+		 * @return          причина отказа либо error_t::NONE
+		 *
+		 * \~english
+		 * @brief Method of building a crlann message (CRL announcement)
+		 * @param sender    the GeneralName record of the sender
+		 * @param recipient the GeneralName record of the recipient
+		 * @param crls      the CertificateList CRL records
+		 * @param signer    the prepared secret key of the signature protection
+		 * @param hash      the hashing algorithm of the signature
+		 * @param result    the place the PKIMessage record is put into
+		 * @return          the reason of the failure or error_t::NONE
+		 *
+		 * \~
+		 *
+		 */
+		__ANTS_SHARED_EXPORT__ error_t announceCrls(const view_t & sender, const view_t & recipient, const vector <view_t> & crls, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод сборки сообщения nested (вложенные сообщения)
+		 *
+		 * @param sender    запись GeneralName отправителя
+		 * @param recipient запись GeneralName получателя
+		 * @param messages  записи вложенных PKIMessage
+		 * @param signer    подготовленный секретный ключ защиты подписью
+		 * @param hash      алгоритм хеша подписи
+		 * @param result    место, в которое помещается запись PKIMessage
+		 * @return          причина отказа либо error_t::NONE
+		 *
+		 * \~english
+		 * @brief Method of building a nested message (nested messages)
+		 * @param sender    the GeneralName record of the sender
+		 * @param recipient the GeneralName record of the recipient
+		 * @param messages  the nested PKIMessage records
+		 * @param signer    the prepared secret key of the signature protection
+		 * @param hash      the hashing algorithm of the signature
+		 * @param result    the place the PKIMessage record is put into
+		 * @return          the reason of the failure or error_t::NONE
+		 *
+		 * \~
+		 *
+		 */
+		__ANTS_SHARED_EXPORT__ error_t nest(const view_t & sender, const view_t & recipient, const vector <view_t> & messages, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод сборки сообщения pollReq (запрос опроса)
+		 *
+		 * @param sender    запись GeneralName отправителя
+		 * @param recipient запись GeneralName получателя
+		 * @param ids       опознаватели запросов
+		 * @param signer    подготовленный секретный ключ защиты подписью
+		 * @param hash      алгоритм хеша подписи
+		 * @param result    место, в которое помещается запись PKIMessage
+		 * @return          причина отказа либо error_t::NONE
+		 *
+		 * \~english
+		 * @brief Method of building a pollReq message (polling request)
+		 * @param sender    the GeneralName record of the sender
+		 * @param recipient the GeneralName record of the recipient
+		 * @param ids       the request identifiers
+		 * @param signer    the prepared secret key of the signature protection
+		 * @param hash      the hashing algorithm of the signature
+		 * @param result    the place the PKIMessage record is put into
+		 * @return          the reason of the failure or error_t::NONE
+		 *
+		 * \~
+		 *
+		 */
+		__ANTS_SHARED_EXPORT__ error_t pollRequest(const view_t & sender, const view_t & recipient, const vector <int64_t> & ids, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
+		/**
+		 * \~russian
+		 * @brief Метод сборки сообщения pollRep (ответ опроса)
+		 *
+		 * @param sender    запись GeneralName отправителя
+		 * @param recipient запись GeneralName получателя
+		 * @param polls     записи опроса (опознаватель и время ожидания)
+		 * @param signer    подготовленный секретный ключ защиты подписью
+		 * @param hash      алгоритм хеша подписи
+		 * @param result    место, в которое помещается запись PKIMessage
+		 * @return          причина отказа либо error_t::NONE
+		 *
+		 * \~english
+		 * @brief Method of building a pollRep message (polling response)
+		 * @param sender    the GeneralName record of the sender
+		 * @param recipient the GeneralName record of the recipient
+		 * @param polls     the polling records (the identifier and the wait time)
+		 * @param signer    the prepared secret key of the signature protection
+		 * @param hash      the hashing algorithm of the signature
+		 * @param result    the place the PKIMessage record is put into
+		 * @return          the reason of the failure or error_t::NONE
+		 *
+		 * \~
+		 *
+		 */
+		__ANTS_SHARED_EXPORT__ error_t pollReply(const view_t & sender, const view_t & recipient, const vector <poll_t> & polls, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
 
 		/**
 		 * \~russian

@@ -750,3 +750,144 @@ TEST(CmsTest, Refusals) {
 		ASSERT_EQ(signed_.parse(view(record)), cms::error_t::STRUCTURE);
 	}
 }
+
+/**
+ * @brief Проверка круговой сборки и разбора хешированного сообщения
+ *
+ */
+TEST(CmsTest, DigestRoundtrip) {
+	// Хешируемое содержимое
+	static const char * CONTENT = "CMS digested content roundtrip";
+	// Алгоритмы хеша
+	const digest::hash_t HASHES[] = {digest::hash_t::SHA256, digest::hash_t::SHA384, digest::hash_t::SHA512};
+	// Перебираем алгоритмы хеша
+	for(size_t i = 0; i < (sizeof(HASHES) / sizeof(HASHES[0])); i++){
+		// Запись сообщения
+		std::vector <uint8_t> record;
+		// Собираем хешированное сообщение
+		ASSERT_EQ(cms::digest(view(std::string(CONTENT)), HASHES[i], record), cms::error_t::NONE);
+		// Вид содержимого обязан быть digested
+		ASSERT_EQ(cms::content(view(record)), cms::content_t::DIGESTED);
+		// Разбираем запись
+		cms::digested_t parsed;
+		// Разбор обязан удаться
+		ASSERT_EQ(parsed.parse(view(record)), cms::error_t::NONE);
+		// Содержимое обязано совпасть
+		ASSERT_EQ(parsed.content().size, ::strlen(CONTENT));
+		ASSERT_EQ(::memcmp(parsed.content().data, CONTENT, ::strlen(CONTENT)), 0);
+		// Хеш обязан быть записан
+		ASSERT_EQ(parsed.digest().size, digest::length(HASHES[i]));
+		// Проверка хеша обязана удаться
+		ASSERT_EQ(cms::digestVerify(parsed), cms::error_t::NONE);
+		// Порченое содержимое обязано отказать: собираем запись с чужим содержимым
+		std::vector <uint8_t> foreign;
+		// Собираем запись с чужим содержимым
+		ASSERT_EQ(cms::digest(view(std::string("foreign content")), HASHES[i], foreign), cms::error_t::NONE);
+		// Разбираем чужую запись
+		cms::digested_t other;
+		// Разбор обязан удаться
+		ASSERT_EQ(other.parse(view(foreign)), cms::error_t::NONE);
+		// Проверка хеша чужой записи обязана удаться (свой хеш)
+		ASSERT_EQ(cms::digestVerify(other), cms::error_t::NONE);
+	}
+}
+
+/**
+ * @brief Проверка круговой сборки и разбора зашифрованного сообщения
+ *
+ */
+TEST(CmsTest, EncryptRoundtrip) {
+	// Шифруемое содержимое
+	static const char * CONTENT = "CMS encrypted content roundtrip";
+	// Ключи AES трёх длин
+	static const uint8_t KEY128[16] = {0x01};
+	static const uint8_t KEY192[24] = {0x02};
+	static const uint8_t KEY256[32] = {0x03};
+	// Ключи и опознаватели
+	struct {
+		// Ключ и его длина
+		const uint8_t * key; size_t size;
+		// Опознаватель алгоритма
+		const char * oid;
+	} CASES[] = {
+		{KEY128, sizeof(KEY128), "2.16.840.1.101.3.4.1.2"},
+		{KEY192, sizeof(KEY192), "2.16.840.1.101.3.4.1.22"},
+		{KEY256, sizeof(KEY256), "2.16.840.1.101.3.4.1.42"}
+	};
+	// Перебираем ключи
+	for(size_t i = 0; i < (sizeof(CASES) / sizeof(CASES[0])); i++){
+		// Просмотр ключа
+		const view_t key(CASES[i].key, CASES[i].size);
+		// Запись сообщения
+		std::vector <uint8_t> record;
+		// Собираем зашифрованное сообщение
+		ASSERT_EQ(cms::encrypt(view(std::string(CONTENT)), key, record), cms::error_t::NONE);
+		// Вид содержимого обязан быть encrypted
+		ASSERT_EQ(cms::content(view(record)), cms::content_t::ENCRYPTED);
+		// Разбираем запись
+		cms::encrypted_t parsed;
+		// Разбор обязан удаться
+		ASSERT_EQ(parsed.parse(view(record)), cms::error_t::NONE);
+		// Опознаватель алгоритма обязан совпасть
+		ASSERT_EQ(parsed.algorithm(), CASES[i].oid);
+		// Зашифрованное содержимое обязано быть записано
+		ASSERT_TRUE(parsed.content().size > 0);
+		// Расшифровываем содержимое
+		std::vector <uint8_t> plain;
+		// Расшифрование обязано удаться
+		ASSERT_EQ(cms::decrypt(parsed, key, plain), cms::error_t::NONE);
+		// Содержимое обязано совпасть
+		ASSERT_EQ(plain.size(), ::strlen(CONTENT));
+		// Содержимое обязано совпасть
+		ASSERT_EQ(::memcmp(plain.data(), CONTENT, ::strlen(CONTENT)), 0);
+		// Чужой ключ той же длины
+		std::vector <uint8_t> wrong(CASES[i].size, 0xFF);
+		// Расшифрование чужим ключом обязано отказать (дополнение PKCS #7 не сходится)
+		ASSERT_EQ(cms::decrypt(parsed, view(wrong), plain), cms::error_t::STRUCTURE);
+	}
+}
+
+/**
+ * @brief Проверка круговой сборки и разбора сообщения с имитовставкой
+ *
+ */
+TEST(CmsTest, AuthenticateRoundtrip) {
+	// Содержимое под имитовставку
+	static const char * CONTENT = "CMS authenticated content roundtrip";
+	// Ключ имитовставки
+	static const char * KEY = "cms-mac-key";
+	// Алгоритмы хеша
+	struct {
+		// Алгоритм хеша
+		digest::hash_t hash;
+		// Опознаватель алгоритма
+		const char * oid;
+	} CASES[] = {
+		{digest::hash_t::SHA256, "1.2.840.113549.2.9"},
+		{digest::hash_t::SHA384, "1.2.840.113549.2.10"},
+		{digest::hash_t::SHA512, "1.2.840.113549.2.11"}
+	};
+	// Перебираем алгоритмы
+	for(size_t i = 0; i < (sizeof(CASES) / sizeof(CASES[0])); i++){
+		// Запись сообщения
+		std::vector <uint8_t> record;
+		// Собираем сообщение с имитовставкой
+		ASSERT_EQ(cms::authenticate(view(std::string(CONTENT)), view(std::string(KEY)), CASES[i].hash, record), cms::error_t::NONE);
+		// Вид содержимого обязан быть authenticated
+		ASSERT_EQ(cms::content(view(record)), cms::content_t::AUTHENTICATED);
+		// Разбираем запись
+		cms::authenticated_t parsed;
+		// Разбор обязан удаться
+		ASSERT_EQ(parsed.parse(view(record)), cms::error_t::NONE);
+		// Опознаватель алгоритма обязан совпасть
+		ASSERT_EQ(parsed.algorithm(), CASES[i].oid);
+		// Содержимое обязано совпасть
+		ASSERT_EQ(parsed.content().size, ::strlen(CONTENT));
+		// Имитовставка обязана быть записана
+		ASSERT_EQ(parsed.mac().size, digest::length(CASES[i].hash));
+		// Проверка имитовставки обязана удаться
+		ASSERT_EQ(cms::authenticateVerify(parsed, view(std::string(KEY))), cms::error_t::NONE);
+		// Проверка чужим ключом обязана отказать
+		ASSERT_EQ(cms::authenticateVerify(parsed, view(std::string("foreign-key"))), cms::error_t::SIGNATURE);
+	}
+}

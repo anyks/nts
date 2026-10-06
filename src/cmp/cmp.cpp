@@ -2362,6 +2362,768 @@ nts::cmp::error_t nts::cmp::infos(const view_t & body, vector <info_t> & result)
 
 /**
  * \~russian
+ * @brief Метод разбора вызовов подтверждения владения POPODecKeyChallContent
+ *
+ * @param body   просмотр содержимого тела (для вида popdecc)
+ * @param result место, в которое помещаются вызовы
+ * @return       причина отказа либо error_t::NONE
+ *
+ * \~english
+ * @brief Method of parsing the POPODecKeyChallContent possession challenges
+ * @param body   the view of the body content (for the popdecc kind)
+ * @param result the place the challenges are put into
+ * @return       the reason of the failure or error_t::NONE
+ *
+ * \~
+ *
+ */
+nts::cmp::error_t nts::cmp::challenges(const view_t & body, vector <challenge_t> & result) noexcept {
+	// Если содержимое тела не установлено
+	if(body.size == 0)
+		// Выводим отказ пустой записи
+		return error_t::EMPTY;
+	/**
+	 * Разбор сведений выделяет память: нехватка её отдаётся отказом, а не
+	 * завершением процесса
+	 */
+	try {
+		// Разборщик записи POPODecKeyChallContent
+		asn1::reader_t wrapper(body);
+		// Элемент записи набора вызовов
+		asn1::element_t set;
+		// Если запись набора вызовов разобрать не удалось
+		if(!wrapper.next(asn1::tag_t::SEQUENCE, set) || !set.constructed)
+			// Выводим переведённый отказ разбора
+			return translate(wrapper.err());
+		// Разборщик записей вызовов
+		asn1::reader_t records(set.content);
+		// Разбираем записи вызовов
+		while(!records.empty()){
+			// Элемент записи вызова Challenge
+			asn1::element_t challenge;
+			// Если запись вызова разобрать не удалось
+			if(!records.next(asn1::tag_t::SEQUENCE, challenge) || !challenge.constructed)
+				// Выводим переведённый отказ разбора
+				return translate(records.err());
+			// Разборщик содержимого записи вызова
+			asn1::reader_t items(challenge.content);
+			// Элемент очередного поля
+			asn1::element_t field;
+			// Если поле разобрать не удалось
+			if(!items.next(field))
+				// Выводим переведённый отказ разбора
+				return translate(items.err());
+			// Место, в которое помещается вызов
+			challenge_t entry;
+			// Если первое поле - запись односторонней функции
+			if((field.cls == asn1::cls_t::UNIVERSAL) && (field.tag == static_cast <uint32_t> (asn1::tag_t::SEQUENCE))){
+				// Просмотр настроек односторонней функции
+				view_t params;
+				// Если запись односторонней функции разобрать не удалось
+				if(algorithmIdentifier(field, entry.owf, params) != error_t::NONE)
+					// Выводим отказ устройства записи
+					return error_t::STRUCTURE;
+				// Если поле свидетеля разобрать не удалось
+				if(!items.next(field))
+					// Выводим переведённый отказ разбора
+					return translate(items.err());
+			}
+			// Если поле свидетеля не строка байтов
+			if((field.cls != asn1::cls_t::UNIVERSAL) || (field.tag != static_cast <uint32_t> (asn1::tag_t::OCTET_STRING)))
+				// Выводим отказ устройства записи
+				return error_t::STRUCTURE;
+			// Запоминаем содержимое свидетеля
+			entry.witness = field.content;
+			// Элемент вызова
+			asn1::element_t value;
+			// Если вызов разобрать не удалось
+			if(!items.next(asn1::tag_t::OCTET_STRING, value))
+				// Выводим переведённый отказ разбора
+				return translate(items.err());
+			// Запоминаем содержимое вызова
+			entry.challenge = value.content;
+			// Запоминаем вызов
+			result.push_back(entry);
+		}
+	// Если памяти под сведения не хватило
+	} catch(const std::bad_alloc &) {
+		// Выводим отказ памяти
+		return error_t::MEMORY;
+	}
+	// Выводим успешность разбора
+	return error_t::NONE;
+}
+/**
+ * \~russian
+ * @brief Метод разбора ответов подтверждения владения POPODecKeyRespContent
+ *
+ * @param body   просмотр содержимого тела (для вида popdecr)
+ * @param result место, в которое помещаются числа ответов
+ * @return       причина отказа либо error_t::NONE
+ *
+ * \~english
+ * @brief Method of parsing the POPODecKeyRespContent possession responses
+ * @param body   the view of the body content (for the popdecr kind)
+ * @param result the place the response numbers are put into
+ * @return       the reason of the failure or error_t::NONE
+ *
+ * \~
+ *
+ */
+nts::cmp::error_t nts::cmp::challengeAnswers(const view_t & body, vector <int64_t> & result) noexcept {
+	// Если содержимое тела не установлено
+	if(body.size == 0)
+		// Выводим отказ пустой записи
+		return error_t::EMPTY;
+	/**
+	 * Разбор сведений выделяет память: нехватка её отдаётся отказом, а не
+	 * завершением процесса
+	 */
+	try {
+		// Разборщик записи POPODecKeyRespContent
+		asn1::reader_t wrapper(body);
+		// Элемент записи набора ответов
+		asn1::element_t set;
+		// Если запись набора ответов разобрать не удалось
+		if(!wrapper.next(asn1::tag_t::SEQUENCE, set) || !set.constructed)
+			// Выводим переведённый отказ разбора
+			return translate(wrapper.err());
+		// Разборщик чисел ответов
+		asn1::reader_t records(set.content);
+		// Разбираем числа ответов
+		while(!records.empty()){
+			// Элемент числа ответа
+			asn1::element_t answer;
+			// Если число ответа разобрать не удалось
+			if(!records.next(asn1::tag_t::INTEGER, answer))
+				// Выводим переведённый отказ разбора
+				return translate(records.err());
+			// Число ответа
+			int64_t value = 0;
+			// Если число ответа разобрать не удалось
+			if(asn1::integer(answer, value) != asn1::error_t::NONE)
+				// Выводим отказ устройства записи
+				return error_t::STRUCTURE;
+			// Запоминаем число ответа
+			result.push_back(value);
+		}
+	// Если памяти под сведения не хватило
+	} catch(const std::bad_alloc &) {
+		// Выводим отказ памяти
+		return error_t::MEMORY;
+	}
+	// Выводим успешность разбора
+	return error_t::NONE;
+}
+/**
+ * \~russian
+ * @brief Метод разбора ответа восстановления ключа KeyRecRepContent
+ *
+ * @param body   просмотр содержимого тела (для вида krp)
+ * @param result место, в которое помещается ответ
+ * @return       причина отказа либо error_t::NONE
+ *
+ * \~english
+ * @brief Method of parsing the KeyRecRepContent key recovery response
+ * @param body   the view of the body content (for the krp kind)
+ * @param result the place the response is put into
+ * @return       the reason of the failure or error_t::NONE
+ *
+ * \~
+ *
+ */
+nts::cmp::error_t nts::cmp::recovery(const view_t & body, recovery_t & result) noexcept {
+	// Если содержимое тела не установлено
+	if(body.size == 0)
+		// Выводим отказ пустой записи
+		return error_t::EMPTY;
+	/**
+	 * Разбор сведений выделяет память: нехватка её отдаётся отказом, а не
+	 * завершением процесса
+	 */
+	try {
+		// Разборщик записи KeyRecRepContent
+		asn1::reader_t wrapper(body);
+		// Элемент записи ответа
+		asn1::element_t content;
+		// Если запись ответа разобрать не удалось
+		if(!wrapper.next(asn1::tag_t::SEQUENCE, content) || !content.constructed)
+			// Выводим переведённый отказ разбора
+			return translate(wrapper.err());
+		// Разборщик содержимого записи ответа
+		asn1::reader_t items(content.content);
+		// Элемент записи статуса
+		asn1::element_t status;
+		// Если запись статуса разобрать не удалось
+		if(!items.next(asn1::tag_t::SEQUENCE, status))
+			// Выводим переведённый отказ разбора
+			return translate(items.err());
+		// Если сведения о статусе разобрать не удалось
+		if(statusInfo(status, result.status) != error_t::NONE)
+			// Выводим отказ устройства записи
+			return error_t::STRUCTURE;
+		// Разбираем необязательные поля
+		while(!items.empty()){
+			// Элемент очередного поля
+			asn1::element_t field;
+			// Если поле разобрать не удалось
+			if(!items.next(field))
+				// Выводим переведённый отказ разбора
+				return translate(items.err());
+			// Если поле не контекстного класса
+			if(field.cls != asn1::cls_t::CONTEXT)
+				// Выводим отказ устройства записи
+				return error_t::STRUCTURE;
+			/**
+			 * Выполняем определение номера метки поля
+			 */
+			switch(field.tag){
+				// newSigCert [0] Certificate
+				case 0:
+					// Запоминаем запись сертификата: содержимое явной метки
+					result.certificate = field.content;
+				break;
+				// caCerts [1] SEQUENCE OF Certificate
+				case 1: {
+					// Разборщик записей сертификатов ЦС
+					asn1::reader_t records(field.content);
+					// Разбираем записи сертификатов ЦС
+					while(!records.empty()){
+						// Элемент записи сертификата ЦС
+						asn1::element_t certificate;
+						// Если запись сертификата разобрать не удалось
+						if(!records.next(certificate))
+							// Выводим переведённый отказ разбора
+							return translate(records.err());
+						// Запоминаем запись сертификата ЦС
+						result.caCertificates.push_back(certificate.element);
+					}
+				} break;
+				// keyPairHist [2] SEQUENCE OF CertifiedKeyPair
+				case 2: {
+					// Разборщик записей пар ключей
+					asn1::reader_t records(field.content);
+					// Разбираем записи пар ключей
+					while(!records.empty()){
+						// Элемент записи пары ключей
+						asn1::element_t pair;
+						// Если запись пары ключей разобрать не удалось
+						if(!records.next(pair))
+							// Выводим переведённый отказ разбора
+							return translate(records.err());
+						// Запоминаем запись пары ключей
+						result.history.push_back(pair.element);
+					}
+				} break;
+				// Поле неизвестного вида
+				default:
+					// Выводим отказ устройства записи
+					return error_t::STRUCTURE;
+			}
+		}
+	// Если памяти под сведения не хватило
+	} catch(const std::bad_alloc &) {
+		// Выводим отказ памяти
+		return error_t::MEMORY;
+	}
+	// Выводим успешность разбора
+	return error_t::NONE;
+}
+/**
+ * \~russian
+ * @brief Метод разбора ответа отзыва RevRepContent
+ *
+ * @param body   просмотр содержимого тела (для вида rp)
+ * @param result место, в которое помещается ответ
+ * @return       причина отказа либо error_t::NONE
+ *
+ * \~english
+ * @brief Method of parsing the RevRepContent revocation response
+ * @param body   the view of the body content (for the rp kind)
+ * @param result the place the response is put into
+ * @return       the reason of the failure or error_t::NONE
+ *
+ * \~
+ *
+ */
+nts::cmp::error_t nts::cmp::revoked(const view_t & body, revoked_t & result) noexcept {
+	// Если содержимое тела не установлено
+	if(body.size == 0)
+		// Выводим отказ пустой записи
+		return error_t::EMPTY;
+	/**
+	 * Разбор сведений выделяет память: нехватка её отдаётся отказом, а не
+	 * завершением процесса
+	 */
+	try {
+		// Разборщик записи RevRepContent
+		asn1::reader_t wrapper(body);
+		// Элемент записи ответа
+		asn1::element_t content;
+		// Если запись ответа разобрать не удалось
+		if(!wrapper.next(asn1::tag_t::SEQUENCE, content) || !content.constructed)
+			// Выводим переведённый отказ разбора
+			return translate(wrapper.err());
+		// Разборщик содержимого записи ответа
+		asn1::reader_t items(content.content);
+		// Элемент записи набора статусов
+		asn1::element_t statuses;
+		// Если запись набора статусов разобрать не удалось
+		if(!items.next(asn1::tag_t::SEQUENCE, statuses))
+			// Выводим переведённый отказ разбора
+			return translate(items.err());
+		// Разборщик записей статусов
+		asn1::reader_t records(statuses.content);
+		// Разбираем записи статусов
+		while(!records.empty()){
+			// Элемент записи статуса
+			asn1::element_t status;
+			// Если запись статуса разобрать не удалось
+			if(!records.next(asn1::tag_t::SEQUENCE, status))
+				// Выводим переведённый отказ разбора
+				return translate(records.err());
+			// Место, в которое помещаются сведения о статусе
+			status_info_t info;
+			// Если сведения о статусе разобрать не удалось
+			if(statusInfo(status, info) != error_t::NONE)
+				// Выводим отказ устройства записи
+				return error_t::STRUCTURE;
+			// Запоминаем сведения о статусе
+			result.statuses.push_back(info);
+		}
+		// Разбираем необязательные поля
+		while(!items.empty()){
+			// Элемент очередного поля
+			asn1::element_t field;
+			// Если поле разобрать не удалось
+			if(!items.next(field))
+				// Выводим переведённый отказ разбора
+				return translate(items.err());
+			// Если поле не контекстного класса
+			if(field.cls != asn1::cls_t::CONTEXT)
+				// Выводим отказ устройства записи
+				return error_t::STRUCTURE;
+			// Разборщик записей поля
+			asn1::reader_t entries(field.content);
+			/**
+			 * Выполняем определение номера метки поля
+			 */
+			switch(field.tag){
+				// revCerts [0] SEQUENCE OF CertId
+				case 0:
+					// Разбираем записи опознавателей сертификатов
+					while(!entries.empty()){
+						// Элемент записи опознавателя
+						asn1::element_t certificate;
+						// Если запись опознавателя разобрать не удалось
+						if(!entries.next(certificate))
+							// Выводим переведённый отказ разбора
+							return translate(entries.err());
+						// Запоминаем запись опознавателя
+						result.certificates.push_back(certificate.element);
+					}
+				break;
+				// crls [1] SEQUENCE OF CertificateList
+				case 1:
+					// Разбираем записи списков отзыва
+					while(!entries.empty()){
+						// Элемент записи списка отзыва
+						asn1::element_t crl;
+						// Если запись списка отзыва разобрать не удалось
+						if(!entries.next(crl))
+							// Выводим переведённый отказ разбора
+							return translate(entries.err());
+						// Запоминаем запись списка отзыва
+						result.crls.push_back(crl.element);
+					}
+				break;
+				// Поле неизвестного вида
+				default:
+					// Выводим отказ устройства записи
+					return error_t::STRUCTURE;
+			}
+		}
+	// Если памяти под сведения не хватило
+	} catch(const std::bad_alloc &) {
+		// Выводим отказ памяти
+		return error_t::MEMORY;
+	}
+	// Выводим успешность разбора
+	return error_t::NONE;
+}
+/**
+ * \~russian
+ * @brief Метод разбора объявления обновления ключа ЦС CAKeyUpdAnnContent
+ *
+ * @param body        просмотр содержимого тела (для вида ckuann)
+ * @param oldWithNew  место, в которое помещается запись сертификата oldWithNew
+ * @param newWithOld  место, в которое помещается запись сертификата newWithOld
+ * @param newWithNew  место, в которое помещается запись сертификата newWithNew
+ * @return            причина отказа либо error_t::NONE
+ *
+ * \~english
+ * @brief Method of parsing the CAKeyUpdAnnContent CA key update announcement
+ * @param body        the view of the body content (for the ckuann kind)
+ * @param oldWithNew  the place the oldWithNew certificate record is put into
+ * @param newWithOld  the place the newWithOld certificate record is put into
+ * @param newWithNew  the place the newWithNew certificate record is put into
+ * @return            the reason of the failure or error_t::NONE
+ *
+ * \~
+ *
+ */
+nts::cmp::error_t nts::cmp::caKeyUpdate(const view_t & body, view_t & oldWithNew, view_t & newWithOld, view_t & newWithNew) noexcept {
+	// Если содержимое тела не установлено
+	if(body.size == 0)
+		// Выводим отказ пустой записи
+		return error_t::EMPTY;
+	// Разборщик записи CAKeyUpdAnnContent
+	asn1::reader_t wrapper(body);
+	// Элемент записи объявления
+	asn1::element_t content;
+	// Если запись объявления разобрать не удалось
+	if(!wrapper.next(asn1::tag_t::SEQUENCE, content) || !content.constructed)
+		// Выводим переведённый отказ разбора
+		return translate(wrapper.err());
+	// Разборщик содержимого записи объявления
+	asn1::reader_t items(content.content);
+	// Элемент записи сертификата
+	asn1::element_t certificate;
+	// Если запись oldWithNew разобрать не удалось
+	if(!items.next(asn1::tag_t::SEQUENCE, certificate))
+		// Выводим переведённый отказ разбора
+		return translate(items.err());
+	// Запоминаем запись oldWithNew
+	oldWithNew = certificate.element;
+	// Если запись newWithOld разобрать не удалось
+	if(!items.next(asn1::tag_t::SEQUENCE, certificate))
+		// Выводим переведённый отказ разбора
+		return translate(items.err());
+	// Запоминаем запись newWithOld
+	newWithOld = certificate.element;
+	// Если запись newWithNew разобрать не удалось
+	if(!items.next(asn1::tag_t::SEQUENCE, certificate))
+		// Выводим переведённый отказ разбора
+		return translate(items.err());
+	// Запоминаем запись newWithNew
+	newWithNew = certificate.element;
+	// Выводим успешность разбора
+	return error_t::NONE;
+}
+/**
+ * \~russian
+ * @brief Метод разбора объявления отзыва RevAnnContent
+ *
+ * @param body   просмотр содержимого тела (для вида rann)
+ * @param result место, в которое помещается объявление
+ * @return       причина отказа либо error_t::NONE
+ *
+ * \~english
+ * @brief Method of parsing the RevAnnContent revocation announcement
+ * @param body   the view of the body content (for the rann kind)
+ * @param result the place the announcement is put into
+ * @return       the reason of the failure or error_t::NONE
+ *
+ * \~
+ *
+ */
+nts::cmp::error_t nts::cmp::announcement(const view_t & body, announcement_t & result) noexcept {
+	// Если содержимое тела не установлено
+	if(body.size == 0)
+		// Выводим отказ пустой записи
+		return error_t::EMPTY;
+	// Разборщик записи RevAnnContent
+	asn1::reader_t wrapper(body);
+	// Элемент записи объявления
+	asn1::element_t content;
+	// Если запись объявления разобрать не удалось
+	if(!wrapper.next(asn1::tag_t::SEQUENCE, content) || !content.constructed)
+		// Выводим переведённый отказ разбора
+		return translate(wrapper.err());
+	// Разборщик содержимого записи объявления
+	asn1::reader_t items(content.content);
+	// Элемент статуса
+	asn1::element_t status;
+	// Если статус разобрать не удалось
+	if(!items.next(asn1::tag_t::INTEGER, status))
+		// Выводим переведённый отказ разбора
+		return translate(items.err());
+	// Значение статуса
+	int64_t value = 0;
+	// Если статус разобрать не удалось
+	if(asn1::integer(status, value) != asn1::error_t::NONE)
+		// Выводим отказ устройства записи
+		return error_t::STRUCTURE;
+	// Запоминаем статус
+	result.status = ((value >= 0) && (value <= 6)) ? static_cast <status_t> (value) : status_t::UNKNOWN;
+	// Элемент записи опознавателя сертификата
+	asn1::element_t certificate;
+	// Если запись опознавателя разобрать не удалось
+	if(!items.next(asn1::tag_t::SEQUENCE, certificate))
+		// Выводим переведённый отказ разбора
+		return translate(items.err());
+	// Запоминаем запись опознавателя сертификата
+	result.certificate = certificate.element;
+	// Элемент времени занесения в список отзыва
+	asn1::element_t moment;
+	// Если время занесения разобрать не удалось
+	if(!items.next(asn1::tag_t::GENERALIZED_TIME, moment))
+		// Выводим переведённый отказ разбора
+		return translate(items.err());
+	// Если время занесения разобрать не удалось
+	if(asn1::time(moment, asn1::tag_t::GENERALIZED_TIME, result.willBeRevokedAt) != asn1::error_t::NONE)
+		// Выводим отказ устройства записи
+		return error_t::STRUCTURE;
+	// Элемент времени компрометации
+	asn1::element_t since;
+	// Если время компрометации разобрать не удалось
+	if(!items.next(asn1::tag_t::GENERALIZED_TIME, since))
+		// Выводим переведённый отказ разбора
+		return translate(items.err());
+	// Если время компрометации разобрать не удалось
+	if(asn1::time(since, asn1::tag_t::GENERALIZED_TIME, result.badSinceDate) != asn1::error_t::NONE)
+		// Выводим отказ устройства записи
+		return error_t::STRUCTURE;
+	// Если расширения записаны
+	if(!items.empty()){
+		// Элемент записи расширений
+		asn1::element_t extensions;
+		// Если запись расширений разобрать не удалось
+		if(!items.next(asn1::tag_t::SEQUENCE, extensions))
+			// Выводим переведённый отказ разбора
+			return translate(items.err());
+		// Запоминаем запись расширений
+		result.crlDetails = extensions.element;
+	}
+	// Выводим успешность разбора
+	return error_t::NONE;
+}
+/**
+ * \~russian
+ * @brief Метод разбора записей списков отзыва CRLAnnContent
+ *
+ * @param body   просмотр содержимого тела (для вида crlann)
+ * @param result место, в которое помещаются просмотры записей CertificateList
+ * @return       причина отказа либо error_t::NONE
+ *
+ * \~english
+ * @brief Method of parsing the CRLAnnContent CRL announcement
+ * @param body   the view of the body content (for the crlann kind)
+ * @param result the place the views of the CertificateList records are put into
+ * @return       the reason of the failure or error_t::NONE
+ *
+ * \~
+ *
+ */
+nts::cmp::error_t nts::cmp::crlAnnouncement(const view_t & body, vector <view_t> & result) noexcept {
+	// Если содержимое тела не установлено
+	if(body.size == 0)
+		// Выводим отказ пустой записи
+		return error_t::EMPTY;
+	/**
+	 * Разбор сведений выделяет память: нехватка её отдаётся отказом, а не
+	 * завершением процесса
+	 */
+	try {
+		// Разборщик записи CRLAnnContent
+		asn1::reader_t wrapper(body);
+		// Элемент записи набора списков
+		asn1::element_t set;
+		// Если запись набора списков разобрать не удалось
+		if(!wrapper.next(asn1::tag_t::SEQUENCE, set) || !set.constructed)
+			// Выводим переведённый отказ разбора
+			return translate(wrapper.err());
+		// Разборщик записей списков отзыва
+		asn1::reader_t records(set.content);
+		// Разбираем записи списков отзыва
+		while(!records.empty()){
+			// Элемент записи списка отзыва
+			asn1::element_t crl;
+			// Если запись списка отзыва разобрать не удалось
+			if(!records.next(crl))
+				// Выводим переведённый отказ разбора
+				return translate(records.err());
+			// Запоминаем запись списка отзыва
+			result.push_back(crl.element);
+		}
+	// Если памяти под сведения не хватило
+	} catch(const std::bad_alloc &) {
+		// Выводим отказ памяти
+		return error_t::MEMORY;
+	}
+	// Выводим успешность разбора
+	return error_t::NONE;
+}
+/**
+ * \~russian
+ * @brief Метод разбора вложенных сообщений NestedMessageContent
+ *
+ * @param body   просмотр содержимого тела (для вида nested)
+ * @param result место, в которое помещаются просмотры записей PKIMessage
+ * @return       причина отказа либо error_t::NONE
+ *
+ * \~english
+ * @brief Method of parsing the NestedMessageContent nested messages
+ * @param body   the view of the body content (for the nested kind)
+ * @param result the place the views of the PKIMessage records are put into
+ * @return       the reason of the failure or error_t::NONE
+ *
+ * \~
+ *
+ */
+nts::cmp::error_t nts::cmp::nested(const view_t & body, vector <view_t> & result) noexcept {
+	// Если содержимое тела не установлено
+	if(body.size == 0)
+		// Выводим отказ пустой записи
+		return error_t::EMPTY;
+	/**
+	 * Разбор сведений выделяет память: нехватка её отдаётся отказом, а не
+	 * завершением процесса
+	 */
+	try {
+		// Разборщик записи NestedMessageContent
+		asn1::reader_t wrapper(body);
+		// Элемент записи набора сообщений
+		asn1::element_t set;
+		// Если запись набора сообщений разобрать не удалось
+		if(!wrapper.next(asn1::tag_t::SEQUENCE, set) || !set.constructed)
+			// Выводим переведённый отказ разбора
+			return translate(wrapper.err());
+		// Разборщик записей сообщений
+		asn1::reader_t records(set.content);
+		// Разбираем записи сообщений
+		while(!records.empty()){
+			// Элемент записи сообщения
+			asn1::element_t message;
+			// Если запись сообщения разобрать не удалось
+			if(!records.next(message))
+				// Выводим переведённый отказ разбора
+				return translate(records.err());
+			// Запоминаем запись сообщения
+			result.push_back(message.element);
+		}
+	// Если памяти под сведения не хватило
+	} catch(const std::bad_alloc &) {
+		// Выводим отказ памяти
+		return error_t::MEMORY;
+	}
+	// Выводим успешность разбора
+	return error_t::NONE;
+}
+/**
+ * \~russian
+ * @brief Метод разбора опроса PollReqContent/PollRepContent
+ *
+ * @param body   просмотр содержимого тела (для видов pollReq/pollRep)
+ * @param result место, в которое помещаются записи опроса
+ * @return       причина отказа либо error_t::NONE
+ *
+ * \~english
+ * @brief Method of parsing the PollReqContent/PollRepContent polling
+ * @param body   the view of the body content (for the pollReq/pollRep kinds)
+ * @param result the place the polling records are put into
+ * @return       the reason of the failure or error_t::NONE
+ *
+ * \~
+ *
+ */
+nts::cmp::error_t nts::cmp::poll(const view_t & body, vector <poll_t> & result) noexcept {
+	// Если содержимое тела не установлено
+	if(body.size == 0)
+		// Выводим отказ пустой записи
+		return error_t::EMPTY;
+	/**
+	 * Разбор сведений выделяет память: нехватка её отдаётся отказом, а не
+	 * завершением процесса
+	 */
+	try {
+		// Разборщик записи опроса
+		asn1::reader_t wrapper(body);
+		// Элемент записи набора опросов
+		asn1::element_t set;
+		// Если запись набора опросов разобрать не удалось
+		if(!wrapper.next(asn1::tag_t::SEQUENCE, set) || !set.constructed)
+			// Выводим переведённый отказ разбора
+			return translate(wrapper.err());
+		// Разборщик записей опросов
+		asn1::reader_t records(set.content);
+		// Разбираем записи опросов
+		while(!records.empty()){
+			// Элемент записи опроса
+			asn1::element_t entry;
+			// Если запись опроса разобрать не удалось
+			if(!records.next(asn1::tag_t::SEQUENCE, entry) || !entry.constructed)
+				// Выводим переведённый отказ разбора
+				return translate(records.err());
+			// Разборщик содержимого записи опроса
+			asn1::reader_t items(entry.content);
+			// Элемент опознавателя запроса
+			asn1::element_t identifier;
+			// Если опознаватель запроса разобрать не удалось
+			if(!items.next(asn1::tag_t::INTEGER, identifier))
+				// Выводим переведённый отказ разбора
+				return translate(items.err());
+			// Место, в которое помещается запись опроса
+			poll_t poll;
+			// Если опознаватель запроса разобрать не удалось
+			if(asn1::integer(identifier, poll.id) != asn1::error_t::NONE)
+				// Выводим отказ устройства записи
+				return error_t::STRUCTURE;
+			// Если время ожидания записано (pollRep)
+			if(!items.empty()){
+				// Элемент времени ожидания
+				asn1::element_t checkAfter;
+				// Если время ожидания разобрать не удалось
+				if(!items.next(asn1::tag_t::INTEGER, checkAfter))
+					// Выводим переведённый отказ разбора
+					return translate(items.err());
+				// Если время ожидания разобрать не удалось
+				if(asn1::integer(checkAfter, poll.checkAfter) != asn1::error_t::NONE)
+					// Выводим отказ устройства записи
+					return error_t::STRUCTURE;
+				// Если причина записана
+				if(!items.empty()){
+					// Элемент записи причины
+					asn1::element_t reason;
+					// Если запись причины разобрать не удалось
+					if(!items.next(asn1::tag_t::SEQUENCE, reason))
+						// Выводим переведённый отказ разбора
+						return translate(items.err());
+					// Разборщик строк причины
+					asn1::reader_t lines(reason.content);
+					// Разбираем строки причины
+					while(!lines.empty()){
+						// Элемент строки причины
+						asn1::element_t line;
+						// Если строку разобрать не удалось
+						if(!lines.next(asn1::tag_t::UTF8_STRING, line))
+							// Выводим переведённый отказ разбора
+							return translate(lines.err());
+						// Строка причины
+						string text;
+						// Если строку извлечь не удалось
+						if(asn1::text(line, asn1::tag_t::UTF8_STRING, text) != asn1::error_t::NONE)
+							// Выводим отказ устройства записи
+							return error_t::STRUCTURE;
+						// Запоминаем строку причины
+						poll.reason.push_back(text);
+					}
+				}
+			}
+			// Запоминаем запись опроса
+			result.push_back(poll);
+		}
+	// Если памяти под сведения не хватило
+	} catch(const std::bad_alloc &) {
+		// Выводим отказ памяти
+		return error_t::MEMORY;
+	}
+	// Выводим успешность разбора
+	return error_t::NONE;
+}
+
+/**
+ * \~russian
  * @brief Метод сборки записи GeneralName вида directoryName
  *
  * @param name   запись имени X.501 (просмотр element из name_t)
@@ -3109,6 +3871,785 @@ nts::cmp::error_t nts::cmp::failure(const view_t & sender, const view_t & recipi
 		return error_t::MEMORY;
 	// Переносим запись ErrorMsgContent
 	if(!embed(body, content.data()))
+		// Выводим отказ сборки
+		return error_t::MEMORY;
+	// Закрываем метку вида тела
+	if(!body.close())
+		// Выводим отказ сборки
+		return error_t::MEMORY;
+	// Собираем сообщение с защитой подписью
+	return buildSigned(sender, recipient, body.data(), signer, hash, result);
+}
+
+/**
+ * \~russian
+ * @brief Метод сборки сообщения p10cr (запрос PKCS #10)
+ *
+ * @param sender    запись GeneralName отправителя
+ * @param recipient запись GeneralName получателя
+ * @param csr       запись CertificationRequest по RFC 2986
+ * @param signer    подготовленный секретный ключ защиты подписью
+ * @param hash      алгоритм хеша подписи
+ * @param result    место, в которое помещается запись PKIMessage
+ * @return          причина отказа либо error_t::NONE
+ *
+ * \~english
+ * @brief Method of building a p10cr message (PKCS #10 request)
+ * @param sender    the GeneralName record of the sender
+ * @param recipient the GeneralName record of the recipient
+ * @param csr       the CertificationRequest record according to RFC 2986
+ * @param signer    the prepared secret key of the signature protection
+ * @param hash      the hashing algorithm of the signature
+ * @param result    the place the PKIMessage record is put into
+ * @return          the reason of the failure or error_t::NONE
+ *
+ * \~
+ *
+ */
+nts::cmp::error_t nts::cmp::requestPkcs10(const view_t & sender, const view_t & recipient, const view_t & csr, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept {
+	// Если запрос не задан
+	if(csr.size == 0)
+		// Выводим отказ пустой записи
+		return error_t::EMPTY;
+	// Записчик тела
+	asn1::writer_t body;
+	// Открываем метку вида тела p10cr [4]
+	if(!body.open(asn1::cls_t::CONTEXT, static_cast <uint32_t> (body_t::P10CR)))
+		// Выводим отказ сборки
+		return error_t::MEMORY;
+	// Переносим запись CertificationRequest
+	if(!embed(body, csr))
+		// Выводим отказ сборки
+		return error_t::MEMORY;
+	// Закрываем метку вида тела
+	if(!body.close())
+		// Выводим отказ сборки
+		return error_t::MEMORY;
+	// Собираем сообщение с защитой подписью
+	return buildSigned(sender, recipient, body.data(), signer, hash, result);
+}
+/**
+ * \~russian
+ * @brief Метод сборки сообщения popdecc (вызовы подтверждения владения)
+ *
+ * @param sender     запись GeneralName отправителя
+ * @param recipient  запись GeneralName получателя
+ * @param challenges вызовы (свидетель и вызов)
+ * @param signer     подготовленный секретный ключ защиты подписью
+ * @param hash       алгоритм хеша подписи
+ * @param result     место, в которое помещается запись PKIMessage
+ * @return           причина отказа либо error_t::NONE
+ *
+ * \~english
+ * @brief Method of building a popdecc message (possession challenges)
+ * @param sender     the GeneralName record of the sender
+ * @param recipient  the GeneralName record of the recipient
+ * @param challenges the challenges (the witness and the challenge)
+ * @param signer     the prepared secret key of the signature protection
+ * @param hash       the hashing algorithm of the signature
+ * @param result     the place the PKIMessage record is put into
+ * @return           the reason of the failure or error_t::NONE
+ *
+ * \~
+ *
+ */
+nts::cmp::error_t nts::cmp::challenge(const view_t & sender, const view_t & recipient, const vector <challenge_t> & challenges, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept {
+	// Записчик содержимого тела
+	asn1::writer_t content;
+	// Переносим вызовы
+	for(const challenge_t & entry : challenges){
+		// Открываем запись Challenge
+		if(!content.open(asn1::tag_t::SEQUENCE))
+			// Выводим отказ сборки
+			return error_t::MEMORY;
+		// Если односторонняя функция задана
+		if(!entry.owf.empty()){
+			// Записываем алгоритм односторонней функции с пустыми настройками
+			if(!writeAlgorithm(content, entry.owf.c_str(), true))
+				// Выводим отказ сборки
+				return error_t::MEMORY;
+		}
+		// Записываем свидетеля
+		if(!content.octets(entry.witness))
+			// Выводим отказ сборки
+			return error_t::MEMORY;
+		// Записываем вызов
+		if(!content.octets(entry.challenge))
+			// Выводим отказ сборки
+			return error_t::MEMORY;
+		// Закрываем запись Challenge
+		if(!content.close())
+			// Выводим отказ сборки
+			return error_t::MEMORY;
+	}
+	// Записчик тела
+	asn1::writer_t body;
+	// Открываем метку вида тела popdecc [5]
+	if(!body.open(asn1::cls_t::CONTEXT, static_cast <uint32_t> (body_t::POPDECC)))
+		// Выводим отказ сборки
+		return error_t::MEMORY;
+	// Переносим содержимое тела записью SEQUENCE OF
+	if(!body.element(asn1::cls_t::UNIVERSAL, true, static_cast <uint32_t> (asn1::tag_t::SEQUENCE), content.data()))
+		// Выводим отказ сборки
+		return error_t::MEMORY;
+	// Закрываем метку вида тела
+	if(!body.close())
+		// Выводим отказ сборки
+		return error_t::MEMORY;
+	// Собираем сообщение с защитой подписью
+	return buildSigned(sender, recipient, body.data(), signer, hash, result);
+}
+/**
+ * \~russian
+ * @brief Метод сборки сообщения popdecr (ответы подтверждения владения)
+ *
+ * @param sender    запись GeneralName отправителя
+ * @param recipient запись GeneralName получателя
+ * @param answers   числа ответов
+ * @param signer    подготовленный секретный ключ защиты подписью
+ * @param hash      алгоритм хеша подписи
+ * @param result    место, в которое помещается запись PKIMessage
+ * @return          причина отказа либо error_t::NONE
+ *
+ * \~english
+ * @brief Method of building a popdecr message (possession responses)
+ * @param sender    the GeneralName record of the sender
+ * @param recipient the GeneralName record of the recipient
+ * @param answers   the response numbers
+ * @param signer    the prepared secret key of the signature protection
+ * @param hash      the hashing algorithm of the signature
+ * @param result    the place the PKIMessage record is put into
+ * @return          the reason of the failure or error_t::NONE
+ *
+ * \~
+ *
+ */
+nts::cmp::error_t nts::cmp::challengeReply(const view_t & sender, const view_t & recipient, const vector <int64_t> & answers, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept {
+	// Записчик содержимого тела
+	asn1::writer_t content;
+	// Переносим числа ответов
+	for(const int64_t answer : answers){
+		// Записываем число ответа
+		if(!content.integer(answer))
+			// Выводим отказ сборки
+			return error_t::MEMORY;
+	}
+	// Записчик тела
+	asn1::writer_t body;
+	// Открываем метку вида тела popdecr [6]
+	if(!body.open(asn1::cls_t::CONTEXT, static_cast <uint32_t> (body_t::POPDECR)))
+		// Выводим отказ сборки
+		return error_t::MEMORY;
+	// Переносим содержимое тела записью SEQUENCE OF
+	if(!body.element(asn1::cls_t::UNIVERSAL, true, static_cast <uint32_t> (asn1::tag_t::SEQUENCE), content.data()))
+		// Выводим отказ сборки
+		return error_t::MEMORY;
+	// Закрываем метку вида тела
+	if(!body.close())
+		// Выводим отказ сборки
+		return error_t::MEMORY;
+	// Собираем сообщение с защитой подписью
+	return buildSigned(sender, recipient, body.data(), signer, hash, result);
+}
+/**
+ * \~russian
+ * @brief Метод сборки сообщения krp (ответ восстановления ключа)
+ *
+ * @param sender    запись GeneralName отправителя
+ * @param recipient запись GeneralName получателя
+ * @param recovery  ответ восстановления ключа
+ * @param signer    подготовленный секретный ключ защиты подписью
+ * @param hash      алгоритм хеша подписи
+ * @param result    место, в которое помещается запись PKIMessage
+ * @return          причина отказа либо error_t::NONE
+ *
+ * \~english
+ * @brief Method of building a krp message (key recovery response)
+ * @param sender    the GeneralName record of the sender
+ * @param recipient the GeneralName record of the recipient
+ * @param recovery  the key recovery response
+ * @param signer    the prepared secret key of the signature protection
+ * @param hash      the hashing algorithm of the signature
+ * @param result    the place the PKIMessage record is put into
+ * @return          the reason of the failure or error_t::NONE
+ *
+ * \~
+ *
+ */
+nts::cmp::error_t nts::cmp::recovered(const view_t & sender, const view_t & recipient, const recovery_t & recovery, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept {
+	// Записчик содержимого тела KeyRecRepContent
+	asn1::writer_t content;
+	// Открываем запись KeyRecRepContent
+	if(!content.open(asn1::tag_t::SEQUENCE))
+		// Выводим отказ сборки
+		return error_t::MEMORY;
+	// Записываем сведения о статусе
+	{
+		// Открываем запись PKIStatusInfo
+		if(!content.open(asn1::tag_t::SEQUENCE))
+			// Выводим отказ сборки
+			return error_t::MEMORY;
+		// Записываем статус
+		if(!content.integer(static_cast <int64_t> (recovery.status.status)))
+			// Выводим отказ сборки
+			return error_t::MEMORY;
+		// Закрываем запись PKIStatusInfo
+		if(!content.close())
+			// Выводим отказ сборки
+			return error_t::MEMORY;
+	}
+	// Если сертификат задан
+	if(recovery.certificate.size > 0){
+		// Открываем явную метку [0]
+		if(!content.open(asn1::cls_t::CONTEXT, 0))
+			// Выводим отказ сборки
+			return error_t::MEMORY;
+		// Переносим запись сертификата
+		if(!embed(content, recovery.certificate))
+			// Выводим отказ сборки
+			return error_t::MEMORY;
+		// Закрываем явную метку [0]
+		if(!content.close())
+			// Выводим отказ сборки
+			return error_t::MEMORY;
+	}
+	// Если сертификаты ЦС заданы
+	if(!recovery.caCertificates.empty()){
+		// Открываем явную метку [1]
+		if(!content.open(asn1::cls_t::CONTEXT, 1))
+			// Выводим отказ сборки
+			return error_t::MEMORY;
+		// Переносим записи сертификатов ЦС
+		for(const view_t & certificate : recovery.caCertificates){
+			// Переносим запись сертификата ЦС
+			if(!embed(content, certificate))
+				// Выводим отказ сборки
+				return error_t::MEMORY;
+		}
+		// Закрываем явную метку [1]
+		if(!content.close())
+			// Выводим отказ сборки
+			return error_t::MEMORY;
+	}
+	// Закрываем запись KeyRecRepContent
+	if(!content.close())
+		// Выводим отказ сборки
+		return error_t::MEMORY;
+	// Записчик тела
+	asn1::writer_t body;
+	// Открываем метку вида тела krp [10]
+	if(!body.open(asn1::cls_t::CONTEXT, static_cast <uint32_t> (body_t::KRP)))
+		// Выводим отказ сборки
+		return error_t::MEMORY;
+	// Переносим запись KeyRecRepContent
+	if(!embed(body, content.data()))
+		// Выводим отказ сборки
+		return error_t::MEMORY;
+	// Закрываем метку вида тела
+	if(!body.close())
+		// Выводим отказ сборки
+		return error_t::MEMORY;
+	// Собираем сообщение с защитой подписью
+	return buildSigned(sender, recipient, body.data(), signer, hash, result);
+}
+/**
+ * \~russian
+ * @brief Метод сборки сообщения rp (ответ отзыва)
+ *
+ * @param sender    запись GeneralName отправителя
+ * @param recipient запись GeneralName получателя
+ * @param statuses  сведения о статусах отзыва
+ * @param signer    подготовленный секретный ключ защиты подписью
+ * @param hash      алгоритм хеша подписи
+ * @param result    место, в которое помещается запись PKIMessage
+ * @return          причина отказа либо error_t::NONE
+ *
+ * \~english
+ * @brief Method of building an rp message (revocation response)
+ * @param sender    the GeneralName record of the sender
+ * @param recipient the GeneralName record of the recipient
+ * @param statuses  the revocation status info
+ * @param signer    the prepared secret key of the signature protection
+ * @param hash      the hashing algorithm of the signature
+ * @param result    the place the PKIMessage record is put into
+ * @return          the reason of the failure or error_t::NONE
+ *
+ * \~
+ *
+ */
+nts::cmp::error_t nts::cmp::revoked(const view_t & sender, const view_t & recipient, const vector <status_info_t> & statuses, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept {
+	// Записчик содержимого тела RevRepContent
+	asn1::writer_t content;
+	// Открываем запись RevRepContent
+	if(!content.open(asn1::tag_t::SEQUENCE))
+		// Выводим отказ сборки
+		return error_t::MEMORY;
+	// Открываем запись набора статусов
+	if(!content.open(asn1::tag_t::SEQUENCE))
+		// Выводим отказ сборки
+		return error_t::MEMORY;
+	// Переносим сведения о статусах
+	for(const status_info_t & status : statuses){
+		// Открываем запись PKIStatusInfo
+		if(!content.open(asn1::tag_t::SEQUENCE))
+			// Выводим отказ сборки
+			return error_t::MEMORY;
+		// Записываем статус
+		if(!content.integer(static_cast <int64_t> (status.status)))
+			// Выводим отказ сборки
+			return error_t::MEMORY;
+		// Закрываем запись PKIStatusInfo
+		if(!content.close())
+			// Выводим отказ сборки
+			return error_t::MEMORY;
+	}
+	// Закрываем запись набора статусов и запись RevRepContent
+	if(!content.close() || !content.close())
+		// Выводим отказ сборки
+		return error_t::MEMORY;
+	// Записчик тела
+	asn1::writer_t body;
+	// Открываем метку вида тела rp [12]
+	if(!body.open(asn1::cls_t::CONTEXT, static_cast <uint32_t> (body_t::RP)))
+		// Выводим отказ сборки
+		return error_t::MEMORY;
+	// Переносим запись RevRepContent
+	if(!embed(body, content.data()))
+		// Выводим отказ сборки
+		return error_t::MEMORY;
+	// Закрываем метку вида тела
+	if(!body.close())
+		// Выводим отказ сборки
+		return error_t::MEMORY;
+	// Собираем сообщение с защитой подписью
+	return buildSigned(sender, recipient, body.data(), signer, hash, result);
+}
+/**
+ * \~russian
+ * @brief Метод сборки сообщения ckuann (объявление обновления ключа ЦС)
+ *
+ * @param sender    запись GeneralName отправителя
+ * @param recipient запись GeneralName получателя
+ * @param oldWithNew запись сертификата oldWithNew
+ * @param newWithOld запись сертификата newWithOld
+ * @param newWithNew запись сертификата newWithNew
+ * @param signer    подготовленный секретный ключ защиты подписью
+ * @param hash      алгоритм хеша подписи
+ * @param result    место, в которое помещается запись PKIMessage
+ * @return          причина отказа либо error_t::NONE
+ *
+ * \~english
+ * @brief Method of building a ckuann message (CA key update announcement)
+ * @param sender    the GeneralName record of the sender
+ * @param recipient the GeneralName record of the recipient
+ * @param oldWithNew the oldWithNew certificate record
+ * @param newWithOld the newWithOld certificate record
+ * @param newWithNew the newWithNew certificate record
+ * @param signer    the prepared secret key of the signature protection
+ * @param hash      the hashing algorithm of the signature
+ * @param result    the place the PKIMessage record is put into
+ * @return          the reason of the failure or error_t::NONE
+ *
+ * \~
+ *
+ */
+nts::cmp::error_t nts::cmp::caKeyUpdate(const view_t & sender, const view_t & recipient, const view_t & oldWithNew, const view_t & newWithOld, const view_t & newWithNew, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept {
+	// Записчик содержимого тела CAKeyUpdAnnContent
+	asn1::writer_t content;
+	// Открываем запись CAKeyUpdAnnContent
+	if(!content.open(asn1::tag_t::SEQUENCE))
+		// Выводим отказ сборки
+		return error_t::MEMORY;
+	// Переносим запись oldWithNew
+	if(!embed(content, oldWithNew))
+		// Выводим отказ сборки
+		return error_t::MEMORY;
+	// Переносим запись newWithOld
+	if(!embed(content, newWithOld))
+		// Выводим отказ сборки
+		return error_t::MEMORY;
+	// Переносим запись newWithNew
+	if(!embed(content, newWithNew))
+		// Выводим отказ сборки
+		return error_t::MEMORY;
+	// Закрываем запись CAKeyUpdAnnContent
+	if(!content.close())
+		// Выводим отказ сборки
+		return error_t::MEMORY;
+	// Записчик тела
+	asn1::writer_t body;
+	// Открываем метку вида тела ckuann [15]
+	if(!body.open(asn1::cls_t::CONTEXT, static_cast <uint32_t> (body_t::CKUANN)))
+		// Выводим отказ сборки
+		return error_t::MEMORY;
+	// Переносим запись CAKeyUpdAnnContent
+	if(!embed(body, content.data()))
+		// Выводим отказ сборки
+		return error_t::MEMORY;
+	// Закрываем метку вида тела
+	if(!body.close())
+		// Выводим отказ сборки
+		return error_t::MEMORY;
+	// Собираем сообщение с защитой подписью
+	return buildSigned(sender, recipient, body.data(), signer, hash, result);
+}
+/**
+ * \~russian
+ * @brief Метод сборки сообщения cann (объявление сертификата)
+ *
+ * @param sender      запись GeneralName отправителя
+ * @param recipient   запись GeneralName получателя
+ * @param certificate запись сертификата
+ * @param signer      подготовленный секретный ключ защиты подписью
+ * @param hash        алгоритм хеша подписи
+ * @param result      место, в которое помещается запись PKIMessage
+ * @return            причина отказа либо error_t::NONE
+ *
+ * \~english
+ * @brief Method of building a cann message (certificate announcement)
+ * @param sender      the GeneralName record of the sender
+ * @param recipient   the GeneralName record of the recipient
+ * @param certificate the certificate record
+ * @param signer      the prepared secret key of the signature protection
+ * @param hash        the hashing algorithm of the signature
+ * @param result      the place the PKIMessage record is put into
+ * @return            the reason of the failure or error_t::NONE
+ *
+ * \~
+ *
+ */
+nts::cmp::error_t nts::cmp::announce(const view_t & sender, const view_t & recipient, const view_t & certificate, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept {
+	// Если сертификат не задан
+	if(certificate.size == 0)
+		// Выводим отказ пустой записи
+		return error_t::EMPTY;
+	// Записчик тела
+	asn1::writer_t body;
+	// Открываем метку вида тела cann [16]
+	if(!body.open(asn1::cls_t::CONTEXT, static_cast <uint32_t> (body_t::CANN)))
+		// Выводим отказ сборки
+		return error_t::MEMORY;
+	// Переносим запись сертификата
+	if(!embed(body, certificate))
+		// Выводим отказ сборки
+		return error_t::MEMORY;
+	// Закрываем метку вида тела
+	if(!body.close())
+		// Выводим отказ сборки
+		return error_t::MEMORY;
+	// Собираем сообщение с защитой подписью
+	return buildSigned(sender, recipient, body.data(), signer, hash, result);
+}
+/**
+ * \~russian
+ * @brief Метод сборки сообщения rann (объявление отзыва)
+ *
+ * @param sender    запись GeneralName отправителя
+ * @param recipient запись GeneralName получателя
+ * @param announcement объявление отзыва
+ * @param signer    подготовленный секретный ключ защиты подписью
+ * @param hash      алгоритм хеша подписи
+ * @param result    место, в которое помещается запись PKIMessage
+ * @return          причина отказа либо error_t::NONE
+ *
+ * \~english
+ * @brief Method of building a rann message (revocation announcement)
+ * @param sender    the GeneralName record of the sender
+ * @param recipient the GeneralName record of the recipient
+ * @param announcement the revocation announcement
+ * @param signer    the prepared secret key of the signature protection
+ * @param hash      the hashing algorithm of the signature
+ * @param result    the place the PKIMessage record is put into
+ * @return          the reason of the failure or error_t::NONE
+ *
+ * \~
+ *
+ */
+nts::cmp::error_t nts::cmp::announceRevocation(const view_t & sender, const view_t & recipient, const announcement_t & announcement, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept {
+	// Если опознаватель сертификата не задан
+	if(announcement.certificate.size == 0)
+		// Выводим отказ пустой записи
+		return error_t::EMPTY;
+	// Записчик содержимого тела RevAnnContent
+	asn1::writer_t content;
+	// Открываем запись RevAnnContent
+	if(!content.open(asn1::tag_t::SEQUENCE))
+		// Выводим отказ сборки
+		return error_t::MEMORY;
+	// Записываем статус
+	if(!content.integer(static_cast <int64_t> (announcement.status)))
+		// Выводим отказ сборки
+		return error_t::MEMORY;
+	// Переносим запись опознавателя сертификата
+	if(!embed(content, announcement.certificate))
+		// Выводим отказ сборки
+		return error_t::MEMORY;
+	// Записываем время занесения в список отзыва
+	if(!content.time(asn1::tag_t::GENERALIZED_TIME, announcement.willBeRevokedAt))
+		// Выводим отказ сборки
+		return error_t::MEMORY;
+	// Записываем время компрометации
+	if(!content.time(asn1::tag_t::GENERALIZED_TIME, announcement.badSinceDate))
+		// Выводим отказ сборки
+		return error_t::MEMORY;
+	// Закрываем запись RevAnnContent
+	if(!content.close())
+		// Выводим отказ сборки
+		return error_t::MEMORY;
+	// Записчик тела
+	asn1::writer_t body;
+	// Открываем метку вида тела rann [17]
+	if(!body.open(asn1::cls_t::CONTEXT, static_cast <uint32_t> (body_t::RANN)))
+		// Выводим отказ сборки
+		return error_t::MEMORY;
+	// Переносим запись RevAnnContent
+	if(!embed(body, content.data()))
+		// Выводим отказ сборки
+		return error_t::MEMORY;
+	// Закрываем метку вида тела
+	if(!body.close())
+		// Выводим отказ сборки
+		return error_t::MEMORY;
+	// Собираем сообщение с защитой подписью
+	return buildSigned(sender, recipient, body.data(), signer, hash, result);
+}
+/**
+ * \~russian
+ * @brief Метод сборки сообщения crlann (объявление списков отзыва)
+ *
+ * @param sender    запись GeneralName отправителя
+ * @param recipient запись GeneralName получателя
+ * @param crls      записи списков отзыва CertificateList
+ * @param signer    подготовленный секретный ключ защиты подписью
+ * @param hash      алгоритм хеша подписи
+ * @param result    место, в которое помещается запись PKIMessage
+ * @return          причина отказа либо error_t::NONE
+ *
+ * \~english
+ * @brief Method of building a crlann message (CRL announcement)
+ * @param sender    the GeneralName record of the sender
+ * @param recipient the GeneralName record of the recipient
+ * @param crls      the CertificateList CRL records
+ * @param signer    the prepared secret key of the signature protection
+ * @param hash      the hashing algorithm of the signature
+ * @param result    the place the PKIMessage record is put into
+ * @return          the reason of the failure or error_t::NONE
+ *
+ * \~
+ *
+ */
+nts::cmp::error_t nts::cmp::announceCrls(const view_t & sender, const view_t & recipient, const vector <view_t> & crls, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept {
+	// Записчик содержимого тела
+	asn1::writer_t content;
+	// Переносим записи списков отзыва
+	for(const view_t & crl : crls){
+		// Переносим запись списка отзыва
+		if(!embed(content, crl))
+			// Выводим отказ сборки
+			return error_t::MEMORY;
+	}
+	// Записчик тела
+	asn1::writer_t body;
+	// Открываем метку вида тела crlann [18]
+	if(!body.open(asn1::cls_t::CONTEXT, static_cast <uint32_t> (body_t::CRLANN)))
+		// Выводим отказ сборки
+		return error_t::MEMORY;
+	// Переносим содержимое тела записью SEQUENCE OF
+	if(!body.element(asn1::cls_t::UNIVERSAL, true, static_cast <uint32_t> (asn1::tag_t::SEQUENCE), content.data()))
+		// Выводим отказ сборки
+		return error_t::MEMORY;
+	// Закрываем метку вида тела
+	if(!body.close())
+		// Выводим отказ сборки
+		return error_t::MEMORY;
+	// Собираем сообщение с защитой подписью
+	return buildSigned(sender, recipient, body.data(), signer, hash, result);
+}
+/**
+ * \~russian
+ * @brief Метод сборки сообщения nested (вложенные сообщения)
+ *
+ * @param sender    запись GeneralName отправителя
+ * @param recipient запись GeneralName получателя
+ * @param messages  записи вложенных PKIMessage
+ * @param signer    подготовленный секретный ключ защиты подписью
+ * @param hash      алгоритм хеша подписи
+ * @param result    место, в которое помещается запись PKIMessage
+ * @return          причина отказа либо error_t::NONE
+ *
+ * \~english
+ * @brief Method of building a nested message (nested messages)
+ * @param sender    the GeneralName record of the sender
+ * @param recipient the GeneralName record of the recipient
+ * @param messages  the nested PKIMessage records
+ * @param signer    the prepared secret key of the signature protection
+ * @param hash      the hashing algorithm of the signature
+ * @param result    the place the PKIMessage record is put into
+ * @return          the reason of the failure or error_t::NONE
+ *
+ * \~
+ *
+ */
+nts::cmp::error_t nts::cmp::nest(const view_t & sender, const view_t & recipient, const vector <view_t> & messages, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept {
+	// Записчик содержимого тела
+	asn1::writer_t content;
+	// Переносим записи вложенных сообщений
+	for(const view_t & message : messages){
+		// Переносим запись сообщения
+		if(!embed(content, message))
+			// Выводим отказ сборки
+			return error_t::MEMORY;
+	}
+	// Записчик тела
+	asn1::writer_t body;
+	// Открываем метку вида тела nested [20]
+	if(!body.open(asn1::cls_t::CONTEXT, static_cast <uint32_t> (body_t::NESTED)))
+		// Выводим отказ сборки
+		return error_t::MEMORY;
+	// Переносим содержимое тела записью SEQUENCE OF
+	if(!body.element(asn1::cls_t::UNIVERSAL, true, static_cast <uint32_t> (asn1::tag_t::SEQUENCE), content.data()))
+		// Выводим отказ сборки
+		return error_t::MEMORY;
+	// Закрываем метку вида тела
+	if(!body.close())
+		// Выводим отказ сборки
+		return error_t::MEMORY;
+	// Собираем сообщение с защитой подписью
+	return buildSigned(sender, recipient, body.data(), signer, hash, result);
+}
+/**
+ * \~russian
+ * @brief Метод сборки сообщения pollReq (запрос опроса)
+ *
+ * @param sender    запись GeneralName отправителя
+ * @param recipient запись GeneralName получателя
+ * @param ids       опознаватели запросов
+ * @param signer    подготовленный секретный ключ защиты подписью
+ * @param hash      алгоритм хеша подписи
+ * @param result    место, в которое помещается запись PKIMessage
+ * @return          причина отказа либо error_t::NONE
+ *
+ * \~english
+ * @brief Method of building a pollReq message (polling request)
+ * @param sender    the GeneralName record of the sender
+ * @param recipient the GeneralName record of the recipient
+ * @param ids       the request identifiers
+ * @param signer    the prepared secret key of the signature protection
+ * @param hash      the hashing algorithm of the signature
+ * @param result    the place the PKIMessage record is put into
+ * @return          the reason of the failure or error_t::NONE
+ *
+ * \~
+ *
+ */
+nts::cmp::error_t nts::cmp::pollRequest(const view_t & sender, const view_t & recipient, const vector <int64_t> & ids, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept {
+	// Записчик содержимого тела
+	asn1::writer_t content;
+	// Переносим опознаватели запросов
+	for(const int64_t id : ids){
+		// Открываем запись опроса
+		if(!content.open(asn1::tag_t::SEQUENCE))
+			// Выводим отказ сборки
+			return error_t::MEMORY;
+		// Записываем опознаватель запроса
+		if(!content.integer(id))
+			// Выводим отказ сборки
+			return error_t::MEMORY;
+		// Закрываем запись опроса
+		if(!content.close())
+			// Выводим отказ сборки
+			return error_t::MEMORY;
+	}
+	// Записчик тела
+	asn1::writer_t body;
+	// Открываем метку вида тела pollReq [25]
+	if(!body.open(asn1::cls_t::CONTEXT, static_cast <uint32_t> (body_t::POLLREQ)))
+		// Выводим отказ сборки
+		return error_t::MEMORY;
+	// Переносим содержимое тела записью SEQUENCE OF
+	if(!body.element(asn1::cls_t::UNIVERSAL, true, static_cast <uint32_t> (asn1::tag_t::SEQUENCE), content.data()))
+		// Выводим отказ сборки
+		return error_t::MEMORY;
+	// Закрываем метку вида тела
+	if(!body.close())
+		// Выводим отказ сборки
+		return error_t::MEMORY;
+	// Собираем сообщение с защитой подписью
+	return buildSigned(sender, recipient, body.data(), signer, hash, result);
+}
+/**
+ * \~russian
+ * @brief Метод сборки сообщения pollRep (ответ опроса)
+ *
+ * @param sender    запись GeneralName отправителя
+ * @param recipient запись GeneralName получателя
+ * @param polls     записи опроса (опознаватель и время ожидания)
+ * @param signer    подготовленный секретный ключ защиты подписью
+ * @param hash      алгоритм хеша подписи
+ * @param result    место, в которое помещается запись PKIMessage
+ * @return          причина отказа либо error_t::NONE
+ *
+ * \~english
+ * @brief Method of building a pollRep message (polling response)
+ * @param sender    the GeneralName record of the sender
+ * @param recipient the GeneralName record of the recipient
+ * @param polls     the polling records (the identifier and the wait time)
+ * @param signer    the prepared secret key of the signature protection
+ * @param hash      the hashing algorithm of the signature
+ * @param result    the place the PKIMessage record is put into
+ * @return          the reason of the failure or error_t::NONE
+ *
+ * \~
+ *
+ */
+nts::cmp::error_t nts::cmp::pollReply(const view_t & sender, const view_t & recipient, const vector <poll_t> & polls, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept {
+	// Записчик содержимого тела
+	asn1::writer_t content;
+	// Переносим записи опроса
+	for(const poll_t & poll : polls){
+		// Открываем запись опроса
+		if(!content.open(asn1::tag_t::SEQUENCE))
+			// Выводим отказ сборки
+			return error_t::MEMORY;
+		// Записываем опознаватель запроса
+		if(!content.integer(poll.id))
+			// Выводим отказ сборки
+			return error_t::MEMORY;
+		// Записываем время ожидания
+		if(!content.integer(poll.checkAfter))
+			// Выводим отказ сборки
+			return error_t::MEMORY;
+		// Если причина задана
+		if(!poll.reason.empty()){
+			// Открываем запись причины
+			if(!content.open(asn1::tag_t::SEQUENCE))
+				// Выводим отказ сборки
+				return error_t::MEMORY;
+			// Переносим строки причины
+			for(const string & line : poll.reason){
+				// Записываем строку причины
+				if(!content.text(asn1::tag_t::UTF8_STRING, line))
+					// Выводим отказ сборки
+					return error_t::MEMORY;
+			}
+			// Закрываем запись причины
+			if(!content.close())
+				// Выводим отказ сборки
+				return error_t::MEMORY;
+		}
+		// Закрываем запись опроса
+		if(!content.close())
+			// Выводим отказ сборки
+			return error_t::MEMORY;
+	}
+	// Записчик тела
+	asn1::writer_t body;
+	// Открываем метку вида тела pollRep [26]
+	if(!body.open(asn1::cls_t::CONTEXT, static_cast <uint32_t> (body_t::POLLREP)))
+		// Выводим отказ сборки
+		return error_t::MEMORY;
+	// Переносим содержимое тела записью SEQUENCE OF
+	if(!body.element(asn1::cls_t::UNIVERSAL, true, static_cast <uint32_t> (asn1::tag_t::SEQUENCE), content.data()))
 		// Выводим отказ сборки
 		return error_t::MEMORY;
 	// Закрываем метку вида тела
