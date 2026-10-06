@@ -8407,6 +8407,104 @@ TEST(ContextTest, RawPublicKeyMismatch){
 }
 
 /**
+ * Проверка сырого открытого ключа клиента RFC 7250: сервер просит клиентский
+ * сертификат сырым ключом, клиент отвечает SPKI, сервер сверяет с закреплённым
+ */
+TEST(ContextTest, RawPublicKeyClient){
+	// Подлинность сторон связи
+	context::credential_t first, second;
+	// Выполняем выработку подлинности стороны сервера
+	ASSERT_TRUE(identity("anyks.com", first));
+	// Выполняем выработку подлинности стороны клиента
+	ASSERT_TRUE(identity("client.anyks.com", second));
+	// Извлекаем SPKI листа цепочки клиента
+	x509::certificate_t leaf;
+	ASSERT_EQ(leaf.parse(view_t(second.chain[0].data(), second.chain[0].size())), x509::error_t::NONE);
+	const view_t spki = leaf.key().element;
+	ASSERT_TRUE(spki.data != nullptr);
+	ASSERT_TRUE(spki.size > 0);
+	// Связь стороны клиента
+	client::context_t client;
+	gosting(client);
+	// Устанавливаем подлинность стороны клиента
+	client.credential(second);
+	// Связь стороны сервера с закреплённым ключом клиента
+	server::context_t server;
+	gosting(server);
+	// Устанавливаем подлинность стороны сервера
+	server.credential(first);
+	// Устанавливаем требование подлинности клиента
+	server.request(true);
+	// Закрепляем сырой ключ клиента
+	server.pinned(spki);
+	// Заводим связь
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	converse(client, server);
+	// Проверяем установленность связи
+	ASSERT_TRUE(client.established());
+	ASSERT_TRUE(server.established());
+	// Проверяем получение сервером сырого ключа клиента: цепочка из одной записи SPKI
+	ASSERT_EQ(server.peer().size(), static_cast <size_t> (1));
+	EXPECT_EQ(server.peer()[0].size(), spki.size);
+	ASSERT_EQ(::memcmp(server.peer()[0].data(), spki.data, spki.size), 0);
+	// Прикладные данные
+	const string request = "Запрос по сырому ключу клиента";
+	ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
+	pump(client, server);
+	vector <uint8_t> received;
+	ASSERT_EQ(server.read(received), context::error_t::NONE);
+	EXPECT_EQ(string(received.begin(), received.end()), request);
+	// Закрываем связь
+	ASSERT_EQ(client.close(), context::error_t::NONE);
+	pump(client, server);
+	ASSERT_EQ(server.state(), context::state_t::CLOSED);
+}
+
+/**
+ * Проверка отказа на чужом сыром ключе клиента
+ */
+TEST(ContextTest, RawPublicKeyClientMismatch){
+	// Подлинность сторон связи
+	context::credential_t first, second;
+	// Выполняем выработку подлинности стороны сервера
+	ASSERT_TRUE(identity("anyks.com", first));
+	// Выполняем выработку подлинности стороны клиента
+	ASSERT_TRUE(identity("client.anyks.com", second));
+	// Чужой ключ: вырабатываем свой
+	keys::key_t foreign;
+	foreign.kind = keys::kind_t::ED25519;
+	foreign.d.assign(32, 0);
+	sign::ed25519_t ed;
+	ASSERT_TRUE(ed.generate(foreign.d.data(), foreign.d.size()));
+	foreign.key.assign(32, 0);
+	ASSERT_TRUE(ed.key(foreign.key.data(), foreign.key.size()));
+	// Записываем SPKI чужого ключа
+	string spki;
+	ASSERT_EQ(keys::encode(foreign, keys::container_t::PUBLIC, spki), keys::error_t::NONE);
+	// Связь стороны клиента
+	client::context_t client;
+	gosting(client);
+	// Устанавливаем подлинность стороны клиента
+	client.credential(second);
+	// Связь стороны сервера с чужим закреплённым ключом клиента
+	server::context_t server;
+	gosting(server);
+	// Устанавливаем подлинность стороны сервера
+	server.credential(first);
+	// Устанавливаем требование подлинности клиента
+	server.request(true);
+	// Закрепляем чужой сырой ключ клиента
+	server.pinned(view_t(reinterpret_cast <const uint8_t *> (spki.data()), spki.size()));
+	// Заводим связь
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	converse(client, server);
+	// Связь не должна установиться: ключ клиента не совпал с закреплённым
+	EXPECT_FALSE(server.established());
+}
+
+/**
  * Проверка многократной сшивки OCSP по RFC 8446 §4.4.2.1
  */
 TEST(ContextTest, OcspStapling){

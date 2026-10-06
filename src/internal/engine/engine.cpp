@@ -3214,17 +3214,25 @@ context::error_t nts::internal::Engine::greeting() noexcept {
 		greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::GROUPS), view_t(groups.data(), groups.size())));
 		// Добавляем расширение перечня схем подписи
 		greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::SCHEMES), view_t(schemes.data(), schemes.size())));
-		// Если задан закреплённый сырой открытый ключ
+		// Перечень видов сертификатов: RawPublicKey и X.509
+		const extension::cert_t certkinds[] = {extension::cert_t::RAW, extension::cert_t::X509};
+		// Если задан закреплённый сырой открытый ключ сервера
 		if(!this->_pinned.empty()){
-			// Перечень видов сертификатов: RawPublicKey и X.509
-			const extension::cert_t types[] = {extension::cert_t::RAW, extension::cert_t::X509};
 			// Составляем перечень видов сертификатов
-			if(extension::certtypes(vector <extension::cert_t> (types, types + 2), certtypes) == extension::error_t::NONE){
-				// Добавляем расширение вида сертификата клиента
-				greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::CLIENT_CERT_TYPE), view_t(certtypes.data(), certtypes.size())));
+			if(extension::certtypes(vector <extension::cert_t> (certkinds, certkinds + 2), certtypes) == extension::error_t::NONE)
 				// Добавляем расширение вида сертификата сервера
 				greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::SERVER_CERT_TYPE), view_t(certtypes.data(), certtypes.size())));
-			}
+		}
+		/**
+		 * Раздел 3 RFC 7250: готовность ответить сырым ключом объявляется расширением
+		 * вида сертификата клиента при наличии своей подлинности, независимо от
+		 * закрепления серверного ключа
+		 */
+		if(!this->_credential.chain.empty()){
+			// Составляем перечень видов сертификатов
+			if(extension::certtypes(vector <extension::cert_t> (certkinds, certkinds + 2), certtypes) == extension::error_t::NONE)
+				// Добавляем расширение вида сертификата клиента
+				greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::CLIENT_CERT_TYPE), view_t(certtypes.data(), certtypes.size())));
 		}
 		// Если профили защиты RTP связью предлагаются
 		if(!this->_srtps.empty()){
@@ -3846,11 +3854,11 @@ context::error_t nts::internal::Engine::authenticate() noexcept {
 		// Тела расширений состояния сертификатов, переживающие составление цепочки
 		vector <vector <uint8_t>> statuses;
 		/**
-		 * Раздел 2 RFC 7250: при согласованном виде RawPublicKey сервер отвечает открытым
+		 * Раздел 2 RFC 7250: при согласованном виде RawPublicKey сторона отвечает открытым
 		 * ключом своего листа (записью SubjectPublicKeyInfo DER) вместо цепочки сертификатов;
 		 * ответ о состоянии и метки времени цепочке записей не положены
 		 */
-		if(this->_server && (this->_certtype == extension::cert_t::RAW)){
+		if(this->_owncert == extension::cert_t::RAW){
 			// Объект разбора своего сертификата
 			x509::certificate_t leaf;
 			// Отказ разбора своего сертификата
@@ -4109,6 +4117,8 @@ context::error_t nts::internal::Engine::requesting(const view_t & body) noexcept
 		view_t asking(nullptr, 0);
 		// Тело расширения перечня доверенных удостоверяющих центров
 		view_t naming(nullptr, 0);
+		// Тело расширения вида сертификата клиента, признаваемого сервером
+		view_t certtype(nullptr, 0);
 		/**
 		 * Выполняем перебор расширений, объявленных запросом подлинности
 		 */
@@ -4152,6 +4162,10 @@ context::error_t nts::internal::Engine::requesting(const view_t & body) noexcept
 			else if(type == static_cast <uint32_t> (extension::type_t::AUTHORITIES))
 				// Запоминаем тело перечня
 				naming = content;
+			// Если объявлен вид сертификата клиента
+			else if(type == static_cast <uint32_t> (extension::type_t::CLIENT_CERT_TYPE))
+				// Запоминаем тело вида сертификата клиента
+				certtype = content;
 		}
 		// Выполняем сброс перечня доверенных центров собеседника
 		this->_authorities.clear();
@@ -4182,6 +4196,28 @@ context::error_t nts::internal::Engine::requesting(const view_t & body) noexcept
 			if(status != context::error_t::NONE)
 				// Выводим отказ разбора запроса подлинности клиента
 				return status;
+		}
+		/**
+		 * Раздел 4.2.1 RFC 7250: сервер, выбравший вид сертификата клиента, объявляет
+		 * его одним элементом запроса подлинности
+		 */
+		if(certtype.data != nullptr){
+			// Перечень видов сертификатов, объявленных сервером
+			vector <extension::cert_t> kinds;
+			// Отказ разбора расширения вида сертификата клиента
+			const context::error_t refused = translate(extension::certtypes(certtype, kinds), context::error_t::MESSAGE);
+			// Если виды сертификатов, объявленные сервером, разобрать не удалось
+			if(refused != context::error_t::NONE)
+				// Выводим отказ разбора запроса подлинности клиента
+				return refused;
+			// Если сервер объявил не один вид сертификата
+			if(kinds.size() != 1)
+				// Выводим отказ негодного расширения
+				return context::error_t::MESSAGE;
+			// Если сервер выбрал RawPublicKey
+			if(kinds[0] == extension::cert_t::RAW)
+				// Запоминаем согласованный вид своего сертификата
+				this->_owncert = extension::cert_t::RAW;
 		}
 		/**
 		 * Раздел 4.3.2 RFC 8446 велит запросу подлинности нести схемы подписи всегда:
@@ -6465,8 +6501,30 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 					return this->abort(failure, blame(failure, alert::description_t::DECODE));
 				// Если сервер выбрал RawPublicKey
 				if(!types.empty() && (types[0] == extension::cert_t::RAW))
-					// Запоминаем согласованный вид сертификата
-					this->_certtype = extension::cert_t::RAW;
+					// Запоминаем согласованный вид своего сертификата
+					this->_owncert = extension::cert_t::RAW;
+			}
+		}
+		/**
+		 * Раздел 3 RFC 7250: готовность клиента принять ответ сырым ключом объявляется
+		 * расширением вида сертификата клиента - сервер запоминает её, чтобы просить
+		 * клиентский ключ сырым запросом подлинности
+		 */
+		if(this->_proposed){
+			// Разыскиваем расширение вида сертификата клиента
+			extension = hello::extension(greeting.extensions, static_cast <uint16_t> (extension::type_t::CLIENT_CERT_TYPE));
+			// Если вид сертификата клиента объявлен
+			if(extension != nullptr){
+				// Перечень видов сертификатов
+				vector <extension::cert_t> types;
+				// Отказ разбора расширения
+				failure = translate(extension::certtypes(extension->data, types), context::error_t::MESSAGE);
+				// Если виды сертификатов разобрать не удалось
+				if(failure != context::error_t::NONE)
+					// Выводим отказ разбора расширения
+					return this->abort(failure, blame(failure, alert::description_t::DECODE));
+				// Запоминаем, готов ли клиент принять ответ сырым ключом
+				this->_clientraw = (!types.empty() && (types[0] == extension::cert_t::RAW));
 			}
 		}
 		// Выполняем разбор предложения заранее разделённых ключей клиента
@@ -6858,7 +6916,7 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 			items.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::PROFILES), view_t(protection.data(), protection.size())));
 		}
 		// Если вид сертификата сервера согласован сырым открытым ключом
-		if(this->_certtype == extension::cert_t::RAW){
+		if(this->_owncert == extension::cert_t::RAW){
 			// Отказ составления тела расширения вида сертификата сервера
 			failure = translate(extension::certtypes(vector <extension::cert_t> (1, extension::cert_t::RAW), certificate), context::error_t::MESSAGE);
 			// Если тело расширения вида сертификата сервера составить не удалось
@@ -6936,12 +6994,31 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 				return this->abort(failure, blame(failure, alert::description_t::INTERNAL));
 			// Перечень расширений запроса подлинности клиента
 			vector <hello::extension_t> list;
+			// Накопитель, в котором лежит тело расширения вида сертификата клиента
+			vector <uint8_t> certificate;
 			// Раздел 3.2 RFC 8701: расширение GREASE запроса подлинности идёт пустым впереди всех, как у BoringSSL
 			if(this->greased())
 				// Добавляем расширение GREASE запроса подлинности
 				list.push_back(hello::extension_t(this->greasing(grease_t::FIRST), view_t(nullptr, 0)));
 			// Добавляем расширение перечня схем подписи
 			list.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::SCHEMES), view_t(schemes.data(), schemes.size())));
+			/**
+			 * Раздел 4.2.1 RFC 7250: сервер, которому клиент объявил готовность принять
+			 * ответ сырым ключом и у которого ключ клиента закреплён, просит клиентский
+			 * сертификат сырым ключом
+			 */
+			if(this->_clientraw && !this->_pinned.empty()){
+				// Отказ составления тела расширения вида сертификата клиента
+				failure = translate(extension::certtypes(vector <extension::cert_t> (1, extension::cert_t::RAW), certificate), context::error_t::MESSAGE);
+				// Если тело расширения вида сертификата клиента составить не удалось
+				if(failure != context::error_t::NONE)
+					// Выводим отказ составления запроса подлинности клиента
+					return this->abort(failure, blame(failure, alert::description_t::INTERNAL));
+				// Добавляем расширение вида сертификата клиента
+				list.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::CLIENT_CERT_TYPE), view_t(certificate.data(), certificate.size())));
+				// Запоминаем согласованный вид сертификата собеседника: клиент ответит сырым ключом
+				this->_certtype = extension::cert_t::RAW;
+			}
 			// Накопитель, в который складывается тело расширения алгоритмов сжатия
 			vector <uint8_t> algorithms;
 			/**
@@ -18233,7 +18310,7 @@ nts::internal::Engine::Engine(const bool server) noexcept :
 	_inquiring(false), _inquired(false), _verifying(false), _leeway(0), _certified(ocsp::status_t::NONE), _stamping(false), _stamped(false), _outgoing(record::RECORD_PLAINTEXT), _incoming(record::RECORD_PLAINTEXT), _sizing(0), _bounded(0), _fragmented(0), _bounding(0), _fragmenting(0), _sized{0, 0}, _heartbeating(false), _permitted(false), _answering(false), _beating(false), _pulses(0), _negotiating(false), _negotiated(false), _announced(false), _reshare(true), _greasing(false), _profiled(false), _ech(ech_t::NONE), _shroud(0), _echaccepted(false), _echrejected(false), _unshrouding(false),
 	_queries(0), _confirmed(false), _delivered(0), _switched(false),
 	_lowest(LEGACY), _highest(MODERN), _version(0), _legacy(false), _ancient(false), _proposed(false), _own(true), _phase(phase_t::NONE), _sealing(false), _opening(false), _stapling(false),
-	_claimed(0), _etm(false), _strict(false), _ticketing(false), _presented(false), _resumed(false), _authenticated(0), _scrubbing(true), _cleansing(false), _certtype(extension::cert_t::X509), _srtp(0) {
+	_claimed(0), _etm(false), _strict(false), _ticketing(false), _presented(false), _resumed(false), _authenticated(0), _scrubbing(true), _cleansing(false), _certtype(extension::cert_t::X509), _owncert(extension::cert_t::X509), _clientraw(false), _srtp(0) {
 	// Сбрасываем ключевой материал связи до заведения участка
 	this->_keys = nullptr;
 	/**

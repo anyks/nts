@@ -408,6 +408,10 @@ namespace nts {
 				vector <uint8_t> _pinned;
 				// Согласованный вид сертификата собеседника: X.509 либо RawPublicKey
 				extension::cert_t _certtype;
+				// Согласованный вид своего сертификата, которым сторона отвечает: X.509 либо RawPublicKey
+				extension::cert_t _owncert;
+				// Признак того, что собеседник готов принять ответ сырым ключом (client_certificate_type в приветствии)
+				bool _clientraw;
 			private:
 				// Профили защиты RTP, предлагаемые связью (RFC 5764)
 				vector <uint16_t> _srtps;
