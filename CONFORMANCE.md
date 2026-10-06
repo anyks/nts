@@ -9049,6 +9049,18 @@ mpint делает SSH), rsa-sha2-256/512 (PKCS #1 v1.5); шифры chacha20-po
     у сервера - приветствие собеседника `_foreign`. Пин ContextTest.Keylog: 4 записи TLS 1.3, метки
     и непустые секреты проверены. ctest 94/94 зелёные. Открыто: EXPORTER_SECRET, EARLY_EXPORTER_SECRET
     по запросу потребителя проекта.
+    **Круг 97 (06.10.2026)**: хвосты закрыты. Журнал пополнился записями EXPORTER_SECRET (в
+    `Engine::store()` на ступени прикладных данных, геттер `Secrets::exporter()`), а на ранней ступени -
+    CLIENT_EARLY_TRAFFIC_SECRET и EARLY_EXPORTER_SECRET (в `Engine::store()` уровня EARLY, геттер
+    `Secrets::earlyExporter()`; вывод раннего экспорта в `Secrets::early()` меткою «e exp master»
+    той же перепиской - один ClientHello). Ранний экспорт ключевого материала: параметр `early`
+    вызова `exporting()` у client/server и движка, `Secrets::exporting(..., early)` берёт материал
+    из `early_exporter` с начальной ступени - до согласования издания ответом сервера (расписание
+    само судит о готовности: ранние секреты бывают лишь изданием 1.3). Поле `early_exporter` в
+    укрытой памяти keys_t. Пины: ContextTest.Keylog дополнен меткой EXPORTER_SECRET (5 записей),
+    ContextTest.ExportingEarly (возобновление с упреждающими данными: ранний вывод клиента до
+    установления связи удаётся, обычный отказывает STATE, ранний вывод сервера сходится с клиентским
+    побайтно, ранний экспорт отличается от обычного). ctest 108/108 зелёные. Пункт Г3 закрыт.
 Г4. Сырые открытые ключи RFC 7250 (у OpenSSL с 3.2, `-expected-rpks` в 4.0): у нас нет; для DTLS, IoT и служб AWH без
     X.509 (закрепление SPKI).
     **Круг 83 (04.10.2026)**: сделано. Расширения client_certificate_type=19 (0x0013) и server_certificate_type=20
@@ -9059,6 +9071,19 @@ mpint делает SSH), rsa-sha2-256/512 (PKCS #1 v1.5); шифры chacha20-po
     API `pinned()` и `certtype()` у client/server. Пины: ContextTest.RawPublicKey (связь с закреплённым ключом,
     сервер отвечает X509, SPKI сверен), RawPublicKeyMismatch (чужой ключ отвергнут). ctest 94/94 зелёные.
     Открыто: серверная сторона RawPublicKey (ответ SPKI вместо цепочки), замеры на Xeon/Эльбрусе по запросу.
+    **Круг 97 (06.10.2026)**: серверная сторона сделана. Сервер, которому издание 1.3 предложено
+    (`_proposed`) и который несёт цепочку с ключом, выбирает RawPublicKey по первому месту
+    предложения клиента (условие собственного `_pinned` снято - выбор определяется предложением,
+    а не проверкой клиентского ключа). Ответ: расширение server_certificate_type c одним элементом
+    raw в EncryptedExtensions; сообщение Certificate несёт одну запись - SPKI DER своего листа
+    (без ответа о состоянии и меток времени). Клиент разбирает ответ в EncryptedExtensions (один
+    элемент, выбор RAW запоминается в `_certtype`), а подпись владения ключом в `checking()`
+    проверяет по сведениям открытого ключа из SPKI (хелпер `publicKey()` разбирает запись
+    SubjectPublicKeyInfo DER в `x509::key_t`), при X509 - по-прежнему из листа цепочки. Издание
+    TLS 1.2 ответом server_certificate_type не раскладывается - выбор ограничен `_proposed`.
+    Пины: ContextTest.RawPublicKey переприколот (сервер отвечает SPKI, `certtype()` = RAW,
+    закреплённый ключ сверен, связь установлена и данные идут), RawPublicKeyMismatch без изменений.
+    ctest 108/108 зелёные. Пункт Г4 закрыт.
 Г5. Многократная сшивка OCSP в TLS 1.3 (OpenSSL 3.6): status_request в каждом CertificateEntry, у нас лишь у листа -
     малое дополнение.
     **Круг 84 (04.10.2026)**: сделано. Поле `_statuses` в Engine: ответы OCSP по местам в цепочке собеседника.
@@ -9090,6 +9115,13 @@ mpint делает SSH), rsa-sha2-256/512 (PKCS #1 v1.5); шифры chacha20-po
     ContextTest.Exporting (1.3: стороны сходятся, метка/привязка разводят, длина произвольна, начало длинного совпадает
     с коротким) и ContextTest.ExportingLegacy (1.2, подлинность ec256 из корпуса). ctest 94/94 зелёные.
     Открыто: метки EXPORTER_SECRET/EARLY_EXPORTER_SECRET журнала секретов, ранний экспорт из early_exporter_secret.
+    **Круг 97 (06.10.2026)**: хвосты закрыты. Ранний экспорт: `Secrets::exporting(..., early)` выводит материал
+    из значения раннего экспорта (`early_exporter` в укрытой памяти keys_t, вывод меткою «e exp master» в
+    `Secrets::early()` от одного ClientHello - раздел 7.2 RFC 8446), дозволен с начальной ступени, до согласования
+    издания ответом сервера; параметр `early` вызова `exporting()` у client/server и движка (умолчание ложь -
+    прежнее поведение). Метки журнала секретов EXPORTER_SECRET и EARLY_EXPORTER_SECRET (плюс
+    CLIENT_EARLY_TRAFFIC_SECRET) закрыты в пункте Г3. Пин ContextTest.ExportingEarly (см. Г3). ctest 108/108
+    зелёные. Пункт Г11 закрыт.
 Г12. WebRTC: от A-NTS нужны use_srtp (RFC 5764 с профилями §4.1.2 и SRTP_AEAD_AES_128/256_GCM по
     RFC 7714; сейчас отвергается явно), экспорт Г11, сама защита SRTP по RFC 3711 и RFC 7714 (AES-CM, HMAC-SHA1-80,
     AES-GCM, вывод ключей RFC 3711 §4.3 - у OpenSSL 4.0 это EVP_KDF-SRTPKDF), выпуск самоподписанного сертификата на

@@ -528,17 +528,18 @@ const vector <vector <uint8_t>> & nts::client::Context::statuses() const noexcep
  * @param context привязка экспортируемого материала к потребителю
  * @param result  место, в которое помещается экспортируемый материал
  * @param size    требуемая длина экспортируемого материала в байтах
+ * @param early   признак раннего вывода из значения раннего экспорта
  *
  * @return        отказ вывода экспортируемого материала
  *
  */
-context::error_t nts::client::Context::exporting(const view_t & label, const view_t & context, uint8_t * result, const size_t size) const noexcept {
+context::error_t nts::client::Context::exporting(const view_t & label, const view_t & context, uint8_t * result, const size_t size, const bool early) const noexcept {
 	// Если ведение связи не заведено
 	if(this->_engine == nullptr)
 		// Выводим отказ вызова не в том состоянии связи
 		return context::error_t::STATE;
 	// Выводим итог вывода экспортируемого материала связи
-	return this->_engine->exporting(label, context, result, size);
+	return this->_engine->exporting(label, context, result, size, early);
 }
 /**
  * @brief Метод установки профилей защиты RTP, предлагаемых связью

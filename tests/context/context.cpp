@@ -1777,6 +1777,68 @@ TEST(ContextTest, Advance){
 }
 
 /**
+ * Проверка раннего экспорта ключевого материала из упреждающих данных
+ */
+TEST(ContextTest, ExportingEarly){
+	// Подлинность стороны сервера
+	context::credential_t credentials;
+	// Выполняем выработку подлинности стороны сервера
+	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Билеты, признаваемые сервером возобновляемой связи
+	vector <context::ticket_t> issued;
+	// Билет, принятый клиентом прошлой связи
+	context::ticket_t accepted;
+	// Выполняем проведение связи, выдающей билет возобновления
+	ASSERT_TRUE(granted(credentials, issued, accepted));
+	// Связь стороны клиента, возобновляющая прошлую
+	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
+	// Связь стороны сервера, признающая выданный билет
+	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
+	// Устанавливаем подлинность стороны сервера
+	server.credential(credentials);
+	// Устанавливаем билеты, признаваемые сервером
+	server.resume(issued);
+	// Устанавливаем приём упреждающих данных сервером
+	server.advance(true);
+	// Предъявляем серверу билет, принятый прошлой связью
+	client.resume(accepted);
+	// Устанавливаем предложение упреждающих данных сервером
+	client.advance(true);
+	// Выполняем завод связи стороны сервера
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	// Выполняем завод связи стороны клиента
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	// Прикладные данные, отправляемые вместе с приветствием клиента
+	const string request = "Упреждающие данные для раннего экспорта";
+	/**
+	 * Отправляем прикладные данные, не дождавшись ответа сервера: упреждающие данные
+	 * выводят ключи ранней ступени, и ранний экспорт уже существует
+	 */
+	ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
+	// Ранний экспорт до установления связи обязан удаться
+	uint8_t early[32];
+	ASSERT_EQ(client.exporting(view_t(reinterpret_cast <const uint8_t *> ("early label"), 11), view_t(nullptr, 0), early, sizeof(early), true), context::error_t::NONE);
+	// Обычный экспорт до установления связи обязан отказать
+	uint8_t late[32];
+	ASSERT_EQ(client.exporting(view_t(reinterpret_cast <const uint8_t *> ("early label"), 11), view_t(nullptr, 0), late, sizeof(late)), context::error_t::STATE);
+	// Выполняем проведение рукопожатия сторон связи
+	converse(client, server);
+	// Проверяем установленность связи обеими сторонами
+	ASSERT_TRUE(client.established() && server.established());
+	// Ранний экспорт сервера обязан сойтись с ранним экспортом клиента
+	uint8_t answer[32];
+	ASSERT_EQ(server.exporting(view_t(reinterpret_cast <const uint8_t *> ("early label"), 11), view_t(nullptr, 0), answer, sizeof(answer), true), context::error_t::NONE);
+	ASSERT_EQ(::memcmp(early, answer, sizeof(early)), 0);
+	// Ранний экспорт отличается от обычного экспорта установленной связи
+	ASSERT_EQ(client.exporting(view_t(reinterpret_cast <const uint8_t *> ("early label"), 11), view_t(nullptr, 0), answer, sizeof(answer)), context::error_t::NONE);
+	ASSERT_NE(::memcmp(early, answer, sizeof(early)), 0);
+}
+
+/**
  * Проверка пропуска данных, пришедших за извещением о закрытии
  */
 TEST(ContextTest, Trailing){
@@ -8243,15 +8305,16 @@ TEST(ContextTest, Keylog){
 	converse(client, server);
 	ASSERT_TRUE(client.established());
 	ASSERT_TRUE(server.established());
-	// Проверяем записи журнала: TLS 1.3 даёт 4 записи (handshake + application)
-	EXPECT_GE(log.calls, 4u);
+	// Проверяем записи журнала: TLS 1.3 даёт 5 записей (handshake + application + exporter)
+	EXPECT_GE(log.calls, 5u);
 	// Проверяем метки
-	bool hs_client = false, hs_server = false, ap_client = false, ap_server = false;
+	bool hs_client = false, hs_server = false, ap_client = false, ap_server = false, exporter = false;
 	for(const auto & entry : log.entries){
 		if(entry.first == "CLIENT_HANDSHAKE_TRAFFIC_SECRET") hs_client = true;
 		if(entry.first == "SERVER_HANDSHAKE_TRAFFIC_SECRET") hs_server = true;
 		if(entry.first == "CLIENT_TRAFFIC_SECRET_0") ap_client = true;
 		if(entry.first == "SERVER_TRAFFIC_SECRET_0") ap_server = true;
+		if(entry.first == "EXPORTER_SECRET") exporter = true;
 		// Секреты непустые
 		EXPECT_FALSE(entry.second.empty());
 	}
@@ -8259,6 +8322,7 @@ TEST(ContextTest, Keylog){
 	EXPECT_TRUE(hs_server);
 	EXPECT_TRUE(ap_client);
 	EXPECT_TRUE(ap_server);
+	EXPECT_TRUE(exporter);
 	// Закрываем связь
 	ASSERT_EQ(client.close(), context::error_t::NONE);
 	pump(client, server);
@@ -8293,8 +8357,8 @@ TEST(ContextTest, RawPublicKey){
 	// Проверяем установленность связи
 	ASSERT_TRUE(client.established());
 	ASSERT_TRUE(server.established());
-	// Проверяем согласованный вид сертификата: сервер ответил X.509, не поддерживая RawPublicKey
-	EXPECT_EQ(client.certtype(), extension::cert_t::X509);
+	// Проверяем согласованный вид сертификата: сервер ответил сырым ключом SPKI листа
+	EXPECT_EQ(client.certtype(), extension::cert_t::RAW);
 	// Прикладные данные
 	const string request = "Запрос по сырому ключу";
 	ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);

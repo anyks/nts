@@ -150,6 +150,11 @@ namespace {
 	static const char * EARLY = "c e traffic";
 
 	/**
+	 * Метка вывода значения раннего экспорта ключевого материала: раздел 7.2 RFC 8446
+	 */
+	static const char * EARLY_EXPORTER = "e exp master";
+
+	/**
 	 * Метка вывода значения экспорта ключевого материала связи
 	 */
 	static const char * EXPORTER = "exp master";
@@ -801,6 +806,14 @@ nts::session::error_t nts::session::Secrets::early(const view_t & transcript) no
 	if(!schedule::secret(this->_algorithm, view_t(this->_keys->secret, this->_length), ::label(EARLY), transcript, this->_keys->early))
 		// Выводим отказ вывода значения упреждающих данных
 		return error_t::SCHEDULE;
+	/**
+	 * Раздел 7.2 RFC 8446: значение раннего экспорта выводится на этой же ступени
+	 * меткою «e exp master» от той же переписки - одного лишь приветствия клиента
+	 */
+	// Если значение раннего экспорта вывести не удалось
+	if(!schedule::secret(this->_algorithm, view_t(this->_keys->secret, this->_length), ::label(EARLY_EXPORTER), transcript, this->_keys->early_exporter))
+		// Выводим отказ вывода значения раннего экспорта
+		return error_t::SCHEDULE;
 	// Выводим успешность вывода значения упреждающих данных
 	return error_t::NONE;
 }
@@ -831,6 +844,58 @@ nts::session::error_t nts::session::Secrets::early(uint8_t * result) const noexc
 	return error_t::NONE;
 }
 /**
+ * @brief Метод получения значения экспорта ключевого материала связи
+ *
+ * @param result место, в которое помещается значение экспорта
+ *
+ * @return       отказ получения значения экспорта
+ *
+ */
+nts::session::error_t nts::session::Secrets::exporter(uint8_t * result) const noexcept {
+	// Если укрытой памяти под значения расписания нет
+	if(this->_keys == nullptr)
+		// Выводим отказ состояния расписания
+		return error_t::STATE;
+	// Если место для значения экспорта не передано
+	if(result == nullptr)
+		// Выводим отказ получения значения экспорта
+		return error_t::EMPTY;
+	// Если расписание ключей не заведено
+	if(this->_stage != stage_t::APPLICATION)
+		// Выводим отказ получения значения экспорта
+		return error_t::STATE;
+	// Переносим значение экспорта ключевого материала связи
+	::memcpy(result, this->_keys->exporter, this->_length);
+	// Выводим успешность получения значения экспорта
+	return error_t::NONE;
+}
+/**
+ * @brief Метод получения значения раннего экспорта ключевого материала связи
+ *
+ * @param result место, в которое помещается значение раннего экспорта
+ *
+ * @return       отказ получения значения раннего экспорта
+ *
+ */
+nts::session::error_t nts::session::Secrets::earlyExporter(uint8_t * result) const noexcept {
+	// Если укрытой памяти под значения расписания нет
+	if(this->_keys == nullptr)
+		// Выводим отказ состояния расписания
+		return error_t::STATE;
+	// Если место для значения раннего экспорта не передано
+	if(result == nullptr)
+		// Выводим отказ получения значения раннего экспорта
+		return error_t::EMPTY;
+	// Если начальная ступень расписания не пройдена
+	if(this->_stage == stage_t::NONE)
+		// Выводим отказ получения значения раннего экспорта
+		return error_t::STATE;
+	// Переносим значение раннего экспорта ключевого материала связи
+	::memcpy(result, this->_keys->early_exporter, this->_length);
+	// Выводим успешность получения значения раннего экспорта
+	return error_t::NONE;
+}
+/**
  * @brief Метод вывода экспортируемого ключевого материала связи
  *
  * @param label   метка назначения экспортируемого материала
@@ -841,13 +906,13 @@ nts::session::error_t nts::session::Secrets::early(uint8_t * result) const noexc
  * @return        отказ вывода экспортируемого материала
  *
  */
-nts::session::error_t nts::session::Secrets::exporting(const view_t & label, const view_t & context, uint8_t * result, const size_t size) const noexcept {
+nts::session::error_t nts::session::Secrets::exporting(const view_t & label, const view_t & context, uint8_t * result, const size_t size, const bool early) const noexcept {
 	// Если укрытой памяти под значения расписания нет
 	if(this->_keys == nullptr)
 		// Выводим отказ состояния расписания
 		return error_t::STATE;
-	// Если ступень прикладных данных не пройдена
-	if(this->_stage != stage_t::APPLICATION)
+	// Ранний вывод дозволен с начальной ступени, обычный - лишь на ступени прикладных данных
+	if(early ? (this->_stage == stage_t::NONE) : (this->_stage != stage_t::APPLICATION))
 		// Выводим отказ вывода экспортируемого материала
 		return error_t::STATE;
 	// Если метка назначения либо место итога не переданы
@@ -862,8 +927,10 @@ nts::session::error_t nts::session::Secrets::exporting(const view_t & label, con
 		return error_t::SCHEDULE;
 	// Место, в которое помещается значение по метке назначения
 	uint8_t secret[schedule::SCHEDULE_WIDEST];
+	// Значение, из которого выводится материал: экспорт либо ранний экспорт связи
+	const uint8_t * source = (early ? this->_keys->early_exporter : this->_keys->exporter);
 	// Если значение по метке назначения вывести не удалось
-	if(!schedule::secret(this->_algorithm, view_t(this->_keys->exporter, this->_length), label, view_t(empty, this->_length), secret)){
+	if(!schedule::secret(this->_algorithm, view_t(source, this->_length), label, view_t(empty, this->_length), secret)){
 		// Выполняем затирание значения по метке назначения
 		wipe(secret, sizeof(secret));
 		// Выводим отказ вывода экспортируемого материала

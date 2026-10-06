@@ -2096,15 +2096,18 @@ namespace nts {
 				 * @param context привязка экспортируемого материала к потребителю
 				 * @param result  место, в которое помещается экспортируемый материал
 				 * @param size    требуемая длина экспортируемого материала в байтах
+				 * @param early   признак раннего вывода из значения раннего экспорта
 				 *
 				 * @return        отказ вывода экспортируемого материала
 				 *
 				 * @details RFC 8446 §7.5 (издание 1.3) и RFC 5705 (издания 1.0-1.2): обе
 				 *          стороны выводят одинаковый материал по установленной связи; до
-				 *          установления связи вывод отвергается
+				 *          установления связи вывод отвергается. Ранний вывод изданием 1.3
+				 *          дозволен до установления связи: материал берётся из значения
+				 *          раннего экспорта, выведенного меткою «e exp master»
 				 *
 				 */
-				context::error_t exporting(const view_t & label, const view_t & context, uint8_t * result, const size_t size) const noexcept;
+				context::error_t exporting(const view_t & label, const view_t & context, uint8_t * result, const size_t size, const bool early = false) const noexcept;
 				/**
 				 * @brief Метод установки проверки принятого ответа о состоянии
 				 *

@@ -1059,12 +1059,15 @@ namespace nts {
 				 * @param context привязка экспортируемого материала к потребителю
 				 * @param result  место, в которое помещается экспортируемый материал
 				 * @param size    требуемая длина экспортируемого материала в байтах
+				 * @param early   признак раннего вывода из значения раннего экспорта
 				 *
 				 * @return        отказ вывода экспортируемого материала
 				 *
 				 * @details RFC 8446 §7.5 (издание 1.3) и RFC 5705 (издания 1.0-1.2): обе
 				 *          стороны выводят одинаковый материал по установленной связи; до
-				 *          установления связи вывод отвергается
+				 *          установления связи вывод отвергается. Ранний вывод изданием
+				 *          1.3 дозволен до установления связи: материал берётся из значения
+				 *          раннего экспорта, выведенного меткою «e exp master»
 				 *
 				 * \~english
 				 * @brief Method of the derivation of the exported key material of the connection
@@ -1072,14 +1075,18 @@ namespace nts {
 				 * @param context the binding of the material being exported to the consumer
 				 * @param result  the place the exported material is put into
 				 * @param size    the required length of the exported material in bytes
+				 * @param early   the flag of the early derivation from the value of the early export
 				 * @return        the failure of the derivation of the exported material
 				 * @details RFC 8446 §7.5 (edition 1.3) and RFC 5705 (editions 1.0-1.2): both
 				 *          parties derive the same material over the established connection; before
-				 *          the establishment of the connection the derivation is rejected
+				 *          the establishment of the connection the derivation is rejected. The early
+				 *          derivation by edition 1.3 is allowed before the establishment of the
+				 *          connection: the material is taken from the value of the early export
+				 *          derived by the «e exp master» label
 				 *
 				 * \~
 				 */
-				context::error_t exporting(const view_t & label, const view_t & context, uint8_t * result, const size_t size) const noexcept;
+				context::error_t exporting(const view_t & label, const view_t & context, uint8_t * result, const size_t size, const bool early = false) const noexcept;
 				/**
 				 * \~russian
 				 * @brief Метод установки профилей защиты RTP, предлагаемых связью

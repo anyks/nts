@@ -524,6 +524,8 @@ namespace nts {
 					uint8_t early[schedule::SCHEDULE_WIDEST];
 					// Значение экспорта ключевого материала связи
 					uint8_t exporter[schedule::SCHEDULE_WIDEST];
+					// Значение раннего экспорта ключевого материала связи
+					uint8_t early_exporter[schedule::SCHEDULE_WIDEST];
 				} keys_t;
 			private:
 				// Участок укрытой памяти под значения расписания ключей
@@ -908,12 +910,53 @@ namespace nts {
 				error_t early(uint8_t * result) const noexcept;
 				/**
 				 * \~russian
+				 * @brief Метод получения значения экспорта ключевого материала связи
+				 *
+				 * @param result место, в которое помещается значение экспорта
+				 *
+				 * @return       отказ получения значения экспорта
+				 *
+				 * @note Место итога обязано вмещать длину хеша расписания байтов
+				 *
+				 * \~english
+				 * @brief Method of getting the value of the key material export of the connection
+				 * @param result the place the value of the export is put into
+				 * @return       the failure of getting the value of the export
+				 * @note The place of the outcome is obliged to hold the length of the hash of the schedule bytes
+				 *
+				 * \~
+				 *
+				 */
+				error_t exporter(uint8_t * result) const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения значения раннего экспорта ключевого материала связи
+				 *
+				 * @param result место, в которое помещается значение раннего экспорта
+				 *
+				 * @return       отказ получения значения раннего экспорта
+				 *
+				 * @note Место итога обязано вмещать длину хеша расписания байтов
+				 *
+				 * \~english
+				 * @brief Method of getting the value of the early key material export of the connection
+				 * @param result the place the value of the early export is put into
+				 * @return       the failure of getting the value of the early export
+				 * @note The place of the outcome is obliged to hold the length of the hash of the schedule bytes
+				 *
+				 * \~
+				 *
+				 */
+				error_t earlyExporter(uint8_t * result) const noexcept;
+				/**
+				 * \~russian
 				 * @brief Метод вывода экспортируемого ключевого материала связи
 				 *
 				 * @param label   метка назначения экспортируемого материала
 				 * @param context привязка экспортируемого материала к потребителю
 				 * @param result  место, в которое помещается экспортируемый материал
 				 * @param size    требуемая длина экспортируемого материала в байтах
+				 * @param early   признак раннего вывода из значения раннего экспорта
 				 *
 				 * @return        отказ вывода экспортируемого материала
 				 *
@@ -924,7 +967,9 @@ namespace nts {
 				 *          рукопожатия, и с назначением, и с привязкой потребителя
 				 *
 				 * @note Вывод дозволен лишь на ступени прикладных данных: значение экспорта
-				 *       выводится на ней и раньше её не существует
+				 *       выводится на ней и раньше её не существует. Ранний вывод дозволен
+				 *       с начальной ступени: значение раннего экспорта выводится меткою
+				 *       «e exp master» от одного лишь приветствия клиента
 				 *
 				 * \~english
 				 * @brief Method of the derivation of the exported key material of the connection
@@ -932,6 +977,7 @@ namespace nts {
 				 * @param context the binding of the material being exported to the consumer
 				 * @param result  the place the exported material is put into
 				 * @param size    the required length of the exported material in bytes
+				 * @param early   the flag of the early derivation from the value of the early export
 				 * @return        the failure of the derivation of the exported material
 				 * @details The section 7.5 of RFC 8446: the material is derived from the value of the
 				 *          export of the connection in two steps — first a value is derived by the
@@ -940,11 +986,13 @@ namespace nts {
 				 *          material is bound both to the transcript of the handshake, and to the
 				 *          purpose, and to the binding of the consumer
 				 * @note The derivation is allowed only at the stage of the application data: the value
-				 *       of the export is derived at it and does not exist earlier
+				 *       of the export is derived at it and does not exist earlier. The early derivation
+				 *       is allowed from the initial stage: the value of the early export is derived
+				 *       by the «e exp master» label from the greeting of the client alone
 				 *
 				 * \~
 				 */
-				error_t exporting(const view_t & label, const view_t & context, uint8_t * result, const size_t size) const noexcept;
+				error_t exporting(const view_t & label, const view_t & context, uint8_t * result, const size_t size, const bool early = false) const noexcept;
 			public:
 				/**
 				 * \~russian

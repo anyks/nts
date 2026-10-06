@@ -2051,6 +2051,20 @@ context::error_t nts::internal::Engine::store(const context::level_t level) noex
 			if(this->_secrets.early(this->_keys->traffic[0][0]) != session::error_t::NONE)
 				// Выводим отказ вывода значения расписания ключей
 				return context::error_t::SCHEDULE;
+			/**
+			 * Значение раннего экспорта выводится вместе с упреждающими данными
+			 * меткою «e exp master» - раздел 7.2 RFC 8446
+			 */
+			// Место, в которое помещается значение раннего экспорта
+			uint8_t exported[schedule::SCHEDULE_WIDEST];
+			// Если значение раннего экспорта получить не удалось
+			if(this->_secrets.earlyExporter(exported) != session::error_t::NONE)
+				// Выводим отказ вывода значения расписания ключей
+				return context::error_t::SCHEDULE;
+			// Вызываем журнал секретов связи
+			this->keylog("CLIENT_EARLY_TRAFFIC_SECRET", view_t(this->_keys->traffic[0][0], this->_secrets.size()));
+			// Вызываем журнал секретов связи
+			this->keylog("EARLY_EXPORTER_SECRET", view_t(exported, this->_secrets.size()));
 			// Запоминаем длину значений направлений связи
 			this->_width = this->_secrets.size();
 			// Отмечаем готовность значения упреждающих данных клиента
@@ -2078,6 +2092,17 @@ context::error_t nts::internal::Engine::store(const context::level_t level) noex
 					return context::error_t::SCHEDULE;
 				// Вызываем журнал секретов связи
 				this->keylog(LABELS[place - 1][i], view_t(this->_keys->traffic[place][i], this->_secrets.size()));
+			}
+			// Если выводятся значения прикладных данных, журнал получает и значение экспорта
+			if(level == context::level_t::APPLICATION){
+				// Место, в которое помещается значение экспорта
+				uint8_t exported[schedule::SCHEDULE_WIDEST];
+				// Если значение экспорта получить не удалось
+				if(this->_secrets.exporter(exported) != session::error_t::NONE)
+					// Выводим отказ вывода значения расписания ключей
+					return context::error_t::SCHEDULE;
+				// Вызываем журнал секретов связи
+				this->keylog("EXPORTER_SECRET", view_t(exported, this->_secrets.size()));
 			}
 			// Запоминаем длину значений направлений связи
 			this->_width = this->_secrets.size();
@@ -3821,9 +3846,29 @@ context::error_t nts::internal::Engine::authenticate() noexcept {
 		// Тела расширений состояния сертификатов, переживающие составление цепочки
 		vector <vector <uint8_t>> statuses;
 		/**
+		 * Раздел 2 RFC 7250: при согласованном виде RawPublicKey сервер отвечает открытым
+		 * ключом своего листа (записью SubjectPublicKeyInfo DER) вместо цепочки сертификатов;
+		 * ответ о состоянии и метки времени цепочке записей не положены
+		 */
+		if(this->_server && (this->_certtype == extension::cert_t::RAW)){
+			// Объект разбора своего сертификата
+			x509::certificate_t leaf;
+			// Отказ разбора своего сертификата
+			failure = translate(leaf.parse(view_t(this->_credential.chain[0].data(), this->_credential.chain[0].size())), context::error_t::CERTIFICATE);
+			// Если свой сертификат разобрать не удалось
+			if(failure != context::error_t::NONE)
+				// Выводим отказ разбора своего сертификата
+				return failure;
+			// Составляемая запись цепочки сертификатов
+			message::entry_t entry;
+			// Запись несёт открытый ключ своего листа целиком
+			entry.data = leaf.key().element;
+			// Добавляем запись в цепочку сертификатов
+			certificate.entries.push_back(entry);
+		/**
 		 * Выполняем перебор сертификатов цепочки своей стороны
 		 */
-		for(size_t i = 0; i < this->_credential.chain.size(); i++){
+		} else for(size_t i = 0; i < this->_credential.chain.size(); i++){
 			// Составляемая запись цепочки сертификатов
 			message::entry_t entry;
 			// Устанавливаем тело сертификата записи цепочки
@@ -5145,6 +5190,75 @@ context::error_t nts::internal::Engine::signing(const view_t & content, extensio
  * @return          отказ проверки подписи
  *
  */
+/**
+ * @brief Метод разбора записи сведений об открытом ключе собеседника
+ *
+ * @param der    запись SubjectPublicKeyInfo DER
+ * @param result место, в которое помещаются сведения об открытом ключе
+ *
+ * @return       признак успешности разбора
+ *
+ * @details Раздел 2 RFC 7250: при согласованном виде RawPublicKey запись цепочки
+ *          сертификатов несёт сами сведения об открытом ключе, и подпись владения
+ *          им проверяется по ним, без сертификата
+ *
+ */
+static bool publicKey(const view_t & der, nts::x509::key_t & result) noexcept {
+	// Разборщик записи сведений об открытом ключе
+	asn1::reader_t outer(der);
+	// Объект разобранного поля записи сведений
+	asn1::element_t item;
+	// Если запись сведений не читается либо имеет простой вид метки
+	if(!outer.next(asn1::tag_t::SEQUENCE, item) || !item.constructed)
+		// Выводим отказ разбора
+		return false;
+	// Запоминаем запись сведений целиком
+	result.element = item.element;
+	// Разборщик содержимого записи сведений
+	asn1::reader_t info(item.content);
+	// Если опознаватель алгоритма ключа не читается либо имеет простой вид метки
+	if(!info.next(asn1::tag_t::SEQUENCE, item) || !item.constructed)
+		// Выводим отказ разбора
+		return false;
+	// Разборщик содержимого записи опознавателя алгоритма
+	asn1::reader_t algorithm(item.content);
+	// Если опознаватель алгоритма не читается
+	if(!algorithm.next(asn1::tag_t::OBJECT, item))
+		// Выводим отказ разбора
+		return false;
+	// Если опознаватель алгоритма извлечь не удалось
+	if(asn1::oid(item, result.algorithm) != asn1::error_t::NONE)
+		// Выводим отказ разбора
+		return false;
+	// Если после опознавателя алгоритма остались поля
+	if(!algorithm.empty()){
+		// Если настройки алгоритма не читаются
+		if(!algorithm.next(item))
+			// Выводим отказ разбора
+			return false;
+		// Запоминаем запись настроек алгоритма
+		result.parameters = item.element;
+		// Если после настроек алгоритма остались лишние поля
+		if(!algorithm.empty())
+			// Выводим отказ разбора
+			return false;
+	}
+	// Если открытый ключ не читается
+	if(!info.next(asn1::tag_t::BIT_STRING, item))
+		// Выводим отказ разбора
+		return false;
+	// Если открытый ключ извлечь не удалось
+	if(asn1::bits(item, result.key, result.unused) != asn1::error_t::NONE)
+		// Выводим отказ разбора
+		return false;
+	// Если после открытого ключа остались лишние поля
+	if(!info.empty())
+		// Выводим отказ разбора
+		return false;
+	// Выводим успешность разбора
+	return true;
+}
+
 context::error_t nts::internal::Engine::checking(const extension::scheme_t scheme, const view_t & content, const view_t & signature) noexcept {
 	/**
 	 * Выполняем перехват ошибок работы с памятью: тело проверки подписи занимает память
@@ -5161,14 +5275,27 @@ context::error_t nts::internal::Engine::checking(const extension::scheme_t schem
 		if(this->_peer.empty())
 			// Выводим отказ отсутствия сертификата собеседника
 			return context::error_t::CERTIFICATE;
+		// Сведения об открытом ключе собеседника
+		x509::key_t key;
 		// Объект разбора сертификата собеседника
 		x509::certificate_t leaf;
-		// Отказ разбора сертификата собеседника
-		failure = translate(leaf.parse(view_t(this->_peer[0].data(), this->_peer[0].size())), context::error_t::CERTIFICATE);
-		// Если сертификат собеседника разобрать не удалось
-		if(failure != context::error_t::NONE)
-			// Выводим отказ разбора сертификата собеседника
-			return failure;
+		// Если согласован сырой открытый ключ
+		if(this->_certtype == extension::cert_t::RAW){
+			// Если сведения об открытом ключе собеседника не разобрались
+			if(!publicKey(view_t(this->_peer[0].data(), this->_peer[0].size()), key))
+				// Выводим отказ разбора сырого ключа собеседника
+				return context::error_t::CERTIFICATE;
+		// Иначе ключ берётся из листа цепочки сертификатов
+		} else {
+			// Отказ разбора сертификата собеседника
+			failure = translate(leaf.parse(view_t(this->_peer[0].data(), this->_peer[0].size())), context::error_t::CERTIFICATE);
+			// Если сертификат собеседника разобрать не удалось
+			if(failure != context::error_t::NONE)
+				// Выводим отказ разбора сертификата собеседника
+				return failure;
+			// Запоминаем сведения об открытом ключе листа
+			key = leaf.key();
+		}
 		/**
 		 * Раздел 4.4.2.2 RFC 8446: сертификат с ключом непригодного алгоритма отвергается
 		 * прежде всякой сверки подписи
@@ -5176,7 +5303,7 @@ context::error_t nts::internal::Engine::checking(const extension::scheme_t schem
 		// Признак пригодности ключа сертификата
 		bool suitable = false;
 		// Разбираем ключ сертификата собеседника
-		failure = recognized(leaf.key(), suitable);
+		failure = recognized(key, suitable);
 		// Если памяти под разбор ключа не хватило
 		if(failure != context::error_t::NONE)
 			// Выводим отказ нехватки памяти
@@ -5211,7 +5338,7 @@ context::error_t nts::internal::Engine::checking(const extension::scheme_t schem
 		// Признак нехватки памяти при разборе ключа
 		bool memory = false;
 		// Признак соответствия схемы ключу сертификата
-		const bool matched = (offered && matching(scheme, leaf.key(), memory, this->_legacy));
+		const bool matched = (offered && matching(scheme, key, memory, this->_legacy));
 		// Если памяти под разбор ключа не хватило
 		if(memory)
 			// Выводим отказ нехватки памяти
@@ -5246,7 +5373,7 @@ context::error_t nts::internal::Engine::checking(const extension::scheme_t schem
 				// Выводим отказ разворота записи подписи
 				return failure;
 			// Отказ проверки подписи владения ключом собеседника
-			failure = translate(x509::check(leaf.key(), content, view_t(reversed, signature.size)), context::error_t::SIGNATURE);
+			failure = translate(x509::check(key, content, view_t(reversed, signature.size)), context::error_t::SIGNATURE);
 		/**
 		 * Подпись PKCS #1 v1.5 издания TLS 1.2 сверяется тем же путём, что и подпись
 		 * сертификата: по опознавателю алгоритма sha*WithRSAEncryption с кодировкой
@@ -5256,12 +5383,12 @@ context::error_t nts::internal::Engine::checking(const extension::scheme_t schem
 			// Опознаватель алгоритма подписи по схеме
 			const string algorithm(identifier(scheme));
 			// Отказ проверки подписи PKCS #1 v1.5
-			failure = translate(x509::verify(content, signature, algorithm, leaf.key()), context::error_t::SIGNATURE);
+			failure = translate(x509::verify(content, signature, algorithm, key), context::error_t::SIGNATURE);
 		/**
 		 * Классическая подпись идёт в протокол своей записью: DER у ECDSA, число длиною в
 		 * модуль у RSASSA-PSS с солью длиною в хеш, шестьдесят четыре байта у Ed25519
 		 */
-		} else failure = translate(x509::check(leaf.key(), algorithm, content, signature), context::error_t::SIGNATURE);
+		} else failure = translate(x509::check(key, algorithm, content, signature), context::error_t::SIGNATURE);
 		// Если подпись владения ключом не сошлась либо памяти не хватило
 		if(failure != context::error_t::NONE)
 			// Выводим отказ проверки подписи владения ключом
@@ -6318,8 +6445,12 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 				// Выводим отказ разбора расширения приветствия
 				return this->abort(failure, blame(failure, alert::description_t::DECODE));
 		}
-		// Если задан закреплённый сырой открытый ключ
-		if(!this->_pinned.empty()){
+		/**
+		 * Раздел 3 RFC 7250: вид сертификата сервера выбирается по предложению клиента и
+		 * объявляется защищёнными расширениями - лишь изданию TLS 1.3; у сервера с цепочкой
+		 * открытый ключ листа всегда готов к ответу сырым ключом
+		 */
+		if(this->_proposed && !this->_credential.chain.empty()){
 			// Разыскиваем расширение вида сертификата сервера
 			extension = hello::extension(greeting.extensions, static_cast <uint16_t> (extension::type_t::SERVER_CERT_TYPE));
 			// Если вид сертификата сервера объявлен
@@ -6682,6 +6813,8 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 		vector <uint8_t> protocol;
 		// Накопитель, в котором лежит тело расширения профиля защиты RTP
 		vector <uint8_t> protection;
+		// Накопитель, в котором лежит тело расширения вида сертификата сервера
+		vector <uint8_t> certificate;
 		// Если упреждающие данные клиента приняты
 		if(this->_accepted)
 			// Объявляем клиенту приём упреждающих данных
@@ -6723,6 +6856,17 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 				return this->abort(failure, blame(failure, alert::description_t::INTERNAL));
 			// Объявляем клиенту выбранный профиль защиты RTP
 			items.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::PROFILES), view_t(protection.data(), protection.size())));
+		}
+		// Если вид сертификата сервера согласован сырым открытым ключом
+		if(this->_certtype == extension::cert_t::RAW){
+			// Отказ составления тела расширения вида сертификата сервера
+			failure = translate(extension::certtypes(vector <extension::cert_t> (1, extension::cert_t::RAW), certificate), context::error_t::MESSAGE);
+			// Если тело расширения вида сертификата сервера составить не удалось
+			if(failure != context::error_t::NONE)
+				// Выводим отказ составления сообщения защищённых расширений
+				return this->abort(failure, blame(failure, alert::description_t::INTERNAL));
+			// Объявляем клиенту выбранный вид сертификата сервера
+			items.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::SERVER_CERT_TYPE), view_t(certificate.data(), certificate.size())));
 		}
 		/**
 		 * Черновик draft-vvv-tls-alps: свои настройки идут под защитой, а при принятом
@@ -7984,6 +8128,27 @@ context::error_t nts::internal::Engine::handle(const handshake::type_t type, con
 				}
 				// Запасные конфигурации ECH сервера
 				view_t retrying;
+				// Тело расширения вида сертификата сервера, присланного сервером
+				view_t certtype;
+				// Раздел 4.2.1 RFC 7250: сервер, выбравший вид сертификата, объявляет его одним элементом
+				if(announced(body, static_cast <uint16_t> (extension::type_t::SERVER_CERT_TYPE), certtype)){
+					// Перечень видов сертификатов, объявленных сервером
+					vector <extension::cert_t> kinds;
+					// Отказ разбора расширения вида сертификата сервера
+					failure = translate(extension::certtypes(certtype, kinds), context::error_t::MESSAGE);
+					// Если виды сертификатов, объявленные сервером, разобрать не удалось
+					if(failure != context::error_t::NONE)
+						// Выводим отказ разбора защищённых расширений сервера
+						return this->abort(failure, blame(failure, alert::description_t::DECODE));
+					// Если сервер объявил не один вид сертификата
+					if(kinds.size() != 1)
+						// Выводим отказ негодного расширения
+						return this->abort(context::error_t::MESSAGE, alert::description_t::PARAMETER);
+					// Если сервер выбрал RawPublicKey
+					if(kinds[0] == extension::cert_t::RAW)
+						// Запоминаем согласованный вид сертификата сервера
+						this->_certtype = extension::cert_t::RAW;
+				}
 				// Раздел 7.1 RFC 9849: сервер, отвергший ECH, шлёт retry_configs защищённым расширением
 				if(announced(body, ech::ECH_EXTENSION, retrying)){
 					// Принявший ECH сервер расширения не шлёт: раздел 7.1
@@ -9157,15 +9322,21 @@ const vector <vector <uint8_t>> & nts::internal::Engine::statuses() const noexce
  * @param context привязка экспортируемого материала к потребителю
  * @param result  место, в которое помещается экспортируемый материал
  * @param size    требуемая длина экспортируемого материала в байтах
+ * @param early   признак раннего вывода из значения раннего экспорта
  *
  * @return        отказ вывода экспортируемого материала
  *
  */
-context::error_t nts::internal::Engine::exporting(const view_t & label, const view_t & context, uint8_t * result, const size_t size) const noexcept {
-	// Если связь не установлена либо метка назначения не передана
-	if((this->_state != context::state_t::ESTABLISHED) || (label.data == nullptr) || (label.size == 0) || (result == nullptr) || (size == 0))
+context::error_t nts::internal::Engine::exporting(const view_t & label, const view_t & context, uint8_t * result, const size_t size, const bool early) const noexcept {
+	// Если связь не установлена, а ранний вывод не заказан, либо метка назначения не передана
+	if((!early && (this->_state != context::state_t::ESTABLISHED)) || (label.data == nullptr) || (label.size == 0) || (result == nullptr) || (size == 0))
 		// Выводим отказ вызова не в том состоянии связи
 		return context::error_t::STATE;
+	// Если заказан ранний вывод: он возможен лишь изданием 1.3 по заведённым ранним секретам,
+	// и расписание само судит о готовности - издание ответом сервера на этот миг может быть ещё не согласовано
+	if(early)
+		// Выводим итог раннего вывода экспортируемого материала расписанием ключей
+		return ((this->_secrets.exporting(label, context, result, size, true) == session::error_t::NONE) ? context::error_t::NONE : context::error_t::SCHEDULE);
 	// Если связь ведётся изданием 1.3
 	if(this->_version == MODERN)
 		// Выводим итог вывода экспортируемого материала расписанием ключей
