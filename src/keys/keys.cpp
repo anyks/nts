@@ -145,6 +145,11 @@ namespace {
 	static const char * OID_ED25519 = "1.3.101.112";
 
 	/**
+	 * Опознаватель алгоритма Ed448 по RFC 8410
+	 */
+	static const char * OID_ED448 = "1.3.101.113";
+
+	/**
 	 * Опознаватель алгоритма X25519 по RFC 8410
 	 */
 	static const char * OID_X25519 = "1.3.101.110";
@@ -823,6 +828,11 @@ namespace {
 				// Записываем опознаватель алгоритма: настроек у него нет
 				object(writer, OID_ED25519);
 			break;
+			// Если записывается ключ Ed448
+			case static_cast <uint8_t> (kind_t::ED448):
+				// Записываем опознаватель алгоритма: настроек у него нет
+				object(writer, OID_ED448);
+			break;
 			// Если записывается ключ X25519
 			case static_cast <uint8_t> (kind_t::X25519):
 				// Записываем опознаватель алгоритма: настроек у него нет
@@ -1082,6 +1092,53 @@ namespace {
 						return error_t::VALUE;
 				// Если открытый ключ X25519 вывести не удалось
 				} else if(!agreement::x25519(view_t(key.d.data(), key.d.size()), point))
+					// Выводим отказ негодного значения
+					return error_t::VALUE;
+				// Если открытая часть в ключе записана
+				if(!key.key.empty()){
+					// Выведенный открытый ключ
+					vector <uint8_t> derived;
+					// Если открытый ключ скопировать не удалось
+					if(!copy(point, sizeof(point), derived))
+						// Выводим отказ нехватки памяти
+						return error_t::MEMORY;
+					// Выводим итог сличения записанной открытой части с выведенной
+					return (same(derived, key.key) ? error_t::NONE : error_t::VALUE);
+				}
+				// Если открытый ключ скопировать не удалось
+				if(!copy(point, sizeof(point), key.key))
+					// Выводим отказ нехватки памяти
+					return error_t::MEMORY;
+				// Выводим успешность выведения
+				return error_t::NONE;
+			}
+			// Если выводится ключ Ed448
+			case static_cast <uint8_t> (kind_t::ED448): {
+				// Если секретной части нет
+				if(!key.secret()){
+					// Если открытый ключ записан не своей длиной
+					if(key.key.size() != sign::ed448_t::KEY_SIZE)
+						// Выводим отказ негодного значения
+						return error_t::VALUE;
+					// Примитив Ed448, которым проверяется точка
+					sign::ed448_t ed448;
+					// Если открытый ключ примитивом не принят
+					if(!ed448.key(view_t(key.key.data(), key.key.size())))
+						// Выводим отказ негодного значения
+						return error_t::VALUE;
+					// Выводим успешность выведения
+					return error_t::NONE;
+				}
+				// Если зерно записано не своей длиной
+				if(key.d.size() != sign::ed448_t::KEY_SIZE)
+					// Выводим отказ негодного значения
+					return error_t::VALUE;
+				// Примитив Ed448, которым выводится открытый ключ
+				sign::ed448_t ed448;
+				// Место, в которое помещается выведенный открытый ключ
+				uint8_t point[sign::ed448_t::KEY_SIZE];
+				// Если зерно примитивом не принято либо открытый ключ получить не удалось
+				if(!ed448.secret(view_t(key.d.data(), key.d.size())) || !ed448.key(point, sizeof(point)))
 					// Выводим отказ негодного значения
 					return error_t::VALUE;
 				// Если открытая часть в ключе записана
@@ -2786,6 +2843,10 @@ size_t nts::keys::Key::size() const noexcept {
 		case static_cast <uint8_t> (kind_t::X25519):
 			// Выводим размер ключа
 			return CURVE25519;
+		// Если ключ Ed448
+		case static_cast <uint8_t> (kind_t::ED448):
+			// Выводим размер ключа
+			return sign::ed448_t::KEY_SIZE;
 	}
 	// Выводим нулевой размер: ключ не установлен
 	return 0;
@@ -2929,6 +2990,28 @@ bool nts::keys::Key::load(sign::ed25519_t & ed25519) const noexcept {
 		return ed25519.secret(view_t(this->d.data(), this->d.size()));
 	// Выводим итог установки ключа проверки подписи
 	return ed25519.key(view_t(this->key.data(), this->key.size()));
+}
+/**
+ * @brief Метод установки ключа Ed448 из разобранного ключа
+ *
+ * @param ed448 примитив, в который устанавливается ключ
+ *
+ * @return      признак успешности установки ключа
+ *
+ */
+bool nts::keys::Key::load(sign::ed448_t & ed448) const noexcept {
+	// Выполняем сброс примитива
+	ed448.clear();
+	// Если ключ не Ed448
+	if(this->kind != kind_t::ED448)
+		// Выводим отказ установки
+		return false;
+	// Если ключ несёт секретную часть
+	if(this->secret())
+		// Выводим итог установки ключа подписи
+		return ed448.secret(view_t(this->d.data(), this->d.size()));
+	// Выводим итог установки ключа проверки подписи
+	return ed448.key(view_t(this->key.data(), this->key.size()));
 }
 /**
  * @brief Метод установки ключа ГОСТ Р 34.10-2012 из разобранного ключа
@@ -3094,6 +3177,19 @@ const nts::sign::ed25519_t & nts::keys::Signer::ed25519() const noexcept {
 	return (this->_ed25519 ? (* this->_ed25519) : empty);
 }
 /**
+ * @brief Метод получения модуля подписи Ed448
+ *
+ * @return модуль подписи с установленным ключом Ed448
+ *
+ */
+const nts::sign::ed448_t & nts::keys::Signer::ed448() const noexcept {
+	// Выводим модуль подписи Ed448
+	// Пустой модуль для ключей иных видов
+	static const sign::ed448_t empty;
+	// Выводим модуль подписи
+	return (this->_ed448 ? (* this->_ed448) : empty);
+}
+/**
  * @brief Метод получения модуля подписи ГОСТ Р 34.10-2012
  *
  * @return модуль подписи с установленным ключом ГОСТ
@@ -3230,6 +3326,17 @@ nts::keys::error_t nts::keys::Signer::prepare(const view_t & secret) noexcept {
 			// Заводим ключ в модуле подписи Ed25519
 			loaded = key.load(* this->_ed25519);
 		} break;
+		// Ключ Ed448
+		case kind_t::ED448: {
+			// Заводим модуль подписи Ed448
+			this->_ed448.reset(new (nothrow) sign::ed448_t());
+			// Если памяти под модуль не хватило
+			if(!this->_ed448)
+				// Выводим отказ нехватки памяти
+				return error_t::MEMORY;
+			// Заводим ключ в модуле подписи Ed448
+			loaded = key.load(* this->_ed448);
+		} break;
 		// Ключ ГОСТ Р 34.10-2012
 		case kind_t::GOST: {
 			// Заводим кривую и модуль подписи ГОСТ
@@ -3343,6 +3450,7 @@ void nts::keys::Signer::clear() noexcept {
 	this->_rsa.reset();
 	this->_ecdsa.reset();
 	this->_ed25519.reset();
+	this->_ed448.reset();
 	this->_gost.reset();
 	this->_mldsa.reset();
 	this->_sm2.reset();
@@ -3493,6 +3601,22 @@ nts::keys::error_t nts::keys::decodeSubjectPublicKeyInfo(const view_t & der, key
 		key.kind = ((algorithm.compare(OID_ED25519) == 0) ? kind_t::ED25519 : kind_t::X25519);
 		// Выполняем проверку открытого ключа
 		outcome = derive(key);
+	// Если ключ Ed448
+	} else if(algorithm.compare(OID_ED448) == 0){
+		// Если настройки записаны: раздел 3 RFC 8410 их запрещает
+		if(present)
+			// Выводим отказ алгоритма
+			return error_t::ALGORITHM;
+		// Если открытый ключ записан не своей длиной
+		if(bytes.size != sign::ed448_t::KEY_SIZE)
+			// Выводим отказ негодного значения
+			return error_t::VALUE;
+		// Если открытый ключ скопировать не удалось
+		if(!copy(bytes.data, bytes.size, key.key))
+			// Выводим отказ нехватки памяти
+			return error_t::MEMORY;
+		// Устанавливаем вид ключа
+		key.kind = kind_t::ED448;
 	// Если ключ ML-DSA
 	} else if((algorithm.compare(OID_MLDSA44) == 0) || (algorithm.compare(OID_MLDSA65) == 0) || (algorithm.compare(OID_MLDSA87) == 0)){
 		// Если настройки записаны: раздел 5 RFC 9881 их запрещает
@@ -3848,6 +3972,43 @@ nts::keys::error_t nts::keys::decodePrivateKeyInfo(const view_t & der, key_t & r
 		}
 		// Выполняем разбор зерна
 		outcome = seedSecret(body, ((algorithm.compare(OID_ED25519) == 0) ? kind_t::ED25519 : kind_t::X25519), key);
+	// Если ключ Ed448
+	} else if(algorithm.compare(OID_ED448) == 0){
+		// Если настройки записаны: раздел 3 RFC 8410 их запрещает
+		if(present)
+			// Выводим отказ алгоритма
+			return error_t::ALGORITHM;
+		// Если обёртка несёт открытый ключ
+		if(opened.data != nullptr){
+			// Если открытый ключ скопировать не удалось: выведение сличит его с зерном
+			if(!copy(opened.data, opened.size, key.key))
+				// Выводим отказ нехватки памяти
+				return error_t::MEMORY;
+		}
+		// Разборщик записи зерна
+		asn1::reader_t reader(body);
+		// Строка байтов зерна
+		asn1::element_t element;
+		// Если строку байтов зерна разобрать не удалось
+		if(!reader.next(asn1::tag_t::OCTET_STRING, element) || element.constructed)
+			// Выводим переведённый отказ разбора
+			return translate(reader.err());
+		// Если после зерна остался хвост
+		if(!reader.empty())
+			// Выводим отказ устройства записи
+			return error_t::STRUCTURE;
+		// Если зерно записано не своей длиной
+		if(element.content.size != sign::ed448_t::KEY_SIZE)
+			// Выводим отказ негодного значения
+			return error_t::VALUE;
+		// Если зерно скопировать не удалось
+		if(!copy(element.content.data, element.content.size, key.d))
+			// Выводим отказ нехватки памяти
+			return error_t::MEMORY;
+		// Устанавливаем вид ключа
+		key.kind = kind_t::ED448;
+		// Выполняем выведение открытой части ключа
+		outcome = derive(key);
 	// Если ключ ML-DSA
 	} else if((algorithm.compare(OID_MLDSA44) == 0) || (algorithm.compare(OID_MLDSA65) == 0) || (algorithm.compare(OID_MLDSA87) == 0)){
 		// Если настройки записаны: раздел 5 RFC 9881 их запрещает

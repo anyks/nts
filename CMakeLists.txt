@@ -238,6 +238,7 @@ SET(SOURCE_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/sign/ecdsa.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/sign/sm2.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/sign/ed25519.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/sign/ed448.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/agreement/x25519.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/agreement/x448.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/agreement/ffdhe.cpp"

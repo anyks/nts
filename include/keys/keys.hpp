@@ -55,6 +55,7 @@
 #include <sign/ecdsa.hpp>
 #include <sign/sm2.hpp>
 #include <sign/ed25519.hpp>
+#include <sign/ed448.hpp>
 #include <sign/mldsa.hpp>
 #include <curve/curve.hpp>
 
@@ -143,7 +144,8 @@ namespace nts {
 			X25519  = 0x04, /*!< \~russian Ключ согласования X25519 по RFC 8410 \~english X25519 agreement key according to RFC 8410 \~ */
 			GOST    = 0x05, /*!< \~russian Ключ по ГОСТ Р 34.10-2012 по RFC 9215 \~english GOST R 34.10-2012 key according to RFC 9215 \~ */
 			MLDSA   = 0x06, /*!< \~russian Ключ подписи ML-DSA по FIPS 204 и RFC 9881 \~english ML-DSA signature key according to FIPS 204 and RFC 9881 \~ */
-			SM2     = 0x07  /*!< \~russian Ключ подписи SM2 на кривой curveSM2 по GB/T 32918 и RFC 8998 \~english SM2 signature key on the curveSM2 curve according to GB/T 32918 and RFC 8998 \~ */
+			SM2     = 0x07, /*!< \~russian Ключ подписи SM2 на кривой curveSM2 по GB/T 32918 и RFC 8998 \~english SM2 signature key on the curveSM2 curve according to GB/T 32918 and RFC 8998 \~ */
+			ED448   = 0x08  /*!< \~russian Ключ подписи Ed448 по RFC 8410 \~english Ed448 signature key according to RFC 8410 \~ */
 		};
 
 		/**
@@ -337,6 +339,22 @@ namespace nts {
 			bool load(sign::ed25519_t & ed25519) const noexcept;
 			/**
 			 * \~russian
+			 * @brief Метод установки ключа Ed448 из разобранного ключа
+			 *
+			 * @param ed448 примитив, в который устанавливается ключ
+			 *
+			 * @return      признак успешности установки ключа
+			 *
+			 * \~english
+			 * @brief Method of the installation of an Ed448 key from the parsed key
+			 * @param ed448 the primitive the key is installed into
+			 * @return      the flag of the success of the installation of the key
+			 *
+			 * \~
+			 */
+			bool load(sign::ed448_t & ed448) const noexcept;
+			/**
+			 * \~russian
 			 * @brief Метод установки ключа ГОСТ Р 34.10-2012 из разобранного ключа
 			 *
 			 * @param gost  примитив, в который устанавливается ключ
@@ -440,6 +458,8 @@ namespace nts {
 				unique_ptr <sign::ecdsa_t> _ecdsa;
 				// Модуль подписи Ed25519
 				unique_ptr <sign::ed25519_t> _ed25519;
+				// Модуль подписи Ed448
+				unique_ptr <sign::ed448_t> _ed448;
 				// Модуль подписи ГОСТ Р 34.10-2012
 				unique_ptr <sign::gost_t> _gost;
 				// Модуль подписи ML-DSA
@@ -525,6 +545,19 @@ namespace nts {
 				 * \~
 				 */
 				const sign::ed25519_t & ed25519() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения модуля подписи Ed448
+				 *
+				 * @return модуль подписи с установленным ключом Ed448, пустой у ключей иных видов
+				 *
+				 * \~english
+				 * @brief Method of getting the Ed448 signature module
+				 * @return the signature module with the Ed448 key set, empty at the keys of the other kinds
+				 *
+				 * \~
+				 */
+				const sign::ed448_t & ed448() const noexcept;
 				/**
 				 * \~russian
 				 * @brief Метод получения модуля подписи ГОСТ Р 34.10-2012

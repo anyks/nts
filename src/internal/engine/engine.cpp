@@ -687,6 +687,11 @@ namespace {
 	static const char * ED_KEY = "1.3.101.112";
 
 	/**
+	 * Опознаватель ключа Ed448 по RFC 8410
+	 */
+	static const char * ED448_KEY = "1.3.101.113";
+
+	/**
 	 * Опознаватель ключа ML-DSA-44 по RFC 9881
 	 */
 	static const char * MLDSA44_KEY = "2.16.840.1.101.3.4.3.17";
@@ -1568,7 +1573,7 @@ namespace {
 			return context::error_t::NONE;
 		}
 		// Отмечаем пригодность ключа RSA либо Ed25519
-		suitable = ((key.algorithm.compare(RSA_KEY) == 0) || (key.algorithm.compare(RSAPSS_KEY) == 0) || (key.algorithm.compare(ED_KEY) == 0) || (key.algorithm.compare(MLDSA44_KEY) == 0) || (key.algorithm.compare(MLDSA65_KEY) == 0) || (key.algorithm.compare(MLDSA87_KEY) == 0) || (key.algorithm.compare(SM2_KEY) == 0));
+		suitable = ((key.algorithm.compare(RSA_KEY) == 0) || (key.algorithm.compare(RSAPSS_KEY) == 0) || (key.algorithm.compare(ED_KEY) == 0) || (key.algorithm.compare(ED448_KEY) == 0) || (key.algorithm.compare(MLDSA44_KEY) == 0) || (key.algorithm.compare(MLDSA65_KEY) == 0) || (key.algorithm.compare(MLDSA87_KEY) == 0) || (key.algorithm.compare(SM2_KEY) == 0));
 		// Выводим успешность разбора
 		return context::error_t::NONE;
 	}
@@ -1664,6 +1669,10 @@ namespace {
 			case static_cast <uint16_t> (extension::scheme_t::ED25519):
 				// Выводим итог сличения алгоритма ключа с Ed25519
 				return (key.algorithm.compare(ED_KEY) == 0);
+			// Схема подписи Ed448
+			case static_cast <uint16_t> (extension::scheme_t::ED448):
+				// Выводим итог сличения алгоритма ключа с Ed448
+				return (key.algorithm.compare(ED448_KEY) == 0);
 			// Схема подписи ML-DSA-44
 			case static_cast <uint16_t> (extension::scheme_t::MLDSA44):
 				// Выводим итог сличения алгоритма ключа с ML-DSA-44
@@ -5199,6 +5208,20 @@ context::error_t nts::internal::Engine::signing(const view_t & content, extensio
 				 * пустой - подписывается само содержимое владения ключом
 				 */
 				if(!mldsa.make(content, view_t(nullptr, 0), signed_.data()))
+					// Выводим отказ выработки подписи владения ключом
+					return context::error_t::SIGNATURE;
+			// Если схема подписи - Ed448
+			} else if(item == extension::scheme_t::ED448){
+				// Если подготовленный ключ - не ключ Ed448
+				if(signer->kind() != keys::kind_t::ED448)
+					// Выводим отказ установки секретного ключа
+					return context::error_t::SIGNATURE;
+				// Модуль подписи Ed448 подготовленного ключа
+				const sign::ed448_t & ed448 = signer->ed448();
+				// Занимаем место под подпись Ed448
+				signed_.assign(sign::ed448_t::SIGNATURE_SIZE, 0);
+				// Если подпись владения ключом выработать не удалось
+				if(!ed448.make(content, signed_.data()))
 					// Выводим отказ выработки подписи владения ключом
 					return context::error_t::SIGNATURE;
 			// Если схема подписи - Ed25519
@@ -12819,7 +12842,7 @@ context::error_t nts::internal::Engine::welcome(const hello::client_t & greeting
 			 * серверу не годен
 			 */
 			signer = (((leaf.key().algorithm.compare(RSA_KEY) == 0) || (leaf.key().algorithm.compare(RSAPSS_KEY) == 0)) ? protect::signer_t::RSA :
-				(((leaf.key().algorithm.compare(EC_KEY) == 0) || (leaf.key().algorithm.compare(ED_KEY) == 0)) ? protect::signer_t::ECDSA : protect::signer_t::NONE));
+				(((leaf.key().algorithm.compare(EC_KEY) == 0) || (leaf.key().algorithm.compare(ED_KEY) == 0) || (leaf.key().algorithm.compare(ED448_KEY) == 0)) ? protect::signer_t::ECDSA : protect::signer_t::NONE));
 		}
 		// Если рукопожатие полное: набор выбирается заново
 		if(!this->_resumed){
@@ -13765,7 +13788,7 @@ context::error_t nts::internal::Engine::presented(const view_t & body) noexcept 
 	// Признак того, что ключ сертификата - ключ RSA
 	const bool rsa = ((leaf.key().algorithm.compare(RSA_KEY) == 0) || (leaf.key().algorithm.compare(RSAPSS_KEY) == 0));
 	// Признак того, что ключ сертификата - ключ ECDSA либо EdDSA
-	const bool ecdsa = ((leaf.key().algorithm.compare(EC_KEY) == 0) || (leaf.key().algorithm.compare(ED_KEY) == 0));
+	const bool ecdsa = ((leaf.key().algorithm.compare(EC_KEY) == 0) || (leaf.key().algorithm.compare(ED_KEY) == 0) || (leaf.key().algorithm.compare(ED448_KEY) == 0));
 	/**
 	 * Раздел 2 RFC 8422: ключ сертификата сервера обязан отвечать набору шифрования;
 	 * ключ клиента отвечает видам, запрошенным сервером: rsa_sign и ecdsa_sign

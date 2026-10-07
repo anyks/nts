@@ -43,6 +43,7 @@
 #include <sign/ecdsa.hpp>
 #include <sign/sm2.hpp>
 #include <sign/ed25519.hpp>
+#include <sign/ed448.hpp>
 #include <sign/mldsa.hpp>
 #include <sign/slhdsa.hpp>
 #include <asn1/asn1.hpp>
@@ -77,7 +78,8 @@ namespace {
 		PSS     = 0x03, // Подпись RSA по схеме RSASSA-PSS
 		ED25519 = 0x04, // Подпись Ed25519
 		MLDSA   = 0x05, // Подпись ML-DSA по FIPS 204
-		SLHDSA  = 0x06  // Подпись SLH-DSA по FIPS 205
+		SLHDSA  = 0x06, // Подпись SLH-DSA по FIPS 205
+		ED448   = 0x07  // Подпись Ed448
 	};
 
 	/**
@@ -134,6 +136,8 @@ namespace {
 		{"1.2.840.113549.1.1.10", family_t::PSS, digest::hash_t::NONE},
 		// Подпись Ed25519: хеша нет, подписывается само сообщение, раздел 3 RFC 8410
 		{"1.3.101.112", family_t::ED25519, digest::hash_t::NONE},
+		// Подпись Ed448: хеша нет, подписывается само сообщение, раздел 3 RFC 8410
+		{"1.3.101.113", family_t::ED448, digest::hash_t::NONE},
 		// Подпись ML-DSA-44: хеша нет, подписывается само сообщение, раздел 4 RFC 9881
 		{"2.16.840.1.101.3.4.3.17", family_t::MLDSA, digest::hash_t::NONE},
 		// Подпись ML-DSA-65
@@ -222,6 +226,11 @@ namespace {
 	 * Опознаватель алгоритма открытого ключа Ed25519: раздел 3 RFC 8410
 	 */
 	static const char * ED_KEY = "1.3.101.112";
+
+	/**
+	 * Опознаватель алгоритма открытого ключа Ed448: раздел 3 RFC 8410
+	 */
+	static const char * ED448_KEY = "1.3.101.113";
 
 	/**
 	 * Опознаватель алгоритма открытого ключа SM2: GB/T 32918 и RFC 8998
@@ -770,6 +779,35 @@ namespace {
 		return nts::x509::error_t::NONE;
 	}
 	/**
+	 * @brief Метод заведения открытого ключа Ed448 в примитив
+	 *
+	 * @param key   сведения об открытом ключе подписавшей стороны
+	 * @param ed448 примитив, в который заводится открытый ключ
+	 *
+	 * @return      отказ заведения открытого ключа
+	 *
+	 */
+	static nts::x509::error_t ed448(const nts::x509::key_t & key, sign::ed448_t & ed448) noexcept {
+		// Если алгоритм открытого ключа не есть Ed448
+		if(key.algorithm.compare(ED448_KEY) != 0)
+			// Выводим отказ ключа чужого алгоритма
+			return nts::x509::error_t::KEY;
+		// Если ключ несёт настройки, которых у алгоритма нет
+		if((key.parameters.data != nullptr) && (key.parameters.size != 0))
+			// Выводим отказ заведения открытого ключа
+			return nts::x509::error_t::SIGNATURE;
+		// Если запись открытого ключа занимает неполное число байтов либо не той длины
+		if((key.unused != 0) || (key.key.data == nullptr) || (key.key.size != sign::ed448_t::KEY_SIZE))
+			// Выводим отказ заведения открытого ключа
+			return nts::x509::error_t::SIGNATURE;
+		// Если открытый ключ подписавшей стороны установить не удалось
+		if(!ed448.key(key.key))
+			// Выводим отказ заведения открытого ключа
+			return nts::x509::error_t::SIGNATURE;
+		// Выводим успешность заведения открытого ключа
+		return nts::x509::error_t::NONE;
+	}
+	/**
 	 * @brief Метод разбора настроек подписи RSASSA-PSS
 	 *
 	 * @details Запись RSASSA-PSS-params раздела 3.1 RFC 4055: четыре необязательных
@@ -1234,6 +1272,32 @@ namespace {
 		return (ed25519.check(content, signature) ? nts::x509::error_t::NONE : nts::x509::error_t::SIGNATURE);
 	}
 	/**
+	 * @brief Метод проверки подписи Ed448 содержимого
+	 *
+	 * @param content   подписанное содержимое
+	 * @param signature подпись содержимого
+	 * @param key       сведения об открытом ключе подписавшей стороны
+	 *
+	 * @return          отказ проверки подписи
+	 *
+	 */
+	static nts::x509::error_t ed448(const view_t & content, const view_t & signature, const nts::x509::key_t & key) noexcept {
+		// Объект модуля электронной подписи
+		sign::ed448_t ed448;
+		// Итог заведения открытого ключа
+		const nts::x509::error_t established = ::ed448(key, ed448);
+		// Если открытый ключ завести не удалось
+		if(established != nts::x509::error_t::NONE)
+			// Выводим отказ заведения открытого ключа
+			return established;
+		// Если подпись не занимает положенной длины
+		if(signature.size != sign::ed448_t::SIGNATURE_SIZE)
+			// Выводим отказ проверки подписи
+			return nts::x509::error_t::SIGNATURE;
+		// Выводим итог проверки подписи: хеша нет, подписано само содержимое
+		return (ed448.check(content, signature) ? nts::x509::error_t::NONE : nts::x509::error_t::SIGNATURE);
+	}
+	/**
 	 * @brief Метод заведения открытого ключа ML-DSA в примитив
 	 *
 	 * @param key   сведения об открытом ключе подписавшей стороны
@@ -1421,6 +1485,10 @@ nts::x509::error_t nts::x509::verify(const view_t & body, const view_t & signatu
 		case family_t::ED25519:
 			// Выводим итог проверки подписи Ed25519
 			return ::ed25519(body, signature, key);
+		// Подпись Ed448
+		case family_t::ED448:
+			// Выводим итог проверки подписи Ed448
+			return ::ed448(body, signature, key);
 		// Подпись ML-DSA
 		case family_t::MLDSA:
 			// Выводим итог проверки подписи ML-DSA
@@ -1622,6 +1690,10 @@ nts::x509::error_t nts::x509::check(const key_t & key, const digest::hash_t algo
 	if(key.algorithm.compare(ED_KEY) == 0)
 		// Выводим итог проверки подписи Ed25519
 		return ::ed25519(content, signature, key);
+	// Если ключ Ed448, подпись сырая, а хеш не считается вовсе
+	if(key.algorithm.compare(ED448_KEY) == 0)
+		// Выводим итог проверки подписи Ed448
+		return ::ed448(content, signature, key);
 	// Если ключ ML-DSA, подпись сырая, а хеш не считается вовсе
 	if((key.algorithm.compare(MLDSA44_KEY) == 0) || (key.algorithm.compare(MLDSA65_KEY) == 0) || (key.algorithm.compare(MLDSA87_KEY) == 0))
 		// Выводим итог проверки подписи ML-DSA: контекст пуст

@@ -141,7 +141,7 @@ namespace {
 		scheme_t scheme;
 		// Хеш схемы подписи
 		digest::hash_t hash;
-	} HASHES[24] = {
+	} HASHES[25] = {
 		{scheme_t::RSA_PKCS1_SHA256, digest::hash_t::SHA256},
 		{scheme_t::RSA_PKCS1_SHA384, digest::hash_t::SHA384},
 		{scheme_t::RSA_PKCS1_SHA512, digest::hash_t::SHA512},
@@ -162,6 +162,7 @@ namespace {
 		{scheme_t::RSA_PSS_PSS_SHA384, digest::hash_t::SHA384},
 		{scheme_t::RSA_PSS_PSS_SHA512, digest::hash_t::SHA512},
 		{scheme_t::ED25519, digest::hash_t::NONE},
+		{scheme_t::ED448, digest::hash_t::NONE},
 		{scheme_t::MLDSA44, digest::hash_t::NONE},
 		{scheme_t::MLDSA65, digest::hash_t::NONE},
 		{scheme_t::MLDSA87, digest::hash_t::NONE},

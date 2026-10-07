@@ -8645,6 +8645,67 @@ TEST(ContextTest, RsaPssPss){
 }
 
 /**
+ * Проверка схемы подписи Ed448 (ed448): связь издания 1.3 с сертификатом, чей ключ
+ * назван опознавателем Ed448, схема выбирается по опознавателю ключа, подпись
+ * владения сходится, данные идут в обе стороны
+ */
+TEST(ContextTest, Ed448){
+	// Подлинность стороны сервера ключом Ed448
+	context::credential_t ed448;
+	// Читаем подлинность из набора ключей
+	ASSERT_TRUE(keyed("ed448.key", "ed448.crt", ed448));
+	// Связь стороны клиента
+	client::context_t client;
+	// Связь стороны сервера
+	server::context_t server;
+	// Клиент объявляет схему подписи Ed448
+	client.schemes({extension::scheme_t::ED448});
+	// Сервер объявляет схему подписи Ed448
+	server.schemes({extension::scheme_t::ED448});
+	// Устанавливаем подлинность стороны сервера
+	server.credential(ed448);
+	// Выполняем заведение связей сторон
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	// Проводим рукопожатие
+	converse(client, server);
+	// Проверяем установленность связи обеими сторонами
+	ASSERT_TRUE(client.established()) << static_cast <int> (client.error());
+	ASSERT_TRUE(server.established()) << static_cast <int> (server.error());
+	// Проверяем получение клиентом сертификата сервера
+	ASSERT_EQ(client.peer().size(), static_cast <size_t> (1));
+	ASSERT_EQ(client.peer()[0], ed448.chain[0]);
+	// Прикладные данные, отправляемые клиентом
+	const string request = "Запрос по связи с подписью Ed448";
+	// Выполняем отправку прикладных данных клиентом
+	ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
+	// Выполняем передачу байтов между сторонами связи
+	pump(client, server);
+	// Накопитель, в который помещаются принятые прикладные данные
+	vector <uint8_t> received;
+	// Выполняем получение принятых сервером прикладных данных
+	ASSERT_EQ(server.read(received), context::error_t::NONE);
+	// Проверяем схождение принятых данных с отправленными
+	ASSERT_EQ(string(received.begin(), received.end()), request);
+	// Прикладные данные, отправляемые сервером
+	const string answer = "Ответ по связи с подписью Ed448";
+	// Выполняем отправку прикладных данных сервером
+	ASSERT_EQ(server.write(view_t(reinterpret_cast <const uint8_t *> (answer.data()), answer.size())), context::error_t::NONE);
+	// Выполняем передачу байтов между сторонами связи
+	pump(client, server);
+	// Выполняем сброс накопителя принятых данных
+	received.clear();
+	// Выполняем получение принятых клиентом прикладных данных
+	ASSERT_EQ(client.read(received), context::error_t::NONE);
+	// Проверяем схождение принятых данных с отправленными
+	ASSERT_EQ(string(received.begin(), received.end()), answer);
+	// Закрываем связь
+	ASSERT_EQ(client.close(), context::error_t::NONE);
+	pump(client, server);
+	ASSERT_EQ(server.state(), context::state_t::CLOSED);
+}
+
+/**
  * Проверка экспорта ключевого материала связи издания 1.3 (RFC 8446 §7.5)
  */
 TEST(ContextTest, Exporting){
