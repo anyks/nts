@@ -299,7 +299,7 @@ namespace {
 	 * @return        признак того, что ответ получен и подпись принята
 	 *
 	 */
-	static bool call(const sandbox_t & sandbox, const std::string & url, const std::string & nonce, const std::string & kid, const keys::key_t & key, const std::string & payload, const keys::signer_t & signer, answer_t & result) {
+	static bool call(const sandbox_t & sandbox, const std::string & url, std::string & nonce, const std::string & kid, const keys::key_t & key, const std::string & payload, const keys::signer_t & signer, answer_t & result) {
 		// Выполняем запрос с повтором по отказу badNonce, как велит раздел 6.5 RFC 8555
 		for(size_t attempt = 0; attempt < 3; attempt++){
 			// Собираем тело запроса
