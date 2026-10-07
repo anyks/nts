@@ -672,6 +672,11 @@ namespace {
 	static const char * RSA_KEY = "1.2.840.113549.1.1.1";
 
 	/**
+	 * Опознаватель ключа id-RSASSA-PSS по RFC 4055: ключ, назначенный одной подписи RSASSA-PSS
+	 */
+	static const char * RSAPSS_KEY = "1.2.840.113549.1.1.10";
+
+	/**
 	 * Опознаватель ключа id-ecPublicKey по RFC 5480
 	 */
 	static const char * EC_KEY = "1.2.840.10045.2.1";
@@ -1563,7 +1568,7 @@ namespace {
 			return context::error_t::NONE;
 		}
 		// Отмечаем пригодность ключа RSA либо Ed25519
-		suitable = ((key.algorithm.compare(RSA_KEY) == 0) || (key.algorithm.compare(ED_KEY) == 0) || (key.algorithm.compare(MLDSA44_KEY) == 0) || (key.algorithm.compare(MLDSA65_KEY) == 0) || (key.algorithm.compare(MLDSA87_KEY) == 0) || (key.algorithm.compare(SM2_KEY) == 0));
+		suitable = ((key.algorithm.compare(RSA_KEY) == 0) || (key.algorithm.compare(RSAPSS_KEY) == 0) || (key.algorithm.compare(ED_KEY) == 0) || (key.algorithm.compare(MLDSA44_KEY) == 0) || (key.algorithm.compare(MLDSA65_KEY) == 0) || (key.algorithm.compare(MLDSA87_KEY) == 0) || (key.algorithm.compare(SM2_KEY) == 0));
 		// Выводим успешность разбора
 		return context::error_t::NONE;
 	}
@@ -1649,6 +1654,12 @@ namespace {
 			case static_cast <uint16_t> (extension::scheme_t::RSA_PKCS1_SHA512):
 				// Выводим итог сличения алгоритма ключа с rsaEncryption
 				return (key.algorithm.compare(RSA_KEY) == 0);
+			// Схемы подписи RSASSA-PSS ключом id-RSASSA-PSS
+			case static_cast <uint16_t> (extension::scheme_t::RSA_PSS_PSS_SHA256):
+			case static_cast <uint16_t> (extension::scheme_t::RSA_PSS_PSS_SHA384):
+			case static_cast <uint16_t> (extension::scheme_t::RSA_PSS_PSS_SHA512):
+				// Выводим итог сличения алгоритма ключа с id-RSASSA-PSS
+				return (key.algorithm.compare(RSAPSS_KEY) == 0);
 			// Схема подписи Ed25519
 			case static_cast <uint16_t> (extension::scheme_t::ED25519):
 				// Выводим итог сличения алгоритма ключа с Ed25519
@@ -12807,7 +12818,7 @@ context::error_t nts::internal::Engine::welcome(const hello::client_t & greeting
 			 * EdDSA, набор ECDHE_RSA и обмен RSA - ключа RSA; набор, ключу не отвечающий,
 			 * серверу не годен
 			 */
-			signer = ((leaf.key().algorithm.compare(RSA_KEY) == 0) ? protect::signer_t::RSA :
+			signer = (((leaf.key().algorithm.compare(RSA_KEY) == 0) || (leaf.key().algorithm.compare(RSAPSS_KEY) == 0)) ? protect::signer_t::RSA :
 				(((leaf.key().algorithm.compare(EC_KEY) == 0) || (leaf.key().algorithm.compare(ED_KEY) == 0)) ? protect::signer_t::ECDSA : protect::signer_t::NONE));
 		}
 		// Если рукопожатие полное: набор выбирается заново
@@ -13752,7 +13763,7 @@ context::error_t nts::internal::Engine::presented(const view_t & body) noexcept 
 		// Выводим отказ разбора сертификата собеседника
 		return failure;
 	// Признак того, что ключ сертификата - ключ RSA
-	const bool rsa = (leaf.key().algorithm.compare(RSA_KEY) == 0);
+	const bool rsa = ((leaf.key().algorithm.compare(RSA_KEY) == 0) || (leaf.key().algorithm.compare(RSAPSS_KEY) == 0));
 	// Признак того, что ключ сертификата - ключ ECDSA либо EdDSA
 	const bool ecdsa = ((leaf.key().algorithm.compare(EC_KEY) == 0) || (leaf.key().algorithm.compare(ED_KEY) == 0));
 	/**

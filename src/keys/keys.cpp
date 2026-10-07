@@ -130,6 +130,11 @@ namespace {
 	static const char * OID_RSA = "1.2.840.113549.1.1.1";
 
 	/**
+	 * Опознаватель алгоритма id-RSASSA-PSS по RFC 4055: ключ, назначенный одной подписи RSASSA-PSS
+	 */
+	static const char * OID_RSAPSS = "1.2.840.113549.1.1.10";
+
+	/**
 	 * Опознаватель алгоритма id-ecPublicKey по RFC 5480
 	 */
 	static const char * OID_EC = "1.2.840.10045.2.1";
@@ -3425,6 +3430,11 @@ nts::keys::error_t nts::keys::decodeSubjectPublicKeyInfo(const view_t & der, key
 			return error_t::ALGORITHM;
 		// Выполняем разбор RSAPublicKey
 		outcome = rsaPublic(bytes, key);
+	// Если ключ id-RSASSA-PSS
+	} else if(algorithm.compare(OID_RSAPSS) == 0){
+		// Настройки RSASSA-PSS по разделу 3.1 RFC 4055 вольны отсутствовать: разбору ключа они не мешают
+		// Выполняем разбор RSAPublicKey
+		outcome = rsaPublic(bytes, key);
 	// Если ключ EC
 	} else if(algorithm.compare(OID_EC) == 0){
 		// Если кривая не именованная: раздел 2.1.1 RFC 5480
@@ -3750,6 +3760,11 @@ nts::keys::error_t nts::keys::decodePrivateKeyInfo(const view_t & der, key_t & r
 		if(!present || !tagged(params, asn1::cls_t::UNIVERSAL, static_cast <uint32_t> (asn1::tag_t::NOTHING), false) || (params.content.size != 0))
 			// Выводим отказ алгоритма
 			return error_t::ALGORITHM;
+		// Выполняем разбор RSAPrivateKey
+		outcome = rsaSecret(body, key);
+	// Если ключ id-RSASSA-PSS
+	} else if(algorithm.compare(OID_RSAPSS) == 0){
+		// Настройки RSASSA-PSS по разделу 3.1 RFC 4055 вольны отсутствовать: разбору ключа они не мешают
 		// Выполняем разбор RSAPrivateKey
 		outcome = rsaSecret(body, key);
 	// Если ключ EC

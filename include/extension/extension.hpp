@@ -249,6 +249,9 @@ namespace nts {
 			RSA_PSS_RSAE_SHA384    = 0x0805, /*!< \~russian Подпись RSASSA-PSS ключом rsaEncryption с хешем SHA-384 \~english The RSASSA-PSS signature by an rsaEncryption key with the SHA-384 hash \~ */
 			RSA_PSS_RSAE_SHA512    = 0x0806, /*!< \~russian Подпись RSASSA-PSS ключом rsaEncryption с хешем SHA-512 \~english The RSASSA-PSS signature by an rsaEncryption key with the SHA-512 hash \~ */
 			ED25519                = 0x0807, /*!< \~russian Подпись Ed25519 по RFC 8032 \~english The Ed25519 signature by RFC 8032 \~ */
+			RSA_PSS_PSS_SHA256     = 0x0809, /*!< \~russian Подпись RSASSA-PSS ключом id-RSASSA-PSS с хешем SHA-256 \~english The RSASSA-PSS signature by an id-RSASSA-PSS key with the SHA-256 hash \~ */
+			RSA_PSS_PSS_SHA384     = 0x080A, /*!< \~russian Подпись RSASSA-PSS ключом id-RSASSA-PSS с хешем SHA-384 \~english The RSASSA-PSS signature by an id-RSASSA-PSS key with the SHA-384 hash \~ */
+			RSA_PSS_PSS_SHA512     = 0x080B, /*!< \~russian Подпись RSASSA-PSS ключом id-RSASSA-PSS с хешем SHA-512 \~english The RSASSA-PSS signature by an id-RSASSA-PSS key with the SHA-512 hash \~ */
 			MLDSA44                = 0x0904, /*!< \~russian Подпись ML-DSA-44 по FIPS 204 (draft-ietf-tls-mldsa-06) \~english The ML-DSA-44 signature by FIPS 204 (draft-ietf-tls-mldsa-06) \~ */
 			MLDSA65                = 0x0905, /*!< \~russian Подпись ML-DSA-65 по FIPS 204 (draft-ietf-tls-mldsa-06) \~english The ML-DSA-65 signature by FIPS 204 (draft-ietf-tls-mldsa-06) \~ */
 			MLDSA87                = 0x0906, /*!< \~russian Подпись ML-DSA-87 по FIPS 204 (draft-ietf-tls-mldsa-06) \~english The ML-DSA-87 signature by FIPS 204 (draft-ietf-tls-mldsa-06) \~ */

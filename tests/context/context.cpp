@@ -8536,6 +8536,115 @@ TEST(ContextTest, OcspStapling){
 }
 
 /**
+ * Проверка схем подписи RSASSA-PSS ключом id-RSASSA-PSS (rsa_pss_pss_*): связь
+ * издания 1.3 с сертификатом, чей ключ назван опознавателем id-RSASSA-PSS, схема
+ * выбирается по опознавателю ключа, а схема ключом rsaEncryption такому ключу не
+ * отвечает
+ */
+TEST(ContextTest, RsaPssPss){
+	// Подлинность стороны сервера ключом id-RSASSA-PSS
+	context::credential_t pss;
+	// Читаем подлинность из набора ключей
+	ASSERT_TRUE(keyed("rsapss.key", "rsapss.crt", pss));
+	// Подлинность стороны сервера ключом rsaEncryption
+	context::credential_t rsae;
+	// Читаем подлинность из набора ключей
+	ASSERT_TRUE(keyed("rsa2048.pem", "rsa2048.crt", rsae));
+	/**
+	 * Связь издания 1.3 с сертификатом id-RSASSA-PSS: схема rsa_pss_pss_sha256
+	 * выбирается по опознавателю ключа, подпись владения сходится, данные идут в обе
+	 * стороны
+	 */
+	{
+		// Связь стороны клиента
+		client::context_t client;
+		// Связь стороны сервера
+		server::context_t server;
+		// Клиент объявляет схему подписи ключом id-RSASSA-PSS
+		client.schemes({extension::scheme_t::RSA_PSS_PSS_SHA256});
+		// Сервер объявляет схему подписи ключом id-RSASSA-PSS
+		server.schemes({extension::scheme_t::RSA_PSS_PSS_SHA256});
+		// Устанавливаем подлинность стороны сервера
+		server.credential(pss);
+		// Выполняем заведение связей сторон
+		ASSERT_EQ(server.start(), context::error_t::NONE);
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		// Проводим рукопожатие
+		converse(client, server);
+		// Проверяем установленность связи обеими сторонами
+		ASSERT_TRUE(client.established()) << static_cast <int> (client.error());
+		ASSERT_TRUE(server.established()) << static_cast <int> (server.error());
+		// Проверяем получение клиентом сертификата сервера
+		ASSERT_EQ(client.peer().size(), static_cast <size_t> (1));
+		ASSERT_EQ(client.peer()[0], pss.chain[0]);
+		// Прикладные данные, отправляемые клиентом
+		const string request = "Запрос по связи с подписью id-RSASSA-PSS";
+		// Выполняем отправку прикладных данных клиентом
+		ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
+		// Выполняем передачу байтов между сторонами связи
+		pump(client, server);
+		// Накопитель, в который помещаются принятые прикладные данные
+		vector <uint8_t> received;
+		// Выполняем получение принятых сервером прикладных данных
+		ASSERT_EQ(server.read(received), context::error_t::NONE);
+		// Проверяем схождение принятых данных с отправленными
+		ASSERT_EQ(string(received.begin(), received.end()), request);
+		// Закрываем связь
+		ASSERT_EQ(client.close(), context::error_t::NONE);
+		pump(client, server);
+		ASSERT_EQ(server.state(), context::state_t::CLOSED);
+	}
+	/**
+	 * Схема ключом rsaEncryption ключу id-RSASSA-PSS не отвечает: сервер, которому
+	 * навязали лишь rsa_pss_rsae_*, рукопожатие с таким сертификатом не ведёт
+	 */
+	{
+		// Связь стороны клиента
+		client::context_t client;
+		// Связь стороны сервера
+		server::context_t server;
+		// Клиент объявляет лишь схему подписи ключом rsaEncryption
+		client.schemes({extension::scheme_t::RSA_PSS_RSAE_SHA256});
+		// Сервер объявляет лишь схему подписи ключом rsaEncryption
+		server.schemes({extension::scheme_t::RSA_PSS_RSAE_SHA256});
+		// Устанавливаем подлинность стороны сервера ключом id-RSASSA-PSS
+		server.credential(pss);
+		// Выполняем заведение связей сторон
+		ASSERT_EQ(server.start(), context::error_t::NONE);
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		// Проводим рукопожатие
+		converse(client, server);
+		// Связь не установлена: схема ключу не отвечает
+		EXPECT_FALSE(client.established());
+		EXPECT_FALSE(server.established());
+	}
+	/**
+	 * Схема ключом id-RSASSA-PSS ключу rsaEncryption не отвечает: сервер, которому
+	 * навязали лишь rsa_pss_pss_*, рукопожатие с сертификатом rsaEncryption не ведёт
+	 */
+	{
+		// Связь стороны клиента
+		client::context_t client;
+		// Связь стороны сервера
+		server::context_t server;
+		// Клиент объявляет лишь схему подписи ключом id-RSASSA-PSS
+		client.schemes({extension::scheme_t::RSA_PSS_PSS_SHA256});
+		// Сервер объявляет лишь схему подписи ключом id-RSASSA-PSS
+		server.schemes({extension::scheme_t::RSA_PSS_PSS_SHA256});
+		// Устанавливаем подлинность стороны сервера ключом rsaEncryption
+		server.credential(rsae);
+		// Выполняем заведение связей сторон
+		ASSERT_EQ(server.start(), context::error_t::NONE);
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		// Проводим рукопожатие
+		converse(client, server);
+		// Связь не установлена: схема ключу не отвечает
+		EXPECT_FALSE(client.established());
+		EXPECT_FALSE(server.established());
+	}
+}
+
+/**
  * Проверка экспорта ключевого материала связи издания 1.3 (RFC 8446 §7.5)
  */
 TEST(ContextTest, Exporting){
