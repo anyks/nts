@@ -745,6 +745,8 @@ if (${CMAKE_BUILD_SAMPLES})
         message(STATUS "Build sample SIGN: Yes")
         # Выполняем создание приложения работы с электронной подписью
         add_sample(${SIGN_APP_NAME} sample/sign/gost.cpp sign)
+        # Выполняем создание приложения работы с электронной подписью Ed448
+        add_sample(sign-ed448 sample/sign/ed448.cpp sign)
     # Если образец работы с электронной подписью собирать не нужно
     else()
         # Выводим сообщение о сборке образца
@@ -1132,6 +1134,10 @@ if (${CMAKE_BUILD_SAMPLES})
         message(STATUS "Build sample OCSP: Yes")
         # Выполняем создание приложения состояния сертификата
         add_corpus_sample(${OCSP_APP_NAME} sample/ocsp/ocsp.cpp ocsp)
+        # Выполняем создание приложения проверки цепочки состояний сертификатов
+        add_corpus_sample(ocsp-chain sample/ocsp/chain.cpp ocsp)
+        # Выполняем создание приложения работы с электронной подписью RSASSA-PSS
+        add_corpus_sample(sign-rsa-pss-pss sample/sign/rsa_pss_pss.cpp sign)
     # Если образец состояния сертификата собирать не нужно
     else()
         # Выводим сообщение о сборке образца
