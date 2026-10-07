@@ -1264,8 +1264,8 @@ TEST(KeysTest, Refusal){
 		const size_t last = static_cast <size_t> ((oid.content.data + oid.content.size - 1) - opened.data());
 		// Запись с чужим опознавателем алгоритма
 		std::vector <uint8_t> foreign = opened;
-		// Портим последний байт опознавателя: кодировка остаётся годной, алгоритм становится чужим
-		foreign[last] ^= 0x01;
+		// Портим предпоследний байт опознавателя: кодировка остаётся годной, алгоритм становится чужим
+		foreign[last - 1] ^= 0x01;
 		// Проверяем отказ разбора записи с чужим алгоритмом
 		ASSERT_EQ(keys::decodeSubjectPublicKeyInfo(view(foreign), key), keys::error_t::ALGORITHM) << "Ключ: " << entry.name;
 		// Запись секретного ключа с чужим опознавателем: устройство обёртки то же, опознаватель лежит по тому же смещению
@@ -1284,8 +1284,8 @@ TEST(KeysTest, Refusal){
 		asn1::reader_t names = parts.enter(algorithm);
 		// Проверяем разбор опознавателя алгоритма
 		ASSERT_TRUE(names.next(asn1::tag_t::OBJECT, oid));
-		// Портим последний байт опознавателя
-		foreign[static_cast <size_t> ((oid.content.data + oid.content.size - 1) - secret.data())] ^= 0x01;
+		// Портим предпоследний байт опознавателя
+		foreign[static_cast <size_t> ((oid.content.data + oid.content.size - 2) - secret.data())] ^= 0x01;
 		// Проверяем отказ разбора записи с чужим алгоритмом
 		ASSERT_EQ(keys::decodePrivateKeyInfo(view(foreign), key), keys::error_t::ALGORITHM) << "Ключ: " << entry.name;
 		// Если ключ EC

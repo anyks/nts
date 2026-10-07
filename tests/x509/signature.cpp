@@ -1452,8 +1452,10 @@ TEST(SignatureTest, Unsuitable) {
 	const view_t & signature = third.sign(unused);
 	// Проверяем отказ подписи Ed25519 неполной длины
 	ASSERT_EQ(x509::verify(third.body(), view_t(signature.data, signature.size - 1), third.algorithms(), key), x509::error_t::SIGNATURE);
+	// Проверяем отказ подписи Ed25519 ключом Ed448 по опознавателю подписи
+	ASSERT_EQ(x509::verify(third.body(), signature, "1.3.101.113", key), x509::error_t::KEY);
 	// Проверяем отказ неизвестного алгоритма подписи
-	ASSERT_EQ(x509::verify(third.body(), signature, "1.3.101.113", key), x509::error_t::SIGNATURE);
+	ASSERT_EQ(x509::verify(third.body(), signature, "1.2.3.4.5.6.7.8.9", key), x509::error_t::SIGNATURE);
 	// Проверяем отказ подписи Ed25519 ключом ГОСТ по опознавателю подписи
 	ASSERT_EQ(x509::verify(third.body(), signature, "1.2.643.7.1.1.3.2", key), x509::error_t::KEY);
 }
