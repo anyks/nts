@@ -388,8 +388,8 @@ const char * nts::extension::curve(const group_t group) noexcept {
  * \~
  */
 bool nts::extension::hybrid(const group_t group) noexcept {
-	// Выводим признак гибрида: X25519MLKEM768, SecP256r1MLKEM768 либо SecP384r1MLKEM1024
-	return ((group == group_t::X25519MLKEM768) || (group == group_t::SECP256R1MLKEM768) || (group == group_t::SECP384R1MLKEM1024));
+	// Выводим признак гибрида: X25519MLKEM768, SecP256r1MLKEM768, SecP384r1MLKEM1024 либо curveSM2MLKEM768
+	return ((group == group_t::X25519MLKEM768) || (group == group_t::SECP256R1MLKEM768) || (group == group_t::SECP384R1MLKEM1024) || (group == group_t::CURVESM2MLKEM768));
 }
 /**
  * @brief Метод получения длины модуля группы конечного поля RFC 7919
@@ -473,6 +473,10 @@ size_t nts::extension::length(const group_t group) noexcept {
 	if(group == group_t::SECP384R1MLKEM1024)
 		// Выводим длину доли
 		return (97 + agreement::encapsulation(agreement::kem_t::MLKEM1024));
+	// Если группа - гибрид curveSM2 и ML-KEM-768: точка 65 байтов и ключ инкапсуляции
+	if(group == group_t::CURVESM2MLKEM768)
+		// Выводим длину доли
+		return (65 + agreement::encapsulation(agreement::kem_t::MLKEM768));
 	// Если группа обмена - X25519
 	if(group == group_t::X25519)
 		// Выводим длину доли ключа X25519

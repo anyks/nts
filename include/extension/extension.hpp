@@ -174,7 +174,8 @@ namespace nts {
 			FFDHE8192 = 0x0104, /*!< \~russian Группа конечного поля ffdhe8192 по RFC 7919 \~english The ffdhe8192 finite field group by RFC 7919 \~ */
 			SECP256R1MLKEM768 = 0x11EB, /*!< \~russian Гибрид secp256r1 и ML-KEM-768 по draft-ietf-tls-ecdhe-mlkem: доля кривой впереди \~english The hybrid of secp256r1 and ML-KEM-768 by draft-ietf-tls-ecdhe-mlkem: the curve share goes first \~ */
 			X25519MLKEM768 = 0x11EC, /*!< \~russian Гибрид X25519 и ML-KEM-768 по draft-ietf-tls-ecdhe-mlkem \~english The hybrid of X25519 and ML-KEM-768 by draft-ietf-tls-ecdhe-mlkem \~ */
-			SECP384R1MLKEM1024 = 0x11ED /*!< \~russian Гибрид secp384r1 и ML-KEM-1024 по draft-ietf-tls-ecdhe-mlkem: доля кривой впереди \~english The hybrid of secp384r1 and ML-KEM-1024 by draft-ietf-tls-ecdhe-mlkem: the curve share goes first \~ */
+			SECP384R1MLKEM1024 = 0x11ED, /*!< \~russian Гибрид secp384r1 и ML-KEM-1024 по draft-ietf-tls-ecdhe-mlkem: доля кривой впереди \~english The hybrid of secp384r1 and ML-KEM-1024 by draft-ietf-tls-ecdhe-mlkem: the curve share goes first \~ */
+			CURVESM2MLKEM768 = 0x11EE /*!< \~russian Гибрид curveSM2 и ML-KEM-768 по draft-ietf-tls-ecdhe-mlkem: доля кривой впереди \~english The hybrid of curveSM2 and ML-KEM-768 by draft-ietf-tls-ecdhe-mlkem: the curve share goes first \~ */
 		};
 		/**
 		 * \~russian

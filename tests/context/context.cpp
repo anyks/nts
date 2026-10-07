@@ -8829,3 +8829,76 @@ TEST(ContextTest, Sm){
 		ASSERT_EQ(server.state(), context::state_t::CLOSED) << "набор " << s;
 	}
 }
+
+/**
+ * Проверка гибридной группы curveSM2MLKEM768: связь с набором SM семейства,
+ * обмен ML-KEM-768 и curveSM2
+ */
+TEST(ContextTest, SmHybrid){
+	// Подлинность стороны сервера из корпуса: ключ и сертификат SM2
+	context::credential_t credentials;
+	{
+		// Читаем секретный ключ в записи PEM
+		std::ifstream key(std::string(ANTS_CORPUS) + "/sm2.pem", std::ios::binary);
+		ASSERT_TRUE(key.is_open());
+		credentials.secret.assign(std::istreambuf_iterator <char> (key), std::istreambuf_iterator <char> ());
+		// Читаем сертификат в записи PEM
+		std::ifstream crt(std::string(ANTS_CORPUS) + "/sm2.crt", std::ios::binary);
+		ASSERT_TRUE(crt.is_open());
+		const vector <uint8_t> text((std::istreambuf_iterator <char> (crt)), std::istreambuf_iterator <char> ());
+		// Разбираем цепочку сертификатов из записи PEM
+		ASSERT_EQ(pem::certificates(std::string(text.begin(), text.end()), credentials.chain), pem::error_t::NONE);
+	}
+	// Наборы SM семейства
+	const protect::suite_t suites[] = {protect::suite_t::SM4_GCM_SM3, protect::suite_t::SM4_CCM_SM3};
+	/**
+	 * Выполняем перебор наборов SM семейства
+	 */
+	for(size_t s = 0; s < 2; s++){
+		// Связь стороны клиента: набор, гибридная группа и схема SM
+		client::context_t client;
+		gosting(client);
+		client.suites({suites[s]});
+		client.groups({extension::group_t::CURVESM2MLKEM768});
+		client.schemes({extension::scheme_t::SM2SIG_SM3});
+		// Связь стороны сервера: набор, гибридная группа и схема SM
+		server::context_t server;
+		gosting(server);
+		server.suites({suites[s]});
+		server.groups({extension::group_t::CURVESM2MLKEM768});
+		server.schemes({extension::scheme_t::SM2SIG_SM3});
+		server.credential(credentials);
+		// Заводим связь
+		ASSERT_EQ(server.start(), context::error_t::NONE) << "набор " << s;
+		ASSERT_EQ(client.start(), context::error_t::NONE) << "набор " << s;
+		converse(client, server);
+		// Связь установлена обеими сторонами
+		ASSERT_TRUE(client.established()) << "набор " << s;
+		ASSERT_TRUE(server.established()) << "набор " << s;
+		// Согласована гибридная группа curveSM2MLKEM768
+		EXPECT_EQ(client.group(), extension::group_t::CURVESM2MLKEM768) << "набор " << s;
+		EXPECT_EQ(server.group(), extension::group_t::CURVESM2MLKEM768) << "набор " << s;
+		// Выбран набор SM семейства
+		EXPECT_EQ(client.suite(), suites[s]) << "набор " << s;
+		EXPECT_EQ(server.suite(), suites[s]) << "набор " << s;
+		// Обмен прикладными данными в обе стороны
+		const uint8_t outgoing[] = "привет, гибрид SM";
+		const uint8_t incoming[] = "здравствуй, гибрид SM";
+		std::vector <uint8_t> received;
+		ASSERT_EQ(client.write(view_t(outgoing, sizeof(outgoing) - 1)), context::error_t::NONE) << "набор " << s;
+		pump(client, server);
+		ASSERT_EQ(server.read(received), context::error_t::NONE) << "набор " << s;
+		ASSERT_EQ(received.size(), (sizeof(outgoing) - 1)) << "набор " << s;
+		EXPECT_EQ(::memcmp(received.data(), outgoing, received.size()), 0) << "набор " << s;
+		received.clear();
+		ASSERT_EQ(server.write(view_t(incoming, sizeof(incoming) - 1)), context::error_t::NONE) << "набор " << s;
+		pump(client, server);
+		ASSERT_EQ(client.read(received), context::error_t::NONE) << "набор " << s;
+		ASSERT_EQ(received.size(), (sizeof(incoming) - 1)) << "набор " << s;
+		EXPECT_EQ(::memcmp(received.data(), incoming, received.size()), 0) << "набор " << s;
+		// Закрываем связь
+		ASSERT_EQ(client.close(), context::error_t::NONE) << "набор " << s;
+		pump(client, server);
+		ASSERT_EQ(server.state(), context::state_t::CLOSED) << "набор " << s;
+	}
+}

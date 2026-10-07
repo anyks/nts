@@ -1352,6 +1352,10 @@ namespace {
 		if(group == extension::group_t::SECP384R1MLKEM1024)
 			// Выводим кривую
 			return extension::group_t::SECP384R1;
+		// Если гибрид с curveSM2
+		if(group == extension::group_t::CURVESM2MLKEM768)
+			// Выводим кривую
+			return extension::group_t::CURVESM2;
 		// Иначе X25519
 		return extension::group_t::X25519;
 	}

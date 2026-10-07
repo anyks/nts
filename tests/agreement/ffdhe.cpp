@@ -564,3 +564,63 @@ TEST(FfdheTest, Rfc3526Foreign) {
 	EXPECT_EQ(trimmed(shared), trimmed(std::vector <uint8_t> (foreign.begin(), foreign.end())));
 	ASSERT_TRUE(run("rm -rf " + dir));
 }
+
+/**
+ * Проверка группы modp18 на 8192 разряда: модуль, обмен и интероп с openssl
+ */
+TEST(FfdheTest, Rfc3526Modp18) {
+	// Модуль и показатель modp18
+	const view_t prime = agreement::prime3526(18);
+	const uint8_t gen[1] = {2};
+	const view_t generator(gen, 1);
+	// Длины обязаны отвечать 8192 разрядам модуля и показателю ffdhe8192
+	ASSERT_EQ(prime.size, static_cast <size_t> (1024));
+	EXPECT_EQ(prime.data[0], 0xFF);
+	EXPECT_EQ(prime.data[1023], 0xFF);
+	EXPECT_EQ(agreement::exponent3526(18), agreement::exponent(1024));
+	// Круговой обмен своими парами
+	const size_t length = agreement::exponent3526(18);
+	std::vector <uint8_t> secretA(length), keyA(1024), secretB(length), keyB(1024), sharedA(1024), sharedB(1024);
+	ASSERT_TRUE(agreement::pairffdhe(prime, generator, length, secretA.data(), keyA.data()));
+	ASSERT_TRUE(agreement::pairffdhe(prime, generator, length, secretB.data(), keyB.data()));
+	EXPECT_NE(text(keyA.data(), 1024), text(keyB.data(), 1024));
+	ASSERT_TRUE(agreement::ffdhe(prime, generator, view_t(secretA.data(), length), view_t(keyB.data(), 1024), sharedA.data()));
+	ASSERT_TRUE(agreement::ffdhe(prime, generator, view_t(secretB.data(), length), view_t(keyA.data(), 1024), sharedB.data()));
+	EXPECT_EQ(text(sharedA.data(), 1024), text(sharedB.data(), 1024));
+	// Интероп с openssl по параметрам PKCS#3
+	if(!run("openssl dhparam -help >/dev/null 2>&1"))
+		GTEST_SKIP() << "Системный openssl без dhparam";
+	char pattern[] = "/tmp/ants-ffdhe-XXXXXX";
+	ASSERT_NE(::mkdtemp(pattern), nullptr);
+	const std::string dir(pattern);
+	ASSERT_TRUE(params(dir + "/p.der", prime, generator));
+	ASSERT_TRUE(run("openssl dhparam -in " + dir + "/p.der -inform DER -out " + dir + "/p.pem 2>/dev/null"));
+	ASSERT_TRUE(run("openssl genpkey -paramfile " + dir + "/p.pem -out " + dir + "/a.pem 2>/dev/null"));
+	ASSERT_TRUE(run("openssl pkey -in " + dir + "/a.pem -text -noout > " + dir + "/a.txt 2>/dev/null"));
+	const std::string dump = slurp(dir + "/a.txt");
+	std::vector <uint8_t> secret, pub;
+	ASSERT_TRUE(field(dump, "private-key:", secret)) << dump;
+	ASSERT_TRUE(field(dump, "public-key:", pub)) << dump;
+	// Открытый ключ из чужого показателя
+	std::vector <uint8_t> derived(1024);
+	ASSERT_TRUE(agreement::ffdhe(prime, generator, view_t(secret.data(), secret.size()), derived.data()));
+	EXPECT_EQ(trimmed(derived), trimmed(pub));
+	// Своя пара и общее значение с чужим открытым ключом
+	std::vector <uint8_t> mine(length), key(1024), shared(1024), peer(1024, 0);
+	ASSERT_TRUE(agreement::pairffdhe(prime, generator, mine.size(), mine.data(), key.data()));
+	// Запись openssl вправе нести ведущий ноль
+	size_t skip = 0;
+	while((skip + 1 < pub.size()) && (pub[skip] == 0))
+		skip++;
+	ASSERT_LE(pub.size() - skip, static_cast <size_t> (1024));
+	::memcpy(peer.data() + (1024 - (pub.size() - skip)), pub.data() + skip, pub.size() - skip);
+	ASSERT_TRUE(agreement::ffdhe(prime, generator, view_t(mine.data(), mine.size()), view_t(peer.data(), 1024), shared.data()));
+	// Своё открытое - в PEM для openssl
+	ASSERT_TRUE(publish(dir + "/b.der", prime, key.data()));
+	ASSERT_TRUE(run("openssl pkey -pubin -inform DER -in " + dir + "/b.der -out " + dir + "/b.pem 2>/dev/null"));
+	ASSERT_TRUE(run("openssl pkeyutl -derive -inkey " + dir + "/a.pem -peerkey " + dir + "/b.pem -out " + dir + "/shared.bin 2>/dev/null"));
+	const std::string foreign = slurp(dir + "/shared.bin");
+	ASSERT_FALSE(foreign.empty());
+	EXPECT_EQ(trimmed(shared), trimmed(std::vector <uint8_t> (foreign.begin(), foreign.end())));
+	ASSERT_TRUE(run("rm -rf " + dir));
+}
