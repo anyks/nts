@@ -1723,6 +1723,147 @@ TEST(OcspTest, Loopback){
 }
 
 /**
+ * Проверка ответов о состоянии сертификатов цепочки по местам: издатель каждого
+ * звена разыскивается в цепочке и в запасе, ответ проверяется против сертификата
+ * своей записи, состояния отдаются по местам
+ */
+TEST(OcspTest, Chain){
+	// Подлинность стороны из цепочки трёх звеньев: лист, промежуточный, корень
+	context::credential_t credential;
+	// Составляем подлинность
+	ASSERT_TRUE(chained("ec", credential));
+	// Ответ о состоянии листа, подписанный промежуточным
+	const vector <uint8_t> leaf = vectored("leaf-ec.good.der");
+	// Ответ о состоянии промежуточного, подписанный корнем
+	const vector <uint8_t> mid = vectored("mid-ec.good.der");
+	// Проверяем чтение ответов
+	ASSERT_FALSE(leaf.empty());
+	ASSERT_FALSE(mid.empty());
+	// Пустой запас доверия: издатели берутся звеньями цепочки
+	const trust::store_t store;
+	// Связь стороны клиента
+	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
+	// Связь стороны сервера
+	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
+	// Настраиваем стороны без подлинности клиента
+	arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::SECP256R1, credential, false, false);
+	// Сервер отдаёт ответ по листу
+	server.status(leaf, 0);
+	// Сервер отдаёт ответ по промежуточному звену
+	server.status(mid, 1);
+	// Клиент запрашивает состояние
+	client.status(true);
+	// Клиент проверяет ответ листа
+	client.verification(true, 0, store);
+	// Заводим сервер
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	// Заводим клиента
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	// Проводим рукопожатие по записям
+	converse(client, server);
+	// Проверяем установленность связи
+	ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
+	// Проверяем цепочку у клиента
+	ASSERT_EQ(client.peer().size(), static_cast <size_t> (3));
+	// Проверяем ответ листа у клиента
+	ASSERT_EQ(client.status(), leaf);
+	// Проверяем состояние листа по проверке связи
+	ASSERT_EQ(client.certified(), ocsp::status_t::GOOD);
+	// Проверяем ответы по местам у клиента
+	ASSERT_EQ(client.statuses().size(), static_cast <size_t> (3));
+	// Место листа не занято: ответ листа хранится раздельно вызовом status
+	ASSERT_TRUE(client.statuses()[0].empty());
+	// Ответ промежуточного звена дошёл байт в байт
+	ASSERT_EQ(client.statuses()[1], mid);
+	// У корня ответа нет
+	ASSERT_TRUE(client.statuses()[2].empty());
+	// Состояния сертификатов цепочки по местам
+	vector <ocsp::status_t> results;
+	// Проверяем ответы цепочки вызовом проверки по местам: миг ноль, сроки не судятся -
+	// ответ промежуточного выработан позже мига проверки листа, а механика розыска
+	// издателя и подписи сроков не касается
+	ASSERT_EQ(ocsp::verify(client.peer(), client.status(), client.statuses(), vector <vector <uint8_t>> (), 0, 0, results), ocsp::error_t::NONE);
+	// Проверяем состояния по местам
+	ASSERT_EQ(results.size(), static_cast <size_t> (3));
+	// Лист не отозван
+	EXPECT_EQ(results[0], ocsp::status_t::GOOD);
+	// Промежуточный не отозван
+	EXPECT_EQ(results[1], ocsp::status_t::GOOD);
+	// У корня ответа не было: состояние не установлено
+	EXPECT_EQ(results[2], ocsp::status_t::NONE);
+	// Закрываем связь
+	ASSERT_EQ(client.close(), context::error_t::NONE);
+	pump(client, server);
+	ASSERT_EQ(server.state(), context::state_t::CLOSED);
+}
+
+/**
+ * Проверка отказов проверки ответов цепочки: чужой ответ у промежуточного звена,
+ * ответ по неведомому сертификату, издатель вне цепочки и запаса
+ */
+TEST(OcspTest, ChainRefusals){
+	// Подлинность стороны из цепочки трёх звеньев
+	context::credential_t credential;
+	// Составляем подлинность
+	ASSERT_TRUE(chained("ec", credential));
+	// Цепочка сертификатов собеседника
+	const vector <vector <uint8_t>> & chain = credential.chain;
+	// Проверяем цепочку
+	ASSERT_EQ(chain.size(), static_cast <size_t> (3));
+	// Ответ о состоянии листа, подписанный промежуточным
+	const vector <uint8_t> leaf = vectored("leaf-ec.good.der");
+	// Ответ о состоянии промежуточного, подписанный корнем
+	const vector <uint8_t> mid = vectored("mid-ec.good.der");
+	// Проверяем чтение ответов
+	ASSERT_FALSE(leaf.empty());
+	ASSERT_FALSE(mid.empty());
+	// Состояния сертификатов цепочки по местам
+	vector <ocsp::status_t> results;
+	{
+		// Листу подсунут ответ промежуточного
+		vector <vector <uint8_t>> statuses = {vector <uint8_t> (), vector <uint8_t> (), vector <uint8_t> ()};
+		// Ответ промежуточного не относится к листу: опознаватель не сходится
+		EXPECT_EQ(ocsp::verify(chain, mid, statuses, vector <vector <uint8_t>> (), 0, 0, results), ocsp::error_t::IDENTITY);
+	}
+	{
+		// Промежуточному подсунут ответ листа
+		vector <vector <uint8_t>> statuses = {vector <uint8_t> (), leaf, vector <uint8_t> ()};
+		// Ответ листа не относится к промежуточному: опознаватель не сходится
+		EXPECT_EQ(ocsp::verify(chain, vector <uint8_t> (), statuses, vector <vector <uint8_t>> (), 0, 0, results), ocsp::error_t::IDENTITY);
+	}
+	{
+		// Битая запись ответа у листа
+		vector <uint8_t> broken = leaf;
+		// Ломаем запись ответа
+		broken[2] ^= 0xFF;
+		// Ответы по местам
+		vector <vector <uint8_t>> statuses = {vector <uint8_t> (), vector <uint8_t> (), vector <uint8_t> ()};
+		// Битая запись ответа не разбирается
+		EXPECT_EQ(ocsp::verify(chain, broken, statuses, vector <vector <uint8_t>> (), 0, 0, results), ocsp::error_t::ENCODING);
+	}
+	{
+		// Цепочка из одного листа: издатель листа вне цепочки
+		vector <vector <uint8_t>> alone = {chain[0]};
+		// Издателя листа нет ни в цепочке, ни в запасе: ответ проверить нечем
+		EXPECT_EQ(ocsp::verify(alone, leaf, vector <vector <uint8_t>> (), vector <vector <uint8_t>> (), 0, 0, results), ocsp::error_t::KEY);
+	}
+	{
+		// Цепочка из одного листа, издатель в запасе доверия
+		vector <vector <uint8_t>> alone = {chain[0]};
+		// Запас с промежуточным издателем листа
+		vector <vector <uint8_t>> anchors = {chain[1]};
+		// Издатель разыскан в запасе: ответ листа проверен
+		ASSERT_EQ(ocsp::verify(alone, leaf, vector <vector <uint8_t>> (), anchors, 0, 0, results), ocsp::error_t::NONE);
+		// Лист не отозван
+		EXPECT_EQ(results[0], ocsp::status_t::GOOD);
+	}
+}
+
+/**
  * Проверка политики отсутствия ответа: запрос без ответа связь не рвёт, ответ без
  * запроса не посылается, проверка без ответа состояния не даёт; ответ без проверки
  * хранится как есть, даже revoked

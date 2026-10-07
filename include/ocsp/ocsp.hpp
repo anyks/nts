@@ -629,6 +629,58 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ error_t verify(const response_t & response, const view_t & certificate, const view_t & issuer, const int64_t moment, const int64_t leeway, const view_t & nonce, status_t & result) noexcept;
 		/**
 		 * \~russian
+		 * @brief Метод проверки ответов о состоянии сертификатов цепочки по местам
+		 *
+		 * @param chain   цепочка сертификатов собеседника от листа к издателю
+		 * @param status  запись принятого ответа OCSP листа цепочки либо пустой накопитель
+		 * @param statuses записи принятых ответов OCSP иных записей цепочки по их местам, пустой элемент - нет ответа; место листа не занято
+		 * @param anchors записи доверенных сертификатов запаса для розыска издателя
+		 * @param moment  миг проверки в секундах от начала эпохи, ноль сроки не судит
+		 * @param leeway  дозволенный люфт сроков в секундах в обе стороны
+		 * @param results место, в которое помещаются состояния сертификатов по местам
+		 * @return        причина первого отказа либо error_t::NONE
+		 *
+		 * @details RFC 8446 §4.4.2.1: status_request в каждом CertificateEntry, ответ
+		 *          относится к сертификату своей записи. Ответ листа подаётся отдельно:
+		 *          связь хранит его раздельно от ответов иных записей (вызов status у
+		 *          client и server против мест в statuses). Для каждого места с непустым
+		 *          ответом издатель разыскивается по имени сперва в остальных звеньях
+		 *          цепочки, потом - самим сертификатом, если он самоподписанный, и в
+		 *          запасе доверенных; ответ проверяется вызовом проверки против
+		 *          сертификата и издателя. Состояния мест без ответа остаются NONE
+		 *
+		 * @note Состояние сертификата отказом не считается: отозванное звено - это
+		 *       успешно проверенный ответ с состоянием REVOKED, и решение о связи
+		 *       принимает вызывающий
+		 *
+		 * \~english
+		 * @brief Method of the check of the responses about the status of the certificates of a chain by the places
+		 * @param chain   the chain of the certificates of the peer from the leaf to the issuer
+		 * @param status  the received OCSP response of the leaf of the chain or an empty accumulator
+		 * @param statuses the received OCSP responses of the other entries of the chain by the places, an empty element - no response
+		 * @param anchors the records of the trusted certificates of the store for the search of the issuer
+		 * @param moment  the moment of the check in seconds since the epoch, zero does not judge the validity
+		 * @param leeway  the allowed slack of the validity in seconds in both directions
+		 * @param results the place the statuses of the certificates are put into by the places
+		 * @return        the reason of the first failure or error_t::NONE
+		 * @details RFC 8446 §4.4.2.1: status_request in each CertificateEntry, the response refers to
+		 *          the certificate of its entry. The response of the leaf is given separately: the
+		 *          connection keeps it apart from the responses of the other entries (the call status
+		 *          at client and server versus the places in statuses). For each place with a non-empty
+		 *          response the issuer is searched by the name first in the other links of the chain,
+		 *          then by the certificate itself if it is self-signed, and in the store of the trusted
+		 *          ones; the response is checked by the call of the check against the certificate and
+		 *          the issuer. The statuses of the places without a response stay NONE
+		 * @note The status of a certificate is not considered a failure: a revoked link is a successfully
+		 *       checked response with the status REVOKED, and the decision about the connection is made
+		 *       by the caller
+		 *
+		 * \~
+		 *
+		 */
+		__ANTS_SHARED_EXPORT__ error_t verify(const vector <vector <uint8_t>> & chain, const vector <uint8_t> & status, const vector <vector <uint8_t>> & statuses, const vector <vector <uint8_t>> & anchors, const int64_t moment, const int64_t leeway, vector <status_t> & results) noexcept;
+		/**
+		 * \~russian
 		 * @brief Метод составления запроса состояния сертификата
 		 *
 		 * @param certificate запись сертификата, состояние которого запрашивается

@@ -1540,6 +1540,152 @@ nts::ocsp::error_t nts::ocsp::verify(const response_t & response, const view_t &
 	return error_t::NONE;
 }
 /**
+ * @brief Метод проверки ответов о состоянии сертификатов цепочки по местам
+ *
+ * @param chain   цепочка сертификатов собеседника от листа к издателю
+ * @param status  запись принятого ответа OCSP листа цепочки либо пустой накопитель
+ * @param statuses записи принятых ответов OCSP иных записей цепочки по местам, пустой элемент - нет ответа
+ * @param anchors записи доверенных сертификатов запаса для розыска издателя
+ * @param moment  миг проверки в секундах от начала эпохи, ноль сроки не судит
+ * @param leeway  дозволенный люфт сроков в секундах в обе стороны
+ * @param results место, в которое помещаются состояния сертификатов по местам
+ * @return        причина первого отказа либо error_t::NONE
+ *
+ */
+nts::ocsp::error_t nts::ocsp::verify(const vector <vector <uint8_t>> & chain, const vector <uint8_t> & status, const vector <vector <uint8_t>> & statuses, const vector <vector <uint8_t>> & anchors, const int64_t moment, const int64_t leeway, vector <status_t> & results) noexcept {
+	/**
+	 * Выполняем перехват ошибок работы с памятью
+	 */
+	try {
+		// Занимаем место под состояния по числу записей цепочки
+		results.assign(chain.size(), status_t::NONE);
+	/**
+	 * Если памяти под состояния не хватило
+	 */
+	} catch(const bad_alloc &) {
+		// Выводим отказ нехватки памяти
+		return error_t::MEMORY;
+	}
+	/**
+	 * Выполняем перебор записей цепочки с присланными ответами о состоянии
+	 */
+	for(size_t i = 0; i < chain.size(); i++){
+		// Пустой ответ о состоянии записи без присланного
+		static const vector <uint8_t> ABSENT;
+		// Запись ответа о состоянии записи: лист хранится раздельно вызовом status,
+		// иные - по своим местам в statuses (место листа в statuses не занято)
+		const vector <uint8_t> & answer = ((i == 0) ? status : (((i < statuses.size()) ? statuses[i] : ABSENT)));
+		// Если ответа о состоянии записи нет
+		if(answer.empty())
+			// Переходим к следующей записи
+			continue;
+		// Объект разбора ответа о состоянии
+		response_t response;
+		// Отказ разбора ответа о состоянии
+		const error_t failure = response.parse(view_t(answer.data(), answer.size()));
+		// Если ответ о состоянии разобрать не удалось
+		if(failure != error_t::NONE)
+			// Выводим отказ разбора ответа
+			return failure;
+		// Объект разбора сертификата записи
+		x509::certificate_t subject;
+		// Отказ разбора сертификата записи
+		x509::error_t parsed = subject.parse(view_t(chain[i].data(), chain[i].size()));
+		// Если памяти под разбор не хватило
+		if(parsed == x509::error_t::MEMORY)
+			// Выводим отказ нехватки памяти
+			return error_t::MEMORY;
+		// Если сертификат записи разобрать не удалось
+		if(parsed != x509::error_t::NONE)
+			// Выводим отказ разбора сертификата
+			return error_t::KEY;
+		// Имя издателя сертификата записи
+		const view_t & name = subject.issuers().element;
+		// Запись сертификата издателя записи
+		view_t issuer(nullptr, 0);
+		/**
+		 * Выполняем перебор иных звеньев цепочки в поисках издателя: раздел 4.4.2
+		 * RFC 8446 велит слать издателя следом за сертификатом, но иные стороны шлют
+		 * лист и дважды - издатель разыскивается по имени, а не по месту
+		 */
+		for(size_t j = 0; (j < chain.size()) && (issuer.data == nullptr); j++){
+			// Сам сертификат издателем здесь не разыскивается
+			if(j == i)
+				// Переходим к следующему звену
+				continue;
+			// Объект разбора звена цепочки
+			x509::certificate_t link;
+			// Отказ разбора звена цепочки
+			parsed = link.parse(view_t(chain[j].data(), chain[j].size()));
+			// Если памяти под разбор не хватило
+			if(parsed == x509::error_t::MEMORY)
+				// Выводим отказ нехватки памяти
+				return error_t::MEMORY;
+			// Если звено цепочки разобрать не удалось
+			if(parsed != x509::error_t::NONE)
+				// Переходим к следующему звену
+				continue;
+			// Имя владельца звена цепочки
+			const view_t & owner = link.subjects().element;
+			// Если имя владельца звена сошлось с именем издателя
+			if((owner.size == name.size) && (::memcmp(owner.data, name.data, name.size) == 0))
+				// Берём издателем звено цепочки
+				issuer = view_t(chain[j].data(), chain[j].size());
+		}
+		// Если издателя в цепочке нет, а сертификат записи издан им самим
+		if(issuer.data == nullptr){
+			// Имя владельца сертификата записи
+			const view_t & owner = subject.subjects().element;
+			// Если имя владельца сошлось с именем издателя
+			if((owner.size == name.size) && (::memcmp(owner.data, name.data, name.size) == 0))
+				// Берём издателем сам сертификат записи
+				issuer = view_t(chain[i].data(), chain[i].size());
+		}
+		/**
+		 * Выполняем перебор запаса доверенных сертификатов в поисках издателя
+		 */
+		for(size_t j = 0; (j < anchors.size()) && (issuer.data == nullptr); j++){
+			// Объект разбора доверенного сертификата
+			x509::certificate_t anchor;
+			// Отказ разбора доверенного сертификата
+			parsed = anchor.parse(view_t(anchors[j].data(), anchors[j].size()));
+			// Если памяти под разбор не хватило
+			if(parsed == x509::error_t::MEMORY)
+				// Выводим отказ нехватки памяти
+				return error_t::MEMORY;
+			// Если доверенный сертификат разобрать не удалось
+			if(parsed != x509::error_t::NONE)
+				// Переходим к следующему сертификату
+				continue;
+			// Имя владельца доверенного сертификата
+			const view_t & owner = anchor.subjects().element;
+			// Если имя владельца доверенного сертификата сошлось с именем издателя
+			if((owner.size == name.size) && (::memcmp(owner.data, name.data, name.size) == 0))
+				// Берём издателем доверенный сертификат
+				issuer = view_t(anchors[j].data(), anchors[j].size());
+		}
+		/**
+		 * Без издателя ответ проверить нечем: ни хеши опознавателя, ни подпись
+		 * ответчика не сличить, и ответ считается негодным
+		 */
+		if(issuer.data == nullptr)
+			// Выводим отказ проверки ответа о состоянии
+			return error_t::KEY;
+		// Состояние сертификата записи
+		status_t status = status_t::NONE;
+		// Выполняем проверку ответа против сертификата записи и его издателя
+		const error_t refused = ocsp::verify(response, view_t(chain[i].data(), chain[i].size()), issuer, moment, leeway, view_t(nullptr, 0), status);
+		// Если ответ о состоянии проверку не прошёл
+		if(refused != error_t::NONE)
+			// Выводим отказ проверки ответа о состоянии
+			return refused;
+		// Запоминаем состояние сертификата записи по её месту
+		results[i] = status;
+	}
+	// Выводим успешность проверки ответов цепочки
+	return error_t::NONE;
+}
+/**
  * @brief Метод составления запроса состояния сертификата
  *
  * @param certificate запись сертификата, состояние которого запрашивается
