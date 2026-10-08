@@ -131,7 +131,7 @@ int main(int argc, char * argv[]) noexcept {
 		return EXIT_FAILURE;
 	// Печатаем итог неявного отклонения
 	cout << "Испорченный шифртекст: секрет " << ((::memcmp(spoiled, theirs, sizeof(spoiled)) != 0) ? "иной, отказа нет - как велит FIPS 203" : "тот же (так быть не должно)") << endl;
-	// Гибрид X25519MLKEM768 как в TLS (draft-ietf-tls-ecdhe-mlkem): пары обоих механизмов, секреты подряд ss_mlkem ‖ ss_x25519
+	// Гибрид X25519MLKEM768 как в TLS (RFC 10024): пары обоих механизмов, секреты подряд ss_mlkem ‖ ss_x25519
 	uint8_t curveSecret[32], curvePublic[32], peerSecret[32], peerPublic[32];
 	// Если пары X25519 породить не удалось
 	if(!entropy::bytes(curveSecret, sizeof(curveSecret)) || !agreement::x25519(view_t(curveSecret, sizeof(curveSecret)), curvePublic) || !entropy::bytes(peerSecret, sizeof(peerSecret)) || !agreement::x25519(view_t(peerSecret, sizeof(peerSecret)), peerPublic))

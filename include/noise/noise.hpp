@@ -211,14 +211,14 @@ namespace nts {
 		 * @brief Механизмы упаковки ключа (KEM) для PQNoise
 		 *
 		 * @details Гибрид живёт внутри KEM, а не в узоре: X25519MLKEM768 - составной KEM по
-		 *          draft-ietf-tls-ecdhe-mlkem (ek ‖ pk, ct ‖ pk_e, ss_mlkem ‖ ss_x25519). Чистый
+		 *          RFC 10024 (ek ‖ pk, ct ‖ pk_e, ss_mlkem ‖ ss_x25519). Чистый
 		 *          ML-KEM-768 - строка перечня, не умолчание
 		 *
 		 * \~english
 		 * @brief Key encapsulation mechanisms (KEM) for PQNoise
 		 *
 		 * @details The hybrid lives inside the KEM, not in the pattern: X25519MLKEM768 is a
-		 *          composite KEM per draft-ietf-tls-ecdhe-mlkem (ek ‖ pk, ct ‖ pk_e, ss_mlkem ‖
+		 *          composite KEM per RFC 10024 (ek ‖ pk, ct ‖ pk_e, ss_mlkem ‖
 		 *          ss_x25519). Pure ML-KEM-768 is a row of the list, not the default
 		 *
 		 * \~

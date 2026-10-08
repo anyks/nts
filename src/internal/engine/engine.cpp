@@ -1390,7 +1390,7 @@ namespace {
 	 *
 	 */
 	static bool kemfirst(const extension::group_t group) noexcept {
-		// Выводим признак порядка по draft-ietf-tls-ecdhe-mlkem
+		// Выводим признак порядка по RFC 10024
 		return (group == extension::group_t::X25519MLKEM768);
 	}
 	/**

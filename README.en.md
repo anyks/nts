@@ -1171,7 +1171,7 @@ expected J(z||c)) in `tests/corpus/mlkem`; comparison with `openssl pkeyutl -enc
 
 ## Hybrid group X25519MLKEM768 (0x11EC)
 
-By draft-ietf-tls-ecdhe-mlkem: the share of the client is the ML-KEM-768 encapsulation key and an X25519 point
+By RFC 10024: the share of the client is the ML-KEM-768 encapsulation key and an X25519 point
 (1216 bytes), the share of the server is the ciphertext and a point (1120 bytes), the shared value is the
 encapsulation secret and the shared value of the curve (64 bytes). The group `extension::group_t::X25519MLKEM768`
 is the first in the list of defaults, and its share goes in every default hello together with the

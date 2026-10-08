@@ -8851,6 +8851,14 @@ ML-DSA и SLH-DSA, ML-DSA в TLS и X.509, постквантового HPKE. У
 Б0. Ссылки на стандарты: draft-ietf-tls-ecdhe-mlkem → RFC 10024 (тринадцать упоминаний: README, README.en,
     CONFORMANCE, extension.hpp, noise.hpp, engine.cpp, kem.cpp, hybrid.cpp, sample/agreement); гибрид SSH
     mlkem768x25519-sha256 - RFC 10042 (для справки: те же примитивы, обвязка SSH, модуля SSH в AWH нет).
+    **Круг 108 (09.10.2026)**: сделано. Действующая документация переведена на RFC 10024: README.md,
+    README.en.md, include/extension/extension.hpp (четыре гибрида), include/noise/noise.hpp (дважды),
+    src/noise/kem.cpp, src/internal/engine/engine.cpp, tests/hybrid/hybrid.cpp,
+    sample/agreement/mlkem.cpp. Исторические записи кругов в CONFORMANCE.md (07.09.2026 и 08.09.2026)
+    оставлены как есть - они фиксируют состояние на дату, когда действовал draft; справка о
+    происхождении RFC 10024 из draft в очереди Б оставлена. Сверено с текстом RFC: кодпоинты
+    0x11EB/0x11EC/0x11ED и составы долей совпадают (доля клиента/сервера в RFC описана в §4.1-4.2,
+    в draft была в §3.2-3.3). ctest 111/111 зелёные, CJK-скан чист.
 Б1. ML-DSA-44/65/87 по FIPS 204: модуль `sign::mldsa` рядом с ecdsa, ed25519, gost, rsa. Выработка пары из зерна ξ
     (32 байта), подпись хеджированная (rnd) и детерминированная, сличение; чистый ML-DSA без предхеширования, контекст
     в TLS пустой; NTT по q = 8 380 417, отбор через SHAKE, кодировки FIPS 204. Векторы: ACVP из
