@@ -31,9 +31,7 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_JWS__
-#define __ANTS_JWS__
-
+#pragma once
 /**
  * Стандартные заголовочные файлы
  */
@@ -520,4 +518,3 @@ namespace nts {
 	}
 }
 
-#endif // __ANTS_JWS__

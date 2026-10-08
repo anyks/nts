@@ -27,9 +27,7 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_MACHINE__
-#define __ANTS_MACHINE__
-
+#pragma once
 /**
  * Стандартные заголовочные файлы
  */
@@ -167,4 +165,3 @@ namespace nts {
 	};
 };
 
-#endif // __ANTS_MACHINE__

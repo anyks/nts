@@ -29,9 +29,7 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_HKDF__
-#define __ANTS_HKDF__
-
+#pragma once
 /**
  * Стандартные заголовочные файлы
  */
@@ -192,4 +190,3 @@ namespace nts {
 	};
 };
 
-#endif // __ANTS_HKDF__

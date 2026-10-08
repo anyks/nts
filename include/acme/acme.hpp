@@ -29,9 +29,7 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_ACME__
-#define __ANTS_ACME__
-
+#pragma once
 /**
  * Стандартные заголовочные файлы
  */
@@ -612,4 +610,3 @@ namespace nts {
 	}
 }
 
-#endif // __ANTS_ACME__

@@ -27,9 +27,7 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_SNTRUP761__
-#define __ANTS_SNTRUP761__
-
+#pragma once
 /**
  * Стандартные заголовочные файлы
  */
@@ -194,4 +192,3 @@ namespace nts {
 	};
 };
 
-#endif // __ANTS_SNTRUP761__

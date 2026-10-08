@@ -29,9 +29,7 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_HASH__
-#define __ANTS_HASH__
-
+#pragma once
 /**
  * Стандартные заголовочные файлы
  */
@@ -282,4 +280,3 @@ namespace nts {
 	};
 };
 
-#endif // __ANTS_HASH__

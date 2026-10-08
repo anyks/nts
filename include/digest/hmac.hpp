@@ -29,9 +29,7 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_HMAC__
-#define __ANTS_HMAC__
-
+#pragma once
 /**
  * Стандартные заголовочные файлы
  */
@@ -388,4 +386,3 @@ namespace nts {
 	};
 };
 
-#endif // __ANTS_HMAC__

@@ -27,9 +27,7 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_WIPE__
-#define __ANTS_WIPE__
-
+#pragma once
 /**
  * Стандартные заголовочные файлы
  */
@@ -142,4 +140,3 @@ namespace nts {
 	};
 };
 
-#endif // __ANTS_WIPE__

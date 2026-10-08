@@ -29,9 +29,7 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_CSHAKE__
-#define __ANTS_CSHAKE__
-
+#pragma once
 /**
  * Стандартные заголовочные файлы
  */
@@ -172,4 +170,3 @@ namespace nts {
 	};
 };
 
-#endif // __ANTS_CSHAKE__

@@ -21,9 +21,7 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_ARGON2__
-#define __ANTS_ARGON2__
-
+#pragma once
 /**
  * Стандартные заголовочные файлы
  */
@@ -276,4 +274,3 @@ namespace nts {
 	};
 };
 
-#endif // __ANTS_ARGON2__

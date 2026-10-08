@@ -29,9 +29,7 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_SESSION__
-#define __ANTS_SESSION__
-
+#pragma once
 /**
  * Стандартные заголовочные файлы
  */
@@ -1020,4 +1018,3 @@ namespace nts {
 	};
 };
 
-#endif // __ANTS_SESSION__

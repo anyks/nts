@@ -30,9 +30,7 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_MESSAGE__
-#define __ANTS_MESSAGE__
-
+#pragma once
 /**
  * Стандартные заголовочные файлы
  */
@@ -543,4 +541,3 @@ namespace nts {
 	};
 };
 
-#endif // __ANTS_MESSAGE__

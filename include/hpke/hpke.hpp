@@ -32,9 +32,7 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_HPKE__
-#define __ANTS_HPKE__
-
+#pragma once
 /**
  * Стандартные заголовочные файлы
  */
@@ -1434,4 +1432,3 @@ namespace nts {
 	};
 };
 
-#endif // __ANTS_HPKE__

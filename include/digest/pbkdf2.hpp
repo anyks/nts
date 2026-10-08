@@ -29,9 +29,7 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_PBKDF2__
-#define __ANTS_PBKDF2__
-
+#pragma once
 /**
  * Стандартные заголовочные файлы
  */
@@ -112,4 +110,3 @@ namespace nts {
 	};
 };
 
-#endif // __ANTS_PBKDF2__

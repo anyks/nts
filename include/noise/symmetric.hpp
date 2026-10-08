@@ -21,9 +21,7 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_NOISE_SYMMETRIC__
-#define __ANTS_NOISE_SYMMETRIC__
-
+#pragma once
 /**
  * Стандартные заголовочные файлы
  */
@@ -332,4 +330,3 @@ namespace nts {
 	};
 };
 
-#endif // __ANTS_NOISE_SYMMETRIC__

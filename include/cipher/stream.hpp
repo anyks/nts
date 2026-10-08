@@ -29,9 +29,7 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_STREAM__
-#define __ANTS_STREAM__
-
+#pragma once
 /**
  * Стандартные заголовочные файлы
  */
@@ -328,4 +326,3 @@ namespace nts {
 	};
 };
 
-#endif // __ANTS_STREAM__

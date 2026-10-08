@@ -27,9 +27,7 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_BCRYPT__
-#define __ANTS_BCRYPT__
-
+#pragma once
 /**
  * Стандартные заголовочные файлы
  */
@@ -105,4 +103,3 @@ namespace nts {
 	};
 };
 
-#endif // __ANTS_BCRYPT__

@@ -29,9 +29,7 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_X509_ISSUE__
-#define __ANTS_X509_ISSUE__
-
+#pragma once
 /**
  * Стандартные заголовочные файлы
  */
@@ -159,4 +157,3 @@ namespace nts {
 	};
 };
 
-#endif // __ANTS_X509_ISSUE__

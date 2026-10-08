@@ -29,9 +29,7 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_FFDHE__
-#define __ANTS_FFDHE__
-
+#pragma once
 /**
  * Стандартные заголовочные файлы
  */
@@ -281,4 +279,3 @@ namespace nts {
 	};
 };
 
-#endif // __ANTS_FFDHE__

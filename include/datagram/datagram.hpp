@@ -32,9 +32,7 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_DATAGRAM__
-#define __ANTS_DATAGRAM__
-
+#pragma once
 /**
  * Стандартные заголовочные файлы
  */
@@ -1089,4 +1087,3 @@ namespace nts {
 	};
 };
 
-#endif // __ANTS_DATAGRAM__

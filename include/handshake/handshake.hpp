@@ -30,9 +30,7 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_HANDSHAKE__
-#define __ANTS_HANDSHAKE__
-
+#pragma once
 /**
  * Стандартные заголовочные файлы
  */
@@ -527,4 +525,3 @@ namespace nts {
 	};
 };
 
-#endif // __ANTS_HANDSHAKE__

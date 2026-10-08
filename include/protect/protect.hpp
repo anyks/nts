@@ -31,9 +31,7 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_PROTECT__
-#define __ANTS_PROTECT__
-
+#pragma once
 /**
  * Стандартные заголовочные файлы
  */
@@ -1202,4 +1200,3 @@ namespace nts {
 	};
 };
 
-#endif // __ANTS_PROTECT__

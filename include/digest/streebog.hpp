@@ -29,9 +29,7 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_STREEBOG__
-#define __ANTS_STREEBOG__
-
+#pragma once
 /**
  * Стандартные заголовочные файлы
  */
@@ -292,4 +290,3 @@ namespace nts {
 	};
 };
 
-#endif // __ANTS_STREEBOG__

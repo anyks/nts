@@ -32,9 +32,7 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_FINGERPRINT__
-#define __ANTS_FINGERPRINT__
-
+#pragma once
 /**
  * Стандартные заголовочные файлы
  */
@@ -978,4 +976,3 @@ namespace nts {
 	};
 };
 
-#endif // __ANTS_FINGERPRINT__

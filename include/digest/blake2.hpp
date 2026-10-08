@@ -28,9 +28,7 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_BLAKE2__
-#define __ANTS_BLAKE2__
-
+#pragma once
 /**
  * Стандартные заголовочные файлы
  */
@@ -300,4 +298,3 @@ namespace nts {
 	};
 };
 
-#endif // __ANTS_BLAKE2__

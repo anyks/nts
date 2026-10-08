@@ -29,9 +29,7 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_KUZNYECHIK__
-#define __ANTS_KUZNYECHIK__
-
+#pragma once
 /**
  * Стандартные заголовочные файлы
  */
@@ -267,4 +265,3 @@ namespace nts {
 	};
 };
 
-#endif // __ANTS_KUZNYECHIK__

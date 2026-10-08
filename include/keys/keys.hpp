@@ -34,9 +34,7 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_KEYS__
-#define __ANTS_KEYS__
-
+#pragma once
 /**
  * Стандартные заголовочные файлы
  */
@@ -1090,4 +1088,3 @@ namespace nts {
 	};
 };
 
-#endif // __ANTS_KEYS__

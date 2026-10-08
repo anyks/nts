@@ -30,9 +30,7 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_SIGN_LMS__
-#define __ANTS_SIGN_LMS__
-
+#pragma once
 /**
  * Стандартные заголовочные файлы
  */
@@ -138,4 +136,3 @@ namespace nts {
 	} // namespace sign
 } // namespace nts
 
-#endif // __ANTS_SIGN_LMS__

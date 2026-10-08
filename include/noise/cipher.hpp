@@ -21,9 +21,7 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_NOISE_CIPHER__
-#define __ANTS_NOISE_CIPHER__
-
+#pragma once
 /**
  * Стандартные заголовочные файлы
  */
@@ -378,4 +376,3 @@ namespace nts {
 	};
 };
 
-#endif // __ANTS_NOISE_CIPHER__

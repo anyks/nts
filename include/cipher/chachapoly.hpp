@@ -29,9 +29,7 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_CHACHAPOLY__
-#define __ANTS_CHACHAPOLY__
-
+#pragma once
 /**
  * Стандартные заголовочные файлы
  */
@@ -442,4 +440,3 @@ namespace nts {
 	};
 };
 
-#endif // __ANTS_CHACHAPOLY__

@@ -21,9 +21,7 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_SIPHASH__
-#define __ANTS_SIPHASH__
-
+#pragma once
 /**
  * Стандартные заголовочные файлы
  */
@@ -130,4 +128,3 @@ namespace nts {
 	};
 };
 
-#endif // __ANTS_SIPHASH__

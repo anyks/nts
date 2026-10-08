@@ -31,9 +31,7 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_OCSP__
-#define __ANTS_OCSP__
-
+#pragma once
 /**
  * Стандартные заголовочные файлы
  */
@@ -738,4 +736,3 @@ namespace nts {
 	};
 };
 
-#endif // __ANTS_OCSP__

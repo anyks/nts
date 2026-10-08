@@ -29,9 +29,7 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_MLDSA__
-#define __ANTS_MLDSA__
-
+#pragma once
 /**
  * Стандартные заголовочные файлы
  */
@@ -478,4 +476,3 @@ namespace nts {
 	};
 };
 
-#endif // __ANTS_MLDSA__

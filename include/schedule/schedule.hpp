@@ -29,9 +29,7 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_SCHEDULE__
-#define __ANTS_SCHEDULE__
-
+#pragma once
 /**
  * Стандартные заголовочные файлы
  */
@@ -358,4 +356,3 @@ namespace nts {
 	};
 };
 
-#endif // __ANTS_SCHEDULE__

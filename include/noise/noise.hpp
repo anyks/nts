@@ -21,9 +21,7 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_NOISE__
-#define __ANTS_NOISE__
-
+#pragma once
 /**
  * Стандартные заголовочные файлы
  */
@@ -832,4 +830,3 @@ namespace nts {
 	};
 };
 
-#endif // __ANTS_NOISE__

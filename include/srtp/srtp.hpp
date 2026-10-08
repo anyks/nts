@@ -31,9 +31,7 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_SRTP__
-#define __ANTS_SRTP__
-
+#pragma once
 /**
  * Стандартные заголовочные файлы
  */
@@ -490,4 +488,3 @@ namespace nts {
 	} // namespace srtp
 } // namespace nts
 
-#endif // __ANTS_SRTP__

@@ -29,9 +29,7 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_AGREEMENT_SNTRUP761X25519__
-#define __ANTS_AGREEMENT_SNTRUP761X25519__
-
+#pragma once
 /**
  * Стандартные заголовочные файлы
  */
@@ -202,4 +200,3 @@ namespace nts {
 	} // namespace agreement
 } // namespace nts
 
-#endif // __ANTS_AGREEMENT_SNTRUP761X25519__

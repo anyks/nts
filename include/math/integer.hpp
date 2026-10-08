@@ -29,9 +29,7 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_INTEGER__
-#define __ANTS_INTEGER__
-
+#pragma once
 /**
  * Стандартные заголовочные файлы
  */
@@ -1022,4 +1020,3 @@ namespace nts {
 	};
 };
 
-#endif // __ANTS_INTEGER__

@@ -21,9 +21,7 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_MLKEM__
-#define __ANTS_MLKEM__
-
+#pragma once
 /**
  * Стандартные заголовочные файлы
  */
@@ -332,4 +330,3 @@ namespace nts {
 	};
 };
 
-#endif // __ANTS_MLKEM__

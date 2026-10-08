@@ -27,9 +27,7 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_OPENSSH__
-#define __ANTS_OPENSSH__
-
+#pragma once
 /**
  * Стандартные заголовочные файлы
  */
@@ -328,4 +326,3 @@ namespace nts {
 	};
 };
 
-#endif // __ANTS_OPENSSH__

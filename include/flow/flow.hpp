@@ -30,9 +30,7 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_FLOW__
-#define __ANTS_FLOW__
-
+#pragma once
 /**
  * Стандартные заголовочные файлы
  */
@@ -390,4 +388,3 @@ namespace nts {
 	};
 };
 
-#endif // __ANTS_FLOW__

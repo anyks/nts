@@ -29,9 +29,7 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_GLOBAL__
-#define __ANTS_GLOBAL__
-
+#pragma once
 /**
  * Стандартные заголовочные файлы
  */
@@ -214,4 +212,3 @@ namespace nts {
 	} view_t;
 };
 
-#endif // __ANTS_GLOBAL__

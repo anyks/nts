@@ -29,9 +29,7 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_MAGMA__
-#define __ANTS_MAGMA__
-
+#pragma once
 /**
  * Стандартные заголовочные файлы
  */
@@ -252,4 +250,3 @@ namespace nts {
 	};
 };
 
-#endif // __ANTS_MAGMA__

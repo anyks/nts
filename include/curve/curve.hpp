@@ -29,9 +29,7 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_CURVE__
-#define __ANTS_CURVE__
-
+#pragma once
 /**
  * Стандартные заголовочные файлы
  */
@@ -629,4 +627,3 @@ namespace nts {
 	};
 };
 
-#endif // __ANTS_CURVE__
