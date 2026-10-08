@@ -55,6 +55,10 @@
 	 * @brief Ожидание в микросекундах без windows.h: его макросы (SHORT, POINTS, IN) ломают проверки
 	 */
 	inline int usleep(const unsigned long micro) noexcept { std::this_thread::sleep_for(std::chrono::microseconds(micro)); return 0; }
+	/**
+	 * @brief Ожидание в секундах без windows.h: его макросы (SHORT, POINTS, IN) ломают проверки
+	 */
+	inline unsigned int sleep(const unsigned int seconds) noexcept { std::this_thread::sleep_for(std::chrono::seconds(seconds)); return 0; }
 #else
 	#include <unistd.h>
 	#include <sys/stat.h>

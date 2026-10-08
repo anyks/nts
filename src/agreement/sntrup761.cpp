@@ -116,6 +116,15 @@ namespace {
 	 * @param m делитель
 	 *
 	 */
+#if defined(_MSC_VER) && defined(_M_ARM64)
+	/**
+	 * Оптимизатор MSVC под ARM64 (14.43) ломает цепочку Барретта ниже: произведение
+	 * в двойном слове со сдвигом и вычитанием кратного даёт неверный остаток, и
+	 * декапсуляция sntrup761 расходится (проверки Roundtrip/Reuse падают). Оптимизация
+	 * функции выключается до исправления собирателя
+	 */
+	#pragma optimize("", off)
+#endif
 	void uint32_divmod_uint14(uint32_t * q, uint16_t * r, uint32_t x, const uint16_t m) noexcept {
 		uint32_t v = 0x80000000 / m;
 		*q = 0;
@@ -132,6 +141,9 @@ namespace {
 		*q += mask;
 		*r = static_cast <uint16_t> (x);
 	}
+#if defined(_MSC_VER) && defined(_M_ARM64)
+	#pragma optimize("", on)
+#endif
 
 	/**
 	 * @brief Метод получения остатка uint32 по модулю uint14

@@ -9187,6 +9187,20 @@ mpint делает SSH), rsa-sha2-256/512 (PKCS #1 v1.5); шифры chacha20-po
     ocsp::verify(chain, status, statuses, anchors, 0, 0, results) — состояния GOOD/GOOD/NONE
     по местам. Все три семпла собраны и прогнаны на M4: подписи сходятся, подмена отвергается,
     цепочка годная. CJK-скан чист.
+    **Круг 107 (08.10.2026)**: отладка сборки под Windows. Стенды: Windows 10 x86_64
+    (MinGW GCC 15.3.0 и VS 18 Community, MSVC 14.51) и Windows 11 ARM64 (VS 2022 Community,
+    MSVC 14.43, Hostarm64/arm64). Правки: src/curve/curve.cpp — MSVC не проводит частичное
+    упорядочение перегрузок pick<F> и pick<Fast<WORDS,ADX>> (C2668), общая перегрузка
+    выключена для Fast признаком is_fast и std::enable_if; tests/posix.hpp — обёртка sleep
+    (секунды) через std::this_thread::sleep_for для tests/acme/interop.cpp; src/agreement/
+    sntrup761.cpp — оптимизатор MSVC под ARM64 ломает цепочку Барретта в
+    uint32_divmod_uint14 (декапсуляция расходится), обход #pragma optimize("", off/on) на
+    функции под _MSC_VER && _M_ARM64; tests/compress/compress.cpp — оптимизатор MSVC под
+    x86_64 при /O2 ломает тестовый разборщик DEFLATE (порченый BTYPE=01 распаковывается
+    «успешно»), обход #pragma optimize("", off) на файл под _MSC_VER && !_M_ARM64. Оснастка:
+    GTest под MSVC собран из исходников v1.17.0 на обоих стендах (статика,
+    gtest_force_shared_crt=ON). Итог: MinGW x86_64 111/111, MSVC x86_64 111/111,
+    MSVC ARM64 111/111; локально (M4, clang) 111/111, CJK-скан правок чист.
     Открыто: замеры на Xeon/Эльбрусе по запросу.
 Г8. Для ядер на ассемблере (А2, А3, А4): метки CET (endbr64, .note.gnu.property IBT/SHSTK) на x86-64 и BTI/GCS на AArch64 -
     OpenSSL 4.1 объявил их для всего ассемблера; усиленные системы без меток ядра отвергают.

@@ -100,6 +100,7 @@
 #include <internal/math/kernels.hpp>
 #include <sys/machine.hpp>
 #include <cstring>
+#include <type_traits>
 #include <sys/wipe.hpp>
 
 /**
@@ -1032,6 +1033,15 @@ namespace {
 		f.subtract(u1, cube, result.y);
 	}
 	/**
+	 * Признак того, что арифметика поля есть Fast на значениях известного числа слов:
+	 * MSVC не проводит частичное упорядочение перегрузок pick ниже и зовёт обе,
+	 * поэтому общая перегрузка выключается для Fast через этот признак
+	 */
+	template <typename F>
+	struct is_fast : std::false_type {};
+	template <size_t WORDS, bool ADX>
+	struct is_fast <Fast <WORDS, ADX>> : std::true_type {};
+	/**
 	 * @brief Метод выбора кратного из таблицы точек наложением маски
 	 *
 	 * @details Таблица перебирается целиком, и выбор идёт наложением маски совпадения
@@ -1044,7 +1054,7 @@ namespace {
 	 * @param result место, в которое помещается выбранное кратное
 	 *
 	 */
-	template <typename F>
+	template <typename F, typename = typename std::enable_if <!is_fast <F>::value>::type>
 	static __ANTS_INLINE__ void pick(const F & f, const Triple <typename F::value_t> * table, const size_t count, const uint64_t index, Triple <typename F::value_t> & result) noexcept {
 		// Накопитель выбираемого кратного: нулевое кратное таблицы
 		result = table[0];
