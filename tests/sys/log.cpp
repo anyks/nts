@@ -86,32 +86,6 @@ namespace {
 			if(entry.text.find(needle) != string::npos) result++;
 		return result;
 	}
-	/**
-	 * Помощники связи
-	 */
-	bool pump(client::context_t & client, server::context_t & server) noexcept {
-		bool moved = false;
-		try {
-			view_t data = client.output();
-			if(data.size > 0){
-				const vector <uint8_t> buffer(data.data, data.data + data.size);
-				client.consume(buffer.size());
-				server.push(view_t(buffer.data(), buffer.size()));
-				moved = true;
-			}
-			data = server.output();
-			if(data.size > 0){
-				const vector <uint8_t> buffer(data.data, data.data + data.size);
-				server.consume(buffer.size());
-				client.push(view_t(buffer.data(), buffer.size()));
-				moved = true;
-			}
-		} catch(const bad_alloc &) { return false; }
-		return moved;
-	}
-	void converse(client::context_t & client, server::context_t & server) noexcept {
-		for(size_t i = 0; (i < 16) && pump(client, server); i++) continue;
-	}
 };
 
 /**

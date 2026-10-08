@@ -18343,12 +18343,12 @@ nts::internal::Engine::Engine(const bool server) noexcept :
 	_shared(false), _chosen(0), _advance(false), _earlying(false), _accepted(false),
 	_automatic(true), _asked(false), _owed(false), _misaged(false), _granted(0), _renewal(0),
 	_closed(false), _drained(false), _lifetime(TERM), _ticket(protect::suite_t::NONE), _skipped(0), _starved(false),
-	_transport(context::transport_t::RECORDS), _acquired(false), _pushed(context::level_t::NONE), _width(0), _ventured(false), _judged(false),
-	_inflation(INFLATION), _squeezed(0), _inflated(0),
+	_certtype(extension::cert_t::X509), _owncert(extension::cert_t::X509), _clientraw(false), _srtp(0),
+	_transport(context::transport_t::RECORDS), _acquired(false), _pushed(context::level_t::NONE), _width(0), _ventured(false), _judged(false),	_inflation(INFLATION), _squeezed(0), _inflated(0),
 	_inquiring(false), _inquired(false), _verifying(false), _leeway(0), _certified(ocsp::status_t::NONE), _stamping(false), _stamped(false), _outgoing(record::RECORD_PLAINTEXT), _incoming(record::RECORD_PLAINTEXT), _sizing(0), _bounded(0), _fragmented(0), _bounding(0), _fragmenting(0), _sized{0, 0}, _heartbeating(false), _permitted(false), _answering(false), _beating(false), _pulses(0), _negotiating(false), _negotiated(false), _announced(false), _reshare(true), _greasing(false), _profiled(false), _ech(ech_t::NONE), _shroud(0), _echaccepted(false), _echrejected(false), _unshrouding(false),
 	_queries(0), _confirmed(false), _delivered(0), _switched(false),
 	_lowest(LEGACY), _highest(MODERN), _version(0), _legacy(false), _ancient(false), _proposed(false), _own(true), _phase(phase_t::NONE), _sealing(false), _opening(false), _stapling(false),
-	_claimed(0), _etm(false), _strict(false), _ticketing(false), _presented(false), _resumed(false), _authenticated(0), _scrubbing(true), _cleansing(false), _certtype(extension::cert_t::X509), _owncert(extension::cert_t::X509), _clientraw(false), _srtp(0) {
+	_claimed(0), _etm(false), _strict(false), _ticketing(false), _presented(false), _resumed(false), _authenticated(0), _scrubbing(true), _cleansing(false) {
 	// Сбрасываем ключевой материал связи до заведения участка
 	this->_keys = nullptr;
 	/**

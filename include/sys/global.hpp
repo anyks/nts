@@ -30,6 +30,7 @@
  * Экранируем повторную инициализацию модуля
  */
 #pragma once
+
 /**
  * Стандартные заголовочные файлы
  */
@@ -37,8 +38,16 @@
 #include <cstdint>
 
 /**
+ * \~russian
  * @note Проверка ведётся через defined, а не значением: заголовок <windows.h> у mingw-w64
  *       определяет WIN32 пустым макросом, отчего условие вида «|| WIN32 ||» теряет операнд
+ *
+ * \~english
+ * @note The check is done via defined, not by value: the <windows.h> header of mingw-w64
+ *       defines WIN32 as an empty macro, so a condition like «|| WIN32 ||» loses the operand
+ *
+ * \~
+ *
  */
 #if defined(_MSC_VER) || defined(WIN64) || defined(_WIN64) || defined(__WIN64__) || defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
 	/**
@@ -87,6 +96,7 @@
 #endif
 
 /**
+ * \~russian
  * Принудительное встраивание вызова
  *
  * @note Обычного inline здесь мало: собиратель судит о встраивании по размеру тела,
@@ -97,6 +107,21 @@
  * @note Под MSVC обозначения даются своими ключевыми словами: сборка Visual Studio
  *       (x64 и ARM64) входит в охват переноса по плану работ от 17.09.2026, а
  *       машинные ветви шифров и хешей там пока идут переносимым путём
+ *
+ * \~english
+ * Forced inlining of a call
+ *
+ * @note A plain inline is not enough here: the compiler judges inlining by the size of the body,
+ *       and the internal transformations of the ciphers and hashes are large in body and yet are
+ *       called dozens of times per block. Left as calls, they drive the state through the stack:
+ *       at «Streebog» the non-inlined LPS transformation cost a third of the bandwidth
+ *
+ * @note Under MSVC the designations are given by their own keywords: the Visual Studio build
+ *       (x64 and ARM64) is included in the scope of the port by the work plan of 17.09.2026, and
+ *       the machine branches of the ciphers and hashes there still go the portable way
+ *
+ * \~
+ *
  */
 #if defined(_MSC_VER)
 	/**
@@ -119,6 +144,7 @@
 #endif
 
 /**
+ * \~russian
  * Признак сборки под ASan без оптимизации
  *
  * @note Ядра на ассемблере x86-64 занимают все четырнадцать регистров общего назначения,
@@ -127,14 +153,36 @@
  *       те же вставки под ASan собираются. Ядра, занимающие все регистры, под этим
  *       признаком не берутся, и отладочная сборка с ASan идёт переносимыми путями.
  *       gcc объявляет признак ASan сам, clang отвечает на вопрос о свойстве
+ *
+ * \~english
+ * The flag of the ASan build without optimization
+ *
+ * @note The x86-64 assembler kernels occupy all fourteen general-purpose registers,
+ *       and ASan without optimization keeps the addresses of its stack in registers, and the
+ *       compiler answers «not enough registers for the insertion» (Xeon, clang 18, round 38); with
+ *       optimization the same insertions are compiled under ASan. The kernels occupying all registers
+ *       are not taken under this flag, and the debug build with ASan goes the portable ways.
+ *       gcc declares the ASan flag itself, clang answers the question about the property
+ *
+ * \~
+ *
  */
 #if !defined(__OPTIMIZE__)
+	/**
+	 * Если адрес принадлежит санитайзеру
+	 */
 	#if defined(__SANITIZE_ADDRESS__)
 		/**
 		 * Признак сборки под ASan без оптимизации
 		 */
 		#define __ANTS_ASAN_UNOPTIMIZED__ 1
+	/**
+	 * Если сборка выполняется под Clang LLVM
+	 */
 	#elif defined(__has_feature)
+		/**
+		 * Если адрес принадлежит санитайзеру
+		 */
 		#if __has_feature(address_sanitizer)
 			/**
 			 * Признак сборки под ASan без оптимизации
@@ -167,6 +215,7 @@ namespace nts {
 	 *
 	 * \~english
 	 * @brief View of a byte area
+	 *
 	 * @details A pair of «pointer and length» which does not own the content. It is used
 	 *          everywhere instead of passing two separate arguments: the pointer and the
 	 *          length cannot be desynchronized with such a way of passing, and it is
@@ -176,11 +225,11 @@ namespace nts {
 	 * \~
 	 *
 	 */
-	typedef struct __ANTS_SHARED_EXPORT__ View {
-		// Указатель на начало области байтов
-		const uint8_t * data;
+	typedef struct View {
 		// Размер области байтов
 		size_t size;
+		// Указатель на начало области байтов
+		const uint8_t * data;
 		/**
 		 * \~russian
 		 * @brief Конструктор
@@ -192,7 +241,7 @@ namespace nts {
 		 * \~
 		 *
 		 */
-		View() noexcept : data(nullptr), size(0) {}
+		explicit View() noexcept : size(0), data(nullptr) {}
 		/**
 		 * \~russian
 		 * @brief Конструктор
@@ -202,13 +251,13 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Constructor
+		 *
 		 * @param data pointer to the beginning of the byte area
 		 * @param size size of the byte area
 		 *
 		 * \~
 		 *
 		 */
-		View(const uint8_t * data, const size_t size) noexcept : data(data), size(size) {}
+		explicit View(const uint8_t * data, const size_t size) noexcept : size(size), data(data) {}
 	} view_t;
 };
-

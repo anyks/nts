@@ -159,8 +159,6 @@ namespace {
 	 * Опознаватели HKDF с хешами SHA-2: раздел 3 RFC 8619
 	 */
 	static const char * OID_HKDF_SHA256 = "2.16.840.1.101.114.1.6.2";
-	static const char * OID_HKDF_SHA384 = "2.16.840.1.101.114.1.6.3";
-	static const char * OID_HKDF_SHA512 = "2.16.840.1.101.114.1.6.4";
 
 	/**
 	 * Опознаватели алгоритмов имитовставки HMAC: раздел 4 RFC 4231

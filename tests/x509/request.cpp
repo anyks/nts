@@ -217,30 +217,6 @@ namespace {
 			}
 	} sandbox_t;
 	/**
-	 * @brief Метод составления имени владельца с единственным признаком CN
-	 *
-	 * @param cn значение признака CN
-	 *
-	 * @return   составленное имя
-	 *
-	 */
-	static x509::name_t named(const std::string & cn) {
-		// Составляемое имя
-		x509::name_t result;
-		// Признак CN
-		x509::attribute_t attribute;
-		// Устанавливаем опознаватель признака CN
-		attribute.oid = "2.5.4.3";
-		// Устанавливаем вид записи значения признака
-		attribute.type = asn1::tag_t::UTF8_STRING;
-		// Устанавливаем значение признака
-		attribute.value = cn;
-		// Составляющая имени из единственного признака
-		result.parts.push_back(std::vector <x509::attribute_t> (1, attribute));
-		// Выводим составленное имя
-		return result;
-	}
-	/**
 	 * @brief Метод извлечения значения признака CN из имени
 	 *
 	 * @param name разбираемое имя

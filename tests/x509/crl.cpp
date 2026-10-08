@@ -90,18 +90,6 @@ namespace {
 		return slurp(std::string(CORPUS) + "/" + name);
 	}
 	/**
-	 * @brief Метод перевода строки в набор байтов
-	 *
-	 * @param text переводимая строка
-	 *
-	 * @return     набор байтов
-	 *
-	 */
-	static std::vector <uint8_t> bytes(const std::string & text) {
-		// Выводим набор байтов строки
-		return std::vector <uint8_t> (text.begin(), text.end());
-	}
-	/**
 	 * @brief Метод получения просмотра набора байтов
 	 *
 	 * @param data просматриваемый набор байтов
