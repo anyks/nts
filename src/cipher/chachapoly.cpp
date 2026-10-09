@@ -296,6 +296,30 @@ bool nts::cipher::Chachapoly::start(const view_t & key, const view_t & nonce) no
 	return true;
 }
 /**
+ * @brief Метод смены начального заполнения у запущенного режима
+ *
+ * @param nonce начальное заполнение в 12 байтов
+ *
+ * @return      признак успешности смены
+ *
+ */
+bool nts::cipher::Chachapoly::restart(const view_t & nonce) noexcept {
+	// Если режим не запущен: ключа нет
+	if(!this->_ready)
+		// Выводим отказ смены заполнения
+		return false;
+	// Если заполнение не передано либо не той длины: смена ведётся лишь по заполнению в 12 байтов
+	if((nonce.data == nullptr) || (nonce.size != CHACHA_NONCE))
+		// Выводим отказ смены заполнения
+		return false;
+	// Заполнение новое: прежнее израсходованным более не считается
+	this->_spent = false;
+	// Переносим заполнение
+	::memcpy(this->_nonce, nonce.data, sizeof(this->_nonce));
+	// Выполняем сброс состояния потока от нового заполнения: шифр и одноразовый ключ имитовставки заводятся заново
+	return this->reset();
+}
+/**
  * @brief Метод сброса режима
  *
  */

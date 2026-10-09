@@ -617,6 +617,9 @@ namespace nts {
 				// Объект режима GCM классических наборов: таблица кратных ключа хеширования строится один раз на ключ
 				cipher::gcm_t _gcm;
 			private:
+				// Объект режима ChaCha20-Poly1305: одноразовый ключ имитовставки вырабатывается заново лишь сменой заполнения
+				cipher::chachapoly_t _chachapoly;
+			private:
 				// Объект режима CCM набора SM4-CCM
 				cipher::ccm_t _mode;
 			private:

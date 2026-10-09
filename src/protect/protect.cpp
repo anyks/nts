@@ -881,6 +881,24 @@ bool nts::protect::Protection::start(const suite_t suite, const view_t & key, co
 			return false;
 		}
 	}
+	/**
+	 * Набору ChaCha20-Poly1305 режим заводится один раз на ключ: ключ ставится здесь,
+	 * а заполнение ставится на всякую запись сменой - одноразовый ключ имитовставки
+	 * вырабатывается заново по заполнению, а не весь режим
+	 */
+	if(this->_stream){
+		// Заполнение-заглушка: настоящее ставится на каждую запись
+		uint8_t zeros[12];
+		// Выполняем обнуление заглушки
+		::memset(zeros, 0, sizeof(zeros));
+		// Если режим ChaCha20-Poly1305 завести не удалось
+		if(!this->_chachapoly.start(view_t(this->_key, this->_width), view_t(zeros, sizeof(zeros)))){
+			// Выполняем сброс состояния защиты записей
+			this->clear();
+			// Выводим отказ установки ключевого материала
+			return false;
+		}
+	}
 	// Отмечаем готовность защиты записей
 	this->_ready = true;
 	// Выводим успешность установки ключевого материала
@@ -905,6 +923,8 @@ void nts::protect::Protection::clear() noexcept {
 	this->_sm4.clear();
 	// Выполняем сброс режима GCM: таблица кратных ключа хеширования затирается
 	this->_gcm.clear();
+	// Выполняем сброс режима ChaCha20-Poly1305: ключ и одноразовый ключ имитовставки затираются
+	this->_chachapoly.clear();
 	// Выполняем сброс режима CCM
 	this->_mode.clear();
 	// Сбрасываем набор шифрования направления связи
@@ -1150,12 +1170,10 @@ nts::protect::error_t nts::protect::Protection::seal(const view_t & associated, 
 		bool ok = false;
 		// Если набор шифрования - ChaCha20-Poly1305
 		if(this->_stream){
-			// Объект AEAD ChaCha20-Poly1305
-			cipher::chachapoly_t chachapoly;
-			// Если AEAD запустить удалось: содержимое, вид и дополнение шифруются потоком прямо из места вызова
-			if(chachapoly.start(view_t(this->_key, this->_width), view_t(nonce, this->_size)))
-				// Выполняем наложение шифрования с проверкой целостности
-				ok = sealing(chachapoly, associated, data, total, type, padding, cipher);
+			// Если заполнение записи установить удалось: ключ режима ставится при заведении ключа
+			if(this->_chachapoly.restart(view_t(nonce, this->_size)))
+				// Выполняем наложение шифрования с проверкой целостности: содержимое, вид и дополнение шифруются потоком прямо из места вызова
+				ok = sealing(this->_chachapoly, associated, data, total, type, padding, cipher);
 		// Если набор шифрования - SM4-CCM по RFC 8998
 		} else if(this->_ccm) {
 			// Открытый текст записи вместе с видом содержимого и дополнением: режиму CCM он нужен целиком
@@ -1285,12 +1303,10 @@ nts::protect::error_t nts::protect::Protection::open(const view_t & associated, 
 		bool ok = false;
 		// Если набор шифрования - ChaCha20-Poly1305
 		if(this->_stream){
-			// Объект AEAD ChaCha20-Poly1305
-			cipher::chachapoly_t chachapoly;
-			// Если AEAD запустить удалось
-			if(chachapoly.start(view_t(this->_key, this->_width), view_t(nonce, this->_size)))
+			// Если заполнение записи установить удалось: ключ режима ставится при заведении ключа
+			if(this->_chachapoly.restart(view_t(nonce, this->_size)))
 				// Выполняем снятие шифрования с проверкой целостности прямо в накопитель
-				ok = chachapoly.decrypt(associated, view_t(data.data, length), plain, view_t((data.data + length), this->_tag));
+				ok = this->_chachapoly.decrypt(associated, view_t(data.data, length), plain, view_t((data.data + length), this->_tag));
 		// Если набор шифрования - SM4-CCM по RFC 8998
 		} else if(this->_ccm) {
 			// Если заполнение записи установить удалось
@@ -1557,12 +1573,10 @@ nts::protect::error_t nts::protect::Protection::wrap(const uint64_t sequence, co
 		bool ok = false;
 		// Если набор шифрования - ChaCha20-Poly1305
 		if(this->_stream){
-			// Объект AEAD ChaCha20-Poly1305
-			cipher::chachapoly_t chachapoly;
-			// Если AEAD запустить не удалось
-			if(chachapoly.start(view_t(this->_key, this->_width), view_t(nonce, this->_size)))
+			// Если заполнение записи установить удалось: ключ режима ставится при заведении ключа
+			if(this->_chachapoly.restart(view_t(nonce, this->_size)))
 				// Выполняем наложение шифрования с проверкой целостности
-				ok = chachapoly.encrypt(view_t(associated, sizeof(associated)), view_t(data.data, total), cipher, (cipher + total));
+				ok = this->_chachapoly.encrypt(view_t(associated, sizeof(associated)), view_t(data.data, total), cipher, (cipher + total));
 		// Если набор шифрования - AES-GCM
 		} else {
 			// Если режим GCM запустить не удалось
@@ -1715,12 +1729,10 @@ nts::protect::error_t nts::protect::Protection::unwrap(const uint64_t sequence, 
 		bool ok = false;
 		// Если набор шифрования - ChaCha20-Poly1305
 		if(this->_stream){
-			// Объект AEAD ChaCha20-Poly1305
-			cipher::chachapoly_t chachapoly;
-			// Если AEAD запустить не удалось
-			if(chachapoly.start(view_t(this->_key, this->_width), view_t(nonce, this->_size)))
+			// Если заполнение записи установить удалось: ключ режима ставится при заведении ключа
+			if(this->_chachapoly.restart(view_t(nonce, this->_size)))
 				// Выполняем снятие шифрования с проверкой целостности
-				ok = chachapoly.decrypt(view_t(associated, sizeof(associated)), view_t(data.data + prefix, length), plain.data(), view_t((data.data + prefix + length), this->_tag));
+				ok = this->_chachapoly.decrypt(view_t(associated, sizeof(associated)), view_t(data.data + prefix, length), plain.data(), view_t((data.data + prefix + length), this->_tag));
 		// Если набор шифрования - AES-GCM
 		} else {
 			// Если режим GCM запустить не удалось

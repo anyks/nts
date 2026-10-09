@@ -267,6 +267,30 @@ namespace nts {
 				bool start(const view_t & key, const view_t & nonce) noexcept;
 				/**
 				 * \~russian
+				 * @brief Метод смены начального заполнения у запущенного режима
+				 *
+				 * @param nonce начальное заполнение в 12 байтов
+				 *
+				 * @return      признак успешности смены
+				 *
+				 * @details Ключ остаётся от запуска, заново вырабатывается лишь одноразовый ключ
+				 *          имитовставки по новому заполнению: сменой заполнения пользуется защита
+				 *          записей, заводящая режим один раз на ключ трафика
+				 *
+				 * \~english
+				 * @brief Method of the change of the nonce at the started mode
+				 * @param nonce the 12-byte nonce
+				 * @return      the flag of the success of the change
+				 * @details The key remains from the start, only the one-time key of the
+				 *          authenticator is produced anew by the new nonce: the change of the
+				 *          nonce is used by the protection of the records, which starts the mode
+				 *          once per traffic key
+				 *
+				 * \~
+				 */
+				bool restart(const view_t & nonce) noexcept;
+				/**
+				 * \~russian
 				 * @brief Метод сброса режима
 				 *
 				 * \~english

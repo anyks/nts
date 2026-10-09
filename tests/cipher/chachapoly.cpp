@@ -525,6 +525,80 @@ TEST(ChachapolyTest, Stream){
 }
 
 /**
+ * Проверка смены заполнения у запущенного режима: итог сходится со свежим запуском,
+ * ключ остаётся, заслон израсходованного заполнения сбрасывается
+ */
+TEST(ChachapolyTest, Restart){
+	// Разобранные байты: ключ и два заполнения
+	const std::vector <uint8_t> k = bytes(KEY_282), first = bytes(NONCE_282), second = bytes("000102030405060708090a0b");
+	// Связанные данные
+	const std::vector <uint8_t> associated = bytes(AAD_282);
+	// Открытый текст в 100 байтов
+	std::vector <uint8_t> plain(100);
+	/**
+	 * Выполняем заполнение открытого текста
+	 */
+	for(size_t i = 0; i < plain.size(); i++)
+		// Записываем очередной байт
+		plain[i] = static_cast <uint8_t> (i * 7 + 3);
+	// Объект режима
+	cipher::chachapoly_t aead;
+	// До запуска смена заполнения отвергается: ключа нет
+	ASSERT_FALSE(aead.restart(view_t(first.data(), first.size())));
+	// Проверяем запуск режима
+	ASSERT_TRUE(aead.start(view_t(k.data(), k.size()), view_t(first.data(), first.size())));
+	// Пустое заполнение и заполнение не той длины отвергаются
+	ASSERT_FALSE(aead.restart(view_t(nullptr, 0)));
+	ASSERT_FALSE(aead.restart(view_t(first.data(), 8)));
+	// Шифртекст и метка первого заполнения
+	uint8_t one[100], tagOne[cipher::CHACHAPOLY_TAG];
+	// Проверяем разовое зашифрование
+	ASSERT_TRUE(aead.encrypt(view_t(associated.data(), associated.size()), view_t(plain.data(), plain.size()), one, tagOne));
+	// Повтор на израсходованном заполнении отвергается
+	ASSERT_FALSE(aead.encrypt(view_t(associated.data(), associated.size()), view_t(plain.data(), plain.size()), one, tagOne));
+	// Смена заполнения даёт тот же итог, что свежий запуск с этим заполнением
+	ASSERT_TRUE(aead.restart(view_t(second.data(), second.size())));
+	// Шифртекст и метка второго заполнения
+	uint8_t two[100], tagTwo[cipher::CHACHAPOLY_TAG];
+	// Проверяем разовое зашифрование после смены
+	ASSERT_TRUE(aead.encrypt(view_t(associated.data(), associated.size()), view_t(plain.data(), plain.size()), two, tagTwo));
+	// Свежий режим со вторым заполнением
+	cipher::chachapoly_t fresh;
+	// Проверяем запуск свежего режима
+	ASSERT_TRUE(fresh.start(view_t(k.data(), k.size()), view_t(second.data(), second.size())));
+	// Эталонные шифртекст и метка
+	uint8_t reference[100], tagReference[cipher::CHACHAPOLY_TAG];
+	// Проверяем разовое зашифрование свежим режимом
+	ASSERT_TRUE(fresh.encrypt(view_t(associated.data(), associated.size()), view_t(plain.data(), plain.size()), reference, tagReference));
+	// Проверяем схождение итога смены со свежим запуском
+	ASSERT_EQ(text(two, sizeof(two)), text(reference, sizeof(reference)));
+	ASSERT_EQ(text(tagTwo, sizeof(tagTwo)), text(tagReference, sizeof(tagReference)));
+	// Шифртексты разных заполнений различны
+	ASSERT_NE(text(one, sizeof(one)), text(two, sizeof(two)));
+	// Возврат к первому заполнению воспроизводит первый итог: ключ цел
+	ASSERT_TRUE(aead.restart(view_t(first.data(), first.size())));
+	// Шифртекст и метка возврата
+	uint8_t again[100], tagAgain[cipher::CHACHAPOLY_TAG];
+	// Проверяем разовое зашифрование после возврата
+	ASSERT_TRUE(aead.encrypt(view_t(associated.data(), associated.size()), view_t(plain.data(), plain.size()), again, tagAgain));
+	// Проверяем воспроизведение первого итога
+	ASSERT_EQ(text(again, sizeof(again)), text(one, sizeof(one)));
+	ASSERT_EQ(text(tagAgain, sizeof(tagAgain)), text(tagOne, sizeof(tagOne)));
+	// Расшифрование после смены заполнения
+	ASSERT_TRUE(aead.restart(view_t(second.data(), second.size())));
+	// Открытый текст
+	uint8_t back[100];
+	// Проверяем разовое расшифрование после смены
+	ASSERT_TRUE(aead.decrypt(view_t(associated.data(), associated.size()), view_t(two, sizeof(two)), back, view_t(tagTwo, sizeof(tagTwo))));
+	// Проверяем схождение открытого текста
+	ASSERT_EQ(::memcmp(back, plain.data(), plain.size()), 0);
+	// После сброса смена вновь отвергается
+	aead.clear();
+	// Проверяем отказ смены после сброса
+	ASSERT_FALSE(aead.restart(view_t(first.data(), first.size())));
+}
+
+/**
  * Проверка того, что связанные данные кусками по одному байту через границу блока сходятся с разовыми
  */
 TEST(ChachapolyTest, AssociatedPadding){
