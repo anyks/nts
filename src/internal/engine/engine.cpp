@@ -7215,7 +7215,9 @@ context::error_t nts::internal::Engine::outgoing(const view_t & body, const view
 		}
 		/**
 		 * Опознаватель связи сервер обязан вернуть тем же, каким его прислал клиент:
-		 * раздел 4.1.3 RFC 8446 велит оборвать связь, если он вернулся иным
+		 * раздел 4.1.3 RFC 8446 велит оборвать связь, если он вернулся иным. Поверх
+		 * дейтаграмм сверки нет: раздел 5 RFC 9147 велит серверу DTLS 1.3 опознаватель
+		 * клиента НЕ повторять, и приветствие сервера несёт его пустым
 		 */
 		/**
 		 * Слагаемое (!answer.session.empty()) ложным не задевается: свой клиент шлёт
@@ -7223,7 +7225,7 @@ context::error_t nts::internal::Engine::outgoing(const view_t & body, const view
 		 * сверку длин, несёт его непустым. Слагаемое оставлено оттого, что сличение
 		 * пустого места через memcmp опирается на непереданный указатель
 		 */
-		if((answer.session.size() != this->_session.size()) || (!answer.session.empty() && (::memcmp(answer.session.data(), this->_session.data(), answer.session.size()) != 0)))
+		if((this->_transport != context::transport_t::DATAGRAMS) && ((answer.session.size() != this->_session.size()) || (!answer.session.empty() && (::memcmp(answer.session.data(), this->_session.data(), answer.session.size()) != 0))))
 			// Выводим отказ несовпадения опознавателя связи
 			return this->abort(context::error_t::MESSAGE, alert::description_t::PARAMETER);
 		/**

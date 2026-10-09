@@ -722,6 +722,8 @@ namespace {
 		bool master;
 		// Признак поддержки DTLS 1.2 у s_server и s_client
 		bool dtls12;
+		// Признак поддержки DTLS 1.3 у s_server и s_client
+		bool dtls13;
 		// Признак ключа -listen у s_server: приём приветствия с меткой
 		bool listening;
 		// Признак ключа -groups у s_server
@@ -745,7 +747,7 @@ namespace {
 		/**
 		 * Конструктор
 		 */
-		Toolkit() noexcept : present(false), libre(false), tls12(false), tls13(false), master(false), dtls12(false), listening(false), serverGroups(false), namedCurve(false), clientGroups(false), clientCurves(false), naccept(false), addressed(false), x25519(false), edwards(false), edition(0) {}
+		Toolkit() noexcept : present(false), libre(false), tls12(false), tls13(false), master(false), dtls12(false), dtls13(false), listening(false), serverGroups(false), namedCurve(false), clientGroups(false), clientCurves(false), naccept(false), addressed(false), x25519(false), edwards(false), edition(0) {}
 	} toolkit_t;
 	/**
 	 * @brief Метод щупа ключа справки openssl
@@ -886,6 +888,8 @@ namespace {
 		result.master = (result.tls12 && offered());
 		// Снимаем поддержку DTLS 1.2 у обеих подкоманд
 		result.dtls12 = (listed("s_server", "dtls1_2") && listed("s_client", "dtls1_2"));
+		// Снимаем поддержку DTLS 1.3 у обеих подкоманд
+		result.dtls13 = (listed("s_server", "dtls1_3") && listed("s_client", "dtls1_3"));
 		// Снимаем ключ приёма приветствия с меткой
 		result.listening = listed("s_server", "listen");
 		// Снимаем ключи s_server

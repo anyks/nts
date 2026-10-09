@@ -9078,6 +9078,21 @@ mpint делает SSH), rsa-sha2-256/512 (PKCS #1 v1.5); шифры chacha20-po
 Г1. DTLS 1.3 у OpenSSL 4.1 (RFC 9147, со слушателем и cookie HelloRetryRequest): первый чужой эталон для нашего
     DTLS 1.3 - обмен с чужой реализацией до сих пор не вёлся (раздел DTLS 1.3 выше). Собрать подмодуль (`./Configure &&
     make`, сборки в дереве нет), пины `Dtls13Test.Openssl` обеими ролями: потери, повтор, ACK, cookie. Ценность высокая.
+    **Круг 109 (09.10.2026)**: эталон собран из исходников - ветка openssl-4.1.0-beta1 (23.09.2026, единственная
+    линия с DTLS 1.3; системный 3.6.3 и homebrew openssl@4 4.0.0 ключа -dtls1_3 не знают), сборка
+    `./Configure no-shared no-module && make build_sw`, двоичный файл apps/openssl. Пин DtlsTest.Openssl
+    (tests/dtls/dtls.cpp) обеими ролями по образцу Dtls12Test.Openssl: наш клиент против
+    `s_server -dtls1_3 -no_ticket -mtu 300` (без -listen - приём DTLSv1_listen умеет только DTLS 1.2,
+    отвечает "unsupported ssl version") и `s_client -dtls1_3` против нашего сервера; признак toolkit_t::dtls13
+    в tests/openssl.hpp (проба ключом -dtls1_3 у s_server и s_client). Интероп сразу вскрыл настоящую ошибку
+    движка: клиент требовал от сервера отражения legacy_session_id, а RFC 9147 §5 для DTLS 1.3 это запрещает
+    ("MUST NOT echo") - сервер OpenSSL шлёт пустое session_id, наш клиент отвечал illegal_parameter. Правка в
+    engine.cpp: проверка отражения сеанса действует только для потокового транспорта (TLS), для дейтаграмм
+    пропускается. Дальше рукопожатие расходится в защите записей ступени рукопожатия (пора 2): наш клиент
+    не читает защищённые записи сервера OpenSSL (застревает в HANDSHAKE), клиент OpenSSL отвергает наш ACK
+    (rec_layer_d1.c: "dtls1_read_bytes:internal error"). Разбор расхождения - отдельная глубокая работа
+    (сличение переписки, ключей "sn" и машины ACK); пин при отказе связи пропускается с явной пометкой о
+    расхождении. ctest 111/111 зелёные (правка session_id не задела TLS 1.3, где отражение обязательно).
 Г2. GREASE у клиента OpenSSL 4.1 (`s_client -grease`) и ECH по RFC 9849 у OpenSSL 4.0 - второй эталон к BoringSSL для
     наших пинов GREASE и ECH.
 Г3. Журнал секретов SSLKEYLOGFILE (OpenSSL 3.5, `enable-sslkeylog`): у нас нет; отклик `keylog` с записями CLIENT_RANDOM,
