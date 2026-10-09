@@ -201,8 +201,6 @@
  */
 #include <new>
 #include <cstring>
-#include <cstdio>
-#include <cstdlib>
 
 /**
  * Подключаем заголовочные файлы проекта
@@ -2662,16 +2660,6 @@ context::error_t nts::internal::Engine::derive(const extension::group_t group, c
 		if(ok)
 			// Выполняем вывод ступени рукопожатия расписания ключей
 			ok = (this->_secrets.handshake(view_t(shared, length), view_t(transcript, this->_transcript.size())) == session::error_t::NONE);
-		// ОТЛАДКА G114: хеш переписки и общее значение обмена
-		if(::getenv("ANTS_DEBUG_TRANSCRIPT") != nullptr){
-			::fprintf(stderr, "TRANSCRIPT(%zu): ", this->_transcript.size());
-			for(size_t i = 0; i < this->_transcript.size(); i++)
-				::fprintf(stderr, "%02x", transcript[i]);
-			::fprintf(stderr, "\nSHARED(%zu): ", length);
-			for(size_t i = 0; i < length; i++)
-				::fprintf(stderr, "%02x", shared[i]);
-			::fprintf(stderr, "\n");
-		}
 		// Выполняем затирание общего значения обмена мимолётными ключами
 		this->purge(shared, sizeof(shared));
 		// Если ступень рукопожатия расписания ключей вывести не удалось
