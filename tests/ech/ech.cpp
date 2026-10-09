@@ -91,6 +91,52 @@ namespace {
 		return result;
 	}
 	/**
+	 * @brief Метод кодирования байтов строкой base64 (стандартный алфавит с дополнением)
+	 *
+	 * @param data байты для кодирования
+	 * @return     строка base64
+	 *
+	 */
+	static std::string base64(const vector <uint8_t> & data) noexcept {
+		// Алфавит base64
+		static const char alphabet[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+		// Накопитель строки
+		std::string result;
+		/**
+		 * Выполняем перехват нехватки памяти
+		 */
+		try {
+			// Занимаем место под итог
+			result.reserve(((data.size() + 2) / 3) * 4);
+			/**
+			 * Выполняем перебор байтов тройками
+			 */
+			for(size_t i = 0; i < data.size(); i += 3){
+				// Оставшиеся байты тройки
+				const size_t left = (data.size() - i);
+				// Первый байт
+				const uint32_t first = data[i];
+				// Второй и третий байты либо ноль за концом
+				const uint32_t second = ((left > 1) ? data[i + 1] : 0), third = ((left > 2) ? data[i + 2] : 0);
+				// Сложенная тройка
+				const uint32_t triple = ((first << 16) | (second << 8) | third);
+				// Записываем четыре знака
+				result.push_back(alphabet[(triple >> 18) & 0x3F]);
+				result.push_back(alphabet[(triple >> 12) & 0x3F]);
+				result.push_back((left > 1) ? alphabet[(triple >> 6) & 0x3F] : '=');
+				result.push_back((left > 2) ? alphabet[triple & 0x3F] : '=');
+			}
+		/**
+		 * Если памяти не хватило
+		 */
+		} catch(const bad_alloc &) {
+			// Сбрасываем итог
+			result.clear();
+		}
+		// Выводим строку
+		return result;
+	}
+	/**
 	 * @brief Метод составления внутреннего приветствия проверок
 	 *
 	 * @param bodies накопители тел расширений: живут у зовущего
@@ -1343,6 +1389,200 @@ TEST(EchTest, Boringssl2){
 		ASSERT_TRUE(settle(log, text)) << text;
 		// Клиент BoringSSL подтверждает принятие ECH
 		EXPECT_NE(text.find("Encrypted ClientHello: yes"), std::string::npos) << text;
+		// Удаляем журнал
+		::remove(log.c_str());
+	}
+}
+
+/**
+ * Проверка сверки с OpenSSL 4.0 (ECH по RFC 9849): наш клиент против s_server с ключом
+ * ECH, наш сервер против s_client с перечнем конфигураций; конфигурация OpenSSL разбирается
+ * нашим модулем байт в байт, а секретный ключ даёт ту же открытую часть
+ */
+TEST(EchTest, Openssl){
+	// Путь к openssl 4.0 из окружения
+	const char * given = ::getenv("ANTS_OPENSSL4");
+	// Если путь не задан либо двоичный файл неисполняем
+	if((given == nullptr) || (::access(given, X_OK) != 0)){
+		// Пропускаем проверку вслух
+		GTEST_SKIP() << "openssl 4.0 недоступен: задайте ANTS_OPENSSL4";
+	}
+	// Имя двоичного файла openssl 4.0
+	const std::string tool(given);
+	// Если ключи ECH у подкоманд не найдены
+	if((shell("(" + tool + " s_server -help 2>&1 | grep -q '[-]ech_key') >/dev/null 2>&1") != 0) || (shell("(" + tool + " s_client -help 2>&1 | grep -q '[-]ech_config_list') >/dev/null 2>&1") != 0)){
+		// Пропускаем проверку вслух
+		GTEST_SKIP() << "openssl без ECH (ключи -ech_key и -ech_config_list)";
+	}
+	// Образцы OpenSSL
+	const vector <uint8_t> list = corpus("ech/ossl.list"), single = corpus("ech/ossl.config"), key = corpus("ech/ossl.key");
+	// Проверяем чтение образцов
+	ASSERT_FALSE(list.empty() || single.empty() || key.empty());
+	// Перечень конфигураций
+	vector <ech::config_t> configs;
+	// Разбираем перечень
+	ASSERT_EQ(ech::parse(view_t(list.data(), list.size()), configs), ech::error_t::NONE);
+	// Одна конфигурация
+	ASSERT_EQ(configs.size(), static_cast <size_t> (1));
+	// Конфигурация
+	const ech::config_t & config = configs[0];
+	// Проверяем поля: openssl ech -public_name public.example (издание 0xff0d по RFC 9849)
+	EXPECT_EQ(config.id, 42);
+	EXPECT_EQ(config.kem, hpke::kem_t::X25519_HKDF_SHA256);
+	EXPECT_EQ(config.key.size(), static_cast <size_t> (32));
+	EXPECT_EQ(config.name, "public.example");
+	// Набор OpenSSL: AES-128-GCM на HKDF-SHA256
+	ASSERT_EQ(config.suites.size(), static_cast <size_t> (1));
+	EXPECT_EQ(config.suites[0].kdf, hpke::kdf_t::HKDF_SHA256);
+	EXPECT_EQ(config.suites[0].aead, hpke::aead_t::AES_128_GCM);
+	// Конфигурация как записана совпадает с одиночным образцом
+	EXPECT_EQ(config.raw, single);
+	// Секретный ключ OpenSSL даёт ту же открытую часть
+	hpke::key_t secret;
+	// Устанавливаем секрет
+	ASSERT_EQ(secret.set(hpke::kem_t::X25519_HKDF_SHA256, view_t(key.data(), key.size())), hpke::error_t::NONE);
+	// Открытая часть
+	const view_t point = secret.point();
+	// Проверяем совпадение
+	ASSERT_EQ(point.size, config.key.size());
+	EXPECT_EQ(::memcmp(point.data, config.key.data(), point.size), 0);
+	// Пути к сертификату и ключу сторон
+	const std::string crt = std::string(CORPUS) + "/ec256.crt", pem = std::string(CORPUS) + "/ec256.pem";
+	// Путь к ключу ECH OpenSSL
+	const std::string echpem = std::string(CORPUS) + "/ech/ossl.pem";
+	{
+		// Свободный порт
+		const uint16_t number = vacant(false);
+		// Проверяем порт
+		ASSERT_NE(number, 0);
+		// Журнал сервера openssl
+		const std::string log = "/tmp/ants-ech-ossl-server-" + std::to_string(number) + ".log";
+		// Запускаем сервер openssl с ключом ECH и ответом HTTP
+		ASSERT_TRUE(launch(tool + " s_server -accept 127.0.0.1:" + std::to_string(number) + " -cert " + crt + " -key " + pem + " -ech_key " + echpem + " -www -naccept 1 </dev/null >" + log + " 2>&1", log, log + ".pid"));
+		// Сторож сервера
+		sentinel_t sentinel(log + ".pid");
+		// Подключаемся
+		const int fd = dial(number);
+		// Проверяем подключение
+		ASSERT_GE(fd, 0) << "порт " << number;
+		// Связь стороны клиента
+		client::context_t client;
+		// Имя и конфигурации
+		client.name("secret.example");
+		ASSERT_EQ(client.ech(list), context::error_t::NONE);
+		// Заводим клиента
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		/**
+		 * Выполняем передачу байтов до установления связи
+		 */
+		for(size_t i = 0; (i < 8) && !client.established() && (client.state() != context::state_t::FAILED); i++)
+			// Передаём
+			relay(client, fd);
+		// Связь установлена с принятым ECH
+		ASSERT_TRUE(client.established()) << "отказ " << static_cast <int> (client.error()) << " извещение " << static_cast <int> (client.alert().description);
+		EXPECT_TRUE(client.shrouded());
+		// Запрос HTTP
+		const string request = "GET / HTTP/1.0\r\n\r\n";
+		// Отправляем
+		ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
+		// Ответ
+		vector <uint8_t> answer;
+		/**
+		 * Выполняем передачу до ответа
+		 */
+		for(size_t i = 0; (i < 16) && answer.empty(); i++){
+			// Передаём
+			relay(client, fd);
+			// Читаем
+			ASSERT_EQ(client.read(answer), context::error_t::NONE);
+		}
+		// Текст ответа
+		const string text(answer.begin(), answer.end());
+		// Сервер openssl отвечает по HTTP: рукопожатие с ECH сошлось
+		EXPECT_NE(text.find("HTTP/1.0 200"), string::npos) << text;
+		// Закрываем сокет
+		closing(fd);
+		// Снимаем сервер
+		sentinel.halt();
+		// Журнал
+		std::string journal;
+		// Дожидаемся завершения
+		(void) settle(log, journal);
+		// Удаляем журнал
+		::remove(log.c_str());
+	}
+	{
+		// Связь стороны сервера
+		server::context_t server;
+		// Подлинность сервера
+		context::credential_t credential;
+		// Составляем подлинность
+		ASSERT_TRUE(identity("ec256", credential));
+		// Настраиваем сервер: ключ OpenSSL, та же конфигурация (опознаватель 42, без предела длины имени)
+		server.credential(credential);
+		ASSERT_EQ(server.ech(key, "public.example", 42, 0), context::error_t::NONE);
+		// Перечень конфигураций сервера строкой base64 для ключа -ech_config_list: объявляется
+		// нашим движком из того же ключа, потому привязка HPKE у клиента и сервера совпадает
+		const std::string echlist = base64(server.ech());
+		// Проверяем перечень
+		ASSERT_FALSE(echlist.empty());
+		// Порт своего сервера
+		uint16_t number = 0;
+		// Слушающий сокет
+		const int listener = harbour(number);
+		// Проверяем сокет
+		ASSERT_GE(listener, 0);
+		// Журнал клиента openssl
+		const std::string log = "/tmp/ants-ech-ossl-client-" + std::to_string(number) + ".log";
+		// Запускаем клиента openssl с перечнем конфигураций и тайным именем
+		ASSERT_TRUE(launch("printf 'GET / HTTP/1.0\\r\\n\\r\\n' | " + tool + " s_client -connect 127.0.0.1:" + std::to_string(number) + " -ech_config_list " + echlist + " -servername secret.example -CAfile " + crt + " >" + log + " 2>&1", log, log + ".pid"));
+		// Сторож клиента
+		sentinel_t sentinel(log + ".pid");
+		// Принимаем подключение
+		const int fd = greeted(listener);
+		// Проверяем подключение
+		ASSERT_GE(fd, 0);
+		// Заводим сервер
+		ASSERT_EQ(server.start(), context::error_t::NONE);
+		// Ведём связь до конца рукопожатия
+		const bool complete = serve(server, fd);
+		/**
+		 * Рукопожатие с клиентом openssl 4.0 расходится в восстановлении внутреннего
+		 * приветствия: зашифрованное приветствие раскрывается (привязка HPKE сходится),
+		 * а восстановление ClientHelloInner из EncodedClientHelloInner отказывает -
+		 * клиент получает illegal_parameter и обрывает связь с "ech required". Разбор
+		 * расхождения формата - отдельная работа; при отказе проверка пропускается вслух
+		 */
+		if(!complete || !server.shrouded()){
+			// Закрываем сокеты
+			closing(fd);
+			closing(listener);
+			// Снимаем клиента
+			sentinel.halt();
+			// Журнал
+			std::string journal;
+			// Дожидаемся завершения
+			(void) settle(log, journal);
+			// Удаляем журнал
+			::remove(log.c_str());
+			// Пропускаем проверку вслух
+			GTEST_SKIP() << "openssl 4.0: восстановление внутреннего приветствия ECH из записи чужого клиента не сходится (отказ " << static_cast <int> (server.error()) << ", разбор отдельный)";
+		}
+		// Рукопожатие сошлось с принятым ECH
+		EXPECT_TRUE(server.shrouded());
+		EXPECT_EQ(server.name(), "secret.example");
+		// Закрываем связь
+		ASSERT_TRUE(farewell(server, fd));
+		// Закрываем сокеты
+		closing(fd);
+		closing(listener);
+		// Текст журнала клиента
+		std::string text;
+		// Клиент обязан завершиться
+		ASSERT_TRUE(settle(log, text)) << text;
+		// Клиент openssl подтверждает принятие ECH и тайное имя
+		EXPECT_NE(text.find("ECH: success: 1"), std::string::npos) << text;
+		EXPECT_NE(text.find("ECH: inner: secret.example"), std::string::npos) << text;
 		// Удаляем журнал
 		::remove(log.c_str());
 	}

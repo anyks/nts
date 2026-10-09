@@ -1727,6 +1727,211 @@ TEST(GreaseTest, Openssl13){
 }
 
 /**
+ * Проверка обмена с openssl 4.1 ключом -grease (RFC 8701): чужой клиент шлёт приветствие
+ * со значениями GREASE (набор, расширения, группа, доля, издание), наш сервер его принимает,
+ * приветствие снимается с провода и разбирается - все места GREASE на месте
+ */
+TEST(GreaseTest, OpensslGrease){
+	// Путь к openssl 4.1 из окружения
+	const char * given = ::getenv("ANTS_OPENSSL41");
+	// Если путь не задан либо двоичный файл неисполняем
+	if((given == nullptr) || (::access(given, X_OK) != 0)){
+		// Пропускаем проверку вслух
+		GTEST_SKIP() << "openssl 4.1 недоступен: задайте ANTS_OPENSSL41";
+	}
+	// Имя двоичного файла openssl 4.1
+	const std::string tool(given);
+	// Если ключ -grease у s_client не найден
+	if(shell("(" + tool + " s_client -help 2>&1 | grep -q '[-]grease') >/dev/null 2>&1") != 0){
+		// Пропускаем проверку вслух
+		GTEST_SKIP() << "openssl 4.1 без ключа -grease";
+	}
+	// Подлинность сторон
+	context::credential_t credential;
+	// Составляем подлинность
+	ASSERT_TRUE(identity("ec256", credential));
+	// Пути к сертификату и ключу
+	const std::string crt = std::string(CORPUS) + "/ec256.crt", key = std::string(CORPUS) + "/ec256.pem";
+	// Порт своего сервера
+	uint16_t number = 0;
+	// Слушающий сокет
+	const int listener = harbour(number);
+	// Проверяем сокет
+	ASSERT_GE(listener, 0);
+	// Журнал клиента openssl
+	const std::string log = "/tmp/ants-grease41-client-" + std::to_string(number) + ".log";
+	// Запускаем клиента openssl 4.1 со вставкой GREASE
+	ASSERT_TRUE(launch(tool + " s_client -connect 127.0.0.1:" + std::to_string(number) + " -tls1_3 -grease -CAfile " + crt + " -servername localhost -verify_return_error </dev/null >" + log + " 2>&1", log, log + ".pid"));
+	// Сторож клиента openssl
+	sentinel_t sentinel(log + ".pid");
+	// Принимаем подключение
+	const int fd = greeted(listener);
+	// Проверяем подключение
+	ASSERT_GE(fd, 0);
+	// Предел ожидания приёма
+	patience(fd, 30, 0);
+	// Накопитель приветствия
+	uint8_t buffer[16384];
+	// Принимаем приветствие клиента с провода до разбора
+	const ssize_t received = ::recv(fd, buffer, sizeof(buffer), 0);
+	// Проверяем приём
+	ASSERT_GT(received, 0);
+	// Байты приветствия
+	vector <uint8_t> wire(buffer, buffer + received);
+	// Заголовок записи
+	record::header_t header;
+	// Разбираем заголовок записи
+	ASSERT_EQ(record::parse(view_t(wire.data(), wire.size()), header), record::error_t::NONE);
+	// Запись рукопожатия
+	ASSERT_EQ(header.type, record::type_t::HANDSHAKE);
+	// Заголовок сообщения рукопожатия
+	handshake::header_t message;
+	// Разбираем заголовок сообщения
+	ASSERT_EQ(handshake::parse(view_t(wire.data() + record::RECORD_HEADER, wire.size() - record::RECORD_HEADER), message), handshake::error_t::NONE);
+	// Сообщение приветствия клиента
+	ASSERT_EQ(message.type, handshake::type_t::CLIENT);
+	// Тело приветствия
+	const view_t body(wire.data() + record::RECORD_HEADER + handshake::HANDSHAKE_HEADER, message.size);
+	// Разобранное приветствие
+	hello::client_t greeting;
+	// Разбираем приветствие
+	ASSERT_EQ(hello::parse(body, greeting), hello::error_t::NONE);
+	// Признак набора GREASE в перечне наборов
+	bool suited = false;
+	/**
+	 * Выполняем перебор наборов приветствия
+	 */
+	for(size_t i = 0; i < greeting.suites.size(); i++){
+		// Если набор имеет вид GREASE
+		if(shaped(greeting.suites[i])){
+			// Запоминаем признак
+			suited = true;
+			// Выходим из перебора
+			break;
+		}
+	}
+	// Набор GREASE обязан быть
+	ASSERT_TRUE(suited);
+	// Число расширений вида GREASE
+	size_t count = 0;
+	/**
+	 * Выполняем перебор расширений приветствия
+	 */
+	for(size_t i = 0; i < greeting.extensions.size(); i++){
+		// Если расширение имеет вид GREASE
+		if(shaped(greeting.extensions[i].type))
+			// Считаем расширение
+			count++;
+	}
+	// Расширений GREASE обязано быть не менее двух
+	ASSERT_GE(count, static_cast <size_t> (2));
+	// Разыскиваем расширение групп обмена
+	const hello::extension_t * item = hello::extension(greeting.extensions, static_cast <uint16_t> (extension::type_t::GROUPS));
+	// Расширение групп обязано быть
+	ASSERT_NE(item, nullptr);
+	// Группы обмена приветствия
+	vector <extension::group_t> groups;
+	// Разбираем группы
+	ASSERT_EQ(extension::groups(item->data, groups), extension::error_t::NONE);
+	// Признак группы GREASE
+	bool grouped = false;
+	/**
+	 * Выполняем перебор групп приветствия
+	 */
+	for(size_t i = 0; i < groups.size(); i++){
+		// Если группа имеет вид GREASE
+		if(shaped(static_cast <uint16_t> (groups[i]))){
+			// Запоминаем признак
+			grouped = true;
+			// Выходим из перебора
+			break;
+		}
+	}
+	// Группа GREASE обязана быть
+	ASSERT_TRUE(grouped);
+	// Разыскиваем расширение долей ключа
+	item = hello::extension(greeting.extensions, static_cast <uint16_t> (extension::type_t::SHARE));
+	// Расширение долей обязано быть
+	ASSERT_NE(item, nullptr);
+	// Доли ключа приветствия
+	vector <extension::share_t> shares;
+	// Разбираем доли
+	ASSERT_EQ(extension::shares(item->data, shares), extension::error_t::NONE);
+	// Признак доли GREASE
+	bool shared = false;
+	/**
+	 * Выполняем перебор долей приветствия
+	 */
+	for(size_t i = 0; i < shares.size(); i++){
+		// Если группа доли имеет вид GREASE
+		if(shaped(static_cast <uint16_t> (shares[i].group))){
+			// Запоминаем признак
+			shared = true;
+			// Выходим из перебора
+			break;
+		}
+	}
+	// Доля GREASE обязана быть
+	ASSERT_TRUE(shared);
+	// Разыскиваем расширение изданий протокола
+	item = hello::extension(greeting.extensions, static_cast <uint16_t> (extension::type_t::VERSIONS));
+	// Расширение изданий обязано быть
+	ASSERT_NE(item, nullptr);
+	// Издания протокола приветствия
+	vector <uint16_t> versions;
+	// Разбираем издания
+	ASSERT_EQ(extension::versions(item->data, versions), extension::error_t::NONE);
+	// Признак издания GREASE
+	bool versioned = false;
+	/**
+	 * Выполняем перебор изданий приветствия
+	 */
+	for(size_t i = 0; i < versions.size(); i++){
+		// Если издание имеет вид GREASE
+		if(shaped(versions[i])){
+			// Запоминаем признак
+			versioned = true;
+			// Выходим из перебора
+			break;
+		}
+	}
+	// Издание GREASE обязано быть
+	ASSERT_TRUE(versioned);
+	// Связь стороны сервера
+	server::context_t server;
+	// Наборы сервера
+	server.suites(vector <protect::suite_t> {protect::suite_t::AES_128_GCM_SHA256});
+	// Группы сервера
+	server.groups(vector <extension::group_t> {extension::group_t::X25519});
+	// Подлинность сервера
+	server.credential(credential);
+	// Заводим сервер
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	// Подаём серверу принятое приветствие
+	server.push(view_t(wire.data(), wire.size()));
+	// Ведём связь до конца рукопожатия
+	ASSERT_TRUE(serve(server, fd)) << "отказ " << static_cast <int> (server.error());
+	// Отказа не было
+	ASSERT_EQ(server.error(), context::error_t::NONE);
+	// Связь установлена: сервер принял приветствие со значениями GREASE
+	ASSERT_TRUE(server.established());
+	// Закрываем связь: по извещению клиент openssl уходит сам и выкладывает журнал
+	ASSERT_TRUE(farewell(server, fd));
+	// Закрываем сокет
+	closing(fd);
+	// Закрываем слушающий сокет
+	closing(listener);
+	// Текст журнала клиента
+	std::string text;
+	// Дожидаемся отметки завершения
+	ASSERT_TRUE(settle(log, text)) << text;
+	// Проверка подлинности сервера у клиента обязана сойтись
+	ASSERT_NE(text.find("Verify return code: 0 (ok)"), std::string::npos) << text;
+	// Удаляем журнал
+	::remove(log.c_str());
+}
+
+/**
  * Проверка обмена с настоящим openssl изданием TLS 1.2: наш клиент с GREASE против
  * s_server набором ECDHE-ECDSA-AES128-GCM-SHA256 со встречной подлинностью
  */
