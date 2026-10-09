@@ -1534,8 +1534,9 @@ TEST(EchTest, Openssl){
 		ASSERT_GE(listener, 0);
 		// Журнал клиента openssl
 		const std::string log = "/tmp/ants-ech-ossl-client-" + std::to_string(number) + ".log";
-		// Запускаем клиента openssl с перечнем конфигураций и тайным именем
-		ASSERT_TRUE(launch("printf 'GET / HTTP/1.0\\r\\n\\r\\n' | " + tool + " s_client -connect 127.0.0.1:" + std::to_string(number) + " -ech_config_list " + echlist + " -servername secret.example -CAfile " + crt + " >" + log + " 2>&1", log, log + ".pid"));
+		// Запускаем клиента openssl с перечнем конфигураций и тайным именем: издание ограничено 1.3,
+		// иначе клиент предлагает во внутреннем приветствии и 1.2, что раздел 6.1 RFC 9849 запрещает
+		ASSERT_TRUE(launch("printf 'GET / HTTP/1.0\\r\\n\\r\\n' | " + tool + " s_client -connect 127.0.0.1:" + std::to_string(number) + " -tls1_3 -ech_config_list " + echlist + " -servername secret.example -CAfile " + crt + " >" + log + " 2>&1", log, log + ".pid"));
 		// Сторож клиента
 		sentinel_t sentinel(log + ".pid");
 		// Принимаем подключение
@@ -1546,29 +1547,8 @@ TEST(EchTest, Openssl){
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Ведём связь до конца рукопожатия
 		const bool complete = serve(server, fd);
-		/**
-		 * Рукопожатие с клиентом openssl 4.0 расходится в восстановлении внутреннего
-		 * приветствия: зашифрованное приветствие раскрывается (привязка HPKE сходится),
-		 * а восстановление ClientHelloInner из EncodedClientHelloInner отказывает -
-		 * клиент получает illegal_parameter и обрывает связь с "ech required". Разбор
-		 * расхождения формата - отдельная работа; при отказе проверка пропускается вслух
-		 */
-		if(!complete || !server.shrouded()){
-			// Закрываем сокеты
-			closing(fd);
-			closing(listener);
-			// Снимаем клиента
-			sentinel.halt();
-			// Журнал
-			std::string journal;
-			// Дожидаемся завершения
-			(void) settle(log, journal);
-			// Удаляем журнал
-			::remove(log.c_str());
-			// Пропускаем проверку вслух
-			GTEST_SKIP() << "openssl 4.0: восстановление внутреннего приветствия ECH из записи чужого клиента не сходится (отказ " << static_cast <int> (server.error()) << ", разбор отдельный)";
-		}
 		// Рукопожатие сошлось с принятым ECH
+		ASSERT_TRUE(complete) << "отказ " << static_cast <int> (server.error());
 		EXPECT_TRUE(server.shrouded());
 		EXPECT_EQ(server.name(), "secret.example");
 		// Закрываем связь
