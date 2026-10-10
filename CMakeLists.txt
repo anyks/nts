@@ -203,6 +203,7 @@ SET(SOURCE_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/digest/blake2.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/digest/argon2.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/digest/siphash.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/digest/umac.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/digest/sha1.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/digest/md5.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/digest/hash.cpp"

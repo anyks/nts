@@ -261,3 +261,21 @@ target_link_libraries(${TEST_SIPHASH_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_ma
 
 # Регистрируем цель проверок
 add_test(NAME ${TEST_SIPHASH_NAME} COMMAND ${TEST_SIPHASH_NAME})
+
+# Устанавливаем имя цели проверок модуля UMAC
+SET(TEST_UMAC_NAME umac)
+
+# Добавляем цель проверок модуля UMAC
+add_executable(${TEST_UMAC_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/umac.cpp")
+
+# Включаем флаги компиляции проверок
+target_compile_options(${TEST_UMAC_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
+
+# Подключаем каталог общих заголовочных файлов набора проверок
+target_include_directories(${TEST_UMAC_NAME} PRIVATE "${ANTS_ROOT}/tests")
+
+# Выполняем подключение зависимостей цели проверок
+target_link_libraries(${TEST_UMAC_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
+
+# Регистрируем цель проверок
+add_test(NAME ${TEST_UMAC_NAME} COMMAND ${TEST_UMAC_NAME})
