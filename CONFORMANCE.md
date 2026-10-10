@@ -9095,6 +9095,16 @@ mpint делает SSH), rsa-sha2-256/512 (PKCS #1 v1.5); шифры chacha20-po
     RSA PKCS #1, у нас его нет), 3des-cbc (3DES нет), hmac-md5 (MD5 есть), hmac-ripemd160 (RIPEMD-160 нет); sk-* (FIDO) -
     та же ECDSA либо Ed25519 с полями U2F, обвязка WebAuthn в AWH. Постквантовые подписи SSH - когда OpenSSH их введёт
     (ожидаемо на ML-DSA, покрывается Б1).
+    **Круг 118 (10.10.2026)**: сделано. Примитивы устаревших алгоритмов (обвязка SSH - в AWH): cipher::des (DES и
+    3DES по FIPS 46-3, таблицы IP/FP/E/S/P и расписание PC-1/PC-2, 3DES чередом EDE; классический вектор DES
+    побайтно, 3DES сверен с OpenSSL побайтно, тождество DES при равных трёх ключах) и digest::ripemd (RIPEMD-160,
+    два потока по восемьдесят шагов над пятью словами, перекрёстное сложение итогов; все семь векторов спецификации
+    побайтно). Интеграция: hash_t::RIPEMD160 в hash.hpp с диспетчером Hasher (RIPEMD-160 доступен HMAC), конструктор
+    cipher::Block(const des_t &) в mode (3DES доступен режимам, включая CBC). Пины: DesTest (вектор FIPS,
+    OpenSSL-сверка 3DES, тождество EDE, 3des-cbc сверен с OpenSSL побайтно, отказы), RipemdTest (векторы
+    спецификации, подача кусками, отказы), HmacTest.Legacy (HMAC-MD5/SHA1/RIPEMD160 сверены с OpenSSL побайтно).
+    ssh-rsa на SHA-1 уже покрыт существующим пином (RSA PKCS #1 v1.5 + SHA-1, tests/sign/rsa.cpp) - работы не
+    потребовалось. ctest 114/114 зелёные.
 Обвязка SSH - mpint, name-list, KDF §7.2 HASH(K ‖ H ‖ X ‖ session_id), сертификаты OpenSSH, kex-strict, ext-info, агент -
 живёт в AWH, не в A-NTS.
 

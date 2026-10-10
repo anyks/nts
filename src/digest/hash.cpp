@@ -45,6 +45,8 @@ size_t nts::digest::length(const hash_t algorithm) noexcept {
 		case static_cast <uint8_t> (hash_t::MD5): return 16;
 		// Если выбран SHA-1
 		case static_cast <uint8_t> (hash_t::SHA1): return 20;
+		// Если выбран RIPEMD-160
+		case static_cast <uint8_t> (hash_t::RIPEMD160): return 20;
 		// Если выбран SHA-224
 		case static_cast <uint8_t> (hash_t::SHA224): return 28;
 		// Если выбран SHA-256 либо «Стрибог» длиной 256 разрядов
@@ -84,6 +86,7 @@ size_t nts::digest::block(const hash_t algorithm) noexcept {
 		case static_cast <uint8_t> (hash_t::SHA256):
 		case static_cast <uint8_t> (hash_t::STREEBOG256):
 		case static_cast <uint8_t> (hash_t::STREEBOG512):
+		case static_cast <uint8_t> (hash_t::RIPEMD160):
 		case static_cast <uint8_t> (hash_t::SM3): return 64;
 		// Блоки BLAKE2s и BLAKE2b
 		case static_cast <uint8_t> (hash_t::BLAKE2S256): return 64;
@@ -141,6 +144,8 @@ void nts::digest::Hasher::reset(const hash_t algorithm) noexcept {
 		case static_cast <uint8_t> (hash_t::BLAKE2B512): this->_blake2.start(blake_t::BLAKE2B, BLAKE2B_LENGTH, view_t()); break;
 		// Если выбран SM3
 		case static_cast <uint8_t> (hash_t::SM3): this->_sm3.reset(); break;
+		// Если выбран RIPEMD-160
+		case static_cast <uint8_t> (hash_t::RIPEMD160): this->_ripemd.reset(); break;
 		// Если алгоритм не установлен
 		default: this->_type = hash_t::NONE;
 	}
@@ -180,6 +185,8 @@ void nts::digest::Hasher::update(const view_t & data) noexcept {
 		case static_cast <uint8_t> (hash_t::BLAKE2B512): this->_blake2.update(data); break;
 		// Если выбран SM3
 		case static_cast <uint8_t> (hash_t::SM3): this->_sm3.update(data); break;
+		// Если выбран RIPEMD-160
+		case static_cast <uint8_t> (hash_t::RIPEMD160): this->_ripemd.update(data); break;
 		// Если алгоритм не установлен
 		default: break;
 	}
@@ -240,6 +247,8 @@ bool nts::digest::Hasher::finish(uint8_t * result, const size_t size) noexcept {
 		}
 		// Если выбран SM3
 		case static_cast <uint8_t> (hash_t::SM3): return this->_sm3.finish(result, size);
+		// Если выбран RIPEMD-160
+		case static_cast <uint8_t> (hash_t::RIPEMD160): return this->_ripemd.finish(result, size);
 		// Если алгоритм не установлен
 		default: return false;
 	}

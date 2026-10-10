@@ -252,3 +252,29 @@ TEST(HmacTest, Failures) {
 	// Проверяем успешность выработки последовательности без метки и затравки
 	ASSERT_TRUE(digest::prf(digest::type_t::SHORT, view_t(secret, 32), view_t(), view_t(), result, 32));
 }
+
+/**
+ * @brief Проверка имитовставок устаревших хешей (hmac-md5, hmac-sha1, hmac-ripemd160
+ *        у SSH): векторы сверены с OpenSSL
+ *
+ */
+TEST(HmacTest, Legacy) {
+	// Сообщение контрольных примеров
+	const std::string message = "The quick brown fox jumps over the lazy dog";
+	// Ключ контрольных примеров
+	const std::string secret = "key";
+	// Место, в которое помещается имитовставка
+	uint8_t result[20];
+	// Вычисляем имитовставку HMAC-MD5 (сверено с OpenSSL)
+	ASSERT_TRUE(digest::hmac(digest::hash_t::MD5, view_t(reinterpret_cast <const uint8_t *> (secret.data()), secret.size()), view_t(reinterpret_cast <const uint8_t *> (message.data()), message.size()), result, 16));
+	// Сличаем имитовставку HMAC-MD5 с эталоном
+	ASSERT_EQ(text(result, 16), std::string("80070713463e7749b90c2dc24911e275"));
+	// Вычисляем имитовставку HMAC-SHA1 (сверено с OpenSSL)
+	ASSERT_TRUE(digest::hmac(digest::hash_t::SHA1, view_t(reinterpret_cast <const uint8_t *> (secret.data()), secret.size()), view_t(reinterpret_cast <const uint8_t *> (message.data()), message.size()), result, 20));
+	// Сличаем имитовставку HMAC-SHA1 с эталоном
+	ASSERT_EQ(text(result, 20), std::string("de7c9b85b8b78aa6bc8a7a36f70a90701c9db4d9"));
+	// Вычисляем имитовставку HMAC-RIPEMD160 (сверено с OpenSSL)
+	ASSERT_TRUE(digest::hmac(digest::hash_t::RIPEMD160, view_t(reinterpret_cast <const uint8_t *> (secret.data()), secret.size()), view_t(reinterpret_cast <const uint8_t *> (message.data()), message.size()), result, 20));
+	// Сличаем имитовставку HMAC-RIPEMD160 с эталоном
+	ASSERT_EQ(text(result, 20), std::string("50278a77d4d7670561ab72e867383aef6ce50b3e"));
+}

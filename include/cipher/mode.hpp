@@ -45,6 +45,7 @@
 #include <cipher/kuznyechik.hpp>
 #include <cipher/aes.hpp>
 #include <cipher/sm4.hpp>
+#include <cipher/des.hpp>
 
 /**
  * \~russian
@@ -202,6 +203,19 @@ namespace nts {
 			 * \~
 			 */
 			Block(const sm4_t & cipher) noexcept;
+			/**
+			 * \~russian
+			 * @brief Конструктор
+			 *
+			 * @param cipher объект блочного шифра DES и 3DES
+			 *
+			 * \~english
+			 * @brief Constructor
+			 * @param cipher the object of the DES and 3DES block cipher
+			 *
+			 * \~
+			 */
+			Block(const des_t & cipher) noexcept;
 		} block_t;
 
 		/**
