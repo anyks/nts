@@ -432,18 +432,63 @@ endif (CMAKE_CIPHER_CARRYLESS)
 
 # Подключаем проверку пригодности ключей собирателя
 include(CheckCXXCompilerFlag)
+# Подключаем проверку работоспособности исходного текста под ключом собирателя
+include(CheckCXXSourceRuns)
+
+# Текст проверки перехвата исключений: исключение, брошенное из подменённого оператора
+# выделения, обязано ловиться catch внутри функции noexcept, а не вести к terminate
+set(BRANCH_PROTECTION_PROBE [=[
+    #include <new>
+    #include <cstdlib>
+    #include <vector>
+    static bool armed = true;
+    void * operator new(const std::size_t size){
+        if(armed)
+            throw std::bad_alloc();
+        return ::malloc(size);
+    }
+    void * operator new[](const std::size_t size){ return operator new(size); }
+    void operator delete(void * data) noexcept { ::free(data); }
+    void operator delete[](void * data) noexcept { ::free(data); }
+    // Функция с перехватом исключения внутри noexcept: terminate при срыве перехвата
+    int start() noexcept {
+        try {
+            std::vector <unsigned char> place;
+            place.assign(32, 0);
+        } catch(const std::bad_alloc &) {
+            return 0;
+        }
+        return 1;
+    }
+    int main(){ return start(); }
+]=])
 
 # Если сборка ведётся под ARM64
 if (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64|ARM64")
-    # Выполняем проверку пригодности ключа контроля потока управления
-    check_cxx_compiler_flag("-mbranch-protection=standard" BRANCH_PROTECTION_FLAG)
-    # Если ключ контроля потока управления собирателем принят
-    if (BRANCH_PROTECTION_FLAG)
+    # Выполняем проверку того, что под ключом standard перехват исключений работает
+    set(CMAKE_REQUIRED_FLAGS "-mbranch-protection=standard")
+    check_cxx_source_runs("${BRANCH_PROTECTION_PROBE}" BRANCH_PROTECTION_STANDARD)
+    unset(CMAKE_REQUIRED_FLAGS)
+    # Если ключ standard принят и перехват исключений под ним работает
+    if (BRANCH_PROTECTION_STANDARD)
         # Добавляем ключ контроля потока управления
         add_compile_options(-mbranch-protection=standard)
         # Выводим сообщение о метках контроля потока управления
         message(STATUS "Control-flow protection: BTI, GCS\n")
-    endif (BRANCH_PROTECTION_FLAG)
+    # Если ключ standard ломает перехват исключений (pac-ret у clang на Darwin)
+    else()
+        # Выполняем проверку того, что под ключом bti перехват исключений работает
+        set(CMAKE_REQUIRED_FLAGS "-mbranch-protection=bti")
+        check_cxx_source_runs("${BRANCH_PROTECTION_PROBE}" BRANCH_PROTECTION_BTI)
+        unset(CMAKE_REQUIRED_FLAGS)
+        # Если ключ bti принят и перехват исключений под ним работает
+        if (BRANCH_PROTECTION_BTI)
+            # Добавляем ключ контроля потока управления без подписи адреса возврата
+            add_compile_options(-mbranch-protection=bti)
+            # Выводим сообщение о метке контроля потока управления
+            message(STATUS "Control-flow protection: BTI\n")
+        endif (BRANCH_PROTECTION_BTI)
+    endif (BRANCH_PROTECTION_STANDARD)
 # Если сборка ведётся под x86-64
 elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64|AMD64")
     # Выполняем проверку пригодности ключа контроля потока управления

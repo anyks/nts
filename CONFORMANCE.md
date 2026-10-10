@@ -9105,6 +9105,19 @@ mpint делает SSH), rsa-sha2-256/512 (PKCS #1 v1.5); шифры chacha20-po
     спецификации, подача кусками, отказы), HmacTest.Legacy (HMAC-MD5/SHA1/RIPEMD160 сверены с OpenSSL побайтно).
     ssh-rsa на SHA-1 уже покрыт существующим пином (RSA PKCS #1 v1.5 + SHA-1, tests/sign/rsa.cpp) - работы не
     потребовалось. ctest 114/114 зелёные.
+
+    **Круг 119 (11.10.2026)**: починка устойчивости к нехватке памяти (Starved). После круга 116 (Г8) 32 теста
+    *Test.Starved пали с std::bad_alloc через noexcept-границу (terminate, failed_throw): механизм starve.hpp
+    подменяет глобальный operator new, бросая bad_alloc при исчерпании бюджета, а catch(bad_alloc) в
+    Engine::start() noexcept (engine.cpp:10761) его не ловил. Разбор зондами выявил корень: ключ
+    -mbranch-protection=standard, добавленный кругом 116, на Apple clang 21 (arm64) ломает перехват исключений
+    C++ вовсе - даже обычный bad_alloc из vector::assign не ловится, terminate. Изолируя составные ключа:
+    bti работает, pac-ret ломает (подпись адреса возврата конфликтует с раскруткой исключений у этого
+    собирателя). Правка в CMakeLists.txt: проверка пригодности ключа (check_cxx_compiler_flag) заменена
+    проверкой работоспособности перехвата исключений (check_cxx_source_runs с зондом «operator new бросает,
+    catch в noexcept ловит»); если standard её не проходит - откат на -mbranch-protection=bti (метки BTI
+    сохраняются, ломающей pac-ret нет). На Darwin standard отклонён проверкой, выбран bti; на Linux AArch64
+    standard пройдёт проверку и останется. ctest 114/114 зелёные.
 Обвязка SSH - mpint, name-list, KDF §7.2 HASH(K ‖ H ‖ X ‖ session_id), сертификаты OpenSSH, kex-strict, ext-info, агент -
 живёт в AWH, не в A-NTS.
 
