@@ -763,6 +763,10 @@ if (${CMAKE_BUILD_SAMPLES})
         message(STATUS "Build sample DIGEST: Yes")
         # Выполняем создание приложения работы с хешем «Стрибог»
         add_sample(${DIGEST_APP_NAME} sample/digest/streebog.cpp digest)
+        # Выполняем создание приложения работы с имитовставкой UMAC
+        add_sample(digest-umac sample/digest/umac.cpp digest)
+        # Выполняем создание приложения работы с хешем RIPEMD-160
+        add_sample(digest-ripemd sample/digest/ripemd.cpp digest)
     # Если образец работы с хешем «Стрибог» собирать не нужно
     else()
         # Выводим сообщение о сборке образца
@@ -775,6 +779,8 @@ if (${CMAKE_BUILD_SAMPLES})
         message(STATUS "Build sample CIPHER: Yes")
         # Выполняем создание приложения работы с блочным шифром «Кузнечик»
         add_sample(${CIPHER_APP_NAME} sample/cipher/kuznyechik.cpp cipher)
+        # Выполняем создание приложения работы с блочным шифром 3DES
+        add_sample(cipher-des sample/cipher/des.cpp cipher)
     # Если образец работы с блочным шифром собирать не нужно
     else()
         # Выводим сообщение о сборке образца
