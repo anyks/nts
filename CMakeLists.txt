@@ -416,6 +416,45 @@ if (CMAKE_CIPHER_CARRYLESS)
 endif (CMAKE_CIPHER_CARRYLESS)
 
 ##
+ # Оснащаем сборку метками контроля потока управления
+ #
+ # @note Весь ассемблер библиотеки встроен в функции C++ и не несёт ни переходов, ни
+ #       косвенных вызовов, потому метки внутри него не нужны: собиратель сам ставит
+ #       endbr64 (x86-64) и bti (AArch64) в начало объемлющей функции и проставляет
+ #       свойство объектного файла (.note.gnu.property: IBT/SHSTK на x86-64, BTI/GCS на
+ #       AArch64). Ключи добавляют эти метки всем функциям разом. Усиленные системы без
+ #       меток код отвергают. Включать их дозволено лишь тогда, когда собиратель их
+ #       принимает: пригодность проверяется ниже
+ ##
+
+# Подключаем проверку пригодности ключей собирателя
+include(CheckCXXCompilerFlag)
+
+# Если сборка ведётся под ARM64
+if (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64|ARM64")
+    # Выполняем проверку пригодности ключа контроля потока управления
+    check_cxx_compiler_flag("-mbranch-protection=standard" BRANCH_PROTECTION_FLAG)
+    # Если ключ контроля потока управления собирателем принят
+    if (BRANCH_PROTECTION_FLAG)
+        # Добавляем ключ контроля потока управления
+        add_compile_options(-mbranch-protection=standard)
+        # Выводим сообщение о метках контроля потока управления
+        message(STATUS "Control-flow protection: BTI, GCS\n")
+    endif (BRANCH_PROTECTION_FLAG)
+# Если сборка ведётся под x86-64
+elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64|AMD64")
+    # Выполняем проверку пригодности ключа контроля потока управления
+    check_cxx_compiler_flag("-fcf-protection=full" BRANCH_PROTECTION_FLAG)
+    # Если ключ контроля потока управления собирателем принят
+    if (BRANCH_PROTECTION_FLAG)
+        # Добавляем ключ контроля потока управления
+        add_compile_options(-fcf-protection=full)
+        # Выводим сообщение о метках контроля потока управления
+        message(STATUS "Control-flow protection: IBT, SHSTK\n")
+    endif (BRANCH_PROTECTION_FLAG)
+endif (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64|ARM64")
+
+##
  # Указываем что блочный шифр собирается малыми таблицами
  #
  # @note Развёрнутые таблицы преобразования занимают 128 КБ памяти на весь ход работы и
