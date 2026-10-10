@@ -1092,8 +1092,14 @@ TEST(DtlsTest, Loopback){
 				ASSERT_EQ(server.suite(), SUITES[s]);
 				// Проверяем подлинность клиента у сервера
 				ASSERT_EQ(server.peer().size(), credential.chain.size());
+				// Секреты рукопожатия сторон сходятся: переписка и расписание ключей у сторон одни и те же
+				ASSERT_EQ(traffic(client, context::level_t::HANDSHAKE, context::direction_t::WRITE), traffic(server, context::level_t::HANDSHAKE, context::direction_t::READ));
+				// Секреты рукопожатия сторон сходятся в обратную сторону
+				ASSERT_EQ(traffic(server, context::level_t::HANDSHAKE, context::direction_t::WRITE), traffic(client, context::level_t::HANDSHAKE, context::direction_t::READ));
 				// Секреты прикладного уровня сторон сходятся
 				ASSERT_EQ(traffic(client, context::level_t::APPLICATION, context::direction_t::WRITE), traffic(server, context::level_t::APPLICATION, context::direction_t::READ));
+				// Секреты прикладного уровня сторон сходятся в обратную сторону
+				ASSERT_EQ(traffic(server, context::level_t::APPLICATION, context::direction_t::WRITE), traffic(client, context::level_t::APPLICATION, context::direction_t::READ));
 				// Обмениваемся данными в обе стороны
 				ASSERT_TRUE(barter(client, server, bond)) << ENTRIES[k] << " " << s << " " << g;
 				// Прикладные данные идут третьей порой: младшие разряды поры в заголовке
