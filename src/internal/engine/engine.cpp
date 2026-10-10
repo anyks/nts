@@ -201,6 +201,8 @@
  */
 #include <new>
 #include <cstring>
+#include <cstdio>
+#include <cstdlib>
 
 /**
  * Подключаем заголовочные файлы проекта
@@ -2660,6 +2662,16 @@ context::error_t nts::internal::Engine::derive(const extension::group_t group, c
 		if(ok)
 			// Выполняем вывод ступени рукопожатия расписания ключей
 			ok = (this->_secrets.handshake(view_t(shared, length), view_t(transcript, this->_transcript.size())) == session::error_t::NONE);
+		// ОТЛАДКА G201: хеш переписки и общее значение обмена
+		if(::getenv("ANTS_DEBUG_TRANSCRIPT") != nullptr){
+			::fprintf(stderr, "TRANSCRIPT(%zu): ", this->_transcript.size());
+			for(size_t i = 0; i < this->_transcript.size(); i++)
+				::fprintf(stderr, "%02x", transcript[i]);
+			::fprintf(stderr, "\nSHARED(%zu): ", length);
+			for(size_t i = 0; i < length; i++)
+				::fprintf(stderr, "%02x", shared[i]);
+			::fprintf(stderr, "\n");
+		}
 		// Выполняем затирание общего значения обмена мимолётными ключами
 		this->purge(shared, sizeof(shared));
 		// Если ступень рукопожатия расписания ключей вывести не удалось
@@ -6010,6 +6022,9 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 			// Отмечаем подтверждённость адреса переносу: запись приветствия ложится в окно
 			this->_flight.verified(true);
 		}
+		// ОТЛАДКА G201: приветствие принято, метка сошлась
+		if(::getenv("ANTS_DEBUG_FLOW") != nullptr)
+			::fprintf(stderr, "FLOW: cookie ok, retried=%d, идём к выбору издания\n", (this->_retried ? 1 : 0));
 		// Разыскиваем расширение перечня изданий протокола
 		const hello::extension_t * extension = hello::extension(greeting.extensions, static_cast <uint16_t> (extension::type_t::VERSIONS));
 		/**
@@ -6892,12 +6907,16 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 			// Выводим отказ выработки случайного значения приветствия
 			return this->abort(context::error_t::SETTINGS, alert::description_t::INTERNAL);
 		// Выполняем отправку приветствия сервера
+		if(::getenv("ANTS_DEBUG_FLOW") != nullptr)
+			::fprintf(stderr, "FLOW: зовём answer(SH), retried=%d\n", (this->_retried ? 1 : 0));
 		error = this->answer(greeting.session, false);
 		// Если приветствие сервера отправить не удалось
 		if(error != context::error_t::NONE)
 			// Выводим отказ отправки приветствия сервера
 			return this->abort(error, alert::description_t::INTERNAL);
 		// Выполняем вывод ключей рукопожатия связи
+		if(::getenv("ANTS_DEBUG_FLOW") != nullptr)
+			::fprintf(stderr, "FLOW: answer(SH) ушло, зовём derive\n");
 		error = this->derive(group, view_t(key.data(), key.size()));
 		// Если ключи рукопожатия связи вывести не удалось
 		if(error != context::error_t::NONE)
