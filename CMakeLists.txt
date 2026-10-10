@@ -767,6 +767,12 @@ if (${CMAKE_BUILD_SAMPLES})
         add_sample(digest-umac sample/digest/umac.cpp digest)
         # Выполняем создание приложения работы с хешем RIPEMD-160
         add_sample(digest-ripemd sample/digest/ripemd.cpp digest)
+        # Выполняем создание приложения работы с хешем SM3
+        add_sample(digest-sm3 sample/digest/sm3.cpp digest)
+        # Выполняем создание приложения работы с функцией cSHAKE и KMAC
+        add_sample(digest-cshake sample/digest/cshake.cpp digest)
+        # Выполняем создание приложения работы с порождающими функциями SNMPv3 и IKEv2
+        add_sample(digest-kdfproto sample/digest/kdfproto.cpp digest)
     # Если образец работы с хешем «Стрибог» собирать не нужно
     else()
         # Выводим сообщение о сборке образца
@@ -781,6 +787,8 @@ if (${CMAKE_BUILD_SAMPLES})
         add_sample(${CIPHER_APP_NAME} sample/cipher/kuznyechik.cpp cipher)
         # Выполняем создание приложения работы с блочным шифром 3DES
         add_sample(cipher-des sample/cipher/des.cpp cipher)
+        # Выполняем создание приложения работы с блочным шифром SM4
+        add_sample(cipher-sm4 sample/cipher/sm4.cpp cipher)
     # Если образец работы с блочным шифром собирать не нужно
     else()
         # Выводим сообщение о сборке образца
@@ -795,6 +803,12 @@ if (${CMAKE_BUILD_SAMPLES})
         add_sample(${SIGN_APP_NAME} sample/sign/gost.cpp sign)
         # Выполняем создание приложения работы с электронной подписью Ed448
         add_sample(sign-ed448 sample/sign/ed448.cpp sign)
+        # Выполняем создание приложения работы с электронной подписью ML-DSA
+        add_sample(sign-mldsa sample/sign/mldsa.cpp sign)
+        # Выполняем создание приложения работы с электронной подписью SLH-DSA
+        add_sample(sign-slhdsa sample/sign/slhdsa.cpp sign)
+        # Выполняем создание приложения работы с электронной подписью SM2
+        add_sample(sign-sm2 sample/sign/sm2.cpp sign)
     # Если образец работы с электронной подписью собирать не нужно
     else()
         # Выводим сообщение о сборке образца
@@ -936,6 +950,14 @@ if (${CMAKE_BUILD_SAMPLES})
         message(STATUS "Build sample ECDHE: Yes")
         # Выполняем создание приложения работы с обменом мимолётными ключами
         add_sample(${ECDHE_APP_NAME} sample/agreement/ecdhe.cpp agreement)
+        # Выполняем создание приложения работы с механизмом sntrup761 и гибридом
+        add_sample(agreement-sntrup761 sample/agreement/sntrup761.cpp agreement)
+        # Выполняем создание приложения работы с обменом FFDHE
+        add_sample(agreement-ffdhe sample/agreement/ffdhe.cpp agreement)
+        # Выполняем создание приложения работы с гибридом curveSM2MLKEM768
+        add_sample(agreement-sm2mlkem sample/agreement/sm2mlkem.cpp agreement)
+        # Выполняем создание приложения работы с группой modp18
+        add_sample(agreement-modp18 sample/agreement/modp18.cpp agreement)
     # Если образец работы с обменом мимолётными ключами собирать не нужно
     else()
         # Выводим сообщение о сборке образца
@@ -1038,6 +1060,16 @@ if (${CMAKE_BUILD_SAMPLES})
     SET(OCSP_APP_NAME ocsp-stapling)
     # Указываем что нужно собрать приложение состояния сертификата
     option(CMAKE_BUILD_OCSP_APP_SAMPLE "Build OCSP stapling app sample" ON)
+
+    # Устанавливаем имя приложения разбора сертификата X.509
+    SET(X509_APP_NAME x509-certificate)
+    # Указываем что нужно собрать приложения работы с сертификатами X.509
+    option(CMAKE_BUILD_X509_APP_SAMPLE "Build X.509 certificates app sample" ON)
+
+    # Устанавливаем имя приложения синтаксиса криптографических сообщений CMS
+    SET(CMS_APP_NAME cms-message)
+    # Указываем что нужно собрать приложения работы с протокольными модулями CMS, CMP, ACME и SRTP
+    option(CMAKE_BUILD_PKIX_APP_SAMPLE "Build CMS, CMP, ACME and SRTP protocol app samples" ON)
 
     # Устанавливаем имя приложения отпечатков приветствия
     SET(FINGERPRINT_APP_NAME fingerprint-profile)
@@ -1186,11 +1218,51 @@ if (${CMAKE_BUILD_SAMPLES})
         add_corpus_sample(ocsp-chain sample/ocsp/chain.cpp ocsp)
         # Выполняем создание приложения работы с электронной подписью RSASSA-PSS
         add_corpus_sample(sign-rsa-pss-pss sample/sign/rsa_pss_pss.cpp sign)
+        # Выполняем создание приложения проверки подписи LMS/HSS
+        add_corpus_sample(sign-lms sample/sign/lms.cpp sign)
     # Если образец состояния сертификата собирать не нужно
     else()
         # Выводим сообщение о сборке образца
         message(STATUS "Build sample OCSP: No")
     endif (${CMAKE_BUILD_OCSP_APP_SAMPLE})
+
+    # Если нужно собрать образцы работы с сертификатами X.509
+    if (${CMAKE_BUILD_X509_APP_SAMPLE})
+        # Выводим сообщение о сборке образцов
+        message(STATUS "Build sample X509: Yes")
+        # Выполняем создание приложения разбора сертификата X.509
+        add_corpus_sample(${X509_APP_NAME} sample/x509/certificate.cpp x509)
+        # Выполняем создание приложения работы с запросом на сертификат PKCS #10
+        add_corpus_sample(x509-request sample/x509/request.cpp x509)
+        # Выполняем создание приложения выпуска сертификатов X.509
+        add_corpus_sample(x509-issue sample/x509/issue.cpp x509)
+        # Выполняем создание приложения разбора списка отзыва сертификатов
+        add_corpus_sample(x509-crl sample/x509/crl.cpp x509)
+        # Выполняем создание приложения разбора контейнера PKCS #12
+        add_corpus_sample(x509-pkcs12 sample/x509/pkcs12.cpp x509)
+    # Если образцы работы с сертификатами X.509 собирать не нужно
+    else()
+        # Выводим сообщение о сборке образцов
+        message(STATUS "Build sample X509: No")
+    endif (${CMAKE_BUILD_X509_APP_SAMPLE})
+
+    # Если нужно собрать образцы работы с протокольными модулями CMS, CMP, ACME и SRTP
+    if (${CMAKE_BUILD_PKIX_APP_SAMPLE})
+        # Выводим сообщение о сборке образцов
+        message(STATUS "Build sample PKIX: Yes")
+        # Выполняем создание приложения синтаксиса криптографических сообщений CMS
+        add_corpus_sample(${CMS_APP_NAME} sample/cms/cms.cpp cms)
+        # Выполняем создание приложения протокола управления сертификатами CMP
+        add_corpus_sample(cmp-message sample/cmp/cmp.cpp cmp)
+        # Выполняем создание приложения протокола ACME
+        add_corpus_sample(acme-request sample/acme/acme.cpp acme)
+        # Выполняем создание приложения защиты транспорта реального времени SRTP
+        add_sample(srtp-protect sample/srtp/srtp.cpp srtp)
+    # Если образцы работы с протокольными модулями собирать не нужно
+    else()
+        # Выводим сообщение о сборке образцов
+        message(STATUS "Build sample PKIX: No")
+    endif (${CMAKE_BUILD_PKIX_APP_SAMPLE})
 
     # Если нужно собрать образец отпечатков приветствия
     if (${CMAKE_BUILD_FINGERPRINT_APP_SAMPLE})
@@ -1256,6 +1328,8 @@ if (${CMAKE_BUILD_SAMPLES})
         message(STATUS "Build sample KEYS: Yes")
         # Выполняем создание приложения кодеков ключей
         add_sample(${KEYS_APP_NAME} sample/keys/keys.cpp keys)
+        # Выполняем создание приложения формата ключей openssh-key-v1 и known_hosts
+        add_sample(keys-openssh sample/keys/openssh.cpp keys)
     # Если образец кодеков ключей собирать не нужно
     else()
         # Выводим сообщение о сборке образца
