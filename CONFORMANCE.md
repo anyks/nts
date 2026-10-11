@@ -9154,6 +9154,21 @@ mpint делает SSH), rsa-sha2-256/512 (PKCS #1 v1.5); шифры chacha20-po
     X509Test.ConstraintsBranches/AlternativesBranches/TextBranches/PurposeBranches, RequestTest.Refusal/
     Sm2Mldsa, IssueTest.Refusal/Mldsa, CrlTest.Refusal. Итог по строкам gcov: cmp 86.6%, cms 87.8%, jws 94.6%,
     x509 97.5%, ocsp 91.3%; общее покрытие src/ 96.0% (126997 из 132292 строк, 103 файла). ctest 116/116 зелёные.
+    **Круг 122 (11.10.2026)**: добивка остатка покрытия модулей второго эшелона. После круга 121 просевшими
+    остались keys 91.1%, srtp 92.0%, acme 93.1%, fingerprint 94.2%. Разбор непокрытых строк: keys - ветки
+    отказов разбора (decodePrivateKeyInfo 71, decodePkcs12 82, pkcs12bag 56, derive 53, pbes2/pkcs12kdf,
+    gostSecret/ecSecret/mldsaSecret) и OID-ветка Ed448 в algorithmIdentifier; srtp - ветки KEY (неверный
+    размер ключа), счётчик гаммы, разбор заголовка RTP с расширением; acme - разбор JSON-строк с
+    escape-последовательностями; fingerprint - ветки отказов разборщика приветствия (valuing, rendered,
+    identities/binders). Новые пины: KeysTest.Pkcs12Bags/PrivateKeyInfoRefusal/Derive/Pbes2Refusal/GostForms/
+    EcSecretRefusal/MldsaRefusal/Ed448/PrivateKeyInfoV1, SrtpTest.Coverage, AcmeTest.Escapes,
+    FingerprintTest.Extensions. При прогоне вскрыт изъян пина FingerprintTest.Extensions: тело pre_shared_key
+    (0x0029) собрано с длиной перечня привязок 34 вместо 33 (привязка читается с однобайтовой длиной:
+    1 байт + 32 байта = 33) - extension::identities отвечал EXTENSION; длина исправлена. Итог по строкам
+    gcov: keys 91.9%, srtp 92.8%, acme 94.3%, fingerprint 95.1%; общее покрытие src/ 96.13% (127562 из
+    132695 строк). ctest 116/116 зелёные. Остаток keys (447 строк) - глубокие ветки отказов разбора мешков
+    PKCS #12 (pkcs12bag 79, decodePkcs12 69) и derive (49), требующие специальных мешков/ключей; trust (85)
+    не добит.
 Обвязка SSH - mpint, name-list, KDF §7.2 HASH(K ‖ H ‖ X ‖ session_id), сертификаты OpenSSH, kex-strict, ext-info, агент -
 живёт в AWH, не в A-NTS.
 

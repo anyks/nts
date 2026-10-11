@@ -474,3 +474,73 @@ TEST(AcmeTest, Request) {
 		ASSERT_EQ(acme::request("https://example.com/", "nonce", "kid", key, view_t(), unprepared, other), acme::error_t::EMPTY);
 	}
 }
+
+/**
+ * @brief Проверка разбора строк JSON с экранировками
+ *
+ * @note Строки несут все экранировки раздела 7 RFC 8259: кавычку, черты,
+ *       управляющие знаки и коды Unicode одно-, двух- и трёхбайтовые; отказы -
+ *       оборванная экранировка, чужая экранировка, чужой разряд кода
+ *
+ */
+TEST(AcmeTest, Escapes) {
+	// Ответ ресурса заказа со всеми экранировками в строках
+	static const char * ANSWER =
+		"{"
+		"\"status\": \"pend\\\"ing\","
+		"\"expires\": \"2016-01-20T14:09:07Z\","
+		"\"identifiers\": ["
+		"{\"type\": \"dns\", \"value\": \"www.example.org\"}"
+		"],"
+		"\"authorizations\": [\"https:\\/\\/example.com\\/acme\\/authz\\\\1\"],"
+		"\"finalize\": \"https://example.com/acme/order/1/finalize\""
+		"}";
+	// Разбираем ответ
+	acme::order_t order;
+	// Разбор обязан удаться
+	ASSERT_EQ(order.parse(view(std::string(ANSWER))), acme::error_t::NONE);
+	// Сверяем состояние с экранированной кавычкой
+	ASSERT_EQ(order.status, "pend\"ing");
+	// Сверяем адрес записи полномочий с экранированными чертами и обратной чертой
+	ASSERT_EQ(order.authorizations.size(), 1);
+	ASSERT_EQ(order.authorizations[0], "https://example.com/acme/authz\\1");
+	// Ответ с управляющими знаками и кодами Unicode в строке состояния
+	static const char * CONTROLS =
+		"{"
+		"\"status\": \"a\\b\\f\\n\\r\\tA\\u0041\\u00DF\\u6C34\","
+		"\"identifiers\": [{\"type\": \"dns\", \"value\": \"a\"}],"
+		"\"authorizations\": [],"
+		"\"finalize\": \"https://f/\""
+		"}";
+	// Разбор обязан удаться
+	ASSERT_EQ(order.parse(view(std::string(CONTROLS))), acme::error_t::NONE);
+	// Сверяем состояние: управляющие знаки и коды A (U+0041), ß (U+00DF), U+6C34
+	ASSERT_EQ(order.status, std::string("a\b\f\n\r\t" "A" "A" "\xC3\x9F" "\xE6\xB0\xB4"));
+	// Отказы разбора
+	{
+		// Оборванная экранировка в конце строки
+		ASSERT_EQ(order.parse(view(std::string("{\"status\":\"pending\\\",\"identifiers\":[{\"type\":\"dns\",\"value\":\"a\"}],\"authorizations\":[],\"finalize\":\"https://f/\"}"))), acme::error_t::STRUCTURE);
+		// Чужая экранировка
+		ASSERT_EQ(order.parse(view(std::string("{\"status\":\"pend\\xing\",\"identifiers\":[{\"type\":\"dns\",\"value\":\"a\"}],\"authorizations\":[],\"finalize\":\"https://f/\"}"))), acme::error_t::STRUCTURE);
+		// Чужой разряд кода Unicode
+		ASSERT_EQ(order.parse(view(std::string("{\"status\":\"pend\\u00zz\",\"identifiers\":[{\"type\":\"dns\",\"value\":\"a\"}],\"authorizations\":[],\"finalize\":\"https://f/\"}"))), acme::error_t::STRUCTURE);
+		// Оборванная запись кода Unicode
+		ASSERT_EQ(order.parse(view(std::string("{\"status\":\"pend\\u00\",\"identifiers\":[{\"type\":\"dns\",\"value\":\"a\"}],\"authorizations\":[],\"finalize\":\"https://f/\"}"))), acme::error_t::STRUCTURE);
+		// Строка без закрывающей кавычки
+		ASSERT_EQ(order.parse(view(std::string("{\"status\":\"pending,\"identifiers\":[]}"))), acme::error_t::STRUCTURE);
+		// Экранировка в самом конце записи
+		ASSERT_EQ(order.parse(view(std::string("{\"status\":\"pending\\"))), acme::error_t::STRUCTURE);
+	}
+	// Код Unicode заглавными разрядами
+	static const char * CAPITAL =
+		"{"
+		"\"status\": \"\\u0041\\u00DF\\u00e9\","
+		"\"identifiers\": [{\"type\": \"dns\", \"value\": \"a\"}],"
+		"\"authorizations\": [],"
+		"\"finalize\": \"https://f/\""
+		"}";
+	// Разбор обязан удаться
+	ASSERT_EQ(order.parse(view(std::string(CAPITAL))), acme::error_t::NONE);
+	// Сверяем состояние: коды A, ß и é
+	ASSERT_EQ(order.status, std::string("A\xC3\x9F\xC3\xA9"));
+}

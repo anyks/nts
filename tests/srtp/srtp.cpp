@@ -642,3 +642,129 @@ TEST(SrtpTest, Lengths) {
 	// Неизвестный профиль обязан отказать
 	ASSERT_EQ(srtp::lengths(static_cast <srtp::profile_t> (0x0003), key, salt), srtp::error_t::ALGORITHM);
 }
+
+/**
+ * @brief Проверка веток покрытия: неизвестный профиль у вывода и раскладки,
+ *        перенос счётчика гаммы на длинном пакете, заголовок RTP с расширением,
+ *        оценка счётчика переполнений у пакета предыдущего круга
+ *
+ */
+TEST(SrtpTest, Coverage) {
+	// Сессионные ключи
+	srtp::keys_t keys;
+	// Мастер-ключ и мастер-соль
+	const std::vector <uint8_t> masterKey(16, 0x11), masterSalt(14, 0x22);
+	// Вывод неизвестным профилем обязан отказать алгоритмом
+	ASSERT_EQ(srtp::keys(static_cast <srtp::profile_t> (0x0003), view(masterKey), view(masterSalt), keys), srtp::error_t::ALGORITHM);
+	// Ключевой материал раскладки
+	const std::vector <uint8_t> material(60, 0);
+	// Мастер-ключи сторон
+	srtp::keys_t client, server;
+	// Раскладка неизвестным профилем обязана отказать алгоритмом
+	ASSERT_EQ(srtp::pair(static_cast <srtp::profile_t> (0x0003), view(material), client, server), srtp::error_t::ALGORITHM);
+	// Вывод годным профилем обязан удаться
+	ASSERT_EQ(srtp::keys(srtp::profile_t::AES128_CM_SHA1_80, view(masterKey), view(masterSalt), keys), srtp::error_t::NONE);
+	// Полусессии сторон
+	srtp::session_t sender, receiver;
+	// Установка ключей обязана удаться
+	ASSERT_TRUE(sender.start(srtp::profile_t::AES128_CM_SHA1_80, keys));
+	ASSERT_TRUE(receiver.start(srtp::profile_t::AES128_CM_SHA1_80, keys));
+	{
+		// Длинный пакет RTP: полезная нагрузка в 4200 байтов накрывает 263 блока гаммы, младший байт счётчика переполняется
+		std::vector <uint8_t> packet(12 + 4200, 0);
+		// Первый байт заголовка: версия 2
+		packet[0] = 0x80;
+		// Защищённый пакет
+		std::vector <uint8_t> protectedPacket;
+		// Защита обязана удаться
+		ASSERT_EQ(sender.protect(view(packet), protectedPacket), srtp::error_t::NONE);
+		// Открытый пакет
+		std::vector <uint8_t> plain;
+		// Снятие защиты обязано удаться
+		ASSERT_EQ(receiver.unprotect(view(protectedPacket), plain), srtp::error_t::NONE);
+		// Открытый пакет обязан совпасть с исходным
+		ASSERT_EQ(plain, packet);
+	}
+	{
+		// Пакет RTP с расширением заголовка: версия 2 и признак расширения
+		std::vector <uint8_t> packet;
+		// Первый байт заголовка: версия 2, признак расширения
+		packet.push_back(0x90);
+		// Остальной заголовок
+		packet.insert(packet.end(), {0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01});
+		// Профиль расширения и его длина в словах: одно слово
+		packet.insert(packet.end(), {0xBE, 0xDE, 0x00, 0x01});
+		// Слово расширения
+		packet.insert(packet.end(), {0x00, 0x00, 0x00, 0x00});
+		// Полезная нагрузка
+		packet.insert(packet.end(), 32, 0x5A);
+		// Защищённый пакет
+		std::vector <uint8_t> protectedPacket;
+		// Защита обязана удаться
+		ASSERT_EQ(sender.protect(view(packet), protectedPacket), srtp::error_t::NONE);
+		// Заголовок с расширением обязан остаться открытым: 12 + 4 + 4 байтов
+		ASSERT_EQ(::memcmp(protectedPacket.data(), packet.data(), 20), 0);
+		// Открытый пакет
+		std::vector <uint8_t> plain;
+		// Снятие защиты обязано удаться
+		ASSERT_EQ(receiver.unprotect(view(protectedPacket), plain), srtp::error_t::NONE);
+		// Открытый пакет обязан совпасть с исходным
+		ASSERT_EQ(plain, packet);
+		// Пакет с расширением, оборванным под длину заголовка: слов два, а записано одно
+		std::vector <uint8_t> shorty(packet.begin(), packet.begin() + 20);
+		// Длина расширения: два слова
+		shorty[15] = 0x02;
+		// Дописываем полезную нагрузку
+		shorty.insert(shorty.end(), 32, 0x5A);
+		// Защита обязана удаться: заголовок считается по записанной длине
+		ASSERT_EQ(sender.protect(view(shorty), protectedPacket), srtp::error_t::NONE);
+		// Пакет с расширением, у которого под расширение нет четырёх байтов
+		std::vector <uint8_t> ragged(packet.begin(), packet.begin() + 13);
+		// Защита обязана отказать устройством записи
+		ASSERT_EQ(sender.protect(view(ragged), protectedPacket), srtp::error_t::STRUCTURE);
+		// Пакет с расширением, чья длина не умещается в пакет: слов сто, а пакет короткий
+		std::vector <uint8_t> overlong(packet.begin(), packet.begin() + 20);
+		// Длина расширения: сто слов
+		overlong[14] = 0x00;
+		overlong[15] = 0x64;
+		// Дописываем полезную нагрузку
+		overlong.insert(overlong.end(), 32, 0x5A);
+		// Защита обязана отказать устройством записи: заголовок длиннее пакета
+		ASSERT_EQ(sender.protect(view(overlong), protectedPacket), srtp::error_t::STRUCTURE);
+		// Пакет с опознавателем CSRC, короче заголовка с опознавателями
+		std::vector <uint8_t> csrc(12, 0);
+		// Первый байт заголовка: версия 2, один опознаватель CSRC
+		csrc[0] = 0x81;
+		// Защита обязана отказать устройством записи: заголовок с опознавателем длиннее пакета
+		ASSERT_EQ(sender.protect(view(csrc), protectedPacket), srtp::error_t::STRUCTURE);
+	}
+	{
+		// Полусессии сторон для оценки счётчика переполнений
+		srtp::session_t ahead, behind;
+		// Установка ключей обязана удаться
+		ASSERT_TRUE(ahead.start(srtp::profile_t::AES128_CM_SHA1_80, keys));
+		ASSERT_TRUE(behind.start(srtp::profile_t::AES128_CM_SHA1_80, keys));
+		// Пакет RTP с малым номером
+		std::vector <uint8_t> packet(44, 0);
+		// Первый байт заголовка: версия 2
+		packet[0] = 0x80;
+		// Номер пакета: 10
+		packet[2] = 0x00;
+		packet[3] = 0x0A;
+		// Защищённый пакет
+		std::vector <uint8_t> protectedPacket;
+		// Защита обязана удаться
+		ASSERT_EQ(ahead.protect(view(packet), protectedPacket), srtp::error_t::NONE);
+		// Открытый пакет
+		std::vector <uint8_t> plain;
+		// Снятие защиты обязано удаться
+		ASSERT_EQ(behind.unprotect(view(protectedPacket), plain), srtp::error_t::NONE);
+		// Пакет с номером далеко впереди: разность с старшим номером превышает половину круга
+		packet[2] = 0x80;
+		packet[3] = 0x0B;
+		// Защита обязана удаться
+		ASSERT_EQ(ahead.protect(view(packet), protectedPacket), srtp::error_t::NONE);
+		// Снятие защиты обязано отказать имитовставкой: счётчик переполнений оценён как предыдущий круг
+		ASSERT_EQ(behind.unprotect(view(protectedPacket), plain), srtp::error_t::SIGNATURE);
+	}
+}

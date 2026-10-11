@@ -810,6 +810,119 @@ TEST(FingerprintTest, Refusals){
 }
 
 /**
+ * Проверка разбора тел расширений: порченые перечни протоколов и профилей SRTP,
+ * пустой запрос состояния, порченое имя узла, заранее разделённые ключи
+ */
+TEST(FingerprintTest, Extensions){
+	// Тело приветствия
+	vector <uint8_t> body;
+	// Составляем приветствие
+	ASSERT_TRUE(foxhello(body));
+	// Разбираем тело
+	hello::client_t greeting;
+	// Разбор обязан удаться
+	ASSERT_EQ(hello::parse(view_t(body.data(), body.size()), greeting), hello::error_t::NONE);
+	// Профиль приветствия
+	fingerprint::profile_t profile;
+	/**
+	 * @brief Метод проверки приветствия с подменённым телом расширения
+	 *
+	 * @param type вид расширения
+	 * @param data новое тело расширения
+	 *
+	 * @return     отказ разбора приветствия
+	 *
+	 */
+	const auto attempt = [&](const uint16_t type, const view_t & data) -> fingerprint::error_t {
+		// Приветствие с подменённым телом
+		hello::client_t changed = greeting;
+		/**
+		 * Выполняем перебор расширений
+		 */
+		for(size_t i = 0; i < changed.extensions.size(); i++){
+			// Если расширение искомого вида
+			if(changed.extensions[i].type == type)
+				// Подменяем тело
+				changed.extensions[i].data = data;
+		}
+		// Тело с подменённым расширением
+		vector <uint8_t> damaged;
+		// Составляем тело
+		EXPECT_EQ(hello::build(changed, damaged), hello::error_t::NONE);
+		// Запись с подменённым расширением
+		const vector <uint8_t> record = wrapped(damaged, false, 0x0303);
+		// Выводим итог разбора записи
+		return fingerprint::parse(view_t(record.data(), record.size()), profile);
+	};
+	// Порченое тело протоколов: короче длины перечня
+	static const uint8_t SHORT[] = {0x00};
+	// Порченые протоколы отвергаются
+	EXPECT_EQ(attempt(0x0010, view_t(SHORT, sizeof(SHORT))), fingerprint::error_t::EXTENSION);
+	// Порченое тело протоколов: длина перечня не сходится с телом
+	static const uint8_t RAGGED[] = {0x00, 0x05, 0x02, 'h', '2'};
+	// Порченые протоколы отвергаются
+	EXPECT_EQ(attempt(0x0010, view_t(RAGGED, sizeof(RAGGED))), fingerprint::error_t::EXTENSION);
+	// Порченое тело протоколов: строка не входит в перечень
+	static const uint8_t LONGER[] = {0x00, 0x04, 0x05, 'h', '2', 'x'};
+	// Порченые протоколы отвергаются
+	EXPECT_EQ(attempt(0x0010, view_t(LONGER, sizeof(LONGER))), fingerprint::error_t::EXTENSION);
+	// Порченое тело протоколов у настроек ALPS
+	EXPECT_EQ(attempt(0x4469, view_t(SHORT, sizeof(SHORT))), fingerprint::error_t::EXTENSION);
+	// Порченое тело имени узла: длина перечня не сходится
+	static const uint8_t BADNAME[] = {0x00, 0x10, 0x00};
+	// Порченое имя узла отвергается
+	EXPECT_EQ(attempt(0x0000, view_t(BADNAME, sizeof(BADNAME))), fingerprint::error_t::EXTENSION);
+	// Пустое тело запроса состояния сертификата
+	EXPECT_EQ(attempt(0x0005, view_t(nullptr, 0)), fingerprint::error_t::EXTENSION);
+	// Тело профилей SRTP: перечень с двухбайтовой длиной и MKI следом
+	static const uint8_t SRTP[] = {0x00, 0x04, 0x00, 0x01, 0x00, 0x02, 0xFF};
+	// Расширение SRTP разбирается: MKI допустим следом
+	greeting.extensions.push_back(hello::extension_t(0x000E, view_t(SRTP, sizeof(SRTP))));
+	// Тело с расширением SRTP
+	vector <uint8_t> withSrtp;
+	// Составляем тело
+	ASSERT_EQ(hello::build(greeting, withSrtp), hello::error_t::NONE);
+	// Запись с расширением SRTP
+	const vector <uint8_t> srtpRecord = wrapped(withSrtp, false, 0x0303);
+	// Разбор обязан удаться
+	ASSERT_EQ(fingerprint::parse(view_t(srtpRecord.data(), srtpRecord.size()), profile), fingerprint::error_t::NONE);
+	// Порченое тело профилей SRTP: короче длины перечня
+	EXPECT_EQ(attempt(0x000E, view_t(SHORT, sizeof(SHORT))), fingerprint::error_t::EXTENSION);
+	// Порченое тело профилей SRTP: длина перечня нечётна
+	static const uint8_t ODD[] = {0x00, 0x03, 0x00, 0x01, 0x00};
+	// Порченые профили SRTP отвергаются
+	EXPECT_EQ(attempt(0x000E, view_t(ODD, sizeof(ODD))), fingerprint::error_t::EXTENSION);
+	// Порченое тело профилей SRTP: перечень не входит в тело
+	static const uint8_t BEYOND[] = {0x00, 0x08, 0x00, 0x01};
+	// Порченые профили SRTP отвергаются
+	EXPECT_EQ(attempt(0x000E, view_t(BEYOND, sizeof(BEYOND))), fingerprint::error_t::EXTENSION);
+	// Тело заранее разделённых ключей: перечень опознавателей и перечень привязок
+	vector <uint8_t> secret;
+	// Длина перечня опознавателей: 7 байтов
+	secret.insert(secret.end(), {0x00, 0x07});
+	// Опознаватель ключа длиной в байт и скрытый возраст билета
+	secret.insert(secret.end(), {0x00, 0x01, 0x42, 0x00, 0x00, 0x00, 0x00});
+	// Длина перечня привязок: 33 байта
+	secret.insert(secret.end(), {0x00, 0x21});
+	// Привязка ключа длиной в 32 байта
+	secret.push_back(0x20);
+	// Байты привязки
+	secret.insert(secret.end(), 32, 0x5A);
+	// Расширение заранее разделённых ключей разбирается
+	greeting.extensions.push_back(hello::extension_t(0x0029, view_t(secret.data(), secret.size())));
+	// Тело с расширением заранее разделённых ключей
+	vector <uint8_t> withSecret;
+	// Составляем тело
+	ASSERT_EQ(hello::build(greeting, withSecret), hello::error_t::NONE);
+	// Запись с расширением заранее разделённых ключей
+	const vector <uint8_t> secretRecord = wrapped(withSecret, false, 0x0303);
+	// Разбор обязан удаться
+	ASSERT_EQ(fingerprint::parse(view_t(secretRecord.data(), secretRecord.size()), profile), fingerprint::error_t::NONE);
+	// Порченое тело заранее разделённых ключей: перечень опознавателей оборван
+	EXPECT_EQ(attempt(0x0029, view_t(SHORT, sizeof(SHORT))), fingerprint::error_t::EXTENSION);
+}
+
+/**
  * Проверка снимка профиля и хранилища
  */
 TEST(FingerprintTest, Snapshot){
