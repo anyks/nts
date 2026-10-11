@@ -39,6 +39,7 @@
  */
 #include <main.hpp>
 #include <posix.hpp>
+#include <starve.hpp>
 #include <pem/pem.hpp>
 #include <asn1/asn1.hpp>
 #include <keys/keys.hpp>
@@ -356,6 +357,73 @@ TEST(RequestTest, Roundtrip){
 	// Проверяем совпадение открытого ключа записанного запроса с эталонным байт в байт
 	ASSERT_EQ(request.key().key.size, reference.key().key.size);
 	ASSERT_EQ(::memcmp(request.key().key.data, reference.key().key.data, request.key().key.size), 0);
+}
+
+/**
+ * @brief Проверка устойчивости записи и разбора запроса к нехватке памяти
+ *
+ */
+TEST(RequestTest, Starved){
+	// Тело записи эталонного запроса
+	const std::vector <uint8_t> der = body(corpus("leaf-rsa.csr"));
+	// Проверяем наличие записи
+	ASSERT_FALSE(der.empty());
+	// Эталонный запрос
+	x509::request_t reference;
+	// Проверяем разбор эталонного запроса
+	ASSERT_EQ(reference.parse(view(der)), x509::error_t::NONE);
+	// Подготовленный секретный ключ владельца запроса
+	keys::signer_t signer;
+	// Проверяем подготовку ключа из записи набора
+	ASSERT_EQ(signer.prepare(view(bytes(corpus("leaf-rsa.key")))), keys::error_t::NONE);
+	// Запрошенное расширение: основные ограничения, необязательное
+	x509::extension_t extension;
+	// Устанавливаем опознаватель основных ограничений
+	extension.oid = "2.5.29.19";
+	// Содержимое расширения: пустой набор - владелец не издатель
+	const uint8_t constraints[] = {0x30, 0x00};
+	// Устанавливаем содержимое расширения
+	extension.value = view_t(constraints, sizeof(constraints));
+	// Набор запрашиваемых расширений: заводится заранее, чтобы его сборка не попала под подмену выделений
+	const std::vector <x509::extension_t> extensions(1, extension);
+	// Признак того, что нехватка памяти хоть раз объявлена отказом
+	bool starved = false;
+	/**
+	 * Выполняем перебор запасов выделений: на всяком запасе запись и разбор обязаны
+	 * ответить либо успехом, либо отказом памяти, но не прерыванием исполнения
+	 */
+	for(size_t budget = 0; budget < 256; budget++){
+		// Итог записи при отмеренном запасе
+		x509::error_t encoded_result = x509::error_t::NONE;
+		{
+			// Отмеряем запас выделений на время записи
+			starve::ration_t ration(budget);
+			// Записанный запрос
+			std::vector <uint8_t> encoded;
+			// Выполняем запись запроса при отмеренном запасе
+			encoded_result = x509::encode(reference.subjects(), reference.key(), extensions, signer, digest::hash_t::SHA256, encoded);
+		}
+		// Проверяем, что запись ответила успехом либо отказом памяти
+		ASSERT_TRUE((encoded_result == x509::error_t::NONE) || (encoded_result == x509::error_t::MEMORY)) << "запас " << budget << ", отказ записи " << static_cast <int> (encoded_result);
+		// Запоминаем объявленный отказ памяти
+		starved = (starved || (encoded_result == x509::error_t::MEMORY));
+		// Итог разбора эталонной записи при отмеренном запасе
+		x509::error_t parsed = x509::error_t::NONE;
+		{
+			// Отмеряем запас выделений на время разбора
+			starve::ration_t ration(budget);
+			// Разбираемый запрос
+			x509::request_t request;
+			// Выполняем разбор эталонной записи при отмеренном запасе
+			parsed = request.parse(view(der));
+		}
+		// Проверяем, что разбор ответил успехом либо отказом памяти
+		ASSERT_TRUE((parsed == x509::error_t::NONE) || (parsed == x509::error_t::MEMORY)) << "запас " << budget << ", отказ разбора " << static_cast <int> (parsed);
+		// Запоминаем объявленный отказ памяти
+		starved = (starved || (parsed == x509::error_t::MEMORY));
+	}
+	// Проверяем, что нехватка памяти объявлена отказом хоть раз
+	ASSERT_TRUE(starved);
 }
 
 /**

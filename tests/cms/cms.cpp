@@ -39,6 +39,7 @@
  */
 #include <main.hpp>
 #include <posix.hpp>
+#include <starve.hpp>
 #include <pem/pem.hpp>
 #include <cms/cms.hpp>
 #include <keys/keys.hpp>
@@ -1529,4 +1530,71 @@ TEST(CmsTest, DecryptRefusals) {
 		// Расшифрование обязано отказать
 		ASSERT_EQ(cms::decrypt(parsed, view_t(KEY128, sizeof(KEY128)), plain), cms::error_t::ALGORITHM);
 	}
+}
+
+/**
+ * @brief Проверка устойчивости сборки и разбора подписанного сообщения к нехватке памяти
+ *
+ */
+TEST(CmsTest, Starved) {
+	// Подписываемое содержимое
+	static const char * CONTENT = "CMS starved content";
+	// Песочница файлов проверки
+	sandbox_t sandbox;
+	// Запись сертификата подписывающего
+	std::string text;
+	// Блоки записи PEM
+	std::vector <pem::block_t> blocks;
+	// Сертификат подписывающего
+	x509::certificate_t certificate;
+	// Разбираем сертификат
+	load(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
+	// Подготовленный ключ подписи
+	keys::signer_t signer;
+	// Готовим ключ подписи
+	ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/leaf-rsa.key"))), keys::error_t::NONE);
+	// Набор сертификатов подписи: заводится заранее, чтобы его сборка не попала под подмену выделений
+	const std::vector <view_t> certificates = {view(blocks[0].data)};
+	// Эталонная запись подписанного сообщения
+	std::vector <uint8_t> record;
+	// Собираем подписанное сообщение
+	ASSERT_EQ(cms::sign(certificates, certificate.issuers().element, certificate.number(), view(std::string(CONTENT)), signer, digest::hash_t::SHA256, record), cms::error_t::NONE);
+	// Признак того, что нехватка памяти хоть раз объявлена отказом
+	bool starved = false;
+	/**
+	 * Выполняем перебор запасов выделений: на всяком запасе сборка и разбор обязаны
+	 * ответить либо успехом, либо отказом памяти, но не прерыванием исполнения
+	 */
+	for(size_t budget = 0; budget < 256; budget++){
+		// Итог сборки при отмеренном запасе
+		cms::error_t built = cms::error_t::NONE;
+		// Запись собранного сообщения
+		std::vector <uint8_t> made;
+		{
+			// Отмеряем запас выделений на время сборки
+			starve::ration_t ration(budget);
+			// Выполняем сборку подписанного сообщения при отмеренном запасе
+			built = cms::sign(certificates, certificate.issuers().element, certificate.number(), view(std::string(CONTENT)), signer, digest::hash_t::SHA256, made);
+		}
+		// Проверяем, что сборка ответила успехом либо отказом памяти
+		ASSERT_TRUE((built == cms::error_t::NONE) || (built == cms::error_t::MEMORY)) << "запас " << budget << ", отказ сборки " << static_cast <int> (built);
+		// Запоминаем объявленный отказ памяти
+		starved = (starved || (built == cms::error_t::MEMORY));
+		// Итог разбора эталонной записи при отмеренном запасе
+		cms::error_t parsed = cms::error_t::NONE;
+		{
+			// Отмеряем запас выделений на время разбора
+			starve::ration_t ration(budget);
+			// Разборщик подписанного сообщения
+			cms::signed_t message;
+			// Выполняем разбор эталонной записи при отмеренном запасе
+			parsed = message.parse(view(record));
+		}
+		// Проверяем, что разбор ответил успехом либо отказом памяти
+		ASSERT_TRUE((parsed == cms::error_t::NONE) || (parsed == cms::error_t::MEMORY)) << "запас " << budget << ", отказ разбора " << static_cast <int> (parsed);
+		// Запоминаем объявленный отказ памяти
+		starved = (starved || (parsed == cms::error_t::MEMORY));
+	}
+	// Проверяем, что нехватка памяти объявлена отказом хоть раз
+	ASSERT_TRUE(starved);
 }

@@ -39,6 +39,7 @@
  */
 #include <main.hpp>
 #include <posix.hpp>
+#include <starve.hpp>
 #include <pem/pem.hpp>
 #include <cmp/cmp.hpp>
 #include <keys/keys.hpp>
@@ -2150,4 +2151,78 @@ TEST(CmpTest, RespondRefusals) {
 	ASSERT_EQ(cmp::respond(cmp::body_t::IR, view(sender), view(recipient), {response}, signer, digest::hash_t::SHA256, record), cmp::error_t::EMPTY);
 	// Пустой набор ответов отвергается
 	ASSERT_EQ(cmp::respond(cmp::body_t::IP, view(sender), view(recipient), {}, signer, digest::hash_t::SHA256, record), cmp::error_t::EMPTY);
+}
+
+/**
+ * @brief Проверка устойчивости сборки и разбора сообщения к нехватке памяти
+ *
+ */
+TEST(CmpTest, Starved) {
+	// Песочница файлов проверки
+	sandbox_t sandbox;
+	// Запись сертификата ЦС и набор блоков PEM
+	std::string text;
+	// Набор блоков PEM
+	std::vector <pem::block_t> blocks;
+	// Сертификат ЦС
+	x509::certificate_t certificate;
+	// Разбираем сертификат ЦС
+	load(std::string(CORPUS) + "/ca-rsa.crt", text, blocks, certificate);
+	// Секретный ключ подписи ЦС
+	keys::signer_t signer;
+	// Подготавливаем ключ подписи ЦС
+	ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/ca-rsa.key"))), keys::error_t::NONE);
+	// Записи имён отправителя и получателя
+	std::vector <uint8_t> sender, recipient;
+	// Собираем имена отправителя и получателя
+	nameOf("cmp-ca", sender);
+	nameOf("cmp-client", recipient);
+	// Запись шаблона сертификата
+	std::vector <uint8_t> certTemplate;
+	// Собираем шаблон сертификата: имя владельца и открытый ключ из сертификата
+	ASSERT_EQ(cmp::certTemplate(certificate.subjects().element, certificate.key().element, certTemplate), cmp::error_t::NONE);
+	// Эталонная запись запроса ir с защитой подписью
+	std::vector <uint8_t> record;
+	// Собираем запрос ir с защитой подписью
+	ASSERT_EQ(cmp::request(cmp::body_t::IR, view(sender), view(recipient), {view(certTemplate)}, signer, digest::hash_t::SHA256, record), cmp::error_t::NONE);
+	// Набор шаблонов запроса: заводится заранее, чтобы его сборка не попала под подмену выделений
+	const std::vector <view_t> templates = {view(certTemplate)};
+	// Признак того, что нехватка памяти хоть раз объявлена отказом
+	bool starved = false;
+	/**
+	 * Выполняем перебор запасов выделений: на всяком запасе сборка и разбор обязаны
+	 * ответить либо успехом, либо отказом памяти, но не прерыванием исполнения
+	 */
+	for(size_t budget = 0; budget < 256; budget++){
+		// Итог сборки при отмеренном запасе
+		cmp::error_t built = cmp::error_t::NONE;
+		// Запись собранного сообщения
+		std::vector <uint8_t> made;
+		{
+			// Отмеряем запас выделений на время сборки
+			starve::ration_t ration(budget);
+			// Выполняем сборку запроса при отмеренном запасе
+			built = cmp::request(cmp::body_t::IR, view(sender), view(recipient), templates, signer, digest::hash_t::SHA256, made);
+		}
+		// Проверяем, что сборка ответила успехом либо отказом памяти
+		ASSERT_TRUE((built == cmp::error_t::NONE) || (built == cmp::error_t::MEMORY)) << "запас " << budget << ", отказ сборки " << static_cast <int> (built);
+		// Запоминаем объявленный отказ памяти
+		starved = (starved || (built == cmp::error_t::MEMORY));
+		// Итог разбора эталонной записи при отмеренном запасе
+		cmp::error_t parsed = cmp::error_t::NONE;
+		{
+			// Отмеряем запас выделений на время разбора
+			starve::ration_t ration(budget);
+			// Разборщик сообщения
+			cmp::message_t message;
+			// Выполняем разбор эталонной записи при отмеренном запасе
+			parsed = message.parse(view(record));
+		}
+		// Проверяем, что разбор ответил успехом либо отказом памяти
+		ASSERT_TRUE((parsed == cmp::error_t::NONE) || (parsed == cmp::error_t::MEMORY)) << "запас " << budget << ", отказ разбора " << static_cast <int> (parsed);
+		// Запоминаем объявленный отказ памяти
+		starved = (starved || (parsed == cmp::error_t::MEMORY));
+	}
+	// Проверяем, что нехватка памяти объявлена отказом хоть раз
+	ASSERT_TRUE(starved);
 }

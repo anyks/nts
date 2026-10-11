@@ -39,6 +39,7 @@
  */
 #include <main.hpp>
 #include <posix.hpp>
+#include <starve.hpp>
 #include <pem/pem.hpp>
 #include <asn1/asn1.hpp>
 #include <keys/keys.hpp>
@@ -311,6 +312,59 @@ TEST(IssueTest, SelfSigned){
 	// Проверяем совпадение открытого ключа выпущенного сертификата с эталонным байт в байт
 	ASSERT_EQ(certificate.key().key.size, reference.key().key.size);
 	ASSERT_EQ(::memcmp(certificate.key().key.data, reference.key().key.data, certificate.key().key.size), 0);
+}
+
+/**
+ * @brief Проверка устойчивости выпуска сертификата к нехватке памяти
+ *
+ */
+TEST(IssueTest, Starved){
+	// Тело записи эталонного сертификата владельца
+	std::vector <uint8_t> der;
+	// Эталонный сертификат владельца
+	x509::certificate_t reference;
+	// Проверяем разбор эталонного сертификата
+	ASSERT_TRUE(certificate("leaf-rsa.crt", der, reference));
+	// Подготовленный секретный ключ владельца
+	keys::signer_t signer;
+	// Проверяем подготовку ключа из записи набора
+	ASSERT_EQ(signer.prepare(view(bytes(corpus("leaf-rsa.key")))), keys::error_t::NONE);
+	// Порядковый номер выдаваемого сертификата
+	const uint8_t serial[] = {0x01, 0x02, 0x03, 0x04};
+	// Расширение основных ограничений: владелец не издатель
+	x509::extension_t constraints;
+	// Устанавливаем опознаватель основных ограничений
+	constraints.oid = "2.5.29.19";
+	// Содержимое расширения: пустой набор
+	const uint8_t empty[] = {0x30, 0x00};
+	// Устанавливаем содержимое расширения
+	constraints.value = view_t(empty, sizeof(empty));
+	// Набор расширений выдаваемого сертификата: заводится заранее, чтобы его сборка не попала под подмену выделений
+	const std::vector <x509::extension_t> extensions(1, constraints);
+	// Признак того, что нехватка памяти хоть раз объявлена отказом
+	bool starved = false;
+	/**
+	 * Выполняем перебор запасов выделений: на всяком запасе выпуск обязан ответить
+	 * либо успехом, либо отказом памяти, но не прерыванием исполнения
+	 */
+	for(size_t budget = 0; budget < 256; budget++){
+		// Итог выпуска при отмеренном запасе
+		x509::error_t outcome = x509::error_t::NONE;
+		{
+			// Отмеряем запас выделений на время выпуска
+			starve::ration_t ration(budget);
+			// Выпущенный сертификат
+			std::vector <uint8_t> issued;
+			// Выполняем выпуск самоподписанного сертификата при отмеренном запасе
+			outcome = x509::issueSelfSigned(reference.subjects(), reference.key(), signer, digest::hash_t::SHA256, view_t(serial, sizeof(serial)), 1767225600, 1893456000, extensions, issued);
+		}
+		// Проверяем, что выпуск ответил успехом либо отказом памяти
+		ASSERT_TRUE((outcome == x509::error_t::NONE) || (outcome == x509::error_t::MEMORY)) << "запас " << budget << ", отказ " << static_cast <int> (outcome);
+		// Запоминаем объявленный отказ памяти
+		starved = (starved || (outcome == x509::error_t::MEMORY));
+	}
+	// Проверяем, что нехватка памяти объявлена отказом хоть раз
+	ASSERT_TRUE(starved);
 }
 
 /**

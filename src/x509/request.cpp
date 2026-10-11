@@ -707,150 +707,160 @@ namespace {
 	 */
 	static nts::x509::error_t makeSignature(const keys::signer_t & signer, const digest::hash_t hash, const view_t & content, vector <uint8_t> & signature) noexcept {
 		/**
-		 * Выполняем определение вида ключа подписи
+		 * Выработка подписи выделяет память: нехватка её отдаётся отказом, а не
+		 * завершением процесса
 		 */
-		switch(signer.kind()){
-			// Ключ RSA
-			case keys::kind_t::RSA: {
-				// Модуль подписи RSA
-				const sign::rsa_t & rsa = signer.rsa();
-				// Место, в которое помещается хеш содержимого
-				uint8_t digest[64];
-				// Если хеш содержимого выработать не удалось
-				if(!digest::hash(hash, content, digest, sizeof(digest)))
-					// Выводим отказ подписи
-					return nts::x509::error_t::SIGNATURE;
-				// Занимаем место под подпись длиною в модуль ключа
-				signature.assign(rsa.size(), 0);
-				// Если подпись выработать не удалось
-				if(!rsa.make(sign::scheme_t::PKCS1, hash, view_t(digest, digest::length(hash)), signature.data(), SIZE_MAX))
-					// Выводим отказ подписи
-					return nts::x509::error_t::SIGNATURE;
-			} break;
-			// Ключ ECDSA
-			case keys::kind_t::EC: {
-				// Модуль подписи ECDSA
-				const sign::ecdsa_t & ecdsa = signer.ecdsa();
-				// Место, в которое помещается хеш содержимого
-				uint8_t digest[64];
-				// Если хеш содержимого выработать не удалось
-				if(!digest::hash(hash, content, digest, sizeof(digest)))
-					// Выводим отказ подписи
-					return nts::x509::error_t::SIGNATURE;
-				// Место, в которое помещается подпись в сыром виде
-				uint8_t raw[math::NUMBER_SIZE * 2];
-				// Если подпись выработать не удалось
-				if(!ecdsa.make(hash, view_t(digest, digest::length(hash)), raw))
-					// Выводим отказ подписи
-					return nts::x509::error_t::SIGNATURE;
-				// Занимаем место под запись подписи по её пределу
-				signature.assign(ecdsa.limit(), 0);
-				// Длина записи подписи
-				size_t written = signature.size();
-				// Если подпись в запись DER перевести не удалось
-				if(!sign::encode(view_t(raw, ecdsa.size()), signature.data(), written))
-					// Выводим отказ подписи
-					return nts::x509::error_t::SIGNATURE;
-				// Усекаем запись до её длины
-				signature.resize(written);
-			} break;
-			// Ключ Ed25519
-			case keys::kind_t::ED25519: {
-				// Модуль подписи Ed25519
-				const sign::ed25519_t & ed25519 = signer.ed25519();
-				// Занимаем место под подпись Ed25519
-				signature.assign(sign::ed25519_t::SIGNATURE_SIZE, 0);
-				// Если подпись выработать не удалось
-				if(!ed25519.make(content, signature.data()))
-					// Выводим отказ подписи
-					return nts::x509::error_t::SIGNATURE;
-			} break;
-			// Ключ ГОСТ
-			case keys::kind_t::GOST: {
-				// Модуль подписи ГОСТ
-				const sign::gost_t & gost = signer.gost();
-				// Длина числа кривой ключа
-				const size_t size = signer.curve().size();
-				// Место, в которое помещается хеш содержимого
-				uint8_t digest[64];
-				// Определяем длину хеша содержимого
-				const digest::type_t type = ((size == 32) ? digest::type_t::SHORT : digest::type_t::LONG);
-				// Если хеш содержимого выработать не удалось
-				if(!digest::streebog(type, content, digest, size, digest::order_t::VECTOR))
-					// Выводим отказ подписи
-					return nts::x509::error_t::SIGNATURE;
-				// Место, в которое помещается подпись в сыром виде
-				uint8_t raw[math::NUMBER_SIZE * 2];
-				// Если подпись выработать не удалось
-				if(!gost.make(view_t(digest, size), raw))
-					// Выводим отказ подписи
-					return nts::x509::error_t::SIGNATURE;
-				// Занимаем место под подпись: сперва s, затем r (раздел 2 RFC 9215)
-				signature.assign(gost.size(), 0);
-				// Переносим s
-				::memcpy(signature.data(), raw + size, size);
-				// Переносим r
-				::memcpy(signature.data() + size, raw, size);
-			} break;
-			// Ключ ML-DSA
-			case keys::kind_t::MLDSA: {
-				// Модуль подписи ML-DSA
-				const sign::mldsa_t & mldsa = signer.mldsa();
-				// Занимаем место под подпись набора ключа
-				signature.assign(mldsa.size(), 0);
-				// Если подпись выработать не удалось: контекст пуст
-				if(!mldsa.make(content, view_t(nullptr, 0), signature.data()))
-					// Выводим отказ подписи
-					return nts::x509::error_t::SIGNATURE;
-			} break;
-			// Ключ SM2
-			case keys::kind_t::SM2: {
-				// Модуль подписи SM2
-				const sign::sm2_t & sm2 = signer.sm2();
-				// Опознаватель подписи сертификата по RFC 8998
-				static const char * ID = "1234567812345678";
-				// Если опознаватель подписи установить не удалось
-				if(!sm2.reidentify(view_t(reinterpret_cast <const uint8_t *> (ID), 16)))
-					// Выводим отказ подписи
-					return nts::x509::error_t::SIGNATURE;
-				// Место, в которое помещается подпись в сыром виде
-				uint8_t raw[64];
-				// Случайное число выработки подписи
-				uint8_t random[32];
-				// Признак успешности выработки подписи
-				bool made = false;
-				/**
-				 * GB/T 32918.2: неудачный выбор случайного числа велит выбрать новое
-				 */
-				for(size_t attempt = 0; !made && (attempt < 128); attempt++){
-					// Если случайное число выработать не удалось
-					if(!entropy::bytes(random, sizeof(random)))
+		try {
+			/**
+			 * Выполняем определение вида ключа подписи
+			 */
+			switch(signer.kind()){
+				// Ключ RSA
+				case keys::kind_t::RSA: {
+					// Модуль подписи RSA
+					const sign::rsa_t & rsa = signer.rsa();
+					// Место, в которое помещается хеш содержимого
+					uint8_t digest[64];
+					// Если хеш содержимого выработать не удалось
+					if(!digest::hash(hash, content, digest, sizeof(digest)))
 						// Выводим отказ подписи
 						return nts::x509::error_t::SIGNATURE;
-					// Выполняем выработку подписи
-					made = sm2.make(content, view_t(random, sizeof(random)), raw);
-				}
-				// Выполняем затирание случайного числа
-				nts::sys::wipe(random, sizeof(random));
-				// Если подпись выработать не удалось
-				if(!made)
-					// Выводим отказ подписи
-					return nts::x509::error_t::SIGNATURE;
-				// Занимаем место под запись подписи по её пределу
-				signature.assign(72, 0);
-				// Длина записи подписи
-				size_t written = signature.size();
-				// Если подпись в запись DER перевести не удалось
-				if(!sign::encode(view_t(raw, sizeof(raw)), signature.data(), written))
-					// Выводим отказ подписи
-					return nts::x509::error_t::SIGNATURE;
-				// Усекаем запись до её длины
-				signature.resize(written);
-			} break;
-			// Ключ, подписи не выполняющий
-			default:
-				// Выводим отказ ключа
-				return nts::x509::error_t::KEY;
+					// Занимаем место под подпись длиною в модуль ключа
+					signature.assign(rsa.size(), 0);
+					// Если подпись выработать не удалось
+					if(!rsa.make(sign::scheme_t::PKCS1, hash, view_t(digest, digest::length(hash)), signature.data(), SIZE_MAX))
+						// Выводим отказ подписи
+						return nts::x509::error_t::SIGNATURE;
+				} break;
+				// Ключ ECDSA
+				case keys::kind_t::EC: {
+					// Модуль подписи ECDSA
+					const sign::ecdsa_t & ecdsa = signer.ecdsa();
+					// Место, в которое помещается хеш содержимого
+					uint8_t digest[64];
+					// Если хеш содержимого выработать не удалось
+					if(!digest::hash(hash, content, digest, sizeof(digest)))
+						// Выводим отказ подписи
+						return nts::x509::error_t::SIGNATURE;
+					// Место, в которое помещается подпись в сыром виде
+					uint8_t raw[math::NUMBER_SIZE * 2];
+					// Если подпись выработать не удалось
+					if(!ecdsa.make(hash, view_t(digest, digest::length(hash)), raw))
+						// Выводим отказ подписи
+						return nts::x509::error_t::SIGNATURE;
+					// Занимаем место под запись подписи по её пределу
+					signature.assign(ecdsa.limit(), 0);
+					// Длина записи подписи
+					size_t written = signature.size();
+					// Если подпись в запись DER перевести не удалось
+					if(!sign::encode(view_t(raw, ecdsa.size()), signature.data(), written))
+						// Выводим отказ подписи
+						return nts::x509::error_t::SIGNATURE;
+					// Усекаем запись до её длины
+					signature.resize(written);
+				} break;
+				// Ключ Ed25519
+				case keys::kind_t::ED25519: {
+					// Модуль подписи Ed25519
+					const sign::ed25519_t & ed25519 = signer.ed25519();
+					// Занимаем место под подпись Ed25519
+					signature.assign(sign::ed25519_t::SIGNATURE_SIZE, 0);
+					// Если подпись выработать не удалось
+					if(!ed25519.make(content, signature.data()))
+						// Выводим отказ подписи
+						return nts::x509::error_t::SIGNATURE;
+				} break;
+				// Ключ ГОСТ
+				case keys::kind_t::GOST: {
+					// Модуль подписи ГОСТ
+					const sign::gost_t & gost = signer.gost();
+					// Длина числа кривой ключа
+					const size_t size = signer.curve().size();
+					// Место, в которое помещается хеш содержимого
+					uint8_t digest[64];
+					// Определяем длину хеша содержимого
+					const digest::type_t type = ((size == 32) ? digest::type_t::SHORT : digest::type_t::LONG);
+					// Если хеш содержимого выработать не удалось
+					if(!digest::streebog(type, content, digest, size, digest::order_t::VECTOR))
+						// Выводим отказ подписи
+						return nts::x509::error_t::SIGNATURE;
+					// Место, в которое помещается подпись в сыром виде
+					uint8_t raw[math::NUMBER_SIZE * 2];
+					// Если подпись выработать не удалось
+					if(!gost.make(view_t(digest, size), raw))
+						// Выводим отказ подписи
+						return nts::x509::error_t::SIGNATURE;
+					// Занимаем место под подпись: сперва s, затем r (раздел 2 RFC 9215)
+					signature.assign(gost.size(), 0);
+					// Переносим s
+					::memcpy(signature.data(), raw + size, size);
+					// Переносим r
+					::memcpy(signature.data() + size, raw, size);
+				} break;
+				// Ключ ML-DSA
+				case keys::kind_t::MLDSA: {
+					// Модуль подписи ML-DSA
+					const sign::mldsa_t & mldsa = signer.mldsa();
+					// Занимаем место под подпись набора ключа
+					signature.assign(mldsa.size(), 0);
+					// Если подпись выработать не удалось: контекст пуст
+					if(!mldsa.make(content, view_t(nullptr, 0), signature.data()))
+						// Выводим отказ подписи
+						return nts::x509::error_t::SIGNATURE;
+				} break;
+				// Ключ SM2
+				case keys::kind_t::SM2: {
+					// Модуль подписи SM2
+					const sign::sm2_t & sm2 = signer.sm2();
+					// Опознаватель подписи сертификата по RFC 8998
+					static const char * ID = "1234567812345678";
+					// Если опознаватель подписи установить не удалось
+					if(!sm2.reidentify(view_t(reinterpret_cast <const uint8_t *> (ID), 16)))
+						// Выводим отказ подписи
+						return nts::x509::error_t::SIGNATURE;
+					// Место, в которое помещается подпись в сыром виде
+					uint8_t raw[64];
+					// Случайное число выработки подписи
+					uint8_t random[32];
+					// Признак успешности выработки подписи
+					bool made = false;
+					/**
+					 * GB/T 32918.2: неудачный выбор случайного числа велит выбрать новое
+					 */
+					for(size_t attempt = 0; !made && (attempt < 128); attempt++){
+						// Если случайное число выработать не удалось
+						if(!entropy::bytes(random, sizeof(random)))
+							// Выводим отказ подписи
+							return nts::x509::error_t::SIGNATURE;
+						// Выполняем выработку подписи
+						made = sm2.make(content, view_t(random, sizeof(random)), raw);
+					}
+					// Выполняем затирание случайного числа
+					nts::sys::wipe(random, sizeof(random));
+					// Если подпись выработать не удалось
+					if(!made)
+						// Выводим отказ подписи
+						return nts::x509::error_t::SIGNATURE;
+					// Занимаем место под запись подписи по её пределу
+					signature.assign(72, 0);
+					// Длина записи подписи
+					size_t written = signature.size();
+					// Если подпись в запись DER перевести не удалось
+					if(!sign::encode(view_t(raw, sizeof(raw)), signature.data(), written))
+						// Выводим отказ подписи
+						return nts::x509::error_t::SIGNATURE;
+					// Усекаем запись до её длины
+					signature.resize(written);
+				} break;
+				// Ключ, подписи не выполняющий
+				default:
+					// Выводим отказ ключа
+					return nts::x509::error_t::KEY;
+			}
+		// Если памяти под итог не хватило
+		} catch(const bad_alloc &) {
+			// Выводим отказ нехватки памяти
+			return nts::x509::error_t::MEMORY;
 		}
 		// Выводим успешность выработки подписи
 		return nts::x509::error_t::NONE;

@@ -9174,6 +9174,22 @@ mpint делает SSH), rsa-sha2-256/512 (PKCS #1 v1.5); шифры chacha20-po
     общее покрытие src/ 96.17% (127607 из 132695 строк). ctest 116/116 зелёные. Остаток keys (448 строк) -
     глубокие ветки отказов разбора мешков PKCS #12 (pkcs12bag, decodePkcs12) и derive, требующие порчи
     DER-структур; дальнейший подъём - diminishing returns.
+    **Круг 123 (11.10.2026)**: Starved-пины протокольных модулей и критичный дефект makeSignature. Добавлены
+    пины устойчивости к нехватке памяти: CmpTest.Starved (сборка request + разбор parse по 256 бюджетам),
+    CmsTest.Starved (cms::sign + signed_t::parse), RequestTest.Starved (x509::encode + request_t::parse),
+    IssueTest.Starved (x509::issueSelfSigned). При написании CmpTest.Starved вскрыта ловушка оснастки:
+    набор шаблонов {view(certTemplate)} создавал vector аргумента внутри ration-scope, его выделение
+    бросало bad_alloc вне try/catch cmp::request - вынесен заранее (const vector templates). При прогоне
+    RequestTest.Starved вскрыт КРИТИЧНЫЙ дефект: makeSignature в src/x509/request.cpp:708 и
+    src/x509/issue.cpp:409 НЕ обёрнут в try/catch (в отличие от cmp.cpp:321) - signature.assign бросал
+    bad_alloc, просачивавшийся через noexcept-границу → terminate (libc++abi: terminating due to uncaught
+    std::bad_alloc). Разбор зондом lldb (breakpoint -E c++) показал путь: x509::encode → Writer::open →
+    identifier → grow → reserve → operator new. Починка: switch(signer.kind()) в makeSignature обёрнут
+    в try/catch(bad_alloc) → error_t::MEMORY по образцу cmp.cpp (оба файла, request.cpp и issue.cpp).
+    После починки RequestTest.Starved и IssueTest.Starved зелёные. ctest 116/116 зелёные. Покрытие:
+    cmp 87.7%, cms 88.7%, request 88.9%, issue 89.1%, trust 97.0%; общее src/ 95.99% (замер искажён
+    смешиванием .gcda при параллельном ctest - отдельный прогон request даёт 88.9%, ctest-замер 64.8%;
+    для чистого замера нужен ctest -j1 либо прогон модулей напрямую).
 Обвязка SSH - mpint, name-list, KDF §7.2 HASH(K ‖ H ‖ X ‖ session_id), сертификаты OpenSSH, kex-strict, ext-info, агент -
 живёт в AWH, не в A-NTS.
 
