@@ -39,6 +39,12 @@
 #include <gost.hpp>
 #include <pem/pem.hpp>
 #include <x509/x509.hpp>
+#include <x509/crl.hpp>
+#include <x509/request.hpp>
+#include <cms/cms.hpp>
+#include <cmp/cmp.hpp>
+#include <jws/jws.hpp>
+#include <acme/acme.hpp>
 #include <alert/alert.hpp>
 #include <hello/hello.hpp>
 #include <record/record.hpp>
@@ -322,6 +328,58 @@ namespace {
 		x509::certificate_t certificate;
 		// Выполняем разбор сертификата стороны связи
 		certificate.parse(data);
+		// Разбираемый запрос на сертификат стороны связи
+		x509::request_t request;
+		// Выполняем разбор запроса на сертификат стороны связи
+		request.parse(data);
+		// Разбираемый список отозванных сертификатов
+		x509::crl_t crl;
+		// Выполняем разбор списка отозванных сертификатов
+		crl.parse(data);
+		// Разбираемое подписанное содержимое CMS
+		cms::signed_t signedData;
+		// Выполняем разбор подписанного содержимого CMS
+		signedData.parse(data);
+		// Разбираемое ограждённое содержимое CMS
+		cms::enveloped_t envelopedData;
+		// Выполняем разбор ограждённого содержимого CMS
+		envelopedData.parse(data);
+		// Разбираемое хешированное содержимое CMS
+		cms::digested_t digestedData;
+		// Выполняем разбор хешированного содержимого CMS
+		digestedData.parse(data);
+		// Разбираемое зашифрованное содержимое CMS
+		cms::encrypted_t encryptedData;
+		// Выполняем разбор зашифрованного содержимого CMS
+		encryptedData.parse(data);
+		// Разбираемое заверенное содержимое CMS
+		cms::authenticated_t authenticatedData;
+		// Выполняем разбор заверенного содержимого CMS
+		authenticatedData.parse(data);
+		// Разбираемое сообщение управления сертификатами
+		cmp::message_t pkiMessage;
+		// Выполняем разбор сообщения управления сертификатами
+		pkiMessage.parse(data);
+		// Разбираемая подпись веб-токена
+		jws::signature_t jwsSignature;
+		// Выполняем разбор подписи веб-токена
+		jwsSignature.parse(data);
+		// Разбираемый каталог службы ACME
+		acme::directory_t directory;
+		// Выполняем разбор каталога службы ACME
+		directory.parse(data);
+		// Разбираемая учётная запись службы ACME
+		acme::account_t account;
+		// Выполняем разбор учётной записи службы ACME
+		account.parse(data);
+		// Разбираемый заказ службы ACME
+		acme::order_t order;
+		// Выполняем разбор заказа службы ACME
+		order.parse(data);
+		// Разбираемое разрешение службы ACME
+		acme::authorization_t authorization;
+		// Выполняем разбор разрешения службы ACME
+		authorization.parse(data);
 		// Разбираемый заголовок записи протокола
 		record::header_t header;
 		// Выполняем разбор заголовка записи протокола
