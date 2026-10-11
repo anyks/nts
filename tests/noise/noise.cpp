@@ -1023,3 +1023,27 @@ TEST(NoiseTest, Starved){
 	EXPECT_TRUE(status);
 	EXPECT_EQ(::memcmp(back, "three", 5), 0);
 }
+/**
+ * @brief Годность набора примитивов: ровно одно из DH и KEM, имя шифра и имя хеша
+ *
+ */
+TEST(NoiseTest, Valid){
+	// Классический набор с X25519 годен при любом известном шифре и хеше
+	EXPECT_TRUE(noise::valid(noise::suite_t(noise::dh_t::X25519, noise::aead_t::CHACHAPOLY, digest::hash_t::SHA256)));
+	EXPECT_TRUE(noise::valid(noise::suite_t(noise::dh_t::X25519, noise::aead_t::AESGCM, digest::hash_t::SHA512)));
+	EXPECT_TRUE(noise::valid(noise::suite_t(noise::dh_t::X25519, noise::aead_t::CHACHAPOLY, digest::hash_t::BLAKE2S256)));
+	EXPECT_TRUE(noise::valid(noise::suite_t(noise::dh_t::X25519, noise::aead_t::AESGCM, digest::hash_t::BLAKE2B512)));
+	// Набор PQNoise с KEM годен
+	EXPECT_TRUE(noise::valid(noise::suite_t(noise::kem_t::X25519MLKEM768, noise::aead_t::CHACHAPOLY, digest::hash_t::SHA256)));
+	EXPECT_TRUE(noise::valid(noise::suite_t(noise::kem_t::MLKEM768, noise::aead_t::AESGCM, digest::hash_t::SHA512)));
+	// Пустой набор не годен
+	EXPECT_FALSE(noise::valid(noise::suite_t()));
+	// Набор без функции обмена и без KEM не годен
+	EXPECT_FALSE(noise::valid(noise::suite_t(noise::dh_t::NONE, noise::aead_t::CHACHAPOLY, digest::hash_t::SHA256)));
+	// Набор с чужим шифром не годен
+	EXPECT_FALSE(noise::valid(noise::suite_t(noise::dh_t::X25519, noise::aead_t::NONE, digest::hash_t::SHA256)));
+	// Набор с чужим хешем не годен
+	EXPECT_FALSE(noise::valid(noise::suite_t(noise::dh_t::X25519, noise::aead_t::CHACHAPOLY, digest::hash_t::NONE)));
+	// Набор с хешем вне перечня каркаса не годен
+	EXPECT_FALSE(noise::valid(noise::suite_t(noise::dh_t::X25519, noise::aead_t::CHACHAPOLY, digest::hash_t::MD5)));
+}

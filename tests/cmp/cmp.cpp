@@ -1384,3 +1384,75 @@ TEST(CmpTest, PollRoundtrip) {
 	// Проверка защиты обязана удаться
 	ASSERT_EQ(cmp::verify(parsedRep, certificate.key()), cmp::error_t::NONE);
 }
+
+/**
+ * @brief Проверка разбора сведений о статусе PKIStatusInfo
+ *
+ */
+TEST(CmpTest, StatusInfo) {
+	// Записчик записи сведений о статусе
+	asn1::writer_t writer;
+	// Открываем запись сведений о статусе
+	ASSERT_TRUE(writer.open(asn1::tag_t::SEQUENCE));
+	// Записываем статус отклонения
+	ASSERT_TRUE(writer.integer(static_cast <int64_t> (2)));
+	// Открываем запись строк статуса
+	ASSERT_TRUE(writer.open(asn1::tag_t::SEQUENCE));
+	// Записываем строку статуса
+	ASSERT_TRUE(writer.text(asn1::tag_t::UTF8_STRING, "bad request"));
+	// Закрываем запись строк статуса
+	ASSERT_TRUE(writer.close());
+	// Содержимое строки битов сведений об отказе: бит badRequest (2)
+	const uint8_t failure[] = {0x20, 0x00, 0x00};
+	// Записываем сведения об отказе строкой битов
+	ASSERT_TRUE(writer.bits(view_t(failure, sizeof(failure))));
+	// Закрываем запись сведений о статусе
+	ASSERT_TRUE(writer.close());
+	// Сборка обязана удаться
+	ASSERT_EQ(writer.err(), asn1::error_t::NONE);
+	// Разборщик собранной записи
+	asn1::reader_t reader(writer.data());
+	// Элемент записи сведений о статусе
+	asn1::element_t element;
+	// Разбор обязан удаться
+	ASSERT_TRUE(reader.next(element));
+	// Сведения о статусе
+	cmp::status_info_t info;
+	// Разбор сведений обязан удаться
+	ASSERT_EQ(cmp::statusInfo(element, info), cmp::error_t::NONE);
+	// Статус обязан быть отклонением
+	ASSERT_EQ(info.status, cmp::status_t::REJECTION);
+	// Строка статуса обязана быть одна и совпасть
+	ASSERT_EQ(info.strings.size(), 1);
+	ASSERT_EQ(info.strings[0], "bad request");
+	// Сведения об отказе обязаны совпасть с записанными
+	ASSERT_EQ(info.failure.size(), sizeof(failure));
+	ASSERT_EQ(::memcmp(info.failure.data(), failure, sizeof(failure)), 0);
+	// Запись статуса без строк и сведений об отказе
+	asn1::writer_t brief;
+	// Открываем запись сведений о статусе
+	ASSERT_TRUE(brief.open(asn1::tag_t::SEQUENCE));
+	// Записываем статус за пределами перечня: он отдаётся неизвестным
+	ASSERT_TRUE(brief.integer(static_cast <int64_t> (42)));
+	// Закрываем запись сведений о статусе
+	ASSERT_TRUE(brief.close());
+	// Разборщик собранной записи
+	asn1::reader_t briefReader(brief.data());
+	// Элемент записи сведений о статусе
+	asn1::element_t briefElement;
+	// Разбор обязан удаться
+	ASSERT_TRUE(briefReader.next(briefElement));
+	// Сведения о статусе
+	cmp::status_info_t briefInfo;
+	// Разбор сведений обязан удаться
+	ASSERT_EQ(cmp::statusInfo(briefElement, briefInfo), cmp::error_t::NONE);
+	// Статус за пределами перечня обязан быть неизвестным
+	ASSERT_EQ(briefInfo.status, cmp::status_t::UNKNOWN);
+	// Строк и сведений об отказе быть не должно
+	ASSERT_TRUE(briefInfo.strings.empty());
+	ASSERT_TRUE(briefInfo.failure.empty());
+	// Элемент простого вида отвергается: запись статуса составная
+	asn1::element_t plain;
+	// Разбор обязан отказать устройством записи
+	ASSERT_EQ(cmp::statusInfo(plain, briefInfo), cmp::error_t::STRUCTURE);
+}

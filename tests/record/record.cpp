@@ -603,3 +603,35 @@ TEST(RecordTest, Compaction){
 	ASSERT_EQ(reader.pending(), static_cast <size_t> (0));
 	ASSERT_EQ(reader.next(header, payload), record::error_t::HUNGRY);
 }
+
+/**
+ * Проверка известности видов содержимого и допустимости пустого содержимого
+ */
+TEST(RecordTest, Known){
+	// Известные протоколу виды содержимого записи
+	ASSERT_TRUE(record::known(record::type_t::CHANGE));
+	ASSERT_TRUE(record::known(record::type_t::ALERT));
+	ASSERT_TRUE(record::known(record::type_t::HANDSHAKE));
+	ASSERT_TRUE(record::known(record::type_t::APPLICATION));
+	ASSERT_TRUE(record::known(record::type_t::HEARTBEAT));
+	ASSERT_TRUE(record::known(record::type_t::ACK));
+	// Неустановленный вид содержимого протоколом не определён
+	ASSERT_FALSE(record::known(record::type_t::NONE));
+	// Вид содержимого вне перечня протокола не определён
+	ASSERT_FALSE(record::known(static_cast <record::type_t> (0x19)));
+	/**
+	 * Раздел 6.2.1 RFC 5246 и раздел 5.1 RFC 8446: пустыми вправе быть только
+	 * записи прикладных данных
+	 */
+	ASSERT_TRUE(record::empty(record::type_t::APPLICATION));
+	// Запись рукопожатия пустой быть не вправе
+	ASSERT_FALSE(record::empty(record::type_t::HANDSHAKE));
+	// Извещение пустым быть не вправе
+	ASSERT_FALSE(record::empty(record::type_t::ALERT));
+	// Запись смены набора шифрования пустой быть не вправе
+	ASSERT_FALSE(record::empty(record::type_t::CHANGE));
+	// Сердцебиение пустым быть не вправе
+	ASSERT_FALSE(record::empty(record::type_t::HEARTBEAT));
+	// Подтверждение принятых записей пустым быть не вправе
+	ASSERT_FALSE(record::empty(record::type_t::ACK));
+}

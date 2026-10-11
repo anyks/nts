@@ -443,3 +443,30 @@ TEST(JwsTest, Roundtrip) {
 		{ const std::string text = "+.ab.cde"; ASSERT_EQ(signature.parse(view(text)), jws::error_t::STRUCTURE); }
 	}
 }
+
+/**
+ * @brief Проверка имён алгоритмов подписи
+ *
+ */
+TEST(JwsTest, Names) {
+	// Имя алгоритма RS256
+	ASSERT_STREQ(jws::name(jws::algorithm_t::RS256), "RS256");
+	// Имя алгоритма RS384
+	ASSERT_STREQ(jws::name(jws::algorithm_t::RS384), "RS384");
+	// Имя алгоритма RS512
+	ASSERT_STREQ(jws::name(jws::algorithm_t::RS512), "RS512");
+	// Имя алгоритма ES256
+	ASSERT_STREQ(jws::name(jws::algorithm_t::ES256), "ES256");
+	// Имя алгоритма ES384
+	ASSERT_STREQ(jws::name(jws::algorithm_t::ES384), "ES384");
+	// Имя алгоритма ES512
+	ASSERT_STREQ(jws::name(jws::algorithm_t::ES512), "ES512");
+	// Имя алгоритма EdDSA
+	ASSERT_STREQ(jws::name(jws::algorithm_t::EDDSA), "EdDSA");
+	// Имя неустановленного алгоритма пусто
+	ASSERT_STREQ(jws::name(jws::algorithm_t::NONE), "");
+	// Круговой разбор имени обязан дать тот же алгоритм
+	ASSERT_EQ(jws::algorithm(view(std::string("ES256"))), jws::algorithm_t::ES256);
+	// Имя неустановленного алгоритма разбирается в NONE
+	ASSERT_EQ(jws::algorithm(view(std::string(jws::name(jws::algorithm_t::NONE)))), jws::algorithm_t::NONE);
+}

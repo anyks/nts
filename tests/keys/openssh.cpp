@@ -147,7 +147,7 @@ static bool pem2der(const std::vector <uint8_t> & pem, std::vector <uint8_t> & d
  * Проверка разбора незашифрованного ключа ssh-keygen
  */
 TEST(OpensshTest, DecodePlain) {
-	if(!run("ssh-keygen --help >/dev/null 2>&1"))
+	if(!run("command -v ssh-keygen >/dev/null 2>&1"))
 		GTEST_SKIP() << "ssh-keygen недоступен";
 	char pattern[] = "/tmp/ants-openssh-XXXXXX";
 	ASSERT_NE(::mkdtemp(pattern), nullptr);
@@ -171,7 +171,7 @@ TEST(OpensshTest, DecodePlain) {
 	EXPECT_EQ(comment, "test@ants");
 	// Проверяем подпись разобранным ключом
 	sign::ed25519_t ed;
-	ASSERT_TRUE(ed.key(view_t(key.d.data(), key.d.size())));
+	ASSERT_TRUE(ed.secret(view_t(key.d.data(), key.d.size())));
 	const char * message = "test message";
 	uint8_t signature[64];
 	ASSERT_TRUE(ed.make(view_t(reinterpret_cast <const uint8_t *> (message), ::strlen(message)), signature));
@@ -186,7 +186,7 @@ TEST(OpensshTest, DecodePlain) {
  * Проверка разбора зашифрованного ключа ssh-keygen
  */
 TEST(OpensshTest, DecodeEncrypted) {
-	if(!run("ssh-keygen --help >/dev/null 2>&1"))
+	if(!run("command -v ssh-keygen >/dev/null 2>&1"))
 		GTEST_SKIP() << "ssh-keygen недоступен";
 	char pattern[] = "/tmp/ants-openssh-XXXXXX";
 	ASSERT_NE(::mkdtemp(pattern), nullptr);
@@ -211,7 +211,7 @@ TEST(OpensshTest, DecodeEncrypted) {
 	EXPECT_EQ(comment, "enc@ants");
 	// Проверяем подпись
 	sign::ed25519_t ed;
-	ASSERT_TRUE(ed.key(view_t(key.d.data(), key.d.size())));
+	ASSERT_TRUE(ed.secret(view_t(key.d.data(), key.d.size())));
 	const char * message = "encrypted test";
 	uint8_t signature[64];
 	ASSERT_TRUE(ed.make(view_t(reinterpret_cast <const uint8_t *> (message), ::strlen(message)), signature));
@@ -289,7 +289,7 @@ TEST(OpensshTest, Publish) {
  * Проверка интероп записи с ssh-keygen
  */
 TEST(OpensshTest, InteropWrite) {
-	if(!run("ssh-keygen --help >/dev/null 2>&1"))
+	if(!run("command -v ssh-keygen >/dev/null 2>&1"))
 		GTEST_SKIP() << "ssh-keygen недоступен";
 	char pattern[] = "/tmp/ants-openssh-XXXXXX";
 	ASSERT_NE(::mkdtemp(pattern), nullptr);
@@ -335,22 +335,13 @@ TEST(OpensshTest, InteropWrite) {
 	ASSERT_TRUE(run("ssh-keygen -y -f " + keyfile + " > " + dir + "/pub.txt 2>/dev/null"));
 	const std::vector <uint8_t> pubtxt = slurp(dir + "/pub.txt");
 	ASSERT_FALSE(pubtxt.empty());
-	// Сравниваем с нашей строкой
-	const std::string ourline = keys::openssh::publish(key, "");
+	// Сравниваем с нашей строкой с тем же комментарием
+	const std::string ourline = keys::openssh::publish(key, "interop@test");
 	std::string theirline(reinterpret_cast <const char *> (pubtxt.data()), pubtxt.size());
 	// Убираем перевод строки в конце
 	while(!theirline.empty() && (theirline.back() == '\n' || theirline.back() == '\r'))
 		theirline.pop_back();
-	// Убираем комментарий из их строки (ssh-keygen добавляет)
-	const size_t space = theirline.rfind(' ');
-	if(space != std::string::npos)
-		theirline = theirline.substr(0, space);
-	// Убираем комментарий из нашей строки
-	std::string ourtrimmed = ourline;
-	const size_t ourspace = ourtrimmed.rfind(' ');
-	if(ourspace != std::string::npos)
-		ourtrimmed = ourtrimmed.substr(0, ourspace);
-	EXPECT_EQ(ourtrimmed, theirline);
+	EXPECT_EQ(ourline, theirline);
 	// Убираем
 	run("rm -rf " + dir);
 }

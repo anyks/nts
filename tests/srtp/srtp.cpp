@@ -615,3 +615,30 @@ TEST(SrtpTest, Refusals) {
 	// Снятие защиты обязано отказать имитовставкой
 	ASSERT_EQ(receiver.unprotect(view(protectedPacket), result), srtp::error_t::SIGNATURE);
 }
+
+/**
+ * @brief Проверка длин ключевого материала профилей
+ *
+ */
+TEST(SrtpTest, Lengths) {
+	// Длины ключа и соли
+	size_t key = 0, salt = 0;
+	// Профиль AES128_CM_SHA1_80: ключ 16 байтов, соль 14
+	ASSERT_EQ(srtp::lengths(srtp::profile_t::AES128_CM_SHA1_80, key, salt), srtp::error_t::NONE);
+	ASSERT_EQ(key, 16U);
+	ASSERT_EQ(salt, 14U);
+	// Профиль AES128_CM_SHA1_32: ключ 16 байтов, соль 14
+	ASSERT_EQ(srtp::lengths(srtp::profile_t::AES128_CM_SHA1_32, key, salt), srtp::error_t::NONE);
+	ASSERT_EQ(key, 16U);
+	ASSERT_EQ(salt, 14U);
+	// Профиль AEAD_AES_128_GCM: ключ 16 байтов, соль 12
+	ASSERT_EQ(srtp::lengths(srtp::profile_t::AEAD_AES_128_GCM, key, salt), srtp::error_t::NONE);
+	ASSERT_EQ(key, 16U);
+	ASSERT_EQ(salt, 12U);
+	// Профиль AEAD_AES_256_GCM: ключ 32 байта, соль 12
+	ASSERT_EQ(srtp::lengths(srtp::profile_t::AEAD_AES_256_GCM, key, salt), srtp::error_t::NONE);
+	ASSERT_EQ(key, 32U);
+	ASSERT_EQ(salt, 12U);
+	// Неизвестный профиль обязан отказать
+	ASSERT_EQ(srtp::lengths(static_cast <srtp::profile_t> (0x0003), key, salt), srtp::error_t::ALGORITHM);
+}

@@ -1360,3 +1360,34 @@ TEST(HpkeTest, Authenticated){
 	ASSERT_FALSE(hpke::authenticated(hpke::kem_t::MLKEM768));
 	ASSERT_FALSE(hpke::authenticated(hpke::kem_t::MLKEM768_X25519));
 }
+
+/**
+ * @brief Проверка длин исходного материала выработки пары ключей
+ *
+ */
+TEST(HpkeTest, Material){
+	// У способов Диффи-Хеллмана материал не короче секретного ключа: раздел 7.1.3 RFC 9180
+	ASSERT_EQ(hpke::material(hpke::kem_t::X25519_HKDF_SHA256), 32u);
+	// Проверяем DHKEM(P-256, HKDF-SHA256)
+	ASSERT_EQ(hpke::material(hpke::kem_t::P256_HKDF_SHA256), 32u);
+	// Проверяем DHKEM(P-384, HKDF-SHA384)
+	ASSERT_EQ(hpke::material(hpke::kem_t::P384_HKDF_SHA384), 48u);
+	// Проверяем DHKEM(P-521, HKDF-SHA512)
+	ASSERT_EQ(hpke::material(hpke::kem_t::P521_HKDF_SHA512), 66u);
+	// Проверяем DHKEM(X448, HKDF-SHA512)
+	ASSERT_EQ(hpke::material(hpke::kem_t::X448_HKDF_SHA512), 56u);
+	// У чистого ML-KEM материал - зерно в шестьдесят четыре байта
+	ASSERT_EQ(hpke::material(hpke::kem_t::MLKEM512), 64u);
+	// Проверяем ML-KEM-768
+	ASSERT_EQ(hpke::material(hpke::kem_t::MLKEM768), 64u);
+	// Проверяем ML-KEM-1024
+	ASSERT_EQ(hpke::material(hpke::kem_t::MLKEM1024), 64u);
+	// У гибридов материал - зерно в тридцать два байта
+	ASSERT_EQ(hpke::material(hpke::kem_t::MLKEM768_P256), 32u);
+	// Проверяем гибрид ML-KEM-1024 и P-384
+	ASSERT_EQ(hpke::material(hpke::kem_t::MLKEM1024_P384), 32u);
+	// Проверяем гибрид ML-KEM-768 и X25519
+	ASSERT_EQ(hpke::material(hpke::kem_t::MLKEM768_X25519), 32u);
+	// У неизвестного способа материала нет
+	ASSERT_EQ(hpke::material(hpke::kem_t::NONE), 0u);
+}

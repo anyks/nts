@@ -9118,6 +9118,24 @@ mpint делает SSH), rsa-sha2-256/512 (PKCS #1 v1.5); шифры chacha20-po
     catch в noexcept ловит»); если standard её не проходит - откат на -mbranch-protection=bti (метки BTI
     сохраняются, ломающей pac-ret нет). На Darwin standard отклонён проверкой, выбран bti; на Linux AArch64
     standard пройдёт проверку и останется. ctest 114/114 зелёные.
+
+    **Круг 120 (11.10.2026)**: пробелы покрытия и критичный дефект таблиц Blowfish. Аудит покрытия сопоставил
+    публичный API include/ с пинами tests/: bcrypt и blowfish полностью без тестов, плюс точечные функции
+    (cms::Signer, cmp::statusInfo, jws::name, srtp::lengths, hpke::material, noise::valid, record::empty/known,
+    extension::certtypes/hybrid/profiles, x509::recognized). При подготовке пинов вскрыт КРИТИЧНЫЙ дефект:
+    таблицы BLOWFISH_P/S в blowfish.cpp были сдвинуты на 18 слов (P=π[18..35], S=π[36..1041]+π[0..17]) вместо
+    стандартных (P=π[0..17]=0x243f6a88, S=π[18..1041]) - реализация НЕ соответствовала ни Blowfish, ни OpenBSD
+    bcrypt_pbkdf. OpenSSL-вектор не сходился (9aecb5c8bd9f2f11 vs 4ef997456198dd78), реальный ключ ssh-keygen
+    с паролем НЕ расшифровывался. Дефект не был пойман, потому что пин OpensshTest.DecodeEncrypted всегда
+    пропускался (проверка `ssh-keygen --help` даёт exit 1 на macOS → GTEST_SKIP), а bcrypt/blowfish тестов
+    не было. Починка: таблицы переставлены на стандартные (P=π[0..17], S=π[18..1041]); OpenSSL-вектор сошёлся
+    (4ef997456198dd78), bcrypt_pbkdf совпал с OpenBSD (5bbf0cc293587f1c...), реальный ключ ssh-keygen
+    расшифровывается. Починка пинов openssh: проверка ssh-keygen --help → command -v ssh-keygen (3 места),
+    ed.key(d) → ed.secret(d) для секретного ключа (2 места), InteropWrite - сравнение publish с тем же
+    комментарием. Новые пины: BlowfishTest (4 вектора Шнайера/OpenSSL + stream2word), BcryptTest (2 вектора
+    OpenBSD + нецелое число блоков + отказы). Точечные пины: JwsTest.Names, CmpTest.StatusInfo,
+    SrtpTest.Lengths, HpkeTest.Material, NoiseTest.Valid, RecordTest.Known, ExtensionTest.Certtypes/Profiles/
+    Hybrid, X509Test.Recognized, CmsTest.SignerInfo. ctest 116/116 зелёные (+2 цели blowfish, bcrypt).
 Обвязка SSH - mpint, name-list, KDF §7.2 HASH(K ‖ H ‖ X ‖ session_id), сертификаты OpenSSH, kex-strict, ext-info, агент -
 живёт в AWH, не в A-NTS.
 

@@ -679,6 +679,106 @@ TEST(ExtensionTest, Formats){
 }
 
 /**
+ * Проверка разбора и составления перечня видов сертификатов certificate_type по
+ * разделу 4.1 RFC 7250: однобайтовая длина, однобайтовые записи, непустой перечень
+ */
+TEST(ExtensionTest, Certtypes){
+	// Накопитель, в который складывается тело расширения
+	vector <uint8_t> body;
+	// Перечень составляемых видов сертификатов: X.509 и сырой открытый ключ
+	const vector <extension::cert_t> offer = {extension::cert_t::X509, extension::cert_t::RAW};
+	// Выполняем составление перечня видов сертификатов
+	ASSERT_EQ(extension::certtypes(offer, body), extension::error_t::NONE);
+	// Проверяем тело расширения: длина и две записи
+	ASSERT_EQ(body, (vector <uint8_t> {0x02, 0x00, 0x01}));
+	// Перечень разобранных видов сертификатов
+	vector <extension::cert_t> types;
+	// Выполняем разбор составленного тела расширения
+	ASSERT_EQ(extension::certtypes(view_t(body.data(), body.size()), types), extension::error_t::NONE);
+	// Проверяем схождение разобранного перечня с составленным
+	ASSERT_EQ(types, offer);
+	// Проверяем отказ составления пустого перечня
+	ASSERT_EQ(extension::certtypes(vector <extension::cert_t> (), body), extension::error_t::EMPTY);
+	// Тело расширения с пустым перечнем
+	const uint8_t empty[1] = {0x00};
+	// Проверяем отказ разбора пустого перечня
+	ASSERT_EQ(extension::certtypes(view_t(empty, sizeof(empty)), types), extension::error_t::EMPTY);
+	// Тело расширения, оборванное посреди перечня
+	const uint8_t torn[2] = {0x02, 0x00};
+	// Проверяем отказ разбора оборванного тела расширения
+	ASSERT_EQ(extension::certtypes(view_t(torn, sizeof(torn)), types), extension::error_t::HUNGRY);
+	// Тело расширения с лишним байтом за перечнем
+	const uint8_t trailing[3] = {0x01, 0x00, 0x00};
+	// Проверяем отказ разбора лишних байтов
+	ASSERT_EQ(extension::certtypes(view_t(trailing, sizeof(trailing)), types), extension::error_t::TRAILING);
+}
+
+/**
+ * Проверка разбора и составления перечня профилей защиты RTP use_srtp по разделу
+ * 4.1.1 RFC 5764: двухбайтовая длина, двухбайтовые записи, пустой опознаватель MKI
+ */
+TEST(ExtensionTest, Profiles){
+	// Накопитель, в который складывается тело расширения
+	vector <uint8_t> body;
+	// Перечень составляемых профилей: AES-CM с меткой 80 и AES-128-GCM
+	const vector <uint16_t> offer = {0x0001, 0x0007};
+	// Выполняем составление перечня профилей защиты
+	ASSERT_EQ(extension::profiles(offer, body), extension::error_t::NONE);
+	// Проверяем тело расширения: длина перечня, две записи и пустой опознаватель MKI
+	ASSERT_EQ(body, (vector <uint8_t> {0x00, 0x04, 0x00, 0x01, 0x00, 0x07, 0x00}));
+	// Перечень разобранных профилей защиты
+	vector <uint16_t> profiles;
+	// Выполняем разбор составленного тела расширения
+	ASSERT_EQ(extension::profiles(view_t(body.data(), body.size()), profiles), extension::error_t::NONE);
+	// Проверяем схождение разобранного перечня с составленным
+	ASSERT_EQ(profiles, offer);
+	// Тело расширения с непустым опознавателем MKI: он связью не признаётся и пропускается
+	const uint8_t marked[7] = {0x00, 0x02, 0x00, 0x01, 0x02, 0xA5, 0x5A};
+	// Опустошаем перечень разобранных профилей: разбор дополняет его, а не заменяет
+	profiles.clear();
+	// Проверяем успешность разбора тела с опознавателем MKI
+	ASSERT_EQ(extension::profiles(view_t(marked, sizeof(marked)), profiles), extension::error_t::NONE);
+	// Проверяем разобранный перечень из одного профиля
+	ASSERT_EQ(profiles, (vector <uint16_t> {0x0001}));
+	// Проверяем отказ составления пустого перечня
+	ASSERT_EQ(extension::profiles(vector <uint16_t> (), body), extension::error_t::EMPTY);
+	// Тело расширения с пустым перечнем профилей
+	const uint8_t empty[3] = {0x00, 0x00, 0x00};
+	// Проверяем отказ разбора пустого перечня
+	ASSERT_EQ(extension::profiles(view_t(empty, sizeof(empty)), profiles), extension::error_t::EMPTY);
+	// Тело расширения, оборванное посреди записи перечня
+	const uint8_t torn[4] = {0x00, 0x03, 0x00, 0x01};
+	// Проверяем отказ разбора оборванного тела расширения
+	ASSERT_EQ(extension::profiles(view_t(torn, sizeof(torn)), profiles), extension::error_t::HUNGRY);
+	// Тело расширения с лишним байтом за опознавателем MKI
+	const uint8_t trailing[6] = {0x00, 0x02, 0x00, 0x01, 0x00, 0x00};
+	// Проверяем отказ разбора лишних байтов
+	ASSERT_EQ(extension::profiles(view_t(trailing, sizeof(trailing)), profiles), extension::error_t::TRAILING);
+}
+
+/**
+ * Проверка принадлежности групп обмена ключами гибридам с инкапсуляцией ключа
+ */
+TEST(ExtensionTest, Hybrid){
+	// Гибрид X25519 и ML-KEM-768 по RFC 10024
+	ASSERT_TRUE(extension::hybrid(extension::group_t::X25519MLKEM768));
+	// Гибрид secp256r1 и ML-KEM-768
+	ASSERT_TRUE(extension::hybrid(extension::group_t::SECP256R1MLKEM768));
+	// Гибрид secp384r1 и ML-KEM-1024
+	ASSERT_TRUE(extension::hybrid(extension::group_t::SECP384R1MLKEM1024));
+	// Гибрид curveSM2 и ML-KEM-768
+	ASSERT_TRUE(extension::hybrid(extension::group_t::CURVESM2MLKEM768));
+	// Чистая кривая Curve25519 гибридом не является
+	ASSERT_FALSE(extension::hybrid(extension::group_t::X25519));
+	// Чистая кривая secp256r1 гибридом не является
+	ASSERT_FALSE(extension::hybrid(extension::group_t::SECP256R1));
+	// Группа конечного поля гибридом не является
+	ASSERT_FALSE(extension::hybrid(extension::group_t::FFDHE2048));
+	// Неустановленная группа гибридом не является
+	ASSERT_FALSE(extension::hybrid(extension::group_t::NONE));
+}
+
+/**
  * Проверка разбора и составления перечня алгоритмов сжатия цепочки сертификатов по
  * разделу 3 RFC 8879: однобайтовая длина, двухбайтовые опознаватели, порядок сохраняется,
  * неведомые значения выдаются как есть

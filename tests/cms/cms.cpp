@@ -891,3 +891,63 @@ TEST(CmsTest, AuthenticateRoundtrip) {
 		ASSERT_EQ(cms::authenticateVerify(parsed, view(std::string("foreign-key"))), cms::error_t::SIGNATURE);
 	}
 }
+
+/**
+ * @brief Проверка сведений о подписывающем в записи SignedData
+ *
+ */
+TEST(CmsTest, SignerInfo) {
+	// Подписываемое содержимое
+	static const char * CONTENT = "CMS signer info content";
+	// Записи сертификатов, ключи и ожидаемые опознаватели алгоритмов
+	struct {
+		// Файлы сертификата и ключа
+		const char * certificate, * key;
+		// Опознаватель алгоритма подписи
+		const char * algorithm;
+	} CASES[] = {
+		{"leaf-rsa.crt", "leaf-rsa.key", "1.2.840.113549.1.1.11"},
+		{"leaf-ec.crt", "leaf-ec.key", "1.2.840.10045.4.3.2"}
+	};
+	// Проходим по наборам
+	for(size_t i = 0; i < (sizeof(CASES) / sizeof(CASES[0])); i++){
+		// Запись сертификата подписывающего
+		std::string text;
+		// Блоки записи PEM
+		std::vector <pem::block_t> blocks;
+		// Сертификат подписывающего
+		x509::certificate_t certificate;
+		// Разбираем сертификат
+		load(std::string(CORPUS) + "/" + CASES[i].certificate, text, blocks, certificate);
+		// Подготовленный ключ подписи
+		keys::signer_t signer;
+		// Готовим ключ подписи
+		ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/" + CASES[i].key))), keys::error_t::NONE);
+		// Запись сообщения
+		std::vector <uint8_t> record;
+		// Собираем подписанное сообщение
+		ASSERT_EQ(cms::sign({view(blocks[0].data)}, certificate.issuers().element, certificate.number(), view(std::string(CONTENT)), signer, digest::hash_t::SHA256, record), cms::error_t::NONE);
+		// Разбираем запись
+		cms::signed_t parsed;
+		// Разбор обязан удаться
+		ASSERT_EQ(parsed.parse(view(record)), cms::error_t::NONE);
+		// Подписывающий обязан быть один
+		ASSERT_EQ(parsed.signers().size(), 1);
+		// Сведения о подписывающем
+		const cms::signer_info_t & info = parsed.signers()[0];
+		// Имя издателя сертификата подписывающего обязано совпасть
+		ASSERT_EQ(info.issuer.size, certificate.issuers().element.size);
+		ASSERT_EQ(::memcmp(info.issuer.data, certificate.issuers().element.data, info.issuer.size), 0);
+		// Порядковый номер сертификата подписывающего обязан совпасть
+		ASSERT_EQ(info.serial.size, certificate.number().size);
+		ASSERT_EQ(::memcmp(info.serial.data, certificate.number().data, info.serial.size), 0);
+		// Опознаватель алгоритма хеша содержимого обязан быть SHA-256
+		ASSERT_EQ(info.digest, "2.16.840.1.101.3.4.2.1");
+		// Опознаватель алгоритма подписи обязан совпасть с ожидаемым
+		ASSERT_EQ(info.algorithm, CASES[i].algorithm);
+		// Подпись обязана быть записана
+		ASSERT_TRUE(info.signature.size > 0);
+		// Проверка подписи сведениями о подписывающем обязана удаться
+		ASSERT_EQ(cms::verify(parsed, info, view_t(), certificate.key()), cms::error_t::NONE);
+	}
+}
