@@ -9166,9 +9166,14 @@ mpint делает SSH), rsa-sha2-256/512 (PKCS #1 v1.5); шифры chacha20-po
     (0x0029) собрано с длиной перечня привязок 34 вместо 33 (привязка читается с однобайтовой длиной:
     1 байт + 32 байта = 33) - extension::identities отвечал EXTENSION; длина исправлена. Итог по строкам
     gcov: keys 91.9%, srtp 92.8%, acme 94.3%, fingerprint 95.1%; общее покрытие src/ 96.13% (127562 из
-    132695 строк). ctest 116/116 зелёные. Остаток keys (447 строк) - глубокие ветки отказов разбора мешков
-    PKCS #12 (pkcs12bag 79, decodePkcs12 69) и derive (49), требующие специальных мешков/ключей; trust (85)
-    не добит.
+    132695 строк). ctest 116/116 зелёные. Добивка trust тем же кругом: пины TrustTest.AddressRefusal/
+    StoreReset/StarvedVerify/WeakChain/AnchorOutdated/LeafUsageSpoiled/StarvedConstrained/StarvedIntended/
+    StarvedExcluded/RootedPattern - отказы разбора адресов IPv4/IPv6 (пустая часть, >255, >4 частей, чужой
+    знак, двойное сжатие, >4 знаков, не 8 частей без сжатия), сличение адресов within, сличение имён matches,
+    свёртка folded, Starved-прогоны verify/constrained/intended/excluded. Итог trust 95.1% (было 91.1%);
+    общее покрытие src/ 96.17% (127607 из 132695 строк). ctest 116/116 зелёные. Остаток keys (448 строк) -
+    глубокие ветки отказов разбора мешков PKCS #12 (pkcs12bag, decodePkcs12) и derive, требующие порчи
+    DER-структур; дальнейший подъём - diminishing returns.
 Обвязка SSH - mpint, name-list, KDF §7.2 HASH(K ‖ H ‖ X ‖ session_id), сертификаты OpenSSH, kex-strict, ext-info, агент -
 живёт в AWH, не в A-NTS.
 

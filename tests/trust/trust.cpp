@@ -1715,3 +1715,547 @@ TEST(TrustTest, EmptySubjectDirName){
 	// Проверяем отказ доверия листу с subject вне поддерева
 	EXPECT_EQ(trust::verify(vector <vector <uint8_t>> {foreign, mid}, store, moment, trust::role_t::SERVER), trust::error_t::CONSTRAINED);
 }
+
+/**
+ * @brief Проверка отказов разбора адресов сети в имени узла
+ *
+ * @note Имя узла, записанное цифрами с точками либо с двоеточиями, но не разобранное
+ *       адресом сети, сличается как доменное имя и имени владельца не отвечает
+ *
+ */
+TEST(TrustTest, AddressRefusal){
+	// Ключевая пара владельца сертификата
+	keys_t subject;
+	// Выполняем выработку ключевой пары владельца
+	ASSERT_TRUE(fabricate(subject));
+	// Запись сертификата владельца с доменным именем
+	vector <uint8_t> leaf;
+	// Выполняем выработку самоподписанного сертификата владельца
+	ASSERT_TRUE(make("anyks.com", "anyks.com", subject, vector <uint8_t> (), options_t (), leaf));
+	// Получаем запись сличаемого сертификата
+	const view_t certificate(leaf.data(), leaf.size());
+	// Проверяем отказ сличения адреса IPv4 с пустой частью
+	EXPECT_EQ(trust::belongs(certificate, "10..0.1"), trust::error_t::NAME);
+	// Проверяем отказ сличения адреса IPv4 с частью длиннее трёх знаков
+	EXPECT_EQ(trust::belongs(certificate, "10.0.0.1234"), trust::error_t::NAME);
+	// Проверяем отказ сличения адреса IPv4 с частью больше 255
+	EXPECT_EQ(trust::belongs(certificate, "10.0.0.256"), trust::error_t::NAME);
+	// Проверяем отказ сличения адреса IPv4 с пятью частями
+	EXPECT_EQ(trust::belongs(certificate, "1.2.3.4.5"), trust::error_t::NAME);
+	// Проверяем отказ сличения адреса IPv4 с чужим знаком
+	EXPECT_EQ(trust::belongs(certificate, "10.0.0.a"), trust::error_t::NAME);
+	// Проверяем отказ сличения адреса IPv4 с тремя частями
+	EXPECT_EQ(trust::belongs(certificate, "10.0.1"), trust::error_t::NAME);
+	// Проверяем отказ сличения адреса IPv6 с девятью частями
+	EXPECT_EQ(trust::belongs(certificate, "1:2:3:4:5:6:7:8:9"), trust::error_t::NAME);
+	// Проверяем отказ сличения адреса IPv6 с двойным сжатием нулей
+	EXPECT_EQ(trust::belongs(certificate, "1::2::3"), trust::error_t::NAME);
+	// Проверяем отказ сличения адреса IPv6 с частью длиннее четырёх знаков
+	EXPECT_EQ(trust::belongs(certificate, "12345::"), trust::error_t::NAME);
+	// Проверяем отказ сличения адреса IPv6 с чужим знаком
+	EXPECT_EQ(trust::belongs(certificate, "gg::"), trust::error_t::NAME);
+	// Проверяем отказ сличения адреса IPv6 без сжатия с числом частей меньше восьми
+	EXPECT_EQ(trust::belongs(certificate, "1:2:3"), trust::error_t::NAME);
+	// Проверяем отказ сличения адреса IPv6 с восемью частями и сжатием нулей
+	EXPECT_EQ(trust::belongs(certificate, "1:2:3:4:5:6:7:8::"), trust::error_t::NAME);
+	// Проверяем отказ сличения адреса IPv6 из одного двоеточия
+	EXPECT_EQ(trust::belongs(certificate, ":"), trust::error_t::NAME);
+	// Проверяем отказ сличения адреса IPv6 с пустой частью на краю
+	EXPECT_EQ(trust::belongs(certificate, ":1"), trust::error_t::NAME);
+	// Проверяем отказ сличения адреса IPv6 с одиночным двоеточием на конце
+	EXPECT_EQ(trust::belongs(certificate, "1:"), trust::error_t::NAME);
+}
+
+/**
+ * @brief Проверка сброса запаса доверенных сертификатов и чтения за его границей
+ *
+ */
+TEST(TrustTest, StoreReset){
+	// Ключевая пара издателя сертификата
+	keys_t issuer;
+	// Выполняем выработку ключевой пары издателя
+	ASSERT_TRUE(fabricate(issuer));
+	// Настройки сертификата издателя
+	options_t options;
+	// Устанавливаем право издавать другие сертификаты
+	options.authority = true;
+	// Запись сертификата издателя
+	vector <uint8_t> root;
+	// Выполняем выработку самоподписанного сертификата издателя
+	ASSERT_TRUE(make("anyks root", "anyks root", issuer, vector <uint8_t> (), options, root));
+	// Запас доверенных сертификатов
+	trust::store_t store;
+	// Выполняем добавление сертификата издателя в запас доверенных
+	ASSERT_TRUE(store.add(view_t(root.data(), root.size())));
+	// Проверяем число доверенных сертификатов запаса
+	ASSERT_EQ(store.size(), static_cast <size_t> (1));
+	// Проверяем чтение сертификата за границей запаса
+	ASSERT_EQ(store.get(1).data, static_cast <const uint8_t *> (nullptr));
+	// Выполняем сброс запаса доверенных сертификатов
+	store.clear();
+	// Проверяем число доверенных сертификатов запаса после сброса
+	ASSERT_EQ(store.size(), static_cast <size_t> (0));
+	// Проверяем чтение сертификата из сброшенного запаса
+	ASSERT_EQ(store.get(0).data, static_cast <const uint8_t *> (nullptr));
+	// Признак того, что нехватка памяти хоть раз объявлена отказом
+	bool starved = false;
+	/**
+	 * Выполняем перебор запасов выделений: добавление в запас обязано на всяком запасе
+	 * ответить либо успехом, либо отказом, но не прерыванием исполнения
+	 */
+	for(size_t budget = 0; budget < 64; budget++){
+		// Итог добавления при отмеренном запасе
+		bool added = false;
+		{
+			// Отмеряем запас выделений на время добавления
+			starve::ration_t ration(budget);
+			// Выполняем добавление сертификата в запас при отмеренном запасе
+			added = store.add(view_t(root.data(), root.size()));
+		}
+		// Запоминаем объявленный отказ памяти
+		starved = (starved || !added);
+		// Выполняем сброс запаса доверенных сертификатов
+		store.clear();
+	}
+	// Проверяем, что нехватка памяти объявлена отказом хоть раз
+	ASSERT_TRUE(starved);
+}
+
+/**
+ * @brief Проверка отказов нехватки памяти при проверке цепочки сертификатов
+ *
+ * @note Перебор запасов выделений: проверка цепочки обязана на всяком запасе ответить
+ *       либо штатным итогом, либо отказом памяти, но не прерыванием исполнения
+ *
+ */
+TEST(TrustTest, StarvedVerify){
+	// Ключевые пары издателя и владельца сертификатов
+	keys_t issuer, subject;
+	// Выполняем выработку ключевой пары издателя
+	ASSERT_TRUE(fabricate(issuer));
+	// Выполняем выработку ключевой пары владельца
+	ASSERT_TRUE(fabricate(subject));
+	// Настройки сертификата издателя
+	options_t options;
+	// Устанавливаем право издавать другие сертификаты
+	options.authority = true;
+	// Запись сертификата издателя цепочки
+	vector <uint8_t> root;
+	// Выполняем выработку самоподписанного сертификата издателя с длинным именем: приведение имени выделяет память
+	ASSERT_TRUE(make("anyks very long root name of the chain", "anyks very long root name of the chain", issuer, vector <uint8_t> (), options, root));
+	// Настройки сертификата владельца
+	options_t settings;
+	// Устанавливаем дополнительное доменное имя владельца подлиннее: приведение его выделяет память
+	settings.alternative = "www.very-long-host-name.that-needs-allocation.anyks.com";
+	// Запись сертификата владельца цепочки
+	vector <uint8_t> leaf;
+	// Выполняем выработку сертификата владельца, изданного издателем
+	ASSERT_TRUE(make("www.very-long-host-name.that-needs-allocation.anyks.com", "anyks very long root name of the chain", subject, issuer.secret, settings, leaf));
+	// Запас доверенных сертификатов
+	trust::store_t store;
+	// Выполняем добавление сертификата издателя в запас доверенных
+	ASSERT_TRUE(store.add(view_t(root.data(), root.size())));
+	// Проверяемая цепочка сертификатов вместе с издателем
+	const vector <vector <uint8_t>> chain = {leaf, root};
+	// Признак того, что нехватка памяти хоть раз объявлена отказом
+	bool starved = false;
+	/**
+	 * Выполняем перебор запасов выделений: проверка цепочки обязана на всяком запасе
+	 * ответить либо успехом, либо отказом памяти, но не прерыванием исполнения
+	 */
+	for(size_t budget = 0; budget < 768; budget++){
+		// Итог проверки при отмеренном запасе
+		trust::error_t outcome = trust::error_t::NONE;
+		{
+			// Отмеряем запас выделений на время проверки
+			starve::ration_t ration(budget);
+			// Выполняем проверку цепочки при отмеренном запасе
+			outcome = trust::verify(chain, store, MOMENT);
+		}
+		// Проверяем, что проверка ответила успехом либо отказом памяти
+		ASSERT_TRUE((outcome == trust::error_t::NONE) || (outcome == trust::error_t::MEMORY)) << "запас " << budget;
+		// Запоминаем объявленный отказ памяти
+		starved = (starved || (outcome == trust::error_t::MEMORY));
+	}
+	// Проверяем, что нехватка памяти объявлена отказом хоть раз
+	ASSERT_TRUE(starved);
+	// Проверяемая цепочка из одного листа: издатель разыскивается перебором запаса
+	const vector <vector <uint8_t>> lone = {leaf};
+	// Сбрасываем признак отказа памяти
+	starved = false;
+	/**
+	 * Выполняем перебор запасов выделений: проверка листа с разысканием издателя в
+	 * запасе обязана на всяком запасе ответить либо успехом, либо отказом памяти
+	 */
+	for(size_t budget = 0; budget < 768; budget++){
+		// Итог проверки при отмеренном запасе
+		trust::error_t outcome = trust::error_t::NONE;
+		{
+			// Отмеряем запас выделений на время проверки
+			starve::ration_t ration(budget);
+			// Выполняем проверку цепочки при отмеренном запасе
+			outcome = trust::verify(lone, store, MOMENT);
+		}
+		// Проверяем, что проверка ответила успехом либо отказом памяти
+		ASSERT_TRUE((outcome == trust::error_t::NONE) || (outcome == trust::error_t::MEMORY)) << "запас " << budget;
+		// Запоминаем объявленный отказ памяти
+		starved = (starved || (outcome == trust::error_t::MEMORY));
+	}
+	// Проверяем, что нехватка памяти объявлена отказом хоть раз
+	ASSERT_TRUE(starved);
+	// Запись сертификата владельца без дополнительных имён: сличается общее имя
+	vector <uint8_t> common;
+	// Выполняем выработку сертификата владельца без дополнительных имён
+	ASSERT_TRUE(make("www.very-long-host-name.that-needs-allocation.anyks.com", "anyks very long root name of the chain", subject, issuer.secret, options_t (), common));
+	// Сличаемое имя узла, заводимое до отмеривания запаса: строка сама выделяет
+	const string plain = "www.very-long-host-name.that-needs-allocation.anyks.com";
+	// Сбрасываем признак отказа памяти
+	starved = false;
+	/**
+	 * Выполняем перебор запасов выделений: сличение имени узла с общим именем владельца
+	 * обязано на всяком запасе ответить либо штатным итогом, либо отказом памяти
+	 */
+	for(size_t budget = 0; budget < 768; budget++){
+		// Итог сличения при отмеренном запасе
+		trust::error_t outcome = trust::error_t::NONE;
+		{
+			// Отмеряем запас выделений на время сличения
+			starve::ration_t ration(budget);
+			// Выполняем сличение имени при отмеренном запасе
+			outcome = trust::belongs(view_t(common.data(), common.size()), plain);
+		}
+		// Проверяем, что сличение ответило штатным итогом либо отказом памяти
+		ASSERT_TRUE((outcome == trust::error_t::NONE) || (outcome == trust::error_t::MEMORY)) << "запас " << budget;
+		// Запоминаем объявленный отказ памяти
+		starved = (starved || (outcome == trust::error_t::MEMORY));
+	}
+	// Проверяем, что нехватка памяти объявлена отказом хоть раз
+	ASSERT_TRUE(starved);
+	// Сличаемое имя узла, длиннее короткой строки: приведение регистра выделяет память
+	const string named = "WWW.VERY-LONG-HOST-NAME.THAT-NEEDS-ALLOCATION.ANYKS.COM";	// Сбрасываем признак отказа памяти
+	starved = false;
+	/**
+	 * Выполняем перебор запасов выделений: сличение длинного имени обязано на всяком
+	 * запасе ответить либо штатным итогом, либо отказом памяти, но не прерыванием
+	 */
+	for(size_t budget = 0; budget < 768; budget++){
+		// Итог сличения при отмеренном запасе
+		trust::error_t outcome = trust::error_t::NONE;
+		{
+			// Отмеряем запас выделений на время сличения
+			starve::ration_t ration(budget);
+			// Выполняем сличение имени при отмеренном запасе
+			outcome = trust::belongs(view_t(leaf.data(), leaf.size()), named);
+		}
+		// Проверяем, что сличение ответило штатным итогом либо отказом памяти
+		ASSERT_TRUE((outcome == trust::error_t::NONE) || (outcome == trust::error_t::NAME) || (outcome == trust::error_t::MEMORY)) << "запас " << budget;
+		// Запоминаем объявленный отказ памяти
+		starved = (starved || (outcome == trust::error_t::MEMORY));
+	}
+	// Проверяем, что нехватка памяти объявлена отказом хоть раз
+	ASSERT_TRUE(starved);
+}
+
+/**
+ * @brief Проверка отказа доверия цепочке со слабым звеном
+ *
+ * @note Слабость звена цепочки: подпись SHA-1 либо ключ RSA короче 2048 разрядов
+ *       (RFC 9155, SP 800-131A); образцы взяты из набора audit
+ *
+ */
+TEST(TrustTest, WeakChain){
+	// Корень и листы со слабостями набора образцов
+	const vector <uint8_t> root = certified("audit/weak-root.crt"), sha1 = certified("audit/weak-sha1.crt"), rsa = certified("audit/weak-rsa.crt"), ok = certified("audit/weak-ok.crt");
+	// Проверяем чтение образцов
+	ASSERT_FALSE(root.empty() || sha1.empty() || rsa.empty() || ok.empty());
+	// Запас доверенных сертификатов
+	trust::store_t store;
+	// Проверяем добавление корня в запас
+	ASSERT_TRUE(store.add(view_t(root.data(), root.size())));
+	// Миг проверки в срок действия образцов
+	const int64_t moment = 1800000000;
+	// Проверяем доверие годному листу: контроль сходимости цепочки
+	EXPECT_EQ(trust::verify(vector <vector <uint8_t>> {ok}, store, moment), trust::error_t::NONE);
+	// Проверяем отказ доверия листу с ключом RSA короче 2048 разрядов
+	EXPECT_EQ(trust::verify(vector <vector <uint8_t>> {rsa}, store, moment), trust::error_t::WEAK);
+	// Проверяем отказ доверия листу с подписью SHA-1
+	EXPECT_EQ(trust::verify(vector <vector <uint8_t>> {sha1}, store, moment), trust::error_t::WEAK);
+	// Проверяем отказ доверия цепочке со слабым листом вместе с издателем
+	EXPECT_EQ(trust::verify(vector <vector <uint8_t>> {rsa, root}, store, moment), trust::error_t::WEAK);
+	// Проверяем отказ доверия цепочке с подписью SHA-1 вместе с издателем
+	EXPECT_EQ(trust::verify(vector <vector <uint8_t>> {sha1, root}, store, moment), trust::error_t::WEAK);
+}
+
+/**
+ * @brief Проверка отказа доверия цепочке с якорем вне срока действия
+ *
+ * @note Якорь, срок которого на миг проверки не идёт, запасом не признаётся: перебор
+ *       запаса переходит к следующему доверенному, а без него цепочка остаётся без
+ *       издателя
+ *
+ */
+TEST(TrustTest, AnchorOutdated){
+	// Ключевые пары издателя и владельца сертификатов
+	keys_t issuer, subject;
+	// Выполняем выработку ключевой пары издателя
+	ASSERT_TRUE(fabricate(issuer));
+	// Выполняем выработку ключевой пары владельца
+	ASSERT_TRUE(fabricate(subject));
+	// Настройки сертификата издателя с узким сроком действия
+	options_t options;
+	// Устанавливаем право издавать другие сертификаты
+	options.authority = true;
+	// Сужаем срок действия издателя: он кончается раньше мига проверки
+	options.before = 1767225600;
+	// Сужаем срок действия издателя: он кончается раньше мига проверки
+	options.after = 1800000000;
+	// Запись сертификата издателя цепочки
+	vector <uint8_t> root;
+	// Выполняем выработку самоподписанного сертификата издателя
+	ASSERT_TRUE(make("anyks root", "anyks root", issuer, vector <uint8_t> (), options, root));
+	// Запись сертификата владельца цепочки
+	vector <uint8_t> leaf;
+	// Выполняем выработку сертификата владельца, изданного издателем
+	ASSERT_TRUE(make("anyks.com", "anyks root", subject, issuer.secret, options_t (), leaf));
+	// Запас доверенных сертификатов
+	trust::store_t store;
+	// Выполняем добавление сертификата издателя в запас доверенных
+	ASSERT_TRUE(store.add(view_t(root.data(), root.size())));
+	// Проверяем отказ доверия цепочке: якорь вне срока действия запасом не признаётся
+	EXPECT_EQ(trust::verify(vector <vector <uint8_t>> {leaf}, store, 1900000000), trust::error_t::AUTHORITY);
+	// Проверяем доверие цепочке в срок действия якоря: контроль сходимости
+	EXPECT_EQ(trust::verify(vector <vector <uint8_t>> {leaf}, store, 1780000000), trust::error_t::NONE);
+}
+
+/**
+ * @brief Проверка отказа доверия листу с порченым телом назначения открытого ключа
+ *
+ * @note Тело назначения открытого ключа листа разбирается наравне со всем прочим:
+ *       порча его отдаётся отказом назначения ключа листа, а не издателя
+ *
+ */
+TEST(TrustTest, LeafUsageSpoiled){
+	// Ключевые пары издателя и владельца сертификатов
+	keys_t issuer, subject;
+	// Выполняем выработку ключевой пары издателя
+	ASSERT_TRUE(fabricate(issuer));
+	// Выполняем выработку ключевой пары владельца
+	ASSERT_TRUE(fabricate(subject));
+	// Настройки сертификата издателя
+	options_t options;
+	// Устанавливаем право издавать другие сертификаты
+	options.authority = true;
+	// Запись сертификата издателя цепочки
+	vector <uint8_t> root;
+	// Выполняем выработку самоподписанного сертификата издателя
+	ASSERT_TRUE(make("anyks root", "anyks root", issuer, vector <uint8_t> (), options, root));
+	// Запас доверенных сертификатов
+	trust::store_t store;
+	// Выполняем добавление сертификата издателя в запас доверенных
+	ASSERT_TRUE(store.add(view_t(root.data(), root.size())));
+	// Настройки сертификата владельца с порченым телом назначения ключа
+	options_t spoiled;
+	// Портим тело назначения открытого ключа владельца
+	spoiled.spoiled = SPOIL_USAGE;
+	// Запись сертификата владельца с порченым телом назначения ключа
+	vector <uint8_t> leaf;
+	// Выполняем выработку сертификата владельца, изданного издателем
+	ASSERT_TRUE(make("anyks.com", "anyks root", subject, issuer.secret, spoiled, leaf));
+	// Проверяем отказ доверия листу с порченым телом назначения ключа
+	EXPECT_EQ(trust::verify(vector <vector <uint8_t>> {leaf}, store, MOMENT), trust::error_t::PURPOSE);
+}
+
+/**
+ * @brief Проверка отказов нехватки памяти при проверке цепочки с ограничениями имён
+ *
+ * @note Перебор запасов выделений над цепочкой набора audit с дозволенным поддеревом
+ *       directoryName: сличение имён обязано на всяком запасе ответить либо штатным
+ *       итогом, либо отказом памяти, но не прерыванием исполнения
+ *
+ */
+TEST(TrustTest, StarvedConstrained){
+	// Корень, промежуточный издатель с дозволенным поддеревом C=US,O=Corp и лист в нём
+	const vector <uint8_t> root = certified("audit/r8-nc-root.crt"), mid = certified("audit/r8-nc-mid-dn.crt"), inside = certified("audit/r8-nc-leaf-dn.crt");
+	// Проверяем чтение образцов
+	ASSERT_FALSE(root.empty() || mid.empty() || inside.empty());
+	// Запас доверенных сертификатов
+	trust::store_t store;
+	// Проверяем добавление корня в запас
+	ASSERT_TRUE(store.add(view_t(root.data(), root.size())));
+	// Миг проверки в срок действия образцов
+	const int64_t moment = 1800000000;
+	// Проверяемая цепочка сертификатов, заводимая до отмеривания запаса
+	const vector <vector <uint8_t>> chain = {inside, mid};
+	// Признак того, что нехватка памяти хоть раз объявлена отказом
+	bool starved = false;
+	/**
+	 * Выполняем перебор запасов выделений: проверка цепочки с ограничениями имён
+	 * обязана на всяком запасе ответить либо успехом, либо отказом памяти
+	 */
+	for(size_t budget = 0; budget < 768; budget++){
+		// Итог проверки при отмеренном запасе
+		trust::error_t outcome = trust::error_t::NONE;
+		{
+			// Отмеряем запас выделений на время проверки
+			starve::ration_t ration(budget);
+			// Выполняем проверку цепочки при отмеренном запасе
+			outcome = trust::verify(chain, store, moment, trust::role_t::SERVER);
+		}
+		// Проверяем, что проверка ответила успехом либо отказом памяти
+		ASSERT_TRUE((outcome == trust::error_t::NONE) || (outcome == trust::error_t::MEMORY)) << "запас " << budget;
+		// Запоминаем объявленный отказ памяти
+		starved = (starved || (outcome == trust::error_t::MEMORY));
+	}
+	// Проверяем, что нехватка памяти объявлена отказом хоть раз
+	ASSERT_TRUE(starved);
+	// Запас доверенных с самим промежуточным издателем: ограничения его кроют цепочку
+	trust::store_t anchors;
+	// Проверяем добавление промежуточного издателя в запас
+	ASSERT_TRUE(anchors.add(view_t(mid.data(), mid.size())));
+	// Проверяемая цепочка из одного листа под ограничениями якоря
+	const vector <vector <uint8_t>> lone = {inside};
+	// Сбрасываем признак отказа памяти
+	starved = false;
+	/**
+	 * Выполняем перебор запасов выделений: проверка листа под ограничениями якоря
+	 * обязана на всяком запасе ответить либо успехом, либо отказом памяти
+	 */
+	for(size_t budget = 0; budget < 768; budget++){
+		// Итог проверки при отмеренном запасе
+		trust::error_t outcome = trust::error_t::NONE;
+		{
+			// Отмеряем запас выделений на время проверки
+			starve::ration_t ration(budget);
+			// Выполняем проверку цепочки при отмеренном запасе
+			outcome = trust::verify(lone, anchors, moment, trust::role_t::SERVER);
+		}
+		// Проверяем, что проверка ответила успехом либо отказом памяти
+		ASSERT_TRUE((outcome == trust::error_t::NONE) || (outcome == trust::error_t::MEMORY)) << "запас " << budget;
+		// Запоминаем объявленный отказ памяти
+		starved = (starved || (outcome == trust::error_t::MEMORY));
+	}
+	// Проверяем, что нехватка памяти объявлена отказом хоть раз
+	ASSERT_TRUE(starved);
+}
+
+/**
+ * @brief Проверка отказов нехватки памяти при проверке цепочки с расширенным назначением
+ *
+ * @note Перебор запасов выделений над цепочкой набора audit с расширенным назначением
+ *       ключа листа: разбор назначения обязан на всяком запасе ответить либо штатным
+ *       итогом, либо отказом памяти, но не прерыванием исполнения
+ *
+ */
+TEST(TrustTest, StarvedIntended){
+	// Корень, промежуточный издатель и лист с расширенным назначением clientAuth
+	const vector <uint8_t> root = certified("audit/eku-root.crt"), mid = certified("audit/eku-mid.crt"), leaf = certified("audit/eku-client.crt");
+	// Проверяем чтение образцов
+	ASSERT_FALSE(root.empty() || mid.empty() || leaf.empty());
+	// Запас доверенных сертификатов
+	trust::store_t store;
+	// Проверяем добавление корня в запас
+	ASSERT_TRUE(store.add(view_t(root.data(), root.size())));
+	// Миг проверки в срок действия образцов
+	const int64_t moment = 1800000000;
+	// Проверяемая цепочка сертификатов, заводимая до отмеривания запаса
+	const vector <vector <uint8_t>> chain = {leaf, mid};
+	// Проверяем доверие цепочке: контроль сходимости
+	ASSERT_EQ(trust::verify(chain, store, moment, trust::role_t::CLIENT), trust::error_t::NONE);
+	// Признак того, что нехватка памяти хоть раз объявлена отказом
+	bool starved = false;
+	/**
+	 * Выполняем перебор запасов выделений: проверка цепочки с расширенным назначением
+	 * обязана на всяком запасе ответить либо успехом, либо отказом памяти
+	 */
+	for(size_t budget = 0; budget < 768; budget++){
+		// Итог проверки при отмеренном запасе
+		trust::error_t outcome = trust::error_t::NONE;
+		{
+			// Отмеряем запас выделений на время проверки
+			starve::ration_t ration(budget);
+			// Выполняем проверку цепочки при отмеренном запасе
+			outcome = trust::verify(chain, store, moment, trust::role_t::CLIENT);
+		}
+		// Проверяем, что проверка ответила успехом либо отказом памяти
+		ASSERT_TRUE((outcome == trust::error_t::NONE) || (outcome == trust::error_t::MEMORY)) << "запас " << budget;
+		// Запоминаем объявленный отказ памяти
+		starved = (starved || (outcome == trust::error_t::MEMORY));
+	}
+	// Проверяем, что нехватка памяти объявлена отказом хоть раз
+	ASSERT_TRUE(starved);
+}
+
+/**
+ * @brief Проверка отказов нехватки памяти при проверке цепочки с запрещённым поддеревом
+ *
+ * @note Перебор запасов выделений над цепочкой набора audit с запрещённым поддеревом
+ *       directoryName: сличение имени с запретом обязано на всяком запасе ответить
+ *       либо штатным итогом, либо отказом памяти, но не прерыванием исполнения
+ *
+ */
+TEST(TrustTest, StarvedExcluded){
+	// Корень, промежуточный издатель с запрещённым поддеревом C=RU и лист с именем вида directoryName
+	const vector <uint8_t> root = certified("audit/r4-root.crt"), mid = certified("audit/r4-mid-ex.crt"), leaf = certified("audit/r4-leafA.crt");
+	// Проверяем чтение образцов
+	ASSERT_FALSE(root.empty() || mid.empty() || leaf.empty());
+	// Запас доверенных сертификатов
+	trust::store_t store;
+	// Проверяем добавление корня в запас
+	ASSERT_TRUE(store.add(view_t(root.data(), root.size())));
+	// Миг проверки в срок действия образцов
+	const int64_t moment = 1800000000;
+	// Проверяемая цепочка сертификатов, заводимая до отмеривания запаса
+	const vector <vector <uint8_t>> chain = {leaf, mid};
+	// Признак того, что нехватка памяти хоть раз объявлена отказом
+	bool starved = false;
+	/**
+	 * Выполняем перебор запасов выделений: проверка цепочки с запрещённым поддеревом
+	 * обязана на всяком запасе ответить либо штатным итогом, либо отказом памяти
+	 */
+	for(size_t budget = 0; budget < 768; budget++){
+		// Итог проверки при отмеренном запасе
+		trust::error_t outcome = trust::error_t::NONE;
+		{
+			// Отмеряем запас выделений на время проверки
+			starve::ration_t ration(budget);
+			// Выполняем проверку цепочки при отмеренном запасе
+			outcome = trust::verify(chain, store, moment, trust::role_t::SERVER);
+		}
+		// Проверяем, что проверка ответила штатным итогом либо отказом памяти
+		ASSERT_TRUE((outcome == trust::error_t::NONE) || (outcome == trust::error_t::CONSTRAINED) || (outcome == trust::error_t::MEMORY)) << "запас " << budget;
+		// Запоминаем объявленный отказ памяти
+		starved = (starved || (outcome == trust::error_t::MEMORY));
+	}
+	// Проверяем, что нехватка памяти объявлена отказом хоть раз
+	ASSERT_TRUE(starved);
+}
+
+/**
+ * @brief Проверка сличения имени узла с негодными именами владельца с точками на конце
+ *
+ * @note Имя владельца с двумя точками на конце негодно и сличению не подлежит:
+ *       дополнительное имя пропускается, общее имя отвечает отказом
+ *
+ */
+TEST(TrustTest, RootedPattern){
+	// Ключевая пара владельца сертификата
+	keys_t subject;
+	// Выполняем выработку ключевой пары владельца
+	ASSERT_TRUE(fabricate(subject));
+	// Настройки сертификата владельца с негодным дополнительным именем
+	options_t options;
+	// Устанавливаем дополнительное доменное имя владельца с двумя точками на конце
+	options.alternative = "www.anyks.com..";
+	// Запись сертификата владельца
+	vector <uint8_t> leaf;
+	// Выполняем выработку самоподписанного сертификата владельца
+	ASSERT_TRUE(make("anyks.com", "anyks.com", subject, vector <uint8_t> (), options, leaf));
+	// Проверяем, что негодное дополнительное имя пропускается, а прочих имён нет
+	EXPECT_EQ(trust::belongs(view_t(leaf.data(), leaf.size()), "www.anyks.com"), trust::error_t::NAME);
+	// Запись сертификата владельца с негодным общим именем
+	vector <uint8_t> common;
+	// Выполняем выработку самоподписанного сертификата с общим именем с двумя точками на конце
+	ASSERT_TRUE(make("anyks.com..", "anyks.com..", subject, vector <uint8_t> (), options_t (), common));
+	// Проверяем отказ сличения имени узла с негодным общим именем владельца
+	EXPECT_EQ(trust::belongs(view_t(common.data(), common.size()), "anyks.com"), trust::error_t::NAME);
+}
