@@ -298,8 +298,9 @@ target_link_libraries(${TEST_RIPEMD_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_mai
 # Регистрируем цель проверок
 add_test(NAME ${TEST_RIPEMD_NAME} COMMAND ${TEST_RIPEMD_NAME})
 
-# Устанавливаем имя цели проверок модуля bcrypt_pbkdf
-SET(TEST_BCRYPT_NAME bcrypt)
+# Устанавливаем имя цели проверок модуля bcrypt_pbkdf: простое bcrypt на Windows
+# конфликтует с системной библиотекой BCrypt при вывозе целей
+SET(TEST_BCRYPT_NAME bcryptpbkdf)
 
 # Добавляем цель проверок модуля bcrypt_pbkdf
 add_executable(${TEST_BCRYPT_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/bcrypt.cpp")
