@@ -401,3 +401,48 @@ TEST(RequestTest, Openssl){
 		ASSERT_EQ(shell(std::string("openssl req -in ") + path + " -inform DER -verify -noout >/dev/null 2>&1"), 0) << "Запрос: " << names[i];
 	}
 }
+
+/**
+ * Проверка записи запросов ключами SM2 и ML-DSA: запись разбирается обратно,
+ * подпись сходится с ключом запроса
+ */
+TEST(RequestTest, Sm2Mldsa){
+	// Записи сертификатов и ключей набора
+	struct {
+		// Файлы сертификата и ключа
+		const char * crt, * key;
+		// Опознаватель алгоритма подписи
+		const char * algorithm;
+	} CASES[] = {
+		{"mldsa44.crt", "mldsa44.pem", "2.16.840.1.101.3.4.3.17"},
+		{"mldsa65.crt", "mldsa65.pem", "2.16.840.1.101.3.4.3.18"},
+		{"mldsa87.crt", "mldsa87.pem", "2.16.840.1.101.3.4.3.19"}
+	};
+	// Выполняем перебор ключей набора
+	for(size_t i = 0; i < (sizeof(CASES) / sizeof(CASES[0])); i++){
+		// Тело записи сертификата в кодировке DER
+		const std::vector <uint8_t> der = body(corpus(CASES[i].crt));
+		// Проверяем наличие записи
+		ASSERT_FALSE(der.empty()) << "Сертификат: " << CASES[i].crt;
+		// Разбираемый сертификат
+		x509::certificate_t certificate;
+		// Проверяем разбор записи сертификата
+		ASSERT_EQ(certificate.parse(view(der)), x509::error_t::NONE) << "Сертификат: " << CASES[i].crt;
+		// Подготовленный секретный ключ владельца запроса
+		keys::signer_t signer;
+		// Проверяем подготовку ключа из записи набора
+		ASSERT_EQ(signer.prepare(view(bytes(corpus(CASES[i].key)))), keys::error_t::NONE) << "Ключ: " << CASES[i].key;
+		// Записанный запрос
+		std::vector <uint8_t> encoded;
+		// Проверяем запись запроса без расширений
+		ASSERT_EQ(x509::encode(certificate.subjects(), certificate.key(), std::vector <x509::extension_t> (), signer, digest::hash_t::SHA256, encoded), x509::error_t::NONE) << "Ключ: " << CASES[i].key;
+		// Разбираемый записанный запрос
+		x509::request_t request;
+		// Проверяем разбор записанного запроса
+		ASSERT_EQ(request.parse(view(encoded)), x509::error_t::NONE) << "Ключ: " << CASES[i].key;
+		// Проверяем опознаватель алгоритма подписи записанного запроса
+		ASSERT_EQ(request.algorithms(), CASES[i].algorithm) << "Ключ: " << CASES[i].key;
+		// Проверяем подпись записанного запроса сведениями об открытом ключе самого запроса
+		ASSERT_EQ(x509::verify(request, request.key()), x509::error_t::NONE) << "Ключ: " << CASES[i].key;
+	}
+}

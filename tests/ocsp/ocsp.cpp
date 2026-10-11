@@ -2633,3 +2633,155 @@ TEST(OcspTest, SameNameResponder){
 		EXPECT_EQ(status, ocsp::status_t::GOOD) << RESPONSES[i];
 	}
 }
+
+/**
+ * Проверка отказов составления запроса OCSP
+ */
+TEST(OcspTest, RequestRefusals){
+	// Записи сертификатов
+	const vector <uint8_t> subject = certified("leaf-ec.crt"), authority = certified("mid-ec.crt");
+	// Проверяем чтение набора
+	ASSERT_FALSE(subject.empty() || authority.empty());
+	// Накопитель запроса
+	vector <uint8_t> request;
+	// Проверяем отказ неподдерживаемого хеша MD5
+	ASSERT_EQ(ocsp::request(view_t(subject.data(), subject.size()), view_t(authority.data(), authority.size()), digest::hash_t::MD5, view_t(nullptr, 0), request), ocsp::error_t::HASH);
+	// Проверяем отказ пустого сертификата
+	ASSERT_EQ(ocsp::request(view_t(), view_t(authority.data(), authority.size()), digest::hash_t::SHA1, view_t(nullptr, 0), request), ocsp::error_t::KEY);
+	// Проверяем отказ пустого издателя
+	ASSERT_EQ(ocsp::request(view_t(subject.data(), subject.size()), view_t(), digest::hash_t::SHA1, view_t(nullptr, 0), request), ocsp::error_t::KEY);
+}
+
+/**
+ * Проверка отказов извлечения адреса ответчика
+ */
+TEST(OcspTest, ResponderRefusals){
+	// Адрес ответчика
+	string address;
+	// Проверяем отказ пустой записи
+	ASSERT_EQ(ocsp::responder(view_t(), address), ocsp::error_t::KEY);
+	// Проверяем отказ порченой записи
+	const uint8_t broken[] = {0x02, 0x01, 0x00};
+	// Проверяем отказ порченой записи
+	ASSERT_EQ(ocsp::responder(view_t(broken, sizeof(broken)), address), ocsp::error_t::KEY);
+	// Запись сертификата без адреса ответчика
+	const vector <uint8_t> plain = certified("leaf-rsa.crt");
+	// Проверяем чтение набора
+	ASSERT_FALSE(plain.empty());
+	// Проверяем отсутствие адреса у сертификата без расширения AIA
+	ASSERT_EQ(ocsp::responder(view_t(plain.data(), plain.size()), address), ocsp::error_t::NONE);
+	// Проверяем пустоту адреса
+	ASSERT_TRUE(address.empty());
+}
+
+/**
+ * Проверка отказов проверки ответа OCSP
+ */
+TEST(OcspTest, VerifyRefusals){
+	// Записи сертификатов
+	const vector <uint8_t> subject = certified("leaf-ec.crt"), authority = certified("mid-ec.crt");
+	// Проверяем чтение набора
+	ASSERT_FALSE(subject.empty() || authority.empty());
+	// Запись ответа
+	const vector <uint8_t> der = vectored("leaf-ec.good.der");
+	// Проверяем чтение ответа
+	ASSERT_FALSE(der.empty());
+	// Разобранный ответ
+	ocsp::response_t response;
+	// Проверяем разбор ответа
+	ASSERT_EQ(response.parse(view_t(der.data(), der.size())), ocsp::error_t::NONE);
+	// Состояние сертификата
+	ocsp::status_t status = ocsp::status_t::NONE;
+	// Проверяем отказ проверки пустым сертификатом
+	ASSERT_EQ(ocsp::verify(response, view_t(), view_t(authority.data(), authority.size()), 0, 0, view_t(), status), ocsp::error_t::KEY);
+	// Проверяем отказ проверки пустым издателем
+	ASSERT_EQ(ocsp::verify(response, view_t(subject.data(), subject.size()), view_t(), 0, 0, view_t(), status), ocsp::error_t::KEY);
+	// Проверяем отказ проверки ответа с отказом разбора
+	{
+		// Разобранный ответ с отказом
+		ocsp::response_t broken;
+		// Проверяем отказ проверки
+		ASSERT_EQ(ocsp::verify(broken, view_t(subject.data(), subject.size()), view_t(authority.data(), authority.size()), 0, 0, view_t(), status), ocsp::error_t::IDENTITY);
+	}
+}
+
+/**
+ * Проверка извлечения неповторимого значения с ветками
+ */
+TEST(OcspTest, NonceBranches){
+	// Неповторимое значение
+	view_t nonce;
+	// Пустой набор расширений
+	{
+		// Набор расширений
+		const vector <x509::extension_t> extensions;
+		// Проверяем извлечение неповторимого значения
+		ASSERT_EQ(ocsp::nonce(extensions, nonce), ocsp::error_t::NONE);
+		// Проверяем пустоту значения
+		ASSERT_TRUE(nonce.data == nullptr);
+	}
+	// Расширение неповторимого значения
+	{
+		// Расширение неповторимого значения
+		x509::extension_t extension;
+		// Устанавливаем опознаватель расширения
+		extension.oid = "1.3.6.1.5.5.7.48.1.2";
+		// Содержимое расширения: строка байтов с неповторимым значением
+		const uint8_t value[] = {0x04, 0x10, 0x87, 0x7D, 0x8E, 0xA1, 0x97, 0x62, 0x89, 0xF0, 0x8D, 0xDE, 0x91, 0x09, 0xE4, 0x79, 0xCC, 0x21};
+		// Устанавливаем содержимое расширения
+		extension.value = view_t(value, sizeof(value));
+		// Набор расширений
+		const vector <x509::extension_t> extensions(1, extension);
+		// Проверяем извлечение неповторимого значения
+		ASSERT_EQ(ocsp::nonce(extensions, nonce), ocsp::error_t::NONE);
+		// Проверяем длину значения
+		ASSERT_EQ(nonce.size, 16);
+	}
+	// Расширение с пустым значением отвергается
+	{
+		// Расширение неповторимого значения
+		x509::extension_t extension;
+		// Устанавливаем опознаватель расширения
+		extension.oid = "1.3.6.1.5.5.7.48.1.2";
+		// Содержимое расширения: пустая строка байтов
+		const uint8_t value[] = {0x04, 0x00};
+		// Устанавливаем содержимое расширения
+		extension.value = view_t(value, sizeof(value));
+		// Набор расширений
+		const vector <x509::extension_t> extensions(1, extension);
+		// Проверяем отказ извлечения
+		ASSERT_EQ(ocsp::nonce(extensions, nonce), ocsp::error_t::EXTENSION);
+	}
+	// Расширение с длинным значением отвергается
+	{
+		// Расширение неповторимого значения
+		x509::extension_t extension;
+		// Устанавливаем опознаватель расширения
+		extension.oid = "1.3.6.1.5.5.7.48.1.2";
+		// Содержимое расширения: строка байтов длиннее 32
+		uint8_t value[35] = {0x04, 0x21};
+		// Устанавливаем содержимое расширения
+		extension.value = view_t(value, sizeof(value));
+		// Набор расширений
+		const vector <x509::extension_t> extensions(1, extension);
+		// Проверяем отказ извлечения
+		ASSERT_EQ(ocsp::nonce(extensions, nonce), ocsp::error_t::EXTENSION);
+	}
+	// Расширение не неповторимого значения пропускается
+	{
+		// Расширение иного вида
+		x509::extension_t extension;
+		// Устанавливаем опознаватель расширения
+		extension.oid = "2.5.29.19";
+		// Содержимое расширения
+		const uint8_t value[] = {0x30, 0x00};
+		// Устанавливаем содержимое расширения
+		extension.value = view_t(value, sizeof(value));
+		// Набор расширений
+		const vector <x509::extension_t> extensions(1, extension);
+		// Проверяем извлечение неповторимого значения
+		ASSERT_EQ(ocsp::nonce(extensions, nonce), ocsp::error_t::NONE);
+		// Проверяем пустоту значения
+		ASSERT_TRUE(nonce.data == nullptr);
+	}
+}

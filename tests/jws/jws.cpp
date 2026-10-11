@@ -470,3 +470,78 @@ TEST(JwsTest, Names) {
 	// Имя неустановленного алгоритма разбирается в NONE
 	ASSERT_EQ(jws::algorithm(view(std::string(jws::name(jws::algorithm_t::NONE)))), jws::algorithm_t::NONE);
 }
+
+/**
+ * @brief Проверка круговой записи и проверки подписи ключами P-384, P-521 и Ed25519
+ *
+ */
+TEST(JwsTest, RoundtripEc384Ec521Ed25519) {
+	// Полезная нагрузка записи
+	static const char * PAYLOAD = "The quick brown fox jumps over the lazy dog";
+	// Круговая запись ключом EC P-384
+	{
+		// Разбираем ключ набора
+		keys::key_t key;
+		load(std::string(CORPUS) + "/ec384.pem", key);
+		// Готовим ключ подписи
+		keys::signer_t signer;
+		ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/ec384.pem"))), keys::error_t::NONE);
+		// Алгоритм ключа - ES384
+		ASSERT_EQ(jws::algorithm(key), jws::algorithm_t::ES384);
+		ASSERT_EQ(jws::algorithm(signer), jws::algorithm_t::ES384);
+		// Собираем запись
+		std::string record;
+		ASSERT_EQ(jws::encode(jws::algorithm_t::ES384, "", view(std::string(PAYLOAD)), signer, record), jws::error_t::NONE);
+		// Разбираем запись
+		jws::signature_t signature;
+		ASSERT_EQ(signature.parse(view(record)), jws::error_t::NONE);
+		// Алгоритм записи - ES384
+		ASSERT_EQ(signature.algorithm(), jws::algorithm_t::ES384);
+		// Подпись обязана сойтись
+		ASSERT_EQ(signature.verify(key), jws::error_t::NONE);
+	}
+	// Круговая запись ключом EC P-521
+	{
+		// Разбираем ключ набора
+		keys::key_t key;
+		load(std::string(CORPUS) + "/ec521.pem", key);
+		// Готовим ключ подписи
+		keys::signer_t signer;
+		ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/ec521.pem"))), keys::error_t::NONE);
+		// Алгоритм ключа - ES512
+		ASSERT_EQ(jws::algorithm(key), jws::algorithm_t::ES512);
+		ASSERT_EQ(jws::algorithm(signer), jws::algorithm_t::ES512);
+		// Собираем запись
+		std::string record;
+		ASSERT_EQ(jws::encode(jws::algorithm_t::ES512, "", view(std::string(PAYLOAD)), signer, record), jws::error_t::NONE);
+		// Разбираем запись
+		jws::signature_t signature;
+		ASSERT_EQ(signature.parse(view(record)), jws::error_t::NONE);
+		// Алгоритм записи - ES512
+		ASSERT_EQ(signature.algorithm(), jws::algorithm_t::ES512);
+		// Подпись обязана сойтись
+		ASSERT_EQ(signature.verify(key), jws::error_t::NONE);
+	}
+	// Круговая запись ключом Ed25519
+	{
+		// Разбираем ключ набора
+		keys::key_t key;
+		load(std::string(CORPUS) + "/ed25519.pem", key);
+		// Готовим ключ подписи
+		keys::signer_t signer;
+		ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/ed25519.pem"))), keys::error_t::NONE);
+		// Алгоритм ключа - EdDSA
+		ASSERT_EQ(jws::algorithm(key), jws::algorithm_t::EDDSA);
+		ASSERT_EQ(jws::algorithm(signer), jws::algorithm_t::EDDSA);
+		// Собираем запись
+		std::string record;
+		ASSERT_EQ(jws::encode(jws::algorithm_t::EDDSA, "", view(std::string(PAYLOAD)), signer, record), jws::error_t::NONE);
+		// Разбираем запись
+		jws::signature_t signature;
+		ASSERT_EQ(signature.parse(view(record)), jws::error_t::NONE);
+		// Алгоритм записи - EdDSA
+		ASSERT_EQ(signature.algorithm(), jws::algorithm_t::EDDSA);
+		// Подпись обязана сойтись
+		ASSERT_EQ(signature.verify(key), jws::error_t::NONE);
+	}
+}

@@ -504,3 +504,48 @@ TEST(IssueTest, Openssl){
 	// Проверяем, что openssl подтверждает выданный сертификат цепочкой до издателя
 	ASSERT_EQ(shell(std::string("openssl verify -CAfile ") + caPem + " " + signedPem + " >/dev/null 2>&1"), 0);
 }
+
+/**
+ * Проверка выпуска сертификатов ключами ML-DSA: запись разбирается обратно,
+ * подпись сходится с ключом издателя
+ */
+TEST(IssueTest, Mldsa){
+	// Записи сертификатов и ключей набора
+	struct {
+		// Файлы сертификата и ключа
+		const char * crt, * key;
+		// Опознаватель алгоритма подписи
+		const char * algorithm;
+	} CASES[] = {
+		{"mldsa44.crt", "mldsa44.pem", "2.16.840.1.101.3.4.3.17"},
+		{"mldsa65.crt", "mldsa65.pem", "2.16.840.1.101.3.4.3.18"},
+		{"mldsa87.crt", "mldsa87.pem", "2.16.840.1.101.3.4.3.19"}
+	};
+	// Выполняем перебор ключей набора
+	for(size_t i = 0; i < (sizeof(CASES) / sizeof(CASES[0])); i++){
+		// Тело записи эталонного сертификата владельца
+		std::vector <uint8_t> der;
+		// Эталонный сертификат владельца
+		x509::certificate_t reference;
+		// Проверяем разбор эталонного сертификата
+		ASSERT_TRUE(certificate(CASES[i].crt, der, reference));
+		// Подготовленный секретный ключ владельца
+		keys::signer_t signer;
+		// Проверяем подготовку ключа из записи набора
+		ASSERT_EQ(signer.prepare(view(bytes(corpus(CASES[i].key)))), keys::error_t::NONE);
+		// Порядковый номер выдаваемого сертификата
+		const uint8_t serial[] = {0x01, 0x02, 0x03, 0x04};
+		// Выпущенный сертификат
+		std::vector <uint8_t> issued;
+		// Проверяем выпуск самоподписанного сертификата сроком с 2026-01-01 по 2030-01-01
+		ASSERT_EQ(x509::issueSelfSigned(reference.subjects(), reference.key(), signer, digest::hash_t::SHA256, view_t(serial, sizeof(serial)), 1767225600, 1893456000, std::vector <x509::extension_t> (), issued), x509::error_t::NONE);
+		// Разбираемый выпущенный сертификат
+		x509::certificate_t certificate;
+		// Проверяем разбор выпущенного сертификата
+		ASSERT_EQ(certificate.parse(view(issued)), x509::error_t::NONE);
+		// Проверяем опознаватель алгоритма подписи выпущенного сертификата
+		ASSERT_EQ(certificate.algorithms(), CASES[i].algorithm);
+		// Проверяем подпись выпущенного сертификата сведениями об открытом ключе самого сертификата
+		ASSERT_EQ(x509::verify(certificate, certificate.key()), x509::error_t::NONE);
+	}
+}

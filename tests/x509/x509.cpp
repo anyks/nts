@@ -1882,3 +1882,249 @@ TEST(X509Test, PssKeyBoundCheck){
 	// Проверяем приём подписи ключом rsaEncryption
 	EXPECT_EQ(x509::check(key, digest::hash_t::SHA256, view_t(content.data(), content.size()), view_t(signature.data(), signature.size())), x509::error_t::NONE);
 }
+
+/**
+ * @brief Проверка извлечения основных ограничений с ветками
+ *
+ */
+TEST(X509Test, ConstraintsBranches) {
+	// Расширение основных ограничений
+	x509::extension_t extension;
+	// Устанавливаем опознаватель расширения основных ограничений
+	extension.oid = "2.5.29.19";
+	// Признак принадлежности удостоверяющему центру
+	bool authority = false;
+	// Предельная глубина цепочки
+	int64_t depth = -1;
+	// Пустая запись основных ограничений
+	{
+		// Создаём записчик записи основных ограничений
+		asn1::writer_t writer;
+		// Открываем последовательность основных ограничений
+		writer.open(asn1::tag_t::SEQUENCE);
+		// Закрываем последовательность основных ограничений
+		writer.close();
+		// Проверяем успешность сборки записи
+		ASSERT_EQ(writer.err(), asn1::error_t::NONE);
+		// Устанавливаем тело расширения
+		extension.value = writer.data();
+		// Выполняем извлечение основных ограничений
+		ASSERT_EQ(x509::constraints(extension, authority, depth), x509::error_t::NONE);
+		// Проверяем признак принадлежности
+		ASSERT_FALSE(authority);
+		// Проверяем предельную глубину
+		ASSERT_EQ(depth, int64_t(-1));
+	}
+	// Запись с явным false отвергается
+	{
+		// Создаём записчик записи основных ограничений
+		asn1::writer_t writer;
+		// Открываем последовательность основных ограничений
+		writer.open(asn1::tag_t::SEQUENCE);
+		// Записываем принадлежность удостоверяющему центру
+		writer.boolean(false);
+		// Закрываем последовательность основных ограничений
+		writer.close();
+		// Проверяем успешность сборки записи
+		ASSERT_EQ(writer.err(), asn1::error_t::NONE);
+		// Устанавливаем тело расширения
+		extension.value = writer.data();
+		// Выполняем извлечение основных ограничений
+		ASSERT_EQ(x509::constraints(extension, authority, depth), x509::error_t::EXTENSION);
+	}
+	// Запись с глубиной без признака ЦС отвергается
+	{
+		// Создаём записчик записи основных ограничений
+		asn1::writer_t writer;
+		// Открываем последовательность основных ограничений
+		writer.open(asn1::tag_t::SEQUENCE);
+		// Записываем предельную глубину цепочки
+		writer.integer(static_cast <int64_t> (3));
+		// Закрываем последовательность основных ограничений
+		writer.close();
+		// Проверяем успешность сборки записи
+		ASSERT_EQ(writer.err(), asn1::error_t::NONE);
+		// Устанавливаем тело расширения
+		extension.value = writer.data();
+		// Выполняем извлечение основных ограничений
+		ASSERT_EQ(x509::constraints(extension, authority, depth), x509::error_t::EXTENSION);
+	}
+	// Запись с отрицательной глубиной отвергается
+	{
+		// Создаём записчик записи основных ограничений
+		asn1::writer_t writer;
+		// Открываем последовательность основных ограничений
+		writer.open(asn1::tag_t::SEQUENCE);
+		// Записываем принадлежность удостоверяющему центру
+		writer.boolean(true);
+		// Записываем отрицательную предельную глубину цепочки
+		writer.integer(static_cast <int64_t> (-1));
+		// Закрываем последовательность основных ограничений
+		writer.close();
+		// Проверяем успешность сборки записи
+		ASSERT_EQ(writer.err(), asn1::error_t::NONE);
+		// Устанавливаем тело расширения
+		extension.value = writer.data();
+		// Выполняем извлечение основных ограничений
+		ASSERT_EQ(x509::constraints(extension, authority, depth), x509::error_t::EXTENSION);
+	}
+	// Запись с лишним полем отвергается
+	{
+		// Создаём записчик записи основных ограничений
+		asn1::writer_t writer;
+		// Открываем последовательность основных ограничений
+		writer.open(asn1::tag_t::SEQUENCE);
+		// Записываем принадлежность удостоверяющему центру
+		writer.boolean(true);
+		// Записываем предельную глубину цепочки
+		writer.integer(static_cast <int64_t> (3));
+		// Записываем лишнее поле
+		writer.integer(static_cast <int64_t> (0));
+		// Закрываем последовательность основных ограничений
+		writer.close();
+		// Проверяем успешность сборки записи
+		ASSERT_EQ(writer.err(), asn1::error_t::NONE);
+		// Устанавливаем тело расширения
+		extension.value = writer.data();
+		// Выполняем извлечение основных ограничений
+		ASSERT_EQ(x509::constraints(extension, authority, depth), x509::error_t::STRUCTURE);
+	}
+	// Запись не SEQUENCE отвергается
+	{
+		// Создаём записчик записи основных ограничений
+		asn1::writer_t writer;
+		// Записываем целое число
+		writer.integer(static_cast <int64_t> (0));
+		// Проверяем успешность сборки записи
+		ASSERT_EQ(writer.err(), asn1::error_t::NONE);
+		// Устанавливаем тело расширения
+		extension.value = writer.data();
+		// Выполняем извлечение основных ограничений
+		ASSERT_EQ(x509::constraints(extension, authority, depth), x509::error_t::ENCODING);
+	}
+}
+
+/**
+ * @brief Проверка извлечения дополнительных имён с ветками
+ *
+ */
+TEST(X509Test, AlternativesBranches) {
+	// Расширение дополнительных имён
+	x509::extension_t extension;
+	// Устанавливаем опознаватель расширения дополнительных имён
+	extension.oid = "2.5.29.17";
+	// Набор дополнительных имён
+	vector <x509::alternative_t> names;
+	// Пустой набор имён отвергается
+	{
+		// Создаём записчик записи дополнительных имён
+		asn1::writer_t writer;
+		// Открываем последовательность дополнительных имён
+		writer.open(asn1::tag_t::SEQUENCE);
+		// Закрываем последовательность дополнительных имён
+		writer.close();
+		// Проверяем успешность сборки записи
+		ASSERT_EQ(writer.err(), asn1::error_t::NONE);
+		// Устанавливаем тело расширения
+		extension.value = writer.data();
+		// Выполняем извлечение дополнительных имён
+		ASSERT_EQ(x509::alternatives(extension, names), x509::error_t::EXTENSION);
+	}
+	// Имя не контекстного класса отвергается
+	{
+		// Создаём записчик записи дополнительных имён
+		asn1::writer_t writer;
+		// Открываем последовательность дополнительных имён
+		writer.open(asn1::tag_t::SEQUENCE);
+		// Записываем целое число
+		writer.integer(static_cast <int64_t> (0));
+		// Закрываем последовательность дополнительных имён
+		writer.close();
+		// Проверяем успешность сборки записи
+		ASSERT_EQ(writer.err(), asn1::error_t::NONE);
+		// Устанавливаем тело расширения
+		extension.value = writer.data();
+		// Выполняем извлечение дополнительных имён
+		ASSERT_EQ(x509::alternatives(extension, names), x509::error_t::STRUCTURE);
+	}
+	// Запись не SEQUENCE отвергается
+	{
+		// Создаём записчик записи дополнительных имён
+		asn1::writer_t writer;
+		// Записываем целое число
+		writer.integer(static_cast <int64_t> (0));
+		// Проверяем успешность сборки записи
+		ASSERT_EQ(writer.err(), asn1::error_t::NONE);
+		// Устанавливаем тело расширения
+		extension.value = writer.data();
+		// Выполняем извлечение дополнительных имён
+		ASSERT_EQ(x509::alternatives(extension, names), x509::error_t::ENCODING);
+	}
+}
+
+/**
+ * @brief Проверка сборки имени в строку с ветками
+ *
+ */
+TEST(X509Test, TextBranches) {
+	// Имя владельца
+	x509::name_t name;
+	// Строка имени
+	string text;
+	// Пустое имя собирается в пустую строку
+	ASSERT_EQ(x509::text(name, text), x509::error_t::NONE);
+	// Проверяем пустоту строки
+	ASSERT_TRUE(text.empty());
+	// Имя с составляющей без признаков
+	{
+		// Составляющая имени
+		vector <x509::attribute_t> part;
+		// Добавляем составляющую в имя
+		name.parts.push_back(part);
+		// Собираем имя в строку
+		ASSERT_EQ(x509::text(name, text), x509::error_t::NONE);
+		// Проверяем пустоту строки
+		ASSERT_TRUE(text.empty());
+	}
+}
+
+/**
+ * @brief Проверка извлечения расширенного назначения ключа с ветками
+ *
+ */
+TEST(X509Test, PurposeBranches) {
+	// Расширение расширенного назначения ключа
+	x509::extension_t extension;
+	// Устанавливаем опознаватель расширения назначения ключа
+	extension.oid = "2.5.29.37";
+	// Набор опознавателей назначения ключа
+	vector <string> purposes;
+	// Пустой набор назначений отвергается
+	{
+		// Создаём записчик записи назначений ключа
+		asn1::writer_t writer;
+		// Открываем последовательность назначений ключа
+		writer.open(asn1::tag_t::SEQUENCE);
+		// Закрываем последовательность назначений ключа
+		writer.close();
+		// Проверяем успешность сборки записи
+		ASSERT_EQ(writer.err(), asn1::error_t::NONE);
+		// Устанавливаем тело расширения
+		extension.value = writer.data();
+		// Выполняем извлечение расширенного назначения ключа
+		ASSERT_EQ(x509::purpose(extension, purposes), x509::error_t::EXTENSION);
+	}
+	// Запись не SEQUENCE отвергается
+	{
+		// Создаём записчик записи назначений ключа
+		asn1::writer_t writer;
+		// Записываем целое число
+		writer.integer(static_cast <int64_t> (0));
+		// Проверяем успешность сборки записи
+		ASSERT_EQ(writer.err(), asn1::error_t::NONE);
+		// Устанавливаем тело расширения
+		extension.value = writer.data();
+		// Выполняем извлечение расширенного назначения ключа
+		ASSERT_EQ(x509::purpose(extension, purposes), x509::error_t::ENCODING);
+	}
+}
