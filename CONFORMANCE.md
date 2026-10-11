@@ -9136,6 +9136,24 @@ mpint делает SSH), rsa-sha2-256/512 (PKCS #1 v1.5); шифры chacha20-po
     OpenBSD + нецелое число блоков + отказы). Точечные пины: JwsTest.Names, CmpTest.StatusInfo,
     SrtpTest.Lengths, HpkeTest.Material, NoiseTest.Valid, RecordTest.Known, ExtensionTest.Certtypes/Profiles/
     Hybrid, X509Test.Recognized, CmsTest.SignerInfo. ctest 116/116 зелёные (+2 цели blowfish, bcrypt).
+    **Круг 121 (11.10.2026)**: подъём покрытия просевших модулей точечными пинами по веткам. Замер gcov после
+    круга 120 показал просадку протокольных модулей против ядра (handshake 100, record 99.8, math 99.7):
+    cmp 61.5%, cms 64.4%, jws 76.3%, x509 76.9%, ocsp 76.9%. Разбор непокрытых строк выявил два сорта пробелов:
+    табличные ветки OID-маппинга (SHA-1/SHA-224/SHA-384/SHA-512 для RSA/ECDSA/HMAC, кривые P-384/P-521 в JWS,
+    наборы ML-DSA и SM2/ГОСТ в signatureAlgorithm запроса/выпуска) и глубокие ветки отказов разборщиков видов
+    тел (translate/STRUCTURE/ENCODING в response/revoked/recovery/requests/challenges/announcement/poll CMP,
+    sign/digest/authenticate/certificates/unenvelop/decrypt CMS, request/responder/verify OCSP). Покрытие
+    поднято пинами: круговая сборка с ключами корпуса (ec384/ec521/ed25519/ed448/mldsa44/65/87/sm2) и редкими
+    хешами для табличных веток, мутации валидных сообщений (обрезка, порча тега) для веток отказов. Новые пины:
+    CmpTest.RequestSignHashes/RequestPbmHashes/ResponseRefusals/RequestsRefusals/RevokedRefusals/
+    RecoveryRefusals/InfosRefusals/ChallengesRefusals/AnnouncementRefusals/PollRefusals/RespondRefusals,
+    CmsTest.SignRsaHashes/SignEcHashes/SignEd25519/SignMldsa/SignRefusals/SignedRefusals/VerifyRefusals/
+    DigestMoreHashes/DigestedRefusals/AuthenticateMoreHashes/AuthenticatedRefusals/CertificatesRefusals/
+    UnenvelopRefusals/UnenvelopKemRefusals/DecryptRefusals, JwsTest.RoundtripEc384Ec521Ed25519,
+    OcspTest.Gost/ChainRefusals/Refusals/RequestRefusals/ResponderRefusals/VerifyRefusals/NonceBranches,
+    X509Test.ConstraintsBranches/AlternativesBranches/TextBranches/PurposeBranches, RequestTest.Refusal/
+    Sm2Mldsa, IssueTest.Refusal/Mldsa, CrlTest.Refusal. Итог по строкам gcov: cmp 86.6%, cms 87.8%, jws 94.6%,
+    x509 97.5%, ocsp 91.3%; общее покрытие src/ 96.0% (126997 из 132292 строк, 103 файла). ctest 116/116 зелёные.
 Обвязка SSH - mpint, name-list, KDF §7.2 HASH(K ‖ H ‖ X ‖ session_id), сертификаты OpenSSH, kex-strict, ext-info, агент -
 живёт в AWH, не в A-NTS.
 
