@@ -2019,6 +2019,17 @@ namespace {
 				// Выводим итог записи
 				return ((writer.err() == asn1::error_t::NONE) ? error_t::NONE : translate(writer.err()));
 			}
+			// Если записывается ключ Ed448
+			case static_cast <uint8_t> (kind_t::ED448): {
+				// Если зерно записано не своей длиной
+				if(key.d.size() != sign::ed448_t::KEY_SIZE)
+					// Выводим отказ негодного значения
+					return error_t::VALUE;
+				// Записываем зерно строкой байтов по разделу 7 RFC 8410
+				writer.octets(view_t(key.d.data(), key.d.size()));
+				// Выводим итог записи
+				return ((writer.err() == asn1::error_t::NONE) ? error_t::NONE : translate(writer.err()));
+			}
 			// Если записывается ключ ML-DSA
 			case static_cast <uint8_t> (kind_t::MLDSA): {
 				// Если записано зерно: оно пишется с неявной меткой [0] (раздел 6 RFC 9881)
@@ -3684,7 +3695,7 @@ nts::keys::error_t nts::keys::decodeSubjectPublicKeyInfo(const view_t & der, key
 nts::keys::error_t nts::keys::encodeSubjectPublicKeyInfo(const key_t & key, vector <uint8_t> & result) noexcept {
 	// Записчик тела открытого ключа
 	asn1::writer_t body;
-	// Открытый ключ Ed25519, X25519 либо несжатая точка EC
+	// Открытый ключ Ed25519, X25519, Ed448 либо несжатая точка EC
 	vector <uint8_t> point;
 	// Итог сборки тела открытого ключа
 	error_t outcome = error_t::NONE;
@@ -3727,6 +3738,17 @@ nts::keys::error_t nts::keys::encodeSubjectPublicKeyInfo(const key_t & key, vect
 		case static_cast <uint8_t> (kind_t::X25519): {
 			// Если открытый ключ записан не своей длиной
 			if(key.key.size() != CURVE25519)
+				// Выводим отказ пустого ключа
+				return error_t::EMPTY;
+			// Если открытый ключ скопировать не удалось
+			if(!copy(key.key.data(), key.key.size(), point))
+				// Выводим отказ нехватки памяти
+				return error_t::MEMORY;
+		} break;
+		// Если записывается ключ Ed448
+		case static_cast <uint8_t> (kind_t::ED448): {
+			// Если открытый ключ записан не своей длиной
+			if(key.key.size() != sign::ed448_t::KEY_SIZE)
 				// Выводим отказ пустого ключа
 				return error_t::EMPTY;
 			// Если открытый ключ скопировать не удалось

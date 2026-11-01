@@ -2852,7 +2852,8 @@ TEST(KeysTest, MldsaRefusal){
 /**
  * @brief Проверка ключа Ed448: круг записи и отказы разбора
  *
- * @note Ключ набора ed448.key; отказы - зерно чужой длины, настройки алгоритма,
+ * @note Ключ набора ed448.key; круги DER/PEM, OneAsymmetricKey второго издания,
+ *       обмен с OpenSSL и PKCS #12; отказы - зерно чужой длины, настройки алгоритма,
  *       хвост после зерна
  *
  */
@@ -2869,6 +2870,128 @@ TEST(KeysTest, Ed448){
 	ASSERT_EQ(secret.key.size(), static_cast <size_t> (57));
 	// Разобранный ключ
 	keys::key_t key;
+	// Запись PrivateKeyInfo в кодировке DER
+	std::vector <uint8_t> der;
+	// Проверяем запись секретного ключа
+	ASSERT_EQ(keys::encodePrivateKeyInfo(secret, der), keys::error_t::NONE);
+	// Проверяем побайтовое совпадение с эталоном OpenSSL
+	ASSERT_EQ(der, body(corpus("ed448.key")));
+	// Проверяем разбор записанного секретного ключа
+	ASSERT_EQ(keys::decodePrivateKeyInfo(view(der), key), keys::error_t::NONE);
+	// Проверяем совпадение открытых частей после круга
+	ASSERT_TRUE(alike(secret, key));
+	// Проверяем совпадение секретных частей после круга
+	ASSERT_EQ(key.d, secret.d);
+	// Запись SubjectPublicKeyInfo в кодировке DER
+	std::vector <uint8_t> spki;
+	// Проверяем запись открытого ключа
+	ASSERT_EQ(keys::encodeSubjectPublicKeyInfo(secret, spki), keys::error_t::NONE);
+	// Проверяем разбор записанного открытого ключа
+	ASSERT_EQ(keys::decodeSubjectPublicKeyInfo(view(spki), key), keys::error_t::NONE);
+	// Проверяем совпадение открытых частей после круга
+	ASSERT_TRUE(alike(secret, key));
+	// Проверяем отсутствие секретной части у открытого ключа
+	ASSERT_FALSE(key.secret());
+	// Текст записи в обёртке PEM
+	std::string text;
+	// Проверяем запись PrivateKeyInfo в обёртке PEM
+	ASSERT_EQ(keys::encode(secret, keys::container_t::PRIVATE, text, view_t()), keys::error_t::NONE);
+	// Проверяем совпадение тела PEM с записью DER
+	ASSERT_EQ(body(text), der);
+	// Проверяем разбор секретного ключа из обёртки PEM
+	ASSERT_EQ(keys::decode(text, view_t(), key), keys::error_t::NONE);
+	// Проверяем совпадение открытых частей после круга PEM
+	ASSERT_TRUE(alike(secret, key));
+	// Проверяем запись SubjectPublicKeyInfo в обёртке PEM
+	ASSERT_EQ(keys::encode(secret, keys::container_t::PUBLIC, text, view_t()), keys::error_t::NONE);
+	// Проверяем совпадение тела PEM с записью DER
+	ASSERT_EQ(body(text), spki);
+	// Проверяем разбор открытого ключа из обёртки PEM
+	ASSERT_EQ(keys::decode(text, view_t(), key), keys::error_t::NONE);
+	// Проверяем совпадение открытых частей после круга PEM
+	ASSERT_TRUE(alike(secret, key));
+	{
+		// Запись OneAsymmetricKey второго издания с открытым ключом
+		asn1::writer_t writer;
+		// Открываем набор записи
+		writer.open(asn1::tag_t::SEQUENCE);
+		// Записываем второе издание, обязательное при наличии publicKey
+		writer.integer(1);
+		// Открываем набор алгоритма
+		writer.open(asn1::tag_t::SEQUENCE);
+		// Записываем опознаватель Ed448
+		writer.oid("1.3.101.113");
+		// Закрываем набор алгоритма
+		writer.close();
+		// Записываем зерно во внутренней строке байтов
+		asn1::writer_t seed;
+		// Записываем зерно Ed448
+		seed.octets(view(secret.d));
+		// Записываем CurvePrivateKey во внешней строке байтов
+		writer.octets(seed.data());
+		// Строка битов открытого ключа с нулевым числом неиспользуемых разрядов
+		std::vector <uint8_t> bits(1, 0);
+		// Дописываем открытый ключ Ed448
+		bits.insert(bits.end(), secret.key.begin(), secret.key.end());
+		// Записываем открытый ключ неявной меткой [1]
+		writer.element(asn1::cls_t::CONTEXT, false, 1, view(bits));
+		// Закрываем набор записи
+		writer.close();
+		// Проверяем разбор OneAsymmetricKey с согласованной открытой частью
+		ASSERT_EQ(keys::decodePrivateKeyInfo(writer.data(), key), keys::error_t::NONE);
+		// Проверяем совпадение открытых частей
+		ASSERT_TRUE(alike(secret, key));
+		// Проверяем совпадение секретных частей
+		ASSERT_EQ(key.d, secret.d);
+	}
+	{
+		// Временный каталог обмена с OpenSSL
+		sandbox_t sandbox;
+		// Проверяем создание временного каталога
+		ASSERT_TRUE(sandbox.ready());
+		// Проверяем запись нашего секретного ключа DER
+		ASSERT_TRUE(spill(sandbox.file("secret.der"), der));
+		// Проверяем запись нашего открытого ключа DER
+		ASSERT_TRUE(spill(sandbox.file("public.der"), spki));
+		// Проверяем принятие нашего секретного ключа OpenSSL
+		ASSERT_EQ(shell("openssl pkey -inform DER -in " + sandbox.file("secret.der") + " -noout"), 0);
+		// Проверяем принятие нашего открытого ключа OpenSSL
+		ASSERT_EQ(shell("openssl pkey -pubin -inform DER -in " + sandbox.file("public.der") + " -noout"), 0);
+		// Проверяем запись нашего секретного ключа PEM для упаковки PKCS #12
+		ASSERT_EQ(keys::encode(secret, keys::container_t::PRIVATE, text, view_t()), keys::error_t::NONE);
+		// Записываем наш секретный ключ PEM
+		ASSERT_TRUE(spill(sandbox.file("secret.pem"), text));
+		// Вырабатываем эталонный открытый ключ OpenSSL из нашего секретного
+		ASSERT_EQ(shell("openssl pkey -in " + sandbox.file("secret.pem") + " -pubout -outform DER -out " + sandbox.file("openssl.der")), 0);
+		// Проверяем побайтовое совпадение открытого ключа с OpenSSL
+		ASSERT_EQ(spki, bytes(slurp(sandbox.file("openssl.der"))));
+		// Упаковываем наш ключ и сертификат Ed448 в PKCS #12 средствами OpenSSL
+		ASSERT_EQ(shell("openssl pkcs12 -export -inkey " + sandbox.file("secret.pem") + " -in " + std::string(CORPUS) + "/ed448.crt -passout pass:secret -out " + sandbox.file("ed448.p12")), 0);
+		// Цепочка сертификатов из PKCS #12
+		std::vector <std::vector <uint8_t>> chain;
+		// Проверяем разбор нашего ключа из PKCS #12
+		ASSERT_EQ(keys::decodePkcs12(view(bytes(slurp(sandbox.file("ed448.p12")))), view("secret"), key, chain), keys::error_t::NONE);
+		// Проверяем совпадение открытых частей ключа из PKCS #12
+		ASSERT_TRUE(alike(secret, key));
+		// Проверяем совпадение секретных частей ключа из PKCS #12
+		ASSERT_EQ(key.d, secret.d);
+		// Проверяем число сертификатов цепочки
+		ASSERT_EQ(chain.size(), static_cast <size_t> (1));
+		// Проверяем совпадение сертификата Ed448 с исходным
+		ASSERT_EQ(chain.front(), body(corpus("ed448.crt")));
+	}
+	{
+		// Секретный ключ Ed448 с зерном чужой длины
+		keys::key_t shorty;
+		// Устанавливаем вид ключа
+		shorty.kind = keys::kind_t::ED448;
+		// Устанавливаем зерно чужой длины
+		shorty.d.assign(56, 0);
+		// Запись секретного ключа
+		std::vector <uint8_t> wrong;
+		// Проверяем отказ записи зерна чужой длины
+		ASSERT_EQ(keys::encodePrivateKeyInfo(shorty, wrong), keys::error_t::VALUE);
+	}
 	{
 		// Запись с зерном чужой длины: 56 байтов вместо 57
 		asn1::writer_t writer;
