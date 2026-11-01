@@ -849,8 +849,19 @@ TEST(CmsTest, EncryptRoundtrip) {
 		ASSERT_EQ(::memcmp(plain.data(), CONTENT, ::strlen(CONTENT)), 0);
 		// Чужой ключ той же длины
 		std::vector <uint8_t> wrong(CASES[i].size, 0xFF);
-		// Расшифрование чужим ключом обязано отказать (дополнение PKCS #7 не сходится)
-		ASSERT_EQ(cms::decrypt(parsed, view(wrong), plain), cms::error_t::STRUCTURE);
+		// Признак отказа расшифрования: случайное дополнение у одного ключа может сойтись
+		bool refused = false;
+		/**
+		 * Перебираем варианты чужого ключа до получения несходства дополнения
+		 */
+		for(size_t attempt = 0; (attempt < 256) && !refused; attempt++){
+			// Меняем первый байт чужого ключа
+			wrong[0] = static_cast <uint8_t> (attempt);
+			// Запоминаем отказ расшифрования из-за несходства дополнения PKCS #7
+			refused = (cms::decrypt(parsed, view(wrong), plain) == cms::error_t::STRUCTURE);
+		}
+		// Хотя бы один чужой ключ обязан дать несходство дополнения
+		ASSERT_TRUE(refused);
 	}
 }
 
@@ -1385,6 +1396,95 @@ TEST(CmsTest, AuthenticatedRefusals) {
 	static const uint8_t INTEGER_RECORD[] = {0x02, 0x01, 0x00};
 	// Разбор обязан отказать
 	ASSERT_EQ(parsed.parse(view_t(INTEGER_RECORD, sizeof(INTEGER_RECORD))), cms::error_t::STRUCTURE);
+}
+
+/**
+ * @brief Проверка отказов разборщиков на обрезках и порче каждого байта годных записей
+ *
+ */
+TEST(CmsTest, DeepRefusals) {
+	// Содержимое записей
+	static const char * CONTENT = "CMS deep refusal content";
+	// Проверка всех строго укороченных форм записи
+	auto refuse = [](const std::vector <uint8_t> & record, auto & parsed){
+		/**
+		 * Перебираем длины от пустой записи до записи без последнего байта
+		 */
+		for(size_t cut = 0; cut < record.size(); cut++)
+			// Обрезанная запись обязана быть отвергнута
+			ASSERT_NE(parsed.parse(view_t(record.data(), cut)), cms::error_t::NONE) << "Обрезка: " << cut;
+		// Число отвергнутых порченых форм
+		size_t rejected = 0;
+		/**
+		 * Перебираем байты записи, сохраняя её длину для прохода внешнего разбора
+		 */
+		for(size_t at = 0; at < record.size(); at++){
+			// Порченая запись с изменённым байтом
+			std::vector <uint8_t> damaged = record;
+			// Переворачиваем очередной байт
+			damaged[at] ^= 0xFF;
+			// Учитываем отвергнутую порченую форму
+			if(parsed.parse(view(damaged)) != cms::error_t::NONE)
+				// Увеличиваем число отказов
+				rejected++;
+		}
+		// Хотя бы часть порченых форм обязана быть отвергнута
+		ASSERT_GT(rejected, static_cast <size_t> (0));
+	};
+	// Хешированная запись
+	std::vector <uint8_t> digested;
+	// Собираем годную хешированную запись
+	ASSERT_EQ(cms::digest(view(std::string(CONTENT)), digest::hash_t::SHA256, digested), cms::error_t::NONE);
+	// Разборщик хешированной записи
+	cms::digested_t digest;
+	// Проверяем все обрезки хешированной записи
+	refuse(digested, digest);
+	// Запись с имитовставкой
+	std::vector <uint8_t> authenticated;
+	// Собираем годную запись с имитовставкой
+	ASSERT_EQ(cms::authenticate(view(std::string(CONTENT)), view(std::string("cms-mac-key")), digest::hash_t::SHA256, authenticated), cms::error_t::NONE);
+	// Разборщик записи с имитовставкой
+	cms::authenticated_t authenticate;
+	// Проверяем все обрезки записи с имитовставкой
+	refuse(authenticated, authenticate);
+	// Ключ зашифрованной записи
+	const std::vector <uint8_t> key(16, 0x01);
+	// Зашифрованная запись
+	std::vector <uint8_t> encrypted;
+	// Собираем годную зашифрованную запись
+	ASSERT_EQ(cms::encrypt(view(std::string(CONTENT)), view(key), encrypted), cms::error_t::NONE);
+	// Разборщик зашифрованной записи
+	cms::encrypted_t encrypt;
+	// Проверяем все обрезки зашифрованной записи
+	refuse(encrypted, encrypt);
+	// Запись сертификата подписывающего и получателя
+	std::string text;
+	// Блоки записи PEM
+	std::vector <pem::block_t> blocks;
+	// Сертификат подписывающего и получателя
+	x509::certificate_t certificate;
+	// Разбираем сертификат набора
+	load(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
+	// Подготовленный ключ подписи
+	keys::signer_t signer;
+	// Готовим ключ подписи из записи набора
+	ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/leaf-rsa.key"))), keys::error_t::NONE);
+	// Подписанная запись
+	std::vector <uint8_t> signedRecord;
+	// Собираем годную подписанную запись
+	ASSERT_EQ(cms::sign({view(blocks[0].data)}, certificate.issuers().element, certificate.number(), view(std::string(CONTENT)), signer, digest::hash_t::SHA256, signedRecord), cms::error_t::NONE);
+	// Разборщик подписанной записи
+	cms::signed_t signed_;
+	// Проверяем все обрезки подписанной записи
+	refuse(signedRecord, signed_);
+	// Запись с передачей ключа RSA
+	std::vector <uint8_t> enveloped;
+	// Собираем годную запись с передачей ключа RSA
+	ASSERT_EQ(cms::envelop(view(std::string(CONTENT)), certificate.issuers().element, certificate.number(), certificate.key(), enveloped), cms::error_t::NONE);
+	// Разборщик записи с передачей ключа RSA
+	cms::enveloped_t envelop;
+	// Проверяем все обрезки записи с передачей ключа RSA
+	refuse(enveloped, envelop);
 }
 
 /**

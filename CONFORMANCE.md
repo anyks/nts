@@ -9370,6 +9370,18 @@ mpint делает SSH), rsa-sha2-256/512 (PKCS #1 v1.5); шифры chacha20-po
     в PKCS #12 средствами OpenSSL с последующим decodePkcs12. Отказы зерна и открытого
     ключа чужой длины проверены; мутации усечения зерна и открытого ключа пойманы пинами.
     KeysTest 28/28, полный ctest 116/116 (639.01 сек), свип 415 файлов - новых ошибок нет.
+    **Круг 128 (01.11.2026)**: покрытие веток измерено llvm-cov на отдельной сборке
+    (-fprofile-instr-generate -fcoverage-mapping) после полного ctest, а не по одиночным
+    тестам. Добавлены Asn1Test.PrintableAlphabet/IdentifierBoundaries (полный алфавит
+    PrintableString, границы длинной формы метки до UINT32_MAX), DeepRefusals для
+    keys/x509/cms/cmp (обрезки и побайтовые мутации годных записей) и
+    X509Test.NameConstraintsBranches (permitted/excluded, виды EMAIL/DNS/URI/ADDRESS/
+    DIRECTORY/OTHER). Покрытие веток: keys 70.65% → 73.42%, asn1 92.78% → 96.96%,
+    x509 87.78% → 88.89%, cms 61.93% → 69.03%, cmp 57.81% → 61.28%. Вероятностный
+    пин EncryptRoundtrip исправлен: чужой ключ может дать случайно годное дополнение
+    PKCS #7, поэтому несходство подтверждается перебором вариантов; 10 прогонов CMS
+    подряд зелёные. Обычный ctest 116/116 (581.60 сек), llvm-cov ctest 116/116
+    (320.83 сек), свип 415 файлов - новых ошибок нет.
 Обвязка SSH - mpint, name-list, KDF §7.2 HASH(K ‖ H ‖ X ‖ session_id), сертификаты OpenSSH, kex-strict, ext-info, агент -
 живёт в AWH, не в A-NTS.
 

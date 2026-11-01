@@ -845,6 +845,97 @@ TEST(CmpTest, Refusals) {
 }
 
 /**
+ * @brief Проверка разбора сообщений и тел на обрезках и порче каждого байта
+ *
+ */
+TEST(CmpTest, DeepRefusals) {
+	// Проверка обрезков и побайтовых мутаций сообщения выбранного вида
+	auto refuse = [](const std::vector <uint8_t> & record, const cmp::body_t kind){
+		// Разборщик сообщения
+		cmp::message_t parsed;
+		/**
+		 * Перебираем строго укороченные формы сообщения
+		 */
+		for(size_t cut = 0; cut < record.size(); cut++)
+			// Обрезанное сообщение обязано быть отвергнуто
+			ASSERT_NE(parsed.parse(view_t(record.data(), cut)), cmp::error_t::NONE) << "Обрезка: " << cut;
+		// Число отвергнутых порченых форм
+		size_t rejected = 0;
+		/**
+		 * Перебираем байты сообщения, сохраняя его длину
+		 */
+		for(size_t at = 0; at < record.size(); at++){
+			// Порченое сообщение с изменённым байтом
+			std::vector <uint8_t> damaged = record;
+			// Переворачиваем очередной байт
+			damaged[at] ^= 0xFF;
+			// Если сообщение отвергнуто
+			if(parsed.parse(view(damaged)) != cmp::error_t::NONE)
+				// Увеличиваем число отказов
+				rejected++;
+			// Если сообщение с запросами принято, разбираем их тело
+			else if(kind == cmp::body_t::IR){
+				// Запросы из порченого тела
+				std::vector <cmp::request_t> requests;
+				// Разбор тела обязан ответить исходом без прерывания
+				(void) cmp::requests(parsed.body(), requests);
+			// Иначе разбираем ответы тела
+			} else {
+				// Дополнительные сертификаты и ответы из порченого тела
+				std::vector <view_t> caPubs;
+				// Ответы из порченого тела
+				std::vector <cmp::response_t> responses;
+				// Разбор тела обязан ответить исходом без прерывания
+				(void) cmp::response(parsed.body(), caPubs, responses);
+			}
+		}
+		// Хотя бы часть порченых форм обязана быть отвергнута
+		ASSERT_GT(rejected, static_cast <size_t> (0));
+	};
+	// Запись сертификата и набор блоков PEM
+	std::string text;
+	// Набор блоков PEM
+	std::vector <pem::block_t> blocks;
+	// Сертификат ЦС
+	x509::certificate_t certificate;
+	// Разбираем сертификат ЦС
+	load(std::string(CORPUS) + "/ca-rsa.crt", text, blocks, certificate);
+	// Секретный ключ подписи ЦС
+	keys::signer_t signer;
+	// Подготавливаем ключ подписи ЦС
+	ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/ca-rsa.key"))), keys::error_t::NONE);
+	// Записи имён отправителя и получателя
+	std::vector <uint8_t> sender, recipient;
+	// Собираем имена отправителя и получателя
+	nameOf("cmp-client", sender);
+	nameOf("cmp-ca", recipient);
+	// Запись шаблона сертификата
+	std::vector <uint8_t> certTemplate;
+	// Собираем шаблон сертификата
+	ASSERT_EQ(cmp::certTemplate(certificate.subjects().element, certificate.key().element, certTemplate), cmp::error_t::NONE);
+	// Запрос ir с защитой подписью
+	std::vector <uint8_t> request;
+	// Собираем годный запрос ir
+	ASSERT_EQ(cmp::request(cmp::body_t::IR, view(sender), view(recipient), {view(certTemplate)}, signer, digest::hash_t::SHA256, request), cmp::error_t::NONE);
+	// Проверяем обрезки и мутации запроса
+	refuse(request, cmp::body_t::IR);
+	// Ответ о выданном сертификате
+	cmp::response_t response;
+	// Устанавливаем опознаватель запроса
+	response.id = 0;
+	// Устанавливаем статус принятия
+	response.status.status = cmp::status_t::ACCEPTED;
+	// Устанавливаем выданный сертификат
+	response.certificate = view(blocks[0].data);
+	// Ответ ip с защитой подписью
+	std::vector <uint8_t> answer;
+	// Собираем годный ответ ip
+	ASSERT_EQ(cmp::respond(cmp::body_t::IP, view(recipient), view(sender), {response}, signer, digest::hash_t::SHA256, answer), cmp::error_t::NONE);
+	// Проверяем обрезки и мутации ответа
+	refuse(answer, cmp::body_t::IP);
+}
+
+/**
  * @brief Проверка круговой сборки и разбора запроса p10cr (PKCS #10)
  *
  */

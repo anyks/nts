@@ -4112,3 +4112,78 @@ TEST(KeysTest, DeriveMismatch){
 		ASSERT_FALSE(key.key.empty());
 	}
 }
+
+/**
+ * @brief Проверка разборщиков ключей на обрезках и порче каждого байта записей
+ *
+ */
+TEST(KeysTest, DeepRefusals){
+	// Проверка обрезков и побайтовых мутаций записи переданным разборщиком
+	auto refuse = [](const std::vector <uint8_t> & record, auto && decode){
+		/**
+		 * Перебираем строго укороченные формы записи
+		 */
+		for(size_t cut = 0; cut < record.size(); cut++)
+			// Обрезанная запись обязана быть отвергнута
+			ASSERT_NE(decode(view_t(record.data(), cut)), keys::error_t::NONE) << "Обрезка: " << cut;
+		// Число отвергнутых порченых форм
+		size_t rejected = 0;
+		/**
+		 * Перебираем байты записи, сохраняя её длину
+		 */
+		for(size_t at = 0; at < record.size(); at++){
+			// Порченая запись с изменённым байтом
+			std::vector <uint8_t> damaged = record;
+			// Переворачиваем очередной байт
+			damaged[at] ^= 0xFF;
+			// Учитываем отвергнутую порченую форму
+			if(decode(view(damaged)) != keys::error_t::NONE)
+				// Увеличиваем число отказов
+				rejected++;
+		}
+		// Хотя бы часть порченых форм обязана быть отвергнута
+		ASSERT_GT(rejected, static_cast <size_t> (0));
+	};
+	// Разобранный ключ и цепочка сертификатов
+	keys::key_t key;
+	// Цепочка сертификатов PKCS #12
+	std::vector <std::vector <uint8_t>> chain;
+	// Разборщик PrivateKeyInfo
+	auto secret = [&](const view_t & data){
+		// Выводим итог разбора PrivateKeyInfo
+		return keys::decodePrivateKeyInfo(data, key);
+	};
+	// Разборщик SubjectPublicKeyInfo
+	auto opened = [&](const view_t & data){
+		// Выводим итог разбора SubjectPublicKeyInfo
+		return keys::decodeSubjectPublicKeyInfo(data, key);
+	};
+	/**
+	 * Перебираем ключи набора
+	 */
+	for(const entry_t & entry : ENTRIES){
+		// Проверяем обрезки и мутации секретного ключа
+		refuse(bytes(corpus(std::string(entry.name) + ".der")), secret);
+		// Проверяем обрезки и мутации открытого ключа
+		refuse(bytes(corpus(std::string(entry.name) + ".pub.der")), opened);
+	}
+	// Проверяем обрезки и мутации секретного ключа Ed448
+	refuse(body(corpus("ed448.key")), secret);
+	// Секретный ключ Ed448 для записи открытой части
+	keys::key_t ed448;
+	// Разбираем секретный ключ Ed448
+	ASSERT_EQ(keys::decode(corpus("ed448.key"), view_t(), ed448), keys::error_t::NONE);
+	// Запись SubjectPublicKeyInfo Ed448
+	std::vector <uint8_t> spki;
+	// Записываем открытый ключ Ed448
+	ASSERT_EQ(keys::encodeSubjectPublicKeyInfo(ed448, spki), keys::error_t::NONE);
+	// Проверяем обрезки и мутации открытого ключа Ed448
+	refuse(spki, opened);
+	// Разборщик PKCS #12
+	auto pkcs12 = [&](const view_t & data){
+		// Выводим итог разбора PKCS #12
+		return keys::decodePkcs12(data, view("secret"), key, chain);
+	};
+	// Проверяем обрезки и мутации записи PKCS #12
+	refuse(bytes(corpus("test.p12")), pkcs12);
+}

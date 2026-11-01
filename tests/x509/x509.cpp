@@ -2115,6 +2115,123 @@ TEST(X509Test, TextBranches) {
 }
 
 /**
+ * @brief Проверка извлечения ограничений имён всеми видами GeneralSubtree
+ *
+ */
+TEST(X509Test, NameConstraintsBranches) {
+	// Добавление поддерева с основанием выбранного вида
+	auto subtree = [](asn1::writer_t & writer, const uint32_t tag, const view_t & value, const bool constructed = false){
+		// Открываем запись GeneralSubtree
+		writer.open(asn1::tag_t::SEQUENCE);
+		// Записываем основание поддерева с его контекстной меткой
+		writer.element(asn1::cls_t::CONTEXT, constructed, tag, value);
+		// Закрываем запись GeneralSubtree
+		writer.close();
+	};
+	// Отличительное имя для основания directoryName
+	asn1::writer_t directory;
+	// Записываем отличительное имя с общим именем
+	name(directory, "2.5.4.3", "example.com");
+	// Записчик ограничений имён
+	asn1::writer_t writer;
+	// Открываем набор NameConstraints
+	writer.open(asn1::tag_t::SEQUENCE);
+	// Открываем дозволенные поддеревья [0]
+	writer.open(asn1::cls_t::CONTEXT, 0);
+	// Добавляем адрес почты
+	subtree(writer, 1, view_t(reinterpret_cast <const uint8_t *> ("user@example.com"), 15));
+	// Добавляем доменное имя
+	subtree(writer, 2, view_t(reinterpret_cast <const uint8_t *> ("example.com"), 11));
+	// Добавляем указатель ресурса
+	subtree(writer, 6, view_t(reinterpret_cast <const uint8_t *> ("https://example.com"), 19));
+	// Адрес IPv4 с маской
+	const uint8_t address[] = {192, 0, 2, 0, 255, 255, 255, 0};
+	// Добавляем адрес сети с маской
+	subtree(writer, 7, view_t(address, sizeof(address)));
+	// Добавляем отличительное имя
+	subtree(writer, 4, directory.data(), true);
+	// Добавляем имя иного вида
+	subtree(writer, 8, view_t(address, sizeof(address)));
+	// Закрываем дозволенные поддеревья
+	writer.close();
+	// Открываем запрещённые поддеревья [1]
+	writer.open(asn1::cls_t::CONTEXT, 1);
+	// Добавляем запрещённое доменное имя
+	subtree(writer, 2, view_t(reinterpret_cast <const uint8_t *> ("blocked.example"), 15));
+	// Закрываем запрещённые поддеревья
+	writer.close();
+	// Закрываем набор NameConstraints
+	writer.close();
+	// Проверяем успешность сборки расширения
+	ASSERT_EQ(writer.err(), asn1::error_t::NONE);
+	// Расширение ограничений имён
+	x509::extension_t extension;
+	// Устанавливаем опознаватель nameConstraints
+	extension.oid = "2.5.29.30";
+	// Устанавливаем тело расширения
+	extension.value = writer.data();
+	// Дозволенные и запрещённые поддеревья
+	std::vector <x509::alternative_t> permitted, excluded;
+	// Разбираем ограничения имён
+	ASSERT_EQ(x509::constraints(extension, permitted, excluded), x509::error_t::NONE);
+	// Проверяем число дозволенных поддеревьев
+	ASSERT_EQ(permitted.size(), static_cast <size_t> (6));
+	// Проверяем число запрещённых поддеревьев
+	ASSERT_EQ(excluded.size(), static_cast <size_t> (1));
+	// Проверяем виды дозволенных имён по местам
+	ASSERT_EQ(permitted[0].kind, x509::kind_t::EMAIL);
+	ASSERT_EQ(permitted[1].kind, x509::kind_t::DNS);
+	ASSERT_EQ(permitted[2].kind, x509::kind_t::URI);
+	ASSERT_EQ(permitted[3].kind, x509::kind_t::ADDRESS);
+	ASSERT_EQ(permitted[4].kind, x509::kind_t::DIRECTORY);
+	ASSERT_EQ(permitted[5].kind, x509::kind_t::OTHER);
+	// Проверяем вид запрещённого имени
+	ASSERT_EQ(excluded[0].kind, x509::kind_t::DNS);
+}
+
+/**
+ * @brief Проверка разбора сертификата на обрезках и порче каждого байта
+ *
+ */
+TEST(X509Test, DeepRefusals) {
+	// Записчик годного сертификата
+	asn1::writer_t writer;
+	// Набор изъянов, которых у годной записи нет
+	defect_t defect;
+	// Собираем годный сертификат со всеми обязательными полями
+	build(writer, defect);
+	// Проверяем успешность сборки сертификата
+	ASSERT_EQ(writer.err(), asn1::error_t::NONE);
+	// Запись годного сертификата
+	const std::vector <uint8_t> record(writer.data().data, writer.data().data + writer.data().size);
+	// Разборщик сертификата
+	x509::certificate_t certificate;
+	/**
+	 * Перебираем строго укороченные формы сертификата
+	 */
+	for(size_t cut = 0; cut < record.size(); cut++)
+		// Обрезанный сертификат обязан быть отвергнут
+		ASSERT_NE(certificate.parse(view_t(record.data(), cut)), x509::error_t::NONE) << "Обрезка: " << cut;
+	// Число отвергнутых порченых форм
+	size_t rejected = 0;
+	/**
+	 * Перебираем байты сертификата, сохраняя его длину
+	 */
+	for(size_t at = 0; at < record.size(); at++){
+		// Порченый сертификат с изменённым байтом
+		std::vector <uint8_t> damaged = record;
+		// Переворачиваем очередной байт
+		damaged[at] ^= 0xFF;
+		// Учитываем отвергнутую порченую форму
+		if(certificate.parse(view_t(damaged.data(), damaged.size())) != x509::error_t::NONE)
+			// Увеличиваем число отказов
+			rejected++;
+	}
+	// Хотя бы часть порченых форм обязана быть отвергнута
+	ASSERT_GT(rejected, static_cast <size_t> (0));
+}
+
+/**
  * @brief Проверка извлечения расширенного назначения ключа с ветками
  *
  */

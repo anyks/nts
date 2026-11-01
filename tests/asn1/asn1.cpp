@@ -1538,3 +1538,60 @@ TEST(Asn1Test, OidOverflow){
 	// Проверяем совпадение опознавателя с записанным
 	ASSERT_EQ(object, "2.18446744073709551535");
 }
+
+/**
+ * @brief Проверка полного алфавита печатной строки
+ *
+ */
+TEST(Asn1Test, PrintableAlphabet){
+	// Все буквы, цифры и особые знаки PrintableString
+	const string text = "AZaz09 '()+,-./:=?";
+	// Записчик печатной строки
+	asn1::writer_t writer;
+	// Проверяем запись всего дозволенного алфавита
+	ASSERT_TRUE(writer.text(asn1::tag_t::PRINTABLE_STRING, text));
+	// Разборщик записанной строки
+	asn1::reader_t reader(writer.data());
+	// Разобранный элемент строки
+	asn1::element_t element;
+	// Проверяем разбор элемента
+	ASSERT_TRUE(reader.next(asn1::tag_t::PRINTABLE_STRING, element));
+	// Извлечённая строка
+	string result;
+	// Проверяем извлечение строки
+	ASSERT_EQ(asn1::text(element, asn1::tag_t::PRINTABLE_STRING, result), asn1::error_t::NONE);
+	// Проверяем совпадение строки с исходной
+	ASSERT_EQ(result, text);
+}
+
+/**
+ * @brief Проверка короткой и длинной форм записи номера метки на границах
+ *
+ */
+TEST(Asn1Test, IdentifierBoundaries){
+	// Номера меток на всех границах длинной формы и за ними
+	const uint32_t tags[] = {0, 30, 31, 127, 128, 16383, 16384, 2097151, 2097152, 268435455, 268435456, 0xFFFFFFFFU};
+	/**
+	 * Перебираем граничные номера меток
+	 */
+	for(const uint32_t tag : tags){
+		// Записчик элемента с граничной меткой
+		asn1::writer_t writer;
+		// Записываем элемент с пустым содержимым
+		ASSERT_TRUE(writer.element(asn1::cls_t::CONTEXT, ((tag % 2) != 0), tag, view_t())) << tag;
+		// Разборщик записанного элемента
+		asn1::reader_t reader(writer.data());
+		// Разобранный элемент
+		asn1::element_t element;
+		// Проверяем разбор элемента
+		ASSERT_TRUE(reader.next(element)) << tag;
+		// Проверяем класс метки
+		ASSERT_EQ(element.cls, asn1::cls_t::CONTEXT) << tag;
+		// Проверяем номер метки
+		ASSERT_EQ(element.tag, tag);
+		// Проверяем признак составного вида
+		ASSERT_EQ(element.constructed, ((tag % 2) != 0)) << tag;
+		// Проверяем отсутствие содержимого
+		ASSERT_EQ(element.content.size, static_cast <size_t> (0)) << tag;
+	}
+}
