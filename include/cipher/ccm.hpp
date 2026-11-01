@@ -21,7 +21,6 @@
  *        according to RFC 3610
  *
  * \~
- *
  * @copyright Copyright © 2026
  *
  */
@@ -100,14 +99,17 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief CCM authenticated encryption mode
+		 *
 		 * @details RFC 3610 and NIST SP 800-38C. The authentication tag is produced by the
 		 *          CBC-MAC authentication code over the formatted message: the block B0 with
 		 *          the flags and the length, the associated data with their length and the
 		 *          plain text itself; the encryption goes by the gamma with a counter, while
 		 *          the tag is overlaid by a sum with the first block of the gamma. The length
 		 *          of the nonce sets the length of the message length field: L = 15 - nonce
+		 *
 		 * @note The nonce of every message under a single key must be unique: a repetition
 		 *       reveals the sum of the plain texts
+		 *
 		 * @note The one-shot contract: the message is fed entirely, as the protection of the
 		 *       TLS records requires (the section 5.2 of RFC 8446 and RFC 8998): at CCM the
 		 *       tag depends on the length of the message, and a streaming feeding without a
@@ -142,6 +144,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of checking the readiness of the mode for the work
+				 *
 				 * @return the flag of the readiness of the mode for the work
 				 *
 				 * \~
@@ -154,17 +157,18 @@ namespace nts {
 				 * @param block базовый алгоритм блочного шифрования
 				 * @param nonce начальное заполнение режима
 				 * @param size  длина метки целостности в байтах: чётная, от 4 до 16
-				 *
 				 * @return      признак успешности запуска режима работы
 				 *
 				 * @note Базовый шифр обязан иметь блок в 16 байтов: иного RFC 3610 не ведёт
 				 *
 				 * \~english
 				 * @brief Method of starting the mode of the work
+				 *
 				 * @param block the base block encryption algorithm
 				 * @param nonce the nonce of the mode
 				 * @param size  the length of the authentication tag in bytes: even, from 4 to 16
-				 * @return the flag of the success of the starting of the mode of the work
+				 * @return      the flag of the success of the starting of the mode of the work
+				 *
 				 * @note The base cipher must have a block of 16 bytes: RFC 3610 knows no other
 				 *
 				 * \~
@@ -175,7 +179,6 @@ namespace nts {
 			 * @brief Метод смены начального заполнения режима
 			 *
 			 * @param nonce новое начальное заполнение режима
-			 *
 			 * @return      признак успешности смены начального заполнения
 			 *
 			 * @note Базовый шифр и длина метки остаются от запуска: меняется лишь
@@ -184,8 +187,10 @@ namespace nts {
 			 *
 			 * \~english
 			 * @brief Method of the change of the nonce of the mode
+			 *
 			 * @param nonce the new nonce of the mode
-			 * @return the flag of the success of the change of the nonce
+			 * @return      the flag of the success of the change of the nonce
+			 *
 			 * @note The base cipher and the length of the tag remain from the start: only
 			 *       the nonce changes, as the protection of the TLS records requires under
 			 *       a single key of a direction
@@ -212,18 +217,19 @@ namespace nts {
 				 * @param source     зашифровываемое сообщение
 				 * @param result     место, в которое помещается зашифрованное сообщение
 				 * @param tag        место, в которое помещается метка целостности
-				 *
-				 * @return признак успешности зашифрования
+				 * @return           признак успешности зашифрования
 				 *
 				 * @note Место итога вправе совпадать с местом исходного сообщения
 				 *
 				 * \~english
 				 * @brief Method of the encryption of a message with the production of the authentication tag
+				 *
 				 * @param associated the associated data
 				 * @param source     the message being encrypted
 				 * @param result     the place the encrypted message is put into
 				 * @param tag        the place the authentication tag is put into
-				 * @return the flag of the success of the encryption
+				 * @return           the flag of the success of the encryption
+				 *
 				 * @note The place of the result may coincide with the place of the source message
 				 *
 				 * \~
@@ -237,18 +243,19 @@ namespace nts {
 				 * @param source     расшифровываемое сообщение
 				 * @param tag        проверяемая метка целостности
 				 * @param result     место, в которое помещается расшифрованное сообщение
-				 *
-				 * @return признак того, что метка целостности сошлась
+				 * @return           признак того, что метка целостности сошлась
 				 *
 				 * @note При несошедшейся метке место итога затирается
 				 *
 				 * \~english
 				 * @brief Method of the decryption of a message with the check of the authentication tag
+				 *
 				 * @param associated the associated data
 				 * @param source     the message being decrypted
 				 * @param tag        the authentication tag being checked
 				 * @param result     the place the decrypted message is put into
-				 * @return the flag of the authentication tag having converged
+				 * @return           the flag of the authentication tag having converged
+				 *
 				 * @note At a non-converged tag the place of the result is wiped
 				 *
 				 * \~
@@ -259,7 +266,6 @@ namespace nts {
 				 * \~russian
 				 * @brief Конструктор
 				 *
-				 *
 				 * \~english
 				 * @brief Constructor
 				 *
@@ -269,7 +275,6 @@ namespace nts {
 				/**
 				 * \~russian
 				 * @brief Деструктор
-				 *
 				 *
 				 * \~english
 				 * @brief Destructor

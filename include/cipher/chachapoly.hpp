@@ -21,7 +21,6 @@
  *        to RFC 8439
  *
  * \~
- *
  * @copyright Copyright © 2026
  *
  */
@@ -109,20 +108,24 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief The AEAD_CHACHA20_POLY1305 authenticated encryption
+		 *
 		 * @details RFC 8439, section 2.8. The one-time Poly1305 key is taken from the first 32
 		 *          bytes of the ChaCha20 block at the counter zero; the plain text is encrypted by
 		 *          ChaCha20 from the counter one; the tag is taken by Poly1305 over the associated
 		 *          data padded by zeros to 16 bytes, the cipher text padded the same way, and the
 		 *          64-bit little-endian lengths of both. The key is of 32 bytes, the nonce of
 		 *          12 bytes, the tag of 16 bytes
+		 *
 		 * @note The nonce of every message under a single key must be unique: a repetition reveals
 		 *       the sum of the plain texts and the key of the tag
+		 *
 		 * @note Deliberate decisions: the contract is the same as at gcm_t, so that the TLS record
 		 *       protection calls both alike. A repeated encryption by a single object under the same
 		 *       nonce is refused by the _spent guard; the decryption is not subject to the guard. The
 		 *       tag is compared in constant time. The one-shot decryption compares the tag before the
 		 *       removal of the gamma: at a mismatch the output is not touched. The length of the tag
 		 *       is not adjustable: RFC 8439 knows only 16 bytes
+		 *
 		 * @note The streaming course: after start the associated data is fed by associate (before the
 		 *       first chunk of the data), the data - by the streaming encrypt or decrypt by chunks of
 		 *       any length, the tag is taken by finish or compared by verify; after them the stream is
@@ -163,11 +166,11 @@ namespace nts {
 				 * @brief Метод дополнения имитовставки нулями до целого блока
 				 *
 				 * @param size длина поданных байтов, по которой считается дополнение
-				 *
 				 * @return     признак успешности дополнения
 				 *
 				 * \~english
 				 * @brief Method of the padding of the authenticator by zeros to a whole block
+				 *
 				 * @param size the length of the fed bytes the padding is computed by
 				 * @return     the flag of the success of the padding
 				 *
@@ -179,11 +182,11 @@ namespace nts {
 				 * @brief Метод вычисления метки целостности по накопленному потоку
 				 *
 				 * @param result место в 16 байтов, в которое записывается метка
-				 *
 				 * @return       признак успешности вычисления
 				 *
 				 * \~english
 				 * @brief Method of the computation of the authentication tag over the accumulated stream
+				 *
 				 * @param result the 16-byte place the tag is written into
 				 * @return       the flag of the success of the computation
 				 *
@@ -198,6 +201,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the reset of the state of the stream
+				 *
 				 * @return the flag of the success of the reset
 				 *
 				 * \~
@@ -208,11 +212,11 @@ namespace nts {
 				 * @brief Метод перехода потока к данным
 				 *
 				 * @param direction направление потока: единица - зашифрование, двойка - расшифрование
-				 *
 				 * @return          признак допустимости перехода
 				 *
 				 * \~english
 				 * @brief Method of the transition of the stream to the data
+				 *
 				 * @param direction the direction of the stream: one - encryption, two - decryption
 				 * @return          the flag of the admissibility of the transition
 				 *
@@ -228,6 +232,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of checking the readiness of the mode for the work
+				 *
 				 * @return the flag of the readiness of the mode
 				 *
 				 * \~
@@ -241,6 +246,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the length of the authentication tag
+				 *
 				 * @return the length of the tag in bytes: always 16
 				 *
 				 * \~
@@ -253,11 +259,11 @@ namespace nts {
 				 *
 				 * @param key   ключ в 32 байта
 				 * @param nonce начальное заполнение в 12 байтов либо в 24 байта (XChaCha20-Poly1305, draft-irtf-cfrg-xchacha)
-				 *
 				 * @return      признак успешности запуска
 				 *
 				 * \~english
 				 * @brief Method of the start of the mode
+				 *
 				 * @param key   the 32-byte key
 				 * @param nonce the 12-byte nonce or the 24-byte nonce (XChaCha20-Poly1305, draft-irtf-cfrg-xchacha)
 				 * @return      the flag of the success of the start
@@ -270,7 +276,6 @@ namespace nts {
 				 * @brief Метод смены начального заполнения у запущенного режима
 				 *
 				 * @param nonce начальное заполнение в 12 байтов
-				 *
 				 * @return      признак успешности смены
 				 *
 				 * @details Ключ остаётся от запуска, заново вырабатывается лишь одноразовый ключ
@@ -279,8 +284,10 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the change of the nonce at the started mode
+				 *
 				 * @param nonce the 12-byte nonce
 				 * @return      the flag of the success of the change
+				 *
 				 * @details The key remains from the start, only the one-time key of the
 				 *          authenticator is produced anew by the new nonce: the change of the
 				 *          nonce is used by the protection of the records, which starts the mode
@@ -307,12 +314,13 @@ namespace nts {
 				 * @details Допускается лишь до первого куска данных, кусками любой длины
 				 *
 				 * @param associated связанные данные, защищаемые лишь меткой
-				 *
 				 * @return           признак успешности подачи
 				 *
 				 * \~english
 				 * @brief Method of the feeding of the associated data of the stream
+				 *
 				 * @details It is allowed only before the first chunk of the data, by chunks of any length
+				 *
 				 * @param associated the associated data protected only by the tag
 				 * @return           the flag of the success of the feeding
 				 *
@@ -327,12 +335,13 @@ namespace nts {
 				 *
 				 * @param source открытый текст
 				 * @param result место, в которое записывается шифртекст той же длины
-				 *
 				 * @return       признак успешности зашифрования
 				 *
 				 * \~english
 				 * @brief Method of the streaming encryption of a chunk
+				 *
 				 * @details A chunk of any length, including an empty one; the first chunk spends the nonce
+				 *
 				 * @param source the plain text
 				 * @param result the place the cipher text of the same length is written into
 				 * @return       the flag of the success of the encryption
@@ -349,13 +358,14 @@ namespace nts {
 				 *
 				 * @param source шифртекст
 				 * @param result место, в которое записывается открытый текст той же длины
-				 *
 				 * @return       признак успешности расшифрования
 				 *
 				 * \~english
 				 * @brief Method of the streaming decryption of a chunk
+				 *
 				 * @details The plain text is given out before the comparison of the tag: its authenticity
 				 *          is confirmed only by a successful verify
+				 *
 				 * @param source the cipher text
 				 * @param result the place the plain text of the same length is written into
 				 * @return       the flag of the success of the decryption
@@ -368,11 +378,11 @@ namespace nts {
 				 * @brief Метод завершения поточного зашифрования выработкой метки
 				 *
 				 * @param tag место, в которое записывается метка в 16 байтов
-				 *
 				 * @return    признак успешности завершения; поток закрывается
 				 *
 				 * \~english
 				 * @brief Method of the completion of the streaming encryption by the production of the tag
+				 *
 				 * @param tag the place the 16-byte tag is written into
 				 * @return    the flag of the success of the completion; the stream is closed
 				 *
@@ -384,11 +394,11 @@ namespace nts {
 				 * @brief Метод завершения поточного расшифрования сличением метки
 				 *
 				 * @param tag проверяемая метка в 16 байтов
-				 *
 				 * @return    признак схождения метки за постоянное время; поток закрывается
 				 *
 				 * \~english
 				 * @brief Method of the completion of the streaming decryption by the comparison of the tag
+				 *
 				 * @param tag the 16-byte tag being checked
 				 * @return    the flag of the convergence of the tag in constant time; the stream is closed
 				 *
@@ -404,11 +414,11 @@ namespace nts {
 				 * @param source     открытый текст
 				 * @param result     место, в которое записывается шифртекст той же длины
 				 * @param tag        место, в которое записывается метка в 16 байтов
-				 *
 				 * @return           признак успешности зашифрования
 				 *
 				 * \~english
 				 * @brief Method of the encryption with the production of the authentication tag
+				 *
 				 * @param associated the associated data protected only by the tag
 				 * @param source     the plain text
 				 * @param result     the place the cipher text of the same length is written into
@@ -426,11 +436,11 @@ namespace nts {
 				 * @param source     шифртекст
 				 * @param result     место, в которое записывается открытый текст той же длины
 				 * @param tag        проверяемая метка в 16 байтов
-				 *
 				 * @return           признак схождения метки; при расхождении открытый текст не тронут
 				 *
 				 * \~english
 				 * @brief Method of the decryption with the check of the authentication tag
+				 *
 				 * @param associated the associated data
 				 * @param source     the cipher text
 				 * @param result     the place the plain text of the same length is written into

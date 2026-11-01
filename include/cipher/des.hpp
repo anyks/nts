@@ -12,8 +12,13 @@
  * @email forman@anyks.com
  * @site https://anyks.com
  *
+ * \~russian
  * @brief Модуль блочного шифра DES и 3DES (FIPS 46-3)
  *
+ * \~english
+ * @brief Module of the block ciphers DES and 3DES (FIPS 46-3)
+ *
+ * \~
  * @copyright Copyright © 2026
  *
  */
@@ -92,6 +97,7 @@ namespace nts {
 		/**
 		 * \~russian
 		 * @brief Блочный шифр DES и 3DES
+		 *
 		 * @details Ключ устанавливается вызовом key, после чего блоки преобразуются
 		 *          вызовами encrypt и decrypt: у одиночного DES ключ в восемь байтов,
 		 *          у 3DES - в двадцать четыре (три ключа DES, шифрование идёт чередом
@@ -102,6 +108,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief The DES and 3DES block cipher
+		 *
 		 * @details The key is set by a call of key, after which the blocks are
 		 *          transformed by the calls of encrypt and decrypt: the single DES
 		 *          takes a key of eight bytes, 3DES takes twenty four (three DES keys,
@@ -131,6 +138,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of checking the readiness of the cipher for the work
+				 *
 				 * @return the flag of the key being set
 				 *
 				 * \~
@@ -145,8 +153,7 @@ namespace nts {
 				 *          и в расписание не входят
 				 *
 				 * @param key устанавливаемый ключ шифрования (8 или 24 байта)
-				 *
-				 * @return признак успешности установки ключа
+				 * @return    признак успешности установки ключа
 				 *
 				 * \~english
 				 * @brief Method of setting the encryption key
@@ -156,8 +163,7 @@ namespace nts {
 				 *          do not enter the schedule
 				 *
 				 * @param key the encryption key being set (8 or 24 bytes)
-				 *
-				 * @return the flag of the success of the setting of the key
+				 * @return    the flag of the success of the setting of the key
 				 *
 				 * \~
 				 */
@@ -179,16 +185,17 @@ namespace nts {
 				 *
 				 * @param source зашифровываемый блок (восемь байтов)
 				 * @param result место, в которое помещается зашифрованный блок
-				 *
-				 * @return признак успешности зашифрования
+				 * @return       признак успешности зашифрования
 				 *
 				 * @note Место итога вправе совпадать с местом исходного блока
 				 *
 				 * \~english
 				 * @brief Method of the encryption of a block
+				 *
 				 * @param source the block being encrypted (eight bytes)
 				 * @param result the place the encrypted block is put into
-				 * @return the flag of the success of the encryption
+				 * @return       the flag of the success of the encryption
+				 *
 				 * @note The place of the result may coincide with the place of the source block
 				 *
 				 * \~
@@ -200,16 +207,17 @@ namespace nts {
 				 *
 				 * @param source расшифровываемый блок (восемь байтов)
 				 * @param result место, в которое помещается расшифрованный блок
-				 *
-				 * @return признак успешности расшифрования
+				 * @return       признак успешности расшифрования
 				 *
 				 * @note Место итога вправе совпадать с местом исходного блока
 				 *
 				 * \~english
 				 * @brief Method of the decryption of a block
+				 *
 				 * @param source the block being decrypted (eight bytes)
 				 * @param result the place the decrypted block is put into
-				 * @return the flag of the success of the decryption
+				 * @return       the flag of the success of the decryption
+				 *
 				 * @note The place of the result may coincide with the place of the source block
 				 *
 				 * \~

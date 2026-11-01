@@ -75,10 +75,9 @@ static const char * CORPUS = ANTS_CORPUS;
  */
 namespace {
 	/**
-	 * @brief Метод разбора области байтов из шестнадцатеричной записи
+	 * @brief Функция разбора области байтов из шестнадцатеричной записи
 	 *
 	 * @param text шестнадцатеричная запись области байтов
-	 *
 	 * @return     разобранная область байтов
 	 *
 	 */
@@ -95,10 +94,9 @@ namespace {
 		return result;
 	}
 	/**
-	 * @brief Метод чтения файла набора целиком
+	 * @brief Функция чтения файла набора целиком
 	 *
 	 * @param name имя файла набора
-	 *
 	 * @return     содержимое файла набора
 	 *
 	 */
@@ -115,11 +113,10 @@ namespace {
 		return result;
 	}
 	/**
-	 * @brief Метод составления подлинности стороны из ключей набора
+	 * @brief Функция составления подлинности стороны из ключей набора
 	 *
 	 * @param name   имя ключа набора: rsa2048, ec256, ec384 либо ed25519
 	 * @param result подлинность, в которую помещается итог
-	 *
 	 * @return       признак успешности составления подлинности
 	 *
 	 */
@@ -138,11 +135,10 @@ namespace {
 		return (pem::certificates(std::string(text.begin(), text.end()), result.chain) == pem::error_t::NONE);
 	}
 	/**
-	 * @brief Метод передачи байтов между сторонами связи
+	 * @brief Функция передачи байтов между сторонами связи
 	 *
 	 * @param client связь стороны клиента
 	 * @param server связь стороны сервера
-	 *
 	 * @return       признак того, что байты между сторонами передавались
 	 *
 	 */
@@ -150,7 +146,7 @@ namespace {
 		// Признак того, что байты между сторонами передавались
 		bool moved = false;
 		/**
-		 * Выполняем перехват ошибок работы с памятью
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Получаем байты, отправляемые клиентом
@@ -180,7 +176,7 @@ namespace {
 				moved = true;
 			}
 		/**
-		 * Если памяти под перенос байтов не хватило
+		 * Выполняем перехват ошибок
 		 */
 		} catch(const bad_alloc &) {
 			// Выводим признак того, что байты между сторонами не передавались
@@ -190,7 +186,7 @@ namespace {
 		return moved;
 	}
 	/**
-	 * @brief Метод проведения рукопожатия сторон связи
+	 * @brief Функция проведения рукопожатия сторон связи
 	 *
 	 * @param client связь стороны клиента
 	 * @param server связь стороны сервера
@@ -205,11 +201,10 @@ namespace {
 			continue;
 	}
 	/**
-	 * @brief Метод обмена прикладными данными в обе стороны
+	 * @brief Функция обмена прикладными данными в обе стороны
 	 *
 	 * @param client связь стороны клиента
 	 * @param server связь стороны сервера
-	 *
 	 * @return       признак того, что данные дошли в обе стороны без искажения
 	 *
 	 */
@@ -255,7 +250,7 @@ namespace {
 		FORGED   = 0x04  // Порченый байт подписи владения ключом
 	};
 	/**
-	 * @brief Метод ответа враждебного сервера классической ветви на приветствие клиента
+	 * @brief Функция ответа враждебного сервера классической ветви на приветствие клиента
 	 *
 	 * @details Сервер разбирает приветствие, вырабатывает свою долю, выводит ключи
 	 *          рукопожатия по-настоящему набором TLS_AES_128_GCM_SHA256 и складывает ими
@@ -264,7 +259,6 @@ namespace {
 	 * @param client     связь стороны клиента, приветствие которой разбирается
 	 * @param hostility  вид искажения
 	 * @param credential подлинность сервера с ключом RSA
-	 *
 	 * @return           признак успешности ответа враждебного сервера
 	 *
 	 */
@@ -508,7 +502,7 @@ namespace {
 			// Выводим отказ ответа
 			return false;
 		/**
-		 * @brief Метод доставки сообщения под защитой рукопожатия
+		 * @brief Функция доставки сообщения под защитой рукопожатия
 		 *
 		 */
 		auto deliver = [&](const handshake::type_t type, const view_t & content) noexcept -> bool {
@@ -625,8 +619,10 @@ namespace {
 			scheme = (legacy ? static_cast <extension::scheme_t> (0x0401) : ((hostility == hostility_t::ODDSCHEME) ? extension::scheme_t::RSA_PSS_RSAE_SHA384 : extension::scheme_t::RSA_PSS_RSAE_SHA256));
 		}
 		// Порча байта подписи по заказу проверки
-		if(hostility == hostility_t::FORGED)
+		if(hostility == hostility_t::FORGED){
+			// Переворачиваем младший разряд байта подписи
 			signature[100] ^= 1;
+		}
 		// Сообщение подписи владения ключом
 		message::verify_t verify;
 		// Устанавливаем схему подписи
@@ -661,7 +657,7 @@ namespace {
 		return true;
 	}
 	/**
-	 * @brief Метод настройки пары связей на классический набор, группу и ключ
+	 * @brief Функция настройки пары связей на классический набор, группу и ключ
 	 *
 	 * @param client     связь стороны клиента
 	 * @param server     связь стороны сервера
@@ -1812,13 +1808,12 @@ TEST(ClassicTest, Refusals){
 }
 
 /**
- * @brief Метод проведения связи с выдачей билета и возобновления её иным набором
+ * @brief Функция проведения связи с выдачей билета и возобновления её иным набором
  *
  * @param first      набор шифрования связи, выдающей билет
  * @param second     набор шифрования связи, предъявляющей билет
  * @param credential подлинность сервера
  * @param shared     место, в которое помещается признак возобновления билетом
- *
  * @return           признак установленности обеих связей
  *
  */
@@ -1833,23 +1828,23 @@ static bool crossing(const protect::suite_t first, const protect::suite_t second
 	arrange(client, server, first, extension::group_t::X25519, credential, false);
 	// Если стороны завести не удалось
 	if((server.start() != context::error_t::NONE) || (client.start() != context::error_t::NONE))
-		// Выводим отказ
+		// Выводим отрицательный результат - стороны завести не удалось
 		return false;
 	// Проводим рукопожатие
 	converse(client, server);
 	// Если связь не установилась
 	if(!client.established() || !server.established())
-		// Выводим отказ
+		// Выводим отрицательный результат - связь не установилась
 		return false;
 	// Если билет выдать не удалось
 	if(server.issue() != context::error_t::NONE)
-		// Выводим отказ
+		// Выводим отрицательный результат - билет выдать не удалось
 		return false;
 	// Доставляем билет
 	converse(client, server);
 	// Если билет не получен либо набор билета не тот
 	if((client.tickets().size() != 1) || (client.tickets()[0].suite != first))
-		// Выводим отказ
+		// Выводим отрицательный результат - билет не получен либо набор не тот
 		return false;
 	// Возобновляющий клиент
 	client::context_t resuming;
@@ -1863,17 +1858,17 @@ static bool crossing(const protect::suite_t first, const protect::suite_t second
 	resumed.resume(server.tickets());
 	// Если стороны завести не удалось
 	if((resumed.start() != context::error_t::NONE) || (resuming.start() != context::error_t::NONE))
-		// Выводим отказ
+		// Выводим отрицательный результат - стороны завести не удалось
 		return false;
 	// Проводим рукопожатие
 	converse(resuming, resumed);
 	// Если связь не установилась
 	if(!resuming.established() || !resumed.established())
-		// Выводим отказ
+		// Выводим отрицательный результат - связь не установилась
 		return false;
 	// Если набор второй связи не тот
 	if((resuming.suite() != second) || (resumed.suite() != second))
-		// Выводим отказ
+		// Выводим отрицательный результат - набор второй связи не тот
 		return false;
 	// Запоминаем признак возобновления билетом
 	shared = (resuming.shared() && resumed.shared());

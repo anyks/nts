@@ -53,7 +53,7 @@ using namespace nts;
  */
 namespace {
 	/**
-	 * @brief Метод вывода области байтов шестнадцатеричной записью
+	 * @brief Функция вывода области байтов шестнадцатеричной записью
 	 *
 	 * @param title заголовок выводимой области байтов
 	 * @param data  выводимая область байтов
@@ -72,18 +72,6 @@ namespace {
 		// Выполняем перевод строки за областью байтов
 		cout << dec << endl;
 	}
-	/**
-	 * @brief Метод получения просмотра строки знаков
-	 *
-	 * @param text строка знаков, на которую заводится просмотр
-	 *
-	 * @return     просмотр области байтов строки знаков
-	 *
-	 */
-	view_t text(const char * text) noexcept {
-		// Выводим просмотр области байтов строки знаков
-		return view_t(reinterpret_cast <const uint8_t *> (text), ::strlen(text));
-	}
 };
 
 /**
@@ -91,7 +79,6 @@ namespace {
  *
  * @param argc длина массива параметров
  * @param argv массив параметров
- *
  * @return     код выхода из приложения
  *
  */
@@ -112,6 +99,7 @@ int main(int argc, char * argv[]) noexcept {
 	 * @details Приложение A RFC 3414: сперва пароль повторяется до одного мегабайта
 	 *          и хешируется (ключ Ku), затем локализуется хешем строки Ku ‖ engineID ‖ Ku.
 	 *          Место итога обязано вмещать длину хеша алгоритма - у SHA-1 двадцать байтов
+	 *
 	 */
 	if(!digest::snmpv3(digest::hash_t::SHA1, view_t(password, sizeof(password)), view_t(engine, sizeof(engine)), localized)){
 		// Выводим сообщение об отказе выработки ключа
@@ -126,6 +114,7 @@ int main(int argc, char * argv[]) noexcept {
 	 *
 	 * @note Тот же пароль и тот же движок с иным хешем дают иной ключ: алгоритм
 	 *       входит в выработку наравне с паролем
+	 *
 	 */
 	if(!digest::snmpv3(digest::hash_t::MD5, view_t(password, sizeof(password)), view_t(engine, sizeof(engine)), localized)){
 		// Выводим сообщение об отказе выработки ключа
@@ -147,6 +136,7 @@ int main(int argc, char * argv[]) noexcept {
 	 * @details Раздел 2.13 RFC 7296: T1 = prf(K, S ‖ 0x01), T2 = prf(K, T1 ‖ S ‖ 0x02),
 	 *          и так далее, пока не наберётся требуемой длины; материал берётся из слитной
 	 *          строки T1 ‖ T2 ‖ ... без оглядки на границы звеньев
+	 *
 	 */
 	if(!digest::prfplus(digest::hash_t::SHA256, view_t(key, sizeof(key)), view_t(seed, sizeof(seed)), material, sizeof(material))){
 		// Выводим сообщение об отказе выработки материала

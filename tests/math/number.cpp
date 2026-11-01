@@ -37,11 +37,10 @@
 using namespace nts;
 
 /**
- * @brief Метод разбора записи шестнадцатеричными знаками
+ * @brief Функция разбора записи шестнадцатеричными знаками
  *
  * @param text разбираемая запись
  * @param data место, в которое помещаются разобранные байты
- *
  * @return     число разобранных байтов
  *
  */
@@ -70,11 +69,10 @@ static size_t bytes(const char * text, uint8_t * data) {
 	return result;
 }
 /**
- * @brief Метод сборки записи шестнадцатеричными знаками
+ * @brief Функция сборки записи шестнадцатеричными знаками
  *
  * @param data собираемые байты
  * @param size число собираемых байтов
- *
  * @return     собранная запись
  *
  */
@@ -96,11 +94,10 @@ static std::string text(const uint8_t * data, const size_t size) {
 	return result;
 }
 /**
- * @brief Метод сборки записи числа шестнадцатеричными знаками
+ * @brief Функция сборки записи числа шестнадцатеричными знаками
  *
  * @param modulus установленный модуль арифметики
  * @param value   собираемое число
- *
  * @return        собранная запись
  *
  */
@@ -453,37 +450,53 @@ TEST(NumberTest, Square) {
  *
  */
 TEST(NumberTest, Guards) {
+	// Объявляем модуль приведения
 	math::modulus_t modulus;
 	// Модуль длиной 32 байта
 	uint8_t prime[32];
+	// Выполняем разбор записи модуля
 	ASSERT_EQ(bytes("fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd97", prime), static_cast <size_t> (32));
+	// Запускаем модуль приведения
 	ASSERT_TRUE(modulus.start(view_t(prime, sizeof(prime))));
 	// Число со старшим ненулевым байтом
 	uint8_t wide[32];
+	// Выполняем разбор числа со старшим ненулевым байтом
 	ASSERT_EQ(bytes("0100000000000000000000000000000000000000000000000000000000000000", wide), static_cast <size_t> (32));
+	// Объявляем загружаемое число
 	math::number_t value;
+	// Выполняем загрузку числа в модуль
 	ASSERT_TRUE(modulus.load(view_t(wide, sizeof(wide)), value));
+	// Объявляем место записи числа
 	uint8_t buffer[32];
 	/**
 	 * Место короче числа усекло бы старший байт молча: запись обязана отказать,
 	 * а место с младшими байтами - остаться затёртым
 	 */
 	ASSERT_FALSE(modulus.store(value, buffer, 31));
+	// Проверяем запись числа в полное место
 	ASSERT_TRUE(modulus.store(value, buffer, 32));
+	// Сверяем старший байт записи
 	ASSERT_EQ(buffer[0], 0x01);
 	// Число, умещающееся в короткое место, записывается и в него
 	uint8_t narrow[32];
+	// Выполняем разбор числа, умещающегося в короткое место
 	ASSERT_EQ(bytes("0000000000000000000000000000000000000000000000000000000000000002", narrow), static_cast <size_t> (32));
+	// Выполняем загрузку короткого числа
 	ASSERT_TRUE(modulus.load(view_t(narrow, sizeof(narrow)), value));
 	ASSERT_TRUE(modulus.store(value, buffer, 1));
+	// Сверяем байт записи короткого числа
 	ASSERT_EQ(buffer[0], 0x02);
 	/**
 	 * Приведение по модулю не длиннее байта: слагаемые сложения превысили бы модуль
 	 */
 	math::modulus_t small;
+	// Объявляем модуль длиной в байт
 	const uint8_t eleven[1] = {0x0B};
+	// Запускаем модуль из одного байта
 	ASSERT_TRUE(small.start(view_t(eleven, 1)));
+	// Объявляем поток, превышающий модуль из одного байта
 	const uint8_t stream[1] = {0xFF};
+	// Проверяем отказ приведения потока по короткому модулю
 	ASSERT_FALSE(small.reduce(view_t(stream, 1), value));
 }
 
@@ -493,26 +506,42 @@ TEST(NumberTest, Guards) {
  * даёт то же самое через модуль, отличающийся на единицу (без признака P-256)
  */
 TEST(NumberTest, Nist256) {
+	// Объявляем модуль поля P-256
 	static const uint8_t prime[32] = {0xff,0xff,0xff,0xff,0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff};
+	// Объявляем золотые вектора умножения
 	struct { const char * a; const char * b; const char * r; } cases[] = {
 		{"d23f0824128b2f330c5c7fd0a6a3a4506513270e269e0d37f2a74de452e6b438", "36f675cc81e74ef5e8e25d940ed904759531985d5d9dc9f81818e811892f902b", "8a0738a0a9cc1a6bdc2ec5cad956023880c2fafb38567705e3a79ea958be0737"},
 		{"8d116ece1738f7d93d9c172411e20b8f6b0d549b6f03675a1600a35a099950d8", "a170b33839263059f28c105d1fb17c2390c192cfd3ac94af0f21ddb66cad4a26", "b885da50d1e04695e4053c5c68703ecc40618f4687dadeaab26a8b8aaa2077f2"},
 		{"0cb1e29c658cda1495e60af593bd04cf0fd630f1f29d0da9953f48f1a09f76b5", "6b4cb2424a23d5962217beaddbc496cb8e81973e0becd7b03898d190f9ebdacc", "9630d5166a7920b1fb250868f444ed5c73b02be0b55e7c40e9e317ea81165192"},
 	};
+	// Выполняем разбор шестнадцатеричной записи
 	auto unhex = [](const char * text, uint8_t * out){ for(size_t i = 0; i < 32; i++){ unsigned v = 0; sscanf(text + 2 * i, "%2x", &v); out[i] = static_cast <uint8_t> (v); } };
+	// Объявляем поле приведения
 	math::modulus_t field;
+	// Запускаем поле приведения
 	ASSERT_TRUE(field.start(view_t(prime, 32)));
+	/** Перебираем: золотые вектора при условии, что произведение в области сходится с независимым вектором */
 	for(const auto & item : cases){
+		// Объявляем места сомножителей и итогов
 		uint8_t a[32], b[32], r[32], out[32];
+		// Разбираем записи вектора
 		unhex(item.a, a); unhex(item.b, b); unhex(item.r, r);
+		// Объявляем числа поля
 		math::number_t x, y, ex, ey, product, plain;
+		// Загружаем первый сомножитель
 		ASSERT_TRUE(field.load(view_t(a, 32), x));
+		// Загружаем второй сомножитель
 		ASSERT_TRUE(field.load(view_t(b, 32), y));
+		// Приводим сомножители в область Монтгомери
 		field.enter(x, ex);
 		field.enter(y, ey);
+		// Выполняем умножение в области
 		field.multiply(ex, ey, product);
+		// Возвращаем произведение из области
 		field.leave(product, plain);
+		// Выполняем запись произведения
 		ASSERT_TRUE(field.store(plain, out, 32));
+		// Сличаем произведение с золотым вектором
 		EXPECT_EQ(::memcmp(out, r, 32), 0) << "вектор " << item.r;
 	}
 }
@@ -525,20 +554,31 @@ TEST(NumberTest, Nist256) {
  *          от сложения слов и от прибавления переноса снизу; случай, где второй
  *          возникает без первого (сумма слов ровно из всех единиц), ловится отдельно,
  *          как и заём, рождённый только заёмом снизу (разность слов ноль)
+ *
  */
 TEST(NumberTest, Carries) {
 	// Модули: P-256 и 2^256 - 189 (старшее слово из всех единиц)
 	static const uint8_t p256[32] = {0xff,0xff,0xff,0xff,0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff};
+	// Объявляем модуль из всех единиц
 	static const uint8_t full[32] = {0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0x43};
+	// Объявляем перебираемые модули
 	const uint8_t * primes[2] = {p256, full};
+	/** Перебираем: модули при условии, что перенос и заём проходят сквозь слова */
 	for(const uint8_t * prime : primes){
+		// Объявляем поле приведения
 		math::modulus_t field;
+		// Запускаем поле приведения
 		ASSERT_TRUE(field.start(view_t(prime, 32)));
+		// Объявляем места чисел и итогов
 		uint8_t less[32], out[32];
+		// Объявляем единицу поля
 		uint8_t one[32] = {}; one[31] = 1;
+		// Объявляем двойку поля
 		uint8_t two[32] = {}; two[31] = 2;
+		// Объявляем числа поля
 		math::number_t a, b, c, d, e, f, r;
 		::memcpy(less, prime, 32); less[31] -= 1;
+		// Загружаем число на единицу ниже модуля
 		ASSERT_TRUE(field.load(view_t(less, 32), a));
 		ASSERT_TRUE(field.load(view_t(one, 32), b));
 		ASSERT_TRUE(field.load(view_t(two, 32), d));
@@ -552,14 +592,20 @@ TEST(NumberTest, Carries) {
 		field.subtract(b, a, r); ASSERT_TRUE(field.store(r, out, 32)); EXPECT_EQ(::memcmp(out, two, 32), 0);
 		// (2^128 - 1) + 1 = 2^128: перенос рождается только вторым сложением
 		uint8_t high[32] = {}; ::memset(high + 16, 0xff, 16);
+		// Объявляем ожидаемый итог переноса
 		uint8_t shifted[32] = {}; shifted[15] = 1;
+		// Загружаем число из всех единиц младших слов
 		ASSERT_TRUE(field.load(view_t(high, 32), e));
+		// Выполняем сложение с переносом и сверяем итог
 		field.add(e, b, r); ASSERT_TRUE(field.store(r, out, 32)); EXPECT_EQ(::memcmp(out, shifted, 32), 0);
 		// 2^64 - (2^64 + 1) = p - 1: заём рождается только заёмом снизу
 		uint8_t word[32] = {}; word[23] = 1;
+		// Объявляем вычитаемое со старшей единицей
 		uint8_t next[32] = {}; next[23] = 1; next[31] = 1;
+		// Загружаем уменьшаемое
 		ASSERT_TRUE(field.load(view_t(word, 32), e));
 		ASSERT_TRUE(field.load(view_t(next, 32), f));
+		// Выполняем вычитание с заёмом и сверяем итог
 		field.subtract(e, f, r); ASSERT_TRUE(field.store(r, out, 32)); ::memcpy(less, prime, 32); less[31] -= 1; EXPECT_EQ(::memcmp(out, less, 32), 0);
 	}
 }
@@ -570,26 +616,41 @@ TEST(NumberTest, Carries) {
  * @details Совпадающие сомножители идут своим путём с десятью произведениями; итог
  *          обязан совпадать с общим умножением на копию того же числа на золотых
  *          векторах и на границах: ноль, единица, p - 1
+ *
  */
 TEST(NumberTest, Squaring) {
+	// Объявляем модуль поля P-256
 	static const uint8_t prime[32] = {0xff,0xff,0xff,0xff,0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff};
+	// Объявляем перебираемые значения
 	const char * values[] = {"d23f0824128b2f330c5c7fd0a6a3a4506513270e269e0d37f2a74de452e6b438", "36f675cc81e74ef5e8e25d940ed904759531985d5d9dc9f81818e811892f902b", "ffffffff00000001000000000000000000000000fffffffffffffffffffffffe", "0000000000000000000000000000000000000000000000000000000000000001", "0000000000000000000000000000000000000000000000000000000000000000", "8000000000000000800000000000000080000000000000008000000000000000"};
+	// Выполняем разбор шестнадцатеричной записи
 	auto unhex = [](const char * text, uint8_t * out){ for(size_t i = 0; i < 32; i++){ unsigned v = 0; sscanf(text + 2 * i, "%2x", &v); out[i] = static_cast <uint8_t> (v); } };
+	// Объявляем поле приведения
 	math::modulus_t field;
+	// Запускаем поле приведения
 	ASSERT_TRUE(field.start(view_t(prime, 32)));
+	/** Перебираем: значения при условии, что квадрат совпадает с умножением на копию числа */
 	for(const char * value : values){
+		// Объявляем места значения и итогов
 		uint8_t a[32], first[32], second[32];
+		// Разбираем запись значения
 		unhex(value, a);
+		// Объявляем числа поля
 		math::number_t x, entered, copy, square, product;
+		// Загружаем шестнадцатеричное значение в число поля
 		ASSERT_TRUE(field.load(view_t(a, 32), x));
+		// Приводим значение в область Монтгомери
 		field.enter(x, entered);
+		// Выполняем копию приведённого числа
 		copy = entered;
 		// Квадрат своим путём: сомножители по одному адресу
 		field.multiply(entered, entered, square);
 		// Умножение общим путём: сомножители по разным адресам
 		field.multiply(entered, copy, product);
+		// Выполняем запись квадрата своим путём
 		ASSERT_TRUE(field.store(square, first, 32));
 		ASSERT_TRUE(field.store(product, second, 32));
+		// Сличаем квадрат своим путём с умножением на копию
 		EXPECT_EQ(::memcmp(first, second, 32), 0) << "значение " << value;
 	}
 }
@@ -602,8 +663,11 @@ TEST(NumberTest, Squaring) {
  * из всех единиц ниже старшего разряда - на них свёртка выходит за разрядную сетку
  */
 TEST(NumberTest, Folding) {
+	// Объявляем устройство золотого вектора
 	struct vector_t { const char * a; const char * b; const char * product; const char * square; const char * inverse; };
+	// Объявляем устройство группы векторов
 	struct group_t { const char * modulus; vector_t vectors[5]; };
+	// Объявляем модули и золотые векторы
 	static const group_t GROUPS[] = {
 		{"fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd97", {
 			{"de27f4c90ba4596ad3d80ead13e95e7330c10a5c096900933de2a0c0dee98e6c", "53ba509554a703a7b87b2e103025bad0594e4876610cb1e82851d5edb7b43884", "9a70746a5c3b2929f826cbd71c99c2db14ba2bf4ed1a5421194c5c8c373aaec9", "fdd26c277fba2224d7f1f342e7f1b50e1049d17a31183b4e95aaad4374caca4e", "959af3b90b96dbb95eff1537d58c8965b3cfe68b9f8f7032801057c0bd0b12d9"},
@@ -660,29 +724,43 @@ TEST(NumberTest, Folding) {
 			modulus.enter(b, b);
 			// Выполняем умножение и сличаем с золотым произведением
 			modulus.multiply(a, b, result);
+			// Возвращаем произведение из области
 			modulus.leave(result, result);
+			// Сличаем произведение с золотым вектором
 			ASSERT_EQ(number(modulus, result), std::string(item.product)) << "модуль " << g << ", вектор " << v << ": произведение";
 			// Выполняем возведение в квадрат своим входом: путь квадрата
 			modulus.square(a, result);
+			// Возвращаем квадрат из области
 			modulus.leave(result, result);
+			// Сличаем квадрат с золотым вектором
 			ASSERT_EQ(number(modulus, result), std::string(item.square)) << "модуль " << g << ", вектор " << v << ": квадрат";
 			// Умножение совпадающих сомножителей обязано давать тот же квадрат общим путём
 			modulus.multiply(a, a, result);
+			// Возвращаем произведение совпадающих сомножителей из области
 			modulus.leave(result, result);
+			// Сличаем квадрат общим путём с золотым вектором
 			ASSERT_EQ(number(modulus, result), std::string(item.square)) << "модуль " << g << ", вектор " << v << ": квадрат умножением";
 			// Квадрат на место возводимого числа: место итога вправе совпадать с местом числа
 			math::number_t self = a;
+			// Выполняем возведение в квадрат на место числа
 			modulus.square(self, self);
+			// Возвращаем квадрат с места числа из области
 			modulus.leave(self, self);
+			// Сличаем квадрат на месте с золотым вектором
 			ASSERT_EQ(number(modulus, self), std::string(item.square)) << "модуль " << g << ", вектор " << v << ": квадрат на место";
 			// Выполняем обращение и сличаем с золотым обратным
 			modulus.invert(a, result);
+			// Возвращаем обратное из области
 			modulus.leave(result, result);
+			// Сличаем обратное с золотым вектором
 			ASSERT_EQ(number(modulus, result), std::string(item.inverse)) << "модуль " << g << ", вектор " << v << ": обратное";
 			// Произведение на место сомножителя: место итога вправе совпадать с местом сомножителя
 			math::number_t twin = a;
+			// Выполняем произведение на место сомножителя
 			modulus.multiply(twin, b, twin);
+			// Возвращаем произведение с места сомножителя из области
 			modulus.leave(twin, twin);
+			// Сличаем произведение на месте с золотым вектором
 			ASSERT_EQ(number(modulus, twin), std::string(item.product)) << "модуль " << g << ", вектор " << v << ": на место";
 		}
 	}
@@ -695,8 +773,11 @@ TEST(NumberTest, Folding) {
  * Ожидаемые остатки посчитаны независимо
  */
 TEST(NumberTest, Reduce) {
+	// Объявляем устройство потока с ожидаемым остатком
 	struct stream_t { const char * stream; const char * remainder; };
+	// Объявляем устройство группы потоков
 	struct group_t { const char * modulus; stream_t streams[5]; };
+	// Объявляем модули и потоки с остатками
 	static const group_t GROUPS[] = {
 		{"ffffffffffffffffffffffffffffffff6c611070995ad10045841b09b761b893", {
 			{"621e1360907f6085a8f5fe2337ddb56441a81490706ca8fc02cb40cd2b05600a73465a408c5ee086182163037f058744b0a52a49c6610000de6d73444660ac57", "a61716c7f741f6ec3a0d0c1b42bb806b9037c4c443a52f593430109b813209ca"},
@@ -777,7 +858,9 @@ TEST(NumberTest, Reduce) {
  * общий путь на четыре и восемь слов и путь P-256; пути прямой свёртки сличены выше
  */
 TEST(NumberTest, Inverse) {
+	// Объявляем устройство вектора обращения
 	struct item_t { const char * modulus; const char * value; const char * inverse; };
+	// Объявляем модули и значения с обратными
 	static const item_t ITEMS[] = {
 		{"ffffffffffffffffffffffffffffffff6c611070995ad10045841b09b761b893", "9069aef3a98d5a4176765b474bfe95fe9a49e13d1b0cb0edde079eaea48e8c67", "72bc0089a5cfb0d5ac12769bb5fcb40c88f2a47f70ed4cdffa91efd3492c4be8"},
 		{"ffffffff00000001000000000000000000000000ffffffffffffffffffffffff", "7eda1fca69a3e9a58f6aa4b93364aad344f45befbfab26db022bdd5559bb22f2", "461e4016eed14fe21b637a1ef382f2ad8c4618f181367f47e1ddc8c24e7002f0"},
@@ -806,19 +889,30 @@ TEST(NumberTest, Inverse) {
 		{"01fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffa51868783bf2f966b7fcc0148f709a5d03bb5c9b8899c47aebb6fb71e91386409", "01f668b5e1684861c243754dec13edcdfaad1e740b9b452c5b4ad3e3f4e26c17732ffc9e23d83cbd2b4da922397160494991be8e5e3844f97fd78fa34ba78dff9a41", "01265c447d7d5aec945f898e2e0145e2f1c6e54ea134e933ff60ae645f4def184c816299c263ca3f6fb4b8e13d12dd795736240eea22b107280bea835e8395ef5b0a"},
 		{"01ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", "0110e727fad29c8fffa8bfecf8f181c7e979efb06af6b55059f173cdb013494f5fa18119831e52c29337509f929d46e0d400e046f12a51b50c4b4c271704028ae57e", "01a1672cb9a252d758493cf4d9472e9432f6c5309b582c72959682093868b3b1c9affc95d06af571b41983193cd3f584b47b59250dbf93aefd474fa466d29d32f7cb"}
 	};
+	// Объявляем место разбираемых записей
 	uint8_t buffer[math::NUMBER_SIZE];
+	/** Перебираем: модули и значения при условии, что обратное сходится с золотым вектором */
 	for(size_t i = 0; i < (sizeof(ITEMS) / sizeof(ITEMS[0])); i++){
+		// Объявляем модуль приведения
 		math::modulus_t modulus;
+		// Выполняем разбор и запуск модуля
 		ASSERT_TRUE(modulus.start(view_t(buffer, bytes(ITEMS[i].modulus, buffer)))) << "модуль " << i;
+		// Объявляем число и место обратного
 		math::number_t value, result;
+		// Выполняем разбор и загрузку значения
 		ASSERT_TRUE(modulus.load(view_t(buffer, bytes(ITEMS[i].value, buffer)), value)) << "модуль " << i;
+		// Приводим значение в область Монтгомери
 		modulus.enter(value, value);
+		// Выполняем обращение окнами
 		modulus.invert(value, result);
+		// Возвращаем обратное из области
 		modulus.leave(result, result);
+		// Сличаем обратное с золотым вектором
 		ASSERT_EQ(number(modulus, result), std::string(ITEMS[i].inverse)) << "модуль " << i;
 	}
 }
 
+/** Проверка ядер собирается и исполняется только под x86-64 на компиляторах GCC и Clang */
 #if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER)
 #include <sys/machine.hpp>
 #include <internal/math/kernels.hpp>
@@ -832,30 +926,38 @@ TEST(NumberTest, Inverse) {
  * сличаются лишь ядра без ADX с modulus_t, о чём проверка сообщает
  */
 TEST(NumberTest, FoldingMulx) {
+	// Объявляем устройство значения ядра
 	typedef math::kernel::Words <4> value_t;
 	// Место, в которое помещается разбираемая запись модуля
 	uint8_t buffer[math::NUMBER_SIZE];
 	// Модуль 2^256 - 617 (кривая CryptoPro-A)
 	math::modulus_t modulus;
+	// Выполняем разбор и запуск модуля
 	ASSERT_TRUE(modulus.start(view_t(buffer, bytes("fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd97", buffer))));
 	// Устройство модуля: вид 2^256 - c с хвостом 617
 	const math::Modulus::layout_t layout = modulus.layout();
+	// Проверяем вид модуля
 	ASSERT_EQ(static_cast <int> (layout.form), static_cast <int> (math::Modulus::form_t::MINUS));
 	ASSERT_EQ(layout.tail, static_cast <uint64_t> (617));
 	// Признак MULX и ADCX/ADOX у машины: без него сборка под ADX не зовётся
 	const bool adx = machine::has(machine::feature_t::ADX);
+	/** Ядра на MULX есть только в сборке с заданным признаком ADX */
 	#if !defined(__ANTS_X86_64_ADX_KERNELS__)
 		// В этой сборке ядер на MULX нет вовсе (ASan без оптимизации либо ANTS_NO_MACHINE)
 		const bool kernels = false;
+	/** Иначе ядер на MULX в сборке нет */
 	#else
+		// Отмечаем наличие ядер на MULX в сборке
 		const bool kernels = true;
 	#endif
 	// Число сличений
 	size_t count = 0;
 	// Печать значения для сообщения
 	auto hex = [](const uint64_t * w) noexcept -> std::string {
+		// Объявляем место печати значения
 		char text[65];
 		::snprintf(text, sizeof(text), "%016llx%016llx%016llx%016llx", static_cast <unsigned long long> (w[3]), static_cast <unsigned long long> (w[2]), static_cast <unsigned long long> (w[1]), static_cast <unsigned long long> (w[0]));
+		// Возвращаем напечатанное значение
 		return std::string(text);
 	};
 	// Сличение произведения и квадрата пары значений всеми путями
@@ -864,7 +966,9 @@ TEST(NumberTest, FoldingMulx) {
 		math::number_t na, nb, np, ns;
 		::memcpy(na.words, a, 32);
 		::memcpy(nb.words, b, 32);
+		// Выполняем эталонное умножение
 		modulus.multiply(na, nb, np);
+		// Выполняем эталонный квадрат
 		modulus.square(na, ns);
 		// Значения для ядер на значениях
 		value_t va, vb, vr;
@@ -872,66 +976,105 @@ TEST(NumberTest, FoldingMulx) {
 		::memcpy(vb.w, b, 32);
 		// Ядра сборки без ADX
 		math::kernel::multiply <4, false> (layout, va, vb, vr);
+		// Сличаем умножение без ADX с эталоном
 		EXPECT_EQ(::memcmp(vr.w, np.words, 32), 0) << where << ": умножение без ADX " << hex(vr.w) << " при " << hex(np.words);
+		// Выполняем квадрат без ADX
 		math::kernel::square <4, false> (layout, va, vr);
+		// Сличаем квадрат без ADX с эталоном
 		EXPECT_EQ(::memcmp(vr.w, ns.words, 32), 0) << where << ": квадрат без ADX " << hex(vr.w) << " при " << hex(ns.words);
 		// Ядра сборки под ADX, если машина их исполняет
 		if(kernels && adx){
+			// Выполняем умножение на MULX
 			math::kernel::multiply <4, true> (layout, va, vb, vr);
+			// Сличаем умножение на MULX с эталоном
 			EXPECT_EQ(::memcmp(vr.w, np.words, 32), 0) << where << ": умножение на MULX " << hex(vr.w) << " при " << hex(np.words);
+			// Выполняем квадрат на MULX
 			math::kernel::square <4, true> (layout, va, vr);
+			// Сличаем квадрат на MULX с эталоном
 			EXPECT_EQ(::memcmp(vr.w, ns.words, 32), 0) << where << ": квадрат на MULX " << hex(vr.w) << " при " << hex(ns.words);
 			// На место первого сомножителя, на место второго и на место возводимого числа
 			value_t vc = va;
+			// Выполняем умножение на MULX на место первого сомножителя
 			math::kernel::multiply <4, true> (layout, vc, vb, vc);
+			// Сличаем умножение на месте с эталоном
 			EXPECT_EQ(::memcmp(vc.w, np.words, 32), 0) << where << ": умножение на MULX на место первого сомножителя";
+			// Объявляем копию второго сомножителя
 			value_t vd = vb;
+			// Выполняем умножение на MULX на место второго сомножителя
 			math::kernel::multiply <4, true> (layout, va, vd, vd);
+			// Сличаем умножение на месте с эталоном
 			EXPECT_EQ(::memcmp(vd.w, np.words, 32), 0) << where << ": умножение на MULX на место второго сомножителя";
+			// Объявляем копию возводимого числа
 			value_t ve = va;
+			// Выполняем квадрат на MULX на место числа
 			math::kernel::square <4, true> (layout, ve, ve);
+			// Сличаем квадрат на месте с эталоном
 			EXPECT_EQ(::memcmp(ve.w, ns.words, 32), 0) << where << ": квадрат на MULX на место числа";
 		}
+		// Подсчитываем выполненное сличение
 		count++;
 	};
 	// Края: p - 1 и соседи, границы сетки, хвост и его кратные
 	const uint64_t p0 = layout.modulus[0];
+	// Объявляем края сетки и кратные хвоста
 	const uint64_t EDGES[][4] = {
 		{0, 0, 0, 0}, {1, 0, 0, 0}, {2, 0, 0, 0},
 		{p0 - 2, ~0ull, ~0ull, ~0ull}, {p0 - 1, ~0ull, ~0ull, ~0ull}, {p0, ~0ull, ~0ull, ~0ull}, {p0 + 1, ~0ull, ~0ull, ~0ull},
 		{~0ull, ~0ull, ~0ull, ~0ull}, {0, 0, 0, 0x8000000000000000ull}, {~0ull, ~0ull, ~0ull, 0x7FFFFFFFFFFFFFFFull},
 		{617, 0, 0, 0}, {0 - 2 * 617ull, ~0ull, ~0ull, ~0ull}, {0 - 617ull * 617ull, ~0ull, ~0ull, ~0ull}
 	};
+	// Вычисляем число краёв
 	const size_t edges = (sizeof(EDGES) / sizeof(EDGES[0]));
+	/** Перебираем: первые сомножители краёв при условии, что перебраны все пары */
 	for(size_t i = 0; i < edges; i++)
+		/** Перебираем: вторые сомножители краёв при условии, что перебраны все пары */
 		for(size_t j = 0; j < edges; j++)
+			// Сличаем пару краёв всеми путями
 			check(EDGES[i], EDGES[j], "края " + std::to_string(i) + " и " + std::to_string(j));
 	// Случайные пары от постоянного зерна: каждое третье значение со старшими словами из единиц
 	uint64_t seed = 0x9E3779B97F4A7C15ull;
+	// Объявляем генератор случайных слов
 	auto next = [&seed]() noexcept -> uint64_t {
+		// Выполняем первый сдвиг генератора
 		seed ^= (seed << 13);
+		// Выполняем сдвиг генератора в обратную сторону
 		seed ^= (seed >> 7);
+		// Выполняем последний сдвиг генератора
 		seed ^= (seed << 17);
+		// Возвращаем очередное случайное слово
 		return seed;
 	};
+	/** Перебираем: случайные пары при условии, что выполнено заданное число сличений */
 	for(size_t n = 0; n < 20000; n++){
+		// Объявляем слова случайной пары
 		uint64_t a[4], b[4];
+		/** Перебираем: слова пары при условии, что заполнены все четыре разряда */
 		for(size_t i = 0; i < 4; i++){
+			// Получаем случайное слово первого сомножителя
 			a[i] = next();
+			// Получаем случайное слово второго сомножителя
 			b[i] = next();
 		}
+		// Отмечаем каждое третье значение со старшими словами из единиц
 		if((n % 3) == 0)
+			// Заполняем старшие слова первого сомножителя единицами
 			a[3] = a[2] = ~0ull;
+		// Отмечаем каждое пятое значение с тремя старшими словами из единиц
 		if((n % 5) == 0)
+			// Заполняем старшие слова второго сомножителя единицами
 			b[3] = b[2] = b[1] = ~0ull;
+		// Отмечаем каждое седьмое значение кратным хвоста модуля
 		if((n % 7) == 0)
+			// Заполняем младшее слово кратным хвоста модуля
 			b[0] = (p0 - (n % 4));
+		// Сличаем случайную пару всеми путями
 		check(a, b, "случайная пара " + std::to_string(n));
 	}
 	// Число сличений: все пары краёв и все случайные пары
 	ASSERT_EQ(count, (edges * edges) + 20000);
 	// Без MULX и ADCX/ADOX у машины сборка под ADX не наблюдаема
 	if(!(kernels && adx))
+		// Сообщаем о недоступности ядер на MULX и ADCX/ADOX
 		std::cout << "[   INFO   ] ядра на MULX и ADCX/ADOX здесь не исполняются: сличены лишь ядра без ADX с modulus_t" << std::endl;
 }
 #endif

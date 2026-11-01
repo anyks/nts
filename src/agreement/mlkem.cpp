@@ -108,12 +108,21 @@
 	 * Признаки векторного пути: команды SSE2
 	 */
 	#define __ANTS_MLKEM_SSE2__
+	/**
+	 * Признак общего векторного пути
+	 */
 	#define __ANTS_MLKEM_VECTOR__
+/**
+ * Ветвь пакетных команд Эльбруса с набором команд 5 и старше
+ */
 #elif defined(__e2k__) && defined(__iset__) && (__iset__ >= 5) && !defined(ANTS_NO_MACHINE)
 	/**
 	 * Признаки векторного пути: пакетные команды Эльбруса
 	 */
 	#define __ANTS_MLKEM_E2K__
+	/**
+	 * Признак общего векторного пути
+	 */
 	#define __ANTS_MLKEM_VECTOR__
 #endif
 
@@ -172,21 +181,29 @@ namespace {
 		typedef __m128i vec_t;
 		// Загрузка и запись выровненного вектора
 		static inline vec_t vload(const void * data) noexcept { return _mm_load_si128(reinterpret_cast <const __m128i *> (data)); }
+		// Записываем выровненный вектор
 		static inline void vstore(void * result, const vec_t value) noexcept { _mm_store_si128(reinterpret_cast <__m128i *> (result), value); }
 		// Заполнение всех мест одним значением
 		static inline vec_t vset16(const int16_t value) noexcept { return _mm_set1_epi16(value); }
+		// Заполняем все 32-разрядные места одним значением
 		static inline vec_t vset32(const int32_t value) noexcept { return _mm_set1_epi32(value); }
 		// Произведения 16-разрядных мест: младшие и старшие половины, суммы соседних произведений в 32 разрядах
 		static inline vec_t vmullo16(const vec_t first, const vec_t second) noexcept { return _mm_mullo_epi16(first, second); }
+		// Старшие половины произведений 16-разрядных мест
 		static inline vec_t vmulhi16(const vec_t first, const vec_t second) noexcept { return _mm_mulhi_epi16(first, second); }
+		// Суммы произведений соседних мест в 32 разрядах
 		static inline vec_t vmadd16(const vec_t first, const vec_t second) noexcept { return _mm_madd_epi16(first, second); }
 		// Суммы и разности
 		static inline vec_t vadd16(const vec_t first, const vec_t second) noexcept { return _mm_add_epi16(first, second); }
+		// Разности 16-разрядных мест
 		static inline vec_t vsub16(const vec_t first, const vec_t second) noexcept { return _mm_sub_epi16(first, second); }
+		// Суммы 32-разрядных мест
 		static inline vec_t vadd32(const vec_t first, const vec_t second) noexcept { return _mm_add_epi32(first, second); }
+		// Разности 32-разрядных мест
 		static inline vec_t vsub32(const vec_t first, const vec_t second) noexcept { return _mm_sub_epi32(first, second); }
 		// Арифметические сдвиги вправо
 		static inline vec_t vsra16(const vec_t value, const int count) noexcept { return _mm_srai_epi16(value, count); }
+		// Арифметические сдвиги 32-разрядных мест вправо
 		static inline vec_t vsra32(const vec_t value, const int count) noexcept { return _mm_srai_epi32(value, count); }
 		// Поразрядные операции
 		static inline vec_t vand(const vec_t first, const vec_t second) noexcept { return _mm_and_si128(first, second); }
@@ -194,14 +211,19 @@ namespace {
 		static inline vec_t vswap16(const vec_t value) noexcept { return _mm_shufflehi_epi16(_mm_shufflelo_epi16(value, 0xB1), 0xB1); }
 		// Младшие и старшие 64-разрядные половины двух векторов рядом
 		static inline vec_t vlow64(const vec_t first, const vec_t second) noexcept { return _mm_unpacklo_epi64(first, second); }
+		// Старшие 64-разрядные половины двух векторов рядом
 		static inline vec_t vhigh64(const vec_t first, const vec_t second) noexcept { return _mm_unpackhi_epi64(first, second); }
 		// Переплетение младших и старших пар 32-разрядных мест двух векторов
 		static inline vec_t vlow32(const vec_t first, const vec_t second) noexcept { return _mm_unpacklo_epi32(first, second); }
+		// Переплетение старших пар 32-разрядных мест двух векторов
 		static inline vec_t vhigh32(const vec_t first, const vec_t second) noexcept { return _mm_unpackhi_epi32(first, second); }
 		// Чётные 32-разрядные места вперёд, нечётные назад
 		static inline vec_t vevenodd32(const vec_t value) noexcept { return _mm_shuffle_epi32(value, 0xD8); }
 		// Переплетение младших половин 32-разрядных мест двух векторов в 16-разрядные места: старшие половины мест пусты
 		static inline vec_t vinterleave16(const vec_t even, const vec_t odd) noexcept { return _mm_or_si128(even, _mm_slli_epi32(odd, 16)); }
+	/**
+	 * Ветвь векторной прослойки Эльбруса: тот же тип вектора и пакетные команды
+	 */
 	#elif defined(__ANTS_MLKEM_E2K__)
 		/**
 		 * Вектор в 128 разрядов: тот же тип, что __v2di заголовков lcc
@@ -209,23 +231,31 @@ namespace {
 		typedef long long vec_t __attribute__ ((__vector_size__ (16)));
 		// Загрузка и запись выровненного вектора
 		static inline vec_t vload(const void * data) noexcept { return (* reinterpret_cast <const vec_t *> (data)); }
+		// Записываем выровненный вектор
 		static inline void vstore(void * result, const vec_t value) noexcept { (* reinterpret_cast <vec_t *> (result)) = value; }
 		// Вектор из двух 64-разрядных слов: старшее и младшее
 		static inline vec_t vwords(const uint64_t high, const uint64_t low) noexcept { return __builtin_e2k_qppackdl(high, low); }
 		// Заполнение всех мест одним значением
 		static inline vec_t vset16(const int16_t value) noexcept { const uint64_t word = (static_cast <uint64_t> (static_cast <uint16_t> (value)) * 0x0001000100010001ULL); return vwords(word, word); }
+		// Заполняем все 32-разрядные места одним значением
 		static inline vec_t vset32(const int32_t value) noexcept { const uint64_t word = (static_cast <uint64_t> (static_cast <uint32_t> (value)) * 0x0000000100000001ULL); return vwords(word, word); }
 		// Произведения 16-разрядных мест
 		static inline vec_t vmullo16(const vec_t first, const vec_t second) noexcept { return __builtin_e2k_qpmullh(first, second); }
+		// Старшие половины произведений 16-разрядных мест
 		static inline vec_t vmulhi16(const vec_t first, const vec_t second) noexcept { return __builtin_e2k_qpmulhh(first, second); }
+		// Суммы произведений соседних мест в 32 разрядах
 		static inline vec_t vmadd16(const vec_t first, const vec_t second) noexcept { return __builtin_e2k_qpmaddh(first, second); }
 		// Суммы и разности
 		static inline vec_t vadd16(const vec_t first, const vec_t second) noexcept { return __builtin_e2k_qpaddh(first, second); }
+		// Разности 16-разрядных мест
 		static inline vec_t vsub16(const vec_t first, const vec_t second) noexcept { return __builtin_e2k_qpsubh(first, second); }
+		// Суммы 32-разрядных мест
 		static inline vec_t vadd32(const vec_t first, const vec_t second) noexcept { return __builtin_e2k_qpaddw(first, second); }
+		// Разности 32-разрядных мест
 		static inline vec_t vsub32(const vec_t first, const vec_t second) noexcept { return __builtin_e2k_qpsubw(first, second); }
 		// Арифметические сдвиги вправо
 		static inline vec_t vsra16(const vec_t value, const int count) noexcept { return __builtin_e2k_qpsrah(value, count); }
+		// Арифметические сдвиги 32-разрядных мест вправо
 		static inline vec_t vsra32(const vec_t value, const int count) noexcept { return __builtin_e2k_qpsraw(value, count); }
 		// Поразрядные операции
 		static inline vec_t vand(const vec_t first, const vec_t second) noexcept { return __builtin_e2k_qpand(first, second); }
@@ -234,11 +264,17 @@ namespace {
 		 * (так устроен перенос ChaCha OpenSSL под Эльбрус: crypto/chacha/chacha_e2k.c)
 		 */
 		static inline vec_t vswap16(const vec_t value) noexcept { return __builtin_e2k_qppermb(value, value, vwords(0x0d0c0f0e09080b0aULL, 0x0504070601000302ULL)); }
+		// Младшие 64-разрядные половины двух векторов рядом
 		static inline vec_t vlow64(const vec_t first, const vec_t second) noexcept { return __builtin_e2k_qppermb(second, first, vwords(0x1716151413121110ULL, 0x0706050403020100ULL)); }
+		// Старшие 64-разрядные половины двух векторов рядом
 		static inline vec_t vhigh64(const vec_t first, const vec_t second) noexcept { return __builtin_e2k_qppermb(second, first, vwords(0x1f1e1d1c1b1a1918ULL, 0x0f0e0d0c0b0a0908ULL)); }
+		// Переплетение младших пар 32-разрядных мест двух векторов
 		static inline vec_t vlow32(const vec_t first, const vec_t second) noexcept { return __builtin_e2k_qppermb(second, first, vwords(0x1716151407060504ULL, 0x1312111003020100ULL)); }
+		// Переплетение старших пар 32-разрядных мест двух векторов
 		static inline vec_t vhigh32(const vec_t first, const vec_t second) noexcept { return __builtin_e2k_qppermb(second, first, vwords(0x1f1e1d1c0f0e0d0cULL, 0x1b1a19180b0a0908ULL)); }
+		// Чётные 32-разрядные места вперёд, нечётные назад
 		static inline vec_t vevenodd32(const vec_t value) noexcept { return __builtin_e2k_qppermb(value, value, vwords(0x0f0e0d0c07060504ULL, 0x0b0a090803020100ULL)); }
+		// Переплетение младших половин 32-разрядных мест двух векторов в 16-разрядные места
 		static inline vec_t vinterleave16(const vec_t even, const vec_t odd) noexcept { return __builtin_e2k_qppermb(odd, even, vwords(0x1d1c0d0c19180908ULL, 0x1514050411100100ULL)); }
 	#endif
 	/**
@@ -250,12 +286,12 @@ namespace {
 		 *
 		 * @param first  первые сомножители
 		 * @param second вторые сомножители
-		 *
 		 * @return       произведения, делённые на 2^16, по модулю q в (-q, q)
 		 *
 		 * @note Младшие 16 разрядов произведения и множителя на модуль равны, оттого разность
 		 *       старших половин и есть итог редукции - без заёма (тот же приём у эталонной
 		 *       реализации Kyber на AVX2)
+		 *
 		 */
 		static inline vec_t vfqmul(const vec_t first, const vec_t second) noexcept {
 			// Младшие и старшие половины произведений
@@ -269,12 +305,12 @@ namespace {
 		 * @brief Редукция Барретта восьми 16-разрядных значений
 		 *
 		 * @param value приводимые значения
-		 *
 		 * @return      значения из [-q/2, q/2], те же, что у скалярной barrett
 		 *
 		 * @note Частное ((value·20159) + 2^25) >> 26 берётся как (старшие 16 разрядов
 		 *       произведения + 512) >> 10: вложенные округления вниз с целыми делителями
 		 *       дают то же, что одно
+		 *
 		 */
 		static inline vec_t vbarrett(const vec_t value) noexcept {
 			// Частное с округлением
@@ -286,7 +322,6 @@ namespace {
 		 * @brief Приведение восьми значений из (-q, q) к [0, q)
 		 *
 		 * @param value приводимые значения
-		 *
 		 * @return      значения из [0, q)
 		 *
 		 */
@@ -320,10 +355,9 @@ namespace {
 		size_t dv;
 	} sample_t;
 	/**
-	 * @brief Метод получения описания набора параметров
+	 * @brief Функция получения описания набора параметров
 	 *
 	 * @param kem набор параметров
-	 *
 	 * @return    описание набора либо описание с нулевой размерностью
 	 *
 	 */
@@ -354,10 +388,9 @@ namespace {
 		return result;
 	}
 	/**
-	 * @brief Метод приведения числа по модулю q редукцией Барретта
+	 * @brief Функция приведения числа по модулю q редукцией Барретта
 	 *
 	 * @param value приводимое число из диапазона [-q·2^15, q·2^15)
-	 *
 	 * @return      число из диапазона [0, q)
 	 *
 	 */
@@ -374,11 +407,10 @@ namespace {
 		return static_cast <int16_t> (result);
 	}
 	/**
-	 * @brief Метод умножения двух коэффициентов по модулю q
+	 * @brief Функция умножения двух коэффициентов по модулю q
 	 *
 	 * @param first  первый множитель
 	 * @param second второй множитель
-	 *
 	 * @return       произведение из диапазона [0, q)
 	 *
 	 */
@@ -387,15 +419,15 @@ namespace {
 		return reduce(first * second);
 	}
 	/**
-	 * @brief Метод условного вычитания модуля из значения ниже удвоенного модуля
+	 * @brief Функция условного вычитания модуля из значения ниже удвоенного модуля
 	 *
 	 * @param value приводимое значение из [0, 2q)
-	 *
 	 * @return      значение из [0, q)
 	 *
 	 * @note Сумма и разность приведённых коэффициентов не выходят за удвоенный модуль,
 	 *       и полная редукция Барретта им не нужна: бабочки NTT стоили три редукции на
 	 *       пару коэффициентов, стало по одной на произведение (круг 35, 23.09.2026)
+	 *
 	 */
 	static inline int16_t once(const int32_t value) noexcept {
 		// Разность с модулем
@@ -408,10 +440,9 @@ namespace {
 	 *
 	 */
 	/**
-	 * @brief Метод приведения значения из [0, q) к полуинтервалу (-q/2, q/2]
+	 * @brief Функция приведения значения из [0, q) к полуинтервалу (-q/2, q/2]
 	 *
 	 * @param value приводимое значение
-	 *
 	 * @return      значение в 16 разрядах со знаком
 	 *
 	 */
@@ -424,16 +455,16 @@ namespace {
 	 */
 	#if !defined(__ANTS_MLKEM_VECTOR__)
 		/**
-		 * @brief Метод редукции Монтгомери 32-разрядного значения
+		 * @brief Функция редукции Монтгомери 32-разрядного значения
 		 *
 		 * @param wide приводимое значение, |wide| < q·2^15
-		 *
 		 * @return     wide·2^(-16) mod q в полуинтервале (-q, q)
 		 *
 		 * @note Множитель -3327 обращает младшие 16 разрядов в ноль: q·3327 = 169·2^16 - 1,
 		 *       оттого разность wide - factor·q делится на 2^16 нацело, а её старшие разряды
 		 *       и есть итог. Тем же приведением снимается множитель 2^16 с накопителя
 		 *       произведений в области NTT (settle)
+		 *
 		 */
 		static inline int16_t montgomery(const int32_t wide) noexcept {
 			// Множитель, обращающий младшие 16 разрядов значения в ноль: q^(-1) mod 2^16 = -3327
@@ -442,11 +473,10 @@ namespace {
 			return static_cast <int16_t> ((wide - (static_cast <int32_t> (factor) * Q)) >> 16);
 		}
 		/**
-		 * @brief Метод умножения Монтгомери на 16 разрядах
+		 * @brief Функция умножения Монтгомери на 16 разрядах
 		 *
 		 * @param first  первый сомножитель, |first| < 2^15
 		 * @param second второй сомножитель, |second| < 2^15
-		 *
 		 * @return       first·second·2^(-16) mod q в полуинтервале (-q, q)
 		 *
 		 * @note Так устроены бабочки NTT эталонной реализации Kyber: степень ζ хранится
@@ -454,16 +484,16 @@ namespace {
 		 *       арифметика умещается в 32 разряда без деления и без 64-разрядного умножения,
 		 *       и собиратель кладёт бабочки на векторные команды (NEON, SSE2). Щуп nttprobe
 		 *       круга 35 (23.09.2026): прямое NTT M4 582 → 150 нс, FreeBSD 3 866 → 1 300
+		 *
 		 */
 		static inline int16_t fqmul(const int16_t first, const int16_t second) noexcept {
 			// Выводим редукцию Монтгомери полного произведения
 			return montgomery(static_cast <int32_t> (first) * second);
 		}
 		/**
-		 * @brief Метод редукции Барретта на 16 разрядах
+		 * @brief Функция редукции Барретта на 16 разрядах
 		 *
 		 * @param value приводимое значение
-		 *
 		 * @return      значение, сравнимое с исходным по модулю q, из [-q/2, q/2]
 		 *
 		 */
@@ -474,10 +504,9 @@ namespace {
 			return static_cast <int16_t> (value - (static_cast <int32_t> (quotient) * Q));
 		}
 		/**
-		 * @brief Метод приведения значения из (-q, q) к [0, q)
+		 * @brief Функция приведения значения из (-q, q) к [0, q)
 		 *
 		 * @param value приводимое значение
-		 *
 		 * @return      значение из [0, q)
 		 *
 		 */
@@ -486,6 +515,7 @@ namespace {
 			return static_cast <int16_t> (value + (Q & (value >> 15)));
 		}
 	#endif
+	// Описание таблиц степеней ζ = 17
 	typedef struct Tables {
 		// Степени ζ^BitRev7(i) для бабочек преобразования
 		int16_t zetas[128];
@@ -567,16 +597,18 @@ namespace {
 				for(size_t lane = 0; lane < 8; lane++){
 					// Слой длины 4: участок из восьми коэффициентов, по два участка на шаг
 					this->forward4[(8 * k) + lane] = this->montgomery[32 + (2 * k) + (lane / 4)];
+					// То же для обратного преобразования: порядок степеней обратный
 					this->inverse4[(8 * k) + lane] = this->montgomery[63 - (2 * k) - (lane / 4)];
 					// Слой длины 2: участок из четырёх коэффициентов, по четыре участка на шаг
 					this->forward2[(8 * k) + lane] = this->montgomery[64 + (4 * k) + (lane / 2)];
+					// То же для обратного преобразования: порядок степеней обратный
 					this->inverse2[(8 * k) + lane] = this->montgomery[127 - (4 * k) - (lane / 2)];
 				}
 			}
 		}
 	} tables_t;
 	/**
-	 * @brief Метод получения таблиц степеней ζ
+	 * @brief Функция получения таблиц степеней ζ
 	 *
 	 * @return таблицы, заполненные при первом обращении
 	 *
@@ -588,7 +620,7 @@ namespace {
 		return result;
 	}
 	/**
-	 * @brief Метод прямого преобразования NTT многочлена
+	 * @brief Функция прямого преобразования NTT многочлена
 	 *
 	 * @param poly преобразуемый многочлен
 	 *
@@ -641,16 +673,19 @@ namespace {
 				vec_t t = vfqmul(high, vload(table.forward4 + m));
 				// Разности и суммы
 				high = vsub16(low, t);
+				// Суммы
 				low = vadd16(low, t);
 				// Обратно в порядок коэффициентов, затем чётные пары двойных слов вперёд
 				const vec_t ae = vevenodd32(vlow64(low, high)), be = vevenodd32(vhigh64(low, high));
 				// Слой длины 2: первые пары четвёрок против вторых
 				low = vlow64(ae, be);
+				// Старшие половины участков
 				high = vhigh64(ae, be);
 				// Произведения степеней и вторых пар
 				t = vfqmul(high, vload(table.forward2 + m));
 				// Разности и суммы
 				high = vsub16(low, t);
+				// Суммы
 				low = vadd16(low, t);
 				// Обратно в порядок коэффициентов с приведением к [0, q)
 				vstore(values + i, vcanonical(vbarrett(vlow32(low, high))));
@@ -699,7 +734,7 @@ namespace {
 		#endif
 	}
 	/**
-	 * @brief Метод обратного преобразования NTT многочлена
+	 * @brief Функция обратного преобразования NTT многочлена
 	 *
 	 * @param poly преобразуемый многочлен
 	 *
@@ -726,16 +761,19 @@ namespace {
 				vec_t t = low;
 				// Суммы пар с редукцией и произведения степеней и разностей
 				low = vbarrett(vadd16(t, high));
+				// Произведения степеней и разностей пар
 				high = vfqmul(vsub16(high, t), vload(table.inverse2 + m));
 				// Обратно в порядок коэффициентов
 				const vec_t a = vlow32(low, high), b = vhigh32(low, high);
 				// Слой длины 4: младшие четвёрки против старших
 				low = vlow64(a, b);
+				// Старшие четвёрки против младших
 				high = vhigh64(a, b);
 				// Первые коэффициенты пар
 				t = low;
 				// Суммы пар с редукцией и произведения степеней и разностей
 				low = vbarrett(vadd16(t, high));
+				// Произведения степеней и разностей пар
 				high = vfqmul(vsub16(high, t), vload(table.inverse4 + m));
 				// Обратно в порядок коэффициентов
 				vstore(values + i, vlow64(low, high));
@@ -827,6 +865,7 @@ namespace {
 	 *          слагаемым скалярного произведения векторов, и лишь накопитель приводится
 	 *          редукцией Монтгомери, снимающей множитель 2^16. На x86-64 сумма двух произведений
 	 *          соседних 16-разрядных мест - одна команда pmaddwd
+	 *
 	 */
 	typedef struct Twisted {
 		// Коэффициенты в форме Монтгомери, нечётные умножены на ±γ: b0·R, b1·γ·R, b2·R, b3·(-γ)·R, …
@@ -840,13 +879,14 @@ namespace {
 	 * @note Порядок коэффициентов внутри накопителя принадлежит паре методов multiply и
 	 *       settle: у векторного пути в каждой восьмёрке сперва идут четыре чётных
 	 *       коэффициента, затем четыре нечётных
+	 *
 	 */
 	typedef struct Wide {
 		// Накопленные произведения
 		alignas(16) int32_t values[N];
 	} wide_t;
 	/**
-	 * @brief Метод подготовки второго сомножителя умножения в области NTT
+	 * @brief Функция подготовки второго сомножителя умножения в области NTT
 	 *
 	 * @param poly   многочлен в области NTT с коэффициентами из [0, q)
 	 * @param result место, в которое помещается подготовленный сомножитель
@@ -888,12 +928,13 @@ namespace {
 				result.twisted[i + 1] = fqmul(poly.values[i + 1], table.twists[i / 2]);
 				// Переставленные коэффициенты пары
 				result.swapped[i] = odd;
+				// Чётное место переставленной пары
 				result.swapped[i + 1] = even;
 			}
 		#endif
 	}
 	/**
-	 * @brief Метод умножения многочлена на подготовленный сомножитель с накоплением
+	 * @brief Функция умножения многочлена на подготовленный сомножитель с накоплением
 	 *
 	 * @param first  первый сомножитель с коэффициентами из [0, q)
 	 * @param second подготовленный второй сомножитель
@@ -902,6 +943,7 @@ namespace {
 	 * @note Слагаемое накопителя ниже 2·q² < 2^25, а слагаемых у скалярного произведения
 	 *       не больше четырёх (размерность модуля): накопитель остаётся ниже q·2^15,
 	 *       в границах редукции Монтгомери
+	 *
 	 */
 	static void multiply(const poly_t & first, const twisted_t & second, wide_t & result) noexcept {
 		/**
@@ -938,7 +980,7 @@ namespace {
 		#endif
 	}
 	/**
-	 * @brief Метод приведения накопителя произведений к многочлену
+	 * @brief Функция приведения накопителя произведений к многочлену
 	 *
 	 * @param wide   накопитель произведений
 	 * @param result место, в которое помещается многочлен с коэффициентами из [0, q)
@@ -957,7 +999,6 @@ namespace {
 			 * @brief Редукция Монтгомери четырёх значений с приведением к [0, q)
 			 *
 			 * @param value четыре 32-разрядных значения
-			 *
 			 * @return      четыре значения из [0, q) в 32-разрядных местах
 			 *
 			 */
@@ -993,7 +1034,7 @@ namespace {
 		#endif
 	}
 	/**
-	 * @brief Метод записи многочлена по двенадцать разрядов на коэффициент
+	 * @brief Функция записи многочлена по двенадцать разрядов на коэффициент
 	 *
 	 * @param poly   записываемый многочлен
 	 * @param result место, в которое помещаются 384 байта записи
@@ -1017,11 +1058,10 @@ namespace {
 		}
 	}
 	/**
-	 * @brief Метод разбора многочлена по двенадцать разрядов на коэффициент
+	 * @brief Функция разбора многочлена по двенадцать разрядов на коэффициент
 	 *
 	 * @param data 384 байта записи
 	 * @param poly место, в которое помещается многочлен
-	 *
 	 * @return     признак того, что всякий коэффициент лежит в диапазоне модуля
 	 *
 	 */
@@ -1047,11 +1087,10 @@ namespace {
 		return (overflow == 0);
 	}
 	/**
-	 * @brief Метод сжатия коэффициента до заданной разрядности
+	 * @brief Функция сжатия коэффициента до заданной разрядности
 	 *
 	 * @param value коэффициент из диапазона [0, q)
 	 * @param bits  разрядность сжатия
-	 *
 	 * @return      сжатое значение из диапазона [0, 2^bits)
 	 *
 	 */
@@ -1066,11 +1105,10 @@ namespace {
 		return (static_cast <uint32_t> ((static_cast <uint64_t> (numerator) * 20642679ULL) >> 36) & ((1u << bits) - 1));
 	}
 	/**
-	 * @brief Метод расширения сжатого значения до коэффициента
+	 * @brief Функция расширения сжатого значения до коэффициента
 	 *
 	 * @param value сжатое значение из диапазона [0, 2^bits)
 	 * @param bits  разрядность сжатия
-	 *
 	 * @return      коэффициент из диапазона [0, q)
 	 *
 	 */
@@ -1079,7 +1117,7 @@ namespace {
 		return static_cast <int16_t> (((value * static_cast <uint32_t> (Q)) + (1u << (bits - 1))) >> bits);
 	}
 	/**
-	 * @brief Метод записи многочлена со сжатием до заданной разрядности
+	 * @brief Функция записи многочлена со сжатием до заданной разрядности
 	 *
 	 * @param poly   записываемый многочлен
 	 * @param bits   разрядность сжатия
@@ -1089,6 +1127,7 @@ namespace {
 	 *       жёсткими узорами байтов: четыре коэффициента в пять байтов, восемь в одиннадцать,
 	 *       два в один, восемь в пять. Побитовый накопитель оставлен для прочих разрядностей:
 	 *       он стоил на многочлене 155 нс на M4 против 13 у узора (щуп packprobe круга 36)
+	 *
 	 */
 	static void pack(const poly_t & poly, const size_t bits, uint8_t * result) noexcept {
 		// Сжатые коэффициенты
@@ -1122,9 +1161,13 @@ namespace {
 					const uint16_t * v = (values + i);
 					// Записываем байты узора
 					result[0] = static_cast <uint8_t> (v[0] | (v[1] << 5));
+					// Записываем второй байт узора
 					result[1] = static_cast <uint8_t> ((v[1] >> 3) | (v[2] << 2) | (v[3] << 7));
+					// Записываем третий байт узора
 					result[2] = static_cast <uint8_t> ((v[3] >> 1) | (v[4] << 4));
+					// Записываем четвёртый байт узора
 					result[3] = static_cast <uint8_t> ((v[4] >> 4) | (v[5] << 1) | (v[6] << 6));
+					// Записываем пятый байт узора
 					result[4] = static_cast <uint8_t> ((v[6] >> 2) | (v[7] << 3));
 				}
 			} break;
@@ -1138,9 +1181,13 @@ namespace {
 					const uint16_t * v = (values + i);
 					// Записываем байты узора
 					result[0] = static_cast <uint8_t> (v[0]);
+					// Записываем второй байт узора
 					result[1] = static_cast <uint8_t> ((v[0] >> 8) | (v[1] << 2));
+					// Записываем третий байт узора
 					result[2] = static_cast <uint8_t> ((v[1] >> 6) | (v[2] << 4));
+					// Записываем четвёртый байт узора
 					result[3] = static_cast <uint8_t> ((v[2] >> 4) | (v[3] << 6));
+					// Записываем пятый байт узора
 					result[4] = static_cast <uint8_t> (v[3] >> 2);
 				}
 			} break;
@@ -1154,15 +1201,25 @@ namespace {
 					const uint16_t * v = (values + i);
 					// Записываем байты узора
 					result[0] = static_cast <uint8_t> (v[0]);
+					// Записываем второй байт узора
 					result[1] = static_cast <uint8_t> ((v[0] >> 8) | (v[1] << 3));
+					// Записываем третий байт узора
 					result[2] = static_cast <uint8_t> ((v[1] >> 5) | (v[2] << 6));
+					// Записываем четвёртый байт узора
 					result[3] = static_cast <uint8_t> (v[2] >> 2);
+					// Записываем пятый байт узора
 					result[4] = static_cast <uint8_t> ((v[2] >> 10) | (v[3] << 1));
+					// Записываем шестой байт узора
 					result[5] = static_cast <uint8_t> ((v[3] >> 7) | (v[4] << 4));
+					// Записываем седьмой байт узора
 					result[6] = static_cast <uint8_t> ((v[4] >> 4) | (v[5] << 7));
+					// Записываем восьмой байт узора
 					result[7] = static_cast <uint8_t> (v[5] >> 1);
+					// Записываем девятый байт узора
 					result[8] = static_cast <uint8_t> ((v[5] >> 9) | (v[6] << 2));
+					// Записываем десятый байт узора
 					result[9] = static_cast <uint8_t> ((v[6] >> 6) | (v[7] << 5));
+					// Записываем одиннадцатый байт узора
 					result[10] = static_cast <uint8_t> (v[7] >> 3);
 				}
 			} break;
@@ -1198,13 +1255,14 @@ namespace {
 		}
 	}
 	/**
-	 * @brief Метод разбора многочлена с расширением из заданной разрядности
+	 * @brief Функция разбора многочлена с расширением из заданной разрядности
 	 *
 	 * @param data 32·bits байтов записи
 	 * @param bits разрядность сжатия
 	 * @param poly место, в которое помещается многочлен
 	 *
 	 * @note Узоры байтов зеркальны узорам записи; побитовый накопитель - для прочих разрядностей
+	 *
 	 */
 	static void unpack(const uint8_t * data, const size_t bits, poly_t & poly) noexcept {
 		// Сжатые коэффициенты
@@ -1221,6 +1279,7 @@ namespace {
 				for(size_t i = 0; i < N; i += 2){
 					// Читаем коэффициенты байта
 					values[i] = static_cast <uint16_t> (data[i / 2] & 0x0F);
+					// Второй коэффициент: старшие четыре разряда байта
 					values[i + 1] = static_cast <uint16_t> (data[i / 2] >> 4);
 				}
 			} break;
@@ -1234,12 +1293,19 @@ namespace {
 					uint16_t * v = (values + i);
 					// Читаем коэффициенты узора
 					v[0] = static_cast <uint16_t> (data[0] & 0x1F);
+					// Читаем второй коэффициент узора
 					v[1] = static_cast <uint16_t> (((data[0] >> 5) | (data[1] << 3)) & 0x1F);
+					// Читаем третий коэффициент узора
 					v[2] = static_cast <uint16_t> ((data[1] >> 2) & 0x1F);
+					// Читаем четвёртый коэффициент узора
 					v[3] = static_cast <uint16_t> (((data[1] >> 7) | (data[2] << 1)) & 0x1F);
+					// Читаем пятый коэффициент узора
 					v[4] = static_cast <uint16_t> (((data[2] >> 4) | (data[3] << 4)) & 0x1F);
+					// Читаем шестой коэффициент узора
 					v[5] = static_cast <uint16_t> ((data[3] >> 1) & 0x1F);
+					// Читаем седьмой коэффициент узора
 					v[6] = static_cast <uint16_t> (((data[3] >> 6) | (data[4] << 2)) & 0x1F);
+					// Читаем восьмой коэффициент узора
 					v[7] = static_cast <uint16_t> (data[4] >> 3);
 				}
 			} break;
@@ -1253,8 +1319,11 @@ namespace {
 					uint16_t * v = (values + i);
 					// Читаем коэффициенты узора
 					v[0] = static_cast <uint16_t> ((data[0] | (data[1] << 8)) & 0x3FF);
+					// Читаем второй коэффициент узора
 					v[1] = static_cast <uint16_t> (((data[1] >> 2) | (data[2] << 6)) & 0x3FF);
+					// Читаем третий коэффициент узора
 					v[2] = static_cast <uint16_t> (((data[2] >> 4) | (data[3] << 4)) & 0x3FF);
+					// Читаем четвёртый коэффициент узора
 					v[3] = static_cast <uint16_t> (((data[3] >> 6) | (data[4] << 2)) & 0x3FF);
 				}
 			} break;
@@ -1268,12 +1337,19 @@ namespace {
 					uint16_t * v = (values + i);
 					// Читаем коэффициенты узора
 					v[0] = static_cast <uint16_t> ((data[0] | (data[1] << 8)) & 0x7FF);
+					// Читаем второй коэффициент узора
 					v[1] = static_cast <uint16_t> (((data[1] >> 3) | (data[2] << 5)) & 0x7FF);
+					// Читаем третий коэффициент узора
 					v[2] = static_cast <uint16_t> (((data[2] >> 6) | (data[3] << 2) | (data[4] << 10)) & 0x7FF);
+					// Читаем четвёртый коэффициент узора
 					v[3] = static_cast <uint16_t> (((data[4] >> 1) | (data[5] << 7)) & 0x7FF);
+					// Читаем пятый коэффициент узора
 					v[4] = static_cast <uint16_t> (((data[5] >> 4) | (data[6] << 4)) & 0x7FF);
+					// Читаем шестой коэффициент узора
 					v[5] = static_cast <uint16_t> (((data[6] >> 7) | (data[7] << 1) | (data[8] << 9)) & 0x7FF);
+					// Читаем седьмой коэффициент узора
 					v[6] = static_cast <uint16_t> (((data[8] >> 2) | (data[9] << 6)) & 0x7FF);
+					// Читаем восьмой коэффициент узора
 					v[7] = static_cast <uint16_t> (((data[9] >> 5) | (data[10] << 3)) & 0x7FF);
 				}
 			} break;
@@ -1315,7 +1391,7 @@ namespace {
 			poly.values[i] = decompress(values[i], bits);
 	}
 	/**
-	 * @brief Метод выборки многочлена в области NTT из потока XOF
+	 * @brief Функция выборки многочлена в области NTT из потока XOF
 	 *
 	 * @param rho    зерно матрицы
 	 * @param row    номер строки
@@ -1365,7 +1441,7 @@ namespace {
 		}
 	}
 	/**
-	 * @brief Метод выборки многочлена из центрированного биномиального распределения
+	 * @brief Функция выборки многочлена из центрированного биномиального распределения
 	 *
 	 * @param sigma зерно выборки
 	 * @param nonce номер выборки
@@ -1429,7 +1505,7 @@ namespace {
 		wipe(bytes, sizeof(bytes));
 	}
 	/**
-	 * @brief Метод хеширования G: SHA3-512
+	 * @brief Функция хеширования G: SHA3-512
 	 *
 	 * @param first  первая часть входа
 	 * @param second вторая часть входа
@@ -1447,7 +1523,7 @@ namespace {
 		hash.finish(result, 64);
 	}
 	/**
-	 * @brief Метод шифрования K-PKE
+	 * @brief Функция шифрования K-PKE
 	 *
 	 * @param sample описание набора
 	 * @param key    ключ шифрования: t || ρ
@@ -1569,7 +1645,7 @@ namespace {
 		wipe(e.values, sizeof(e.values));
 	}
 	/**
-	 * @brief Метод расшифрования K-PKE
+	 * @brief Функция расшифрования K-PKE
 	 *
 	 * @param sample  описание набора
 	 * @param secret  ключ расшифрования: s в области NTT
@@ -1634,21 +1710,11 @@ namespace {
 };
 
 /**
- * \~russian
- * @brief Метод получения длины ключа инкапсуляции набора
+ * @brief Функция получения длины ключа инкапсуляции набора
  *
  * @param kem набор параметров
- *
  * @return    длина ключа инкапсуляции в байтах либо нуль
  *
- * \~english
- * @brief Method of the obtaining of the length of the encapsulation key of a set
- *
- * @param kem parameter set
- *
- * @return    length of the encapsulation key in bytes or zero
- *
- * \~
  */
 size_t nts::agreement::encapsulation(const kem_t kem) noexcept {
 	// Описание набора параметров
@@ -1657,21 +1723,11 @@ size_t nts::agreement::encapsulation(const kem_t kem) noexcept {
 	return ((sample.k == 0) ? 0 : ((sample.k * POLY) + SEED));
 }
 /**
- * \~russian
- * @brief Метод получения длины ключа декапсуляции набора
+ * @brief Функция получения длины ключа декапсуляции набора
  *
  * @param kem набор параметров
- *
  * @return    длина ключа декапсуляции в байтах либо нуль
  *
- * \~english
- * @brief Method of the obtaining of the length of the decapsulation key of a set
- *
- * @param kem parameter set
- *
- * @return    length of the decapsulation key in bytes or zero
- *
- * \~
  */
 size_t nts::agreement::decapsulation(const kem_t kem) noexcept {
 	// Описание набора параметров
@@ -1680,21 +1736,11 @@ size_t nts::agreement::decapsulation(const kem_t kem) noexcept {
 	return ((sample.k == 0) ? 0 : ((sample.k * POLY) + encapsulation(kem) + SEED + SEED));
 }
 /**
- * \~russian
- * @brief Метод получения длины шифртекста набора
+ * @brief Функция получения длины шифртекста набора
  *
  * @param kem набор параметров
- *
  * @return    длина шифртекста в байтах либо нуль
  *
- * \~english
- * @brief Method of the obtaining of the length of the ciphertext of a set
- *
- * @param kem parameter set
- *
- * @return    length of the ciphertext in bytes or zero
- *
- * \~
  */
 size_t nts::agreement::ciphertext(const kem_t kem) noexcept {
 	// Описание набора параметров
@@ -1703,23 +1749,12 @@ size_t nts::agreement::ciphertext(const kem_t kem) noexcept {
 	return ((sample.k == 0) ? 0 : ((sample.k * 32 * sample.du) + (32 * sample.dv)));
 }
 /**
- * \~russian
- * @brief Метод проверки ключа инкапсуляции
+ * @brief Функция проверки ключа инкапсуляции
  *
  * @param kem набор параметров
  * @param key ключ инкапсуляции
- *
  * @return    признак того, что ключ годен
  *
- * \~english
- * @brief Method of the check of an encapsulation key
- *
- * @param kem parameter set
- * @param key encapsulation key
- *
- * @return    sign that the key is valid
- *
- * \~
  */
 bool nts::agreement::validate(const kem_t kem, const view_t & key) noexcept {
 	// Описание набора параметров
@@ -1743,27 +1778,14 @@ bool nts::agreement::validate(const kem_t kem, const view_t & key) noexcept {
 	return ok;
 }
 /**
- * \~russian
- * @brief Метод выработки пары ключей из зерна
+ * @brief Функция выработки пары ключей из зерна
  *
  * @param kem    набор параметров
  * @param seed   зерно выработки в шестьдесят четыре байта
  * @param key    место, в которое помещается ключ инкапсуляции
  * @param secret место, в которое помещается ключ декапсуляции
- *
  * @return       признак того, что пара ключей выработана
  *
- * \~english
- * @brief Method of the generation of a key pair from a seed
- *
- * @param kem    parameter set
- * @param seed   seed of the generation of sixty four bytes
- * @param key    place into which the encapsulation key is put
- * @param secret place into which the decapsulation key is put
- *
- * @return       sign that the key pair is generated
- *
- * \~
  */
 bool nts::agreement::generate(const kem_t kem, const view_t & seed, uint8_t * key, uint8_t * secret) noexcept {
 	// Описание набора параметров
@@ -1857,25 +1879,13 @@ bool nts::agreement::generate(const kem_t kem, const view_t & seed, uint8_t * ke
 	return true;
 }
 /**
- * \~russian
- * @brief Метод выработки пары ключей на случайном зерне
+ * @brief Функция выработки пары ключей на случайном зерне
  *
  * @param kem    набор параметров
  * @param key    место, в которое помещается ключ инкапсуляции
  * @param secret место, в которое помещается ключ декапсуляции
- *
  * @return       признак того, что пара ключей выработана
  *
- * \~english
- * @brief Method of the generation of a key pair on a random seed
- *
- * @param kem    parameter set
- * @param key    place into which the encapsulation key is put
- * @param secret place into which the decapsulation key is put
- *
- * @return       sign that the key pair is generated
- *
- * \~
  */
 bool nts::agreement::generate(const kem_t kem, uint8_t * key, uint8_t * secret) noexcept {
 	// Зерно выработки
@@ -1892,29 +1902,15 @@ bool nts::agreement::generate(const kem_t kem, uint8_t * key, uint8_t * secret) 
 	return result;
 }
 /**
- * \~russian
- * @brief Метод инкапсуляции на заданном сообщении
+ * @brief Функция инкапсуляции на заданном сообщении
  *
  * @param kem     набор параметров
  * @param key     ключ инкапсуляции собеседника
  * @param message случайное сообщение в тридцать два байта
  * @param cipher  место, в которое помещается шифртекст
  * @param shared  место, в которое помещается общий секрет в тридцать два байта
- *
  * @return        признак того, что инкапсуляция выполнена
  *
- * \~english
- * @brief Method of the encapsulation on a given message
- *
- * @param kem     parameter set
- * @param key     encapsulation key of the peer
- * @param message random message of thirty two bytes
- * @param cipher  place into which the ciphertext is put
- * @param shared  place into which the shared secret of thirty two bytes is put
- *
- * @return        sign that the encapsulation is done
- *
- * \~
  */
 bool nts::agreement::encapsulate(const kem_t kem, const view_t & key, const view_t & message, uint8_t * cipher, uint8_t * shared) noexcept {
 	// Описание набора параметров
@@ -1941,27 +1937,14 @@ bool nts::agreement::encapsulate(const kem_t kem, const view_t & key, const view
 	return true;
 }
 /**
- * \~russian
- * @brief Метод инкапсуляции на случайном сообщении
+ * @brief Функция инкапсуляции на случайном сообщении
  *
  * @param kem    набор параметров
  * @param key    ключ инкапсуляции собеседника
  * @param cipher место, в которое помещается шифртекст
  * @param shared место, в которое помещается общий секрет в тридцать два байта
- *
  * @return       признак того, что инкапсуляция выполнена
  *
- * \~english
- * @brief Method of the encapsulation on a random message
- *
- * @param kem    parameter set
- * @param key    encapsulation key of the peer
- * @param cipher place into which the ciphertext is put
- * @param shared place into which the shared secret of thirty two bytes is put
- *
- * @return       sign that the encapsulation is done
- *
- * \~
  */
 bool nts::agreement::encapsulate(const kem_t kem, const view_t & key, uint8_t * cipher, uint8_t * shared) noexcept {
 	// Случайное сообщение
@@ -1978,27 +1961,14 @@ bool nts::agreement::encapsulate(const kem_t kem, const view_t & key, uint8_t * 
 	return result;
 }
 /**
- * \~russian
- * @brief Метод декапсуляции
+ * @brief Функция декапсуляции
  *
  * @param kem    набор параметров
  * @param secret свой ключ декапсуляции
  * @param cipher шифртекст собеседника
  * @param shared место, в которое помещается общий секрет в тридцать два байта
- *
  * @return       признак того, что декапсуляция выполнена
  *
- * \~english
- * @brief Method of the decapsulation
- *
- * @param kem    parameter set
- * @param secret own decapsulation key
- * @param cipher ciphertext of the peer
- * @param shared place into which the shared secret of thirty two bytes is put
- *
- * @return       sign that the decapsulation is done
- *
- * \~
  */
 bool nts::agreement::decapsulate(const kem_t kem, const view_t & secret, const view_t & cipher, uint8_t * shared) noexcept {
 	// Описание набора параметров

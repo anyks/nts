@@ -58,7 +58,7 @@ namespace {
 	 */
 	static const char * CORPUS = ANTS_CORPUS;
 	/**
-	 * @brief Метод чтения файла целиком
+	 * @brief Функция чтения файла целиком
 	 *
 	 * @param path путь к файлу
 	 * @return     содержимое файла
@@ -77,7 +77,7 @@ namespace {
 		return result;
 	}
 	/**
-	 * @brief Метод составления приветствия, похожего на приветствие Chrome, когда снимка нет под рукой
+	 * @brief Функция составления приветствия, похожего на приветствие Chrome, когда снимка нет под рукой
 	 *
 	 * @param result запись рукопожатия с приветствием
 	 * @return       результат составления
@@ -102,22 +102,31 @@ namespace {
 		static const char HOST[] = "example.com";
 		// Составляем тела расширений
 		bool composed = (extension::name(view_t(reinterpret_cast <const uint8_t *> (HOST), sizeof(HOST) - 1), name) == extension::error_t::NONE);
+		// Составляем тело групп обмена
 		composed = (composed && (extension::groups(vector <extension::group_t> {static_cast <extension::group_t> (0x2A2A), extension::group_t::X25519, extension::group_t::SECP256R1, extension::group_t::SECP384R1}, groups) == extension::error_t::NONE));
+		// Составляем тело форматов точек
 		composed = (composed && (extension::formats(vector <uint8_t> {0x00}, formats) == extension::error_t::NONE));
+		// Составляем тело схем подписи
 		composed = (composed && (extension::schemes(vector <extension::scheme_t> {extension::scheme_t::ECDSA_SECP256R1_SHA256, extension::scheme_t::RSA_PSS_RSAE_SHA256, extension::scheme_t::RSA_PKCS1_SHA256, extension::scheme_t::ECDSA_SECP384R1_SHA384, extension::scheme_t::RSA_PSS_RSAE_SHA384, extension::scheme_t::RSA_PKCS1_SHA384, extension::scheme_t::RSA_PSS_RSAE_SHA512, extension::scheme_t::RSA_PKCS1_SHA512}, schemes) == extension::error_t::NONE));
+		// Составляем тело протоколов прикладного уровня
 		composed = (composed && (extension::protocols(vector <string> {"h2", "http/1.1"}, protocols) == extension::error_t::NONE));
+		// Составляем тело протоколов настроек
 		composed = (composed && (extension::protocols(vector <string> {"h2"}, settings) == extension::error_t::NONE));
+		// Составляем тело версий
 		composed = (composed && (extension::versions(vector <uint16_t> {0x2A2A, 0x0304, 0x0303}, versions) == extension::error_t::NONE));
+		// Составляем тело режимов PSK
 		composed = (composed && (extension::modes(vector <extension::regime_t> {extension::regime_t::SHARED}, modes) == extension::error_t::NONE));
+		// Составляем тело алгоритмов сжатия
 		composed = (composed && (extension::algorithms(vector <uint16_t> {0x0002}, compress) == extension::error_t::NONE));
 		// Ключ доли и заглушки
 		static const uint8_t KEY[32] = {0x01};
+		// Заглушка доли ключа
 		static const uint8_t STUB[1] = {0x00};
 		// Составляем доли ключа
 		composed = (composed && (extension::shares(vector <extension::share_t> {extension::share_t(static_cast <extension::group_t> (0x2A2A), view_t(STUB, 1)), extension::share_t(extension::group_t::X25519, view_t(KEY, 32))}, share) == extension::error_t::NONE));
 		// Если тела составить не удалось
 		if(!composed)
-			// Выводим отказ
+			// Выводим отрицательный результат - тела составить не удалось
 			return false;
 		// Запрос состояния сертификата
 		status = {0x01, 0x00, 0x00, 0x00, 0x00};
@@ -150,7 +159,7 @@ namespace {
 		vector <uint8_t> body;
 		// Если приветствие составить не удалось
 		if(hello::build(greeting, body) != hello::error_t::NONE)
-			// Выводим отказ
+			// Выводим отрицательный результат - приветствие не составлено
 			return false;
 		// Длина сообщения с обвязкой
 		const size_t length = (body.size() + 4);
@@ -158,11 +167,11 @@ namespace {
 		result = {0x16, 0x03, 0x01, static_cast <uint8_t> (length >> 8), static_cast <uint8_t> (length), 0x01, static_cast <uint8_t> (body.size() >> 16), static_cast <uint8_t> (body.size() >> 8), static_cast <uint8_t> (body.size())};
 		// Дописываем тело
 		result.insert(result.end(), body.begin(), body.end());
-		// Выводим успешность
+		// Сообщаем об успешном составлении записи
 		return true;
 	}
 	/**
-	 * @brief Метод печати отпечатков профиля
+	 * @brief Функция печати отпечатков профиля
 	 *
 	 * @param title   заголовок
 	 * @param profile профиль
@@ -174,21 +183,27 @@ namespace {
 		fingerprint::imprint_t imprint;
 		// Если отпечатки вычислить не удалось
 		if(fingerprint::imprint(profile, imprint) != fingerprint::error_t::NONE)
-			// Выводим отказ
+			// Выводим отрицательный результат - отпечатки не вычислены
 			return false;
 		// Печатаем отпечатки
 		cout << title << endl;
+		// Печатаем JA3
 		cout << "  JA3:       " << imprint.ja3hash << endl;
+		// Печатаем JA4
 		cout << "  JA4:       " << imprint.ja4 << endl;
+		// Печатаем JA4_r
 		cout << "  JA4_r:     " << imprint.ja4r << endl;
+		// Печатаем PeetPrint
 		cout << "  PeetPrint: " << imprint.peethash << endl;
+		// Печатаем random
 		cout << "  random:    " << imprint.random.substr(0, 16) << "…" << endl;
+		// Печатаем сходство с обозревателем
 		cout << "  browser:   " << (fingerprint::browser(imprint) ? "похоже на обозреватель" : "не похоже на обозреватель") << endl;
-		// Выводим успешность
+		// Сообщаем об успешном отчёте
 		return true;
 	}
 	/**
-	 * @brief Метод передачи байтов между сторонами связи
+	 * @brief Функция передачи байтов между сторонами связи
 	 *
 	 * @param client связь стороны клиента
 	 * @param server связь стороны сервера
@@ -234,7 +249,6 @@ namespace {
  *
  * @param argc число доводов
  * @param argv доводы: путь к снимку приветствия (запись рукопожатия либо снимок `fingerprint::dump`)
- *
  * @return     код завершения
  *
  */
@@ -292,6 +306,7 @@ int main(const int argc, const char * argv[]){
 	}
 	// Связи сторон
 	client::context_t client;
+	// Связь стороны сервера
 	server::context_t server;
 	// Имя узла у клиента: профиль несёт имя, а само имя своё
 	client.name("example.com");

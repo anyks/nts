@@ -21,7 +21,6 @@
  *        of 256 bits according to GB/T 32905-2016
  *
  * \~
- *
  * @copyright Copyright © 2026
  *
  */
@@ -84,12 +83,15 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Hashing according to GB/T 32905-2016
+		 *
 		 * @details The message is fed by the calls of update by the chunks of an arbitrary size,
 		 *          and the produced hash is taken by the call of finish. A repeated hashing requires
 		 *          the call of reset: finish leaves the object in the finished state
+		 *
 		 * @note SM3 is the national hash of the PRC, close in construction to SHA-256: a 64-byte
 		 *       block, eight words of the state, 64 rounds; it enters TLS by the suites
 		 *       TLS_SM4_GCM_SM3 and TLS_SM4_CCM_SM3 according to RFC 8998 and by the sm2sig_sm3 scheme
+		 *
 		 * @note The hashing does not allocate memory and raises no exceptions; the state is wiped
 		 *       at the taking of the hash and at the destruction of the object
 		 *
@@ -118,6 +120,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the parsing of a block of the message
+				 *
 				 * @param block the block being parsed: the accumulator or the chunk of the message itself
 				 *
 				 * \~
@@ -142,6 +145,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of feeding a chunk of the message
+				 *
 				 * @param data the chunk of the message being fed
 				 *
 				 * \~
@@ -153,7 +157,6 @@ namespace nts {
 				 *
 				 * @param result место, в которое записывается хеш
 				 * @param size   размер места в байтах, не меньше длины хеша
-				 *
 				 * @return       признак успешности снятия хеша
 				 *
 				 * @note Повторное снятие без сброса отвергается: состояние после снятия
@@ -161,10 +164,13 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of taking the produced hash
+				 *
 				 * @param result the place the hash is written into
 				 * @param size   the size of the place in bytes, not less than the length of the hash
 				 * @return       the flag of the success of the taking of the hash
-				 * @note A repeated taking without a reset is refused: the state after the taking is wiped
+				 *
+				 * @note A repeated taking without a reset is refused: the state after the taking is
+				 *       wiped
 				 *
 				 * \~
 				 */
@@ -194,16 +200,16 @@ namespace nts {
 
 		/**
 		 * \~russian
-		 * @brief Метод выработки хеша SM3 целого сообщения
+		 * @brief Функция выработки хеша SM3 целого сообщения
 		 *
 		 * @param data   хешируемое сообщение
 		 * @param result место, в которое записывается хеш
 		 * @param size   размер места в байтах, не меньше длины хеша
-		 *
 		 * @return       признак успешности выработки хеша
 		 *
 		 * \~english
-		 * @brief Method of the production of the SM3 hash of a whole message
+		 * @brief Function of the production of the SM3 hash of a whole message
+		 *
 		 * @param data   the message being hashed
 		 * @param result the place the hash is written into
 		 * @param size   the size of the place in bytes, not less than the length of the hash

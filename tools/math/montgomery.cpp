@@ -34,6 +34,7 @@
  *       110) при 95 у OpenSSL и 128 у полос, Xeon E5-2630 v4 на mulx/adcx/adox 359 при 313 и 561 у
  *       полос; ядро библиотеки включено сюда как есть и сличается с двумя проходами на кратных восьми ширинах
  * @copyright Copyright © 2026
+ *
  */
 
 #include <chrono>
@@ -41,49 +42,101 @@
 #include <cstring>
 #include <cstdint>
 #include <cstdlib>
+// Двойное слово для промежуточных произведений Монтгомери
 typedef __uint128_t wide_t;
+// Засекаем текущее время
 static double now(){ return std::chrono::duration <double> (std::chrono::steady_clock::now().time_since_epoch()).count(); }
+// Выполняем финальную редукцию результата
 static void finish(uint64_t * buffer, const uint64_t * modulus, size_t count, uint64_t * result){
+	// Уменьшенная на модуль копия и заём
 	uint64_t lessened[128]; uint64_t borrow = 0;
-	for(size_t i = 0; i < count; i++){ const wide_t d = (wide_t) buffer[i] - modulus[i] - borrow; lessened[i] = (uint64_t) d; borrow = (uint64_t)(d >> 64) & 1; }
+	/**
+	 * Перебираем элементы по счётчику до count
+	 */
+	for(size_t i = 0; i < count; i++){ const wide_t d = static_cast <wide_t> (buffer[i]) - modulus[i] - borrow; lessened[i] = static_cast <uint64_t> (d); borrow = static_cast <uint64_t> ((d >> 64)) & 1; }
+	// Маска выбора между уменьшенным и исходным значением
 	const uint64_t mask = (0 - ((buffer[count] | (borrow ^ 1)) & 1));
+	/**
+	 * Перебираем элементы по счётчику до count
+	 */
 	for(size_t i = 0; i < count; i++) result[i] = (lessened[i] & mask) | (buffer[i] & ~mask);
 }
-extern "C" __attribute__((noinline)) void mont_ref(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, const size_t count, const uint64_t inverse, uint64_t * result){
-	uint64_t buffer[130]; memset(buffer, 0, (count + 2) * 8);
+// Определяем ядро вычисления
+extern "C" __attribute__((noinline)) void montRef(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, const size_t count, const uint64_t inverse, uint64_t * result){
+	// Обнуляем буфер
+	uint64_t buffer[130]; ::memset(buffer, 0, (count + 2) * 8);
+	/**
+	 * Перебираем элементы по счётчику до count
+	 */
 	for(size_t i = 0; i < count; i++){
+		// Слово множителя и перенос ряда
 		const uint64_t word = second[i]; uint64_t carry = 0;
-		for(size_t j = 0; j < count; j++){ const wide_t item = (static_cast <wide_t> (first[j]) * word + buffer[j] + carry); buffer[j] = (uint64_t) item; carry = (uint64_t)(item >> 64); }
-		const wide_t item = (static_cast <wide_t> (buffer[count]) + carry); buffer[count] = (uint64_t) item; buffer[count + 1] = (uint64_t)(item >> 64);
+		/**
+		 * Перебираем элементы по счётчику до count
+		 */
+		for(size_t j = 0; j < count; j++){ const wide_t item = (static_cast <wide_t> (first[j]) * word + buffer[j] + carry); buffer[j] = static_cast <uint64_t> (item); carry = static_cast <uint64_t> ((item >> 64)); }
+		// Старший разряд буфера после ряда
+		const wide_t item = (static_cast <wide_t> (buffer[count]) + carry); buffer[count] = static_cast <uint64_t> (item); buffer[count + 1] = static_cast <uint64_t> ((item >> 64));
+		// Множитель редукции Монтгомери
 		const uint64_t reducer = (buffer[0] * inverse);
+		// Младшее слово произведения с модулем
 		const wide_t value = (static_cast <wide_t> (reducer) * modulus[0] + buffer[0]); carry = (uint64_t)(value >> 64);
-		for(size_t j = 1; j < count; j++){ const wide_t step = (static_cast <wide_t> (reducer) * modulus[j] + buffer[j] + carry); buffer[j - 1] = (uint64_t) step; carry = (uint64_t)(step >> 64); }
-		const wide_t last = (static_cast <wide_t> (buffer[count]) + carry); buffer[count - 1] = (uint64_t) last; buffer[count] = (buffer[count + 1] + (uint64_t)(last >> 64));
+		/**
+		 * Перебираем элементы по счётчику до count
+		 */
+		for(size_t j = 1; j < count; j++){ const wide_t step = (static_cast <wide_t> (reducer) * modulus[j] + buffer[j] + carry); buffer[j - 1] = static_cast <uint64_t> (step); carry = static_cast <uint64_t> ((step >> 64)); }
+		// Столбец верхнего разряда после редукции
+		const wide_t last = (static_cast <wide_t> (buffer[count]) + carry); buffer[count - 1] = static_cast <uint64_t> (last); buffer[count] = (buffer[count + 1] + static_cast <uint64_t> ((last >> 64)));
 	}
+	// Выполняем финальную редукцию результата
 	finish(buffer, modulus, count, result);
 }
-extern "C" __attribute__((noinline)) void mont_fused(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, const size_t count, const uint64_t inverse, uint64_t * result){
-	uint64_t buffer[130]; memset(buffer, 0, (count + 2) * 8);
+// Определяем ядро вычисления
+extern "C" __attribute__((noinline)) void montFused(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, const size_t count, const uint64_t inverse, uint64_t * result){
+	// Обнуляем буфер
+	uint64_t buffer[130]; ::memset(buffer, 0, (count + 2) * 8);
+	/**
+	 * Перебираем элементы по счётчику до count
+	 */
 	for(size_t i = 0; i < count; i++){
+		// Слово множителя
 		const uint64_t word = second[i];
+		// Произведение первых слов с буфером
 		wide_t p = (static_cast <wide_t> (first[0]) * word + buffer[0]);
-		const uint64_t low = (uint64_t) p; const uint64_t reducer = (low * inverse);
+		// Младшее слово и множитель редукции
+		const uint64_t low = static_cast <uint64_t> (p); const uint64_t reducer = (low * inverse);
+		// Младшее слово вклада модуля
 		wide_t q = (static_cast <wide_t> (reducer) * modulus[0] + low);
+		// Переносы произведения и вклада модуля
 		uint64_t carry1 = (uint64_t)(p >> 64), carry2 = (uint64_t)(q >> 64);
+		/**
+		 * Перебираем элементы по счётчику до count
+		 */
 		for(size_t j = 1; j < count; j++){
+			// Столбец j произведения с переносом
 			p = (static_cast <wide_t> (first[j]) * word + buffer[j] + carry1);
-			q = (static_cast <wide_t> (reducer) * modulus[j] + (uint64_t) p + carry2);
-			buffer[j - 1] = (uint64_t) q; carry1 = (uint64_t)(p >> 64); carry2 = (uint64_t)(q >> 64);
+			// Столбец j вклада модуля
+			q = (static_cast <wide_t> (reducer) * modulus[j] + static_cast <uint64_t> (p) + carry2);
+			// Сдвиг буфера и переносы столбца
+			buffer[j - 1] = static_cast <uint64_t> (q); carry1 = static_cast <uint64_t> ((p >> 64)); carry2 = static_cast <uint64_t> ((q >> 64));
 		}
+		// Верхний разряд буфера с обоими переносами
 		const wide_t t = (static_cast <wide_t> (buffer[count]) + carry1 + carry2);
-		buffer[count - 1] = (uint64_t) t; buffer[count] = (uint64_t)(t >> 64);
+		// Запись завершающих разрядов ряда
+		buffer[count - 1] = static_cast <uint64_t> (t); buffer[count] = static_cast <uint64_t> ((t >> 64));
 	}
+	// Выполняем финальную редукцию результата
 	finish(buffer, modulus, count, result);
 }
+/**
+ * Раздел слитого ряда на ассемблере AArch64
+ */
 #if defined(__aarch64__)
 // Слитый ряд на ассемблере: t = (t + a*w + m*n) / 2^64, t на count+1 слов
-static inline void row_arm(uint64_t * t, const uint64_t * a, const uint64_t * n, const uint64_t w, const uint64_t n0, const size_t count){
+static inline void __ants_row_arm__(uint64_t * t, const uint64_t * a, const uint64_t * n, const uint64_t w, const uint64_t n0, const size_t count){
+	// Объявляем переменную для промежуточного значения
 	uint64_t m;
+	// Выполняем очередной шаг
 	__asm__ __volatile__(
 		"ldr   x9, [%[a]]\n\t"
 		"ldr   x10, [%[n]]\n\t"
@@ -130,60 +183,115 @@ static inline void row_arm(uint64_t * t, const uint64_t * a, const uint64_t * n,
 		: [t] "r" (t), [a] "r" (a), [n] "r" (n), [w] "r" (w), [n0] "r" (n0), [count] "r" (count)
 		: "x9", "x10", "x11", "x12", "x13", "x14", "x15", "x16", "x17", "cc", "memory");
 }
-extern "C" __attribute__((noinline)) void mont_row(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, const size_t count, const uint64_t inverse, uint64_t * result){
-	uint64_t buffer[130]; memset(buffer, 0, (count + 2) * 8);
-	for(size_t i = 0; i < count; i++) row_arm(buffer, first, modulus, second[i], inverse, count);
+// Определяем ядро вычисления
+extern "C" __attribute__((noinline)) void montRow(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, const size_t count, const uint64_t inverse, uint64_t * result){
+	// Обнуляем буфер
+	uint64_t buffer[130]; ::memset(buffer, 0, (count + 2) * 8);
+	/**
+	 * Перебираем элементы по счётчику до count
+	 */
+	for(size_t i = 0; i < count; i++) __ants_row_arm__(buffer, first, modulus, second[i], inverse, count);
+	// Выполняем финальную редукцию результата
 	finish(buffer, modulus, count, result);
 }
 #endif
 // Два ряда со сдвигом на один шаг: ряд i на столбце j, ряд i+1 на столбце j-1 берёт выход ряда i из регистра
-static inline void rows2_c(uint64_t * t, const uint64_t * a, const uint64_t * n, const uint64_t w0, const uint64_t w1, const uint64_t n0, const size_t count){
-	wide_t p = (static_cast <wide_t> (a[0]) * w0 + t[0]); uint64_t lo = (uint64_t) p; const uint64_t m0 = lo * n0;
+static inline void __ants_rows2_c__(uint64_t * t, const uint64_t * a, const uint64_t * n, const uint64_t w0, const uint64_t w1, const uint64_t n0, const size_t count){
+	// Первый столбец ряда ноль и его множитель редукции
+	wide_t p = (static_cast <wide_t> (a[0]) * w0 + t[0]); uint64_t lo = static_cast <uint64_t> (p); const uint64_t m0 = lo * n0;
+	// Вклад модуля ряда ноль и переносы
 	wide_t q = (static_cast <wide_t> (m0) * n[0] + lo); uint64_t c10 = (uint64_t)(p >> 64), c20 = (uint64_t)(q >> 64);
-	p = (static_cast <wide_t> (a[1]) * w0 + t[1] + c10); q = (static_cast <wide_t> (m0) * n[1] + (uint64_t) p + c20);
-	uint64_t out0 = (uint64_t) q; c10 = (uint64_t)(p >> 64); c20 = (uint64_t)(q >> 64);
-	p = (static_cast <wide_t> (a[0]) * w1 + out0); lo = (uint64_t) p; const uint64_t m1 = lo * n0;
+	// Второй столбец ряда ноль
+	p = (static_cast <wide_t> (a[1]) * w0 + t[1] + c10); q = (static_cast <wide_t> (m0) * n[1] + static_cast <uint64_t> (p) + c20);
+	// Выход ряда ноль и переносы
+	uint64_t out0 = static_cast <uint64_t> (q); c10 = static_cast <uint64_t> ((p >> 64)); c20 = static_cast <uint64_t> ((q >> 64));
+	// Первый столбец ряда один и его множитель редукции
+	p = (static_cast <wide_t> (a[0]) * w1 + out0); lo = static_cast <uint64_t> (p); const uint64_t m1 = lo * n0;
+	// Вклад модуля ряда один и переносы
 	q = (static_cast <wide_t> (m1) * n[0] + lo); uint64_t c11 = (uint64_t)(p >> 64), c21 = (uint64_t)(q >> 64);
+	/**
+	 * Перебираем элементы по счётчику до count
+	 */
 	for(size_t j = 2; j < count; j++){
-		p = (static_cast <wide_t> (a[j]) * w0 + t[j] + c10); q = (static_cast <wide_t> (m0) * n[j] + (uint64_t) p + c20);
-		out0 = (uint64_t) q; c10 = (uint64_t)(p >> 64); c20 = (uint64_t)(q >> 64);
-		p = (static_cast <wide_t> (a[j - 1]) * w1 + out0 + c11); q = (static_cast <wide_t> (m1) * n[j - 1] + (uint64_t) p + c21);
-		t[j - 2] = (uint64_t) q; c11 = (uint64_t)(p >> 64); c21 = (uint64_t)(q >> 64);
+		// Столбец j ряда ноль
+		p = (static_cast <wide_t> (a[j]) * w0 + t[j] + c10); q = (static_cast <wide_t> (m0) * n[j] + static_cast <uint64_t> (p) + c20);
+		// Выход ряда ноль на столбце j
+		out0 = static_cast <uint64_t> (q); c10 = static_cast <uint64_t> ((p >> 64)); c20 = static_cast <uint64_t> ((q >> 64));
+		// Столбец j-1 ряда один
+		p = (static_cast <wide_t> (a[j - 1]) * w1 + out0 + c11); q = (static_cast <wide_t> (m1) * n[j - 1] + static_cast <uint64_t> (p) + c21);
+		// Сдвиг буфера ряда один
+		t[j - 2] = static_cast <uint64_t> (q); c11 = static_cast <uint64_t> ((p >> 64)); c21 = static_cast <uint64_t> ((q >> 64));
 	}
-	wide_t T = (static_cast <wide_t> (t[count]) + c10 + c20); const uint64_t top0 = (uint64_t) T, top1 = (uint64_t)(T >> 64);
-	p = (static_cast <wide_t> (a[count - 1]) * w1 + top0 + c11); q = (static_cast <wide_t> (m1) * n[count - 1] + (uint64_t) p + c21);
-	t[count - 2] = (uint64_t) q; c11 = (uint64_t)(p >> 64); c21 = (uint64_t)(q >> 64);
-	T = (static_cast <wide_t> (top1) + c11 + c21); t[count - 1] = (uint64_t) T; t[count] = (uint64_t)(T >> 64);
+	// Старшие разряды буфера
+	wide_t T = (static_cast <wide_t> (t[count]) + c10 + c20); const uint64_t top0 = static_cast <uint64_t> (T), top1 = static_cast <uint64_t> ((T >> 64));
+	// Последний столбец ряда один
+	p = (static_cast <wide_t> (a[count - 1]) * w1 + top0 + c11); q = (static_cast <wide_t> (m1) * n[count - 1] + static_cast <uint64_t> (p) + c21);
+	// Сдвиг буфера
+	t[count - 2] = static_cast <uint64_t> (q); c11 = static_cast <uint64_t> ((p >> 64)); c21 = static_cast <uint64_t> ((q >> 64));
+	// Завершающие разряды двух рядов
+	T = (static_cast <wide_t> (top1) + c11 + c21); t[count - 1] = static_cast <uint64_t> (T); t[count] = static_cast <uint64_t> ((T >> 64));
 }
-static inline void row_c(uint64_t * t, const uint64_t * a, const uint64_t * n, const uint64_t w, const uint64_t n0, const size_t count){
-	wide_t p = (static_cast <wide_t> (a[0]) * w + t[0]); const uint64_t lo = (uint64_t) p; const uint64_t m = lo * n0;
+// Вызываем ядро на ассемблере
+static inline void __ants_row_c__(uint64_t * t, const uint64_t * a, const uint64_t * n, const uint64_t w, const uint64_t n0, const size_t count){
+	// Первый столбец ряда и множитель редукции
+	wide_t p = (static_cast <wide_t> (a[0]) * w + t[0]); const uint64_t lo = static_cast <uint64_t> (p); const uint64_t m = lo * n0;
+	// Вклад модуля и переносы
 	wide_t q = (static_cast <wide_t> (m) * n[0] + lo); uint64_t c1 = (uint64_t)(p >> 64), c2 = (uint64_t)(q >> 64);
+	/**
+	 * Перебираем элементы по счётчику до count
+	 */
 	for(size_t j = 1; j < count; j++){
-		p = (static_cast <wide_t> (a[j]) * w + t[j] + c1); q = (static_cast <wide_t> (m) * n[j] + (uint64_t) p + c2);
-		t[j - 1] = (uint64_t) q; c1 = (uint64_t)(p >> 64); c2 = (uint64_t)(q >> 64);
+		// Столбец j ряда
+		p = (static_cast <wide_t> (a[j]) * w + t[j] + c1); q = (static_cast <wide_t> (m) * n[j] + static_cast <uint64_t> (p) + c2);
+		// Сдвиг буфера и переносы
+		t[j - 1] = static_cast <uint64_t> (q); c1 = static_cast <uint64_t> ((p >> 64)); c2 = static_cast <uint64_t> ((q >> 64));
 	}
-	const wide_t T = (static_cast <wide_t> (t[count]) + c1 + c2); t[count - 1] = (uint64_t) T; t[count] = (uint64_t)(T >> 64);
+	// Завершающие разряды ряда
+	const wide_t T = (static_cast <wide_t> (t[count]) + c1 + c2); t[count - 1] = static_cast <uint64_t> (T); t[count] = static_cast <uint64_t> ((T >> 64));
 }
-extern "C" __attribute__((noinline)) void mont_rows2c(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, const size_t count, const uint64_t inverse, uint64_t * result){
-	uint64_t buffer[130]; memset(buffer, 0, (count + 2) * 8);
+// Определяем ядро вычисления
+extern "C" __attribute__((noinline)) void montRows2c(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, const size_t count, const uint64_t inverse, uint64_t * result){
+	// Обнуляем буфер
+	uint64_t buffer[130]; ::memset(buffer, 0, (count + 2) * 8);
+	// Счётчик внешнего цикла
 	size_t i = 0;
-	for(; (i + 2) <= count; i += 2) rows2_c(buffer, first, modulus, second[i], second[i + 1], inverse, count);
-	for(; i < count; i++) row_c(buffer, first, modulus, second[i], inverse, count);
+	/**
+	 * Перебираем элементы по счётчику
+	 */
+	for(; (i + 2) <= count; i += 2) __ants_rows2_c__(buffer, first, modulus, second[i], second[i + 1], inverse, count);
+	/**
+	 * Перебираем элементы по счётчику
+	 */
+	for(; i < count; i++) __ants_row_c__(buffer, first, modulus, second[i], inverse, count);
+	// Выполняем финальную редукцию результата
 	finish(buffer, modulus, count, result);
 }
 
+/**
+ * Раздел двух рядов со сдвигом на ассемблере AArch64
+ */
 #if defined(__aarch64__)
 // Два ряда со сдвигом: пролог и эпилог на C, цикл столбцов на ассемблере; переносы и перенесённые слова живут в регистрах
-static inline void rows2_arm(uint64_t * t, const uint64_t * a, const uint64_t * n, const uint64_t w0, const uint64_t w1, const uint64_t n0, const size_t count){
-	wide_t p = (static_cast <wide_t> (a[0]) * w0 + t[0]); uint64_t lo = (uint64_t) p; const uint64_t m0 = lo * n0;
+static inline void __ants_rows2_arm__(uint64_t * t, const uint64_t * a, const uint64_t * n, const uint64_t w0, const uint64_t w1, const uint64_t n0, const size_t count){
+	// Первый столбец ряда ноль и его множитель редукции
+	wide_t p = (static_cast <wide_t> (a[0]) * w0 + t[0]); uint64_t lo = static_cast <uint64_t> (p); const uint64_t m0 = lo * n0;
+	// Вклад модуля ряда ноль и переносы
 	wide_t q = (static_cast <wide_t> (m0) * n[0] + lo); uint64_t c10 = (uint64_t)(p >> 64), c20 = (uint64_t)(q >> 64);
-	p = (static_cast <wide_t> (a[1]) * w0 + t[1] + c10); q = (static_cast <wide_t> (m0) * n[1] + (uint64_t) p + c20);
-	uint64_t out0 = (uint64_t) q; c10 = (uint64_t)(p >> 64); c20 = (uint64_t)(q >> 64);
-	p = (static_cast <wide_t> (a[0]) * w1 + out0); lo = (uint64_t) p; const uint64_t m1 = lo * n0;
+	// Второй столбец ряда ноль
+	p = (static_cast <wide_t> (a[1]) * w0 + t[1] + c10); q = (static_cast <wide_t> (m0) * n[1] + static_cast <uint64_t> (p) + c20);
+	// Выход ряда ноль и переносы
+	uint64_t out0 = static_cast <uint64_t> (q); c10 = static_cast <uint64_t> ((p >> 64)); c20 = static_cast <uint64_t> ((q >> 64));
+	// Первый столбец ряда один
+	p = (static_cast <wide_t> (a[0]) * w1 + out0); lo = static_cast <uint64_t> (p); const uint64_t m1 = lo * n0;
+	// Вклад модуля ряда один и переносы
 	q = (static_cast <wide_t> (m1) * n[0] + lo); uint64_t c11 = (uint64_t)(p >> 64), c21 = (uint64_t)(q >> 64);
+	// Слова для ассемблерного цикла
 	uint64_t aj1 = a[1], nj1 = n[1];
+	// Проверяем условие ветвления
 	if(count > 2){
+		// Начало цикла столбцов на ассемблере
 		uint64_t j = 2;
+		// Выполняем очередной шаг
 		__asm__ __volatile__(
 			"1:\n\t"
 			"ldr   x9,  [%[a], %[j], lsl #3]\n\t"        // a[j]
@@ -226,102 +334,199 @@ static inline void rows2_arm(uint64_t * t, const uint64_t * a, const uint64_t * 
 			: [t] "r" (t), [a] "r" (a), [n] "r" (n), [w0] "r" (w0), [w1] "r" (w1), [m0] "r" (m0), [m1] "r" (m1), [count] "r" (count)
 			: "x9", "x11", "x13", "x14", "x15", "x16", "x17", "cc", "memory");
 	}
-	wide_t T = (static_cast <wide_t> (t[count]) + c10 + c20); const uint64_t top0 = (uint64_t) T, top1 = (uint64_t)(T >> 64);
-	p = (static_cast <wide_t> (aj1) * w1 + top0 + c11); q = (static_cast <wide_t> (m1) * nj1 + (uint64_t) p + c21);
-	t[count - 2] = (uint64_t) q; c11 = (uint64_t)(p >> 64); c21 = (uint64_t)(q >> 64);
-	T = (static_cast <wide_t> (top1) + c11 + c21); t[count - 1] = (uint64_t) T; t[count] = (uint64_t)(T >> 64);
+	// Старшие разряды буфера
+	wide_t T = (static_cast <wide_t> (t[count]) + c10 + c20); const uint64_t top0 = static_cast <uint64_t> (T), top1 = static_cast <uint64_t> ((T >> 64));
+	// Последний столбец ряда один
+	p = (static_cast <wide_t> (aj1) * w1 + top0 + c11); q = (static_cast <wide_t> (m1) * nj1 + static_cast <uint64_t> (p) + c21);
+	// Сдвиг буфера
+	t[count - 2] = static_cast <uint64_t> (q); c11 = static_cast <uint64_t> ((p >> 64)); c21 = static_cast <uint64_t> ((q >> 64));
+	// Завершающие разряды двух рядов
+	T = (static_cast <wide_t> (top1) + c11 + c21); t[count - 1] = static_cast <uint64_t> (T); t[count] = static_cast <uint64_t> ((T >> 64));
 }
-extern "C" __attribute__((noinline)) void mont_rows2(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, const size_t count, const uint64_t inverse, uint64_t * result){
-	uint64_t buffer[130]; memset(buffer, 0, (count + 2) * 8);
+// Определяем ядро вычисления
+extern "C" __attribute__((noinline)) void montRows2(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, const size_t count, const uint64_t inverse, uint64_t * result){
+	// Обнуляем буфер
+	uint64_t buffer[130]; ::memset(buffer, 0, (count + 2) * 8);
+	// Счётчик внешнего цикла
 	size_t i = 0;
-	for(; (i + 2) <= count; i += 2) rows2_arm(buffer, first, modulus, second[i], second[i + 1], inverse, count);
-	for(; i < count; i++) row_c(buffer, first, modulus, second[i], inverse, count);
+	/**
+	 * Перебираем элементы по счётчику
+	 */
+	for(; (i + 2) <= count; i += 2) __ants_rows2_arm__(buffer, first, modulus, second[i], second[i + 1], inverse, count);
+	/**
+	 * Перебираем элементы по счётчику
+	 */
+	for(; i < count; i++) __ants_row_c__(buffer, first, modulus, second[i], inverse, count);
+	// Выполняем финальную редукцию результата
 	finish(buffer, modulus, count, result);
 }
 #endif
 
 // Четыре ряда со сдвигом на шаг (C): единый цикл J по «итерациям», ряд r на столбце J-r
-static inline void rows4_c(uint64_t * t, const uint64_t * a, const uint64_t * n, const uint64_t * w, const uint64_t n0, const size_t count){
+static inline void __ants_rows4_c__(uint64_t * t, const uint64_t * a, const uint64_t * n, const uint64_t * w, const uint64_t n0, const size_t count){
+	// Множители редукции, переносы и выходы четырёх рядов
 	uint64_t m[4] = {0,0,0,0}, c1[4] = {0,0,0,0}, c2[4] = {0,0,0,0}, out[4] = {0,0,0,0}, top[4] = {0,0,0,0};
+	/**
+	 * Перебираем элементы по счётчику до (count + 5)
+	 */
 	for(size_t J = 0; J < (count + 5); J++){
+		/**
+		 * Перебираем элементы по счётчику до 4
+		 */
 		for(size_t r = 0; r < 4; r++){
+			// Проверяем условие ветвления
 			if(J < r) continue;
+			// Столбец ряда r на итерации J
 			const size_t c = (J - r);
+			// Вход ряда: буфер или выход соседнего ряда
 			const uint64_t in = ((r == 0) ? ((c <= count) ? t[c] : 0) : out[r - 1]);
+			// Проверяем условие ветвления
 			if(c < count){
+				// Произведение столбца с входом и переносом
 				wide_t p = (static_cast <wide_t> (a[c]) * w[r] + in + c1[r]);
+				// Проверяем условие ветвления
 				if(c == 0) m[r] = (static_cast <uint64_t> (p) * n0);
+				// Вклад модуля столбца
 				wide_t q = (static_cast <wide_t> (m[r]) * n[c] + static_cast <uint64_t> (p) + c2[r]);
+				// Выход ряда и его переносы
 				out[r] = static_cast <uint64_t> (q); c1[r] = static_cast <uint64_t> (p >> 64); c2[r] = static_cast <uint64_t> (q >> 64);
 			} else if(c == count){
+				// Старший разряд входа с переносами
 				const wide_t T = (static_cast <wide_t> (in) + c1[r] + c2[r]);
+				// Выход ряда и старший разряд
 				out[r] = static_cast <uint64_t> (T); top[r] = static_cast <uint64_t> (T >> 64);
 			} else if(c == (count + 1)){
+				// Перенос старшего разряда в выход
 				out[r] = top[r];
 			} else continue;
 			if((r == 3) && (c >= 1) && (c <= (count + 1))) t[c - 1] = out[3];
 		}
 	}
 }
-extern "C" __attribute__((noinline)) void mont_rows4c(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, const size_t count, const uint64_t inverse, uint64_t * result){
-	uint64_t buffer[130]; memset(buffer, 0, (count + 2) * 8);
+// Определяем ядро вычисления
+extern "C" __attribute__((noinline)) void montRows4c(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, const size_t count, const uint64_t inverse, uint64_t * result){
+	// Обнуляем буфер
+	uint64_t buffer[130]; ::memset(buffer, 0, (count + 2) * 8);
+	// Счётчик внешнего цикла
 	size_t i = 0;
-	for(; (i + 4) <= count; i += 4) rows4_c(buffer, first, modulus, second + i, inverse, count);
-	for(; (i + 2) <= count; i += 2) rows2_c(buffer, first, modulus, second[i], second[i + 1], inverse, count);
-	for(; i < count; i++) row_c(buffer, first, modulus, second[i], inverse, count);
+	/**
+	 * Перебираем элементы по счётчику
+	 */
+	for(; (i + 4) <= count; i += 4) __ants_rows4_c__(buffer, first, modulus, second + i, inverse, count);
+	/**
+	 * Перебираем элементы по счётчику
+	 */
+	for(; (i + 2) <= count; i += 2) __ants_rows2_c__(buffer, first, modulus, second[i], second[i + 1], inverse, count);
+	/**
+	 * Перебираем элементы по счётчику
+	 */
+	for(; i < count; i++) __ants_row_c__(buffer, first, modulus, second[i], inverse, count);
+	// Выполняем финальную редукцию результата
 	finish(buffer, modulus, count, result);
 }
 // Квадрат: симметричные произведения (n(n-1)/2), удвоение, диагональ, затем приведение Монтгомери рядами со сдвигом по два
-static inline void reduce2_c(uint64_t * P, const uint64_t * n, const uint64_t n0, const size_t count, const size_t i){
+static inline void __ants_reduce2_c__(uint64_t * P, const uint64_t * n, const uint64_t n0, const size_t count, const size_t i){
 	// Два ряда приведения: ряд i берёт P[i..], ряд i+1 - выход ряда i; вклад m*n в P со смещением; итог: P[i], P[i+1] обнуляются
 	const uint64_t m0 = (P[i] * n0);
+	// Вклад модуля ряда ноль и перенос
 	wide_t q = (static_cast <wide_t> (m0) * n[0] + P[i]); uint64_t c0 = static_cast <uint64_t> (q >> 64);
+	// Второй столбец ряда ноль и его выход
 	q = (static_cast <wide_t> (m0) * n[1] + P[i + 1] + c0); const uint64_t s1 = static_cast <uint64_t> (q); c0 = static_cast <uint64_t> (q >> 64);
+	// Множитель редукции второго ряда
 	const uint64_t m1 = (s1 * n0);
+	// Вклад модуля ряда один
 	q = (static_cast <wide_t> (m1) * n[0] + s1); uint64_t c1 = static_cast <uint64_t> (q >> 64);
+	/**
+	 * Перебираем элементы по счётчику до count
+	 */
 	for(size_t j = 2; j < count; j++){
+		// Столбец j ряда ноль
 		q = (static_cast <wide_t> (m0) * n[j] + P[i + j] + c0); const uint64_t s = static_cast <uint64_t> (q); c0 = static_cast <uint64_t> (q >> 64);
+		// Столбец j-1 ряда один
 		q = (static_cast <wide_t> (m1) * n[j - 1] + s + c1); P[i + j] = static_cast <uint64_t> (q); c1 = static_cast <uint64_t> (q >> 64);
 	}
 	// хвост ряда 0: P[i+count] += c0 ; ряд 1 добирает столбец count-1 и хвост
 	wide_t T = (static_cast <wide_t> (P[i + count]) + c0); const uint64_t s = static_cast <uint64_t> (T); uint64_t carry = static_cast <uint64_t> (T >> 64);
+	// Хвост ряда один
 	q = (static_cast <wide_t> (m1) * n[count - 1] + s + c1); P[i + count] = static_cast <uint64_t> (q); c1 = static_cast <uint64_t> (q >> 64);
 	// P[i+count+1] += carry + c1, распространение переноса вверх
 	size_t k = (i + count + 1);
+	// Распространение переноса вверх
 	wide_t U = (static_cast <wide_t> (P[k]) + carry + c1); P[k] = static_cast <uint64_t> (U); uint64_t up = static_cast <uint64_t> (U >> 64);
+	/**
+	 * Перебираем элементы по счётчику
+	 */
 	for(k++; up && (k < (2 * count + 2)); k++){ U = (static_cast <wide_t> (P[k]) + up); P[k] = static_cast <uint64_t> (U); up = static_cast <uint64_t> (U >> 64); }
 }
-extern "C" __attribute__((noinline)) void mont_sqrc(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, const size_t count, const uint64_t inverse, uint64_t * result){
+// Определяем ядро вычисления
+extern "C" __attribute__((noinline)) void montSqrc(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, const size_t count, const uint64_t inverse, uint64_t * result){
+	// Выполняем очередной шаг
 	(void) second;
-	uint64_t P[132]; memset(P, 0, (2 * count + 2) * 8);
+	// Обнуляем буфер
+	uint64_t P[132]; ::memset(P, 0, (2 * count + 2) * 8);
 	// Симметричные произведения a[i]*a[j], i<j
+	/**
+	 * Перебираем элементы по счётчику
+	 */
 	for(size_t i = 0; i + 1 < count; i++){
+		// Слово ряда и перенос
 		const uint64_t w = first[i]; uint64_t carry = 0;
+		/**
+		 * Перебираем элементы по счётчику до count
+		 */
 		for(size_t j = i + 1; j < count; j++){
+			// Симметричное произведение столбца
 			const wide_t p = (static_cast <wide_t> (first[j]) * w + P[i + j] + carry);
+			// Накопление столбца и перенос
 			P[i + j] = static_cast <uint64_t> (p); carry = static_cast <uint64_t> (p >> 64);
 		}
+		// Старший разряд ряда
 		P[i + count] = carry;
 	}
 	// Удвоение
 	uint64_t top = 0;
+	/**
+	 * Перебираем элементы по счётчику
+	 */
 	for(size_t k = 0; k < (2 * count); k++){ const uint64_t v = P[k]; P[k] = ((v << 1) | top); top = (v >> 63); }
 	// Диагональ
 	uint64_t carry = 0;
+	/**
+	 * Перебираем элементы по счётчику до count
+	 */
 	for(size_t i = 0; i < count; i++){
+		// Квадрат диагонального слова
 		const wide_t s = (static_cast <wide_t> (first[i]) * first[i]);
+		// Младший разряд диагонали
 		wide_t lo = (static_cast <wide_t> (P[2 * i]) + static_cast <uint64_t> (s) + carry); P[2 * i] = static_cast <uint64_t> (lo);
+		// Старший разряд диагонали
 		wide_t hi = (static_cast <wide_t> (P[2 * i + 1]) + static_cast <uint64_t> (s >> 64) + static_cast <uint64_t> (lo >> 64)); P[2 * i + 1] = static_cast <uint64_t> (hi);
+		// Перенос диагонали
 		carry = static_cast <uint64_t> (hi >> 64);
 	}
+	// Верхний разряд накопителя
 	P[2 * count] = carry;
 	// Приведение рядами по два (count чётный) либо по одному
 	size_t i = 0;
-	for(; (i + 2) <= count; i += 2) reduce2_c(P, modulus, inverse, count, i);
+	/**
+	 * Перебираем элементы по счётчику
+	 */
+	for(; (i + 2) <= count; i += 2) __ants_reduce2_c__(P, modulus, inverse, count, i);
+	/**
+	 * Перебираем элементы по счётчику
+	 */
 	for(; i < count; i++){
+		// Множитель редукции и перенос
 		const uint64_t m = (P[i] * inverse); uint64_t c = 0;
+		/**
+		 * Перебираем элементы по счётчику до count
+		 */
 		for(size_t j = 0; j < count; j++){ const wide_t q = (static_cast <wide_t> (m) * modulus[j] + P[i + j] + c); P[i + j] = static_cast <uint64_t> (q); c = static_cast <uint64_t> (q >> 64); }
+		// Смещение хвоста приведения
 		size_t k = (i + count);
+		/**
+		 * Перебираем элементы по счётчику
+		 */
 		for(; c && (k < (2 * count + 2)); k++){ const wide_t U = (static_cast <wide_t> (P[k]) + c); P[k] = static_cast <uint64_t> (U); c = static_cast <uint64_t> (U >> 64); }
 	}
 	// Итог в P[count .. 2count], условное вычитание
@@ -329,45 +534,70 @@ extern "C" __attribute__((noinline)) void mont_sqrc(const uint64_t * first, cons
 }
 // Пропускная способность умножителя: независимые mul+umulh
 extern "C" __attribute__((noinline)) uint64_t multhroughput(uint64_t x, size_t N){
+	// Операнды и накопители независимых произведений
 	uint64_t a0 = x, a1 = x + 1, a2 = x + 2, a3 = x + 3, s0 = 0, s1 = 0, s2 = 0, s3 = 0;
+	/**
+	 * Перебираем элементы по счётчику до N
+	 */
 	for(size_t i = 0; i < N; i++){
+		// Четыре независимых произведения
 		const wide_t p0 = static_cast <wide_t> (a0) * a1, p1 = static_cast <wide_t> (a2) * a3, p2 = static_cast <wide_t> (a1) * a2, p3 = static_cast <wide_t> (a3) * a0;
+		// Свёртка первых двух произведений
 		s0 ^= static_cast <uint64_t> (p0) ^ static_cast <uint64_t> (p0 >> 64); s1 ^= static_cast <uint64_t> (p1) ^ static_cast <uint64_t> (p1 >> 64);
+		// Свёртка последних двух произведений
 		s2 ^= static_cast <uint64_t> (p2) ^ static_cast <uint64_t> (p2 >> 64); s3 ^= static_cast <uint64_t> (p3) ^ static_cast <uint64_t> (p3 >> 64);
+		// Сдвиг операндов для следующей итерации
 		a0 += 3; a1 += 5; a2 += 7; a3 += 11;
 	}
+	// Выводим свёртку контрольных сумм прогона
 	return (s0 ^ s1 ^ s2 ^ s3);
 }
 
 // Четыре ряда со сдвигом: пролог, прямой основной цикл без ветвлений, эпилог
-static inline void rows4b_c(uint64_t * t, const uint64_t * a, const uint64_t * n, const uint64_t * w, const uint64_t n0, const size_t count){
+static inline void __ants_rows4b_c__(uint64_t * t, const uint64_t * a, const uint64_t * n, const uint64_t * w, const uint64_t n0, const size_t count){
+	// Множители, переносы и выходы четырёх рядов
 	uint64_t m0, m1, m2, m3, c10 = 0, c20 = 0, c11 = 0, c21 = 0, c12 = 0, c22 = 0, c13 = 0, c23 = 0, o0, o1, o2, o3;
+	// Выполняем очередной шаг
 	wide_t p, q;
+	/**
+	 * Макрос шага ряда: слитое произведение со сдвигом и переносами
+	 */
 	#define STEP(r, c, in, cc1, cc2, mm, out) \
 		p = (static_cast <wide_t> (a[c]) * w[r] + (in) + cc1); \
 		q = (static_cast <wide_t> (mm) * n[c] + static_cast <uint64_t> (p) + cc2); \
 		out = static_cast <uint64_t> (q); cc1 = static_cast <uint64_t> (p >> 64); cc2 = static_cast <uint64_t> (q >> 64);
+	/**
+	 * Макрос первого шага ряда: вычисляем множитель редукции
+	 */
 	#define FIRST(r, in, cc1, cc2, mm, out) \
 		p = (static_cast <wide_t> (a[0]) * w[r] + (in)); mm = (static_cast <uint64_t> (p) * n0); \
 		q = (static_cast <wide_t> (mm) * n[0] + static_cast <uint64_t> (p)); \
 		out = static_cast <uint64_t> (q); cc1 = static_cast <uint64_t> (p >> 64); cc2 = static_cast <uint64_t> (q >> 64);
 	// Пролог: J = 0..3
 	FIRST(0, t[0], c10, c20, m0, o0)
+	// Выполняем вызов вспомогательной функции
 	STEP(0, 1, t[1], c10, c20, m0, o0) FIRST(1, o0, c11, c21, m1, o1)
 	STEP(0, 2, t[2], c10, c20, m0, o0) STEP(1, 1, o0, c11, c21, m1, o1) FIRST(2, o1, c12, c22, m2, o2)
 	STEP(0, 3, t[3], c10, c20, m0, o0) STEP(1, 2, o0, c11, c21, m1, o1) STEP(2, 1, o1, c12, c22, m2, o2) FIRST(3, o2, c13, c23, m3, o3)
 	// Основной цикл: J = 4..count-1
+	/**
+	 * Перебираем элементы по счётчику до count
+	 */
 	for(size_t J = 4; J < count; J++){
+		// Выполняем вызов вспомогательной функции
 		STEP(0, J, t[J], c10, c20, m0, o0)
 		STEP(1, J - 1, o0, c11, c21, m1, o1)
 		STEP(2, J - 2, o1, c12, c22, m2, o2)
 		STEP(3, J - 3, o2, c13, c23, m3, o3)
+		// Сдвиг буфера на эпилоге
 		t[J - 4] = o3;
 	}
 	// Эпилог: ряд 0 завершает столбец count, остальные добирают
 	wide_t T;
+	// Выполняем очередной шаг
 	uint64_t top0, top1, top2, top3;
 	T = (static_cast <wide_t> (t[count]) + c10 + c20); o0 = static_cast <uint64_t> (T); top0 = static_cast <uint64_t> (T >> 64);      // J = count
+	// Три последних столбца рядов в эпилоге
 	STEP(1, count - 1, o0, c11, c21, m1, o1) STEP(2, count - 2, o1, c12, c22, m2, o2) STEP(3, count - 3, o2, c13, c23, m3, o3) t[count - 4] = o3;
 	T = (static_cast <wide_t> (top0) + c11 + c21); o1 = static_cast <uint64_t> (T); top1 = static_cast <uint64_t> (T >> 64);        // J = count + 1
 	STEP(2, count - 1, o1, c12, c22, m2, o2) STEP(3, count - 2, o2, c13, c23, m3, o3) t[count - 3] = o3;
@@ -378,12 +608,23 @@ static inline void rows4b_c(uint64_t * t, const uint64_t * a, const uint64_t * n
 	#undef STEP
 	#undef FIRST
 }
-extern "C" __attribute__((noinline)) void mont_rows4b(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, const size_t count, const uint64_t inverse, uint64_t * result){
-	uint64_t buffer[130]; memset(buffer, 0, (count + 2) * 8);
+// Определяем ядро вычисления
+extern "C" __attribute__((noinline)) void montRows4b(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, const size_t count, const uint64_t inverse, uint64_t * result){
+	// Обнуляем буфер
+	uint64_t buffer[130]; ::memset(buffer, 0, (count + 2) * 8);
+	// Счётчик внешнего цикла
 	size_t i = 0;
-	if(count >= 4) for(; (i + 4) <= count; i += 4) rows4b_c(buffer, first, modulus, second + i, inverse, count);
-	for(; (i + 2) <= count; i += 2) rows2_c(buffer, first, modulus, second[i], second[i + 1], inverse, count);
-	for(; i < count; i++) row_c(buffer, first, modulus, second[i], inverse, count);
+	// Проверяем условие ветвления
+	if(count >= 4) for(; (i + 4) <= count; i += 4) __ants_rows4b_c__(buffer, first, modulus, second + i, inverse, count);
+	/**
+	 * Перебираем элементы по счётчику
+	 */
+	for(; (i + 2) <= count; i += 2) __ants_rows2_c__(buffer, first, modulus, second[i], second[i + 1], inverse, count);
+	/**
+	 * Перебираем элементы по счётчику
+	 */
+	for(; i < count; i++) __ants_row_c__(buffer, first, modulus, second[i], inverse, count);
+	// Выполняем финальную редукцию результата
 	finish(buffer, modulus, count, result);
 }
 
@@ -392,64 +633,119 @@ extern "C" __attribute__((noinline)) void mont_rows4b(const uint64_t * first, co
 static inline void sqrrows2(uint64_t * P, const uint64_t * a, const size_t count, const size_t i){
 	// Ряд i: столбцы i+j, j = i+1..count-1; ряд i+1: столбцы i+1+j, j = i+2..count-1; ряд i+1 на столбце c читает выход ряда i
 	const uint64_t w0 = a[i], w1 = a[i + 1];
+	// Переносы двух рядов
 	uint64_t c0 = 0, c1 = 0;
 	// Пролог: ряд 0 на столбцах 2i+1 и 2i+2 (у ряда 1 первый столбец 2i+3)
 	{ wide_t p = (static_cast <wide_t> (a[i + 1]) * w0 + P[2 * i + 1]); P[2 * i + 1] = static_cast <uint64_t> (p); c0 = static_cast <uint64_t> (p >> 64); }
+	// Объявляем переменную для промежуточного значения
 	uint64_t s0;
+	// Проверяем условие ветвления
 	if((2 * i + 2) < (i + count)){ wide_t p = (static_cast <wide_t> (a[i + 2]) * w0 + P[2 * i + 2] + c0); s0 = static_cast <uint64_t> (p); c0 = static_cast <uint64_t> (p >> 64); P[2 * i + 2] = s0; }
 	// Основной цикл: столбцы c = 2i+3 .. i+count-1: ряд 0 (j = c - i), ряд 1 (j = c - i - 1)
+	/**
+	 * Перебираем элементы по счётчику до (i + count)
+	 */
 	for(size_t c = (2 * i + 3); c < (i + count); c++){
+		// Столбец c ряда ноль
 		wide_t p = (static_cast <wide_t> (a[c - i]) * w0 + P[c] + c0); s0 = static_cast <uint64_t> (p); c0 = static_cast <uint64_t> (p >> 64);
+		// Столбец c ряда один
 		wide_t q = (static_cast <wide_t> (a[c - i - 1]) * w1 + s0 + c1); P[c] = static_cast <uint64_t> (q); c1 = static_cast <uint64_t> (q >> 64);
 	}
 	// Эпилог: ряд 0 кладёт перенос в P[i+count] (столбец свежий), ряд 1 добирает столбец i+count и кладёт перенос в P[i+count+1]
 	{ const uint64_t v = c0; wide_t q = (static_cast <wide_t> (a[count - 1]) * w1 + v + c1); P[i + count] = static_cast <uint64_t> (q); P[i + count + 1] = static_cast <uint64_t> (q >> 64); }
 }
+// Выполняем очередной шаг
 static inline void sqrrow1(uint64_t * P, const uint64_t * a, const size_t count, const size_t i){
+	// Слово ряда и перенос
 	const uint64_t w = a[i]; uint64_t c = 0;
+	/**
+	 * Перебираем элементы по счётчику до count
+	 */
 	for(size_t j = i + 1; j < count; j++){ wide_t p = (static_cast <wide_t> (a[j]) * w + P[i + j] + c); P[i + j] = static_cast <uint64_t> (p); c = static_cast <uint64_t> (p >> 64); }
+	// Старший разряд ряда
 	P[i + count] = c;
 }
 // Приведение четырьмя рядами со сдвигом на столбцах P[i ..]; ряды пишут только через ряд 3, хвостовые переносы до конца P
 static inline void red4(uint64_t * P, const uint64_t * n, const uint64_t n0, const size_t count, const size_t i, const size_t last){
+	// Множители редукции и переносы четырёх рядов
 	uint64_t m[4] = {0,0,0,0}, c[4] = {0,0,0,0};
 	// На итерации J все начатые ряды r <= J обрабатывают ОДИН столбец i+J (у ряда r это шаг j = J - r), цепочкой в одной итерации
+	/**
+	 * Перебираем элементы по счётчику
+	 */
 	for(size_t J = 0; (i + J) < last; J++){
+		// Столбец итерации для всех начатых рядов
 		uint64_t in = P[i + J];
+		/**
+		 * Перебираем элементы по счётчику до 4
+		 */
 		for(size_t r = 0; r < 4; r++){
+			// Проверяем условие ветвления
 			if(J < r) break;
+			// Шаг ряда r на итерации J
 			const size_t j = (J - r);
+			// Проверяем условие ветвления
 			if(j == 0){ m[r] = (in * n0); const wide_t q = (static_cast <wide_t> (m[r]) * n[0] + in); in = static_cast <uint64_t> (q); c[r] = static_cast <uint64_t> (q >> 64); }
 			else if(j < count){ const wide_t q = (static_cast <wide_t> (m[r]) * n[j] + in + c[r]); in = static_cast <uint64_t> (q); c[r] = static_cast <uint64_t> (q >> 64); }
 			else { const wide_t T = (static_cast <wide_t> (in) + c[r]); in = static_cast <uint64_t> (T); c[r] = static_cast <uint64_t> (T >> 64); }
 		}
+		// Запись приведённого столбца
 		P[i + J] = in;
 	}
 }
 // Приведение четырьмя рядами по столбцам, прямолинейно: пролог (столбцы i..i+3), основной цикл (i+4..i+count-1),
 // добор рядов (i+count..i+count+3) и хвост переносов до конца P
 static inline void red4b(uint64_t * P, const uint64_t * n, const uint64_t n0, const size_t count, const size_t i, const size_t last){
+	// Выполняем очередной шаг
 	uint64_t m0, m1, m2, m3, c0, c1, c2, c3; wide_t q;
+	/**
+	 * Макрос шага прямого ряда: произведение с переносом
+	 */
 	#define RSTEP(mm, j, cc) q = (static_cast <wide_t> (mm) * n[j] + in + cc); in = static_cast <uint64_t> (q); cc = static_cast <uint64_t> (q >> 64);
+	/**
+	 * Макрос первого шага прямого ряда: множитель редукции и перенос
+	 */
 	#define RFIRST(mm, cc) mm = (in * n0); q = (static_cast <wide_t> (mm) * n[0] + in); in = static_cast <uint64_t> (q); cc = static_cast <uint64_t> (q >> 64);
+	/**
+	 * Макрос завершающего шага прямого ряда: остаток переноса
+	 */
 	#define RTAIL(cc) q = (static_cast <wide_t> (in) + cc); in = static_cast <uint64_t> (q); cc = static_cast <uint64_t> (q >> 64);
+	// Окно буфера приведения
 	uint64_t * const Q = (P + i);
+	// Столбец ноль: первый шаг ряда ноль
 	{ uint64_t in = Q[0]; RFIRST(m0, c0) Q[0] = in; }
+	// Столбец один: шаг ряда ноль и первый шаг ряда один
 	{ uint64_t in = Q[1]; RSTEP(m0, 1, c0) RFIRST(m1, c1) Q[1] = in; }
+	// Столбец два: шаги рядов ноль-один и первый шаг ряда два
 	{ uint64_t in = Q[2]; RSTEP(m0, 2, c0) RSTEP(m1, 1, c1) RFIRST(m2, c2) Q[2] = in; }
+	// Столбец три: шаги рядов ноль-два и первый шаг ряда три
 	{ uint64_t in = Q[3]; RSTEP(m0, 3, c0) RSTEP(m1, 2, c1) RSTEP(m2, 1, c2) RFIRST(m3, c3) Q[3] = in; }
+	/**
+	 * Перебираем элементы по счётчику до count
+	 */
 	for(size_t J = 4; J < count; J++){
+		// Столбец J для всех начатых рядов
 		uint64_t in = Q[J];
+		// Выполняем вызов вспомогательной функции
 		RSTEP(m0, J, c0) RSTEP(m1, J - 1, c1) RSTEP(m2, J - 2, c2) RSTEP(m3, J - 3, c3)
+		// Запись приведённого столбца J
 		Q[J] = in;
 	}
+	// Столбец с номером count: хвост ряда ноль и шаги рядов один-три
 	{ uint64_t in = Q[count]; RTAIL(c0) RSTEP(m1, count - 1, c1) RSTEP(m2, count - 2, c2) RSTEP(m3, count - 3, c3) Q[count] = in; }
+	// Следующий столбец: хвосты рядов ноль-один и шаги рядов два-три
 	{ uint64_t in = Q[count + 1]; RTAIL(c0) RTAIL(c1) RSTEP(m2, count - 1, c2) RSTEP(m3, count - 2, c3) Q[count + 1] = in; }
+	// Ещё столбец: хвосты рядов ноль-два и шаг ряда три
 	{ uint64_t in = Q[count + 2]; RTAIL(c0) RTAIL(c1) RTAIL(c2) RSTEP(m3, count - 1, c3) Q[count + 2] = in; }
 	// Хвост: четыре переноса складываются в один и идут до конца P
 	uint64_t carry = 0;
+	// Сумма четырёх переносов
 	{ wide_t s = (static_cast <wide_t> (c0) + c1 + c2 + c3); uint64_t low = static_cast <uint64_t> (s); carry = static_cast <uint64_t> (s >> 64);
+	  // Распространение суммы переносов
 	  wide_t t = (static_cast <wide_t> (Q[count + 3]) + low); Q[count + 3] = static_cast <uint64_t> (t); carry += static_cast <uint64_t> (t >> 64); }
+	/**
+	 * Перебираем элементы по счётчику до last
+	 */
 	for(size_t k = (i + count + 4); k < last; k++){ const wide_t t = (static_cast <wide_t> (P[k]) + carry); P[k] = static_cast <uint64_t> (t); carry = static_cast <uint64_t> (t >> 64); }
 	#undef RSTEP
 	#undef RFIRST
@@ -457,56 +753,107 @@ static inline void red4b(uint64_t * P, const uint64_t * n, const uint64_t n0, co
 }
 
 static inline void red1(uint64_t * P, const uint64_t * n, const uint64_t n0, const size_t count, const size_t i, const size_t last){
+	// Множитель редукции и перенос ряда
 	const uint64_t m = (P[i] * n0); uint64_t c = 0;
+	/**
+	 * Перебираем элементы по счётчику до count
+	 */
 	for(size_t j = 0; j < count; j++){ const wide_t q = (static_cast <wide_t> (m) * n[j] + P[i + j] + c); P[i + j] = static_cast <uint64_t> (q); c = static_cast <uint64_t> (q >> 64); }
+	/**
+	 * Перебираем элементы по счётчику до last
+	 */
 	for(size_t k = (i + count); k < last; k++){ const wide_t T = (static_cast <wide_t> (P[k]) + c); P[k] = static_cast <uint64_t> (T); c = static_cast <uint64_t> (T >> 64); }
 }
-extern "C" __attribute__((noinline)) void mont_sqr2(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, const size_t count, const uint64_t inverse, uint64_t * result){
+// Определяем ядро вычисления
+extern "C" __attribute__((noinline)) void montSqr2(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, const size_t count, const uint64_t inverse, uint64_t * result){
+	// Выполняем очередной шаг
 	(void) second;
-	uint64_t P[132]; memset(P, 0, (2 * count + 2) * 8);
+	// Обнуляем буфер
+	uint64_t P[132]; ::memset(P, 0, (2 * count + 2) * 8);
 	// Симметричные произведения
 	size_t i = 0;
+	/**
+	 * Перебираем элементы по счётчику
+	 */
 	for(; (i + 2) < count; i += 2) sqrrows2(P, first, count, i);   // ряды i и i+1, у ряда i+1 есть столбцы, если i+2 < count
+	/**
+	 * Перебираем элементы по счётчику
+	 */
 	for(; (i + 1) < count; i++) sqrrow1(P, first, count, i);
 	// Удвоение с диагональю
 	uint64_t top = 0, carry = 0;
+	/**
+	 * Перебираем элементы по счётчику до count
+	 */
 	for(size_t k = 0; k < count; k++){
+		// Квадрат диагонального слова
 		const wide_t s = (static_cast <wide_t> (first[k]) * first[k]);
+		// Удвоенный разряд накопителя
 		uint64_t v = P[2 * k]; uint64_t d0 = ((v << 1) | top); top = (v >> 63);
+		// Следующий удвоенный разряд
 		v = P[2 * k + 1]; uint64_t d1 = ((v << 1) | top); top = (v >> 63);
+		// Младший разряд диагонали
 		wide_t lo = (static_cast <wide_t> (d0) + static_cast <uint64_t> (s) + carry); P[2 * k] = static_cast <uint64_t> (lo);
+		// Старший разряд диагонали
 		wide_t hi = (static_cast <wide_t> (d1) + static_cast <uint64_t> (s >> 64) + static_cast <uint64_t> (lo >> 64)); P[2 * k + 1] = static_cast <uint64_t> (hi);
+		// Перенос диагонали
 		carry = static_cast <uint64_t> (hi >> 64);
 	}
+	// Верхний разряд накопителя
 	P[2 * count] = (top + carry);
 	// Приведение
 	const size_t last = (2 * count + 2);
+	// Счётчик приведения
 	i = 0;
+	/**
+	 * Перебираем элементы по счётчику
+	 */
 	for(; (i + 4) <= count; i += 4) red4b(P, modulus, inverse, count, i, last);
+	/**
+	 * Перебираем элементы по счётчику
+	 */
 	for(; i < count; i++) red1(P, modulus, inverse, count, i, last);
+	// Выполняем финальную редукцию результата
 	finish(P + count, modulus, count, result);
 }
 
+/**
+ * Раздел четырёх рядов со сдвигом на ассемблере AArch64
+ */
 #if defined(__aarch64__)
-// Четыре ряда со сдвигом: пролог и эпилог на C (как rows4b_c), основной цикл на ассемблере с продвигаемыми указателями
-static inline void rows4_arm(uint64_t * t, const uint64_t * a, const uint64_t * n, const uint64_t * w, const uint64_t n0, const size_t count){
+// Четыре ряда со сдвигом: пролог и эпилог на C (как __ants_rows4b_c__), основной цикл на ассемблере с продвигаемыми указателями
+static inline void __ants_rows4_arm__(uint64_t * t, const uint64_t * a, const uint64_t * n, const uint64_t * w, const uint64_t n0, const size_t count){
+	// Множители, переносы и выходы четырёх рядов
 	uint64_t m0, m1, m2, m3, c10 = 0, c20 = 0, c11 = 0, c21 = 0, c12 = 0, c22 = 0, c13 = 0, c23 = 0, o0, o1, o2, o3;
+	// Выполняем очередной шаг
 	wide_t p, q;
+	/**
+	 * Макрос шага ряда: слитое произведение со сдвигом и переносами
+	 */
 	#define STEP(r, c, in, cc1, cc2, mm, out) \
 		p = (static_cast <wide_t> (a[c]) * w[r] + (in) + cc1); \
 		q = (static_cast <wide_t> (mm) * n[c] + static_cast <uint64_t> (p) + cc2); \
 		out = static_cast <uint64_t> (q); cc1 = static_cast <uint64_t> (p >> 64); cc2 = static_cast <uint64_t> (q >> 64);
+	/**
+	 * Макрос первого шага ряда: вычисляем множитель редукции
+	 */
 	#define FIRST(r, in, cc1, cc2, mm, out) \
 		p = (static_cast <wide_t> (a[0]) * w[r] + (in)); mm = (static_cast <uint64_t> (p) * n0); \
 		q = (static_cast <wide_t> (mm) * n[0] + static_cast <uint64_t> (p)); \
 		out = static_cast <uint64_t> (q); cc1 = static_cast <uint64_t> (p >> 64); cc2 = static_cast <uint64_t> (q >> 64);
+	// Выполняем вызов вспомогательной функции
 	FIRST(0, t[0], c10, c20, m0, o0)
+	// Выполняем вызов вспомогательной функции
 	STEP(0, 1, t[1], c10, c20, m0, o0) FIRST(1, o0, c11, c21, m1, o1)
 	STEP(0, 2, t[2], c10, c20, m0, o0) STEP(1, 1, o0, c11, c21, m1, o1) FIRST(2, o1, c12, c22, m2, o2)
 	STEP(0, 3, t[3], c10, c20, m0, o0) STEP(1, 2, o0, c11, c21, m1, o1) STEP(2, 1, o1, c12, c22, m2, o2) FIRST(3, o2, c13, c23, m3, o3)
+	// Проверяем условие ветвления
 	if(count > 4){
+		// Указатели ассемблерного цикла
 		uint64_t * tp = (t + 4); const uint64_t * ap = (a + 4); const uint64_t * np = (n + 4); uint64_t left = (count - 4);
+		// Слова множителя для цикла
 		const uint64_t w0 = w[0], w1 = w[1], w2 = w[2], w3 = w[3];
+		// Выполняем очередной шаг
 		__asm__ __volatile__(
 			"1:\n\t"
 			"ldr   x11, [%[tp]]\n\t"
@@ -581,25 +928,44 @@ static inline void rows4_arm(uint64_t * t, const uint64_t * a, const uint64_t * 
 			: [w0] "r" (w0), [w1] "r" (w1), [w2] "r" (w2), [w3] "r" (w3), [m0] "r" (m0), [m1] "r" (m1), [m2] "r" (m2), [m3] "r" (m3)
 			: "x9", "x10", "x11", "x12", "x13", "x14", "x15", "x16", "cc", "memory");
 	}
-	// Эпилог как у rows4b_c: внутри итерации ряд r берёт выход ряда r-1 на столбце c+1, потому выходов цикла не нужно
+	// Эпилог как у __ants_rows4b_c__: внутри итерации ряд r берёт выход ряда r-1 на столбце c+1, потому выходов цикла не нужно
 	wide_t T; uint64_t top0, top1, top2, top3;
+	// Старшие разряды буфера
 	T = (static_cast <wide_t> (t[count]) + c10 + c20); o0 = static_cast <uint64_t> (T); top0 = static_cast <uint64_t> (T >> 64);
+	// Три последних столбца рядов в эпилоге
 	STEP(1, count - 1, o0, c11, c21, m1, o1) STEP(2, count - 2, o1, c12, c22, m2, o2) STEP(3, count - 3, o2, c13, c23, m3, o3) t[count - 4] = o3;
+	// Сумма старшего разряда с переносами
 	T = (static_cast <wide_t> (top0) + c11 + c21); o1 = static_cast <uint64_t> (T); top1 = static_cast <uint64_t> (T >> 64);
+	// Два последних столбца рядов в эпилоге
 	STEP(2, count - 1, o1, c12, c22, m2, o2) STEP(3, count - 2, o2, c13, c23, m3, o3) t[count - 3] = o3;
+	// Сумма старшего разряда с переносами
 	T = (static_cast <wide_t> (top1) + c12 + c22); o2 = static_cast <uint64_t> (T); top2 = static_cast <uint64_t> (T >> 64);
+	// Последний столбец ряда три
 	STEP(3, count - 1, o2, c13, c23, m3, o3) t[count - 2] = o3;
+	// Завершающие разряды эпилога
 	T = (static_cast <wide_t> (top2) + c13 + c23); t[count - 1] = static_cast <uint64_t> (T); top3 = static_cast <uint64_t> (T >> 64);
+	// Верхний разряд буфера
 	t[count] = top3;
 	#undef STEP
 	#undef FIRST
 }
-extern "C" __attribute__((noinline)) void mont_rows4(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, const size_t count, const uint64_t inverse, uint64_t * result){
-	uint64_t buffer[130]; memset(buffer, 0, (count + 2) * 8);
+// Определяем ядро вычисления
+extern "C" __attribute__((noinline)) void montRows4(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, const size_t count, const uint64_t inverse, uint64_t * result){
+	// Обнуляем буфер
+	uint64_t buffer[130]; ::memset(buffer, 0, (count + 2) * 8);
+	// Счётчик внешнего цикла
 	size_t i = 0;
-	if(count >= 4) for(; (i + 4) <= count; i += 4) rows4_arm(buffer, first, modulus, second + i, inverse, count);
-	for(; (i + 2) <= count; i += 2) rows2_c(buffer, first, modulus, second[i], second[i + 1], inverse, count);
-	for(; i < count; i++) row_c(buffer, first, modulus, second[i], inverse, count);
+	// Проверяем условие ветвления
+	if(count >= 4) for(; (i + 4) <= count; i += 4) __ants_rows4_arm__(buffer, first, modulus, second + i, inverse, count);
+	/**
+	 * Перебираем элементы по счётчику
+	 */
+	for(; (i + 2) <= count; i += 2) __ants_rows2_c__(buffer, first, modulus, second[i], second[i + 1], inverse, count);
+	/**
+	 * Перебираем элементы по счётчику
+	 */
+	for(; i < count; i++) __ants_row_c__(buffer, first, modulus, second[i], inverse, count);
+	// Выполняем финальную редукцию результата
 	finish(buffer, modulus, count, result);
 }
 #endif
@@ -607,57 +973,117 @@ extern "C" __attribute__((noinline)) void mont_rows4(const uint64_t * first, con
 // Квадрат Монтгомери со сдвиговым приведением: REDC(P) = REDC_shift(P_low) + P_high, где REDC_shift - ряды со сдвигом
 // (как rows4b без члена a*w): цепочки рядов независимы. Итог < 2n, одно условное вычитание
 static inline void red4s(uint64_t * t, const uint64_t * n, const uint64_t n0, const size_t count){
+	// Множители, переносы, выходы и произведение рядов
 	uint64_t m0, m1, m2, m3, c0 = 0, c1 = 0, c2 = 0, c3 = 0, o0, o1, o2, o3; wide_t q;
+	/**
+	 * Макрос шага ряда квадрата со сдвигом: произведение с переносом
+	 */
 	#define QSTEP(c, in, cc, mm, out) q = (static_cast <wide_t> (mm) * n[c] + (in) + cc); out = static_cast <uint64_t> (q); cc = static_cast <uint64_t> (q >> 64);
+	/**
+	 * Макрос первого шага ряда квадрата: множитель редукции и перенос
+	 */
 	#define QFIRST(in, cc, mm, out) mm = ((in) * n0); q = (static_cast <wide_t> (mm) * n[0] + (in)); out = static_cast <uint64_t> (q); cc = static_cast <uint64_t> (q >> 64);
+	// Выполняем вызов вспомогательной функции
 	QFIRST(t[0], c0, m0, o0)
+	// Выполняем вызов вспомогательной функции
 	QSTEP(1, t[1], c0, m0, o0) QFIRST(o0, c1, m1, o1)
 	QSTEP(2, t[2], c0, m0, o0) QSTEP(1, o0, c1, m1, o1) QFIRST(o1, c2, m2, o2)
 	QSTEP(3, t[3], c0, m0, o0) QSTEP(2, o0, c1, m1, o1) QSTEP(1, o1, c2, m2, o2) QFIRST(o2, c3, m3, o3)
+	/**
+	 * Перебираем элементы по счётчику до count
+	 */
 	for(size_t J = 4; J < count; J++){
+		// Выполняем вызов вспомогательной функции
 		QSTEP(J, t[J], c0, m0, o0) QSTEP(J - 1, o0, c1, m1, o1) QSTEP(J - 2, o1, c2, m2, o2) QSTEP(J - 3, o2, c3, m3, o3)
+		// Сдвиг буфера на эпилоге
 		t[J - 4] = o3;
 	}
+	// Объявляем переменную для промежуточного значения
 	wide_t T; uint64_t top;
+	// Старшие разряды буфера
 	T = (static_cast <wide_t> (t[count]) + c0); o0 = static_cast <uint64_t> (T); top = static_cast <uint64_t> (T >> 64);
+	// Три последних столбца цепочек
 	QSTEP(count - 1, o0, c1, m1, o1) QSTEP(count - 2, o1, c2, m2, o2) QSTEP(count - 3, o2, c3, m3, o3) t[count - 4] = o3;
+	// Сумма старшего разряда с переносом
 	T = (static_cast <wide_t> (top) + c1); o1 = static_cast <uint64_t> (T); top = static_cast <uint64_t> (T >> 64);
+	// Два последних столбца цепочек
 	QSTEP(count - 1, o1, c2, m2, o2) QSTEP(count - 2, o2, c3, m3, o3) t[count - 3] = o3;
+	// Сумма старшего разряда с переносом
 	T = (static_cast <wide_t> (top) + c2); o2 = static_cast <uint64_t> (T); top = static_cast <uint64_t> (T >> 64);
+	// Последний столбец цепочки
 	QSTEP(count - 1, o2, c3, m3, o3) t[count - 2] = o3;
+	// Завершающие разряды эпилога
 	T = (static_cast <wide_t> (top) + c3); t[count - 1] = static_cast <uint64_t> (T); t[count] = static_cast <uint64_t> (T >> 64);
 	#undef QSTEP
 	#undef QFIRST
 }
+// Выполняем очередной шаг
 static inline void red1s(uint64_t * t, const uint64_t * n, const uint64_t n0, const size_t count){
+	// Множитель редукции, вклад модуля и перенос
 	const uint64_t m = (t[0] * n0); wide_t q = (static_cast <wide_t> (m) * n[0] + t[0]); uint64_t c = static_cast <uint64_t> (q >> 64);
+	/**
+	 * Перебираем элементы по счётчику до count
+	 */
 	for(size_t j = 1; j < count; j++){ q = (static_cast <wide_t> (m) * n[j] + t[j] + c); t[j - 1] = static_cast <uint64_t> (q); c = static_cast <uint64_t> (q >> 64); }
+	// Завершающие разряды ряда
 	const wide_t T = (static_cast <wide_t> (t[count]) + c); t[count - 1] = static_cast <uint64_t> (T); t[count] = static_cast <uint64_t> (T >> 64);
 }
-extern "C" __attribute__((noinline)) void mont_sqr3(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, const size_t count, const uint64_t inverse, uint64_t * result){
+// Определяем ядро вычисления
+extern "C" __attribute__((noinline)) void montSqr3(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, const size_t count, const uint64_t inverse, uint64_t * result){
+	// Выполняем очередной шаг
 	(void) second;
-	uint64_t P[132]; memset(P, 0, (2 * count + 2) * 8);
+	// Обнуляем буфер
+	uint64_t P[132]; ::memset(P, 0, (2 * count + 2) * 8);
+	// Счётчик внешнего цикла
 	size_t i = 0;
+	/**
+	 * Перебираем элементы по счётчику
+	 */
 	for(; (i + 2) < count; i += 2) sqrrows2(P, first, count, i);
+	/**
+	 * Перебираем элементы по счётчику
+	 */
 	for(; (i + 1) < count; i++) sqrrow1(P, first, count, i);
+	// Старший бит удвоения и перенос
 	uint64_t top = 0, carry = 0;
+	/**
+	 * Перебираем элементы по счётчику до count
+	 */
 	for(size_t k = 0; k < count; k++){
+		// Квадрат диагонального слова
 		const wide_t s = (static_cast <wide_t> (first[k]) * first[k]);
+		// Удвоенный разряд накопителя
 		uint64_t v = P[2 * k]; const uint64_t d0 = ((v << 1) | top); top = (v >> 63);
+		// Следующий удвоенный разряд
 		v = P[2 * k + 1]; const uint64_t d1 = ((v << 1) | top); top = (v >> 63);
+		// Младший разряд диагонали
 		const wide_t lo = (static_cast <wide_t> (d0) + static_cast <uint64_t> (s) + carry); P[2 * k] = static_cast <uint64_t> (lo);
+		// Старший разряд диагонали
 		const wide_t hi = (static_cast <wide_t> (d1) + static_cast <uint64_t> (s >> 64) + static_cast <uint64_t> (lo >> 64)); P[2 * k + 1] = static_cast <uint64_t> (hi);
+		// Перенос диагонали
 		carry = static_cast <uint64_t> (hi >> 64);
 	}
 	// Сдвиговое приведение младшей половины: t = P_low, t[count] = 0
-	uint64_t t[66]; memcpy(t, P, count * 8); t[count] = 0;
+	uint64_t t[66]; ::memcpy(t, P, count * 8); t[count] = 0;
+	// Счётчик приведения
 	i = 0;
+	/**
+	 * Перебираем элементы по счётчику
+	 */
 	for(; (i + 4) <= count; i += 4) red4s(t, modulus, inverse, count);
+	/**
+	 * Перебираем элементы по счётчику
+	 */
 	for(; i < count; i++) red1s(t, modulus, inverse, count);
 	// Прибавляем старшую половину
 	uint64_t c = 0;
+	/**
+	 * Перебираем элементы по счётчику до count
+	 */
 	for(size_t k = 0; k < count; k++){ const wide_t s = (static_cast <wide_t> (t[k]) + P[count + k] + c); t[k] = static_cast <uint64_t> (s); c = static_cast <uint64_t> (s >> 64); }
+	// Добавление старшего разряда к сумме
 	t[count] += c;
+	// Выполняем финальную редукцию результата
 	finish(t, modulus, count, result);
 }
 
@@ -673,7 +1099,7 @@ namespace library {
  */
 #if defined(__aarch64__) && (defined(__GNUC__) || defined(__clang__))
 	/**
-	 * @brief Метод одного ряда умножения Монтгомери полосами по четыре слова на ассемблере AArch64
+	 * @brief Функция одного ряда умножения Монтгомери полосами по четыре слова на ассемблере AArch64
 	 *
 	 * @param buffer  накопитель в count + 1 слов: на входе значение меньше удвоенного модуля, на выходе (buffer + first · word + q · modulus) / 2^64
 	 * @param first   слова первого сомножителя, меньшего модуля
@@ -690,6 +1116,7 @@ namespace library {
 	 *
 	 */
 	static inline void stripes(uint64_t * buffer, const uint64_t * first, const uint64_t * modulus, const uint64_t word, const uint64_t inverse, const size_t count){
+		// Выполняем очередной шаг
 		__asm__ __volatile__(
 			"mov   x24, %[buffer]\n\t"
 			"mov   x25, %[first]\n\t"
@@ -811,7 +1238,7 @@ namespace library {
  */
 #elif defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER) && !defined(__ANTS_ASAN_UNOPTIMIZED__)
 	/**
-	 * @brief Метод одного ряда умножения Монтгомери полосами по четыре слова на ассемблере x86-64 (BMI2, ADX)
+	 * @brief Функция одного ряда умножения Монтгомери полосами по четыре слова на ассемблере x86-64 (BMI2, ADX)
 	 *
 	 * @param buffer  накопитель в count + 1 слов: на входе значение меньше удвоенного модуля, на выходе (buffer + first · word + q · modulus) / 2^64
 	 * @param first   слова первого сомножителя, меньшего модуля
@@ -832,6 +1259,7 @@ namespace library {
 	static inline void stripes(uint64_t * buffer, const uint64_t * first, const uint64_t * modulus, const uint64_t word, const uint64_t inverse, const size_t count){
 		// Конец слов первого сомножителя
 		const uint64_t * end = (first + count);
+		// Выполняем очередной шаг
 		__asm__ __volatile__(
 			"movq  %[buffer], %%rcx\n\t"
 			"movq  %[first], %%rsi\n\t"
@@ -943,7 +1371,7 @@ namespace library {
  */
 #if defined(__aarch64__) && (defined(__GNUC__) || defined(__clang__))
 	/**
-	 * @brief Метод квадрата Монтгомери блоками по восемь слов на ассемблере AArch64
+	 * @brief Функция квадрата Монтгомери блоками по восемь слов на ассемблере AArch64
 	 *
 	 * @param buffer  накопитель в 2 · count + 2 слов: на выходе слова count … 2 · count - значение, меньшее удвоенного модуля, младшие count слов - отложенные множители приведения
 	 * @param value   слова числа, меньшего модуля
@@ -974,13 +1402,20 @@ namespace library {
 	static void square8x(uint64_t * buffer, const uint64_t * value, const uint64_t * modulus, const size_t count, const uint64_t inverse) {
 		// Доводы ядра одним указателем: накопитель, число, модуль, число слов, множитель приведения, перенос между блоками
 		struct {
+			// Объявляем переменную для промежуточного значения
 			uint64_t * buffer;
+			// Объявляем переменную для промежуточного значения
 			const uint64_t * value;
+			// Объявляем переменную для промежуточного значения
 			const uint64_t * modulus;
+			// Объявляем переменную для промежуточного значения
 			uint64_t count;
+			// Объявляем переменную для промежуточного значения
 			uint64_t inverse;
+			// Объявляем переменную для промежуточного значения
 			uint64_t carry;
 		} args = {buffer, value, modulus, count, inverse, 0};
+		// Выполняем очередной шаг
 		__asm__ __volatile__(
 			/* Указатели накопителя и числа, число слов; обнуление удвоенной ширины накопителя */
 			"ldp   x26, x27, [%[p]]\n\t"
@@ -1408,7 +1843,7 @@ namespace library {
  */
 #elif defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER) && !defined(__ANTS_ASAN_UNOPTIMIZED__)
 	/**
-	 * @brief Метод квадрата Монтгомери блоками по восемь слов на ассемблере x86-64 (BMI2, ADX)
+	 * @brief Функция квадрата Монтгомери блоками по восемь слов на ассемблере x86-64 (BMI2, ADX)
 	 *
 	 * @param buffer  накопитель в 2 · count + 2 слов: на выходе слова count … 2 · count - значение, меньшее удвоенного модуля, младшие count слов - отложенные множители приведения
 	 * @param value   слова числа, меньшего модуля
@@ -1429,8 +1864,11 @@ namespace library {
 		uint64_t carry = 0, top = 0;
 		// Конец слов числа, конец слов модуля, старшая половина накопителя
 		const uint64_t * end = (value + count);
+		// Конец слов модуля
 		const uint64_t * last = (modulus + count);
+		// Старшая половина накопителя
 		uint64_t * high = (buffer + count);
+		// Выполняем очередной шаг
 		__asm__ __volatile__(
 			/* Обнуление удвоенной ширины накопителя */
 			"movq  %[buffer], %%rdi\n\t"
@@ -2483,113 +2921,237 @@ namespace library {
 	}
 #endif
 }
+/**
+ * Раздел ядра полосами на ассемблере под GCC и Clang
+ */
 #if (defined(__aarch64__) && (defined(__GNUC__) || defined(__clang__))) || (defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER))
+/**
+ * Признак включения ядра полосами в таблицу щупа
+ */
 #define __ANTS_PROBE_STRIPES__ 1
-extern "C" __attribute__((noinline)) void mont_stripes(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, const size_t count, const uint64_t inverse, uint64_t * result){
-	uint64_t buffer[130]; memset(buffer, 0, (count + 2) * 8);
+// Определяем ядро вычисления
+extern "C" __attribute__((noinline)) void montStripes(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, const size_t count, const uint64_t inverse, uint64_t * result){
+	// Обнуляем буфер
+	uint64_t buffer[130]; ::memset(buffer, 0, (count + 2) * 8);
+	/**
+	 * Перебираем элементы по счётчику до count
+	 */
 	for(size_t i = 0; i < count; i++) library::stripes(buffer, first, modulus, second[i], inverse, count);
+	// Выполняем финальную редукцию результата
 	finish(buffer, modulus, count, result);
 }
 #endif
+/**
+ * Раздел квадрата блоками по восемь слов на ассемблере
+ */
 #if (defined(__aarch64__) && (defined(__GNUC__) || defined(__clang__))) || (defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER))
+/**
+ * Признак включения квадрата блоками в таблицу щупа
+ */
 #define __ANTS_PROBE_SQUARE8X__ 1
-extern "C" __attribute__((noinline)) void mont_square8x(const uint64_t * first, const uint64_t *, const uint64_t * modulus, const size_t count, const uint64_t inverse, uint64_t * result){
+// Определяем ядро вычисления
+extern "C" __attribute__((noinline)) void montSquare8x(const uint64_t * first, const uint64_t *, const uint64_t * modulus, const size_t count, const uint64_t inverse, uint64_t * result){
+	// Выполняем очередной шаг
 	uint64_t buffer[130];
+	// Вызываем ядро из библиотеки
 	library::square8x(buffer, first, modulus, count, inverse);
+	// Выполняем финальную редукцию результата
 	finish(buffer + count, modulus, count, result);
 }
 #endif
+/**
+ * Раздел эталона на OpenSSL
+ */
 #if defined(WITH_OPENSSL)
 #include <openssl/bn.h>
 // Полоса эталона: BN_mod_mul_montgomery того же OpenSSL, умножение и квадрат
 static void opensslmont(size_t n, const uint64_t * m, const uint64_t * a, const uint64_t * b){
+	// Контекст и числа эталона
 	BN_CTX * ctx = BN_CTX_new(); BIGNUM * M = BN_lebin2bn((const unsigned char *) m, n * 8, nullptr); BIGNUM * A = BN_lebin2bn((const unsigned char *) a, n * 8, nullptr); BIGNUM * B = BN_lebin2bn((const unsigned char *) b, n * 8, nullptr);
+	// Монтгомериевский контекст эталона
 	BN_MONT_CTX * mont = BN_MONT_CTX_new(); BN_MONT_CTX_set(mont, M, ctx);
+	// Засекаем текущее время
 	const int N = (n <= 16 ? 200000 : 60000); double t0 = now();
+	/**
+	 * Перебираем элементы по счётчику до N
+	 */
 	for(int i = 0; i < N; i++) BN_mod_mul_montgomery(A, A, B, mont, ctx);
+	// Выводим результат измерения
 	double t1 = now(); printf("  OpenSSL %6.1f нс", (t1 - t0) / N * 1e9);
+	// Выводим результат измерения
 	t0 = now(); for(int i = 0; i < N; i++) BN_mod_mul_montgomery(A, A, A, mont, ctx); t1 = now(); printf("  OpenSSL квадрат %6.1f нс", (t1 - t0) / N * 1e9);
+	// Выполняем вызов вспомогательной функции
 	BN_MONT_CTX_free(mont); BN_free(A); BN_free(B); BN_free(M); BN_CTX_free(ctx);
 }
 #endif
+// Выполняем очередной шаг
 typedef void (* kernel_t)(const uint64_t *, const uint64_t *, const uint64_t *, size_t, uint64_t, uint64_t *);
+// Вычисляем множитель редукции
 static uint64_t inverse64(uint64_t n0){ uint64_t x = 1; for(int i = 0; i < 6; i++) x *= (2 - n0 * x); return (0 - x); }
+// Начальное значение генератора
 static uint64_t seed = 0x9E3779B97F4A7C15ull;
+// Получаем следующее случайное слово
 static uint64_t rnd(){ seed ^= seed << 13; seed ^= seed >> 7; seed ^= seed << 17; return seed; }
+// Получаем следующее случайное слово
 static void fill(uint64_t * w, size_t n){ for(size_t i = 0; i < n; i++) w[i] = rnd(); }
+// Сравниваем числа по модулю
 static bool less(const uint64_t * a, const uint64_t * m, size_t n){ for(size_t i = n; i > 0; i--){ if(a[i-1] != m[i-1]) return a[i-1] < m[i-1]; } return false; }
+// Точка входа щупа
 int main(int argc, char **){
-	kernel_t kernels[] = { mont_ref, mont_fused, mont_rows2c, mont_rows4c, mont_rows4b,
+	// Перечень ядер щупа
+	kernel_t kernels[] = { montRef, montFused, montRows2c, montRows4c, montRows4b,
+/**
+ * В таблицу ядер добавляем ассемблерные ядра AArch64
+ */
 #if defined(__aarch64__)
-		mont_row, mont_rows2, mont_rows4,
+		// Выполняем очередной шаг
+		montRow, montRows2, montRows4,
 #endif
+/**
+ * В таблицу ядер добавляем ядро полосами
+ */
 #if defined(__ANTS_PROBE_STRIPES__)
-		mont_stripes,
+		// Выполняем очередной шаг
+		montStripes,
 #endif
 	};
+	// Названия ядер для отчёта
 	const char * names[] = { "два прохода C", "слитый проход C", "два ряда C", "четыре ряда C", "четыре ряда прямые C",
+/**
+ * В таблицу имён добавляем названия ядер на ассемблере AArch64
+ */
 #if defined(__aarch64__)
+		// Выполняем очередной шаг
 		"слитый ряд asm", "два ряда asm", "четыре ряда asm",
 #endif
+		// Выполняем очередной шаг
 		"полосы 4 asm (библиотека)" };
+	// Число ядер щупа
 	const int K = sizeof(kernels) / sizeof(kernels[0]);
 	// Сходимость: случайные и краевые входы
 	size_t bad = 0, total = 0;
+	/**
+	 * Перебираем элементы по счётчику
+	 */
 	for(size_t n : {4, 8, 16, 17, 32, 48, 64}){
+		/**
+		 * Перебираем элементы по счётчику до 4000
+		 */
 		for(int c = 0; c < 4000; c++){
+			// Выполняем очередной шаг
 			uint64_t a[64], b[64], m[64], r[8][64];
+			// Заполняем буфер случайными словами
 			fill(m, n); m[0] |= 1;
+			// Вид очередного измерения
 			const int kind = c % 8;
+			// Проверяем условие ветвления
 			if(kind == 1) m[n - 1] |= (1ull << 63);
 			if(kind == 2){ for(size_t i = 0; i < n; i++) m[i] = ~0ull; }               // m = 2^(64n) - 1
 			if(kind == 3){ for(size_t i = 0; i < n; i++) m[i] = 0; m[n - 1] = 1; m[0] |= 1; } // маленький старший
 			if(kind == 4){ m[n - 1] = 3; }                                                // короткий старший
+			// Заполняем буфер случайными словами
 			fill(a, n); fill(b, n);
 			// a, b < m: берём остаток грубо - обнуляем старшие, пока не меньше
+			/**
+			 * Повторяем цикл пока условие истинно
+			 */
 			while(!less(a, m, n)){ a[n - 1] >>= 1; if(a[n - 1] == 0 && !less(a, m, n)){ for(size_t i = 0; i < n; i++) a[i] = m[i]; a[0] -= 1; break; } }
+			/**
+			 * Повторяем цикл пока условие истинно
+			 */
 			while(!less(b, m, n)){ b[n - 1] >>= 1; if(b[n - 1] == 0 && !less(b, m, n)){ for(size_t i = 0; i < n; i++) b[i] = m[i]; b[0] -= 1; break; } }
 			if(kind == 5){ for(size_t i = 0; i < n; i++){ a[i] = m[i]; b[i] = m[i]; } a[0] -= 1; b[0] -= 1; } // a = b = m-1
 			if(kind == 6){ for(size_t i = 0; i < n; i++) a[i] = 0; }                                       // a = 0
 			if(kind == 7){ for(size_t i = 0; i < n; i++) b[i] = 0; b[0] = 1; }                            // b = 1
+			// Вычисляем множитель редукции
 			const uint64_t inv = inverse64(m[0]);
+			/**
+			 * Перебираем элементы по счётчику до K
+			 */
 			for(int k = 0; k < K; k++){ if((k == K - 1) && ((n % 4) != 0)) continue; kernels[k](a, b, m, n, inv, r[k]); }
-			for(int k = 1; k < K; k++){ if((k == K - 1) && ((n % 4) != 0)) continue; total++; if(memcmp(r[0], r[k], n * 8) != 0){ bad++; if(bad < 5) printf("РАСХОЖДЕНИЕ %s n=%zu kind=%d\n", names[k], n, kind); } }
+			/**
+			 * Перебираем элементы по счётчику до K
+			 */
+			for(int k = 1; k < K; k++){ if((k == K - 1) && ((n % 4) != 0)) continue; total++; if(::memcmp(r[0], r[k], n * 8) != 0){ bad++; if(bad < 5) printf("РАСХОЖДЕНИЕ %s n=%zu kind=%d\n", names[k], n, kind); } }
 		}
 	}
+	// Выводим результат измерения
 	printf("сходимость: расхождений %zu из %zu\n", bad, total);
+	// Счётчики расхождений и итераций
 	{ size_t sbad = 0, stotal = 0;
+	  /**
+	   * Перебираем элементы по счётчику до 4000
+	   */
 	  for(size_t n : {4, 8, 16, 17, 32, 48, 64}) for(int c = 0; c < 4000; c++){
+		// Заполняем буфер случайными словами
 		uint64_t a[64], m[64], r1[64], r2[64]; fill(m, n); m[0] |= 1; if(c % 4 == 1) m[n-1] |= (1ull << 63); if(c % 4 == 2){ for(size_t i = 0; i < n; i++) m[i] = ~0ull; }
+		// Заполняем буфер случайными словами
 		fill(a, n); while(!less(a, m, n)){ a[n - 1] >>= 1; if(a[n - 1] == 0 && !less(a, m, n)){ for(size_t i = 0; i < n; i++) a[i] = m[i]; a[0] -= 1; break; } }
+		// Проверяем условие ветвления
 		if(c % 4 == 3){ for(size_t i = 0; i < n; i++) a[i] = m[i]; a[0] -= 1; }
-		const uint64_t inv = inverse64(m[0]); mont_ref(a, a, m, n, inv, r1); mont_sqr3(a, a, m, n, inv, r2); stotal++; if(memcmp(r1, r2, n * 8) != 0){ sbad++; if(sbad < 5) printf("РАСХОЖДЕНИЕ квадрата n=%zu c=%d\n", n, c); }
+		// Сравниваем содержимое буферов
+		const uint64_t inv = inverse64(m[0]); montRef(a, a, m, n, inv, r1); montSqr3(a, a, m, n, inv, r2); stotal++; if(::memcmp(r1, r2, n * 8) != 0){ sbad++; if(sbad < 5) printf("РАСХОЖДЕНИЕ квадрата n=%zu c=%d\n", n, c); }
+/**
+ * Сверяем квадрат блоками с эталоном двух проходов
+ */
 #if defined(__ANTS_PROBE_SQUARE8X__)
-		if((n % 8) == 0){ mont_square8x(a, a, m, n, inv, r2); stotal++; if(memcmp(r1, r2, n * 8) != 0){ sbad++; if(sbad < 5) printf("РАСХОЖДЕНИЕ квадрата блоками n=%zu c=%d\n", n, c); } }
+		// Проверяем условие ветвления
+		if((n % 8) == 0){ montSquare8x(a, a, m, n, inv, r2); stotal++; if(::memcmp(r1, r2, n * 8) != 0){ sbad++; if(sbad < 5) printf("РАСХОЖДЕНИЕ квадрата блоками n=%zu c=%d\n", n, c); } }
 #endif
 	  }
+	  // Выводим результат измерения
 	  printf("квадрат: расхождений %zu из %zu\n", sbad, stotal); }
+	// Выводим результат измерения
 	{ const size_t N = 20000000; double t0 = now(); uint64_t s = multhroughput(12345, N); double t1 = now(); printf("умножитель: %.2f нс на пару mul+umulh (%llu)\n", (t1 - t0) / (N * 4) * 1e9, (unsigned long long)(s & 1)); }
 	// Полоса
+	/**
+	 * Перебираем элементы по счётчику
+	 */
 	for(size_t n : {16, 32, 48, 64}){
+		// Выполняем очередной шаг
 		uint64_t a[64], b[64], m[64];
+		// Заполняем буфер случайными словами
 		fill(m, n); m[0] |= 1; m[n - 1] |= (1ull << 63); fill(a, n); fill(b, n); a[n - 1] >>= 1; b[n - 1] >>= 1;
+		// Вычисляем множитель редукции
 		const uint64_t inv = inverse64(m[0]);
+		// Выводим результат измерения
 		printf("слов %2zu:", n);
+		/**
+		 * Перебираем элементы по счётчику до K
+		 */
 		for(int k = 0; k < K; k++){
-			uint64_t x[64]; memcpy(x, a, n * 8);
+			// Копируем данные буфера
+			uint64_t x[64]; ::memcpy(x, a, n * 8);
+			// Засекаем текущее время
 			const int N = (n <= 16 ? 200000 : 60000); double t0 = now();
+			/**
+			 * Перебираем элементы по счётчику до N
+			 */
 			for(int i = 0; i < N; i++) kernels[k](x, b, m, n, inv, x);
+			// Выводим результат измерения
 			double t1 = now(); printf("  %s %6.1f нс", names[k], (t1 - t0) / N * 1e9);
+			// Проверяем условие ветвления
 			if(argc > 99) printf("%llu", (unsigned long long) x[0]);
 		}
-		{ uint64_t x[64]; memcpy(x, a, n * 8); const int N = (n <= 16 ? 200000 : 60000); double t0 = now(); for(int i = 0; i < N; i++) mont_sqr3(x, x, m, n, inv, x); double t1 = now(); printf("  квадрат3 C %6.1f нс", (t1 - t0) / N * 1e9); }
+		// Копируем данные буфера
+		{ uint64_t x[64]; ::memcpy(x, a, n * 8); const int N = (n <= 16 ? 200000 : 60000); double t0 = now(); for(int i = 0; i < N; i++) montSqr3(x, x, m, n, inv, x); double t1 = now(); printf("  квадрат3 C %6.1f нс", (t1 - t0) / N * 1e9); }
+/**
+ * Меряем скорость квадрата блоками на ассемблере
+ */
 #if defined(__ANTS_PROBE_SQUARE8X__)
-		if((n % 8) == 0){ uint64_t x[64]; memcpy(x, a, n * 8); const int N = (n <= 16 ? 200000 : 60000); double t0 = now(); for(int i = 0; i < N; i++) mont_square8x(x, x, m, n, inv, x); double t1 = now(); printf("  квадрат блоками 8 asm (библиотека) %6.1f нс", (t1 - t0) / N * 1e9); }
+		// Проверяем условие ветвления
+		if((n % 8) == 0){ uint64_t x[64]; ::memcpy(x, a, n * 8); const int N = (n <= 16 ? 200000 : 60000); double t0 = now(); for(int i = 0; i < N; i++) montSquare8x(x, x, m, n, inv, x); double t1 = now(); printf("  квадрат блоками 8 asm (библиотека) %6.1f нс", (t1 - t0) / N * 1e9); }
 #endif
+/**
+ * Меряем скорость эталона на OpenSSL
+ */
 #if defined(WITH_OPENSSL)
+		// Выполняем вызов вспомогательной функции
 		opensslmont(n, m, a, b);
 #endif
+		// Выводим результат измерения
 		printf("\n");
 	}
+	// Замер завершён успешно
 	return 0;
 }

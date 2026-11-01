@@ -19,7 +19,6 @@
  * @brief Header file of the sets of the parameters of the elliptic curves of GOST R 34.10-2012
  *
  * \~
- *
  * @copyright Copyright © 2026
  *
  */
@@ -68,12 +67,11 @@ namespace nts {
 	namespace curve {
 		/**
 		 * \~russian
-		 * @brief Метод установки кривой по опознавателю набора параметров
+		 * @brief Функция установки кривой по опознавателю набора параметров
 		 *
 		 * @param oid    опознаватель набора параметров в записи через точку
 		 * @param result место, в которое помещается установленная кривая
-		 *
-		 * @return признак того, что набор параметров известен и кривая установлена
+		 * @return       признак того, что набор параметров известен и кривая установлена
 		 *
 		 * @details Известны наборы разделов 5.1 и 5.2 RFC 7836, наборы криптографии
 		 *          открытого ключа раздела 11.4 RFC 4357 и их опознаватели по RFC 9215:
@@ -91,14 +89,23 @@ namespace nts {
 		 *       выработку и проверку подписи не влияет
 		 *
 		 * \~english
-		 * @brief Method of setting a curve by the identifier of a set of the parameters
+		 * @brief Function of setting a curve by the identifier of a set of the parameters
+		 *
 		 * @param oid    the identifier of the set of the parameters in the notation through a dot
 		 * @param result the place the set curve is put into
-		 * @return the flag of the set of the parameters being known and the curve being set
+		 * @return       the flag of the set of the parameters being known and the curve being set
+		 *
 		 * @details The sets of the sections 5.1 and 5.2 of RFC 7836, the sets of the public key
 		 *          cryptography of the section 11.4 of RFC 4357 and their identifiers according to
 		 *          RFC 9215 are known: the three sets of RFC 4357 are repeatedly identified as
 		 *          paramSetB, paramSetC and paramSetD, which is stated there verbatim.
+		 *
+		 * @note Two test sets are also known: id-GostR3410-2001-TestParamSet and
+		 *       id-tc26-gost-3410-2012-512-paramSetTest. The section 5 of RFC 9215 directly
+		 *       forbids to apply them outside the tests, and the library itself does not consider them
+		 *       valid: the decision about the admission of a set remains with the consumer to whom
+		 *       the identifier is known
+		 *
 		 * @note The curves given in the twisted Edwards form are set in the Weierstrass form: it is
 		 *       given for them by the same sections, while the form of the curve does not influence
 		 *       the production and the check of a signature
@@ -108,25 +115,24 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ bool parameters(const string & oid, curve_t & result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод установки кривой по опознавателю-литералу набора параметров
+		 * @brief Функция установки кривой по опознавателю-литералу набора параметров
 		 *
 		 * Не строит временную строку: на libstdc++ строка длиннее 15 байтов (а с прежним
 		 * устройством строк - любая) выделяет память, и под noexcept это оборачивалось броском
 		 *
 		 * @param oid    опознаватель набора параметров в записи через точку
 		 * @param result место, в которое помещается установленная кривая
-		 *
 		 * @return       признак того, что набор параметров известен и кривая установлена
 		 *
 		 * \~english
-		 * @brief Method of setting a curve by a literal identifier of a set of the parameters
+		 * @brief Function of setting a curve by a literal identifier of a set of the parameters
 		 *
 		 * Does not build a temporary string: on libstdc++ a string longer than 15 bytes (and with the
 		 * former string layout - any string) allocates, and under noexcept that turned into a throw
 		 *
 		 * @param oid    the identifier of the set of the parameters in the notation through a dot
 		 * @param result the place the set curve is put into
-		 * @return the flag of the set of the parameters being known and the curve being set
+		 * @return       the flag of the set of the parameters being known and the curve being set
 		 *
 		 * \~
 		 */

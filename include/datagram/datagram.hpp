@@ -24,7 +24,6 @@
  *        anti-replay window
  *
  * \~
- *
  * @copyright Copyright © 2026
  *
  */
@@ -78,11 +77,13 @@ namespace nts {
 	 *
 	 * \~english
 	 * @brief Namespace of the record layer of the DTLS 1.3 protocol
+	 *
 	 * @details The section 4 of RFC 9147: a record over a datagram carries the epoch of the keys
 	 *          and the sequence number in the header itself, because the datagrams get lost, get
 	 *          doubled and arrive out of order. The plain records go by the DTLSPlaintext header,
 	 *          while the protected ones go by the unified DTLSCiphertext header with an encrypted
 	 *          number
+	 *
 	 * @note There is no input-output here: the module parses and composes bytes, while the transport
 	 *       of the datagrams over UDP or SCTP remains with the one who leads the connection
 	 *
@@ -97,6 +98,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Edition of the DTLS 1.3 protocol in the list of the editions of a greeting
+		 *
 		 * @details The section 5.3 of RFC 9147: DTLS 1.3 is announced by the value 0xFEFC
 		 *
 		 * \~
@@ -112,6 +114,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Edition of the protocol inherited by the headers from DTLS 1.2
+		 *
 		 * @details The section 5.3 of RFC 9147: the legacy_version of a greeting and the
 		 *          legacy_record_version of a plain record carry 0xFEFD
 		 *
@@ -128,6 +131,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Size of a datagram taken by default, in bytes
+		 *
 		 * @details The section 4.4 of RFC 9147: 1200 bytes pass along any IPv6 path without a
 		 *          fragmentation, and QUIC limits itself by the same size
 		 *
@@ -144,6 +148,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Least size of a datagram a connection is allowed to appoint, in bytes
+		 *
 		 * @note A smaller size does not hold even the header of a protected record with a fragment
 		 *       of a message of the handshake, and the handshake would not pass by it at all
 		 *
@@ -160,6 +165,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Size of the header of a plain record in bytes
+		 *
 		 * @details The section 4 of RFC 9147: the type of the content, the edition, the epoch by two
 		 *          bytes, the sequence number by six bytes and the length by two
 		 *
@@ -176,6 +182,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Size of the unified header of a protected record composed by a connection, in bytes
+		 *
 		 * @details The section 4 of RFC 9147: the byte of the bits 0b001CSLEE, the sequence number by
 		 *          two bytes and the length by two; a connection identifier is not composed
 		 *
@@ -192,6 +199,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Size of the framing of a fragment of a message of the handshake in bytes
+		 *
 		 * @details The section 5.2 of RFC 9147: the type, the length by three bytes, the sequence
 		 *          number of the message by two, the offset of the fragment by three and the length
 		 *          of the fragment by three
@@ -208,6 +216,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Width of the anti-replay window in records
+		 *
 		 * @details The section 4.5.1 of RFC 9147: a window of 64 records wide, as at RFC 4303
 		 *
 		 * \~
@@ -223,6 +232,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Limit of the records that failed the authentication on one key
+		 *
 		 * @details The section 4.5.3 of RFC 9147: at AES-GCM and ChaCha20-Poly1305 the connection
 		 *          must be closed after 2^36 forgeries; the limit is the same at both editions
 		 *
@@ -241,6 +251,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Limit of the number of non-adjacent spans of the coverage of one assembly of a message
+		 *
 		 * @details The fragments of an honest sender go contiguously and merge into one span; a forgery
 		 *          by one-byte fragments every other byte would give tens of thousands of spans and a
 		 *          quadratic merging at the plain zero epoch - a fragment beyond the limit is discarded
@@ -259,6 +270,7 @@ namespace nts {
 		 * \~english
 		 * @brief Length of the sample of the ciphertext the mask of the record number is derived from,
 		 *        in bytes
+		 *
 		 * @details The section 4.2.3 of RFC 9147: the mask is taken from the first sixteen bytes of the
 		 *          ciphertext, and a record shorter than that cannot be protected
 		 *
@@ -285,6 +297,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Greatest sequence number of a record within an epoch
+		 *
 		 * @details The section 4 of RFC 9147: the number occupies forty eight bits
 		 *
 		 * \~
@@ -299,6 +312,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Initial term of the waiting for a retransmission in milliseconds
+		 *
 		 * @details The section 5.8.2 of RFC 9147: a second doubled by every attempt
 		 *
 		 * \~
@@ -313,6 +327,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Limit of the term of the waiting for a retransmission in milliseconds
+		 *
 		 * @details The section 5.8.2 of RFC 9147: sixty seconds
 		 *
 		 * \~
@@ -342,6 +357,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Greatest length of a received datagram in bytes
+		 *
 		 * @details The section 4.5.2 of RFC 9147: a protected record is not longer than 2^14 + 256 bytes,
 		 *          and a datagram holds such a record together with its header; a longer one means a
 		 *          foreign transport and is discarded. The size of the own datagrams is not bound to this
@@ -360,6 +376,7 @@ namespace nts {
 		 * \~english
 		 * @brief Greatest length of the address of the interlocutor bound to the label of the return of
 		 *        the state, in bytes
+		 *
 		 * @note The address is opaque and compared byte by byte; a longer one is rejected by the setting
 		 *
 		 * \~
@@ -376,6 +393,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Number of the records allowed to a single transmission of a flight
+		 *
 		 * @details The section 5.8.3 of RFC 9147: no more than ten records should be sent in a single
 		 *          transmission. The connection does not dose a flight by this limit but sends it whole:
 		 *          it has no congestion control, and the limit merely names the norm of the standard
@@ -393,6 +411,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Number of the messages of the handshake received ahead of the expected one
+		 *
 		 * @details A flight is rarely longer, and more would mean an accumulation of foreign garbage: no
 		 *          more assemblies of the received messages than this number are kept
 		 *
@@ -410,6 +429,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Greatest length of an assembled message of the handshake in bytes
+		 *
 		 * @details The memory for an assembly is taken by a foreign word — by the length from the framing
 		 *          of a fragment; the sixteen megabytes of the limit of a message of the handshake are not
 		 *          assembled over datagrams, and a longer message is discarded
@@ -429,6 +449,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Greatest length of a greeting of the client assembled before the confirmation of the address in bytes
+		 *
 		 * @details Decision 13 of the transport: the server of the DTLS 1.2 edition assembles a fragmented
 		 *          greeting of the client before the accepted label — foreign clients fragment the repeated
 		 *          greeting by default — but the memory for an assembly is taken by a foreign word, therefore
@@ -449,6 +470,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Greatest number of assemblies of greetings of clients held before the confirmation of the address
+		 *
 		 * @details Decision 13 of the transport: the assemblies of greetings before the accepted label are bound to
 		 *          the addresses of the peers and are held not more than this number — at reaching it the eldest
 		 *          one is dropped (GREETING): the memory is bounded by a constant, and an honest client repeats
@@ -468,6 +490,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Number of the records of the next epoch deferred until the arrival of its keys
+		 *
 		 * @details The section 4.2.1 of RFC 9147: the greeting of the server gets lost while its protected
 		 *          output arrives — and waits for the repetition of the greeting; beyond this number the
 		 *          records are discarded
@@ -485,24 +508,38 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Reasons of the silent discarding of records and datagrams
+		 *
 		 * @details The section 4.5.2 of RFC 9147: the unfit is discarded without alerts, and only the
 		 *          counters by reasons let the one who leads the connection know about it
 		 *
 		 * \~
 		 */
 		enum class reason_t : uint8_t {
+			// Дейтаграмма пуста либо длиннее принимаемой, запись усечена, пуста либо длиннее дозволенного
 			LENGTH     = 0x00, /*!< \~russian Дейтаграмма пуста либо длиннее принимаемой, запись усечена, пуста либо длиннее дозволенного \~english The datagram is empty or longer than accepted, the record is truncated, empty or longer than allowed \~ */
+			// Вид содержимого записи протоколом не определён
 			TYPE       = 0x01, /*!< \~russian Вид содержимого записи протоколом не определён \~english The type of the content of the record is not defined by the protocol \~ */
+			// Пора ключей записи связью не держится либо отложить запись некуда
 			EPOCH      = 0x02, /*!< \~russian Пора ключей записи связью не держится либо отложить запись некуда \~english The epoch of the record is not kept by the connection or there is no room to defer the record \~ */
+			// Запись несёт опознаватель связи
 			IDENTIFIER = 0x03, /*!< \~russian Запись несёт опознаватель связи \~english The record carries a connection identifier \~ */
+			// Запись повторная либо позади окна повторов
 			REPLAY     = 0x04, /*!< \~russian Запись повторная либо позади окна повторов \~english The record is repeated or behind the anti-replay window \~ */
+			// Защита с записи не снимается: запись порчена либо чужая
 			DAMAGE     = 0x05, /*!< \~russian Защита с записи не снимается: запись порчена либо чужая \~english The protection is not removed from the record: it is damaged or foreign \~ */
+			// Открытая запись пришла, когда ей уже не место: извещение либо кусок за появлением ключей чтения, подтверждение с номерами
 			PLAIN      = 0x06, /*!< \~russian Открытая запись пришла, когда ей уже не место: извещение либо кусок за появлением ключей чтения, подтверждение с номерами \~english A plain record came when there is no place for it: an alert or a fragment after the read keys appeared, an acknowledgement with numbers \~ */
+			// Кусок сообщения слишком далеко впереди ожидаемого
 			AHEAD      = 0x07, /*!< \~russian Кусок сообщения слишком далеко впереди ожидаемого \~english The fragment of a message is too far ahead of the expected one \~ */
+			// Обвязка куска открытой записи негодна либо кусок расходится со сборкой
 			FRAMING    = 0x08, /*!< \~russian Обвязка куска открытой записи негодна либо кусок расходится со сборкой \~english The framing of a fragment of a plain record is unfit or the fragment diverges from the assembly \~ */
+			// Прикладные данные пришли до установления связи
 			PREMATURE  = 0x09, /*!< \~russian Прикладные данные пришли до установления связи \~english The application data came before the establishment of the connection \~ */
+			// Повторное приветствие клиента без метки возврата состояния либо с чужою
 			COOKIE     = 0x0A, /*!< \~russian Повторное приветствие клиента без метки возврата состояния либо с чужою \~english A repeated greeting of the client without a label of the return of the state or with a foreign one \~ */
+			// Заголовок записи DTLS 1.2 несёт чужое издание протокола: не 0xFEFD, а 0xFEFF - не у открытой записи рукопожатия (раздел 4.1 RFC 6347)
 			VERSION    = 0x0B, /*!< \~russian Заголовок записи DTLS 1.2 несёт чужое издание протокола: не 0xFEFD, а 0xFEFF - не у открытой записи рукопожатия (раздел 4.1 RFC 6347) \~english The header of a DTLS 1.2 record carries a foreign edition of the protocol: not 0xFEFD, and 0xFEFF - not at a plain handshake record (the section 4.1 of RFC 6347) \~ */
+			// Приветствие клиента до подтверждения адреса негодно: порчено, кусок чужого сообщения, дроблёно у строгого сервера либо шире пределов сборки приветствия - сервер без состояния отбрасывает его молча (разделы 4.1.2.7 и 4.2.1 RFC 6347, решение 13 переноса)
 			GREETING   = 0x0C  /*!< \~russian Приветствие клиента до подтверждения адреса негодно: порчено, кусок чужого сообщения, дроблёно у строгого сервера либо шире пределов сборки приветствия - сервер без состояния отбрасывает его молча (разделы 4.1.2.7 и 4.2.1 RFC 6347, решение 13 переноса) \~english The greeting of the client before the confirmation of the address is unfit: damaged, a fragment of a foreign message, fragmented at a strict server or beyond the limits of the assembly of a greeting - the stateless server discards it silently (the sections 4.1.2.7 and 4.2.1 of RFC 6347, decision 13 of the transport) \~ */
 		};
 
@@ -527,13 +564,21 @@ namespace nts {
 		 * \~
 		 */
 		enum class error_t : uint8_t {
+			// Отказа нет
 			NONE       = 0x00, /*!< \~russian Отказа нет \~english There is no failure \~ */
+			// Байтов для целого заголовка либо записи не хватает
 			HUNGRY     = 0x01, /*!< \~russian Байтов для целого заголовка либо записи не хватает \~english There are not enough bytes for a whole header or record \~ */
+			// Вид содержимого записи протоколом не определён
 			TYPE       = 0x02, /*!< \~russian Вид содержимого записи протоколом не определён \~english The type of the content of the record is not defined by the protocol \~ */
+			// Открытая запись несёт ненулевую пору ключей
 			EPOCH      = 0x03, /*!< \~russian Открытая запись несёт ненулевую пору ключей \~english The plain record carries a non-zero epoch \~ */
+			// Длина поля вышла за дозволенный предел
 			LENGTH     = 0x04, /*!< \~russian Длина поля вышла за дозволенный предел \~english The length of a field has gone beyond the allowed limit \~ */
+			// Запись несёт опознаватель связи, связью не поддержанный
 			IDENTIFIER = 0x05, /*!< \~russian Запись несёт опознаватель связи, связью не поддержанный \~english The record carries a connection identifier not supported by the connection \~ */
+			// Памяти под итог не хватило
 			MEMORY     = 0x06, /*!< \~russian Памяти под итог не хватило \~english There was not enough memory for the outcome \~ */
+			// Заголовок записи издания DTLS 1.2 несёт чужое издание протокола: не 0xFEFD, а 0xFEFF - не у открытой записи рукопожатия (раздел 4.1 RFC 6347)
 			VERSION    = 0x07  /*!< \~russian Заголовок записи издания DTLS 1.2 несёт чужое издание протокола: не 0xFEFD, а 0xFEFF - не у открытой записи рукопожатия (раздел 4.1 RFC 6347) \~english The header of a DTLS 1.2 record carries a foreign edition of the protocol: not 0xFEFD, and 0xFEFF - not at a plain handshake record (the section 4.1 of RFC 6347) \~ */
 		};
 
@@ -548,6 +593,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Header of a record over a datagram
+		 *
 		 * @details At a plain record the fields are filled wholly; at a protected one the sequence
 		 *          number carries only its junior bits, and the epoch — two junior bits: the full
 		 *          values are restored by the connection by its state
@@ -579,13 +625,12 @@ namespace nts {
 			 * \~russian
 			 * @brief Конструктор
 			 *
-			 *
 			 * \~english
 			 * @brief Constructor
 			 *
 			 * \~
 			 */
-			Header() noexcept : unified(false), identifier(false), sized(true), bits(16), type(record::type_t::NONE), epoch(0), sequence(0), size(0), length(0), version(0) {}
+			Header() noexcept;
 		} header_t;
 
 		/**
@@ -598,6 +643,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Framing of a fragment of a message of the handshake
+		 *
 		 * @details The section 5.2 of RFC 9147: a message of the handshake is split into fragments by
 		 *          the size of a datagram, and every fragment carries the number of the message, its
 		 *          offset and length
@@ -619,13 +665,12 @@ namespace nts {
 			 * \~russian
 			 * @brief Конструктор
 			 *
-			 *
 			 * \~english
 			 * @brief Constructor
 			 *
 			 * \~
 			 */
-			Fragment() noexcept : type(handshake::type_t::NONE), sequence(0), size(0), offset(0), length(0) {}
+			Fragment() noexcept;
 		} fragment_t;
 
 		/**
@@ -637,6 +682,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Number of a record: the epoch and the sequence number
+		 *
 		 * @details The section 7 of RFC 9147: the acknowledgement message lists the received records
 		 *          exactly by such pairs of eight bytes per field
 		 *
@@ -651,13 +697,12 @@ namespace nts {
 			 * \~russian
 			 * @brief Конструктор
 			 *
-			 *
 			 * \~english
 			 * @brief Constructor
 			 *
 			 * \~
 			 */
-			Number() noexcept : epoch(0), sequence(0) {}
+			Number() noexcept;
 			/**
 			 * \~russian
 			 * @brief Конструктор
@@ -667,21 +712,21 @@ namespace nts {
 			 *
 			 * \~english
 			 * @brief Constructor
+			 *
 			 * @param epoch    the epoch of the record
 			 * @param sequence the sequence number of the record
 			 *
 			 * \~
 			 */
-			Number(const uint64_t epoch, const uint64_t sequence) noexcept : epoch(epoch), sequence(sequence) {}
+			Number(const uint64_t epoch, const uint64_t sequence) noexcept;
 		} number_t;
 
 		/**
 		 * \~russian
-		 * @brief Метод разбора заголовка записи поверх дейтаграммы
+		 * @brief Функция разбора заголовка записи поверх дейтаграммы
 		 *
 		 * @param data   разбираемая область байтов от начала записи до конца дейтаграммы
 		 * @param result заголовок, в который помещается итог разбора
-		 *
 		 * @return       отказ разбора заголовка записи
 		 *
 		 * @details Первый байт решает вид заголовка: три старших разряда 001 означают
@@ -691,10 +736,12 @@ namespace nts {
 		 *          опознавателя связи не согласована
 		 *
 		 * \~english
-		 * @brief Method of the parsing of the header of a record over a datagram
+		 * @brief Function of the parsing of the header of a record over a datagram
+		 *
 		 * @param data   the byte area being parsed from the beginning of the record to the end of the datagram
 		 * @param result the header the outcome of the parsing is put into
 		 * @return       the failure of the parsing of the header of the record
+		 *
 		 * @details The first byte decides the kind of the header: the three senior bits 001 mean the
 		 *          unified header of a protected record, anything else — a plain record. At a unified
 		 *          header without the length field the whole rest of the datagram is taken as the
@@ -706,23 +753,24 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ error_t parse(const view_t & data, header_t & result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод записи заголовка записи поверх дейтаграммы
+		 * @brief Функция записи заголовка записи поверх дейтаграммы
 		 *
 		 * @param header записываемый заголовок записи
 		 * @param result место, в которое помещается заголовок записи
 		 * @param length место, в которое помещается длина записанного заголовка
-		 *
 		 * @return       отказ записи заголовка записи
 		 *
 		 * @note Место итога обязано вмещать DATAGRAM_PLAIN_HEADER байтов; объединённый
 		 *       заголовок составляется всегда с шестнадцатиразрядным номером и полем длины
 		 *
 		 * \~english
-		 * @brief Method of the writing of the header of a record over a datagram
+		 * @brief Function of the writing of the header of a record over a datagram
+		 *
 		 * @param header the header of the record being written
 		 * @param result the place the header of the record is put into
 		 * @param length the place the length of the written header is put into
 		 * @return       the failure of the writing of the header of the record
+		 *
 		 * @note The place of the outcome is obliged to hold DATAGRAM_PLAIN_HEADER bytes; a unified header
 		 *       is always composed with a sixteen-bit number and the length field
 		 *
@@ -731,12 +779,11 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ error_t build(const header_t & header, uint8_t * result, size_t & length) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод разбора заголовка записи поверх дейтаграммы по изданию переноса
+		 * @brief Функция разбора заголовка записи поверх дейтаграммы по изданию переноса
 		 *
 		 * @param data   разбираемая область байтов от начала записи до конца дейтаграммы
 		 * @param result заголовок, в который помещается итог разбора
 		 * @param legacy ведётся ли перенос изданием DTLS 1.2
-		 *
 		 * @return       отказ разбора заголовка записи
 		 *
 		 * @details Раздел 4.1 RFC 6347: у издания DTLS 1.2 всякая запись, и защищённая тоже,
@@ -748,11 +795,13 @@ namespace nts {
 		 *          разбор идёт заголовком DTLS 1.3
 		 *
 		 * \~english
-		 * @brief Method of the parsing of the header of a record over a datagram by the edition of the transport
+		 * @brief Function of the parsing of the header of a record over a datagram by the edition of the transport
+		 *
 		 * @param data   the byte area being parsed from the beginning of the record to the end of the datagram
 		 * @param result the header the outcome of the parsing is put into
 		 * @param legacy whether the transport is conducted by the DTLS 1.2 edition
 		 * @return       the failure of the parsing of the header of the record
+		 *
 		 * @details The section 4.1 of RFC 6347: at the DTLS 1.2 edition every record, a protected one too,
 		 *          goes with a plain header carrying the type, the edition, the epoch, the 48-bit number and
 		 *          the length; a protected one is told by a non-zero epoch. 0xFEFD is recognized as the
@@ -766,25 +815,26 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ error_t parse(const view_t & data, header_t & result, const bool legacy) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод разбора заголовка записи с учётом издания DTLS 1.0
+		 * @brief Функция разбора заголовка записи с учётом издания DTLS 1.0
 		 *
 		 * @param data    разбираемая область байтов
 		 * @param result  заголовок, в который помещается итог разбора
 		 * @param legacy  ведётся ли перенос открытым заголовком (DTLS 1.2 либо 1.0)
 		 * @param ancient ведётся ли перенос изданием DTLS 1.0: издание 0xFEFF у всякой записи
-		 *
 		 * @return        отказ разбора заголовка
 		 *
 		 * @details RFC 4347: записи издания DTLS 1.0 несут 0xFEFF в заголовке; без признака
 		 *          0xFEFF признаётся лишь у открытой записи приветствия (раздел 4.1 RFC 6347)
 		 *
 		 * \~english
-		 * @brief Method of the parsing of the header of a record with regard to the DTLS 1.0 edition
+		 * @brief Function of the parsing of the header of a record with regard to the DTLS 1.0 edition
+		 *
 		 * @param data    the area of bytes being parsed
 		 * @param result  the header the result of the parsing is put into
 		 * @param legacy  whether the transport goes by a plain header (DTLS 1.2 or 1.0)
 		 * @param ancient whether the transport goes by the DTLS 1.0 edition: 0xFEFF at every record
 		 * @return        the failure of the parsing of the header
+		 *
 		 * @details RFC 4347: the records of the DTLS 1.0 edition carry 0xFEFF in the header; without
 		 *          the flag 0xFEFF is recognized only at a plain record of a greeting (the section 4.1 of RFC 6347)
 		 *
@@ -793,13 +843,12 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ error_t parse(const view_t & data, header_t & result, const bool legacy, const bool ancient) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод записи заголовка записи поверх дейтаграммы по изданию переноса
+		 * @brief Функция записи заголовка записи поверх дейтаграммы по изданию переноса
 		 *
 		 * @param header записываемый заголовок записи
 		 * @param result место, в которое помещается заголовок записи
 		 * @param length место, в которое помещается длина записанного заголовка
 		 * @param legacy ведётся ли перенос изданием DTLS 1.2
-		 *
 		 * @return       отказ записи заголовка записи
 		 *
 		 * @details Раздел 4.1 RFC 6347: заголовок издания DTLS 1.2 всегда открытый и всегда с
@@ -810,17 +859,20 @@ namespace nts {
 		 * @note Место итога обязано вмещать DATAGRAM_PLAIN_HEADER байтов
 		 *
 		 * \~english
-		 * @brief Method of the writing of the header of a record over a datagram by the edition of the transport
+		 * @brief Function of the writing of the header of a record over a datagram by the edition of the transport
+		 *
 		 * @param header the header of the record being written
 		 * @param result the place the header of the record is put into
 		 * @param length the place the length of the written header is put into
 		 * @param legacy whether the transport is conducted by the DTLS 1.2 edition
 		 * @return       the failure of the writing of the header of the record
+		 *
 		 * @details The section 4.1 of RFC 6347: the header of the DTLS 1.2 edition is always plain and always
 		 *          with the 0xFEFD edition; the epoch is taken from the header as is, and the limit of the
 		 *          length of the content depends on it - 2^14 at the zero epoch, 2^14 + 2048 at a protected
 		 *          one (the section 6.2.3 of RFC 5246). Without the sign of the 1.2 edition the record goes
 		 *          by the DTLS 1.3 header
+		 *
 		 * @note The place of the outcome is obliged to hold DATAGRAM_PLAIN_HEADER bytes
 		 *
 		 * \~
@@ -828,18 +880,18 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ error_t build(const header_t & header, uint8_t * result, size_t & length, const bool legacy) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод записи заголовка записи с учётом издания DTLS 1.0
+		 * @brief Функция записи заголовка записи с учётом издания DTLS 1.0
 		 *
 		 * @param header  записываемый заголовок
 		 * @param result  место, в которое помещается запись заголовка
 		 * @param length  место, в которое помещается длина записи заголовка
 		 * @param legacy  ведётся ли перенос открытым заголовком
 		 * @param ancient ведётся ли перенос изданием DTLS 1.0: в заголовок кладётся 0xFEFF
-		 *
 		 * @return        отказ записи заголовка
 		 *
 		 * \~english
-		 * @brief Method of the writing of the header of a record with regard to the DTLS 1.0 edition
+		 * @brief Function of the writing of the header of a record with regard to the DTLS 1.0 edition
+		 *
 		 * @param header  the header being written
 		 * @param result  the place the record of the header is put into
 		 * @param length  the place the length of the record of the header is put into
@@ -852,21 +904,22 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ error_t build(const header_t & header, uint8_t * result, size_t & length, const bool legacy, const bool ancient) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод разбора обвязки куска сообщения рукопожатия
+		 * @brief Функция разбора обвязки куска сообщения рукопожатия
 		 *
 		 * @param data   разбираемая область байтов
 		 * @param result обвязка, в которую помещается итог разбора
-		 *
 		 * @return       отказ разбора обвязки куска
 		 *
 		 * @details Кусок обязан лежать в пределах сообщения: смещение вместе с длиной не
 		 *          превосходят длины сообщения, а сама длина сообщения - предела протокола
 		 *
 		 * \~english
-		 * @brief Method of the parsing of the framing of a fragment of a message of the handshake
+		 * @brief Function of the parsing of the framing of a fragment of a message of the handshake
+		 *
 		 * @param data   the byte area being parsed
 		 * @param result the framing the outcome of the parsing is put into
 		 * @return       the failure of the parsing of the framing of the fragment
+		 *
 		 * @details The fragment is obliged to lie within the message: the offset together with the length
 		 *          do not exceed the length of the message, and the length of the message itself — the
 		 *          limit of the protocol
@@ -876,20 +929,21 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ error_t parse(const view_t & data, fragment_t & result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод записи обвязки куска сообщения рукопожатия
+		 * @brief Функция записи обвязки куска сообщения рукопожатия
 		 *
 		 * @param fragment записываемая обвязка куска
 		 * @param result   место, в которое помещается обвязка куска
-		 *
 		 * @return         отказ записи обвязки куска
 		 *
 		 * @note Место итога обязано вмещать DATAGRAM_FRAGMENT_HEADER байтов
 		 *
 		 * \~english
-		 * @brief Method of the writing of the framing of a fragment of a message of the handshake
+		 * @brief Function of the writing of the framing of a fragment of a message of the handshake
+		 *
 		 * @param fragment the framing of the fragment being written
 		 * @param result   the place the framing of the fragment is put into
 		 * @return         the failure of the writing of the framing of the fragment
+		 *
 		 * @note The place of the outcome is obliged to hold DATAGRAM_FRAGMENT_HEADER bytes
 		 *
 		 * \~
@@ -897,21 +951,22 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ error_t build(const fragment_t & fragment, uint8_t * result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод разбора тела сообщения подтверждения
+		 * @brief Функция разбора тела сообщения подтверждения
 		 *
 		 * @param data   разбираемое тело сообщения подтверждения
 		 * @param result перечень, в который помещаются подтверждённые номера записей
-		 *
 		 * @return       отказ разбора сообщения подтверждения
 		 *
 		 * @details Раздел 7 RFC 9147: перечень номеров записей с двухбайтовой длиной
 		 *          впереди; пустой перечень законен и означает, что ничего не принято
 		 *
 		 * \~english
-		 * @brief Method of the parsing of the body of an acknowledgement message
+		 * @brief Function of the parsing of the body of an acknowledgement message
+		 *
 		 * @param data   the body of the acknowledgement message being parsed
 		 * @param result the list the acknowledged numbers of the records are put into
 		 * @return       the failure of the parsing of the acknowledgement message
+		 *
 		 * @details The section 7 of RFC 9147: a list of the numbers of the records with a two-byte length
 		 *          ahead; an empty list is lawful and means that nothing has been received
 		 *
@@ -920,15 +975,15 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ error_t parse(const view_t & data, vector <number_t> & result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод составления тела сообщения подтверждения
+		 * @brief Функция составления тела сообщения подтверждения
 		 *
 		 * @param numbers подтверждаемые номера записей
 		 * @param result  накопитель, в который складывается тело сообщения
-		 *
 		 * @return        отказ составления сообщения подтверждения
 		 *
 		 * \~english
-		 * @brief Method of the composition of the body of an acknowledgement message
+		 * @brief Function of the composition of the body of an acknowledgement message
+		 *
 		 * @param numbers the numbers of the records being acknowledged
 		 * @param result  the accumulator the body of the message is put into
 		 * @return        the failure of the composition of the acknowledgement message
@@ -938,13 +993,12 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ error_t build(const vector <number_t> & numbers, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод выработки маски номера записи
+		 * @brief Функция выработки маски номера записи
 		 *
 		 * @param suite  набор шифрования связи
 		 * @param key    ключ шифрования номера записи, выведенный меткой «sn»
 		 * @param sample образец шифртекста длиной DATAGRAM_SAMPLE байтов
 		 * @param result место, в которое помещаются DATAGRAM_MASK байтов маски
-		 *
 		 * @return       признак успешности выработки маски
 		 *
 		 * @details Раздел 4.2.3 RFC 9147: у наборов AES маска - первые байты блока AES-ECB
@@ -953,12 +1007,14 @@ namespace nts {
 		 *          остальных двенадцати. Наборы ГОСТ маски не имеют: DTLS 1.3 их не знает
 		 *
 		 * \~english
-		 * @brief Method of the derivation of the mask of a record number
+		 * @brief Function of the derivation of the mask of a record number
+		 *
 		 * @param suite  the cipher suite of the connection
 		 * @param key    the key of the record number encryption derived by the «sn» label
 		 * @param sample the sample of the ciphertext of DATAGRAM_SAMPLE bytes long
 		 * @param result the place the DATAGRAM_MASK bytes of the mask are put into
 		 * @return       the flag of the success of the derivation of the mask
+		 *
 		 * @details The section 4.2.3 of RFC 9147: at the AES suites the mask is the first bytes of the
 		 *          AES-ECB block of the sample; at ChaCha20-Poly1305 — the first bytes of the ChaCha20
 		 *          gamma with the counter from the first four bytes of the sample and the nonce from the
@@ -969,23 +1025,24 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ bool mask(const protect::suite_t suite, const view_t & key, const uint8_t * sample, uint8_t * result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод восстановления полного порядкового номера записи по младшим разрядам
+		 * @brief Функция восстановления полного порядкового номера записи по младшим разрядам
 		 *
 		 * @param expected ожидаемый порядковый номер: следующий за наибольшим принятым
 		 * @param junior   младшие разряды номера, принесённые заголовком
 		 * @param bits     число принесённых разрядов: восемь либо шестнадцать
-		 *
 		 * @return         полный порядковый номер, ближайший к ожидаемому
 		 *
 		 * @details Раздел 4.2.2 RFC 9147: из всех номеров с такими младшими разрядами
 		 *          берётся ближайший к ожидаемому, и лишь на нём пробуется снятие защиты
 		 *
 		 * \~english
-		 * @brief Method of the restoration of the full sequence number of a record by the junior bits
+		 * @brief Function of the restoration of the full sequence number of a record by the junior bits
+		 *
 		 * @param expected the expected sequence number: the one following the greatest received
 		 * @param junior   the junior bits of the number brought by the header
 		 * @param bits     the number of the brought bits: eight or sixteen
 		 * @return         the full sequence number closest to the expected one
+		 *
 		 * @details The section 4.2.2 of RFC 9147: of all the numbers with such junior bits the one closest
 		 *          to the expected is taken, and the removal of the protection is tried only at it
 		 *
@@ -1003,6 +1060,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Anti-replay window of the records of a single epoch
+		 *
 		 * @details The section 4.5.1 of RFC 9147: the window keeps the greatest received number and the
 		 *          bits of the received records over DATAGRAM_WINDOW numbers behind it. A record behind
 		 *          the window or one already marked is discarded before the removal of the protection,
@@ -1028,6 +1086,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the expected sequence number of a record
+				 *
 				 * @return the number following the greatest received, a zero before the first record
 				 *
 				 * \~
@@ -1038,11 +1097,11 @@ namespace nts {
 				 * @brief Метод проверки того, что запись повторная либо позади окна
 				 *
 				 * @param sequence порядковый номер проверяемой записи
-				 *
 				 * @return         признак того, что запись отбрасывается
 				 *
 				 * \~english
 				 * @brief Method of checking that a record is a repeated one or behind the window
+				 *
 				 * @param sequence the sequence number of the record being checked
 				 * @return         the flag of the record being discarded
 				 *
@@ -1057,6 +1116,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the marking of a received record
+				 *
 				 * @param sequence the sequence number of the received record
 				 *
 				 * \~
@@ -1076,7 +1136,6 @@ namespace nts {
 				/**
 				 * \~russian
 				 * @brief Конструктор
-				 *
 				 *
 				 * \~english
 				 * @brief Constructor

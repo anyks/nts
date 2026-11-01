@@ -37,80 +37,101 @@
 using namespace nts;
 
 /**
- * @brief Метод записи байтов шестнадцатеричной строкой
+ * @brief Функция записи байтов шестнадцатеричной строкой
  *
  * @param data байты
  * @param size число байтов
- *
  * @return     запись строчными знаками
  *
  */
 static std::string text(const uint8_t * data, const size_t size) {
+	// Объявляем строку итога
 	std::string result;
+	// Таблица шестнадцатеричных знаков
 	static const char * DIGITS = "0123456789abcdef";
+	/** Перебираем: все байты буфера по порядку */
 	for(size_t i = 0; i < size; i++){
+		// Записываем старший полубайт
 		result.push_back(DIGITS[data[i] >> 4]);
 		result.push_back(DIGITS[data[i] & 0x0F]);
 	}
+	// Возвращаем запись шестнадцатеричной строкой
 	return result;
 }
 /**
- * @brief Метод хеширования за один вызов
+ * @brief Функция хеширования за один вызов
  *
  * @param type    разновидность
  * @param key     ключ
  * @param message сообщение
  * @param size    длина итога
- *
  * @return        запись итога либо пустая при отказе
  *
  */
 static std::string whole(const digest::blake_t type, const std::string & key, const std::string & message, const size_t size) {
+	// Объявляем буфер итога
 	std::vector <uint8_t> result(size, 0);
+	// Выполняем хеширование за один вызов
 	if(!digest::blake2(type, view_t(reinterpret_cast <const uint8_t *> (key.data()), key.size()), view_t(reinterpret_cast <const uint8_t *> (message.data()), message.size()), result.data(), size))
+		// Возвращаем пустую запись при отказе
 		return std::string();
+	// Возвращаем запись итога
 	return text(result.data(), size);
 }
 /**
- * @brief Метод хеширования кусками
+ * @brief Функция хеширования кусками
  *
  * @param type    разновидность
  * @param key     ключ
  * @param message сообщение
  * @param chunk   длина куска
  * @param size    длина итога
- *
  * @return        запись итога либо пустая при отказе
  *
  */
 static std::string pieces(const digest::blake_t type, const std::string & key, const std::string & message, const size_t chunk, const size_t size) {
+	// Объявляем объект хеширования
 	digest::blake2_t hasher;
+	// Заводим хеширование с заданным ключом
 	if(!hasher.start(type, size, view_t(reinterpret_cast <const uint8_t *> (key.data()), key.size())))
+		// Возвращаем пустую запись при отказе
 		return std::string();
+	/** Перебираем: сообщение кусками заданной длины */
 	for(size_t offset = 0; offset < message.size(); offset += chunk){
+		// Вычисляем длину очередного куска
 		const size_t length = (((message.size() - offset) < chunk) ? (message.size() - offset) : chunk);
+		// Передаём кусок в хеширование
 		if(!hasher.update(view_t(reinterpret_cast <const uint8_t *> (message.data()) + offset, length)))
+			// Возвращаем пустую запись при отказе
 			return std::string();
 	}
+	// Объявляем буфер итога
 	std::vector <uint8_t> result(size, 0);
+	// Завершаем хеширование
 	if(!hasher.finish(result.data(), size))
+		// Возвращаем пустую запись при отказе
 		return std::string();
+	// Возвращаем запись итога
 	return text(result.data(), size);
 }
 /**
- * @brief Метод разбора шестнадцатеричной строки
+ * @brief Функция разбора шестнадцатеричной строки
  *
  * @param hex строка
- *
  * @return    байты строкой
  *
  */
 static std::string bytes(const char * hex) {
+	// Объявляем строку байтов
 	std::string result;
+	/** Перебираем: пары знаков строки с шагом два */
 	for(size_t i = 0; hex[i] && hex[i + 1]; i += 2){
+		// Разбираем шестнадцатеричный знак в полубайт
 		auto nib = [](char c) -> int { return ((c >= '0' && c <= '9') ? (c - '0') : ((c >= 'a' && c <= 'f') ? (c - 'a' + 10) : (c - 'A' + 10))); };
+		// Складываем байт из двух полубайтов
 		result.push_back(static_cast <char> ((nib(hex[i]) << 4) | nib(hex[i + 1])));
 	}
+	// Возвращаем строку байтов
 	return result;
 }
 
@@ -131,6 +152,7 @@ TEST(Blake2Test, Vectors){
  * Ключевой режим: сверено с openssl mac BLAKE2BMAC/BLAKE2SMAC
  */
 TEST(Blake2Test, Keyed){
+	// Проверяем ключевой BLAKE2b, сверенный с openssl
 	ASSERT_EQ(whole(digest::blake_t::BLAKE2B, bytes("000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"), "abc", 32), "d63a32d3e44738d7907f964316c241adaba0abfeabc32349677578a15a203f7f");
 	ASSERT_EQ(whole(digest::blake_t::BLAKE2S, bytes("000102030405060708090a0b0c0d0e0f"), "abc", 16), "75296c2d2c0f51210b383f386bc8b1ff");
 }
@@ -141,55 +163,88 @@ TEST(Blake2Test, Keyed){
  */
 TEST(Blake2Test, Selftest){
 	// Порождение последовательности из приложения E
-	auto selftest_seq = [](std::vector <uint8_t> & out, const size_t len, const uint32_t seed) {
+	auto selftestSeq = [](std::vector <uint8_t> & out, const size_t len, const uint32_t seed) {
+		// Инициализируем регистры последовательности
 		uint32_t a = 0xDEAD4BAD * seed, b = 1;
+		// Выделяем буфер заданной длины
 		out.assign(len, 0);
+		/** Перебираем: байты последовательности по порядку */
 		for(size_t i = 0; i < len; i++){
+			// Вычисляем следующее значение суммы
 			const uint32_t t = a + b;
+			// Сдвигаем первый регистр
 			a = b;
+			// Записываем сумму во второй регистр
 			b = t;
+			// Записываем старший байт значения
 			out[i] = static_cast <uint8_t> (t >> 24);
 		}
 	};
-	const size_t b2b_md_len[4] = {20, 32, 48, 64}, b2b_in_len[6] = {0, 3, 128, 129, 255, 1024};
-	const size_t b2s_md_len[4] = {16, 20, 28, 32}, b2s_in_len[6] = {0, 3, 64, 65, 255, 1024};
+	// Таблицы длин итога и сообщения самопроверки BLAKE2b
+	const size_t b2bMdLen[4] = {20, 32, 48, 64}, b2b_in_len[6] = {0, 3, 128, 129, 255, 1024};
+	// Таблицы длин итога и сообщения самопроверки BLAKE2s
+	const size_t b2sMdLen[4] = {16, 20, 28, 32}, b2s_in_len[6] = {0, 3, 64, 65, 255, 1024};
 	// Свёртка самопроверки BLAKE2b ведётся самим BLAKE2b на 32 байта (E.2), BLAKE2s - BLAKE2s (E.3)
 	digest::blake2_t checksum;
+	// Заводим свёртку BLAKE2b на 32 байта
 	ASSERT_TRUE(checksum.start(digest::blake_t::BLAKE2B, 32, view_t()));
+	// Объявляем буферы сообщения, ключа и итога
 	std::vector <uint8_t> in, key, md;
+	// Объявляем буфер свёртки
 	uint8_t result[32];
+	/** Перебираем: четыре длины итога BLAKE2b */
 	for(size_t i = 0; i < 4; i++){
-		const size_t outlen = b2b_md_len[i];
+		// Берём длину итога
+		const size_t outlen = b2bMdLen[i];
+		/** Перебираем: шесть длин сообщения */
 		for(size_t j = 0; j < 6; j++){
+			// Берём длину сообщения
 			const size_t inlen = b2b_in_len[j];
-			selftest_seq(in, inlen, static_cast <uint32_t> (inlen));
+			// Порождаем последовательность сообщения
+			selftestSeq(in, inlen, static_cast <uint32_t> (inlen));
+			// Выделяем буфер итога
 			md.assign(outlen, 0);
+			// Проверяем бесключевой хеш
 			ASSERT_TRUE(digest::blake2(digest::blake_t::BLAKE2B, view_t(), view_t(in.data(), in.size()), md.data(), outlen));
 			ASSERT_TRUE(checksum.update(view_t(md.data(), md.size())));
-			selftest_seq(key, outlen, static_cast <uint32_t> (outlen));
+			// Порождаем последовательность ключа
+			selftestSeq(key, outlen, static_cast <uint32_t> (outlen));
+			// Проверяем ключевой хеш
 			ASSERT_TRUE(digest::blake2(digest::blake_t::BLAKE2B, view_t(key.data(), key.size()), view_t(in.data(), in.size()), md.data(), outlen));
 			ASSERT_TRUE(checksum.update(view_t(md.data(), md.size())));
 		}
 	}
 	// Свёртка самопроверки BLAKE2b: константа приложения E.2 RFC 7693, сошлась и с hashlib.blake2b
 	ASSERT_TRUE(checksum.finish(result, sizeof(result)));
+	// Сверяем константу приложения E.2
 	EXPECT_EQ(text(result, 32), "c23a7800d98123bd10f506c61e29da5603d763b8bbad2e737f5e765a7bccd475");
+	// Заводим свёртку BLAKE2s на 32 байта
 	ASSERT_TRUE(checksum.start(digest::blake_t::BLAKE2S, 32, view_t()));
+	/** Перебираем: четыре длины итога BLAKE2s */
 	for(size_t i = 0; i < 4; i++){
-		const size_t outlen = b2s_md_len[i];
+		// Берём длину итога
+		const size_t outlen = b2sMdLen[i];
+		/** Перебираем: шесть длин сообщения */
 		for(size_t j = 0; j < 6; j++){
+			// Берём длину сообщения
 			const size_t inlen = b2s_in_len[j];
-			selftest_seq(in, inlen, static_cast <uint32_t> (inlen));
+			// Порождаем последовательность сообщения
+			selftestSeq(in, inlen, static_cast <uint32_t> (inlen));
+			// Выделяем буфер итога
 			md.assign(outlen, 0);
+			// Проверяем бесключевой хеш
 			ASSERT_TRUE(digest::blake2(digest::blake_t::BLAKE2S, view_t(), view_t(in.data(), in.size()), md.data(), outlen));
 			ASSERT_TRUE(checksum.update(view_t(md.data(), md.size())));
-			selftest_seq(key, outlen, static_cast <uint32_t> (outlen));
+			// Порождаем последовательность ключа
+			selftestSeq(key, outlen, static_cast <uint32_t> (outlen));
+			// Проверяем ключевой хеш
 			ASSERT_TRUE(digest::blake2(digest::blake_t::BLAKE2S, view_t(key.data(), key.size()), view_t(in.data(), in.size()), md.data(), outlen));
 			ASSERT_TRUE(checksum.update(view_t(md.data(), md.size())));
 		}
 	}
 	// Свёртка самопроверки BLAKE2s: константа приложения E.3 RFC 7693, сошлась и с hashlib.blake2s
 	ASSERT_TRUE(checksum.finish(result, sizeof(result)));
+	// Сверяем константу приложения E.3
 	EXPECT_EQ(text(result, 32), "6a411f08ce25adcdfb02aba641451cec53c598b24f4fc787fbdc88797f4c1dfe");
 }
 
@@ -197,20 +252,35 @@ TEST(Blake2Test, Selftest){
  * Независимость от нарезки, включая длины вокруг блоков 64 и 128
  */
 TEST(Blake2Test, Chunks){
+	// Заводим генератор на фиксированном семени
 	std::mt19937 generator(20260907);
+	// Таблица длин кусков вокруг блоков
 	const size_t chunks[] = {1, 5, 63, 64, 65, 127, 128, 129, 300};
+	// Таблица проверяемых разновидностей
 	const digest::blake_t kinds[] = {digest::blake_t::BLAKE2B, digest::blake_t::BLAKE2S};
+	/** Перебираем: длины сообщения от нуля до 700 с шагом 41 */
 	for(size_t length = 0; length <= 700; length += 41){
+		// Создаём сообщение заданной длины
 		std::string message(length, 'x');
+		/** Перебираем: байты сообщения из генератора */
 		for(size_t i = 0; i < message.size(); i++)
+			// Заполняем сообщение случайными байтами
 			message[i] = static_cast <char> (generator() & 0xFF);
+		/** Перебираем: обе разновидности BLAKE2 */
 		for(size_t k = 0; k < 2; k++){
+			// Берём длину блока разновидности
 			const size_t size = ((kinds[k] == digest::blake_t::BLAKE2B) ? 64 : 32);
+			/** Перебираем: бесключевой и ключевой режимы */
 			for(size_t keyed = 0; keyed < 2; keyed++){
+				// Формируем ключ заданной длины либо пустой
 				const std::string key = (keyed ? std::string(size, 'k') : std::string());
+				// Вычисляем эталон хеширования за один вызов
 				const std::string reference = whole(kinds[k], key, message, size);
+				// Проверяем непустоту эталона
 				ASSERT_FALSE(reference.empty());
+				/** Перебираем: все длины кусков таблицы */
 				for(size_t c = 0; c < (sizeof(chunks) / sizeof(chunks[0])); c++)
+					// Сверяем нарезку кусками с эталоном
 					ASSERT_EQ(pieces(kinds[k], key, message, chunks[c], size), reference) << "длина " << length << " кусок " << chunks[c];
 			}
 		}
@@ -221,7 +291,9 @@ TEST(Blake2Test, Chunks){
  * Отказы
  */
 TEST(Blake2Test, Refusals){
+	// Объявляем буфер итога
 	uint8_t result[64];
+	// Объявляем объект хеширования
 	digest::blake2_t hasher;
 	// Не заведён
 	ASSERT_FALSE(hasher.update(view_t(result, 1)));
@@ -235,14 +307,19 @@ TEST(Blake2Test, Refusals){
 	ASSERT_FALSE(hasher.start(digest::blake_t::BLAKE2B, 32, view_t(nullptr, 5)));
 	// Годное заведение
 	ASSERT_TRUE(hasher.start(digest::blake_t::BLAKE2S, 20, view_t()));
+	// Проверяем разновидность после заведения
 	ASSERT_EQ(hasher.type(), digest::blake_t::BLAKE2S);
 	ASSERT_EQ(hasher.length(), 20u);
 	ASSERT_EQ(hasher.block(), 64u);
+	// Проверяем обновление пустым куском
 	ASSERT_TRUE(hasher.update(view_t()));
+	// Проверяем отказ на нулевом буфере
 	ASSERT_FALSE(hasher.update(view_t(nullptr, 3)));
 	ASSERT_FALSE(hasher.finish(result, 19));
 	ASSERT_FALSE(hasher.finish(nullptr, 20));
+	// Проверяем завершение с годной длиной
 	ASSERT_TRUE(hasher.finish(result, 20));
+	// Проверяем отказ на повторном завершении
 	ASSERT_FALSE(hasher.finish(result, 20));
 	ASSERT_FALSE(hasher.update(view_t(result, 1)));
 	// Один вызов с негодной длиной

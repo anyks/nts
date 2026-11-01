@@ -59,7 +59,7 @@ using namespace nts;
  */
 namespace {
 	/**
-	 * @brief Метод вывода области байтов шестнадцатеричной записью
+	 * @brief Функция вывода области байтов шестнадцатеричной записью
 	 *
 	 * @param title заголовок выводимой области байтов
 	 * @param data  выводимая область байтов
@@ -79,10 +79,9 @@ namespace {
 		cout << dec << endl;
 	}
 	/**
-	 * @brief Метод получения просмотра строки знаков
+	 * @brief Функция получения просмотра строки знаков
 	 *
 	 * @param text строка знаков, на которую заводится просмотр
-	 *
 	 * @return     просмотр области байтов строки знаков
 	 *
 	 */
@@ -91,10 +90,9 @@ namespace {
 		return view_t(reinterpret_cast <const uint8_t *> (text.data()), text.size());
 	}
 	/**
-	 * @brief Метод получения просмотра набора байтов
+	 * @brief Функция получения просмотра набора байтов
 	 *
 	 * @param data набор байтов, на который заводится просмотр
-	 *
 	 * @return     просмотр области байтов набора
 	 *
 	 */
@@ -103,10 +101,9 @@ namespace {
 		return view_t(data.data(), data.size());
 	}
 	/**
-	 * @brief Метод чтения файла набора целиком
+	 * @brief Функция чтения файла набора целиком
 	 *
 	 * @param name имя файла в наборе
-	 *
 	 * @return     содержимое файла, пустое при отказе чтения
 	 *
 	 */
@@ -114,7 +111,7 @@ namespace {
 		// Содержимое файла
 		string result;
 		/**
-		 * Выполняем чтение файла: поток и накопитель занимают память
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Поток чтения файла набора
@@ -124,7 +121,7 @@ namespace {
 				// Читаем файл целиком
 				result.assign(istreambuf_iterator <char> (file), istreambuf_iterator <char> ());
 		/**
-		 * Если памяти под файл не хватило
+		 * Выполняем перехват ошибок
 		 */
 		} catch(const bad_alloc &) {
 			// Файл не прочитан
@@ -134,12 +131,11 @@ namespace {
 		return result;
 	}
 	/**
-	 * @brief Метод разбора сертификата набора из записи PEM
+	 * @brief Функция разбора сертификата набора из записи PEM
 	 *
 	 * @param name  имя файла сертификата в наборе
 	 * @param der   место, в которое помещается запись сертификата в кодировке DER
 	 * @param result сертификат, в который помещается итог разбора
-	 *
 	 * @return      признак успешности разбора
 	 *
 	 */
@@ -162,7 +158,6 @@ namespace {
  *
  * @param argc длина массива параметров
  * @param argv массив параметров
- *
  * @return     код выхода из приложения
  *
  */
@@ -202,6 +197,7 @@ int main(int argc, char * argv[]) noexcept {
 	 *          messageDigest по разделу 11 RFC 5652: подпись ставится под записью
 	 *          атрибутов, содержимое вкладывается в запись, первым в наборе идёт
 	 *          сертификат подписывающего
+	 *
 	 */
 	if(cms::sign({::view(der)}, certificate.issuers().element, certificate.number(), ::text(content), signer, digest::hash_t::SHA256, record) != cms::error_t::NONE){
 		// Выводим сообщение об отказе сборки подписанного сообщения
@@ -237,6 +233,7 @@ int main(int argc, char * argv[]) noexcept {
 	 * @details Сперва сверяется хеш содержимого из атрибута messageDigest, затем
 	 *          проверяется подпись под записью атрибутов по разделу 5.4 RFC 5652;
 	 *          содержимое вложено в запись, оттого отдельный просмотр пуст
+	 *
 	 */
 	if(cms::verify(parsed, parsed.signers()[0], view_t(), certificate.key()) != cms::error_t::NONE){
 		// Выводим сообщение об отказе проверки подписи
@@ -258,6 +255,7 @@ int main(int argc, char * argv[]) noexcept {
 	 * @details Содержимое зашифровывается AES-256-CBC со случайным ключом, ключ
 	 *          передаётся получателю в KeyTransRecipientInfo по схеме RSA PKCS #1 v1.5
 	 *          (раздел 6.2.1 RFC 5652)
+	 *
 	 */
 	if(cms::envelop(::text(content), certificate.issuers().element, certificate.number(), certificate.key(), enveloped) != cms::error_t::NONE){
 		// Выводим сообщение об отказе сборки зашифрованного сообщения

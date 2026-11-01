@@ -59,7 +59,7 @@ using namespace nts;
  */
 namespace {
 	/**
-	 * @brief Метод вывода области байтов шестнадцатеричной записью
+	 * @brief Функция вывода области байтов шестнадцатеричной записью
 	 *
 	 * @param title заголовок выводимой области байтов
 	 * @param data  выводимая область байтов
@@ -79,10 +79,9 @@ namespace {
 		cout << dec << endl;
 	}
 	/**
-	 * @brief Метод получения просмотра строки знаков
+	 * @brief Функция получения просмотра строки знаков
 	 *
 	 * @param text строка знаков, на которую заводится просмотр
-	 *
 	 * @return     просмотр области байтов строки знаков
 	 *
 	 */
@@ -91,10 +90,9 @@ namespace {
 		return view_t(reinterpret_cast <const uint8_t *> (text.data()), text.size());
 	}
 	/**
-	 * @brief Метод получения просмотра набора байтов
+	 * @brief Функция получения просмотра набора байтов
 	 *
 	 * @param data набор байтов, на который заводится просмотр
-	 *
 	 * @return     просмотр области байтов набора
 	 *
 	 */
@@ -103,10 +101,9 @@ namespace {
 		return view_t(data.data(), data.size());
 	}
 	/**
-	 * @brief Метод чтения файла набора целиком
+	 * @brief Функция чтения файла набора целиком
 	 *
 	 * @param name имя файла в наборе
-	 *
 	 * @return     содержимое файла, пустое при отказе чтения
 	 *
 	 */
@@ -114,7 +111,7 @@ namespace {
 		// Содержимое файла
 		string result;
 		/**
-		 * Выполняем чтение файла: поток и накопитель занимают память
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Поток чтения файла набора
@@ -124,7 +121,7 @@ namespace {
 				// Читаем файл целиком
 				result.assign(istreambuf_iterator <char> (file), istreambuf_iterator <char> ());
 		/**
-		 * Если памяти под файл не хватило
+		 * Выполняем перехват ошибок
 		 */
 		} catch(const bad_alloc &) {
 			// Файл не прочитан
@@ -134,11 +131,10 @@ namespace {
 		return result;
 	}
 	/**
-	 * @brief Метод сборки записи GeneralName вида directoryName из общего имени
+	 * @brief Функция сборки записи GeneralName вида directoryName из общего имени
 	 *
 	 * @param common общее имя стороны
 	 * @param result место, в которое помещается запись GeneralName
-	 *
 	 * @return       признак успешности сборки
 	 *
 	 */
@@ -179,7 +175,6 @@ namespace {
  *
  * @param argc длина массива параметров
  * @param argv массив параметров
- *
  * @return     код выхода из приложения
  *
  */
@@ -231,6 +226,7 @@ int main(int argc, char * argv[]) noexcept {
 	 *
 	 * @details Шаблон несёт имя владельца и сведения об открытом ключе: оба поля
 	 *          берутся записями из сертификата владельца набора
+	 *
 	 */
 	if(cmp::certTemplate(certificate.subjects().element, certificate.key().element, certTemplate) != cmp::error_t::NONE){
 		// Выводим сообщение об отказе сборки шаблона
@@ -246,6 +242,7 @@ int main(int argc, char * argv[]) noexcept {
 	 * @details Подтверждение владения ставится видом signature по разделу 5.2.8.4:
 	 *          подпись ключом защиты над записью CertReq, как велит примечание к
 	 *          POPOSigningKey в RFC 4211
+	 *
 	 */
 	if(cmp::request(cmp::body_t::IR, ::view(sender), ::view(recipient), {::view(certTemplate)}, signer, digest::hash_t::SHA256, record) != cmp::error_t::NONE){
 		// Выводим сообщение об отказе сборки запроса
@@ -298,6 +295,7 @@ int main(int argc, char * argv[]) noexcept {
 	 * @details Имитовставка вырабатывается по разделу 5.1.3.1 RFC 4210: пароль с
 	 *          затравкой пропускается через одностороннюю функцию, итоговый ключ
 	 *          идёт в HMAC над защищаемой частью сообщения
+	 *
 	 */
 	if(cmp::request(cmp::body_t::CR, ::view(sender), ::view(recipient), {::view(certTemplate)}, ::text(kid), ::text(password), digest::hash_t::SHA256, pbm) != cmp::error_t::NONE){
 		// Выводим сообщение об отказе сборки запроса

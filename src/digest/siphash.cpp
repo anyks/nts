@@ -39,11 +39,10 @@ namespace {
 	 */
 	using nts::sys::wipe;
 	/**
-	 * @brief Метод кругового сдвига влево
+	 * @brief Функция кругового сдвига влево
 	 *
 	 * @param word  слово
 	 * @param count число разрядов
-	 *
 	 * @return      сдвинутое слово
 	 *
 	 */
@@ -58,17 +57,20 @@ namespace {
 	 *
 	 */
 	static inline void round(uint64_t * v) noexcept {
+		// Первое слово складывается со вторым, второе сдвигается и складывается по модулю два с первым, первое сдвигается
 		v[0] += v[1]; v[1] = spin(v[1], 13); v[1] ^= v[0]; v[0] = spin(v[0], 32);
+		// Третье слово складывается с четвёртым, четвёртое сдвигается и складывается по модулю два с третьим
 		v[2] += v[3]; v[3] = spin(v[3], 16); v[3] ^= v[2];
+		// Первое слово складывается с четвёртым, четвёртое сдвигается и складывается по модулю два с первым
 		v[0] += v[3]; v[3] = spin(v[3], 21); v[3] ^= v[0];
+		// Третье слово складывается со вторым, второе сдвигается и складывается по модулю два с третьим, третье сдвигается
 		v[2] += v[1]; v[1] = spin(v[1], 17); v[1] ^= v[2]; v[2] = spin(v[2], 32);
 	}
 	/**
-	 * @brief Метод чтения слова от младшего байта
+	 * @brief Функция чтения слова от младшего байта
 	 *
 	 * @param data байты
 	 * @param size число байтов (до восьми)
-	 *
 	 * @return     слово
 	 *
 	 */
@@ -87,37 +89,25 @@ namespace {
 };
 
 /**
- * \~russian
- * @brief Метод вычисления SipHash-2-4
+ * @brief Функция вычисления SipHash-2-4
  *
  * @param key    ключ в шестнадцать байтов
- * @param data   сообщение
- * @param result место итога
+ * @param data   сообщение любой длины
+ * @param result место, в которое помещается итог
  * @param size   длина итога: 8 либо 16
- *
  * @return       признак того, что итог вычислен
  *
- * \~english
- * @brief Method of the computation of SipHash-2-4
- *
- * @param key    key of sixteen bytes
- * @param data   message
- * @param result place of the result
- * @param size   length of the result: 8 or 16
- *
- * @return       sign that the result is computed
- *
- * \~
  */
 bool nts::digest::siphash(const view_t & key, const view_t & data, uint8_t * result, const size_t size) noexcept {
 	// Если ключ, место либо длина итога негодны
 	if((key.data == nullptr) || (key.size != SIPHASH_KEY) || (result == nullptr) || ((size != 8) && (size != 16)) || ((data.size > 0) && (data.data == nullptr)))
-		// Выводим отказ
+		// Выводим отрицательный результат - ключ, место либо длина итога негодны
 		return false;
 	// Слова ключа
 	const uint64_t k0 = octet(key.data, 8), k1 = octet(key.data + 8, 8);
 	// Состояние: константы «somepseudorandomlygeneratedbytes», сложенные с ключом
 	uint64_t v[4] = {
+		// Константы, сложенные с парами слов ключа
 		(0x736F6D6570736575ULL ^ k0), (0x646F72616E646F6DULL ^ k1),
 		(0x6C7967656E657261ULL ^ k0), (0x7465646279746573ULL ^ k1)
 	};
@@ -181,41 +171,33 @@ bool nts::digest::siphash(const view_t & key, const view_t & data, uint8_t * res
 	wipe(v, sizeof(v));
 	// Выполняем затирание первого слова
 	first = 0;
-	// Выводим успешность
+	// Сообщаем об успешном снятии итога
 	return true;
 }
 /**
- * \~russian
- * @brief Метод вычисления SipHash-2-4 числом
+ * @brief Функция вычисления SipHash-2-4 числом
  *
  * @param key    ключ в шестнадцать байтов
- * @param data   сообщение
- * @param result 64-разрядный итог
- *
+ * @param data   сообщение любой длины
+ * @param result число, в которое помещается 64-разрядный итог
  * @return       признак того, что итог вычислен
  *
- * \~english
- * @brief Method of the computation of SipHash-2-4 as a number
- *
- * @param key    key of sixteen bytes
- * @param data   message
- * @param result 64-bit result
- *
- * @return       sign that the result is computed
- *
- * \~
  */
 bool nts::digest::siphash(const view_t & key, const view_t & data, uint64_t & result) noexcept {
 	// Байты итога
 	uint8_t bytes[8];
 	// Если итог вычислить не удалось
 	if(!siphash(key, data, bytes, sizeof(bytes)))
-		// Выводим отказ
+		// Выводим отрицательный результат - итог вычислить не удалось
 		return false;
 	// Собираем число от младшего байта
 	result = 0;
+	/**
+	 * Выполняем перебор байтов итога
+	 */
 	for(size_t i = 0; i < 8; i++)
+		// Присоединяем очередной байт итога
 		result |= (static_cast <uint64_t> (bytes[i]) << (8 * i));
-	// Выводим успешность
+	// Сообщаем об успешном собирании числа
 	return true;
 }

@@ -65,11 +65,10 @@ static const char * BOB_PUBLIC = "de9edb7d7b7dc1b4d35b61c2ece435373f8343c85b7867
 static const char * SHARED = "4a5d9d5ba4ce2de1728e3bf480350f25e07e21c947d19e3376f09b3c1e161742";
 
 /**
- * @brief Метод разбора записи шестнадцатеричными знаками
+ * @brief Функция разбора записи шестнадцатеричными знаками
  *
  * @param text разбираемая запись
  * @param data место, в которое помещаются разобранные байты
- *
  * @return     число разобранных байтов
  *
  */
@@ -98,11 +97,10 @@ static size_t bytes(const char * text, uint8_t * data) {
 	return result;
 }
 /**
- * @brief Метод сборки записи шестнадцатеричными знаками
+ * @brief Функция сборки записи шестнадцатеричными знаками
  *
  * @param data собираемые байты
  * @param size число собираемых байтов
- *
  * @return     собранная запись
  *
  */
@@ -124,10 +122,9 @@ static std::string text(const uint8_t * data, const size_t size) {
 	return result;
 }
 /**
- * @brief Метод чтения файла целиком
+ * @brief Функция чтения файла целиком
  *
  * @param path путь к читаемому файлу
- *
  * @return     содержимое файла
  *
  */
@@ -156,12 +153,11 @@ static std::string slurp(const std::string & path) {
 	return result;
 }
 /**
- * @brief Метод записи файла целиком
+ * @brief Функция записи файла целиком
  *
  * @param path путь к записываемому файлу
  * @param data записываемые байты
  * @param size число записываемых байтов
- *
  * @return     признак успешности записи
  *
  */
@@ -180,10 +176,9 @@ static bool spill(const std::string & path, const uint8_t * data, const size_t s
 	return ok;
 }
 /**
- * @brief Метод исполнения команды оболочки
+ * @brief Функция исполнения команды оболочки
  *
  * @param command исполняемая команда
- *
  * @return        признак нулевого кода завершения
  *
  */
@@ -447,8 +442,9 @@ TEST(X25519Test, GenerateOpenssl) {
 	keys::key_t key;
 	// Устанавливаем вид ключа
 	key.kind = keys::kind_t::X25519;
-	// Выделяем места под ключи
+	// Выделяем место под ключ соглашения: 32 байта
 	key.d.assign(32, 0);
+	// Выделяем место под ключ проверки: 32 байта
 	key.key.assign(32, 0);
 	// Выполняем порождение пары
 	ASSERT_TRUE(agreement::generate(key.d.data(), key.key.data()));

@@ -146,10 +146,9 @@ namespace {
 	static const char * OID_MLDSA87_SIGN = "2.16.840.1.101.3.4.3.19";
 
 	/**
-	 * @brief Метод перевода отказа разборщика ASN.1 в отказ модуля
+	 * @brief Функция перевода отказа разборщика ASN.1 в отказ модуля
 	 *
 	 * @param error отказ разборщика ASN.1
-	 *
 	 * @return      отказ модуля
 	 *
 	 */
@@ -158,11 +157,10 @@ namespace {
 		return ((error == asn1::error_t::MEMORY) ? nts::x509::error_t::MEMORY : nts::x509::error_t::STRUCTURE);
 	}
 	/**
-	 * @brief Метод записи опознавателя объекта из строки знаков
+	 * @brief Функция записи опознавателя объекта из строки знаков
 	 *
 	 * @param writer записчик, в который помещается опознаватель
 	 * @param value  записываемый опознаватель строкой знаков
-	 *
 	 * @return       отказ записи опознавателя
 	 *
 	 */
@@ -170,12 +168,15 @@ namespace {
 		// Опознаватель строкой
 		string oid;
 		/**
-		 * Копирование выделяет память: нехватка её отдаётся отказом
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Выполняем копирование опознавателя
 			oid.assign(value);
 		// Если памяти не хватило
+		/**
+		 * Выполняем перехват ошибок
+		 */
 		} catch(const bad_alloc &) {
 			// Выводим отказ нехватки памяти
 			return nts::x509::error_t::MEMORY;
@@ -186,11 +187,10 @@ namespace {
 		return ((writer.err() == asn1::error_t::NONE) ? nts::x509::error_t::NONE : translate(writer.err()));
 	}
 	/**
-	 * @brief Метод записи имени
+	 * @brief Функция записи имени
 	 *
 	 * @param writer записчик, в который помещается имя
 	 * @param name   записываемое имя
-	 *
 	 * @return       отказ записи имени
 	 *
 	 */
@@ -233,11 +233,10 @@ namespace {
 		return ((writer.err() == asn1::error_t::NONE) ? nts::x509::error_t::NONE : translate(writer.err()));
 	}
 	/**
-	 * @brief Метод записи набора алгоритма ключа
+	 * @brief Функция записи набора алгоритма ключа
 	 *
 	 * @param writer записчик, в который помещается набор алгоритма
 	 * @param key    записываемый ключ
-	 *
 	 * @return       отказ записи набора алгоритма
 	 *
 	 */
@@ -343,11 +342,10 @@ namespace {
 		return ((writer.err() == asn1::error_t::NONE) ? nts::x509::error_t::NONE : translate(writer.err()));
 	}
 	/**
-	 * @brief Метод записи тела открытого ключа
+	 * @brief Функция записи тела открытого ключа
 	 *
 	 * @param key    записываемый ключ
 	 * @param writer записчик, в который помещается тело ключа
-	 *
 	 * @return       отказ записи тела ключа
 	 *
 	 */
@@ -362,11 +360,10 @@ namespace {
 		return ((writer.err() == asn1::error_t::NONE) ? nts::x509::error_t::NONE : translate(writer.err()));
 	}
 	/**
-	 * @brief Метод записи набора расширений
+	 * @brief Функция записи набора расширений
 	 *
 	 * @param writer     записчик, в который помещается набор расширений
 	 * @param extensions записываемый набор расширений
-	 *
 	 * @return           отказ записи набора расширений
 	 *
 	 */
@@ -396,20 +393,18 @@ namespace {
 		return ((writer.err() == asn1::error_t::NONE) ? nts::x509::error_t::NONE : translate(writer.err()));
 	}
 	/**
-	 * @brief Метод выработки подписи содержимого ключом
+	 * @brief Функция выработки подписи содержимого ключом
 	 *
 	 * @param signer    подготовленный секретный ключ подписи
 	 * @param hash      алгоритм хеша подписи (для ECDSA и RSA)
 	 * @param content   подписываемое содержимое
 	 * @param signature место, в которое помещается подпись
-	 *
 	 * @return          отказ выработки подписи
 	 *
 	 */
 	static nts::x509::error_t makeSignature(const keys::signer_t & signer, const digest::hash_t hash, const view_t & content, vector <uint8_t> & signature) noexcept {
 		/**
-		 * Выработка подписи выделяет память: нехватка её отдаётся отказом, а не
-		 * завершением процесса
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			/**
@@ -559,6 +554,9 @@ namespace {
 					return nts::x509::error_t::KEY;
 			}
 		// Если памяти под итог не хватило
+		/**
+		 * Выполняем перехват ошибок
+		 */
 		} catch(const bad_alloc &) {
 			// Выводим отказ нехватки памяти
 			return nts::x509::error_t::MEMORY;
@@ -567,11 +565,10 @@ namespace {
 		return nts::x509::error_t::NONE;
 	}
 	/**
-	 * @brief Метод получения опознавателя алгоритма подписи по виду ключа и хешу
+	 * @brief Функция получения опознавателя алгоритма подписи по виду ключа и хешу
 	 *
 	 * @param signer подготовленный секретный ключ подписи
 	 * @param hash   алгоритм хеша подписи
-	 *
 	 * @return       опознаватель алгоритма подписи либо nullptr
 	 *
 	 */
@@ -582,7 +579,9 @@ namespace {
 		switch(signer.kind()){
 			// Ключ RSA
 			case keys::kind_t::RSA:
-				// Выводим опознаватель по хешу
+				/**
+				 * Выводим опознаватель по хешу
+				 */
 				switch(hash){
 					case digest::hash_t::SHA1: return OID_SHA1_RSA;
 					case digest::hash_t::SHA224: return OID_SHA224_RSA;
@@ -593,7 +592,9 @@ namespace {
 				}
 			// Ключ ECDSA
 			case keys::kind_t::EC:
-				// Выводим опознаватель по хешу
+				/**
+				 * Выводим опознаватель по хешу
+				 */
 				switch(hash){
 					case digest::hash_t::SHA224: return OID_SHA224_ECDSA;
 					case digest::hash_t::SHA256: return OID_SHA256_ECDSA;
@@ -611,7 +612,9 @@ namespace {
 				return ((signer.curve().size() == 32) ? OID_GOST256_SIGN : OID_GOST512_SIGN);
 			// Ключ ML-DSA
 			case keys::kind_t::MLDSA:
-				// Выводим опознаватель по набору ключа
+				/**
+				 * Выводим опознаватель по набору ключа
+				 */
 				switch(signer.mldsa().set()){
 					case sign::mldsa_t::set_t::DSA44: return OID_MLDSA44_SIGN;
 					case sign::mldsa_t::set_t::DSA65: return OID_MLDSA65_SIGN;
@@ -629,7 +632,7 @@ namespace {
 		}
 	}
 	/**
-	 * @brief Метод сборки и подписи сертификата
+	 * @brief Функция сборки и подписи сертификата
 	 *
 	 * @param issuer     имя издателя сертификата
 	 * @param subject    имя владельца сертификата
@@ -641,7 +644,6 @@ namespace {
 	 * @param after      окончание срока действия
 	 * @param extensions набор расширений сертификата
 	 * @param result     место, в которое помещается запись сертификата
-	 *
 	 * @return           отказ сборки и подписи сертификата
 	 *
 	 */
@@ -777,7 +779,7 @@ namespace {
 		// Содержимое записи сертификата: подписываемая часть и хвост
 		vector <uint8_t> content;
 		/**
-		 * Сборка содержимого выделяет память: нехватка её отдаётся отказом
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Выполняем сборку содержимого записи сертификата
@@ -787,6 +789,9 @@ namespace {
 			// Дописываем хвост записи
 			content.insert(content.end(), tailPart.data, tailPart.data + tailPart.size);
 		// Если памяти не хватило
+		/**
+		 * Выполняем перехват ошибок
+		 */
 		} catch(const bad_alloc &) {
 			// Выводим отказ нехватки памяти
 			return nts::x509::error_t::MEMORY;
@@ -802,12 +807,15 @@ namespace {
 		// Получаем просмотр собранной записи
 		const view_t data = writer.data();
 		/**
-		 * Копирование выделяет память: нехватка её отдаётся отказом
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Выполняем копирование записи
 			result.assign(data.data, data.data + data.size);
 		// Если памяти не хватило
+		/**
+		 * Выполняем перехват ошибок
+		 */
 		} catch(const bad_alloc &) {
 			// Выводим отказ нехватки памяти
 			return nts::x509::error_t::MEMORY;
@@ -818,18 +826,17 @@ namespace {
 };
 
 /**
- * @brief Метод выпуска самоподписанного сертификата
+ * @brief Функция выпуска самоподписанного сертификата
  *
  * @param subject    имя владельца сертификата (оно же имя издателя)
  * @param key        сведения об открытом ключе владельца
  * @param signer     подготовленный секретный ключ подписи (тот же, что и у владельца)
- * @param hash       алгоритм хеша подписи
- * @param serial     порядковый номер сертификата
- * @param before     начало срока действия
- * @param after      окончание срока действия
- * @param extensions набор расширений сертификата
- * @param result     место, в которое помещается запись сертификата
- *
+ * @param hash       алгоритм хеша подписи (для ECDSA и RSA; у Ed25519, ML-DSA, SM2 и ГОСТ не рассматривается)
+ * @param serial     порядковый номер сертификата (не нулевой)
+ * @param before     начало срока действия в секундах от начала эпохи
+ * @param after      окончание срока действия в секундах от начала эпохи
+ * @param extensions набор расширений сертификата (пустой набор - без расширений, сертификат v1)
+ * @param result     место, в которое помещается запись сертификата в кодировке DER
  * @return           отказ выпуска сертификата
  *
  */
@@ -839,18 +846,17 @@ nts::x509::error_t nts::x509::issueSelfSigned(const name_t & subject, const nts:
 }
 
 /**
- * @brief Метод выпуска сертификата по запросу PKCS #10 подписью ЦС
+ * @brief Функция выпуска сертификата по запросу PKCS #10 подписью ЦС
  *
- * @param request    разобранный запрос на сертификат
- * @param issuer     имя издателя сертификата
+ * @param request    разобранный запрос на сертификат (подпись уже проверена вызывающим)
+ * @param issuer     имя издателя сертификата (из сертификата ЦС)
  * @param signer     подготовленный секретный ключ ЦС
- * @param hash       алгоритм хеша подписи
- * @param serial     порядковый номер сертификата
- * @param before     начало срока действия
- * @param after      окончание срока действия
- * @param extensions набор расширений сертификата
- * @param result     место, в которое помещается запись сертификата
- *
+ * @param hash       алгоритм хеша подписи (для ECDSA и RSA; у Ed25519, ML-DSA, SM2 и ГОСТ не рассматривается)
+ * @param serial     порядковый номер сертификата (не нулевой)
+ * @param before     начало срока действия в секундах от начала эпохи
+ * @param after      окончание срока действия в секундах от начала эпохи
+ * @param extensions набор расширений сертификата (пустой набор - без расширений, сертификат v1)
+ * @param result     место, в которое помещается запись сертификата в кодировке DER
  * @return           отказ выпуска сертификата
  *
  */

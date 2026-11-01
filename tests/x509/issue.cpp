@@ -63,10 +63,9 @@ static const char * CORPUS = ANTS_CORPUS;
  */
 namespace {
 	/**
-	 * @brief Метод запуска команды оболочки без консоли на входе
+	 * @brief Функция запуска команды оболочки без консоли на входе
 	 *
 	 * @param command запускаемая команда
-	 *
 	 * @return        код возврата команды
 	 *
 	 */
@@ -75,10 +74,9 @@ namespace {
 		return ::system((command + " </dev/null").c_str());
 	}
 	/**
-	 * @brief Метод чтения файла целиком
+	 * @brief Функция чтения файла целиком
 	 *
 	 * @param path путь к читаемому файлу
-	 *
 	 * @return     содержимое файла
 	 *
 	 */
@@ -93,10 +91,9 @@ namespace {
 		return stream.str();
 	}
 	/**
-	 * @brief Метод чтения файла набора целиком
+	 * @brief Функция чтения файла набора целиком
 	 *
 	 * @param name имя файла в наборе
-	 *
 	 * @return     содержимое файла
 	 *
 	 */
@@ -105,10 +102,9 @@ namespace {
 		return slurp(std::string(CORPUS) + "/" + name);
 	}
 	/**
-	 * @brief Метод перевода строки в набор байтов
+	 * @brief Функция перевода строки в набор байтов
 	 *
 	 * @param text переводимая строка
-	 *
 	 * @return     набор байтов
 	 *
 	 */
@@ -117,10 +113,9 @@ namespace {
 		return std::vector <uint8_t> (text.begin(), text.end());
 	}
 	/**
-	 * @brief Метод получения просмотра набора байтов
+	 * @brief Функция получения просмотра набора байтов
 	 *
 	 * @param data просматриваемый набор байтов
-	 *
 	 * @return     просмотр набора байтов
 	 *
 	 */
@@ -129,11 +124,10 @@ namespace {
 		return view_t(data.data(), data.size());
 	}
 	/**
-	 * @brief Метод записи файла целиком
+	 * @brief Функция записи файла целиком
 	 *
 	 * @param path путь к записываемому файлу
 	 * @param data записываемое содержимое
-	 *
 	 * @return     признак успешности записи
 	 *
 	 */
@@ -146,10 +140,9 @@ namespace {
 		return file.good();
 	}
 	/**
-	 * @brief Метод извлечения тела первой записи PEM
+	 * @brief Функция извлечения тела первой записи PEM
 	 *
 	 * @param text разбираемый текст
-	 *
 	 * @return     тело первой записи в кодировке DER
 	 *
 	 */
@@ -176,7 +169,6 @@ namespace {
 			 * @brief Метод получения пути к файлу внутри каталога
 			 *
 			 * @param name имя файла
-			 *
 			 * @return     путь к файлу
 			 *
 			 */
@@ -219,10 +211,9 @@ namespace {
 			}
 	} sandbox_t;
 	/**
-	 * @brief Метод извлечения значения признака CN из имени
+	 * @brief Функция извлечения значения признака CN из имени
 	 *
 	 * @param name разбираемое имя
-	 *
 	 * @return     значение признака CN либо пустая строка
 	 *
 	 */
@@ -233,12 +224,11 @@ namespace {
 		return ((attribute != nullptr) ? attribute->value : std::string());
 	}
 	/**
-	 * @brief Метод разбора сертификата набора
+	 * @brief Функция разбора сертификата набора
 	 *
 	 * @param name        имя файла сертификата в наборе
 	 * @param der         место, в которое помещается тело записи сертификата
 	 * @param certificate объект разбираемого сертификата
-	 *
 	 * @return            признак успешности разбора
 	 *
 	 */
@@ -247,7 +237,7 @@ namespace {
 		der = body(corpus(name));
 		// Если записи нет
 		if(der.empty())
-			// Выводим отказ
+			// Выводим отрицательный результат - записи нет
 			return false;
 		// Выводим итог разбора сертификата
 		return (certificate.parse(view(der)) == x509::error_t::NONE);
@@ -489,7 +479,7 @@ TEST(IssueTest, Refusal){
 TEST(IssueTest, Openssl){
 	// Если openssl недоступен
 	if(shell("openssl version >/dev/null 2>&1") != 0)
-		// Пропускаем проверку
+		// Пропускаем проверку без системного эталона
 		GTEST_SKIP() << "openssl недоступен";
 	// Временный каталог
 	sandbox_t sandbox;
@@ -575,7 +565,9 @@ TEST(IssueTest, Mldsa){
 		{"mldsa65.crt", "mldsa65.pem", "2.16.840.1.101.3.4.3.18"},
 		{"mldsa87.crt", "mldsa87.pem", "2.16.840.1.101.3.4.3.19"}
 	};
-	// Выполняем перебор ключей набора
+	/**
+	 * Выполняем перебор ключей набора
+	 */
 	for(size_t i = 0; i < (sizeof(CASES) / sizeof(CASES[0])); i++){
 		// Тело записи эталонного сертификата владельца
 		std::vector <uint8_t> der;

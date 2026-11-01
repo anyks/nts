@@ -21,7 +21,6 @@
  *        according to RFC 9058
  *
  * \~
- *
  * @copyright Copyright © 2026
  *
  */
@@ -76,6 +75,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Least length of the authentication tag in bytes
+		 *
 		 * @details RFC 9058 requires the length of the tag to be not less than 32 bits
 		 *
 		 * \~
@@ -108,15 +108,19 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief MGM authenticated encryption mode
+		 *
 		 * @details RFC 9058. The plain text is encrypted by the gamma with a counter, while
 		 *          the authentication tag is taken from the value of a polynomial computed in
 		 *          the GF(2^n) field over the associated data and the cipher text: hence the
 		 *          name of the mode - Multilinear Galois Mode.
+		 *
 		 * @note The value of the initial counter nonce for every message encrypted under a
 		 *       single key must be unique: a repetition reveals not only the sum of the plain
 		 *       texts but the key of the production of the tag as well
+		 *
 		 * @note The senior bit of the initial counter nonce is occupied by the mode itself
 		 *       and must be a zero
+		 *
 		 * @note Deliberate decisions: a repeated encryption by a single object under the
 		 *       same initial counter nonce is refused by a guard of the mode itself rather
 		 *       than left to the conscience of the caller: after the first encryption the
@@ -152,6 +156,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of checking the readiness of the mode for the work
+				 *
 				 * @return the flag of the readiness of the mode for the work
 				 *
 				 * \~
@@ -165,6 +170,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the length of the authentication tag
+				 *
 				 * @return the length of the authentication tag in bytes
 				 *
 				 * \~
@@ -177,15 +183,15 @@ namespace nts {
 				 * @param block базовый алгоритм блочного шифрования
 				 * @param nonce начальное заполнение счётчика длиной в блок шифра с нулевым старшим разрядом
 				 * @param size  длина метки целостности в байтах, ноль означает длину блока шифра
-				 *
-				 * @return признак успешности запуска режима работы
+				 * @return      признак успешности запуска режима работы
 				 *
 				 * \~english
 				 * @brief Method of the start of the mode of operation
+				 *
 				 * @param block the base block encryption algorithm
 				 * @param nonce the initial counter nonce of a length of a block of the cipher with a zero senior bit
 				 * @param size  the length of the authentication tag in bytes, a zero means the length of the block of the cipher
-				 * @return the flag of the success of the start of the mode of operation
+				 * @return      the flag of the success of the start of the mode of operation
 				 *
 				 * \~
 				 */
@@ -209,8 +215,7 @@ namespace nts {
 				 * @param source     зашифровываемое сообщение
 				 * @param result     место, в которое помещается шифртекст
 				 * @param tag        место, в которое помещается метка целостности
-				 *
-				 * @return признак успешности зашифрования
+				 * @return           признак успешности зашифрования
 				 *
 				 * @note Место итога вправе совпадать с местом исходного сообщения
 				 *
@@ -220,12 +225,15 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the encryption of a message with the production of the authentication tag
+				 *
 				 * @param associated the associated data the integrity of which is checked without their encryption
 				 * @param source     the message being encrypted
 				 * @param result     the place the cipher text is put into
 				 * @param tag        the place the authentication tag is put into
-				 * @return the flag of the success of the encryption
+				 * @return           the flag of the success of the encryption
+				 *
 				 * @note The place of the result may coincide with the place of the source message
+				 *
 				 * @note A repeated encryption under the same initial counter nonce is refused: before
 				 *       the next encryption the mode must be started anew with a new nonce
 				 *
@@ -240,8 +248,7 @@ namespace nts {
 				 * @param source     расшифровываемый шифртекст
 				 * @param result     место, в которое помещается открытый текст
 				 * @param tag        проверяемая метка целостности
-				 *
-				 * @return признак успешности расшифрования
+				 * @return           признак успешности расшифрования
 				 *
 				 * @note Открытый текст записывается лишь после успешной проверки метки
 				 *       целостности: расшифрованное сообщение с непроверенной меткой
@@ -251,13 +258,16 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the decryption of a message with the check of the authentication tag
+				 *
 				 * @param associated the associated data the integrity of which is checked without their decryption
 				 * @param source     the cipher text being decrypted
 				 * @param result     the place the plain text is put into
 				 * @param tag        the authentication tag being checked
-				 * @return the flag of the success of the decryption
+				 * @return           the flag of the success of the decryption
+				 *
 				 * @note The plain text is written only after a successful check of the authentication
 				 *       tag: a decrypted message with an unchecked tag must not be given outside
+				 *
 				 * @note The authentication tag is compared in a constant time
 				 *
 				 * \~
@@ -268,7 +278,6 @@ namespace nts {
 				 * \~russian
 				 * @brief Конструктор
 				 *
-				 *
 				 * \~english
 				 * @brief Constructor
 				 *
@@ -278,7 +287,6 @@ namespace nts {
 				/**
 				 * \~russian
 				 * @brief Деструктор
-				 *
 				 *
 				 * \~english
 				 * @brief Destructor

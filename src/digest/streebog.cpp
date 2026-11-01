@@ -62,7 +62,9 @@
  */
 #if defined(__x86_64__) && defined(__SSE2__) && !defined(_MSC_VER)
 	#include <emmintrin.h>
-	// Признак пути сжатия на SSE2
+	/**
+	 * Признак пути сжатия на SSE2
+	 */
 	#define __ANTS_STREEBOG_SSE2__
 #endif
 
@@ -102,6 +104,7 @@ namespace {
 	 *
 	 */
 	static constexpr uint8_t PI[256] = {
+		// Значения подстановки по разделу 6.2 ГОСТ Р 34.11-2012
 		0xFC, 0xEE, 0xDD, 0x11, 0xCF, 0x6E, 0x31, 0x16,
 		0xFB, 0xC4, 0xFA, 0xDA, 0x23, 0xC5, 0x04, 0x4D,
 		0xE9, 0x77, 0xF0, 0xDB, 0x93, 0x2E, 0x99, 0xBA,
@@ -144,6 +147,7 @@ namespace {
 	 *
 	 */
 	static constexpr uint64_t MATRIX[64] = {
+		// Строки матрицы по разделу 6.4 ГОСТ Р 34.11-2012
 		0x8E20FAA72BA0B470ULL, 0x47107DDD9B505A38ULL,
 		0xAD08B0E0C3282D1CULL, 0xD8045870EF14980EULL,
 		0x6C022C38F90A4C07ULL, 0x3601161CF205268DULL,
@@ -188,72 +192,84 @@ namespace {
 	 */
 	static constexpr uint64_t CONSTANTS[12][8] = {
 		{
+			// Величина итерации с номером 1
 			0xDD806559F2A64507ULL, 0x05767436CC744D23ULL,
 			0xA2422A08A460D315ULL, 0x4B7CE09192676901ULL,
 			0x714EB88D7585C4FCULL, 0x2F6A76432E45D016ULL,
 			0xEBCB2F81C0657C1FULL, 0xB1085BDA1ECADAE9ULL
 		},
 		{
+			// Величина итерации с номером 2
 			0xE679047021B19BB7ULL, 0x55DDA21BD7CBCD56ULL,
 			0x5CB561C2DB0AA7CAULL, 0x9AB5176B12D69958ULL,
 			0x61D55E0F16B50131ULL, 0xF3FEEA720A232B98ULL,
 			0x4FE39D460F70B5D7ULL, 0x6FA3B58AA99D2F1AULL
 		},
 		{
+			// Величина итерации с номером 3
 			0x991E96F50ABA0AB2ULL, 0xC2B6F443867ADB31ULL,
 			0xC1C93A376062DB09ULL, 0xD3E20FE490359EB1ULL,
 			0xF2EA7514B1297B7BULL, 0x06F15E5F529C1F8BULL,
 			0x0A39FC286A3D8435ULL, 0xF574DCAC2BCE2FC7ULL
 		},
 		{
+			// Величина итерации с номером 4
 			0x220CBEBC84E3D12EULL, 0x3453EAA193E837F1ULL,
 			0xD8B71333935203BEULL, 0xA9D72C82ED03D675ULL,
 			0x9D721CAD685E353FULL, 0x488E857E335C3C7DULL,
 			0xF948E1A05D71E4DDULL, 0xEF1FDFB3E81566D2ULL
 		},
 		{
+			// Величина итерации с номером 5
 			0x601758FD7C6CFE57ULL, 0x7A56A27EA9EA63F5ULL,
 			0xDFFF00B723271A16ULL, 0xBFCD1747253AF5A3ULL,
 			0x359E35D7800FFFBDULL, 0x7F151C1F1686104AULL,
 			0x9A3F410C6CA92363ULL, 0x4BEA6BACAD474799ULL
 		},
 		{
+			// Величина итерации с номером 6
 			0xFA68407A46647D6EULL, 0xBF71C57236904F35ULL,
 			0x0AF21F66C2BEC6B6ULL, 0xCFFAA6B71C9AB7B4ULL,
 			0x187F9AB49AF08EC6ULL, 0x2D66C4F95142A46CULL,
 			0x6FA4C33B7A3039C0ULL, 0xAE4FAEAE1D3AD3D9ULL
 		},
 		{
+			// Величина итерации с номером 7
 			0x8886564D3A14D493ULL, 0x3517454CA23C4AF3ULL,
 			0x06476983284A0504ULL, 0x0992ABC52D822C37ULL,
 			0xD3473E33197A93C9ULL, 0x399EC6C7E6BF87C9ULL,
 			0x51AC86FEBF240954ULL, 0xF4C70E16EEAAC5ECULL
 		},
 		{
+			// Величина итерации с номером 8
 			0xA47F0DD4BF02E71EULL, 0x36ACC2355951A8D9ULL,
 			0x69D18D2BD1A5C42FULL, 0xF4892BCB929B0690ULL,
 			0x89B4443B4DDBC49AULL, 0x4EB7F8719C36DE1EULL,
 			0x03E7AA020C6E4141ULL, 0x9B1F5B424D93C9A7ULL
 		},
 		{
+			// Величина итерации с номером 9
 			0x7261445183235ADBULL, 0x0E38DC92CB1F2A60ULL,
 			0x7B2B8A9AA6079C54ULL, 0x800A440BDBB2CEB1ULL,
 			0x3CD955B7E00D0984ULL, 0x3A7D3A1B25894224ULL,
 			0x944C9AD8EC165FDEULL, 0x378F5A541631229BULL
 		},
 		{
+			// Величина итерации с номером 10
 			0x74B4C7FB98459CEDULL, 0x3698FAD1153BB6C3ULL,
 			0x7A1E6C303B7652F4ULL, 0x9FE76702AF69334BULL,
 			0x1FFFE18A1B336103ULL, 0x8941E71CFF8A78DBULL,
 			0x382AE548B2E4F3F3ULL, 0xABBEDEA680056F52ULL
 		},
 		{
+			// Величина итерации с номером 11
 			0x6BCAA4CD81F32D1BULL, 0xDEA2594AC06FD85DULL,
 			0xEFBACD1D7D476E98ULL, 0x8A1D71EFEA48B9CAULL,
 			0x2001802114846679ULL, 0xD8FA6BBBEBAB0761ULL,
 			0x3002C6CD635AFE94ULL, 0x7BCD9ED0EFC889FBULL
 		},
 		{
+			// Величина итерации с номером 12
 			0x48BC924AF11BD720ULL, 0xFAF417D5D9B21B99ULL,
 			0xE71DA4AA88E12852ULL, 0x5D80EF9D1891CC86ULL,
 			0xF82012D430219F9BULL, 0xCDA43C32BCDF1D77ULL,
@@ -271,7 +287,7 @@ namespace {
 	} tables_t;
 
 	/**
-	 * @brief Метод вычисления таблицы совмещённого преобразования LPS
+	 * @brief Функция вычисления таблицы совмещённого преобразования LPS
 	 *
 	 * @details Преобразования S, P и L сводятся в одну таблицу. Подстановка S
 	 *          заменяет байт, перестановка P задаёт, из какого слова взят байт, а
@@ -325,7 +341,7 @@ namespace {
 	 */
 	#if !defined(__ANTS_STREEBOG_SSE2__)
 		/**
-		 * @brief Метод совмещённого преобразования LPS над суммой двух векторов
+		 * @brief Функция совмещённого преобразования LPS над суммой двух векторов
 		 *
 		 * @param first  первое слагаемое исключающего ИЛИ
 		 * @param second второе слагаемое исключающего ИЛИ
@@ -359,7 +375,7 @@ namespace {
 		}
 
 		/**
-		 * @brief Метод шифрования блока сообщения
+		 * @brief Функция шифрования блока сообщения
 		 *
 		 * @details Преобразование E по разделу 8 ГОСТ Р 34.11-2012: двенадцать
 		 *          применений LPSX с последовательно вырабатываемыми ключами и сложение
@@ -400,11 +416,16 @@ namespace {
 					// Применяем преобразование к состоянию шифруемого блока
 					transform(state, item, state);
 				}
+			/**
+			 * Иначе оставшиеся одиннадцать применений преобразования разворачиваются вручную:
+			 * clang сам тело цикла в две таблицы не разворачивает
+			 */
 			#else
 				/**
 				 * Круг: выработка ключа очередной итерации и применение преобразования к состоянию
 				 */
 				#define __ANTS_STREEBOG_ROUND__(N) transform(item, CONSTANTS[N], item); transform(state, item, state);
+				// Разворачиваем применения преобразования вручную, круг за кругом
 				__ANTS_STREEBOG_ROUND__(0) __ANTS_STREEBOG_ROUND__(1) __ANTS_STREEBOG_ROUND__(2) __ANTS_STREEBOG_ROUND__(3)
 				__ANTS_STREEBOG_ROUND__(4) __ANTS_STREEBOG_ROUND__(5) __ANTS_STREEBOG_ROUND__(6) __ANTS_STREEBOG_ROUND__(7)
 				__ANTS_STREEBOG_ROUND__(8) __ANTS_STREEBOG_ROUND__(9) __ANTS_STREEBOG_ROUND__(10)
@@ -421,7 +442,7 @@ namespace {
 		}
 
 		/**
-		 * @brief Метод сжатия блока сообщения
+		 * @brief Функция сжатия блока сообщения
 		 *
 		 * @details Функция g_N по разделу 8 ГОСТ Р 34.11-2012
 		 *
@@ -451,7 +472,7 @@ namespace {
 	 */
 	#else
 		/**
-		 * @brief Метод сборки двух слов итога преобразования LPS
+		 * @brief Функция сборки двух слов итога преобразования LPS
 		 *
 		 * @details Слова итога с номерами 2·ROW и 2·ROW + 1 собираются из байтов с теми же
 		 *          номерами всех восьми слов преобразуемого вектора: pextrw снимает пару
@@ -461,7 +482,6 @@ namespace {
 		 * @param x1 второе и третье слова
 		 * @param x2 четвёртое и пятое слова
 		 * @param x3 шестое и седьмое слова
-		 *
 		 * @return   пара собранных слов итога
 		 *
 		 */
@@ -473,41 +493,57 @@ namespace {
 			uint64_t low = 0, high = 0;
 			// Нулевое слово
 			pair = static_cast <unsigned> (_mm_extract_epi16(x0, ROW));
+			// Дополняем младшую половину итоговых слов слагаемым нулевого слова
 			low = TABLES.values[0][pair & 0xFF];
+			// Дополняем старшую половину итоговых слов слагаемым нулевого слова
 			high = TABLES.values[0][pair >> 8];
 			// Первое слово
 			pair = static_cast <unsigned> (_mm_extract_epi16(x0, ROW + 4));
+			// Дополняем младшую половину итоговых слов слагаемым первого слова
 			low ^= TABLES.values[1][pair & 0xFF];
+			// Дополняем старшую половину итоговых слов слагаемым первого слова
 			high ^= TABLES.values[1][pair >> 8];
 			// Второе слово
 			pair = static_cast <unsigned> (_mm_extract_epi16(x1, ROW));
+			// Дополняем младшую половину итоговых слов слагаемым второго слова
 			low ^= TABLES.values[2][pair & 0xFF];
+			// Дополняем старшую половину итоговых слов слагаемым второго слова
 			high ^= TABLES.values[2][pair >> 8];
 			// Третье слово
 			pair = static_cast <unsigned> (_mm_extract_epi16(x1, ROW + 4));
+			// Дополняем младшую половину итоговых слов слагаемым третьего слова
 			low ^= TABLES.values[3][pair & 0xFF];
+			// Дополняем старшую половину итоговых слов слагаемым третьего слова
 			high ^= TABLES.values[3][pair >> 8];
 			// Четвёртое слово
 			pair = static_cast <unsigned> (_mm_extract_epi16(x2, ROW));
+			// Дополняем младшую половину итоговых слов слагаемым четвёртого слова
 			low ^= TABLES.values[4][pair & 0xFF];
+			// Дополняем старшую половину итоговых слов слагаемым четвёртого слова
 			high ^= TABLES.values[4][pair >> 8];
 			// Пятое слово
 			pair = static_cast <unsigned> (_mm_extract_epi16(x2, ROW + 4));
+			// Дополняем младшую половину итоговых слов слагаемым пятого слова
 			low ^= TABLES.values[5][pair & 0xFF];
+			// Дополняем старшую половину итоговых слов слагаемым пятого слова
 			high ^= TABLES.values[5][pair >> 8];
 			// Шестое слово
 			pair = static_cast <unsigned> (_mm_extract_epi16(x3, ROW));
+			// Дополняем младшую половину итоговых слов слагаемым шестого слова
 			low ^= TABLES.values[6][pair & 0xFF];
+			// Дополняем старшую половину итоговых слов слагаемым шестого слова
 			high ^= TABLES.values[6][pair >> 8];
 			// Седьмое слово
 			pair = static_cast <unsigned> (_mm_extract_epi16(x3, ROW + 4));
+			// Дополняем младшую половину итоговых слов слагаемым седьмого слова
 			low ^= TABLES.values[7][pair & 0xFF];
+			// Дополняем старшую половину итоговых слов слагаемым седьмого слова
 			high ^= TABLES.values[7][pair >> 8];
 			// Выводим пару собранных слов
 			return _mm_unpacklo_epi64(_mm_cvtsi64_si128(static_cast <long long> (low)), _mm_cvtsi64_si128(static_cast <long long> (high)));
 		}
 		/**
-		 * @brief Метод преобразования LPSX над состоянием в регистрах
+		 * @brief Функция преобразования LPSX над состоянием в регистрах
 		 *
 		 * @param s0 нулевое и первое слова состояния, замещаемые итогом
 		 * @param s1 второе и третье слова состояния
@@ -522,22 +558,31 @@ namespace {
 		static __ANTS_INLINE__ void lpsx(__m128i & s0, __m128i & s1, __m128i & s2, __m128i & s3, const __m128i k0, const __m128i k1, const __m128i k2, const __m128i k3) noexcept {
 			// Выполняем сложение состояния с вектором по исключающему ИЛИ
 			s0 = _mm_xor_si128(s0, k0);
+			// Складываем вторую пару слов состояния с вектором по исключающему ИЛИ
 			s1 = _mm_xor_si128(s1, k1);
+			// Складываем третью пару слов состояния с вектором по исключающему ИЛИ
 			s2 = _mm_xor_si128(s2, k2);
+			// Складываем четвёртую пару слов состояния с вектором по исключающему ИЛИ
 			s3 = _mm_xor_si128(s3, k3);
 			// Собираем слова итога преобразования по парам
 			const __m128i t0 = gather <0> (s0, s1, s2, s3);
+			// Собираем вторую пару слов итога преобразования
 			const __m128i t1 = gather <1> (s0, s1, s2, s3);
+			// Собираем третью пару слов итога преобразования
 			const __m128i t2 = gather <2> (s0, s1, s2, s3);
+			// Собираем четвёртую пару слов итога преобразования
 			const __m128i t3 = gather <3> (s0, s1, s2, s3);
 			// Записываем итог состоянием
 			s0 = t0;
+			// Записываем вторую пару слов итогом состояния
 			s1 = t1;
+			// Записываем третью пару слов итогом состояния
 			s2 = t2;
+			// Записываем четвёртую пару слов итогом состояния
 			s3 = t3;
 		}
 		/**
-		 * @brief Метод чтения вектора в регистры
+		 * @brief Функция чтения вектора в регистры
 		 *
 		 * @param value читаемый вектор
 		 * @param x0    нулевое и первое слова
@@ -549,12 +594,15 @@ namespace {
 		static __ANTS_INLINE__ void fetch(const uint64_t * value, __m128i & x0, __m128i & x1, __m128i & x2, __m128i & x3) noexcept {
 			// Читаем слова вектора парами
 			x0 = _mm_loadu_si128(reinterpret_cast <const __m128i *> (value));
+			// Читаем вторую пару слов вектора
 			x1 = _mm_loadu_si128(reinterpret_cast <const __m128i *> (value + 2));
+			// Читаем третью пару слов вектора
 			x2 = _mm_loadu_si128(reinterpret_cast <const __m128i *> (value + 4));
+			// Читаем четвёртую пару слов вектора
 			x3 = _mm_loadu_si128(reinterpret_cast <const __m128i *> (value + 6));
 		}
 		/**
-		 * @brief Метод сжатия блока сообщения
+		 * @brief Функция сжатия блока сообщения
 		 *
 		 * @details Функция g_N по разделу 8 ГОСТ Р 34.11-2012: ключ и состояние живут в
 		 *          регистрах XMM все двенадцать кругов, в память пишется лишь итог
@@ -597,16 +645,22 @@ namespace {
 			lpsx(k0, k1, k2, k3, c0, c1, c2, c3);
 			// Складываем состояние с ключом последней итерации
 			s0 = _mm_xor_si128(s0, k0);
+			// Складываем вторую пару слов состояния с ключом последней итерации
 			s1 = _mm_xor_si128(s1, k1);
+			// Складываем третью пару слов состояния с ключом последней итерации
 			s2 = _mm_xor_si128(s2, k2);
+			// Складываем четвёртую пару слов состояния с ключом последней итерации
 			s3 = _mm_xor_si128(s3, k3);
 			// Читаем хеш и блок сообщения
 			fetch(hash, k0, k1, k2, k3);
 			fetch(message, c0, c1, c2, c3);
 			// Складываем итог шифрования с хешем и блоком сообщения
 			s0 = _mm_xor_si128(_mm_xor_si128(s0, k0), c0);
+			// Складываем вторую пару слов итога с хешем и блоком сообщения
 			s1 = _mm_xor_si128(_mm_xor_si128(s1, k1), c1);
+			// Складываем третью пару слов итога с хешем и блоком сообщения
 			s2 = _mm_xor_si128(_mm_xor_si128(s2, k2), c2);
+			// Складываем четвёртую пару слов итога с хешем и блоком сообщения
 			s3 = _mm_xor_si128(_mm_xor_si128(s3, k3), c3);
 			// Записываем новое значение хеша
 			_mm_storeu_si128(reinterpret_cast <__m128i *> (hash), s0);
@@ -617,7 +671,7 @@ namespace {
 	#endif
 
 	/**
-	 * @brief Метод сложения двоичных векторов по модулю два в степени 512
+	 * @brief Функция сложения двоичных векторов по модулю два в степени 512
 	 *
 	 * @param value  вектор, к которому производится сложение
 	 * @param addend прибавляемый вектор
@@ -643,13 +697,17 @@ namespace {
 	}
 
 	/**
-	 * @brief Метод разбора блока сообщения на слова
+	 * @brief Функция разбора блока сообщения на слова
 	 *
 	 * @param data   разбираемый блок сообщения
 	 * @param result вектор, в который помещаются разобранные слова
 	 *
 	 */
 	static __ANTS_INLINE__ void load(const uint8_t * data, uint64_t * result) noexcept {
+		/**
+		 * Порядок байтов машины совпадает с порядком байтов в словах блока лишь
+		 * на машинах с младшим байтом вперёд: блок там читается одной копией
+		 */
 		#if defined(__BYTE_ORDER__) && defined(__ORDER_LITTLE_ENDIAN__) && (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
 			/**
 			 * Порядок байтов машины совпадает с порядком байтов в словах блока: блок
@@ -657,10 +715,19 @@ namespace {
 			 * 56 сдвигов на блок - около пяти процентов работы сжатия (Astra, 22.09.2026)
 			 */
 			::memcpy(result, data, 64);
+		/**
+		 * Иначе слова блока собираются из байтов сдвигами
+		 */
 		#else
+			/**
+			 * Выполняем перебор слов блока сообщения
+			 */
 			for(size_t i = 0; i < 8; i++){
 				// Собираемое слово блока сообщения
 				uint64_t item = 0;
+				/**
+				 * Выполняем перебор байтов очередного слова
+				 */
 				for(size_t j = 0; j < 8; j++)
 					// Дополняем слово очередным байтом блока сообщения
 					item |= (static_cast <uint64_t> (data[(i * 8) + j]) << (j * 8));
@@ -792,8 +859,8 @@ void nts::digest::Streebog::update(const view_t & data) noexcept {
  *
  * @param result место, в которое помещается выработанный хеш
  * @param size   размер места, в которое помещается хеш
- *
- * @return признак успешности снятия хеша
+ * @param order  порядок записи выработанного хеша
+ * @return       признак успешности снятия хеша
  *
  */
 bool nts::digest::Streebog::finish(uint8_t * result, const size_t size, const order_t order) noexcept {
@@ -891,15 +958,14 @@ nts::digest::Streebog::~Streebog() noexcept {
 	this->_size = 0;
 }
 /**
- * @brief Метод выработки хеша сообщения, поданного целиком
+ * @brief Функция выработки хеша сообщения, поданного целиком
  *
  * @param type   длина вырабатываемого хеша
  * @param data   хешируемое сообщение
  * @param result место, в которое помещается выработанный хеш
  * @param size   размер места, в которое помещается хеш
  * @param order  порядок записи выработанного хеша
- *
- * @return признак успешности выработки хеша
+ * @return       признак успешности выработки хеша
  *
  */
 bool nts::digest::streebog(const type_t type, const view_t & data, uint8_t * result, const size_t size, const order_t order) noexcept {

@@ -21,7 +21,6 @@
  *        signature ECDSA according to FIPS 186-5 and SEC 1
  *
  * \~
- *
  * @copyright Copyright © 2026
  *
  */
@@ -95,20 +94,24 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Electronic signature ECDSA according to FIPS 186-5 and the section 4.1 of SEC 1
+		 *
 		 * @details The signature consists of the two numbers r and s written in a row from
 		 *          the senior byte to the junior one, each of a length of the order of the
 		 *          subgroup of the points of the curve: 64 bytes at the curve P-256 and 96
 		 *          bytes at the curve P-384. The writing of the signature in the form of
 		 *          SEQUENCE {INTEGER r, INTEGER s} according to the section C.5 of SEC 1 is
 		 *          performed by the separate methods encode and decode.
+		 *
 		 * @details The hash of the message is turned into a number according to the section
 		 *          4.1.3 of SEC 1: its senior bits are taken in the number equal to the bit
 		 *          width of the order of the subgroup, while a hash shorter than the order is
 		 *          taken entirely.
+		 *
 		 * @note The random number of the production of the signature is either passed by the
 		 *       calling side or is derived from the key and the hash according to RFC 6979:
 		 *       the derived number does not require a source of the randomness and repeats
 		 *       on the same data, therefore the signature according to RFC 6979 is reproducible
+		 *
 		 * @note The value of the passed random number must be unpredictable and unique: a
 		 *       repetition of it under a single key gives away the key of the signature itself
 		 *
@@ -140,6 +143,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of checking the readiness of the module for the work
+				 *
 				 * @return the flag of the curve being set
 				 *
 				 * \~
@@ -153,6 +157,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the size of a signature
+				 *
 				 * @return the size of a signature in bytes
 				 *
 				 * \~
@@ -174,7 +179,9 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the upper limit of the length of a signature in the written form
+				 *
 				 * @return the upper limit of the length of a signature in bytes, zero without a key
+				 *
 				 * @details The method size gives the length of a raw signature the place for make is
 				 *          allocated by, while limit gives the greatest length of a signature in the form
 				 *          it goes outside in: it is not exceeded at any value of the signature, like
@@ -191,16 +198,17 @@ namespace nts {
 				 * @brief Метод установки эллиптической кривой
 				 *
 				 * @param curve устанавливаемая эллиптическая кривая
-				 *
-				 * @return признак успешности установки эллиптической кривой
+				 * @return      признак успешности установки эллиптической кривой
 				 *
 				 * @note Кривая должна пережить модуль подписи: она не переносится, а берётся
 				 *       по указателю
 				 *
 				 * \~english
 				 * @brief Method of setting the elliptic curve
+				 *
 				 * @param curve the elliptic curve being set
-				 * @return the flag of the success of the setting of the elliptic curve
+				 * @return      the flag of the success of the setting of the elliptic curve
+				 *
 				 * @note The curve must outlive the module of the signature: it is not moved but
 				 *       is taken by a pointer
 				 *
@@ -223,15 +231,16 @@ namespace nts {
 				 * @brief Метод установки ключа подписи
 				 *
 				 * @param secret устанавливаемый ключ подписи, записанный от старшего байта к младшему
-				 *
-				 * @return признак успешности установки ключа подписи
+				 * @return       признак успешности установки ключа подписи
 				 *
 				 * @note Ключ проверки подписи вырабатывается из ключа подписи сразу же
 				 *
 				 * \~english
 				 * @brief Method of setting the key of the signature
+				 *
 				 * @param secret the key of the signature being set, written from the senior byte to the junior one
-				 * @return the flag of the success of the setting of the key of the signature
+				 * @return       the flag of the success of the setting of the key of the signature
+				 *
 				 * @note The key of the check of the signature is produced from the key of the signature at once
 				 *
 				 * \~
@@ -243,8 +252,7 @@ namespace nts {
 				 *
 				 * @param secret место, в которое записывается ключ подписи, записанный от старшего байта к младшему
 				 * @param size   размер места ключа подписи
-				 *
-				 * @return признак успешности порождения ключа подписи
+				 * @return       признак успешности порождения ключа подписи
 				 *
 				 * @details Ключ подписи берётся равномерно из отрезка [1, n-1], где n - порядок подгруппы
 				 *          точек кривой, отбором по разделу A.2.2 FIPS 186-5: случайные байты длиной
@@ -259,9 +267,11 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the generation of a long-term key of the signature
+				 *
 				 * @param secret the place the key of the signature written from the senior byte to the junior one is written into
 				 * @param size   the size of the place of the key of the signature
-				 * @return the flag of the success of the generation of the key of the signature
+				 * @return       the flag of the success of the generation of the key of the signature
+				 *
 				 * @details The key of the signature is taken uniformly from the segment [1, n-1], where n is the
 				 *          order of the subgroup of the points of the curve, by a selection according to the
 				 *          section A.2.2 of FIPS 186-5: random bytes of the length of the order that are not
@@ -269,6 +279,7 @@ namespace nts {
 				 *          reduced by the modulus. A reduction would make the junior values more probable
 				 *          than the rest, while a biased key is uncovered by a multitude of signatures. The
 				 *          size of the place must equal the length of the order of the subgroup
+				 *
 				 * @note The generated key is set into the module the same way as at secret: the key of
 				 *       the check of the signature is produced at once. A refusal of the source of the
 				 *       randomness answers by a refusal of the generation, the former state of the module
@@ -283,8 +294,7 @@ namespace nts {
 				 *
 				 * @param x первая координата ключа проверки подписи
 				 * @param y вторая координата ключа проверки подписи
-				 *
-				 * @return признак успешности установки ключа проверки подписи
+				 * @return  признак успешности установки ключа проверки подписи
 				 *
 				 * @note Точка, не принадлежащая кривой, отвергается
 				 *
@@ -294,9 +304,11 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of setting the key of the check of the signature
+				 *
 				 * @param x the first coordinate of the key of the check of the signature
 				 * @param y the second coordinate of the key of the check of the signature
-				 * @return the flag of the success of the setting of the key of the check of the signature
+				 * @return  the flag of the success of the setting of the key of the check of the signature
+				 *
 				 * @note A point not belonging to the curve is rejected
 				 *
 				 * @note If the signing key is already set, the public key is derived from it: the given one
@@ -313,15 +325,15 @@ namespace nts {
 				 * @param x    место, в которое записывается первая координата ключа проверки подписи
 				 * @param y    место, в которое записывается вторая координата ключа проверки подписи
 				 * @param size размер места, в которое записывается всякая координата
-				 *
-				 * @return признак успешности получения ключа проверки подписи
+				 * @return     признак успешности получения ключа проверки подписи
 				 *
 				 * \~english
 				 * @brief Method of getting the key of the check of the signature
+				 *
 				 * @param x    the place the first coordinate of the key of the check of the signature is written into
 				 * @param y    the place the second coordinate of the key of the check of the signature is written into
 				 * @param size the size of the place every coordinate is written into
-				 * @return the flag of the success of the getting of the key of the check of the signature
+				 * @return     the flag of the success of the getting of the key of the check of the signature
 				 *
 				 * \~
 				 */
@@ -334,8 +346,7 @@ namespace nts {
 				 * @param digest хеш подписываемого сообщения, записанный от старшего байта к младшему
 				 * @param random случайное число выработки подписи, записанное от старшего байта к младшему
 				 * @param result место, в которое помещается подпись
-				 *
-				 * @return признак успешности выработки подписи
+				 * @return       признак успешности выработки подписи
 				 *
 				 * @note Отказ выработки при годном ключе означает неудачный выбор случайного
 				 *       числа: раздел 4.1.3 SEC 1 велит в этом случае выбрать новое число и
@@ -343,10 +354,12 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the production of a signature by a passed random number
+				 *
 				 * @param digest the hash of the message being signed, written from the senior byte to the junior one
 				 * @param random the random number of the production of the signature, written from the senior byte to the junior one
 				 * @param result the place the signature is put into
-				 * @return the flag of the success of the production of the signature
+				 * @return       the flag of the success of the production of the signature
+				 *
 				 * @note A refusal of the production at a suitable key means an unsuccessful choice of
 				 *       the random number: the section 4.1.3 of SEC 1 orders to choose a new number
 				 *       and to repeat the production in this case
@@ -361,8 +374,7 @@ namespace nts {
 				 * @param algorithm алгоритм хеширования, которым получен хеш сообщения
 				 * @param digest    хеш подписываемого сообщения, записанный от старшего байта к младшему
 				 * @param result    место, в которое помещается подпись
-				 *
-				 * @return признак успешности выработки подписи
+				 * @return          признак успешности выработки подписи
 				 *
 				 * @details Случайное число выводится из ключа подписи и хеша сообщения
 				 *          имитовставкой HMAC на том же алгоритме хеширования, которым получен
@@ -373,14 +385,17 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the production of a signature with the derivation of the random number according to RFC 6979
+				 *
 				 * @param algorithm the hashing algorithm the hash of the message was received by
 				 * @param digest    the hash of the message being signed, written from the senior byte to the junior one
 				 * @param result    the place the signature is put into
-				 * @return the flag of the success of the production of the signature
+				 * @return          the flag of the success of the production of the signature
+				 *
 				 * @details The random number is derived from the key of the signature and the hash of
 				 *          the message by the authentication code HMAC on the same hashing algorithm the
 				 *          hash was received by, according to the section 3.2 of RFC 6979: the length of
 				 *          the hash must equal the length of the hash of the named algorithm
+				 *
 				 * @note An unsuccessful choice of the number is handled by a repetition of the derivation
 				 *       according to the section 3.2 of RFC 6979
 				 *
@@ -393,17 +408,18 @@ namespace nts {
 				 *
 				 * @param digest    хеш подписанного сообщения, записанный от старшего байта к младшему
 				 * @param signature проверяемая подпись
-				 *
-				 * @return признак того, что подпись сошлась
+				 * @return          признак того, что подпись сошлась
 				 *
 				 * @note Подпись, всякая из частей которой лежит вне отрезка [1, n-1], отвергается
 				 *       до всякого счёта по разделу 4.1.4 SEC 1
 				 *
 				 * \~english
 				 * @brief Method of the check of a signature
+				 *
 				 * @param digest    the hash of the signed message, written from the senior byte to the junior one
 				 * @param signature the signature being checked
-				 * @return the flag of the signature having converged
+				 * @return          the flag of the signature having converged
+				 *
 				 * @note A signature every part of which lies outside of the segment [1, n-1] is
 				 *       rejected before any computation according to the section 4.1.4 of SEC 1
 				 *
@@ -415,7 +431,6 @@ namespace nts {
 				 * \~russian
 				 * @brief Конструктор
 				 *
-				 *
 				 * \~english
 				 * @brief Constructor
 				 *
@@ -425,7 +440,6 @@ namespace nts {
 				/**
 				 * \~russian
 				 * @brief Деструктор
-				 *
 				 *
 				 * \~english
 				 * @brief Destructor
@@ -437,7 +451,7 @@ namespace nts {
 
 		/**
 		 * \~russian
-		 * @brief Метод записи подписи ECDSA в структуру ASN.1 DER в готовое место
+		 * @brief Функция записи подписи ECDSA в структуру ASN.1 DER в готовое место
 		 *
 		 * @details Запись SEQUENCE {INTEGER r, INTEGER s} складывается вручную, без
 		 *          записывающего объекта ASN.1 и без единого выделения памяти: оттого
@@ -447,14 +461,15 @@ namespace nts {
 		 * @param raw  подпись в сыром виде: r и s подряд равной длины
 		 * @param der  место, в которое помещается запись
 		 * @param size на входе ёмкость места, на выходе длина записи
-		 *
 		 * @return     признак успешности записи
 		 *
 		 * \~english
-		 * @brief Method of the encoding of an ECDSA signature into an ASN.1 DER structure into a ready place
+		 * @brief Function of the encoding of an ECDSA signature into an ASN.1 DER structure into a ready place
+		 *
 		 * @details The SEQUENCE {INTEGER r, INTEGER s} record is composed by hand, without the ASN.1 writer
 		 *          and without a single allocation: hence a failure here means an unfit signature, not a
 		 *          lack of memory, and the caller may judge the cause. The place must hold limit()
+		 *
 		 * @param raw  the signature in the raw form: r and s in a row of an equal length
 		 * @param der  the place the record is put into
 		 * @param size the capacity of the place at the input, the length of the record at the output
@@ -465,23 +480,25 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ bool encode(const view_t & raw, uint8_t * der, size_t & size) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод записи подписи ECDSA в виде ASN.1 DER
+		 * @brief Функция записи подписи ECDSA в виде ASN.1 DER
 		 *
 		 * @param raw подпись в сыром виде: r и s подряд, каждое в половину длины подписи
 		 * @param der место, в которое помещается запись SEQUENCE {INTEGER r, INTEGER s}
-		 *
-		 * @return признак успешности записи подписи
+		 * @return    признак успешности записи подписи
 		 *
 		 * @note Подпись нечётной либо нулевой длины записи не подлежит
 		 *
 		 * @note Нехватка памяти под запись отвечает отказом, а не исключением
 		 *
 		 * \~english
-		 * @brief Method of the writing of a signature ECDSA in the form of ASN.1 DER
+		 * @brief Function of the writing of a signature ECDSA in the form of ASN.1 DER
+		 *
 		 * @param raw the signature in the raw form: r and s in a row, each of a half of the length of the signature
 		 * @param der the place the writing SEQUENCE {INTEGER r, INTEGER s} is put into
-		 * @return the flag of the success of the writing of the signature
+		 * @return    the flag of the success of the writing of the signature
+		 *
 		 * @note A signature of an odd or a zero length is not subject to the writing
+		 *
 		 * @note A lack of the memory for the writing answers by a refusal and not by an exception
 		 *
 		 * \~
@@ -489,24 +506,25 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ bool encode(const view_t & raw, vector <uint8_t> & der) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод разбора подписи ECDSA из записи ASN.1 DER
+		 * @brief Функция разбора подписи ECDSA из записи ASN.1 DER
 		 *
 		 * @param der  разбираемая запись SEQUENCE {INTEGER r, INTEGER s}
 		 * @param raw  место, в которое помещается подпись в сыром виде: r и s подряд
 		 * @param size размер места подписи в сыром виде, две длины порядка подгруппы
-		 *
-		 * @return признак успешности разбора подписи
+		 * @return     признак успешности разбора подписи
 		 *
 		 * @note Отрицательные числа, числа длиннее половины места и данные сверх
 		 *       записи отвергаются; числа короче половины места дополняются нулями
 		 *       спереди
 		 *
 		 * \~english
-		 * @brief Method of the parsing of a signature ECDSA from a writing ASN.1 DER
+		 * @brief Function of the parsing of a signature ECDSA from a writing ASN.1 DER
+		 *
 		 * @param der  the writing SEQUENCE {INTEGER r, INTEGER s} being parsed
 		 * @param raw  the place the signature in the raw form is put into: r and s in a row
 		 * @param size the size of the place of the signature in the raw form, two lengths of the order of the subgroup
-		 * @return the flag of the success of the parsing of the signature
+		 * @return     the flag of the success of the parsing of the signature
+		 *
 		 * @note Negative numbers, numbers longer than a half of the place and the data beyond
 		 *       the writing are rejected; numbers shorter than a half of the place are padded
 		 *       by the zeroes in front

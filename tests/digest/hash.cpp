@@ -1,15 +1,22 @@
 /**
- * @file: hash.cpp
- * @date: 2026-09-04
- * @license: GPL-3.0
+ * @file hash.cpp
+ * @date 2026-09-04
  *
- * @telegram: @forman
- * @author: Yuriy Lobarev
- * @phone: +7 (910) 983-95-90
- * @email: forman@anyks.com
- * @site: https://anyks.com
+ * @license{GPL-3.0}
  *
- * @copyright: Copyright © 2026
+ * @author Yuriy Lobarev
+ *
+ * @telegram{forman}
+ * @phone{+7 (910) 983-95-90}
+ *
+ * @email forman@anyks.com
+ * @site https://anyks.com
+ *
+ * @brief Исходный файл проверок модуля дайджестов: размеры, диспетчеризация,
+ *        имитовставка HMAC и чужие хеши
+ *
+ * @copyright Copyright © 2026
+ *
  */
 
 /**
@@ -31,11 +38,10 @@
 using namespace nts;
 
 /**
- * @brief Метод записи байтов шестнадцатеричной строкой
+ * @brief Функция записи байтов шестнадцатеричной строкой
  *
  * @param data байты
  * @param size число байтов
- *
  * @return     запись строчными шестнадцатеричными знаками
  *
  */
@@ -58,12 +64,11 @@ static std::string text(const uint8_t * data, const size_t size) {
 }
 
 /**
- * @brief Метод выработки имитовставки строкой
+ * @brief Функция выработки имитовставки строкой
  *
  * @param algorithm алгоритм хеширования
  * @param key       ключ имитовставки
  * @param message   сообщение
- *
  * @return          запись имитовставки шестнадцатеричной строкой
  *
  */
@@ -233,24 +238,39 @@ TEST(HashTest, Foreign){
  * BLAKE2 в общем перечне: хеш, длины и блоки, HMAC-BLAKE2s/BLAKE2b по openssl mac HMAC
  */
 TEST(HashTest, Blake2){
+	// Место итога и ключ HMAC
 	uint8_t result[64], key[32];
+	/**
+	 * Заполняем ключ байтами 00..1f
+	 */
 	for(size_t i = 0; i < 32; i++) key[i] = static_cast <uint8_t> (i);
+	// Сообщение из трёх знаков «abc»
 	const view_t abc(reinterpret_cast <const uint8_t *> ("abc"), 3);
+	// Длина итога BLAKE2s256 — 32 байта
 	EXPECT_EQ(digest::length(digest::hash_t::BLAKE2S256), 32u);
 	EXPECT_EQ(digest::length(digest::hash_t::BLAKE2B512), 64u);
 	EXPECT_EQ(digest::block(digest::hash_t::BLAKE2S256), 64u);
 	EXPECT_EQ(digest::block(digest::hash_t::BLAKE2B512), 128u);
+	// Считаем BLAKE2s256 от «abc»
 	ASSERT_TRUE(digest::hash(digest::hash_t::BLAKE2S256, abc, result, 32));
+	// Итог BLAKE2s256 совпадает с контрольным значением openssl
 	EXPECT_EQ(text(result, 32), "508c5e8c327c14e2e1a72ba34eeb452f37458b209ed63a294d999b4c86675982");
+	// Считаем BLAKE2b512 от «abc»
 	ASSERT_TRUE(digest::hash(digest::hash_t::BLAKE2B512, abc, result, 64));
+	// Итог BLAKE2b512 совпадает с контрольным значением openssl
 	EXPECT_EQ(text(result, 64), "ba80a53f981c4d0d6a2797b69f12f6e94c212f14685ac4b74b12bb6fdbffa2d17d87c5392aab792dc252d5de4533cc9518d38aa8dbf1925ab92386edd4009923");
 	// HMAC поверх BLAKE2: значения openssl mac -digest BLAKE2s256/BLAKE2b512 HMAC с ключом 00..1f
 	ASSERT_TRUE(digest::hmac(digest::hash_t::BLAKE2S256, view_t(key, 32), abc, result, 32));
+	// Итог HMAC-BLAKE2s256 совпадает со значением openssl mac
 	EXPECT_EQ(text(result, 32), "82623be5bc0a391b24dce53e67d028eff92d586de0485ac37822e597d049c74f");
+	// Считаем HMAC-BLAKE2b512 с тем же ключом
 	ASSERT_TRUE(digest::hmac(digest::hash_t::BLAKE2B512, view_t(key, 32), abc, result, 64));
+	// Итог HMAC-BLAKE2b512 совпадает со значением openssl mac
 	EXPECT_EQ(text(result, 64), "af6aef48e9a5a5e6a63b9f4703f032b5e42905477afec4d14f45d2d85e43dd193e96ba6432d7f7be1186083a09e71894f83dcf65fcf5a88b585529ef4928833d");
 	// Короткое место отвергается
 	digest::hasher_t hasher(digest::hash_t::BLAKE2S256);
+	// Поглощаем «abc» накопителем
 	hasher.update(abc);
+	// Итог в 31 байт отвергается: место короче итога BLAKE2s256
 	EXPECT_FALSE(hasher.finish(result, 31));
 }

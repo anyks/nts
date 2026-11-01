@@ -12,15 +12,8 @@
  * @email forman@anyks.com
  * @site https://anyks.com
  *
- * \~russian
  * @brief Модуль CMP — разбор и сборка сообщений управления сертификатами
  *        по RFC 4210 без применения исключений
- *
- * \~english
- * @brief CMP module — parsing and building of certificate management protocol
- *        messages according to RFC 4210 without the use of exceptions
- *
- * \~
  *
  * @copyright Copyright © 2026
  *
@@ -47,13 +40,7 @@
 #include <ctime>
 
 /**
- * \~russian
  * @brief Внутренние служебные объекты
- *
- * \~english
- * @brief Internal service objects
- *
- * \~
  *
  */
 namespace {
@@ -71,35 +58,55 @@ namespace {
 	 * Опознаватели алгоритмов хеша
 	 */
 	static const char * OID_SHA1 = "1.3.14.3.2.26";
+	// Опознаватель алгоритма SHA-224 (FIPS 180-4, реестр NIST CSOR)
 	static const char * OID_SHA224 = "2.16.840.1.101.3.4.2.4";
+	// Опознаватель алгоритма SHA-256 (FIPS 180-4, реестр NIST CSOR)
 	static const char * OID_SHA256 = "2.16.840.1.101.3.4.2.1";
+	// Опознаватель алгоритма SHA-384 (FIPS 180-4, реестр NIST CSOR)
 	static const char * OID_SHA384 = "2.16.840.1.101.3.4.2.2";
+	// Опознаватель алгоритма SHA-512 (FIPS 180-4, реестр NIST CSOR)
 	static const char * OID_SHA512 = "2.16.840.1.101.3.4.2.3";
 
 	/**
 	 * Опознаватели алгоритмов имитовставки HMAC: раздел 4 RFC 4231
 	 */
 	static const char * OID_HMAC_SHA1 = "1.3.6.1.5.5.8.1.2";
+	// Опознаватель имитовставки HMAC на SHA-224 (RFC 4231, раздел 4)
 	static const char * OID_HMAC_SHA224 = "1.2.840.113549.2.8";
+	// Опознаватель имитовставки HMAC на SHA-256 (RFC 4231, раздел 4)
 	static const char * OID_HMAC_SHA256 = "1.2.840.113549.2.9";
+	// Опознаватель имитовставки HMAC на SHA-384 (RFC 4231, раздел 4)
 	static const char * OID_HMAC_SHA384 = "1.2.840.113549.2.10";
+	// Опознаватель имитовставки HMAC на SHA-512 (RFC 4231, раздел 4)
 	static const char * OID_HMAC_SHA512 = "1.2.840.113549.2.11";
 
 	/**
 	 * Опознаватели алгоритмов подписи
 	 */
 	static const char * OID_SHA1_RSA = "1.2.840.113549.1.1.5";
+	// Опознаватель подписи RSA на SHA-224 (PKCS#1)
 	static const char * OID_SHA224_RSA = "1.2.840.113549.1.1.14";
+	// Опознаватель подписи RSA на SHA-256 (PKCS#1)
 	static const char * OID_SHA256_RSA = "1.2.840.113549.1.1.11";
+	// Опознаватель подписи RSA на SHA-384 (PKCS#1)
 	static const char * OID_SHA384_RSA = "1.2.840.113549.1.1.12";
+	// Опознаватель подписи RSA на SHA-512 (PKCS#1)
 	static const char * OID_SHA512_RSA = "1.2.840.113549.1.1.13";
+	// Опознаватель подписи ECDSA на SHA-224 (RFC 5480)
 	static const char * OID_SHA224_ECDSA = "1.2.840.10045.4.3.1";
+	// Опознаватель подписи ECDSA на SHA-256 (RFC 5480)
 	static const char * OID_SHA256_ECDSA = "1.2.840.10045.4.3.2";
+	// Опознаватель подписи ECDSA на SHA-384 (RFC 5480)
 	static const char * OID_SHA384_ECDSA = "1.2.840.10045.4.3.3";
+	// Опознаватель подписи ECDSA на SHA-512 (RFC 5480)
 	static const char * OID_SHA512_ECDSA = "1.2.840.10045.4.3.4";
+	// Опознаватель подписи Ed25519 (RFC 8410)
 	static const char * OID_ED25519 = "1.3.101.112";
+	// Опознаватель подписи ML-DSA-44 (FIPS 204)
 	static const char * OID_MLDSA44 = "2.16.840.1.101.3.4.3.17";
+	// Опознаватель подписи ML-DSA-65 (FIPS 204)
 	static const char * OID_MLDSA65 = "2.16.840.1.101.3.4.3.18";
+	// Опознаватель подписи ML-DSA-87 (FIPS 204)
 	static const char * OID_MLDSA87 = "2.16.840.1.101.3.4.3.19";
 
 	/**
@@ -108,10 +115,9 @@ namespace {
 	static constexpr int64_t PBM_ITERATIONS = 500;
 
 	/**
-	 * @brief Метод перевода отказа разборщика ASN.1 в отказ модуля
+	 * @brief Функция перевода отказа разборщика ASN.1 в отказ модуля
 	 *
 	 * @param error отказ разборщика ASN.1
-	 *
 	 * @return      отказ модуля
 	 *
 	 */
@@ -120,11 +126,10 @@ namespace {
 		return ((error == asn1::error_t::MEMORY) ? nts::cmp::error_t::MEMORY : nts::cmp::error_t::STRUCTURE);
 	}
 	/**
-	 * @brief Метод разбора опознавателя объекта
+	 * @brief Функция разбора опознавателя объекта
 	 *
 	 * @param element разбираемый элемент
 	 * @param result  место, в которое помещается опознаватель
-	 *
 	 * @return        отказ разбора опознавателя
 	 *
 	 */
@@ -135,12 +140,11 @@ namespace {
 		return ((outcome == asn1::error_t::NONE) ? nts::cmp::error_t::NONE : translate(outcome));
 	}
 	/**
-	 * @brief Метод разбора записи опознавателя алгоритма
+	 * @brief Функция разбора записи опознавателя алгоритма
 	 *
 	 * @param element разбираемый элемент записи AlgorithmIdentifier
 	 * @param oid     место, в которое помещается опознаватель алгоритма
 	 * @param params  место, в которое помещается запись настроек алгоритма
-	 *
 	 * @return        отказ разбора записи
 	 *
 	 */
@@ -180,10 +184,9 @@ namespace {
 		return nts::cmp::error_t::NONE;
 	}
 	/**
-	 * @brief Метод получения алгоритма хеша по его опознавателю
+	 * @brief Функция получения алгоритма хеша по его опознавателю
 	 *
 	 * @param oid опознаватель алгоритма хеша
-	 *
 	 * @return    алгоритм хеша, hash_t::NONE у неизвестного
 	 *
 	 */
@@ -198,15 +201,16 @@ namespace {
 		return digest::hash_t::NONE;
 	}
 	/**
-	 * @brief Метод получения опознавателя алгоритма хеша
+	 * @brief Функция получения опознавателя алгоритма хеша
 	 *
 	 * @param hash алгоритм хеша
-	 *
 	 * @return     опознаватель алгоритма хеша либо nullptr
 	 *
 	 */
 	static const char * oidOf(const digest::hash_t hash) noexcept {
-		// Выводим опознаватель по алгоритму хеша
+		/**
+		 * Выводим опознаватель по алгоритму хеша
+		 */
 		switch(hash){
 			case digest::hash_t::SHA1: return OID_SHA1;
 			case digest::hash_t::SHA224: return OID_SHA224;
@@ -217,10 +221,9 @@ namespace {
 		}
 	}
 	/**
-	 * @brief Метод получения алгоритма хеша имитовставки по её опознавателю
+	 * @brief Функция получения алгоритма хеша имитовставки по её опознавателю
 	 *
 	 * @param oid опознаватель алгоритма имитовставки HMAC
-	 *
 	 * @return    алгоритм хеша, hash_t::NONE у неизвестного
 	 *
 	 */
@@ -235,15 +238,16 @@ namespace {
 		return digest::hash_t::NONE;
 	}
 	/**
-	 * @brief Метод получения опознавателя имитовставки HMAC по алгоритму хеша
+	 * @brief Функция получения опознавателя имитовставки HMAC по алгоритму хеша
 	 *
 	 * @param hash алгоритм хеша
-	 *
 	 * @return     опознаватель алгоритма имитовставки либо nullptr
 	 *
 	 */
 	static const char * hmacOidOf(const digest::hash_t hash) noexcept {
-		// Выводим опознаватель имитовставки по алгоритму хеша
+		/**
+		 * Выводим опознаватель имитовставки по алгоритму хеша
+		 */
 		switch(hash){
 			case digest::hash_t::SHA1: return OID_HMAC_SHA1;
 			case digest::hash_t::SHA224: return OID_HMAC_SHA224;
@@ -254,11 +258,10 @@ namespace {
 		}
 	}
 	/**
-	 * @brief Метод получения опознавателя алгоритма подписи по виду ключа и хешу
+	 * @brief Функция получения опознавателя алгоритма подписи по виду ключа и хешу
 	 *
 	 * @param signer подготовленный секретный ключ подписи
 	 * @param hash   алгоритм хеша подписи
-	 *
 	 * @return       опознаватель алгоритма подписи либо nullptr
 	 *
 	 */
@@ -269,7 +272,9 @@ namespace {
 		switch(signer.kind()){
 			// Ключ RSA
 			case keys::kind_t::RSA:
-				// Выводим опознаватель по хешу
+				/**
+				 * Выводим опознаватель подписи RSA по хешу
+				 */
 				switch(hash){
 					case digest::hash_t::SHA1: return OID_SHA1_RSA;
 					case digest::hash_t::SHA224: return OID_SHA224_RSA;
@@ -280,7 +285,9 @@ namespace {
 				}
 			// Ключ ECDSA
 			case keys::kind_t::EC:
-				// Выводим опознаватель по хешу
+				/**
+				 * Выводим опознаватель подписи ECDSA по хешу
+				 */
 				switch(hash){
 					case digest::hash_t::SHA224: return OID_SHA224_ECDSA;
 					case digest::hash_t::SHA256: return OID_SHA256_ECDSA;
@@ -294,7 +301,9 @@ namespace {
 				return OID_ED25519;
 			// Ключ ML-DSA
 			case keys::kind_t::MLDSA:
-				// Выводим опознаватель по набору ключа
+				/**
+				 * Выводим опознаватель подписи ML-DSA по набору ключа
+				 */
 				switch(signer.mldsa().set()){
 					case sign::mldsa_t::set_t::DSA44: return OID_MLDSA44;
 					case sign::mldsa_t::set_t::DSA65: return OID_MLDSA65;
@@ -308,20 +317,18 @@ namespace {
 		}
 	}
 	/**
-	 * @brief Метод выработки подписи содержимого
+	 * @brief Функция выработки подписи содержимого
 	 *
 	 * @param signer    подготовленный секретный ключ подписи
 	 * @param hash      алгоритм хеша подписи (для RSA и ECDSA)
 	 * @param content   подписываемое содержимое
 	 * @param signature место, в которое помещается подпись
-	 *
 	 * @return          отказ выработки подписи
 	 *
 	 */
 	static nts::cmp::error_t makeSignature(const keys::signer_t & signer, const digest::hash_t hash, const view_t & content, vector <uint8_t> & signature) noexcept {
 		/**
-		 * Выработка подписи выделяет память: нехватка её отдаётся отказом, а не
-		 * завершением процесса
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			/**
@@ -400,6 +407,9 @@ namespace {
 					return nts::cmp::error_t::KEY;
 			}
 		// Если памяти под итог не хватило
+		/**
+		 * Выполняем перехват ошибок
+		 */
 		} catch(const std::bad_alloc &) {
 			// Выводим отказ памяти
 			return nts::cmp::error_t::MEMORY;
@@ -408,12 +418,11 @@ namespace {
 		return nts::cmp::error_t::NONE;
 	}
 	/**
-	 * @brief Метод записи опознавателя алгоритма с пустыми настройками
+	 * @brief Функция записи опознавателя алгоритма с пустыми настройками
 	 *
 	 * @param writer записчик, в который ведётся запись
 	 * @param oid    опознаватель алгоритма
 	 * @param empty  признак записи пустых настроек NULL
-	 *
 	 * @return       признак успешности записи
 	 *
 	 */
@@ -436,11 +445,10 @@ namespace {
 		return writer.close();
 	}
 	/**
-	 * @brief Метод переноса готовой записи в записчик как элемента
+	 * @brief Функция переноса готовой записи в записчик как элемента
 	 *
 	 * @param writer записчик, в который ведётся запись
 	 * @param record переносимая запись целиком, с меткой и длиной
-	 *
 	 * @return       признак успешности переноса
 	 *
 	 */
@@ -457,7 +465,7 @@ namespace {
 		return writer.element(element.cls, element.constructed, element.tag, element.content);
 	}
 	/**
-	 * @brief Метод выработки ключа имитовставки PBM по разделу 5.1.3.1 RFC 4210
+	 * @brief Функция выработки ключа имитовставки PBM по разделу 5.1.3.1 RFC 4210
 	 *
 	 * @param password пароль общего секрета
 	 * @param salt     метка соли из настроек PBM
@@ -465,7 +473,6 @@ namespace {
 	 * @param count    число повторов односторонней функции
 	 * @param length   требуемая длина ключа имитовставки в байтах
 	 * @param result   место, в которое помещается ключ
-	 *
 	 * @return         отказ выработки ключа
 	 *
 	 * @note Соль прилагается к секрету, односторонняя функция применяется count раз;
@@ -481,8 +488,7 @@ namespace {
 			// Выводим отказ алгоритма
 			return nts::cmp::error_t::ALGORITHM;
 		/**
-		 * Выработка ключа выделяет память: нехватка её отдаётся отказом, а не
-		 * завершением процесса
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Место, в которое помещается секрет с солью
@@ -504,7 +510,9 @@ namespace {
 			}
 			// Затираем секрет с солью
 			nts::sys::wipe(base.data(), base.size());
-			// Прочие повторы: односторонняя функция над итогом прежнего повтора
+			/**
+			 * Прочие повторы: односторонняя функция над итогом прежнего повтора
+			 */
 			for(int64_t i = 1; i < count; i++){
 				// Если повтор выработать не удалось
 				if(!digest::hash(hash, view_t(round, width), round, sizeof(round))){
@@ -530,7 +538,9 @@ namespace {
 				size_t filled = width;
 				// Номер дополнения
 				uint8_t number = '1';
-				// Дополняем ключ, пока он не заполнен
+				/**
+				 * Дополняем ключ, пока он не заполнен
+				 */
 				while(filled < length){
 					// Собираем ввод дополнения: номер и итог
 					extra.assign(1, number);
@@ -563,6 +573,9 @@ namespace {
 			// Затираем итог повтора
 			nts::sys::wipe(round, sizeof(round));
 		// Если памяти под итог не хватило
+		/**
+		 * Выполняем перехват ошибок
+		 */
 		} catch(const std::bad_alloc &) {
 			// Выводим отказ памяти
 			return nts::cmp::error_t::MEMORY;
@@ -571,13 +584,12 @@ namespace {
 		return nts::cmp::error_t::NONE;
 	}
 	/**
-	 * @brief Метод разбора настроек PBM и выработки ключа имитовставки
+	 * @brief Функция разбора настроек PBM и выработки ключа имитовставки
 	 *
 	 * @param params   запись настроек PBMParameter
 	 * @param password пароль общего секрета
 	 * @param hash     место, в которое помещается алгоритм хеша имитовставки
 	 * @param key      место, в которое помещается ключ имитовставки
-	 *
 	 * @return         отказ разбора настроек
 	 *
 	 */
@@ -660,12 +672,11 @@ namespace {
 		return pbmKey(password, salt.content, owfHash, count, digest::length(owfHash), key);
 	}
 	/**
-	 * @brief Метод сборки записи настроек PBMParameter
+	 * @brief Функция сборки записи настроек PBMParameter
 	 *
 	 * @param salt   метка соли
 	 * @param hash   алгоритм хеша односторонней функции и имитовставки
 	 * @param result место, в которое помещается запись настроек
-	 *
 	 * @return       отказ сборки настроек
 	 *
 	 */
@@ -705,13 +716,15 @@ namespace {
 			// Выводим отказ сборки
 			return nts::cmp::error_t::MEMORY;
 		/**
-		 * Перенос записи выделяет память: нехватка её отдаётся отказом, а не
-		 * завершением процесса
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Переносим запись настроек в итог
 			result.assign(writer.data().data, writer.data().data + writer.data().size);
 		// Если памяти под итог не хватило
+		/**
+		 * Выполняем перехват ошибок
+		 */
 		} catch(const std::bad_alloc &) {
 			// Выводим отказ памяти
 			return nts::cmp::error_t::MEMORY;
@@ -720,12 +733,11 @@ namespace {
 		return nts::cmp::error_t::NONE;
 	}
 	/**
-	 * @brief Метод сборки защищаемой части ProtectedPart
+	 * @brief Функция сборки защищаемой части ProtectedPart
 	 *
 	 * @param header запись заголовка
 	 * @param body   запись тела (с меткой вида)
 	 * @param result место, в которое помещается запись защищаемой части
-	 *
 	 * @return       отказ сборки защищаемой части
 	 *
 	 */
@@ -749,13 +761,15 @@ namespace {
 			// Выводим отказ сборки
 			return nts::cmp::error_t::MEMORY;
 		/**
-		 * Перенос записи выделяет память: нехватка её отдаётся отказом, а не
-		 * завершением процесса
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Переносим запись защищаемой части в итог
 			result.assign(writer.data().data, writer.data().data + writer.data().size);
 		// Если памяти под итог не хватило
+		/**
+		 * Выполняем перехват ошибок
+		 */
 		} catch(const std::bad_alloc &) {
 			// Выводим отказ памяти
 			return nts::cmp::error_t::MEMORY;
@@ -764,7 +778,7 @@ namespace {
 		return nts::cmp::error_t::NONE;
 	}
 	/**
-	 * @brief Метод сборки заголовка PKIHeader
+	 * @brief Функция сборки заголовка PKIHeader
 	 *
 	 * @param sender    запись GeneralName отправителя, пустая - «NULL»-имя
 	 * @param recipient запись GeneralName получателя
@@ -772,7 +786,6 @@ namespace {
 	 * @param algorithm опознаватель алгоритма защиты, nullptr при её отсутствии
 	 * @param params    запись настроек алгоритма защиты
 	 * @param result    место, в которое помещается запись заголовка
-	 *
 	 * @return          отказ сборки заголовка
 	 *
 	 * @note Метки полей заголовка явные (EXPLICIT) по модулю ASN.1 RFC 4210:
@@ -897,13 +910,15 @@ namespace {
 			// Выводим отказ сборки
 			return nts::cmp::error_t::MEMORY;
 		/**
-		 * Перенос записи выделяет память: нехватка её отдаётся отказом, а не
-		 * завершением процесса
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Переносим запись заголовка в итог
 			result.assign(writer.data().data, writer.data().data + writer.data().size);
 		// Если памяти под итог не хватило
+		/**
+		 * Выполняем перехват ошибок
+		 */
 		} catch(const std::bad_alloc &) {
 			// Выводим отказ памяти
 			return nts::cmp::error_t::MEMORY;
@@ -912,7 +927,7 @@ namespace {
 		return nts::cmp::error_t::NONE;
 	}
 	/**
-	 * @brief Метод сборки сообщения из заголовка и тела с защитой подписью
+	 * @brief Функция сборки сообщения из заголовка и тела с защитой подписью
 	 *
 	 * @param sender    запись GeneralName отправителя
 	 * @param recipient запись GeneralName получателя
@@ -920,7 +935,6 @@ namespace {
 	 * @param signer    подготовленный секретный ключ защиты подписью
 	 * @param hash      алгоритм хеша подписи
 	 * @param result    место, в которое помещается запись PKIMessage
-	 *
 	 * @return          отказ сборки сообщения
 	 *
 	 */
@@ -999,13 +1013,15 @@ namespace {
 			// Выводим отказ сборки
 			return nts::cmp::error_t::MEMORY;
 		/**
-		 * Перенос записи выделяет память: нехватка её отдаётся отказом, а не
-		 * завершением процесса
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Переносим запись сообщения в итог
 			result.assign(writer.data().data, writer.data().data + writer.data().size);
 		// Если памяти под итог не хватило
+		/**
+		 * Выполняем перехват ошибок
+		 */
 		} catch(const std::bad_alloc &) {
 			// Выводим отказ памяти
 			return nts::cmp::error_t::MEMORY;
@@ -1014,7 +1030,7 @@ namespace {
 		return nts::cmp::error_t::NONE;
 	}
 	/**
-	 * @brief Метод сборки сообщения из заголовка и тела с защитой PBM
+	 * @brief Функция сборки сообщения из заголовка и тела с защитой PBM
 	 *
 	 * @param sender    запись GeneralName отправителя
 	 * @param recipient запись GeneralName получателя
@@ -1023,7 +1039,6 @@ namespace {
 	 * @param password  пароль общего секрета
 	 * @param hash      алгоритм хеша односторонней функции и имитовставки
 	 * @param result    место, в которое помещается запись PKIMessage
-	 *
 	 * @return          отказ сборки сообщения
 	 *
 	 */
@@ -1158,13 +1173,15 @@ namespace {
 		nts::sys::wipe(key.data(), key.size());
 		nts::sys::wipe(salt, sizeof(salt));
 		/**
-		 * Перенос записи выделяет память: нехватка её отдаётся отказом, а не
-		 * завершением процесса
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Переносим запись сообщения в итог
 			result.assign(writer.data().data, writer.data().data + writer.data().size);
 		// Если памяти под итог не хватило
+		/**
+		 * Выполняем перехват ошибок
+		 */
 		} catch(const std::bad_alloc &) {
 			// Выводим отказ памяти
 			return nts::cmp::error_t::MEMORY;
@@ -1173,14 +1190,13 @@ namespace {
 		return nts::cmp::error_t::NONE;
 	}
 	/**
-	 * @brief Метод сборки тела запросов сертификатов CertReqMessages
+	 * @brief Функция сборки тела запросов сертификатов CertReqMessages
 	 *
 	 * @param kind      вид тела (ir/cr/kur/krr/ccr)
 	 * @param templates записи шаблонов CertTemplate
 	 * @param signer    подготовленный секретный ключ подтверждения владения
 	 * @param hash      алгоритм хеша подписи подтверждения
 	 * @param result    место, в которое помещается запись тела (с меткой вида)
-	 *
 	 * @return          отказ сборки тела
 	 *
 	 * @note Подтверждение владения ставится видом signature: подпись над записью
@@ -1198,7 +1214,9 @@ namespace {
 		asn1::writer_t content;
 		// Опознаватель запроса
 		int64_t id = 0;
-		// Переносим шаблоны запросов
+		/**
+		 * Переносим шаблоны запросов
+		 */
 		for(const view_t & certTemplate : templates){
 			// Записчик запроса CertReq
 			asn1::writer_t certReq;
@@ -1286,13 +1304,15 @@ namespace {
 			// Выводим отказ сборки
 			return nts::cmp::error_t::MEMORY;
 		/**
-		 * Перенос записи выделяет память: нехватка её отдаётся отказом, а не
-		 * завершением процесса
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Переносим запись тела в итог
 			result.assign(body.data().data, body.data().data + body.data().size);
 		// Если памяти под итог не хватило
+		/**
+		 * Выполняем перехват ошибок
+		 */
 		} catch(const std::bad_alloc &) {
 			// Выводим отказ памяти
 			return nts::cmp::error_t::MEMORY;
@@ -1303,30 +1323,16 @@ namespace {
 };
 
 /**
- * \~russian
  * @brief Конструктор сообщения
- *
- * \~english
- * @brief Constructor of the message
- *
- * \~
  *
  */
 nts::cmp::Message::Message() noexcept : _error(error_t::NONE), _kind(body_t::NONE) {}
 
 /**
- * \~russian
  * @brief Метод разбора записи PKIMessage
  *
  * @param data просмотр разбираемой записи
  * @return     причина отказа либо error_t::NONE
- *
- * \~english
- * @brief Method of parsing a PKIMessage record
- * @param data the view of the record being parsed
- * @return     the reason of the failure or error_t::NONE
- *
- * \~
  *
  */
 nts::cmp::error_t nts::cmp::Message::parse(const view_t & data) noexcept {
@@ -1340,8 +1346,7 @@ nts::cmp::error_t nts::cmp::Message::parse(const view_t & data) noexcept {
 		return this->_error;
 	}
 	/**
-	 * Разбор сведений выделяет память: нехватка её отдаётся отказом, а не
-	 * завершением процесса
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Разборщик записи сообщения
@@ -1424,7 +1429,9 @@ nts::cmp::error_t nts::cmp::Message::parse(const view_t & data) noexcept {
 			}
 			// Запоминаем запись имени получателя
 			this->_header.recipient = recipient.element;
-			// Разбираем необязательные поля заголовка
+			/**
+			 * Разбираем необязательные поля заголовка
+			 */
 			while(!fields.empty()){
 				// Элемент очередного поля
 				asn1::element_t item;
@@ -1587,7 +1594,9 @@ nts::cmp::error_t nts::cmp::Message::parse(const view_t & data) noexcept {
 						}
 						// Разборщик строк свободного текста
 						asn1::reader_t lines(text.content);
-						// Разбираем строки свободного текста
+						/**
+						 * Разбираем строки свободного текста
+						 */
 						while(!lines.empty()){
 							// Элемент строки свободного текста
 							asn1::element_t line;
@@ -1647,7 +1656,9 @@ nts::cmp::error_t nts::cmp::Message::parse(const view_t & data) noexcept {
 		this->_body = body.content;
 		// Запоминаем запись защищаемой части: заголовок и тело идут подряд
 		this->_protected = view_t(headerRecord.data, headerRecord.size + body.element.size);
-		// Разбираем защиту и дополнительные сертификаты
+		/**
+		 * Разбираем защиту и дополнительные сертификаты
+		 */
 		while(!items.empty()){
 			// Элемент очередного поля сообщения
 			asn1::element_t item;
@@ -1718,7 +1729,9 @@ nts::cmp::error_t nts::cmp::Message::parse(const view_t & data) noexcept {
 					}
 					// Разборщик записей сертификатов
 					asn1::reader_t records(certificates.content);
-					// Разбираем записи сертификатов
+					/**
+					 * Разбираем записи сертификатов
+					 */
 					while(!records.empty()){
 						// Элемент записи сертификата
 						asn1::element_t certificate;
@@ -1742,6 +1755,9 @@ nts::cmp::error_t nts::cmp::Message::parse(const view_t & data) noexcept {
 			}
 		}
 	// Если памяти под сведения не хватило
+	/**
+	 * Выполняем перехват ошибок
+	 */
 	} catch(const std::bad_alloc &) {
 		// Запоминаем причину отказа
 		this->_error = error_t::MEMORY;
@@ -1754,13 +1770,7 @@ nts::cmp::error_t nts::cmp::Message::parse(const view_t & data) noexcept {
 	return this->_error;
 }
 /**
- * \~russian
  * @brief Метод очистки разобранных сведений
- *
- * \~english
- * @brief Method of clearing the parsed info
- *
- * \~
  *
  */
 void nts::cmp::Message::clear() noexcept {
@@ -1772,22 +1782,17 @@ void nts::cmp::Message::clear() noexcept {
 	this->_header = header_t();
 	// Сбрасываем просмотры
 	this->_body = view_t();
+	// Сбрасываем просмотр строки битов защиты
 	this->_protection = view_t();
+	// Сбрасываем просмотр защищаемой записи ProtectedPart (заголовок и тело)
 	this->_protected = view_t();
 	// Сбрасываем записи сертификатов
 	this->_certificates.clear();
 }
 /**
- * \~russian
  * @brief Метод извлечения причины последнего отказа
  *
  * @return причина последнего отказа
- *
- * \~english
- * @brief Method of getting the reason of the last failure
- * @return the reason of the last failure
- *
- * \~
  *
  */
 nts::cmp::error_t nts::cmp::Message::err() const noexcept {
@@ -1795,16 +1800,9 @@ nts::cmp::error_t nts::cmp::Message::err() const noexcept {
 	return this->_error;
 }
 /**
- * \~russian
  * @brief Метод извлечения вида тела сообщения
  *
  * @return вид тела, body_t::NONE у неразобранной записи
- *
- * \~english
- * @brief Method of getting the kind of the message body
- * @return the kind of the body, body_t::NONE at an unparsed record
- *
- * \~
  *
  */
 nts::cmp::body_t nts::cmp::Message::kind() const noexcept {
@@ -1812,16 +1810,9 @@ nts::cmp::body_t nts::cmp::Message::kind() const noexcept {
 	return this->_kind;
 }
 /**
- * \~russian
  * @brief Метод извлечения заголовка сообщения
  *
  * @return заголовок сообщения
- *
- * \~english
- * @brief Method of getting the message header
- * @return the message header
- *
- * \~
  *
  */
 const nts::cmp::header_t & nts::cmp::Message::header() const noexcept {
@@ -1829,16 +1820,9 @@ const nts::cmp::header_t & nts::cmp::Message::header() const noexcept {
 	return this->_header;
 }
 /**
- * \~russian
  * @brief Метод извлечения содержимого тела
  *
  * @return просмотр содержимого тела (без метки вида)
- *
- * \~english
- * @brief Method of getting the body content
- * @return the view of the body content (without the kind tag)
- *
- * \~
  *
  */
 const nts::view_t & nts::cmp::Message::body() const noexcept {
@@ -1846,16 +1830,9 @@ const nts::view_t & nts::cmp::Message::body() const noexcept {
 	return this->_body;
 }
 /**
- * \~russian
  * @brief Метод извлечения защиты сообщения
  *
  * @return просмотр содержимого строки битов защиты, пустой при её отсутствии
- *
- * \~english
- * @brief Method of getting the message protection
- * @return the view of the protection bit string content, empty at its absence
- *
- * \~
  *
  */
 const nts::view_t & nts::cmp::Message::protection() const noexcept {
@@ -1863,16 +1840,9 @@ const nts::view_t & nts::cmp::Message::protection() const noexcept {
 	return this->_protection;
 }
 /**
- * \~russian
  * @brief Метод извлечения записей дополнительных сертификатов
  *
  * @return просмотры записей сертификатов extraCerts
- *
- * \~english
- * @brief Method of getting the extra certificate records
- * @return the views of the extraCerts certificate records
- *
- * \~
  *
  */
 const vector <nts::view_t> & nts::cmp::Message::certificates() const noexcept {
@@ -1881,20 +1851,11 @@ const vector <nts::view_t> & nts::cmp::Message::certificates() const noexcept {
 }
 
 /**
- * \~russian
- * @brief Метод разбора сведений о статусе PKIStatusInfo
+ * @brief Функция разбора сведений о статусе PKIStatusInfo
  *
  * @param element разбираемый элемент записи статуса
  * @param result  место, в которое помещаются сведения
  * @return        причина отказа либо error_t::NONE
- *
- * \~english
- * @brief Method of parsing the PKIStatusInfo status info
- * @param element the element of the status record being parsed
- * @param result  the place the info is put into
- * @return        the reason of the failure or error_t::NONE
- *
- * \~
  *
  */
 nts::cmp::error_t nts::cmp::statusInfo(const asn1::element_t & element, status_info_t & result) noexcept {
@@ -1903,8 +1864,7 @@ nts::cmp::error_t nts::cmp::statusInfo(const asn1::element_t & element, status_i
 		// Выводим отказ устройства записи
 		return error_t::STRUCTURE;
 	/**
-	 * Разбор сведений выделяет память: нехватка её отдаётся отказом, а не
-	 * завершением процесса
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Разборщик содержимого записи статуса
@@ -1933,7 +1893,9 @@ nts::cmp::error_t nts::cmp::statusInfo(const asn1::element_t & element, status_i
 				return translate(items.err());
 			// Разборщик строк статуса
 			asn1::reader_t lines(strings.content);
-			// Разбираем строки статуса
+			/**
+			 * Разбираем строки статуса
+			 */
 			while(!lines.empty()){
 				// Элемент строки статуса
 				asn1::element_t line;
@@ -1975,6 +1937,9 @@ nts::cmp::error_t nts::cmp::statusInfo(const asn1::element_t & element, status_i
 			// Выводим отказ устройства записи
 			return error_t::STRUCTURE;
 	// Если памяти под сведения не хватило
+	/**
+	 * Выполняем перехват ошибок
+	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ памяти
 		return error_t::MEMORY;
@@ -1983,20 +1948,11 @@ nts::cmp::error_t nts::cmp::statusInfo(const asn1::element_t & element, status_i
 	return error_t::NONE;
 }
 /**
- * \~russian
- * @brief Метод разбора запросов сертификатов CertReqMessages
+ * @brief Функция разбора запросов сертификатов CertReqMessages
  *
  * @param body   просмотр содержимого тела (для видов ir/cr/kur/krr/ccr)
  * @param result место, в которое помещаются запросы
  * @return       причина отказа либо error_t::NONE
- *
- * \~english
- * @brief Method of parsing the CertReqMessages certificate requests
- * @param body   the view of the body content (for the ir/cr/kur/krr/ccr kinds)
- * @param result the place the requests are put into
- * @return       the reason of the failure or error_t::NONE
- *
- * \~
  *
  */
 nts::cmp::error_t nts::cmp::requests(const view_t & body, vector <request_t> & result) noexcept {
@@ -2005,8 +1961,7 @@ nts::cmp::error_t nts::cmp::requests(const view_t & body, vector <request_t> & r
 		// Выводим отказ пустой записи
 		return error_t::EMPTY;
 	/**
-	 * Разбор сведений выделяет память: нехватка её отдаётся отказом, а не
-	 * завершением процесса
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Разборщик записи CertReqMessages
@@ -2019,7 +1974,9 @@ nts::cmp::error_t nts::cmp::requests(const view_t & body, vector <request_t> & r
 			return translate(wrapper.err());
 		// Разборщик записей запросов
 		asn1::reader_t records(set.content);
-		// Разбираем записи запросов
+		/**
+		 * Разбираем записи запросов
+		 */
 		while(!records.empty()){
 			// Элемент записи запроса CertReqMsg
 			asn1::element_t message;
@@ -2087,6 +2044,9 @@ nts::cmp::error_t nts::cmp::requests(const view_t & body, vector <request_t> & r
 			result.push_back(request);
 		}
 	// Если памяти под сведения не хватило
+	/**
+	 * Выполняем перехват ошибок
+	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ памяти
 		return error_t::MEMORY;
@@ -2095,22 +2055,12 @@ nts::cmp::error_t nts::cmp::requests(const view_t & body, vector <request_t> & r
 	return error_t::NONE;
 }
 /**
- * \~russian
- * @brief Метод разбора ответа о сертификатах CertRepMessage
+ * @brief Функция разбора ответа о сертификатах CertRepMessage
  *
- * @param body         просмотр содержимого тела (для видов ip/cp/kup/ccp)
- * @param caPubs       место, в которое помещаются просмотры записей сертификатов ЦС
- * @param result       место, в которое помещаются ответы
- * @return             причина отказа либо error_t::NONE
- *
- * \~english
- * @brief Method of parsing the CertRepMessage certificate response
- * @param body         the view of the body content (for the ip/cp/kup/ccp kinds)
- * @param caPubs       the place the views of the CA certificate records are put into
- * @param result       the place the responses are put into
- * @return             the reason of the failure or error_t::NONE
- *
- * \~
+ * @param body   просмотр содержимого тела (для видов ip/cp/kup/ccp)
+ * @param caPubs место, в которое помещаются просмотры записей сертификатов ЦС
+ * @param result место, в которое помещаются ответы
+ * @return       причина отказа либо error_t::NONE
  *
  */
 nts::cmp::error_t nts::cmp::response(const view_t & body, vector <view_t> & caPubs, vector <response_t> & result) noexcept {
@@ -2119,8 +2069,7 @@ nts::cmp::error_t nts::cmp::response(const view_t & body, vector <view_t> & caPu
 		// Выводим отказ пустой записи
 		return error_t::EMPTY;
 	/**
-	 * Разбор сведений выделяет память: нехватка её отдаётся отказом, а не
-	 * завершением процесса
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Разборщик записи ответа CertRepMessage
@@ -2143,7 +2092,9 @@ nts::cmp::error_t nts::cmp::response(const view_t & body, vector <view_t> & caPu
 		if((field.cls == asn1::cls_t::CONTEXT) && (field.tag == 1)){
 			// Разборщик записей сертификатов ЦС
 			asn1::reader_t records(field.content);
-			// Разбираем записи сертификатов ЦС
+			/**
+			 * Разбираем записи сертификатов ЦС
+			 */
 			while(!records.empty()){
 				// Элемент записи сертификата ЦС
 				asn1::element_t certificate;
@@ -2165,7 +2116,9 @@ nts::cmp::error_t nts::cmp::response(const view_t & body, vector <view_t> & caPu
 			return error_t::STRUCTURE;
 		// Разборщик записей ответов
 		asn1::reader_t records(field.content);
-		// Разбираем записи ответов
+		/**
+		 * Разбираем записи ответов
+		 */
 		while(!records.empty()){
 			// Элемент записи ответа CertResponse
 			asn1::element_t response;
@@ -2271,6 +2224,9 @@ nts::cmp::error_t nts::cmp::response(const view_t & body, vector <view_t> & caPu
 			result.push_back(answer);
 		}
 	// Если памяти под сведения не хватило
+	/**
+	 * Выполняем перехват ошибок
+	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ памяти
 		return error_t::MEMORY;
@@ -2279,20 +2235,11 @@ nts::cmp::error_t nts::cmp::response(const view_t & body, vector <view_t> & caPu
 	return error_t::NONE;
 }
 /**
- * \~russian
- * @brief Метод разбора общих сведений GenMsgContent/GenRepContent
+ * @brief Функция разбора общих сведений GenMsgContent/GenRepContent
  *
  * @param body   просмотр содержимого тела (для видов genm/genp)
  * @param result место, в которое помещаются сведения
  * @return       причина отказа либо error_t::NONE
- *
- * \~english
- * @brief Method of parsing the GenMsgContent/GenRepContent general info
- * @param body   the view of the body content (for the genm/genp kinds)
- * @param result the place the info is put into
- * @return       the reason of the failure or error_t::NONE
- *
- * \~
  *
  */
 nts::cmp::error_t nts::cmp::infos(const view_t & body, vector <info_t> & result) noexcept {
@@ -2301,8 +2248,7 @@ nts::cmp::error_t nts::cmp::infos(const view_t & body, vector <info_t> & result)
 		// Выводим отказ пустой записи
 		return error_t::EMPTY;
 	/**
-	 * Разбор сведений выделяет память: нехватка её отдаётся отказом, а не
-	 * завершением процесса
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Разборщик записи GenMsgContent/GenRepContent
@@ -2315,7 +2261,9 @@ nts::cmp::error_t nts::cmp::infos(const view_t & body, vector <info_t> & result)
 			return translate(wrapper.err());
 		// Разборщик записей сведений
 		asn1::reader_t records(set.content);
-		// Разбираем записи сведений
+		/**
+		 * Разбираем записи сведений
+		 */
 		while(!records.empty()){
 			// Элемент записи сведений InfoTypeAndValue
 			asn1::element_t info;
@@ -2352,6 +2300,9 @@ nts::cmp::error_t nts::cmp::infos(const view_t & body, vector <info_t> & result)
 			result.push_back(pair);
 		}
 	// Если памяти под сведения не хватило
+	/**
+	 * Выполняем перехват ошибок
+	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ памяти
 		return error_t::MEMORY;
@@ -2361,20 +2312,11 @@ nts::cmp::error_t nts::cmp::infos(const view_t & body, vector <info_t> & result)
 }
 
 /**
- * \~russian
- * @brief Метод разбора вызовов подтверждения владения POPODecKeyChallContent
+ * @brief Функция разбора вызовов подтверждения владения POPODecKeyChallContent
  *
  * @param body   просмотр содержимого тела (для вида popdecc)
  * @param result место, в которое помещаются вызовы
  * @return       причина отказа либо error_t::NONE
- *
- * \~english
- * @brief Method of parsing the POPODecKeyChallContent possession challenges
- * @param body   the view of the body content (for the popdecc kind)
- * @param result the place the challenges are put into
- * @return       the reason of the failure or error_t::NONE
- *
- * \~
  *
  */
 nts::cmp::error_t nts::cmp::challenges(const view_t & body, vector <challenge_t> & result) noexcept {
@@ -2383,8 +2325,7 @@ nts::cmp::error_t nts::cmp::challenges(const view_t & body, vector <challenge_t>
 		// Выводим отказ пустой записи
 		return error_t::EMPTY;
 	/**
-	 * Разбор сведений выделяет память: нехватка её отдаётся отказом, а не
-	 * завершением процесса
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Разборщик записи POPODecKeyChallContent
@@ -2397,7 +2338,9 @@ nts::cmp::error_t nts::cmp::challenges(const view_t & body, vector <challenge_t>
 			return translate(wrapper.err());
 		// Разборщик записей вызовов
 		asn1::reader_t records(set.content);
-		// Разбираем записи вызовов
+		/**
+		 * Разбираем записи вызовов
+		 */
 		while(!records.empty()){
 			// Элемент записи вызова Challenge
 			asn1::element_t challenge;
@@ -2442,10 +2385,13 @@ nts::cmp::error_t nts::cmp::challenges(const view_t & body, vector <challenge_t>
 				return translate(items.err());
 			// Запоминаем содержимое вызова
 			entry.challenge = value.content;
-			// Запоминаем вызов
+			// Дописываем пару свидетеля и вызова в итог разбора
 			result.push_back(entry);
 		}
 	// Если памяти под сведения не хватило
+	/**
+	 * Выполняем перехват ошибок
+	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ памяти
 		return error_t::MEMORY;
@@ -2454,20 +2400,11 @@ nts::cmp::error_t nts::cmp::challenges(const view_t & body, vector <challenge_t>
 	return error_t::NONE;
 }
 /**
- * \~russian
- * @brief Метод разбора ответов подтверждения владения POPODecKeyRespContent
+ * @brief Функция разбора ответов подтверждения владения POPODecKeyRespContent
  *
  * @param body   просмотр содержимого тела (для вида popdecr)
  * @param result место, в которое помещаются числа ответов
  * @return       причина отказа либо error_t::NONE
- *
- * \~english
- * @brief Method of parsing the POPODecKeyRespContent possession responses
- * @param body   the view of the body content (for the popdecr kind)
- * @param result the place the response numbers are put into
- * @return       the reason of the failure or error_t::NONE
- *
- * \~
  *
  */
 nts::cmp::error_t nts::cmp::challengeAnswers(const view_t & body, vector <int64_t> & result) noexcept {
@@ -2476,8 +2413,7 @@ nts::cmp::error_t nts::cmp::challengeAnswers(const view_t & body, vector <int64_
 		// Выводим отказ пустой записи
 		return error_t::EMPTY;
 	/**
-	 * Разбор сведений выделяет память: нехватка её отдаётся отказом, а не
-	 * завершением процесса
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Разборщик записи POPODecKeyRespContent
@@ -2490,7 +2426,9 @@ nts::cmp::error_t nts::cmp::challengeAnswers(const view_t & body, vector <int64_
 			return translate(wrapper.err());
 		// Разборщик чисел ответов
 		asn1::reader_t records(set.content);
-		// Разбираем числа ответов
+		/**
+		 * Разбираем числа ответов
+		 */
 		while(!records.empty()){
 			// Элемент числа ответа
 			asn1::element_t answer;
@@ -2508,6 +2446,9 @@ nts::cmp::error_t nts::cmp::challengeAnswers(const view_t & body, vector <int64_
 			result.push_back(value);
 		}
 	// Если памяти под сведения не хватило
+	/**
+	 * Выполняем перехват ошибок
+	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ памяти
 		return error_t::MEMORY;
@@ -2516,20 +2457,11 @@ nts::cmp::error_t nts::cmp::challengeAnswers(const view_t & body, vector <int64_
 	return error_t::NONE;
 }
 /**
- * \~russian
- * @brief Метод разбора ответа восстановления ключа KeyRecRepContent
+ * @brief Функция разбора ответа восстановления ключа KeyRecRepContent
  *
  * @param body   просмотр содержимого тела (для вида krp)
  * @param result место, в которое помещается ответ
  * @return       причина отказа либо error_t::NONE
- *
- * \~english
- * @brief Method of parsing the KeyRecRepContent key recovery response
- * @param body   the view of the body content (for the krp kind)
- * @param result the place the response is put into
- * @return       the reason of the failure or error_t::NONE
- *
- * \~
  *
  */
 nts::cmp::error_t nts::cmp::recovery(const view_t & body, recovery_t & result) noexcept {
@@ -2538,8 +2470,7 @@ nts::cmp::error_t nts::cmp::recovery(const view_t & body, recovery_t & result) n
 		// Выводим отказ пустой записи
 		return error_t::EMPTY;
 	/**
-	 * Разбор сведений выделяет память: нехватка её отдаётся отказом, а не
-	 * завершением процесса
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Разборщик записи KeyRecRepContent
@@ -2562,7 +2493,9 @@ nts::cmp::error_t nts::cmp::recovery(const view_t & body, recovery_t & result) n
 		if(statusInfo(status, result.status) != error_t::NONE)
 			// Выводим отказ устройства записи
 			return error_t::STRUCTURE;
-		// Разбираем необязательные поля
+		/**
+		 * Разбираем необязательные поля
+		 */
 		while(!items.empty()){
 			// Элемент очередного поля
 			asn1::element_t field;
@@ -2587,7 +2520,9 @@ nts::cmp::error_t nts::cmp::recovery(const view_t & body, recovery_t & result) n
 				case 1: {
 					// Разборщик записей сертификатов ЦС
 					asn1::reader_t records(field.content);
-					// Разбираем записи сертификатов ЦС
+					/**
+					 * Разбираем записи сертификатов ЦС
+					 */
 					while(!records.empty()){
 						// Элемент записи сертификата ЦС
 						asn1::element_t certificate;
@@ -2603,7 +2538,9 @@ nts::cmp::error_t nts::cmp::recovery(const view_t & body, recovery_t & result) n
 				case 2: {
 					// Разборщик записей пар ключей
 					asn1::reader_t records(field.content);
-					// Разбираем записи пар ключей
+					/**
+					 * Разбираем записи пар ключей
+					 */
 					while(!records.empty()){
 						// Элемент записи пары ключей
 						asn1::element_t pair;
@@ -2622,6 +2559,9 @@ nts::cmp::error_t nts::cmp::recovery(const view_t & body, recovery_t & result) n
 			}
 		}
 	// Если памяти под сведения не хватило
+	/**
+	 * Выполняем перехват ошибок
+	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ памяти
 		return error_t::MEMORY;
@@ -2630,20 +2570,11 @@ nts::cmp::error_t nts::cmp::recovery(const view_t & body, recovery_t & result) n
 	return error_t::NONE;
 }
 /**
- * \~russian
- * @brief Метод разбора ответа отзыва RevRepContent
+ * @brief Функция разбора ответа отзыва RevRepContent
  *
  * @param body   просмотр содержимого тела (для вида rp)
  * @param result место, в которое помещается ответ
  * @return       причина отказа либо error_t::NONE
- *
- * \~english
- * @brief Method of parsing the RevRepContent revocation response
- * @param body   the view of the body content (for the rp kind)
- * @param result the place the response is put into
- * @return       the reason of the failure or error_t::NONE
- *
- * \~
  *
  */
 nts::cmp::error_t nts::cmp::revoked(const view_t & body, revoked_t & result) noexcept {
@@ -2652,8 +2583,7 @@ nts::cmp::error_t nts::cmp::revoked(const view_t & body, revoked_t & result) noe
 		// Выводим отказ пустой записи
 		return error_t::EMPTY;
 	/**
-	 * Разбор сведений выделяет память: нехватка её отдаётся отказом, а не
-	 * завершением процесса
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Разборщик записи RevRepContent
@@ -2674,7 +2604,9 @@ nts::cmp::error_t nts::cmp::revoked(const view_t & body, revoked_t & result) noe
 			return translate(items.err());
 		// Разборщик записей статусов
 		asn1::reader_t records(statuses.content);
-		// Разбираем записи статусов
+		/**
+		 * Разбираем записи статусов
+		 */
 		while(!records.empty()){
 			// Элемент записи статуса
 			asn1::element_t status;
@@ -2691,7 +2623,9 @@ nts::cmp::error_t nts::cmp::revoked(const view_t & body, revoked_t & result) noe
 			// Запоминаем сведения о статусе
 			result.statuses.push_back(info);
 		}
-		// Разбираем необязательные поля
+		/**
+		 * Разбираем необязательные поля
+		 */
 		while(!items.empty()){
 			// Элемент очередного поля
 			asn1::element_t field;
@@ -2711,7 +2645,9 @@ nts::cmp::error_t nts::cmp::revoked(const view_t & body, revoked_t & result) noe
 			switch(field.tag){
 				// revCerts [0] SEQUENCE OF CertId
 				case 0:
-					// Разбираем записи опознавателей сертификатов
+					/**
+					 * Разбираем записи опознавателей сертификатов
+					 */
 					while(!entries.empty()){
 						// Элемент записи опознавателя
 						asn1::element_t certificate;
@@ -2725,7 +2661,9 @@ nts::cmp::error_t nts::cmp::revoked(const view_t & body, revoked_t & result) noe
 				break;
 				// crls [1] SEQUENCE OF CertificateList
 				case 1:
-					// Разбираем записи списков отзыва
+					/**
+					 * Разбираем записи списков отзыва
+					 */
 					while(!entries.empty()){
 						// Элемент записи списка отзыва
 						asn1::element_t crl;
@@ -2744,6 +2682,9 @@ nts::cmp::error_t nts::cmp::revoked(const view_t & body, revoked_t & result) noe
 			}
 		}
 	// Если памяти под сведения не хватило
+	/**
+	 * Выполняем перехват ошибок
+	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ памяти
 		return error_t::MEMORY;
@@ -2752,24 +2693,13 @@ nts::cmp::error_t nts::cmp::revoked(const view_t & body, revoked_t & result) noe
 	return error_t::NONE;
 }
 /**
- * \~russian
- * @brief Метод разбора объявления обновления ключа ЦС CAKeyUpdAnnContent
+ * @brief Функция разбора объявления обновления ключа ЦС CAKeyUpdAnnContent
  *
- * @param body        просмотр содержимого тела (для вида ckuann)
- * @param oldWithNew  место, в которое помещается запись сертификата oldWithNew
- * @param newWithOld  место, в которое помещается запись сертификата newWithOld
- * @param newWithNew  место, в которое помещается запись сертификата newWithNew
- * @return            причина отказа либо error_t::NONE
- *
- * \~english
- * @brief Method of parsing the CAKeyUpdAnnContent CA key update announcement
- * @param body        the view of the body content (for the ckuann kind)
- * @param oldWithNew  the place the oldWithNew certificate record is put into
- * @param newWithOld  the place the newWithOld certificate record is put into
- * @param newWithNew  the place the newWithNew certificate record is put into
- * @return            the reason of the failure or error_t::NONE
- *
- * \~
+ * @param body       просмотр содержимого тела (для вида ckuann)
+ * @param oldWithNew место, в которое помещается запись сертификата oldWithNew
+ * @param newWithOld место, в которое помещается запись сертификата newWithOld
+ * @param newWithNew место, в которое помещается запись сертификата newWithNew
+ * @return           причина отказа либо error_t::NONE
  *
  */
 nts::cmp::error_t nts::cmp::caKeyUpdate(const view_t & body, view_t & oldWithNew, view_t & newWithOld, view_t & newWithNew) noexcept {
@@ -2811,20 +2741,11 @@ nts::cmp::error_t nts::cmp::caKeyUpdate(const view_t & body, view_t & oldWithNew
 	return error_t::NONE;
 }
 /**
- * \~russian
- * @brief Метод разбора объявления отзыва RevAnnContent
+ * @brief Функция разбора объявления отзыва RevAnnContent
  *
  * @param body   просмотр содержимого тела (для вида rann)
  * @param result место, в которое помещается объявление
  * @return       причина отказа либо error_t::NONE
- *
- * \~english
- * @brief Method of parsing the RevAnnContent revocation announcement
- * @param body   the view of the body content (for the rann kind)
- * @param result the place the announcement is put into
- * @return       the reason of the failure or error_t::NONE
- *
- * \~
  *
  */
 nts::cmp::error_t nts::cmp::announcement(const view_t & body, announcement_t & result) noexcept {
@@ -2899,20 +2820,11 @@ nts::cmp::error_t nts::cmp::announcement(const view_t & body, announcement_t & r
 	return error_t::NONE;
 }
 /**
- * \~russian
- * @brief Метод разбора записей списков отзыва CRLAnnContent
+ * @brief Функция разбора записей списков отзыва CRLAnnContent
  *
  * @param body   просмотр содержимого тела (для вида crlann)
  * @param result место, в которое помещаются просмотры записей CertificateList
  * @return       причина отказа либо error_t::NONE
- *
- * \~english
- * @brief Method of parsing the CRLAnnContent CRL announcement
- * @param body   the view of the body content (for the crlann kind)
- * @param result the place the views of the CertificateList records are put into
- * @return       the reason of the failure or error_t::NONE
- *
- * \~
  *
  */
 nts::cmp::error_t nts::cmp::crlAnnouncement(const view_t & body, vector <view_t> & result) noexcept {
@@ -2921,8 +2833,7 @@ nts::cmp::error_t nts::cmp::crlAnnouncement(const view_t & body, vector <view_t>
 		// Выводим отказ пустой записи
 		return error_t::EMPTY;
 	/**
-	 * Разбор сведений выделяет память: нехватка её отдаётся отказом, а не
-	 * завершением процесса
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Разборщик записи CRLAnnContent
@@ -2935,7 +2846,9 @@ nts::cmp::error_t nts::cmp::crlAnnouncement(const view_t & body, vector <view_t>
 			return translate(wrapper.err());
 		// Разборщик записей списков отзыва
 		asn1::reader_t records(set.content);
-		// Разбираем записи списков отзыва
+		/**
+		 * Разбираем записи списков отзыва
+		 */
 		while(!records.empty()){
 			// Элемент записи списка отзыва
 			asn1::element_t crl;
@@ -2947,6 +2860,9 @@ nts::cmp::error_t nts::cmp::crlAnnouncement(const view_t & body, vector <view_t>
 			result.push_back(crl.element);
 		}
 	// Если памяти под сведения не хватило
+	/**
+	 * Выполняем перехват ошибок
+	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ памяти
 		return error_t::MEMORY;
@@ -2955,20 +2871,11 @@ nts::cmp::error_t nts::cmp::crlAnnouncement(const view_t & body, vector <view_t>
 	return error_t::NONE;
 }
 /**
- * \~russian
- * @brief Метод разбора вложенных сообщений NestedMessageContent
+ * @brief Функция разбора вложенных сообщений NestedMessageContent
  *
  * @param body   просмотр содержимого тела (для вида nested)
  * @param result место, в которое помещаются просмотры записей PKIMessage
  * @return       причина отказа либо error_t::NONE
- *
- * \~english
- * @brief Method of parsing the NestedMessageContent nested messages
- * @param body   the view of the body content (for the nested kind)
- * @param result the place the views of the PKIMessage records are put into
- * @return       the reason of the failure or error_t::NONE
- *
- * \~
  *
  */
 nts::cmp::error_t nts::cmp::nested(const view_t & body, vector <view_t> & result) noexcept {
@@ -2977,8 +2884,7 @@ nts::cmp::error_t nts::cmp::nested(const view_t & body, vector <view_t> & result
 		// Выводим отказ пустой записи
 		return error_t::EMPTY;
 	/**
-	 * Разбор сведений выделяет память: нехватка её отдаётся отказом, а не
-	 * завершением процесса
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Разборщик записи NestedMessageContent
@@ -2991,7 +2897,9 @@ nts::cmp::error_t nts::cmp::nested(const view_t & body, vector <view_t> & result
 			return translate(wrapper.err());
 		// Разборщик записей сообщений
 		asn1::reader_t records(set.content);
-		// Разбираем записи сообщений
+		/**
+		 * Разбираем записи сообщений
+		 */
 		while(!records.empty()){
 			// Элемент записи сообщения
 			asn1::element_t message;
@@ -3003,6 +2911,9 @@ nts::cmp::error_t nts::cmp::nested(const view_t & body, vector <view_t> & result
 			result.push_back(message.element);
 		}
 	// Если памяти под сведения не хватило
+	/**
+	 * Выполняем перехват ошибок
+	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ памяти
 		return error_t::MEMORY;
@@ -3011,20 +2922,11 @@ nts::cmp::error_t nts::cmp::nested(const view_t & body, vector <view_t> & result
 	return error_t::NONE;
 }
 /**
- * \~russian
- * @brief Метод разбора опроса PollReqContent/PollRepContent
+ * @brief Функция разбора опроса PollReqContent/PollRepContent
  *
  * @param body   просмотр содержимого тела (для видов pollReq/pollRep)
  * @param result место, в которое помещаются записи опроса
  * @return       причина отказа либо error_t::NONE
- *
- * \~english
- * @brief Method of parsing the PollReqContent/PollRepContent polling
- * @param body   the view of the body content (for the pollReq/pollRep kinds)
- * @param result the place the polling records are put into
- * @return       the reason of the failure or error_t::NONE
- *
- * \~
  *
  */
 nts::cmp::error_t nts::cmp::poll(const view_t & body, vector <poll_t> & result) noexcept {
@@ -3033,8 +2935,7 @@ nts::cmp::error_t nts::cmp::poll(const view_t & body, vector <poll_t> & result) 
 		// Выводим отказ пустой записи
 		return error_t::EMPTY;
 	/**
-	 * Разбор сведений выделяет память: нехватка её отдаётся отказом, а не
-	 * завершением процесса
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Разборщик записи опроса
@@ -3047,7 +2948,9 @@ nts::cmp::error_t nts::cmp::poll(const view_t & body, vector <poll_t> & result) 
 			return translate(wrapper.err());
 		// Разборщик записей опросов
 		asn1::reader_t records(set.content);
-		// Разбираем записи опросов
+		/**
+		 * Разбираем записи опросов
+		 */
 		while(!records.empty()){
 			// Элемент записи опроса
 			asn1::element_t entry;
@@ -3091,7 +2994,9 @@ nts::cmp::error_t nts::cmp::poll(const view_t & body, vector <poll_t> & result) 
 						return translate(items.err());
 					// Разборщик строк причины
 					asn1::reader_t lines(reason.content);
-					// Разбираем строки причины
+					/**
+					 * Разбираем строки причины
+					 */
 					while(!lines.empty()){
 						// Элемент строки причины
 						asn1::element_t line;
@@ -3114,6 +3019,9 @@ nts::cmp::error_t nts::cmp::poll(const view_t & body, vector <poll_t> & result) 
 			result.push_back(poll);
 		}
 	// Если памяти под сведения не хватило
+	/**
+	 * Выполняем перехват ошибок
+	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ памяти
 		return error_t::MEMORY;
@@ -3123,20 +3031,11 @@ nts::cmp::error_t nts::cmp::poll(const view_t & body, vector <poll_t> & result) 
 }
 
 /**
- * \~russian
- * @brief Метод сборки записи GeneralName вида directoryName
+ * @brief Функция сборки записи GeneralName вида directoryName
  *
  * @param name   запись имени X.501 (просмотр element из name_t)
  * @param result место, в которое помещается запись GeneralName
  * @return       причина отказа либо error_t::NONE
- *
- * \~english
- * @brief Method of building a directoryName GeneralName record
- * @param name   the X.501 name record (the element view of a name_t)
- * @param result the place the GeneralName record is put into
- * @return       the reason of the failure or error_t::NONE
- *
- * \~
  *
  */
 nts::cmp::error_t nts::cmp::directoryName(const view_t & name, vector <uint8_t> & result) noexcept {
@@ -3159,13 +3058,15 @@ nts::cmp::error_t nts::cmp::directoryName(const view_t & name, vector <uint8_t> 
 		// Выводим отказ сборки
 		return error_t::MEMORY;
 	/**
-	 * Перенос записи выделяет память: нехватка её отдаётся отказом, а не
-	 * завершением процесса
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Переносим запись GeneralName в итог
 		result.assign(writer.data().data, writer.data().data + writer.data().size);
 	// Если памяти под итог не хватило
+	/**
+	 * Выполняем перехват ошибок
+	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ памяти
 		return error_t::MEMORY;
@@ -3174,22 +3075,12 @@ nts::cmp::error_t nts::cmp::directoryName(const view_t & name, vector <uint8_t> 
 	return error_t::NONE;
 }
 /**
- * \~russian
- * @brief Метод сборки шаблона сертификата CertTemplate
+ * @brief Функция сборки шаблона сертификата CertTemplate
  *
  * @param subject запись имени владельца (пустая - поле опущено)
  * @param key     запись сведений об открытом ключе SubjectPublicKeyInfo
  * @param result  место, в которое помещается запись шаблона
  * @return        причина отказа либо error_t::NONE
- *
- * \~english
- * @brief Method of building a CertTemplate certificate template
- * @param subject the subject name record (empty - the field is omitted)
- * @param key     the SubjectPublicKeyInfo public key info record
- * @param result  the place the template record is put into
- * @return        the reason of the failure or error_t::NONE
- *
- * \~
  *
  */
 nts::cmp::error_t nts::cmp::certTemplate(const view_t & subject, const view_t & key, vector <uint8_t> & result) noexcept {
@@ -3238,13 +3129,15 @@ nts::cmp::error_t nts::cmp::certTemplate(const view_t & subject, const view_t & 
 		// Выводим отказ сборки
 		return error_t::MEMORY;
 	/**
-	 * Перенос записи выделяет память: нехватка её отдаётся отказом, а не
-	 * завершением процесса
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Переносим запись шаблона в итог
 		result.assign(writer.data().data, writer.data().data + writer.data().size);
 	// Если памяти под итог не хватило
+	/**
+	 * Выполняем перехват ошибок
+	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ памяти
 		return error_t::MEMORY;
@@ -3253,8 +3146,7 @@ nts::cmp::error_t nts::cmp::certTemplate(const view_t & subject, const view_t & 
 	return error_t::NONE;
 }
 /**
- * \~russian
- * @brief Метод сборки сообщения с телом запросов сертификатов
+ * @brief Функция сборки сообщения с телом запросов сертификатов
  *
  * @param kind      вид тела (ir/cr/kur/krr/ccr)
  * @param sender    запись GeneralName отправителя
@@ -3264,19 +3156,6 @@ nts::cmp::error_t nts::cmp::certTemplate(const view_t & subject, const view_t & 
  * @param hash      алгоритм хеша подписи
  * @param result    место, в которое помещается запись PKIMessage
  * @return          причина отказа либо error_t::NONE
- *
- * \~english
- * @brief Method of building a message with a certificate requests body
- * @param kind      the kind of the body (ir/cr/kur/krr/ccr)
- * @param sender    the GeneralName record of the sender
- * @param recipient the GeneralName record of the recipient
- * @param templates the CertTemplate records (one per request, ids 0, 1, ...)
- * @param signer    the prepared secret key of the signature protection
- * @param hash      the hashing algorithm of the signature
- * @param result    the place the PKIMessage record is put into
- * @return          the reason of the failure or error_t::NONE
- *
- * \~
  *
  */
 nts::cmp::error_t nts::cmp::request(const body_t kind, const view_t & sender, const view_t & recipient, const vector <view_t> & templates, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept {
@@ -3296,8 +3175,7 @@ nts::cmp::error_t nts::cmp::request(const body_t kind, const view_t & sender, co
 	return buildSigned(sender, recipient, view_t(body.data(), body.size()), signer, hash, result);
 }
 /**
- * \~russian
- * @brief Метод сборки сообщения с телом запросов сертификатов под защитой PBM
+ * @brief Функция сборки сообщения с телом запросов сертификатов под защитой PBM
  *
  * @param kind      вид тела (ir/cr/kur/krr/ccr)
  * @param sender    запись GeneralName отправителя
@@ -3308,20 +3186,6 @@ nts::cmp::error_t nts::cmp::request(const body_t kind, const view_t & sender, co
  * @param hash      алгоритм хеша односторонней функции и имитовставки
  * @param result    место, в которое помещается запись PKIMessage
  * @return          причина отказа либо error_t::NONE
- *
- * \~english
- * @brief Method of building a message with a certificate requests body under PBM protection
- * @param kind      the kind of the body (ir/cr/kur/krr/ccr)
- * @param sender    the GeneralName record of the sender
- * @param recipient the GeneralName record of the recipient
- * @param templates the CertTemplate records (one per request, ids 0, 1, ...)
- * @param kid       the senderKID key identifier of the sender
- * @param password  the password of the shared secret
- * @param hash      the hashing algorithm of the one-way function and the MAC
- * @param result    the place the PKIMessage record is put into
- * @return          the reason of the failure or error_t::NONE
- *
- * \~
  *
  */
 nts::cmp::error_t nts::cmp::request(const body_t kind, const view_t & sender, const view_t & recipient, const vector <view_t> & templates, const view_t & kid, const view_t & password, const digest::hash_t hash, vector <uint8_t> & result) noexcept {
@@ -3336,7 +3200,9 @@ nts::cmp::error_t nts::cmp::request(const body_t kind, const view_t & sender, co
 	asn1::writer_t content;
 	// Опознаватель запроса
 	int64_t id = 0;
-	// Переносим шаблоны запросов
+	/**
+	 * Переносим шаблоны запросов
+	 */
 	for(const view_t & certTemplate : templates){
 		// Записчик запроса CertReqMsg
 		asn1::writer_t message;
@@ -3394,8 +3260,7 @@ nts::cmp::error_t nts::cmp::request(const body_t kind, const view_t & sender, co
 }
 
 /**
- * \~russian
- * @brief Метод сборки сообщения certConf
+ * @brief Функция сборки сообщения certConf
  *
  * @param sender    запись GeneralName отправителя
  * @param recipient запись GeneralName получателя
@@ -3405,25 +3270,15 @@ nts::cmp::error_t nts::cmp::request(const body_t kind, const view_t & sender, co
  * @param result    место, в которое помещается запись PKIMessage
  * @return          причина отказа либо error_t::NONE
  *
- * \~english
- * @brief Method of building a certConf message
- * @param sender    the GeneralName record of the sender
- * @param recipient the GeneralName record of the recipient
- * @param hashes    the hashes of the accepted certificates (SHA-256 of the certificate record)
- * @param signer    the prepared secret key of the signature protection
- * @param hash      the hashing algorithm of the signature
- * @param result    the place the PKIMessage record is put into
- * @return          the reason of the failure or error_t::NONE
- *
- * \~
- *
  */
 nts::cmp::error_t nts::cmp::certConfirm(const view_t & sender, const view_t & recipient, const vector <view_t> & hashes, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept {
 	// Записчик содержимого тела CertConfirmContent
 	asn1::writer_t content;
 	// Опознаватель запроса
 	int64_t id = 0;
-	// Переносим хеши сертификатов
+	/**
+	 * Переносим хеши сертификатов
+	 */
 	for(const view_t & certHash : hashes){
 		// Открываем запись CertStatus
 		if(!content.open(asn1::tag_t::SEQUENCE))
@@ -3462,8 +3317,7 @@ nts::cmp::error_t nts::cmp::certConfirm(const view_t & sender, const view_t & re
 	return buildSigned(sender, recipient, body.data(), signer, hash, result);
 }
 /**
- * \~russian
- * @brief Метод сборки сообщения pkiConf
+ * @brief Функция сборки сообщения pkiConf
  *
  * @param sender    запись GeneralName отправителя
  * @param recipient запись GeneralName получателя
@@ -3471,17 +3325,6 @@ nts::cmp::error_t nts::cmp::certConfirm(const view_t & sender, const view_t & re
  * @param hash      алгоритм хеша подписи
  * @param result    место, в которое помещается запись PKIMessage
  * @return          причина отказа либо error_t::NONE
- *
- * \~english
- * @brief Method of building a pkiConf message
- * @param sender    the GeneralName record of the sender
- * @param recipient the GeneralName record of the recipient
- * @param signer    the prepared secret key of the signature protection
- * @param hash      the hashing algorithm of the signature
- * @param result    the place the PKIMessage record is put into
- * @return          the reason of the failure or error_t::NONE
- *
- * \~
  *
  */
 nts::cmp::error_t nts::cmp::confirm(const view_t & sender, const view_t & recipient, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept {
@@ -3503,8 +3346,7 @@ nts::cmp::error_t nts::cmp::confirm(const view_t & sender, const view_t & recipi
 	return buildSigned(sender, recipient, body.data(), signer, hash, result);
 }
 /**
- * \~russian
- * @brief Метод сборки сообщения rr (запрос отзыва)
+ * @brief Функция сборки сообщения rr (запрос отзыва)
  *
  * @param sender    запись GeneralName отправителя
  * @param recipient запись GeneralName получателя
@@ -3514,19 +3356,6 @@ nts::cmp::error_t nts::cmp::confirm(const view_t & sender, const view_t & recipi
  * @param hash      алгоритм хеша подписи
  * @param result    место, в которое помещается запись PKIMessage
  * @return          причина отказа либо error_t::NONE
- *
- * \~english
- * @brief Method of building an rr message (revocation request)
- * @param sender    the GeneralName record of the sender
- * @param recipient the GeneralName record of the recipient
- * @param issuer    the issuer name record of the certificate being revoked
- * @param serial    the serial number content of the certificate being revoked
- * @param signer    the prepared secret key of the signature protection
- * @param hash      the hashing algorithm of the signature
- * @param result    the place the PKIMessage record is put into
- * @return          the reason of the failure or error_t::NONE
- *
- * \~
  *
  */
 nts::cmp::error_t nts::cmp::revoke(const view_t & sender, const view_t & recipient, const view_t & issuer, const view_t & serial, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept {
@@ -3582,8 +3411,7 @@ nts::cmp::error_t nts::cmp::revoke(const view_t & sender, const view_t & recipie
 	return buildSigned(sender, recipient, body.data(), signer, hash, result);
 }
 /**
- * \~russian
- * @brief Метод сборки сообщения genm
+ * @brief Функция сборки сообщения genm
  *
  * @param sender    запись GeneralName отправителя
  * @param recipient запись GeneralName получателя
@@ -3593,23 +3421,13 @@ nts::cmp::error_t nts::cmp::revoke(const view_t & sender, const view_t & recipie
  * @param result    место, в которое помещается запись PKIMessage
  * @return          причина отказа либо error_t::NONE
  *
- * \~english
- * @brief Method of building a genm message
- * @param sender    the GeneralName record of the sender
- * @param recipient the GeneralName record of the recipient
- * @param infos     the general info (a pair of the identifier and the value record, empty - the value is omitted)
- * @param signer    the prepared secret key of the signature protection
- * @param hash      the hashing algorithm of the signature
- * @param result    the place the PKIMessage record is put into
- * @return          the reason of the failure or error_t::NONE
- *
- * \~
- *
  */
 nts::cmp::error_t nts::cmp::general(const view_t & sender, const view_t & recipient, const vector <info_t> & infos, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept {
 	// Записчик содержимого тела GenMsgContent
 	asn1::writer_t content;
-	// Переносим сведения
+	/**
+	 * Переносим сведения
+	 */
 	for(const info_t & info : infos){
 		// Открываем запись InfoTypeAndValue
 		if(!content.open(asn1::tag_t::SEQUENCE))
@@ -3649,8 +3467,7 @@ nts::cmp::error_t nts::cmp::general(const view_t & sender, const view_t & recipi
 	return buildSigned(sender, recipient, body.data(), signer, hash, result);
 }
 /**
- * \~russian
- * @brief Метод сборки сообщения ip/cp/kup (ответ о сертификатах)
+ * @brief Функция сборки сообщения ip/cp/kup (ответ о сертификатах)
  *
  * @param kind      вид тела (ip/cp/kup/ccp)
  * @param sender    запись GeneralName отправителя
@@ -3661,19 +3478,6 @@ nts::cmp::error_t nts::cmp::general(const view_t & sender, const view_t & recipi
  * @param result    место, в которое помещается запись PKIMessage
  * @return          причина отказа либо error_t::NONE
  *
- * \~english
- * @brief Method of building an ip/cp/kup message (certificate response)
- * @param kind      the kind of the body (ip/cp/kup/ccp)
- * @param sender    the GeneralName record of the sender
- * @param recipient the GeneralName record of the recipient
- * @param responses the certificate responses (the status and the certificate record)
- * @param signer    the prepared secret key of the signature protection
- * @param hash      the hashing algorithm of the signature
- * @param result    the place the PKIMessage record is put into
- * @return          the reason of the failure or error_t::NONE
- *
- * \~
- *
  */
 nts::cmp::error_t nts::cmp::respond(const body_t kind, const view_t & sender, const view_t & recipient, const vector <response_t> & responses, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept {
 	// Если вид тела не из ответов либо ответы не заданы
@@ -3682,7 +3486,9 @@ nts::cmp::error_t nts::cmp::respond(const body_t kind, const view_t & sender, co
 		return error_t::EMPTY;
 	// Записчик содержимого ответов
 	asn1::writer_t answers;
-	// Переносим ответы
+	/**
+	 * Переносим ответы
+	 */
 	for(const response_t & response : responses){
 		// Открываем запись CertResponse
 		if(!answers.open(asn1::tag_t::SEQUENCE))
@@ -3708,7 +3514,9 @@ nts::cmp::error_t nts::cmp::respond(const body_t kind, const view_t & sender, co
 				if(!answers.open(asn1::tag_t::SEQUENCE))
 					// Выводим отказ сборки
 					return error_t::MEMORY;
-				// Переносим строки статуса
+				/**
+				 * Переносим строки статуса
+				 */
 				for(const string & line : response.status.strings){
 					// Записываем строку статуса
 					if(!answers.text(asn1::tag_t::UTF8_STRING, line))
@@ -3788,8 +3596,7 @@ nts::cmp::error_t nts::cmp::respond(const body_t kind, const view_t & sender, co
 	return buildSigned(sender, recipient, body.data(), signer, hash, result);
 }
 /**
- * \~russian
- * @brief Метод сборки сообщения error
+ * @brief Функция сборки сообщения error
  *
  * @param sender    запись GeneralName отправителя
  * @param recipient запись GeneralName получателя
@@ -3798,18 +3605,6 @@ nts::cmp::error_t nts::cmp::respond(const body_t kind, const view_t & sender, co
  * @param hash      алгоритм хеша подписи
  * @param result    место, в которое помещается запись PKIMessage
  * @return          причина отказа либо error_t::NONE
- *
- * \~english
- * @brief Method of building an error message
- * @param sender    the GeneralName record of the sender
- * @param recipient the GeneralName record of the recipient
- * @param status    the failure status info
- * @param signer    the prepared secret key of the signature protection
- * @param hash      the hashing algorithm of the signature
- * @param result    the place the PKIMessage record is put into
- * @return          the reason of the failure or error_t::NONE
- *
- * \~
  *
  */
 nts::cmp::error_t nts::cmp::failure(const view_t & sender, const view_t & recipient, const status_info_t & status, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept {
@@ -3835,7 +3630,9 @@ nts::cmp::error_t nts::cmp::failure(const view_t & sender, const view_t & recipi
 			if(!content.open(asn1::tag_t::SEQUENCE))
 				// Выводим отказ сборки
 				return error_t::MEMORY;
-			// Переносим строки статуса
+			/**
+			 * Переносим строки статуса
+			 */
 			for(const string & line : status.strings){
 				// Записываем строку статуса
 				if(!content.text(asn1::tag_t::UTF8_STRING, line))
@@ -3882,8 +3679,7 @@ nts::cmp::error_t nts::cmp::failure(const view_t & sender, const view_t & recipi
 }
 
 /**
- * \~russian
- * @brief Метод сборки сообщения p10cr (запрос PKCS #10)
+ * @brief Функция сборки сообщения p10cr (запрос PKCS #10)
  *
  * @param sender    запись GeneralName отправителя
  * @param recipient запись GeneralName получателя
@@ -3892,18 +3688,6 @@ nts::cmp::error_t nts::cmp::failure(const view_t & sender, const view_t & recipi
  * @param hash      алгоритм хеша подписи
  * @param result    место, в которое помещается запись PKIMessage
  * @return          причина отказа либо error_t::NONE
- *
- * \~english
- * @brief Method of building a p10cr message (PKCS #10 request)
- * @param sender    the GeneralName record of the sender
- * @param recipient the GeneralName record of the recipient
- * @param csr       the CertificationRequest record according to RFC 2986
- * @param signer    the prepared secret key of the signature protection
- * @param hash      the hashing algorithm of the signature
- * @param result    the place the PKIMessage record is put into
- * @return          the reason of the failure or error_t::NONE
- *
- * \~
  *
  */
 nts::cmp::error_t nts::cmp::requestPkcs10(const view_t & sender, const view_t & recipient, const view_t & csr, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept {
@@ -3929,8 +3713,7 @@ nts::cmp::error_t nts::cmp::requestPkcs10(const view_t & sender, const view_t & 
 	return buildSigned(sender, recipient, body.data(), signer, hash, result);
 }
 /**
- * \~russian
- * @brief Метод сборки сообщения popdecc (вызовы подтверждения владения)
+ * @brief Функция сборки сообщения popdecc (вызовы подтверждения владения)
  *
  * @param sender     запись GeneralName отправителя
  * @param recipient  запись GeneralName получателя
@@ -3940,23 +3723,13 @@ nts::cmp::error_t nts::cmp::requestPkcs10(const view_t & sender, const view_t & 
  * @param result     место, в которое помещается запись PKIMessage
  * @return           причина отказа либо error_t::NONE
  *
- * \~english
- * @brief Method of building a popdecc message (possession challenges)
- * @param sender     the GeneralName record of the sender
- * @param recipient  the GeneralName record of the recipient
- * @param challenges the challenges (the witness and the challenge)
- * @param signer     the prepared secret key of the signature protection
- * @param hash       the hashing algorithm of the signature
- * @param result     the place the PKIMessage record is put into
- * @return           the reason of the failure or error_t::NONE
- *
- * \~
- *
  */
 nts::cmp::error_t nts::cmp::challenge(const view_t & sender, const view_t & recipient, const vector <challenge_t> & challenges, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept {
 	// Записчик содержимого тела
 	asn1::writer_t content;
-	// Переносим вызовы
+	/**
+	 * Переносим вызовы
+	 */
 	for(const challenge_t & entry : challenges){
 		// Открываем запись Challenge
 		if(!content.open(asn1::tag_t::SEQUENCE))
@@ -3973,7 +3746,7 @@ nts::cmp::error_t nts::cmp::challenge(const view_t & sender, const view_t & reci
 		if(!content.octets(entry.witness))
 			// Выводим отказ сборки
 			return error_t::MEMORY;
-		// Записываем вызов
+		// Записываем вызов октетной строкой
 		if(!content.octets(entry.challenge))
 			// Выводим отказ сборки
 			return error_t::MEMORY;
@@ -4000,8 +3773,7 @@ nts::cmp::error_t nts::cmp::challenge(const view_t & sender, const view_t & reci
 	return buildSigned(sender, recipient, body.data(), signer, hash, result);
 }
 /**
- * \~russian
- * @brief Метод сборки сообщения popdecr (ответы подтверждения владения)
+ * @brief Функция сборки сообщения popdecr (ответы подтверждения владения)
  *
  * @param sender    запись GeneralName отправителя
  * @param recipient запись GeneralName получателя
@@ -4011,23 +3783,13 @@ nts::cmp::error_t nts::cmp::challenge(const view_t & sender, const view_t & reci
  * @param result    место, в которое помещается запись PKIMessage
  * @return          причина отказа либо error_t::NONE
  *
- * \~english
- * @brief Method of building a popdecr message (possession responses)
- * @param sender    the GeneralName record of the sender
- * @param recipient the GeneralName record of the recipient
- * @param answers   the response numbers
- * @param signer    the prepared secret key of the signature protection
- * @param hash      the hashing algorithm of the signature
- * @param result    the place the PKIMessage record is put into
- * @return          the reason of the failure or error_t::NONE
- *
- * \~
- *
  */
 nts::cmp::error_t nts::cmp::challengeReply(const view_t & sender, const view_t & recipient, const vector <int64_t> & answers, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept {
 	// Записчик содержимого тела
 	asn1::writer_t content;
-	// Переносим числа ответов
+	/**
+	 * Переносим числа ответов
+	 */
 	for(const int64_t answer : answers){
 		// Записываем число ответа
 		if(!content.integer(answer))
@@ -4052,8 +3814,7 @@ nts::cmp::error_t nts::cmp::challengeReply(const view_t & sender, const view_t &
 	return buildSigned(sender, recipient, body.data(), signer, hash, result);
 }
 /**
- * \~russian
- * @brief Метод сборки сообщения krp (ответ восстановления ключа)
+ * @brief Функция сборки сообщения krp (ответ восстановления ключа)
  *
  * @param sender    запись GeneralName отправителя
  * @param recipient запись GeneralName получателя
@@ -4062,18 +3823,6 @@ nts::cmp::error_t nts::cmp::challengeReply(const view_t & sender, const view_t &
  * @param hash      алгоритм хеша подписи
  * @param result    место, в которое помещается запись PKIMessage
  * @return          причина отказа либо error_t::NONE
- *
- * \~english
- * @brief Method of building a krp message (key recovery response)
- * @param sender    the GeneralName record of the sender
- * @param recipient the GeneralName record of the recipient
- * @param recovery  the key recovery response
- * @param signer    the prepared secret key of the signature protection
- * @param hash      the hashing algorithm of the signature
- * @param result    the place the PKIMessage record is put into
- * @return          the reason of the failure or error_t::NONE
- *
- * \~
  *
  */
 nts::cmp::error_t nts::cmp::recovered(const view_t & sender, const view_t & recipient, const recovery_t & recovery, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept {
@@ -4119,7 +3868,9 @@ nts::cmp::error_t nts::cmp::recovered(const view_t & sender, const view_t & reci
 		if(!content.open(asn1::cls_t::CONTEXT, 1))
 			// Выводим отказ сборки
 			return error_t::MEMORY;
-		// Переносим записи сертификатов ЦС
+		/**
+		 * Переносим записи сертификатов ЦС
+		 */
 		for(const view_t & certificate : recovery.caCertificates){
 			// Переносим запись сертификата ЦС
 			if(!embed(content, certificate))
@@ -4153,8 +3904,7 @@ nts::cmp::error_t nts::cmp::recovered(const view_t & sender, const view_t & reci
 	return buildSigned(sender, recipient, body.data(), signer, hash, result);
 }
 /**
- * \~russian
- * @brief Метод сборки сообщения rp (ответ отзыва)
+ * @brief Функция сборки сообщения rp (ответ отзыва)
  *
  * @param sender    запись GeneralName отправителя
  * @param recipient запись GeneralName получателя
@@ -4163,18 +3913,6 @@ nts::cmp::error_t nts::cmp::recovered(const view_t & sender, const view_t & reci
  * @param hash      алгоритм хеша подписи
  * @param result    место, в которое помещается запись PKIMessage
  * @return          причина отказа либо error_t::NONE
- *
- * \~english
- * @brief Method of building an rp message (revocation response)
- * @param sender    the GeneralName record of the sender
- * @param recipient the GeneralName record of the recipient
- * @param statuses  the revocation status info
- * @param signer    the prepared secret key of the signature protection
- * @param hash      the hashing algorithm of the signature
- * @param result    the place the PKIMessage record is put into
- * @return          the reason of the failure or error_t::NONE
- *
- * \~
  *
  */
 nts::cmp::error_t nts::cmp::revoked(const view_t & sender, const view_t & recipient, const vector <status_info_t> & statuses, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept {
@@ -4188,7 +3926,9 @@ nts::cmp::error_t nts::cmp::revoked(const view_t & sender, const view_t & recipi
 	if(!content.open(asn1::tag_t::SEQUENCE))
 		// Выводим отказ сборки
 		return error_t::MEMORY;
-	// Переносим сведения о статусах
+	/**
+	 * Переносим сведения о статусах
+	 */
 	for(const status_info_t & status : statuses){
 		// Открываем запись PKIStatusInfo
 		if(!content.open(asn1::tag_t::SEQUENCE))
@@ -4225,32 +3965,17 @@ nts::cmp::error_t nts::cmp::revoked(const view_t & sender, const view_t & recipi
 	return buildSigned(sender, recipient, body.data(), signer, hash, result);
 }
 /**
- * \~russian
- * @brief Метод сборки сообщения ckuann (объявление обновления ключа ЦС)
+ * @brief Функция сборки сообщения ckuann (объявление обновления ключа ЦС)
  *
- * @param sender    запись GeneralName отправителя
- * @param recipient запись GeneralName получателя
+ * @param sender     запись GeneralName отправителя
+ * @param recipient  запись GeneralName получателя
  * @param oldWithNew запись сертификата oldWithNew
  * @param newWithOld запись сертификата newWithOld
  * @param newWithNew запись сертификата newWithNew
- * @param signer    подготовленный секретный ключ защиты подписью
- * @param hash      алгоритм хеша подписи
- * @param result    место, в которое помещается запись PKIMessage
- * @return          причина отказа либо error_t::NONE
- *
- * \~english
- * @brief Method of building a ckuann message (CA key update announcement)
- * @param sender    the GeneralName record of the sender
- * @param recipient the GeneralName record of the recipient
- * @param oldWithNew the oldWithNew certificate record
- * @param newWithOld the newWithOld certificate record
- * @param newWithNew the newWithNew certificate record
- * @param signer    the prepared secret key of the signature protection
- * @param hash      the hashing algorithm of the signature
- * @param result    the place the PKIMessage record is put into
- * @return          the reason of the failure or error_t::NONE
- *
- * \~
+ * @param signer     подготовленный секретный ключ защиты подписью
+ * @param hash       алгоритм хеша подписи
+ * @param result     место, в которое помещается запись PKIMessage
+ * @return           причина отказа либо error_t::NONE
  *
  */
 nts::cmp::error_t nts::cmp::caKeyUpdate(const view_t & sender, const view_t & recipient, const view_t & oldWithNew, const view_t & newWithOld, const view_t & newWithNew, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept {
@@ -4294,8 +4019,7 @@ nts::cmp::error_t nts::cmp::caKeyUpdate(const view_t & sender, const view_t & re
 	return buildSigned(sender, recipient, body.data(), signer, hash, result);
 }
 /**
- * \~russian
- * @brief Метод сборки сообщения cann (объявление сертификата)
+ * @brief Функция сборки сообщения cann (объявление сертификата)
  *
  * @param sender      запись GeneralName отправителя
  * @param recipient   запись GeneralName получателя
@@ -4304,18 +4028,6 @@ nts::cmp::error_t nts::cmp::caKeyUpdate(const view_t & sender, const view_t & re
  * @param hash        алгоритм хеша подписи
  * @param result      место, в которое помещается запись PKIMessage
  * @return            причина отказа либо error_t::NONE
- *
- * \~english
- * @brief Method of building a cann message (certificate announcement)
- * @param sender      the GeneralName record of the sender
- * @param recipient   the GeneralName record of the recipient
- * @param certificate the certificate record
- * @param signer      the prepared secret key of the signature protection
- * @param hash        the hashing algorithm of the signature
- * @param result      the place the PKIMessage record is put into
- * @return            the reason of the failure or error_t::NONE
- *
- * \~
  *
  */
 nts::cmp::error_t nts::cmp::announce(const view_t & sender, const view_t & recipient, const view_t & certificate, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept {
@@ -4341,28 +4053,15 @@ nts::cmp::error_t nts::cmp::announce(const view_t & sender, const view_t & recip
 	return buildSigned(sender, recipient, body.data(), signer, hash, result);
 }
 /**
- * \~russian
- * @brief Метод сборки сообщения rann (объявление отзыва)
+ * @brief Функция сборки сообщения rann (объявление отзыва)
  *
- * @param sender    запись GeneralName отправителя
- * @param recipient запись GeneralName получателя
+ * @param sender       запись GeneralName отправителя
+ * @param recipient    запись GeneralName получателя
  * @param announcement объявление отзыва
- * @param signer    подготовленный секретный ключ защиты подписью
- * @param hash      алгоритм хеша подписи
- * @param result    место, в которое помещается запись PKIMessage
- * @return          причина отказа либо error_t::NONE
- *
- * \~english
- * @brief Method of building a rann message (revocation announcement)
- * @param sender    the GeneralName record of the sender
- * @param recipient the GeneralName record of the recipient
- * @param announcement the revocation announcement
- * @param signer    the prepared secret key of the signature protection
- * @param hash      the hashing algorithm of the signature
- * @param result    the place the PKIMessage record is put into
- * @return          the reason of the failure or error_t::NONE
- *
- * \~
+ * @param signer       подготовленный секретный ключ защиты подписью
+ * @param hash         алгоритм хеша подписи
+ * @param result       место, в которое помещается запись PKIMessage
+ * @return             причина отказа либо error_t::NONE
  *
  */
 nts::cmp::error_t nts::cmp::announceRevocation(const view_t & sender, const view_t & recipient, const announcement_t & announcement, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept {
@@ -4414,8 +4113,7 @@ nts::cmp::error_t nts::cmp::announceRevocation(const view_t & sender, const view
 	return buildSigned(sender, recipient, body.data(), signer, hash, result);
 }
 /**
- * \~russian
- * @brief Метод сборки сообщения crlann (объявление списков отзыва)
+ * @brief Функция сборки сообщения crlann (объявление списков отзыва)
  *
  * @param sender    запись GeneralName отправителя
  * @param recipient запись GeneralName получателя
@@ -4425,23 +4123,13 @@ nts::cmp::error_t nts::cmp::announceRevocation(const view_t & sender, const view
  * @param result    место, в которое помещается запись PKIMessage
  * @return          причина отказа либо error_t::NONE
  *
- * \~english
- * @brief Method of building a crlann message (CRL announcement)
- * @param sender    the GeneralName record of the sender
- * @param recipient the GeneralName record of the recipient
- * @param crls      the CertificateList CRL records
- * @param signer    the prepared secret key of the signature protection
- * @param hash      the hashing algorithm of the signature
- * @param result    the place the PKIMessage record is put into
- * @return          the reason of the failure or error_t::NONE
- *
- * \~
- *
  */
 nts::cmp::error_t nts::cmp::announceCrls(const view_t & sender, const view_t & recipient, const vector <view_t> & crls, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept {
 	// Записчик содержимого тела
 	asn1::writer_t content;
-	// Переносим записи списков отзыва
+	/**
+	 * Переносим записи списков отзыва
+	 */
 	for(const view_t & crl : crls){
 		// Переносим запись списка отзыва
 		if(!embed(content, crl))
@@ -4466,8 +4154,7 @@ nts::cmp::error_t nts::cmp::announceCrls(const view_t & sender, const view_t & r
 	return buildSigned(sender, recipient, body.data(), signer, hash, result);
 }
 /**
- * \~russian
- * @brief Метод сборки сообщения nested (вложенные сообщения)
+ * @brief Функция сборки сообщения nested (вложенные сообщения)
  *
  * @param sender    запись GeneralName отправителя
  * @param recipient запись GeneralName получателя
@@ -4477,23 +4164,13 @@ nts::cmp::error_t nts::cmp::announceCrls(const view_t & sender, const view_t & r
  * @param result    место, в которое помещается запись PKIMessage
  * @return          причина отказа либо error_t::NONE
  *
- * \~english
- * @brief Method of building a nested message (nested messages)
- * @param sender    the GeneralName record of the sender
- * @param recipient the GeneralName record of the recipient
- * @param messages  the nested PKIMessage records
- * @param signer    the prepared secret key of the signature protection
- * @param hash      the hashing algorithm of the signature
- * @param result    the place the PKIMessage record is put into
- * @return          the reason of the failure or error_t::NONE
- *
- * \~
- *
  */
 nts::cmp::error_t nts::cmp::nest(const view_t & sender, const view_t & recipient, const vector <view_t> & messages, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept {
 	// Записчик содержимого тела
 	asn1::writer_t content;
-	// Переносим записи вложенных сообщений
+	/**
+	 * Переносим записи вложенных сообщений
+	 */
 	for(const view_t & message : messages){
 		// Переносим запись сообщения
 		if(!embed(content, message))
@@ -4518,8 +4195,7 @@ nts::cmp::error_t nts::cmp::nest(const view_t & sender, const view_t & recipient
 	return buildSigned(sender, recipient, body.data(), signer, hash, result);
 }
 /**
- * \~russian
- * @brief Метод сборки сообщения pollReq (запрос опроса)
+ * @brief Функция сборки сообщения pollReq (запрос опроса)
  *
  * @param sender    запись GeneralName отправителя
  * @param recipient запись GeneralName получателя
@@ -4529,23 +4205,13 @@ nts::cmp::error_t nts::cmp::nest(const view_t & sender, const view_t & recipient
  * @param result    место, в которое помещается запись PKIMessage
  * @return          причина отказа либо error_t::NONE
  *
- * \~english
- * @brief Method of building a pollReq message (polling request)
- * @param sender    the GeneralName record of the sender
- * @param recipient the GeneralName record of the recipient
- * @param ids       the request identifiers
- * @param signer    the prepared secret key of the signature protection
- * @param hash      the hashing algorithm of the signature
- * @param result    the place the PKIMessage record is put into
- * @return          the reason of the failure or error_t::NONE
- *
- * \~
- *
  */
 nts::cmp::error_t nts::cmp::pollRequest(const view_t & sender, const view_t & recipient, const vector <int64_t> & ids, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept {
 	// Записчик содержимого тела
 	asn1::writer_t content;
-	// Переносим опознаватели запросов
+	/**
+	 * Переносим опознаватели запросов
+	 */
 	for(const int64_t id : ids){
 		// Открываем запись опроса
 		if(!content.open(asn1::tag_t::SEQUENCE))
@@ -4578,8 +4244,7 @@ nts::cmp::error_t nts::cmp::pollRequest(const view_t & sender, const view_t & re
 	return buildSigned(sender, recipient, body.data(), signer, hash, result);
 }
 /**
- * \~russian
- * @brief Метод сборки сообщения pollRep (ответ опроса)
+ * @brief Функция сборки сообщения pollRep (ответ опроса)
  *
  * @param sender    запись GeneralName отправителя
  * @param recipient запись GeneralName получателя
@@ -4589,23 +4254,13 @@ nts::cmp::error_t nts::cmp::pollRequest(const view_t & sender, const view_t & re
  * @param result    место, в которое помещается запись PKIMessage
  * @return          причина отказа либо error_t::NONE
  *
- * \~english
- * @brief Method of building a pollRep message (polling response)
- * @param sender    the GeneralName record of the sender
- * @param recipient the GeneralName record of the recipient
- * @param polls     the polling records (the identifier and the wait time)
- * @param signer    the prepared secret key of the signature protection
- * @param hash      the hashing algorithm of the signature
- * @param result    the place the PKIMessage record is put into
- * @return          the reason of the failure or error_t::NONE
- *
- * \~
- *
  */
 nts::cmp::error_t nts::cmp::pollReply(const view_t & sender, const view_t & recipient, const vector <poll_t> & polls, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept {
 	// Записчик содержимого тела
 	asn1::writer_t content;
-	// Переносим записи опроса
+	/**
+	 * Переносим записи опроса
+	 */
 	for(const poll_t & poll : polls){
 		// Открываем запись опроса
 		if(!content.open(asn1::tag_t::SEQUENCE))
@@ -4625,7 +4280,9 @@ nts::cmp::error_t nts::cmp::pollReply(const view_t & sender, const view_t & reci
 			if(!content.open(asn1::tag_t::SEQUENCE))
 				// Выводим отказ сборки
 				return error_t::MEMORY;
-			// Переносим строки причины
+			/**
+			 * Переносим строки причины
+			 */
 			for(const string & line : poll.reason){
 				// Записываем строку причины
 				if(!content.text(asn1::tag_t::UTF8_STRING, line))
@@ -4661,20 +4318,11 @@ nts::cmp::error_t nts::cmp::pollReply(const view_t & sender, const view_t & reci
 }
 
 /**
- * \~russian
- * @brief Метод проверки защиты сообщения подписью
+ * @brief Функция проверки защиты сообщения подписью
  *
  * @param message разобранное сообщение
  * @param key     сведения об открытом ключе подписи
  * @return        причина отказа либо error_t::NONE
- *
- * \~english
- * @brief Method of checking the message signature protection
- * @param message the parsed message
- * @param key     the public key info of the signature
- * @return        the reason of the failure or error_t::NONE
- *
- * \~
  *
  */
 nts::cmp::error_t nts::cmp::verify(const message_t & message, const x509::key_t & key) noexcept {
@@ -4722,20 +4370,11 @@ nts::cmp::error_t nts::cmp::verify(const message_t & message, const x509::key_t 
 	}
 }
 /**
- * \~russian
- * @brief Метод проверки защиты сообщения парольной имитовставкой PBM
+ * @brief Функция проверки защиты сообщения парольной имитовставкой PBM
  *
  * @param message  разобранное сообщение
  * @param password пароль общего секрета
  * @return         причина отказа либо error_t::NONE
- *
- * \~english
- * @brief Method of checking the message PBM password MAC protection
- * @param message  the parsed message
- * @param password the password of the shared secret
- * @return         the reason of the failure or error_t::NONE
- *
- * \~
  *
  */
 nts::cmp::error_t nts::cmp::verify(const message_t & message, const view_t & password) noexcept {
@@ -4790,7 +4429,9 @@ nts::cmp::error_t nts::cmp::verify(const message_t & message, const view_t & pas
 		return error_t::PROTECTION;
 	// Сверяем имитовставку с записанной в постоянном времени
 	uint8_t difference = 0;
-	// Перебираем байты имитовставки
+	/**
+	 * Перебираем байты имитовставки
+	 */
 	for(size_t i = 0; i < width; i++)
 		// Накапливаем различие
 		difference |= (mac[i] ^ static_cast <const uint8_t *> (message.protection().data)[i]);
@@ -4799,19 +4440,54 @@ nts::cmp::error_t nts::cmp::verify(const message_t & message, const view_t & pas
 }
 
 /**
- * \~russian
  * @brief Метод извлечения записи защищаемой части ProtectedPart
  *
  * @return просмотр записи защищаемой части (заголовок и тело), пустой у неразобранной записи
- *
- * \~english
- * @brief Method of getting the ProtectedPart record
- * @return the view of the protected part record (the header and the body), empty at an unparsed record
- *
- * \~
  *
  */
 const nts::view_t & nts::cmp::Message::part() const noexcept {
 	// Выводим просмотр записи защищаемой части
 	return this->_protected;
 }
+
+/**
+ * @brief Конструктор
+ *
+ */
+nts::cmp::Status::Status() noexcept : status(status_t::ACCEPTED) {}
+
+/**
+ * @brief Конструктор
+ *
+ */
+nts::cmp::Header::Header() noexcept : pvno(2), messageTime(0), hasTime(false) {}
+
+/**
+ * @brief Деструктор
+ *
+ */
+nts::cmp::Message::~Message() noexcept {}
+
+/**
+ * @brief Конструктор
+ *
+ */
+nts::cmp::Request::Request() noexcept : id(0) {}
+
+/**
+ * @brief Конструктор
+ *
+ */
+nts::cmp::Response::Response() noexcept : id(0) {}
+
+/**
+ * @brief Конструктор
+ *
+ */
+nts::cmp::Announcement::Announcement() noexcept : status(status_t::ACCEPTED), willBeRevokedAt(0), badSinceDate(0) {}
+
+/**
+ * @brief Конструктор
+ *
+ */
+nts::cmp::Poll::Poll() noexcept : id(0), checkAfter(0) {}

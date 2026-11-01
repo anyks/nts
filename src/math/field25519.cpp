@@ -122,7 +122,7 @@ namespace {
 	static constexpr uint64_t TWICE_HIGH = ((static_cast <uint64_t> (1) << 52) - 2);
 
 	/**
-	 * @brief Метод волны переносов между конечностями
+	 * @brief Функция волны переносов между конечностями
 	 *
 	 * @details Разряды всякой конечности сверх пятидесяти одного переносятся в следующую,
 	 *          а перенос из старшей конечности возвращается в младшую с множителем
@@ -165,7 +165,7 @@ namespace {
 		value.limbs[0] += (item * 19);
 	}
 	/**
-	 * @brief Метод полного приведения элемента до единственной записи
+	 * @brief Функция полного приведения элемента до единственной записи
 	 *
 	 * @details После двух волн переносов элемент меньше 2^255 и мог остаться в области
 	 *          от модуля до 2^255: признак этого выводится сложением с девятнадцатью
@@ -206,7 +206,7 @@ namespace {
 		value.limbs[LIMBS - 1] &= MASK;
 	}
 	/**
-	 * @brief Метод возведения элемента в степень 2^count
+	 * @brief Функция возведения элемента в степень 2^count
 	 *
 	 * @param value  возводимый элемент
 	 * @param count  число возведений в квадрат
@@ -224,7 +224,7 @@ namespace {
 			square(result, result);
 	}
 	/**
-	 * @brief Метод возведения элемента в степень 2^250 - 1
+	 * @brief Функция возведения элемента в степень 2^250 - 1
 	 *
 	 * @details Общая часть цепочек обращения и извлечения корня: из неё обращение
 	 *          выводится пятью квадратами и умножением на z^11, а корень - двумя
@@ -284,7 +284,7 @@ namespace {
 };
 
 /**
- * @brief Метод получения нуля поля
+ * @brief Функция получения нуля поля
  *
  * @param result место, в которое помещается ноль поля
  *
@@ -298,7 +298,7 @@ void nts::math::field25519::zero(element_t & result) noexcept {
 		result.limbs[i] = 0;
 }
 /**
- * @brief Метод получения единицы поля
+ * @brief Функция получения единицы поля
  *
  * @param result место, в которое помещается единица поля
  *
@@ -310,7 +310,7 @@ void nts::math::field25519::one(element_t & result) noexcept {
 	result.limbs[0] = 1;
 }
 /**
- * @brief Метод разбора элемента поля из тридцати двух байтов
+ * @brief Функция разбора элемента поля из тридцати двух байтов
  *
  * @param data   разбираемые байты, записанные младшим байтом вперёд
  * @param result место, в которое помещается разобранный элемент
@@ -346,7 +346,7 @@ void nts::math::field25519::load(const uint8_t * data, element_t & result) noexc
 	reduce(result);
 }
 /**
- * @brief Метод записи элемента поля в тридцать два байта
+ * @brief Функция записи элемента поля в тридцать два байта
  *
  * @param value записываемый элемент
  * @param data  место, в которое помещается запись младшим байтом вперёд
@@ -380,7 +380,7 @@ void nts::math::field25519::store(const element_t & value, uint8_t * data) noexc
 	}
 }
 /**
- * @brief Метод сложения элементов поля
+ * @brief Функция сложения элементов поля
  *
  * @param first  первое слагаемое
  * @param second второе слагаемое
@@ -398,7 +398,7 @@ void nts::math::field25519::add(const element_t & first, const element_t & secon
 	carry(result);
 }
 /**
- * @brief Метод вычитания элементов поля
+ * @brief Функция вычитания элементов поля
  *
  * @param first  уменьшаемое
  * @param second вычитаемое
@@ -418,7 +418,7 @@ void nts::math::field25519::sub(const element_t & first, const element_t & secon
 	carry(result);
 }
 /**
- * @brief Метод умножения элементов поля
+ * @brief Функция умножения элементов поля
  *
  * @param first  первый сомножитель
  * @param second второй сомножитель
@@ -430,7 +430,7 @@ void nts::math::field25519::mul(const element_t & first, const element_t & secon
 	kernel::multiply(first, second, result);
 }
 /**
- * @brief Метод возведения элемента поля в квадрат
+ * @brief Функция возведения элемента поля в квадрат
  *
  * @param value  возводимый элемент
  * @param result место, в которое помещается квадрат
@@ -441,7 +441,7 @@ void nts::math::field25519::square(const element_t & value, element_t & result) 
 	kernel::square(value, result);
 }
 /**
- * @brief Метод умножения элемента поля на малое число
+ * @brief Функция умножения элемента поля на малое число
  *
  * @param value  умножаемый элемент
  * @param factor множитель, не больше 2^32
@@ -453,7 +453,7 @@ void nts::math::field25519::mul(const element_t & value, const uint64_t factor, 
 	kernel::scale(value, factor, result);
 }
 /**
- * @brief Метод обращения элемента поля
+ * @brief Функция обращения элемента поля
  *
  * @param value  обращаемый элемент
  * @param result место, в которое помещается обратный элемент
@@ -470,7 +470,7 @@ void nts::math::field25519::invert(const element_t & value, element_t & result) 
 	mul(item, eleven, result);
 }
 /**
- * @brief Метод возведения элемента поля в степень (2^255 - 24) / 8
+ * @brief Функция возведения элемента поля в степень (2^255 - 24) / 8
  *
  * @param value  возводимый элемент
  * @param result место, в которое помещается степень
@@ -487,11 +487,10 @@ void nts::math::field25519::root(const element_t & value, element_t & result) no
 	mul(item, value, result);
 }
 /**
- * @brief Метод сличения элементов поля
+ * @brief Функция сличения элементов поля
  *
  * @param first  первый сличаемый элемент
  * @param second второй сличаемый элемент
- *
  * @return       признак равенства элементов
  *
  */
@@ -514,10 +513,9 @@ bool nts::math::field25519::equal(const element_t & first, const element_t & sec
 	return (((static_cast <uint32_t> (item) - 1) >> 8) & 1);
 }
 /**
- * @brief Метод проверки обращения элемента поля в ноль
+ * @brief Функция проверки обращения элемента поля в ноль
  *
  * @param value проверяемый элемент
- *
  * @return      признак обращения элемента в ноль
  *
  */
@@ -528,7 +526,7 @@ bool nts::math::field25519::nil(const element_t & value) noexcept {
 	return equal(value, item);
 }
 /**
- * @brief Метод условного обмена элементов поля
+ * @brief Функция условного обмена элементов поля
  *
  * @param first  первый обмениваемый элемент
  * @param second второй обмениваемый элемент

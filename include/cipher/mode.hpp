@@ -21,7 +21,6 @@
  *        according to GOST R 34.13-2015
  *
  * \~
- *
  * @copyright Copyright © 2026
  *
  */
@@ -92,6 +91,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Greatest size of the shift register in bytes
+		 *
 		 * @details The value of m is not limited from above by the standard, but the modes
 		 *          do not allocate memory, therefore the register is given eight blocks of
 		 *          the greatest cipher
@@ -114,11 +114,13 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Base block encryption algorithm
+		 *
 		 * @details The modes do not depend on the chosen cipher and address it through
 		 *          this set of pointers. The virtuality is not applied deliberately: the
 		 *          jump by a pointer here is a single one and does not depend on a secret
 		 *          value, while a table of the virtual methods would drag along a cast of
 		 *          the types on the path of the encryption as well.
+		 *
 		 * @note The object of the cipher must outlive every mode it is passed to
 		 *
 		 * \~
@@ -144,7 +146,6 @@ namespace nts {
 			 * \~russian
 			 * @brief Конструктор
 			 *
-			 *
 			 * \~english
 			 * @brief Constructor
 			 *
@@ -159,6 +160,7 @@ namespace nts {
 			 *
 			 * \~english
 			 * @brief Constructor
+			 *
 			 * @param cipher the object of the «Magma» block cipher
 			 *
 			 * \~
@@ -172,6 +174,7 @@ namespace nts {
 			 *
 			 * \~english
 			 * @brief Constructor
+			 *
 			 * @param cipher the object of the «Kuznyechik» block cipher
 			 *
 			 * \~
@@ -185,6 +188,7 @@ namespace nts {
 			 *
 			 * \~english
 			 * @brief Constructor
+			 *
 			 * @param cipher the object of the AES block cipher
 			 *
 			 * \~
@@ -198,6 +202,7 @@ namespace nts {
 			 *
 			 * \~english
 			 * @brief Constructor
+			 *
 			 * @param cipher the object of the SM4 block cipher
 			 *
 			 * \~
@@ -211,6 +216,7 @@ namespace nts {
 			 *
 			 * \~english
 			 * @brief Constructor
+			 *
 			 * @param cipher the object of the DES and 3DES block cipher
 			 *
 			 * \~
@@ -230,8 +236,10 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Electronic codebook mode (ECB)
+		 *
 		 * @details Section 5.1 of GOST R 34.13-2015. The length of the message must be a
 		 *          multiple of the length of the block: the mode does not deal with the padding.
+		 *
 		 * @note The mode does not hide the coincidences of the blocks of the plain text and
 		 *       is suitable only for the transformation of separate values of a length of a block
 		 *
@@ -253,6 +261,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of checking the readiness of the mode for the work
+				 *
 				 * @return the flag of the readiness of the mode for the work
 				 *
 				 * \~
@@ -263,13 +272,13 @@ namespace nts {
 				 * @brief Метод запуска режима работы
 				 *
 				 * @param block базовый алгоритм блочного шифрования
-				 *
-				 * @return признак успешности запуска режима работы
+				 * @return      признак успешности запуска режима работы
 				 *
 				 * \~english
 				 * @brief Method of the start of the mode of operation
+				 *
 				 * @param block the base block encryption algorithm
-				 * @return the flag of the success of the start of the mode of operation
+				 * @return      the flag of the success of the start of the mode of operation
 				 *
 				 * \~
 				 */
@@ -291,16 +300,17 @@ namespace nts {
 				 *
 				 * @param source зашифровываемое сообщение
 				 * @param result место, в которое помещается шифртекст
-				 *
-				 * @return признак успешности зашифрования
+				 * @return       признак успешности зашифрования
 				 *
 				 * @note Место итога вправе совпадать с местом исходного сообщения
 				 *
 				 * \~english
 				 * @brief Method of the encryption of a message
+				 *
 				 * @param source the message being encrypted
 				 * @param result the place the cipher text is put into
-				 * @return the flag of the success of the encryption
+				 * @return       the flag of the success of the encryption
+				 *
 				 * @note The place of the result may coincide with the place of the source message
 				 *
 				 * \~
@@ -312,16 +322,17 @@ namespace nts {
 				 *
 				 * @param source расшифровываемый шифртекст
 				 * @param result место, в которое помещается открытый текст
-				 *
-				 * @return признак успешности расшифрования
+				 * @return       признак успешности расшифрования
 				 *
 				 * @note Место итога вправе совпадать с местом исходного сообщения
 				 *
 				 * \~english
 				 * @brief Method of the decryption of a message
+				 *
 				 * @param source the cipher text being decrypted
 				 * @param result the place the plain text is put into
-				 * @return the flag of the success of the decryption
+				 * @return       the flag of the success of the decryption
+				 *
 				 * @note The place of the result may coincide with the place of the source message
 				 *
 				 * \~
@@ -332,7 +343,6 @@ namespace nts {
 				 * \~russian
 				 * @brief Конструктор
 				 *
-				 *
 				 * \~english
 				 * @brief Constructor
 				 *
@@ -342,7 +352,6 @@ namespace nts {
 				/**
 				 * \~russian
 				 * @brief Деструктор
-				 *
 				 *
 				 * \~english
 				 * @brief Destructor
@@ -374,14 +383,18 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Counter mode (CTR)
+		 *
 		 * @details Section 5.2 of GOST R 34.13-2015. The initialization vector occupies a
 		 *          half of the block, the initial value of the counter is the IV padded by
 		 *          the zeroes up to the block. The mode does not require the padding of the
 		 *          message, and the decryption does not differ from the encryption.
+		 *
 		 * @note The values of the initialization vector produced on a single key must be
 		 *       pairwise different: a repetition reveals the sum of the plain texts
+		 *
 		 * @note The state of the gamma is carried between the calls, therefore the message
 		 *       may be fed by the pieces of an arbitrary size
+		 *
 		 * @note With the ciphers producing the gamma by many blocks at once (AES), the whole
 		 *       blocks go by the kernel of the cipher in a single call up to the overflow of the
 		 *       low four bytes of the counter, and the gamma is applied by the kernel itself
@@ -416,6 +429,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of checking the readiness of the mode for the work
+				 *
 				 * @return the flag of the readiness of the mode for the work
 				 *
 				 * \~
@@ -428,15 +442,15 @@ namespace nts {
 				 * @param block базовый алгоритм блочного шифрования
 				 * @param iv    синхропосылка длиной в половину блока шифра
 				 * @param size  размер блока гаммы в байтах, ноль означает длину блока шифра
-				 *
-				 * @return признак успешности запуска режима работы
+				 * @return      признак успешности запуска режима работы
 				 *
 				 * \~english
 				 * @brief Method of the start of the mode of operation
+				 *
 				 * @param block the base block encryption algorithm
 				 * @param iv    the initialization vector of a length of a half of the block of the cipher
 				 * @param size  the size of the block of the gamma in bytes, a zero means the length of the block of the cipher
-				 * @return the flag of the success of the start of the mode of operation
+				 * @return      the flag of the success of the start of the mode of operation
 				 *
 				 * \~
 				 */
@@ -458,16 +472,17 @@ namespace nts {
 				 *
 				 * @param source зашифровываемое сообщение
 				 * @param result место, в которое помещается шифртекст
-				 *
-				 * @return признак успешности зашифрования
+				 * @return       признак успешности зашифрования
 				 *
 				 * @note Место итога вправе совпадать с местом исходного сообщения
 				 *
 				 * \~english
 				 * @brief Method of the encryption of a message
+				 *
 				 * @param source the message being encrypted
 				 * @param result the place the cipher text is put into
-				 * @return the flag of the success of the encryption
+				 * @return       the flag of the success of the encryption
+				 *
 				 * @note The place of the result may coincide with the place of the source message
 				 *
 				 * \~
@@ -479,16 +494,17 @@ namespace nts {
 				 *
 				 * @param source расшифровываемый шифртекст
 				 * @param result место, в которое помещается открытый текст
-				 *
-				 * @return признак успешности расшифрования
+				 * @return       признак успешности расшифрования
 				 *
 				 * @note Место итога вправе совпадать с местом исходного сообщения
 				 *
 				 * \~english
 				 * @brief Method of the decryption of a message
+				 *
 				 * @param source the cipher text being decrypted
 				 * @param result the place the plain text is put into
-				 * @return the flag of the success of the decryption
+				 * @return       the flag of the success of the decryption
+				 *
 				 * @note The place of the result may coincide with the place of the source message
 				 *
 				 * \~
@@ -499,7 +515,6 @@ namespace nts {
 				 * \~russian
 				 * @brief Конструктор
 				 *
-				 *
 				 * \~english
 				 * @brief Constructor
 				 *
@@ -509,7 +524,6 @@ namespace nts {
 				/**
 				 * \~russian
 				 * @brief Деструктор
-				 *
 				 *
 				 * \~english
 				 * @brief Destructor
@@ -530,6 +544,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Output feedback mode (OFB)
+		 *
 		 * @details Section 5.3 of GOST R 34.13-2015. The shift register of a length of m is
 		 *          filled by the initialization vector, the gamma is produced by the encryption
 		 *          of the senior bits of the register, while the output of the cipher itself is
@@ -565,6 +580,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of checking the readiness of the mode for the work
+				 *
 				 * @return the flag of the readiness of the mode for the work
 				 *
 				 * \~
@@ -577,15 +593,15 @@ namespace nts {
 				 * @param block базовый алгоритм блочного шифрования
 				 * @param iv    синхропосылка длиной в целое число блоков шифра
 				 * @param size  размер блока гаммы в байтах, ноль означает длину блока шифра
-				 *
-				 * @return признак успешности запуска режима работы
+				 * @return      признак успешности запуска режима работы
 				 *
 				 * \~english
 				 * @brief Method of the start of the mode of operation
+				 *
 				 * @param block the base block encryption algorithm
 				 * @param iv    the initialization vector of a length of a whole number of the blocks of the cipher
 				 * @param size  the size of the block of the gamma in bytes, a zero means the length of the block of the cipher
-				 * @return the flag of the success of the start of the mode of operation
+				 * @return      the flag of the success of the start of the mode of operation
 				 *
 				 * \~
 				 */
@@ -607,16 +623,17 @@ namespace nts {
 				 *
 				 * @param source зашифровываемое сообщение
 				 * @param result место, в которое помещается шифртекст
-				 *
-				 * @return признак успешности зашифрования
+				 * @return       признак успешности зашифрования
 				 *
 				 * @note Место итога вправе совпадать с местом исходного сообщения
 				 *
 				 * \~english
 				 * @brief Method of the encryption of a message
+				 *
 				 * @param source the message being encrypted
 				 * @param result the place the cipher text is put into
-				 * @return the flag of the success of the encryption
+				 * @return       the flag of the success of the encryption
+				 *
 				 * @note The place of the result may coincide with the place of the source message
 				 *
 				 * \~
@@ -628,16 +645,17 @@ namespace nts {
 				 *
 				 * @param source расшифровываемый шифртекст
 				 * @param result место, в которое помещается открытый текст
-				 *
-				 * @return признак успешности расшифрования
+				 * @return       признак успешности расшифрования
 				 *
 				 * @note Место итога вправе совпадать с местом исходного сообщения
 				 *
 				 * \~english
 				 * @brief Method of the decryption of a message
+				 *
 				 * @param source the cipher text being decrypted
 				 * @param result the place the plain text is put into
-				 * @return the flag of the success of the decryption
+				 * @return       the flag of the success of the decryption
+				 *
 				 * @note The place of the result may coincide with the place of the source message
 				 *
 				 * \~
@@ -648,7 +666,6 @@ namespace nts {
 				 * \~russian
 				 * @brief Конструктор
 				 *
-				 *
 				 * \~english
 				 * @brief Constructor
 				 *
@@ -658,7 +675,6 @@ namespace nts {
 				/**
 				 * \~russian
 				 * @brief Деструктор
-				 *
 				 *
 				 * \~english
 				 * @brief Destructor
@@ -679,6 +695,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Cipher block chaining mode (CBC)
+		 *
 		 * @details Section 5.4 of GOST R 34.13-2015. The length of the message must be a
 		 *          multiple of the length of the block: the mode does not deal with the padding.
 		 *          The length of the shift register m is a multiple of the length of the block
@@ -708,6 +725,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of checking the readiness of the mode for the work
+				 *
 				 * @return the flag of the readiness of the mode for the work
 				 *
 				 * \~
@@ -719,14 +737,14 @@ namespace nts {
 				 *
 				 * @param block базовый алгоритм блочного шифрования
 				 * @param iv    синхропосылка длиной в целое число блоков шифра
-				 *
-				 * @return признак успешности запуска режима работы
+				 * @return      признак успешности запуска режима работы
 				 *
 				 * \~english
 				 * @brief Method of the start of the mode of operation
+				 *
 				 * @param block the base block encryption algorithm
 				 * @param iv    the initialization vector of a length of a whole number of the blocks of the cipher
-				 * @return the flag of the success of the start of the mode of operation
+				 * @return      the flag of the success of the start of the mode of operation
 				 *
 				 * \~
 				 */
@@ -748,16 +766,17 @@ namespace nts {
 				 *
 				 * @param source зашифровываемое сообщение
 				 * @param result место, в которое помещается шифртекст
-				 *
-				 * @return признак успешности зашифрования
+				 * @return       признак успешности зашифрования
 				 *
 				 * @note Место итога вправе совпадать с местом исходного сообщения
 				 *
 				 * \~english
 				 * @brief Method of the encryption of a message
+				 *
 				 * @param source the message being encrypted
 				 * @param result the place the cipher text is put into
-				 * @return the flag of the success of the encryption
+				 * @return       the flag of the success of the encryption
+				 *
 				 * @note The place of the result may coincide with the place of the source message
 				 *
 				 * \~
@@ -769,16 +788,17 @@ namespace nts {
 				 *
 				 * @param source расшифровываемый шифртекст
 				 * @param result место, в которое помещается открытый текст
-				 *
-				 * @return признак успешности расшифрования
+				 * @return       признак успешности расшифрования
 				 *
 				 * @note Место итога вправе совпадать с местом исходного сообщения
 				 *
 				 * \~english
 				 * @brief Method of the decryption of a message
+				 *
 				 * @param source the cipher text being decrypted
 				 * @param result the place the plain text is put into
-				 * @return the flag of the success of the decryption
+				 * @return       the flag of the success of the decryption
+				 *
 				 * @note The place of the result may coincide with the place of the source message
 				 *
 				 * \~
@@ -789,7 +809,6 @@ namespace nts {
 				 * \~russian
 				 * @brief Конструктор
 				 *
-				 *
 				 * \~english
 				 * @brief Constructor
 				 *
@@ -799,7 +818,6 @@ namespace nts {
 				/**
 				 * \~russian
 				 * @brief Деструктор
-				 *
 				 *
 				 * \~english
 				 * @brief Destructor
@@ -823,10 +841,12 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Cipher feedback mode (CFB)
+		 *
 		 * @details Section 5.5 of GOST R 34.13-2015. The difference from the output feedback
 		 *          mode is that not the output of the cipher but the block of the cipher text
 		 *          is appended into the junior bits of the register, therefore the encryption
 		 *          and the decryption differ by their bodies.
+		 *
 		 * @note The length of the register m is not required by the standard to be a multiple
 		 *       of the length of the block, it is enough that it is not less than the length of the block
 		 *
@@ -862,6 +882,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of checking the readiness of the mode for the work
+				 *
 				 * @return the flag of the readiness of the mode for the work
 				 *
 				 * \~
@@ -874,15 +895,15 @@ namespace nts {
 				 * @param block базовый алгоритм блочного шифрования
 				 * @param iv    синхропосылка длиной не менее длины блока шифра
 				 * @param size  размер блока гаммы в байтах, ноль означает длину блока шифра
-				 *
-				 * @return признак успешности запуска режима работы
+				 * @return      признак успешности запуска режима работы
 				 *
 				 * \~english
 				 * @brief Method of the start of the mode of operation
+				 *
 				 * @param block the base block encryption algorithm
 				 * @param iv    the initialization vector of a length of not less than the length of the block of the cipher
 				 * @param size  the size of the block of the gamma in bytes, a zero means the length of the block of the cipher
-				 * @return the flag of the success of the start of the mode of operation
+				 * @return      the flag of the success of the start of the mode of operation
 				 *
 				 * \~
 				 */
@@ -904,16 +925,17 @@ namespace nts {
 				 *
 				 * @param source зашифровываемое сообщение
 				 * @param result место, в которое помещается шифртекст
-				 *
-				 * @return признак успешности зашифрования
+				 * @return       признак успешности зашифрования
 				 *
 				 * @note Место итога вправе совпадать с местом исходного сообщения
 				 *
 				 * \~english
 				 * @brief Method of the encryption of a message
+				 *
 				 * @param source the message being encrypted
 				 * @param result the place the cipher text is put into
-				 * @return the flag of the success of the encryption
+				 * @return       the flag of the success of the encryption
+				 *
 				 * @note The place of the result may coincide with the place of the source message
 				 *
 				 * \~
@@ -925,16 +947,17 @@ namespace nts {
 				 *
 				 * @param source расшифровываемый шифртекст
 				 * @param result место, в которое помещается открытый текст
-				 *
-				 * @return признак успешности расшифрования
+				 * @return       признак успешности расшифрования
 				 *
 				 * @note Место итога вправе совпадать с местом исходного сообщения
 				 *
 				 * \~english
 				 * @brief Method of the decryption of a message
+				 *
 				 * @param source the cipher text being decrypted
 				 * @param result the place the plain text is put into
-				 * @return the flag of the success of the decryption
+				 * @return       the flag of the success of the decryption
+				 *
 				 * @note The place of the result may coincide with the place of the source message
 				 *
 				 * \~
@@ -945,7 +968,6 @@ namespace nts {
 				 * \~russian
 				 * @brief Конструктор
 				 *
-				 *
 				 * \~english
 				 * @brief Constructor
 				 *
@@ -955,7 +977,6 @@ namespace nts {
 				/**
 				 * \~russian
 				 * @brief Деструктор
-				 *
 				 *
 				 * \~english
 				 * @brief Destructor
@@ -979,10 +1000,12 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Message authentication code mode (OMAC1)
+		 *
 		 * @details Section 5.6 of GOST R 34.13-2015. The message is fed by the pieces of an
 		 *          arbitrary size by the calls of update, the imitation insert is taken by a
 		 *          call of finish. The padding by the procedure 3 of the section 4.1.3 is
 		 *          performed by the mode itself.
+		 *
 		 * @note The auxiliary keys K1 and K2 are secret on a par with the key of the cipher,
 		 *       therefore they are wiped by the destructor and by a call of clear
 		 *
@@ -1017,6 +1040,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of checking the readiness of the mode for the work
+				 *
 				 * @return the flag of the readiness of the mode for the work
 				 *
 				 * \~
@@ -1027,13 +1051,13 @@ namespace nts {
 				 * @brief Метод запуска режима работы
 				 *
 				 * @param block базовый алгоритм блочного шифрования
-				 *
-				 * @return признак успешности запуска режима работы
+				 * @return      признак успешности запуска режима работы
 				 *
 				 * \~english
 				 * @brief Method of the start of the mode of operation
+				 *
 				 * @param block the base block encryption algorithm
-				 * @return the flag of the success of the start of the mode of operation
+				 * @return      the flag of the success of the start of the mode of operation
 				 *
 				 * \~
 				 */
@@ -1054,13 +1078,13 @@ namespace nts {
 				 * @brief Метод добавления куска сообщения
 				 *
 				 * @param source добавляемый кусок сообщения
-				 *
-				 * @return признак успешности добавления куска сообщения
+				 * @return       признак успешности добавления куска сообщения
 				 *
 				 * \~english
 				 * @brief Method of the addition of a piece of the message
+				 *
 				 * @param source the piece of the message being added
-				 * @return the flag of the success of the addition of the piece of the message
+				 * @return       the flag of the success of the addition of the piece of the message
 				 *
 				 * \~
 				 */
@@ -1071,16 +1095,17 @@ namespace nts {
 				 *
 				 * @param result место, в которое помещается имитовставка
 				 * @param size   требуемая длина имитовставки в байтах
-				 *
-				 * @return признак успешности снятия имитовставки
+				 * @return       признак успешности снятия имитовставки
 				 *
 				 * @note Имитовставка снимается усечением выхода шифра до старших байтов
 				 *
 				 * \~english
 				 * @brief Method of the taking of the imitation insert
+				 *
 				 * @param result the place the imitation insert is put into
 				 * @param size   the required length of the imitation insert in bytes
-				 * @return the flag of the success of the taking of the imitation insert
+				 * @return       the flag of the success of the taking of the imitation insert
+				 *
 				 * @note The imitation insert is taken by the truncation of the output of the cipher to the senior bytes
 				 *
 				 * \~
@@ -1091,7 +1116,6 @@ namespace nts {
 				 * \~russian
 				 * @brief Конструктор
 				 *
-				 *
 				 * \~english
 				 * @brief Constructor
 				 *
@@ -1101,7 +1125,6 @@ namespace nts {
 				/**
 				 * \~russian
 				 * @brief Деструктор
-				 *
 				 *
 				 * \~english
 				 * @brief Destructor

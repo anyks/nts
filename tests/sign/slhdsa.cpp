@@ -45,10 +45,9 @@ using namespace nts;
 static const char * CORPUS = ANTS_CORPUS;
 
 /**
- * @brief Метод разбора записи из шестнадцатеричного текста
+ * @brief Функция разбора записи из шестнадцатеричного текста
  *
  * @param text запись в шестнадцатеричном виде
- *
  * @return     запись в байтах
  *
  */
@@ -58,18 +57,26 @@ static std::vector <uint8_t> unhex(const std::string & text) noexcept {
 	// Разбор полубайта записи
 	auto nib = [](const char c) -> uint8_t {
 		// Если полубайт цифровой
-		if((c >= '0') && (c <= '9'))
+		if((c >= '0') && (c <= '9')){
+			// Значение цифрового полубайта 0..9
 			return static_cast <uint8_t> (c - '0');
+		}
 		// Если полубайт строчный
-		if((c >= 'a') && (c <= 'f'))
+		if((c >= 'a') && (c <= 'f')){
+			// Строчная буква a..f даёт значение 10..15
 			return static_cast <uint8_t> ((c - 'a') + 10);
+		}
 		// Если полубайт заглавный
-		if((c >= 'A') && (c <= 'F'))
+		if((c >= 'A') && (c <= 'F')){
+			// Заглавная буква A..F даёт значение 10..15
 			return static_cast <uint8_t> ((c - 'A') + 10);
+		}
 		// Выводим пустой полубайт
 		return 0;
 	};
-	// Выполняем перебор пар полубайтов записи
+	/**
+	 * Выполняем перебор пар полубайтов записи
+	 */
 	for(size_t i = 0; i + 1 < text.size(); i += 2)
 		// Собираем байт записи из пары полубайтов
 		result.push_back(static_cast <uint8_t> ((nib(text[i]) << 4) | nib(text[i + 1])));
@@ -78,10 +85,9 @@ static std::vector <uint8_t> unhex(const std::string & text) noexcept {
 }
 
 /**
- * @brief Метод чтения строки набора контрольных примеров на поля
+ * @brief Функция чтения строки набора контрольных примеров на поля
  *
  * @param line строка набора
- *
  * @return     поля строки набора
  *
  */
@@ -90,7 +96,9 @@ static std::vector <std::string> fields(const std::string & line) noexcept {
 	std::vector <std::string> result;
 	// Текущее поле разбора
 	std::string field;
-	// Выполняем перебор знаков строки набора
+	/**
+	 * Выполняем перебор знаков строки набора
+	 */
 	for(const char c : line){
 		// Если знак разделяет поля
 		if(c == ' '){
@@ -114,46 +122,76 @@ static std::vector <std::string> fields(const std::string & line) noexcept {
 }
 
 /**
- * @brief Метод получения набора параметров по записи
+ * @brief Функция получения набора параметров по записи
  *
  * @param name запись набора
- *
  * @return     набор параметров
  *
  */
 static sign::Slhdsa::set_t layout(const std::string & name) noexcept {
-	// Наборы параметров по записям
-	if(name == "sha2-128s")
+	// Запись набора sha2-128s
+	if(name == "sha2-128s"){
+		// Краткие подписи SHA2 на 128 бит стойкости
 		return sign::Slhdsa::set_t::SHA2_128S;
-	if(name == "shake-128s")
+	}
+	// Запись набора shake-128s
+	if(name == "shake-128s"){
+		// Краткие подписи SHAKE на 128 бит стойкости
 		return sign::Slhdsa::set_t::SHAKE_128S;
-	if(name == "sha2-128f")
+	}
+	// Запись набора sha2-128f
+	if(name == "sha2-128f"){
+		// Быстрые подписи SHA2 на 128 бит стойкости
 		return sign::Slhdsa::set_t::SHA2_128F;
-	if(name == "shake-128f")
+	}
+	// Запись набора shake-128f
+	if(name == "shake-128f"){
+		// Быстрые подписи SHAKE на 128 бит стойкости
 		return sign::Slhdsa::set_t::SHAKE_128F;
-	if(name == "sha2-192s")
+	}
+	// Запись набора sha2-192s
+	if(name == "sha2-192s"){
+		// Краткие подписи SHA2 на 192 бита стойкости
 		return sign::Slhdsa::set_t::SHA2_192S;
-	if(name == "shake-192s")
+	}
+	// Запись набора shake-192s
+	if(name == "shake-192s"){
+		// Краткие подписи SHAKE на 192 бита стойкости
 		return sign::Slhdsa::set_t::SHAKE_192S;
-	if(name == "sha2-192f")
+	}
+	// Запись набора sha2-192f
+	if(name == "sha2-192f"){
+		// Быстрые подписи SHA2 на 192 бита стойкости
 		return sign::Slhdsa::set_t::SHA2_192F;
-	if(name == "shake-192f")
+	}
+	// Запись набора shake-192f
+	if(name == "shake-192f"){
+		// Быстрые подписи SHAKE на 192 бита стойкости
 		return sign::Slhdsa::set_t::SHAKE_192F;
-	if(name == "sha2-256s")
+	}
+	// Запись набора sha2-256s
+	if(name == "sha2-256s"){
+		// Краткие подписи SHA2 на 256 бит стойкости
 		return sign::Slhdsa::set_t::SHA2_256S;
-	if(name == "shake-256s")
+	}
+	// Запись набора shake-256s
+	if(name == "shake-256s"){
+		// Краткие подписи SHAKE на 256 бит стойкости
 		return sign::Slhdsa::set_t::SHAKE_256S;
-	if(name == "sha2-256f")
+	}
+	// Запись набора sha2-256f
+	if(name == "sha2-256f"){
+		// Быстрые подписи SHA2 на 256 бит стойкости
 		return sign::Slhdsa::set_t::SHA2_256F;
+	}
 	// Выводим набор SHAKE-256f
 	return sign::Slhdsa::set_t::SHAKE_256F;
 }
 
 /**
- * @brief Метод получения поля записи в байтах
+ * @brief Функция получения поля записи в байтах
  *
  * @param field поле записи, прочерк означает пустое поле
- *
  * @return      поле записи в байтах
  *
  */
@@ -177,7 +215,9 @@ TEST(SlhdsaTest, Keygen) {
 	std::string line;
 	// Число сценариев набора
 	size_t done = 0;
-	// Выполняем перебор строк набора примеров
+	/**
+	 * Выполняем перебор строк набора примеров
+	 */
 	while(std::getline(input, line)){
 		// Если строка помечена примечанием либо пуста
 		if(line.empty() || (line[0] == '#'))
@@ -218,7 +258,9 @@ TEST(SlhdsaTest, Siggen) {
 	std::string line;
 	// Число сценариев набора
 	size_t done = 0;
-	// Выполняем перебор строк набора примеров
+	/**
+	 * Выполняем перебор строк набора примеров
+	 */
 	while(std::getline(input, line)){
 		// Если строка помечена примечанием либо пуста
 		if(line.empty() || (line[0] == '#'))
@@ -254,6 +296,7 @@ TEST(SlhdsaTest, Siggen) {
 		}
 		// Выполняем выработку подписи и сверяем с примером побайтно
 		ASSERT_TRUE(signer.make(view_t(rnd, sizeof(rnd)), view_t(msg.data(), msg.size()), view_t(ctx.data(), ctx.size()), signature.data()));
+		// Выработанная подпись обязана совпасть с примером побайтно
 		EXPECT_EQ(signature, want);
 		// Выполняем сличение выработанной подписи
 		EXPECT_TRUE(verifier.check(view_t(msg.data(), msg.size()), view_t(ctx.data(), ctx.size()), view_t(signature.data(), signature.size())));
@@ -275,7 +318,9 @@ TEST(SlhdsaTest, Sigver) {
 	std::string line;
 	// Число сценариев набора
 	size_t done = 0;
-	// Выполняем перебор строк набора примеров
+	/**
+	 * Выполняем перебор строк набора примеров
+	 */
 	while(std::getline(input, line)){
 		// Если строка помечена примечанием либо пуста
 		if(line.empty() || (line[0] == '#'))
@@ -318,7 +363,9 @@ TEST(SlhdsaTest, Round) {
 		sign::Slhdsa::set_t::SHA2_256S, sign::Slhdsa::set_t::SHAKE_256S,
 		sign::Slhdsa::set_t::SHA2_256F, sign::Slhdsa::set_t::SHAKE_256F
 	};
-	// Выполняем перебор наборов параметров
+	/**
+	 * Выполняем перебор наборов параметров
+	 */
 	for(auto set : SUITS){
 		// Модули подписи и проверки
 		sign::Slhdsa signer, verifier;
@@ -341,17 +388,21 @@ TEST(SlhdsaTest, Round) {
 		EXPECT_TRUE(verifier.check(view_t(reinterpret_cast <const uint8_t *> (text.data()), text.size()), view_t(nullptr, 0), view_t(signature.data(), signature.size())));
 		// Порченый байт подписи отвергается
 		signature[100] ^= 1;
+		// Сверка порченой подписи обязана завершиться отказом
 		EXPECT_FALSE(verifier.check(view_t(reinterpret_cast <const uint8_t *> (text.data()), text.size()), view_t(nullptr, 0), view_t(signature.data(), signature.size())));
 		// Возвращаем байт подписи обратно
 		signature[100] ^= 1;
 		// Иное сообщение отвергается
 		const std::string other = "иное сообщение";
+		// Сверка подписи иного сообщения обязана завершиться отказом
 		EXPECT_FALSE(verifier.check(view_t(reinterpret_cast <const uint8_t *> (other.data()), other.size()), view_t(nullptr, 0), view_t(signature.data(), signature.size())));
 		// Иной контекст отвергается
 		const uint8_t context[1] = {1};
+		// Сверка подписи с иным контекстом обязана завершиться отказом
 		EXPECT_FALSE(verifier.check(view_t(reinterpret_cast <const uint8_t *> (text.data()), text.size()), view_t(context, sizeof(context)), view_t(signature.data(), signature.size())));
 		// Сброс модуля снимает ключи
 		signer.clear();
+		// Набор после сброса обязан стать пустым
 		EXPECT_EQ(signer.set(), sign::Slhdsa::set_t::NONE);
 		EXPECT_EQ(signer.size(), 0u);
 	}

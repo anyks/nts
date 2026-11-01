@@ -40,11 +40,10 @@
 using namespace nts;
 
 /**
- * @brief Метод разбора записи шестнадцатеричными знаками
+ * @brief Функция разбора записи шестнадцатеричными знаками
  *
  * @param text разбираемая запись
  * @param data место, в которое помещаются разобранные байты
- *
  * @return     число разобранных байтов
  *
  */
@@ -73,11 +72,10 @@ static size_t bytes(const char * text, uint8_t * data) {
 	return result;
 }
 /**
- * @brief Метод сборки записи шестнадцатеричными знаками
+ * @brief Функция сборки записи шестнадцатеричными знаками
  *
  * @param data собираемые байты
  * @param size число собираемых байтов
- *
  * @return     собранная запись
  *
  */
@@ -1048,20 +1046,31 @@ TEST(ModeTest, Descriptor) {
  * Проверка готовности режимов и отказов установки на негодном описании шифра
  */
 TEST(ModeTest, Unready) {
+	// Секретный ключ Кузнечика
 	uint8_t secret[32];
+	// Разбор секретного ключа из шестнадцатеричной записи
 	bytes(KUZNYECHIK_SECRET, secret);
+	// Базовый шифр Кузнечик
 	cipher::kuznyechik_t base;
+	// Ключ Кузнечика принимается
 	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
+	// Синхропосылка
 	uint8_t iv[32];
 	::memset(iv, 0x44, sizeof(iv));
+	// Размер блока Кузнечика
 	const size_t size = cipher::KUZNYECHIK_BLOCK;
 	// Всякий режим до установки не готов, а после установки готов
 	cipher::codebook_t codebook;
+	// Простая замена до установки не готова
 	ASSERT_FALSE(codebook.ready());
+	// Запуск простой замены на шифре
 	ASSERT_TRUE(codebook.start(cipher::block_t(base)));
 	ASSERT_TRUE(codebook.ready());
+	// Гаммирование сцеплением счётчика
 	cipher::counter_t counter;
+	// Гаммирование до установки не готово
 	ASSERT_FALSE(counter.ready());
+	// Запуск гаммирования с укороченной синхропосылкой
 	ASSERT_TRUE(counter.start(cipher::block_t(base), view_t(iv, size / 2)));
 	ASSERT_TRUE(counter.ready());
 	/**
@@ -1069,27 +1078,38 @@ TEST(ModeTest, Unready) {
 	 * обратной связью, сцепления и имитовставки заслон тот же, что у простой замены
 	 */
 	cipher::output_t output;
+	// Описание без шифра до установки не готово
 	ASSERT_FALSE(output.ready());
 	ASSERT_FALSE(output.start(cipher::block_t(), view_t(iv, size)));
 	// Длина гаммы не больше блока: раздел 5.3 ГОСТ Р 34.13-2015
 	ASSERT_FALSE(output.start(cipher::block_t(base), view_t(iv, size), size + 1));
+	// Запуск гаммирования с обратной связью по выходу на шифре
 	ASSERT_TRUE(output.start(cipher::block_t(base), view_t(iv, size)));
 	ASSERT_TRUE(output.ready());
+	// Сцепление блоков
 	cipher::chaining_t chaining;
+	// Сцепление до установки не готово
 	ASSERT_FALSE(chaining.ready());
 	ASSERT_FALSE(chaining.start(cipher::block_t(), view_t(iv, size)));
+	// Запуск сцепления на шифре
 	ASSERT_TRUE(chaining.start(cipher::block_t(base), view_t(iv, size)));
 	ASSERT_TRUE(chaining.ready());
+	// Гаммирование с обратной связью по шифротексту
 	cipher::feedback_t feedback;
+	// Гаммирование с обратной связью до установки не готово
 	ASSERT_FALSE(feedback.ready());
 	ASSERT_FALSE(feedback.start(cipher::block_t(), view_t(iv, size)));
 	// Длина гаммы не больше блока: раздел 5.5 ГОСТ Р 34.13-2015
 	ASSERT_FALSE(feedback.start(cipher::block_t(base), view_t(iv, size), size + 1));
+	// Запуск гаммирования с обратной связью по шифротексту на шифре
 	ASSERT_TRUE(feedback.start(cipher::block_t(base), view_t(iv, size)));
 	ASSERT_TRUE(feedback.ready());
+	// Имитовставка
 	cipher::imitation_t imitation;
+	// Имитовставка до установки не готова
 	ASSERT_FALSE(imitation.ready());
 	ASSERT_FALSE(imitation.start(cipher::block_t()));
+	// Запуск имитовставки на шифре
 	ASSERT_TRUE(imitation.start(cipher::block_t(base)));
 	ASSERT_TRUE(imitation.ready());
 }

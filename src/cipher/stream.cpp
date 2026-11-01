@@ -61,7 +61,6 @@ namespace {
  *
  * @param source пропускаемый кусок
  * @param result накопитель выхода, в который дописывается итог
- *
  * @return       признак успешности пропуска
  *
  */
@@ -73,13 +72,13 @@ bool nts::cipher::Stream::pass(const view_t & source, vector <uint8_t> & result)
 	// Прежняя длина накопителя выхода
 	const size_t offset = result.size();
 	/**
-	 * Накопитель выхода растёт под кусок: нехватка памяти отвечает отказом
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Выполняем рост накопителя под кусок
 		result.resize(offset + source.size);
 	/**
-	 * Если памяти под накопитель не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ пропуска
@@ -156,7 +155,6 @@ bool nts::cipher::Stream::ready() const noexcept {
  * @param block     блочный шифр с блоком в 16 байтов и установленным ключом
  * @param mode      режим шифрования потока
  * @param tag       длина метки GCM от 4 до 16 байтов, у режима без метки не учитывается
- *
  * @return          признак успешности заведения
  *
  */
@@ -208,13 +206,13 @@ bool nts::cipher::Stream::start(const direction_t direction, const block_t & blo
 	// Иначе вектор придёт из головы потока
 	} else {
 		/**
-		 * Удерживаемый хвост заводится сразу, чтобы подача куска памяти не просила
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Выполняем заготовку места под удерживаемый хвост
 			this->_tail.reserve(this->_tag);
 		/**
-		 * Если памяти под хвост не хватило
+		 * Выполняем перехват ошибок
 		 */
 		} catch(const bad_alloc &) {
 			// Выполняем сброс потока
@@ -267,7 +265,6 @@ void nts::cipher::Stream::clear() noexcept {
  *
  * @param source кусок любой длины, включая пустой
  * @param result накопитель выхода, в который дописывается итог
- *
  * @return       признак успешности подачи
  *
  */
@@ -285,13 +282,13 @@ bool nts::cipher::Stream::update(const view_t & source, vector <uint8_t> & resul
 		// Если вектор ещё не выдан
 		if(!this->_headed){
 			/**
-			 * Вектор уходит первым в выход: нехватка памяти отвечает отказом
+			 * Выполняем перехват ошибок
 			 */
 			try {
 				// Дописываем вектор в накопитель выхода
 				result.insert(result.end(), this->_vector, this->_vector + this->_head);
 			/**
-			 * Если памяти под накопитель не хватило
+			 * Выполняем перехват ошибок
 			 */
 			} catch(const bad_alloc &) {
 				// Выводим отказ подачи
@@ -353,13 +350,13 @@ bool nts::cipher::Stream::update(const view_t & source, vector <uint8_t> & resul
 	// Если выдавать нечего
 	if(release == 0){
 		/**
-		 * Кусок целиком ложится в удерживаемый хвост: место под него заготовлено
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Дописываем кусок в удерживаемый хвост
 			this->_tail.insert(this->_tail.end(), cursor, cursor + left);
 		/**
-		 * Если памяти под хвост не хватило
+		 * Выполняем перехват ошибок
 		 */
 		} catch(const bad_alloc &) {
 			// Выводим отказ подачи
@@ -395,13 +392,13 @@ bool nts::cipher::Stream::update(const view_t & source, vector <uint8_t> & resul
 	// Укорачиваем хвост на выданное
 	this->_tail.resize(this->_tail.size() - held);
 	/**
-	 * Остаток куска ложится в удерживаемый хвост: длина его теперь ровно метка
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Дописываем остаток куска в удерживаемый хвост
 		this->_tail.insert(this->_tail.end(), cursor + fresh, cursor + left);
 	/**
-	 * Если памяти под хвост не хватило: байты куска потеряны, поток закрывается
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Закрываем поток
@@ -416,7 +413,6 @@ bool nts::cipher::Stream::update(const view_t & source, vector <uint8_t> & resul
  * @brief Метод завершения потока
  *
  * @param result накопитель выхода, в который дописывается хвост
- *
  * @return       признак успешности завершения
  *
  */
@@ -432,13 +428,13 @@ bool nts::cipher::Stream::finish(vector <uint8_t> & result) noexcept {
 		// Если вектор ещё не выдан: данных не было вовсе
 		if(!this->_headed){
 			/**
-			 * Вектор уходит первым в выход и у пустого потока
+			 * Выполняем перехват ошибок
 			 */
 			try {
 				// Дописываем вектор в накопитель выхода
 				result.insert(result.end(), this->_vector, this->_vector + this->_head);
 			/**
-			 * Если памяти под накопитель не хватило
+			 * Выполняем перехват ошибок
 			 */
 			} catch(const bad_alloc &) {
 				// Выводим отказ завершения
@@ -458,7 +454,7 @@ bool nts::cipher::Stream::finish(vector <uint8_t> & result) noexcept {
 			// Если метку снять удалось
 			if(this->_gcm.finish(tag)){
 				/**
-				 * Метка дописывается в выход: нехватка памяти отвечает отказом
+				 * Выполняем перехват ошибок
 				 */
 				try {
 					// Дописываем метку в накопитель выхода
@@ -466,7 +462,7 @@ bool nts::cipher::Stream::finish(vector <uint8_t> & result) noexcept {
 					// Запоминаем успешность завершения
 					finished = true;
 				/**
-				 * Если памяти под накопитель не хватило
+				 * Выполняем перехват ошибок
 				 */
 				} catch(const bad_alloc &) {
 					// Оставляем отказ завершения

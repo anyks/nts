@@ -12,13 +12,7 @@
  * @email forman@anyks.com
  * @site https://anyks.com
  *
- * \~russian
  * @brief Исходный файл стока журнала библиотеки
- *
- * \~english
- * @brief Source file of the log sink of the library
- *
- * \~
  *
  * @copyright Copyright © 2026
  *
@@ -43,40 +37,41 @@ using namespace nts;
 /**
  * Сток журнала процесса и контекст потребителя
  */
-static sys::log::sink_t ants_sink = nullptr;
-static void * ants_context = nullptr;
+static sys::log::sink_t __ants_sink__ = nullptr;
+// Контекст потребителя журнала
+static void * __ants_context__ = nullptr;
 
 /**
  * sink Метод установки стока журнала
  */
 void sys::log::sink(const sink_t sink, void * context) noexcept {
 	// Запоминаем контекст потребителя прежде стока: сток без контекста хуже, чем контекст без стока
-	ants_context = context;
+	::__ants_context__ = context;
 	// Запоминаем сток журнала
-	ants_sink = sink;
+	::__ants_sink__ = sink;
 }
 /**
  * enabled Метод проверки того, что сток поставлен
  */
 bool sys::log::enabled() noexcept {
 	// Выводим признак поставленного стока
-	return (ants_sink != nullptr);
+	return (::__ants_sink__ != nullptr);
 }
 /**
  * emit Метод передачи готовой строки в сток
  */
 void sys::log::emit(const level_t level, const char * text) noexcept {
 	// Если сток поставлен и строка задана
-	if((ants_sink != nullptr) && (text != nullptr))
+	if((::__ants_sink__ != nullptr) && (text != nullptr))
 		// Передаём строку стоку
-		ants_sink(level, text, ants_context);
+		::__ants_sink__(level, text, ::__ants_context__);
 }
 /**
  * emitf Метод передачи сообщения по образцу printf
  */
 void sys::log::emitf(const level_t level, const char * format, ...) noexcept {
 	// Если сток не поставлен либо образец не задан, строка не собирается вовсе
-	if((ants_sink == nullptr) || (format == nullptr))
+	if((::__ants_sink__ == nullptr) || (format == nullptr))
 		// Выходим из метода
 		return;
 	// Буфер строки на стеке: сообщения библиотеки коротки, длиннее обрезаются
@@ -92,5 +87,5 @@ void sys::log::emitf(const level_t level, const char * format, ...) noexcept {
 	// Если строка собрана
 	if(written >= 0)
 		// Передаём строку стоку
-		ants_sink(level, buffer, ants_context);
+		::__ants_sink__(level, buffer, ::__ants_context__);
 }

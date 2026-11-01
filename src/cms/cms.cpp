@@ -12,17 +12,9 @@
  * @email forman@anyks.com
  * @site https://anyks.com
  *
- * \~russian
  * @brief Модуль синтаксиса криптографических сообщений —
  *        подписанные и зашифрованные сообщения по RFC 5652,
  *        сведения о получателе KEM по RFC 9629
- *
- * \~english
- * @brief The cryptographic message syntax module —
- *        the signed and enveloped messages according to RFC 5652,
- *        the KEM recipient info according to RFC 9629
- *
- * \~
  *
  * @copyright Copyright © 2026
  *
@@ -107,26 +99,37 @@ namespace {
 	 * Опознаватели алгоритмов хеша: раздел 2.1 RFC 4055 и приложение B RFC 8017
 	 */
 	static const char * OID_SHA1 = "1.3.14.3.2.26";
+	// Опознаватель хеша SHA-224
 	static const char * OID_SHA224 = "2.16.840.1.101.3.4.2.4";
+	// Опознаватель хеша SHA-256
 	static const char * OID_SHA256 = "2.16.840.1.101.3.4.2.1";
+	// Опознаватель хеша SHA-384
 	static const char * OID_SHA384 = "2.16.840.1.101.3.4.2.2";
+	// Опознаватель хеша SHA-512
 	static const char * OID_SHA512 = "2.16.840.1.101.3.4.2.3";
 
 	/**
 	 * Опознаватели подписи RSA PKCS #1 v1.5: раздел 5 RFC 4055
 	 */
 	static const char * OID_SHA1_RSA = "1.2.840.113549.1.1.5";
+	// Опознаватель подписи RSA с хешем SHA-224
 	static const char * OID_SHA224_RSA = "1.2.840.113549.1.1.14";
+	// Опознаватель подписи RSA с хешем SHA-256
 	static const char * OID_SHA256_RSA = "1.2.840.113549.1.1.11";
+	// Опознаватель подписи RSA с хешем SHA-384
 	static const char * OID_SHA384_RSA = "1.2.840.113549.1.1.12";
+	// Опознаватель подписи RSA с хешем SHA-512
 	static const char * OID_SHA512_RSA = "1.2.840.113549.1.1.13";
 
 	/**
 	 * Опознаватели подписи ECDSA: раздел 3.2 RFC 5758
 	 */
 	static const char * OID_SHA224_ECDSA = "1.2.840.10045.4.3.1";
+	// Опознаватель подписи ECDSA с хешем SHA-256
 	static const char * OID_SHA256_ECDSA = "1.2.840.10045.4.3.2";
+	// Опознаватель подписи ECDSA с хешем SHA-384
 	static const char * OID_SHA384_ECDSA = "1.2.840.10045.4.3.3";
+	// Опознаватель подписи ECDSA с хешем SHA-512
 	static const char * OID_SHA512_ECDSA = "1.2.840.10045.4.3.4";
 
 	/**
@@ -138,21 +141,27 @@ namespace {
 	 * Опознаватели подписи ML-DSA: раздел 4 RFC 9881
 	 */
 	static const char * OID_MLDSA44 = "2.16.840.1.101.3.4.3.17";
+	// Опознаватель подписи ML-DSA-65
 	static const char * OID_MLDSA65 = "2.16.840.1.101.3.4.3.18";
+	// Опознаватель подписи ML-DSA-87
 	static const char * OID_MLDSA87 = "2.16.840.1.101.3.4.3.19";
 
 	/**
 	 * Опознаватели шифров AES-CBC трёх длин ключа: раздел 4 RFC 8018
 	 */
 	static const char * OID_AES128_CBC = "2.16.840.1.101.3.4.1.2";
+	// Опознаватель шифра AES-192-CBC
 	static const char * OID_AES192_CBC = "2.16.840.1.101.3.4.1.22";
+	// Опознаватель шифра AES-256-CBC
 	static const char * OID_AES256_CBC = "2.16.840.1.101.3.4.1.42";
 
 	/**
 	 * Опознаватели шифров AES-KW трёх длин ключа: RFC 3394
 	 */
 	static const char * OID_AES128_WRAP = "2.16.840.1.101.3.4.1.5";
+	// Опознаватель шифра AES-192-KW
 	static const char * OID_AES192_WRAP = "2.16.840.1.101.3.4.1.25";
+	// Опознаватель шифра AES-256-KW
 	static const char * OID_AES256_WRAP = "2.16.840.1.101.3.4.1.45";
 
 	/**
@@ -164,9 +173,13 @@ namespace {
 	 * Опознаватели алгоритмов имитовставки HMAC: раздел 4 RFC 4231
 	 */
 	static const char * OID_HMAC_SHA1 = "1.3.6.1.5.5.8.1.2";
+	// Опознаватель имитовставки HMAC с хешем SHA-224
 	static const char * OID_HMAC_SHA224 = "1.2.840.113549.2.8";
+	// Опознаватель имитовставки HMAC с хешем SHA-256
 	static const char * OID_HMAC_SHA256 = "1.2.840.113549.2.9";
+	// Опознаватель имитовставки HMAC с хешем SHA-384
 	static const char * OID_HMAC_SHA384 = "1.2.840.113549.2.10";
+	// Опознаватель имитовставки HMAC с хешем SHA-512
 	static const char * OID_HMAC_SHA512 = "1.2.840.113549.2.11";
 
 	/**
@@ -178,7 +191,9 @@ namespace {
 	 * Опознаватели алгоритмов ML-KEM: CSOR по FIPS 203
 	 */
 	static const char * OID_MLKEM512 = "2.16.840.1.101.3.4.4.1";
+	// Опознаватель алгоритма ML-KEM-768
 	static const char * OID_MLKEM768 = "2.16.840.1.101.3.4.4.2";
+	// Опознаватель алгоритма ML-KEM-1024
 	static const char * OID_MLKEM1024 = "2.16.840.1.101.3.4.4.3";
 
 	/**
@@ -192,10 +207,9 @@ namespace {
 	static constexpr size_t CEK = 32;
 
 	/**
-	 * @brief Метод перевода отказа разборщика ASN.1 в отказ модуля
+	 * @brief Функция перевода отказа разборщика ASN.1 в отказ модуля
 	 *
 	 * @param error отказ разборщика ASN.1
-	 *
 	 * @return      отказ модуля
 	 *
 	 */
@@ -204,11 +218,10 @@ namespace {
 		return ((error == asn1::error_t::MEMORY) ? nts::cms::error_t::MEMORY : nts::cms::error_t::STRUCTURE);
 	}
 	/**
-	 * @brief Метод разбора опознавателя объекта
+	 * @brief Функция разбора опознавателя объекта
 	 *
 	 * @param element разбираемый элемент
 	 * @param result  место, в которое помещается опознаватель
-	 *
 	 * @return        отказ разбора опознавателя
 	 *
 	 */
@@ -219,12 +232,11 @@ namespace {
 		return ((outcome == asn1::error_t::NONE) ? nts::cms::error_t::NONE : translate(outcome));
 	}
 	/**
-	 * @brief Метод разбора записи опознавателя алгоритма
+	 * @brief Функция разбора записи опознавателя алгоритма
 	 *
 	 * @param element элемент записи опознавателя алгоритма
 	 * @param oid     место, в которое помещается опознаватель алгоритма
 	 * @param params  место, в которое помещается просмотр записи настроек алгоритма
-	 *
 	 * @return        отказ разбора записи
 	 *
 	 */
@@ -266,12 +278,11 @@ namespace {
 		return nts::cms::error_t::NONE;
 	}
 	/**
-	 * @brief Метод разбора записи ContentInfo
+	 * @brief Функция разбора записи ContentInfo
 	 *
 	 * @param data    просмотр разбираемой записи
 	 * @param kind    место, в которое помещается опознаватель вида содержимого
 	 * @param content место, в которое помещается просмотр содержимого [0]
-	 *
 	 * @return        отказ разбора записи
 	 *
 	 */
@@ -322,12 +333,11 @@ namespace {
 		return nts::cms::error_t::NONE;
 	}
 	/**
-	 * @brief Метод разбора записи имени издателя и порядкового номера
+	 * @brief Функция разбора записи имени издателя и порядкового номера
 	 *
 	 * @param element элемент записи IssuerAndSerialNumber
 	 * @param issuer  место, в которое помещается просмотр записи имени издателя
 	 * @param serial  место, в которое помещается просмотр порядкового номера
-	 *
 	 * @return        отказ разбора записи
 	 *
 	 */
@@ -362,10 +372,9 @@ namespace {
 		return nts::cms::error_t::NONE;
 	}
 	/**
-	 * @brief Метод получения алгоритма хеша по его опознавателю
+	 * @brief Функция получения алгоритма хеша по его опознавателю
 	 *
 	 * @param oid опознаватель алгоритма хеша
-	 *
 	 * @return    алгоритм хеша, digest::hash_t::NONE у неизвестного
 	 *
 	 */
@@ -380,15 +389,16 @@ namespace {
 		return digest::hash_t::NONE;
 	}
 	/**
-	 * @brief Метод получения опознавателя алгоритма хеша
+	 * @brief Функция получения опознавателя алгоритма хеша
 	 *
 	 * @param hash алгоритм хеша
-	 *
 	 * @return     опознаватель алгоритма хеша либо nullptr
 	 *
 	 */
 	static const char * oidOf(const digest::hash_t hash) noexcept {
-		// Выводим опознаватель по алгоритму хеша
+		/**
+		 * Выводим опознаватель по алгоритму хеша
+		 */
 		switch(hash){
 			case digest::hash_t::SHA1: return OID_SHA1;
 			case digest::hash_t::SHA224: return OID_SHA224;
@@ -399,10 +409,9 @@ namespace {
 		}
 	}
 	/**
-	 * @brief Метод получения опознавателя алгоритма подписи RSA по опознавателю хеша
+	 * @brief Функция получения опознавателя алгоритма подписи RSA по опознавателю хеша
 	 *
 	 * @param digest опознаватель алгоритма хеша
-	 *
 	 * @return       опознаватель алгоритма подписи либо nullptr
 	 *
 	 * @note Сведения о подписывающем вправе нести rsaEncryption вместо опознавателя
@@ -421,11 +430,10 @@ namespace {
 		return nullptr;
 	}
 	/**
-	 * @brief Метод получения опознавателя алгоритма подписи по виду ключа и хешу
+	 * @brief Функция получения опознавателя алгоритма подписи по виду ключа и хешу
 	 *
 	 * @param signer подготовленный секретный ключ подписи
 	 * @param hash   алгоритм хеша подписи
-	 *
 	 * @return       опознаватель алгоритма подписи либо nullptr
 	 *
 	 */
@@ -436,7 +444,9 @@ namespace {
 		switch(signer.kind()){
 			// Ключ RSA
 			case keys::kind_t::RSA:
-				// Выводим опознаватель по хешу
+				/**
+				 * Выводим опознаватель по хешу
+				 */
 				switch(hash){
 					case digest::hash_t::SHA1: return OID_SHA1_RSA;
 					case digest::hash_t::SHA224: return OID_SHA224_RSA;
@@ -447,7 +457,9 @@ namespace {
 				}
 			// Ключ ECDSA
 			case keys::kind_t::EC:
-				// Выводим опознаватель по хешу
+				/**
+				 * Выводим опознаватель по хешу
+				 */
 				switch(hash){
 					case digest::hash_t::SHA224: return OID_SHA224_ECDSA;
 					case digest::hash_t::SHA256: return OID_SHA256_ECDSA;
@@ -461,7 +473,9 @@ namespace {
 				return OID_ED25519;
 			// Ключ ML-DSA
 			case keys::kind_t::MLDSA:
-				// Выводим опознаватель по набору ключа
+				/**
+				 * Выводим опознаватель по набору ключа
+				 */
 				switch(signer.mldsa().set()){
 					case sign::mldsa_t::set_t::DSA44: return OID_MLDSA44;
 					case sign::mldsa_t::set_t::DSA65: return OID_MLDSA65;
@@ -475,20 +489,18 @@ namespace {
 		}
 	}
 	/**
-	 * @brief Метод выработки подписи содержимого
+	 * @brief Функция выработки подписи содержимого
 	 *
 	 * @param signer    подготовленный секретный ключ подписи
 	 * @param hash      алгоритм хеша подписи (для RSA и ECDSA)
 	 * @param content   подписываемое содержимое
 	 * @param signature место, в которое помещается подпись
-	 *
 	 * @return          отказ выработки подписи
 	 *
 	 */
 	static nts::cms::error_t makeSignature(const keys::signer_t & signer, const digest::hash_t hash, const view_t & content, vector <uint8_t> & signature) noexcept {
 		/**
-		 * Выработка подписи выделяет память: нехватка её отдаётся отказом, а не
-		 * завершением процесса
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			/**
@@ -567,6 +579,9 @@ namespace {
 					return nts::cms::error_t::KEY;
 			}
 		// Если памяти под итог не хватило
+		/**
+		 * Выполняем перехват ошибок
+		 */
 		} catch(const std::bad_alloc &) {
 			// Выводим отказ памяти
 			return nts::cms::error_t::MEMORY;
@@ -575,12 +590,11 @@ namespace {
 		return nts::cms::error_t::NONE;
 	}
 	/**
-	 * @brief Метод записи опознавателя алгоритма с пустыми настройками
+	 * @brief Функция записи опознавателя алгоритма с пустыми настройками
 	 *
 	 * @param writer записчик, в который ведётся запись
 	 * @param oid    опознаватель алгоритма
 	 * @param empty  признак записи пустых настроек NULL
-	 *
 	 * @return       признак успешности записи
 	 *
 	 */
@@ -603,11 +617,10 @@ namespace {
 		return writer.close();
 	}
 	/**
-	 * @brief Метод переноса готовой записи в записчик как элемента
+	 * @brief Функция переноса готовой записи в записчик как элемента
 	 *
 	 * @param writer записчик, в который ведётся запись
 	 * @param record переносимая запись целиком, с меткой и длиной
-	 *
 	 * @return       признак успешности переноса
 	 *
 	 */
@@ -624,12 +637,11 @@ namespace {
 		return writer.element(element.cls, element.constructed, element.tag, element.content);
 	}
 	/**
-	 * @brief Метод защиты ключа по схеме AES-KW (RFC 3394)
+	 * @brief Функция защиты ключа по схеме AES-KW (RFC 3394)
 	 *
 	 * @param kek    ключ защиты ключа
 	 * @param plain  защищаемый ключ, длина кратна восьми байтам и не меньше шестнадцати
 	 * @param result место, в которое помещается защищённый ключ
-	 *
 	 * @return       признак успешности защиты
 	 *
 	 */
@@ -641,12 +653,15 @@ namespace {
 		// Число блоков защищаемого ключа
 		const size_t n = plain.size / 8;
 		/**
-		 * Защита выделяет память: нехватка её отдаётся отказом, а не завершением процесса
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Занимаем место под итог: полу-блок целостности и блоки ключа
 			result.assign(plain.size + 8, 0);
 		// Если памяти под итог не хватило
+		/**
+		 * Выполняем перехват ошибок
+		 */
 		} catch(const std::bad_alloc &) {
 			// Выводим отказ защиты
 			return false;
@@ -669,7 +684,9 @@ namespace {
 		 * Шесть проходов защиты по разделу 2.2.1 RFC 3394
 		 */
 		for(size_t j = 0; j < 6; j++){
-			// Проход по блокам ключа
+			/**
+			 * Проход по блокам ключа
+			 */
 			for(size_t i = 0; i < n; i++){
 				// Сшиваем регистр и очередной блок
 				::memcpy(b, a, 8);
@@ -683,7 +700,9 @@ namespace {
 				}
 				// Счётчик прохода в регистре целостности: A ^ t, t = n * j + i + 1
 				const uint64_t t = static_cast <uint64_t> (n * j + i + 1);
-				// Обновляем регистр целостности
+				/**
+				 * Обновляем регистр целостности
+				 */
 				for(size_t k = 0; k < 8; k++)
 					// Выполняем сложение по модулю два со счётчиком
 					a[k] = b[k] ^ static_cast <uint8_t> (t >> (56 - k * 8));
@@ -699,12 +718,11 @@ namespace {
 		return true;
 	}
 	/**
-	 * @brief Метод снятия защиты ключа по схеме AES-KW (RFC 3394)
+	 * @brief Функция снятия защиты ключа по схеме AES-KW (RFC 3394)
 	 *
 	 * @param kek    ключ защиты ключа
 	 * @param wrapped защищённый ключ
 	 * @param result место, в которое помещается ключ
-	 *
 	 * @return       признак успешности снятия защиты: ложь и при нарушении целостности
 	 *
 	 */
@@ -716,12 +734,15 @@ namespace {
 		// Число блоков ключа
 		const size_t n = wrapped.size / 8 - 1;
 		/**
-		 * Снятие защиты выделяет память: нехватка её отдаётся отказом, а не завершением процесса
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Занимаем место под итог
 			result.assign(wrapped.size - 8, 0);
 		// Если памяти под итог не хватило
+		/**
+		 * Выполняем перехват ошибок
+		 */
 		} catch(const std::bad_alloc &) {
 			// Выводим отказ снятия защиты
 			return false;
@@ -744,14 +765,19 @@ namespace {
 		 * Шесть проходов снятия защиты по разделу 2.2.2 RFC 3394
 		 */
 		for(size_t j = 6; j-- > 0;){
-			// Проход по блокам ключа в обратном порядке
+			/**
+			 * Проход по блокам ключа в обратном порядке
+			 */
 			for(size_t i = n; i-- > 0;){
 				// Счётчик прохода: t = n * j + i + 1
 				const uint64_t t = static_cast <uint64_t> (n * j + i + 1);
-				// Сшиваем регистр со счётчиком и очередной блок
+				/**
+				 * Сшиваем регистр со счётчиком и очередной блок
+				 */
 				for(size_t k = 0; k < 8; k++)
 					// Выполняем сложение по модулю два со счётчиком
 					b[k] = a[k] ^ static_cast <uint8_t> (t >> (56 - k * 8));
+				// Переносим блок ключа в сшивку
 				::memcpy(b + 8, result.data() + i * 8, 8);
 				// Расшифровываем сшивку
 				if(!aes.decrypt(b, b)){
@@ -770,7 +796,9 @@ namespace {
 		nts::sys::wipe(b, sizeof(b));
 		// Сверяем регистр целостности с начальным значением A6A6A6A6A6A6A6A6
 		bool sound = true;
-		// Проходим по байтам регистра без раннего выхода
+		/**
+		 * Проходим по байтам регистра без раннего выхода
+		 */
 		for(size_t k = 0; k < 8; k++)
 			// Накапливаем признак целостности
 			sound = (sound && (a[k] == 0xA6));
@@ -787,10 +815,9 @@ namespace {
 		return true;
 	}
 	/**
-	 * @brief Метод получения набора параметров ML-KEM по его опознавателю
+	 * @brief Функция получения набора параметров ML-KEM по его опознавателю
 	 *
 	 * @param oid опознаватель алгоритма ML-KEM
-	 *
 	 * @return    набор параметров, agreement::kem_t::NONE у неизвестного
 	 *
 	 */
@@ -803,15 +830,16 @@ namespace {
 		return agreement::kem_t::NONE;
 	}
 	/**
-	 * @brief Метод получения опознавателя алгоритма ML-KEM
+	 * @brief Функция получения опознавателя алгоритма ML-KEM
 	 *
 	 * @param kem набор параметров ML-KEM
-	 *
 	 * @return    опознаватель алгоритма либо nullptr
 	 *
 	 */
 	static const char * oidOf(const agreement::kem_t kem) noexcept {
-		// Выводим опознаватель по набору параметров
+		/**
+		 * Выводим опознаватель по набору параметров
+		 */
 		switch(kem){
 			case agreement::kem_t::MLKEM512: return OID_MLKEM512;
 			case agreement::kem_t::MLKEM768: return OID_MLKEM768;
@@ -820,13 +848,12 @@ namespace {
 		}
 	}
 	/**
-	 * @brief Метод выработки ключа KEK по разделу 5 RFC 9629
+	 * @brief Функция выработки ключа KEK по разделу 5 RFC 9629
 	 *
 	 * @param shared общий секрет инкапсуляции
 	 * @param wrap   опознаватель алгоритма защиты ключа CEK
 	 * @param length длина ключа KEK в байтах
 	 * @param kek    место, в которое помещается ключ KEK
-	 *
 	 * @return       признак успешности выработки
 	 *
 	 * @details Сведения CMSORIforKEMOtherInfo собираются из алгоритма защиты и длины
@@ -859,19 +886,18 @@ namespace {
 		return digest::hkdf(digest::hash_t::SHA256, view_t(nullptr, 0), shared, data, kek, length);
 	}
 	/**
-	 * @brief Метод зашифрования содержимого AES-256-CBC
+	 * @brief Функция зашифрования содержимого AES-256-CBC
 	 *
 	 * @param content зашифровываемое содержимое
 	 * @param cek     ключ шифрования содержимого
 	 * @param iv      синхропосылка
 	 * @param result  место, в которое помещается шифротекст
-	 *
 	 * @return        отказ зашифрования
 	 *
 	 */
 	static nts::cms::error_t encryptContent(const view_t & content, const view_t & cek, const view_t & iv, vector <uint8_t> & result) noexcept {
 		/**
-		 * Зашифрование выделяет память: нехватка её отдаётся отказом, а не завершением процесса
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Занимаем место под шифротекст: содержимое и дополнение до блока по PKCS #7
@@ -905,6 +931,9 @@ namespace {
 			// Выполняем затирание дополненного содержимого
 			nts::sys::wipe(plain.data(), plain.size());
 		// Если памяти под итог не хватило
+		/**
+		 * Выполняем перехват ошибок
+		 */
 		} catch(const std::bad_alloc &) {
 			// Выводим отказ памяти
 			return nts::cms::error_t::MEMORY;
@@ -913,13 +942,12 @@ namespace {
 		return nts::cms::error_t::NONE;
 	}
 	/**
-	 * @brief Метод расшифрования содержимого AES-256-CBC
+	 * @brief Функция расшифрования содержимого AES-256-CBC
 	 *
 	 * @param encrypted зашифрованное содержимое
 	 * @param cek       ключ шифрования содержимого
 	 * @param iv        синхропосылка
 	 * @param result    место, в которое помещается содержимое
-	 *
 	 * @return          отказ расшифрования
 	 *
 	 */
@@ -929,7 +957,7 @@ namespace {
 			// Выводим отказ устройства записи
 			return nts::cms::error_t::STRUCTURE;
 		/**
-		 * Расшифрование выделяет память: нехватка её отдаётся отказом, а не завершением процесса
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Занимаем место под содержимое
@@ -957,7 +985,9 @@ namespace {
 			}
 			// Сверяем байты дополнения без раннего выхода
 			bool sound = true;
-			// Проходим по байтам дополнения
+			/**
+			 * Проходим по байтам дополнения
+			 */
 			for(size_t i = result.size() - padding; i < result.size(); i++)
 				// Накапливаем признак целостности
 				sound = (sound && (result[i] == padding));
@@ -971,6 +1001,9 @@ namespace {
 			// Усекаем итог до содержимого
 			result.resize(result.size() - padding);
 		// Если памяти под итог не хватило
+		/**
+		 * Выполняем перехват ошибок
+		 */
 		} catch(const std::bad_alloc &) {
 			// Выводим отказ памяти
 			return nts::cms::error_t::MEMORY;
@@ -979,12 +1012,11 @@ namespace {
 		return nts::cms::error_t::NONE;
 	}
 	/**
-	 * @brief Метод сборки записи EncryptedContentInfo и обёртки ContentInfo
+	 * @brief Функция сборки записи EncryptedContentInfo и обёртки ContentInfo
 	 *
 	 * @param recipient записчик, в который уже записаны сведения о получателе
 	 * @param content   зашифровываемое содержимое
 	 * @param result    место, в которое помещается запись ContentInfo
-	 *
 	 * @return          отказ сборки
 	 *
 	 */
@@ -1008,7 +1040,7 @@ namespace {
 			return outcome;
 		}
 		/**
-		 * Сборка записи выделяет память: нехватка её отдаётся отказом, а не завершением процесса
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Записчик записи EnvelopedData
@@ -1171,6 +1203,9 @@ namespace {
 			// Переносим запись в итог
 			result.assign(data.data, data.data + data.size);
 		// Если памяти под итог не хватило
+		/**
+		 * Выполняем перехват ошибок
+		 */
 		} catch(const std::bad_alloc &) {
 			// Выполняем затирание ключа
 			nts::sys::wipe(cek, sizeof(cek));
@@ -1185,18 +1220,11 @@ namespace {
 };
 
 /**
- * \~russian
  * @brief Метод разбора записи ContentInfo вида id-signedData
  *
  * @param data просмотр разбираемой записи
  * @return     причина отказа либо error_t::NONE
  *
- * \~english
- * @brief Method of parsing a ContentInfo record of the id-signedData kind
- * @param data the view of the record being parsed
- * @return     the reason of the failure or error_t::NONE
- *
- * \~
  */
 nts::cms::error_t nts::cms::Signed::parse(const view_t & data) noexcept {
 	// Выполняем сброс разобранных сведений
@@ -1292,7 +1320,9 @@ nts::cms::error_t nts::cms::Signed::parse(const view_t & data) noexcept {
 				return (this->_error = error_t::STRUCTURE);
 		}
 	}
-	// Если после записи EncapsulatedContentInfo есть поля
+	/**
+	 * Если после записи EncapsulatedContentInfo есть поля
+	 */
 	while(!items.empty()){
 		// Элемент очередного поля
 		asn1::element_t next;
@@ -1304,7 +1334,9 @@ nts::cms::error_t nts::cms::Signed::parse(const view_t & data) noexcept {
 		if(next.constructed && (next.cls == asn1::cls_t::CONTEXT) && (next.tag == 0)){
 			// Разборщик содержимого набора сертификатов
 			asn1::reader_t certificates(next.content);
-			// Разбираем записи сертификатов
+			/**
+			 * Разбираем записи сертификатов
+			 */
 			while(!certificates.empty()){
 				// Элемент записи сертификата
 				asn1::element_t certificate;
@@ -1313,13 +1345,15 @@ nts::cms::error_t nts::cms::Signed::parse(const view_t & data) noexcept {
 				// Выводим переведённый отказ разбора
 					return (this->_error = translate(certificates.err()));
 				/**
-				 * Набор сертификатов выделяет память: нехватка её отдаётся отказом,
-				 * а не завершением процесса
+				 * Выполняем перехват ошибок
 				 */
 				try {
 					// Запоминаем просмотр записи сертификата целиком
 					this->_certificates.push_back(certificate.element);
 				// Если памяти под итог не хватило
+				/**
+				 * Выполняем перехват ошибок
+				 */
 				} catch(const std::bad_alloc &) {
 				// Выводим отказ памяти
 					return (this->_error = error_t::MEMORY);
@@ -1333,7 +1367,9 @@ nts::cms::error_t nts::cms::Signed::parse(const view_t & data) noexcept {
 		} else if(next.constructed && (next.cls == asn1::cls_t::UNIVERSAL) && (next.tag == static_cast <uint32_t> (asn1::tag_t::SET))){
 			// Разборщик содержимого набора подписывающих
 			asn1::reader_t signers(next.content);
-			// Разбираем записи подписывающих
+			/**
+			 * Разбираем записи подписывающих
+			 */
 			while(!signers.empty()){
 				// Элемент записи SignerInfo
 				asn1::element_t info;
@@ -1414,13 +1450,15 @@ nts::cms::error_t nts::cms::Signed::parse(const view_t & data) noexcept {
 					(void) attributed;
 				}
 				/**
-				 * Набор подписывающих выделяет память: нехватка её отдаётся отказом,
-				 * а не завершением процесса
+				 * Выполняем перехват ошибок
 				 */
 				try {
 					// Запоминаем сведения о подписывающем
 					this->_signers.push_back(signer);
 				// Если памяти под итог не хватило
+				/**
+				 * Выполняем перехват ошибок
+				 */
 				} catch(const std::bad_alloc &) {
 				// Выводим отказ памяти
 					return (this->_error = error_t::MEMORY);
@@ -1435,13 +1473,8 @@ nts::cms::error_t nts::cms::Signed::parse(const view_t & data) noexcept {
 	return error_t::NONE;
 }
 /**
- * \~russian
  * @brief Метод очистки разобранных сведений
  *
- * \~english
- * @brief Method of clearing the parsed info
- *
- * \~
  */
 void nts::cms::Signed::clear() noexcept {
 	// Сбрасываем причину последнего отказа
@@ -1456,109 +1489,67 @@ void nts::cms::Signed::clear() noexcept {
 	this->_signers.clear();
 }
 /**
- * \~russian
  * @brief Метод извлечения причины последнего отказа
  *
  * @return причина последнего отказа
  *
- * \~english
- * @brief Method of getting the reason of the last failure
- * @return the reason of the last failure
- *
- * \~
  */
 nts::cms::error_t nts::cms::Signed::err() const noexcept {
 	// Выводим причину последнего отказа
 	return this->_error;
 }
 /**
- * \~russian
  * @brief Метод извлечения опознавателя вида содержимого
  *
  * @return опознаватель вида содержимого
  *
- * \~english
- * @brief Method of getting the identifier of the kind of the content
- * @return the identifier of the kind of the content
- *
- * \~
  */
 const string & nts::cms::Signed::kind() const noexcept {
 	// Выводим опознаватель вида содержимого
 	return this->_kind;
 }
 /**
- * \~russian
  * @brief Метод извлечения содержимого
  *
  * @return просмотр содержимого либо пустой просмотр при отделённом содержимом
  *
- * \~english
- * @brief Method of getting the content
- * @return the view of the content or an empty view at a detached content
- *
- * \~
  */
 const nts::view_t & nts::cms::Signed::content() const noexcept {
 	// Выводим просмотр содержимого
 	return this->_content;
 }
 /**
- * \~russian
  * @brief Метод извлечения набора записей сертификатов
  *
  * @return набор просмотров записей сертификатов
  *
- * \~english
- * @brief Method of getting the set of the certificate records
- * @return the set of the views of the certificate records
- *
- * \~
  */
 const vector <nts::view_t> & nts::cms::Signed::certificates() const noexcept {
 	// Выводим набор записей сертификатов
 	return this->_certificates;
 }
 /**
- * \~russian
  * @brief Метод извлечения набора сведений о подписывающих
  *
  * @return набор сведений о подписывающих
  *
- * \~english
- * @brief Method of getting the set of the infos of the signers
- * @return the set of the infos of the signers
- *
- * \~
  */
 const vector <nts::cms::signer_info_t> & nts::cms::Signed::signers() const noexcept {
 	// Выводим набор сведений о подписывающих
 	return this->_signers;
 }
 /**
- * \~russian
  * @brief Конструктор
  *
- * \~english
- * @brief Constructor
- *
- * \~
  */
 nts::cms::Signed::Signed() noexcept : _error(error_t::NONE) {}
 
 /**
- * \~russian
  * @brief Метод разбора записи ContentInfo вида id-envelopedData
  *
  * @param data просмотр разбираемой записи
  * @return     причина отказа либо error_t::NONE
  *
- * \~english
- * @brief Method of parsing a ContentInfo record of the id-envelopedData kind
- * @param data the view of the record being parsed
- * @return     the reason of the failure or error_t::NONE
- *
- * \~
  */
 nts::cms::error_t nts::cms::Enveloped::parse(const view_t & data) noexcept {
 	// Выполняем сброс разобранных сведений
@@ -1607,7 +1598,9 @@ nts::cms::error_t nts::cms::Enveloped::parse(const view_t & data) noexcept {
 		return (this->_error = translate(items.err()));
 	// Разборщик содержимого набора сведений о получателях
 	asn1::reader_t infos(recipients.content);
-	// Разбираем записи сведений о получателях
+	/**
+	 * Разбираем записи сведений о получателях
+	 */
 	while(!infos.empty()){
 		// Элемент записи сведений о получателе
 		asn1::element_t info;
@@ -1756,13 +1749,15 @@ nts::cms::error_t nts::cms::Enveloped::parse(const view_t & data) noexcept {
 		// Запоминаем просмотр защищённого ключа
 		recipient.encryptedKey = key.content;
 		/**
-		 * Набор получателей выделяет память: нехватка её отдаётся отказом,
-		 * а не завершением процесса
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Запоминаем сведения о получателе
 			this->_recipients.push_back(recipient);
 		// Если памяти под итог не хватило
+		/**
+		 * Выполняем перехват ошибок
+		 */
 		} catch(const std::bad_alloc &) {
 		// Выводим отказ памяти
 			return (this->_error = error_t::MEMORY);
@@ -1820,13 +1815,8 @@ nts::cms::error_t nts::cms::Enveloped::parse(const view_t & data) noexcept {
 	return error_t::NONE;
 }
 /**
- * \~russian
  * @brief Метод очистки разобранных сведений
  *
- * \~english
- * @brief Method of clearing the parsed info
- *
- * \~
  */
 void nts::cms::Enveloped::clear() noexcept {
 	// Сбрасываем причину последнего отказа
@@ -1843,125 +1833,77 @@ void nts::cms::Enveloped::clear() noexcept {
 	this->_recipients.clear();
 }
 /**
- * \~russian
  * @brief Метод извлечения причины последнего отказа
  *
  * @return причина последнего отказа
  *
- * \~english
- * @brief Method of getting the reason of the last failure
- * @return the reason of the last failure
- *
- * \~
  */
 nts::cms::error_t nts::cms::Enveloped::err() const noexcept {
 	// Выводим причину последнего отказа
 	return this->_error;
 }
 /**
- * \~russian
  * @brief Метод извлечения опознавателя вида содержимого
  *
  * @return опознаватель вида содержимого
  *
- * \~english
- * @brief Method of getting the identifier of the kind of the content
- * @return the identifier of the kind of the content
- *
- * \~
  */
 const string & nts::cms::Enveloped::kind() const noexcept {
 	// Выводим опознаватель вида содержимого
 	return this->_kind;
 }
 /**
- * \~russian
  * @brief Метод извлечения опознавателя шифра содержимого
  *
  * @return опознаватель шифра содержимого
  *
- * \~english
- * @brief Method of getting the identifier of the content cipher
- * @return the identifier of the content cipher
- *
- * \~
  */
 const string & nts::cms::Enveloped::algorithm() const noexcept {
 	// Выводим опознаватель шифра содержимого
 	return this->_algorithm;
 }
 /**
- * \~russian
  * @brief Метод извлечения записи настроек шифра содержимого
  *
  * @return просмотр записи настроек шифра содержимого
  *
- * \~english
- * @brief Method of getting the encoding of the settings of the content cipher
- * @return the view of the encoding of the settings of the content cipher
- *
- * \~
  */
 const nts::view_t & nts::cms::Enveloped::parameters() const noexcept {
 	// Выводим просмотр настроек шифра содержимого
 	return this->_parameters;
 }
 /**
- * \~russian
  * @brief Метод извлечения зашифрованного содержимого
  *
  * @return просмотр зашифрованного содержимого
  *
- * \~english
- * @brief Method of getting the encrypted content
- * @return the view of the encrypted content
- *
- * \~
  */
 const nts::view_t & nts::cms::Enveloped::content() const noexcept {
 	// Выводим просмотр зашифрованного содержимого
 	return this->_content;
 }
 /**
- * \~russian
  * @brief Метод извлечения набора сведений о получателях
  *
  * @return набор сведений о получателях
  *
- * \~english
- * @brief Method of getting the set of the infos of the recipients
- * @return the set of the infos of the recipients
- *
- * \~
  */
 const vector <nts::cms::recipient_t> & nts::cms::Enveloped::recipients() const noexcept {
 	// Выводим набор сведений о получателях
 	return this->_recipients;
 }
 /**
- * \~russian
  * @brief Конструктор
  *
- * \~english
- * @brief Constructor
- *
- * \~
  */
 nts::cms::Enveloped::Enveloped() noexcept : _error(error_t::NONE) {}
 
 /**
- * \~russian
- * @brief Метод определения вида записи ContentInfo
+ * @brief Функция определения вида записи ContentInfo
  *
  * @param data просмотр разбираемой записи
  * @return     вид содержимого записи, content_t::NONE у записи иного вида
  *
- * \~english
- * @brief Method of determining the kind of a ContentInfo record
- * @param data the view of the record being parsed
- * @return     the kind of the content of the record, content_t::NONE at a record of a foreign kind
- *
- * \~
  */
 nts::cms::content_t nts::cms::content(const view_t & data) noexcept {
 	// Опознаватель вида содержимого и просмотр содержимого
@@ -1983,8 +1925,7 @@ nts::cms::content_t nts::cms::content(const view_t & data) noexcept {
 	return content_t::NONE;
 }
 /**
- * \~russian
- * @brief Метод сборки подписанного сообщения
+ * @brief Функция сборки подписанного сообщения
  *
  * @param certificates набор записей сертификатов (первый — сертификат подписывающего)
  * @param issuer       просмотр записи имени издателя сертификата подписывающего
@@ -1993,21 +1934,8 @@ nts::cms::content_t nts::cms::content(const view_t & data) noexcept {
  * @param signer       подготовленный секретный ключ подписи
  * @param hash         алгоритм хеша содержимого (для RSA и ECDSA; не рассматривается у Ed25519 и ML-DSA)
  * @param result       место, в которое помещается запись ContentInfo
- *
  * @return             отказ сборки
  *
- * \~english
- * @brief Method of building a signed message
- * @param certificates the set of the certificate records (the first one is of the signer)
- * @param issuer       the view of the issuer name encoding of the certificate of the signer
- * @param serial       the view of the serial number of the certificate of the signer
- * @param content      the content being signed
- * @param signer       the prepared secret key of the signature
- * @param hash         the hash algorithm of the content (for RSA and ECDSA; not considered at Ed25519 and ML-DSA)
- * @param result       the place the ContentInfo record is put into
- * @return             the failure of the building
- *
- * \~
  */
 nts::cms::error_t nts::cms::sign(const vector <view_t> & certificates, const view_t & issuer, const view_t & serial, const view_t & content, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept {
 	// Если содержимое либо опознавание подписывающего не установлены
@@ -2039,7 +1967,7 @@ nts::cms::error_t nts::cms::sign(const vector <view_t> & certificates, const vie
 	// Длина хеша содержимого
 	const size_t width = digest::length(hash);
 	/**
-	 * Сборка записи выделяет память: нехватка её отдаётся отказом, а не завершением процесса
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Записчик подписанных атрибутов
@@ -2113,7 +2041,9 @@ nts::cms::error_t nts::cms::sign(const vector <view_t> & certificates, const vie
 				return error_t::MEMORY;
 			// Разборщик содержимого записи атрибутов
 			asn1::reader_t items(wrapper_.content);
-			// Разбираем атрибуты
+			/**
+			 * Разбираем атрибуты
+			 */
 			while(!items.empty()){
 				// Элемент атрибута
 				asn1::element_t attribute;
@@ -2246,7 +2176,9 @@ nts::cms::error_t nts::cms::sign(const vector <view_t> & certificates, const vie
 			if(!signedData.open(asn1::cls_t::CONTEXT, 0))
 			// Выводим отказ сборки
 				return error_t::MEMORY;
-			// Переносим записи сертификатов
+			/**
+			 * Переносим записи сертификатов
+			 */
 			for(size_t i = 0; i < certificates.size(); i++){
 				// Разборщик записи сертификата
 				asn1::reader_t certificate(certificates[i]);
@@ -2313,6 +2245,9 @@ nts::cms::error_t nts::cms::sign(const vector <view_t> & certificates, const vie
 		// Переносим запись в итог
 		result.assign(data.data, data.data + data.size);
 	// Если памяти под итог не хватило
+	/**
+	 * Выполняем перехват ошибок
+	 */
 	} catch(const std::bad_alloc &) {
 	// Выводим отказ памяти
 		return error_t::MEMORY;
@@ -2321,25 +2256,17 @@ nts::cms::error_t nts::cms::sign(const vector <view_t> & certificates, const vie
 	return error_t::NONE;
 }
 /**
- * \~russian
- * @brief Метод проверки подписи подписанного сообщения
+ * @brief Функция проверки подписи подписанного сообщения
  *
  * @param signed_ разобранное подписанное сообщение
  * @param signer  сведения о проверяемом подписывающем
  * @param content отделённое содержимое либо пустой просмотр, если содержимое вложено в запись
  * @param key     сведения об открытом ключе из сертификата подписывающего
+ * @return        отказ проверки: NONE - подпись сошлась, SIGNATURE - не сошлась либо
+ *                непригодна, ALGORITHM - алгоритм неизвестен, KEY - ключ чужого алгоритма
  *
- * @return        отказ проверки
+ *                непригодна, ALGORITHM - алгоритм неизвестен, KEY - ключ чужого алгоритма
  *
- * \~english
- * @brief Method of the check of the signature of a signed message
- * @param signed_ the parsed signed message
- * @param signer  the info of the signer being checked
- * @param content the detached content or an empty view if the content is embedded into the record
- * @param key     the info of the public key from the certificate of the signer
- * @return        the failure of the check
- *
- * \~
  */
 nts::cms::error_t nts::cms::verify(const signed_t & signed_, const signer_info_t & signer, const view_t & content, const x509::key_t & key) noexcept {
 	// Просмотр содержимого: отделённое либо вложенное в запись
@@ -2393,7 +2320,9 @@ nts::cms::error_t nts::cms::verify(const signed_t & signed_, const signer_info_t
 		asn1::reader_t items(element.content);
 		// Признаки найденных атрибутов
 		bool typed = false, digested = false;
-		// Разбираем атрибуты
+		/**
+		 * Разбираем атрибуты
+		 */
 		while(!items.empty()){
 			// Элемент атрибута
 			asn1::element_t attribute;
@@ -2465,7 +2394,7 @@ nts::cms::error_t nts::cms::verify(const signed_t & signed_, const signer_info_t
 		// по разделу 5.4 RFC 5652: пересобираем содержимое атрибутов под меткой SET
 		asn1::writer_t imprint;
 		/**
-		 * Пересборка выделяет память: нехватка её отдаётся отказом, а не завершением процесса
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Открываем набор атрибутов универсальной меткой SET
@@ -2474,7 +2403,9 @@ nts::cms::error_t nts::cms::verify(const signed_t & signed_, const signer_info_t
 				return error_t::MEMORY;
 			// Разборщик содержимого записи атрибутов
 			asn1::reader_t rest(element.content);
-			// Разбираем атрибуты
+			/**
+			 * Разбираем атрибуты
+			 */
 			while(!rest.empty()){
 				// Элемент атрибута
 				asn1::element_t attribute;
@@ -2492,6 +2423,9 @@ nts::cms::error_t nts::cms::verify(const signed_t & signed_, const signer_info_t
 			// Выводим отказ памяти
 				return error_t::MEMORY;
 		// Если памяти под итог не хватило
+		/**
+		 * Выполняем перехват ошибок
+		 */
 		} catch(const std::bad_alloc &) {
 		// Выводим отказ памяти
 			return error_t::MEMORY;
@@ -2500,7 +2434,9 @@ nts::cms::error_t nts::cms::verify(const signed_t & signed_, const signer_info_t
 		const view_t record = imprint.data();
 		// Проверяем подпись под записью атрибутов
 		const nts::x509::error_t outcome = nts::x509::verify(record, signer.signature, algorithm, signer.parameters, key);
-		// Выводим переведённый отказ проверки
+		/**
+		 * Выводим переведённый отказ проверки
+		 */
 		switch(outcome){
 			case nts::x509::error_t::NONE: return error_t::NONE;
 			case nts::x509::error_t::KEY: return error_t::KEY;
@@ -2510,7 +2446,9 @@ nts::cms::error_t nts::cms::verify(const signed_t & signed_, const signer_info_t
 	}
 	// Подписанных атрибутов нет: подпись проверяется под самим содержимым
 	const nts::x509::error_t outcome = nts::x509::verify(body, signer.signature, algorithm, signer.parameters, key);
-	// Выводим переведённый отказ проверки
+	/**
+	 * Выводим переведённый отказ проверки
+	 */
 	switch(outcome){
 		case nts::x509::error_t::NONE: return error_t::NONE;
 		case nts::x509::error_t::KEY: return error_t::KEY;
@@ -2519,21 +2457,12 @@ nts::cms::error_t nts::cms::verify(const signed_t & signed_, const signer_info_t
 	}
 }
 /**
- * \~russian
- * @brief Метод сборки вырожденной записи цепочки сертификатов («.p7b»)
+ * @brief Функция сборки вырожденной записи цепочки сертификатов («.p7b»)
  *
  * @param certificates набор записей сертификатов
  * @param result       место, в которое помещается запись ContentInfo
- *
  * @return             отказ сборки
  *
- * \~english
- * @brief Method of building a degenerate record of a certificate chain (".p7b")
- * @param certificates the set of the certificate records
- * @param result       the place the ContentInfo record is put into
- * @return             the failure of the building
- *
- * \~
  */
 nts::cms::error_t nts::cms::certificates(const vector <view_t> & certificates, vector <uint8_t> & result) noexcept {
 	// Если набор сертификатов пуст
@@ -2541,7 +2470,7 @@ nts::cms::error_t nts::cms::certificates(const vector <view_t> & certificates, v
 	// Выводим отказ пустых данных
 		return error_t::EMPTY;
 	/**
-	 * Сборка записи выделяет память: нехватка её отдаётся отказом, а не завершением процесса
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Записчик записи SignedData
@@ -2574,7 +2503,9 @@ nts::cms::error_t nts::cms::certificates(const vector <view_t> & certificates, v
 		if(!signedData.open(asn1::cls_t::CONTEXT, 0))
 		// Выводим отказ сборки
 			return error_t::MEMORY;
-		// Переносим записи сертификатов
+		/**
+		 * Переносим записи сертификатов
+		 */
 		for(size_t i = 0; i < certificates.size(); i++){
 			// Разборщик записи сертификата
 			asn1::reader_t certificate(certificates[i]);
@@ -2630,6 +2561,9 @@ nts::cms::error_t nts::cms::certificates(const vector <view_t> & certificates, v
 		// Переносим запись в итог
 		result.assign(data.data, data.data + data.size);
 	// Если памяти под итог не хватило
+	/**
+	 * Выполняем перехват ошибок
+	 */
 	} catch(const std::bad_alloc &) {
 	// Выводим отказ памяти
 		return error_t::MEMORY;
@@ -2639,27 +2573,15 @@ nts::cms::error_t nts::cms::certificates(const vector <view_t> & certificates, v
 }
 
 /**
- * \~russian
- * @brief Метод сборки зашифрованного сообщения с передачей ключа по RSA
+ * @brief Функция сборки зашифрованного сообщения с передачей ключа по RSA
  *
- * @param content    зашифровываемое содержимое
- * @param issuer     просмотр записи имени издателя сертификата получателя
- * @param serial     просмотр порядкового номера сертификата получателя
- * @param key        сведения об открытом ключе RSA из сертификата получателя
- * @param result     место, в которое помещается запись ContentInfo
+ * @param content зашифровываемое содержимое
+ * @param issuer  просмотр записи имени издателя сертификата получателя
+ * @param serial  просмотр порядкового номера сертификата получателя
+ * @param key     сведения об открытом ключе RSA из сертификата получателя
+ * @param result  место, в которое помещается запись ContentInfo
+ * @return        отказ сборки
  *
- * @return           отказ сборки
- *
- * \~english
- * @brief Method of building an enveloped message with the key transport by RSA
- * @param content    the content being encrypted
- * @param issuer     the view of the issuer name encoding of the certificate of the recipient
- * @param serial     the view of the serial number of the certificate of the recipient
- * @param key        the info of the public RSA key from the certificate of the recipient
- * @param result     the place the ContentInfo record is put into
- * @return           the failure of the building
- *
- * \~
  */
 nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issuer, const view_t & serial, const x509::key_t & key, vector <uint8_t> & result) noexcept {
 	// Если содержимое либо опознавание получателя не установлены
@@ -2694,12 +2616,15 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 	// Защищённый ключ
 	vector <uint8_t> wrapped;
 	/**
-	 * Защита ключа выделяет память: нехватка её отдаётся отказом, а не завершением процесса
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Занимаем место под защищённый ключ длиною в модуль
 		wrapped.assign(rsa.size(), 0);
 	// Если памяти под итог не хватило
+	/**
+	 * Выполняем перехват ошибок
+	 */
 	} catch(const std::bad_alloc &) {
 		// Выполняем затирание ключа
 		nts::sys::wipe(cek, sizeof(cek));
@@ -2717,6 +2642,9 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 	 * Сборка записи выделяет память: нехватка её отдаётся отказом, а не завершением процесса
 	 */
 	error_t outcome = error_t::NONE;
+	/**
+	 * Выполняем перехват ошибок
+	 */
 	try {
 		// Записчик записи KeyTransRecipientInfo
 		asn1::writer_t recipient;
@@ -2800,6 +2728,9 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 		// Собираем запись EnvelopedData: издание 0 у сведений KeyTrans
 		outcome = buildEnveloped(recipient, 0, content, cek, result);
 	// Если памяти под итог не хватило
+	/**
+	 * Выполняем перехват ошибок
+	 */
 	} catch(const std::bad_alloc &) {
 		// Выполняем затирание ключа
 		nts::sys::wipe(cek, sizeof(cek));
@@ -2812,29 +2743,16 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 	return outcome;
 }
 /**
- * \~russian
- * @brief Метод сборки зашифрованного сообщения с инкапсуляцией ключа по KEM
+ * @brief Функция сборки зашифрованного сообщения с инкапсуляцией ключа по KEM
  *
- * @param content    зашифровываемое содержимое
- * @param issuer     просмотр записи имени издателя сертификата получателя
- * @param serial     просмотр порядкового номера сертификата получателя
- * @param kem        набор параметров ML-KEM
- * @param key        открытый ключ инкапсуляции ML-KEM получателя
- * @param result     место, в которое помещается запись ContentInfo
+ * @param content зашифровываемое содержимое
+ * @param issuer  просмотр записи имени издателя сертификата получателя
+ * @param serial  просмотр порядкового номера сертификата получателя
+ * @param kem     набор параметров ML-KEM
+ * @param key     открытый ключ инкапсуляции ML-KEM получателя
+ * @param result  место, в которое помещается запись ContentInfo
+ * @return        отказ сборки
  *
- * @return           отказ сборки
- *
- * \~english
- * @brief Method of building an enveloped message with the key encapsulation by KEM
- * @param content    the content being encrypted
- * @param issuer     the view of the issuer name encoding of the certificate of the recipient
- * @param serial     the view of the serial number of the certificate of the recipient
- * @param kem        the ML-KEM parameter set
- * @param key        the ML-KEM encapsulation key of the recipient
- * @param result     the place the ContentInfo record is put into
- * @return           the failure of the building
- *
- * \~
  */
 nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issuer, const view_t & serial, const agreement::kem_t kem, const view_t & key, vector <uint8_t> & result) noexcept {
 	// Если содержимое либо опознавание получателя не установлены
@@ -2862,12 +2780,15 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 	// Общий секрет инкапсуляции
 	uint8_t shared[agreement::MLKEM_SHARED];
 	/**
-	 * Инкапсуляция выделяет память: нехватка её отдаётся отказом, а не завершением процесса
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Занимаем место под текст инкапсуляции
 		kemct.assign(agreement::ciphertext(kem), 0);
 	// Если памяти под итог не хватило
+	/**
+	 * Выполняем перехват ошибок
+	 */
 	} catch(const std::bad_alloc &) {
 		// Выполняем затирание ключа
 		nts::sys::wipe(cek, sizeof(cek));
@@ -2907,6 +2828,9 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 	 * Сборка записи выделяет память: нехватка её отдаётся отказом, а не завершением процесса
 	 */
 	error_t outcome = error_t::NONE;
+	/**
+	 * Выполняем перехват ошибок
+	 */
 	try {
 		// Записчик записи KEMRecipientInfo
 		asn1::writer_t recipient;
@@ -3066,6 +2990,9 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 		// Собираем запись EnvelopedData: издание 2 у сведений OtherRecipientInfo
 		outcome = buildEnveloped(ori, 2, content, cek, result);
 	// Если памяти под итог не хватило
+	/**
+	 * Выполняем перехват ошибок
+	 */
 	} catch(const std::bad_alloc &) {
 		// Выполняем затирание секретов
 		nts::sys::wipe(kek, sizeof(kek));
@@ -3080,23 +3007,13 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 	return outcome;
 }
 /**
- * \~russian
- * @brief Метод расшифрования зашифрованного сообщения ключом RSA
+ * @brief Функция расшифрования зашифрованного сообщения ключом RSA
  *
  * @param enveloped разобранное зашифрованное сообщение
  * @param key       секретный ключ RSA получателя
  * @param result    место, в которое помещается расшифрованное содержимое
- *
  * @return          отказ расшифрования
  *
- * \~english
- * @brief Method of the decryption of an enveloped message by an RSA key
- * @param enveloped the parsed enveloped message
- * @param key       the secret RSA key of the recipient
- * @param result    the place the decrypted content is put into
- * @return          the failure of the decryption
- *
- * \~
  */
 nts::cms::error_t nts::cms::unenvelop(const enveloped_t & enveloped, const keys::key_t & key, vector <uint8_t> & result) noexcept {
 	// Если ключ не RSA либо без секретной части
@@ -3133,7 +3050,9 @@ nts::cms::error_t nts::cms::unenvelop(const enveloped_t & enveloped, const keys:
 		return error_t::STRUCTURE;
 	// Разыскиваем сведения KeyTrans
 	const recipient_t * recipient = nullptr;
-	// Проходим по набору получателей
+	/**
+	 * Проходим по набору получателей
+	 */
 	for(size_t i = 0; i < enveloped.recipients().size(); i++){
 		// Если сведения вида RSA
 		if(enveloped.recipients()[i].kind == recipient_t::kind_t::RSA){
@@ -3179,25 +3098,14 @@ nts::cms::error_t nts::cms::unenvelop(const enveloped_t & enveloped, const keys:
 	return outcome;
 }
 /**
- * \~russian
- * @brief Метод расшифрования зашифрованного сообщения ключом ML-KEM
+ * @brief Функция расшифрования зашифрованного сообщения ключом ML-KEM
  *
  * @param enveloped разобранное зашифрованное сообщение
  * @param kem       набор параметров ML-KEM
  * @param secret    секретный ключ декапсуляции ML-KEM получателя
  * @param result    место, в которое помещается расшифрованное содержимое
- *
  * @return          отказ расшифрования
  *
- * \~english
- * @brief Method of the decryption of an enveloped message by an ML-KEM key
- * @param enveloped the parsed enveloped message
- * @param kem       the ML-KEM parameter set
- * @param secret    the ML-KEM decapsulation key of the recipient
- * @param result    the place the decrypted content is put into
- * @return          the failure of the decryption
- *
- * \~
  */
 nts::cms::error_t nts::cms::unenvelop(const enveloped_t & enveloped, const agreement::kem_t kem, const view_t & secret, vector <uint8_t> & result) noexcept {
 	// Если набор параметров неизвестен
@@ -3238,7 +3146,9 @@ nts::cms::error_t nts::cms::unenvelop(const enveloped_t & enveloped, const agree
 		return error_t::STRUCTURE;
 	// Разыскиваем сведения KEM
 	const recipient_t * recipient = nullptr;
-	// Проходим по набору получателей
+	/**
+	 * Проходим по набору получателей
+	 */
 	for(size_t i = 0; i < enveloped.recipients().size(); i++){
 		// Если сведения вида KEM и набор параметров совпадает
 		if((enveloped.recipients()[i].kind == recipient_t::kind_t::KEM) && (kemOf(enveloped.recipients()[i].kem) == kem)){
@@ -3325,29 +3235,15 @@ nts::cms::error_t nts::cms::unenvelop(const enveloped_t & enveloped, const agree
 }
 
 /**
- * \~russian
  * @brief Конструктор
- *
- * \~english
- * @brief Constructor
- *
- * \~
  *
  */
 nts::cms::Digested::Digested() noexcept : _error(error_t::NONE) {}
 /**
- * \~russian
  * @brief Метод разбора записи ContentInfo вида id-digestedData
  *
  * @param data просмотр разбираемой записи
  * @return     причина отказа либо error_t::NONE
- *
- * \~english
- * @brief Method of parsing a ContentInfo record of the id-digestedData kind
- * @param data the view of the record being parsed
- * @return     the reason of the failure or error_t::NONE
- *
- * \~
  *
  */
 nts::cms::error_t nts::cms::Digested::parse(const view_t & data) noexcept {
@@ -3379,8 +3275,7 @@ nts::cms::error_t nts::cms::Digested::parse(const view_t & data) noexcept {
 		return this->_error;
 	}
 	/**
-	 * Разбор сведений выделяет память: нехватка её отдаётся отказом, а не
-	 * завершением процесса
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Разборщик записи DigestedData
@@ -3479,6 +3374,9 @@ nts::cms::error_t nts::cms::Digested::parse(const view_t & data) noexcept {
 		// Запоминаем хеш
 		this->_digest = digest.content;
 	// Если памяти под сведения не хватило
+	/**
+	 * Выполняем перехват ошибок
+	 */
 	} catch(const std::bad_alloc &) {
 		// Запоминаем причину отказа
 		this->_error = error_t::MEMORY;
@@ -3491,13 +3389,7 @@ nts::cms::error_t nts::cms::Digested::parse(const view_t & data) noexcept {
 	return this->_error;
 }
 /**
- * \~russian
  * @brief Метод очистки разобранных сведений
- *
- * \~english
- * @brief Method of clearing the parsed info
- *
- * \~
  *
  */
 void nts::cms::Digested::clear() noexcept {
@@ -3507,19 +3399,13 @@ void nts::cms::Digested::clear() noexcept {
 	this->_algorithm.clear();
 	// Сбрасываем просмотры
 	this->_content = view_t();
+	// Сбрасываем просмотр импринта
 	this->_digest = view_t();
 }
 /**
- * \~russian
  * @brief Метод извлечения причины последнего отказа
  *
  * @return причина последнего отказа
- *
- * \~english
- * @brief Method of getting the reason of the last failure
- * @return the reason of the last failure
- *
- * \~
  *
  */
 nts::cms::error_t nts::cms::Digested::err() const noexcept {
@@ -3527,16 +3413,9 @@ nts::cms::error_t nts::cms::Digested::err() const noexcept {
 	return this->_error;
 }
 /**
- * \~russian
  * @brief Метод извлечения опознавателя алгоритма хеша
  *
  * @return опознаватель алгоритма хеша
- *
- * \~english
- * @brief Method of getting the hash algorithm identifier
- * @return the hash algorithm identifier
- *
- * \~
  *
  */
 const std::string & nts::cms::Digested::algorithm() const noexcept {
@@ -3544,16 +3423,9 @@ const std::string & nts::cms::Digested::algorithm() const noexcept {
 	return this->_algorithm;
 }
 /**
- * \~russian
  * @brief Метод извлечения содержимого
  *
  * @return просмотр содержимого
- *
- * \~english
- * @brief Method of getting the content
- * @return the view of the content
- *
- * \~
  *
  */
 const nts::view_t & nts::cms::Digested::content() const noexcept {
@@ -3561,16 +3433,9 @@ const nts::view_t & nts::cms::Digested::content() const noexcept {
 	return this->_content;
 }
 /**
- * \~russian
  * @brief Метод извлечения хеша содержимого
  *
  * @return просмотр содержимого хеша
- *
- * \~english
- * @brief Method of getting the content digest
- * @return the view of the digest content
- *
- * \~
  *
  */
 const nts::view_t & nts::cms::Digested::digest() const noexcept {
@@ -3579,29 +3444,15 @@ const nts::view_t & nts::cms::Digested::digest() const noexcept {
 }
 
 /**
- * \~russian
  * @brief Конструктор
- *
- * \~english
- * @brief Constructor
- *
- * \~
  *
  */
 nts::cms::Encrypted::Encrypted() noexcept : _error(error_t::NONE) {}
 /**
- * \~russian
  * @brief Метод разбора записи ContentInfo вида id-encryptedData
  *
  * @param data просмотр разбираемой записи
  * @return     причина отказа либо error_t::NONE
- *
- * \~english
- * @brief Method of parsing a ContentInfo record of the id-encryptedData kind
- * @param data the view of the record being parsed
- * @return     the reason of the failure or error_t::NONE
- *
- * \~
  *
  */
 nts::cms::error_t nts::cms::Encrypted::parse(const view_t & data) noexcept {
@@ -3633,8 +3484,7 @@ nts::cms::error_t nts::cms::Encrypted::parse(const view_t & data) noexcept {
 		return this->_error;
 	}
 	/**
-	 * Разбор сведений выделяет память: нехватка её отдаётся отказом, а не
-	 * завершением процесса
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Разборщик записи EncryptedData
@@ -3709,6 +3559,9 @@ nts::cms::error_t nts::cms::Encrypted::parse(const view_t & data) noexcept {
 		// Запоминаем зашифрованное содержимое
 		this->_content = content.content;
 	// Если памяти под сведения не хватило
+	/**
+	 * Выполняем перехват ошибок
+	 */
 	} catch(const std::bad_alloc &) {
 		// Запоминаем причину отказа
 		this->_error = error_t::MEMORY;
@@ -3721,13 +3574,7 @@ nts::cms::error_t nts::cms::Encrypted::parse(const view_t & data) noexcept {
 	return this->_error;
 }
 /**
- * \~russian
  * @brief Метод очистки разобранных сведений
- *
- * \~english
- * @brief Method of clearing the parsed info
- *
- * \~
  *
  */
 void nts::cms::Encrypted::clear() noexcept {
@@ -3737,19 +3584,13 @@ void nts::cms::Encrypted::clear() noexcept {
 	this->_algorithm.clear();
 	// Сбрасываем просмотры
 	this->_parameters = view_t();
+	// Сбрасываем просмотр содержимого
 	this->_content = view_t();
 }
 /**
- * \~russian
  * @brief Метод извлечения причины последнего отказа
  *
  * @return причина последнего отказа
- *
- * \~english
- * @brief Method of getting the reason of the last failure
- * @return the reason of the last failure
- *
- * \~
  *
  */
 nts::cms::error_t nts::cms::Encrypted::err() const noexcept {
@@ -3757,16 +3598,9 @@ nts::cms::error_t nts::cms::Encrypted::err() const noexcept {
 	return this->_error;
 }
 /**
- * \~russian
  * @brief Метод извлечения опознавателя алгоритма шифрования
  *
  * @return опознаватель алгоритма шифрования содержимого
- *
- * \~english
- * @brief Method of getting the encryption algorithm identifier
- * @return the content encryption algorithm identifier
- *
- * \~
  *
  */
 const std::string & nts::cms::Encrypted::algorithm() const noexcept {
@@ -3774,16 +3608,9 @@ const std::string & nts::cms::Encrypted::algorithm() const noexcept {
 	return this->_algorithm;
 }
 /**
- * \~russian
  * @brief Метод извлечения настроек алгоритма шифрования
  *
  * @return просмотр записи настроек алгоритма (вектор инициализации)
- *
- * \~english
- * @brief Method of getting the encryption algorithm parameters
- * @return the view of the algorithm parameters record (the initialization vector)
- *
- * \~
  *
  */
 const nts::view_t & nts::cms::Encrypted::parameters() const noexcept {
@@ -3791,16 +3618,9 @@ const nts::view_t & nts::cms::Encrypted::parameters() const noexcept {
 	return this->_parameters;
 }
 /**
- * \~russian
  * @brief Метод извлечения зашифрованного содержимого
  *
  * @return просмотр зашифрованного содержимого
- *
- * \~english
- * @brief Method of getting the encrypted content
- * @return the view of the encrypted content
- *
- * \~
  *
  */
 const nts::view_t & nts::cms::Encrypted::content() const noexcept {
@@ -3809,29 +3629,15 @@ const nts::view_t & nts::cms::Encrypted::content() const noexcept {
 }
 
 /**
- * \~russian
  * @brief Конструктор
- *
- * \~english
- * @brief Constructor
- *
- * \~
  *
  */
 nts::cms::Authenticated::Authenticated() noexcept : _error(error_t::NONE) {}
 /**
- * \~russian
- * @brief Метод разбора записи ContentInfo вида id-authenticatedData
+ * @brief  Метод разбора записи ContentInfo вида id-authenticatedData
  *
  * @param data просмотр разбираемой записи
  * @return     причина отказа либо error_t::NONE
- *
- * \~english
- * @brief Method of parsing a ContentInfo record of the id-authenticatedData kind
- * @param data the view of the record being parsed
- * @return     the reason of the failure or error_t::NONE
- *
- * \~
  *
  */
 nts::cms::error_t nts::cms::Authenticated::parse(const view_t & data) noexcept {
@@ -3863,8 +3669,7 @@ nts::cms::error_t nts::cms::Authenticated::parse(const view_t & data) noexcept {
 		return this->_error;
 	}
 	/**
-	 * Разбор сведений выделяет память: нехватка её отдаётся отказом, а не
-	 * завершением процесса
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Разборщик записи AuthenticatedData
@@ -4023,6 +3828,9 @@ nts::cms::error_t nts::cms::Authenticated::parse(const view_t & data) noexcept {
 		// Запоминаем имитовставку
 		this->_mac = mac.content;
 	// Если памяти под сведения не хватило
+	/**
+	 * Выполняем перехват ошибок
+	 */
 	} catch(const std::bad_alloc &) {
 		// Запоминаем причину отказа
 		this->_error = error_t::MEMORY;
@@ -4035,13 +3843,7 @@ nts::cms::error_t nts::cms::Authenticated::parse(const view_t & data) noexcept {
 	return this->_error;
 }
 /**
- * \~russian
  * @brief Метод очистки разобранных сведений
- *
- * \~english
- * @brief Method of clearing the parsed info
- *
- * \~
  *
  */
 void nts::cms::Authenticated::clear() noexcept {
@@ -4051,19 +3853,13 @@ void nts::cms::Authenticated::clear() noexcept {
 	this->_algorithm.clear();
 	// Сбрасываем просмотры
 	this->_content = view_t();
+	// Сбрасываем просмотр имитовставки
 	this->_mac = view_t();
 }
 /**
- * \~russian
  * @brief Метод извлечения причины последнего отказа
  *
  * @return причина последнего отказа
- *
- * \~english
- * @brief Method of getting the reason of the last failure
- * @return the reason of the last failure
- *
- * \~
  *
  */
 nts::cms::error_t nts::cms::Authenticated::err() const noexcept {
@@ -4071,16 +3867,9 @@ nts::cms::error_t nts::cms::Authenticated::err() const noexcept {
 	return this->_error;
 }
 /**
- * \~russian
  * @brief Метод извлечения опознавателя алгоритма имитовставки
  *
  * @return опознаватель алгоритма имитовставки
- *
- * \~english
- * @brief Method of getting the MAC algorithm identifier
- * @return the MAC algorithm identifier
- *
- * \~
  *
  */
 const std::string & nts::cms::Authenticated::algorithm() const noexcept {
@@ -4088,16 +3877,9 @@ const std::string & nts::cms::Authenticated::algorithm() const noexcept {
 	return this->_algorithm;
 }
 /**
- * \~russian
  * @brief Метод извлечения содержимого
  *
  * @return просмотр содержимого
- *
- * \~english
- * @brief Method of getting the content
- * @return the view of the content
- *
- * \~
  *
  */
 const nts::view_t & nts::cms::Authenticated::content() const noexcept {
@@ -4105,16 +3887,9 @@ const nts::view_t & nts::cms::Authenticated::content() const noexcept {
 	return this->_content;
 }
 /**
- * \~russian
  * @brief Метод извлечения имитовставки
  *
  * @return просмотр содержимого имитовставки
- *
- * \~english
- * @brief Method of getting the MAC
- * @return the view of the MAC content
- *
- * \~
  *
  */
 const nts::view_t & nts::cms::Authenticated::mac() const noexcept {
@@ -4123,22 +3898,12 @@ const nts::view_t & nts::cms::Authenticated::mac() const noexcept {
 }
 
 /**
- * \~russian
- * @brief Метод сборки записи DigestedData
+ * @brief Функция сборки записи DigestedData
  *
  * @param content хешируемое содержимое
  * @param hash    алгоритм хеша
  * @param result  место, в которое помещается запись ContentInfo
  * @return        причина отказа либо error_t::NONE
- *
- * \~english
- * @brief Method of building a DigestedData record
- * @param content the content being digested
- * @param hash    the hashing algorithm
- * @param result  the place the ContentInfo record is put into
- * @return        the reason of the failure or error_t::NONE
- *
- * \~
  *
  */
 nts::cms::error_t nts::cms::digest(const view_t & content, const digest::hash_t hash, vector <uint8_t> & result) noexcept {
@@ -4242,13 +4007,15 @@ nts::cms::error_t nts::cms::digest(const view_t & content, const digest::hash_t 
 		// Выводим отказ сборки
 		return error_t::MEMORY;
 	/**
-	 * Перенос записи выделяет память: нехватка её отдаётся отказом, а не
-	 * завершением процесса
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Переносим запись ContentInfo в итог
 		result.assign(wrapper.data().data, wrapper.data().data + wrapper.data().size);
 	// Если памяти под итог не хватило
+	/**
+	 * Выполняем перехват ошибок
+	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ памяти
 		return error_t::MEMORY;
@@ -4257,18 +4024,10 @@ nts::cms::error_t nts::cms::digest(const view_t & content, const digest::hash_t 
 	return error_t::NONE;
 }
 /**
- * \~russian
- * @brief Метод проверки записи DigestedData
+ * @brief Функция проверки записи DigestedData
  *
  * @param digested разобранная запись
  * @return         причина отказа либо error_t::NONE
- *
- * \~english
- * @brief Method of checking a DigestedData record
- * @param digested the parsed record
- * @return         the reason of the failure or error_t::NONE
- *
- * \~
  *
  */
 nts::cms::error_t nts::cms::digestVerify(const digested_t & digested) noexcept {
@@ -4296,7 +4055,9 @@ nts::cms::error_t nts::cms::digestVerify(const digested_t & digested) noexcept {
 		return error_t::SIGNATURE;
 	// Сверяем хеш с записанным в постоянном времени
 	uint8_t difference = 0;
-	// Перебираем байты хеша
+	/**
+	 * Перебираем байты хеша
+	 */
 	for(size_t i = 0; i < width; i++)
 		// Накапливаем различие
 		difference |= (computed[i] ^ static_cast <const uint8_t *> (digested.digest().data)[i]);
@@ -4305,22 +4066,12 @@ nts::cms::error_t nts::cms::digestVerify(const digested_t & digested) noexcept {
 }
 
 /**
- * \~russian
- * @brief Метод сборки записи EncryptedData
+ * @brief Функция сборки записи EncryptedData
  *
- * @param content  шифруемое содержимое
- * @param key      ключ шифрования содержимого (16/24/32 байта AES)
- * @param result   место, в которое помещается запись ContentInfo
- * @return         причина отказа либо error_t::NONE
- *
- * \~english
- * @brief Method of building an EncryptedData record
- * @param content  the content being encrypted
- * @param key      the content encryption key (16/24/32 bytes of AES)
- * @param result   the place the ContentInfo record is put into
- * @return         the reason of the failure or error_t::NONE
- *
- * \~
+ * @param content шифруемое содержимое
+ * @param key     ключ шифрования содержимого (16/24/32 байта AES)
+ * @param result  место, в которое помещается запись ContentInfo
+ * @return        причина отказа либо error_t::NONE
  *
  */
 nts::cms::error_t nts::cms::encrypt(const view_t & content, const view_t & key, vector <uint8_t> & result) noexcept {
@@ -4497,13 +4248,15 @@ nts::cms::error_t nts::cms::encrypt(const view_t & content, const view_t & key, 
 	// Затираем синхропосылку
 	nts::sys::wipe(iv, sizeof(iv));
 	/**
-	 * Перенос записи выделяет память: нехватка её отдаётся отказом, а не
-	 * завершением процесса
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Переносим запись ContentInfo в итог
 		result.assign(wrapper.data().data, wrapper.data().data + wrapper.data().size);
 	// Если памяти под итог не хватило
+	/**
+	 * Выполняем перехват ошибок
+	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ памяти
 		return error_t::MEMORY;
@@ -4512,22 +4265,12 @@ nts::cms::error_t nts::cms::encrypt(const view_t & content, const view_t & key, 
 	return error_t::NONE;
 }
 /**
- * \~russian
- * @brief Метод расшифрования записи EncryptedData
+ * @brief Функция расшифрования записи EncryptedData
  *
  * @param encrypted разобранная запись
  * @param key       ключ шифрования содержимого
  * @param result    место, в которое помещается расшифрованное содержимое
  * @return          причина отказа либо error_t::NONE
- *
- * \~english
- * @brief Method of decrypting an EncryptedData record
- * @param encrypted the parsed record
- * @param key       the content encryption key
- * @param result    the place the decrypted content is put into
- * @return          the reason of the failure or error_t::NONE
- *
- * \~
  *
  */
 nts::cms::error_t nts::cms::decrypt(const encrypted_t & encrypted, const view_t & key, vector <uint8_t> & result) noexcept {
@@ -4573,23 +4316,16 @@ nts::cms::error_t nts::cms::decrypt(const encrypted_t & encrypted, const view_t 
 }
 
 /**
- * \~russian
- * @brief Метод получения опознавателя имитовставки HMAC по алгоритму хеша
+ * @brief Функция получения опознавателя имитовставки HMAC по алгоритму хеша
  *
  * @param hash алгоритм хеша
- *
  * @return     опознаватель алгоритма имитовставки либо nullptr
- *
- * \~english
- * @brief Method of getting the HMAC MAC identifier by the hashing algorithm
- * @param hash the hashing algorithm
- * @return     the MAC algorithm identifier or nullptr
- *
- * \~
  *
  */
 static const char * cmsHmacOidOf(const digest::hash_t hash) noexcept {
-	// Выводим опознаватель имитовставки по алгоритму хеша
+	/**
+	 * Выводим опознаватель имитовставки по алгоритму хеша
+	 */
 	switch(hash){
 		case digest::hash_t::SHA1: return OID_HMAC_SHA1;
 		case digest::hash_t::SHA224: return OID_HMAC_SHA224;
@@ -4600,19 +4336,10 @@ static const char * cmsHmacOidOf(const digest::hash_t hash) noexcept {
 	}
 }
 /**
- * \~russian
- * @brief Метод получения алгоритма хеша имитовставки по её опознавателю
+ * @brief Функция получения алгоритма хеша имитовставки по её опознавателю
  *
  * @param oid опознаватель алгоритма имитовставки HMAC
- *
  * @return    алгоритм хеша, hash_t::NONE у неизвестного
- *
- * \~english
- * @brief Method of getting the MAC hashing algorithm by its identifier
- * @param oid the HMAC MAC algorithm identifier
- * @return    the hashing algorithm, hash_t::NONE at an unknown one
- *
- * \~
  *
  */
 static digest::hash_t cmsHmacOf(const string & oid) noexcept {
@@ -4626,24 +4353,13 @@ static digest::hash_t cmsHmacOf(const string & oid) noexcept {
 	return digest::hash_t::NONE;
 }
 /**
- * \~russian
- * @brief Метод сборки записи AuthenticatedData
+ * @brief Функция сборки записи AuthenticatedData
  *
- * @param content  содержимое под имитовставку
- * @param key      ключ имитовставки
- * @param hash     алгоритм хеша имитовставки HMAC
- * @param result   место, в которое помещается запись ContentInfo
- * @return         причина отказа либо error_t::NONE
- *
- * \~english
- * @brief Method of building an AuthenticatedData record
- * @param content  the content being authenticated
- * @param key      the MAC key
- * @param hash     the hashing algorithm of the HMAC MAC
- * @param result   the place the ContentInfo record is put into
- * @return         the reason of the failure or error_t::NONE
- *
- * \~
+ * @param content содержимое под имитовставку
+ * @param key     ключ имитовставки
+ * @param hash    алгоритм хеша имитовставки HMAC
+ * @param result  место, в которое помещается запись ContentInfo
+ * @return        причина отказа либо error_t::NONE
  *
  */
 nts::cms::error_t nts::cms::authenticate(const view_t & content, const view_t & key, const digest::hash_t hash, vector <uint8_t> & result) noexcept {
@@ -4755,13 +4471,15 @@ nts::cms::error_t nts::cms::authenticate(const view_t & content, const view_t & 
 		// Выводим отказ сборки
 		return error_t::MEMORY;
 	/**
-	 * Перенос записи выделяет память: нехватка её отдаётся отказом, а не
-	 * завершением процесса
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Переносим запись ContentInfo в итог
 		result.assign(wrapper.data().data, wrapper.data().data + wrapper.data().size);
 	// Если памяти под итог не хватило
+	/**
+	 * Выполняем перехват ошибок
+	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ памяти
 		return error_t::MEMORY;
@@ -4770,20 +4488,11 @@ nts::cms::error_t nts::cms::authenticate(const view_t & content, const view_t & 
 	return error_t::NONE;
 }
 /**
- * \~russian
- * @brief Метод проверки записи AuthenticatedData
+ * @brief Функция проверки записи AuthenticatedData
  *
  * @param authenticated разобранная запись
  * @param key           ключ имитовставки
  * @return              причина отказа либо error_t::NONE
- *
- * \~english
- * @brief Method of checking an AuthenticatedData record
- * @param authenticated the parsed record
- * @param key           the MAC key
- * @return              the reason of the failure or error_t::NONE
- *
- * \~
  *
  */
 nts::cms::error_t nts::cms::authenticateVerify(const authenticated_t & authenticated, const view_t & key) noexcept {
@@ -4811,10 +4520,54 @@ nts::cms::error_t nts::cms::authenticateVerify(const authenticated_t & authentic
 		return error_t::SIGNATURE;
 	// Сверяем имитовставку с записанной в постоянном времени
 	uint8_t difference = 0;
-	// Перебираем байты имитовставки
+	/**
+	 * Перебираем байты имитовставки
+	 */
 	for(size_t i = 0; i < width; i++)
 		// Накапливаем различие
 		difference |= (mac[i] ^ static_cast <const uint8_t *> (authenticated.mac().data)[i]);
 	// Выводим итог сверки
 	return ((difference == 0) ? error_t::NONE : error_t::SIGNATURE);
 }
+
+/**
+ * @brief Конструктор
+ *
+ */
+nts::cms::Signer::Signer() noexcept {}
+
+/**
+ * @brief Деструктор
+ *
+ */
+nts::cms::Signed::~Signed() noexcept {}
+
+/**
+ * @brief Конструктор
+ *
+ */
+nts::cms::Recipient::Recipient() noexcept : kind(kind_t::RSA), kekLength(0) {}
+
+/**
+ * @brief Деструктор
+ *
+ */
+nts::cms::Enveloped::~Enveloped() noexcept {}
+
+/**
+ * @brief Деструктор
+ *
+ */
+nts::cms::Digested::~Digested() noexcept {}
+
+/**
+ * @brief Деструктор
+ *
+ */
+nts::cms::Encrypted::~Encrypted() noexcept {}
+
+/**
+ * @brief Деструктор
+ *
+ */
+nts::cms::Authenticated::~Authenticated() noexcept {}

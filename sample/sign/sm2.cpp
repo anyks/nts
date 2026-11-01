@@ -54,7 +54,7 @@ using namespace nts;
  */
 namespace {
 	/**
-	 * @brief Метод вывода области байтов шестнадцатеричной записью
+	 * @brief Функция вывода области байтов шестнадцатеричной записью
 	 *
 	 * @param title заголовок выводимой области байтов
 	 * @param data  выводимая область байтов
@@ -80,7 +80,6 @@ namespace {
  *
  * @param argc длина массива параметров
  * @param argv массив параметров
- *
  * @return     код выхода из приложения
  *
  */
@@ -123,6 +122,7 @@ int main(int argc, char * argv[]) noexcept {
 	 *
 	 * @details Ключ проверки вырабатывается из ключа подписи сразу же, а опознаватель
 	 *          вяжется с ключом значением Z_A = SM3(ENTL ‖ ID ‖ a ‖ b ‖ G ‖ P)
+	 *
 	 */
 	if(!sign.secret(view_t(secret, sizeof(secret)), view_t(reinterpret_cast <const uint8_t *> (id), ::strlen(id)))){
 		// Выводим сообщение об отказе установки ключа подписи

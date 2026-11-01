@@ -57,14 +57,9 @@ using namespace nts;
  */
 namespace {
 	/**
-	 * Миг проверки: 21 сентября 2026 года, внутри десятилетнего срока ответов набора
-	 */
-	static constexpr int64_t MOMENT = 1790000000;
-	/**
-	 * @brief Метод чтения файла набора целиком
+	 * @brief Функция чтения файла набора целиком
 	 *
 	 * @param name имя файла в наборе
-	 *
 	 * @return     содержимое файла, пустое при отказе чтения
 	 *
 	 */
@@ -72,7 +67,7 @@ namespace {
 		// Содержимое файла
 		vector <uint8_t> result;
 		/**
-		 * Выполняем чтение файла: поток и накопитель занимают память
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Поток чтения файла набора
@@ -82,7 +77,7 @@ namespace {
 				// Читаем файл целиком
 				result.assign(istreambuf_iterator <char> (file), istreambuf_iterator <char> ());
 		/**
-		 * Если памяти под файл не хватило
+		 * Выполняем перехват ошибок
 		 */
 		} catch(const bad_alloc &) {
 			// Файл не прочитан
@@ -92,15 +87,16 @@ namespace {
 		return result;
 	}
 	/**
-	 * @brief Метод вывода состояния сертификата
+	 * @brief Функция вывода состояния сертификата
 	 *
 	 * @param status состояние сертификата
-	 *
 	 * @return       строковое представление состояния
 	 *
 	 */
 	const char * status(const ocsp::status_t status) noexcept {
-		// Выполняем разбор состояния сертификата
+		/**
+		 * Выполняем разбор состояния сертификата
+		 */
 		switch(status){
 			// Сертификат годен
 			case ocsp::status_t::GOOD: return "GOOD";
@@ -121,7 +117,6 @@ namespace {
  *
  * @param argc длина массива параметров
  * @param argv массив параметров
- *
  * @return     код выхода из приложения
  *
  */
@@ -188,6 +183,7 @@ int main(int argc, char * argv[]) noexcept {
 	 *          (без ответа — NONE). Ответ листа подаётся отдельно (связь хранит его
 	 *          раздельно от мест в statuses). Миг ноль: сроки не судятся, ответ
 	 *          промежуточного выработан позже мига проверки листа
+	 *
 	 */
 	const ocsp::error_t error = ocsp::verify(chain, status, statuses, anchors, 0, 0, results);
 	// Если проверка не удалась
@@ -199,7 +195,9 @@ int main(int argc, char * argv[]) noexcept {
 	}
 	// Выводим состояния сертификатов по местам цепочки
 	cout << "Состояние листа        : " << ::status(results[0]) << endl;
+	// Выводим состояние промежуточного сертификата
 	cout << "Состояние промежуточного: " << ::status(results[1]) << endl;
+	// Выводим состояние корневого сертификата
 	cout << "Состояние корневого     : " << ::status(results[2]) << endl;
 	// Если все состояния годные
 	if((results[0] == ocsp::status_t::GOOD) && (results[1] == ocsp::status_t::GOOD) && (results[2] == ocsp::status_t::NONE))

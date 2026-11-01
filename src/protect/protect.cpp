@@ -6,6 +6,12 @@
  *
  * @author Yuriy Lobarev
  *
+ * @telegram{forman}
+ * @phone{+7 (910) 983-95-90}
+ *
+ * @email forman@anyks.com
+ * @site https://anyks.com
+ *
  * @brief Исходный файл модуля защиты записей протокола TLS 1.3 наборами шифрования
  *        на алгоритмах ГОСТ и классическими наборами AES-GCM и ChaCha20-Poly1305
  *
@@ -103,7 +109,7 @@ namespace {
 	using namespace nts;
 
 	/**
-	 * @brief Метод поточного наложения защиты на запись: содержимое, истинный вид и дополнение шифруются прямо из места вызова
+	 * @brief Функция поточного наложения защиты на запись: содержимое, истинный вид и дополнение шифруются прямо из места вызова
 	 *
 	 * @param aead       заведённый примитив AEAD с установленным заполнением
 	 * @param associated связанные данные записи
@@ -112,7 +118,6 @@ namespace {
 	 * @param type       истинный вид содержимого записи
 	 * @param padding    длина дополнения записи
 	 * @param cipher     место под шифртекст записи с меткой целостности следом
-	 *
 	 * @return           признак успешности наложения защиты
 	 *
 	 */
@@ -223,10 +228,12 @@ namespace {
 	static constexpr size_t CBC_PADDING = 256;
 
 	/**
-	 * Длина блока сжатия хешей имитовставки SHA-1 и SHA-256 и длина их дополнения с полем
-	 * длины сообщения: FIPS 180-4
+	 * Длина блока сжатия хешей имитовставки SHA-1 и SHA-256: FIPS 180-4
 	 */
 	static constexpr size_t CBC_COMPRESSION = 64;
+	/**
+	 * Длина дополнения хешей с полем длины сообщения: FIPS 180-4
+	 */
 	static constexpr size_t CBC_TRAILER = 9;
 
 	/**
@@ -263,6 +270,7 @@ namespace {
 		// Хеш имитовставки набора CBC, NONE у наборов AEAD
 		digest::hash_t mac;
 	} SAMPLES[32] = {
+		// Наборы ГОСТ с построением TLSTREE и режимом MGM
 		{suite_t::KUZNYECHIK_MGM_L,         false, false, {0xF800000000000000ULL, 0xFFFFFFF000000000ULL, 0xFFFFFFFFFFFFE000ULL}, 0xFFFFFFFFFFFFFFFFULL, 16, 32, 16, digest::hash_t::STREEBOG256, false, false, signer_t::NONE, exchange_t::NONE, digest::hash_t::NONE},
 		{suite_t::MAGMA_MGM_L,              false, false, {0xFFE0000000000000ULL, 0xFFFFFFFFC0000000ULL, 0xFFFFFFFFFFFFFF80ULL}, 0xFFFFFFFFFFFFFFFFULL, 8,  32, 8,  digest::hash_t::STREEBOG256, false, false, signer_t::NONE, exchange_t::NONE, digest::hash_t::NONE},
 		{suite_t::KUZNYECHIK_MGM_S,         false, false, {0xFFFFFFFFE0000000ULL, 0xFFFFFFFFFFFF0000ULL, 0xFFFFFFFFFFFFFFF8ULL}, 0x000003FFFFFFFFFFULL, 16, 32, 16, digest::hash_t::STREEBOG256, false, false, signer_t::NONE, exchange_t::NONE, digest::hash_t::NONE},
@@ -317,10 +325,9 @@ namespace {
 	};
 
 	/**
-	 * @brief Метод розыска описания набора шифрования
+	 * @brief Функция розыска описания набора шифрования
 	 *
 	 * @param suite разыскиваемый набор шифрования
-	 *
 	 * @return      описание набора шифрования либо nullptr у неизвестного набора
 	 *
 	 */
@@ -340,7 +347,7 @@ namespace {
 	// Затирание областей памяти берётся из открытого API библиотеки
 	using nts::sys::wipe;
 	/**
-	 * @brief Метод записи числа в сетевом порядке байтов
+	 * @brief Функция записи числа в сетевом порядке байтов
 	 *
 	 * @param value  записываемое число
 	 * @param result место, в которое помещается запись числа
@@ -355,11 +362,10 @@ namespace {
 			result[i] = static_cast <uint8_t> ((value >> ((7 - i) * 8)) & 0xFF);
 	}
 	/**
-	 * @brief Метод получения маски равенства двух чисел за постоянное время
+	 * @brief Функция получения маски равенства двух чисел за постоянное время
 	 *
 	 * @param first  первое число
 	 * @param second второе число
-	 *
 	 * @return       0xFF при равенстве чисел, 0x00 иначе
 	 *
 	 */
@@ -370,11 +376,10 @@ namespace {
 		return static_cast <uint8_t> (0xFF & (0 - (((diff - 1) & ~diff) >> 63)));
 	}
 	/**
-	 * @brief Метод получения маски «первое не меньше второго» за постоянное время
+	 * @brief Функция получения маски «первое не меньше второго» за постоянное время
 	 *
 	 * @param first  первое число
 	 * @param second второе число
-	 *
 	 * @return       0xFF при первом не меньшем второго, 0x00 иначе
 	 *
 	 * @note Числа не превосходят 2^32: разность двух таких чисел в старший разряд не уходит
@@ -387,10 +392,9 @@ namespace {
 		return static_cast <uint8_t> (0xFF & (0 - ((~diff) >> 63)));
 	}
 	/**
-	 * @brief Метод счёта сжатий хеша с блоком в 64 байта, покрывающих имитовставку HMAC
+	 * @brief Функция счёта сжатий хеша с блоком в 64 байта, покрывающих имитовставку HMAC
 	 *
 	 * @param length длина сообщения имитовставки без ключевого блока
-	 *
 	 * @return       число сжатий внутреннего хеша HMAC
 	 *
 	 * @details Внутренний хеш HMAC обрабатывает блок ключа, сообщение, байт дополнения и
@@ -404,10 +408,9 @@ namespace {
 };
 
 /**
- * @brief Метод получения длины вектора замены набора шифрования
+ * @brief Функция получения длины вектора замены набора шифрования
  *
  * @param suite набор шифрования
- *
  * @return      длина вектора замены в байтах, ноль у неизвестного набора
  *
  */
@@ -418,10 +421,9 @@ size_t nts::protect::block(const suite_t suite) noexcept {
 	return ((sample != nullptr) ? sample->size : 0);
 }
 /**
- * @brief Метод получения длины ключа набора шифрования
+ * @brief Функция получения длины ключа набора шифрования
  *
  * @param suite набор шифрования
- *
  * @return      длина ключа в байтах, ноль у неизвестного набора
  *
  */
@@ -432,10 +434,9 @@ size_t nts::protect::key(const suite_t suite) noexcept {
 	return ((sample != nullptr) ? sample->key : 0);
 }
 /**
- * @brief Метод получения длины метки целостности записи набора шифрования
+ * @brief Функция получения длины метки целостности записи набора шифрования
  *
  * @param suite набор шифрования
- *
  * @return      длина метки целостности в байтах, ноль у неизвестного набора
  *
  */
@@ -446,10 +447,9 @@ size_t nts::protect::tag(const suite_t suite) noexcept {
 	return ((sample != nullptr) ? sample->tag : 0);
 }
 /**
- * @brief Метод получения хеша расписания ключей набора шифрования
+ * @brief Функция получения хеша расписания ключей набора шифрования
  *
  * @param suite набор шифрования
- *
  * @return      хеш расписания ключей, NONE у неизвестного набора
  *
  */
@@ -460,10 +460,9 @@ nts::digest::hash_t nts::protect::hash(const suite_t suite) noexcept {
 	return ((sample != nullptr) ? sample->hash : digest::hash_t::NONE);
 }
 /**
- * @brief Метод получения наибольшего порядкового номера записи набора шифрования
+ * @brief Функция получения наибольшего порядкового номера записи набора шифрования
  *
  * @param suite набор шифрования
- *
  * @return      наибольший порядковый номер записи, ноль у неизвестного набора
  *
  */
@@ -474,10 +473,9 @@ uint64_t nts::protect::limit(const suite_t suite) noexcept {
 	return ((sample != nullptr) ? sample->limit : 0);
 }
 /**
- * @brief Метод проверки принадлежности набора шифрования изданию TLS 1.2
+ * @brief Функция проверки принадлежности набора шифрования изданию TLS 1.2
  *
  * @param suite набор шифрования
- *
  * @return      признак того, что набор ведёт записи по разделу 6.2.3.3 RFC 5246
  *
  */
@@ -488,11 +486,13 @@ bool nts::protect::legacy(const suite_t suite) noexcept {
 	return ((sample != nullptr) && sample->legacy);
 }
 /**
- * @brief Метод получения длины явной части одноразового значения записи TLS 1.2
+ * @brief Функция получения длины явной части одноразового значения записи TLS 1.2
  *
  * @param suite набор шифрования
+ * @return      восемь байтов у AES-GCM (раздел 3 RFC 5288), ноль у ChaCha20-Poly1305
+ *              (раздел 2 RFC 7905) и у наборов TLS 1.3
  *
- * @return      восемь байтов у AES-GCM, ноль у ChaCha20-Poly1305 и у наборов TLS 1.3
+ *              (раздел 2 RFC 7905) и у наборов TLS 1.3
  *
  */
 size_t nts::protect::prefix(const suite_t suite) noexcept {
@@ -510,10 +510,9 @@ size_t nts::protect::prefix(const suite_t suite) noexcept {
 	return (sample->stream ? 0 : LEGACY_EXPLICIT);
 }
 /**
- * @brief Метод получения способа обмена ключами набора шифрования TLS 1.2
+ * @brief Функция получения способа обмена ключами набора шифрования TLS 1.2
  *
  * @param suite набор шифрования
- *
  * @return      способ обмена ключами, NONE у наборов TLS 1.3 и у неизвестного набора
  *
  */
@@ -524,11 +523,10 @@ nts::protect::exchange_t nts::protect::exchange(const suite_t suite) noexcept {
 	return ((sample != nullptr) ? sample->exchange : exchange_t::NONE);
 }
 /**
- * @brief Метод получения хеша имитовставки набора шифрования CBC
+ * @brief Функция получения хеша имитовставки набора шифрования CBC
  *
  * @param suite набор шифрования
- *
- * @return      хеш имитовставки записи, NONE у наборов AEAD и у неизвестного набора
+ * @return      хеш имитовставки записи: SHA-1 либо SHA-256 у наборов CBC, NONE у наборов AEAD
  *
  */
 nts::digest::hash_t nts::protect::mac(const suite_t suite) noexcept {
@@ -538,10 +536,9 @@ nts::digest::hash_t nts::protect::mac(const suite_t suite) noexcept {
 	return ((sample != nullptr) ? sample->mac : digest::hash_t::NONE);
 }
 /**
- * @brief Метод получения алгоритма подписи, требуемого набором шифрования TLS 1.2
+ * @brief Функция получения алгоритма подписи, требуемого набором шифрования TLS 1.2
  *
  * @param suite набор шифрования
- *
  * @return      алгоритм подписи, NONE у наборов TLS 1.3 и у неизвестного набора
  *
  */
@@ -552,13 +549,12 @@ nts::protect::signer_t nts::protect::signer(const suite_t suite) noexcept {
 	return ((sample != nullptr) ? sample->signer : signer_t::NONE);
 }
 /**
- * @brief Метод выработки ключа записи построением TLSTREE
+ * @brief Функция выработки ключа записи построением TLSTREE
  *
  * @param suite    набор шифрования, которым заданы постоянные построения
  * @param key      корневой ключ выработки ключа записи
  * @param sequence порядковый номер записи
  * @param result   место, в которое помещается ключ записи
- *
  * @return         признак успешности выработки ключа записи
  *
  */
@@ -615,7 +611,6 @@ bool nts::protect::tree(const suite_t suite, const view_t & key, const uint64_t 
  *
  * @param sequence порядковый номер защищаемой записи
  * @param block    описание базового шифра, в которое помещается итог
- *
  * @return         отказ подготовки базового шифра
  *
  */
@@ -765,7 +760,6 @@ uint64_t nts::protect::Protection::sequence() const noexcept {
  * @param suite  устанавливаемый набор шифрования
  * @param key    корневой ключ направления связи
  * @param vector вектор замены направления связи
- *
  * @return       признак успешности установки ключевого материала
  *
  */
@@ -778,9 +772,8 @@ bool nts::protect::Protection::start(const suite_t suite, const view_t & key, co
  *
  * @param suite  устанавливаемый набор шифрования
  * @param key    ключ шифрования направления связи
- * @param vector вектор замены направления связи: у наборов CBC пуст
+ * @param vector вектор замены направления связи: у наборов CBC пуст, вектор явный
  * @param mac    ключ имитовставки направления связи длиною в хеш набора
- *
  * @return       признак успешности установки ключевого материала
  *
  */
@@ -964,8 +957,7 @@ void nts::protect::Protection::clear() noexcept {
  * @param type    истинный вид содержимого защищаемой записи
  * @param data    защищаемое содержимое записи
  * @param result  накопитель, в конец которого дописывается защищённая запись
- * @param padding длина дополнения, скрывающего истинную длину содержимого
- *
+ * @param padding длина дополнения, скрывающего истинную длину содержимого: ноль без дополнения
  * @return        отказ наложения защиты на запись
  *
  */
@@ -1015,14 +1007,13 @@ nts::protect::error_t nts::protect::Protection::seal(const record::type_t type, 
 	// Смещение защищённой записи в накопителе
 	const size_t offset = result.size();
 	/**
-	 * Заголовок складывается в накопитель прежде шифртекста: он служит связанными
-	 * данными, и место ему отведено впереди
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Складываем заголовок защищённой записи в накопитель
 		result.insert(result.end(), associated, associated + record::RECORD_HEADER);
 	/**
-	 * Если памяти под заголовок не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -1045,11 +1036,10 @@ nts::protect::error_t nts::protect::Protection::seal(const record::type_t type, 
 /**
  * @brief Метод снятия защиты с записи
  *
- * @param header заголовок защищённой записи
- * @param data   содержимое защищённой записи
- * @param type   место, в которое помещается истинный вид содержимого
- * @param result накопитель, в конец которого дописывается открытое содержимое
- *
+ * @param header заголовок принятой защищённой записи
+ * @param data   защищённое содержимое принятой записи
+ * @param type   вид содержимого, в который помещается истинный вид содержимого записи
+ * @param result накопитель, в конец которого дописывается открытое содержимое записи
  * @return       отказ снятия защиты с записи
  *
  */
@@ -1096,7 +1086,6 @@ nts::protect::error_t nts::protect::Protection::open(const record::header_t & he
  * @param data       защищаемое содержимое записи
  * @param result     накопитель, в конец которого дописываются шифртекст и метка целостности
  * @param padding    длина дополнения, скрывающего истинную длину содержимого
- *
  * @return           отказ наложения защиты на запись
  *
  */
@@ -1156,8 +1145,7 @@ nts::protect::error_t nts::protect::Protection::seal(const view_t & associated, 
 	// Итог наложения защиты на запись
 	error_t outcome = error_t::NONE;
 	/**
-	 * Открытый текст записи складывается в памяти: длина его задана содержимым и
-	 * дополнением, и памяти под неё может не хватить
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Смещение шифртекста записи в накопителе
@@ -1223,7 +1211,7 @@ nts::protect::error_t nts::protect::Protection::seal(const view_t & associated, 
 			outcome = error_t::CIPHER;
 		}
 	/**
-	 * Если памяти под открытый текст либо накопитель не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Запоминаем отказ нехватки памяти
@@ -1242,7 +1230,6 @@ nts::protect::error_t nts::protect::Protection::seal(const view_t & associated, 
  * @param data       защищённое содержимое принятой записи
  * @param type       вид содержимого, в который помещается истинный вид содержимого записи
  * @param result     накопитель, в конец которого дописывается открытое содержимое записи
- *
  * @return           отказ снятия защиты с записи
  *
  */
@@ -1289,8 +1276,7 @@ nts::protect::error_t nts::protect::Protection::open(const view_t & associated, 
 	// Итог снятия защиты с записи
 	error_t outcome = error_t::NONE;
 	/**
-	 * Открытый текст записи складывается в памяти: длина его задана записью, и памяти
-	 * под неё может не хватить
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Смещение открытого содержимого записи в накопителе
@@ -1372,7 +1358,7 @@ nts::protect::error_t nts::protect::Protection::open(const view_t & associated, 
 		// Возвращаем накопитель к длине открытого содержимого: при отказе - к прежней
 		result.resize(offset + inner);
 	/**
-	 * Если памяти под открытый текст либо накопитель не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Запоминаем отказ нехватки памяти
@@ -1416,7 +1402,6 @@ void nts::protect::Protection::associate(const uint64_t sequence, const record::
  * @param type   вид содержимого защищаемой записи
  * @param data   защищаемое содержимое записи
  * @param result накопитель, в конец которого дописывается защищённая запись
- *
  * @return       отказ наложения защиты на запись
  *
  */
@@ -1442,14 +1427,13 @@ nts::protect::error_t nts::protect::Protection::wrap(const record::type_t type, 
 	// Смещение защищённой записи в накопителе
 	const size_t offset = result.size();
 	/**
-	 * Выполняем складывание места под заголовок защищённой записи в накопитель: длина
-	 * содержимого у наборов CBC известна лишь по наложении защиты (дополнение до блока)
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Занимаем место под заголовок защищённой записи
 		result.resize(offset + record::RECORD_HEADER, 0);
 	/**
-	 * Если памяти под накопитель не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -1487,8 +1471,7 @@ nts::protect::error_t nts::protect::Protection::wrap(const record::type_t type, 
  * @param version  издание протокола из заголовка записи по проводу
  * @param type     вид содержимого защищаемой записи
  * @param data     защищаемое содержимое записи
- * @param result   накопитель, в конец которого дописываются явная часть, шифртекст и метка
- *
+ * @param result   накопитель, в конец которого дописываются явная часть, шифртекст и метка целостности
  * @return         отказ наложения защиты на запись
  *
  */
@@ -1558,7 +1541,7 @@ nts::protect::error_t nts::protect::Protection::wrap(const uint64_t sequence, co
 	// Итог наложения защиты на запись
 	error_t outcome = error_t::NONE;
 	/**
-	 * Выполняем складывание защищённой записи в накопитель
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Занимаем место под явную часть, шифртекст и метку целостности
@@ -1592,7 +1575,7 @@ nts::protect::error_t nts::protect::Protection::wrap(const uint64_t sequence, co
 			outcome = error_t::CIPHER;
 		}
 	/**
-	 * Если памяти под накопитель не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Запоминаем отказ нехватки памяти
@@ -1610,7 +1593,6 @@ nts::protect::error_t nts::protect::Protection::wrap(const uint64_t sequence, co
  * @param data   защищённое содержимое принятой записи
  * @param type   вид содержимого, в который помещается вид содержимого записи
  * @param result накопитель, в конец которого дописывается открытое содержимое записи
- *
  * @return       отказ снятия защиты с записи
  *
  */
@@ -1642,9 +1624,8 @@ nts::protect::error_t nts::protect::Protection::unwrap(const record::header_t & 
  * @param sequence порядковый номер записи: младшие 48 разрядов - номер, старшие 16 - пора ключей DTLS
  * @param version  издание протокола из заголовка записи по проводу
  * @param type     вид содержимого записи из её заголовка
- * @param data     защищённое содержимое записи: явная часть, шифртекст и метка
+ * @param data     защищённое содержимое записи: явная часть, шифртекст и метка целостности
  * @param result   накопитель, в конец которого дописывается открытое содержимое записи
- *
  * @return         отказ снятия защиты с записи
  *
  */
@@ -1719,8 +1700,7 @@ nts::protect::error_t nts::protect::Protection::unwrap(const uint64_t sequence, 
 	// Итог снятия защиты с записи
 	error_t outcome = error_t::NONE;
 	/**
-	 * Открытый текст записи складывается в памяти: длина его задана записью, и памяти
-	 * под неё может не хватить
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Открытый текст записи
@@ -1751,7 +1731,7 @@ nts::protect::error_t nts::protect::Protection::unwrap(const uint64_t sequence, 
 		// Выполняем затирание открытого текста записи
 		wipe(plain.data(), plain.size());
 	/**
-	 * Если памяти под открытый текст либо накопитель не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Запоминаем отказ нехватки памяти
@@ -1766,6 +1746,7 @@ nts::protect::error_t nts::protect::Protection::unwrap(const uint64_t sequence, 
  * @brief Метод установки порядка «шифрование, затем имитовставка»
  *
  * @param etm ведётся ли защита записей CBC по RFC 7366
+ * @return признак защиты записей CBC по RFC 7366
  *
  */
 void nts::protect::Protection::etm(const bool etm) noexcept {
@@ -1790,7 +1771,6 @@ bool nts::protect::Protection::etm() const noexcept {
  * @param type     вид содержимого защищаемой записи
  * @param data     защищаемое содержимое записи
  * @param result   накопитель, в конец которого дописываются вектор замены, шифртекст и имитовставка
- *
  * @return         отказ наложения защиты на запись
  *
  */
@@ -1828,8 +1808,7 @@ nts::protect::error_t nts::protect::Protection::chain(const uint64_t sequence, c
 	// Итог наложения защиты на запись
 	error_t outcome = error_t::NONE;
 	/**
-	 * Открытый текст записи складывается в памяти: длина его задана содержимым, и памяти
-	 * под неё может не хватить
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Открытый текст записи: содержимое, имитовставка (MAC-then-encrypt) и дополнение
@@ -1893,7 +1872,7 @@ nts::protect::error_t nts::protect::Protection::chain(const uint64_t sequence, c
 		// Выполняем затирание открытого текста записи
 		wipe(plain.data(), plain.size());
 	/**
-	 * Если памяти под открытый текст либо накопитель не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Запоминаем отказ нехватки памяти
@@ -1910,7 +1889,6 @@ nts::protect::error_t nts::protect::Protection::chain(const uint64_t sequence, c
  * @param type     вид содержимого записи из её заголовка
  * @param data     защищённое содержимое записи: вектор замены, шифртекст и имитовставка
  * @param result   накопитель, в конец которого дописывается открытое содержимое записи
- *
  * @return         отказ снятия защиты с записи
  *
  */
@@ -1983,8 +1961,7 @@ nts::protect::error_t nts::protect::Protection::unchain(const uint64_t sequence,
 	// Итог снятия защиты с записи
 	error_t outcome = error_t::NONE;
 	/**
-	 * Открытый текст записи складывается в памяти: длина его задана записью, и памяти
-	 * под неё может не хватить
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Открытый текст записи: содержимое, имитовставка и дополнение
@@ -2023,7 +2000,7 @@ nts::protect::error_t nts::protect::Protection::unchain(const uint64_t sequence,
 		// Выполняем затирание открытого текста записи
 		wipe(plain.data(), plain.size());
 	/**
-	 * Если памяти под открытый текст либо накопитель не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Запоминаем отказ нехватки памяти
@@ -2043,7 +2020,6 @@ nts::protect::error_t nts::protect::Protection::unchain(const uint64_t sequence,
  * @param plain    расшифрованный текст записи: содержимое, имитовставка (MAC-then-encrypt) и дополнение
  * @param length   длина расшифрованного текста
  * @param total    место, в которое помещается длина открытого содержимого
- *
  * @return         маска годности: 0xFF при сошедшихся дополнении и имитовставке, 0x00 иначе
  *
  * @details Таблица масок суждения, все за постоянное время:

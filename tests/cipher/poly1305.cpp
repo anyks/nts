@@ -1,15 +1,22 @@
 /**
- * @file: poly1305.cpp
- * @date: 2026-09-04
- * @license: GPL-3.0
+ * @file poly1305.cpp
+ * @date 2026-09-04
  *
- * @telegram: @forman
- * @author: Yuriy Lobarev
- * @phone: +7 (910) 983-95-90
- * @email: forman@anyks.com
- * @site: https://anyks.com
+ * @license{GPL-3.0}
  *
- * @copyright: Copyright © 2026
+ * @author Yuriy Lobarev
+ *
+ * @telegram{forman}
+ * @phone{+7 (910) 983-95-90}
+ *
+ * @email forman@anyks.com
+ * @site https://anyks.com
+ *
+ * @brief Исходный файл проверок модуля имитовставки Poly1305: контрольные примеры
+ *        RFC 8439, голодание, возобновление и пары с ChaCha20
+ *
+ * @copyright Copyright © 2026
+ *
  */
 
 /**
@@ -33,10 +40,9 @@
 using namespace nts;
 
 /**
- * @brief Метод разбора шестнадцатеричной строки в байты
+ * @brief Функция разбора шестнадцатеричной строки в байты
  *
  * @param text разбираемая строка
- *
  * @return     разобранные байты
  *
  */
@@ -54,11 +60,10 @@ static std::vector <uint8_t> bytes(const std::string & text) {
 }
 
 /**
- * @brief Метод записи байтов шестнадцатеричной строкой
+ * @brief Функция записи байтов шестнадцатеричной строкой
  *
  * @param data байты
  * @param size число байтов
- *
  * @return     запись строчными шестнадцатеричными знаками
  *
  */
@@ -101,7 +106,7 @@ static const char * IETF = "416e79207375626d697373696f6e20746f207468652049455446
 static const char * JABBERWOCKY = "2754776173206272696c6c69672c20616e642074686520736c6974687920746f7665730a446964206779726520616e642067696d626c6520696e2074686520776162653a0a416c6c206d696d737920776572652074686520626f726f676f7665732c0a416e6420746865206d6f6d65207261746873206f757467726162652e";
 
 /**
- * @brief Метод проверки одного случая имитовставки разом и потоком
+ * @brief Функция проверки одного случая имитовставки разом и потоком
  *
  * @param key      ключ
  * @param message  сообщение

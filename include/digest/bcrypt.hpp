@@ -19,7 +19,6 @@
  * @brief Header file of the module of the key derivation bcrypt_pbkdf
  *
  * \~
- *
  * @copyright Copyright © 2026
  *
  */
@@ -67,7 +66,7 @@ namespace nts {
 	namespace digest {
 		/**
 		 * \~russian
-		 * @brief Метод выработки ключа bcrypt_pbkdf
+		 * @brief Функция выработки ключа bcrypt_pbkdf
 		 *
 		 * @details PBKDF2 с хешем bcrypt: пароль и соль предварительно хешируются SHA-512,
 		 *          выход расширен до 256 бит, магическая строка «OxychromaticBlowfishSwatDynamite»,
@@ -79,11 +78,10 @@ namespace nts {
 		 * @param key    место, в которое помещается выработанный ключ
 		 * @param keylen длина вырабатываемого ключа в байтах
 		 * @param rounds число кругов
-		 *
 		 * @return       признак успешности выработки ключа
 		 *
 		 * \~english
-		 * @brief Method of the key derivation bcrypt_pbkdf
+		 * @brief Function of the key derivation bcrypt_pbkdf
 		 *
 		 * @details PBKDF2 with the bcrypt hash: the password and the salt are pre-hashed with SHA-512,
 		 *          the output is expanded to 256 bits, the magic string «OxychromaticBlowfishSwatDynamite»,
@@ -95,7 +93,6 @@ namespace nts {
 		 * @param key    the place the derived key is put into
 		 * @param keylen length of the derived key in bytes
 		 * @param rounds number of rounds
-		 *
 		 * @return       the flag of the success of the key derivation
 		 *
 		 * \~

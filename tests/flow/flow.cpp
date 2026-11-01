@@ -283,11 +283,15 @@ TEST(FlowTest, Reject){
  *
  */
 TEST(FlowTest, Unattested){
+	// Ход рукопожатия
 	flow::machine_t machine;
+	// Сторона запускается как клиент
 	ASSERT_TRUE(machine.start(flow::role_t::CLIENT));
+	// Принимаем запись о собственном приветствии
 	machine.accept(handshake::type_t::CLIENT, session::side_t::CLIENT);
 	machine.accept(handshake::type_t::SERVER, session::side_t::SERVER);
 	machine.accept(handshake::type_t::EXTENSIONS, session::side_t::SERVER);
+	// Запрос подлинности в свой черёд проходит
 	ASSERT_EQ(machine.accept(handshake::type_t::REQUEST, session::side_t::SERVER), flow::error_t::NONE);
 	/**
 	 * Раздел 4.3.2 RFC 8446: запрос подлинности в рукопожатии один, повторный -
@@ -295,11 +299,16 @@ TEST(FlowTest, Unattested){
 	 */
 	ASSERT_EQ(machine.accept(handshake::type_t::REQUEST, session::side_t::SERVER), flow::error_t::ORDER);
 	ASSERT_EQ(machine.stage(), flow::stage_t::FAILED);
+	// Второй ход: сторона, спешащая завершить сразу за запросом
 	flow::machine_t hasty;
+	// Спешащая сторона запускается как клиент
 	ASSERT_TRUE(hasty.start(flow::role_t::CLIENT));
+	// Принимаем запись о собственном приветствии
 	hasty.accept(handshake::type_t::CLIENT, session::side_t::CLIENT);
 	hasty.accept(handshake::type_t::SERVER, session::side_t::SERVER);
+	// Принимаем запись о расширениях сервера
 	hasty.accept(handshake::type_t::EXTENSIONS, session::side_t::SERVER);
+	// Запрос подлинности спешащей стороны проходит
 	ASSERT_EQ(hasty.accept(handshake::type_t::REQUEST, session::side_t::SERVER), flow::error_t::NONE);
 	/**
 	 * Сервер, запросивший подлинность, подтверждает себя сертификатами: завершение

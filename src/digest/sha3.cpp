@@ -90,6 +90,7 @@ namespace {
 	 * Константы шага ι по кругам
 	 */
 	static const uint64_t IOTA[ROUNDS] = {
+		// Константы шага ι с первого по двадцать четвёртый круг
 		0x0000000000000001ULL, 0x0000000000008082ULL, 0x800000000000808AULL, 0x8000000080008000ULL,
 		0x000000000000808BULL, 0x0000000080000001ULL, 0x8000000080008081ULL, 0x8000000000008009ULL,
 		0x000000000000008AULL, 0x0000000000000088ULL, 0x0000000080008009ULL, 0x000000008000000AULL,
@@ -102,11 +103,10 @@ namespace {
 	 */
 	#if !defined(__ANTS_KECCAK_X86_64__) && !defined(__ANTS_KECCAK_AARCH64__)
 		/**
-		 * @brief Метод кругового сдвига полосы влево
+		 * @brief Функция кругового сдвига полосы влево
 		 *
 		 * @param lane  сдвигаемая полоса
 		 * @param count число разрядов сдвига
-		 *
 		 * @return      сдвинутая полоса
 		 *
 		 */
@@ -116,14 +116,14 @@ namespace {
 		}
 	#endif
 	/**
-	 * @brief Метод чтения полосы из восьми байтов от младшего
+	 * @brief Функция чтения полосы из восьми байтов от младшего
 	 *
 	 * @param data читаемые байты
-	 *
 	 * @return     полоса
 	 *
 	 * @note Собиратель сворачивает сборку из байтов в одну загрузку на машинах с младшим
 	 *       байтом вперёд; на прочих запись верна по определению раздела 3.1.2 FIPS 202
+	 *
 	 */
 	static inline uint64_t word(const uint8_t * data) noexcept {
 		/**
@@ -139,6 +139,9 @@ namespace {
 			::memcpy(&lane, data, sizeof(lane));
 			// Выводим полосу
 			return lane;
+		/**
+			 * Иначе собираем полосу из байтов от младшего к старшему
+			 */
 		#else
 			// Собираем полосу из байтов от младшего к старшему
 			return (
@@ -150,16 +153,22 @@ namespace {
 		#endif
 	}
 	/**
-	 * @brief Метод записи полосы восемью байтами от младшего
+	 * @brief Функция записи полосы восемью байтами от младшего
 	 *
 	 * @param lane   записываемая полоса
 	 * @param result место, в которое помещаются байты
 	 *
 	 */
 	static inline void bytes(const uint64_t lane, uint8_t * result) noexcept {
+		/**
+			 * На машинах с младшим байтом вперёд полоса пишется в память как есть
+			 */
 		#if defined(__BYTE_ORDER__) && defined(__ORDER_LITTLE_ENDIAN__) && (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__) && !defined(__e2k__)
 			// Копируем полосу как есть: младший байт вперёд
 			::memcpy(result, &lane, sizeof(lane));
+		/**
+			 * Иначе выписываем байты полосы от младшего к старшему
+			 */
 		#else
 			/**
 			 * Выполняем запись байтов полосы от младшего к старшему
@@ -200,24 +209,36 @@ void nts::digest::Keccak::permute() noexcept {
 			const uint64_t d0 = (c4 ^ spin(c1, 1)), d1 = (c0 ^ spin(c2, 1)), d2 = (c1 ^ spin(c3, 1)), d3 = (c2 ^ spin(c4, 1)), d4 = (c3 ^ spin(c0, 1));
 			// Шаг θ: сложение слагаемого с каждой полосой столбца
 			a00 ^= d0; a05 ^= d0; a10 ^= d0; a15 ^= d0; a20 ^= d0;
+			// Шаг θ: сложение слагаемого с полосами второго столбца
 			a01 ^= d1; a06 ^= d1; a11 ^= d1; a16 ^= d1; a21 ^= d1;
+			// Шаг θ: сложение слагаемого с полосами третьего столбца
 			a02 ^= d2; a07 ^= d2; a12 ^= d2; a17 ^= d2; a22 ^= d2;
+			// Шаг θ: сложение слагаемого с полосами четвёртого столбца
 			a03 ^= d3; a08 ^= d3; a13 ^= d3; a18 ^= d3; a23 ^= d3;
+			// Шаг θ: сложение слагаемого с полосами пятого столбца
 			a04 ^= d4; a09 ^= d4; a14 ^= d4; a19 ^= d4; a24 ^= d4;
 			/**
 			 * Шаги ρ и π: полоса (x, y) сдвигается на своё число разрядов и переносится на
 			 * место (y, 2x + 3y mod 5) - подстановка выписана по разделам 3.2.2 и 3.2.3
 			 */
 			b00 = a00; b10 = spin(a01, 1); b20 = spin(a02, 62); b05 = spin(a03, 28); b15 = spin(a04, 27);
+			// Шаги ρ и π: сдвиг и перенос полос второй строки
 			b16 = spin(a05, 36); b01 = spin(a06, 44); b11 = spin(a07, 6); b21 = spin(a08, 55); b06 = spin(a09, 20);
+			// Шаги ρ и π: сдвиг и перенос полос третьей строки
 			b07 = spin(a10, 3); b17 = spin(a11, 10); b02 = spin(a12, 43); b12 = spin(a13, 25); b22 = spin(a14, 39);
+			// Шаги ρ и π: сдвиг и перенос полос четвёртой строки
 			b23 = spin(a15, 41); b08 = spin(a16, 45); b18 = spin(a17, 15); b03 = spin(a18, 21); b13 = spin(a19, 8);
+			// Шаги ρ и π: сдвиг и перенос полос пятой строки
 			b14 = spin(a20, 18); b24 = spin(a21, 2); b09 = spin(a22, 61); b19 = spin(a23, 56); b04 = spin(a24, 14);
 			// Шаг χ: нелинейное смешение полос каждой строки с двумя соседями по строке
 			a00 = (b00 ^ ((~b01) & b02)); a01 = (b01 ^ ((~b02) & b03)); a02 = (b02 ^ ((~b03) & b04)); a03 = (b03 ^ ((~b04) & b00)); a04 = (b04 ^ ((~b00) & b01));
+			// Шаг χ: смешение полос второй строки с двумя соседями по строке
 			a05 = (b05 ^ ((~b06) & b07)); a06 = (b06 ^ ((~b07) & b08)); a07 = (b07 ^ ((~b08) & b09)); a08 = (b08 ^ ((~b09) & b05)); a09 = (b09 ^ ((~b05) & b06));
+			// Шаг χ: смешение полос третьей строки с двумя соседями по строке
 			a10 = (b10 ^ ((~b11) & b12)); a11 = (b11 ^ ((~b12) & b13)); a12 = (b12 ^ ((~b13) & b14)); a13 = (b13 ^ ((~b14) & b10)); a14 = (b14 ^ ((~b10) & b11));
+			// Шаг χ: смешение полос четвёртой строки с двумя соседями по строке
 			a15 = (b15 ^ ((~b16) & b17)); a16 = (b16 ^ ((~b17) & b18)); a17 = (b17 ^ ((~b18) & b19)); a18 = (b18 ^ ((~b19) & b15)); a19 = (b19 ^ ((~b15) & b16));
+			// Шаг χ: смешение полос пятой строки с двумя соседями по строке
 			a20 = (b20 ^ ((~b21) & b22)); a21 = (b21 ^ ((~b22) & b23)); a22 = (b22 ^ ((~b23) & b24)); a23 = (b23 ^ ((~b24) & b20)); a24 = (b24 ^ ((~b20) & b21));
 			// Шаг ι: сложение константы круга с первой полосой
 			a00 ^= IOTA[round];
@@ -226,29 +247,53 @@ void nts::digest::Keccak::permute() noexcept {
 		 * Выполняем запись полос в состояние
 		 */
 		this->_state[0] = a00;
+		// Записываем первая полосу в состояние
 		this->_state[1] = a01;
+		// Записываем вторая полосу в состояние
 		this->_state[2] = a02;
+		// Записываем третья полосу в состояние
 		this->_state[3] = a03;
+		// Записываем четвёртая полосу в состояние
 		this->_state[4] = a04;
+		// Записываем пятая полосу в состояние
 		this->_state[5] = a05;
+		// Записываем шестая полосу в состояние
 		this->_state[6] = a06;
+		// Записываем седьмая полосу в состояние
 		this->_state[7] = a07;
+		// Записываем восьмая полосу в состояние
 		this->_state[8] = a08;
+		// Записываем девятая полосу в состояние
 		this->_state[9] = a09;
+		// Записываем десятая полосу в состояние
 		this->_state[10] = a10;
+		// Записываем одиннадцатая полосу в состояние
 		this->_state[11] = a11;
+		// Записываем двенадцатая полосу в состояние
 		this->_state[12] = a12;
+		// Записываем тринадцатая полосу в состояние
 		this->_state[13] = a13;
+		// Записываем четырнадцатая полосу в состояние
 		this->_state[14] = a14;
+		// Записываем пятнадцатая полосу в состояние
 		this->_state[15] = a15;
+		// Записываем шестнадцатая полосу в состояние
 		this->_state[16] = a16;
+		// Записываем семнадцатая полосу в состояние
 		this->_state[17] = a17;
+		// Записываем восемнадцатая полосу в состояние
 		this->_state[18] = a18;
+		// Записываем девятнадцатая полосу в состояние
 		this->_state[19] = a19;
+		// Записываем двадцатая полосу в состояние
 		this->_state[20] = a20;
+		// Записываем двадцать первая полосу в состояние
 		this->_state[21] = a21;
+		// Записываем двадцать вторая полосу в состояние
 		this->_state[22] = a22;
+		// Записываем двадцать третья полосу в состояние
 		this->_state[23] = a23;
+		// Записываем двадцать четвёртая полосу в состояние
 		this->_state[24] = a24;
 	#endif
 }
@@ -279,51 +324,30 @@ void nts::digest::Keccak::seal() noexcept {
 	this->_squeezing = true;
 }
 /**
- * \~russian
  * @brief Метод получения разновидности преобразования
  *
  * @return разновидность преобразования
  *
- * \~english
- * @brief Method of the obtaining of the kind of the transformation
- *
- * @return kind of the transformation
- *
- * \~
  */
 nts::digest::sha3_t nts::digest::Keccak::type() const noexcept {
 	// Выводим разновидность преобразования
 	return this->_type;
 }
 /**
- * \~russian
  * @brief Метод получения скорости преобразования
  *
  * @return число байтов, поглощаемых за одну перестановку
  *
- * \~english
- * @brief Method of the obtaining of the rate of the transformation
- *
- * @return number of the bytes absorbed per one permutation
- *
- * \~
  */
 size_t nts::digest::Keccak::block() const noexcept {
 	// Выводим скорость преобразования
 	return this->_rate;
 }
 /**
- * \~russian
  * @brief Метод сброса преобразования в начальное состояние
  *
  * @param type разновидность преобразования
  *
- * \~english
- * @brief Method of the reset of the transformation to the initial state
- *
- * @param type kind of the transformation
- *
- * \~
  */
 void nts::digest::Keccak::reset(const sha3_t type) noexcept {
 	// Запоминаем разновидность преобразования
@@ -338,21 +362,11 @@ void nts::digest::Keccak::reset(const sha3_t type) noexcept {
 	::memset(this->_state, 0, sizeof(this->_state));
 }
 /**
- * \~russian
  * @brief Метод поглощения куска сообщения
  *
  * @param data кусок сообщения
- *
  * @return     признак того, что кусок поглощён: после выжимания поглощение отвергается
  *
- * \~english
- * @brief Method of the absorption of a piece of the message
- *
- * @param data piece of the message
- *
- * @return     sign that the piece is absorbed: after a squeezing the absorption is refused
- *
- * \~
  */
 bool nts::digest::Keccak::update(const view_t & data) noexcept {
 	// Если разновидность не установлена либо выжимание уже началось
@@ -365,6 +379,7 @@ bool nts::digest::Keccak::update(const view_t & data) noexcept {
 		return (data.size == 0);
 	// Очередной байт куска сообщения и число оставшихся байтов
 	const uint8_t * bytes = data.data;
+	// Запоминаем число оставшихся байтов куска сообщения
 	size_t left = data.size;
 	/**
 	 * Выполняем поглощение целых блоков с начала блока: полосы складываются прямым
@@ -381,6 +396,7 @@ bool nts::digest::Keccak::update(const view_t & data) noexcept {
 		this->permute();
 		// Сдвигаем байты сообщения на блок
 		bytes += this->_rate;
+		// Уменьшаем число оставшихся байтов на блок
 		left -= this->_rate;
 	}
 	/**
@@ -393,7 +409,9 @@ bool nts::digest::Keccak::update(const view_t & data) noexcept {
 			this->_state[this->_size / 8] ^= word(bytes);
 			// Сдвигаем байты сообщения на полосу
 			bytes += 8;
+			// Уменьшаем число оставшихся байтов на полосу
 			left -= 8;
+			// Увеличиваем число байтов незавершённого блока на полосу
 			this->_size += 8;
 		// Иначе складываем байт сообщения с полосой по смещению незавершённого блока
 		} else {
@@ -401,7 +419,9 @@ bool nts::digest::Keccak::update(const view_t & data) noexcept {
 			this->_state[this->_size / 8] ^= (static_cast <uint64_t> (* bytes) << ((this->_size % 8) * 8));
 			// Сдвигаем байты сообщения на байт
 			bytes++;
+			// Уменьшаем число оставшихся байтов на байт
 			left--;
+			// Увеличиваем число байтов незавершённого блока
 			this->_size++;
 		}
 		// Если блок заполнен
@@ -416,23 +436,12 @@ bool nts::digest::Keccak::update(const view_t & data) noexcept {
 	return true;
 }
 /**
- * \~russian
  * @brief Метод выжимания куска итога функции переменного выхода
  *
  * @param result место, в которое помещается кусок итога
  * @param size   длина куска итога в байтах
- *
  * @return       признак того, что кусок выжат: у хешей выжимание отвергается
  *
- * \~english
- * @brief Method of the squeezing of a piece of the result of an extendable-output function
- *
- * @param result place into which the piece of the result is put
- * @param size   length of the piece of the result in bytes
- *
- * @return       sign that the piece is squeezed: at the hashes the squeezing is refused
- *
- * \~
  */
 bool nts::digest::Keccak::squeeze(uint8_t * result, const size_t size) noexcept {
 	// Если разновидность не функция переменного выхода
@@ -463,6 +472,7 @@ bool nts::digest::Keccak::squeeze(uint8_t * result, const size_t size) noexcept 
 			bytes(this->_state[i], result + (i * 8));
 		// Сдвигаем место итога на блок
 		result += this->_rate;
+		// Уменьшаем число оставшихся байтов итога на блок
 		left -= this->_rate;
 	}
 	/**
@@ -482,7 +492,9 @@ bool nts::digest::Keccak::squeeze(uint8_t * result, const size_t size) noexcept 
 			bytes(this->_state[this->_size / 8], result);
 			// Сдвигаем место итога на полосу
 			result += 8;
+			// Уменьшаем число оставшихся байтов итога на полосу
 			left -= 8;
+			// Увеличиваем число выжатых из блока байтов на полосу
 			this->_size += 8;
 		// Иначе выдаём байт полосы по смещению выжатых байтов
 		} else {
@@ -490,7 +502,9 @@ bool nts::digest::Keccak::squeeze(uint8_t * result, const size_t size) noexcept 
 			(* result) = static_cast <uint8_t> (this->_state[this->_size / 8] >> ((this->_size % 8) * 8));
 			// Сдвигаем место итога на байт
 			result++;
+			// Уменьшаем число оставшихся байтов итога на байт
 			left--;
+			// Увеличиваем число выжатых из блока байтов
 			this->_size++;
 		}
 	}
@@ -498,23 +512,12 @@ bool nts::digest::Keccak::squeeze(uint8_t * result, const size_t size) noexcept 
 	return true;
 }
 /**
- * \~russian
  * @brief Метод снятия итога хеша
  *
  * @param result место, в которое помещается итог
  * @param size   длина места в байтах: у хешей ровно длина разновидности, у функций переменного выхода любая
- *
  * @return       признак того, что итог снят; повторное снятие отвергается
  *
- * \~english
- * @brief Method of the taking of the result of the hash
- *
- * @param result place into which the result is put
- * @param size   length of the place in bytes: at the hashes exactly the length of the kind, at the extendable-output functions any
- *
- * @return       sign that the result is taken; a repeated taking is refused
- *
- * \~
  */
 bool nts::digest::Keccak::finish(uint8_t * result, const size_t size) noexcept {
 	// Если разновидность не установлена, итог уже снят либо место не передано
@@ -547,51 +550,29 @@ bool nts::digest::Keccak::finish(uint8_t * result, const size_t size) noexcept {
 	return true;
 }
 /**
- * \~russian
  * @brief Конструктор
  *
  * @param type разновидность преобразования
  *
- * \~english
- * @brief Constructor
- *
- * @param type kind of the transformation
- *
- * \~
  */
 nts::digest::Keccak::Keccak(const sha3_t type) noexcept : _type(sha3_t::NONE), _squeezing(false), _size(0), _rate(0) {
 	// Выполняем сброс преобразования
 	this->reset(type);
 }
 /**
- * \~russian
  * @brief Деструктор: состояние затирается
  *
- * \~english
- * @brief Destructor: the state is wiped
- *
- * \~
  */
 nts::digest::Keccak::~Keccak() noexcept {
 	// Выполняем затирание состояния губки
 	sys::wipe(this->_state, sizeof(this->_state));
 }
 /**
- * \~russian
- * @brief Метод получения длины итога разновидности
+ * @brief Функция получения длины итога разновидности
  *
  * @param type разновидность преобразования
- *
  * @return     длина итога хеша в байтах либо нуль у функций переменного выхода
  *
- * \~english
- * @brief Method of the obtaining of the length of the result of a kind
- *
- * @param type kind of the transformation
- *
- * @return     length of the result of the hash in bytes or zero at the extendable-output functions
- *
- * \~
  */
 size_t nts::digest::length(const sha3_t type) noexcept {
 	/**
@@ -610,21 +591,11 @@ size_t nts::digest::length(const sha3_t type) noexcept {
 	return 0;
 }
 /**
- * \~russian
- * @brief Метод получения скорости разновидности
+ * @brief Функция получения скорости разновидности
  *
  * @param type разновидность преобразования
- *
  * @return     число байтов, поглощаемых или выдаваемых за одну перестановку, либо нуль
  *
- * \~english
- * @brief Method of the obtaining of the rate of a kind
- *
- * @param type kind of the transformation
- *
- * @return     number of the bytes absorbed or squeezed per one permutation or zero
- *
- * \~
  */
 size_t nts::digest::rate(const sha3_t type) noexcept {
 	/**
@@ -655,27 +626,14 @@ size_t nts::digest::rate(const sha3_t type) noexcept {
 	return 0;
 }
 /**
- * \~russian
- * @brief Метод хеширования сообщения за один вызов
+ * @brief Функция хеширования сообщения за один вызов
  *
  * @param type   разновидность преобразования
  * @param data   сообщение
  * @param result место, в которое помещается итог
  * @param size   длина итога в байтах: у хешей ровно длина разновидности, у функций переменного выхода любая
- *
  * @return       признак того, что итог вычислен
  *
- * \~english
- * @brief Method of the hashing of a message by one call
- *
- * @param type   kind of the transformation
- * @param data   message
- * @param result place into which the result is put
- * @param size   length of the result in bytes: at the hashes exactly the length of the kind, at the extendable-output functions any
- *
- * @return       sign that the result is computed
- *
- * \~
  */
 bool nts::digest::sha3(const sha3_t type, const view_t & data, uint8_t * result, const size_t size) noexcept {
 	// Преобразование заданной разновидности

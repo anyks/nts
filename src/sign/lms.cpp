@@ -12,16 +12,8 @@
  * @email forman@anyks.com
  * @site https://anyks.com
  *
- * \~russian
  * @brief Модуль подписей Лейтона-Микали —
  *        проверка подписи LMS и HSS по RFC 8554 и SP 800-208
- *
- * \~english
- * @brief The Leighton-Micali signatures module —
- *        the verification of the LMS and HSS signatures according to RFC 8554
- *        and SP 800-208
- *
- * \~
  *
  * @copyright Copyright © 2026
  *
@@ -58,8 +50,11 @@ namespace {
 	 * Доменные константы записей: раздел 4 RFC 8554
 	 */
 	static constexpr uint16_t D_PBLC = 0x8080;
+	// Доменная константа сообщения
 	static constexpr uint16_t D_MESG = 0x8181;
+	// Доменная константа листа
 	static constexpr uint16_t D_LEAF = 0x8282;
+	// Доменная константа внутреннего узла
 	static constexpr uint16_t D_INTR = 0x8383;
 
 	/**
@@ -78,10 +73,9 @@ namespace {
 	static constexpr size_t LEVELS_MAX = 8;
 
 	/**
-	 * @brief Метод чтения четырёхбайтового числа старшим байтом вперёд
+	 * @brief Функция чтения четырёхбайтового числа старшим байтом вперёд
 	 *
 	 * @param data место чтения
-	 *
 	 * @return     прочитанное число
 	 *
 	 */
@@ -91,7 +85,7 @@ namespace {
 	}
 
 	/**
-	 * @brief Метод записи двухбайтового числа старшим байтом вперёд
+	 * @brief Функция записи двухбайтового числа старшим байтом вперёд
 	 *
 	 * @param value  записываемое число
 	 * @param result место записи
@@ -100,16 +94,16 @@ namespace {
 	static void u16(const uint16_t value, uint8_t * result) noexcept {
 		// Записываем байты числа
 		result[0] = static_cast <uint8_t> (value >> 8);
+		// Записываем младший байт числа
 		result[1] = static_cast <uint8_t> (value);
 	}
 
 	/**
-	 * @brief Метод извлечения коэффициента Винтерница
+	 * @brief Функция извлечения коэффициента Винтерница
 	 *
 	 * @param S строка, из которой извлекается коэффициент
 	 * @param i порядковый номер w-разрядного значения
 	 * @param w разрядность значения: 1, 2, 4 либо 8
-	 *
 	 * @return  значение коэффициента
 	 *
 	 * @details Раздел 3.1 RFC 8554: coef(S, i, w)
@@ -125,13 +119,12 @@ namespace {
 	}
 
 	/**
-	 * @brief Метод вычисления контрольной суммы строки
+	 * @brief Функция вычисления контрольной суммы строки
 	 *
 	 * @param S  строка из n байтов
 	 * @param n  длина строки в байтах
 	 * @param w  разрядность значения
 	 * @param ls сдвиг контрольной суммы влево
-	 *
 	 * @return   контрольная сумма
 	 *
 	 * @details Алгоритм 2 RFC 8554: Cksm
@@ -140,7 +133,9 @@ namespace {
 	static uint16_t cksm(const uint8_t * S, const size_t n, const uint8_t w, const uint8_t ls) noexcept {
 		// Накопитель суммы
 		uint16_t sum = 0;
-		// Проходим по w-разрядным значениям строки
+		/**
+		 * Проходим по w-разрядным значениям строки
+		 */
 		for(size_t i = 0; i < (n * 8 / w); i++)
 			// Накапливаем сумму дополнений
 			sum = static_cast <uint16_t> (sum + ((1 << w) - 1) - coef(S, i, w));
@@ -164,18 +159,19 @@ namespace {
 	} ots_params_t;
 
 	/**
-	 * @brief Метод получения сведений о наборе LM-OTS по коду типа
+	 * @brief Функция получения сведений о наборе LM-OTS по коду типа
 	 *
 	 * @param type   код типа LM-OTS
 	 * @param params место, в которое помещаются сведения
-	 *
 	 * @return       признак известного кода типа
 	 *
 	 * @details Таблица 1 RFC 8554
 	 *
 	 */
 	static bool otsParams(const uint32_t type, ots_params_t & params) noexcept {
-		// По коду типа
+		/**
+		 * По коду типа
+		 */
 		switch(type){
 			// LMOTS_SHA256_N32_W1
 			case 1: params.n = 32; params.w = 1; params.p = 265; params.ls = 7; return true;
@@ -191,17 +187,18 @@ namespace {
 	}
 
 	/**
-	 * @brief Метод получения высоты дерева LMS по коду типа
+	 * @brief Функция получения высоты дерева LMS по коду типа
 	 *
 	 * @param type код типа LMS
-	 *
 	 * @return     высота дерева, ноль у неизвестного кода
 	 *
 	 * @details Таблица 2 RFC 8554: у всех наборов m = 32, различается лишь высота
 	 *
 	 */
 	static size_t lmsHeight(const uint32_t type) noexcept {
-		// По коду типа
+		/**
+		 * По коду типа
+		 */
 		switch(type){
 			// LMS_SHA256_M32_H5
 			case 5: return 5;
@@ -219,7 +216,7 @@ namespace {
 	}
 
 	/**
-	 * @brief Метод вычисления ключа-кандидата LM-OTS из подписи
+	 * @brief Функция вычисления ключа-кандидата LM-OTS из подписи
 	 *
 	 * @param signature подпись LM-OTS: тип, C, y[0..p-1]
 	 * @param message   сообщение
@@ -227,7 +224,6 @@ namespace {
 	 * @param q         номер листа
 	 * @param pubtype   ожидаемый код типа LM-OTS
 	 * @param result    место, в которое помещается ключ-кандидат (n байтов)
-	 *
 	 * @return          признак успешности вычисления
 	 *
 	 * @details Алгоритм 4б RFC 8554
@@ -236,23 +232,23 @@ namespace {
 	static bool otsCandidate(const view_t & signature, const view_t & message, const uint8_t * I, const uint32_t q, const uint32_t pubtype, uint8_t * result) noexcept {
 		// Если подпись короче кода типа
 		if(signature.size < 4)
-			// Выводим отказ
+			// Выводим отрицательный результат - подпись короче кода типа
 			return false;
 		// Код типа подписи
 		const uint32_t sigtype = u32(signature.data);
 		// Если код типа подписи не отвечает ключу
 		if(sigtype != pubtype)
-			// Выводим отказ
+			// Выводим отрицательный результат - тип подписи не отвечает ключу
 			return false;
 		// Сведения о наборе параметров
 		ots_params_t params;
 		// Если код типа неизвестен
 		if(!otsParams(pubtype, params))
-			// Выводим отказ
+			// Выводим отрицательный результат - тип подписи неизвестен
 			return false;
 		// Если длина подписи не отвечает набору
 		if(signature.size != 4 + params.n * (params.p + 1))
-			// Выводим отказ
+			// Выводим отрицательный результат - длина подписи не отвечает набору
 			return false;
 		// Случайное число C подписи
 		const uint8_t * C = signature.data + 4;
@@ -266,8 +262,11 @@ namespace {
 		uint8_t qBytes[4];
 		// Записываем номер листа
 		qBytes[0] = static_cast <uint8_t> (q >> 24);
+		// Записываем второй байт номера листа
 		qBytes[1] = static_cast <uint8_t> (q >> 16);
+		// Записываем третий байт номера листа
 		qBytes[2] = static_cast <uint8_t> (q >> 8);
+		// Записываем младший байт номера листа
 		qBytes[3] = static_cast <uint8_t> (q);
 		// Буфер записи чисел
 		uint8_t number[4];
@@ -285,22 +284,27 @@ namespace {
 		hasher.update(message);
 		// Если хеш сообщения снять не удалось
 		if(!hasher.finish(Q, params.n))
-			// Выводим отказ
+			// Выводим отрицательный результат - хеш не снят
 			return false;
 		// Контрольная сумма хеша сообщения
 		const uint16_t sum = cksm(Q, params.n, params.w, params.ls);
 		// Записываем контрольную сумму старшим байтом вперёд
 		uint8_t sumBytes[2];
+		// Переводим контрольную сумму в байты
 		u16(sum, sumBytes);
 		// Место звеньев итога z
 		uint8_t z[P_MAX][M32];
-		// Проходим по звеньям цепочек
+		/**
+		 * Проходим по звеньям цепочек
+		 */
 		for(size_t i = 0; i < params.p; i++){
 			// Коэффициент звена из хеша сообщения либо контрольной суммы
 			const uint8_t a = ((i < (params.n * 8 / params.w)) ? coef(Q, i, params.w) : coef(sumBytes, i - (params.n * 8 / params.w), params.w));
 			// Начальное значение звена из подписи
 			::memcpy(z[i], y + i * params.n, params.n);
-			// Доводим цепочку Винтерница до конца
+			/**
+			 * Доводим цепочку Винтерница до конца
+			 */
 			for(size_t j = a; j < ((static_cast <size_t> (1) << params.w) - 1); j++){
 				// Сбрасываем состояние хеширования
 				hasher.reset(digest::hash_t::SHA256);
@@ -323,7 +327,7 @@ namespace {
 					// Выполняем затирание рабочих областей
 					wipe(z, sizeof(z));
 					wipe(Q, sizeof(Q));
-					// Выводим отказ
+					// Выводим отрицательный результат - подпись не выработана
 					return false;
 				}
 			}
@@ -338,7 +342,9 @@ namespace {
 		u16(D_PBLC, number);
 		// Подаём доменную константу
 		hasher.update(view_t(number, 2));
-		// Подаём звенья итога
+		/**
+		 * Подаём звенья итога
+		 */
 		for(size_t i = 0; i < params.p; i++)
 			// Подача очередного звена
 			hasher.update(view_t(z[i], params.n));
@@ -347,7 +353,7 @@ namespace {
 			// Выполняем затирание рабочих областей
 			wipe(z, sizeof(z));
 			wipe(Q, sizeof(Q));
-			// Выводим отказ
+			// Выводим отрицательный результат - листовой ключ не собран
 			return false;
 		}
 		// Выполняем затирание рабочих областей
@@ -358,12 +364,11 @@ namespace {
 	}
 
 	/**
-	 * @brief Метод проверки подписи LMS
+	 * @brief Функция проверки подписи LMS
 	 *
 	 * @param key       открытый ключ LMS: тип, тип LM-OTS, I, K
 	 * @param message   сообщение
 	 * @param signature подпись LMS: q, подпись LM-OTS, тип, путь
-	 *
 	 * @return          признак подлинности подписи
 	 *
 	 * @details Алгоритмы 6 и 6а RFC 8554
@@ -372,7 +377,7 @@ namespace {
 	static bool lmsVerify(const view_t & key, const view_t & message, const view_t & signature) noexcept {
 		// Если открытый ключ короче заголовка
 		if(key.size < 24)
-			// Выводим отказ
+			// Выводим отрицательный результат - ключ короче заголовка
 			return false;
 		// Код типа LMS ключа
 		const uint32_t pubtype = u32(key.data);
@@ -382,7 +387,7 @@ namespace {
 		const size_t h = lmsHeight(pubtype);
 		// Если код типа неизвестен либо длина ключа не отвечает
 		if((h == 0) || (key.size != 24 + M32))
-			// Выводим отказ
+			// Выводим отрицательный результат - тип либо длина ключа не отвечают
 			return false;
 		// Опознаватель ключа
 		const uint8_t * I = key.data + 8;
@@ -390,7 +395,7 @@ namespace {
 		const uint8_t * T = I + 16;
 		// Если подпись короче заголовка
 		if(signature.size < 12)
-			// Выводим отказ
+			// Выводим отрицательный результат - подпись короче заголовка
 			return false;
 		// Номер листа подписи
 		const uint32_t q = u32(signature.data);
@@ -398,29 +403,29 @@ namespace {
 		const uint32_t sigots = u32(signature.data + 4);
 		// Если код типа LM-OTS подписи не отвечает ключу
 		if(sigots != otstype)
-			// Выводим отказ
+			// Выводим отрицательный результат - тип LM-OTS не отвечает ключу
 			return false;
 		// Сведения о наборе LM-OTS
 		ots_params_t params;
 		// Если код типа LM-OTS неизвестен
 		if(!otsParams(otstype, params))
-			// Выводим отказ
+			// Выводим отрицательный результат - тип LM-OTS неизвестен
 			return false;
 		// Длина подписи LM-OTS
 		const size_t otsLength = 4 + params.n * (params.p + 1);
 		// Если подпись короче подписи LM-OTS и кода типа LMS
 		if(signature.size < 8 + otsLength)
-			// Выводим отказ
+			// Выводим отрицательный результат - подпись усечена
 			return false;
 		// Код типа LMS подписи
 		const uint32_t sigtype = u32(signature.data + 8 + otsLength - 4);
 		// Если код типа LMS подписи не отвечает ключу
 		if(sigtype != pubtype)
-			// Выводим отказ
+			// Выводим отрицательный результат - тип LMS не отвечает ключу
 			return false;
 		// Если номер листа вне дерева либо длина подписи не отвечает пути
 		if((q >= (static_cast <uint32_t> (1) << h)) || (signature.size != 8 + otsLength + M32 * h))
-			// Выводим отказ
+			// Выводим отрицательный результат - лист вне дерева либо путь усечён
 			return false;
 		// Путь Меркла подписи
 		const uint8_t * path = signature.data + 8 + otsLength;
@@ -430,7 +435,7 @@ namespace {
 		const view_t otsSignature(signature.data + 4, otsLength);
 		// Если ключ-кандидат вычислить не удалось
 		if(!otsCandidate(otsSignature, message, I, q, otstype, Kc))
-			// Выводим отказ
+			// Выводим отрицательный результат - ключ не вычислен
 			return false;
 		// Объект хеширования
 		digest::hasher_t hasher(digest::hash_t::SHA256);
@@ -444,8 +449,11 @@ namespace {
 		hasher.update(view_t(I, 16));
 		// Записываем номер узла
 		number[0] = static_cast <uint8_t> (node >> 24);
+		// Записываем второй байт номера узла
 		number[1] = static_cast <uint8_t> (node >> 16);
+		// Записываем третий байт номера узла
 		number[2] = static_cast <uint8_t> (node >> 8);
+		// Записываем младший байт номера узла
 		number[3] = static_cast <uint8_t> (node);
 		// Подаём номер узла
 		hasher.update(view_t(number, 4));
@@ -460,12 +468,14 @@ namespace {
 			// Выполняем затирание рабочих областей
 			wipe(tmp, sizeof(tmp));
 			wipe(Kc, sizeof(Kc));
-			// Выводим отказ
+			// Выводим отрицательный результат - путь аутентификации не сошёлся
 			return false;
 		}
 		// Поднимаемся по дереву к корню
 		size_t level = 0;
-		// Пока не дойдём до корня
+		/**
+		 * Пока не дойдём до корня
+		 */
 		while(node > 1){
 			// Признак нечётного узла
 			const bool odd = ((node & 1) != 0);
@@ -477,8 +487,11 @@ namespace {
 			hasher.update(view_t(I, 16));
 			// Записываем номер родителя
 			number[0] = static_cast <uint8_t> (node >> 24);
+			// Записываем второй байт номера родителя
 			number[1] = static_cast <uint8_t> (node >> 16);
+			// Записываем третий байт номера родителя
 			number[2] = static_cast <uint8_t> (node >> 8);
+			// Записываем младший байт номера родителя
 			number[3] = static_cast <uint8_t> (node);
 			// Подаём номер родителя
 			hasher.update(view_t(number, 4));
@@ -504,7 +517,7 @@ namespace {
 				// Выполняем затирание рабочих областей
 				wipe(tmp, sizeof(tmp));
 				wipe(Kc, sizeof(Kc));
-				// Выводим отказ
+				// Выводим отрицательный результат - корневой ключ не сошёлся
 				return false;
 			}
 			// Поднимаемся на уровень
@@ -521,33 +534,22 @@ namespace {
 }
 
 /**
- * \~russian
- * @brief Метод проверки подписи LMS либо HSS
+ * @brief Функция проверки подписи LMS либо HSS
  *
  * @param key       открытый ключ: запись LMS либо HSS
  * @param message   проверяемое сообщение
  * @param signature проверяемая подпись: запись LMS либо HSS
- *
  * @return          признак подлинности подписи
- *
- * \~english
- * @brief Method of the verification of an LMS or HSS signature
- * @param key       the public key: an LMS or HSS record
- * @param message   the message being verified
- * @param signature the signature being verified: an LMS or HSS record
- * @return          the flag of the authenticity of the signature
- *
- * \~
  *
  */
 bool nts::sign::lms::verify(const view_t & key, const view_t & message, const view_t & signature) noexcept {
 	// Если ключ, сообщение либо подпись не переданы
 	if((key.data == nullptr) || (message.data == nullptr) || (signature.data == nullptr))
-		// Выводим отказ
+		// Выводим отрицательный результат - данные не переданы
 		return false;
 	// Если ключ короче кода числа уровней и типа LMS
 	if(key.size < 8)
-		// Выводим отказ
+		// Выводим отрицательный результат - ключ короче заголовка
 		return false;
 	/**
 	 * Различие записей LMS и HSS: у одноуровневого ключа LMS первые четыре байта -
@@ -562,7 +564,7 @@ bool nts::sign::lms::verify(const view_t & key, const view_t & message, const vi
 	const uint32_t levels = u32(key.data);
 	// Если число уровней вне дозволенного
 	if((levels < 1) || (levels > LEVELS_MAX))
-		// Выводим отказ
+		// Выводим отрицательный результат - число уровней вне дозволенного
 		return false;
 	/**
 	 * Раздел 6 RFC 8554: у HSS открытый ключ - число уровней и открытый ключ LMS
@@ -572,23 +574,25 @@ bool nts::sign::lms::verify(const view_t & key, const view_t & message, const vi
 	 */
 	// Если подпись короче числа подписанных ключей
 	if(signature.size < 4)
-		// Выводим отказ
+		// Выводим отрицательный результат - подпись короче числа подписанных ключей
 		return false;
 	// Число подписанных открытых ключей в подписи
 	const uint32_t signedKeys = u32(signature.data);
 	// Если число подписанных ключей не отвечает числу уровней
 	if(signedKeys != levels - 1)
-		// Выводим отказ
+		// Выводим отрицательный результат - число подписанных ключей не отвечает уровням
 		return false;
 	// Открытый ключ текущего уровня: запись LMS за числом уровней
 	view_t current(key.data + 4, key.size - 4);
 	// Место в подписи
 	size_t offset = 4;
-	// Проходим по подписанным открытым ключам
+	/**
+	 * Проходим по подписанным открытым ключам
+	 */
 	for(uint32_t level = 0; level < signedKeys; level++){
 		// Если подпись короче номера листа и типа LM-OTS
 		if(signature.size < offset + 8)
-			// Выводим отказ
+			// Выводим отрицательный результат - подпись короче номера листа и типа
 			return false;
 		// Код типа LM-OTS подписи уровня
 		const uint32_t otstype = u32(signature.data + offset + 4);
@@ -596,13 +600,13 @@ bool nts::sign::lms::verify(const view_t & key, const view_t & message, const vi
 		ots_params_t params;
 		// Если код типа LM-OTS неизвестен
 		if(!otsParams(otstype, params))
-			// Выводим отказ
+			// Выводим отрицательный результат - тип LM-OTS неизвестен
 			return false;
 		// Длина подписи LM-OTS
 		const size_t otsLength = 4 + params.n * (params.p + 1);
 		// Если подпись короче подписи LMS уровня
 		if(signature.size < offset + 8 + otsLength)
-			// Выводим отказ
+			// Выводим отрицательный результат - подпись короче подписи уровня
 			return false;
 		// Код типа LMS подписи уровня
 		const uint32_t lmstype = u32(signature.data + offset + 8 + otsLength - 4);
@@ -610,13 +614,13 @@ bool nts::sign::lms::verify(const view_t & key, const view_t & message, const vi
 		const size_t h = lmsHeight(lmstype);
 		// Если код типа неизвестен
 		if(h == 0)
-			// Выводим отказ
+			// Выводим отрицательный результат - тип LMS неизвестен
 			return false;
 		// Длина подписи LMS уровня
 		const size_t lmsLength = 8 + otsLength + M32 * h;
 		// Если подпись короче подписи LMS и открытого ключа следующего уровня
 		if(signature.size < offset + lmsLength + 24 + M32)
-			// Выводим отказ
+			// Выводим отрицательный результат - подпись усечена
 			return false;
 		// Открытый ключ следующего уровня за подписью
 		const view_t next(signature.data + offset + lmsLength, 24 + M32);
@@ -624,7 +628,7 @@ bool nts::sign::lms::verify(const view_t & key, const view_t & message, const vi
 		const view_t lmsSignature(signature.data + offset, lmsLength);
 		// Если подпись открытого ключа следующего уровня не сошлась
 		if(!lmsVerify(current, next, lmsSignature))
-			// Выводим отказ
+			// Выводим отрицательный результат - подпись ключа уровня не сошлась
 			return false;
 		// Переходим к следующему уровню
 		current = next;

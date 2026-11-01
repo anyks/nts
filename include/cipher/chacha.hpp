@@ -19,7 +19,6 @@
  * @brief Header file of the ChaCha20 stream cipher according to RFC 8439
  *
  * \~
- *
  * @copyright Copyright © 2026
  *
  */
@@ -151,13 +150,16 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief The ChaCha20 stream cipher
+		 *
 		 * @details RFC 8439, section 2. The state of sixteen 32-bit words: four constants, eight
 		 *          words of the key, the block counter and three words of the nonce. The block
 		 *          function performs twenty rounds of the quarter rounds and adds the result to the
 		 *          initial state; the gamma is applied to the data by the addition modulo two. The key
 		 *          is of 32 bytes, the nonce of 12 bytes, the counter of 32 bits
+		 *
 		 * @note The nonce of every message under a single key must be unique: a repetition reveals
 		 *       the sum of the plain texts
+		 *
 		 * @note Deliberate decisions: the portable path is on 32-bit operations, and the packs of
 		 *       whole blocks go by the vector instructions (NEON at ARM64, SSE2, SSSE3 or AVX2 at
 		 *       x86-64) chosen at the run time by sys/machine.hpp; both paths are in one binary, the
@@ -167,6 +169,7 @@ namespace nts {
 		 *       256 GiB under a single nonce are needed by no protocol. A call of block gives out a
 		 *       whole gamma block at the current counter and discards the unspent rest of the previous
 		 *       one: this is how the Poly1305 key is produced at AEAD before the first chunk of the data
+		 *
 		 * @note The streaming course: after start the data is fed by encrypt or decrypt by chunks of
 		 *       any length, including empty ones and by a single byte; the rest of the gamma block is
 		 *       carried between the calls, therefore the slicing does not affect the result. A repeated
@@ -197,6 +200,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the production of the gamma block at the current counter
+				 *
 				 * @param result the 64-byte place the gamma block is written into
 				 *
 				 * \~
@@ -210,6 +214,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the advance of the block counter
+				 *
 				 * @return the flag of the counter not having overflown
 				 *
 				 * \~
@@ -225,6 +230,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of covering the packs of whole blocks with the gamma by the vector instructions
+				 *
 				 * @param cursor the reading position of the data, advanced by the covered
 				 * @param output the writing position of the result, advanced by the covered
 				 * @param left   the number of the bytes not covered yet, decreased by the covered
@@ -247,8 +253,10 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the ChaCha20 quarter round
+				 *
 				 * @details Section 2.1 of RFC 8439: four additions, four additions modulo two and four
 				 *          rotations by 16, 12, 8 and 7 bits
+				 *
 				 * @param a the first word, replaced by the result
 				 * @param b the second word, replaced by the result
 				 * @param c the third word, replaced by the result
@@ -266,6 +274,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of checking the readiness of the cipher for the work
+				 *
 				 * @return the flag of the readiness of the cipher
 				 *
 				 * \~
@@ -279,6 +288,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the current block counter
+				 *
 				 * @return the block counter the next gamma block is produced by
 				 *
 				 * \~
@@ -292,7 +302,6 @@ namespace nts {
 				 * @param key     ключ в 32 байта
 				 * @param nonce   начальное заполнение в 12 байтов (ChaCha20, RFC 8439) либо в 24 байта (XChaCha20)
 				 * @param counter начальное значение счётчика блока
-				 *
 				 * @return        признак успешности запуска
 				 *
 				 * @details С заполнением в 24 байта шифр идёт как XChaCha20 (draft-irtf-cfrg-xchacha,
@@ -302,10 +311,12 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the start of the cipher
+				 *
 				 * @param key     the 32-byte key
 				 * @param nonce   the 12-byte nonce (ChaCha20, RFC 8439) or the 24-byte nonce (XChaCha20)
 				 * @param counter the initial value of the block counter
 				 * @return        the flag of the success of the start
+				 *
 				 * @details With a 24-byte nonce the cipher runs as XChaCha20 (draft-irtf-cfrg-xchacha, section
 				 *          2.3): the subkey is derived by HChaCha20 from the key and the first sixteen bytes, the
 				 *          ChaCha20 nonce is four zero bytes and the last eight. It is a raw stream without an
@@ -321,11 +332,11 @@ namespace nts {
 				 * @param key    ключ в 32 байта
 				 * @param nonce  начальное заполнение в 16 байтов
 				 * @param result место, в которое помещается подключ в 32 байта
-				 *
 				 * @return       признак успешности вывода
 				 *
 				 * \~english
 				 * @brief Method of the derivation of the HChaCha20 subkey (draft-irtf-cfrg-xchacha, section 2.2)
+				 *
 				 * @param key    the 32-byte key
 				 * @param nonce  the 16-byte nonce
 				 * @param result the place the 32-byte subkey is put into
@@ -353,13 +364,14 @@ namespace nts {
 				 *          неизрасходованный остаток прежнего блока отбрасывается
 				 *
 				 * @param result место в 64 байта, в которое записывается блок гаммы
-				 *
 				 * @return       признак успешности выработки
 				 *
 				 * \~english
 				 * @brief Method of the production of a whole gamma block
+				 *
 				 * @details The block is produced at the current counter, the counter is advanced, the
 				 *          unspent rest of the previous block is discarded
+				 *
 				 * @param result the 64-byte place the gamma block is written into
 				 * @return       the flag of the success of the production
 				 *
@@ -372,11 +384,11 @@ namespace nts {
 				 *
 				 * @param source открытый текст любой длины, включая пустой
 				 * @param result место, в которое записывается шифртекст той же длины
-				 *
 				 * @return       признак успешности зашифрования
 				 *
 				 * \~english
 				 * @brief Method of the streaming encryption of a chunk
+				 *
 				 * @param source the plain text of any length, including an empty one
 				 * @param result the place the cipher text of the same length is written into
 				 * @return       the flag of the success of the encryption
@@ -390,11 +402,11 @@ namespace nts {
 				 *
 				 * @param source шифртекст любой длины, включая пустой
 				 * @param result место, в которое записывается открытый текст той же длины
-				 *
 				 * @return       признак успешности расшифрования
 				 *
 				 * \~english
 				 * @brief Method of the streaming decryption of a chunk
+				 *
 				 * @param source the cipher text of any length, including an empty one
 				 * @param result the place the plain text of the same length is written into
 				 * @return       the flag of the success of the decryption

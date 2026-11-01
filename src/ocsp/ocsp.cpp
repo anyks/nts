@@ -121,7 +121,7 @@ namespace {
 	};
 
 	/**
-	 * @brief Метод розыска описания алгоритма хеша по опознавателю
+	 * @brief Функция розыска описания алгоритма хеша по опознавателю
 	 *
 	 * @param oid опознаватель алгоритма хеша
 	 * @return    описание алгоритма хеша либо nullptr
@@ -141,7 +141,7 @@ namespace {
 		return nullptr;
 	}
 	/**
-	 * @brief Метод розыска описания алгоритма хеша по алгоритму
+	 * @brief Функция розыска описания алгоритма хеша по алгоритму
 	 *
 	 * @param algorithm алгоритм хеша
 	 * @return          описание алгоритма хеша либо nullptr
@@ -161,7 +161,7 @@ namespace {
 		return nullptr;
 	}
 	/**
-	 * @brief Метод перевода отказа модуля ASN.1 в отказ модуля
+	 * @brief Функция перевода отказа модуля ASN.1 в отказ модуля
 	 *
 	 * @param error отказ модуля ASN.1
 	 * @return      отказ модуля
@@ -172,7 +172,7 @@ namespace {
 		return ((error == asn1::error_t::MEMORY) ? ocsp::error_t::MEMORY : ocsp::error_t::ENCODING);
 	}
 	/**
-	 * @brief Метод проверки признаков элемента записи
+	 * @brief Функция проверки признаков элемента записи
 	 *
 	 * @param element     проверяемый элемент записи
 	 * @param cls         ожидаемый класс метки
@@ -186,7 +186,7 @@ namespace {
 		return ((element.cls == cls) && (element.constructed == constructed) && (element.tag == tag));
 	}
 	/**
-	 * @brief Метод разбора опознавателя алгоритма
+	 * @brief Функция разбора опознавателя алгоритма
 	 *
 	 * @param element элемент записи опознавателя алгоритма
 	 * @param oid     строка, в которую помещается опознаватель алгоритма
@@ -234,7 +234,7 @@ namespace {
 		return ocsp::error_t::NONE;
 	}
 	/**
-	 * @brief Метод разбора метки времени
+	 * @brief Функция разбора метки времени
 	 *
 	 * @param reader разборщик, из которого берётся метка времени
 	 * @param result место, в которое помещается миг в секундах от начала эпохи
@@ -259,7 +259,7 @@ namespace {
 		return ocsp::error_t::NONE;
 	}
 	/**
-	 * @brief Метод разбора набора расширений
+	 * @brief Функция разбора набора расширений
 	 *
 	 * @param data   просмотр содержимого обёртки набора расширений
 	 * @param result набор, в который помещаются разобранные расширения
@@ -271,8 +271,7 @@ namespace {
 	 */
 	static ocsp::error_t extensions(const view_t & data, vector <x509::extension_t> & result) noexcept {
 		/**
-		 * Набор расширений выделяет память, и нехватка её обязана дойти до вызывающего
-		 * причиной отказа, а не завершить процесс
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Создаём разборщик содержимого обёртки
@@ -370,7 +369,7 @@ namespace {
 			// Выводим успешность разбора набора расширений
 			return ocsp::error_t::NONE;
 		/**
-		 * Если память под набор расширений выделить не удалось
+		 * Выполняем перехват ошибок
 		 */
 		} catch(const bad_alloc &) {
 			// Выводим отказ нехватки памяти
@@ -378,7 +377,7 @@ namespace {
 		}
 	}
 	/**
-	 * @brief Метод вычисления хешей имени и ключа издателя
+	 * @brief Функция вычисления хешей имени и ключа издателя
 	 *
 	 * @param issuer    разобранный сертификат издателя
 	 * @param algorithm алгоритм хеша
@@ -407,7 +406,7 @@ namespace {
 		return digest::hash(algorithm, issuer.key().key, key, size);
 	}
 	/**
-	 * @brief Метод сличения двух областей байтов
+	 * @brief Функция сличения двух областей байтов
 	 *
 	 * @param first  первая область байтов
 	 * @param second вторая область байтов
@@ -419,7 +418,7 @@ namespace {
 		return ((first.size == second.size) && ((first.size == 0) || (::memcmp(first.data, second.data, first.size) == 0)));
 	}
 	/**
-	 * @brief Метод проверки, назван ли ответчиком данный сертификат
+	 * @brief Функция проверки, назван ли ответчиком данный сертификат
 	 *
 	 * @param response    разобранный ответ ответчика
 	 * @param certificate разобранный сертификат стороны
@@ -448,7 +447,7 @@ namespace {
 		return same(responder, view_t(hash, sizeof(hash)));
 	}
 	/**
-	 * @brief Метод проверки подписи ответа ключом сертификата
+	 * @brief Функция проверки подписи ответа ключом сертификата
 	 *
 	 * @param response    разобранный ответ ответчика
 	 * @param certificate разобранный сертификат подписавшей стороны
@@ -478,7 +477,7 @@ namespace {
 		return ((failure == x509::error_t::NONE) ? ocsp::error_t::NONE : ocsp::error_t::SIGNATURE);
 	}
 	/**
-	 * @brief Метод проверки права приложенного сертификата отвечать за издателя
+	 * @brief Функция проверки права приложенного сертификата отвечать за издателя
 	 *
 	 * @param candidate разобранный приложенный сертификат
 	 * @param issuer    разобранный сертификат издателя
@@ -571,7 +570,7 @@ namespace {
 		return ((verified == x509::error_t::NONE) ? ocsp::error_t::NONE : ocsp::error_t::RESPONDER);
 	}
 	/**
-	 * @brief Метод перевода отказа составителя записи в отказ модуля
+	 * @brief Функция перевода отказа составителя записи в отказ модуля
 	 *
 	 * @param writer составитель записи, ответивший отказом
 	 * @return       отказ модуля
@@ -899,14 +898,13 @@ nts::ocsp::error_t nts::ocsp::Response::content(const asn1::element_t & element)
 			// Выводим отказ разбора ответа по сертификату
 			return failure;
 		/**
-		 * Перечень ответов выделяет память, и нехватка её обязана дойти до вызывающего
-		 * причиной отказа, а не завершить процесс
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Добавляем разобранный ответ в перечень
 			this->_responses.push_back(response);
 		/**
-		 * Если память под перечень ответов выделить не удалось
+		 * Выполняем перехват ошибок
 		 */
 		} catch(const bad_alloc &) {
 			// Выводим отказ нехватки памяти
@@ -1024,14 +1022,13 @@ nts::ocsp::error_t nts::ocsp::Response::basic(const view_t & data) noexcept {
 				// Выводим отказ кодировки записи
 				return translate(entries.err());
 			/**
-			 * Перечень сертификатов выделяет память, и нехватка её обязана дойти до
-			 * вызывающего причиной отказа, а не завершить процесс
+			 * Выполняем перехват ошибок
 			 */
 			try {
 				// Добавляем запись сертификата целиком в перечень
 				this->_certificates.push_back(entry.element);
 			/**
-			 * Если память под перечень сертификатов выделить не удалось
+			 * Выполняем перехват ошибок
 			 */
 			} catch(const bad_alloc &) {
 				// Выводим отказ нехватки памяти
@@ -1323,7 +1320,7 @@ const vector <view_t> & nts::ocsp::Response::certificates() const noexcept {
 nts::ocsp::Response::Response() noexcept :
  _error(error_t::NONE), _outcome(outcome_t::SUCCESSFUL), _unused(0), _hashed(false), _produced(0) {}
 /**
- * @brief Метод извлечения неповторимого значения из набора расширений
+ * @brief Функция извлечения неповторимого значения из набора расширений
  *
  * @param extensions набор расширений ответа либо ответа по сертификату
  * @param result     просмотр, в который помещается неповторимое значение
@@ -1365,7 +1362,7 @@ nts::ocsp::error_t nts::ocsp::nonce(const vector <x509::extension_t> & extension
 	return error_t::NONE;
 }
 /**
- * @brief Метод проверки ответа против сертификата и его издателя
+ * @brief Функция проверки ответа против сертификата и его издателя
  *
  * @param response    разобранный ответ ответчика
  * @param certificate запись проверяемого сертификата
@@ -1540,27 +1537,27 @@ nts::ocsp::error_t nts::ocsp::verify(const response_t & response, const view_t &
 	return error_t::NONE;
 }
 /**
- * @brief Метод проверки ответов о состоянии сертификатов цепочки по местам
+ * @brief Функция проверки ответов о состоянии сертификатов цепочки по местам
  *
- * @param chain   цепочка сертификатов собеседника от листа к издателю
- * @param status  запись принятого ответа OCSP листа цепочки либо пустой накопитель
- * @param statuses записи принятых ответов OCSP иных записей цепочки по местам, пустой элемент - нет ответа
- * @param anchors записи доверенных сертификатов запаса для розыска издателя
- * @param moment  миг проверки в секундах от начала эпохи, ноль сроки не судит
- * @param leeway  дозволенный люфт сроков в секундах в обе стороны
- * @param results место, в которое помещаются состояния сертификатов по местам
- * @return        причина первого отказа либо error_t::NONE
+ * @param chain    цепочка сертификатов собеседника от листа к издателю
+ * @param status   запись принятого ответа OCSP листа цепочки либо пустой накопитель
+ * @param statuses записи принятых ответов OCSP иных записей цепочки по их местам, пустой элемент - нет ответа; место листа не занято
+ * @param anchors  записи доверенных сертификатов запаса для розыска издателя
+ * @param moment   миг проверки в секундах от начала эпохи, ноль сроки не судит
+ * @param leeway   дозволенный люфт сроков в секундах в обе стороны
+ * @param results  место, в которое помещаются состояния сертификатов по местам
+ * @return         причина первого отказа либо error_t::NONE
  *
  */
 nts::ocsp::error_t nts::ocsp::verify(const vector <vector <uint8_t>> & chain, const vector <uint8_t> & status, const vector <vector <uint8_t>> & statuses, const vector <vector <uint8_t>> & anchors, const int64_t moment, const int64_t leeway, vector <status_t> & results) noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Занимаем место под состояния по числу записей цепочки
 		results.assign(chain.size(), status_t::NONE);
 	/**
-	 * Если памяти под состояния не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -1686,7 +1683,7 @@ nts::ocsp::error_t nts::ocsp::verify(const vector <vector <uint8_t>> & chain, co
 	return error_t::NONE;
 }
 /**
- * @brief Метод составления запроса состояния сертификата
+ * @brief Функция составления запроса состояния сертификата
  *
  * @param certificate запись сертификата, состояние которого запрашивается
  * @param issuer      запись сертификата издателя
@@ -1744,8 +1741,7 @@ nts::ocsp::error_t nts::ocsp::request(const view_t & certificate, const view_t &
 	// Опознаватель расширения неповторимого значения строкой
 	string repeatless;
 	/**
-	 * Строки опознавателей выделяют память, и нехватка её обязана дойти
-	 * до вызывающего причиной отказа, а не завершить процесс
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Переносим опознаватель алгоритма хеша
@@ -1753,7 +1749,7 @@ nts::ocsp::error_t nts::ocsp::request(const view_t & certificate, const view_t &
 		// Переносим опознаватель расширения неповторимого значения
 		repeatless = NONCE;
 	/**
-	 * Если память под строки выделить не удалось
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -1875,8 +1871,7 @@ nts::ocsp::error_t nts::ocsp::request(const view_t & certificate, const view_t &
 		// Выводим отказ составления записи
 		return failed(writer);
 	/**
-	 * Перенос записи выделяет память, и нехватка её обязана дойти до вызывающего
-	 * причиной отказа, а не завершить процесс
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Получаем составленную запись запроса
@@ -1884,7 +1879,7 @@ nts::ocsp::error_t nts::ocsp::request(const view_t & certificate, const view_t &
 		// Переносим запись запроса в накопитель
 		result.assign(data.data, data.data + data.size);
 	/**
-	 * Если память под запись запроса выделить не удалось
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -1894,7 +1889,7 @@ nts::ocsp::error_t nts::ocsp::request(const view_t & certificate, const view_t &
 	return error_t::NONE;
 }
 /**
- * @brief Метод извлечения адреса ответчика из сертификата
+ * @brief Функция извлечения адреса ответчика из сертификата
  *
  * @param certificate запись сертификата
  * @param result      строка, в которую помещается адрес ответчика
@@ -1982,14 +1977,13 @@ nts::ocsp::error_t nts::ocsp::responder(const view_t & certificate, string & res
 			// Переходим к следующему способу доступа
 			continue;
 		/**
-		 * Перенос адреса выделяет память, и нехватка её обязана дойти до вызывающего
-		 * причиной отказа, а не завершить процесс
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Переносим адрес ответчика в строку
 			result.assign(reinterpret_cast <const char *> (field.content.data), field.content.size);
 		/**
-		 * Если память под адрес выделить не удалось
+		 * Выполняем перехват ошибок
 		 */
 		} catch(const bad_alloc &) {
 			// Выводим отказ нехватки памяти
@@ -2001,3 +1995,15 @@ nts::ocsp::error_t nts::ocsp::responder(const view_t & certificate, string & res
 	// Выводим успешность: адреса нет
 	return error_t::NONE;
 }
+
+/**
+ * @brief Конструктор
+ *
+ */
+nts::ocsp::Single::Single() noexcept : status(status_t::NONE), revocation(0), updated(0), next(0) {}
+
+/**
+ * @brief Деструктор
+ *
+ */
+nts::ocsp::Response::~Response() noexcept {}

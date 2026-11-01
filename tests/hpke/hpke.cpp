@@ -47,7 +47,7 @@ using namespace nts;
  */
 namespace {
 	/**
-	 * @brief Метод разбора шестнадцатеричной записи в байты
+	 * @brief Функция разбора шестнадцатеричной записи в байты
 	 *
 	 * @param text шестнадцатеричная запись
 	 * @return     разобранные байты
@@ -66,7 +66,7 @@ namespace {
 		return result;
 	}
 	/**
-	 * @brief Метод записи байтов шестнадцатеричной записью
+	 * @brief Функция записи байтов шестнадцатеричной записью
 	 *
 	 * @param data байты
 	 * @param size число байтов
@@ -91,7 +91,7 @@ namespace {
 		return result;
 	}
 	/**
-	 * @brief Метод составления просмотра по накопителю
+	 * @brief Функция составления просмотра по накопителю
 	 *
 	 * @param data накопитель
 	 * @return     просмотр накопителя
@@ -102,7 +102,7 @@ namespace {
 		return view_t(data.empty() ? nullptr : data.data(), data.size());
 	}
 	/**
-	 * @brief Метод составления просмотра области байтов
+	 * @brief Функция составления просмотра области байтов
 	 *
 	 * @param data область байтов
 	 * @param size размер области
@@ -114,7 +114,7 @@ namespace {
 		return view_t(data, size);
 	}
 	/**
-	 * @brief Метод составления набора по вектору
+	 * @brief Функция составления набора по вектору
 	 *
 	 * @param vector вектор
 	 * @return       набор алгоритмов
@@ -125,7 +125,7 @@ namespace {
 		return hpke::suite_t(hpke::kem_t::X25519_HKDF_SHA256, static_cast <hpke::kdf_t> (vector.kdf), static_cast <hpke::aead_t> (vector.aead));
 	}
 	/**
-	 * @brief Метод составления имени вектора для сообщений
+	 * @brief Функция составления имени вектора для сообщений
 	 *
 	 * @param vector вектор
 	 * @return       имя вектора
@@ -344,13 +344,13 @@ TEST(HpkeTest, Encapsulation){
 		// Проверяем инкапсулированный ключ
 		ASSERT_EQ(text(enc, sizeof(enc)), vector.enc) << named(vector);
 		// Проверяем общее значение
-		ASSERT_EQ(text(shared, sizeof(shared)), vector.shared_secret) << named(vector);
+		ASSERT_EQ(text(shared, sizeof(shared)), vector.sharedSecret) << named(vector);
 		// Обнуляем общее значение
 		::memset(shared, 0, sizeof(shared));
 		// Декапсулируем ключ
 		ASSERT_EQ(hpke::decapsulate(own, view_t(enc, sizeof(enc)), (ikmS.empty() ? view_t() : authenticator.point()), shared), hpke::error_t::NONE) << named(vector);
 		// Проверяем общее значение
-		ASSERT_EQ(text(shared, sizeof(shared)), vector.shared_secret) << named(vector);
+		ASSERT_EQ(text(shared, sizeof(shared)), vector.sharedSecret) << named(vector);
 	}
 	{
 		// Пары ключей
@@ -414,7 +414,7 @@ TEST(HpkeTest, Vectors){
 		// Материал пар
 		const std::vector <uint8_t> ikmE = bytes(vector.ikmE), ikmR = bytes(vector.ikmR), ikmS = bytes(vector.ikmS);
 		// Привязка и ключ
-		const std::vector <uint8_t> info = bytes(vector.info), psk = bytes(vector.psk), identity = bytes(vector.psk_id);
+		const std::vector <uint8_t> info = bytes(vector.info), psk = bytes(vector.psk), identity = bytes(vector.pskId);
 		// Пары ключей
 		hpke::key_t ephemeral, own, authenticator;
 		// Вырабатываем мимолётную пару
@@ -510,7 +510,7 @@ TEST(HpkeTest, Single){
 		// Материал пар
 		const std::vector <uint8_t> ikmR = bytes(vector.ikmR), ikmS = bytes(vector.ikmS);
 		// Привязка и ключ
-		const std::vector <uint8_t> info = bytes(vector.info), psk = bytes(vector.psk), identity = bytes(vector.psk_id);
+		const std::vector <uint8_t> info = bytes(vector.info), psk = bytes(vector.psk), identity = bytes(vector.pskId);
 		// Пары ключей
 		hpke::key_t own, authenticator;
 		// Вырабатываем пару получателя
@@ -905,6 +905,7 @@ TEST(HpkeTest, Refusals){
 		ASSERT_EQ(hpke::seal(suite, hpke::regime_t::PSK, own.point(), viewed(info), hpke::shared_t(viewed(psk), viewed(identity)), nullptr, viewed(aad), viewed(pt), fresh, sealed), hpke::error_t::NONE);
 		// Чужой ключ той же длины (короче 32 байтов ключ отвергается до расшифрования - круг 7)
 		std::vector <uint8_t> wrong = psk;
+		// Портим первый байт ключа: тот же размер, иное значение
 		wrong[0] ^= 0x01;
 		// Проверяем отказ чужого ключа
 		ASSERT_EQ(hpke::open(suite, hpke::regime_t::PSK, own, viewed(fresh), viewed(info), hpke::shared_t(viewed(wrong), viewed(identity)), view_t(), viewed(aad), viewed(sealed), opened), hpke::error_t::OPEN);
@@ -1115,7 +1116,7 @@ typedef struct VectorPQ {
 } vectorpq_t;
 
 /**
- * @brief Метод чтения контрольных примеров из набора
+ * @brief Функция чтения контрольных примеров из набора
  *
  * @param result накопитель примеров
  *
@@ -1145,19 +1146,33 @@ static void readpq(std::vector <vectorpq_t> & result){
 		item.aead = static_cast <uint16_t> (std::stoul(aead, nullptr, 16));
 		// Материал и ключи
 		item.ikmR = bytes(ikmR);
+		// Секретный ключ получателя из примера
 		item.skRm = bytes(skRm);
+		// Открытый ключ получателя из примера
 		item.pkRm = bytes(pkRm);
+		// Исходный материал выработки пары отправителя
 		item.ikmE = bytes(ikmE);
+		// Инкапсулированный ключ из примера
 		item.enc = bytes(enc);
+		// Разделённый ключ из примера
 		item.shared = bytes(shared);
+		// Параметр info из примера
 		item.info = bytes(info);
+		// Ключ шифрования из примера
 		item.key = bytes(key);
+		// Синхропосылка шифрования из примера
 		item.nonce = bytes(nonce);
+		// Значение экспорта из примера
 		item.exporter = bytes(exporter);
+		// Связка экспорта из примера
 		item.exportContext = bytes(expCtx);
+		// Ожидаемое значение экспорта из примера
 		item.exportValue = bytes(expVal);
+		// Данные аутентификации из примера
 		item.aad = bytes(aad);
+		// Открытый текст из примера
 		item.pt = bytes(pt);
+		// Шифротекст из примера
 		item.ct = bytes(ct);
 		// Добавляем пример
 		result.push_back(item);
@@ -1165,7 +1180,7 @@ static void readpq(std::vector <vectorpq_t> & result){
 }
 
 /**
- * @brief Метод заведения мимолётной пары примера
+ * @brief Функция заведения мимолётной пары примера
  *
  * @param kem       способ инкапсуляции
  * @param ikmE      материал отправителя
@@ -1349,6 +1364,7 @@ TEST(HpkeTest, Authenticated){
 	ASSERT_EQ(hpke::sender(suite, hpke::regime_t::AUTH, own.point(), view_t(), hpke::shared_t(), &authenticator, enc, sealer), hpke::error_t::MODE);
 	// Проверяем отказ режима AUTH_PSK у чистого ML-KEM
 	const std::vector <uint8_t> psk(32, 0x42), identity(4, 0x24);
+	// Режим AUTH_PSK у чистого ML-KEM также отвергается
 	ASSERT_EQ(hpke::sender(suite, hpke::regime_t::AUTH_PSK, own.point(), view_t(), hpke::shared_t(viewed(psk), viewed(identity)), &authenticator, enc, sealer), hpke::error_t::MODE);
 	// Проверяем допустимость режима BASE у чистого ML-KEM
 	ASSERT_EQ(hpke::sender(suite, hpke::regime_t::BASE, own.point(), view_t(), hpke::shared_t(), nullptr, enc, sealer), hpke::error_t::NONE);
@@ -1357,6 +1373,7 @@ TEST(HpkeTest, Authenticated){
 	// Проверяем признак подлинности у способов
 	ASSERT_TRUE(hpke::authenticated(hpke::kem_t::X25519_HKDF_SHA256));
 	ASSERT_TRUE(hpke::authenticated(hpke::kem_t::P256_HKDF_SHA256));
+	// Чистый ML-KEM не несёт подлинности отправителя
 	ASSERT_FALSE(hpke::authenticated(hpke::kem_t::MLKEM768));
 	ASSERT_FALSE(hpke::authenticated(hpke::kem_t::MLKEM768_X25519));
 }

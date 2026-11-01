@@ -35,11 +35,10 @@
 using namespace nts;
 
 /**
- * @brief Метод разбора записи шестнадцатеричными знаками
+ * @brief Функция разбора записи шестнадцатеричными знаками
  *
  * @param text разбираемая запись
  * @param data место, в которое помещаются разобранные байты
- *
  * @return     число разобранных байтов
  *
  */
@@ -68,11 +67,10 @@ static size_t bytes(const char * text, uint8_t * data) {
 	return result;
 }
 /**
- * @brief Метод сборки записи шестнадцатеричными знаками
+ * @brief Функция сборки записи шестнадцатеричными знаками
  *
  * @param data собираемые байты
  * @param size число собираемых байтов
- *
  * @return     собранная запись
  *
  */
@@ -567,6 +565,7 @@ TEST(GaloisTest, Repeat) {
  * @note Умножение в поле приводится по многочлену дважды, и второе приведение
  *       затрагивает лишь семь старших разрядов: длины, при которых оно и случается,
  *       контрольными примерами RFC 9058 не покрыты вовсе
+ *
  */
 TEST(GaloisTest, Lengths) {
 	// Ключ шифрования
@@ -625,11 +624,11 @@ TEST(GaloisTest, Lengths) {
 			// Выполняем зашифрование открытого текста
 			ASSERT_TRUE(mode.encrypt(view_t(associated, length), view_t(plain, size), sealed, tag)) << "длина " << size;
 			// Объект режима расшифрования с проверкой целостности
-			cipher::galois_t back_mode;
+			cipher::galois_t backMode;
 			// Выполняем запуск режима работы
-			ASSERT_TRUE(back_mode.start(block, view_t(nonce, block.size))) << "длина " << size;
+			ASSERT_TRUE(backMode.start(block, view_t(nonce, block.size))) << "длина " << size;
 			// Выполняем расшифрование шифртекста
-			ASSERT_TRUE(back_mode.decrypt(view_t(associated, length), view_t(sealed, size), back, view_t(tag, block.size))) << "длина " << size;
+			ASSERT_TRUE(backMode.decrypt(view_t(associated, length), view_t(sealed, size), back, view_t(tag, block.size))) << "длина " << size;
 			// Проверяем схождение расшифрованного текста с исходным
 			ASSERT_EQ(::memcmp(back, plain, size), 0) << "длина " << size;
 		}
@@ -719,20 +718,20 @@ TEST(MgmTest, Descriptor) {
 	// Предел суммарной длины у блока в восемь байтов
 	const size_t limit = (static_cast <size_t> (1) << 29);
 	// Место, в которое складывается метка целостности «Магмы»
-	uint8_t little_tag[cipher::MAGMA_BLOCK];
+	uint8_t littleTag[cipher::MAGMA_BLOCK];
 	// Проверяем отказ зашифрования при длине сообщения ровно в предел
-	ASSERT_FALSE(modest.encrypt(view_t(nullptr, 0), view_t(source, limit), result, little_tag));
+	ASSERT_FALSE(modest.encrypt(view_t(nullptr, 0), view_t(source, limit), result, littleTag));
 	// Проверяем отказ зашифрования при длине связанных данных ровно в предел
-	ASSERT_FALSE(modest.encrypt(view_t(source, limit), view_t(nullptr, 0), result, little_tag));
+	ASSERT_FALSE(modest.encrypt(view_t(source, limit), view_t(nullptr, 0), result, littleTag));
 	// Проверяем отказ расшифрования при длине шифртекста ровно в предел
-	ASSERT_FALSE(modest.decrypt(view_t(nullptr, 0), view_t(source, limit), result, view_t(little_tag, sizeof(little_tag))));
+	ASSERT_FALSE(modest.decrypt(view_t(nullptr, 0), view_t(source, limit), result, view_t(littleTag, sizeof(littleTag))));
 	/**
 	 * Сумма длин сверяется с пределом ОТДЕЛЬНО от каждой из них: две части, всякая ниже
 	 * предела, вместе его превзойти вправе
 	 */
-	ASSERT_FALSE(modest.encrypt(view_t(source, (limit - 1)), view_t(source, 1), result, little_tag));
+	ASSERT_FALSE(modest.encrypt(view_t(source, (limit - 1)), view_t(source, 1), result, littleTag));
 	// Проверяем, что длина ниже предела заслоном не задета
-	ASSERT_TRUE(modest.encrypt(view_t(nullptr, 0), view_t(source, sizeof(source)), result, little_tag));
+	ASSERT_TRUE(modest.encrypt(view_t(nullptr, 0), view_t(source, sizeof(source)), result, littleTag));
 	// Объект незаведённого режима выработки имитовставки
 	cipher::galois_t unstarted;
 	/**

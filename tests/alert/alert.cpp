@@ -165,6 +165,7 @@ TEST(AlertTest, Names){
  * Круг 5: перечень описаний, смертельных всегда (RFC 5246 §7.2.2, RFC 6066 §8, RFC 7507 §3)
  */
 TEST(AlertTest, Grave){
+	// Описания, смертельные при любом уровне извещения
 	const alert::description_t always[] = {
 		alert::description_t::UNEXPECTED, alert::description_t::MAC, alert::description_t::DECRYPTION, alert::description_t::OVERSIZE,
 		alert::description_t::COMPRESSION, alert::description_t::HANDSHAKE, alert::description_t::PARAMETER, alert::description_t::AUTHORITY,
@@ -172,11 +173,22 @@ TEST(AlertTest, Grave){
 		alert::description_t::SECURITY, alert::description_t::INTERNAL, alert::description_t::FALLBACK, alert::description_t::EXTENSION,
 		alert::description_t::STATUS, alert::description_t::PSK, alert::description_t::PROTOCOL
 	};
+	/**
+	 * Перебираем описания, смертельные всегда: каждое обязано быть признано смертельным
+	 */
 	for(size_t i = 0; i < (sizeof(always) / sizeof(always[0])); i++)
+		// Каждое описание обязано быть смертельным
 		EXPECT_TRUE(alert::grave(always[i])) << static_cast <int> (always[i]);
+	// Описания, смертельные лишь на смертельном уровне извещения
 	const alert::description_t level[] = {alert::description_t::CLOSE, alert::description_t::CANCELED, alert::description_t::RENEGOTIATION, alert::description_t::NAME, alert::description_t::BADCERT, alert::description_t::EXPIRED};
+	/**
+	 * Перебираем описания со смертностью от уровня: каждое обязано быть признано несмертельным
+	 */
 	for(size_t i = 0; i < (sizeof(level) / sizeof(level[0])); i++)
+		// Каждое описание обязано быть несмертельным
 		EXPECT_FALSE(alert::grave(level[i])) << static_cast <int> (level[i]);
+	// Извещение о требовании ECH известно
 	EXPECT_TRUE(alert::known(alert::description_t::ECH_REQUIRED));
+	// Название извещения о требовании ECH — ech_required
 	EXPECT_STREQ(alert::name(alert::description_t::ECH_REQUIRED), "ech_required");
 }

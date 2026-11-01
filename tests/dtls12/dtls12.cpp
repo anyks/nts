@@ -84,11 +84,13 @@ namespace {
 	 * утверждаются лишь по байтам записей и сообщений
 	 */
 	static constexpr uint16_t DTLS12 = 0xFEFD;
+	// Метка DTLS 1.0: с неё сервер просит подтверждение адреса прежде полного рукопожатия
 	static constexpr uint16_t DTLS10 = 0xFEFF;
 	/**
 	 * Издания единой шкалы: пределы versions() и итог version() на любом переносе
 	 */
 	static constexpr uint16_t TLS12 = 0x0303;
+	// Верхний предел единой шкалы: версии выше TLS 1.3 на переносе не бывает
 	static constexpr uint16_t TLS13 = 0x0304;
 	/**
 	 * Длина метки возврата состояния издания DTLS 1.2: поколение и имитовставка (раздел 4.2.1 RFC 6347)
@@ -99,10 +101,9 @@ namespace {
 	 */
 	static const uint8_t DOWNGRADE[8] = {0x44, 0x4F, 0x57, 0x4E, 0x47, 0x52, 0x44, 0x01};
 	/**
-	 * @brief Метод чтения файла набора целиком
+	 * @brief Функция чтения файла набора целиком
 	 *
 	 * @param name имя файла набора
-	 *
 	 * @return     содержимое файла набора
 	 *
 	 */
@@ -119,11 +120,10 @@ namespace {
 		return result;
 	}
 	/**
-	 * @brief Метод составления подлинности стороны из ключей набора
+	 * @brief Функция составления подлинности стороны из ключей набора
 	 *
 	 * @param name   имя ключа набора
 	 * @param result подлинность, в которую помещается итог
-	 *
 	 * @return       признак успешности составления подлинности
 	 *
 	 */
@@ -176,18 +176,17 @@ namespace {
 		}
 	} bond_t;
 	/**
-	 * @brief Метод снятия всех готовых дейтаграмм стороны
+	 * @brief Функция снятия всех готовых дейтаграмм стороны
 	 *
 	 * @param from   связь стороны, отдающей дейтаграммы
 	 * @param result перечень, в который помещаются дейтаграммы
-	 *
 	 * @return       признак успешности снятия
 	 *
 	 */
 	template <typename T>
 	bool drain(T & from, vector <vector <uint8_t>> & result) noexcept {
 		/**
-		 * Выполняем перехват ошибок работы с памятью
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			/**
@@ -202,7 +201,7 @@ namespace {
 				from.consume(data.size);
 			}
 		/**
-		 * Если памяти под дейтаграммы не хватило
+		 * Выполняем перехват ошибок
 		 */
 		} catch(const bad_alloc &) {
 			// Выводим отказ снятия
@@ -212,13 +211,12 @@ namespace {
 		return true;
 	}
 	/**
-	 * @brief Метод переноса дейтаграмм от одной стороны к другой по описанному пути
+	 * @brief Функция переноса дейтаграмм от одной стороны к другой по описанному пути
 	 *
 	 * @param from      связь стороны, отдающей дейтаграммы
 	 * @param to        связь стороны, принимающей дейтаграммы
 	 * @param bond      описание пути между сторонами
 	 * @param direction направление переноса: ноль от клиента, единица от сервера
-	 *
 	 * @return          признак того, что хоть одна дейтаграмма снята со стороны
 	 *
 	 */
@@ -275,13 +273,12 @@ namespace {
 		return true;
 	}
 	/**
-	 * @brief Метод проведения связи сторон до тишины: перенос дейтаграмм и ход часов
+	 * @brief Функция проведения связи сторон до тишины: перенос дейтаграмм и ход часов
 	 *
 	 * @param client связь стороны клиента
 	 * @param server связь стороны сервера
 	 * @param bond   описание пути между сторонами
 	 * @param rounds предел кругов переноса
-	 *
 	 * @return       число кругов, ушедших на перенос
 	 *
 	 */
@@ -333,7 +330,7 @@ namespace {
 	 */
 	static const uint8_t ADDRESS[] = {10, 0, 0, 1, 0x12, 0x34};
 	/**
-	 * @brief Метод настройки сторон связи под перенос дейтаграммами изданием 1.2
+	 * @brief Функция настройки сторон связи под перенос дейтаграммами изданием 1.2
 	 *
 	 * @param client     связь стороны клиента
 	 * @param server     связь стороны сервера
@@ -369,12 +366,11 @@ namespace {
 		}
 	}
 	/**
-	 * @brief Метод обмена прикладными данными в обе стороны
+	 * @brief Функция обмена прикладными данными в обе стороны
 	 *
 	 * @param client связь стороны клиента
 	 * @param server связь стороны сервера
 	 * @param bond   описание пути между сторонами
-	 *
 	 * @return       признак того, что обе стороны прочли отправленное
 	 *
 	 */
@@ -407,7 +403,7 @@ namespace {
 		return true;
 	}
 	/**
-	 * @brief Метод чтения заголовка записи DTLS 1.2 из дейтаграммы
+	 * @brief Функция чтения заголовка записи DTLS 1.2 из дейтаграммы
 	 *
 	 * @param data     дейтаграмма
 	 * @param offset   смещение записи в дейтаграмме
@@ -416,7 +412,6 @@ namespace {
 	 * @param epoch    место, в которое помещается пора ключей
 	 * @param sequence место, в которое помещается порядковый номер
 	 * @param size     место, в которое помещается длина содержимого
-	 *
 	 * @return         признак того, что заголовок прочитан
 	 *
 	 */
@@ -445,7 +440,7 @@ namespace {
 		return ((offset + datagram::DATAGRAM_PLAIN_HEADER + size) <= data.size());
 	}
 	/**
-	 * @brief Метод составления заголовка записи DTLS 1.2
+	 * @brief Функция составления заголовка записи DTLS 1.2
 	 *
 	 * @param type     вид содержимого
 	 * @param epoch    пора ключей
@@ -477,12 +472,11 @@ namespace {
 		result.push_back(static_cast <uint8_t> (size & 0xFF));
 	}
 	/**
-	 * @brief Метод составления сообщения рукопожатия в обвязке DTLS одним куском
+	 * @brief Функция составления сообщения рукопожатия в обвязке DTLS одним куском
 	 *
 	 * @param type     вид сообщения
 	 * @param body     тело сообщения
 	 * @param sequence порядковый номер сообщения
-	 *
 	 * @return         сообщение в обвязке DTLS
 	 *
 	 */
@@ -509,13 +503,12 @@ namespace {
 		return result;
 	}
 	/**
-	 * @brief Метод составления открытой записи с сообщением рукопожатия
+	 * @brief Функция составления открытой записи с сообщением рукопожатия
 	 *
 	 * @param type     вид сообщения
 	 * @param body     тело сообщения
 	 * @param message  порядковый номер сообщения
 	 * @param sequence порядковый номер записи
-	 *
 	 * @return         дейтаграмма с открытой записью
 	 *
 	 */
@@ -532,7 +525,7 @@ namespace {
 		return result;
 	}
 	/**
-	 * @brief Метод составления дейтаграммы с куском сообщения рукопожатия открытой записью
+	 * @brief Функция составления дейтаграммы с куском сообщения рукопожатия открытой записью
 	 *
 	 * @param type     вид сообщения
 	 * @param size     длина целого сообщения по обвязке
@@ -541,7 +534,6 @@ namespace {
 	 * @param data     тело куска
 	 * @param length   длина куска
 	 * @param sequence порядковый номер записи
-	 *
 	 * @return         дейтаграмма с куском
 	 *
 	 */
@@ -574,13 +566,12 @@ namespace {
 		return result;
 	}
 	/**
-	 * @brief Метод дробления дейтаграммы с целым сообщением рукопожатия на две дейтаграммы с кусками
+	 * @brief Функция дробления дейтаграммы с целым сообщением рукопожатия на две дейтаграммы с кусками
 	 *
 	 * @param whole  дейтаграмма с целым сообщением одной открытой записью
 	 * @param cut    длина первого куска; за пределами сообщения - середина
 	 * @param first  дейтаграмма с первым куском записью того же номера
 	 * @param second дейтаграмма со вторым куском записью следующего номера
-	 *
 	 * @return       признак того, что дейтаграмма раздроблена
 	 *
 	 */
@@ -597,17 +588,17 @@ namespace {
 		size_t size = 0;
 		// Читаем заголовок записи
 		if(!heading(whole, 0, type, version, epoch, sequence, size))
-			// Выводим отказ
+			// Выводим отрицательный результат - заголовок дейтаграммы не разобран
 			return false;
 		// Обвязка куска
 		datagram::fragment_t fragment;
 		// Разбираем обвязку
 		if(datagram::parse(view_t(whole.data() + datagram::DATAGRAM_PLAIN_HEADER, size), fragment) != datagram::error_t::NONE)
-			// Выводим отказ
+			// Выводим отрицательный результат - запись дейтаграммы не разобрана
 			return false;
 		// Сообщение обязано быть целым и не короче двух байтов
 		if((fragment.offset != 0) || (fragment.length != fragment.size) || (fragment.size < 2))
-			// Выводим отказ
+			// Выводим отрицательный результат - фрагмент не целый либо меньше двух байтов
 			return false;
 		// Место разреза: заданное либо середина, когда сообщение короче
 		const size_t place = (((cut > 0) && (cut < fragment.size)) ? cut : (fragment.size / 2));
@@ -644,12 +635,11 @@ namespace {
 	 */
 	static const extension::group_t GROUPS[] = {extension::group_t::X25519, extension::group_t::SECP256R1, extension::group_t::SECP384R1};
 	/**
-	 * @brief Метод проведения сторон до повторного приветствия клиента с меткой
+	 * @brief Функция проведения сторон до повторного приветствия клиента с меткой
 	 *
 	 * @param client связь стороны клиента
 	 * @param server связь стороны сервера
 	 * @param bond   описание пути между сторонами
-	 *
 	 * @return       признак того, что повторное приветствие доставлено серверу
 	 *
 	 */
@@ -658,12 +648,11 @@ namespace {
 		return (carry(client, server, bond, 0) && carry(server, client, bond, 1) && carry(client, server, bond, 0));
 	}
 	/**
-	 * @brief Метод составления тела приветствия поддельного клиента издания 1.2
+	 * @brief Функция составления тела приветствия поддельного клиента издания 1.2
 	 *
 	 * @param cookie  метка возврата состояния, пустая у первого приветствия
 	 * @param version издание заголовка приветствия: 0xFEFD у настоящего клиента
 	 * @param result  накопитель, в который помещается тело приветствия
-	 *
 	 * @return        признак успешности составления
 	 *
 	 */
@@ -690,11 +679,11 @@ namespace {
 		vector <uint8_t> groups, schemes;
 		// Составляем перечень групп
 		if(extension::groups(vector <extension::group_t> {extension::group_t::X25519}, groups) != extension::error_t::NONE)
-			// Выводим отказ
+			// Выводим отрицательный результат - группы не составлены
 			return false;
 		// Составляем перечень схем
 		if(extension::schemes(vector <extension::scheme_t> {extension::scheme_t::ECDSA_SECP256R1_SHA256}, schemes) != extension::error_t::NONE)
-			// Выводим отказ
+			// Выводим отрицательный результат - схемы не составлены
 			return false;
 		// Тело записей точек кривой: одна несжатая
 		static const uint8_t FORMATS[] = {0x01, 0x00};
@@ -728,11 +717,10 @@ namespace {
 		vector <uint8_t> body;
 	} taken_t;
 	/**
-	 * @brief Метод снятия открытых сообщений рукопожатия с дейтаграмм
+	 * @brief Функция снятия открытых сообщений рукопожатия с дейтаграмм
 	 *
 	 * @param datagrams дейтаграммы
 	 * @param result    перечень, в который помещаются сообщения
-	 *
 	 * @return          признак того, что все записи открытые, а сообщения целые
 	 *
 	 */
@@ -759,11 +747,11 @@ namespace {
 				size_t size = 0;
 				// Если заголовок не прочитан
 				if(!heading(datagrams[i], offset, type, version, epoch, sequence, size))
-					// Выводим отказ
+					// Выводим отрицательный результат - заголовок дейтаграммы не разобран
 					return false;
 				// Записи ожидаются открытые, рукопожатия и издания DTLS 1.2 либо DTLS 1.0 - им идёт просьба о подтверждении адреса (раздел 4.2.1 RFC 6347, решение 13 переноса)
 				if((type != static_cast <uint8_t> (record::type_t::HANDSHAKE)) || (epoch != 0) || ((version != DTLS12) && (version != DTLS10)))
-					// Выводим отказ
+					// Выводим отрицательный результат - запись не рукопожатие, эпоха не нулевая либо издание не то
 					return false;
 				// Содержимое записи
 				const view_t content(datagrams[i].data() + offset + datagram::DATAGRAM_PLAIN_HEADER, size);
@@ -777,11 +765,11 @@ namespace {
 					datagram::fragment_t fragment;
 					// Если обвязка не разобрана
 					if(datagram::parse(view_t(content.data + place, content.size - place), fragment) != datagram::error_t::NONE)
-						// Выводим отказ
+						// Выводим отрицательный результат - фрагмент не разобран
 						return false;
 					// Кусок обязан быть целым сообщением
 					if((fragment.offset != 0) || (fragment.length != fragment.size))
-						// Выводим отказ
+						// Выводим отрицательный результат - фрагмент не целый
 						return false;
 					// Снятое сообщение
 					taken_t item;
@@ -802,14 +790,13 @@ namespace {
 				offset += (datagram::DATAGRAM_PLAIN_HEADER + size);
 			}
 		}
-		// Выводим успешность
+		// Сообщаем об успешном разборе пучка
 		return true;
 	}
 	/**
-	 * @brief Метод чтения файла целиком по пути
+	 * @brief Функция чтения файла целиком по пути
 	 *
 	 * @param path путь к файлу
-	 *
 	 * @return     содержимое файла
 	 *
 	 */
@@ -826,10 +813,9 @@ namespace {
 		return result;
 	}
 	/**
-	 * @brief Метод разбора области байтов из шестнадцатеричной записи
+	 * @brief Функция разбора области байтов из шестнадцатеричной записи
 	 *
 	 * @param text шестнадцатеричная запись области байтов
-	 *
 	 * @return     разобранная область байтов
 	 *
 	 */
@@ -872,11 +858,10 @@ namespace {
 		{"no-ems",              0xC02B, false, false}
 	};
 	/**
-	 * @brief Метод составления пути к каталогу вектора
+	 * @brief Функция составления пути к каталогу вектора
 	 *
 	 * @param edition  издание openssl
 	 * @param scenario имя сценария
-	 *
 	 * @return         путь к каталогу вектора
 	 *
 	 */
@@ -885,10 +870,9 @@ namespace {
 		return (std::string(CORPUS) + "/dtls12/dtls12-OpenSSL-" + edition + "/" + scenario);
 	}
 	/**
-	 * @brief Метод проверки наличия каталога вектора
+	 * @brief Функция проверки наличия каталога вектора
 	 *
 	 * @param path путь к каталогу вектора
-	 *
 	 * @return     признак наличия каталога
 	 *
 	 */
@@ -899,11 +883,10 @@ namespace {
 		return ((::stat(path.c_str(), &info) == 0) && S_ISDIR(info.st_mode));
 	}
 	/**
-	 * @brief Метод суждения о пропуске отсутствующего вектора
+	 * @brief Функция суждения о пропуске отсутствующего вектора
 	 *
 	 * @param edition  издание openssl
 	 * @param scenario сценарий
-	 *
 	 * @return         признак того, что отсутствие вектора ожидаемо: -no_ems появился в 3.3.1
 	 *
 	 */
@@ -912,10 +895,9 @@ namespace {
 		return ((::strcmp(scenario.name, "no-ems") == 0) && (::strncmp(edition, "3.0.", 4) == 0));
 	}
 	/**
-	 * @brief Метод получения кода набора по имени openssl
+	 * @brief Функция получения кода набора по имени openssl
 	 *
 	 * @param title имя набора в записи openssl
-	 *
 	 * @return      код набора либо ноль
 	 *
 	 */
@@ -951,11 +933,10 @@ namespace {
 		Brief() noexcept : suite(0), master(false), queried(false) {}
 	} brief_t;
 	/**
-	 * @brief Метод проверки начала строки
+	 * @brief Функция проверки начала строки
 	 *
 	 * @param line   проверяемая строка
 	 * @param prefix ожидаемое начало
-	 *
 	 * @return       признак того, что строка начинается с ожидаемого
 	 *
 	 */
@@ -964,11 +945,10 @@ namespace {
 		return (line.compare(0, ::strlen(prefix), prefix) == 0);
 	}
 	/**
-	 * @brief Метод разбора описания вектора README.md
+	 * @brief Функция разбора описания вектора README.md
 	 *
 	 * @param path   путь к каталогу вектора
 	 * @param result сведения о векторе
-	 *
 	 * @return       признак успешности разбора
 	 *
 	 */
@@ -977,7 +957,7 @@ namespace {
 		const vector <uint8_t> text = slurp(path + "/README.md");
 		// Если описания нет
 		if(text.empty())
-			// Выводим отказ
+			// Выводим отрицательный результат - текст журнала пуст
 			return false;
 		// Описание строкой
 		const std::string readme(text.begin(), text.end());
@@ -1038,12 +1018,11 @@ namespace {
 		vector <uint8_t> content;
 	} wired_t;
 	/**
-	 * @brief Метод чтения дейтаграмм стороны из вектора по описи провода
+	 * @brief Функция чтения дейтаграмм стороны из вектора по описи провода
 	 *
 	 * @param path   путь к каталогу вектора
 	 * @param side   сторона: c2s либо s2c
 	 * @param result перечень дейтаграмм в порядке провода
-	 *
 	 * @return       признак того, что опись сошлась с файлами
 	 *
 	 */
@@ -1070,7 +1049,7 @@ namespace {
 			const vector <uint8_t> datagram = slurp(path + name);
 			// Если длина не сошлась с описью
 			if(datagram.size() != length)
-				// Выводим отказ
+				// Выводим отрицательный результат - длина дейтаграммы не сошлась
 				return false;
 			// Добавляем дейтаграмму
 			result.push_back(datagram);
@@ -1079,11 +1058,10 @@ namespace {
 		return !result.empty();
 	}
 	/**
-	 * @brief Метод разбора дейтаграмм на записи
+	 * @brief Функция разбора дейтаграмм на записи
 	 *
 	 * @param datagrams дейтаграммы
 	 * @param result    перечень записей в порядке провода
-	 *
 	 * @return          признак того, что все записи разобраны
 	 *
 	 */
@@ -1104,25 +1082,24 @@ namespace {
 				size_t size = 0;
 				// Если заголовок не прочитан
 				if(!heading(datagrams[i], offset, item.type, item.version, item.epoch, item.sequence, size))
-					// Выводим отказ
+					// Выводим отрицательный результат - заголовок дейтаграммы не разобран
 					return false;
 				// Переносим содержимое
 				item.content.assign(datagrams[i].begin() + offset + datagram::DATAGRAM_PLAIN_HEADER, datagrams[i].begin() + offset + datagram::DATAGRAM_PLAIN_HEADER + size);
-				// Добавляем запись
+				// Кладём разобранную запись в перечень
 				result.push_back(item);
 				// Сдвигаем смещение
 				offset += (datagram::DATAGRAM_PLAIN_HEADER + size);
 			}
 		}
-		// Выводим успешность
+		// Сообщаем об успешном обходе записей
 		return true;
 	}
 	/**
-	 * @brief Метод сборки открытых сообщений рукопожатия нулевой поры из записей
+	 * @brief Функция сборки открытых сообщений рукопожатия нулевой поры из записей
 	 *
 	 * @param records записи стороны в порядке провода
 	 * @param result  перечень сообщений в обвязке DTLS одним куском по возрастанию номеров
-	 *
 	 * @return        признак того, что сообщения собраны целиком
 	 *
 	 */
@@ -1145,7 +1122,7 @@ namespace {
 				datagram::fragment_t fragment;
 				// Если обвязка не разобрана
 				if(datagram::parse(view_t(records[i].content.data() + place, records[i].content.size() - place), fragment) != datagram::error_t::NONE)
-					// Выводим отказ
+					// Выводим отрицательный результат - фрагмент не разобран
 					return false;
 				// Место сборки сообщения
 				size_t index = result.size();
@@ -1173,7 +1150,7 @@ namespace {
 				}
 				// Если кусок вышел за тело
 				if((fragment.offset + fragment.length) > result[index].body.size())
-					// Выводим отказ
+					// Выводим отрицательный результат - фрагмент выходит за пределы тела
 					return false;
 				// Переносим кусок
 				::memcpy(result[index].body.data() + fragment.offset, records[i].content.data() + place + datagram::DATAGRAM_FRAGMENT_HEADER, fragment.length);
@@ -1198,15 +1175,14 @@ namespace {
 		for(size_t i = 0; i < result.size(); i++)
 			// Составляем сообщение
 			result[i].framed = framed(result[i].type, result[i].body, result[i].sequence);
-		// Выводим успешность
+		// Сообщаем об успешном обрамлении сообщений
 		return true;
 	}
 	/**
-	 * @brief Метод розыска сообщения заданного вида в перечне
+	 * @brief Функция розыска сообщения заданного вида в перечне
 	 *
 	 * @param messages перечень сообщений
 	 * @param type     искомый вид
-	 *
 	 * @return         указатель на сообщение либо nullptr
 	 *
 	 */
@@ -1242,24 +1218,23 @@ namespace {
 		Exchange() noexcept : group(extension::group_t::NONE), scheme(0) {}
 	} exchange_t;
 	/**
-	 * @brief Метод разбора тела ServerKeyExchange по разделу 5.4 RFC 8422
+	 * @brief Функция разбора тела ServerKeyExchange по разделу 5.4 RFC 8422
 	 *
 	 * @param data   тело сообщения
 	 * @param result разобранный обмен
-	 *
 	 * @return       признак успешности разбора
 	 *
 	 */
 	bool dissect(const view_t & data, exchange_t & result) noexcept {
 		// Если тело негодно
 		if((data.data == nullptr) || (data.size < 4) || (data.data[0] != 0x03))
-			// Выводим отказ
+			// Выводим отрицательный результат - данные негодны
 			return false;
 		// Длина точки
 		const size_t point = data.data[3];
 		// Если тело короче точки и подписи
 		if(data.size < (4 + point + 4))
-			// Выводим отказ
+			// Выводим отрицательный результат - места под длину точки нет
 			return false;
 		// Группа
 		result.group = static_cast <extension::group_t> ((static_cast <uint16_t> (data.data[1]) << 8) | data.data[2]);
@@ -1273,21 +1248,20 @@ namespace {
 		const size_t length = ((static_cast <size_t> (data.data[offset + 2]) << 8) | data.data[offset + 3]);
 		// Если длина не сошлась
 		if((offset + 4 + length) != data.size)
-			// Выводим отказ
+			// Выводим отрицательный результат - длина не сошлась
 			return false;
 		// Подпись
 		result.signature = view_t(data.data + offset + 4, length);
-		// Выводим успешность
+		// Сообщаем об успешном разборе точки
 		return true;
 	}
 	/**
-	 * @brief Метод проверки подписи схемой TLS 1.2 ключом сертификата
+	 * @brief Функция проверки подписи схемой TLS 1.2 ключом сертификата
 	 *
 	 * @param key       открытый ключ сертификата
 	 * @param scheme    схема подписи из сообщения
 	 * @param content   подписанное содержимое
 	 * @param signature подпись
-	 *
 	 * @return          признак того, что подпись сошлась
 	 *
 	 */
@@ -1298,7 +1272,7 @@ namespace {
 			const char * algorithm = ((scheme == 0x0401) ? "1.2.840.113549.1.1.11" : ((scheme == 0x0501) ? "1.2.840.113549.1.1.12" : ((scheme == 0x0601) ? "1.2.840.113549.1.1.13" : nullptr)));
 			// Если схема неведома
 			if(algorithm == nullptr)
-				// Выводим отказ
+				// Выводим отрицательный результат - алгоритм не найден
 				return false;
 			// Выводим итог проверки
 			return (x509::verify(content, signature, algorithm, key) == x509::error_t::NONE);
@@ -1307,16 +1281,15 @@ namespace {
 		const digest::hash_t algorithm = extension::hash(static_cast <extension::scheme_t> (scheme));
 		// Если хеша нет
 		if(algorithm == digest::hash_t::NONE)
-			// Выводим отказ
+			// Выводим отрицательный результат - алгоритм неведом
 			return false;
 		// Выводим итог проверки
 		return (x509::check(key, algorithm, content, signature) == x509::error_t::NONE);
 	}
 	/**
-	 * @brief Метод извлечения первого сертификата DER из тела сообщения Certificate
+	 * @brief Функция извлечения первого сертификата DER из тела сообщения Certificate
 	 *
 	 * @param data тело сообщения Certificate
-	 *
 	 * @return     первый сертификат цепочки либо пустая область
 	 *
 	 */
@@ -1337,12 +1310,11 @@ namespace {
 		return view_t(data.data + 6, length);
 	}
 	/**
-	 * @brief Метод разбора ключевого файла CLIENT_RANDOM
+	 * @brief Функция разбора ключевого файла CLIENT_RANDOM
 	 *
 	 * @param path   путь к каталогу вектора
 	 * @param random случайное значение клиента (32 байта)
 	 * @param master главный секрет (48 байтов)
-	 *
 	 * @return       признак успешности разбора
 	 *
 	 */
@@ -1367,18 +1339,17 @@ namespace {
 				return ((random.size() == 32) && (master.size() == 48));
 			}
 		}
-		// Выводим отказ
+		// Выводим отрицательный результат - метка случайного значения клиента не найдена
 		return false;
 	}
 	/**
-	 * @brief Метод вычисления verify_data завершения по разделу 7.4.9 RFC 5246
+	 * @brief Функция вычисления verify_data завершения по разделу 7.4.9 RFC 5246
 	 *
 	 * @param suite      набор шифрования
 	 * @param master     главный секрет
 	 * @param label      метка стороны: client finished либо server finished
 	 * @param transcript сообщения переписки в обвязке DTLS по порядку
 	 * @param result     вычисленный verify_data (12 байтов)
-	 *
 	 * @return           признак успешности вычисления
 	 *
 	 */
@@ -1397,13 +1368,13 @@ namespace {
 		uint8_t digest[64];
 		// Если хеш не получен
 		if(!hasher.finish(digest, digest::length(algorithm)))
-			// Выводим отказ
+			// Выводим отрицательный результат - хеш не снят
 			return false;
 		// Выводим итог порождающей функции
 		return digest::prf(algorithm, view_t(master.data(), master.size()), view_t(reinterpret_cast <const uint8_t *> (label), ::strlen(label)), view_t(digest, digest::length(algorithm)), result, 12);
 	}
 	/**
-	 * @brief Метод выведения ключевого материала стороны по разделу 6.3 RFC 5246
+	 * @brief Функция выведения ключевого материала стороны по разделу 6.3 RFC 5246
 	 *
 	 * @param suite      набор шифрования
 	 * @param master     главный секрет
@@ -1411,7 +1382,6 @@ namespace {
 	 * @param server     случайное значение сервера
 	 * @param protection защита, заводимая ключом стороны
 	 * @param own        признак ключа клиента (иначе - ключа сервера)
-	 *
 	 * @return           признак успешности заведения защиты
 	 *
 	 */
@@ -1422,7 +1392,7 @@ namespace {
 		const size_t size = protect::block(suite);
 		// Если набор неведом
 		if((width == 0) || (size == 0))
-			// Выводим отказ
+			// Выводим отрицательный результат - ширина либо размер нулевые
 			return false;
 		// Затравка: случайные значения сервера и клиента
 		uint8_t seed[64];
@@ -1436,7 +1406,7 @@ namespace {
 		uint8_t material[(protect::PROTECT_KEY + protect::PROTECT_VECTOR) * 2];
 		// Если материал не выведен
 		if(!digest::prf(protect::hash(suite), view_t(master.data(), master.size()), view_t(reinterpret_cast <const uint8_t *> (label), ::strlen(label)), view_t(seed, sizeof(seed)), material, (width + size) * 2))
-			// Выводим отказ
+			// Выводим отрицательный результат - расписание не выработано
 			return false;
 		// Ключ стороны
 		const view_t key(material + (own ? 0 : width), width);
@@ -1446,11 +1416,10 @@ namespace {
 		return protection.start(suite, key, vector);
 	}
 	/**
-	 * @brief Метод сличения снятого куска сообщения из вектора с собранным сообщением
+	 * @brief Функция сличения снятого куска сообщения из вектора с собранным сообщением
 	 *
 	 * @param name  путь к файлу куска: нарезанные сообщения взяты из открытых записей как есть
 	 * @param whole собранное сообщение
-	 *
 	 * @return      признак того, что кусок принадлежит сообщению: вид, длина, номер и тело на своём месте
 	 *
 	 */
@@ -1461,26 +1430,25 @@ namespace {
 		datagram::fragment_t fragment;
 		// Если обвязка не разобрана
 		if(datagram::parse(view_t(piece.data(), piece.size()), fragment) != datagram::error_t::NONE)
-			// Выводим отказ
+			// Выводим отрицательный результат - фрагмент не разобран
 			return false;
 		// Если вид, длина либо номер не сошлись
 		if((fragment.type != whole.type) || (fragment.size != whole.body.size()) || (fragment.sequence != whole.sequence))
-			// Выводим отказ
+			// Выводим отрицательный результат - фрагмент не сошёлся с целым
 			return false;
 		// Если кусок вышел за тело либо файл короче куска
 		if(((fragment.offset + fragment.length) > whole.body.size()) || (piece.size() != (datagram::DATAGRAM_FRAGMENT_HEADER + fragment.length)))
-			// Выводим отказ
+			// Выводим отрицательный результат - фрагмент выходит за тело либо длина не та
 			return false;
 		// Выводим итог сличения тела куска на своём месте
 		return (::memcmp(whole.body.data() + fragment.offset, piece.data() + datagram::DATAGRAM_FRAGMENT_HEADER, fragment.length) == 0);
 	}
 	/**
-	 * @brief Метод сборки завершения из защищённых записей первой поры
+	 * @brief Функция сборки завершения из защищённых записей первой поры
 	 *
 	 * @param records    записи стороны
 	 * @param protection защита чтения стороны, заведённая её ключом
 	 * @param result     собранное завершение в обвязке DTLS одним куском
-	 *
 	 * @return           признак того, что завершение собрано целиком
 	 *
 	 * @details Раздел 4.1.2.1 RFC 6347: всякая запись вскрывается своим номером с порой в
@@ -1506,7 +1474,7 @@ namespace {
 			const uint64_t number = ((static_cast <uint64_t> (records[i].epoch) << 48) | records[i].sequence);
 			// Если защиту снять не удалось
 			if(protection.unwrap(number, static_cast <record::version_t> (records[i].version), record::type_t::HANDSHAKE, view_t(records[i].content.data(), records[i].content.size()), plain) != protect::error_t::NONE)
-				// Выводим отказ
+				// Выводим отрицательный результат - защита записи не снята
 				return false;
 			// Смещение куска
 			size_t place = 0;
@@ -1518,7 +1486,7 @@ namespace {
 				datagram::fragment_t fragment;
 				// Если обвязка не разобрана
 				if(datagram::parse(view_t(plain.data() + place, plain.size() - place), fragment) != datagram::error_t::NONE)
-					// Выводим отказ
+					// Выводим отрицательный результат - фрагмент не разобран
 					return false;
 				// Если сборка не начата
 				if(!started){
@@ -1533,7 +1501,7 @@ namespace {
 				}
 				// Если кусок чужой либо вышел за тело
 				if((fragment.type != result.type) || (fragment.sequence != result.sequence) || (fragment.size != result.body.size()) || ((fragment.offset + fragment.length) > result.body.size()))
-					// Выводим отказ
+					// Выводим отрицательный результат - фрагмент не сошёлся с целым
 					return false;
 				// Переносим кусок
 				::memcpy(result.body.data() + fragment.offset, plain.data() + place + datagram::DATAGRAM_FRAGMENT_HEADER, fragment.length);
@@ -1545,18 +1513,17 @@ namespace {
 		}
 		// Если сборка не начата либо покрыта не целиком
 		if(!started || (covered != result.body.size()))
-			// Выводим отказ
+			// Выводим отрицательный результат - собрано не всё тело
 			return false;
 		// Составляем сообщение одним куском
 		result.framed = framed(result.type, result.body, result.sequence);
-		// Выводим успешность
+		// Сообщаем об успешном собирании тела
 		return true;
 	}
 	/**
-	 * @brief Метод розыска защищённой записи рукопожатия первой поры
+	 * @brief Функция розыска защищённой записи рукопожатия первой поры
 	 *
 	 * @param records записи стороны
-	 *
 	 * @return        первая запись рукопожатия первой поры либо nullptr
 	 *
 	 */
@@ -2036,6 +2003,7 @@ TEST(Dtls12Test, VectorServer){
 				if(!SCENARIOS[s].master)
 					// Требуем расширенный главный секрет
 					server.master(true);
+				// Запускаем сервер
 				ASSERT_EQ(server.start(), context::error_t::NONE) << path;
 				// Подаём записанное первое приветствие
 				ASSERT_EQ(server.push(view_t(c2s[0].data(), c2s[0].size())), context::error_t::NONE) << path;
@@ -2083,7 +2051,7 @@ TEST(Dtls12Test, VectorServer){
 				ASSERT_EQ(hello::build(repeated, rebuilt, true), hello::error_t::NONE) << path;
 				// Дейтаграмма номером один
 				const vector <uint8_t> second = plain(handshake::type_t::CLIENT, rebuilt, 1, 1);
-				// Подаём
+				// Подаём вторую запись серверу
 				(void) server.push(view_t(second.data(), second.size()));
 				// Если расширенного главного секрета нет
 				if(!SCENARIOS[s].master){
@@ -2811,7 +2779,7 @@ TEST(Dtls12Test, Loopback){
 			server.push(view_t(data[0].data(), data[0].size()));
 			// Принятые данные
 			vector <uint8_t> received;
-			// Читаем данные
+			// Читаем принятый байт данных
 			ASSERT_EQ(server.read(received), context::error_t::NONE);
 			// Байт дошёл
 			ASSERT_EQ(received, vector <uint8_t> {'x'});
@@ -3550,7 +3518,7 @@ TEST(Dtls12Test, Mtu){
 	ASSERT_TRUE(barter(client, server, bond));
 	// Длинные данные дробятся на записи по дейтаграммам
 	const vector <uint8_t> bulk(5000, 0xAB);
-	// Отправляем данные
+	// Пишем данные, которые дробятся по записям в свои дейтаграммы
 	ASSERT_EQ(client.write(view_t(bulk.data(), bulk.size())), context::error_t::NONE);
 	// Переносим
 	converse(client, server, bond, 400);
@@ -3589,7 +3557,7 @@ TEST(Dtls12Test, Replay){
 	converse(client, server, bond, 400);
 	// Связь установлена
 	ASSERT_TRUE(client.established() && server.established());
-	// Отправляем данные
+	// Пишем данные, чей повтор будет отброшен окном
 	ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> ("replay"), 6)), context::error_t::NONE);
 	// Дейтаграмма с данными
 	vector <vector <uint8_t>> data;
@@ -3603,7 +3571,7 @@ TEST(Dtls12Test, Replay){
 	ASSERT_EQ(server.discarded(datagram::reason_t::REPLAY), static_cast <uint64_t> (1));
 	// Принятые данные
 	vector <uint8_t> received;
-	// Читаем данные
+	// Читаем данные первой подачи дейтаграммы
 	ASSERT_EQ(server.read(received), context::error_t::NONE);
 	// Данные прочтены один раз
 	ASSERT_EQ(received.size(), static_cast <size_t> (6));
@@ -3629,7 +3597,7 @@ TEST(Dtls12Test, Replay){
 	vector <uint8_t> foreign = next[0];
 	// Ставим пору два
 	foreign[4] = 0x02;
-	// Подаём
+	// Подаём чужую запись серверу
 	ASSERT_EQ(server.push(view_t(foreign.data(), foreign.size())), context::error_t::NONE);
 	// Отброшено порой
 	ASSERT_EQ(server.discarded(datagram::reason_t::EPOCH), static_cast <uint64_t> (1));
@@ -3639,7 +3607,7 @@ TEST(Dtls12Test, Replay){
 	edition[1] = 0x03;
 	// Младший байт
 	edition[2] = 0x03;
-	// Подаём
+	// Подаём запись иного издания серверу
 	ASSERT_EQ(server.push(view_t(edition.data(), edition.size())), context::error_t::NONE);
 	// Отброшено изданием
 	ASSERT_EQ(server.discarded(datagram::reason_t::VERSION), static_cast <uint64_t> (1));
@@ -3647,7 +3615,7 @@ TEST(Dtls12Test, Replay){
 	vector <uint8_t> elder = next[0];
 	// Младший байт издания
 	elder[2] = 0xFF;
-	// Подаём
+	// Подаём устаревшую запись серверу
 	ASSERT_EQ(server.push(view_t(elder.data(), elder.size())), context::error_t::NONE);
 	// Отброшено изданием до снятия защиты, а не порчей
 	ASSERT_EQ(server.discarded(datagram::reason_t::VERSION), static_cast <uint64_t> (2));
@@ -3655,7 +3623,7 @@ TEST(Dtls12Test, Replay){
 	ASSERT_EQ(server.discarded(datagram::reason_t::DAMAGE), static_cast <uint64_t> (1));
 	// Настоящая дейтаграмма принимается
 	ASSERT_EQ(server.push(view_t(next[0].data(), next[0].size())), context::error_t::NONE);
-	// Читаем данные
+	// Читаем данные настоящей дейтаграммы
 	ASSERT_EQ(server.read(received), context::error_t::NONE);
 	// Данные дошли
 	ASSERT_EQ(string(received.begin(), received.end()), "damage");
@@ -3729,7 +3697,9 @@ TEST(Dtls12Test, Change){
 		ASSERT_EQ(client.state(), context::state_t::HANDSHAKE);
 		// Смена отброшена как открытая запись
 		ASSERT_EQ(client.discarded(datagram::reason_t::PLAIN), static_cast <uint64_t> (1));
-		// Остаток залпа сервера
+		/**
+		 * Остаток залпа сервера
+		 */
 		for(size_t i = 1; i < flight.size(); i++)
 			// Подаём клиенту
 			ASSERT_EQ(client.push(view_t(flight[i].data(), flight[i].size())), context::error_t::NONE);
@@ -4162,7 +4132,7 @@ TEST(Dtls12Test, Openssl){
 			ASSERT_EQ(client.discarded(), static_cast <uint64_t> (0));
 			// Данные серверу
 			const string request = "ants over dtls " + std::to_string(s) + " " + std::to_string(g) + "\n";
-			// Отправляем данные
+			// Пишем запрос серверу openssl поверх установленной связи DTLS 1.2
 			ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
 			// Отправляем дейтаграммы
 			relay(client, fd, peer, 1);
@@ -4303,7 +4273,7 @@ TEST(Dtls12Test, Openssl){
 					server.elapsed();
 				// Если связь установлена
 				if(server.established())
-					// Читаем данные
+					// Читаем прикладные данные клиента openssl
 					(void) server.read(plaintext);
 			}
 			// Связь установлена
@@ -4686,7 +4656,7 @@ TEST(Dtls12Test, Amplification){
 	ASSERT_TRUE(greeting(vector <uint8_t> (65, 0x42), DTLS12, longer));
 	// Дейтаграмма
 	const vector <uint8_t> stretched = plain(handshake::type_t::CLIENT, longer, 1, 1);
-	// Подаём
+	// Подаём растянутую запись серверу
 	ASSERT_EQ(server.push(view_t(stretched.data(), stretched.size())), context::error_t::NONE);
 	// Отброшено меткой
 	ASSERT_EQ(server.discarded(datagram::reason_t::COOKIE), static_cast <uint64_t> (3));
@@ -4918,7 +4888,7 @@ TEST(Dtls12Test, Exhausted){
 		ASSERT_EQ(server.push(view_t(datagrams[i].data(), datagrams[i].size())), context::error_t::NONE) << i;
 	// Принятые данные
 	vector <uint8_t> received;
-	// Читаем данные
+	// Читаем данные, дошедшие до закрытия связи
 	ASSERT_EQ(server.read(received), context::error_t::NONE);
 	// Данные до порога дошли
 	ASSERT_EQ(string(received.begin(), received.end()), "onetwo");
@@ -4970,7 +4940,7 @@ TEST(Dtls12Test, Starved){
 				converse(client, server, bond, 400);
 				// Если связь установлена
 				if(client.established() && server.established()){
-					// Отправляем данные
+					// Пишем прикладные данные при ограниченном запасе выделений
 					written = client.write(view_t(reinterpret_cast <const uint8_t *> ("starved datagram payload"), 24));
 					// Переносим данные
 					converse(client, server, bond, 400);
@@ -5023,7 +4993,6 @@ namespace {
 	 * @param identity опознаватель
 	 * @param key      накопитель ключа
 	 * @param context  связка
-	 *
 	 * @return         признак известности
 	 *
 	 */
@@ -5049,7 +5018,6 @@ namespace {
 	 * @param identity накопитель опознавателя
 	 * @param key      накопитель ключа
 	 * @param context  связка
-	 *
 	 * @return         признак выбора заново: настроенные остаются
 	 *
 	 */
@@ -5084,14 +5052,13 @@ namespace {
 		{protect::suite_t::ECDHE_PSK_CHACHA20_POLY1305_SHA256, "ECDHE-PSK-CHACHA20-POLY1305", ""}
 	};
 	/**
-	 * @brief Метод настройки сторон под набор второго круга поверх дейтаграмм
+	 * @brief Функция настройки сторон под набор второго круга поверх дейтаграмм
 	 *
 	 * @param client связь клиента
 	 * @param server связь сервера
 	 * @param item   описание набора
 	 * @param theirs связка сервера
 	 * @param ours   связка клиента
-	 *
 	 * @return       признак успешности
 	 *
 	 */
@@ -5124,7 +5091,7 @@ namespace {
 			ours.key = theirs.key;
 			// Настройки сервера
 			context::psk_t mine;
-			// Вызов
+			// Отклик запроса билета стороны
 			mine.respond = responding;
 			// Связка
 			mine.context = &theirs;
@@ -5138,7 +5105,7 @@ namespace {
 			yours.identity = ours.identity;
 			// Ключ
 			yours.key.assign(ours.key.begin(), ours.key.end());
-			// Вызов
+			// Подсказка опознавателя стороны
 			yours.advise = advising;
 			// Связка
 			yours.context = &ours;
@@ -5235,7 +5202,7 @@ TEST(Dtls12Test, Second){
 				datagrams[0].back() ^= 0x01;
 				// Отброшенных до подачи
 				const uint64_t before = server.discarded(datagram::reason_t::DAMAGE);
-				// Подаём
+				// Подаём первую дейтаграмму серверу
 				ASSERT_EQ(server.push(view_t(datagrams[0].data(), datagrams[0].size())), context::error_t::NONE);
 				// Отброшена молча
 				ASSERT_EQ(server.discarded(datagram::reason_t::DAMAGE), before + 1);
@@ -5384,6 +5351,7 @@ TEST(Dtls12Test, Interop){
 	const bool noetmable = (listed("s_server", "no_etm") && listed("s_client", "no_etm"));
 	/**
 	 * @brief Круг обмена
+	 *
 	 */
 	struct Round {
 		// Набор
@@ -5466,7 +5434,7 @@ TEST(Dtls12Test, Interop){
 			yours.identity = decode("616e796b73");
 			// Ключ
 			{ const vector <uint8_t> raw = decode("0123456789abcdef"); yours.key.assign(raw.begin(), raw.end()); }
-			// Вызов
+			// Подсказка опознавателя стороны
 			yours.advise = advising;
 			// Связка
 			yours.context = &ours;
@@ -5576,7 +5544,7 @@ TEST(Dtls12Test, Interop){
 			{ const vector <uint8_t> raw = decode("0123456789abcdef"); theirs.key.assign(raw.begin(), raw.end()); }
 			// Настройки
 			context::psk_t mine;
-			// Вызов
+			// Отклик запроса билета стороны
 			mine.respond = responding;
 			// Связка
 			mine.context = &theirs;
@@ -5597,7 +5565,7 @@ TEST(Dtls12Test, Interop){
 		ASSERT_TRUE(server.address(view_t(reinterpret_cast <const uint8_t *> (&peer), sizeof(peer))));
 		// Заводим
 		ASSERT_EQ(server.start(), context::error_t::NONE);
-		// Подаём
+		// Подаём принятую дейтаграмму серверу
 		server.push(view_t(buffer, static_cast <size_t> (received)));
 		// Данные
 		vector <uint8_t> plaintext;
@@ -5606,7 +5574,7 @@ TEST(Dtls12Test, Interop){
 		 */
 		for(size_t i = 0; (i < 400) && (server.state() != context::state_t::FAILED) && (server.state() != context::state_t::CLOSED) && plaintext.empty(); i++){
 			/**
-			 * Выполняем отправку
+			 * Перекачиваем готовые дейтаграммы до опустошения вывода
 			 */
 			while(server.output().size > 0){
 				// Дейтаграмма
@@ -5620,7 +5588,7 @@ TEST(Dtls12Test, Interop){
 			received = receiving(fd, buffer, sizeof(buffer));
 			// Если принято
 			if(received > 0)
-				// Подаём
+				// Подаём принятую дейтаграмму серверу
 				server.push(view_t(buffer, static_cast <size_t> (received)));
 			// Если часы
 			else if(server.timeout() > 0)
@@ -5646,7 +5614,7 @@ TEST(Dtls12Test, Interop){
 		// Закрываем
 		ASSERT_EQ(server.close(), context::error_t::NONE);
 		/**
-		 * Выполняем отправку
+		 * Перекачиваем ответные дейтаграммы до опустошения вывода
 		 */
 		while(server.output().size > 0){
 			// Дейтаграмма

@@ -47,7 +47,7 @@
 	 * Подключаем заголовочный файл zlib
 	 */
 	#include <zlib.h>
-#endif // ANTS_SAMPLE_ZLIB
+#endif
 
 /**
  * Подключаем заголовочные файлы проекта
@@ -67,10 +67,9 @@
  */
 namespace {
 	/**
-	 * @brief Метод чтения файла набора целиком
+	 * @brief Функция чтения файла набора целиком
 	 *
 	 * @param name имя файла в наборе
-	 *
 	 * @return     содержимое файла, пустое при отказе чтения
 	 *
 	 */
@@ -78,7 +77,7 @@ namespace {
 		// Содержимое файла
 		vector <uint8_t> result;
 		/**
-		 * Выполняем чтение файла: поток и накопитель занимают память
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Поток чтения файла набора
@@ -88,7 +87,7 @@ namespace {
 				// Читаем файл целиком
 				result.assign(istreambuf_iterator <char> (file), istreambuf_iterator <char> ());
 		/**
-		 * Если памяти под файл не хватило
+		 * Выполняем перехват ошибок
 		 */
 		} catch(const bad_alloc &) {
 			// Файл не прочитан
@@ -98,10 +97,9 @@ namespace {
 		return result;
 	}
 	/**
-	 * @brief Метод составления подлинности стороны из цепочки набора
+	 * @brief Функция составления подлинности стороны из цепочки набора
 	 *
 	 * @param result подлинность, в которую помещается итог
-	 *
 	 * @return       признак успешности составления подлинности
 	 *
 	 */
@@ -120,11 +118,10 @@ namespace {
 		return ((pem::certificates(string(text.begin(), text.end()), result.chain) == pem::error_t::NONE) && (result.chain.size() == 3));
 	}
 	/**
-	 * @brief Метод передачи накопленных байтов между сторонами связи
+	 * @brief Функция передачи накопленных байтов между сторонами связи
 	 *
 	 * @param client связь стороны клиента
 	 * @param server связь стороны сервера
-	 *
 	 * @return       признак того, что байты между сторонами передавались
 	 *
 	 */
@@ -161,11 +158,10 @@ namespace {
 		return moved;
 	}
 	/**
-	 * @brief Метод проведения связи сторон до тишины с подсчётом байтов залпа сервера
+	 * @brief Функция проведения связи сторон до тишины с подсчётом байтов залпа сервера
 	 *
 	 * @param client связь стороны клиента
 	 * @param server связь стороны сервера
-	 *
 	 * @return       число байтов, отправленных сервером за рукопожатие
 	 *
 	 */
@@ -211,7 +207,6 @@ namespace {
 		 * @param source  сжимаемое тело сообщения цепочки
 		 * @param result  накопитель, в который складывается сжатый поток
 		 * @param context указатель счётчика работы кодека
-		 *
 		 * @return        признак успешности сжатия
 		 *
 		 */
@@ -244,7 +239,6 @@ namespace {
 		 * @param expected ожидаемая длина тела после распаковки
 		 * @param result   накопитель, в который складывается распакованное тело
 		 * @param context  указатель счётчика работы кодека
-		 *
 		 * @return         признак успешности распаковки
 		 *
 		 */
@@ -262,7 +256,7 @@ namespace {
 			// Выводим успешность распаковки
 			return true;
 		}
-	#endif // ANTS_SAMPLE_ZLIB
+	#endif
 };
 
 /**
@@ -270,7 +264,6 @@ namespace {
  *
  * @param argc длина массива параметров
  * @param argv массив параметров
- *
  * @return     код выхода из приложения
  *
  */
@@ -357,7 +350,7 @@ int main(int argc, char * argv[]) noexcept {
 			#ifdef ANTS_SAMPLE_ZLIB
 				// Добавляем zlib клиенту под опознавателем 1 реестра RFC 8879
 				mine.push_back(context::codec_t(static_cast <uint16_t> (extension::compression_t::ZLIB), zlibCompress, zlibDecompress, &ours));
-			#endif // ANTS_SAMPLE_ZLIB
+			#endif
 			// Добавляем частный кодек клиенту
 			mine.push_back(context::codec_t(LZ77_ALGORITHM, lz77Compress, lz77Decompress, &ours));
 			// Сервер знает лишь частный кодек: общий алгоритм найдётся по нему
@@ -450,7 +443,7 @@ int main(int argc, char * argv[]) noexcept {
 			// Выводим итог сжатия zlib
 			cout << "zlib                : тело цепочки " << zipped.source << " → " << zipped.packed << " байт, залп сервера " << sent << " байт, распаковок у клиента " << unzipped.decompressions << endl;
 		}
-	#endif // ANTS_SAMPLE_ZLIB
+	#endif
 	// Выходим из приложения с признаком успеха
 	return EXIT_SUCCESS;
 }

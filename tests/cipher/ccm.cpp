@@ -1,20 +1,24 @@
 /**
- * @file: ccm.cpp
- * @date: 2026-10-04
- * @license: GPL-3.0
+ * @file ccm.cpp
+ * @date 2026-10-04
  *
- * @telegram: @forman
- * @author: Yuriy Lobarev
- * @phone: +7 (910) 983-95-90
- * @email: forman@anyks.com
- * @site: https://anyks.com
+ * @license{GPL-3.0}
+ *
+ * @author Yuriy Lobarev
+ *
+ * @telegram{forman}
+ * @phone{+7 (910) 983-95-90}
+ *
+ * @email forman@anyks.com
+ * @site https://anyks.com
  *
  * @brief Исходный файл проверок модуля режима CCM
  *
  * @note Контрольные примеры взяты из раздела 8 RFC 3610 (AES-CCM) целиком, а
  *       пример SM4-CCM выработан эталонной реализацией и сверен с OpenSSL 3.6
  *
- * @copyright: Copyright © 2026
+ * @copyright Copyright © 2026
+ *
  */
 
 /**
@@ -38,10 +42,9 @@
 using namespace nts;
 
 /**
- * @brief Метод разбора шестнадцатеричной строки в байты
+ * @brief Функция разбора шестнадцатеричной строки в байты
  *
  * @param text разбираемая строка
- *
  * @return     разобранные байты
  *
  */
@@ -59,11 +62,10 @@ static std::vector <uint8_t> bytes(const std::string & text) {
 }
 
 /**
- * @brief Метод записи байтов шестнадцатеричной строкой
+ * @brief Функция записи байтов шестнадцатеричной строкой
  *
  * @param data байты
  * @param size число байтов
- *
  * @return     запись строчными шестнадцатеричными знаками
  *
  */
@@ -86,7 +88,7 @@ static std::string text(const uint8_t * data, const size_t size) {
 }
 
 /**
- * @brief Метод проверки одного примера RFC 3610
+ * @brief Функция проверки одного примера RFC 3610
  *
  * @param key        ключ шифрования
  * @param nonce      одноразовое значение

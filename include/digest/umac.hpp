@@ -12,8 +12,13 @@
  * @email forman@anyks.com
  * @site https://anyks.com
  *
+ * \~russian
  * @brief Модуль имитовставки UMAC (RFC 4418) с итогом в 64 и 128 разрядов
  *
+ * \~english
+ * @brief Module of the message authentication code UMAC (RFC 4418) with the output of 64 and 128 bits
+ *
+ * \~
  * @copyright Copyright © 2026
  *
  */
@@ -91,7 +96,7 @@ namespace nts {
 		static constexpr size_t UMAC_128 = 16;
 		/**
 		 * \~russian
-		 * @brief Метод вычисления имитовставки UMAC
+		 * @brief Функция вычисления имитовставки UMAC
 		 *
 		 * @details Имитовставка считается по RFC 4418: универсальное хеширование UHASH
 		 *          (слои NH, POLY и L3) поверх ключа, выводимого из ключа связи блочным
@@ -104,11 +109,10 @@ namespace nts {
 		 * @param data   сообщение любой длины
 		 * @param result место, в которое помещается итог
 		 * @param size   длина итога: 8 (UMAC-64) или 16 (UMAC-128)
-		 *
 		 * @return       признак того, что итог вычислен
 		 *
 		 * \~english
-		 * @brief Method of the computation of the UMAC message authentication code
+		 * @brief Function of the computation of the UMAC message authentication code
 		 *
 		 * @details The code is computed by RFC 4418: the UHASH universal hashing (the
 		 *          NH, POLY and L3 layers) over the key derived from the connection key
@@ -122,7 +126,6 @@ namespace nts {
 		 * @param data   message of any length
 		 * @param result place into which the result is put
 		 * @param size   length of the result: 8 (UMAC-64) or 16 (UMAC-128)
-		 *
 		 * @return       sign that the result is computed
 		 *
 		 * \~

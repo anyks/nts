@@ -47,9 +47,17 @@
  * Установка переменной окружения: у Windows нет setenv, есть _putenv_s
  */
 static bool assign(const char * name, const char * value) noexcept {
+	/**
+	 * У Windows нет setenv: устанавливаем переменную через _putenv_s
+	 */
 	#if defined(_WIN32)
+		// Отказ при ненулевом ответе _putenv_s
 		return (::_putenv_s(name, value) == 0);
+	/**
+	 * Прочие системы: устанавливаем переменную через setenv с перезаписью значения
+	 */
 	#else
+		// Отказ при ненулевом ответе setenv
 		return (::setenv(name, value, 1) == 0);
 	#endif
 }
@@ -86,6 +94,10 @@ TEST(MachineTest, Denied) {
  * маска запрета из проверки выше их не называет
  */
 TEST(MachineTest, Flags) {
+	/**
+	 * Снимаем признаки опросом лишь у x86-64 под GCC или clang: встроенная проверка
+	 * у прочих собирателей отсутствует
+	 */
 	#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
 		// Если собиратель видит у машины AVX, разрешённый системой
 		if(__builtin_cpu_supports("avx"))
@@ -112,6 +124,9 @@ TEST(MachineTest, Flags) {
 		// Иначе умножение без флагов не признаётся
 		else
 			ASSERT_FALSE(machine::has(machine::feature_t::ADX));
+	/**
+	 * Прочие машины и собиратели: признаки x86-64 опросом не снимаются
+	 */
 	#else
 		// У прочих машин признаков x86-64 нет
 		ASSERT_FALSE(machine::has(machine::feature_t::AVX));

@@ -275,7 +275,7 @@ SET(SOURCE_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/trust/trust.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/pem/pem.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/keys/keys.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/keys/openssh.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/keys/ssh.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/internal/flight/flight.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/internal/ticket/ticket.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/internal/engine/engine.cpp"
@@ -1373,8 +1373,8 @@ if (${CMAKE_BUILD_SAMPLES})
         message(STATUS "Build sample KEYS: Yes")
         # Выполняем создание приложения кодеков ключей
         add_sample(${KEYS_APP_NAME} sample/keys/keys.cpp keys)
-        # Выполняем создание приложения формата ключей openssh-key-v1 и known_hosts
-        add_sample(keys-openssh sample/keys/openssh.cpp keys)
+        # Выполняем создание приложения формата ключей SSH и known_hosts
+        add_sample(keys-ssh sample/keys/ssh.cpp keys)
     # Если образец кодеков ключей собирать не нужно
     else()
         # Выводим сообщение о сборке образца

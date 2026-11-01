@@ -105,7 +105,7 @@
 	#include <openssl/rand.h>
 	#include <openssl/rsa.h>
 	#include <openssl/ssl.h>
-#endif // ANTS_BENCH_OPENSSL
+#endif
 
 /**
  * Используем стандартное пространство имён
@@ -133,11 +133,10 @@ namespace {
 	static constexpr size_t ROUNDS = 6;
 
 	/**
-	 * @brief Метод дополнения названия замера до заданной ширины
+	 * @brief Функция дополнения названия замера до заданной ширины
 	 *
 	 * @param name  дополняемое название замера
 	 * @param width ширина, до которой название дополняется
-	 *
 	 * @return      дополненное название замера
 	 *
 	 * @note Ширина считается знаками, а не байтами: русское название занимает по два
@@ -160,11 +159,10 @@ namespace {
 		return (name + string(((length < width) ? (width - length) : 0), ' '));
 	}
 	/**
-	 * @brief Метод замера числа проходов работы за секунду
+	 * @brief Функция замера числа проходов работы за секунду
 	 *
 	 * @param count число проходов работы в одном прогоне
 	 * @param work  замеряемая работа
-	 *
 	 * @return      лучшее число проходов работы за секунду
 	 *
 	 */
@@ -200,13 +198,12 @@ namespace {
 		return result;
 	}
 	/**
-	 * @brief Метод вывода замера полосы
+	 * @brief Функция вывода замера полосы
 	 *
 	 * @param name   название замеряемой работы
 	 * @param count  число проходов работы в одном прогоне
 	 * @param volume размер области байтов одного прохода работы
 	 * @param work   замеряемая работа
-	 *
 	 * @return       полоса замеряемой работы в мегабайтах за секунду
 	 *
 	 */
@@ -219,12 +216,11 @@ namespace {
 		return outcome;
 	}
 	/**
-	 * @brief Метод вывода замера числа проходов работы
+	 * @brief Функция вывода замера числа проходов работы
 	 *
 	 * @param name  название замеряемой работы
 	 * @param count число проходов работы в одном прогоне
 	 * @param work  замеряемая работа
-	 *
 	 * @return      число проходов замеряемой работы за секунду
 	 *
 	 */
@@ -237,7 +233,7 @@ namespace {
 		return outcome;
 	}
 	/**
-	 * @brief Метод вывода отношения замеров одного рода работы
+	 * @brief Функция вывода отношения замеров одного рода работы
 	 *
 	 * @param name название сличаемого рода работы
 	 * @param ours замер своей работы
@@ -256,10 +252,9 @@ namespace {
 		cout << pad(name, 28) << setw(12) << right << fixed << setprecision(1) << (them / ours) << " раз медленнее" << endl;
 	}
 	/**
-	 * @brief Метод чтения файла набора ключей для сличения
+	 * @brief Функция чтения файла набора ключей для сличения
 	 *
 	 * @param name имя файла в наборе
-	 *
 	 * @return     содержимое файла, пустое при отказе чтения
 	 *
 	 */
@@ -287,10 +282,9 @@ namespace {
 		return result;
 	}
 	/**
-	 * @brief Метод получения середины ряда замеров
+	 * @brief Функция получения середины ряда замеров
 	 *
 	 * @param values ряд замеров
-	 *
 	 * @return       середина ряда, ноль у пустого ряда
 	 *
 	 */
@@ -305,10 +299,9 @@ namespace {
 		return values[values.size() / 2];
 	}
 	/**
-	 * @brief Метод составления записи приветствия клиента издания TLS 1.2 под обмен RSA
+	 * @brief Функция составления записи приветствия клиента издания TLS 1.2 под обмен RSA
 	 *
 	 * @param result накопитель, в который складывается запись приветствия
-	 *
 	 * @return       признак успешности составления
 	 *
 	 */
@@ -331,7 +324,7 @@ namespace {
 		vector <uint8_t> schemes;
 		// Если схемы составить не удалось
 		if(extension::schemes(vector <extension::scheme_t> {extension::scheme_t::RSA_PSS_RSAE_SHA256}, schemes) != extension::error_t::NONE)
-			// Выводим отказ
+			// Выводим отрицательный результат - схемы составить не удалось
 			return false;
 		// Добавляем схемы
 		hello.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::SCHEMES), view_t(schemes.data(), schemes.size())));
@@ -341,33 +334,32 @@ namespace {
 		vector <uint8_t> body;
 		// Если тело составить не удалось
 		if(hello::build(hello, body) != hello::error_t::NONE)
-			// Выводим отказ
+			// Выводим отрицательный результат - тело приветствия не составлено
 			return false;
 		// Составитель сообщения рукопожатия
 		handshake::writer_t writer;
 		// Если сообщение составить не удалось
 		if(writer.push(handshake::type_t::CLIENT, view_t(body.data(), body.size())) != handshake::error_t::NONE)
-			// Выводим отказ
+			// Выводим отрицательный результат - сообщение не составлено
 			return false;
 		// Нарезчик записей
 		record::writer_t records;
 		// Если запись составить не удалось
 		if(records.push(record::type_t::HANDSHAKE, record::version_t::TLS12, writer.data()) != record::error_t::NONE)
-			// Выводим отказ
+			// Выводим отрицательный результат - запись не составлена
 			return false;
 		// Запись приветствия
 		const view_t data = records.data();
 		// Переносим запись
 		result.assign(data.data, data.data + data.size);
-		// Выводим успешность
+		// Сообщаем об успешном составлении записи приветствия
 		return true;
 	}
 	/**
-	 * @brief Метод передачи накопленных байтов между сторонами связи
+	 * @brief Функция передачи накопленных байтов между сторонами связи
 	 *
 	 * @param client связь стороны клиента
 	 * @param server связь стороны сервера
-	 *
 	 * @return       признак того, что байты между сторонами передавались
 	 *
 	 */
@@ -406,11 +398,10 @@ namespace {
 		return moved;
 	}
 	/**
-	 * @brief Метод проведения рукопожатия сторон связи записями до тишины
+	 * @brief Функция проведения рукопожатия сторон связи записями до тишины
 	 *
 	 * @param client связь стороны клиента
 	 * @param server связь стороны сервера
-	 *
 	 * @return       признак того, что рукопожатие пройдено обеими сторонами
 	 *
 	 */
@@ -425,12 +416,11 @@ namespace {
 		return (client.established() && server.established());
 	}
 	/**
-	 * @brief Метод составления подлинности стороны из набора ключей
+	 * @brief Функция составления подлинности стороны из набора ключей
 	 *
 	 * @param key         имя файла секретного ключа в записи PEM
 	 * @param certificate имя файла сертификата либо цепочки в записи PEM
 	 * @param result      подлинность, в которую помещается итог
-	 *
 	 * @return            признак успешности составления подлинности
 	 *
 	 */
@@ -449,10 +439,9 @@ namespace {
 		return (pem::certificates(string(text.begin(), text.end()), result.chain) == pem::error_t::NONE);
 	}
 	/**
-	 * @brief Метод чтения сертификата набора в кодировке DER из записи PEM
+	 * @brief Функция чтения сертификата набора в кодировке DER из записи PEM
 	 *
 	 * @param name имя файла сертификата в наборе
-	 *
 	 * @return     запись сертификата в кодировке DER, пустая при отказе
 	 *
 	 */
@@ -474,7 +463,6 @@ namespace {
 	 * @param identity опознаватель клиента, здесь не судится
 	 * @param key      накопитель, в который помещается ключ
 	 * @param context  указатель на ключ сервера
-	 *
 	 * @return         признак того, что ключ выдан
 	 *
 	 * @note Вызов не noexcept намеренно: нехватку памяти в накопителе перехватывает связь
@@ -489,7 +477,7 @@ namespace {
 		return true;
 	}
 	/**
-	 * @brief Метод проведения рукопожатия издания TLS 1.2 записями
+	 * @brief Функция проведения рукопожатия издания TLS 1.2 записями
 	 *
 	 * @param credential подлинность сервера, при заранее разделённом ключе не нужна
 	 * @param suite      набор шифрования обеих сторон
@@ -497,7 +485,6 @@ namespace {
 	 * @param vault      ключ билетов сервера либо nullptr
 	 * @param ticket     билет, предъявляемый клиентом, либо nullptr
 	 * @param issued     место, в которое помещается выданный билет, либо nullptr
-	 *
 	 * @return           признак того, что рукопожатие пройдено и ожидания сошлись
 	 *
 	 */
@@ -546,38 +533,37 @@ namespace {
 			client.resume(*ticket);
 		// Если пределы издания клиента установить не удалось
 		if(client.versions(0x0303, 0x0303) != context::error_t::NONE)
-			// Выводим отказ
+			// Выводим отрицательный результат - пределы издания не установлены
 			return false;
 		// Если связь завести не удалось
 		if((server.start() != context::error_t::NONE) || (client.start() != context::error_t::NONE))
-			// Выводим отказ
+			// Выводим отрицательный результат - связь завести не удалось
 			return false;
 		// Если рукопожатие не пройдено
 		if(!converse(client, server))
-			// Выводим отказ
+			// Выводим отрицательный результат - рукопожатие не пройдено
 			return false;
 		// Если билет предъявлялся, а возобновления не вышло
 		if((ticket != nullptr) && !client.shared())
-			// Выводим отказ
+			// Выводим отрицательный результат - возобновления не вышло
 			return false;
 		// Если выданный билет запрашивается
 		if(issued != nullptr){
 			// Если билет не выдан
 			if(client.tickets().empty())
-				// Выводим отказ
+				// Выводим отрицательный результат - билет не выдан
 				return false;
 			// Запоминаем выданный билет
 			*issued = client.tickets()[0];
 		}
-		// Выводим успешность
+		// Сообщаем об успешном заведении связи
 		return true;
 	}
 	/**
-	 * @brief Метод переноса всех готовых дейтаграмм от одной стороны к другой
+	 * @brief Функция переноса всех готовых дейтаграмм от одной стороны к другой
 	 *
 	 * @param from связь стороны, отдающей дейтаграммы
 	 * @param to   связь стороны, принимающей дейтаграммы
-	 *
 	 * @return     признак того, что хоть одна дейтаграмма перенесена
 	 *
 	 */
@@ -604,13 +590,12 @@ namespace {
 		return moved;
 	}
 	/**
-	 * @brief Метод настройки и рукопожатия сторон поверх дейтаграмм
+	 * @brief Функция настройки и рукопожатия сторон поверх дейтаграмм
 	 *
 	 * @param client     связь стороны клиента
 	 * @param server     связь стороны сервера
 	 * @param credential подлинность сервера
 	 * @param legacy     ведётся ли связь изданием DTLS 1.2
-	 *
 	 * @return           признак того, что рукопожатие пройдено обеими сторонами
 	 *
 	 */
@@ -635,13 +620,13 @@ namespace {
 		static const uint8_t ADDRESS[] = {10, 0, 0, 1, 0x12, 0x34};
 		// Если адрес установить не удалось
 		if(!server.address(view_t(ADDRESS, sizeof(ADDRESS))))
-			// Выводим отказ
+			// Выводим отрицательный результат - адрес не установлен
 			return false;
 		// Издание по пределам
 		const uint16_t edition = (legacy ? 0x0303 : 0x0304);
 		// Если пределы издания либо заведение связи не удались
 		if((client.versions(edition, edition) != context::error_t::NONE) || (server.versions(edition, edition) != context::error_t::NONE) || (server.start() != context::error_t::NONE) || (client.start() != context::error_t::NONE))
-			// Выводим отказ
+			// Выводим отрицательный результат - пределы либо заведение не удались
 			return false;
 		/**
 		 * Выполняем перенос дейтаграмм до тишины: без потерь часы не ходят
@@ -684,14 +669,13 @@ namespace {
 		return (client.established() && server.established());
 	}
 	/**
-	 * @brief Метод передачи прикладных данных по установленной связи поверх дейтаграмм
+	 * @brief Функция передачи прикладных данных по установленной связи поверх дейтаграмм
 	 *
 	 * @param client   связь стороны клиента
 	 * @param server   связь стороны сервера
 	 * @param payload  передаваемые данные: не длиннее одной дейтаграммы
 	 * @param count    число передач
 	 * @param received накопитель принятых сервером данных
-	 *
 	 * @return         признак того, что всё переданное принято
 	 *
 	 */
@@ -704,13 +688,13 @@ namespace {
 		for(size_t i = 0; i < count; i++){
 			// Если данные отправить не удалось
 			if(client.write(payload) != context::error_t::NONE)
-				// Выводим отказ
+				// Выводим отрицательный результат - данные не отправлены
 				return false;
 			// Переносим дейтаграмму серверу
 			ferry(client, server);
 			// Если принятое прочитать не удалось
 			if(server.read(received) != context::error_t::NONE)
-				// Выводим отказ
+				// Выводим отрицательный результат - принятое не прочитано
 				return false;
 			// Считаем принятые байты
 			taken += received.size();
@@ -719,13 +703,12 @@ namespace {
 		return (taken == (payload.size * count));
 	}
 	/**
-	 * @brief Метод заведения защиты записей издания 1.2 случайным ключевым материалом
+	 * @brief Функция заведения защиты записей издания 1.2 случайным ключевым материалом
 	 *
 	 * @param suite  набор шифрования
 	 * @param sealer защита отправляющей стороны
 	 * @param opener защита принимающей стороны
 	 * @param etm    порядок RFC 7366 у наборов CBC
-	 *
 	 * @return       признак успешности заведения
 	 *
 	 */
@@ -738,25 +721,25 @@ namespace {
 		vector <uint8_t> mac(digest::length(protect::mac(suite)), 0);
 		// Если ключевой материал выработать не удалось
 		if(!entropy::bytes(key.data(), key.size()) || (!salt.empty() && !entropy::bytes(salt.data(), salt.size())) || (!mac.empty() && !entropy::bytes(mac.data(), mac.size())))
-			// Выводим отказ
+			// Выводим отрицательный результат - ключевой материал не выработан
 			return false;
 		// Если защиту отправляющей стороны завести не удалось
 		if(!sealer.start(suite, view_t(key.data(), key.size()), view_t(salt.data(), salt.size()), view_t(mac.data(), mac.size())))
-			// Выводим отказ
+			// Выводим отрицательный результат - защита отправителя не заведена
 			return false;
 		// Если защиту принимающей стороны завести не удалось
 		if(!opener.start(suite, view_t(key.data(), key.size()), view_t(salt.data(), salt.size()), view_t(mac.data(), mac.size())))
-			// Выводим отказ
+			// Выводим отрицательный результат - защита принимающего не заведена
 			return false;
 		// Порядок RFC 7366 у отправляющей стороны
 		sealer.etm(etm);
 		// Порядок RFC 7366 у принимающей стороны
 		opener.etm(etm);
-		// Выводим успешность
+		// Сообщаем об успешном заведении защиты
 		return true;
 	}
 	/**
-	 * @brief Метод наложения и снятия защиты одной записи издания 1.2
+	 * @brief Функция наложения и снятия защиты одной записи издания 1.2
 	 *
 	 * @param sealer   защита отправляющей стороны
 	 * @param opener   защита принимающей стороны
@@ -764,7 +747,6 @@ namespace {
 	 * @param data     содержимое записи
 	 * @param sealed   накопитель защищённой записи
 	 * @param opened   накопитель снятого содержимого
-	 *
 	 * @return         признак успешности наложения и снятия защиты
 	 *
 	 * @note Обвязка издания 1.2 одна на наборы CBC и AEAD: явный вектор либо явная часть
@@ -779,7 +761,7 @@ namespace {
 		opened.clear();
 		// Если защиту наложить не удалось
 		if(sealer.wrap(sequence, record::version_t::TLS12, record::type_t::APPLICATION, data, sealed) != protect::error_t::NONE)
-			// Выводим отказ
+			// Выводим отрицательный результат - защиту наложить не удалось
 			return false;
 		// Выводим итог снятия защиты
 		return (opener.unwrap(sequence, record::version_t::TLS12, record::type_t::APPLICATION, view_t(sealed.data(), sealed.size()), opened) == protect::error_t::NONE);
@@ -796,7 +778,6 @@ namespace {
  *
  * @param argc длина массива параметров
  * @param argv массив параметров
- *
  * @return     код выхода из приложения
  *
  */
@@ -1149,6 +1130,9 @@ int main(int argc, char * argv[]) noexcept {
 	 */
 	uint8_t owned[32], x[32], y[32];
 	// Выполняем разворот секретного ключа и координат открытого ключа
+	/**
+	 * Выполняем разворот секретного ключа и координат открытого ключа
+	 */
 	for(size_t i = 0; i < 32; i++){
 		// Переносим байт секретного ключа
 		owned[i] = secret[31 - i];
@@ -1239,6 +1223,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Числа рукопожатий TLS 1.3 и полоса записей, сличаемые с эталоном
 	double shakeDefaults = 0., shakeEcdsa = 0., shakeRsa = 0., records16 = 0., records1200 = 0.;
 	{
+		// Выводим заголовок раздела рукопожатий TLS 1.3
 		cout << endl << "Рукопожатия TLS 1.3" << endl << endl;
 		// Классические подлинности из набора ключей
 		context::credential_t ecdsa, rsa;
@@ -1258,29 +1243,34 @@ int main(int argc, char * argv[]) noexcept {
 		const auto shake = [](const context::credential_t & credential, const vector <extension::group_t> * groups, const vector <protect::suite_t> * suites, const vector <extension::scheme_t> * schemes) noexcept -> void {
 			// Связи сторон
 			client::context_t client;
+			// Заводим связь стороны сервера
 			server::context_t server;
 			// Если группы обмена заданы
 			if(groups != nullptr){
 				// Устанавливаем группы обмена сторон
 				client.groups(* groups);
+				// Устанавливаем группы обмена серверу
 				server.groups(* groups);
 			}
 			// Если наборы шифрования заданы
 			if(suites != nullptr){
 				// Устанавливаем наборы шифрования сторон
 				client.suites(* suites);
+				// Устанавливаем наборы шифрования серверу
 				server.suites(* suites);
 			}
 			// Если схемы подписи заданы
 			if(schemes != nullptr){
 				// Устанавливаем схемы подписи сторон
 				client.schemes(* schemes);
+				// Устанавливаем схемы подписи серверу
 				server.schemes(* schemes);
 			}
 			// Устанавливаем подлинность стороны сервера
 			server.credential(credential);
 			// Выполняем заведение связей сторон
 			server.start();
+			// Заводим связь стороны клиента
 			client.start();
 			/**
 			 * Выполняем передачу байтов между сторонами, пока им есть что сказать
@@ -1291,20 +1281,26 @@ int main(int argc, char * argv[]) noexcept {
 		};
 		// Кривые ГОСТ-512 и ГОСТ-256, набор «Кузнечик»-MGM и схемы подписи ГОСТ: объявление ГОСТ потребителем
 		const vector <extension::group_t> gost512 {extension::group_t::GC512C};
+		// Задаём кривую обмена ГОСТ-256
 		const vector <extension::group_t> gost256 {extension::group_t::GC256A};
+		// Задаём набор «Кузнечик»-MGM
 		const vector <protect::suite_t> mgm {protect::suite_t::KUZNYECHIK_MGM_L};
+		// Задаём схемы подписи ГОСТ: начало списка
 		const vector <extension::scheme_t> gostSchemes {
+			// Задаём схемы подписи ГОСТ: продолжение списка
 			extension::scheme_t::S256A, extension::scheme_t::S256B, extension::scheme_t::S256C, extension::scheme_t::S256D,
 			extension::scheme_t::S512A, extension::scheme_t::S512B, extension::scheme_t::S512C
 		};
 		// Группа X25519 и набор AES-128-GCM: условия сличения с эталоном
 		const vector <extension::group_t> mont {extension::group_t::X25519};
+		// Задаём набор AES-128-GCM
 		const vector <protect::suite_t> gcm {protect::suite_t::AES_128_GCM_SHA256};
 		// Выполняем замеры рукопожатий по конфигурациям
 		shakeDefaults = count("TLS 1.3 умолчания ECDSA", 200, [&shake, &ecdsa]() noexcept -> void {
 			// Проводим рукопожатие умолчаниями связи: X25519MLKEM768, AES-256-GCM, ECDSA P-256
 			shake(ecdsa, nullptr, nullptr, nullptr);
 		});
+		// Выполняем замер рукопожатия на кривой ГОСТ-512 набором «Кузнечик»-MGM
 		count("TLS 1.3 ГОСТ-512 MGM", 50, [&shake, &credentials, &gost512, &mgm, &gostSchemes]() noexcept -> void {
 			// Проводим рукопожатие на кривой ГОСТ-512 набором «Кузнечик»-MGM
 			shake(credentials, &gost512, &mgm, &gostSchemes);
@@ -1313,22 +1309,29 @@ int main(int argc, char * argv[]) noexcept {
 			// Проводим рукопожатие на кривой ГОСТ-256 набором «Кузнечик»-MGM
 			shake(credentials, &gost256, &mgm, &gostSchemes);
 		});
+		// Выполняем замер рукопожатия классической подлинностью ECDSA
 		shakeEcdsa = count("TLS 1.3 X25519 ECDSA GCM", 200, [&shake, &ecdsa, &mont, &gcm]() noexcept -> void {
 			// Проводим рукопожатие классической подлинностью ECDSA
 			shake(ecdsa, &mont, &gcm, nullptr);
 		});
+		// Выполняем замер рукопожатия классической подлинностью RSA
 		shakeRsa = count("TLS 1.3 X25519 RSA GCM", 100, [&shake, &rsa, &mont, &gcm]() noexcept -> void {
 			// Проводим рукопожатие классической подлинностью RSA
 			shake(rsa, &mont, &gcm, nullptr);
 		});
 		// Связи сторон для замера полосы записей: X25519, ECDSA, AES-128-GCM
 		client::context_t client;
+		// Заводим связь стороны сервера
 		server::context_t server;
 		// Устанавливаем группу обмена, набор шифрования и подлинность
 		client.groups(mont);
+		// Устанавливаем группу обмена серверу
 		server.groups(mont);
+		// Устанавливаем набор шифрования клиенту
 		client.suites(gcm);
+		// Устанавливаем набор шифрования серверу
 		server.suites(gcm);
+		// Устанавливаем подлинность серверу
 		server.credential(ecdsa);
 		// Если связи завести не удалось
 		if((server.start() != context::error_t::NONE) || (client.start() != context::error_t::NONE)){
@@ -1359,6 +1362,7 @@ int main(int argc, char * argv[]) noexcept {
 			// Передаём записи наибольшей длины
 			transfer(client, server, view_t(large.data(), large.size()), 64, received);
 		});
+		// Выполняем замер полосы записей в 1200 байт
 		records1200 = band("TLS 1.3 записи 1200 байт", 8, small.size() * 256, [&client, &server, &small, &received]() noexcept -> void {
 			// Передаём записи в 1200 байт
 			transfer(client, server, view_t(small.data(), small.size()), 256, received);
@@ -1933,14 +1937,19 @@ int main(int argc, char * argv[]) noexcept {
 		EVP_PKEY_CTX * rsaSigner = ::EVP_PKEY_CTX_new(rsaKey, nullptr), * rsaChecker = ::EVP_PKEY_CTX_new(rsaKey, nullptr);
 		// Заводим подпись RSA-PSS хеша SHA-256 эталона
 		::EVP_PKEY_sign_init(rsaSigner);
+		// Устанавливаем набивку подписи PSS
 		::EVP_PKEY_CTX_set_rsa_padding(rsaSigner, RSA_PKCS1_PSS_PADDING);
+		// Назначаем подписи хеш SHA-256
 		::EVP_PKEY_CTX_set_signature_md(rsaSigner, ::EVP_sha256());
 		// Заводим сличение подписи RSA-PSS эталона
 		::EVP_PKEY_verify_init(rsaChecker);
+		// Устанавливаем набивку сличения PSS
 		::EVP_PKEY_CTX_set_rsa_padding(rsaChecker, RSA_PKCS1_PSS_PADDING);
+		// Назначаем сличению хеш SHA-256
 		::EVP_PKEY_CTX_set_signature_md(rsaChecker, ::EVP_sha256());
 		// Подпись RSA эталона и её длина
 		uint8_t rsaSealing[256];
+		// Запоминаем длину подписи
 		size_t rsaLength = sizeof(rsaSealing);
 		// Выполняем замер числа подписей RSA-2048 PSS эталона за секунду
 		const double rsaSign = count("RSA-2048 подпись PSS", 200, [&rsaSigner, &hash, &rsaSealing, &rsaLength]() noexcept -> void {
@@ -1957,6 +1966,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Выполняем освобождение объектов RSA эталона
 		::EVP_PKEY_CTX_free(rsaSigner);
 		::EVP_PKEY_CTX_free(rsaChecker);
+		// Освобождаем ключ RSA эталона
 		::EVP_PKEY_free(rsaKey);
 		// Замеры ML-DSA-65 эталона: у эталона без ML-DSA замеров нет
 		double mldsaGenerateRef = 0., mldsaSignRef = 0., mldsaVerifyRef = 0.;
@@ -1968,6 +1978,7 @@ int main(int argc, char * argv[]) noexcept {
 			EVP_MD_CTX * mldsaDigest = ::EVP_MD_CTX_new();
 			// Подпись ML-DSA эталона и её длина
 			uint8_t mldsaSealing[3309];
+			// Запоминаем длину подписи ML-DSA
 			size_t mldsaLength = sizeof(mldsaSealing);
 			// Выполняем замер порождения ключа ML-DSA-65 эталона за секунду
 			mldsaGenerateRef = count("ML-DSA-65 порождение ключа", 100, []() noexcept -> void {
@@ -1992,6 +2003,7 @@ int main(int argc, char * argv[]) noexcept {
 			});
 			// Выполняем освобождение объектов ML-DSA эталона
 			::EVP_MD_CTX_free(mldsaDigest);
+			// Освобождаем ключевую пару ML-DSA-65 эталона
 			::EVP_PKEY_free(mldsaKey);
 		} else {
 			// Выводим примету отсутствия ML-DSA у эталона
@@ -2054,13 +2066,15 @@ int main(int argc, char * argv[]) noexcept {
 				// Освобождаем стороны
 				::SSL_free(s);
 				::SSL_free(c);
-				// Выводим отказ
+				// Выводим отрицательный результат - стороны либо пару завести не удалось
 				return false;
 			}
 			// Привязываем пару к сторонам
 			::SSL_set_bio(s, sb, sb);
 			::SSL_set_bio(c, cb, cb);
+			// Переводим сторону сервера в состояние приёма
 			::SSL_set_accept_state(s);
+			// Переводим сторону клиента в состояние подключения
 			::SSL_set_connect_state(c);
 			// Признак завершения рукопожатия обеими сторонами
 			bool done = false;
@@ -2068,8 +2082,10 @@ int main(int argc, char * argv[]) noexcept {
 			 * Выполняем ходы рукопожатия, пока обе стороны его не завершат
 			 */
 			for(size_t i = 0; (i < 32) && !done; i++){
+				// Выполняем ход рукопожатия клиентом
 				::SSL_do_handshake(c);
 				::SSL_do_handshake(s);
+				// Запоминаем завершение рукопожатия обеими сторонами
 				done = (::SSL_is_init_finished(c) && ::SSL_is_init_finished(s));
 			}
 			// Освобождаем стороны вместе с парой
@@ -2082,30 +2098,36 @@ int main(int argc, char * argv[]) noexcept {
 		const auto contexts = [](const char * certificate, const char * key, SSL_CTX *& sctx, SSL_CTX *& cctx) noexcept -> bool {
 			// Заводим контексты сторон
 			sctx = ::SSL_CTX_new(::TLS_server_method());
+			// Заводим контекст клиента
 			cctx = ::SSL_CTX_new(::TLS_client_method());
 			// Если контексты завести не удалось
 			if((sctx == nullptr) || (cctx == nullptr))
-				// Выводим отказ
+				// Выводим отрицательный результат - контексты завести не удалось
 				return false;
 			// Путь к набору ключей
 			const string root = (string(ANTS_CORPUS) + "/");
 			// Если подлинность сервера установить не удалось
 			if((::SSL_CTX_use_certificate_chain_file(sctx, (root + certificate).c_str()) != 1) || (::SSL_CTX_use_PrivateKey_file(sctx, (root + key).c_str(), SSL_FILETYPE_PEM) != 1))
-				// Выводим отказ
+				// Выводим отрицательный результат - подлинность сервера не установлена
 				return false;
 			// Издание TLS 1.3, группа X25519, набор AES-128-GCM, без билетов и доверия цепочке
 			::SSL_CTX_set_min_proto_version(sctx, TLS1_3_VERSION);
 			::SSL_CTX_set_min_proto_version(cctx, TLS1_3_VERSION);
+			// Назначаем серверу группу обмена X25519
 			::SSL_CTX_set1_groups_list(sctx, "X25519");
 			::SSL_CTX_set1_groups_list(cctx, "X25519");
+			// Назначаем серверу набор AES-128-GCM
 			::SSL_CTX_set_ciphersuites(sctx, "TLS_AES_128_GCM_SHA256");
 			::SSL_CTX_set_ciphersuites(cctx, "TLS_AES_128_GCM_SHA256");
+			// Отключаем проверку доверия цепочке у клиента
 			::SSL_CTX_set_verify(cctx, SSL_VERIFY_NONE, nullptr);
+			// Отключаем билеты состояния серверу
 			::SSL_CTX_set_options(sctx, SSL_OP_NO_TICKET);
 			::SSL_CTX_set_options(cctx, SSL_OP_NO_TICKET);
+			// Отключаем кэш сеансов серверу
 			::SSL_CTX_set_session_cache_mode(sctx, SSL_SESS_CACHE_OFF);
 			::SSL_CTX_set_session_cache_mode(cctx, SSL_SESS_CACHE_OFF);
-			// Выводим успешность
+			// Сообщаем об успешной настройке контекстов
 			return true;
 		};
 		// Контексты эталона по подлинностям ECDSA и RSA
@@ -2119,6 +2141,7 @@ int main(int argc, char * argv[]) noexcept {
 				// Проводим рукопожатие эталона подлинностью ECDSA
 				shakeRef(ecdsaServer, ecdsaClient);
 			});
+			// Выполняем замер рукопожатия эталона подлинностью RSA
 			shakeRsaRef = count("TLS 1.3 X25519 RSA GCM", 100, [&shakeRef, &rsaServer, &rsaClient]() noexcept -> void {
 				// Проводим рукопожатие эталона подлинностью RSA
 				shakeRef(rsaServer, rsaClient);
@@ -2132,12 +2155,15 @@ int main(int argc, char * argv[]) noexcept {
 				// Привязываем пару к сторонам
 				::SSL_set_bio(s, sb, sb);
 				::SSL_set_bio(c, cb, cb);
+				// Переводим сторону сервера в состояние приёма
 				::SSL_set_accept_state(s);
+				// Переводим сторону клиента в состояние подключения
 				::SSL_set_connect_state(c);
 				/**
 				 * Выполняем ходы рукопожатия, пока обе стороны его не завершат
 				 */
 				for(size_t i = 0; (i < 32) && !(::SSL_is_init_finished(c) && ::SSL_is_init_finished(s)); i++){
+					// Выполняем ход рукопожатия клиентом
 					::SSL_do_handshake(c);
 					::SSL_do_handshake(s);
 				}
@@ -2145,6 +2171,7 @@ int main(int argc, char * argv[]) noexcept {
 				if(::SSL_is_init_finished(c) && ::SSL_is_init_finished(s)){
 					// Прикладные данные и накопитель приёма
 					const vector <uint8_t> large(record::RECORD_PLAINTEXT, 0x5A), small(1200, 0x5A);
+					// Отводим буфер под запись
 					vector <uint8_t> buffer(record::RECORD_PLAINTEXT, 0);
 					// Передача записей клиентом серверу
 					const auto moving = [&s, &c, &buffer](const vector <uint8_t> & payload, const size_t times) noexcept -> void {
@@ -2180,6 +2207,7 @@ int main(int argc, char * argv[]) noexcept {
 						// Передаём записи наибольшей длины
 						moving(large, 64);
 					});
+					// Выполняем замер полосы записей эталона в 1200 байт
 					records1200Ref = band("TLS 1.3 записи 1200 байт", 8, small.size() * 256, [&moving, &small]() noexcept -> void {
 						// Передаём записи в 1200 байт
 						moving(small, 256);
@@ -2193,6 +2221,7 @@ int main(int argc, char * argv[]) noexcept {
 		} else cout << "Завести связи эталона не удалось" << endl;
 		// Освобождаем контексты эталона
 		::SSL_CTX_free(ecdsaServer);
+		// Освобождаем контекст клиента ECDSA
 		::SSL_CTX_free(ecdsaClient);
 		::SSL_CTX_free(rsaServer);
 		::SSL_CTX_free(rsaClient);
@@ -2211,9 +2240,12 @@ int main(int argc, char * argv[]) noexcept {
 				// Издание TLS 1.3, без билетов и доверия цепочке; группы и наборы - умолчания эталона
 				::SSL_CTX_set_min_proto_version(sctx, TLS1_3_VERSION);
 				::SSL_CTX_set_min_proto_version(cctx, TLS1_3_VERSION);
+				// Отключаем проверку доверия цепочке у клиента
 				::SSL_CTX_set_verify(cctx, SSL_VERIFY_NONE, nullptr);
+				// Отключаем билеты состояния серверу
 				::SSL_CTX_set_options(sctx, SSL_OP_NO_TICKET);
 				::SSL_CTX_set_options(cctx, SSL_OP_NO_TICKET);
+				// Отключаем кэш сеансов серверу
 				::SSL_CTX_set_session_cache_mode(sctx, SSL_SESS_CACHE_OFF);
 				::SSL_CTX_set_session_cache_mode(cctx, SSL_SESS_CACHE_OFF);
 				// Выполняем замер рукопожатия эталона умолчаниями
@@ -2235,6 +2267,7 @@ int main(int argc, char * argv[]) noexcept {
 					if((s == nullptr) || !::BIO_new_bio_pair(&sb, (1 << 16), &cb, (1 << 16))){
 						// Освобождаем сторону и считаем отказ
 						::SSL_free(s);
+						// Считаем отказ
 						failures++;
 						// Выходим
 						return;
@@ -2243,13 +2276,16 @@ int main(int argc, char * argv[]) noexcept {
 					size_t hellos = 0;
 					// Привязываем пару к стороне сервера и считаем её приветствия
 					::SSL_set_bio(s, sb, sb);
+					// Переводим сторону сервера в состояние приёма
 					::SSL_set_accept_state(s);
-					::SSL_set_msg_callback(s, +[](int write_p, int, int content_type, const void * buf, size_t len, SSL *, void * arg) noexcept -> void {
+					// Назначаем обратный вызов сообщений рукопожатия серверу
+					::SSL_set_msg_callback(s, +[](int writeP, int, int contentType, const void * buf, size_t len, SSL *, void * arg) noexcept -> void {
 						// Если сервер отправил сообщение рукопожатия вида ServerHello
-						if((write_p != 0) && (content_type == SSL3_RT_HANDSHAKE) && (len > 0) && (static_cast <const uint8_t *> (buf)[0] == 2))
+						if((writeP != 0) && (contentType == SSL3_RT_HANDSHAKE) && (len > 0) && (static_cast <const uint8_t *> (buf)[0] == 2))
 							// Считаем приветствие сервера
 							(* static_cast <size_t *> (arg))++;
 					});
+					// Передаём обратному вызову счётчик приветствий сервера
 					::SSL_set_msg_callback_arg(s, &hellos);
 					// Накопитель байтов от сервера
 					static uint8_t buffer[1 << 16];
@@ -2265,15 +2301,21 @@ int main(int argc, char * argv[]) noexcept {
 						if(out.size > 0){
 							// Передаём байты серверу и снимаем их с накопителя клиента
 							::BIO_write(cb, out.data, static_cast <int> (out.size));
+							// Снимаем отправленные байты с накопителя клиента
 							client.consume(out.size);
 						}
 						// Даём ход серверу
 						if(!::SSL_is_init_finished(s))
+							// Выполняем ход рукопожатия сервером
 							::SSL_do_handshake(s);
 						// Число байтов, прочитанных от сервера
 						int n = 0;
 						// Передаём байты сервера клиенту
+						/**
+						 * Передаём байты сервера клиенту, пока они есть
+						 */
 						while((n = ::BIO_read(cb, buffer, sizeof(buffer))) > 0)
+							// Передаём прочитанные байты клиенту
 							client.push(view_t(buffer, static_cast <size_t> (n)));
 						// Если связь клиента оборвана
 						if(client.error() != context::error_t::NONE)
@@ -2290,6 +2332,7 @@ int main(int argc, char * argv[]) noexcept {
 						retries++;
 					// Освобождаем сторону сервера вместе с её концом пары и свой конец пары
 					::SSL_free(s);
+					// Освобождаем свой конец пары
 					::BIO_free(cb);
 				};
 				// Выполняем замер рукопожатия нашего клиента с умолчаниями к серверу эталона
@@ -2300,6 +2343,7 @@ int main(int argc, char * argv[]) noexcept {
 			} else cout << "Завести связи эталона умолчаниями не удалось" << endl;
 			// Освобождаем контексты эталона
 			::SSL_CTX_free(sctx);
+			// Освобождаем контекст клиента
 			::SSL_CTX_free(cctx);
 		}
 		// Выполняем освобождение ключевой пары X25519 эталона
@@ -2362,6 +2406,9 @@ int main(int argc, char * argv[]) noexcept {
 		cout << "алгоритмов запускать замеры так: OPENSSL_armcap=0 (ARM) либо" << endl;
 		// Выводим способ отключения ускорения эталона
 		cout << "OPENSSL_ia32cap=~0x200000200000000 (x86-64)" << endl;
+	/**
+	 * Сличение с эталоном отключено сборкой: замеры своей работы остаются без отношений к эталону
+	 */
 	#else
 		// Не используем замер хеширования при отключённом сличении
 		(void) streebog;
@@ -2387,16 +2434,23 @@ int main(int argc, char * argv[]) noexcept {
 		(void) checking;
 		// Не используем замеры ML-DSA-65 при отключённом сличении
 		(void) mldsaGenerate;
+		// Не используем замер подписи ML-DSA-65 при отключённом сличении
 		(void) mldsaSigning;
+		// Не используем замер сличения ML-DSA-65 при отключённом сличении
 		(void) mldsaChecking;
 		// Не используем замер обмена ключами при отключённом сличении
 		(void) exchange;
+		// Не используем замер рукопожатий умолчаниями при отключённом сличении
 		(void) shakeDefaults;
+		// Не используем замер рукопожатия ECDSA при отключённом сличении
 		(void) shakeEcdsa;
+		// Не используем замер рукопожатия RSA при отключённом сличении
 		(void) shakeRsa;
+		// Не используем замер записей 16 КиБ при отключённом сличении
 		(void) records16;
+		// Не используем замер записей 1200 байт при отключённом сличении
 		(void) records1200;
-	#endif // ANTS_BENCH_OPENSSL
+	#endif
 	// Выходим из приложения с признаком успеха
 	return EXIT_SUCCESS;
 }

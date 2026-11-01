@@ -19,7 +19,6 @@
  * @brief Header file of the module of the source of the random values
  *
  * \~
- *
  * @copyright Copyright © 2026
  *
  */
@@ -84,6 +83,7 @@ namespace nts {
 	 *
 	 * \~english
 	 * @brief Namespace of the module of the source of the random values
+	 *
 	 * @details The random bytes are produced by a generator of its own per thread: ChaCha20
 	 *          with a key erased on the go (fast key erasure), after the pattern of the
 	 *          arc4random of OpenBSD and of the generator of the Linux kernel. A 1 KiB stock
@@ -103,6 +103,7 @@ namespace nts {
 	 *          output. ChaCha20 instead of AES - for the sake of one and the same speed at the
 	 *          machines without the AES instructions and without the tables depending on the
 	 *          key by the timing
+	 *
 	 * @note The namespace is named entropy and not random: the free function random is a part
 	 *       of POSIX, and a namespace of the same name would make its call ambiguous for a
 	 *       consumer who wrote using namespace nts
@@ -112,21 +113,22 @@ namespace nts {
 	namespace entropy {
 		/**
 		 * \~russian
-		 * @brief Метод получения случайных байтов
+		 * @brief Функция получения случайных байтов
 		 *
 		 * @param data место, в которое помещаются случайные байты
 		 * @param size число получаемых случайных байтов
-		 *
-		 * @return признак успешности получения случайных байтов
+		 * @return     признак успешности получения случайных байтов
 		 *
 		 * @note Отказ источника случайности означает, что случайных байтов нет вовсе:
 		 *       подменять их чем бы то ни было нельзя, вызов обязан отказать
 		 *
 		 * \~english
-		 * @brief Method of getting the random bytes
+		 * @brief Function of getting the random bytes
+		 *
 		 * @param data the place the random bytes are put into
 		 * @param size the number of the random bytes being received
-		 * @return the flag of the success of the getting of the random bytes
+		 * @return     the flag of the success of the getting of the random bytes
+		 *
 		 * @note A refusal of the source of the randomness means that there are no random bytes
 		 *       at all: it is forbidden to substitute them by anything whatsoever, the call must refuse
 		 *
@@ -135,12 +137,11 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ bool bytes(uint8_t * data, const size_t size) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод получения случайного числа по модулю
+		 * @brief Функция получения случайного числа по модулю
 		 *
 		 * @param modulus модуль, меньше которого получается случайное число
 		 * @param result  место, в которое помещается случайное число
-		 *
-		 * @return признак успешности получения случайного числа
+		 * @return        признак успешности получения случайного числа
 		 *
 		 * @note Число получается отбором: выпавшее значение, не меньшее модуля либо
 		 *       нулевое, отбрасывается целиком, а не приводится по модулю. Приведение
@@ -148,10 +149,12 @@ namespace nts {
 		 *       то, чем ломают подпись
 		 *
 		 * \~english
-		 * @brief Method of getting a random number by a modulus
+		 * @brief Function of getting a random number by a modulus
+		 *
 		 * @param modulus the modulus a random number less than which is received
 		 * @param result  the place the random number is put into
-		 * @return the flag of the success of the getting of the random number
+		 * @return        the flag of the success of the getting of the random number
+		 *
 		 * @note The number is received by a selection: a fallen out value not less than the
 		 *       modulus or a zero one is discarded entirely and is not reduced by the modulus.
 		 *       A reduction would make the junior values more probable than the rest, and a

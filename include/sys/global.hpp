@@ -47,7 +47,6 @@
  *       defines WIN32 as an empty macro, so a condition like «|| WIN32 ||» loses the operand
  *
  * \~
- *
  */
 #if defined(_MSC_VER) || defined(WIN64) || defined(_WIN64) || defined(__WIN64__) || defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
 	/**
@@ -58,6 +57,9 @@
 	 * Импорт символов из динамической библиотеки
 	 */
 	#define __ANTS_DECL_IMPORT__ __declspec(dllimport)
+/**
+ * Ветвь для прочих платформ: экспорт и импорт символов через атрибут видимости
+ */
 #else
 	/**
 	 * Экспорт символов из динамической библиотеки
@@ -121,7 +123,6 @@
  *       the machine branches of the ciphers and hashes there still go the portable way
  *
  * \~
- *
  */
 #if defined(_MSC_VER)
 	/**
@@ -132,6 +133,9 @@
 	 * Обозначение вызова, встраивание которого запрещено
 	 */
 	#define __ANTS_NOINLINE__ __declspec(noinline)
+/**
+ * Ветвь для прочих платформ: принудительное встраивание и запрет встраивания через атрибуты
+ */
 #else
 	/**
 	 * Обозначение принудительно встраиваемого вызова
@@ -165,7 +169,6 @@
  *       gcc declares the ASan flag itself, clang answers the question about the property
  *
  * \~
- *
  */
 #if !defined(__OPTIMIZE__)
 	/**
@@ -200,7 +203,6 @@
  * @brief Main namespace
  *
  * \~
- *
  */
 namespace nts {
 	/**
@@ -223,7 +225,6 @@ namespace nts {
 	 *          during the parsing of untrusted data.
 	 *
 	 * \~
-	 *
 	 */
 	typedef struct View {
 		// Размер области байтов
@@ -234,14 +235,12 @@ namespace nts {
 		 * \~russian
 		 * @brief Конструктор
 		 *
-		 *
 		 * \~english
 		 * @brief Constructor
 		 *
 		 * \~
-		 *
 		 */
-		explicit View() noexcept : size(0), data(nullptr) {}
+		constexpr View() noexcept : size(0), data(nullptr) {}
 		/**
 		 * \~russian
 		 * @brief Конструктор
@@ -256,8 +255,7 @@ namespace nts {
 		 * @param size size of the byte area
 		 *
 		 * \~
-		 *
 		 */
-		explicit View(const uint8_t * data, const size_t size) noexcept : size(size), data(data) {}
+		constexpr View(const uint8_t * data, const size_t size) noexcept : size(size), data(data) {}
 	} view_t;
 };

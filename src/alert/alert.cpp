@@ -64,10 +64,9 @@ namespace {
 	using namespace nts::alert;
 
 	/**
-	 * @brief Метод проверки известности уровня извещения
+	 * @brief Функция проверки известности уровня извещения
 	 *
 	 * @param level проверяемый уровень извещения
-	 *
 	 * @return      признак того, что уровень определён протоколом
 	 *
 	 */
@@ -88,11 +87,10 @@ namespace {
 };
 
 /**
- * @brief Метод разбора извещения
+ * @brief Функция разбора извещения
  *
  * @param data   разбираемая область байтов
  * @param result извещение, в которое помещается итог разбора
- *
  * @return       отказ разбора извещения
  *
  */
@@ -119,11 +117,10 @@ alert::error_t nts::alert::parse(const view_t & data, alert_t & result) noexcept
 	return error_t::NONE;
 }
 /**
- * @brief Метод записи извещения
+ * @brief Функция записи извещения
  *
  * @param alert  записываемое извещение
  * @param result место, в которое помещается записанное извещение
- *
  * @return       отказ записи извещения
  *
  */
@@ -144,10 +141,9 @@ alert::error_t nts::alert::build(const alert_t & alert, uint8_t * result) noexce
 	return error_t::NONE;
 }
 /**
- * @brief Метод проверки известности описания извещения
+ * @brief Функция проверки известности описания извещения
  *
  * @param description проверяемое описание извещения
- *
  * @return            признак того, что описание определено протоколом
  *
  */
@@ -196,10 +192,9 @@ bool nts::alert::known(const description_t description) noexcept {
 	return false;
 }
 /**
- * @brief Метод проверки смертельности извещения
+ * @brief Функция проверки смертельности извещения
  *
  * @param alert проверяемое извещение
- *
  * @return      признак того, что связь после извещения продолжена быть не вправе
  *
  */
@@ -218,10 +213,9 @@ bool nts::alert::fatal(const alert_t & alert) noexcept {
 	return true;
 }
 /**
- * @brief Метод проверки, объявлено ли описание извещения смертельным всегда
+ * @brief Функция проверки, объявлено ли описание извещения смертельным всегда
  *
  * @param description проверяемое описание
- *
  * @return            признак описания, смертельного при любом уровне
  *
  */
@@ -257,10 +251,9 @@ bool nts::alert::grave(const description_t description) noexcept {
 	return false;
 }
 /**
- * @brief Метод получения названия описания извещения
+ * @brief Функция получения названия описания извещения
  *
  * @param description описание извещения, название которого запрашивается
- *
  * @return            название описания извещения из перечисления протокола
  *
  */
@@ -336,3 +329,18 @@ const char * nts::alert::name(const description_t description) noexcept {
 	// Выводим название неизвестного описания извещения
 	return "unknown_alert";
 }
+
+/**
+ * @brief Конструктор
+ *
+ */
+nts::alert::Alert::Alert() noexcept : level(level_t::NONE), description(description_t::INTERNAL) {}
+
+/**
+ * @brief Конструктор
+ *
+ * @param level       уровень извещения
+ * @param description описание извещения
+ *
+ */
+nts::alert::Alert::Alert(const level_t level, const description_t description) noexcept : level(level), description(description) {}

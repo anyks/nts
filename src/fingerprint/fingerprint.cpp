@@ -28,6 +28,7 @@
 #include <cstdio>
 #include <cctype>
 #include <cstring>
+#include <sstream>
 #include <algorithm>
 
 /**
@@ -81,18 +82,18 @@ namespace {
 	/**
 	 * Издания протокола по проводу
 	 */
-	static constexpr uint16_t EDITION_TLS13  = 0x0304;
-	static constexpr uint16_t EDITION_DTLS10 = 0xFEFF;
-	static constexpr uint16_t EDITION_DTLS12 = 0xFEFD;
-	static constexpr uint16_t EDITION_DTLS13 = 0xFEFC;
+	static constexpr uint16_t EDITION_TLS13  = 0x0304; // TLS 1.3
+	static constexpr uint16_t EDITION_DTLS10 = 0xFEFF; // DTLS 1.0
+	static constexpr uint16_t EDITION_DTLS12 = 0xFEFD; // DTLS 1.2
+	static constexpr uint16_t EDITION_DTLS13 = 0xFEFC; // DTLS 1.3
 
 	/**
 	 * Размеры заголовков записи и сообщения рукопожатия
 	 */
-	static constexpr size_t RECORD_STREAM   = 5;
-	static constexpr size_t RECORD_DATAGRAM = 13;
-	static constexpr size_t HEADER_STREAM   = 4;
-	static constexpr size_t HEADER_DATAGRAM = 12;
+	static constexpr size_t RECORD_STREAM   = 5;  // Заголовок записи потокового устройства
+	static constexpr size_t RECORD_DATAGRAM = 13; // Заголовок записи дейтаграммного устройства
+	static constexpr size_t HEADER_STREAM   = 4;  // Заголовок сообщения потокового устройства
+	static constexpr size_t HEADER_DATAGRAM = 12; // Заголовок сообщения дейтаграммного устройства
 
 	/**
 	 * Вид сообщения рукопожатия: приветствие клиента
@@ -113,6 +114,7 @@ namespace {
 	 * Предисловие потока HTTP/2
 	 */
 	static const uint8_t PREFACE[] = {
+		// Магия предисловия протокола HTTP/2
 		'P', 'R', 'I', ' ', '*', ' ', 'H', 'T', 'T', 'P', '/', '2', '.', '0',
 		'\r', '\n', '\r', '\n', 'S', 'M', '\r', '\n', '\r', '\n'
 	};
@@ -120,13 +122,13 @@ namespace {
 	/**
 	 * Виды кадров HTTP/2
 	 */
-	static constexpr uint8_t FRAME_HEADERS  = 0x01;
-	static constexpr uint8_t FRAME_PRIORITY = 0x02;
-	static constexpr uint8_t FRAME_SETTINGS = 0x04;
-	static constexpr uint8_t FRAME_WINDOW   = 0x08;
+	static constexpr uint8_t FRAME_HEADERS  = 0x01; // Кадр заголовков
+	static constexpr uint8_t FRAME_PRIORITY = 0x02; // Кадр приоритета
+	static constexpr uint8_t FRAME_SETTINGS = 0x04; // Кадр параметров
+	static constexpr uint8_t FRAME_WINDOW   = 0x08; // Кадр обновления окна
 
 	/**
-	 * @brief Метод чтения числа в два байта старшим байтом вперёд
+	 * @brief Функция чтения числа в два байта старшим байтом вперёд
 	 *
 	 * @param data указатель на байты
 	 * @return     прочитанное число
@@ -137,7 +139,7 @@ namespace {
 		return static_cast <uint16_t> ((static_cast <uint16_t> (data[0]) << 8) | static_cast <uint16_t> (data[1]));
 	}
 	/**
-	 * @brief Метод чтения числа в три байта старшим байтом вперёд
+	 * @brief Функция чтения числа в три байта старшим байтом вперёд
 	 *
 	 * @param data указатель на байты
 	 * @return     прочитанное число
@@ -148,7 +150,7 @@ namespace {
 		return ((static_cast <uint32_t> (data[0]) << 16) | (static_cast <uint32_t> (data[1]) << 8) | static_cast <uint32_t> (data[2]));
 	}
 	/**
-	 * @brief Метод чтения числа в четыре байта старшим байтом вперёд
+	 * @brief Функция чтения числа в четыре байта старшим байтом вперёд
 	 *
 	 * @param data указатель на байты
 	 * @return     прочитанное число
@@ -159,7 +161,7 @@ namespace {
 		return ((static_cast <uint32_t> (data[0]) << 24) | (static_cast <uint32_t> (data[1]) << 16) | (static_cast <uint32_t> (data[2]) << 8) | static_cast <uint32_t> (data[3]));
 	}
 	/**
-	 * @brief Метод чтения числа в восемь байтов старшим байтом вперёд
+	 * @brief Функция чтения числа в восемь байтов старшим байтом вперёд
 	 *
 	 * @param data указатель на байты
 	 * @return     прочитанное число
@@ -170,7 +172,7 @@ namespace {
 		return ((static_cast <uint64_t> (tetrad(data)) << 32) | static_cast <uint64_t> (tetrad(data + 4)));
 	}
 	/**
-	 * @brief Метод дописывания числа старшим байтом вперёд в накопитель
+	 * @brief Функция дописывания числа старшим байтом вперёд в накопитель
 	 *
 	 * @param value  дописываемое число
 	 * @param width  ширина числа в байтах
@@ -186,7 +188,7 @@ namespace {
 			result.push_back(static_cast <uint8_t> (value >> ((i - 1) * 8)));
 	}
 	/**
-	 * @brief Метод дописывания десятичной записи числа к строке
+	 * @brief Функция дописывания десятичной записи числа к строке
 	 *
 	 * @param value  записываемое число
 	 * @param result строка, к которой дописывается запись
@@ -203,7 +205,7 @@ namespace {
 			result.append(buffer, static_cast <size_t> (written));
 	}
 	/**
-	 * @brief Метод дописывания шестнадцатеричной записи числа в четыре знака к строке
+	 * @brief Функция дописывания шестнадцатеричной записи числа в четыре знака к строке
 	 *
 	 * @param value  записываемое число
 	 * @param result строка, к которой дописывается запись
@@ -220,7 +222,7 @@ namespace {
 			result.append(buffer, static_cast <size_t> (written));
 	}
 	/**
-	 * @brief Метод дописывания шестнадцатеричной записи байтов к строке
+	 * @brief Функция дописывания шестнадцатеричной записи байтов к строке
 	 *
 	 * @param data   записываемые байты
 	 * @param size   число байтов
@@ -241,7 +243,7 @@ namespace {
 		}
 	}
 	/**
-	 * @brief Метод хеширования строки с выдачей шестнадцатеричной записи
+	 * @brief Функция хеширования строки с выдачей шестнадцатеричной записи
 	 *
 	 * @param algorithm алгоритм хеширования
 	 * @param text      хешируемая строка
@@ -265,7 +267,7 @@ namespace {
 		return true;
 	}
 	/**
-	 * @brief Метод дописывания перечня чисел через разделитель
+	 * @brief Функция дописывания перечня чисел через разделитель
 	 *
 	 * @param values    перечень чисел
 	 * @param separator разделитель
@@ -291,7 +293,7 @@ namespace {
 		}
 	}
 	/**
-	 * @brief Метод дописывания перечня значений с пометкой GREASE
+	 * @brief Функция дописывания перечня значений с пометкой GREASE
 	 *
 	 * @param values перечень значений
 	 * @param result строка, к которой дописывается перечень
@@ -315,7 +317,7 @@ namespace {
 		}
 	}
 	/**
-	 * @brief Метод поиска расширения профиля по виду
+	 * @brief Функция поиска расширения профиля по виду
 	 *
 	 * @param profile профиль приветствия
 	 * @param type    вид расширения по проводу
@@ -336,7 +338,411 @@ namespace {
 		return nullptr;
 	}
 	/**
-	 * @brief Метод разбора перечня строк с однобайтовыми длинами и двухбайтовой длиной перечня
+	 * @brief Функция составления шестнадцатеричной записи числа с шириной четыре знака
+	 *
+	 * @param value записываемое число
+	 * @return      запись вида "0x%04X"
+	 *
+	 */
+	static string __ants_hex16__(const uint16_t value) noexcept {
+		// Место записи числа
+		char buffer[8];
+		// Составляем запись числа
+		const int32_t written = ::snprintf(buffer, sizeof(buffer), "0x%04X", value);
+		// Выводим запись числа
+		return ((written > 0) ? string(buffer, static_cast <size_t> (written)) : string());
+	}
+	/**
+	 * @brief Функция составления шестнадцатеричной записи числа с шириной два знака
+	 *
+	 * @param value записываемое число
+	 * @return      запись вида "0x%02X"
+	 *
+	 */
+	static string __ants_hex8__(const uint8_t value) noexcept {
+		// Место записи числа
+		char buffer[6];
+		// Составляем запись числа
+		const int32_t written = ::snprintf(buffer, sizeof(buffer), "0x%02X", value);
+		// Выводим запись числа
+		return ((written > 0) ? string(buffer, static_cast <size_t> (written)) : string());
+	}
+	/**
+	 * @brief Функция возвращения имени алгоритма сжатия по его коду (как в AWH)
+	 *
+	 * @param id код алгоритма сжатия
+	 * @return   имя алгоритма сжатия
+	 *
+	 */
+	static const char * __ants_compress_alg_name__(const uint8_t id) noexcept {
+		/**
+		 * Определяем имя для кода алгоритма сжатия
+		 */
+		switch(id){
+			// Если код алгоритма сжатия соответствует Zlib
+			case 0x01: return "Zlib";
+			// Если код алгоритма сжатия соответствует Brotli
+			case 0x02: return "Brotli";
+			// Если код алгоритма сжатия соответствует ZStandard (Zstd)
+			case 0x03: return "Zstandard (ZSTD)";
+			// Если код алгоритма сжатия не распознан, возвращаем "UNKNOWN"
+			default: return "UNKNOWN";
+		}
+	}
+	/**
+	 * @brief Функция возвращения имени издания протокола по его коду (как в AWH)
+	 *
+	 * @param version код издания протокола
+	 * @return        имя издания протокола
+	 *
+	 */
+	static const char * __ants_tls_version_name__(const uint16_t version) noexcept {
+		// Если версия является GREASE, возвращаем "GREASE"
+		if(fingerprint::grease(version))
+			// Возвращаем строку "GREASE" для GREASE версий
+			return "[GREASE]";
+		/**
+		 * Определяем имя для кода версии TLS
+		 */
+		switch(version){
+			// Если код версии соответствует SSL 3.0, возвращаем "SSLv3"
+			case 0x0300: return "SSLv3";
+			// Если код версии соответствует TLS 1.0, возвращаем "TLSv1.0"
+			case 0x0301: return "TLSv1.0";
+			// Если код версии соответствует TLS 1.1, возвращаем "TLSv1.1"
+			case 0x0302: return "TLSv1.1";
+			// Если код версии соответствует TLS 1.2, возвращаем "TLSv1.2"
+			case 0x0303: return "TLSv1.2";
+			// Если код версии соответствует TLS 1.3, возвращаем "TLSv1.3"
+			case 0x0304: return "TLSv1.3";
+			// Если код версии соответствует DTLS 1.0, возвращаем "DTLSv1.0"
+			case EDITION_DTLS10: return "DTLSv1.0";
+			// Если код версии соответствует DTLS 1.2, возвращаем "DTLSv1.2"
+			case EDITION_DTLS12: return "DTLSv1.2";
+			// Если код версии соответствует DTLS 1.3, возвращаем "DTLSv1.3"
+			case EDITION_DTLS13: return "DTLSv1.3";
+			// Если код версии не распознан, возвращаем "UNKNOWN"
+			default: return "UNKNOWN";
+		}
+	}
+	/**
+	 * @brief Функция возвращения имени группы обмена ключами по её коду (как в AWH)
+	 *
+	 * @param gid код группы обмена ключами
+	 * @return    имя группы обмена ключами
+	 *
+	 */
+	static const char * __ants_group_name__(const uint16_t gid) noexcept {
+		// Если код группы является GREASE, возвращаем "GREASE"
+		if(fingerprint::grease(gid))
+			// Возвращаем строку "GREASE" для GREASE кодов групп
+			return "[GREASE]";
+		/**
+		 * Определяем код группы
+		 */
+		switch(gid){
+			// Если группа соответствует secp256k1
+			case 0x001C: return "secp256k1";
+			// Если группа соответствует P-256 (secp256r1)
+			case 0x0017: return "P-256 (secp256r1)";
+			// Если группа соответствует P-384 (secp384r1)
+			case 0x0018: return "P-384 (secp384r1)";
+			// Если группа соответствует P-521 (secp521r1)
+			case 0x0019: return "P-521 (secp521r1)";
+			// Если группа соответствует X25519
+			case 0x001D: return "X25519";
+			// Если группа соответствует X448
+			case 0x001E: return "X448";
+			// Если группа соответствует FFDHE 2048
+			case 0x0100: return "ffdhe2048";
+			// Если группа соответствует FFDHE 3072
+			case 0x0101: return "ffdhe3072";
+			// Если группа соответствует FFDHE 4096
+			case 0x0102: return "ffdhe4096";
+			// Если группа соответствует FFDHE 6144
+			case 0x0103: return "ffdhe6144";
+			// Если группа соответствует FFDHE 8192
+			case 0x0104: return "ffdhe8192";
+			// Если группа соответствует MLKEM 1024
+			case 0x0202: return "mlkem1024";
+			// Если группа соответствует X25519Kyber768Draft00
+			case 0x6399: return "X25519Kyber768Draft00";
+			// Если группа соответствует X25519MLKEM768
+			case 0x11EC: return "X25519MLKEM768";
+			// Если группа не соответствует ни одной из известных
+			default: return "UNKNOWN";
+		}
+	}
+	/**
+	 * @brief Функция возвращения имени схемы подписи по её коду (как в AWH)
+	 *
+	 * @param id код схемы подписи
+	 * @return   имя схемы подписи
+	 *
+	 */
+	static const char * __ants_signature_name__(const uint16_t id) noexcept {
+		// Если код схемы подписи является GREASE, возвращаем "GREASE"
+		if(fingerprint::grease(id))
+			// Возвращаем строку "GREASE" для GREASE кодов схем подписи
+			return "[GREASE]";
+		/**
+		 * Определяем имя для кода схемы подписи
+		 */
+		switch(id){
+			// Если код схемы подписи соответствует DSA_SHA1
+			case 0x0202: return "dsa_sha1";
+			// Если код схемы подписи соответствует RSA_PKCS1_SHA1
+			case 0x0201: return "rsa_pkcs1_sha1";
+			// Если код схемы подписи соответствует ECDSA_SHA1
+			case 0x0203: return "ecdsa_sha1";
+			// Если код схемы подписи соответствует RSA_PKCS1_SHA256_LEGACY
+			case 0x0420: return "rsa_pkcs1_sha256_legacy";
+			// Если код схемы подписи соответствует RSA_PKCS1_SHA256
+			case 0x0401: return "rsa_pkcs1_sha256";
+			// Если код схемы подписи соответствует ECDSA_SECP256R1_SHA256
+			case 0x0403: return "ecdsa_secp256r1_sha256";
+			// Если код схемы подписи соответствует RSA_PKCS1_SHA384
+			case 0x0501: return "rsa_pkcs1_sha384";
+			// Если код схемы подписи соответствует ECDSA_SECP384R1_SHA384
+			case 0x0503: return "ecdsa_secp384r1_sha384";
+			// Если код схемы подписи соответствует RSA_PKCS1_SHA512
+			case 0x0601: return "rsa_pkcs1_sha512";
+			// Если код схемы подписи соответствует ECDSA_SECP521R1_SHA512
+			case 0x0603: return "ecdsa_secp521r1_sha512";
+			// Если код схемы подписи соответствует RSA_PSS_RSAE_SHA256
+			case 0x0804: return "rsa_pss_rsae_sha256";
+			// Если код схемы подписи соответствует RSA_PSS_RSAE_SHA384
+			case 0x0805: return "rsa_pss_rsae_sha384";
+			// Если код схемы подписи соответствует RSA_PSS_RSAE_SHA512
+			case 0x0806: return "rsa_pss_rsae_sha512";
+			// Если код схемы подписи соответствует EdDSA-25519
+			case 0x0807: return "ed25519";
+			// Если код схемы подписи соответствует EdDSA-448
+			case 0x0808: return "ed448";
+			// Если код схемы подписи соответствует RSA_PSS_PSS_SHA256
+			case 0x0809: return "rsa_pss_pss_sha256";
+			// Если код схемы подписи соответствует RSA_PSS_PSS_SHA384
+			case 0x080A: return "rsa_pss_pss_sha384";
+			// Если код схемы подписи соответствует RSA_PSS_PSS_SHA512
+			case 0x080B: return "rsa_pss_pss_sha512";
+			// Если код схемы подписи соответствует RSA_PKCS1_MD5_SHA1
+			case 0xFF01: return "rsa_pkcs1_md5_sha1";
+			// Если код схемы подписи не распознан, возвращаем "UNKNOWN"
+			default: return "UNKNOWN";
+		}
+	}
+	/**
+	 * @brief Функция возвращения имени набора шифрования по его коду (как в AWH)
+	 *
+	 * @param id код набора шифрования
+	 * @return   имя набора шифрования
+	 *
+	 */
+	static const char * __ants_cipher_name__(const uint16_t id) noexcept {
+		// Если код набора является GREASE, возвращаем "GREASE"
+		if(fingerprint::grease(id))
+			// Возвращаем строку "GREASE" для GREASE кодов наборов
+			return "[GREASE]";
+		/**
+		 * Определяем код набора
+		 */
+		switch(id){
+			// Если код набора соответствует AES128-SHA
+			case 0x002F: return "AES128-SHA";
+			// Если код набора соответствует AES256-SHA
+			case 0x0035: return "AES256-SHA";
+			// Если код набора соответствует PSK-AES128-CBC-SHA
+			case 0x008C: return "PSK-AES128-CBC-SHA";
+			// Если код набора соответствует PSK-AES256-CBC-SHA
+			case 0x008D: return "PSK-AES256-CBC-SHA";
+			// Если код набора соответствует AES128-GCM-SHA256
+			case 0x009C: return "AES128-GCM-SHA256";
+			// Если код набора соответствует AES256-GCM-SHA384
+			case 0x009D: return "AES256-GCM-SHA384";
+			// Если код набора соответствует ECDHE-ECDSA-AES128-SHA
+			case 0xC009: return "ECDHE-ECDSA-AES128-SHA";
+			// Если код набора соответствует ECDHE-ECDSA-AES256-SHA
+			case 0xC00A: return "ECDHE-ECDSA-AES256-SHA";
+			// Если код набора соответствует ECDHE-RSA-AES128-SHA
+			case 0xC013: return "ECDHE-RSA-AES128-SHA";
+			// Если код набора соответствует ECDHE-RSA-AES256-SHA
+			case 0xC014: return "ECDHE-RSA-AES256-SHA";
+			// Если код набора соответствует ECDHE-ECDSA-AES128-SHA256
+			case 0xC023: return "ECDHE-ECDSA-AES128-SHA256";
+			// Если код набора соответствует ECDHE-RSA-AES128-SHA256
+			case 0xC027: return "ECDHE-RSA-AES128-SHA256";
+			// Если код набора соответствует ECDHE-RSA-AES128-GCM-SHA256
+			case 0xC02F: return "ECDHE-RSA-AES128-GCM-SHA256";
+			// Если код набора соответствует ECDHE-ECDSA-AES128-GCM-SHA256
+			case 0xC02B: return "ECDHE-ECDSA-AES128-GCM-SHA256";
+			// Если код набора соответствует ECDHE-RSA-AES256-GCM-SHA384
+			case 0xC030: return "ECDHE-RSA-AES256-GCM-SHA384";
+			// Если код набора соответствует ECDHE-ECDSA-AES256-GCM-SHA384
+			case 0xC02C: return "ECDHE-ECDSA-AES256-GCM-SHA384";
+			// Если код набора соответствует ECDHE-RSA-CHACHA20-POLY1305
+			case 0xCCA8: return "ECDHE-RSA-CHACHA20-POLY1305";
+			// Если код набора соответствует ECDHE-ECDSA-CHACHA20-POLY1305
+			case 0xCCA9: return "ECDHE-ECDSA-CHACHA20-POLY1305";
+			// Если код набора соответствует ECDHE-PSK-AES128-CBC-SHA
+			case 0xC035: return "ECDHE-PSK-AES128-CBC-SHA";
+			// Если код набора соответствует ECDHE-PSK-AES256-CBC-SHA
+			case 0xC036: return "ECDHE-PSK-AES256-CBC-SHA";
+			// Если код набора соответствует ECDHE-PSK-CHACHA20-POLY1305
+			case 0xCCAC: return "ECDHE-PSK-CHACHA20-POLY1305";
+			// Если код набора соответствует TLS_AES_128_GCM_SHA256
+			case 0x1301: return "TLS_AES_128_GCM_SHA256";
+			// Если код набора соответствует TLS_AES_256_GCM_SHA384
+			case 0x1302: return "TLS_AES_256_GCM_SHA384";
+			// Если код набора соответствует TLS_CHACHA20_POLY1305_SHA256
+			case 0x1303: return "TLS_CHACHA20_POLY1305_SHA256";
+			// Если код набора не соответствует ни одному из известных
+			default: return "UNKNOWN";
+		}
+	}
+	/**
+	 * @brief Функция возвращения имени расширения по его коду (как в AWH)
+	 *
+	 * @param type код расширения по проводу
+	 * @return     имя расширения
+	 *
+	 */
+	static const char * __ants_extension_name__(const uint16_t type) noexcept {
+		// Если код расширения является GREASE, возвращаем "GREASE"
+		if(fingerprint::grease(type))
+			// Возвращаем строку "GREASE" для GREASE кодов расширений
+			return "[GREASE]";
+		/**
+		 * Определяем имя для кода расширения
+		 */
+		switch(type){
+			// Если код расширения соответствует server_name (RFC 6066)
+			case 0x0000: return "server_name";
+			// Если код расширения соответствует max_fragment_length (RFC 6066)
+			case 0x0001: return "max_fragment_length";
+			// Если код расширения соответствует status_request (RFC 6066) (OCSP)
+			case 0x0005: return "status_request";
+			// Если код расширения соответствует supported_groups (RFC 8422)
+			case 0x000A: return "supported_groups";
+			// Если код расширения соответствует ec_point_formats (RFC 8422)
+			case 0x000B: return "ec_point_formats";
+			// Если код расширения соответствует signature_algorithms (RFC 8446)
+			case 0x000D: return "signature_algorithms";
+			// Если код расширения соответствует use_srtp (RFC 5764)
+			case 0x000E: return "use_srtp";
+			// Если код расширения соответствует heartbeat (RFC 6520)
+			case 0x000F: return "heartbeat";
+			// Если код расширения соответствует application_layer_protocol_negotiation (RFC 7301)
+			case 0x0010: return "application_layer_protocol_negotiation";
+			// Если код расширения соответствует signed_certificate_timestamp (RFC 6962)
+			case 0x0012: return "signed_certificate_timestamp";
+			// Если код расширения соответствует client_certificate_type (RFC 7250)
+			case 0x0013: return "client_certificate_type";
+			// Если код расширения соответствует server_certificate_type (RFC 7250)
+			case 0x0014: return "server_certificate_type";
+			// Если код расширения соответствует padding (RFC 7685)
+			case 0x0015: return "padding";
+			// Если код расширения соответствует encrypt_then_mac (RFC 7366)
+			case 0x0016: return "encrypt_then_mac";
+			// Если код расширения соответствует extended_master_secret (RFC 7627)
+			case 0x0017: return "extended_master_secret";
+			// Если код расширения соответствует compress_certificate (RFC 8879)
+			case 0x001B: return "compress_certificate";
+			// Если код расширения соответствует record_size_limit (RFC 8449)
+			case 0x001C: return "record_size_limit";
+			// Если код расширения соответствует delegated_credential (RFC 9345)
+			case 0x0022: return "delegated_credential";
+			// Если код расширения соответствует session_ticket (RFC 5077)
+			case 0x0023: return "session_ticket";
+			// Если код расширения соответствует pre_shared_key (RFC 8446)
+			case 0x0029: return "pre_shared_key";
+			// Если код расширения соответствует early_data (RFC 8446)
+			case 0x002A: return "early_data";
+			// Если код расширения соответствует supported_versions (RFC 8446)
+			case 0x002B: return "supported_versions";
+			// Если код расширения соответствует cookie (RFC 8446)
+			case 0x002C: return "cookie";
+			// Если код расширения соответствует psk_key_exchange_modes (RFC 8446)
+			case 0x002D: return "psk_key_exchange_modes";
+			// Если код расширения соответствует certificate_authorities (RFC 8446)
+			case 0x002F: return "certificate_authorities";
+			// Если код расширения соответствует oid_filters (RFC 8446)
+			case 0x0030: return "oid_filters";
+			// Если код расширения соответствует post_handshake_auth (RFC 8446)
+			case 0x0031: return "post_handshake_auth";
+			// Если код расширения соответствует signature_algorithms_cert (RFC 8446)
+			case 0x0032: return "signature_algorithms_cert";
+			// Если код расширения соответствует key_share (RFC 8446)
+			case 0x0033: return "key_share";
+			// Если код расширения соответствует transparency_info (редко)
+			case 0x0035: return "transparency_info";
+			// Если код расширения соответствует quic_transport_parameters (RFC 9001)
+			case 0x0039: return "quic_transport_parameters";
+			// Если код расширения соответствует tls_flags (draft)
+			case 0x003E: return "tls_flags";
+			// Если код расширения соответствует next_proto_neg (NPN, предшественник ALPN)
+			case 0x3374: return "next_proto_neg";
+			// Если код расширения соответствует application_settings_old (Chrome legacy ALPS)
+			case 0x4469: return "application_settings_old";
+			// Если код расширения соответствует application_settings (ALPS новый стандарт)
+			case 0x44CD: return "application_settings";
+			// Если код расширения соответствует channel_id (BoringSSL)
+			case 0x7550: return "channel_id";
+			// Если код расширения соответствует trust_anchors (BoringSSL draft)
+			case 0xCA34: return "trust_anchors";
+			// Если код расширения соответствует ech_outer_extensions (ECH outer)
+			case 0xFD00: return "ech_outer_extensions";
+			// Если код расширения соответствует extensionEncryptedClientHello (ECH / GREASE)
+			case 0xFE0D: return "extensionEncryptedClientHello";
+			// Если код расширения соответствует extensionRenegotiationInfo (RFC 5746)
+			case 0xFF01: return "extensionRenegotiationInfo";
+			// Если код расширения соответствует quic_transport_parameters_legacy (BoringSSL legacy QUIC)
+			case 0xFFA5: return "quic_transport_parameters_legacy";
+			// Если код расширения не соответствует ни одному из известных
+			default: return "UNKNOWN";
+		}
+	}
+	/**
+	 * @brief Функция подсчёта доверенных центров в теле certificate_authorities
+	 *
+	 * @param data тело расширения: двухбайтовая длина перечня, далее имена с двухбайтовыми длинами
+	 * @return     число доверенных центров
+	 *
+	 */
+	static size_t __ants_ca_count__(const vector <uint8_t> & data) noexcept {
+		// Если тело короче длины перечня
+		if(data.size() < 2)
+			// Выводим отсутствие центров
+			return 0;
+		// Смещение внутри тела: за двухбайтовой длиной перечня
+		size_t offset = 2;
+		// Число доверенных центров
+		size_t count = 0;
+		/**
+		 * Выполняем обход перечня имен
+		 */
+		while(offset < data.size()){
+			// Если длина имени оборвана
+			if((offset + 2) > data.size())
+				// Обрыв: возвращаем то, что насчитано
+				return count;
+			// Длина имени
+			const size_t length = twain(data.data() + offset);
+			// Переходим к имени
+			offset += 2;
+			// Если имя оборвано
+			if((offset + length) > data.size())
+				// Обрыв: возвращаем то, что насчитано
+				return count;
+			// Переходим за имя
+			offset += length;
+			// Считаем центр
+			count++;
+		}
+		// Выводим число доверенных центров
+		return count;
+	}
+	/**
+	 * @brief Функция разбора перечня строк с однобайтовыми длинами и двухбайтовой длиной перечня
 	 *
 	 * @param data   тело расширения
 	 * @param result перечень строк
@@ -375,7 +781,7 @@ namespace {
 		return true;
 	}
 	/**
-	 * @brief Метод разбора перечня двухбайтовых значений с двухбайтовой длиной перечня
+	 * @brief Функция разбора перечня двухбайтовых значений с двухбайтовой длиной перечня
 	 *
 	 * @param data   тело расширения
 	 * @param tail   допустимость хвоста за перечнем (например MKI у use_srtp)
@@ -404,7 +810,7 @@ namespace {
 		return true;
 	}
 	/**
-	 * @brief Метод перевода отказа разбора расширения в отказ модуля
+	 * @brief Функция перевода отказа разбора расширения в отказ модуля
 	 *
 	 * @param error отказ разбора расширения
 	 * @return      отказ модуля
@@ -415,7 +821,7 @@ namespace {
 		return ((error == extension::error_t::NONE) ? fingerprint::error_t::NONE : ((error == extension::error_t::MEMORY) ? fingerprint::error_t::MEMORY : fingerprint::error_t::EXTENSION));
 	}
 	/**
-	 * @brief Метод разбора тела расширения в поля профиля
+	 * @brief Функция разбора тела расширения в поля профиля
 	 *
 	 * @param extension расширение с заполненными видом и телом
 	 * @return          отказ разбора: NONE, EXTENSION либо MEMORY
@@ -478,6 +884,16 @@ namespace {
 			case static_cast <uint16_t> (extension::type_t::SETTINGS_OLD):
 				// Выводим итог разбора перечня протоколов
 				return (naming(data, extension.protocols) ? fingerprint::error_t::NONE : fingerprint::error_t::EXTENSION);
+			// Выработка следующего протокола: тело того же вида, что у прикладных протоколов,
+			// но пустое тело допустимо - клиент лишь заявляет о поддержке выработки
+			case static_cast <uint16_t> (extension::type_t::NEGOTIATION): {
+				// Если тело пусто: заявление о поддержке, перечня нет
+				if(data.size == 0)
+					// Выводим успешность разбора
+					return fingerprint::error_t::NONE;
+				// Выводим итог разбора перечня протоколов
+				return (naming(data, extension.protocols) ? fingerprint::error_t::NONE : fingerprint::error_t::EXTENSION);
+			}
 			// Алгоритмы сжатия цепочки
 			case static_cast <uint16_t> (extension::type_t::COMPRESS): {
 				// Перечень опознавателей алгоритмов
@@ -568,7 +984,7 @@ namespace {
 				if(data.size != 1)
 					// Выводим отказ разбора
 					return fingerprint::error_t::EXTENSION;
-				// Запоминаем значение
+				// Запоминаем байт тела: код предела либо режим сердцебиения
 				extension.value = data.data[0];
 			} break;
 			// Профили SRTP: перечень с двухбайтовой длиной и MKI следом
@@ -615,7 +1031,7 @@ namespace {
 		return fingerprint::error_t::NONE;
 	}
 	/**
-	 * @brief Метод переноса разобранного приветствия в профиль
+	 * @brief Функция переноса разобранного приветствия в профиль
 	 *
 	 * @param greeting разобранное приветствие клиента
 	 * @param profile  заполняемый профиль
@@ -671,7 +1087,7 @@ namespace {
 		return fingerprint::error_t::NONE;
 	}
 	/**
-	 * @brief Метод перевода отказа разбора приветствия в отказ модуля
+	 * @brief Функция перевода отказа разбора приветствия в отказ модуля
 	 *
 	 * @param error отказ разбора приветствия
 	 * @return      отказ модуля
@@ -721,7 +1137,7 @@ namespace {
 		}
 	}
 	/**
-	 * @brief Метод разбора приветствия с заданным устройством заголовков
+	 * @brief Функция разбора приветствия с заданным устройством заголовков
 	 *
 	 * @param data     разбираемые байты
 	 * @param datagram признак заголовков поверх дейтаграмм
@@ -826,7 +1242,7 @@ namespace {
 		return transfer(greeting, result);
 	}
 	/**
-	 * @brief Метод подсчёта старшего издания протокола профиля
+	 * @brief Функция подсчёта старшего издания протокола профиля
 	 *
 	 * @param profile профиль приветствия
 	 * @return        старшее издание из supported_versions без GREASE либо издание приветствия
@@ -853,7 +1269,7 @@ namespace {
 		return result;
 	}
 	/**
-	 * @brief Метод составления двух знаков издания протокола отпечатка JA4
+	 * @brief Функция составления двух знаков издания протокола отпечатка JA4
 	 *
 	 * @param edition издание протокола по проводу
 	 * @return        два знака издания
@@ -885,7 +1301,7 @@ namespace {
 		}
 	}
 	/**
-	 * @brief Метод составления двух знаков прикладного протокола отпечатка JA4
+	 * @brief Функция составления двух знаков прикладного протокола отпечатка JA4
 	 *
 	 * @param protocol первый прикладной протокол
 	 * @param result   строка, к которой дописываются знаки
@@ -918,7 +1334,7 @@ namespace {
 		}
 	}
 	/**
-	 * @brief Метод дописывания счётчика в два знака с пределом 99
+	 * @brief Функция дописывания счётчика в два знака с пределом 99
 	 *
 	 * @param count  счётчик
 	 * @param result строка, к которой дописывается счётчик
@@ -935,7 +1351,7 @@ namespace {
 			result.append(buffer, static_cast <size_t> (written));
 	}
 	/**
-	 * @brief Метод чтения целого HPACK с заданной шириной префикса
+	 * @brief Функция чтения целого HPACK с заданной шириной префикса
 	 *
 	 * @param data   байты блока заголовков
 	 * @param size   размер блока
@@ -978,7 +1394,7 @@ namespace {
 		return result;
 	}
 	/**
-	 * @brief Метод пропуска либо чтения строки HPACK
+	 * @brief Функция пропуска либо чтения строки HPACK
 	 *
 	 * @param data   байты блока заголовков
 	 * @param size   размер блока
@@ -1012,7 +1428,7 @@ namespace {
 		offset += length;
 	}
 	/**
-	 * @brief Метод определения буквы псевдозаголовка по индексу статической таблицы HPACK
+	 * @brief Функция определения буквы псевдозаголовка по индексу статической таблицы HPACK
 	 *
 	 * @param index индекс статической таблицы
 	 * @return      буква псевдозаголовка либо ноль
@@ -1036,7 +1452,7 @@ namespace {
 		}
 	}
 	/**
-	 * @brief Метод определения буквы псевдозаголовка по имени
+	 * @brief Функция определения буквы псевдозаголовка по имени
 	 *
 	 * @param name имя заголовка
 	 * @return     буква псевдозаголовка либо ноль
@@ -1063,7 +1479,7 @@ namespace {
 		return '\0';
 	}
 	/**
-	 * @brief Метод разбора блока заголовков HPACK в порядок псевдозаголовков
+	 * @brief Функция разбора блока заголовков HPACK в порядок псевдозаголовков
 	 *
 	 * @param data   байты блока заголовков
 	 * @param size   размер блока
@@ -1110,7 +1526,7 @@ namespace {
 					// Определяем букву по имени
 					letter = named(name);
 				}
-				// Пропускаем значение
+				// Пропускаем тело значения, продвигая разбор за него
 				worded(data, size, offset, name);
 			}
 			// Если запись не псевдозаголовок: псевдозаголовки идут первыми, дальше искать нечего
@@ -1124,7 +1540,7 @@ namespace {
 		}
 	}
 	/**
-	 * @brief Метод дописывания профиля в снимок
+	 * @brief Функция дописывания профиля в снимок
 	 *
 	 * @param profile профиль приветствия
 	 * @param result  накопитель снимка
@@ -1182,7 +1598,7 @@ namespace {
 		}
 	}
 	/**
-	 * @brief Метод чтения профиля из снимка
+	 * @brief Функция чтения профиля из снимка
 	 *
 	 * @param data   байты снимка
 	 * @param offset смещение внутри снимка (сдвигается)
@@ -1318,19 +1734,74 @@ namespace {
 };
 
 /**
- * @brief Конструктор профиля приветствия
+ * @brief Конструктор
+ *
+ */
+nts::fingerprint::Share::Share() noexcept :
+ group(extension::group_t::NONE) {}
+
+/**
+ * @brief Конструктор
+ *
+ */
+nts::fingerprint::Identity::Identity() noexcept : age(0) {}
+
+/**
+ * @brief Конструктор
+ *
+ */
+nts::fingerprint::Extension::Extension() noexcept :
+ grease(false), type(0), value(0) {}
+
+/**
+ * @brief Конструктор
  *
  */
 nts::fingerprint::Profile::Profile() noexcept :
- grease(false), datagram(false), record(0), version(0), epoch(0), sequence(0), message(0), length(0) {
+ grease(false), datagram(false), epoch(0), length(0),
+ record(0), version(0), message(0), sequence(0), random{0} {
 	// Выполняем обнуление случайного значения приветствия
 	::memset(this->random, 0, FINGERPRINT_RANDOM);
 }
+
 /**
- * @brief Метод проверки значения на принадлежность к GREASE (RFC 8701)
+ * @brief Конструктор
  *
- * @param value проверяемое значение
- * @return      признак того, что значение есть значение GREASE
+ */
+nts::fingerprint::Imprint::Imprint() noexcept : record(0), negotiated(0) {}
+
+/**
+ * @brief Конструктор
+ *
+ */
+nts::fingerprint::Setting::Setting() noexcept : id(0), value(0) {}
+
+/**
+ * @brief Конструктор
+ *
+ */
+nts::fingerprint::Priority::Priority() noexcept :
+ exclusive(false), weight(0),
+ stream(0), dependency(0) {}
+
+/**
+ * @brief Конструктор
+ *
+ */
+nts::fingerprint::Stream::Stream() noexcept :
+ pseudo{""}, window(0) {}
+
+/**
+ * @brief Конструктор
+ *
+ */
+nts::fingerprint::Store::Entry::Entry() noexcept : id(0) {}
+
+/**
+ * @brief Функция проверки того, что значение есть значение GREASE
+ *
+ * @param value проверяемое значение по проводу
+ * @return      признак значения GREASE
  *
  */
 bool nts::fingerprint::grease(const uint16_t value) noexcept {
@@ -1338,16 +1809,16 @@ bool nts::fingerprint::grease(const uint16_t value) noexcept {
 	return (((value & 0x0F0F) == 0x0A0A) && ((value >> 8) == (value & 0xFF)));
 }
 /**
- * @brief Метод разбора приветствия клиента в профиль
+ * @brief Функция разбора записи с приветствием клиента в профиль
  *
- * @param data   разбираемые байты: запись рукопожатия либо голое сообщение потокового устройства
- * @param result заполняемый профиль
- * @return       отказ разбора
+ * @param data   разбираемая запись: заголовок слоя записей TLS либо DTLS, обвязка сообщения рукопожатия и тело приветствия
+ * @param result профиль, в который помещается итог разбора
+ * @return       отказ разбора приветствия
  *
  */
 nts::fingerprint::error_t nts::fingerprint::parse(const view_t & data, profile_t & result) noexcept {
 	/**
-	 * Выполняем перехват нехватки памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Если байты начинаются записью с изданием поверх дейтаграмм: устройство определяется по ней
@@ -1355,7 +1826,7 @@ nts::fingerprint::error_t nts::fingerprint::parse(const view_t & data, profile_t
 		// Выводим итог разбора
 		return examine(data, datagram, result);
 	/**
-	 * Если памяти не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Сбрасываем профиль
@@ -1365,23 +1836,23 @@ nts::fingerprint::error_t nts::fingerprint::parse(const view_t & data, profile_t
 	}
 }
 /**
- * @brief Метод разбора приветствия клиента в профиль с заданным устройством заголовков
+ * @brief Функция разбора сообщения рукопожатия с приветствием клиента в профиль
  *
- * @param data     разбираемые байты: запись рукопожатия либо голое сообщение
- * @param result   заполняемый профиль
- * @param datagram признак заголовков поверх дейтаграмм
- * @return         отказ разбора
+ * @param data     разбираемое сообщение: обвязка в 4 байта по разделу 4 RFC 8446 и тело приветствия
+ * @param result   профиль, в который помещается итог разбора
+ * @param datagram признак приветствия поверх дейтаграмм: за опознавателем связи идёт метка возврата состояния
+ * @return         отказ разбора приветствия
  *
  */
 nts::fingerprint::error_t nts::fingerprint::parse(const view_t & data, profile_t & result, const bool datagram) noexcept {
 	/**
-	 * Выполняем перехват нехватки памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Выводим итог разбора
 		return examine(data, datagram, result);
 	/**
-	 * Если памяти не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Сбрасываем профиль
@@ -1391,16 +1862,16 @@ nts::fingerprint::error_t nts::fingerprint::parse(const view_t & data, profile_t
 	}
 }
 /**
- * @brief Метод вычисления отпечатков профиля
+ * @brief Функция вычисления отпечатков профиля
  *
- * @param profile профиль приветствия
- * @param result  заполняемые отпечатки
- * @return        отказ вычисления
+ * @param profile профиль приветствия клиента
+ * @param result  отпечатки, в которые помещается итог вычисления
+ * @return        отказ вычисления отпечатков: EMPTY у профиля без наборов и расширений
  *
  */
 nts::fingerprint::error_t nts::fingerprint::imprint(const profile_t & profile, imprint_t & result) noexcept {
 	/**
-	 * Выполняем перехват нехватки памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Сбрасываем отпечатки
@@ -1417,13 +1888,19 @@ nts::fingerprint::error_t nts::fingerprint::imprint(const profile_t & profile, i
 		hexed(profile.random, FINGERPRINT_RANDOM, result.random);
 		// Составляем запись опознавателя связи
 		hexed(profile.session.data(), profile.session.size(), result.session);
-		// Расширения, участвующие в отпечатках
+		// Расширение групп эллиптических кривых
 		const extension_t * groups = seek(profile, static_cast <uint16_t> (extension::type_t::GROUPS));
+		// Расширение форматов точек
 		const extension_t * formats = seek(profile, static_cast <uint16_t> (extension::type_t::FORMATS));
+		// Расширение схем подписи
 		const extension_t * schemes = seek(profile, static_cast <uint16_t> (extension::type_t::SCHEMES));
+		// Расширение прикладных протоколов
 		const extension_t * protocols = seek(profile, static_cast <uint16_t> (extension::type_t::PROTOCOLS));
+		// Расширение имени сервера
 		const extension_t * name = seek(profile, static_cast <uint16_t> (extension::type_t::NAME));
+		// Расширение поддерживаемых изданий
 		const extension_t * versions = seek(profile, static_cast <uint16_t> (extension::type_t::VERSIONS));
+		// Расширение режимов рукопожатия
 		const extension_t * modes = seek(profile, static_cast <uint16_t> (extension::type_t::MODES));
 		// Перечни чисел по проводу без GREASE и с GREASE
 		vector <uint16_t> suites, suitesAll, extensions, extensionsAll, curves, curvesAll, signatures, signaturesAll, points, editions;
@@ -1669,7 +2146,7 @@ nts::fingerprint::error_t nts::fingerprint::imprint(const profile_t & profile, i
 		// Выводим успешность вычисления
 		return error_t::NONE;
 	/**
-	 * Если памяти не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Сбрасываем отпечатки
@@ -1679,10 +2156,10 @@ nts::fingerprint::error_t nts::fingerprint::imprint(const profile_t & profile, i
 	}
 }
 /**
- * @brief Метод оценки, похожи ли отпечатки на обозреватель
+ * @brief Функция проверки того, что отпечатки похожи на отпечатки браузера
  *
- * @param imprint отпечатки профиля
- * @return        признак того, что приветствие похоже на приветствие обозревателя
+ * @param imprint проверяемые отпечатки
+ * @return        признак похожести на браузер: издание TLS 1.3, имя узла и непустой JA3
  *
  */
 bool nts::fingerprint::browser(const imprint_t & imprint) noexcept {
@@ -1690,16 +2167,20 @@ bool nts::fingerprint::browser(const imprint_t & imprint) noexcept {
 	return ((imprint.negotiated == EDITION_TLS13) && (imprint.ja4.size() >= 4) && (imprint.ja4[3] == 'd') && !imprint.ja3hash.empty());
 }
 /**
- * @brief Метод печати профиля текстом для человека
+ * @brief Функция печати профиля человеку
  *
- * @param profile профиль приветствия
+ * @param profile печатаемый профиль
  * @param result  строка, в которую помещается печать
  * @return        отказ печати
+ *
+ * @details Форма печати перенесена из AWH: слой записей, заголовок рукопожатия,
+ *          приветствие, наборы, способы сжатия, расширения с подробностями
+ *          по виду и вычисленные отпечатки с выводом «похож на обозреватель».
  *
  */
 nts::fingerprint::error_t nts::fingerprint::print(const profile_t & profile, string & result) noexcept {
 	/**
-	 * Выполняем перехват нехватки памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Сбрасываем строку
@@ -1708,145 +2189,554 @@ nts::fingerprint::error_t nts::fingerprint::print(const profile_t & profile, str
 		if(profile.suites.empty())
 			// Выводим отказ пустого профиля
 			return error_t::EMPTY;
-		// Дописываем перенос
-		result.append(profile.datagram ? "transport: datagrams" : "transport: stream");
-		// Дописываем издание записи
-		result.append("\nrecord: 0x");
-		// Дописываем издание записи
-		quartet(profile.record, result);
-		// Дописываем издание приветствия
-		result.append("\nversion: 0x");
-		// Дописываем издание приветствия
-		quartet(profile.version, result);
-		// Дописываем признак GREASE
-		result.append(profile.grease ? "\ngrease: yes" : "\ngrease: no");
-		// Дописываем случайное значение
-		result.append("\nrandom: ");
-		// Дописываем случайное значение
-		hexed(profile.random, FINGERPRINT_RANDOM, result);
-		// Дописываем опознаватель связи
-		result.append("\nsession: ");
-		// Дописываем опознаватель связи
-		hexed(profile.session.data(), profile.session.size(), result);
-		// Если метка возврата есть
-		if(!profile.cookie.empty()){
-			// Дописываем метку возврата
-			result.append("\ncookie: ");
-			// Дописываем метку возврата
-			hexed(profile.cookie.data(), profile.cookie.size(), result);
-		}
-		// Дописываем наборы шифрования
-		result.append("\nsuites:");
+		// Строковый поток для сборки результата
+		ostringstream out;
+		// Горизонтальная линия-разделитель (80 знаков)
+		const string LINE(80, '=');
 		/**
-		 * Выполняем перебор наборов шифрования
+		 * @brief Лямбда секционного заголовка
+		 *
+		 * @param title название секции
+		 *
+		 */
+		const auto section = [&out](const string & title) -> void {
+			// Печатаем заголовок секции с отступами
+			out << endl << "  [ " << title << " ]" << endl;
+		};
+		// Заголовок
+		out << endl << LINE << endl;
+		// Печатаем название отпечатка
+		out << "                  TLS ClientHello  -  Browser Fingerprint" << endl;
+		// Печатаем нижнюю линию заголовка
+		out << LINE << endl;
+		/**
+		 * Формируем секцию Record Layer
+		 */
+		section("Record Layer");
+		{
+			// Издание слоя записей: ноль, когда разбиралось голое сообщение рукопожатия
+			const uint16_t wire = profile.record;
+			// Возвращаем версию и её код
+			out << "    Version  : " << ::__ants_tls_version_name__(wire) << "  (" << ::__ants_hex16__(wire) << ")" << endl;
+			// Длина записи: длина тела приветствия плюс обвязка сообщения (12 байтов у дейтаграмм, 4 у потока)
+			out << "    Length   : " << (profile.length + (profile.datagram ? 12 : 4)) << endl;
+			// Поля дейтаграмм выводим всегда при дейтаграммном устройстве, иначе лишь когда они ненулевые
+			if(profile.datagram || (profile.epoch != 0) || (profile.sequence != 0)){
+				// Возвращаем поле эпохи
+				out << "    Epoch    : " << profile.epoch << "  [DTLS]" << endl;
+				// Возвращаем поле последовательности
+				out << "    Sequence : " << profile.sequence << "  [DTLS]" << endl;
+			}
+		}
+		/**
+		 * Формируем секцию Handshake Header
+		 */
+		section("Handshake Header");
+		// Длина приветствия как записана в заголовке сообщения
+		out << "    Length       : " << profile.length << endl;
+		// Порядковый номер сообщения: отличен от нуля лишь у дейтаграмм
+		out << "    Sequence     : " << profile.message << endl;
+		// Отпечаток снимается лишь с цельного сообщения: смещение фрагмента всегда ноль
+		out << "    Frag. Offset : " << 0 << endl;
+		// Длина фрагмента равна длине сообщения
+		out << "    Frag. Length : " << profile.length << endl;
+		/**
+		 * Формируем секцию ClientHello
+		 */
+		section("ClientHello");
+		{
+			// Возвращаем издание приветствия и его код
+			out << "    Legacy Version : " << ::__ants_tls_version_name__(profile.version) << "  (" << ::__ants_hex16__(profile.version) << ")" << endl;
+			// Запись случайного значения
+			string random;
+			// Составляем запись случайного значения
+			hexed(profile.random, FINGERPRINT_RANDOM, random);
+			// Возвращаем случайное значение
+			out << "    Random         : " << random << endl;
+			// Если опознаватель связи есть
+			if(!profile.session.empty()){
+				// Запись опознавателя связи
+				string session;
+				// Составляем запись опознавателя связи
+				hexed(profile.session.data(), profile.session.size(), session);
+				// Возвращаем опознаватель связи
+				out << "    Session ID     : " << session << endl;
+			// Если опознавателя связи нет, выводим пометку
+			} else out << "    Session ID     : (empty)" << endl;
+			// Метка возврата состояния выводится лишь когда присутствует
+			if(!profile.cookie.empty()){
+				// Запись метки возврата
+				string cookie;
+				// Составляем запись метки возврата
+				hexed(profile.cookie.data(), profile.cookie.size(), cookie);
+				// Возвращаем метку возврата
+				out << "    DTLS Cookie    : " << cookie << endl;
+			}
+			// Возвращаем наличие GREASE в приветствии
+			out << "    GREASE Used    : " << (profile.grease ? "yes" : "no") << endl;
+		}
+		/**
+		 * Формируем секцию Cipher Suites с количеством наборов
+		 */
+		{
+			// Место заголовка секции
+			char title[64];
+			// Составляем заголовок секции с количеством наборов
+			::snprintf(title, sizeof(title), "Cipher Suites (%zu)", profile.suites.size());
+			// Печатаем заголовок секции
+			section(title);
+		}
+		/**
+		 * Перебираем наборы шифрования и выводим их имена с выравниванием и коды
 		 */
 		for(size_t i = 0; i < profile.suites.size(); i++){
-			// Дописываем разделитель
-			result.append(" 0x");
-			// Дописываем набор
-			quartet(static_cast <uint16_t> (profile.suites[i]), result);
-			// Если набор есть значение GREASE
-			if(grease(static_cast <uint16_t> (profile.suites[i])))
-				// Дописываем пометку
-				result.append("(GREASE)");
+			// Набор по проводу
+			const uint16_t wire = static_cast <uint16_t> (profile.suites[i]);
+			// Имя набора: GREASE или реальное название
+			const char * name = ::__ants_cipher_name__(wire);
+			// Место записи индекса набора
+			char index[24];
+			// Составляем запись индекса набора
+			::snprintf(index, sizeof(index), "[%2zu]", i);
+			// Печатаем индекс и имя набора
+			out << "    " << index << "  " << name;
+			// Вычисляем количество пробелов для выравнивания имён по столбцу 36
+			const int32_t pad = (36 - static_cast <int32_t> (::strlen(name)));
+			/**
+			 * Печатаем пробелы для выравнивания
+			 */
+			for(int32_t j = 0; j < pad; ++j)
+				// Печатаем пробел для выравнивания
+				out << ' ';
+			// Печатаем код набора
+			out << "(" << ::__ants_hex16__(wire) << ")" << endl;
 		}
-		// Дописываем способы сжатия
-		result.append("\nmethods:");
 		/**
-		 * Выполняем перебор способов сжатия
+		 * Формируем секцию Compression Methods с количеством способов
+		 */
+		{
+			// Место заголовка секции
+			char title[64];
+			// Составляем заголовок секции с количеством способов сжатия
+			::snprintf(title, sizeof(title), "Compression Methods (%zu)", profile.methods.size());
+			// Печатаем заголовок секции
+			section(title);
+		}
+		/**
+		 * Перебираем способы сжатия и выводим их имена и коды
 		 */
 		for(size_t i = 0; i < profile.methods.size(); i++){
-			// Дописываем разделитель
-			result.push_back(' ');
-			// Дописываем способ сжатия
-			decimal(profile.methods[i], result);
+			// Способ сжатия по проводу
+			const uint8_t wire = profile.methods[i];
+			// Место записи индекса способа сжатия
+			char index[24];
+			// Составляем запись индекса способа сжатия
+			::snprintf(index, sizeof(index), "[%2zu]", i);
+			// Печатаем индекс, имя способа сжатия и его код
+			out << "    " << index << "  " << ::__ants_compress_alg_name__(wire) << "  (" << ::__ants_hex8__(wire) << ")" << endl;
 		}
-		// Дописываем расширения
-		result.append("\nextensions:");
 		/**
-		 * Выполняем перебор расширений
+		 * Формируем секцию Extensions с количеством расширений
+		 */
+		{
+			// Место заголовка секции
+			char title[64];
+			// Составляем заголовок секции с количеством расширений
+			::snprintf(title, sizeof(title), "Extensions (%zu)", profile.extensions.size());
+			// Печатаем заголовок секции
+			section(title);
+		}
+		/**
+		 * Перебираем расширения и выводим их имена с выравниванием, коды и подробности
 		 */
 		for(size_t i = 0; i < profile.extensions.size(); i++){
 			// Расширение
 			const extension_t & extension = profile.extensions[i];
-			// Дописываем вид расширения
-			result.append("\n  0x");
-			// Дописываем вид расширения
-			quartet(extension.type, result);
-			// Если расширение есть значение GREASE
-			if(extension.grease)
-				// Дописываем пометку
-				result.append(" GREASE");
-			// Дописываем длину тела
-			result.append(" length ");
-			// Дописываем длину тела
-			decimal(extension.data.size(), result);
-			/**
-			 * Выполняем перебор имён узлов
-			 */
-			for(size_t j = 0; j < extension.names.size(); j++)
-				// Дописываем имя узла
-				result.append(" name=").append(extension.names[j]);
-			/**
-			 * Выполняем перебор прикладных протоколов
-			 */
-			for(size_t j = 0; j < extension.protocols.size(); j++)
-				// Дописываем прикладной протокол
-				result.append((j == 0) ? " protocols=" : ",").append(extension.protocols[j]);
-			/**
-			 * Выполняем перебор групп
-			 */
-			for(size_t j = 0; j < extension.groups.size(); j++){
-				// Дописываем разделитель
-				result.append((j == 0) ? " groups=0x" : ",0x");
-				// Дописываем группу
-				quartet(static_cast <uint16_t> (extension.groups[j]), result);
+			// Место записи индекса расширения
+			char index[24];
+			// Составляем запись индекса расширения
+			::snprintf(index, sizeof(index), "[%2zu]", i);
+			// GREASE расширение: выводим пометку и переходим к следующему
+			if(extension.grease){
+				// Печатаем индекс расширения и пометку
+				out << "    " << index << "  [GREASE]" << endl;
+				// Переходим к следующему расширению
+				continue;
 			}
+			// Имя расширения
+			const char * ename = ::__ants_extension_name__(extension.type);
+			// Печатаем индекс и имя расширения
+			out << "    " << index << "  " << ename;
+			// Вычисляем количество пробелов для выравнивания имён по столбцу 46
+			const int32_t pad = (46 - static_cast <int32_t> (::strlen(ename)));
 			/**
-			 * Выполняем перебор схем подписи
+			 * Печатаем пробелы для выравнивания
 			 */
-			for(size_t j = 0; j < extension.schemes.size(); j++){
-				// Дописываем разделитель
-				result.append((j == 0) ? " schemes=0x" : ",0x");
-				// Дописываем схему
-				quartet(static_cast <uint16_t> (extension.schemes[j]), result);
-			}
+			for(int32_t j = 0; j < pad; ++j)
+				// Печатаем пробел для выравнивания
+				out << ' ';
+			// Печатаем код расширения
+			out << "(" << ::__ants_hex16__(extension.type) << ")";
 			/**
-			 * Выполняем перебор изданий
+			 * Подробности расширения в зависимости от его вида
 			 */
-			for(size_t j = 0; j < extension.versions.size(); j++){
-				// Дописываем разделитель
-				result.append((j == 0) ? " versions=0x" : ",0x");
-				// Дописываем издание
-				quartet(extension.versions[j], result);
+			switch(extension.type){
+				// Имя узла: выводим имена запрашиваемых узлов
+				case static_cast <uint16_t> (extension::type_t::NAME): {
+					// Если список имён не пустой, выводим его
+					if(!extension.names.empty()){
+						// Возвращаем первое имя с маркером
+						out << "  ->  \"" << extension.names[0] << '"';
+						/**
+						 * Перебираем оставшиеся имена
+						 */
+						for(size_t j = 1; j < extension.names.size(); j++)
+							// Возвращаем последующие имена, разделяя запятой
+							out << ", \"" << extension.names[j] << '"';
+					}
+				} break;
+				// Поддерживаемые издания: выводим список с GREASE-маркерами
+				case static_cast <uint16_t> (extension::type_t::VERSIONS): {
+					// Печатаем маркер перед списком изданий
+					out << "  ->  ";
+					/**
+					 * Перебираем издания и выводим их, разделяя запятой
+					 */
+					for(size_t j = 0; j < extension.versions.size(); j++){
+						// Если это не первое издание
+						if(j > 0)
+							// Печатаем запятую для разделения изданий
+							out << ", ";
+						// Если издание есть значение GREASE
+						if(grease(extension.versions[j]))
+							// Печатаем маркер GREASE-издания
+							out << "[GREASE]";
+						// Печатаем имя издания по его коду
+						else out << ::__ants_tls_version_name__(extension.versions[j]);
+					}
+				} break;
+				// Поддерживаемые группы: выводим список с GREASE-маркерами
+				case static_cast <uint16_t> (extension::type_t::GROUPS): {
+					// Печатаем маркер перед списком групп
+					out << "  ->  ";
+					/**
+					 * Перебираем группы и выводим их, разделяя запятой
+					 */
+					for(size_t j = 0; j < extension.groups.size(); j++){
+						// Группа по проводу
+						const uint16_t wire = static_cast <uint16_t> (extension.groups[j]);
+						// Если это не первая группа
+						if(j > 0)
+							// Печатаем запятую для разделения групп
+							out << ", ";
+						// Если группа есть значение GREASE
+						if(grease(wire))
+							// Печатаем маркер GREASE-группы
+							out << "[GREASE]";
+						// Печатаем имя группы по её коду
+						else out << ::__ants_group_name__(wire);
+					}
+				} break;
+				// Записи точек: выводим форматы точек кривой
+				case static_cast <uint16_t> (extension::type_t::FORMATS): {
+					// Печатаем маркер перед списком форматов точек
+					out << "  ->  ";
+					/**
+					 * Перебираем форматы точек и выводим их, разделяя запятой
+					 */
+					for(size_t j = 0; j < extension.formats.size(); j++){
+						// Формат точки по проводу
+						const uint8_t wire = extension.formats[j];
+						// Если это не первый формат точки
+						if(j > 0)
+							// Печатаем запятую для разделения форматов точек
+							out << ", ";
+						// Формат uncompressed
+						if(wire == 0x00)
+							// Печатаем имя формата точки
+							out << "uncompressed";
+						// Формат ansiX962_compressed_prime
+						else if(wire == 0x01)
+							// Печатаем имя формата точки
+							out << "ansiX962_compressed_prime";
+						// Формат ansiX962_compressed_char2
+						else if(wire == 0x02)
+							// Печатаем имя формата точки
+							out << "ansiX962_compressed_char2";
+						// Для остальных форматов выводим их коды
+						else out << ::__ants_hex8__(wire);
+					}
+				} break;
+				// Схемы подписи: каждая на отдельной строке
+				case static_cast <uint16_t> (extension::type_t::SCHEMES):
+				// Схемы подписи сертификата
+				case WIRE_CERTIFIED:
+				// Схемы подписи делегированных полномочий
+				case WIRE_DELEGATED: {
+					// Печатаем перевод строки
+					out << endl;
+					/**
+					 * Перебираем схемы и выводим их на отдельных строках с отступами
+					 */
+					for(size_t j = 0; j < extension.schemes.size(); j++){
+						// Схема по проводу
+						const uint16_t wire = static_cast <uint16_t> (extension.schemes[j]);
+						// Печатаем отступы для схем
+						out << "              ";
+						// Если схема есть значение GREASE
+						if(grease(wire))
+							// Печатаем маркер GREASE-схемы
+							out << "[GREASE]";
+						// Печатаем имя схемы и её код
+						else out << ::__ants_signature_name__(wire) << "  (" << ::__ants_hex16__(wire) << ")";
+						// Печатаем перевод строки после каждой схемы
+						out << endl;
+					}
+					// Переходим к следующему расширению без добавления финального переноса строки
+					continue;
+				}
+				// Прикладные протоколы, настройки ALPS и выработка следующего протокола: выводим список протоколов
+				case static_cast <uint16_t> (extension::type_t::PROTOCOLS):
+				// Настройки ALPS новой точкой кода
+				case static_cast <uint16_t> (extension::type_t::SETTINGS):
+				// Настройки ALPS прежней точкой кода
+				case static_cast <uint16_t> (extension::type_t::SETTINGS_OLD):
+				// Выработка следующего протокола
+				case static_cast <uint16_t> (extension::type_t::NEGOTIATION): {
+					// Печатаем маркер перед списком протоколов
+					out << "  ->  ";
+					/**
+					 * Перебираем протоколы и выводим их, разделяя запятой
+					 */
+					for(size_t j = 0; j < extension.protocols.size(); j++){
+						// Если это не первый протокол
+						if(j > 0)
+							// Печатаем запятую для разделения протоколов
+							out << ", ";
+						// Печатаем имя протокола в кавычках
+						out << '"' << extension.protocols[j] << '"';
+					}
+				} break;
+				// Открытые части ключей: выводим пары группа и размер ключа
+				case static_cast <uint16_t> (extension::type_t::SHARE): {
+					// Печатаем маркер перед списком групп и размеров ключей
+					out << "  ->  ";
+					/**
+					 * Перебираем доли ключей и выводим их, разделяя запятой
+					 */
+					for(size_t j = 0; j < extension.shares.size(); j++){
+						// Группа доли по проводу
+						const uint16_t wire = static_cast <uint16_t> (extension.shares[j].group);
+						// Если это не первая доля
+						if(j > 0)
+							// Печатаем запятую для разделения долей
+							out << ", ";
+						// Если группа есть значение GREASE
+						if(grease(wire))
+							// Печатаем маркер GREASE-группы и размер ключа
+							out << "[GREASE](" << extension.shares[j].key.size() << "B)";
+						// Печатаем имя группы и размер ключа
+						else out << ::__ants_group_name__(wire) << "(" << extension.shares[j].key.size() << "B)";
+					}
+				} break;
+				// Способы обмена заранее разделённым ключом
+				case static_cast <uint16_t> (extension::type_t::MODES): {
+					// Печатаем маркер перед списком способов
+					out << "  ->  ";
+					/**
+					 * Перебираем способы обмена и выводим их, разделяя запятой
+					 */
+					for(size_t j = 0; j < extension.modes.size(); j++){
+						// Если это не первый способ
+						if(j > 0)
+							// Печатаем запятую для разделения способов
+							out << ", ";
+						/**
+						 * Печатаем имя способа обмена
+						 */
+						switch(static_cast <uint8_t> (extension.modes[j])){
+							// Способ psk_ke (0x00)
+							case 0x00:
+								// Печатаем имя способа psk_ke
+								out << "psk_ke(0x00)";
+							break;
+							// Способ psk_dhe_ke (0x01)
+							case 0x01:
+								// Печатаем имя способа psk_dhe_ke
+								out << "psk_dhe_ke(0x01)";
+							break;
+							// Прочие способы
+							default:
+								// Печатаем неизвестный способ
+								out << "UNKNOWN";
+						}
+					}
+				} break;
+				// Заранее разделённые ключи: выводим количество опознавателей
+				case static_cast <uint16_t> (extension::type_t::SECRET):
+					// Печатаем маркер перед количеством опознавателей и правильное склонение слова
+					out << "  ->  " << extension.identities.size()
+					    // Дописываем правильное склонение слова
+					    << (extension.identities.size() == 1 ? " identity" : " identities");
+				break;
+				// Билет сеанса: выводим размер данных или пометку о запросе
+				case static_cast <uint16_t> (extension::type_t::TICKET):
+					// Если данные билета отсутствуют
+					if(extension.data.empty())
+						// Возвращаем пометку о том, что данные отсутствуют и это может быть запросом нового билета
+						out << "  ->  (empty / request for new ticket)";
+					// Если данные билета присутствуют, выводим их размер
+					else out << "  ->  " << extension.data.size() << " bytes";
+				break;
+				// Запрос состояния сертификата: выводим вид состояния
+				case static_cast <uint16_t> (extension::type_t::STATUS):
+					// Если вид состояния задан, выводим его
+					if(extension.value != 0)
+						// Возвращаем вид состояния
+						out << "  ->  type=" << extension.value;
+				break;
+				// Заполнение: выводим размер блока заполнения
+				case WIRE_PADDING:
+					// Печатаем маркер перед размером заполнения
+					out << "  ->  " << extension.value << " bytes";
+				break;
+				// Предел размера записи: выводим предел
+				case WIRE_LIMIT:
+					// Печатаем маркер перед пределом записи
+					out << "  ->  " << extension.value << " bytes";
+				break;
+				// Упреждающие данные: выводим предел упреждения
+				case static_cast <uint16_t> (extension::type_t::EARLY):
+					// Если предел упреждения задан
+					if(extension.value > 0)
+						// Печатаем маркер перед пределом упреждения
+						out << "  ->  max=" << extension.value << " bytes";
+				break;
+				// Алгоритмы сжатия цепочки: выводим поддерживаемые алгоритмы
+				case static_cast <uint16_t> (extension::type_t::COMPRESS): {
+					// Печатаем маркер перед списком алгоритмов
+					out << "  ->  ";
+					/**
+					 * Перебираем алгоритмы и выводим их, разделяя запятой
+					 */
+					for(size_t j = 0; j < extension.algorithms.size(); j++){
+						// Если это не первый алгоритм
+						if(j > 0)
+							// Печатаем запятую для разделения алгоритмов
+							out << ", ";
+						// Печатаем имя алгоритма по его коду
+						out << ::__ants_compress_alg_name__(static_cast <uint8_t> (static_cast <uint16_t> (extension.algorithms[j])));
+					}
+				} break;
+				// Сердцебиение: выводим режим
+				case WIRE_HEARTBEAT:
+					/**
+					 * Печатаем маркер перед режимом сердцебиения
+					 */
+					switch(extension.value){
+						// Режим peer_allowed_to_send
+						case 0x01:
+							// Печатаем имя режима сердцебиения
+							out << "  ->  peer_allowed_to_send";
+						break;
+						// Режим peer_not_allowed_to_send
+						case 0x02:
+							// Печатаем имя режима сердцебиения
+							out << "  ->  peer_not_allowed_to_send";
+						break;
+					}
+				break;
+				// Признак безопасного пересогласования: выводим размер данных
+				case static_cast <uint16_t> (extension::type_t::RENEGOTIATION):
+					// Печатаем маркер перед размером данных пересогласования
+					out << "  ->  " << extension.data.size() << " bytes";
+				break;
+				// Зашифрованное приветствие клиента: выводим размер зашифрованных данных
+				case 0xFE0D:
+					// Печатаем маркер перед размером зашифрованных данных
+					out << "  ->  " << extension.data.size() << " bytes";
+				break;
+				// Виды расширений, вынесенных наружу ECH: выводим их количество
+				case WIRE_OUTER:
+					// Печатаем маркер перед количеством вложенных расширений
+					out << "  ->  " << extension.values.size() << " extension(s)";
+				break;
+				// Доверенные центры: выводим их количество
+				case static_cast <uint16_t> (extension::type_t::AUTHORITIES):
+					// Печатаем маркер перед количеством доверенных центров
+					out << "  ->  " << __ants_ca_count__(extension.data) << " CA(s)";
+				break;
+				// Предел длины куска: выводим код длины
+				case WIRE_FRAGMENT:
+					// Печатаем маркер перед кодом длины куска
+					out << "  ->  " << extension.value;
+				break;
 			}
-			/**
-			 * Выполняем перебор долей ключей
-			 */
-			for(size_t j = 0; j < extension.shares.size(); j++){
-				// Дописываем разделитель
-				result.append((j == 0) ? " shares=0x" : ",0x");
-				// Дописываем группу доли
-				quartet(static_cast <uint16_t> (extension.shares[j].group), result);
-				// Дописываем длину доли
-				result.push_back('/');
-				// Дописываем длину доли
-				decimal(extension.shares[j].key.size(), result);
-			}
-			// Если расширение несёт число
-			if(extension.value != 0){
-				// Дописываем число
-				result.append(" value=");
-				// Дописываем число
-				decimal(extension.value, result);
-			}
+			// Печатаем перевод строки после каждого расширения
+			out << endl;
 		}
-		// Дописываем перенос строки
-		result.push_back('\n');
+		/**
+		 * Вычисленные отпечатки
+		 */
+		// Отпечатки профиля
+		imprint_t imp;
+		// Вычисляем отпечатки из профиля
+		const bool hasImp = (imprint(profile, imp) == error_t::NONE);
+		// Печатаем перевод строки перед секцией отпечатков
+		out << endl;
+		// Если вычисление отпечатков не удалось, выводим сообщение об ошибке
+		if(!hasImp)
+			// Вычисление отпечатков не удалось - сообщаем об ошибке
+			out << "  [ Computed Fingerprints  (ERROR - computation failed) ]" << endl;
+		// Если вычисление отпечатков прошло успешно, выводим их
+		else {
+			// Печатаем заголовок секции отпечатков
+			out << "  [ Computed Fingerprints ]" << endl;
+			// Десятичные записи изданий
+			string recV, negV;
+			// Составляем десятичную запись издания записи
+			decimal(imp.record, recV);
+			// Составляем десятичную запись согласуемого издания
+			decimal(imp.negotiated, negV);
+			// Издания протокола
+			out << "    TLS Record Version     : " << recV << "  (" << ::__ants_hex16__(imp.record) << ")  =  " << ::__ants_tls_version_name__(imp.record) << endl;
+			// Печатаем согласуемое издание протокола
+			out << "    TLS Negotiated Version : " << negV << "  (" << ::__ants_hex16__(imp.negotiated) << ")  =  " << ::__ants_tls_version_name__(imp.negotiated) << endl;
+			// Опознаватели соединения
+			out << "    Client Random          : " << imp.random << endl;
+			// Печатаем опознаватель связи
+			out << "    Session ID             : " << (imp.session.empty() ? "(empty)" : imp.session) << endl;
+			// JA3
+			out << endl;
+			// Печатаем строку JA3
+			out << "    JA3        : " << imp.ja3 << endl;
+			// Печатаем хеш JA3
+			out << "    JA3 Hash   : " << imp.ja3hash << endl;
+			// JA4
+			out << endl;
+			// Печатаем отпечаток JA4
+			out << "    JA4        : " << imp.ja4 << endl;
+			// Печатаем раскрытый отпечаток JA4_r
+			out << "    JA4_r      : " << imp.ja4r << endl;
+			// PeetPrint
+			out << endl;
+			// Печатаем строку PeetPrint
+			out << "    PeetPrint  : " << imp.peetprint << endl;
+			// Печатаем хеш PeetPrint
+			out << "    PeetHash   : " << imp.peethash << endl;
+			// Печатаем перевод строки после секции отпечатков
+			out << endl;
+			// Итоговый вывод: похож ли отпечаток на обозреватель
+			out << "    Browser?   : " << (browser(imp) ? "YES (looks like a real browser)" : "NO  (does not look like a real browser)") << endl;
+		}
+		// Финальная строка-разделитель
+		out << endl << LINE << endl;
+		// Переносим собранную строку в результат
+		result = out.str();
 		// Выводим успешность печати
 		return error_t::NONE;
 	/**
-	 * Если памяти не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Сбрасываем строку
@@ -1856,16 +2746,16 @@ nts::fingerprint::error_t nts::fingerprint::print(const profile_t & profile, str
 	}
 }
 /**
- * @brief Метод разбора начала потока HTTP/2 в его признаки
+ * @brief Функция разбора начала связи протокола HTTP/2
  *
- * @param data   байты потока от предисловия до первого запроса
- * @param result заполняемые признаки потока
- * @return       отказ разбора
+ * @param data   разбираемые байты: преамбула клиента и первые кадры
+ * @param result начало связи, в которое помещается итог разбора
+ * @return       отказ разбора: EMPTY без кадра SETTINGS
  *
  */
 nts::fingerprint::error_t nts::fingerprint::parse(const view_t & data, stream_t & result) noexcept {
 	/**
-	 * Выполняем перехват нехватки памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Сбрасываем признаки потока
@@ -1984,7 +2874,7 @@ nts::fingerprint::error_t nts::fingerprint::parse(const view_t & data, stream_t 
 		// Выводим итог: без кадра настроек отпечатка нет
 		return (settled ? error_t::NONE : error_t::EMPTY);
 	/**
-	 * Если памяти не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Сбрасываем признаки потока
@@ -1994,16 +2884,16 @@ nts::fingerprint::error_t nts::fingerprint::parse(const view_t & data, stream_t 
 	}
 }
 /**
- * @brief Метод вычисления отпечатка Akamai по признакам потока HTTP/2
+ * @brief Функция вычисления отпечатка Akamai HTTP/2
  *
- * @param stream признаки потока
+ * @param stream начало связи протокола HTTP/2
  * @param result строка, в которую помещается отпечаток
- * @return       отказ вычисления
+ * @return       отказ вычисления: EMPTY без настроек
  *
  */
 nts::fingerprint::error_t nts::fingerprint::akamai(const stream_t & stream, string & result) noexcept {
 	/**
-	 * Выполняем перехват нехватки памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Сбрасываем строку
@@ -2072,7 +2962,7 @@ nts::fingerprint::error_t nts::fingerprint::akamai(const stream_t & stream, stri
 		// Выводим успешность вычисления
 		return error_t::NONE;
 	/**
-	 * Если памяти не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Сбрасываем строку
@@ -2082,16 +2972,16 @@ nts::fingerprint::error_t nts::fingerprint::akamai(const stream_t & stream, stri
 	}
 }
 /**
- * @brief Метод составления снимка профиля
+ * @brief Функция снятия переносимого снимка профиля
  *
- * @param profile профиль приветствия
- * @param result  накопитель, в который помещается снимок
- * @return        отказ составления
+ * @param profile снимаемый профиль
+ * @param result  накопитель, в конец которого дописывается снимок
+ * @return        отказ снятия снимка
  *
  */
 nts::fingerprint::error_t nts::fingerprint::dump(const profile_t & profile, vector <uint8_t> & result) noexcept {
 	/**
-	 * Выполняем перехват нехватки памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Сбрасываем накопитель
@@ -2131,13 +3021,16 @@ nts::fingerprint::error_t nts::fingerprint::dump(const profile_t & profile, vect
 		const size_t length = (result.size() - place - 4);
 		// Записываем длину профиля
 		result[place] = static_cast <uint8_t> (length >> 24);
+		// Записываем третий байт длины
 		result[place + 1] = static_cast <uint8_t> (length >> 16);
+		// Записываем второй байт длины
 		result[place + 2] = static_cast <uint8_t> (length >> 8);
+		// Записываем младший байт длины
 		result[place + 3] = static_cast <uint8_t> (length);
 		// Выводим успешность составления
 		return error_t::NONE;
 	/**
-	 * Если памяти не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Сбрасываем накопитель
@@ -2147,16 +3040,16 @@ nts::fingerprint::error_t nts::fingerprint::dump(const profile_t & profile, vect
 	}
 }
 /**
- * @brief Метод чтения профиля из снимка
+ * @brief Функция подъёма профиля из переносимого снимка
  *
- * @param data   байты снимка
- * @param result заполняемый профиль
- * @return       отказ чтения
+ * @param data   разбираемый снимок
+ * @param result профиль, в который помещается итог подъёма
+ * @return       отказ подъёма: VERSION у чужого издания, FORMAT у снимка не по правилам, TRAILING у лишних байтов
  *
  */
 nts::fingerprint::error_t nts::fingerprint::load(const view_t & data, profile_t & result) noexcept {
 	/**
-	 * Выполняем перехват нехватки памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Сбрасываем профиль
@@ -2206,7 +3099,7 @@ nts::fingerprint::error_t nts::fingerprint::load(const view_t & data, profile_t 
 		// Выводим успешность чтения
 		return error_t::NONE;
 	/**
-	 * Если памяти не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Сбрасываем профиль
@@ -2219,12 +3112,12 @@ nts::fingerprint::error_t nts::fingerprint::load(const view_t & data, profile_t 
  * @brief Метод добавления профиля в хранилище
  *
  * @param profile добавляемый профиль
- * @return        опознаватель профиля либо ноль при отказе
+ * @return        опознаватель профиля, ноль при полном хранилище либо нехватке памяти
  *
  */
 nts::fingerprint::id_t nts::fingerprint::Store::add(const profile_t & profile) noexcept {
 	/**
-	 * Выполняем перехват нехватки памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Если профиль пуст либо хранилище полно
@@ -2252,7 +3145,7 @@ nts::fingerprint::id_t nts::fingerprint::Store::add(const profile_t & profile) n
 		// Выводим опознаватель
 		return entry.id;
 	/**
-	 * Если памяти не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отсутствие опознавателя
@@ -2260,10 +3153,10 @@ nts::fingerprint::id_t nts::fingerprint::Store::add(const profile_t & profile) n
 	}
 }
 /**
- * @brief Метод удаления профиля из хранилища
+ * @brief Метод изъятия профиля из хранилища
  *
- * @param id опознаватель профиля
- * @return   результат удаления
+ * @param id опознаватель изымаемого профиля
+ * @return   признак того, что профиль был и изъят
  *
  */
 bool nts::fingerprint::Store::remove(const id_t id) noexcept {
@@ -2273,7 +3166,7 @@ bool nts::fingerprint::Store::remove(const id_t id) noexcept {
 	for(size_t i = 0; i < this->_entries.size(); i++){
 		// Если опознаватель совпал
 		if(this->_entries[i].id == id){
-			// Удаляем запись
+			// Удаляем найденную запись из хранилища
 			this->_entries.erase(this->_entries.begin() + static_cast <ptrdiff_t> (i));
 			// Выводим успешность удаления
 			return true;
@@ -2283,10 +3176,10 @@ bool nts::fingerprint::Store::remove(const id_t id) noexcept {
 	return false;
 }
 /**
- * @brief Метод получения профиля из хранилища
+ * @brief Метод розыска профиля по опознавателю
  *
- * @param id опознаватель профиля
- * @return   профиль либо nullptr
+ * @param id опознаватель разыскиваемого профиля
+ * @return   найденный профиль либо nullptr
  *
  */
 const nts::fingerprint::profile_t * nts::fingerprint::Store::get(const id_t id) const noexcept {
@@ -2305,13 +3198,13 @@ const nts::fingerprint::profile_t * nts::fingerprint::Store::get(const id_t id) 
 /**
  * @brief Метод получения перечня опознавателей хранилища
  *
- * @param result перечень опознавателей в порядке добавления
- * @return       отказ получения
+ * @param result накопитель, в конец которого дописываются опознаватели в порядке добавления
+ * @return       отказ получения перечня
  *
  */
 nts::fingerprint::error_t nts::fingerprint::Store::list(vector <id_t> & result) const noexcept {
 	/**
-	 * Выполняем перехват нехватки памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Сбрасываем перечень
@@ -2325,7 +3218,7 @@ nts::fingerprint::error_t nts::fingerprint::Store::list(vector <id_t> & result) 
 		// Выводим успешность получения
 		return error_t::NONE;
 	/**
-	 * Если памяти не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Сбрасываем перечень
@@ -2345,7 +3238,7 @@ void nts::fingerprint::Store::clear() noexcept {
 /**
  * @brief Метод проверки пустоты хранилища
  *
- * @return признак пустоты
+ * @return признак того, что профилей в хранилище нет
  *
  */
 bool nts::fingerprint::Store::empty() const noexcept {
@@ -2355,7 +3248,7 @@ bool nts::fingerprint::Store::empty() const noexcept {
 /**
  * @brief Метод получения числа профилей хранилища
  *
- * @return число профилей
+ * @return число профилей хранилища
  *
  */
 size_t nts::fingerprint::Store::size() const noexcept {
@@ -2363,15 +3256,15 @@ size_t nts::fingerprint::Store::size() const noexcept {
 	return this->_entries.size();
 }
 /**
- * @brief Метод составления снимка хранилища
+ * @brief Метод снятия переносимого снимка связки профилей
  *
- * @param result накопитель, в который помещается снимок
- * @return       отказ составления
+ * @param result накопитель, в конец которого дописывается снимок связки
+ * @return       отказ снятия снимка
  *
  */
 nts::fingerprint::error_t nts::fingerprint::Store::dump(vector <uint8_t> & result) const noexcept {
 	/**
-	 * Выполняем перехват нехватки памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Сбрасываем накопитель
@@ -2409,7 +3302,7 @@ nts::fingerprint::error_t nts::fingerprint::Store::dump(vector <uint8_t> & resul
 		// Выводим успешность составления
 		return error_t::NONE;
 	/**
-	 * Если памяти не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Сбрасываем накопитель
@@ -2419,15 +3312,15 @@ nts::fingerprint::error_t nts::fingerprint::Store::dump(vector <uint8_t> & resul
 	}
 }
 /**
- * @brief Метод чтения хранилища из снимка
+ * @brief Метод подъёма связки профилей из переносимого снимка
  *
- * @param data байты снимка
- * @return     отказ чтения
+ * @param data разбираемый снимок связки
+ * @return     отказ подъёма
  *
  */
 nts::fingerprint::error_t nts::fingerprint::Store::load(const view_t & data) noexcept {
 	/**
-	 * Выполняем перехват нехватки памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Если заголовок снимка не помещается
@@ -2489,7 +3382,7 @@ nts::fingerprint::error_t nts::fingerprint::Store::load(const view_t & data) noe
 					// Выводим отказ снимка
 					return error_t::FORMAT;
 			}
-			// Добавляем запись
+			// Дописываем проверенную запись в набор прочитанных
 			entries.push_back(entry);
 		}
 		// Если за профилями идут лишние байты
@@ -2501,7 +3394,7 @@ nts::fingerprint::error_t nts::fingerprint::Store::load(const view_t & data) noe
 		// Выводим успешность чтения
 		return error_t::NONE;
 	/**
-	 * Если памяти не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ памяти
@@ -2509,7 +3402,7 @@ nts::fingerprint::error_t nts::fingerprint::Store::load(const view_t & data) noe
 	}
 }
 /**
- * @brief Конструктор хранилища
+ * @brief Конструктор
  *
  */
-nts::fingerprint::Store::Store() noexcept {}
+nts::fingerprint::Store::Store() noexcept = default;

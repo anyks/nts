@@ -21,7 +21,6 @@
  *        by a key of 128, 192 or 256 bits according to FIPS 197
  *
  * \~
- *
  * @copyright Copyright © 2026
  *
  */
@@ -71,10 +70,12 @@ namespace nts {
 	 *
 	 * \~english
 	 * @brief Namespace of the block encryption modules
+	 *
 	 * @details The ciphers transform a single block and do not deal with the modes of
 	 *          operation: the modes of the encryption, of the production of an imitation
 	 *          insert and of the encryption with an integrity check lie above and do not
 	 *          depend on the chosen cipher.
+	 *
 	 * @note There are neither exceptions, nor templates, nor virtuality, nor memory
 	 *       allocation inside the ciphers: all of this produces a branch or a jump by a
 	 *       pointer on a path depending on a secret value
@@ -101,6 +102,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Largest size of the key of the AES cipher in bytes
+		 *
 		 * @details The key is of 16, 24 or 32 bytes; the number of the rounds is 10, 12 or 14
 		 *
 		 * \~
@@ -121,10 +123,12 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief The AES block cipher
+		 *
 		 * @details The key is set by a call of key, after which the blocks are transformed
 		 *          by the calls of encrypt and decrypt. The expanded round keys are wiped
 		 *          by a call of clear and by the destructor. The tables of the transformation
 		 *          are computed at the build from the Galois field and not copied from the standard.
+		 *
 		 * @note The course over the tables depends on the data by the memory accesses: it is a
 		 *       property of the portable implementation, the branch on the AES machine instructions
 		 *       is free of it
@@ -157,6 +161,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of checking the readiness of the cipher for the work
+				 *
 				 * @return the flag of the key being set
 				 *
 				 * \~
@@ -167,13 +172,13 @@ namespace nts {
 				 * @brief Метод установки ключа шифрования
 				 *
 				 * @param key устанавливаемый ключ шифрования
-				 *
-				 * @return признак успешности установки ключа
+				 * @return    признак успешности установки ключа
 				 *
 				 * \~english
 				 * @brief Method of setting the encryption key
+				 *
 				 * @param key the encryption key being set
-				 * @return the flag of the success of the setting of the key
+				 * @return    the flag of the success of the setting of the key
 				 *
 				 * \~
 				 */
@@ -195,16 +200,17 @@ namespace nts {
 				 *
 				 * @param source зашифровываемый блок
 				 * @param result место, в которое помещается зашифрованный блок
-				 *
-				 * @return признак успешности зашифрования
+				 * @return       признак успешности зашифрования
 				 *
 				 * @note Место итога вправе совпадать с местом исходного блока
 				 *
 				 * \~english
 				 * @brief Method of the encryption of a block
+				 *
 				 * @param source the block being encrypted
 				 * @param result the place the encrypted block is put into
-				 * @return the flag of the success of the encryption
+				 * @return       the flag of the success of the encryption
+				 *
 				 * @note The place of the result may coincide with the place of the source block
 				 *
 				 * \~
@@ -217,8 +223,7 @@ namespace nts {
 				 * @param sources зашифровываемые блоки подряд
 				 * @param blocks  число блоков
 				 * @param results место, в которое помещаются зашифрованные блоки подряд
-				 *
-				 * @return признак успешности зашифрования
+				 * @return        признак успешности зашифрования
 				 *
 				 * @note Блоки независимы, и шифр ведёт их по четыре в одном теле: чтения
 				 *       таблиц разных блоков идут внахлёст, что даёт выигрыш на процессорах
@@ -227,10 +232,12 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the encryption of several independent blocks at once
+				 *
 				 * @param sources the blocks being encrypted, one after another
 				 * @param blocks  the number of the blocks
 				 * @param results the place the encrypted blocks are put into, one after another
-				 * @return the flag of the success of the encryption
+				 * @return        the flag of the success of the encryption
+				 *
 				 * @note The blocks are independent and the cipher drives them four at a time in one
 				 *       body: the table reads of different blocks overlap, which gives a gain on the
 				 *       processors with a wide instruction or a deep pipeline. The place of the result
@@ -245,16 +252,17 @@ namespace nts {
 				 *
 				 * @param source расшифровываемый блок
 				 * @param result место, в которое помещается расшифрованный блок
-				 *
-				 * @return признак успешности расшифрования
+				 * @return       признак успешности расшифрования
 				 *
 				 * @note Место итога вправе совпадать с местом исходного блока
 				 *
 				 * \~english
 				 * @brief Method of the decryption of a block
+				 *
 				 * @param source the block being decrypted
 				 * @param result the place the decrypted block is put into
-				 * @return the flag of the success of the decryption
+				 * @return       the flag of the success of the decryption
+				 *
 				 * @note The place of the result may coincide with the place of the source block
 				 *
 				 * \~
@@ -268,7 +276,6 @@ namespace nts {
 				 * @param blocks  число блоков гаммы
 				 * @param source  исходные данные, на которые гамма накладывается: 16 байтов на блок, пусто, если нужна сама гамма
 				 * @param result  место, в которое записывается гамма либо исходные данные под ней: 16 байтов на блок
-				 *
 				 * @return        признак успешности выработки
 				 *
 				 * @details Первый блок гаммы - зашифрованный счётчик, увеличенный на единицу;
@@ -280,11 +287,13 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the production of the counter gamma
+				 *
 				 * @param counter the initial counter block: the low 32 bits grow from the senior byte
 				 * @param blocks  the number of the gamma blocks
 				 * @param source  the source data the gamma is applied to: 16 bytes per block, empty when the gamma itself is needed
 				 * @param result  the place the gamma or the source data under it is written into: 16 bytes per block
 				 * @return        the flag of the success of the production
+				 *
 				 * @details The first block of the gamma is the encrypted counter increased by one; so is
 				 *          the GCM counter arranged. By the machine instructions the blocks are encrypted
 				 *          eight at once with the keys in the registers: that is the gain against the
@@ -306,7 +315,9 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the encryption key schedule for the fused kernels of the modes
+				 *
 				 * @return the key schedule: one key more than the rounds, sixteen bytes each; empty without a key or without the machine instructions
+				 *
 				 * @note The schedule belongs to the cipher and lives as long as it does: the modes only read
 				 *       it in their kernels, where the counter gamma and the hash go in one pass
 				 *
@@ -321,6 +332,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the number of the rounds of the cipher
+				 *
 				 * @return the number of the rounds: 10, 12 or 14 by the length of the key, zero without a key
 				 *
 				 * \~
@@ -331,7 +343,6 @@ namespace nts {
 				 * \~russian
 				 * @brief Конструктор
 				 *
-				 *
 				 * \~english
 				 * @brief Constructor
 				 *
@@ -341,7 +352,6 @@ namespace nts {
 				/**
 				 * \~russian
 				 * @brief Деструктор
-				 *
 				 *
 				 * \~english
 				 * @brief Destructor

@@ -71,11 +71,10 @@ static const char * SQUARE = "4318b58bddddf6e546fba0f956a2e5540edf5573dcd505c512
 static const char * INVERSE = "3eb7b9b06dbd9f24df520e8f63ba87954dd94f0fa3a043496e36afc2a4d8b36e";
 
 /**
- * @brief Метод разбора записи шестнадцатеричными знаками
+ * @brief Функция разбора записи шестнадцатеричными знаками
  *
  * @param text разбираемая запись
  * @param data место, в которое помещаются разобранные байты
- *
  * @return     число разобранных байтов
  *
  */
@@ -104,11 +103,10 @@ static size_t bytes(const char * text, uint8_t * data) {
 	return result;
 }
 /**
- * @brief Метод сборки записи шестнадцатеричными знаками
+ * @brief Функция сборки записи шестнадцатеричными знаками
  *
  * @param data собираемые байты
  * @param size число собираемых байтов
- *
  * @return     собранная запись
  *
  */
@@ -130,7 +128,7 @@ static std::string text(const uint8_t * data, const size_t size) {
 	return result;
 }
 /**
- * @brief Метод разбора элемента поля из записи
+ * @brief Функция разбора элемента поля из записи
  *
  * @param source разбираемая запись
  * @param result место, в которое помещается элемент
@@ -145,10 +143,9 @@ static void element(const char * source, math::field25519::element_t & result) {
 	math::field25519::load(buffer, result);
 }
 /**
- * @brief Метод записи элемента поля строкой
+ * @brief Функция записи элемента поля строкой
  *
  * @param value записываемый элемент
- *
  * @return      запись элемента младшим байтом вперёд
  *
  */
@@ -232,17 +229,29 @@ TEST(Field25519Test, Squaring) {
 	static const uint64_t limits[] = {0, 1, ((static_cast <uint64_t> (1) << 51) - 1), (static_cast <uint64_t> (1) << 51), ((static_cast <uint64_t> (1) << 53) - 1), ((static_cast <uint64_t> (1) << 54) - 1)};
 	// Число проверенных сочетаний
 	size_t count = 0;
-	// Выполняем перебор сочетаний конечностей по границам
+	/**
+	 * Выполняем перебор сочетаний конечностей по границам
+	 */
 	for(size_t i = 0; i < 6; i++){
+		/**
+		 * Средний перебор: вторая конечность по границам
+		 */
 		for(size_t j = 0; j < 6; j++){
+			/**
+			 * Внутренний перебор: третья конечность по границам
+			 */
 			for(size_t k = 0; k < 6; k++){
 				// Элемент, составленный по границам
 				math::field25519::element_t value;
 				// Записываем конечности элемента
 				value.limbs[0] = limits[i];
+				// Вторая конечность — граница j
 				value.limbs[1] = limits[j];
+				// Третья конечность — граница k
 				value.limbs[2] = limits[k];
+				// Четвёртая конечность — граница i+j по модулю 6
 				value.limbs[3] = limits[(i + j) % 6];
+				// Пятая конечность — граница j+k по модулю 6
 				value.limbs[4] = limits[(j + k) % 6];
 				// Квадрат своим путём и умножением на себя
 				math::field25519::element_t square, product;
@@ -275,7 +284,9 @@ TEST(Field25519Test, Scaling) {
 	math::field25519::element_t value;
 	// Выполняем разбор контрольного элемента
 	element(FIRST, value);
-	// Выполняем перебор множителей
+	/**
+	 * Выполняем перебор множителей
+	 */
 	for(const uint64_t factor : factors){
 		// Множитель элементом поля
 		math::field25519::element_t scalar;
@@ -298,9 +309,13 @@ TEST(Field25519Test, Scaling) {
 	}
 	// Неприведённый элемент: все конечности на верхней границе умножения
 	math::field25519::element_t wide, scalar, scaled, product;
-	// Записываем конечности на границе
-	for(size_t i = 0; i < 5; i++)
+	/**
+	 * Записываем конечности на границе
+	 */
+	for(size_t i = 0; i < 5; i++){
+		// Записываем конечности на верхней границе
 		wide.limbs[i] = ((static_cast <uint64_t> (1) << 54) - 1 - i);
+	}
 	// Записываем множитель удвоения X25519
 	scalar.limbs[0] = 121665;
 	// Выполняем умножение на малое число
@@ -465,7 +480,9 @@ TEST(Field25519Test, Columns) {
 	size_t count = 0;
 	// Состояние вырабатывателя случайных конечностей
 	uint64_t state = 0x9E3779B97F4A7C15ull;
-	// Выполняем перебор сочетаний: по границам и случайные до 2^54
+	/**
+	 * Выполняем перебор сочетаний: по границам и случайные до 2^54
+	 */
 	for(size_t n = 0; n < 4216; n++){
 		// Сомножители
 		math::field25519::element_t first, second;
@@ -475,21 +492,31 @@ TEST(Field25519Test, Columns) {
 			const size_t i = (n / 36), j = ((n / 6) % 6), k = (n % 6);
 			// Записываем конечности первого сомножителя
 			first.limbs[0] = limits[i];
+			// Вторая конечность первого сомножителя — граница j
 			first.limbs[1] = limits[j];
+			// Третья конечность первого сомножителя — граница k
 			first.limbs[2] = limits[k];
+			// Четвёртая конечность первого сомножителя — граница i+j по модулю 6
 			first.limbs[3] = limits[(i + j) % 6];
+			// Пятая конечность первого сомножителя — граница j+k по модулю 6
 			first.limbs[4] = limits[(j + k) % 6];
 			// Записываем конечности второго сомножителя сдвигом границ
 			second.limbs[0] = limits[(k + 1) % 6];
+			// Вторая конечность второго сомножителя — граница i+2 по модулю 6
 			second.limbs[1] = limits[(i + 2) % 6];
+			// Третья конечность второго сомножителя — граница j+3 по модулю 6
 			second.limbs[2] = limits[(j + 3) % 6];
+			// Четвёртая конечность второго сомножителя — граница i+k+4 по модулю 6
 			second.limbs[3] = limits[(i + k + 4) % 6];
+			// Пятая конечность второго сомножителя — граница j+k+5 по модулю 6
 			second.limbs[4] = limits[(j + k + 5) % 6];
 		// Иначе сочетание случайное
 		} else {
 			// Разряды конечностей: до 2^51 либо до 2^54
 			const uint64_t mask = ((static_cast <uint64_t> (1) << ((n & 1) ? 54 : 51)) - 1);
-			// Выполняем выработку конечностей
+			/**
+			 * Выполняем выработку конечностей
+			 */
 			for(size_t i = 0; i < math::field25519::LIMBS; i++){
 				// Шаг вырабатывателя xorshift
 				state ^= (state << 13); state ^= (state >> 7); state ^= (state << 17);
@@ -505,33 +532,45 @@ TEST(Field25519Test, Columns) {
 		math::field25519::element_t expected, actual;
 		// Умножение
 		math::field25519::kernel::multiply(first, second, expected);
+		// Умножение по столбцам
 		math::field25519::columns::multiply(first, second, actual);
 		// Сличаем записи произведений
 		ASSERT_EQ(record(actual), record(expected)) << "умножение " << n;
 		// Квадрат
 		math::field25519::kernel::square(first, expected);
+		// Квадрат по столбцам
 		math::field25519::columns::square(first, actual);
 		// Сличаем записи квадратов
 		ASSERT_EQ(record(actual), record(expected)) << "квадрат " << n;
 		// Малый множитель на границе 2^32 и множитель лестницы
 		const uint64_t factor = ((n & 2) ? (static_cast <uint64_t> (1) << 32) : 121666);
+		// Масштаб на малое число ядром
 		math::field25519::kernel::scale(first, factor, expected);
+		// Масштаб на малое число по столбцам
 		math::field25519::columns::scale(first, factor, actual);
 		// Сличаем записи произведений на малое число
 		ASSERT_EQ(record(actual), record(expected)) << "малый множитель " << n;
 		// Итог поверх сомножителя: умножение в место первого, квадрат в место довода, квадрат умножением на себя
 		expected = first; actual = first;
+		// Умножение с записью поверх первого сомножителя ядром
 		math::field25519::kernel::multiply(expected, second, expected);
+		// Умножение с записью поверх первого сомножителя по столбцам
 		math::field25519::columns::multiply(actual, second, actual);
 		// Сличаем записи произведений на месте
 		ASSERT_EQ(record(actual), record(expected)) << "умножение на месте " << n;
+		// Восстанавливаем сомножитель перед квадратом на месте
 		expected = first; actual = first;
+		// Квадрат на месте ядром
 		math::field25519::kernel::square(expected, expected);
+		// Квадрат на месте по столбцам
 		math::field25519::columns::square(actual, actual);
 		// Сличаем записи квадратов на месте
 		ASSERT_EQ(record(actual), record(expected)) << "квадрат на месте " << n;
+		// Восстанавливаем сомножитель перед умножением на себя
 		expected = first; actual = first;
+		// Умножение элемента на себя с записью поверх него ядром
 		math::field25519::kernel::multiply(expected, expected, expected);
+		// Умножение элемента на себя с записью поверх него по столбцам
 		math::field25519::columns::multiply(actual, actual, actual);
 		// Сличаем записи произведений элемента на себя на месте
 		ASSERT_EQ(record(actual), record(expected)) << "умножение на себя на месте " << n;
@@ -547,6 +586,7 @@ TEST(Field25519Test, Columns) {
  * @details Кадры по границам конечностей (0, 1, 2^51 - 1, 2^51, 2^51 + 2^13 - 1 - предел итогов
  *          ядер) и случайные до 2^51 + 2^13 при приведённой множимой точке, оба признака обмена;
  *          сличаются все семь элементов кадра, включая промежуточные значения
+ *
  */
 TEST(Field25519Test, Step) {
 	// Границы конечностей координат
@@ -557,7 +597,9 @@ TEST(Field25519Test, Step) {
 	size_t count = 0;
 	// Состояние вырабатывателя случайных конечностей
 	uint64_t state = 0xD1B54A32D192ED03ull;
-	// Выполняем перебор кадров: по границам и случайные
+	/**
+	 * Выполняем перебор кадров: по границам и случайные
+	 */
 	for(size_t n = 0; n < 4125; n++){
 		// Кадр шага одной вставкой
 		math::field25519::columns::ladder_t actual;
@@ -605,23 +647,41 @@ TEST(Field25519Test, Step) {
 		math::field25519::swap(expected.x2, expected.x3, flag);
 		// Выполняем условный обмен вторых координат точек
 		math::field25519::swap(expected.z2, expected.z3, flag);
+		// Разность координат точки сложения: x3-z3
 		math::field25519::kernel::minus(expected.x3, expected.z3, expected.first);
+		// Разность координат удвоенной точки: x2-z2
 		math::field25519::kernel::minus(expected.x2, expected.z2, expected.second);
+		// Сумма координат удвоенной точки поверх x2
 		math::field25519::kernel::plus(expected.x2, expected.z2, expected.x2);
+		// Сумма координат точки сложения поверх z2
 		math::field25519::kernel::plus(expected.x3, expected.z3, expected.z2);
+		// Произведение суммы x2 на разность x3 поверх z3
 		math::field25519::kernel::multiply(expected.x2, expected.first, expected.z3);
+		// Произведение суммы x3 на разность x2 поверх z2
 		math::field25519::kernel::multiply(expected.z2, expected.second, expected.z2);
+		// Квадрат разности координат удвоенной точки
 		math::field25519::kernel::square(expected.second, expected.first);
+		// Квадрат суммы координат удвоенной точки
 		math::field25519::kernel::square(expected.x2, expected.second);
+		// Сумма произведений поверх x3
 		math::field25519::kernel::plus(expected.z3, expected.z2, expected.x3);
+		// Разность произведений поверх z2
 		math::field25519::kernel::minus(expected.z3, expected.z2, expected.z2);
+		// Произведение квадратов суммы и разности — итоговая x2
 		math::field25519::kernel::multiply(expected.second, expected.first, expected.x2);
+		// Разность квадратов суммы и разности координат
 		math::field25519::kernel::minus(expected.second, expected.first, expected.second);
+		// Квадрат разности произведений
 		math::field25519::kernel::square(expected.z2, expected.z2);
+		// Масштаб разности квадратов на множитель лестницы 121666
 		math::field25519::kernel::scale(expected.second, 121666, expected.z3);
+		// Квадрат суммы произведений — итоговая x3
 		math::field25519::kernel::square(expected.x3, expected.x3);
+		// Сумма квадрата разности и масштаба — множитель итоговой z2
 		math::field25519::kernel::plus(expected.first, expected.z3, expected.first);
+		// Произведение базовой координаты на квадрат разности произведений — итоговая z3
 		math::field25519::kernel::multiply(expected.x1, expected.z2, expected.z3);
+		// Произведение разности квадратов на множитель — итоговая z2
 		math::field25519::kernel::multiply(expected.second, expected.first, expected.z2);
 		// Выполняем шаг одной вставкой
 		math::field25519::columns::step(actual, flag);

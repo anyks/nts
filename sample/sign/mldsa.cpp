@@ -30,6 +30,7 @@
 #include <cstring>
 #include <iomanip>
 #include <iostream>
+#include <vector>
 
 /**
  * Подключаем заголовочные файлы проекта
@@ -52,7 +53,7 @@ using namespace nts;
  */
 namespace {
 	/**
-	 * @brief Метод вывода области байтов шестнадцатеричной записью
+	 * @brief Функция вывода области байтов шестнадцатеричной записью
 	 *
 	 * @param title заголовок выводимой области байтов
 	 * @param data  выводимая область байтов
@@ -78,7 +79,6 @@ namespace {
  *
  * @param argc длина массива параметров
  * @param argv массив параметров
- *
  * @return     код выхода из приложения
  *
  */
@@ -92,45 +92,47 @@ int main(int argc, char * argv[]) noexcept {
 	// Объект электронной подписи ML-DSA
 	sign::mldsa_t sign;
 	// Место, в которое помещается открытый ключ проверки подписи
-	uint8_t key[sign::mldsa_t::publicSize(set)];
+	vector <uint8_t> key(sign::mldsa_t::publicSize(set));
 	// Место, в которое помещается закрытый ключ подписи
-	uint8_t secret[sign::mldsa_t::secretSize(set)];
+	vector <uint8_t> secret(sign::mldsa_t::secretSize(set));
 	/**
 	 * Выполняем порождение ключевой пары
 	 *
 	 * @details Зерно берётся из источника случайности целиком по разделу 6.1 FIPS 204:
 	 *          из него расширяются и ключ проверки, и ключ подписи, оттого на одном
 	 *          зерне выходит один и тот же ключ
+	 *
 	 */
-	if(!sign.generate(set, key, secret)){
+	if(!sign.generate(set, key.data(), secret.data())){
 		// Выводим сообщение об отказе порождения ключа
 		cout << "Породить ключ подписи не удалось" << endl;
 		// Выходим из приложения с признаком отказа
 		return EXIT_FAILURE;
 	}
 	// Выводим начало открытого ключа проверки подписи
-	::print("Открытый ключ      ", key, 32);
+	::print("Открытый ключ      ", key.data(), 32);
 	// Подписываемое сообщение образца
 	const char * message = "Сообщение, которое требуется подписать";
 	// Место, в которое помещается подпись сообщения
-	uint8_t signature[sign::mldsa_t::signatureSize(set)];
+	vector <uint8_t> signature(sign::mldsa_t::signatureSize(set));
 	/**
 	 * Выполняем подписание сообщения
 	 *
 	 * @details Подпись хеджированная: случайность берётся из источника, оттого повтор
 	 *          выработки на одном ключе и сообщении даёт иную подпись. Контекст в TLS
 	 *          пустой - подписывается обвязка 0x00 ‖ длина контекста ‖ контекст ‖ сообщение
+	 *
 	 */
-	if(!sign.make(view_t(reinterpret_cast <const uint8_t *> (message), ::strlen(message)), view_t(), signature)){
+	if(!sign.make(view_t(reinterpret_cast <const uint8_t *> (message), ::strlen(message)), view_t(), signature.data())){
 		// Выводим сообщение об отказе подписания сообщения
 		cout << "Подписать сообщение не удалось" << endl;
 		// Выходим из приложения с признаком отказа
 		return EXIT_FAILURE;
 	}
 	// Выводим начало подписи сообщения
-	::print("Подпись            ", signature, 32);
+	::print("Подпись            ", signature.data(), 32);
 	// Если подпись сообщения не сошлась
-	if(!sign.check(view_t(reinterpret_cast <const uint8_t *> (message), ::strlen(message)), view_t(), view_t(signature, sizeof(signature)))){
+	if(!sign.check(view_t(reinterpret_cast <const uint8_t *> (message), ::strlen(message)), view_t(), view_t(signature.data(), signature.size()))){
 		// Выводим сообщение об отказе проверки подписи
 		cout << "Подпись сообщения не сошлась" << endl;
 		// Выходим из приложения с признаком отказа
@@ -141,7 +143,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Портим подписанное сообщение
 	const char * forged = "Сообщение, которое требуется подписать!";
 	// Если подпись испорченного сообщения отвергнута
-	if(!sign.check(view_t(reinterpret_cast <const uint8_t *> (forged), ::strlen(forged)), view_t(), view_t(signature, sizeof(signature))))
+	if(!sign.check(view_t(reinterpret_cast <const uint8_t *> (forged), ::strlen(forged)), view_t(), view_t(signature.data(), signature.size())))
 		// Выводим сообщение об отвержении подписи испорченного сообщения
 		cout << "Проверка подмены   : подпись подменённого сообщения отвергнута" << endl;
 	// Выходим из приложения с признаком успеха

@@ -29,10 +29,9 @@
 using namespace std;
 
 /**
- * @brief Метод получения длины хеша алгоритма
+ * @brief Функция получения длины хеша алгоритма
  *
  * @param algorithm алгоритм хеширования
- *
  * @return          длина хеша в байтах, ноль у неустановленного алгоритма
  *
  */
@@ -67,10 +66,9 @@ size_t nts::digest::length(const hash_t algorithm) noexcept {
 	}
 }
 /**
- * @brief Метод получения размера блока сжатия алгоритма
+ * @brief Функция получения размера блока сжатия алгоритма
  *
  * @param algorithm алгоритм хеширования
- *
  * @return          размер блока в байтах, ноль у неустановленного алгоритма
  *
  */
@@ -196,7 +194,6 @@ void nts::digest::Hasher::update(const view_t & data) noexcept {
  *
  * @param result место, в которое записывается хеш
  * @param size   размер места в байтах, не меньше длины хеша
- *
  * @return       признак успешности снятия хеша
  *
  */
@@ -240,7 +237,7 @@ bool nts::digest::Hasher::finish(uint8_t * result, const size_t size) noexcept {
 			const size_t needed = this->_blake2.length();
 			// Если место не передано либо короче итога
 			if((result == nullptr) || (size < needed))
-				// Выводим отказ
+				// Выводим отрицательный результат - место не передано либо короче итога
 				return false;
 			// Выводим итог снятия
 			return this->_blake2.finish(result, needed);
@@ -264,13 +261,12 @@ nts::digest::Hasher::Hasher(const hash_t algorithm) noexcept : _type(hash_t::NON
 	this->reset(algorithm);
 }
 /**
- * @brief Метод выработки хеша целого сообщения выбранным алгоритмом
+ * @brief Функция выработки хеша целого сообщения выбранным алгоритмом
  *
  * @param algorithm алгоритм хеширования
  * @param data      хешируемое сообщение
  * @param result    место, в которое записывается хеш
  * @param size      размер места в байтах, не меньше длины хеша
- *
  * @return          признак успешности выработки хеша
  *
  */

@@ -329,6 +329,7 @@ namespace {
 	 * Известные имитовставки выработки ключа из пароля
 	 */
 	static const prf_t PRFS[] = {
+		// Имитовставка SHA1 по RFC 8018
 		{"1.2.840.113549.2.7", digest::hash_t::SHA1},
 		{"1.2.840.113549.2.8", digest::hash_t::SHA224},
 		{"1.2.840.113549.2.9", digest::hash_t::SHA256},
@@ -351,6 +352,7 @@ namespace {
 	 * Известные шифры зашифрованной записи: AES-CBC трёх длин ключа
 	 */
 	static const cipher_t CIPHERS[] = {
+		// AES-CBC с ключом 128 разрядов
 		{"2.16.840.1.101.3.4.1.2", 128},
 		{"2.16.840.1.101.3.4.1.22", 192},
 		{"2.16.840.1.101.3.4.1.42", 256}
@@ -359,7 +361,7 @@ namespace {
 	// Затирание областей памяти берётся из открытого API библиотеки
 	using nts::sys::wipe;
 	/**
-	 * @brief Метод затирания и освобождения набора байтов
+	 * @brief Функция затирания и освобождения набора байтов
 	 *
 	 * @param data затираемый набор байтов
 	 *
@@ -375,7 +377,7 @@ namespace {
 		data.swap(empty);
 	}
 	/**
-	 * @brief Метод затирания буфера записчика
+	 * @brief Функция затирания буфера записчика
 	 *
 	 * @param writer записчик, буфер которого затирается
 	 *
@@ -391,24 +393,25 @@ namespace {
 		writer.clear();
 	}
 	/**
-	 * @brief Метод копирования области байтов в набор байтов
+	 * @brief Функция копирования области байтов в набор байтов
 	 *
 	 * @param data   копируемая область байтов
 	 * @param size   размер копируемой области байтов
 	 * @param result набор байтов, в который помещается итог копирования
-	 *
 	 * @return       признак успешности копирования: памяти достало
 	 *
 	 */
 	static bool copy(const uint8_t * data, const size_t size, vector <uint8_t> & result) noexcept {
 		/**
-		 * Копирование выделяет память: нехватка её отдаётся отказом, а не
-		 * завершением процесса
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Выполняем копирование области байтов
 			result.assign(data, data + size);
 		// Если памяти не хватило
+		/**
+		 * Выполняем перехват ошибок
+		 */
 		} catch(const bad_alloc &) {
 			// Выводим отказ копирования
 			return false;
@@ -417,7 +420,7 @@ namespace {
 		return true;
 	}
 	/**
-	 * @brief Метод переноса ключа с обменом содержимого
+	 * @brief Функция переноса ключа с обменом содержимого
 	 *
 	 * @param source ключ, содержимое которого переносится
 	 * @param result ключ, в который помещается перенесённое содержимое
@@ -461,10 +464,9 @@ namespace {
 		result.key.swap(source.key);
 	}
 	/**
-	 * @brief Метод перевода отказа разборщика ASN.1 в отказ модуля
+	 * @brief Функция перевода отказа разборщика ASN.1 в отказ модуля
 	 *
 	 * @param error отказ разборщика ASN.1
-	 *
 	 * @return      отказ модуля
 	 *
 	 */
@@ -473,11 +475,10 @@ namespace {
 		return ((error == asn1::error_t::MEMORY) ? error_t::MEMORY : error_t::STRUCTURE);
 	}
 	/**
-	 * @brief Метод завершения записи с переносом её в набор байтов
+	 * @brief Функция завершения записи с переносом её в набор байтов
 	 *
 	 * @param writer записчик, запись которого переносится
 	 * @param result набор байтов, в который помещается запись
-	 *
 	 * @return       отказ завершения записи
 	 *
 	 */
@@ -496,13 +497,12 @@ namespace {
 		return error_t::NONE;
 	}
 	/**
-	 * @brief Метод проверки принадлежности элемента заданной метке своего класса
+	 * @brief Функция проверки принадлежности элемента заданной метке своего класса
 	 *
 	 * @param element     проверяемый элемент
 	 * @param cls         ожидаемый класс метки
 	 * @param tag         ожидаемый номер метки
 	 * @param constructed ожидаемый признак составного вида
-	 *
 	 * @return            признак того, что элемент отвечает ожиданиям
 	 *
 	 */
@@ -511,11 +511,10 @@ namespace {
 		return ((element.cls == cls) && (element.tag == tag) && (element.constructed == constructed));
 	}
 	/**
-	 * @brief Метод разбора неотрицательного целого числа
+	 * @brief Функция разбора неотрицательного целого числа
 	 *
 	 * @param element разбираемый элемент
 	 * @param result  набор байтов, в который помещается число без ведущих нулей
-	 *
 	 * @return        отказ разбора числа
 	 *
 	 */
@@ -542,11 +541,10 @@ namespace {
 		return error_t::NONE;
 	}
 	/**
-	 * @brief Метод записи неотрицательного целого числа
+	 * @brief Функция записи неотрицательного целого числа
 	 *
 	 * @param writer записчик, в который помещается число
 	 * @param value  записываемое число порядком от старшего байта к младшему
-	 *
 	 * @return       отказ записи числа
 	 *
 	 */
@@ -562,7 +560,7 @@ namespace {
 		// Байты числа с местом под ведущий ноль знака
 		vector <uint8_t> buffer;
 		/**
-		 * Сборка числа выделяет память: нехватка её отдаётся отказом
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Если число нулевое
@@ -578,6 +576,9 @@ namespace {
 			// Если число записывается как есть
 			} else buffer.assign(value.begin() + offset, value.end());
 		// Если памяти не хватило
+		/**
+		 * Выполняем перехват ошибок
+		 */
 		} catch(const bad_alloc &) {
 			// Выводим отказ нехватки памяти
 			return error_t::MEMORY;
@@ -590,11 +591,10 @@ namespace {
 		return ((writer.err() == asn1::error_t::NONE) ? error_t::NONE : translate(writer.err()));
 	}
 	/**
-	 * @brief Метод разбора малого целого числа
+	 * @brief Функция разбора малого целого числа
 	 *
 	 * @param element разбираемый элемент
 	 * @param result  место, в которое помещается число
-	 *
 	 * @return        отказ разбора числа
 	 *
 	 */
@@ -605,11 +605,10 @@ namespace {
 		return ((outcome == asn1::error_t::NONE) ? error_t::NONE : translate(outcome));
 	}
 	/**
-	 * @brief Метод разбора опознавателя объекта
+	 * @brief Функция разбора опознавателя объекта
 	 *
 	 * @param element разбираемый элемент
 	 * @param result  место, в которое помещается опознаватель
-	 *
 	 * @return        отказ разбора опознавателя
 	 *
 	 */
@@ -620,22 +619,24 @@ namespace {
 		return ((outcome == asn1::error_t::NONE) ? error_t::NONE : translate(outcome));
 	}
 	/**
-	 * @brief Метод копирования опознавателя в строку
+	 * @brief Функция копирования опознавателя в строку
 	 *
 	 * @param value  копируемый опознаватель
 	 * @param result строка, в которую помещается опознаватель
-	 *
 	 * @return       признак успешности копирования: памяти достало
 	 *
 	 */
 	static bool store(const char * value, string & result) noexcept {
 		/**
-		 * Копирование выделяет память: нехватка её отдаётся отказом
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Выполняем копирование опознавателя
 			result.assign(value);
 		// Если памяти не хватило
+		/**
+		 * Выполняем перехват ошибок
+		 */
 		} catch(const bad_alloc &) {
 			// Выводим отказ копирования
 			return false;
@@ -644,11 +645,10 @@ namespace {
 		return true;
 	}
 	/**
-	 * @brief Метод записи опознавателя объекта из строки знаков
+	 * @brief Функция записи опознавателя объекта из строки знаков
 	 *
 	 * @param writer записчик, в который помещается опознаватель
 	 * @param value  записываемый опознаватель строкой знаков
-	 *
 	 * @return       отказ записи опознавателя
 	 *
 	 * @note Записчик принимает опознаватель строкой, а сборка строки из знаков
@@ -668,11 +668,10 @@ namespace {
 		return ((writer.err() == asn1::error_t::NONE) ? error_t::NONE : translate(writer.err()));
 	}
 	/**
-	 * @brief Метод разбора верхней записи с проверкой отсутствия хвоста
+	 * @brief Функция разбора верхней записи с проверкой отсутствия хвоста
 	 *
 	 * @param der    разбираемая запись
 	 * @param result место, в которое помещается набор верхней записи
-	 *
 	 * @return       отказ разбора верхней записи
 	 *
 	 */
@@ -695,13 +694,12 @@ namespace {
 		return error_t::NONE;
 	}
 	/**
-	 * @brief Метод разбора опознавателя алгоритма с настройками
+	 * @brief Функция разбора опознавателя алгоритма с настройками
 	 *
 	 * @param reader    разборщик, из которого берётся набор алгоритма
 	 * @param algorithm место, в которое помещается опознаватель алгоритма
 	 * @param params    место, в которое помещаются настройки алгоритма
 	 * @param present   место, в которое помещается признак наличия настроек
-	 *
 	 * @return          отказ разбора опознавателя алгоритма
 	 *
 	 */
@@ -743,14 +741,13 @@ namespace {
 		return error_t::NONE;
 	}
 	/**
-	 * @brief Метод разбора настроек ключа ГОСТ
+	 * @brief Функция разбора настроек ключа ГОСТ
 	 *
 	 * @details Раздел 2.1 RFC 9215: набор из опознавателя кривой и, необязательно,
 	 *          опознавателя хеша
 	 *
 	 * @param params разбираемые настройки ключа
 	 * @param key    ключ, в который помещаются опознаватели
-	 *
 	 * @return       отказ разбора настроек
 	 *
 	 */
@@ -794,11 +791,10 @@ namespace {
 		return error_t::NONE;
 	}
 	/**
-	 * @brief Метод записи настроек алгоритма ключа
+	 * @brief Функция записи настроек алгоритма ключа
 	 *
 	 * @param writer записчик, в который помещается набор алгоритма
 	 * @param key    записываемый ключ
-	 *
 	 * @return       отказ записи набора алгоритма
 	 *
 	 */
@@ -869,11 +865,10 @@ namespace {
 		return ((writer.err() == asn1::error_t::NONE) ? error_t::NONE : translate(writer.err()));
 	}
 	/**
-	 * @brief Метод установки кривой по опознавателю ключа
+	 * @brief Функция установки кривой по опознавателю ключа
 	 *
 	 * @param key   ключ, кривая которого устанавливается
 	 * @param curve место, в которое помещается кривая
-	 *
 	 * @return      отказ установки кривой
 	 *
 	 */
@@ -886,13 +881,12 @@ namespace {
 		return error_t::NONE;
 	}
 	/**
-	 * @brief Метод разбора несжатой точки по разделу 2.2 RFC 5480
+	 * @brief Функция разбора несжатой точки по разделу 2.2 RFC 5480
 	 *
 	 * @param data  разбираемая запись точки
 	 * @param curve кривая, которой обязана принадлежать точка
 	 * @param x     место, в которое помещается первая координата
 	 * @param y     место, в которое помещается вторая координата
-	 *
 	 * @return      отказ разбора точки
 	 *
 	 */
@@ -917,23 +911,25 @@ namespace {
 		return error_t::NONE;
 	}
 	/**
-	 * @brief Метод разворота порядка байтов
+	 * @brief Функция разворота порядка байтов
 	 *
 	 * @param data   разворачиваемая область байтов
 	 * @param size   размер разворачиваемой области байтов
 	 * @param result набор байтов, в который помещается итог разворота
-	 *
 	 * @return       признак успешности разворота: памяти достало
 	 *
 	 */
 	static bool reverse(const uint8_t * data, const size_t size, vector <uint8_t> & result) noexcept {
 		/**
-		 * Разворот выделяет память: нехватка её отдаётся отказом
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Выделяем место под итог разворота
 			result.assign(size, 0);
 		// Если памяти не хватило
+		/**
+		 * Выполняем перехват ошибок
+		 */
 		} catch(const bad_alloc &) {
 			// Выводим отказ разворота
 			return false;
@@ -948,11 +944,10 @@ namespace {
 		return true;
 	}
 	/**
-	 * @brief Метод сличения двух наборов байтов за постоянное время
+	 * @brief Функция сличения двух наборов байтов за постоянное время
 	 *
 	 * @param first  первый набор байтов
 	 * @param second второй набор байтов
-	 *
 	 * @return       признак совпадения наборов байтов
 	 *
 	 */
@@ -973,10 +968,9 @@ namespace {
 		return (difference == 0);
 	}
 	/**
-	 * @brief Метод проверки согласованности составляющих ключа RSA
+	 * @brief Функция проверки согласованности составляющих ключа RSA
 	 *
 	 * @param key проверяемый ключ
-	 *
 	 * @return    отказ проверки ключа
 	 *
 	 */
@@ -991,13 +985,12 @@ namespace {
 		return error_t::NONE;
 	}
 	/**
-	 * @brief Метод выведения открытой части ключа из секретной со сличением
+	 * @brief Функция выведения открытой части ключа из секретной со сличением
 	 *
 	 * @details Открытая часть выводится из секретной всегда; записанная в файле
 	 *          лишь сличается с выведенной, а при отсутствии - заполняется ею
 	 *
 	 * @param key ключ, открытая часть которого выводится
-	 *
 	 * @return    отказ выведения открытой части
 	 *
 	 */
@@ -1209,12 +1202,11 @@ namespace {
 		return error_t::EMPTY;
 	}
 	/**
-	 * @brief Метод разбора набора целых чисел RSA
+	 * @brief Функция разбора набора целых чисел RSA
 	 *
 	 * @param der   разбираемая запись
 	 * @param count ожидаемое число целых чисел
 	 * @param items места, в которые помещаются числа
-	 *
 	 * @return      отказ разбора набора
 	 *
 	 */
@@ -1271,11 +1263,10 @@ namespace {
 		return error_t::NONE;
 	}
 	/**
-	 * @brief Метод разбора записи RSAPublicKey
+	 * @brief Функция разбора записи RSAPublicKey
 	 *
 	 * @param der разбираемая запись
 	 * @param key ключ, в который помещается итог разбора
-	 *
 	 * @return    отказ разбора записи
 	 *
 	 */
@@ -1294,11 +1285,10 @@ namespace {
 		return checkRSA(key);
 	}
 	/**
-	 * @brief Метод разбора записи RSAPrivateKey
+	 * @brief Функция разбора записи RSAPrivateKey
 	 *
 	 * @param der разбираемая запись
 	 * @param key ключ, в который помещается итог разбора
-	 *
 	 * @return    отказ разбора записи
 	 *
 	 */
@@ -1317,12 +1307,11 @@ namespace {
 		return checkRSA(key);
 	}
 	/**
-	 * @brief Метод записи набора целых чисел RSA
+	 * @brief Функция записи набора целых чисел RSA
 	 *
 	 * @param key    записываемый ключ
 	 * @param secret признак записи секретного ключа
 	 * @param writer записчик, в который помещается набор
-	 *
 	 * @return       отказ записи набора
 	 *
 	 */
@@ -1358,12 +1347,11 @@ namespace {
 		return ((writer.err() == asn1::error_t::NONE) ? error_t::NONE : translate(writer.err()));
 	}
 	/**
-	 * @brief Метод разбора записи ECPrivateKey по RFC 5915
+	 * @brief Функция разбора записи ECPrivateKey по RFC 5915
 	 *
 	 * @param der     разбираемая запись
 	 * @param wrapped признак записи внутри обёртки PrivateKeyInfo с уже известной кривой
 	 * @param key     ключ, в который помещается итог разбора
-	 *
 	 * @return        отказ разбора записи
 	 *
 	 */
@@ -1513,12 +1501,11 @@ namespace {
 		return derive(key);
 	}
 	/**
-	 * @brief Метод записи ECPrivateKey по RFC 5915
+	 * @brief Функция записи ECPrivateKey по RFC 5915
 	 *
 	 * @param key    записываемый ключ
 	 * @param named  признак записи именованной кривой внутри
 	 * @param writer записчик, в который помещается запись
-	 *
 	 * @return       отказ записи
 	 *
 	 */
@@ -1544,7 +1531,7 @@ namespace {
 		// Скаляр, дополненный ведущими нулями до размера кривой, и несжатая точка
 		vector <uint8_t> scalar, point;
 		/**
-		 * Сборка выделяет память: нехватка её отдаётся отказом
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Заводим ведущие нули скаляра
@@ -1558,6 +1545,9 @@ namespace {
 			// Дописываем вторую координату
 			point.insert(point.end(), key.y.begin(), key.y.end());
 		// Если памяти не хватило
+		/**
+		 * Выполняем перехват ошибок
+		 */
 		} catch(const bad_alloc &) {
 			// Выполняем затирание скаляра
 			erase(scalar);
@@ -1593,12 +1583,11 @@ namespace {
 		return ((writer.err() == asn1::error_t::NONE) ? error_t::NONE : translate(writer.err()));
 	}
 	/**
-	 * @brief Метод разбора зерна Ed25519 либо X25519 по разделу 7 RFC 8410
+	 * @brief Функция разбора зерна Ed25519 либо X25519 по разделу 7 RFC 8410
 	 *
 	 * @param der  разбираемая запись CurvePrivateKey
 	 * @param kind вид ключа
 	 * @param key  ключ, в который помещается итог разбора
-	 *
 	 * @return     отказ разбора записи
 	 *
 	 */
@@ -1633,7 +1622,7 @@ namespace {
 		return derive(key);
 	}
 	/**
-	 * @brief Метод разбора секретного ключа ML-DSA по разделу 6 RFC 9881
+	 * @brief Функция разбора секретного ключа ML-DSA по разделу 6 RFC 9881
 	 *
 	 * @details Внутри дозволены три вида записи: зерно с меткой [0] (32 байта,
 	 *          рекомендовано), развёрнутый ключ строкой байтов без метки и оба вида
@@ -1643,7 +1632,6 @@ namespace {
 	 * @param der       разбираемая запись ключа
 	 * @param algorithm опознаватель алгоритма ключа
 	 * @param key       ключ, в который помещается итог разбора
-	 *
 	 * @return          отказ разбора записи
 	 *
 	 */
@@ -1784,7 +1772,7 @@ namespace {
 		return error_t::NONE;
 	}
 	/**
-	 * @brief Метод разбора секретного ключа ГОСТ по разделу 6 RFC 9215
+	 * @brief Функция разбора секретного ключа ГОСТ по разделу 6 RFC 9215
 	 *
 	 * @details Внутри дозволены три вида записи: строка байтов даёт число порядком от
 	 *          младшего байта к старшему, целое число - порядком от старшего, а набор
@@ -1792,7 +1780,6 @@ namespace {
 	 *
 	 * @param der разбираемая запись ключа
 	 * @param key ключ, в который помещается итог разбора
-	 *
 	 * @return    отказ разбора записи
 	 *
 	 */
@@ -1869,13 +1856,12 @@ namespace {
 		return derive(key);
 	}
 	/**
-	 * @brief Метод проверки согласованности опознавателя алгоритма ГОСТ с кривой
+	 * @brief Функция проверки согласованности опознавателя алгоритма ГОСТ с кривой
 	 *
 	 * @details У ключа 2001 года и ключа 2012 года длиной 256 разрядов координата
 	 *          занимает 32 байта, у ключа 2012 года длиной 512 разрядов - 64
 	 *
 	 * @param key ключ, опознаватель которого проверяется
-	 *
 	 * @return    признак согласованности опознавателя с кривой
 	 *
 	 */
@@ -1894,11 +1880,10 @@ namespace {
 		return false;
 	}
 	/**
-	 * @brief Метод разбора открытого ключа ГОСТ по разделу 4 RFC 9215
+	 * @brief Функция разбора открытого ключа ГОСТ по разделу 4 RFC 9215
 	 *
 	 * @param data разбираемая запись открытого ключа из строки битов
 	 * @param key  ключ, в который помещается итог разбора
-	 *
 	 * @return     отказ разбора записи
 	 *
 	 */
@@ -1953,12 +1938,11 @@ namespace {
 		return error_t::NONE;
 	}
 	/**
-	 * @brief Метод записи строки байтов из развёрнутых чисел
+	 * @brief Функция записи строки байтов из развёрнутых чисел
 	 *
 	 * @param writer записчик, в который помещается строка байтов
 	 * @param first  первое число порядком от старшего байта к младшему
 	 * @param second второе число порядком от старшего байта к младшему, вправе быть пустым
-	 *
 	 * @return       отказ записи
 	 *
 	 */
@@ -1966,12 +1950,15 @@ namespace {
 		// Развёрнутые числа подряд
 		vector <uint8_t> buffer;
 		/**
-		 * Сборка выделяет память: нехватка её отдаётся отказом
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Выделяем место под оба числа
 			buffer.assign(first.size() + second.size(), 0);
 		// Если памяти не хватило
+		/**
+		 * Выполняем перехват ошибок
+		 */
 		} catch(const bad_alloc &) {
 			// Выводим отказ нехватки памяти
 			return error_t::MEMORY;
@@ -1996,11 +1983,10 @@ namespace {
 		return ((writer.err() == asn1::error_t::NONE) ? error_t::NONE : translate(writer.err()));
 	}
 	/**
-	 * @brief Метод записи тела секретного ключа внутри PrivateKeyInfo
+	 * @brief Функция записи тела секретного ключа внутри PrivateKeyInfo
 	 *
 	 * @param key    записываемый ключ
 	 * @param writer записчик, в который помещается тело ключа
-	 *
 	 * @return       отказ записи
 	 *
 	 */
@@ -2079,7 +2065,7 @@ namespace {
 				// Скаляр, дополненный ведущими нулями до размера кривой
 				vector <uint8_t> scalar;
 				/**
-				 * Сборка выделяет память: нехватка её отдаётся отказом
+				 * Выполняем перехват ошибок
 				 */
 				try {
 					// Заводим ведущие нули скаляра
@@ -2087,6 +2073,9 @@ namespace {
 					// Дописываем скаляр
 					scalar.insert(scalar.end(), key.d.begin(), key.d.end());
 				// Если памяти не хватило
+				/**
+				 * Выполняем перехват ошибок
+				 */
 				} catch(const bad_alloc &) {
 					// Выполняем затирание скаляра
 					erase(scalar);
@@ -2105,7 +2094,7 @@ namespace {
 		return error_t::EMPTY;
 	}
 	/**
-	 * @brief Метод разбора настроек защиты ключа паролем по схеме PBES2
+	 * @brief Функция разбора настроек защиты ключа паролем по схеме PBES2
 	 *
 	 * @param params     разбираемые настройки схемы
 	 * @param salt       место, в которое помещается просмотр соли
@@ -2113,7 +2102,6 @@ namespace {
 	 * @param prf        место, в которое помещается алгоритм имитовставки
 	 * @param bits       место, в которое помещается длина ключа шифра в разрядах
 	 * @param iv         место, в которое помещается просмотр синхропосылки
-	 *
 	 * @return           отказ разбора настроек
 	 *
 	 */
@@ -2284,14 +2272,13 @@ namespace {
 		return error_t::NONE;
 	}
 	/**
-	 * @brief Метод разбора записи ключа заданной метки
+	 * @brief Функция разбора записи ключа заданной метки
 	 *
 	 * @param label    метка записи
 	 * @param der      разбираемая запись
 	 * @param password пароль последовательностью октетов
 	 * @param result   ключ, в который помещается итог разбора
 	 * @param known    место, в которое помещается признак известной метки
-	 *
 	 * @return         отказ разбора записи
 	 *
 	 */
@@ -2328,25 +2315,27 @@ namespace {
 		return error_t::LABEL;
 	}
 	/**
-	 * @brief Метод обращения пароля в строку BMPString
+	 * @brief Функция обращения пароля в строку BMPString
 	 *
 	 * @details Приложение B.1 RFC 7292: пароль записывается знаками UCS-2 от старшего
 	 *          байта с завершающим нулевым знаком; октеты пароля читаются как ASCII
 	 *
 	 * @param password пароль последовательностью октетов
 	 * @param result   место, в которое помещается строка BMPString
-	 *
 	 * @return         признак успешности обращения: памяти достало
 	 *
 	 */
 	static bool bmpstring(const view_t & password, vector <uint8_t> & result) noexcept {
 		/**
-		 * Обращение выделяет память: нехватка её отдаётся отказом
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Выделяем место под строку: по два байта на октет пароля и завершающий нулевой знак
 			result.assign((password.size + 1) * 2, 0);
 		// Если памяти не хватило
+		/**
+		 * Выполняем перехват ошибок
+		 */
 		} catch(const bad_alloc &) {
 			// Выводим отказ обращения
 			return false;
@@ -2361,7 +2350,7 @@ namespace {
 		return true;
 	}
 	/**
-	 * @brief Метод выработки ключа PKCS #12 по приложению B.2 RFC 7292
+	 * @brief Функция выработки ключа PKCS #12 по приложению B.2 RFC 7292
 	 *
 	 * @details Ключ выводится повторением хеша от дополненного пароля и соли: материал
 	 *          собирается блоками хеша, всякий следующий - хешем от предыдущего с
@@ -2375,7 +2364,6 @@ namespace {
 	 * @param id        признак назначения ключа
 	 * @param result    место, в которое помещается ключ
 	 * @param size      длина ключа в байтах
-	 *
 	 * @return          признак успешности выработки ключа
 	 *
 	 */
@@ -2395,7 +2383,7 @@ namespace {
 		// Дополнение пароля до кратного блоку
 		vector <uint8_t> passkey;
 		/**
-		 * Сборка выделяет память: нехватка её отдаётся отказом
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Заполняем дополнение признака назначения
@@ -2406,7 +2394,9 @@ namespace {
 			salted.assign(salting, 0);
 			// Если соль задана
 			if(salt.data != nullptr)
-				// Выполняем перенос соли с повторением
+				/**
+				 * Выполняем перенос соли с повторением
+				 */
 				for(size_t i = 0; i < salting; i++)
 					// Переносим очередной байт соли
 					salted[i] = salt.data[i % salt.size];
@@ -2416,12 +2406,17 @@ namespace {
 			if(password.size > 0){
 				// Заполняем дополнение пароля повторением
 				passkey.assign(passing, 0);
-				// Выполняем перенос пароля с повторением
+				/**
+				 * Выполняем перенос пароля с повторением
+				 */
 				for(size_t i = 0; i < passing; i++)
 					// Переносим очередной байт пароля
 					passkey[i] = password.data[i % password.size];
 			}
 		// Если памяти не хватило
+		/**
+		 * Выполняем перехват ошибок
+		 */
 		} catch(const bad_alloc &) {
 			// Выводим отказ выработки ключа
 			return false;
@@ -2517,10 +2512,9 @@ namespace {
 		return true;
 	}
 	/**
-	 * @brief Метод получения алгоритма хеша имитовставки по её опознавателю
+	 * @brief Функция получения алгоритма хеша имитовставки по её опознавателю
 	 *
 	 * @param oid опознаватель имитовставки
-	 *
 	 * @return    алгоритм хеша, NONE у неизвестной имитовставки
 	 *
 	 */
@@ -2549,13 +2543,12 @@ namespace {
 		return digest::hash_t::NONE;
 	}
 	/**
-	 * @brief Метод расшифрования содержимого мешка схемой PBES2
+	 * @brief Функция расшифрования содержимого мешка схемой PBES2
 	 *
 	 * @param params   настройки схемы PBES2
 	 * @param encrypted зашифрованное содержимое
 	 * @param password пароль последовательностью октетов
 	 * @param plain    место, в которое помещается расшифрованное содержимое
-	 *
 	 * @return         отказ расшифрования
 	 *
 	 */
@@ -2602,12 +2595,15 @@ namespace {
 			// Выводим отказ схемы
 			return error_t::CIPHER;
 		/**
-		 * Расшифрование выделяет память: нехватка её отдаётся отказом
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Выделяем место под расшифрованную запись
 			plain.assign(encrypted.size, 0);
 		// Если памяти не хватило
+		/**
+		 * Выполняем перехват ошибок
+		 */
 		} catch(const bad_alloc &) {
 			// Выводим отказ нехватки памяти
 			return error_t::MEMORY;
@@ -2642,14 +2638,13 @@ namespace {
 		return error_t::NONE;
 	}
 	/**
-	 * @brief Метод разбора одного мешка SafeBag записи PKCS #12
+	 * @brief Функция разбора одного мешка SafeBag записи PKCS #12
 	 *
 	 * @param bag      разбираемый мешок SafeBag
 	 * @param bmp      пароль строкой BMPString для мешков, защищённых паролем
 	 * @param key      ключ, в который помещается итог разбора мешка ключа
 	 * @param chain    цепочка, в которую помещаются сертификаты мешков certBag
 	 * @param keyed    место, в которое помещается признак разобранного ключа
-	 *
 	 * @return         отказ разбора мешка
 	 *
 	 */
@@ -2716,12 +2711,15 @@ namespace {
 			// Пароль октетами из строки BMPString: знаки UCS-2 без старших байтов и завершающего нуля
 			vector <uint8_t> password;
 			/**
-			 * Обращение выделяет память: нехватка её отдаётся отказом
+			 * Выполняем перехват ошибок
 			 */
 			try {
 				// Выделяем место под пароль октетами
 				password.assign((bmp.size / 2) - 1, 0);
 			// Если памяти не хватило
+			/**
+			 * Выполняем перехват ошибок
+			 */
 			} catch(const bad_alloc &) {
 				// Выводим отказ нехватки памяти
 				return error_t::MEMORY;
@@ -2790,12 +2788,15 @@ namespace {
 				// Выводим отказ нехватки памяти
 				return error_t::MEMORY;
 			/**
-			 * Добавление выделяет память: нехватка её отдаётся отказом
+			 * Выполняем перехват ошибок
 			 */
 			try {
 				// Добавляем сертификат в цепочку
 				chain.push_back(::move(record));
 			// Если памяти не хватило
+			/**
+			 * Выполняем перехват ошибок
+			 */
 			} catch(const bad_alloc &) {
 				// Выводим отказ нехватки памяти
 				return error_t::MEMORY;
@@ -2891,7 +2892,6 @@ void nts::keys::Key::clear() noexcept {
  * @brief Метод установки ключа RSA из разобранного ключа
  *
  * @param rsa примитив, в который устанавливается ключ
- *
  * @return    признак успешности установки ключа
  *
  */
@@ -2919,7 +2919,6 @@ bool nts::keys::Key::load(sign::rsa_t & rsa) const noexcept {
  *
  * @param ecdsa примитив, в который устанавливается ключ
  * @param curve кривая, которая устанавливается по опознавателю ключа
- *
  * @return      признак успешности установки ключа
  *
  */
@@ -2947,7 +2946,6 @@ bool nts::keys::Key::load(sign::ecdsa_t & ecdsa, curve::curve_t & curve) const n
  * @param sm2   примитив, в который устанавливается ключ
  * @param curve кривая, которая устанавливается по опознавателю ключа
  * @param id    опознаватель подписывающего для выработки Z_A
- *
  * @return      признак успешности установки ключа
  *
  */
@@ -2973,7 +2971,6 @@ bool nts::keys::Key::load(sign::sm2_t & sm2, curve::curve_t & curve, const view_
  * @brief Метод установки ключа Ed25519 из разобранного ключа
  *
  * @param ed25519 примитив, в который устанавливается ключ
- *
  * @return        признак успешности установки ключа
  *
  */
@@ -2995,7 +2992,6 @@ bool nts::keys::Key::load(sign::ed25519_t & ed25519) const noexcept {
  * @brief Метод установки ключа Ed448 из разобранного ключа
  *
  * @param ed448 примитив, в который устанавливается ключ
- *
  * @return      признак успешности установки ключа
  *
  */
@@ -3018,7 +3014,6 @@ bool nts::keys::Key::load(sign::ed448_t & ed448) const noexcept {
  *
  * @param gost  примитив, в который устанавливается ключ
  * @param curve кривая, которая устанавливается по опознавателю ключа
- *
  * @return      признак успешности установки ключа
  *
  */
@@ -3044,7 +3039,6 @@ bool nts::keys::Key::load(sign::gost_t & gost, curve::curve_t & curve) const noe
  * @brief Метод установки ключа ML-DSA из разобранного ключа
  *
  * @param mldsa примитив, в который устанавливается ключ
- *
  * @return      признак успешности установки ключа
  *
  */
@@ -3128,7 +3122,7 @@ nts::keys::kind_t nts::keys::Signer::kind() const noexcept {
 /**
  * @brief Метод получения кривой ключа
  *
- * @return кривая ключа EC либо ГОСТ
+ * @return кривая ключа EC либо ГОСТ, незаведённая у ключей иных видов
  *
  */
 const nts::curve::curve_t & nts::keys::Signer::curve() const noexcept {
@@ -3140,7 +3134,7 @@ const nts::curve::curve_t & nts::keys::Signer::curve() const noexcept {
 /**
  * @brief Метод получения модуля подписи RSA
  *
- * @return модуль подписи с установленным ключом RSA
+ * @return модуль подписи с установленным ключом RSA, пустой у ключей иных видов
  *
  */
 const nts::sign::rsa_t & nts::keys::Signer::rsa() const noexcept {
@@ -3153,7 +3147,7 @@ const nts::sign::rsa_t & nts::keys::Signer::rsa() const noexcept {
 /**
  * @brief Метод получения модуля подписи ECDSA
  *
- * @return модуль подписи с установленным ключом на кривой Вейерштрасса
+ * @return модуль подписи с установленным ключом на кривой Вейерштрасса, пустой у ключей иных видов
  *
  */
 const nts::sign::ecdsa_t & nts::keys::Signer::ecdsa() const noexcept {
@@ -3166,7 +3160,7 @@ const nts::sign::ecdsa_t & nts::keys::Signer::ecdsa() const noexcept {
 /**
  * @brief Метод получения модуля подписи Ed25519
  *
- * @return модуль подписи с установленным ключом Ed25519
+ * @return модуль подписи с установленным ключом Ed25519, пустой у ключей иных видов
  *
  */
 const nts::sign::ed25519_t & nts::keys::Signer::ed25519() const noexcept {
@@ -3179,7 +3173,7 @@ const nts::sign::ed25519_t & nts::keys::Signer::ed25519() const noexcept {
 /**
  * @brief Метод получения модуля подписи Ed448
  *
- * @return модуль подписи с установленным ключом Ed448
+ * @return модуль подписи с установленным ключом Ed448, пустой у ключей иных видов
  *
  */
 const nts::sign::ed448_t & nts::keys::Signer::ed448() const noexcept {
@@ -3192,7 +3186,7 @@ const nts::sign::ed448_t & nts::keys::Signer::ed448() const noexcept {
 /**
  * @brief Метод получения модуля подписи ГОСТ Р 34.10-2012
  *
- * @return модуль подписи с установленным ключом ГОСТ
+ * @return модуль подписи с установленным ключом ГОСТ, пустой у ключей иных видов
  *
  */
 const nts::sign::gost_t & nts::keys::Signer::gost() const noexcept {
@@ -3205,7 +3199,7 @@ const nts::sign::gost_t & nts::keys::Signer::gost() const noexcept {
 /**
  * @brief Метод получения модуля подписи ML-DSA
  *
- * @return модуль подписи с установленным ключом ML-DSA
+ * @return модуль подписи с установленным ключом ML-DSA, пустой у ключей иных видов
  *
  */
 const nts::sign::mldsa_t & nts::keys::Signer::mldsa() const noexcept {
@@ -3230,8 +3224,10 @@ const nts::sign::sm2_t & nts::keys::Signer::sm2() const noexcept {
  * @brief Метод подготовки ключа по записи секретного ключа
  *
  * @param secret запись PrivateKeyInfo (PKCS #8) в DER либо в PEM без пароля
- *
- * @return       отказ подготовки ключа
+ * @return       отказ подготовки: EMPTY у пустой записи и у ключа без секретной
+ *               части, ALGORITHM у ключа, подписи не выполняющего (X25519), VALUE у
+ *               несогласованных составляющих, MEMORY у нехватки памяти под модуль,
+ *               отказы разбора записи как у decode
  *
  */
 nts::keys::error_t nts::keys::Signer::prepare(const view_t & secret) noexcept {
@@ -3244,8 +3240,14 @@ nts::keys::error_t nts::keys::Signer::prepare(const view_t & secret) noexcept {
 	// Разобранный ключ: секретные составляющие затираются при его уничтожении
 	key_t key;
 	/**
+	 * @brief Функция разбора записи PrivateKeyInfo по RFC 5958
+	 *
+	 * @param der    разбираемая запись в кодировке DER
+	 * @param result ключ, в который помещается итог разбора
+	 * @return       отказ разбора записи
 	 * Секретный ключ принимается записью PKCS #8 в DER либо в PEM: сперва пробуется
 	 * DER, ибо запись PEM начинается с текста и разбором DER отвергается сразу
+	 *
 	 */
 	error_t outcome = decodePrivateKeyInfo(secret, key);
 	// Если памяти под разбор не хватило
@@ -3255,7 +3257,7 @@ nts::keys::error_t nts::keys::Signer::prepare(const view_t & secret) noexcept {
 	// Если запись DER не разобрана
 	if(outcome != error_t::NONE){
 		/**
-		 * Выполняем перехват ошибок работы с памятью: текст записи PEM занимает память
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Текст записи PEM секретного ключа: затирается до уничтожения
@@ -3267,7 +3269,7 @@ nts::keys::error_t nts::keys::Signer::prepare(const view_t & secret) noexcept {
 				// Выполняем затирание текста записи секретного ключа
 				nts::sys::wipe(reinterpret_cast <uint8_t *> (&text[0]), text.size());
 		/**
-		 * Если памяти под текст записи не хватило
+		 * Выполняем перехват ошибок
 		 */
 		} catch(const bad_alloc &) {
 			// Выводим отказ нехватки памяти
@@ -3304,6 +3306,7 @@ nts::keys::error_t nts::keys::Signer::prepare(const view_t & secret) noexcept {
 		case kind_t::EC: {
 			// Заводим кривую и модуль подписи ECDSA
 			this->_curve.reset(new (nothrow) curve::curve_t());
+			// Заводим модуль подписи ECDSA
 			this->_ecdsa.reset(new (nothrow) sign::ecdsa_t());
 			// Если памяти под кривую либо модуль не хватило
 			if(!this->_curve || !this->_ecdsa){
@@ -3341,6 +3344,7 @@ nts::keys::error_t nts::keys::Signer::prepare(const view_t & secret) noexcept {
 		case kind_t::GOST: {
 			// Заводим кривую и модуль подписи ГОСТ
 			this->_curve.reset(new (nothrow) curve::curve_t());
+			// Заводим модуль подписи ГОСТ
 			this->_gost.reset(new (nothrow) sign::gost_t());
 			// Если памяти под кривую либо модуль не хватило
 			if(!this->_curve || !this->_gost){
@@ -3367,6 +3371,7 @@ nts::keys::error_t nts::keys::Signer::prepare(const view_t & secret) noexcept {
 		case kind_t::SM2: {
 			// Заводим кривую и модуль подписи SM2
 			this->_curve.reset(new (nothrow) curve::curve_t());
+			// Заводим модуль подписи SM2
 			this->_sm2.reset(new (nothrow) sign::sm2_t());
 			// Если памяти под кривую либо модуль не хватило
 			if(!this->_curve || !this->_sm2){
@@ -3402,8 +3407,8 @@ nts::keys::error_t nts::keys::Signer::prepare(const view_t & secret) noexcept {
  *
  * @param scalar секретный скаляр порядком от старшего байта к младшему
  * @param curve  заведённая кривая ключа
- *
- * @return       отказ подготовки ключа
+ * @return       отказ подготовки: EMPTY у пустого скаляра, CURVE у незаведённой
+ *               кривой, VALUE у скаляра вне порядка кривой, MEMORY у нехватки памяти
  *
  */
 nts::keys::error_t nts::keys::Signer::prepare(const view_t & scalar, const curve::curve_t & curve) noexcept {
@@ -3419,6 +3424,7 @@ nts::keys::error_t nts::keys::Signer::prepare(const view_t & scalar, const curve
 		return error_t::CURVE;
 	// Заводим копию кривой ключа и модуль подписи ГОСТ: модуль ссылается на кривую
 	this->_curve.reset(new (nothrow) curve::curve_t(curve));
+	// Заводим модуль подписи ГОСТ
 	this->_gost.reset(new (nothrow) sign::gost_t());
 	// Если памяти под кривую либо модуль не хватило
 	if(!this->_curve || !this->_gost){
@@ -3448,11 +3454,17 @@ void nts::keys::Signer::clear() noexcept {
 	this->_kind = kind_t::NONE;
 	// Уничтожаем модули подписи с затиранием: они ссылаются на кривую, потому идут первыми
 	this->_rsa.reset();
+	// Уничтожаем модуль подписи ECDSA
 	this->_ecdsa.reset();
+	// Уничтожаем модуль подписи Ed25519
 	this->_ed25519.reset();
+	// Уничтожаем модуль подписи Ed448
 	this->_ed448.reset();
+	// Уничтожаем модуль подписи ГОСТ
 	this->_gost.reset();
+	// Уничтожаем модуль подписи ML-DSA
 	this->_mldsa.reset();
+	// Уничтожаем модуль подписи SM2
 	this->_sm2.reset();
 	// Уничтожаем кривую ключа
 	this->_curve.reset();
@@ -3471,11 +3483,10 @@ nts::keys::Signer::~Signer() noexcept {
 	this->clear();
 }
 /**
- * @brief Метод разбора записи SubjectPublicKeyInfo
+ * @brief Функция разбора записи SubjectPublicKeyInfo
  *
  * @param der    разбираемая запись в кодировке DER
  * @param result ключ, в который помещается итог разбора
- *
  * @return       отказ разбора записи
  *
  */
@@ -3663,11 +3674,10 @@ nts::keys::error_t nts::keys::decodeSubjectPublicKeyInfo(const view_t & der, key
 	return error_t::NONE;
 }
 /**
- * @brief Метод записи SubjectPublicKeyInfo
+ * @brief Функция записи SubjectPublicKeyInfo
  *
  * @param key    записываемый ключ
  * @param result место, в которое помещается запись в кодировке DER
- *
  * @return       отказ записи
  *
  */
@@ -3694,7 +3704,7 @@ nts::keys::error_t nts::keys::encodeSubjectPublicKeyInfo(const key_t & key, vect
 				// Выводим отказ пустого ключа
 				return error_t::EMPTY;
 			/**
-			 * Сборка выделяет память: нехватка её отдаётся отказом
+			 * Выполняем перехват ошибок
 			 */
 			try {
 				// Заводим признак несжатой записи точки
@@ -3704,6 +3714,9 @@ nts::keys::error_t nts::keys::encodeSubjectPublicKeyInfo(const key_t & key, vect
 				// Дописываем вторую координату
 				point.insert(point.end(), key.y.begin(), key.y.end());
 			// Если памяти не хватило
+			/**
+			 * Выполняем перехват ошибок
+			 */
 			} catch(const bad_alloc &) {
 				// Выводим отказ нехватки памяти
 				return error_t::MEMORY;
@@ -3770,11 +3783,10 @@ nts::keys::error_t nts::keys::encodeSubjectPublicKeyInfo(const key_t & key, vect
 	return finish(writer, result);
 }
 /**
- * @brief Метод разбора записи PrivateKeyInfo по RFC 5958
+ * @brief Функция разбора записи PrivateKeyInfo по RFC 5958
  *
  * @param der    разбираемая запись в кодировке DER
  * @param result ключ, в который помещается итог разбора
- *
  * @return       отказ разбора записи
  *
  */
@@ -4055,11 +4067,10 @@ nts::keys::error_t nts::keys::decodePrivateKeyInfo(const view_t & der, key_t & r
 	return error_t::NONE;
 }
 /**
- * @brief Метод записи PrivateKeyInfo по RFC 5958
+ * @brief Функция записи PrivateKeyInfo по RFC 5958
  *
  * @param key    записываемый ключ
  * @param result место, в которое помещается запись в кодировке DER
- *
  * @return       отказ записи
  *
  */
@@ -4108,11 +4119,10 @@ nts::keys::error_t nts::keys::encodePrivateKeyInfo(const key_t & key, vector <ui
 	return outcome;
 }
 /**
- * @brief Метод разбора записи ECPrivateKey по RFC 5915 вне обёртки
+ * @brief Функция разбора записи ECPrivateKey по RFC 5915 вне обёртки
  *
  * @param der    разбираемая запись в кодировке DER
  * @param result ключ, в который помещается итог разбора
- *
  * @return       отказ разбора записи
  *
  */
@@ -4133,11 +4143,10 @@ nts::keys::error_t nts::keys::decodeECPrivateKey(const view_t & der, key_t & res
 	return error_t::NONE;
 }
 /**
- * @brief Метод записи ECPrivateKey по RFC 5915 вне обёртки
+ * @brief Функция записи ECPrivateKey по RFC 5915 вне обёртки
  *
  * @param key    записываемый ключ
  * @param result место, в которое помещается запись в кодировке DER
- *
  * @return       отказ записи
  *
  */
@@ -4156,11 +4165,10 @@ nts::keys::error_t nts::keys::encodeECPrivateKey(const key_t & key, vector <uint
 	return outcome;
 }
 /**
- * @brief Метод разбора записи RSAPrivateKey по RFC 8017
+ * @brief Функция разбора записи RSAPrivateKey по RFC 8017
  *
  * @param der    разбираемая запись в кодировке DER
  * @param result ключ, в который помещается итог разбора
- *
  * @return       отказ разбора записи
  *
  */
@@ -4181,11 +4189,10 @@ nts::keys::error_t nts::keys::decodeRSAPrivateKey(const view_t & der, key_t & re
 	return error_t::NONE;
 }
 /**
- * @brief Метод записи RSAPrivateKey по RFC 8017
+ * @brief Функция записи RSAPrivateKey по RFC 8017
  *
  * @param key    записываемый ключ
  * @param result место, в которое помещается запись в кодировке DER
- *
  * @return       отказ записи
  *
  */
@@ -4204,11 +4211,10 @@ nts::keys::error_t nts::keys::encodeRSAPrivateKey(const key_t & key, vector <uin
 	return outcome;
 }
 /**
- * @brief Метод разбора записи RSAPublicKey по RFC 8017
+ * @brief Функция разбора записи RSAPublicKey по RFC 8017
  *
  * @param der    разбираемая запись в кодировке DER
  * @param result ключ, в который помещается итог разбора
- *
  * @return       отказ разбора записи
  *
  */
@@ -4229,11 +4235,10 @@ nts::keys::error_t nts::keys::decodeRSAPublicKey(const view_t & der, key_t & res
 	return error_t::NONE;
 }
 /**
- * @brief Метод записи RSAPublicKey по RFC 8017
+ * @brief Функция записи RSAPublicKey по RFC 8017
  *
  * @param key    записываемый ключ
  * @param result место, в которое помещается запись в кодировке DER
- *
  * @return       отказ записи
  *
  */
@@ -4250,12 +4255,11 @@ nts::keys::error_t nts::keys::encodeRSAPublicKey(const key_t & key, vector <uint
 	return finish(writer, result);
 }
 /**
- * @brief Метод разбора записи EncryptedPrivateKeyInfo по схеме PBES2 из RFC 8018
+ * @brief Функция разбора записи EncryptedPrivateKeyInfo по схеме PBES2 из RFC 8018
  *
  * @param der      разбираемая запись в кодировке DER
  * @param password пароль последовательностью октетов
  * @param result   ключ, в который помещается итог разбора
- *
  * @return         отказ разбора записи
  *
  */
@@ -4344,12 +4348,15 @@ nts::keys::error_t nts::keys::decodeEncryptedPrivateKeyInfo(const view_t & der, 
 	// Расшифрованная запись
 	vector <uint8_t> plain;
 	/**
-	 * Расшифрование выделяет память: нехватка её отдаётся отказом
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Выделяем место под расшифрованную запись
 		plain.assign(encrypted.size, 0);
 	// Если памяти не хватило
+	/**
+	 * Выполняем перехват ошибок
+	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
 		return error_t::MEMORY;
@@ -4390,13 +4397,12 @@ nts::keys::error_t nts::keys::decodeEncryptedPrivateKeyInfo(const view_t & der, 
 	return outcome;
 }
 /**
- * @brief Метод разбора записи PKCS #12 по RFC 7292: ключа с цепочкой сертификатов
+ * @brief Функция разбора записи PKCS #12 по RFC 7292: ключа с цепочкой сертификатов
  *
  * @param der      разбираемая запись PFX в кодировке DER
  * @param password пароль последовательностью октетов
  * @param key      ключ, в который помещается итог разбора
  * @param chain    цепочка сертификатов, в которую помещаются разобранные записи DER
- *
  * @return         отказ разбора записи
  *
  */
@@ -4895,6 +4901,17 @@ nts::keys::error_t nts::keys::decodePkcs12(const view_t & der, const view_t & pa
 	// Выводим успешность разбора
 	return error_t::NONE;
 }
+/**
+ * @brief Функция записи EncryptedPrivateKeyInfo по схеме PBES2 из RFC 8018
+ *
+ * @param key        записываемый ключ
+ * @param password   пароль последовательностью октетов
+ * @param result     место, в которое помещается запись в кодировке DER
+ * @param bits       длина ключа AES в разрядах: 128, 192 либо 256
+ * @param iterations число оборотов PBKDF2, не меньше одного
+ * @return           отказ записи
+ *
+ */
 nts::keys::error_t nts::keys::encodeEncryptedPrivateKeyInfo(const key_t & key, const view_t & password, vector <uint8_t> & result, const size_t bits, const uint32_t iterations) noexcept {
 	// Опознаватель шифра по длине ключа
 	const char * oid = nullptr;
@@ -4924,9 +4941,7 @@ nts::keys::error_t nts::keys::encodeEncryptedPrivateKeyInfo(const key_t & key, c
 	// Открытая запись ключа с дополнением
 	vector <uint8_t> plain;
 	/**
-	 * Дополнение выделяет память: нехватка её отдаётся отказом. Место берётся сразу с
-	 * запасом в блок, иначе дописывание дополнения перевыделяло бы буфер, а копия
-	 * записи ключа оставалась бы в освобождённой памяти не затёртой
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Выделяем место под запись с дополнением
@@ -4936,6 +4951,9 @@ nts::keys::error_t nts::keys::encodeEncryptedPrivateKeyInfo(const key_t & key, c
 		// Дописываем дополнение
 		plain.insert(plain.end(), padding, static_cast <uint8_t> (padding));
 	// Если памяти не хватило
+	/**
+	 * Выполняем перехват ошибок
+	 */
 	} catch(const bad_alloc &) {
 		// Выполняем затирание записи ровно по длине
 		erase(exact);
@@ -4968,12 +4986,15 @@ nts::keys::error_t nts::keys::encodeEncryptedPrivateKeyInfo(const key_t & key, c
 	// Зашифрованная запись
 	vector <uint8_t> encrypted;
 	/**
-	 * Зашифрование выделяет память: нехватка её отдаётся отказом
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Выделяем место под зашифрованную запись
 		encrypted.assign(plain.size(), 0);
 	// Если памяти не хватило
+	/**
+	 * Выполняем перехват ошибок
+	 */
 	} catch(const bad_alloc &) {
 		// Выполняем затирание открытой записи
 		erase(plain);
@@ -5042,12 +5063,11 @@ nts::keys::error_t nts::keys::encodeEncryptedPrivateKeyInfo(const key_t & key, c
 	return finish(writer, result);
 }
 /**
- * @brief Метод разбора ключа из текста в обёртке PEM
+ * @brief Функция разбора ключа из текста в обёртке PEM
  *
  * @param text     разбираемый текст
  * @param password пароль последовательностью октетов, нужен лишь зашифрованному ключу
  * @param result   ключ, в который помещается итог разбора
- *
  * @return         отказ разбора текста
  *
  */
@@ -5094,7 +5114,7 @@ nts::keys::error_t nts::keys::decode(const string & text, const view_t & passwor
 	return outcome;
 }
 /**
- * @brief Метод записи ключа в текст в обёртке PEM
+ * @brief Функция записи ключа в текст в обёртке PEM
  *
  * @param key        записываемый ключ
  * @param container  вид записи ключа
@@ -5102,7 +5122,6 @@ nts::keys::error_t nts::keys::decode(const string & text, const view_t & passwor
  * @param password   пароль последовательностью октетов, нужен лишь зашифрованной записи
  * @param bits       длина ключа AES в разрядах у зашифрованной записи
  * @param iterations число оборотов PBKDF2 у зашифрованной записи
- *
  * @return           отказ записи
  *
  */
@@ -5171,10 +5190,9 @@ nts::keys::error_t nts::keys::encode(const key_t & key, const container_t contai
 	return error_t::NONE;
 }
 /**
- * @brief Метод получения названия отказа
+ * @brief Функция получения названия отказа
  *
  * @param error отказ, название которого извлекается
- *
  * @return      название отказа
  *
  */
@@ -5231,3 +5249,9 @@ const char * nts::keys::name(const error_t error) noexcept {
 	// Выводим название неизвестного отказа
 	return "UNKNOWN";
 }
+
+/**
+ * @brief Конструктор
+ *
+ */
+nts::keys::Key::Key() noexcept : kind(kind_t::NONE) {}

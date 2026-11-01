@@ -6,6 +6,12 @@
  *
  * @author Yuriy Lobarev
  *
+ * @telegram{forman}
+ * @phone{+7 (910) 983-95-90}
+ *
+ * @email forman@anyks.com
+ * @site https://anyks.com
+ *
  * @brief Исходный файл модуля полей протокола TLS
  *
  * @section Намеренные решения
@@ -106,7 +112,6 @@ size_t nts::field::Scanner::left() const noexcept {
  *
  * @param result число, в которое помещается прочитанное значение
  * @param size   ширина читаемого числа в байтах
- *
  * @return       отказ чтения числа
  *
  */
@@ -139,7 +144,6 @@ nts::field::error_t nts::field::Scanner::number(uint32_t & result, const size_t 
  *
  * @param result просмотр, в который помещается прочитанная область
  * @param size   длина читаемой области в байтах
- *
  * @return       отказ чтения области байтов
  *
  */
@@ -160,7 +164,6 @@ nts::field::error_t nts::field::Scanner::bytes(view_t & result, const size_t siz
  *
  * @param result просмотр, в который помещается содержимое поля
  * @param width  ширина записи длины поля в байтах
- *
  * @return       отказ чтения поля переменной длины
  *
  */
@@ -192,7 +195,6 @@ nts::field::error_t nts::field::Scanner::vector(view_t & result, const size_t wi
  * @brief Метод чтения всей оставшейся части области
  *
  * @param result просмотр, в который помещается оставшаяся часть области
- *
  * @return       отказ чтения оставшейся части области
  *
  */
@@ -255,7 +257,6 @@ void nts::field::Builder::clear() noexcept {
  * @brief Метод выделения места под запись с затиранием прежнего накопителя
  *
  * @param extra требуемое число свободных байтов
- *
  * @return      признак успешности выделения места
  *
  */
@@ -273,7 +274,7 @@ bool nts::field::Builder::grow(const size_t extra) noexcept {
 	// Новая ёмкость накопителя: удвоение прежней, но не меньше требуемой
 	const size_t capacity = ((this->_buffer.capacity() > (SIZE_MAX / 2)) ? needed : (((this->_buffer.capacity() * 2) > needed) ? (this->_buffer.capacity() * 2) : needed));
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Новый накопитель
@@ -287,7 +288,7 @@ bool nts::field::Builder::grow(const size_t extra) noexcept {
 		// Подменяем прежний накопитель новым: обмен памяти не выделяет
 		this->_buffer.swap(wider);
 	/**
-	 * Если памяти под накопитель не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ выделения места
@@ -297,11 +298,10 @@ bool nts::field::Builder::grow(const size_t extra) noexcept {
 	return true;
 }
 /**
- * @brief Метод записи числа старшим разрядом вперёд
+ * @brief Метод записи числа заданной ширины
  *
  * @param value записываемое число
  * @param size  ширина записи числа в байтах
- *
  * @return      отказ записи числа
  *
  */
@@ -315,7 +315,7 @@ nts::field::error_t nts::field::Builder::number(const uint32_t value, const size
 		// Выводим отказ переполнения поля заданной ширины
 		return error_t::LENGTH;
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Если места под число выделить не удалось
@@ -329,7 +329,7 @@ nts::field::error_t nts::field::Builder::number(const uint32_t value, const size
 			// Дописываем очередной байт числа старшим разрядом вперёд
 			this->_buffer.push_back(static_cast <uint8_t> ((value >> ((size - i - 1) * 8)) & 0xFF));
 	/**
-	 * Если памяти под накопитель не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -342,7 +342,6 @@ nts::field::error_t nts::field::Builder::number(const uint32_t value, const size
  * @brief Метод записи области байтов
  *
  * @param data записываемая область байтов
- *
  * @return     отказ записи области байтов
  *
  */
@@ -352,7 +351,7 @@ nts::field::error_t nts::field::Builder::bytes(const view_t & data) noexcept {
 		// Выводим успешность записи области байтов
 		return error_t::NONE;
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Если места под область байтов выделить не удалось
@@ -362,7 +361,7 @@ nts::field::error_t nts::field::Builder::bytes(const view_t & data) noexcept {
 		// Выполняем дописывание области байтов в накопитель
 		this->_buffer.insert(this->_buffer.end(), data.data, data.data + data.size);
 	/**
-	 * Если памяти под накопитель не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -375,7 +374,6 @@ nts::field::error_t nts::field::Builder::bytes(const view_t & data) noexcept {
  * @brief Метод открытия поля переменной длины
  *
  * @param width ширина записи длины поля в байтах
- *
  * @return      отказ открытия поля переменной длины
  *
  */
@@ -387,7 +385,7 @@ nts::field::error_t nts::field::Builder::open(const size_t width) noexcept {
 	// Запоминаем место отложенной длины открываемого поля
 	const size_t offset = this->_buffer.size();
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Если места под длину поля выделить не удалось
@@ -403,7 +401,7 @@ nts::field::error_t nts::field::Builder::open(const size_t width) noexcept {
 		// Запоминаем место и ширину отложенной длины открытого поля
 		this->_marks.push_back(make_pair(offset, width));
 	/**
-	 * Если памяти под накопитель не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Выполняем откат накопителя к состоянию до открытия поля

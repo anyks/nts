@@ -48,12 +48,11 @@ namespace {
 	 */
 	using nts::sys::wipe;
 	/**
-	 * @brief Метод сличения двух ключей за постоянное время
+	 * @brief Функция сличения двух ключей за постоянное время
 	 *
 	 * @param one   первый ключ
 	 * @param two   второй ключ
 	 * @param size  длина ключей
-	 *
 	 * @return      признак совпадения
 	 *
 	 */
@@ -94,10 +93,11 @@ bool nts::noise::Handshake::ready() noexcept {
 		positions += ((this->_psks >> i) & 1);
 	// Если ключей задано не по числу положений
 	if(positions != this->_pskCount)
-		// Выводим отказ
+		// Выводим отрицательный результат - ключи не по числу положений
 		return false;
 	// Знаки и их число
 	const token_t * list = nullptr;
+	// Число знаков
 	size_t count = 0;
 	/**
 	 * Выполняем проверку, что свой постоянный ключ есть, если узор велит его слать либо принимать skem
@@ -107,7 +107,7 @@ bool nts::noise::Handshake::ready() noexcept {
 		const bool ours = (((i % 2) == 0) == initiator);
 		// Получаем знаки
 		if(!tokens(this->_pattern, i, list, count))
-			// Выводим отказ
+			// Выводим отрицательный результат - знаки не получены
 			return false;
 		/**
 		 * Выполняем перебор знаков
@@ -123,7 +123,7 @@ bool nts::noise::Handshake::ready() noexcept {
 			else needed = (list[j] == token_t::SKEM);
 			// Если ключ нужен, а его нет
 			if(needed && !this->_hasS)
-				// Выводим отказ
+				// Выводим отрицательный результат - нужный ключ не задан
 				return false;
 		}
 	}
@@ -137,7 +137,7 @@ bool nts::noise::Handshake::ready() noexcept {
 		const bool first = (side == 0);
 		// Получаем знаки предсообщения
 		if(!premessage(this->_pattern, first, list, count))
-			// Выводим отказ
+			// Выводим отрицательный результат - знаки предсообщения не получены
 			return false;
 		/**
 		 * Выполняем перебор знаков
@@ -145,11 +145,11 @@ bool nts::noise::Handshake::ready() noexcept {
 		for(size_t j = 0; j < count; j++){
 			// Если знак не постоянный ключ
 			if(list[j] != token_t::S)
-				// Выводим отказ
+				// Выводим отрицательный результат - знак предсообщения не ключ
 				return false;
 			// Если нужного ключа нет
 			if((first == initiator) ? !this->_hasS : !this->_hasRS)
-				// Выводим отказ
+				// Выводим отрицательный результат - ключ предсообщения не задан
 				return false;
 		}
 	}
@@ -161,7 +161,7 @@ bool nts::noise::Handshake::ready() noexcept {
 		const bool first = (side == 0);
 		// Получаем знаки предсообщения
 		if(!premessage(this->_pattern, first, list, count))
-			// Выводим отказ
+			// Выводим отрицательный результат - знаки второго предсообщения не получены
 			return false;
 		/**
 		 * Выполняем перебор знаков
@@ -171,7 +171,7 @@ bool nts::noise::Handshake::ready() noexcept {
 			const bool own = (first == initiator);
 			// Примешиваем открытый ключ
 			if(!this->_symmetric.hash(view_t(own ? this->_sPublic : this->_rs, this->_public)))
-				// Выводим отказ
+				// Выводим отрицательный результат - открытый ключ не примешан
 				return false;
 		}
 	}
@@ -184,19 +184,19 @@ bool nts::noise::Handshake::ready() noexcept {
  * @brief Метод примешивания DH по знаку с учётом роли
  *
  * @param token знак: EE, ES, SE либо SS
- *
  * @return      признак того, что секрет примешан
  *
  */
 bool nts::noise::Handshake::mix(const token_t token) noexcept {
 	// У PQNoise знаков DH нет
 	if(this->_suite.dh == dh_t::NONE)
-		// Выводим отказ
+		// Выводим отрицательный результат - обмен DH не применим к PQNoise
 		return false;
 	// Признак роли инициатора
 	const bool initiator = (this->_role == role_t::INITIATOR);
 	// Свой закрытый ключ и чужой открытый
 	const uint8_t * secret = nullptr;
+	// Чужой открытый ключ
 	const uint8_t * point = nullptr;
 	// Признаки наличия
 	bool own = false, peer = false;
@@ -208,11 +208,13 @@ bool nts::noise::Handshake::mix(const token_t token) noexcept {
 		case token_t::EE: { secret = this->_e; own = this->_hasE; point = this->_re; peer = this->_hasRE; } break;
 		// DH временного ключа инициатора и постоянного отвечающего
 		case token_t::ES: {
+			// Выбираем ключи по роли
 			if(initiator){ secret = this->_e; own = this->_hasE; point = this->_rs; peer = this->_hasRS; }
 			else { secret = this->_s; own = this->_hasS; point = this->_re; peer = this->_hasRE; }
 		} break;
 		// DH постоянного ключа инициатора и временного отвечающего
 		case token_t::SE: {
+			// Выбираем ключи по роли
 			if(initiator){ secret = this->_s; own = this->_hasS; point = this->_re; peer = this->_hasRE; }
 			else { secret = this->_e; own = this->_hasE; point = this->_rs; peer = this->_hasRS; }
 		} break;
@@ -223,7 +225,7 @@ bool nts::noise::Handshake::mix(const token_t token) noexcept {
 	}
 	// Если ключей нет
 	if(!own || !peer)
-		// Выводим отказ
+		// Выводим отрицательный результат - ключ не задан
 		return false;
 	// Общий секрет
 	uint8_t shared[KEY];
@@ -231,7 +233,7 @@ bool nts::noise::Handshake::mix(const token_t token) noexcept {
 	const bool status = (agree(this->_suite.dh, view_t(secret, KEY), view_t(point, KEY), shared) && this->_symmetric.key(view_t(shared, KEY)));
 	// Затираем секрет
 	wipe(shared, KEY);
-	// Выводим успешность
+	// Возвращаем итог примешивания
 	return status;
 }
 /**
@@ -240,14 +242,13 @@ bool nts::noise::Handshake::mix(const token_t token) noexcept {
  * @param token      знак: EKEM либо SKEM
  * @param ciphertext место шифртекста
  * @param shared     место общего секрета
- *
  * @return           признак того, что секрет упакован
  *
  */
 bool nts::noise::Handshake::wrap(const token_t token, uint8_t * ciphertext, uint8_t * shared) noexcept {
 	// У классики знаков KEM нет
 	if(this->_suite.kem == kem_t::NONE)
-		// Выводим отказ
+		// Выводим отрицательный результат - обмен KEM не применим к классике
 		return false;
 	// Открытый ключ получателя: временный у ekem, постоянный у skem
 	const uint8_t * key = ((token == token_t::EKEM) ? this->_re : this->_rs);
@@ -255,13 +256,13 @@ bool nts::noise::Handshake::wrap(const token_t token, uint8_t * ciphertext, uint
 	const bool known = ((token == token_t::EKEM) ? this->_hasRE : this->_hasRS);
 	// Если знак чужой либо ключа нет
 	if(((token != token_t::EKEM) && (token != token_t::SKEM)) || !known)
-		// Выводим отказ
+		// Выводим отрицательный результат - капсула не выработана
 		return false;
 	// Если случайности заданы явно (корпус), упаковываем на очередной; исчерпаны - отказ, а не переход на энтропию
 	if(this->_coinCount > 0){
 		// Если случайности исчерпаны
 		if(this->_coinUsed >= this->_coinCount)
-			// Выводим отказ
+			// Выводим отрицательный результат - случайность не задана
 			return false;
 		// Выводим итог детерминированной упаковки
 		return encapsulateDeterministic(this->_suite.kem, view_t(key, this->_public), view_t(this->_coin[this->_coinUsed++], kemlength(this->_suite.kem, part_t::COINS)), ciphertext, shared);
@@ -275,14 +276,13 @@ bool nts::noise::Handshake::wrap(const token_t token, uint8_t * ciphertext, uint
  * @param token      знак: EKEM либо SKEM
  * @param ciphertext шифртекст
  * @param shared     место общего секрета
- *
  * @return           признак того, что секрет распакован
  *
  */
 bool nts::noise::Handshake::unwrap(const token_t token, const uint8_t * ciphertext, uint8_t * shared) noexcept {
 	// У классики знаков KEM нет
 	if(this->_suite.kem == kem_t::NONE)
-		// Выводим отказ
+		// Выводим отрицательный результат - обмен KEM не применим к классике
 		return false;
 	// Свой закрытый ключ: временный у ekem, постоянный у skem
 	const uint8_t * secret = ((token == token_t::EKEM) ? this->_e : this->_s);
@@ -290,7 +290,7 @@ bool nts::noise::Handshake::unwrap(const token_t token, const uint8_t * cipherte
 	const bool own = ((token == token_t::EKEM) ? this->_hasE : this->_hasS);
 	// Если знак чужой либо ключа нет
 	if(((token != token_t::EKEM) && (token != token_t::SKEM)) || !own)
-		// Выводим отказ
+		// Выводим отрицательный результат - секрет не извлечён
 		return false;
 	// Выводим итог распаковки
 	return decapsulate(this->_suite.kem, view_t(secret, this->_secret), view_t(ciphertext, kemlength(this->_suite.kem, part_t::CIPHERTEXT)), shared);
@@ -314,35 +314,21 @@ bool nts::noise::Handshake::preshared() const noexcept {
 bool nts::noise::Handshake::psk() noexcept {
 	// Если ключи исчерпаны
 	if(this->_pskUsed >= this->_pskCount)
-		// Выводим отказ
+		// Выводим отрицательный результат - предразделённые ключи исчерпаны
 		return false;
 	// Примешиваем ключ и сдвигаем счёт
 	return this->_symmetric.blend(view_t(this->_psk[this->_pskUsed++], PSK));
 }
 /**
- * \~russian
  * @brief Метод заведения рукопожатия перечислениями
  *
  * @param pattern  узор рукопожатия
  * @param psks     положения заранее разделённых ключей
  * @param suite    набор примитивов
  * @param role     роль стороны
- * @param prologue пролог
- *
+ * @param prologue пролог, вправе быть пустым
  * @return         признак того, что рукопожатие заведено
  *
- * \~english
- * @brief Method of starting a handshake by enumerations
- *
- * @param pattern  handshake pattern
- * @param psks     positions of pre-shared keys
- * @param suite    suite of primitives
- * @param role     side role
- * @param prologue prologue
- *
- * @return         sign that the handshake is started
- *
- * \~
  */
 bool nts::noise::Handshake::start(const pattern_t pattern, const psk_t psks, const suite_t & suite, const role_t role, const view_t & prologue) noexcept {
 	// Затираем прежнее состояние
@@ -351,217 +337,177 @@ bool nts::noise::Handshake::start(const pattern_t pattern, const psk_t psks, con
 	const size_t count = messages(pattern);
 	// Если узор, роль, набор либо пролог негодны
 	if((count == 0) || ((role != role_t::INITIATOR) && (role != role_t::RESPONDER)) || !valid(suite) || ((prologue.size > 0) && (prologue.data == nullptr)))
-		// Выводим отказ
+		// Выводим отрицательный результат - параметры рукопожатия негодны
 		return false;
 	// Положения заранее разделённых ключей не дальше числа сообщений: pskN при N <= count
 	if((psks >> PSKS_MAX) != 0 || (psks >> (count + 1)) != 0)
-		// Выводим отказ
+		// Выводим отрицательный результат - положения видоизменений не по числу сообщений
 		return false;
 	// Имя протокола и его длина: name сам отвергает узор и набор разных семейств и psk у PQNoise
 	char text[NAME_LIMIT];
+	// Длина имени
 	size_t length = NAME_LIMIT;
 	// Составляем имя
 	if(!name(pattern, psks, suite, text, length))
-		// Выводим отказ
+		// Выводим отрицательный результат - имя протокола не составлено
 		return false;
 	// Заводим симметричное состояние и примешиваем пролог
 	if(!this->_symmetric.start(view_t(reinterpret_cast <const uint8_t *> (text), length), suite) || !this->_symmetric.hash(prologue)){
 		// Затираем состояние
 		this->clear();
-		// Выводим отказ
+		// Выводим отрицательный результат - заведение прервано
 		return false;
 	}
 	// Запоминаем устройство рукопожатия
 	this->_pattern = pattern;
+	// Запоминаем положения ключей
 	this->_psks = psks;
+	// Запоминаем набор
 	this->_suite = suite;
+	// Запоминаем роль
 	this->_role = role;
+	// Запоминаем число сообщений
 	this->_count = count;
 	// Длины ключей по набору: KEY у классики, по KEM у PQNoise
 	if(suite.kem == kem_t::NONE){
+		// Длина открытого ключа
 		this->_public = KEY;
+		// Длина закрытого ключа
 		this->_secret = KEY;
+		// Длина зерна
 		this->_seed = KEY;
 	} else {
+		// Длина открытого ключа
 		this->_public = kemlength(suite.kem, part_t::PUBLIC);
+		// Длина закрытого ключа
 		this->_secret = kemlength(suite.kem, part_t::SECRET);
+		// Длина зерна
 		this->_seed = kemlength(suite.kem, part_t::SEED);
 	}
-	// Выводим успешность
+	// Сообщаем длину зерна
 	return true;
 }
 /**
- * \~russian
  * @brief Метод заведения рукопожатия именем протокола
  *
- * @param name     имя протокола
+ * @param name     имя протокола вида «Noise_XX_25519_ChaChaPoly_SHA256»
  * @param role     роль стороны
- * @param prologue пролог
- *
+ * @param prologue пролог, вправе быть пустым
  * @return         признак того, что рукопожатие заведено
  *
- * \~english
- * @brief Method of starting a handshake by the protocol name
- *
- * @param name     protocol name
- * @param role     side role
- * @param prologue prologue
- *
- * @return         sign that the handshake is started
- *
- * \~
  */
 bool nts::noise::Handshake::start(const view_t & name, const role_t role, const view_t & prologue) noexcept {
 	// Разобранные узор, положения и набор
 	pattern_t pattern = pattern_t::NONE;
+	// Положения заранее разделённых ключей
 	psk_t psks = 0;
+	// Набор шифров
 	suite_t suite;
 	// Если имя не разобрано
 	if(!parse(name, pattern, psks, suite)){
 		// Затираем состояние
 		this->clear();
-		// Выводим отказ
+		// Выводим отрицательный результат - имя не разобрано
 		return false;
 	}
 	// Заводим рукопожатие перечислениями
 	return this->start(pattern, psks, suite, role, prologue);
 }
 /**
- * \~russian
  * @brief Метод установки своего постоянного ключа
  *
- * @param secret закрытый ключ либо зерно KEM
- *
+ * @param secret закрытый ключ в KEY байтов у классики либо зерно KEM у PQNoise (детерминированно), открытый выводится
  * @return       признак того, что ключ установлен
  *
- * \~english
- * @brief Method of setting the own static key
- *
- * @param secret private key or the KEM seed
- *
- * @return       sign that the key is set
- *
- * \~
  */
 bool nts::noise::Handshake::statics(const view_t & secret) noexcept {
 	// Если рукопожатие не заведено, уже идёт либо ключ негоден
 	if((this->_count == 0) || this->_started || (secret.data == nullptr) || (secret.size != this->_seed))
-		// Выводим отказ
+		// Выводим отрицательный результат - постоянный ключ не принят
 		return false;
 	// Если набор PQNoise, пара порождается из зерна
 	if(this->_suite.kem != kem_t::NONE){
 		// Если пара не порождена
 		if(!kemgenerateDeterministic(this->_suite.kem, secret, this->_sPublic, this->_s))
-			// Выводим отказ
+			// Выводим отрицательный результат - пара ключей не порождена
 			return false;
 	// Иначе открытый ключ выводится из закрытого
 	} else {
 		// Если открытый ключ не выведен
 		if(!derive(this->_suite.dh, secret, this->_sPublic))
-			// Выводим отказ
+			// Выводим отрицательный результат - открытый ключ не выведен
 			return false;
 		// Запоминаем закрытый ключ
 		::memcpy(this->_s, secret.data, KEY);
 	}
 	// Устанавливаем признак
 	this->_hasS = true;
-	// Выводим успешность
+	// Сообщаем об успешной установке постоянного ключа
 	return true;
 }
 /**
- * \~russian
  * @brief Метод явной установки своего временного ключа
  *
- * @param secret закрытый ключ либо зерно KEM
- *
+ * @param secret закрытый ключ в KEY байтов у классики либо зерно KEM у PQNoise, открытый выводится
  * @return       признак того, что ключ установлен
  *
- * \~english
- * @brief Method of setting the own ephemeral key explicitly
- *
- * @param secret private key or the KEM seed
- *
- * @return       sign that the key is set
- *
- * \~
  */
 bool nts::noise::Handshake::ephemeral(const view_t & secret) noexcept {
 	// Если рукопожатие не заведено, уже идёт либо ключ негоден
 	if((this->_count == 0) || this->_started || (secret.data == nullptr) || (secret.size != this->_seed))
-		// Выводим отказ
+		// Выводим отрицательный результат - временный ключ не принят
 		return false;
 	// Если набор PQNoise, пара порождается из зерна
 	if(this->_suite.kem != kem_t::NONE){
 		// Если пара не порождена
 		if(!kemgenerateDeterministic(this->_suite.kem, secret, this->_ePublic, this->_e))
-			// Выводим отказ
+			// Выводим отрицательный результат - пара ключей не порождена
 			return false;
 	// Иначе открытый ключ выводится из закрытого
 	} else {
 		// Если открытый ключ не выведен
 		if(!derive(this->_suite.dh, secret, this->_ePublic))
-			// Выводим отказ
+			// Выводим отрицательный результат - открытый ключ не выведен
 			return false;
 		// Запоминаем закрытый ключ
 		::memcpy(this->_e, secret.data, KEY);
 	}
 	// Устанавливаем признак
 	this->_hasE = true;
-	// Выводим успешность
+	// Сообщаем об успешной установке временного ключа
 	return true;
 }
 /**
- * \~russian
  * @brief Метод установки постоянного открытого ключа собеседника
  *
- * @param key открытый ключ
- *
+ * @param key открытый ключ в KEY байтов у классики либо длиной открытого ключа KEM у PQNoise
  * @return    признак того, что ключ установлен
  *
- * \~english
- * @brief Method of setting the peer static public key
- *
- * @param key public key
- *
- * @return    sign that the key is set
- *
- * \~
  */
 bool nts::noise::Handshake::remote(const view_t & key) noexcept {
 	// Если рукопожатие не заведено, уже идёт либо ключ негоден
 	if((this->_count == 0) || this->_started || (key.data == nullptr) || (key.size != this->_public))
-		// Выводим отказ
+		// Выводим отрицательный результат - чужой ключ не принят
 		return false;
 	// Запоминаем ключ
 	::memcpy(this->_rs, key.data, this->_public);
 	// Устанавливаем признак
 	this->_hasRS = true;
-	// Выводим успешность
+	// Сообщаем об успешной установке чужого ключа
 	return true;
 }
 /**
- * \~russian
- * @brief Метод установки заранее разделённых ключей
+ * @brief Метод установки заранее разделённых ключей в порядке появления в узоре
  *
- * @param keys  ключи
- * @param count число ключей
- *
+ * @param keys  ключи, каждый ровно PSK байтов
+ * @param count число ключей, не больше PSKS_MAX
  * @return      признак того, что ключи установлены
  *
- * \~english
- * @brief Method of setting pre-shared keys
- *
- * @param keys  keys
- * @param count number of keys
- *
- * @return      sign that the keys are set
- *
- * \~
  */
 bool nts::noise::Handshake::psks(const view_t * keys, const size_t count) noexcept {
 	// Если рукопожатие не заведено, уже идёт, набор PQNoise (psk там не заведён) либо ключи негодны
 	if((this->_count == 0) || this->_started || (this->_suite.kem != kem_t::NONE) || (count == 0) || (count > PSKS_MAX) || (keys == nullptr))
-		// Выводим отказ
+		// Выводим отрицательный результат - предразделённые ключи не приняты
 		return false;
 	/**
 	 * Выполняем проверку каждого ключа
@@ -569,7 +515,7 @@ bool nts::noise::Handshake::psks(const view_t * keys, const size_t count) noexce
 	for(size_t i = 0; i < count; i++){
 		// Если ключ негоден
 		if((keys[i].data == nullptr) || (keys[i].size != PSK))
-			// Выводим отказ
+			// Выводим отрицательный результат - ключ негоден
 			return false;
 	}
 	// Затираем прежние ключи
@@ -582,35 +528,25 @@ bool nts::noise::Handshake::psks(const view_t * keys, const size_t count) noexce
 		::memcpy(this->_psk[i], keys[i].data, PSK);
 	// Запоминаем число ключей
 	this->_pskCount = count;
+	// Сбрасываем число использованных ключей
 	this->_pskUsed = 0;
-	// Выводим успешность
+	// Сообщаем об успешной установке предразделённых ключей
 	return true;
 }
 /**
- * \~russian
- * @brief Метод явной установки случайностей упаковки KEM
+ * @brief Метод явной установки случайностей упаковки KEM по порядку своих знаков ekem/skem (PQNoise; только корпусам)
  *
- * @param coins случайности
- * @param count число случайностей
- *
+ * @param coins случайности, каждая длиной COINS набора
+ * @param count число случайностей, не больше PSKS_MAX
  * @return      признак того, что случайности установлены
  *
- * \~english
- * @brief Method of setting KEM encapsulation randomness explicitly
- *
- * @param coins randomness values
- * @param count number of values
- *
- * @return      sign that the values are set
- *
- * \~
  */
 bool nts::noise::Handshake::coinsDeterministic(const view_t * coins, const size_t count) noexcept {
 	// Длина случайности набора
 	const size_t length = kemlength(this->_suite.kem, part_t::COINS);
 	// Если рукопожатие не заведено, не PQNoise, уже идёт либо случайности негодны
 	if((this->_count == 0) || (length == 0) || this->_started || (count == 0) || (count > PSKS_MAX) || (coins == nullptr))
-		// Выводим отказ
+		// Выводим отрицательный результат - случайности не приняты
 		return false;
 	/**
 	 * Выполняем проверку каждой случайности
@@ -618,7 +554,7 @@ bool nts::noise::Handshake::coinsDeterministic(const view_t * coins, const size_
 	for(size_t i = 0; i < count; i++){
 		// Если случайность негодна
 		if((coins[i].data == nullptr) || (coins[i].size != length))
-			// Выводим отказ
+			// Выводим отрицательный результат - случайность негодна
 			return false;
 	}
 	// Затираем прежние случайности
@@ -631,22 +567,16 @@ bool nts::noise::Handshake::coinsDeterministic(const view_t * coins, const size_
 		::memcpy(this->_coin[i], coins[i].data, length);
 	// Запоминаем число случайностей
 	this->_coinCount = count;
+	// Сбрасываем число использованных случайностей
 	this->_coinUsed = 0;
-	// Выводим успешность
+	// Сообщаем об успешной установке случайностей
 	return true;
 }
 /**
- * \~russian
  * @brief Метод получения хода
  *
  * @return ход рукопожатия
  *
- * \~english
- * @brief Method of getting the turn
- *
- * @return handshake turn
- *
- * \~
  */
 nts::noise::step_t nts::noise::Handshake::step() const noexcept {
 	// Если рукопожатие не заведено либо неисправно
@@ -663,25 +593,13 @@ nts::noise::step_t nts::noise::Handshake::step() const noexcept {
 	return (ours ? step_t::WRITE : step_t::READ);
 }
 /**
- * \~russian
- * @brief Метод записи сообщения
+ * @brief Метод записи сообщения (WriteMessage)
  *
- * @param payload полезная часть
+ * @param payload полезная часть, вправе быть пустой
  * @param result  место сообщения
  * @param size    на входе вместимость места, на выходе длина сообщения
- *
  * @return        признак того, что сообщение записано
  *
- * \~english
- * @brief Method of writing a message
- *
- * @param payload payload
- * @param result  place of the message
- * @param size    the capacity of the place on input, the message length on output
- *
- * @return        sign that the message is written
- *
- * \~
  */
 bool nts::noise::Handshake::write(const view_t & payload, uint8_t * result, size_t & size) noexcept {
 	// Вместимость места
@@ -690,14 +608,15 @@ bool nts::noise::Handshake::write(const view_t & payload, uint8_t * result, size
 	size = 0;
 	// Если не наш ход, полезная часть либо место негодны, либо предсообщения не поглощены
 	if((this->step() != step_t::WRITE) || ((payload.size > 0) && (payload.data == nullptr)) || ((capacity > 0) && (result == nullptr)) || !this->ready())
-		// Выводим отказ
+		// Выводим отрицательный результат - запись невозможна
 		return false;
 	// Знаки сообщения и их число
 	const token_t * list = nullptr;
+	// Число знаков
 	size_t count = 0;
 	// Получаем знаки
 	if(!tokens(this->_pattern, this->_index, list, count))
-		// Выводим отказ
+		// Выводим отрицательный результат - знаки не получены
 		return false;
 	// Длина шифртекста KEM
 	const size_t ciphertext = kemlength(this->_suite.kem, part_t::CIPHERTEXT);
@@ -728,7 +647,7 @@ bool nts::noise::Handshake::write(const view_t & payload, uint8_t * result, size
 				}
 				// Если места мало
 				if(status && ((capacity - offset) < this->_public))
-					// Выводим отказ
+					// Отмечаем нехватку места
 					status = false;
 				// Если всё готово
 				if(status){
@@ -755,7 +674,7 @@ bool nts::noise::Handshake::write(const view_t & payload, uint8_t * result, size
 				uint8_t shared[KEM_SHARED_MAX];
 				// Если места мало либо упаковка не удалась
 				if(((capacity - offset) < ciphertext) || !this->wrap(list[i], result + offset, shared))
-					// Выводим отказ
+					// Отмечаем нехватку места либо неудачу упаковки
 					status = false;
 				// Иначе примешиваем шифртекст и секрет
 				else {
@@ -802,42 +721,30 @@ bool nts::noise::Handshake::write(const view_t & payload, uint8_t * result, size
 	}
 	// Если сообщение длиннее предела
 	if(status && (offset > MESSAGE))
-		// Выводим отказ
+		// Отмечаем превышение предела
 		status = false;
 	// Если что-то не удалось, состояние неисправно
 	if(!status){
 		// Устанавливаем признак неисправности
 		this->_broken = true;
-		// Выводим отказ
+		// Выводим отрицательный результат - запись прервана
 		return false;
 	}
 	// Сдвигаем номер сообщения
 	this->_index++;
 	// Выводим длину
 	size = offset;
-	// Выводим успешность
+	// Сообщаем длину записанного сообщения
 	return true;
 }
 /**
- * \~russian
- * @brief Метод чтения сообщения
+ * @brief Метод чтения сообщения (ReadMessage)
  *
  * @param message сообщение
  * @param result  место полезной части
  * @param size    на входе вместимость места, на выходе длина полезной части
- *
  * @return        признак того, что сообщение подлинно и прочитано
  *
- * \~english
- * @brief Method of reading a message
- *
- * @param message message
- * @param result  place of the payload
- * @param size    the capacity of the place on input, the payload length on output
- *
- * @return        sign that the message is authentic and read
- *
- * \~
  */
 bool nts::noise::Handshake::read(const view_t & message, uint8_t * result, size_t & size) noexcept {
 	// Вместимость места
@@ -846,14 +753,15 @@ bool nts::noise::Handshake::read(const view_t & message, uint8_t * result, size_
 	size = 0;
 	// Если не наш ход, сообщение либо место негодны, либо предсообщения не поглощены
 	if((this->step() != step_t::READ) || ((message.size > 0) && (message.data == nullptr)) || (message.size > MESSAGE) || ((capacity > 0) && (result == nullptr)) || !this->ready())
-		// Выводим отказ
+		// Выводим отрицательный результат - чтение невозможно
 		return false;
 	// Знаки сообщения и их число
 	const token_t * list = nullptr;
+	// Число знаков
 	size_t count = 0;
 	// Получаем знаки
 	if(!tokens(this->_pattern, this->_index, list, count))
-		// Выводим отказ
+		// Выводим отрицательный результат - знаки не получены
 		return false;
 	// Длина шифртекста KEM
 	const size_t ciphertext = kemlength(this->_suite.kem, part_t::CIPHERTEXT);
@@ -877,7 +785,7 @@ bool nts::noise::Handshake::read(const view_t & message, uint8_t * result, size_
 			case token_t::E: {
 				// Если сообщение короче ключа
 				if((message.size - offset) < this->_public)
-					// Выводим отказ
+					// Отмечаем сообщение короче ключа
 					status = false;
 				// Если ключ есть
 				if(status){
@@ -897,12 +805,13 @@ bool nts::noise::Handshake::read(const view_t & message, uint8_t * result, size_
 				const size_t length = (this->_public + (this->_symmetric.has() ? TAG : 0));
 				// Если сообщение короче
 				if((message.size - offset) < length)
-					// Выводим отказ
+					// Отмечаем короткое сообщение
 					status = false;
 				// Если ключ есть
 				if(status){
 					// Принятый ключ и его длина
 					uint8_t key[KEM_PUBLIC_MAX];
+					// Вместимость принятого ключа
 					size_t room = this->_public;
 					// Расшифровываем ключ
 					status = this->_symmetric.open(view_t(message.data + offset, length), key, room);
@@ -929,7 +838,7 @@ bool nts::noise::Handshake::read(const view_t & message, uint8_t * result, size_
 				uint8_t shared[KEM_SHARED_MAX];
 				// Если сообщение короче шифртекста
 				if((message.size - offset) < ciphertext)
-					// Выводим отказ
+					// Отмечаем сообщение короче шифртекста
 					status = false;
 				// Иначе примешиваем шифртекст, распаковываем и примешиваем секрет
 				else {
@@ -951,7 +860,7 @@ bool nts::noise::Handshake::read(const view_t & message, uint8_t * result, size_
 				size_t room = ciphertext;
 				// Если сообщение короче
 				if((message.size - offset) < length)
-					// Выводим отказ
+					// Отмечаем короткое сообщение
 					status = false;
 				// Иначе расшифровываем, распаковываем и примешиваем секрет
 				else {
@@ -987,168 +896,108 @@ bool nts::noise::Handshake::read(const view_t & message, uint8_t * result, size_
 	if(!status){
 		// Устанавливаем признак неисправности
 		this->_broken = true;
-		// Выводим отказ
+		// Выводим отрицательный результат - чтение прервано
 		return false;
 	}
 	// Сдвигаем номер сообщения
 	this->_index++;
-	// Выводим успешность
+	// Сообщаем об успешном чтении
 	return true;
 }
 /**
- * \~russian
- * @brief Метод раскола на транспортные состояния
+ * @brief Метод раскола на транспортные состояния (Split), после завершения рукопожатия
  *
  * @param one состояние от инициатора к отвечающему
- * @param two состояние от отвечающего к инициатору
- *
+ * @param two состояние от отвечающего к инициатору; у односторонних узоров остаётся без ключа
  * @return    признак того, что раскол выполнен
  *
- * \~english
- * @brief Method of splitting into transport states
- *
- * @param one state from the initiator to the responder
- * @param two state from the responder to the initiator
- *
- * @return    sign that the split is done
- *
- * \~
  */
 bool nts::noise::Handshake::split(cipher_t & one, cipher_t & two) noexcept {
 	// Если рукопожатие не завершено либо раскол уже выполнен (раздел 5.3 Noise r34: после Split состояние рукопожатия удаляется)
 	if((this->step() != step_t::DONE) || this->_split)
-		// Выводим отказ
+		// Выводим отрицательный результат - раскол невозможен
 		return false;
 	// Раскол выполнен: повтор отвергается
 	this->_split = true;
 	// Раскалываем симметричное состояние
 	if(!this->_symmetric.split(one, two))
-		// Выводим отказ
+		// Выводим отрицательный результат - состояние не расколото
 		return false;
 	// У односторонних узоров второе состояние остаётся без ключа
 	if(this->_count == 1)
 		// Затираем второе состояние
 		two.clear();
-	// Выводим успешность
+	// Сообщаем об успешном расколе
 	return true;
 }
 /**
- * \~russian
- * @brief Метод получения хеша рукопожатия
+ * @brief Метод получения хеша рукопожатия для привязки канала
  *
- * @param result место хеша
- *
+ * @param result место хеша в длину хеша набора
  * @return       признак того, что хеш выдан
  *
- * \~english
- * @brief Method of getting the handshake hash
- *
- * @param result place of the hash
- *
- * @return       sign that the hash is given
- *
- * \~
  */
 bool nts::noise::Handshake::digest(uint8_t * result) const noexcept {
 	// Выводим хеш симметричного состояния
 	return this->_symmetric.digest(result);
 }
 /**
- * \~russian
- * @brief Метод получения постоянного открытого ключа собеседника
+ * @brief Метод получения постоянного открытого ключа собеседника, заданного либо принятого
  *
- * @param result место ключа
- *
+ * @param result место ключа длиной keylength()
  * @return       признак того, что ключ известен и выдан
  *
- * \~english
- * @brief Method of getting the peer static public key
- *
- * @param result place of the key
- *
- * @return       sign that the key is known and given
- *
- * \~
  */
 bool nts::noise::Handshake::peer(uint8_t * result) const noexcept {
 	// Если ключа нет либо места нет
 	if(!this->_hasRS || (result == nullptr))
-		// Выводим отказ
+		// Выводим отрицательный результат - ключ собеседника не выдан
 		return false;
 	// Выдаём ключ
 	::memcpy(result, this->_rs, this->_public);
-	// Выводим успешность
+	// Сообщаем об успешной выдаче ключа собеседника
 	return true;
 }
 /**
- * \~russian
  * @brief Метод получения своего постоянного открытого ключа
  *
- * @param result место ключа
- *
+ * @param result место ключа длиной keylength()
  * @return       признак того, что ключ задан и выдан
  *
- * \~english
- * @brief Method of getting the own static public key
- *
- * @param result place of the key
- *
- * @return       sign that the key is set and given
- *
- * \~
  */
 bool nts::noise::Handshake::self(uint8_t * result) const noexcept {
 	// Если ключа нет либо места нет
 	if(!this->_hasS || (result == nullptr))
-		// Выводим отказ
+		// Выводим отрицательный результат - свой ключ не выдан
 		return false;
 	// Выдаём ключ
 	::memcpy(result, this->_sPublic, this->_public);
-	// Выводим успешность
+	// Сообщаем об успешной выдаче своего ключа
 	return true;
 }
 /**
- * \~russian
- * @brief Метод получения длины открытого ключа набора
+ * @brief Метод получения длины открытого ключа набора: KEY у классики, длина открытого ключа KEM у PQNoise
  *
  * @return длина либо нуль до заведения
  *
- * \~english
- * @brief Method of getting the suite public key length
- *
- * @return length or zero before start
- *
- * \~
  */
 size_t nts::noise::Handshake::keylength() const noexcept {
 	// Выводим длину
 	return this->_public;
 }
 /**
- * \~russian
  * @brief Метод получения длины хеша набора
  *
  * @return длина хеша либо нуль до заведения
  *
- * \~english
- * @brief Method of getting the suite hash length
- *
- * @return hash length or zero before start
- *
- * \~
  */
 size_t nts::noise::Handshake::length() const noexcept {
 	// Выводим длину
 	return this->_symmetric.length();
 }
 /**
- * \~russian
  * @brief Метод затирания состояния
  *
- * \~english
- * @brief Method of wiping the state
- *
- * \~
  */
 void nts::noise::Handshake::clear() noexcept {
 	// Затираем ключи
@@ -1164,35 +1013,48 @@ void nts::noise::Handshake::clear() noexcept {
 	this->_symmetric.clear();
 	// Сбрасываем устройство
 	this->_pattern = pattern_t::NONE;
+	// Сбрасываем положения ключей
 	this->_psks = 0;
+	// Сбрасываем роль
 	this->_role = role_t::NONE;
+	// Сбрасываем набор
 	this->_suite = suite_t();
+	// Сбрасываем положение сообщения
 	this->_index = 0;
+	// Сбрасываем число сообщений
 	this->_count = 0;
+	// Сбрасываем признак начала
 	this->_started = false;
 	// Сбрасываем признак раскола
 	this->_split = false;
+	// Сбрасываем признак поломки
 	this->_broken = false;
+	// Сбрасываем признак своего постоянного ключа
 	this->_hasS = false;
+	// Сбрасываем признак своего временного ключа
 	this->_hasE = false;
+	// Сбрасываем признак чужого постоянного ключа
 	this->_hasRS = false;
+	// Сбрасываем признак чужого временного ключа
 	this->_hasRE = false;
+	// Сбрасываем число ключей
 	this->_pskCount = 0;
+	// Сбрасываем число использованных ключей
 	this->_pskUsed = 0;
+	// Сбрасываем число случайностей
 	this->_coinCount = 0;
+	// Сбрасываем число использованных случайностей
 	this->_coinUsed = 0;
+	// Сбрасываем длину открытого ключа
 	this->_public = 0;
+	// Сбрасываем длину закрытого ключа
 	this->_secret = 0;
+	// Сбрасываем длину зерна
 	this->_seed = 0;
 }
 /**
- * \~russian
  * @brief Конструктор
  *
- * \~english
- * @brief Constructor
- *
- * \~
  */
 nts::noise::Handshake::Handshake() noexcept :
  _pattern(pattern_t::NONE), _psks(0), _role(role_t::NONE), _index(0), _count(0),
@@ -1209,13 +1071,8 @@ nts::noise::Handshake::Handshake() noexcept :
 	::memset(this->_coin, 0, sizeof(this->_coin));
 }
 /**
- * \~russian
  * @brief Деструктор
  *
- * \~english
- * @brief Destructor
- *
- * \~
  */
 nts::noise::Handshake::~Handshake() noexcept {
 	// Затираем состояние

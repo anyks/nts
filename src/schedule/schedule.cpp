@@ -6,6 +6,12 @@
  *
  * @author Yuriy Lobarev
  *
+ * @telegram{forman}
+ * @phone{+7 (910) 983-95-90}
+ *
+ * @email forman@anyks.com
+ * @site https://anyks.com
+ *
  * @brief Исходный файл модуля расписания ключей протокола TLS 1.3
  *
  * @section Намеренные решения
@@ -78,12 +84,11 @@ namespace {
 };
 
 /**
- * @brief Метод извлечения значения расписания ключей
+ * @brief Функция извлечения значения расписания ключей
  *
  * @param salt   соль извлечения значения
  * @param key    ключевой материал, из которого извлекается значение
  * @param result место, в которое помещается извлечённое значение
- *
  * @return       признак успешности извлечения значения
  *
  */
@@ -92,13 +97,12 @@ bool nts::schedule::extract(const view_t & salt, const view_t & key, uint8_t * r
 	return nts::schedule::extract(digest::hash_t::STREEBOG256, salt, key, result);
 }
 /**
- * @brief Метод извлечения значения расписания ключей выбранным хешем
+ * @brief Функция извлечения значения расписания ключей выбранным хешем
  *
  * @param algorithm хеш, которым ведётся расписание ключей
  * @param salt      соль извлечения значения
  * @param key       ключевой материал, из которого извлекается значение
  * @param result    место, в которое помещается извлечённое значение
- *
  * @return          признак успешности извлечения значения
  *
  */
@@ -116,13 +120,12 @@ bool nts::schedule::extract(const digest::hash_t algorithm, const view_t & salt,
 	return digest::hmac(algorithm, salt, key, result, length);
 }
 /**
- * @brief Метод растяжения значения расписания ключей
+ * @brief Функция растяжения значения расписания ключей
  *
  * @param secret растягиваемое значение расписания ключей
  * @param info   описание назначения растянутого значения
  * @param result место, в которое помещается растянутое значение
  * @param size   требуемая длина растянутого значения в байтах
- *
  * @return       признак успешности растяжения значения
  *
  */
@@ -131,14 +134,13 @@ bool nts::schedule::expand(const view_t & secret, const view_t & info, uint8_t *
 	return nts::schedule::expand(digest::hash_t::STREEBOG256, secret, info, result, size);
 }
 /**
- * @brief Метод растяжения значения расписания ключей выбранным хешем
+ * @brief Функция растяжения значения расписания ключей выбранным хешем
  *
  * @param algorithm хеш, которым ведётся расписание ключей
  * @param secret    растягиваемое значение расписания ключей
  * @param info      описание назначения растянутого значения
  * @param result    место, в которое помещается растянутое значение
  * @param size      требуемая длина растянутого значения в байтах
- *
  * @return          признак успешности растяжения значения
  *
  */
@@ -186,14 +188,13 @@ bool nts::schedule::expand(const digest::hash_t algorithm, const view_t & secret
 	return ok;
 }
 /**
- * @brief Метод вывода значения по метке назначения
+ * @brief Функция вывода значения по метке назначения
  *
  * @param secret  значение расписания ключей, из которого ведётся вывод
  * @param label   метка назначения выводимого значения
  * @param context привязка выводимого значения к переписке рукопожатия
  * @param result  место, в которое помещается выведенное значение
  * @param size    требуемая длина выведенного значения в байтах
- *
  * @return        признак успешности вывода значения
  *
  */
@@ -202,7 +203,7 @@ bool nts::schedule::derive(const view_t & secret, const view_t & label, const vi
 	return nts::schedule::derive(digest::hash_t::STREEBOG256, secret, label, context, result, size);
 }
 /**
- * @brief Метод вывода значения по метке назначения выбранным хешем
+ * @brief Функция вывода значения по метке назначения выбранным хешем
  *
  * @param algorithm хеш, которым ведётся расписание ключей
  * @param secret    значение расписания ключей, из которого ведётся вывод
@@ -210,7 +211,6 @@ bool nts::schedule::derive(const view_t & secret, const view_t & label, const vi
  * @param context   привязка выводимого значения к переписке рукопожатия
  * @param result    место, в которое помещается выведенное значение
  * @param size      требуемая длина выведенного значения в байтах
- *
  * @return          признак успешности вывода значения
  *
  */
@@ -270,13 +270,12 @@ bool nts::schedule::derive(const digest::hash_t algorithm, const view_t & secret
 	return ok;
 }
 /**
- * @brief Метод вывода очередного значения расписания ключей
+ * @brief Функция вывода очередного значения расписания ключей
  *
  * @param secret значение расписания ключей, из которого ведётся вывод
  * @param label  метка назначения выводимого значения
  * @param digest хеш переписки рукопожатия на этот миг
  * @param result место, в которое помещается выведенное значение
- *
  * @return       признак успешности вывода значения
  *
  */
@@ -285,14 +284,13 @@ bool nts::schedule::secret(const view_t & secret, const view_t & label, const vi
 	return nts::schedule::secret(digest::hash_t::STREEBOG256, secret, label, digest, result);
 }
 /**
- * @brief Метод вывода очередного значения расписания ключей выбранным хешем
+ * @brief Функция вывода очередного значения расписания ключей выбранным хешем
  *
  * @param algorithm хеш, которым ведётся расписание ключей
  * @param secret    значение расписания ключей, из которого ведётся вывод
  * @param label     метка назначения выводимого значения
  * @param digest    хеш переписки рукопожатия на этот миг
  * @param result    место, в которое помещается выведенное значение
- *
  * @return          признак успешности вывода значения
  *
  */

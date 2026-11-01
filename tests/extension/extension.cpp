@@ -58,10 +58,9 @@ static const struct Sample {
 };
 
 /**
- * @brief Метод разбора строки шестнадцатеричной записи в область байтов
+ * @brief Функция разбора строки шестнадцатеричной записи в область байтов
  *
  * @param text разбираемая строка шестнадцатеричной записи
- *
  * @return     разобранная область байтов
  *
  */
@@ -301,6 +300,7 @@ TEST(ExtensionTest, Bodies){
  *       разборщик выдерживает всякое тело - и своё, и чужое, и обрубленное, - не
  *       валясь и за поданную область байтов не выходя. Смысл её раскрывается под
  *       санитайзерами: без них она стережёт лишь отказ работы
+ *
  */
 TEST(ExtensionTest, Ragged){
 	// Набор годных тел расширений, служащий основою порчи
@@ -961,10 +961,9 @@ TEST(ExtensionTest, Presented){
 	// Длина усечения приветствия клиента, взятая разбором
 	size_t truncation = 0;
 	/**
-	 * @brief Метод подачи собранного тела расширения его разбору
+	 * @brief Функция подачи собранного тела расширения его разбору
 	 *
 	 * @param body разбираемое тело расширения
-	 *
 	 * @return     отказ разбора тела расширения
 	 *
 	 */
@@ -1184,8 +1183,11 @@ TEST(ExtensionTest, Bounded){
 TEST(ExtensionTest, Hollowed){
 	// Пустые перечни опознавателей и привязок
 	const uint8_t vacant[4] = {0x00, 0x00, 0x00, 0x00};
+	// Разобранные опознаватели внешних удостоверений
 	vector <extension::identity_t> identities;
+	// Привязки внешних удостоверений
 	vector <view_t> binders;
+	// Доля обмена, на которой оборвана запись
 	size_t truncation = 0;
 	// Раздел 4.2.11 RFC 8446: перечни непусты
 	ASSERT_EQ(extension::identities(view_t(vacant, sizeof(vacant)), identities, binders, truncation), extension::error_t::EMPTY);
@@ -1195,25 +1197,26 @@ TEST(ExtensionTest, Hollowed){
 	ASSERT_EQ(extension::identities(view_t(brief, sizeof(brief)), identities, binders, truncation), extension::error_t::EMPTY);
 	// Доля обмена с пустой открытой частью ключа
 	const uint8_t bare[] = {0x00, 0x04, 0x00, 0x22, 0x00, 0x00};
+	// Разобранные доли обмена
 	vector <extension::share_t> shares;
 	// Раздел 4.2.8 RFC 8446: открытая часть ключа непуста
 	ASSERT_EQ(extension::shares(view_t(bare, sizeof(bare)), shares), extension::error_t::EMPTY);
 	// Имя узла нулевой длины
 	const uint8_t nameless[] = {0x00, 0x03, 0x00, 0x00, 0x00};
+	// Разобранное имя узла
 	view_t name;
 	// Раздел 3 RFC 6066: имя узла непусто
 	ASSERT_EQ(extension::name(view_t(nameless, sizeof(nameless)), name), extension::error_t::EMPTY);
 }
 
 /**
- * @brief Метод разбора и составления расширений заново при отмеренном запасе выделений
+ * @brief Функция разбора и составления расширений заново при отмеренном запасе выделений
  *
  * @param hello      разобранное приветствие клиента, тела расширений которого разбираются
  * @param names      имена прикладных протоколов длиною сверх короткого запаса строки
  * @param identities перечень опознавателей заранее разделённых ключей
  * @param binders    перечень привязок заранее разделённых ключей
  * @param intact     признак схождения составленных тел с исходными
- *
  * @return           отказ, которым завершился первый несостоявшийся шаг
  *
  * @note Всё, что выделяет память само по себе, заведено вызывающим до отмеривания

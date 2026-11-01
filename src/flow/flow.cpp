@@ -6,6 +6,12 @@
  *
  * @author Yuriy Lobarev
  *
+ * @telegram{forman}
+ * @phone{+7 (910) 983-95-90}
+ *
+ * @email forman@anyks.com
+ * @site https://anyks.com
+ *
  * @brief Исходный файл модуля хода рукопожатия протокола TLS 1.3
  *
  * @section Намеренные решения
@@ -72,11 +78,10 @@ namespace {
 	typedef flow::error_t error_t;
 
 	/**
-	 * @brief Метод проверки принадлежности сообщения стороне связи
+	 * @brief Функция проверки принадлежности сообщения стороне связи
 	 *
 	 * @param side ожидаемая сторона, отправляющая сообщение
 	 * @param sent сторона, отправившая объявленное сообщение
-	 *
 	 * @return     отказ проверки принадлежности сообщения стороне
 	 *
 	 */
@@ -120,7 +125,6 @@ bool nts::flow::Machine::established() const noexcept {
  * @brief Метод получения поры ключей стороны связи
  *
  * @param side сторона, чья пора ключей запрашивается
- *
  * @return     пора ключей записей, отправляемых этой стороной
  *
  */
@@ -132,7 +136,6 @@ epoch_t nts::flow::Machine::epoch(const session::side_t side) const noexcept {
  * @brief Метод заведения хода рукопожатия
  *
  * @param role роль стороны, ведущей ход рукопожатия
- *
  * @return     признак успешности заведения хода рукопожатия
  *
  */
@@ -177,7 +180,6 @@ void nts::flow::Machine::clear() noexcept {
  *
  * @param type вид объявляемого сообщения рукопожатия
  * @param side сторона, отправившая объявляемое сообщение
- *
  * @return     отказ объявления сообщения рукопожатия
  *
  */
@@ -250,6 +252,7 @@ nts::flow::error_t nts::flow::Machine::accept(const handshake::type_t type, cons
 				if((outcome == error_t::NONE) && this->_requested)
 					// Выводим отказ повторного запроса подлинности
 					outcome = error_t::ORDER;
+				// Если завершение рукопожатия объявлено без помех
 				if(outcome == error_t::NONE)
 					// Запоминаем, что сервер запросил сертификат клиента
 					this->_requested = true;
@@ -276,6 +279,7 @@ nts::flow::error_t nts::flow::Machine::accept(const handshake::type_t type, cons
 				if((outcome == error_t::NONE) && this->_requested)
 					// Выводим отказ завершения без сертификатов сервера
 					outcome = error_t::ORDER;
+				// Если завершение рукопожатия объявлено без помех
 				if(outcome == error_t::NONE){
 					// Устанавливаем ожидание ответа клиента
 					this->_stage = stage_t::FINISHING;

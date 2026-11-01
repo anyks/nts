@@ -34,6 +34,9 @@
  * Экранируем повторную инициализацию модуля
  */
 #ifndef __ANTS_INTERNAL_CIPHER_CHACHA__
+/**
+ * Макрос экранирования повторной инициализации модуля
+ */
 #define __ANTS_INTERNAL_CIPHER_CHACHA__
 
 /**
@@ -74,16 +77,20 @@
 			namespace kernel {
 				/**
 				 * @brief Размер кадра ядра восьми блоков в байтах
+				 *
 				 */
 				static constexpr size_t FRAME8 = 640;
 				/**
 				 * @brief Размер кадра ядра четырёх блоков в байтах
+				 *
 				 */
 				static constexpr size_t FRAME4 = 320;
 				/**
 				 * @brief Постоянные ядер: маски вращения на 16 и 8 разрядов в двух полосах, приращения счётчиков 0…7, восьмёрки и четвёрки
+				 *
 				 */
 				alignas(32) static const uint8_t CONSTANTS[144] = {
+					// Маски вращения в первой полосе
 					2, 3, 0, 1, 6, 7, 4, 5, 10, 11, 8, 9, 14, 15, 12, 13,
 					2, 3, 0, 1, 6, 7, 4, 5, 10, 11, 8, 9, 14, 15, 12, 13,
 					3, 0, 1, 2, 7, 4, 5, 6, 11, 8, 9, 10, 15, 12, 13, 14,
@@ -95,7 +102,7 @@
 					4, 0, 0, 0, 4, 0, 0, 0, 4, 0, 0, 0, 4, 0, 0, 0
 				};
 				/**
-				 * @brief Метод покрытия гаммой пачек по восемь блоков ядром AVX2
+				 * @brief Функция покрытия гаммой пачек по восемь блоков ядром AVX2
 				 *
 				 * @param state  состояние шифра: постоянные, ключ, счётчик первого блока, заполнение
 				 * @param frame  кадр ядра в 640 байтов, выровненный на 32: стол слов состояния и рабочие ячейки
@@ -105,6 +112,7 @@
 				 *
 				 */
 				static void chacha8xavx2(const uint32_t * state, uint8_t * frame, const uint8_t * source, uint8_t * result, size_t count) noexcept {
+					// Выводим встроенный ассемблер ядра
 					__asm__ __volatile__(
 						"vpbroadcastd 0(%[state]), %%ymm0\n\t"
 						"vmovdqa %%ymm0, 0(%[frame])\n\t"
@@ -1629,7 +1637,7 @@
 						: "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", "xmm8", "xmm9", "xmm10", "xmm11", "xmm12", "xmm13", "xmm14", "xmm15", "cc", "memory");
 				}
 				/**
-				 * @brief Метод покрытия гаммой пачек по четыре блока ядром SSSE3
+				 * @brief Функция покрытия гаммой пачек по четыре блока ядром SSSE3
 				 *
 				 * @param state  состояние шифра: постоянные, ключ, счётчик первого блока, заполнение
 				 * @param frame  кадр ядра в 320 байтов, выровненный на 32: стол слов состояния и рабочие ячейки
@@ -1639,6 +1647,7 @@
 				 *
 				 */
 				static void chacha4xssse3(const uint32_t * state, uint8_t * frame, const uint8_t * source, uint8_t * result, size_t count) noexcept {
+					// Выводим встроенный ассемблер ядра
 					__asm__ __volatile__(
 						"movd 0(%[state]), %%xmm0\n\t"
 						"pshufd $0, %%xmm0, %%xmm0\n\t"
@@ -3362,7 +3371,7 @@
 						: "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", "xmm8", "xmm9", "xmm10", "xmm11", "xmm12", "xmm13", "xmm14", "xmm15", "cc", "memory");
 				}
 				/**
-				 * @brief Метод покрытия гаммой пачек по четыре блока ядром SSE2
+				 * @brief Функция покрытия гаммой пачек по четыре блока ядром SSE2
 				 *
 				 * @param state  состояние шифра: постоянные, ключ, счётчик первого блока, заполнение
 				 * @param frame  кадр ядра в 320 байтов, выровненный на 32: стол слов состояния и рабочие ячейки
@@ -3372,6 +3381,7 @@
 				 *
 				 */
 				static void chacha4xsse2(const uint32_t * state, uint8_t * frame, const uint8_t * source, uint8_t * result, size_t count) noexcept {
+					// Выводим встроенный ассемблер ядра
 					__asm__ __volatile__(
 						"movd 0(%[state]), %%xmm0\n\t"
 						"pshufd $0, %%xmm0, %%xmm0\n\t"
@@ -5419,4 +5429,4 @@
 	}
 #endif
 
-#endif // __ANTS_INTERNAL_CIPHER_CHACHA__
+#endif

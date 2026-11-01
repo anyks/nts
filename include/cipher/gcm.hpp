@@ -21,7 +21,6 @@
  *        over a block cipher with a 128-bit block
  *
  * \~
- *
  * @copyright Copyright © 2026
  *
  */
@@ -106,17 +105,21 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief GCM authenticated encryption mode
+		 *
 		 * @details NIST SP 800-38D. The plain text is encrypted by the gamma with a counter, while
 		 *          the authentication tag is taken from the value of the GHASH polynomial in the
 		 *          GF(2^128) field over the associated data and the cipher text, added to the encrypted
 		 *          initial counter block. A 12-byte nonce goes into the counter directly, one of another
 		 *          length - through GHASH
+		 *
 		 * @note The nonce of every message under a single key must be unique: a repetition reveals the
 		 *       sum of the plain texts and the key of the tag
+		 *
 		 * @note Deliberate decisions: a repeated encryption by a single object under the same nonce is
 		 *       refused by a guard of the mode, as at MGM; the decryption is not subject to the guard.
 		 *       The tag is compared in constant time. The multiplication in the field goes by the
 		 *       four-bit tables computed at the start from the hashing key
+		 *
 		 * @note The streaming course: after start the associated data is fed by associate (before the
 		 *       first chunk of the data), the data - by the streaming encrypt or decrypt by chunks of
 		 *       any length, the tag is taken by finish or compared by verify; after them the stream is
@@ -181,6 +184,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the multiplication of a value by the hashing key in the GF(2^128) field
+				 *
 				 * @param value the value being multiplied, replaced by the product
 				 *
 				 * \~
@@ -193,11 +197,11 @@ namespace nts {
 				 * @param accumulator накопитель многочлена, заменяемый итогом
 				 * @param blocks      восьмёрки блоков подряд
 				 * @param count       число восьмёрок: не меньше одной
-				 *
 				 * @return            признак того, что машина умножает командами и восьмёрки сложены
 				 *
 				 * \~english
 				 * @brief Method of the addition of groups of eight blocks into the polynomial accumulator by one reduction per group
+				 *
 				 * @param accumulator the polynomial accumulator, replaced by the result
 				 * @param blocks      groups of eight blocks in a row
 				 * @param count       the number of groups: at least one
@@ -215,6 +219,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the addition of bytes into the GHASH polynomial accumulator
+				 *
 				 * @param data the bytes being added
 				 * @param size the number of the bytes being added
 				 *
@@ -227,11 +232,11 @@ namespace nts {
 				 *
 				 * @param source накладываемые данные
 				 * @param result место, в которое записывается итог наложения
-				 *
 				 * @return       признак успешности наложения
 				 *
 				 * \~english
 				 * @brief Method of the application of the counter gamma continuing from the rest of the block
+				 *
 				 * @param source the data being covered
 				 * @param result the place the result of the application is written into
 				 * @return       the flag of the success of the application
@@ -247,11 +252,11 @@ namespace nts {
 				 * @param source  источник целыми восьмёрками блоков
 				 * @param result  место, в которое записывается итог той же длины
 				 * @param chunks  число восьмёрок блоков
-				 *
 				 * @return        признак того, что ход выполнен: без расписания ключа AES либо команд машины - отказ, и путь идёт порознь
 				 *
 				 * \~english
 				 * @brief Method of the fused pass of the mode: the AES counter gamma and the hash by eight blocks in one pass
+				 *
 				 * @param sealing the flag of the encryption: the hash is taken from the result, at the decryption - from the source
 				 * @param source  the source by whole eights of blocks
 				 * @param result  the place the result of the same length is written into
@@ -269,6 +274,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the completion of the GHASH polynomial by the block of the lengths
+				 *
 				 * @param result the 16-byte place the value of the polynomial is written into
 				 *
 				 * \~
@@ -279,11 +285,11 @@ namespace nts {
 				 * @brief Метод вычисления метки целостности по накопленному потоку
 				 *
 				 * @param result место в 16 байтов, в которое записывается метка
-				 *
 				 * @return       признак успешности вычисления
 				 *
 				 * \~english
 				 * @brief Method of the computation of the authentication tag over the accumulated stream
+				 *
 				 * @param result the 16-byte place the tag is written into
 				 * @return       the flag of the success of the computation
 				 *
@@ -305,11 +311,11 @@ namespace nts {
 				 * @brief Метод перехода потока к данным
 				 *
 				 * @param direction направление потока: единица - зашифрование, двойка - расшифрование
-				 *
 				 * @return          признак допустимости перехода
 				 *
 				 * \~english
 				 * @brief Method of the transition of the stream to the data
+				 *
 				 * @param direction the direction of the stream: one - encryption, two - decryption
 				 * @return          the flag of the admissibility of the transition
 				 *
@@ -325,6 +331,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of checking the readiness of the mode for the work
+				 *
 				 * @return the flag of the readiness of the mode
 				 *
 				 * \~
@@ -338,6 +345,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the length of the authentication tag
+				 *
 				 * @return the length of the tag in bytes
 				 *
 				 * \~
@@ -351,11 +359,11 @@ namespace nts {
 				 * @param block блочный шифр с блоком в 16 байтов и установленным ключом
 				 * @param nonce начальное заполнение любой ненулевой длины, 12 байтов - прямой путь
 				 * @param size  длина метки целостности от 4 до 16 байтов, ноль - 16
-				 *
 				 * @return      признак успешности запуска
 				 *
 				 * \~english
 				 * @brief Method of the start of the mode
+				 *
 				 * @param block the block cipher with a 16-byte block and a set key
 				 * @param nonce the nonce of any nonzero length, 12 bytes - the direct path
 				 * @param size  the length of the authentication tag from 4 to 16 bytes, zero - 16
@@ -374,15 +382,16 @@ namespace nts {
 				 *          обязано быть новым для ключа
 				 *
 				 * @param nonce начальное заполнение любой ненулевой длины, 12 байтов - прямой путь
-				 *
 				 * @return      признак успешности смены: отказ у незапущенного режима либо пустого заполнения
 				 *
 				 * \~english
 				 * @brief Method of changing the nonce of a started mode
+				 *
 				 * @details The tables of the multiples of the hash key remain from the start: only the
 				 *          initial counter block is computed anew and the stream begins over. So the mode
 				 *          carries many messages under one key without building the table for each one;
 				 *          the nonce must be fresh for the key
+				 *
 				 * @param nonce the nonce of any nonzero length, 12 bytes - the direct path
 				 * @return      the flag of the success of the change: a refusal at a mode not started or at an empty nonce
 				 *
@@ -407,12 +416,13 @@ namespace nts {
 				 * @details Допускается лишь до первого куска данных, кусками любой длины
 				 *
 				 * @param associated связанные данные, защищаемые лишь меткой
-				 *
 				 * @return           признак успешности подачи
 				 *
 				 * \~english
 				 * @brief Method of the feeding of the associated data of the stream
+				 *
 				 * @details It is allowed only before the first chunk of the data, by chunks of any length
+				 *
 				 * @param associated the associated data protected only by the tag
 				 * @return           the flag of the success of the feeding
 				 *
@@ -427,12 +437,13 @@ namespace nts {
 				 *
 				 * @param source открытый текст
 				 * @param result место, в которое записывается шифртекст той же длины
-				 *
 				 * @return       признак успешности зашифрования
 				 *
 				 * \~english
 				 * @brief Method of the streaming encryption of a chunk
+				 *
 				 * @details A chunk of any length, including an empty one; the first chunk spends the nonce
+				 *
 				 * @param source the plain text
 				 * @param result the place the cipher text of the same length is written into
 				 * @return       the flag of the success of the encryption
@@ -449,13 +460,14 @@ namespace nts {
 				 *
 				 * @param source шифртекст
 				 * @param result место, в которое записывается открытый текст той же длины
-				 *
 				 * @return       признак успешности расшифрования
 				 *
 				 * \~english
 				 * @brief Method of the streaming decryption of a chunk
+				 *
 				 * @details The plain text is given out before the comparison of the tag: its authenticity
 				 *          is confirmed only by a successful verify
+				 *
 				 * @param source the cipher text
 				 * @param result the place the plain text of the same length is written into
 				 * @return       the flag of the success of the decryption
@@ -468,11 +480,11 @@ namespace nts {
 				 * @brief Метод завершения поточного зашифрования выработкой метки
 				 *
 				 * @param tag место, в которое записывается метка установленной длины
-				 *
 				 * @return    признак успешности завершения; поток закрывается
 				 *
 				 * \~english
 				 * @brief Method of the completion of the streaming encryption by the production of the tag
+				 *
 				 * @param tag the place the tag of the set length is written into
 				 * @return    the flag of the success of the completion; the stream is closed
 				 *
@@ -484,11 +496,11 @@ namespace nts {
 				 * @brief Метод завершения поточного расшифрования сличением метки
 				 *
 				 * @param tag проверяемая метка установленной длины
-				 *
 				 * @return    признак схождения метки за постоянное время; поток закрывается
 				 *
 				 * \~english
 				 * @brief Method of the completion of the streaming decryption by the comparison of the tag
+				 *
 				 * @param tag the tag of the set length being checked
 				 * @return    the flag of the convergence of the tag in constant time; the stream is closed
 				 *
@@ -504,11 +516,11 @@ namespace nts {
 				 * @param source     открытый текст
 				 * @param result     место, в которое записывается шифртекст той же длины
 				 * @param tag        место, в которое записывается метка установленной длины
-				 *
 				 * @return           признак успешности зашифрования
 				 *
 				 * \~english
 				 * @brief Method of the encryption with the production of the authentication tag
+				 *
 				 * @param associated the associated data protected only by the tag
 				 * @param source     the plain text
 				 * @param result     the place the cipher text of the same length is written into
@@ -526,11 +538,11 @@ namespace nts {
 				 * @param source     шифртекст
 				 * @param result     место, в которое записывается открытый текст той же длины
 				 * @param tag        проверяемая метка установленной длины
-				 *
 				 * @return           признак схождения метки; при расхождении открытый текст не тронут
 				 *
 				 * \~english
 				 * @brief Method of the decryption with the check of the authentication tag
+				 *
 				 * @param associated the associated data
 				 * @param source     the cipher text
 				 * @param result     the place the plain text of the same length is written into

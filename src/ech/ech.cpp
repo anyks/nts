@@ -45,19 +45,20 @@ using namespace std;
  */
 namespace {
 	/**
-	 * @brief Метод проверки публичного имени конфигурации на вид имени DNS
+	 * @brief Функция проверки публичного имени конфигурации на вид имени DNS
 	 *
 	 * @param name публичное имя
-	 *
 	 * @return     признак годного имени: метки LDH через точку, без дефиса на краях метки, не литерал IPv4 (раздел 4 RFC 9849)
 	 *
 	 */
 	static bool named(const string & name) noexcept {
 		// Пустое либо чрезмерное имя негодно
 		if(name.empty() || (name.size() > 253))
+			// Выводим негодность имени
 			return false;
 		// Начало текущей метки и признак того, что все знаки - цифры и точки (литерал IPv4)
 		size_t start = 0;
+		// Признак литерала IPv4: все знаки имени - цифры и точки
 		bool digits = true;
 		/**
 		 * Выполняем перебор знаков имени метка за меткой
@@ -69,6 +70,7 @@ namespace {
 				const size_t length = (i - start);
 				// Пустая либо длинная метка, дефис на краю метки - негодно
 				if((length == 0) || (length > 63) || (name[start] == '-') || (name[i - 1] == '-'))
+				// Выводим негодность метки
 					return false;
 				// Начало следующей метки
 				start = (i + 1);
@@ -78,9 +80,11 @@ namespace {
 			const char sign = name[i];
 			// Если знак не буква, не цифра и не дефис
 			if(!(((sign >= 'a') && (sign <= 'z')) || ((sign >= 'A') && (sign <= 'Z')) || ((sign >= '0') && (sign <= '9')) || (sign == '-')))
+				// Выводим негодность знака
 				return false;
 			// Не цифра - не литерал IPv4
 			if(!((sign >= '0') && (sign <= '9')))
+				// Снимаем признак литерала IPv4
 				digits = false;
 		}
 		// Литерал IPv4 негоден (SHOULD раздела 4 RFC 9849)
@@ -112,12 +116,14 @@ namespace {
 	 * Метки подтверждения принятия
 	 */
 	static const char ACCEPT[] = "ech accept confirmation";
+	// Метка повторного подтверждения принятия
 	static const char RETRY[] = "hrr ech accept confirmation";
 
 	/**
 	 * Виды расширения encrypted_client_hello
 	 */
 	static constexpr uint8_t OUTER = 0x00;
+	// Вид внутреннего расширения
 	static constexpr uint8_t INNER = 0x01;
 
 	/**
@@ -126,7 +132,7 @@ namespace {
 	static constexpr size_t OUTSOURCED = 127;
 
 	/**
-	 * @brief Метод чтения числа в два байта старшим байтом вперёд
+	 * @brief Функция чтения числа в два байта старшим байтом вперёд
 	 *
 	 * @param data указатель на байты
 	 * @return     прочитанное число
@@ -137,7 +143,7 @@ namespace {
 		return static_cast <uint16_t> ((static_cast <uint16_t> (data[0]) << 8) | static_cast <uint16_t> (data[1]));
 	}
 	/**
-	 * @brief Метод дописывания числа старшим байтом вперёд
+	 * @brief Функция дописывания числа старшим байтом вперёд
 	 *
 	 * @param value  дописываемое число
 	 * @param width  ширина числа в байтах
@@ -153,7 +159,7 @@ namespace {
 			result.push_back(static_cast <uint8_t> (value >> ((i - 1) * 8)));
 	}
 	/**
-	 * @brief Метод записи двухбайтовой длины в заранее занятое место
+	 * @brief Функция записи двухбайтовой длины в заранее занятое место
 	 *
 	 * @param result накопитель
 	 * @param place  место длины
@@ -167,7 +173,7 @@ namespace {
 		result[place + 1] = static_cast <uint8_t> (length);
 	}
 	/**
-	 * @brief Метод разбора содержимого конфигурации ECHConfigContents
+	 * @brief Функция разбора содержимого конфигурации ECHConfigContents
 	 *
 	 * @param data   содержимое конфигурации
 	 * @param result конфигурация
@@ -251,21 +257,24 @@ namespace {
 		for(size_t at = 0; at < length;){
 			// Если заголовка расширения не осталось
 			if((at + 4) > length)
+				// Выводим отказ разбора
 				return ech::error_t::FORMAT;
 			// Длина тела расширения
 			const size_t body = twain(data.data + offset + at + 2);
 			// Если тело выходит за перечень
 			if((at + 4 + body) > length)
+				// Выводим отказ разбора
 				return ech::error_t::FORMAT;
 			// Переходим за расширение
 			at += (4 + body);
 		}
+		// Сохраняем расширения как записаны
 		result.extensions.assign(data.data + offset, data.data + offset + length);
 		// Выводим успешность разбора
 		return ech::error_t::NONE;
 	}
 	/**
-	 * @brief Метод разбора одной конфигурации из перечня
+	 * @brief Функция разбора одной конфигурации из перечня
 	 *
 	 * @param data    разбираемые байты от начала конфигурации
 	 * @param result  конфигурация
@@ -306,7 +315,7 @@ namespace {
 		return ech::error_t::NONE;
 	}
 	/**
-	 * @brief Метод измерения длины тела приветствия клиента без хвоста
+	 * @brief Функция измерения длины тела приветствия клиента без хвоста
 	 *
 	 * @param data   байты приветствия с возможным хвостом заполнения
 	 * @param length место, в которое помещается длина тела
@@ -361,17 +370,16 @@ namespace {
 };
 
 /**
- * @brief Метод разбора перечня конфигураций ECHConfigList
+ * @brief Функция разбора перечня конфигураций ECHConfigList
  *
  * @param data   разбираемый перечень
- * @param result перечень конфигураций признаваемого издания
- *
- * @return       отказ разбора
+ * @param result перечень конфигураций признаваемого издания в порядке провода
+ * @return       отказ разбора: VERSION, если ни одной конфигурации издания 0xFE0D
  *
  */
 nts::ech::error_t nts::ech::parse(const view_t & data, vector <config_t> & result) noexcept {
 	/**
-	 * Выполняем перехват нехватки памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Сбрасываем перечень
@@ -444,7 +452,7 @@ nts::ech::error_t nts::ech::parse(const view_t & data, vector <config_t> & resul
 		// Выводим итог: без единой признаваемой конфигурации - отказ издания
 		return (result.empty() ? error_t::VERSION : error_t::NONE);
 	/**
-	 * Если памяти не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Сбрасываем перечень
@@ -454,17 +462,16 @@ nts::ech::error_t nts::ech::parse(const view_t & data, vector <config_t> & resul
 	}
 }
 /**
- * @brief Метод разбора одной конфигурации ECHConfig
+ * @brief Функция разбора одной конфигурации ECHConfig
  *
- * @param data   разбираемая конфигурация
+ * @param data   разбираемая конфигурация вместе с изданием и длиной
  * @param result конфигурация
- *
  * @return       отказ разбора
  *
  */
 nts::ech::error_t nts::ech::parse(const view_t & data, config_t & result) noexcept {
 	/**
-	 * Выполняем перехват нехватки памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Число прочитанных байтов
@@ -492,7 +499,7 @@ nts::ech::error_t nts::ech::parse(const view_t & data, config_t & result) noexce
 		// Выводим успешность разбора
 		return error_t::NONE;
 	/**
-	 * Если памяти не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Сбрасываем конфигурацию
@@ -502,17 +509,16 @@ nts::ech::error_t nts::ech::parse(const view_t & data, config_t & result) noexce
 	}
 }
 /**
- * @brief Метод составления одной конфигурации ECHConfig
+ * @brief Функция составления одной конфигурации ECHConfig
  *
- * @param config составляемая конфигурация
+ * @param config составляемая конфигурация (поле `raw` не читается)
  * @param result накопитель, в конец которого дописывается конфигурация
- *
  * @return       отказ составления
  *
  */
 nts::ech::error_t nts::ech::build(const config_t & config, vector <uint8_t> & result) noexcept {
 	/**
-	 * Выполняем перехват нехватки памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Если ключ, наборы либо имя пусты
@@ -574,7 +580,7 @@ nts::ech::error_t nts::ech::build(const config_t & config, vector <uint8_t> & re
 		// Выводим успешность составления
 		return error_t::NONE;
 	/**
-	 * Если памяти не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ памяти
@@ -582,17 +588,16 @@ nts::ech::error_t nts::ech::build(const config_t & config, vector <uint8_t> & re
 	}
 }
 /**
- * @brief Метод составления перечня конфигураций ECHConfigList
+ * @brief Функция составления перечня конфигураций ECHConfigList
  *
  * @param configs составляемые конфигурации
  * @param result  накопитель, в конец которого дописывается перечень
- *
  * @return        отказ составления
  *
  */
 nts::ech::error_t nts::ech::build(const vector <config_t> & configs, vector <uint8_t> & result) noexcept {
 	/**
-	 * Выполняем перехват нехватки памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Если конфигураций нет
@@ -633,7 +638,7 @@ nts::ech::error_t nts::ech::build(const vector <config_t> & configs, vector <uin
 		// Выводим успешность составления
 		return error_t::NONE;
 	/**
-	 * Если памяти не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ памяти
@@ -641,17 +646,16 @@ nts::ech::error_t nts::ech::build(const vector <config_t> & configs, vector <uin
 	}
 }
 /**
- * @brief Метод разбора тела расширения encrypted_client_hello
+ * @brief Функция разбора тела расширения encrypted_client_hello
  *
  * @param data   тело расширения
  * @param result расширение
- *
  * @return       отказ разбора
  *
  */
 nts::ech::error_t nts::ech::parse(const view_t & data, hello_t & result) noexcept {
 	/**
-	 * Выполняем перехват нехватки памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Сбрасываем расширение
@@ -681,7 +685,7 @@ nts::ech::error_t nts::ech::parse(const view_t & data, hello_t & result) noexcep
 		if(data.size < (offset + 4 + 1 + 2))
 			// Выводим отказ обрыва
 			return error_t::HUNGRY;
-		// Читаем функцию вывода
+		// Читаем функцию вывода ключа из двух байтов набора
 		result.suite.kdf = static_cast <hpke::kdf_t> (twain(data.data + offset));
 		// Читаем шифр
 		result.suite.aead = static_cast <hpke::aead_t> (twain(data.data + offset + 2));
@@ -718,7 +722,7 @@ nts::ech::error_t nts::ech::parse(const view_t & data, hello_t & result) noexcep
 		// Выводим успешность разбора
 		return error_t::NONE;
 	/**
-	 * Если памяти не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Сбрасываем расширение
@@ -728,17 +732,16 @@ nts::ech::error_t nts::ech::parse(const view_t & data, hello_t & result) noexcep
 	}
 }
 /**
- * @brief Метод составления тела расширения encrypted_client_hello
+ * @brief Функция составления тела расширения encrypted_client_hello
  *
  * @param hello  составляемое расширение
  * @param result накопитель, в конец которого дописывается тело
- *
  * @return       отказ составления
  *
  */
 nts::ech::error_t nts::ech::build(const hello_t & hello, vector <uint8_t> & result) noexcept {
 	/**
-	 * Выполняем перехват нехватки памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Если расширение внутреннего вида
@@ -775,7 +778,7 @@ nts::ech::error_t nts::ech::build(const hello_t & hello, vector <uint8_t> & resu
 		// Выводим успешность составления
 		return error_t::NONE;
 	/**
-	 * Если памяти не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ памяти
@@ -783,17 +786,16 @@ nts::ech::error_t nts::ech::build(const hello_t & hello, vector <uint8_t> & resu
 	}
 }
 /**
- * @brief Метод составления привязки HPKE конфигурации
+ * @brief Функция составления привязки HPKE конфигурации
  *
  * @param config конфигурация как записана на проводе
- * @param result накопитель, в который помещается привязка
- *
+ * @param result накопитель, в который помещается привязка `"tls ech" || 0 || ECHConfig`
  * @return       отказ составления
  *
  */
 nts::ech::error_t nts::ech::binding(const view_t & config, vector <uint8_t> & result) noexcept {
 	/**
-	 * Выполняем перехват нехватки памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Если конфигурации нет
@@ -809,7 +811,7 @@ nts::ech::error_t nts::ech::binding(const view_t & config, vector <uint8_t> & re
 		// Выводим успешность составления
 		return error_t::NONE;
 	/**
-	 * Если памяти не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Сбрасываем накопитель
@@ -819,12 +821,11 @@ nts::ech::error_t nts::ech::binding(const view_t & config, vector <uint8_t> & re
 	}
 }
 /**
- * @brief Метод подсчёта заполнения закодированного внутреннего приветствия
+ * @brief Функция подсчёта заполнения закодированного внутреннего приветствия
  *
  * @param named   длина имени узла внутреннего приветствия, ноль без имени
  * @param maximum наибольшая длина имени по конфигурации
  * @param encoded длина закодированного приветствия без заполнения
- *
  * @return        число нулевых байтов заполнения
  *
  */
@@ -837,14 +838,13 @@ size_t nts::ech::padding(const size_t named, const size_t maximum, const size_t 
 	return (byname + (31 - ((length - 1) % 32)));
 }
 /**
- * @brief Метод кодирования внутреннего приветствия EncodedClientHelloInner
+ * @brief Функция кодирования внутреннего приветствия EncodedClientHelloInner
  *
- * @param inner      внутреннее приветствие
- * @param outsourced виды расширений, вынесенных во внешнее приветствие подряд
+ * @param inner      внутреннее приветствие; его опознаватель связи опускается
+ * @param outsourced виды расширений, вынесенных во внешнее приветствие подряд (пусто - без сжатия)
  * @param padding    число нулевых байтов заполнения
  * @param result     накопитель, в который помещается закодированное приветствие
- *
- * @return           отказ кодирования
+ * @return           отказ кодирования: OUTER, если вынесенные расширения не идут подряд
  *
  */
 nts::ech::error_t nts::ech::encode(const hello::client_t & inner, const vector <uint16_t> & outsourced, const size_t padding, vector <uint8_t> & result) noexcept {
@@ -852,33 +852,19 @@ nts::ech::error_t nts::ech::encode(const hello::client_t & inner, const vector <
 	return encode(inner, outsourced, padding, false, result);
 }
 /**
- * \~russian
- * @brief Метод кодирования внутреннего приветствия с выбором записи
+ * @brief Функция кодирования внутреннего приветствия с выбором записи
  *
  * @param inner      внутреннее приветствие
  * @param outsourced виды расширений, выносимых во внешнее приветствие ссылкой
  * @param padding    число нулевых байтов заполнения
- * @param datagram   признак записи поверх дейтаграмм
+ * @param datagram   признак записи поверх дейтаграмм: тело несёт поле метки возврата состояния (RFC 9147)
  * @param result     накопитель закодированного приветствия
- *
  * @return           отказ кодирования
  *
- * \~english
- * @brief Method of the encoding of the inner greeting with the choice of the record
- *
- * @param inner      inner greeting
- * @param outsourced kinds of the extensions carried to the outer greeting by a reference
- * @param padding    number of the zero bytes of the padding
- * @param datagram   sign of the record over datagrams
- * @param result     accumulator of the encoded greeting
- *
- * @return           failure of the encoding
- *
- * \~
  */
 nts::ech::error_t nts::ech::encode(const hello::client_t & inner, const vector <uint16_t> & outsourced, const size_t padding, const bool datagram, vector <uint8_t> & result) noexcept {
 	/**
-	 * Выполняем перехват нехватки памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Сбрасываем накопитель
@@ -976,7 +962,7 @@ nts::ech::error_t nts::ech::encode(const hello::client_t & inner, const vector <
 		// Выводим успешность кодирования
 		return error_t::NONE;
 	/**
-	 * Если памяти не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Сбрасываем накопитель
@@ -986,13 +972,12 @@ nts::ech::error_t nts::ech::encode(const hello::client_t & inner, const vector <
 	}
 }
 /**
- * @brief Метод восстановления внутреннего приветствия из закодированного
+ * @brief Функция восстановления внутреннего приветствия из закодированного
  *
- * @param encoded закодированное внутреннее приветствие
- * @param outer   внешнее приветствие
+ * @param encoded закодированное внутреннее приветствие (раскрытый шифротекст)
+ * @param outer   внешнее приветствие, из которого берутся опознаватель связи и вынесенные расширения
  * @param result  накопитель, в который помещается тело внутреннего приветствия
- *
- * @return        отказ восстановления
+ * @return        отказ восстановления: OUTER по правилам раздела 7.1 RFC 9849
  *
  */
 nts::ech::error_t nts::ech::decode(const view_t & encoded, const hello::client_t & outer, vector <uint8_t> & result) noexcept {
@@ -1000,31 +985,18 @@ nts::ech::error_t nts::ech::decode(const view_t & encoded, const hello::client_t
 	return decode(encoded, outer, false, result);
 }
 /**
- * \~russian
- * @brief Метод восстановления внутреннего приветствия с выбором записи
+ * @brief Функция восстановления внутреннего приветствия с выбором записи
  *
  * @param encoded  закодированное внутреннее приветствие
- * @param outer    внешнее приветствие
+ * @param outer    внешнее приветствие, из которого берутся вынесенные расширения
  * @param datagram признак записи поверх дейтаграмм
  * @param result   накопитель восстановленного приветствия
- *
  * @return         отказ восстановления
  *
- * \~english
- * @brief Method of the restoring of the inner greeting with the choice of the record
- *
- * @param encoded  encoded inner greeting
- * @param outer    outer greeting
- * @param datagram sign of the record over datagrams
- * @param result   accumulator of the restored greeting
- *
- * @return         failure of the restoring
- *
- * \~
  */
 nts::ech::error_t nts::ech::decode(const view_t & encoded, const hello::client_t & outer, const bool datagram, vector <uint8_t> & result) noexcept {
 	/**
-	 * Выполняем перехват нехватки памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Сбрасываем накопитель
@@ -1152,7 +1124,7 @@ nts::ech::error_t nts::ech::decode(const view_t & encoded, const hello::client_t
 		// Выводим успешность восстановления
 		return error_t::NONE;
 	/**
-	 * Если памяти не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Сбрасываем накопитель
@@ -1162,11 +1134,10 @@ nts::ech::error_t nts::ech::decode(const view_t & encoded, const hello::client_t
 	}
 }
 /**
- * @brief Метод составления добавочных данных внешнего приветствия ClientHelloOuterAAD
+ * @brief Функция составления добавочных данных внешнего приветствия ClientHelloOuterAAD
  *
- * @param body   тело внешнего приветствия
+ * @param body   тело внешнего приветствия с расширением encrypted_client_hello
  * @param result накопитель, в который помещается тело с обнулённым шифротекстом
- *
  * @return       отказ составления
  *
  */
@@ -1175,29 +1146,17 @@ nts::ech::error_t nts::ech::redact(const view_t & body, vector <uint8_t> & resul
 	return redact(body, false, result);
 }
 /**
- * \~russian
- * @brief Метод составления связанных данных из внешнего приветствия с выбором записи
+ * @brief Функция составления связанных данных из внешнего приветствия с выбором записи
  *
  * @param body     тело внешнего приветствия
  * @param datagram признак записи поверх дейтаграмм
- * @param result   накопитель связанных данных
- *
+ * @param result   накопитель связанных данных: тело с обнулённым шифротекстом
  * @return         отказ составления
  *
- * \~english
- * @brief Method of the composition of the associated data from the outer greeting with the choice of the record
- *
- * @param body     body of the outer greeting
- * @param datagram sign of the record over datagrams
- * @param result   accumulator of the associated data
- *
- * @return         failure of the composition
- *
- * \~
  */
 nts::ech::error_t nts::ech::redact(const view_t & body, const bool datagram, vector <uint8_t> & result) noexcept {
 	/**
-	 * Выполняем перехват нехватки памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Сбрасываем накопитель
@@ -1237,7 +1196,7 @@ nts::ech::error_t nts::ech::redact(const view_t & body, const bool datagram, vec
 		// Выводим успешность составления
 		return error_t::NONE;
 	/**
-	 * Если памяти не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Сбрасываем накопитель
@@ -1247,14 +1206,13 @@ nts::ech::error_t nts::ech::redact(const view_t & body, const bool datagram, vec
 	}
 }
 /**
- * @brief Метод вычисления подтверждения принятия ECH
+ * @brief Функция вычисления подтверждения принятия ECH
  *
  * @param algorithm  хеш набора шифрования связи
  * @param random     случайное значение внутреннего приветствия
- * @param transcript хеш переписки с обнулённым подтверждением
- * @param retry      признак просьбы о повторе
+ * @param transcript хеш переписки внутреннего приветствия с сообщением сервера, подтверждение в котором обнулено
+ * @param retry      признак просьбы о повторе (метка «hrr ech accept confirmation»)
  * @param result     место, в которое помещаются восемь байтов подтверждения
- *
  * @return           результат вычисления
  *
  */
@@ -1281,12 +1239,11 @@ bool nts::ech::confirmation(const digest::hash_t algorithm, const view_t & rando
 	return derived;
 }
 /**
- * @brief Метод проверки, признаётся ли набор HPKE конфигурации
+ * @brief Функция проверки, признаётся ли набор HPKE конфигурации
  *
  * @param kem   способ инкапсуляции ключа
  * @param suite набор симметричных алгоритмов
- *
- * @return      признак того, что набор исполним
+ * @return      признак того, что набор исполним модулем hpke
  *
  */
 bool nts::ech::supported(const hpke::kem_t kem, const suite_t & suite) noexcept {
@@ -1301,3 +1258,30 @@ bool nts::ech::supported(const hpke::kem_t kem, const suite_t & suite) noexcept 
 	// Выводим признак поддержки модулем hpke, кроме набора только экспорта
 	return ((suite.aead != hpke::aead_t::EXPORT_ONLY) && hpke::supported(item));
 }
+
+/**
+ * @brief Конструктор
+ *
+ */
+nts::ech::Suite::Suite() noexcept : kdf(hpke::kdf_t::NONE), aead(hpke::aead_t::NONE) {}
+
+/**
+ * @brief Конструктор
+ *
+ * @param kdf  функция вывода ключей
+ * @param aead шифр с проверкой целостности
+ *
+ */
+nts::ech::Suite::Suite(const hpke::kdf_t kdf, const hpke::aead_t aead) noexcept : kdf(kdf), aead(aead) {}
+
+/**
+ * @brief Конструктор
+ *
+ */
+nts::ech::Config::Config() noexcept : id(0), length(0), kem(hpke::kem_t::NONE) {}
+
+/**
+ * @brief Конструктор
+ *
+ */
+nts::ech::Hello::Hello() noexcept : inner(false), id(0) {}

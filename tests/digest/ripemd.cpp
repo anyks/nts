@@ -36,11 +36,10 @@
 using namespace nts;
 
 /**
- * @brief Метод записи байтов шестнадцатеричной строкой
+ * @brief Функция записи байтов шестнадцатеричной строкой
  *
  * @param data байты
  * @param size число байтов
- *
  * @return     запись строчными шестнадцатеричными знаками
  *
  */
@@ -62,10 +61,9 @@ static std::string text(const uint8_t * data, const size_t size) {
 	return result;
 }
 /**
- * @brief Метод вычисления хеша сообщения
+ * @brief Функция вычисления хеша сообщения
  *
  * @param message хешируемое сообщение
- *
  * @return        запись хеша либо пустая при отказе
  *
  */
@@ -73,17 +71,18 @@ static std::string hashed(const std::vector <uint8_t> & message) {
 	// Место под хеш
 	uint8_t result[digest::RIPEMD160];
 	// Вычисляем хеш сообщения
-	if(!digest::ripemd160(view_t(message.data(), message.size()), result, sizeof(result)))
+	if(!digest::ripemd160(view_t(message.data(), message.size()), result, sizeof(result))){
+		// Отказ хеширования: возвращаем пустую запись
 		return std::string();
+	}
 	// Выводим запись хеша
 	return text(result, sizeof(result));
 }
 /**
- * @brief Метод составления сообщения из повторов символа
+ * @brief Функция составления сообщения из повторов символа
  *
  * @param piece повторяемый символ
  * @param count число повторов
- *
  * @return      сообщение
  *
  */
@@ -104,17 +103,23 @@ TEST(RipemdTest, Vectors){
 	ASSERT_EQ(hashed(std::vector <uint8_t> {'a', 'b', 'c'}), "8eb208f7e05d987a9b044a8e98c6b087f15a0bfc");
 	// «message digest»
 	{
+		// Сообщение из спецификации
 		const std::string message = "message digest";
+		// Хеш «message digest» совпадает со значением спецификации
 		ASSERT_EQ(hashed(std::vector <uint8_t> (message.begin(), message.end())), "5d0689ef49d2fae572b881b123a85ffa21595f36");
 	}
 	// Алфавит
 	{
+		// Алфавит в нижнем регистре
 		const std::string message = "abcdefghijklmnopqrstuvwxyz";
+		// Хеш алфавита совпадает со значением спецификации
 		ASSERT_EQ(hashed(std::vector <uint8_t> (message.begin(), message.end())), "f71c27109c692c1b56bbdceb5b9d2865b3708dbc");
 	}
 	// «abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq»
 	{
+		// Сообщение из повторяющихся пар знаков по спецификации
 		const std::string message = "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq";
+		// Хеш этого сообщения совпадает со значением спецификации
 		ASSERT_EQ(hashed(std::vector <uint8_t> (message.begin(), message.end())), "12a053384a9c0c88e405a06c27dcf49ada62eb2b");
 	}
 	// «a» миллион раз
@@ -131,7 +136,9 @@ TEST(RipemdTest, Chunks){
 	const std::string whole = hashed(message);
 	// Хеш по кускам
 	digest::ripemd_t hasher;
-	// Подаём сообщение кусками по семь байтов
+	/**
+	 * Подаём сообщение кусками по семь байтов
+	 */
 	for(size_t i = 0; i < message.size(); i += 7){
 		// Длина очередного куска
 		const size_t chunk = ((message.size() - i < 7) ? (message.size() - i) : 7);
@@ -159,12 +166,17 @@ TEST(RipemdTest, Refusals){
 	digest::ripemd_t hasher;
 	// Подача длиной без места порчена: снятие отказывает
 	hasher.update(view_t(nullptr, 3));
+	// Снятие хеша после порчи подачи отвергается
 	EXPECT_FALSE(hasher.finish(result, sizeof(result)));
 	// После сброса хеширование идёт заново
 	hasher.reset();
+	// Хешируемое сообщение
 	const std::string message = "abc";
+	// Подаём «abc» сброшенному накопителю
 	hasher.update(view_t(reinterpret_cast <const uint8_t *> (message.data()), message.size()));
+	// Снятие хеша после сброса проходит
 	ASSERT_TRUE(hasher.finish(result, sizeof(result)));
+	// Итог совпадает с хешем «abc»
 	ASSERT_EQ(text(result, sizeof(result)), "8eb208f7e05d987a9b044a8e98c6b087f15a0bfc");
 	// Повторное снятие без сброса отвергается
 	EXPECT_FALSE(hasher.finish(result, sizeof(result)));

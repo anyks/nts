@@ -59,6 +59,7 @@ namespace {
 	 *
 	 */
 	static constexpr uint8_t FIRST[32] = {
+		// Старшие байты коэффициента, затем нули и концевые байты 0xFC
 		0xFF, 0xFF, 0xFF, 0xFE, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
 		0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFC
 	};
@@ -70,6 +71,7 @@ namespace {
 	 *
 	 */
 	static constexpr uint8_t SECOND[32] = {
+		// Первые 17 байтов коэффициента кривой
 		0x28, 0xE9, 0xFA, 0x9E, 0x9D, 0x9F, 0x5E, 0x34, 0x4D, 0x5A, 0x9E, 0x4B, 0xCF, 0x65, 0x09, 0xA7,
 		0xF3, 0x97, 0x89, 0xF5, 0x15, 0xAB, 0x8F, 0x92, 0xDD, 0xBC, 0xBD, 0x41, 0x4D, 0x94, 0x0E, 0x93
 	};
@@ -81,6 +83,7 @@ namespace {
 	 *
 	 */
 	static constexpr uint8_t BASE_X[32] = {
+		// Первые 17 байтов абсциссы образующей точки
 		0x32, 0xC4, 0xAE, 0x2C, 0x1F, 0x19, 0x81, 0x19, 0x5F, 0x99, 0x04, 0x46, 0x6A, 0x39, 0xC9, 0x94,
 		0x8F, 0xE3, 0x0B, 0xBF, 0xF2, 0x66, 0x0B, 0xE1, 0x71, 0x5A, 0x45, 0x89, 0x33, 0x4C, 0x74, 0xC7
 	};
@@ -92,6 +95,7 @@ namespace {
 	 *
 	 */
 	static constexpr uint8_t BASE_Y[32] = {
+		// Первые 17 байтов ординаты образующей точки
 		0xBC, 0x37, 0x36, 0xA2, 0xF4, 0xF6, 0x77, 0x9C, 0x59, 0xBD, 0xCE, 0xE3, 0x6B, 0x69, 0x21, 0x53,
 		0xD0, 0xA9, 0x87, 0x7C, 0xC6, 0x2A, 0x47, 0x40, 0x02, 0xDF, 0x32, 0xE5, 0x21, 0x39, 0xF0, 0xA0
 	};
@@ -101,7 +105,6 @@ namespace {
  * @brief Метод выработки значения Z_A
  *
  * @param id опознаватель подписывающего
- *
  * @return   признак успешности выработки значения Z_A
  *
  */
@@ -118,6 +121,7 @@ bool nts::sign::Sm2::identify(const view_t & id) const noexcept {
 		return false;
 	// Длина опознавателя в разрядах, записанная двумя байтами от старшего
 	const uint8_t entl[2] = {
+		// Старший байт длины опознавателя в разрядах
 		static_cast <uint8_t> ((id.size * 8) >> 8),
 		static_cast <uint8_t> (id.size * 8)
 	};
@@ -152,7 +156,6 @@ bool nts::sign::Sm2::identify(const view_t & id) const noexcept {
  * @brief Метод смены опознавателя подписывающего
  *
  * @param id новый опознаватель подписывающего
- *
  * @return   признак успешности смены опознавателя
  *
  */
@@ -192,8 +195,7 @@ size_t nts::sign::Sm2::size() const noexcept {
  * @brief Метод установки эллиптической кривой
  *
  * @param curve устанавливаемая эллиптическая кривая
- *
- * @return признак успешности установки эллиптической кривой
+ * @return      признак успешности установки эллиптической кривой
  *
  */
 bool nts::sign::Sm2::start(const curve::curve_t & curve) noexcept {
@@ -235,8 +237,7 @@ void nts::sign::Sm2::clear() noexcept {
  *
  * @param secret устанавливаемый ключ подписи, записанный от старшего байта к младшему
  * @param id     опознаватель подписывающего для выработки Z_A
- *
- * @return признак успешности установки ключа подписи
+ * @return       признак успешности установки ключа подписи
  *
  */
 bool nts::sign::Sm2::secret(const view_t & secret, const view_t & id) noexcept {
@@ -289,8 +290,7 @@ bool nts::sign::Sm2::secret(const view_t & secret, const view_t & id) noexcept {
  * @param x  первая координата ключа проверки подписи
  * @param y  вторая координата ключа проверки подписи
  * @param id опознаватель подписывающего для выработки Z_A
- *
- * @return признак успешности установки ключа проверки подписи
+ * @return   признак успешности установки ключа проверки подписи
  *
  */
 bool nts::sign::Sm2::key(const view_t & x, const view_t & y, const view_t & id) noexcept {
@@ -317,8 +317,7 @@ bool nts::sign::Sm2::key(const view_t & x, const view_t & y, const view_t & id) 
  * @param x    место, в которое записывается первая координата ключа проверки подписи
  * @param y    место, в которое записывается вторая координата ключа проверки подписи
  * @param size размер места, в которое записывается всякая координата
- *
- * @return признак успешности получения ключа проверки подписи
+ * @return     признак успешности получения ключа проверки подписи
  *
  */
 bool nts::sign::Sm2::key(uint8_t * x, uint8_t * y, const size_t size) const noexcept {
@@ -335,8 +334,7 @@ bool nts::sign::Sm2::key(uint8_t * x, uint8_t * y, const size_t size) const noex
  * @param message подписываемое сообщение
  * @param random  случайное число выработки подписи, записанное от старшего байта к младшему
  * @param result  место, в которое помещается подпись
- *
- * @return признак успешности выработки подписи
+ * @return        признак успешности выработки подписи
  *
  */
 bool nts::sign::Sm2::make(const view_t & message, const view_t & random, uint8_t * result) const noexcept {
@@ -506,8 +504,7 @@ bool nts::sign::Sm2::make(const view_t & message, const view_t & random, uint8_t
  *
  * @param message   подписанное сообщение
  * @param signature проверяемая подпись
- *
- * @return признак того, что подпись сошлась
+ * @return          признак того, что подпись сошлась
  *
  */
 bool nts::sign::Sm2::check(const view_t & message, const view_t & signature) const noexcept {

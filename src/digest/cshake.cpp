@@ -6,6 +6,12 @@
  *
  * @author Yuriy Lobarev
  *
+ * @telegram{forman}
+ * @phone{+7 (910) 983-95-90}
+ *
+ * @email forman@anyks.com
+ * @site https://anyks.com
+ *
  * @brief Исходный файл модуля настраиваемых функций переменного выхода cSHAKE
  *        и имитовставок KMAC по SP 800-185
  *
@@ -62,7 +68,7 @@ namespace {
 	static const char * KMAC = "KMAC";
 
 	/**
-	 * @brief Метод записи числа кодированием left_encode
+	 * @brief Функция записи числа кодированием left_encode
 	 *
 	 * @param value  записываемое число: длина строки в разрядах либо скорость в байтах
 	 * @param result накопитель, в конец которого дописывается запись
@@ -71,10 +77,12 @@ namespace {
 	 *          одним байтом, а x - само число от старшего байта к младшему
 	 *
 	 */
-	void left_encode(const uint64_t value, vector <uint8_t> & result) {
+	void __ants_left_encode__(const uint64_t value, vector <uint8_t> & result) {
 		// Число значащих байтов записываемого числа
 		size_t width = 1;
-		// Считаем значащие байты записываемого числа
+		/**
+		 * Считаем значащие байты записываемого числа
+		 */
 		for(uint64_t rest = (value >> 8); rest != 0; rest >>= 8)
 			// Учитываем очередной значащий байт
 			width++;
@@ -88,7 +96,7 @@ namespace {
 			result.push_back(static_cast <uint8_t> (value >> ((i - 1) * 8)));
 	}
 	/**
-	 * @brief Метод записи числа кодированием right_encode
+	 * @brief Функция записи числа кодированием right_encode
 	 *
 	 * @param value  записываемое число: длина итога в разрядах
 	 * @param result накопитель, в конец которого дописывается запись
@@ -97,10 +105,12 @@ namespace {
 	 *          байта к младшему, а n - длина записи числа одним байтом
 	 *
 	 */
-	void right_encode(const uint64_t value, vector <uint8_t> & result) {
+	void __ants_right_encode__(const uint64_t value, vector <uint8_t> & result) {
 		// Число значащих байтов записываемого числа
 		size_t width = 1;
-		// Считаем значащие байты записываемого числа
+		/**
+		 * Считаем значащие байты записываемого числа
+		 */
 		for(uint64_t rest = (value >> 8); rest != 0; rest >>= 8)
 			// Учитываем очередной значащий байт
 			width++;
@@ -114,7 +124,7 @@ namespace {
 		result.push_back(static_cast <uint8_t> (width));
 	}
 	/**
-	 * @brief Метод записи строки кодированием encode_string
+	 * @brief Функция записи строки кодированием encode_string
 	 *
 	 * @param data   записываемая строка
 	 * @param result накопитель, в конец которого дописывается запись
@@ -122,14 +132,14 @@ namespace {
 	 * @details Раздел 2.2 SP 800-185: запись есть left_encode(длина в разрядах) ‖ строка
 	 *
 	 */
-	void encode_string(const view_t & data, vector <uint8_t> & result) {
+	void __ants_encode_string__(const view_t & data, vector <uint8_t> & result) {
 		// Записываем длину строки в разрядах
-		left_encode(static_cast <uint64_t> (data.size) * 8, result);
+		__ants_left_encode__(static_cast <uint64_t> (data.size) * 8, result);
 		// Записываем саму строку
 		result.insert(result.end(), data.data, data.data + data.size);
 	}
 	/**
-	 * @brief Метод записи строки дополнением до кратности скорости
+	 * @brief Функция записи строки дополнением до кратности скорости
 	 *
 	 * @param data   записываемая строка
 	 * @param rate   скорость разновидности в байтах
@@ -143,17 +153,16 @@ namespace {
 		// Длина записи до дополнения: длина префикса скорости и длина строки
 		const size_t before = (result.size() + 2 + data.size);
 		// Записываем скорость разновидности: у скоростей Keccak запись всегда двухбайтовая
-		left_encode(static_cast <uint64_t> (rate), result);
+		__ants_left_encode__(static_cast <uint64_t> (rate), result);
 		// Записываем саму строку
 		result.insert(result.end(), data.data, data.data + data.size);
 		// Дописываем нули до длины записи, кратной скорости
 		result.insert(result.end(), ((rate - (before % rate)) % rate), 0);
 	}
 	/**
-	 * @brief Метод получения разновидности cSHAKE по разновидности SHAKE
+	 * @brief Функция получения разновидности cSHAKE по разновидности SHAKE
 	 *
 	 * @param type разновидность функции: SHAKE128 либо SHAKE256
-	 *
 	 * @return     разновидность cSHAKE той же скорости либо NONE у чужой разновидности
 	 *
 	 */
@@ -172,15 +181,14 @@ namespace {
 };
 
 /**
- * @brief Метод вычисления cSHAKE за один вызов
+ * @brief Функция вычисления cSHAKE за один вызов
  *
  * @param type   разновидность функции: SHAKE128 либо SHAKE256
  * @param data   сообщение
- * @param name   имя функции N
+ * @param name   имя функции N; пустое вместе с пустой настройкой даёт ровно SHAKE
  * @param custom настройка S, задаваемая потребителем
  * @param result место, в которое помещается итог
  * @param size   длина итога в байтах
- *
  * @return       признак того, что итог вычислен
  *
  */
@@ -200,7 +208,7 @@ bool nts::digest::cshake(const sha3_t type, const view_t & data, const view_t & 
 		// Выводим отказ вычисления итога
 		return false;
 	/**
-	 * Выполняем перехват ошибок работы с памятью: запись кодирования занимает память
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Накопитель записи bytepad(encode_string(N) ‖ encode_string(S), rate)
@@ -208,9 +216,9 @@ bool nts::digest::cshake(const sha3_t type, const view_t & data, const view_t & 
 		// Накопитель записи имени и настройки
 		vector <uint8_t> both;
 		// Записываем имя функции
-		::encode_string(name, both);
+		::__ants_encode_string__(name, both);
 		// Записываем настройку потребителя
-		::encode_string(custom, both);
+		::__ants_encode_string__(custom, both);
 		// Записываем строку имени и настройки дополнением до кратности скорости
 		::bytepad(view_t(both.data(), both.size()), rate(kind), prefix);
 		// Объект губки настраиваемой разновидности
@@ -218,7 +226,7 @@ bool nts::digest::cshake(const sha3_t type, const view_t & data, const view_t & 
 		// Поглощаем запись кодирования и сообщение, выжимаем итог запрошенной длины
 		return (sponge.update(view_t(prefix.data(), prefix.size())) && sponge.update(data) && sponge.finish(result, size));
 	/**
-	 * Если памяти под запись кодирования не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ вычисления итога
@@ -226,7 +234,7 @@ bool nts::digest::cshake(const sha3_t type, const view_t & data, const view_t & 
 	}
 }
 /**
- * @brief Метод вычисления имитовставки KMAC за один вызов
+ * @brief Функция вычисления имитовставки KMAC за один вызов
  *
  * @param type   разновидность функции: SHAKE128 либо SHAKE256
  * @param key    ключ имитовставки
@@ -234,7 +242,6 @@ bool nts::digest::cshake(const sha3_t type, const view_t & data, const view_t & 
  * @param custom настройка S, задаваемая потребителем
  * @param result место, в которое помещается имитовставка
  * @param size   длина имитовставки в байтах
- *
  * @return       признак того, что имитовставка вычислена
  *
  */
@@ -250,7 +257,7 @@ bool nts::digest::kmac(const sha3_t type, const view_t & key, const view_t & dat
 		// Выводим отказ вычисления имитовставки
 		return false;
 	/**
-	 * Выполняем перехват ошибок работы с памятью: запись кодирования занимает память
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Накопитель записи bytepad(encode_string(K), rate) ‖ X ‖ right_encode(L)
@@ -258,19 +265,19 @@ bool nts::digest::kmac(const sha3_t type, const view_t & key, const view_t & dat
 		// Накопитель записи ключа
 		vector <uint8_t> encoded;
 		// Записываем ключ имитовставки
-		::encode_string(key, encoded);
+		::__ants_encode_string__(key, encoded);
 		// Записываем строку ключа дополнением до кратности скорости
 		::bytepad(view_t(encoded.data(), encoded.size()), rate(kind), message);
 		// Записываем сообщение
 		message.insert(message.end(), data.data, data.data + data.size);
 		// Записываем длину имитовставки в разрядах
-		::right_encode(static_cast <uint64_t> (size) * 8, message);
+		::__ants_right_encode__(static_cast <uint64_t> (size) * 8, message);
 		// Имя функции имитовставки
 		const view_t naming(reinterpret_cast <const uint8_t *> (::KMAC), ::strlen(::KMAC));
 		// Выводим итог вычисления cSHAKE с именем «KMAC»
 		return nts::digest::cshake(type, view_t(message.data(), message.size()), naming, custom, result, size);
 	/**
-	 * Если памяти под запись кодирования не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ вычисления имитовставки
@@ -278,7 +285,7 @@ bool nts::digest::kmac(const sha3_t type, const view_t & key, const view_t & dat
 	}
 }
 /**
- * @brief Метод вычисления имитовставки KMAC переменной длины за один вызов
+ * @brief Функция вычисления имитовставки KMAC переменной длины за один вызов
  *
  * @param type   разновидность функции: SHAKE128 либо SHAKE256
  * @param key    ключ имитовставки
@@ -286,7 +293,6 @@ bool nts::digest::kmac(const sha3_t type, const view_t & key, const view_t & dat
  * @param custom настройка S, задаваемая потребителем
  * @param result место, в которое помещается имитовставка
  * @param size   длина имитовставки в байтах
- *
  * @return       признак того, что имитовставка вычислена
  *
  */
@@ -302,7 +308,7 @@ bool nts::digest::kmacxof(const sha3_t type, const view_t & key, const view_t & 
 		// Выводим отказ вычисления имитовставки
 		return false;
 	/**
-	 * Выполняем перехват ошибок работы с памятью: запись кодирования занимает память
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Накопитель записи bytepad(encode_string(K), rate) ‖ X ‖ right_encode(0)
@@ -310,19 +316,19 @@ bool nts::digest::kmacxof(const sha3_t type, const view_t & key, const view_t & 
 		// Накопитель записи ключа
 		vector <uint8_t> encoded;
 		// Записываем ключ имитовставки
-		::encode_string(key, encoded);
+		::__ants_encode_string__(key, encoded);
 		// Записываем строку ключа дополнением до кратности скорости
 		::bytepad(view_t(encoded.data(), encoded.size()), rate(kind), message);
 		// Записываем сообщение
 		message.insert(message.end(), data.data, data.data + data.size);
 		// Записываем нулевую длину итога: раздел 4.3.1 SP 800-185
-		::right_encode(0, message);
+		::__ants_right_encode__(0, message);
 		// Имя функции имитовставки
 		const view_t naming(reinterpret_cast <const uint8_t *> (::KMAC), ::strlen(::KMAC));
 		// Выводим итог вычисления cSHAKE с именем «KMAC»
 		return nts::digest::cshake(type, view_t(message.data(), message.size()), naming, custom, result, size);
 	/**
-	 * Если памяти под запись кодирования не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ вычисления имитовставки

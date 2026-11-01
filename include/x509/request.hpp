@@ -21,7 +21,6 @@
  *        parsing and writing of a CertificationRequest according to RFC 2986
  *
  * \~
- *
  * @copyright Copyright © 2026
  *
  */
@@ -55,7 +54,6 @@
  * @brief Main namespace
  *
  * \~
- *
  */
 namespace nts {
 	/**
@@ -84,6 +82,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief PKCS #10 certificate request
+		 *
 		 * @details The parsed request keeps views inside the encoding being parsed:
 		 *          the encoding must outlive the object. The signature is checked by
 		 *          a separate call of verify with the same key that lies in the public
@@ -131,8 +130,12 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of parsing a certificate request encoding
+				 *
 				 * @param data the view of the certificate request encoding being parsed
 				 * @return     the reason of the failure or error_t::NONE
+				 *
+				 * @note The views of the parsed fields point inside the passed encoding,
+				 *       therefore the encoding must outlive the object of the request
 				 *
 				 * \~
 				 */
@@ -156,6 +159,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the reason of the last failure
+				 *
 				 * @return the reason of the last failure
 				 *
 				 * \~
@@ -169,6 +173,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the signed part of the request
+				 *
 				 * @return the view of the signed part of the request
 				 *
 				 * \~
@@ -183,6 +188,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the signature of the request
+				 *
 				 * @param unused the number of unused bits in the last byte of the signature
 				 * @return       the view of the signature encoding
 				 *
@@ -197,6 +203,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the identifier of the signature algorithm
+				 *
 				 * @return the identifier of the signature algorithm
 				 *
 				 * \~
@@ -210,6 +217,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the encoding of the parameters of the signature algorithm
+				 *
 				 * @return the view of the encoding of the parameters or an empty view
 				 *
 				 * \~
@@ -223,6 +231,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the name of the subject of the requested certificate
+				 *
 				 * @return the name of the subject of the requested certificate
 				 *
 				 * \~
@@ -236,6 +245,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the public key info of the request
+				 *
 				 * @return the public key info of the request
 				 *
 				 * \~
@@ -249,6 +259,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the set of the requested extensions
+				 *
 				 * @return the set of the requested extensions
 				 *
 				 * \~
@@ -274,12 +285,12 @@ namespace nts {
 				 *
 				 * \~
 				 */
-				~Request() noexcept {}
+				~Request() noexcept;
 		} request_t;
 
 		/**
 		 * \~russian
-		 * @brief Метод записи запроса на сертификат PKCS #10
+		 * @brief Функция записи запроса на сертификат PKCS #10
 		 *
 		 * @param subject    имя владельца запрашиваемого сертификата
 		 * @param key        сведения об открытом ключе запроса
@@ -287,7 +298,6 @@ namespace nts {
 		 * @param signer     подготовленный секретный ключ подписи запроса
 		 * @param hash       алгоритм хеша подписи (для ECDSA и RSA; у Ed25519, ML-DSA, SM2 и ГОСТ не рассматривается)
 		 * @param result     место, в которое помещается запись запроса в кодировке DER
-		 *
 		 * @return           отказ записи запроса
 		 *
 		 * @details Собирается CertificationRequestInfo {version, subject, subjectPKInfo, attributes [0]},
@@ -296,7 +306,8 @@ namespace nts {
 		 *          всегда, даже при пустом наборе расширений - так велит раздел 4 RFC 2986.
 		 *
 		 * \~english
-		 * @brief Method of writing a PKCS #10 certificate request
+		 * @brief Function of writing a PKCS #10 certificate request
+		 *
 		 * @param subject    the name of the subject of the requested certificate
 		 * @param key        the public key info of the request
 		 * @param extensions the set of the requested extensions (an empty set - without extensions)
@@ -304,6 +315,7 @@ namespace nts {
 		 * @param hash       the hash algorithm of the signature (for ECDSA and RSA; not considered at Ed25519, ML-DSA, SM2 and GOST)
 		 * @param result     the place the request encoding in DER is put into
 		 * @return           the failure of the writing of the request
+		 *
 		 * @details The CertificationRequestInfo {version, subject, subjectPKInfo, attributes [0]} is built,
 		 *          signed by the signer key, and wrapped into CertificationRequest {certificationRequestInfo,
 		 *          signatureAlgorithm, signature}. The extensionRequest attribute (1.2.840.113549.1.9.14) is
@@ -315,16 +327,16 @@ namespace nts {
 
 		/**
 		 * \~russian
-		 * @brief Метод проверки подписи запроса на сертификат
+		 * @brief Функция проверки подписи запроса на сертификат
 		 *
 		 * @param request запрос, подпись которого проверяется
 		 * @param key     сведения об открытом ключе подписавшей стороны
-		 *
 		 * @return        отказ проверки: NONE - подпись сошлась, SIGNATURE - не сошлась либо
 		 *                непригодна, KEY - ключ чужого алгоритма, MEMORY - памяти не хватило
 		 *
 		 * \~english
-		 * @brief Method of the check of the signature of a certificate request
+		 * @brief Function of the check of the signature of a certificate request
+		 *
 		 * @param request the request the signature of which is checked
 		 * @param key     the info of the public key of the side that signed
 		 * @return        the failure of the check: NONE - the signature has converged, SIGNATURE - it has not or is

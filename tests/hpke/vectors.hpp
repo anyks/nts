@@ -24,6 +24,9 @@
  * Экранируем повторную инициализацию модуля
  */
 #ifndef __ANTS_TESTS_HPKE_VECTORS__
+/**
+ * Заводим макрос стража: повторное подключение заголовка векторов HPKE отсекается
+ */
 #define __ANTS_TESTS_HPKE_VECTORS__
 
 /**
@@ -99,17 +102,17 @@ namespace vectors {
 		// Заранее разделённый ключ либо пустая строка
 		const char * psk;
 		// Опознаватель ключа либо пустая строка
-		const char * psk_id;
+		const char * pskId;
 		// Инкапсулированный ключ
 		const char * enc;
 		// Общее значение способа инкапсуляции
-		const char * shared_secret;
+		const char * sharedSecret;
 		// Ключ шифра либо пустая строка
 		const char * key;
 		// Начальное заполнение либо пустая строка
-		const char * base_nonce;
+		const char * baseNonce;
 		// Секрет экспорта
-		const char * exporter_secret;
+		const char * exporterSecret;
 		// Число зашифрований
 		size_t encryptions;
 		// Зашифрования
@@ -189,4 +192,4 @@ namespace vectors {
 	};
 }
 
-#endif // __ANTS_TESTS_HPKE_VECTORS__
+#endif

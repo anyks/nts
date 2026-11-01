@@ -72,6 +72,7 @@ namespace {
 	 *
 	 */
 	static const uint8_t FFDHE2048[256] = {
+		/* Старшие байты модуля: единичное начало и первый ряд */
 		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xad, 0xf8, 0x54, 0x58, 0xa2, 0xbb, 0x4a, 0x9a,
 		0xaf, 0xdc, 0x56, 0x20, 0x27, 0x3d, 0x3c, 0xf1, 0xd8, 0xb9, 0xc5, 0x83, 0xce, 0x2d, 0x36, 0x95,
 		0xa9, 0xe1, 0x36, 0x41, 0x14, 0x64, 0x33, 0xfb, 0xcc, 0x93, 0x9d, 0xce, 0x24, 0x9b, 0x3e, 0xf9,
@@ -94,6 +95,7 @@ namespace {
 	 *
 	 */
 	static const uint8_t FFDHE3072[384] = {
+		/* Старшие байты модуля: единичное начало и первый ряд */
 		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xad, 0xf8, 0x54, 0x58, 0xa2, 0xbb, 0x4a, 0x9a,
 		0xaf, 0xdc, 0x56, 0x20, 0x27, 0x3d, 0x3c, 0xf1, 0xd8, 0xb9, 0xc5, 0x83, 0xce, 0x2d, 0x36, 0x95,
 		0xa9, 0xe1, 0x36, 0x41, 0x14, 0x64, 0x33, 0xfb, 0xcc, 0x93, 0x9d, 0xce, 0x24, 0x9b, 0x3e, 0xf9,
@@ -124,6 +126,7 @@ namespace {
 	 *
 	 */
 	static const uint8_t FFDHE4096[512] = {
+		/* Старшие байты модуля: единичное начало и первый ряд */
 		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xad, 0xf8, 0x54, 0x58, 0xa2, 0xbb, 0x4a, 0x9a,
 		0xaf, 0xdc, 0x56, 0x20, 0x27, 0x3d, 0x3c, 0xf1, 0xd8, 0xb9, 0xc5, 0x83, 0xce, 0x2d, 0x36, 0x95,
 		0xa9, 0xe1, 0x36, 0x41, 0x14, 0x64, 0x33, 0xfb, 0xcc, 0x93, 0x9d, 0xce, 0x24, 0x9b, 0x3e, 0xf9,
@@ -162,6 +165,7 @@ namespace {
 	 *
 	 */
 	static const uint8_t FFDHE6144[768] = {
+		/* Старшие байты модуля: единичное начало и первый ряд */
 		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xad, 0xf8, 0x54, 0x58, 0xa2, 0xbb, 0x4a, 0x9a,
 		0xaf, 0xdc, 0x56, 0x20, 0x27, 0x3d, 0x3c, 0xf1, 0xd8, 0xb9, 0xc5, 0x83, 0xce, 0x2d, 0x36, 0x95,
 		0xa9, 0xe1, 0x36, 0x41, 0x14, 0x64, 0x33, 0xfb, 0xcc, 0x93, 0x9d, 0xce, 0x24, 0x9b, 0x3e, 0xf9,
@@ -216,6 +220,7 @@ namespace {
 	 *
 	 */
 	static const uint8_t FFDHE8192[1024] = {
+		/* Старшие байты модуля: единичное начало и первый ряд */
 		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xad, 0xf8, 0x54, 0x58, 0xa2, 0xbb, 0x4a, 0x9a,
 		0xaf, 0xdc, 0x56, 0x20, 0x27, 0x3d, 0x3c, 0xf1, 0xd8, 0xb9, 0xc5, 0x83, 0xce, 0x2d, 0x36, 0x95,
 		0xa9, 0xe1, 0x36, 0x41, 0x14, 0x64, 0x33, 0xfb, 0xcc, 0x93, 0x9d, 0xce, 0x24, 0x9b, 0x3e, 0xf9,
@@ -286,6 +291,7 @@ namespace {
 	 *
 	 */
 	static const uint8_t MODP14[256] = {
+		/* Старшие байты модуля: единичное начало и первый ряд */
 		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xc9, 0x0f, 0xda, 0xa2, 0x21, 0x68, 0xc2, 0x34,
 		0xc4, 0xc6, 0x62, 0x8b, 0x80, 0xdc, 0x1c, 0xd1, 0x29, 0x02, 0x4e, 0x08, 0x8a, 0x67, 0xcc, 0x74,
 		0x02, 0x0b, 0xbe, 0xa6, 0x3b, 0x13, 0x9b, 0x22, 0x51, 0x4a, 0x08, 0x79, 0x8e, 0x34, 0x04, 0xdd,
@@ -308,6 +314,7 @@ namespace {
 	 *
 	 */
 	static const uint8_t MODP15[384] = {
+		/* Старшие байты модуля: единичное начало и первый ряд */
 		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xc9, 0x0f, 0xda, 0xa2, 0x21, 0x68, 0xc2, 0x34,
 		0xc4, 0xc6, 0x62, 0x8b, 0x80, 0xdc, 0x1c, 0xd1, 0x29, 0x02, 0x4e, 0x08, 0x8a, 0x67, 0xcc, 0x74,
 		0x02, 0x0b, 0xbe, 0xa6, 0x3b, 0x13, 0x9b, 0x22, 0x51, 0x4a, 0x08, 0x79, 0x8e, 0x34, 0x04, 0xdd,
@@ -338,6 +345,7 @@ namespace {
 	 *
 	 */
 	static const uint8_t MODP16[512] = {
+		/* Старшие байты модуля: единичное начало и первый ряд */
 		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xc9, 0x0f, 0xda, 0xa2, 0x21, 0x68, 0xc2, 0x34,
 		0xc4, 0xc6, 0x62, 0x8b, 0x80, 0xdc, 0x1c, 0xd1, 0x29, 0x02, 0x4e, 0x08, 0x8a, 0x67, 0xcc, 0x74,
 		0x02, 0x0b, 0xbe, 0xa6, 0x3b, 0x13, 0x9b, 0x22, 0x51, 0x4a, 0x08, 0x79, 0x8e, 0x34, 0x04, 0xdd,
@@ -377,6 +385,7 @@ namespace {
 	 *
 	 */
 	static const uint8_t MODP18[1024] = {
+		/* Старшие байты модуля: единичное начало и первый ряд */
 		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xC9, 0x0F, 0xDA, 0xA2, 0x21, 0x68, 0xC2, 0x34,
 		0xC4, 0xC6, 0x62, 0x8B, 0x80, 0xDC, 0x1C, 0xD1, 0x29, 0x02, 0x4E, 0x08, 0x8A, 0x67, 0xCC, 0x74,
 		0x02, 0x0B, 0xBE, 0xA6, 0x3B, 0x13, 0x9B, 0x22, 0x51, 0x4A, 0x08, 0x79, 0x8E, 0x34, 0x04, 0xDD,
@@ -447,6 +456,7 @@ namespace {
 	 * Группы RFC 7919 по длине модуля
 	 */
 	static const group_t GROUPS[5] = {
+		/* Первая строка: ffdhe2048 — 256 байтов, показатель 32 */
 		{256,  32, FFDHE2048},
 		{384,  36, FFDHE3072},
 		{512,  42, FFDHE4096},
@@ -455,19 +465,10 @@ namespace {
 	};
 
 	/**
-	 * @brief Метод розыска группы по длине модуля
-	 *
-	 * @param size длина модуля в байтах
-	 *
-	 * @return     описание группы либо nullptr
-	 *
-	 */
-	/**
-	 * @brief Метод получения ширины перебора показателя
+	 * @brief Функция получения ширины перебора показателя
 	 *
 	 * @param group  группа
 	 * @param secret показатель
-	 *
 	 * @return       число разрядов перебора: объявленная длина показателя группы либо длина поданного, если он шире
 	 *
 	 */
@@ -477,7 +478,14 @@ namespace {
 		// Выводим большую из ширин: своя сторона всегда укладывается в объявленную
 		return ((given > (group->exponent * 8)) ? given : (group->exponent * 8));
 	}
-		static const group_t * lookup(const size_t size) noexcept {
+	/**
+	 * @brief Функция розыска группы по длине модуля
+	 *
+	 * @param size длина модуля в байтах
+	 * @return     описание группы либо nullptr
+	 *
+	 */
+	static const group_t * lookup(const size_t size) noexcept {
 		/**
 		 * Выполняем перебор групп
 		 */
@@ -510,6 +518,7 @@ namespace {
 	 * Группы RFC 3526 по опознавателю
 	 */
 	static const group3526_t GROUPS3526[4] = {
+		/* Первая строка: modp14 — 256 байтов, показатель 32 */
 		{14, 256, 32, MODP14},
 		{15, 384, 36, MODP15},
 		{16, 512, 42, MODP16},
@@ -517,10 +526,9 @@ namespace {
 	};
 
 	/**
-	 * @brief Метод розыска группы RFC 3526 по опознавателю
+	 * @brief Функция розыска группы RFC 3526 по опознавателю
 	 *
 	 * @param id опознаватель группы
-	 *
 	 * @return     описание группы либо nullptr
 	 *
 	 */
@@ -539,12 +547,11 @@ namespace {
 	}
 
 	/**
-	 * @brief Метод проверки, что число лежит строго между единицей и границей
+	 * @brief Функция проверки, что число лежит строго между единицей и границей
 	 *
 	 * @param value число
 	 * @param one   единица
 	 * @param edge  граница p − 1
-	 *
 	 * @return      признак попадания в интервал (1, edge)
 	 *
 	 */
@@ -555,11 +562,10 @@ namespace {
 };
 
 /**
- * @brief Метод получения простого модуля группы RFC 7919 по его длине
+ * @brief Функция получения простого модуля группы RFC 7919 по его длине
  *
- * @param size длина модуля в байтах
- *
- * @return     модуль от старшего байта к младшему
+ * @param size длина модуля в байтах: 256, 384, 512, 768 либо 1024
+ * @return     модуль от старшего байта к младшему; пустой просмотр у неведомой длины
  *
  */
 view_t nts::agreement::prime(const size_t size) noexcept {
@@ -569,11 +575,10 @@ view_t nts::agreement::prime(const size_t size) noexcept {
 	return ((group != nullptr) ? view_t(group->modulus, group->size) : view_t(nullptr, 0));
 }
 /**
- * @brief Метод получения длины секретного показателя группы RFC 7919
+ * @brief Функция получения длины секретного показателя группы RFC 7919
  *
  * @param size длина модуля в байтах
- *
- * @return     длина показателя в байтах
+ * @return     длина показателя в байтах, ноль у неведомой длины модуля
  *
  */
 size_t nts::agreement::exponent(const size_t size) noexcept {
@@ -583,12 +588,11 @@ size_t nts::agreement::exponent(const size_t size) noexcept {
 	return ((group != nullptr) ? group->exponent : 0);
 }
 /**
- * @brief Метод выработки открытого ключа группы RFC 7919
+ * @brief Функция выработки открытого ключа группы RFC 7919
  *
  * @param size   длина модуля в байтах
- * @param secret секретный показатель от старшего байта к младшему
- * @param result место, в которое помещается открытый ключ длиной в модуль
- *
+ * @param secret секретный показатель от старшего байта к младшему, не длиннее модуля (своя сторона берёт `exponent(size)`)
+ * @param result место, в которое помещается открытый ключ длиной в модуль, дополненный нулями спереди
  * @return       признак успешности выработки открытого ключа
  *
  */
@@ -597,17 +601,17 @@ bool nts::agreement::ffdhe(const size_t size, const view_t & secret, uint8_t * r
 	const group_t * group = lookup(size);
 	// Если группа неведома либо доводы не переданы
 	if((group == nullptr) || (result == nullptr) || (secret.data == nullptr) || (secret.size == 0) || (secret.size > group->size))
-		// Выводим отказ
+		// Выводим отрицательный результат - доводы не переданы
 		return false;
 	// Модуль, показатель, основание и итог
 	math::integer_t modulus, power, base, value;
 	// Если модуль либо показатель разобрать не удалось
 	if(!modulus.load(view_t(group->modulus, group->size)) || !power.load(secret))
-		// Выводим отказ
+		// Выводим отрицательный результат - параметры не разобраны
 		return false;
 	// Нулевой показатель негоден: открытый ключ обратился бы в единицу
 	if(power.zero())
-		// Выводим отказ
+		// Выводим отрицательный результат - показатель нулевой
 		return false;
 	// Образующая группы
 	base.word(2);
@@ -626,13 +630,12 @@ bool nts::agreement::ffdhe(const size_t size, const view_t & secret, uint8_t * r
 	return ok;
 }
 /**
- * @brief Метод выработки общего значения группы RFC 7919
+ * @brief Функция выработки общего значения группы RFC 7919
  *
  * @param size   длина модуля в байтах
- * @param secret секретный показатель своей стороны
+ * @param secret секретный показатель своей стороны, не длиннее модуля
  * @param key    открытый ключ встречной стороны длиной в модуль
- * @param result место, в которое помещается общее значение длиной в модуль
- *
+ * @param result место, в которое помещается общее значение длиной в модуль, дополненное нулями спереди
  * @return       признак успешности выработки общего значения
  *
  */
@@ -641,27 +644,27 @@ bool nts::agreement::ffdhe(const size_t size, const view_t & secret, const view_
 	const group_t * group = lookup(size);
 	// Если группа неведома либо доводы не переданы
 	if((group == nullptr) || (result == nullptr) || (secret.data == nullptr) || (secret.size == 0) || (secret.size > group->size) || (key.data == nullptr) || (key.size != group->size))
-		// Выводим отказ
+		// Выводим отрицательный результат - доводы не переданы
 		return false;
 	// Модуль, показатель, ключ встречной стороны, единица, граница и итог
 	math::integer_t modulus, power, peer, one, edge, value;
 	// Если модуль, показатель либо ключ разобрать не удалось
 	if(!modulus.load(view_t(group->modulus, group->size)) || !power.load(secret) || !peer.load(key))
-		// Выводим отказ
+		// Выводим отрицательный результат - параметры не разобраны
 		return false;
 	// Нулевой показатель негоден
 	if(power.zero())
-		// Выводим отказ
+		// Выводим отрицательный результат - показатель нулевой
 		return false;
 	// Единица
 	one.word(1);
 	// Граница p - 1
 	if(!edge.subtract(modulus, one))
-		// Выводим отказ
+		// Выводим отрицательный результат - граница не вычислена
 		return false;
 	// Раздел 4.2.8.1 RFC 8446: ключ обязан лежать в (1, p - 1)
 	if((peer.compare(one) <= 0) || (peer.compare(edge) >= 0))
-		// Выводим отказ
+		// Выводим отрицательный результат - ключ вне границ
 		return false;
 	/**
 	 * Проверки принадлежности подгруппе порядка q возведением Y^q здесь нет намеренно:
@@ -687,12 +690,11 @@ bool nts::agreement::ffdhe(const size_t size, const view_t & secret, const view_
 	return ok;
 }
 /**
- * @brief Метод порождения пары ключей группы RFC 7919
+ * @brief Функция порождения пары ключей группы RFC 7919
  *
  * @param size   длина модуля в байтах
- * @param secret место, в которое помещается секретный показатель
+ * @param secret место, в которое помещается секретный показатель длиной `exponent(size)`
  * @param key    место, в которое помещается открытый ключ длиной в модуль
- *
  * @return       признак успешности порождения пары ключей
  *
  */
@@ -701,13 +703,13 @@ bool nts::agreement::pairffdhe(const size_t size, uint8_t * secret, uint8_t * ke
 	const group_t * group = lookup(size);
 	// Если группа неведома либо места не переданы
 	if((group == nullptr) || (secret == nullptr) || (key == nullptr))
-		// Выводим отказ
+		// Выводим отрицательный результат - место не передано
 		return false;
 	// Если случайные байты показателя получить не удалось
 	if(!entropy::bytes(secret, group->exponent)){
 		// Затираем ключ
 		wipe(key, size);
-		// Выводим отказ
+		// Выводим отрицательный результат - ключ не выработан
 		return false;
 	}
 	// Ставим старший разряд показателя: ширина показателя постоянна, и число шагов возведения её не выдаёт
@@ -718,18 +720,17 @@ bool nts::agreement::pairffdhe(const size_t size, uint8_t * secret, uint8_t * ke
 		wipe(secret, group->exponent);
 		// Затираем ключ
 		wipe(key, size);
-		// Выводим отказ
+		// Выводим отрицательный результат - секрет не согласован
 		return false;
 	}
-	// Выводим успешность
+	// Сообщаем об успешном согласовании
 	return true;
 }
 /**
- * @brief Метод получения простого модуля группы RFC 3526 по её опознавателю
+ * @brief Функция получения простого модуля группы RFC 3526 по её опознавателю
  *
- * @param id опознаватель группы
- *
- * @return   модуль от старшего байта к младшему
+ * @param id опознаватель группы: 14 (modp2048), 15 (modp3072), 16 (modp4096)
+ * @return   модуль от старшего байта к младшему; пустой просмотр у неведомого опознавателя
  *
  */
 view_t nts::agreement::prime3526(const uint8_t id) noexcept {
@@ -739,11 +740,10 @@ view_t nts::agreement::prime3526(const uint8_t id) noexcept {
 	return ((group != nullptr) ? view_t(group->modulus, group->size) : view_t(nullptr, 0));
 }
 /**
- * @brief Метод получения длины секретного показателя группы RFC 3526
+ * @brief Функция получения длины секретного показателя группы RFC 3526
  *
  * @param id опознаватель группы
- *
- * @return   длина показателя в байтах
+ * @return   длина показателя в байтах, ноль у неведомого опознавателя
  *
  */
 size_t nts::agreement::exponent3526(const uint8_t id) noexcept {
@@ -753,40 +753,39 @@ size_t nts::agreement::exponent3526(const uint8_t id) noexcept {
 	return ((group != nullptr) ? group->exponent : 0);
 }
 /**
- * @brief Метод выработки открытого ключа по произвольному простому модулю и образующей
+ * @brief Функция выработки открытого ключа по произвольному простому модулю и образующей
  *
- * @param prime     простой нечётный модуль
- * @param generator образующая группы
- * @param secret    секретный показатель
- * @param result    место, в которое помещается открытый ключ
- *
+ * @param prime     простой нечётный модуль от старшего байта к младшему
+ * @param generator образующая группы, 1 < g < p
+ * @param secret    секретный показатель, 1 < secret < p − 1
+ * @param result    место, в которое помещается открытый ключ длиной в модуль
  * @return          признак успешности выработки открытого ключа
  *
  */
 bool nts::agreement::ffdhe(const view_t & prime, const view_t & generator, const view_t & secret, uint8_t * result) noexcept {
 	// Если доводы не переданы либо показатель длиннее вместимости
 	if((result == nullptr) || (prime.data == nullptr) || (prime.size == 0) || (prime.size > math::INTEGER_SIZE) || (generator.data == nullptr) || (generator.size == 0) || (generator.size > math::INTEGER_SIZE) || (secret.data == nullptr) || (secret.size == 0) || (secret.size > math::INTEGER_SIZE))
-		// Выводим отказ
+		// Выводим отрицательный результат - доводы не переданы
 		return false;
 	// Модуль, образующая, показатель, единица, граница и итог
 	math::integer_t modulus, base, power, one, edge, value;
 	// Если модуль, образующая либо показатель разобрать не удалось
 	if(!modulus.load(prime) || !base.load(generator) || !power.load(secret))
-		// Выводим отказ
+		// Выводим отрицательный результат - параметры не разобраны
 		return false;
 	// Модуль обязан быть нечётным и ненулевым
 	if(!modulus.odd() || modulus.zero())
-		// Выводим отказ
+		// Выводим отрицательный результат - модуль нулевой либо чётный
 		return false;
 	// Единица
 	one.word(1);
 	// Граница p − 1
 	if(!edge.subtract(modulus, one))
-		// Выводим отказ
+		// Выводим отрицательный результат - граница не вычислена
 		return false;
 	// Образующая и показатель должны лежать в (1, p − 1)
 	if(!inside(base, one, edge) || !inside(power, one, edge))
-		// Выводим отказ
+		// Выводим отрицательный результат - значения вне границ
 		return false;
 	// Число разрядов перебора по длине поданного показателя
 	const size_t bits = (secret.size * 8);
@@ -808,41 +807,40 @@ bool nts::agreement::ffdhe(const view_t & prime, const view_t & generator, const
 	return ok;
 }
 /**
- * @brief Метод выработки общего значения по произвольному простому модулю и образующей
+ * @brief Функция выработки общего значения по произвольному простому модулю и образующей
  *
- * @param prime     простой нечётный модуль
- * @param generator образующая группы
- * @param secret    секретный показатель своей стороны
- * @param key       открытый ключ встречной стороны
- * @param result    место, в которое помещается общее значение
- *
+ * @param prime     простой нечётный модуль от старшего байта к младшему
+ * @param generator образующая группы, 1 < g < p
+ * @param secret    секретный показатель своей стороны, 1 < secret < p − 1
+ * @param key       открытый ключ встречной стороны длиной в модуль, 1 < key < p − 1
+ * @param result    место, в которое помещается общее значение длиной в модуль
  * @return          признак успешности выработки общего значения
  *
  */
 bool nts::agreement::ffdhe(const view_t & prime, const view_t & generator, const view_t & secret, const view_t & key, uint8_t * result) noexcept {
 	// Если доводы не переданы, ключ не длиной в модуль либо показатель длиннее вместимости
 	if((result == nullptr) || (prime.data == nullptr) || (prime.size == 0) || (prime.size > math::INTEGER_SIZE) || (generator.data == nullptr) || (generator.size == 0) || (generator.size > math::INTEGER_SIZE) || (secret.data == nullptr) || (secret.size == 0) || (secret.size > math::INTEGER_SIZE) || (key.data == nullptr) || (key.size != prime.size))
-		// Выводим отказ
+		// Выводим отрицательный результат - доводы не переданы
 		return false;
 	// Модуль, образующая, показатель, ключ встречной стороны, единица, граница и итог
 	math::integer_t modulus, base, power, peer, one, edge, value;
 	// Если модуль, образующая, показатель либо ключ разобрать не удалось
 	if(!modulus.load(prime) || !base.load(generator) || !power.load(secret) || !peer.load(key))
-		// Выводим отказ
+		// Выводим отрицательный результат - параметры не разобраны
 		return false;
 	// Модуль обязан быть нечётным и ненулевым
 	if(!modulus.odd() || modulus.zero())
-		// Выводим отказ
+		// Выводим отрицательный результат - модуль нулевой либо чётный
 		return false;
 	// Единица
 	one.word(1);
 	// Граница p − 1
 	if(!edge.subtract(modulus, one))
-		// Выводим отказ
+		// Выводим отрицательный результат - граница не вычислена
 		return false;
 	// Образующая, показатель и ключ встречной стороны должны лежать в (1, p − 1)
 	if(!inside(base, one, edge) || !inside(power, one, edge) || !inside(peer, one, edge))
-		// Выводим отказ
+		// Выводим отрицательный результат - значения вне границ
 		return false;
 	// Число разрядов перебора по длине поданного показателя
 	const size_t bits = (secret.size * 8);
@@ -864,43 +862,42 @@ bool nts::agreement::ffdhe(const view_t & prime, const view_t & generator, const
 	return ok;
 }
 /**
- * @brief Метод порождения пары ключей по произвольному простому модулю и образующей
+ * @brief Функция порождения пары ключей по произвольному простому модулю и образующей
  *
- * @param prime     простой нечётный модуль
- * @param generator образующая группы
+ * @param prime     простой нечётный модуль от старшего байта к младшему
+ * @param generator образующая группы, 1 < g < p
  * @param length    длина секретного показателя в байтах
- * @param secret    место, в которое помещается секретный показатель
- * @param key       место, в которое помещается открытый ключ
- *
+ * @param secret    место, в которое помещается секретный показатель длиной length
+ * @param key       место, в которое помещается открытый ключ длиной в модуль
  * @return          признак успешности порождения пары ключей
  *
  */
 bool nts::agreement::pairffdhe(const view_t & prime, const view_t & generator, const size_t length, uint8_t * secret, uint8_t * key) noexcept {
 	// Если доводы не переданы либо длина показателя неуместна
 	if((secret == nullptr) || (key == nullptr) || (prime.data == nullptr) || (prime.size == 0) || (prime.size > math::INTEGER_SIZE) || (generator.data == nullptr) || (generator.size == 0) || (generator.size > math::INTEGER_SIZE) || (length == 0) || (length > prime.size))
-		// Выводим отказ
+		// Выводим отрицательный результат - доводы не переданы
 		return false;
 	// Модуль, образующая, единица и граница
 	math::integer_t modulus, base, one, edge;
 	// Если модуль либо образующая разобрать не удалось
 	if(!modulus.load(prime) || !base.load(generator))
-		// Выводим отказ
+		// Выводим отрицательный результат - параметры не разобраны
 		return false;
 	// Модуль обязан быть нечётным и ненулевым
 	if(!modulus.odd() || modulus.zero())
-		// Выводим отказ
+		// Выводим отрицательный результат - модуль нулевой либо чётный
 		return false;
 	// Единица
 	one.word(1);
 	// Граница p − 1
 	if(!edge.subtract(modulus, one) || !inside(base, one, edge))
-		// Выводим отказ
+		// Выводим отрицательный результат - граница не вычислена
 		return false;
 	// Если случайные байты показателя получить не удалось
 	if(!entropy::bytes(secret, length)){
 		// Затираем ключ
 		wipe(key, prime.size);
-		// Выводим отказ
+		// Выводим отрицательный результат - ключ не выработан
 		return false;
 	}
 	// Ставим старший разряд показателя
@@ -911,9 +908,9 @@ bool nts::agreement::pairffdhe(const view_t & prime, const view_t & generator, c
 		wipe(secret, length);
 		// Затираем ключ
 		wipe(key, prime.size);
-		// Выводим отказ
+		// Выводим отрицательный результат - секрет не согласован
 		return false;
 	}
-	// Выводим успешность
+	// Сообщаем об успешном согласовании
 	return true;
 }

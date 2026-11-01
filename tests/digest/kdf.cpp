@@ -58,11 +58,10 @@ static const char * SEED = "af21434145656378";
 static const char * DERIVED = "a1aa5f7de402d7b3d323f2991c8d4534013137010a83754fd0af6d7cd4922ed9";
 
 /**
- * @brief Метод разбора записи байтов
+ * @brief Функция разбора записи байтов
  *
  * @param text разбираемая запись байтов
  * @param data место, в которое помещается итог разбора
- *
  * @return     число разобранных байтов
  *
  */
@@ -182,8 +181,9 @@ TEST(KdfTest, Snmpv3) {
 	uint8_t engine[12] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02};
 	// Пароль пользователя контрольного примера
 	const uint8_t password[] = {'n', 'e', 'w', 's', 'y', 'r', 'u', 'p'};
-	// Локализованный ключ SHA-1 контрольного примера A.5.2
+	// Место локализованного ключа SHA-1 контрольного примера A.5.2
 	uint8_t wantSha[20];
+	// Разворачиваем ключ контрольного примера из шестнадцатеричной записи
 	bytes("78e2dcce79d59403b58c1bbaa5bff46391f1cd25", wantSha);
 	// Место локализованного ключа
 	uint8_t kul[20];
@@ -191,8 +191,9 @@ TEST(KdfTest, Snmpv3) {
 	ASSERT_TRUE(digest::snmpv3(digest::hash_t::SHA1, view_t(password, sizeof(password)), view_t(engine, sizeof(engine)), kul));
 	// Ключ обязан совпасть с контрольным примером побайтно
 	ASSERT_EQ(::memcmp(kul, wantSha, sizeof(wantSha)), 0);
-	// Локализованный ключ MD5 контрольного примера A.5.1
+	// Место локализованного ключа MD5 контрольного примера A.5.1
 	uint8_t wantMd5[16];
+	// Разворачиваем ключ контрольного примера из шестнадцатеричной записи
 	bytes("87021d7bd9d101ba05ea6e3bf9d9bd4a", wantMd5);
 	// Выработка MD5 обязана удаться
 	ASSERT_TRUE(digest::snmpv3(digest::hash_t::MD5, view_t(password, sizeof(password)), view_t(engine, sizeof(engine)), kul));
@@ -223,12 +224,15 @@ TEST(KdfTest, PrfPlus) {
 	 * T1 = prf(K, S ‖ 0x01), T2 = prf(K, T1 ‖ S ‖ 0x02)
 	 */
 	uint8_t want[32];
+	// Разворачиваем эталон первых 32 байтов из шестнадцатеричной записи
 	bytes("cbba4a22fdeb59f8044dbc78fce7130e19b21dea23339aba3d698f2c1e48d0bd", want);
 	// Материал обязан совпасть с эталоном побайтно
 	ASSERT_EQ(::memcmp(result, want, sizeof(want)), 0);
-	// Начало длинной выработки обязано совпадать с короткой
+	// Место короткой выработки: первые 16 байтов материала
 	uint8_t shorter[16];
+	// Короткая выработка первых 16 байтов обязана удаться
 	ASSERT_TRUE(digest::prfplus(digest::hash_t::SHA256, view_t(key, sizeof(key)), view_t(seed, sizeof(seed)), shorter, sizeof(shorter)));
+	// Начало длинной выработки обязано совпадать с короткой побайтно
 	ASSERT_EQ(::memcmp(result, shorter, sizeof(shorter)), 0);
 	// Выработка с неизвестным алгоритмом обязана отказать
 	ASSERT_FALSE(digest::prfplus(digest::hash_t::NONE, view_t(key, sizeof(key)), view_t(seed, sizeof(seed)), result, sizeof(result)));

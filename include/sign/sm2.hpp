@@ -21,7 +21,6 @@
  *        signature SM2 according to GB/T 32918.2-2016
  *
  * \~
- *
  * @copyright Copyright © 2026
  *
  */
@@ -89,16 +88,19 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Electronic signature SM2 according to GB/T 32918.2-2016
+		 *
 		 * @details The signature consists of the two numbers r and s written in a row from
 		 *          the senior byte to the junior one, each of a length of the order of the
 		 *          subgroup of the points of the curve: 64 bytes at the curve SM2. The writing
 		 *          in the form of SEQUENCE {INTEGER r, INTEGER s} is performed by the common
 		 *          methods sign::encode and sign::decode of the ECDSA module.
+		 *
 		 * @details The signed value e is the SM3 hash of Z_A ‖ M, where Z_A is the hash of
 		 *          the identifier of the signer, of the parameters of the curve and of the
 		 *          verification key according to the section 5.5 of GB/T 32918.2-2016; the
 		 *          module holds Z_A produced at the setting of the key, and the message is
 		 *          fed already on top of it
+		 *
 		 * @note The random number of the production of the signature is passed by the calling
 		 *       side and must be unpredictable and unique: a repetition of it under a single
 		 *       key gives away the key of the signature itself
@@ -131,7 +133,6 @@ namespace nts {
 				 * @brief Метод выработки значения Z_A
 				 *
 				 * @param id опознаватель подписывающего
-				 *
 				 * @return   признак успешности выработки значения Z_A
 				 *
 				 * @details Z_A = SM3(ENTL_A ‖ ID_A ‖ a ‖ b ‖ Gx ‖ Gy ‖ Px ‖ Py) по разделу
@@ -141,8 +142,10 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the production of the value Z_A
+				 *
 				 * @param id the identifier of the signer
-				 * @return the flag of the success of the production of the value Z_A
+				 * @return   the flag of the success of the production of the value Z_A
+				 *
 				 * @details Z_A = SM3(ENTL_A ‖ ID_A ‖ a ‖ b ‖ Gx ‖ Gy ‖ Px ‖ Py) according to
 				 *          the section 5.5 of GB/T 32918.2-2016: the coefficients of the curve
 				 *          and the coordinates of the points are written by the length of the
@@ -157,7 +160,6 @@ namespace nts {
 				 * @brief Метод смены опознавателя подписывающего
 				 *
 				 * @param id новый опознаватель подписывающего
-				 *
 				 * @return   признак успешности смены опознавателя
 				 *
 				 * @details Ключ остаётся прежним, значение Z_A вырабатывается заново:
@@ -167,8 +169,10 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the change of the identifier of the signer
+				 *
 				 * @param id the new identifier of the signer
-				 * @return the flag of the success of the change of the identifier
+				 * @return   the flag of the success of the change of the identifier
+				 *
 				 * @details The key remains the same, the value Z_A is produced anew: RFC 8998
 				 *          orders the identifier "TLSv1.3+GM+Cipher+Suite" for the signature of
 				 *          the key possession and "1234567812345678" for the signature of the
@@ -187,6 +191,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of checking the readiness of the module for the work
+				 *
 				 * @return the flag of the curve being set
 				 *
 				 * \~
@@ -200,6 +205,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the size of a signature
+				 *
 				 * @return the size of a signature in bytes
 				 *
 				 * \~
@@ -210,16 +216,17 @@ namespace nts {
 				 * @brief Метод установки эллиптической кривой
 				 *
 				 * @param curve устанавливаемая эллиптическая кривая
-				 *
-				 * @return признак успешности установки эллиптической кривой
+				 * @return      признак успешности установки эллиптической кривой
 				 *
 				 * @note Кривая должна пережить модуль подписи: она не переносится, а берётся
 				 *       по указателю
 				 *
 				 * \~english
 				 * @brief Method of setting the elliptic curve
+				 *
 				 * @param curve the elliptic curve being set
-				 * @return the flag of the success of the setting of the elliptic curve
+				 * @return      the flag of the success of the setting of the elliptic curve
+				 *
 				 * @note The curve must outlive the module of the signature: it is not moved but
 				 *       is taken by a pointer
 				 *
@@ -243,16 +250,17 @@ namespace nts {
 				 *
 				 * @param secret устанавливаемый ключ подписи, записанный от старшего байта к младшему
 				 * @param id     опознаватель подписывающего для выработки Z_A
-				 *
-				 * @return признак успешности установки ключа подписи
+				 * @return       признак успешности установки ключа подписи
 				 *
 				 * @note Ключ проверки подписи вырабатывается из ключа подписи сразу же
 				 *
 				 * \~english
 				 * @brief Method of setting the key of the signature
+				 *
 				 * @param secret the key of the signature being set, written from the senior byte to the junior one
 				 * @param id     the identifier of the signer for the production of Z_A
-				 * @return the flag of the success of the setting of the key of the signature
+				 * @return       the flag of the success of the setting of the key of the signature
+				 *
 				 * @note The key of the check of the signature is produced from the key of the signature at once
 				 *
 				 * \~
@@ -265,17 +273,18 @@ namespace nts {
 				 * @param x  первая координата ключа проверки подписи
 				 * @param y  вторая координата ключа проверки подписи
 				 * @param id опознаватель подписывающего для выработки Z_A
-				 *
-				 * @return признак успешности установки ключа проверки подписи
+				 * @return   признак успешности установки ключа проверки подписи
 				 *
 				 * @note Точка, не принадлежащая кривой, отвергается
 				 *
 				 * \~english
 				 * @brief Method of setting the key of the check of the signature
+				 *
 				 * @param x  the first coordinate of the key of the check of the signature
 				 * @param y  the second coordinate of the key of the check of the signature
 				 * @param id the identifier of the signer for the production of Z_A
-				 * @return the flag of the success of the setting of the key of the check of the signature
+				 * @return   the flag of the success of the setting of the key of the check of the signature
+				 *
 				 * @note A point not belonging to the curve is rejected
 				 *
 				 * \~
@@ -288,15 +297,15 @@ namespace nts {
 				 * @param x    место, в которое записывается первая координата ключа проверки подписи
 				 * @param y    место, в которое записывается вторая координата ключа проверки подписи
 				 * @param size размер места, в которое записывается всякая координата
-				 *
-				 * @return признак успешности получения ключа проверки подписи
+				 * @return     признак успешности получения ключа проверки подписи
 				 *
 				 * \~english
 				 * @brief Method of getting the key of the check of the signature
+				 *
 				 * @param x    the place the first coordinate of the key of the check of the signature is written into
 				 * @param y    the place the second coordinate of the key of the check of the signature is written into
 				 * @param size the size of the place every coordinate is written into
-				 * @return the flag of the success of the getting of the key of the check of the signature
+				 * @return     the flag of the success of the getting of the key of the check of the signature
 				 *
 				 * \~
 				 */
@@ -309,8 +318,7 @@ namespace nts {
 				 * @param message подписываемое сообщение
 				 * @param random  случайное число выработки подписи, записанное от старшего байта к младшему
 				 * @param result  место, в которое помещается подпись
-				 *
-				 * @return признак успешности выработки подписи
+				 * @return        признак успешности выработки подписи
 				 *
 				 * @details Подписываемое значение e = SM3(Z_A ‖ M); r = (e + x1) mod n от
 				 *          кратной точки k·G, s = (k − r·d) / (1 + d) mod n по разделу 6.1
@@ -319,10 +327,12 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the production of a signature by a passed random number
+				 *
 				 * @param message the message being signed
 				 * @param random  the random number of the production of the signature, written from the senior byte to the junior one
 				 * @param result  the place the signature is put into
-				 * @return the flag of the success of the production of the signature
+				 * @return        the flag of the success of the production of the signature
+				 *
 				 * @details The signed value e = SM3(Z_A ‖ M); r = (e + x1) mod n from the
 				 *          multiple point k·G, s = (k − r·d) / (1 + d) mod n according to the
 				 *          section 6.1 of GB/T 32918.2-2016; a zero r, a zero s or r + k = n
@@ -337,8 +347,7 @@ namespace nts {
 				 *
 				 * @param message   подписанное сообщение
 				 * @param signature проверяемая подпись
-				 *
-				 * @return признак того, что подпись сошлась
+				 * @return          признак того, что подпись сошлась
 				 *
 				 * @details Подписываемое значение e' = SM3(Z_A ‖ M); t = (r' + s') mod n,
 				 *          точка s'·G + t·P, R = (e' + x1') mod n сличается с r' по разделу
@@ -347,9 +356,11 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the check of a signature
+				 *
 				 * @param message   the signed message
 				 * @param signature the signature being checked
-				 * @return the flag of the signature having converged
+				 * @return          the flag of the signature having converged
+				 *
 				 * @details The signed value e' = SM3(Z_A ‖ M); t = (r' + s') mod n, the point
 				 *          s'·G + t·P, R = (e' + x1') mod n is compared with r' according to
 				 *          the section 7.1 of GB/T 32918.2-2016; the parts outside of the
@@ -363,7 +374,6 @@ namespace nts {
 				 * \~russian
 				 * @brief Конструктор
 				 *
-				 *
 				 * \~english
 				 * @brief Constructor
 				 *
@@ -373,7 +383,6 @@ namespace nts {
 				/**
 				 * \~russian
 				 * @brief Деструктор
-				 *
 				 *
 				 * \~english
 				 * @brief Destructor

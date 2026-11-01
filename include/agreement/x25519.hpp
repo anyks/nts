@@ -21,7 +21,6 @@
  *        Curve25519 — the function X25519 according to RFC 7748
  *
  * \~
- *
  * @copyright Copyright © 2026
  *
  */
@@ -80,12 +79,11 @@ namespace nts {
 
 		/**
 		 * \~russian
-		 * @brief Метод выработки общего значения на кривой Curve25519
+		 * @brief Функция выработки общего значения на кривой Curve25519
 		 *
 		 * @param secret секретный ключ своей стороны длиной в тридцать два байта
 		 * @param point  открытый ключ встречной стороны длиной в тридцать два байта
 		 * @param result место, в которое помещается общее значение длиной в тридцать два байта
-		 *
 		 * @return       признак успешности выработки общего значения
 		 *
 		 * @details Раздел 5 RFC 7748: секретный ключ зажимается - три младших разряда
@@ -98,15 +96,18 @@ namespace nts {
 		 *       сторона узнала бы общее значение, не зная секретного ключа
 		 *
 		 * \~english
-		 * @brief Method of the production of the shared value on the curve Curve25519
+		 * @brief Function of the production of the shared value on the curve Curve25519
+		 *
 		 * @param secret the secret key of one's own side of a length of thirty two bytes
 		 * @param point  the public key of the opposite side of a length of thirty two bytes
 		 * @param result the place the shared value of a length of thirty two bytes is put into
 		 * @return       the flag of the success of the production of the shared value
+		 *
 		 * @details The section 5 of RFC 7748: the secret key is clamped - the three junior bits
 		 *          are cleared, the senior bit is cleared, and the bit 254 is set, - after which
 		 *          the first coordinate of the public key is multiplied by it by the Montgomery
 		 *          ladder in a constant time. All the records go with the junior byte ahead.
+		 *
 		 * @note A shared value turned into a zero is rejected, as the section 6.1 of RFC 7748
 		 *       orders: it means a public key of a small order, and with it the opposite side
 		 *       would learn the shared value without knowing the secret key
@@ -116,21 +117,22 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ bool x25519(const view_t & secret, const view_t & point, uint8_t * result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод выработки открытого ключа на кривой Curve25519
+		 * @brief Функция выработки открытого ключа на кривой Curve25519
 		 *
 		 * @param secret секретный ключ длиной в тридцать два байта
 		 * @param result место, в которое помещается открытый ключ длиной в тридцать два байта
-		 *
 		 * @return       признак успешности выработки открытого ключа
 		 *
 		 * @details Раздел 6.1 RFC 7748: открытый ключ есть произведение секретного ключа на
 		 *          точку основания с первой координатой девять
 		 *
 		 * \~english
-		 * @brief Method of the production of the public key on the curve Curve25519
+		 * @brief Function of the production of the public key on the curve Curve25519
+		 *
 		 * @param secret the secret key of a length of thirty two bytes
 		 * @param result the place the public key of a length of thirty two bytes is put into
 		 * @return       the flag of the success of the production of the public key
+		 *
 		 * @details The section 6.1 of RFC 7748: the public key is the product of the secret key
 		 *          by the base point with the first coordinate nine
 		 *
@@ -139,11 +141,10 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ bool x25519(const view_t & secret, uint8_t * result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод порождения пары ключей на кривой Curve25519
+		 * @brief Функция порождения пары ключей на кривой Curve25519
 		 *
 		 * @param secret место, в которое помещается секретный ключ длиной в тридцать два байта
 		 * @param key    место, в которое помещается открытый ключ длиной в тридцать два байта
-		 *
 		 * @return       признак успешности порождения пары ключей
 		 *
 		 * @details Раздел 5 RFC 7748: секретный ключ есть тридцать два случайных байта,
@@ -158,14 +159,17 @@ namespace nts {
 		 *       ключей при этом затёрты
 		 *
 		 * \~english
-		 * @brief Method of the generation of a pair of keys on the curve Curve25519
+		 * @brief Function of the generation of a pair of keys on the curve Curve25519
+		 *
 		 * @param secret the place the secret key of a length of thirty two bytes is put into
 		 * @param key    the place the public key of a length of thirty two bytes is put into
 		 * @return       the flag of the success of the generation of the pair of keys
+		 *
 		 * @details The section 5 of RFC 7748: the secret key is thirty two random bytes with the
 		 *          three junior bits and the senior bit cleared and the bit 254 set - the same
 		 *          clamping that is performed at every multiplication; the public key is derived
 		 *          from it as at the one-argument x25519
+		 *
 		 * @note The pair is fit both as an ephemeral and as a long-term one: the generation is
 		 *       the same, while the lifetime of the key is defined by the calling side. The
 		 *       written secret key is already clamped, therefore the record PKCS #8 via keys is

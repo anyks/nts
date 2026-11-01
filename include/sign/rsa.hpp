@@ -22,7 +22,6 @@
  *        (RFC 8017)
  *
  * \~
- *
  * @copyright Copyright © 2026
  *
  */
@@ -82,6 +81,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Padding scheme of RSA
+		 *
 		 * @details The signature is carried by the schemes PKCS1 (RSASSA-PKCS1-v1_5) and PSS
 		 *          (RSASSA-PSS), the encryption - by the schemes PKCS1 (RSAES-PKCS1-v1_5)
 		 *          and OAEP (RSAES-OAEP); the sections 7 and 8 of RFC 8017
@@ -89,9 +89,13 @@ namespace nts {
 		 * \~
 		 */
 		enum class scheme_t : uint8_t {
+			// Схема не установлена
 			NONE  = 0x00, /*!< \~russian Схема не установлена \~english The scheme is not set \~ */
+			// Дополнение PKCS #1 v1.5
 			PKCS1 = 0x01, /*!< \~russian Дополнение PKCS #1 v1.5 \~english Padding PKCS #1 v1.5 \~ */
+			// Вероятностная схема подписи PSS
 			PSS   = 0x02, /*!< \~russian Вероятностная схема подписи PSS \~english Probabilistic signature scheme PSS \~ */
+			// Оптимальное асимметричное дополнение OAEP
 			OAEP  = 0x03  /*!< \~russian Оптимальное асимметричное дополнение OAEP \~english Optimal asymmetric encryption padding OAEP \~ */
 		};
 
@@ -103,18 +107,27 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Component of the RSA key
+		 *
 		 * @details The names correspond to the fields of RSAPrivateKey of the appendix A.1.2 of RFC 8017
 		 *
 		 * \~
 		 */
 		enum class part_t : uint8_t {
+			// Модуль n
 			MODULUS     = 0x00, /*!< \~russian Модуль n \~english Modulus n \~ */
+			// Открытый показатель e
 			PUBLIC      = 0x01, /*!< \~russian Открытый показатель e \~english Public exponent e \~ */
+			// Секретный показатель d
 			SECRET      = 0x02, /*!< \~russian Секретный показатель d \~english Private exponent d \~ */
+			// Первый простой сомножитель p
 			PRIME1      = 0x03, /*!< \~russian Первый простой сомножитель p \~english First prime factor p \~ */
+			// Второй простой сомножитель q
 			PRIME2      = 0x04, /*!< \~russian Второй простой сомножитель q \~english Second prime factor q \~ */
+			// Показатель dP = d mod (p - 1)
 			EXPONENT1   = 0x05, /*!< \~russian Показатель dP = d mod (p - 1) \~english Exponent dP = d mod (p - 1) \~ */
+			// Показатель dQ = d mod (q - 1)
 			EXPONENT2   = 0x06, /*!< \~russian Показатель dQ = d mod (q - 1) \~english Exponent dQ = d mod (q - 1) \~ */
+			// Коэффициент qInv = q^-1 mod p
 			COEFFICIENT = 0x07  /*!< \~russian Коэффициент qInv = q^-1 mod p \~english Coefficient qInv = q^-1 mod p \~ */
 		};
 
@@ -141,12 +154,14 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief RSA according to PKCS #1 v2.2
+		 *
 		 * @details The key is either generated, or set by the components, or parsed from a DER
 		 *          record. The secret operations are carried by the Chinese remainder theorem with
 		 *          a blinding by a random number; the raise into the secret power goes in a constant
 		 *          time relative to the exponent. The decryption of PKCS #1 v1.5 parses the padding
 		 *          without early exits by the content: neither the time nor the flow of the execution
 		 *          depend on the content
+		 *
 		 * @note The cryptography does not allocate memory and raises no exceptions: only the writing
 		 *       of the key into DER allocates, where the lack of memory is given as a refusal. The
 		 *       secret components are wiped at the reset and at the destruction of the object. The
@@ -197,8 +212,11 @@ namespace nts {
 			private:
 				// Сохранённая пара ослепления по сомножителям в области Монтгомери: r^e и r^-1 по p и по q, обновляемые квадратами на каждом действии
 				mutable math::integer_t _raised1;
+				// Обратное значение ослепления по первому сомножителю в области Монтгомери
 				mutable math::integer_t _inverse1;
+				// Ослепление по второму сомножителю в области Монтгомери
 				mutable math::integer_t _raised2;
+				// Обратное значение ослепления по второму сомножителю в области Монтгомери
 				mutable math::integer_t _inverse2;
 				// Число секретных действий с сохранённой парой: нулевое требует свежей пары
 				mutable size_t _uses;
@@ -217,10 +235,12 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the precomputations by the set key
+				 *
 				 * @details The Montgomery arithmetic by the modulus n is set up, and with a secret key -
 				 *          also by the factors p and q, and the coefficient qInv is transferred into the
 				 *          domain by p: the signature and the verification then do not pay for the
 				 *          precomputations at every call
+				 *
 				 * @return the flag of the success of the precomputations
 				 *
 				 * \~
@@ -238,6 +258,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the production of a fresh blinding pair by the factors
+				 *
 				 * @param raised1  the place of the public power r₁^e in the Montgomery domain by p
 				 * @param inverse1 the place of the inverse r₁⁻¹ in the Montgomery domain by p
 				 * @param raised2  the place of the public power r₂^e in the Montgomery domain by q
@@ -263,6 +284,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the secret power with the blinding by the factors
+				 *
 				 * @param stored   the flag of the kept pair: it is updated by squaring and replaced by a fresh one by the counter, a pair on the stack is produced fresh
 				 * @param part1    the residue of the number by the first factor
 				 * @param part2    the residue of the number by the second factor
@@ -287,6 +309,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the assembly of the number by the Chinese remainder theorem in a constant time
+				 *
 				 * @param first  the residue by the first factor
 				 * @param second the residue by the second factor
 				 * @param result the place the assembled number is put into
@@ -306,6 +329,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the production of a prime factor of the key
+				 *
 				 * @param bits   the number of the bits of the factor
 				 * @param result the place the factor is put into
 				 * @return       the flag of the success of the production
@@ -321,6 +345,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the computation of the derived components of the secret key
+				 *
 				 * @return the flag of the success: the exponent is invertible by the Carmichael function
 				 *
 				 * \~
@@ -335,6 +360,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of checking the readiness of the module for the work
+				 *
 				 * @return the flag of the public key being set
 				 *
 				 * \~
@@ -348,6 +374,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of checking the presence of the secret key
+				 *
 				 * @return the flag of the secret key being set
 				 *
 				 * \~
@@ -361,6 +388,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the size of the modulus
+				 *
 				 * @return the size of the modulus in bytes: the size of a signature and of a ciphertext
 				 *
 				 * \~
@@ -380,7 +408,9 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the upper limit of the length of a signature in the written form
+				 *
 				 * @return the upper limit of the length of a signature in bytes, zero without a key
+				 *
 				 * @details The method size gives the length of a raw signature the place for make is
 				 *          allocated by, while limit gives the greatest length of a signature in the form
 				 *          it goes outside in: it is not exceeded at any value of the signature, like
@@ -398,6 +428,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the number of the bits of the modulus
+				 *
 				 * @return the number of the bits of the modulus
 				 *
 				 * \~
@@ -411,6 +442,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the reset of the state of the module
+				 *
 				 * @note The components of the key are wiped
 				 *
 				 * \~
@@ -432,9 +464,11 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the generation of the key
+				 *
 				 * @param bits     the number of the bits of the modulus: 2048, 3072 or 4096
 				 * @param exponent the public exponent, odd and not less than three
 				 * @return         the flag of the success of the generation
+				 *
 				 * @note The factors are produced according to the appendix A.1.3 of FIPS 186-5: the two
 				 *       senior bits of each are set, the factors differ at least in the senior hundred
 				 *       bits, the secret exponent is inverted by the Carmichael function and is greater
@@ -453,6 +487,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of setting the public key
+				 *
 				 * @param modulus  the modulus n from the senior byte to the junior one
 				 * @param exponent the public exponent e from the senior byte to the junior one
 				 * @return         the flag of the success of the setting
@@ -479,6 +514,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of setting the secret key
+				 *
 				 * @param modulus     the modulus n
 				 * @param exponent    the public exponent e
 				 * @param decryptor   the private exponent d
@@ -488,6 +524,7 @@ namespace nts {
 				 * @param exponent2   the exponent dQ
 				 * @param coefficient the coefficient qInv
 				 * @return            the flag of the success of the setting: the components are consistent
+				 *
 				 * @note All the components are written from the senior byte to the junior one; the equality
 				 *       of the modulus to the product of the factors and the bounds of the exponents are checked
 				 *
@@ -503,6 +540,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the size of a component of the key
+				 *
 				 * @param part the component of the key
 				 * @return     the size of the component in bytes, zero at its absence
 				 *
@@ -520,6 +558,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting a component of the key
+				 *
 				 * @param part the component of the key
 				 * @param data the place the component is written into from the senior byte to the junior one
 				 * @param size the size of the place in bytes: the component is padded by leading zeros
@@ -542,9 +581,11 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of writing the key in the DER encoding
+				 *
 				 * @param secret the flag of writing the secret key
 				 * @param result the place the record is put into
 				 * @return       the flag of the success: the key exists and the memory sufficed
+				 *
 				 * @note The public key is written as RSAPublicKey, the secret one - as RSAPrivateKey
 				 *       without additional factors; the appendix A.1 of RFC 8017
 				 *
@@ -563,8 +604,10 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the parsing of the key from the DER encoding
+				 *
 				 * @param data the record RSAPublicKey or RSAPrivateKey
 				 * @return     the flag of the success of the parsing
+				 *
 				 * @note The kind of the record is recognized by the number of the fields; the version
 				 *       with additional factors is refused
 				 *
@@ -585,9 +628,11 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the public operation of RSA
+				 *
 				 * @param input  the input number, less than the modulus, from the senior byte to the junior one
 				 * @param output the place the result of the size of the modulus is written into
 				 * @return       the flag of the success: the key is set, the number is less than the modulus
+				 *
 				 * @note The primitives RSAEP and RSAVP1 of the section 5 of RFC 8017: the raise into
 				 *       the public power without a padding
 				 *
@@ -607,9 +652,11 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the secret operation of RSA
+				 *
 				 * @param input  the input number, less than the modulus, from the senior byte to the junior one
 				 * @param output the place the result of the size of the modulus is written into
 				 * @return       the flag of the success: the secret key is set, the number is less than the modulus
+				 *
 				 * @note The primitives RSADP and RSASP1 of the section 5 of RFC 8017: the raise into
 				 *       the secret power by the Chinese remainder theorem with a blinding
 				 *
@@ -633,6 +680,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the production of a signature
+				 *
 				 * @param scheme    the scheme of the signature: PKCS1 or PSS
 				 * @param algorithm the algorithm of the hash of the message
 				 * @param digest    the hash of the message being signed
@@ -640,6 +688,7 @@ namespace nts {
 				 * @param salt      the length of the PSS salt in bytes, by default the length of the hash
 				 * @param random    the PSS salt for the tests, by default it is produced randomly
 				 * @return          the flag of the success of the production of the signature
+				 *
 				 * @note The «Streebog» hashes are not defined in PKCS #1 and are refused
 				 *
 				 * \~
@@ -658,6 +707,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the verification of a signature
+				 *
 				 * @param scheme    the scheme of the signature: PKCS1 or PSS
 				 * @param algorithm the algorithm of the hash of the message
 				 * @param digest    the hash of the signed message
@@ -683,6 +733,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the encryption of a message
+				 *
 				 * @param scheme    the scheme of the encryption: PKCS1 or OAEP
 				 * @param algorithm the algorithm of the OAEP hash, not used for PKCS1
 				 * @param message   the message being encrypted
@@ -711,6 +762,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the decryption of a message
+				 *
 				 * @param scheme    the scheme of the encryption: PKCS1 or OAEP
 				 * @param algorithm the algorithm of the OAEP hash, not used for PKCS1
 				 * @param input     the ciphertext of the size of the modulus
@@ -718,6 +770,7 @@ namespace nts {
 				 * @param size      the variable the length of the message is put into
 				 * @param label     the OAEP label, empty by default
 				 * @return          the flag of the success: the padding is correct
+				 *
 				 * @note The parsing of the padding is carried in a constant time: both the checks and the
 				 *       copying of the message go over the whole buffer under masks, and the refusal is
 				 *       given only at the end

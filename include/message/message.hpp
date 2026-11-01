@@ -22,7 +22,6 @@
  *        completion of the handshake
  *
  * \~
- *
  * @copyright Copyright © 2026
  *
  */
@@ -73,6 +72,7 @@ namespace nts {
 	 *
 	 * \~english
 	 * @brief Namespace of the messages of the authentication of the TLS protocol
+	 *
 	 * @details The sections 4.4.2, 4.4.3 and 4.4.4 of RFC 8446: by these three messages a party proves
 	 *          that it is the one it claims to be. By the certificate it names its public key, by the
 	 *          signature of the possession it proves the possession of the private one, and by the
@@ -91,13 +91,21 @@ namespace nts {
 		 * \~
 		 */
 		enum class error_t : uint8_t {
+			// Отказа нет
 			NONE      = 0x00, /*!< \~russian Отказа нет \~english There is no failure \~ */
+			// Тело сообщения оборвано посреди поля
 			HUNGRY    = 0x01, /*!< \~russian Тело сообщения оборвано посреди поля \~english The body of the message is cut off in the middle of a field \~ */
+			// За телом сообщения идут лишние байты
 			TRAILING  = 0x02, /*!< \~russian За телом сообщения идут лишние байты \~english There are extra bytes behind the body of the message \~ */
+			// Обязательное поле сообщения пусто
 			EMPTY     = 0x03, /*!< \~russian Обязательное поле сообщения пусто \~english A mandatory field of the message is empty \~ */
+			// Расширение записи оборвано либо объявлено дважды
 			EXTENSION = 0x04, /*!< \~russian Расширение записи оборвано либо объявлено дважды \~english An extension of the record is cut off or is declared twice \~ */
+			// Составляемое поле в свою длину не входит
 			LENGTH    = 0x05, /*!< \~russian Составляемое поле в свою длину не входит \~english A field being composed does not fit into its length \~ */
+			// Выработать имитовставку завершения не удалось
 			DIGEST    = 0x06, /*!< \~russian Выработать имитовставку завершения не удалось \~english It was not possible to produce the authentication code of the completion \~ */
+			// Памяти под итог не хватило
 			MEMORY    = 0x07  /*!< \~russian Памяти под итог не хватило \~english There was not enough memory for the outcome \~ */
 		};
 
@@ -112,8 +120,10 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Record of a chain of the certificates
+		 *
 		 * @details The section 4.4.2 of RFC 8446: every record of the chain carries a certificate and its
 		 *          own extensions relating exactly to it
+		 *
 		 * @note The body of the certificate looks inside the parsed message
 		 *
 		 * \~
@@ -133,6 +143,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Message of a chain of the certificates
+		 *
 		 * @details The section 4.4.2 of RFC 8446
 		 *
 		 * \~
@@ -156,7 +167,9 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Message of the signature of the possession of the key of the certificate
+		 *
 		 * @details The section 4.4.3 of RFC 8446
+		 *
 		 * @note The signature here is written the way the section 5.3 of the description of the cipher
 		 *       suites on the GOST algorithms orders to write it: both halves go with the least
 		 *       significant bit ahead, whereas the module of the signature works with the reverse notation
@@ -172,13 +185,12 @@ namespace nts {
 			 * \~russian
 			 * @brief Конструктор
 			 *
-			 *
 			 * \~english
 			 * @brief Constructor
 			 *
 			 * \~
 			 */
-			Verify() noexcept : scheme(extension::scheme_t::NONE) {}
+			Verify() noexcept;
 		} verify_t;
 
 		/**
@@ -192,8 +204,10 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Ticket of the resumption of a connection
+		 *
 		 * @details The section 4.6.1 of RFC 8446: the server issues a ticket after the handshake, and the
 		 *          client presents it to a future connection instead of a full key exchange
+		 *
 		 * @note The values of the ticket look inside the parsed message
 		 *
 		 * \~
@@ -213,13 +227,12 @@ namespace nts {
 			 * \~russian
 			 * @brief Конструктор
 			 *
-			 *
 			 * \~english
 			 * @brief Constructor
 			 *
 			 * \~
 			 */
-			Ticket() noexcept : lifetime(0), age(0) {}
+			Ticket() noexcept;
 		} ticket_t;
 
 		/**
@@ -230,26 +243,29 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Types of the change of the key material of a connection
+		 *
 		 * @details The section 4.6.3 of RFC 8446: the KeyUpdateRequest enumeration
 		 *
 		 * \~
 		 */
 		enum class update_t : uint8_t {
+			// Сторона сменила ключи своего направления связи
 			NOTIFY  = 0x00, /*!< \~russian Сторона сменила ключи своего направления связи \~english The side has changed the keys of its direction of the connection \~ */
+			// Сторона просит собеседника сменить свои ключи в ответ
 			REQUEST = 0x01  /*!< \~russian Сторона просит собеседника сменить свои ключи в ответ \~english The side asks the interlocutor to change their keys in return \~ */
 		};
 
 		/**
 		 * \~russian
-		 * @brief Метод разбора тела сообщения цепочки сертификатов
+		 * @brief Функция разбора тела сообщения цепочки сертификатов
 		 *
 		 * @param data   разбираемое тело сообщения
 		 * @param result сообщение, в которое помещается итог разбора
-		 *
 		 * @return       отказ разбора тела сообщения
 		 *
 		 * \~english
-		 * @brief Method of the parsing of the body of the message of a chain of the certificates
+		 * @brief Function of the parsing of the body of the message of a chain of the certificates
+		 *
 		 * @param data   the body of the message being parsed
 		 * @param result the message the outcome of the parsing is put into
 		 * @return       the failure of the parsing of the body of the message
@@ -259,15 +275,15 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ error_t parse(const view_t & data, certificate_t & result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод составления тела сообщения цепочки сертификатов
+		 * @brief Функция составления тела сообщения цепочки сертификатов
 		 *
 		 * @param message составляемое сообщение цепочки сертификатов
 		 * @param result  накопитель, в конец которого дописывается тело сообщения
-		 *
 		 * @return        отказ составления тела сообщения
 		 *
 		 * \~english
-		 * @brief Method of the composition of the body of the message of a chain of the certificates
+		 * @brief Function of the composition of the body of the message of a chain of the certificates
+		 *
 		 * @param message the message of the chain of the certificates being composed
 		 * @param result  the accumulator the body of the message is appended to the end of
 		 * @return        the failure of the composition of the body of the message
@@ -277,15 +293,15 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ error_t build(const certificate_t & message, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод разбора тела сообщения подписи владения ключом
+		 * @brief Функция разбора тела сообщения подписи владения ключом
 		 *
 		 * @param data   разбираемое тело сообщения
 		 * @param result сообщение, в которое помещается итог разбора
-		 *
 		 * @return       отказ разбора тела сообщения
 		 *
 		 * \~english
-		 * @brief Method of the parsing of the body of the message of the signature of the possession of the key
+		 * @brief Function of the parsing of the body of the message of the signature of the possession of the key
+		 *
 		 * @param data   the body of the message being parsed
 		 * @param result the message the outcome of the parsing is put into
 		 * @return       the failure of the parsing of the body of the message
@@ -295,15 +311,15 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ error_t parse(const view_t & data, verify_t & result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод составления тела сообщения подписи владения ключом
+		 * @brief Функция составления тела сообщения подписи владения ключом
 		 *
 		 * @param message составляемое сообщение подписи владения ключом
 		 * @param result  накопитель, в конец которого дописывается тело сообщения
-		 *
 		 * @return        отказ составления тела сообщения
 		 *
 		 * \~english
-		 * @brief Method of the composition of the body of the message of the signature of the possession of the key
+		 * @brief Function of the composition of the body of the message of the signature of the possession of the key
+		 *
 		 * @param message the message of the signature of the possession of the key being composed
 		 * @param result  the accumulator the body of the message is appended to the end of
 		 * @return        the failure of the composition of the body of the message
@@ -313,11 +329,10 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ error_t build(const verify_t & message, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод обращения записи подписи владения ключом
+		 * @brief Функция обращения записи подписи владения ключом
 		 *
 		 * @param signature обращаемая подпись владения ключом
 		 * @param result    место, в которое помещается обращённая подпись
-		 *
 		 * @return          отказ обращения записи подписи
 		 *
 		 * @details Раздел 5.3 описания наборов шифрования на алгоритмах ГОСТ записывает обе
@@ -328,14 +343,17 @@ namespace nts {
 		 * @note Место итога обязано вмещать подпись целиком, а длина её обязана быть чётной
 		 *
 		 * \~english
-		 * @brief Method of the reversal of the notation of the signature of the possession of the key
+		 * @brief Function of the reversal of the notation of the signature of the possession of the key
+		 *
 		 * @param signature the signature of the possession of the key being reversed
 		 * @param result    the place the reversed signature is put into
 		 * @return          the failure of the reversal of the notation of the signature
+		 *
 		 * @details The section 5.3 of the description of the cipher suites on the GOST algorithms writes
 		 *          both halves of the signature with the least significant bit ahead, whereas the module
 		 *          of the signature works with the reverse notation. This reversal is its own inverse: by
 		 *          the same call the signature is translated in both directions
+		 *
 		 * @note The place of the outcome is obliged to hold the whole signature, and its length is obliged
 		 *       to be even
 		 *
@@ -344,12 +362,11 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ error_t reverse(const view_t & signature, uint8_t * result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод составления подписываемого содержимого владения ключом
+		 * @brief Функция составления подписываемого содержимого владения ключом
 		 *
 		 * @param transcript хеш переписки рукопожатия на миг подписания
 		 * @param server     признак того, что подпись составляется сервером
 		 * @param result     накопитель, в конец которого дописывается подписываемое содержимое
-		 *
 		 * @return           отказ составления подписываемого содержимого
 		 *
 		 * @details Раздел 4.4.3 RFC 8446: подписывается не хеш переписки сам по себе, а
@@ -359,11 +376,13 @@ namespace nts {
 		 *          сервера: одну нельзя выдать за другую
 		 *
 		 * \~english
-		 * @brief Method of the composition of the content being signed of the possession of the key
+		 * @brief Function of the composition of the content being signed of the possession of the key
+		 *
 		 * @param transcript the hash of the transcript of the handshake at the moment of the signing
 		 * @param server     the flag of the signature being composed by the server
 		 * @param result     the accumulator the content being signed is appended to the end of
 		 * @return           the failure of the composition of the content being signed
+		 *
 		 * @details The section 4.4.3 of RFC 8446: not the hash of the transcript by itself is signed, but a
 		 *          record of sixty four spaces, of the name of the purpose of the signature, of a zero and
 		 *          of the hash of the transcript. By the spaces the signature of the handshake is separated
@@ -375,12 +394,11 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ error_t content(const view_t & transcript, const bool server, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод выработки тела сообщения завершения рукопожатия
+		 * @brief Функция выработки тела сообщения завершения рукопожатия
 		 *
 		 * @param secret     ключ выработки завершения рукопожатия
 		 * @param transcript хеш переписки рукопожатия на миг завершения
 		 * @param result     место, в которое помещается тело сообщения
-		 *
 		 * @return           отказ выработки тела сообщения
 		 *
 		 * @details Раздел 4.4.4 RFC 8446: телом сообщения служит имитовставка от хеша
@@ -390,15 +408,18 @@ namespace nts {
 		 * @note Место итога обязано вмещать длину хеша
 		 *
 		 * \~english
-		 * @brief Method of the production of the body of the message of the completion of the handshake
+		 * @brief Function of the production of the body of the message of the completion of the handshake
+		 *
 		 * @param secret     the key of the production of the completion of the handshake
 		 * @param transcript the hash of the transcript of the handshake at the moment of the completion
 		 * @param result     the place the body of the message is put into
 		 * @return           the failure of the production of the body of the message
+		 *
 		 * @details The section 4.4.4 of RFC 8446: an authentication code from the hash of the transcript
 		 *          produced under the key of the completion serves as the body of the message. This key is
 		 *          derived by the key schedule by the «finished» label from the value of the direction of
 		 *          the connection
+		 *
 		 * @note The place of the outcome is obliged to hold the length of the hash
 		 *
 		 * \~
@@ -406,25 +427,26 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ error_t finished(const view_t & secret, const view_t & transcript, uint8_t * result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод выработки тела сообщения завершения рукопожатия выбранным хешем
+		 * @brief Функция выработки тела сообщения завершения рукопожатия выбранным хешем
 		 *
 		 * @param algorithm  хеш набора шифрования, которым ведётся рукопожатие
 		 * @param secret     ключ выработки завершения рукопожатия
 		 * @param transcript хеш переписки рукопожатия на миг завершения
 		 * @param result     место, в которое помещается тело сообщения
-		 *
 		 * @return           отказ выработки тела сообщения
 		 *
 		 * @note Выработка без довода хеша идёт «Стрибогом»-256: так сложена ветвь ГОСТ
 		 * @note Место итога обязано вмещать длину хеша
 		 *
 		 * \~english
-		 * @brief Method of the production of the body of the message of the completion of the handshake by the chosen hash
+		 * @brief Function of the production of the body of the message of the completion of the handshake by the chosen hash
+		 *
 		 * @param algorithm  the hash of the cipher suite the handshake is conducted by
 		 * @param secret     the key of the production of the completion of the handshake
 		 * @param transcript the hash of the transcript of the handshake at the moment of the completion
 		 * @param result     the place the body of the message is put into
 		 * @return           the failure of the production of the body of the message
+		 *
 		 * @note The production without the argument of the hash goes by «Streebog»-256: so the GOST branch is composed
 		 * @note The place of the outcome is obliged to hold the length of the hash
 		 *
@@ -433,11 +455,10 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ error_t finished(const digest::hash_t algorithm, const view_t & secret, const view_t & transcript, uint8_t * result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод сличения тел сообщений завершения рукопожатия
+		 * @brief Функция сличения тел сообщений завершения рукопожатия
 		 *
 		 * @param first  первое сличаемое тело сообщения
 		 * @param second второе сличаемое тело сообщения
-		 *
 		 * @return       признак схождения сличаемых тел сообщений
 		 *
 		 * @details Сличение ведётся за постоянное время: время сличения не выдаёт, сколько
@@ -445,10 +466,12 @@ namespace nts {
 		 *          байту за раз оттого нельзя
 		 *
 		 * \~english
-		 * @brief Method of the comparison of the bodies of the messages of the completion of the handshake
+		 * @brief Function of the comparison of the bodies of the messages of the completion of the handshake
+		 *
 		 * @param first  the first body of the message being compared
 		 * @param second the second body of the message being compared
 		 * @return       the flag of the coincidence of the bodies of the messages being compared
+		 *
 		 * @details The comparison is conducted in a constant time: the time of the comparison does not
 		 *          reveal how many bytes of a received completion have matched, and hence it is not
 		 *          possible to guess the completion one byte at a time
@@ -458,21 +481,22 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ bool compare(const view_t & first, const view_t & second) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод разбора тела сообщения смены ключевого материала
+		 * @brief Функция разбора тела сообщения смены ключевого материала
 		 *
 		 * @param data   разбираемое тело сообщения
 		 * @param result вид смены, в который помещается итог разбора
-		 *
 		 * @return       отказ разбора тела сообщения
 		 *
 		 * @note Вид смены, протоколом не определённый, отвергается: раздел 4.6.3 RFC 8446
 		 *       велит рвать по нему связь, а не толковать его наугад
 		 *
 		 * \~english
-		 * @brief Method of the parsing of the body of the message of the change of the key material
+		 * @brief Function of the parsing of the body of the message of the change of the key material
+		 *
 		 * @param data   the body of the message being parsed
 		 * @param result the type of the change the outcome of the parsing is put into
 		 * @return       the failure of the parsing of the body of the message
+		 *
 		 * @note A type of the change not defined by the protocol is rejected: the section 4.6.3 of
 		 *       RFC 8446 orders to tear the connection by it and not to interpret it by a guess
 		 *
@@ -481,15 +505,15 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ error_t parse(const view_t & data, update_t & result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод составления тела сообщения смены ключевого материала
+		 * @brief Функция составления тела сообщения смены ключевого материала
 		 *
 		 * @param update составляемый вид смены ключевого материала
 		 * @param result накопитель, в который складывается тело сообщения
-		 *
 		 * @return       отказ составления тела сообщения
 		 *
 		 * \~english
-		 * @brief Method of the composition of the body of the message of the change of the key material
+		 * @brief Function of the composition of the body of the message of the change of the key material
+		 *
 		 * @param update the type of the change of the key material being composed
 		 * @param result the accumulator the body of the message is put into
 		 * @return       the failure of the composition of the body of the message
@@ -499,15 +523,15 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ error_t build(const update_t update, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод разбора тела сообщения билета возобновления связи
+		 * @brief Функция разбора тела сообщения билета возобновления связи
 		 *
 		 * @param data   разбираемое тело сообщения
 		 * @param result билет, в который помещается итог разбора
-		 *
 		 * @return       отказ разбора тела сообщения
 		 *
 		 * \~english
-		 * @brief Method of the parsing of the body of the message of a ticket of the resumption
+		 * @brief Function of the parsing of the body of the message of a ticket of the resumption
+		 *
 		 * @param data   the body of the message being parsed
 		 * @param result the ticket the outcome of the parsing is put into
 		 * @return       the failure of the parsing of the body of the message
@@ -517,21 +541,22 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ error_t parse(const view_t & data, ticket_t & result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод составления тела сообщения билета возобновления связи
+		 * @brief Функция составления тела сообщения билета возобновления связи
 		 *
 		 * @param ticket составляемый билет возобновления связи
 		 * @param result накопитель, в который складывается тело сообщения
-		 *
 		 * @return       отказ составления тела сообщения
 		 *
 		 * @note Пустое тело билета отвергается: раздел 4.6.1 RFC 8446 велит билету занимать
 		 *       хотя бы один байт, а опознать связь по пустому билету всё равно нечем
 		 *
 		 * \~english
-		 * @brief Method of the composition of the body of the message of a ticket of the resumption
+		 * @brief Function of the composition of the body of the message of a ticket of the resumption
+		 *
 		 * @param ticket the ticket of the resumption being composed
 		 * @param result the accumulator the body of the message is put into
 		 * @return       the failure of the composition of the body of the message
+		 *
 		 * @note An empty body of a ticket is rejected: the section 4.6.1 of RFC 8446 orders a ticket to
 		 *       occupy at least one byte, and there is nothing to identify a connection by an empty
 		 *       ticket anyway

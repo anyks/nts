@@ -6,6 +6,12 @@
  *
  * @author Yuriy Lobarev
  *
+ * @telegram{forman}
+ * @phone{+7 (910) 983-95-90}
+ *
+ * @email forman@anyks.com
+ * @site https://anyks.com
+ *
  * @brief Исходный файл модуля расширений приветствий протокола TLS
  *
  * @section Намеренные решения
@@ -78,10 +84,9 @@ namespace {
 	typedef extension::error_t error_t;
 
 	/**
-	 * @brief Метод перевода отказа составителя полей в отказ модуля
+	 * @brief Функция перевода отказа составителя полей в отказ модуля
 	 *
 	 * @param failure отказ, которым ответил составитель полей
-	 *
 	 * @return        отказ модуля, отвечающий отказу составителя
 	 *
 	 * @note Нехватка памяти обязана дойти до вызывающего своим именем: составитель
@@ -116,6 +121,7 @@ namespace {
 		// Длина ключа подписи на кривой группы в байтах
 		size_t size;
 	} SAMPLES[14] = {
+		// Перечень открывают группы на кривых ГОСТ
 		{group_t::GC256A, scheme_t::S256A, "1.2.643.7.1.2.1.1.1", 32},
 		{group_t::GC256B, scheme_t::S256B, "1.2.643.2.2.35.1",    32},
 		{group_t::GC256C, scheme_t::S256C, "1.2.643.2.2.35.2",    32},
@@ -142,6 +148,7 @@ namespace {
 		// Хеш схемы подписи
 		digest::hash_t hash;
 	} HASHES[25] = {
+		// Перечень открывают классические схемы RSA
 		{scheme_t::RSA_PKCS1_SHA256, digest::hash_t::SHA256},
 		{scheme_t::RSA_PKCS1_SHA384, digest::hash_t::SHA384},
 		{scheme_t::RSA_PKCS1_SHA512, digest::hash_t::SHA512},
@@ -170,13 +177,12 @@ namespace {
 	};
 
 	/**
-	 * @brief Метод разбора перечня чисел заданной ширины
+	 * @brief Функция разбора перечня чисел заданной ширины
 	 *
 	 * @param data   разбираемое тело расширения
 	 * @param width  ширина записи длины перечня в байтах
 	 * @param size   ширина записи одного числа перечня в байтах
 	 * @param result перечень, в который помещаются прочитанные числа
-	 *
 	 * @return       отказ разбора перечня чисел
 	 *
 	 */
@@ -208,7 +214,7 @@ namespace {
 		// Устанавливаем разбираемое содержимое перечня чисел
 		reader.start(body);
 		/**
-		 * Выполняем перехват ошибок работы с памятью
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			/**
@@ -223,7 +229,7 @@ namespace {
 				result.push_back(value);
 			}
 		/**
-		 * Если памяти под перечень чисел не хватило
+		 * Выполняем перехват ошибок
 		 */
 		} catch(const std::bad_alloc &) {
 			// Выводим отказ нехватки памяти
@@ -233,13 +239,12 @@ namespace {
 		return error_t::NONE;
 	}
 	/**
-	 * @brief Метод составления перечня чисел заданной ширины
+	 * @brief Функция составления перечня чисел заданной ширины
 	 *
 	 * @param values составляемый перечень чисел
 	 * @param width  ширина записи длины перечня в байтах
 	 * @param size   ширина записи одного числа перечня в байтах
 	 * @param result накопитель, в конец которого дописывается тело расширения
-	 *
 	 * @return       отказ составления перечня чисел
 	 *
 	 */
@@ -253,7 +258,7 @@ namespace {
 		// Отказ, которым ответил составитель полей
 		field::error_t failure = field::error_t::NONE;
 		/**
-		 * Выполняем перехват ошибок работы с памятью
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Открываем перечень чисел тела расширения
@@ -285,7 +290,7 @@ namespace {
 			// Выполняем дописывание тела расширения в накопитель
 			result.insert(result.end(), data.data, data.data + data.size);
 		/**
-		 * Если памяти под тело расширения не хватило
+		 * Выполняем перехват ошибок
 		 */
 		} catch(const std::bad_alloc &) {
 			// Выводим отказ нехватки памяти
@@ -295,12 +300,11 @@ namespace {
 		return error_t::NONE;
 	}
 	/**
-	 * @brief Метод составления одиночного поля переменной длины
+	 * @brief Функция составления одиночного поля переменной длины
 	 *
 	 * @param data   составляемое содержимое поля
 	 * @param width  ширина записи длины поля в байтах
 	 * @param result накопитель, в конец которого дописывается тело расширения
-	 *
 	 * @return       отказ составления поля переменной длины
 	 *
 	 * @note Имя «single» здесь не годится: у Solaris оно занято под вид числа с
@@ -314,7 +318,7 @@ namespace {
 		// Отказ, которым ответил составитель полей
 		field::error_t failure = field::error_t::NONE;
 		/**
-		 * Выполняем перехват ошибок работы с памятью
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Открываем поле переменной длины
@@ -334,7 +338,7 @@ namespace {
 			// Выполняем дописывание тела расширения в накопитель
 			result.insert(result.end(), body.data, body.data + body.size);
 		/**
-		 * Если памяти под тело расширения не хватило
+		 * Выполняем перехват ошибок
 		 */
 		} catch(const std::bad_alloc &) {
 			// Выводим отказ нехватки памяти
@@ -346,10 +350,9 @@ namespace {
 };
 
 /**
- * @brief Метод получения опознавателя кривой группы обмена ключами
+ * @brief Функция получения опознавателя кривой группы обмена ключами
  *
  * @param group группа обмена ключами
- *
  * @return      опознаватель кривой набора параметров либо nullptr
  *
  */
@@ -367,40 +370,28 @@ const char * nts::extension::curve(const group_t group) noexcept {
 	return nullptr;
 }
 /**
- * @brief Метод получения опознавателя кривой схемы подписи
+ * @brief Функция проверки принадлежности группы гибридам с инкапсуляцией ключа
  *
- * @param scheme схема подписи
- *
- * @return       опознаватель кривой набора параметров либо nullptr
+ * @param group проверяемая группа обмена ключами
+ * @return      признак того, что группа есть гибрид с инкапсуляцией ключа
  *
  */
 /**
- * \~russian
- * @brief Метод проверки принадлежности группы гибридам с инкапсуляцией ключа
+ * @brief Функция проверки принадлежности группы гибридам с инкапсуляцией ключа
  *
  * @param group проверяемая группа обмена ключами
- *
  * @return      признак того, что группа есть гибрид с инкапсуляцией ключа
  *
- * \~english
- * @brief Method of the check of the belonging of a group to the hybrids with a key encapsulation
- *
- * @param group group of the exchange of the keys to check
- *
- * @return      sign that the group is a hybrid with a key encapsulation
- *
- * \~
  */
 bool nts::extension::hybrid(const group_t group) noexcept {
 	// Выводим признак гибрида: X25519MLKEM768, SecP256r1MLKEM768, SecP384r1MLKEM1024 либо curveSM2MLKEM768
 	return ((group == group_t::X25519MLKEM768) || (group == group_t::SECP256R1MLKEM768) || (group == group_t::SECP384R1MLKEM1024) || (group == group_t::CURVESM2MLKEM768));
 }
 /**
- * @brief Метод получения длины модуля группы конечного поля RFC 7919
+ * @brief Функция получения длины модуля группы конечного поля RFC 7919
  *
  * @param group проверяемая группа обмена ключами
- *
- * @return      длина модуля в байтах, ноль у прочих групп
+ * @return      длина модуля в байтах: 256 … 1024 у ffdhe2048 … ffdhe8192, ноль у прочих групп
  *
  */
 size_t nts::extension::finite(const group_t group) noexcept {
@@ -422,6 +413,7 @@ size_t nts::extension::finite(const group_t group) noexcept {
 	// Выводим отсутствие модуля: группа не конечное поле
 	return 0;
 }
+	// Получаем опознаватель кривой схемы подписи
 const char * nts::extension::curve(const scheme_t scheme) noexcept {
 	/**
 	 * Выполняем перебор описаний схем подписи
@@ -436,10 +428,9 @@ const char * nts::extension::curve(const scheme_t scheme) noexcept {
 	return nullptr;
 }
 /**
- * @brief Метод получения длины ключа схемы подписи
+ * @brief Функция получения длины ключа схемы подписи
  *
  * @param scheme схема подписи
- *
  * @return       длина ключа подписи в байтах, ноль у неизвестной схемы
  *
  */
@@ -457,10 +448,9 @@ size_t nts::extension::length(const scheme_t scheme) noexcept {
 	return 0;
 }
 /**
- * @brief Метод получения длины доли ключа группы обмена ключами
+ * @brief Функция получения длины доли ключа группы обмена ключами
  *
  * @param group группа обмена ключами
- *
  * @return      длина доли ключа в байтах, ноль у неизвестной группы
  *
  */
@@ -520,10 +510,9 @@ size_t nts::extension::length(const group_t group) noexcept {
 	return 0;
 }
 /**
- * @brief Метод получения хеша схемы подписи
+ * @brief Функция получения хеша схемы подписи
  *
  * @param scheme схема подписи
- *
  * @return       хеш, которым берётся подписываемое содержимое, NONE у Ed25519 и у неизвестной схемы
  *
  */
@@ -541,11 +530,10 @@ nts::digest::hash_t nts::extension::hash(const scheme_t scheme) noexcept {
 	return digest::hash_t::NONE;
 }
 /**
- * @brief Метод разбора перечня поддерживаемых изданий протокола
+ * @brief Функция разбора перечня поддерживаемых изданий протокола
  *
  * @param data   разбираемое тело расширения приветствия клиента
  * @param result перечень, в который помещаются поддерживаемые издания протокола
- *
  * @return       отказ разбора тела расширения
  *
  */
@@ -559,7 +547,7 @@ nts::extension::error_t nts::extension::versions(const view_t & data, vector <ui
 		// Выводим отказ разбора тела расширения
 		return error;
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		/**
@@ -569,7 +557,7 @@ nts::extension::error_t nts::extension::versions(const view_t & data, vector <ui
 			// Добавляем очередное издание протокола в перечень
 			result.push_back(static_cast <uint16_t> (item));
 	/**
-	 * Если памяти под перечень изданий не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -579,11 +567,10 @@ nts::extension::error_t nts::extension::versions(const view_t & data, vector <ui
 	return error_t::NONE;
 }
 /**
- * @brief Метод составления перечня поддерживаемых изданий протокола
+ * @brief Функция составления перечня поддерживаемых изданий протокола
  *
  * @param versions составляемый перечень поддерживаемых изданий протокола
  * @param result   накопитель, в конец которого дописывается тело расширения
- *
  * @return         отказ составления тела расширения
  *
  */
@@ -591,7 +578,7 @@ nts::extension::error_t nts::extension::versions(const vector <uint16_t> & versi
 	// Составляемый перечень изданий протокола
 	vector <uint32_t> values;
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		/**
@@ -601,7 +588,7 @@ nts::extension::error_t nts::extension::versions(const vector <uint16_t> & versi
 			// Добавляем очередное издание протокола в перечень
 			values.push_back(static_cast <uint32_t> (item));
 	/**
-	 * Если памяти под перечень изданий не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -611,11 +598,10 @@ nts::extension::error_t nts::extension::versions(const vector <uint16_t> & versi
 	return compose(values, 1, 2, result);
 }
 /**
- * @brief Метод разбора выбранного издания протокола
+ * @brief Функция разбора выбранного издания протокола
  *
  * @param data   разбираемое тело расширения приветствия сервера
  * @param result число, в которое помещается выбранное издание протокола
- *
  * @return       отказ разбора тела расширения
  *
  */
@@ -640,17 +626,16 @@ nts::extension::error_t nts::extension::version(const view_t & data, uint16_t & 
 	return error_t::NONE;
 }
 /**
- * @brief Метод составления выбранного издания протокола
+ * @brief Функция составления выбранного издания протокола
  *
  * @param version составляемое выбранное издание протокола
  * @param result  накопитель, в конец которого дописывается тело расширения
- *
  * @return        отказ составления тела расширения
  *
  */
 nts::extension::error_t nts::extension::version(const uint16_t version, vector <uint8_t> & result) noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Записываем старший байт выбранного издания протокола
@@ -658,7 +643,7 @@ nts::extension::error_t nts::extension::version(const uint16_t version, vector <
 		// Записываем младший байт выбранного издания протокола
 		result.push_back(static_cast <uint8_t> (version & 0xFF));
 	/**
-	 * Если памяти под тело расширения не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -668,11 +653,10 @@ nts::extension::error_t nts::extension::version(const uint16_t version, vector <
 	return error_t::NONE;
 }
 /**
- * @brief Метод разбора перечня поддерживаемых групп обмена ключами
+ * @brief Функция разбора перечня поддерживаемых групп обмена ключами
  *
  * @param data   разбираемое тело расширения
  * @param result перечень, в который помещаются поддерживаемые группы
- *
  * @return       отказ разбора тела расширения
  *
  */
@@ -686,7 +670,7 @@ nts::extension::error_t nts::extension::groups(const view_t & data, vector <grou
 		// Выводим отказ разбора тела расширения
 		return error;
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		/**
@@ -696,7 +680,7 @@ nts::extension::error_t nts::extension::groups(const view_t & data, vector <grou
 			// Добавляем очередную группу обмена в перечень
 			result.push_back(static_cast <group_t> (item));
 	/**
-	 * Если памяти под перечень групп не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -706,11 +690,10 @@ nts::extension::error_t nts::extension::groups(const view_t & data, vector <grou
 	return error_t::NONE;
 }
 /**
- * @brief Метод составления перечня поддерживаемых групп обмена ключами
+ * @brief Функция составления перечня поддерживаемых групп обмена ключами
  *
  * @param groups составляемый перечень поддерживаемых групп
  * @param result накопитель, в конец которого дописывается тело расширения
- *
  * @return       отказ составления тела расширения
  *
  */
@@ -718,7 +701,7 @@ nts::extension::error_t nts::extension::groups(const vector <group_t> & groups, 
 	// Составляемый перечень групп обмена ключами
 	vector <uint32_t> values;
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		/**
@@ -728,7 +711,7 @@ nts::extension::error_t nts::extension::groups(const vector <group_t> & groups, 
 			// Добавляем очередную группу обмена в перечень
 			values.push_back(static_cast <uint32_t> (item));
 	/**
-	 * Если памяти под перечень групп не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -738,11 +721,10 @@ nts::extension::error_t nts::extension::groups(const vector <group_t> & groups, 
 	return compose(values, 2, 2, result);
 }
 /**
- * @brief Метод разбора перечня поддерживаемых схем подписи
+ * @brief Функция разбора перечня поддерживаемых схем подписи
  *
  * @param data   разбираемое тело расширения
  * @param result перечень, в который помещаются поддерживаемые схемы подписи
- *
  * @return       отказ разбора тела расширения
  *
  */
@@ -756,7 +738,7 @@ nts::extension::error_t nts::extension::schemes(const view_t & data, vector <sch
 		// Выводим отказ разбора тела расширения
 		return error;
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		/**
@@ -766,7 +748,7 @@ nts::extension::error_t nts::extension::schemes(const view_t & data, vector <sch
 			// Добавляем очередную схему подписи в перечень
 			result.push_back(static_cast <scheme_t> (item));
 	/**
-	 * Если памяти под перечень схем не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -776,11 +758,10 @@ nts::extension::error_t nts::extension::schemes(const view_t & data, vector <sch
 	return error_t::NONE;
 }
 /**
- * @brief Метод составления перечня поддерживаемых схем подписи
+ * @brief Функция составления перечня поддерживаемых схем подписи
  *
  * @param schemes составляемый перечень поддерживаемых схем подписи
  * @param result  накопитель, в конец которого дописывается тело расширения
- *
  * @return        отказ составления тела расширения
  *
  */
@@ -788,7 +769,7 @@ nts::extension::error_t nts::extension::schemes(const vector <scheme_t> & scheme
 	// Составляемый перечень схем подписи
 	vector <uint32_t> values;
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		/**
@@ -798,7 +779,7 @@ nts::extension::error_t nts::extension::schemes(const vector <scheme_t> & scheme
 			// Добавляем очередную схему подписи в перечень
 			values.push_back(static_cast <uint32_t> (item));
 	/**
-	 * Если памяти под перечень схем не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -808,11 +789,10 @@ nts::extension::error_t nts::extension::schemes(const vector <scheme_t> & scheme
 	return compose(values, 2, 2, result);
 }
 /**
- * @brief Метод разбора перечня видов сертификатов certificate_type
+ * @brief Функция разбора перечня видов сертификатов certificate_type
  *
  * @param data   разбираемое тело расширения
  * @param result перечень, в который помещаются объявленные виды
- *
  * @return       отказ разбора тела расширения
  *
  */
@@ -826,7 +806,7 @@ nts::extension::error_t nts::extension::certtypes(const view_t & data, vector <c
 		// Выводим отказ разбора тела расширения
 		return error;
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		/**
@@ -836,7 +816,7 @@ nts::extension::error_t nts::extension::certtypes(const view_t & data, vector <c
 			// Добавляем очередной вид сертификата в перечень
 			result.push_back(static_cast <cert_t> (item));
 	/**
-	 * Если памяти под перечень видов не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -846,11 +826,10 @@ nts::extension::error_t nts::extension::certtypes(const view_t & data, vector <c
 	return error_t::NONE;
 }
 /**
- * @brief Метод составления перечня видов сертификатов certificate_type
+ * @brief Функция составления перечня видов сертификатов certificate_type
  *
  * @param types  составляемый перечень видов сертификатов
  * @param result накопитель, в конец которого дописывается тело расширения
- *
  * @return       отказ составления тела расширения
  *
  */
@@ -858,7 +837,7 @@ nts::extension::error_t nts::extension::certtypes(const vector <cert_t> & types,
 	// Составляемый перечень видов сертификатов
 	vector <uint32_t> values;
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		/**
@@ -868,7 +847,7 @@ nts::extension::error_t nts::extension::certtypes(const vector <cert_t> & types,
 			// Добавляем очередной вид сертификата в перечень
 			values.push_back(static_cast <uint32_t> (item));
 	/**
-	 * Если памяти под перечень видов не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -878,11 +857,10 @@ nts::extension::error_t nts::extension::certtypes(const vector <cert_t> & types,
 	return compose(values, 1, 1, result);
 }
 /**
- * @brief Метод разбора перечня профилей защиты RTP use_srtp
+ * @brief Функция разбора перечня профилей защиты RTP use_srtp
  *
  * @param data   разбираемое тело расширения
  * @param result перечень, в который помещаются объявленные профили
- *
  * @return       отказ разбора тела расширения
  *
  */
@@ -920,7 +898,7 @@ nts::extension::error_t nts::extension::profiles(const view_t & data, vector <ui
 	// Устанавливаем разбираемое содержимое перечня профилей
 	reader.start(body);
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		/**
@@ -935,7 +913,7 @@ nts::extension::error_t nts::extension::profiles(const view_t & data, vector <ui
 			result.push_back(static_cast <uint16_t> (value));
 		}
 	/**
-	 * Если памяти под перечень профилей не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -945,11 +923,10 @@ nts::extension::error_t nts::extension::profiles(const view_t & data, vector <ui
 	return error_t::NONE;
 }
 /**
- * @brief Метод составления перечня профилей защиты RTP use_srtp
+ * @brief Функция составления перечня профилей защиты RTP use_srtp
  *
  * @param profiles составляемый перечень профилей защиты
  * @param result   накопитель, в конец которого дописывается тело расширения
- *
  * @return         отказ составления тела расширения
  *
  */
@@ -957,7 +934,7 @@ nts::extension::error_t nts::extension::profiles(const vector <uint16_t> & profi
 	// Составляемый перечень профилей защиты
 	vector <uint32_t> values;
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		/**
@@ -967,7 +944,7 @@ nts::extension::error_t nts::extension::profiles(const vector <uint16_t> & profi
 			// Добавляем очередной профиль в перечень
 			values.push_back(static_cast <uint32_t> (item));
 	/**
-	 * Если памяти под перечень профилей не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -983,11 +960,10 @@ nts::extension::error_t nts::extension::profiles(const vector <uint16_t> & profi
 	return error;
 }
 /**
- * @brief Метод разбора перечня записей точек кривой ec_point_formats
+ * @brief Функция разбора перечня записей точек кривой ec_point_formats
  *
  * @param data   разбираемое тело расширения
  * @param result перечень, в который помещаются объявленные записи точек
- *
  * @return       отказ разбора тела расширения
  *
  */
@@ -1001,7 +977,7 @@ nts::extension::error_t nts::extension::formats(const view_t & data, vector <uin
 		// Выводим отказ разбора тела расширения
 		return error;
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		/**
@@ -1011,7 +987,7 @@ nts::extension::error_t nts::extension::formats(const view_t & data, vector <uin
 			// Добавляем очередную запись точки в перечень
 			result.push_back(static_cast <uint8_t> (item));
 	/**
-	 * Если памяти под перечень записей не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -1021,11 +997,10 @@ nts::extension::error_t nts::extension::formats(const view_t & data, vector <uin
 	return error_t::NONE;
 }
 /**
- * @brief Метод составления перечня записей точек кривой ec_point_formats
+ * @brief Функция составления перечня записей точек кривой ec_point_formats
  *
  * @param formats составляемый перечень записей точек
  * @param result  накопитель, в конец которого дописывается тело расширения
- *
  * @return        отказ составления тела расширения
  *
  */
@@ -1033,7 +1008,7 @@ nts::extension::error_t nts::extension::formats(const vector <uint8_t> & formats
 	// Составляемый перечень записей точек кривой
 	vector <uint32_t> values;
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		/**
@@ -1043,7 +1018,7 @@ nts::extension::error_t nts::extension::formats(const vector <uint8_t> & formats
 			// Добавляем очередную запись точки в перечень
 			values.push_back(static_cast <uint32_t> (item));
 	/**
-	 * Если памяти под перечень записей не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -1053,11 +1028,10 @@ nts::extension::error_t nts::extension::formats(const vector <uint8_t> & formats
 	return compose(values, 1, 1, result);
 }
 /**
- * @brief Метод разбора перечня открытых частей ключей обмена
+ * @brief Функция разбора перечня открытых частей ключей обмена
  *
  * @param data   разбираемое тело расширения приветствия клиента
  * @param result перечень, в который помещаются открытые части ключей обмена
- *
  * @return       отказ разбора тела расширения
  *
  */
@@ -1101,13 +1075,13 @@ nts::extension::error_t nts::extension::shares(const view_t & data, vector <shar
 			// Выводим отказ пустой открытой части ключа
 			return error_t::EMPTY;
 		/**
-		 * Выполняем перехват ошибок работы с памятью
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Добавляем очередную открытую часть ключа в перечень
 			result.push_back(share_t(static_cast <group_t> (group), key));
 		/**
-		 * Если памяти под перечень открытых частей ключей не хватило
+		 * Выполняем перехват ошибок
 		 */
 		} catch(const std::bad_alloc &) {
 			// Выводим отказ нехватки памяти
@@ -1118,11 +1092,10 @@ nts::extension::error_t nts::extension::shares(const view_t & data, vector <shar
 	return error_t::NONE;
 }
 /**
- * @brief Метод составления перечня открытых частей ключей обмена
+ * @brief Функция составления перечня открытых частей ключей обмена
  *
  * @param shares составляемый перечень открытых частей ключей обмена
  * @param result накопитель, в конец которого дописывается тело расширения
- *
  * @return       отказ составления тела расширения
  *
  */
@@ -1132,7 +1105,7 @@ nts::extension::error_t nts::extension::shares(const vector <share_t> & shares, 
 	// Отказ, которым ответил составитель полей
 	field::error_t failure = field::error_t::NONE;
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Открываем перечень открытых частей ключей обмена
@@ -1169,7 +1142,7 @@ nts::extension::error_t nts::extension::shares(const vector <share_t> & shares, 
 		// Выполняем дописывание тела расширения в накопитель
 		result.insert(result.end(), data.data, data.data + data.size);
 	/**
-	 * Если памяти под тело расширения не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -1179,11 +1152,10 @@ nts::extension::error_t nts::extension::shares(const vector <share_t> & shares, 
 	return error_t::NONE;
 }
 /**
- * @brief Метод разбора открытой части ключа обмена сервера
+ * @brief Функция разбора открытой части ключа обмена сервера
  *
  * @param data   разбираемое тело расширения приветствия сервера
  * @param result запись, в которую помещается открытая часть ключа обмена
- *
  * @return       отказ разбора тела расширения
  *
  */
@@ -1220,11 +1192,10 @@ nts::extension::error_t nts::extension::share(const view_t & data, share_t & res
 	return error_t::NONE;
 }
 /**
- * @brief Метод составления открытой части ключа обмена сервера
+ * @brief Функция составления открытой части ключа обмена сервера
  *
  * @param share  составляемая открытая часть ключа обмена
  * @param result накопитель, в конец которого дописывается тело расширения
- *
  * @return       отказ составления тела расширения
  *
  */
@@ -1234,7 +1205,7 @@ nts::extension::error_t nts::extension::share(const share_t & share, vector <uin
 	// Отказ, которым ответил составитель полей
 	field::error_t failure = field::error_t::NONE;
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Записываем группу обмена открытой части ключа
@@ -1258,7 +1229,7 @@ nts::extension::error_t nts::extension::share(const share_t & share, vector <uin
 		// Выполняем дописывание тела расширения в накопитель
 		result.insert(result.end(), data.data, data.data + data.size);
 	/**
-	 * Если памяти под тело расширения не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -1268,11 +1239,10 @@ nts::extension::error_t nts::extension::share(const share_t & share, vector <uin
 	return error_t::NONE;
 }
 /**
- * @brief Метод разбора предела упреждающих данных билета
+ * @brief Функция разбора предела упреждающих данных билета
  *
  * @param data   разбираемое тело расширения билета возобновления связи
  * @param result место, в которое помещается предел упреждающих данных в байтах
- *
  * @return       отказ разбора тела расширения
  *
  */
@@ -1297,11 +1267,10 @@ nts::extension::error_t nts::extension::early(const view_t & data, uint32_t & re
 	return error_t::NONE;
 }
 /**
- * @brief Метод разбора перечня меток времени подписанного сертификата
+ * @brief Функция разбора перечня меток времени подписанного сертификата
  *
  * @param data   разбираемое тело расширения signed_certificate_timestamp
  * @param result накопитель, в конец которого дописываются записи перечня как есть
- *
  * @return       отказ разбора тела расширения
  *
  */
@@ -1329,7 +1298,7 @@ nts::extension::error_t nts::extension::timestamps(const view_t & data, vector <
 	// Заводим сканер по перечню записей
 	reader.start(body);
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		/**
@@ -1350,7 +1319,7 @@ nts::extension::error_t nts::extension::timestamps(const view_t & data, vector <
 			result.push_back(vector <uint8_t> (item.data, item.data + item.size));
 		}
 	/**
-	 * Если памяти под перечень записей не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -1360,11 +1329,10 @@ nts::extension::error_t nts::extension::timestamps(const view_t & data, vector <
 	return error_t::NONE;
 }
 /**
- * @brief Метод составления перечня меток времени подписанного сертификата
+ * @brief Функция составления перечня меток времени подписанного сертификата
  *
  * @param entries записи перечня как есть
  * @param result  накопитель, в конец которого дописывается тело расширения
- *
  * @return        отказ составления тела расширения
  *
  */
@@ -1409,13 +1377,13 @@ nts::extension::error_t nts::extension::timestamps(const vector <vector <uint8_t
 	// Составленное тело расширения
 	const view_t data = builder.data();
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Дописываем тело расширения в накопитель
 		result.insert(result.end(), data.data, data.data + data.size);
 	/**
-	 * Если памяти под тело расширения не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -1425,11 +1393,10 @@ nts::extension::error_t nts::extension::timestamps(const vector <vector <uint8_t
 	return error_t::NONE;
 }
 /**
- * @brief Метод разбора перечня доверенных удостоверяющих центров
+ * @brief Функция разбора перечня доверенных удостоверяющих центров
  *
  * @param data   разбираемое тело расширения certificate_authorities
- * @param result накопитель, в конец которого дописываются имена как записаны
- *
+ * @param result накопитель, в конец которого дописываются имена как записаны (DER X.501 Name)
  * @return       отказ разбора тела расширения
  *
  */
@@ -1457,7 +1424,7 @@ nts::extension::error_t nts::extension::authorities(const view_t & data, vector 
 	// Заводим сканер по перечню имён
 	reader.start(body);
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		/**
@@ -1478,7 +1445,7 @@ nts::extension::error_t nts::extension::authorities(const view_t & data, vector 
 			result.push_back(vector <uint8_t> (item.data, item.data + item.size));
 		}
 	/**
-	 * Если памяти под перечень имён не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -1488,11 +1455,10 @@ nts::extension::error_t nts::extension::authorities(const view_t & data, vector 
 	return error_t::NONE;
 }
 /**
- * @brief Метод составления перечня доверенных удостоверяющих центров
+ * @brief Функция составления перечня доверенных удостоверяющих центров
  *
- * @param names  имена как записаны
+ * @param names  имена как записаны (DER X.501 Name)
  * @param result накопитель, в конец которого дописывается тело расширения
- *
  * @return       отказ составления тела расширения
  *
  */
@@ -1537,13 +1503,13 @@ nts::extension::error_t nts::extension::authorities(const vector <vector <uint8_
 	// Составленное тело расширения
 	const view_t data = builder.data();
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Дописываем тело расширения в накопитель
 		result.insert(result.end(), data.data, data.data + data.size);
 	/**
-	 * Если памяти под тело расширения не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -1553,11 +1519,10 @@ nts::extension::error_t nts::extension::authorities(const vector <vector <uint8_
 	return error_t::NONE;
 }
 /**
- * @brief Метод разбора перечня протоколов выработки NPN, объявленного сервером
+ * @brief Функция разбора перечня протоколов выработки NPN, объявленного сервером
  *
  * @param data   разбираемое тело расширения next_protocol_negotiation приветствия сервера
  * @param result накопитель, в конец которого дописываются названия протоколов
- *
  * @return       отказ разбора тела расширения
  *
  */
@@ -1567,7 +1532,7 @@ nts::extension::error_t nts::extension::negotiation(const view_t & data, vector 
 	// Заводим сканер по телу расширения
 	scanner.start(data);
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		/**
@@ -1588,7 +1553,7 @@ nts::extension::error_t nts::extension::negotiation(const view_t & data, vector 
 			result.push_back(string(reinterpret_cast <const char *> (item.data), item.size));
 		}
 	/**
-	 * Если памяти под перечень не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -1598,11 +1563,10 @@ nts::extension::error_t nts::extension::negotiation(const view_t & data, vector 
 	return error_t::NONE;
 }
 /**
- * @brief Метод составления перечня протоколов выработки NPN
+ * @brief Функция составления перечня протоколов выработки NPN
  *
  * @param protocols названия протоколов
  * @param result    накопитель, в конец которого дописывается тело расширения
- *
  * @return          отказ составления тела расширения
  *
  */
@@ -1635,13 +1599,13 @@ nts::extension::error_t nts::extension::negotiation(const vector <string> & prot
 	// Составленное тело расширения
 	const view_t data = builder.data();
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Дописываем тело расширения в накопитель
 		result.insert(result.end(), data.data, data.data + data.size);
 	/**
-	 * Если памяти под тело расширения не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -1651,11 +1615,10 @@ nts::extension::error_t nts::extension::negotiation(const vector <string> & prot
 	return error_t::NONE;
 }
 /**
- * @brief Метод составления предела упреждающих данных билета
+ * @brief Функция составления предела упреждающих данных билета
  *
  * @param limit  объявляемый предел упреждающих данных в байтах
  * @param result накопитель, в конец которого дописывается тело расширения
- *
  * @return       отказ составления тела расширения
  *
  */
@@ -1671,13 +1634,13 @@ nts::extension::error_t nts::extension::early(const uint32_t limit, vector <uint
 	// Получаем составленное тело расширения приветствия
 	const view_t data = builder.data();
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Дописываем составленное тело расширения в накопитель
 		result.insert(result.end(), data.data, data.data + data.size);
 	/**
-	 * Если памяти под тело расширения не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -1687,11 +1650,10 @@ nts::extension::error_t nts::extension::early(const uint32_t limit, vector <uint
 	return error_t::NONE;
 }
 /**
- * @brief Метод разбора перечня алгоритмов сжатия цепочки сертификатов
+ * @brief Функция разбора перечня алгоритмов сжатия цепочки сертификатов
  *
  * @param data   разбираемое тело расширения
  * @param result перечень, в который помещаются опознаватели алгоритмов
- *
  * @return       отказ разбора тела расширения
  *
  */
@@ -1708,7 +1670,7 @@ nts::extension::error_t nts::extension::algorithms(const view_t & data, vector <
 		// Выводим отказ разбора тела расширения
 		return error;
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		/**
@@ -1718,7 +1680,7 @@ nts::extension::error_t nts::extension::algorithms(const view_t & data, vector <
 			// Добавляем очередной опознаватель алгоритма в перечень
 			result.push_back(static_cast <uint16_t> (item));
 	/**
-	 * Если памяти под перечень алгоритмов не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -1728,11 +1690,10 @@ nts::extension::error_t nts::extension::algorithms(const view_t & data, vector <
 	return error_t::NONE;
 }
 /**
- * @brief Метод составления перечня алгоритмов сжатия цепочки сертификатов
+ * @brief Функция составления перечня алгоритмов сжатия цепочки сертификатов
  *
  * @param algorithms составляемый перечень опознавателей алгоритмов
  * @param result     накопитель, в конец которого дописывается тело расширения
- *
  * @return           отказ составления тела расширения
  *
  */
@@ -1740,7 +1701,7 @@ nts::extension::error_t nts::extension::algorithms(const vector <uint16_t> & alg
 	// Составляемый перечень опознавателей алгоритмов
 	vector <uint32_t> values;
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		/**
@@ -1750,7 +1711,7 @@ nts::extension::error_t nts::extension::algorithms(const vector <uint16_t> & alg
 			// Добавляем очередной опознаватель алгоритма в перечень
 			values.push_back(static_cast <uint32_t> (item));
 	/**
-	 * Если памяти под перечень алгоритмов не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -1760,11 +1721,10 @@ nts::extension::error_t nts::extension::algorithms(const vector <uint16_t> & alg
 	return compose(values, 1, 2, result);
 }
 /**
- * @brief Метод разбора перечня прикладных протоколов
+ * @brief Функция разбора перечня прикладных протоколов
  *
  * @param data   разбираемое тело расширения
  * @param result перечень, в который помещаются названия прикладных протоколов
- *
  * @return       отказ разбора тела расширения
  *
  */
@@ -1788,7 +1748,7 @@ nts::extension::error_t nts::extension::protocols(const view_t & data, vector <s
 	// Устанавливаем разбираемое содержимое перечня прикладных протоколов
 	reader.start(body);
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		/**
@@ -1811,7 +1771,7 @@ nts::extension::error_t nts::extension::protocols(const view_t & data, vector <s
 			result.push_back(string(reinterpret_cast <const char *> (item.data), item.size));
 		}
 	/**
-	 * Если памяти под перечень протоколов не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -1825,11 +1785,10 @@ nts::extension::error_t nts::extension::protocols(const view_t & data, vector <s
 	return error_t::NONE;
 }
 /**
- * @brief Метод составления перечня прикладных протоколов
+ * @brief Функция составления перечня прикладных протоколов
  *
  * @param protocols составляемый перечень названий прикладных протоколов
  * @param result    накопитель, в конец которого дописывается тело расширения
- *
  * @return          отказ составления тела расширения
  *
  */
@@ -1843,7 +1802,7 @@ nts::extension::error_t nts::extension::protocols(const vector <string> & protoc
 	// Отказ, которым ответил составитель полей
 	field::error_t failure = field::error_t::NONE;
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Открываем перечень прикладных протоколов
@@ -1882,7 +1841,7 @@ nts::extension::error_t nts::extension::protocols(const vector <string> & protoc
 		// Выполняем дописывание тела расширения в накопитель
 		result.insert(result.end(), data.data, data.data + data.size);
 	/**
-	 * Если памяти под тело расширения не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -1892,11 +1851,10 @@ nts::extension::error_t nts::extension::protocols(const vector <string> & protoc
 	return error_t::NONE;
 }
 /**
- * @brief Метод разбора выбранного прикладного протокола
+ * @brief Функция разбора выбранного прикладного протокола
  *
  * @param data   разбираемое тело расширения
  * @param result название, в которое помещается выбранный прикладной протокол
- *
  * @return       отказ разбора тела расширения
  *
  */
@@ -1916,13 +1874,13 @@ nts::extension::error_t nts::extension::protocol(const view_t & data, string & r
 		// Выводим отказ длины перечня тела расширения
 		return error_t::LENGTH;
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Устанавливаем выбранный прикладной протокол
 		result = ::move(protocols.front());
 	/**
-	 * Если памяти под название протокола не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -1932,11 +1890,10 @@ nts::extension::error_t nts::extension::protocol(const view_t & data, string & r
 	return error_t::NONE;
 }
 /**
- * @brief Метод составления выбранного прикладного протокола
+ * @brief Функция составления выбранного прикладного протокола
  *
  * @param protocol составляемое название выбранного прикладного протокола
  * @param result   накопитель, в конец которого дописывается тело расширения
- *
  * @return         отказ составления тела расширения
  *
  */
@@ -1946,13 +1903,13 @@ nts::extension::error_t nts::extension::protocol(const string & protocol, vector
 		// Выводим отказ пустого названия прикладного протокола
 		return error_t::EMPTY;
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Выводим итог составления перечня из одного прикладного протокола
 		return extension::protocols(vector <string> (1, protocol), result);
 	/**
-	 * Если памяти под перечень протоколов не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -1960,13 +1917,12 @@ nts::extension::error_t nts::extension::protocol(const string & protocol, vector
 	}
 }
 /**
- * @brief Метод разбора предложения заранее разделённых ключей
+ * @brief Функция разбора предложения заранее разделённых ключей
  *
  * @param data       разбираемое тело расширения приветствия клиента
  * @param result     перечень, в который помещаются опознаватели ключей
  * @param binders    перечень, в который помещаются привязки ключей
  * @param truncation место, в которое помещается длина приветствия без привязок
- *
  * @return           отказ разбора тела расширения
  *
  */
@@ -2021,13 +1977,13 @@ nts::extension::error_t nts::extension::identities(const view_t & data, vector <
 			// Выводим отказ обрыва тела расширения
 			return error_t::HUNGRY;
 		/**
-		 * Выполняем перехват ошибок работы с памятью
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Добавляем очередной опознаватель ключа в перечень
 			result.push_back(identity_t(identity, age));
 		/**
-		 * Если памяти под перечень опознавателей не хватило
+		 * Выполняем перехват ошибок
 		 */
 		} catch(const std::bad_alloc &) {
 			// Выводим отказ нехватки памяти
@@ -2035,17 +1991,17 @@ nts::extension::error_t nts::extension::identities(const view_t & data, vector <
 		}
 	}
 	// Объект разборщика записей перечня привязок
-	field::scanner_t items_reader;
+	field::scanner_t itemsReader;
 	// Устанавливаем разбираемое содержимое перечня привязок
-	items_reader.start(items);
+	itemsReader.start(items);
 	/**
 	 * Выполняем перебор привязок заранее разделённых ключей
 	 */
-	while(items_reader.left() > 0){
+	while(itemsReader.left() > 0){
 		// Привязка очередного заранее разделённого ключа
 		view_t binder;
 		// Если привязку ключа прочитать не удалось
-		if(items_reader.vector(binder, 1) != field::error_t::NONE)
+		if(itemsReader.vector(binder, 1) != field::error_t::NONE)
 			// Выводим отказ обрыва тела расширения
 			return error_t::HUNGRY;
 		// Раздел 4.2.11 RFC 8446: привязка не короче 32 байтов
@@ -2053,13 +2009,13 @@ nts::extension::error_t nts::extension::identities(const view_t & data, vector <
 			// Выводим отказ пустой привязки
 			return error_t::EMPTY;
 		/**
-		 * Выполняем перехват ошибок работы с памятью
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Добавляем очередную привязку ключа в перечень
 			binders.push_back(binder);
 		/**
-		 * Если памяти под перечень привязок не хватило
+		 * Выполняем перехват ошибок
 		 */
 		} catch(const std::bad_alloc &) {
 			// Выводим отказ нехватки памяти
@@ -2083,12 +2039,11 @@ nts::extension::error_t nts::extension::identities(const view_t & data, vector <
 	return error_t::NONE;
 }
 /**
- * @brief Метод составления предложения заранее разделённых ключей
+ * @brief Функция составления предложения заранее разделённых ключей
  *
  * @param identities составляемый перечень опознавателей ключей
  * @param binders    составляемый перечень привязок ключей
  * @param result     накопитель, в конец которого дописывается тело расширения
- *
  * @return           отказ составления тела расширения
  *
  */
@@ -2162,13 +2117,13 @@ nts::extension::error_t nts::extension::identities(const vector <identity_t> & i
 	// Получаем составленное тело расширения приветствия
 	const view_t data = builder.data();
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Дописываем составленное тело расширения в накопитель
 		result.insert(result.end(), data.data, data.data + data.size);
 	/**
-	 * Если памяти под тело расширения не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -2178,11 +2133,10 @@ nts::extension::error_t nts::extension::identities(const vector <identity_t> & i
 	return error_t::NONE;
 }
 /**
- * @brief Метод разбора выбранного сервером заранее разделённого ключа
+ * @brief Функция разбора выбранного сервером заранее разделённого ключа
  *
  * @param data   разбираемое тело расширения приветствия сервера
  * @param result место, в которое помещается место выбранного ключа в предложении
- *
  * @return       отказ разбора тела расширения
  *
  */
@@ -2191,11 +2145,10 @@ nts::extension::error_t nts::extension::chosen(const view_t & data, uint16_t & r
 	return nts::extension::version(data, result);
 }
 /**
- * @brief Метод составления выбранного сервером заранее разделённого ключа
+ * @brief Функция составления выбранного сервером заранее разделённого ключа
  *
  * @param chosen место выбранного ключа в предложении клиента
  * @param result накопитель, в конец которого дописывается тело расширения
- *
  * @return       отказ составления тела расширения
  *
  */
@@ -2204,11 +2157,10 @@ nts::extension::error_t nts::extension::chosen(const uint16_t chosen, vector <ui
 	return nts::extension::version(chosen, result);
 }
 /**
- * @brief Метод разбора выбранной сервером группы обмена ключами
+ * @brief Функция разбора выбранной сервером группы обмена ключами
  *
  * @param data   разбираемое тело расширения просьбы о повторе приветствия
  * @param result группа, в которую помещается выбранная сервером группа обмена
- *
  * @return       отказ разбора тела расширения
  *
  */
@@ -2225,11 +2177,10 @@ nts::extension::error_t nts::extension::selected(const view_t & data, group_t & 
 	return error;
 }
 /**
- * @brief Метод составления выбранной сервером группы обмена ключами
+ * @brief Функция составления выбранной сервером группы обмена ключами
  *
  * @param group  составляемая выбранная группа обмена ключами
  * @param result накопитель, в конец которого дописывается тело расширения
- *
  * @return       отказ составления тела расширения
  *
  */
@@ -2238,11 +2189,10 @@ nts::extension::error_t nts::extension::selected(const group_t group, vector <ui
 	return nts::extension::version(static_cast <uint16_t> (group), result);
 }
 /**
- * @brief Метод разбора перечня способов обмена с заранее разделённым ключом
+ * @brief Функция разбора перечня способов обмена с заранее разделённым ключом
  *
  * @param data   разбираемое тело расширения
  * @param result перечень, в который помещаются способы обмена
- *
  * @return       отказ разбора тела расширения
  *
  */
@@ -2256,7 +2206,7 @@ nts::extension::error_t nts::extension::modes(const view_t & data, vector <regim
 		// Выводим отказ разбора тела расширения
 		return error;
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		/**
@@ -2266,7 +2216,7 @@ nts::extension::error_t nts::extension::modes(const view_t & data, vector <regim
 			// Добавляем очередной способ обмена в перечень
 			result.push_back(static_cast <regime_t> (item));
 	/**
-	 * Если памяти под перечень способов обмена не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -2276,11 +2226,10 @@ nts::extension::error_t nts::extension::modes(const view_t & data, vector <regim
 	return error_t::NONE;
 }
 /**
- * @brief Метод составления перечня способов обмена с заранее разделённым ключом
+ * @brief Функция составления перечня способов обмена с заранее разделённым ключом
  *
  * @param modes  составляемый перечень способов обмена
  * @param result накопитель, в конец которого дописывается тело расширения
- *
  * @return       отказ составления тела расширения
  *
  */
@@ -2288,7 +2237,7 @@ nts::extension::error_t nts::extension::modes(const vector <regime_t> & modes, v
 	// Составляемый перечень способов обмена
 	vector <uint32_t> values;
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		/**
@@ -2298,7 +2247,7 @@ nts::extension::error_t nts::extension::modes(const vector <regime_t> & modes, v
 			// Добавляем очередной способ обмена в перечень
 			values.push_back(static_cast <uint32_t> (item));
 	/**
-	 * Если памяти под перечень способов обмена не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -2308,11 +2257,10 @@ nts::extension::error_t nts::extension::modes(const vector <regime_t> & modes, v
 	return compose(values, 1, 1, result);
 }
 /**
- * @brief Метод разбора метки возврата состояния сервера
+ * @brief Функция разбора метки возврата состояния сервера
  *
  * @param data   разбираемое тело расширения
  * @param result просмотр, в который помещается метка возврата состояния
- *
  * @return       отказ разбора тела расширения
  *
  */
@@ -2341,11 +2289,10 @@ nts::extension::error_t nts::extension::cookie(const view_t & data, view_t & res
 	return error_t::NONE;
 }
 /**
- * @brief Метод составления метки возврата состояния сервера
+ * @brief Функция составления метки возврата состояния сервера
  *
  * @param cookie составляемая метка возврата состояния
  * @param result накопитель, в конец которого дописывается тело расширения
- *
  * @return       отказ составления тела расширения
  *
  */
@@ -2358,11 +2305,10 @@ nts::extension::error_t nts::extension::cookie(const view_t & cookie, vector <ui
 	return alone(cookie, 2, result);
 }
 /**
- * @brief Метод разбора имени запрашиваемого узла
+ * @brief Функция разбора имени запрашиваемого узла
  *
  * @param data   разбираемое тело расширения
  * @param result просмотр, в который помещается имя запрашиваемого узла
- *
  * @return       отказ разбора тела расширения
  *
  */
@@ -2440,6 +2386,7 @@ nts::extension::error_t nts::extension::name(const view_t & data, view_t & resul
 					return error_t::FORMAT;
 			}
 		}
+		// Если имя запрашиваемого узла ещё не найдено
 		if((type == 0) && !found){
 			// Устанавливаем имя запрашиваемого узла
 			result = item;
@@ -2455,11 +2402,10 @@ nts::extension::error_t nts::extension::name(const view_t & data, view_t & resul
 	return error_t::NONE;
 }
 /**
- * @brief Метод составления имени запрашиваемого узла
+ * @brief Функция составления имени запрашиваемого узла
  *
  * @param name   составляемое имя запрашиваемого узла
  * @param result накопитель, в конец которого дописывается тело расширения
- *
  * @return       отказ составления тела расширения
  *
  */
@@ -2473,7 +2419,7 @@ nts::extension::error_t nts::extension::name(const view_t & name, vector <uint8_
 	// Отказ, которым ответил составитель полей
 	field::error_t failure = field::error_t::NONE;
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Открываем перечень имён узлов
@@ -2505,7 +2451,7 @@ nts::extension::error_t nts::extension::name(const view_t & name, vector <uint8_
 		// Выполняем дописывание тела расширения в накопитель
 		result.insert(result.end(), data.data, data.data + data.size);
 	/**
-	 * Если памяти под тело расширения не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -2514,3 +2460,33 @@ nts::extension::error_t nts::extension::name(const view_t & name, vector <uint8_
 	// Выводим успешность составления тела расширения
 	return error_t::NONE;
 }
+
+/**
+ * @brief Конструктор
+ *
+ */
+nts::extension::Share::Share() noexcept : group(group_t::NONE) {}
+
+/**
+ * @brief Конструктор
+ *
+ * @param group группа обмена ключами
+ * @param key   открытая часть ключа обмена
+ *
+ */
+nts::extension::Share::Share(const group_t group, const view_t & key) noexcept : group(group), key(key) {}
+
+/**
+ * @brief Конструктор
+ *
+ */
+nts::extension::Identity::Identity() noexcept : age(0) {}
+
+/**
+ * @brief Конструктор
+ *
+ * @param identity опознаватель заранее разделённого ключа
+ * @param age      скрытый возраст билета, выдавшего ключ
+ *
+ */
+nts::extension::Identity::Identity(const view_t & identity, const uint32_t age) noexcept : identity(identity), age(age) {}

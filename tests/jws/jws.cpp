@@ -40,6 +40,7 @@
  */
 #include <main.hpp>
 #include <posix.hpp>
+#include <starve.hpp>
 #include <pem/pem.hpp>
 #include <jws/jws.hpp>
 
@@ -58,10 +59,9 @@ static const char * CORPUS = ANTS_CORPUS;
  */
 namespace {
 	/**
-	 * @brief Метод чтения файла целиком
+	 * @brief Функция чтения файла целиком
 	 *
 	 * @param path путь к читаемому файлу
-	 *
 	 * @return     содержимое файла
 	 *
 	 */
@@ -76,17 +76,18 @@ namespace {
 		return stream.str();
 	}
 	/**
-	 * @brief Метод разбора шестнадцатеричной записи
+	 * @brief Функция разбора шестнадцатеричной записи
 	 *
 	 * @param hex шестнадцатеричная запись
-	 *
 	 * @return    байты записи
 	 *
 	 */
 	static std::vector <uint8_t> bytes(const std::string & hex) {
 		// Байты записи
 		std::vector <uint8_t> result;
-		// Выполняем обход записи
+		/**
+		 * Выполняем обход записи
+		 */
 		for(size_t i = 0; i + 1 < hex.size(); i += 2)
 			// Разбираем байт записи
 			result.push_back(static_cast <uint8_t> (std::stoul(hex.substr(i, 2), nullptr, 16)));
@@ -94,10 +95,9 @@ namespace {
 		return result;
 	}
 	/**
-	 * @brief Метод получения просмотра строки
+	 * @brief Функция получения просмотра строки
 	 *
 	 * @param text строка, на которую заводится просмотр
-	 *
 	 * @return     просмотр строки
 	 *
 	 */
@@ -106,7 +106,7 @@ namespace {
 		return view_t(reinterpret_cast <const uint8_t *> (text.data()), text.size());
 	}
 	/**
-	 * @brief Метод разбора ключа из записи PEM
+	 * @brief Функция разбора ключа из записи PEM
 	 *
 	 * @param path   путь к файлу записи
 	 * @param result ключ, в который помещается итог разбора
@@ -140,27 +140,27 @@ TEST(JwsTest, Base64url) {
 		std::string encoded;
 		// Кодируем запись «f»
 		jws::base64url(view(std::string("f")), encoded);
-		// Сверяем запись
+		// Кодировка «f» обязана дать «Zg»
 		ASSERT_EQ(encoded, "Zg");
 		// Кодируем запись «fo»
 		jws::base64url(view(std::string("fo")), encoded);
-		// Сверяем запись
+		// Кодировка «fo» обязана дать «Zm8»
 		ASSERT_EQ(encoded, "Zm8");
 		// Кодируем запись «foo»
 		jws::base64url(view(std::string("foo")), encoded);
-		// Сверяем запись
+		// Кодировка «foo» обязана дать «Zm9v»
 		ASSERT_EQ(encoded, "Zm9v");
 		// Кодируем запись «foob»
 		jws::base64url(view(std::string("foob")), encoded);
-		// Сверяем запись
+		// Кодировка «foob» обязана дать «Zm9vYg»
 		ASSERT_EQ(encoded, "Zm9vYg");
 		// Кодируем запись «fooba»
 		jws::base64url(view(std::string("fooba")), encoded);
-		// Сверяем запись
+		// Кодировка «fooba» обязана дать «Zm9vYmE»
 		ASSERT_EQ(encoded, "Zm9vYmE");
 		// Кодируем запись «foobar»
 		jws::base64url(view(std::string("foobar")), encoded);
-		// Сверяем запись
+		// Кодировка «foobar» обязана дать «Zm9vYmFy»
 		ASSERT_EQ(encoded, "Zm9vYmFy");
 	}
 	// Алфавит base64url: байты 0xFB 0xFF дают «-_», а не «+/»
@@ -171,7 +171,7 @@ TEST(JwsTest, Base64url) {
 		const uint8_t data[] = {0xFB, 0xFF};
 		// Кодируем байты
 		jws::base64url(view_t(data, sizeof(data)), encoded);
-		// Сверяем запись
+		// Байты 0xFB 0xFF обязаны кодироваться в «-_8»
 		ASSERT_EQ(encoded, "-_8");
 	}
 	// Круговое декодирование
@@ -180,11 +180,11 @@ TEST(JwsTest, Base64url) {
 		const std::string source = "The quick brown fox jumps over the lazy dog";
 		// Итог кодирования
 		std::string encoded;
-		// Кодируем данные
+		// Кодируем исходную строку в base64url
 		jws::base64url(view(source), encoded);
 		// Итог декодирования
 		std::vector <uint8_t> decoded;
-		// Декодируем запись
+		// Декодирование записи обратно в исходные байты обязано удаться
 		ASSERT_TRUE(jws::unbase64url(view(encoded), decoded));
 		// Сверяем итог с исходными данными
 		ASSERT_EQ(std::string(reinterpret_cast <const char *> (decoded.data()), decoded.size()), source);
@@ -235,10 +235,11 @@ TEST(JwsTest, Rfc7515A3) {
 		// Разбираем запись ключа
 		ASSERT_EQ(jws::unjwk(view(jwk), key), jws::error_t::NONE);
 	}
-	// Разбираем запись
+	// Объект разбора вектора подписи приложения A.3
 	jws::signature_t signature;
 	// Разбор обязан удаться
 	const std::string record = RECORD;
+	// Разбор записи обязан удаться
 	ASSERT_EQ(signature.parse(view(record)), jws::error_t::NONE);
 	// Алгоритм записи - RS256
 	ASSERT_EQ(signature.algorithm(), jws::algorithm_t::RS256);
@@ -319,6 +320,7 @@ TEST(JwsTest, Unjwk) {
 	keys::key_t key;
 	// Разбор обязан удаться
 	const std::string jwk = JWK;
+	// Разбор записи ключа обязан удаться
 	ASSERT_EQ(jws::unjwk(view(jwk), key), jws::error_t::NONE);
 	// Вид ключа - RSA
 	ASSERT_EQ(key.kind, keys::kind_t::RSA);
@@ -326,18 +328,22 @@ TEST(JwsTest, Unjwk) {
 	ASSERT_EQ(key.e, bytes("010001"));
 	// Отпечаток разобранного ключа обязан совпасть с отпечатком RFC 7638
 	std::string thumbprint;
+	// Построение отпечатка обязано удаться
 	ASSERT_EQ(jws::thumbprint(key, thumbprint), jws::error_t::NONE);
 	ASSERT_EQ(thumbprint, "NzbLsXh8uDCcd-6MNwXF4W_7noWXFZAfHkxZsRGC9Xs");
 	// Круговая запись ключа EC набора
 	{
 		// Разбираем ключ набора
 		keys::key_t ec;
+		// Читаем ключ EC из набора
 		load(std::string(CORPUS) + "/ca-ec.key", ec);
 		// Собираем запись ключа
 		std::string record;
+		// Сборка записи ключа обязана удаться
 		ASSERT_EQ(jws::jwk(ec, record), jws::error_t::NONE);
 		// Разбираем запись обратно
 		keys::key_t back;
+		// Обратный разбор записи обязан удаться
 		ASSERT_EQ(jws::unjwk(view(record), back), jws::error_t::NONE);
 		// Сверяем вид и составляющие ключа
 		ASSERT_EQ(back.kind, ec.kind);
@@ -349,6 +355,7 @@ TEST(JwsTest, Unjwk) {
 	{
 		// Ключ без члена kty
 		keys::key_t broken;
+		// Без члена kty разбор обязан отказать устройством записи
 		ASSERT_EQ(jws::unjwk(view(std::string("{\"n\":\"AA\",\"e\":\"AQAB\"}")), broken), jws::error_t::STRUCTURE);
 		// Ключ чужого вида
 		ASSERT_EQ(jws::unjwk(view(std::string("{\"kty\":\"oct\",\"k\":\"AA\"}")), broken), jws::error_t::ALGORITHM);
@@ -370,18 +377,22 @@ TEST(JwsTest, Roundtrip) {
 	{
 		// Разбираем ключ набора
 		keys::key_t key;
+		// Читаем ключ RSA из набора
 		load(std::string(CORPUS) + "/ca-rsa.key", key);
 		// Готовим ключ подписи
 		keys::signer_t signer;
+		// Подготовка подписи обязана удаться
 		ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/ca-rsa.key"))), keys::error_t::NONE);
 		// Алгоритм ключа - RS256
 		ASSERT_EQ(jws::algorithm(key), jws::algorithm_t::RS256);
 		ASSERT_EQ(jws::algorithm(signer), jws::algorithm_t::RS256);
 		// Собираем запись
 		std::string record;
+		// Сборка записи обязана удаться
 		ASSERT_EQ(jws::encode(jws::algorithm_t::RS256, "", view(std::string(PAYLOAD)), signer, record), jws::error_t::NONE);
-		// Разбираем запись
+		// Объект разбора собранной записи подписи RSA
 		jws::signature_t signature;
+		// Разбор записи обязан удаться
 		ASSERT_EQ(signature.parse(view(record)), jws::error_t::NONE);
 		// Алгоритм записи - RS256
 		ASSERT_EQ(signature.algorithm(), jws::algorithm_t::RS256);
@@ -389,6 +400,7 @@ TEST(JwsTest, Roundtrip) {
 		ASSERT_EQ(signature.verify(key), jws::error_t::NONE);
 		// Полезная нагрузка обязана совпасть
 		std::vector <uint8_t> payload;
+		// Извлечение полезной нагрузки обязано удаться
 		ASSERT_EQ(signature.payload(payload), jws::error_t::NONE);
 		ASSERT_EQ(std::string(reinterpret_cast <const char *> (payload.data()), payload.size()), PAYLOAD);
 	}
@@ -396,33 +408,42 @@ TEST(JwsTest, Roundtrip) {
 	{
 		// Разбираем ключ набора
 		keys::key_t key;
+		// Читаем ключ EC из набора
 		load(std::string(CORPUS) + "/ca-ec.key", key);
 		// Готовим ключ подписи
 		keys::signer_t signer;
+		// Подготовка подписи обязана удаться
 		ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/ca-ec.key"))), keys::error_t::NONE);
 		// Алгоритм ключа - ES256
 		ASSERT_EQ(jws::algorithm(key), jws::algorithm_t::ES256);
 		ASSERT_EQ(jws::algorithm(signer), jws::algorithm_t::ES256);
 		// Собираем запись с заголовком
 		std::string record;
+		// Сборка записи с заголовком kid обязана удаться
 		ASSERT_EQ(jws::encode(jws::algorithm_t::ES256, "{\"kid\":\"https://example.com/acct/1\"}", view(std::string(PAYLOAD)), signer, record), jws::error_t::NONE);
-		// Разбираем запись
+		// Объект разбора собранной записи подписи EC
 		jws::signature_t signature;
+		// Разбор записи обязан удаться
 		ASSERT_EQ(signature.parse(view(record)), jws::error_t::NONE);
 		// Алгоритм записи - ES256
 		ASSERT_EQ(signature.algorithm(), jws::algorithm_t::ES256);
 		// Заголовок несёт и kid, и alg
 		ASSERT_NE(signature.header().find("\"kid\":\"https://example.com/acct/1\""), std::string::npos);
+		// Заголовок обязан носить и alg
 		ASSERT_NE(signature.header().find("\"alg\":\"ES256\""), std::string::npos);
 		// Подпись обязана сойтись
 		ASSERT_EQ(signature.verify(key), jws::error_t::NONE);
 		// Подпись чужим ключом сойтись не обязана
 		keys::key_t foreign;
+		// Читаем чужой ключ EC из набора
 		load(std::string(CORPUS) + "/leaf-ec.key", foreign);
+		// Подпись чужим ключом обязана отказать имитовставкой
 		ASSERT_EQ(signature.verify(foreign), jws::error_t::SIGNATURE);
 		// Подпись ключом RSA отвергается по алгоритму
 		keys::key_t rsa;
+		// Читаем ключ RSA из набора
 		load(std::string(CORPUS) + "/ca-rsa.key", rsa);
+		// Подпись ключом RSA обязана отказать алгоритмом
 		ASSERT_EQ(signature.verify(rsa), jws::error_t::ALGORITHM);
 	}
 	// Отказы разбора записи
@@ -482,18 +503,22 @@ TEST(JwsTest, RoundtripEc384Ec521Ed25519) {
 	{
 		// Разбираем ключ набора
 		keys::key_t key;
+		// Читаем ключ P-384 из набора
 		load(std::string(CORPUS) + "/ec384.pem", key);
 		// Готовим ключ подписи
 		keys::signer_t signer;
+		// Подготовка подписи обязана удаться
 		ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/ec384.pem"))), keys::error_t::NONE);
 		// Алгоритм ключа - ES384
 		ASSERT_EQ(jws::algorithm(key), jws::algorithm_t::ES384);
 		ASSERT_EQ(jws::algorithm(signer), jws::algorithm_t::ES384);
 		// Собираем запись
 		std::string record;
+		// Сборка записи обязана удаться
 		ASSERT_EQ(jws::encode(jws::algorithm_t::ES384, "", view(std::string(PAYLOAD)), signer, record), jws::error_t::NONE);
-		// Разбираем запись
+		// Объект разбора собранной записи подписи P-384
 		jws::signature_t signature;
+		// Разбор записи обязан удаться
 		ASSERT_EQ(signature.parse(view(record)), jws::error_t::NONE);
 		// Алгоритм записи - ES384
 		ASSERT_EQ(signature.algorithm(), jws::algorithm_t::ES384);
@@ -504,18 +529,22 @@ TEST(JwsTest, RoundtripEc384Ec521Ed25519) {
 	{
 		// Разбираем ключ набора
 		keys::key_t key;
+		// Читаем ключ P-521 из набора
 		load(std::string(CORPUS) + "/ec521.pem", key);
 		// Готовим ключ подписи
 		keys::signer_t signer;
+		// Подготовка подписи обязана удаться
 		ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/ec521.pem"))), keys::error_t::NONE);
 		// Алгоритм ключа - ES512
 		ASSERT_EQ(jws::algorithm(key), jws::algorithm_t::ES512);
 		ASSERT_EQ(jws::algorithm(signer), jws::algorithm_t::ES512);
 		// Собираем запись
 		std::string record;
+		// Сборка записи обязана удаться
 		ASSERT_EQ(jws::encode(jws::algorithm_t::ES512, "", view(std::string(PAYLOAD)), signer, record), jws::error_t::NONE);
-		// Разбираем запись
+		// Объект разбора собранной записи подписи P-521
 		jws::signature_t signature;
+		// Разбор записи обязан удаться
 		ASSERT_EQ(signature.parse(view(record)), jws::error_t::NONE);
 		// Алгоритм записи - ES512
 		ASSERT_EQ(signature.algorithm(), jws::algorithm_t::ES512);
@@ -526,22 +555,84 @@ TEST(JwsTest, RoundtripEc384Ec521Ed25519) {
 	{
 		// Разбираем ключ набора
 		keys::key_t key;
+		// Читаем ключ Ed25519 из набора
 		load(std::string(CORPUS) + "/ed25519.pem", key);
 		// Готовим ключ подписи
 		keys::signer_t signer;
+		// Подготовка подписи обязана удаться
 		ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/ed25519.pem"))), keys::error_t::NONE);
 		// Алгоритм ключа - EdDSA
 		ASSERT_EQ(jws::algorithm(key), jws::algorithm_t::EDDSA);
 		ASSERT_EQ(jws::algorithm(signer), jws::algorithm_t::EDDSA);
 		// Собираем запись
 		std::string record;
+		// Сборка записи обязана удаться
 		ASSERT_EQ(jws::encode(jws::algorithm_t::EDDSA, "", view(std::string(PAYLOAD)), signer, record), jws::error_t::NONE);
-		// Разбираем запись
+		// Объект разбора собранной записи подписи Ed25519
 		jws::signature_t signature;
+		// Разбор записи обязан удаться
 		ASSERT_EQ(signature.parse(view(record)), jws::error_t::NONE);
 		// Алгоритм записи - EdDSA
 		ASSERT_EQ(signature.algorithm(), jws::algorithm_t::EDDSA);
 		// Подпись обязана сойтись
 		ASSERT_EQ(signature.verify(key), jws::error_t::NONE);
 	}
+}
+
+/**
+ * @brief Проверка устойчивости записи и разбора подписи к нехватке памяти
+ *
+ */
+TEST(JwsTest, Starved){
+	// Полезная нагрузка записи
+	static const char * PAYLOAD = "The quick brown fox jumps over the lazy dog";
+	// Текст записи ключа набора: читается заранее, чтобы чтение не попало под подмену выделений
+	const std::string pem = slurp(std::string(CORPUS) + "/ca-rsa.key");
+	// Подготовленный ключ подписи: готовится заранее, чтобы подготовка не попала под подмену выделений
+	keys::signer_t signer;
+	// Проверяем подготовку ключа из записи набора
+	ASSERT_EQ(signer.prepare(view(pem)), keys::error_t::NONE);
+	// Просмотр полезной нагрузки: заводится заранее, чтобы его сборка не попала под подмену выделений
+	const view_t payload(reinterpret_cast <const uint8_t *> (PAYLOAD), std::strlen(PAYLOAD));
+	// Признак того, что нехватка памяти хоть раз объявлена отказом
+	bool starved = false;
+	/**
+	 * Выполняем перебор запасов выделений: на всяком запасе запись и разбор обязаны
+	 * ответить либо успехом, либо отказом памяти, но не прерыванием исполнения
+	 */
+	for(size_t budget = 0; budget < 256; budget++){
+		// Итог записи при отмеренном запасе
+		jws::error_t encodedResult = jws::error_t::NONE;
+		// Записанная подпись
+		std::string record;
+		{
+			// Отмеряем запас выделений на время записи
+			starve::ration_t ration(budget);
+			// Выполняем запись подписи при отмеренном запасе
+			encodedResult = jws::encode(jws::algorithm_t::RS256, "", payload, signer, record);
+		}
+		// Проверяем, что запись ответила успехом либо отказом памяти
+		ASSERT_TRUE((encodedResult == jws::error_t::NONE) || (encodedResult == jws::error_t::MEMORY)) << "запас " << budget << ", отказ записи " << static_cast <int> (encodedResult);
+		// Запоминаем объявленный отказ памяти
+		starved = (starved || (encodedResult == jws::error_t::MEMORY));
+		// Если запись собрана
+		if(encodedResult == jws::error_t::NONE){
+			// Итог разбора при отмеренном запасе
+			jws::error_t parsed = jws::error_t::NONE;
+			{
+				// Отмеряем запас выделений на время разбора
+				starve::ration_t ration(budget);
+				// Разбираемая запись
+				jws::signature_t signature;
+				// Выполняем разбор записи при отмеренном запасе
+				parsed = signature.parse(view(record));
+			}
+			// Проверяем, что разбор ответил успехом либо отказом памяти
+			ASSERT_TRUE((parsed == jws::error_t::NONE) || (parsed == jws::error_t::MEMORY)) << "запас " << budget << ", отказ разбора " << static_cast <int> (parsed);
+			// Запоминаем объявленный отказ памяти
+			starved = (starved || (parsed == jws::error_t::MEMORY));
+		}
+	}
+	// Проверяем, что нехватка памяти объявлена отказом хоть раз
+	ASSERT_TRUE(starved);
 }

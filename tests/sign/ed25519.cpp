@@ -45,9 +45,12 @@ using namespace nts;
  * Контрольный пример «TEST 1» раздела 7.1 RFC 8032: зерно, ключ проверки, сообщение и подпись
  */
 static const char * ONE_SECRET = "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60";
+// Ключ проверки примера «TEST 1»
 static const char * ONE_PUBLIC = "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a";
+// Сообщение примера «TEST 1» — пустое
 static const char * ONE_MESSAGE =
 	"";
+// Подпись примера «TEST 1»
 static const char * ONE_SIGNATURE =
 	"e5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e06522490155"
 	"5fb8821590a33bacc61e39701cf9b46bd25bf5f0595bbe24655141438e7a100b";
@@ -56,9 +59,12 @@ static const char * ONE_SIGNATURE =
  * Контрольный пример «TEST 2» раздела 7.1 RFC 8032: зерно, ключ проверки, сообщение и подпись
  */
 static const char * TWO_SECRET = "4ccd089b28ff96da9db6c346ec114e0f5b8a319f35aba624da8cf6ed4fb8a6fb";
+// Ключ проверки примера «TEST 2»
 static const char * TWO_PUBLIC = "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c";
+// Сообщение примера «TEST 2» — один байт 0x72
 static const char * TWO_MESSAGE =
 	"72";
+// Подпись примера «TEST 2»
 static const char * TWO_SIGNATURE =
 	"92a009a9f0d4cab8720e820b5f642540a2b27b5416503f8fb3762223ebdb69da"
 	"085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00";
@@ -67,9 +73,12 @@ static const char * TWO_SIGNATURE =
  * Контрольный пример «TEST 3» раздела 7.1 RFC 8032: зерно, ключ проверки, сообщение и подпись
  */
 static const char * THREE_SECRET = "c5aa8df43f9f837bedb7442f31dcb7b166d38535076f094b85ce3a2e0b4458f7";
+// Ключ проверки примера «TEST 3»
 static const char * THREE_PUBLIC = "fc51cd8e6218a1a38da47ed00230f0580816ed13ba3303ac5deb911548908025";
+// Сообщение примера «TEST 3» — два байта 0xaf82
 static const char * THREE_MESSAGE =
 	"af82";
+// Подпись примера «TEST 3»
 static const char * THREE_SIGNATURE =
 	"6291d657deec24024827e69c3abe01a30ce548a284743a445e3680d7db5ac3ac"
 	"18ff9b538d16f290ae67f760984dc6594a7c15e9716ed28dc027beceea1ec40a";
@@ -78,7 +87,9 @@ static const char * THREE_SIGNATURE =
  * Контрольный пример «TEST 1024» раздела 7.1 RFC 8032: зерно, ключ проверки, сообщение и подпись
  */
 static const char * LONG_SECRET = "f5e5767cf153319517630f226876b86c8160cc583bc013744c6bf255f5cc0ee5";
+// Ключ проверки примера «TEST 1024»
 static const char * LONG_PUBLIC = "278117fc144c72340f67d0f2316e8386ceffbf2b2428c9c51fef7c597f1d426e";
+// Сообщение примера «TEST 1024» — 1024 байта
 static const char * LONG_MESSAGE =
 	"08b8b2b733424243760fe426a4b54908632110a66c2f6591eabd3345e3e4eb98"
 	"fa6e264bf09efe12ee50f8f54e9f77b1e355f6c50544e23fb1433ddf73be84d8"
@@ -112,6 +123,7 @@ static const char * LONG_MESSAGE =
 	"369546868a7f3a45a96768d40fd9d03412c091c6315cf4fde7cb68606937380d"
 	"b2eaaa707b4c4185c32eddcdd306705e4dc1ffc872eeee475a64dfac86aba41c"
 	"0618983f8741c5ef68d3a101e8a3b8cac60c905c15fc910840b94c00a0b9d0";
+// Подпись примера «TEST 1024»
 static const char * LONG_SIGNATURE =
 	"0aab4c900501b3e24d7cdf4663326a3a87df5e4843b2cbdb67cbf6e460fec350"
 	"aa5371b1508f9f4528ecea23c436d94b5e8fcd4f681e30a6ac00a9704a188a03";
@@ -120,19 +132,21 @@ static const char * LONG_SIGNATURE =
  * Контрольный пример «TEST SHA(abc)» раздела 7.1 RFC 8032: зерно, ключ проверки, сообщение и подпись
  */
 static const char * ABC_SECRET = "833fe62409237b9d62ec77587520911e9a759cec1d19755b7da901b96dca3d42";
+// Ключ проверки примера «TEST SHA(abc)»
 static const char * ABC_PUBLIC = "ec172b93ad5e563bf4932c70e1245034c35467ef2efd4d64ebf819683467e2bf";
+// Сообщение примера «TEST SHA(abc)» — итог SHA-512 от «abc»
 static const char * ABC_MESSAGE =
 	"ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a"
 	"2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f";
+// Подпись примера «TEST SHA(abc)»
 static const char * ABC_SIGNATURE =
 	"dc2a4459e7369633a52b1bf277839a00201009a3efbf3ecb69bea2186c26b589"
 	"09351fc9ac90b3ecfdfbc7c66431e0303dca179c138ac17ad9bef1177331a704";
 
 /**
- * @brief Метод разбора записи шестнадцатеричными знаками
+ * @brief Функция разбора записи шестнадцатеричными знаками
  *
  * @param text разбираемая запись
- *
  * @return     разобранные байты
  *
  */
@@ -161,11 +175,10 @@ static std::vector <uint8_t> bytes(const char * text) {
 	return result;
 }
 /**
- * @brief Метод сборки записи шестнадцатеричными знаками
+ * @brief Функция сборки записи шестнадцатеричными знаками
  *
  * @param data собираемые байты
  * @param size число собираемых байтов
- *
  * @return     собранная запись
  *
  */
@@ -187,10 +200,9 @@ static std::string text(const uint8_t * data, const size_t size) {
 	return result;
 }
 /**
- * @brief Метод получения области байтов вектора
+ * @brief Функция получения области байтов вектора
  *
  * @param data вектор байтов
- *
  * @return     область байтов вектора
  *
  */
@@ -199,10 +211,9 @@ static view_t view(const std::vector <uint8_t> & data) {
 	return view_t(data.empty() ? nullptr : data.data(), data.size());
 }
 /**
- * @brief Метод чтения файла целиком
+ * @brief Функция чтения файла целиком
  *
  * @param path путь к читаемому файлу
- *
  * @return     содержимое файла
  *
  */
@@ -231,12 +242,11 @@ static std::string slurp(const std::string & path) {
 	return result;
 }
 /**
- * @brief Метод записи файла целиком
+ * @brief Функция записи файла целиком
  *
  * @param path путь к записываемому файлу
  * @param data записываемые байты
  * @param size число записываемых байтов
- *
  * @return     признак успешности записи
  *
  */
@@ -255,10 +265,9 @@ static bool spill(const std::string & path, const uint8_t * data, const size_t s
 	return ok;
 }
 /**
- * @brief Метод исполнения команды оболочки
+ * @brief Функция исполнения команды оболочки
  *
  * @param command исполняемая команда
- *
  * @return        признак нулевого кода завершения
  *
  */
@@ -267,7 +276,7 @@ static bool run(const std::string & command) {
 	return (::system((command + " </dev/null").c_str()) == 0);
 }
 /**
- * @brief Метод проверки контрольного примера
+ * @brief Функция проверки контрольного примера
  *
  * @param secret    зерно ключа подписи
  * @param pub       ключ проверки подписи

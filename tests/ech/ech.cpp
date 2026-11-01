@@ -72,7 +72,7 @@ namespace {
 	 */
 	static const char * CORPUS = ANTS_CORPUS;
 	/**
-	 * @brief Метод чтения файла набора целиком
+	 * @brief Функция чтения файла набора целиком
 	 *
 	 * @param name имя файла набора
 	 * @return     содержимое файла
@@ -91,7 +91,7 @@ namespace {
 		return result;
 	}
 	/**
-	 * @brief Метод кодирования байтов строкой base64 (стандартный алфавит с дополнением)
+	 * @brief Функция кодирования байтов строкой base64 (стандартный алфавит с дополнением)
 	 *
 	 * @param data байты для кодирования
 	 * @return     строка base64
@@ -103,7 +103,7 @@ namespace {
 		// Накопитель строки
 		std::string result;
 		/**
-		 * Выполняем перехват нехватки памяти
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Занимаем место под итог
@@ -127,17 +127,17 @@ namespace {
 				result.push_back((left > 2) ? alphabet[triple & 0x3F] : '=');
 			}
 		/**
-		 * Если памяти не хватило
+		 * Выполняем перехват ошибок
 		 */
 		} catch(const bad_alloc &) {
-			// Сбрасываем итог
+			// При нехватке памяти выводим пустую строку
 			result.clear();
 		}
 		// Выводим строку
 		return result;
 	}
 	/**
-	 * @brief Метод составления внутреннего приветствия проверок
+	 * @brief Функция составления внутреннего приветствия проверок
 	 *
 	 * @param bodies накопители тел расширений: живут у зовущего
 	 * @param result приветствие с расширениями: имя, группы, схемы, издания, доля, ECH внутреннего вида, протоколы
@@ -184,11 +184,11 @@ namespace {
 		result.extensions.push_back(hello::extension_t(0x0033, view_t(bodies[4].data(), bodies[4].size())));
 		result.extensions.push_back(hello::extension_t(ech::ECH_EXTENSION, view_t(bodies[5].data(), bodies[5].size())));
 		result.extensions.push_back(hello::extension_t(0x0010, view_t(bodies[6].data(), bodies[6].size())));
-		// Выводим успешность
+		// Сообщаем об успешном составлении внутреннего приветствия
 		return true;
 	}
 	/**
-	 * @brief Метод составления внешнего приветствия проверок из внутреннего
+	 * @brief Функция составления внешнего приветствия проверок из внутреннего
 	 *
 	 * @param inner   внутреннее приветствие
 	 * @param bodies  накопители тел расширений внешнего: живут у зовущего
@@ -236,11 +236,11 @@ namespace {
 		result.extensions.push_back(inner.extensions[4]);
 		result.extensions.push_back(hello::extension_t(ech::ECH_EXTENSION, view_t(bodies[1].data(), bodies[1].size())));
 		result.extensions.push_back(inner.extensions[6]);
-		// Выводим успешность
+		// Сообщаем об успешном составлении внешнего приветствия
 		return true;
 	}
 	/**
-	 * @brief Метод составления подлинности стороны из ключей набора
+	 * @brief Функция составления подлинности стороны из ключей набора
 	 *
 	 * @param name   имя ключа набора
 	 * @param result подлинность
@@ -254,7 +254,7 @@ namespace {
 		const vector <uint8_t> text = corpus((std::string(name) + ".crt").c_str());
 		// Если ключ либо сертификат не прочитаны
 		if(result.secret.empty() || text.empty())
-			// Выводим отказ
+			// Выводим отрицательный результат - ключ либо сертификат не прочитаны
 			return false;
 		// Сбрасываем цепочку
 		result.chain.clear();
@@ -262,7 +262,7 @@ namespace {
 		return (pem::certificates(std::string(text.begin(), text.end()), result.chain) == pem::error_t::NONE);
 	}
 	/**
-	 * @brief Метод передачи байтов между сторонами связи
+	 * @brief Функция передачи байтов между сторонами связи
 	 *
 	 * @param client связь стороны клиента
 	 * @param server связь стороны сервера
@@ -273,7 +273,7 @@ namespace {
 		// Признак передачи
 		bool moved = false;
 		/**
-		 * Выполняем перехват нехватки памяти
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Байты клиента
@@ -303,7 +303,7 @@ namespace {
 				moved = true;
 			}
 		/**
-		 * Если памяти не хватило
+		 * Выполняем перехват ошибок
 		 */
 		} catch(const bad_alloc &) {
 			// Выводим отсутствие передачи
@@ -313,7 +313,7 @@ namespace {
 		return moved;
 	}
 	/**
-	 * @brief Метод проведения рукопожатия сторон связи
+	 * @brief Функция проведения рукопожатия сторон связи
 	 *
 	 * @param client связь стороны клиента
 	 * @param server связь стороны сервера
@@ -328,7 +328,7 @@ namespace {
 			continue;
 	}
 	/**
-	 * @brief Метод снятия профиля приветствия с отправляемых байтов клиента
+	 * @brief Функция снятия профиля приветствия с отправляемых байтов клиента
 	 *
 	 * @param client связь стороны клиента
 	 * @param result профиль
@@ -340,7 +340,7 @@ namespace {
 		return (fingerprint::parse(client.output(), result) == fingerprint::error_t::NONE);
 	}
 	/**
-	 * @brief Метод поиска инструмента bssl BoringSSL
+	 * @brief Функция поиска инструмента bssl BoringSSL
 	 *
 	 * @return путь к инструменту либо пусто
 	 *
@@ -360,7 +360,7 @@ namespace {
 		return std::string();
 	}
 	/**
-	 * @brief Метод настройки сторон под ECH: сервер с ключом BoringSSL, клиент с перечнем BoringSSL
+	 * @brief Функция настройки сторон под ECH: сервер с ключом BoringSSL, клиент с перечнем BoringSSL
 	 *
 	 * @param client связь стороны клиента
 	 * @param server связь стороны сервера
@@ -375,7 +375,7 @@ namespace {
 		if(!identity("ec256", credential)){
 			// Сообщаем о шаге
 			ADD_FAILURE() << "подлинность не составлена";
-			// Выводим отказ
+			// Выводим отрицательный результат - подлинность не составлена
 			return false;
 		}
 		// Ключ и перечень BoringSSL
@@ -384,7 +384,7 @@ namespace {
 		if(key.empty() || list.empty()){
 			// Сообщаем о шаге
 			ADD_FAILURE() << "образцы не прочитаны";
-			// Выводим отказ
+			// Выводим отрицательный результат - образцы не прочитаны
 			return false;
 		}
 		// Подлинность сервера
@@ -397,7 +397,7 @@ namespace {
 		if(keyed != context::error_t::NONE){
 			// Сообщаем о шаге
 			ADD_FAILURE() << "ключ сервера не поставлен: " << static_cast <int> (keyed);
-			// Выводим отказ
+			// Выводим отрицательный результат - ключ сервера не поставлен
 			return false;
 		}
 		// Имя узла у клиента: скрываемое
@@ -437,9 +437,11 @@ TEST(EchTest, Boringssl){
 	EXPECT_EQ(config.key.size(), static_cast <size_t> (32));
 	EXPECT_EQ(config.length, 64);
 	EXPECT_EQ(config.name, "public.example");
+	// Проверяем пустоту
 	EXPECT_TRUE(config.extensions.empty());
 	// Наборы BoringSSL: AES-128-GCM и ChaCha20-Poly1305 на HKDF-SHA256
 	ASSERT_EQ(config.suites.size(), static_cast <size_t> (2));
+	// Проверяем набор шифрования
 	EXPECT_EQ(config.suites[0].kdf, hpke::kdf_t::HKDF_SHA256);
 	EXPECT_EQ(config.suites[0].aead, hpke::aead_t::AES_128_GCM);
 	EXPECT_EQ(config.suites[1].aead, hpke::aead_t::CHACHA20_POLY1305);
@@ -472,6 +474,7 @@ TEST(EchTest, Boringssl){
 	const view_t point = secret.point();
 	// Проверяем совпадение
 	ASSERT_EQ(point.size, config.key.size());
+	// Сравниваем байтовые последовательности
 	EXPECT_EQ(::memcmp(point.data, config.key.data(), point.size), 0);
 	// Привязка HPKE
 	vector <uint8_t> binding;
@@ -479,11 +482,13 @@ TEST(EchTest, Boringssl){
 	ASSERT_EQ(ech::binding(view_t(config.raw.data(), config.raw.size()), binding), ech::error_t::NONE);
 	// Проверяем привязку: «tls ech», ноль, конфигурация
 	ASSERT_EQ(binding.size(), config.raw.size() + 8);
+	// Сравниваем байтовые последовательности
 	EXPECT_EQ(::memcmp(binding.data(), "tls ech\0", 8), 0);
 	EXPECT_EQ(::memcmp(binding.data() + 8, config.raw.data(), config.raw.size()), 0);
 	// Наборы конфигурации признаются
 	EXPECT_TRUE(ech::supported(config.kem, config.suites[0]));
 	EXPECT_TRUE(ech::supported(config.kem, config.suites[1]));
+	// Проверяем поддержку набора ECH
 	EXPECT_FALSE(ech::supported(config.kem, ech::suite_t(hpke::kdf_t::HKDF_SHA256, hpke::aead_t::EXPORT_ONLY)));
 	EXPECT_FALSE(ech::supported(static_cast <hpke::kem_t> (0x0001), config.suites[0]));
 }
@@ -494,7 +499,7 @@ TEST(EchTest, Boringssl){
 TEST(EchTest, Configs){
 	// Образец перечня
 	const vector <uint8_t> list = corpus("ech/bssl.list");
-	// Проверяем чтение
+	// Образец перечня конфигураций прочитан
 	ASSERT_FALSE(list.empty());
 	// Перечень конфигураций
 	vector <ech::config_t> configs;
@@ -516,6 +521,7 @@ TEST(EchTest, Configs){
 	alien[2] = 0xFE; alien[3] = 0x0C;
 	// Проверяем отказ издания
 	EXPECT_EQ(ech::parse(view_t(alien.data(), alien.size()), configs), ech::error_t::VERSION);
+	// Проверяем пустоту
 	EXPECT_TRUE(configs.empty());
 	// Перечень из чужой и своей конфигураций: своя берётся
 	vector <uint8_t> mixed;
@@ -546,23 +552,29 @@ TEST(EchTest, Configs){
 	config = configs.empty() ? ech::config_t() : configs[0];
 	// Разбираем годный перечень заново
 	ASSERT_EQ(ech::parse(view_t(list.data(), list.size()), configs), ech::error_t::NONE);
+	// Заполняем поле конфигурации
 	config = configs[0];
 	// Пустое имя
 	config.name.clear();
+	// Проверяем составление
 	EXPECT_EQ(ech::build(config, unusable), ech::error_t::EMPTY);
 	// Слишком длинное имя
 	config.name.assign(256, 'a');
+	// Проверяем составление
 	EXPECT_EQ(ech::build(config, unusable), ech::error_t::LENGTH);
 	// Пустой ключ
 	config = configs[0]; config.key.clear();
+	// Проверяем составление
 	EXPECT_EQ(ech::build(config, unusable), ech::error_t::EMPTY);
 	// Пустой перечень наборов
 	config = configs[0]; config.suites.clear();
+	// Проверяем составление
 	EXPECT_EQ(ech::build(config, unusable), ech::error_t::EMPTY);
 	// Пустой перечень конфигураций
 	EXPECT_EQ(ech::build(vector <ech::config_t> (), unusable), ech::error_t::EMPTY);
 	// Одиночная конфигурация с хвостом отвергается
 	ech::config_t alone;
+	// Проверяем разбор
 	EXPECT_EQ(ech::parse(view_t(longer.data() + 2, longer.size() - 2), alone), ech::error_t::FORMAT);
 	// Одиночная конфигурация чужого издания отвергается
 	EXPECT_EQ(ech::parse(view_t(alien.data() + 2, alien.size() - 2), alone), ech::error_t::VERSION);
@@ -595,6 +607,7 @@ TEST(EchTest, Extension){
 	ASSERT_EQ(ech::parse(view_t(body.data(), body.size()), parsed), ech::error_t::NONE);
 	// Проверяем поля
 	EXPECT_FALSE(parsed.inner);
+	// Проверяем разбор
 	EXPECT_EQ(parsed.id, 0xAB);
 	EXPECT_EQ(parsed.suite.kdf, hpke::kdf_t::HKDF_SHA256);
 	EXPECT_EQ(parsed.suite.aead, hpke::aead_t::CHACHA20_POLY1305);
@@ -608,29 +621,42 @@ TEST(EchTest, Extension){
 		EXPECT_NE(ech::parse(view_t(body.data(), size), parsed), ech::error_t::NONE) << size;
 	// Тело с хвостом отвергается
 	body.push_back(0);
+	// Проверяем разбор
 	EXPECT_EQ(ech::parse(view_t(body.data(), body.size()), parsed), ech::error_t::FORMAT);
 	// Повторное приветствие: инкапсулированный ключ пуст
 	outer.enc.clear();
+	// Очищаем тела
 	body.clear();
+	// Проверяем составление
 	ASSERT_EQ(ech::build(outer, body), ech::error_t::NONE);
 	ASSERT_EQ(ech::parse(view_t(body.data(), body.size()), parsed), ech::error_t::NONE);
+	// Проверяем пустоту
 	EXPECT_TRUE(parsed.enc.empty());
 	// Пустой шифротекст не составляется
 	outer.payload.clear();
+	// Проверяем составление
 	EXPECT_EQ(ech::build(outer, body), ech::error_t::EMPTY);
 	// Внутренний вид: один байт
 	ech::hello_t inner;
+	// Заполняем поле конфигурации
 	inner.inner = true;
+	// Очищаем тела
 	body.clear();
+	// Проверяем составление
 	ASSERT_EQ(ech::build(inner, body), ech::error_t::NONE);
+	// Пустое внутреннее приветствие кодируется в один байт
 	EXPECT_EQ(body, vector <uint8_t> {0x01});
+	// Проверяем разбор
 	ASSERT_EQ(ech::parse(view_t(body.data(), body.size()), parsed), ech::error_t::NONE);
+	// Проверяем разбор
 	EXPECT_TRUE(parsed.inner);
 	// Внутренний вид с хвостом отвергается
 	body.push_back(0);
+	// Проверяем разбор
 	EXPECT_EQ(ech::parse(view_t(body.data(), body.size()), parsed), ech::error_t::FORMAT);
 	// Неведомый вид отвергается
 	body = {0x02};
+	// Проверяем разбор
 	EXPECT_EQ(ech::parse(view_t(body.data(), body.size()), parsed), ech::error_t::FORMAT);
 	// Пустое тело
 	EXPECT_EQ(ech::parse(view_t(nullptr, 0), parsed), ech::error_t::HUNGRY);
@@ -652,8 +678,11 @@ TEST(EchTest, Encoding){
 	ASSERT_EQ(ech::encode(inner, vector <uint16_t> (), 0, plain), ech::error_t::NONE);
 	// Закодированное приветствие разбирается как приветствие без опознавателя
 	hello::client_t parsed;
+	// Проверяем разбор
 	ASSERT_EQ(hello::parse(view_t(plain.data(), plain.size()), parsed), hello::error_t::NONE);
+	// Проверяем пустоту
 	EXPECT_TRUE(parsed.session.empty());
+	// Проверяем разбор
 	EXPECT_EQ(parsed.extensions.size(), inner.extensions.size());
 	// Кодирование со сжатием групп, схем, изданий и доли и заполнением
 	vector <uint8_t> compact;
@@ -672,6 +701,7 @@ TEST(EchTest, Encoding){
 	// Сжатое разбирается с ech_outer_extensions на месте групп
 	ASSERT_EQ(hello::parse(view_t(compact.data(), compact.size() - 17), parsed), hello::error_t::NONE);
 	ASSERT_EQ(parsed.extensions.size(), static_cast <size_t> (4));
+	// Проверяем разбор
 	EXPECT_EQ(parsed.extensions[0].type, 0x0000);
 	EXPECT_EQ(parsed.extensions[1].type, ech::ECH_OUTER);
 	EXPECT_EQ(parsed.extensions[2].type, ech::ECH_EXTENSION);
@@ -695,6 +725,7 @@ TEST(EchTest, Encoding){
 	EXPECT_EQ(restored, expected);
 	// Без сжатия восстанавливается то же
 	ASSERT_EQ(ech::decode(view_t(plain.data(), plain.size()), outer, restored), ech::error_t::NONE);
+	// Без сжатия восстанавливается то же приветствие
 	EXPECT_EQ(restored, expected);
 	// Вынесенные не подряд: имя и издания
 	EXPECT_EQ(ech::encode(inner, vector <uint16_t> {0x0000, 0x002B}, 0, compact), ech::error_t::OUTER);
@@ -728,7 +759,9 @@ TEST(EchTest, Restoring){
 	ASSERT_EQ(ech::decode(view_t(compact.data(), compact.size()), outer, restored), ech::error_t::NONE);
 	// Ненулевое заполнение отвергается
 	vector <uint8_t> spoiled = compact;
+	// Портим последний байт записи
 	spoiled.back() = 0x01;
+	// Проверяем декодирование
 	EXPECT_EQ(ech::decode(view_t(spoiled.data(), spoiled.size()), outer, restored), ech::error_t::FORMAT);
 	/**
 	 * Выполняем перебор длин усечения
@@ -738,37 +771,57 @@ TEST(EchTest, Restoring){
 		EXPECT_NE(ech::decode(view_t(compact.data(), size), outer, restored), ech::error_t::NONE) << size;
 	// Внешнее без групп: ссылка на отсутствующее
 	hello::client_t lacking = outer;
+	// Убираем элемент из списка
 	lacking.extensions.erase(lacking.extensions.begin() + 1);
+	// Проверяем декодирование
 	EXPECT_EQ(ech::decode(view_t(compact.data(), compact.size()), lacking, restored), ech::error_t::OUTER);
 	// Внешнее с группами и схемами в обратном порядке
 	hello::client_t reversed = outer;
+	// Меняем местами элементы списка
 	std::swap(reversed.extensions[1], reversed.extensions[2]);
+	// Проверяем декодирование
 	EXPECT_EQ(ech::decode(view_t(compact.data(), compact.size()), reversed, restored), ech::error_t::OUTER);
 	// Закодированное с повторной ссылкой: тело ссылок подделано
 	hello::client_t parsed;
+	// Проверяем разбор
 	ASSERT_EQ(hello::parse(view_t(compact.data(), compact.size() - 5), parsed), hello::error_t::NONE);
 	// Ссылки: группы дважды
 	static const uint8_t TWICE[] = {0x04, 0x00, 0x0A, 0x00, 0x0A};
+	// Тело второго расширения: два одинаковых байта
 	parsed.extensions[1].data = view_t(TWICE, sizeof(TWICE));
+	// Объявляем список байтов
 	vector <uint8_t> forged;
+	// Проверяем разбор
 	ASSERT_EQ(hello::build(parsed, forged), hello::error_t::NONE);
+	// Проверяем декодирование
 	EXPECT_EQ(ech::decode(view_t(forged.data(), forged.size()), outer, restored), ech::error_t::OUTER);
 	// Ссылка на само ECH
 	static const uint8_t SELF[] = {0x02, 0xFE, 0x0D};
+	// Тело второго расширения: байты сами на себя
 	parsed.extensions[1].data = view_t(SELF, sizeof(SELF));
+	// Очищаем
 	forged.clear();
+	// Проверяем разбор
 	ASSERT_EQ(hello::build(parsed, forged), hello::error_t::NONE);
+	// Проверяем декодирование
 	EXPECT_EQ(ech::decode(view_t(forged.data(), forged.size()), outer, restored), ech::error_t::OUTER);
 	// Ссылки нечётной длины
 	static const uint8_t ODD[] = {0x03, 0x00, 0x0A, 0x00};
+	// Тело второго расширения: нечётное число байтов
 	parsed.extensions[1].data = view_t(ODD, sizeof(ODD));
+	// Очищаем
 	forged.clear();
+	// Проверяем разбор
 	ASSERT_EQ(hello::build(parsed, forged), hello::error_t::NONE);
+	// Проверяем декодирование
 	EXPECT_EQ(ech::decode(view_t(forged.data(), forged.size()), outer, restored), ech::error_t::OUTER);
 	// Закодированное с опознавателем связи отвергается
 	hello::client_t sessioned = inner;
+	// Объявляем список байтов
 	vector <uint8_t> withsession;
+	// Проверяем составление
 	ASSERT_EQ(hello::build(sessioned, withsession), hello::error_t::NONE);
+	// Проверяем декодирование
 	EXPECT_EQ(ech::decode(view_t(withsession.data(), withsession.size()), outer, restored), ech::error_t::FORMAT);
 }
 
@@ -778,15 +831,21 @@ TEST(EchTest, Restoring){
 TEST(EchTest, Padding){
 	// С именем длины 14 при наибольшей 64: добавка 50, затем до кратной 32
 	const size_t named = ech::padding(14, 64, 100);
+	// Проверяем составление имени
 	EXPECT_GE(named, static_cast <size_t> (50));
+	// Проверяем составление имени
 	EXPECT_EQ((100 + named) % 32, static_cast <size_t> (0));
 	// Без имени: добавка 64 + 9 = 73
 	const size_t nameless = ech::padding(0, 64, 100);
+	// Проверяем составление имени
 	EXPECT_GE(nameless, static_cast <size_t> (73));
+	// Проверяем составление имени
 	EXPECT_EQ((100 + nameless) % 32, static_cast <size_t> (0));
 	// Имя длиннее наибольшей: добавки по имени нет
 	const size_t longer = ech::padding(100, 64, 100);
+	// Проверяем, что полученное значение меньше ожидаемого
 	EXPECT_LT(longer, static_cast <size_t> (32));
+	// Длина с добавкой кратна тридцати двум
 	EXPECT_EQ((100 + longer) % 32, static_cast <size_t> (0));
 	// Длина уже кратная 32 без добавки: заполнение нулевое
 	EXPECT_EQ(ech::padding(64, 64, 96), static_cast <size_t> (0));
@@ -810,6 +869,7 @@ TEST(EchTest, Redacting){
 	ASSERT_TRUE(outerhello(inner, outers, payload, outer));
 	// Тело внешнего
 	vector <uint8_t> body;
+	// Проверяем составление
 	ASSERT_EQ(hello::build(outer, body), hello::error_t::NONE);
 	// Добавочные данные
 	vector <uint8_t> aad;
@@ -834,10 +894,12 @@ TEST(EchTest, Redacting){
 		// Считаем нули среди байтов шифротекста
 		zeroed += ((body[i] == 0xEE) ? 1 : 0);
 	}
+	// Половина байтов отличается, половина совпадает с маской
 	EXPECT_EQ(differing, static_cast <size_t> (64));
 	EXPECT_EQ(zeroed, static_cast <size_t> (64));
 	// Приветствие без ECH не редактируется
 	vector <uint8_t> plain;
+	// Проверяем составление
 	ASSERT_EQ(hello::build(inner, plain), hello::error_t::NONE);
 	// Внутреннее несёт ECH внутреннего вида: отказ записи
 	EXPECT_EQ(ech::redact(view_t(plain.data(), plain.size()), aad), ech::error_t::FORMAT);
@@ -851,27 +913,36 @@ TEST(EchTest, Redacting){
 TEST(EchTest, Confirmation){
 	// Случайное значение и хеш переписки
 	uint8_t random[32], transcript[32], first[8], second[8], retried[8];
+	// Заполняем буфер заданным байтом
 	::memset(random, 0x42, sizeof(random));
 	::memset(transcript, 0x24, sizeof(transcript));
 	// Вычисляем подтверждение
 	ASSERT_TRUE(ech::confirmation(digest::hash_t::SHA256, view_t(random, 32), view_t(transcript, 32), false, first));
 	// Повторное вычисление совпадает
 	ASSERT_TRUE(ech::confirmation(digest::hash_t::SHA256, view_t(random, 32), view_t(transcript, 32), false, second));
+	// Сравниваем байтовые последовательности
 	EXPECT_EQ(::memcmp(first, second, 8), 0);
 	// Метка просьбы о повторе даёт иное
 	ASSERT_TRUE(ech::confirmation(digest::hash_t::SHA256, view_t(random, 32), view_t(transcript, 32), true, retried));
+	// Проверяем различие байтовых последовательностей
 	EXPECT_NE(::memcmp(first, retried, 8), 0);
 	// Иное случайное значение даёт иное
 	random[0] ^= 1;
+	// Проверяем выработку подтверждения ECH
 	ASSERT_TRUE(ech::confirmation(digest::hash_t::SHA256, view_t(random, 32), view_t(transcript, 32), false, second));
+	// Проверяем различие байтовых последовательностей
 	EXPECT_NE(::memcmp(first, second, 8), 0);
 	// Иная переписка даёт иное
 	random[0] ^= 1; transcript[31] ^= 1;
+	// Проверяем выработку подтверждения ECH
 	ASSERT_TRUE(ech::confirmation(digest::hash_t::SHA256, view_t(random, 32), view_t(transcript, 32), false, second));
+	// Проверяем различие байтовых последовательностей
 	EXPECT_NE(::memcmp(first, second, 8), 0);
 	// Хеш SHA-384: переписка длины 48
 	uint8_t wider[48];
+	// Заполняем буфер заданным байтом
 	::memset(wider, 0x24, sizeof(wider));
+	// Проверяем выработку подтверждения ECH
 	ASSERT_TRUE(ech::confirmation(digest::hash_t::SHA384, view_t(random, 32), view_t(wider, 48), false, second));
 	// Негодные доводы
 	EXPECT_FALSE(ech::confirmation(digest::hash_t::SHA256, view_t(random, 31), view_t(transcript, 32), false, second));
@@ -886,7 +957,7 @@ TEST(EchTest, Confirmation){
 TEST(EchTest, Starved){
 	// Образец перечня
 	const vector <uint8_t> list = corpus("ech/bssl.list");
-	// Проверяем чтение
+	// Образец перечня конфигураций прочитан
 	ASSERT_FALSE(list.empty());
 	// Тела расширений
 	vector <vector <uint8_t>> bodies, outers;
@@ -896,11 +967,13 @@ TEST(EchTest, Starved){
 	ASSERT_TRUE(innerhello(bodies, inner));
 	// Закодированное до ограничения
 	vector <uint8_t> compact;
+	// Проверяем кодирование
 	ASSERT_EQ(ech::encode(inner, vector <uint16_t> {0x000A, 0x000D}, 5, compact), ech::error_t::NONE);
 	// Внешнее приветствие
 	ASSERT_TRUE(outerhello(inner, outers, compact, outer));
 	// Тело внешнего
 	vector <uint8_t> body;
+	// Проверяем составление
 	ASSERT_EQ(hello::build(outer, body), hello::error_t::NONE);
 	// Вынесенные расширения
 	const vector <uint16_t> outsourced = {0x000A, 0x000D};
@@ -945,6 +1018,7 @@ TEST(EchTest, Starved){
 			ASSERT_TRUE((outcomes[i] == ech::error_t::NONE) || (outcomes[i] == ech::error_t::MEMORY)) << "запас " << budget << " шаг " << i << " отказ " << static_cast <int> (outcomes[i]);
 			// Считаем встречу нехватки и полноту успеха
 			starved = (starved || (outcomes[i] == ech::error_t::MEMORY));
+			// Отмечаем успешность всех исходов
 			complete = (complete && (outcomes[i] == ech::error_t::NONE));
 		}
 	}
@@ -960,6 +1034,7 @@ TEST(EchTest, Starved){
 TEST(EchTest, Loopback){
 	// Связи сторон
 	client::context_t client;
+	// Создаём контекст сервера
 	server::context_t server;
 	// Настраиваем стороны: ключ сервера тот же, что в перечне клиента
 	ASSERT_TRUE(arranged(client, server, false));
@@ -993,6 +1068,7 @@ TEST(EchTest, Loopback){
 			ASSERT_EQ(ech::parse(view_t(outer.extensions[i].data.data(), outer.extensions[i].data.size()), hello), ech::error_t::NONE);
 			// Внешний вид с опознавателем перечня
 			EXPECT_FALSE(hello.inner);
+			// Опознаватель и заполнение сходятся
 			EXPECT_EQ(hello.id, 7);
 			EXPECT_EQ(hello.enc.size(), static_cast <size_t> (32));
 			// Шифротекст кратен 32 с меткой шифра
@@ -1044,6 +1120,7 @@ TEST(EchTest, Loopback){
 	vector <uint8_t> received;
 	// Читаем
 	ASSERT_EQ(server.read(received), context::error_t::NONE);
+	// Принятый текст совпал с отправленным
 	EXPECT_EQ(string(received.begin(), received.end()), request);
 	// Конфигурации после заведения не ставятся
 	EXPECT_EQ(client.ech(corpus("ech/bssl.list")), context::error_t::STATE);
@@ -1056,6 +1133,7 @@ TEST(EchTest, Loopback){
 TEST(EchTest, Retry){
 	// Связи сторон
 	client::context_t client;
+	// Создаём контекст сервера
 	server::context_t server;
 	// Настраиваем стороны
 	ASSERT_TRUE(arranged(client, server, false));
@@ -1101,6 +1179,7 @@ TEST(EchTest, Retry){
 TEST(EchTest, Rejected){
 	// Связи сторон
 	client::context_t client;
+	// Создаём контекст сервера
 	server::context_t server;
 	// Настраиваем стороны: сервер ведёт свой ключ, перечень клиента ему чужой
 	ASSERT_TRUE(arranged(client, server, true));
@@ -1114,6 +1193,7 @@ TEST(EchTest, Rejected){
 	// Сервер сложил рукопожатие по внешнему приветствию и получил извещение ech_required клиента
 	EXPECT_EQ(server.error(), context::error_t::ALERT) << "сервер " << static_cast <int> (server.error()) << " клиент " << static_cast <int> (client.error());
 	EXPECT_EQ(server.alert().description, alert::description_t::ECH_REQUIRED);
+	// Проверяем сокрытие приветствия
 	EXPECT_FALSE(server.shrouded());
 	// Сервер видел публичное имя
 	EXPECT_EQ(server.name(), "public.example");
@@ -1121,14 +1201,17 @@ TEST(EchTest, Rejected){
 	EXPECT_EQ(client.state(), context::state_t::FAILED);
 	EXPECT_EQ(client.error(), context::error_t::ECH);
 	EXPECT_EQ(client.alert().description, alert::description_t::ECH_REQUIRED);
+	// Проверяем сокрытие приветствия
 	EXPECT_FALSE(client.shrouded());
 	// Запасные конфигурации сервера получены и равны его перечню
 	EXPECT_EQ(client.retry(), server.ech());
 	// Запасные конфигурации признаются
 	vector <ech::config_t> configs;
+	// Проверяем разбор
 	EXPECT_EQ(ech::parse(view_t(client.retry().data(), client.retry().size()), configs), ech::error_t::NONE);
 	// Повтор связи с запасными конфигурациями сходится
 	client::context_t again;
+	// Создаём контекст сервера
 	server::context_t anew;
 	// Настраиваем стороны заново
 	ASSERT_TRUE(arranged(again, anew, true));
@@ -1143,7 +1226,9 @@ TEST(EchTest, Rejected){
 	converse(again, anew);
 	// Связь установлена с принятым ECH
 	ASSERT_TRUE(again.established() && anew.established()) << static_cast <int> (again.error());
+	// Проверяем сокрытие приветствия
 	EXPECT_TRUE(again.shrouded());
+	// Проверяем составление имени
 	EXPECT_EQ(anew.name(), "secret.example");
 }
 
@@ -1157,11 +1242,13 @@ TEST(EchTest, Unsupported){
 	ASSERT_TRUE(identity("ec256", credential));
 	// Связи сторон
 	client::context_t client;
+	// Создаём контекст сервера
 	server::context_t server;
 	// Подлинность сервера без ключа ECH
 	server.credential(credential);
 	// Имя и конфигурации клиента
 	client.name("secret.example");
+	// Конфигурации приняты клиентом
 	ASSERT_EQ(client.ech(corpus("ech/bssl.list")), context::error_t::NONE);
 	// Заводим стороны
 	ASSERT_EQ(server.start(), context::error_t::NONE);
@@ -1175,10 +1262,13 @@ TEST(EchTest, Unsupported){
 	// Клиент оборвал связь: ECH отвергнут, запасных конфигураций нет
 	EXPECT_EQ(client.state(), context::state_t::FAILED);
 	EXPECT_EQ(client.error(), context::error_t::ECH);
+	// Проверяем пустоту
 	EXPECT_TRUE(client.retry().empty());
 	// С конфигурациями предел изданий ниже 1.3 не ставится, а 1.3 - ставится (находка внешнего щупа)
 	client::context_t bounded;
+	// Конфигурации приняты ограниченной стороной
 	ASSERT_EQ(bounded.ech(corpus("ech/bssl.list")), context::error_t::NONE);
+	// Предел изданий ниже 1.3 не ставится, а 1.3 ставится
 	EXPECT_EQ(bounded.versions(0x0303, 0x0304), context::error_t::SETTINGS);
 	EXPECT_EQ(bounded.versions(0x0304, 0x0304), context::error_t::NONE);
 	EXPECT_EQ(bounded.lowest(), 0x0304);
@@ -1186,6 +1276,7 @@ TEST(EchTest, Unsupported){
 	EXPECT_EQ(bounded.visible(), "public.example");
 	// Негодные конфигурации не ставятся
 	client::context_t other;
+	// Негодные и пустые конфигурации отвергаются
 	EXPECT_EQ(other.ech(vector <uint8_t> {0x00, 0x02, 0xFE, 0x0C}), context::error_t::ECH);
 	EXPECT_EQ(other.ech(vector <uint8_t> ()), context::error_t::ECH);
 	// Фасады сторон различны по устройству: серверу перечень, клиенту ключ не подать вовсе
@@ -1211,6 +1302,7 @@ TEST(EchTest, Grease){
 		ASSERT_TRUE(identity("ec256", credential));
 		// Связи сторон
 		client::context_t client;
+		// Создаём контекст сервера
 		server::context_t server;
 		// Подлинность сервера
 		server.credential(credential);
@@ -1243,6 +1335,7 @@ TEST(EchTest, Grease){
 				ASSERT_EQ(ech::parse(view_t(outer.extensions[i].data.data(), outer.extensions[i].data.size()), hello), ech::error_t::NONE);
 				// Внешний вид, обязательный набор, годный ключ, шифротекст кратен 32 с меткой
 				EXPECT_FALSE(hello.inner);
+				// Проверяем набор шифрования
 				EXPECT_EQ(hello.suite.aead, hpke::aead_t::AES_128_GCM);
 				EXPECT_EQ(hello.enc.size(), static_cast <size_t> (32));
 				EXPECT_EQ((hello.payload.size() - 16) % 32, static_cast <size_t> (0));
@@ -1256,6 +1349,7 @@ TEST(EchTest, Grease){
 		converse(client, server);
 		// Связь установлена: значение GREASE ни к чему не обязывает
 		ASSERT_TRUE(client.established() && server.established()) << "ключ " << keyed << " отказ " << static_cast <int> (client.error());
+		// Проверяем сокрытие приветствия
 		EXPECT_FALSE(client.shrouded());
 		EXPECT_FALSE(server.shrouded());
 		// Сервер с ключом прислал запасные конфигурации, без ключа - нет
@@ -1278,6 +1372,7 @@ TEST(EchTest, Boringssl2){
 	}
 	// Пути к образцам
 	const std::string crt = std::string(CORPUS) + "/ec256.crt", key = std::string(CORPUS) + "/ec256.pem";
+	// Задаём пути файлов набора
 	const std::string echkey = std::string(CORPUS) + "/ech/bssl.key", echconfig = std::string(CORPUS) + "/ech/bssl.config", echlist = std::string(CORPUS) + "/ech/bssl.list";
 	{
 		// Свободный порт
@@ -1298,6 +1393,7 @@ TEST(EchTest, Boringssl2){
 		client::context_t client;
 		// Имя и конфигурации
 		client.name("secret.example");
+		// Конфигурации приняты клиентом
 		ASSERT_EQ(client.ech(corpus("ech/bssl.list")), context::error_t::NONE);
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
@@ -1309,6 +1405,7 @@ TEST(EchTest, Boringssl2){
 			relay(client, fd);
 		// Связь установлена с принятым ECH
 		ASSERT_TRUE(client.established()) << "отказ " << static_cast <int> (client.error()) << " извещение " << static_cast <int> (client.alert().description);
+		// Проверяем сокрытие приветствия
 		EXPECT_TRUE(client.shrouded());
 		// Запрос HTTP
 		const string request = "GET / HTTP/1.0\r\n\r\n";
@@ -1367,6 +1464,7 @@ TEST(EchTest, Boringssl2){
 		ASSERT_TRUE(identity("ec256", credential));
 		// Настраиваем сервер: ключ BoringSSL, та же конфигурация
 		server.credential(credential);
+		// Проверяем обслуживание подключения
 		ASSERT_EQ(server.ech(corpus("ech/bssl.key"), "public.example", 7, 64), context::error_t::NONE);
 		// Перечень сервера равен перечню BoringSSL байт в байт
 		EXPECT_EQ(server.ech(), corpus("ech/bssl.list"));
@@ -1376,7 +1474,9 @@ TEST(EchTest, Boringssl2){
 		const bool complete = serve(server, fd);
 		// Рукопожатие сошлось с принятым ECH
 		ASSERT_TRUE(complete) << "отказ " << static_cast <int> (server.error());
+		// Проверяем сокрытие приветствия
 		EXPECT_TRUE(server.shrouded());
+		// Проверяем составление имени
 		EXPECT_EQ(server.name(), "secret.example");
 		// Закрываем связь
 		ASSERT_TRUE(farewell(server, fd));
@@ -1433,6 +1533,7 @@ TEST(EchTest, Openssl){
 	EXPECT_EQ(config.name, "public.example");
 	// Набор OpenSSL: AES-128-GCM на HKDF-SHA256
 	ASSERT_EQ(config.suites.size(), static_cast <size_t> (1));
+	// Проверяем набор шифрования
 	EXPECT_EQ(config.suites[0].kdf, hpke::kdf_t::HKDF_SHA256);
 	EXPECT_EQ(config.suites[0].aead, hpke::aead_t::AES_128_GCM);
 	// Конфигурация как записана совпадает с одиночным образцом
@@ -1445,6 +1546,7 @@ TEST(EchTest, Openssl){
 	const view_t point = secret.point();
 	// Проверяем совпадение
 	ASSERT_EQ(point.size, config.key.size());
+	// Сравниваем байтовые последовательности
 	EXPECT_EQ(::memcmp(point.data, config.key.data(), point.size), 0);
 	// Пути к сертификату и ключу сторон
 	const std::string crt = std::string(CORPUS) + "/ec256.crt", pem = std::string(CORPUS) + "/ec256.pem";
@@ -1469,6 +1571,7 @@ TEST(EchTest, Openssl){
 		client::context_t client;
 		// Имя и конфигурации
 		client.name("secret.example");
+		// Конфигурации из списка приняты клиентом
 		ASSERT_EQ(client.ech(list), context::error_t::NONE);
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
@@ -1480,6 +1583,7 @@ TEST(EchTest, Openssl){
 			relay(client, fd);
 		// Связь установлена с принятым ECH
 		ASSERT_TRUE(client.established()) << "отказ " << static_cast <int> (client.error()) << " извещение " << static_cast <int> (client.alert().description);
+		// Проверяем сокрытие приветствия
 		EXPECT_TRUE(client.shrouded());
 		// Запрос HTTP
 		const string request = "GET / HTTP/1.0\r\n\r\n";
@@ -1520,6 +1624,7 @@ TEST(EchTest, Openssl){
 		ASSERT_TRUE(identity("ec256", credential));
 		// Настраиваем сервер: ключ OpenSSL, та же конфигурация (опознаватель 42, без предела длины имени)
 		server.credential(credential);
+		// Проверяем обслуживание подключения
 		ASSERT_EQ(server.ech(key, "public.example", 42, 0), context::error_t::NONE);
 		// Перечень конфигураций сервера строкой base64 для ключа -ech_config_list: объявляется
 		// нашим движком из того же ключа, потому привязка HPKE у клиента и сервера совпадает
@@ -1549,7 +1654,9 @@ TEST(EchTest, Openssl){
 		const bool complete = serve(server, fd);
 		// Рукопожатие сошлось с принятым ECH
 		ASSERT_TRUE(complete) << "отказ " << static_cast <int> (server.error());
+		// Проверяем сокрытие приветствия
 		EXPECT_TRUE(server.shrouded());
+		// Проверяем составление имени
 		EXPECT_EQ(server.name(), "secret.example");
 		// Закрываем связь
 		ASSERT_TRUE(farewell(server, fd));
@@ -1574,7 +1681,7 @@ TEST(EchTest, Openssl){
 TEST(EchTest, Hungry){
 	// Перечень и ключ
 	const vector <uint8_t> list = corpus("ech/bssl.list"), key = corpus("ech/bssl.key");
-	// Проверяем чтение
+	// Перечень конфигураций и ключ прочитаны
 	ASSERT_FALSE(list.empty() || key.empty());
 	// Подлинность сервера
 	context::credential_t credential;
@@ -1597,6 +1704,7 @@ TEST(EchTest, Hungry){
 		{
 			// Связи сторон
 			client::context_t client;
+			// Создаём контекст сервера
 			server::context_t server;
 			/**
 			 * Имя клиента ставится до ограничения запаса: у libc++ короткая строка
@@ -1628,12 +1736,14 @@ TEST(EchTest, Hungry){
 					established = (client.established() && server.established() && client.shrouded() && server.shrouded());
 					// Запоминаем отказы сторон: судятся за пределами ограничения
 					sideclient = client.error();
+					// Запоминаем итоговую ошибку стороны
 					sideserver = server.error();
 				}
 			}
 		}
 		// Если связь не установилась: отказы сторон лишь NONE, MEMORY либо обрыв извещением собеседника
 		if((started == context::error_t::NONE) && !established){
+			// Проверяем истинность условия
 			ASSERT_TRUE((sideclient == context::error_t::NONE) || (sideclient == context::error_t::MEMORY) || (sideclient == context::error_t::ALERT)) << "запас " << budget << " клиент " << static_cast <int> (sideclient);
 			ASSERT_TRUE((sideserver == context::error_t::NONE) || (sideserver == context::error_t::MEMORY) || (sideserver == context::error_t::ALERT)) << "запас " << budget << " сервер " << static_cast <int> (sideserver);
 		}
@@ -1662,6 +1772,7 @@ TEST(EchTest, Visible){
 	for(size_t accepted = 0; accepted < 2; accepted++){
 		// Связи сторон
 		client::context_t client;
+		// Создаём контекст сервера
 		server::context_t server;
 		// Без ECH публичного имени нет
 		EXPECT_TRUE(client.visible().empty());
@@ -1676,11 +1787,15 @@ TEST(EchTest, Visible){
 		EXPECT_EQ(client.visible(), "public.example");
 		// Если ECH принят: сертификат судится по тайному имени
 		if(accepted == 1){
+			// Проверяем установление связи обеими сторонами
 			EXPECT_TRUE(client.established() && client.shrouded());
 		// Если ECH отвергнут: сертификат судится по публичному имени, связь оборвана ech_required
 		} else {
+			// Проверяем сокрытие приветствия
 			EXPECT_FALSE(client.shrouded());
+			// Проверяем итоговую ошибку
 			EXPECT_EQ(client.error(), context::error_t::ECH);
+			// Проверяем пустоту
 			EXPECT_FALSE(client.retry().empty());
 		}
 	}
@@ -1693,60 +1808,94 @@ TEST(EchTest, Visible){
 TEST(EchTest, Resumed){
 	// Первая связь: выдача билета
 	client::context_t client;
+	// Создаём контекст сервера
 	server::context_t server;
+	// Проверяем настройку сторон связи
 	ASSERT_TRUE(arranged(client, server, false));
+	// Проверяем успешность запуска
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
+	// Проводим рукопожатие сторон
 	converse(client, server);
+	// Проверяем установление связи обеими сторонами
 	ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 	ASSERT_TRUE(client.shrouded() && server.shrouded());
 	// Выдаём билет
 	ASSERT_EQ(server.issue(), context::error_t::NONE);
+	// Проводим рукопожатие сторон
 	converse(client, server);
+	// Проверяем пустоту
 	ASSERT_FALSE(client.tickets().empty());
 	ASSERT_FALSE(server.tickets().empty());
 	// Вторая связь: билет предъявляется под ECH
 	client::context_t resuming;
+	// Создаём контекст сервера
 	server::context_t resumed;
+	// Проверяем настройку сторон связи
 	ASSERT_TRUE(arranged(resuming, resumed, false));
+	// Возобновляем связь по билету возобновляемого клиента
 	resuming.resume(client.tickets()[0]);
+	// Возобновляем связь по билету возобновляемого сервера
 	resumed.resume(server.tickets());
+	// Проверяем успешность запуска
 	ASSERT_EQ(resumed.start(), context::error_t::NONE);
 	ASSERT_EQ(resuming.start(), context::error_t::NONE);
 	// Внешнее приветствие
 	fingerprint::profile_t outer;
+	// Проверяем снятие приветствия
 	ASSERT_TRUE(captured(resuming, outer));
+	// Заводим признаки шага внешнего приветствия
 	bool named = false, secret = false, early = false, shrouded = false;
+	/**
+	 * Перебираем: расширения внешнего приветствия при условии, что они не кончились
+	 */
 	for(size_t i = 0; i < outer.extensions.size(); i++){
+		// Если расширение имеет вид server_name
 		if(outer.extensions[i].type == 0x0000){
+			// Проверяем составление имени
 			EXPECT_EQ(outer.extensions[i].names[0], "public.example");
+			// Отмечаем наличие имени сервера
 			named = true;
 		}
+		// Отмечаем наличие ранних секретов (0x0029)
 		secret = (secret || (outer.extensions[i].type == 0x0029));
+		// Отмечаем наличие ранних данных (0x002A)
 		early = (early || (outer.extensions[i].type == 0x002A));
+		// Отмечаем наличие расширения ECH
 		shrouded = (shrouded || (outer.extensions[i].type == ech::ECH_EXTENSION));
 	}
+	// Проверяем составление имени
 	EXPECT_TRUE(named);
 	EXPECT_TRUE(shrouded);
 	// Внешнее приветствие не несёт ни билета, ни упреждения
 	EXPECT_FALSE(secret);
 	EXPECT_FALSE(early);
+	// Берём провод после клиента
 	const view_t wire = resuming.output();
+	// Тайное имя на проводе не светится
 	EXPECT_EQ(string(reinterpret_cast <const char *> (wire.data), wire.size).find("secret.example"), string::npos);
+	// Проводим рукопожатие сторон
 	converse(resuming, resumed);
+	// Проверяем установление связи обеими сторонами
 	ASSERT_TRUE(resuming.established() && resumed.established()) << static_cast <int> (resuming.error()) << " " << static_cast <int> (resumed.error()) << " извещения " << static_cast <int> (resuming.alert().description) << " " << static_cast <int> (resumed.alert().description);
 	// Связь скрыта и возобновлена
 	EXPECT_TRUE(resuming.shrouded());
 	EXPECT_TRUE(resumed.shrouded());
 	EXPECT_TRUE(resuming.shared());
 	EXPECT_TRUE(resumed.shared());
+	// Проверяем составление имени
 	EXPECT_EQ(resumed.name(), "secret.example");
 	// Прикладные данные
 	const string request = "Запрос под ECH с билетом";
+	// Проверяем размер
 	ASSERT_EQ(resuming.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
+	// Проводим рукопожатие сторон
 	converse(resuming, resumed);
+	// Объявляем список байтов
 	vector <uint8_t> received;
+	// Чтение возобновлённой стороны прошло без ошибки
 	ASSERT_EQ(resumed.read(received), context::error_t::NONE);
+	// Принятый текст совпал с отправленным
 	EXPECT_EQ(string(received.begin(), received.end()), request);
 }
 
@@ -1760,46 +1909,79 @@ TEST(EchTest, Resumed){
  * сервер принимает ECH и данные
  */
 TEST(EchTest, Early){
+	// Создаём контекст клиента
 	client::context_t client;
+	// Создаём контекст сервера
 	server::context_t server;
+	// Проверяем настройку сторон связи
 	ASSERT_TRUE(arranged(client, server, false));
+	// Разрешаем упреждающие данные сервера
 	server.advance(true, 16384);
+	// Проверяем успешность запуска
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
+	// Проводим рукопожатие сторон
 	converse(client, server);
+	// Проверяем установление связи обеими сторонами
 	ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
+	// Проверяем обслуживание подключения
 	ASSERT_EQ(server.issue(), context::error_t::NONE);
+	// Проводим рукопожатие сторон
 	converse(client, server);
+	// Проверяем пустоту
 	ASSERT_FALSE(client.tickets().empty());
+	// Создаём контекст клиента
 	client::context_t resuming;
+	// Создаём контекст сервера
 	server::context_t resumed;
+	// Проверяем настройку сторон связи
 	ASSERT_TRUE(arranged(resuming, resumed, false));
+	// Разрешаем упреждающие данные возобновляемого сервера
 	resumed.advance(true, 16384);
+	// Разрешаем упреждающие данные возобновляемого клиента
 	resuming.advance(true, 16384);
+	// Возобновляем связь по билету возобновляемого клиента
 	resuming.resume(client.tickets()[0]);
+	// Возобновляем связь по билету возобновляемого сервера
 	resumed.resume(server.tickets());
+	// Проверяем успешность запуска
 	ASSERT_EQ(resumed.start(), context::error_t::NONE);
 	ASSERT_EQ(resuming.start(), context::error_t::NONE);
 	// Внешнее приветствие без early_data, внутреннее его несёт (в ECH, скрыто)
 	fingerprint::profile_t outer;
+	// Проверяем снятие приветствия
 	ASSERT_TRUE(captured(resuming, outer));
+	// Заводим признаки шага внешнего приветствия
 	bool early = false, shrouded = false;
+	/**
+	 * Перебираем: расширения внешнего приветствия при условии, что они не кончились
+	 */
 	for(size_t i = 0; i < outer.extensions.size(); i++){
+		// Отмечаем наличие ранних данных (0x002A)
 		early = (early || (outer.extensions[i].type == 0x002A));
+		// Отмечаем наличие расширения ECH
 		shrouded = (shrouded || (outer.extensions[i].type == ech::ECH_EXTENSION));
 	}
+	// Проверяем истинность условия
 	EXPECT_TRUE(shrouded);
 	EXPECT_TRUE(early);
 	// Упреждающие данные уходят до ответа сервера
 	const string request = "Упреждающий запрос под ECH";
+	// Проверяем размер
 	ASSERT_EQ(resuming.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
+	// Проводим рукопожатие сторон
 	converse(resuming, resumed);
+	// Проверяем установление связи обеими сторонами
 	ASSERT_TRUE(resuming.established() && resumed.established()) << static_cast <int> (resuming.error()) << " " << static_cast <int> (resumed.error()) << " извещение " << static_cast <int> (resumed.alert().description);
+	// Проверяем сокрытие приветствия
 	EXPECT_TRUE(resuming.shrouded() && resumed.shrouded());
 	EXPECT_TRUE(resuming.accepted());
 	EXPECT_TRUE(resumed.accepted());
+	// Объявляем список байтов
 	vector <uint8_t> received;
+	// Чтение после упреждения прошло без ошибки
 	ASSERT_EQ(resumed.read(received), context::error_t::NONE);
+	// Принятый текст совпал с отправленным
 	EXPECT_EQ(string(received.begin(), received.end()), request);
 }
 
@@ -1809,92 +1991,155 @@ TEST(EchTest, Early){
  * ech_required клиента, а не по bad_record_mac сервера
  */
 TEST(EchTest, EarlyRejected){
+	// Создаём контекст клиента
 	client::context_t client;
+	// Создаём контекст сервера
 	server::context_t server;
+	// Проверяем настройку сторон связи
 	ASSERT_TRUE(arranged(client, server, false));
+	// Разрешаем упреждающие данные сервера
 	server.advance(true, 16384);
+	// Проверяем успешность запуска
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
+	// Проводим рукопожатие сторон
 	converse(client, server);
+	// Проверяем установление связи обеими сторонами
 	ASSERT_TRUE(client.established() && server.established());
+	// Проверяем обслуживание подключения
 	ASSERT_EQ(server.issue(), context::error_t::NONE);
+	// Проводим рукопожатие сторон
 	converse(client, server);
+	// Проверяем пустоту
 	ASSERT_FALSE(client.tickets().empty());
+	// Создаём контекст клиента
 	client::context_t resuming;
+	// Создаём контекст сервера
 	server::context_t stranger;
 	// Чужой сервер: тот же опознаватель 7, но свой ключ - раскрыть приветствие ему нечем
 	ASSERT_TRUE(arranged(resuming, stranger, true));
+	// Разрешаем упреждающие данные незнакомой стороны
 	stranger.advance(true, 16384);
+	// Разрешаем упреждающие данные возобновляемого клиента
 	resuming.advance(true, 16384);
+	// Возобновляем связь по билету возобновляемого клиента
 	resuming.resume(client.tickets()[0]);
+	// Возобновляем связь по билету незнакомой стороны
 	stranger.resume(server.tickets());
+	// Проверяем успешность запуска
 	ASSERT_EQ(stranger.start(), context::error_t::NONE);
 	ASSERT_EQ(resuming.start(), context::error_t::NONE);
+	// Задаём текст запроса
 	const string request = "Упреждающий запрос под отклонённый ECH";
+	// Проверяем размер
 	ASSERT_EQ(resuming.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
+	// Проводим рукопожатие сторон
 	converse(resuming, stranger);
 	// Клиент отверг связь по ech_required, сервер получил именно его, не упал на снятии защиты
 	EXPECT_EQ(resuming.error(), context::error_t::ECH);
 	EXPECT_EQ(resuming.alert().description, alert::description_t::ECH_REQUIRED);
 	EXPECT_EQ(stranger.error(), context::error_t::ALERT) << static_cast <int> (stranger.error()) << " " << static_cast <int> (stranger.alert().description);
 	EXPECT_EQ(stranger.alert().description, alert::description_t::ECH_REQUIRED);
+	// Проверяем принятие упреждающих данных
 	EXPECT_FALSE(resuming.accepted());
 }
 
 TEST(EchTest, Boringssl3){
+	// Задаём строковую константу
 	const std::string tool = bssltool();
+	// Проверяем, что данные не пусты
 	if(tool.empty()){
+		// Пропускаем проверку: недоступен внешний инструмент
 		GTEST_SKIP() << "bssl (BoringSSL) недоступен: задайте ANTS_BSSL";
 	}
+	// Задаём пути файлов набора
 	const std::string echlist = std::string(CORPUS) + "/ech/bssl.list";
+	// Заводим номер порта
 	uint16_t number = 0;
+	// Заводим слушающий сокет
 	const int listener = harbour(number);
+	// Проверяем, что полученное значение не меньше ожидаемого
 	ASSERT_GE(listener, 0);
+	// Задаём путь журнала прогона
 	const std::string log = "/tmp/ants-ech-bssl-resume-" + std::to_string(number) + ".log";
+	// Проверяем составление имени
 	ASSERT_TRUE(launch(tool + " client -connect 127.0.0.1:" + std::to_string(number) + " -ech-config-list " + echlist + " -server-name secret.example -test-resumption </dev/null >" + log + " 2>&1", log, log + ".pid"));
+	// Запускаем страж внешнего процесса
 	sentinel_t sentinel(log + ".pid");
+	// Объявляем подлинность стороны
 	context::credential_t credential;
+	// Проверяем составление подлинности из набора
 	ASSERT_TRUE(identity("ec256", credential));
 	// Билеты первой связи
 	vector <context::ticket_t> tickets;
+	/**
+	 * Перебираем: круги связи с клиентом bssl при условии, что их меньше двух
+	 */
 	for(size_t round = 0; round < 2; round++){
+		// Принимаем подключение инструмента
 		const int fd = greeted(listener);
+		// Проверяем, что полученное значение не меньше ожидаемого
 		ASSERT_GE(fd, 0) << "связь " << round;
+		// Создаём контекст сервера
 		server::context_t server;
+		// Устанавливаем подлинность сервера
 		server.credential(credential);
+		// Проверяем обслуживание подключения
 		ASSERT_EQ(server.ech(corpus("ech/bssl.key"), "public.example", 7, 64), context::error_t::NONE);
+		// Проверяем номер круга связи
 		if(round == 1)
+			// Возобновляем связь по билету сервера
 			server.resume(tickets);
+		// Проверяем успешность запуска
 		ASSERT_EQ(server.start(), context::error_t::NONE);
+		// Проверяем итоговую ошибку
 		ASSERT_TRUE(serve(server, fd)) << "связь " << round << " отказ " << static_cast <int> (server.error());
+		// Проверяем сокрытие приветствия
 		EXPECT_TRUE(server.shrouded()) << "связь " << round;
+		// Проверяем составление имени
 		EXPECT_EQ(server.name(), "secret.example") << "связь " << round;
+		// Проверяем номер круга связи
 		if(round == 0){
 			// Выдаём билет
 			ASSERT_EQ(server.issue(), context::error_t::NONE);
+			// Берём выдачу билета сервера
 			const view_t granting = server.output();
+			// Билет ушёл в сокет целиком
 			ASSERT_EQ(sending(fd, granting.data, granting.size), static_cast <ssize_t> (granting.size));
+			// Сокращаем исходящие данные сервера
 			server.consume(granting.size);
+			// Запоминаем билеты стороны
 			tickets = server.tickets();
+			// Проверяем пустоту
 			ASSERT_FALSE(tickets.empty());
 			// Первое подключение закрывает сам bssl, получив билет: ждём его закрытия
 			uint8_t buffer[4096];
+			/**
+			 * Перебираем: дочитывания закрытия при условии, что байты ещё приходят
+			 */
 			for(size_t i = 0; (i < 8) && (receiving(fd, buffer, sizeof(buffer)) > 0); i++)
 				continue;
 		} else {
+			// Проверяем получение общего секрета
 			EXPECT_TRUE(server.shared());
+			// Проверяем обслуживание подключения
 			ASSERT_TRUE(farewell(server, fd));
 		}
+		// Закрываем соединение
 		closing(fd);
 	}
+	// Закрываем соединение
 	closing(listener);
+	// Объявляем строку
 	std::string text;
+	// Проверяем снятие журнала процесса
 	ASSERT_TRUE(settle(log, text)) << text;
+	// Проверяем несовпадение полученного значения с ожидаемым
 	EXPECT_NE(text.find("Encrypted ClientHello: yes"), std::string::npos) << text;
 	EXPECT_NE(text.find("Resumed session: yes"), std::string::npos) << text;
+	// Удаляем файл журнала
 	::remove(log.c_str());
 	// bssl server в режиме -www билетов не выдаёт (проверено отладчиком без ECH и с ECH): ступень «наш клиент возобновляется у bssl server» невозможна
-
 }
 
 /**
@@ -1904,71 +2149,135 @@ TEST(EchTest, Boringssl3){
 TEST(EchTest, Datagram){
 	// Насос дейтаграмм: все дейтаграммы стороны переносятся за раз
 	auto shuttle = [](client::context_t & client, server::context_t & server) -> bool {
+		// Заводим признак переноса дейтаграмм
 		bool moved = false;
+		/**
+		 * Перебираем: проходы передачи между сторонами при условии, что их меньше двух
+		 */
 		for(size_t pass = 0; pass < 2; pass++){
+			// Объявляем список дейтаграмм
 			vector <vector <uint8_t>> datagrams;
+			// Проверяем направление прохода
 			if(pass == 0){
+				/**
+				 * Перебираем: исходящие дейтаграммы клиента при условии, что они не кончились
+				 */
 				while(client.output().size > 0){
+					// Берём исходящую дейтаграмму клиента
 					const view_t data = client.output();
+					// Добавляем элемент в список
 					datagrams.push_back(vector <uint8_t> (data.data, data.data + data.size));
+					// Сокращаем исходящие данные клиента
 					client.consume(data.size);
 				}
+				/**
+				 * Перебираем: дейтаграммы клиента при условии, что они не кончились
+				 */
 				for(size_t i = 0; i < datagrams.size(); i++)
+					// Передаём байты серверу
 					server.push(view_t(datagrams[i].data(), datagrams[i].size()));
 			} else {
+				/**
+				 * Перебираем: исходящие дейтаграммы сервера при условии, что они не кончились
+				 */
 				while(server.output().size > 0){
+					// Берём исходящую дейтаграмму сервера
 					const view_t data = server.output();
+					// Добавляем элемент в список
 					datagrams.push_back(vector <uint8_t> (data.data, data.data + data.size));
+					// Сокращаем исходящие данные сервера
 					server.consume(data.size);
 				}
+				/**
+				 * Перебираем: дейтаграммы сервера при условии, что они не кончились
+				 */
 				for(size_t i = 0; i < datagrams.size(); i++)
+					// Передаём байты клиенту
 					client.push(view_t(datagrams[i].data(), datagrams[i].size()));
 			}
+			// Отмечаем перенос дейтаграмм
 			moved = (moved || !datagrams.empty());
 		}
+		// Выводим признак того, что дейтаграммы передавались
 		return moved;
 	};
+	// Создаём контекст клиента
 	client::context_t client;
+	// Создаём контекст сервера
 	server::context_t server;
+	// Задаём транспорт дейтаграмм клиента
 	client.transport(context::transport_t::DATAGRAMS);
+	// Задаём транспорт дейтаграмм сервера
 	server.transport(context::transport_t::DATAGRAMS);
+	// Проверяем настройку сторон связи
 	ASSERT_TRUE(arranged(client, server, false));
+	// Задаём наборы шифрования клиента
 	client.suites(vector <protect::suite_t> {protect::suite_t::AES_128_GCM_SHA256});
+	// Задаём наборы шифрования сервера
 	server.suites(vector <protect::suite_t> {protect::suite_t::AES_128_GCM_SHA256});
+	// Задаём группы клиента
 	client.groups(vector <extension::group_t> {extension::group_t::X25519});
+	// Задаём группы сервера
 	server.groups(vector <extension::group_t> {extension::group_t::X25519});
 	// Адрес собеседника: им сервер помечает метку возврата состояния
 	static const uint8_t ADDRESS[] = {10, 0, 0, 1, 0x12, 0x34};
+	// Проверяем обслуживание подключения
 	ASSERT_TRUE(server.address(view_t(ADDRESS, sizeof(ADDRESS))));
+	// Проверяем успешность запуска
 	ASSERT_EQ(server.start(), context::error_t::NONE) << static_cast <int> (server.error());
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Первая дейтаграмма: внешнее приветствие
 	fingerprint::profile_t outer;
+	// Проверяем снятие приветствия
 	ASSERT_TRUE(captured(client, outer));
+	// Проверяем истинность условия
 	EXPECT_TRUE(outer.datagram);
+	// Заводим признаки шага внешнего приветствия
 	bool named = false, shrouded = false;
+	/**
+	 * Перебираем: расширения внешнего приветствия при условии, что они не кончились
+	 */
 	for(size_t i = 0; i < outer.extensions.size(); i++){
+		// Если расширение имеет вид server_name
 		if(outer.extensions[i].type == 0x0000){
+			// Проверяем составление имени
 			EXPECT_EQ(outer.extensions[i].names[0], "public.example");
+			// Отмечаем наличие имени сервера
 			named = true;
 		}
+		// Отмечаем наличие расширения ECH
 		shrouded = (shrouded || (outer.extensions[i].type == ech::ECH_EXTENSION));
 	}
+	// Проверяем составление имени
 	EXPECT_TRUE(named);
 	EXPECT_TRUE(shrouded);
+	/**
+	 * Перебираем: передачи между сторонами при условии, что они двигают данные и их меньше двадцати четырёх
+	 */
 	for(size_t i = 0; (i < 24) && shuttle(client, server); i++)
 		continue;
+	// Проверяем установление связи обеими сторонами
 	ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error()) << " извещения " << static_cast <int> (client.alert().description) << " " << static_cast <int> (server.alert().description);
+	// Проверяем сокрытие приветствия
 	EXPECT_TRUE(client.shrouded());
 	EXPECT_TRUE(server.shrouded());
+	// Проверяем составление имени
 	EXPECT_EQ(server.name(), "secret.example");
 	EXPECT_EQ(client.protocol(), "h2");
+	// Задаём текст запроса
 	const string request = "Запрос под ECH поверх дейтаграмм";
+	// Проверяем размер
 	ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
+	/**
+	 * Перебираем: передачи между сторонами при условии, что они двигают данные и их меньше восьми
+	 */
 	for(size_t i = 0; (i < 8) && shuttle(client, server); i++)
 		continue;
+	// Объявляем список байтов
 	vector <uint8_t> received;
+	// Проверяем обслуживание подключения
 	ASSERT_EQ(server.read(received), context::error_t::NONE);
+	// Принятый текст совпал с отправленным
 	EXPECT_EQ(string(received.begin(), received.end()), request);
 }
 
@@ -1977,60 +2286,90 @@ TEST(EchTest, Datagram){
  * опознавателю; клиент лишь со второй конфигурацией тоже раскрывается; занятый опознаватель отвергается
  */
 TEST(EchTest, Several){
+	// Объявляем подлинность стороны
 	context::credential_t credential;
+	// Проверяем составление подлинности из набора
 	ASSERT_TRUE(identity("ec256", credential));
+	// Создаём контекст сервера
 	server::context_t server;
+	// Устанавливаем подлинность сервера
 	server.credential(credential);
+	// Проверяем обслуживание подключения
 	ASSERT_EQ(server.ech(vector <uint8_t> (), "public.example", 7, 64), context::error_t::NONE);
 	ASSERT_EQ(server.ech(vector <uint8_t> (), "public.example", 9, 64), context::error_t::NONE);
 	// Перечень несёт обе конфигурации
 	vector <ech::config_t> configs;
+	// Проверяем разбор
 	ASSERT_EQ(ech::parse(view_t(server.ech().data(), server.ech().size()), configs), ech::error_t::NONE);
 	ASSERT_EQ(configs.size(), static_cast <size_t> (2));
+	// Опознаватели конфигураций сходятся
 	EXPECT_EQ(configs[0].id, 7);
 	EXPECT_EQ(configs[1].id, 9);
 	// Занятый опознаватель заменяет конфигурацию: перечень по-прежнему из двух, ключ второй сменился
 	EXPECT_EQ(server.ech(vector <uint8_t> (), "public.example", 9, 64), context::error_t::NONE);
 	{
+		// Объявляем список конфигураций ECH
 		vector <ech::config_t> renewed;
+		// Проверяем разбор
 		ASSERT_EQ(ech::parse(view_t(server.ech().data(), server.ech().size()), renewed), ech::error_t::NONE);
 		ASSERT_EQ(renewed.size(), static_cast <size_t> (2));
+		// Возобновлённые ключи совпали с прежними
 		EXPECT_EQ(renewed[0].key, configs[0].key);
+		// Проверяем несовпадение полученного значения с ожидаемым
 		EXPECT_NE(renewed[1].key, configs[1].key);
+		// Заполняем поле конфигурации
 		configs = renewed;
 	}
 	// Клиент с полным перечнем
 	{
+		// Создаём контекст клиента
 		client::context_t client;
+		// Задаём имя клиента
 		client.name("secret.example");
+		// Проверяем обслуживание подключения
 		ASSERT_EQ(client.ech(server.ech()), context::error_t::NONE);
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
+		// Проводим рукопожатие сторон
 		converse(client, server);
+		// Проверяем установление связи обеими сторонами
 		ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
+		// Проверяем сокрытие приветствия
 		EXPECT_TRUE(client.shrouded());
 		EXPECT_TRUE(server.shrouded());
 	}
 	// Клиент лишь со второй конфигурацией
 	{
+		// Создаём контекст сервера
 		server::context_t anew;
+		// Устанавливаем подлинность новой стороны
 		anew.credential(credential);
+		// Оба опознавателя приняты новой стороной
 		ASSERT_EQ(anew.ech(vector <uint8_t> (), "public.example", 7, 64), context::error_t::NONE);
 		ASSERT_EQ(anew.ech(vector <uint8_t> (), "public.example", 9, 64), context::error_t::NONE);
 		// Ключи anew порождены заново: перечень берётся у него, вторая конфигурация - записью как есть
 		ASSERT_EQ(ech::parse(view_t(anew.ech().data(), anew.ech().size()), configs), ech::error_t::NONE);
 		ASSERT_EQ(configs.size(), static_cast <size_t> (2));
+		// Объявляем список байтов
 		vector <uint8_t> second;
+		// Добавляем элемент в список
 		second.push_back(static_cast <uint8_t> (configs[1].raw.size() >> 8));
 		second.push_back(static_cast <uint8_t> (configs[1].raw.size() & 0xFF));
+		// Вставляем байты в список
 		second.insert(second.end(), configs[1].raw.begin(), configs[1].raw.end());
+		// Создаём контекст клиента
 		client::context_t client;
+		// Задаём имя клиента
 		client.name("secret.example");
+		// Вторая редакция конфигураций принята клиентом
 		ASSERT_EQ(client.ech(second), context::error_t::NONE);
 		ASSERT_EQ(anew.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
+		// Проводим рукопожатие сторон
 		converse(client, anew);
+		// Проверяем установление связи обеими сторонами
 		ASSERT_TRUE(client.established() && anew.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (anew.error());
+		// Проверяем сокрытие приветствия
 		EXPECT_TRUE(client.shrouded());
 		EXPECT_TRUE(anew.shrouded());
 	}
@@ -2041,74 +2380,112 @@ TEST(EchTest, Several){
  * и перечень DNS несут лишь новую; без удержания прежний ключ отвергается и клиент получает новую
  */
 TEST(EchTest, Rotation){
+	// Объявляем подлинность стороны
 	context::credential_t credential;
+	// Проверяем составление подлинности из набора
 	ASSERT_TRUE(identity("ec256", credential));
+	// Объявляем список байтов
 	const vector <uint8_t> older = corpus("ech/bssl.key"), stale = corpus("ech/bssl.list");
+	// Проверяем пустоту
 	ASSERT_FALSE(older.empty());
 	ASSERT_FALSE(stale.empty());
 	// Сервер после ротации: новая объявлена, прежняя удержана
 	{
+		// Создаём контекст сервера
 		server::context_t server;
+		// Устанавливаем подлинность сервера
 		server.credential(credential);
+		// Проверяем обслуживание подключения
 		ASSERT_EQ(server.ech(vector <uint8_t> (), "public.example", 11, 64), context::error_t::NONE);
 		ASSERT_EQ(server.retain(older, "public.example", 7, 64), context::error_t::NONE);
+		// Объявляем список конфигураций ECH
 		vector <ech::config_t> configs;
+		// Проверяем разбор
 		ASSERT_EQ(ech::parse(view_t(server.ech().data(), server.ech().size()), configs), ech::error_t::NONE);
 		ASSERT_EQ(configs.size(), static_cast <size_t> (1));
+		// Опознаватель обновлённой конфигурации сходится
 		EXPECT_EQ(configs[0].id, 11);
+		// Создаём контекст клиента
 		client::context_t client;
+		// Задаём имя клиента
 		client.name("secret.example");
+		// Устаревшие конфигурации удержанным ключом принимаются
 		ASSERT_EQ(client.ech(stale), context::error_t::NONE);
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
+		// Проводим рукопожатие сторон
 		converse(client, server);
+		// Проверяем установление связи обеими сторонами
 		ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
+		// Проверяем сокрытие приветствия
 		EXPECT_TRUE(client.shrouded());
 		EXPECT_TRUE(server.shrouded());
 		EXPECT_TRUE(client.retry().empty());
 	}
 	// Сервер без удержания: прежний ключ отвергнут, клиент получает новую конфигурацию
 	{
+		// Создаём контекст сервера
 		server::context_t server;
+		// Устанавливаем подлинность сервера
 		server.credential(credential);
+		// Проверяем обслуживание подключения
 		ASSERT_EQ(server.ech(vector <uint8_t> (), "public.example", 11, 64), context::error_t::NONE);
+		// Создаём контекст клиента
 		client::context_t client;
+		// Задаём имя клиента
 		client.name("secret.example");
+		// Устаревшие конфигурации ставятся, сервер прежний ключ не держит
 		ASSERT_EQ(client.ech(stale), context::error_t::NONE);
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
+		// Проводим рукопожатие сторон
 		converse(client, server);
+		// Проверяем сокрытие приветствия
 		EXPECT_FALSE(server.shrouded());
+		// Проверяем обслуживание подключения
 		EXPECT_EQ(client.retry(), server.ech());
+		// Объявляем список конфигураций ECH
 		vector <ech::config_t> configs;
+		// Проверяем разбор
 		ASSERT_EQ(ech::parse(view_t(client.retry().data(), client.retry().size()), configs), ech::error_t::NONE);
 		ASSERT_EQ(configs.size(), static_cast <size_t> (1));
+		// Опознаватель запасной конфигурации сходится
 		EXPECT_EQ(configs[0].id, 11);
 	}
 	// Только удержанная конфигурация: перечень пуст, а раскрытие идёт
 	{
+		// Создаём контекст сервера
 		server::context_t server;
+		// Устанавливаем подлинность сервера
 		server.credential(credential);
+		// Проверяем обслуживание подключения
 		ASSERT_EQ(server.retain(older, "public.example", 7, 64), context::error_t::NONE);
+		// Проверяем пустоту
 		EXPECT_TRUE(server.ech().empty());
+		// Создаём контекст клиента
 		client::context_t client;
+		// Задаём имя клиента
 		client.name("secret.example");
+		// Устаревшие конфигурации отвергаются стороной
 		ASSERT_EQ(client.ech(stale), context::error_t::NONE);
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
+		// Проводим рукопожатие сторон
 		converse(client, server);
+		// Проверяем установление связи обеими сторонами
 		ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
+		// Проверяем сокрытие приветствия
 		EXPECT_TRUE(server.shrouded());
 	}
 }
 
 /**
  * Проверка принятия ECH с постквантовым способом инкапсуляции MLKEM768-X25519
- *
  */
 TEST(EchTest, PostQuantum){
 	// Связи сторон
 	client::context_t client;
+	// Создаём контекст сервера
 	server::context_t server;
 	// Подлинность сервера
 	context::credential_t credential;
@@ -2126,9 +2503,11 @@ TEST(EchTest, PostQuantum){
 	ASSERT_FALSE(list.empty());
 	// Разбираем перечень
 	vector <ech::config_t> configs;
+	// Проверяем разбор
 	ASSERT_EQ(ech::parse(view_t(list.data(), list.size()), configs), ech::error_t::NONE);
 	// Проверяем конфигурацию
 	ASSERT_EQ(configs.size(), static_cast <size_t> (1));
+	// Механизм и ключ конфигурации сходятся
 	EXPECT_EQ(configs[0].kem, hpke::kem_t::MLKEM768_X25519);
 	EXPECT_EQ(configs[0].key.size(), static_cast <size_t> (1216));
 	EXPECT_EQ(configs[0].name, "public.example");
@@ -2162,5 +2541,6 @@ TEST(EchTest, PostQuantum){
 	vector <uint8_t> received;
 	// Читаем
 	ASSERT_EQ(server.read(received), context::error_t::NONE);
+	// Принятый текст совпал с отправленным
 	EXPECT_EQ(string(received.begin(), received.end()), request);
 }

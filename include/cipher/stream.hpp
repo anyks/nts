@@ -21,7 +21,6 @@
  *        stream, the GCM authentication tag at the tail, by chunks of any length
  *
  * \~
- *
  * @copyright Copyright © 2026
  *
  */
@@ -91,8 +90,11 @@ namespace nts {
 		 * \~
 		 */
 		enum class direction_t : uint8_t {
+			// Направление не установлено
 			NONE    = 0x00, /*!< \~russian Направление не установлено \~english The direction is not set \~ */
+			// Зашифрование
 			ENCRYPT = 0x01, /*!< \~russian Зашифрование \~english Encryption \~ */
+			// Расшифрование
 			DECRYPT = 0x02  /*!< \~russian Расшифрование \~english Decryption \~ */
 		};
 
@@ -106,8 +108,11 @@ namespace nts {
 		 * \~
 		 */
 		enum class regime_t : uint8_t {
+			// Режим не установлен
 			NONE     = 0x00, /*!< \~russian Режим не установлен \~english The mode is not set \~ */
+			// Гаммирование с обратной связью по шифртексту, без имитовставки
 			FEEDBACK = 0x01, /*!< \~russian Гаммирование с обратной связью по шифртексту, без имитовставки \~english Cipher feedback, without an authentication tag \~ */
+			// GCM с имитовставкой в хвосте потока
 			GCM      = 0x02  /*!< \~russian GCM с имитовставкой в хвосте потока \~english GCM with the authentication tag at the tail of the stream \~ */
 		};
 
@@ -131,6 +136,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Streaming encryption wrapper
+		 *
 		 * @details The stream is set by the direction, the cipher and the mode at once. At the
 		 *          encryption the vector is produced from the entropy and goes first into the output,
 		 *          at GCM the 16-byte tag is appended to the tail at the completion. At the decryption
@@ -138,6 +144,7 @@ namespace nts {
 		 *          are held back and are not given out as data: the decryption lags by the length of
 		 *          the tag, and its comparison goes only at the completion. The slicing into chunks
 		 *          does not affect the result, an empty output is a lawful success
+		 *
 		 * @note Deliberate decisions: a start over an unfinished stream resets the previous one; a
 		 *       single object works in both directions in turn; a damage of the tag is caught only at
 		 *       the completion - the plain text given out before it is not considered authentic. A lack
@@ -184,11 +191,11 @@ namespace nts {
 				 *
 				 * @param source пропускаемый кусок
 				 * @param result накопитель выхода, в который дописывается итог
-				 *
 				 * @return       признак успешности пропуска
 				 *
 				 * \~english
 				 * @brief Method of passing a chunk through the mode with appending to the output
+				 *
 				 * @param source the chunk being passed
 				 * @param result the output accumulator the result is appended to
 				 * @return       the flag of the success of the passing
@@ -204,6 +211,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the start of the mode on the gathered vector
+				 *
 				 * @return the flag of the success of the start
 				 *
 				 * \~
@@ -218,6 +226,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of checking the readiness of the stream for the work
+				 *
 				 * @return the flag of the readiness of the stream
 				 *
 				 * \~
@@ -234,12 +243,13 @@ namespace nts {
 				 * @param block     блочный шифр с блоком в 16 байтов и установленным ключом
 				 * @param mode      режим шифрования потока
 				 * @param tag       длина метки GCM от 4 до 16 байтов, у режима без метки не учитывается
-				 *
 				 * @return          признак успешности заведения
 				 *
 				 * \~english
 				 * @brief Method of the start of the stream
+				 *
 				 * @details Over an unfinished stream the previous one is reset
+				 *
 				 * @param direction the direction of the stream
 				 * @param block     the block cipher with a 16-byte block and a set key
 				 * @param mode      the encryption mode of the stream
@@ -268,12 +278,13 @@ namespace nts {
 				 *
 				 * @param source кусок любой длины, включая пустой
 				 * @param result накопитель выхода, в который дописывается итог
-				 *
 				 * @return       признак успешности подачи
 				 *
 				 * \~english
 				 * @brief Method of the feeding of a chunk of the stream
+				 *
 				 * @details The result is appended to the accumulator; an empty output is a success
+				 *
 				 * @param source a chunk of any length, including an empty one
 				 * @param result the output accumulator the result is appended to
 				 * @return       the flag of the success of the feeding
@@ -289,13 +300,14 @@ namespace nts {
 				 *          сличает удержанную; поток закрывается
 				 *
 				 * @param result накопитель выхода, в который дописывается хвост
-				 *
 				 * @return       признак успешности завершения
 				 *
 				 * \~english
 				 * @brief Method of the completion of the stream
+				 *
 				 * @details At the encryption GCM appends the tag, at the decryption it compares the
 				 *          held one; the stream is closed
+				 *
 				 * @param result the output accumulator the tail is appended to
 				 * @return       the flag of the success of the completion
 				 *

@@ -6,6 +6,12 @@
  *
  * @author Yuriy Lobarev
  *
+ * @telegram{forman}
+ * @phone{+7 (910) 983-95-90}
+ *
+ * @email forman@anyks.com
+ * @site https://anyks.com
+ *
  * @brief Проверки модуля настраиваемых функций переменного выхода cSHAKE и
  *        имитовставок KMAC по SP 800-185 на контрольных примерах NIST
  *
@@ -36,11 +42,10 @@
 using namespace nts;
 
 /**
- * @brief Метод записи байтов шестнадцатеричной строкой
+ * @brief Функция записи байтов шестнадцатеричной строкой
  *
  * @param data байты
  * @param size число байтов
- *
  * @return     запись строчными шестнадцатеричными знаками
  *
  */
@@ -62,14 +67,13 @@ static std::string text(const uint8_t * data, const size_t size) {
 	return result;
 }
 /**
- * @brief Метод вычисления cSHAKE за один вызов
+ * @brief Функция вычисления cSHAKE за один вызов
  *
  * @param type    разновидность функции
  * @param message сообщение
  * @param name    имя функции N
  * @param custom  настройка S
  * @param size    длина итога
- *
  * @return        запись итога шестнадцатеричной строкой либо пустая при отказе
  *
  */
@@ -90,7 +94,7 @@ static std::string cshaking(const digest::sha3_t type, const std::vector <uint8_
 	return text(result.data(), size);
 }
 /**
- * @brief Метод вычисления имитовставки KMAC за один вызов
+ * @brief Функция вычисления имитовставки KMAC за один вызов
  *
  * @param type    разновидность функции
  * @param key     ключ имитовставки
@@ -98,7 +102,6 @@ static std::string cshaking(const digest::sha3_t type, const std::vector <uint8_
  * @param custom  настройка S
  * @param size    длина имитовставки
  * @param xof     признак переменной длины итога (KMACXOF)
- *
  * @return        запись имитовставки шестнадцатеричной строкой либо пустая при отказе
  *
  */
@@ -121,10 +124,9 @@ static std::string kmacing(const digest::sha3_t type, const std::vector <uint8_t
 	return text(result.data(), size);
 }
 /**
- * @brief Метод составления сообщения из байтов 00..C7
+ * @brief Функция составления сообщения из байтов 00..C7
  *
  * @param size длина сообщения в байтах
- *
  * @return     сообщение из байтов 00..C7
  *
  */
@@ -141,7 +143,7 @@ static std::vector <uint8_t> pattern(const size_t size) {
 	return result;
 }
 /**
- * @brief Метод составления ключа из байтов 40..5F
+ * @brief Функция составления ключа из байтов 40..5F
  *
  * @return ключ из тридцати двух байтов 40..5F
  *
@@ -251,12 +253,14 @@ TEST(CshakeTest, KmacXof){
 		"b58618f71f92e1d56c1b8c55ddd7cd188b97b4ca4d99831eb2699a837da2e4d970fbacfde50033aea585f1a2708510c32d07880801bd182898fe476876fc8965");
 	// Сообщение проверки: байты 00..03
 	const std::vector <uint8_t> message = {0x00, 0x01, 0x02, 0x03};
-	// Итоги переменной длины: 32 и 64 байта
+	// Итог переменной длины: 32 байта
 	const std::string shorter = kmacing(digest::sha3_t::SHAKE128, key, message, "", 32, true);
+	// Итог той же выработки длиной 64 байта: правило KMACXOF сращивает итоги
 	const std::string longer = kmacing(digest::sha3_t::SHAKE128, key, message, "", 64, true);
 	// Начало длинного итога совпадает с коротким: right_encode(0) не несёт длины
 	ASSERT_FALSE(shorter.empty());
 	ASSERT_FALSE(longer.empty());
+	// Длинный итог обязан начинаться с короткого целиком
 	EXPECT_EQ(longer.substr(0, shorter.size()), shorter);
 	// KMAC и KMACXOF при той же длине различаются записью длины итога
 	EXPECT_NE(kmacing(digest::sha3_t::SHAKE128, key, message, "", 32, false), shorter);

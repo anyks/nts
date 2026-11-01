@@ -61,10 +61,9 @@ static const char * CORPUS = ANTS_CORPUS;
  */
 namespace {
 	/**
-	 * @brief Метод чтения файла целиком
+	 * @brief Функция чтения файла целиком
 	 *
 	 * @param path путь к читаемому файлу
-	 *
 	 * @return     содержимое файла
 	 *
 	 */
@@ -79,10 +78,9 @@ namespace {
 		return stream.str();
 	}
 	/**
-	 * @brief Метод получения просмотра строки
+	 * @brief Функция получения просмотра строки
 	 *
 	 * @param text строка, на которую заводится просмотр
-	 *
 	 * @return     просмотр строки
 	 *
 	 */
@@ -91,10 +89,9 @@ namespace {
 		return view_t(reinterpret_cast <const uint8_t *> (text.data()), text.size());
 	}
 	/**
-	 * @brief Метод получения просмотра набора байтов
+	 * @brief Функция получения просмотра набора байтов
 	 *
 	 * @param data набор байтов, на который заводится просмотр
-	 *
 	 * @return     просмотр набора байтов
 	 *
 	 */
@@ -103,7 +100,7 @@ namespace {
 		return view_t(data.data(), data.size());
 	}
 	/**
-	 * @brief Метод разбора ключа из записи PEM
+	 * @brief Функция разбора ключа из записи PEM
 	 *
 	 * @param path   путь к файлу записи
 	 * @param result ключ, в который помещается итог разбора
@@ -116,7 +113,7 @@ namespace {
 		ASSERT_EQ(keys::decode(text, view_t(), result), keys::error_t::NONE);
 	}
 	/**
-	 * @brief Метод разбора сертификата из записи PEM
+	 * @brief Функция разбора сертификата из записи PEM
 	 *
 	 * @param path   путь к файлу записи
 	 * @param text   место, в которое помещается прочитанная запись
@@ -133,10 +130,9 @@ namespace {
 		ASSERT_EQ(result.parse(view(blocks[0].data)), x509::error_t::NONE);
 	}
 	/**
-	 * @brief Метод выполнения команды командной строки
+	 * @brief Функция выполнения команды командной строки
 	 *
 	 * @param command выполняемая команда
-	 *
 	 * @return       код завершения команды
 	 *
 	 */
@@ -155,7 +151,6 @@ namespace {
 		 * @brief Метод получения пути файла песочницы
 		 *
 		 * @param name имя файла
-		 *
 		 * @return     путь файла песочницы
 		 *
 		 */
@@ -234,7 +229,9 @@ TEST(CmsTest, SignRoundtrip) {
 		{"leaf-ec.crt", "leaf-ec.key", digest::hash_t::SHA256},
 		{"leaf-rsa.crt", "leaf-rsa.key", digest::hash_t::SHA384}
 	};
-	// Проходим по наборам
+	/**
+	 * Проходим по наборам
+	 */
 	for(size_t i = 0; i < sizeof(CASES) / sizeof(CASES[0]); i++){
 		// Запись сертификата подписывающего
 		std::string text;
@@ -258,7 +255,7 @@ TEST(CmsTest, SignRoundtrip) {
 		ASSERT_EQ(cms::sign({view(blocks[0].data)}, certificate.issuers().element, certificate.number(), view(std::string(CONTENT)), signer, CASES[i].hash, record), cms::error_t::NONE);
 		// Вид записи обязан быть id-signedData
 		ASSERT_EQ(cms::content(view(record)), cms::content_t::SIGNED);
-		// Разбираем запись
+		// Объект разбора собранной подписанной записи
 		cms::signed_t parsed;
 		// Разбор обязан удаться
 		ASSERT_EQ(parsed.parse(view(record)), cms::error_t::NONE);
@@ -314,7 +311,7 @@ TEST(CmsTest, CertificatesRoundtrip) {
 	ASSERT_EQ(cms::certificates({view(leafBlocks[0].data), view(midBlocks[0].data), view(caBlocks[0].data)}, record), cms::error_t::NONE);
 	// Вид записи обязан быть id-signedData
 	ASSERT_EQ(cms::content(view(record)), cms::content_t::SIGNED);
-	// Разбираем запись
+	// Объект разбора собранной цепочки сертификатов
 	cms::signed_t parsed;
 	// Разбор обязан удаться
 	ASSERT_EQ(parsed.parse(view(record)), cms::error_t::NONE);
@@ -370,7 +367,7 @@ TEST(CmsTest, EnvelopRsaRoundtrip) {
 	ASSERT_EQ(cms::envelop(view(std::string(CONTENT)), certificate.issuers().element, certificate.number(), certificate.key(), record), cms::error_t::NONE);
 	// Вид записи обязан быть id-envelopedData
 	ASSERT_EQ(cms::content(view(record)), cms::content_t::ENVELOPED);
-	// Разбираем запись
+	// Объект разбора собранной зашифрованной записи
 	cms::enveloped_t parsed;
 	// Разбор обязан удаться
 	ASSERT_EQ(parsed.parse(view(record)), cms::error_t::NONE);
@@ -429,7 +426,9 @@ TEST(CmsTest, EnvelopKemRoundtrip) {
 	x509::certificate_t certificate;
 	// Разбираем сертификат
 	load(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
-	// Проходим по наборам параметров
+	/**
+	 * Проходим по наборам параметров
+	 */
 	for(size_t i = 0; i < 3; i++){
 		// Открытый и секретный ключи ML-KEM
 		std::vector <uint8_t> public_(agreement::encapsulation(KEMS[i])), secret(agreement::decapsulation(KEMS[i]));
@@ -441,7 +440,7 @@ TEST(CmsTest, EnvelopKemRoundtrip) {
 		ASSERT_EQ(cms::envelop(view(std::string(CONTENT)), certificate.issuers().element, certificate.number(), KEMS[i], view(public_), record), cms::error_t::NONE);
 		// Вид записи обязан быть id-envelopedData
 		ASSERT_EQ(cms::content(view(record)), cms::content_t::ENVELOPED);
-		// Разбираем запись
+		// Объект разбора зашифрованной записи с инкапсуляцией ML-KEM
 		cms::enveloped_t parsed;
 		// Разбор обязан удаться
 		ASSERT_EQ(parsed.parse(view(record)), cms::error_t::NONE);
@@ -497,11 +496,11 @@ TEST(CmsTest, OpensslSign) {
 			// Пропускаем проверку без OpenSSL
 			GTEST_SKIP() << "openssl cms -sign is unavailable";
 	}
-	// Читаем запись
+	// Читаем подписанную запись из файла песочницы
 	const std::string record = slurp(sandbox.file("signed.der"));
 	// Вид записи обязан быть id-signedData
 	ASSERT_EQ(cms::content(view(record)), cms::content_t::SIGNED);
-	// Разбираем запись
+	// Объект разбора подписанной записи OpenSSL
 	cms::signed_t parsed;
 	// Разбор обязан удаться
 	ASSERT_EQ(parsed.parse(view(record)), cms::error_t::NONE);
@@ -524,9 +523,9 @@ TEST(CmsTest, OpensslSign) {
 		// Подпись обязана удаться
 		ASSERT_EQ(shell(command), 0);
 	}
-	// Читаем запись
+	// Читаем запись подписи ключом ECDSA из файла песочницы
 	const std::string recordEc = slurp(sandbox.file("signed-ec.der"));
-	// Разбираем запись
+	// Объект разбора записи подписи ECDSA
 	cms::signed_t parsedEc;
 	// Разбор обязан удаться
 	ASSERT_EQ(parsedEc.parse(view(recordEc)), cms::error_t::NONE);
@@ -598,11 +597,11 @@ TEST(CmsTest, OpensslDecrypt) {
 			// Пропускаем проверку без OpenSSL
 			GTEST_SKIP() << "openssl cms -encrypt is unavailable";
 	}
-	// Читаем запись
+	// Читаем зашифрованную запись из файла песочницы
 	const std::string record = slurp(sandbox.file("enveloped.der"));
 	// Вид записи обязан быть id-envelopedData
 	ASSERT_EQ(cms::content(view(record)), cms::content_t::ENVELOPED);
-	// Разбираем запись
+	// Объект разбора зашифрованной записи OpenSSL
 	cms::enveloped_t parsed;
 	// Разбор обязан удаться
 	ASSERT_EQ(parsed.parse(view(record)), cms::error_t::NONE);
@@ -672,11 +671,11 @@ TEST(CmsTest, OpensslP7b) {
 			// Пропускаем проверку без OpenSSL
 			GTEST_SKIP() << "openssl crl2pkcs7 is unavailable";
 	}
-	// Читаем запись
+	// Читаем цепочку сертификатов из файла песочницы
 	const std::string record = slurp(sandbox.file("chain.p7b"));
 	// Вид записи обязан быть id-signedData
 	ASSERT_EQ(cms::content(view(record)), cms::content_t::SIGNED);
-	// Разбираем запись
+	// Объект разбора цепочки сертификатов OpenSSL
 	cms::signed_t parsed;
 	// Разбор обязан удаться
 	ASSERT_EQ(parsed.parse(view(record)), cms::error_t::NONE);
@@ -697,6 +696,7 @@ TEST(CmsTest, OpensslP7b) {
 TEST(CmsTest, Refusals) {
 	// Разбираемые записи
 	cms::signed_t signed_;
+	// Запись с вложенным шифрованным содержимым
 	cms::enveloped_t enveloped;
 	// Пустая запись
 	{
@@ -761,7 +761,9 @@ TEST(CmsTest, DigestRoundtrip) {
 	static const char * CONTENT = "CMS digested content roundtrip";
 	// Алгоритмы хеша
 	const digest::hash_t HASHES[] = {digest::hash_t::SHA256, digest::hash_t::SHA384, digest::hash_t::SHA512};
-	// Перебираем алгоритмы хеша
+	/**
+	 * Перебираем алгоритмы хеша
+	 */
 	for(size_t i = 0; i < (sizeof(HASHES) / sizeof(HASHES[0])); i++){
 		// Запись сообщения
 		std::vector <uint8_t> record;
@@ -769,7 +771,7 @@ TEST(CmsTest, DigestRoundtrip) {
 		ASSERT_EQ(cms::digest(view(std::string(CONTENT)), HASHES[i], record), cms::error_t::NONE);
 		// Вид содержимого обязан быть digested
 		ASSERT_EQ(cms::content(view(record)), cms::content_t::DIGESTED);
-		// Разбираем запись
+		// Объект разбора собранной хешированной записи
 		cms::digested_t parsed;
 		// Разбор обязан удаться
 		ASSERT_EQ(parsed.parse(view(record)), cms::error_t::NONE);
@@ -802,7 +804,9 @@ TEST(CmsTest, EncryptRoundtrip) {
 	static const char * CONTENT = "CMS encrypted content roundtrip";
 	// Ключи AES трёх длин
 	static const uint8_t KEY128[16] = {0x01};
+	// Ключ AES-192
 	static const uint8_t KEY192[24] = {0x02};
+	// Ключ AES-256
 	static const uint8_t KEY256[32] = {0x03};
 	// Ключи и опознаватели
 	struct {
@@ -815,7 +819,9 @@ TEST(CmsTest, EncryptRoundtrip) {
 		{KEY192, sizeof(KEY192), "2.16.840.1.101.3.4.1.22"},
 		{KEY256, sizeof(KEY256), "2.16.840.1.101.3.4.1.42"}
 	};
-	// Перебираем ключи
+	/**
+	 * Перебираем ключи
+	 */
 	for(size_t i = 0; i < (sizeof(CASES) / sizeof(CASES[0])); i++){
 		// Просмотр ключа
 		const view_t key(CASES[i].key, CASES[i].size);
@@ -825,7 +831,7 @@ TEST(CmsTest, EncryptRoundtrip) {
 		ASSERT_EQ(cms::encrypt(view(std::string(CONTENT)), key, record), cms::error_t::NONE);
 		// Вид содержимого обязан быть encrypted
 		ASSERT_EQ(cms::content(view(record)), cms::content_t::ENCRYPTED);
-		// Разбираем запись
+		// Объект разбора собранной зашифрованной записи
 		cms::encrypted_t parsed;
 		// Разбор обязан удаться
 		ASSERT_EQ(parsed.parse(view(record)), cms::error_t::NONE);
@@ -868,7 +874,9 @@ TEST(CmsTest, AuthenticateRoundtrip) {
 		{digest::hash_t::SHA384, "1.2.840.113549.2.10"},
 		{digest::hash_t::SHA512, "1.2.840.113549.2.11"}
 	};
-	// Перебираем алгоритмы
+	/**
+	 * Перебираем алгоритмы
+	 */
 	for(size_t i = 0; i < (sizeof(CASES) / sizeof(CASES[0])); i++){
 		// Запись сообщения
 		std::vector <uint8_t> record;
@@ -876,7 +884,7 @@ TEST(CmsTest, AuthenticateRoundtrip) {
 		ASSERT_EQ(cms::authenticate(view(std::string(CONTENT)), view(std::string(KEY)), CASES[i].hash, record), cms::error_t::NONE);
 		// Вид содержимого обязан быть authenticated
 		ASSERT_EQ(cms::content(view(record)), cms::content_t::AUTHENTICATED);
-		// Разбираем запись
+		// Объект разбора собранной записи с имитовставкой
 		cms::authenticated_t parsed;
 		// Разбор обязан удаться
 		ASSERT_EQ(parsed.parse(view(record)), cms::error_t::NONE);
@@ -910,7 +918,9 @@ TEST(CmsTest, SignerInfo) {
 		{"leaf-rsa.crt", "leaf-rsa.key", "1.2.840.113549.1.1.11"},
 		{"leaf-ec.crt", "leaf-ec.key", "1.2.840.10045.4.3.2"}
 	};
-	// Проходим по наборам
+	/**
+	 * Проходим по наборам
+	 */
 	for(size_t i = 0; i < (sizeof(CASES) / sizeof(CASES[0])); i++){
 		// Запись сертификата подписывающего
 		std::string text;
@@ -928,7 +938,7 @@ TEST(CmsTest, SignerInfo) {
 		std::vector <uint8_t> record;
 		// Собираем подписанное сообщение
 		ASSERT_EQ(cms::sign({view(blocks[0].data)}, certificate.issuers().element, certificate.number(), view(std::string(CONTENT)), signer, digest::hash_t::SHA256, record), cms::error_t::NONE);
-		// Разбираем запись
+		// Объект разбора собранной подписанной записи
 		cms::signed_t parsed;
 		// Разбор обязан удаться
 		ASSERT_EQ(parsed.parse(view(record)), cms::error_t::NONE);
@@ -988,13 +998,15 @@ TEST(CmsTest, SignRsaHashes) {
 		"1.2.840.113549.1.1.12",
 		"1.2.840.113549.1.1.13"
 	};
-	// Перебираем алгоритмы хешей
+	/**
+	 * Перебираем алгоритмы хешей
+	 */
 	for(size_t i = 0; i < (sizeof(HASHES) / sizeof(HASHES[0])); i++){
 		// Запись сообщения
 		std::vector <uint8_t> record;
 		// Собираем подписанное сообщение
 		ASSERT_EQ(cms::sign({view(blocks[0].data)}, certificate.issuers().element, certificate.number(), view(std::string(CONTENT)), signer, HASHES[i], record), cms::error_t::NONE);
-		// Разбираем запись
+		// Объект разбора собранной подписанной записи
 		cms::signed_t parsed;
 		// Разбор обязан удаться
 		ASSERT_EQ(parsed.parse(view(record)), cms::error_t::NONE);
@@ -1031,7 +1043,9 @@ TEST(CmsTest, SignEcHashes) {
 		{"ec384.crt", "ec384.pem", digest::hash_t::SHA384, "1.2.840.10045.4.3.3"},
 		{"ec521.crt", "ec521.pem", digest::hash_t::SHA512, "1.2.840.10045.4.3.4"}
 	};
-	// Перебираем записи набора
+	/**
+	 * Перебираем записи набора
+	 */
 	for(size_t i = 0; i < (sizeof(CASES) / sizeof(CASES[0])); i++){
 		// Запись сертификата подписывающего
 		std::string text;
@@ -1049,7 +1063,7 @@ TEST(CmsTest, SignEcHashes) {
 		std::vector <uint8_t> record;
 		// Собираем подписанное сообщение
 		ASSERT_EQ(cms::sign({view(blocks[0].data)}, certificate.issuers().element, certificate.number(), view(std::string(CONTENT)), signer, CASES[i].hash, record), cms::error_t::NONE);
-		// Разбираем запись
+		// Объект разбора собранной подписанной записи
 		cms::signed_t parsed;
 		// Разбор обязан удаться
 		ASSERT_EQ(parsed.parse(view(record)), cms::error_t::NONE);
@@ -1087,7 +1101,7 @@ TEST(CmsTest, SignEd25519) {
 	std::vector <uint8_t> record;
 	// Собираем подписанное сообщение
 	ASSERT_EQ(cms::sign({view(blocks[0].data)}, certificate.issuers().element, certificate.number(), view(std::string(CONTENT)), signer, digest::hash_t::SHA256, record), cms::error_t::NONE);
-	// Разбираем запись
+	// Объект разбора собранной подписанной записи Ed25519
 	cms::signed_t parsed;
 	// Разбор обязан удаться
 	ASSERT_EQ(parsed.parse(view(record)), cms::error_t::NONE);
@@ -1119,7 +1133,9 @@ TEST(CmsTest, SignMldsa) {
 		{"mldsa65.crt", "mldsa65.pem", "2.16.840.1.101.3.4.3.18"},
 		{"mldsa87.crt", "mldsa87.pem", "2.16.840.1.101.3.4.3.19"}
 	};
-	// Перебираем записи набора
+	/**
+	 * Перебираем записи набора
+	 */
 	for(size_t i = 0; i < (sizeof(CASES) / sizeof(CASES[0])); i++){
 		// Запись сертификата подписывающего
 		std::string text;
@@ -1137,7 +1153,7 @@ TEST(CmsTest, SignMldsa) {
 		std::vector <uint8_t> record;
 		// Собираем подписанное сообщение
 		ASSERT_EQ(cms::sign({view(blocks[0].data)}, certificate.issuers().element, certificate.number(), view(std::string(CONTENT)), signer, digest::hash_t::SHA256, record), cms::error_t::NONE);
-		// Разбираем запись
+		// Объект разбора собранной подписанной записи ML-DSA
 		cms::signed_t parsed;
 		// Разбор обязан удаться
 		ASSERT_EQ(parsed.parse(view(record)), cms::error_t::NONE);
@@ -1230,7 +1246,7 @@ TEST(CmsTest, VerifyRefusals) {
 	std::vector <uint8_t> record;
 	// Собираем подписанное сообщение
 	ASSERT_EQ(cms::sign({view(blocks[0].data)}, certificate.issuers().element, certificate.number(), view(std::string(CONTENT)), signer, digest::hash_t::SHA256, record), cms::error_t::NONE);
-	// Разбираем запись
+	// Объект разбора собранной подписанной записи
 	cms::signed_t parsed;
 	// Разбор обязан удаться
 	ASSERT_EQ(parsed.parse(view(record)), cms::error_t::NONE);
@@ -1254,7 +1270,9 @@ TEST(CmsTest, DigestMoreHashes) {
 	static const char * CONTENT = "CMS digested content more hashes";
 	// Алгоритмы хеша
 	const digest::hash_t HASHES[] = {digest::hash_t::SHA1, digest::hash_t::SHA224};
-	// Перебираем алгоритмы хеша
+	/**
+	 * Перебираем алгоритмы хеша
+	 */
 	for(size_t i = 0; i < (sizeof(HASHES) / sizeof(HASHES[0])); i++){
 		// Запись сообщения
 		std::vector <uint8_t> record;
@@ -1262,7 +1280,7 @@ TEST(CmsTest, DigestMoreHashes) {
 		ASSERT_EQ(cms::digest(view(std::string(CONTENT)), HASHES[i], record), cms::error_t::NONE);
 		// Вид содержимого обязан быть digested
 		ASSERT_EQ(cms::content(view(record)), cms::content_t::DIGESTED);
-		// Разбираем запись
+		// Объект разбора собранной хешированной записи
 		cms::digested_t parsed;
 		// Разбор обязан удаться
 		ASSERT_EQ(parsed.parse(view(record)), cms::error_t::NONE);
@@ -1312,7 +1330,9 @@ TEST(CmsTest, AuthenticateMoreHashes) {
 		{digest::hash_t::SHA1, "1.3.6.1.5.5.8.1.2"},
 		{digest::hash_t::SHA224, "1.2.840.113549.2.8"}
 	};
-	// Перебираем алгоритмы
+	/**
+	 * Перебираем алгоритмы
+	 */
 	for(size_t i = 0; i < (sizeof(CASES) / sizeof(CASES[0])); i++){
 		// Запись сообщения
 		std::vector <uint8_t> record;
@@ -1320,7 +1340,7 @@ TEST(CmsTest, AuthenticateMoreHashes) {
 		ASSERT_EQ(cms::authenticate(view(std::string(CONTENT)), view(std::string(KEY)), CASES[i].hash, record), cms::error_t::NONE);
 		// Вид содержимого обязан быть authenticated
 		ASSERT_EQ(cms::content(view(record)), cms::content_t::AUTHENTICATED);
-		// Разбираем запись
+		// Объект разбора собранной записи с имитовставкой
 		cms::authenticated_t parsed;
 		// Разбор обязан удаться
 		ASSERT_EQ(parsed.parse(view(record)), cms::error_t::NONE);
@@ -1415,7 +1435,7 @@ TEST(CmsTest, UnenvelopRefusals) {
 	std::vector <uint8_t> record;
 	// Сборка обязана удаться
 	ASSERT_EQ(cms::envelop(view(std::string(CONTENT)), certificate.issuers().element, certificate.number(), certificate.key(), record), cms::error_t::NONE);
-	// Разбираем запись
+	// Объект разбора собранной зашифрованной записи
 	cms::enveloped_t parsed;
 	// Разбор обязан удаться
 	ASSERT_EQ(parsed.parse(view(record)), cms::error_t::NONE);
@@ -1468,7 +1488,7 @@ TEST(CmsTest, UnenvelopKemRefusals) {
 	std::vector <uint8_t> record;
 	// Сборка обязана удаться
 	ASSERT_EQ(cms::envelop(view(std::string(CONTENT)), certificate.issuers().element, certificate.number(), agreement::kem_t::MLKEM512, view(public_), record), cms::error_t::NONE);
-	// Разбираем запись
+	// Объект разбора собранной зашифрованной записи
 	cms::enveloped_t parsed;
 	// Разбор обязан удаться
 	ASSERT_EQ(parsed.parse(view(record)), cms::error_t::NONE);
@@ -1501,7 +1521,7 @@ TEST(CmsTest, DecryptRefusals) {
 	std::vector <uint8_t> record;
 	// Собираем зашифрованное сообщение
 	ASSERT_EQ(cms::encrypt(view(std::string(CONTENT)), view_t(KEY256, sizeof(KEY256)), record), cms::error_t::NONE);
-	// Разбираем запись
+	// Объект разбора собранной зашифрованной записи
 	cms::encrypted_t parsed;
 	// Разбор обязан удаться
 	ASSERT_EQ(parsed.parse(view(record)), cms::error_t::NONE);

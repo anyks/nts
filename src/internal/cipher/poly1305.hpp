@@ -29,10 +29,10 @@
  *
  */
 
+#ifndef __ANTS_INTERNAL_CIPHER_POLY1305__
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_INTERNAL_CIPHER_POLY1305__
 #define __ANTS_INTERNAL_CIPHER_POLY1305__
 
 /**
@@ -72,10 +72,11 @@
 			namespace kernel {
 				/**
 				 * @brief Смещения стола ядра в байтах: конечности r^4 по дорожкам, они же на пять, степени по дорожкам, они же на пять, маска конечности, старший разряд
+				 *
 				 */
 				static constexpr size_t POLY_R4 = 0, POLY_S4 = 160, POLY_RL = 320, POLY_SL = 480, POLY_MASK = 640, POLY_HIBIT = 672, POLY_TABLE = 704;
 				/**
-				 * @brief Метод сложения четвёрок блоков ядром AVX2
+				 * @brief Функция сложения четвёрок блоков ядром AVX2
 				 *
 				 * @param lanes       место под пять конечностей четырёх дорожек итога: 5 × 4 слова по 64 разряда, выровненное на 32
 				 * @param accumulator накопитель пятью конечностями по 26 разрядов: складывается с первой дорожкой
@@ -85,6 +86,7 @@
 				 *
 				 */
 				static void poly1305avx2(uint64_t * lanes, const uint32_t * accumulator, const uint64_t * table, const uint8_t * data, size_t count) noexcept {
+					// Выполняем сложение четвёрок блоков ядром AVX2
 					__asm__ __volatile__(
 						"vmovd 0(%[acc]), %%xmm0\n\t"
 						"vmovd 4(%[acc]), %%xmm1\n\t"
@@ -290,4 +292,4 @@
 	}
 #endif
 
-#endif // __ANTS_INTERNAL_CIPHER_POLY1305__
+#endif

@@ -69,7 +69,7 @@ namespace {
 	static const extension::scheme_t SCHEME = extension::scheme_t::S256A;
 
 	/**
-	 * @brief Метод вывода области байтов шестнадцатеричной записью
+	 * @brief Функция вывода области байтов шестнадцатеричной записью
 	 *
 	 * @param title заголовок выводимой области байтов
 	 * @param data  выводимая область байтов
@@ -95,7 +95,6 @@ namespace {
  *
  * @param argc длина массива параметров
  * @param argv массив параметров
- *
  * @return     код выхода из приложения
  *
  */
@@ -141,6 +140,7 @@ int main(int argc, char * argv[]) noexcept {
 	 *
 	 * @note В настоящей связи хеш берётся от всех сообщений рукопожатия подряд: здесь
 	 *       он взят от строки лишь затем, чтобы образец обошёлся без рукопожатия
+	 *
 	 */
 	digest::streebog(digest::type_t::SHORT, view_t(reinterpret_cast <const uint8_t *> ("переписка рукопожатия"), 40), transcript, sizeof(transcript));
 	// Выводим хеш переписки рукопожатия
@@ -153,6 +153,7 @@ int main(int argc, char * argv[]) noexcept {
 	 * @note Подписывается не хеш переписки сам по себе: пробелами подпись отделяется от
 	 *       подписей предыдущих изданий протокола, а названием назначения - подпись
 	 *       сервера от подписи клиента
+	 *
 	 */
 	if(message::content(view_t(transcript, sizeof(transcript)), true, content) != message::error_t::NONE){
 		// Выводим сообщение об отказе составления содержимого
@@ -168,6 +169,7 @@ int main(int argc, char * argv[]) noexcept {
 	 * Выполняем хеширование подписываемого содержимого
 	 *
 	 * @note Хеш берётся записью вектором: стандарт подписи толкует его числом
+	 *
 	 */
 	digest::streebog(digest::type_t::SHORT, view_t(content.data(), content.size()), digest, sizeof(digest), digest::order_t::VECTOR);
 	// Место, в которое помещается подпись владения ключом
@@ -191,6 +193,7 @@ int main(int argc, char * argv[]) noexcept {
 	 * @note Раздел 5.3 описания наборов велит писать обе половины подписи младшим
 	 *       разрядом вперёд: без обращения собеседник подпись отвергнет, и разобраться
 	 *       в этом отказе будет непросто - он ничем не отличается от подписи подделанной
+	 *
 	 */
 	if(message::reverse(view_t(signature, length), wire) != message::error_t::NONE){
 		// Выводим сообщение об отказе обращения записи подписи
@@ -255,6 +258,7 @@ int main(int argc, char * argv[]) noexcept {
 	 *
 	 * @note Ключ этот выводится расписанием ключей меткою «finished» из значения
 	 *       направления связи - того же, из которого выведены ключ и вектор замены
+	 *
 	 */
 	if(!schedule::derive(view_t(traffic, sizeof(traffic)), view_t(reinterpret_cast <const uint8_t *> ("finished"), 8), view_t(nullptr, 0), key, sizeof(key))){
 		// Выводим сообщение об отказе вывода ключа завершения
@@ -282,6 +286,7 @@ int main(int argc, char * argv[]) noexcept {
 	 *
 	 * @note Сличение ведётся за постоянное время: время сличения не выдаёт, сколько
 	 *       байтов принятого завершения сошлось
+	 *
 	 */
 	if(message::compare(view_t(finished, sizeof(finished)), view_t(incoming, sizeof(incoming))))
 		// Выводим сообщение о схождении завершений рукопожатия сторон

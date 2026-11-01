@@ -46,14 +46,16 @@ namespace {
 	using nts::sys::wipe;
 	/**
 	 * @brief Запретное значение счётчика
+	 *
 	 */
 	static constexpr uint64_t FORBIDDEN = 0xFFFFFFFFFFFFFFFFULL;
 	/**
 	 * @brief Длина нонса в байтах
+	 *
 	 */
 	static constexpr size_t NONCE = 12;
 	/**
-	 * @brief Метод заполнения нонса по счётчику
+	 * @brief Функция заполнения нонса по счётчику
 	 *
 	 * @param aead   функция шифрования
 	 * @param nonce  счётчик вложений
@@ -69,6 +71,7 @@ namespace {
 		for(size_t i = 0; i < 8; i++){
 			// У ChaChaPoly от младшего, у AESGCM от старшего
 			if(aead == nts::noise::aead_t::CHACHAPOLY)
+				// Записываем байт счётчика от младшего
 				result[4 + i] = static_cast <uint8_t> (nonce >> (8 * i));
 			else result[4 + i] = static_cast <uint8_t> (nonce >> (8 * (7 - i)));
 		}
@@ -82,15 +85,14 @@ namespace {
  * @param associated сопутствующие данные
  * @param source     открытые данные
  * @param result     место шифротекста
- * @param tag        место метки
- *
+ * @param tag        место метки в TAG байтов
  * @return           признак того, что данные зашифрованы
  *
  */
 bool nts::noise::Cipher::seal(const uint64_t nonce, const view_t & associated, const view_t & source, uint8_t * result, uint8_t * tag) const noexcept {
 	// Если ключа нет, счётчик запретен, длины либо места негодны
 	if(!this->_has || (nonce == FORBIDDEN) || (tag == nullptr) || (source.size > (MESSAGE - TAG)) || ((source.size > 0) && ((source.data == nullptr) || (result == nullptr))) || ((associated.size > 0) && (associated.data == nullptr)))
-		// Выводим отказ
+		// Выводим отрицательный результат - печать невозможна
 		return false;
 	// Нонс
 	uint8_t iv[NONCE];
@@ -99,7 +101,7 @@ bool nts::noise::Cipher::seal(const uint64_t nonce, const view_t & associated, c
 	// Признак успешности
 	bool status = false;
 	/**
-	 * Определяем функцию шифрования
+	 * Выбираем шифр по установленному виду AEAD
 	 */
 	switch(this->_aead){
 		// ChaCha20-Poly1305
@@ -119,7 +121,7 @@ bool nts::noise::Cipher::seal(const uint64_t nonce, const view_t & associated, c
 		// Прочее
 		default: break;
 	}
-	// Выводим успешность
+	// Возвращаем итог печати
 	return status;
 }
 /**
@@ -128,16 +130,15 @@ bool nts::noise::Cipher::seal(const uint64_t nonce, const view_t & associated, c
  * @param nonce      счётчик вложений
  * @param associated сопутствующие данные
  * @param source     шифротекст
- * @param tag        метка
+ * @param tag        метка в TAG байтов
  * @param result     место открытых данных
- *
  * @return           признак того, что данные подлинны и расшифрованы
  *
  */
 bool nts::noise::Cipher::open(const uint64_t nonce, const view_t & associated, const view_t & source, const view_t & tag, uint8_t * result) const noexcept {
 	// Если ключа нет, счётчик запретен, длины либо места негодны
 	if(!this->_has || (nonce == FORBIDDEN) || (tag.data == nullptr) || (tag.size != TAG) || (source.size > (MESSAGE - TAG)) || ((source.size > 0) && ((source.data == nullptr) || (result == nullptr))) || ((associated.size > 0) && (associated.data == nullptr)))
-		// Выводим отказ
+		// Выводим отрицательный результат - вскрытие невозможно
 		return false;
 	// Нонс
 	uint8_t iv[NONCE];
@@ -146,7 +147,7 @@ bool nts::noise::Cipher::open(const uint64_t nonce, const view_t & associated, c
 	// Признак успешности
 	bool status = false;
 	/**
-	 * Определяем функцию шифрования
+	 * Выбираем шифр по установленному виду AEAD
 	 */
 	switch(this->_aead){
 		// ChaCha20-Poly1305
@@ -168,61 +169,41 @@ bool nts::noise::Cipher::open(const uint64_t nonce, const view_t & associated, c
 	}
 	// Если подлинность не сошлась, выход обнуляется - кроме вскрытия на месте, где выход и есть вход вызывающего
 	if(!status && (result != nullptr) && (result != source.data) && (source.size > 0))
-		// Обнуляем выход
+		// Обнуляем выход от частично расшифрованных данных
 		::memset(result, 0, source.size);
-	// Выводим успешность
+	// Возвращаем итог вскрытия
 	return status;
 }
 /**
- * \~russian
  * @brief Метод установки функции шифрования
  *
  * @param aead функция шифрования с подлинностью
- *
  * @return     признак того, что функция поддержана
  *
- * \~english
- * @brief Method of setting the encryption function
- *
- * @param aead authenticated encryption function
- *
- * @return     sign that the function is supported
- *
- * \~
  */
 bool nts::noise::Cipher::start(const aead_t aead) noexcept {
 	// Если функция не поддержана
 	if((aead != aead_t::CHACHAPOLY) && (aead != aead_t::AESGCM))
-		// Выводим отказ
+		// Выводим отрицательный результат - функция не поддержана
 		return false;
 	// Затираем прежнее состояние
 	this->clear();
 	// Запоминаем функцию
 	this->_aead = aead;
-	// Выводим успешность
+	// Сообщаем об успешном заведении
 	return true;
 }
 /**
- * \~russian
- * @brief Метод установки ключа
+ * @brief Метод установки ключа (InitializeKey): счётчик обнуляется
  *
  * @param key ключ в KEY байтов
- *
  * @return    признак того, что ключ установлен
  *
- * \~english
- * @brief Method of setting the key
- *
- * @param key key of KEY bytes
- *
- * @return    sign that the key is set
- *
- * \~
  */
 bool nts::noise::Cipher::key(const view_t & key) noexcept {
 	// Если функция не установлена либо ключ негоден
 	if((this->_aead == aead_t::NONE) || (key.data == nullptr) || (key.size != KEY))
-		// Выводим отказ
+		// Выводим отрицательный результат - ключ не принят
 		return false;
 	// Затираем прежний ключ
 	wipe(this->_key, KEY);
@@ -234,244 +215,152 @@ bool nts::noise::Cipher::key(const view_t & key) noexcept {
 		wipe(this->_key, KEY);
 		// Снимаем признак ключа
 		this->_has = false;
-		// Выводим отказ
+		// Выводим отрицательный результат - ключ не установлен
 		return false;
 	}
-	// Устанавливаем признак ключа и сбрасываем счётчик
+	// Устанавливаем признак ключа
 	this->_has = true;
+	// Сбрасываем счётчик
 	this->_nonce = 0;
-	// Выводим успешность
+	// Сообщаем об успешной установке ключа
 	return true;
 }
 /**
- * \~russian
- * @brief Метод выдачи ключа наружу
+ * @brief Метод выдачи ключа наружу (для таблиц пар WireGuard)
  *
  * @param result место ключа в KEY байтов
- *
  * @return       признак того, что ключ есть и выдан
  *
- * \~english
- * @brief Method of giving the key out
- *
- * @param result place of the key of KEY bytes
- *
- * @return       sign that the key exists and is given
- *
- * \~
  */
 bool nts::noise::Cipher::key(uint8_t * result) const noexcept {
 	// Если ключа нет либо места нет
 	if(!this->_has || (result == nullptr))
-		// Выводим отказ
+		// Выводим отрицательный результат - ключ не выдан
 		return false;
 	// Выдаём ключ
 	::memcpy(result, this->_key, KEY);
-	// Выводим успешность
+	// Сообщаем об успешной выдаче ключа
 	return true;
 }
 /**
- * \~russian
- * @brief Метод проверки наличия ключа
+ * @brief Метод проверки наличия ключа (HasKey)
  *
  * @return признак того, что ключ установлен
  *
- * \~english
- * @brief Method of the key presence check
- *
- * @return sign that the key is set
- *
- * \~
  */
 bool nts::noise::Cipher::has() const noexcept {
 	// Выводим признак
 	return this->_has;
 }
 /**
- * \~russian
  * @brief Метод получения счётчика вложений
  *
  * @return счётчик вложений
+ * @param nonce nonce counter
+ * @param nonce nonce counter
  *
- * \~english
- * @brief Method of getting the nonce counter
- *
- * @return nonce counter
- *
- * \~
  */
 uint64_t nts::noise::Cipher::nonce() const noexcept {
 	// Выводим счётчик
 	return this->_nonce;
 }
 /**
- * \~russian
- * @brief Метод установки счётчика вложений
+ * @brief Метод установки счётчика вложений (SetNonce)
  *
- * @param nonce счётчик вложений
- *
+ * @param nonce счётчик вложений, 2^64-1 запретно
  * @return      признак того, что счётчик установлен
  *
- * \~english
- * @brief Method of setting the nonce counter
- *
- * @param nonce nonce counter
- *
- * @return      sign that the counter is set
- *
- * \~
  */
 bool nts::noise::Cipher::nonce(const uint64_t nonce) noexcept {
 	// Если значение запретно
 	if(nonce == FORBIDDEN)
-		// Выводим отказ
+		// Выводим отрицательный результат - счётчик не установлен
 		return false;
 	// Устанавливаем счётчик
 	this->_nonce = nonce;
-	// Выводим успешность
+	// Сообщаем об успешной установке счётчика
 	return true;
 }
 /**
- * \~russian
- * @brief Метод шифрования по счётчику
+ * @brief Метод шифрования по счётчику (EncryptWithAd): счётчик растёт на единицу
  *
  * @param associated сопутствующие данные
- * @param source     открытые данные
- * @param result     место шифротекста
- * @param tag        место метки
- *
+ * @param source     открытые данные, не длиннее MESSAGE - TAG
+ * @param result     место шифротекста той же длины
+ * @param tag        место метки в TAG байтов
  * @return           признак того, что данные зашифрованы
  *
- * \~english
- * @brief Method of encryption by the counter
- *
- * @param associated associated data
- * @param source     plaintext
- * @param result     place of the ciphertext
- * @param tag        place of the tag
- *
- * @return           sign that the data is encrypted
- *
- * \~
  */
 bool nts::noise::Cipher::encrypt(const view_t & associated, const view_t & source, uint8_t * result, uint8_t * tag) noexcept {
 	// Если шифрование по текущему счётчику не удалось
 	if(!this->seal(this->_nonce, associated, source, result, tag))
-		// Выводим отказ
+		// Выводим отрицательный результат - шифрование не выполнено
 		return false;
 	// Растим счётчик
 	this->_nonce++;
-	// Выводим успешность
+	// Сообщаем об успешном шифровании
 	return true;
 }
 /**
- * \~russian
- * @brief Метод расшифрования по счётчику
+ * @brief Метод расшифрования по счётчику (DecryptWithAd): счётчик растёт только при подлинности
  *
  * @param associated сопутствующие данные
- * @param source     шифротекст
- * @param tag        метка
- * @param result     место открытых данных
- *
+ * @param source     шифротекст, не длиннее MESSAGE - TAG
+ * @param tag        метка в TAG байтов
+ * @param result     место открытых данных той же длины
  * @return           признак того, что данные подлинны и расшифрованы
  *
- * \~english
- * @brief Method of decryption by the counter
- *
- * @param associated associated data
- * @param source     ciphertext
- * @param tag        tag
- * @param result     place of the plaintext
- *
- * @return           sign that the data is authentic and decrypted
- *
- * \~
  */
 bool nts::noise::Cipher::decrypt(const view_t & associated, const view_t & source, const view_t & tag, uint8_t * result) noexcept {
 	// Если расшифрование по текущему счётчику не удалось, счётчик остаётся
 	if(!this->open(this->_nonce, associated, source, tag, result))
-		// Выводим отказ
+		// Выводим отрицательный результат - расшифрование не выполнено
 		return false;
 	// Растим счётчик
 	this->_nonce++;
-	// Выводим успешность
+	// Сообщаем об успешном расшифровании
 	return true;
 }
 /**
- * \~russian
- * @brief Метод шифрования с явным счётчиком
+ * @brief Метод шифрования с явным счётчиком: внутренний счётчик не трогается
  *
- * @param nonce      счётчик вложений
+ * @param nonce      счётчик вложений, 2^64-1 запретно
  * @param associated сопутствующие данные
  * @param source     открытые данные
  * @param result     место шифротекста
- * @param tag        место метки
- *
+ * @param tag        место метки в TAG байтов
  * @return           признак того, что данные зашифрованы
  *
- * \~english
- * @brief Method of encryption with an explicit counter
- *
- * @param nonce      nonce counter
- * @param associated associated data
- * @param source     plaintext
- * @param result     place of the ciphertext
- * @param tag        place of the tag
- *
- * @return           sign that the data is encrypted
- *
- * \~
  */
 bool nts::noise::Cipher::encrypt(const uint64_t nonce, const view_t & associated, const view_t & source, uint8_t * result, uint8_t * tag) const noexcept {
 	// Выводим итог шифрования по явному счётчику
 	return this->seal(nonce, associated, source, result, tag);
 }
 /**
- * \~russian
- * @brief Метод расшифрования с явным счётчиком
+ * @brief Метод расшифрования с явным счётчиком: внутренний счётчик не трогается
  *
- * @param nonce      счётчик вложений
+ * @param nonce      счётчик вложений, 2^64-1 запретно
  * @param associated сопутствующие данные
  * @param source     шифротекст
- * @param tag        метка
+ * @param tag        метка в TAG байтов
  * @param result     место открытых данных
- *
  * @return           признак того, что данные подлинны и расшифрованы
  *
- * \~english
- * @brief Method of decryption with an explicit counter
- *
- * @param nonce      nonce counter
- * @param associated associated data
- * @param source     ciphertext
- * @param tag        tag
- * @param result     place of the plaintext
- *
- * @return           sign that the data is authentic and decrypted
- *
- * \~
  */
 bool nts::noise::Cipher::decrypt(const uint64_t nonce, const view_t & associated, const view_t & source, const view_t & tag, uint8_t * result) const noexcept {
 	// Выводим итог расшифрования по явному счётчику
 	return this->open(nonce, associated, source, tag, result);
 }
 /**
- * \~russian
- * @brief Метод перевыработки ключа
+ * @brief Метод перевыработки ключа (Rekey): k = ENCRYPT(k, 2^64-1, пусто, нули); счётчик не сбрасывается
  *
  * @return признак того, что ключ перевыработан
  *
- * \~english
- * @brief Method of the key renewal
- *
- * @return sign that the key is renewed
- *
- * \~
  */
 bool nts::noise::Cipher::rekey() noexcept {
 	// Если ключа нет
 	if(!this->_has)
-		// Выводим отказ
+		// Выводим отрицательный результат - перевыработка невозможна
 		return false;
 	// Нули, новый ключ и отбрасываемая метка
 	uint8_t zeros[KEY], fresh[KEY], tag[TAG];
@@ -484,7 +373,7 @@ bool nts::noise::Cipher::rekey() noexcept {
 	// Признак успешности
 	bool status = false;
 	/**
-	 * Определяем функцию шифрования
+	 * Выбираем шифр для выработки нового ключа
 	 */
 	switch(this->_aead){
 		// ChaCha20-Poly1305
@@ -513,48 +402,34 @@ bool nts::noise::Cipher::rekey() noexcept {
 	// Затираем новый ключ и метку
 	wipe(fresh, KEY);
 	wipe(tag, TAG);
-	// Выводим успешность
+	// Возвращаем итог перевыработки
 	return status;
 }
 /**
- * \~russian
  * @brief Метод затирания состояния
  *
- * \~english
- * @brief Method of wiping the state
- *
- * \~
  */
 void nts::noise::Cipher::clear() noexcept {
 	// Затираем ключ
 	wipe(this->_key, KEY);
 	// Затираем развёрнутый ключ AES
 	this->_aes.clear();
-	// Сбрасываем признак ключа и счётчик
+	// Сбрасываем признак ключа
 	this->_has = false;
+	// Сбрасываем счётчик
 	this->_nonce = 0;
 }
 /**
- * \~russian
  * @brief Конструктор
  *
- * \~english
- * @brief Constructor
- *
- * \~
  */
 nts::noise::Cipher::Cipher() noexcept : _aead(aead_t::NONE), _has(false), _nonce(0) {
 	// Обнуляем ключ
 	::memset(this->_key, 0, KEY);
 }
 /**
- * \~russian
  * @brief Деструктор
  *
- * \~english
- * @brief Destructor
- *
- * \~
  */
 nts::noise::Cipher::~Cipher() noexcept {
 	// Затираем состояние

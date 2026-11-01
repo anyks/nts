@@ -39,6 +39,7 @@
  */
 #include <main.hpp>
 #include <posix.hpp>
+#include <starve.hpp>
 #include <jws/jws.hpp>
 #include <acme/acme.hpp>
 
@@ -57,10 +58,9 @@ static const char * CORPUS = ANTS_CORPUS;
  */
 namespace {
 	/**
-	 * @brief Метод чтения файла целиком
+	 * @brief Функция чтения файла целиком
 	 *
 	 * @param path путь к читаемому файлу
-	 *
 	 * @return     содержимое файла
 	 *
 	 */
@@ -75,10 +75,9 @@ namespace {
 		return stream.str();
 	}
 	/**
-	 * @brief Метод получения просмотра строки
+	 * @brief Функция получения просмотра строки
 	 *
 	 * @param text строка, на которую заводится просмотр
-	 *
 	 * @return     просмотр строки
 	 *
 	 */
@@ -87,7 +86,7 @@ namespace {
 		return view_t(reinterpret_cast <const uint8_t *> (text.data()), text.size());
 	}
 	/**
-	 * @brief Метод разбора ключа из записи PEM
+	 * @brief Функция разбора ключа из записи PEM
 	 *
 	 * @param path   путь к файлу записи
 	 * @param result ключ, в который помещается итог разбора
@@ -251,6 +250,7 @@ TEST(AcmeTest, Authorization) {
 	ASSERT_EQ(authorization.challenges[0].token, "DGyRejmCefe7v4NfDGDKfA");
 	ASSERT_EQ(authorization.challenges[0].validated, "2017-09-08T14:09:05.1Z");
 	ASSERT_EQ(authorization.challenges[1].type, "dns-01");
+	// Метка подтверждения второго испытания пуста
 	ASSERT_TRUE(authorization.challenges[1].validated.empty());
 	// Отказы разбора
 	{
@@ -310,11 +310,11 @@ TEST(AcmeTest, Payloads) {
 		std::string payload;
 		// Собираем полезную нагрузку
 		acme::newAccount({"mailto:cert-admin@example.org", "mailto:admin@example.org"}, true, false, payload);
-		// Сверяем запись
+		// Нагрузка заведения учётной записи сошлась с эталоном
 		ASSERT_EQ(payload, "{\"contact\":[\"mailto:cert-admin@example.org\",\"mailto:admin@example.org\"],\"termsOfServiceAgreed\":true}");
 		// Собираем запрос лишь существующей записи
 		acme::newAccount({}, false, true, payload);
-		// Сверяем запись
+		// Нагрузка запроса лишь существующей записи сошлась с эталоном
 		ASSERT_EQ(payload, "{\"onlyReturnExisting\":true}");
 	}
 	// Полезная нагрузка заведения заказа
@@ -323,7 +323,7 @@ TEST(AcmeTest, Payloads) {
 		std::string payload;
 		// Собираем полезную нагрузку
 		ASSERT_EQ(acme::newOrder({{acme::identifier_t::DNS, "example.org"}, {acme::identifier_t::DNS, "www.example.org"}}, payload), acme::error_t::NONE);
-		// Сверяем запись
+		// Нагрузка заведения заказа сошлась с эталоном
 		ASSERT_EQ(payload, "{\"identifiers\":[{\"type\":\"dns\",\"value\":\"example.org\"},{\"type\":\"dns\",\"value\":\"www.example.org\"}]}");
 		// Пустой набор идентификаторов отвергается
 		ASSERT_EQ(acme::newOrder({}, payload), acme::error_t::EMPTY);
@@ -338,7 +338,7 @@ TEST(AcmeTest, Payloads) {
 		const uint8_t csr[] = {0x30, 0x03, 0x02, 0x01, 0x00};
 		// Собираем полезную нагрузку
 		acme::finalize(view_t(csr, sizeof(csr)), payload);
-		// Сверяем запись
+		// Нагрузка завершения заказа с запросом подписи сошлась с эталоном
 		ASSERT_EQ(payload, "{\"csr\":\"MAMCAQA\"}");
 	}
 	// Полезная нагрузка отзыва сертификата
@@ -349,7 +349,7 @@ TEST(AcmeTest, Payloads) {
 		const uint8_t certificate[] = {0x30, 0x03, 0x02, 0x01, 0x00};
 		// Собираем полезную нагрузку
 		acme::revokeCert(view_t(certificate, sizeof(certificate)), 1, payload);
-		// Сверяем запись
+		// Нагрузка отзыва сертификата сошлась с эталоном
 		ASSERT_EQ(payload, "{\"certificate\":\"MAMCAQA\",\"reason\":1}");
 	}
 	// Полезная нагрузка ответа на испытание
@@ -358,7 +358,7 @@ TEST(AcmeTest, Payloads) {
 		std::string payload;
 		// Собираем полезную нагрузку
 		acme::answer(payload);
-		// Сверяем запись
+		// Нагрузка ответа на испытание сошлась с эталоном
 		ASSERT_EQ(payload, "{}");
 	}
 }
@@ -375,6 +375,7 @@ TEST(AcmeTest, KeyAuthorization) {
 		"\"e\":\"AQAB\"}";
 	// Разбираем ключ
 	keys::key_t key;
+	// Запись ключа разбирается без ошибок
 	ASSERT_EQ(jws::unjwk(view(std::string(JWK)), key), jws::error_t::NONE);
 	// Вырабатываем владение ключом
 	std::string possession;
@@ -399,12 +400,15 @@ TEST(AcmeTest, KeyAuthorization) {
 TEST(AcmeTest, Request) {
 	// Разбираем ключ набора
 	keys::key_t key;
+	// Ключ набора читается из файла набора
 	load(std::string(CORPUS) + "/ca-ec.key", key);
 	// Готовим ключ подписи
 	keys::signer_t signer;
+	// Подготовка ключа подписи удаётся
 	ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/ca-ec.key"))), keys::error_t::NONE);
 	// Полезная нагрузка запроса
 	std::string payload;
+	// Собираем полезную нагрузку новой учётной записи
 	acme::newAccount({"mailto:admin@example.org"}, false, false, payload);
 	// Собираем запрос с записью ключа JWK
 	std::string body;
@@ -417,12 +421,15 @@ TEST(AcmeTest, Request) {
 	{
 		// Позиции членов тела
 		const size_t head = body.find("\"protected\":\"") + 13;
+		// Позиция начала полезной нагрузки
 		const size_t middle = body.find("\",\"payload\":\"", head);
+		// Позиция начала подписи
 		const size_t tail = body.find("\",\"signature\":\"", middle);
 		// Собираем компактную запись JWS
 		std::string compact = body.substr(head, middle - head) + "." + body.substr(middle + 13, tail - middle - 13) + "." + body.substr(tail + 15, body.size() - tail - 17);
-		// Разбираем запись
+		// Разбираем компактную запись подписи из тела запроса
 		jws::signature_t signature;
+		// Компактная запись JWS разбирается
 		ASSERT_EQ(signature.parse(view(compact)), jws::error_t::NONE);
 		// Подпись обязана сойтись
 		ASSERT_EQ(signature.verify(key), jws::error_t::NONE);
@@ -432,6 +439,7 @@ TEST(AcmeTest, Request) {
 		ASSERT_NE(signature.header().find("\"url\":\"https://example.com/acme/new-account\""), std::string::npos);
 		// Полезная нагрузка совпадает с собранной
 		std::vector <uint8_t> extracted;
+		// Полезная нагрузка извлекается из записи
 		ASSERT_EQ(signature.payload(extracted), jws::error_t::NONE);
 		ASSERT_EQ(std::string(reinterpret_cast <const char *> (extracted.data()), extracted.size()), payload);
 	}
@@ -443,13 +451,16 @@ TEST(AcmeTest, Request) {
 		ASSERT_EQ(acme::request("https://example.com/acme/order/1/finalize", "Ab8IqOGY7eL2lsGoTZYifg", "https://example.com/acme/acct/1", key, view(std::string("{\"csr\":\"AA\"}")), signer, other), acme::error_t::NONE);
 		// Извлекаем заголовок записи
 		const size_t head = other.find("\"protected\":\"") + 13;
+		// Конец защищённого заголовка в теле
 		const size_t middle = other.find("\",\"payload\":\"", head);
 		// Декодируем заголовок
 		std::vector <uint8_t> header;
+		// Защищённый заголовок декодируется из base64url
 		ASSERT_TRUE(jws::unbase64url(view(other.substr(head, middle - head)), header));
 		// Заголовок несёт kid, а не jwk
 		const std::string text(reinterpret_cast <const char *> (header.data()), header.size());
 		ASSERT_NE(text.find("\"kid\":\"https://example.com/acme/acct/1\""), std::string::npos);
+		// Поля jwk в заголовке нет
 		ASSERT_EQ(text.find("\"jwk\":"), std::string::npos);
 	}
 	// Запрос POST-as-GET несёт пустую полезную нагрузку
@@ -543,4 +554,103 @@ TEST(AcmeTest, Escapes) {
 	ASSERT_EQ(order.parse(view(std::string(CAPITAL))), acme::error_t::NONE);
 	// Сверяем состояние: коды A, ß и é
 	ASSERT_EQ(order.status, std::string("A\xC3\x9F\xC3\xA9"));
+}
+
+/**
+ * @brief Проверка устойчивости сборки и разбора запросов к нехватке памяти
+ *
+ */
+TEST(AcmeTest, Starved){
+	// Ответ ресурса заказа раздела 7.1.3 RFC 8555
+	static const char * ANSWER =
+		"{"
+		"\"status\": \"pending\","
+		"\"expires\": \"2016-01-20T14:09:07.99Z\","
+		"\"identifiers\": ["
+		"{\"type\": \"dns\", \"value\": \"www.example.org\"},"
+		"{\"type\": \"dns\", \"value\": \"example.org\"}"
+		"],"
+		"\"authorizations\": ["
+		"\"https://example.com/acme/authz/PAniVnsZcis\""
+		"],"
+		"\"finalize\": \"https://example.com/acme/order/TOlocE8rfgo/finalize\""
+		"}";
+	// Разбираемый ключ набора: разбирается заранее, чтобы разбор не попал под подмену выделений
+	keys::key_t key;
+	// Ключ набора читается из файла набора
+	load(std::string(CORPUS) + "/ca-ec.key", key);
+	// Текст записи ключа набора: читается заранее, чтобы чтение не попало под подмену выделений
+	const std::string pem = slurp(std::string(CORPUS) + "/ca-ec.key");
+	// Подготовленный ключ подписи: готовится заранее, чтобы подготовка не попала под подмену выделений
+	keys::signer_t signer;
+	// Проверяем подготовку ключа из записи набора
+	ASSERT_EQ(signer.prepare(view(pem)), keys::error_t::NONE);
+	// Полезная нагрузка запроса: собирается заранее, чтобы сборка не попала под подмену выделений
+	std::string payload;
+	// Полезная нагрузка новой учётной записи собирается заранее
+	acme::newAccount({"mailto:admin@example.org"}, false, false, payload);
+	// Просмотр полезной нагрузки: заводится заранее, чтобы его сборка не попала под подмену выделений
+	const view_t bodyView(reinterpret_cast <const uint8_t *> (payload.data()), payload.size());
+	// Просмотр ответа заказа: заводится заранее, чтобы его сборка не попала под подмену выделений
+	const view_t answer(reinterpret_cast <const uint8_t *> (ANSWER), std::strlen(ANSWER));
+	// Адрес запроса: заводится заранее, чтобы его сборка не попала под подмену выделений
+	const std::string url("https://example.com/acme/new-account");
+	// Одноразовый номер запроса: заводится заранее, чтобы его сборка не попала под подмену выделений
+	const std::string nonce("6S8IqOGY7eL2lsGoTZYifg");
+	// Пустой адрес учётной записи: заводится заранее, чтобы его сборка не попала под подмену выделений
+	const std::string kid;
+	// Метка испытания: заводится заранее, чтобы её сборка не попала под подмену выделений
+	const std::string token("DGyRejmCefe7v4NfDGDKfA");
+	// Признак того, что нехватка памяти хоть раз объявлена отказом
+	bool starved = false;
+	/**
+	 * Выполняем перебор запасов выделений: на всяком запасе сборка и разбор обязаны
+	 * ответить либо успехом, либо отказом памяти, но не прерыванием исполнения
+	 */
+	for(size_t budget = 0; budget < 256; budget++){
+		// Итог сборки запроса при отмеренном запасе
+		acme::error_t requested = acme::error_t::NONE;
+		{
+			// Отмеряем запас выделений на время сборки
+			starve::ration_t ration(budget);
+			// Собранное тело запроса
+			std::string body;
+			// Выполняем сборку запроса при отмеренном запасе
+			requested = acme::request(url, nonce, kid, key, bodyView, signer, body);
+		}
+		// Проверяем, что сборка ответила успехом либо отказом памяти
+		ASSERT_TRUE((requested == acme::error_t::NONE) || (requested == acme::error_t::MEMORY)) << "запас " << budget << ", отказ сборки " << static_cast <int> (requested);
+		// Запоминаем объявленный отказ памяти
+		starved = (starved || (requested == acme::error_t::MEMORY));
+		// Итог выработки владения ключом при отмеренном запасе
+		acme::error_t possessed = acme::error_t::NONE;
+		{
+			// Отмеряем запас выделений на время выработки
+			starve::ration_t ration(budget);
+			// Выработанное владение ключом
+			std::string possession;
+			// Выполняем выработку владения ключом при отмеренном запасе
+			possessed = acme::keyPossession(token, key, possession);
+		}
+		// Проверяем, что выработка ответила успехом либо отказом памяти
+		ASSERT_TRUE((possessed == acme::error_t::NONE) || (possessed == acme::error_t::MEMORY)) << "запас " << budget << ", отказ выработки " << static_cast <int> (possessed);
+		// Запоминаем объявленный отказ памяти
+		starved = (starved || (possessed == acme::error_t::MEMORY));
+		// Итог разбора ответа заказа при отмеренном запасе
+		acme::error_t parsed = acme::error_t::NONE;
+		{
+			// Отмеряем запас выделений на время разбора
+			starve::ration_t ration(budget);
+			// Разбираемый заказ
+			acme::order_t order;
+			// Выполняем разбор ответа заказа при отмеренном запасе
+			parsed = order.parse(answer);
+		}
+		// Проверяем, что разбор ответил успехом либо отказом памяти
+		ASSERT_TRUE((parsed == acme::error_t::NONE) || (parsed == acme::error_t::MEMORY)) << "запас " << budget << ", отказ разбора " << static_cast <int> (parsed);
+		// Запоминаем объявленный отказ памяти
+		starved = (starved || (parsed == acme::error_t::MEMORY));
+	}
+	// Проверяем, что нехватка памяти объявлена отказом хоть раз
+	ASSERT_TRUE(starved);
 }

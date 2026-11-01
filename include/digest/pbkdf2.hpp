@@ -21,7 +21,6 @@
  *        RFC 8018 over any hash of the library
  *
  * \~
- *
  * @copyright Copyright © 2026
  *
  */
@@ -70,7 +69,7 @@ namespace nts {
 	namespace digest {
 		/**
 		 * \~russian
-		 * @brief Метод вывода ключа из пароля PBKDF2-HMAC
+		 * @brief Функция вывода ключа из пароля PBKDF2-HMAC
 		 *
 		 * @param algorithm  алгоритм хеширования имитовставки
 		 * @param password   пароль, вправе быть пустым
@@ -78,7 +77,6 @@ namespace nts {
 		 * @param iterations число оборотов, не меньше одного
 		 * @param result     место, в которое помещается выведенный ключ
 		 * @param size       требуемая длина ключа, не меньше одного байта
-		 *
 		 * @return           признак успешности вывода
 		 *
 		 * @details Раздел 5.2 RFC 8018: ключ складывается блоками длиной в хеш,
@@ -90,7 +88,8 @@ namespace nts {
 		 *       ибо оно меняется с годами и зависит от назначения ключа
 		 *
 		 * \~english
-		 * @brief Method of the derivation of a key from a password by PBKDF2-HMAC
+		 * @brief Function of the derivation of a key from a password by PBKDF2-HMAC
+		 *
 		 * @param algorithm  the hashing algorithm of the authentication code
 		 * @param password   the password, may be empty
 		 * @param salt       the salt, may be empty
@@ -98,10 +97,12 @@ namespace nts {
 		 * @param result     the place the derived key is put into
 		 * @param size       the required length of the key, not less than one byte
 		 * @return           the flag of the success of the derivation
+		 *
 		 * @details The section 5.2 of RFC 8018: the key is composed of the blocks of the length of
 		 *          the hash, a block is the sum modulo two of the iterations U(1) = HMAC(P, S | i),
 		 *          U(j) = HMAC(P, U(j-1)). The key of the authentication code is set once for the
 		 *          whole derivation: the iterations cost two hashings, not four
+		 *
 		 * @note The number of the iterations is given by the caller: the library imposes no default,
 		 *       for it changes over the years and depends on the purpose of the key
 		 *

@@ -60,10 +60,9 @@ static const char * CORPUS = ANTS_CORPUS;
  */
 namespace {
 	/**
-	 * @brief Метод чтения файла целиком
+	 * @brief Функция чтения файла целиком
 	 *
 	 * @param path путь к читаемому файлу
-	 *
 	 * @return     содержимое файла
 	 *
 	 */
@@ -78,10 +77,9 @@ namespace {
 		return stream.str();
 	}
 	/**
-	 * @brief Метод получения просмотра строки
+	 * @brief Функция получения просмотра строки
 	 *
 	 * @param text строка, на которую заводится просмотр
-	 *
 	 * @return     просмотр строки
 	 *
 	 */
@@ -90,10 +88,9 @@ namespace {
 		return view_t(reinterpret_cast <const uint8_t *> (text.data()), text.size());
 	}
 	/**
-	 * @brief Метод получения просмотра набора байтов
+	 * @brief Функция получения просмотра набора байтов
 	 *
 	 * @param data набор байтов, на который заводится просмотр
-	 *
 	 * @return     просмотр набора байтов
 	 *
 	 */
@@ -102,7 +99,7 @@ namespace {
 		return view_t(data.data(), data.size());
 	}
 	/**
-	 * @brief Метод разбора сертификата из записи PEM
+	 * @brief Функция разбора сертификата из записи PEM
 	 *
 	 * @param path   путь к файлу записи
 	 * @param text   место, в которое помещается прочитанная запись
@@ -119,10 +116,9 @@ namespace {
 		ASSERT_EQ(result.parse(view(blocks[0].data)), x509::error_t::NONE);
 	}
 	/**
-	 * @brief Метод выполнения команды командной строки
+	 * @brief Функция выполнения команды командной строки
 	 *
 	 * @param command выполняемая команда
-	 *
 	 * @return       код завершения команды
 	 *
 	 */
@@ -141,7 +137,6 @@ namespace {
 		 * @brief Метод получения пути файла песочницы
 		 *
 		 * @param name имя файла
-		 *
 		 * @return     путь файла песочницы
 		 *
 		 */
@@ -199,7 +194,7 @@ namespace {
 		}
 	} sandbox_t;
 	/**
-	 * @brief Метод сборки имени directoryName из общего имени
+	 * @brief Функция сборки имени directoryName из общего имени
 	 *
 	 * @param common общее имя владельца
 	 * @param result место, в которое помещается запись GeneralName
@@ -245,7 +240,9 @@ TEST(CmpTest, RequestSignRoundtrip) {
 		{"leaf-ec.crt", "leaf-ec.key", digest::hash_t::SHA256},
 		{"leaf-rsa.crt", "leaf-rsa.key", digest::hash_t::SHA384}
 	};
-	// Перебираем записи набора
+	/**
+	 * Перебираем записи набора
+	 */
 	for(size_t i = 0; i < (sizeof(CASES) / sizeof(CASES[0])); i++){
 		// Запись сертификата и набор блоков PEM
 		std::string text;
@@ -644,7 +641,7 @@ TEST(CmpTest, OpensslPbmRequest) {
 	const std::string record = slurp(sandbox.file("ir.der"));
 	// Если записи нет
 	if(record.empty())
-		// Пропускаем проверку
+		// Пропускаем: запрос OpenSSL с защитой PBM не выработан
 		GTEST_SKIP() << "openssl cmp produced no record";
 	// Разбираем запись сообщения
 	cmp::message_t parsed;
@@ -693,7 +690,7 @@ TEST(CmpTest, OpensslSignRequest) {
 	const std::string record = slurp(sandbox.file("ir-sig.der"));
 	// Если записи нет
 	if(record.empty())
-		// Пропускаем проверку
+		// Пропускаем: подписанный запрос OpenSSL не выработан
 		GTEST_SKIP() << "openssl cmp produced no record";
 	// Разбираем запись сообщения
 	cmp::message_t parsed;
@@ -743,7 +740,7 @@ TEST(CmpTest, OpensslMockResponse) {
 	const std::string record = slurp(sandbox.file("rsp.der"));
 	// Если записи нет
 	if(record.empty())
-		// Пропускаем проверку
+		// Пропускаем: ответ мок-сервера OpenSSL не выработан
 		GTEST_SKIP() << "openssl cmp produced no record";
 	// Разбираем запись сообщения
 	cmp::message_t parsed;
@@ -814,7 +811,7 @@ TEST(CmpTest, OpensslAcceptsOurs) {
 	const std::string log = slurp(sandbox.file("log.txt"));
 	// Если OpenSSL недоступен
 	if(log.empty() && (rc != 0))
-		// Пропускаем проверку
+		// Пропускаем: журнал пуст, OpenSSL недоступен
 		GTEST_SKIP() << "openssl cmp is not available";
 	// В журнале не обязано быть отказа разбора записи (DER parse errors)
 	ASSERT_EQ(log.find("error parsing"), std::string::npos);
@@ -874,7 +871,7 @@ TEST(CmpTest, Pkcs10Roundtrip) {
 	const std::string csr = slurp(sandbox.file("csr.der"));
 	// Если записи нет
 	if(csr.empty())
-		// Пропускаем проверку
+		// Пропускаем: запрос PKCS #10 OpenSSL не выработан
 		GTEST_SKIP() << "openssl req produced no record";
 	// Записи имён отправителя и получателя
 	std::vector <uint8_t> sender, recipient;
@@ -926,9 +923,11 @@ TEST(CmpTest, ChallengeRoundtrip) {
 	cmp::challenge_t challenge;
 	// Свидетель и вызов
 	static const uint8_t WITNESS[] = {0x01, 0x02, 0x03, 0x04};
+	// Байты вызова подтверждения владения
 	static const uint8_t CHALLENGE[] = {0x05, 0x06, 0x07, 0x08};
 	// Запоминаем свидетеля и вызов
 	challenge.witness = view_t(WITNESS, sizeof(WITNESS));
+	// Байты вызова заносим в поле challenge записи
 	challenge.challenge = view_t(CHALLENGE, sizeof(CHALLENGE));
 	// Запись сообщения
 	std::vector <uint8_t> record;
@@ -1198,6 +1197,7 @@ TEST(CmpTest, RevAnnouncementRoundtrip) {
 	announcement.status = cmp::status_t::REVOCATION_NOTIFICATION;
 	// Время занесения и компрометации
 	announcement.willBeRevokedAt = 1780000000;
+	// Время компрометации ключа сертификата
 	announcement.badSinceDate = 1770000000;
 	// Опознаватель сертификата CertId: собираем записью issuer+serial
 	// Запись опознавателя сертификата (хранится вне блока записчика)
@@ -1360,6 +1360,7 @@ TEST(CmpTest, PollRoundtrip) {
 	cmp::poll_t poll;
 	// Опознаватель и время ожидания
 	poll.id = 0;
+	// Интервал до повторного опроса в секундах
 	poll.checkAfter = 60;
 	// Строка причины
 	poll.reason.push_back("waiting");
@@ -1480,7 +1481,9 @@ TEST(CmpTest, RequestSignHashes) {
 		{"leaf-ec.crt", "leaf-ec.key", digest::hash_t::SHA384},
 		{"leaf-ec.crt", "leaf-ec.key", digest::hash_t::SHA512}
 	};
-	// Перебираем записи набора
+	/**
+	 * Перебираем записи набора
+	 */
 	for(size_t i = 0; i < (sizeof(CASES) / sizeof(CASES[0])); i++){
 		// Запись сертификата и набор блоков PEM
 		std::string text;
@@ -1551,7 +1554,9 @@ TEST(CmpTest, RequestPbmHashes) {
 		digest::hash_t::SHA384,
 		digest::hash_t::SHA512
 	};
-	// Перебираем алгоритмы хешей
+	/**
+	 * Перебираем алгоритмы хешей
+	 */
 	for(size_t i = 0; i < (sizeof(HASHES) / sizeof(HASHES[0])); i++){
 		// Запись сообщения
 		std::vector <uint8_t> record;
@@ -1921,9 +1926,11 @@ TEST(CmpTest, ChallengesRefusals) {
 	cmp::challenge_t challenge;
 	// Свидетель и вызов
 	static const uint8_t WITNESS[] = {0x01, 0x02, 0x03, 0x04};
+	// Байты вызова подтверждения владения
 	static const uint8_t CHALLENGE[] = {0x05, 0x06, 0x07, 0x08};
 	// Запоминаем свидетеля и вызов
 	challenge.witness = view_t(WITNESS, sizeof(WITNESS));
+	// Байты вызова заносим в поле challenge записи
 	challenge.challenge = view_t(CHALLENGE, sizeof(CHALLENGE));
 	// Запись сообщения
 	std::vector <uint8_t> record;
@@ -1990,6 +1997,7 @@ TEST(CmpTest, AnnouncementRefusals) {
 	announcement.status = cmp::status_t::REVOCATION_NOTIFICATION;
 	// Время занесения и компрометации
 	announcement.willBeRevokedAt = 1780000000;
+	// Время компрометации ключа сертификата
 	announcement.badSinceDate = 1770000000;
 	// Запись опознавателя сертификата (хранится вне блока записчика)
 	std::vector <uint8_t> certIdRecord;

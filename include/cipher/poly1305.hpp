@@ -19,7 +19,6 @@
  * @brief Header file of the Poly1305 one-time authenticator according to RFC 8439
  *
  * \~
- *
  * @copyright Copyright © 2026
  *
  */
@@ -119,12 +118,15 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief The Poly1305 one-time authenticator
+		 *
 		 * @details RFC 8439, section 2.5. The 32-byte key is split into r and s: r is clamped
 		 *          by the standard, the message is read by 16-byte blocks with an appended high
 		 *          byte of one, the accumulator is multiplied by r modulo 2^130 - 5, and the tag is
 		 *          the accumulator added to s modulo 2^128
+		 *
 		 * @note The key is one-time: two tags under a single key reveal r and with it the ability
 		 *       of a forgery. At AEAD the key is produced for every message
+		 *
 		 * @note Deliberate decisions: neither division nor data-dependent branching - the final
 		 *       reduction chooses between the accumulator and the accumulator minus the modulus by
 		 *       a mask. The portable path is five 26-bit limbs with 64-bit products, the whole blocks
@@ -172,15 +174,16 @@ namespace nts {
 				 * \~russian
 				 * @brief Метод сложения целых блоков в накопитель
 				 *
-				 * @param data  складываемые байты, кратные блоку
-				 * @param size  число складываемых байтов
-				 * @param last  признак последнего неполного блока без старшего разряда
+				 * @param data складываемые байты, кратные блоку
+				 * @param size число складываемых байтов
+				 * @param last признак последнего неполного блока без старшего разряда
 				 *
 				 * \~english
 				 * @brief Method of the addition of whole blocks into the accumulator
-				 * @param data  the bytes being added, multiple of the block
-				 * @param size  the number of the bytes being added
-				 * @param last  the flag of the last partial block without the high bit
+				 *
+				 * @param data the bytes being added, multiple of the block
+				 * @param size the number of the bytes being added
+				 * @param last the flag of the last partial block without the high bit
 				 *
 				 * \~
 				 */
@@ -194,6 +197,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of checking the readiness of the authenticator for the work
+				 *
 				 * @return the flag of the readiness of the authenticator
 				 *
 				 * \~
@@ -205,11 +209,11 @@ namespace nts {
 				 * @brief Метод запуска имитовставки
 				 *
 				 * @param key одноразовый ключ в 32 байта
-				 *
 				 * @return    признак успешности запуска
 				 *
 				 * \~english
 				 * @brief Method of the start of the authenticator
+				 *
 				 * @param key the 32-byte one-time key
 				 * @return    the flag of the success of the start
 				 *
@@ -232,11 +236,11 @@ namespace nts {
 				 * @brief Метод подачи куска сообщения
 				 *
 				 * @param source кусок сообщения любой длины, включая пустой
-				 *
 				 * @return       признак успешности подачи
 				 *
 				 * \~english
 				 * @brief Method of the feeding of a chunk of the message
+				 *
 				 * @param source the chunk of the message of any length, including an empty one
 				 * @return       the flag of the success of the feeding
 				 *
@@ -248,11 +252,11 @@ namespace nts {
 				 * @brief Метод снятия метки
 				 *
 				 * @param tag место в 16 байтов, в которое записывается метка
-				 *
 				 * @return    признак успешности снятия; объект завершается
 				 *
 				 * \~english
 				 * @brief Method of the taking of the tag
+				 *
 				 * @param tag the 16-byte place the tag is written into
 				 * @return    the flag of the success of the taking; the object is finished
 				 *

@@ -62,11 +62,10 @@ using namespace nts;
  */
 namespace {
 	/**
-	 * @brief Метод составления записи имени стороны сертификата
+	 * @brief Функция составления записи имени стороны сертификата
 	 *
 	 * @param writer составитель записи сертификата
 	 * @param name   записываемое имя стороны сертификата
-	 *
 	 * @return       признак успешности составления записи имени
 	 *
 	 */
@@ -103,11 +102,10 @@ namespace {
 		return writer.close();
 	}
 	/**
-	 * @brief Метод выработки подлинности стороны связи
+	 * @brief Функция выработки подлинности стороны связи
 	 *
 	 * @param name   общее имя стороны выработанного сертификата
 	 * @param result подлинность, в которую помещается итог выработки
-	 *
 	 * @return       признак успешности выработки подлинности стороны
 	 *
 	 * @note Сертификат выходит самоподписанным: связь доверие к издателю не проверяет,
@@ -338,11 +336,10 @@ namespace {
 		return true;
 	}
 	/**
-	 * @brief Метод передачи накопленных байтов между сторонами связи
+	 * @brief Функция передачи накопленных байтов между сторонами связи
 	 *
 	 * @param client связь стороны клиента
 	 * @param server связь стороны сервера
-	 *
 	 * @return       признак того, что байты между сторонами передавались
 	 *
 	 */
@@ -385,7 +382,6 @@ namespace {
  *
  * @param argc длина массива параметров
  * @param argv массив параметров
- *
  * @return     код выхода из приложения
  *
  */
@@ -413,13 +409,18 @@ int main(int argc, char * argv[]) noexcept {
 	 * единственный вариант: перечни заменяются целиком обеим сторонам связи
 	 */
 	client.groups({extension::group_t::GC512C, extension::group_t::GC256A});
+	// Устанавливаем группы серверу
 	server.groups({extension::group_t::GC512C, extension::group_t::GC256A});
+	// Устанавливаем наборы клиенту
 	client.suites({protect::suite_t::KUZNYECHIK_MGM_L, protect::suite_t::MAGMA_MGM_L});
+	// Устанавливаем наборы серверу
 	server.suites({protect::suite_t::KUZNYECHIK_MGM_L, protect::suite_t::MAGMA_MGM_L});
+	// Устанавливаем схемы подписи клиенту
 	client.schemes({
 		extension::scheme_t::S256A, extension::scheme_t::S256B, extension::scheme_t::S256C, extension::scheme_t::S256D,
 		extension::scheme_t::S512A, extension::scheme_t::S512B, extension::scheme_t::S512C
 	});
+	// Устанавливаем схемы подписи серверу
 	server.schemes({
 		extension::scheme_t::S256A, extension::scheme_t::S256B, extension::scheme_t::S256C, extension::scheme_t::S256D,
 		extension::scheme_t::S512A, extension::scheme_t::S512B, extension::scheme_t::S512C

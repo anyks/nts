@@ -52,7 +52,6 @@ namespace {
  * @param material входной ключевой материал
  * @param result   место материала в count длин хеша
  * @param count    число выходов: 2 либо 3
- *
  * @return         признак того, что материал выведен
  *
  */
@@ -63,38 +62,29 @@ bool nts::noise::Symmetric::kdf(const view_t & material, uint8_t * result, const
 	const bool status = (digest::extract(this->_hash, view_t(this->_chain, this->_length), material, key, HASH_MAX) && digest::expand(this->_hash, view_t(key, this->_length), view_t(), result, count * this->_length));
 	// Затираем псевдослучайный ключ
 	wipe(key, HASH_MAX);
-	// Выводим успешность
+	// Возвращаем итог развёртывания
 	return status;
 }
 /**
- * \~russian
- * @brief Метод заведения состояния
+ * @brief Метод заведения состояния (InitializeSymmetric)
  *
  * @param name  имя протокола
  * @param suite набор примитивов
- *
  * @return      признак того, что состояние заведено
  *
- * \~english
- * @brief Method of the state initialization
- *
- * @param name  protocol name
- * @param suite suite of primitives
- *
- * @return      sign that the state is initialized
- *
- * \~
  */
 bool nts::noise::Symmetric::start(const view_t & name, const suite_t & suite) noexcept {
 	// Затираем прежнее состояние
 	this->clear();
 	// Если имя либо набор негодны
 	if((name.data == nullptr) || (name.size == 0) || !valid(suite) || !this->_cipher.start(suite.aead))
-		// Выводим отказ
+		// Выводим отрицательный результат - состояние не заведено
 		return false;
 	// Запоминаем функцию шифрования, хеш и его длину
 	this->_aead = suite.aead;
+	// Запоминаем хеш
 	this->_hash = suite.hash;
+	// Запоминаем длину хеша
 	this->_length = digest::length(suite.hash);
 	// Если имя не длиннее хеша, оно дополняется нулями
 	if(name.size <= this->_length){
@@ -106,35 +96,25 @@ bool nts::noise::Symmetric::start(const view_t & name, const suite_t & suite) no
 	} else if(!digest::hash(this->_hash, name, this->_digest, HASH_MAX)){
 		// Затираем состояние
 		this->clear();
-		// Выводим отказ
+		// Выводим отрицательный результат - имя не захешировано
 		return false;
 	}
 	// Цепной ключ равен хешу
 	::memcpy(this->_chain, this->_digest, HASH_MAX);
-	// Выводим успешность
+	// Сообщаем об успешном заведении
 	return true;
 }
 /**
- * \~russian
- * @brief Метод примешивания ключевого материала
+ * @brief Метод примешивания ключевого материала (MixKey)
  *
  * @param material входной ключевой материал
- *
  * @return         признак того, что материал примешан
  *
- * \~english
- * @brief Method of mixing the key material
- *
- * @param material input key material
- *
- * @return         sign that the material is mixed
- *
- * \~
  */
 bool nts::noise::Symmetric::key(const view_t & material) noexcept {
 	// Если состояние не заведено
 	if(this->_length == 0)
-		// Выводим отказ
+		// Выводим отрицательный результат - ключ не примешан
 		return false;
 	// Два выхода
 	uint8_t output[2 * HASH_MAX];
@@ -149,30 +129,20 @@ bool nts::noise::Symmetric::key(const view_t & material) noexcept {
 	}
 	// Затираем выходы
 	wipe(output, sizeof(output));
-	// Выводим успешность
+	// Возвращаем итог примешивания ключа
 	return status;
 }
 /**
- * \~russian
- * @brief Метод примешивания данных в хеш
+ * @brief Метод примешивания данных в хеш (MixHash)
  *
  * @param data данные
- *
  * @return     признак того, что данные примешаны
  *
- * \~english
- * @brief Method of mixing data into the hash
- *
- * @param data data
- *
- * @return     sign that the data is mixed
- *
- * \~
  */
 bool nts::noise::Symmetric::hash(const view_t & data) noexcept {
 	// Если состояние не заведено либо данные негодны
 	if((this->_length == 0) || ((data.size > 0) && (data.data == nullptr)))
-		// Выводим отказ
+		// Выводим отрицательный результат - данные не примешаны
 		return false;
 	// Объект хеширования
 	digest::hasher_t hasher(this->_hash);
@@ -184,26 +154,16 @@ bool nts::noise::Symmetric::hash(const view_t & data) noexcept {
 	return hasher.finish(this->_digest, HASH_MAX);
 }
 /**
- * \~russian
- * @brief Метод примешивания заранее разделённого ключа
+ * @brief Метод примешивания заранее разделённого ключа (MixKeyAndHash)
  *
  * @param material входной ключевой материал
- *
  * @return         признак того, что материал примешан
  *
- * \~english
- * @brief Method of mixing a pre-shared key
- *
- * @param material input key material
- *
- * @return         sign that the material is mixed
- *
- * \~
  */
 bool nts::noise::Symmetric::blend(const view_t & material) noexcept {
 	// Если состояние не заведено
 	if(this->_length == 0)
-		// Выводим отказ
+		// Выводим отрицательный результат - заранее разделённый ключ не примешан
 		return false;
 	// Три выхода
 	uint8_t output[3 * HASH_MAX];
@@ -220,29 +180,17 @@ bool nts::noise::Symmetric::blend(const view_t & material) noexcept {
 	}
 	// Затираем выходы
 	wipe(output, sizeof(output));
-	// Выводим успешность
+	// Возвращаем итог примешивания
 	return status;
 }
 /**
- * \~russian
- * @brief Метод шифрования с примешиванием
+ * @brief Метод шифрования с примешиванием (EncryptAndHash)
  *
  * @param source открытые данные
- * @param result место выхода
+ * @param result место выхода: при отсутствии ключа - те же данные, иначе шифротекст с меткой
  * @param size   на входе вместимость места, на выходе длина выхода
- *
  * @return       признак того, что выход получен
  *
- * \~english
- * @brief Method of encryption with mixing
- *
- * @param source plaintext
- * @param result place of the output
- * @param size   the capacity of the place on input, the output length on output
- *
- * @return       sign that the output is produced
- *
- * \~
  */
 bool nts::noise::Symmetric::seal(const view_t & source, uint8_t * result, size_t & size) noexcept {
 	// Длина выхода: с меткой при ключе
@@ -251,7 +199,7 @@ bool nts::noise::Symmetric::seal(const view_t & source, uint8_t * result, size_t
 	if((this->_length == 0) || ((source.size > 0) && (source.data == nullptr)) || (length > MESSAGE) || (size < length) || ((length > 0) && (result == nullptr))){
 		// Сбрасываем длину
 		size = 0;
-		// Выводим отказ
+		// Выводим отрицательный результат - печать невозможна
 		return false;
 	}
 	// Если ключ есть, шифруем с h как сопутствующими данными
@@ -260,7 +208,7 @@ bool nts::noise::Symmetric::seal(const view_t & source, uint8_t * result, size_t
 		if(!this->_cipher.encrypt(view_t(this->_digest, this->_length), source, result, result + source.size)){
 			// Сбрасываем длину
 			size = 0;
-			// Выводим отказ
+			// Выводим отрицательный результат - шифрование не выполнено
 			return false;
 		}
 	// Иначе выход равен входу
@@ -271,34 +219,22 @@ bool nts::noise::Symmetric::seal(const view_t & source, uint8_t * result, size_t
 	if(!this->hash(view_t(result, length))){
 		// Сбрасываем длину
 		size = 0;
-		// Выводим отказ
+		// Выводим отрицательный результат - выход не примешан
 		return false;
 	}
 	// Выводим длину выхода
 	size = length;
-	// Выводим успешность
+	// Длина выхода выведена
 	return true;
 }
 /**
- * \~russian
- * @brief Метод расшифрования с примешиванием
+ * @brief Метод расшифрования с примешиванием (DecryptAndHash)
  *
- * @param source вход
+ * @param source вход: при отсутствии ключа - открытые данные, иначе шифротекст с меткой
  * @param result место открытых данных
  * @param size   на входе вместимость места, на выходе длина открытых данных
- *
  * @return       признак того, что данные подлинны и получены
  *
- * \~english
- * @brief Method of decryption with mixing
- *
- * @param source input
- * @param result place of the plaintext
- * @param size   the capacity of the place on input, the plaintext length on output
- *
- * @return       sign that the data is authentic and produced
- *
- * \~
  */
 bool nts::noise::Symmetric::open(const view_t & source, uint8_t * result, size_t & size) noexcept {
 	// Длина метки при ключе
@@ -307,7 +243,7 @@ bool nts::noise::Symmetric::open(const view_t & source, uint8_t * result, size_t
 	if((this->_length == 0) || (source.size < tag) || ((source.size > 0) && (source.data == nullptr)) || (source.size > MESSAGE) || (size < (source.size - tag)) || (((source.size - tag) > 0) && (result == nullptr))){
 		// Сбрасываем длину
 		size = 0;
-		// Выводим отказ
+		// Выводим отрицательный результат - вскрытие невозможно
 		return false;
 	}
 	// Длина открытых данных
@@ -329,7 +265,7 @@ bool nts::noise::Symmetric::open(const view_t & source, uint8_t * result, size_t
 		if(!hasher.finish(mixed, HASH_MAX)){
 			// Сбрасываем длину
 			size = 0;
-			// Выводим отказ
+			// Выводим отрицательный результат - хеш не снят
 			return false;
 		}
 		// Если подлинность не сошлась: прежний h нетронут
@@ -338,7 +274,7 @@ bool nts::noise::Symmetric::open(const view_t & source, uint8_t * result, size_t
 			sys::wipe(mixed, sizeof(mixed));
 			// Сбрасываем длину
 			size = 0;
-			// Выводим отказ
+			// Выводим отрицательный результат - подлинность не сошлась
 			return false;
 		}
 		// Переносим новый хеш на место прежнего
@@ -351,41 +287,31 @@ bool nts::noise::Symmetric::open(const view_t & source, uint8_t * result, size_t
 		if(!this->hash(source)){
 			// Сбрасываем длину
 			size = 0;
-			// Выводим отказ
+			// Выводим отрицательный результат - вход не примешан
 			return false;
 		}
 		// Переносим данные
 		if(length > 0)
+			// Сдвигаем данные в итог
 			::memmove(result, source.data, length);
 	}
 	// Выводим длину
 	size = length;
-	// Выводим успешность
+	// Длина открытых данных выведена
 	return true;
 }
 /**
- * \~russian
- * @brief Метод раскола на два состояния шифра
+ * @brief Метод раскола на два состояния шифра (Split)
  *
  * @param one состояние от инициатора к отвечающему
  * @param two состояние от отвечающего к инициатору
- *
  * @return    признак того, что раскол выполнен
  *
- * \~english
- * @brief Method of splitting into two cipher states
- *
- * @param one state from the initiator to the responder
- * @param two state from the responder to the initiator
- *
- * @return    sign that the split is done
- *
- * \~
  */
 bool nts::noise::Symmetric::split(cipher_t & one, cipher_t & two) const noexcept {
 	// Если состояние не заведено
 	if(this->_length == 0)
-		// Выводим отказ
+		// Выводим отрицательный результат - раскол невозможен
 		return false;
 	// Два выхода
 	uint8_t output[2 * HASH_MAX];
@@ -393,78 +319,49 @@ bool nts::noise::Symmetric::split(cipher_t & one, cipher_t & two) const noexcept
 	const bool status = (this->kdf(view_t(), output, 2) && one.start(this->_aead) && two.start(this->_aead) && one.key(view_t(output, KEY)) && two.key(view_t(output + this->_length, KEY)));
 	// Затираем выходы
 	wipe(output, sizeof(output));
-	// Выводим успешность
+	// Возвращаем итог раскола
 	return status;
 }
 /**
- * \~russian
- * @brief Метод получения хеша рукопожатия
+ * @brief Метод получения хеша рукопожатия (GetHandshakeHash)
  *
- * @param result место хеша
- *
+ * @param result место хеша в длину хеша набора
  * @return       признак того, что хеш выдан
  *
- * \~english
- * @brief Method of getting the handshake hash
- *
- * @param result place of the hash
- *
- * @return       sign that the hash is given
- *
- * \~
  */
 bool nts::noise::Symmetric::digest(uint8_t * result) const noexcept {
 	// Если состояние не заведено либо места нет
 	if((this->_length == 0) || (result == nullptr))
-		// Выводим отказ
+		// Выводим отрицательный результат - хеш не выдан
 		return false;
 	// Выдаём хеш
 	::memcpy(result, this->_digest, this->_length);
-	// Выводим успешность
+	// Хеш выдан
 	return true;
 }
 /**
- * \~russian
  * @brief Метод получения длины хеша набора
  *
  * @return длина хеша либо нуль до заведения
  *
- * \~english
- * @brief Method of getting the suite hash length
- *
- * @return hash length or zero before initialization
- *
- * \~
  */
 size_t nts::noise::Symmetric::length() const noexcept {
 	// Выводим длину
 	return this->_length;
 }
 /**
- * \~russian
  * @brief Метод проверки наличия ключа шифра
  *
  * @return признак того, что ключ установлен
  *
- * \~english
- * @brief Method of the cipher key presence check
- *
- * @return sign that the key is set
- *
- * \~
  */
 bool nts::noise::Symmetric::has() const noexcept {
 	// Выводим признак
 	return this->_cipher.has();
 }
 /**
- * \~russian
  * @brief Метод затирания состояния
  *
- * \~english
- * @brief Method of wiping the state
- *
- * \~
  */
 void nts::noise::Symmetric::clear() noexcept {
 	// Затираем цепной ключ и хеш
@@ -474,17 +371,14 @@ void nts::noise::Symmetric::clear() noexcept {
 	this->_cipher.clear();
 	// Сбрасываем хеш и длину
 	this->_hash = digest::hash_t::NONE;
+	// Сбрасываем длину
 	this->_length = 0;
+	// Сбрасываем вид шифра AEAD
 	this->_aead = aead_t::NONE;
 }
 /**
- * \~russian
  * @brief Конструктор
  *
- * \~english
- * @brief Constructor
- *
- * \~
  */
 nts::noise::Symmetric::Symmetric() noexcept : _hash(digest::hash_t::NONE), _aead(aead_t::NONE), _length(0) {
 	// Обнуляем цепной ключ и хеш
@@ -492,13 +386,8 @@ nts::noise::Symmetric::Symmetric() noexcept : _hash(digest::hash_t::NONE), _aead
 	::memset(this->_digest, 0, HASH_MAX);
 }
 /**
- * \~russian
  * @brief Деструктор
  *
- * \~english
- * @brief Destructor
- *
- * \~
  */
 nts::noise::Symmetric::~Symmetric() noexcept {
 	// Затираем состояние

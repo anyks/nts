@@ -1,15 +1,22 @@
 /**
- * @file: pbkdf2.cpp
- * @date: 2026-09-04
- * @license: GPL-3.0
+ * @file pbkdf2.cpp
+ * @date 2026-09-04
  *
- * @telegram: @forman
- * @author: Yuriy Lobarev
- * @phone: +7 (910) 983-95-90
- * @email: forman@anyks.com
- * @site: https://anyks.com
+ * @license{GPL-3.0}
  *
- * @copyright: Copyright © 2026
+ * @author Yuriy Lobarev
+ *
+ * @telegram{forman}
+ * @phone{+7 (910) 983-95-90}
+ *
+ * @email forman@anyks.com
+ * @site https://anyks.com
+ *
+ * @brief Исходный файл проверок модуля растяжения пароля PBKDF2 на SHA-1 и
+ *        SHA-256: контрольные примеры и отказы
+ *
+ * @copyright Copyright © 2026
+ *
  */
 
 /**
@@ -29,11 +36,10 @@
 using namespace nts;
 
 /**
- * @brief Метод записи байтов шестнадцатеричной строкой
+ * @brief Функция записи байтов шестнадцатеричной строкой
  *
  * @param data байты
  * @param size число байтов
- *
  * @return     запись строчными шестнадцатеричными знаками
  *
  */
@@ -56,14 +62,13 @@ static std::string text(const uint8_t * data, const size_t size) {
 }
 
 /**
- * @brief Метод вывода ключа строкой
+ * @brief Функция вывода ключа строкой
  *
  * @param algorithm  алгоритм хеширования
  * @param password   пароль
  * @param salt       соль
  * @param iterations число оборотов
  * @param size       длина ключа
- *
  * @return           запись ключа шестнадцатеричной строкой
  *
  */

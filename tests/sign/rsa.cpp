@@ -60,10 +60,9 @@ static const char * MESSAGE = "The quick brown fox jumps over the lazy dog";
 static const char * PLAINTEXT = "secret message for OAEP";
 
 /**
- * @brief Метод разбора записи шестнадцатеричными знаками
+ * @brief Функция разбора записи шестнадцатеричными знаками
  *
  * @param text разбираемая запись
- *
  * @return     разобранные байты
  *
  */
@@ -92,11 +91,10 @@ static std::vector <uint8_t> bytes(const char * text) {
 	return result;
 }
 /**
- * @brief Метод сборки записи шестнадцатеричными знаками
+ * @brief Функция сборки записи шестнадцатеричными знаками
  *
  * @param data собираемые байты
  * @param size число собираемых байтов
- *
  * @return     собранная запись
  *
  */
@@ -118,10 +116,9 @@ static std::string text(const uint8_t * data, const size_t size) {
 	return result;
 }
 /**
- * @brief Метод получения просмотра байтов
+ * @brief Функция получения просмотра байтов
  *
  * @param data байты, на которые строится просмотр
- *
  * @return     просмотр байтов
  *
  */
@@ -130,23 +127,21 @@ static view_t view(const std::vector <uint8_t> & data) {
 	return view_t(data.data(), data.size());
 }
 /**
- * @brief Метод получения просмотра строки
+ * @brief Функция получения просмотра строки
  *
  * @param data строка, на которую строится просмотр
- *
  * @return     просмотр строки
  *
  */
 static view_t view(const char * data) {
 	// Выводим просмотр строки
-	return view_t(reinterpret_cast <const uint8_t *> (data), strlen(data));
+	return view_t(reinterpret_cast <const uint8_t *> (data), ::strlen(data));
 }
 /**
- * @brief Метод получения записи составляющей ключа
+ * @brief Функция получения записи составляющей ключа
  *
  * @param rsa  модуль RSA с ключом
  * @param part составляющая ключа
- *
  * @return     запись составляющей шестнадцатеричными знаками
  *
  */
@@ -161,11 +156,10 @@ static std::string part(const sign::rsa_t & rsa, const sign::part_t part) {
 	return text(buffer, size);
 }
 /**
- * @brief Метод выработки хеша сообщения
+ * @brief Функция выработки хеша сообщения
  *
  * @param algorithm алгоритм хеширования
  * @param result    место, в которое помещается хеш
- *
  * @return          длина хеша
  *
  */
@@ -399,24 +393,49 @@ static const char * COEFFICIENT =
 
 /**
  * @brief Служебные объекты проверки затирания приватного DER (круг 11)
+ *
  */
 #if defined(__APPLE__)
 	#include <malloc/malloc.h>
+/**
+ * @brief Размер освобождаемого блока у Linux и FreeBSD спрашиваем у malloc_usable_size
+ *
+ */
 #elif defined(__linux__) || defined(__FreeBSD__)
 	#include <malloc.h>
 #endif
+// Образец приватного DER, по которому ищутся следы в куче
 static std::vector <uint8_t> imprint;
+// Число найденных следов образца в освобождённых блоках
 static size_t traces = 0;
+// Наблюдатель освобождаемых блоков: ищет образец в выдаваемых данных
 static void inspect(void * data) noexcept {
+	// Без образца наблюдатель молчит
 	if(imprint.empty()) return;
+	// Размер освобождаемого блока
 	size_t size = 0;
+	/**
+	 * @brief Размер блока у Darwin спрашиваем у malloc_size
+	 *
+	 */
 	#if defined(__APPLE__)
+		// Реальный размер выданного блока под Darwin
 		size = ::malloc_size(data);
+	/**
+	 * @brief Размер блока у Linux и FreeBSD спрашиваем у malloc_usable_size
+	 *
+	 */
 	#elif defined(__linux__) || defined(__FreeBSD__)
+		// Реальный размер выданного блока под Linux и FreeBSD
 		size = ::malloc_usable_size(data);
 	#endif
+	// Освобождаемый блок как массив байтов
 	const uint8_t * bytes = static_cast <const uint8_t *> (data);
+	/**
+	 * Ищем образец приватного DER в каждом смещении освобождаемого блока
+	 */
 	for(size_t i = 0; (i + imprint.size()) <= size; i++){
+		// След найден: приватный DER лежит в освобождённом блоке незатёртым
 		if(::memcmp(bytes + i, imprint.data(), imprint.size()) == 0){ traces++; return; }
 	}
 }
@@ -517,12 +536,23 @@ TEST(RsaTest, Encode) {
  * Мутация (снять scrub) роняет пин.
  */
 TEST(RsaTest, EncodeNoTraces){
+	/**
+	 * @brief Проверка ведётся только там, где размер освобождаемого блока узнаваем
+	 *
+	 */
 	#if !defined(__APPLE__) && !defined(__linux__) && !defined(__FreeBSD__)
+		// Иной системе проверка не по чему: пропуск
 		GTEST_SKIP() << "размер освобождаемого блока на этой системе не узнать";
 	#endif
+	/**
+	 * @brief Под musl размер освобождаемого блока недостоверен: проверка бессмысленна
+	 *
+	 */
 	#if defined(__linux__) && !defined(__GLIBC__)
+		// Пропускаем проверку под musl
 		GTEST_SKIP() << "под musl размер освобождаемого блока недостоверен";
 	#endif
+	// Модуль RSA с собственным выработанным ключом
 	sign::rsa_t rsa;
 	/**
 	 * Ключ вырабатывается свой, а не берётся общий KEY_DER: общий ключ разбирают и
@@ -535,18 +565,27 @@ TEST(RsaTest, EncodeNoTraces){
 	ASSERT_TRUE(rsa.generate(2048));
 	// Первая запись без наблюдателя: узнаём приватный DER
 	std::vector <uint8_t> der;
+	// Первая запись приватного DER без наблюдателя
 	ASSERT_TRUE(rsa.encode(true, der));
+	// Приватный DER обязан быть заметно длиннее заголовка
 	ASSERT_GT(der.size(), size_t(64));
 	// Образец: окно приватного DER за 4-байтовым заголовком SEQUENCE
 	imprint.assign(der.begin() + 8, der.begin() + 56);
 	// Вторая запись под наблюдателем: буфер записчика освобождается на возврате
 	traces = 0;
+	// Буфер второй записи под наблюдателем
 	std::vector <uint8_t> again;
+	// Вешаем наблюдателя на освобождения записчика
 	starve::watch = inspect;
+	// Вторая запись приватного DER под наблюдателем
 	const bool ok = rsa.encode(true, again);
+	// Снимаем наблюдателя
 	starve::watch = nullptr;
+	// Образец больше не нужен: следы искали только во второй записи
 	imprint.clear();
+	// Вторая запись обязана удаться
 	ASSERT_TRUE(ok);
+	// Записи обязаны совпадать побайтно
 	ASSERT_EQ(again, der);
 	// Ни один освобождённый блок не нёс приватный DER
 	EXPECT_EQ(traces, size_t(0)) << "буфер записчика с приватным ключом освобождён незатёртым";
@@ -842,6 +881,7 @@ TEST(RsaTest, Blinding) {
 	// Смена ключа требует свежей пары: подпись тем же ключом после повторного разбора сходится
 	ASSERT_TRUE(rsa.decode(view(bytes(KEY_DER))));
 	ASSERT_TRUE(rsa.make(sign::scheme_t::PKCS1, digest::hash_t::SHA256, view_t(hash, size), signature));
+	// Подпись после повторного разбора ключа сходится с прежней побайтно
 	ASSERT_EQ(text(signature, sizeof(signature)), std::string(SIGNATURE_PKCS1));
 }
 /**
@@ -992,7 +1032,7 @@ TEST(RsaTest, Encrypt) {
 	// Сличаем с шифротекстом, расшифрованным openssl pkeyutl -decrypt
 	ASSERT_EQ(text(ciphertext, sizeof(ciphertext)), std::string(OWN_OAEP));
 	// Дополнение PKCS #1 v1.5: байты от 1 до 255 по кругу
-	std::vector <uint8_t> padding(256 - 3 - strlen(PLAINTEXT));
+	std::vector <uint8_t> padding(256 - 3 - ::strlen(PLAINTEXT));
 	/**
 	 * Выполняем заполнение дополнения
 	 */
@@ -1018,7 +1058,7 @@ TEST(RsaTest, Encrypt) {
 	// Самое длинное сообщение OAEP с SHA-256: 256 - 64 - 2 байта
 	uint8_t message[256];
 	// Заполняем сообщение
-	memset(message, 0x5A, sizeof(message));
+	::memset(message, 0x5A, sizeof(message));
 	// Шифруем самое длинное сообщение
 	ASSERT_TRUE(rsa.encrypt(sign::scheme_t::OAEP, digest::hash_t::SHA256, view_t(message, 190), ciphertext));
 	// Расшифровываем
@@ -1026,7 +1066,7 @@ TEST(RsaTest, Encrypt) {
 	// Проверяем длину
 	ASSERT_EQ(size, static_cast <size_t> (190));
 	// Сличаем сообщение
-	ASSERT_EQ(memcmp(output, message, size), 0);
+	ASSERT_EQ(::memcmp(output, message, size), 0);
 	// Слишком длинное сообщение OAEP отвергается
 	ASSERT_FALSE(rsa.encrypt(sign::scheme_t::OAEP, digest::hash_t::SHA256, view_t(message, 191), ciphertext));
 	// Самое длинное сообщение PKCS #1 v1.5: 256 - 11 байтов
@@ -1036,7 +1076,7 @@ TEST(RsaTest, Encrypt) {
 	// Проверяем длину
 	ASSERT_EQ(size, static_cast <size_t> (245));
 	// Сличаем сообщение
-	ASSERT_EQ(memcmp(output, message, size), 0);
+	ASSERT_EQ(::memcmp(output, message, size), 0);
 	// Слишком длинное сообщение PKCS #1 v1.5 отвергается
 	ASSERT_FALSE(rsa.encrypt(sign::scheme_t::PKCS1, digest::hash_t::NONE, view_t(message, 246), ciphertext));
 	// Пустое сообщение шифруется по OAEP
@@ -1054,7 +1094,7 @@ TEST(RsaTest, Encrypt) {
 	// Шифруем повторно
 	ASSERT_TRUE(rsa.encrypt(sign::scheme_t::OAEP, digest::hash_t::SHA256, view(PLAINTEXT), another));
 	// Сличаем шифротексты
-	ASSERT_NE(memcmp(ciphertext, another, sizeof(ciphertext)), 0);
+	ASSERT_NE(::memcmp(ciphertext, another, sizeof(ciphertext)), 0);
 	// Шифрование по PSS не годится
 	ASSERT_FALSE(rsa.encrypt(sign::scheme_t::PSS, digest::hash_t::SHA256, view(PLAINTEXT), ciphertext));
 	// Шифрование хешем «Стрибог» отвергается

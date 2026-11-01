@@ -56,10 +56,9 @@ using namespace nts;
  */
 namespace {
 	/**
-	 * @brief Метод чтения файла набора данных целиком
+	 * @brief Функция чтения файла набора данных целиком
 	 *
 	 * @param name имя файла набора данных
-	 *
 	 * @return     содержимое файла набора данных
 	 *
 	 */
@@ -67,7 +66,7 @@ namespace {
 		// Содержимое файла набора данных
 		vector <uint8_t> result;
 		/**
-		 * Выполняем чтение файла: поток и накопитель занимают память
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Поток чтения файла набора
@@ -77,7 +76,7 @@ namespace {
 				// Читаем файл целиком
 				result.assign(istreambuf_iterator <char> (file), istreambuf_iterator <char> ());
 		/**
-		 * Если памяти под файл не хватило
+		 * Выполняем перехват ошибок
 		 */
 		} catch(const bad_alloc &) {
 			// Файл не прочитан
@@ -87,7 +86,7 @@ namespace {
 		return result;
 	}
 	/**
-	 * @brief Метод вывода области байтов шестнадцатеричной записью
+	 * @brief Функция вывода области байтов шестнадцатеричной записью
 	 *
 	 * @param title заголовок выводимой области байтов
 	 * @param data  выводимая область байтов
@@ -113,7 +112,6 @@ namespace {
  *
  * @param argc длина массива параметров
  * @param argv массив параметров
- *
  * @return     код выхода из приложения
  *
  */
@@ -146,6 +144,7 @@ int main(int argc, char * argv[]) noexcept {
 	 *          цепочками Винтерница, по нему и пути Меркла - корень-кандидат дерева, который
 	 *          сличается с открытым ключом; у HSS подпись нижнего уровня заверяется открытым
 	 *          ключом, подписанным уровнем выше
+	 *
 	 */
 	if(!sign::lms::verify(view_t(key.data(), key.size()), view_t(message.data(), message.size()), view_t(signature.data(), signature.size()))){
 		// Выводим сообщение об отказе проверки подписи
@@ -157,6 +156,7 @@ int main(int argc, char * argv[]) noexcept {
 	cout << "Проверка подписи   : подпись HSS сошлась" << endl;
 	// Подделанное сообщение: портим один байт
 	vector <uint8_t> forged(message);
+	// Искажаем первый байт копии
 	forged[0] ^= 0x01;
 	// Если подпись подделанного сообщения отвергнута
 	if(!sign::lms::verify(view_t(key.data(), key.size()), view_t(forged.data(), forged.size()), view_t(signature.data(), signature.size())))

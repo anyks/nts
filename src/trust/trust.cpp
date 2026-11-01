@@ -153,11 +153,10 @@ namespace {
 	 */
 	static const string EXTENDED = "2.5.29.37";
 	/**
-	 * @brief Метод разбора адреса сети из записи имени узла
+	 * @brief Функция разбора адреса сети из записи имени узла
 	 *
 	 * @param name   имя узла, записанное адресом сети
 	 * @param result место, в которое помещаются байты адреса
-	 *
 	 * @return       признак того, что имя узла есть адрес сети
 	 *
 	 */
@@ -292,10 +291,9 @@ namespace {
 		return false;
 	}
 	/**
-	 * @brief Метод проверки, что общее имя по виду есть имя узла
+	 * @brief Функция проверки, что общее имя по виду есть имя узла
 	 *
 	 * @param name общее имя владельца
-	 *
 	 * @return     признак имени узла: лишь буквы, цифры, точки и дефисы, не адрес сети
 	 *
 	 * @note Ограничения dNSName судят общее имя лишь такого вида: имя человека либо
@@ -305,6 +303,7 @@ namespace {
 	static bool hostlike(const string & name) noexcept {
 		// Пустое имя узлом не является
 		if(name.empty())
+			// Выводим признак: имя узлом не является
 			return false;
 		/**
 		 * Выполняем перебор знаков имени
@@ -314,6 +313,7 @@ namespace {
 			const char sign = name[i];
 			// Если знак вне набора имени узла
 			if(!(((sign >= 'a') && (sign <= 'z')) || ((sign >= 'A') && (sign <= 'Z')) || ((sign >= '0') && (sign <= '9')) || (sign == '.') || (sign == '-') || (sign == '*')))
+				// Выводим признак: знак вне набора имени узла
 				return false;
 		}
 		// Байты адреса сети
@@ -328,20 +328,18 @@ namespace {
 	// Приведение имени к нижнему регистру определено ниже
 	static error_t lower(const string & name, string & result) noexcept;
 	/**
-	 * @brief Метод снятия хвостовой точки доменного имени (решение 7)
+	 * @brief Функция снятия хвостовой точки доменного имени (решение 7)
 	 *
 	 * @param name доменное имя, у которого снимается одна хвостовая точка
-	 *
 	 * @return     признак годности имени: имя из одной точки либо с двумя точками на конце негодно
 	 *
 	 */
 	static bool rooted(string & name) noexcept;
 	/**
-	 * @brief Метод проверки назначения ключа сертификата по роли собеседника
+	 * @brief Функция проверки назначения ключа сертификата по роли собеседника
 	 *
 	 * @param certificate проверяемый сертификат: лист либо издатель
 	 * @param role        роль собеседника
-	 *
 	 * @return            отказ назначения либо нехватки памяти
 	 *
 	 * @details Раздел 4.2.1.12 RFC 5280: сертификат применяется лишь по объявленному
@@ -354,6 +352,7 @@ namespace {
 		const x509::extension_t * extension = certificate.extension(EXTENDED);
 		// Если назначения нет - годится любое
 		if(extension == nullptr)
+			// Выводим годность любого назначения
 			return error_t::NONE;
 		// Перечень назначений
 		vector <string> purposes;
@@ -361,9 +360,11 @@ namespace {
 		const x509::error_t outcome = x509::purpose(*extension, purposes);
 		// Если памяти не хватило
 		if(outcome == x509::error_t::MEMORY)
+			// Выводим отказ нехватки памяти
 			return error_t::MEMORY;
 		// Если назначения не разобрались
 		if(outcome != x509::error_t::NONE)
+			// Выводим отказ непригодного назначения
 			return error_t::PURPOSE;
 		// Признак пригодности
 		bool suitable = false;
@@ -371,15 +372,15 @@ namespace {
 		 * Выполняем перебор назначений: serverAuth годен серверу, clientAuth клиенту, anyExtendedKeyUsage обоим; без роли - любое из трёх
 		 */
 		for(size_t i = 0; !suitable && (i < purposes.size()); i++)
+			// Отмечаем годность любого из назначений по роли
 			suitable = ((purposes[i].compare("2.5.29.37.0") == 0) || ((role != role_t::CLIENT) && (purposes[i].compare("1.3.6.1.5.5.7.3.1") == 0)) || ((role != role_t::SERVER) && (purposes[i].compare("1.3.6.1.5.5.7.3.2") == 0)));
 		// Выводим итог
 		return (suitable ? error_t::NONE : error_t::PURPOSE);
 	}
 	/**
-	 * @brief Метод извлечения содержимого записи ASN.1
+	 * @brief Функция извлечения содержимого записи ASN.1
 	 *
 	 * @param element запись целиком
-	 *
 	 * @return        содержимое записи либо пустой просмотр без данных
 	 *
 	 */
@@ -390,16 +391,16 @@ namespace {
 		asn1::element_t item;
 		// Если запись не прочиталась
 		if(!reader.next(item))
+			// Выводим пустой просмотр без данных
 			return view_t(nullptr, 0);
 		// Выводим содержимое
 		return item.content;
 	}
 	/**
-	 * @brief Метод приведения отличительного имени к сличимому виду
+	 * @brief Функция приведения отличительного имени к сличимому виду
 	 *
 	 * @param rdns   содержимое последовательности RDN имени
 	 * @param result место, в которое помещаются RDN по порядку: признаки внутри RDN отсортированы, значения строк приведены
-	 *
 	 * @return       признак успешности разбора
 	 *
 	 * @note Раздел 7.1 RFC 5280: строки сличаются без учёта вида записи и регистра, с
@@ -420,6 +421,7 @@ namespace {
 		while(!reader.empty()){
 			// Если очередной RDN не прочитался - запись негодна
 			if(!reader.next(rdn))
+				// Выводим признак негодной записи
 				return false;
 			// Признаки RDN
 			vector <string> attributes;
@@ -433,6 +435,7 @@ namespace {
 			while(!inner.empty()){
 				// Если очередной признак не прочитался - запись негодна
 				if(!inner.next(attribute))
+					// Выводим признак негодной записи
 					return false;
 				// Разборщик признака: опознаватель и значение
 				asn1::reader_t pair(attribute.content);
@@ -440,16 +443,19 @@ namespace {
 				asn1::element_t object, value;
 				// Если признак не разобрался
 				if(!pair.next(object) || !pair.next(value))
+					// Выводим признак негодной записи
 					return false;
 				// Опознаватель признака
 				string oid;
 				// Если опознаватель не разобрался
 				if(asn1::oid(object, oid) != asn1::error_t::NONE)
+					// Выводим признак негодной записи
 					return false;
 				// Значение признака строкой
 				string text;
 				// Если значение не строка известного вида: берётся запись целиком
 				if((value.cls != asn1::cls_t::UNIVERSAL) || (asn1::text(value, static_cast <asn1::tag_t> (value.tag), text) != asn1::error_t::NONE))
+					// Берём запись значения признака целиком
 					text.assign(reinterpret_cast <const char *> (value.element.data), value.element.size);
 				// Приведённое значение: регистр ASCII вниз, пробелы ослаблены
 				string canon;
@@ -465,6 +471,7 @@ namespace {
 					if((sign == ' ') || (sign == '\t') || (sign == '\n') || (sign == '\r')){
 						// Один пробел между словами
 						if(!space)
+							// Добавляем один пробел между словами
 							canon.push_back(' ');
 						// Отмечаем пробел
 						space = true;
@@ -472,6 +479,7 @@ namespace {
 					}
 					// Регистр ASCII вниз
 					if((sign >= 'A') && (sign <= 'Z'))
+						// Приводим знак к нижнему регистру
 						sign = static_cast <char> (sign + ('a' - 'A'));
 					// Добавляем знак
 					canon.push_back(sign);
@@ -480,11 +488,17 @@ namespace {
 				}
 				// Срезаем хвостовой пробел
 				if(!canon.empty() && (canon.back() == ' '))
+					// Срезаем хвостовой пробел
 					canon.pop_back();
 				// Разделители экранируются: значение с «;» либо «=» не должно читаться как два признака
 				string guarded;
+				/**
+				 * Выполняем экранирование разделителей в приведённом значении
+				 */
 				for(size_t i = 0; i < canon.size(); i++){
+					// Если знак разделителем является
 					if((canon[i] == ';') || (canon[i] == '=') || (canon[i] == '\\'))
+						// Экранируем знак обратной чертой
 						guarded.push_back('\\');
 					guarded.push_back(canon[i]);
 				}
@@ -495,21 +509,24 @@ namespace {
 			std::sort(attributes.begin(), attributes.end());
 			// Собираем RDN в одну строку
 			string joined;
+			/**
+			 * Выполняем сборку RDN в одну строку
+			 */
 			for(size_t i = 0; i < attributes.size(); i++)
+				// Дописываем очередной признак с разделителем
 				joined += (attributes[i] + ";");
 			// Добавляем RDN
 			result.push_back(joined);
 		}
-		// Выводим успешность
+		// Сообщаем об успешном изъятии имён
 		return true;
 	}
 	/**
-	 * @brief Метод сличения имени с поддеревом ограничений
+	 * @brief Функция сличения имени с поддеревом ограничений
 	 *
 	 * @param name     имя сертификата
 	 * @param tree     поддерево ограничений того же вида
 	 * @param excluded признак того, что поддерево запрещённое: имя со звёздочкой судится шире (решение 6)
-	 *
 	 * @return         признак того, что имя лежит в поддереве, минус один при нехватке памяти
 	 *
 	 */
@@ -528,12 +545,15 @@ namespace {
 					return -1;
 				// Если поддерево пусто - кроет всё
 				if(base.empty())
+					// Пустое поддерево кроет всякое имя
 					return 1;
 				// Если имя с хвостовой точкой негодно (решение 7) - ни в одном поддереве не лежит
 				if(!rooted(host))
+					// Негодное имя ни в одном поддереве не лежит
 					return 0;
 				// Если основание с хвостовой точкой негодно (решение 7) - ничего не кроет
 				if(!rooted(base))
+					// Негодное поддерево ничего не кроет
 					return 0;
 				/**
 				 * Решение 6: имя «*.X» против запрещённого поддерева лежит в нём и тогда,
@@ -546,13 +566,16 @@ namespace {
 					const size_t tail = (host.size() - 2);
 					// Если основание лежит под хвостом имени: кончается на «.» и хвост
 					if((base.size() > tail) && (base[base.size() - tail - 1] == '.') && (base.compare(base.size() - tail, tail, host, 2, tail) == 0))
+						// Основание лежит под хвостом имени
 						return 1;
 				}
 				// Если поддерево начинается с точки - лишь подчинённые
 				if(base[0] == '.')
+					// Кроем лишь подчинённые имена
 					return ((host.size() > base.size()) && (host.compare(host.size() - base.size(), base.size(), base) == 0));
 				// Само имя
 				if(host.compare(base) == 0)
+					// Имя совпало с поддеревом
 					return 1;
 				// Подчинённое имя
 				return ((host.size() > base.size()) && (host[host.size() - base.size() - 1] == '.') && (host.compare(host.size() - base.size(), base.size(), base) == 0));
@@ -567,16 +590,19 @@ namespace {
 					return -1;
 				// Если поддерево - сам адрес
 				if(base.find('@') != string::npos)
+					// Сличаем адрес с поддеревом записью
 					return ((mail.compare(base) == 0) ? 1 : 0);
 				// Место разделителя адреса
 				const size_t at = mail.find('@');
 				// Если разделителя нет - не адрес
 				if(at == string::npos)
+					// Без разделителя адресом не является
 					return 0;
 				// Длина узла адреса: сличение по месту, без копии - выделений в noexcept не заводим
 				const size_t host = (mail.size() - at - 1);
 				// Если поддерево - подчинённые узлы
 				if(!base.empty() && (base[0] == '.'))
+					// Кроем лишь подчинённые узлы
 					return (((host > base.size()) && (mail.compare(mail.size() - base.size(), base.size(), base) == 0)) ? 1 : 0);
 				// Сам узел
 				return (((host == base.size()) && (mail.compare(at + 1, host, base) == 0)) ? 1 : 0);
@@ -585,6 +611,7 @@ namespace {
 			case x509::kind_t::ADDRESS: {
 				// Если длины не сходятся
 				if(tree.value.size() != (name.value.size() * 2))
+					// Длины адреса и маски не сходятся
 					return 0;
 				/**
 				 * Выполняем перебор байтов адреса под маской
@@ -594,6 +621,7 @@ namespace {
 					const uint8_t mask = static_cast <uint8_t> (tree.value[name.value.size() + i]);
 					// Если под маской байты разошлись
 					if((static_cast <uint8_t> (name.value[i]) & mask) != (static_cast <uint8_t> (tree.value[i]) & mask))
+						// Байты адреса под маской разошлись
 						return 0;
 				}
 				// Адрес в поддереве
@@ -610,21 +638,25 @@ namespace {
 				const view_t subject = (tagged ? contents(contents(name.element)) : contents(name.element)), base = contents(contents(tree.element));
 				// Если содержимое не разобралось
 				if((subject.data == nullptr) || (base.data == nullptr))
+					// Содержимое имени либо основания не разобралось
 					return 0;
 				// Пустое основание кроет всё
 				if(base.size == 0)
+					// Пустое основание кроет всё
 					return 1;
 				/**
-				 * Выполняем перехват ошибок работы с памятью
+				 * Выполняем перехват ошибок
 				 */
 				try {
 					// Приведённые RDN имени и основания
 					vector <string> first, second;
 					// Если имя либо основание не разобрались
 					if(!folded(subject, first) || !folded(base, second))
+						// Имя либо основание не разобрались
 						return 0;
 					// Если основание длиннее имени
 					if(second.size() > first.size())
+						// Основание длиннее имени
 						return 0;
 					/**
 					 * Выполняем сличение RDN основания с началом имени (раздел 7.1 RFC 5280)
@@ -632,14 +664,16 @@ namespace {
 					for(size_t i = 0; i < second.size(); i++){
 						// Если RDN разошлись
 						if(first[i].compare(second[i]) != 0)
+							// RDN имени и основания разошлись
 							return 0;
 					}
 					// Имя начинается с основания
 					return 1;
 				/**
-				 * Если памяти не хватило
+				 * Выполняем перехват ошибок
 				 */
 				} catch(const bad_alloc &) {
+					// Выводим отказ нехватки памяти
 					return -1;
 				}
 			}
@@ -648,11 +682,10 @@ namespace {
 		}
 	}
 	/**
-	 * @brief Метод проверки имён сертификата по ограничениям издателя
+	 * @brief Функция проверки имён сертификата по ограничениям издателя
 	 *
 	 * @param certificate проверяемый подчинённый сертификат
 	 * @param issuer      издатель с расширением nameConstraints
-	 *
 	 * @return            отказ ограничений либо нехватки памяти
 	 *
 	 * @details Раздел 6.1.4 RFC 5280: ограничения применяются ко всем подчинённым
@@ -667,6 +700,7 @@ namespace {
 		const x509::extension_t * extension = issuer.extension(BOUNDS);
 		// Если ограничений нет
 		if(extension == nullptr)
+			// Выводим успешность: ограничений нет
 			return error_t::NONE;
 		// Дозволенные и запрещённые поддеревья
 		vector <x509::alternative_t> permitted, excluded;
@@ -674,9 +708,11 @@ namespace {
 		const x509::error_t parsed = x509::constraints(*extension, permitted, excluded);
 		// Если памяти не хватило
 		if(parsed == x509::error_t::MEMORY)
+			// Выводим отказ нехватки памяти
 			return error_t::MEMORY;
 		// Если ограничения не разобрались - цепочка негодна
 		if(parsed != x509::error_t::NONE)
+			// Выводим отказ ограничений
 			return error_t::CONSTRAINED;
 		// Имена подчинённого сертификата
 		vector <x509::alternative_t> names;
@@ -688,9 +724,11 @@ namespace {
 			const x509::error_t named = x509::alternatives(*listed, names);
 			// Если памяти не хватило
 			if(named == x509::error_t::MEMORY)
+				// Выводим отказ нехватки памяти
 				return error_t::MEMORY;
 			// Если имена не разобрались
 			if(named != x509::error_t::NONE)
+				// Выводим отказ разбора имён
 				return error_t::PARSE;
 		}
 		// Признаки наличия имён вида DNS и почты в subjectAltName
@@ -699,11 +737,13 @@ namespace {
 		 * Выполняем перебор имён на виды
 		 */
 		for(size_t i = 0; i < names.size(); i++){
+			// Отмечаем имя вида DNS встреченным
 			hosted = (hosted || (names[i].kind == x509::kind_t::DNS));
+			// Отмечаем имя вида почты встреченным
 			mailed = (mailed || (names[i].kind == x509::kind_t::EMAIL));
 		}
 		/**
-		 * Выполняем перехват ошибок памяти
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			/**
@@ -719,11 +759,15 @@ namespace {
 				if((common != nullptr) && hostlike(common->value)){
 					// Имя вида DNS
 					x509::alternative_t name;
+					// Устанавливаем вид имени
 					name.kind = x509::kind_t::DNS;
+					// Переносим общее имя владельца
 					name.value = common->value;
+					// Добавляем имя в перечень имён
 					names.push_back(name);
 				}
 			}
+			// Если почтовый адрес ещё не собран
 			if(!mailed){
 				// Признак emailAddress владельца
 				const x509::attribute_t * mail = x509::attribute(certificate.subjects(), MAILBOX);
@@ -731,8 +775,11 @@ namespace {
 				if(mail != nullptr){
 					// Имя вида почты
 					x509::alternative_t name;
+					// Устанавливаем вид имени
 					name.kind = x509::kind_t::EMAIL;
+					// Переносим почтовый адрес владельца
 					name.value = mail->value;
+					// Добавляем имя в перечень имён
 					names.push_back(name);
 				}
 			}
@@ -742,12 +789,20 @@ namespace {
 			 * этого вида не несёт и ограничением directoryName не судится (решение 8)
 			 */
 			if(!certificate.subjects().parts.empty() && (certificate.subjects().element.size > 0)){
+				// Имя вида отличительного имени
 				x509::alternative_t name;
+				// Устанавливаем вид имени
 				name.kind = x509::kind_t::DIRECTORY;
+				// Переносим запись поля subject
 				name.element = certificate.subjects().element;
+				// Добавляем имя в перечень имён
 				names.push_back(name);
 			}
+		/**
+		 * Выполняем перехват ошибок
+		 */
 		} catch(const bad_alloc &) {
+			// Выводим отказ нехватки памяти
 			return error_t::MEMORY;
 		}
 		/**
@@ -767,9 +822,11 @@ namespace {
 				const int inside = (comparable ? within(names[i], excluded[j], true) : 0);
 				// Если памяти на сличение не хватило
 				if(inside < 0)
+					// Выводим отказ нехватки памяти
 					return error_t::MEMORY;
 				// Если вид не сличить либо имя в запрещённом поддереве
 				if(!comparable || (inside == 1))
+					// Выводим отказ ограничений
 					return error_t::CONSTRAINED;
 			}
 			// Признак наличия дозволенных поддеревьев этого вида и вхождения в одно из них
@@ -787,23 +844,25 @@ namespace {
 				const int inside = (comparable ? within(names[i], permitted[j], false) : 0);
 				// Если памяти на сличение не хватило
 				if(inside < 0)
+					// Выводим отказ нехватки памяти
 					return error_t::MEMORY;
 				// Если имя в поддереве
 				if(inside == 1)
+					// Отмечаем вхождение в дозволенное поддерево
 					allowed = true;
 			}
 			// Если дозволенные есть, а имя вне их
 			if(ruled && !allowed)
+				// Выводим отказ ограничений
 				return error_t::CONSTRAINED;
 		}
-		// Выводим успешность
+		// Сообщаем об успешной проверке ограничений
 		return error_t::NONE;
 	}
 	/**
-	 * @brief Метод проверки назначения ключа листа цепочки
+	 * @brief Функция проверки назначения ключа листа цепочки
 	 *
 	 * @param certificate сертификат листа цепочки
-	 *
 	 * @return            отказ назначения ключа листа либо нехватки памяти под разбор
 	 *
 	 */
@@ -829,7 +888,7 @@ namespace {
 			 * ставится ключом, назначенным проверке подписи
 			 */
 			if((usage & static_cast <uint16_t> (x509::usage_t::SIGNATURE)) == 0)
-				// Выводим отказ
+				// Выводим отрицательный результат - ключ не назначен подписи
 				return error_t::PURPOSE;
 		}
 		// Получаем расширение расширенного назначения ключа
@@ -838,23 +897,19 @@ namespace {
 	}
 
 	/**
-	 * @brief Метод приведения имени узла к нижнему регистру
+	 * @brief Функция приведения имени узла к нижнему регистру
 	 *
 	 * @details Раздел 6.4 RFC 6125: доменные имена сличаются без учёта регистра, и
 	 *          приведение это ведётся по таблице ASCII, а не по местным правилам языка
 	 *
 	 * @param name   приводимое имя узла
 	 * @param result место, в которое помещается приведённое имя узла
-	 *
 	 * @return       отказ приведения имени узла
 	 *
 	 */
 	static error_t lower(const string & name, string & result) noexcept {
 		/**
-		 * Приведение выделяет память под копию имени, и нехватка её обязана дойти
-		 * до вызывающего причиной отказа, а не завершить процесс. Запись знаков тоже
-		 * под перехватом: строка, разделяющая буфер с образцом (копирование при
-		 * записи у старых изданий libstdc++), выделяет память первой же записью
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Выполняем копирование имени
@@ -869,7 +924,7 @@ namespace {
 					result[i] = static_cast <char> (result[i] - 'A' + 'a');
 			}
 		/**
-		 * Если памяти под копию имени не хватило
+		 * Выполняем перехват ошибок
 		 */
 		} catch(const bad_alloc &) {
 			// Выводим отказ нехватки памяти
@@ -879,14 +934,13 @@ namespace {
 		return error_t::NONE;
 	}
 	/**
-	 * @brief Метод снятия хвостовой точки доменного имени
+	 * @brief Функция снятия хвостовой точки доменного имени
 	 *
 	 * @details Решение 7: «example.com.» - та же запись имени, что и «example.com», и
 	 *          сличается она лишь после снятия точки; имя из одной точки либо с двумя
 	 *          точками на конце - не имя вовсе
 	 *
 	 * @param name доменное имя, у которого снимается одна хвостовая точка
-	 *
 	 * @return     признак годности имени
 	 *
 	 */
@@ -903,11 +957,10 @@ namespace {
 		return (!name.empty() && (name.back() != '.'));
 	}
 	/**
-	 * @brief Метод сличения имени узла с именем сертификата
+	 * @brief Функция сличения имени узла с именем сертификата
 	 *
 	 * @param pattern имя сертификата, вправе нести звёздочку самой левой частью
 	 * @param name    имя узла, за которым пришли
-	 *
 	 * @return        признак того, что имя узла имени сертификата отвечает
 	 *
 	 */
@@ -943,11 +996,10 @@ namespace {
 		return (pattern.compare(2, string::npos, name, offset + 1, string::npos) == 0);
 	}
 	/**
-	 * @brief Метод проверки права сертификата издавать другие сертификаты
+	 * @brief Функция проверки права сертификата издавать другие сертификаты
 	 *
 	 * @param certificate проверяемый сертификат издателя
 	 * @param depth       число звеньев цепочки, лежащих ниже проверяемого сертификата
-	 *
 	 * @return            отказ проверки права издавать сертификаты
 	 *
 	 */
@@ -1012,11 +1064,10 @@ namespace {
 		return error_t::NONE;
 	}
 	/**
-	 * @brief Метод проверки срока действия сертификата
+	 * @brief Функция проверки срока действия сертификата
 	 *
 	 * @param certificate проверяемый сертификат
 	 * @param moment      миг проверки в секундах от начала эпохи
-	 *
 	 * @return            отказ проверки срока действия сертификата
 	 *
 	 */
@@ -1050,7 +1101,6 @@ size_t nts::trust::Store::size() const noexcept {
  * @brief Метод получения доверенного сертификата запаса
  *
  * @param index место запрашиваемого сертификата в запасе
- *
  * @return      запись запрашиваемого сертификата
  *
  */
@@ -1066,7 +1116,6 @@ view_t nts::trust::Store::get(const size_t index) const noexcept {
  * @brief Метод добавления доверенного сертификата в запас
  *
  * @param certificate запись добавляемого сертификата
- *
  * @return            признак успешности добавления сертификата
  *
  */
@@ -1085,13 +1134,13 @@ bool nts::trust::Store::add(const view_t & certificate) noexcept {
 		// Выводим отказ добавления сертификата в запас
 		return false;
 	/**
-	 * Выполняем добавление сертификата в запас доверенных
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Добавляем запись сертификата в запас доверенных
 		this->_chain.push_back(vector <uint8_t> (certificate.data, certificate.data + certificate.size));
 	/**
-	 * Если памяти под запас доверенных не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ добавления сертификата в запас
@@ -1109,12 +1158,11 @@ void nts::trust::Store::clear() noexcept {
 	this->_chain.clear();
 }
 /**
- * @brief Метод проверки цепочки сертификатов запасом доверенных
+ * @brief Функция проверки цепочки сертификатов запасом доверенных
  *
  * @param chain  проверяемая цепочка сертификатов от своего к издателю
  * @param store  запас доверенных сертификатов
  * @param moment миг проверки в секундах от начала эпохи
- *
  * @return       отказ доверия цепочке сертификатов
  *
  */
@@ -1123,14 +1171,13 @@ nts::trust::error_t nts::trust::verify(const vector <vector <uint8_t>> & chain, 
 	return verify(chain, store, moment, role_t::ANY);
 }
 /**
- * @brief Метод проверки цепочки сертификатов с учётом роли собеседника
+ * @brief Функция проверки цепочки сертификатов по запасу доверенных с учётом роли собеседника
  *
- * @param chain  проверяемая цепочка
- * @param store  запас доверенных
- * @param moment миг проверки
- * @param role   роль собеседника
- *
- * @return       отказ доверия
+ * @param chain  проверяемая цепочка сертификатов от своего к издателю
+ * @param store  запас доверенных сертификатов
+ * @param moment миг проверки в секундах от начала эпохи
+ * @param role   роль собеседника: назначение листа обязано ей отвечать
+ * @return       отказ доверия цепочке сертификатов: PURPOSE при назначении не по роли
  *
  */
 nts::trust::error_t nts::trust::verify(const vector <vector <uint8_t>> & chain, const store_t & store, const int64_t moment, const role_t role) noexcept {
@@ -1145,13 +1192,13 @@ nts::trust::error_t nts::trust::verify(const vector <vector <uint8_t>> & chain, 
 	// Разобранные сертификаты проверяемой цепочки
 	vector <x509::certificate_t> items;
 	/**
-	 * Выполняем разбор сертификатов проверяемой цепочки
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Занимаем место под разобранные сертификаты цепочки
 		items.resize(chain.size());
 	/**
-	 * Если памяти под разбор цепочки не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -1263,14 +1310,19 @@ nts::trust::error_t nts::trust::verify(const vector <vector <uint8_t>> & chain, 
 			return error;
 		// Назначение ключа издателя по роли (раздел 4.2.1.12 RFC 5280)
 		const error_t intent = intended(items[i + 1], role);
+		// Если назначение ключа издателя по роли не сошлось
 		if(intent != error_t::NONE)
+			// Выводим отказ назначения ключа
 			return intent;
 		/**
 		 * Раздел 6.1.4 RFC 5280: ограничения имён издателя кроют все подчинённые сертификаты
 		 */
 		for(size_t j = 0; j <= i; j++){
+			// Отказ ограничений имени звена издателем
 			const error_t bounded = constrained(items[j], items[i + 1]);
+			// Если ограничения нарушены
 			if(bounded != error_t::NONE)
+				// Выводим отказ ограничений
 				return bounded;
 		}
 		// Если звено либо его издатель слабы: подпись SHA-1/MD5 либо ключ RSA короче 2048 (RFC 9155, SP 800-131A)
@@ -1370,6 +1422,7 @@ nts::trust::error_t nts::trust::verify(const vector <vector <uint8_t>> & chain, 
 			const error_t limit = constrained(items[j], anchor);
 			// Если памяти не хватило
 			if(limit == error_t::MEMORY)
+				// Выводим отказ нехватки памяти
 				return error_t::MEMORY;
 			// Запоминаем нарушение
 			bounded = (limit != error_t::NONE);
@@ -1402,11 +1455,10 @@ nts::trust::error_t nts::trust::verify(const vector <vector <uint8_t>> & chain, 
 	return error_t::AUTHORITY;
 }
 /**
- * @brief Метод сличения имени узла с именами сертификата
+ * @brief Функция сличения имени узла с именами сертификата
  *
  * @param certificate запись сличаемого сертификата
  * @param name        имя узла, за которым пришли
- *
  * @return            отказ сличения имени узла
  *
  */
@@ -1510,6 +1562,7 @@ nts::trust::error_t nts::trust::belongs(const view_t & certificate, const string
 	if(numeric)
 		// Выводим отказ сличения имени
 		return error_t::NAME;
+	// Получаем общее имя владельца сертификата
 	const x509::attribute_t * attribute = x509::attribute(item.subjects(), COMMON);
 	// Если общего имени владельца у сертификата нет
 	if(attribute == nullptr)
@@ -1532,3 +1585,15 @@ nts::trust::error_t nts::trust::belongs(const view_t & certificate, const string
 	// Выводим отказ несовпадения имени узла
 	return error_t::NAME;
 }
+
+/**
+ * @brief Конструктор
+ *
+ */
+nts::trust::Store::Store() noexcept = default;
+
+/**
+ * @brief Деструктор
+ *
+ */
+nts::trust::Store::~Store() noexcept {}

@@ -22,7 +22,6 @@
  *        the messages of the handshake are composed
  *
  * \~
- *
  * @copyright Copyright © 2026
  *
  */
@@ -74,10 +73,12 @@ namespace nts {
 	 *
 	 * \~english
 	 * @brief Namespace of the fields of the TLS protocol
+	 *
 	 * @details The appendix B of RFC 8446: the bodies of the messages are composed of the numbers of a
 	 *          given width and of the fields of a variable length, at which the length goes ahead of
 	 *          the content and itself occupies from one to three bytes. The fields are nested into each
 	 *          other without a limitation of the depth.
+	 *
 	 * @note Every reading is compared against the remaining length and not against the declared one: the
 	 *       length is declared by a peer, and it may not be trusted
 	 *
@@ -94,11 +95,17 @@ namespace nts {
 		 * \~
 		 */
 		enum class error_t : uint8_t {
+			// Отказа нет
 			NONE   = 0x00, /*!< \~russian Отказа нет \~english There is no failure \~ */
+			// Читаемое поле за разбираемой областью не помещается
 			HUNGRY = 0x01, /*!< \~russian Читаемое поле за разбираемой областью не помещается \~english The field being read does not fit into the area being parsed \~ */
+			// Ширина числа либо длины поля протоколом не задана
 			WIDTH  = 0x02, /*!< \~russian Ширина числа либо длины поля протоколом не задана \~english The width of a number or of a length of a field is not set by the protocol \~ */
+			// Записываемое значение в поле заданной ширины не входит
 			LENGTH = 0x03, /*!< \~russian Записываемое значение в поле заданной ширины не входит \~english The value being written does not fit into a field of the given width \~ */
+			// Закрываемого поля переменной длины нет
 			NESTING = 0x04, /*!< \~russian Закрываемого поля переменной длины нет \~english There is no field of a variable length being closed \~ */
+			// Памяти под накопитель не хватило
 			MEMORY = 0x05  /*!< \~russian Памяти под накопитель не хватило \~english There was not enough memory for the accumulator \~ */
 		};
 
@@ -115,9 +122,11 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Parser of the fields of the protocol
+		 *
 		 * @details It reads the area being parsed from the left to the right, moving its place of the
 		 *          reading. Every reading either fits into the remaining part of the area or answers
 		 *          with a failure and does not move the place of the reading.
+		 *
 		 * @note The views produced by the readings look inside the area being parsed and live exactly
 		 *       as long as it itself lives
 		 *
@@ -139,6 +148,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of setting the byte area being parsed
+				 *
 				 * @param data the byte area being parsed being set
 				 *
 				 * \~
@@ -163,6 +173,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the place of the reading in the area being parsed
+				 *
 				 * @return the place of the reading in the area being parsed in bytes
 				 *
 				 * \~
@@ -176,6 +187,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the volume of the part of the area not read yet
+				 *
 				 * @return the volume of the part of the area not read yet in bytes
 				 *
 				 * \~
@@ -188,16 +200,17 @@ namespace nts {
 				 *
 				 * @param result число, в которое помещается прочитанное значение
 				 * @param size   ширина читаемого числа в байтах
-				 *
 				 * @return       отказ чтения числа
 				 *
 				 * @details Числа протокола записываются старшим разрядом вперёд
 				 *
 				 * \~english
 				 * @brief Method of the reading of a number of a given width
+				 *
 				 * @param result the number the read value is put into
 				 * @param size   the width of the number being read in bytes
 				 * @return       the failure of the reading of the number
+				 *
 				 * @details The numbers of the protocol are written with the most significant bit ahead
 				 *
 				 * \~
@@ -209,11 +222,11 @@ namespace nts {
 				 *
 				 * @param result просмотр, в который помещается прочитанная область
 				 * @param size   длина читаемой области в байтах
-				 *
 				 * @return       отказ чтения области байтов
 				 *
 				 * \~english
 				 * @brief Method of the reading of a byte area of a given length
+				 *
 				 * @param result the view the read area is put into
 				 * @param size   the length of the area being read in bytes
 				 * @return       the failure of the reading of the byte area
@@ -227,7 +240,6 @@ namespace nts {
 				 *
 				 * @param result просмотр, в который помещается содержимое поля
 				 * @param width  ширина записи длины поля в байтах
-				 *
 				 * @return       отказ чтения поля переменной длины
 				 *
 				 * @details Читается длина поля шириной от одного до трёх байтов, а за нею -
@@ -235,9 +247,11 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the reading of a field of a variable length
+				 *
 				 * @param result the view the content of the field is put into
 				 * @param width  the width of the record of the length of the field in bytes
 				 * @return       the failure of the reading of the field of a variable length
+				 *
 				 * @details The length of the field of a width from one to three bytes is read, and behind
 				 *          it the content of the field of the declared length
 				 *
@@ -249,11 +263,11 @@ namespace nts {
 				 * @brief Метод чтения всей оставшейся части области
 				 *
 				 * @param result просмотр, в который помещается оставшаяся часть области
-				 *
 				 * @return       отказ чтения оставшейся части области
 				 *
 				 * \~english
 				 * @brief Method of the reading of the whole remaining part of the area
+				 *
 				 * @param result the view the remaining part of the area is put into
 				 * @return       the failure of the reading of the remaining part of the area
 				 *
@@ -264,7 +278,6 @@ namespace nts {
 				/**
 				 * \~russian
 				 * @brief Конструктор
-				 *
 				 *
 				 * \~english
 				 * @brief Constructor
@@ -287,10 +300,12 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Composer of the fields of the protocol
+		 *
 		 * @details The numbers and the byte areas are appended to the accumulator in a row, while the
 		 *          fields of a variable length are opened by a call of open and are closed by a call of
 		 *          close, which itself writes the length into the place reserved for it. The fields are
 		 *          nested into each other: there may be any number of the opened fields.
+		 *
 		 * @note The accumulator is considered a storage of secrets: the reset and the destruction wipe its
 		 *       content by the length of the record, and the consumer does not need to wipe the composed one itself
 		 *
@@ -309,13 +324,13 @@ namespace nts {
 				 * @brief Метод выделения места под запись с затиранием прежнего накопителя
 				 *
 				 * @param extra требуемое число свободных байтов
-				 *
 				 * @return      признак успешности выделения места
 				 *
 				 * \~english
 				 * @brief Method of allocating room for the record with wiping of the previous accumulator
+				 *
 				 * @param extra the required number of free bytes
-				 * @return the sign of the success of the allocation
+				 * @return      the sign of the success of the allocation
 				 *
 				 * \~
 				 */
@@ -329,6 +344,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the volume of the composed record
+				 *
 				 * @return the volume of the composed record in bytes
 				 *
 				 * \~
@@ -342,6 +358,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the number of the fields of a variable length not closed yet
+				 *
 				 * @return the number of the fields of a variable length not closed yet
 				 *
 				 * \~
@@ -357,7 +374,9 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the composed record
+				 *
 				 * @return the view of the composed record
+				 *
 				 * @note The view is valid until the next appending to the accumulator
 				 *
 				 * \~
@@ -374,6 +393,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the reset of the accumulator of the record being composed
+				 *
 				 * @details The accumulator is wiped before the reset: the composer holds secrets too (the
 				 *          shared value of the exchange, the state of a session ticket), and leaving them in
 				 *          the freed memory is not allowed. The wiping goes by the length of the record by the
@@ -389,11 +409,11 @@ namespace nts {
 				 *
 				 * @param value записываемое число
 				 * @param size  ширина записи числа в байтах
-				 *
 				 * @return      отказ записи числа
 				 *
 				 * \~english
 				 * @brief Method of the writing of a number of a given width
+				 *
 				 * @param value the number being written
 				 * @param size  the width of the record of the number in bytes
 				 * @return      the failure of the writing of the number
@@ -406,11 +426,11 @@ namespace nts {
 				 * @brief Метод записи области байтов
 				 *
 				 * @param data записываемая область байтов
-				 *
 				 * @return     отказ записи области байтов
 				 *
 				 * \~english
 				 * @brief Method of the writing of a byte area
+				 *
 				 * @param data the byte area being written
 				 * @return     the failure of the writing of the byte area
 				 *
@@ -422,11 +442,11 @@ namespace nts {
 				 * @brief Метод открытия поля переменной длины
 				 *
 				 * @param width ширина записи длины поля в байтах
-				 *
 				 * @return      отказ открытия поля переменной длины
 				 *
 				 * \~english
 				 * @brief Method of the opening of a field of a variable length
+				 *
 				 * @param width the width of the record of the length of the field in bytes
 				 * @return      the failure of the opening of the field of a variable length
 				 *
@@ -444,7 +464,9 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the closing of a field of a variable length
+				 *
 				 * @return the failure of the closing of the field of a variable length
+				 *
 				 * @details The length of the field is determined by how much has been written since its
 				 *          opening and is written into the place reserved for it
 				 *
@@ -455,7 +477,6 @@ namespace nts {
 				/**
 				 * \~russian
 				 * @brief Конструктор
-				 *
 				 *
 				 * \~english
 				 * @brief Constructor
@@ -471,6 +492,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Destructor
+				 *
 				 * @note The accumulator is wiped by the length of the record before the release
 				 *
 				 * \~

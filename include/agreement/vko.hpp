@@ -19,7 +19,6 @@
  * @brief Header file of the module of the production of a shared key VKO according to RFC 7836
  *
  * \~
- *
  * @copyright Copyright © 2026
  *
  */
@@ -68,7 +67,7 @@ namespace nts {
 	namespace agreement {
 		/**
 		 * \~russian
-		 * @brief Метод выработки общего ключа
+		 * @brief Функция выработки общего ключа
 		 *
 		 * @param curve  эллиптическая кривая выработки общего ключа
 		 * @param secret секретный ключ своей стороны
@@ -77,8 +76,7 @@ namespace nts {
 		 * @param ukm    добавочное значение сторон, задаваемое протоколом
 		 * @param result место, в которое помещается общий ключ
 		 * @param size   требуемая длина общего ключа в байтах
-		 *
-		 * @return признак успешности выработки общего ключа
+		 * @return       признак успешности выработки общего ключа
 		 *
 		 * @details Раздел 4.3 RFC 7836: обе стороны получают одно и то же значение,
 		 *          поскольку кратная точка от произведения своего секретного ключа на
@@ -95,7 +93,8 @@ namespace nts {
 		 *       без этой проверки подставная точка малого порядка выдаёт секретный ключ
 		 *
 		 * \~english
-		 * @brief Method of the production of a shared key
+		 * @brief Function of the production of a shared key
+		 *
 		 * @param curve  the elliptic curve of the production of the shared key
 		 * @param secret the secret key of one's own side
 		 * @param x      the first coordinate of the public key of the opposite side
@@ -103,15 +102,18 @@ namespace nts {
 		 * @param ukm    the user keying material given by the protocol
 		 * @param result the place the shared key is put into
 		 * @param size   the required length of the shared key in bytes
-		 * @return the flag of the success of the production of the shared key
+		 * @return       the flag of the success of the production of the shared key
+		 *
 		 * @details The section 4.3 of RFC 7836: both sides receive one and the same value, since
 		 *          the multiple point from the product of one's own secret key by the public key
 		 *          of the opposite side is common to them. The shared key comes out as a hash of
 		 *          the coordinates of this point: a length of 32 bytes takes a hash of a length of
 		 *          256 bits, a length of 64 bytes takes a hash of a length of 512 bits.
+		 *
 		 * @note The user keying material may be empty: the standard considers it equal to a unit by
 		 *       default. Its coincidence at the sides is obligatory, while its uniqueness is required
 		 *       only when at least one of the sides applies a constant key
+		 *
 		 * @note The public key of the opposite side is checked for the belonging to the curve: without
 		 *       this check a substituted point of a small order gives away the secret key
 		 *

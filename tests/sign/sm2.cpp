@@ -1,13 +1,16 @@
 /**
  * @file sm2.cpp
  * @date 2026-10-04
- * @license: GPL-3.0
  *
- * @telegram: @forman
- * @author: Yuriy Lobarev
- * @phone: +7 (910) 983-95-90
- * @email: forman@anyks.com
- * @site: https://anyks.com
+ * @license{GPL-3.0}
+ *
+ * @author Yuriy Lobarev
+ *
+ * @telegram{forman}
+ * @phone{+7 (910) 983-95-90}
+ *
+ * @email forman@anyks.com
+ * @site https://anyks.com
  *
  * @brief Исходный файл проверок модуля электронной подписи SM2
  *
@@ -18,7 +21,8 @@
  *       подписи сообщения «message digest». Пример сверен с OpenSSL 3.6 в обе
  *       стороны: его подпись сходится нашей проверкой, наша - его
  *
- * @copyright: Copyright © 2026
+ * @copyright Copyright © 2026
+ *
  */
 
 /**
@@ -41,10 +45,9 @@
 using namespace nts;
 
 /**
- * @brief Метод разбора шестнадцатеричной строки в байты
+ * @brief Функция разбора шестнадцатеричной строки в байты
  *
  * @param text разбираемая строка
- *
  * @return     разобранные байты
  *
  */
@@ -62,11 +65,10 @@ static std::vector <uint8_t> bytes(const std::string & text) {
 }
 
 /**
- * @brief Метод записи байтов шестнадцатеричной строкой
+ * @brief Функция записи байтов шестнадцатеричной строкой
  *
  * @param data байты
  * @param size число байтов
- *
  * @return     запись строчными шестнадцатеричными знаками
  *
  */
@@ -202,8 +204,9 @@ TEST(Sm2Test, Refusals){
 	ASSERT_FALSE(sm2.make(view_t(reinterpret_cast <const uint8_t *> (MESSAGE), ::strlen(MESSAGE)), view_t(random.data(), random.size()), made));
 	// Проверяем отказ проверки подписи без ключа
 	ASSERT_FALSE(sm2.check(view_t(reinterpret_cast <const uint8_t *> (MESSAGE), ::strlen(MESSAGE)), view_t(signature.data(), signature.size())));
-	// Проверяем отказ установки нулевого ключа подписи
+	// Нулевой ключ подписи: 32 нулевых байта
 	const uint8_t zero[32] = {0};
+	// Установка нулевого ключа подписи обязана отказать
 	ASSERT_FALSE(sm2.secret(view_t(zero, sizeof(zero)), view_t(reinterpret_cast <const uint8_t *> (ID), ::strlen(ID))));
 	// Проверяем отказ установки ключа подписи с пустым опознавателем
 	ASSERT_FALSE(sm2.secret(view_t(secret.data(), secret.size()), view_t()));

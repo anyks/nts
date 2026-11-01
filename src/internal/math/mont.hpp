@@ -31,6 +31,9 @@
  * Экранируем повторную инициализацию модуля
  */
 #ifndef __ANTS_INTERNAL_MATH_MONT__
+/**
+ * Макрос экранирования повторной инициализации модуля
+ */
 #define __ANTS_INTERNAL_MATH_MONT__
 
 /**
@@ -69,7 +72,7 @@
 			 */
 			namespace kernel {
 				/**
-				 * @brief Метод квадрата Монтгомери блоками по восемь слов на ассемблере x86-64 без BMI2 и ADX
+				 * @brief Функция квадрата Монтгомери блоками по восемь слов на ассемблере x86-64 без BMI2 и ADX
 				 *
 				 * @param buffer  накопитель в 2 · count + 2 слов: на выходе слова count … 2 · count - значение, меньшее удвоенного модуля, младшие count слов - отложенные множители приведения
 				 * @param value   слова числа, меньшего модуля
@@ -81,12 +84,17 @@
 				static void square8xMulq(uint64_t * buffer, const uint64_t * value, const uint64_t * modulus, const size_t count, const uint64_t inverse) noexcept {
 					// Доводы ядра операндами в памяти: число пар обнуляемых слов накопителя, конец числа, конец модуля, конец накопителя блоков, старшее слово
 					const uint64_t pairs = (count / 2);
+					// Конец числа в памяти
 					const uint64_t * end = (value + count);
+					// Конец модуля в памяти
 					const uint64_t * last = (modulus + count);
+					// Начало накопителя блоков
 					uint64_t * blocks = (buffer + count);
+					// Конец накопителя блоков
 					uint64_t * top = (buffer + (2 * count));
 					// Перенос между блоками и отложенный перенос окна
 					uint64_t carry = 0, window = 0;
+					// Выводим встроенный ассемблер ядра квадрата
 					__asm__ __volatile__(
 						"movq %[buffer], %%rcx\n\t"
 						"movq %[pairs], %%rsi\n\t"
@@ -1845,4 +1853,4 @@
 	}
 #endif
 
-#endif // __ANTS_INTERNAL_MATH_MONT__
+#endif

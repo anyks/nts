@@ -21,7 +21,6 @@
  *        transcript of the handshake and the values of the key schedule derived from it
  *
  * \~
- *
  * @copyright Copyright © 2026
  *
  */
@@ -71,6 +70,7 @@ namespace nts {
 	 *
 	 * \~english
 	 * @brief Namespace of the state of a connection of the TLS protocol
+	 *
 	 * @details Everything by which a connection differs from a bare exchange of the bytes rests on two
 	 *          values: on the hash of the transcript of the handshake and on the chain of the values of
 	 *          the key schedule. The first binds the keys to everything the parties have said to each
@@ -90,11 +90,17 @@ namespace nts {
 		 * \~
 		 */
 		enum class error_t : uint8_t {
+			// Отказа нет
 			NONE     = 0x00, /*!< \~russian Отказа нет \~english There is no failure \~ */
+			// Порядок вывода значений расписания нарушен
 			STATE    = 0x01, /*!< \~russian Порядок вывода значений расписания нарушен \~english The order of the derivation of the values of the schedule is violated \~ */
+			// Захешировать переписку рукопожатия не удалось
 			DIGEST   = 0x02, /*!< \~russian Захешировать переписку рукопожатия не удалось \~english It was not possible to hash the transcript of the handshake \~ */
+			// Вывести значение расписания ключей не удалось
 			SCHEDULE = 0x03, /*!< \~russian Вывести значение расписания ключей не удалось \~english It was not possible to derive a value of the key schedule \~ */
+			// Набор шифрования протоколом не определён
 			SUITE    = 0x04, /*!< \~russian Набор шифрования протоколом не определён \~english The cipher suite is not defined by the protocol \~ */
+			// Обязательный довод вывода не передан
 			EMPTY    = 0x05  /*!< \~russian Обязательный довод вывода не передан \~english A mandatory argument of the derivation is not passed \~ */
 		};
 
@@ -108,7 +114,9 @@ namespace nts {
 		 * \~
 		 */
 		enum class side_t : uint8_t {
+			// Направление связи от клиента
 			CLIENT = 0x01, /*!< \~russian Направление связи от клиента \~english The direction of the connection from the client \~ */
+			// Направление связи от сервера
 			SERVER = 0x02  /*!< \~russian Направление связи от сервера \~english The direction of the connection from the server \~ */
 		};
 
@@ -121,39 +129,45 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Stages of the key schedule
+		 *
 		 * @details The section 7.1 of RFC 8446: the schedule is passed by the stages, and every next one
 		 *          is derived from the previous one. It is not possible to skip a stage, nor to return back
 		 *
 		 * \~
 		 */
 		enum class stage_t : uint8_t {
+			// Расписание ключей ещё не начато
 			NONE        = 0x00, /*!< \~russian Расписание ключей ещё не начато \~english The key schedule is not started yet \~ */
+			// Начальная ступень расписания ключей
 			EARLY       = 0x01, /*!< \~russian Начальная ступень расписания ключей \~english The initial stage of the key schedule \~ */
+			// Ступень рукопожатия расписания ключей
 			HANDSHAKE   = 0x02, /*!< \~russian Ступень рукопожатия расписания ключей \~english The handshake stage of the key schedule \~ */
+			// Ступень прикладных данных расписания ключей
 			APPLICATION = 0x03  /*!< \~russian Ступень прикладных данных расписания ключей \~english The application data stage of the key schedule \~ */
 		};
 
 		/**
 		 * \~russian
-		 * @brief Метод вывода ключевого материала из значения направления связи
+		 * @brief Функция вывода ключевого материала из значения направления связи
 		 *
 		 * @param traffic значение направления связи, из которого выводится материал, длиною в хеш набора
 		 * @param suite   набор шифрования, которым защищаются записи
 		 * @param key     место, в которое помещается корневой ключ направления
 		 * @param vector  место, в которое помещается вектор замены направления
-		 *
 		 * @return        отказ вывода ключевого материала направления связи
 		 *
 		 * @details Раздел 7.3 RFC 8446: ключ и вектор замены выводятся из значения направления
 		 *          метками «key» и «iv», и порядок этот один на все ступени расписания
 		 *
 		 * \~english
-		 * @brief Method of the derivation of the key material from a value of a direction of a connection
+		 * @brief Function of the derivation of the key material from a value of a direction of a connection
+		 *
 		 * @param traffic the value of the direction of the connection the material is derived from
 		 * @param suite   the cipher suite the records are protected by
 		 * @param key     the place the root key of the direction is put into
 		 * @param vector  the place the vector of the replacement of the direction is put into
 		 * @return        the failure of the derivation of the key material of the direction
+		 *
 		 * @details The section 7.3 of RFC 8446: the key and the vector of the replacement are derived from
 		 *          the value of the direction by the «key» and «iv» labels, and this order is one for all
 		 *          the stages of the schedule
@@ -177,11 +191,13 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Transcript of the handshake
+		 *
 		 * @details The section 4.4.1 of RFC 8446: the hash of the transcript is taken from all the
 		 *          messages of the handshake in a row, together with their framing and in the order in
 		 *          which they have passed over the connection. This hash enters the derivation of every
 		 *          key and the signature of the possession of the key, by which both parties make sure
 		 *          that they have seen one and the same transcript.
+		 *
 		 * @note The messages are not stored: the transcript is hashed by a stream, while an interim hash
 		 *       is taken from a snapshot of the state of the hashing. Otherwise a connection would keep
 		 *       the whole chain of the certificates of the peer at itself until the very end of the handshake
@@ -212,11 +228,11 @@ namespace nts {
 				 * @brief Метод получения объекта хеширования переписки по хешу
 				 *
 				 * @param algorithm хеш, чей объект хеширования запрашивается
-				 *
 				 * @return          объект хеширования переписки либо nullptr у неведомого хеша
 				 *
 				 * \~english
 				 * @brief Method of getting the object of the hashing of the transcript by a hash
+				 *
 				 * @param algorithm the hash whose object of the hashing is being requested
 				 * @return          the object of the hashing of the transcript or nullptr at an unknown hash
 				 *
@@ -235,7 +251,9 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the hash the transcript of the handshake is conducted by
+				 *
 				 * @return the hash of the transcript of the handshake
+				 *
 				 * @note Before the choice of the cipher suite the transcript answers with «Streebog»-256: so the
 				 *       GOST branch is composed, at which the hash of the schedule is one for all the suites
 				 *
@@ -250,6 +268,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the length of the hash of the transcript of the handshake in bytes
+				 *
 				 * @return the length of the hash of the transcript of the handshake
 				 *
 				 * \~
@@ -266,6 +285,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the beginning of the transcript of the handshake
+				 *
 				 * @details The greeting of the client enters the transcript before the cipher suite is chosen,
 				 *          while the hash of the transcript is set by the suite. Hence before the choice the
 				 *          transcript is conducted by all the hashes of the suites at once, and the choice only
@@ -279,11 +299,11 @@ namespace nts {
 				 * @brief Метод начала переписки рукопожатия выбранным хешем
 				 *
 				 * @param algorithm хеш, которым ведётся переписка рукопожатия
-				 *
 				 * @return          отказ начала переписки на неведомом хеше
 				 *
 				 * \~english
 				 * @brief Method of the beginning of the transcript of the handshake by the chosen hash
+				 *
 				 * @param algorithm the hash the transcript of the handshake is conducted by
 				 * @return          the failure of the beginning of the transcript on an unknown hash
 				 *
@@ -295,7 +315,6 @@ namespace nts {
 				 * @brief Метод выбора хеша переписки рукопожатия
 				 *
 				 * @param algorithm хеш, выбранный набором шифрования
-				 *
 				 * @return          отказ выбора хеша переписки
 				 *
 				 * @details Выбор оставляет один из хешей, которыми переписка велась до сих пор.
@@ -304,8 +323,10 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the choice of the hash of the transcript of the handshake
+				 *
 				 * @param algorithm the hash chosen by the cipher suite
 				 * @return          the failure of the choice of the hash of the transcript
+				 *
 				 * @details The choice leaves one of the hashes the transcript has been conducted by so far. A
 				 *          repeated choice of the same hash changes nothing, the choice of another hash after
 				 *          the one having taken place is rejected: the other hashes have already fallen behind
@@ -330,7 +351,6 @@ namespace nts {
 				 * @brief Метод добавления сообщения в переписку рукопожатия
 				 *
 				 * @param message добавляемое сообщение вместе с его обвязкой
-				 *
 				 * @return        отказ добавления сообщения в переписку
 				 *
 				 * @note Сообщение добавляется вместе с обвязкой: хеш переписки берётся именно
@@ -338,8 +358,10 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the addition of a message into the transcript of the handshake
+				 *
 				 * @param message the message being added together with its framing
 				 * @return        the failure of the addition of the message into the transcript
+				 *
 				 * @note A message is added together with its framing: the hash of the transcript is taken
 				 *       exactly from such a record and not from the bodies of the messages alone
 				 *
@@ -351,7 +373,6 @@ namespace nts {
 				 * @brief Метод получения хеша переписки рукопожатия
 				 *
 				 * @param result место, в которое помещается хеш переписки
-				 *
 				 * @return       отказ получения хеша переписки
 				 *
 				 * @details Хеш берётся со снимка состояния хеширования: переписка при этом не
@@ -361,10 +382,13 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the hash of the transcript of the handshake
+				 *
 				 * @param result the place the hash of the transcript is put into
 				 * @return       the failure of the getting of the hash of the transcript
+				 *
 				 * @details The hash is taken from a snapshot of the state of the hashing: the transcript is
 				 *          not closed at that, and the messages may be added into it further on
+				 *
 				 * @note The place of the outcome is obliged to hold the length of the hash
 				 *
 				 * \~
@@ -376,7 +400,6 @@ namespace nts {
 				 *
 				 * @param suffix довесок, дописываемый к переписке лишь на этот хеш
 				 * @param result место, в которое помещается хеш переписки с довеском
-				 *
 				 * @return       отказ получения хеша переписки с довеском
 				 *
 				 * @details Раздел 4.2.11.2 RFC 8446: привязка заранее разделённого ключа берётся
@@ -388,13 +411,17 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the hash of the transcript of the handshake with an appendage
+				 *
 				 * @param suffix the appendage appended to the transcript only for this hash
 				 * @param result the place the hash of the transcript with the appendage is put into
 				 * @return       the failure of getting the hash of the transcript with the appendage
+				 *
 				 * @details The section 4.2.11.2 of RFC 8446: the binder of a pre-shared key is taken from the
 				 *          transcript with a truncated greeting which has not become a message yet — it is for
 				 *          this case that the appendage is needed
-				 * @note The appendage is not added to the transcript: it stays such as it was before this call
+				 *
+				 * @note The appendage is not added to the transcript: it stays such as it was
+				 *       before this call
 				 *
 				 * \~
 				 */
@@ -406,7 +433,6 @@ namespace nts {
 				 * @param algorithm хеш, которым берётся хеш переписки
 				 * @param suffix    довесок, дописываемый к переписке лишь на этот хеш
 				 * @param result    место, в которое помещается хеш переписки с довеском
-				 *
 				 * @return          отказ получения хеша переписки с довеском
 				 *
 				 * @details Раздел 4.2.11.2 RFC 8446: привязка билета берётся хешем набора билета,
@@ -415,10 +441,12 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the hash of the transcript with an appendage by the given hash
+				 *
 				 * @param algorithm the hash the hash of the transcript is taken by
 				 * @param suffix    the appendage appended to the transcript only for this hash
 				 * @param result    the place the hash of the transcript with the appendage is put into
 				 * @return          the failure of getting the hash of the transcript with the appendage
+				 *
 				 * @details The section 4.2.11.2 of RFC 8446: the binder of a ticket is taken by the hash of the
 				 *          suite of the ticket, while the suite of the connection is not chosen yet - it is for
 				 *          this case that the hash is given by the argument. After the choice only the chosen
@@ -440,7 +468,9 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the replacement of the accumulated transcript by its hash
+				 *
 				 * @return the failure of the replacement of the accumulated transcript
+				 *
 				 * @details The section 4.4.1 of RFC 8446: having received a request of a repetition of the
 				 *          greeting, both parties replace the first greeting of the client by a special
 				 *          message carrying the hash of this greeting. By that the transcript is shortened to
@@ -453,7 +483,6 @@ namespace nts {
 				/**
 				 * \~russian
 				 * @brief Конструктор
-				 *
 				 *
 				 * \~english
 				 * @brief Constructor
@@ -476,10 +505,12 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Values of the key schedule of a connection
+		 *
 		 * @details The section 7.1 of RFC 8446: the schedule is passed by three stages. The initial one is
 		 *          set up either on a pre-shared key or on the zeroes, the handshake stage — on the shared
 		 *          value of the exchange of the keys, while the application data stage is derived from it
 		 *          without any new key material at all.
+		 *
 		 * @note The object stores the values of both directions of the connection: the directions differ
 		 *       only by the label of the derivation, and it would be pointless to keep two identical
 		 *       objects for them
@@ -507,6 +538,10 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Structure of the values of the key schedule living between the calls
+				 *
+				 * @details It lies entirely in the sheltered memory of the storage (sys::Vault): the swapping
+				 *          is forbidden, the memory dumps do not contain it, the child process gets it
+				 *          wiped. The schedule has no copying - a secret has a single owner
 				 *
 				 * \~
 				 */
@@ -540,6 +575,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the hash the key schedule is conducted by
+				 *
 				 * @return the hash of the key schedule
 				 *
 				 * \~
@@ -553,6 +589,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the length of a value of the key schedule in bytes
+				 *
 				 * @return the length of a value of the key schedule
 				 *
 				 * \~
@@ -566,6 +603,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the passed stage of the key schedule
+				 *
 				 * @return the passed stage of the key schedule
 				 *
 				 * \~
@@ -587,7 +625,6 @@ namespace nts {
 				 * @brief Метод заведения начальной ступени расписания ключей
 				 *
 				 * @param secret заранее разделённый ключ связи
-				 *
 				 * @return       отказ заведения начальной ступени
 				 *
 				 * @details Раздел 7.1 RFC 8446: заранее разделённого ключа у связи может и не
@@ -595,8 +632,10 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the setting up of the initial stage of the key schedule
+				 *
 				 * @param secret the pre-shared key of the connection
 				 * @return       the failure of the setting up of the initial stage
+				 *
 				 * @details The section 7.1 of RFC 8446: a connection may have no pre-shared key, and then
 				 *          the zeroes of a length of the hash go in its place
 				 *
@@ -609,7 +648,6 @@ namespace nts {
 				 *
 				 * @param algorithm хеш набора шифрования, которым ведётся расписание
 				 * @param secret    заранее разделённый ключ связи
-				 *
 				 * @return          отказ заведения начальной ступени
 				 *
 				 * @note Заведение без довода хеша ведёт расписание «Стрибогом»-256: так сложена
@@ -617,9 +655,11 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the setting up of the initial stage of the key schedule by the chosen hash
+				 *
 				 * @param algorithm the hash of the cipher suite the schedule is conducted by
 				 * @param secret    the pre-shared key of the connection
 				 * @return          the failure of the setting up of the initial stage
+				 *
 				 * @note The setting up without the argument of the hash conducts the schedule by «Streebog»-256:
 				 *       so the GOST branch is composed, and every its value matches the former one byte for byte
 				 *
@@ -632,7 +672,6 @@ namespace nts {
 				 *
 				 * @param shared     общее значение обмена ключами
 				 * @param transcript хеш переписки рукопожатия на миг вывода
-				 *
 				 * @return           отказ вывода ступени рукопожатия
 				 *
 				 * @details Раздел 7.1 RFC 8446: хешем переписки берётся хеш приветствий обеих
@@ -641,9 +680,11 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the derivation of the handshake stage of the key schedule
+				 *
 				 * @param shared     the shared value of the exchange of the keys
 				 * @param transcript the hash of the transcript of the handshake at the moment of the derivation
 				 * @return           the failure of the derivation of the handshake stage
+				 *
 				 * @details The section 7.1 of RFC 8446: the hash of the greetings of both parties is taken as
 				 *          the hash of the transcript, and by it the keys of the handshake are bound to
 				 *          everything the parties have managed to agree upon
@@ -656,7 +697,6 @@ namespace nts {
 				 * @brief Метод вывода ступени прикладных данных расписания ключей
 				 *
 				 * @param transcript хеш переписки рукопожатия на миг вывода
-				 *
 				 * @return           отказ вывода ступени прикладных данных
 				 *
 				 * @details Раздел 7.1 RFC 8446: нового ключевого материала эта ступень не берёт
@@ -665,8 +705,10 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the derivation of the application data stage of the key schedule
+				 *
 				 * @param transcript the hash of the transcript of the handshake at the moment of the derivation
 				 * @return           the failure of the derivation of the application data stage
+				 *
 				 * @details The section 7.1 of RFC 8446: this stage takes no new key material at all, while the
 				 *          hash of the whole handshake up to its completion by the server serves as its hash
 				 *          of the transcript
@@ -681,16 +723,17 @@ namespace nts {
 				 *
 				 * @param side   сторона, чьё направление связи запрашивается
 				 * @param result место, в которое помещается значение направления связи
-				 *
 				 * @return       отказ получения значения направления связи
 				 *
 				 * @note Место итога обязано вмещать длину хеша расписания байтов
 				 *
 				 * \~english
 				 * @brief Method of getting the value of a direction of the connection
+				 *
 				 * @param side   the side whose direction of the connection is being requested
 				 * @param result the place the value of the direction of the connection is put into
 				 * @return       the failure of the getting of the value of the direction of the connection
+				 *
 				 * @note The place of the outcome is obliged to hold the length of the hash of the schedule bytes
 				 *
 				 * \~
@@ -704,7 +747,6 @@ namespace nts {
 				 * @param suite  набор шифрования, которым защищаются записи
 				 * @param key    место, в которое помещается корневой ключ направления
 				 * @param vector место, в которое помещается вектор замены направления
-				 *
 				 * @return       отказ вывода ключевого материала направления связи
 				 *
 				 * @details Раздел 7.3 RFC 8446: ключ и вектор замены выводятся из значения
@@ -713,11 +755,13 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the derivation of the key material of a direction of the connection
+				 *
 				 * @param side   the side whose direction of the connection is being requested
 				 * @param suite  the cipher suite the records are protected by
 				 * @param key    the place the root key of the direction is put into
 				 * @param vector the place the initialization vector of the direction is put into
 				 * @return       the failure of the derivation of the key material of the direction
+				 *
 				 * @details The section 7.3 of RFC 8446: the key and the initialization vector are derived from
 				 *          the value of the direction of the connection by the «key» and «iv» labels. The
 				 *          length of the initialization vector is set by the cipher suite and equals the length
@@ -732,7 +776,6 @@ namespace nts {
 				 *
 				 * @param side   сторона, чей ключ завершения запрашивается
 				 * @param result место, в которое помещается ключ завершения рукопожатия
-				 *
 				 * @return       отказ вывода ключа завершения рукопожатия
 				 *
 				 * @details Раздел 4.4.4 RFC 8446: ключ выводится из значения направления связи
@@ -742,12 +785,15 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the derivation of the key of the completion of the handshake
+				 *
 				 * @param side   the side whose key of the completion is being requested
 				 * @param result the place the key of the completion of the handshake is put into
 				 * @return       the failure of the derivation of the key of the completion of the handshake
+				 *
 				 * @details The section 4.4.4 of RFC 8446: the key is derived from the value of the direction of
 				 *          the connection by the «finished» label, and the authentication code of the completion
 				 *          is produced under it
+				 *
 				 * @note The place of the outcome is obliged to hold the length of the hash of the schedule bytes
 				 *
 				 * \~
@@ -758,7 +804,6 @@ namespace nts {
 				 * @brief Метод смены значения направления связи
 				 *
 				 * @param side сторона, чьё направление связи сменяется
-				 *
 				 * @return     отказ смены значения направления связи
 				 *
 				 * @details Раздел 7.2 RFC 8446: новое значение направления выводится из прежнего
@@ -769,10 +814,13 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the change of the value of the direction of the connection
+				 *
 				 * @param side the side whose direction of the connection is being changed
 				 * @return     the failure of the change of the value of the direction of the connection
+				 *
 				 * @details The section 7.2 of RFC 8446: the new value of the direction is derived from the
 				 *          previous one by the «traffic upd» label, and the previous value is not restored by it
+				 *
 				 * @note The change is allowed only at the stage of the application data: the keys of the
 				 *       handshake live exactly until its derivation and are not entitled to be changed
 				 *
@@ -784,7 +832,6 @@ namespace nts {
 				 * @brief Метод вывода значения возобновления связи
 				 *
 				 * @param transcript хеш переписки рукопожатия на миг вывода
-				 *
 				 * @return           отказ вывода значения возобновления связи
 				 *
 				 * @details Раздел 7.1 RFC 8446: значение выводится меткою «res master» от переписки,
@@ -793,8 +840,10 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the derivation of the value of the resumption of the connection
+				 *
 				 * @param transcript the hash of the transcript of the handshake at the moment of the derivation
 				 * @return           the failure of the derivation of the value of the resumption of the connection
+				 *
 				 * @details The section 7.1 of RFC 8446: the value is derived by the «res master» label from the
 				 *          transcript which has reached the completion of the handshake by the client, and the
 				 *          keys of the tickets issued by the server for a future connection are derived from it
@@ -808,7 +857,6 @@ namespace nts {
 				 *
 				 * @param nonce  неповторимое значение билета, назначенное сервером
 				 * @param result место, в которое помещается ключ билета
-				 *
 				 * @return       отказ вывода ключа билета возобновления связи
 				 *
 				 * @details Раздел 4.6.1 RFC 8446: всякому билету отвечает свой ключ, и неповторимое
@@ -819,12 +867,15 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the derivation of the key of a ticket of the resumption of the connection
+				 *
 				 * @param nonce  the unique value of the ticket appointed by the server
 				 * @param result the place the key of the ticket is put into
 				 * @return       the failure of the derivation of the key of the ticket of the resumption
+				 *
 				 * @details The section 4.6.1 of RFC 8446: every ticket corresponds to its own key, and the unique
 				 *          value of the ticket is what separates them — otherwise all the tickets of one connection
 				 *          would come out identical
+				 *
 				 * @note The place of the outcome is obliged to hold the length of the hash of the schedule bytes
 				 *
 				 * \~
@@ -836,7 +887,6 @@ namespace nts {
 				 *
 				 * @param transcript хеш усечённого приветствия клиента
 				 * @param result     место, в которое помещается привязка ключа
-				 *
 				 * @return           отказ выработки привязки заранее разделённого ключа
 				 *
 				 * @details Раздел 4.2.11.2 RFC 8446: привязка есть имитовставка усечённого
@@ -848,12 +898,15 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the production of the binder of a pre-shared key
+				 *
 				 * @param transcript the hash of the truncated greeting of the client
 				 * @param result     the place the binder of the key is put into
 				 * @return           the failure of the production of the binder of the pre-shared key
+				 *
 				 * @details The section 4.2.11.2 of RFC 8446: the binder is the authentication code of the
 				 *          truncated greeting under the key derived from the initial stage of the schedule by
 				 *          the «res binder» label. By it the client proves the possession of the key of the ticket.
+				 *
 				 * @note The binder is produced at the initial stage of the schedule of the keys: at it the
 				 *       pre-shared key is already put in, and the keys of the exchange are not there yet
 				 *
@@ -865,7 +918,6 @@ namespace nts {
 				 * @brief Метод вывода значения упреждающих данных связи
 				 *
 				 * @param transcript хеш переписки рукопожатия на миг вывода
-				 *
 				 * @return           отказ вывода значения упреждающих данных
 				 *
 				 * @details Раздел 7.1 RFC 8446: значение выводится из начальной ступени расписания
@@ -877,11 +929,14 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the derivation of the value of the early data of the connection
+				 *
 				 * @param transcript the hash of the transcript of the handshake at the moment of the derivation
 				 * @return           the failure of the derivation of the value of the early data
+				 *
 				 * @details The section 7.1 of RFC 8446: the value is derived from the initial stage of the
 				 *          schedule by the «c e traffic» label from the greeting of the client alone — there is
 				 *          no answer of the server at this moment at all
+				 *
 				 * @note The early data goes by one direction only, from the client: the server is not entitled
 				 *       to answer it earlier than by the keys of the handshake
 				 *
@@ -893,15 +948,16 @@ namespace nts {
 				 * @brief Метод получения значения упреждающих данных связи
 				 *
 				 * @param result место, в которое помещается значение упреждающих данных
-				 *
 				 * @return       отказ получения значения упреждающих данных
 				 *
 				 * @note Место итога обязано вмещать длину хеша расписания байтов
 				 *
 				 * \~english
 				 * @brief Method of getting the value of the early data of the connection
+				 *
 				 * @param result the place the value of the early data is put into
 				 * @return       the failure of getting the value of the early data
+				 *
 				 * @note The place of the outcome is obliged to hold the length of the hash of the schedule bytes
 				 *
 				 * \~
@@ -912,19 +968,19 @@ namespace nts {
 				 * @brief Метод получения значения экспорта ключевого материала связи
 				 *
 				 * @param result место, в которое помещается значение экспорта
-				 *
 				 * @return       отказ получения значения экспорта
 				 *
 				 * @note Место итога обязано вмещать длину хеша расписания байтов
 				 *
 				 * \~english
 				 * @brief Method of getting the value of the key material export of the connection
+				 *
 				 * @param result the place the value of the export is put into
 				 * @return       the failure of getting the value of the export
+				 *
 				 * @note The place of the outcome is obliged to hold the length of the hash of the schedule bytes
 				 *
 				 * \~
-				 *
 				 */
 				error_t exporter(uint8_t * result) const noexcept;
 				/**
@@ -932,19 +988,19 @@ namespace nts {
 				 * @brief Метод получения значения раннего экспорта ключевого материала связи
 				 *
 				 * @param result место, в которое помещается значение раннего экспорта
-				 *
 				 * @return       отказ получения значения раннего экспорта
 				 *
 				 * @note Место итога обязано вмещать длину хеша расписания байтов
 				 *
 				 * \~english
 				 * @brief Method of getting the value of the early key material export of the connection
+				 *
 				 * @param result the place the value of the early export is put into
 				 * @return       the failure of getting the value of the early export
+				 *
 				 * @note The place of the outcome is obliged to hold the length of the hash of the schedule bytes
 				 *
 				 * \~
-				 *
 				 */
 				error_t earlyExporter(uint8_t * result) const noexcept;
 				/**
@@ -956,7 +1012,6 @@ namespace nts {
 				 * @param result  место, в которое помещается экспортируемый материал
 				 * @param size    требуемая длина экспортируемого материала в байтах
 				 * @param early   признак раннего вывода из значения раннего экспорта
-				 *
 				 * @return        отказ вывода экспортируемого материала
 				 *
 				 * @details Раздел 7.5 RFC 8446: материал выводится из значения экспорта
@@ -972,18 +1027,21 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the derivation of the exported key material of the connection
+				 *
 				 * @param label   the label of the purpose of the material being exported
 				 * @param context the binding of the material being exported to the consumer
 				 * @param result  the place the exported material is put into
 				 * @param size    the required length of the exported material in bytes
 				 * @param early   the flag of the early derivation from the value of the early export
 				 * @return        the failure of the derivation of the exported material
+				 *
 				 * @details The section 7.5 of RFC 8446: the material is derived from the value of the
 				 *          export of the connection in two steps — first a value is derived by the
 				 *          label of the purpose from the hash of an empty transcript, then it is
 				 *          expanded by the hash of the binding up to the required length. By that the
 				 *          material is bound both to the transcript of the handshake, and to the
 				 *          purpose, and to the binding of the consumer
+				 *
 				 * @note The derivation is allowed only at the stage of the application data: the value
 				 *       of the export is derived at it and does not exist earlier. The early derivation
 				 *       is allowed from the initial stage: the value of the early export is derived
@@ -997,7 +1055,6 @@ namespace nts {
 				 * \~russian
 				 * @brief Конструктор
 				 *
-				 *
 				 * \~english
 				 * @brief Constructor
 				 *
@@ -1007,7 +1064,6 @@ namespace nts {
 				/**
 				 * \~russian
 				 * @brief Деструктор
-				 *
 				 *
 				 * \~english
 				 * @brief Destructor

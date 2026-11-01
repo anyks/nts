@@ -140,10 +140,9 @@ static const char * CLIENT_FINISHED = "2F21548CF5277869AE490DE7BC15ACE639F657E35
 static const protect::suite_t SUITE = protect::suite_t::KUZNYECHIK_MGM_S;
 
 /**
- * @brief Метод разбора строки шестнадцатеричной записи в область байтов
+ * @brief Функция разбора строки шестнадцатеричной записи в область байтов
  *
  * @param text разбираемая строка шестнадцатеричной записи
- *
  * @return     разобранная область байтов
  *
  */
@@ -255,6 +254,7 @@ TEST(SessionTest, Schedule){
 	 *
 	 * @note Заранее разделённого ключа у связи контрольного примера нет, и на его место
 	 *       идут нули длиною в хеш
+	 *
 	 */
 	ASSERT_EQ(secrets.start(view_t(nullptr, 0)), session::error_t::NONE);
 	// Проверяем пройденную ступень расписания ключей
@@ -760,7 +760,9 @@ TEST(SessionTest, Disordered){
  *
  */
 TEST(SessionTest, Unbegun){
+	// Заготовка расписания без выведенных значений
 	session::secrets_t secrets;
+	// Место запрошенного значения упреждающих данных
 	uint8_t result[schedule::SCHEDULE_SECRET];
 	// Значение упреждающих данных до вывода начального значения не выдаётся
 	ASSERT_EQ(secrets.early(result), session::error_t::STATE);

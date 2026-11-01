@@ -23,7 +23,6 @@
  *        according to RFC 7517 and the key thumbprints according to RFC 7638
  *
  * \~
- *
  * @copyright Copyright © 2026
  *
  */
@@ -55,7 +54,6 @@
  * @brief Main namespace
  *
  * \~
- *
  */
 namespace nts {
 	/**
@@ -71,7 +69,6 @@ namespace nts {
 	 * @brief Namespace of the JWS signature module
 	 *
 	 * \~
-	 *
 	 */
 	namespace jws {
 		/**
@@ -84,11 +81,17 @@ namespace nts {
 		 * \~
 		 */
 		enum class error_t : uint8_t {
+			// Отказа нет, работа удалась
 			NONE       = 0x00, /*!< \~russian Отказа нет, работа удалась \~english There is no failure, the work has succeeded \~ */
+			// Запись пуста либо ключ не установлен
 			EMPTY      = 0x01, /*!< \~russian Запись пуста либо ключ не установлен \~english The record is empty or the key is not set \~ */
+			// Запись не отвечает устройству компактной записи JWS
 			STRUCTURE  = 0x02, /*!< \~russian Запись не отвечает устройству компактной записи JWS \~english The record does not meet the structure of the JWS compact serialization \~ */
+			// Алгоритм подписи неизвестен либо ключ ему не отвечает
 			ALGORITHM  = 0x03, /*!< \~russian Алгоритм подписи неизвестен либо ключ ему не отвечает \~english The signature algorithm is unknown or the key does not meet it \~ */
+			// Подпись не сошлась либо выработать её не удалось
 			SIGNATURE  = 0x04, /*!< \~russian Подпись не сошлась либо выработать её не удалось \~english The signature has not converged or its production has failed \~ */
+			// Не удалось выделить память под итог работы
 			MEMORY     = 0x05  /*!< \~russian Не удалось выделить память под итог работы \~english Failed to allocate the memory for the result of the work \~ */
 		};
 
@@ -101,6 +104,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief The signature algorithms of JWS
+		 *
 		 * @details The set according to the section 3.1 of RFC 7518 out of the algorithms
 		 *          started in the project: HMAC is not started — the JWS signatures in ACME
 		 *          go by the asymmetric keys alone
@@ -108,13 +112,21 @@ namespace nts {
 		 * \~
 		 */
 		enum class algorithm_t : uint8_t {
+			// Алгоритм не установлен
 			NONE   = 0x00, /*!< \~russian Алгоритм не установлен \~english The algorithm is not set \~ */
+			// RSASSA-PKCS1-v1_5 с SHA-256 по разделу 3.3 RFC 7518
 			RS256  = 0x01, /*!< \~russian RSASSA-PKCS1-v1_5 с SHA-256 по разделу 3.3 RFC 7518 \~english RSASSA-PKCS1-v1_5 with SHA-256 according to the section 3.3 of RFC 7518 \~ */
+			// RSASSA-PKCS1-v1_5 с SHA-384 по разделу 3.3 RFC 7518
 			RS384  = 0x02, /*!< \~russian RSASSA-PKCS1-v1_5 с SHA-384 по разделу 3.3 RFC 7518 \~english RSASSA-PKCS1-v1_5 with SHA-384 according to the section 3.3 of RFC 7518 \~ */
+			// RSASSA-PKCS1-v1_5 с SHA-512 по разделу 3.3 RFC 7518
 			RS512  = 0x03, /*!< \~russian RSASSA-PKCS1-v1_5 с SHA-512 по разделу 3.3 RFC 7518 \~english RSASSA-PKCS1-v1_5 with SHA-512 according to the section 3.3 of RFC 7518 \~ */
+			// ECDSA на P-256 с SHA-256 по разделу 3.4 RFC 7518
 			ES256  = 0x04, /*!< \~russian ECDSA на P-256 с SHA-256 по разделу 3.4 RFC 7518 \~english ECDSA on P-256 with SHA-256 according to the section 3.4 of RFC 7518 \~ */
+			// ECDSA на P-384 с SHA-384 по разделу 3.4 RFC 7518
 			ES384  = 0x05, /*!< \~russian ECDSA на P-384 с SHA-384 по разделу 3.4 RFC 7518 \~english ECDSA on P-384 with SHA-384 according to the section 3.4 of RFC 7518 \~ */
+			// ECDSA на P-521 с SHA-512 по разделу 3.4 RFC 7518
 			ES512  = 0x06, /*!< \~russian ECDSA на P-521 с SHA-512 по разделу 3.4 RFC 7518 \~english ECDSA on P-521 with SHA-512 according to the section 3.4 of RFC 7518 \~ */
+			// Ed25519 по RFC 8037
 			EDDSA  = 0x07  /*!< \~russian Ed25519 по RFC 8037 \~english Ed25519 according to RFC 8037 \~ */
 		};
 
@@ -128,6 +140,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief A parsed JWS compact record
+		 *
 		 * @details The parsed record keeps views inside the text being parsed:
 		 *          the text must outlive the object. The signature is checked by the
 		 *          method verify with the public key info of the side that signed
@@ -167,8 +180,10 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of parsing a JWS compact record
+				 *
 				 * @param data the view of the record being parsed
 				 * @return     the reason of the failure or error_t::NONE
+				 *
 				 * @details A record of the form protected '.' payload '.' signature is parsed
 				 *          according to the section 7.2.2 of RFC 7515: the header is decoded,
 				 *          the member alg is extracted from it, the signature is decoded from
@@ -197,6 +212,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the reason of the last failure
+				 *
 				 * @return the reason of the last failure
 				 *
 				 * \~
@@ -210,6 +226,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the signature algorithm
+				 *
 				 * @return the signature algorithm from the header of the record
 				 *
 				 * \~
@@ -223,6 +240,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the text of the header
+				 *
 				 * @return the parsed JSON text of the header
 				 *
 				 * \~
@@ -237,6 +255,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the payload
+				 *
 				 * @param result the place the decoded payload is put into
 				 * @return       the reason of the failure or error_t::NONE
 				 *
@@ -251,6 +270,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the signature
+				 *
 				 * @return the signature in the parsed form
 				 *
 				 * \~
@@ -270,8 +290,10 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the check of the signature of the record
+				 *
 				 * @param key the info of the public key of the side that signed
 				 * @return    the reason of the failure or error_t::NONE
+				 *
 				 * @details The record being signed is assembled according to the section 5.1
 				 *          of RFC 7515: ASCII(protected '.' payload). The ECDSA signature carries
 				 *          the pair r ‖ s according to the section 3.4 of RFC 7518 and is translated
@@ -295,7 +317,7 @@ namespace nts {
 
 		/**
 		 * \~russian
-		 * @brief Метод кодирования base64url
+		 * @brief Функция кодирования base64url
 		 *
 		 * @param data   просмотр кодируемых данных
 		 * @param result строка, в которую помещается итог
@@ -304,9 +326,11 @@ namespace nts {
 		 *          с '-' и '_' вместо '+' и '/', как велит раздел 2 RFC 7515
 		 *
 		 * \~english
-		 * @brief Method of the base64url encoding
+		 * @brief Function of the base64url encoding
+		 *
 		 * @param data   the view of the data being encoded
 		 * @param result the string the result is put into
+		 *
 		 * @details The encoding according to the section 5 of RFC 4648 without the padding
 		 *          characters: the alphabet with '-' and '_' instead of '+' and '/', as the
 		 *          section 2 of RFC 7515 orders
@@ -316,7 +340,7 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ void base64url(const view_t & data, string & result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод декодирования base64url
+		 * @brief Функция декодирования base64url
 		 *
 		 * @param text   просмотр кодируемой строки
 		 * @param result место, в которое помещается итог
@@ -326,10 +350,12 @@ namespace nts {
 		 *          символы вне алфавита base64url отвергаются
 		 *
 		 * \~english
-		 * @brief Method of the base64url decoding
+		 * @brief Function of the base64url decoding
+		 *
 		 * @param text   the view of the string being decoded
 		 * @param result the place the result is put into
 		 * @return       the flag of the success of the parsing
+		 *
 		 * @details The padding characters are rejected: the section 2 of RFC 7515 orders
 		 *          the record without them; the characters outside the base64url alphabet
 		 *          are rejected
@@ -340,13 +366,14 @@ namespace nts {
 
 		/**
 		 * \~russian
-		 * @brief Метод получения имени алгоритма подписи
+		 * @brief Функция получения имени алгоритма подписи
 		 *
 		 * @param algorithm алгоритм подписи
 		 * @return          имя алгоритма («ES256» и прочие), пустое у неустановленного
 		 *
 		 * \~english
-		 * @brief Method of getting the name of a signature algorithm
+		 * @brief Function of getting the name of a signature algorithm
+		 *
 		 * @param algorithm the signature algorithm
 		 * @return          the name of the algorithm («ES256» and the others), empty at an unset one
 		 *
@@ -355,13 +382,14 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ const char * name(const algorithm_t algorithm) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод получения алгоритма подписи по его имени
+		 * @brief Функция получения алгоритма подписи по его имени
 		 *
 		 * @param name имя алгоритма
 		 * @return     алгоритм подписи, algorithm_t::NONE у неизвестного имени
 		 *
 		 * \~english
-		 * @brief Method of getting a signature algorithm by its name
+		 * @brief Function of getting a signature algorithm by its name
+		 *
 		 * @param name the name of the algorithm
 		 * @return     the signature algorithm, algorithm_t::NONE at an unknown name
 		 *
@@ -370,7 +398,7 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ algorithm_t algorithm(const view_t & name) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод определения алгоритма подписи по ключу
+		 * @brief Функция определения алгоритма подписи по ключу
 		 *
 		 * @param key сведения о ключе
 		 * @return    алгоритм подписи, algorithm_t::NONE у ключа неподходящего вида
@@ -379,9 +407,11 @@ namespace nts {
 		 *          EC - ES256/ES384/ES512 по кривой, Ed25519 - EdDSA
 		 *
 		 * \~english
-		 * @brief Method of the determination of the signature algorithm by the key
+		 * @brief Function of the determination of the signature algorithm by the key
+		 *
 		 * @param key the info of the key
 		 * @return    the signature algorithm, algorithm_t::NONE at a key of an unfit kind
+		 *
 		 * @details By the kind and the size of the key the default algorithm is chosen:
 		 *          RSA - RS256, EC - ES256/ES384/ES512 by the curve, Ed25519 - EdDSA
 		 *
@@ -390,13 +420,14 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ algorithm_t algorithm(const keys::key_t & key) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод определения алгоритма подписи по подготовленному ключу
+		 * @brief Функция определения алгоритма подписи по подготовленному ключу
 		 *
 		 * @param signer подготовленный секретный ключ подписи
 		 * @return       алгоритм подписи, algorithm_t::NONE у ключа неподходящего вида
 		 *
 		 * \~english
-		 * @brief Method of the determination of the signature algorithm by the prepared key
+		 * @brief Function of the determination of the signature algorithm by the prepared key
+		 *
 		 * @param signer the prepared secret signature key
 		 * @return       the signature algorithm, algorithm_t::NONE at a key of an unfit kind
 		 *
@@ -406,14 +437,13 @@ namespace nts {
 
 		/**
 		 * \~russian
-		 * @brief Метод сборки компактной записи JWS
+		 * @brief Функция сборки компактной записи JWS
 		 *
 		 * @param algorithm алгоритм подписи
 		 * @param header    текст заголовка JSON целиком (без alg: он вписывается сам)
 		 * @param payload   полезная нагрузка
 		 * @param signer    подготовленный секретный ключ подписи
 		 * @param result    строка, в которую помещается запись
-		 *
 		 * @return          причина отказа либо error_t::NONE
 		 *
 		 * @details Запись собирается по разделу 7.2.1 RFC 7515: заголовок дополняется
@@ -423,13 +453,15 @@ namespace nts {
 		 *          в удвоенное число кривой по разделу 3.4 RFC 7518
 		 *
 		 * \~english
-		 * @brief Method of assembling a JWS compact record
+		 * @brief Function of assembling a JWS compact record
+		 *
 		 * @param algorithm the signature algorithm
 		 * @param header    the text of the JSON header as a whole (without alg: it is written in by itself)
 		 * @param payload   the payload
 		 * @param signer    the prepared secret signature key
 		 * @param result    the string the record is put into
 		 * @return          the reason of the failure or error_t::NONE
+		 *
 		 * @details The record is assembled according to the section 7.2.1 of RFC 7515: the
 		 *          header is complemented with the member alg, encoded into base64url, the
 		 *          record ASCII(protected '.' payload) is signed, the signature is encoded
@@ -443,7 +475,7 @@ namespace nts {
 
 		/**
 		 * \~russian
-		 * @brief Метод сборки записи открытого ключа JWK
+		 * @brief Функция сборки записи открытого ключа JWK
 		 *
 		 * @param key    сведения об открытом ключе
 		 * @param result строка, в которую помещается текст JSON
@@ -455,10 +487,12 @@ namespace nts {
 		 *          дополненные до размера кривой
 		 *
 		 * \~english
-		 * @brief Method of assembling a JWK public key record
+		 * @brief Function of assembling a JWK public key record
+		 *
 		 * @param key    the info of the public key
 		 * @param result the string the JSON text is put into
 		 * @return       the reason of the failure or error_t::NONE
+		 *
 		 * @details The record according to RFC 7517 with the members according to RFC 7518
 		 *          and RFC 8037: at RSA - kty, n, e; at EC - kty, crv, x, y; at Ed25519 - kty,
 		 *          crv, x. The numbers are encoded into base64url in the order from the senior
@@ -469,7 +503,7 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ error_t jwk(const keys::key_t & key, string & result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод разбора записи открытого ключа JWK
+		 * @brief Функция разбора записи открытого ключа JWK
 		 *
 		 * @param text   просмотр текста JSON
 		 * @param result ключ, в который помещается итог разбора
@@ -480,10 +514,12 @@ namespace nts {
 		 *          ключа, отвергаются
 		 *
 		 * \~english
-		 * @brief Method of parsing a JWK public key record
+		 * @brief Function of parsing a JWK public key record
+		 *
 		 * @param text   the view of the JSON text
 		 * @param result the key the result of the parsing is put into
 		 * @return       the reason of the failure or error_t::NONE
+		 *
 		 * @details The records RSA (kty, n, e), EC (kty, crv, x, y with the curves P-256,
 		 *          P-384, P-521) and Ed25519 (kty, crv, x) are parsed. The members foreign
 		 *          to the kind of the key are rejected
@@ -493,7 +529,7 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ error_t unjwk(const view_t & text, keys::key_t & result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод выработки отпечатка открытого ключа JWK
+		 * @brief Функция выработки отпечатка открытого ключа JWK
 		 *
 		 * @param key    сведения об открытом ключе
 		 * @param result строка, в которую помещается отпечаток в base64url
@@ -504,10 +540,12 @@ namespace nts {
 		 *          Отпечаток ключа учётной записи лежит в основе привязки ACME
 		 *
 		 * \~english
-		 * @brief Method of the production of the JWK public key thumbprint
+		 * @brief Function of the production of the JWK public key thumbprint
+		 *
 		 * @param key    the info of the public key
 		 * @param result the string the thumbprint in base64url is put into
 		 * @return       the reason of the failure or error_t::NONE
+		 *
 		 * @details The thumbprint according to the section 3 of RFC 7638: SHA-256 of the
 		 *          canonical JSON text with the required members in the lexicographic order,
 		 *          written in base64url. The thumbprint of the account key lies at the heart

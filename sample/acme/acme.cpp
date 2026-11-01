@@ -58,10 +58,9 @@ using namespace nts;
  */
 namespace {
 	/**
-	 * @brief Метод получения просмотра строки знаков
+	 * @brief Функция получения просмотра строки знаков
 	 *
 	 * @param text строка знаков, на которую заводится просмотр
-	 *
 	 * @return     просмотр области байтов строки знаков
 	 *
 	 */
@@ -70,10 +69,9 @@ namespace {
 		return view_t(reinterpret_cast <const uint8_t *> (text.data()), text.size());
 	}
 	/**
-	 * @brief Метод чтения файла набора целиком
+	 * @brief Функция чтения файла набора целиком
 	 *
 	 * @param name имя файла в наборе
-	 *
 	 * @return     содержимое файла, пустое при отказе чтения
 	 *
 	 */
@@ -81,7 +79,7 @@ namespace {
 		// Содержимое файла
 		string result;
 		/**
-		 * Выполняем чтение файла: поток и накопитель занимают память
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Поток чтения файла набора
@@ -91,7 +89,7 @@ namespace {
 				// Читаем файл целиком
 				result.assign(istreambuf_iterator <char> (file), istreambuf_iterator <char> ());
 		/**
-		 * Если памяти под файл не хватило
+		 * Выполняем перехват ошибок
 		 */
 		} catch(const bad_alloc &) {
 			// Файл не прочитан
@@ -107,7 +105,6 @@ namespace {
  *
  * @param argc длина массива параметров
  * @param argv массив параметров
- *
  * @return     код выхода из приложения
  *
  */
@@ -133,6 +130,7 @@ int main(int argc, char * argv[]) noexcept {
 	 *
 	 * @details Ответ несёт адреса ресурсов службы: у него на месте обязаны быть
 	 *          newNonce, newAccount, newOrder и revokeCert
+	 *
 	 */
 	if(directory.parse(::text(ANSWER)) != acme::error_t::NONE){
 		// Выводим сообщение об отказе разбора ответа
@@ -142,7 +140,9 @@ int main(int argc, char * argv[]) noexcept {
 	}
 	// Выводим адреса ресурсов службы
 	cout << "Каталог службы     : newNonce " << directory.newNonce << endl;
+	// Выводим адрес заведения учётной записи
 	cout << "                   : newAccount " << directory.newAccount << endl;
+	// Выводим адрес заведения заказов
 	cout << "                   : newOrder " << directory.newOrder << endl;
 	// Ключ учётной записи
 	keys::key_t key;
@@ -177,6 +177,7 @@ int main(int argc, char * argv[]) noexcept {
 	 *
 	 * @details Адрес учётной записи пуст, оттого заголовок JWS несёт запись ключа
 	 *          jwk целиком, как велит раздел 6.2 RFC 8555 для запросов newAccount
+	 *
 	 */
 	if(acme::request(directory.newAccount, "6S8IqOGY7eL2lsGoTZYifg", "", key, ::text(payload), signer, body) != acme::error_t::NONE){
 		// Выводим сообщение об отказе сборки запроса
@@ -188,7 +189,9 @@ int main(int argc, char * argv[]) noexcept {
 	cout << "Тело запроса       : " << body.size() << " байт application/jose+json" << endl;
 	// Позиции членов тела запроса
 	const size_t head = body.find("\"protected\":\"");
+	// Ищем позицию полезной нагрузки
 	const size_t middle = body.find("\",\"payload\":\"", head);
+	// Ищем позицию подписи
 	const size_t tail = body.find("\",\"signature\":\"", middle);
 	// Если члены тела не найдены
 	if((head == string::npos) || (middle == string::npos) || (tail == string::npos)){
@@ -209,6 +212,7 @@ int main(int argc, char * argv[]) noexcept {
 	 *
 	 * @details Запись разбирается по разделу 7.2.2 RFC 7515: заголовок декодируется,
 	 *          просмотры полезной нагрузки и подписи указывают внутрь текста записи
+	 *
 	 */
 	if(signature.parse(::text(compact)) != jws::error_t::NONE){
 		// Выводим сообщение об отказе разбора записи

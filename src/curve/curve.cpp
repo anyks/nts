@@ -110,9 +110,18 @@
  */
 #if defined(__aarch64__) && defined(__ARM_NEON) && !defined(_MSC_VER)
 	#include <arm_neon.h>
+	/**
+	 * Включаем ускоренный перебор таблицы векторными командами NEON
+	 */
 	#define __ANTS_CURVE_NEON__
+/**
+ * Иначе выбираем векторные команды SSE2 под x86-64
+ */
 #elif defined(__x86_64__) && defined(__SSE2__) && !defined(_MSC_VER)
 	#include <emmintrin.h>
+	/**
+	 * Включаем ускоренный перебор таблицы векторными командами SSE2
+	 */
 	#define __ANTS_CURVE_SSE2__
 #endif
 
@@ -139,7 +148,7 @@ namespace {
 	// Затирание областей памяти берётся из открытого API библиотеки
 	using nts::sys::wipe;
 	/**
-	 * @brief Метод затирания числа
+	 * @brief Функция затирания числа
 	 *
 	 * @param value затираемое число
 	 *
@@ -149,7 +158,7 @@ namespace {
 		wipe(value.words, sizeof(value.words));
 	}
 	/**
-	 * @brief Метод перезаписи кадров стека, оставленных шагами умножения
+	 * @brief Функция перезаписи кадров стека, оставленных шагами умножения
 	 *
 	 * @note Удвоение и сложение точек зовутся на каждый разряд множителя, и
 	 *       затирать их местные значения на каждом шаге - платить пятую часть
@@ -184,6 +193,9 @@ namespace {
 			for(size_t i = 0; i < (sizeof(area) / sizeof(area[0])); i++)
 				// Обнуляем очередное слово области
 				item[i] = 0;
+		/**
+		 * Иначе перезаписываем область затиранием с пустой вставкой ассемблера
+		 */
 		#else
 			// Выполняем перезапись области стека
 			::memset(area, 0, sizeof(area));
@@ -192,11 +204,10 @@ namespace {
 		#endif
 	}
 	/**
-	 * @brief Метод получения маски совпадения двух чисел
+	 * @brief Функция получения маски совпадения двух чисел
 	 *
 	 * @param first  первое сличаемое число
 	 * @param second второе сличаемое число
-	 *
 	 * @return       все единицы при совпадении чисел и ноль при расхождении
 	 *
 	 * @note Сличение идёт без ветвления: сравнение чисел здесь идёт по значению разрядов
@@ -210,7 +221,7 @@ namespace {
 		return (0 - (((value | (~value + 1)) >> 63) ^ 0x01));
 	}
 	/**
-	 * @brief Метод извлечения разрядов множителя
+	 * @brief Функция извлечения разрядов множителя
 	 *
 	 * @details Разряды вправе лежать через границу слова: тогда старшие берутся из
 	 *          следующего слова. Слова выше разрядности множителя нулевые, оттого
@@ -219,7 +230,6 @@ namespace {
 	 * @param factor множитель, из которого извлекаются разряды
 	 * @param bit    номер младшего извлекаемого разряда
 	 * @param count  число извлекаемых разрядов
-	 *
 	 * @return       извлечённые разряды числом
 	 *
 	 * @note Ветвление здесь идёт по номеру разряда, а не по значению множителя: номер
@@ -241,7 +251,7 @@ namespace {
 		return (value & ((static_cast <uint64_t> (1) << count) - 1));
 	}
 	/**
-	 * @brief Метод получения знакового окна множителя (кодирование Бута)
+	 * @brief Функция получения знакового окна множителя (кодирование Бута)
 	 *
 	 * @details Окно ширины w берётся вместе с разрядом ниже себя: тот несёт перенос из
 	 *          предыдущего окна. Старший разряд окна обращается в знак: окно со старшим
@@ -254,7 +264,6 @@ namespace {
 	 * @param position номер окна от младшего
 	 * @param width    разрядность окна
 	 * @param sign     место, в которое помещается единица у отрицательной цифры
-	 *
 	 * @return         величина цифры окна
 	 *
 	 * @note Кодирование идёт наложением масок без ветвления: разряды множителя секретны
@@ -290,10 +299,9 @@ namespace {
 		V z;
 	};
 	/**
-	 * @brief Метод снятия признака машины для выбора ядер поля
+	 * @brief Функция снятия признака машины для выбора ядер поля
 	 *
 	 * @param layout устройство модуля поля
-	 *
 	 * @return признак того, что поле - простое P-256 либо простое вида 2^256 - c (кривые ГОСТ
 	 *         CryptoPro-A и ТК26 на 256 разрядов), а у машины есть MULX и ADCX/ADOX с ядрами на них
 	 *         под x86-64; иначе ложь
@@ -311,9 +319,13 @@ namespace {
 		#if defined(__ANTS_X86_64_ADX_KERNELS__)
 			// Выводим признак: поле P-256 либо вида 2^256 - c и MULX с ADCX/ADOX у машины
 			return (((layout.form == math::Modulus::form_t::NIST) || (layout.form == math::Modulus::form_t::MINUS)) && machine::has(machine::feature_t::ADX));
+		/**
+		 * Иначе выводим признак без опоры на машину
+		 */
 		#else
 			// Ядра от машины не зависят
 			(void) layout;
+			// Выводим признак отсутствия ядер MULX с ADCX/ADOX
 			return false;
 		#endif
 	}
@@ -335,7 +347,12 @@ namespace {
 		// Устройство модуля поля
 		const math::Modulus::layout_t layout;
 		/**
-		 * @brief Метод умножения по модулю
+		 * @brief Метод умножения точки кривой на число
+		 *
+		 * @param value  умножаемая точка
+		 * @param factor число, на которое умножается точка
+		 * @param result место, в которое помещается произведение
+		 *
 		 */
 		__ANTS_INLINE__ void multiply(const value_t & first, const value_t & second, value_t & result) const noexcept {
 			// Выполняем умножение встраиваемым ядром: ядра MULX у простого P-256 по признаку шаблона
@@ -343,13 +360,19 @@ namespace {
 		}
 		/**
 		 * @brief Метод возведения в квадрат по модулю
+		 *
 		 */
 		__ANTS_INLINE__ void square(const value_t & value, value_t & result) const noexcept {
 			// Выполняем возведение в квадрат встраиваемым ядром: ядра MULX у простого P-256 по признаку шаблона
 			math::kernel::square <WORDS, ADX> (this->layout, value, result);
 		}
 		/**
-		 * @brief Метод сложения по модулю
+		 * @brief Метод сложения точек кривой
+		 *
+		 * @param first  первое слагаемое
+		 * @param second второе слагаемое
+		 * @param result место, в которое помещается сумма точек
+		 *
 		 */
 		__ANTS_INLINE__ void add(const value_t & first, const value_t & second, value_t & result) const noexcept {
 			// Выполняем сложение встраиваемым ядром
@@ -357,6 +380,7 @@ namespace {
 		}
 		/**
 		 * @brief Метод вычитания по модулю
+		 *
 		 */
 		__ANTS_INLINE__ void subtract(const value_t & first, const value_t & second, value_t & result) const noexcept {
 			// Выполняем вычитание встраиваемым ядром
@@ -364,6 +388,7 @@ namespace {
 		}
 		/**
 		 * @brief Метод выбора одного из двух значений наложением маски
+		 *
 		 */
 		__ANTS_INLINE__ void choose(const uint64_t mask, const value_t & first, const value_t & second, value_t & result) const noexcept {
 			// Выполняем выбор наложением маски
@@ -371,6 +396,7 @@ namespace {
 		}
 		/**
 		 * @brief Метод получения маски равенства значения нулю
+		 *
 		 */
 		__ANTS_INLINE__ uint64_t zero(const value_t & value) const noexcept {
 			// Выводим маску равенства нулю
@@ -378,6 +404,7 @@ namespace {
 		}
 		/**
 		 * @brief Метод чтения значения из слов числа
+		 *
 		 */
 		__ANTS_INLINE__ void load(const math::number_t & number, value_t & result) const noexcept {
 			/**
@@ -389,6 +416,7 @@ namespace {
 		}
 		/**
 		 * @brief Метод чтения значения из слов в памяти
+		 *
 		 */
 		__ANTS_INLINE__ void read(const uint64_t * place, value_t & result) const noexcept {
 			/**
@@ -400,6 +428,7 @@ namespace {
 		}
 		/**
 		 * @brief Метод записи значения в число
+		 *
 		 */
 		__ANTS_INLINE__ void store(const value_t & value, math::number_t & number) const noexcept {
 			// Выполняем обнуление числа: слова выше ширины поля нулевые
@@ -421,8 +450,12 @@ namespace {
 		 * @param index  номер искомой строки
 		 * @param result место, в которое накапливаются слова выбранной строки
 		 * @param length число накапливаемых слов строки: кратно двум
+		 *
 		 */
 		__ANTS_INLINE__ void gather(const uint64_t * table, const size_t stride, const size_t count, const uint64_t first, const uint64_t index, uint64_t * result, const size_t length) const noexcept {
+			/**
+			 * Выбираем строку таблицы векторными командами NEON
+			 */
 			#if defined(__ANTS_CURVE_NEON__)
 				// Накопители по два слова
 				uint64x2_t acc[(3 * WORDS) / 2];
@@ -453,6 +486,9 @@ namespace {
 				for(size_t k = 0; k < (length / 2); k++)
 					// Записываем очередную пару слов
 					vst1q_u64(result + (2 * k), acc[k]);
+			/**
+			 * Иначе выбираем строку таблицы векторными командами SSE2
+			 */
 			#elif defined(__ANTS_CURVE_SSE2__)
 				// Накопители по два слова
 				__m128i acc[(3 * WORDS) / 2];
@@ -483,6 +519,9 @@ namespace {
 				for(size_t k = 0; k < (length / 2); k++)
 					// Записываем очередную пару слов
 					_mm_storeu_si128(reinterpret_cast <__m128i *> (result + (2 * k)), acc[k]);
+			/**
+			 * Иначе выбираем строку таблицы скалярным перебором
+			 */
 			#else
 				/**
 				 * Выполняем обнуление накопителя
@@ -521,7 +560,12 @@ namespace {
 		// Арифметика поля кривой
 		const math::modulus_t & field;
 		/**
-		 * @brief Метод умножения по модулю
+		 * @brief Метод умножения точки кривой на число
+		 *
+		 * @param value  умножаемая точка
+		 * @param factor число, на которое умножается точка
+		 * @param result место, в которое помещается произведение
+		 *
 		 */
 		void multiply(const value_t & first, const value_t & second, value_t & result) const noexcept {
 			// Выполняем умножение через объект арифметики
@@ -529,13 +573,19 @@ namespace {
 		}
 		/**
 		 * @brief Метод возведения в квадрат по модулю
+		 *
 		 */
 		void square(const value_t & value, value_t & result) const noexcept {
 			// Выполняем возведение в квадрат через объект арифметики
 			this->field.square(value, result);
 		}
 		/**
-		 * @brief Метод сложения по модулю
+		 * @brief Метод сложения точек кривой
+		 *
+		 * @param first  первое слагаемое
+		 * @param second второе слагаемое
+		 * @param result место, в которое помещается сумма точек
+		 *
 		 */
 		void add(const value_t & first, const value_t & second, value_t & result) const noexcept {
 			// Выполняем сложение через объект арифметики
@@ -543,6 +593,7 @@ namespace {
 		}
 		/**
 		 * @brief Метод вычитания по модулю
+		 *
 		 */
 		void subtract(const value_t & first, const value_t & second, value_t & result) const noexcept {
 			// Выполняем вычитание через объект арифметики
@@ -550,6 +601,7 @@ namespace {
 		}
 		/**
 		 * @brief Метод выбора одного из двух значений наложением маски
+		 *
 		 */
 		void choose(const uint64_t mask, const value_t & first, const value_t & second, value_t & result) const noexcept {
 			/**
@@ -561,6 +613,7 @@ namespace {
 		}
 		/**
 		 * @brief Метод получения маски равенства значения нулю
+		 *
 		 */
 		uint64_t zero(const value_t & value) const noexcept {
 			// Выводим маску равенства нулю через объект арифметики
@@ -568,6 +621,7 @@ namespace {
 		}
 		/**
 		 * @brief Метод чтения значения из слов числа
+		 *
 		 */
 		void load(const math::number_t & number, value_t & result) const noexcept {
 			// Число и есть значение
@@ -575,6 +629,7 @@ namespace {
 		}
 		/**
 		 * @brief Метод чтения значения из слов в памяти
+		 *
 		 */
 		void read(const uint64_t * place, value_t & result) const noexcept {
 			// Выполняем обнуление значения
@@ -588,6 +643,7 @@ namespace {
 		}
 		/**
 		 * @brief Метод записи значения в число
+		 *
 		 */
 		void store(const value_t & value, math::number_t & number) const noexcept {
 			// Значение и есть число
@@ -595,7 +651,7 @@ namespace {
 		}
 	};
 	/**
-	 * @brief Метод перевода точки на значения поля
+	 * @brief Функция перевода точки на значения поля
 	 *
 	 * @param f      арифметика поля
 	 * @param value  переводимая точка
@@ -612,7 +668,7 @@ namespace {
 		f.load(value.z, result.z);
 	}
 	/**
-	 * @brief Метод перевода точки со значений поля в числа
+	 * @brief Функция перевода точки со значений поля в числа
 	 *
 	 * @param f      арифметика поля
 	 * @param value  переводимая точка
@@ -629,7 +685,7 @@ namespace {
 		f.store(value.z, result.z);
 	}
 	/**
-	 * @brief Метод выбора одной из двух точек наложением маски
+	 * @brief Функция выбора одной из двух точек наложением маски
 	 *
 	 * @param f      арифметика поля
 	 * @param mask   маска выбора: все единицы выбирают первую точку, ноль - вторую
@@ -648,7 +704,7 @@ namespace {
 		f.choose(mask, first.z, second.z, result.z);
 	}
 	/**
-	 * @brief Метод удвоения точки кривой
+	 * @brief Функция удвоения точки кривой
 	 *
 	 * @details Независимые действия идут первыми: квадраты второй и третьей координат и
 	 *          произведение удвоенной второй на третью не зависят друг от друга, и
@@ -716,8 +772,14 @@ namespace {
 			f.add(factor, item, factor);
 		}
 		/**
+		 * @brief Метод сложения точек кривой
+		 *
+		 * @param first  первое слагаемое
+		 * @param second второе слагаемое
+		 * @param result место, в которое помещается сумма точек
 		 * Квадрат удваивается: удвоенный квадрат служит и учетверённому произведению
 		 * (4xy² = 2x·2y²), и восьмикратной четвёртой степени (8y⁴ = 2·(2y²)²)
+		 *
 		 */
 		f.add(square, square, square);
 		// Произведение первой координаты на удвоенный квадрат второй
@@ -748,7 +810,7 @@ namespace {
 		f.subtract(product, quad, result.y);
 	}
 	/**
-	 * @brief Метод сложения точек кривой без ветвления
+	 * @brief Функция сложения точек кривой без ветвления
 	 *
 	 * @details Приёмник вправе совпадать с первым слагаемым: его координаты дочитываются
 	 *          до первой записи в приёмник
@@ -838,7 +900,7 @@ namespace {
 		choose(f, empty1, second, value, result);
 	}
 	/**
-	 * @brief Метод сложения точек кривой с аффинным вторым слагаемым
+	 * @brief Функция сложения точек кривой с аффинным вторым слагаемым
 	 *
 	 * @details Приёмник вправе совпадать с первым слагаемым: его координаты дочитываются
 	 *          до первой записи в приёмник
@@ -886,8 +948,14 @@ namespace {
 		// Собираемая сумма точек
 		Triple <V> value;
 		/**
+		 * @brief Метод умножения точки кривой на число
+		 *
+		 * @param value  умножаемая точка
+		 * @param factor число, на которое умножается точка
+		 * @param result место, в которое помещается произведение
 		 * Произведение третьих координат слагаемых равно третьей координате первого:
 		 * третья координата второго есть единица поля
+		 *
 		 */
 		f.multiply(first.z, h, value.z);
 		// Куб разности первых координат
@@ -925,7 +993,7 @@ namespace {
 		choose(f, empty1, second, value, result);
 	}
 	/**
-	 * @brief Метод сложения точек кривой
+	 * @brief Функция сложения точек кривой
 	 *
 	 * @details Приёмник вправе совпадать с любым слагаемым: координаты дочитываются до
 	 *          первой записи в приёмник
@@ -1039,10 +1107,11 @@ namespace {
 	 */
 	template <typename F>
 	struct is_fast : std::false_type {};
+	// Частная версия признака для арифметики Fast известной ширины
 	template <size_t WORDS, bool ADX>
 	struct is_fast <Fast <WORDS, ADX>> : std::true_type {};
 	/**
-	 * @brief Метод выбора кратного из таблицы точек наложением маски
+	 * @brief Функция выбора кратного из таблицы точек наложением маски
 	 *
 	 * @details Таблица перебирается целиком, и выбор идёт наложением маски совпадения
 	 *          номера кратного с искомым: время работы от номера не зависит
@@ -1066,7 +1135,7 @@ namespace {
 			choose(f, same(index, static_cast <uint64_t> (j)), table[j], result, result);
 	}
 	/**
-	 * @brief Метод выбора кратного из таблицы точек на значениях известного числа слов
+	 * @brief Функция выбора кратного из таблицы точек на значениях известного числа слов
 	 *
 	 * @details Точки таблицы лежат подряд тремя координатами по WORDS слов: выборка идёт
 	 *          векторным перебором строк таблицы под маской
@@ -1084,7 +1153,7 @@ namespace {
 		f.gather(table[0].x.w, (3 * WORDS), count, 0, index, result.x.w, (3 * WORDS));
 	}
 	/**
-	 * @brief Метод умножения точки кривой на число
+	 * @brief Функция умножения точки кривой на число
 	 *
 	 * @details Множитель раскладывается на знаковые окна по пять разрядов: кратные от
 	 *          первого до шестнадцатого заготавливаются восемью удвоениями и семью
@@ -1114,6 +1183,7 @@ namespace {
 		 *
 		 * @note Таблица считается от самой точки, а не от множителя: точка эта открыта, и
 		 *       время её счёта секрета не выдаёт
+		 *
 		 */
 		Triple <V> table[MULTIPLES + 1];
 		// Нулевое кратное бесконечно удалено
@@ -1174,7 +1244,7 @@ namespace {
 		}
 	}
 	/**
-	 * @brief Метод выборки кратного из строки заготовленных кратных общим путём
+	 * @brief Функция выборки кратного из строки заготовленных кратных общим путём
 	 *
 	 * @param f      арифметика поля
 	 * @param row    строка заготовленных кратных: по две координаты на кратное
@@ -1205,7 +1275,7 @@ namespace {
 		}
 	}
 	/**
-	 * @brief Метод выборки кратного из строки заготовленных кратных на значениях
+	 * @brief Функция выборки кратного из строки заготовленных кратных на значениях
 	 *
 	 * @details Координаты кратного лежат в строке подряд: выборка идёт векторным
 	 *          перебором строки под маской в две координаты разом
@@ -1225,7 +1295,7 @@ namespace {
 		f.gather(row, (2 * WORDS), TABLES_MULTIPLES, 1, index, chosen.x.w, (2 * WORDS));
 	}
 	/**
-	 * @brief Метод умножения точки основания кривой на число
+	 * @brief Функция умножения точки основания кривой на число
 	 *
 	 * @details Кратные заготовлены на всякое знаковое окно отдельно, и удвоений между
 	 *          окнами не требуется вовсе: на окно приходится выбор кратного перебором
@@ -1289,7 +1359,7 @@ namespace {
 		}
 	}
 	/**
-	 * @brief Метод удвоения точки через арифметику поля
+	 * @brief Функция удвоения точки через арифметику поля
 	 *
 	 * @param f         арифметика поля
 	 * @param shortened признак того, что первый коэффициент кривой равен модулю без трёх
@@ -1314,7 +1384,7 @@ namespace {
 		leave(f, doubled, result);
 	}
 	/**
-	 * @brief Метод сложения точек без ветвления через арифметику поля
+	 * @brief Функция сложения точек без ветвления через арифметику поля
 	 *
 	 * @param f      арифметика поля
 	 * @param first  первое слагаемое
@@ -1336,7 +1406,7 @@ namespace {
 		leave(f, sum, result);
 	}
 	/**
-	 * @brief Метод смешанного сложения точек через арифметику поля
+	 * @brief Функция смешанного сложения точек через арифметику поля
 	 *
 	 * @param f      арифметика поля
 	 * @param first  первое слагаемое
@@ -1358,7 +1428,7 @@ namespace {
 		leave(f, sum, result);
 	}
 	/**
-	 * @brief Метод сложения точек через арифметику поля
+	 * @brief Функция сложения точек через арифметику поля
 	 *
 	 * @param f         арифметика поля
 	 * @param shortened признак того, что первый коэффициент кривой равен модулю без трёх
@@ -1386,7 +1456,7 @@ namespace {
 		leave(f, sum, result);
 	}
 	/**
-	 * @brief Метод умножения точки на число через арифметику поля
+	 * @brief Функция умножения точки на число через арифметику поля
 	 *
 	 * @param f         арифметика поля
 	 * @param shortened признак того, что первый коэффициент кривой равен модулю без трёх
@@ -1415,7 +1485,7 @@ namespace {
 		wipe(&product, sizeof(product));
 	}
 	/**
-	 * @brief Метод умножения точки основания на число через арифметику поля
+	 * @brief Функция умножения точки основания на число через арифметику поля
 	 *
 	 * @param f         арифметика поля
 	 * @param multiples заготовленные кратные точки основания
@@ -1484,14 +1554,13 @@ const nts::math::modulus_t & nts::curve::Curve::order() const noexcept {
 /**
  * @brief Метод установки параметров кривой
  *
- * @param modulus модуль поля кривой
- * @param first   первый коэффициент уравнения кривой
- * @param second  второй коэффициент уравнения кривой
- * @param order   порядок подгруппы точек кривой
+ * @param modulus  модуль поля кривой
+ * @param first    первый коэффициент уравнения кривой
+ * @param second   второй коэффициент уравнения кривой
+ * @param order    порядок подгруппы точек кривой
  * @param x        первая координата образующей точки
  * @param y        вторая координата образующей точки
  * @param cofactor отношение порядка группы точек кривой к порядку подгруппы
- *
  * @return         признак успешности установки параметров кривой
  *
  */
@@ -1648,7 +1717,6 @@ void nts::curve::Curve::base(point_t & result) const noexcept {
  * @param y        вторая координата разбираемой точки
  * @param result   место, в которое помещается разобранная точка
  * @param subgroup признак проверки принадлежности точки подгруппе порядка q
- *
  * @return         признак успешности разбора точки
  *
  */
@@ -1714,9 +1782,15 @@ bool nts::curve::Curve::point(const view_t & x, const view_t & y, point_t & resu
 		// q - 1: сам порядок числом арифметики по модулю q не выразить
 		this->_order.subtract(zero, one, last);
 		/**
+		 * @brief Метод умножения точки кривой на число
+		 *
+		 * @param value  умножаемая точка
+		 * @param factor число, на которое умножается точка
+		 * @param result место, в которое помещается произведение
 		 * Раздел 5.2 ГОСТ Р 34.10-2012 требует q·Q = O. Отсечь одни лишь точки кручения
 		 * умножением на кофактор мало: точка G + T с T порядка два лежит на кривой,
 		 * h·(G + T) = h·G не ноль, а q·(G + T) = T не ноль - такая точка проходила бы
+		 *
 		 */
 		this->multiply(result, last, nearly);
 		// q·Q = (q - 1)·Q + Q
@@ -1739,7 +1813,6 @@ bool nts::curve::Curve::point(const view_t & x, const view_t & y, point_t & resu
  * @param x     место, в которое записывается первая координата точки
  * @param y     место, в которое записывается вторая координата точки
  * @param size  размер места, в которое записывается всякая координата
- *
  * @return      признак успешности записи координат точки
  *
  */
@@ -1784,7 +1857,6 @@ bool nts::curve::Curve::coordinates(const point_t & value, uint8_t * x, uint8_t 
  * @brief Метод проверки точки на бесконечную удалённость
  *
  * @param value проверяемая точка
- *
  * @return      признак бесконечной удалённости точки
  *
  */
@@ -1806,9 +1878,11 @@ void nts::curve::Curve::twice(const point_t & value, point_t & result) const noe
 	if(words == 4){
 		// На четырёх словах у простого P-256 путь выбирается по признаку MULX и ADCX/ADOX у машины, снятому один раз
 		if(extended(this->_field.layout()))
+			// Выполняем удвоение встраиваемой арифметикой с ядрами MULX и ADCX/ADOX
 			twicing(Fast <4, true> {this->_field.layout()}, this->_shortened, this->_first, value, result);
 		else twicing(Fast <4> {this->_field.layout()}, this->_shortened, this->_first, value, result);
 	} else if(words == 8)
+		// Выполняем удвоение встраиваемой арифметикой восьми слов
 		twicing(Fast <8> {this->_field.layout()}, this->_shortened, this->_first, value, result);
 	else twicing(Slow {this->_field}, this->_shortened, this->_first, value, result);
 }
@@ -1827,9 +1901,11 @@ void nts::curve::Curve::attach(const point_t & first, const point_t & second, po
 	if(words == 4){
 		// На четырёх словах у простого P-256 путь выбирается по признаку MULX и ADCX/ADOX у машины, снятому один раз
 		if(extended(this->_field.layout()))
+			// Выполняем сложение встраиваемой арифметикой с ядрами MULX и ADCX/ADOX
 			attachment(Fast <4, true> {this->_field.layout()}, first, second, result);
 		else attachment(Fast <4> {this->_field.layout()}, first, second, result);
 	} else if(words == 8)
+		// Выполняем сложение встраиваемой арифметикой восьми слов
 		attachment(Fast <8> {this->_field.layout()}, first, second, result);
 	else attachment(Slow {this->_field}, first, second, result);
 }
@@ -1848,9 +1924,11 @@ void nts::curve::Curve::join(const point_t & first, const point_t & second, poin
 	if(words == 4){
 		// На четырёх словах у простого P-256 путь выбирается по признаку MULX и ADCX/ADOX у машины, снятому один раз
 		if(extended(this->_field.layout()))
+			// Выполняем сложение встраиваемой арифметикой с ядрами MULX и ADCX/ADOX
 			junction(Fast <4, true> {this->_field.layout()}, first, second, result);
 		else junction(Fast <4> {this->_field.layout()}, first, second, result);
 	} else if(words == 8)
+		// Выполняем сложение встраиваемой арифметикой восьми слов
 		junction(Fast <8> {this->_field.layout()}, first, second, result);
 	else junction(Slow {this->_field}, first, second, result);
 }
@@ -1869,9 +1947,11 @@ void nts::curve::Curve::add(const point_t & first, const point_t & second, point
 	if(words == 4){
 		// На четырёх словах у простого P-256 путь выбирается по признаку MULX и ADCX/ADOX у машины, снятому один раз
 		if(extended(this->_field.layout()))
+			// Выполняем сложение встраиваемой арифметикой с ядрами MULX и ADCX/ADOX
 			summation(Fast <4, true> {this->_field.layout()}, this->_shortened, this->_first, first, second, result);
 		else summation(Fast <4> {this->_field.layout()}, this->_shortened, this->_first, first, second, result);
 	} else if(words == 8)
+		// Выполняем сложение встраиваемой арифметикой восьми слов
 		summation(Fast <8> {this->_field.layout()}, this->_shortened, this->_first, first, second, result);
 	else summation(Slow {this->_field}, this->_shortened, this->_first, first, second, result);
 }
@@ -1892,9 +1972,11 @@ void nts::curve::Curve::multiply(const point_t & value, const math::number_t & f
 	if(words == 4){
 		// На четырёх словах у простого P-256 путь выбирается по признаку MULX и ADCX/ADOX у машины, снятому один раз
 		if(extended(this->_field.layout()))
+			// Выполняем умножение встраиваемой арифметикой с ядрами MULX и ADCX/ADOX
 			multiplication(Fast <4, true> {this->_field.layout()}, this->_shortened, this->_first, value, factor, bits, result);
 		else multiplication(Fast <4> {this->_field.layout()}, this->_shortened, this->_first, value, factor, bits, result);
 	} else if(words == 8)
+		// Выполняем умножение встраиваемой арифметикой восьми слов
 		multiplication(Fast <8> {this->_field.layout()}, this->_shortened, this->_first, value, factor, bits, result);
 	else multiplication(Slow {this->_field}, this->_shortened, this->_first, value, factor, bits, result);
 	/**
@@ -1924,9 +2006,11 @@ void nts::curve::Curve::product(const math::number_t & factor, point_t & result)
 	if(multiples->words == 4){
 		// На четырёх словах у простого P-256 путь выбирается по признаку MULX и ADCX/ADOX у машины, снятому один раз
 		if(extended(this->_field.layout()))
+			// Выполняем умножение встраиваемой арифметикой с ядрами MULX и ADCX/ADOX
 			production(Fast <4, true> {this->_field.layout()}, multiples, this->_unit, factor, result);
 		else production(Fast <4> {this->_field.layout()}, multiples, this->_unit, factor, result);
 	} else if(multiples->words == 8)
+		// Выполняем умножение встраиваемой арифметикой восьми слов
 		production(Fast <8> {this->_field.layout()}, multiples, this->_unit, factor, result);
 	else production(Slow {this->_field}, multiples, this->_unit, factor, result);
 	// Выполняем перезапись кадров стека шагов умножения

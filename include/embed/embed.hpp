@@ -19,7 +19,6 @@
  * @brief Header file of the key derivation module for embedding into the application image
  *
  * \~
- *
  * @copyright Copyright © 2026
  *
  */
@@ -82,7 +81,7 @@ namespace nts {
 	namespace embed {
 		/**
 		 * \~russian
-		 * @brief Метод вывода зашитого ключа из собранного по образу материала
+		 * @brief Функция вывода зашитого ключа из собранного по образу материала
 		 *
 		 * @details Требование 3 записки о зашивании: ключ не хранится, а выводится из материала.
 		 *          Вывод есть HKDF по RFC 5869 над указанным хешем: извлечение над материалом с
@@ -99,11 +98,10 @@ namespace nts {
 		 * @param version   версия ключа, вплетаемая в вывод
 		 * @param result    место, в которое помещается ключ
 		 * @param size      размер места в байтах
-		 *
 		 * @return          признак того, что ключ выведен
 		 *
 		 * \~english
-		 * @brief Method of the derivation of an embedded key from the material gathered over the image
+		 * @brief Function of the derivation of an embedded key from the material gathered over the image
 		 *
 		 * @details Requirement 3 of the embedding note: the key is not stored but derived from the
 		 *          material. The derivation is HKDF by RFC 5869 over the given hash: extraction over
@@ -121,7 +119,6 @@ namespace nts {
 		 * @param version   the key version woven into the output
 		 * @param result    the place the key is put into
 		 * @param size      the size of the place in bytes
-		 *
 		 * @return          the sign that the key is derived
 		 *
 		 * \~
@@ -129,7 +126,7 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ bool key(const digest::hash_t algorithm, const view_t & material, const view_t & salt, const view_t & context, const uint64_t version, uint8_t * result, const size_t size) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод вывода зашитого ключа из пароля растяжением Argon2
+		 * @brief Функция вывода зашитого ключа из пароля растяжением Argon2
 		 *
 		 * @details Требование 4 записки о зашивании: пароль сам ключом не является — мало энтропии.
 		 *          Ключ получается растяжением пароля Argon2 (по умолчанию Argon2id) с солью и
@@ -145,11 +142,10 @@ namespace nts {
 		 * @param version  версия ключа, вплетаемая в вывод
 		 * @param result   место, в которое помещается ключ
 		 * @param size     размер места в байтах, не меньше четырёх
-		 *
 		 * @return         признак того, что ключ выведен
 		 *
 		 * \~english
-		 * @brief Method of the derivation of an embedded key from a password by the Argon2 stretching
+		 * @brief Function of the derivation of an embedded key from a password by the Argon2 stretching
 		 *
 		 * @details Requirement 4 of the embedding note: the password by itself is not a key — too
 		 *          little entropy. The key is obtained by the Argon2 stretching of the password (by
@@ -166,7 +162,6 @@ namespace nts {
 		 * @param version  the key version woven into the output
 		 * @param result   the place the key is put into
 		 * @param size     the size of the place in bytes, at least four
-		 *
 		 * @return         the sign that the key is derived
 		 *
 		 * \~

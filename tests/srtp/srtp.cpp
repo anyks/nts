@@ -45,10 +45,9 @@ using namespace nts;
  */
 namespace {
 	/**
-	 * @brief Метод разбора шестнадцатеричной строки в набор байтов
+	 * @brief Функция разбора шестнадцатеричной строки в набор байтов
 	 *
 	 * @param text шестнадцатеричная строка без разделителей
-	 *
 	 * @return     набор байтов
 	 *
 	 */
@@ -59,7 +58,9 @@ namespace {
 		const size_t size = ::strlen(text);
 		// Занимаем место под итог
 		result.reserve(size / 2);
-		// Проходим по парам знаков
+		/**
+		 * Проходим по парам знаков
+		 */
 		for(size_t i = 0; i + 1 < size; i += 2){
 			// Значение пары знаков
 			unsigned value = 0;
@@ -72,10 +73,9 @@ namespace {
 		return result;
 	}
 	/**
-	 * @brief Метод получения просмотра набора байтов
+	 * @brief Функция получения просмотра набора байтов
 	 *
 	 * @param data набор байтов
-	 *
 	 * @return     просмотр набора
 	 *
 	 */
@@ -100,22 +100,29 @@ TEST(SrtpTest, KeyDerivation) {
 	ASSERT_EQ(srtp::keys(srtp::profile_t::AES128_CM_SHA1_80, view(masterKey), view(masterSalt), keys), srtp::error_t::NONE);
 	// Ключ шифрования обязан совпасть с вектором
 	const std::vector <uint8_t> cipher = unhex("C61E7A93744F39EE10734AFE3FF7A087");
+	// Ключ шифрования обязан совпасть с вектором
 	ASSERT_EQ(keys.cipher, cipher);
 	// Ключ имитовставки обязан совпасть с вектором (первые двадцать байтов потока)
 	const std::vector <uint8_t> auth = unhex("CEBE321F6FF7716B6FD4AB49AF256A156D38BAA4");
+	// Ключ имитовставки обязан совпасть с вектором
 	ASSERT_EQ(keys.auth, auth);
 	// Соль обязана совпасть с вектором
 	const std::vector <uint8_t> salt = unhex("30CBBC08863D8C85D49DB34A9AE1");
+	// Соль обязана совпасть с вектором
 	ASSERT_EQ(keys.salt, salt);
 	// Вывод с чужой длиной мастер-ключа обязан отказать
 	std::vector <uint8_t> shortKey(masterKey.begin(), masterKey.end() - 1);
+	// Вывод с укороченным мастер-ключом обязан отказать кодом KEY
 	ASSERT_EQ(srtp::keys(srtp::profile_t::AES128_CM_SHA1_80, view(shortKey), view(masterSalt), keys), srtp::error_t::KEY);
 	// Вывод с чужой длиной мастер-соли обязан отказать
 	std::vector <uint8_t> shortSalt(masterSalt.begin(), masterSalt.end() - 1);
+	// Вывод с укороченной мастер-солью обязан отказать кодом KEY
 	ASSERT_EQ(srtp::keys(srtp::profile_t::AES128_CM_SHA1_80, view(masterKey), view(shortSalt), keys), srtp::error_t::KEY);
 	// Вывод профилем AES-256-GCM обязан взять ключ в 32 байта
 	std::vector <uint8_t> key32(32, 0x01);
+	// Мастер-соль в двенадцать байтов
 	std::vector <uint8_t> salt12(12, 0x02);
+	// Вывод профилем AES-256-GCM обязан удаться
 	ASSERT_EQ(srtp::keys(srtp::profile_t::AEAD_AES_256_GCM, view(key32), view(salt12), keys), srtp::error_t::NONE);
 	// Ключ имитовставки у профиля AES-GCM пуст
 	ASSERT_TRUE(keys.auth.empty());
@@ -155,9 +162,11 @@ TEST(SrtpTest, AesCmKeystream) {
 	ASSERT_EQ(sender.protect(view(packet), protectedPacket), srtp::error_t::NONE);
 	// Первые шестнадцать байтов гаммы обязаны совпасть с вектором
 	const std::vector <uint8_t> gamma0 = unhex("E03EAD0935C95E80E166B16DD92B4EB4");
+	// Гамма с позиции 12 обязана совпасть с первым вектором
 	ASSERT_EQ(::memcmp(protectedPacket.data() + 12, gamma0.data(), 16), 0);
 	// Вторые шестнадцать байтов гаммы обязаны совпасть с вектором
 	const std::vector <uint8_t> gamma1 = unhex("D23513162B02D0F72A43A2FE4A5F97AB");
+	// Гамма с позиции 28 обязана совпасть со вторым вектором
 	ASSERT_EQ(::memcmp(protectedPacket.data() + 28, gamma1.data(), 16), 0);
 	// Метка имитовставки приписана: длина итога 44 + 10
 	ASSERT_EQ(protectedPacket.size(), 54U);
@@ -175,12 +184,17 @@ TEST(SrtpTest, Aead128Rtp) {
 	);
 	// Ключ вектора: 00 01 .. 0f
 	std::vector <uint8_t> key(16);
+	/**
+	 * Ключ вектора: 00 01 .. 0f
+	 */
 	for(size_t i = 0; i < 16; i++) key[i] = static_cast <uint8_t> (i);
 	// Соль вектора: «Quid pro quo»
 	const std::vector <uint8_t> salt = unhex("517569642070726f2071756f");
 	// Сессионные ключи полусессии
 	srtp::keys_t keys;
+	// Ключ шифрования
 	keys.cipher = key;
+	// Соль шифрования
 	keys.salt = salt;
 	// Полусессия отправителя
 	srtp::session_t sender;
@@ -197,6 +211,7 @@ TEST(SrtpTest, Aead128Rtp) {
 		"be633bd50d294e6f42a5f47a51c7d19b"
 		"36de3adf8833899d7f27beb16a9152cf765ee4390cce"
 	);
+	// Защищённый пакет обязан совпасть с вектором побайтно
 	ASSERT_EQ(protectedPacket, want);
 	// Полусессия получателя
 	srtp::session_t receiver;
@@ -236,12 +251,17 @@ TEST(SrtpTest, Aead256Rtp) {
 	);
 	// Ключ вектора: 00 01 .. 1f
 	std::vector <uint8_t> key(32);
+	/**
+	 * Ключ вектора: 00 01 .. 1f
+	 */
 	for(size_t i = 0; i < 32; i++) key[i] = static_cast <uint8_t> (i);
 	// Соль вектора
 	const std::vector <uint8_t> salt = unhex("517569642070726f2071756f");
 	// Сессионные ключи полусессии
 	srtp::keys_t keys;
+	// Ключ шифрования
 	keys.cipher = key;
+	// Соль шифрования
 	keys.salt = salt;
 	// Полусессия отправителя
 	srtp::session_t sender;
@@ -258,6 +278,7 @@ TEST(SrtpTest, Aead256Rtp) {
 		"b18012389a58e2f3b50b2a0276ffae0f"
 		"1ba63799b87b7aa3db36dfffd6b0f9bb7878d7a76c13"
 	);
+	// Защищённый пакет обязан совпасть с вектором побайтно
 	ASSERT_EQ(protectedPacket, want);
 }
 
@@ -274,12 +295,17 @@ TEST(SrtpTest, Aead128Rtcp) {
 	);
 	// Ключ вектора: 00 01 .. 0f
 	std::vector <uint8_t> key(16);
+	/**
+	 * Ключ вектора: 00 01 .. 0f
+	 */
 	for(size_t i = 0; i < 16; i++) key[i] = static_cast <uint8_t> (i);
 	// Соль вектора
 	const std::vector <uint8_t> salt = unhex("517569642070726f2071756f");
 	// Сессионные ключи полусессии
 	srtp::keys_t keys;
+	// Ключ шифрования
 	keys.cipher = key;
+	// Соль шифрования
 	keys.salt = salt;
 	// Полусессия отправителя
 	srtp::session_t sender;
@@ -287,7 +313,9 @@ TEST(SrtpTest, Aead128Rtcp) {
 	ASSERT_TRUE(sender.start(srtp::profile_t::AEAD_AES_128_GCM, keys));
 	// Защищённый пакет
 	std::vector <uint8_t> protectedPacket;
-	// Прогоняем счётчик SRTCP до индекса вектора 0x05d4
+	/**
+	 * Прогоняем счётчик SRTCP до индекса вектора 0x05d4
+	 */
 	for(uint32_t i = 0; i < 0x05d4; i++)
 		// Защита обязана удаваться
 		ASSERT_EQ(sender.protectControl(view(packet), protectedPacket), srtp::error_t::NONE);
@@ -302,6 +330,7 @@ TEST(SrtpTest, Aead128Rtcp) {
 		"c84aa45896cf4d2fc5abf87245d9eade"
 		"800005d4"
 	);
+	// Защищённый пакет обязан совпасть с вектором побайтно
 	ASSERT_EQ(protectedPacket, want);
 	// Полусессия получателя
 	srtp::session_t receiver;
@@ -332,12 +361,19 @@ TEST(SrtpTest, Aead128Rtcp) {
 TEST(SrtpTest, RoundtripCm) {
 	// Профили AES-CM: метка 80 и 32 разряда
 	const srtp::profile_t profiles[2] = {srtp::profile_t::AES128_CM_SHA1_80, srtp::profile_t::AES128_CM_SHA1_32};
-	// Проходим по профилям
+	/**
+	 * Проходим по профилям
+	 */
 	for(size_t p = 0; p < 2; p++){
 		// Мастер-ключ и мастер-соль
 		std::vector <uint8_t> masterKey(16), masterSalt(14);
-		// Заполняем ключ и соль значениями
+		/**
+		 * Заполняем ключ и соль значениями
+		 */
 		for(size_t i = 0; i < 16; i++) masterKey[i] = static_cast <uint8_t> (i * 7 + 1);
+		/**
+		 * Мастер-соль заполняется своим рядом значений
+		 */
 		for(size_t i = 0; i < 14; i++) masterSalt[i] = static_cast <uint8_t> (i * 5 + 2);
 		// Сессионные ключи
 		srtp::keys_t keys;
@@ -353,7 +389,9 @@ TEST(SrtpTest, RoundtripCm) {
 			"8040f17b8041f8d35501a0b2"
 			"47616c6c696120657374206f6d6e69732064697669736120696e207061727465732074726573"
 		);
-		// Проходим по десяти пакетам подряд
+		/**
+		 * Проходим по десяти пакетам подряд
+		 */
 		for(uint8_t i = 0; i < 10; i++){
 			// Номер пакета нарастает
 			packet[3] = static_cast <uint8_t> (0x7b + i);
@@ -382,8 +420,13 @@ TEST(SrtpTest, RoundtripCm) {
 TEST(SrtpTest, RoundtripCmRtcp) {
 	// Мастер-ключ и мастер-соль
 	std::vector <uint8_t> masterKey(16), masterSalt(14);
-	// Заполняем ключ и соль значениями
+	/**
+	 * Заполняем ключ и соль значениями
+	 */
 	for(size_t i = 0; i < 16; i++) masterKey[i] = static_cast <uint8_t> (i * 3 + 1);
+	/**
+	 * Мастер-соль заполняется своим рядом значений
+	 */
 	for(size_t i = 0; i < 14; i++) masterSalt[i] = static_cast <uint8_t> (i * 11 + 4);
 	// Сессионные ключи
 	srtp::keys_t keys;
@@ -400,7 +443,9 @@ TEST(SrtpTest, RoundtripCmRtcp) {
 		"0000042a0000e9304c756e61"
 		"deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
 	);
-	// Проходим по пяти пакетам подряд
+	/**
+	 * Проходим по пяти пакетам подряд
+	 */
 	for(uint8_t i = 0; i < 5; i++){
 		// Защищённый пакет
 		std::vector <uint8_t> protectedPacket;
@@ -412,7 +457,8 @@ TEST(SrtpTest, RoundtripCmRtcp) {
 		ASSERT_EQ(::memcmp(protectedPacket.data(), packet.data(), 8), 0);
 		// Слово ESRTCP: флаг шифрования и индекс пакета
 		const size_t word = packet.size();
-		ASSERT_EQ(protectedPacket[word], static_cast <uint8_t> (0x80 | (i >> 24)));
+		// Старший байт слова ESRTCP обязан нести флаг шифрования и старшие разряды индекса
+	ASSERT_EQ(protectedPacket[word], static_cast <uint8_t> (0x80 | (i >> 24)));
 		ASSERT_EQ(protectedPacket[word + 3], i);
 		// Открытый пакет
 		std::vector <uint8_t> plain;
@@ -430,8 +476,13 @@ TEST(SrtpTest, RoundtripCmRtcp) {
 TEST(SrtpTest, RolloverCounter) {
 	// Мастер-ключ и мастер-соль
 	std::vector <uint8_t> masterKey(16), masterSalt(14);
-	// Заполняем ключ и соль значениями
+	/**
+	 * Заполняем ключ и соль значениями
+	 */
 	for(size_t i = 0; i < 16; i++) masterKey[i] = static_cast <uint8_t> (i + 9);
+	/**
+	 * Мастер-соль заполняется своим рядом значений
+	 */
 	for(size_t i = 0; i < 14; i++) masterSalt[i] = static_cast <uint8_t> (i + 3);
 	// Сессионные ключи
 	srtp::keys_t keys;
@@ -448,8 +499,11 @@ TEST(SrtpTest, RolloverCounter) {
 	packet[0] = 0x80;
 	// Номер 0xFFFE
 	packet[2] = 0xFF;
+	// Младший байт номера
 	packet[3] = 0xFE;
-	// Проходим по четырём пакетам через переполнение номера
+	/**
+	 * Проходим по четырём пакетам через переполнение номера
+	 */
 	for(uint8_t i = 0; i < 4; i++){
 		// Защищённый пакет
 		std::vector <uint8_t> protectedPacket;
@@ -463,6 +517,7 @@ TEST(SrtpTest, RolloverCounter) {
 		ASSERT_EQ(plain, packet);
 		// Номер нарастает через переполнение
 		packet[3]++;
+		// При обнулении младшего байта номер перешёл границу круга
 		if(packet[3] == 0)
 			// Перенос в старший байт
 			packet[2]++;
@@ -476,8 +531,13 @@ TEST(SrtpTest, RolloverCounter) {
 TEST(SrtpTest, ReplayWindow) {
 	// Мастер-ключ и мастер-соль
 	std::vector <uint8_t> masterKey(16), masterSalt(14);
-	// Заполняем ключ и соль значениями
+	/**
+	 * Заполняем ключ и соль значениями
+	 */
 	for(size_t i = 0; i < 16; i++) masterKey[i] = static_cast <uint8_t> (i + 1);
+	/**
+	 * Мастер-соль заполняется своим рядом значений
+	 */
 	for(size_t i = 0; i < 14; i++) masterSalt[i] = static_cast <uint8_t> (i + 7);
 	// Сессионные ключи
 	srtp::keys_t keys;
@@ -494,7 +554,9 @@ TEST(SrtpTest, ReplayWindow) {
 	packet[0] = 0x80;
 	// Защищённые пакеты с номерами 1..100
 	std::vector < std::vector <uint8_t> > packets(100);
-	// Проходим по пакетам
+	/**
+	 * Проходим по пакетам
+	 */
 	for(uint8_t i = 0; i < 100; i++){
 		// Номер пакета
 		packet[3] = i + 1;
@@ -522,7 +584,9 @@ TEST(SrtpTest, ReplayWindow) {
 TEST(SrtpTest, PairLayout) {
 	// Ключевой материал экспорта: 2 × (16 + 14) = 60 байтов
 	std::vector <uint8_t> material(60);
-	// Заполняем материал значениями
+	/**
+	 * Заполняем материал значениями
+	 */
 	for(size_t i = 0; i < 60; i++) material[i] = static_cast <uint8_t> (i);
 	// Мастер-ключи сторон
 	srtp::keys_t client, server;
@@ -543,9 +607,11 @@ TEST(SrtpTest, PairLayout) {
 	ASSERT_EQ(server.salt[0], 46);
 	// Раскладка с чужой длиной материала обязана отказать
 	std::vector <uint8_t> shortMaterial(59, 0);
+	// Раскладка с материалом в пятьдесят девять байтов обязана отказать устройством записи
 	ASSERT_EQ(srtp::pair(srtp::profile_t::AES128_CM_SHA1_80, view(shortMaterial), client, server), srtp::error_t::STRUCTURE);
 	// Раскладка профилем AES-128-GCM: 2 × (16 + 12) = 56 байтов
 	std::vector <uint8_t> materialGcm(56, 0);
+	// Раскладка профилем AES-128-GCM обязана удаться
 	ASSERT_EQ(srtp::pair(srtp::profile_t::AEAD_AES_128_GCM, view(materialGcm), client, server), srtp::error_t::NONE);
 	// Соль обязана быть двенадцати байтов
 	ASSERT_EQ(client.salt.size(), 12U);
@@ -594,11 +660,13 @@ TEST(SrtpTest, Refusals) {
 	ASSERT_TRUE(session.start(srtp::profile_t::AES128_CM_SHA1_80, keys));
 	// Пакет короче заголовка обязан отказать
 	std::vector <uint8_t> tiny(8, 0);
+	// Защита пакета в восемь байтов обязана отказать устройством записи
 	ASSERT_EQ(session.protect(view(tiny), result), srtp::error_t::STRUCTURE);
 	// Пакет с меткой короче метки обязан отказать
 	ASSERT_EQ(session.unprotect(view(tiny), result), srtp::error_t::STRUCTURE);
 	// Пакет RTCP короче заголовка обязан отказать
 	std::vector <uint8_t> tinyRtcp(4, 0);
+	// Защита RTCP в четыре байта обязана отказать устройством записи
 	ASSERT_EQ(session.protectControl(view(tinyRtcp), result), srtp::error_t::STRUCTURE);
 	// Пакет SRTCP короче слова и метки обязан отказать
 	ASSERT_EQ(session.unprotectControl(view(tiny), result), srtp::error_t::STRUCTURE);
@@ -726,7 +794,8 @@ TEST(SrtpTest, Coverage) {
 		std::vector <uint8_t> overlong(packet.begin(), packet.begin() + 20);
 		// Длина расширения: сто слов
 		overlong[14] = 0x00;
-		overlong[15] = 0x64;
+		// Младший байт длины: сто слов
+	overlong[15] = 0x64;
 		// Дописываем полезную нагрузку
 		overlong.insert(overlong.end(), 32, 0x5A);
 		// Защита обязана отказать устройством записи: заголовок длиннее пакета
@@ -750,7 +819,8 @@ TEST(SrtpTest, Coverage) {
 		packet[0] = 0x80;
 		// Номер пакета: 10
 		packet[2] = 0x00;
-		packet[3] = 0x0A;
+		// Младший байт номера: десять
+	packet[3] = 0x0A;
 		// Защищённый пакет
 		std::vector <uint8_t> protectedPacket;
 		// Защита обязана удаться
@@ -761,7 +831,8 @@ TEST(SrtpTest, Coverage) {
 		ASSERT_EQ(behind.unprotect(view(protectedPacket), plain), srtp::error_t::NONE);
 		// Пакет с номером далеко впереди: разность с старшим номером превышает половину круга
 		packet[2] = 0x80;
-		packet[3] = 0x0B;
+		// Младший байт номера: одиннадцать
+	packet[3] = 0x0B;
 		// Защита обязана удаться
 		ASSERT_EQ(ahead.protect(view(packet), protectedPacket), srtp::error_t::NONE);
 		// Снятие защиты обязано отказать имитовставкой: счётчик переполнений оценён как предыдущий круг

@@ -62,10 +62,9 @@ static const char * CORPUS = ANTS_CORPUS;
  */
 namespace {
 	/**
-	 * @brief Метод чтения файла набора целиком
+	 * @brief Функция чтения файла набора целиком
 	 *
 	 * @param name имя файла набора
-	 *
 	 * @return     содержимое файла набора
 	 *
 	 */
@@ -82,11 +81,10 @@ namespace {
 		return result;
 	}
 	/**
-	 * @brief Метод составления подлинности стороны из ключей набора
+	 * @brief Функция составления подлинности стороны из ключей набора
 	 *
 	 * @param name   имя ключа набора: rsa2048, ec256, ec384 либо ed25519
 	 * @param result подлинность, в которую помещается итог
-	 *
 	 * @return       признак успешности составления подлинности
 	 *
 	 */
@@ -109,10 +107,9 @@ namespace {
 	 */
 	static const protect::suite_t SUITES[] = {protect::suite_t::AES_128_GCM_SHA256, protect::suite_t::AES_256_GCM_SHA384, protect::suite_t::CHACHA20_POLY1305_SHA256};
 	/**
-	 * @brief Метод получения имени набора шифрования у openssl
+	 * @brief Функция получения имени набора шифрования у openssl
 	 *
 	 * @param suite набор шифрования
-	 *
 	 * @return      имя набора у openssl
 	 *
 	 */
@@ -156,10 +153,9 @@ namespace {
 		{"ed25519", extension::scheme_t::ED25519}
 	};
 	/**
-	 * @brief Метод щупа набора шифрования TLS 1.3 у openssl
+	 * @brief Функция щупа набора шифрования TLS 1.3 у openssl
 	 *
 	 * @param suite набор шифрования
-	 *
 	 * @return      признак того, что openssl умеет набор (проба возможности)
 	 *
 	 */
@@ -168,7 +164,7 @@ namespace {
 		return (shell(std::string("openssl ciphers -s -tls1_3 -ciphersuites ") + title(suite) + " >/dev/null 2>&1") == 0);
 	}
 	/**
-	 * @brief Метод оглашения пропусков частей сличения
+	 * @brief Функция оглашения пропусков частей сличения
 	 *
 	 * @param toolkit способности openssl
 	 * @param chacha  признак того, что openssl умеет TLS_CHACHA20_POLY1305_SHA256
@@ -417,7 +413,7 @@ TEST(InteropTest, Client){
 }
 
 /**
- * @brief Метод пробы умения ML-DSA у openssl
+ * @brief Функция пробы умения ML-DSA у openssl
  *
  * @return признак того, что openssl умеет ML-DSA (проба возможности)
  *

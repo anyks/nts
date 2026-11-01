@@ -19,7 +19,6 @@
  * @brief Header file of the wiping of the memory areas holding secrets
  *
  * \~
- *
  * @copyright Copyright © 2026
  *
  */
@@ -69,7 +68,7 @@ namespace nts {
 	namespace sys {
 		/**
 		 * \~russian
-		 * @brief Метод затирания области памяти
+		 * @brief Функция затирания области памяти
 		 *
 		 * @details Затирание идёт вызовом memset через изменчивый указатель на функцию, а за
 		 *          вызовом стоит барьер собирателя. Голый memset собиратель вправе выбросить
@@ -91,14 +90,17 @@ namespace nts {
 		 *       порождённого кода щупом tools/wipe, а не проверкой
 		 *
 		 * \~english
-		 * @brief Method of the wiping of a memory area
+		 * @brief Function of the wiping of a memory area
+		 *
 		 * @details The wiping goes by a memset call through a volatile function pointer, and a compiler
 		 *          barrier stands after the call. A plain memset may be dropped by the compiler by the as-if
 		 *          rule when nobody reads the result of the write; a call through a pointer read from a
 		 *          volatile variable has to take place, and the barrier declares the area read. The speed
 		 *          is that of memset itself
+		 *
 		 * @param data the memory area being wiped
 		 * @param size the size of the memory area being wiped in bytes
+		 *
 		 * @note Deliberate decision: a plain memset is forbidden here. The inspection of the generated code
 		 *       of clang, GCC and lcc (round 32 of CONFORMANCE.md) showed: with a plain memset both the wiping
 		 *       drops out and the bytes of the key remain on the stack, and under the link-time optimization
@@ -114,12 +116,13 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ void wipe(void * data, const size_t size) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод затирания набора байтов с его опустошением
+		 * @brief Функция затирания набора байтов с его опустошением
 		 *
 		 * @param data затираемый набор байтов; после затирания пуст
 		 *
 		 * \~english
-		 * @brief Method of the wiping of a byte vector with its emptying
+		 * @brief Function of the wiping of a byte vector with its emptying
+		 *
 		 * @param data the byte vector being wiped; empty after the wiping
 		 *
 		 * \~
@@ -127,12 +130,13 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ void wipe(vector <uint8_t> & data) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод затирания строки с её опустошением
+		 * @brief Функция затирания строки с её опустошением
 		 *
 		 * @param data затираемая строка; после затирания пуста
 		 *
 		 * \~english
-		 * @brief Method of the wiping of a string with its emptying
+		 * @brief Function of the wiping of a string with its emptying
+		 *
 		 * @param data the string being wiped; empty after the wiping
 		 *
 		 * \~

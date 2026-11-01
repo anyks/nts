@@ -21,7 +21,6 @@
  *        parsing of a CertificateList according to the section 5 of RFC 5280
  *
  * \~
- *
  * @copyright Copyright © 2026
  *
  */
@@ -53,7 +52,6 @@
  * @brief Main namespace
  *
  * \~
- *
  */
 namespace nts {
 	/**
@@ -69,7 +67,6 @@ namespace nts {
 	 * @brief Namespace of the X.509 certificate modules
 	 *
 	 * \~
-	 *
 	 */
 	namespace x509 {
 		/**
@@ -80,7 +77,6 @@ namespace nts {
 		 * @brief Entry of a revoked certificate
 		 *
 		 * \~
-		 *
 		 */
 		typedef struct __ANTS_SHARED_EXPORT__ Revoked {
 			// Просмотр порядкового номера отозванного сертификата
@@ -93,14 +89,12 @@ namespace nts {
 			 * \~russian
 			 * @brief Конструктор
 			 *
-			 *
 			 * \~english
 			 * @brief Constructor
 			 *
 			 * \~
-			 *
 			 */
-			Revoked() noexcept : date(0) {}
+			Revoked() noexcept;
 		} revoked_t;
 
 		/**
@@ -113,12 +107,12 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Certificate revocation list
+		 *
 		 * @details The parsed list keeps views inside the encoding being parsed:
 		 *          the encoding must outlive the object. The signature of the list is
 		 *          checked by a separate call of verify with the public key info of the issuer.
 		 *
 		 * \~
-		 *
 		 */
 		typedef class __ANTS_SHARED_EXPORT__ Revocations {
 			private:
@@ -165,8 +159,12 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of parsing a revocation list encoding
+				 *
 				 * @param data the view of the revocation list encoding being parsed
 				 * @return     the reason of the failure or error_t::NONE
+				 *
+				 * @note The views of the parsed fields point inside the passed encoding,
+				 *       therefore the encoding must outlive the object of the list
 				 *
 				 * \~
 				 */
@@ -190,6 +188,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the reason of the last failure
+				 *
 				 * @return the reason of the last failure
 				 *
 				 * \~
@@ -203,6 +202,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the signed part of the list
+				 *
 				 * @return the view of the signed part of the list
 				 *
 				 * \~
@@ -217,6 +217,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the signature of the list
+				 *
 				 * @param unused the number of unused bits in the last byte of the signature
 				 * @return       the view of the signature encoding
 				 *
@@ -231,6 +232,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the identifier of the signature algorithm
+				 *
 				 * @return the identifier of the signature algorithm
 				 *
 				 * \~
@@ -244,6 +246,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the encoding of the parameters of the signature algorithm
+				 *
 				 * @return the view of the encoding of the parameters or an empty view
 				 *
 				 * \~
@@ -257,6 +260,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the name of the issuer of the list
+				 *
 				 * @return the name of the issuer of the list
 				 *
 				 * \~
@@ -271,6 +275,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the dates of the list
+				 *
 				 * @param thisUpdate the date of the issuance of the list in seconds since the epoch
 				 * @param nextUpdate the date of the next list in seconds since the epoch, zero at its absence
 				 *
@@ -285,6 +290,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the set of the entries of the revoked certificates
+				 *
 				 * @return the set of the entries of the revoked certificates
 				 *
 				 * \~
@@ -298,6 +304,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the set of the extensions of the list
+				 *
 				 * @return the set of the extensions of the list
 				 *
 				 * \~
@@ -312,6 +319,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of finding an extension of the list by its identifier
+				 *
 				 * @param oid the identifier of the extension being sought
 				 * @return    the extension of the list or nullptr
 				 *
@@ -338,21 +346,21 @@ namespace nts {
 				 *
 				 * \~
 				 */
-				~Revocations() noexcept {}
+				~Revocations() noexcept;
 		} crl_t;
 
 		/**
 		 * \~russian
-		 * @brief Метод проверки подписи списка отзыва
+		 * @brief Функция проверки подписи списка отзыва
 		 *
 		 * @param crl список, подпись которого проверяется
 		 * @param key сведения об открытом ключе издателя списка
-		 *
 		 * @return    отказ проверки: NONE - подпись сошлась, SIGNATURE - не сошлась либо
 		 *            непригодна, KEY - ключ чужого алгоритма, MEMORY - памяти не хватило
 		 *
 		 * \~english
-		 * @brief Method of the check of the signature of a revocation list
+		 * @brief Function of the check of the signature of a revocation list
+		 *
 		 * @param crl the list the signature of which is checked
 		 * @param key the info of the public key of the issuer of the list
 		 * @return    the failure of the check: NONE - the signature has converged, SIGNATURE - it has not or is

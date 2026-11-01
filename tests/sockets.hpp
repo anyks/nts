@@ -24,6 +24,9 @@
  */
 
 #ifndef __ANTS_TESTS_SOCKETS__
+/**
+ * Страж включения: файл подключается однократно
+ */
 #define __ANTS_TESTS_SOCKETS__
 
 /**
@@ -40,14 +43,26 @@
 	 * спорит со std::byte при using namespace std; min/max макросами тоже не нужны
 	 */
 	#if !defined(WIN32_LEAN_AND_MEAN)
+		/**
+		 * Включаем урезанный windows.h без rpcndr/objidl и без min/max
+		 */
 		#define WIN32_LEAN_AND_MEAN
 	#endif
+	/**
+	 * Макросы min/max Windows оснастке не нужны
+	 */
 	#if !defined(NOMINMAX)
+		/**
+		 * Отключаем макросы min/max Windows
+		 */
 		#define NOMINMAX
 	#endif
 	#include <winsock2.h>
 	#include <ws2tcpip.h>
 	#include <windows.h>
+/**
+ * Прочие системы: POSIX-заголовки сокетов
+ */
 #else
 	#include <sys/stat.h>
 	#include <posix.hpp>
@@ -67,10 +82,13 @@
 	 *
 	 */
 	struct AntsWinsock {
+		// Подъём Winsock версии 2.2 при создании объекта
 		AntsWinsock() noexcept { WSADATA data; (void) ::WSAStartup(MAKEWORD(2, 2), &data); }
+		// Опускание Winsock при уничтожении объекта
 		~AntsWinsock() noexcept { ::WSACleanup(); }
 	};
-	static const AntsWinsock ants_winsock;
+	// Единственный экземпляр поднимает Winsock при загрузке оснастки
+	static const AntsWinsock __ants_winsock__;
 	/**
 	 * @brief Закрытие сокета: у Windows close() сокет не закрывает
 	 *
@@ -87,10 +105,14 @@
 	 *
 	 */
 	static inline void patience(const int fd, const long seconds, const long micros) noexcept {
+		// Срок ожидания приёма в миллисекундах
 		const DWORD limit = static_cast <DWORD> ((seconds * 1000) + (micros / 1000));
+		// Устанавливаем срок ожидания приёма на сокете
 		(void) ::setsockopt(static_cast <SOCKET> (fd), SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast <const char *> (&limit), sizeof(limit));
 	}
-	// Опрос готовности
+	/**
+	 * Опрос готовности сокетов через WSAPoll
+	 */
 	#define ANTS_POLL(fds, count, timeout) ::WSAPoll((fds), (count), (timeout))
 /**
  * Для операционных систем POSIX
@@ -112,12 +134,18 @@
 	 *
 	 */
 	static inline void patience(const int fd, const long seconds, const long micros) noexcept {
+		// Срок ожидания приёма в виде timeval
 		struct timeval limit;
+		// Секунды срока ожидания
 		limit.tv_sec = seconds;
+		// Микросекунды срока ожидания
 		limit.tv_usec = static_cast <suseconds_t> (micros);
+		// Устанавливаем срок ожидания приёма на сокете
 		(void) ::setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &limit, sizeof(limit));
 	}
-	// Опрос готовности
+	/**
+	 * Опрос готовности сокетов через poll
+	 */
 	#define ANTS_POLL(fds, count, timeout) ::poll((fds), (count), (timeout))
 #endif
 
@@ -126,14 +154,25 @@
  *
  */
 #if defined(_WIN32)
+	// Отправка байт собеседнику через Winsock
 	static inline long sending(const int fd, const void * data, const size_t size) noexcept { return ::send(static_cast <SOCKET> (fd), static_cast <const char *> (data), static_cast <int> (size), 0); }
+	// Приём байт от собеседника через Winsock
 	static inline long receiving(const int fd, void * data, const size_t size) noexcept { return ::recv(static_cast <SOCKET> (fd), static_cast <char *> (data), static_cast <int> (size), 0); }
+	// Отправка дейтаграммы адресату через Winsock
 	static inline long sendingto(const int fd, const void * data, const size_t size, const struct sockaddr * peer, const socklen_t length) noexcept { return ::sendto(static_cast <SOCKET> (fd), static_cast <const char *> (data), static_cast <int> (size), 0, peer, static_cast <int> (length)); }
+	// Приём дейтаграммы с адресом отправителя через Winsock
 	static inline long receivingfrom(const int fd, void * data, const size_t size, struct sockaddr * peer, socklen_t * length) noexcept { int width = static_cast <int> (*length); const int result = ::recvfrom(static_cast <SOCKET> (fd), static_cast <char *> (data), static_cast <int> (size), 0, peer, &width); *length = static_cast <socklen_t> (width); return result; }
+/**
+ * Прочие системы: POSIX-варианты отправки и приёма
+ */
 #else
+	// Отправка байт собеседнику
 	static inline long sending(const int fd, const void * data, const size_t size) noexcept { return static_cast <long> (::send(fd, data, size, 0)); }
+	// Приём байт от собеседника
 	static inline long receiving(const int fd, void * data, const size_t size) noexcept { return static_cast <long> (::recv(fd, data, size, 0)); }
+	// Отправка дейтаграммы адресату
 	static inline long sendingto(const int fd, const void * data, const size_t size, const struct sockaddr * peer, const socklen_t length) noexcept { return static_cast <long> (::sendto(fd, data, size, 0, peer, length)); }
+	// Приём дейтаграммы с адресом отправителя
 	static inline long receivingfrom(const int fd, void * data, const size_t size, struct sockaddr * peer, socklen_t * length) noexcept { return static_cast <long> (::recvfrom(fd, data, size, 0, peer, length)); }
 #endif
 
@@ -142,17 +181,25 @@
  *        честно отвечает отказом - интероп там пропускается
  *
  * @param path путь канала
- *
  * @return     нуль при успехе
  *
  */
 static inline int fifo(const char * path) noexcept {
+	/**
+	 * У Windows именованных каналов нет
+	 */
 	#if defined(_WIN32)
+		// Путь канала не используется
 		(void) path;
+		// Честный отказ вместо создания канала
 		return -1;
+	/**
+	 * Создание именованного канала в POSIX
+	 */
 	#else
+		// Канал с правами доступа только владельца
 		return ::mkfifo(path, 0600);
 	#endif
 }
 
-#endif // __ANTS_TESTS_SOCKETS__
+#endif

@@ -57,7 +57,7 @@ namespace {
 	 */
 	static const char * CORPUS = ANTS_CORPUS;
 	/**
-	 * @brief Метод чтения файла целиком
+	 * @brief Функция чтения файла целиком
 	 *
 	 * @param path путь к файлу
 	 * @return     содержимое файла
@@ -76,7 +76,7 @@ namespace {
 		return result;
 	}
 	/**
-	 * @brief Метод передачи байтов между сторонами связи
+	 * @brief Функция передачи байтов между сторонами связи
 	 *
 	 * @param client связь стороны клиента
 	 * @param server связь стороны сервера
@@ -116,7 +116,7 @@ namespace {
 		return moved;
 	}
 	/**
-	 * @brief Метод проведения связи с печатью итога
+	 * @brief Функция проведения связи с печатью итога
 	 *
 	 * @param title      заголовок случая
 	 * @param client     связь стороны клиента
@@ -132,7 +132,7 @@ namespace {
 		client.name("secret.example");
 		// Заводим стороны
 		if((server.start() != context::error_t::NONE) || (client.start() != context::error_t::NONE))
-			// Выводим отказ
+			// Выводим отрицательный результат - стороны завести не удалось
 			return false;
 		// Профиль внешнего приветствия, как оно идёт на провод
 		fingerprint::profile_t outer;
@@ -158,15 +158,23 @@ namespace {
 			continue;
 		// Печатаем итог случая
 		cout << title << endl;
+		// Печатаем имя на проводе
 		cout << "  имя на проводе:       " << named << endl;
+		// Печатаем признак принятия ECH клиентом
 		cout << "  ECH принят клиентом:  " << (client.shrouded() ? "да" : "нет") << endl;
+		// Печатаем признак принятия ECH сервером
 		cout << "  ECH принят сервером:  " << (server.shrouded() ? "да" : "нет") << endl;
+		// Печатаем имя, увиденное сервером
 		cout << "  имя, увиденное сервером: " << server.name() << endl;
+		// Печатаем признак установленной связи
 		cout << "  связь установлена:    " << ((client.established() && server.established()) ? "да" : "нет") << endl;
+		// Печатаем отказ клиента и его извещение
 		cout << "  отказ клиента:        " << static_cast <int> (client.error()) << " (извещение " << static_cast <int> (client.alert().description) << ")" << endl;
+		// Печатаем имя для удостоверения
 		cout << "  имя для удостоверения: " << (client.shrouded() ? string("name() = secret.example") : (string("visible() = ") + client.visible())) << endl;
+		// Печатаем размер запасных конфигураций
 		cout << "  запасных конфигураций: " << client.retry().size() << " байтов" << endl;
-		// Выводим успешность
+		// Сообщаем об успешном показе обмена
 		return true;
 	}
 }

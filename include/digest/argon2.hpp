@@ -12,8 +12,13 @@
  * @email forman@anyks.com
  * @site https://anyks.com
  *
+ * \~russian
  * @brief Модуль вывода ключа из пароля Argon2 по RFC 9106: Argon2d, Argon2i, Argon2id
  *
+ * \~english
+ * @brief Module of the derivation of a key from a password Argon2 according to RFC 9106: Argon2d, Argon2i, Argon2id
+ *
+ * \~
  * @copyright Copyright © 2026
  *
  */
@@ -85,8 +90,11 @@ namespace nts {
 		 * \~
 		 */
 		enum class argon_t : uint8_t {
+			// Argon2d: обращения к памяти зависят от пароля
 			ARGON2D  = 0x00, /*!< \~russian Argon2d: обращения к памяти зависят от пароля \~english Argon2d: the memory accesses depend on the password \~ */
+			// Argon2i: обращения к памяти от пароля не зависят
 			ARGON2I  = 0x01, /*!< \~russian Argon2i: обращения к памяти от пароля не зависят \~english Argon2i: the memory accesses are independent of the password \~ */
+			// Argon2id: первая половина первого прохода как 2i, далее как 2d
 			ARGON2ID = 0x02  /*!< \~russian Argon2id: первая половина первого прохода как 2i, далее как 2d \~english Argon2id: the first half of the first pass as 2i, then as 2d \~ */
 		};
 		/**
@@ -124,7 +132,7 @@ namespace nts {
 			 *
 			 * \~
 			 */
-			Argon() noexcept : type(argon_t::ARGON2ID), memory(65536), passes(3), lanes(4) {}
+			Argon() noexcept;
 			/**
 			 * \~russian
 			 * @brief Конструктор
@@ -144,11 +152,11 @@ namespace nts {
 			 *
 			 * \~
 			 */
-			Argon(const argon_t type, const uint32_t memory, const uint32_t passes, const uint32_t lanes) noexcept : type(type), memory(memory), passes(passes), lanes(lanes) {}
+			Argon(const argon_t type, const uint32_t memory, const uint32_t passes, const uint32_t lanes) noexcept;
 		} argon_params_t;
 		/**
 		 * \~russian
-		 * @brief Метод вывода ключа из пароля Argon2
+		 * @brief Функция вывода ключа из пароля Argon2
 		 *
 		 * @details Алгоритм раздела 3 RFC 9106 издания 0x13. Память под матрицу блоков занимается
 		 *          на время вызова и затирается; при нехватке памяти метод отвечает отказом, а не
@@ -161,11 +169,10 @@ namespace nts {
 		 * @param associated связанные данные (X) либо пустой вид
 		 * @param result     место, в которое помещается метка (T)
 		 * @param size       длина метки в байтах, не меньше четырёх
-		 *
 		 * @return           признак того, что метка выведена
 		 *
 		 * \~english
-		 * @brief Method of the derivation of a key from a password by Argon2
+		 * @brief Function of the derivation of a key from a password by Argon2
 		 *
 		 * @details The algorithm of section 3 of RFC 9106, edition 0x13. The memory for the block
 		 *          matrix is taken for the duration of the call and wiped; at a lack of memory the
@@ -179,7 +186,6 @@ namespace nts {
 		 * @param associated associated data (X) or an empty view
 		 * @param result     place into which the tag (T) is put
 		 * @param size       length of the tag in bytes, at least four
-		 *
 		 * @return           sign that the tag is derived
 		 *
 		 * \~
@@ -218,7 +224,7 @@ namespace nts {
 		} argon_record_t;
 		/**
 		 * \~russian
-		 * @brief Метод разбора строки PHC
+		 * @brief Функция разбора строки PHC
 		 *
 		 * @details Принимаются лишь `argon2d`, `argon2i`, `argon2id` с `v=19` (издание 0x13, единственное
 		 *          у модуля), параметры строго в порядке `m,t,p`, соль и выход в base64 без дополнения;
@@ -226,11 +232,10 @@ namespace nts {
 		 *
 		 * @param text   строка PHC
 		 * @param result запись
-		 *
 		 * @return       признак того, что строка разобрана
 		 *
 		 * \~english
-		 * @brief Method of the parsing of a PHC string
+		 * @brief Function of the parsing of a PHC string
 		 *
 		 * @details Only `argon2d`, `argon2i`, `argon2id` with `v=19` are accepted (edition 0x13, the
 		 *          only one of the module), the parameters strictly in the order `m,t,p`, the salt and
@@ -239,7 +244,6 @@ namespace nts {
 		 *
 		 * @param text   PHC string
 		 * @param result record
-		 *
 		 * @return       sign that the string is parsed
 		 *
 		 * \~
@@ -247,22 +251,20 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ bool phc(const string & text, argon_record_t & result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод записи строки PHC
+		 * @brief Функция записи строки PHC
 		 *
 		 * @param record запись: соль не короче восьми байтов, выход при наличии не короче четырёх
 		 * @param result строка PHC
-		 *
 		 * @return       признак того, что строка записана
 		 *
 		 * @note Запись с непустым тайным значением либо связанными данными отвергается: строка
 		 *       PHC их не несёт, и запись, молча теряющая часть входа, дала бы при чтении иной ключ
 		 *
 		 * \~english
-		 * @brief Method of the writing of a PHC string
+		 * @brief Function of the writing of a PHC string
 		 *
 		 * @param record record: the salt not shorter than eight bytes, the output when present not shorter than four
 		 * @param result PHC string
-		 *
 		 * @return       sign that the string is written
 		 *
 		 * @note A record with a non-empty secret value or associated data is refused: the PHC string

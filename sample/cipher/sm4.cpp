@@ -53,7 +53,7 @@ using namespace nts;
  */
 namespace {
 	/**
-	 * @brief Метод вывода области байтов шестнадцатеричной записью
+	 * @brief Функция вывода области байтов шестнадцатеричной записью
 	 *
 	 * @param title заголовок выводимой области байтов
 	 * @param data  выводимая область байтов
@@ -79,7 +79,6 @@ namespace {
  *
  * @param argc длина массива параметров
  * @param argv массив параметров
- *
  * @return     код выхода из приложения
  *
  */
@@ -107,6 +106,7 @@ int main(int argc, char * argv[]) noexcept {
 	}
 	// Преобразуемый блок открытого текста
 	uint8_t block[cipher::SM4_BLOCK] = {
+		// Значения байтов блока
 		0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF,
 		0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10
 	};
@@ -141,6 +141,7 @@ int main(int argc, char * argv[]) noexcept {
 	 *
 	 * @note Режим GCM не дополняет сообщение до блока: длина шифртекста равна длине
 	 *       открытого текста, а целостность заверяет отдельная метка
+	 *
 	 */
 	if(!galois.start(base, view_t(nonce, sizeof(nonce)))){
 		// Выводим сообщение об отказе запуска режима
@@ -163,6 +164,7 @@ int main(int argc, char * argv[]) noexcept {
 	 *
 	 * @note Открытый текст записывается лишь после того, как метка сошлась: расходящаяся
 	 *       метка означает, что сообщение подменили, и выдавать наверх нечего
+	 *
 	 */
 	if(!opener.decrypt(view_t(reinterpret_cast <const uint8_t *> (associated), ::strlen(associated)), view_t(buffer, length), buffer, view_t(tag, sizeof(tag)))){
 		// Выводим сообщение об отказе проверки метки целостности

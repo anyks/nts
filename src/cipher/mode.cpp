@@ -65,12 +65,11 @@ namespace {
 	using namespace nts::cipher;
 
 	/**
-	 * @brief Метод зашифрования блока шифром «Магма»
+	 * @brief Функция зашифрования блока шифром «Магма»
 	 *
 	 * @param cipher объект блочного шифра
 	 * @param source зашифровываемый блок
 	 * @param result место, в которое помещается зашифрованный блок
-	 *
 	 * @return       признак успешности зашифрования
 	 *
 	 */
@@ -79,12 +78,11 @@ namespace {
 		return reinterpret_cast <const magma_t *> (cipher)->encrypt(source, result);
 	}
 	/**
-	 * @brief Метод расшифрования блока шифром «Магма»
+	 * @brief Функция расшифрования блока шифром «Магма»
 	 *
 	 * @param cipher объект блочного шифра
 	 * @param source расшифровываемый блок
 	 * @param result место, в которое помещается расшифрованный блок
-	 *
 	 * @return       признак успешности расшифрования
 	 *
 	 */
@@ -93,12 +91,11 @@ namespace {
 		return reinterpret_cast <const magma_t *> (cipher)->decrypt(source, result);
 	}
 	/**
-	 * @brief Метод зашифрования блока шифром «Кузнечик»
+	 * @brief Функция зашифрования блока шифром «Кузнечик»
 	 *
 	 * @param cipher объект блочного шифра
 	 * @param source зашифровываемый блок
 	 * @param result место, в которое помещается зашифрованный блок
-	 *
 	 * @return       признак успешности зашифрования
 	 *
 	 */
@@ -107,12 +104,11 @@ namespace {
 		return reinterpret_cast <const kuznyechik_t *> (cipher)->encrypt(source, result);
 	}
 	/**
-	 * @brief Метод расшифрования блока шифром «Кузнечик»
+	 * @brief Функция расшифрования блока шифром «Кузнечик»
 	 *
 	 * @param cipher объект блочного шифра
 	 * @param source расшифровываемый блок
 	 * @param result место, в которое помещается расшифрованный блок
-	 *
 	 * @return       признак успешности расшифрования
 	 *
 	 */
@@ -121,12 +117,11 @@ namespace {
 		return reinterpret_cast <const kuznyechik_t *> (cipher)->decrypt(source, result);
 	}
 	/**
-	 * @brief Метод зашифрования блока шифром AES
+	 * @brief Функция зашифрования блока шифром AES
 	 *
 	 * @param cipher объект блочного шифра
 	 * @param source зашифровываемый блок
 	 * @param result место, в которое помещается зашифрованный блок
-	 *
 	 * @return       признак успешности зашифрования
 	 *
 	 */
@@ -135,12 +130,11 @@ namespace {
 		return reinterpret_cast <const aes_t *> (cipher)->encrypt(source, result);
 	}
 	/**
-	 * @brief Метод расшифрования блока шифром AES
+	 * @brief Функция расшифрования блока шифром AES
 	 *
 	 * @param cipher объект блочного шифра
 	 * @param source расшифровываемый блок
 	 * @param result место, в которое помещается расшифрованный блок
-	 *
 	 * @return       признак успешности расшифрования
 	 *
 	 */
@@ -149,13 +143,12 @@ namespace {
 		return reinterpret_cast <const aes_t *> (cipher)->decrypt(source, result);
 	}
 	/**
-	 * @brief Метод зашифрования нескольких блоков разом шифром «Магма»
+	 * @brief Функция зашифрования нескольких блоков разом шифром «Магма»
 	 *
 	 * @param cipher  объект блочного шифра
 	 * @param sources зашифровываемые блоки подряд
 	 * @param blocks  число блоков
 	 * @param results место, в которое помещаются зашифрованные блоки
-	 *
 	 * @return        признак успешности зашифрования
 	 *
 	 */
@@ -164,13 +157,12 @@ namespace {
 		return reinterpret_cast <const magma_t *> (cipher)->batch(sources, blocks, results);
 	}
 	/**
-	 * @brief Метод зашифрования нескольких блоков разом шифром «Кузнечик»
+	 * @brief Функция зашифрования нескольких блоков разом шифром «Кузнечик»
 	 *
 	 * @param cipher  объект блочного шифра
 	 * @param sources зашифровываемые блоки подряд
 	 * @param blocks  число блоков
 	 * @param results место, в которое помещаются зашифрованные блоки
-	 *
 	 * @return        признак успешности зашифрования
 	 *
 	 */
@@ -179,13 +171,12 @@ namespace {
 		return reinterpret_cast <const kuznyechik_t *> (cipher)->batch(sources, blocks, results);
 	}
 	/**
-	 * @brief Метод зашифрования нескольких блоков разом шифром AES
+	 * @brief Функция зашифрования нескольких блоков разом шифром AES
 	 *
 	 * @param cipher  объект блочного шифра
 	 * @param sources зашифровываемые блоки подряд
 	 * @param blocks  число блоков
 	 * @param results место, в которое помещаются зашифрованные блоки
-	 *
 	 * @return        признак успешности зашифрования
 	 *
 	 */
@@ -194,14 +185,13 @@ namespace {
 		return reinterpret_cast <const aes_t *> (cipher)->batch(sources, blocks, results);
 	}
 	/**
-	 * @brief Метод выработки гаммы счётчика шифром AES
+	 * @brief Функция выработки гаммы счётчика шифром AES
 	 *
 	 * @param cipher  объект блочного шифра
 	 * @param counter начальный блок счётчика
 	 * @param blocks  число блоков гаммы
 	 * @param source  исходные данные, на которые гамма накладывается: пусто, если нужна сама гамма
 	 * @param result  место, в которое помещается гамма либо исходные данные под ней
-	 *
 	 * @return        признак успешности выработки
 	 *
 	 */
@@ -210,12 +200,11 @@ namespace {
 		return reinterpret_cast <const aes_t *> (cipher)->stream(counter, blocks, source, result);
 	}
 	/**
-	 * @brief Метод зашифрования блока шифром SM4
+	 * @brief Функция зашифрования блока шифром SM4
 	 *
 	 * @param cipher объект блочного шифра
 	 * @param source зашифровываемый блок
 	 * @param result место, в которое помещается зашифрованный блок
-	 *
 	 * @return       признак успешности зашифрования
 	 *
 	 */
@@ -224,12 +213,11 @@ namespace {
 		return reinterpret_cast <const sm4_t *> (cipher)->encrypt(source, result);
 	}
 	/**
-	 * @brief Метод расшифрования блока шифром SM4
+	 * @brief Функция расшифрования блока шифром SM4
 	 *
 	 * @param cipher объект блочного шифра
 	 * @param source расшифровываемый блок
 	 * @param result место, в которое помещается расшифрованный блок
-	 *
 	 * @return       признак успешности расшифрования
 	 *
 	 */
@@ -238,12 +226,11 @@ namespace {
 		return reinterpret_cast <const sm4_t *> (cipher)->decrypt(source, result);
 	}
 	/**
-	 * @brief Метод зашифрования блока шифром DES и 3DES
+	 * @brief Функция зашифрования блока шифром DES и 3DES
 	 *
 	 * @param cipher объект блочного шифра
 	 * @param source зашифровываемый блок
 	 * @param result место, в которое помещается зашифрованный блок
-	 *
 	 * @return       признак успешности зашифрования
 	 *
 	 */
@@ -252,12 +239,11 @@ namespace {
 		return reinterpret_cast <const des_t *> (cipher)->encrypt(source, result);
 	}
 	/**
-	 * @brief Метод расшифрования блока шифром DES и 3DES
+	 * @brief Функция расшифрования блока шифром DES и 3DES
 	 *
 	 * @param cipher объект блочного шифра
 	 * @param source расшифровываемый блок
 	 * @param result место, в которое помещается расшифрованный блок
-	 *
 	 * @return       признак успешности расшифрования
 	 *
 	 */
@@ -268,10 +254,9 @@ namespace {
 	// Затирание областей памяти берётся из открытого API библиотеки
 	using nts::sys::wipe;
 	/**
-	 * @brief Метод проверки пригодности базового алгоритма блочного шифрования
+	 * @brief Функция проверки пригодности базового алгоритма блочного шифрования
 	 *
 	 * @param block проверяемый базовый алгоритм блочного шифрования
-	 *
 	 * @return      признак пригодности базового алгоритма блочного шифрования
 	 *
 	 */
@@ -283,7 +268,7 @@ namespace {
 		);
 	}
 	/**
-	 * @brief Метод сдвига заполнения регистра
+	 * @brief Функция сдвига заполнения регистра
 	 *
 	 * @details Сдвиг ведётся в сторону разрядов с большими номерами, в разряды с
 	 *          меньшими номерами записывается переданное значение
@@ -303,7 +288,7 @@ namespace {
 		::memcpy(data + (length - size), value, size);
 	}
 	/**
-	 * @brief Метод сложения блоков по модулю два
+	 * @brief Функция сложения блоков по модулю два
 	 *
 	 * @param first  первое слагаемое
 	 * @param second второе слагаемое
@@ -323,6 +308,7 @@ namespace {
 
 /**
  * @brief Конструктор
+ * @param cipher объект блочного шифра DES и 3DES
  *
  */
 nts::cipher::Block::Block() noexcept :
@@ -381,7 +367,6 @@ bool nts::cipher::Codebook::ready() const noexcept {
  * @brief Метод запуска режима работы
  *
  * @param block базовый алгоритм блочного шифрования
- *
  * @return      признак успешности запуска режима работы
  *
  */
@@ -414,7 +399,6 @@ void nts::cipher::Codebook::clear() noexcept {
  *
  * @param source зашифровываемое сообщение
  * @param result место, в которое помещается шифртекст
- *
  * @return       признак успешности зашифрования
  *
  */
@@ -444,7 +428,6 @@ bool nts::cipher::Codebook::encrypt(const view_t & source, uint8_t * result) noe
  *
  * @param source расшифровываемый шифртекст
  * @param result место, в которое помещается открытый текст
- *
  * @return       признак успешности расшифрования
  *
  */
@@ -498,7 +481,6 @@ bool nts::cipher::Counter::ready() const noexcept {
  * @param block базовый алгоритм блочного шифрования
  * @param iv    синхропосылка длиной в половину блока шифра
  * @param size  размер блока гаммы в байтах, ноль означает длину блока шифра
- *
  * @return      признак успешности запуска режима работы
  *
  */
@@ -556,7 +538,6 @@ void nts::cipher::Counter::clear() noexcept {
  *
  * @param source зашифровываемое сообщение
  * @param result место, в которое помещается шифртекст
- *
  * @return       признак успешности зашифрования
  *
  */
@@ -600,8 +581,11 @@ bool nts::cipher::Counter::encrypt(const view_t & source, uint8_t * result) noex
 			::memcpy(base, this->_counter, 12);
 			// Записываем младшие четыре байта основания от старшего
 			base[12] = static_cast <uint8_t> (previous >> 24);
+			// Записываем второй байт основания от старшего
 			base[13] = static_cast <uint8_t> (previous >> 16);
+			// Записываем третий байт основания от старшего
 			base[14] = static_cast <uint8_t> (previous >> 8);
+			// Записываем младший байт основания
 			base[15] = static_cast <uint8_t> (previous);
 			// Если наложить гамму ядром не удалось
 			if(!this->_block.stream(this->_block.cipher, base, count, source.data + offset, result + offset)){
@@ -728,7 +712,6 @@ bool nts::cipher::Counter::encrypt(const view_t & source, uint8_t * result) noex
  *
  * @param source расшифровываемый шифртекст
  * @param result место, в которое помещается открытый текст
- *
  * @return       признак успешности расшифрования
  *
  */
@@ -770,7 +753,6 @@ bool nts::cipher::Output::ready() const noexcept {
  * @param block базовый алгоритм блочного шифрования
  * @param iv    синхропосылка длиной в целое число блоков шифра
  * @param size  размер блока гаммы в байтах, ноль означает длину блока шифра
- *
  * @return      признак успешности запуска режима работы
  *
  */
@@ -829,7 +811,6 @@ void nts::cipher::Output::clear() noexcept {
  *
  * @param source зашифровываемое сообщение
  * @param result место, в которое помещается шифртекст
- *
  * @return       признак успешности зашифрования
  *
  */
@@ -878,7 +859,6 @@ bool nts::cipher::Output::encrypt(const view_t & source, uint8_t * result) noexc
  *
  * @param source расшифровываемый шифртекст
  * @param result место, в которое помещается открытый текст
- *
  * @return       признак успешности расшифрования
  *
  */
@@ -919,7 +899,6 @@ bool nts::cipher::Chaining::ready() const noexcept {
  *
  * @param block базовый алгоритм блочного шифрования
  * @param iv    синхропосылка длиной в целое число блоков шифра
- *
  * @return      признак успешности запуска режима работы
  *
  */
@@ -964,7 +943,6 @@ void nts::cipher::Chaining::clear() noexcept {
  *
  * @param source зашифровываемое сообщение
  * @param result место, в которое помещается шифртекст
- *
  * @return       признак успешности зашифрования
  *
  */
@@ -1007,7 +985,6 @@ bool nts::cipher::Chaining::encrypt(const view_t & source, uint8_t * result) noe
  *
  * @param source расшифровываемый шифртекст
  * @param result место, в которое помещается открытый текст
- *
  * @return       признак успешности расшифрования
  *
  */
@@ -1086,7 +1063,6 @@ bool nts::cipher::Feedback::ready() const noexcept {
  * @param block базовый алгоритм блочного шифрования
  * @param iv    синхропосылка длиной не менее длины блока шифра
  * @param size  размер блока гаммы в байтах, ноль означает длину блока шифра
- *
  * @return      признак успешности запуска режима работы
  *
  */
@@ -1147,7 +1123,6 @@ void nts::cipher::Feedback::clear() noexcept {
  *
  * @param source зашифровываемое сообщение
  * @param result место, в которое помещается шифртекст
- *
  * @return       признак успешности зашифрования
  *
  */
@@ -1198,7 +1173,6 @@ bool nts::cipher::Feedback::encrypt(const view_t & source, uint8_t * result) noe
  *
  * @param source расшифровываемый шифртекст
  * @param result место, в которое помещается открытый текст
- *
  * @return       признак успешности расшифрования
  *
  */
@@ -1276,7 +1250,6 @@ bool nts::cipher::Imitation::ready() const noexcept {
  * @brief Метод запуска режима работы
  *
  * @param block базовый алгоритм блочного шифрования
- *
  * @return      признак успешности запуска режима работы
  *
  */
@@ -1377,7 +1350,6 @@ void nts::cipher::Imitation::clear() noexcept {
  * @brief Метод добавления куска сообщения
  *
  * @param source добавляемый кусок сообщения
- *
  * @return       признак успешности добавления куска сообщения
  *
  */
@@ -1424,7 +1396,6 @@ bool nts::cipher::Imitation::update(const view_t & source) noexcept {
  *
  * @param result место, в которое помещается имитовставка
  * @param size   требуемая длина имитовставки в байтах
- *
  * @return       признак успешности снятия имитовставки
  *
  */

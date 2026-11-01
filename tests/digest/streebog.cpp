@@ -56,11 +56,10 @@ static const uint8_t MESSAGE_SECOND[] = {
 		0xEB, 0xFA, 0xEA, 0xFB, 0x20, 0xC8, 0xE3, 0xEE, 0xF0, 0xE5, 0xE2, 0xFB};
 
 /**
- * @brief Метод сборки записи хеша в виде строки
+ * @brief Функция сборки записи хеша в виде строки
  *
  * @param data выработанный хеш
  * @param size длина выработанного хеша
- *
  * @return     запись хеша шестнадцатеричными знаками
  *
  */
@@ -82,12 +81,11 @@ static std::string text(const uint8_t * data, const size_t size) {
 	return result;
 }
 /**
- * @brief Метод выработки хеша сообщения
+ * @brief Функция выработки хеша сообщения
  *
  * @param type длина вырабатываемого хеша
  * @param data хешируемое сообщение
  * @param size длина хешируемого сообщения
- *
  * @return     запись выработанного хеша шестнадцатеричными знаками
  *
  */

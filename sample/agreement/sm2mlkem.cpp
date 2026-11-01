@@ -56,7 +56,7 @@ using namespace nts;
  */
 namespace {
 	/**
-	 * @brief Метод вывода области байтов шестнадцатеричной записью
+	 * @brief Функция вывода области байтов шестнадцатеричной записью
 	 *
 	 * @param title заголовок выводимой области байтов
 	 * @param data  выводимая область байтов
@@ -82,7 +82,6 @@ namespace {
  *
  * @param argc длина массива параметров
  * @param argv массив параметров
- *
  * @return     код выхода из приложения
  *
  */
@@ -109,6 +108,7 @@ int main(int argc, char * argv[]) noexcept {
 	 *
 	 * @details Открытый ключ кривой записывается двумя координатами точки подряд,
 	 *          каждая младшим байтом вперёд; у записи протокола впереди идёт знак 0x04
+	 *
 	 */
 	if(!agreement::generate(curve, secretA, pointA)){
 		// Выводим сообщение об отказе выработки пары клиента
@@ -150,7 +150,9 @@ int main(int argc, char * argv[]) noexcept {
 	::print("Половина кривой    ", curveA, 16);
 	// Длины ключа инкапсуляции, ключа декапсуляции и шифртекста ML-KEM-768
 	const size_t opened = agreement::encapsulation(agreement::kem_t::MLKEM768);
+	// Запоминаем длину ключа декапсуляции ML-KEM-768
 	const size_t closed = agreement::decapsulation(agreement::kem_t::MLKEM768);
+	// Запоминаем длину шифртекста ML-KEM-768
 	const size_t cipher = agreement::ciphertext(agreement::kem_t::MLKEM768);
 	// Пара ключей ML-KEM-768 стороны клиента
 	vector <uint8_t> kemKey(opened), kemSecret(closed);
@@ -159,6 +161,7 @@ int main(int argc, char * argv[]) noexcept {
 	 *
 	 * @details Ключ инкапсуляции уходит серверу долей клиента, ключ декапсуляции
 	 *          остаётся у клиента до завершения обмена
+	 *
 	 */
 	if(!agreement::generate(agreement::kem_t::MLKEM768, kemKey.data(), kemSecret.data())){
 		// Выводим сообщение об отказе выработки пары ML-KEM
@@ -168,6 +171,7 @@ int main(int argc, char * argv[]) noexcept {
 	}
 	// Шифртекст инкапсуляции сервера и общие секреты ML-KEM обеих сторон
 	vector <uint8_t> kemCipher(cipher);
+	// Места общих секретов ML-KEM сервера и клиента
 	uint8_t kemServer[agreement::MLKEM_SHARED], kemClient[agreement::MLKEM_SHARED];
 	// Выполняем инкапсуляцию секрета сервером на ключе клиента
 	if(!agreement::encapsulate(agreement::kem_t::MLKEM768, view_t(kemKey.data(), kemKey.size()), kemCipher.data(), kemServer)){
@@ -194,6 +198,7 @@ int main(int argc, char * argv[]) noexcept {
 	::print("Половина ML-KEM    ", kemServer, 16);
 	// Общий секрет гибрида у обеих сторон: сложение половин, кривая впереди
 	uint8_t sharedA[64], sharedB[64];
+	// Складываем общий секрет гибрида стороны A: кривая впереди
 	::memcpy(sharedA, curveA, sizeof(curveA));
 	::memcpy(sharedA + sizeof(curveA), kemClient, sizeof(kemClient));
 	::memcpy(sharedB, curveB, sizeof(curveB));

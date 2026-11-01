@@ -21,7 +21,6 @@
  *        numbers of a length of up to 4096 bits for RSA according to RFC 8017
  *
  * \~
- *
  * @copyright Copyright © 2026
  *
  */
@@ -75,6 +74,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Greatest number of the bits of a multi-precision integer
+		 *
 		 * @details The greatest modulus of RSA produced by the library occupies 4096 bits, the greatest
 		 *          group of RFC 7919 (ffdhe8192) occupies 8192 bits
 		 *
@@ -122,6 +122,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Multi-precision integer of a constant capacity
+		 *
 		 * @details An unsigned number of a capacity of 4096 bits on 64-bit words written
 		 *          from the junior one to the senior one. The arithmetic does not allocate
 		 *          memory: the product of two numbers is accumulated in an internal accumulator
@@ -130,6 +131,7 @@ namespace nts {
 		 *          in a constant time; the division, the inversion by a modulus and the primality
 		 *          check - in a variable one and are meant for the generation of the keys, where
 		 *          the secret is not set yet
+		 *
 		 * @note The arithmetic raises no exceptions; the words of the number are wiped at the
 		 *       destruction of the object
 		 *
@@ -153,6 +155,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the words of the number
+				 *
 				 * @return the words of the number from the junior one to the senior one
 				 *
 				 * \~
@@ -166,6 +169,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the number of the significant bits
+				 *
 				 * @return the number of the bits up to the senior set one inclusive, zero for zero
 				 *
 				 * \~
@@ -179,6 +183,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the size of the number in bytes
+				 *
 				 * @return the least number of bytes holding the value, zero for zero
 				 *
 				 * \~
@@ -192,6 +197,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of checking the number for zero
+				 *
 				 * @return the flag of the number being zero
 				 *
 				 * \~
@@ -205,6 +211,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of checking the number for oddness
+				 *
 				 * @return the flag of the number being odd
 				 *
 				 * \~
@@ -219,6 +226,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting a bit of the number
+				 *
 				 * @param index the number of the bit from the junior one
 				 * @return      the value of the bit, zero beyond the capacity
 				 *
@@ -237,8 +245,10 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the comparison with another number
+				 *
 				 * @param other the number the comparison is carried with
 				 * @return      a negative value if the number is less, zero at equality, a positive one if greater
+				 *
 				 * @note The comparison is carried in a constant time over all the words
 				 *
 				 * \~
@@ -253,6 +263,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of checking the equality with another number
+				 *
 				 * @param other the number the comparison is carried with
 				 * @return      the flag of the equality of the numbers
 				 *
@@ -278,6 +289,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of setting the value from a single word
+				 *
 				 * @param value the value being set
 				 *
 				 * \~
@@ -294,8 +306,10 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the parsing of the number from bytes
+				 *
 				 * @param data the bytes of the number from the senior one to the junior one
 				 * @return     the flag of the success of the parsing: the value fits into the capacity
+				 *
 				 * @note Leading zero bytes are allowed
 				 *
 				 * \~
@@ -311,6 +325,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of writing the number into bytes
+				 *
 				 * @param data the place the number is written into from the senior byte to the junior one
 				 * @param size the size of the place in bytes: the number is padded by leading zeros
 				 * @return     the flag of the success of the writing: the value fits into the size
@@ -329,8 +344,10 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the production of a random number
+				 *
 				 * @param bits the number of the bits of the produced number
 				 * @return     the flag of the success of the production
+				 *
 				 * @note The senior bit is not set: a number less than 2^bits is produced
 				 *
 				 * \~
@@ -349,9 +366,11 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the addition of the numbers
+				 *
 				 * @param first  the first addend
 				 * @param second the second addend
 				 * @return       the flag of the success: the sum fits into the capacity
+				 *
 				 * @note At an overflow the junior part of the sum is written
 				 *
 				 * \~
@@ -369,9 +388,11 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the subtraction of the numbers
+				 *
 				 * @param first  the minuend
 				 * @param second the subtrahend
 				 * @return       the flag of the success: the minuend is not less than the subtrahend
+				 *
 				 * @note At a negative difference its complement to the capacity is written
 				 *
 				 * \~
@@ -390,9 +411,11 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the multiplication of the numbers
+				 *
 				 * @param first  the first multiplier
 				 * @param second the second multiplier
 				 * @return       the flag of the success: the product fits into the capacity
+				 *
 				 * @note The product is computed over the significant words of the multipliers: the time
 				 *       depends on their width in words, not on the values
 				 *
@@ -410,8 +433,10 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the shift of the number to the left
+				 *
 				 * @param value the number being shifted
 				 * @param count the number of the bits of the shift
+				 *
 				 * @note The bits gone beyond the capacity are lost
 				 *
 				 * \~
@@ -426,6 +451,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the shift of the number to the right
+				 *
 				 * @param value the number being shifted
 				 * @param count the number of the bits of the shift
 				 *
@@ -446,10 +472,12 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the division of the numbers with a remainder
+				 *
 				 * @param dividend  the dividend
 				 * @param divisor   the divisor
 				 * @param remainder the place the remainder is put into, or nullptr
 				 * @return          the flag of the success: the divisor is not zero
+				 *
 				 * @note The quotient is written into the number itself; the time of the work is variable
 				 *
 				 * \~
@@ -467,9 +495,11 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the reduction of the number by a modulus
+				 *
 				 * @param value   the number being reduced
 				 * @param modulus the modulus
 				 * @return        the flag of the success: the modulus is not zero
+				 *
 				 * @note The time of the work is variable
 				 *
 				 * \~
@@ -492,9 +522,11 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the reduction of the number by an odd modulus in a constant time
+				 *
 				 * @param value   the number being reduced
 				 * @param modulus the odd modulus
 				 * @return        the flag of the success: the modulus is odd
+				 *
 				 * @note The reduction is carried by Montgomery passes over the whole capacity of the
 				 *       number with a return from the domain by a multiplication by a power of the base:
 				 *       neither branches nor addresses of the accesses depend on the words of the number
@@ -516,6 +548,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the addition of the numbers by a modulus in a constant time
+				 *
 				 * @param first   the first addend, less than the modulus
 				 * @param second  the second addend, less than the modulus
 				 * @param modulus the modulus
@@ -535,6 +568,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the subtraction of the numbers by a modulus in a constant time
+				 *
 				 * @param first   the minuend, less than the modulus
 				 * @param second  the subtrahend, less than the modulus
 				 * @param modulus the modulus
@@ -560,11 +594,13 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the multiplication of the numbers by a modulus
+				 *
 				 * @param first   the first multiplier
 				 * @param second  the second multiplier
 				 * @param modulus the modulus
 				 * @param secret  the flag of secret multipliers
 				 * @return        the flag of the success: the modulus is not zero, with secret multipliers odd and not shorter than them
+				 *
 				 * @note With secret multipliers the multiplication is carried by Montgomery in a constant
 				 *       time and requires an odd modulus and the multipliers fitting into the words of the modulus; with
 				 *       public ones the product is accumulated whole in the double capacity and is divided
@@ -592,11 +628,13 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the raise into a power by a modulus
+				 *
 				 * @param base     the base, less than the modulus
 				 * @param exponent the exponent
 				 * @param modulus  the odd modulus
 				 * @param secret   the flag of a secret exponent
 				 * @return         the flag of the success: the modulus is odd, the base is less than the modulus, the secret exponent fits into the words of the modulus
+				 *
 				 * @note The multiplication is carried by Montgomery with a window of five bits. With a
 				 *       secret exponent the scan is carried over the whole bit width of the words of the
 				 *       modulus, therefore the exponent must fit into it, and
@@ -610,24 +648,30 @@ namespace nts {
 				/**
 				 * \~russian
 				 * @brief Метод возведения числа в степень по модулю с заданной шириной перебора показателя
+				 *
 				 * @param base     основание, меньшее модуля
 				 * @param exponent показатель
 				 * @param modulus  нечётный модуль
 				 * @param bits     число разрядов показателя, по которым идёт перебор: не меньше его значимых разрядов
 				 * @return         признак успешности
+				 *
 				 * @note Число шагов перебора задаётся вызывающим и не зависит от значения показателя:
 				 *       так секретный показатель известной длины (например, 336 разрядов у ffdhe4096)
 				 *       возводится без перебора всей ширины модуля и без утечки своей ширины временем
+				 *
 				 * \~english
 				 * @brief Method of the raise into a power by a modulus with a given width of the scan of the exponent
+				 *
 				 * @param base     the base, less than the modulus
 				 * @param exponent the exponent
 				 * @param modulus  the odd modulus
 				 * @param bits     the number of the bits of the exponent the scan goes over: not less than its significant bits
 				 * @return         the flag of the success
+				 *
 				 * @note The number of the steps of the scan is set by the caller and does not depend on the value of the
 				 *       exponent: thus a secret exponent of a known length (e.g. 336 bits at ffdhe4096) is raised without a
 				 *       scan over the whole width of the modulus and without a leak of its width by the timing
+				 *
 				 * \~
 				 */
 				bool power(const Integer & base, const Integer & exponent, const Integer & modulus, const size_t bits) noexcept;
@@ -646,9 +690,11 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the inversion of the number by a modulus
+				 *
 				 * @param value   the number being inverted
 				 * @param modulus the modulus
 				 * @return        the flag of the success: the number and the modulus are coprime
+				 *
 				 * @note The inversion is carried by the binary extended algorithm of Euclid in a
 				 *       variable time: it is meant for the generation of the key, where the secret is not
 				 *       yet set; on the secret paths the inverse is taken by a raise into a power by Fermat
@@ -668,9 +714,11 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the computation of the greatest common divisor
+				 *
 				 * @param first  the first number
 				 * @param second the second number
 				 * @return       the flag of the success: at least one of the numbers is not zero
+				 *
 				 * @note The time of the work is variable
 				 *
 				 * \~
@@ -690,7 +738,9 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of checking the number for primality
+				 *
 				 * @return the flag of the number being probably prime
+				 *
 				 * @note First a trial division by the small primes, then the Miller-Rabin test with
 				 *       random bases; the number of the rounds is taken by the table B.1 of FIPS 186-5
 				 *       for the primes of a length of 1024, 1536 and 2048 bits, for the shorter numbers
@@ -740,6 +790,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Montgomery arithmetic by an odd modulus
+		 *
 		 * @details The modulus is set once, and at the setting the reduction factor, the unit of the
 		 *          Montgomery domain R mod m and the square R² mod m are computed: every subsequent
 		 *          operation goes by Montgomery multiplications without divisions and without
@@ -748,6 +799,7 @@ namespace nts {
 		 *          are neither branches nor memory addresses by the values. Such objects are set up
 		 *          for the RSA modulus n and its factors p and q at the setting of the key, therefore
 		 *          the signature and the verification do not pay for the precomputations at every call
+		 *
 		 * @note The inversion goes by the algorithm of Bernstein and Yang (division steps divstep in
 		 *       batches of sixty two) in a constant time; the compilers without signed 128-bit
 		 *       numbers (MSVC) go by the binary extended Euclidean algorithm in a variable time
@@ -779,6 +831,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the check that the modulus is set
+				 *
 				 * @return the flag of the set modulus
 				 *
 				 * \~
@@ -792,6 +845,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the getting of the number of the words of the modulus
+				 *
 				 * @return the number of the words of the modulus up to the senior nonzero one inclusive
 				 *
 				 * \~
@@ -810,9 +864,11 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the setting of the modulus
+				 *
 				 * @details The reduction factor, the unit of the domain and the square R² are computed:
 				 *          by doublings by the modulus in a constant time, two passes per a bit of the
 				 *          width of the modulus
+				 *
 				 * @param modulus the odd modulus
 				 * @return        the flag of the success of the setting: the modulus is odd and nonzero
 				 *
@@ -839,6 +895,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the transfer of a number into the Montgomery domain
+				 *
 				 * @param value  the number less than the modulus
 				 * @param result the place the number in the domain is put into: value·R mod m
 				 * @return       the flag of the success of the transfer: the modulus is set, the number is less than the modulus
@@ -856,6 +913,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the transfer of a number out of the Montgomery domain
+				 *
 				 * @param value  the number in the domain less than the modulus
 				 * @param result the place the number is put into: value·R⁻¹ mod m
 				 * @return       the flag of the success of the transfer: the modulus is set, the number is less than the modulus
@@ -877,8 +935,10 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the Montgomery multiplication
+				 *
 				 * @details Both multiplicands are in the Montgomery domain, the product stays in it:
 				 *          first·second·R⁻¹ mod m
+				 *
 				 * @param first  the first multiplicand less than the modulus
 				 * @param second the second multiplicand less than the modulus
 				 * @param result the place the product is put into: it may coincide with a multiplicand
@@ -901,8 +961,10 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the multiplication by the modulus of the numbers out of the domain
+				 *
 				 * @details The first multiplicand is transferred into the domain and multiplied by the
 				 *          second one: two Montgomery multiplications give first·second mod m
+				 *
 				 * @param first  the first multiplicand less than the modulus
 				 * @param second the second multiplicand less than the modulus
 				 * @param result the place the product is put into: it may coincide with a multiplicand
@@ -930,6 +992,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the raise into a power by the modulus
+				 *
 				 * @details The base is transferred into the domain, the result is transferred out of it.
 				 *          With a secret exponent the scan goes by windows of five bits over the whole
 				 *          bit width of the words of the modulus, the value from the window is chosen
@@ -937,6 +1000,7 @@ namespace nts {
 				 *          words of the modulus. With a public exponent the scan goes by the binary
 				 *          method over its significant bits: a short public exponent of RSA needs no
 				 *          table of the windows
+				 *
 				 * @param base     the base less than the modulus
 				 * @param exponent the exponent
 				 * @param secret   the flag of a secret exponent
@@ -961,11 +1025,13 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the reduction of a number by the modulus
+				 *
 				 * @details A number of any width is reduced by passes of the Montgomery reduction by a
 				 *          word, one pass per each width of the modulus, and is returned into the domain
 				 *          by a multiplication by a power of R: there are no divisions, the time depends
 				 *          only on the number of the significant words of the reduced number, but not
 				 *          on their values
+				 *
 				 * @param value  the reduced number
 				 * @param result the place the remainder is put into: it may coincide with the number
 				 * @return       the flag of the success of the reduction: the modulus is set
@@ -986,9 +1052,11 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the inversion of a number by the modulus in a constant time
+				 *
 				 * @details The inversion goes by the algorithm of Bernstein and Yang; the invertibility
 				 *          is checked by a multiplication of the found number by the number: the unit
 				 *          confirms, anything else rejects
+				 *
 				 * @param value  the inverted number less than the modulus
 				 * @param result the place the inverse number out of the domain is put into: it may coincide with the number
 				 * @return       the flag of the success of the inversion: the modulus is set, the number is less than the modulus and coprime with it

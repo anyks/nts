@@ -12,13 +12,7 @@
  * @email forman@anyks.com
  * @site https://anyks.com
  *
- * \~russian
  * @brief Исходный файл укрытого хранилища ключевого материала
- *
- * \~english
- * @brief Source file of the sheltered storage of the key material
- *
- * \~
  *
  * @copyright Copyright © 2026
  *
@@ -34,8 +28,11 @@
  */
 #if defined(_WIN32)
 	#include <windows.h>
-#else
-	#include <unistd.h>
+		/**
+		 * Иначе подключаем заголовочные файлы POSIX
+		 */
+	#else
+		#include <unistd.h>
 	#include <pthread.h>
 	#include <sys/mman.h>
 #endif
@@ -53,35 +50,25 @@
 using namespace nts;
 
 /**
- * \~russian
  * @brief Наименьшая длина куска, берущегося у системы
  *
  * @note Кусок в 64 КБ вмещает ключевой материал сотни связей; меньший дробил бы право
  *       на запрет подкачки впустую, больший тратил бы его наперёд
  *
- * \~english
- * @brief Minimum length of a chunk taken from the system
  */
 static constexpr size_t VAULT_CHUNK = 65536;
 
 /**
- * \~russian
  * @brief Выравнивание участка: довольно любому значению ключа и векторных команд
  *
- * \~english
- * @brief Alignment of a piece: enough for any key value and the vector instructions
  */
 static constexpr size_t VAULT_ALIGN = 16;
 
 /**
- * \~russian
  * @brief Функция получения длины страницы памяти
  *
  * @return длина страницы памяти в байтах
  *
- * \~english
- * @brief Function of getting the length of the memory page
- * @return the length of the memory page in bytes
  */
 static size_t page() noexcept {
 	/**
@@ -106,15 +93,12 @@ static size_t page() noexcept {
 }
 
 /**
- * \~russian
  * @brief Функция обработки разветвления процесса у потомка
  *
  * @details Там, где система сама не даёт потомку затёртую память, затираем её сами.
  *          Замок хранилища у потомка не берётся: потомок однопоточен, а замок мог
  *          остаться взятым потоком родителя, которого у потомка нет
  *
- * \~english
- * @brief Function of the handling of the fork at the child
  */
 static void forked() noexcept {
 	// Затираем всю память хранилища у потомка
@@ -122,7 +106,10 @@ static void forked() noexcept {
 }
 
 /**
- * instance Метод получения хранилища процесса
+ * @brief Метод получения хранилища процесса
+ *
+ * @return хранилище процесса
+ *
  */
 sys::Vault & sys::Vault::instance() noexcept {
 	// Хранилище процесса: живёт до завершения процесса
@@ -131,7 +118,11 @@ sys::Vault & sys::Vault::instance() noexcept {
 	return vault;
 }
 /**
- * grow Метод взятия куска у системы
+ * @brief Метод взятия куска у системы
+ *
+ * @param size наименьшая длина куска в байтах
+ * @return     признак того, что кусок взят и принят
+ *
  */
 bool sys::Vault::grow(const size_t size) noexcept {
 	// Длина страницы памяти
@@ -186,10 +177,19 @@ bool sys::Vault::grow(const size_t size) noexcept {
 		 * FreeBSD и DragonFly - MADV_NOCORE; у macOS, NetBSD, OpenBSD и Sun такого нет
 		 */
 		#if defined(MADV_DONTDUMP)
+			// Укрываем кусок советом MADV_DONTDUMP
 			chunk.shelter.hidden = (::madvise(chunk.base, length, MADV_DONTDUMP) == 0);
+		/**
+		 * Иначе пробуем совет MADV_NOCORE
+		 */
 		#elif defined(MADV_NOCORE)
+			// Укрываем кусок советом MADV_NOCORE
 			chunk.shelter.hidden = (::madvise(chunk.base, length, MADV_NOCORE) == 0);
+		/**
+		 * Иначе укрывать кусок в снимках нечем
+		 */
 		#else
+			// Оставляем кусок видимым в снимках памяти
 			chunk.shelter.hidden = false;
 		#endif
 		/**
@@ -197,12 +197,25 @@ bool sys::Vault::grow(const size_t size) noexcept {
 		 * INHERIT_ZERO; где нет ни того, ни другого, затирает обработчик pthread_atfork
 		 */
 		#if defined(MADV_WIPEONFORK)
+			// Затираем кусок у потомка советом MADV_WIPEONFORK
 			chunk.shelter.forked = (::madvise(chunk.base, length, MADV_WIPEONFORK) == 0);
+		/**
+		 * Иначе пробуем наследование INHERIT_ZERO
+		 */
 		#elif defined(INHERIT_ZERO)
+			// Затираем кусок у потомка наследованием INHERIT_ZERO
 			chunk.shelter.forked = (::minherit(chunk.base, length, INHERIT_ZERO) == 0);
+		/**
+		 * Иначе пробуем наследование MAP_INHERIT_ZERO
+		 */
 		#elif defined(MAP_INHERIT_ZERO)
+			// Затираем кусок у потомка наследованием MAP_INHERIT_ZERO
 			chunk.shelter.forked = (::minherit(chunk.base, length, MAP_INHERIT_ZERO) == 0);
+		/**
+		 * Иначе система потомка сама не затирает
+		 */
 		#else
+			// Оставляем кусок без затирания у потомка
 			chunk.shelter.forked = false;
 		#endif
 		// Если система потомка сама не затирает
@@ -231,8 +244,7 @@ bool sys::Vault::grow(const size_t size) noexcept {
 		// Сообщаем в сток журнала, что именно не состоялось
 		sys::log::emitf(sys::log::level_t::WARNING, "A-NTS: vault chunk of %zu bytes sheltered partially: wired %s, hidden %s, forked %s", length, (chunk.shelter.wired ? "yes" : "no"), (chunk.shelter.hidden ? "yes" : "no"), (chunk.shelter.forked ? "yes" : "no"));
 	/**
-	 * Заводим запись куска и его единственный свободный участок: контейнеры берут память у
-	 * кучи, и нехватка обращается в отказ взятия
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Заводим свободный участок на весь кусок
@@ -240,6 +252,9 @@ bool sys::Vault::grow(const size_t size) noexcept {
 		// Запоминаем кусок
 		this->_chunks.push_back(::move(chunk));
 	// Перехватываем нехватку памяти
+	/**
+	 * Выполняем перехват ошибок
+	 */
 	} catch(const bad_alloc &){
 		/**
 		 * Для операционной системы MS Windows
@@ -261,7 +276,11 @@ bool sys::Vault::grow(const size_t size) noexcept {
 	return true;
 }
 /**
- * take Метод взятия участка укрытой памяти
+ * @brief Метод взятия участка укрытой памяти
+ *
+ * @param size длина участка в байтах
+ * @return     адрес участка либо nullptr при отказе
+ *
  */
 void * sys::Vault::take(const size_t size) noexcept {
 	// Если длина участка не задана либо не умещается в выравнивание
@@ -314,7 +333,11 @@ void * sys::Vault::take(const size_t size) noexcept {
 	return nullptr;
 }
 /**
- * give Метод возврата участка укрытой памяти с затиранием
+ * @brief Метод возврата участка укрытой памяти с затиранием
+ *
+ * @param data адрес участка, выданного take()
+ * @param size длина участка в байтах, переданная take()
+ *
  */
 void sys::Vault::give(void * data, const size_t size) noexcept {
 	// Если участок не задан
@@ -339,8 +362,11 @@ void sys::Vault::give(void * data, const size_t size) noexcept {
 			const size_t offset = static_cast <size_t> (address - chunk.base);
 			// Место свободного участка, идущего следом за возвращаемым
 			auto next = chunk.spans.begin();
-			// Ищем первый свободный участок за возвращаемым
+			/**
+			 * Ищем первый свободный участок за возвращаемым
+			 */
 			while((next != chunk.spans.end()) && (next->offset < offset))
+				// Пропускаем занятый участок
 				++next;
 			// Признак слияния со следующим свободным участком
 			const bool after = ((next != chunk.spans.end()) && (next->offset == (offset + length)));
@@ -365,13 +391,15 @@ void sys::Vault::give(void * data, const size_t size) noexcept {
 			// Если соседей нет
 			} else {
 				/**
-				 * Заводим свободный участок; нехватка памяти кучи под запись оставляет участок
-				 * невыданным навсегда - затёртым и потерянным, но не открытым
+				 * Выполняем перехват ошибок
 				 */
 				try {
 					// Заводим свободный участок на месте возвращаемого
 					chunk.spans.emplace(next, offset, length);
 				// Перехватываем нехватку памяти
+				/**
+				 * Выполняем перехват ошибок
+				 */
 				} catch(const bad_alloc &){}
 			}
 			// Выходим из метода
@@ -380,7 +408,8 @@ void sys::Vault::give(void * data, const size_t size) noexcept {
 	}
 }
 /**
- * wipe Метод затирания всей памяти хранилища
+ * @brief Метод затирания всей памяти хранилища
+ *
  */
 void sys::Vault::wipe() noexcept {
 	/**
@@ -392,7 +421,10 @@ void sys::Vault::wipe() noexcept {
 		sys::wipe(chunk.base, chunk.size);
 }
 /**
- * shelter Метод получения сведений об укрытии хранилища
+ * @brief Метод получения сведений об укрытии хранилища
+ *
+ * @return худшее по всем кускам: признак поднят, лишь если поднят у каждого
+ *
  */
 sys::shelter_t sys::Vault::shelter() const noexcept {
 	// Сведения об укрытии: без кусков признаки подняты - понижения не было
@@ -416,7 +448,11 @@ sys::shelter_t sys::Vault::shelter() const noexcept {
 	return result;
 }
 /**
- * owns Метод проверки принадлежности адреса хранилищу
+ * @brief Метод проверки принадлежности адреса хранилищу
+ *
+ * @param data проверяемый адрес
+ * @return     признак того, что адрес лежит внутри куска хранилища
+ *
  */
 bool sys::Vault::owns(const void * data) const noexcept {
 	// Если адрес не задан
@@ -440,7 +476,10 @@ bool sys::Vault::owns(const void * data) const noexcept {
 	return false;
 }
 /**
- * chunks Метод получения числа кусков, взятых у системы
+ * @brief Метод получения числа кусков, взятых у системы
+ *
+ * @return число кусков
+ *
  */
 size_t sys::Vault::chunks() const noexcept {
 	// Берём замок хранилища
@@ -449,7 +488,10 @@ size_t sys::Vault::chunks() const noexcept {
 	return this->_chunks.size();
 }
 /**
- * demand Метод установки требования укрытия
+ * @brief Метод установки требования укрытия
+ *
+ * @param mode признак того, что кусок без запрета подкачки не принимается
+ *
  */
 void sys::Vault::demand(const bool mode) noexcept {
 	// Берём замок хранилища
@@ -458,7 +500,10 @@ void sys::Vault::demand(const bool mode) noexcept {
 	this->_demand = mode;
 }
 /**
- * demand Метод получения требования укрытия
+ * @brief Метод получения требования укрытия
+ *
+ * @return признак того, что кусок без запрета подкачки не принимается
+ *
  */
 bool sys::Vault::demand() const noexcept {
 	// Берём замок хранилища
@@ -477,14 +522,20 @@ sys::Vault::Vault() noexcept : _demand(false), _guarded(false) {}
  */
 sys::Vault::~Vault() noexcept {
 	/**
+	 * @brief Метод затирания участка без возврата
+	 *
 	 * Выполняем перебор кусков: хранилище живёт до завершения процесса, и возврат кусков
 	 * системе - забота порядка; затирание - забота тайны
+	 *
 	 */
 	for(auto & chunk : this->_chunks){
 		// Затираем кусок целиком
 		sys::wipe(chunk.base, chunk.size);
 		/**
+		 * @brief Метод возврата участка хранилищу с затиранием
+		 *
 		 * Для операционной системы MS Windows
+		 *
 		 */
 		#if defined(_WIN32)
 			// Возвращаем кусок системе
@@ -499,7 +550,11 @@ sys::Vault::~Vault() noexcept {
 	}
 }
 /**
- * reserve Метод заведения участка
+ * @brief Метод заведения участка
+ *
+ * @param size длина участка в байтах
+ * @return     признак того, что участок заведён и обнулён
+ *
  */
 bool sys::Secret::reserve(const size_t size) noexcept {
 	// Возвращаем прежний участок, если он заведён
@@ -522,14 +577,16 @@ bool sys::Secret::reserve(const size_t size) noexcept {
 	return true;
 }
 /**
- * wipe Метод затирания участка без возврата
+ * @brief Метод затирания участка без возврата
+ *
  */
 void sys::Secret::wipe() noexcept {
 	// Затираем участок, если он заведён
 	sys::wipe(this->_data, this->_size);
 }
 /**
- * release Метод возврата участка хранилищу с затиранием
+ * @brief Метод возврата участка хранилищу с затиранием
+ *
  */
 void sys::Secret::release() noexcept {
 	// Если участок заведён
@@ -543,21 +600,30 @@ void sys::Secret::release() noexcept {
 	}
 }
 /**
- * data Метод получения адреса участка
+ * @brief Метод получения адреса участка
+ *
+ * @return адрес участка либо nullptr, если участок не заведён
+ *
  */
 uint8_t * sys::Secret::data() noexcept {
 	// Выводим адрес участка
 	return this->_data;
 }
 /**
- * data Метод получения адреса участка
+ * @brief Метод получения адреса участка
+ *
+ * @return адрес участка либо nullptr, если участок не заведён
+ *
  */
 const uint8_t * sys::Secret::data() const noexcept {
 	// Выводим адрес участка
 	return this->_data;
 }
 /**
- * size Метод получения длины участка
+ * @brief Метод получения длины участка
+ *
+ * @return длина участка в байтах
+ *
  */
 size_t sys::Secret::size() const noexcept {
 	// Выводим длину участка
@@ -607,3 +673,28 @@ sys::Secret::~Secret() noexcept {
 	// Возвращаем участок хранилищу с затиранием
 	this->release();
 }
+
+/**
+ * @brief Конструктор
+ *
+ */
+nts::sys::Shelter::Shelter() noexcept : hidden(false), wired(false), forked(false) {}
+
+/**
+ * @brief Конструктор
+ *
+ */
+nts::sys::Vault::Span::Span(const size_t offset, const size_t size) noexcept : offset(offset), size(size) {}
+
+/**
+ * @brief Конструктор
+ *
+ */
+nts::sys::Vault::Chunk::Chunk() noexcept : base(nullptr), size(0) {}
+
+/**
+ * @brief Конструктор
+ * @param other переносимый участок; после переноса пуст
+ *
+ */
+nts::sys::Secret::Secret() noexcept : _data(nullptr), _size(0) {}

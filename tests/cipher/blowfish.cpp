@@ -37,10 +37,9 @@
 using namespace nts;
 
 /**
- * @brief Метод разбора шестнадцатеричной строки в байты
+ * @brief Функция разбора шестнадцатеричной строки в байты
  *
  * @param text разбираемая строка
- *
  * @return     разобранные байты
  *
  */
@@ -57,10 +56,9 @@ static std::vector <uint8_t> bytes(const std::string & text) {
 	return result;
 }
 /**
- * @brief Метод чтения слова из байтов от старшего к младшему
+ * @brief Функция чтения слова из байтов от старшего к младшему
  *
  * @param data читаемые байты
- *
  * @return     прочитанное слово
  *
  */
@@ -69,17 +67,20 @@ static uint32_t fetch(const uint8_t * data) noexcept {
 	return ((static_cast <uint32_t> (data[0]) << 24) | (static_cast <uint32_t> (data[1]) << 16) | (static_cast <uint32_t> (data[2]) << 8) | static_cast <uint32_t> (data[3]));
 }
 /**
- * @brief Метод записи слова в байты от старшего к младшему
+ * @brief Функция записи слова в байты от старшего к младшему
  *
  * @param value записываемое слово
  * @param data  место записи
  *
  */
 static void store(const uint32_t value, uint8_t * data) noexcept {
-	// Записываем очередной байт слова
+	// Записываем старший байт слова
 	data[0] = static_cast <uint8_t> (value >> 24);
+	// Записываем второй байт слова
 	data[1] = static_cast <uint8_t> (value >> 16);
+	// Записываем третий байт слова
 	data[2] = static_cast <uint8_t> (value >> 8);
+	// Записываем младший байт слова
 	data[3] = static_cast <uint8_t> (value);
 }
 

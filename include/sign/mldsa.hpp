@@ -21,7 +21,6 @@
  *        electronic signature ML-DSA (lattice signature module) according to FIPS 204
  *
  * \~
- *
  * @copyright Copyright © 2026
  *
  */
@@ -84,12 +83,14 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Electronic signature ML-DSA according to FIPS 204
+		 *
 		 * @details The ring Z_q[X]/(X^256 + 1) at q = 2^23 − 2^13 + 1 = 8 380 417.
 		 *          The key of the signature is a record of the standard: ρ ‖ K ‖ tr ‖ s1 ‖ s2 ‖ t0;
 		 *          the key of the check is a record ρ ‖ t1. The signature is c~ ‖ z ‖ h:
 		 *          the challenge seed, the answer under the mask and the hint of the senior bits.
 		 *          The message is signed with the wrapper 0x00 ‖ length of the context ‖
 		 *          context ‖ message; the context in TLS is empty.
+		 *
 		 * @note The production of the signature goes in a constant time by the key in the part
 		 *       of secret values; the check of the signature touches no secrets and may go
 		 *       in a variable time
@@ -147,6 +148,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the parameter set of the key
+				 *
 				 * @return the parameter set of the key, NONE without a key
 				 *
 				 * \~
@@ -160,6 +162,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the size of a signature
+				 *
 				 * @return the size of a signature in bytes, zero without a key
 				 *
 				 * \~
@@ -177,7 +180,9 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the upper limit of the length of a signature in the written form
+				 *
 				 * @return the upper limit of the length of a signature in bytes, zero without a key
+				 *
 				 * @details The signature goes outside as a record of the standard c~ ‖ z ‖ h whose
 				 *          length is constant per set, therefore the limit equals size, but turns into
 				 *          a zero while neither the key of the signature nor the key of the check is set
@@ -201,11 +206,11 @@ namespace nts {
 				 * @brief Метод получения размера ключа подписи набора в байтах
 				 *
 				 * @param set набор параметров
-				 *
 				 * @return    размер ключа подписи в байтах, ноль у несуществующего набора
 				 *
 				 * \~english
 				 * @brief Method of getting the size of the secret key of a set in bytes
+				 *
 				 * @param set the parameter set
 				 * @return    the size of the secret key in bytes, zero for a nonexistent set
 				 *
@@ -217,11 +222,11 @@ namespace nts {
 				 * @brief Метод получения размера ключа проверки набора в байтах
 				 *
 				 * @param set набор параметров
-				 *
 				 * @return    размер ключа проверки в байтах, ноль у несуществующего набора
 				 *
 				 * \~english
 				 * @brief Method of getting the size of the public key of a set in bytes
+				 *
 				 * @param set the parameter set
 				 * @return    the size of the public key in bytes, zero for a nonexistent set
 				 *
@@ -233,11 +238,11 @@ namespace nts {
 				 * @brief Метод получения размера подписи набора в байтах
 				 *
 				 * @param set набор параметров
-				 *
 				 * @return    размер подписи в байтах, ноль у несуществующего набора
 				 *
 				 * \~english
 				 * @brief Method of getting the size of a signature of a set in bytes
+				 *
 				 * @param set the parameter set
 				 * @return    the size of a signature in bytes, zero for a nonexistent set
 				 *
@@ -253,7 +258,6 @@ namespace nts {
 				 * @param seed   зерно выработки ξ длиной в тридцать два байта
 				 * @param key    место, в которое помещается ключ проверки ρ ‖ t1
 				 * @param secret место, в которое помещается ключ подписи ρ ‖ K ‖ tr ‖ s1 ‖ s2 ‖ t0
-				 *
 				 * @return       признак успешности порождения ключа
 				 *
 				 * @details Раздел 6.1 FIPS 204: расширение ключа из зерна без всякой
@@ -261,11 +265,13 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the generation of a long-term key of the signature from a seed
+				 *
 				 * @param set    the parameter set
 				 * @param seed   the generation seed ξ of a length of thirty two bytes
 				 * @param key    the place the key of the check ρ ‖ t1 is put into
 				 * @param secret the place the key of the signature ρ ‖ K ‖ tr ‖ s1 ‖ s2 ‖ t0 is put into
 				 * @return       the flag of the success of the key generation
+				 *
 				 * @details Section 6.1 of FIPS 204: the expansion of the key from a seed without
 				 *          any randomness - the same seed gives the same key
 				 *
@@ -279,7 +285,6 @@ namespace nts {
 				 * @param set    набор параметров
 				 * @param key    место, в которое помещается ключ проверки ρ ‖ t1
 				 * @param secret место, в которое помещается ключ подписи ρ ‖ K ‖ tr ‖ s1 ‖ s2 ‖ t0
-				 *
 				 * @return       признак успешности порождения ключа
 				 *
 				 * @details Зерно ξ берётся из источника случайности целиком; отказ источника
@@ -287,10 +292,12 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the generation of a long-term key of the signature from the source of randomness
+				 *
 				 * @param set    the parameter set
 				 * @param key    the place the key of the check ρ ‖ t1 is put into
 				 * @param secret the place the key of the signature ρ ‖ K ‖ tr ‖ s1 ‖ s2 ‖ t0 is put into
 				 * @return       the flag of the success of the key generation
+				 *
 				 * @details The seed ξ is taken from the source of randomness entirely; a refusal of the
 				 *          source answers by a refusal of the generation, the former state of the module
 				 *          is reset at that
@@ -304,7 +311,6 @@ namespace nts {
 				 *
 				 * @param set    набор параметров ключа
 				 * @param secret запись ключа подписи ρ ‖ K ‖ tr ‖ s1 ‖ s2 ‖ t0 по набору
-				 *
 				 * @return       признак успешности установки ключа подписи
 				 *
 				 * @details Ключ проверки выводится из записи ключа подписи сразу же: раздел 6.1
@@ -313,9 +319,11 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of setting the key of the signature
+				 *
 				 * @param set    the parameter set of the key
 				 * @param secret the record of the key of the signature ρ ‖ K ‖ tr ‖ s1 ‖ s2 ‖ t0 per set
 				 * @return       the flag of the success of the setting of the key of the signature
+				 *
 				 * @details The key of the check is derived from the record of the key of the signature at once:
 				 *          section 6.1 is computed anew from ρ and collated with t1 inside the record,
 				 *          at a mismatch the key is rejected
@@ -329,7 +337,6 @@ namespace nts {
 				 *
 				 * @param set набор параметров ключа
 				 * @param key запись ключа проверки ρ ‖ t1 по набору
-				 *
 				 * @return    признак успешности установки ключа проверки подписи
 				 *
 				 * @note Если ключ подписи уже установлен, открытый ключ из него выведен:
@@ -338,9 +345,11 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of setting the key of the check of the signature
+				 *
 				 * @param set the parameter set of the key
 				 * @param key the record of the key of the check ρ ‖ t1 per set
 				 * @return    the flag of the success of the setting of the key of the check
+				 *
 				 * @note If the signing key is already set, the public key is derived from it: the given one
 				 *       must coincide with the derived one, then the state does not change, and a foreign one
 				 *       is rejected. The private key is not wiped by this call
@@ -354,11 +363,11 @@ namespace nts {
 				 *
 				 * @param result место, в которое записывается ключ проверки ρ ‖ t1 по набору
 				 * @param size   размер места, не меньше размера ключа проверки набора
-				 *
 				 * @return       признак успешности получения ключа проверки подписи
 				 *
 				 * \~english
 				 * @brief Method of getting the key of the check of the signature
+				 *
 				 * @param result the place the key of the check ρ ‖ t1 per set is written into
 				 * @param size   the size of the place, not less than the size of the public key of the set
 				 * @return       the flag of the success of the getting of the key of the check
@@ -374,7 +383,6 @@ namespace nts {
 				 * @param message подписываемое сообщение целиком
 				 * @param context контекст подписи, до 255 байтов, в TLS пустой
 				 * @param result  место, в которое помещается подпись c~ ‖ z ‖ h по набору
-				 *
 				 * @return        признак успешности выработки подписи
 				 *
 				 * @details Раздел 6.2 FIPS 204: случайность rnd берётся из источника целиком,
@@ -383,10 +391,12 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the production of a signature with randomness from the source
+				 *
 				 * @param message the message being signed as a whole
 				 * @param context the context of the signature, up to 255 bytes, empty in TLS
 				 * @param result  the place the signature c~ ‖ z ‖ h per set is put into
 				 * @return        the flag of the success of the production of the signature
+				 *
 				 * @details Section 6.2 of FIPS 204: the randomness rnd is taken from the source
 				 *          entirely, therefore a repetition of the production on a single key and
 				 *          message gives different signatures (hedged signature)
@@ -402,7 +412,6 @@ namespace nts {
 				 * @param message подписываемое сообщение целиком
 				 * @param context контекст подписи, до 255 байтов, в TLS пустой
 				 * @param result  место, в которое помещается подпись c~ ‖ z ‖ h по набору
-				 *
 				 * @return        признак успешности выработки подписи
 				 *
 				 * @details Раздел 6.2 FIPS 204: случайность rnd подаётся извне, оттого на одних
@@ -411,11 +420,13 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the production of a signature with a given randomness
+				 *
 				 * @param rnd     the randomness of the signature of a length of thirty two bytes
 				 * @param message the message being signed as a whole
 				 * @param context the context of the signature, up to 255 bytes, empty in TLS
 				 * @param result  the place the signature c~ ‖ z ‖ h per set is put into
 				 * @return        the flag of the success of the production of the signature
+				 *
 				 * @details Section 6.2 of FIPS 204: the randomness rnd is given from the outside,
 				 *          therefore on the same rnd, key and message the same signature comes out;
 				 *          thirty two zero bytes give the deterministic variant of the note of the standard
@@ -430,7 +441,6 @@ namespace nts {
 				 * @param message   подписанное сообщение целиком
 				 * @param context   контекст подписи, до 255 байтов, в TLS пустой
 				 * @param signature проверяемая подпись c~ ‖ z ‖ h по набору
-				 *
 				 * @return          признак того, что подпись сошлась
 				 *
 				 * @details Раздел 6.3 FIPS 204: ответ z за границей γ1 − β, лишний вес
@@ -439,10 +449,12 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the check of a signature
+				 *
 				 * @param message   the signed message as a whole
 				 * @param context   the context of the signature, up to 255 bytes, empty in TLS
 				 * @param signature the signature being checked c~ ‖ z ‖ h per set
 				 * @return          the flag of the signature having converged
+				 *
 				 * @details Section 6.3 of FIPS 204: the answer z beyond the bound γ1 − β, an excess
 				 *          weight of the hint and the challenge seed not converging with the
 				 *          recomputed one are rejected
@@ -455,7 +467,6 @@ namespace nts {
 				 * \~russian
 				 * @brief Конструктор
 				 *
-				 *
 				 * \~english
 				 * @brief Constructor
 				 *
@@ -465,7 +476,6 @@ namespace nts {
 				/**
 				 * \~russian
 				 * @brief Деструктор
-				 *
 				 *
 				 * \~english
 				 * @brief Destructor

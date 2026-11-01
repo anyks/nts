@@ -1,15 +1,22 @@
 /**
- * @file: sm4.cpp
- * @date: 2026-10-04
- * @license: GPL-3.0
+ * @file sm4.cpp
+ * @date 2026-10-04
  *
- * @telegram: @forman
- * @author: Yuriy Lobarev
- * @phone: +7 (910) 983-95-90
- * @email: forman@anyks.com
- * @site: https://anyks.com
+ * @license{GPL-3.0}
  *
- * @copyright: Copyright © 2026
+ * @author Yuriy Lobarev
+ *
+ * @telegram{forman}
+ * @phone{+7 (910) 983-95-90}
+ *
+ * @email forman@anyks.com
+ * @site https://anyks.com
+ *
+ * @brief Исходный файл проверок модуля шифра SM4: контрольный пример, миллион
+ *        блоков, шифрование на месте и отказы
+ *
+ * @copyright Copyright © 2026
+ *
  */
 
 /**
@@ -31,10 +38,9 @@
 using namespace nts;
 
 /**
- * @brief Метод разбора шестнадцатеричной строки в байты
+ * @brief Функция разбора шестнадцатеричной строки в байты
  *
  * @param text разбираемая строка
- *
  * @return     разобранные байты
  *
  */
@@ -52,11 +58,10 @@ static std::vector <uint8_t> bytes(const std::string & text) {
 }
 
 /**
- * @brief Метод записи байтов шестнадцатеричной строкой
+ * @brief Функция записи байтов шестнадцатеричной строкой
  *
  * @param data байты
  * @param size число байтов
- *
  * @return     запись строчными шестнадцатеричными знаками
  *
  */

@@ -29,6 +29,9 @@
  */
 
 #ifndef __ANTS_MATH_WIDE__
+/**
+ * Макрос экранирования повторной инициализации модуля
+ */
 #define __ANTS_MATH_WIDE__
 
 /**
@@ -46,7 +49,15 @@
 	 */
 	#include <intrin.h>
 
+	/**
+	 * @brief Основное пространство имён
+	 *
+	 */
 	namespace nts {
+		/**
+		 * @brief Пространство имён математических модулей
+		 *
+		 */
 		namespace math {
 			/**
 			 * @brief Целое число двойной разрядности из двух слов
@@ -55,13 +66,6 @@
 			typedef struct Wide {
 				// Младшее и старшее слова
 				uint64_t lo, hi;
-				/**
-				 * @brief Конструкторы
-				 *
-				 */
-				Wide() noexcept : lo(0), hi(0) {}
-				Wide(const uint64_t value) noexcept : lo(value), hi(0) {}
-				Wide(const uint64_t lo, const uint64_t hi) noexcept : lo(lo), hi(hi) {}
 				/**
 				 * @brief Усечение к младшему слову
 				 *
@@ -72,14 +76,26 @@
 				 *
 				 */
 				Wide operator * (const uint64_t other) const noexcept {
+					// Место под произведение
 					Wide result;
+					/**
+					 * Для архитектуры x64
+					 */
 					#if defined(_M_X64)
+						// Младшее слово из внутренней функции
 						result.lo = ::_umul128(this->lo, other, &result.hi);
+					/**
+					 * Для иных архитектур
+					 */
 					#else
+						// Младшее слово из действия слов
 						result.lo = (this->lo * other);
+						// Старшее слово из внутренней функции
 						result.hi = ::__umulh(this->lo, other);
 					#endif
+					// Добавляем вклад старшего слова
 					result.hi += (this->hi * other);
+					// Возвращаем произведение
 					return result;
 				}
 				/**
@@ -87,21 +103,31 @@
 				 *
 				 */
 				Wide operator + (const Wide & other) const noexcept {
+					// Складываем слова попарно
 					Wide result(this->lo + other.lo, this->hi + other.hi);
+					// Перенос уходит в старшее слово
 					if(result.lo < other.lo) result.hi++;
+					// Возвращаем итог попарного сложения слов
 					return result;
 				}
+				// Сложение со словом через приведение
 				Wide operator + (const uint64_t other) const noexcept { return ((* this) + Wide(other)); }
+				// Прибавление числа
 				Wide & operator += (const Wide & other) noexcept { (* this) = ((* this) + other); return (* this); }
+				// Прибавление слова
 				Wide & operator += (const uint64_t other) noexcept { (* this) = ((* this) + other); return (* this); }
+				// Сложение слова с числом в обратном порядке
 				friend Wide operator + (const uint64_t first, const Wide & second) noexcept { return (second + first); }
 				/**
 				 * @brief Вычитание слова с заёмом из старшего слова
 				 *
 				 */
 				Wide operator - (const uint64_t other) const noexcept {
+					// Вычитаем слово из младшего слова
 					Wide result(this->lo - other, this->hi);
+					// Заём уходит из старшего слова
 					if(this->lo < other) result.hi--;
+					// Возвращаем разность
 					return result;
 				}
 				/**
@@ -109,20 +135,29 @@
 				 *
 				 */
 				Wide operator >> (const int shift) const noexcept {
+					// Нулевой сдвиг ничего не меняет
 					if(shift == 0) return (* this);
+					// Сдвиг на ширину слова и более
 					if(shift >= 64) return Wide(this->hi >> (shift - 64), 0);
+					// Сдвиг внутри пары слов
 					return Wide((this->lo >> shift) | (this->hi << (64 - shift)), this->hi >> shift);
 				}
+				// Сдвиг влево
 				Wide operator << (const int shift) const noexcept {
+					// Нулевой сдвиг ничего не меняет
 					if(shift == 0) return (* this);
+					// Сдвиг на ширину слова и более
 					if(shift >= 64) return Wide(0, this->lo << (shift - 64));
+					// Сдвиг внутри пары слов
 					return Wide(this->lo << shift, (this->hi << shift) | (this->lo >> (64 - shift)));
 				}
 				/**
 				 * @brief Маска и объединение по младшему слову
 				 *
 				 */
+				// Маска по младшему слову
 				Wide operator & (const uint64_t mask) const noexcept { return Wide(this->lo & mask, 0); }
+				// Объединение по младнему слову
 				Wide operator | (const uint64_t bits) const noexcept { return Wide(this->lo | bits, this->hi); }
 				/**
 				 * @brief Остаток от деления на слово
@@ -133,21 +168,47 @@
 				 *
 				 */
 				Wide operator % (const uint64_t divisor) const noexcept {
+					/**
+					 * Для архитектуры x64
+					 */
 					#if defined(_M_X64)
+						// Место под остаток
 						uint64_t remainder = 0;
+						// Остаток из внутренней функции деления
 						(void) ::_udiv128(this->hi % divisor, this->lo, divisor, &remainder);
+						// Возвращаем остаток
 						return Wide(remainder, 0);
+					/**
+					 * Для иных архитектур
+					 */
 					#else
+						// Начинаем со старшего слова
 						uint64_t remainder = (this->hi % divisor);
+						/**
+						 * @brief Вдвигаем слово за словом
+						 *
+						 */
 						for(int i = 63; i >= 0; i--){
+							// Очередной разряд младшего слова
 							const uint64_t bit = ((this->lo >> i) & 1u);
+							// Перенос из старшего разряда остатка
 							const uint64_t carry = (remainder >> 63);
+							// Вдвигаем разряд в остаток
 							remainder = ((remainder << 1) | bit);
+							// Вычитаем делитель при переносе либо достижении
 							if(carry || (remainder >= divisor)) remainder -= divisor;
 						}
+						// Возвращаем остаток
 						return Wide(remainder, 0);
 					#endif
 				}
+				/**
+				 * @brief Конструкторы
+				 *
+				 */
+				Wide() noexcept : lo(0), hi(0) {}
+				Wide(const uint64_t value) noexcept : lo(value), hi(0) {}
+				Wide(const uint64_t lo, const uint64_t hi) noexcept : lo(lo), hi(hi) {}
 			} wide_t;
 		};
 	};
@@ -155,7 +216,15 @@
  * Для собирателей GCC и Clang
  */
 #else
+	/**
+	 * @brief Основное пространство имён
+	 *
+	 */
 	namespace nts {
+		/**
+		 * @brief Пространство имён математических модулей
+		 *
+		 */
 		namespace math {
 			/**
 			 * @brief Целое число двойной разрядности
@@ -170,6 +239,10 @@
  * Перенос и заём между словами
  */
 namespace nts {
+	/**
+	 * @brief Пространство имён математических модулей
+	 *
+	 */
 	namespace math {
 		/**
 		 * @brief Сложение слов с переносом
@@ -181,11 +254,13 @@ namespace nts {
 		 * @param second второе слагаемое
 		 * @param carry  перенос из младшего слова, ноль либо единица
 		 * @param result место, в которое помещается сумма
-		 *
 		 * @return       перенос в старшее слово, ноль либо единица
 		 *
 		 */
 		static inline uint64_t adc(const uint64_t first, const uint64_t second, const uint64_t carry, uint64_t & result) noexcept {
+			/**
+			 * Для собирателя Microsoft Visual C++
+			 */
 			#if defined(_MSC_VER)
 				// Сумма слов без переноса
 				const uint64_t sum = (first + second);
@@ -193,6 +268,9 @@ namespace nts {
 				result = (sum + carry);
 				// Перенос возникает на любом из двух сложений
 				return (static_cast <uint64_t> (sum < first) | static_cast <uint64_t> (result < sum));
+			/**
+			 * Для собирателей GCC и Clang
+			 */
 			#else
 				// Сумма слов без переноса
 				uint64_t sum = 0;
@@ -211,11 +289,13 @@ namespace nts {
 		 * @param second вычитаемое
 		 * @param borrow заём из младшего слова, ноль либо единица
 		 * @param result место, в которое помещается разность
-		 *
 		 * @return       заём из старшего слова, ноль либо единица
 		 *
 		 */
 		static inline uint64_t sbb(const uint64_t first, const uint64_t second, const uint64_t borrow, uint64_t & result) noexcept {
+			/**
+			 * Для собирателя Microsoft Visual C++
+			 */
 			#if defined(_MSC_VER)
 				// Разность слов без заёма
 				const uint64_t difference = (first - second);
@@ -223,6 +303,9 @@ namespace nts {
 				result = (difference - borrow);
 				// Заём возникает на любом из двух вычитаний
 				return (static_cast <uint64_t> (first < second) | static_cast <uint64_t> (difference < borrow));
+			/**
+			 * Для собирателей GCC и Clang
+			 */
 			#else
 				// Разность слов без заёма
 				uint64_t difference = 0;
@@ -237,4 +320,4 @@ namespace nts {
 	};
 };
 
-#endif // __ANTS_MATH_WIDE__
+#endif

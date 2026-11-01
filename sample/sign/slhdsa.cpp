@@ -30,6 +30,7 @@
 #include <cstring>
 #include <iomanip>
 #include <iostream>
+#include <vector>
 
 /**
  * Подключаем заголовочные файлы проекта
@@ -52,7 +53,7 @@ using namespace nts;
  */
 namespace {
 	/**
-	 * @brief Метод вывода области байтов шестнадцатеричной записью
+	 * @brief Функция вывода области байтов шестнадцатеричной записью
 	 *
 	 * @param title заголовок выводимой области байтов
 	 * @param data  выводимая область байтов
@@ -78,7 +79,6 @@ namespace {
  *
  * @param argc длина массива параметров
  * @param argv массив параметров
- *
  * @return     код выхода из приложения
  *
  */
@@ -92,31 +92,33 @@ int main(int argc, char * argv[]) noexcept {
 	// Объект электронной подписи SLH-DSA
 	sign::slhdsa_t sign;
 	// Место, в которое помещается открытый ключ проверки подписи
-	uint8_t key[sign::slhdsa_t::publicSize(set)];
+	vector <uint8_t> key(sign::slhdsa_t::publicSize(set));
 	// Место, в которое помещается закрытый ключ подписи
-	uint8_t secret[sign::slhdsa_t::secretSize(set)];
+	vector <uint8_t> secret(sign::slhdsa_t::secretSize(set));
 	/**
 	 * Выполняем порождение ключевой пары
 	 *
 	 * @details Зерно порождения - три значения по n байтов: SK.seed ‖ SK.prf ‖ PK.seed.
 	 *          Из них выводятся и ключ проверки PK.seed ‖ PK.root, и ключ подписи
+	 *
 	 */
-	if(!sign.generate(set, key, secret)){
+	if(!sign.generate(set, key.data(), secret.data())){
 		// Выводим сообщение об отказе порождения ключа
 		cout << "Породить ключ подписи не удалось" << endl;
 		// Выходим из приложения с признаком отказа
 		return EXIT_FAILURE;
 	}
 	// Выводим открытый ключ проверки подписи
-	::print("Открытый ключ      ", key, sizeof(key));
+	::print("Открытый ключ      ", key.data(), key.size());
 	/**
 	 * Выполняем установку ключа подписи
 	 *
 	 * @note Порождение заполняет лишь места ключей, а состояние модуля не занимает:
 	 *       ключ подписи устанавливается отдельным вызовом, который сверяет запись
 	 *       пересчётом корня из зерна
+	 *
 	 */
-	if(!sign.secret(set, view_t(secret, sizeof(secret)))){
+	if(!sign.secret(set, view_t(secret.data(), secret.size()))){
 		// Выводим сообщение об отказе установки ключа подписи
 		cout << "Установить ключ подписи не удалось" << endl;
 		// Выходим из приложения с признаком отказа
@@ -125,23 +127,24 @@ int main(int argc, char * argv[]) noexcept {
 	// Подписываемое сообщение образца
 	const char * message = "Сообщение, которое требуется подписать";
 	// Место, в которое помещается подпись сообщения
-	uint8_t signature[sign::slhdsa_t::signatureSize(set)];
+	vector <uint8_t> signature(sign::slhdsa_t::signatureSize(set));
 	/**
 	 * Выполняем подписание сообщения
 	 *
 	 * @details Подписывается обвязка 0x00 ‖ длина контекста ‖ контекст ‖ сообщение;
 	 *          контекст в TLS пустой. Подпись длинная - у набора 128s она 7856 байтов
+	 *
 	 */
-	if(!sign.make(view_t(reinterpret_cast <const uint8_t *> (message), ::strlen(message)), view_t(), signature)){
+	if(!sign.make(view_t(reinterpret_cast <const uint8_t *> (message), ::strlen(message)), view_t(), signature.data())){
 		// Выводим сообщение об отказе подписания сообщения
 		cout << "Подписать сообщение не удалось" << endl;
 		// Выходим из приложения с признаком отказа
 		return EXIT_FAILURE;
 	}
 	// Выводим начало подписи сообщения
-	::print("Подпись            ", signature, 32);
+	::print("Подпись            ", signature.data(), 32);
 	// Если подпись сообщения не сошлась
-	if(!sign.check(view_t(reinterpret_cast <const uint8_t *> (message), ::strlen(message)), view_t(), view_t(signature, sizeof(signature)))){
+	if(!sign.check(view_t(reinterpret_cast <const uint8_t *> (message), ::strlen(message)), view_t(), view_t(signature.data(), signature.size()))){
 		// Выводим сообщение об отказе проверки подписи
 		cout << "Подпись сообщения не сошлась" << endl;
 		// Выходим из приложения с признаком отказа
@@ -150,7 +153,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Выводим сообщение об успешной проверке подписи
 	cout << "Проверка подписи   : подпись сошлась" << endl;
 	// Выводим длину подписи набора
-	cout << "Длина подписи      : " << sizeof(signature) << " байтов" << endl;
+	cout << "Длина подписи      : " << signature.size() << " байтов" << endl;
 	// Выходим из приложения с признаком успеха
 	return EXIT_SUCCESS;
 }

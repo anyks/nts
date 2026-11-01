@@ -14,6 +14,8 @@
  *
  * @brief Исходный файл проверок модуля электронной подписи Ed448
  *
+ * @copyright Copyright © 2026
+ *
  */
 
 /**
@@ -40,10 +42,13 @@ using namespace nts;
 static const char * ONE_SECRET =
 	"6c82a562cb808d10d632be89c8513ebf6c929f34ddfa8c9f63c9960ef6e348a352"
 	"8c8a3fcc2f044e39a3fc5b94492f8f032e7549a20098f95b";
+// Ключ проверки контрольного примера
 static const char * ONE_PUBLIC =
 	"5fd7449b59b461fd2ce787ec616ad46a1da1342485a70e1f8a0ea75d80e96778ed"
 	"f124769b46c7061bd6783df1e50f6cd1fa1abeafe8256180";
+// Пустое сообщение контрольного примера
 static const char * ONE_MESSAGE = "";
+// Подпись контрольного примера
 static const char * ONE_SIGNATURE =
 	"533a37f6bbe457251f023c0d88f976ae2dfb504a843e34d2074fd823d41a591f2b"
 	"233f034f628281f2fd7a22ddd47d7828c59bd0a21bfd3980ff0d2028d4b18a9df63e"
@@ -54,7 +59,9 @@ static const char * ONE_SIGNATURE =
  * Контрольный пример «TEST 2» раздела 7.4 RFC 8032: то же зерно, сообщение из
  * одного байта 0x03 и подпись
  */
+// Сообщение контрольного примера: единственный байт 0x03
 static const char * TWO_MESSAGE = "03";
+// Подпись контрольного примера с сообщением из одного байта
 static const char * TWO_SIGNATURE =
 	"d9cb4716a9c61e3a290566889cd35b56e3d69ac13e99790219076d4842f2875844"
 	"aafd9654db6cc6939f17fb0eea43ab148238412a752f2b0050e50c0c7b8e673369fe"
@@ -62,10 +69,9 @@ static const char * TWO_SIGNATURE =
 	"2459035c04949e664fc86c3400";
 
 /**
- * @brief Метод разбора записи шестнадцатеричными знаками
+ * @brief Функция разбора записи шестнадцатеричными знаками
  *
  * @param text разбираемая запись
- *
  * @return     разобранные байты
  *
  */
@@ -94,11 +100,10 @@ static std::vector <uint8_t> bytes(const char * text) {
 	return result;
 }
 /**
- * @brief Метод сборки записи шестнадцатеричными знаками
+ * @brief Функция сборки записи шестнадцатеричными знаками
  *
  * @param data собираемые байты
  * @param size число собираемых байтов
- *
  * @return     собранная запись
  *
  */
@@ -120,10 +125,9 @@ static std::string text(const uint8_t * data, const size_t size) {
 	return result;
 }
 /**
- * @brief Метод получения области байтов вектора
+ * @brief Функция получения области байтов вектора
  *
  * @param data вектор байтов
- *
  * @return     область байтов вектора
  *
  */
@@ -132,7 +136,7 @@ static view_t view(const std::vector <uint8_t> & data) {
 	return view_t(data.empty() ? nullptr : data.data(), data.size());
 }
 /**
- * @brief Метод проверки контрольного примера
+ * @brief Функция проверки контрольного примера
  *
  * @param secret    зерно ключа подписи
  * @param pub       ключ проверки подписи

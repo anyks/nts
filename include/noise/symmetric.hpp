@@ -12,8 +12,13 @@
  * @email forman@anyks.com
  * @site https://anyks.com
  *
+ * \~russian
  * @brief Модуль симметричного состояния Noise (SymmetricState, §5.2)
  *
+ * \~english
+ * @brief Module of the symmetric state of Noise (SymmetricState, §5.2)
+ *
+ * \~
  * @copyright Copyright © 2026
  *
  */
@@ -101,14 +106,23 @@ namespace nts {
 				uint8_t _digest[HASH_MAX];
 			private:
 				/**
+				 * \~russian
 				 * @brief Метод вывода ключевого материала (HKDF Noise)
 				 *
 				 * @param material входной ключевой материал
 				 * @param result   место материала в count длин хеша
 				 * @param count    число выходов: 2 либо 3
-				 *
 				 * @return         признак того, что материал выведен
 				 *
+				 * \~english
+				 * @brief Method of the derivation of the key material (HKDF of Noise)
+				 *
+				 * @param material the input key material
+				 * @param result   the place of the material of count lengths of the hash
+				 * @param count    the number of the outputs: 2 or 3
+				 * @return         the flag of the material being derived
+				 *
+				 * \~
 				 */
 				bool kdf(const view_t & material, uint8_t * result, const size_t count) const noexcept;
 			public:
@@ -118,7 +132,6 @@ namespace nts {
 				 *
 				 * @param name  имя протокола
 				 * @param suite набор примитивов
-				 *
 				 * @return      признак того, что состояние заведено
 				 *
 				 * \~english
@@ -126,7 +139,6 @@ namespace nts {
 				 *
 				 * @param name  protocol name
 				 * @param suite suite of primitives
-				 *
 				 * @return      sign that the state is initialized
 				 *
 				 * \~
@@ -137,14 +149,12 @@ namespace nts {
 				 * @brief Метод примешивания ключевого материала (MixKey)
 				 *
 				 * @param material входной ключевой материал
-				 *
 				 * @return         признак того, что материал примешан
 				 *
 				 * \~english
 				 * @brief Method of mixing the key material (MixKey)
 				 *
 				 * @param material input key material
-				 *
 				 * @return         sign that the material is mixed
 				 *
 				 * \~
@@ -155,14 +165,12 @@ namespace nts {
 				 * @brief Метод примешивания данных в хеш (MixHash)
 				 *
 				 * @param data данные
-				 *
 				 * @return     признак того, что данные примешаны
 				 *
 				 * \~english
 				 * @brief Method of mixing data into the hash (MixHash)
 				 *
 				 * @param data data
-				 *
 				 * @return     sign that the data is mixed
 				 *
 				 * \~
@@ -173,14 +181,12 @@ namespace nts {
 				 * @brief Метод примешивания заранее разделённого ключа (MixKeyAndHash)
 				 *
 				 * @param material входной ключевой материал
-				 *
 				 * @return         признак того, что материал примешан
 				 *
 				 * \~english
 				 * @brief Method of mixing a pre-shared key (MixKeyAndHash)
 				 *
 				 * @param material input key material
-				 *
 				 * @return         sign that the material is mixed
 				 *
 				 * \~
@@ -193,7 +199,6 @@ namespace nts {
 				 * @param source открытые данные
 				 * @param result место выхода: при отсутствии ключа - те же данные, иначе шифротекст с меткой
 				 * @param size   на входе вместимость места, на выходе длина выхода
-				 *
 				 * @return       признак того, что выход получен
 				 *
 				 * \~english
@@ -202,7 +207,6 @@ namespace nts {
 				 * @param source plaintext
 				 * @param result place of the output: the same data without a key, else the ciphertext with the tag
 				 * @param size   the capacity of the place on input, the output length on output
-				 *
 				 * @return       sign that the output is produced
 				 *
 				 * \~
@@ -215,7 +219,6 @@ namespace nts {
 				 * @param source вход: при отсутствии ключа - открытые данные, иначе шифротекст с меткой
 				 * @param result место открытых данных
 				 * @param size   на входе вместимость места, на выходе длина открытых данных
-				 *
 				 * @return       признак того, что данные подлинны и получены
 				 *
 				 * \~english
@@ -224,7 +227,6 @@ namespace nts {
 				 * @param source input: the plaintext without a key, else the ciphertext with the tag
 				 * @param result place of the plaintext
 				 * @param size   the capacity of the place on input, the plaintext length on output
-				 *
 				 * @return       sign that the data is authentic and produced
 				 *
 				 * \~
@@ -236,7 +238,6 @@ namespace nts {
 				 *
 				 * @param one состояние от инициатора к отвечающему
 				 * @param two состояние от отвечающего к инициатору
-				 *
 				 * @return    признак того, что раскол выполнен
 				 *
 				 * \~english
@@ -244,7 +245,6 @@ namespace nts {
 				 *
 				 * @param one state from the initiator to the responder
 				 * @param two state from the responder to the initiator
-				 *
 				 * @return    sign that the split is done
 				 *
 				 * \~
@@ -255,14 +255,12 @@ namespace nts {
 				 * @brief Метод получения хеша рукопожатия (GetHandshakeHash)
 				 *
 				 * @param result место хеша в длину хеша набора
-				 *
 				 * @return       признак того, что хеш выдан
 				 *
 				 * \~english
 				 * @brief Method of getting the handshake hash (GetHandshakeHash)
 				 *
 				 * @param result place of the hash of the suite hash length
-				 *
 				 * @return       sign that the hash is given
 				 *
 				 * \~

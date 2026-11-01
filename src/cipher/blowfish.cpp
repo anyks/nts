@@ -52,6 +52,7 @@ namespace {
 	using nts::sys::wipe;
 
 static const uint32_t BLOWFISH_P[18] = {
+	// Начальные восемнадцать слов числа π
 	0x243f6a88, 0x85a308d3, 0x13198a2e, 0x03707344, 0xa4093822, 0x299f31d0,
 	0x082efa98, 0xec4e6c89, 0x452821e6, 0x38d01377, 0xbe5466cf, 0x34e90c6c,
 	0xc0ac29b7, 0xc97c50dd, 0x3f84d5b5, 0xb5470917, 0x9216d5d9, 0x8979fb1b
@@ -59,6 +60,7 @@ static const uint32_t BLOWFISH_P[18] = {
 
 static const uint32_t BLOWFISH_S[4][256] = {
 	{
+		// S-boxes: четыре таблицы по 256 слов числа π
 		0xd1310ba6, 0x98dfb5ac, 0x2ffd72db, 0xd01adfb7, 0xb8e1afed, 0x6a267e96,
 		0xba7c9045, 0xf12c7f99, 0x24a19947, 0xb3916cf7, 0x0801f2e2, 0x858efc16,
 		0x636920d8, 0x71574e69, 0xa458fea3, 0xf4933d7e, 0x0d95748f, 0x728eb658,
@@ -104,6 +106,7 @@ static const uint32_t BLOWFISH_S[4][256] = {
 		0x53b02d5d, 0xa99f8fa1, 0x08ba4799, 0x6e85076a
 	},
 	{
+		// Вторая таблица S-boxes
 		0x4b7a70e9, 0xb5b32944, 0xdb75092e, 0xc4192623, 0xad6ea6b0, 0x49a7df7d,
 		0x9cee60b8, 0x8fedb266, 0xecaa8c71, 0x699a17ff, 0x5664526c, 0xc2b19ee1,
 		0x193602a5, 0x75094c29, 0xa0591340, 0xe4183a3e, 0x3f54989a, 0x5b429d65,
@@ -149,6 +152,7 @@ static const uint32_t BLOWFISH_S[4][256] = {
 		0x153e21e7, 0x8fb03d4a, 0xe6e39f2b, 0xdb83adf7
 	},
 	{
+		// Третья таблица S-boxes
 		0xe93d5a68, 0x948140f7, 0xf64c261c, 0x94692934, 0x411520f7, 0x7602d4f7,
 		0xbcf46b2e, 0xd4a20068, 0xd4082471, 0x3320f46a, 0x43b7d4b7, 0x500061af,
 		0x1e39f62e, 0x97244546, 0x14214f74, 0xbf8b8840, 0x4d95fc1d, 0x96b591af,
@@ -194,6 +198,7 @@ static const uint32_t BLOWFISH_S[4][256] = {
 		0xd79a3234, 0x92638212, 0x670efa8e, 0x406000e0
 	},
 	{
+		// Четвёртая таблица S-boxes
 		0x3a39ce37, 0xd3faf5cf, 0xabc27737, 0x5ac52d1b, 0x5cb0679e, 0x4fa33742,
 		0xd3822740, 0x99bc9bbe, 0xd5118e9d, 0xbf0f7315, 0xd62d1c7e, 0xc700c47b,
 		0xb78c1b6b, 0x21a19045, 0xb26eb1be, 0x6a366eb4, 0x5748ab2f, 0xbc946e79,
@@ -245,157 +250,247 @@ static const uint32_t BLOWFISH_S[4][256] = {
 	 *
 	 */
 	inline uint32_t F(const uint32_t (* S)[256], const uint32_t x) noexcept {
+		// Складываем подстановки по разрядам аргумента
 		return ((S[0][(x >> 24) & 0xFF] + S[1][(x >> 16) & 0xFF]) ^ S[2][(x >> 8) & 0xFF]) + S[3][x & 0xFF];
 	}
 };
 
 /**
- * \~russian
- * @brief Метод инициализации контекста константами числа π
+ * @brief Функция инициализации контекста константами числа π
  *
- * \~english
- * @brief Method of the initialization of the context with the digits of Pi
+ * @param ctx контекст Blowfish
  *
- * \~
  */
 void nts::cipher::init(blowfish_t * ctx) noexcept {
-	// Копируем P-array
+	/**
+	 * Копируем P-array
+	 */
 	for(size_t i = 0; i < 18; ++i)
+		// Копируем очередное слово массива
 		ctx->P[i] = BLOWFISH_P[i];
-	// Копируем S-boxes
+	/**
+	 * Копируем S-boxes
+	 */
 	for(size_t i = 0; i < 4; ++i)
+		/**
+		 * Проходим по словам таблицы
+		 */
 		for(size_t j = 0; j < 256; ++j)
+			// Копируем очередное слово таблицы
 			ctx->S[i][j] = BLOWFISH_S[i][j];
 }
 
 /**
- * \~russian
- * @brief Метод извлечения слова из потока байтов с зацикливанием
+ * @brief Функция извлечения слова из потока байтов с зацикливанием
  *
- * \~english
- * @brief Method of the extraction of a word from a byte stream with wraparound
+ * @param data    поток байтов
+ * @param datalen длина потока
+ * @param current текущая позиция (обновляется)
+ * @return        слово uint32
  *
- * \~
  */
 uint32_t nts::cipher::stream2word(const uint8_t * data, const size_t datalen, size_t * current) noexcept {
+	// Накопитель собираемого слова
 	uint32_t temp = 0;
+	// Текущее смещение в потоке
 	size_t j = *current;
+	/**
+	 * Набираем слово из четырёх байтов
+	 */
 	for(size_t i = 0; i < 4; ++i, ++j){
+		// Зацикливаем смещение на длине потока
 		if(j >= datalen)
+			// Возвращаем смещение в начало потока
 			j = 0;
+		// Приписываем очередной байт к слову
 		temp = (temp << 8) | data[j];
 	}
+	// Запоминаем итоговое смещение
 	*current = j;
+	// Выводим собранное слово
 	return temp;
 }
 
 /**
- * \~russian
- * @brief Метод шифрования блока
+ * @brief Функция шифрования блока
  *
- * \~english
- * @brief Method of the encryption of a block
+ * @param ctx контекст Blowfish
+ * @param xl  левая половина блока
+ * @param xr  правая половина блока
  *
- * \~
  */
 void nts::cipher::encipher(const blowfish_t * ctx, uint32_t * xl, uint32_t * xr) noexcept {
+	// Левая половина блока
 	uint32_t Xl = *xl;
+	// Правая половина блока
 	uint32_t Xr = *xr;
+	// Накладываем нулевой элемент массива
 	Xl ^= ctx->P[0];
+	// Первый раунд: подмешиваем функцию в правую половину
 	Xr ^= F(ctx->S, Xl) ^ ctx->P[1];
+	// Второй раунд: подмешиваем функцию в левую половину
 	Xl ^= F(ctx->S, Xr) ^ ctx->P[2];
+	// Третий раунд: подмешиваем функцию в правую половину
 	Xr ^= F(ctx->S, Xl) ^ ctx->P[3];
+	// Четвёртый раунд: подмешиваем функцию в левую половину
 	Xl ^= F(ctx->S, Xr) ^ ctx->P[4];
+	// Пятый раунд: подмешиваем функцию в правую половину
 	Xr ^= F(ctx->S, Xl) ^ ctx->P[5];
+	// Шестой раунд: подмешиваем функцию в левую половину
 	Xl ^= F(ctx->S, Xr) ^ ctx->P[6];
+	// Седьмой раунд: подмешиваем функцию в правую половину
 	Xr ^= F(ctx->S, Xl) ^ ctx->P[7];
+	// Восьмой раунд: подмешиваем функцию в левую половину
 	Xl ^= F(ctx->S, Xr) ^ ctx->P[8];
+	// Девятый раунд: подмешиваем функцию в правую половину
 	Xr ^= F(ctx->S, Xl) ^ ctx->P[9];
+	// Десятый раунд: подмешиваем функцию в левую половину
 	Xl ^= F(ctx->S, Xr) ^ ctx->P[10];
+	// Одиннадцатый раунд: подмешиваем функцию в правую половину
 	Xr ^= F(ctx->S, Xl) ^ ctx->P[11];
+	// Двенадцатый раунд: подмешиваем функцию в левую половину
 	Xl ^= F(ctx->S, Xr) ^ ctx->P[12];
+	// Тринадцатый раунд: подмешиваем функцию в правую половину
 	Xr ^= F(ctx->S, Xl) ^ ctx->P[13];
+	// Четырнадцатый раунд: подмешиваем функцию в левую половину
 	Xl ^= F(ctx->S, Xr) ^ ctx->P[14];
+	// Пятнадцатый раунд: подмешиваем функцию в правую половину
 	Xr ^= F(ctx->S, Xl) ^ ctx->P[15];
+	// Шестнадцатый раунд: подмешиваем функцию в левую половину
 	Xl ^= F(ctx->S, Xr) ^ ctx->P[16];
+	// Завершаем наложением последнего элемента
 	*xl = Xr ^ ctx->P[17];
+	// Помещаем левую половину на место правой
 	*xr = Xl;
 }
 
 /**
- * \~russian
- * @brief Метод шифрования нескольких блоков
+ * @brief Функция шифрования нескольких блоков
  *
- * \~english
- * @brief Method of the encryption of several blocks
+ * @param ctx    контекст Blowfish
+ * @param data   данные (массив uint32)
+ * @param blocks число блоков по 8 байтов
  *
- * \~
  */
 void nts::cipher::encrypt(const blowfish_t * ctx, uint32_t * data, const size_t blocks) noexcept {
+	/**
+	 * Проходим по блокам данных
+	 */
 	for(size_t i = 0; i < blocks; ++i){
+		// Шифруем очередной блок
 		encipher(ctx, &data[0], &data[1]);
+		// Переходим к следующей паре слов
 		data += 2;
 	}
 }
 
 /**
- * \~russian
- * @brief Метод расширения ключа без соли (eksblowfish phase 0)
+ * @brief Функция расширения ключа без соли (eksblowfish phase 0)
  *
- * \~english
- * @brief Method of the key expansion without salt (eksblowfish phase 0)
+ * @param ctx    контекст Blowfish
+ * @param key    ключ
+ * @param keylen длина ключа в байтах
  *
- * \~
  */
 void nts::cipher::expand0(blowfish_t * ctx, const uint8_t * key, const size_t keylen) noexcept {
+	// Смещение внутри ключа
 	size_t j = 0;
+	/**
+	 * Накладываем ключ на массив
+	 */
 	for(size_t i = 0; i < 18; ++i)
+		// Подмешиваем очередное слово ключа
 		ctx->P[i] ^= stream2word(key, keylen, &j);
+	// Левая половина рабочего блока
 	uint32_t datal = 0;
+	// Правая половина рабочего блока
 	uint32_t datar = 0;
+	/**
+	 * Обновляем массив шифрованием нулевого блока
+	 */
 	for(size_t i = 0; i < 18; i += 2){
+		// Шифруем рабочий блок
 		encipher(ctx, &datal, &datar);
+		// Запоминаем левую половину
 		ctx->P[i] = datal;
+		// Запоминаем правую половину
 		ctx->P[i + 1] = datar;
 	}
+	/**
+	 * Проходим по четырём таблицам
+	 */
 	for(size_t i = 0; i < 4; ++i){
+		/**
+		 * Обновляем очередную таблицу
+		 */
 		for(size_t k = 0; k < 256; k += 2){
+			// Шифруем рабочий блок
 			encipher(ctx, &datal, &datar);
+			// Запоминаем левую половину
 			ctx->S[i][k] = datal;
+			// Запоминаем правую половину
 			ctx->S[i][k + 1] = datar;
 		}
 	}
 }
 
 /**
- * \~russian
- * @brief Метод расширения ключа с солью (eksblowfish phase 1)
+ * @brief Функция расширения ключа с солью (eksblowfish phase 1)
  *
- * \~english
- * @brief Method of the key expansion with salt (eksblowfish phase 1)
+ * @param ctx     контекст Blowfish
+ * @param data    соль
+ * @param datalen длина соли в байтах
+ * @param key     ключ
+ * @param keylen  длина ключа в байтах
  *
- * \~
  */
 void nts::cipher::expand(blowfish_t * ctx, const uint8_t * data, const size_t datalen, const uint8_t * key, const size_t keylen) noexcept {
+	// Смещение внутри ключа
 	size_t j = 0;
+	/**
+	 * Накладываем ключ на массив
+	 */
 	for(size_t i = 0; i < 18; ++i)
+		// Подмешиваем очередное слово ключа
 		ctx->P[i] ^= stream2word(key, keylen, &j);
+	// Сбрасываем смещение для соли
 	j = 0;
+	// Левая половина рабочего блока
 	uint32_t datal = 0;
+	// Правая половина рабочего блока
 	uint32_t datar = 0;
+	/**
+	 * Обновляем массив шифрованием подсоленного блока
+	 */
 	for(size_t i = 0; i < 18; i += 2){
+		// Подмешиваем слово соли в левую половину
 		datal ^= stream2word(data, datalen, &j);
+		// Подмешиваем слово соли в правую половину
 		datar ^= stream2word(data, datalen, &j);
+		// Шифруем рабочий блок
 		encipher(ctx, &datal, &datar);
+		// Запоминаем левую половину
 		ctx->P[i] = datal;
+		// Запоминаем правую половину
 		ctx->P[i + 1] = datar;
 	}
+	/**
+	 * Проходим по четырём таблицам
+	 */
 	for(size_t i = 0; i < 4; ++i){
+		/**
+		 * Обновляем очередную таблицу
+		 */
 		for(size_t k = 0; k < 256; k += 2){
+			// Подмешиваем слово соли в левую половину
 			datal ^= stream2word(data, datalen, &j);
+			// Подмешиваем слово соли в правую половину
 			datar ^= stream2word(data, datalen, &j);
+			// Шифруем рабочий блок
 			encipher(ctx, &datal, &datar);
+			// Запоминаем левую половину
 			ctx->S[i][k] = datal;
+			// Запоминаем правую половину
 			ctx->S[i][k + 1] = datar;
 		}
 	}

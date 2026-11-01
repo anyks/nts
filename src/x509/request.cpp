@@ -202,10 +202,9 @@ namespace {
 	static const char * OID_MLDSA87_SIGN = "2.16.840.1.101.3.4.3.19";
 
 	/**
-	 * @brief Метод перевода отказа разборщика ASN.1 в отказ модуля
+	 * @brief Функция перевода отказа разборщика ASN.1 в отказ модуля
 	 *
 	 * @param error отказ разборщика ASN.1
-	 *
 	 * @return      отказ модуля
 	 *
 	 */
@@ -214,11 +213,10 @@ namespace {
 		return ((error == asn1::error_t::MEMORY) ? nts::x509::error_t::MEMORY : nts::x509::error_t::STRUCTURE);
 	}
 	/**
-	 * @brief Метод разбора опознавателя объекта
+	 * @brief Функция разбора опознавателя объекта
 	 *
 	 * @param element разбираемый элемент
 	 * @param result  место, в которое помещается опознаватель
-	 *
 	 * @return        отказ разбора опознавателя
 	 *
 	 */
@@ -229,11 +227,10 @@ namespace {
 		return ((outcome == asn1::error_t::NONE) ? nts::x509::error_t::NONE : translate(outcome));
 	}
 	/**
-	 * @brief Метод разбора малого целого числа
+	 * @brief Функция разбора малого целого числа
 	 *
 	 * @param element разбираемый элемент
 	 * @param result  место, в которое помещается число
-	 *
 	 * @return        отказ разбора числа
 	 *
 	 */
@@ -244,13 +241,12 @@ namespace {
 		return ((outcome == asn1::error_t::NONE) ? nts::x509::error_t::NONE : translate(outcome));
 	}
 	/**
-	 * @brief Метод разбора записи опознавателя алгоритма
+	 * @brief Функция разбора записи опознавателя алгоритма
 	 *
 	 * @param reader разборщик, из которого читается запись
 	 * @param oid    место, в которое помещается опознаватель алгоритма
 	 * @param params место, в которое помещается запись настроек алгоритма
 	 * @param present место, в которое помещается признак наличия настроек
-	 *
 	 * @return       отказ разбора записи
 	 *
 	 */
@@ -292,11 +288,10 @@ namespace {
 		return nts::x509::error_t::NONE;
 	}
 	/**
-	 * @brief Метод записи опознавателя объекта из строки знаков
+	 * @brief Функция записи опознавателя объекта из строки знаков
 	 *
 	 * @param writer записчик, в который помещается опознаватель
 	 * @param value  записываемый опознаватель строкой знаков
-	 *
 	 * @return       отказ записи опознавателя
 	 *
 	 */
@@ -304,12 +299,15 @@ namespace {
 		// Опознаватель строкой
 		string oid;
 		/**
-		 * Копирование выделяет память: нехватка её отдаётся отказом
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Выполняем копирование опознавателя
 			oid.assign(value);
 		// Если памяти не хватило
+		/**
+		 * Выполняем перехват ошибок
+		 */
 		} catch(const bad_alloc &) {
 			// Выводим отказ нехватки памяти
 			return nts::x509::error_t::MEMORY;
@@ -320,11 +318,10 @@ namespace {
 		return ((writer.err() == asn1::error_t::NONE) ? nts::x509::error_t::NONE : translate(writer.err()));
 	}
 	/**
-	 * @brief Метод записи набора алгоритма ключа
+	 * @brief Функция записи набора алгоритма ключа
 	 *
 	 * @param writer записчик, в который помещается набор алгоритма
 	 * @param key    записываемый ключ
-	 *
 	 * @return       отказ записи набора алгоритма
 	 *
 	 */
@@ -430,11 +427,10 @@ namespace {
 		return ((writer.err() == asn1::error_t::NONE) ? nts::x509::error_t::NONE : translate(writer.err()));
 	}
 	/**
-	 * @brief Метод записи тела открытого ключа
+	 * @brief Функция записи тела открытого ключа
 	 *
 	 * @param key    записываемый ключ
 	 * @param writer записчик, в который помещается тело ключа
-	 *
 	 * @return       отказ записи тела ключа
 	 *
 	 */
@@ -477,11 +473,10 @@ namespace {
 		return ((writer.err() == asn1::error_t::NONE) ? nts::x509::error_t::NONE : translate(writer.err()));
 	}
 	/**
-	 * @brief Метод разбора отличительного имени
+	 * @brief Функция разбора отличительного имени
 	 *
 	 * @param element разбираемый элемент записи имени
 	 * @param result  объект имени, в который производится разбор
-	 *
 	 * @return        причина отказа либо nts::x509::error_t::NONE
 	 *
 	 * @note Разборщик повторяет разборщик имени сертификата: запрос несёт имя
@@ -496,10 +491,7 @@ namespace {
 		// Запоминаем запись имени целиком
 		result.element = element.element;
 		/**
-		 * Разбор имени собирает признаки и составляющие, а значит выделяет память:
-		 * нехватка её обязана дойти до вызывающего причиной отказа, а не завершить
-		 * процесс. Метод объявлен noexcept, и перехват в разборе запроса сюда не
-		 * дотягивается - бросок обязан быть пойман здесь же
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Создаём разборщик содержимого записи имени
@@ -604,7 +596,7 @@ namespace {
 				result.parts.push_back(part);
 			}
 		/**
-		 * Если память выделить не удалось
+		 * Выполняем перехват ошибок
 		 */
 		} catch(const bad_alloc &) {
 			// Выводим причину отказа
@@ -614,11 +606,10 @@ namespace {
 		return nts::x509::error_t::NONE;
 	}
 	/**
-	 * @brief Метод записи имени
+	 * @brief Функция записи имени
 	 *
 	 * @param writer записчик, в который помещается имя
 	 * @param name   записываемое имя
-	 *
 	 * @return       отказ записи имени
 	 *
 	 */
@@ -661,11 +652,10 @@ namespace {
 		return ((writer.err() == asn1::error_t::NONE) ? nts::x509::error_t::NONE : translate(writer.err()));
 	}
 	/**
-	 * @brief Метод записи набора расширений
+	 * @brief Функция записи набора расширений
 	 *
 	 * @param writer     записчик, в который помещается набор расширений
 	 * @param extensions записываемый набор расширений
-	 *
 	 * @return           отказ записи набора расширений
 	 *
 	 */
@@ -695,20 +685,18 @@ namespace {
 		return ((writer.err() == asn1::error_t::NONE) ? nts::x509::error_t::NONE : translate(writer.err()));
 	}
 	/**
-	 * @brief Метод выработки подписи содержимого ключом
+	 * @brief Функция выработки подписи содержимого ключом
 	 *
 	 * @param signer    подготовленный секретный ключ подписи
 	 * @param hash      алгоритм хеша подписи (для ECDSA и RSA)
 	 * @param content   подписываемое содержимое
 	 * @param signature место, в которое помещается подпись
-	 *
 	 * @return          отказ выработки подписи
 	 *
 	 */
 	static nts::x509::error_t makeSignature(const keys::signer_t & signer, const digest::hash_t hash, const view_t & content, vector <uint8_t> & signature) noexcept {
 		/**
-		 * Выработка подписи выделяет память: нехватка её отдаётся отказом, а не
-		 * завершением процесса
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			/**
@@ -858,6 +846,9 @@ namespace {
 					return nts::x509::error_t::KEY;
 			}
 		// Если памяти под итог не хватило
+		/**
+		 * Выполняем перехват ошибок
+		 */
 		} catch(const bad_alloc &) {
 			// Выводим отказ нехватки памяти
 			return nts::x509::error_t::MEMORY;
@@ -866,11 +857,10 @@ namespace {
 		return nts::x509::error_t::NONE;
 	}
 	/**
-	 * @brief Метод получения опознавателя алгоритма подписи по виду ключа и хешу
+	 * @brief Функция получения опознавателя алгоритма подписи по виду ключа и хешу
 	 *
 	 * @param signer подготовленный секретный ключ подписи
 	 * @param hash   алгоритм хеша подписи
-	 *
 	 * @return       опознаватель алгоритма подписи либо nullptr
 	 *
 	 */
@@ -881,7 +871,9 @@ namespace {
 		switch(signer.kind()){
 			// Ключ RSA
 			case keys::kind_t::RSA:
-				// Выводим опознаватель по хешу
+				/**
+				 * Выводим опознаватель по хешу
+				 */
 				switch(hash){
 					case digest::hash_t::SHA1: return OID_SHA1_RSA;
 					case digest::hash_t::SHA224: return OID_SHA224_RSA;
@@ -892,7 +884,9 @@ namespace {
 				}
 			// Ключ ECDSA
 			case keys::kind_t::EC:
-				// Выводим опознаватель по хешу
+				/**
+				 * Выводим опознаватель по хешу
+				 */
 				switch(hash){
 					case digest::hash_t::SHA224: return OID_SHA224_ECDSA;
 					case digest::hash_t::SHA256: return OID_SHA256_ECDSA;
@@ -910,7 +904,9 @@ namespace {
 				return ((signer.curve().size() == 32) ? OID_GOST256_SIGN : OID_GOST512_SIGN);
 			// Ключ ML-DSA
 			case keys::kind_t::MLDSA:
-				// Выводим опознаватель по набору ключа
+				/**
+				 * Выводим опознаватель по набору ключа
+				 */
 				switch(signer.mldsa().set()){
 					case sign::mldsa_t::set_t::DSA44: return OID_MLDSA44_SIGN;
 					case sign::mldsa_t::set_t::DSA65: return OID_MLDSA65_SIGN;
@@ -940,8 +936,7 @@ nts::x509::error_t nts::x509::Request::parse(const view_t & data) noexcept {
 	// Выполняем очистку разобранных сведений
 	this->clear();
 	/**
-	 * Разбор собирает имя и расширения, а значит выделяет память: нехватка её
-	 * обязана дойти до вызывающего причиной отказа, а не завершить процесс
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Создаём разборщик записи запроса
@@ -986,6 +981,7 @@ nts::x509::error_t nts::x509::Request::parse(const view_t & data) noexcept {
 			return this->_error;
 		// Запоминаем запись настроек алгоритма подписи
 		if(present)
+			// Запоминаем настройки подписи
 			this->_parameters = params.element;
 		// Выполняем разбор подписи запроса
 		if(!top.next(asn1::tag_t::BIT_STRING, item))
@@ -1048,6 +1044,7 @@ nts::x509::error_t nts::x509::Request::parse(const view_t & data) noexcept {
 				return this->_error;
 			// Запоминаем запись настроек алгоритма ключа
 			if(present)
+				// Запоминаем настройки ключа
 				this->_key.parameters = params.element;
 			// Выполняем разбор открытого ключа
 			if(!info.next(asn1::tag_t::BIT_STRING, field))
@@ -1193,7 +1190,7 @@ nts::x509::error_t nts::x509::Request::parse(const view_t & data) noexcept {
 			// Запоминаем причину отказа
 			return (this->_error = error_t::STRUCTURE);
 	/**
-	 * Если память выделить не удалось
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Запоминаем причину отказа
@@ -1212,8 +1209,11 @@ void nts::x509::Request::clear() noexcept {
 	this->_error = error_t::NONE;
 	// Сбрасываем просмотры записи запроса
 	this->_element = view_t();
+	// Сбрасываем просмотр подписываемой части
 	this->_body = view_t();
+	// Сбрасываем просмотр подписи
 	this->_signature = view_t();
+	// Сбрасываем просмотр настроек подписи
 	this->_parameters = view_t();
 	// Сбрасываем число неиспользуемых разрядов подписи
 	this->_unused = 0;
@@ -1325,15 +1325,14 @@ const vector <nts::x509::extension_t> & nts::x509::Request::extension() const no
 nts::x509::Request::Request() noexcept : _error(error_t::NONE), _unused(0) {}
 
 /**
- * @brief Метод записи запроса на сертификат PKCS #10
+ * @brief Функция записи запроса на сертификат PKCS #10
  *
  * @param subject    имя владельца запрашиваемого сертификата
  * @param key        сведения об открытом ключе запроса
- * @param extensions набор запрашиваемых расширений
+ * @param extensions набор запрашиваемых расширений (пустой набор - без расширений)
  * @param signer     подготовленный секретный ключ подписи запроса
- * @param hash       алгоритм хеша подписи
+ * @param hash       алгоритм хеша подписи (для ECDSA и RSA; у Ed25519, ML-DSA, SM2 и ГОСТ не рассматривается)
  * @param result     место, в которое помещается запись запроса в кодировке DER
- *
  * @return           отказ записи запроса
  *
  */
@@ -1435,7 +1434,7 @@ nts::x509::error_t nts::x509::encode(const name_t & subject, const nts::x509::ke
 	// Содержимое записи запроса: подписываемая часть и хвост
 	vector <uint8_t> content;
 	/**
-	 * Сборка содержимого выделяет память: нехватка её отдаётся отказом
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Выполняем сборку содержимого записи запроса
@@ -1445,6 +1444,9 @@ nts::x509::error_t nts::x509::encode(const name_t & subject, const nts::x509::ke
 		// Дописываем хвост записи
 		content.insert(content.end(), tailPart.data, tailPart.data + tailPart.size);
 	// Если памяти не хватило
+	/**
+	 * Выполняем перехват ошибок
+	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
 		return error_t::MEMORY;
@@ -1460,12 +1462,15 @@ nts::x509::error_t nts::x509::encode(const name_t & subject, const nts::x509::ke
 	// Получаем просмотр собранной записи
 	const view_t data = writer.data();
 	/**
-	 * Копирование выделяет память: нехватка её отдаётся отказом
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Выполняем копирование записи
 		result.assign(data.data, data.data + data.size);
 	// Если памяти не хватило
+	/**
+	 * Выполняем перехват ошибок
+	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
 		return error_t::MEMORY;
@@ -1475,12 +1480,14 @@ nts::x509::error_t nts::x509::encode(const name_t & subject, const nts::x509::ke
 }
 
 /**
- * @brief Метод проверки подписи запроса на сертификат
+ * @brief Функция проверки подписи запроса на сертификат
  *
  * @param request запрос, подпись которого проверяется
  * @param key     сведения об открытом ключе подписавшей стороны
+ * @return        отказ проверки: NONE - подпись сошлась, SIGNATURE - не сошлась либо
+ *                непригодна, KEY - ключ чужого алгоритма, MEMORY - памяти не хватило
  *
- * @return        отказ проверки подписи
+ *                непригодна, KEY - ключ чужого алгоритма, MEMORY - памяти не хватило
  *
  */
 nts::x509::error_t nts::x509::verify(const request_t & request, const nts::x509::key_t & key) noexcept {
@@ -1495,3 +1502,9 @@ nts::x509::error_t nts::x509::verify(const request_t & request, const nts::x509:
 	// Выводим итог проверки подписи тела запроса
 	return nts::x509::verify(request.body(), signature, request.algorithms(), request.settings(), key);
 }
+
+/**
+ * @brief Деструктор
+ *
+ */
+nts::x509::Request::~Request() noexcept {}

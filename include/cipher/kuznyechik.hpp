@@ -21,7 +21,6 @@
  *        the decryption of a block of a length of 128 bits according to GOST R 34.12-2015
  *
  * \~
- *
  * @copyright Copyright © 2026
  *
  */
@@ -71,10 +70,12 @@ namespace nts {
 	 *
 	 * \~english
 	 * @brief Namespace of the block encryption modules
+	 *
 	 * @details The ciphers transform a single block and do not deal with the modes of
 	 *          operation: the modes of the encryption, of the production of an imitation
 	 *          insert and of the encryption with an integrity check lie above and do not
 	 *          depend on the chosen cipher.
+	 *
 	 * @note There are neither exceptions, nor templates, nor virtuality, nor memory
 	 *       allocation inside the ciphers: all of this produces a branch or a jump by a
 	 *       pointer on a path depending on a secret value
@@ -114,6 +115,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief The «Kuznyechik» block cipher
+		 *
 		 * @details The key is set by a call of key, after which the blocks are transformed
 		 *          by the calls of encrypt and decrypt. The expanded round keys are wiped
 		 *          by a call of clear and by the destructor.
@@ -136,6 +138,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of checking the readiness of the cipher for the work
+				 *
 				 * @return the flag of the key being set
 				 *
 				 * \~
@@ -146,13 +149,13 @@ namespace nts {
 				 * @brief Метод установки ключа шифрования
 				 *
 				 * @param key устанавливаемый ключ шифрования
-				 *
-				 * @return признак успешности установки ключа
+				 * @return    признак успешности установки ключа
 				 *
 				 * \~english
 				 * @brief Method of setting the encryption key
+				 *
 				 * @param key the encryption key being set
-				 * @return the flag of the success of the setting of the key
+				 * @return    the flag of the success of the setting of the key
 				 *
 				 * \~
 				 */
@@ -174,16 +177,17 @@ namespace nts {
 				 *
 				 * @param source зашифровываемый блок
 				 * @param result место, в которое помещается зашифрованный блок
-				 *
-				 * @return признак успешности зашифрования
+				 * @return       признак успешности зашифрования
 				 *
 				 * @note Место итога вправе совпадать с местом исходного блока
 				 *
 				 * \~english
 				 * @brief Method of the encryption of a block
+				 *
 				 * @param source the block being encrypted
 				 * @param result the place the encrypted block is put into
-				 * @return the flag of the success of the encryption
+				 * @return       the flag of the success of the encryption
+				 *
 				 * @note The place of the result may coincide with the place of the source block
 				 *
 				 * \~
@@ -196,8 +200,7 @@ namespace nts {
 				 * @param sources зашифровываемые блоки подряд
 				 * @param blocks  число блоков
 				 * @param results место, в которое помещаются зашифрованные блоки подряд
-				 *
-				 * @return признак успешности зашифрования
+				 * @return        признак успешности зашифрования
 				 *
 				 * @note Блоки независимы, и шифр ведёт их по четыре в одном теле: чтения
 				 *       таблиц разных блоков идут внахлёст, что даёт выигрыш на процессорах
@@ -206,10 +209,12 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the encryption of several independent blocks at once
+				 *
 				 * @param sources the blocks being encrypted, one after another
 				 * @param blocks  the number of the blocks
 				 * @param results the place the encrypted blocks are put into, one after another
-				 * @return the flag of the success of the encryption
+				 * @return        the flag of the success of the encryption
+				 *
 				 * @note The blocks are independent and the cipher drives them four at a time in one
 				 *       body: the table reads of different blocks overlap, which gives a gain on the
 				 *       processors with a wide instruction or a deep pipeline. The place of the result
@@ -224,16 +229,17 @@ namespace nts {
 				 *
 				 * @param source расшифровываемый блок
 				 * @param result место, в которое помещается расшифрованный блок
-				 *
-				 * @return признак успешности расшифрования
+				 * @return       признак успешности расшифрования
 				 *
 				 * @note Место итога вправе совпадать с местом исходного блока
 				 *
 				 * \~english
 				 * @brief Method of the decryption of a block
+				 *
 				 * @param source the block being decrypted
 				 * @param result the place the decrypted block is put into
-				 * @return the flag of the success of the decryption
+				 * @return       the flag of the success of the decryption
+				 *
 				 * @note The place of the result may coincide with the place of the source block
 				 *
 				 * \~
@@ -244,7 +250,6 @@ namespace nts {
 				 * \~russian
 				 * @brief Конструктор
 				 *
-				 *
 				 * \~english
 				 * @brief Constructor
 				 *
@@ -254,7 +259,6 @@ namespace nts {
 				/**
 				 * \~russian
 				 * @brief Деструктор
-				 *
 				 *
 				 * \~english
 				 * @brief Destructor

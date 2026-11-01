@@ -31,6 +31,9 @@
  * Экранируем повторную инициализацию заголовочного файла
  */
 #ifndef __ANTS_TESTS_GOST__
+/**
+ * Поднимаем макрос предохранителя: повторное подключение заголовочного файла отсекается
+ */
 #define __ANTS_TESTS_GOST__
 
 /**
@@ -99,7 +102,7 @@ namespace gostlists {
 };
 
 /**
- * @brief Метод включения ГОСТ в настройки связи стороны клиента: ГОСТ впереди классики
+ * @brief Функция включения ГОСТ в настройки связи стороны клиента: ГОСТ впереди классики
  *
  * @param client связь стороны клиента
  *
@@ -113,7 +116,7 @@ inline void gosting(client::context_t & client) noexcept {
 	client.schemes(gostlists::SCHEMES);
 }
 /**
- * @brief Метод включения ГОСТ в настройки связи стороны сервера: ГОСТ впереди классики
+ * @brief Функция включения ГОСТ в настройки связи стороны сервера: ГОСТ впереди классики
  *
  * @param server связь стороны сервера
  *
@@ -127,4 +130,4 @@ inline void gosting(server::context_t & server) noexcept {
 	server.schemes(gostlists::SCHEMES);
 }
 
-#endif // __ANTS_TESTS_GOST__
+#endif

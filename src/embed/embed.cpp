@@ -12,13 +12,7 @@
  * @email forman@anyks.com
  * @site https://anyks.com
  *
- * \~russian
  * @brief Исходный файл модуля вывода ключа для зашивания в образ приложения
- *
- * \~english
- * @brief Source file of the key derivation module for embedding into the application image
- *
- * \~
  *
  * @copyright Copyright © 2026
  *
@@ -43,25 +37,18 @@
 using namespace nts;
 
 /**
- * \~russian
  * @brief Метка области вывода ключа из материала: разводит контуры вывода материала и пароля
  *
- * \~english
- * @brief Label of the area of the key derivation from the material: separates the material and the password derivation domains
  */
 static constexpr uint8_t EMBED_LABEL_KEY[] = {'A', '-', 'N', 'T', 'S', ' ', 'e', 'm', 'b', 'e', 'd', ' ', 'k', 'e', 'y'};
 
 /**
- * \~russian
  * @brief Метка области вывода ключа из пароля
  *
- * \~english
- * @brief Label of the area of the key derivation from a password
  */
 static constexpr uint8_t EMBED_LABEL_PWD[] = {'A', '-', 'N', 'T', 'S', ' ', 'e', 'm', 'b', 'e', 'd', ' ', 'p', 'w', 'd'};
 
 /**
- * \~russian
  * @brief Функция вплетения метки, версии и связки в связной буфер
  *
  * @details Версия кладётся восемью октетами старшим байтом вперёд — вид не зависит от порядка
@@ -73,14 +60,6 @@ static constexpr uint8_t EMBED_LABEL_PWD[] = {'A', '-', 'N', 'T', 'S', ' ', 'e',
  * @param version версия ключа
  * @param context связка привязки к образу
  *
- * \~english
- * @brief Function of the weaving of the label, the version and the context into a binding buffer
- *
- * @param buffer  the buffer being assembled
- * @param label   the area label
- * @param length  the length of the label
- * @param version the key version
- * @param context the binding context
  */
 static void weave(std::vector <uint8_t> & buffer, const uint8_t * label, const size_t length, const uint64_t version, const view_t & context){
 	// Кладём метку области
@@ -89,14 +68,26 @@ static void weave(std::vector <uint8_t> & buffer, const uint8_t * label, const s
 	 * Кладём версию восемью октетами старшим байтом вперёд
 	 */
 	for(size_t i = 8; i > 0; i--)
+		// Кладём очередной октет версии от старшего
 		buffer.push_back(static_cast <uint8_t> ((version >> ((i - 1) * 8)) & 0xFF));
-	// Кладём связку привязки к образу, если она задана
+	// Если связка привязки к образу задана
 	if((context.data != nullptr) && (context.size > 0))
+		// Кладём связку привязки к образу
 		buffer.insert(buffer.end(), context.data, context.data + context.size);
 }
 
 /**
- * key Метод вывода зашитого ключа из собранного по образу материала
+ * @brief Функция вывода зашитого ключа из собранного по образу материала
+ *
+ * @param algorithm алгоритм хеширования под HKDF
+ * @param material  собранный по образу материал (из `vessel_t` через `apply`)
+ * @param salt      соль сборки: пустая заменяется нулями в длину хеша
+ * @param context   привязка к образу, например контрольная сумма участка; допустимо пусто
+ * @param version   версия ключа, вплетаемая в вывод
+ * @param result    место, в которое помещается ключ
+ * @param size      размер места в байтах
+ * @return          признак того, что ключ выведен
+ *
  */
 bool nts::embed::key(const digest::hash_t algorithm, const view_t & material, const view_t & salt, const view_t & context, const uint64_t version, uint8_t * result, const size_t size) noexcept {
 	// Длина хеша выбранного алгоритма
@@ -118,7 +109,7 @@ bool nts::embed::key(const digest::hash_t algorithm, const view_t & material, co
 	// Признак успеха вывода
 	bool done = false;
 	/**
-	 * Ловим нехватку памяти при сборке буфера связки: путь noexcept обращает её в отказ
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		/**
@@ -137,12 +128,21 @@ bool nts::embed::key(const digest::hash_t algorithm, const view_t & material, co
 			done = digest::expand(algorithm, view_t(prk, hashLength), view_t(info.data(), info.size()), result, size);
 		}
 	// Перехватываем нехватку памяти
+	/**
+	 * Выполняем перехват ошибок
+	 */
 	} catch(const std::bad_alloc &){
 		// Сообщаем об отказе вывода
 		done = false;
 	}
 	/**
+	 * @brief Функция затирания области памяти
+	 *
+	 * @param data затираемая область памяти
+	 * @param size размер затираемой области памяти в байтах
+	 *
 	 * Затираем псевдослучайный ключ на любом выходе: он восстанавливает выведенный ключ
+	 *
 	 */
 	sys::wipe(prk, sizeof(prk));
 	// Выводим признак успеха вывода
@@ -150,7 +150,17 @@ bool nts::embed::key(const digest::hash_t algorithm, const view_t & material, co
 }
 
 /**
- * secret Метод вывода зашитого ключа из пароля растяжением Argon2
+ * @brief Функция вывода зашитого ключа из пароля растяжением Argon2
+ *
+ * @param params   параметры Argon2
+ * @param password пароль
+ * @param salt     соль, не короче восьми байтов
+ * @param context  привязка к образу, например контрольная сумма участка; допустимо пусто
+ * @param version  версия ключа, вплетаемая в вывод
+ * @param result   место, в которое помещается ключ
+ * @param size     размер места в байтах, не меньше четырёх
+ * @return         признак того, что ключ выведен
+ *
  */
 bool nts::embed::secret(const digest::argon_params_t & params, const view_t & password, const view_t & salt, const view_t & context, const uint64_t version, uint8_t * result, const size_t size) noexcept {
 	/**
@@ -162,7 +172,7 @@ bool nts::embed::secret(const digest::argon_params_t & params, const view_t & pa
 	// Признак успеха вывода
 	bool done = false;
 	/**
-	 * Ловим нехватку памяти при сборке буфера связанных данных: путь noexcept обращает её в отказ
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Буфер связанных данных Argon2: метка области, версия, привязка к образу
@@ -176,6 +186,9 @@ bool nts::embed::secret(const digest::argon_params_t & params, const view_t & pa
 		 */
 		done = digest::argon2(params, password, salt, view_t(), view_t(associated.data(), associated.size()), result, size);
 	// Перехватываем нехватку памяти
+	/**
+	 * Выполняем перехват ошибок
+	 */
 	} catch(const std::bad_alloc &){
 		// Сообщаем об отказе вывода
 		done = false;

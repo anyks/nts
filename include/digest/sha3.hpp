@@ -12,8 +12,13 @@
  * @email forman@anyks.com
  * @site https://anyks.com
  *
+ * \~russian
  * @brief Модуль хеширования SHA-3 и функций переменного выхода SHAKE по FIPS 202
  *
+ * \~english
+ * @brief Module of the hashing SHA-3 and the functions of a variable output SHAKE according to FIPS 202
+ *
+ * \~
  * @copyright Copyright © 2026
  *
  */
@@ -86,29 +91,36 @@ namespace nts {
 		 * \~
 		 */
 		enum class sha3_t : uint8_t {
+			// Разновидность не установлена
 			NONE     = 0x00, /*!< \~russian Разновидность не установлена \~english The kind is not set \~ */
+			// Хеш SHA3-224
 			SHA3_224 = 0x1C, /*!< \~russian Хеш SHA3-224 \~english The SHA3-224 hash \~ */
+			// Хеш SHA3-256
 			SHA3_256 = 0x20, /*!< \~russian Хеш SHA3-256 \~english The SHA3-256 hash \~ */
+			// Хеш SHA3-384
 			SHA3_384 = 0x30, /*!< \~russian Хеш SHA3-384 \~english The SHA3-384 hash \~ */
+			// Хеш SHA3-512
 			SHA3_512 = 0x40, /*!< \~russian Хеш SHA3-512 \~english The SHA3-512 hash \~ */
+			// Функция переменного выхода SHAKE128
 			SHAKE128 = 0x81, /*!< \~russian Функция переменного выхода SHAKE128 \~english The SHAKE128 extendable-output function \~ */
+			// Функция переменного выхода SHAKE256
 			SHAKE256 = 0x82, /*!< \~russian Функция переменного выхода SHAKE256 \~english The SHAKE256 extendable-output function \~ */
+			// Настраиваемая функция переменного выхода cSHAKE128 (SP 800-185)
 			CSHAKE128 = 0x91, /*!< \~russian Настраиваемая функция переменного выхода cSHAKE128 (SP 800-185) \~english The customizable extendable-output function cSHAKE128 (SP 800-185) \~ */
+			// Настраиваемая функция переменного выхода cSHAKE256 (SP 800-185)
 			CSHAKE256 = 0x92  /*!< \~russian Настраиваемая функция переменного выхода cSHAKE256 (SP 800-185) \~english The customizable extendable-output function cSHAKE256 (SP 800-185) \~ */
 		};
 		/**
 		 * \~russian
-		 * @brief Метод получения длины итога разновидности
+		 * @brief Функция получения длины итога разновидности
 		 *
 		 * @param type разновидность преобразования
-		 *
 		 * @return     длина итога хеша в байтах либо нуль у функций переменного выхода
 		 *
 		 * \~english
-		 * @brief Method of the obtaining of the length of the result of a kind
+		 * @brief Function of the obtaining of the length of the result of a kind
 		 *
 		 * @param type kind of the transformation
-		 *
 		 * @return     length of the result of the hash in bytes or zero at the extendable-output functions
 		 *
 		 * \~
@@ -116,17 +128,15 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ size_t length(const sha3_t type) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод получения скорости разновидности
+		 * @brief Функция получения скорости разновидности
 		 *
 		 * @param type разновидность преобразования
-		 *
 		 * @return     число байтов, поглощаемых или выдаваемых за одну перестановку, либо нуль
 		 *
 		 * \~english
-		 * @brief Method of the obtaining of the rate of a kind
+		 * @brief Function of the obtaining of the rate of a kind
 		 *
 		 * @param type kind of the transformation
-		 *
 		 * @return     number of the bytes absorbed or squeezed per one permutation or zero
 		 *
 		 * \~
@@ -170,13 +180,23 @@ namespace nts {
 				uint64_t _state[25];
 			private:
 				/**
+				 * \~russian
 				 * @brief Метод перестановки состояния Keccak-f[1600]
 				 *
+				 * \~english
+				 * @brief Method of the permutation of the state of Keccak-f[1600]
+				 *
+				 * \~
 				 */
 				void permute() noexcept;
 				/**
+				 * \~russian
 				 * @brief Метод дополнения сообщения и перехода к выжиманию
 				 *
+				 * \~english
+				 * @brief Method of the padding of the message and the transition to the squeezing
+				 *
+				 * \~
 				 */
 				void seal() noexcept;
 			public:
@@ -228,14 +248,12 @@ namespace nts {
 				 * @brief Метод поглощения куска сообщения
 				 *
 				 * @param data кусок сообщения
-				 *
 				 * @return     признак того, что кусок поглощён: после выжимания поглощение отвергается
 				 *
 				 * \~english
 				 * @brief Method of the absorption of a piece of the message
 				 *
 				 * @param data piece of the message
-				 *
 				 * @return     sign that the piece is absorbed: after a squeezing the absorption is refused
 				 *
 				 * \~
@@ -247,7 +265,6 @@ namespace nts {
 				 *
 				 * @param result место, в которое помещается кусок итога
 				 * @param size   длина куска итога в байтах
-				 *
 				 * @return       признак того, что кусок выжат: у хешей выжимание отвергается
 				 *
 				 * \~english
@@ -255,7 +272,6 @@ namespace nts {
 				 *
 				 * @param result place into which the piece of the result is put
 				 * @param size   length of the piece of the result in bytes
-				 *
 				 * @return       sign that the piece is squeezed: at the hashes the squeezing is refused
 				 *
 				 * \~
@@ -267,7 +283,6 @@ namespace nts {
 				 *
 				 * @param result место, в которое помещается итог
 				 * @param size   длина места в байтах: у хешей ровно длина разновидности, у функций переменного выхода любая
-				 *
 				 * @return       признак того, что итог снят; повторное снятие отвергается
 				 *
 				 * \~english
@@ -275,7 +290,6 @@ namespace nts {
 				 *
 				 * @param result place into which the result is put
 				 * @param size   length of the place in bytes: at the hashes exactly the length of the kind, at the extendable-output functions any
-				 *
 				 * @return       sign that the result is taken; a repeated taking is refused
 				 *
 				 * \~
@@ -309,23 +323,21 @@ namespace nts {
 		} keccak_t;
 		/**
 		 * \~russian
-		 * @brief Метод хеширования сообщения за один вызов
+		 * @brief Функция хеширования сообщения за один вызов
 		 *
 		 * @param type   разновидность преобразования
 		 * @param data   сообщение
 		 * @param result место, в которое помещается итог
 		 * @param size   длина итога в байтах: у хешей ровно длина разновидности, у функций переменного выхода любая
-		 *
 		 * @return       признак того, что итог вычислен
 		 *
 		 * \~english
-		 * @brief Method of the hashing of a message by one call
+		 * @brief Function of the hashing of a message by one call
 		 *
 		 * @param type   kind of the transformation
 		 * @param data   message
 		 * @param result place into which the result is put
 		 * @param size   length of the result in bytes: at the hashes exactly the length of the kind, at the extendable-output functions any
-		 *
 		 * @return       sign that the result is computed
 		 *
 		 * \~

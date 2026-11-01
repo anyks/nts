@@ -1,18 +1,27 @@
 /**
- * @file: starve.hpp
- * @date: 2026-09-03
- * @license: GPL-3.0
+ * @file starve.hpp
+ * @date 2026-09-03
  *
- * @telegram: @forman
- * @author: Yuriy Lobarev
- * @phone: +7 (910) 983-95-90
- * @email: forman@anyks.com
- * @site: https://anyks.com
+ * @license{GPL-3.0}
  *
- * @copyright: Copyright © 2026
+ * @author Yuriy Lobarev
+ *
+ * @telegram{forman}
+ * @phone{+7 (910) 983-95-90}
+ *
+ * @email forman@anyks.com
+ * @site https://anyks.com
+ *
+ * @brief Подмена глобального распределителя для проверок поведения при нехватке памяти
+ *
+ * @copyright Copyright © 2026
+ *
  */
 
 #ifndef __ANTS_TESTS_STARVE__
+/**
+ * Заводим макрос стража: повторное подключение заголовка подмены распределителя отсекается
+ */
 #define __ANTS_TESTS_STARVE__
 
 /**
@@ -31,10 +40,12 @@
 namespace starve {
 	/**
 	 * @brief Признак того, что запас выделений отмерен
+	 *
 	 */
 	static bool armed = false;
 	/**
 	 * @brief Оставшийся запас выделений
+	 *
 	 */
 	static size_t budget = 0;
 	/**
@@ -42,26 +53,41 @@ namespace starve {
 	 *
 	 * @note Нужен проверкам затирания секретов: наблюдатель осматривает освобождаемый
 	 *       блок до его возврата в кучу. Вне таких проверок остаётся пустым
+	 *
 	 */
-	static void (* watch)(void *) noexcept = nullptr;
+	static void (* watch)(void * ptr) noexcept = nullptr;
 	/**
-	 * @brief Метод освобождения памяти с оповещением наблюдателя
+	 * @brief Функция освобождения памяти с оповещением наблюдателя
 	 *
 	 * @param data указатель на освобождаемую память
 	 *
 	 */
 	static void drop(void * data) noexcept {
 		// Если наблюдатель задан, показываем ему освобождаемый блок
-		if((watch != nullptr) && (data != nullptr))
+		if((watch != nullptr) && (data != nullptr)){
+			// Показываем наблюдателю освобождаемый блок до возврата в кучу
 			watch(data);
+		}
 		// Выполняем освобождение памяти
 		::free(data);
 	}
 	/**
 	 * @brief Класс отмеренного запаса выделений на время своей жизни
+	 *
 	 */
 	typedef class Ration {
 		public:
+			/**
+			 * @brief Метод досрочного снятия запаса
+			 *
+			 * @note Снимает подмену до конца области видимости: дальнейшие выделения,
+			 *       например под сообщение проверки, идут без ограничения
+			 *
+			 */
+			void stop() noexcept {
+				// Снимаем признак отмеренного запаса
+				armed = false;
+			}
 			/**
 			 * @brief Конструктор
 			 *
@@ -75,17 +101,6 @@ namespace starve {
 				armed = true;
 			}
 			/**
-			 * @brief Метод досрочного снятия запаса
-			 *
-			 * @note Снимает подмену до конца области видимости: дальнейшие выделения,
-			 *       например под сообщение проверки, идут без ограничения
-			 *
-			 */
-			void stop() noexcept {
-				// Снимаем признак отмеренного запаса
-				armed = false;
-			}
-			/**
 			 * @brief Деструктор
 			 *
 			 */
@@ -95,10 +110,9 @@ namespace starve {
 			}
 	} ration_t;
 	/**
-	 * @brief Метод выделения памяти с учётом запаса
+	 * @brief Функция выделения памяти с учётом запаса
 	 *
 	 * @param size размер выделяемой памяти
-	 *
 	 * @return     указатель на выделенную память
 	 *
 	 */
@@ -127,7 +141,6 @@ namespace starve {
  * @brief Оператор выделения памяти
  *
  * @param size размер выделяемой памяти
- *
  * @return     указатель на выделенную память
  *
  */
@@ -139,7 +152,6 @@ void * operator new(const std::size_t size){
  * @brief Оператор выделения памяти под массив
  *
  * @param size размер выделяемой памяти
- *
  * @return     указатель на выделенную память
  *
  */
@@ -201,4 +213,4 @@ void operator delete[](void * data, const std::size_t size) noexcept {
 }
 #endif
 
-#endif // __ANTS_TESTS_STARVE__
+#endif

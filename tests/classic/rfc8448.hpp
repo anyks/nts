@@ -25,6 +25,9 @@
  * Экранируем повторную инициализацию модуля
  */
 #ifndef __ANTS_TESTS_RFC8448__
+/**
+ * Заводим макрос стража: повторное подключение заголовка векторов RFC 8448 отсекается
+ */
 #define __ANTS_TESTS_RFC8448__
 
 /**
@@ -238,4 +241,4 @@ namespace rfc8448 {
 	static const char * const S5_RES_MASTER = "09170c6d472721566f9cf99b08699daff561ec8fb22d5a32c3f94ce009b69975";
 };
 
-#endif // __ANTS_TESTS_RFC8448__
+#endif

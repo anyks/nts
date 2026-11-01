@@ -19,7 +19,6 @@
  * @brief Header file of the module of the key encapsulation Streamlined NTRU Prime sntrup761
  *
  * \~
- *
  * @copyright Copyright © 2026
  *
  */
@@ -108,7 +107,7 @@ namespace nts {
 
 		/**
 		 * \~russian
-		 * @brief Метод выработки пары ключей sntrup761
+		 * @brief Функция выработки пары ключей sntrup761
 		 *
 		 * @details Арифметика в Z/4591[x]/(x^761 − x − 1), малые полиномы в {-1,0,1}.
 		 *          Секретный ключ содержит f, ginv, открытый ключ, случайное зерно rho
@@ -116,11 +115,10 @@ namespace nts {
 		 *
 		 * @param key    место, в которое помещается открытый ключ длиной SNTRUP761_PUBLIC
 		 * @param secret место, в которое помещается секретный ключ длиной SNTRUP761_SECRET
-		 *
 		 * @return       признак успешности выработки пары ключей
 		 *
 		 * \~english
-		 * @brief Method of the generation of an sntrup761 key pair
+		 * @brief Function of the generation of an sntrup761 key pair
 		 *
 		 * @details Arithmetic in Z/4591[x]/(x^761 − x − 1), small polynomials in {-1,0,1}.
 		 *          The secret key contains f, ginv, the public key, a random seed rho
@@ -128,7 +126,6 @@ namespace nts {
 		 *
 		 * @param key    the place the public key of the length SNTRUP761_PUBLIC is put into
 		 * @param secret the place the secret key of the length SNTRUP761_SECRET is put into
-		 *
 		 * @return       the flag of the success of the generation of the key pair
 		 *
 		 * \~
@@ -136,56 +133,52 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ bool pair(uint8_t * key, uint8_t * secret) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод инкапсуляции общего секрета sntrup761
+		 * @brief Функция инкапсуляции общего секрета sntrup761
 		 *
 		 * @details Вырабатывает случайный вход r, шифрует его открытым ключом,
 		 *          вычисляет подтверждение HashConfirm и общий секрет HashSession
 		 *
-		 * @param key      открытый ключ встречной стороны длиной SNTRUP761_PUBLIC
-		 * @param cipher   место, в которое помещается шифртекст длиной SNTRUP761_CIPHERTEXT
-		 * @param shared   место, в которое помещается общий секрет длиной SNTRUP761_SHARED
-		 *
-		 * @return         признак успешности инкапсуляции
+		 * @param key    открытый ключ встречной стороны длиной SNTRUP761_PUBLIC
+		 * @param cipher место, в которое помещается шифртекст длиной SNTRUP761_CIPHERTEXT
+		 * @param shared место, в которое помещается общий секрет длиной SNTRUP761_SHARED
+		 * @return       признак успешности инкапсуляции
 		 *
 		 * \~english
-		 * @brief Method of the encapsulation of a shared secret sntrup761
+		 * @brief Function of the encapsulation of a shared secret sntrup761
 		 *
 		 * @details Generates a random input r, encrypts it with the public key,
 		 *          computes the confirmation HashConfirm and the shared secret HashSession
 		 *
-		 * @param key      the public key of the opposite side of the length SNTRUP761_PUBLIC
-		 * @param cipher   the place the ciphertext of the length SNTRUP761_CIPHERTEXT is put into
-		 * @param shared   the place the shared secret of the length SNTRUP761_SHARED is put into
-		 *
-		 * @return         the flag of the success of the encapsulation
+		 * @param key    the public key of the opposite side of the length SNTRUP761_PUBLIC
+		 * @param cipher the place the ciphertext of the length SNTRUP761_CIPHERTEXT is put into
+		 * @param shared the place the shared secret of the length SNTRUP761_SHARED is put into
+		 * @return       the flag of the success of the encapsulation
 		 *
 		 * \~
 		 */
 		__ANTS_SHARED_EXPORT__ bool encaps(const view_t & key, uint8_t * cipher, uint8_t * shared) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод декапсуляции общего секрета sntrup761
+		 * @brief Функция декапсуляции общего секрета sntrup761
 		 *
 		 * @details Расшифровывает вход r, проверяет шифртекст повторным шифрованием,
 		 *          при несовпадении подставляет зерно rho вместо r для неявного отказа
 		 *
-		 * @param cipher   шифртекст длиной SNTRUP761_CIPHERTEXT
-		 * @param secret   секретный ключ длиной SNTRUP761_SECRET
-		 * @param shared   место, в которое помещается общий секрет длиной SNTRUP761_SHARED
-		 *
-		 * @return         признак успешности декапсуляции (ложь при подмене шифртекста)
+		 * @param cipher шифртекст длиной SNTRUP761_CIPHERTEXT
+		 * @param secret секретный ключ длиной SNTRUP761_SECRET
+		 * @param shared место, в которое помещается общий секрет длиной SNTRUP761_SHARED
+		 * @return       признак успешности декапсуляции (ложь при подмене шифртекста)
 		 *
 		 * \~english
-		 * @brief Method of the decapsulation of a shared secret sntrup761
+		 * @brief Function of the decapsulation of a shared secret sntrup761
 		 *
 		 * @details Decrypts the input r, checks the ciphertext by re-encryption,
 		 *          on mismatch substitutes the seed rho instead of r for implicit rejection
 		 *
-		 * @param cipher   the ciphertext of the length SNTRUP761_CIPHERTEXT
-		 * @param secret   the secret key of the length SNTRUP761_SECRET
-		 * @param shared   the place the shared secret of the length SNTRUP761_SHARED is put into
-		 *
-		 * @return         the flag of the success of the decapsulation (false on ciphertext tampering)
+		 * @param cipher the ciphertext of the length SNTRUP761_CIPHERTEXT
+		 * @param secret the secret key of the length SNTRUP761_SECRET
+		 * @param shared the place the shared secret of the length SNTRUP761_SHARED is put into
+		 * @return       the flag of the success of the decapsulation (false on ciphertext tampering)
 		 *
 		 * \~
 		 */

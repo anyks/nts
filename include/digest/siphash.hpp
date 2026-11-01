@@ -12,8 +12,13 @@
  * @email forman@anyks.com
  * @site https://anyks.com
  *
+ * \~russian
  * @brief Модуль ключевой хеш-функции SipHash-2-4 (Аумассон, Бернштейн) с итогом в 64 и 128 разрядов
  *
+ * \~english
+ * @brief Module of the keyed hash function SipHash-2-4 (Aumasson, Bernstein) with the output of 64 and 128 bits
+ *
+ * \~
  * @copyright Copyright © 2026
  *
  */
@@ -71,7 +76,7 @@ namespace nts {
 		static constexpr size_t SIPHASH_KEY = 16;
 		/**
 		 * \~russian
-		 * @brief Метод вычисления SipHash-2-4
+		 * @brief Функция вычисления SipHash-2-4
 		 *
 		 * @details Два круга сжатия на слово сообщения и четыре круга завершения; итог в
 		 *          восемь байтов (64 разряда) либо в шестнадцать (SipHash-2-4-128), записанный
@@ -82,11 +87,10 @@ namespace nts {
 		 * @param data   сообщение любой длины
 		 * @param result место, в которое помещается итог
 		 * @param size   длина итога: 8 либо 16
-		 *
 		 * @return       признак того, что итог вычислен
 		 *
 		 * \~english
-		 * @brief Method of the computation of SipHash-2-4
+		 * @brief Function of the computation of SipHash-2-4
 		 *
 		 * @details Two compression rounds per message word and four finalization rounds; the
 		 *          result of eight bytes (64 bits) or of sixteen (SipHash-2-4-128), written from
@@ -98,7 +102,6 @@ namespace nts {
 		 * @param data   message of any length
 		 * @param result place into which the result is put
 		 * @param size   length of the result: 8 or 16
-		 *
 		 * @return       sign that the result is computed
 		 *
 		 * \~
@@ -106,21 +109,19 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ bool siphash(const view_t & key, const view_t & data, uint8_t * result, const size_t size) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод вычисления SipHash-2-4 числом
+		 * @brief Функция вычисления SipHash-2-4 числом
 		 *
 		 * @param key    ключ в шестнадцать байтов
 		 * @param data   сообщение любой длины
 		 * @param result число, в которое помещается 64-разрядный итог
-		 *
 		 * @return       признак того, что итог вычислен
 		 *
 		 * \~english
-		 * @brief Method of the computation of SipHash-2-4 as a number
+		 * @brief Function of the computation of SipHash-2-4 as a number
 		 *
 		 * @param key    key of sixteen bytes
 		 * @param data   message of any length
 		 * @param result number into which the 64-bit result is put
-		 *
 		 * @return       sign that the result is computed
 		 *
 		 * \~

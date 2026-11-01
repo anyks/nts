@@ -1,15 +1,22 @@
 /**
- * @file: aes.cpp
- * @date: 2026-09-04
- * @license: GPL-3.0
+ * @file aes.cpp
+ * @date 2026-09-04
  *
- * @telegram: @forman
- * @author: Yuriy Lobarev
- * @phone: +7 (910) 983-95-90
- * @email: forman@anyks.com
- * @site: https://anyks.com
+ * @license{GPL-3.0}
  *
- * @copyright: Copyright © 2026
+ * @author Yuriy Lobarev
+ *
+ * @telegram{forman}
+ * @phone{+7 (910) 983-95-90}
+ *
+ * @email forman@anyks.com
+ * @site https://anyks.com
+ *
+ * @brief Исходный файл проверок модуля шифра AES: контрольные примеры FIPS 197,
+ *        режимы, потоковый путь и отказы
+ *
+ * @copyright Copyright © 2026
+ *
  */
 
 /**
@@ -33,10 +40,9 @@
 using namespace nts;
 
 /**
- * @brief Метод разбора шестнадцатеричной строки в байты
+ * @brief Функция разбора шестнадцатеричной строки в байты
  *
  * @param text разбираемая строка
- *
  * @return     разобранные байты
  *
  */
@@ -54,11 +60,10 @@ static std::vector <uint8_t> bytes(const std::string & text) {
 }
 
 /**
- * @brief Метод записи байтов шестнадцатеричной строкой
+ * @brief Функция записи байтов шестнадцатеричной строкой
  *
  * @param data байты
  * @param size число байтов
- *
  * @return     запись строчными шестнадцатеричными знаками
  *
  */
@@ -81,7 +86,7 @@ static std::string text(const uint8_t * data, const size_t size) {
 }
 
 /**
- * @brief Метод проверки одного блока по приложению C FIPS 197
+ * @brief Функция проверки одного блока по приложению C FIPS 197
  *
  * @param key      ключ шифрования
  * @param expected ожидаемый шифртекст
@@ -256,6 +261,7 @@ TEST(AesTest, Paths){
  * @details Гамма вырабатывается по восемь блоков в полёте со счётчиком в регистре;
  *          итог обязан совпадать с шифрованием счётчика по блоку с побайтовым переносом,
  *          в том числе через границу младших четырёх байтов и на обоих путях
+ *
  */
 TEST(AesTest, Stream){
 	// Ключ AES-256
@@ -282,12 +288,18 @@ TEST(AesTest, Stream){
 	uint8_t current[16];
 	// Копируем счётчик
 	::memcpy(current, counter, sizeof(current));
-	// Выполняем перебор блоков
+	/**
+	 * Выполняем перебор блоков
+	 */
 	for(size_t b = 0; b < blocks; b++){
-		// Выполняем перенос по младшим четырём байтам
+		/**
+		 * Выполняем перенос по младшим четырём байтам
+		 */
 		for(size_t i = 16; i > 12; i--){
-			if(++current[i - 1] != 0)
+			// Увеличиваем очередной байт и останавливаемся, если переноса нет
+			if(++current[i - 1] != 0){
 				break;
+			}
 		}
 		// Шифруем очередной счётчик
 		ASSERT_TRUE(aes.encrypt(current, single + (b * 16)));
@@ -309,6 +321,7 @@ TEST(AesTest, Stream){
  *          ставит младший байт на обе стороны порога (0xF7 и 0xF8), на самый край байта и
  *          на переполнение всех четырёх младших байтов. Гамма с исходными данными обязана
  *          равняться сумме самой гаммы и данных на обоих путях, в том числе на месте
+ *
  */
 TEST(AesTest, StreamCounters){
 	// Ключ AES-128: и десять кругов тоже
@@ -323,8 +336,11 @@ TEST(AesTest, StreamCounters){
 	const size_t blocks = 19;
 	// Исходные данные
 	uint8_t source[19 * 16];
-	// Заполняем исходные данные
+	/**
+	 * Заполняем исходные данные
+	 */
 	for(size_t i = 0; i < sizeof(source); i++)
+		// Записываем очередной байт исходных данных
 		source[i] = static_cast <uint8_t> ((i * 37) + 11);
 	/**
 	 * Выполняем перебор младших байтов счётчика
@@ -399,6 +415,7 @@ TEST(AesTest, StreamCounters){
  * @details Пачка таблицами ведёт блоки по четыре в одном теле; итог обязан
  *          совпадать с поблочным зашифрованием на обоих путях, с хвостом короче
  *          четырёх и на месте
+ *
  */
 TEST(AesTest, Batch){
 	// Ключ AES-192: круги числом двенадцать, средний из трёх путей развёртки
@@ -411,13 +428,19 @@ TEST(AesTest, Batch){
 	const size_t blocks = 21;
 	// Исходные блоки, итог пачкой, поблочно и таблицами
 	uint8_t source[21 * 16], batched[21 * 16], single[21 * 16], tables[21 * 16];
-	// Заполняем исходные блоки
+	/**
+	 * Заполняем исходные блоки
+	 */
 	for(size_t i = 0; i < sizeof(source); i++)
+		// Записываем очередной байт исходных блоков
 		source[i] = static_cast <uint8_t> (i * 41 + 3);
 	// Шифруем пачкой машинным путём
 	ASSERT_TRUE(aes.batch(source, blocks, batched));
-	// Шифруем поблочно
+	/**
+	 * Шифруем поблочно
+	 */
 	for(size_t i = 0; i < blocks; i++)
+		// Шифруем очередной блок отдельным вызовом
 		ASSERT_TRUE(aes.encrypt(source + (i * 16), single + (i * 16)));
 	// Запрещаем машинные команды
 	machine::allow(false);
@@ -430,8 +453,12 @@ TEST(AesTest, Batch){
 	ASSERT_EQ(text(tables, sizeof(tables)), text(single, sizeof(single)));
 	// Пачка на месте таблицами
 	::memcpy(tables, source, sizeof(source));
+	// Глушим машинные команды перед пачкой на месте
 	machine::allow(false);
+	// Пачечное зашифрование на месте таблицами проходит
 	ASSERT_TRUE(aes.batch(tables, blocks, tables));
+	// Возвращаем машинные команды после пачки на месте
 	machine::allow(true);
+	// Итог на месте совпадает с поблочным
 	ASSERT_EQ(text(tables, sizeof(tables)), text(single, sizeof(single)));
 }

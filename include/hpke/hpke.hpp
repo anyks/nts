@@ -24,7 +24,6 @@
  *        exported secrets
  *
  * \~
- *
  * @copyright Copyright © 2026
  *
  */
@@ -55,7 +54,6 @@
  * @brief Main namespace
  *
  * \~
- *
  */
 namespace nts {
 	/**
@@ -80,6 +78,7 @@ namespace nts {
 	 *
 	 * \~english
 	 * @brief Namespace of the module of the hybrid public key encryption HPKE
+	 *
 	 * @details The module is composed according to RFC 9180 on top of the primitives of the
 	 *          library: the shared value on the curve Curve25519 is taken from the module
 	 *          `agreement`, the extraction and expansion of the key — from `digest`, the
@@ -92,7 +91,6 @@ namespace nts {
 	 *          the exporter secret — are wiped on the completion of the work or on a failure.
 	 *
 	 * \~
-	 *
 	 */
 	namespace hpke {
 		/**
@@ -103,22 +101,35 @@ namespace nts {
 		 * @brief Reason of a failure
 		 *
 		 * \~
-		 *
 		 */
 		enum class error_t : uint8_t {
+			// Отказа не произошло
 			NONE          = 0x00, /*!< \~russian Отказа не произошло \~english No failure has occurred \~ */
+			// Набор алгоритмов не поддерживается либо не установлен
 			SUITE         = 0x01, /*!< \~russian Набор алгоритмов не поддерживается либо не установлен \~english The ciphersuite is not supported or is not set \~ */
+			// Режим работы неизвестен
 			MODE          = 0x02, /*!< \~russian Режим работы неизвестен \~english The mode of the work is unknown \~ */
+			// Довод не задан либо места под итог не хватает
 			ARGUMENT      = 0x03, /*!< \~russian Довод не задан либо места под итог не хватает \~english An argument is not given or the room for the result is not enough \~ */
+			// Ключ не установлен либо записан неверной длиной
 			KEY           = 0x04, /*!< \~russian Ключ не установлен либо записан неверной длиной \~english The key is not set or is written with a wrong length \~ */
+			// Заранее разделённый ключ и его опознаватель не отвечают режиму
 			PSK           = 0x05, /*!< \~russian Заранее разделённый ключ и его опознаватель не отвечают режиму \~english The pre-shared key and its identifier do not meet the mode \~ */
+			// Инкапсулированный ключ негоден: неверная длина либо общее значение нулевое
 			ENCAPSULATION = 0x06, /*!< \~russian Инкапсулированный ключ негоден: неверная длина либо общее значение нулевое \~english The encapsulated key is unsuitable: a wrong length or the shared value is zero \~ */
+			// Источник случайных значений отказал
 			ENTROPY       = 0x07, /*!< \~russian Источник случайных значений отказал \~english The source of the random values has failed \~ */
+			// Состояние связи не установлено
 			READY         = 0x08, /*!< \~russian Состояние связи не установлено \~english The context is not set up \~ */
+			// Шифрование недоступно: набор только для экспорта либо шифр отказал
 			AEAD          = 0x09, /*!< \~russian Шифрование недоступно: набор только для экспорта либо шифр отказал \~english The encryption is unavailable: the export-only suite or the cipher has failed \~ */
+			// Порядковые номера исчерпаны
 			SEQUENCE      = 0x0A, /*!< \~russian Порядковые номера исчерпаны \~english The sequence numbers are exhausted \~ */
+			// Шифртекст не прошёл проверку подлинности
 			OPEN          = 0x0B, /*!< \~russian Шифртекст не прошёл проверку подлинности \~english The ciphertext has not passed the authenticity check \~ */
+			// Запрошенная длина недопустима
 			LENGTH        = 0x0C, /*!< \~russian Запрошенная длина недопустима \~english The requested length is inadmissible \~ */
+			// Не удалось выделить память
 			MEMORY        = 0x0D  /*!< \~russian Не удалось выделить память \~english It was not possible to allocate memory \~ */
 		};
 
@@ -130,23 +141,35 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Key encapsulation mechanism
+		 *
 		 * @details The values correspond to the KEM identifiers of the section 7.1 of RFC 9180
 		 *
 		 * \~
-		 *
 		 */
 		enum class kem_t : uint16_t {
+			// Способ не установлен
 			NONE              = 0x0000, /*!< \~russian Способ не установлен \~english The mechanism is not set \~ */
+			// DHKEM(P-256, HKDF-SHA256)
 			P256_HKDF_SHA256  = 0x0010, /*!< \~russian DHKEM(P-256, HKDF-SHA256) \~english DHKEM(P-256, HKDF-SHA256) \~ */
+			// DHKEM(P-384, HKDF-SHA384)
 			P384_HKDF_SHA384  = 0x0011, /*!< \~russian DHKEM(P-384, HKDF-SHA384) \~english DHKEM(P-384, HKDF-SHA384) \~ */
+			// DHKEM(P-521, HKDF-SHA512)
 			P521_HKDF_SHA512  = 0x0012, /*!< \~russian DHKEM(P-521, HKDF-SHA512) \~english DHKEM(P-521, HKDF-SHA512) \~ */
+			// DHKEM(X25519, HKDF-SHA256)
 			X25519_HKDF_SHA256 = 0x0020, /*!< \~russian DHKEM(X25519, HKDF-SHA256) \~english DHKEM(X25519, HKDF-SHA256) \~ */
+			// DHKEM(X448, HKDF-SHA512)
 			X448_HKDF_SHA512  = 0x0021, /*!< \~russian DHKEM(X448, HKDF-SHA512) \~english DHKEM(X448, HKDF-SHA512) \~ */
+			// ML-KEM-512 по draft-ietf-hpke-pq: секретный ключ - зерно в шестьдесят четыре байта
 			MLKEM512          = 0x0040, /*!< \~russian ML-KEM-512 по draft-ietf-hpke-pq: секретный ключ - зерно в шестьдесят четыре байта \~english ML-KEM-512 by draft-ietf-hpke-pq: the secret key is a seed of sixty four bytes \~ */
+			// ML-KEM-768 по draft-ietf-hpke-pq: секретный ключ - зерно в шестьдесят четыре байта
 			MLKEM768          = 0x0041, /*!< \~russian ML-KEM-768 по draft-ietf-hpke-pq: секретный ключ - зерно в шестьдесят четыре байта \~english ML-KEM-768 by draft-ietf-hpke-pq: the secret key is a seed of sixty four bytes \~ */
+			// ML-KEM-1024 по draft-ietf-hpke-pq: секретный ключ - зерно в шестьдесят четыре байта
 			MLKEM1024         = 0x0042, /*!< \~russian ML-KEM-1024 по draft-ietf-hpke-pq: секретный ключ - зерно в шестьдесят четыре байта \~english ML-KEM-1024 by draft-ietf-hpke-pq: the secret key is a seed of sixty four bytes \~ */
+			// Гибрид ML-KEM-768 и P-256 по draft-irtf-cfrg-concrete-hybrid-kems: секретный ключ - зерно в тридцать два байта
 			MLKEM768_P256     = 0x0050, /*!< \~russian Гибрид ML-KEM-768 и P-256 по draft-irtf-cfrg-concrete-hybrid-kems: секретный ключ - зерно в тридцать два байта \~english The hybrid of ML-KEM-768 and P-256 by draft-irtf-cfrg-concrete-hybrid-kems: the secret key is a seed of thirty two bytes \~ */
+			// Гибрид ML-KEM-1024 и P-384 по draft-irtf-cfrg-concrete-hybrid-kems: секретный ключ - зерно в тридцать два байта
 			MLKEM1024_P384    = 0x0051, /*!< \~russian Гибрид ML-KEM-1024 и P-384 по draft-irtf-cfrg-concrete-hybrid-kems: секретный ключ - зерно в тридцать два байта \~english The hybrid of ML-KEM-1024 and P-384 by draft-irtf-cfrg-concrete-hybrid-kems: the secret key is a seed of thirty two bytes \~ */
+			// Гибрид ML-KEM-768 и X25519 (X-Wing) по draft-irtf-cfrg-concrete-hybrid-kems: секретный ключ - зерно в тридцать два байта
 			MLKEM768_X25519   = 0x647A  /*!< \~russian Гибрид ML-KEM-768 и X25519 (X-Wing) по draft-irtf-cfrg-concrete-hybrid-kems: секретный ключ - зерно в тридцать два байта \~english The hybrid of ML-KEM-768 and X25519 (X-Wing) by draft-irtf-cfrg-concrete-hybrid-kems: the secret key is a seed of thirty two bytes \~ */
 		};
 
@@ -158,19 +181,27 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Key derivation function
+		 *
 		 * @details The values correspond to the KDF identifiers of the section 7.2 of RFC 9180
 		 *
 		 * \~
-		 *
 		 */
 		enum class kdf_t : uint16_t {
+			// Функция не установлена
 			NONE          = 0x0000, /*!< \~russian Функция не установлена \~english The function is not set \~ */
+			// HKDF-SHA256
 			HKDF_SHA256   = 0x0001, /*!< \~russian HKDF-SHA256 \~english HKDF-SHA256 \~ */
+			// HKDF-SHA384
 			HKDF_SHA384   = 0x0002, /*!< \~russian HKDF-SHA384 \~english HKDF-SHA384 \~ */
+			// HKDF-SHA512
 			HKDF_SHA512   = 0x0003, /*!< \~russian HKDF-SHA512 \~english HKDF-SHA512 \~ */
+			// Одноступенчатая функция SHAKE128 по draft-ietf-hpke-pq
 			SHAKE128      = 0x0010, /*!< \~russian Одноступенчатая функция SHAKE128 по draft-ietf-hpke-pq \~english The one-stage function SHAKE128 by draft-ietf-hpke-pq \~ */
+			// Одноступенчатая функция SHAKE256 по draft-ietf-hpke-pq
 			SHAKE256      = 0x0011, /*!< \~russian Одноступенчатая функция SHAKE256 по draft-ietf-hpke-pq \~english The one-stage function SHAKE256 by draft-ietf-hpke-pq \~ */
+			// Одноступенчатая функция TurboSHAKE128 по draft-ietf-hpke-pq
 			TURBOSHAKE128 = 0x0012, /*!< \~russian Одноступенчатая функция TurboSHAKE128 по draft-ietf-hpke-pq \~english The one-stage function TurboSHAKE128 by draft-ietf-hpke-pq \~ */
+			// Одноступенчатая функция TurboSHAKE256 по draft-ietf-hpke-pq
 			TURBOSHAKE256 = 0x0013  /*!< \~russian Одноступенчатая функция TurboSHAKE256 по draft-ietf-hpke-pq \~english The one-stage function TurboSHAKE256 by draft-ietf-hpke-pq \~ */
 		};
 
@@ -182,16 +213,21 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Authenticated encryption with associated data
+		 *
 		 * @details The values correspond to the AEAD identifiers of the section 7.3 of RFC 9180
 		 *
 		 * \~
-		 *
 		 */
 		enum class aead_t : uint16_t {
+			// Шифр не установлен
 			NONE              = 0x0000, /*!< \~russian Шифр не установлен \~english The cipher is not set \~ */
+			// AES-128-GCM
 			AES_128_GCM       = 0x0001, /*!< \~russian AES-128-GCM \~english AES-128-GCM \~ */
+			// AES-256-GCM
 			AES_256_GCM       = 0x0002, /*!< \~russian AES-256-GCM \~english AES-256-GCM \~ */
+			// ChaCha20-Poly1305
 			CHACHA20_POLY1305 = 0x0003, /*!< \~russian ChaCha20-Poly1305 \~english ChaCha20-Poly1305 \~ */
+			// Только экспорт секретов, шифрования нет
 			EXPORT_ONLY       = 0xFFFF  /*!< \~russian Только экспорт секретов, шифрования нет \~english Only the export of secrets, no encryption \~ */
 		};
 
@@ -203,15 +239,19 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Mode of the work
+		 *
 		 * @details The values correspond to the list of modes of the section 5 of RFC 9180
 		 *
 		 * \~
-		 *
 		 */
 		enum class regime_t : uint8_t {
+			// Базовый режим: получатель по открытому ключу
 			BASE     = 0x00, /*!< \~russian Базовый режим: получатель по открытому ключу \~english The base mode: the recipient by the public key \~ */
+			// Режим с заранее разделённым ключом
 			PSK      = 0x01, /*!< \~russian Режим с заранее разделённым ключом \~english The mode with a pre-shared key \~ */
+			// Режим с подлинностью отправителя по его ключу
 			AUTH     = 0x02, /*!< \~russian Режим с подлинностью отправителя по его ключу \~english The mode with the authentication of the sender by its key \~ */
+			// Режим с подлинностью отправителя и заранее разделённым ключом
 			AUTH_PSK = 0x03  /*!< \~russian Режим с подлинностью отправителя и заранее разделённым ключом \~english The mode with the authentication of the sender and a pre-shared key \~ */
 		};
 
@@ -223,7 +263,6 @@ namespace nts {
 		 * @brief Size of the keys and of the encapsulated key of DHKEM(X25519, HKDF-SHA256) in bytes
 		 *
 		 * \~
-		 *
 		 */
 		static constexpr size_t X25519_SIZE = 32;
 
@@ -237,7 +276,6 @@ namespace nts {
 		 *        1665 at the hybrid of ML-KEM-1024 and P-384
 		 *
 		 * \~
-		 *
 		 */
 		static constexpr size_t KEM_PUBLIC = 1665;
 		/**
@@ -250,7 +288,6 @@ namespace nts {
 		 *        66 at DHKEM(P-521, HKDF-SHA512)
 		 *
 		 * \~
-		 *
 		 */
 		static constexpr size_t KEM_SECRET = 66;
 		/**
@@ -263,7 +300,6 @@ namespace nts {
 		 *        1665 at the hybrid of ML-KEM-1024 and P-384
 		 *
 		 * \~
-		 *
 		 */
 		static constexpr size_t KEM_CIPHER = 1665;
 		/**
@@ -276,7 +312,6 @@ namespace nts {
 		 *        in bytes: 64 at the pure ML-KEM
 		 *
 		 * \~
-		 *
 		 */
 		static constexpr size_t KEM_SEED = 64;
 
@@ -290,7 +325,6 @@ namespace nts {
 		 *        Nsecret of the section 7.1 of RFC 9180 and of the tables of draft-ietf-hpke-pq
 		 *
 		 * \~
-		 *
 		 */
 		static constexpr size_t KEM_SHARED = 64;
 
@@ -302,7 +336,6 @@ namespace nts {
 		 * @brief Greatest length of the hash of the key derivation functions in bytes
 		 *
 		 * \~
-		 *
 		 */
 		static constexpr size_t HASH_SIZE = 64;
 
@@ -314,7 +347,6 @@ namespace nts {
 		 * @brief Greatest length of the cipher key in bytes
 		 *
 		 * \~
-		 *
 		 */
 		static constexpr size_t KEY_SIZE = 32;
 
@@ -326,7 +358,6 @@ namespace nts {
 		 * @brief Length of the nonce of the ciphers in bytes
 		 *
 		 * \~
-		 *
 		 */
 		static constexpr size_t NONCE_SIZE = 12;
 
@@ -338,7 +369,6 @@ namespace nts {
 		 * @brief Length of the authentication tag of the ciphers in bytes
 		 *
 		 * \~
-		 *
 		 */
 		static constexpr size_t TAG_SIZE = 16;
 
@@ -351,11 +381,11 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Ciphersuite
+		 *
 		 * @details The triple of the section 5 of RFC 9180: the key encapsulation mechanism, the
 		 *          key derivation function and the authenticated encryption
 		 *
 		 * \~
-		 *
 		 */
 		typedef struct __ANTS_SHARED_EXPORT__ Suite {
 			// Способ инкапсуляции ключа
@@ -372,7 +402,6 @@ namespace nts {
 			 * @brief Constructor of an empty suite
 			 *
 			 * \~
-			 *
 			 */
 			Suite() noexcept;
 			/**
@@ -385,12 +414,12 @@ namespace nts {
 			 *
 			 * \~english
 			 * @brief Constructor of a suite
+			 *
 			 * @param kem  the key encapsulation mechanism
 			 * @param kdf  the key derivation function
 			 * @param aead the authenticated encryption
 			 *
 			 * \~
-			 *
 			 */
 			Suite(const kem_t kem, const kdf_t kdf, const aead_t aead) noexcept;
 		} suite_t;
@@ -404,11 +433,11 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Pre-shared key with an identifier
+		 *
 		 * @details The section 5.1 of RFC 9180: in the modes PSK and AUTH_PSK the key and the
 		 *          identifier must be non-empty, in the modes BASE and AUTH — empty
 		 *
 		 * \~
-		 *
 		 */
 		typedef struct __ANTS_SHARED_EXPORT__ Shared {
 			// Просмотр заранее разделённого ключа
@@ -423,7 +452,6 @@ namespace nts {
 			 * @brief Constructor of an empty key
 			 *
 			 * \~
-			 *
 			 */
 			Shared() noexcept;
 			/**
@@ -435,98 +463,98 @@ namespace nts {
 			 *
 			 * \~english
 			 * @brief Constructor of a key
+			 *
 			 * @param key      the view of the pre-shared key
 			 * @param identity the view of the identifier of the key
 			 *
 			 * \~
-			 *
 			 */
 			Shared(const view_t & key, const view_t & identity) noexcept;
 		} shared_t;
 
 		/**
 		 * \~russian
-		 * @brief Метод извлечения длины хеша функции выработки ключа
+		 * @brief Функция извлечения длины хеша функции выработки ключа
 		 *
 		 * @param kdf функция выработки ключа
 		 * @return    длина хеша в байтах либо ноль у неизвестной функции
 		 *
 		 * \~english
-		 * @brief Method of getting the length of the hash of the key derivation function
+		 * @brief Function of getting the length of the hash of the key derivation function
+		 *
 		 * @param kdf the key derivation function
 		 * @return    the length of the hash in bytes or zero for an unknown function
 		 *
 		 * \~
-		 *
 		 */
 		__ANTS_SHARED_EXPORT__ size_t length(const kdf_t kdf) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод извлечения длины открытого ключа способа инкапсуляции
+		 * @brief Функция извлечения длины открытого ключа способа инкапсуляции
 		 *
 		 * @param kem способ инкапсуляции ключа
 		 * @return    длина открытого ключа в байтах либо ноль у неизвестного способа
 		 *
 		 * \~english
-		 * @brief Method of getting the length of the public key of the encapsulation mechanism
+		 * @brief Function of getting the length of the public key of the encapsulation mechanism
+		 *
 		 * @param kem the key encapsulation mechanism
 		 * @return    the length of the public key in bytes or zero for an unknown mechanism
 		 *
 		 * \~
-		 *
 		 */
 		__ANTS_SHARED_EXPORT__ size_t length(const kem_t kem) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод извлечения длины секретного ключа способа инкапсуляции
+		 * @brief Функция извлечения длины секретного ключа способа инкапсуляции
 		 *
 		 * @param kem способ инкапсуляции ключа
 		 * @return    длина секретного ключа в байтах либо ноль у неизвестного способа
 		 *
 		 * \~english
-		 * @brief Method of getting the length of the secret key of the encapsulation mechanism
+		 * @brief Function of getting the length of the secret key of the encapsulation mechanism
+		 *
 		 * @param kem the key encapsulation mechanism
 		 * @return    the length of the secret key in bytes or zero for an unknown mechanism
 		 *
 		 * \~
-		 *
 		 */
 		__ANTS_SHARED_EXPORT__ size_t secret(const kem_t kem) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод извлечения длины инкапсулированного ключа способа инкапсуляции
+		 * @brief Функция извлечения длины инкапсулированного ключа способа инкапсуляции
 		 *
 		 * @param kem способ инкапсуляции ключа
 		 * @return    длина инкапсулированного ключа в байтах либо ноль у неизвестного способа
 		 *
 		 * \~english
-		 * @brief Method of getting the length of the encapsulated key of the encapsulation mechanism
+		 * @brief Function of getting the length of the encapsulated key of the encapsulation mechanism
+		 *
 		 * @param kem the key encapsulation mechanism
 		 * @return    the length of the encapsulated key in bytes or zero for an unknown mechanism
 		 *
 		 * \~
-		 *
 		 */
 		__ANTS_SHARED_EXPORT__ size_t overhead(const kem_t kem) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод извлечения длины исходного материала выработки пары ключей
+		 * @brief Функция извлечения длины исходного материала выработки пары ключей
 		 *
 		 * @param kem способ инкапсуляции ключа
 		 * @return    наименьшая длина исходного материала в байтах либо ноль у неизвестного способа
 		 *
 		 * \~english
-		 * @brief Method of getting the length of the input keying material of the production of a key pair
+		 * @brief Function of getting the length of the input keying material of the production of a key pair
+		 *
 		 * @param kem the key encapsulation mechanism
 		 * @return    the least length of the input keying material in bytes or zero for an unknown mechanism
 		 *
 		 * \~
-		 *
 		 */
 		__ANTS_SHARED_EXPORT__ size_t material(const kem_t kem) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод проверки признака подлинности отправителя у способа инкапсуляции
+		 * @brief Функция проверки признака подлинности отправителя у способа инкапсуляции
 		 *
 		 * @param kem способ инкапсуляции ключа
 		 * @return    признак того, что способ поддерживает режимы AUTH и AUTH_PSK
@@ -536,63 +564,64 @@ namespace nts {
 		 *          режимы BASE и PSK
 		 *
 		 * \~english
-		 * @brief Method of checking the flag of the sender authentication of the encapsulation mechanism
+		 * @brief Function of checking the flag of the sender authentication of the encapsulation mechanism
+		 *
 		 * @param kem the key encapsulation mechanism
 		 * @return    the flag that the mechanism supports the modes AUTH and AUTH_PSK
+		 *
 		 * @details The section 7.2 of draft-ietf-hpke-pq: the post-quantum mechanisms and the hybrids do
 		 *          not support the modes with the sender authentication by a key - only the modes BASE
 		 *          and PSK are available with them
 		 *
 		 * \~
-		 *
 		 */
 		__ANTS_SHARED_EXPORT__ bool authenticated(const kem_t kem) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод извлечения длины ключа шифра
+		 * @brief Функция извлечения длины ключа шифра
 		 *
 		 * @param aead шифр с проверкой подлинности
 		 * @return     длина ключа в байтах, ноль у набора только для экспорта и у неизвестного шифра
 		 *
 		 * \~english
-		 * @brief Method of getting the length of the cipher key
+		 * @brief Function of getting the length of the cipher key
+		 *
 		 * @param aead the authenticated encryption
 		 * @return     the length of the key in bytes, zero for the export-only suite and for an unknown cipher
 		 *
 		 * \~
-		 *
 		 */
 		__ANTS_SHARED_EXPORT__ size_t length(const aead_t aead) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод извлечения длины метки подлинности шифра
+		 * @brief Функция извлечения длины метки подлинности шифра
 		 *
 		 * @param aead шифр с проверкой подлинности
 		 * @return     длина метки в байтах, ноль у набора только для экспорта и у неизвестного шифра
 		 *
 		 * \~english
-		 * @brief Method of getting the length of the authentication tag of the cipher
+		 * @brief Function of getting the length of the authentication tag of the cipher
+		 *
 		 * @param aead the authenticated encryption
 		 * @return     the length of the tag in bytes, zero for the export-only suite and for an unknown cipher
 		 *
 		 * \~
-		 *
 		 */
 		__ANTS_SHARED_EXPORT__ size_t overhead(const aead_t aead) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод проверки поддержки набора алгоритмов
+		 * @brief Функция проверки поддержки набора алгоритмов
 		 *
 		 * @param suite набор алгоритмов
 		 * @return      признак того, что все три алгоритма набора поддерживаются
 		 *
 		 * \~english
-		 * @brief Method of checking the support of a ciphersuite
+		 * @brief Function of checking the support of a ciphersuite
+		 *
 		 * @param suite the ciphersuite
 		 * @return      the flag that all three algorithms of the suite are supported
 		 *
 		 * \~
-		 *
 		 */
 		__ANTS_SHARED_EXPORT__ bool supported(const suite_t & suite) noexcept;
 
@@ -607,13 +636,13 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Key pair of the encapsulation mechanism
+		 *
 		 * @details Stores the secret and the public keys of DHKEM. The secret key is wiped on the
 		 *          clearing and on the destruction of the object. The key is produced from random
 		 *          bytes, from the input keying material according to the section 7.1.3 of RFC 9180
 		 *          or is set by the bytes of the secret key
 		 *
 		 * \~
-		 *
 		 */
 		typedef class __ANTS_SHARED_EXPORT__ Key {
 			private:
@@ -644,16 +673,17 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the production of a key pair of the hybrid mechanism from a seed
+				 *
 				 * @param kem  the key encapsulation mechanism
 				 * @param seed the seed of thirty two bytes
 				 * @return     the flag of the success of the production
+				 *
 				 * @details The function DeriveKeyPair of the section 5.5 of draft-irtf-cfrg-hybrid-kems
 				 *          (the CG framework): the seed is expanded by SHAKE256 into the ML-KEM seed and
 				 *          the group seed, the ML-KEM key pair is produced from the first, the group
 				 *          scalar is selected from the second
 				 *
 				 * \~
-				 *
 				 */
 				bool grown(const kem_t kem, const view_t & seed) noexcept;
 			public:
@@ -665,10 +695,10 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of checking the readiness of the key pair
+				 *
 				 * @return the flag that the key pair is set
 				 *
 				 * \~
-				 *
 				 */
 				bool ready() const noexcept;
 				/**
@@ -679,10 +709,10 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the key encapsulation mechanism
+				 *
 				 * @return the key encapsulation mechanism
 				 *
 				 * \~
-				 *
 				 */
 				kem_t kem() const noexcept;
 				/**
@@ -693,10 +723,10 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the secret key
+				 *
 				 * @return the view of the secret key or an empty view for a key pair that is not ready
 				 *
 				 * \~
-				 *
 				 */
 				view_t secret() const noexcept;
 				/**
@@ -707,10 +737,10 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the public key
+				 *
 				 * @return the view of the public key or an empty view for a key pair that is not ready
 				 *
 				 * \~
-				 *
 				 */
 				view_t point() const noexcept;
 			public:
@@ -723,11 +753,11 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the production of a key pair from random bytes
+				 *
 				 * @param kem the key encapsulation mechanism
 				 * @return    the reason of a failure or NONE
 				 *
 				 * \~
-				 *
 				 */
 				error_t generate(const kem_t kem) noexcept;
 				/**
@@ -746,9 +776,11 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the production of a key pair from the input keying material
+				 *
 				 * @param kem      the key encapsulation mechanism
 				 * @param material the input keying material no shorter than material(kem)
 				 * @return         the reason of a failure or NONE
+				 *
 				 * @details The function DeriveKeyPair of the section 7.1.3 of RFC 9180 at the Diffie-Hellman
 				 *          mechanisms: the secret key is derived by the expansion of the label «sk» from the
 				 *          extraction of the material with the label «dkp_prk» (at the NIST curves - by the
@@ -757,7 +789,6 @@ namespace nts {
 				 *          label «DeriveKeyPair» by draft-ietf-hpke-pq
 				 *
 				 * \~
-				 *
 				 */
 				error_t derive(const kem_t kem, const view_t & material) noexcept;
 				/**
@@ -770,12 +801,12 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of setting the key pair by the secret key
+				 *
 				 * @param kem    the key encapsulation mechanism
 				 * @param secret the secret key with the length secret(kem)
 				 * @return       the reason of a failure or NONE
 				 *
 				 * \~
-				 *
 				 */
 				error_t set(const kem_t kem, const view_t & secret) noexcept;
 				/**
@@ -786,7 +817,6 @@ namespace nts {
 				 * @brief Method of wiping the key pair
 				 *
 				 * \~
-				 *
 				 */
 				void clear() noexcept;
 			public:
@@ -798,7 +828,6 @@ namespace nts {
 				 * @brief Constructor of an empty key pair
 				 *
 				 * \~
-				 *
 				 */
 				Key() noexcept;
 				/**
@@ -809,7 +838,6 @@ namespace nts {
 				 * @brief Destructor: wipes the secret key
 				 *
 				 * \~
-				 *
 				 */
 				~Key() noexcept;
 		} key_t;
@@ -826,6 +854,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief HPKE context
+		 *
 		 * @details The section 5.2 of RFC 9180: the cipher key, the base nonce, the sequence
 		 *          number and the exporter secret produced by the key schedule. The sender has the
 		 *          sealing, the recipient — the opening, the export is available to both. The
@@ -833,7 +862,6 @@ namespace nts {
 		 *          by one after every message.
 		 *
 		 * \~
-		 *
 		 */
 		/**
 		 * Предварительные объявления функций установки состояния: они дружественны
@@ -841,8 +869,11 @@ namespace nts {
 		 * признака экспорта спорило бы с экспортируемым объявлением ниже (C2375)
 		 */
 		class Context;
+		// Объявляем функцию установки состояния отправителя
 		__ANTS_SHARED_EXPORT__ error_t sender(const suite_t & suite, const regime_t mode, const view_t & point, const view_t & info, const shared_t & psk, const key_t * authenticator, const key_t & ephemeral, uint8_t * enc, Context & context) noexcept;
+		// Объявляем функцию установки состояния получателя
 		__ANTS_SHARED_EXPORT__ error_t recipient(const suite_t & suite, const regime_t mode, const key_t & own, const view_t & enc, const view_t & info, const shared_t & psk, const view_t & authenticator, Context & context) noexcept;
+		// Объявляем контекст защищённой пересылки сообщений
 		typedef class __ANTS_SHARED_EXPORT__ Context {
 			private:
 				// Признак того, что состояние установлено
@@ -870,6 +901,7 @@ namespace nts {
 				 * Дружественные функции установки состояния
 				 */
 				friend error_t sender(const suite_t &, const regime_t, const view_t &, const view_t &, const shared_t &, const key_t *, const key_t &, uint8_t *, Context &) noexcept;
+				// Объявляем дружественную функцию установки состояния получателя
 				friend error_t recipient(const suite_t &, const regime_t, const key_t &, const view_t &, const view_t &, const shared_t &, const view_t &, Context &) noexcept;
 			private:
 				/**
@@ -886,6 +918,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of setting up the context by the shared secret
+				 *
 				 * @param suite  the ciphersuite
 				 * @param mode   the mode of the work
 				 * @param shared the shared secret of the encapsulation mechanism
@@ -895,7 +928,6 @@ namespace nts {
 				 * @return       the reason of a failure or NONE
 				 *
 				 * \~
-				 *
 				 */
 				error_t setup(const suite_t & suite, const regime_t mode, const view_t & shared, const view_t & info, const shared_t & psk, const bool sender) noexcept;
 				/**
@@ -906,10 +938,10 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the production of the nonce of a message
+				 *
 				 * @param result the room for the nonce with the length NONCE_SIZE
 				 *
 				 * \~
-				 *
 				 */
 				void mask(uint8_t * result) const noexcept;
 			public:
@@ -921,10 +953,10 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of checking the readiness of the context
+				 *
 				 * @return the flag that the context is set up
 				 *
 				 * \~
-				 *
 				 */
 				bool ready() const noexcept;
 				/**
@@ -935,10 +967,10 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the ciphersuite
+				 *
 				 * @return the ciphersuite of the context
 				 *
 				 * \~
-				 *
 				 */
 				const suite_t & suite() const noexcept;
 				/**
@@ -949,10 +981,10 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the sequence number of the next message
+				 *
 				 * @return the sequence number of the next message
 				 *
 				 * \~
-				 *
 				 */
 				uint64_t sequence() const noexcept;
 				/**
@@ -968,14 +1000,15 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of setting the sequence number of the next message
+				 *
 				 * @param sequence the sequence number of the next message
 				 * @return         the reason of a failure or NONE
+				 *
 				 * @details The section 9.7.1 of RFC 9180 allows explicit sequence numbers for a
 				 *          correspondence where messages arrive out of order; the reuse of a number by
 				 *          the sender is up to the consumer, the module does not guard it
 				 *
 				 * \~
-				 *
 				 */
 				error_t sequence(const uint64_t sequence) noexcept;
 			public:
@@ -990,13 +1023,13 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of sealing a message
+				 *
 				 * @param associated the associated data, may be empty
 				 * @param source     the plaintext, may be empty
 				 * @param result     the room for the ciphertext with the tag with the length source.size + TAG_SIZE
 				 * @return           the reason of a failure or NONE
 				 *
 				 * \~
-				 *
 				 */
 				error_t seal(const view_t & associated, const view_t & source, uint8_t * result) noexcept;
 				/**
@@ -1010,13 +1043,13 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of sealing a message into a buffer
+				 *
 				 * @param associated the associated data, may be empty
 				 * @param source     the plaintext, may be empty
 				 * @param result     the buffer of the ciphertext with the tag
 				 * @return           the reason of a failure or NONE
 				 *
 				 * \~
-				 *
 				 */
 				error_t seal(const view_t & associated, const view_t & source, vector <uint8_t> & result) noexcept;
 				/**
@@ -1032,14 +1065,15 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of opening a message
+				 *
 				 * @param associated the associated data, may be empty
 				 * @param source     the ciphertext with the tag no shorter than TAG_SIZE
 				 * @param result     the room for the plaintext with the length source.size - TAG_SIZE
 				 * @return           the reason of a failure or NONE
+				 *
 				 * @details On a failure of the authenticity the room for the plaintext is wiped
 				 *
 				 * \~
-				 *
 				 */
 				error_t open(const view_t & associated, const view_t & source, uint8_t * result) noexcept;
 				/**
@@ -1053,13 +1087,13 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of opening a message into a buffer
+				 *
 				 * @param associated the associated data, may be empty
 				 * @param source     the ciphertext with the tag no shorter than TAG_SIZE
 				 * @param result     the buffer of the plaintext
 				 * @return           the reason of a failure or NONE
 				 *
 				 * \~
-				 *
 				 */
 				error_t open(const view_t & associated, const view_t & source, vector <uint8_t> & result) noexcept;
 				/**
@@ -1075,14 +1109,15 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the production of an exported secret
+				 *
 				 * @param context the binding of the secret, may be empty
 				 * @param result  the room for the secret
 				 * @param size    the length of the secret in bytes, not more than 255 hash lengths of the key derivation function
 				 * @return        the reason of a failure or NONE
+				 *
 				 * @details The section 5.3 of RFC 9180: the expansion of the exporter secret with the label «sec»
 				 *
 				 * \~
-				 *
 				 */
 				error_t exporter(const view_t & context, uint8_t * result, const size_t size) const noexcept;
 				/**
@@ -1093,7 +1128,6 @@ namespace nts {
 				 * @brief Method of wiping the context
 				 *
 				 * \~
-				 *
 				 */
 				void clear() noexcept;
 			public:
@@ -1105,7 +1139,6 @@ namespace nts {
 				 * @brief Constructor of an empty context
 				 *
 				 * \~
-				 *
 				 */
 				Context() noexcept;
 				/**
@@ -1116,14 +1149,13 @@ namespace nts {
 				 * @brief Destructor: wipes the keys
 				 *
 				 * \~
-				 *
 				 */
 				~Context() noexcept;
 		} context_t;
 
 		/**
 		 * \~russian
-		 * @brief Метод инкапсуляции ключа
+		 * @brief Функция инкапсуляции ключа
 		 *
 		 * @param ephemeral     мимолётная пара ключей отправителя
 		 * @param point         открытый ключ получателя длиной length(suite.kem)
@@ -1136,24 +1168,25 @@ namespace nts {
 		 *          доводом ради воспроизводимости; в работе её вырабатывает `sender`
 		 *
 		 * \~english
-		 * @brief Method of the key encapsulation
+		 * @brief Function of the key encapsulation
+		 *
 		 * @param ephemeral     the ephemeral key pair of the sender
 		 * @param point         the public key of the recipient with the length length(suite.kem)
 		 * @param authenticator the key pair of the sender for the authentication or nullptr
 		 * @param shared        the room for the shared secret no shorter than KEM_SHARED
 		 * @param result        the room for the encapsulated key with the length overhead(suite.kem)
 		 * @return              the reason of a failure or NONE
+		 *
 		 * @details The functions Encap and AuthEncap of the section 7.1.1 of RFC 9180. The ephemeral
 		 *          key pair is given as an argument for the reproducibility; in the work it is
 		 *          produced by `sender`
 		 *
 		 * \~
-		 *
 		 */
 		__ANTS_SHARED_EXPORT__ error_t encapsulate(const key_t & ephemeral, const view_t & point, const key_t * authenticator, uint8_t * shared, uint8_t * result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод декапсуляции ключа
+		 * @brief Функция декапсуляции ключа
 		 *
 		 * @param own           пара ключей получателя
 		 * @param enc           инкапсулированный ключ длиной overhead(suite.kem)
@@ -1164,22 +1197,23 @@ namespace nts {
 		 * @details Функции Decap и AuthDecap раздела 7.1.1 RFC 9180
 		 *
 		 * \~english
-		 * @brief Method of the key decapsulation
+		 * @brief Function of the key decapsulation
+		 *
 		 * @param own           the key pair of the recipient
 		 * @param enc           the encapsulated key with the length overhead(suite.kem)
 		 * @param authenticator the public key of the sender for the authentication or an empty view
 		 * @param shared        the room for the shared secret no shorter than KEM_SHARED
 		 * @return              the reason of a failure or NONE
+		 *
 		 * @details The functions Decap and AuthDecap of the section 7.1.1 of RFC 9180
 		 *
 		 * \~
-		 *
 		 */
 		__ANTS_SHARED_EXPORT__ error_t decapsulate(const key_t & own, const view_t & enc, const view_t & authenticator, uint8_t * shared) noexcept;
 
 		/**
 		 * \~russian
-		 * @brief Метод установки состояния отправителя по заданной мимолётной паре
+		 * @brief Функция установки состояния отправителя по заданной мимолётной паре
 		 *
 		 * @param suite         набор алгоритмов
 		 * @param mode          режим работы
@@ -1196,7 +1230,8 @@ namespace nts {
 		 *          с мимолётной парой, заданной снаружи: так воспроизводятся вектора стандарта
 		 *
 		 * \~english
-		 * @brief Method of setting up the context of the sender by a given ephemeral key pair
+		 * @brief Function of setting up the context of the sender by a given ephemeral key pair
+		 *
 		 * @param suite         the ciphersuite
 		 * @param mode          the mode of the work
 		 * @param point         the public key of the recipient with the length length(suite.kem)
@@ -1207,17 +1242,17 @@ namespace nts {
 		 * @param enc           the room for the encapsulated key with the length overhead(suite.kem)
 		 * @param context       the context of the sender
 		 * @return              the reason of a failure or NONE
+		 *
 		 * @details The functions SetupBaseS, SetupPSKS, SetupAuthS and SetupAuthPSKS of the section 5.1
 		 *          of RFC 9180 with the ephemeral key pair given from outside: this is how the test
 		 *          vectors of the standard are reproduced
 		 *
 		 * \~
-		 *
 		 */
 		__ANTS_SHARED_EXPORT__ error_t sender(const suite_t & suite, const regime_t mode, const view_t & point, const view_t & info, const shared_t & psk, const key_t * authenticator, const key_t & ephemeral, uint8_t * enc, context_t & context) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод установки состояния отправителя
+		 * @brief Функция установки состояния отправителя
 		 *
 		 * @param suite         набор алгоритмов
 		 * @param mode          режим работы
@@ -1232,7 +1267,8 @@ namespace nts {
 		 * @details Мимолётная пара ключей вырабатывается из случайных байтов и стирается
 		 *
 		 * \~english
-		 * @brief Method of setting up the context of the sender
+		 * @brief Function of setting up the context of the sender
+		 *
 		 * @param suite         the ciphersuite
 		 * @param mode          the mode of the work
 		 * @param point         the public key of the recipient with the length length(suite.kem)
@@ -1242,15 +1278,15 @@ namespace nts {
 		 * @param enc           the room for the encapsulated key with the length overhead(suite.kem)
 		 * @param context       the context of the sender
 		 * @return              the reason of a failure or NONE
+		 *
 		 * @details The ephemeral key pair is produced from random bytes and is wiped
 		 *
 		 * \~
-		 *
 		 */
 		__ANTS_SHARED_EXPORT__ error_t sender(const suite_t & suite, const regime_t mode, const view_t & point, const view_t & info, const shared_t & psk, const key_t * authenticator, uint8_t * enc, context_t & context) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод установки состояния получателя
+		 * @brief Функция установки состояния получателя
 		 *
 		 * @param suite         набор алгоритмов
 		 * @param mode          режим работы
@@ -1265,7 +1301,8 @@ namespace nts {
 		 * @details Функции SetupBaseR, SetupPSKR, SetupAuthR и SetupAuthPSKR раздела 5.1 RFC 9180
 		 *
 		 * \~english
-		 * @brief Method of setting up the context of the recipient
+		 * @brief Function of setting up the context of the recipient
+		 *
 		 * @param suite         the ciphersuite
 		 * @param mode          the mode of the work
 		 * @param own           the key pair of the recipient
@@ -1275,16 +1312,16 @@ namespace nts {
 		 * @param authenticator the public key of the sender: given in the modes AUTH and AUTH_PSK, otherwise an empty view
 		 * @param context       the context of the recipient
 		 * @return              the reason of a failure or NONE
+		 *
 		 * @details The functions SetupBaseR, SetupPSKR, SetupAuthR and SetupAuthPSKR of the section 5.1 of RFC 9180
 		 *
 		 * \~
-		 *
 		 */
 		__ANTS_SHARED_EXPORT__ error_t recipient(const suite_t & suite, const regime_t mode, const key_t & own, const view_t & enc, const view_t & info, const shared_t & psk, const view_t & authenticator, context_t & context) noexcept;
 
 		/**
 		 * \~russian
-		 * @brief Метод зашифрования одного сообщения
+		 * @brief Функция зашифрования одного сообщения
 		 *
 		 * @param suite         набор алгоритмов
 		 * @param mode          режим работы
@@ -1301,7 +1338,8 @@ namespace nts {
 		 * @details Одношаговая обёртка раздела 6.1 RFC 9180: установка состояния и одно зашифрование
 		 *
 		 * \~english
-		 * @brief Method of sealing a single message
+		 * @brief Function of sealing a single message
+		 *
 		 * @param suite         the ciphersuite
 		 * @param mode          the mode of the work
 		 * @param point         the public key of the recipient with the length length(suite.kem)
@@ -1313,15 +1351,15 @@ namespace nts {
 		 * @param enc           the buffer of the encapsulated key
 		 * @param result        the buffer of the ciphertext with the tag
 		 * @return              the reason of a failure or NONE
+		 *
 		 * @details The single-shot wrapper of the section 6.1 of RFC 9180: the setup of the context and one sealing
 		 *
 		 * \~
-		 *
 		 */
 		__ANTS_SHARED_EXPORT__ error_t seal(const suite_t & suite, const regime_t mode, const view_t & point, const view_t & info, const shared_t & psk, const key_t * authenticator, const view_t & associated, const view_t & source, vector <uint8_t> & enc, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод расшифрования одного сообщения
+		 * @brief Функция расшифрования одного сообщения
 		 *
 		 * @param suite         набор алгоритмов
 		 * @param mode          режим работы
@@ -1338,7 +1376,8 @@ namespace nts {
 		 * @details Одношаговая обёртка раздела 6.1 RFC 9180: установка состояния и одно расшифрование
 		 *
 		 * \~english
-		 * @brief Method of opening a single message
+		 * @brief Function of opening a single message
+		 *
 		 * @param suite         the ciphersuite
 		 * @param mode          the mode of the work
 		 * @param own           the key pair of the recipient
@@ -1350,15 +1389,15 @@ namespace nts {
 		 * @param source        the ciphertext with the tag
 		 * @param result        the buffer of the plaintext
 		 * @return              the reason of a failure or NONE
+		 *
 		 * @details The single-shot wrapper of the section 6.1 of RFC 9180: the setup of the context and one opening
 		 *
 		 * \~
-		 *
 		 */
 		__ANTS_SHARED_EXPORT__ error_t open(const suite_t & suite, const regime_t mode, const key_t & own, const view_t & enc, const view_t & info, const shared_t & psk, const view_t & authenticator, const view_t & associated, const view_t & source, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод выработки секрета экспорта отправителем за один шаг
+		 * @brief Функция выработки секрета экспорта отправителем за один шаг
 		 *
 		 * @param suite         набор алгоритмов
 		 * @param mode          режим работы
@@ -1375,7 +1414,8 @@ namespace nts {
 		 * @details Одношаговая обёртка SendExport раздела 6.2 RFC 9180
 		 *
 		 * \~english
-		 * @brief Method of the production of an exported secret by the sender in a single step
+		 * @brief Function of the production of an exported secret by the sender in a single step
+		 *
 		 * @param suite         the ciphersuite
 		 * @param mode          the mode of the work
 		 * @param point         the public key of the recipient with the length length(suite.kem)
@@ -1387,15 +1427,15 @@ namespace nts {
 		 * @param enc           the buffer of the encapsulated key
 		 * @param result        the buffer of the secret
 		 * @return              the reason of a failure or NONE
+		 *
 		 * @details The single-shot wrapper SendExport of the section 6.2 of RFC 9180
 		 *
 		 * \~
-		 *
 		 */
 		__ANTS_SHARED_EXPORT__ error_t dispatch(const suite_t & suite, const regime_t mode, const view_t & point, const view_t & info, const shared_t & psk, const key_t * authenticator, const view_t & context, const size_t size, vector <uint8_t> & enc, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод выработки секрета экспорта получателем за один шаг
+		 * @brief Функция выработки секрета экспорта получателем за один шаг
 		 *
 		 * @param suite         набор алгоритмов
 		 * @param mode          режим работы
@@ -1412,7 +1452,8 @@ namespace nts {
 		 * @details Одношаговая обёртка ReceiveExport раздела 6.2 RFC 9180
 		 *
 		 * \~english
-		 * @brief Method of the production of an exported secret by the recipient in a single step
+		 * @brief Function of the production of an exported secret by the recipient in a single step
+		 *
 		 * @param suite         the ciphersuite
 		 * @param mode          the mode of the work
 		 * @param own           the key pair of the recipient
@@ -1424,10 +1465,10 @@ namespace nts {
 		 * @param size          the length of the secret in bytes
 		 * @param result        the buffer of the secret
 		 * @return              the reason of a failure or NONE
+		 *
 		 * @details The single-shot wrapper ReceiveExport of the section 6.2 of RFC 9180
 		 *
 		 * \~
-		 *
 		 */
 		__ANTS_SHARED_EXPORT__ error_t receive(const suite_t & suite, const regime_t mode, const key_t & own, const view_t & enc, const view_t & info, const shared_t & psk, const view_t & authenticator, const view_t & context, const size_t size, vector <uint8_t> & result) noexcept;
 	};

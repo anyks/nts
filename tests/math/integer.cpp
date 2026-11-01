@@ -39,11 +39,10 @@
 using namespace nts;
 
 /**
- * @brief Метод разбора записи шестнадцатеричными знаками
+ * @brief Функция разбора записи шестнадцатеричными знаками
  *
  * @param text разбираемая запись
  * @param data место, в которое помещаются разобранные байты
- *
  * @return     число разобранных байтов
  *
  */
@@ -72,10 +71,9 @@ static size_t bytes(const char * text, uint8_t * data) {
 	return result;
 }
 /**
- * @brief Метод разбора числа из записи шестнадцатеричными знаками
+ * @brief Функция разбора числа из записи шестнадцатеричными знаками
  *
  * @param text разбираемая запись
- *
  * @return     разобранное число
  *
  */
@@ -90,10 +88,9 @@ static math::integer_t number(const char * text) {
 	return result;
 }
 /**
- * @brief Метод сборки записи числа шестнадцатеричными знаками
+ * @brief Функция сборки записи числа шестнадцатеричными знаками
  *
  * @param value собираемое число
- *
  * @return      собранная запись без ведущих нулей, «00» у нуля
  *
  */
@@ -647,7 +644,7 @@ TEST(IntegerTest, Prime) {
  *
  */
 /**
- * @brief Метод возведения в степень по модулю эталонным двоичным методом через деление
+ * @brief Функция возведения в степень по модулю эталонным двоичным методом через деление
  *
  * @param base     основание
  * @param exponent показатель
@@ -668,13 +665,14 @@ static math::integer_t reference(const math::integer_t & base, const math::integ
 		result.mulmod(result, result, modulus, false);
 		// Если разряд единичный, умножаем на основание
 		if(exponent.bit(i - 1))
+			// Умножаем накопитель на основание по модулю
 			result.mulmod(result, base, modulus, false);
 	}
 	// Выводим степень
 	return result;
 }
 /**
- * @brief Метод сверки арифметики Монтгомери с арифметикой через деление по одному модулю
+ * @brief Функция сверки арифметики Монтгомери с арифметикой через деление по одному модулю
  *
  * @param modulus нечётный модуль
  * @param rounds  число случайных проверок
@@ -687,10 +685,13 @@ static void montgomery(const math::integer_t & modulus, const size_t rounds) {
 	ASSERT_TRUE(field.start(modulus));
 	// Арифметика заведена, число слов совпадает с модулем
 	ASSERT_TRUE(field.ready());
+	// Проверяем совпадение числа слов с шириной модуля
 	ASSERT_EQ(field.words(), (modulus.bits() + 63) / 64);
 	// Единица и число на единицу меньше модуля
 	math::integer_t one, last;
+	// Записываем единицу
 	one.word(1);
+	// Вычисляем число на единицу меньше модуля
 	ASSERT_TRUE(last.subtract(modulus, one));
 	// Итоги действий
 	math::integer_t entered, left, product, expected, power, remainder, inverse, check;
@@ -700,6 +701,7 @@ static void montgomery(const math::integer_t & modulus, const size_t rounds) {
 	for(size_t i = 0; i < rounds; i++){
 		// Случайные числа, приведённые по модулю делением
 		math::integer_t first, second, wide, exponent;
+		// Вырабатываем первое случайное число ширины модуля
 		ASSERT_TRUE(first.random(modulus.bits()));
 		ASSERT_TRUE(second.random(modulus.bits()));
 		ASSERT_TRUE(first.reduce(first, modulus));
@@ -714,6 +716,7 @@ static void montgomery(const math::integer_t & modulus, const size_t rounds) {
 		ASSERT_TRUE(product.equal(expected));
 		// Умножение в области: произведение чисел в области выводится в то же произведение
 		math::integer_t other;
+		// Переводим второе число в область Монтгомери
 		ASSERT_TRUE(field.enter(second, other));
 		ASSERT_TRUE(field.multiply(entered, other, product));
 		ASSERT_TRUE(field.leave(product, left));
@@ -731,14 +734,18 @@ static void montgomery(const math::integer_t & modulus, const size_t rounds) {
 		ASSERT_TRUE(power.equal(expected));
 		// Короткий показатель сходится с эталоном через деление: не шире слов модуля
 		ASSERT_TRUE(exponent.random((modulus.bits() < 96) ? modulus.bits() : 96));
+		// Вычисляем эталон независимым перебором через деление
 		expected = reference(first, exponent, modulus);
+		// Сверяем степень с секретным показателем
 		ASSERT_TRUE(field.power(first, exponent, true, power));
 		ASSERT_TRUE(power.equal(expected));
 		ASSERT_TRUE(field.power(first, exponent, false, power));
 		ASSERT_TRUE(power.equal(expected));
 		// Крайние открытые показатели: единица возвращает основание, ноль - единицу, двойка - квадрат (открытый перебор начинается с основания)
 		math::integer_t zero, two, square;
+		// Записываем двойку
 		two.word(2);
+		// Проверяем, что единичный показатель возвращает основание
 		ASSERT_TRUE(field.power(first, one, false, power));
 		ASSERT_TRUE(power.equal(first));
 		ASSERT_TRUE(field.power(first, zero, false, power));
@@ -751,7 +758,9 @@ static void montgomery(const math::integer_t & modulus, const size_t rounds) {
 		ASSERT_TRUE(expected.reduce(wide, modulus));
 		ASSERT_TRUE(field.reduce(wide, remainder));
 		ASSERT_TRUE(remainder.equal(expected));
+		// Тройная ширина допустима в пределах ёмкости числа
 		if((3 * modulus.bits()) <= math::INTEGER_BITS){
+			// Вырабатываем число тройной ширины
 			ASSERT_TRUE(wide.random(3 * modulus.bits()));
 			ASSERT_TRUE(expected.reduce(wide, modulus));
 			ASSERT_TRUE(field.reduce(wide, remainder));
@@ -761,9 +770,11 @@ static void montgomery(const math::integer_t & modulus, const size_t rounds) {
 		if(!second.zero()){
 			// Наибольший общий делитель
 			math::integer_t divisor;
+			// Вычисляем наибольший общий делитель с модулем
 			ASSERT_TRUE(divisor.gcd(second, modulus));
 			// Если число взаимно просто с модулем
 			if(divisor.equal(one)){
+				// Обращаем число в области Монтгомери
 				ASSERT_TRUE(field.invert(second, inverse));
 				ASSERT_TRUE(check.mulmod(second, inverse, modulus, false));
 				ASSERT_TRUE(check.equal(one));
@@ -775,7 +786,9 @@ static void montgomery(const math::integer_t & modulus, const size_t rounds) {
 	}
 	// Края: ноль, единица и число на единицу меньше модуля
 	math::integer_t zero, two;
+	// Записываем двойку
 	two.word(2);
+	// Проверяем, что степень нуля равна нулю
 	ASSERT_TRUE(field.power(zero, two, true, power));
 	ASSERT_TRUE(power.zero());
 	ASSERT_TRUE(field.power(last, two, true, power));
@@ -790,6 +803,7 @@ static void montgomery(const math::integer_t & modulus, const size_t rounds) {
 	ASSERT_TRUE(inverse.equal(one));
 	ASSERT_TRUE(field.invert(last, inverse));
 	ASSERT_TRUE(inverse.equal(last));
+	// Проверяем отказ обращения нуля
 	ASSERT_FALSE(field.invert(zero, inverse));
 	// Числа не меньше модуля отвергаются
 	ASSERT_FALSE(field.enter(modulus, entered));
@@ -798,9 +812,13 @@ static void montgomery(const math::integer_t & modulus, const size_t rounds) {
 	ASSERT_FALSE(field.invert(modulus, inverse));
 	// Секретный показатель шире слов модуля отвергается
 	math::integer_t huge;
+	// Записываем единицу
 	huge.word(1);
+	// Сдвигаем единицу за пределы слов модуля
 	huge.left(huge, field.words() * 64);
+	// Проверяем отказ секретной степени широким показателем
 	ASSERT_FALSE(field.power(one, huge, true, power));
+	// Проверяем допуск открытой степени широким показателем
 	ASSERT_TRUE(field.power(one, huge, false, power));
 	ASSERT_TRUE(power.equal(one));
 }
@@ -812,14 +830,19 @@ static void montgomery(const math::integer_t & modulus, const size_t rounds) {
 TEST(IntegerTest, Montgomery) {
 	// Незаведённая арифметика отвергает всё
 	math::montgomery_t empty;
+	// Единица и приёмник итогов
 	math::integer_t one, result;
+	// Записываем единицу
 	one.word(1);
+	// Проверяем неготовность незаведённой арифметики
 	ASSERT_FALSE(empty.ready());
 	ASSERT_FALSE(empty.enter(one, result));
 	ASSERT_FALSE(empty.power(one, one, true, result));
 	// Чётный и нулевой модули отвергаются
 	math::integer_t even, zero;
+	// Записываем чётное число
 	even.word(10);
+	// Проверяем отказ заведения на чётном модуле
 	ASSERT_FALSE(empty.start(even));
 	ASSERT_FALSE(empty.start(zero));
 	// Простой модуль в шестнадцать слов
@@ -830,24 +853,36 @@ TEST(IntegerTest, Montgomery) {
 	montgomery(number(COMPOSITE), 4);
 	// Модуль в одно слово: простое 2^64 - 59
 	math::integer_t small;
+	// Записываем простое число 2^64 - 59
 	small.word(0xFFFFFFFFFFFFFFC5ULL);
+	// Проверяем простой модуль в одно слово
 	montgomery(small, 8);
 	// Нечётный модуль в семнадцать слов: 2^1024 + 1
 	math::integer_t odd;
+	// Записываем единицу
 	odd.word(1);
+	// Сдвигаем единицу на тысячу двадцать четыре разряда
 	odd.left(odd, 1024);
+	// Складываем единицу, получая модуль 2^1024 + 1
 	ASSERT_TRUE(odd.add(odd, one));
+	// Проверяем нечётный модуль в семнадцать слов
 	montgomery(odd, 2);
 	// Составной модуль в двадцать четыре слова: произведение простых
 	math::integer_t product;
+	// Перемножаем простые модули
 	ASSERT_TRUE(product.multiply(number(PRIME1024), number(PRIME512)));
+	// Проверяем составной модуль в двадцать четыре слова
 	montgomery(product, 2);
 	// Случайный нечётный модуль в шестьдесят четыре слова
 	math::integer_t large;
+	// Вырабатываем случайное число в шестьдесят четыре слова
 	ASSERT_TRUE(large.random(4096));
 	ASSERT_TRUE(large.add(large, one));
+	// Проверяем чётность случайного числа
 	if(!large.odd())
+		// Добавляем единицу ради нечётности
 		ASSERT_TRUE(large.add(large, one));
+	// Проверяем большой случайный модуль
 	montgomery(large, 1);
 }
 /**
@@ -857,56 +892,82 @@ TEST(IntegerTest, Montgomery) {
 TEST(IntegerTest, VectorPower) {
 	// Единица и воспроизводимый источник разрядов
 	math::integer_t one;
+	// Записываем единицу
 	one.word(1);
+	// Задаём начальное значение воспроизводимого источника
 	uint64_t state = 0x6329517382159781ULL;
-	// Ширины по обе стороны шестнадцати слов
+	/**
+	 * Ширины по обе стороны шестнадцати слов
+	 */
 	for(size_t words = 15; words <= 17; words++){
-		// Краевые и случайные сочетания модуля, основания и показателя
+		/**
+		 * Краевые и случайные сочетания модуля, основания и показателя
+		 */
 		for(size_t sample = 0; sample < 6; sample++){
 			// Место для наибольшей проверяемой ширины
 			uint8_t buffer[17 * 8];
-			// Вырабатываем воспроизводимое нечётное число
+			/**
+			 * Вырабатываем воспроизводимое нечётное число
+			 */
 			for(size_t i = 0; i < (words * 8); i++){
+				// Перемешиваем состояние сдвигом влево на тринадцать разрядов
 				state ^= (state << 13);
+				// Перемешиваем состояние сдвигом вправо на семь разрядов
 				state ^= (state >> 7);
+				// Перемешиваем состояние сдвигом влево на семнадцать разрядов
 				state ^= (state << 17);
+				// Записываем младший байт состояния в буфер
 				buffer[i] = static_cast <uint8_t> (state);
 			}
 			// У одного модуля все разряды единичные
 			if(sample == 0)
-				memset(buffer, 0xFF, words * 8);
+				::memset(buffer, 0xFF, words * 8);
 			// У другого старшее слово содержит только младший разряд
 			else if(sample == 1){
-				memset(buffer, 0, 8);
+				::memset(buffer, 0, 8);
+				// Задаём единичный младший разряд старшего слова
 				buffer[7] = 1;
 			}
 			// Остальные модули имеют полную разрядность
 			else buffer[0] |= 0x80;
 			// Модуль обязан быть нечётным
 			buffer[(words * 8) - 1] |= 1;
+			// Модуль, основание, показатель и итоги
 			math::integer_t modulus, base, exponent, expected, result;
+			// Загружаем модуль из буфера
 			ASSERT_TRUE(modulus.load(view_t(buffer, words * 8)));
+			// Арифметика Монтгомери
 			math::montgomery_t field;
+			// Заводим арифметику по модулю
 			ASSERT_TRUE(field.start(modulus));
 			// Основания: ноль, единица, модуль минус один и случайный остаток
 			if(sample == 1)
+				// Записываем единицу
 				base.word(1);
 			else if(sample == 2){
+				// Вычисляем основание на единицу меньше модуля
 				ASSERT_TRUE(base.subtract(modulus, one));
 			} else if(sample > 2){
-				// Иная последовательность байтов основания
+				/**
+				 * Иная последовательность байтов основания
+				 */
 				for(size_t i = 0; i < (words * 8); i++)
+					// Перемешиваем байты основания по номеру примера
 					buffer[i] ^= static_cast <uint8_t> ((i * 37) + sample);
+				// Загружаем основание из буфера
 				ASSERT_TRUE(base.load(view_t(buffer, words * 8)));
 				ASSERT_TRUE(base.residue(base, modulus));
 			}
 			// Показатели: ноль, единица, все разряды и граница первого окна
 			if(sample == 1)
+				// Записываем единицу
 				exponent.word(1);
 			else if((sample == 2) || (sample == 3)){
-				memset(buffer, 0xFF, words * 8);
+				::memset(buffer, 0xFF, words * 8);
+				// Загружаем показатель из буфера
 				ASSERT_TRUE(exponent.load(view_t(buffer, words * 8)));
 			} else if(sample > 3)
+				// Задаём показатель у границы первого окна
 				exponent.left(one, (words * 64) - ((sample == 4) ? 1 : 5));
 			// Двоичный путь открытого показателя служит независимым эталоном окна
 			ASSERT_TRUE(field.power(base, exponent, false, expected));
@@ -918,55 +979,84 @@ TEST(IntegerTest, VectorPower) {
 			ASSERT_TRUE(result.equal(expected));
 			// Метод с предвычислениями допускает совпадение итога с основанием
 			result = base;
+			// Проверяем допуск совпадения итога с основанием
 			ASSERT_TRUE(field.power(result, exponent, true, result));
 			ASSERT_TRUE(result.equal(expected));
 			// Тот же метод допускает совпадение итога с показателем
 			result = exponent;
+			// Проверяем допуск совпадения итога с показателем
 			ASSERT_TRUE(field.power(base, result, true, result));
 			ASSERT_TRUE(result.equal(expected));
 			// Обычная степень допускает совпадение итога с любым из трёх входов
 			result = base;
+			// Начинаем с основания, совпадающего с итогом
 			ASSERT_TRUE(result.power(result, exponent, modulus, true));
 			ASSERT_TRUE(result.equal(expected));
+			// Продолжаем с показателем, совпадающим с итогом
 			result = exponent;
+			// Проверяем степень с показателем-итогом
 			ASSERT_TRUE(result.power(base, result, modulus, true));
 			ASSERT_TRUE(result.equal(expected));
+			// Продолжаем с модулем, совпадающим с итогом
 			result = modulus;
+			// Проверяем степень с модулем-итогом
 			ASSERT_TRUE(result.power(base, exponent, result, true));
 			ASSERT_TRUE(result.equal(expected));
 			// Показатель за пределами секретной ширины отвергается без изменения итога
 			exponent.left(one, words * 64);
+			// Записываем контрольное значение
 			result.word(53);
+			// Проверяем отказ широкого секретного показателя
 			ASSERT_FALSE(field.power(base, exponent, true, result));
+			// Убеждаемся, что итог не изменился
 			ASSERT_EQ(text(result), std::string("35"));
+			// Проверяем отказ широкого показателя обычной степени
 			ASSERT_FALSE(result.power(base, exponent, modulus, true));
+			// Убеждаемся, что итог не изменился
 			ASSERT_EQ(text(result), std::string("35"));
 		}
 	}
 	// Открытый показатель может быть шире шестнадцати слов модуля
 	const math::integer_t modulus = number(PRIME1024);
+	// Арифметика Монтгомери
 	math::montgomery_t field;
+	// Заводим арифметику по простому модулю
 	ASSERT_TRUE(field.start(modulus));
+	// Основание, показатель и итоги
 	math::integer_t base, exponent, expected, result;
+	// Записываем двойку
 	base.word(2);
+	// Задаём показатель ширины модуля
 	exponent.left(one, 1024);
+	// Вычисляем эталон открытой степенью через деление
 	ASSERT_TRUE(expected.power(base, exponent, modulus, false));
 	ASSERT_TRUE(field.power(base, exponent, false, result));
 	ASSERT_TRUE(result.equal(expected));
 	// Неполная заданная ширина остаётся на обычном пути
 	exponent.left(one, 1022);
+	// Проверяем неполную заданную ширину открытого пути
 	ASSERT_TRUE(field.power(base, exponent, false, expected));
 	ASSERT_TRUE(result.power(base, exponent, modulus, static_cast <size_t> (1023)));
 	ASSERT_TRUE(result.equal(expected));
 	// Недостаточная ширина и основание, равное модулю, отвергаются до выбора ядра
 	result.word(53);
+	// Проверяем отказ недостаточной ширины
 	ASSERT_FALSE(result.power(base, exponent, modulus, static_cast <size_t> (1022)));
+	// Убеждаемся, что итог не изменился
 	ASSERT_EQ(text(result), std::string("35"));
+	// Проверяем отказ основания, равного модулю
 	ASSERT_FALSE(field.power(modulus, one, true, result));
+	// Убеждаемся, что итог не изменился
 	ASSERT_EQ(text(result), std::string("35"));
+	// Проверяем отказ обычной степени с модулем в основании
 	ASSERT_FALSE(result.power(modulus, one, modulus, true));
+	// Убеждаемся, что итог не изменился
 	ASSERT_EQ(text(result), std::string("35"));
 }
+/**
+ * Проверка собирается только при включённом ядре степени ширины шестнадцати слов
+ * с векторными командами
+ */
 #if defined(__ANTS_POWER16_AVX2__)
 /**
  * Квадрат на избыточных коэффициентах: предельная середина свёртки, нулевые входы,
@@ -976,60 +1066,106 @@ TEST(IntegerTest, VectorPower) {
 TEST(IntegerTest, VectorSquare) {
 	// Сборка ядра ещё не означает, что процессор разрешает векторные команды
 	if(!machine::has(machine::feature_t::AVX2))
+		// Пропускаем набор, когда процессор не разрешает векторные команды
 		GTEST_SKIP() << "Машинный путь AVX2 недоступен";
 	// Основание коэффициентов и воспроизводимый источник разрядов
 	const uint64_t radix = 0x20000000;
+	// Задаём начальное значение воспроизводимого источника
 	uint64_t state = 0x7258931461279531ULL;
 	// Число собирается сложением коэффициентов, включая их избыточные старшие части
 	auto decode = [](const uint64_t * words, math::integer_t & result) noexcept -> void {
+		// Начинаем сборку числа с нуля
 		result.word(0);
+		// Слагаемое сборки числа
 		math::integer_t term;
+		/**
+		 * Перебираем: коэффициенты от старшего к младшему
+		 */
 		for(size_t i = 36; i > 0; i--){
+			// Сдвигаем накопитель на ширину разряда
 			result.left(result, 29);
+			// Записываем коэффициент
 			term.word(words[i - 1]);
+			// Добавляем коэффициент к накопителю
 			ASSERT_TRUE(result.add(result, term));
 		}
 	};
-	// Предельные случаи и случайные коэффициенты проверяются тем же независимым путём
+	/**
+	 * Предельные случаи и случайные коэффициенты проверяются тем же независимым путём
+	 */
 	for(size_t sample = 0; sample < 32; sample++){
+		// Коэффициенты числа и модуля, буферы и итоги
 		uint64_t value[40] = {}, modulus[40] = {}, buffer[84], result[40], alias[40];
+		/**
+		 * Перебираем: тридцать пять младших коэффициентов модуля и числа
+		 */
 		for(size_t i = 0; i < 35; i++){
+			// Перемешиваем состояние сдвигом влево на тринадцать разрядов
 			state ^= (state << 13);
+			// Перемешиваем состояние сдвигом вправо на семь разрядов
 			state ^= (state >> 7);
+			// Перемешиваем состояние сдвигом влево на семнадцать разрядов
 			state ^= (state << 17);
+			// Задаём коэффициент модуля по номеру примера
 			modulus[i] = ((sample < 2) ? (radix - 1) : (state & (radix - 1)));
+			// Задаём коэффициент числа по номеру примера
 			value[i] = ((sample < 2) ? (radix + ((sample == 0) ? 64 : 0)) : ((state >> 32) & (radix - 1)));
 		}
+		// Делаем младший коэффициент модуля нечётным
 		modulus[0] |= 1;
+		// Задаём старший коэффициент модуля по номеру примера
 		modulus[35] = (((sample % 3) == 2) ? 1 : 511);
+		// Задаём старший коэффициент числа по номеру примера
 		value[35] = ((sample < 2) ? 1021 : (modulus[35] - 1));
 		// Избыток младшего коэффициента и дефицит остальных дают плотные множители приведения
 		if(sample == 1){
+			// Задаём избыточный младший коэффициент
 			value[0] = (radix + 64);
+			/**
+			 * Перебираем: остальные коэффициенты при дефиците единицы
+			 */
 			for(size_t i = 1; i < 35; i++)
+				// Задаём плотный коэффициент при дефиците
 				value[i] = (radix - 2);
+			// Задаём верх плотного числа
 			value[35] = 1023;
 		}
 		// Ноль и единица дополняют плотные входы
 		if((sample == 2) || (sample == 3)){
-			memset(value, 0, sizeof(value));
+			::memset(value, 0, sizeof(value));
+			// Задаём число ноль или единица
 			value[0] = (sample - 2);
 		}
 		// Отрицательный обратный множитель для младшего коэффициента
 		uint64_t inverse = modulus[0];
+		/**
+		 * Перебираем: шесть шагов обращения младшего коэффициента по методу Ньютона
+		 */
 		for(size_t i = 0; i < 6; i++)
+			// Выполняем шаг метода Ньютона
 			inverse *= (2 - (modulus[0] * inverse));
+		// Берём отрицательное дополнение обратного
 		inverse = (0 - inverse);
 		// В обычных целых числах готовим модуль, предел 2m и обратное к R = 2^1044
 		math::integer_t module, twice, scale, reciprocal, expected, actual;
+		// Собираем модуль из коэффициентов
 		decode(modulus, module);
+		// Получаем удвоенный модуль сдвигом
 		twice.left(module, 1);
+		// Записываем единицу
 		scale.word(1);
+		// Сдвигаем единицу на разрядность приведения
 		scale.left(scale, 1044);
+		// Приводим масштаб по модулю
 		ASSERT_TRUE(scale.reduce(scale, module));
 		ASSERT_TRUE(reciprocal.invert(scale, module));
+		// Собираем число из коэффициентов
 		decode(value, expected);
+		// Проверяем, что число меньше удвоенного модуля
 		ASSERT_LT(expected.compare(twice), 0);
+		/**
+		 * Перебираем: пять повторений квадрата на одних входах
+		 */
 		for(size_t repeat = 1; repeat <= 5; repeat++){
 			// Каждый следующий эталон равен квадрату предыдущего, делённому на R
 			ASSERT_TRUE(expected.multiply(expected, expected));
@@ -1037,35 +1173,59 @@ TEST(IntegerTest, VectorSquare) {
 			ASSERT_TRUE(expected.multiply(expected, reciprocal));
 			ASSERT_TRUE(expected.reduce(expected, module));
 			// Ядро обязано полностью записать итог при непустом рабочем буфере
-			memset(buffer, 0xA5, sizeof(buffer));
-			memset(result, 0xA5, sizeof(result));
+			::memset(buffer, 0xA5, sizeof(buffer));
+			::memset(result, 0xA5, sizeof(result));
+			// Выполняем квадрат ядром на текущем числе
 			math::kernel::square29Avx2(buffer, result, value, modulus, inverse, repeat);
+			/**
+			 * Перебираем: коэффициенты результата в пределах избыточности
+			 */
 			for(size_t i = 0; i < 36; i++)
+				// Проверяем верхнюю границу коэффициента
 				ASSERT_LE(result[i], radix + 64);
 			ASSERT_LE(result[35], static_cast <uint64_t> (1024));
+			/**
+			 * Перебираем: старшие коэффициенты результата, обязанные обнулиться
+			 */
 			for(size_t i = 36; i < 40; i++)
+				// Проверяем обнуление коэффициента
 				ASSERT_EQ(result[i], static_cast <uint64_t> (0));
+			// Собираем результат ядра из коэффициентов
 			decode(result, actual);
+			// Проверяем, что результат меньше удвоенного модуля
 			ASSERT_LT(actual.compare(twice), 0);
+			// Приводим результат по модулю
 			ASSERT_TRUE(actual.reduce(actual, module));
 			ASSERT_TRUE(actual.equal(expected)) << "набор " << sample << ", повторений " << repeat;
 			// Совпадение выхода с входом сохраняет все коэффициенты и дополнение
-			memcpy(alias, value, sizeof(value));
+			::memcpy(alias, value, sizeof(value));
+			// Повторяем квадрат с совпадением выхода и входа
 			math::kernel::square29Avx2(buffer, alias, alias, modulus, inverse, repeat);
+			/**
+			 * Перебираем: все сорок коэффициентов, обязанных сохраниться
+			 */
 			for(size_t i = 0; i < 40; i++)
+				// Проверяем сохранность коэффициента
 				ASSERT_EQ(alias[i], result[i]);
 		}
 		// Совпадение двух читаемых входов допустимо при отдельном результате
 		math::kernel::square29Avx2(buffer, result, modulus, modulus, inverse, 5);
+		// Собираем результат из коэффициентов
 		decode(result, actual);
+		// Приводим результат по модулю
 		ASSERT_TRUE(actual.reduce(actual, module));
 		ASSERT_TRUE(actual.zero());
 		// Модуль сохраняется после всех квадратов, включая совпадение читаемых входов
 		decode(modulus, actual);
+		// Проверяем сохранность модуля
 		ASSERT_TRUE(actual.equal(module));
 	}
 }
 #endif
+/**
+ * Края ёмкости: разбор с запасом и ведущими нулями, переполнение сложения
+ * и умножения, запись в больший размер, сдвиги за пределы ёмкости
+ */
 TEST(IntegerTest, Edges) {
 	// Байты числа с запасом
 	uint8_t buffer[math::INTEGER_SIZE + 2] = {};
@@ -1081,14 +1241,14 @@ TEST(IntegerTest, Edges) {
 	buffer[math::INTEGER_SIZE] = 0x7F;
 	// Число с ведущим нулём сверх ёмкости разбирается
 	ASSERT_TRUE(value.load(view_t(buffer, math::INTEGER_SIZE + 1)));
-	// Проверяем значение
+	// Значение с ведущим нулём сверх ёмкости равно младшим байтам
 	ASSERT_EQ(text(value), std::string("7f"));
 	// Пустое число равно нулю
 	ASSERT_TRUE(value.load(view_t()));
 	// Проверяем ноль
 	ASSERT_TRUE(value.zero());
 	// Наибольшее число ёмкости
-	memset(buffer, 0xFF, math::INTEGER_SIZE);
+	::memset(buffer, 0xFF, math::INTEGER_SIZE);
 	// Разбираем наибольшее число
 	ASSERT_TRUE(value.load(view_t(buffer, math::INTEGER_SIZE)));
 	// Проверяем число разрядов
@@ -1185,36 +1345,50 @@ TEST(IntegerTest, Kernels) {
 					ASSERT_TRUE(modulus.random(words * 64));
 					// Старший разряд
 					math::integer_t bit;
+					// Записываем единицу
 					bit.word(1);
+					// Сдвигаем единицу в старший разряд
 					bit.left(bit, (words * 64) - 1);
 					// Ставим старший разряд: сложение с числом без него
 					if(!modulus.bit((words * 64) - 1))
+						// Добавляем старший разряд
 						ASSERT_TRUE(modulus.add(modulus, bit));
 				} break;
 				// Все разряды единицы: 2^(64 · words) - 1
 				case 1: {
+					// Степень двойки ширины модуля
 					math::integer_t power;
+					// Записываем единицу
 					power.word(1);
+					// Сдвигаем единицу за пределы модуля
 					power.left(power, words * 64);
+					// Вычитаем единицу, получая все единичные разряды
 					ASSERT_TRUE(modulus.subtract(power, one));
 				} break;
 				// Короткое старшее слово: 2^(64 · (words - 1)) + 1, у одного слова - три
 				case 2: {
+					// У одинокого слова задаём тройку
 					if(words == 1) modulus.word(3);
 					else {
+						// Записываем единицу
 						modulus.word(1);
+						// Сдвигаем единицу в разряд старшего слова
 						modulus.left(modulus, (words - 1) * 64);
+						// Добавляем единицу, получая короткое старшее слово
 						ASSERT_TRUE(modulus.add(modulus, one));
 					}
 				} break;
 				// Случайный нечётный без старшего разряда
 				default: {
+					// Вырабатываем случайное число без старшего разряда
 					ASSERT_TRUE(modulus.random((words * 64) - 1));
+					// Заменяем выпавший ноль единицей
 					if(modulus.zero()) modulus.word(1);
 				} break;
 			}
 			// Делаем модуль нечётным
 			if(!modulus.odd())
+				// Добавляем единицу ради нечётности
 				ASSERT_TRUE(modulus.add(modulus, one));
 			// Арифметика Монтгомери
 			math::montgomery_t field;
@@ -1222,6 +1396,7 @@ TEST(IntegerTest, Kernels) {
 			ASSERT_TRUE(field.start(modulus)) << "слов " << words << ", вид " << kind;
 			// Число на единицу меньше модуля
 			math::integer_t last;
+			// Вычисляем число на единицу меньше модуля
 			ASSERT_TRUE(last.subtract(modulus, one));
 			/**
 			 * Выполняем перебор входов: случайные, оба меньше модуля на единицу, ноль, единица
@@ -1230,11 +1405,12 @@ TEST(IntegerTest, Kernels) {
 				// Сомножители
 				math::integer_t first, second;
 				/**
-				 * Определяем вход
+				 * Задаём пару сомножителей по номеру входа
 				 */
 				switch(input){
 					// Случайные, приведённые по модулю
 					case 0: {
+						// Вырабатываем первый случайный сомножитель
 						ASSERT_TRUE(first.random(words * 64));
 						ASSERT_TRUE(second.random(words * 64));
 						ASSERT_TRUE(first.reduce(first, modulus));
@@ -1246,7 +1422,9 @@ TEST(IntegerTest, Kernels) {
 					case 2: { second = last; } break;
 					// Единица и случайное
 					default: {
+						// Записываем единицу
 						first.word(1);
+						// Вырабатываем случайный второй сомножитель
 						ASSERT_TRUE(second.random(words * 64));
 						ASSERT_TRUE(second.reduce(second, modulus));
 					} break;
@@ -1261,9 +1439,12 @@ TEST(IntegerTest, Kernels) {
 				ASSERT_TRUE(product.equal(expected)) << "умножение: слов " << words << ", вид " << kind << ", вход " << input;
 				// Итог вправе совпадать с каждым сомножителем
 				math::integer_t inplace = first;
+				// Проверяем итог, совпадающий с первым сомножителем
 				ASSERT_TRUE(field.mulmod(inplace, second, inplace));
 				ASSERT_TRUE(inplace.equal(expected)) << "итог на первом: слов " << words << ", вид " << kind << ", вход " << input;
+				// Продолжаем со вторым сомножителем
 				inplace = second;
+				// Проверяем итог, совпадающий со вторым сомножителем
 				ASSERT_TRUE(field.mulmod(first, inplace, inplace));
 				ASSERT_TRUE(inplace.equal(expected)) << "итог на втором: слов " << words << ", вид " << kind << ", вход " << input;
 				// Квадрат через деление
@@ -1274,6 +1455,7 @@ TEST(IntegerTest, Kernels) {
 				ASSERT_TRUE(square.equal(expected)) << "квадрат: слов " << words << ", вид " << kind << ", вход " << input;
 				// Копия второго сомножителя: тот же квадрат общим ядром по разным указателям
 				math::integer_t copy = second;
+				// Проверяем квадрат общим ядром по разным указателям
 				ASSERT_TRUE(field.mulmod(second, copy, twin));
 				// Проверяем сходимость ядер
 				ASSERT_TRUE(twin.equal(square)) << "квадрат против умножения: слов " << words << ", вид " << kind << ", вход " << input;
@@ -1283,6 +1465,7 @@ TEST(IntegerTest, Kernels) {
 			   (words == 15) || (words == 16) || (words == 17) || (words == 20) || (words == 32)){
 				// Основание и показатель
 				math::integer_t base, exponent, power, expected;
+				// Вырабатываем случайное основание
 				ASSERT_TRUE(base.random(words * 64));
 				ASSERT_TRUE(base.reduce(base, modulus));
 				ASSERT_TRUE(exponent.random(64));

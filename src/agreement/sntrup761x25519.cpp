@@ -12,15 +12,8 @@
  * @email forman@anyks.com
  * @site https://anyks.com
  *
- * \~russian
  * @brief Модуль гибридного обмена ключами —
  *        sntrup761x25519-sha512 по draft-josefsson-ntruprime-ssh
- *
- * \~english
- * @brief The hybrid key exchange module —
- *        sntrup761x25519-sha512 according to draft-josefsson-ntruprime-ssh
- *
- * \~
  *
  * @copyright Copyright © 2026
  *
@@ -54,7 +47,7 @@ namespace {
 	using nts::sys::wipe;
 
 	/**
-	 * @brief Метод склейки общего секрета гибрида
+	 * @brief Функция склейки общего секрета гибрида
 	 *
 	 * @param pq     общий секрет sntrup761 (32 байта)
 	 * @param cl     общий секрет X25519 (32 байта)
@@ -76,21 +69,11 @@ namespace {
 }
 
 /**
- * \~russian
- * @brief Метод выработки открытого значения клиента гибрида
+ * @brief Функция выработки открытого значения клиента гибрида
  *
  * @param key    место, в которое записывается открытое значение клиента (1190 байтов)
- * @param secret место, в которое записывается секрет клиента (1763 + 32 байтов)
- *
+ * @param secret место, в которое записывается секрет клиента (1763 + 32 байтов: секрет sntrup761 и секрет X25519)
  * @return       признак успешности выработки
- *
- * \~english
- * @brief Method of the production of the client public value of the hybrid
- * @param key    the place the client public value is written into (1190 bytes)
- * @param secret the place the client secret is written into (1763 + 32 bytes)
- * @return       the flag of the success of the production
- *
- * \~
  *
  */
 bool nts::agreement::pairSntrup761x25519(uint8_t * key, uint8_t * secret) noexcept {
@@ -117,25 +100,13 @@ bool nts::agreement::pairSntrup761x25519(uint8_t * key, uint8_t * secret) noexce
 }
 
 /**
- * \~russian
- * @brief Метод ответа сервера гибридного обмена
+ * @brief Функция ответа сервера гибридного обмена
  *
  * @param key    открытое значение клиента (1190 байтов)
  * @param cipher место, в которое записывается открытое значение сервера (1071 байт)
- * @param secret место, в которое записывается секрет сервера (32 байта)
+ * @param secret место, в которое записывается секрет сервера (32 байта: секрет X25519)
  * @param shared место, в которое записывается общий секрет (64 байта)
- *
  * @return       признак успешности ответа
- *
- * \~english
- * @brief Method of the server answer of the hybrid exchange
- * @param key    the client public value (1190 bytes)
- * @param cipher the place the server public value is written into (1071 bytes)
- * @param secret the place the server secret is written into (32 bytes)
- * @param shared the place the shared secret is written into (64 bytes)
- * @return       the flag of the success of the answer
- *
- * \~
  *
  */
 bool nts::agreement::encapsSntrup761x25519(const view_t & key, uint8_t * cipher, uint8_t * secret, uint8_t * shared) noexcept {
@@ -172,23 +143,12 @@ bool nts::agreement::encapsSntrup761x25519(const view_t & key, uint8_t * cipher,
 }
 
 /**
- * \~russian
- * @brief Метод завершения гибридного обмена клиентом
+ * @brief Функция завершения гибридного обмена клиентом
  *
  * @param cipher открытое значение сервера (1071 байт)
  * @param secret секрет клиента (1763 + 32 байтов)
  * @param shared место, в которое записывается общий секрет (64 байта)
- *
- * @return       признак успешности завершения
- *
- * \~english
- * @brief Method of the completion of the hybrid exchange by the client
- * @param cipher the server public value (1071 bytes)
- * @param secret the client secret (1763 + 32 bytes)
- * @param shared the place the shared secret is written into (64 bytes)
- * @return       the flag of the success of the completion
- *
- * \~
+ * @return       признак успешности завершения (ложь при подмене шифртекста)
  *
  */
 bool nts::agreement::decapsSntrup761x25519(const view_t & cipher, const view_t & secret, uint8_t * shared) noexcept {

@@ -1,15 +1,22 @@
 /**
- * @file: stream.cpp
- * @date: 2026-09-04
- * @license: GPL-3.0
+ * @file stream.cpp
+ * @date 2026-09-04
  *
- * @telegram: @forman
- * @author: Yuriy Lobarev
- * @phone: +7 (910) 983-95-90
- * @email: forman@anyks.com
- * @site: https://anyks.com
+ * @license{GPL-3.0}
  *
- * @copyright: Copyright © 2026
+ * @author Yuriy Lobarev
+ *
+ * @telegram{forman}
+ * @phone{+7 (910) 983-95-90}
+ *
+ * @email forman@anyks.com
+ * @site https://anyks.com
+ *
+ * @brief Исходный файл проверок модуля поточного наложения защиты: режимы GCM и
+ *        обратной связи, пути, искажение записи и голодание
+ *
+ * @copyright Copyright © 2026
+ *
  */
 
 /**
@@ -45,10 +52,9 @@ static const size_t CHUNKS[] = {
 };
 
 /**
- * @brief Метод порождения открытого текста заданной длины
+ * @brief Функция порождения открытого текста заданной длины
  *
  * @param size длина текста
- *
  * @return     порождённый текст
  *
  */
@@ -66,7 +72,7 @@ static std::vector <uint8_t> plain(const size_t size) {
 }
 
 /**
- * @brief Метод установки ключа AES-256 шифру
+ * @brief Функция установки ключа AES-256 шифру
  *
  * @param aes объект шифра
  *
@@ -85,7 +91,7 @@ static void key(cipher::aes_t & aes) {
 }
 
 /**
- * @brief Метод зашифрования потоком кусками заданного размера
+ * @brief Функция зашифрования потоком кусками заданного размера
  *
  * @param stream объект потока
  * @param aes    шифр с ключом
@@ -96,7 +102,7 @@ static void key(cipher::aes_t & aes) {
  *
  */
 static void seal(cipher::stream_t & stream, const cipher::aes_t & aes, const cipher::regime_t mode, const std::vector <uint8_t> & source, const size_t chunk, std::vector <uint8_t> & result) {
-	// Очищаем выход
+	// Опорожняем выход потока перед зашифрованием
 	result.clear();
 	// Проверяем заведение потока на зашифрование
 	ASSERT_TRUE(stream.start(cipher::direction_t::ENCRYPT, cipher::block_t(aes), mode)) << "кусок " << chunk;
@@ -114,7 +120,7 @@ static void seal(cipher::stream_t & stream, const cipher::aes_t & aes, const cip
 }
 
 /**
- * @brief Метод разового расшифрования выхода потока режимом напрямую
+ * @brief Функция разового расшифрования выхода потока режимом напрямую
  *
  * @param aes    шифр с ключом
  * @param mode   режим потока
@@ -159,7 +165,7 @@ static void open(const cipher::aes_t & aes, const cipher::regime_t mode, const s
 }
 
 /**
- * @brief Метод расшифрования потоком кусками заданного размера с проверкой отставания
+ * @brief Функция расшифрования потоком кусками заданного размера с проверкой отставания
  *
  * @param stream объект потока
  * @param aes    шифр с ключом
@@ -170,7 +176,7 @@ static void open(const cipher::aes_t & aes, const cipher::regime_t mode, const s
  *
  */
 static void unseal(cipher::stream_t & stream, const cipher::aes_t & aes, const cipher::regime_t mode, const std::vector <uint8_t> & sealed, const size_t chunk, std::vector <uint8_t> & result) {
-	// Очищаем выход
+	// Опорожняем выход потока перед расшифрованием
 	result.clear();
 	// Длина служебной части: вектор и метка
 	const size_t service = ((mode == cipher::regime_t::GCM) ? 28 : 16);
@@ -196,7 +202,7 @@ static void unseal(cipher::stream_t & stream, const cipher::aes_t & aes, const c
 }
 
 /**
- * @brief Метод приёмки режима по всем размерам куска
+ * @brief Функция приёмки режима по всем размерам куска
  *
  * @param mode режим потока
  *
@@ -342,7 +348,7 @@ TEST(StreamTest, Empty){
 	ASSERT_TRUE(opened.empty());
 	// Проверяем пустой поток без единой подачи: вектор выходит на завершении
 	ASSERT_TRUE(stream.start(cipher::direction_t::ENCRYPT, cipher::block_t(aes), cipher::regime_t::FEEDBACK));
-	// Очищаем выход
+	// Опорожняем выход перед завершением пустого потока
 	sealed.clear();
 	// Проверяем завершение потока
 	ASSERT_TRUE(stream.finish(sealed));
@@ -386,7 +392,7 @@ TEST(StreamTest, Tamper){
 	sealed.back() ^= 0x80;
 	// Портим байт данных
 	sealed[40] ^= 0x01;
-	// Очищаем выход
+	// Опорожняем открытый текст перед повторным заведением потока
 	opened.clear();
 	// Проверяем заведение потока на расшифрование
 	ASSERT_TRUE(stream.start(cipher::direction_t::DECRYPT, cipher::block_t(aes), cipher::regime_t::GCM));
@@ -394,11 +400,11 @@ TEST(StreamTest, Tamper){
 	ASSERT_TRUE(stream.update(view_t(sealed.data(), sealed.size()), opened));
 	// Проверяем отказ завершения: метка не сошлась
 	ASSERT_FALSE(stream.finish(opened));
-	// Восстанавливаем данные
+	// Возвращаем байту данных исходное значение
 	sealed[40] ^= 0x01;
 	// Портим вектор
 	sealed[0] ^= 0x01;
-	// Очищаем выход
+	// Опорожняем открытый текст перед заведением потока на порчу вектора
 	opened.clear();
 	// Проверяем заведение потока на расшифрование
 	ASSERT_TRUE(stream.start(cipher::direction_t::DECRYPT, cipher::block_t(aes), cipher::regime_t::GCM));
@@ -410,7 +416,7 @@ TEST(StreamTest, Tamper){
 	sealed[0] ^= 0x01;
 	// Проверяем усечённый поток: метка недобрана
 	ASSERT_TRUE(stream.start(cipher::direction_t::DECRYPT, cipher::block_t(aes), cipher::regime_t::GCM));
-	// Очищаем выход
+	// Опорожняем открытый текст перед проверкой усечённого потока
 	opened.clear();
 	// Проверяем подачу выхода без последнего байта
 	ASSERT_TRUE(stream.update(view_t(sealed.data(), sealed.size() - 1), opened));
@@ -446,7 +452,7 @@ TEST(StreamTest, Restart){
 	ASSERT_TRUE(stream.start(cipher::direction_t::ENCRYPT, cipher::block_t(aes), cipher::regime_t::GCM));
 	// Проверяем подачу всего текста
 	ASSERT_TRUE(stream.update(view_t(source.data(), source.size()), sealed));
-	// Проверяем завершение
+	// Проверяем завершение потока, заведённого поверх незавершённого
 	ASSERT_TRUE(stream.finish(sealed));
 	// Проверяем длину выхода
 	ASSERT_EQ(sealed.size(), source.size() + 28);
@@ -458,17 +464,17 @@ TEST(StreamTest, Restart){
 	ASSERT_TRUE(stream.start(cipher::direction_t::DECRYPT, cipher::block_t(aes), cipher::regime_t::GCM));
 	// Проверяем подачу всего выхода
 	ASSERT_TRUE(stream.update(view_t(sealed.data(), sealed.size()), opened));
-	// Проверяем завершение
+	// Проверяем завершение потока после повторного заведения на расшифрование
 	ASSERT_TRUE(stream.finish(opened));
 	// Проверяем схождение открытого текста
 	ASSERT_EQ(opened, source);
 	// Проверяем смену режима тем же объектом
 	ASSERT_TRUE(stream.start(cipher::direction_t::ENCRYPT, cipher::block_t(aes), cipher::regime_t::FEEDBACK));
-	// Очищаем выход
+	// Опорожняем выход перед подачей текста в режиме гаммирования
 	sealed.clear();
 	// Проверяем подачу текста
 	ASSERT_TRUE(stream.update(view_t(source.data(), source.size()), sealed));
-	// Проверяем завершение
+	// Проверяем завершение потока после смены режима
 	ASSERT_TRUE(stream.finish(sealed));
 	// Проверяем длину выхода: вектор впереди, метки нет
 	ASSERT_EQ(sealed.size(), source.size() + 16);
@@ -478,7 +484,7 @@ TEST(StreamTest, Restart){
 	ASSERT_TRUE(stream.start(cipher::direction_t::DECRYPT, cipher::block_t(aes), cipher::regime_t::FEEDBACK));
 	// Проверяем подачу выхода
 	ASSERT_TRUE(stream.update(view_t(sealed.data(), sealed.size()), opened));
-	// Проверяем завершение
+	// Проверяем завершение расшифрования в режиме гаммирования
 	ASSERT_TRUE(stream.finish(opened));
 	// Проверяем схождение открытого текста
 	ASSERT_EQ(opened, source);
@@ -524,7 +530,7 @@ TEST(StreamTest, Guards){
 	const std::vector <uint8_t> source = plain(50);
 	// Проверяем подачу текста
 	ASSERT_TRUE(stream.update(view_t(source.data(), source.size()), result));
-	// Проверяем завершение
+	// Проверяем завершение потока с усечённой меткой
 	ASSERT_TRUE(stream.finish(result));
 	// Проверяем длину выхода с усечённой меткой
 	ASSERT_EQ(result.size(), source.size() + 24);
@@ -542,7 +548,7 @@ TEST(StreamTest, Guards){
 	ASSERT_TRUE(stream.update(view_t(result.data(), result.size()), opened));
 	// Проверяем отставание на усечённую метку
 	ASSERT_EQ(opened.size(), source.size());
-	// Проверяем завершение
+	// Проверяем завершение расшифрования с усечённой меткой
 	ASSERT_TRUE(stream.finish(opened));
 	// Проверяем схождение открытого текста
 	ASSERT_EQ(opened, source);

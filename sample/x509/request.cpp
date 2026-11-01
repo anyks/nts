@@ -64,7 +64,7 @@ using namespace nts;
  */
 namespace {
 	/**
-	 * @brief Метод вывода области байтов шестнадцатеричной записью
+	 * @brief Функция вывода области байтов шестнадцатеричной записью
 	 *
 	 * @param title заголовок выводимой области байтов
 	 * @param data  выводимая область байтов
@@ -84,10 +84,9 @@ namespace {
 		cout << dec << endl;
 	}
 	/**
-	 * @brief Метод чтения файла набора целиком
+	 * @brief Функция чтения файла набора целиком
 	 *
 	 * @param name имя файла в наборе
-	 *
 	 * @return     содержимое файла, пустое при отказе чтения
 	 *
 	 */
@@ -95,7 +94,7 @@ namespace {
 		// Содержимое файла
 		vector <uint8_t> result;
 		/**
-		 * Выполняем чтение файла: поток и накопитель занимают память
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Поток чтения файла набора
@@ -105,7 +104,7 @@ namespace {
 				// Читаем файл целиком
 				result.assign(istreambuf_iterator <char> (file), istreambuf_iterator <char> ());
 		/**
-		 * Если памяти под файл не хватило
+		 * Выполняем перехват ошибок
 		 */
 		} catch(const bad_alloc &) {
 			// Файл не прочитан
@@ -115,10 +114,9 @@ namespace {
 		return result;
 	}
 	/**
-	 * @brief Метод извлечения тела первой записи PEM
+	 * @brief Функция извлечения тела первой записи PEM
 	 *
 	 * @param text разбираемый текст записи PEM
-	 *
 	 * @return     тело первой записи в кодировке DER, пустое при отказе
 	 *
 	 */
@@ -139,7 +137,6 @@ namespace {
  *
  * @param argc длина массива параметров
  * @param argv массив параметров
- *
  * @return     код выхода из приложения
  *
  */
@@ -181,6 +178,7 @@ int main(int argc, char * argv[]) noexcept {
 	 *
 	 * @details Подпись запроса проверяется тем открытым ключом, что лежит в
 	 *          сведениях об открытом ключе самого запроса
+	 *
 	 */
 	if(x509::verify(reference, reference.key()) != x509::error_t::NONE){
 		// Выводим сообщение о несошедшейся подписи
@@ -220,6 +218,7 @@ int main(int argc, char * argv[]) noexcept {
 	 *          attributes [0]}, подписывается ключом владельца, и оборачивается в
 	 *          CertificationRequest. Атрибут extensionRequest записывается всегда,
 	 *          даже при пустом наборе расширений - так велит раздел 4 RFC 2986
+	 *
 	 */
 	if(x509::encode(reference.subjects(), reference.key(), extensions, signer, digest::hash_t::SHA256, encoded) != x509::error_t::NONE){
 		// Выводим сообщение об отказе записи запроса

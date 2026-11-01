@@ -19,7 +19,6 @@
  * @brief Header file of the module of the Blowfish block cipher
  *
  * \~
- *
  * @copyright Copyright © 2026
  *
  */
@@ -83,12 +82,12 @@ namespace nts {
 
 		/**
 		 * \~russian
-		 * @brief Метод инициализации контекста константами числа π
+		 * @brief Функция инициализации контекста константами числа π
 		 *
 		 * @param ctx контекст Blowfish
 		 *
 		 * \~english
-		 * @brief Method of the initialization of the context with the digits of Pi
+		 * @brief Function of the initialization of the context with the digits of Pi
 		 *
 		 * @param ctx Blowfish context
 		 *
@@ -97,25 +96,25 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ void init(blowfish_t * ctx) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод расширения ключа без соли (eksblowfish phase 0)
+		 * @brief Функция расширения ключа без соли (eksblowfish phase 0)
 		 *
-		 * @param ctx     контекст Blowfish
-		 * @param key     ключ
-		 * @param keylen  длина ключа в байтах
+		 * @param ctx    контекст Blowfish
+		 * @param key    ключ
+		 * @param keylen длина ключа в байтах
 		 *
 		 * \~english
-		 * @brief Method of the key expansion without salt (eksblowfish phase 0)
+		 * @brief Function of the key expansion without salt (eksblowfish phase 0)
 		 *
-		 * @param ctx     Blowfish context
-		 * @param key     key
-		 * @param keylen  length of the key in bytes
+		 * @param ctx    Blowfish context
+		 * @param key    key
+		 * @param keylen length of the key in bytes
 		 *
 		 * \~
 		 */
 		__ANTS_SHARED_EXPORT__ void expand0(blowfish_t * ctx, const uint8_t * key, const size_t keylen) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод расширения ключа с солью (eksblowfish phase 1)
+		 * @brief Функция расширения ключа с солью (eksblowfish phase 1)
 		 *
 		 * @param ctx     контекст Blowfish
 		 * @param data    соль
@@ -124,7 +123,7 @@ namespace nts {
 		 * @param keylen  длина ключа в байтах
 		 *
 		 * \~english
-		 * @brief Method of the key expansion with salt (eksblowfish phase 1)
+		 * @brief Function of the key expansion with salt (eksblowfish phase 1)
 		 *
 		 * @param ctx     Blowfish context
 		 * @param data    salt
@@ -137,14 +136,14 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ void expand(blowfish_t * ctx, const uint8_t * data, const size_t datalen, const uint8_t * key, const size_t keylen) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод шифрования блока
+		 * @brief Функция шифрования блока
 		 *
 		 * @param ctx контекст Blowfish
 		 * @param xl  левая половина блока
 		 * @param xr  правая половина блока
 		 *
 		 * \~english
-		 * @brief Method of the encryption of a block
+		 * @brief Function of the encryption of a block
 		 *
 		 * @param ctx Blowfish context
 		 * @param xl  left half of the block
@@ -155,14 +154,14 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ void encipher(const blowfish_t * ctx, uint32_t * xl, uint32_t * xr) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод шифрования нескольких блоков
+		 * @brief Функция шифрования нескольких блоков
 		 *
 		 * @param ctx    контекст Blowfish
 		 * @param data   данные (массив uint32)
 		 * @param blocks число блоков по 8 байтов
 		 *
 		 * \~english
-		 * @brief Method of the encryption of several blocks
+		 * @brief Function of the encryption of several blocks
 		 *
 		 * @param ctx    Blowfish context
 		 * @param data   data (array of uint32)
@@ -173,21 +172,19 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ void encrypt(const blowfish_t * ctx, uint32_t * data, const size_t blocks) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод извлечения слова из потока байтов с зацикливанием
+		 * @brief Функция извлечения слова из потока байтов с зацикливанием
 		 *
 		 * @param data    поток байтов
 		 * @param datalen длина потока
 		 * @param current текущая позиция (обновляется)
-		 *
 		 * @return        слово uint32
 		 *
 		 * \~english
-		 * @brief Method of the extraction of a word from a byte stream with wraparound
+		 * @brief Function of the extraction of a word from a byte stream with wraparound
 		 *
 		 * @param data    byte stream
 		 * @param datalen length of the stream
 		 * @param current current position (updated)
-		 *
 		 * @return        uint32 word
 		 *
 		 * \~

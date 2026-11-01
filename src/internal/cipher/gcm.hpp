@@ -36,6 +36,9 @@
  * Экранируем повторную инициализацию модуля
  */
 #ifndef __ANTS_INTERNAL_CIPHER_GCM__
+/**
+ * Макрос экранирования повторной инициализации модуля
+ */
 #define __ANTS_INTERNAL_CIPHER_GCM__
 
 /**
@@ -59,7 +62,7 @@
  * а ASan держит адреса своего стека в регистрах); ядру AArch64 регистров хватает, и оно
  * проверяется отладочной сборкой
  */
-#if ((defined(__x86_64__) && !defined(__ANTS_ASAN_UNOPTIMIZED__)) || (defined(__aarch64__) && defined(__ARM_FEATURE_AES))) && defined(__GNUC__) && !defined(_MSC_VER) && !defined(ANTS_NO_MACHINE)
+#if((defined(__x86_64__) && !defined(__ANTS_ASAN_UNOPTIMIZED__)) || (defined(__aarch64__) && defined(__ARM_FEATURE_AES))) && defined(__GNUC__) && !defined(_MSC_VER) && !defined(ANTS_NO_MACHINE)
 	/**
 	 * Признак наличия сшитого ядра на ассемблере
 	 */
@@ -81,11 +84,15 @@
 			namespace kernel {
 				/**
 				 * @brief Размер кадра сшитого ядра в байтах
+				 *
 				 */
 				static constexpr size_t FRAME = 176;
+				/**
+				 * Если сборка под x86-64
+				 */
 				#if defined(__x86_64__)
 					/**
-					 * @brief Метод сшитого хода восьмёрок блоков: гамма счётчика AES и хеш прежних восьмёрок ядром x86-64 с кодировкой VEX (AVX, PCLMULQDQ, AES-NI, MOVBE)
+					 * @brief Функция сшитого хода восьмёрок блоков: гамма счётчика AES и хеш прежних восьмёрок ядром x86-64 с кодировкой VEX (AVX, PCLMULQDQ, AES-NI, MOVBE)
 					 *
 					 * @param keys        расписание ключа шифрования
 					 * @param rounds      число кругов: 10, 12 либо 14
@@ -102,6 +109,7 @@
 					static void stitchX86(const uint8_t * keys, const size_t rounds, uint8_t * counter, const uint64_t (* powers)[3], uint8_t * accumulator, uint8_t * frame, const uint8_t * hash, const uint8_t * source, uint8_t * result, size_t count) noexcept {
 						// Шаги счётчика в старшем байте четвёртого слова, маска перестановки байтов
 						alignas(16) static const uint8_t CONSTANTS[144] = {
+							// Первая строка постоянных ядра
 							0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
 							0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2,
 							0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3,
@@ -120,8 +128,11 @@
 						::memcpy(frame + 32, accumulator, 16);
 						// Позиция ключа круга, число средних кругов, половины блока и младшее слово счётчика
 						const uint8_t * kp = nullptr;
+						// Число средних кругов
 						size_t n = 0;
+						// Половины блока и младшее слово счётчика
 						uint64_t t0 = 0, t1 = 0, tail = 0;
+						// Сшитое ядро: гамма счётчика AES и хеш прежних восьмёрок
 						__asm__ __volatile__(
 						"vmovdqu 128(%[cst]), %%xmm11\n\t"
 						"vmovdqu 32(%[tab]), %%xmm15\n\t"
@@ -440,9 +451,12 @@
 						::memcpy(counter, frame, 16);
 						::memcpy(accumulator, frame + 32, 16);
 					}
+				/**
+				 * Если сборка под AArch64 с расширением SHA-3
+				 */
 				#elif defined(__ARM_FEATURE_SHA3)
 					/**
-					 * @brief Метод сшитого хода восьмёрок блоков: гамма счётчика AES и хеш прежних восьмёрок ядром AArch64 (AES и PMULL расширения crypto, eor3 расширения SHA-3)
+					 * @brief Функция сшитого хода восьмёрок блоков: гамма счётчика AES и хеш прежних восьмёрок ядром AArch64 (AES и PMULL расширения crypto, eor3 расширения SHA-3)
 					 *
 					 * @param keys        расписание ключа шифрования
 					 * @param rounds      число кругов: 10, 12 либо 14
@@ -459,6 +473,7 @@
 					static void stitchArm(const uint8_t * keys, const size_t rounds, uint8_t * counter, const uint64_t (* powers)[3], uint8_t * accumulator, uint8_t * frame, const uint8_t * hash, const uint8_t * source, uint8_t * result, size_t count) noexcept {
 						// Шаги счётчика в старшем байте четвёртого слова, многочлен приведения
 						alignas(16) static const uint8_t CONSTANTS[32] = {
+							// Первая строка постоянных ядра
 							0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
 							135, 0, 0, 0, 0, 0, 0, 0, 135, 0, 0, 0, 0, 0, 0, 0
 						};
@@ -470,8 +485,11 @@
 						::memcpy(frame + 32, accumulator, 16);
 						// Позиция ключа круга, число средних кругов, половины блока и младшее слово счётчика
 						const uint8_t * kp = nullptr;
+						// Число средних кругов
 						size_t n = 0;
+						// Половины блока и младшее слово счётчика
 						uint64_t t0 = 0, t1 = 0, tail = 0;
+						// Сшитое ядро: гамма счётчика AES и хеш прежних восьмёрок
 						__asm__ __volatile__(
 						"ldr q22, [%[cst], #16]\n\t"
 						"ldr q24, [%[cst]]\n\t"
@@ -848,9 +866,12 @@
 						::memcpy(counter, frame, 16);
 						::memcpy(accumulator, frame + 32, 16);
 					}
+				/**
+				 * Иначе ядро AArch64 без расширения SHA-3
+				 */
 				#else
 					/**
-					 * @brief Метод сшитого хода восьмёрок блоков: гамма счётчика AES и хеш прежних восьмёрок ядром AArch64 (AES и PMULL расширения crypto)
+					 * @brief Функция сшитого хода восьмёрок блоков: гамма счётчика AES и хеш прежних восьмёрок ядром AArch64 (AES и PMULL расширения crypto)
 					 *
 					 * @param keys        расписание ключа шифрования
 					 * @param rounds      число кругов: 10, 12 либо 14
@@ -867,6 +888,7 @@
 					static void stitchArm(const uint8_t * keys, const size_t rounds, uint8_t * counter, const uint64_t (* powers)[3], uint8_t * accumulator, uint8_t * frame, const uint8_t * hash, const uint8_t * source, uint8_t * result, size_t count) noexcept {
 						// Шаги счётчика в старшем байте четвёртого слова, многочлен приведения
 						alignas(16) static const uint8_t CONSTANTS[32] = {
+							// Первая строка постоянных ядра
 							0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
 							135, 0, 0, 0, 0, 0, 0, 0, 135, 0, 0, 0, 0, 0, 0, 0
 						};
@@ -878,8 +900,11 @@
 						::memcpy(frame + 32, accumulator, 16);
 						// Позиция ключа круга, число средних кругов, половины блока и младшее слово счётчика
 						const uint8_t * kp = nullptr;
+						// Число средних кругов
 						size_t n = 0;
+						// Половины блока и младшее слово счётчика
 						uint64_t t0 = 0, t1 = 0, tail = 0;
+						// Сшитое ядро: гамма счётчика AES и хеш прежних восьмёрок
 						__asm__ __volatile__(
 						"ldr q22, [%[cst], #16]\n\t"
 						"ldr q24, [%[cst]]\n\t"
@@ -1283,4 +1308,4 @@
 	}
 #endif
 
-#endif // __ANTS_INTERNAL_CIPHER_GCM__
+#endif

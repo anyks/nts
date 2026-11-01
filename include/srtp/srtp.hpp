@@ -23,7 +23,6 @@
  *        the AES-GCM mode according to RFC 7714
  *
  * \~
- *
  * @copyright Copyright © 2026
  *
  */
@@ -53,7 +52,6 @@
  * @brief Main namespace
  *
  * \~
- *
  */
 namespace nts {
 	/**
@@ -78,6 +76,7 @@ namespace nts {
 	 *
 	 * \~english
 	 * @brief Namespace of the secure real-time transport module
+	 *
 	 * @details The module protects RTP and RTCP packets according to RFC 3711:
 	 *          the AES cipher in counter mode (AES-CM), the HMAC-SHA1 message
 	 *          authentication truncated to 80 or 32 bits, the session key
@@ -91,7 +90,6 @@ namespace nts {
 	 *          pair call according to the section 4.2 of RFC 5764.
 	 *
 	 * \~
-	 *
 	 */
 	namespace srtp {
 		/**
@@ -102,16 +100,23 @@ namespace nts {
 		 * @brief Reason of a failure of the module work
 		 *
 		 * \~
-		 *
 		 */
 		enum class error_t : uint8_t {
+			// Отказа нет, работа удалась
 			NONE      = 0x00, /*!< \~russian Отказа нет, работа удалась \~english There is no failure, the work has succeeded \~ */
+			// Пакет либо ключ не установлены
 			EMPTY     = 0x01, /*!< \~russian Пакет либо ключ не установлены \~english The packet or the key is not set \~ */
+			// Пакет не отвечает устройству своего вида
 			STRUCTURE = 0x02, /*!< \~russian Пакет не отвечает устройству своего вида \~english The packet does not meet the structure of its kind \~ */
+			// Профиль защиты неизвестен
 			ALGORITHM = 0x03, /*!< \~russian Профиль защиты неизвестен \~english The protection profile is unknown \~ */
+			// Имитовставка не сошлась
 			SIGNATURE = 0x04, /*!< \~russian Имитовставка не сошлась \~english The authentication tag has not converged \~ */
+			// Ключ либо соль неверной длины
 			KEY       = 0x05, /*!< \~russian Ключ либо соль неверной длины \~english The key or the salt is of a wrong length \~ */
+			// Пакет повторён либо старше окна приёма
 			REPLAY    = 0x06, /*!< \~russian Пакет повторён либо старше окна приёма \~english The packet is replayed or older than the receive window \~ */
+			// Не удалось выделить память под итог работы
 			MEMORY    = 0x07  /*!< \~russian Не удалось выделить память под итог работы \~english Failed to allocate the memory for the result of the work \~ */
 		};
 
@@ -123,12 +128,15 @@ namespace nts {
 		 * @brief Protection profile according to the section 4.1.2 of RFC 5764
 		 *
 		 * \~
-		 *
 		 */
 		enum class profile_t : uint16_t {
+			// AES-CM со имитовставкой HMAC-SHA1-80 по RFC 3711
 			AES128_CM_SHA1_80 = 0x0001, /*!< \~russian AES-CM со имитовставкой HMAC-SHA1-80 по RFC 3711 \~english AES-CM with the HMAC-SHA1-80 authentication tag according to RFC 3711 \~ */
+			// AES-CM со имитовставкой HMAC-SHA1-32 по RFC 3711
 			AES128_CM_SHA1_32 = 0x0002, /*!< \~russian AES-CM со имитовставкой HMAC-SHA1-32 по RFC 3711 \~english AES-CM with the HMAC-SHA1-32 authentication tag according to RFC 3711 \~ */
+			// AES-128-GCM по RFC 7714
 			AEAD_AES_128_GCM  = 0x0007, /*!< \~russian AES-128-GCM по RFC 7714 \~english AES-128-GCM according to RFC 7714 \~ */
+			// AES-256-GCM по RFC 7714
 			AEAD_AES_256_GCM  = 0x0008  /*!< \~russian AES-256-GCM по RFC 7714 \~english AES-256-GCM according to RFC 7714 \~ */
 		};
 
@@ -145,6 +153,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Session keys of one direction
+		 *
 		 * @details The keys are derived by the keys call from the master key
 		 *          and the master salt according to the section 4.3 of
 		 *          RFC 3711 (the derivation rate is zero: the derivation is
@@ -155,7 +164,6 @@ namespace nts {
 		 *          authentication key is empty.
 		 *
 		 * \~
-		 *
 		 */
 		typedef struct __ANTS_SHARED_EXPORT__ Keys {
 			// Сессионный ключ шифрования
@@ -168,35 +176,33 @@ namespace nts {
 
 		/**
 		 * \~russian
-		 * @brief Метод получения длин ключевого материала профиля
+		 * @brief Функция получения длин ключевого материала профиля
 		 *
 		 * @param profile профиль защиты
 		 * @param key     место, в которое записывается длина ключа шифрования в байтах
 		 * @param salt    место, в которое записывается длина соли в байтах
-		 *
 		 * @return        отказ неизвестного профиля
 		 *
 		 * \~english
-		 * @brief Method of getting the key material lengths of the profile
+		 * @brief Function of getting the key material lengths of the profile
+		 *
 		 * @param profile the protection profile
 		 * @param key     the place the encryption key length in bytes is written into
 		 * @param salt    the place the salt length in bytes is written into
 		 * @return        the failure of an unknown profile
 		 *
 		 * \~
-		 *
 		 */
 		__ANTS_SHARED_EXPORT__ error_t lengths(const profile_t profile, size_t & key, size_t & salt) noexcept;
 
 		/**
 		 * \~russian
-		 * @brief Метод вывода сессионных ключей из мастер-ключа и мастер-соли
+		 * @brief Функция вывода сессионных ключей из мастер-ключа и мастер-соли
 		 *
 		 * @param profile профиль защиты
 		 * @param key     мастер-ключ (16 байтов у AES-CM и AES-128-GCM, 32 у AES-256-GCM)
 		 * @param salt    мастер-соль (14 байтов у AES-CM, 12 у AES-GCM)
 		 * @param result  место, в которое помещаются сессионные ключи
-		 *
 		 * @return        отказ вывода
 		 *
 		 * @details Вывод по разделу 4.3 RFC 3711: PRF на AES-CM с мастер-ключом,
@@ -206,12 +212,14 @@ namespace nts {
 		 *          RTP; у профилей AES-GCM ключ имитовставки не выводится.
 		 *
 		 * \~english
-		 * @brief Method of deriving the session keys from the master key and the master salt
+		 * @brief Function of deriving the session keys from the master key and the master salt
+		 *
 		 * @param profile the protection profile
 		 * @param key     the master key (16 bytes at AES-CM and AES-128-GCM, 32 at AES-256-GCM)
 		 * @param salt    the master salt (14 bytes at AES-CM, 12 at AES-GCM)
 		 * @param result  the place the session keys are put into
 		 * @return        the derivation failure
+		 *
 		 * @details The derivation according to the section 4.3 of RFC 3711: the
 		 *          PRF on AES-CM with the master key, the input x = (label ‖
 		 *          index DIV kdr) XOR master salt, padded with two zero bytes;
@@ -220,19 +228,17 @@ namespace nts {
 		 *          salt; the AES-GCM profiles derive no authentication key.
 		 *
 		 * \~
-		 *
 		 */
 		__ANTS_SHARED_EXPORT__ error_t keys(const profile_t profile, const view_t & key, const view_t & salt, keys_t & result) noexcept;
 
 		/**
 		 * \~russian
-		 * @brief Метод раскладки ключевого материала экспорта связи DTLS
+		 * @brief Функция раскладки ключевого материала экспорта связи DTLS
 		 *
 		 * @param profile  профиль защиты
 		 * @param material ключевой материал экспорта (метка EXTRACTOR-dtls_srtp, 2 × (ключ + соль) байтов)
 		 * @param client   место, в которое помещаются мастер-ключ и мастер-соль клиента
 		 * @param server   место, в которое помещаются мастер-ключ и мастер-соль сервера
-		 *
 		 * @return         отказ раскладки
 		 *
 		 * @details Раскладка по разделу 4.2 RFC 5764: ключ клиента ‖ ключ
@@ -240,19 +246,20 @@ namespace nts {
 		 *          структур несут мастер-ключ и мастер-соль; поле auth пусто.
 		 *
 		 * \~english
-		 * @brief Method of laying out the DTLS connection export key material
+		 * @brief Function of laying out the DTLS connection export key material
+		 *
 		 * @param profile  the protection profile
 		 * @param material the export key material (the EXTRACTOR-dtls_srtp label, 2 × (key + salt) bytes)
 		 * @param client   the place the client master key and master salt are put into
 		 * @param server   the place the server master key and master salt are put into
 		 * @return         the layout failure
+		 *
 		 * @details The layout according to the section 4.2 of RFC 5764: the
 		 *          client key ‖ the server key ‖ the client salt ‖ the server
 		 *          salt. The cipher and salt fields of the structures carry
 		 *          the master key and the master salt; the auth field is empty.
 		 *
 		 * \~
-		 *
 		 */
 		__ANTS_SHARED_EXPORT__ error_t pair(const profile_t profile, const view_t & material, keys_t & client, keys_t & server) noexcept;
 
@@ -271,6 +278,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Half-session of one stream direction protection
+		 *
 		 * @details The object protects the RTP packets of one source (SSRC) in
 		 *          one direction: at the sender protect applies the cipher and
 		 *          the authentication tag, at the receiver unprotect checks
@@ -282,7 +290,6 @@ namespace nts {
 		 *          is driven by a single execution.
 		 *
 		 * \~
-		 *
 		 */
 		typedef class __ANTS_SHARED_EXPORT__ Session {
 			private:
@@ -325,29 +332,26 @@ namespace nts {
 				 *
 				 * @param profile профиль защиты
 				 * @param keys    сессионные ключи вызова keys
-				 *
 				 * @return        отказ установки
 				 *
 				 * \~english
 				 * @brief Method of setting the session keys of the direction
+				 *
 				 * @param profile the protection profile
 				 * @param keys    the session keys of the keys call
 				 * @return        the setting failure
 				 *
 				 * \~
-				 *
 				 */
 				bool start(const profile_t profile, const keys_t & keys) noexcept;
 				/**
 				 * \~russian
 				 * @brief Метод сброса состояния направления
 				 *
-				 *
 				 * \~english
 				 * @brief Method of resetting the direction state
 				 *
 				 * \~
-				 *
 				 */
 				void clear() noexcept;
 			public:
@@ -357,7 +361,6 @@ namespace nts {
 				 *
 				 * @param packet пакет RTP целиком (заголовок и полезная нагрузка)
 				 * @param result место, в которое помещается защищённый пакет
-				 *
 				 * @return       отказ защиты
 				 *
 				 * @details Порядковый номер и SSRC берутся из заголовка пакета;
@@ -368,9 +371,11 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of protecting an RTP packet at the sender
+				 *
 				 * @param packet the whole RTP packet (the header and the payload)
 				 * @param result the place the protected packet is put into
 				 * @return       the protection failure
+				 *
 				 * @details The sequence number and the SSRC are taken from the
 				 *          packet header; the ROC counter is incremented at the
 				 *          number wrap. The payload is encrypted, the
@@ -379,7 +384,6 @@ namespace nts {
 				 *          tag over the header).
 				 *
 				 * \~
-				 *
 				 */
 				error_t protect(const view_t & packet, vector <uint8_t> & result) noexcept;
 				/**
@@ -388,7 +392,6 @@ namespace nts {
 				 *
 				 * @param packet защищённый пакет RTP целиком
 				 * @param result место, в которое помещается открытый пакет
-				 *
 				 * @return       отказ снятия защиты
 				 *
 				 * @details Имитовставка проверяется постоянной сверкой до
@@ -397,16 +400,17 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of unprotecting an RTP packet at the receiver
+				 *
 				 * @param packet the whole protected RTP packet
 				 * @param result the place the plain packet is put into
 				 * @return       the unprotection failure
+				 *
 				 * @details The authentication tag is checked by a constant-time
 				 *          comparison before the decryption; a replayed packet
 				 *          is dropped by the receive window; the ROC counter is
 				 *          estimated according to the section 3.3.1 of RFC 3711.
 				 *
 				 * \~
-				 *
 				 */
 				error_t unprotect(const view_t & packet, vector <uint8_t> & result) noexcept;
 			public:
@@ -416,7 +420,6 @@ namespace nts {
 				 *
 				 * @param packet пакет RTCP целиком
 				 * @param result место, в которое помещается защищённый пакет SRTCP
-				 *
 				 * @return       отказ защиты
 				 *
 				 * @details Полезная нагрузка с девятого байта шифруется, за
@@ -427,9 +430,11 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of protecting an RTCP packet at the sender
+				 *
 				 * @param packet the whole RTCP packet
 				 * @param result the place the protected SRTCP packet is put into
 				 * @return       the protection failure
+				 *
 				 * @details The payload from the ninth byte is encrypted, the
 				 *          ESRTCP word (the encryption flag and the SRTCP index)
 				 *          and the authentication tag over the packet with the
@@ -438,7 +443,6 @@ namespace nts {
 				 *          word).
 				 *
 				 * \~
-				 *
 				 */
 				error_t protectControl(const view_t & packet, vector <uint8_t> & result) noexcept;
 				/**
@@ -447,17 +451,16 @@ namespace nts {
 				 *
 				 * @param packet защищённый пакет SRTCP целиком
 				 * @param result место, в которое помещается открытый пакет RTCP
-				 *
 				 * @return       отказ снятия защиты
 				 *
 				 * \~english
 				 * @brief Method of unprotecting an SRTCP packet at the receiver
+				 *
 				 * @param packet the whole protected SRTCP packet
 				 * @param result the place the plain RTCP packet is put into
 				 * @return       the unprotection failure
 				 *
 				 * \~
-				 *
 				 */
 				error_t unprotectControl(const view_t & packet, vector <uint8_t> & result) noexcept;
 			public:
@@ -465,24 +468,20 @@ namespace nts {
 				 * \~russian
 				 * @brief Конструктор
 				 *
-				 *
 				 * \~english
 				 * @brief Constructor
 				 *
 				 * \~
-				 *
 				 */
 				Session() noexcept;
 				/**
 				 * \~russian
 				 * @brief Деструктор
 				 *
-				 *
 				 * \~english
 				 * @brief Destructor
 				 *
 				 * \~
-				 *
 				 */
 				~Session() noexcept;
 		} session_t;

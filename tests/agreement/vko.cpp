@@ -88,14 +88,13 @@ static const char * PUBLIC_SECOND_Y =
 static const char * MATERIAL = "1d80603c8544c727";
 
 /**
- * @brief Метод разбора записи шестнадцатеричными знаками с разворотом
+ * @brief Функция разбора записи шестнадцатеричными знаками с разворотом
  *
  * @details Ключи контрольных примеров записаны строкой байтов от младшего к
  *          старшему, а модуль ждёт обратного порядка
  *
  * @param text разбираемая запись
  * @param data место, в которое помещаются разобранные байты
- *
  * @return     число разобранных байтов
  *
  */
@@ -135,11 +134,10 @@ static size_t bytes(const char * text, uint8_t * data) {
 	return result;
 }
 /**
- * @brief Метод сборки записи шестнадцатеричными знаками
+ * @brief Функция сборки записи шестнадцатеричными знаками
  *
  * @param data собираемые байты
  * @param size число собираемых байтов
- *
  * @return     собранная запись
  *
  */
@@ -445,15 +443,19 @@ TEST(VkoTest, Bounds) {
  *
  */
 TEST(VkoTest, Torsion) {
+	// Контекст кривой набора параметров
 	curve::curve_t curve;
 	// Набор параметров с кофактором четыре: группа TLS GC256A
 	ASSERT_TRUE(curve::parameters(std::string("1.2.643.7.1.2.1.1.1"), curve));
+	// Кофактор набора равен четырём
 	ASSERT_EQ(curve.cofactor(), static_cast <uint64_t> (4));
 	/**
 	 * Точка порядка два: корень уравнения x^3 + a*x + b = 0 при y = 0. Уравнению
 	 * кривой она отвечает, а подгруппе порядка q не принадлежит
 	 */
+	// Буферы координат точки и собственного секрета
 	uint8_t x[32], y[32], secret[32];
+	// Абсцисса точки порядка два разобрана из записи в тридцать два байта
 	ASSERT_EQ(bytes("0100fe73f595ff158e974b44d478d9588744fe5c192ac47ea63075dce7a14aaa", x), static_cast <size_t> (32));
 	/**
 	 * Помощник bytes() разворачивает запись к младшему байту вперёд, а координаты
@@ -465,12 +467,15 @@ TEST(VkoTest, Torsion) {
 	::memset(secret, 0x01, sizeof(secret));
 	// Точка порядка два лежит на кривой: без просьбы о подгруппе разбор её принимает
 	curve::point_t torsion;
+	// Без просьбы о подгруппе точка порядка два на кривой принимается
 	ASSERT_TRUE(curve.point(view_t(x, 32), view_t(y, 32), torsion, false));
 	/**
 	 * Разбор точки обязан её отвергнуть: умножение на кофактор обращает её в ноль
 	 */
 	curve::point_t point;
+	// С просьбой о подгруппе точка порядка два отвергается
 	ASSERT_FALSE(curve.point(view_t(x, 32), view_t(y, 32), point));
+	// Место общего ключа
 	uint8_t key[32];
 	/**
 	 * Раздел 5.2 ГОСТ Р 34.10-2012: чужой ключ вне подгруппы отвергается при любом
@@ -480,13 +485,22 @@ TEST(VkoTest, Torsion) {
 	ASSERT_FALSE(agreement::vko(curve, view_t(secret, 32), view_t(x, 32), view_t(y, 32), view_t(), key, 32));
 	// Годный ключ той же кривой по-прежнему принимается
 	uint8_t opened[64], mine[32];
+	// Годная пара ключей той же кривой вырабатывается
 	ASSERT_TRUE(agreement::generate(curve, mine, opened));
+	// Буферы координат и секрета, развёрнутых к старшему байту вперёд
 	uint8_t px[32], py[32], sec[32];
+	/**
+	 * Разворачиваем координаты и секрет к старшему байту вперёд, как того ждёт выработка
+	 */
 	for(size_t i = 0; i < 32; i++){
+		// Абсцисса открытого ключа с разворотом
 		px[i] = opened[31 - i];
+		// Ордината открытого ключа с разворотом
 		py[i] = opened[63 - i];
+		// Секрет с разворотом
 		sec[i] = mine[31 - i];
 	}
+	// Годный ключ по-прежнему принимается после отсечения кручения
 	ASSERT_TRUE(agreement::vko(curve, view_t(sec, 32), view_t(px, 32), view_t(py, 32), view_t(), key, 32));
 }
 
@@ -499,15 +513,22 @@ TEST(VkoTest, Torsion) {
  *
  */
 TEST(VkoTest, Cleared) {
+	// Контекст кривой набора параметров
 	curve::curve_t curve;
 	// Набор параметров с кофактором четыре: группа TLS GC256A
 	ASSERT_TRUE(curve::parameters(std::string("1.2.643.7.1.2.1.1.1"), curve));
+	// Кофактор набора равен четырём
 	ASSERT_EQ(curve.cofactor(), static_cast <uint64_t> (4));
 	// Значения набора и точка T порядка два (корень x^3 + a·x + b при y = 0) от старшего байта
 	const auto decode = [](const char * text, uint8_t * place) noexcept -> void {
+		/**
+		 * Побайтовый разбор шестнадцатеричной записи: каждые два символа — один байт
+		 */
 		for(size_t i = 0; i < 32; i++){ unsigned v = 0; ::sscanf(text + i * 2, "%2x", &v); place[i] = static_cast <uint8_t> (v); }
 	};
+	// Буферы полей набора и координат точки T
 	uint8_t p[32], a[32], b[32], n[32], gx[32], gy[32], tx[32], ty[32] = {0};
+	// Модуль p набора
 	decode("fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd97", p);
 	decode("c2173f1513981673af4892c23035a27ce25e2013bf95aa33b22c656f277e7335", a);
 	decode("295f9bae7428ed9ccc20e7c359a9d41a22fccd9108e17bf7ba9337a6f8ae9513", b);
@@ -517,20 +538,29 @@ TEST(VkoTest, Cleared) {
 	decode("0100fe73f595ff158e974b44d478d9588744fe5c192ac47ea63075dce7a14aaa", tx);
 	// Та же кривая с кофактором один: T читается как есть, и G + T складывается её арифметикой
 	curve::curve_t loose;
+	// Запуск кривой с кофактором один на разобранных параметрах
 	ASSERT_TRUE(loose.start(view_t(p, 32), view_t(a, 32), view_t(b, 32), view_t(n, 32), view_t(gx, 32), view_t(gy, 32), 1));
+	// Точка кручения T, точка основания G и сумма G + T
 	curve::point_t torsion, base, sum;
+	// Точка T читается на кривой с кофактором один
 	ASSERT_TRUE(loose.point(view_t(tx, 32), view_t(ty, 32), torsion));
+	// Получаем точку основания G
 	loose.base(base);
+	// Складываем G с точкой кручения T
 	loose.add(base, torsion, sum);
+	// Буферы координат суммы G + T
 	uint8_t sx[32], sy[32];
+	// Получаем координаты суммы
 	ASSERT_TRUE(loose.coordinates(sum, sx, sy, 32));
 	// Свой секрет: меньше порядка подгруппы
 	uint8_t secret[32];
 	::memset(secret, 0x1a, sizeof(secret));
+	// Приёмники общих ключей по G + T и по G
 	uint8_t first[32], second[32];
 	// Точка G + T вне подгруппы, но на кривой, принимается, и общий ключ по ней равен ключу по G
 	ASSERT_TRUE(agreement::vko(curve, view_t(secret, 32), view_t(sx, 32), view_t(sy, 32), view_t(), first, 32));
 	ASSERT_TRUE(agreement::vko(curve, view_t(secret, 32), view_t(gx, 32), view_t(gy, 32), view_t(), second, 32));
+	// Общие ключи по G + T и по G обязаны совпадать
 	EXPECT_EQ(::memcmp(first, second, 32), 0);
 	// Одна лишь T обращается кофактором в ноль и отвергается (VkoTest.Torsion)
 	EXPECT_FALSE(agreement::vko(curve, view_t(secret, 32), view_t(tx, 32), view_t(ty, 32), view_t(), first, 32));

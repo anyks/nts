@@ -66,8 +66,14 @@ TEST(Sntrup761x25519Test, Roundtrip) {
 	ASSERT_EQ(::memcmp(serverShared, clientShared, sizeof(serverShared)), 0);
 	// Общий секрет обязан быть ненулевым
 	bool nonzero = false;
-	for(size_t i = 0; i < sizeof(serverShared); i++)
+	/**
+	 * Проверяем, что общий секрет не состоит из одних нулей
+	 */
+	for(size_t i = 0; i < sizeof(serverShared); i++){
+		// Накапливаем признак ненулевого байта секрета
 		nonzero = (nonzero || (serverShared[i] != 0));
+	}
+	// Накопленный признак ненулевого секрета обязан быть подтверждён
 	ASSERT_TRUE(nonzero);
 }
 
@@ -95,15 +101,20 @@ TEST(Sntrup761x25519Test, Combine) {
 	 */
 	// Секрет sntrup761 из распаковки
 	uint8_t pq[agreement::SNTRUP761_SHARED];
+	// Распаковка секрета sntrup761 обязана удаться
 	ASSERT_TRUE(agreement::decaps(view_t(serverCipher, agreement::SNTRUP761_CIPHERTEXT), view_t(clientSecret, agreement::SNTRUP761_SECRET), pq));
 	// Секрет X25519 из обмена
 	uint8_t cl[agreement::X25519_SIZE];
+	// Обмен X25519 на тех же ключах обязан удаться
 	ASSERT_TRUE(agreement::x25519(view_t(clientSecret + agreement::SNTRUP761_SECRET, agreement::X25519_SIZE), view_t(serverCipher + agreement::SNTRUP761_CIPHERTEXT, agreement::X25519_SIZE), cl));
 	// Склейка SHA-512(K_PQ ‖ K_CL)
 	digest::hasher_t hasher(digest::hash_t::SHA512);
+	// Подаём в хеш секрет sntrup761
 	hasher.update(view_t(pq, sizeof(pq)));
 	hasher.update(view_t(cl, sizeof(cl)));
+	// Буфер самостоятельно склеенного секрета
 	uint8_t want[agreement::SNTRUP761X25519_SHARED];
+	// Склейка самостоятельного секрета обязана завершиться
 	ASSERT_TRUE(hasher.finish(want, sizeof(want)));
 	// Общий секрет клиента
 	uint8_t clientShared[agreement::SNTRUP761X25519_SHARED];
@@ -139,7 +150,9 @@ TEST(Sntrup761x25519Test, Refusals) {
 	// Подделанный шифртекст обязан отказать
 	uint8_t forged[agreement::SNTRUP761X25519_SERVER];
 	::memcpy(forged, serverCipher, sizeof(forged));
+	// Портим один байт шифртекста
 	forged[10] ^= 0x01;
+	// Декапсуляция подделанного шифртекста обязана отказать
 	ASSERT_FALSE(agreement::decapsSntrup761x25519(view_t(forged, sizeof(forged)), view_t(clientSecret, sizeof(clientSecret)), clientShared));
 	// Значение клиента не той длины обязано отказать
 	ASSERT_FALSE(agreement::encapsSntrup761x25519(view_t(clientKey, sizeof(clientKey) - 1), serverCipher, serverSecret, serverShared));

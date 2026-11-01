@@ -62,10 +62,9 @@ static const char * CORPUS = ANTS_CORPUS;
  */
 namespace {
 	/**
-	 * @brief Метод запуска команды оболочки без консоли на входе
+	 * @brief Функция запуска команды оболочки без консоли на входе
 	 *
 	 * @param command запускаемая команда
-	 *
 	 * @return        код возврата команды
 	 *
 	 */
@@ -74,10 +73,9 @@ namespace {
 		return ::system((command + " </dev/null").c_str());
 	}
 	/**
-	 * @brief Метод чтения файла целиком
+	 * @brief Функция чтения файла целиком
 	 *
 	 * @param path путь к читаемому файлу
-	 *
 	 * @return     содержимое файла
 	 *
 	 */
@@ -92,10 +90,9 @@ namespace {
 		return stream.str();
 	}
 	/**
-	 * @brief Метод чтения файла набора целиком
+	 * @brief Функция чтения файла набора целиком
 	 *
 	 * @param name имя файла в наборе
-	 *
 	 * @return     содержимое файла
 	 *
 	 */
@@ -104,10 +101,9 @@ namespace {
 		return slurp(std::string(CORPUS) + "/" + name);
 	}
 	/**
-	 * @brief Метод перевода строки в набор байтов
+	 * @brief Функция перевода строки в набор байтов
 	 *
 	 * @param text переводимая строка
-	 *
 	 * @return     набор байтов
 	 *
 	 */
@@ -116,10 +112,9 @@ namespace {
 		return std::vector <uint8_t> (text.begin(), text.end());
 	}
 	/**
-	 * @brief Метод получения просмотра набора байтов
+	 * @brief Функция получения просмотра набора байтов
 	 *
 	 * @param data просматриваемый набор байтов
-	 *
 	 * @return     просмотр набора байтов
 	 *
 	 */
@@ -128,11 +123,10 @@ namespace {
 		return view_t(data.data(), data.size());
 	}
 	/**
-	 * @brief Метод записи файла целиком
+	 * @brief Функция записи файла целиком
 	 *
 	 * @param path путь к записываемому файлу
 	 * @param data записываемое содержимое
-	 *
 	 * @return     признак успешности записи
 	 *
 	 */
@@ -145,10 +139,9 @@ namespace {
 		return file.good();
 	}
 	/**
-	 * @brief Метод извлечения тела первой записи PEM
+	 * @brief Функция извлечения тела первой записи PEM
 	 *
 	 * @param text разбираемый текст
-	 *
 	 * @return     тело первой записи в кодировке DER
 	 *
 	 */
@@ -175,7 +168,6 @@ namespace {
 			 * @brief Метод получения пути к файлу внутри каталога
 			 *
 			 * @param name имя файла
-			 *
 			 * @return     путь к файлу
 			 *
 			 */
@@ -218,10 +210,9 @@ namespace {
 			}
 	} sandbox_t;
 	/**
-	 * @brief Метод извлечения значения признака CN из имени
+	 * @brief Функция извлечения значения признака CN из имени
 	 *
 	 * @param name разбираемое имя
-	 *
 	 * @return     значение признака CN либо пустая строка
 	 *
 	 */
@@ -249,7 +240,7 @@ TEST(RequestTest, Corpus){
 	};
 	// Опознаватели алгоритмов подписи запросов набора
 	const char * signatures[] = {
-		// sha256WithRSAEncryption, ecdsa-with-SHA256
+		// Алгоритмы RSA на SHA256 и ECDSA на SHA256
 		"1.2.840.113549.1.1.11", "1.2.840.10045.4.3.2", "1.2.840.113549.1.1.11", "1.2.840.10045.4.3.2", "1.2.840.10045.4.3.2"
 	};
 	/**
@@ -292,6 +283,7 @@ TEST(RequestTest, Refusal){
 	ASSERT_EQ(request.parse(view(der)), x509::error_t::NONE);
 	// Порченая запись: последний байт подписи перевёрнут
 	std::vector <uint8_t> damaged(der);
+	// Переворачиваем все разряды последнего байта подписи
 	damaged[damaged.size() - 1] = static_cast <uint8_t> (damaged[damaged.size() - 1] ^ 0xFF);
 	// Разбор порченой записи проходит: подпись не проверяется разбором
 	ASSERT_EQ(request.parse(view(damaged)), x509::error_t::NONE);
@@ -394,19 +386,19 @@ TEST(RequestTest, Starved){
 	 */
 	for(size_t budget = 0; budget < 256; budget++){
 		// Итог записи при отмеренном запасе
-		x509::error_t encoded_result = x509::error_t::NONE;
+		x509::error_t encodedResult = x509::error_t::NONE;
 		{
 			// Отмеряем запас выделений на время записи
 			starve::ration_t ration(budget);
 			// Записанный запрос
 			std::vector <uint8_t> encoded;
 			// Выполняем запись запроса при отмеренном запасе
-			encoded_result = x509::encode(reference.subjects(), reference.key(), extensions, signer, digest::hash_t::SHA256, encoded);
+			encodedResult = x509::encode(reference.subjects(), reference.key(), extensions, signer, digest::hash_t::SHA256, encoded);
 		}
 		// Проверяем, что запись ответила успехом либо отказом памяти
-		ASSERT_TRUE((encoded_result == x509::error_t::NONE) || (encoded_result == x509::error_t::MEMORY)) << "запас " << budget << ", отказ записи " << static_cast <int> (encoded_result);
+		ASSERT_TRUE((encodedResult == x509::error_t::NONE) || (encodedResult == x509::error_t::MEMORY)) << "запас " << budget << ", отказ записи " << static_cast <int> (encodedResult);
 		// Запоминаем объявленный отказ памяти
-		starved = (starved || (encoded_result == x509::error_t::MEMORY));
+		starved = (starved || (encodedResult == x509::error_t::MEMORY));
 		// Итог разбора эталонной записи при отмеренном запасе
 		x509::error_t parsed = x509::error_t::NONE;
 		{
@@ -433,7 +425,7 @@ TEST(RequestTest, Starved){
 TEST(RequestTest, Openssl){
 	// Если openssl недоступен
 	if(shell("openssl version >/dev/null 2>&1") != 0)
-		// Пропускаем проверку
+		// Пропускаем проверку без системного эталона
 		GTEST_SKIP() << "openssl недоступен";
 	// Временный каталог
 	sandbox_t sandbox;
@@ -486,7 +478,9 @@ TEST(RequestTest, Sm2Mldsa){
 		{"mldsa65.crt", "mldsa65.pem", "2.16.840.1.101.3.4.3.18"},
 		{"mldsa87.crt", "mldsa87.pem", "2.16.840.1.101.3.4.3.19"}
 	};
-	// Выполняем перебор ключей набора
+	/**
+	 * Выполняем перебор ключей набора
+	 */
 	for(size_t i = 0; i < (sizeof(CASES) / sizeof(CASES[0])); i++){
 		// Тело записи сертификата в кодировке DER
 		const std::vector <uint8_t> der = body(corpus(CASES[i].crt));

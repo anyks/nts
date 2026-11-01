@@ -6,6 +6,12 @@
  *
  * @author Yuriy Lobarev
  *
+ * @telegram{forman}
+ * @phone{+7 (910) 983-95-90}
+ *
+ * @email forman@anyks.com
+ * @site https://anyks.com
+ *
  * @brief Исходный файл модуля сообщений подтверждения подлинности протокола TLS
  *
  * @section Намеренные решения
@@ -74,10 +80,9 @@ namespace {
 	typedef message::error_t error_t;
 
 	/**
-	 * @brief Метод перевода отказа составителя полей в отказ модуля
+	 * @brief Функция перевода отказа составителя полей в отказ модуля
 	 *
 	 * @param failure отказ, которым ответил составитель полей
-	 *
 	 * @return        отказ модуля, отвечающий отказу составителя
 	 *
 	 * @note Нехватка памяти обязана дойти до вызывающего своим именем: составитель
@@ -117,11 +122,10 @@ namespace {
 	static const char * CLIENT = "TLS 1.3, client CertificateVerify";
 
 	/**
-	 * @brief Метод разбора перечня расширений записи цепочки
+	 * @brief Функция разбора перечня расширений записи цепочки
 	 *
 	 * @param data   разбираемая область расширений записи
 	 * @param result перечень, в который помещаются разобранные расширения
-	 *
 	 * @return       отказ разбора перечня расширений
 	 *
 	 */
@@ -135,6 +139,9 @@ namespace {
 		 */
 		// Битовая карта встреченных видов расширений: повтор ловится за постоянное время (вход недоверенный - цепочка сертификатов и билет)
 		uint64_t seen[1024] = {0};
+		/**
+		 * Выполняем перебор расширений до конца области записи
+		 */
 		while(scanner.left() > 0){
 			// Вид очередного расширения записи цепочки
 			uint32_t type = 0;
@@ -157,13 +164,13 @@ namespace {
 			// Отмечаем вид расширения встреченным
 			seen[type / 64] |= (static_cast <uint64_t> (1) << (type % 64));
 			/**
-			 * Выполняем перехват ошибок работы с памятью
+			 * Выполняем перехват ошибок
 			 */
 			try {
 				// Добавляем очередное расширение в перечень расширений записи
 				result.push_back(hello::extension_t(static_cast <uint16_t> (type), body));
 			/**
-			 * Если памяти под перечень расширений не хватило
+			 * Выполняем перехват ошибок
 			 */
 			} catch(const std::bad_alloc &) {
 				// Выводим отказ нехватки памяти
@@ -176,11 +183,10 @@ namespace {
 };
 
 /**
- * @brief Метод разбора тела сообщения цепочки сертификатов
+ * @brief Функция разбора тела сообщения цепочки сертификатов
  *
  * @param data   разбираемое тело сообщения
  * @param result сообщение, в которое помещается итог разбора
- *
  * @return       отказ разбора тела сообщения
  *
  */
@@ -238,13 +244,13 @@ nts::message::error_t nts::message::parse(const view_t & data, certificate_t & r
 			// Выводим отказ разбора перечня расширений
 			return error;
 		/**
-		 * Выполняем перехват ошибок работы с памятью
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Добавляем разобранную запись в цепочку сертификатов
 			entries.push_back(entry);
 		/**
-		 * Если памяти под цепочку сертификатов не хватило
+		 * Выполняем перехват ошибок
 		 */
 		} catch(const std::bad_alloc &) {
 			// Выводим отказ нехватки памяти
@@ -252,13 +258,13 @@ nts::message::error_t nts::message::parse(const view_t & data, certificate_t & r
 		}
 	}
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Устанавливаем разобранные записи цепочки сертификатов
 		result.entries = entries;
 	/**
-	 * Если памяти под цепочку сертификатов не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -270,11 +276,10 @@ nts::message::error_t nts::message::parse(const view_t & data, certificate_t & r
 	return error_t::NONE;
 }
 /**
- * @brief Метод составления тела сообщения цепочки сертификатов
+ * @brief Функция составления тела сообщения цепочки сертификатов
  *
  * @param message составляемое сообщение цепочки сертификатов
  * @param result  накопитель, в конец которого дописывается тело сообщения
- *
  * @return        отказ составления тела сообщения
  *
  */
@@ -284,7 +289,7 @@ nts::message::error_t nts::message::build(const certificate_t & message, vector 
 	// Отказ, которым ответил составитель полей
 	field::error_t failure = field::error_t::NONE;
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Открываем поле привязки цепочки к запросу сертификата
@@ -362,7 +367,7 @@ nts::message::error_t nts::message::build(const certificate_t & message, vector 
 		// Выполняем дописывание тела сообщения в накопитель
 		result.insert(result.end(), data.data, data.data + data.size);
 	/**
-	 * Если памяти под тело сообщения не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -372,11 +377,10 @@ nts::message::error_t nts::message::build(const certificate_t & message, vector 
 	return error_t::NONE;
 }
 /**
- * @brief Метод разбора тела сообщения подписи владения ключом
+ * @brief Функция разбора тела сообщения подписи владения ключом
  *
  * @param data   разбираемое тело сообщения
  * @param result сообщение, в которое помещается итог разбора
- *
  * @return       отказ разбора тела сообщения
  *
  */
@@ -413,11 +417,10 @@ nts::message::error_t nts::message::parse(const view_t & data, verify_t & result
 	return error_t::NONE;
 }
 /**
- * @brief Метод составления тела сообщения подписи владения ключом
+ * @brief Функция составления тела сообщения подписи владения ключом
  *
  * @param message составляемое сообщение подписи владения ключом
  * @param result  накопитель, в конец которого дописывается тело сообщения
- *
  * @return        отказ составления тела сообщения
  *
  */
@@ -431,7 +434,7 @@ nts::message::error_t nts::message::build(const verify_t & message, vector <uint
 	// Отказ, которым ответил составитель полей
 	field::error_t failure = field::error_t::NONE;
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Записываем схему подписи владения ключом сертификата
@@ -455,7 +458,7 @@ nts::message::error_t nts::message::build(const verify_t & message, vector <uint
 		// Выполняем дописывание тела сообщения в накопитель
 		result.insert(result.end(), data.data, data.data + data.size);
 	/**
-	 * Если памяти под тело сообщения не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -465,11 +468,10 @@ nts::message::error_t nts::message::build(const verify_t & message, vector <uint
 	return error_t::NONE;
 }
 /**
- * @brief Метод разбора тела сообщения билета возобновления связи
+ * @brief Функция разбора тела сообщения билета возобновления связи
  *
  * @param data   разбираемое тело сообщения
  * @param result билет, в который помещается итог разбора
- *
  * @return       отказ разбора тела сообщения
  *
  */
@@ -537,11 +539,10 @@ nts::message::error_t nts::message::parse(const view_t & data, ticket_t & result
 	return error_t::NONE;
 }
 /**
- * @brief Метод составления тела сообщения билета возобновления связи
+ * @brief Функция составления тела сообщения билета возобновления связи
  *
  * @param ticket составляемый билет возобновления связи
  * @param result накопитель, в который складывается тело сообщения
- *
  * @return       отказ составления тела сообщения
  *
  */
@@ -626,13 +627,13 @@ nts::message::error_t nts::message::build(const ticket_t & ticket, vector <uint8
 	// Получаем составленное тело сообщения билета
 	const view_t data = builder.data();
 	/**
-	 * Выполняем перенос составленного тела сообщения
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Выполняем перенос составленного тела сообщения в накопитель
 		result.assign(data.data, data.data + data.size);
 	/**
-	 * Если памяти под итог не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -642,11 +643,10 @@ nts::message::error_t nts::message::build(const ticket_t & ticket, vector <uint8
 	return error_t::NONE;
 }
 /**
- * @brief Метод разбора тела сообщения смены ключевого материала
+ * @brief Функция разбора тела сообщения смены ключевого материала
  *
  * @param data   разбираемое тело сообщения
  * @param result вид смены, в который помещается итог разбора
- *
  * @return       отказ разбора тела сообщения
  *
  */
@@ -677,23 +677,22 @@ nts::message::error_t nts::message::parse(const view_t & data, update_t & result
 	return error_t::EMPTY;
 }
 /**
- * @brief Метод составления тела сообщения смены ключевого материала
+ * @brief Функция составления тела сообщения смены ключевого материала
  *
  * @param update составляемый вид смены ключевого материала
  * @param result накопитель, в который складывается тело сообщения
- *
  * @return       отказ составления тела сообщения
  *
  */
 nts::message::error_t nts::message::build(const update_t update, vector <uint8_t> & result) noexcept {
 	/**
-	 * Выполняем составление тела сообщения смены ключевого материала
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Записываем вид смены ключевого материала связи
 		result.assign(1, static_cast <uint8_t> (update));
 	/**
-	 * Если памяти под итог не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -703,11 +702,10 @@ nts::message::error_t nts::message::build(const update_t update, vector <uint8_t
 	return error_t::NONE;
 }
 /**
- * @brief Метод обращения записи подписи владения ключом
+ * @brief Функция обращения записи подписи владения ключом
  *
  * @param signature обращаемая подпись владения ключом
  * @param result    место, в которое помещается обращённая подпись
- *
  * @return          отказ обращения записи подписи
  *
  */
@@ -739,12 +737,11 @@ nts::message::error_t nts::message::reverse(const view_t & signature, uint8_t * 
 	return error_t::NONE;
 }
 /**
- * @brief Метод составления подписываемого содержимого владения ключом
+ * @brief Функция составления подписываемого содержимого владения ключом
  *
  * @param transcript хеш переписки рукопожатия на миг подписания
  * @param server     признак того, что подпись составляется сервером
  * @param result     накопитель, в конец которого дописывается подписываемое содержимое
- *
  * @return           отказ составления подписываемого содержимого
  *
  */
@@ -756,7 +753,7 @@ nts::message::error_t nts::message::content(const view_t & transcript, const boo
 	// Получаем название назначения составляемой подписи
 	const char * title = (server ? SERVER : CLIENT);
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		/**
@@ -772,7 +769,7 @@ nts::message::error_t nts::message::content(const view_t & transcript, const boo
 		// Записываем хеш переписки рукопожатия на миг подписания
 		result.insert(result.end(), transcript.data, transcript.data + transcript.size);
 	/**
-	 * Если памяти под подписываемое содержимое не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -782,12 +779,11 @@ nts::message::error_t nts::message::content(const view_t & transcript, const boo
 	return error_t::NONE;
 }
 /**
- * @brief Метод выработки тела сообщения завершения рукопожатия
+ * @brief Функция выработки тела сообщения завершения рукопожатия
  *
  * @param secret     ключ выработки завершения рукопожатия
  * @param transcript хеш переписки рукопожатия на миг завершения
  * @param result     место, в которое помещается тело сообщения
- *
  * @return           отказ выработки тела сообщения
  *
  */
@@ -796,13 +792,12 @@ nts::message::error_t nts::message::finished(const view_t & secret, const view_t
 	return nts::message::finished(digest::hash_t::STREEBOG256, secret, transcript, result);
 }
 /**
- * @brief Метод выработки тела сообщения завершения рукопожатия выбранным хешем
+ * @brief Функция выработки тела сообщения завершения рукопожатия выбранным хешем
  *
  * @param algorithm  хеш набора шифрования, которым ведётся рукопожатие
  * @param secret     ключ выработки завершения рукопожатия
  * @param transcript хеш переписки рукопожатия на миг завершения
  * @param result     место, в которое помещается тело сообщения
- *
  * @return           отказ выработки тела сообщения
  *
  */
@@ -825,11 +820,10 @@ nts::message::error_t nts::message::finished(const digest::hash_t algorithm, con
 	return error_t::NONE;
 }
 /**
- * @brief Метод сличения тел сообщений завершения рукопожатия
+ * @brief Функция сличения тел сообщений завершения рукопожатия
  *
  * @param first  первое сличаемое тело сообщения
  * @param second второе сличаемое тело сообщения
- *
  * @return       признак схождения сличаемых тел сообщений
  *
  */
@@ -849,6 +843,7 @@ bool nts::message::compare(const view_t & first, const view_t & second) noexcept
 	 *
 	 * @note Перебор идёт до конца всегда: ранний выход выдал бы временем своей работы,
 	 *       сколько байтов принятого завершения сошлось
+	 *
 	 */
 	for(size_t i = 0; i < first.size; i++)
 		// Накапливаем расхождение очередных байтов сличаемых тел
@@ -856,3 +851,15 @@ bool nts::message::compare(const view_t & first, const view_t & second) noexcept
 	// Выводим признак схождения сличаемых тел сообщений
 	return (diff == 0);
 }
+
+/**
+ * @brief Конструктор
+ *
+ */
+nts::message::Verify::Verify() noexcept : scheme(extension::scheme_t::NONE) {}
+
+/**
+ * @brief Конструктор
+ *
+ */
+nts::message::Ticket::Ticket() noexcept : lifetime(0), age(0) {}

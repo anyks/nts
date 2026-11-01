@@ -37,12 +37,11 @@
 using namespace nts;
 
 /**
- * @brief Метод нарезки потока байтов на записи кусками заданной длины
+ * @brief Функция нарезки потока байтов на записи кусками заданной длины
  *
  * @param stream разбираемый поток байтов
  * @param chunk  длина куска, которым подаётся поток байтов
  * @param result перечень собранных записей
- *
  * @return       отказ, которым завершился разбор потока байтов
  *
  */
@@ -441,11 +440,10 @@ TEST(RecordTest, Refusals){
 }
 
 /**
- * @brief Метод нарезки и сборки записей при отмеренном запасе выделений
+ * @brief Функция нарезки и сборки записей при отмеренном запасе выделений
  *
  * @param source нарезаемые на записи данные
  * @param intact признак схождения собранных данных с нарезанными
- *
  * @return       отказ, которым завершился первый несостоявшийся шаг
  *
  */
@@ -547,7 +545,7 @@ TEST(RecordTest, Starved){
 }
 
 /**
- * @brief Метод составления записи с заголовком издания 1.2
+ * @brief Функция составления записи с заголовком издания 1.2
  *
  * @param type   вид содержимого записи
  * @param body   содержимое записи
@@ -555,11 +553,13 @@ TEST(RecordTest, Starved){
  *
  */
 static void framing(const uint8_t type, const std::vector <uint8_t> & body, std::vector <uint8_t> & stream) {
+	// Вид содержимого записи
 	stream.push_back(type);
 	stream.push_back(0x03);
 	stream.push_back(0x03);
 	stream.push_back(static_cast <uint8_t> (body.size() >> 8));
 	stream.push_back(static_cast <uint8_t> (body.size() & 0xFF));
+	// Содержимое записи вслед за заголовком
 	stream.insert(stream.end(), body.begin(), body.end());
 }
 
@@ -567,13 +567,19 @@ static void framing(const uint8_t type, const std::vector <uint8_t> & body, std:
  * Проверка уплотнения накопителя сборщика: разобранные записи снимаются с начала, недособранная сохраняется, разобранный целиком опустошается
  */
 TEST(RecordTest, Compaction){
+	// Читающая сторона накопителя
 	record::reader_t reader;
+	// Накопитель собранных записей
 	std::vector <uint8_t> stream;
+	// Первая запись: три байта рукопожатия
 	framing(0x16, {0x01, 0x02, 0x03}, stream);
 	framing(0x17, {0x04, 0x05, 0x06, 0x07}, stream);
 	framing(0x15, {0x08, 0x09}, stream);
+	// Полная длина трёх записей
 	const size_t whole = stream.size();
+	// Разобранный заголовок
 	record::header_t header;
+	// Вид разобранного содержимого
 	view_t payload;
 	// Две целые записи и половина третьей одной подачей
 	ASSERT_EQ(reader.push(view_t(stream.data(), whole - 1)), record::error_t::NONE);

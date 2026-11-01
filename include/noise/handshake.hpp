@@ -12,8 +12,13 @@
  * @email forman@anyks.com
  * @site https://anyks.com
  *
+ * \~russian
  * @brief Модуль состояния рукопожатия Noise (HandshakeState, §5.3)
  *
+ * \~english
+ * @brief Module of the handshake state of Noise (HandshakeState, §5.3)
+ *
+ * \~
  * @copyright Copyright © 2026
  *
  */
@@ -72,8 +77,11 @@ namespace nts {
 		 * \~
 		 */
 		enum class role_t : uint8_t {
+			// Не установлена
 			NONE      = 0x00, /*!< \~russian Не установлена \~english Not set \~ */
+			// Инициатор
 			INITIATOR = 0x01, /*!< \~russian Инициатор \~english Initiator \~ */
+			// Отвечающий
 			RESPONDER = 0x02  /*!< \~russian Отвечающий \~english Responder \~ */
 		};
 		/**
@@ -86,9 +94,13 @@ namespace nts {
 		 * \~
 		 */
 		enum class step_t : uint8_t {
+			// Не заведено либо неисправно
 			NONE  = 0x00, /*!< \~russian Не заведено либо неисправно \~english Not started or broken \~ */
+			// Наш ход: писать сообщение
 			WRITE = 0x01, /*!< \~russian Наш ход: писать сообщение \~english Our turn: write a message \~ */
+			// Чужой ход: читать сообщение
 			READ  = 0x02, /*!< \~russian Чужой ход: читать сообщение \~english Peer turn: read a message \~ */
+			// Рукопожатие завершено, дальше раскол
 			DONE  = 0x03  /*!< \~russian Рукопожатие завершено, дальше раскол \~english The handshake is complete, split follows \~ */
 		};
 		/**
@@ -166,55 +178,101 @@ namespace nts {
 				symmetric_t _symmetric;
 			private:
 				/**
+				 * \~russian
 				 * @brief Метод поглощения предсообщений и проверки полноты ключей
 				 *
 				 * @return признак готовности к первому сообщению
 				 *
+				 * \~english
+				 * @brief Method of absorbing the pre-messages and checking the completeness of the keys
+				 *
+				 * @return the flag of the readiness for the first message
+				 *
+				 * \~
 				 */
 				bool ready() noexcept;
 				/**
+				 * \~russian
 				 * @brief Метод примешивания DH по знаку с учётом роли
 				 *
 				 * @param token знак: EE, ES, SE либо SS
-				 *
 				 * @return      признак того, что секрет примешан
 				 *
+				 * \~english
+				 * @brief Method of mixing in the DH by the token with regard to the role
+				 *
+				 * @param token the token: EE, ES, SE or SS
+				 * @return      the flag of the secret being mixed in
+				 *
+				 * \~
 				 */
 				bool mix(const token_t token) noexcept;
 				/**
+				 * \~russian
 				 * @brief Метод упаковки по знаку KEM у отправителя
 				 *
 				 * @param token      знак: EKEM либо SKEM
 				 * @param ciphertext место шифртекста
 				 * @param shared     место общего секрета
-				 *
 				 * @return           признак того, что секрет упакован
 				 *
+				 * \~english
+				 * @brief Method of the packing by the token of the KEM at the sender
+				 *
+				 * @param token      the token: EKEM or SKEM
+				 * @param ciphertext the place of the ciphertext
+				 * @param shared     the place of the shared secret
+				 * @return           the flag of the secret being packed
+				 *
+				 * \~
 				 */
 				bool wrap(const token_t token, uint8_t * ciphertext, uint8_t * shared) noexcept;
 				/**
+				 * \~russian
 				 * @brief Метод распаковки по знаку KEM у получателя
 				 *
 				 * @param token      знак: EKEM либо SKEM
 				 * @param ciphertext шифртекст
 				 * @param shared     место общего секрета
-				 *
 				 * @return           признак того, что секрет распакован
 				 *
+				 * \~english
+				 * @brief Method of the unpacking by the token of the KEM at the recipient
+				 *
+				 * @param token      the token: EKEM or SKEM
+				 * @param ciphertext the ciphertext
+				 * @param shared     the place of the shared secret
+				 * @return           the flag of the secret being unpacked
+				 *
+				 * \~
 				 */
 				bool unwrap(const token_t token, const uint8_t * ciphertext, uint8_t * shared) noexcept;
 				/**
+				 * \~russian
 				 * @brief Метод проверки, что в узоре есть заранее разделённые ключи
 				 *
 				 * @return признак наличия
 				 *
+				 * \~english
+				 * @brief Method of checking that the pattern has pre-shared keys
+				 *
+				 * @return the flag of the presence
+				 *
+				 * \~
 				 */
 				bool preshared() const noexcept;
 				/**
+				 * \~russian
 				 * @brief Метод примешивания очередного заранее разделённого ключа
 				 *
 				 * @return признак того, что ключ примешан
 				 *
+				 * \~english
+				 * @brief Method of mixing in the next pre-shared key
+				 *
+				 * @return the flag of the key being mixed in
+				 *
+				 * \~
 				 */
 				bool psk() noexcept;
 			public:
@@ -227,7 +285,6 @@ namespace nts {
 				 * @param suite    набор примитивов
 				 * @param role     роль стороны
 				 * @param prologue пролог, вправе быть пустым
-				 *
 				 * @return         признак того, что рукопожатие заведено
 				 *
 				 * \~english
@@ -238,7 +295,6 @@ namespace nts {
 				 * @param suite    suite of primitives
 				 * @param role     side role
 				 * @param prologue prologue, may be empty
-				 *
 				 * @return         sign that the handshake is started
 				 *
 				 * \~
@@ -251,7 +307,6 @@ namespace nts {
 				 * @param name     имя протокола вида «Noise_XX_25519_ChaChaPoly_SHA256»
 				 * @param role     роль стороны
 				 * @param prologue пролог, вправе быть пустым
-				 *
 				 * @return         признак того, что рукопожатие заведено
 				 *
 				 * \~english
@@ -260,7 +315,6 @@ namespace nts {
 				 * @param name     protocol name like «Noise_XX_25519_ChaChaPoly_SHA256»
 				 * @param role     side role
 				 * @param prologue prologue, may be empty
-				 *
 				 * @return         sign that the handshake is started
 				 *
 				 * \~
@@ -271,14 +325,12 @@ namespace nts {
 				 * @brief Метод установки своего постоянного ключа
 				 *
 				 * @param secret закрытый ключ в KEY байтов у классики либо зерно KEM у PQNoise (детерминированно), открытый выводится
-				 *
 				 * @return       признак того, что ключ установлен
 				 *
 				 * \~english
 				 * @brief Method of setting the own static key
 				 *
 				 * @param secret private key of KEY bytes for classic or the KEM seed for PQNoise (deterministic), the public one is derived
-				 *
 				 * @return       sign that the key is set
 				 *
 				 * \~
@@ -289,14 +341,12 @@ namespace nts {
 				 * @brief Метод явной установки своего временного ключа
 				 *
 				 * @param secret закрытый ключ в KEY байтов у классики либо зерно KEM у PQNoise, открытый выводится
-				 *
 				 * @return       признак того, что ключ установлен
 				 *
 				 * \~english
 				 * @brief Method of setting the own ephemeral key explicitly
 				 *
 				 * @param secret private key of KEY bytes for classic or the KEM seed for PQNoise, the public one is derived
-				 *
 				 * @return       sign that the key is set
 				 *
 				 * \~
@@ -307,14 +357,12 @@ namespace nts {
 				 * @brief Метод установки постоянного открытого ключа собеседника
 				 *
 				 * @param key открытый ключ в KEY байтов у классики либо длиной открытого ключа KEM у PQNoise
-				 *
 				 * @return    признак того, что ключ установлен
 				 *
 				 * \~english
 				 * @brief Method of setting the peer static public key
 				 *
 				 * @param key public key of KEY bytes for classic or of the KEM public key length for PQNoise
-				 *
 				 * @return    sign that the key is set
 				 *
 				 * \~
@@ -326,7 +374,6 @@ namespace nts {
 				 *
 				 * @param keys  ключи, каждый ровно PSK байтов
 				 * @param count число ключей, не больше PSKS_MAX
-				 *
 				 * @return      признак того, что ключи установлены
 				 *
 				 * \~english
@@ -334,7 +381,6 @@ namespace nts {
 				 *
 				 * @param keys  keys, each exactly PSK bytes
 				 * @param count number of keys, not more than PSKS_MAX
-				 *
 				 * @return      sign that the keys are set
 				 *
 				 * \~
@@ -348,7 +394,6 @@ namespace nts {
 				 *
 				 * @param coins случайности, каждая длиной COINS набора
 				 * @param count число случайностей, не больше PSKS_MAX
-				 *
 				 * @return      признак того, что случайности установлены
 				 *
 				 * \~english
@@ -358,7 +403,6 @@ namespace nts {
 				 *
 				 * @param coins randomness values, each of the suite COINS length
 				 * @param count number of values, not more than PSKS_MAX
-				 *
 				 * @return      sign that the values are set
 				 *
 				 * \~
@@ -399,7 +443,6 @@ namespace nts {
 				 * @param payload полезная часть, вправе быть пустой
 				 * @param result  место сообщения
 				 * @param size    на входе вместимость места, на выходе длина сообщения
-				 *
 				 * @return        признак того, что сообщение записано
 				 *
 				 * \~english
@@ -408,7 +451,6 @@ namespace nts {
 				 * @param payload payload, may be empty
 				 * @param result  place of the message
 				 * @param size    the capacity of the place on input, the message length on output
-				 *
 				 * @return        sign that the message is written
 				 *
 				 * \~
@@ -421,7 +463,6 @@ namespace nts {
 				 * @param message сообщение
 				 * @param result  место полезной части
 				 * @param size    на входе вместимость места, на выходе длина полезной части
-				 *
 				 * @return        признак того, что сообщение подлинно и прочитано
 				 *
 				 * \~english
@@ -430,7 +471,6 @@ namespace nts {
 				 * @param message message
 				 * @param result  place of the payload
 				 * @param size    the capacity of the place on input, the payload length on output
-				 *
 				 * @return        sign that the message is authentic and read
 				 *
 				 * \~
@@ -442,7 +482,6 @@ namespace nts {
 				 *
 				 * @param one состояние от инициатора к отвечающему
 				 * @param two состояние от отвечающего к инициатору; у односторонних узоров остаётся без ключа
-				 *
 				 * @return    признак того, что раскол выполнен
 				 *
 				 * \~english
@@ -450,7 +489,6 @@ namespace nts {
 				 *
 				 * @param one state from the initiator to the responder
 				 * @param two state from the responder to the initiator; for one-way patterns it stays without a key
-				 *
 				 * @return    sign that the split is done
 				 *
 				 * \~
@@ -461,14 +499,12 @@ namespace nts {
 				 * @brief Метод получения хеша рукопожатия для привязки канала
 				 *
 				 * @param result место хеша в длину хеша набора
-				 *
 				 * @return       признак того, что хеш выдан
 				 *
 				 * \~english
 				 * @brief Method of getting the handshake hash for channel binding
 				 *
 				 * @param result place of the hash of the suite hash length
-				 *
 				 * @return       sign that the hash is given
 				 *
 				 * \~
@@ -479,14 +515,12 @@ namespace nts {
 				 * @brief Метод получения постоянного открытого ключа собеседника, заданного либо принятого
 				 *
 				 * @param result место ключа длиной keylength()
-				 *
 				 * @return       признак того, что ключ известен и выдан
 				 *
 				 * \~english
 				 * @brief Method of getting the peer static public key, preset or received
 				 *
 				 * @param result place of the key of KEY bytes
-				 *
 				 * @return       sign that the key is known and given
 				 *
 				 * \~
@@ -497,14 +531,12 @@ namespace nts {
 				 * @brief Метод получения своего постоянного открытого ключа
 				 *
 				 * @param result место ключа длиной keylength()
-				 *
 				 * @return       признак того, что ключ задан и выдан
 				 *
 				 * \~english
 				 * @brief Method of getting the own static public key
 				 *
 				 * @param result place of the key of KEY bytes
-				 *
 				 * @return       sign that the key is set and given
 				 *
 				 * \~

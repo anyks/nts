@@ -76,7 +76,7 @@ namespace {
 	typedef asn1::error_t error_t;
 
 	/**
-	 * @brief Метод перевода даты в число суток от начала эпохи
+	 * @brief Функция перевода даты в число суток от начала эпохи
 	 *
 	 * @param year  год
 	 * @param month месяц
@@ -105,7 +105,7 @@ namespace {
 	}
 
 	/**
-	 * @brief Метод перевода числа суток от начала эпохи в дату
+	 * @brief Функция перевода числа суток от начала эпохи в дату
 	 *
 	 * @param days  число суток от 1 января 1970 года
 	 * @param year  год
@@ -135,7 +135,7 @@ namespace {
 	}
 
 	/**
-	 * @brief Метод извлечения числа из записи десятичными знаками
+	 * @brief Функция извлечения числа из записи десятичными знаками
 	 *
 	 * @param data   указатель на начало записи числа
 	 * @param count  число знаков записи
@@ -144,7 +144,7 @@ namespace {
 	 *
 	 */
 	static bool digits(const uint8_t * data, const size_t count, uint32_t & result) noexcept {
-		// Обнуляем результат
+		// Обнуляем накопитель извлекаемого числа
 		result = 0;
 		/**
 		 * Выполняем обход знаков записи числа
@@ -162,7 +162,7 @@ namespace {
 	}
 
 	/**
-	 * @brief Метод проверки записи в кодировке UTF-8 с извлечением знаков
+	 * @brief Функция проверки записи в кодировке UTF-8 с извлечением знаков
 	 *
 	 * @param view   просмотр проверяемой записи
 	 * @param result набор знаков, в который помещается результат, либо nullptr
@@ -256,7 +256,7 @@ namespace {
 	}
 
 	/**
-	 * @brief Метод записи знака в кодировке UTF-8
+	 * @brief Функция записи знака в кодировке UTF-8
 	 *
 	 * @param code   значение записываемого знака
 	 * @param result строка, в которую производится запись
@@ -268,7 +268,7 @@ namespace {
 			// Записываем единственный байт знака
 			result.append(1, static_cast <char> (code));
 		// Если знак записывается двумя байтами
-		else if(code < 0x800) {
+		else if(code < 0x800){
 			// Записываем первый байт знака
 			result.append(1, static_cast <char> (0xC0 | (code >> 6)));
 			// Записываем второй байт знака
@@ -295,7 +295,7 @@ namespace {
 	}
 
 	/**
-	 * @brief Метод проверки принадлежности знака набору знаков печатной строки
+	 * @brief Функция проверки принадлежности знака набору знаков печатной строки
 	 *
 	 * @param byte проверяемый знак
 	 * @return     признак принадлежности знака набору
@@ -432,7 +432,7 @@ bool nts::asn1::Reader::next(element_t & element) noexcept {
 		// Запоминаем длину содержимого
 		length = static_cast <uint64_t> (marker);
 	// Если длина записана неопределённым видом
-	else if(marker == 0x80) {
+	else if(marker == 0x80){
 		// Запоминаем причину отказа
 		this->_error = error_t::INDEFINITE;
 		// Выводим отказ разбора
@@ -588,6 +588,8 @@ size_t nts::asn1::Reader::size() const noexcept {
 
 /**
  * @brief Конструктор пустого разборщика
+ * @param data указатель на начало разбираемой области данных
+ * @param size размер разбираемой области данных
  *
  */
 nts::asn1::Reader::Reader() noexcept : _offset(0), _error(error_t::NONE) {}
@@ -610,7 +612,7 @@ nts::asn1::Reader::Reader(const view_t & view) noexcept : _view(view), _offset(0
 nts::asn1::Reader::Reader(const uint8_t * data, const size_t size) noexcept : _view(data, size), _offset(0), _error(error_t::NONE) {}
 
 /**
- * @brief Метод извлечения логического значения
+ * @brief Функция извлечения логического значения
  *
  * @param element элемент, из которого извлекается значение
  * @param result  переменная, в которую помещается результат
@@ -632,14 +634,14 @@ nts::asn1::error_t nts::asn1::boolean(const element_t & element, bool & result) 
 	switch(element.content.data[0]){
 		// Если записано значение лжи
 		case 0x00: {
-			// Запоминаем результат
+			// Запоминаем ложь как итог извлечения
 			result = false;
 			// Выводим успешность извлечения
 			return error_t::NONE;
 		}
 		// Если записано значение истины
 		case 0xFF: {
-			// Запоминаем результат
+			// Запоминаем истину как итог извлечения
 			result = true;
 			// Выводим успешность извлечения
 			return error_t::NONE;
@@ -650,7 +652,7 @@ nts::asn1::error_t nts::asn1::boolean(const element_t & element, bool & result) 
 }
 
 /**
- * @brief Метод извлечения целого числа произвольной разрядности
+ * @brief Функция извлечения целого числа произвольной разрядности
  *
  * @param element элемент, из которого извлекается значение
  * @param result  просмотр, в который помещается содержимое числа
@@ -670,6 +672,7 @@ nts::asn1::error_t nts::asn1::integer(const element_t & element, view_t & result
 	if(element.content.size > 1){
 		// Извлекаем два старших байта записи числа
 		const uint8_t first = element.content.data[0];
+		// Извлекаем второй старший байт записи числа
 		const uint8_t second = element.content.data[1];
 		/**
 		 * Кратчайшая запись требует, чтобы девять старших разрядов числа не были
@@ -680,14 +683,14 @@ nts::asn1::error_t nts::asn1::integer(const element_t & element, view_t & result
 			// Выводим причину отказа
 			return error_t::EXCESSIVE;
 	}
-	// Запоминаем результат
+	// Запоминаем просмотр содержимого как значение числа
 	result = element.content;
 	// Выводим успешность извлечения
 	return error_t::NONE;
 }
 
 /**
- * @brief Метод извлечения целого числа
+ * @brief Функция извлечения целого числа
  *
  * @param element элемент, из которого извлекается значение
  * @param result  переменная, в которую помещается результат
@@ -715,14 +718,14 @@ nts::asn1::error_t nts::asn1::integer(const element_t & element, int64_t & resul
 	for(size_t i = 0; i < view.size; i++)
 		// Дополняем число очередным байтом записи
 		value = ((value << 8) | static_cast <uint64_t> (view.data[i]));
-	// Запоминаем результат
+	// Запоминаем собранное число в знаковой разрядной сетке
 	result = static_cast <int64_t> (value);
 	// Выводим успешность извлечения
 	return error_t::NONE;
 }
 
 /**
- * @brief Метод извлечения строки битов
+ * @brief Функция извлечения строки битов
  *
  * @param element элемент, из которого извлекается значение
  * @param result  просмотр, в который помещается содержимое строки битов
@@ -761,14 +764,14 @@ nts::asn1::error_t nts::asn1::bits(const element_t & element, view_t & result, u
 	}
 	// Запоминаем число неиспользуемых битов
 	unused = count;
-	// Запоминаем результат
+	// Запоминаем содержимое строки битов без байта числа неиспользуемых битов
 	result = view_t(element.content.data + 1, element.content.size - 1);
 	// Выводим успешность извлечения
 	return error_t::NONE;
 }
 
 /**
- * @brief Метод извлечения опознавателя объекта
+ * @brief Функция извлечения опознавателя объекта
  *
  * @param element элемент, из которого извлекается значение
  * @param result  строка, в которую помещается запись опознавателя через точку
@@ -794,11 +797,11 @@ nts::asn1::error_t nts::asn1::oid(const element_t & element, string & result) no
 	uint64_t value = 0;
 	// Число разобранных байтов очередной составляющей
 	size_t count = 0;
-	// Очищаем строку результата
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
+		// Очищаем строку результата
 		result.clear();
 		/**
 		 * Строка собирается сразу текстом, а не через промежуточный набор чисел:
@@ -872,7 +875,7 @@ nts::asn1::error_t nts::asn1::oid(const element_t & element, string & result) no
 		// Выводим успешность извлечения
 		return error_t::NONE;
 	/**
-	 * Если памяти под запись опознавателя не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -881,7 +884,7 @@ nts::asn1::error_t nts::asn1::oid(const element_t & element, string & result) no
 }
 
 /**
- * @brief Метод извлечения времени
+ * @brief Функция извлечения времени
  *
  * @param element элемент, из которого извлекается значение
  * @param type    вид записи времени
@@ -960,7 +963,7 @@ nts::asn1::error_t nts::asn1::time(const element_t & element, const tag_t type, 
 }
 
 /**
- * @brief Метод извлечения строки
+ * @brief Функция извлечения строки
  *
  * @param element элемент, из которого извлекается значение
  * @param type    вид строки, определяющий правила записи содержимого
@@ -974,8 +977,7 @@ nts::asn1::error_t nts::asn1::text(const element_t & element, const tag_t type, 
 		// Выводим причину отказа
 		return error_t::FORM;
 	/**
-	 * Работа со строкой выделяет память, и нехватка её обязана дойти до
-	 * вызывающего причиной отказа, а не завершить процесс
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Очищаем строку результата
@@ -992,7 +994,7 @@ nts::asn1::error_t nts::asn1::text(const element_t & element, const tag_t type, 
 				if(error != error_t::NONE)
 					// Выводим причину отказа
 					return error;
-				// Запоминаем результат
+				// Запоминаем содержимое как строку в кодировке UTF-8
 				result.assign(reinterpret_cast <const char *> (element.content.data), element.content.size);
 			} break;
 			// Если строка записана знаками печатного набора
@@ -1006,7 +1008,7 @@ nts::asn1::error_t nts::asn1::text(const element_t & element, const tag_t type, 
 						// Выводим причину отказа
 						return error_t::VALUE;
 				}
-				// Запоминаем результат
+				// Запоминаем содержимое как строку печатного набора
 				result.assign(reinterpret_cast <const char *> (element.content.data), element.content.size);
 			} break;
 			// Если строка записана знаками набора IA5
@@ -1020,7 +1022,7 @@ nts::asn1::error_t nts::asn1::text(const element_t & element, const tag_t type, 
 						// Выводим причину отказа
 						return error_t::VALUE;
 				}
-				// Запоминаем результат
+				// Запоминаем содержимое как строку набора IA5
 				result.assign(reinterpret_cast <const char *> (element.content.data), element.content.size);
 			} break;
 			// Если строка записана видимыми знаками
@@ -1034,7 +1036,7 @@ nts::asn1::error_t nts::asn1::text(const element_t & element, const tag_t type, 
 						// Выводим причину отказа
 						return error_t::VALUE;
 				}
-				// Запоминаем результат
+				// Запоминаем содержимое как строку видимых знаков
 				result.assign(reinterpret_cast <const char *> (element.content.data), element.content.size);
 			} break;
 			// Если строка записана знаками кодировки UCS-2
@@ -1093,14 +1095,14 @@ nts::asn1::error_t nts::asn1::text(const element_t & element, const tag_t type, 
 			 * расхождение при сличении имён
 			 */
 			case static_cast <uint32_t> (tag_t::T61_STRING):
-				// Запоминаем результат
+				// Запоминаем содержимое строки T.61 без перекодировки
 				result.assign(reinterpret_cast <const char *> (element.content.data), element.content.size);
 			break;
 			// Если вид строки не поддерживается
 			default: return error_t::TAG;
 		}
 	/**
-	 * Если память выделить не удалось
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим причину отказа
@@ -1116,14 +1118,12 @@ nts::asn1::error_t nts::asn1::text(const element_t & element, const tag_t type, 
  * @param cls         класс метки
  * @param constructed признак составного вида метки
  * @param tag         номер метки внутри своего класса
- *
  * @return            признак успешности записи
  *
  */
 bool nts::asn1::Writer::identifier(const cls_t cls, const bool constructed, const uint32_t tag) noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: накопитель растёт, а нехватка
-	 * памяти обязана выводиться отказом, а не броском из-под noexcept
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Если место под метку обеспечить не удалось: первый байт и до пяти байтов номера
@@ -1156,7 +1156,7 @@ bool nts::asn1::Writer::identifier(const cls_t cls, const bool constructed, cons
 			// Записываем очередные семь разрядов номера метки
 			this->_buffer.push_back(static_cast <uint8_t> (((tag >> (7 * (i - 1))) & 0x7F) | (i > 1 ? 0x80 : 0x00)));
 	/**
-	 * Если памяти под накопитель не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ записи
@@ -1170,7 +1170,6 @@ bool nts::asn1::Writer::identifier(const cls_t cls, const bool constructed, cons
  * @brief Метод обеспечения места под запись с затиранием прежнего буфера
  *
  * @param extra число байтов, которое предстоит записать
- *
  * @return      признак успешности выделения места
  *
  */
@@ -1188,8 +1187,7 @@ bool nts::asn1::Writer::grow(const size_t extra) noexcept {
 	// Новая ёмкость буфера: удвоение прежней, но не меньше требуемой
 	const size_t capacity = ((this->_buffer.capacity() > (SIZE_MAX / 2)) ? needed : ((this->_buffer.capacity() * 2) > needed ? (this->_buffer.capacity() * 2) : needed));
 	/**
-	 * Выполняем перехват ошибок работы с памятью: нехватка её обязана
-	 * выводиться отказом, а не броском из-под noexcept
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Новый буфер записи
@@ -1203,7 +1201,7 @@ bool nts::asn1::Writer::grow(const size_t extra) noexcept {
 		// Подменяем прежний буфер новым: обмен памяти не выделяет
 		this->_buffer.swap(wider);
 	/**
-	 * Если памяти под буфер не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ выделения места
@@ -1218,14 +1216,12 @@ bool nts::asn1::Writer::grow(const size_t extra) noexcept {
  *
  * @param offset место, в которое вставляется запись длины
  * @param length длина содержимого
- *
  * @return       признак успешности записи
  *
  */
 bool nts::asn1::Writer::length(const size_t offset, const size_t length) noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: накопитель растёт, а нехватка
-	 * памяти обязана выводиться отказом, а не броском из-под noexcept
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Если место под запись длины обеспечить не удалось: первый байт и до восьми байтов длины
@@ -1262,7 +1258,7 @@ bool nts::asn1::Writer::length(const size_t offset, const size_t length) noexcep
 		// Вставляем собранную запись длины
 		this->_buffer.insert(this->_buffer.begin() + static_cast <ptrdiff_t> (offset), result.begin(), result.end());
 	/**
-	 * Если памяти под накопитель не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ записи
@@ -1339,8 +1335,7 @@ bool nts::asn1::Writer::open(const cls_t cls, const uint32_t tag) noexcept {
 		// Выводим отказ записи
 		return false;
 	/**
-	 * Запись выделяет память, и нехватка её обязана дойти до вызывающего
-	 * причиной отказа, а не завершить процесс
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Если метку составного элемента записать не удалось
@@ -1353,7 +1348,7 @@ bool nts::asn1::Writer::open(const cls_t cls, const uint32_t tag) noexcept {
 		// Запоминаем место начала содержимого составного элемента
 		this->_opened.push_back(this->_buffer.size());
 	/**
-	 * Если память выделить не удалось
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Запоминаем причину отказа
@@ -1398,8 +1393,7 @@ bool nts::asn1::Writer::close() noexcept {
 	// Извлекаем место начала содержимого закрываемого элемента
 	const size_t offset = this->_opened.back();
 	/**
-	 * Запись выделяет память, и нехватка её обязана дойти до вызывающего
-	 * причиной отказа, а не завершить процесс
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Если длину содержимого закрываемого элемента записать не удалось
@@ -1410,7 +1404,7 @@ bool nts::asn1::Writer::close() noexcept {
 			return false;
 		}
 	/**
-	 * Если память выделить не удалось
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Запоминаем причину отказа
@@ -1440,8 +1434,7 @@ bool nts::asn1::Writer::element(const cls_t cls, const bool constructed, const u
 		// Выводим отказ записи
 		return false;
 	/**
-	 * Запись выделяет память, и нехватка её обязана дойти до вызывающего
-	 * причиной отказа, а не завершить процесс
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Если метку элемента либо длину содержимого записать не удалось
@@ -1464,7 +1457,7 @@ bool nts::asn1::Writer::element(const cls_t cls, const bool constructed, const u
 			this->_buffer.insert(this->_buffer.end(), content.data, content.data + content.size);
 		}
 	/**
-	 * Если память выделить не удалось
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Запоминаем причину отказа
@@ -1574,8 +1567,7 @@ bool nts::asn1::Writer::bits(const view_t & value, const uint8_t unused) noexcep
 		return false;
 	}
 	/**
-	 * Запись выделяет память, и нехватка её обязана дойти до вызывающего
-	 * причиной отказа, а не завершить процесс
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Собираемое содержимое строки битов
@@ -1591,7 +1583,7 @@ bool nts::asn1::Writer::bits(const view_t & value, const uint8_t unused) noexcep
 		// Выполняем запись строки битов
 		return this->element(cls_t::UNIVERSAL, false, static_cast <uint32_t> (tag_t::BIT_STRING), view_t(content.data(), content.size()));
 	/**
-	 * Если память выделить не удалось
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Запоминаем причину отказа
@@ -1614,8 +1606,7 @@ bool nts::asn1::Writer::oid(const string & value) noexcept {
 		// Выводим отказ записи
 		return false;
 	/**
-	 * Запись выделяет память, и нехватка её обязана дойти до вызывающего
-	 * причиной отказа, а не завершить процесс
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Набор составляющих опознавателя объекта
@@ -1712,7 +1703,7 @@ bool nts::asn1::Writer::oid(const string & value) noexcept {
 		// Выполняем запись опознавателя объекта
 		return this->element(cls_t::UNIVERSAL, false, static_cast <uint32_t> (tag_t::OBJECT), view_t(content.data(), content.size()));
 	/**
-	 * Если память выделить не удалось
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Запоминаем причину отказа
@@ -1786,6 +1777,7 @@ bool nts::asn1::Writer::time(const tag_t type, const int64_t value) noexcept {
 		content[offset - 1 - i] = static_cast <uint8_t> (0x30 + ((written / static_cast <uint32_t> (i == 0 ? 1 : (i == 1 ? 10 : (i == 2 ? 100 : 1000)))) % 10));
 	// Набор оставшихся составляющих записи времени
 	const uint32_t parts[5] = {
+		// Месяц и день записи времени
 		month, day,
 		static_cast <uint32_t> (rest / 3600),
 		static_cast <uint32_t> ((rest / 60) % 60),
@@ -1822,8 +1814,7 @@ bool nts::asn1::Writer::text(const tag_t type, const string & value) noexcept {
 	// Получаем просмотр записываемой строки
 	const view_t view(reinterpret_cast <const uint8_t *> (value.data()), value.size());
 	/**
-	 * Запись выделяет память, и нехватка её обязана дойти до вызывающего
-	 * причиной отказа, а не завершить процесс
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		/**
@@ -1934,7 +1925,7 @@ bool nts::asn1::Writer::text(const tag_t type, const string & value) noexcept {
 			}
 		}
 	/**
-	 * Если память выделить не удалось
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Запоминаем причину отказа
@@ -1949,3 +1940,21 @@ bool nts::asn1::Writer::text(const tag_t type, const string & value) noexcept {
  *
  */
 nts::asn1::Writer::Writer() noexcept : _error(error_t::NONE) {}
+
+/**
+ * @brief Конструктор
+ *
+ */
+nts::asn1::Element::Element() noexcept : constructed(false), cls(cls_t::UNIVERSAL), tag(0) {}
+
+/**
+ * @brief Деструктор
+ *
+ */
+nts::asn1::Reader::~Reader() noexcept {}
+
+/**
+ * @brief Деструктор
+ *
+ */
+nts::asn1::Writer::~Writer() noexcept {}

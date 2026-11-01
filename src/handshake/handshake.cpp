@@ -6,6 +6,12 @@
  *
  * @author Yuriy Lobarev
  *
+ * @telegram{forman}
+ * @phone{+7 (910) 983-95-90}
+ *
+ * @email forman@anyks.com
+ * @site https://anyks.com
+ *
  * @brief Исходный файл модуля обвязки сообщений рукопожатия протокола TLS
  *
  * @section Намеренные решения
@@ -76,10 +82,9 @@ namespace {
 };
 
 /**
- * @brief Метод проверки известности вида сообщения рукопожатия
+ * @brief Функция проверки известности вида сообщения рукопожатия
  *
  * @param type проверяемый вид сообщения рукопожатия
- *
  * @return     признак того, что вид сообщения определён протоколом
  *
  */
@@ -116,11 +121,10 @@ bool nts::handshake::known(const type_t type) noexcept {
 	return false;
 }
 /**
- * @brief Метод разбора обвязки сообщения рукопожатия
+ * @brief Функция разбора обвязки сообщения рукопожатия
  *
  * @param data   разбираемая область байтов
  * @param result обвязка, в которую помещается итог разбора
- *
  * @return       отказ разбора обвязки сообщения
  *
  */
@@ -143,11 +147,10 @@ nts::handshake::error_t nts::handshake::parse(const view_t & data, header_t & re
 	return error_t::NONE;
 }
 /**
- * @brief Метод записи обвязки сообщения рукопожатия
+ * @brief Функция записи обвязки сообщения рукопожатия
  *
  * @param header записываемая обвязка сообщения
  * @param result место, в которое помещается обвязка сообщения
- *
  * @return       отказ записи обвязки сообщения
  *
  */
@@ -179,6 +182,7 @@ nts::handshake::error_t nts::handshake::build(const header_t & header, uint8_t *
  * @brief Метод получения предела длины тела принимаемого сообщения
  *
  * @return предел длины тела сообщения в байтах
+ * @param limit устанавливаемый предел длины тела сообщения в байтах
  *
  */
 size_t nts::handshake::Reader::limit() const noexcept {
@@ -189,7 +193,6 @@ size_t nts::handshake::Reader::limit() const noexcept {
  * @brief Метод установки предела длины тела принимаемого сообщения
  *
  * @param limit устанавливаемый предел длины тела сообщения в байтах
- *
  * @return      признак успешности установки предела
  *
  */
@@ -247,7 +250,6 @@ void nts::handshake::Reader::clear() noexcept {
  * @brief Метод подачи содержимого принятой записи рукопожатия
  *
  * @param data подаваемое содержимое записи рукопожатия
- *
  * @return     отказ подачи содержимого записи
  *
  */
@@ -257,7 +259,7 @@ nts::handshake::error_t nts::handshake::Reader::push(const view_t & data) noexce
 		// Выводим успешность подачи содержимого записи
 		return error_t::NONE;
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Если разобранные данные в накопителе есть
@@ -280,7 +282,7 @@ nts::handshake::error_t nts::handshake::Reader::push(const view_t & data) noexce
 		// Выполняем добавление содержимого записи рукопожатия в накопитель
 		this->_buffer.insert(this->_buffer.end(), data.data, data.data + data.size);
 	/**
-	 * Если памяти под накопитель не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -294,7 +296,6 @@ nts::handshake::error_t nts::handshake::Reader::push(const view_t & data) noexce
  *
  * @param header  обвязка, в которую помещается обвязка собранного сообщения
  * @param payload просмотр, в который помещается тело собранного сообщения
- *
  * @return        отказ получения собранного сообщения
  *
  */
@@ -384,7 +385,6 @@ void nts::handshake::Writer::clear() noexcept {
  *
  * @param type вид составляемого сообщения рукопожатия
  * @param data тело составляемого сообщения рукопожатия
- *
  * @return     отказ составления сообщения рукопожатия
  *
  */
@@ -404,7 +404,7 @@ nts::handshake::error_t nts::handshake::Writer::push(const type_t type, const vi
 		// Выводим отказ составления сообщения рукопожатия
 		return error;
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Выполняем добавление обвязки сообщения в накопитель
@@ -414,7 +414,7 @@ nts::handshake::error_t nts::handshake::Writer::push(const type_t type, const vi
 			// Выполняем добавление тела сообщения в накопитель
 			this->_buffer.insert(this->_buffer.end(), data.data, data.data + header.size);
 	/**
-	 * Если памяти под накопитель не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -427,7 +427,7 @@ nts::handshake::error_t nts::handshake::Writer::push(const type_t type, const vi
  * @brief Конструктор
  *
  */
-nts::handshake::Writer::Writer() noexcept {}
+nts::handshake::Writer::Writer() noexcept = default;
 /**
  * @brief Деструктор
  *
@@ -436,3 +436,9 @@ nts::handshake::Writer::~Writer() noexcept {
 	// Выполняем сброс накопителя составленных сообщений
 	this->clear();
 }
+
+/**
+ * @brief Конструктор
+ *
+ */
+nts::handshake::Header::Header() noexcept : type(type_t::NONE), size(0) {}

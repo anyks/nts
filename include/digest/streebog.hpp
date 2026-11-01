@@ -21,7 +21,6 @@
  *        of 256 or 512 bits according to GOST R 34.11-2012
  *
  * \~
- *
  * @copyright Copyright © 2026
  *
  */
@@ -67,6 +66,7 @@ namespace nts {
 	 *
 	 * \~english
 	 * @brief Namespace of the hashing modules
+	 *
 	 * @details The hashing is conducted by a stream: the message is fed by the chunks of an
 	 *          arbitrary size, and the produced hash does not depend on the cutting into the
 	 *          chunks. The hashing does not allocate memory at all and raises no exceptions.
@@ -82,13 +82,17 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Length of the produced hash
+		 *
 		 * @details The value corresponds to the length of the hash in bytes
 		 *
 		 * \~
 		 */
 		enum class type_t : uint8_t {
+			// Длина хеша не установлена
 			NONE  = 0x00, /*!< \~russian Длина хеша не установлена \~english The length of the hash is not set \~ */
+			// Хеш длиной 256 разрядов
 			SHORT = 0x20, /*!< \~russian Хеш длиной 256 разрядов \~english Hash of a length of 256 bits \~ */
+			// Хеш длиной 512 разрядов
 			LONG  = 0x40 /*!< \~russian Хеш длиной 512 разрядов \~english Hash of a length of 512 bits \~ */
 		};
 
@@ -107,10 +111,12 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Order of the writing of the produced hash
+		 *
 		 * @details The standard treats the hash as a vector and writes it from the senior bit,
 		 *          whereas the protocols transfer it as a string of bytes in the reverse order.
 		 *          This difference is the most frequent place of the errors, therefore the order
 		 *          is given explicitly and is not chosen for the consumer.
+		 *
 		 * @note The order of the protocols is taken as the default: an ordinary hashing of the
 		 *       data coincides with the rest of the implementations, while the writing as a vector
 		 *       is needed only there where the hash goes as a number into the cryptography - in the
@@ -119,7 +125,9 @@ namespace nts {
 		 * \~
 		 */
 		enum class order_t : uint8_t {
+			// Строка байтов, как её передают протоколы
 			STREAM = 0x01, /*!< \~russian Строка байтов, как её передают протоколы \~english String of bytes, as the protocols transfer it \~ */
+			// Вектор, как его записывает стандарт
 			VECTOR = 0x02 /*!< \~russian Вектор, как его записывает стандарт \~english Vector, as the standard writes it \~ */
 		};
 
@@ -137,9 +145,11 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Hashing according to GOST R 34.11-2012
+		 *
 		 * @details The message is fed by the calls of update by the chunks of an arbitrary size,
 		 *          while the produced hash is taken by a call of finish. A repeated hashing
 		 *          requires a call of reset: finish leaves the object in a finished state.
+		 *
 		 * @note Both lengths of the hash are produced by one and the same transformation and
 		 *       differ only by the initial value and by the fact that a hash of a length of 256 bits
 		 *       is taken as the high half of the result. There is no separate structure for them
@@ -174,6 +184,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the length of the produced hash
+				 *
 				 * @return the length of the produced hash
 				 *
 				 * \~
@@ -187,6 +198,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of bringing the object to the beginning of the hashing
+				 *
 				 * @param type the length of the produced hash
 				 *
 				 * \~
@@ -203,7 +215,9 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of feeding a chunk of the message
+				 *
 				 * @param data the chunk of the message being fed
+				 *
 				 * @note A chunk of any size is fed, including a zero one. The produced hash
 				 *       does not depend on the cutting of the message into the chunks
 				 *
@@ -217,18 +231,19 @@ namespace nts {
 				 * @param result место, в которое помещается выработанный хеш
 				 * @param size   размер места, в которое помещается хеш
 				 * @param order  порядок записи выработанного хеша
-				 *
-				 * @return признак успешности снятия хеша
+				 * @return       признак успешности снятия хеша
 				 *
 				 * @note Отказом отвечают недостаточный размер места, неустановленная длина
 				 *       хеша и повторное снятие
 				 *
 				 * \~english
 				 * @brief Method of taking the produced hash
+				 *
 				 * @param result the place the produced hash is put into
 				 * @param size   the size of the place the hash is put into
 				 * @param order  the order of the writing of the produced hash
-				 * @return the flag of the success of the taking of the hash
+				 * @return       the flag of the success of the taking of the hash
+				 *
 				 * @note A failure is answered to an insufficient size of the place, to an unset length
 				 *       of the hash and to a repeated taking
 				 *
@@ -244,6 +259,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Constructor
+				 *
 				 * @param type the length of the produced hash
 				 *
 				 * \~
@@ -257,6 +273,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Destructor
+				 *
 				 * @note The hashing state is wiped: at the message authentication code it is derived from the key
 				 *
 				 * \~
@@ -266,24 +283,24 @@ namespace nts {
 
 		/**
 		 * \~russian
-		 * @brief Метод выработки хеша сообщения, поданного целиком
+		 * @brief Функция выработки хеша сообщения, поданного целиком
 		 *
 		 * @param type   длина вырабатываемого хеша
 		 * @param data   хешируемое сообщение
 		 * @param result место, в которое помещается выработанный хеш
 		 * @param size   размер места, в которое помещается хеш
 		 * @param order  порядок записи выработанного хеша
-		 *
-		 * @return признак успешности выработки хеша
+		 * @return       признак успешности выработки хеша
 		 *
 		 * \~english
-		 * @brief Method of the production of a hash of a message fed as a whole
+		 * @brief Function of the production of a hash of a message fed as a whole
+		 *
 		 * @param type   the length of the produced hash
 		 * @param data   the message being hashed
 		 * @param result the place the produced hash is put into
 		 * @param size   the size of the place the hash is put into
 		 * @param order  the order of the writing of the produced hash
-		 * @return the flag of the success of the production of the hash
+		 * @return       the flag of the success of the production of the hash
 		 *
 		 * \~
 		 */

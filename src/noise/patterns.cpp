@@ -51,6 +51,7 @@ namespace {
 		const char * title;
 		// Предсообщения инициатора и отвечающего
 		token_t initiator[2];
+		// Предсообщения отвечающего
 		token_t responder[2];
 		// Число сообщений
 		size_t count;
@@ -118,10 +119,9 @@ namespace {
 		{pattern_t::PQIX, "pqIX", {_, _}, {_, _}, 3, {{E, S, _, _, _, _, _, _}, {EK, SK, S, _, _, _, _, _}, {SK, _, _, _, _, _, _, _}}}
 	};
 	/**
-	 * @brief Метод поиска строки узора
+	 * @brief Функция поиска строки узора
 	 *
 	 * @param pattern узор
-	 *
 	 * @return        строка либо nullptr
 	 *
 	 */
@@ -139,11 +139,10 @@ namespace {
 		return nullptr;
 	}
 	/**
-	 * @brief Метод счёта знаков до первого пустого
+	 * @brief Функция счёта знаков до первого пустого
 	 *
 	 * @param list  знаки
 	 * @param limit предел числа знаков
-	 *
 	 * @return      число знаков
 	 *
 	 */
@@ -162,21 +161,11 @@ namespace {
 };
 
 /**
- * \~russian
- * @brief Метод получения числа сообщений узора
+ * @brief Функция получения числа сообщений узора
  *
  * @param pattern узор рукопожатия
- *
  * @return        число сообщений либо нуль у незнакомого узора
  *
- * \~english
- * @brief Method of getting the number of messages of a pattern
- *
- * @param pattern handshake pattern
- *
- * @return        number of messages or zero for an unknown pattern
- *
- * \~
  */
 size_t nts::noise::messages(const pattern_t pattern) noexcept {
 	// Строка узора
@@ -185,101 +174,69 @@ size_t nts::noise::messages(const pattern_t pattern) noexcept {
 	return ((item != nullptr) ? item->count : 0);
 }
 /**
- * \~russian
- * @brief Метод получения знаков сообщения узора
+ * @brief Функция получения знаков сообщения узора
  *
  * @param pattern узор рукопожатия
  * @param index   номер сообщения от нуля
  * @param result  указатель на знаки
  * @param count   число знаков
- *
  * @return        признак того, что сообщение есть
  *
- * \~english
- * @brief Method of getting the tokens of a pattern message
- *
- * @param pattern handshake pattern
- * @param index   message number from zero
- * @param result  pointer to the tokens
- * @param count   number of tokens
- *
- * @return        sign that the message exists
- *
- * \~
  */
 bool nts::noise::tokens(const pattern_t pattern, const size_t index, const token_t *& result, size_t & count) noexcept {
 	// Строка узора
 	const row_t * item = row(pattern);
 	// Если узора либо сообщения нет
 	if((item == nullptr) || (index >= item->count)){
-		// Сбрасываем итог
+		// Сбрасываем указатель на знаки сообщения
 		result = nullptr;
+		// Сбрасываем число знаков
 		count = 0;
-		// Выводим отказ
+		// Выводим отрицательный результат - узор негоден
 		return false;
 	}
 	// Выводим знаки сообщения
 	result = item->messages[index];
+	// Выводим число знаков сообщения
 	count = measure(result, TOKENS_MAX);
-	// Выводим успешность
+	// Число знаков сообщения выведено
 	return true;
 }
 /**
- * \~russian
- * @brief Метод получения знаков предсообщения узора
+ * @brief Функция получения знаков предсообщения узора
  *
  * @param pattern   узор рукопожатия
- * @param initiator признак предсообщения инициатора
+ * @param initiator признак предсообщения инициатора (иначе - отвечающего)
  * @param result    указатель на знаки
  * @param count     число знаков
- *
  * @return          признак того, что узор знаком
  *
- * \~english
- * @brief Method of getting the tokens of a pattern pre-message
- *
- * @param pattern   handshake pattern
- * @param initiator sign of the initiator pre-message
- * @param result    pointer to the tokens
- * @param count     number of tokens
- *
- * @return          sign that the pattern is known
- *
- * \~
  */
 bool nts::noise::premessage(const pattern_t pattern, const bool initiator, const token_t *& result, size_t & count) noexcept {
 	// Строка узора
 	const row_t * item = row(pattern);
 	// Если узора нет
 	if(item == nullptr){
-		// Сбрасываем итог
+		// Сбрасываем указатель на знаки предсообщения
 		result = nullptr;
+		// Сбрасываем число знаков
 		count = 0;
-		// Выводим отказ
+		// Выводим отрицательный результат - узор негоден
 		return false;
 	}
 	// Выводим знаки предсообщения
 	result = (initiator ? item->initiator : item->responder);
+	// Выводим число знаков предсообщения
 	count = measure(result, 2);
-	// Выводим успешность
+	// Число знаков предсообщения выведено
 	return true;
 }
 /**
- * \~russian
- * @brief Метод получения имени узора
+ * @brief Функция получения имени узора
  *
  * @param pattern узор рукопожатия
- *
  * @return        имя узора либо пустая строка
  *
- * \~english
- * @brief Method of getting the pattern name
- *
- * @param pattern handshake pattern
- *
- * @return        pattern name or an empty string
- *
- * \~
  */
 const char * nts::noise::title(const pattern_t pattern) noexcept {
 	// Строка узора
@@ -288,21 +245,11 @@ const char * nts::noise::title(const pattern_t pattern) noexcept {
 	return ((item != nullptr) ? item->title : "");
 }
 /**
- * \~russian
- * @brief Метод проверки, что узор относится к PQNoise
+ * @brief Функция проверки, что узор относится к PQNoise
  *
  * @param pattern узор рукопожатия
- *
  * @return        признак PQNoise
  *
- * \~english
- * @brief Method of checking that a pattern belongs to PQNoise
- *
- * @param pattern handshake pattern
- *
- * @return        sign of PQNoise
- *
- * \~
  */
 bool nts::noise::postquantum(const pattern_t pattern) noexcept {
 	// Выводим признак по диапазону перечисления

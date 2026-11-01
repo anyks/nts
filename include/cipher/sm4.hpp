@@ -21,7 +21,6 @@
  *        the decryption of a block of a length of 128 bits according to GB/T 32907-2016
  *
  * \~
- *
  * @copyright Copyright © 2026
  *
  */
@@ -103,9 +102,11 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief The SM4 block cipher
+		 *
 		 * @details The key is set by a call of key, after which the blocks are transformed
 		 *          by the calls of encrypt and decrypt. The expanded round keys are wiped
 		 *          by a call of clear and by the destructor.
+		 *
 		 * @note SM4 is the national block cipher of the PRC: a block and a key of 128 bits
 		 *       each, 32 rounds; it enters TLS by the suites TLS_SM4_GCM_SM3 and
 		 *       TLS_SM4_CCM_SM3 according to RFC 8998
@@ -128,6 +129,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of checking the readiness of the cipher for the work
+				 *
 				 * @return the flag of the key being set
 				 *
 				 * \~
@@ -138,13 +140,13 @@ namespace nts {
 				 * @brief Метод установки ключа шифрования
 				 *
 				 * @param key устанавливаемый ключ шифрования
-				 *
-				 * @return признак успешности установки ключа
+				 * @return    признак успешности установки ключа
 				 *
 				 * \~english
 				 * @brief Method of setting the encryption key
+				 *
 				 * @param key the encryption key being set
-				 * @return the flag of the success of the setting of the key
+				 * @return    the flag of the success of the setting of the key
 				 *
 				 * \~
 				 */
@@ -166,16 +168,17 @@ namespace nts {
 				 *
 				 * @param source зашифровываемый блок
 				 * @param result место, в которое помещается зашифрованный блок
-				 *
-				 * @return признак успешности зашифрования
+				 * @return       признак успешности зашифрования
 				 *
 				 * @note Место итога вправе совпадать с местом исходного блока
 				 *
 				 * \~english
 				 * @brief Method of the encryption of a block
+				 *
 				 * @param source the block being encrypted
 				 * @param result the place the encrypted block is put into
-				 * @return the flag of the success of the encryption
+				 * @return       the flag of the success of the encryption
+				 *
 				 * @note The place of the result may coincide with the place of the source block
 				 *
 				 * \~
@@ -187,16 +190,17 @@ namespace nts {
 				 *
 				 * @param source расшифровываемый блок
 				 * @param result место, в которое помещается расшифрованный блок
-				 *
-				 * @return признак успешности расшифрования
+				 * @return       признак успешности расшифрования
 				 *
 				 * @note Место итога вправе совпадать с местом исходного блока
 				 *
 				 * \~english
 				 * @brief Method of the decryption of a block
+				 *
 				 * @param source the block being decrypted
 				 * @param result the place the decrypted block is put into
-				 * @return the flag of the success of the decryption
+				 * @return       the flag of the success of the decryption
+				 *
 				 * @note The place of the result may coincide with the place of the source block
 				 *
 				 * \~
@@ -207,7 +211,6 @@ namespace nts {
 				 * \~russian
 				 * @brief Конструктор
 				 *
-				 *
 				 * \~english
 				 * @brief Constructor
 				 *
@@ -217,7 +220,6 @@ namespace nts {
 				/**
 				 * \~russian
 				 * @brief Деструктор
-				 *
 				 *
 				 * \~english
 				 * @brief Destructor

@@ -6,6 +6,12 @@
  *
  * @author Yuriy Lobarev
  *
+ * @telegram{forman}
+ * @phone{+7 (910) 983-95-90}
+ *
+ * @email forman@anyks.com
+ * @site https://anyks.com
+ *
  * @brief Исходный файл модуля состояния связи протокола TLS 1.3
  *
  * @section Намеренные решения
@@ -91,6 +97,7 @@ namespace {
 	 * Хеши, которыми переписка ведётся до выбора набора шифрования
 	 */
 	static const digest::hash_t CANDIDATES[session::Transcript::CANDIDATES] = {
+		// Хеши кандидатов в порядке предпочтения
 		digest::hash_t::STREEBOG256, digest::hash_t::SHA256, digest::hash_t::SHA384, digest::hash_t::SM3
 	};
 
@@ -162,10 +169,9 @@ namespace {
 	// Затирание областей памяти берётся из открытого API библиотеки
 	using nts::sys::wipe;
 	/**
-	 * @brief Метод получения просмотра метки вывода
+	 * @brief Функция получения просмотра метки вывода
 	 *
 	 * @param label метка вывода
-	 *
 	 * @return      просмотр метки вывода
 	 *
 	 */
@@ -174,12 +180,11 @@ namespace {
 		return view_t(reinterpret_cast <const uint8_t *> (label), ::strlen(label));
 	}
 	/**
-	 * @brief Метод вывода промежуточного значения между ступенями расписания
+	 * @brief Функция вывода промежуточного значения между ступенями расписания
 	 *
 	 * @param algorithm хеш, которым ведётся расписание ключей
 	 * @param secret    значение расписания ключей текущей ступени
 	 * @param result    место, в которое помещается промежуточное значение
-	 *
 	 * @return          признак успешности вывода промежуточного значения
 	 *
 	 */
@@ -201,7 +206,6 @@ namespace {
  * @brief Метод получения объекта хеширования переписки по хешу
  *
  * @param algorithm хеш, чей объект хеширования запрашивается
- *
  * @return          объект хеширования переписки либо nullptr у неведомого хеша
  *
  */
@@ -240,6 +244,8 @@ size_t nts::session::Transcript::size() const noexcept {
 }
 /**
  * @brief Метод начала переписки рукопожатия
+ * @param algorithm хеш, которым ведётся переписка рукопожатия
+ * @return          отказ начала переписки на неведомом хеше
  *
  */
 void nts::session::Transcript::start() noexcept {
@@ -256,7 +262,6 @@ void nts::session::Transcript::start() noexcept {
  * @brief Метод начала переписки рукопожатия выбранным хешем
  *
  * @param algorithm хеш, которым ведётся переписка рукопожатия
- *
  * @return          отказ начала переписки на неведомом хеше
  *
  */
@@ -270,7 +275,6 @@ nts::session::error_t nts::session::Transcript::start(const digest::hash_t algor
  * @brief Метод выбора хеша переписки рукопожатия
  *
  * @param algorithm хеш, выбранный набором шифрования
- *
  * @return          отказ выбора хеша переписки
  *
  */
@@ -300,7 +304,6 @@ void nts::session::Transcript::clear() noexcept {
  * @brief Метод добавления сообщения в переписку рукопожатия
  *
  * @param message добавляемое сообщение вместе с его обвязкой
- *
  * @return        отказ добавления сообщения в переписку
  *
  */
@@ -336,7 +339,6 @@ nts::session::error_t nts::session::Transcript::update(const view_t & message) n
  * @brief Метод получения хеша переписки рукопожатия
  *
  * @param result место, в которое помещается хеш переписки
- *
  * @return       отказ получения хеша переписки
  *
  */
@@ -349,7 +351,6 @@ nts::session::error_t nts::session::Transcript::digest(uint8_t * result) const n
  *
  * @param suffix довесок, дописываемый к переписке лишь на этот хеш
  * @param result место, в которое помещается хеш переписки с довеском
- *
  * @return       отказ получения хеша переписки с довеском
  *
  */
@@ -363,7 +364,6 @@ nts::session::error_t nts::session::Transcript::digest(const view_t & suffix, ui
  * @param algorithm хеш, которым берётся хеш переписки
  * @param suffix    довесок, дописываемый к переписке лишь на этот хеш
  * @param result    место, в которое помещается хеш переписки с довеском
- *
  * @return          отказ получения хеша переписки с довеском
  *
  */
@@ -405,7 +405,12 @@ nts::session::error_t nts::session::Transcript::replace() noexcept {
 	// Хеш, которым ведётся переписка
 	const digest::hash_t algorithm = this->algorithm();
 	/**
+	 * @brief Метод выбора хеша переписки рукопожатия
+	 *
+	 * @param algorithm хеш, выбранный набором шифрования
+	 * @return          отказ выбора хеша переписки
 	 * Замена закрепляет хеш переписки: прочие хеши от неё отстают безвозвратно
+	 *
 	 */
 	const error_t chosen = this->select(algorithm);
 	// Если хеш переписки закрепить не удалось
@@ -507,7 +512,6 @@ void nts::session::Secrets::clear() noexcept {
  * @brief Метод заведения начальной ступени расписания ключей
  *
  * @param secret заранее разделённый ключ связи
- *
  * @return       отказ заведения начальной ступени
  *
  */
@@ -524,7 +528,6 @@ nts::session::error_t nts::session::Secrets::start(const view_t & secret) noexce
  *
  * @param algorithm хеш набора шифрования, которым ведётся расписание
  * @param secret    заранее разделённый ключ связи
- *
  * @return          отказ заведения начальной ступени
  *
  */
@@ -568,7 +571,6 @@ nts::session::error_t nts::session::Secrets::start(const digest::hash_t algorith
  *
  * @param shared     общее значение обмена ключами
  * @param transcript хеш переписки рукопожатия на миг вывода
- *
  * @return           отказ вывода ступени рукопожатия
  *
  */
@@ -620,7 +622,6 @@ nts::session::error_t nts::session::Secrets::handshake(const view_t & shared, co
  * @brief Метод вывода ступени прикладных данных расписания ключей
  *
  * @param transcript хеш переписки рукопожатия на миг вывода
- *
  * @return           отказ вывода ступени прикладных данных
  *
  */
@@ -681,7 +682,6 @@ nts::session::error_t nts::session::Secrets::application(const view_t & transcri
  *
  * @param side   сторона, чьё направление связи запрашивается
  * @param result место, в которое помещается значение направления связи
- *
  * @return       отказ получения значения направления связи
  *
  */
@@ -704,13 +704,12 @@ nts::session::error_t nts::session::Secrets::traffic(const side_t side, uint8_t 
 	return error_t::NONE;
 }
 /**
- * @brief Метод вывода ключевого материала из значения направления связи
+ * @brief Функция вывода ключевого материала из значения направления связи
  *
- * @param traffic значение направления связи, из которого выводится материал
+ * @param traffic значение направления связи, из которого выводится материал, длиною в хеш набора
  * @param suite   набор шифрования, которым защищаются записи
  * @param key     место, в которое помещается корневой ключ направления
  * @param vector  место, в которое помещается вектор замены направления
- *
  * @return        отказ вывода ключевого материала направления связи
  *
  */
@@ -747,7 +746,6 @@ nts::session::error_t nts::session::material(const view_t & traffic, const prote
  * @param suite  набор шифрования, которым защищаются записи
  * @param key    место, в которое помещается корневой ключ направления
  * @param vector место, в которое помещается вектор замены направления
- *
  * @return       отказ вывода ключевого материала направления связи
  *
  */
@@ -785,7 +783,6 @@ nts::session::error_t nts::session::Secrets::material(const side_t side, const p
  * @brief Метод вывода значения упреждающих данных связи
  *
  * @param transcript хеш переписки рукопожатия на миг вывода
- *
  * @return           отказ вывода значения упреждающих данных
  *
  */
@@ -821,7 +818,6 @@ nts::session::error_t nts::session::Secrets::early(const view_t & transcript) no
  * @brief Метод получения значения упреждающих данных связи
  *
  * @param result место, в которое помещается значение упреждающих данных
- *
  * @return       отказ получения значения упреждающих данных
  *
  */
@@ -847,7 +843,6 @@ nts::session::error_t nts::session::Secrets::early(uint8_t * result) const noexc
  * @brief Метод получения значения экспорта ключевого материала связи
  *
  * @param result место, в которое помещается значение экспорта
- *
  * @return       отказ получения значения экспорта
  *
  */
@@ -873,7 +868,6 @@ nts::session::error_t nts::session::Secrets::exporter(uint8_t * result) const no
  * @brief Метод получения значения раннего экспорта ключевого материала связи
  *
  * @param result место, в которое помещается значение раннего экспорта
- *
  * @return       отказ получения значения раннего экспорта
  *
  */
@@ -902,7 +896,7 @@ nts::session::error_t nts::session::Secrets::earlyExporter(uint8_t * result) con
  * @param context привязка экспортируемого материала к потребителю
  * @param result  место, в которое помещается экспортируемый материал
  * @param size    требуемая длина экспортируемого материала в байтах
- *
+ * @param early   признак раннего вывода из значения раннего экспорта
  * @return        отказ вывода экспортируемого материала
  *
  */
@@ -959,7 +953,6 @@ nts::session::error_t nts::session::Secrets::exporting(const view_t & label, con
  *
  * @param side   сторона, чей ключ завершения запрашивается
  * @param result место, в которое помещается ключ завершения рукопожатия
- *
  * @return       отказ вывода ключа завершения рукопожатия
  *
  */
@@ -994,7 +987,6 @@ nts::session::error_t nts::session::Secrets::finished(const side_t side, uint8_t
  * @brief Метод вывода значения возобновления связи
  *
  * @param transcript хеш переписки рукопожатия на миг вывода
- *
  * @return           отказ вывода значения возобновления связи
  *
  */
@@ -1019,12 +1011,11 @@ nts::session::error_t nts::session::Secrets::resumption(const view_t & transcrip
 	return error_t::NONE;
 }
 /**
- * @brief Метод вывода заранее разделённого ключа билета
+ * @brief Метод вывода ключа билета возобновления связи
  *
- * @param nonce  одноразовое значение билета
- * @param result место, в которое помещается заранее разделённый ключ
- *
- * @return       отказ вывода заранее разделённого ключа билета
+ * @param nonce  неповторимое значение билета, назначенное сервером
+ * @param result место, в которое помещается ключ билета
+ * @return       отказ вывода ключа билета возобновления связи
  *
  */
 nts::session::error_t nts::session::Secrets::ticket(const view_t & nonce, uint8_t * result) const noexcept {
@@ -1050,9 +1041,8 @@ nts::session::error_t nts::session::Secrets::ticket(const view_t & nonce, uint8_
 /**
  * @brief Метод выработки привязки заранее разделённого ключа
  *
- * @param transcript хеш переписки с усечённым приветствием клиента
+ * @param transcript хеш усечённого приветствия клиента
  * @param result     место, в которое помещается привязка ключа
- *
  * @return           отказ выработки привязки заранее разделённого ключа
  *
  */
@@ -1108,7 +1098,6 @@ nts::session::error_t nts::session::Secrets::binder(const view_t & transcript, u
  * @brief Метод смены значения направления связи
  *
  * @param side сторона, чьё направление связи сменяется
- *
  * @return     отказ смены значения направления связи
  *
  */

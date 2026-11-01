@@ -92,10 +92,9 @@ namespace {
 	// Затирание областей памяти берётся из открытого API библиотеки
 	using nts::sys::wipe;
 	/**
-	 * @brief Метод проверки известности версии протокола
+	 * @brief Функция проверки известности версии протокола
 	 *
 	 * @param version проверяемая версия протокола
-	 *
 	 * @return        признак того, что версия протокола определена
 	 *
 	 */
@@ -119,10 +118,9 @@ namespace {
 };
 
 /**
- * @brief Метод проверки известности вида содержимого записи
+ * @brief Функция проверки известности вида содержимого записи
  *
  * @param type проверяемый вид содержимого записи
- *
  * @return     признак того, что вид содержимого определён протоколом
  *
  */
@@ -145,10 +143,9 @@ bool nts::record::known(const type_t type) noexcept {
 	return false;
 }
 /**
- * @brief Метод проверки допустимости пустого содержимого записи
+ * @brief Функция проверки допустимости пустого содержимого записи
  *
  * @param type проверяемый вид содержимого записи
- *
  * @return     признак того, что запись этого вида вправе быть пустой
  *
  */
@@ -157,11 +154,10 @@ bool nts::record::empty(const type_t type) noexcept {
 	return (type == type_t::APPLICATION);
 }
 /**
- * @brief Метод разбора заголовка записи
+ * @brief Функция разбора заголовка записи
  *
  * @param data   разбираемая область байтов
  * @param result заголовок записи, в который помещается итог разбора
- *
  * @return       отказ разбора заголовка записи
  *
  */
@@ -205,11 +201,10 @@ nts::record::error_t nts::record::parse(const view_t & data, header_t & result) 
 	return error_t::NONE;
 }
 /**
- * @brief Метод записи заголовка записи
+ * @brief Функция записи заголовка записи
  *
  * @param header записываемый заголовок записи
  * @param result место, в которое помещается заголовок записи
- *
  * @return       отказ записи заголовка записи
  *
  */
@@ -251,6 +246,7 @@ nts::record::error_t nts::record::build(const header_t & header, uint8_t * resul
  * @brief Метод получения предела длины содержимого принимаемой записи
  *
  * @return предел длины содержимого записи в байтах
+ * @param limit устанавливаемый предел длины содержимого записи в байтах
  *
  */
 size_t nts::record::Reader::limit() const noexcept {
@@ -261,7 +257,6 @@ size_t nts::record::Reader::limit() const noexcept {
  * @brief Метод установки предела длины содержимого принимаемой записи
  *
  * @param limit устанавливаемый предел длины содержимого записи в байтах
- *
  * @return      признак успешности установки предела
  *
  */
@@ -303,7 +298,6 @@ void nts::record::Reader::clear() noexcept {
  * @brief Метод подачи принятого куска данных
  *
  * @param data подаваемый кусок данных
- *
  * @return     отказ подачи куска данных
  *
  */
@@ -313,7 +307,7 @@ nts::record::error_t nts::record::Reader::push(const view_t & data) noexcept {
 		// Выводим успешность подачи куска данных
 		return error_t::NONE;
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Если разобранные данные в накопителе есть
@@ -333,7 +327,7 @@ nts::record::error_t nts::record::Reader::push(const view_t & data) noexcept {
 		// Выполняем добавление принятого куска данных в накопитель
 		this->_buffer.insert(this->_buffer.end(), data.data, data.data + data.size);
 	/**
-	 * Если памяти под накопитель не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -347,7 +341,6 @@ nts::record::error_t nts::record::Reader::push(const view_t & data) noexcept {
  *
  * @param header  заголовок, в который помещается заголовок собранной записи
  * @param payload просмотр, в который помещается содержимое собранной записи
- *
  * @return        отказ получения собранной записи
  *
  */
@@ -398,6 +391,7 @@ nts::record::Reader::~Reader() noexcept {
  * @brief Метод получения предела длины содержимого нарезаемой записи
  *
  * @return предел длины содержимого записи в байтах
+ * @param limit устанавливаемый предел длины содержимого записи в байтах
  *
  */
 size_t nts::record::Writer::limit() const noexcept {
@@ -408,7 +402,6 @@ size_t nts::record::Writer::limit() const noexcept {
  * @brief Метод установки предела длины содержимого нарезаемой записи
  *
  * @param limit устанавливаемый предел длины содержимого записи в байтах
- *
  * @return      признак успешности установки предела
  *
  */
@@ -450,7 +443,6 @@ view_t nts::record::Writer::data() const noexcept {
  * @brief Метод снятия переданных байтов записей
  *
  * @param size объём снимаемых байтов
- *
  * @return     признак успешности снятия байтов
  *
  */
@@ -488,7 +480,6 @@ void nts::record::Writer::clear() noexcept {
  * @param type    вид содержимого нарезаемых данных
  * @param version версия протокола, указываемая в записях
  * @param data    нарезаемые на записи данные
- *
  * @return        отказ нарезки данных на записи
  *
  */
@@ -518,7 +509,7 @@ nts::record::error_t nts::record::Writer::push(const type_t type, const version_
 	// Число уже нарезанных на записи байтов данных
 	size_t offset = 0;
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		/**
@@ -548,7 +539,7 @@ nts::record::error_t nts::record::Writer::push(const type_t type, const version_
 		// Выполняем нарезку до тех пор, пока данные не кончатся
 		} while(offset < total);
 	/**
-	 * Если памяти под накопитель не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -570,3 +561,9 @@ nts::record::Writer::~Writer() noexcept {
 	// Выполняем сброс состояния нарезчика
 	this->clear();
 }
+
+/**
+ * @brief Конструктор
+ *
+ */
+nts::record::Header::Header() noexcept : type(type_t::NONE), version(version_t::NONE), size(0) {}

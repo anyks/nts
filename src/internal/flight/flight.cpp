@@ -149,11 +149,10 @@ namespace {
 	static const uint8_t CHANGE[1] = {0x01};
 
 	/**
-	 * @brief Метод перевода отказа модуля защиты записей в отказ связи
+	 * @brief Функция перевода отказа модуля защиты записей в отказ связи
 	 *
 	 * @param error    отказ модуля защиты записей
 	 * @param fallback отказ связи, которым отвечается всякий отказ модуля, кроме нехватки памяти
-	 *
 	 * @return         отказ связи, отвечающий отказу модуля
 	 *
 	 */
@@ -166,10 +165,9 @@ namespace {
 		return ((error == protect::error_t::MEMORY) ? context::error_t::MEMORY : fallback);
 	}
 	/**
-	 * @brief Метод перевода отказа разбора заголовка записи в причину отброса
+	 * @brief Функция перевода отказа разбора заголовка записи в причину отброса
 	 *
 	 * @param error отказ разбора заголовка записи
-	 *
 	 * @return      причина отброса записи
 	 *
 	 */
@@ -240,7 +238,6 @@ void nts::internal::Flight::purge() noexcept {
  * @brief Метод получения накладных байтов записи поры
  *
  * @param epoch пора ключей записи
- *
  * @return      накладные байты записи поры
  *
  */
@@ -261,7 +258,6 @@ size_t nts::internal::Flight::overhead(const uint16_t epoch) const noexcept {
  *
  * @param direction место направления: ноль у записи, единица у чтения
  * @param epoch     номер поры ключей
- *
  * @return          пора ключей либо nullptr, если пора связью не держится
  *
  */
@@ -288,7 +284,6 @@ nts::internal::era_t * nts::internal::Flight::era(const size_t direction, const 
  * @brief Метод получения текущей поры ключей направления
  *
  * @param direction место направления: ноль у записи, единица у чтения
- *
  * @return          текущая защищённая пора либо нулевая, пока защищённой нет
  *
  */
@@ -306,7 +301,6 @@ nts::internal::era_t & nts::internal::Flight::current(const size_t direction) no
  * @param era     пора ключей, которой запись защищается
  * @param result  накопитель, в конец которого дописывается запись
  * @param ancient издание заголовка записи DTLS 1.0: просьба о подтверждении адреса (раздел 4.2.1 RFC 6347)
- *
  * @return        отказ составления записи
  *
  */
@@ -330,7 +324,7 @@ context::error_t nts::internal::Flight::shield(const record::type_t type, const 
 	// Смещение записи в накопителе
 	const size_t offset = result.size();
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		/**
@@ -454,7 +448,7 @@ context::error_t nts::internal::Flight::shield(const record::type_t type, const 
 		// Выполняем затирание маски номера записи
 		wipe(mask, sizeof(mask));
 	/**
-	 * Если памяти под запись не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -472,7 +466,6 @@ context::error_t nts::internal::Flight::shield(const record::type_t type, const 
  * @param rest    остаток дейтаграммы от начала записи
  * @param result  запись, в которую помещается открытое содержимое
  * @param failure место, в которое помещается отказ нехватки памяти
- *
  * @return        признак того, что запись вскрыта и принята окном
  *
  */
@@ -520,13 +513,13 @@ bool nts::internal::Flight::unveil(const datagram::header_t & header, const view
 		 */
 		if((static_cast <uint16_t> (following & 0x03) == header.epoch) && (this->_deferred.size() < datagram::DATAGRAM_DEFERRED)){
 			/**
-			 * Выполняем перехват ошибок работы с памятью
+			 * Выполняем перехват ошибок
 			 */
 			try {
 				// Откладываем запись вместе с заголовком
 				this->_deferred.push_back(vector <uint8_t> (rest.data, rest.data + header.length + header.size));
 			/**
-			 * Если памяти под отложенную запись не хватило
+			 * Выполняем перехват ошибок
 			 */
 			} catch(const bad_alloc &) {
 				// Запоминаем отказ нехватки памяти
@@ -622,7 +615,6 @@ bool nts::internal::Flight::unveil(const datagram::header_t & header, const view
  * @param rest    остаток дейтаграммы от начала записи
  * @param result  запись, в которую помещается открытое содержимое
  * @param failure место, в которое помещается отказ нехватки памяти
- *
  * @return        признак того, что запись вскрыта и принята окном
  *
  */
@@ -640,13 +632,13 @@ bool nts::internal::Flight::uncover(const datagram::header_t & header, const vie
 		 */
 		if(!this->_stateless && (header.epoch == 1) && (this->current(1).epoch == 0) && (this->_deferred.size() < datagram::DATAGRAM_DEFERRED)){
 			/**
-			 * Выполняем перехват ошибок работы с памятью
+			 * Выполняем перехват ошибок
 			 */
 			try {
 				// Откладываем запись вместе с заголовком
 				this->_deferred.push_back(vector <uint8_t> (rest.data, rest.data + header.length + header.size));
 			/**
-			 * Если памяти под отложенную запись не хватило
+			 * Выполняем перехват ошибок
 			 */
 			} catch(const bad_alloc &) {
 				// Запоминаем отказ нехватки памяти
@@ -732,13 +724,13 @@ context::error_t nts::internal::Flight::settle() noexcept {
 		// Выводим успешность: закрывать нечего
 		return context::error_t::NONE;
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Переносим собранную дейтаграмму в готовые
 		this->_datagrams.push_back(::move(this->_packet));
 	/**
-	 * Если памяти под дейтаграмму не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -755,7 +747,6 @@ context::error_t nts::internal::Flight::settle() noexcept {
  * @param index  место сообщения в залпе
  * @param offset смещение области в теле сообщения
  * @param length длина области в байтах
- *
  * @return       отказ нарезки области сообщения
  *
  */
@@ -812,13 +803,13 @@ context::error_t nts::internal::Flight::carve(const size_t index, const size_t o
 		// Запоминаем пору ключей собираемой дейтаграммы
 		this->_bundle = item.epoch;
 		/**
-		 * Выполняем перехват ошибок работы с памятью
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Запоминаем кусок залпа
 			this->_pieces.push_back(piece);
 		/**
-		 * Если памяти под кусок не хватило
+		 * Выполняем перехват ошибок
 		 */
 		} catch(const bad_alloc &) {
 			// Выводим отказ нехватки памяти
@@ -840,7 +831,7 @@ context::error_t nts::internal::Flight::carve(const size_t index, const size_t o
 	// Наибольший кусок, входящий в одну запись вместе с обвязкой
 	static constexpr size_t WIDEST = (record::RECORD_PLAINTEXT - datagram::DATAGRAM_FRAGMENT_HEADER);
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Длина уже нарезанной части области
@@ -924,7 +915,7 @@ context::error_t nts::internal::Flight::carve(const size_t index, const size_t o
 			done += take;
 		}
 	/**
-	 * Если памяти под нарезку не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -937,7 +928,6 @@ context::error_t nts::internal::Flight::carve(const size_t index, const size_t o
  * @brief Метод составления записи подтверждения принятых записей
  *
  * @param settled признак того, что связь установлена
- *
  * @return        отказ составления подтверждения
  *
  */
@@ -1010,7 +1000,7 @@ context::error_t nts::internal::Flight::acknowledge(const bool settled) noexcept
 	 */
 	for(size_t i = 0; i < records; i++){
 		/**
-		 * Выполняем перехват ошибок работы с памятью: порция копируется
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Порция номеров
@@ -1022,7 +1012,7 @@ context::error_t nts::internal::Flight::acknowledge(const bool settled) noexcept
 				// Выводим отказ нехватки памяти
 				return context::error_t::MEMORY;
 		/**
-		 * Если памяти под порцию не хватило
+		 * Выполняем перехват ошибок
 		 */
 		} catch(const bad_alloc &) {
 			// Выводим отказ нехватки памяти
@@ -1060,7 +1050,6 @@ context::error_t nts::internal::Flight::acknowledge(const bool settled) noexcept
  * @param key       ключ защиты записей поры
  * @param vector    вектор замены защиты записей поры
  * @param sn        ключ шифрования номера записи поры
- *
  * @return          отказ заведения поры ключей
  *
  */
@@ -1118,7 +1107,6 @@ context::error_t nts::internal::Flight::adopt(const bool incoming, const bool ha
  * @param vector   вектор замены защиты записей поры
  * @param mac      ключ имитовставки поры у наборов CBC, пустой у наборов AEAD
  * @param etm      ведётся ли защита CBC в порядке «шифрование, затем имитовставка»
- *
  * @return         отказ заведения поры ключей
  *
  */
@@ -1164,7 +1152,6 @@ context::error_t nts::internal::Flight::adopt(const bool incoming, const protect
  * @brief Метод получения номера текущей поры ключей направления
  *
  * @param incoming запрашивается ли направление собеседника
- *
  * @return         номер текущей поры, ноль до появления ключей
  *
  */
@@ -1180,7 +1167,6 @@ uint16_t nts::internal::Flight::epoch(const bool incoming) const noexcept {
  * @brief Метод получения счётчика записей направления
  *
  * @param incoming запрашивается ли направление собеседника
- *
  * @return         число записей направления на текущих ключах
  *
  */
@@ -1199,7 +1185,6 @@ uint64_t nts::internal::Flight::sequence(const bool incoming) const noexcept {
  *
  * @param type вид содержимого записи
  * @param data содержимое записи: сообщение рукопожатия вместе с обвязкой TLS
- *
  * @return     отказ складывания записи
  *
  */
@@ -1207,7 +1192,7 @@ context::error_t nts::internal::Flight::emit(const record::type_t type, const vi
 	// Текущая пора ключей записи
 	era_t & keys = this->current(0);
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		/**
@@ -1250,7 +1235,7 @@ context::error_t nts::internal::Flight::emit(const record::type_t type, const vi
 			return context::error_t::NONE;
 		}
 	/**
-	 * Если памяти под сообщение залпа не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -1302,7 +1287,6 @@ context::error_t nts::internal::Flight::emit(const record::type_t type, const vi
  * @brief Метод раскладки залпа по дейтаграммам
  *
  * @param resend признак повторной передачи неподтверждённых кусков
- *
  * @return       отказ раскладки залпа
  *
  */
@@ -1310,7 +1294,7 @@ context::error_t nts::internal::Flight::dispatch(const bool resend) noexcept {
 	// Признаки подачи сняты: раскладка кончает круг подачи либо отправки
 	this->_replied = false;
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Если повторяются неподтверждённые куски залпа
@@ -1427,7 +1411,7 @@ context::error_t nts::internal::Flight::dispatch(const bool resend) noexcept {
 		// Если ждать нечего
 		} else this->_timing = false;
 	/**
-	 * Если памяти под раскладку залпа не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -1451,9 +1435,9 @@ context::error_t nts::internal::Flight::retransmit() noexcept {
 	if(this->_attempts >= datagram::DATAGRAM_ATTEMPTS){
 		// Останавливаем часы повторной передачи
 		this->_timing = false;
-		// Выводим отказ исчерпания попыток
 		// Сообщаем в сток журнала об исчерпании попыток повторной передачи
 		sys::log::emit(sys::log::level_t::WARNING, "A-NTS: datagram retransmission attempts exhausted, connection timed out");
+		// Выводим отказ исчерпания попыток
 		return context::error_t::TIMEOUT;
 	}
 	// Считаем попытку повторной передачи
@@ -1470,7 +1454,6 @@ context::error_t nts::internal::Flight::retransmit() noexcept {
  *
  * @param data   принятая дейтаграмма
  * @param result перечень, в который помещаются вскрытые записи
- *
  * @return       отказ разбора: лишь нехватка памяти
  *
  */
@@ -1486,7 +1469,7 @@ context::error_t nts::internal::Flight::receive(const view_t & data, vector <ope
 		return context::error_t::NONE;
 	}
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Смещение очередной записи в дейтаграмме
@@ -1532,6 +1515,7 @@ context::error_t nts::internal::Flight::receive(const view_t & data, vector <ope
 					// Переходим к следующей записи
 					continue;
 				}
+				// Открытое извещение принимается лишь до ключей чтения
 				if((header.type == record::type_t::ALERT) && (this->epoch(true) != 0)){
 					// Считаем отброшенную запись
 					this->discard(datagram::reason_t::PLAIN);
@@ -1588,7 +1572,7 @@ context::error_t nts::internal::Flight::receive(const view_t & data, vector <ope
 			result.push_back(::move(item));
 		}
 	/**
-	 * Если памяти под разбор дейтаграммы не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -1604,7 +1588,6 @@ context::error_t nts::internal::Flight::receive(const view_t & data, vector <ope
  * @param epoch    пора ключей принятой записи
  * @param sequence порядковый номер принятой записи
  * @param settled  признак того, что связь установлена
- *
  * @return         отказ разбора кусков: MESSAGE у порченого защищённого куска
  *
  */
@@ -1612,7 +1595,7 @@ context::error_t nts::internal::Flight::fragments(const view_t & content, const 
 	// Признак того, что хоть один кусок записи принят сборкой либо разобран прежде
 	bool taken = false;
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Смещение очередного куска в содержимом записи
@@ -1905,7 +1888,7 @@ context::error_t nts::internal::Flight::fragments(const view_t & content, const 
 			// Запоминаем номер записи под подтверждение
 			this->_acknowledgeable.push_back(datagram::number_t(epoch, sequence));
 	/**
-	 * Если памяти под сборку сообщений не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -1919,7 +1902,6 @@ context::error_t nts::internal::Flight::fragments(const view_t & content, const 
  *
  * @param type вид, в который помещается вид собранного сообщения
  * @param body накопитель, в который переносится тело сообщения
- *
  * @return     признак того, что ожидаемое сообщение собрано и выдано
  *
  */
@@ -2032,7 +2014,6 @@ void nts::internal::Flight::halt() noexcept {
  * @param body   тело принятого сообщения подтверждения
  * @param epoch  пора ключей записи подтверждения
  * @param rotate место, в которое помещается признак вступления своей смены ключей
- *
  * @return       отказ разбора подтверждения
  *
  */
@@ -2139,7 +2120,6 @@ context::error_t nts::internal::Flight::acknowledged(const view_t & body, const 
  *
  * @param before пора чтения до подачи дейтаграммы
  * @param result перечень, в который переносятся отложенные записи
- *
  * @return       признак того, что записи изъяты и подлежат разбору заново
  *
  */
@@ -2157,7 +2137,6 @@ bool nts::internal::Flight::pending(const uint16_t before, vector <vector <uint8
  * @brief Метод завершения подачи дейтаграммы
  *
  * @param settled признак того, что связь установлена
- *
  * @return        отказ завершения: TIMEOUT по исчерпании попыток повтора
  *
  */
@@ -2196,6 +2175,7 @@ context::error_t nts::internal::Flight::complete(const bool settled) noexcept {
 	const bool resend = (repeated || (nudged && !this->_prodded));
 	// Если просили пустым подтверждением - отмечаем ранний повтор
 	if(nudged)
+		// Отмечаем ранний повтор по просьбе пустым подтверждением
 		this->_prodded = true;
 	// Раскладка идёт всегда: уже сложенное подтверждение уходит сейчас (повтор по повтору собеседника не сдерживается: путь с потерями на него опирается - записано долгом)
 	return this->dispatch(resend);
@@ -2352,7 +2332,6 @@ void nts::internal::Flight::conclude() noexcept {
  * @param generation поколение секрета метки
  * @param digest     хеш приветствия клиента: 32 байта
  * @param mac        место, в которое помещается имитовставка: 32 байта
- *
  * @return           признак того, что имитовставка выработана
  *
  */
@@ -2374,7 +2353,6 @@ bool nts::internal::Flight::imprint(const uint8_t generation, const uint8_t * di
  * @param generation поколение секрета из метки
  * @param digest     хеш приветствия клиента, покрываемый меткой: 32 байта
  * @param mac        имитовставка из метки: 32 байта
- *
  * @return           признак того, что метка сложена сервером для этого собеседника
  *
  */
@@ -2411,7 +2389,6 @@ bool nts::internal::Flight::attest(const uint8_t generation, const uint8_t * dig
  *
  * @param message принятое приветствие клиента вместе с обвязкой
  * @param result  накопитель, в который складывается метка
- *
  * @return        отказ составления метки
  *
  */
@@ -2429,7 +2406,7 @@ context::error_t nts::internal::Flight::stamp(const view_t & message, vector <ui
 		// Выводим отказ составления метки
 		return context::error_t::MESSAGE;
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Выполняем сброс накопителя метки
@@ -2441,7 +2418,7 @@ context::error_t nts::internal::Flight::stamp(const view_t & message, vector <ui
 		// Записываем имитовставку метки
 		result.insert(result.end(), mac, mac + sizeof(mac));
 	/**
-	 * Если памяти под метку не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выполняем затирание имитовставки
@@ -2459,7 +2436,6 @@ context::error_t nts::internal::Flight::stamp(const view_t & message, vector <ui
  *
  * @param message принятое приветствие клиента без метки
  * @param result  накопитель, в который складывается метка
- *
  * @return        отказ составления метки
  *
  */
@@ -2477,7 +2453,7 @@ context::error_t nts::internal::Flight::token(const view_t & message, vector <ui
 		// Выводим отказ составления метки
 		return context::error_t::MESSAGE;
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Выполняем сброс накопителя метки
@@ -2487,7 +2463,7 @@ context::error_t nts::internal::Flight::token(const view_t & message, vector <ui
 		// Записываем имитовставку метки: хеш приветствия ею покрыт и в метке не повторяется
 		result.insert(result.end(), mac, mac + sizeof(mac));
 	/**
-	 * Если памяти под метку не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выполняем затирание имитовставки
@@ -2504,7 +2480,6 @@ context::error_t nts::internal::Flight::token(const view_t & message, vector <ui
  * @brief Метод проверки метки возврата состояния сервера
  *
  * @param label проверяемая метка, повторённая клиентом
- *
  * @return      признак того, что метка сложена сервером для этого собеседника
  *
  */
@@ -2536,7 +2511,6 @@ bool nts::internal::Flight::verify(const view_t & label) const noexcept {
  *
  * @param label   проверяемая метка, повторённая клиентом
  * @param message приветствие клиента без метки, по которому она сложена
- *
  * @return        признак того, что метка сложена сервером для этого собеседника и приветствия
  *
  */
@@ -2647,7 +2621,6 @@ bool nts::internal::Flight::prepare() noexcept {
  * @brief Метод установки адреса собеседника для метки возврата состояния
  *
  * @param address адрес либо иной опознаватель собеседника
- *
  * @return        признак того, что адрес принят
  *
  */
@@ -2664,13 +2637,13 @@ bool nts::internal::Flight::address(const view_t & address) noexcept {
 		// Выводим отказ установки адреса
 		return false;
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Переносим адрес собеседника
 		this->_address.assign(address.data, address.data + address.size);
 	/**
-	 * Если памяти под адрес не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выполняем сброс адреса собеседника
@@ -2769,7 +2742,6 @@ uint64_t nts::internal::Flight::discarded() const noexcept {
  * @brief Метод получения числа отброшенного по причине
  *
  * @param reason причина отброса
- *
  * @return       число отброшенного по причине
  *
  */

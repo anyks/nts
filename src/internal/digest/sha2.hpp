@@ -40,6 +40,9 @@
  * Экранируем повторную инициализацию модуля
  */
 #ifndef __ANTS_INTERNAL_DIGEST_SHA2__
+/**
+ * Макрос экранирования повторной инициализации модуля
+ */
 #define __ANTS_INTERNAL_DIGEST_SHA2__
 
 /**
@@ -80,18 +83,21 @@
 			namespace kernel {
 				/**
 				 * @brief Маски перестановки байтов SHA-256: разворот слов от старшего байта и две укладки младших половин четвёрок в слова 0…1 и 2…3
+				 *
 				 */
 				alignas(16) static const uint8_t MASK256[48] = {
+					/* Разворот байтов в каждом слове блока */
 					3, 2, 1, 0, 7, 6, 5, 4, 11, 10, 9, 8, 15, 14, 13, 12,
 					0, 1, 2, 3, 8, 9, 10, 11, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
 					0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0, 1, 2, 3, 8, 9, 10, 11
 				};
 				/**
 				 * @brief Маска перестановки байтов SHA-512: разворот слов от старшего байта
+				 *
 				 */
 				alignas(16) static const uint8_t MASK512[16] = {7, 6, 5, 4, 3, 2, 1, 0, 15, 14, 13, 12, 11, 10, 9, 8};
 				/**
-				 * @brief Метод разбора пар блоков SHA-256 ядром AVX2 с BMI2
+				 * @brief Функция разбора пар блоков SHA-256 ядром AVX2 с BMI2
 				 *
 				 * @param state     состояние: восемь слов
 				 * @param data      блоки сообщения
@@ -102,7 +108,9 @@
 				static void sha256avx2(uint32_t * state, const uint8_t * data, size_t count, const uint32_t * constants) noexcept {
 					// Указатели на постоянные и маски перестановки байтов: читаются вставкой до сдвига стека
 					const void * kp = constants;
+					/* Маска перестановки байтов под чтение вставкой */
 					const void * mp = MASK256;
+					/* Вставка ядра: раскладка стека и раунды над парами блоков */
 					__asm__ __volatile__(
 						"movq %[kp], %%rax\n\t"
 						"movq %[mp], %%rbx\n\t"
@@ -926,7 +934,7 @@
 						: "rax", "rbx", "rcx", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15", "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", "xmm8", "xmm9", "xmm10", "cc", "memory");
 				}
 				/**
-				 * @brief Метод разбора блоков SHA-256 ядром AVX с BMI2
+				 * @brief Функция разбора блоков SHA-256 ядром AVX с BMI2
 				 *
 				 * @param state     состояние: восемь слов
 				 * @param data      блоки сообщения
@@ -937,7 +945,9 @@
 				static void sha256avx(uint32_t * state, const uint8_t * data, size_t count, const uint32_t * constants) noexcept {
 					// Указатели на постоянные и маски перестановки байтов: читаются вставкой до сдвига стека
 					const void * kp = constants;
+					/* Маска перестановки байтов под чтение вставкой */
 					const void * mp = MASK256;
+					/* Вставка ядра: раскладка стека и раунды над блоками */
 					__asm__ __volatile__(
 						"movq %[kp], %%rax\n\t"
 						"movq %[mp], %%rbx\n\t"
@@ -1909,7 +1919,7 @@
 						: "rax", "rbx", "rcx", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15", "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", "xmm8", "xmm9", "xmm10", "cc", "memory");
 				}
 				/**
-				 * @brief Метод разбора блоков SHA-256 ядром SSSE3
+				 * @brief Функция разбора блоков SHA-256 ядром SSSE3
 				 *
 				 * @param state     состояние: восемь слов
 				 * @param data      блоки сообщения
@@ -1920,7 +1930,9 @@
 				static void sha256ssse3(uint32_t * state, const uint8_t * data, size_t count, const uint32_t * constants) noexcept {
 					// Указатели на постоянные и маски перестановки байтов: читаются вставкой до сдвига стека
 					const void * kp = constants;
+					/* Маска перестановки байтов под чтение вставкой */
 					const void * mp = MASK256;
+					/* Вставка ядра: раскладка стека и раунды над блоками */
 					__asm__ __volatile__(
 						"movq %[kp], %%rax\n\t"
 						"movq %[mp], %%rbx\n\t"
@@ -2996,7 +3008,7 @@
 						: "rax", "rbx", "rcx", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15", "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", "xmm8", "xmm9", "xmm10", "cc", "memory");
 				}
 				/**
-				 * @brief Метод разбора пар блоков SHA-512 ядром AVX2 с BMI2
+				 * @brief Функция разбора пар блоков SHA-512 ядром AVX2 с BMI2
 				 *
 				 * @param state     состояние: восемь слов
 				 * @param data      блоки сообщения
@@ -3007,7 +3019,9 @@
 				static void sha512avx2(uint64_t * state, const uint8_t * data, size_t count, const uint64_t * constants) noexcept {
 					// Указатели на постоянные и маски перестановки байтов: читаются вставкой до сдвига стека
 					const void * kp = constants;
+					/* Маска перестановки байтов под чтение вставкой */
 					const void * mp = MASK512;
+					/* Вставка ядра: раскладка стека и раунды над парами блоков */
 					__asm__ __volatile__(
 						"movq %[kp], %%rax\n\t"
 						"movq %[mp], %%rbx\n\t"
@@ -3929,7 +3943,7 @@
 						: "rax", "rbx", "rcx", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15", "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", "xmm8", "xmm9", "xmm10", "xmm11", "xmm12", "cc", "memory");
 				}
 				/**
-				 * @brief Метод разбора блоков SHA-512 ядром AVX с BMI2
+				 * @brief Функция разбора блоков SHA-512 ядром AVX с BMI2
 				 *
 				 * @param state     состояние: восемь слов
 				 * @param data      блоки сообщения
@@ -3940,7 +3954,9 @@
 				static void sha512avx(uint64_t * state, const uint8_t * data, size_t count, const uint64_t * constants) noexcept {
 					// Указатели на постоянные и маски перестановки байтов: читаются вставкой до сдвига стека
 					const void * kp = constants;
+					/* Маска перестановки байтов под чтение вставкой */
 					const void * mp = MASK512;
+					/* Вставка ядра: раскладка стека и раунды над блоками */
 					__asm__ __volatile__(
 						"movq %[kp], %%rax\n\t"
 						"movq %[mp], %%rbx\n\t"
@@ -5002,7 +5018,7 @@
 						: "rax", "rbx", "rcx", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15", "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", "xmm8", "xmm9", "xmm10", "xmm11", "xmm12", "cc", "memory");
 				}
 				/**
-				 * @brief Метод разбора блоков SHA-512 ядром SSSE3
+				 * @brief Функция разбора блоков SHA-512 ядром SSSE3
 				 *
 				 * @param state     состояние: восемь слов
 				 * @param data      блоки сообщения
@@ -5013,7 +5029,9 @@
 				static void sha512ssse3(uint64_t * state, const uint8_t * data, size_t count, const uint64_t * constants) noexcept {
 					// Указатели на постоянные и маски перестановки байтов: читаются вставкой до сдвига стека
 					const void * kp = constants;
+					/* Маска перестановки байтов под чтение вставкой */
 					const void * mp = MASK512;
+					/* Вставка ядра: раскладка стека и раунды над блоками */
 					__asm__ __volatile__(
 						"movq %[kp], %%rax\n\t"
 						"movq %[mp], %%rbx\n\t"
@@ -6255,4 +6273,4 @@
 	}
 #endif
 
-#endif // __ANTS_INTERNAL_DIGEST_SHA2__
+#endif

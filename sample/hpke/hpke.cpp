@@ -52,7 +52,7 @@ using namespace nts;
  */
 namespace {
 	/**
-	 * @brief Метод печати области байтов шестнадцатеричной записью
+	 * @brief Функция печати области байтов шестнадцатеричной записью
 	 *
 	 * @param title подпись
 	 * @param data  область байтов
@@ -72,10 +72,9 @@ namespace {
 		cout << dec << endl;
 	}
 	/**
-	 * @brief Метод получения просмотра текста
+	 * @brief Функция получения просмотра текста
 	 *
 	 * @param text текст
-	 *
 	 * @return     просмотр
 	 *
 	 */
@@ -90,13 +89,13 @@ namespace {
  *
  * @param argc число доводов
  * @param argv доводы
- *
  * @return     код завершения: нуль при успехе
  *
  */
 int main(int argc, char * argv[]) noexcept {
 	// Доводы образцу не нужны
 	(void) argc;
+	// Не используем параметры приложения
 	(void) argv;
 	// Набор HPKE: DHKEM(X25519, HKDF-SHA256), HKDF-SHA256, ChaCha20-Poly1305
 	const hpke::suite_t suite(hpke::kem_t::X25519_HKDF_SHA256, hpke::kdf_t::HKDF_SHA256, hpke::aead_t::CHACHA20_POLY1305);
@@ -183,6 +182,7 @@ int main(int argc, char * argv[]) noexcept {
 	hpke::shared_t psk;
 	// Устанавливаем ключ и опознаватель
 	psk.key = ::text("заранее разделённый ключ достаточной длины");
+	// Опознаватель ключа PSK
 	psk.identity = ::text("ключ образца");
 	// Если запечатать в режиме PSK не удалось
 	if(hpke::seal(suite, hpke::regime_t::PSK, recipient.point(), info, psk, nullptr, associated, ::text("сообщение под PSK"), enc, sealed) != hpke::error_t::NONE)

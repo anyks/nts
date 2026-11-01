@@ -12,8 +12,13 @@
  * @email forman@anyks.com
  * @site https://anyks.com
  *
+ * \~russian
  * @brief Модуль описания каркаса Noise (ревизия 34): постоянные, наборы примитивов, узоры рукопожатия
  *
+ * \~english
+ * @brief Module of the description of the framework of Noise (revision 34): constants, sets of primitives, patterns of a handshake
+ *
+ * \~
  * @copyright Copyright © 2026
  *
  */
@@ -224,8 +229,11 @@ namespace nts {
 		 * \~
 		 */
 		enum class kem_t : uint8_t {
+			// Не установлен
 			NONE           = 0x00, /*!< \~russian Не установлен \~english Not set \~ */
+			// Составной X25519 + ML-KEM-768
 			X25519MLKEM768 = 0x01, /*!< \~russian Составной X25519 + ML-KEM-768 \~english Composite X25519 + ML-KEM-768 \~ */
+			// Чистый ML-KEM-768 по FIPS 203
 			MLKEM768       = 0x02  /*!< \~russian Чистый ML-KEM-768 по FIPS 203 \~english Pure ML-KEM-768 per FIPS 203 \~ */
 		};
 		/**
@@ -238,11 +246,17 @@ namespace nts {
 		 * \~
 		 */
 		enum class part_t : uint8_t {
+			// Открытый ключ
 			PUBLIC     = 0x01, /*!< \~russian Открытый ключ \~english Public key \~ */
+			// Закрытый ключ
 			SECRET     = 0x02, /*!< \~russian Закрытый ключ \~english Secret key \~ */
+			// Шифртекст
 			CIPHERTEXT = 0x03, /*!< \~russian Шифртекст \~english Ciphertext \~ */
+			// Общий секрет
 			SHARED     = 0x04, /*!< \~russian Общий секрет \~english Shared secret \~ */
+			// Зерно порождения пары
 			SEED       = 0x05, /*!< \~russian Зерно порождения пары \~english Key pair generation seed \~ */
+			// Случайность упаковки
 			COINS      = 0x06  /*!< \~russian Случайность упаковки \~english Encapsulation randomness \~ */
 		};
 		/**
@@ -255,7 +269,9 @@ namespace nts {
 		 * \~
 		 */
 		enum class dh_t : uint8_t {
+			// Не установлена
 			NONE   = 0x00, /*!< \~russian Не установлена \~english Not set \~ */
+			// X25519 по RFC 7748, «25519» в имени
 			X25519 = 0x19  /*!< \~russian X25519 по RFC 7748, «25519» в имени \~english X25519 according to RFC 7748, «25519» in the name \~ */
 		};
 		/**
@@ -268,8 +284,11 @@ namespace nts {
 		 * \~
 		 */
 		enum class aead_t : uint8_t {
+			// Не установлена
 			NONE       = 0x00, /*!< \~russian Не установлена \~english Not set \~ */
+			// ChaCha20-Poly1305 по RFC 8439, нонс: нули и счётчик от младшего
 			CHACHAPOLY = 0x01, /*!< \~russian ChaCha20-Poly1305 по RFC 8439, нонс: нули и счётчик от младшего \~english ChaCha20-Poly1305 according to RFC 8439, nonce: zeros and the counter little-endian \~ */
+			// AES-256-GCM, нонс: нули и счётчик от старшего
 			AESGCM     = 0x02  /*!< \~russian AES-256-GCM, нонс: нули и счётчик от старшего \~english AES-256-GCM, nonce: zeros and the counter big-endian \~ */
 		};
 		/**
@@ -286,63 +305,118 @@ namespace nts {
 		 * каноническое имя узора Noise, и менять его ради Windows нельзя. Макрос снимается
 		 * на время перечня и возвращается следом - чужие заголовки его не теряют
 		 */
-		#pragma push_macro("IN")
+		// Сохраняем действующее определение макроса IN перед его снятием
+		_Pragma("push_macro(\"IN\")")
 		#undef IN
+		// Объявляем перечисление узоров рукопожатия
 		enum class pattern_t : uint8_t {
+			// Не установлен
 			NONE = 0x00, /*!< \~russian Не установлен \~english Not set \~ */
+			// Односторонний, отвечающий известен
 			N    = 0x01, /*!< \~russian Односторонний, отвечающий известен \~english One-way, the responder is known \~ */
+			// Односторонний, обе стороны известны
 			K    = 0x02, /*!< \~russian Односторонний, обе стороны известны \~english One-way, both sides are known \~ */
+			// Односторонний, отправитель передаёт свой ключ
 			X    = 0x03, /*!< \~russian Односторонний, отправитель передаёт свой ключ \~english One-way, the sender transmits its key \~ */
+			// Без подлинности
 			NN   = 0x04, /*!< \~russian Без подлинности \~english Without authentication \~ */
+			// Отвечающий известен
 			NK   = 0x05, /*!< \~russian Отвечающий известен \~english The responder is known \~ */
+			// Отвечающий передаёт свой ключ
 			NX   = 0x06, /*!< \~russian Отвечающий передаёт свой ключ \~english The responder transmits its key \~ */
+			// Инициатор передаёт свой ключ
 			XN   = 0x07, /*!< \~russian Инициатор передаёт свой ключ \~english The initiator transmits its key \~ */
+			// Отвечающий известен, инициатор передаёт
 			XK   = 0x08, /*!< \~russian Отвечающий известен, инициатор передаёт \~english The responder is known, the initiator transmits \~ */
+			// Обе стороны передают свои ключи
 			XX   = 0x09, /*!< \~russian Обе стороны передают свои ключи \~english Both sides transmit their keys \~ */
+			// Инициатор известен
 			KN   = 0x0A, /*!< \~russian Инициатор известен \~english The initiator is known \~ */
+			// Обе стороны известны
 			KK   = 0x0B, /*!< \~russian Обе стороны известны \~english Both sides are known \~ */
+			// Инициатор известен, отвечающий передаёт
 			KX   = 0x0C, /*!< \~russian Инициатор известен, отвечающий передаёт \~english The initiator is known, the responder transmits \~ */
+			// Инициатор передаёт сразу
 			IN   = 0x0D, /*!< \~russian Инициатор передаёт сразу \~english The initiator transmits immediately \~ */
+			// Отвечающий известен, инициатор передаёт сразу
 			IK   = 0x0E, /*!< \~russian Отвечающий известен, инициатор передаёт сразу \~english The responder is known, the initiator transmits immediately \~ */
+			// Инициатор передаёт сразу, отвечающий передаёт
 			IX   = 0x0F, /*!< \~russian Инициатор передаёт сразу, отвечающий передаёт \~english The initiator transmits immediately, the responder transmits \~ */
+			// Отложенный
 			NK1  = 0x10, /*!< \~russian Отложенный \~english Deferred \~ */
+			// Отложенный
 			NX1  = 0x11, /*!< \~russian Отложенный \~english Deferred \~ */
+			// Отложенный
 			X1N  = 0x12, /*!< \~russian Отложенный \~english Deferred \~ */
+			// Отложенный
 			X1K  = 0x13, /*!< \~russian Отложенный \~english Deferred \~ */
+			// Отложенный
 			XK1  = 0x14, /*!< \~russian Отложенный \~english Deferred \~ */
+			// Отложенный
 			X1K1 = 0x15, /*!< \~russian Отложенный \~english Deferred \~ */
+			// Отложенный
 			X1X  = 0x16, /*!< \~russian Отложенный \~english Deferred \~ */
+			// Отложенный
 			XX1  = 0x17, /*!< \~russian Отложенный \~english Deferred \~ */
+			// Отложенный
 			X1X1 = 0x18, /*!< \~russian Отложенный \~english Deferred \~ */
+			// Отложенный
 			K1N  = 0x19, /*!< \~russian Отложенный \~english Deferred \~ */
+			// Отложенный
 			K1K  = 0x1A, /*!< \~russian Отложенный \~english Deferred \~ */
+			// Отложенный
 			KK1  = 0x1B, /*!< \~russian Отложенный \~english Deferred \~ */
+			// Отложенный
 			K1K1 = 0x1C, /*!< \~russian Отложенный \~english Deferred \~ */
+			// Отложенный
 			K1X  = 0x1D, /*!< \~russian Отложенный \~english Deferred \~ */
+			// Отложенный
 			KX1  = 0x1E, /*!< \~russian Отложенный \~english Deferred \~ */
+			// Отложенный
 			K1X1 = 0x1F, /*!< \~russian Отложенный \~english Deferred \~ */
+			// Отложенный
 			I1N  = 0x20, /*!< \~russian Отложенный \~english Deferred \~ */
+			// Отложенный
 			I1K  = 0x21, /*!< \~russian Отложенный \~english Deferred \~ */
+			// Отложенный
 			IK1  = 0x22, /*!< \~russian Отложенный \~english Deferred \~ */
+			// Отложенный
 			I1K1 = 0x23, /*!< \~russian Отложенный \~english Deferred \~ */
+			// Отложенный
 			I1X  = 0x24, /*!< \~russian Отложенный \~english Deferred \~ */
+			// Отложенный
 			IX1  = 0x25, /*!< \~russian Отложенный \~english Deferred \~ */
+			// Отложенный
 			I1X1 = 0x26, /*!< \~russian Отложенный \~english Deferred \~ */
+			// PQNoise односторонний
 			PQN  = 0x40, /*!< \~russian PQNoise односторонний \~english PQNoise one-way \~ */
+			// PQNoise
 			PQNN = 0x41, /*!< \~russian PQNoise \~english PQNoise \~ */
+			// PQNoise
 			PQNK = 0x42, /*!< \~russian PQNoise \~english PQNoise \~ */
+			// PQNoise
 			PQNX = 0x43, /*!< \~russian PQNoise \~english PQNoise \~ */
+			// PQNoise
 			PQKN = 0x44, /*!< \~russian PQNoise \~english PQNoise \~ */
+			// PQNoise
 			PQKK = 0x45, /*!< \~russian PQNoise \~english PQNoise \~ */
+			// PQNoise
 			PQKX = 0x46, /*!< \~russian PQNoise \~english PQNoise \~ */
+			// PQNoise
 			PQXN = 0x47, /*!< \~russian PQNoise \~english PQNoise \~ */
+			// PQNoise
 			PQXK = 0x48, /*!< \~russian PQNoise \~english PQNoise \~ */
+			// PQNoise, оба знака KEM в обоих направлениях
 			PQXX = 0x49, /*!< \~russian PQNoise, оба знака KEM в обоих направлениях \~english PQNoise, both KEM tokens in both directions \~ */
+			// PQNoise
 			PQIN = 0x4A, /*!< \~russian PQNoise \~english PQNoise \~ */
+			// PQNoise, отвечающий известен
 			PQIK = 0x4B, /*!< \~russian PQNoise, отвечающий известен \~english PQNoise, the responder is known \~ */
+			// PQNoise
 			PQIX = 0x4C  /*!< \~russian PQNoise \~english PQNoise \~ */
 		};
-		#pragma pop_macro("IN")
+		// Возвращаем сохранённое определение макроса IN
+		_Pragma("pop_macro(\"IN\")")
 		/**
 		 * \~russian
 		 * @brief Знаки узора рукопожатия
@@ -353,15 +427,25 @@ namespace nts {
 		 * \~
 		 */
 		enum class token_t : uint8_t {
+			// Пусто
 			NONE = 0x00, /*!< \~russian Пусто \~english Empty \~ */
+			// Временный открытый ключ
 			E    = 0x01, /*!< \~russian Временный открытый ключ \~english Ephemeral public key \~ */
+			// Постоянный открытый ключ
 			S    = 0x02, /*!< \~russian Постоянный открытый ключ \~english Static public key \~ */
+			// DH временных ключей
 			EE   = 0x03, /*!< \~russian DH временных ключей \~english DH of the ephemeral keys \~ */
+			// DH временного ключа инициатора и постоянного отвечающего
 			ES   = 0x04, /*!< \~russian DH временного ключа инициатора и постоянного отвечающего \~english DH of the initiator ephemeral and the responder static \~ */
+			// DH постоянного ключа инициатора и временного отвечающего
 			SE   = 0x05, /*!< \~russian DH постоянного ключа инициатора и временного отвечающего \~english DH of the initiator static and the responder ephemeral \~ */
+			// DH постоянных ключей
 			SS   = 0x06, /*!< \~russian DH постоянных ключей \~english DH of the static keys \~ */
+			// Заранее разделённый ключ
 			PSK  = 0x07, /*!< \~russian Заранее разделённый ключ \~english Pre-shared key \~ */
+			// Шифртекст к временному ключу получателя: в открытом виде, MixHash, MixKey
 			EKEM = 0x08, /*!< \~russian Шифртекст к временному ключу получателя: в открытом виде, MixHash, MixKey \~english Ciphertext to the receiver ephemeral key: in clear, MixHash, MixKey \~ */
+			// Шифртекст к постоянному ключу получателя: EncryptAndHash, MixKey
 			SKEM = 0x09  /*!< \~russian Шифртекст к постоянному ключу получателя: EncryptAndHash, MixKey \~english Ciphertext to the receiver static key: EncryptAndHash, MixKey \~ */
 		};
 		/**
@@ -401,7 +485,7 @@ namespace nts {
 			 *
 			 * \~
 			 */
-			Suite() noexcept : dh(dh_t::NONE), aead(aead_t::NONE), hash(digest::hash_t::NONE), kem(kem_t::NONE) {}
+			Suite() noexcept;
 			/**
 			 * \~russian
 			 * @brief Конструктор
@@ -419,7 +503,7 @@ namespace nts {
 			 *
 			 * \~
 			 */
-			Suite(const dh_t dh, const aead_t aead, const digest::hash_t hash) noexcept : dh(dh), aead(aead), hash(hash), kem(kem_t::NONE) {}
+			Suite(const dh_t dh, const aead_t aead, const digest::hash_t hash) noexcept;
 			/**
 			 * \~russian
 			 * @brief Конструктор набора PQNoise
@@ -437,21 +521,19 @@ namespace nts {
 			 *
 			 * \~
 			 */
-			Suite(const kem_t kem, const aead_t aead, const digest::hash_t hash) noexcept : dh(dh_t::NONE), aead(aead), hash(hash), kem(kem) {}
+			Suite(const kem_t kem, const aead_t aead, const digest::hash_t hash) noexcept;
 		} suite_t;
 		/**
 		 * \~russian
-		 * @brief Метод проверки годности набора: X25519 и один из хешей SHA256, SHA512, BLAKE2s, BLAKE2b
+		 * @brief Функция проверки годности набора: X25519 и один из хешей SHA256, SHA512, BLAKE2s, BLAKE2b
 		 *
 		 * @param suite набор примитивов
-		 *
 		 * @return      признак годности
 		 *
 		 * \~english
-		 * @brief Method of the suite validity check: X25519 and one of SHA256, SHA512, BLAKE2s, BLAKE2b
+		 * @brief Function of the suite validity check: X25519 and one of SHA256, SHA512, BLAKE2s, BLAKE2b
 		 *
 		 * @param suite suite of primitives
-		 *
 		 * @return      sign of validity
 		 *
 		 * \~
@@ -459,25 +541,23 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ bool valid(const suite_t & suite) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод составления имени протокола вида «Noise_XXpsk3_25519_ChaChaPoly_SHA256»
+		 * @brief Функция составления имени протокола вида «Noise_XXpsk3_25519_ChaChaPoly_SHA256»
 		 *
 		 * @param pattern узор рукопожатия
 		 * @param psks    положения заранее разделённых ключей
 		 * @param suite   набор примитивов
 		 * @param result  место имени, не короче NAME_LIMIT
 		 * @param size    на входе вместимость места, на выходе длина имени без завершающего нуля
-		 *
 		 * @return        признак того, что имя составлено
 		 *
 		 * \~english
-		 * @brief Method of the protocol name composition like «Noise_XXpsk3_25519_ChaChaPoly_SHA256»
+		 * @brief Function of the protocol name composition like «Noise_XXpsk3_25519_ChaChaPoly_SHA256»
 		 *
 		 * @param pattern handshake pattern
 		 * @param psks    positions of pre-shared keys
 		 * @param suite   suite of primitives
 		 * @param result  place of the name, not shorter than NAME_LIMIT
 		 * @param size    the capacity of the place on input, the name length without the trailing zero on output
-		 *
 		 * @return        sign that the name is composed
 		 *
 		 * \~
@@ -485,7 +565,7 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ bool name(const pattern_t pattern, const psk_t psks, const suite_t & suite, char * result, size_t & size) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод разбора имени протокола
+		 * @brief Функция разбора имени протокола
 		 *
 		 * @details При отказе заполнено то, что разобрано: у наборов с кривой 448 узор и хеш
 		 *          распознаны, а dh остаётся NONE
@@ -494,11 +574,10 @@ namespace nts {
 		 * @param pattern узор рукопожатия
 		 * @param psks    положения заранее разделённых ключей
 		 * @param suite   набор примитивов
-		 *
 		 * @return        признак того, что имя разобрано целиком и набор поддержан
 		 *
 		 * \~english
-		 * @brief Method of the protocol name parsing
+		 * @brief Function of the protocol name parsing
 		 *
 		 * @details On refusal what has been parsed is filled: for suites with curve 448 the
 		 *          pattern and the hash are recognized while dh stays NONE
@@ -507,7 +586,6 @@ namespace nts {
 		 * @param pattern handshake pattern
 		 * @param psks    positions of pre-shared keys
 		 * @param suite   suite of primitives
-		 *
 		 * @return        sign that the name is parsed wholly and the suite is supported
 		 *
 		 * \~
@@ -515,17 +593,15 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ bool parse(const view_t & text, pattern_t & pattern, psk_t & psks, suite_t & suite) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод получения числа сообщений узора
+		 * @brief Функция получения числа сообщений узора
 		 *
 		 * @param pattern узор рукопожатия
-		 *
 		 * @return        число сообщений либо нуль у незнакомого узора
 		 *
 		 * \~english
-		 * @brief Method of getting the number of messages of a pattern
+		 * @brief Function of getting the number of messages of a pattern
 		 *
 		 * @param pattern handshake pattern
-		 *
 		 * @return        number of messages or zero for an unknown pattern
 		 *
 		 * \~
@@ -533,23 +609,21 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ size_t messages(const pattern_t pattern) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод получения знаков сообщения узора
+		 * @brief Функция получения знаков сообщения узора
 		 *
 		 * @param pattern узор рукопожатия
 		 * @param index   номер сообщения от нуля
 		 * @param result  указатель на знаки
 		 * @param count   число знаков
-		 *
 		 * @return        признак того, что сообщение есть
 		 *
 		 * \~english
-		 * @brief Method of getting the tokens of a pattern message
+		 * @brief Function of getting the tokens of a pattern message
 		 *
 		 * @param pattern handshake pattern
 		 * @param index   message number from zero
 		 * @param result  pointer to the tokens
 		 * @param count   number of tokens
-		 *
 		 * @return        sign that the message exists
 		 *
 		 * \~
@@ -557,23 +631,21 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ bool tokens(const pattern_t pattern, const size_t index, const token_t *& result, size_t & count) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод получения знаков предсообщения узора
+		 * @brief Функция получения знаков предсообщения узора
 		 *
 		 * @param pattern   узор рукопожатия
 		 * @param initiator признак предсообщения инициатора (иначе - отвечающего)
 		 * @param result    указатель на знаки
 		 * @param count     число знаков
-		 *
 		 * @return          признак того, что узор знаком
 		 *
 		 * \~english
-		 * @brief Method of getting the tokens of a pattern pre-message
+		 * @brief Function of getting the tokens of a pattern pre-message
 		 *
 		 * @param pattern   handshake pattern
 		 * @param initiator sign of the initiator pre-message (otherwise of the responder)
 		 * @param result    pointer to the tokens
 		 * @param count     number of tokens
-		 *
 		 * @return          sign that the pattern is known
 		 *
 		 * \~
@@ -581,17 +653,15 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ bool premessage(const pattern_t pattern, const bool initiator, const token_t *& result, size_t & count) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод получения имени узора
+		 * @brief Функция получения имени узора
 		 *
 		 * @param pattern узор рукопожатия
-		 *
 		 * @return        имя узора либо пустая строка
 		 *
 		 * \~english
-		 * @brief Method of getting the pattern name
+		 * @brief Function of getting the pattern name
 		 *
 		 * @param pattern handshake pattern
-		 *
 		 * @return        pattern name or an empty string
 		 *
 		 * \~
@@ -599,23 +669,21 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ const char * title(const pattern_t pattern) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод вычисления DH
+		 * @brief Функция вычисления DH
 		 *
 		 * @param dh     функция обмена ключами
 		 * @param secret свой закрытый ключ в KEY байтов
 		 * @param point  чужой открытый ключ в KEY байтов
 		 * @param result место общего секрета в KEY байтов
-		 *
 		 * @return       признак того, что секрет вычислен и не состоит из нулей
 		 *
 		 * \~english
-		 * @brief Method of the DH computation
+		 * @brief Function of the DH computation
 		 *
 		 * @param dh     key exchange function
 		 * @param secret own private key of KEY bytes
 		 * @param point  peer public key of KEY bytes
 		 * @param result place of the shared secret of KEY bytes
-		 *
 		 * @return       sign that the secret is computed and is not all zeros
 		 *
 		 * \~
@@ -623,21 +691,19 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ bool agree(const dh_t dh, const view_t & secret, const view_t & point, uint8_t * result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод вывода открытого ключа из закрытого
+		 * @brief Функция вывода открытого ключа из закрытого
 		 *
 		 * @param dh     функция обмена ключами
 		 * @param secret закрытый ключ в KEY байтов
 		 * @param result место открытого ключа в KEY байтов
-		 *
 		 * @return       признак того, что ключ выведен
 		 *
 		 * \~english
-		 * @brief Method of the public key derivation from the private one
+		 * @brief Function of the public key derivation from the private one
 		 *
 		 * @param dh     key exchange function
 		 * @param secret private key of KEY bytes
 		 * @param result place of the public key of KEY bytes
-		 *
 		 * @return       sign that the key is derived
 		 *
 		 * \~
@@ -645,21 +711,19 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ bool derive(const dh_t dh, const view_t & secret, uint8_t * result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод выработки пары ключей из энтропии
+		 * @brief Функция выработки пары ключей из энтропии
 		 *
 		 * @param dh     функция обмена ключами
 		 * @param secret место закрытого ключа в KEY байтов
 		 * @param result место открытого ключа в KEY байтов
-		 *
 		 * @return       признак того, что пара выработана
 		 *
 		 * \~english
-		 * @brief Method of the key pair generation from entropy
+		 * @brief Function of the key pair generation from entropy
 		 *
 		 * @param dh     key exchange function
 		 * @param secret place of the private key of KEY bytes
 		 * @param result place of the public key of KEY bytes
-		 *
 		 * @return       sign that the pair is generated
 		 *
 		 * \~
@@ -667,17 +731,15 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ bool generate(const dh_t dh, uint8_t * secret, uint8_t * result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод проверки, что узор относится к PQNoise
+		 * @brief Функция проверки, что узор относится к PQNoise
 		 *
 		 * @param pattern узор рукопожатия
-		 *
 		 * @return        признак PQNoise
 		 *
 		 * \~english
-		 * @brief Method of checking that a pattern belongs to PQNoise
+		 * @brief Function of checking that a pattern belongs to PQNoise
 		 *
 		 * @param pattern handshake pattern
-		 *
 		 * @return        sign of PQNoise
 		 *
 		 * \~
@@ -685,19 +747,17 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ bool postquantum(const pattern_t pattern) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод получения длины части KEM
+		 * @brief Функция получения длины части KEM
 		 *
 		 * @param kem  механизм упаковки ключа
 		 * @param part часть
-		 *
 		 * @return     длина в байтах либо нуль у незнакомого механизма
 		 *
 		 * \~english
-		 * @brief Method of getting the length of a KEM part
+		 * @brief Function of getting the length of a KEM part
 		 *
 		 * @param kem  key encapsulation mechanism
 		 * @param part part
-		 *
 		 * @return     length in bytes or zero for an unknown mechanism
 		 *
 		 * \~
@@ -705,7 +765,7 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ size_t kemlength(const kem_t kem, const part_t part) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод порождения пары ключей KEM из зерна - детерминированный, для корпусов и потребителя, хранящего зерно
+		 * @brief Функция порождения пары ключей KEM из зерна - детерминированный, для корпусов и потребителя, хранящего зерно
 		 *
 		 * @warning Повтор зерна даёт ту же пару; обычный путь - kemgenerate из энтропии
 		 *
@@ -713,17 +773,17 @@ namespace nts {
 		 * @param seed   зерно длиной SEED: у ML-KEM-768 d ‖ z (64), у составного ещё закрытый X25519 (96)
 		 * @param key    место открытого ключа длиной PUBLIC
 		 * @param secret место закрытого ключа длиной SECRET
-		 *
 		 * @return       признак того, что пара порождена
 		 *
 		 * \~english
-		 * @brief Method of KEM key pair generation from a seed
+		 * @brief Function of KEM key pair generation from a seed
+		 *
+		 * @warning A repeated seed gives the same pair; the usual way is kemgenerate from the entropy
 		 *
 		 * @param kem    key encapsulation mechanism
 		 * @param seed   seed of SEED length: d ‖ z (64) for ML-KEM-768, plus the X25519 secret (96) for the composite
 		 * @param key    place of the public key of PUBLIC length
 		 * @param secret place of the secret key of SECRET length
-		 *
 		 * @return       sign that the pair is generated
 		 *
 		 * \~
@@ -731,21 +791,19 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ bool kemgenerateDeterministic(const kem_t kem, const view_t & seed, uint8_t * key, uint8_t * secret) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод порождения пары ключей KEM из энтропии
+		 * @brief Функция порождения пары ключей KEM из энтропии
 		 *
 		 * @param kem    механизм упаковки ключа
 		 * @param key    место открытого ключа длиной PUBLIC
 		 * @param secret место закрытого ключа длиной SECRET
-		 *
 		 * @return       признак того, что пара порождена
 		 *
 		 * \~english
-		 * @brief Method of KEM key pair generation from entropy
+		 * @brief Function of KEM key pair generation from entropy
 		 *
 		 * @param kem    key encapsulation mechanism
 		 * @param key    place of the public key of PUBLIC length
 		 * @param secret place of the secret key of SECRET length
-		 *
 		 * @return       sign that the pair is generated
 		 *
 		 * \~
@@ -753,7 +811,7 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ bool kemgenerate(const kem_t kem, uint8_t * key, uint8_t * secret) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод упаковки общего секрета на заданной случайности - детерминированный, для корпусов
+		 * @brief Функция упаковки общего секрета на заданной случайности - детерминированный, для корпусов
 		 *
 		 * @warning Повтор случайности на тот же открытый ключ даёт тот же шифртекст и тот же секрет - полная потеря,
 		 *          которая ничем не отказывает; обычный путь - encapsulate из энтропии
@@ -763,18 +821,19 @@ namespace nts {
 		 * @param coins      случайность длиной COINS: у ML-KEM-768 m (32), у составного ещё закрытый временный X25519 (64)
 		 * @param ciphertext место шифртекста длиной CIPHERTEXT
 		 * @param shared     место общего секрета длиной SHARED
-		 *
 		 * @return           признак того, что секрет упакован
 		 *
 		 * \~english
-		 * @brief Method of shared secret encapsulation to a public key on given randomness
+		 * @brief Function of shared secret encapsulation to a public key on given randomness
+		 *
+		 * @warning A repeated randomness for the same public key gives the same ciphertext and the same secret - a total loss,
+		 *          which is not refused by anything; the usual way is encapsulate from the entropy
 		 *
 		 * @param kem        key encapsulation mechanism
 		 * @param key        receiver public key of PUBLIC length
 		 * @param coins      randomness of COINS length: m (32) for ML-KEM-768, plus the ephemeral X25519 secret (64) for the composite
 		 * @param ciphertext place of the ciphertext of CIPHERTEXT length
 		 * @param shared     place of the shared secret of SHARED length
-		 *
 		 * @return           sign that the secret is encapsulated
 		 *
 		 * \~
@@ -782,23 +841,21 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ bool encapsulateDeterministic(const kem_t kem, const view_t & key, const view_t & coins, uint8_t * ciphertext, uint8_t * shared) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод упаковки общего секрета к открытому ключу на энтропии
+		 * @brief Функция упаковки общего секрета к открытому ключу на энтропии
 		 *
 		 * @param kem        механизм упаковки ключа
 		 * @param key        открытый ключ получателя длиной PUBLIC
 		 * @param ciphertext место шифртекста длиной CIPHERTEXT
 		 * @param shared     место общего секрета длиной SHARED
-		 *
 		 * @return           признак того, что секрет упакован
 		 *
 		 * \~english
-		 * @brief Method of shared secret encapsulation to a public key on entropy
+		 * @brief Function of shared secret encapsulation to a public key on entropy
 		 *
 		 * @param kem        key encapsulation mechanism
 		 * @param key        receiver public key of PUBLIC length
 		 * @param ciphertext place of the ciphertext of CIPHERTEXT length
 		 * @param shared     place of the shared secret of SHARED length
-		 *
 		 * @return           sign that the secret is encapsulated
 		 *
 		 * \~
@@ -806,23 +863,21 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ bool encapsulate(const kem_t kem, const view_t & key, uint8_t * ciphertext, uint8_t * shared) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод распаковки общего секрета
+		 * @brief Функция распаковки общего секрета
 		 *
 		 * @param kem        механизм упаковки ключа
 		 * @param secret     свой закрытый ключ длиной SECRET
 		 * @param ciphertext шифртекст длиной CIPHERTEXT
 		 * @param shared     место общего секрета длиной SHARED
-		 *
 		 * @return           признак того, что секрет распакован (у ML-KEM подделка даёт неявное отклонение, а не отказ)
 		 *
 		 * \~english
-		 * @brief Method of shared secret decapsulation
+		 * @brief Function of shared secret decapsulation
 		 *
 		 * @param kem        key encapsulation mechanism
 		 * @param secret     own secret key of SECRET length
 		 * @param ciphertext ciphertext of CIPHERTEXT length
 		 * @param shared     place of the shared secret of SHARED length
-		 *
 		 * @return           sign that the secret is decapsulated (for ML-KEM a forgery yields implicit rejection, not a refusal)
 		 *
 		 * \~

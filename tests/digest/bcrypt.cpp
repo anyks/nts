@@ -37,10 +37,9 @@
 using namespace nts;
 
 /**
- * @brief Метод разбора шестнадцатеричной строки в байты
+ * @brief Функция разбора шестнадцатеричной строки в байты
  *
  * @param text разбираемая строка
- *
  * @return     разобранные байты
  *
  */
@@ -57,10 +56,9 @@ static std::vector <uint8_t> bytes(const std::string & text) {
 	return result;
 }
 /**
- * @brief Метод получения просмотра строки знаков
+ * @brief Функция получения просмотра строки знаков
  *
  * @param text строка знаков, на которую заводится просмотр
- *
  * @return     просмотр области байтов строки знаков
  *
  */
@@ -75,8 +73,9 @@ static view_t text(const char * text) noexcept {
 TEST(BcryptTest, Vectors) {
 	// Контрольные примеры OpenBSD bcrypt_pbkdf: пароль, соль, круги, выработанный ключ
 	static const struct {
-		// Пароль и соль строкой, число кругов и ключ шестнадцатеричной записью
+		// Пароль и соль строкой, ключ шестнадцатеричной записью
 		const char * pass, * salt, * key;
+		// Число кругов выработки ключа
 		size_t rounds;
 	} VECTORS[] = {
 		// Контрольный пример OpenBSD: password, salt, 4 круга, 32 байта
@@ -107,6 +106,7 @@ TEST(BcryptTest, Partial) {
 	ASSERT_TRUE(digest::bcrypt(::text("password"), ::text("salt"), key, sizeof(key), 4));
 	// Выработка того же ключа по блокам обязана дать те же байты на тех же местах
 	uint8_t whole[64];
+	// Выработка того же ключа целым числом блоков обязана удаться
 	ASSERT_TRUE(digest::bcrypt(::text("password"), ::text("salt"), whole, sizeof(whole), 4));
 	// Первые байты совпадают: перемешивание раскладывает их по местам одинаково
 	EXPECT_EQ(key[0], whole[0]);

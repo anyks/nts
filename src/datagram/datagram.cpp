@@ -88,11 +88,10 @@ namespace {
 	static constexpr size_t NUMBER_WIDTH = 16;
 
 	/**
-	 * @brief Метод чтения числа из сетевого порядка байтов
+	 * @brief Функция чтения числа из сетевого порядка байтов
 	 *
 	 * @param data  читаемая область байтов
 	 * @param width число читаемых байтов
-	 *
 	 * @return      прочитанное число
 	 *
 	 */
@@ -109,7 +108,7 @@ namespace {
 		return result;
 	}
 	/**
-	 * @brief Метод записи числа в сетевом порядке байтов
+	 * @brief Функция записи числа в сетевом порядке байтов
 	 *
 	 * @param value  записываемое число
 	 * @param result место, в которое помещается запись числа
@@ -125,10 +124,9 @@ namespace {
 			result[i] = static_cast <uint8_t> ((value >> ((width - 1 - i) * 8)) & 0xFF);
 	}
 	/**
-	 * @brief Метод проверки известности вида содержимого записи поверх дейтаграммы
+	 * @brief Функция проверки известности вида содержимого записи поверх дейтаграммы
 	 *
 	 * @param type проверяемый вид содержимого
-	 *
 	 * @return     признак того, что вид определён RFC 9147
 	 *
 	 * @note Раздел 4 RFC 9147: смены набора шифрования у DTLS 1.3 нет вовсе, а
@@ -142,11 +140,10 @@ namespace {
 };
 
 /**
- * @brief Метод разбора заголовка записи поверх дейтаграммы
+ * @brief Функция разбора заголовка записи поверх дейтаграммы
  *
  * @param data   разбираемая область байтов от начала записи до конца дейтаграммы
  * @param result заголовок, в который помещается итог разбора
- *
  * @return       отказ разбора заголовка записи
  *
  */
@@ -251,12 +248,11 @@ nts::datagram::error_t nts::datagram::parse(const view_t & data, header_t & resu
 	return error_t::NONE;
 }
 /**
- * @brief Метод записи заголовка записи поверх дейтаграммы
+ * @brief Функция записи заголовка записи поверх дейтаграммы
  *
  * @param header записываемый заголовок записи
  * @param result место, в которое помещается заголовок записи
  * @param length место, в которое помещается длина записанного заголовка
- *
  * @return       отказ записи заголовка записи
  *
  */
@@ -314,12 +310,11 @@ nts::datagram::error_t nts::datagram::build(const header_t & header, uint8_t * r
 	return error_t::NONE;
 }
 /**
- * @brief Метод разбора заголовка записи поверх дейтаграммы по изданию переноса
+ * @brief Функция разбора заголовка записи поверх дейтаграммы по изданию переноса
  *
  * @param data   разбираемая область байтов от начала записи до конца дейтаграммы
  * @param result заголовок, в который помещается итог разбора
  * @param legacy ведётся ли перенос изданием DTLS 1.2
- *
  * @return       отказ разбора заголовка записи
  *
  */
@@ -328,13 +323,12 @@ nts::datagram::error_t nts::datagram::parse(const view_t & data, header_t & resu
 	return parse(data, result, legacy, false);
 }
 /**
- * @brief Метод разбора заголовка записи с учётом издания DTLS 1.0
+ * @brief Функция разбора заголовка записи с учётом издания DTLS 1.0
  *
  * @param data    разбираемая область байтов
  * @param result  заголовок, в который помещается итог разбора
- * @param legacy  ведётся ли перенос открытым заголовком
- * @param ancient ведётся ли перенос изданием DTLS 1.0
- *
+ * @param legacy  ведётся ли перенос открытым заголовком (DTLS 1.2 либо 1.0)
+ * @param ancient ведётся ли перенос изданием DTLS 1.0: издание 0xFEFF у всякой записи
  * @return        отказ разбора заголовка
  *
  */
@@ -391,13 +385,12 @@ nts::datagram::error_t nts::datagram::parse(const view_t & data, header_t & resu
 	return error_t::NONE;
 }
 /**
- * @brief Метод записи заголовка записи поверх дейтаграммы по изданию переноса
+ * @brief Функция записи заголовка записи поверх дейтаграммы по изданию переноса
  *
  * @param header записываемый заголовок записи
  * @param result место, в которое помещается заголовок записи
  * @param length место, в которое помещается длина записанного заголовка
  * @param legacy ведётся ли перенос изданием DTLS 1.2
- *
  * @return       отказ записи заголовка записи
  *
  */
@@ -406,14 +399,13 @@ nts::datagram::error_t nts::datagram::build(const header_t & header, uint8_t * r
 	return build(header, result, length, legacy, false);
 }
 /**
- * @brief Метод записи заголовка записи с учётом издания DTLS 1.0
+ * @brief Функция записи заголовка записи с учётом издания DTLS 1.0
  *
  * @param header  записываемый заголовок
  * @param result  место, в которое помещается запись заголовка
  * @param length  место, в которое помещается длина записи заголовка
  * @param legacy  ведётся ли перенос открытым заголовком
- * @param ancient ведётся ли перенос изданием DTLS 1.0
- *
+ * @param ancient ведётся ли перенос изданием DTLS 1.0: в заголовок кладётся 0xFEFF
  * @return        отказ записи заголовка
  *
  */
@@ -455,11 +447,10 @@ nts::datagram::error_t nts::datagram::build(const header_t & header, uint8_t * r
 	return error_t::NONE;
 }
 /**
- * @brief Метод разбора обвязки куска сообщения рукопожатия
+ * @brief Функция разбора обвязки куска сообщения рукопожатия
  *
  * @param data   разбираемая область байтов
  * @param result обвязка, в которую помещается итог разбора
- *
  * @return       отказ разбора обвязки куска
  *
  */
@@ -494,11 +485,10 @@ nts::datagram::error_t nts::datagram::parse(const view_t & data, fragment_t & re
 	return error_t::NONE;
 }
 /**
- * @brief Метод записи обвязки куска сообщения рукопожатия
+ * @brief Функция записи обвязки куска сообщения рукопожатия
  *
  * @param fragment записываемая обвязка куска
  * @param result   место, в которое помещается обвязка куска
- *
  * @return         отказ записи обвязки куска
  *
  */
@@ -533,11 +523,10 @@ nts::datagram::error_t nts::datagram::build(const fragment_t & fragment, uint8_t
 	return error_t::NONE;
 }
 /**
- * @brief Метод разбора тела сообщения подтверждения
+ * @brief Функция разбора тела сообщения подтверждения
  *
  * @param data   разбираемое тело сообщения подтверждения
  * @param result перечень, в который помещаются подтверждённые номера записей
- *
  * @return       отказ разбора сообщения подтверждения
  *
  */
@@ -553,7 +542,7 @@ nts::datagram::error_t nts::datagram::parse(const view_t & data, vector <number_
 		// Выводим отказ длины перечня
 		return error_t::LENGTH;
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		/**
@@ -563,7 +552,7 @@ nts::datagram::error_t nts::datagram::parse(const view_t & data, vector <number_
 			// Добавляем очередной номер записи в перечень
 			result.push_back(number_t(fetch(data.data + offset, 8), fetch(data.data + offset + 8, 8)));
 	/**
-	 * Если памяти под перечень номеров не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -573,11 +562,10 @@ nts::datagram::error_t nts::datagram::parse(const view_t & data, vector <number_
 	return error_t::NONE;
 }
 /**
- * @brief Метод составления тела сообщения подтверждения
+ * @brief Функция составления тела сообщения подтверждения
  *
  * @param numbers подтверждаемые номера записей
  * @param result  накопитель, в который складывается тело сообщения
- *
  * @return        отказ составления сообщения подтверждения
  *
  */
@@ -589,7 +577,7 @@ nts::datagram::error_t nts::datagram::build(const vector <number_t> & numbers, v
 		// Выводим отказ длины перечня
 		return error_t::LENGTH;
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Смещение тела сообщения в накопителе
@@ -608,7 +596,7 @@ nts::datagram::error_t nts::datagram::build(const vector <number_t> & numbers, v
 			stow(numbers[i].sequence, result.data() + offset + 2 + (i * NUMBER_WIDTH) + 8, 8);
 		}
 	/**
-	 * Если памяти под тело сообщения не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -618,13 +606,12 @@ nts::datagram::error_t nts::datagram::build(const vector <number_t> & numbers, v
 	return error_t::NONE;
 }
 /**
- * @brief Метод выработки маски номера записи
+ * @brief Функция выработки маски номера записи
  *
  * @param suite  набор шифрования связи
  * @param key    ключ шифрования номера записи, выведенный меткой «sn»
  * @param sample образец шифртекста длиной DATAGRAM_SAMPLE байтов
  * @param result место, в которое помещаются DATAGRAM_MASK байтов маски
- *
  * @return       признак успешности выработки маски
  *
  */
@@ -700,12 +687,11 @@ bool nts::datagram::mask(const protect::suite_t suite, const view_t & key, const
 	return false;
 }
 /**
- * @brief Метод восстановления полного порядкового номера записи по младшим разрядам
+ * @brief Функция восстановления полного порядкового номера записи по младшим разрядам
  *
  * @param expected ожидаемый порядковый номер: следующий за наибольшим принятым
  * @param junior   младшие разряды номера, принесённые заголовком
  * @param bits     число принесённых разрядов: восемь либо шестнадцать
- *
  * @return         полный порядковый номер, ближайший к ожидаемому
  *
  */
@@ -747,7 +733,6 @@ uint64_t nts::datagram::Window::expected() const noexcept {
  * @brief Метод проверки того, что запись повторная либо позади окна
  *
  * @param sequence порядковый номер проверяемой записи
- *
  * @return         признак того, что запись отбрасывается
  *
  */
@@ -817,3 +802,30 @@ void nts::datagram::Window::clear() noexcept {
  *
  */
 nts::datagram::Window::Window() noexcept : _filled(false), _top(0), _bits(0) {}
+
+/**
+ * @brief Конструктор
+ *
+ */
+nts::datagram::Header::Header() noexcept : unified(false), identifier(false), sized(true), bits(16), type(record::type_t::NONE), epoch(0), sequence(0), size(0), length(0), version(0) {}
+
+/**
+ * @brief Конструктор
+ *
+ */
+nts::datagram::Fragment::Fragment() noexcept : type(handshake::type_t::NONE), sequence(0), size(0), offset(0), length(0) {}
+
+/**
+ * @brief Конструктор
+ *
+ */
+nts::datagram::Number::Number() noexcept : epoch(0), sequence(0) {}
+
+/**
+ * @brief Конструктор
+ *
+ * @param epoch    пора ключей записи
+ * @param sequence порядковый номер записи
+ *
+ */
+nts::datagram::Number::Number(const uint64_t epoch, const uint64_t sequence) noexcept : epoch(epoch), sequence(sequence) {}

@@ -60,10 +60,9 @@ static const char * CORPUS = ANTS_CORPUS;
  */
 namespace {
 	/**
-	 * @brief Метод чтения файла целиком
+	 * @brief Функция чтения файла целиком
 	 *
 	 * @param path путь к читаемому файлу
-	 *
 	 * @return     содержимое файла
 	 *
 	 */
@@ -78,10 +77,9 @@ namespace {
 		return stream.str();
 	}
 	/**
-	 * @brief Метод чтения файла набора целиком
+	 * @brief Функция чтения файла набора целиком
 	 *
 	 * @param name имя файла в наборе
-	 *
 	 * @return     содержимое файла
 	 *
 	 */
@@ -90,10 +88,9 @@ namespace {
 		return slurp(std::string(CORPUS) + "/" + name);
 	}
 	/**
-	 * @brief Метод получения просмотра набора байтов
+	 * @brief Функция получения просмотра набора байтов
 	 *
 	 * @param data просматриваемый набор байтов
-	 *
 	 * @return     просмотр набора байтов
 	 *
 	 */
@@ -102,10 +99,9 @@ namespace {
 		return view_t(data.data(), data.size());
 	}
 	/**
-	 * @brief Метод извлечения тела первой записи PEM
+	 * @brief Функция извлечения тела первой записи PEM
 	 *
 	 * @param text разбираемый текст
-	 *
 	 * @return     тело первой записи в кодировке DER
 	 *
 	 */
@@ -120,10 +116,9 @@ namespace {
 		return blocks.front().data;
 	}
 	/**
-	 * @brief Метод извлечения значения признака CN из имени
+	 * @brief Функция извлечения значения признака CN из имени
 	 *
 	 * @param name разбираемое имя
-	 *
 	 * @return     значение признака CN либо пустая строка
 	 *
 	 */
@@ -134,12 +129,11 @@ namespace {
 		return ((attribute != nullptr) ? attribute->value : std::string());
 	}
 	/**
-	 * @brief Метод разбора сертификата набора
+	 * @brief Функция разбора сертификата набора
 	 *
 	 * @param name        имя файла сертификата в наборе
 	 * @param der         место, в которое помещается тело записи сертификата
 	 * @param certificate объект разбираемого сертификата
-	 *
 	 * @return            признак успешности разбора
 	 *
 	 */
@@ -148,7 +142,7 @@ namespace {
 		der = body(corpus(name));
 		// Если записи нет
 		if(der.empty())
-			// Выводим отказ
+			// Выводим отрицательный результат - записи нет
 			return false;
 		// Выводим итог разбора сертификата
 		return (certificate.parse(view(der)) == x509::error_t::NONE);
@@ -192,6 +186,7 @@ TEST(CrlTest, Corpus){
 		crl.updates(thisUpdate, nextUpdate);
 		// Проверяем наличие обеих дат и их порядок
 		ASSERT_NE(thisUpdate, 0) << "Список: " << names[i];
+		// Дата следующего обновления позже даты выпуска: список действует до истечения
 		ASSERT_GT(nextUpdate, thisUpdate) << "Список: " << names[i];
 		// Проверяем число записей отозванных сертификатов
 		ASSERT_EQ(crl.revoked().size(), static_cast <size_t> (1)) << "Список: " << names[i];
@@ -248,6 +243,7 @@ TEST(CrlTest, Refusal){
 	ASSERT_TRUE(certificate("ca-rsa.crt", caDer, ca));
 	// Порченая запись: последний байт подписи перевёрнут
 	std::vector <uint8_t> damaged(der);
+	// Переворачиваем все разряды последнего байта подписи
 	damaged[damaged.size() - 1] = static_cast <uint8_t> (damaged[damaged.size() - 1] ^ 0xFF);
 	// Разбор порченой записи проходит: подпись не проверяется разбором
 	ASSERT_EQ(crl.parse(view(damaged)), x509::error_t::NONE);

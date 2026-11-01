@@ -12,6 +12,7 @@
  * @email forman@anyks.com
  * @site https://anyks.com
  *
+ * \~russian
  * @brief Модуль хеширования BLAKE2b и BLAKE2s по RFC 7693 с ключевым режимом и переменной длиной итога
  *
  * @section Намеренные решения
@@ -21,6 +22,17 @@
  *    режиме, но именно так описаны Noise и WireGuard: HKDF там строится над HMAC-BLAKE2s, а не над
  *    ключевым BLAKE2s. Соблюдение описания, а не недосмотр; ключевой режим - для тех, кому он нужен
  *
+ * \~english
+ * @brief Module of the hashing BLAKE2b and BLAKE2s according to RFC 7693 with the keyed mode and a variable length of the output
+ *
+ * @section Deliberate decisions
+ *
+ * 1. BLAKE2 is registered in the common list of `digest::hash_t` (BLAKE2S256, BLAKE2B512), therefore HMAC and
+ *    HKDF go on top of it as on top of any hash. This looks redundant with the native keyed mode, but this is
+ *    exactly how Noise and WireGuard are described: HKDF there is built on HMAC-BLAKE2s, and not on the keyed
+ *    BLAKE2s. Following the description, and not an oversight; the keyed mode is for those who need it
+ *
+ * \~
  * @copyright Copyright © 2026
  *
  */
@@ -96,8 +108,11 @@ namespace nts {
 		 * \~
 		 */
 		enum class blake_t : uint8_t {
+			// Разновидность не установлена
 			NONE    = 0x00, /*!< \~russian Разновидность не установлена \~english The kind is not set \~ */
+			// BLAKE2b: слова в 64 разряда, блок 128 байтов, итог до 64 байтов
 			BLAKE2B = 0x40, /*!< \~russian BLAKE2b: слова в 64 разряда, блок 128 байтов, итог до 64 байтов \~english BLAKE2b: 64-bit words, 128-byte block, result up to 64 bytes \~ */
+			// BLAKE2s: слова в 32 разряда, блок 64 байта, итог до 32 байтов
 			BLAKE2S = 0x20  /*!< \~russian BLAKE2s: слова в 32 разряда, блок 64 байта, итог до 32 байтов \~english BLAKE2s: 32-bit words, 64-byte block, result up to 32 bytes \~ */
 		};
 		/**
@@ -138,10 +153,17 @@ namespace nts {
 				uint8_t _block[128];
 			private:
 				/**
+				 * \~russian
 				 * @brief Метод сжатия блока
 				 *
 				 * @param last признак последнего блока
 				 *
+				 * \~english
+				 * @brief Method of the compression of the block
+				 *
+				 * @param last the flag of the last block
+				 *
+				 * \~
 				 */
 				void compress(const bool last) noexcept;
 			public:
@@ -195,7 +217,6 @@ namespace nts {
 				 * @param type   разновидность
 				 * @param length длина итога в байтах от 1 до наибольшей у разновидности
 				 * @param key    ключ имитовставки либо пустой вид
-				 *
 				 * @return       признак того, что хеш заведён
 				 *
 				 * \~english
@@ -204,7 +225,6 @@ namespace nts {
 				 * @param type   kind
 				 * @param length length of the result in bytes from 1 up to the greatest of the kind
 				 * @param key    key of the MAC or an empty view
-				 *
 				 * @return       sign that the hash is started
 				 *
 				 * \~
@@ -215,14 +235,12 @@ namespace nts {
 				 * @brief Метод подачи куска сообщения
 				 *
 				 * @param data кусок сообщения
-				 *
 				 * @return     признак того, что кусок поглощён
 				 *
 				 * \~english
 				 * @brief Method of the feeding of a piece of the message
 				 *
 				 * @param data piece of the message
-				 *
 				 * @return     sign that the piece is absorbed
 				 *
 				 * \~
@@ -234,7 +252,6 @@ namespace nts {
 				 *
 				 * @param result место, в которое помещается итог
 				 * @param size   длина места: ровно длина итога
-				 *
 				 * @return       признак того, что итог снят; повторное снятие отвергается
 				 *
 				 * \~english
@@ -242,7 +259,6 @@ namespace nts {
 				 *
 				 * @param result place into which the result is put
 				 * @param size   length of the place: exactly the length of the result
-				 *
 				 * @return       sign that the result is taken; a repeated taking is refused
 				 *
 				 * \~
@@ -272,25 +288,23 @@ namespace nts {
 		} blake2_t;
 		/**
 		 * \~russian
-		 * @brief Метод хеширования сообщения за один вызов
+		 * @brief Функция хеширования сообщения за один вызов
 		 *
 		 * @param type   разновидность
 		 * @param key    ключ имитовставки либо пустой вид
 		 * @param data   сообщение
 		 * @param result место, в которое помещается итог
 		 * @param size   длина итога в байтах от 1 до наибольшей у разновидности
-		 *
 		 * @return       признак того, что итог вычислен
 		 *
 		 * \~english
-		 * @brief Method of the hashing of a message by one call
+		 * @brief Function of the hashing of a message by one call
 		 *
 		 * @param type   kind
 		 * @param key    key of the MAC or an empty view
 		 * @param data   message
 		 * @param result place into which the result is put
 		 * @param size   length of the result in bytes from 1 up to the greatest of the kind
-		 *
 		 * @return       sign that the result is computed
 		 *
 		 * \~

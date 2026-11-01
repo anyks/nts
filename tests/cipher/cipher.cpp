@@ -36,11 +36,10 @@
 using namespace nts;
 
 /**
- * @brief Метод разбора записи шестнадцатеричными знаками
+ * @brief Функция разбора записи шестнадцатеричными знаками
  *
  * @param text  разбираемая запись
  * @param data  место, в которое помещаются разобранные байты
- *
  * @return      число разобранных байтов
  *
  */
@@ -69,11 +68,10 @@ static size_t bytes(const char * text, uint8_t * data) {
 	return result;
 }
 /**
- * @brief Метод сборки записи шестнадцатеричными знаками
+ * @brief Функция сборки записи шестнадцатеричными знаками
  *
  * @param data собираемые байты
  * @param size число собираемых байтов
- *
  * @return     собранная запись
  *
  */
@@ -101,6 +99,7 @@ static std::string text(const uint8_t * data, const size_t size) {
 TEST(CipherTest, Kuznyechik) {
 	// Ключ, открытый и зашифрованный блоки
 	uint8_t key[cipher::KUZNYECHIK_KEY], plain[cipher::KUZNYECHIK_BLOCK];
+	// Места зашифрованного и обратного блоков
 	uint8_t result[cipher::KUZNYECHIK_BLOCK], back[cipher::KUZNYECHIK_BLOCK];
 	// Разбираем ключ шифрования
 	ASSERT_EQ(bytes("8899aabbccddeeff0011223344556677fedcba98765432100123456789abcdef", key), cipher::KUZNYECHIK_KEY);
@@ -132,6 +131,7 @@ TEST(CipherTest, Kuznyechik) {
 TEST(CipherTest, Magma) {
 	// Ключ, открытый и зашифрованный блоки
 	uint8_t key[cipher::MAGMA_KEY], plain[cipher::MAGMA_BLOCK];
+	// Места зашифрованного и обратного блоков
 	uint8_t result[cipher::MAGMA_BLOCK], back[cipher::MAGMA_BLOCK];
 	// Разбираем ключ шифрования
 	ASSERT_EQ(bytes("ffeeddccbbaa99887766554433221100f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff", key), cipher::MAGMA_KEY);
@@ -169,6 +169,7 @@ TEST(CipherTest, Reversibility) {
 		key[i] = static_cast <uint8_t> ((i * 73) & 0xFF);
 	// Создаём объекты шифров
 	cipher::kuznyechik_t first;
+	// Второй шифр — «Магма»
 	cipher::magma_t second;
 	// Проверяем успешность установки ключей
 	ASSERT_TRUE(first.key(view_t(key, sizeof(key))));
@@ -188,12 +189,14 @@ TEST(CipherTest, Reversibility) {
 		// Проверяем обратимость шифра «Кузнечик»
 		ASSERT_TRUE(first.encrypt(plain, result)) << "блок " << i;
 		ASSERT_TRUE(first.decrypt(result, back)) << "блок " << i;
+		// Обратный блок «Кузнечика» совпадает с открытым
 		ASSERT_EQ(::memcmp(plain, back, cipher::KUZNYECHIK_BLOCK), 0) << "блок " << i;
 		// Проверяем, что зашифрованный блок отличается от открытого
 		ASSERT_NE(::memcmp(plain, result, cipher::KUZNYECHIK_BLOCK), 0) << "блок " << i;
 		// Проверяем обратимость шифра «Магма»
 		ASSERT_TRUE(second.encrypt(plain, result)) << "блок " << i;
 		ASSERT_TRUE(second.decrypt(result, back)) << "блок " << i;
+		// Обратный блок «Магмы» совпадает с открытым
 		ASSERT_EQ(::memcmp(plain, back, cipher::MAGMA_BLOCK), 0) << "блок " << i;
 	}
 }
@@ -301,6 +304,7 @@ TEST(CipherTest, Refusal) {
  * @details Пачка ведёт блоки по четыре в одном теле; итог обязан совпадать с
  *          поблочным зашифрованием на любом числе блоков, включая хвост короче
  *          четырёх и работу на месте
+ *
  */
 TEST(CipherTest, Batch) {
 	// Ключ проверочного примера стандарта
@@ -318,27 +322,42 @@ TEST(CipherTest, Batch) {
 	const size_t blocks = 21;
 	// Исходные блоки «Кузнечика», итог пачкой и поблочно
 	uint8_t source[21 * 16], batched[21 * 16], single[21 * 16];
-	// Заполняем исходные блоки
+	/**
+	 * Заполняем исходные блоки
+	 */
 	for(size_t i = 0; i < sizeof(source); i++)
+		// Заполняем исходные блоки остатками от нарезки
 		source[i] = static_cast <uint8_t> (i * 37 + 11);
 	// Шифруем пачкой
 	ASSERT_TRUE(kuznyechik.batch(source, blocks, batched));
-	// Шифруем поблочно
+	/**
+	 * Шифруем поблочно
+	 */
 	for(size_t i = 0; i < blocks; i++)
+		// Шифруем очередной блок отдельным вызовом
 		ASSERT_TRUE(kuznyechik.encrypt(source + (i * 16), single + (i * 16)));
 	// Сличаем итоги
 	ASSERT_EQ(::memcmp(batched, single, sizeof(single)), 0);
 	// Шифруем пачкой на месте
 	::memcpy(batched, source, sizeof(source));
+	// Пачечное зашифрование на месте проходит
 	ASSERT_TRUE(kuznyechik.batch(batched, blocks, batched));
+	// Итог на месте совпадает с поблочным
 	ASSERT_EQ(::memcmp(batched, single, sizeof(single)), 0);
 	// «Магма»: те же байты как 42 блока по восемь
 	ASSERT_TRUE(magma.batch(source, blocks * 2, batched));
+	/**
+	 * Шифруем «Магму» поблочно по восемь байтов
+	 */
 	for(size_t i = 0; i < (blocks * 2); i++)
+		// Шифруем очередной блок «Магмы» отдельным вызовом
 		ASSERT_TRUE(magma.encrypt(source + (i * 8), single + (i * 8)));
+	// Итог «Магмы» совпадает с поблочным
 	ASSERT_EQ(::memcmp(batched, single, sizeof(single)), 0);
 	// Пустая пачка и пачка без ключа
 	ASSERT_TRUE(magma.batch(source, 0, batched));
+	// Объект шифра без ключа
 	cipher::kuznyechik_t bare;
+	// Пачечное зашифрование без ключа отвергается
 	ASSERT_FALSE(bare.batch(source, blocks, batched));
 }

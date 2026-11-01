@@ -65,6 +65,7 @@ namespace {
 	 * Пример JA4 из описания FoxIO: наборы в порядке провода
 	 */
 	static const uint16_t FOX_SUITES[] = {
+		// Наборы подряд: сначала пять TLS 1.3, затем ECDHE, RSA, ChaCha20 и CBC
 		0x1301, 0x1302, 0x1303, 0xC02B, 0xC02F, 0xC02C, 0xC030, 0xCCA9, 0xCCA8, 0xC013, 0xC014, 0x009C, 0x009D, 0x002F, 0x0035
 	};
 	/**
@@ -75,12 +76,15 @@ namespace {
 	 * Пример JA4 из описания FoxIO: ожидаемые отпечатки
 	 */
 	static const char * FOX_JA4 = "t13d1516h2_8daaf6152771_e5627efa2ab1";
+	// Ожидаемый JA4R: наборы, расширения и схемы подписи по возрастанию
 	static const char * FOX_JA4R = "t13d1516h2_002f,0035,009c,009d,1301,1302,1303,c013,c014,c02b,c02c,c02f,c030,cca8,cca9_0005,000a,000b,000d,0012,0015,0017,001b,0023,002b,002d,0033,4469,ff01_0403,0804,0401,0503,0805,0501,0806,0601";
+	// Ожидаемый JA4O: наборы и расширения в исходном порядке провода
 	static const char * FOX_JA4O = "t13d1516h2_1301,1302,1303,c02b,c02f,c02c,c030,cca9,cca8,c013,c014,009c,009d,002f,0035_001b,0000,0033,0010,4469,0017,002d,000d,0005,0023,0012,002b,ff01,000b,000a,0015_0403,0804,0401,0503,0805,0501,0806,0601";
 	/**
 	 * Пример JA3 из описания JA3: строка и её хеш
 	 */
 	static const char * JA3_TEXT = "769,47-53-5-10-49161-49162-49171-49172-50-56-19-4,0-10-11,23-24-25,0";
+	// Хеш JA3 по описанию формата
 	static const char * JA3_HASH = "ada70206e40642a3e4461f35503241d5";
 	/**
 	 * Пример JA3: наборы в порядке провода
@@ -88,7 +92,7 @@ namespace {
 	static const uint16_t JA3_SUITES[] = {0x002F, 0x0035, 0x0005, 0x000A, 0xC009, 0xC00A, 0xC013, 0xC014, 0x0032, 0x0038, 0x0013, 0x0004};
 
 	/**
-	 * @brief Метод составления записи рукопожатия из тела приветствия
+	 * @brief Функция составления записи рукопожатия из тела приветствия
 	 *
 	 * @param body     тело приветствия
 	 * @param datagram признак заголовков поверх дейтаграмм
@@ -142,7 +146,7 @@ namespace {
 		return result;
 	}
 	/**
-	 * @brief Метод составления приветствия по примеру FoxIO с GREASE на местах Chrome
+	 * @brief Функция составления приветствия по примеру FoxIO с GREASE на местах Chrome
 	 *
 	 * @param body составляемое тело приветствия
 	 * @return     результат составления
@@ -179,6 +183,7 @@ namespace {
 		EXPECT_EQ(extension::name(view_t(reinterpret_cast <const uint8_t *> (HOST), sizeof(HOST) - 1), name), extension::error_t::NONE);
 		// Доля ключа X25519 и доля GREASE
 		static const uint8_t KEY[32] = {0x01};
+		// Однобайтовая доля GREASE
 		static const uint8_t STUB[1] = {0x00};
 		// Составляем доли ключа
 		EXPECT_EQ(extension::shares(vector <extension::share_t> {extension::share_t(static_cast <extension::group_t> (0x2A2A), view_t(STUB, 1)), extension::share_t(extension::group_t::X25519, view_t(KEY, 32))}, share), extension::error_t::NONE);
@@ -236,7 +241,7 @@ namespace {
 		return (hello::build(greeting, body) == hello::error_t::NONE);
 	}
 	/**
-	 * @brief Метод составления приветствия по примеру JA3
+	 * @brief Функция составления приветствия по примеру JA3
 	 *
 	 * @param body составляемое тело приветствия
 	 * @return     результат составления
@@ -277,7 +282,7 @@ namespace {
 		return (hello::build(greeting, body) == hello::error_t::NONE);
 	}
 	/**
-	 * @brief Метод составления начала потока HTTP/2 как у Chrome
+	 * @brief Функция составления начала потока HTTP/2 как у Chrome
 	 *
 	 * @return байты потока
 	 *
@@ -291,6 +296,7 @@ namespace {
 		result.insert(result.end(), PREFACE, PREFACE + sizeof(PREFACE) - 1);
 		// Кадр настроек: 1:65536, 2:0, 4:6291456, 6:262144
 		static const uint8_t SETTINGS[] = {
+			// Заголовок кадра: длина 24, тип SETTINGS (0x04), флаг 0, поток 0
 			0x00, 0x00, 0x18, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00,
 			0x00, 0x01, 0x00, 0x01, 0x00, 0x00,
 			0x00, 0x02, 0x00, 0x00, 0x00, 0x00,
@@ -305,6 +311,7 @@ namespace {
 		result.insert(result.end(), WINDOW, WINDOW + sizeof(WINDOW));
 		// Кадр заголовков потока 1: :method GET (индекс 2), :authority буквально, :scheme https (7), :path / (4), accept (19 с значением)
 		static const uint8_t HEADERS[] = {
+			// Заголовок кадра: длина 19, тип HEADERS (0x01), флаг END_HEADERS, поток 1
 			0x00, 0x00, 0x13, 0x01, 0x04, 0x00, 0x00, 0x00, 0x01,
 			0x82,
 			0x41, 0x04, 'h', 'o', 's', 't',
@@ -323,7 +330,7 @@ namespace {
 	 */
 	static const char * CORPUS = ANTS_CORPUS;
 	/**
-	 * @brief Метод чтения файла набора целиком
+	 * @brief Функция чтения файла набора целиком
 	 *
 	 * @param name имя файла набора
 	 * @return     содержимое файла набора
@@ -342,7 +349,7 @@ namespace {
 		return result;
 	}
 	/**
-	 * @brief Метод составления подлинности стороны из ключей набора
+	 * @brief Функция составления подлинности стороны из ключей набора
 	 *
 	 * @param name   имя ключа набора
 	 * @param result подлинность, в которую помещается итог
@@ -364,7 +371,7 @@ namespace {
 		return (pem::certificates(std::string(text.begin(), text.end()), result.chain) == pem::error_t::NONE);
 	}
 	/**
-	 * @brief Метод передачи байтов между сторонами связи
+	 * @brief Функция передачи байтов между сторонами связи
 	 *
 	 * @param client связь стороны клиента
 	 * @param server связь стороны сервера
@@ -375,7 +382,7 @@ namespace {
 		// Признак того, что байты между сторонами передавались
 		bool moved = false;
 		/**
-		 * Выполняем перехват ошибок работы с памятью
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Получаем байты, отправляемые клиентом
@@ -405,7 +412,7 @@ namespace {
 				moved = true;
 			}
 		/**
-		 * Если памяти под перенос байтов не хватило
+		 * Выполняем перехват ошибок
 		 */
 		} catch(const bad_alloc &) {
 			// Выводим признак того, что байты между сторонами не передавались
@@ -415,7 +422,7 @@ namespace {
 		return moved;
 	}
 	/**
-	 * @brief Метод проведения рукопожатия сторон связи записями
+	 * @brief Функция проведения рукопожатия сторон связи записями
 	 *
 	 * @param client связь стороны клиента
 	 * @param server связь стороны сервера
@@ -430,7 +437,7 @@ namespace {
 			continue;
 	}
 	/**
-	 * @brief Метод снятия приветствия клиента с отправляемых байтов без их изъятия
+	 * @brief Функция снятия приветствия клиента с отправляемых байтов без их изъятия
 	 *
 	 * @param client связь стороны клиента
 	 * @param result профиль, в который помещается разбор приветствия
@@ -444,14 +451,14 @@ namespace {
 		return (fingerprint::parse(sending, result) == fingerprint::error_t::NONE);
 	}
 	/**
-	 * @brief Метод проверки присутствия расширения в профиле
+	 * @brief Функция проверки присутствия расширения в профиле
 	 *
 	 * @param profile профиль приветствия
 	 * @param type    вид расширения по проводу
 	 * @return        признак присутствия
 	 *
 	 */
-	static bool seek_type(const fingerprint::profile_t & profile, const uint16_t type) noexcept {
+	static bool __ants_seek_type__(const fingerprint::profile_t & profile, const uint16_t type) noexcept {
 		/**
 		 * Выполняем перебор расширений
 		 */
@@ -465,7 +472,7 @@ namespace {
 		return false;
 	}
 	/**
-	 * @brief Метод сличения отпечатков двух профилей без учёта случайных полей
+	 * @brief Функция сличения отпечатков двух профилей без учёта случайных полей
 	 *
 	 * @param source исходный профиль
 	 * @param made   профиль, сложенный связью
@@ -556,11 +563,13 @@ TEST(FingerprintTest, Ja4){
 	const vector <uint8_t> record = wrapped(body, false, 0x0301);
 	// Профиль приветствия
 	fingerprint::profile_t profile;
-	// Разбираем запись
+	// Разбираем запись приветствия в профиль
 	ASSERT_EQ(fingerprint::parse(view_t(record.data(), record.size()), profile), fingerprint::error_t::NONE);
 	// Проверяем поля профиля
 	EXPECT_TRUE(profile.grease);
+	// Приветствие разобрано как потоковое, не дейтаграммное
 	EXPECT_FALSE(profile.datagram);
+	// Версия записи от обвязки — TLS 1.0 (0x0301)
 	EXPECT_EQ(profile.record, 0x0301);
 	EXPECT_EQ(profile.version, 0x0303);
 	EXPECT_EQ(profile.length, static_cast <uint32_t> (body.size()));
@@ -583,7 +592,9 @@ TEST(FingerprintTest, Ja4){
 	EXPECT_EQ(profile.extensions[12].versions.size(), static_cast <size_t> (3));
 	EXPECT_EQ(profile.extensions[14].formats.size(), static_cast <size_t> (1));
 	EXPECT_EQ(profile.extensions[15].groups.size(), static_cast <size_t> (4));
+	// Шестнадцатое расширение — GREASE
 	EXPECT_TRUE(profile.extensions[16].grease);
+	// Значение расширения заполнения — 200
 	EXPECT_EQ(profile.extensions[17].value, static_cast <uint32_t> (200));
 	EXPECT_EQ(profile.extensions[1].algorithms.size(), static_cast <size_t> (1));
 	EXPECT_EQ(profile.extensions[1].algorithms[0], extension::compression_t::BROTLI);
@@ -609,6 +620,7 @@ TEST(FingerprintTest, Ja4){
 	EXPECT_EQ(imprint.ja3.find("10794"), string::npos);
 	// Проверяем PeetPrint: GREASE словом, восемь разделов
 	EXPECT_NE(imprint.peetprint.find("GREASE-772-771|"), string::npos);
+	// Хеш PeetPrint — 32 шестнадцатеричных знака
 	EXPECT_EQ(imprint.peethash.size(), static_cast <size_t> (32));
 	// Число разделов PeetPrint
 	size_t sections = 1;
@@ -626,11 +638,27 @@ TEST(FingerprintTest, Ja4){
 	string text;
 	// Печатаем профиль
 	ASSERT_EQ(fingerprint::print(profile, text), fingerprint::error_t::NONE);
-	// Проверяем печать
-	EXPECT_NE(text.find("grease: yes"), string::npos);
-	EXPECT_NE(text.find("name=example.com"), string::npos);
-	EXPECT_NE(text.find("protocols=h2,http/1.1"), string::npos);
-	EXPECT_NE(text.find("0x2a2a GREASE"), string::npos);
+	// Проверяем печать в форме AWH: заголовок и секции
+	EXPECT_NE(text.find("TLS ClientHello  -  Browser Fingerprint"), string::npos);
+	EXPECT_NE(text.find("[ Record Layer ]"), string::npos);
+	EXPECT_NE(text.find("[ Handshake Header ]"), string::npos);
+	EXPECT_NE(text.find("[ ClientHello ]"), string::npos);
+	EXPECT_NE(text.find("GREASE Used    : yes"), string::npos);
+	// Имена наборов и GREASE-маркеры
+	EXPECT_NE(text.find("TLS_AES_128_GCM_SHA256"), string::npos);
+	EXPECT_NE(text.find("[GREASE]"), string::npos);
+	// Имена расширений и их подробности
+	EXPECT_NE(text.find("server_name"), string::npos);
+	EXPECT_NE(text.find("\"example.com\""), string::npos);
+	EXPECT_NE(text.find("application_layer_protocol_negotiation"), string::npos);
+	EXPECT_NE(text.find("\"h2\", \"http/1.1\""), string::npos);
+	EXPECT_NE(text.find("psk_dhe_ke(0x01)"), string::npos);
+	// Вычисленные отпечатки и вывод о сходстве с обозревателем
+	EXPECT_NE(text.find("[ Computed Fingerprints ]"), string::npos);
+	EXPECT_NE(text.find("JA3 Hash"), string::npos);
+	EXPECT_NE(text.find("JA4_r"), string::npos);
+	EXPECT_NE(text.find("PeetHash"), string::npos);
+	EXPECT_NE(text.find("Browser?   : YES (looks like a real browser)"), string::npos);
 }
 
 /**
@@ -651,8 +679,10 @@ TEST(FingerprintTest, Ja3){
 	ASSERT_EQ(fingerprint::parse(view_t(message.data(), message.size()), profile), fingerprint::error_t::NONE);
 	// Проверяем поля профиля
 	EXPECT_FALSE(profile.grease);
+	// У голого сообщения версия записи нулевая
 	EXPECT_EQ(profile.record, 0);
 	EXPECT_EQ(profile.version, 0x0301);
+	// Опознаватель связи пуст у голого сообщения
 	EXPECT_TRUE(profile.session.empty());
 	// Отпечатки профиля
 	fingerprint::imprint_t imprint;
@@ -696,11 +726,22 @@ TEST(FingerprintTest, Datagram){
 	ASSERT_EQ(fingerprint::parse(view_t(record.data(), record.size()), profile), fingerprint::error_t::NONE);
 	// Проверяем поля профиля
 	EXPECT_TRUE(profile.datagram);
+	// Версия записи — DTLS 1.0 (0xFEFF)
 	EXPECT_EQ(profile.record, 0xFEFF);
 	EXPECT_EQ(profile.version, 0xFEFD);
 	EXPECT_EQ(profile.sequence, static_cast <uint64_t> (7));
 	EXPECT_EQ(profile.message, 3);
 	EXPECT_EQ(profile.cookie.size(), static_cast <size_t> (16));
+	// Печать профиля поверх дейтаграмм
+	string text;
+	// Печатаем профиль
+	ASSERT_EQ(fingerprint::print(profile, text), fingerprint::error_t::NONE);
+	// Проверяем печать в форме AWH: дейтаграммное издание, поля DTLS и метка возврата
+	EXPECT_NE(text.find("DTLSv1.0  (0xFEFF)"), string::npos);
+	EXPECT_NE(text.find("[DTLS]"), string::npos);
+	EXPECT_NE(text.find("DTLS Cookie"), string::npos);
+	EXPECT_NE(text.find("Sequence     : 3"), string::npos);
+	EXPECT_NE(text.find("DTLSv1.2  (0xFEFD)"), string::npos);
 	// Отпечатки профиля
 	fingerprint::imprint_t imprint;
 	// Вычисляем отпечатки
@@ -709,6 +750,7 @@ TEST(FingerprintTest, Datagram){
 	EXPECT_EQ(imprint.ja4.substr(0, 4), "dd2d");
 	// Голое сообщение после сборки поверх дейтаграмм несёт обвязку в 4 байта (так его держит связь сервера): тело - по переносу
 	vector <uint8_t> message(record.begin() + 13, record.begin() + 13 + 4);
+	// К обвязке дописываем остаток записи за меткой возврата
 	message.insert(message.end(), record.begin() + 13 + 12, record.end());
 	// Разбираем голое сообщение
 	ASSERT_EQ(fingerprint::parse(view_t(message.data(), message.size()), profile, true), fingerprint::error_t::NONE);
@@ -720,7 +762,9 @@ TEST(FingerprintTest, Datagram){
 	EXPECT_NE(fingerprint::parse(view_t(message.data(), message.size()), profile, false), fingerprint::error_t::NONE);
 	// Лишние байты за записью отвергаются
 	vector <uint8_t> trailing(record);
+	// Лишний нулевой байт за записью
 	trailing.push_back(0);
+	// Разбор записи с хвостом отвергается кодом TRAILING
 	EXPECT_EQ(fingerprint::parse(view_t(trailing.data(), trailing.size()), profile), fingerprint::error_t::TRAILING);
 	// Запись поверх дейтаграмм под потоковым устройством отвергается
 	EXPECT_EQ(fingerprint::parse(view_t(record.data(), record.size()), profile, false), fingerprint::error_t::RECORD);
@@ -825,11 +869,10 @@ TEST(FingerprintTest, Extensions){
 	// Профиль приветствия
 	fingerprint::profile_t profile;
 	/**
-	 * @brief Метод проверки приветствия с подменённым телом расширения
+	 * @brief Функция проверки приветствия с подменённым телом расширения
 	 *
 	 * @param type вид расширения
 	 * @param data новое тело расширения
-	 *
 	 * @return     отказ разбора приветствия
 	 *
 	 */
@@ -1006,6 +1049,7 @@ TEST(FingerprintTest, Snapshot){
 	EXPECT_EQ(store.add(fingerprint::profile_t()), 0);
 	// Проверяем получение профилей
 	ASSERT_NE(store.get(one), nullptr);
+	// Профиль под опознавателем 1 несёт наборы снимка Firefox
 	EXPECT_EQ(store.get(one)->suites.size(), fox.suites.size());
 	EXPECT_EQ(store.get(3), nullptr);
 	EXPECT_EQ(store.get(0), nullptr);
@@ -1021,7 +1065,9 @@ TEST(FingerprintTest, Snapshot){
 	ASSERT_EQ(store.dump(bundle), fingerprint::error_t::NONE);
 	// Удаляем первый профиль
 	EXPECT_TRUE(store.remove(one));
+	// Повторное удаление того же опознавателя не проходит
 	EXPECT_FALSE(store.remove(one));
+	// В хранилище остаётся один профиль
 	EXPECT_EQ(store.size(), static_cast <size_t> (1));
 	// Освободившийся опознаватель выдаётся вновь
 	EXPECT_EQ(store.add(fox), 1);
@@ -1031,7 +1077,9 @@ TEST(FingerprintTest, Snapshot){
 	ASSERT_EQ(other.load(view_t(bundle.data(), bundle.size())), fingerprint::error_t::NONE);
 	// Проверяем прочитанное
 	EXPECT_EQ(other.size(), static_cast <size_t> (2));
+	// Профиль под опознавателем 2 на месте
 	ASSERT_NE(other.get(2), nullptr);
+	// Версия прочитанного профиля — TLS 1.0 (0x0301)
 	EXPECT_EQ(other.get(2)->version, 0x0301);
 	// Повторный снимок совпадает байт в байт
 	vector <uint8_t> twice;
@@ -1049,7 +1097,9 @@ TEST(FingerprintTest, Snapshot){
 	EXPECT_EQ(other.size(), static_cast <size_t> (2));
 	// Пустое хранилище снимка не даёт
 	store.clear();
+	// После снятия хранилище пусто
 	EXPECT_TRUE(store.empty());
+	// Пустое хранилище снимка не даёт
 	EXPECT_EQ(store.dump(bundle), fingerprint::error_t::EMPTY);
 }
 
@@ -1124,9 +1174,11 @@ TEST(FingerprintTest, Starved){
 			fingerprint::imprint_t imprint;
 			// Снимок, печать, поток
 			vector <uint8_t> snapshot;
+			// Печать в текст и хеш Akamai строками
 			string text, akamai;
+			// Потоковый разборщик записи
 			fingerprint::stream_t stream;
-			// Разбираем запись
+			// Разбираем запись при ограниченном запасе выделений
 			parsed = fingerprint::parse(view_t(record.data(), record.size()), profile);
 			// Если запись разобрана
 			if(parsed == fingerprint::error_t::NONE){
@@ -1188,6 +1240,7 @@ TEST(ProfileTest, Loopback){
 	ASSERT_TRUE(identity("ec256", credential));
 	// Связи сторон
 	client::context_t client;
+	// Контекст сервера
 	server::context_t server;
 	// Имя узла у клиента: профиль несёт SNI
 	client.name("example.com");
@@ -1210,13 +1263,17 @@ TEST(ProfileTest, Loopback){
 	EXPECT_TRUE(matched(source, made, why)) << why;
 	// Случайное значение и опознаватель связи свежие, длина опознавателя та же
 	EXPECT_NE(::memcmp(made.random, source.random, fingerprint::FINGERPRINT_RANDOM), 0);
+	// Длина опознавателя связи совпадает со снимком
 	EXPECT_EQ(made.session.size(), source.session.size());
+	// Значение опознавателя свежее, не из снимка
 	EXPECT_NE(made.session, source.session);
 	// Значения GREASE свои, а места те же
 	EXPECT_TRUE(fingerprint::grease(static_cast <uint16_t> (made.suites[0])));
 	EXPECT_TRUE(made.extensions[0].grease);
 	EXPECT_TRUE(made.extensions[16].grease);
+	// Типы двух GREASE-расширений различны
 	EXPECT_NE(made.extensions[0].type, made.extensions[16].type);
+	// Тело шестнадцатого расширения — один байт
 	EXPECT_EQ(made.extensions[16].data.size(), static_cast <size_t> (1));
 	// Издание, способы сжатия и число расширений те же
 	EXPECT_EQ(made.version, source.version);
@@ -1224,13 +1281,17 @@ TEST(ProfileTest, Loopback){
 	EXPECT_EQ(made.extensions.size(), source.extensions.size());
 	// Доля ключа X25519 своя и свежая, доля GREASE на месте
 	EXPECT_EQ(made.extensions[3].shares.size(), static_cast <size_t> (2));
+	// Первая доля ключа — GREASE
 	EXPECT_TRUE(fingerprint::grease(static_cast <uint16_t> (made.extensions[3].shares[0].group)));
+	// Вторая доля ключа — X25519
 	EXPECT_EQ(made.extensions[3].shares[1].group, extension::group_t::X25519);
+	// Значение доли X25519 своё, не из снимка
 	EXPECT_NE(made.extensions[3].shares[1].key, source.extensions[3].shares[1].key);
 	// Имя узла своё
 	EXPECT_EQ(made.extensions[2].names[0], "example.com");
 	// Издания GREASE первым, затем 1.3 и 1.2
 	EXPECT_TRUE(fingerprint::grease(made.extensions[12].versions[0]));
+	// После GREASE идёт TLS 1.3 (0x0304)
 	EXPECT_EQ(made.extensions[12].versions[1], 0x0304);
 	// Заполнение на своём месте: приветствие ровно 512 байтов с обвязкой
 	EXPECT_EQ(made.extensions[17].type, 0x0015);
@@ -1251,6 +1312,7 @@ TEST(ProfileTest, Loopback){
 	EXPECT_TRUE(matched(source, seen, why)) << why;
 	// Сырые байты приветствия у сервера начинаются сообщением приветствия
 	ASSERT_GT(server.greeting().size, static_cast <size_t> (4));
+	// Первый байт сырых данных — сообщение ClientHello (0x01)
 	EXPECT_EQ(server.greeting().data[0], 0x01);
 	// Профиль после заведения не ставится
 	EXPECT_EQ(client.profile(source), context::error_t::STATE);
@@ -1276,6 +1338,7 @@ TEST(ProfileTest, Retry){
 	ASSERT_TRUE(identity("ec256", credential));
 	// Связи сторон
 	client::context_t client;
+	// Контекст сервера
 	server::context_t server;
 	// Имя узла
 	client.name("example.com");
@@ -1332,6 +1395,7 @@ TEST(ProfileTest, Refusals){
 	ASSERT_EQ(fingerprint::parse(view_t(record.data(), record.size()), source), fingerprint::error_t::NONE);
 	// Связи сторон
 	client::context_t client;
+	// Контекст сервера
 	server::context_t server;
 	// Пустой профиль отвергается
 	EXPECT_EQ(client.profile(fingerprint::profile_t()), context::error_t::SETTINGS);
@@ -1383,7 +1447,7 @@ TEST(ProfileTest, Refusals){
 	ASSERT_TRUE(captured(nameless, made));
 	// Расширений на одно меньше, имени узла нет
 	EXPECT_EQ(made.extensions.size(), source.extensions.size() - 1);
-	EXPECT_EQ(seek_type(made, 0x0000), false);
+	EXPECT_EQ(__ants_seek_type__(made, 0x0000), false);
 	// Профиль без опознавателя связи: приветствие идёт без опознавателя
 	vector <uint8_t> plain;
 	// Составляем приветствие примера JA3
@@ -1404,6 +1468,7 @@ TEST(ProfileTest, Refusals){
 	ASSERT_TRUE(captured(sessionless, made));
 	// Опознаватель связи пуст, как у снимка
 	EXPECT_TRUE(made.session.empty());
+	// Издание приветствия — TLS 1.0 (0x0301), как у снимка
 	EXPECT_EQ(made.version, 0x0301);
 }
 
@@ -1449,6 +1514,7 @@ TEST(ProfileTest, Unknown){
 	ASSERT_TRUE(identity("ec256", credential));
 	// Связи сторон
 	client::context_t client;
+	// Контекст сервера
 	server::context_t server;
 	// Имя узла
 	client.name("example.com");
@@ -1626,6 +1692,7 @@ TEST(ProfileTest, Starved){
 			starve::ration_t ration(budget);
 			// Связи сторон
 			client::context_t client;
+			// Контекст сервера
 			server::context_t server;
 			// Имя узла
 			client.name(host);
@@ -1776,5 +1843,6 @@ TEST(ProfileTest, Alien){
 	(void) plain.push(view_t(wire.data(), wire.size()));
 	// Связь обрывается обычным отказом набора
 	EXPECT_EQ(plain.state(), context::state_t::FAILED);
+	// Отказ обычный — не отнесён к профилю клиента
 	EXPECT_NE(plain.error(), context::error_t::PROFILE);
 }

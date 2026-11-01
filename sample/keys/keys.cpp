@@ -67,10 +67,9 @@ namespace {
 	 */
 	static const char * P256 = "1.2.840.10045.3.1.7";
 	/**
-	 * @brief Метод выработки ключа ECDSA на кривой P-256
+	 * @brief Функция выработки ключа ECDSA на кривой P-256
 	 *
 	 * @param result ключ, в который помещается итог выработки
-	 *
 	 * @return       признак успешности выработки ключа
 	 *
 	 * @note Скаляр вырабатывает примитив подписи, он же отдаёт открытую точку: запись
@@ -112,7 +111,7 @@ namespace {
 		return true;
 	}
 	/**
-	 * @brief Метод вывода первой и последней строк записи PEM
+	 * @brief Функция вывода первой и последней строк записи PEM
 	 *
 	 * @param title название записи
 	 * @param text  текст записи PEM
@@ -142,11 +141,10 @@ namespace {
 		cout << title << text.substr(0, first) << " … " << (lines - 2) << " строк … " << text.substr(last + 1, text.size() - last - 2) << " (" << text.size() << " байт)" << endl;
 	}
 	/**
-	 * @brief Метод подписи сообщения ключом ECDSA и проверки её открытым ключом
+	 * @brief Функция подписи сообщения ключом ECDSA и проверки её открытым ключом
 	 *
 	 * @param secret разобранный секретный ключ
 	 * @param opened разобранный открытый ключ
-	 *
 	 * @return       признак того, что подпись выработана и сошлась
 	 *
 	 */
@@ -157,7 +155,7 @@ namespace {
 		uint8_t digest[32];
 		// Если хеш сообщения выработать не удалось
 		if(!digest::hash(digest::hash_t::SHA256, view_t(reinterpret_cast <const uint8_t *> (message.data()), message.size()), digest, sizeof(digest)))
-			// Выводим отказ
+			// Выводим отрицательный результат - хеш не выработан
 			return false;
 		// Кривая секретного ключа: обязана жить не меньше примитива
 		curve::curve_t curve;
@@ -165,19 +163,19 @@ namespace {
 		sign::ecdsa_t signer;
 		// Если секретный ключ в примитив установить не удалось
 		if(!secret.load(signer, curve))
-			// Выводим отказ
+			// Выводим отрицательный результат - секретный ключ не установлен
 			return false;
 		// Подпись парой чисел
 		vector <uint8_t> raw(curve.size() * 2, 0);
 		// Если подпись выработать не удалось
 		if(!signer.make(digest::hash_t::SHA256, view_t(digest, sizeof(digest)), raw.data()))
-			// Выводим отказ
+			// Выводим отрицательный результат - подпись не выработана
 			return false;
 		// Подпись в кодировке DER, как её понимает openssl
 		vector <uint8_t> der;
 		// Если подпись в кодировку DER записать не удалось
 		if(!sign::encode(view_t(raw.data(), raw.size()), der))
-			// Выводим отказ
+			// Выводим отрицательный результат - запись в DER не удалась
 			return false;
 		// Кривая открытого ключа
 		curve::curve_t other;
@@ -185,7 +183,7 @@ namespace {
 		sign::ecdsa_t verifier;
 		// Если открытый ключ в примитив установить не удалось
 		if(!opened.load(verifier, other))
-			// Выводим отказ
+			// Выводим отрицательный результат - открытый ключ не установлен
 			return false;
 		// Выводим подпись
 		cout << "Подпись ECDSA       : " << raw.size() << " байт парой чисел, " << der.size() << " байт в кодировке DER, проверка открытым ключом " << (verifier.check(view_t(digest, sizeof(digest)), view_t(raw.data(), raw.size())) ? "сошлась" : "не сошлась") << endl;
@@ -201,7 +199,6 @@ namespace {
  *
  * @param argc длина массива параметров
  * @param argv массив параметров
- *
  * @return     код выхода из приложения
  *
  */

@@ -20,7 +20,6 @@
  *        according to RFC 7836
  *
  * \~
- *
  * @copyright Copyright © 2026
  *
  */
@@ -89,6 +88,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Greatest length of the label and of the seed of the derivation of a key in bytes
+		 *
 		 * @details The section 4.5 of RFC 7836 does not limit the lengths of the label and of the
 		 *          seed, they are assigned by a protocol. The limit here is taken with a large
 		 *          reserve from everything assigned by the TLS protocol and is introduced only in
@@ -100,13 +100,12 @@ namespace nts {
 
 		/**
 		 * \~russian
-		 * @brief Метод выработки производного ключа
+		 * @brief Функция выработки производного ключа
 		 *
 		 * @param key    ключ выработки производного ключа
 		 * @param label  метка назначения производного ключа
 		 * @param seed   затравка выработки производного ключа
 		 * @param result место, в которое помещается производный ключ
-		 *
 		 * @return       признак успешности выработки производного ключа
 		 *
 		 * @details Раздел 4.5 RFC 7836: имитовставка на хеше длиной 256 разрядов берётся
@@ -115,15 +114,18 @@ namespace nts {
 		 * @note Место итога обязано вмещать KDF_KEY байтов
 		 *
 		 * \~english
-		 * @brief Method of the derivation of a key
+		 * @brief Function of the derivation of a key
+		 *
 		 * @param key    the key of the derivation of the derived key
 		 * @param label  the label of the purpose of the derived key
 		 * @param seed   the seed of the derivation of the derived key
 		 * @param result the place the derived key is put into
 		 * @return       the flag of the success of the derivation of the key
+		 *
 		 * @details The section 4.5 of RFC 7836: an authentication code on a hash of a length of 256
 		 *          bits is taken from the concatenated string of 0x01, of the label, of 0x00, of the
 		 *          seed, of 0x01 and of 0x00
+		 *
 		 * @note The place of the outcome is obliged to hold KDF_KEY bytes
 		 *
 		 * \~
@@ -132,13 +134,12 @@ namespace nts {
 
 		/**
 		 * \~russian
-		 * @brief Метод выработки ключа пользователя SNMPv3 из пароля
+		 * @brief Функция выработки ключа пользователя SNMPv3 из пароля
 		 *
 		 * @param algorithm алгоритм хеша: MD5, SHA-1 либо SHA-2 по RFC 7860
 		 * @param password  пароль пользователя
 		 * @param engine    опознаватель полномочного движка SNMP (snmpEngineID)
 		 * @param result    место, в которое помещается локализованный ключ
-		 *
 		 * @return          признак успешности выработки ключа
 		 *
 		 * @details Приложение A RFC 3414: сперва пароль повторяется до одного
@@ -147,12 +148,14 @@ namespace nts {
 		 *          вмещать длину хеша алгоритма
 		 *
 		 * \~english
-		 * @brief Method of the derivation of the SNMPv3 user key from a password
+		 * @brief Function of the derivation of the SNMPv3 user key from a password
+		 *
 		 * @param algorithm the hash algorithm: MD5, SHA-1 or SHA-2 according to RFC 7860
 		 * @param password  the password of the user
 		 * @param engine    the identifier of the authoritative SNMP engine (snmpEngineID)
 		 * @param result    the place the localized key is put into
 		 * @return          the flag of the success of the derivation of the key
+		 *
 		 * @details The appendix A of RFC 3414: first the password is repeated up to one
 		 *          megabyte and hashed (the Ku key), then it is localized by the hash of
 		 *          the string Ku ‖ engineID ‖ Ku (the Kul key). The place of the outcome
@@ -164,14 +167,13 @@ namespace nts {
 
 		/**
 		 * \~russian
-		 * @brief Метод выработки ключевого материала prf+ протокола IKEv2
+		 * @brief Функция выработки ключевого материала prf+ протокола IKEv2
 		 *
 		 * @param algorithm алгоритм хеша псевдослучайной функции
 		 * @param key       ключ псевдослучайной функции
 		 * @param seed      затравка выработки
 		 * @param result    место, в которое помещается ключевой материал
 		 * @param size      требуемая длина ключевого материала в байтах
-		 *
 		 * @return          признак успешности выработки ключевого материала
 		 *
 		 * @details Раздел 2.13 RFC 7296: T1 = prf(K, S ‖ 0x01), T2 = prf(K, T1 ‖ S ‖ 0x02),
@@ -179,13 +181,15 @@ namespace nts {
 		 *          T1 ‖ T2 ‖ ... без оглядки на границы звеньев
 		 *
 		 * \~english
-		 * @brief Method of the derivation of the IKEv2 prf+ key material
+		 * @brief Function of the derivation of the IKEv2 prf+ key material
+		 *
 		 * @param algorithm the hash algorithm of the pseudorandom function
 		 * @param key       the key of the pseudorandom function
 		 * @param seed      the seed of the derivation
 		 * @param result    the place the key material is put into
 		 * @param size      the required length of the key material in bytes
 		 * @return          the flag of the success of the derivation of the key material
+		 *
 		 * @details The section 2.13 of RFC 7296: T1 = prf(K, S ‖ 0x01), T2 = prf(K, T1 ‖ S ‖ 0x02),
 		 *          and so on up to the required length; the material is taken from the
 		 *          concatenated string T1 ‖ T2 ‖ ... without regard to the boundaries

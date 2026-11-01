@@ -326,6 +326,7 @@ TEST(EcdheTest, Reject){
  *
  */
 TEST(EcdheTest, Torsion){
+	// Контекст кривой GC256A, на которой отсекается точка кручения
 	curve::curve_t curve;
 	// Набор параметров с кофактором четыре: группа TLS GC256A
 	ASSERT_TRUE(curve::parameters("1.2.643.7.1.2.1.1.1", curve));
@@ -337,9 +338,17 @@ TEST(EcdheTest, Torsion){
 		0x01, 0x00, 0xfe, 0x73, 0xf5, 0x95, 0xff, 0x15, 0x8e, 0x97, 0x4b, 0x44, 0xd4, 0x78, 0xd9, 0x58,
 		0x87, 0x44, 0xfe, 0x5c, 0x19, 0x2a, 0xc4, 0x7e, 0xa6, 0x30, 0x75, 0xdc, 0xe7, 0xa1, 0x4a, 0xaa
 	};
+	// Буфер открытого ключа: точка порядка два в записи протокола
 	uint8_t key[64] = {0};
-	for(size_t i = 0; i < 32; i++)
+	/**
+	 * Переворачиваем байты точки: константа записана от младшего байта к старшему,
+	 * а открытый ключ протокола записывается в обратном порядке
+	 */
+	for(size_t i = 0; i < 32; i++){
+		// Байт ключа из зеркального байта константы
 		key[i] = ROOT[31 - i];
+	}
+	// Буфер выходного общего значения согласования
 	uint8_t result[32] = {0};
 	/**
 	 * Раздел 6.1.1.3 черновика наборов ГОСТ: чужой ключ вне подгруппы отвергается
@@ -347,13 +356,18 @@ TEST(EcdheTest, Torsion){
 	 * нечётный множитель давал успех и выдавал разряд секретного ключа
 	 */
 	for(uint8_t low = 1; low < 8; low++){
+		// Секрет проверяемой стороны: длины порядка подгруппы
 		uint8_t secret[32] = {0};
+		// Младший байт задаёт чётность множителя секрета
 		secret[0] = low;
+		// Согласование с точкой вне подгруппы обязано завершиться отказом
 		ASSERT_FALSE(agreement::ecdhe(curve, view_t(secret, sizeof(secret)), view_t(key, sizeof(key)), result));
 	}
 	// Годный ключ той же кривой по-прежнему принимается
 	uint8_t mine[32], opened[64];
+	// Собственная мимолётная пара ключей вырабатывается без ошибки
 	ASSERT_TRUE(agreement::generate(curve, mine, opened));
+	// Согласование по годному ключу той же кривой завершается успехом
 	ASSERT_TRUE(agreement::ecdhe(curve, view_t(mine, sizeof(mine)), view_t(opened, sizeof(opened)), result));
 }
 
@@ -369,14 +383,22 @@ TEST(EcdheTest, Torsion){
 TEST(EcdheTest, Cleared){
 	// Разбор шестнадцатеричной записи от старшего байта к младшему
 	const auto decode = [](const char * text, uint8_t * place, const size_t size) noexcept -> void {
+		/**
+		 * Перебираем байты записи: каждые два шестнадцатеричных знака дают один байт
+		 */
 		for(size_t i = 0; i < size; i++){ unsigned v = 0; ::sscanf(text + i * 2, "%2x", &v); place[i] = static_cast <uint8_t> (v); }
 	};
 	// Запись координат ключа обмена: от младшего байта к старшему
 	const auto little = [](const uint8_t * x, const uint8_t * y, uint8_t * key, const size_t size) noexcept -> void {
+		/**
+		 * Перебираем байты координат: записываем их от младшего байта к старшему,
+		 * разворачивая порядок в каждой
+		 */
 		for(size_t i = 0; i < size; i++){ key[i] = x[size - 1 - i]; key[size + i] = y[size - 1 - i]; }
 	};
 	// Наборы с кофактором четыре: GC256A и GC512C, их значения и точки T порядка два
 	struct sample_t { const char * oid; size_t size; const char * p, * a, * b, * n, * gx, * gy, * tx; };
+	// Значения параметров обоих наборов и координата x точек кручения в шестнадцатеричной записи
 	static const sample_t SAMPLES[] = {
 		{"1.2.643.7.1.2.1.1.1", 32,
 			"fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd97",
@@ -395,35 +417,55 @@ TEST(EcdheTest, Cleared){
 			"f5ce40d95b5eb899abbccff5911cb8577939804d6527378b8c108c3d2090ff9be18e2d33e3021ed2ef32d85822423b6304f726aa854bae07d0396e9a9addc40f",
 			"9a628f975594ecefd89ba28a2539ffb79c8ab238aeed0851fa5c1abb02b80b44c6734501b83a011dd625cd0b5145091a6d9acd4b1f5c5b1e21b2b249ddfd1271"}
 	};
+	/**
+	 * Прогоняем оба набора: поднимаем кривую с кофактором четыре, снимаем точку T
+	 * кофактором и сверяем общие значения по ключам вне подгруппы и внутри неё
+	 */
 	for(const sample_t & sample : SAMPLES){
+		// Длина координаты текущего набора
 		const size_t size = sample.size;
+		// Контекст кривой с кофактором четыре из параметров набора
 		curve::curve_t curve;
+		// Параметры набора разбираются в контекст кривой
 		ASSERT_TRUE(curve::parameters(sample.oid, curve)) << "Набор: " << sample.oid;
+		// Кофактор набора равен четырём
 		ASSERT_EQ(curve.cofactor(), static_cast <uint64_t> (4)) << "Набор: " << sample.oid;
+		// Буферы параметров кривой и координат точек: ty нулевой, так как точка кручения лежит на оси абсцисс
 		uint8_t p[64], a[64], b[64], n[64], gx[64], gy[64], tx[64], ty[64] = {0};
+		// Шестнадцатеричные записи p, a, b, n и координат G и T раскладываются по буферам
 		decode(sample.p, p, size); decode(sample.a, a, size); decode(sample.b, b, size);
 		decode(sample.n, n, size); decode(sample.gx, gx, size); decode(sample.gy, gy, size); decode(sample.tx, tx, size);
 		// Та же кривая с кофактором один: T читается как есть, и G + T складывается её арифметикой
 		curve::curve_t loose;
+		// Кривая с кофактором один поднимается по разобранным параметрам
 		ASSERT_TRUE(loose.start(view_t(p, size), view_t(a, size), view_t(b, size), view_t(n, size), view_t(gx, size), view_t(gy, size), 1)) << "Набор: " << sample.oid;
+		// Точки кручения T, генератора G и их суммы
 		curve::point_t torsion, base, sum;
+		// Точка T разбирается из координат: её ордината нулевая
 		ASSERT_TRUE(loose.point(view_t(tx, size), view_t(ty, size), torsion)) << "Набор: " << sample.oid;
+		// Координаты генератора G той же кривой
 		loose.base(base);
+		// Сумма G + T вычисляется арифметикой кривой с кофактором один
 		loose.add(base, torsion, sum);
+		// Буферы координат суммы G + T
 		uint8_t sx[64], sy[64];
+		// Координаты суммы G + T разворачиваются в буферы
 		ASSERT_TRUE(loose.coordinates(sum, sx, sy, size)) << "Набор: " << sample.oid;
 		// Чужие ключи в записи протокола: G + T, G и одна T
 		uint8_t outside[128], inside[128], bare[128];
+		// Открытый ключ вне подгруппы: G + T в записи протокола от младшего байта
 		little(sx, sy, outside, size);
 		little(gx, gy, inside, size);
 		little(tx, ty, bare, size);
 		// Свой секрет: меньше порядка подгруппы у обоих наборов
 		uint8_t secret[64];
 		::memset(secret, 0x1a, size);
+		// Общие значения по ключу вне подгруппы и по генератору
 		uint8_t first[64], second[64];
 		// Точка вне подгруппы, но на кривой, принимается, и общее значение по ней равно значению по G
 		ASSERT_TRUE(agreement::ecdhe(curve, view_t(secret, size), view_t(outside, size * 2), first)) << "Набор: " << sample.oid;
 		ASSERT_TRUE(agreement::ecdhe(curve, view_t(secret, size), view_t(inside, size * 2), second)) << "Набор: " << sample.oid;
+		// Общее значение по G + T совпадает со значением по генератору G
 		EXPECT_EQ(::memcmp(first, second, size), 0) << "Набор: " << sample.oid;
 		// Одна лишь T обращается кофактором в ноль и отвергается
 		EXPECT_FALSE(agreement::ecdhe(curve, view_t(secret, size), view_t(bare, size * 2), first)) << "Набор: " << sample.oid;

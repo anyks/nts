@@ -12,13 +12,8 @@
  * @email forman@anyks.com
  * @site https://anyks.com
  *
- * \~russian
  * @brief Проверки укрытого хранилища ключевого материала
  *
- * \~english
- * @brief Tests of the sheltered storage of the key material
- *
- * \~
  *
  * @copyright Copyright © 2026
  *
@@ -112,7 +107,9 @@ TEST(VaultTest, Coalesce) {
 	sys::vault_t & vault = sys::Vault::instance();
 	// Берём три соседних участка
 	uint8_t * a = static_cast <uint8_t *> (vault.take(32));
+	// Второй участок берём следом за первым
 	uint8_t * b = static_cast <uint8_t *> (vault.take(32));
+	// Третий участок следует за вторым
 	uint8_t * c = static_cast <uint8_t *> (vault.take(32));
 	// Участки обязаны быть выданы
 	ASSERT_NE(a, nullptr);
@@ -168,11 +165,15 @@ TEST(VaultTest, Owns) {
 	EXPECT_TRUE(vault.owns(secret.data() + 23));
 	// Набор над хранилищем принадлежит ему
 	sys::bytes_t bytes(16, 0x42);
+	// Адрес набора тоже принадлежит хранилищу
 	EXPECT_TRUE(vault.owns(bytes.data()));
 	// Стек и обычная куча хранилищу не принадлежат
 	uint8_t local[8];
+	// Адрес стекового массива не принадлежит хранилищу
 	EXPECT_FALSE(vault.owns(local));
+	// Обычная куча вне укрытого хранилища
 	vector <uint8_t> heap(8, 0);
+	// Адрес векторной кучи не принадлежит хранилищу
 	EXPECT_FALSE(vault.owns(heap.data()));
 	EXPECT_FALSE(vault.owns(nullptr));
 }
@@ -199,14 +200,20 @@ TEST(VaultTest, Shelter) {
 	 * У macOS предел запрета подкачки умолчанием не ограничен, и запрет обязан состояться
 	 */
 	#if defined(__APPLE__)
+		// Запрет подкачки обязан состояться
 		EXPECT_TRUE(shelter.wired);
 	#endif
 	/**
 	 * Укрытие от снимков есть у Linux, FreeBSD и DragonFly; прочие честно докладывают отказ
 	 */
 	#if defined(__linux__) || defined(__FreeBSD__) || defined(__DragonFly__)
+		// Укрытие от снимков обязано состояться
 		EXPECT_TRUE(shelter.hidden);
+	/**
+	 * У macOS укрытия от снимков нет — ждём честного доклада об отказе
+	 */
 	#elif defined(__APPLE__)
+		// Отказ докладывается честно
 		EXPECT_FALSE(shelter.hidden);
 	#endif
 	// Возвращаем участок
@@ -228,6 +235,7 @@ TEST(VaultTest, Secret) {
 	ASSERT_TRUE(secret.reserve(40));
 	// Участок заведён
 	ASSERT_NE(secret.data(), nullptr);
+	// Заведённый размер совпадает с запрошенным
 	EXPECT_EQ(secret.size(), 40u);
 	/**
 	 * Выполняем перебор байтов участка

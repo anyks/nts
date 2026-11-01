@@ -55,10 +55,9 @@ namespace {
 	using namespace nts::x509;
 
 	/**
-	 * @brief Метод перевода отказа разборщика ASN.1 в отказ модуля
+	 * @brief Функция перевода отказа разборщика ASN.1 в отказ модуля
 	 *
 	 * @param error отказ разборщика ASN.1
-	 *
 	 * @return      отказ модуля
 	 *
 	 */
@@ -67,11 +66,10 @@ namespace {
 		return ((error == asn1::error_t::MEMORY) ? nts::x509::error_t::MEMORY : nts::x509::error_t::STRUCTURE);
 	}
 	/**
-	 * @brief Метод разбора опознавателя объекта
+	 * @brief Функция разбора опознавателя объекта
 	 *
 	 * @param element разбираемый элемент
 	 * @param result  место, в которое помещается опознаватель
-	 *
 	 * @return        отказ разбора опознавателя
 	 *
 	 */
@@ -82,11 +80,10 @@ namespace {
 		return ((outcome == asn1::error_t::NONE) ? nts::x509::error_t::NONE : translate(outcome));
 	}
 	/**
-	 * @brief Метод разбора малого целого числа
+	 * @brief Функция разбора малого целого числа
 	 *
 	 * @param element разбираемый элемент
 	 * @param result  место, в которое помещается число
-	 *
 	 * @return        отказ разбора числа
 	 *
 	 */
@@ -97,13 +94,12 @@ namespace {
 		return ((outcome == asn1::error_t::NONE) ? nts::x509::error_t::NONE : translate(outcome));
 	}
 	/**
-	 * @brief Метод разбора записи опознавателя алгоритма
+	 * @brief Функция разбора записи опознавателя алгоритма
 	 *
 	 * @param reader  разборщик, из которого читается запись
 	 * @param oid     место, в которое помещается опознаватель алгоритма
 	 * @param params  место, в которое помещается запись настроек алгоритма
 	 * @param present место, в которое помещается признак наличия настроек
-	 *
 	 * @return        отказ разбора записи
 	 *
 	 */
@@ -145,11 +141,10 @@ namespace {
 		return nts::x509::error_t::NONE;
 	}
 	/**
-	 * @brief Метод разбора отличительного имени
+	 * @brief Функция разбора отличительного имени
 	 *
 	 * @param element разбираемый элемент записи имени
 	 * @param result  объект имени, в который производится разбор
-	 *
 	 * @return        причина отказа либо nts::x509::error_t::NONE
 	 *
 	 * @note Разборщик повторяет разборщик имени сертификата: список несёт имя
@@ -164,10 +159,7 @@ namespace {
 		// Запоминаем запись имени целиком
 		result.element = element.element;
 		/**
-		 * Разбор имени собирает признаки и составляющие, а значит выделяет память:
-		 * нехватка её обязана дойти до вызывающего причиной отказа, а не завершить
-		 * процесс. Метод объявлен noexcept, и перехват в разборе списка сюда не
-		 * дотягивается - бросок обязан быть пойман здесь же
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Создаём разборщик содержимого записи имени
@@ -272,7 +264,7 @@ namespace {
 				result.parts.push_back(part);
 			}
 		/**
-		 * Если память выделить не удалось
+		 * Выполняем перехват ошибок
 		 */
 		} catch(const bad_alloc &) {
 			// Выводим причину отказа
@@ -282,11 +274,10 @@ namespace {
 		return nts::x509::error_t::NONE;
 	}
 	/**
-	 * @brief Метод разбора записи времени
+	 * @brief Функция разбора записи времени
 	 *
 	 * @param element разбираемый элемент записи времени
 	 * @param result  место, в которое помещается время в секундах от начала эпохи
-	 *
 	 * @return        причина отказа либо nts::x509::error_t::NONE
 	 *
 	 * @note Правило записи времени то же, что у срока действия сертификата:
@@ -321,108 +312,118 @@ namespace {
 		return nts::x509::error_t::NONE;
 	}
 	/**
-	 * @brief Метод разбора набора расширений
+	 * @brief Функция разбора набора расширений
 	 *
 	 * @param element разбираемый элемент набора расширений (SEQUENCE OF Extension)
 	 * @param result  место, в которое помещается набор расширений
-	 *
 	 * @return        причина отказа либо nts::x509::error_t::NONE
 	 *
 	 */
 	static nts::x509::error_t extensions(const asn1::element_t & element, vector <nts::x509::extension_t> & result) noexcept {
-		// Если запись набора расширений имеет простой вид метки
-		if(!element.constructed)
-			// Выводим причину отказа
-			return nts::x509::error_t::STRUCTURE;
-		// Создаём разборщик содержимого набора расширений
-		asn1::reader_t items(element.content);
 		/**
-		 * Пустой набор расширений устройством записи запрещён: поле это
-		 * необязательное, и отсутствие расширений записывается его отсутствием
+		 * Выполняем перехват ошибок
 		 */
-		if(items.empty())
-			// Выводим причину отказа
-			return nts::x509::error_t::EXTENSION;
-		/**
-		 * Выполняем обход расширений набора
-		 */
-		while(!items.empty()){
-			// Объект разобранного расширения
-			asn1::element_t entry;
-			// Выполняем разбор расширения
-			if(!items.next(asn1::tag_t::SEQUENCE, entry))
-				// Выводим причину отказа
-				return nts::x509::error_t::ENCODING;
-			// Если запись расширения имеет простой вид метки
-			if(!entry.constructed)
+		try {
+			// Если запись набора расширений имеет простой вид метки
+			if(!element.constructed)
 				// Выводим причину отказа
 				return nts::x509::error_t::STRUCTURE;
-			// Создаём разборщик содержимого записи расширения
-			asn1::reader_t fields(entry.content);
-			// Объект разобранного поля расширения
-			asn1::element_t field;
-			// Разбираемое расширение
-			nts::x509::extension_t extension;
-			// Выполняем разбор опознавателя расширения
-			if(!fields.next(asn1::tag_t::OBJECT, field))
+			// Создаём разборщик содержимого набора расширений
+			asn1::reader_t items(element.content);
+			/**
+			 * Пустой набор расширений устройством записи запрещён: поле это
+			 * необязательное, и отсутствие расширений записывается его отсутствием
+			 */
+			if(items.empty())
 				// Выводим причину отказа
-				return nts::x509::error_t::ENCODING;
-			// Итог извлечения опознавателя расширения
-			const nts::x509::error_t status = oidOf(field, extension.oid);
-			// Если извлечение опознавателя расширения не удалось
-			if(status != nts::x509::error_t::NONE)
-				// Выводим причину отказа
-				return status;
-			// Выполняем разбор следующего поля расширения
-			if(!fields.next(field))
-				// Выводим причину отказа
-				return nts::x509::error_t::ENCODING;
-			// Если признак обязательности расширения записан явно
-			if((field.cls == asn1::cls_t::UNIVERSAL) && (field.tag == static_cast <uint32_t> (asn1::tag_t::BOOLEAN))){
-				// Выполняем извлечение признака обязательности расширения
-				if(asn1::boolean(field, extension.critical) != asn1::error_t::NONE)
+				return nts::x509::error_t::EXTENSION;
+			/**
+			 * Выполняем обход расширений набора
+			 */
+			while(!items.empty()){
+				// Объект разобранного расширения
+				asn1::element_t entry;
+				// Выполняем разбор расширения
+				if(!items.next(asn1::tag_t::SEQUENCE, entry))
 					// Выводим причину отказа
-					return nts::x509::error_t::EXTENSION;
-				/**
-				 * Необязательность расширения записывается отсутствием поля:
-				 * кодировка DER значение по умолчанию не записывает вовсе
-				 */
-				if(!extension.critical)
+					return nts::x509::error_t::ENCODING;
+				// Если запись расширения имеет простой вид метки
+				if(!entry.constructed)
 					// Выводим причину отказа
-					return nts::x509::error_t::EXTENSION;
+					return nts::x509::error_t::STRUCTURE;
+				// Создаём разборщик содержимого записи расширения
+				asn1::reader_t fields(entry.content);
+				// Объект разобранного поля расширения
+				asn1::element_t field;
+				// Разбираемое расширение
+				nts::x509::extension_t extension;
+				// Выполняем разбор опознавателя расширения
+				if(!fields.next(asn1::tag_t::OBJECT, field))
+					// Выводим причину отказа
+					return nts::x509::error_t::ENCODING;
+				// Итог извлечения опознавателя расширения
+				const nts::x509::error_t status = oidOf(field, extension.oid);
+				// Если извлечение опознавателя расширения не удалось
+				if(status != nts::x509::error_t::NONE)
+					// Выводим причину отказа
+					return status;
 				// Выполняем разбор следующего поля расширения
 				if(!fields.next(field))
 					// Выводим причину отказа
 					return nts::x509::error_t::ENCODING;
-			}
-			// Если содержимое расширения записано не строкой байтов
-			if((field.cls != asn1::cls_t::UNIVERSAL) || field.constructed || (field.tag != static_cast <uint32_t> (asn1::tag_t::OCTET_STRING)))
-				// Выводим причину отказа
-				return nts::x509::error_t::STRUCTURE;
-			// Запоминаем содержимое расширения
-			extension.value = field.content;
-			// Если после содержимого расширения остались лишние поля
-			if(!fields.empty())
-				// Выводим причину отказа
-				return nts::x509::error_t::STRUCTURE;
-			/**
-			 * Выполняем обход разобранных расширений
-			 */
-			for(size_t i = 0; i < result.size(); i++){
-				/**
-				 * Повторное расширение запрещено RFC 5280: два расширения одного
-				 * опознавателя дают два разных ответа на один вопрос, и выбор
-				 * между ними у разных разборщиков расходится
-				 */
-				if(result[i].oid.compare(extension.oid) == 0)
+				// Если признак обязательности расширения записан явно
+				if((field.cls == asn1::cls_t::UNIVERSAL) && (field.tag == static_cast <uint32_t> (asn1::tag_t::BOOLEAN))){
+					// Выполняем извлечение признака обязательности расширения
+					if(asn1::boolean(field, extension.critical) != asn1::error_t::NONE)
+						// Выводим причину отказа
+						return nts::x509::error_t::EXTENSION;
+					/**
+					 * Необязательность расширения записывается отсутствием поля:
+					 * кодировка DER значение по умолчанию не записывает вовсе
+					 */
+					if(!extension.critical)
+						// Выводим причину отказа
+						return nts::x509::error_t::EXTENSION;
+					// Выполняем разбор следующего поля расширения
+					if(!fields.next(field))
+						// Выводим причину отказа
+						return nts::x509::error_t::ENCODING;
+				}
+				// Если содержимое расширения записано не строкой байтов
+				if((field.cls != asn1::cls_t::UNIVERSAL) || field.constructed || (field.tag != static_cast <uint32_t> (asn1::tag_t::OCTET_STRING)))
 					// Выводим причину отказа
-					return nts::x509::error_t::DUPLICATE;
+					return nts::x509::error_t::STRUCTURE;
+				// Запоминаем содержимое расширения
+				extension.value = field.content;
+				// Если после содержимого расширения остались лишние поля
+				if(!fields.empty())
+					// Выводим причину отказа
+					return nts::x509::error_t::STRUCTURE;
+				/**
+				 * Выполняем обход разобранных расширений
+				 */
+				for(size_t i = 0; i < result.size(); i++){
+					/**
+					 * Повторное расширение запрещено RFC 5280: два расширения одного
+					 * опознавателя дают два разных ответа на один вопрос, и выбор
+					 * между ними у разных разборщиков расходится
+					 */
+					if(result[i].oid.compare(extension.oid) == 0)
+						// Выводим причину отказа
+						return nts::x509::error_t::DUPLICATE;
+				}
+				// Добавляем расширение в набор расширений
+				result.push_back(extension);
 			}
-			// Добавляем расширение в набор расширений
-			result.push_back(extension);
+			// Выводим успешность разбора
+			return nts::x509::error_t::NONE;
+		/**
+		 * Выполняем перехват ошибок
+		 */
+		} catch(const bad_alloc &) {
+			// Выводим отказ нехватки памяти
+			return nts::x509::error_t::MEMORY;
 		}
-		// Выводим успешность разбора
-		return nts::x509::error_t::NONE;
 	}
 };
 
@@ -437,8 +438,7 @@ nts::x509::error_t nts::x509::Revocations::parse(const view_t & data) noexcept {
 	// Выполняем очистку разобранных сведений
 	this->clear();
 	/**
-	 * Разбор собирает имя, записи отзывов и расширения, а значит выделяет память:
-	 * нехватка её обязана дойти до вызывающего причиной отказа, а не завершить процесс
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Создаём разборщик записи списка
@@ -483,6 +483,7 @@ nts::x509::error_t nts::x509::Revocations::parse(const view_t & data) noexcept {
 			return this->_error;
 		// Запоминаем запись настроек алгоритма подписи
 		if(present)
+			// Запоминаем элемент настроек
 			this->_parameters = params.element;
 		// Выполняем разбор подписи списка
 		if(!top.next(asn1::tag_t::BIT_STRING, item))
@@ -715,7 +716,7 @@ nts::x509::error_t nts::x509::Revocations::parse(const view_t & data) noexcept {
 		// Запоминаем причину отказа: поле не отвечает устройству подписываемой части
 		return (this->_error = error_t::STRUCTURE);
 	/**
-	 * Если память выделить не удалось
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Запоминаем причину отказа
@@ -732,21 +733,27 @@ void nts::x509::Revocations::clear() noexcept {
 	this->_error = error_t::NONE;
 	// Сбрасываем просмотры записи списка
 	this->_element = view_t();
+	// Сбрасываем просмотр подписываемой части списка
 	this->_body = view_t();
 	// Сбрасываем запись подписи
 	this->_signature = view_t();
+	// Сбрасываем число неиспользованных разрядов подписи
 	this->_unused = 0;
 	// Сбрасываем алгоритм подписи
 	this->_algorithm.clear();
+	// Сбрасываем просмотр настроек алгоритма подписи
 	this->_parameters = view_t();
 	// Сбрасываем имя издателя
 	this->_issuer.element = view_t();
+	// Сбрасываем разобранные части имени издателя
 	this->_issuer.parts.clear();
 	// Сбрасываем даты списка
 	this->_thisUpdate = 0;
+	// Сбрасываем дату следующего обновления списка
 	this->_nextUpdate = 0;
 	// Сбрасываем наборы записей отзывов и расширений
 	this->_revoked.clear();
+	// Сбрасываем набор записей расширений
 	this->_extensions.clear();
 }
 
@@ -848,6 +855,7 @@ const std::vector <nts::x509::revoked_t> & nts::x509::Revocations::revoked() con
  * @brief Метод извлечения набора расширений списка
  *
  * @return набор расширений списка
+ * @param oid опознаватель разыскиваемого расширения
  *
  */
 const std::vector <nts::x509::extension_t> & nts::x509::Revocations::extension() const noexcept {
@@ -883,12 +891,14 @@ const nts::x509::extension_t * nts::x509::Revocations::extension(const string & 
 nts::x509::Revocations::Revocations() noexcept : _error(error_t::NONE), _unused(0), _thisUpdate(0), _nextUpdate(0) {}
 
 /**
- * @brief Метод проверки подписи списка отзыва
+ * @brief Функция проверки подписи списка отзыва
  *
  * @param crl список, подпись которого проверяется
  * @param key сведения об открытом ключе издателя списка
+ * @return    отказ проверки: NONE - подпись сошлась, SIGNATURE - не сошлась либо
+ *            непригодна, KEY - ключ чужого алгоритма, MEMORY - памяти не хватило
  *
- * @return    отказ проверки подписи
+ *            непригодна, KEY - ключ чужого алгоритма, MEMORY - памяти не хватило
  *
  */
 nts::x509::error_t nts::x509::verify(const crl_t & crl, const nts::x509::key_t & key) noexcept {
@@ -906,3 +916,15 @@ nts::x509::error_t nts::x509::verify(const crl_t & crl, const nts::x509::key_t &
 	// Выводим итог проверки подписи списка вынесенной проверкой
 	return nts::x509::verify(crl.body(), signature, crl.algorithms(), crl.settings(), key);
 }
+
+/**
+ * @brief Конструктор
+ *
+ */
+nts::x509::Revoked::Revoked() noexcept : date(0) {}
+
+/**
+ * @brief Деструктор
+ *
+ */
+nts::x509::Revocations::~Revocations() noexcept {}

@@ -35,6 +35,9 @@
  * Экранируем повторную инициализацию заголовочного файла
  */
 #ifndef __ANTS_TESTS_ADVERSARY__
+/**
+ * Поднимаем макрос предохранителя: повторное подключение заголовочного файла отсекается
+ */
 #define __ANTS_TESTS_ADVERSARY__
 
 /**
@@ -203,7 +206,7 @@ namespace {
 		0x07, 0x9E, 0x09, 0xE2, 0xC8, 0xA8, 0x33, 0x9C
 	};
 	/**
-	 * @brief Метод составления защищённой записи с пустым содержимым
+	 * @brief Функция составления защищённой записи с пустым содержимым
 	 *
 	 * @details Раздел 5.4 RFC 8446 запрещает отправлять записи рукопожатия и извещений
 	 *          с пустым содержимым, и своя защита записей такую запись составить не
@@ -218,7 +221,6 @@ namespace {
 	 * @param sequence порядковый номер составляемой записи
 	 * @param inner    истинный вид содержимого составляемой записи
 	 * @param result   накопитель, в конец которого дописывается защищённая запись
-	 *
 	 * @return         признак успешности составления защищённой записи
 	 *
 	 */
@@ -297,14 +299,13 @@ namespace {
 		return true;
 	}
 	/**
-	 * @brief Метод отправки сообщения рукопожатия враждебным сервером
+	 * @brief Функция отправки сообщения рукопожатия враждебным сервером
 	 *
 	 * @param protection защита записей враждебного сервера
 	 * @param transcript переписка рукопожатия враждебного сервера
 	 * @param type       вид отправляемого сообщения рукопожатия
 	 * @param body       тело отправляемого сообщения рукопожатия
 	 * @param result     накопитель, в который складывается защищённая запись
-	 *
 	 * @return           признак успешности отправки сообщения рукопожатия
 	 *
 	 */
@@ -331,13 +332,12 @@ namespace {
 		return true;
 	}
 	/**
-	 * @brief Метод выработки подписи владения ключом враждебного сервера
+	 * @brief Функция выработки подписи владения ключом враждебного сервера
 	 *
 	 * @param credential подлинность подписывающей стороны
 	 * @param transcript переписка рукопожатия подписывающей стороны
 	 * @param server     признак того, что подпись кладёт сторона сервера
 	 * @param result     накопитель, в который складывается тело подписи
-	 *
 	 * @return           признак успешности выработки подписи владения ключом
 	 *
 	 */
@@ -356,8 +356,10 @@ namespace {
 		 * чужим алгоритмом ключа своей кривой не выдаёт, тогда как подписать волну им
 		 * всё же надо - клиент обязан отвергнуть лист сам, а не по отказу оснастки
 		 */
-		if(override != nullptr)
+		if(override != nullptr){
+			// Опознаватель кривой подписи берётся из переопределения враждебного сервера
 			oid = override;
+		}
 		else if(x509::identifier(leaf.key(), oid) != x509::error_t::NONE)
 			// Выводим отказ выработки подписи владения ключом
 			return false;
@@ -443,12 +445,11 @@ namespace {
 		return (message::build(verify, result) == message::error_t::NONE);
 	}
 	/**
-	 * @brief Метод ответа враждебного сервера на приветствие клиента
+	 * @brief Функция ответа враждебного сервера на приветствие клиента
 	 *
 	 * @param client     связь стороны клиента
 	 * @param distortion искажение, вносимое враждебным сервером
 	 * @param credential подлинность враждебного сервера, нужная искажению подписи
-	 *
 	 * @return           признак успешности ответа враждебного сервера
 	 *
 	 * @note Итог отвечает лишь за то, что ответ составлен и подан клиенту: суждение
@@ -728,6 +729,7 @@ namespace {
 				// Выводим отказ ответа враждебного сервера
 				return false;
 		}
+		// Если враждебный сервер просит повторить приветствие
 		if(distortion == distortion_t::RECURRENT){
 			// Составляемая просьба враждебного сервера о повторе приветствия
 			hello::server_t asking = answer;
@@ -1055,27 +1057,42 @@ namespace {
 			 * Запрос подлинности с годными схемами (0x0403) и перечнем доверенных центров:
 			 * пустым, с пустым именем, с хвостом либо с именем не SEQUENCE
 			 */
-			if(distortion == distortion_t::MALCA)
+			if(distortion == distortion_t::MALCA) {
+				// Запрос с годными схемами и пустым перечнем доверенных центров
 				request = {0x00, 0x00, 0x0E, 0x00, 0x0D, 0x00, 0x04, 0x00, 0x02, 0x04, 0x03, 0x00, 0x2F, 0x00, 0x02, 0x00, 0x00};
-			else if(distortion == distortion_t::HOLLOWCA)
+			} else if(distortion == distortion_t::HOLLOWCA) {
+				// Запрос с годными схемами и именем центра нулевой длины
 				request = {0x00, 0x00, 0x10, 0x00, 0x0D, 0x00, 0x04, 0x00, 0x02, 0x04, 0x03, 0x00, 0x2F, 0x00, 0x04, 0x00, 0x02, 0x00, 0x00};
-			else if(distortion == distortion_t::TRAILCA)
+			} else if(distortion == distortion_t::TRAILCA) {
+				// Запрос с именем центра, оборванным хвостом за заголовком SEQUENCE
 				request = {0x00, 0x00, 0x12, 0x00, 0x0D, 0x00, 0x04, 0x00, 0x02, 0x04, 0x03, 0x00, 0x2F, 0x00, 0x06, 0x00, 0x03, 0x00, 0x01, 0x30, 0xFF};
-			else if(distortion == distortion_t::NOTSEQCA)
+			} else if(distortion == distortion_t::NOTSEQCA) {
+				// Запрос с именем центра, чей тег 0x31 не есть SEQUENCE
 				request = {0x00, 0x00, 0x11, 0x00, 0x0D, 0x00, 0x04, 0x00, 0x02, 0x04, 0x03, 0x00, 0x2F, 0x00, 0x05, 0x00, 0x03, 0x00, 0x01, 0x31};
+			}
 			// Если перечень расширений оборван на виде расширения
-			else if(distortion == distortion_t::MALREQUEST)
+			else if(distortion == distortion_t::MALREQUEST) {
+				// Перечень из одного байта вида расширения без тела
 				request = {0x00, 0x00, 0x01, 0x00};
+			}
 			// Если за телом запроса идёт лишний байт
-			else if(distortion == distortion_t::OVERREQUEST)
+			else if(distortion == distortion_t::OVERREQUEST) {
+				// За телом запроса идёт лишний нулевой байт
 				request = {0x00, 0x00, 0x00, 0x00};
+			}
 			// Если перечень схем подписи негоден: длина перечня нечётна
 			else request = {0x00, 0x00, 0x07, 0x00, 0x0D, 0x00, 0x03, 0x00, 0x01, 0x08};
-			if(!deliver(protection, transcript, handshake::type_t::REQUEST, view_t(request.data(), request.size()), answered))
+			// Если запрос подлинности с негодным перечнем доставить клиенту не удалось
+			if(!deliver(protection, transcript, handshake::type_t::REQUEST, view_t(request.data(), request.size()), answered)){
+				// Выводим отказ ответа враждебного сервера
 				return false;
+			}
+			// Ответ клиента на запрос подлинности уходит в переписку рукопожатия
 			client.push(view_t(answered.data(), answered.size()));
+			// Ответ враждебного сервера на просьбу составлен
 			return true;
 		}
+		// Если враждебный сервер шлёт запрос подлинности с пустым телом
 		if(distortion == distortion_t::SILENT){
 			// Объект составителя тела запроса подлинности клиента
 			field::builder_t builder;
@@ -1163,7 +1180,8 @@ namespace {
 			// Устанавливаем тело сертификата записи цепочки
 			// Запись, сертификатом не являющаяся: разбор её обязан отвергнуть лист
 			const std::vector <uint8_t> garbage(64, 0x41);
-			entry.data = ((distortion == distortion_t::GARBAGELEAF) ? view_t(garbage.data(), garbage.size()) : view_t(credential->chain[0].data(), credential->chain[0].size()));
+			// Тело записи: мусор из байт 0x41 для GARBAGELEAF, иначе настоящий сертификат
+		entry.data = ((distortion == distortion_t::GARBAGELEAF) ? view_t(garbage.data(), garbage.size()) : view_t(credential->chain[0].data(), credential->chain[0].size()));
 			// Перечни меток времени: пустой, с пустой записью, с хвостом и годный без запроса
 			static const uint8_t EMPTYLIST[] = {0x00, 0x00}, HOLLOWLIST[] = {0x00, 0x02, 0x00, 0x00}, TRAILLIST[] = {0x00, 0x03, 0x00, 0x01, 0xAA, 0xFF}, GOODLIST[] = {0x00, 0x03, 0x00, 0x01, 0xAA};
 			// Если запись листа несёт пустой перечень меток времени
@@ -1190,13 +1208,16 @@ namespace {
 			if(message::build(certificate, chain) != message::error_t::NONE)
 				// Выводим отказ ответа враждебного сервера
 				return false;
-			// Если цепочку сертификатов враждебного сервера отправить не удалось
 			// Если цепочка сертификатов несёт негодное тело: перечень расширений записи оборван
-			if(distortion == distortion_t::MALCHAIN)
+			if(distortion == distortion_t::MALCHAIN){
+				// Записываем оборванный перечень расширений записи вместо годного тела цепочки
 				chain = {0x00, 0x00, 0x00, 0x07, 0x00, 0x00, 0x01, 0x30, 0x00, 0x01, 0x00};
-			if(!deliver(protection, transcript, handshake::type_t::CERTIFICATE, view_t(chain.data(), chain.size()), answered))
+			}
+			// Если цепочку сертификатов враждебного сервера отправить не удалось
+			if(!deliver(protection, transcript, handshake::type_t::CERTIFICATE, view_t(chain.data(), chain.size()), answered)){
 				// Выводим отказ ответа враждебного сервера
 				return false;
+			}
 			// Накопитель, в который складывается тело подписи владения ключом
 			vector <uint8_t> witnessed;
 			// Если враждебный сервер искажает схему подписи владения ключом
@@ -1231,22 +1252,36 @@ namespace {
 			 * раздел 4.4.3 RFC 8446 велит рвать связь извещением decrypt_error
 			 */
 			// Если подпись владения ключом несёт негодное тело: значение подписи пусто
-			if(distortion == distortion_t::MALVERIFY)
+			if(distortion == distortion_t::MALVERIFY){
+				// Схема 0x0804 с нулевой длиной значения подписи
 				witnessed = {0x08, 0x04, 0x00, 0x00};
+			}
 			// Если подпись владения ключом нечётной длины при годном объявлении
 			if(distortion == distortion_t::ODDSIGN){
+				// Подпись нечётной длины: схема годная, значение из 63 байт
 				message::verify_t witness;
-				if(message::parse(view_t(witnessed.data(), witnessed.size()), witness) != message::error_t::NONE)
+				// Если настоящую подпись владения ключом разобрать не удалось
+				if(message::parse(view_t(witnessed.data(), witnessed.size()), witness) != message::error_t::NONE){
+					// Выводим отказ ответа враждебного сервера
 					return false;
+				}
+				// Значение подписи из 63 байт 0x5A: длина нечётная при годной схеме
 				const std::vector <uint8_t> odd(63, 0x5A);
+				// Заменяем значение подписи на нечётное по длине
 				witness.signature = view_t(odd.data(), odd.size());
+				// Сбрасываем накопитель подписи перед пересборкой
 				witnessed.clear();
-				if(message::build(witness, witnessed) != message::error_t::NONE)
+				// Если подпись нечётной длины пересобрать не удалось
+				if(message::build(witness, witnessed) != message::error_t::NONE){
+					// Выводим отказ ответа враждебного сервера
 					return false;
+				}
 			}
+			// Если враждебный сервер портит значение настоящей подписи владения ключом
 			if((distortion == distortion_t::MALSIGN) && (witnessed.size() > 0))
 				// Портим последний байт записи подписи владения ключом
 				witnessed[witnessed.size() - 1] = static_cast <uint8_t> (witnessed[witnessed.size() - 1] ^ 0x01);
+			// Если подпись владения ключом объявляется непомерной длины при годной схеме
 			if(distortion == distortion_t::LENGTHY){
 				// Разбираемая настоящая подпись владения ключом
 				message::verify_t witness;
@@ -1390,13 +1425,13 @@ namespace {
 					// Выводим отказ ответа враждебного сервера
 					return false;
 				// Заголовок очередного принятого сообщения рукопожатия
-				handshake::header_t taken_header;
+				handshake::header_t takenHeader;
 				// Тело очередного принятого сообщения рукопожатия
-				view_t taken_body;
+				view_t takenBody;
 				/**
 				 * Выполняем перебор сообщений рукопожатия, принятых от клиента
 				 */
-				while(taker.next(taken_header, taken_body) == handshake::error_t::NONE){
+				while(taker.next(takenHeader, takenBody) == handshake::error_t::NONE){
 					// Если сообщение в переписку рукопожатия добавить не удалось
 					if(transcript.update(taker.message()) != session::error_t::NONE)
 						// Выводим отказ ответа враждебного сервера
@@ -1474,11 +1509,15 @@ namespace {
 			}
 			// Если враждебный сервер шлёт защищённую запись с пустым содержимым
 			if(distortion == distortion_t::ALIENTYPE){
-			answered.clear();
-			// Запись с содержимым в один байт и неведомым видом 0x2A: до разбора вида она доходит
-			if(!hollow(suite, view_t(material, sizeof(material)), view_t(element, protect::block(suite)), outgoing.sequence(), static_cast <record::type_t> (0x2A), answered, 1))
-				return false;
+				// Выполняем сброс накопителя ответа враждебного сервера
+				answered.clear();
+				// Запись с содержимым в один байт и неведомым видом 0x2A: до разбора вида она доходит
+				if(!hollow(suite, view_t(material, sizeof(material)), view_t(element, protect::block(suite)), outgoing.sequence(), static_cast <record::type_t> (0x2A), answered, 1)){
+					// Выводим отказ ответа враждебного сервера
+					return false;
+				}
 		}
+		// Если враждебный сервер шлёт запись рукопожатия с пустым содержимым
 		if(distortion == distortion_t::VACANT){
 				// Выполняем сброс накопителя ответа враждебного сервера
 				answered.clear();
@@ -1571,12 +1610,11 @@ namespace {
 		return true;
 	}
 	/**
-	 * @brief Метод возобновления связи враждебным клиентом с упреждающими данными
+	 * @brief Функция возобновления связи враждебным клиентом с упреждающими данными
 	 *
 	 * @param server     связь стороны сервера
 	 * @param ticket     билет возобновления связи, принятый прошлой связью
 	 * @param distortion искажение, вносимое враждебным клиентом
-	 *
 	 * @return           признак успешности подачи упреждающих данных
 	 *
 	 * @details Приветствие складывается своё, привязка билета вырабатывается
@@ -1797,6 +1835,7 @@ namespace {
 			answered.insert(answered.end(), sealed.begin(), sealed.end());
 		// Иначе упреждающие данные кончаются по правилам
 		} else {
+			// Составитель тела конца упреждающих данных
 			handshake::writer_t ending;
 			/**
 			 * Раздел 4.5 RFC 8446 кладёт концу упреждающих данных пустое тело: искажением
@@ -1825,12 +1864,11 @@ namespace {
 		return true;
 	}
 	/**
-	 * @brief Метод рукопожатия враждебного клиента с сервером
+	 * @brief Функция рукопожатия враждебного клиента с сервером
 	 *
 	 * @param server     связь стороны сервера
 	 * @param distortion искажение, вносимое враждебным клиентом
 	 * @param credential подлинность враждебного клиента
-	 *
 	 * @return           признак успешности рукопожатия враждебного клиента
 	 *
 	 * @details Зеркало враждебного сервера: приветствие складывается своё, ключи
@@ -2065,14 +2103,25 @@ namespace {
 		 * полным рукопожатием: неведомый опознаватель - не отказ, а отсутствие совпадения
 		 */
 		if(distortion == distortion_t::UNKNOWNPSK){
-			if(extension::modes(vector <extension::regime_t> {extension::regime_t::SHARED}, bodies[5]) != extension::error_t::NONE)
+			// Если перечень способов разделённого ключа составить не удалось
+			if(extension::modes(vector <extension::regime_t> {extension::regime_t::SHARED}, bodies[5]) != extension::error_t::NONE){
+				// Выводим отказ рукопожатия враждебного клиента
 				return false;
+			}
+			// Добавляем расширение способов разделённого ключа с годным перечнем
 			greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::MODES), view_t(bodies[5].data(), bodies[5].size())));
+			// Опознаватель неведомого заранее разделённого ключа из восьми байт 0x5A
 			const std::vector <uint8_t> unknown(8, 0x5A);
+			// Привязка неведомого ключа из 32 байт 0xA5: значение не важно, ключ всё равно неведом
 			const std::vector <uint8_t> binder(32, 0xA5);
+			// Личность неведомого ключа: опознаватель без имени и с нулевым возрастом
 			const extension::identity_t identity(view_t(unknown.data(), unknown.size()), 0);
-			if(extension::identities(vector <extension::identity_t> {identity}, vector <view_t> {view_t(binder.data(), binder.size())}, bodies[4]) != extension::error_t::NONE)
+			// Если перечень личностей с привязками составить не удалось
+			if(extension::identities(vector <extension::identity_t> {identity}, vector <view_t> {view_t(binder.data(), binder.size())}, bodies[4]) != extension::error_t::NONE){
+				// Выводим отказ рукопожатия враждебного клиента
 				return false;
+			}
+			// Добавляем расширение личностей с неведомым ключом последним, как велит раздел 4.2.11 RFC 8446
 			greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::SECRET), view_t(bodies[4].data(), bodies[4].size())));
 		}
 		// Накопитель, в который складывается тело приветствия клиента
@@ -2397,11 +2446,10 @@ namespace {
 		return true;
 	}
 	/**
-	 * @brief Метод ответа враждебного сервера без подлинности
+	 * @brief Функция ответа враждебного сервера без подлинности
 	 *
 	 * @param client     связь стороны клиента, приветствие которой разбирается
 	 * @param distortion вид искажения
-	 *
 	 * @return           признак успешности ответа враждебного сервера
 	 *
 	 */
@@ -2410,11 +2458,10 @@ namespace {
 		return adversary(client, distortion, nullptr);
 	}
 	/**
-	 * @brief Метод приветствия враждебного клиента без подлинности
+	 * @brief Функция приветствия враждебного клиента без подлинности
 	 *
 	 * @param server     связь стороны сервера, ответ которой разбирается
 	 * @param distortion вид искажения
-	 *
 	 * @return           признак успешности приветствия враждебного клиента
 	 *
 	 */
@@ -2424,4 +2471,4 @@ namespace {
 	}
 };
 
-#endif // __ANTS_TESTS_ADVERSARY__
+#endif

@@ -65,10 +65,9 @@ using namespace nts;
  */
 namespace {
 	/**
-	 * @brief Метод порождения открытого текста заданной длины
+	 * @brief Функция порождения открытого текста заданной длины
 	 *
 	 * @param size длина текста
-	 *
 	 * @return     порождённый текст
 	 *
 	 */
@@ -85,18 +84,17 @@ namespace {
 		return result;
 	}
 	/**
-	 * @brief Метод пропуска данных через поток кусками заданного размера
+	 * @brief Функция пропуска данных через поток кусками заданного размера
 	 *
 	 * @param stream    объект потока, уже заведённый
 	 * @param source    пропускаемые данные
 	 * @param chunk     размер куска
 	 * @param result    накопитель выхода потока
-	 *
 	 * @return          признак успешности пропуска и завершения
 	 *
 	 */
 	bool pass(cipher::stream_t & stream, const vector <uint8_t> & source, const size_t chunk, vector <uint8_t> & result) noexcept {
-		// Очищаем выход
+		// Опустошаем накопитель выхода перед подачей кусков
 		result.clear();
 		/**
 		 * Выполняем подачу данных кусками
@@ -106,18 +104,17 @@ namespace {
 			const size_t size = (((source.size() - offset) < chunk) ? (source.size() - offset) : chunk);
 			// Если подача куска не удалась
 			if(!stream.update(view_t(source.data() + offset, size), result))
-				// Выводим отказ
+				// Выводим отрицательный результат - подача куска не удалась
 				return false;
 		}
 		// Выводим итог завершения потока: метка дописывается либо сличается здесь
 		return stream.finish(result);
 	}
 	/**
-	 * @brief Метод подсчёта ненулевых байтов области
+	 * @brief Функция подсчёта ненулевых байтов области
 	 *
 	 * @param data область байтов
 	 * @param size длина области
-	 *
 	 * @return     число ненулевых байтов
 	 *
 	 */
@@ -140,7 +137,6 @@ namespace {
  *
  * @param argc длина массива параметров
  * @param argv массив параметров
- *
  * @return     код выхода из приложения
  *
  */

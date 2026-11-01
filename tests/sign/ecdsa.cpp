@@ -55,14 +55,13 @@
 using namespace nts;
 
 /**
- * @brief Метод запуска команды оболочки без консоли на входе
+ * @brief Функция запуска команды оболочки без консоли на входе
  *
  * @details stdin подаётся из /dev/null: у оболочки инструмента разработки он бывает
  *          сокетом, tcgetattr на нём отвечает EOPNOTSUPP, и консольный слой openssl
  *          валит разбор даже при пароле, заданном доводом
  *
  * @param command запускаемая команда
- *
  * @return        код возврата команды
  *
  */
@@ -74,6 +73,7 @@ static int shell(const std::string & command) {
  * Опознаватели наборов параметров кривых P-256 и P-384
  */
 static const char * P256 = "1.2.840.10045.3.1.7";
+// Опознаватель набор параметров кривой P-384
 static const char * P384 = "1.3.132.0.34";
 
 /**
@@ -85,6 +85,7 @@ static const char * SECRET256 = "c9afa9d845ba75166b5c215767b1d6934e50c3db36e89b1
  * Ключ проверки подписи приложения A.2.5 RFC 6979 (P-256)
  */
 static const char * PUBLIC256X = "60fed4ba255a9d31c961eb74c6356d68c049b8923b61fa6ce669622e60f29fb6";
+// Ордината ключа проверки приложения A.2.5 RFC 6979 (P-256)
 static const char * PUBLIC256Y = "7903fe1008b8bc99a41ae9e95628bc64f2f1b20c2d7e9f5177a3c294d4462299";
 
 /**
@@ -96,6 +97,7 @@ static const char * SECRET384 = "6b9d3dad2e1b8c1c05b19875b6659f4de23c3b667bf297b
  * Ключ проверки подписи приложения A.2.6 RFC 6979 (P-384)
  */
 static const char * PUBLIC384X = "ec3a4e415b4e19a4568618029f427fa5da9a8bc4ae92e02e06aae5286b300c64def8f0ea9055866064a254515480bc13";
+// Ордината ключа проверки приложения A.2.6 RFC 6979 (P-384)
 static const char * PUBLIC384Y = "8015d9b72d7d57244ea8ef9ac0c621896708a59367f9dfb9f54ca84b3f1c9db1288b231c3ae0d4fe7344fd2533264720";
 
 /**
@@ -160,11 +162,10 @@ static const char * DER256 =
 	"022100f7cb1c942d657c41d436c7a1b6e29f65f3e900dbb9aff4064dc4ab2f843acda8";
 
 /**
- * @brief Метод разбора записи шестнадцатеричными знаками
+ * @brief Функция разбора записи шестнадцатеричными знаками
  *
  * @param text разбираемая запись
  * @param data место, в которое помещаются разобранные байты
- *
  * @return     число разобранных байтов
  *
  */
@@ -193,11 +194,10 @@ static size_t bytes(const std::string & text, uint8_t * data) {
 	return result;
 }
 /**
- * @brief Метод сборки записи шестнадцатеричными знаками
+ * @brief Функция сборки записи шестнадцатеричными знаками
  *
  * @param data собираемые байты
  * @param size число собираемых байтов
- *
  * @return     собранная запись
  *
  */
@@ -219,12 +219,11 @@ static std::string text(const uint8_t * data, const size_t size) {
 	return result;
 }
 /**
- * @brief Метод хеширования сообщения
+ * @brief Функция хеширования сообщения
  *
  * @param algorithm алгоритм хеширования
  * @param message   хешируемое сообщение
  * @param result    место, в которое помещается хеш
- *
  * @return          длина хеша
  *
  */
@@ -239,10 +238,9 @@ static size_t summarize(const digest::hash_t algorithm, const std::string & mess
 	return length;
 }
 /**
- * @brief Метод чтения файла целиком
+ * @brief Функция чтения файла целиком
  *
  * @param path путь к читаемому файлу
- *
  * @return     содержимое файла
  *
  */
@@ -257,12 +255,11 @@ static std::string slurp(const std::string & path) {
 	return stream.str();
 }
 /**
- * @brief Метод извлечения шестнадцатеричной записи из текстовой выдачи openssl
+ * @brief Функция извлечения шестнадцатеричной записи из текстовой выдачи openssl
  *
  * @param output выдача openssl
  * @param begin  метка, за которой начинается запись
  * @param end    метка, на которой запись обрывается
- *
  * @return       запись без разделителей и пробелов
  *
  */
@@ -379,7 +376,7 @@ TEST(EcdsaTest, Parameters) {
 	}
 }
 /**
- * @brief Метод проверки контрольных примеров RFC 6979 на кривой
+ * @brief Функция проверки контрольных примеров RFC 6979 на кривой
  *
  * @param identifier опознаватель кривой
  * @param secret     ключ подписи
@@ -441,6 +438,7 @@ static void rfc6979(const char * identifier, const char * secret, const char * p
 		ASSERT_EQ(text(other, size * 2), std::string(vectors[i].signature)) << "Пример: " << i;
 		// Проверяем воспроизводимость подписи по RFC 6979
 		ASSERT_TRUE(ecdsa.make(vectors[i].algorithm, view_t(digest, length), other)) << "Пример: " << i;
+		// Подпись выведенным числом сходится с подписью переданным числом
 		ASSERT_EQ(::memcmp(signature, other, size * 2), 0) << "Пример: " << i;
 		// Объект модуля проверки одним лишь ключом проверки
 		sign::ecdsa_t verifier;
@@ -788,7 +786,7 @@ TEST(EcdsaTest, Starved) {
 	ASSERT_TRUE(starved);
 }
 /**
- * @brief Метод сличения с openssl на кривой
+ * @brief Функция сличения с openssl на кривой
  *
  * @param name      имя кривой у openssl
  * @param oid       опознаватель кривой
@@ -800,10 +798,15 @@ TEST(EcdsaTest, Starved) {
 static void openssl(const char * name, const char * oid, const digest::hash_t algorithm, const char * option, const std::string & directory) {
 	// Пути временных файлов
 	const std::string key = (directory + "/" + name + ".key.pem");
+	// Путь файла ключа проверки у openssl
 	const std::string pub = (directory + "/" + name + ".pub.pem");
+	// Путь текстовой выдачи ключа
 	const std::string txt = (directory + "/" + name + ".txt");
+	// Путь файла сообщения
 	const std::string msg = (directory + "/" + name + ".msg");
+	// Путь файла подписи у openssl
 	const std::string sig = (directory + "/" + name + ".sig");
+	// Путь файла собственной подписи
 	const std::string own = (directory + "/" + name + ".own");
 	// Порождаем ключ у openssl
 	ASSERT_EQ(shell((std::string("openssl ecparam -genkey -noout -name ") + name + " -out " + key + " 2>/dev/null").c_str()), 0) << "Кривая: " << name;
@@ -815,6 +818,7 @@ static void openssl(const char * name, const char * oid, const digest::hash_t al
 	const std::string output = slurp(txt);
 	// Извлекаем ключ подписи и ключ проверки
 	std::string secret = extract(output, "priv:", "pub:");
+	// Текст точки ключа проверки из выдачи openssl
 	const std::string point = extract(output, "pub:", "ASN1 OID");
 	// Объект эллиптической кривой
 	curve::curve_t curve;
@@ -823,11 +827,15 @@ static void openssl(const char * name, const char * oid, const digest::hash_t al
 	// Размер координаты кривой
 	const size_t size = curve.size();
 	// Если openssl старого издания напечатал скаляр с ведущим нулевым байтом (1.0.2 так делает), снимаем его
-	if((secret.size() == ((size * 2) + 2)) && (secret.compare(0, 2, "00") == 0))
+	if((secret.size() == ((size * 2) + 2)) && (secret.compare(0, 2, "00") == 0)){
+		// Ведущий нулевой байт слева больше не нужен
 		secret.erase(0, 2);
+	}
 	// Если openssl напечатал скаляр без ведущих нулевых байтов (так печатается число, а не поле фиксированной ширины), дополняем слева
-	if((secret.size() < (size * 2)) && ((secret.size() % 2) == 0))
+	if((secret.size() < (size * 2)) && ((secret.size() % 2) == 0)){
+		// Скаляр дополняем ведущими нулями до двойного размера координаты
 		secret.insert(0, (size * 2) - secret.size(), '0');
+	}
 	// Проверяем длину ключа подписи и ключа проверки
 	ASSERT_EQ(secret.size(), size * 2) << "Кривая: " << name << " ключ: " << output;
 	ASSERT_EQ(point.size(), (size * 4) + 2) << "Кривая: " << name << " ключ: " << output;
@@ -954,11 +962,10 @@ static const double DISTANCE = 0.055;
 static const double NOTICEABLE = 0.08;
 
 /**
- * @brief Метод получения наибольшего числа порядка подгруппы кривой
+ * @brief Функция получения наибольшего числа порядка подгруппы кривой
  *
  * @param curve  кривая
  * @param result место, в которое записывается порядок без единицы длиной в порядок
- *
  * @return       признак успешности получения
  *
  */
@@ -977,12 +984,11 @@ static bool bound(const curve::curve_t & curve, uint8_t * result) {
 	return order.store(last, result, order.size());
 }
 /**
- * @brief Метод получения расстояния Колмогорова между выборкой старшего байта и равномерным распределением
+ * @brief Функция получения расстояния Колмогорова между выборкой старшего байта и равномерным распределением
  *
  * @param histogram число выпадений всякого значения старшего байта
  * @param count     число значений в выборке
  * @param span      порядок подгруппы в единицах старшего байта
- *
  * @return          наибольшее расхождение накопленных долей
  *
  */
@@ -1008,14 +1014,13 @@ static double distance(const std::vector <size_t> & histogram, const size_t coun
 	return result;
 }
 /**
- * @brief Метод получения расстояния распределения остатка по модулю от равномерного
+ * @brief Функция получения расстояния распределения остатка по модулю от равномерного
  *
  * @details Остаток случайных байтов по модулю порядка: значения от порядка до
  *          степени двойки складываются на начало отрезка, оттого плотность на
  *          начале выше. Расстояние считается по накопленным долям точно
  *
  * @param span порядок подгруппы в единицах старшего байта
- *
  * @return     наибольшее расхождение накопленных долей
  *
  */
@@ -1045,7 +1050,7 @@ static double folded(const double span) {
 	return result;
 }
 /**
- * @brief Метод выработки числа остатком случайных байтов по модулю порядка
+ * @brief Функция выработки числа остатком случайных байтов по модулю порядка
  *
  * @details Намеренно смещённый способ: служит контролем того, что проверка
  *          равномерности различает отбор и остаток
@@ -1053,7 +1058,6 @@ static double folded(const double span) {
  * @param modulus порядок подгруппы
  * @param size    длина порядка в байтах
  * @param result  место, в которое записывается остаток
- *
  * @return        признак успешности выработки
  *
  */
@@ -1062,13 +1066,13 @@ static bool remainder(const math::integer_t & modulus, const size_t size, uint8_
 	uint8_t buffer[math::NUMBER_SIZE];
 	// Если случайные байты получить не удалось
 	if(!entropy::bytes(buffer, size))
-		// Выводим отказ
+		// Выводим отрицательный результат - случайные байты не получены
 		return false;
 	// Число из случайных байтов и его остаток
 	math::integer_t value, reduced;
 	// Если число разобрать либо привести по модулю не удалось
 	if(!value.load(view_t(buffer, size)) || !reduced.reduce(value, modulus))
-		// Выводим отказ
+		// Выводим отрицательный результат - число не разобрано либо не приведено
 		return false;
 	// Записываем остаток
 	return reduced.store(result, size);
@@ -1389,6 +1393,7 @@ static void exported(const char * name, const char * oid, const std::string & di
 	ASSERT_TRUE(ecdsa.generate(key.d.data(), size)) << "Кривая: " << name;
 	// Выделяем места под координаты ключа проверки
 	key.x.assign(size, 0);
+	// Выделяем место под ординату ключа проверки
 	key.y.assign(size, 0);
 	// Выполняем получение ключа проверки
 	ASSERT_TRUE(ecdsa.key(key.x.data(), key.y.data(), size)) << "Кривая: " << name;
@@ -1475,6 +1480,7 @@ TEST(EcdsaTest, Placed) {
 	for(const char * oid : curves){
 		// Кривая и примитив подписи
 		curve::curve_t curve;
+		// Примитив подписи на заданной кривой
 		sign::ecdsa_t ecdsa;
 		// Проверяем установку кривой
 		ASSERT_TRUE(curve::parameters(std::string(oid), curve)) << oid;
@@ -1496,10 +1502,13 @@ TEST(EcdsaTest, Placed) {
 			ASSERT_TRUE(ecdsa.make(digest::hash_t::SHA256, view_t(digest, sizeof(digest)), raw)) << oid;
 			// Запись в набор байтов
 			std::vector <uint8_t> der;
+			// Запись сырых компонент подписи в DER-набор
 			ASSERT_TRUE(sign::encode(view_t(raw, ecdsa.size()), der)) << oid;
 			// Запись в готовое место
 			uint8_t place[256];
+			// Длина записи в готовое место
 			size_t size = sizeof(place);
+			// Запись подписи в заранее выделенный буфер
 			ASSERT_TRUE(sign::encode(view_t(raw, ecdsa.size()), place, size)) << oid;
 			// Проверяем совпадение записей
 			ASSERT_EQ(std::vector <uint8_t> (place, place + size), der) << oid;
@@ -1507,6 +1516,7 @@ TEST(EcdsaTest, Placed) {
 			ASSERT_LE(size, ecdsa.limit()) << oid;
 			// Тесное место отвергается
 			size_t tight = (size - 1);
+			// Запись в буфер на байт короче записи отвергается
 			ASSERT_FALSE(sign::encode(view_t(raw, ecdsa.size()), place, tight)) << oid;
 			// Пустое место отвергается
 			ASSERT_FALSE(sign::encode(view_t(raw, ecdsa.size()), nullptr, size)) << oid;

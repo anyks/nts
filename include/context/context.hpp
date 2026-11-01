@@ -69,6 +69,7 @@ namespace nts {
 	 * подлинность держит его общим указателем
 	 */
 	namespace keys {
+		// Предварительно объявляем класс подписанта
 		class __ANTS_SHARED_EXPORT__ Signer;
 	};
 
@@ -86,9 +87,11 @@ namespace nts {
 	 *
 	 * \~english
 	 * @brief Namespace of the common declarations of the facades of a connection
+	 *
 	 * @details The facades of the client and of the server lead one and the same connection from
 	 *          the different ends of it, and the state, the failures and the authenticity are common
 	 *          to them: only the order of the messages and the settings available to every role differ
+	 *
 	 * @note The connection does not deal with the input and the output at all: the received bytes are
 	 *       given to it by a call, and it puts the sent ones into an accumulator. Where the bytes came
 	 *       from and where they will go is the business of the one who leads the connection
@@ -106,41 +109,77 @@ namespace nts {
 		 * \~
 		 */
 		enum class error_t : uint8_t {
+			// Отказа нет
 			NONE        = 0x00, /*!< \~russian Отказа нет \~english There is no failure \~ */
+			// Вызов сделан не в том состоянии связи
 			STATE       = 0x01, /*!< \~russian Вызов сделан не в том состоянии связи \~english The call is made in a wrong state of the connection \~ */
+			// Настроек для заведения связи не хватает
 			SETTINGS    = 0x02, /*!< \~russian Настроек для заведения связи не хватает \~english There are not enough settings for the establishment of the connection \~ */
+			// Памяти под накопитель не хватило
 			MEMORY      = 0x03, /*!< \~russian Памяти под накопитель не хватило \~english There was not enough memory for the accumulator \~ */
+			// Запись протокола сложена не по правилам
 			RECORD      = 0x04, /*!< \~russian Запись протокола сложена не по правилам \~english A record of the protocol is composed not by the rules \~ */
+			// Защиту записи наложить либо снять не удалось
 			PROTECTION  = 0x05, /*!< \~russian Защиту записи наложить либо снять не удалось \~english It was not possible to impose or to remove the protection of a record \~ */
+			// Сообщение рукопожатия разобрать не удалось
 			MESSAGE     = 0x06, /*!< \~russian Сообщение рукопожатия разобрать не удалось \~english It was not possible to parse a message of the handshake \~ */
+			// Сообщение рукопожатия пришло не в свой черёд
 			ORDER       = 0x07, /*!< \~russian Сообщение рукопожатия пришло не в свой черёд \~english A message of the handshake came out of its turn \~ */
+			// Издание протокола собеседником не поддержано
 			VERSION     = 0x08, /*!< \~russian Издание протокола собеседником не поддержано \~english The edition of the protocol is not supported by the interlocutor \~ */
+			// Общего набора шифрования у сторон не нашлось
 			SUITE       = 0x09, /*!< \~russian Общего набора шифрования у сторон не нашлось \~english The sides have not found a common cipher suite \~ */
+			// Общей кривой обмена ключами у сторон не нашлось
 			GROUP       = 0x0A, /*!< \~russian Общей кривой обмена ключами у сторон не нашлось \~english The sides have not found a common curve of the key exchange \~ */
+			// Общее значение обмена ключами выработать не удалось
 			EXCHANGE    = 0x0B, /*!< \~russian Общее значение обмена ключами выработать не удалось \~english It was not possible to produce the shared value of the key exchange \~ */
+			// Ключевой материал связи вывести не удалось
 			SCHEDULE    = 0x0C, /*!< \~russian Ключевой материал связи вывести не удалось \~english It was not possible to derive the key material of the connection \~ */
+			// Цепочка сертификатов собеседника непригодна
 			CERTIFICATE = 0x0D, /*!< \~russian Цепочка сертификатов собеседника непригодна \~english The chain of the certificates of the interlocutor is unsuitable \~ */
+			// Подпись владения ключом не сошлась
 			SIGNATURE   = 0x0E, /*!< \~russian Подпись владения ключом не сошлась \~english The signature of the possession of the key has not matched \~ */
+			// Завершение рукопожатия собеседника не сошлось
 			COMPLETION  = 0x0F, /*!< \~russian Завершение рукопожатия собеседника не сошлось \~english The completion of the handshake of the interlocutor has not matched \~ */
+			// Собеседник оборвал связь извещением
 			ALERT       = 0x10, /*!< \~russian Собеседник оборвал связь извещением \~english The interlocutor has torn the connection by an alert \~ */
+			// Связь уже закрыта
 			CLOSED      = 0x11, /*!< \~russian Связь уже закрыта \~english The connection is already closed \~ */
+			// Общего прикладного протокола у сторон не нашлось
 			PROTOCOL    = 0x12, /*!< \~russian Общего прикладного протокола у сторон не нашлось \~english The sides have not found a common application protocol \~ */
+			// Упреждающие данные вышли за объявленный билетом предел
 			LIMIT       = 0x13, /*!< \~russian Упреждающие данные вышли за объявленный билетом предел \~english The early data has gone beyond the limit declared by the ticket \~ */
+			// Схема подписи собеседника связью не предлагалась
 			SCHEME      = 0x14, /*!< \~russian Схема подписи собеседника связью не предлагалась \~english The signature scheme of the interlocutor was not offered by the connection \~ */
+			// Собеседник объявил расширение, связью не предлагавшееся
 			EXTENSION   = 0x15, /*!< \~russian Собеседник объявил расширение, связью не предлагавшееся \~english The interlocutor announced an extension that was not offered by the connection \~ */
+			// Сообщение подано не на своём уровне защиты либо не тем способом переноса
 			LEVEL       = 0x16, /*!< \~russian Сообщение подано не на своём уровне защиты либо не тем способом переноса \~english A message is given not at its protection level or not by its transport \~ */
+			// Параметры переноса QUIC отсутствуют там, где обязательны, либо пришли туда, где запрещены
 			PARAMETERS  = 0x17, /*!< \~russian Параметры переноса QUIC отсутствуют там, где обязательны, либо пришли туда, где запрещены \~english The QUIC transport parameters are absent where mandatory or came where forbidden \~ */
+			// Запись билета возобновления сложена не по правилам
 			TICKET      = 0x18, /*!< \~russian Запись билета возобновления сложена не по правилам \~english A record of a ticket of the resumption is composed not by the rules \~ */
+			// Цепочка сертификатов сжата алгоритмом, связью не объявлявшимся
 			COMPRESSION = 0x19, /*!< \~russian Цепочка сертификатов сжата алгоритмом, связью не объявлявшимся \~english The chain of the certificates is compressed by an algorithm not announced by the connection \~ */
+			// Ответ о состоянии сертификата собеседника негоден либо сертификат отозван
 			STATUS      = 0x1A, /*!< \~russian Ответ о состоянии сертификата собеседника негоден либо сертификат отозван \~english The certificate status response of the interlocutor is unsuitable or the certificate is revoked \~ */
+			// Попытки повторной передачи поверх дейтаграмм исчерпаны
 			TIMEOUT     = 0x1B, /*!< \~russian Попытки повторной передачи поверх дейтаграмм исчерпаны \~english The attempts of the retransmission over datagrams are exhausted \~ */
+			// Собеседник по TLS 1.2 не поддерживает расширенный главный секрет RFC 7627
 			MASTER      = 0x1C, /*!< \~russian Собеседник по TLS 1.2 не поддерживает расширенный главный секрет RFC 7627 \~english The TLS 1.2 interlocutor does not support the extended master secret of RFC 7627 \~ */
+			// Собеседник по TLS 1.2 затеял пересогласование, связью не дозволенное
 			RENEGOTIATION = 0x1D, /*!< \~russian Собеседник по TLS 1.2 затеял пересогласование, связью не дозволенное \~english The TLS 1.2 interlocutor has started a renegotiation not allowed by the connection \~ */
+			// Записи своего направления по TLS 1.2 исчерпали предел ключа: смены ключей у издания нет, связь закрыта извещением close_notify
 			EXHAUSTED   = 0x1E, /*!< \~russian Записи своего направления по TLS 1.2 исчерпали предел ключа: смены ключей у издания нет, связь закрыта извещением close_notify \~english The records of the own direction by TLS 1.2 have exhausted the limit of the key: the edition has no change of the keys, the connection is closed by the close_notify alert \~ */
+			// Опознаватель заранее разделённого ключа клиента серверу неизвестен (RFC 4279, TLS 1.2)
 			IDENTITY    = 0x1F, /*!< \~russian Опознаватель заранее разделённого ключа клиента серверу неизвестен (RFC 4279, TLS 1.2) \~english The identity of the pre-shared key of the client is unknown to the server (RFC 4279, TLS 1.2) \~ */
+			// Собеседник по TLS 1.2 не поддержал порядок encrypt_then_mac RFC 7366 при наборе CBC, а связь его требует
 			ETM         = 0x20, /*!< \~russian Собеседник по TLS 1.2 не поддержал порядок encrypt_then_mac RFC 7366 при наборе CBC, а связь его требует \~english The TLS 1.2 interlocutor has not supported the encrypt_then_mac order of RFC 7366 at a CBC suite, while the connection requires it \~ */
+			// Профиль отпечатка исполнить нельзя: сервер выбрал набор, схему либо группу профиля, связи неведомые, либо профиль задан не в свой черёд
 			PROFILE     = 0x21, /*!< \~russian Профиль отпечатка исполнить нельзя: сервер выбрал набор, схему либо группу профиля, связи неведомые, либо профиль задан не в свой черёд \~english The fingerprint profile cannot be fulfilled: the server has selected a suite, a scheme or a group of the profile unknown to the connection, or the profile is set out of turn \~ */
+			// Зашифрованное приветствие ECH отвергнуто сервером: рукопожатие сложилось по публичному имени и оборвано извещением ech_required, запасные конфигурации сервера - в retry(); либо конфигурации ECH негодны
 			ECH         = 0x22, /*!< \~russian Зашифрованное приветствие ECH отвергнуто сервером: рукопожатие сложилось по публичному имени и оборвано извещением ech_required, запасные конфигурации сервера - в retry(); либо конфигурации ECH негодны \~english The encrypted client hello ECH has been rejected by the server: the handshake has completed by the public name and has been aborted by the ech_required alert, the retry configurations of the server are in retry(); or the ECH configurations are invalid \~ */
+			// Перечень меток времени сертификата собеседника сложен не по правилам (RFC 6962)
 			TIMESTAMPS  = 0x23  /*!< \~russian Перечень меток времени сертификата собеседника сложен не по правилам (RFC 6962) \~english The list of the certificate timestamps of the peer is composed not by the rules (RFC 6962) \~ */
 		};
 
@@ -154,10 +193,15 @@ namespace nts {
 		 * \~
 		 */
 		enum class state_t : uint8_t {
+			// Связь ещё не заведена
 			NONE        = 0x00, /*!< \~russian Связь ещё не заведена \~english The connection is not established yet \~ */
+			// Рукопожатие связи идёт
 			HANDSHAKE   = 0x01, /*!< \~russian Рукопожатие связи идёт \~english The handshake of the connection is going on \~ */
+			// Связь установлена, идут прикладные данные
 			ESTABLISHED = 0x02, /*!< \~russian Связь установлена, идут прикладные данные \~english The connection is established, the application data is going \~ */
+			// Связь закрыта одной из сторон
 			CLOSED      = 0x03, /*!< \~russian Связь закрыта одной из сторон \~english The connection is closed by one of the sides \~ */
+			// Связь оборвана отказом
 			FAILED      = 0x04  /*!< \~russian Связь оборвана отказом \~english The connection is torn by a failure \~ */
 		};
 
@@ -176,6 +220,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Ways of the transport of the handshake
+		 *
 		 * @details By the records of the protocol the handshake goes by TLS over a stream: the
 		 *          connection protects the records and parses their headers itself. By the messages
 		 *          by levels it goes under QUIC (RFC 9001): the connection accepts and gives out bare
@@ -188,8 +233,11 @@ namespace nts {
 		 * \~
 		 */
 		enum class transport_t : uint8_t {
+			// Записи протокола TLS поверх потока
 			RECORDS   = 0x00, /*!< \~russian Записи протокола TLS поверх потока \~english The records of the TLS protocol over a stream \~ */
+			// Сообщения рукопожатия по уровням защиты QUIC
 			LEVELS    = 0x01, /*!< \~russian Сообщения рукопожатия по уровням защиты QUIC \~english The messages of the handshake by the protection levels of QUIC \~ */
+			// Дейтаграммы протокола DTLS 1.3 либо DTLS 1.2 поверх UDP либо SCTP
 			DATAGRAMS = 0x02  /*!< \~russian Дейтаграммы протокола DTLS 1.3 либо DTLS 1.2 поверх UDP либо SCTP \~english The datagrams of the DTLS 1.3 or DTLS 1.2 protocol over UDP or SCTP \~ */
 		};
 
@@ -203,6 +251,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Protection levels of QUIC
+		 *
 		 * @details The section 2.1 of RFC 9001: every message of the handshake and every key are marked
 		 *          with the level at which they go. The levels are not strictly in order: the early data
 		 *          goes side by side with the handshake
@@ -210,10 +259,15 @@ namespace nts {
 		 * \~
 		 */
 		enum class level_t : uint8_t {
+			// Уровень не установлен
 			NONE        = 0x00, /*!< \~russian Уровень не установлен \~english The level is not set \~ */
+			// Начальный уровень: приветствия сторон
 			INITIAL     = 0x01, /*!< \~russian Начальный уровень: приветствия сторон \~english The initial level: the greetings of the sides \~ */
+			// Уровень упреждающих данных
 			EARLY       = 0x02, /*!< \~russian Уровень упреждающих данных \~english The level of the early data \~ */
+			// Уровень рукопожатия
 			HANDSHAKE   = 0x03, /*!< \~russian Уровень рукопожатия \~english The level of the handshake \~ */
+			// Уровень прикладных данных
 			APPLICATION = 0x04  /*!< \~russian Уровень прикладных данных \~english The level of the application data \~ */
 		};
 
@@ -227,7 +281,9 @@ namespace nts {
 		 * \~
 		 */
 		enum class direction_t : uint8_t {
+			// Чтение: ключи собеседника
 			READ  = 0x01, /*!< \~russian Чтение: ключи собеседника \~english The reading: the keys of the interlocutor \~ */
+			// Запись: свои ключи
 			WRITE = 0x02  /*!< \~russian Запись: свои ключи \~english The writing: one's own keys \~ */
 		};
 
@@ -253,6 +309,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Classes of the wiping of the memory of a connection
+		 *
 		 * @details What the connection wipes by the sys::wipe call is chosen by the consumer by classes:
 		 *          different tasks have different secrets and different costs. SECRETS - the secrets of the
 		 *          handshake and the keys on the paths of the connection are wiped as soon as there is
@@ -261,6 +318,7 @@ namespace nts {
 		 *          and on closing: the cost is per record (OpenSSL has the same - SSL_OP_CLEANSE_PLAINTEXT,
 		 *          disabled by default; BoringSSL does not wipe the plaintext at all). The default of a
 		 *          connection is SECRETS only
+		 *
 		 * @note The classes do not concern what is always wiped by the contract of its own object: the
 		 *       sheltered vault of the key material on the return of a piece, the value objects (the ticket,
 		 *       the pre-shared key, the ephemeral pair) in the destructor, the primitives (the ciphers, the
@@ -271,7 +329,9 @@ namespace nts {
 		 * \~
 		 */
 		enum class wiping_t : uint8_t {
+			// Секреты рукопожатия и ключи на путях связи сразу после использования
 			SECRETS   = 0x01, /*!< \~russian Секреты рукопожатия и ключи на путях связи сразу после использования \~english The secrets of the handshake and the keys on the paths of the connection right after the use \~ */
+			// Открытый текст принятых записей: между записями, после выдачи потребителю и при закрытии
 			PLAINTEXT = 0x02  /*!< \~russian Открытый текст принятых записей: между записями, после выдачи потребителю и при закрытии \~english The plaintext of the received records: between the records, after the hand-over to the consumer and on closing \~ */
 		};
 
@@ -291,11 +351,14 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Authenticity of a side of a connection
+		 *
 		 * @details The section 4.4.2 of RFC 8446: the chain of the certificates goes from one's own
 		 *          certificate to the certificate of the issuer, and the secret key corresponds exactly
 		 *          to the first of them
+		 *
 		 * @note The secret key is written by the same order the public key lies in the certificate by —
 		 *       from the senior byte to the junior one
+		 *
 		 * @note The key is worth preparing once by the prepare() call: a prepared key is shared by all
 		 *       the connections the authenticity is set to, and without the preparation every connection
 		 *       prepares it itself at the first need
@@ -333,17 +396,21 @@ namespace nts {
 			 *
 			 * \~english
 			 * @brief Method of preparing the secret key for the work
+			 *
 			 * @return the refusal of the preparation: SIGNATURE at an unfit record of the key and at a key
 			 *         without the secret part, CERTIFICATE at an unreadable own certificate, MEMORY at a
 			 *         lack of memory
+			 *
 			 * @details The parsing of the record of the key, the checks of its components and the
 			 *          precomputations of the signature module are done here once, and the prepared key is
 			 *          shared by all the connections the authenticity is set to after the preparation.
 			 *          Without the preparation every connection prepares the key itself at the first need -
 			 *          correctly but expensively: the preparation of an RSA-2048 key costs twice the
 			 *          signature itself, and of an ECDSA key - twice the whole handshake
+			 *
 			 * @note A GOST key written by a bare scalar is prepared by the curve of one's own certificate:
 			 *       the chain must be set before the preparation
+			 *
 			 * @note The preparation is to be repeated after every change of the key or of the chain: a
 			 *       connection compares the stamp and does not use an outdated preparation, but prepares
 			 *       the key itself
@@ -360,6 +427,7 @@ namespace nts {
 			 *
 			 * \~english
 			 * @brief Method of checking the readiness of the secret key
+			 *
 			 * @return the flag that the key is prepared and the preparation corresponds to the current
 			 *         bytes of the key and of one's own certificate
 			 *
@@ -384,14 +452,17 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Algorithm of the compression of the chain of the certificates provided by the consumer
+		 *
 		 * @details RFC 8879: the chain of the certificates goes by the CompressedCertificate message when
 		 *          the sides have found a common algorithm. The library carries neither zlib, nor Brotli,
 		 *          nor Zstandard and does not drag them along: the compression and the decompression are
 		 *          provided by the consumer by two stateless calls, and the connection only invokes them by
 		 *          the identifier of the algorithm
+		 *
 		 * @note The compression may refuse: then the chain goes uncompressed, as the section 4 of RFC 8879
 		 *       orders. The decompression is obliged to give out exactly the expected length, otherwise
 		 *       the chain is rejected by the «bad_certificate» alert
+		 *
 		 * @note The pointer of the context is passed to the calls as it is and is not interpreted by the connection
 		 *
 		 * \~
@@ -404,11 +475,11 @@ namespace nts {
 			 * @param source  сжимаемое тело сообщения цепочки сертификатов
 			 * @param result  накопитель, в который складывается сжатое тело
 			 * @param context указатель контекста потребителя
-			 *
 			 * @return        признак успешности сжатия; отказ шлёт цепочку несжатой
 			 *
 			 * \~english
 			 * @brief Call of the compression of the chain of the certificates
+			 *
 			 * @param source  the body of the message of the chain of the certificates being compressed
 			 * @param result  the accumulator the compressed body is put into
 			 * @param context the pointer of the context of the consumer
@@ -425,11 +496,11 @@ namespace nts {
 			 * @param expected ожидаемая длина тела после распаковки
 			 * @param result   накопитель, в который складывается распакованное тело
 			 * @param context  указатель контекста потребителя
-			 *
 			 * @return         признак успешности распаковки; отказ отвергает цепочку
 			 *
 			 * \~english
 			 * @brief Call of the decompression of the chain of the certificates
+			 *
 			 * @param source   the compressed body being decompressed
 			 * @param expected the expected length of the body after the decompression
 			 * @param result   the accumulator the decompressed body is put into
@@ -451,13 +522,12 @@ namespace nts {
 			 * \~russian
 			 * @brief Конструктор
 			 *
-			 *
 			 * \~english
 			 * @brief Constructor
 			 *
 			 * \~
 			 */
-			Codec() noexcept : algorithm(0), context(nullptr), compress(nullptr), decompress(nullptr) {}
+			Codec() noexcept;
 			/**
 			 * \~russian
 			 * @brief Конструктор
@@ -469,6 +539,7 @@ namespace nts {
 			 *
 			 * \~english
 			 * @brief Constructor
+			 *
 			 * @param algorithm  the identifier of the algorithm by the registry of RFC 8879
 			 * @param compress   the call of the compression of the chain of the certificates
 			 * @param decompress the call of the decompression of the chain of the certificates
@@ -476,7 +547,7 @@ namespace nts {
 			 *
 			 * \~
 			 */
-			Codec(const uint16_t algorithm, compress_t compress, decompress_t decompress, void * context = nullptr) noexcept : algorithm(algorithm), context(context), compress(compress), decompress(decompress) {}
+			Codec(const uint16_t algorithm, compress_t compress, decompress_t decompress, void * context = nullptr) noexcept;
 		} codec_t;
 		/**
 		 * \~russian
@@ -500,15 +571,18 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Pre-shared key of the TLS 1.2 edition
+		 *
 		 * @details RFC 4279 and RFC 5489: the PSK suites conduct the handshake without certificates - the
 		 *          shared value of the exchange is derived from a key known to both sides beforehand. The
 		 *          server holds many keys by one context, hence it does not store the key but answers the
 		 *          identity of the client by the call «given the identity - the key or a refusal»; the client
 		 *          stores its identity with the key and may choose them anew by the psk_identity_hint of the
 		 *          server by the advise call
+		 *
 		 * @note The section 5.3 of RFC 4279: the identity is not longer than 128 bytes, the key - not longer
 		 *       than 64; otherwise the establishment of the connection refuses by SETTINGS. The PSK suites are
 		 *       offered and recognized only when the key or the call is set
+		 *
 		 * @note The section 2 of RFC 4279: an unknown identity the server may reject by the unknown_psk_identity
 		 *       alert (115) or continue with a random key and fail at the completion by decrypt_error (51),
 		 *       not disclosing that the identity is unknown; the choice is by the disclose flag
@@ -523,11 +597,11 @@ namespace nts {
 			 * @param identity опознаватель, предъявленный клиентом
 			 * @param key      накопитель, в который помещается ключ не длиннее 64 байтов
 			 * @param context  указатель контекста потребителя
-			 *
 			 * @return         признак того, что опознаватель известен и ключ выдан
 			 *
 			 * \~english
 			 * @brief Call of the server: the key by the identity of the client
+			 *
 			 * @param identity the identity presented by the client
 			 * @param key      the accumulator the key not longer than 64 bytes is put into
 			 * @param context  the pointer of the context of the consumer
@@ -544,11 +618,11 @@ namespace nts {
 			 * @param identity накопитель, в который помещается опознаватель не длиннее 128 байтов
 			 * @param key      накопитель, в который помещается ключ не длиннее 64 байтов
 			 * @param context  указатель контекста потребителя
-			 *
 			 * @return         признак того, что опознаватель и ключ выбраны заново; отказ оставляет настроенные
 			 *
 			 * \~english
 			 * @brief Call of the client: the identity and the key by the hint of the server
+			 *
 			 * @param hint     the psk_identity_hint of the server
 			 * @param identity the accumulator the identity not longer than 128 bytes is put into
 			 * @param key      the accumulator the key not longer than 64 bytes is put into
@@ -574,13 +648,12 @@ namespace nts {
 			 * \~russian
 			 * @brief Конструктор
 			 *
-			 *
 			 * \~english
 			 * @brief Constructor
 			 *
 			 * \~
 			 */
-			Psk() noexcept : respond(nullptr), advise(nullptr), context(nullptr), disclose(false) {}
+			Psk() noexcept;
 			/**
 			 * \~russian
 			 * @brief Деструктор
@@ -590,6 +663,7 @@ namespace nts {
 			 *
 			 * \~english
 			 * @brief Destructor
+			 *
 			 * @note The key is wiped by the volatile loop before the release; the copies of the settings (the
 			 *       connection has its own) wipe each its own key, and the copying is left ordinary
 			 *
@@ -628,18 +702,32 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Ticket of the resumption of a connection
+		 *
 		 * @details The section 4.6.1 of RFC 8446: the server issues a ticket after the handshake, and the
 		 *          client presents it to a future connection. The body of the ticket is for the server to
 		 *          appoint itself: by it it identifies which connection the ticket belongs to.
+		 *
 		 * @note The application protocol of the connection is kept in the ticket because the section 4.2.10
 		 *       of RFC 8446 orders to reject the early data when the protocol of the new connection has
 		 *       diverged from the protocol of the one which issued the ticket
+		 *
 		 * @note The connection derives the key of the ticket itself, while the storage of the pair of «the
 		 *       body and the key» does not belong to it: where to keep it and how to guard it is decided by
 		 *       the one who leads the connection
+		 *
+		 * @note The section 8.2 of RFC 9001: the client sending the early data over QUIC needs the
+		 *       transport parameters of the server of the connection which issued the ticket - the connection
+		 *       by the layers puts them into the ticket itself, while in the ticket encoding they go as their own field
+		 *
 		 * @note The section 3.1 of RFC 7366: the encrypt-then-MAC order of the 1.2 edition must not be
 		 *       downgraded, and the ticket remembers the order of the connection which issued it: an
 		 *       abbreviated handshake by another order the client rejects by illegal_parameter
+		 *
+		 * @note The section 8 of RFC 8446 orders to guard the early data against a replay, and
+		 *       the guarding falls to the same one the tickets belong to: the connection alone does not
+		 *       judge of the replay, for the second time the ticket is presented to a different connection.
+		 *       The simplest barrier - to issue every ticket for a single use, taking
+		 *       it out of the stock immediately upon the resumption
 		 *
 		 * \~
 		 */
@@ -678,7 +766,6 @@ namespace nts {
 			 * \~russian
 			 * @brief Конструктор
 			 *
-			 *
 			 * \~english
 			 * @brief Constructor
 			 *
@@ -688,63 +775,80 @@ namespace nts {
 			/**
 			 * \~russian
 			 * @brief Деструктор: ключ билета затирается, копии у потребителя не оставляют его в освобождённой памяти
+			 *
 			 * \~english
 			 * @brief Destructor: the key of the ticket is wiped, the copies at the consumer do not leave it in the freed memory
+			 *
 			 * \~
 			 */
 			~Ticket() noexcept;
 			/**
 			 * \~russian
 			 * @brief Конструктор копирования
+			 *
 			 * @param other копируемый билет
+			 *
 			 * \~english
 			 * @brief Copy constructor
+			 *
 			 * @param other the ticket being copied
+			 *
 			 * \~
 			 */
 			Ticket(const Ticket & other);
 			/**
 			 * \~russian
 			 * @brief Конструктор перемещения: ключ переезжает, у источника затирается
+			 *
 			 * @param other перемещаемый билет
+			 *
 			 * \~english
 			 * @brief Move constructor: the key moves over, at the source it is wiped
+			 *
 			 * @param other the ticket being moved
+			 *
 			 * \~
 			 */
 			Ticket(Ticket && other) noexcept;
 			/**
 			 * \~russian
 			 * @brief Оператор присваивания копированием: прежний ключ затирается до замены
+			 *
 			 * @param other копируемый билет
 			 * @return      сам билет
+			 *
 			 * \~english
 			 * @brief Copy assignment operator: the former key is wiped before the replacement
+			 *
 			 * @param other the ticket being copied
 			 * @return      the ticket itself
+			 *
 			 * \~
 			 */
 			Ticket & operator = (const Ticket & other);
 			/**
 			 * \~russian
 			 * @brief Оператор присваивания перемещением: прежний ключ затирается, ключ источника переезжает и затирается у него
+			 *
 			 * @param other перемещаемый билет
 			 * @return      сам билет
+			 *
 			 * \~english
 			 * @brief Move assignment operator: the former key is wiped, the key of the source moves over and is wiped there
+			 *
 			 * @param other the ticket being moved
 			 * @return      the ticket itself
+			 *
 			 * \~
 			 */
 			Ticket & operator = (Ticket && other) noexcept;
 		} ticket_t;
 		/**
 		 * \~russian
-		 * @brief Метод записи билета возобновления связи в октеты
+		 * @brief Функция записи билета возобновления связи в октеты
 		 *
 		 * @param ticket записываемый билет возобновления связи
 		 * @param result накопитель, в который складывается запись билета
-		 *
 		 * @return       отказ записи билета: MEMORY у нехватки памяти, TICKET у билета, в запись не входящего
 		 *
 		 * @details Запись самодостаточна и от процесса не зависит: байт издания записи, за ним
@@ -753,10 +857,12 @@ namespace nts {
 		 *          процесс и возвращается обратно чтением
 		 *
 		 * \~english
-		 * @brief Method of the writing of a ticket of the resumption of a connection into octets
+		 * @brief Function of the writing of a ticket of the resumption of a connection into octets
+		 *
 		 * @param ticket the ticket of the resumption of the connection being written
 		 * @param result the accumulator the record of the ticket is put into
 		 * @return       the failure of the writing of the ticket: MEMORY at the lack of memory, TICKET at a ticket not fitting the record
+		 *
 		 * @details The record is self-sufficient and does not depend on the process: a byte of the edition of
 		 *          the record, then the fields of the ticket of a constant width in the order from the senior
 		 *          byte to the junior one and the fields of a variable length with a two-byte length in front.
@@ -767,21 +873,22 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ error_t encode(const ticket_t & ticket, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод чтения билета возобновления связи из октетов
+		 * @brief Функция чтения билета возобновления связи из октетов
 		 *
 		 * @param data   читаемая запись билета возобновления связи
 		 * @param result билет, в который помещается прочитанное
-		 *
 		 * @return       отказ чтения билета: TICKET у записи не по правилам, MEMORY у нехватки памяти
 		 *
 		 * @note Запись чужого издания, обрезанная, с порченой длиной поля либо с лишними
 		 *       байтами за хвостом отвергается целиком: половина билета не билет
 		 *
 		 * \~english
-		 * @brief Method of the reading of a ticket of the resumption of a connection from octets
+		 * @brief Function of the reading of a ticket of the resumption of a connection from octets
+		 *
 		 * @param data   the record of the ticket of the resumption of the connection being read
 		 * @param result the ticket the read one is put into
 		 * @return       the failure of the reading of the ticket: TICKET at a record not by the rules, MEMORY at the lack of memory
+		 *
 		 * @note A record of a foreign edition, a truncated one, one with a corrupted length of a field or with
 		 *       extra bytes behind the tail is rejected wholly: a half of a ticket is not a ticket
 		 *
@@ -842,13 +949,12 @@ namespace nts {
 			 * \~russian
 			 * @brief Конструктор
 			 *
-			 *
 			 * \~english
 			 * @brief Constructor
 			 *
 			 * \~
 			 */
-			Keylog() noexcept : log(nullptr), context(nullptr) {}
+			Keylog() noexcept;
 			/**
 			 * \~russian
 			 * @brief Конструктор
@@ -858,12 +964,13 @@ namespace nts {
 			 *
 			 * \~english
 			 * @brief Constructor
+			 *
 			 * @param log     the log call
 			 * @param context the pointer of the context of the consumer
 			 *
 			 * \~
 			 */
-			Keylog(keylog_fn_t log, void * context = nullptr) noexcept : log(log), context(context) {}
+			Keylog(keylog_fn_t log, void * context = nullptr) noexcept;
 		} keylog_t;
 	};
 };

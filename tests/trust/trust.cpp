@@ -126,10 +126,9 @@ namespace {
 	} options_t;
 
 	/**
-	 * @brief Метод выработки ключевой пары стороны сертификата
+	 * @brief Функция выработки ключевой пары стороны сертификата
 	 *
 	 * @param result ключевая пара, в которую помещается итог выработки
-	 *
 	 * @return       признак успешности выработки ключевой пары
 	 *
 	 */
@@ -184,11 +183,10 @@ namespace {
 		return true;
 	}
 	/**
-	 * @brief Метод составления записи имени стороны сертификата
+	 * @brief Функция составления записи имени стороны сертификата
 	 *
 	 * @param writer составитель записи сертификата
 	 * @param name   записываемое имя стороны сертификата
-	 *
 	 * @return       признак успешности составления записи имени
 	 *
 	 */
@@ -225,11 +223,10 @@ namespace {
 		return writer.close();
 	}
 	/**
-	 * @brief Метод составления расширений сертификата
+	 * @brief Функция составления расширений сертификата
 	 *
 	 * @param writer  составитель записи сертификата
 	 * @param options настройки вырабатываемого сертификата
-	 *
 	 * @return        признак успешности составления расширений
 	 *
 	 */
@@ -384,7 +381,7 @@ namespace {
 		return writer.close();
 	}
 	/**
-	 * @brief Метод выработки сертификата стороны связи
+	 * @brief Функция выработки сертификата стороны связи
 	 *
 	 * @param subject имя владельца вырабатываемого сертификата
 	 * @param issuer  имя издателя вырабатываемого сертификата
@@ -392,7 +389,6 @@ namespace {
 	 * @param signer  секретный ключ издателя сертификата
 	 * @param options настройки вырабатываемого сертификата
 	 * @param result  запись, в которую помещается сертификат
-	 *
 	 * @return        признак успешности выработки сертификата
 	 *
 	 */
@@ -969,12 +965,19 @@ TEST(TrustTest, Wildcard){
  * Мутация (снять rooted(requested) в belongs) роняет первый EXPECT.
  */
 TEST(TrustTest, TrailingDotHost){
+	// Объявляем ключ владельца
 	keys_t subject;
+	// Проверяем выработку ключа владельца
 	ASSERT_TRUE(fabricate(subject));
+	// Объявляем настройки издания
 	options_t options;
+	// Записываем дополнительное имя владельца
 	options.alternative = "www.anyks.com";
+	// Объявляем буфер листа
 	vector <uint8_t> leaf;
+	// Проверяем издание листа с дополнительным именем
 	ASSERT_TRUE(make("www.anyks.com", "www.anyks.com", subject, vector <uint8_t> (), options, leaf));
+	// Объявляем вид сертификата
 	const view_t certificate(leaf.data(), leaf.size());
 	// Контроль: имя без точки отвечает
 	EXPECT_EQ(trust::belongs(certificate, "www.anyks.com"), trust::error_t::NONE);
@@ -1319,40 +1322,66 @@ TEST(TrustTest, Belonging){
  * Проверка отказа на неизвестное расширение, объявленное критичным
  */
 TEST(TrustTest, Critical){
+	// Объявляем ключи корня и владельца
 	keys_t root, subject;
+	// Проверяем выработку ключа корня
 	ASSERT_TRUE(fabricate(root));
+	// Проверяем выработку ключа владельца
 	ASSERT_TRUE(fabricate(subject));
+	// Объявляем настройки издания корня
 	options_t authorized;
+	// Устанавливаем признак издателя сертификатов
 	authorized.authority = true;
+	// Объявляем буфер якоря
 	vector <uint8_t> anchor;
+	// Проверяем издание корня с признаком издателя
 	ASSERT_TRUE(make("crit root", "crit root", root, vector <uint8_t> (), authorized, anchor));
+	// Объявляем запас доверенных сертификатов
 	trust::store_t store;
+	// Проверяем добавление якоря в запас
 	ASSERT_TRUE(store.add(view_t(anchor.data(), anchor.size())));
+	// Объявляем настройки листа
 	options_t marked;
+	// Помечаем неизвестное расширение критичным
 	marked.critical = true;
+	// Объявляем буфер листа
 	vector <uint8_t> leaf;
+	// Проверяем издание листа с критичным расширением
 	ASSERT_TRUE(make("anyks.com", "crit root", subject, root.secret, marked, leaf));
 	/**
 	 * Раздел 4.2 RFC 5280: сертификат с неизвестным критичным расширением
 	 * отвергается, ибо его требование исполнить нечем
 	 */
 	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> {leaf, anchor}, store, MOMENT), trust::error_t::CRITICAL);
+	// Объявляем настройки допустимого листа
 	options_t plain;
+	// Устанавливаем неизвестное расширение без признака критичности
 	plain.unknown = true;
+	// Объявляем буфер допустимого листа
 	vector <uint8_t> tolerable;
+	// Проверяем издание листа с некритичным расширением
 	ASSERT_TRUE(make("anyks.com", "crit root", subject, root.secret, plain, tolerable));
 	// Неизвестное расширение без признака критичности пропускается
 	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> {tolerable, anchor}, store, MOMENT), trust::error_t::NONE);
 	// Якорь с неизвестным критичным расширением якорем служить не может
 	options_t spoiled;
+	// Устанавливаем признак издателя порченому якорю
 	spoiled.authority = true;
+	// Помечаем расширение якоря критичным
 	spoiled.critical = true;
+	// Объявляем буфер порченого якоря
 	vector <uint8_t> tainted;
+	// Проверяем издание якоря с критичным расширением
 	ASSERT_TRUE(make("taint root", "taint root", root, vector <uint8_t> (), spoiled, tainted));
+	// Объявляем запас с порченым якорем
 	trust::store_t weak;
+	// Проверяем добавление порченого якоря в запас
 	ASSERT_TRUE(weak.add(view_t(tainted.data(), tainted.size())));
+	// Объявляем буфер листа под порченым якорем
 	vector <uint8_t> child;
+	// Проверяем издание листа под порченым якорем
 	ASSERT_TRUE(make("anyks.com", "taint root", subject, root.secret, options_t (), child));
+	// Проверяем отказ доверия листу под порченым якорем
 	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> {child}, weak, MOMENT), trust::error_t::AUTHORITY);
 }
 
@@ -1360,26 +1389,41 @@ TEST(TrustTest, Critical){
  * Проверка назначения ключа листа цепочки
  */
 TEST(TrustTest, Purpose){
+	// Объявляем ключи корня и владельца
 	keys_t root, subject;
+	// Проверяем выработку ключа корня
 	ASSERT_TRUE(fabricate(root));
 	ASSERT_TRUE(fabricate(subject));
+	// Объявляем настройки издания корня
 	options_t authorized;
+	// Устанавливаем признак издателя сертификатов
 	authorized.authority = true;
+	// Объявляем буфер якоря
 	vector <uint8_t> anchor;
+	// Проверяем издание корня с признаком издателя
 	ASSERT_TRUE(make("use root", "use root", root, vector <uint8_t> (), authorized, anchor));
+	// Объявляем запас доверенных сертификатов
 	trust::store_t store;
+	// Проверяем добавление якоря в запас
 	ASSERT_TRUE(store.add(view_t(anchor.data(), anchor.size())));
+	// Объявляем настройки листа
 	options_t agreeing;
+	// Назначаем ключ листа одному согласованию ключей
 	agreeing.agreement = true;
+	// Объявляем буфер листа
 	vector <uint8_t> leaf;
+	// Проверяем издание листа с назначением согласования
 	ASSERT_TRUE(make("anyks.com", "use root", subject, root.secret, agreeing, leaf));
 	/**
 	 * Раздел 4.4.2.2 RFC 8446: ключ листа, назначенный одному согласованию ключей,
 	 * подпись владения ставить не вправе
 	 */
 	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> {leaf, anchor}, store, MOMENT), trust::error_t::PURPOSE);
+	// Объявляем буфер листа с подписью владения
 	vector <uint8_t> signing;
+	// Проверяем издание листа без ограничения назначения
 	ASSERT_TRUE(make("anyks.com", "use root", subject, root.secret, options_t (), signing));
+	// Проверяем доверие листу с назначением подписи владения
 	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> {signing, anchor}, store, MOMENT), trust::error_t::NONE);
 }
 
@@ -1387,12 +1431,19 @@ TEST(TrustTest, Purpose){
  * Проверка сличения имени узла, записанного адресом сети
  */
 TEST(TrustTest, Addressed){
+	// Объявляем ключ владельца
 	keys_t subject;
+	// Проверяем выработку ключа владельца
 	ASSERT_TRUE(fabricate(subject));
+	// Объявляем настройки имени адресом сети
 	options_t addressed;
+	// Записываем общее имя адресом сети
 	addressed.alternative = "10.0.0.1";
+	// Записываем адрес сети в двоичном виде
 	addressed.address = {0x0A, 0x00, 0x00, 0x02};
+	// Объявляем буфер листа
 	vector <uint8_t> leaf;
+	// Проверяем издание листа с адресом сети
 	ASSERT_TRUE(make("anyks.com", "anyks.com", subject, vector <uint8_t> (), addressed, leaf));
 	/**
 	 * Раздел 6.4 RFC 6125: адрес сети сличается лишь с адресами сети в двоичном
@@ -1401,27 +1452,38 @@ TEST(TrustTest, Addressed){
 	ASSERT_EQ(trust::belongs(view_t(leaf.data(), leaf.size()), "10.0.0.2"), trust::error_t::NONE);
 	ASSERT_EQ(trust::belongs(view_t(leaf.data(), leaf.size()), "10.0.0.1"), trust::error_t::NAME);
 	ASSERT_EQ(trust::belongs(view_t(leaf.data(), leaf.size()), "10.0.0.3"), trust::error_t::NAME);
+	// Объявляем настройки широкого имени
 	options_t wide;
+	// Записываем общее имя владельца
 	wide.alternative = "anyks.com";
+	// Записываем адрес сети IPv6 в двоичном виде
 	wide.address = {0x20, 0x01, 0x0D, 0xB8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01};
+	// Объявляем буфер листа с адресом сети IPv6
 	vector <uint8_t> six;
+	// Проверяем издание листа с адресом сети IPv6
 	ASSERT_TRUE(make("anyks.com", "anyks.com", subject, vector <uint8_t> (), wide, six));
+	// Проверяем ответ адресу сети в сжатой записи
 	ASSERT_EQ(trust::belongs(view_t(six.data(), six.size()), "2001:db8::1"), trust::error_t::NONE);
+	// Проверяем ответ адресу сети в развёрнутой записи
 	ASSERT_EQ(trust::belongs(view_t(six.data(), six.size()), "2001:0DB8:0:0:0:0:0:1"), trust::error_t::NONE);
+	// Проверяем отказ чужому адресу сети
 	ASSERT_EQ(trust::belongs(view_t(six.data(), six.size()), "2001:db8::2"), trust::error_t::NAME);
+	// Проверяем ответ общего имени владельца
 	ASSERT_EQ(trust::belongs(view_t(six.data(), six.size()), "anyks.com"), trust::error_t::NONE);
 	// Адрес сети общему имени владельца не отвечает
 	options_t bare;
+	// Объявляем буфер листа с общим именем адресом
 	vector <uint8_t> named;
+	// Проверяем издание листа с общим именем адресом
 	ASSERT_TRUE(make("10.0.0.2", "10.0.0.2", subject, vector <uint8_t> (), bare, named));
+	// Проверяем отказ адресу сети общего имени владельца
 	ASSERT_EQ(trust::belongs(view_t(named.data(), named.size()), "10.0.0.2"), trust::error_t::NAME);
 }
 /**
- * @brief Метод чтения сертификатов из файла набора образцов
+ * @brief Функция чтения сертификатов из файла набора образцов
  *
  * @param name   имя файла набора образцов
  * @param result перечень записей сертификатов файла в порядке следования
- *
  * @return       признак успешности чтения сертификатов
  *
  */
@@ -1618,10 +1680,9 @@ TEST(TrustTest, Classic){
 }
 
 /**
- * @brief Метод чтения первого сертификата файла набора образцов
+ * @brief Функция чтения первого сертификата файла набора образцов
  *
  * @param name имя файла набора образцов
- *
  * @return     запись DER сертификата либо пустой накопитель
  *
  */
@@ -1663,7 +1724,9 @@ TEST(TrustTest, WildcardExcludedLeadingDot){
  */
 TEST(TrustTest, TrailingDotExcluded){
 	// Корень, промежуточный издатель с запретом secure.example.com, лист с точкой на конце и лист без неё
+	// Выполняем чтение корня и промежуточного издателя с запретом
 	const vector <uint8_t> root = certified("audit/r8-nc-root.crt"), mid = certified("audit/r8-nc-mid-secure.crt");
+	// Выполняем чтение листов с точкой на конце и без неё
 	const vector <uint8_t> dot = certified("audit/r8-nc-leaf-dot.crt"), plain = certified("audit/r8-nc-leaf-plain.crt");
 	// Проверяем чтение образцов
 	ASSERT_FALSE(root.empty() || mid.empty() || dot.empty() || plain.empty());
@@ -1699,6 +1762,7 @@ TEST(TrustTest, TrailingDotExcluded){
 TEST(TrustTest, EmptySubjectDirName){
 	// Корень, промежуточный издатель с дозволенным поддеревом C=US,O=Corp и три листа
 	const vector <uint8_t> root = certified("audit/r8-nc-root.crt"), mid = certified("audit/r8-nc-mid-dn.crt");
+	// Выполняем чтение листов с пустым полем, в поддереве и вне его
 	const vector <uint8_t> empty = certified("audit/r8-nc-leaf-empty.crt"), inside = certified("audit/r8-nc-leaf-dn.crt"), foreign = certified("audit/r8-nc-leaf-foreign.crt");
 	// Проверяем чтение образцов
 	ASSERT_FALSE(root.empty() || mid.empty() || empty.empty() || inside.empty() || foreign.empty());
@@ -1933,6 +1997,7 @@ TEST(TrustTest, StarvedVerify){
 	ASSERT_TRUE(starved);
 	// Сличаемое имя узла, длиннее короткой строки: приведение регистра выделяет память
 	const string named = "WWW.VERY-LONG-HOST-NAME.THAT-NEEDS-ALLOCATION.ANYKS.COM";	// Сбрасываем признак отказа памяти
+	// Сбрасываем признак объявленного отказа памяти
 	starved = false;
 	/**
 	 * Выполняем перебор запасов выделений: сличение длинного имени обязано на всяком

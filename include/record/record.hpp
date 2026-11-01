@@ -22,7 +22,6 @@
  *        of an arbitrary length
  *
  * \~
- *
  * @copyright Copyright © 2026
  *
  */
@@ -74,10 +73,12 @@ namespace nts {
 	 *
 	 * \~english
 	 * @brief Namespace of the record layer of the TLS protocol
+	 *
 	 * @details The record layer does not exchange data with anybody: the assembler accepts the
 	 *          chunks of bytes exactly as a call of a reading produced them, while the splitter
 	 *          puts the ready records into its accumulator, from which the consumer takes them.
 	 *          There is neither a socket, nor a callback, nor a waiting here.
+	 *
 	 * @note The parsing of the incoming records behaves identically at any splitting of the
 	 *       stream into chunks: the place of an event does not depend on whether a record has
 	 *       arrived as a whole, by a single byte or intermixed with the neighbouring ones
@@ -93,6 +94,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Size of the header of a record in bytes
+		 *
 		 * @details The section 6.2.1 of RFC 5246: the type of the content, the version of the
 		 *          protocol and the length
 		 *
@@ -108,6 +110,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Greatest length of the plain content of a record in bytes
+		 *
 		 * @details The section 6.2.1 of RFC 5246 and the section 5.1 of RFC 8446: two to the
 		 *          power of fourteen
 		 *
@@ -124,6 +127,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Greatest increment of the length introduced by the protection of a record, in bytes
+		 *
 		 * @details The section 5.2 of RFC 8446: the byte of the true type of the content, the padding
 		 *          and the authentication code together add no more than two hundred fifty six bytes
 		 *          to the length
@@ -144,8 +148,10 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Greatest increment of the length introduced by the compression of a record, in bytes
+		 *
 		 * @details The section 6.2.2 of RFC 5246: a compression may lengthen the content by no more
 		 *          than one thousand twenty four bytes
+		 *
 		 * @note The compression of the records is not supported in the library, but a peer is entitled
 		 *       to send an incoming record of such a length by the rules of TLS 1.2
 		 *
@@ -161,6 +167,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Greatest length of the protected content of a record in bytes
+		 *
 		 * @details The section 5.2 of RFC 8446: two to the power of fourteen and two hundred fifty
 		 *          six bytes
 		 *
@@ -177,6 +184,7 @@ namespace nts {
 		 * \~english
 		 * @brief Greatest length of the content of a record of the previous editions of the protocol
 		 *        in bytes
+		 *
 		 * @details The section 6.2.2 of RFC 5246: two to the power of fourteen and one thousand
 		 *          twenty four bytes
 		 *
@@ -194,6 +202,7 @@ namespace nts {
 		 * \~english
 		 * @brief Greatest increment of the length introduced by the protection of a record of the
 		 *        previous editions, in bytes
+		 *
 		 * @details The section 6.2.3 of RFC 5246: an authentication code goes there separately from the
 		 *          padding, while the initialization vector is transmitted in the record itself, hence the
 		 *          reserve is four times wider than the present one
@@ -214,8 +223,10 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Greatest length of the content of a record allowed by the protocol, in bytes
+		 *
 		 * @details The section 6.2.3 of RFC 5246: two to the power of fourteen and two thousand forty
 		 *          eight bytes — the widest limit of all the editions of the protocol
+		 *
 		 * @note The parsing of a single header is compared exactly against this limit: the limit accepted
 		 *       by a connection is stricter, but it is known by the assembler and not by the parser
 		 *
@@ -233,12 +244,19 @@ namespace nts {
 		 * \~
 		 */
 		enum class error_t : uint8_t {
+			// Отказа нет
 			NONE    = 0x00, /*!< \~russian Отказа нет \~english There is no failure \~ */
+			// Данных для целой записи ещё не набралось
 			HUNGRY  = 0x01, /*!< \~russian Данных для целой записи ещё не набралось \~english The data for a whole record has not accumulated yet \~ */
+			// Вид содержимого записи протоколом не определён
 			TYPE    = 0x02, /*!< \~russian Вид содержимого записи протоколом не определён \~english The type of the content of the record is not defined by the protocol \~ */
+			// Версия протокола в заголовке записи неизвестна
 			VERSION = 0x03, /*!< \~russian Версия протокола в заголовке записи неизвестна \~english The version of the protocol in the header of the record is unknown \~ */
+			// Длина содержимого записи превышает дозволенную
 			LENGTH  = 0x04, /*!< \~russian Длина содержимого записи превышает дозволенную \~english The length of the content of the record exceeds the allowed one \~ */
+			// Запись этого вида содержимого пустой быть не вправе
 			EMPTY   = 0x05, /*!< \~russian Запись этого вида содержимого пустой быть не вправе \~english A record of this type of the content is not entitled to be empty \~ */
+			// Памяти под накопитель не хватило
 			MEMORY  = 0x06  /*!< \~russian Памяти под накопитель не хватило \~english There was not enough memory for the accumulator \~ */
 		};
 
@@ -250,17 +268,25 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Types of the content of a record
+		 *
 		 * @details The section 5 of RFC 8446: the ContentType enumeration
 		 *
 		 * \~
 		 */
 		enum class type_t : uint8_t {
+			// Вид содержимого не установлен
 			NONE        = 0x00, /*!< \~russian Вид содержимого не установлен \~english The type of the content is not set \~ */
+			// Извещение о смене набора шифрования
 			CHANGE      = 0x14, /*!< \~russian Извещение о смене набора шифрования \~english The notification of the change of the cipher suite \~ */
+			// Извещение о событии или об отказе
 			ALERT       = 0x15, /*!< \~russian Извещение о событии или об отказе \~english The notification of an event or of a failure \~ */
+			// Сообщение рукопожатия
 			HANDSHAKE   = 0x16, /*!< \~russian Сообщение рукопожатия \~english A message of the handshake \~ */
+			// Данные прикладного протокола
 			APPLICATION = 0x17, /*!< \~russian Данные прикладного протокола \~english The data of the application protocol \~ */
+			// Сердцебиение по RFC 6520: принимается лишь при предложенном расширении и роняется молча
 			HEARTBEAT   = 0x18, /*!< \~russian Сердцебиение по RFC 6520: принимается лишь при предложенном расширении и роняется молча \~english The heartbeat by RFC 6520: accepted only with the extension offered and dropped silently \~ */
+			// Подтверждение принятых записей DTLS 1.3 (раздел 7 RFC 9147)
 			ACK         = 0x1A  /*!< \~russian Подтверждение принятых записей DTLS 1.3 (раздел 7 RFC 9147) \~english The acknowledgement of the received records of DTLS 1.3 (the section 7 of RFC 9147) \~ */
 		};
 
@@ -273,19 +299,28 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Versions of the protocol
+		 *
 		 * @details The appendix A.1 of RFC 5246 and the section 5.1 of RFC 8446: a version is written
 		 *          by two bytes, the most significant of which goes first
 		 *
 		 * \~
 		 */
 		enum class version_t : uint16_t {
+			// Версия протокола не установлена
 			NONE  = 0x0000, /*!< \~russian Версия протокола не установлена \~english The version of the protocol is not set \~ */
+			// Издание SSL 3.0
 			SSL30 = 0x0300, /*!< \~russian Издание SSL 3.0 \~english The SSL 3.0 edition \~ */
+			// Издание TLS 1.0
 			TLS10 = 0x0301, /*!< \~russian Издание TLS 1.0 \~english The TLS 1.0 edition \~ */
+			// Издание TLS 1.1
 			TLS11 = 0x0302, /*!< \~russian Издание TLS 1.1 \~english The TLS 1.1 edition \~ */
+			// Издание TLS 1.2
 			TLS12 = 0x0303, /*!< \~russian Издание TLS 1.2 \~english The TLS 1.2 edition \~ */
+			// Издание TLS 1.3
 			TLS13 = 0x0304, /*!< \~russian Издание TLS 1.3 \~english The TLS 1.3 edition \~ */
+			// Издание DTLS 1.0 (RFC 4347): им сервер объявляет просьбу о подтверждении адреса HelloVerifyRequest по разделу 4.2.1 RFC 6347
 			DTLS10 = 0xFEFF, /*!< \~russian Издание DTLS 1.0 (RFC 4347): им сервер объявляет просьбу о подтверждении адреса HelloVerifyRequest по разделу 4.2.1 RFC 6347 \~english The DTLS 1.0 edition (RFC 4347): by it a server announces the HelloVerifyRequest by the section 4.2.1 of RFC 6347 \~ */
+			// Издание DTLS 1.2 (раздел 4.1 RFC 6347): издания DTLS считаются в обратную сторону, 0xFEFD младше 0xFEFF
 			DTLS12 = 0xFEFD  /*!< \~russian Издание DTLS 1.2 (раздел 4.1 RFC 6347): издания DTLS считаются в обратную сторону, 0xFEFD младше 0xFEFF \~english The DTLS 1.2 edition (the section 4.1 of RFC 6347): the DTLS editions are counted backwards, 0xFEFD is younger than 0xFEFF \~ */
 		};
 
@@ -309,32 +344,32 @@ namespace nts {
 			 * \~russian
 			 * @brief Конструктор
 			 *
-			 *
 			 * \~english
 			 * @brief Constructor
 			 *
 			 * \~
 			 */
-			Header() noexcept : type(type_t::NONE), version(version_t::NONE), size(0) {}
+			Header() noexcept;
 		} header_t;
 
 		/**
 		 * \~russian
-		 * @brief Метод разбора заголовка записи
+		 * @brief Функция разбора заголовка записи
 		 *
 		 * @param data   разбираемая область байтов
 		 * @param result заголовок записи, в который помещается итог разбора
-		 *
 		 * @return       отказ разбора заголовка записи
 		 *
 		 * @details Длина содержимого проверяется только на предел протокола: предел, принятый
 		 *          связью, знает сборщик, а не разборщик одного заголовка
 		 *
 		 * \~english
-		 * @brief Method of the parsing of the header of a record
+		 * @brief Function of the parsing of the header of a record
+		 *
 		 * @param data   the byte area being parsed
 		 * @param result the header of the record the outcome of the parsing is put into
 		 * @return       the failure of the parsing of the header of the record
+		 *
 		 * @details The length of the content is checked only against the limit of the protocol: the
 		 *          limit accepted by the connection is known by the assembler and not by the parser
 		 *          of a single header
@@ -344,20 +379,21 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ error_t parse(const view_t & data, header_t & result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод записи заголовка записи
+		 * @brief Функция записи заголовка записи
 		 *
 		 * @param header записываемый заголовок записи
 		 * @param result место, в которое помещается заголовок записи
-		 *
 		 * @return       отказ записи заголовка записи
 		 *
 		 * @note Место итога обязано вмещать RECORD_HEADER байтов
 		 *
 		 * \~english
-		 * @brief Method of the writing of the header of a record
+		 * @brief Function of the writing of the header of a record
+		 *
 		 * @param header the header of the record being written
 		 * @param result the place the header of the record is put into
 		 * @return       the failure of the writing of the header of the record
+		 *
 		 * @note The place of the outcome is obliged to hold RECORD_HEADER bytes
 		 *
 		 * \~
@@ -365,14 +401,14 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ error_t build(const header_t & header, uint8_t * result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод проверки известности вида содержимого записи
+		 * @brief Функция проверки известности вида содержимого записи
 		 *
 		 * @param type проверяемый вид содержимого записи
-		 *
 		 * @return     признак того, что вид содержимого определён протоколом
 		 *
 		 * \~english
-		 * @brief Method of the checking of the knownness of the type of the content of a record
+		 * @brief Function of the checking of the knownness of the type of the content of a record
+		 *
 		 * @param type the type of the content of the record being checked
 		 * @return     the flag of the type of the content being defined by the protocol
 		 *
@@ -381,10 +417,9 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ bool known(const type_t type) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод проверки допустимости пустого содержимого записи
+		 * @brief Функция проверки допустимости пустого содержимого записи
 		 *
 		 * @param type проверяемый вид содержимого записи
-		 *
 		 * @return     признак того, что запись этого вида вправе быть пустой
 		 *
 		 * @details Раздел 6.2.1 RFC 5246 и раздел 5.1 RFC 8446: пустыми вправе быть только
@@ -392,9 +427,11 @@ namespace nts {
 		 *          по его виду
 		 *
 		 * \~english
-		 * @brief Method of the checking of the admissibility of an empty content of a record
+		 * @brief Function of the checking of the admissibility of an empty content of a record
+		 *
 		 * @param type the type of the content of the record being checked
 		 * @return     the flag of a record of this type being entitled to be empty
+		 *
 		 * @details The section 6.2.1 of RFC 5246 and the section 5.1 of RFC 8446: only the records of
 		 *          the application data are entitled to be empty, and they are sent as a countermeasure
 		 *          against the analysis of the traffic by its shape
@@ -412,6 +449,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Assembler of the incoming records of the TLS protocol
+		 *
 		 * @details The chunks of bytes are supplied by a call of push in the shape in which a reading
 		 *          has produced them, while the assembled records are taken by a call of next until
 		 *          it answers with the HUNGRY failure
@@ -437,6 +475,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the limit of the length of the content of a record being received
+				 *
 				 * @return the limit of the length of the content of a record in bytes
 				 *
 				 * \~
@@ -447,7 +486,6 @@ namespace nts {
 				 * @brief Метод установки предела длины содержимого принимаемой записи
 				 *
 				 * @param limit устанавливаемый предел длины содержимого записи в байтах
-				 *
 				 * @return      признак успешности установки предела
 				 *
 				 * @details Умолчанием берётся предел защищённой записи TLS 1.3, самый строгий из
@@ -456,8 +494,10 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of setting the limit of the length of the content of a record being received
+				 *
 				 * @param limit the limit of the length of the content of a record in bytes being set
 				 * @return      the flag of the success of the setting of the limit
+				 *
 				 * @details The limit of a protected record of TLS 1.3 is taken as the default, the strictest
 				 *          of the ones allowed by the protocol. The connections over TLS 1.2 raise the limit
 				 *          up to RECORD_PROTECTED (the section 6.2.3 of RFC 5246), while the ones which have
@@ -475,6 +515,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the volume of the data not parsed yet
+				 *
 				 * @return the volume of the data not parsed yet in bytes
 				 *
 				 * \~
@@ -496,7 +537,6 @@ namespace nts {
 				 * @brief Метод подачи принятого куска данных
 				 *
 				 * @param data подаваемый кусок данных
-				 *
 				 * @return     отказ подачи куска данных
 				 *
 				 * @note Длина куска ничем не связана с длиной записи: кусок вправе нести часть
@@ -504,8 +544,10 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the supply of a received chunk of data
+				 *
 				 * @param data the chunk of data being supplied
 				 * @return     the failure of the supply of the chunk of data
+				 *
 				 * @note The length of a chunk is not tied by anything to the length of a record: a chunk
 				 *       is entitled to carry a part of a record, several records in a row or both
 				 *
@@ -518,7 +560,6 @@ namespace nts {
 				 *
 				 * @param header  заголовок, в который помещается заголовок собранной записи
 				 * @param payload просмотр, в который помещается содержимое собранной записи
-				 *
 				 * @return        отказ получения собранной записи
 				 *
 				 * @note Просмотр содержимого действителен до следующего вызова push, next или clear:
@@ -526,9 +567,11 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the next assembled record
+				 *
 				 * @param header  the header the header of the assembled record is put into
 				 * @param payload the view the content of the assembled record is put into
 				 * @return        the failure of the getting of the assembled record
+				 *
 				 * @note The view of the content is valid until the next call of push, next or clear: the
 				 *       content lies in the accumulator of the assembler and not in a separate memory
 				 *
@@ -540,7 +583,6 @@ namespace nts {
 				 * \~russian
 				 * @brief Конструктор
 				 *
-				 *
 				 * \~english
 				 * @brief Constructor
 				 *
@@ -550,7 +592,6 @@ namespace nts {
 				/**
 				 * \~russian
 				 * @brief Деструктор
-				 *
 				 *
 				 * \~english
 				 * @brief Destructor
@@ -569,6 +610,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Splitter of the outgoing records of the TLS protocol
+		 *
 		 * @details The data are supplied by a call of push and are split into the records of an allowed
 		 *          length, while the ready records are taken by a call of data and are removed by a call
 		 *          of consume as the transmission accepts them from the consumer
@@ -594,6 +636,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the limit of the length of the content of a record being split
+				 *
 				 * @return the limit of the length of the content of a record in bytes
 				 *
 				 * \~
@@ -604,7 +647,6 @@ namespace nts {
 				 * @brief Метод установки предела длины содержимого нарезаемой записи
 				 *
 				 * @param limit устанавливаемый предел длины содержимого записи в байтах
-				 *
 				 * @return      признак успешности установки предела
 				 *
 				 * @details Умолчанием берётся RECORD_PLAINTEXT - наибольшая длина, дозволенная
@@ -613,8 +655,10 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of setting the limit of the length of the content of a record being split
+				 *
 				 * @param limit the limit of the length of the content of a record in bytes being set
 				 * @return      the flag of the success of the setting of the limit
+				 *
 				 * @details RECORD_PLAINTEXT is taken as the default — the greatest length allowed by the
 				 *          protocol. The limit is lowered when a peer has negotiated a greatest length of a
 				 *          fragment, and it is not entitled to be raised
@@ -631,6 +675,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the volume of the records not removed yet
+				 *
 				 * @return the volume of the records not removed yet in bytes
 				 *
 				 * \~
@@ -646,7 +691,9 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the ready records
+				 *
 				 * @return the view of the records ready but not removed yet
+				 *
 				 * @note The view is valid until the next call of push, consume or clear
 				 *
 				 * \~
@@ -657,7 +704,6 @@ namespace nts {
 				 * @brief Метод снятия переданных байтов записей
 				 *
 				 * @param size объём снимаемых байтов
-				 *
 				 * @return     признак успешности снятия байтов
 				 *
 				 * @note Снимается ровно тот объём, который принят передачей: границы записей
@@ -665,8 +711,10 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the removal of the transmitted bytes of the records
+				 *
 				 * @param size the volume of the bytes being removed
 				 * @return     the flag of the success of the removal of the bytes
+				 *
 				 * @note Exactly the volume which has been accepted by the transmission is removed: the
 				 *       boundaries of the records are not visible to the transmission, and it is entitled
 				 *       to stop anywhere
@@ -692,7 +740,6 @@ namespace nts {
 				 * @param type    вид содержимого нарезаемых данных
 				 * @param version версия протокола, указываемая в записях
 				 * @param data    нарезаемые на записи данные
-				 *
 				 * @return        отказ нарезки данных на записи
 				 *
 				 * @details Раздел 6.2.1 RFC 5246: данные длиннее предела нарезаются на несколько
@@ -700,10 +747,12 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the splitting of the data into the records
+				 *
 				 * @param type    the type of the content of the data being split
 				 * @param version the version of the protocol being indicated in the records
 				 * @param data    the data being split into the records
 				 * @return        the failure of the splitting of the data into the records
+				 *
 				 * @details The section 6.2.1 of RFC 5246: the data longer than the limit are split into
 				 *          several records in a row, the boundaries of the supplied calls are not stored by
 				 *          the record layer
@@ -716,7 +765,6 @@ namespace nts {
 				 * \~russian
 				 * @brief Конструктор
 				 *
-				 *
 				 * \~english
 				 * @brief Constructor
 				 *
@@ -726,7 +774,6 @@ namespace nts {
 				/**
 				 * \~russian
 				 * @brief Деструктор
-				 *
 				 *
 				 * \~english
 				 * @brief Destructor

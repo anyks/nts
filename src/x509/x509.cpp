@@ -62,7 +62,7 @@ namespace {
 	using namespace nts::x509;
 
 	/**
-	 * @brief Метод получения короткого обозначения признака имени
+	 * @brief Функция получения короткого обозначения признака имени
 	 *
 	 * @details Набор коротких обозначений взят ровно тем, каким его задаёт раздел 3
 	 *          RFC 4514, и расширять его не следует. У OpenSSL таблица обозначений
@@ -88,6 +88,7 @@ namespace {
 			// Опознаватель признака имени
 			const char * oid = nullptr;
 		} names[] = {
+			// Заполняем таблицу соответствий
 			{"CN", "2.5.4.3"},
 			{"C", "2.5.4.6"},
 			{"L", "2.5.4.7"},
@@ -111,10 +112,9 @@ namespace {
 		return oid.c_str();
 	}
 	/**
-	 * @brief Метод проверки слабости хеша в настройках подписи RSASSA-PSS
+	 * @brief Функция проверки слабости хеша в настройках подписи RSASSA-PSS
 	 *
 	 * @param parameters запись настроек подписи RSASSA-PSS-params либо пустой просмотр
-	 *
 	 * @return           признак хеша SHA-1: явно записанного либо подразумеваемого умолчанием
 	 *
 	 */
@@ -163,7 +163,7 @@ namespace {
 		return (oid.compare("1.3.14.3.2.26") == 0);
 	}
 	/**
-	 * @brief Метод разбора отличительного имени
+	 * @brief Функция разбора отличительного имени
 	 *
 	 * @param element элемент записи имени
 	 * @param result  объект имени, в который производится разбор
@@ -182,10 +182,7 @@ namespace {
 		// Запоминаем запись имени целиком
 		result.element = element.element;
 		/**
-		 * Разбор имени собирает признаки и составляющие, а значит выделяет память:
-		 * нехватка её обязана дойти до вызывающего причиной отказа, а не завершить
-		 * процесс. Метод объявлен noexcept, и перехват в разборе сертификата сюда не
-		 * дотягивается - бросок обязан быть пойман здесь же
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Создаём разборщик содержимого записи имени
@@ -284,13 +281,14 @@ namespace {
 							// Выводим отказ повторного признака
 							return nts::x509::error_t::DUPLICATE;
 					}
+					// Запоминаем признак в составляющей
 					part.push_back(attribute);
 				}
 				// Добавляем составляющую в набор составляющих имени
 				result.parts.push_back(part);
 			}
 		/**
-		 * Если память выделить не удалось
+		 * Выполняем перехват ошибок
 		 */
 		} catch(const bad_alloc &) {
 			// Выводим причину отказа
@@ -307,7 +305,7 @@ namespace {
  * @param element элемент записи опознавателя алгоритма
  * @param oid     строка, в которую помещается опознаватель алгоритма
  * @param params  просмотр, в который помещается запись настроек алгоритма
- * @return        причина отказа либо nts::x509::error_t::NONE
+ * @return        причина отказа либо error_t::NONE
  *
  */
 nts::x509::error_t nts::x509::Certificate::identifier(const asn1::element_t & element, string & oid, view_t & params) noexcept {
@@ -377,8 +375,7 @@ nts::x509::error_t nts::x509::Certificate::parse(const view_t & data) noexcept {
 	// Выполняем очистку разобранных сведений
 	this->clear();
 	/**
-	 * Разбор собирает имена и расширения, а значит выделяет память: нехватка её
-	 * обязана дойти до вызывающего причиной отказа, а не завершить процесс
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Создаём разборщик записи сертификата
@@ -786,7 +783,7 @@ nts::x509::error_t nts::x509::Certificate::parse(const view_t & data) noexcept {
 			}
 		}
 	/**
-	 * Если память выделить не удалось
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Запоминаем причину отказа
@@ -807,22 +804,31 @@ void nts::x509::Certificate::clear() noexcept {
 	this->_error = error_t::NONE;
 	// Сбрасываем просмотры записи сертификата
 	this->_element = view_t();
+	// Сбрасываем просмотр тела сертификата
 	this->_body = view_t();
+	// Сбрасываем просмотр серийного номера
 	this->_serial = view_t();
+	// Сбрасываем просмотр подписи
 	this->_signature = view_t();
+	// Сбрасываем просмотр опознавателя издателя
 	this->_issuerUID = view_t();
+	// Сбрасываем просмотр опознавателя владельца
 	this->_subjectUID = view_t();
+	// Сбрасываем просмотр параметров ключа
 	this->_parameters = view_t();
 	// Сбрасываем число неиспользуемых разрядов подписи
 	this->_unused = 0;
 	// Сбрасываем опознаватели алгоритма подписи
 	this->_algorithm.clear();
+	// Сбрасываем опознаватель подписи снаружи тела
 	this->_outer.clear();
 	// Сбрасываем имена издателя и владельца сертификата
 	this->_issuer = name_t();
+	// Сбрасываем имя владельца сертификата
 	this->_subject = name_t();
 	// Сбрасываем срок действия сертификата
 	this->_before = 0;
+	// Сбрасываем конец срока действия
 	this->_after = 0;
 	// Сбрасываем сведения об открытом ключе
 	this->_key = key_t();
@@ -901,7 +907,7 @@ const string & nts::x509::Certificate::algorithms() const noexcept {
 /**
  * @brief Метод получения записи настроек алгоритма подписи
  *
- * @return просмотр записи настроек либо пустой просмотр
+ * @return просмотр записи настроек (RSASSA-PSS-params у id-RSASSA-PSS) либо пустой просмотр
  *
  */
 const view_t & nts::x509::Certificate::settings() const noexcept {
@@ -960,6 +966,7 @@ const nts::x509::key_t & nts::x509::Certificate::key() const noexcept {
  * @brief Метод извлечения набора расширений сертификата
  *
  * @return набор расширений сертификата
+ * @param oid опознаватель разыскиваемого расширения
  *
  */
 const vector <nts::x509::extension_t> & nts::x509::Certificate::extension() const noexcept {
@@ -1021,7 +1028,7 @@ nts::x509::Certificate::Certificate() noexcept :
 	_version(version_t::V1), _error(error_t::NONE), _unused(0), _before(0), _after(0) {}
 
 /**
- * @brief Метод поиска признака имени по опознавателю
+ * @brief Функция поиска признака имени по опознавателю
  *
  * @param name имя, в котором ведётся поиск
  * @param oid  опознаватель разыскиваемого признака
@@ -1048,7 +1055,7 @@ const nts::x509::attribute_t * nts::x509::attribute(const name_t & name, const s
 }
 
 /**
- * @brief Метод сборки записи имени в виде строки
+ * @brief Функция сборки записи имени в виде строки
  *
  * @param name   имя, запись которого собирается
  * @param result строка, в которую помещается результат
@@ -1057,8 +1064,7 @@ const nts::x509::attribute_t * nts::x509::attribute(const name_t & name, const s
  */
 nts::x509::error_t nts::x509::text(const name_t & name, string & result) noexcept {
 	/**
-	 * Сборка записи выделяет память, и нехватка её обязана дойти до вызывающего
-	 * причиной отказа, а не завершить процесс
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Очищаем строку результата
@@ -1133,7 +1139,7 @@ nts::x509::error_t nts::x509::text(const name_t & name, string & result) noexcep
 			}
 		}
 	/**
-	 * Если память выделить не удалось
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим причину отказа
@@ -1144,7 +1150,7 @@ nts::x509::error_t nts::x509::text(const name_t & name, string & result) noexcep
 }
 
 /**
- * @brief Метод извлечения основных ограничений сертификата
+ * @brief Функция извлечения основных ограничений сертификата
  *
  * @param extension расширение основных ограничений
  * @param authority признак принадлежности сертификата удостоверяющему центру
@@ -1227,7 +1233,7 @@ nts::x509::error_t nts::x509::constraints(const extension_t & extension, bool & 
 }
 
 /**
- * @brief Метод извлечения назначения открытого ключа
+ * @brief Функция извлечения назначения открытого ключа
  *
  * @param extension расширение назначения ключа
  * @param result    набор разрядов назначения ключа
@@ -1275,7 +1281,7 @@ nts::x509::error_t nts::x509::usage(const extension_t & extension, uint16_t & re
 }
 
 /**
- * @brief Метод извлечения расширенного назначения открытого ключа
+ * @brief Функция извлечения расширенного назначения открытого ключа
  *
  * @param extension расширение расширенного назначения ключа
  * @param result    набор опознавателей назначения ключа
@@ -1284,8 +1290,7 @@ nts::x509::error_t nts::x509::usage(const extension_t & extension, uint16_t & re
  */
 nts::x509::error_t nts::x509::purpose(const extension_t & extension, vector <string> & result) noexcept {
 	/**
-	 * Сборка набора опознавателей выделяет память, и нехватка её обязана дойти до
-	 * вызывающего причиной отказа, а не завершить процесс
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Очищаем набор опознавателей назначения ключа
@@ -1334,7 +1339,7 @@ nts::x509::error_t nts::x509::purpose(const extension_t & extension, vector <str
 			result.push_back(oid);
 		}
 	/**
-	 * Если память выделить не удалось
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим причину отказа
@@ -1345,7 +1350,7 @@ nts::x509::error_t nts::x509::purpose(const extension_t & extension, vector <str
 }
 
 /**
- * @brief Метод извлечения дополнительных имён владельца
+ * @brief Функция извлечения дополнительных имён владельца
  *
  * @param extension расширение дополнительных имён
  * @param result    набор дополнительных имён
@@ -1354,8 +1359,7 @@ nts::x509::error_t nts::x509::purpose(const extension_t & extension, vector <str
  */
 nts::x509::error_t nts::x509::alternatives(const extension_t & extension, vector <alternative_t> & result) noexcept {
 	/**
-	 * Сборка набора имён выделяет память, и нехватка её обязана дойти до
-	 * вызывающего причиной отказа, а не завершить процесс
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Очищаем набор дополнительных имён
@@ -1475,7 +1479,7 @@ nts::x509::error_t nts::x509::alternatives(const extension_t & extension, vector
 			result.push_back(alternative);
 		}
 	/**
-	 * Если память выделить не удалось
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим причину отказа
@@ -1486,7 +1490,7 @@ nts::x509::error_t nts::x509::alternatives(const extension_t & extension, vector
 }
 
 /**
- * @brief Метод извлечения опознавателя ключа владельца
+ * @brief Функция извлечения опознавателя ключа владельца
  *
  * @param extension расширение опознавателя ключа владельца
  * @param result    просмотр, в который помещается опознаватель ключа
@@ -1515,7 +1519,7 @@ nts::x509::error_t nts::x509::subjectKey(const extension_t & extension, view_t &
 }
 
 /**
- * @brief Метод извлечения опознавателя ключа издателя
+ * @brief Функция извлечения опознавателя ключа издателя
  *
  * @param extension расширение опознавателя ключа издателя
  * @param result    просмотр, в который помещается опознаватель ключа
@@ -1574,11 +1578,10 @@ nts::x509::error_t nts::x509::authorityKey(const extension_t & extension, view_t
 	return error_t::NONE;
 }
 /**
- * @brief Метод проверки критичных расширений сертификата на известность
+ * @brief Функция проверки критичных расширений сертификата на известность
  *
  * @param certificate проверяемый сертификат
- *
- * @return            признак того, что все критичные расширения известны
+ * @return            признак того, что все критичные расширения известны библиотеке
  *
  */
 bool nts::x509::recognized(const certificate_t & certificate) noexcept {
@@ -1604,19 +1607,19 @@ bool nts::x509::recognized(const certificate_t & certificate) noexcept {
 			known = (extensions[i].oid.compare(RECOGNIZED[j]) == 0);
 		// Если расширение неизвестно
 		if(!known)
-			// Выводим отказ
+			// Выводим отрицательный результат - расширение неизвестно
 			return false;
 	}
-	// Выводим успешность
+	// Сообщаем, что расширения знакомы
 	return true;
 }
 
 /**
- * @brief Метод проверки стойкости алгоритма подписи
+ * @brief Функция проверки стойкости алгоритма подписи
  *
  * @param algorithm  опознаватель алгоритма подписи
  * @param parameters запись настроек алгоритма подписи либо пустой просмотр
- * @return           признак слабой подписи: хеш MD2/MD4/MD5/SHA-1
+ * @return           признак слабой подписи: хеш MD2/MD4/MD5/SHA-1, у RSASSA-PSS - по настройкам (без них SHA-1)
  *
  */
 bool nts::x509::weak(const string & algorithm, const view_t & parameters) noexcept {
@@ -1636,10 +1639,10 @@ bool nts::x509::weak(const string & algorithm, const view_t & parameters) noexce
 }
 
 /**
- * @brief Метод проверки стойкости открытого ключа
+ * @brief Функция проверки стойкости открытого ключа
  *
  * @param key сведения об открытом ключе
- * @return    признак слабого ключа: RSA короче 2048 разрядов либо не разбираемый
+ * @return    признак слабого ключа: RSA короче 2048 разрядов (SP 800-131A) либо не разбираемый
  *
  */
 bool nts::x509::weak(const key_t & key) noexcept {
@@ -1655,10 +1658,10 @@ bool nts::x509::weak(const key_t & key) noexcept {
 }
 
 /**
- * @brief Метод проверки стойкости сертификата как звена доверия
+ * @brief Функция проверки стойкости сертификата как звена доверия
  *
  * @param certificate проверяемый сертификат
- * @param anchor      признак якоря: самоподпись якоря не судится
+ * @param anchor      признак якоря: самоподпись якоря не судится, ключ судится всегда
  * @return            признак слабого звена: подпись хешем MD5/SHA-1 либо ключ RSA короче 2048 разрядов
  *
  */
@@ -1674,22 +1677,22 @@ bool nts::x509::weak(const certificate_t & certificate, const bool anchor) noexc
 	return weak(certificate.key());
 }
 /**
- * @brief Метод извлечения ограничений имён издателя
+ * @brief Функция извлечения ограничений имён издателя
  *
- * @param extension расширение nameConstraints
- * @param permitted дозволенные поддеревья
- * @param excluded  запрещённые поддеревья
- *
+ * @param extension расширение nameConstraints (2.5.29.30)
+ * @param permitted дозволенные поддеревья имён
+ * @param excluded  запрещённые поддеревья имён
  * @return          причина отказа либо error_t::NONE
  *
  */
 nts::x509::error_t nts::x509::constraints(const extension_t & extension, vector <alternative_t> & permitted, vector <alternative_t> & excluded) noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Сбрасываем перечни
 		permitted.clear();
+		// Сбрасываем перечень запрещённых поддеревьев
 		excluded.clear();
 		// Разборщик расширения
 		asn1::reader_t reader(extension.value);
@@ -1697,9 +1700,11 @@ nts::x509::error_t nts::x509::constraints(const extension_t & extension, vector 
 		asn1::element_t item;
 		// Если внешняя последовательность не прочиталась
 		if(!reader.next(asn1::tag_t::SEQUENCE, item))
+			// Выводим причину отказа
 			return error_t::ENCODING;
 		// Если за ней идут лишние байты либо она не составная
 		if(!reader.empty() || !item.constructed)
+			// Выводим причину отказа
 			return error_t::STRUCTURE;
 		// Разборщик поддеревьев
 		asn1::reader_t parts(item.content);
@@ -1711,9 +1716,11 @@ nts::x509::error_t nts::x509::constraints(const extension_t & extension, vector 
 			asn1::element_t part;
 			// Если часть не прочиталась
 			if(!parts.next(part))
+				// Выводим причину отказа
 				return error_t::ENCODING;
 			// Если часть не помечена контекстом [0] либо [1] либо не составная
 			if((part.cls != asn1::cls_t::CONTEXT) || ((part.tag != 0) && (part.tag != 1)) || !part.constructed)
+				// Выводим причину отказа
 				return error_t::STRUCTURE;
 			// Перечень, в который ложатся поддеревья
 			vector <alternative_t> & result = ((part.tag == 0) ? permitted : excluded);
@@ -1721,6 +1728,7 @@ nts::x509::error_t nts::x509::constraints(const extension_t & extension, vector 
 			asn1::reader_t trees(part.content);
 			// Раздел 4.2.1.10 RFC 5280: перечень поддеревьев непуст
 			if(trees.empty())
+				// Выводим причину отказа
 				return error_t::EXTENSION;
 			/**
 			 * Выполняем перебор поддеревьев GeneralSubtree
@@ -1730,9 +1738,11 @@ nts::x509::error_t nts::x509::constraints(const extension_t & extension, vector 
 				asn1::element_t tree;
 				// Если поддерево не прочиталось
 				if(!trees.next(asn1::tag_t::SEQUENCE, tree))
+					// Выводим причину отказа
 					return error_t::ENCODING;
 				// Если поддерево не составное
 				if(!tree.constructed)
+					// Выводим причину отказа
 					return error_t::STRUCTURE;
 				// Разборщик поддерева
 				asn1::reader_t fields(tree.content);
@@ -1740,12 +1750,15 @@ nts::x509::error_t nts::x509::constraints(const extension_t & extension, vector 
 				asn1::element_t base;
 				// Если основание не прочиталось
 				if(!fields.next(base))
+					// Выводим причину отказа
 					return error_t::ENCODING;
 				// Если основание не помечено контекстом
 				if(base.cls != asn1::cls_t::CONTEXT)
+					// Выводим причину отказа
 					return error_t::STRUCTURE;
 				// Раздел 4.2.1.10 RFC 5280: minimum и maximum не выпускаются - поддерево с ними не разбирается
 				if(!fields.empty())
+					// Выводим причину отказа
 					return error_t::EXTENSION;
 				// Имя поддерева
 				alternative_t alternative;
@@ -1763,9 +1776,11 @@ nts::x509::error_t nts::x509::constraints(const extension_t & extension, vector 
 						const asn1::error_t status = asn1::text(base, asn1::tag_t::IA5_STRING, alternative.value);
 						// Если памяти не хватило
 						if(status == asn1::error_t::MEMORY)
+							// Выводим причину отказа
 							return error_t::MEMORY;
 						// Если текст не разобрался
 						if(status != asn1::error_t::NONE)
+							// Выводим причину отказа
 							return error_t::EXTENSION;
 					} break;
 					// Адрес сети с маской: 8 либо 32 байта
@@ -1774,6 +1789,7 @@ nts::x509::error_t nts::x509::constraints(const extension_t & extension, vector 
 						alternative.kind = kind_t::ADDRESS;
 						// Если запись составная либо длина не адрес с маской
 						if(base.constructed || ((base.content.size != 8) && (base.content.size != 32)))
+							// Выводим причину отказа
 							return error_t::EXTENSION;
 						// Переносим адрес с маской
 						alternative.value.assign(reinterpret_cast <const char *> (base.content.data), base.content.size);
@@ -1784,6 +1800,7 @@ nts::x509::error_t nts::x509::constraints(const extension_t & extension, vector 
 						alternative.kind = kind_t::DIRECTORY;
 						// Если запись не составная
 						if(!base.constructed)
+							// Выводим причину отказа
 							return error_t::STRUCTURE;
 						// Разборщик содержимого явной обёртки [4]
 						asn1::reader_t wrapped(base.content);
@@ -1791,9 +1808,11 @@ nts::x509::error_t nts::x509::constraints(const extension_t & extension, vector 
 						asn1::element_t inner;
 						// Если запись имени внутри обёртки не прочиталась
 						if(!wrapped.next(asn1::tag_t::SEQUENCE, inner))
+							// Выводим причину отказа
 							return error_t::ENCODING;
 						// Если внутри обёртки не одна запись либо имя не составное
 						if(!wrapped.empty() || !inner.constructed)
+							// Выводим причину отказа
 							return error_t::STRUCTURE;
 						// Разобранное имя: важна лишь годность записи
 						name_t parsed;
@@ -1801,6 +1820,7 @@ nts::x509::error_t nts::x509::constraints(const extension_t & extension, vector 
 						const error_t named = distinguished(inner, parsed);
 						// Если имя не разобралось
 						if(named != error_t::NONE)
+							// Выводим причину отказа
 							return named;
 					} break;
 					// Иное имя
@@ -1811,11 +1831,42 @@ nts::x509::error_t nts::x509::constraints(const extension_t & extension, vector 
 			}
 		}
 	/**
-	 * Если памяти не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
+		// Выводим причину отказа
 		return error_t::MEMORY;
 	}
-	// Выводим успешность
+	// Сообщаем об успешной проверке
 	return error_t::NONE;
 }
+
+/**
+ * @brief Конструктор
+ *
+ */
+nts::x509::Attribute::Attribute() noexcept : type(asn1::tag_t::UTF8_STRING) {}
+
+/**
+ * @brief Конструктор
+ *
+ */
+nts::x509::Alternative::Alternative() noexcept : kind(kind_t::OTHER) {}
+
+/**
+ * @brief Конструктор
+ *
+ */
+nts::x509::Extension::Extension() noexcept : critical(false) {}
+
+/**
+ * @brief Конструктор
+ *
+ */
+nts::x509::Key::Key() noexcept : unused(0) {}
+
+/**
+ * @brief Деструктор
+ *
+ */
+nts::x509::Certificate::~Certificate() noexcept {}

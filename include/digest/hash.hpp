@@ -21,7 +21,6 @@
  *        the library, chosen by a value of an enumeration
  *
  * \~
- *
  * @copyright Copyright © 2026
  *
  */
@@ -85,6 +84,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Hashing algorithm
+		 *
 		 * @details One enumeration for all the hashes of the library: the hash of the
 		 *          authentication code, of the key derivation and of the signatures is chosen by
 		 *          it, where the algorithm is an argument and not a construction. The values
@@ -94,31 +94,44 @@ namespace nts {
 		 * \~
 		 */
 		enum class hash_t : uint8_t {
+			// Алгоритм не установлен
 			NONE        = 0x00, /*!< \~russian Алгоритм не установлен \~english The algorithm is not set \~ */
+			// MD5 по RFC 1321, 128 разрядов
 			MD5         = 0x01, /*!< \~russian MD5 по RFC 1321, 128 разрядов \~english MD5 according to RFC 1321, 128 bits \~ */
+			// SHA-1 по FIPS 180-4, 160 разрядов
 			SHA1        = 0x02, /*!< \~russian SHA-1 по FIPS 180-4, 160 разрядов \~english SHA-1 according to FIPS 180-4, 160 bits \~ */
+			// SHA-224 по FIPS 180-4
 			SHA224      = 0x03, /*!< \~russian SHA-224 по FIPS 180-4 \~english SHA-224 according to FIPS 180-4 \~ */
+			// SHA-256 по FIPS 180-4
 			SHA256      = 0x04, /*!< \~russian SHA-256 по FIPS 180-4 \~english SHA-256 according to FIPS 180-4 \~ */
+			// SHA-384 по FIPS 180-4
 			SHA384      = 0x05, /*!< \~russian SHA-384 по FIPS 180-4 \~english SHA-384 according to FIPS 180-4 \~ */
+			// SHA-512 по FIPS 180-4
 			SHA512      = 0x06, /*!< \~russian SHA-512 по FIPS 180-4 \~english SHA-512 according to FIPS 180-4 \~ */
+			// «Стрибог» по ГОСТ Р 34.11-2012, 256 разрядов
 			STREEBOG256 = 0x07, /*!< \~russian «Стрибог» по ГОСТ Р 34.11-2012, 256 разрядов \~english «Streebog» according to GOST R 34.11-2012, 256 bits \~ */
+			// «Стрибог» по ГОСТ Р 34.11-2012, 512 разрядов
 			STREEBOG512 = 0x08, /*!< \~russian «Стрибог» по ГОСТ Р 34.11-2012, 512 разрядов \~english «Streebog» according to GOST R 34.11-2012, 512 bits \~ */
+			// BLAKE2s по RFC 7693, 256 разрядов, блок 64 байта (Noise, WireGuard)
 			BLAKE2S256  = 0x09, /*!< \~russian BLAKE2s по RFC 7693, 256 разрядов, блок 64 байта (Noise, WireGuard) \~english BLAKE2s according to RFC 7693, 256 bits, 64-byte block (Noise, WireGuard) \~ */
+			// BLAKE2b по RFC 7693, 512 разрядов, блок 128 байтов
 			BLAKE2B512  = 0x0A, /*!< \~russian BLAKE2b по RFC 7693, 512 разрядов, блок 128 байтов \~english BLAKE2b according to RFC 7693, 512 bits, 128-byte block \~ */
+			// SM3 по GB/T 32905-2016, 256 разрядов (RFC 8998)
 			SM3         = 0x0B, /*!< \~russian SM3 по GB/T 32905-2016, 256 разрядов (RFC 8998) \~english SM3 according to GB/T 32905-2016, 256 bits (RFC 8998) \~ */
+			// RIPEMD-160 (Доббертин, Босселарс, Пренел), 160 разрядов
 			RIPEMD160   = 0x0C  /*!< \~russian RIPEMD-160 (Доббертин, Босселарс, Пренел), 160 разрядов \~english RIPEMD-160 (Dobbertin, Bosselaers, Preneel), 160 bits \~ */
 		};
 
 		/**
 		 * \~russian
-		 * @brief Метод получения длины хеша алгоритма
+		 * @brief Функция получения длины хеша алгоритма
 		 *
 		 * @param algorithm алгоритм хеширования
-		 *
 		 * @return          длина хеша в байтах, ноль у неустановленного алгоритма
 		 *
 		 * \~english
-		 * @brief Method of getting the length of the hash of an algorithm
+		 * @brief Function of getting the length of the hash of an algorithm
+		 *
 		 * @param algorithm the hashing algorithm
 		 * @return          the length of the hash in bytes, zero at an unset algorithm
 		 *
@@ -127,19 +140,20 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ size_t length(const hash_t algorithm) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод получения размера блока сжатия алгоритма
+		 * @brief Функция получения размера блока сжатия алгоритма
 		 *
 		 * @param algorithm алгоритм хеширования
-		 *
 		 * @return          размер блока в байтах, ноль у неустановленного алгоритма
 		 *
 		 * @note Размер блока нужен имитовставке: ключ дополняется до блока либо
 		 *       хешируется, если его длиннее
 		 *
 		 * \~english
-		 * @brief Method of getting the size of the compression block of an algorithm
+		 * @brief Function of getting the size of the compression block of an algorithm
+		 *
 		 * @param algorithm the hashing algorithm
 		 * @return          the size of the block in bytes, zero at an unset algorithm
+		 *
 		 * @note The size of the block is needed by the authentication code: the key is padded
 		 *       to the block or hashed if it is longer
 		 *
@@ -158,6 +172,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Hashing by a chosen algorithm
+		 *
 		 * @details Holds an object of each algorithm and passes the calls to the one chosen by
 		 *          the reset: neither virtuality nor memory allocations. The contract repeats the
 		 *          contract of each hash: update by chunks, finish once, reset for a repeated hashing
@@ -194,6 +209,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the chosen hashing algorithm
+				 *
 				 * @return the chosen hashing algorithm
 				 *
 				 * \~
@@ -208,6 +224,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the reset of the state of the hashing
+				 *
 				 * @param algorithm the hashing algorithm
 				 *
 				 * \~
@@ -221,6 +238,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of feeding a chunk of the message
+				 *
 				 * @param data the chunk of the message being fed
 				 *
 				 * \~
@@ -232,11 +250,11 @@ namespace nts {
 				 *
 				 * @param result место, в которое записывается хеш
 				 * @param size   размер места в байтах, не меньше длины хеша
-				 *
 				 * @return       признак успешности снятия хеша
 				 *
 				 * \~english
 				 * @brief Method of taking the produced hash
+				 *
 				 * @param result the place the hash is written into
 				 * @param size   the size of the place in bytes, not less than the length of the hash
 				 * @return       the flag of the success of the taking of the hash
@@ -253,6 +271,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Constructor
+				 *
 				 * @param algorithm the hashing algorithm
 				 *
 				 * \~
@@ -262,17 +281,17 @@ namespace nts {
 
 		/**
 		 * \~russian
-		 * @brief Метод выработки хеша целого сообщения выбранным алгоритмом
+		 * @brief Функция выработки хеша целого сообщения выбранным алгоритмом
 		 *
 		 * @param algorithm алгоритм хеширования
 		 * @param data      хешируемое сообщение
 		 * @param result    место, в которое записывается хеш
 		 * @param size      размер места в байтах, не меньше длины хеша
-		 *
 		 * @return          признак успешности выработки хеша
 		 *
 		 * \~english
-		 * @brief Method of the production of the hash of a whole message by a chosen algorithm
+		 * @brief Function of the production of the hash of a whole message by a chosen algorithm
+		 *
 		 * @param algorithm the hashing algorithm
 		 * @param data      the message being hashed
 		 * @param result    the place the hash is written into

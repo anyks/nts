@@ -54,7 +54,6 @@ namespace {
 	 * @brief Признак составного механизма
 	 *
 	 * @param kem механизм
-	 *
 	 * @return    признак
 	 *
 	 */
@@ -66,7 +65,6 @@ namespace {
 	 * @brief Признак поддержанного механизма
 	 *
 	 * @param kem механизм
-	 *
 	 * @return    признак
 	 *
 	 */
@@ -77,23 +75,12 @@ namespace {
 };
 
 /**
- * \~russian
- * @brief Метод получения длины части KEM
+ * @brief Функция получения длины части KEM
  *
  * @param kem  механизм упаковки ключа
  * @param part часть
+ * @return     длина в байтах либо нуль у незнакомого механизма
  *
- * @return     длина в байтах либо нуль
- *
- * \~english
- * @brief Method of getting the length of a KEM part
- *
- * @param kem  key encapsulation mechanism
- * @param part part
- *
- * @return     length in bytes or zero
- *
- * \~
  */
 size_t nts::noise::kemlength(const kem_t kem, const part_t part) noexcept {
 	// Если механизм не поддержан
@@ -123,34 +110,23 @@ size_t nts::noise::kemlength(const kem_t kem, const part_t part) noexcept {
 	}
 }
 /**
- * \~russian
- * @brief Метод порождения пары ключей KEM из зерна
+ * @brief Функция порождения пары ключей KEM из зерна - детерминированный, для корпусов и потребителя, хранящего зерно
  *
  * @param kem    механизм упаковки ключа
- * @param seed   зерно
- * @param key    место открытого ключа
- * @param secret место закрытого ключа
- *
+ * @param seed   зерно длиной SEED: у ML-KEM-768 d ‖ z (64), у составного ещё закрытый X25519 (96)
+ * @param key    место открытого ключа длиной PUBLIC
+ * @param secret место закрытого ключа длиной SECRET
  * @return       признак того, что пара порождена
  *
- * \~english
- * @brief Method of KEM key pair generation from a seed
- *
- * @param kem    key encapsulation mechanism
- * @param seed   seed
- * @param key    place of the public key
- * @param secret place of the secret key
- *
- * \~
  */
 bool nts::noise::kemgenerateDeterministic(const kem_t kem, const view_t & seed, uint8_t * key, uint8_t * secret) noexcept {
 	// Если механизм, зерно либо места негодны
 	if(!known(kem) || (seed.data == nullptr) || (seed.size != kemlength(kem, part_t::SEED)) || (key == nullptr) || (secret == nullptr))
-		// Выводим отказ
+		// Выводим отрицательный результат - пара не порождена
 		return false;
 	// Порождаем пару ML-KEM-768 из d ‖ z
 	if(!agreement::generate(agreement::kem_t::MLKEM768, view_t(seed.data, SEED), key, secret))
-		// Выводим отказ
+		// Выводим отрицательный результат - упаковка пары не удалась
 		return false;
 	// Если механизм составной, за ML-KEM идёт X25519
 	if(composite(kem)){
@@ -160,81 +136,59 @@ bool nts::noise::kemgenerateDeterministic(const kem_t kem, const view_t & seed, 
 		if(!agreement::x25519(view_t(secret + DK, X), key + EK)){
 			// Затираем закрытый ключ
 			wipe(secret, DK + X);
-			// Выводим отказ
+			// Выводим отрицательный результат - закрытый ключ не выведен
 			return false;
 		}
 	}
-	// Выводим успешность
+	// Закрытый ключ выведен
 	return true;
 }
 /**
- * \~russian
- * @brief Метод порождения пары ключей KEM из энтропии
+ * @brief Функция порождения пары ключей KEM из энтропии
  *
  * @param kem    механизм упаковки ключа
- * @param key    место открытого ключа
- * @param secret место закрытого ключа
- *
+ * @param key    место открытого ключа длиной PUBLIC
+ * @param secret место закрытого ключа длиной SECRET
  * @return       признак того, что пара порождена
  *
- * \~english
- * @brief Method of KEM key pair generation from entropy
- *
- * @param kem    key encapsulation mechanism
- * @param key    place of the public key
- * @param secret place of the secret key
- *
- * \~
  */
 bool nts::noise::kemgenerate(const kem_t kem, uint8_t * key, uint8_t * secret) noexcept {
 	// Если механизм негоден
 	if(!known(kem))
-		// Выводим отказ
+		// Выводим отрицательный результат - механизм негоден
 		return false;
 	// Зерно
 	uint8_t seed[KEM_SEED_MAX];
 	// Берём зерно из энтропии
 	if(!entropy::bytes(seed, kemlength(kem, part_t::SEED)))
-		// Выводим отказ
+		// Выводим отрицательный результат - зерно не получено
 		return false;
 	// Порождаем пару из зерна
 	const bool status = kemgenerateDeterministic(kem, view_t(seed, kemlength(kem, part_t::SEED)), key, secret);
 	// Затираем зерно
 	wipe(seed, sizeof(seed));
-	// Выводим успешность
+	// Возвращаем итог порождения с энтропией
 	return status;
 }
 /**
- * \~russian
- * @brief Метод упаковки общего секрета на заданной случайности
+ * @brief Функция упаковки общего секрета на заданной случайности - детерминированный, для корпусов
  *
  * @param kem        механизм упаковки ключа
- * @param key        открытый ключ получателя
- * @param coins      случайность
- * @param ciphertext место шифртекста
- * @param shared     место общего секрета
- *
+ * @param key        открытый ключ получателя длиной PUBLIC
+ * @param coins      случайность длиной COINS: у ML-KEM-768 m (32), у составного ещё закрытый временный X25519 (64)
+ * @param ciphertext место шифртекста длиной CIPHERTEXT
+ * @param shared     место общего секрета длиной SHARED
  * @return           признак того, что секрет упакован
  *
- * \~english
- * @brief Method of shared secret encapsulation on given randomness
- *
- * @param kem        key encapsulation mechanism
- * @param key        receiver public key
- * @param coins      randomness
- * @param ciphertext place of the ciphertext
- * @param shared     place of the shared secret
- *
- * \~
  */
 bool nts::noise::encapsulateDeterministic(const kem_t kem, const view_t & key, const view_t & coins, uint8_t * ciphertext, uint8_t * shared) noexcept {
 	// Если механизм, ключ, случайность либо места негодны
 	if(!known(kem) || (key.data == nullptr) || (key.size != kemlength(kem, part_t::PUBLIC)) || (coins.data == nullptr) || (coins.size != kemlength(kem, part_t::COINS)) || (ciphertext == nullptr) || (shared == nullptr))
-		// Выводим отказ
+		// Выводим отрицательный результат - капсула не выработана
 		return false;
 	// Упаковываем ML-KEM-768 на m
 	if(!agreement::encapsulate(agreement::kem_t::MLKEM768, view_t(key.data, EK), view_t(coins.data, M), ciphertext, shared))
-		// Выводим отказ
+		// Выводим отрицательный результат - упаковка не удалась
 		return false;
 	// Если механизм составной, за ML-KEM идёт X25519: временный открытый ключ в шифртекст, общий секрет следом
 	if(composite(kem)){
@@ -243,89 +197,67 @@ bool nts::noise::encapsulateDeterministic(const kem_t kem, const view_t & key, c
 			// Затираем секрет и шифртекст
 			wipe(shared, SS + X);
 			wipe(ciphertext, CT + X);
-			// Выводим отказ
+			// Выводим отрицательный результат - секрет не выделен
 			return false;
 		}
 	}
-	// Выводим успешность
+	// Капсула и секрет выработаны
 	return true;
 }
 /**
- * \~russian
- * @brief Метод упаковки общего секрета на энтропии
+ * @brief Функция упаковки общего секрета к открытому ключу на энтропии
  *
  * @param kem        механизм упаковки ключа
- * @param key        открытый ключ получателя
- * @param ciphertext место шифртекста
- * @param shared     место общего секрета
- *
+ * @param key        открытый ключ получателя длиной PUBLIC
+ * @param ciphertext место шифртекста длиной CIPHERTEXT
+ * @param shared     место общего секрета длиной SHARED
  * @return           признак того, что секрет упакован
  *
- * \~english
- * @brief Method of shared secret encapsulation on entropy
- *
- * @param kem        key encapsulation mechanism
- * @param key        receiver public key
- * @param ciphertext place of the ciphertext
- * @param shared     place of the shared secret
- *
- * \~
  */
 bool nts::noise::encapsulate(const kem_t kem, const view_t & key, uint8_t * ciphertext, uint8_t * shared) noexcept {
 	// Если механизм негоден
 	if(!known(kem))
-		// Выводим отказ
+		// Выводим отрицательный результат - механизм негоден
 		return false;
 	// Случайность
 	uint8_t coins[KEM_SHARED_MAX];
 	// Берём случайность из энтропии
 	if(!entropy::bytes(coins, kemlength(kem, part_t::COINS)))
-		// Выводим отказ
+		// Выводим отрицательный результат - случайность не получена
 		return false;
 	// Упаковываем на случайности
 	const bool status = encapsulateDeterministic(kem, key, view_t(coins, kemlength(kem, part_t::COINS)), ciphertext, shared);
 	// Затираем случайность
 	wipe(coins, sizeof(coins));
-	// Выводим успешность
+	// Возвращаем итог упаковки с энтропией
 	return status;
 }
 /**
- * \~russian
- * @brief Метод распаковки общего секрета
+ * @brief Функция распаковки общего секрета
  *
  * @param kem        механизм упаковки ключа
- * @param secret     свой закрытый ключ
- * @param ciphertext шифртекст
- * @param shared     место общего секрета
+ * @param secret     свой закрытый ключ длиной SECRET
+ * @param ciphertext шифртекст длиной CIPHERTEXT
+ * @param shared     место общего секрета длиной SHARED
+ * @return           признак того, что секрет распакован (у ML-KEM подделка даёт неявное отклонение, а не отказ)
  *
- * @return           признак того, что секрет распакован
- *
- * \~english
- * @brief Method of shared secret decapsulation
- *
- * @param kem        key encapsulation mechanism
- * @param secret     own secret key
- * @param ciphertext ciphertext
- * @param shared     place of the shared secret
- *
- * \~
  */
 bool nts::noise::decapsulate(const kem_t kem, const view_t & secret, const view_t & ciphertext, uint8_t * shared) noexcept {
 	// Если механизм, ключ, шифртекст либо место негодны
 	if(!known(kem) || (secret.data == nullptr) || (secret.size != kemlength(kem, part_t::SECRET)) || (ciphertext.data == nullptr) || (ciphertext.size != kemlength(kem, part_t::CIPHERTEXT)) || (shared == nullptr))
-		// Выводим отказ
+		// Выводим отрицательный результат - секрет не извлечён
 		return false;
 	// Распаковываем ML-KEM-768
 	if(!agreement::decapsulate(agreement::kem_t::MLKEM768, view_t(secret.data, DK), view_t(ciphertext.data, CT), shared))
-		// Выводим отказ
+		// Выводим отрицательный результат - распаковка не удалась
 		return false;
 	// Если механизм составной, DH X25519 своего закрытого с временным открытым из шифртекста
 	if(composite(kem) && !agreement::x25519(view_t(secret.data + DK, X), view_t(ciphertext.data + CT, X), shared + SS)){
 		// Затираем секрет
 		wipe(shared, SS + X);
-		// Выводим отказ
+		// Выводим отрицательный результат - секрет не выделен
 		return false;
 	}
-	// Выводим успешность
+	// Секрет извлечён
 	return true;
 }

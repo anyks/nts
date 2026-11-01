@@ -36,12 +36,24 @@
  *
  * \~english
  * @brief Header file of the log sink of the library
+ *
  * @details The library keeps no log - it has only a SINK: one function the consumer may set.
  *          While the sink is not set, the library is silent and a message costs one comparison
  *          with nullptr: the string is not composed at all
  *
- * \~
+ * @note Deliberate decisions:
+ *       1. The sink, and not a log: no streams, no files, no queues, no syslog - it is the business
+ *       of the consumer. The library gives the level and the ready string
+ *       2. The connection only at the run time: neither the weak symbols (in the static
+ *       archives and under MinGW they are unreliable), nor the build definitions with the foreign headers
+ *       (break the absence of the dependencies)
+ *       3. The secrets do not go into the log: the keys, the random values, the bodies of the records. The refusals
+ *       go, which otherwise reach the consumer only by the code: the break of the connection by a notice, the lowering
+ *       of the shelter of the storage, the exhaustion of the retries over the datagrams
+ *       4. The sink is set at the start of the process before the connections are made and lives to its end:
+ *       the change of the sink under the live connections from another thread is not guarded
  *
+ * \~
  * @copyright Copyright © 2026
  *
  */
@@ -107,8 +119,11 @@ namespace nts {
 			 * \~
 			 */
 			enum class level_t : uint8_t {
+				// Сведение
 				INFO     = 0x01, /*!< \~russian Сведение \~english Information \~ */
+				// Предупреждение
 				WARNING  = 0x02, /*!< \~russian Предупреждение \~english Warning \~ */
+				// Отказ
 				CRITICAL = 0x03  /*!< \~russian Отказ \~english Failure \~ */
 			};
 			/**
@@ -121,6 +136,7 @@ namespace nts {
 			 *
 			 * \~english
 			 * @brief Log sink: the function of the consumer
+			 *
 			 * @param level   the level of the message
 			 * @param text    the composed null-terminated message string
 			 * @param context the pointer of the context of the consumer passed at the setting
@@ -130,13 +146,14 @@ namespace nts {
 			typedef void (* sink_t)(const level_t level, const char * text, void * context);
 			/**
 			 * \~russian
-			 * @brief Метод установки стока журнала
+			 * @brief Функция установки стока журнала
 			 *
 			 * @param sink    функция стока; nullptr снимает сток, и библиотека молчит
 			 * @param context указатель контекста потребителя, передаваемый стоку как есть
 			 *
 			 * \~english
-			 * @brief Method of setting the log sink
+			 * @brief Function of setting the log sink
+			 *
 			 * @param sink    the sink function; nullptr removes the sink and the library is silent
 			 * @param context the pointer of the context of the consumer passed to the sink as is
 			 *
@@ -145,12 +162,13 @@ namespace nts {
 			__ANTS_SHARED_EXPORT__ void sink(const sink_t sink, void * context = nullptr) noexcept;
 			/**
 			 * \~russian
-			 * @brief Метод проверки того, что сток поставлен
+			 * @brief Функция проверки того, что сток поставлен
 			 *
 			 * @return признак поставленного стока: без него строки собирать незачем
 			 *
 			 * \~english
-			 * @brief Method of checking that the sink is set
+			 * @brief Function of checking that the sink is set
+			 *
 			 * @return the flag of the set sink: without it there is no point composing strings
 			 *
 			 * \~
@@ -158,13 +176,14 @@ namespace nts {
 			__ANTS_SHARED_EXPORT__ bool enabled() noexcept;
 			/**
 			 * \~russian
-			 * @brief Метод передачи готовой строки в сток
+			 * @brief Функция передачи готовой строки в сток
 			 *
 			 * @param level уровень сообщения
 			 * @param text  строка сообщения, завершённая нулём
 			 *
 			 * \~english
-			 * @brief Method of passing a composed string to the sink
+			 * @brief Function of passing a composed string to the sink
+			 *
 			 * @param level the level of the message
 			 * @param text  the null-terminated message string
 			 *
@@ -173,7 +192,7 @@ namespace nts {
 			__ANTS_SHARED_EXPORT__ void emit(const level_t level, const char * text) noexcept;
 			/**
 			 * \~russian
-			 * @brief Метод передачи сообщения по образцу printf
+			 * @brief Функция передачи сообщения по образцу printf
 			 *
 			 * @details Строка собирается лишь при поставленном стоке, в буфер на стеке
 			 *          в 512 байтов; более длинное сообщение обрезается
@@ -182,7 +201,11 @@ namespace nts {
 			 * @param format образец сообщения
 			 *
 			 * \~english
-			 * @brief Method of passing a message by a printf pattern
+			 * @brief Function of passing a message by a printf pattern
+			 *
+			 * @details The string is composed only when the sink is set, into a stack buffer
+			 *          of 512 bytes; a longer message is truncated
+			 *
 			 * @param level  the level of the message
 			 * @param format the pattern of the message
 			 *

@@ -58,10 +58,9 @@ static const struct Sample {
 };
 
 /**
- * @brief Метод разбора строки шестнадцатеричной записи в область байтов
+ * @brief Функция разбора строки шестнадцатеричной записи в область байтов
  *
  * @param text разбираемая строка шестнадцатеричной записи
- *
  * @return     разобранная область байтов
  *
  */
@@ -220,10 +219,17 @@ TEST(HelloTest, Reject){
 	 * Раздел 4.1.2 RFC 8446: обрез ровно за способами сжатия - годное приветствие
 	 * прежних изданий без поля расширений, и лишь он разбором принимается
 	 */
+	// Смещение за заголовком: версия протокола и случайные байты
 	size_t cut = 2 + hello::HELLO_RANDOM;
+	// Пропускаем идентификатор сессии: длина и сам идентификатор
 	cut += (1 + static_cast <size_t> (body[cut]));
+	// Пропускаем наборы шифрования: длина списка и сами наборы
 	cut += (2 + (static_cast <size_t> (body[cut]) << 8) + static_cast <size_t> (body[cut + 1]));
+	// Пропускаем способы сжатия: длина списка и сами способы
 	cut += (1 + static_cast <size_t> (body[cut]));
+	/**
+	 * Выполняем перебор обрезов от пустого тела до полного
+	 */
 	for(size_t i = 0; i < body.size(); i++){
 		// Разобранное обрезанное приветствие клиента
 		hello::client_t truncated;
@@ -346,9 +352,9 @@ TEST(HelloTest, Deformed){
 	// Снимаем единственный способ сжатия из перечня
 	methodless.erase(methodless.begin() + static_cast <ptrdiff_t> (offset) + 1);
 	// Разобранное приветствие с пустым перечнем способов сжатия
-	hello::client_t methodless_hello;
+	hello::client_t methodlessHello;
 	// Проверяем отказ разбора приветствия с пустым перечнем способов сжатия
-	ASSERT_EQ(hello::parse(view_t(methodless.data(), methodless.size()), methodless_hello), hello::error_t::METHOD);
+	ASSERT_EQ(hello::parse(view_t(methodless.data(), methodless.size()), methodlessHello), hello::error_t::METHOD);
 	/**
 	 * Перечень расширений, оборванный посреди вида расширения: вид объявлен двумя
 	 * байтами, а за концом перечня взять их неоткуда
@@ -361,9 +367,9 @@ TEST(HelloTest, Deformed){
 	// Обрезаем тело приветствия по объявленной длине перечня расширений
 	ragged.resize(offset + 5);
 	// Разобранное приветствие с оборванным перечнем расширений
-	hello::client_t ragged_hello;
+	hello::client_t raggedHello;
 	// Проверяем отказ разбора приветствия с оборванным видом расширения
-	ASSERT_EQ(hello::parse(view_t(ragged.data(), ragged.size()), ragged_hello), hello::error_t::EXTENSION);
+	ASSERT_EQ(hello::parse(view_t(ragged.data(), ragged.size()), raggedHello), hello::error_t::EXTENSION);
 	/**
 	 * Раздел 4.1.2 RFC 8446 отводит опознавателю связи не более 32 байтов, и
 	 * составление приветствия с опознавателем длиннее того отказывает
@@ -459,12 +465,11 @@ TEST(HelloTest, Deformed){
 }
 
 /**
- * @brief Метод разбора и составления приветствий заново при отмеренном запасе выделений
+ * @brief Функция разбора и составления приветствий заново при отмеренном запасе выделений
  *
  * @param client тело приветствия клиента
  * @param server тело приветствия сервера
  * @param intact признак схождения составленных тел с исходными
- *
  * @return       отказ, которым завершился первый несостоявшийся шаг
  *
  */

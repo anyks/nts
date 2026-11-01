@@ -21,7 +21,6 @@
  *        the certificate management messages according to RFC 8555
  *
  * \~
- *
  * @copyright Copyright © 2026
  *
  */
@@ -53,7 +52,6 @@
  * @brief Main namespace
  *
  * \~
- *
  */
 namespace nts {
 	/**
@@ -69,7 +67,6 @@ namespace nts {
 	 * @brief Namespace of the ACME protocol module
 	 *
 	 * \~
-	 *
 	 */
 	namespace acme {
 		/**
@@ -82,11 +79,17 @@ namespace nts {
 		 * \~
 		 */
 		enum class error_t : uint8_t {
+			// Отказа нет, работа удалась
 			NONE      = 0x00, /*!< \~russian Отказа нет, работа удалась \~english There is no failure, the work has succeeded \~ */
+			// Сообщение пусто либо ключ не установлен
 			EMPTY     = 0x01, /*!< \~russian Сообщение пусто либо ключ не установлен \~english The message is empty or the key is not set \~ */
+			// Сообщение не отвечает устройству своего вида
 			STRUCTURE = 0x02, /*!< \~russian Сообщение не отвечает устройству своего вида \~english The message does not meet the structure of its kind \~ */
+			// Алгоритм подписи неизвестен либо ключ ему не отвечает
 			ALGORITHM = 0x03, /*!< \~russian Алгоритм подписи неизвестен либо ключ ему не отвечает \~english The signature algorithm is unknown or the key does not meet it \~ */
+			// Подпись не сошлась либо выработать её не удалось
 			SIGNATURE = 0x04, /*!< \~russian Подпись не сошлась либо выработать её не удалось \~english The signature has not converged or its production has failed \~ */
+			// Не удалось выделить память под итог работы
 			MEMORY    = 0x05  /*!< \~russian Не удалось выделить память под итог работы \~english Failed to allocate the memory for the result of the work \~ */
 		};
 
@@ -100,8 +103,11 @@ namespace nts {
 		 * \~
 		 */
 		enum class identifier_t : uint8_t {
+			// Идентификатор не установлен
 			NONE = 0x00, /*!< \~russian Идентификатор не установлен \~english The identifier is not set \~ */
+			// Доменное имя по разделу 9.7.7 RFC 8555
 			DNS  = 0x01, /*!< \~russian Доменное имя по разделу 9.7.7 RFC 8555 \~english A domain name according to the section 9.7.7 of RFC 8555 \~ */
+			// Адрес IP по RFC 8738
 			IP   = 0x02  /*!< \~russian Адрес IP по RFC 8738 \~english An IP address according to RFC 8738 \~ */
 		};
 
@@ -114,6 +120,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Record of the ACME service directory
+		 *
 		 * @details The parsed answer of the directory resource according to the section
 		 *          7.1.1 of RFC 8555: the addresses of the service resources. The fields
 		 *          the answer does not carry stay empty
@@ -144,6 +151,7 @@ namespace nts {
 			 *
 			 * \~english
 			 * @brief Method of parsing the answer of the directory resource
+			 *
 			 * @param data the view of the answer being parsed
 			 * @return     the reason of the failure or error_t::NONE
 			 *
@@ -170,6 +178,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Record of the ACME account
+		 *
 		 * @details The parsed answer of the account resource according to the section
 		 *          7.1.2 of RFC 8555
 		 *
@@ -189,6 +198,7 @@ namespace nts {
 			 *
 			 * \~english
 			 * @brief Method of parsing the answer of the account resource
+			 *
 			 * @param data the view of the answer being parsed
 			 * @return     the reason of the failure or error_t::NONE
 			 *
@@ -215,6 +225,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Record of the ACME order
+		 *
 		 * @details The parsed answer of the order resource according to the section
 		 *          7.1.3 of RFC 8555
 		 *
@@ -242,6 +253,7 @@ namespace nts {
 			 *
 			 * \~english
 			 * @brief Method of parsing the answer of the order resource
+			 *
 			 * @param data the view of the answer being parsed
 			 * @return     the reason of the failure or error_t::NONE
 			 *
@@ -268,6 +280,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Record of the ACME challenge
+		 *
 		 * @details The parsed record of a challenge of the authorization record according
 		 *          to the section 7.1.5 of RFC 8555
 		 *
@@ -304,6 +317,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Record of the ACME authorization
+		 *
 		 * @details The parsed answer of the authorization resource according to the
 		 *          section 7.1.4 of RFC 8555
 		 *
@@ -329,6 +343,7 @@ namespace nts {
 			 *
 			 * \~english
 			 * @brief Method of parsing the answer of the authorization resource
+			 *
 			 * @param data the view of the answer being parsed
 			 * @return     the reason of the failure or error_t::NONE
 			 *
@@ -366,6 +381,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Record of the failure of the ACME service
+		 *
 		 * @details The parsed application/problem+json answer according to RFC 7807
 		 *          and the section 6.7 of RFC 8555
 		 *
@@ -387,6 +403,7 @@ namespace nts {
 			 *
 			 * \~english
 			 * @brief Method of parsing the failure answer
+			 *
 			 * @param data the view of the answer being parsed
 			 * @return     the reason of the failure or error_t::NONE
 			 *
@@ -417,7 +434,7 @@ namespace nts {
 
 		/**
 		 * \~russian
-		 * @brief Метод сборки запроса ACME
+		 * @brief Функция сборки запроса ACME
 		 *
 		 * @param url     адрес ресурса запроса
 		 * @param nonce   метка новизны из ответа службы
@@ -426,7 +443,6 @@ namespace nts {
 		 * @param payload полезная нагрузка запроса, пустая у запроса POST-as-GET
 		 * @param signer  подготовленный секретный ключ учётной записи
 		 * @param result  строка, в которую помещается тело запроса application/jose+json
-		 *
 		 * @return        причина отказа либо error_t::NONE
 		 *
 		 * @details Запрос собирается по разделу 6.2 RFC 8555: заголовок JWS несёт
@@ -436,7 +452,8 @@ namespace nts {
 		 *          пустой строкой, как велит раздел 6.3
 		 *
 		 * \~english
-		 * @brief Method of assembling an ACME request
+		 * @brief Function of assembling an ACME request
+		 *
 		 * @param url     the address of the resource of the request
 		 * @param nonce   the nonce from the answer of the service
 		 * @param kid     the address of the account, empty at a record of the JWK key
@@ -445,6 +462,7 @@ namespace nts {
 		 * @param signer  the prepared secret key of the account
 		 * @param result  the string the application/jose+json request body is put into
 		 * @return        the reason of the failure or error_t::NONE
+		 *
 		 * @details The request is assembled according to the section 6.2 of RFC 8555:
 		 *          the JWS header carries the members alg, nonce, url and either kid or
 		 *          jwk (at the requests newAccount and revokeCert by the account key),
@@ -457,21 +475,23 @@ namespace nts {
 
 		/**
 		 * \~russian
-		 * @brief Метод сборки полезной нагрузки заведения учётной записи
+		 * @brief Функция сборки полезной нагрузки заведения учётной записи
 		 *
-		 * @param contacts          набор адресов связи («mailto:…»), вправе быть пустым
+		 * @param contacts             набор адресов связи («mailto:…»), вправе быть пустым
 		 * @param termsOfServiceAgreed признак согласия с условиями службы
 		 * @param onlyReturnExisting   признак запроса лишь существующей записи
-		 * @param result            строка, в которую помещается полезная нагрузка
+		 * @param result               строка, в которую помещается полезная нагрузка
 		 *
 		 * @details Полезная нагрузка запроса newAccount по разделу 7.3 RFC 8555
 		 *
 		 * \~english
-		 * @brief Method of assembling the payload of the account creation
+		 * @brief Function of assembling the payload of the account creation
+		 *
 		 * @param contacts             the set of the contact addresses («mailto:…»), may be empty
 		 * @param termsOfServiceAgreed the flag of the agreement with the terms of the service
 		 * @param onlyReturnExisting   the flag of the request of an existing account alone
 		 * @param result               the string the payload is put into
+		 *
 		 * @details The payload of the newAccount request according to the section 7.3 of RFC 8555
 		 *
 		 * \~
@@ -479,7 +499,7 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ void newAccount(const vector <string> & contacts, const bool termsOfServiceAgreed, const bool onlyReturnExisting, string & result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод сборки полезной нагрузки заведения заказа
+		 * @brief Функция сборки полезной нагрузки заведения заказа
 		 *
 		 * @param identifiers набор идентификаторов заказа: вид и значение
 		 * @param result      строка, в которую помещается полезная нагрузка
@@ -488,10 +508,12 @@ namespace nts {
 		 * @details Полезная нагрузка запроса newOrder по разделу 7.4 RFC 8555
 		 *
 		 * \~english
-		 * @brief Method of assembling the payload of the order creation
+		 * @brief Function of assembling the payload of the order creation
+		 *
 		 * @param identifiers the set of the identifiers of the order: kind and value
 		 * @param result      the string the payload is put into
 		 * @return            the reason of the failure or error_t::NONE
+		 *
 		 * @details The payload of the newOrder request according to the section 7.4 of RFC 8555
 		 *
 		 * \~
@@ -499,7 +521,7 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ error_t newOrder(const vector <pair <identifier_t, string>> & identifiers, string & result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод сборки полезной нагрузки завершения заказа
+		 * @brief Функция сборки полезной нагрузки завершения заказа
 		 *
 		 * @param csr    запись запроса на сертификат в кодировке DER
 		 * @param result строка, в которую помещается полезная нагрузка
@@ -508,9 +530,11 @@ namespace nts {
 		 *          запись запроса кодируется в base64url
 		 *
 		 * \~english
-		 * @brief Method of assembling the payload of the order finalization
+		 * @brief Function of assembling the payload of the order finalization
+		 *
 		 * @param csr    the certificate request record in the DER encoding
 		 * @param result the string the payload is put into
+		 *
 		 * @details The payload of the finalize request according to the section 7.4
 		 *          of RFC 8555: the request record is encoded into base64url
 		 *
@@ -519,7 +543,7 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ void finalize(const view_t & csr, string & result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод сборки полезной нагрузки отзыва сертификата
+		 * @brief Функция сборки полезной нагрузки отзыва сертификата
 		 *
 		 * @param certificate запись сертификата в кодировке DER
 		 * @param reason      причина отзыва по разделу 5.3.1 RFC 5280
@@ -529,10 +553,12 @@ namespace nts {
 		 *          запись сертификата кодируется в base64url
 		 *
 		 * \~english
-		 * @brief Method of assembling the payload of the certificate revocation
+		 * @brief Function of assembling the payload of the certificate revocation
+		 *
 		 * @param certificate the certificate record in the DER encoding
 		 * @param reason      the reason of the revocation according to the section 5.3.1 of RFC 5280
 		 * @param result      the string the payload is put into
+		 *
 		 * @details The payload of the revokeCert request according to the section 7.6
 		 *          of RFC 8555: the certificate record is encoded into base64url
 		 *
@@ -541,15 +567,17 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ void revokeCert(const view_t & certificate, const uint8_t reason, string & result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод сборки полезной нагрузки ответа на испытание
+		 * @brief Функция сборки полезной нагрузки ответа на испытание
 		 *
 		 * @param result строка, в которую помещается полезная нагрузка
 		 *
 		 * @details Ответ на испытание по разделу 7.5.1 RFC 8555: пустой объект
 		 *
 		 * \~english
-		 * @brief Method of assembling the payload of the answer to a challenge
+		 * @brief Function of assembling the payload of the answer to a challenge
+		 *
 		 * @param result the string the payload is put into
+		 *
 		 * @details The answer to a challenge according to the section 7.5.1 of RFC 8555:
 		 *          an empty object
 		 *
@@ -559,7 +587,7 @@ namespace nts {
 
 		/**
 		 * \~russian
-		 * @brief Метод выработки полномочного ключа испытания
+		 * @brief Функция выработки полномочного ключа испытания
 		 *
 		 * @param token  метка испытания
 		 * @param key    сведения об открытом ключе учётной записи
@@ -571,11 +599,13 @@ namespace nts {
 		 *          испытания http-01 и dns-01
 		 *
 		 * \~english
-		 * @brief Method of the production of the key authorization of a challenge
+		 * @brief Function of the production of the key authorization of a challenge
+		 *
 		 * @param token  the token of the challenge
 		 * @param key    the info of the public key of the account
 		 * @param result the string the key in base64url is put into
 		 * @return       the reason of the failure or error_t::NONE
+		 *
 		 * @details The key authorization according to the section 8.1 of RFC 8555:
 		 *          base64url(SHA-256(token ‖ '.' ‖ the JWK thumbprint of the account
 		 *          key)). The challenges http-01 and dns-01 are answered by it
@@ -585,7 +615,7 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ error_t keyAuthorization(const string & token, const keys::key_t & key, string & result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод выработки владения ключом испытания
+		 * @brief Функция выработки владения ключом испытания
 		 *
 		 * @param token  метка испытания
 		 * @param key    сведения об открытом ключе учётной записи
@@ -596,11 +626,13 @@ namespace nts {
 		 *          JWK ключа учётной записи. Им отвечают на испытание http-01
 		 *
 		 * \~english
-		 * @brief Method of the production of the key possession of a challenge
+		 * @brief Function of the production of the key possession of a challenge
+		 *
 		 * @param token  the token of the challenge
 		 * @param key    the info of the public key of the account
 		 * @param result the string the possession is put into
 		 * @return       the reason of the failure or error_t::NONE
+		 *
 		 * @details The key possession according to the section 8.1 of RFC 8555: token
 		 *          ‖ '.' ‖ the JWK thumbprint of the account key. The challenge
 		 *          http-01 is answered by it

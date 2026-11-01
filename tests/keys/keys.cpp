@@ -53,14 +53,13 @@
 using namespace nts;
 
 /**
- * @brief Метод запуска команды оболочки без консоли на входе
+ * @brief Функция запуска команды оболочки без консоли на входе
  *
  * @details stdin подаётся из /dev/null: у оболочки инструмента разработки он бывает
  *          сокетом, tcgetattr на нём отвечает EOPNOTSUPP, и консольный слой openssl
  *          валит разбор даже при пароле, заданном доводом
  *
  * @param command запускаемая команда
- *
  * @return        код возврата команды
  *
  */
@@ -113,6 +112,7 @@ namespace {
 	 * Ключи набора
 	 */
 	static const entry_t ENTRIES[] = {
+		// RSA-2048: буфер ключа 256 байтов, параметры не нужны
 		{"rsa2048", keys::kind_t::RSA, 256, ""},
 		{"ec256", keys::kind_t::EC, 32, P256},
 		{"ec384", keys::kind_t::EC, 48, P384},
@@ -126,10 +126,9 @@ namespace {
 	static const size_t BITS[] = {128, 192, 256};
 
 	/**
-	 * @brief Метод чтения файла целиком
+	 * @brief Функция чтения файла целиком
 	 *
 	 * @param path путь к читаемому файлу
-	 *
 	 * @return     содержимое файла
 	 *
 	 */
@@ -144,10 +143,9 @@ namespace {
 		return stream.str();
 	}
 	/**
-	 * @brief Метод чтения файла набора целиком
+	 * @brief Функция чтения файла набора целиком
 	 *
 	 * @param name имя файла в наборе
-	 *
 	 * @return     содержимое файла
 	 *
 	 */
@@ -156,10 +154,9 @@ namespace {
 		return slurp(std::string(CORPUS) + "/" + name);
 	}
 	/**
-	 * @brief Метод перевода строки в набор байтов
+	 * @brief Функция перевода строки в набор байтов
 	 *
 	 * @param text переводимая строка
-	 *
 	 * @return     набор байтов
 	 *
 	 */
@@ -168,10 +165,9 @@ namespace {
 		return std::vector <uint8_t> (text.begin(), text.end());
 	}
 	/**
-	 * @brief Метод получения просмотра набора байтов
+	 * @brief Функция получения просмотра набора байтов
 	 *
 	 * @param data просматриваемый набор байтов
-	 *
 	 * @return     просмотр набора байтов
 	 *
 	 */
@@ -180,10 +176,9 @@ namespace {
 		return view_t(data.data(), data.size());
 	}
 	/**
-	 * @brief Метод получения просмотра строки знаков
+	 * @brief Функция получения просмотра строки знаков
 	 *
 	 * @param text просматриваемая строка знаков
-	 *
 	 * @return     просмотр строки знаков
 	 *
 	 */
@@ -192,11 +187,10 @@ namespace {
 		return view_t(reinterpret_cast <const uint8_t *> (text), ::strlen(text));
 	}
 	/**
-	 * @brief Метод записи файла целиком
+	 * @brief Функция записи файла целиком
 	 *
 	 * @param path путь к записываемому файлу
 	 * @param data записываемое содержимое
-	 *
 	 * @return     признак успешности записи
 	 *
 	 */
@@ -209,11 +203,10 @@ namespace {
 		return file.good();
 	}
 	/**
-	 * @brief Метод записи набора байтов в файл
+	 * @brief Функция записи набора байтов в файл
 	 *
 	 * @param path путь к записываемому файлу
 	 * @param data записываемый набор байтов
-	 *
 	 * @return     признак успешности записи
 	 *
 	 */
@@ -222,10 +215,9 @@ namespace {
 		return spill(path, std::string(data.begin(), data.end()));
 	}
 	/**
-	 * @brief Метод извлечения тела первой записи PEM
+	 * @brief Функция извлечения тела первой записи PEM
 	 *
 	 * @param text разбираемый текст
-	 *
 	 * @return     тело первой записи в кодировке DER
 	 *
 	 */
@@ -240,11 +232,10 @@ namespace {
 		return blocks.front().data;
 	}
 	/**
-	 * @brief Метод хеширования набора байтов
+	 * @brief Функция хеширования набора байтов
 	 *
 	 * @param algorithm алгоритм хеширования
 	 * @param data      хешируемый набор байтов
-	 *
 	 * @return          хеш набора байтов
 	 *
 	 */
@@ -257,11 +248,10 @@ namespace {
 		return result;
 	}
 	/**
-	 * @brief Метод сличения открытых частей двух ключей
+	 * @brief Функция сличения открытых частей двух ключей
 	 *
 	 * @param first  первый ключ
 	 * @param second второй ключ
-	 *
 	 * @return       признак совпадения открытых частей
 	 *
 	 */
@@ -274,12 +264,11 @@ namespace {
 		);
 	}
 	/**
-	 * @brief Метод выработки подписи данных разобранным ключом
+	 * @brief Функция выработки подписи данных разобранным ключом
 	 *
 	 * @param key    ключ подписи
 	 * @param data   подписываемые данные
 	 * @param result место, в которое помещается подпись в виде, понятном openssl
-	 *
 	 * @return       признак успешности выработки подписи
 	 *
 	 */
@@ -294,7 +283,7 @@ namespace {
 				sign::rsa_t rsa;
 				// Если ключ установить не удалось
 				if(!key.load(rsa))
-					// Выводим отказ
+					// Выводим отрицательный результат - ключ RSA не установлен
 					return false;
 				// Хеш данных
 				const std::vector <uint8_t> digest = digested(digest::hash_t::SHA256, data);
@@ -311,7 +300,7 @@ namespace {
 				sign::ecdsa_t ecdsa;
 				// Если ключ установить не удалось
 				if(!key.load(ecdsa, curve))
-					// Выводим отказ
+					// Выводим отрицательный результат - ключ ECDSA не установлен
 					return false;
 				// Алгоритм хеширования по размеру кривой
 				const digest::hash_t algorithm = ((curve.size() == 32) ? digest::hash_t::SHA256 : digest::hash_t::SHA384);
@@ -321,7 +310,7 @@ namespace {
 				std::vector <uint8_t> raw(curve.size() * 2, 0);
 				// Если подпись выработать не удалось
 				if(!ecdsa.make(algorithm, view(digest), raw.data()))
-					// Выводим отказ
+					// Выводим отрицательный результат - подпись не выработана
 					return false;
 				// Выводим итог записи подписи в кодировке DER
 				return sign::encode(view(raw), result);
@@ -332,7 +321,7 @@ namespace {
 				sign::ed25519_t ed25519;
 				// Если ключ установить не удалось
 				if(!key.load(ed25519))
-					// Выводим отказ
+					// Выводим отрицательный результат - ключ Ed25519 не установлен
 					return false;
 				// Выделяем место под подпись
 				result.assign(sign::ed25519_t::SIGNATURE_SIZE, 0);
@@ -344,12 +333,11 @@ namespace {
 		return false;
 	}
 	/**
-	 * @brief Метод проверки подписи данных разобранным ключом
+	 * @brief Функция проверки подписи данных разобранным ключом
 	 *
 	 * @param key       ключ проверки подписи
 	 * @param data      подписанные данные
 	 * @param signature проверяемая подпись в виде, понятном openssl
-	 *
 	 * @return          признак того, что подпись сошлась
 	 *
 	 */
@@ -364,7 +352,7 @@ namespace {
 				sign::rsa_t rsa;
 				// Если ключ установить не удалось
 				if(!key.load(rsa))
-					// Выводим отказ
+					// Выводим отрицательный результат - ключ RSA не установлен
 					return false;
 				// Хеш данных
 				const std::vector <uint8_t> digest = digested(digest::hash_t::SHA256, data);
@@ -379,7 +367,7 @@ namespace {
 				sign::ecdsa_t ecdsa;
 				// Если ключ установить не удалось
 				if(!key.load(ecdsa, curve))
-					// Выводим отказ
+					// Выводим отрицательный результат - ключ ECDSA не установлен
 					return false;
 				// Алгоритм хеширования по размеру кривой
 				const digest::hash_t algorithm = ((curve.size() == 32) ? digest::hash_t::SHA256 : digest::hash_t::SHA384);
@@ -389,7 +377,7 @@ namespace {
 				std::vector <uint8_t> raw(curve.size() * 2, 0);
 				// Если подпись из кодировки DER разобрать не удалось
 				if(!sign::decode(view(signature), raw.data(), raw.size()))
-					// Выводим отказ
+					// Выводим отрицательный результат - подпись не разобрана
 					return false;
 				// Выводим итог проверки подписи
 				return ecdsa.check(view(digest), view(raw));
@@ -400,7 +388,7 @@ namespace {
 				sign::ed25519_t ed25519;
 				// Если ключ установить не удалось
 				if(!key.load(ed25519))
-					// Выводим отказ
+					// Выводим отрицательный результат - ключ Ed25519 не установлен
 					return false;
 				// Выводим итог проверки подписи
 				return ed25519.check(view(data), view(signature));
@@ -410,12 +398,11 @@ namespace {
 		return false;
 	}
 	/**
-	 * @brief Метод выработки ключа ГОСТ на заданной кривой средствами библиотеки
+	 * @brief Функция выработки ключа ГОСТ на заданной кривой средствами библиотеки
 	 *
 	 * @param oid       опознаватель кривой
 	 * @param algorithm опознаватель алгоритма ключа
 	 * @param result    место, в которое помещается выработанный ключ
-	 *
 	 * @return          признак успешности выработки ключа
 	 *
 	 */
@@ -424,19 +411,19 @@ namespace {
 		curve::curve_t curve;
 		// Если кривую установить не удалось
 		if(!curve::parameters(oid, curve))
-			// Выводим отказ
+			// Выводим отрицательный результат - кривая не установлена
 			return false;
 		// Объект модуля электронной подписи ГОСТ
 		sign::gost_t signer;
 		// Если кривую подписи установить не удалось
 		if(!signer.start(curve))
-			// Выводим отказ
+			// Выводим отрицательный результат - кривая подписи не установлена
 			return false;
 		// Выделяем место под секретный скаляр
 		result.d.assign(curve.size(), 0);
 		// Если секретный скаляр выработать библиотекой не удалось
 		if(!signer.generate(result.d.data(), result.d.size()))
-			// Выводим отказ
+			// Выводим отрицательный результат - секретный скаляр не выработан
 			return false;
 		// Устанавливаем вид ключа
 		result.kind = keys::kind_t::GOST;
@@ -462,7 +449,6 @@ namespace {
 			 * @brief Метод получения пути к файлу внутри каталога
 			 *
 			 * @param name имя файла
-			 *
 			 * @return     путь к файлу
 			 *
 			 */
@@ -867,6 +853,7 @@ TEST(KeysTest, Pkcs12){
 	ASSERT_TRUE(chain.empty());
 	// Порченая запись: последний байт перевёрнут
 	std::vector <uint8_t> damaged(der);
+	// Инвертируем последний байт записи
 	damaged[damaged.size() - 1] = static_cast <uint8_t> (damaged[damaged.size() - 1] ^ 0xFF);
 	// Проверяем отказ разбора порченой записи
 	ASSERT_NE(keys::decodePkcs12(view(damaged), view("secret"), key, chain), keys::error_t::NONE);
@@ -884,6 +871,7 @@ TEST(KeysTest, Signatures){
 	ASSERT_FALSE(data.empty());
 	// Имена ключей и подписей
 	const char * pairs[][2] = {
+		// Подпись SHA-256 под ключом RSA-2048
 		{"rsa2048", "sig.rsa.sha256"},
 		{"ec256", "sig.ec256.sha256"},
 		{"ec384", "sig.ec384.sha384"},
@@ -938,7 +926,7 @@ TEST(KeysTest, Signatures){
 TEST(KeysTest, Openssl){
 	// Если openssl недоступен
 	if(shell("openssl version >/dev/null 2>&1") != 0)
-		// Пропускаем проверку
+		// Пропускаем проверку без системного эталона
 		GTEST_SKIP() << "openssl недоступен";
 	// Если openssl не умеет Ed25519 (старше 1.1.1), обмен по набору невозможен
 	if(shell("openssl genpkey -algorithm ed25519 -out /dev/null >/dev/null 2>&1") != 0)
@@ -1091,6 +1079,7 @@ TEST(KeysTest, Openssl){
 TEST(KeysTest, Gost){
 	// Кривые и алгоритмы ключей
 	const char * sets[][2] = {
+		// Кривая tc26 paramSetA 256 битов и подпись ГОСТ на ней
 		{"1.2.643.7.1.2.1.1.1", "1.2.643.7.1.1.1.1"},
 		{"1.2.643.7.1.2.1.2.1", "1.2.643.7.1.1.1.2"},
 		{"1.2.643.2.2.35.1", "1.2.643.2.2.19"}
@@ -1690,23 +1679,30 @@ TEST(KeysTest, Signer){
 		keys::signer_t signer;
 		// Неподготовленный ключ не готов
 		ASSERT_FALSE(signer.ready());
+		// Вид ключа не определён
 		ASSERT_EQ(signer.kind(), keys::kind_t::NONE);
 		// Ключ согласования подписи не выполняет
 		if(entry.kind == keys::kind_t::X25519){
+			// Согласование подписи для X25519 отказывает
 			ASSERT_EQ(signer.prepare(text(pem)), keys::error_t::ALGORITHM) << "Ключ: " << entry.name;
+			// Готовность не появляется
 			ASSERT_FALSE(signer.ready());
 			continue;
 		}
 		// Готовим ключ по записи PEM
 		ASSERT_EQ(signer.prepare(text(pem)), keys::error_t::NONE) << "Ключ: " << entry.name;
+		// Ключ готов к подписи
 		ASSERT_TRUE(signer.ready()) << "Ключ: " << entry.name;
+		// Вид ключа совпадает с эталоном набора
 		ASSERT_EQ(signer.kind(), entry.kind) << "Ключ: " << entry.name;
 		// Готовим ключ по записи DER
 		keys::signer_t direct;
+		// Готовим ключ по записи DER
 		ASSERT_EQ(direct.prepare(view(der)), keys::error_t::NONE) << "Ключ: " << entry.name;
 		ASSERT_EQ(direct.kind(), entry.kind) << "Ключ: " << entry.name;
 		// Открытый ключ для сличения подписей
 		keys::key_t opened;
+		// Разбираем открытый ключ для сличения подписей
 		ASSERT_EQ(keys::decode(corpus(std::string(entry.name) + ".pub.pem"), view_t(), opened), keys::error_t::NONE) << "Ключ: " << entry.name;
 		/**
 		 * Определяем вид ключа
@@ -1718,7 +1714,9 @@ TEST(KeysTest, Signer){
 				uint8_t signature[512];
 				// Модуль сличения по открытому ключу
 				sign::rsa_t verifier;
+				// Загружаем открытый ключ в модуль сличения
 				ASSERT_TRUE(opened.load(verifier));
+				// Размеры модулей совпадают
 				ASSERT_EQ(signer.rsa().size(), verifier.size());
 				// Подписи подготовленных ключей сличаются открытым ключом
 				ASSERT_TRUE(signer.rsa().make(sign::scheme_t::PSS, digest::hash_t::SHA256, view_t(digest, sizeof(digest)), signature));
@@ -1735,14 +1733,19 @@ TEST(KeysTest, Signer){
 				uint8_t raw[math::NUMBER_SIZE * 2];
 				// Кривая и модуль сличения по открытому ключу
 				curve::curve_t curve;
+				// Модуль сличения по открытому ключу
 				sign::ecdsa_t verifier;
+				// Загружаем открытый ключ в кривую и модуль
 				ASSERT_TRUE(opened.load(verifier, curve));
 				ASSERT_TRUE(signer.curve().ready());
+				// Размер кривой совпадает с эталоном набора
 				ASSERT_EQ(signer.curve().size(), entry.size);
+				// Подпись подготовленного ключа сличается открытым ключом
 				ASSERT_TRUE(signer.ecdsa().make(digest::hash_t::SHA256, view_t(digest, sizeof(digest)), raw));
 				ASSERT_TRUE(verifier.check(view_t(digest, sizeof(digest)), view_t(raw, verifier.size())));
 				ASSERT_TRUE(direct.ecdsa().make(digest::hash_t::SHA256, view_t(digest, sizeof(digest)), raw));
 				ASSERT_TRUE(verifier.check(view_t(digest, sizeof(digest)), view_t(raw, verifier.size())));
+				// Модуль RSA пуст
 				ASSERT_FALSE(signer.rsa().ready());
 			} break;
 			// Ключ Ed25519
@@ -1751,11 +1754,13 @@ TEST(KeysTest, Signer){
 				uint8_t signature[64];
 				// Модуль сличения по открытому ключу
 				sign::ed25519_t verifier;
+				// Загружаем открытый ключ в модуль сличения
 				ASSERT_TRUE(opened.load(verifier));
 				ASSERT_TRUE(signer.ed25519().make(view("prepared key"), signature));
 				ASSERT_TRUE(verifier.check(view("prepared key"), view_t(signature, sizeof(signature))));
 				ASSERT_TRUE(direct.ed25519().make(view("prepared key"), signature));
 				ASSERT_TRUE(verifier.check(view("prepared key"), view_t(signature, sizeof(signature))));
+				// Модуль RSA пуст
 				ASSERT_FALSE(signer.rsa().ready());
 			} break;
 			// Прочие виды здесь не встречаются
@@ -1763,27 +1768,38 @@ TEST(KeysTest, Signer){
 		}
 		// Сброс ключа снимает готовность
 		signer.clear();
+		// Готовность снята
 		ASSERT_FALSE(signer.ready());
+		// Вид ключа не определён
 		ASSERT_EQ(signer.kind(), keys::kind_t::NONE);
 	}
 	// Ключ ГОСТ по записи PKCS #8
 	keys::key_t made;
+	// Создаём ключ ГОСТ по опознавателям алгоритмов
 	ASSERT_TRUE(gost("1.2.643.7.1.2.1.1.1", "1.2.643.7.1.1.1.1", made));
+	// Запись ключа в кодировке DER
 	std::vector <uint8_t> der;
+	// Записываем секретный ключ в запись PKCS #8
 	ASSERT_EQ(keys::encodePrivateKeyInfo(made, der), keys::error_t::NONE);
+	// Подписывающий ключ из записи
 	keys::signer_t packed;
+	// Готовим ключ по записи DER
 	ASSERT_EQ(packed.prepare(view(der)), keys::error_t::NONE);
 	ASSERT_EQ(packed.kind(), keys::kind_t::GOST);
 	ASSERT_EQ(packed.curve().size(), static_cast <size_t> (32));
 	// Тот же ключ голым скаляром по кривой
 	curve::curve_t curve;
+	// Заводим кривую по опознавателю набора
 	ASSERT_TRUE(curve::parameters("1.2.643.7.1.2.1.1.1", curve));
+	// Подписывающий ключ голого скаляра
 	keys::signer_t bare;
+	// Готовим ключ по голому скаляру
 	ASSERT_EQ(bare.prepare(view(made.d), curve), keys::error_t::NONE);
 	ASSERT_EQ(bare.kind(), keys::kind_t::GOST);
 	ASSERT_EQ(bare.curve().size(), static_cast <size_t> (32));
 	// Подпись голого скаляра сличается ключом из записи и наоборот
 	uint8_t signature[128];
+	// Подписываем эталон голым скаляром
 	ASSERT_TRUE(bare.gost().make(view_t(digest, sizeof(digest)), signature));
 	ASSERT_TRUE(packed.gost().check(view_t(digest, sizeof(digest)), view_t(signature, packed.gost().size())));
 	ASSERT_TRUE(packed.gost().make(view_t(digest, sizeof(digest)), signature));
@@ -1794,20 +1810,26 @@ TEST(KeysTest, Signer){
 	ASSERT_EQ(refused.prepare(view_t(), curve), keys::error_t::EMPTY);
 	// Незаведённая кривая
 	curve::curve_t blank;
+	// Подготовка по незаведённой кривой отказывает
 	ASSERT_EQ(refused.prepare(view(made.d), blank), keys::error_t::CURVE);
+	// Готовность не появляется
 	ASSERT_FALSE(refused.ready());
 	// Нулевой скаляр
 	const std::vector <uint8_t> zero(32, 0);
+	// Подготовка по нулевому скаляру отказывает
 	ASSERT_EQ(refused.prepare(view(zero), curve), keys::error_t::VALUE);
+	// Готовность не появляется
 	ASSERT_FALSE(refused.ready());
 	ASSERT_FALSE(refused.curve().ready());
 	// Пустая запись
 	ASSERT_EQ(refused.prepare(view_t()), keys::error_t::EMPTY);
 	// Мусор вместо записи
 	ASSERT_NE(refused.prepare(view("garbage instead of a key")), keys::error_t::NONE);
+	// Готовность не появляется
 	ASSERT_FALSE(refused.ready());
 	// Открытый ключ без секретной части
 	ASSERT_EQ(refused.prepare(text(corpus("ec256.pub.pem"))), keys::error_t::EMPTY);
+	// Готовность не появляется
 	ASSERT_FALSE(refused.ready());
 	// Подготовка после отказа возможна
 	ASSERT_EQ(refused.prepare(text(corpus("ec256.pem"))), keys::error_t::NONE);
@@ -1832,6 +1854,7 @@ TEST(KeysTest, Mldsa){
 		// Набор параметров
 		sign::mldsa_t::set_t set;
 	} SUITS[] = {
+		// ML-DSA-44: самый слабый из трёх наборов FIPS 204
 		{"44", sign::mldsa_t::set_t::DSA44},
 		{"65", sign::mldsa_t::set_t::DSA65},
 		{"87", sign::mldsa_t::set_t::DSA87}
@@ -1847,11 +1870,14 @@ TEST(KeysTest, Mldsa){
 	for(const Suit & suit : SUITS){
 		// Открытый ключ набора в записи PEM
 		keys::key_t opened;
+		// Разбираем открытый ключ набора
 		ASSERT_EQ(keys::decode(corpus(std::string("mldsa/") + "mldsa" + suit.name + "-pub.pem"), view_t(), opened), keys::error_t::NONE) << "Набор: " << suit.name;
 		ASSERT_EQ(opened.kind, keys::kind_t::MLDSA) << "Набор: " << suit.name;
 		// Модуль сличения по открытому ключу
 		sign::mldsa_t verifier;
+		// Загружаем открытый ключ в модуль сличения
 		ASSERT_TRUE(opened.load(verifier)) << "Набор: " << suit.name;
+		// Набор параметров совпадает с эталоном
 		ASSERT_EQ(verifier.set(), suit.set);
 		/**
 		 * Выполняем перебор видов записей ключа
@@ -1863,7 +1889,9 @@ TEST(KeysTest, Mldsa){
 			keys::signer_t signer;
 			// Готовим ключ по записи PEM
 			ASSERT_EQ(signer.prepare(text(pem)), keys::error_t::NONE) << "Ключ: mldsa" << suit.name << "-" << form;
+			// Ключ готов к подписи
 			ASSERT_TRUE(signer.ready()) << "Ключ: mldsa" << suit.name << "-" << form;
+			// Вид ключа совпадает с эталоном
 			ASSERT_EQ(signer.kind(), keys::kind_t::MLDSA) << "Ключ: mldsa" << suit.name << "-" << form;
 			ASSERT_EQ(signer.mldsa().set(), suit.set) << "Ключ: mldsa" << suit.name << "-" << form;
 			// Место подписи набора
@@ -1876,6 +1904,7 @@ TEST(KeysTest, Mldsa){
 			ASSERT_FALSE(signer.curve().ready());
 			// Сброс ключа снимает готовность
 			signer.clear();
+			// Готовность снята
 			ASSERT_FALSE(signer.ready());
 		}
 	}
@@ -1896,6 +1925,7 @@ TEST(KeysTest, MldsaRoundtrip){
 		// Опознаватель алгоритма
 		const char * oid;
 	} SUITS[] = {
+		// ML-DSA-44: опознаватель подписи FIPS 204
 		{"44", "2.16.840.1.101.3.4.3.17"},
 		{"65", "2.16.840.1.101.3.4.3.18"},
 		{"87", "2.16.840.1.101.3.4.3.19"}
@@ -1919,6 +1949,7 @@ TEST(KeysTest, MldsaRoundtrip){
 		ASSERT_EQ(keys::decode(text, view_t(), again), keys::error_t::NONE) << "Набор: " << suit.name;
 		// Проверяем совпадение частей ключа
 		ASSERT_TRUE(alike(key, again)) << "Набор: " << suit.name;
+		// Секретная часть совпадает байт в байт
 		ASSERT_EQ(again.d, key.d) << "Набор: " << suit.name;
 		// Проверяем запись открытого ключа в обёртке PEM
 		ASSERT_EQ(keys::encode(key, keys::container_t::PUBLIC, text), keys::error_t::NONE) << "Набор: " << suit.name;
@@ -1930,17 +1961,21 @@ TEST(KeysTest, MldsaRoundtrip){
 		ASSERT_TRUE(alike(key, reopened)) << "Набор: " << suit.name;
 		// Проверяем запись секретного ключа в кодировке DER без обёртки
 		std::vector <uint8_t> der;
+		// Записываем секретный ключ в запись PKCS #8
 		ASSERT_EQ(keys::encodePrivateKeyInfo(key, der), keys::error_t::NONE) << "Набор: " << suit.name;
 		// Разобранный вновь ключ из DER
 		keys::key_t direct;
+		// Разбираем запись ключа из DER
 		ASSERT_EQ(keys::decodePrivateKeyInfo(view(der), direct), keys::error_t::NONE) << "Набор: " << suit.name;
 		// Проверяем совпадение частей ключа
 		ASSERT_TRUE(alike(key, direct)) << "Набор: " << suit.name;
+		// Секретная часть совпадает байт в байт
 		ASSERT_EQ(direct.d, key.d) << "Набор: " << suit.name;
 		// Проверяем запись открытого ключа в кодировке DER без обёртки
 		ASSERT_EQ(keys::encodeSubjectPublicKeyInfo(key, der), keys::error_t::NONE) << "Набор: " << suit.name;
 		// Разобранный вновь открытый ключ из DER
 		keys::key_t subject;
+		// Разбираем открытый ключ из DER
 		ASSERT_EQ(keys::decodeSubjectPublicKeyInfo(view(der), subject), keys::error_t::NONE) << "Набор: " << suit.name;
 		// Проверяем совпадение частей ключа
 		ASSERT_TRUE(alike(key, subject)) << "Набор: " << suit.name;
@@ -1950,20 +1985,31 @@ TEST(KeysTest, MldsaRoundtrip){
 		keys::key_t seeded;
 		// Устанавливаем вид ключа и опознаватель алгоритма
 		seeded.kind = keys::kind_t::MLDSA;
+		// Устанавливаем опознаватель алгоритма
 		seeded.algorithm = "2.16.840.1.101.3.4.3.17";
 		// Зерно ключа
 		seeded.d.assign(32, 0);
-		for(size_t i = 0; i < 32; i++)
+		/**
+		 * Заполняем зерно порядковыми номерами байтов
+		 */
+		for(size_t i = 0; i < 32; i++){
+			// Заполняем очередной байт зерна
 			seeded.d[i] = static_cast <uint8_t> (i);
+		}
 		// Запись секретного ключа в кодировке DER
 		std::vector <uint8_t> der;
 		// Проверяем запись зерна
 		ASSERT_EQ(keys::encodePrivateKeyInfo(seeded, der), keys::error_t::NONE);
 		// Признак неявной метки зерна в записи
 		bool tagged = false;
-		// Проверяем наличие метки [0] зерна в записи
-		for(size_t i = 0; i + 1 < der.size(); i++)
+		/**
+		 * Проверяем наличие метки [0] зерна в записи
+		 */
+		for(size_t i = 0; i + 1 < der.size(); i++){
+			// Ищем признак неявной метки зерна
 			tagged = (tagged || ((der[i] == 0x80) && (der[i + 1] == 0x20)));
+		}
+		// Признак метки зерна найден
 		ASSERT_TRUE(tagged);
 		// Разобранный вновь ключ из записи зерна
 		keys::key_t again;
@@ -3266,5 +3312,680 @@ TEST(KeysTest, PrivateKeyInfoV1){
 		writer.close();
 		// Проверяем отказ разбора: открытый ключ не сошёлся с выведенным из зерна
 		ASSERT_EQ(keys::decodePrivateKeyInfo(writer.data(), key), keys::error_t::VALUE);
+	}
+}
+
+/**
+ * @brief Проверка глубоких веток разбора мешков PKCS #12 и обёртки PFX
+ *
+ * @note Мешки собираются вручную: второй keyBag, неведомый вид, certBag не X.509,
+ *       порча явных меток, EncryptedData не с данными и не с PBES2, предел оборотов
+ *
+ */
+TEST(KeysTest, Pkcs12Deep){
+	// Разобранный ключ донора
+	keys::key_t donor;
+	// Проверяем разбор донора
+	ASSERT_EQ(keys::decodePrivateKeyInfo(view(bytes(corpus("ec256.der"))), donor), keys::error_t::NONE);
+	// Запись PrivateKeyInfo донора
+	std::vector <uint8_t> pki;
+	// Проверяем запись PrivateKeyInfo донора
+	ASSERT_EQ(keys::encodePrivateKeyInfo(donor, pki), keys::error_t::NONE);
+	// Запись сертификата донора
+	const std::vector <uint8_t> cert = bytes(corpus("ec256.crt.der"));
+	// Проверяем наличие сертификата
+	ASSERT_FALSE(cert.empty());
+	// Запись EncryptedPrivateKeyInfo донора
+	std::vector <uint8_t> epi;
+	// Проверяем запись EncryptedPrivateKeyInfo донора
+	ASSERT_EQ(keys::encodeEncryptedPrivateKeyInfo(donor, view("secret"), epi, 256, 1000), keys::error_t::NONE);
+	// Сборка мешка SafeBag по виду и значению
+	auto bag = [](const char * kind, const std::vector <uint8_t> & value){
+		// Записываем мешок: опознаватель вида и явное значение [0]
+		asn1::writer_t writer;
+		// Открываем набор записи
+		writer.open(asn1::tag_t::SEQUENCE);
+		// Записываем опознаватель вида
+		writer.oid(kind);
+		// Открываем явную метку [0]
+		writer.open(asn1::cls_t::CONTEXT, 0);
+		// Разборщик готового значения мешка
+		asn1::reader_t reader(view(value));
+		// Элемент готового значения мешка
+		asn1::element_t element;
+		// Разбираем метку и содержимое значения мешка
+		reader.next(element);
+		// Переносим значение мешка с его собственной меткой
+		writer.element(element.cls, element.constructed, element.tag, element.content);
+		// Закрываем набор записи
+		writer.close();
+		// Закрываем набор записи
+		writer.close();
+		// Выводим собранную запись
+		return std::vector <uint8_t> (writer.data().data, writer.data().data + writer.data().size);
+	};
+	// Сборка сведений о содержимом по виду и телу
+	auto content = [](const char * kind, const std::vector <uint8_t> & body, const bool octets = true){
+		// Записываем сведения: опознаватель вида и явное тело
+		asn1::writer_t writer;
+		// Открываем набор записи
+		writer.open(asn1::tag_t::SEQUENCE);
+		// Записываем опознаватель вида
+		writer.oid(kind);
+		// Открываем явную метку [0]
+		writer.open(asn1::cls_t::CONTEXT, 0);
+		// Если тело переносится строкой байтов
+		if(octets)
+			// Записываем тело строкой байтов
+			writer.octets(view(body));
+		// Иначе тело является готовой записью
+		else {
+			// Разборщик готового тела содержимого
+			asn1::reader_t reader(view(body));
+			// Элемент готового тела содержимого
+			asn1::element_t element;
+			// Разбираем метку и содержимое готового тела
+			reader.next(element);
+			// Переносим тело с его собственной меткой
+			writer.element(element.cls, element.constructed, element.tag, element.content);
+		}
+		// Закрываем набор записи
+		writer.close();
+		// Закрываем набор записи
+		writer.close();
+		// Выводим собранную запись
+		return std::vector <uint8_t> (writer.data().data, writer.data().data + writer.data().size);
+	};
+	// Сборка SafeContents из набора сведений о содержимом
+	auto safe = [](const std::vector <std::vector <uint8_t>> & items){
+		// Записываем набор сведений о содержимом мешков
+		asn1::writer_t writer;
+		// Открываем набор записи
+		writer.open(asn1::tag_t::SEQUENCE);
+		/**
+		 * Перебираем сведения о содержимом мешков
+		 */
+		for(const std::vector <uint8_t> & item : items){
+			// Разборщик готовых сведений о содержимом
+			asn1::reader_t reader(view(item));
+			// Элемент готовых сведений о содержимом
+			asn1::element_t element;
+			// Разбираем метку и содержимое, чтобы не вложить набор повторно
+			reader.next(element);
+			// Переносим сведения о содержимом с их собственной меткой
+			writer.element(element.cls, element.constructed, element.tag, element.content);
+		}
+		// Закрываем набор записи
+		writer.close();
+		// Выводим собранную запись
+		return std::vector <uint8_t> (writer.data().data, writer.data().data + writer.data().size);
+	};
+	// Сборка записи PFX: издание 3, AuthenticatedSafe, необязательные MacData и хвост
+	auto pfx = [](const std::vector <uint8_t> & safeBytes, const std::vector <uint8_t> & mac, const bool trailing){
+		// Записываем PFX: издание, сведения о содержимом, мак если задан, хвост если порчен
+		asn1::writer_t writer;
+		// Открываем набор записи
+		writer.open(asn1::tag_t::SEQUENCE);
+		// Записываем издание записи
+		writer.integer(3);
+		// Открываем набор записи
+		writer.open(asn1::tag_t::SEQUENCE);
+		// Записываем опознаватель данных PKCS #7
+		writer.oid("1.2.840.113549.1.7.1");
+		// Открываем явную метку [0]
+		writer.open(asn1::cls_t::CONTEXT, 0);
+		// Записываем AuthenticatedSafe строкой байтов
+		writer.octets(view(safeBytes));
+		// Закрываем набор записи
+		writer.close();
+		// Закрываем набор записи
+		writer.close();
+		// Если имитовставка задана
+		if(!mac.empty()){
+			// Разборщик готовых сведений имитовставки
+			asn1::reader_t reader(view(mac));
+			// Элемент готовых сведений имитовставки
+			asn1::element_t element;
+			// Разбираем метку и содержимое, чтобы не вложить набор повторно
+			reader.next(element);
+			// Переносим сведения имитовставки с их собственной меткой
+			writer.element(element.cls, element.constructed, element.tag, element.content);
+		}
+		// Если запись порчена хвостом
+		if(trailing)
+			// Дописываем лишний элемент хвоста
+			writer.integer(1);
+		// Закрываем набор записи
+		writer.close();
+		// Выводим собранную запись
+		return std::vector <uint8_t> (writer.data().data, writer.data().data + writer.data().size);
+	};
+	// Сборка сведений имитовставки MacData
+	auto macdata = [](const std::vector <uint8_t> & mac, const std::vector <uint8_t> & salt, const int64_t iterations, const bool extra){
+		// Записываем MacData: DigestInfo, соль, обороты и лишний элемент если порчен
+		asn1::writer_t writer;
+		// Открываем набор записи
+		writer.open(asn1::tag_t::SEQUENCE);
+		// Открываем набор записи
+		writer.open(asn1::tag_t::SEQUENCE);
+		// Открываем набор записи
+		writer.open(asn1::tag_t::SEQUENCE);
+		// Записываем опознаватель SHA-256
+		writer.oid("2.16.840.1.101.3.4.2.1");
+		// Закрываем набор записи
+		writer.close();
+		// Записываем имитовставку строкой байтов
+		writer.octets(view(mac));
+		// Закрываем набор записи
+		writer.close();
+		// Записываем соль строкой байтов
+		writer.octets(view(salt));
+		// Записываем число оборотов
+		writer.integer(iterations);
+		// Если сведения порчены хвостом
+		if(extra)
+			// Дописываем лишнюю строку байтов хвоста MacData
+			writer.octets(view(salt));
+		// Закрываем набор записи
+		writer.close();
+		// Выводим собранную запись
+		return std::vector <uint8_t> (writer.data().data, writer.data().data + writer.data().size);
+	};
+	// Сборка EncryptedData с выбранными видом содержимого и схемой
+	auto encrypted = [](const char * viewOid, const char * schemeOid, const std::vector <uint8_t> & body){
+		// Записываем EncryptedData: издание, вид содержимого, алгоритм и шифртекст [0]
+		asn1::writer_t writer;
+		// Открываем набор записи
+		writer.open(asn1::tag_t::SEQUENCE);
+		// Записываем издание зашифрованного содержимого
+		writer.integer(0);
+		// Открываем набор записи
+		writer.open(asn1::tag_t::SEQUENCE);
+		// Записываем вид содержимого
+		writer.oid(viewOid);
+		// Открываем набор записи
+		writer.open(asn1::tag_t::SEQUENCE);
+		// Записываем схему защиты
+		writer.oid(schemeOid);
+		// Закрываем набор записи
+		writer.close();
+		// Открываем явную метку [0]
+		writer.open(asn1::cls_t::CONTEXT, 0);
+		// Записываем тело строкой байтов
+		writer.octets(view(body));
+		// Закрываем набор записи
+		writer.close();
+		// Закрываем набор записи
+		writer.close();
+		// Закрываем набор записи
+		writer.close();
+		// Выводим собранную запись
+		return std::vector <uint8_t> (writer.data().data, writer.data().data + writer.data().size);
+	};
+	// Опознаватели видов мешков и содержимого
+	// Опознаватель мешка keyBag
+	const char * keybag = "1.2.840.113549.1.12.10.1.1";
+	// Опознаватель мешка shroudedKeyBag
+	const char * shrouded = "1.2.840.113549.1.12.10.1.2";
+	// Опознаватель мешка certBag
+	const char * certbag = "1.2.840.113549.1.12.10.1.3";
+	// Опознаватель сертификата X.509
+	const char * x509 = "1.2.840.113549.1.9.22.1";
+	// Опознаватель данных PKCS #7
+	const char * data = "1.2.840.113549.1.7.1";
+	// Опознаватель зашифрованных данных PKCS #7
+	const char * encryptedOid = "1.2.840.113549.1.7.6";
+	// Опознаватель схемы PBES2
+	const char * pbes2 = "1.2.840.113549.1.5.13";
+	// Сборка сведений данных с одним мешком внутри SafeContents
+	auto dataContent = [&](const std::vector <uint8_t> & value){
+		// Оборачиваем мешок в набор SafeContents и кладём в сведения данных
+		return content(data, safe({value}));
+	};
+	// Запись certBag годного вида: X.509 и строка байтов сертификата
+	auto certbagValue = [&](const char * certOid, const std::vector <uint8_t> & record){
+		// Записываем значение certBag: вид сертификата и явная строка байтов записи
+		asn1::writer_t writer;
+		// Открываем набор записи
+		writer.open(asn1::tag_t::SEQUENCE);
+		// Записываем вид сертификата
+		writer.oid(certOid);
+		// Открываем явную метку [0]
+		writer.open(asn1::cls_t::CONTEXT, 0);
+		// Записываем сертификат строкой байтов
+		writer.octets(view(record));
+		// Закрываем набор записи
+		writer.close();
+		// Закрываем набор записи
+		writer.close();
+		// Выводим собранную запись
+		return std::vector <uint8_t> (writer.data().data, writer.data().data + writer.data().size);
+	};
+	// Перевод просмотра записи в набор байтов
+	auto toBytes = [](const view_t & data){
+		// Выводим набор байтов просмотра
+		return std::vector <uint8_t> (data.data, data.data + data.size);
+	};
+	// Разобранные ключ и цепочка для прогонов
+	keys::key_t key;
+	// Цепочка сертификатов
+	std::vector <std::vector <uint8_t>> chain;
+	{
+		// Два мешка keyBag подряд: второй ключ записи недопустим
+		const std::vector <uint8_t> der = pfx(safe({dataContent(bag(keybag, pki)), dataContent(bag(keybag, pki))}), {}, false);
+		// Проверяем отказ устройства записи с двумя ключами
+		ASSERT_EQ(keys::decodePkcs12(view(der), view("secret"), key, chain), keys::error_t::STRUCTURE);
+	}
+	{
+		// Мешок keyBag с гнилым значением: вместо PrivateKeyInfo целое число
+		asn1::writer_t wrong;
+		// Записываем целое число
+		wrong.integer(1);
+		// Собираем запись с гнилым значением keyBag
+		const std::vector <uint8_t> der = pfx(safe({dataContent(bag(keybag, toBytes(wrong.data())))}), {}, false);
+		// Проверяем отказ разбора гнилого значения
+		ASSERT_NE(keys::decodePkcs12(view(der), view("secret"), key, chain), keys::error_t::NONE);
+	}
+	{
+		// Мешок keyBag с пустым PrivateKeyInfo: набор пуст
+		asn1::writer_t wrong;
+		// Открываем набор записи
+		wrong.open(asn1::tag_t::SEQUENCE);
+		// Закрываем набор записи
+		wrong.close();
+		// Собираем запись с пустым PrivateKeyInfo
+		const std::vector <uint8_t> der = pfx(safe({dataContent(bag(keybag, toBytes(wrong.data())))}), {}, false);
+		// Проверяем отказ разбора пустого PrivateKeyInfo
+		ASSERT_NE(keys::decodePkcs12(view(der), view("secret"), key, chain), keys::error_t::NONE);
+	}
+	{
+		// Мешок без явного значения [0]: опознаватель есть, значения нет
+		asn1::writer_t wrong;
+		// Открываем набор записи
+		wrong.open(asn1::tag_t::SEQUENCE);
+		// Записываем вид мешка keyBag
+		wrong.oid(keybag);
+		// Закрываем набор записи
+		wrong.close();
+		// Собираем запись с мешком без явного значения
+		const std::vector <uint8_t> der = pfx(safe({dataContent(toBytes(wrong.data()))}), {}, false);
+		// Проверяем отказ разбора мешка без явного значения
+		ASSERT_NE(keys::decodePkcs12(view(der), view("secret"), key, chain), keys::error_t::NONE);
+	}
+	{
+		// Мешок с целым числом вместо опознавателя вида
+		asn1::writer_t wrong;
+		// Открываем набор записи
+		wrong.open(asn1::tag_t::SEQUENCE);
+		// Записываем целое число
+		wrong.integer(1);
+		// Закрываем набор записи
+		wrong.close();
+		// Собираем запись с гнилым опознавателем мешка
+		const std::vector <uint8_t> der = pfx(safe({dataContent(toBytes(wrong.data()))}), {}, false);
+		// Проверяем отказ разбора гнилого опознавателя
+		ASSERT_NE(keys::decodePkcs12(view(der), view("secret"), key, chain), keys::error_t::NONE);
+	}
+	{
+		// Мешок certBag с видом не X.509
+		const std::vector <uint8_t> der = pfx(safe({dataContent(bag(certbag, certbagValue("1.2.840.113549.1.9.22.2", cert)))}), {}, false);
+		// Проверяем отказ устройства записи с чужим видом сертификата
+		ASSERT_EQ(keys::decodePkcs12(view(der), view("secret"), key, chain), keys::error_t::STRUCTURE);
+	}
+	{
+		// Мешок certBag без явной строки байтов сертификата: после вида нет [0]
+		asn1::writer_t wrong;
+		// Открываем набор записи
+		wrong.open(asn1::tag_t::SEQUENCE);
+		// Записываем вид сертификата X.509
+		wrong.oid(x509);
+		// Закрываем набор записи
+		wrong.close();
+		// Собираем запись с certBag без явной строки байтов
+		const std::vector <uint8_t> der = pfx(safe({dataContent(bag(certbag, toBytes(wrong.data())))}), {}, false);
+		// Проверяем отказ разбора certBag без явной строки байтов
+		ASSERT_NE(keys::decodePkcs12(view(der), view("secret"), key, chain), keys::error_t::NONE);
+	}
+	{
+		// Мешок certBag с целым числом вместо строки байтов сертификата
+		asn1::writer_t wrong;
+		// Открываем набор записи
+		wrong.open(asn1::tag_t::SEQUENCE);
+		// Записываем вид сертификата X.509
+		wrong.oid(x509);
+		// Открываем явную метку [0]
+		wrong.open(asn1::cls_t::CONTEXT, 0);
+		// Записываем целое число
+		wrong.integer(1);
+		// Закрываем набор записи
+		wrong.close();
+		// Закрываем набор записи
+		wrong.close();
+		// Собираем запись с гнилой строкой байтов сертификата
+		const std::vector <uint8_t> der = pfx(safe({dataContent(bag(certbag, toBytes(wrong.data())))}), {}, false);
+		// Проверяем отказ разбора гнилой строкой байтов
+		ASSERT_NE(keys::decodePkcs12(view(der), view("secret"), key, chain), keys::error_t::NONE);
+	}
+	{
+		// Мешок неведомого вида пропускается, годный keyBag читается
+		const std::vector <uint8_t> der = pfx(safe({dataContent(bag("1.2.840.113549.1.12.10.1.99", pki)), dataContent(bag(keybag, pki))}), {}, false);
+		// Проверяем успешный разбор: неведомый мешок пропущен, ключ разобран
+		ASSERT_EQ(keys::decodePkcs12(view(der), view("secret"), key, chain), keys::error_t::NONE);
+	}
+	{
+		// Только certBag без keyBag: ключа записи нет
+		const std::vector <uint8_t> der = pfx(safe({dataContent(bag(certbag, certbagValue(x509, cert)))}), {}, false);
+		// Проверяем отказ пустой записи
+		ASSERT_EQ(keys::decodePkcs12(view(der), view("secret"), key, chain), keys::error_t::EMPTY);
+	}
+	{
+		// Мешок keyBag, затем shroudedKeyBag: второй ключ недопустим
+		const std::vector <uint8_t> der = pfx(safe({dataContent(bag(keybag, pki)), dataContent(bag(shrouded, epi))}), {}, false);
+		// Проверяем отказ устройства записи с двумя ключами разных видов
+		ASSERT_EQ(keys::decodePkcs12(view(der), view("secret"), key, chain), keys::error_t::STRUCTURE);
+	}
+	{
+		// Мешок shroudedKeyBag с гнилым значением: вместо EncryptedPrivateKeyInfo целое число
+		asn1::writer_t wrong;
+		// Записываем целое число
+		wrong.integer(1);
+		// Собираем запись с гнилым значением shroudedKeyBag
+		const std::vector <uint8_t> der = pfx(safe({dataContent(bag(shrouded, toBytes(wrong.data())))}), {}, false);
+		// Проверяем отказ разбора гнилого значения shroudedKeyBag
+		ASSERT_NE(keys::decodePkcs12(view(der), view("secret"), key, chain), keys::error_t::NONE);
+	}
+	{
+		// Мешок shroudedKeyBag с пустым EncryptedPrivateKeyInfo: набор пуст
+		asn1::writer_t wrong;
+		// Открываем набор записи
+		wrong.open(asn1::tag_t::SEQUENCE);
+		// Закрываем набор записи
+		wrong.close();
+		// Собираем запись с пустым EncryptedPrivateKeyInfo
+		const std::vector <uint8_t> der = pfx(safe({dataContent(bag(shrouded, toBytes(wrong.data())))}), {}, false);
+		// Проверяем отказ разбора пустого EncryptedPrivateKeyInfo
+		ASSERT_NE(keys::decodePkcs12(view(der), view("secret"), key, chain), keys::error_t::NONE);
+	}
+	{
+		// MacData с нулевым числом оборотов: схема не дозволена
+		const std::vector <uint8_t> mac = macdata(std::vector <uint8_t> (32, 0), std::vector <uint8_t> (8, 0), 0, false);
+		// Собираем запись с нулевым числом оборотов
+		const std::vector <uint8_t> der = pfx(safe({dataContent(bag(keybag, pki))}), mac, false);
+		// Проверяем отказ схемы по числу оборотов
+		ASSERT_EQ(keys::decodePkcs12(view(der), view("secret"), key, chain), keys::error_t::CIPHER);
+	}
+	{
+		// MacData с числом оборотов выше предела: схема не дозволена
+		const std::vector <uint8_t> mac = macdata(std::vector <uint8_t> (32, 0), std::vector <uint8_t> (8, 0), 10000001, false);
+		// Собираем запись с числом оборотов выше предела
+		const std::vector <uint8_t> der = pfx(safe({dataContent(bag(keybag, pki))}), mac, false);
+		// Проверяем отказ схемы по числу оборотов
+		ASSERT_EQ(keys::decodePkcs12(view(der), view("secret"), key, chain), keys::error_t::CIPHER);
+	}
+	{
+		// MacData с лишним элементом после оборотов: устройство записи не дозволено
+		const std::vector <uint8_t> mac = macdata(std::vector <uint8_t> (32, 0), std::vector <uint8_t> (8, 0), 1000, true);
+		// Собираем запись с лишним элементом MacData
+		const std::vector <uint8_t> der = pfx(safe({dataContent(bag(keybag, pki))}), mac, false);
+		// Проверяем отказ устройства записи
+		ASSERT_EQ(keys::decodePkcs12(view(der), view("secret"), key, chain), keys::error_t::STRUCTURE);
+	}
+	{
+		// Лишний элемент после MacData: устройство записи не дозволено
+		const std::vector <uint8_t> mac = macdata(std::vector <uint8_t> (32, 0), std::vector <uint8_t> (8, 0), 1000, false);
+		// Собираем запись с хвостом после MacData
+		const std::vector <uint8_t> der = pfx(safe({dataContent(bag(keybag, pki))}), mac, true);
+		// Проверяем отказ устройства записи
+		ASSERT_EQ(keys::decodePkcs12(view(der), view("secret"), key, chain), keys::error_t::STRUCTURE);
+	}
+	{
+		// Сведения о содержимом неведомого вида: не данные и не зашифрованные данные
+		const std::vector <uint8_t> der = pfx(safe({content(pbes2, bag(keybag, pki))}), {}, false);
+		// Проверяем отказ устройства записи с чужим видом содержимого
+		ASSERT_EQ(keys::decodePkcs12(view(der), view("secret"), key, chain), keys::error_t::STRUCTURE);
+	}
+	{
+		// EncryptedData с видом содержимого не данные: устройство записи не дозволено
+		const std::vector <uint8_t> body = encrypted(pbes2, pbes2, std::vector <uint8_t> (16, 0));
+		// Собираем запись с EncryptedData не с данными
+		const std::vector <uint8_t> der = pfx(safe({content(encryptedOid, body, false)}), {}, false);
+		// Проверяем отказ устройства записи
+		ASSERT_EQ(keys::decodePkcs12(view(der), view("secret"), key, chain), keys::error_t::STRUCTURE);
+	}
+	{
+		// EncryptedData со схемой не PBES2: схема не дозволена
+		const std::vector <uint8_t> body = encrypted(data, data, std::vector <uint8_t> (16, 0));
+		// Собираем запись с EncryptedData со схемой не PBES2
+		const std::vector <uint8_t> der = pfx(safe({content(encryptedOid, body, false)}), {}, false);
+		// Проверяем отказ схемы
+		ASSERT_EQ(keys::decodePkcs12(view(der), view("secret"), key, chain), keys::error_t::CIPHER);
+	}
+	{
+		// AuthenticatedSafe не является набором: целое число вместо набора
+		asn1::writer_t wrong;
+		// Записываем целое число
+		wrong.integer(1);
+		// Собираем запись с AuthenticatedSafe не набором
+		const std::vector <uint8_t> der = pfx(toBytes(wrong.data()), {}, false);
+		// Проверяем отказ разбора AuthenticatedSafe не набором
+		ASSERT_NE(keys::decodePkcs12(view(der), view("secret"), key, chain), keys::error_t::NONE);
+	}
+	{
+		// SafeContents с целым числом вместо сведений о содержимом: набор не читается
+		asn1::writer_t wrong;
+		// Записываем целое число
+		wrong.integer(1);
+		// Собираем запись с гнилыми сведениями о содержимом
+		const std::vector <uint8_t> der = pfx(safe({toBytes(wrong.data())}), {}, false);
+		// Проверяем отказ разбора гнилых сведений о содержимом
+		ASSERT_NE(keys::decodePkcs12(view(der), view("secret"), key, chain), keys::error_t::NONE);
+	}
+}
+
+/**
+ * @brief Проверка веток выведения открытой части: несовпадение и восполнение
+ *
+ * @note Открытая часть специально портится либо убирается из записи: derive обязан
+ *       ответить VALUE при несовпадении и NONE с восполнением при отсутствии
+ *
+ */
+TEST(KeysTest, DeriveMismatch){
+	// Сборка OneAsymmetricKey с необязательной открытой частью
+	auto openKey = [](const keys::key_t & donor, const std::vector <uint8_t> & opened){
+		// Опознаватель алгоритма ключа по RFC 8410
+		const char * algorithm = nullptr;
+		// Если записывается ключ Ed25519
+		if(donor.kind == keys::kind_t::ED25519)
+			// Устанавливаем опознаватель Ed25519
+			algorithm = "1.3.101.112";
+		// Если записывается ключ X25519
+		else if(donor.kind == keys::kind_t::X25519)
+			// Устанавливаем опознаватель X25519
+			algorithm = "1.3.101.110";
+		// Иначе записывается ключ Ed448
+		else
+			// Устанавливаем опознаватель Ed448
+			algorithm = "1.3.101.113";
+		// Записываем CurvePrivateKey: зерно во внутренней строке байтов
+		asn1::writer_t body;
+		// Записываем зерно донора
+		body.octets(view(donor.d));
+		// Содержимое неявной строки битов: нуль неиспользуемых разрядов и открытый ключ
+		std::vector <uint8_t> bits(1, 0);
+		// Дописываем открытый ключ после счётчика неиспользуемых разрядов
+		bits.insert(bits.end(), opened.begin(), opened.end());
+		// Записываем OneAsymmetricKey с открытой частью
+		asn1::writer_t writer;
+		// Открываем набор OneAsymmetricKey
+		writer.open(asn1::tag_t::SEQUENCE);
+		// Издание 1 обязательно при наличии поля publicKey, без него пишется издание 0
+		writer.integer(opened.empty() ? 0 : 1);
+		// Открываем набор AlgorithmIdentifier
+		writer.open(asn1::tag_t::SEQUENCE);
+		// Записываем опознаватель алгоритма без параметров
+		writer.oid(algorithm);
+		// Закрываем набор AlgorithmIdentifier
+		writer.close();
+		// Записываем CurvePrivateKey во внешней строке байтов
+		writer.octets(body.data());
+		// Если открытая часть записывается
+		if(!opened.empty())
+			// Записываем открытый ключ неявной строкой битов [1]
+			writer.element(asn1::cls_t::CONTEXT, false, 1, view(bits));
+		// Закрываем набор OneAsymmetricKey
+		writer.close();
+		// Выводим собранную запись
+		return std::vector <uint8_t> (writer.data().data, writer.data().data + writer.data().size);
+	};
+	// Донор EC: открытая часть портится и убирается
+	{
+		// Разобранный ключ донора
+		keys::key_t donor;
+		// Проверяем разбор донора
+		ASSERT_EQ(keys::decodePrivateKeyInfo(view(bytes(corpus("ec256.der"))), donor), keys::error_t::NONE);
+		// Ключ с другим скаляром и прежней годной точкой: выведенная точка не совпадёт с записанной
+		keys::key_t mixed = donor;
+		// Меняем младший разряд скаляра, сохраняя его в дозволенном диапазоне кривой
+		mixed.d.back() ^= 1;
+		// Запись с несовпадающей открытой частью
+		std::vector <uint8_t> der;
+		// Записываем ключ с порченой открытой частью
+		ASSERT_EQ(keys::encodePrivateKeyInfo(mixed, der), keys::error_t::NONE);
+		// Проверяем отказ: открытая часть не сошлась с выведенной
+		keys::key_t key;
+		// Проверяем отказ несовпадения открытой части
+		ASSERT_EQ(keys::decodePrivateKeyInfo(view(der), key), keys::error_t::VALUE);
+		// Полная запись донора, из которой убирается необязательная открытая точка
+		std::vector <uint8_t> full;
+		// Записываем донора перед удалением поля publicKey
+		ASSERT_EQ(keys::encodePrivateKeyInfo(donor, full), keys::error_t::NONE);
+		// Разборщик верхней записи PrivateKeyInfo
+		asn1::reader_t top(view(full));
+		// Верхний набор PrivateKeyInfo
+		asn1::element_t pki;
+		// Разбираем верхний набор PrivateKeyInfo
+		ASSERT_TRUE(top.next(asn1::tag_t::SEQUENCE, pki));
+		// Разборщик полей PrivateKeyInfo
+		asn1::reader_t fields(pki.content);
+		// Поля PrivateKeyInfo, которые переносятся без изменений
+		asn1::element_t version, algorithm, secret;
+		// Разбираем издание PrivateKeyInfo
+		ASSERT_TRUE(fields.next(asn1::tag_t::INTEGER, version));
+		// Разбираем алгоритм PrivateKeyInfo
+		ASSERT_TRUE(fields.next(asn1::tag_t::SEQUENCE, algorithm));
+		// Разбираем секретную запись ECPrivateKey
+		ASSERT_TRUE(fields.next(asn1::tag_t::OCTET_STRING, secret));
+		// Разборщик записи ECPrivateKey
+		asn1::reader_t embedded(secret.content);
+		// Набор записи ECPrivateKey
+		asn1::element_t eckey;
+		// Разбираем набор ECPrivateKey
+		ASSERT_TRUE(embedded.next(asn1::tag_t::SEQUENCE, eckey));
+		// Записываем ECPrivateKey без необязательного поля publicKey
+		asn1::writer_t shortened;
+		// Открываем набор ECPrivateKey
+		shortened.open(asn1::tag_t::SEQUENCE);
+		// Разборщик полей ECPrivateKey
+		asn1::reader_t inner(eckey.content);
+		// Признак удалённого поля publicKey
+		bool stripped = false;
+		/**
+		 * Перебираем поля ECPrivateKey
+		 */
+		while(!inner.empty()){
+			// Очередное поле ECPrivateKey
+			asn1::element_t element;
+			// Разбираем очередное поле ECPrivateKey
+			ASSERT_TRUE(inner.next(element));
+			// Если встретилось необязательное поле publicKey
+			if((element.cls == asn1::cls_t::CONTEXT) && (element.tag == 1)){
+				// Отмечаем удаление открытой точки
+				stripped = true;
+				// Пропускаем поле publicKey, остальные поля сохраняем
+				continue;
+			}
+			// Переносим поле с его собственной меткой
+			shortened.element(element.cls, element.constructed, element.tag, element.content);
+		}
+		// Проверяем, что донор действительно нёс открытую точку
+		ASSERT_TRUE(stripped);
+		// Закрываем укороченный набор ECPrivateKey
+		shortened.close();
+		// Запись PrivateKeyInfo без открытой части
+		std::vector <uint8_t> open;
+		// Записываем PrivateKeyInfo с укороченным ECPrivateKey
+		asn1::writer_t writer;
+		// Открываем набор PrivateKeyInfo
+		writer.open(asn1::tag_t::SEQUENCE);
+		// Переносим издание записи
+		writer.element(version.cls, version.constructed, version.tag, version.content);
+		// Переносим алгоритм записи
+		writer.element(algorithm.cls, algorithm.constructed, algorithm.tag, algorithm.content);
+		// Записываем укороченный ECPrivateKey строкой байтов
+		writer.octets(shortened.data());
+		// Закрываем набор PrivateKeyInfo
+		writer.close();
+		// Переносим собранную запись в набор байтов
+		open.assign(writer.data().data, writer.data().data + writer.data().size);
+		// Проверяем успешный разбор с восполнением открытой части
+		// Проверяем успешное восполнение открытой части
+		ASSERT_EQ(keys::decodePrivateKeyInfo(view(open), key), keys::error_t::NONE);
+		// Проверяем, что открытая часть восполнена
+		ASSERT_FALSE(key.x.empty());
+		// Проверяем восполнение координаты y
+		ASSERT_FALSE(key.y.empty());
+	}
+	// Доноры Ed25519 и X25519: открытый ключ портится и убирается
+	/**
+	 * Перебираем доноров Ed25519 и X25519
+	 */
+	for(const char * name : {"ed25519", "x25519"}){
+		// Разобранный ключ донора
+		keys::key_t donor;
+		// Проверяем разбор донора
+		ASSERT_EQ(keys::decodePrivateKeyInfo(view(bytes(corpus(std::string(name) + ".der"))), donor), keys::error_t::NONE) << name;
+		// Открытый ключ с нулевыми байтами: заведомо не совпадает с выведенным
+		keys::key_t mixed = donor;
+		// Обнуляем открытый ключ
+		mixed.key.assign(donor.key.size(), 0);
+		// Запись OneAsymmetricKey с несовпадающим открытым ключом
+		const std::vector <uint8_t> der = openKey(donor, mixed.key);
+		// Проверяем отказ: открытый ключ не сошёлся с выведенным
+		keys::key_t key;
+		// Проверяем отказ несовпадения открытой части
+		ASSERT_EQ(keys::decodePrivateKeyInfo(view(der), key), keys::error_t::VALUE) << name;
+		// Запись без открытого ключа: derive восполняет его из зерна
+		const std::vector <uint8_t> open = openKey(donor, {});
+		// Проверяем успешный разбор с восполнением открытого ключа
+		// Проверяем успешное восполнение открытой части
+		ASSERT_EQ(keys::decodePrivateKeyInfo(view(open), key), keys::error_t::NONE) << name;
+		// Проверяем, что открытый ключ восполнен
+		// Проверяем восполнение открытого ключа
+		ASSERT_FALSE(key.key.empty()) << name;
+	}
+	// Донор Ed448: открытый ключ портится и убирается
+	{
+		// Разобранный ключ донора
+		keys::key_t donor;
+		// Проверяем разбор донора
+		ASSERT_EQ(keys::decode(corpus("ed448.key"), view_t(), donor), keys::error_t::NONE);
+		// Открытый ключ с нулевыми байтами: заведомо не совпадает с выведенным
+		keys::key_t mixed = donor;
+		// Обнуляем открытый ключ
+		mixed.key.assign(donor.key.size(), 0);
+		// Запись OneAsymmetricKey с несовпадающим открытым ключом
+		const std::vector <uint8_t> der = openKey(donor, mixed.key);
+		// Проверяем отказ: открытый ключ не сошёлся с выведенным
+		keys::key_t key;
+		// Проверяем отказ несовпадения открытой части
+		ASSERT_EQ(keys::decodePrivateKeyInfo(view(der), key), keys::error_t::VALUE);
+		// Запись без открытого ключа: derive восполняет его из зерна
+		const std::vector <uint8_t> open = openKey(donor, {});
+		// Проверяем успешный разбор с восполнением открытого ключа
+		// Проверяем успешное восполнение открытой части
+		ASSERT_EQ(keys::decodePrivateKeyInfo(view(open), key), keys::error_t::NONE);
+		// Проверяем, что открытый ключ восполнен
+		// Проверяем восполнение открытого ключа
+		ASSERT_FALSE(key.key.empty());
 	}
 }

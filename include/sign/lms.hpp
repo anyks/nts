@@ -22,7 +22,6 @@
  *        and SP 800-208
  *
  * \~
- *
  * @copyright Copyright © 2026
  *
  */
@@ -51,7 +50,6 @@
  * @brief Main namespace
  *
  * \~
- *
  */
 namespace nts {
 	/**
@@ -67,7 +65,6 @@ namespace nts {
 	 * @brief Namespace of the signature modules
 	 *
 	 * \~
-	 *
 	 */
 	namespace sign {
 		/**
@@ -84,6 +81,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Namespace of the Leighton-Micali signatures module
+		 *
 		 * @details The module verifies the LMS and HSS signatures according to
 		 *          RFC 8554 and SP 800-208: the LM-OTS one-time signatures by
 		 *          the Winternitz chains and the LMS Merkle trees, and the
@@ -94,18 +92,16 @@ namespace nts {
 		 *          signs and the loading side verifies.
 		 *
 		 * \~
-		 *
 		 */
 		namespace lms {
 			/**
 			 * \~russian
-			 * @brief Метод проверки подписи LMS либо HSS
+			 * @brief Функция проверки подписи LMS либо HSS
 			 *
 			 * @param key       открытый ключ: запись LMS (тип, тип LM-OTS, I, K)
 			 *                  либо HSS (число уровней, запись LMS верхнего уровня)
 			 * @param message   проверяемое сообщение
 			 * @param signature проверяемая подпись: запись LMS либо HSS
-			 *
 			 * @return          признак подлинности подписи
 			 *
 			 * @details Алгоритмы 4б, 6 и 6а RFC 8554: по подписи LM-OTS
@@ -116,12 +112,14 @@ namespace nts {
 			 *          Проверка идёт в переменном времени: тайн она не касается
 			 *
 			 * \~english
-			 * @brief Method of the verification of an LMS or HSS signature
+			 * @brief Function of the verification of an LMS or HSS signature
+			 *
 			 * @param key       the public key: an LMS record (type, LM-OTS type, I, K)
 			 *                  or an HSS one (the number of levels, the top-level LMS record)
 			 * @param message   the message being verified
 			 * @param signature the signature being verified: an LMS or HSS record
 			 * @return          the flag of the authenticity of the signature
+			 *
 			 * @details The algorithms 4b, 6 and 6a of RFC 8554: a candidate key is
 			 *          computed from the LM-OTS signature by the Winternitz chains,
 			 *          a candidate tree root is computed from it and the Merkle path,
@@ -130,7 +128,6 @@ namespace nts {
 			 *          The verification goes in a variable time: it touches no secrets
 			 *
 			 * \~
-			 *
 			 */
 			__ANTS_SHARED_EXPORT__ bool verify(const view_t & key, const view_t & message, const view_t & signature) noexcept;
 		} // namespace lms

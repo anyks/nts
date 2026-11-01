@@ -63,11 +63,10 @@ using namespace nts;
  */
 namespace {
 	/**
-	 * @brief Метод составления записи имени стороны сертификата
+	 * @brief Функция составления записи имени стороны сертификата
 	 *
 	 * @param writer составитель записи сертификата
 	 * @param name   записываемое имя стороны сертификата
-	 *
 	 * @return       признак успешности составления записи имени
 	 *
 	 */
@@ -104,11 +103,10 @@ namespace {
 		return writer.close();
 	}
 	/**
-	 * @brief Метод выработки подлинности стороны связи
+	 * @brief Функция выработки подлинности стороны связи
 	 *
 	 * @param name   общее имя стороны выработанного сертификата
 	 * @param result подлинность, в которую помещается итог выработки
-	 *
 	 * @return       признак успешности выработки подлинности стороны
 	 *
 	 * @note Сертификат выходит самоподписанным: связь доверие к издателю не проверяет,
@@ -339,11 +337,10 @@ namespace {
 		return true;
 	}
 	/**
-	 * @brief Метод передачи накопленных байтов между сторонами связи
+	 * @brief Функция передачи накопленных байтов между сторонами связи
 	 *
 	 * @param client связь стороны клиента
 	 * @param server связь стороны сервера
-	 *
 	 * @return       признак того, что байты между сторонами передавались
 	 *
 	 */
@@ -386,7 +383,6 @@ namespace {
  *
  * @param argc длина массива параметров
  * @param argv массив параметров
- *
  * @return     код выхода из приложения
  *
  */
@@ -416,7 +412,9 @@ int main(int argc, char * argv[]) noexcept {
 	 * классику из того же перечня
 	 */
 	vector <extension::group_t> groups = client.groups();
+	// Запоминаем наборы шифрования связи умолчаний
 	vector <protect::suite_t> suites = client.suites();
+	// Запоминаем схемы подписи связи умолчаний
 	vector <extension::scheme_t> schemes = client.schemes();
 	// Дописываем кривые обмена ключами ГОСТ впереди классических
 	groups.insert(groups.begin(), {extension::group_t::GC512C, extension::group_t::GC256A});
@@ -429,10 +427,15 @@ int main(int argc, char * argv[]) noexcept {
 	});
 	// Устанавливаем перечни обеим сторонам связи
 	client.groups(groups);
+	// Устанавливаем перечень групп серверу
 	server.groups(groups);
+	// Устанавливаем перечень наборов клиенту
 	client.suites(suites);
+	// Устанавливаем перечень наборов серверу
 	server.suites(suites);
+	// Устанавливаем перечень схем клиенту
 	client.schemes(schemes);
+	// Устанавливаем перечень схем серверу
 	server.schemes(schemes);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
@@ -451,6 +454,7 @@ int main(int argc, char * argv[]) noexcept {
 	 * OpenSSL. Копия, выданная read, - потребителя: её затирание за ним (sys::wipe)
 	 */
 	client.wiping({context::wiping_t::SECRETS, context::wiping_t::PLAINTEXT});
+	// Устанавливаем классы затирания памяти серверу
 	server.wiping({context::wiping_t::SECRETS, context::wiping_t::PLAINTEXT});
 	// Если связь стороны сервера завести не удалось
 	if(server.start() != context::error_t::NONE){
@@ -579,13 +583,17 @@ int main(int argc, char * argv[]) noexcept {
 		const sys::shelter_t shelter = sys::Vault::instance().shelter();
 		// Печатаем, где лежит ключ билета и как он укрыт
 		cout << "Ключ билета в укрытом хранилище: " << (sys::Vault::instance().owns(client.tickets()[0].secret.data()) ? "да" : "нет")
+		     // Продолжаем сведения об укрытии хранилища: подкачка
 		     << " (подкачка запрещена - " << (shelter.wired ? "да" : "нет")
+		     // Продолжаем сведения об укрытии хранилища: снимки памяти
 		     << ", вне снимков памяти - " << (shelter.hidden ? "да" : "нет")
+		     // Продолжаем сведения об укрытии хранилища: наследник после fork
 		     << ", потомку затёрто - " << (shelter.forked ? "да" : "нет") << ")" << endl;
 		// Своя копия билета у потребителя: ключ копируется в хранилище вместе с билетом
 		context::ticket_t kept = client.tickets()[0];
 		// Байты ключа из своего источника кладутся через assign: обычный vector сюда не присваивается
 		const vector <uint8_t> raw(kept.secret.begin(), kept.secret.end());
+		// Кладём байты ключа в хранилище через assign
 		kept.secret.assign(raw.begin(), raw.end());
 		// Печатаем итог
 		cout << "Копия билета у потребителя: ключ в хранилище - " << (sys::Vault::instance().owns(kept.secret.data()) ? "да" : "нет") << endl;
@@ -606,10 +614,15 @@ int main(int argc, char * argv[]) noexcept {
 	server::context_t answered;
 	// Возобновляемая связь ведётся теми же перечнями: билет годен лишь набору с тем же хешем
 	resumed.groups(groups);
+	// Устанавливаем группы возобновляемой связи серверу
 	answered.groups(groups);
+	// Устанавливаем наборы возобновляемой связи клиенту
 	resumed.suites(suites);
+	// Устанавливаем наборы возобновляемой связи серверу
 	answered.suites(suites);
+	// Устанавливаем схемы возобновляемой связи клиенту
 	resumed.schemes(schemes);
+	// Устанавливаем схемы возобновляемой связи серверу
 	answered.schemes(schemes);
 	// Устанавливаем подлинность стороны сервера
 	answered.credential(credentials);

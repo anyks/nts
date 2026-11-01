@@ -106,7 +106,6 @@ static void bridge(const sys::log::level_t level, const char * text, void * cont
  *
  * @param client клиент
  * @param server сервер
- *
  * @return       признак того, что байты переданы
  *
  */
@@ -114,7 +113,6 @@ static void bridge(const sys::log::level_t level, const char * text, void * cont
  * @brief Чтение файла из набора проверок: вырабатывать сертификат на месте образцу не по чину
  *
  * @param name имя файла в наборе
- *
  * @return     содержимое файла
  *
  */
@@ -122,7 +120,7 @@ static vector <uint8_t> corpus(const char * name) noexcept {
 	// Содержимое файла
 	vector <uint8_t> result;
 	/**
-	 * Читаем файл: нехватка памяти обращается в пустой итог
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Открываем файл набора
@@ -132,6 +130,9 @@ static vector <uint8_t> corpus(const char * name) noexcept {
 			// Читаем файл целиком
 			result.assign(istreambuf_iterator <char> (file), istreambuf_iterator <char> ());
 	// Перехватываем нехватку памяти
+	/**
+	 * Выполняем перехват ошибок
+	 */
 	} catch(const bad_alloc &){
 		// Опустошаем итог
 		result.clear();
@@ -144,7 +145,6 @@ static vector <uint8_t> corpus(const char * name) noexcept {
  * @brief Подлинность сервера образца из набора проверок
  *
  * @param result подлинность, в которую помещается итог
- *
  * @return       признак успеха чтения
  *
  */
@@ -163,45 +163,18 @@ static bool forge(context::credential_t & result) noexcept {
 	return (pem::certificates(string(text.begin(), text.end()), result.chain) == pem::error_t::NONE);
 }
 
-static bool pump(client::context_t & client, server::context_t & server) noexcept {
-	// Признак переноса
-	bool moved = false;
-	// Вывод клиента
-	view_t data = client.output();
-	// Если есть что передать серверу
-	if(data.size > 0){
-		// Переносим байты серверу
-		const vector <uint8_t> buffer(data.data, data.data + data.size);
-		client.consume(buffer.size());
-		server.push(view_t(buffer.data(), buffer.size()));
-		moved = true;
-	}
-	// Вывод сервера
-	data = server.output();
-	// Если есть что передать клиенту
-	if(data.size > 0){
-		// Переносим байты клиенту
-		const vector <uint8_t> buffer(data.data, data.data + data.size);
-		server.consume(buffer.size());
-		client.push(view_t(buffer.data(), buffer.size()));
-		moved = true;
-	}
-	// Выводим признак переноса
-	return moved;
-}
-
 /**
  * @brief Точка входа образца
  *
  * @param argc число доводов
  * @param argv доводы
- *
  * @return     код завершения: нуль при успехе
  *
  */
 int main(int argc, char * argv[]) noexcept {
 	// Доводы образцу не нужны
 	(void) argc;
+	// Не используем доводы приложения
 	(void) argv;
 	/**
 	 * Без стока: библиотека молчит, строки не собираются вовсе - цена одного сравнения
@@ -220,6 +193,7 @@ int main(int argc, char * argv[]) noexcept {
 	 * журнал потребителя отказом с именем извещения, без единого байта тайны
 	 */
 	client::context_t client;
+	// Связь стороны сервера
 	server::context_t server;
 	// Серверу нужна подлинность: без неё он не заведётся; берём образец из набора проверок
 	context::credential_t credentials;
@@ -238,14 +212,21 @@ int main(int argc, char * argv[]) noexcept {
 		return EXIT_FAILURE;
 	// Первый залп клиента серверу
 	const view_t hello = client.output();
+	// Копируем залп клиента в передаваемый массив
 	const vector <uint8_t> greeting(hello.data, hello.data + hello.size);
+	// Снимаем залп с накопителя клиента
 	client.consume(greeting.size());
+	// Передаём залп серверу
 	server.push(view_t(greeting.data(), greeting.size()));
 	// Ответ сервера, испорченный по дороге на один байт
 	const view_t data = server.output();
+	// Копируем ответ сервера в портимый массив
 	vector <uint8_t> buffer(data.data, data.data + data.size);
+	// Снимаем ответ с накопителя сервера
 	server.consume(buffer.size());
+	// Портим последний байт ответа
 	buffer[buffer.size() - 1] ^= 0x01;
+	// Передаём испорченный ответ клиенту
 	client.push(view_t(buffer.data(), buffer.size()));
 	// Печатаем состояние клиента
 	cout << "Состояние клиента: " << ((client.state() == context::state_t::FAILED) ? "обрыв" : "иное") << ", отказ " << static_cast <unsigned> (client.error()) << ", извещение " << alert::name(client.alert().description) << endl;

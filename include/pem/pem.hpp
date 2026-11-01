@@ -22,7 +22,6 @@
  *        certificates and of a secret key
  *
  * \~
- *
  * @copyright Copyright © 2026
  *
  */
@@ -74,10 +73,12 @@ namespace nts {
 	 *
 	 * \~english
 	 * @brief Namespace of the module of the storage of the records in the PEM form
+	 *
 	 * @details The library works with the records in the DER encoding, while they are stored and
 	 *          transferred most often wrapped according to RFC 7468: a frame with a label of the kind
 	 *          of the record and its body laid out into the base 64. The module removes and puts on
 	 *          this envelope and does not touch the meaning of the parsed body at all.
+	 *
 	 * @note The module does no input and output: it accepts and produces a ready record as a whole,
 	 *       while the reading of a file belongs to the one the file system belongs to
 	 *
@@ -93,6 +94,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Length of a line of the body of a record in the characters
+		 *
 		 * @details The section 2 of RFC 7468 orders to produce the body of a record by the lines of
 		 *          exactly this length, while the last line may be shorter
 		 *
@@ -143,15 +145,25 @@ namespace nts {
 		 * \~
 		 */
 		enum class error_t : uint8_t {
+			// Отказа нет, работа удалась
 			NONE      = 0x00, /*!< \~russian Отказа нет, работа удалась \~english There is no failure, the work has succeeded \~ */
+			// Записей заданного вида в тексте нет
 			EMPTY     = 0x01, /*!< \~russian Записей заданного вида в тексте нет \~english There are no records of the given kind in the text \~ */
+			// Рамка записи оборвана или закрыта не своей меткой
 			BOUNDARY  = 0x02, /*!< \~russian Рамка записи оборвана или закрыта не своей меткой \~english The frame of a record is torn or is closed by a foreign label \~ */
+			// Метка записи пуста или содержит недозволенные знаки
 			LABEL     = 0x03, /*!< \~russian Метка записи пуста или содержит недозволенные знаки \~english The label of a record is empty or holds the forbidden characters \~ */
+			// В теле записи встретился знак вне основания 64
 			ALPHABET  = 0x04, /*!< \~russian В теле записи встретился знак вне основания 64 \~english A character outside of the base 64 has met in the body of a record \~ */
+			// Добивка тела записи записана неверно
 			PADDING   = 0x05, /*!< \~russian Добивка тела записи записана неверно \~english The padding of the body of a record is written wrongly \~ */
+			// Длина тела записи не отвечает основанию 64
 			LENGTH    = 0x06, /*!< \~russian Длина тела записи не отвечает основанию 64 \~english The length of the body of a record does not correspond to the base 64 \~ */
+			// Тело записи разбору не поддалось
 			CONTENT   = 0x07, /*!< \~russian Тело записи разбору не поддалось \~english The body of a record did not yield to the parsing \~ */
+			// Ключ зашифрован, и расшифровать его нечем
 			ENCRYPTED = 0x08, /*!< \~russian Ключ зашифрован, и расшифровать его нечем \~english The key is encrypted, and there is nothing to decrypt it with \~ */
+			// Не удалось выделить память под итог работы
 			MEMORY    = 0x09  /*!< \~russian Не удалось выделить память под итог работы \~english Failed to allocate the memory for the result of the work \~ */
 		};
 
@@ -164,6 +176,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief A record wrapped according to RFC 7468
+		 *
 		 * @details The label declares the kind of the record, and the body lies in the DER encoding
 		 *          already taken off of the base 64
 		 *
@@ -178,21 +191,22 @@ namespace nts {
 
 		/**
 		 * \~russian
-		 * @brief Метод разбора всех записей текста
+		 * @brief Функция разбора всех записей текста
 		 *
 		 * @param text   разбираемый текст
 		 * @param result набор записей, в который помещается итог разбора
-		 *
 		 * @return       отказ разбора текста
 		 *
 		 * @details Разбор идёт по всему тексту подряд: всё, что лежит вне рамок записей,
 		 *          пропускается, как того велит раздел 5.2 RFC 7468
 		 *
 		 * \~english
-		 * @brief Method of the parsing of all the records of a text
+		 * @brief Function of the parsing of all the records of a text
+		 *
 		 * @param text   the text being parsed
 		 * @param result the set of the records the result of the parsing is put into
 		 * @return       the failure of the parsing of the text
+		 *
 		 * @details The parsing goes over the whole text in a row: everything lying outside of the
 		 *          frames of the records is skipped as the section 5.2 of RFC 7468 orders
 		 *
@@ -201,22 +215,23 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ error_t decode(const string & text, vector <block_t> & result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод разбора записей заданного вида
+		 * @brief Функция разбора записей заданного вида
 		 *
 		 * @param text   разбираемый текст
 		 * @param label  метка вида отбираемых записей
 		 * @param result набор тел записей, в который помещается итог разбора
-		 *
 		 * @return       отказ разбора текста
 		 *
 		 * @note Порядок тел записей в итоге отвечает порядку их появления в тексте
 		 *
 		 * \~english
-		 * @brief Method of the parsing of the records of a given kind
+		 * @brief Function of the parsing of the records of a given kind
+		 *
 		 * @param text   the text being parsed
 		 * @param label  the label of the kind of the records being selected
 		 * @param result the set of the bodies of the records the result of the parsing is put into
 		 * @return       the failure of the parsing of the text
+		 *
 		 * @note The order of the bodies of the records in the result corresponds to the order of their
 		 *       appearance in the text
 		 *
@@ -225,15 +240,15 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ error_t decode(const string & text, const string & label, vector <vector <uint8_t>> & result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод записи одной записи
+		 * @brief Функция записи одной записи
 		 *
-		 * @param block записываемая запись
+		 * @param block  записываемая запись
 		 * @param result текст, в который помещается итог записи
-		 *
 		 * @return       отказ записи
 		 *
 		 * \~english
-		 * @brief Method of the writing of a single record
+		 * @brief Function of the writing of a single record
+		 *
 		 * @param block  the record being written
 		 * @param result the text the result of the writing is put into
 		 * @return       the failure of the writing
@@ -243,20 +258,21 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ error_t encode(const block_t & block, string & result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод записи набора записей
+		 * @brief Функция записи набора записей
 		 *
 		 * @param blocks записываемый набор записей
 		 * @param result текст, в который помещается итог записи
-		 *
 		 * @return       отказ записи
 		 *
 		 * @note Записи ложатся в текст одна за другой в поданном порядке
 		 *
 		 * \~english
-		 * @brief Method of the writing of a set of the records
+		 * @brief Function of the writing of a set of the records
+		 *
 		 * @param blocks the set of the records being written
 		 * @param result the text the result of the writing is put into
 		 * @return       the failure of the writing
+		 *
 		 * @note The records lie into the text one after another in the given order
 		 *
 		 * \~
@@ -264,11 +280,10 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ error_t encode(const vector <block_t> & blocks, string & result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод извлечения цепочки сертификатов
+		 * @brief Функция извлечения цепочки сертификатов
 		 *
 		 * @param text   разбираемый текст
 		 * @param result цепочка сертификатов, в которую помещается итог извлечения
-		 *
 		 * @return       отказ извлечения цепочки сертификатов
 		 *
 		 * @details Раздел 4.4.2 RFC 8446 велит вести цепочку от своего сертификата к
@@ -276,10 +291,12 @@ namespace nts {
 		 *          извлечение его сохраняет, ничего не переставляя
 		 *
 		 * \~english
-		 * @brief Method of the extraction of a chain of the certificates
+		 * @brief Function of the extraction of a chain of the certificates
+		 *
 		 * @param text   the text being parsed
 		 * @param result the chain of the certificates the result of the extraction is put into
 		 * @return       the failure of the extraction of the chain of the certificates
+		 *
 		 * @details The section 4.4.2 of RFC 8446 orders to lead a chain from one's own certificate to
 		 *          the certificate of the issuer, and this same order is usually written into the text:
 		 *          the extraction preserves it and rearranges nothing
@@ -289,11 +306,10 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ error_t certificates(const string & text, vector <vector <uint8_t>> & result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод извлечения секретного ключа
+		 * @brief Функция извлечения секретного ключа
 		 *
 		 * @param text   разбираемый текст
 		 * @param result место, в которое помещается извлечённый секретный ключ
-		 *
 		 * @return       отказ извлечения секретного ключа
 		 *
 		 * @details Ключ ожидается обёрнутым по разделу 4 RFC 5958. Внутри обёртки правилами
@@ -312,20 +328,25 @@ namespace nts {
 		 *       библиотека не спрашивает
 		 *
 		 * \~english
-		 * @brief Method of the extraction of a secret key
+		 * @brief Function of the extraction of a secret key
+		 *
 		 * @param text   the text being parsed
 		 * @param result the place the extracted secret key is put into
 		 * @return       the failure of the extraction of the secret key
+		 *
 		 * @details The key is expected wrapped according to the section 4 of RFC 5958. Inside of the
 		 *          envelope three kinds are allowed by the rules of the writing of a key, and the kind is
 		 *          recognized by the ASN.1 tag: an octet string gives the number by the order from the
 		 *          junior byte to the senior one, an integer gives it by the order from the senior one,
 		 *          and a set of the values is parsed according to RFC 5915.
+		 *
 		 * @note The result is written by the order from the senior byte to the junior one — the same one
 		 *       the authenticity of a side of a connection awaits it by
+		 *
 		 * @note The width of the key is determined by the length of its significant part: up to 32 bytes
 		 *       gives a key of 256 bits, above that gives a key of 512 bits. A number the significant part
 		 *       of which is longer than 64 bytes is refused by a failure
+		 *
 		 * @note An encrypted key is refused by a failure: there is nothing to decrypt it with, the library
 		 *       does not ask for a password
 		 *
@@ -334,14 +355,14 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ error_t secret(const string & text, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод получения названия отказа
+		 * @brief Функция получения названия отказа
 		 *
 		 * @param error отказ, название которого извлекается
-		 *
 		 * @return      название отказа
 		 *
 		 * \~english
-		 * @brief Method of the obtaining of the name of a failure
+		 * @brief Function of the obtaining of the name of a failure
+		 *
 		 * @param error the failure the name of which is extracted
 		 * @return      the name of the failure
 		 *

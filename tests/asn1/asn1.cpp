@@ -184,7 +184,6 @@ TEST(ASN1Test, Sequence) {
 	ASSERT_EQ(element.element.size, size_t(8));
 	// Проверяем отсутствие данных после набора значений
 	ASSERT_TRUE(reader.empty());
-
 	// Создаём разборщик содержимого набора значений
 	asn1::reader_t inner = reader.enter(element);
 	// Целое число из набора значений
@@ -195,7 +194,6 @@ TEST(ASN1Test, Sequence) {
 	ASSERT_EQ(asn1::integer(element, number), asn1::error_t::NONE);
 	// Проверяем значение целого числа
 	ASSERT_EQ(number, int64_t(5));
-
 	// Логическое значение из набора значений
 	bool flag = false;
 	// Выполняем разбор логического значения
@@ -661,7 +659,7 @@ TEST(ASN1Test, Write) {
 	// Проверяем размер собранной записи
 	ASSERT_EQ(result.size, sizeof(expected));
 	// Проверяем содержимое собранной записи
-	ASSERT_EQ(memcmp(result.data, expected, sizeof(expected)), 0);
+	ASSERT_EQ(::memcmp(result.data, expected, sizeof(expected)), 0);
 }
 /**
  * @brief Проверка записи опознавателя объекта
@@ -679,7 +677,7 @@ TEST(ASN1Test, WriteObjectIdentifier) {
 	// Проверяем размер собранной записи
 	ASSERT_EQ(result.size, sizeof(expected));
 	// Проверяем содержимое собранной записи
-	ASSERT_EQ(memcmp(result.data, expected, sizeof(expected)), 0);
+	ASSERT_EQ(::memcmp(result.data, expected, sizeof(expected)), 0);
 	// Очищаем собранную запись
 	writer.clear();
 	// Проверяем отказ записи опознавателя с недопустимой первой составляющей
@@ -796,7 +794,6 @@ TEST(ASN1Test, RoundTrip) {
  * @param data выдержка записи строки
  * @param size длина выдержки записи строки
  * @param type вид набора знаков строки
- *
  * @return     признак отказа извлечения строки
  *
  */
@@ -1440,18 +1437,26 @@ TEST(ASN1Test, Malformed){
 TEST(Asn1Test, Primitive){
 	// Простой элемент с содержимым, похожим на вложенный OID
 	const uint8_t data[] = {0x04, 0x05, 0x06, 0x03, 0x2A, 0x03, 0x04};
+	// Разборщик записи
 	asn1::reader_t reader(view_t(data, sizeof(data)));
+	// Разобранный элемент
 	asn1::element_t element;
+	// Элемент читается из записи
 	ASSERT_TRUE(reader.next(element));
+	// Элемент простой, а не составной
 	ASSERT_FALSE(element.constructed);
 	/**
 	 * Вход в простой элемент отдаёт разборщик с отказом вида, и первое же чтение
 	 * стирать этот отказ не вправе: содержимое простого элемента вложением не является
 	 */
 	asn1::reader_t inner = reader.enter(element);
+	// Отказ вида держится сразу после входа
 	ASSERT_EQ(inner.err(), asn1::error_t::FORM);
+	// Место вложенного элемента
 	asn1::element_t nested;
+	// Чтение из простого элемента отвергается
 	ASSERT_FALSE(inner.next(nested));
+	// Отказ вида залипает после неудачного чтения
 	ASSERT_EQ(inner.err(), asn1::error_t::FORM);
 }
 

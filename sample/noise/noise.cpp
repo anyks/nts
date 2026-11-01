@@ -54,10 +54,9 @@ using namespace nts;
  */
 namespace {
 	/**
-	 * @brief Метод получения просмотра текста
+	 * @brief Функция получения просмотра текста
 	 *
 	 * @param text текст
-	 *
 	 * @return     просмотр
 	 *
 	 */
@@ -66,11 +65,10 @@ namespace {
 		return view_t(reinterpret_cast <const uint8_t *> (text), ::strlen(text));
 	}
 	/**
-	 * @brief Метод проведения рукопожатия двух сторон до конца
+	 * @brief Функция проведения рукопожатия двух сторон до конца
 	 *
 	 * @param a сторона инициатора
 	 * @param b сторона отвечающего
-	 *
 	 * @return  признак успешности рукопожатия
 	 *
 	 */
@@ -85,10 +83,11 @@ namespace {
 		for(size_t round = 0; round < 8; round++){
 			// Сторона, чей черёд писать, и сторона, чей черёд читать
 			noise::handshake_t & writer = ((a.step() == noise::step_t::WRITE) ? a : b);
+			// Определяем сторону, чей черёд читать
 			noise::handshake_t & reader = ((a.step() == noise::step_t::WRITE) ? b : a);
 			// Если рукопожатие завершено обеими сторонами
 			if((a.step() == noise::step_t::DONE) && (b.step() == noise::step_t::DONE))
-				// Выводим успешность
+				// Сообщаем об успешном завершении рукопожатия
 				return true;
 			// Длина сообщения
 			size_t size = sizeof(message);
@@ -96,13 +95,13 @@ namespace {
 			const string note = "шаг " + to_string(round + 1);
 			// Если сообщение записать не удалось
 			if(!writer.write(view_t(reinterpret_cast <const uint8_t *> (note.data()), note.size()), message, size))
-				// Выводим отказ
+				// Выводим отрицательный результат - сообщение не записано
 				return false;
 			// Длина нагрузки
 			size_t length = sizeof(payload);
 			// Если сообщение прочитать не удалось
 			if(!reader.read(view_t(message, size), payload, length))
-				// Выводим отказ
+				// Выводим отрицательный результат - сообщение не прочитано
 				return false;
 			// Печатаем шаг
 			cout << "  сообщение " << (round + 1) << ": " << size << " байтов, нагрузка «" << string(reinterpret_cast <const char *> (payload), length) << "»" << endl;
@@ -111,11 +110,10 @@ namespace {
 		return ((a.step() == noise::step_t::DONE) && (b.step() == noise::step_t::DONE));
 	}
 	/**
-	 * @brief Метод переноса данных расколотыми состояниями шифрования
+	 * @brief Функция переноса данных расколотыми состояниями шифрования
 	 *
 	 * @param a сторона инициатора
 	 * @param b сторона отвечающего
-	 *
 	 * @return  признак того, что данные дошли в обе стороны
 	 *
 	 */
@@ -124,18 +122,19 @@ namespace {
 		noise::cipher_t sendA, receiveA, sendB, receiveB;
 		// Если раскол не удался
 		if(!a.split(sendA, receiveA) || !b.split(receiveB, sendB))
-			// Выводим отказ
+			// Выводим отрицательный результат - раскол не удался
 			return false;
 		// Сообщение, шифртекст, метка и вскрытое
 		const view_t message = ::text("данные после рукопожатия");
+		// Места шифртекста, метки и вскрытого текста
 		uint8_t cipher[64], tag[noise::TAG], plain[64];
 		// Если инициатор зашифровать не смог
 		if(!sendA.encrypt(view_t(), message, cipher, tag))
-			// Выводим отказ
+			// Выводим отрицательный результат - инициатор не зашифровал
 			return false;
 		// Если отвечающий расшифровать не смог
 		if(!receiveB.decrypt(view_t(), view_t(cipher, message.size), view_t(tag, sizeof(tag)), plain))
-			// Выводим отказ
+			// Выводим отрицательный результат - отвечающий не расшифровал
 			return false;
 		// Печатаем переданное
 		cout << "  перенос: «" << string(reinterpret_cast <const char *> (plain), message.size) << "»" << endl;
@@ -143,15 +142,15 @@ namespace {
 		const view_t answer = ::text("ответ в обратную сторону");
 		// Если отвечающий зашифровать не смог
 		if(!sendB.encrypt(view_t(), answer, cipher, tag))
-			// Выводим отказ
+			// Выводим отрицательный результат - отвечающий не зашифровал
 			return false;
 		// Если инициатор расшифровать не смог
 		if(!receiveA.decrypt(view_t(), view_t(cipher, answer.size), view_t(tag, sizeof(tag)), plain))
-			// Выводим отказ
+			// Выводим отрицательный результат - инициатор не расшифровал
 			return false;
 		// Печатаем ответ
 		cout << "  ответ: «" << string(reinterpret_cast <const char *> (plain), answer.size) << "»" << endl;
-		// Выводим успешность
+		// Сообщаем об успешном обмене после рукопожатия
 		return true;
 	}
 };
@@ -161,13 +160,13 @@ namespace {
  *
  * @param argc число доводов
  * @param argv доводы
- *
  * @return     код завершения: нуль при успехе
  *
  */
 int main(int argc, char * argv[]) noexcept {
 	// Доводы образцу не нужны
 	(void) argc;
+	// Не используем доводы приложения
 	(void) argv;
 	// Пролог, известный обеим сторонам
 	const view_t prologue = ::text("образец Noise A-NTS");

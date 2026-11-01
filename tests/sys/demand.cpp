@@ -12,16 +12,11 @@
  * @email forman@anyks.com
  * @site https://anyks.com
  *
- * \~russian
  * @brief Проверка связи без укрытого участка: требование укрытия при недоступном запрете подкачки
  *
  * @details Отдельная программа: хранилище процесса не должно иметь кусков до проверки, иначе
  *          участок найдётся в уже принятом куске и отказ не воспроизвести
  *
- * \~english
- * @brief Test of a connection without a sheltered piece: the demand of the sheltering when the swap prohibition is unavailable
- *
- * \~
  *
  * @copyright Copyright © 2026
  *
@@ -78,11 +73,13 @@ using namespace nts;
 		 * Область жизни связей: заведение, отказ запуска и разрушение
 		 */
 		{
-			// Клиент и сервер
+			// Клиент
 			client::context_t client;
+			// Сервер
 			server::context_t server;
 			// Настраиваем клиента
 			client.name("example.com");
+			// Отключаем проверку цепочки: испытание касается лишь отказа памяти
 			client.verification(false, 0, trust::store_t());
 			// Если под нулевым пределом участок всё же дан, система предел не блюдёт
 			if(client.state() != context::state_t::FAILED){

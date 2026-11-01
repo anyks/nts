@@ -21,7 +21,6 @@
  *        of 224, 256, 384 or 512 bits according to FIPS 180-4
  *
  * \~
- *
  * @copyright Copyright © 2026
  *
  */
@@ -79,6 +78,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Kind of the SHA-2 hash
+		 *
 		 * @details The value corresponds to the length of the hash in bytes. The hashes of a length
 		 *          of 224 and 256 bits are produced by a transformation over the 32-bit words with a
 		 *          block of 64 bytes, the hashes of a length of 384 and 512 bits - by a transformation
@@ -88,10 +88,15 @@ namespace nts {
 		 * \~
 		 */
 		enum class sha_t : uint8_t {
+			// Разновидность не установлена
 			NONE   = 0x00, /*!< \~russian Разновидность не установлена \~english The kind is not set \~ */
+			// Хеш длиной 224 разряда
 			SHA224 = 0x1C, /*!< \~russian Хеш длиной 224 разряда \~english Hash of a length of 224 bits \~ */
+			// Хеш длиной 256 разрядов
 			SHA256 = 0x20, /*!< \~russian Хеш длиной 256 разрядов \~english Hash of a length of 256 bits \~ */
+			// Хеш длиной 384 разряда
 			SHA384 = 0x30, /*!< \~russian Хеш длиной 384 разряда \~english Hash of a length of 384 bits \~ */
+			// Хеш длиной 512 разрядов
 			SHA512 = 0x40  /*!< \~russian Хеш длиной 512 разрядов \~english Hash of a length of 512 bits \~ */
 		};
 
@@ -110,11 +115,13 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Hashing according to FIPS 180-4
+		 *
 		 * @details The message is fed by the calls of update by the chunks of an arbitrary size,
 		 *          and the produced hash is taken by the call of finish. A repeated hashing requires
 		 *          the call of reset: finish leaves the object in the finished state. The byte order
 		 *          of the hash is the only one - the one the standard writes it by and the protocols
 		 *          transfer it by, therefore there is no argument of the order here
+		 *
 		 * @note The hashing does not allocate memory and raises no exceptions; the state is wiped
 		 *       at the taking of the hash and at the destruction of the object
 		 *
@@ -146,6 +153,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the parsing of a block of the message
+				 *
 				 * @param block the block being parsed: the accumulator or the chunk of the message itself
 				 *
 				 * \~
@@ -160,6 +168,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the kind of the produced hash
+				 *
 				 * @return the kind of the produced hash
 				 *
 				 * \~
@@ -173,6 +182,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the size of the block of the message
+				 *
 				 * @return the size of the block in bytes: 64 or 128
 				 *
 				 * \~
@@ -187,6 +197,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the reset of the state of the hashing
+				 *
 				 * @param type the kind of the produced hash
 				 *
 				 * \~
@@ -200,6 +211,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of feeding a chunk of the message
+				 *
 				 * @param data the chunk of the message being fed
 				 *
 				 * \~
@@ -211,7 +223,6 @@ namespace nts {
 				 *
 				 * @param result место, в которое записывается хеш
 				 * @param size   размер места в байтах, не меньше длины хеша
-				 *
 				 * @return       признак успешности снятия хеша
 				 *
 				 * @note Повторное снятие без сброса отвергается: состояние после снятия
@@ -219,10 +230,13 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of taking the produced hash
+				 *
 				 * @param result the place the hash is written into
 				 * @param size   the size of the place in bytes, not less than the length of the hash
 				 * @return       the flag of the success of the taking of the hash
-				 * @note A repeated taking without a reset is refused: the state after the taking is wiped
+				 *
+				 * @note A repeated taking without a reset is refused: the state after the taking is
+				 *       wiped
 				 *
 				 * \~
 				 */
@@ -236,6 +250,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Constructor
+				 *
 				 * @param type the kind of the produced hash
 				 *
 				 * \~
@@ -255,17 +270,17 @@ namespace nts {
 
 		/**
 		 * \~russian
-		 * @brief Метод выработки хеша SHA-2 целого сообщения
+		 * @brief Функция выработки хеша SHA-2 целого сообщения
 		 *
 		 * @param type   разновидность вырабатываемого хеша
 		 * @param data   хешируемое сообщение
 		 * @param result место, в которое записывается хеш
 		 * @param size   размер места в байтах, не меньше длины хеша
-		 *
 		 * @return       признак успешности выработки хеша
 		 *
 		 * \~english
-		 * @brief Method of the production of the SHA-2 hash of a whole message
+		 * @brief Function of the production of the SHA-2 hash of a whole message
+		 *
 		 * @param type   the kind of the produced hash
 		 * @param data   the message being hashed
 		 * @param result the place the hash is written into

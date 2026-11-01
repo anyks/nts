@@ -37,11 +37,10 @@
 using namespace nts;
 
 /**
- * @brief Метод записи байтов шестнадцатеричной строкой
+ * @brief Функция записи байтов шестнадцатеричной строкой
  *
  * @param data байты
  * @param size число байтов
- *
  * @return     запись строчными шестнадцатеричными знаками
  *
  */
@@ -63,12 +62,11 @@ static std::string text(const uint8_t * data, const size_t size) {
 	return result;
 }
 /**
- * @brief Метод хеширования сообщения за один вызов
+ * @brief Функция хеширования сообщения за один вызов
  *
  * @param type    разновидность преобразования
  * @param message сообщение
  * @param size    длина итога
- *
  * @return        запись итога шестнадцатеричной строкой либо пустая при отказе
  *
  */
@@ -83,13 +81,12 @@ static std::string whole(const digest::sha3_t type, const std::string & message,
 	return text(result.data(), size);
 }
 /**
- * @brief Метод хеширования сообщения кусками заданной длины
+ * @brief Функция хеширования сообщения кусками заданной длины
  *
  * @param type    разновидность преобразования
  * @param message сообщение
  * @param chunk   длина куска
  * @param size    длина итога
- *
  * @return        запись итога шестнадцатеричной строкой либо пустая при отказе
  *
  */
@@ -191,12 +188,21 @@ TEST(Sha3Test, Chunks){
 	const size_t chunks[] = {1, 7, 71, 72, 73, 103, 104, 105, 135, 136, 137, 143, 144, 145, 167, 168, 169, 1000};
 	// Разновидности
 	const digest::sha3_t kinds[] = {digest::sha3_t::SHA3_224, digest::sha3_t::SHA3_256, digest::sha3_t::SHA3_384, digest::sha3_t::SHA3_512, digest::sha3_t::SHAKE128, digest::sha3_t::SHAKE256};
+	/**
+	 * Перебираем длины сообщений с шагом 37 до шестисот знаков
+	 */
 	for(size_t length = 0; length <= 600; length += 37){
 		// Сообщение
 		std::string message(length, 'x');
+		/**
+		 * Заполняем сообщение знаками из генератора
+		 */
 		for(size_t i = 0; i < message.size(); i++)
 			// Записываем очередной знак
 			message[i] = static_cast <char> (generator() & 0xFF);
+		/**
+		 * Перебираем разновидности хешей и функции переменного выхода
+		 */
 		for(size_t k = 0; k < (sizeof(kinds) / sizeof(kinds[0])); k++){
 			// Длина итога: у хешей своя, у функций переменного выхода 100 байтов
 			const size_t size = ((digest::length(kinds[k]) > 0) ? digest::length(kinds[k]) : 100);
@@ -204,6 +210,9 @@ TEST(Sha3Test, Chunks){
 			const std::string reference = whole(kinds[k], message, size);
 			// Проверяем, что итог вычислен
 			ASSERT_FALSE(reference.empty());
+			/**
+			 * Перебираем длины кусков вокруг границ скоростей поглощения
+			 */
 			for(size_t c = 0; c < (sizeof(chunks) / sizeof(chunks[0])); c++)
 				// Проверяем схождение итога кусками с итогом за один вызов
 				ASSERT_EQ(pieces(kinds[k], message, chunks[c], size), reference) << "длина " << length << " кусок " << chunks[c] << " разновидность " << static_cast <int> (kinds[k]);
@@ -221,6 +230,9 @@ TEST(Sha3Test, Squeezing){
 	const std::string reference = whole(digest::sha3_t::SHAKE256, message, 500);
 	// Длины кусков выжимания
 	const size_t chunks[] = {1, 3, 64, 135, 136, 137, 271, 499};
+	/**
+	 * Перебираем длины кусков выжимания
+	 */
 	for(size_t c = 0; c < (sizeof(chunks) / sizeof(chunks[0])); c++){
 		// Объект преобразования
 		digest::keccak_t keccak(digest::sha3_t::SHAKE256);
@@ -228,6 +240,9 @@ TEST(Sha3Test, Squeezing){
 		ASSERT_TRUE(keccak.update(view_t(reinterpret_cast <const uint8_t *> (message.data()), message.size())));
 		// Место, в которое записывается итог
 		std::vector <uint8_t> result(500, 0);
+		/**
+		 * Выжимаем итог кусками заданной длины
+		 */
 		for(size_t offset = 0; offset < result.size(); offset += chunks[c]){
 			// Длина очередного куска
 			const size_t length = (((result.size() - offset) < chunks[c]) ? (result.size() - offset) : chunks[c]);

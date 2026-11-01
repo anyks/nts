@@ -6,6 +6,12 @@
  *
  * @author Yuriy Lobarev
  *
+ * @telegram{forman}
+ * @phone{+7 (910) 983-95-90}
+ *
+ * @email forman@anyks.com
+ * @site https://anyks.com
+ *
  * @brief Исходный файл модуля приветствий рукопожатия протокола TLS
  *
  * @section Намеренные решения
@@ -76,10 +82,9 @@ namespace {
 	typedef hello::error_t error_t;
 
 	/**
-	 * @brief Метод перевода отказа составителя полей в отказ модуля
+	 * @brief Функция перевода отказа составителя полей в отказ модуля
 	 *
 	 * @param failure отказ, которым ответил составитель полей
-	 *
 	 * @return        отказ модуля, отвечающий отказу составителя
 	 *
 	 * @note Нехватка памяти обязана дойти до вызывающего своим именем: составитель
@@ -108,16 +113,16 @@ namespace {
 	 *
 	 */
 	static const uint8_t RETRY[HELLO_RANDOM] = {
+		// Хеш строки просьбы о повторе приветствия
 		0xCF, 0x21, 0xAD, 0x74, 0xE5, 0x9A, 0x61, 0x11, 0xBE, 0x1D, 0x8C, 0x02, 0x1E, 0x65, 0xB8, 0x91,
 		0xC2, 0xA2, 0x11, 0x16, 0x7A, 0xBB, 0x8C, 0x5E, 0x07, 0x9E, 0x09, 0xE2, 0xC8, 0xA8, 0x33, 0x9C
 	};
 
 	/**
-	 * @brief Метод разбора перечня расширений приветствия
+	 * @brief Функция разбора перечня расширений приветствия
 	 *
 	 * @param data   разбираемая область расширений приветствия
 	 * @param result перечень, в который помещаются разобранные расширения
-	 *
 	 * @return       отказ разбора перечня расширений
 	 *
 	 */
@@ -153,13 +158,13 @@ namespace {
 			// Отмечаем вид расширения встреченным
 			seen[type / 64] |= (static_cast <uint64_t> (1) << (type % 64));
 			/**
-			 * Выполняем перехват ошибок работы с памятью
+			 * Выполняем перехват ошибок
 			 */
 			try {
 				// Добавляем очередное расширение в перечень расширений приветствия
 				result.push_back(extension_t(static_cast <uint16_t> (type), body));
 			/**
-			 * Если памяти под перечень расширений не хватило
+			 * Выполняем перехват ошибок
 			 */
 			} catch(const std::bad_alloc &) {
 				// Выводим отказ нехватки памяти
@@ -170,11 +175,10 @@ namespace {
 		return error_t::NONE;
 	}
 	/**
-	 * @brief Метод составления перечня расширений приветствия
+	 * @brief Функция составления перечня расширений приветствия
 	 *
 	 * @param extensions составляемый перечень расширений приветствия
 	 * @param builder    составитель, в который дописывается перечень расширений
-	 *
 	 * @return           отказ составления перечня расширений
 	 *
 	 */
@@ -232,11 +236,10 @@ nts::hello::Server::Server() noexcept : version(0), suite(0), method(0) {
 	::memset(this->random, 0, sizeof(this->random));
 }
 /**
- * @brief Метод поиска расширения приветствия по его виду
+ * @brief Функция поиска расширения приветствия по его виду
  *
  * @param extensions перечень расширений приветствия
  * @param type       разыскиваемый вид расширения
- *
  * @return           найденное расширение либо nullptr
  *
  */
@@ -254,10 +257,9 @@ const extension_t * nts::hello::extension(const vector <extension_t> & extension
 	return nullptr;
 }
 /**
- * @brief Метод проверки того, что приветствие сервера есть просьба о повторе
+ * @brief Функция проверки того, что приветствие сервера есть просьба о повторе
  *
  * @param hello проверяемое приветствие сервера
- *
  * @return      признак того, что сервер просит повторить приветствие клиента
  *
  */
@@ -266,11 +268,10 @@ bool nts::hello::retry(const server_t & hello) noexcept {
 	return (::memcmp(hello.random, RETRY, HELLO_RANDOM) == 0);
 }
 /**
- * @brief Метод разбора тела приветствия клиента
+ * @brief Функция разбора тела приветствия клиента
  *
  * @param data   разбираемое тело приветствия клиента
  * @param result приветствие, в которое помещается итог разбора
- *
  * @return       отказ разбора приветствия клиента
  *
  */
@@ -279,12 +280,11 @@ nts::hello::error_t nts::hello::parse(const view_t & data, client_t & result) no
 	return parse(data, result, false);
 }
 /**
- * @brief Метод разбора тела приветствия клиента с учётом переноса
+ * @brief Функция разбора тела приветствия клиента с учётом переноса
  *
  * @param data     разбираемое тело приветствия клиента
  * @param result   приветствие, в которое помещается итог разбора
  * @param datagram признак приветствия поверх дейтаграмм: за опознавателем связи идёт метка возврата состояния
- *
  * @return         отказ разбора приветствия клиента
  *
  */
@@ -364,7 +364,7 @@ nts::hello::error_t nts::hello::parse(const view_t & data, client_t & result, co
 		// Выводим отказ разбора перечня расширений
 		return error;
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Устанавливаем перечень предлагаемых наборов шифрования
@@ -384,7 +384,7 @@ nts::hello::error_t nts::hello::parse(const view_t & data, client_t & result, co
 		// Устанавливаем перечень расширений приветствия клиента
 		result.extensions = list;
 	/**
-	 * Если памяти под разобранное приветствие не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -398,11 +398,10 @@ nts::hello::error_t nts::hello::parse(const view_t & data, client_t & result, co
 	return error_t::NONE;
 }
 /**
- * @brief Метод разбора тела приветствия сервера
+ * @brief Функция разбора тела приветствия сервера
  *
  * @param data   разбираемое тело приветствия сервера
  * @param result приветствие, в которое помещается итог разбора
- *
  * @return       отказ разбора приветствия сервера
  *
  */
@@ -464,7 +463,7 @@ nts::hello::error_t nts::hello::parse(const view_t & data, server_t & result) no
 		// Выводим отказ разбора перечня расширений
 		return error;
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Устанавливаем опознаватель связи приветствия сервера
@@ -472,7 +471,7 @@ nts::hello::error_t nts::hello::parse(const view_t & data, server_t & result) no
 		// Устанавливаем перечень расширений приветствия сервера
 		result.extensions = list;
 	/**
-	 * Если памяти под разобранное приветствие не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -490,11 +489,10 @@ nts::hello::error_t nts::hello::parse(const view_t & data, server_t & result) no
 	return error_t::NONE;
 }
 /**
- * @brief Метод составления тела приветствия клиента
+ * @brief Функция составления тела приветствия клиента
  *
  * @param hello  составляемое приветствие клиента
  * @param result накопитель, в конец которого дописывается тело приветствия
- *
  * @return       отказ составления приветствия клиента
  *
  */
@@ -503,13 +501,12 @@ nts::hello::error_t nts::hello::build(const client_t & hello, vector <uint8_t> &
 	return build(hello, result, false);
 }
 /**
- * @brief Метод составления тела приветствия клиента с учётом переноса
+ * @brief Функция составления тела приветствия клиента с учётом переноса
  *
  * @param hello    составляемое приветствие клиента
  * @param result   накопитель, в конец которого дописывается тело приветствия
  * @param datagram признак приветствия поверх дейтаграмм: за опознавателем связи пишется метка возврата состояния
- *
- * @return         отказ составления приветствия клиента
+ * @return         отказ составления приветствия клиента: COOKIE у метки длиннее 255 байтов
  *
  */
 nts::hello::error_t nts::hello::build(const client_t & hello, vector <uint8_t> & result, const bool datagram) noexcept {
@@ -536,7 +533,7 @@ nts::hello::error_t nts::hello::build(const client_t & hello, vector <uint8_t> &
 	// Отказ, которым завершилось составление тела приветствия
 	error_t outcome = error_t::NONE;
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Записываем версию протокола, доставшуюся от предыдущих изданий
@@ -612,7 +609,7 @@ nts::hello::error_t nts::hello::build(const client_t & hello, vector <uint8_t> &
 			result.insert(result.end(), data.data, data.data + data.size);
 		}
 	/**
-	 * Если памяти под тело приветствия не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Запоминаем отказ нехватки памяти
@@ -622,11 +619,10 @@ nts::hello::error_t nts::hello::build(const client_t & hello, vector <uint8_t> &
 	return outcome;
 }
 /**
- * @brief Метод составления тела приветствия сервера
+ * @brief Функция составления тела приветствия сервера
  *
  * @param hello  составляемое приветствие сервера
  * @param result накопитель, в конец которого дописывается тело приветствия
- *
  * @return       отказ составления приветствия сервера
  *
  */
@@ -642,7 +638,7 @@ nts::hello::error_t nts::hello::build(const server_t & hello, vector <uint8_t> &
 	// Отказ, которым завершилось составление тела приветствия
 	error_t outcome = error_t::NONE;
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Записываем версию протокола, доставшуюся от предыдущих изданий
@@ -683,7 +679,7 @@ nts::hello::error_t nts::hello::build(const server_t & hello, vector <uint8_t> &
 			result.insert(result.end(), data.data, data.data + data.size);
 		}
 	/**
-	 * Если памяти под тело приветствия не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Запоминаем отказ нехватки памяти
@@ -692,3 +688,18 @@ nts::hello::error_t nts::hello::build(const server_t & hello, vector <uint8_t> &
 	// Выводим отказ, которым завершилось составление приветствия сервера
 	return outcome;
 }
+
+/**
+ * @brief Конструктор
+ *
+ */
+nts::hello::Extension::Extension() noexcept : type(0) {}
+
+/**
+ * @brief Конструктор
+ *
+ * @param type вид расширения приветствия
+ * @param data тело расширения приветствия
+ *
+ */
+nts::hello::Extension::Extension(const uint16_t type, const view_t & data) noexcept : type(type), data(data) {}

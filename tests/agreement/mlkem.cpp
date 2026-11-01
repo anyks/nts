@@ -46,10 +46,9 @@ using namespace nts;
 static const char * CORPUS = ANTS_CORPUS;
 
 /**
- * @brief Метод разбора шестнадцатеричной строки
+ * @brief Функция разбора шестнадцатеричной строки
  *
  * @param text строка
- *
  * @return     байты
  *
  */
@@ -67,6 +66,9 @@ static std::vector <uint8_t> bytes(const std::string & text) {
 		// Не шестнадцатеричный знак
 		return -1;
 	};
+	/**
+	 * Перебираем знаки по два: каждая пара шестнадцатеричных знаков даёт один байт
+	 */
 	for(size_t i = 0; (i + 1) < text.size(); i += 2){
 		// Полубайты
 		const int high = nibble(text[i]), low = nibble(text[i + 1]);
@@ -81,10 +83,9 @@ static std::vector <uint8_t> bytes(const std::string & text) {
 	return result;
 }
 /**
- * @brief Метод чтения блоков «имя: значение» из файла векторов
+ * @brief Функция чтения блоков «имя: значение» из файла векторов
  *
  * @param name имя файла в наборе
- *
  * @return     перечень блоков, каждый есть отображение имени на значение
  *
  */
@@ -97,14 +98,17 @@ static std::vector <std::map <std::string, std::string>> blocks(const std::strin
 	std::map <std::string, std::string> block;
 	// Строка файла
 	std::string line;
+	/**
+	 * Читаем файл векторов построчно: пустая строка завершает очередной блок
+	 */
 	while(std::getline(file, line)){
 		// Если строка пуста: конец блока
 		if(line.empty()){
 			// Если блок не пуст
 			if(!block.empty())
-				// Добавляем блок
+				// Добавляем готовый блок в перечень векторов
 				result.push_back(block);
-			// Сбрасываем блок
+			// Опустошаем блок для следующего набора пар
 			block.clear();
 			// Переходим к следующей строке
 			continue;
@@ -127,22 +131,30 @@ static std::vector <std::map <std::string, std::string>> blocks(const std::strin
 		std::string key = line.substr(0, at);
 		// Значение
 		std::string value = line.substr(at + 1);
-		// Снимаем пробелы
+		/**
+		 * Снимаем пробелы
+		 */
 		while(!key.empty() && (key.back() == ' ')) key.pop_back();
+		/**
+		 * Снимаем ведущие пробелы значения
+		 */
 		while(!value.empty() && (value.front() == ' ')) value.erase(0, 1);
+		/**
+		 * Снимаем хвостовые пробелы и возврат каретки Windows
+		 */
 		while(!value.empty() && ((value.back() == ' ') || (value.back() == '\r'))) value.pop_back();
 		// Записываем пару
 		block[key] = value;
 	}
 	// Если последний блок не пуст
 	if(!block.empty())
-		// Добавляем блок
+		// Добавляем последний блок без завершающей пустой строки
 		result.push_back(block);
 	// Выводим перечень блоков
 	return result;
 }
 /**
- * @brief Метод прогона векторов выработки, инкапсуляции и декапсуляции набора
+ * @brief Функция прогона векторов выработки, инкапсуляции и декапсуляции набора
  *
  * @param kem    набор параметров
  * @param prefix приставка имён файлов
@@ -155,6 +167,9 @@ static void vectors(const agreement::kem_t kem, const std::string & prefix) {
 	const auto keygen = blocks(prefix + "_keygen.txt");
 	// Проверяем, что векторы прочитаны
 	ASSERT_GE(keygen.size(), 4u);
+	/**
+	 * Прогоняем векторы выработки: зерно даёт пару ключей, которую сличаем с вектором
+	 */
 	for(size_t i = 0; i < keygen.size(); i++){
 		// Зерно
 		const std::vector <uint8_t> seed = bytes(keygen[i].at("seed"));
@@ -173,6 +188,9 @@ static void vectors(const agreement::kem_t kem, const std::string & prefix) {
 	ASSERT_GE(encap.size(), 7u);
 	// Число отказных векторов
 	size_t refused = 0;
+	/**
+	 * Прогоняем векторы инкапсуляции, включая отказные: итог сличаем с ожидаемым
+	 */
 	for(size_t i = 0; i < encap.size(); i++){
 		// Ключ и сообщение
 		const std::vector <uint8_t> key = bytes(encap[i].at("public_key")), message = bytes(encap[i].at("entropy"));
@@ -201,6 +219,9 @@ static void vectors(const agreement::kem_t kem, const std::string & prefix) {
 	ASSERT_GE(decap.size(), 7u);
 	// Сбрасываем счётчик отказов
 	refused = 0;
+	/**
+	 * Прогоняем векторы декапсуляции, включая отказные
+	 */
 	for(size_t i = 0; i < decap.size(); i++){
 		// Ключ и шифртекст
 		const std::vector <uint8_t> secret = bytes(decap[i].at("private_key")), cipher = bytes(decap[i].at("ciphertext"));
@@ -225,6 +246,9 @@ static void vectors(const agreement::kem_t kem, const std::string & prefix) {
 	const auto nist = blocks(prefix + "_nist_keygen.txt");
 	// Проверяем, что векторы прочитаны
 	ASSERT_GE(nist.size(), 3u);
+	/**
+	 * Прогоняем векторы NIST выработки: зерно d || z даёт пару ключей
+	 */
 	for(size_t i = 0; i < nist.size(); i++){
 		// Зерно d || z
 		std::vector <uint8_t> seed = bytes(nist[i].at("d"));
@@ -248,6 +272,9 @@ static void vectors(const agreement::kem_t kem, const std::string & prefix) {
 	const std::vector <uint8_t> secret = bytes(rejection[0].at("dk"));
 	// Проверяем длину ключа
 	ASSERT_EQ(secret.size(), dk);
+	/**
+	 * Прогоняем пары шифртекстов: у негодных секрет есть J(z || c), у годных - настоящий
+	 */
 	for(size_t i = 1; i < rejection.size(); i++){
 		// Шифртекст
 		const std::vector <uint8_t> cipher = bytes(rejection[i].at("c"));
@@ -280,6 +307,7 @@ TEST(MlkemTest, Vectors1024){
  * Длины наборов по таблице 3 FIPS 203
  */
 TEST(MlkemTest, Lengths){
+	// Длины набора ML-KEM-512 по таблице 3 FIPS 203
 	ASSERT_EQ(agreement::encapsulation(agreement::kem_t::MLKEM512), 800u);
 	ASSERT_EQ(agreement::decapsulation(agreement::kem_t::MLKEM512), 1632u);
 	ASSERT_EQ(agreement::ciphertext(agreement::kem_t::MLKEM512), 768u);
@@ -300,6 +328,10 @@ TEST(MlkemTest, Lengths){
 TEST(MlkemTest, Roundtrip){
 	// Наборы
 	const agreement::kem_t kinds[] = {agreement::kem_t::MLKEM512, agreement::kem_t::MLKEM768, agreement::kem_t::MLKEM1024};
+	/**
+	 * Прогоняем все три набора: круг на случайной паре ключей и неявный отказ
+	 * на порченом шифртексте
+	 */
 	for(size_t k = 0; k < (sizeof(kinds) / sizeof(kinds[0])); k++){
 		// Ключи
 		std::vector <uint8_t> key(agreement::encapsulation(kinds[k]), 0), secret(agreement::decapsulation(kinds[k]), 0);
@@ -323,7 +355,9 @@ TEST(MlkemTest, Roundtrip){
 		ASSERT_NE(first, second) << "набор " << static_cast <int> (kinds[k]);
 		// Повторная инкапсуляция даёт иной шифртекст: сообщение случайно
 		std::vector <uint8_t> again(cipher.size(), 0);
+		// Повторная инкапсуляция на том же ключе завершается успехом
 		ASSERT_TRUE(agreement::encapsulate(kinds[k], view_t(key.data(), key.size()), again.data(), second.data()));
+		// Шифртекст иной: сообщение инкапсуляции случайно
 		ASSERT_NE(again, cipher);
 	}
 }
@@ -349,8 +383,11 @@ TEST(MlkemTest, Refusals){
 	ASSERT_TRUE(agreement::generate(kem, view_t(seed.data(), seed.size()), key.data(), secret.data()));
 	// Повторная выработка на том же зерне даёт те же ключи
 	std::vector <uint8_t> key2(key.size(), 0), secret2(secret.size(), 0);
+	// Повторная выработка на том же зерне проходит
 	ASSERT_TRUE(agreement::generate(kem, view_t(seed.data(), seed.size()), key2.data(), secret2.data()));
+	// Ключ инкапсуляции совпадает с первой выработкой
 	ASSERT_EQ(key, key2);
+	// Ключ декапсуляции совпадает с первой выработкой
 	ASSERT_EQ(secret, secret2);
 	// Шифртекст и секрет
 	std::vector <uint8_t> cipher(agreement::ciphertext(kem), 0), shared(32, 0);
@@ -364,7 +401,9 @@ TEST(MlkemTest, Refusals){
 	ASSERT_FALSE(agreement::encapsulate(kem, view_t(key.data(), key.size()), view_t(message.data(), 31), cipher.data(), shared.data()));
 	// Отказ ключа с коэффициентом вне модуля: старший полубайт первого коэффициента
 	key2[1] |= 0x0F;
+	// Старший байт первого коэффициента выводится за пределы модуля
 	key2[0] = 0xFF;
+	// Ключ с коэффициентом вне модуля не проходит проверку
 	ASSERT_FALSE(agreement::validate(kem, view_t(key2.data(), key2.size())));
 	ASSERT_FALSE(agreement::encapsulate(kem, view_t(key2.data(), key2.size()), view_t(message.data(), 32), cipher.data(), shared.data()));
 	// Инкапсуляция на годном ключе
@@ -375,6 +414,7 @@ TEST(MlkemTest, Refusals){
 	ASSERT_FALSE(agreement::decapsulate(kem, view_t(secret.data(), secret.size() - 1), view_t(cipher.data(), cipher.size()), shared.data()));
 	// Отказ ключа декапсуляции с порченым хешем
 	secret2[secret2.size() - 33] ^= 0x01;
+	// Декапсуляция на ключе с порченым хешем отвергается
 	ASSERT_FALSE(agreement::decapsulate(kem, view_t(secret2.data(), secret2.size()), view_t(cipher.data(), cipher.size()), shared.data()));
 	// Отказ пустого места
 	ASSERT_FALSE(agreement::decapsulate(kem, view_t(secret.data(), secret.size()), view_t(cipher.data(), cipher.size()), nullptr));
@@ -389,6 +429,7 @@ TEST(MlkemTest, Refusals){
 TEST(MlkemTest, Openssl){
 	// Если openssl без ML-KEM-768
 	if(std::system("(openssl list -kem-algorithms 2>/dev/null | grep -q ML-KEM-768) >/dev/null 2>&1") != 0){
+		// Пропускаем круг: в системе нет openssl с ML-KEM-768
 		GTEST_SKIP() << "openssl без ML-KEM-768 (нужен openssl 3.5+)";
 	}
 	// Набор
@@ -397,10 +438,13 @@ TEST(MlkemTest, Openssl){
 	static const uint8_t HEADER[] = {0x30, 0x82, 0x04, 0xB2, 0x30, 0x0B, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x04, 0x02, 0x03, 0x82, 0x04, 0xA1, 0x00};
 	// Пути файлов
 	const std::string stem = "/tmp/ants-mlkem-" + std::to_string(static_cast <long> (::getpid()));
+	// Пути файлов ключей, шифртекста и секрета для обмена с openssl
 	const std::string priv = stem + ".pem", pub = stem + ".pub", cipher = stem + ".ct", secret = stem + ".ss", ours = stem + ".der";
 	// Читаем файл целиком
 	auto slurp = [](const std::string & path) -> std::vector <uint8_t> {
+		// Открываем файл по пути
 		std::ifstream file(path, std::ios::binary);
+		// Складываем содержимое файла в вектор байт
 		return std::vector <uint8_t> ((std::istreambuf_iterator <char> (file)), std::istreambuf_iterator <char> ());
 	};
 	{
@@ -408,10 +452,12 @@ TEST(MlkemTest, Openssl){
 		ASSERT_EQ(std::system(("openssl genpkey -algorithm ML-KEM-768 -out " + priv + " >/dev/null 2>&1 && openssl pkey -in " + priv + " -pubout -outform DER -out " + pub + " >/dev/null 2>&1").c_str()), 0);
 		// Открытый ключ openssl в DER
 		const std::vector <uint8_t> spki = slurp(pub);
+		// Длина DER открытого ключа: заголовок SubjectPublicKeyInfo плюс ключ инкапсуляции
 		ASSERT_EQ(spki.size(), sizeof(HEADER) + agreement::encapsulation(kem));
 		ASSERT_EQ(::memcmp(spki.data(), HEADER, sizeof(HEADER)), 0);
 		// Наша инкапсуляция
 		std::vector <uint8_t> ct(agreement::ciphertext(kem), 0), ss(32, 0);
+		// Наша инкапсуляция на открытом ключе openssl завершается успехом
 		ASSERT_TRUE(agreement::encapsulate(kem, view_t(spki.data() + sizeof(HEADER), agreement::encapsulation(kem)), ct.data(), ss.data()));
 		// Записываем шифртекст
 		std::ofstream(cipher, std::ios::binary).write(reinterpret_cast <const char *> (ct.data()), static_cast <std::streamsize> (ct.size()));
@@ -423,20 +469,26 @@ TEST(MlkemTest, Openssl){
 	{
 		// Наш ключ
 		std::vector <uint8_t> key(agreement::encapsulation(kem), 0), dk(agreement::decapsulation(kem), 0);
+		// Наша пара ключей ML-KEM-768 вырабатывается без ошибки
 		ASSERT_TRUE(agreement::generate(kem, key.data(), dk.data()));
 		// Записываем SubjectPublicKeyInfo
 		std::vector <uint8_t> spki(HEADER, HEADER + sizeof(HEADER));
+		// Ключ инкапсуляции дописывается в тело SubjectPublicKeyInfo после заголовка
 		spki.insert(spki.end(), key.begin(), key.end());
+		// SubjectPublicKeyInfo нашего ключа записывается в файл для openssl
 		std::ofstream(ours, std::ios::binary).write(reinterpret_cast <const char *> (spki.data()), static_cast <std::streamsize> (spki.size()));
 		// Инкапсуляция openssl
 		ASSERT_EQ(std::system(("openssl pkeyutl -encap -inkey " + ours + " -keyform DER -pubin -secret " + secret + " -out " + cipher + " >/dev/null 2>&1").c_str()), 0);
 		// Шифртекст и секрет openssl
 		const std::vector <uint8_t> ct = slurp(cipher), expected = slurp(secret);
+		// Шифртекст openssl имеет длину шифртекста набора
 		ASSERT_EQ(ct.size(), agreement::ciphertext(kem));
 		ASSERT_EQ(expected.size(), static_cast <size_t> (32));
 		// Наша декапсуляция
 		std::vector <uint8_t> ss(32, 0);
+		// Наша декапсуляция шифртекста openssl завершается успехом
 		ASSERT_TRUE(agreement::decapsulate(kem, view_t(dk.data(), dk.size()), view_t(ct.data(), ct.size()), ss.data()));
+		// Секрет нашей декапсуляции совпадает с секретом openssl
 		ASSERT_EQ(ss, expected);
 	}
 	::remove(priv.c_str()); ::remove(pub.c_str()); ::remove(cipher.c_str()); ::remove(secret.c_str()); ::remove(ours.c_str());

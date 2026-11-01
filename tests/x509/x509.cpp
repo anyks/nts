@@ -98,7 +98,7 @@ typedef struct Defect {
 } defect_t;
 
 /**
- * @brief Метод записи отличительного имени
+ * @brief Функция записи отличительного имени
  *
  * @param writer записчик записи
  * @param value  значение общего имени
@@ -123,7 +123,7 @@ static void name(asn1::writer_t & writer, const char * oid, const char * value) 
 	writer.close();
 }
 /**
- * @brief Метод записи имени стороны общим именем
+ * @brief Функция записи имени стороны общим именем
  *
  * @param writer записчик, в который записывается имя
  * @param value  значение общего имени
@@ -148,7 +148,7 @@ static void name(asn1::writer_t & writer, const char * value) {
 	writer.close();
 }
 /**
- * @brief Метод записи опознавателя алгоритма
+ * @brief Функция записи опознавателя алгоритма
  *
  * @param writer записчик записи
  * @param value  опознаватель алгоритма
@@ -165,7 +165,7 @@ static void algorithm(asn1::writer_t & writer, const char * value) {
 	writer.close();
 }
 /**
- * @brief Метод сборки записи сертификата
+ * @brief Функция сборки записи сертификата
  *
  * @param writer записчик записи
  * @param defect набор вносимых изъянов
@@ -219,15 +219,23 @@ static void build(asn1::writer_t & writer, const defect_t & defect) {
 		name(writer, "2.5.4.5", "0001");
 	// Записываем имя владельца сертификата
 	else if(defect.doubled){
+		// Составляющая имени из двух признаков CN: открываем три уровня вложенности
 		writer.open(asn1::tag_t::SEQUENCE);
 		writer.open(asn1::tag_t::SET);
 		writer.open(asn1::tag_t::SEQUENCE);
+		// Опознаватель первого признака CN
 		writer.oid("2.5.4.3");
+		// Значение первого признака
 		writer.text(asn1::tag_t::UTF8_STRING, "a");
+		// Закрываем запись первого признака
 		writer.close();
+		// Второй признак того же вида: повтор в одной составляющей
 		writer.open(asn1::tag_t::SEQUENCE);
+		// Опознаватель второго признака CN
 		writer.oid("2.5.4.3");
+		// Значение второго признака
 		writer.text(asn1::tag_t::UTF8_STRING, "b");
+		// Закрываем запись второго признака
 		writer.close();
 		writer.close();
 		writer.close();
@@ -1212,7 +1220,7 @@ TEST(X509Test, Overfilled) {
 }
 
 /**
- * @brief Метод сбора смещений меток всех элементов записи
+ * @brief Функция сбора смещений меток всех элементов записи
  *
  * @details Обход идёт вглубь: у составного элемента разбирается и его содержимое. Смещение
  *          берётся у просмотра элемента целиком - первым его байтом и лежит метка
@@ -1624,19 +1632,28 @@ TEST(X509Test, Misextended) {
  *
  */
 TEST(X509Test, Consistent){
+	// Порча записи: несовпадение опознавателей алгоритма подписи
 	defect_t defect;
+	// Просим несовпадение опознавателей снаружи и внутри подписываемой части
 	defect.mismatched = true;
+	// Записывающий сертификат
 	asn1::writer_t writer;
+	// Собираем сертификат с порчей
 	build(writer, defect);
+	// Разбираемый сертификат
 	x509::certificate_t certificate;
 	/**
 	 * Разделы 4.1.1.2 и 4.1.2.3 RFC 5280: опознаватель алгоритма подписи снаружи
 	 * обязан совпадать с опознавателем внутри подписываемой части
 	 */
 	ASSERT_EQ(certificate.parse(writer.data()), x509::error_t::STRUCTURE);
+	// Порча записи: повтор признака имени
 	defect_t twice;
+	// Просим повтор признака CN в одной составляющей
 	twice.doubled = true;
+	// Второй записывающий
 	asn1::writer_t again;
+	// Собираем сертификат с повтором признака
 	build(again, twice);
 	// X.501: два признака одного вида в одной составляющей имени - повтор
 	ASSERT_EQ(certificate.parse(again.data()), x509::error_t::DUPLICATE);
@@ -1768,10 +1785,9 @@ TEST(X509Test, Starved) {
 }
 
 /**
- * @brief Метод чтения файла набора образцов целиком
+ * @brief Функция чтения файла набора образцов целиком
  *
  * @param name имя файла набора образцов
- *
  * @return     содержимое файла либо пустой накопитель
  *
  */
@@ -1787,12 +1803,11 @@ static vector <uint8_t> corpus(const char * name) {
 }
 
 /**
- * @brief Метод записи настроек RSASSA-PSS-params
+ * @brief Функция записи настроек RSASSA-PSS-params
  *
  * @param writer записчик, в который помещаются настройки
  * @param hash   опознаватель алгоритма хеша
  * @param salt   длина соли
- *
  * @return       признак успешности записи настроек
  *
  */
@@ -1802,23 +1817,33 @@ static bool pssParams(asn1::writer_t & writer, const string & hash, const int64_
 	// Записываем алгоритм хеша [0]
 	writer.open(asn1::cls_t::CONTEXT, 0);
 	writer.open(asn1::tag_t::SEQUENCE);
+	// Опознаватель алгоритма хеша
 	writer.oid(hash);
+	// Параметры алгоритма хеша пусты
 	writer.nothing();
+	// Закрываем запись алгоритма хеша
 	writer.close();
 	writer.close();
 	// Записываем функцию порождения маски MGF1 с тем же хешем [1]
 	writer.open(asn1::cls_t::CONTEXT, 1);
 	writer.open(asn1::tag_t::SEQUENCE);
+	// Опознаватель функции порождения маски MGF1
 	writer.oid("1.2.840.113549.1.1.8");
+	// Настройки MGF1: вложенный набор с тем же хешем
 	writer.open(asn1::tag_t::SEQUENCE);
+	// Хеш функции порождения маски совпадает с хешом подписи
 	writer.oid(hash);
+	// Параметры хеша MGF1 пусты
 	writer.nothing();
+	// Закрываем запись настроек MGF1
 	writer.close();
 	writer.close();
 	writer.close();
 	// Записываем длину соли [2]
 	writer.open(asn1::cls_t::CONTEXT, 2);
+	// Длина соли в октетах
 	writer.integer(salt);
+	// Закрываем запись длины соли
 	writer.close();
 	// Закрываем обёртку настроек
 	writer.close();
@@ -1862,6 +1887,7 @@ TEST(X509Test, PssKeyBoundCheck){
 	ASSERT_TRUE(pssParams(strict, "2.16.840.1.101.3.4.2.2", 48));
 	// Ключ id-RSASSA-PSS со строгими настройками
 	key.algorithm = "1.2.840.113549.1.1.10";
+	// Строгие настройки ключа прикрепляются к открытому ключу
 	key.parameters = strict.data();
 	// Проверяем отказ подписи SHA-256/32 ключом, ограниченным SHA-384/48
 	EXPECT_EQ(x509::check(key, digest::hash_t::SHA256, view_t(content.data(), content.size()), view_t(signature.data(), signature.size())), x509::error_t::SIGNATURE);

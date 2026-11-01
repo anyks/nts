@@ -152,11 +152,10 @@ namespace {
 	// Затирание областей памяти берётся из открытого API библиотеки
 	using nts::sys::wipe;
 	/**
-	 * @brief Метод получения маски равенства слов
+	 * @brief Функция получения маски равенства слов
 	 *
 	 * @param first  первое слово
 	 * @param second второе слово
-	 *
 	 * @return       маска: все разряды единичны при равенстве слов
 	 *
 	 */
@@ -167,11 +166,10 @@ namespace {
 		return (0 - (((value | (0 - value)) >> 63) ^ 1));
 	}
 	/**
-	 * @brief Метод получения маски признака «первое слово меньше второго»
+	 * @brief Функция получения маски признака «первое слово меньше второго»
 	 *
 	 * @param first  первое слово
 	 * @param second второе слово
-	 *
 	 * @return       маска: все разряды единичны, если первое слово меньше второго
 	 *
 	 */
@@ -180,12 +178,11 @@ namespace {
 		return (0 - (((~first & second) | (~(first ^ second) & (first - second))) >> 63));
 	}
 	/**
-	 * @brief Метод выбора одного из двух слов наложением маски
+	 * @brief Функция выбора одного из двух слов наложением маски
 	 *
 	 * @param mask   маска выбора: все разряды единичны либо все нулевые
 	 * @param first  слово, выбираемое при единичной маске
 	 * @param second слово, выбираемое при нулевой маске
-	 *
 	 * @return       выбранное слово
 	 *
 	 */
@@ -194,12 +191,11 @@ namespace {
 		return (second ^ (mask & (first ^ second)));
 	}
 	/**
-	 * @brief Метод сличения областей байтов за постоянное время
+	 * @brief Функция сличения областей байтов за постоянное время
 	 *
 	 * @param first  первая область
 	 * @param second вторая область
 	 * @param size   размер областей
-	 *
 	 * @return       маска: все разряды единичны при равенстве областей
 	 *
 	 */
@@ -216,14 +212,13 @@ namespace {
 		return same(result, 0);
 	}
 	/**
-	 * @brief Метод получения записи DigestInfo алгоритма хеширования
+	 * @brief Функция получения записи DigestInfo алгоритма хеширования
 	 *
 	 * @details Раздел 9.2 RFC 8017, замечание 1: записи DigestInfo без самого хеша
 	 *          для каждого допустимого алгоритма
 	 *
 	 * @param algorithm алгоритм хеширования
 	 * @param size      переменная, в которую помещается длина записи
-	 *
 	 * @return          запись DigestInfo без хеша либо nullptr у недопустимого алгоритма
 	 *
 	 */
@@ -293,7 +288,7 @@ namespace {
 		return nullptr;
 	}
 	/**
-	 * @brief Метод выработки маски MGF1
+	 * @brief Функция выработки маски MGF1
 	 *
 	 * @details Приложение B.2.1 RFC 8017: маска собирается из хешей затравки с
 	 *          приписанным счётчиком в четыре байта от старшего к младшему
@@ -303,7 +298,6 @@ namespace {
 	 * @param size      длина затравки
 	 * @param mask      место, в которое записывается маска
 	 * @param length    длина маски
-	 *
 	 * @return          признак успешности выработки
 	 *
 	 */
@@ -312,7 +306,7 @@ namespace {
 		const size_t hash = digest::length(algorithm);
 		// Если длина хеша неизвестна
 		if((hash == 0) || (hash > HASH_SIZE))
-			// Выводим отказ
+			// Выводим отрицательный результат - длина хеша неизвестна
 			return false;
 		// Объект хеширования
 		digest::hasher_t hasher;
@@ -324,6 +318,7 @@ namespace {
 		for(size_t offset = 0, counter = 0; offset < length; offset += hash, counter++){
 			// Счётчик от старшего байта к младшему
 			const uint8_t count[4] = {
+				// Счётчик в четыре байта от старшего
 				static_cast <uint8_t> (counter >> 24), static_cast <uint8_t> (counter >> 16),
 				static_cast <uint8_t> (counter >> 8), static_cast <uint8_t> (counter)
 			};
@@ -337,7 +332,7 @@ namespace {
 			if(!hasher.finish(buffer, sizeof(buffer))){
 				// Затираем хеш
 				wipe(buffer, sizeof(buffer));
-				// Выводим отказ
+				// Выводим отрицательный результат - хеш не выработан
 				return false;
 			}
 			// Длина очередного куска маски
@@ -355,7 +350,7 @@ namespace {
 		return true;
 	}
 	/**
-	 * @brief Метод выработки хеша PSS
+	 * @brief Функция выработки хеша PSS
 	 *
 	 * @details Шаги 5 и 6 раздела 9.1.1 RFC 8017: хеш восьми нулевых байтов,
 	 *          хеша сообщения и соли
@@ -365,7 +360,6 @@ namespace {
 	 * @param salt      соль
 	 * @param size      длина соли
 	 * @param result    место, в которое записывается хеш
-	 *
 	 * @return          признак успешности выработки
 	 *
 	 */
@@ -386,11 +380,10 @@ namespace {
 		return hasher.finish(result, HASH_SIZE);
 	}
 	/**
-	 * @brief Метод записи числа элементом INTEGER кодировки DER
+	 * @brief Функция записи числа элементом INTEGER кодировки DER
 	 *
 	 * @param writer записчик кодировки DER
 	 * @param value  записываемое число
-	 *
 	 * @return       признак успешности записи
 	 *
 	 */
@@ -401,7 +394,7 @@ namespace {
 		const size_t size = ((value.size() > 0) ? value.size() : 1);
 		// Записываем число после ведущего нуля
 		if(!value.store(buffer + 1, size))
-			// Выводим отказ
+			// Выводим отрицательный результат - число не записано
 			return false;
 		// Ведущий ноль нужен при выставленном старшем разряде: число без знака
 		const size_t offset = (((buffer[1] & 0x80) != 0) ? 0 : 1);
@@ -413,7 +406,7 @@ namespace {
 		return result;
 	}
 	/**
-	 * @brief Метод затирания буфера записчика DER с его сбросом
+	 * @brief Функция затирания буфера записчика DER с его сбросом
 	 *
 	 * @details Записчик секретного ключа держит приватный DER (d, p, q, dp, dq, коэффициент)
 	 *          в собственном буфере кучи; деструктор asn1::Writer пуст, а clear() буфер не
@@ -434,7 +427,7 @@ namespace {
 		writer.clear();
 	}
 	/**
-	 * @brief Метод копирования куска буфера с секретным началом за постоянное время
+	 * @brief Функция копирования куска буфера с секретным началом за постоянное время
 	 *
 	 * @details Каждый байт итога собирается перебором всего буфера под маской
 	 *          совпадения номера: ни адрес обращения, ни число шагов от начала
@@ -491,7 +484,7 @@ bool nts::sign::Rsa::factor(const size_t bits, math::integer_t & result) const n
 		math::integer_t random;
 		// Вырабатываем случайные младшие разряды
 		if(!random.random(bits - 2))
-			// Выводим отказ
+			// Выводим отрицательный результат - случайность не выработана
 			return false;
 		// Дополняем случайную часть старшими разрядами
 		result.add(random, top);
@@ -512,7 +505,7 @@ bool nts::sign::Rsa::factor(const size_t bits, math::integer_t & result) const n
 			// Выводим признак успешности
 			return true;
 	}
-	// Выводим отказ
+	// Выводим отрицательный результат - производные не вычислены
 	return false;
 }
 /**
@@ -536,34 +529,34 @@ bool nts::sign::Rsa::derive() noexcept {
 	math::integer_t divisor, quotient, carmichael;
 	// Вычисляем общий делитель
 	if(!divisor.gcd(prime1, prime2))
-		// Выводим отказ
+		// Выводим отрицательный результат - общий делитель не вычислен
 		return false;
 	// Делим первый сомножитель без единицы на общий делитель
 	if(!quotient.divide(prime1, divisor))
-		// Выводим отказ
+		// Выводим отрицательный результат - деление не выполнено
 		return false;
 	// Вычисляем наименьшее общее кратное: функцию Кармайкла модуля
 	if(!carmichael.multiply(quotient, prime2))
-		// Выводим отказ
+		// Выводим отрицательный результат - функция Кармайкла не вычислена
 		return false;
 	// Обращаем открытый показатель по функции Кармайкла
 	if(!this->_decryptor.invert(this->_exponent, carmichael))
-		// Выводим отказ
+		// Выводим отрицательный результат - показатель не обращён
 		return false;
 	/**
 	 * Приложение A.1.1 FIPS 186-5 отвергает секретный показатель, не превышающий
 	 * корня из модуля: такой ключ вскрывается по Винеру
 	 */
 	if(this->_decryptor.bits() <= (this->_bits / 2))
-		// Выводим отказ
+		// Выводим отрицательный результат - показатель вскрывается по Винеру
 		return false;
 	// Приводим секретный показатель по первому сомножителю без единицы
 	if(!this->_exponent1.reduce(this->_decryptor, prime1))
-		// Выводим отказ
+		// Выводим отрицательный результат - первый показатель не приведён
 		return false;
 	// Приводим секретный показатель по второму сомножителю без единицы
 	if(!this->_exponent2.reduce(this->_decryptor, prime2))
-		// Выводим отказ
+		// Выводим отрицательный результат - второй показатель не приведён
 		return false;
 	// Обращаем второй сомножитель по первому
 	return this->_coefficient.invert(this->_prime2, this->_prime1);
@@ -647,13 +640,19 @@ void nts::sign::Rsa::clear() noexcept {
 	this->_coefficient.clear();
 	// Сбрасываем предвычисления по модулю и сомножителям
 	this->_field.clear();
+	// Затираем предвычисления по первому сомножителю
 	this->_field1.clear();
+	// Затираем предвычисления по второму сомножителю
 	this->_field2.clear();
+	// Затираем коэффициент в области Монтгомери
 	this->_reverse.clear();
 	// Затираем сохранённую пару ослепления
 	this->_raised1.clear();
+	// Затираем обратное по первому сомножителю
 	this->_inverse1.clear();
+	// Затираем открытую степень по второму сомножителю
 	this->_raised2.clear();
+	// Затираем обратное по второму сомножителю
 	this->_inverse2.clear();
 	// Сбрасываем счётчик действий с парой
 	this->_uses = 0;
@@ -671,11 +670,11 @@ void nts::sign::Rsa::clear() noexcept {
 bool nts::sign::Rsa::generate(const size_t bits, const uint64_t exponent) noexcept {
 	// Если число разрядов не из допустимых
 	if((bits != 2048) && (bits != 3072) && (bits != 4096))
-		// Выводим отказ
+		// Выводим отрицательный результат - число разрядов не из допустимых
 		return false;
 	// Если показатель чётный, меньше трёх либо шире дозволенного (тот же предел, что у key())
 	if(((exponent & 1) == 0) || (exponent < 3) || (exponent >= (static_cast <uint64_t> (1) << EXPONENT_BITS)))
-		// Выводим отказ
+		// Выводим отрицательный результат - показатель негоден
 		return false;
 	// Сбрасываем состояние модуля
 	this->clear();
@@ -687,7 +686,7 @@ bool nts::sign::Rsa::generate(const size_t bits, const uint64_t exponent) noexce
 	if(!this->factor(bits / 2, this->_prime1)){
 		// Сбрасываем состояние модуля
 		this->clear();
-		// Выводим отказ
+		// Выводим отрицательный результат - сомножитель не выработан
 		return false;
 	}
 	/**
@@ -736,7 +735,7 @@ bool nts::sign::Rsa::generate(const size_t bits, const uint64_t exponent) noexce
 	}
 	// Сбрасываем состояние модуля
 	this->clear();
-	// Выводим отказ
+	// Выводим отрицательный результат - ключ не выработан
 	return false;
 }
 /**
@@ -754,7 +753,7 @@ bool nts::sign::Rsa::key(const view_t & modulus, const view_t & exponent) noexce
 	if(!this->_modulus.load(modulus) || !this->_exponent.load(exponent)){
 		// Сбрасываем состояние модуля
 		this->clear();
-		// Выводим отказ
+		// Выводим отрицательный результат - ключ не разобран
 		return false;
 	}
 	// Запоминаем число разрядов модуля
@@ -771,7 +770,7 @@ bool nts::sign::Rsa::key(const view_t & modulus, const view_t & exponent) noexce
 	   !this->_exponent.odd() || (this->_exponent.compare(three) < 0) || (this->_exponent.compare(this->_modulus) >= 0) || (this->_exponent.bits() > EXPONENT_BITS)){
 		// Сбрасываем состояние модуля
 		this->clear();
-		// Выводим отказ
+		// Выводим отрицательный результат - ключ не по границам
 		return false;
 	}
 	// Выставляем признак открытого ключа
@@ -780,7 +779,7 @@ bool nts::sign::Rsa::key(const view_t & modulus, const view_t & exponent) noexce
 	if(!this->prepare()){
 		// Сбрасываем состояние модуля
 		this->clear();
-		// Выводим отказ
+		// Выводим отрицательный результат - предвычисления не удались
 		return false;
 	}
 	// Выводим признак успешности
@@ -803,14 +802,14 @@ bool nts::sign::Rsa::key(const view_t & modulus, const view_t & exponent) noexce
 bool nts::sign::Rsa::key(const view_t & modulus, const view_t & exponent, const view_t & decryptor, const view_t & prime1, const view_t & prime2, const view_t & exponent1, const view_t & exponent2, const view_t & coefficient) noexcept {
 	// Устанавливаем открытый ключ
 	if(!this->key(modulus, exponent))
-		// Выводим отказ
+		// Выводим отрицательный результат - открытый ключ не установлен
 		return false;
 	// Разбираем секретные составляющие
 	if(!this->_decryptor.load(decryptor) || !this->_prime1.load(prime1) || !this->_prime2.load(prime2) ||
 	   !this->_exponent1.load(exponent1) || !this->_exponent2.load(exponent2) || !this->_coefficient.load(coefficient)){
 		// Сбрасываем состояние модуля
 		this->clear();
-		// Выводим отказ
+		// Выводим отрицательный результат - составляющие не разобраны
 		return false;
 	}
 	// Единица и произведение сомножителей
@@ -829,7 +828,7 @@ bool nts::sign::Rsa::key(const view_t & modulus, const view_t & exponent, const 
 	   this->_coefficient.zero() || (this->_coefficient.compare(this->_prime1) >= 0)){
 		// Сбрасываем состояние модуля
 		this->clear();
-		// Выводим отказ
+		// Выводим отрицательный результат - составляющие не согласованы
 		return false;
 	}
 	// Сомножители без единицы
@@ -852,7 +851,7 @@ bool nts::sign::Rsa::key(const view_t & modulus, const view_t & exponent, const 
 	   !unit.mulmod(this->_coefficient, this->_prime2, this->_prime1, false) || !unit.equal(one)){
 		// Сбрасываем состояние модуля
 		this->clear();
-		// Выводим отказ
+		// Выводим отрицательный результат - показатели не сошлись
 		return false;
 	}
 	// Выставляем признак секретного ключа
@@ -861,7 +860,7 @@ bool nts::sign::Rsa::key(const view_t & modulus, const view_t & exponent, const 
 	if(!this->prepare()){
 		// Сбрасываем состояние модуля
 		this->clear();
-		// Выводим отказ
+		// Выводим отрицательный результат - предвычисления не удались
 		return false;
 	}
 	// Выводим признак успешности
@@ -927,7 +926,7 @@ size_t nts::sign::Rsa::length(const part_t part) const noexcept {
 bool nts::sign::Rsa::part(const part_t part, uint8_t * data, const size_t size) const noexcept {
 	// Если составляющей нет либо места нет
 	if((this->length(part) == 0) || (data == nullptr))
-		// Выводим отказ
+		// Выводим отрицательный результат - составляющая не выдана
 		return false;
 	/**
 	 * Определяем составляющую ключа
@@ -966,7 +965,7 @@ bool nts::sign::Rsa::part(const part_t part, uint8_t * data, const size_t size) 
 			// Выводим итог записи коэффициента
 			return this->_coefficient.store(data, size);
 	}
-	// Выводим отказ
+	// Выводим отрицательный результат - коэффициент не записан
 	return false;
 }
 /**
@@ -980,7 +979,7 @@ bool nts::sign::Rsa::part(const part_t part, uint8_t * data, const size_t size) 
 bool nts::sign::Rsa::encode(const bool secret, vector <uint8_t> & result) const noexcept {
 	// Если нужного ключа нет
 	if(!this->_public || (secret && !this->_secret))
-		// Выводим отказ
+		// Выводим отрицательный результат - ключ не установлен
 		return false;
 	// Записчик кодировки DER
 	asn1::writer_t writer;
@@ -1015,7 +1014,7 @@ bool nts::sign::Rsa::encode(const bool secret, vector <uint8_t> & result) const 
 	if(writer.err() != asn1::error_t::NONE){
 		// Затираем буфер записчика: приватный DER не должен уйти в кучу незатёртым
 		scrub(writer);
-		// Выводим отказ
+		// Выводим отрицательный результат - ключ не записан
 		return false;
 	}
 	// Получаем собранную запись
@@ -1023,14 +1022,13 @@ bool nts::sign::Rsa::encode(const bool secret, vector <uint8_t> & result) const 
 	// Признак успешности копирования записи
 	bool copied = true;
 	/**
-	 * Копирование записи выделяет память: нехватка её отдаётся отказом, а не
-	 * завершением процесса
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Копируем запись в место назначения
 		result.assign(data.data, data.data + data.size);
 	/**
-	 * Если памяти не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Запоминаем отказ копирования
@@ -1055,7 +1053,7 @@ bool nts::sign::Rsa::decode(const view_t & data) noexcept {
 	asn1::element_t sequence;
 	// Разбираем набор полей ключа
 	if(!reader.next(asn1::tag_t::SEQUENCE, sequence) || !sequence.constructed || !reader.empty())
-		// Выводим отказ
+		// Выводим отрицательный результат - поля не разобраны
 		return false;
 	// Разборщик полей ключа
 	asn1::reader_t fields(sequence.content);
@@ -1069,17 +1067,17 @@ bool nts::sign::Rsa::decode(const view_t & data) noexcept {
 	while(!fields.empty()){
 		// Если полей больше, чем у секретного ключа
 		if(count >= 9)
-			// Выводим отказ
+			// Выводим отрицательный результат - лишние поля
 			return false;
 		// Очередное поле
 		asn1::element_t field;
 		// Разбираем очередное целое число
 		if(!fields.next(asn1::tag_t::INTEGER, field) || (asn1::integer(field, items[count]) != asn1::error_t::NONE))
-			// Выводим отказ
+			// Выводим отрицательный результат - число не разобрано
 			return false;
 		// Если число отрицательно
 		if((items[count].size == 0) || ((items[count].data[0] & 0x80) != 0))
-			// Выводим отказ
+			// Выводим отрицательный результат - отрицательное число
 			return false;
 		// Учитываем разобранное поле
 		count++;
@@ -1092,12 +1090,12 @@ bool nts::sign::Rsa::decode(const view_t & data) noexcept {
 	if(count == 9){
 		// Издание записи обязано быть нулевым: дополнительных сомножителей нет
 		if((items[0].size != 1) || (items[0].data[0] != 0))
-			// Выводим отказ
+			// Выводим отрицательный результат - лишнее издание
 			return false;
 		// Выводим итог установки секретного ключа
 		return this->key(items[1], items[2], items[3], items[4], items[5], items[6], items[7], items[8]);
 	}
-	// Выводим отказ
+	// Выводим отрицательный результат - секретный ключ не установлен
 	return false;
 }
 /**
@@ -1111,29 +1109,29 @@ bool nts::sign::Rsa::decode(const view_t & data) noexcept {
 bool nts::sign::Rsa::encipher(const view_t & input, uint8_t * output) const noexcept {
 	// Если открытого ключа нет либо места нет
 	if(!this->_public || (output == nullptr))
-		// Выводим отказ
+		// Выводим отрицательный результат - шифрование невозможно
 		return false;
 	// Входное число
 	math::integer_t value;
 	// Разбираем входное число
 	if(!value.load(input) || (value.compare(this->_modulus) >= 0))
-		// Выводим отказ
+		// Выводим отрицательный результат - число не разобрано
 		return false;
 	// Итог действия
 	math::integer_t result;
 	// Возводим число в открытую степень арифметикой Монтгомери с предвычислениями: показатель открыт
 	if(!this->_field.power(value, this->_exponent, false, result))
-		// Выводим отказ
+		// Выводим отрицательный результат - возведение не выполнено
 		return false;
 	// Выводим итог записи
 	return result.store(output, this->size());
 }
 /**
- * @brief Метод сборки числа по китайской теореме об остатках
+ * @brief Метод сборки числа по китайской теореме об остатках за постоянное время
  *
  * @param first  вычет по первому сомножителю
  * @param second вычет по второму сомножителю
- * @param result место, в которое помещается собранное число, меньшее модуля
+ * @param result место, в которое помещается собранное число
  * @return       признак успешности сборки
  *
  * @note Сборка по Гарнеру: h = qInv·(first − second) mod p, итог = second + h·q.
@@ -1146,19 +1144,19 @@ bool nts::sign::Rsa::garner(const math::integer_t & first, const math::integer_t
 	math::integer_t reduced, difference, factor, product;
 	// Приводим второй вычет по первому сомножителю за постоянное время: второй сомножитель бывает шире первого
 	if(!this->_field1.reduce(second, reduced))
-		// Выводим отказ
+		// Выводим отрицательный результат - вычет не приведён
 		return false;
 	// Вычитаем по первому сомножителю за постоянное время
 	if(!difference.submod(first, reduced, this->_prime1))
-		// Выводим отказ
+		// Выводим отрицательный результат - вычитание не выполнено
 		return false;
 	// Умножаем разность на коэффициент qInv: коэффициент лежит в области Монтгомери, оттого одно умножение
 	if(!this->_field1.multiply(difference, this->_reverse, factor))
-		// Выводим отказ
+		// Выводим отрицательный результат - коэффициент не применён
 		return false;
 	// Умножаем множитель на второй сомножитель
 	if(!product.multiply(factor, this->_prime2))
-		// Выводим отказ
+		// Выводим отрицательный результат - итог не собран
 		return false;
 	// Складываем со вторым вычетом
 	return result.add(second, product);
@@ -1172,7 +1170,7 @@ bool nts::sign::Rsa::garner(const math::integer_t & first, const math::integer_t
 bool nts::sign::Rsa::prepare() noexcept {
 	// Если открытого ключа нет либо арифметика по модулю не завелась
 	if(!this->_public || !this->_field.start(this->_modulus))
-		// Выводим отказ
+		// Выводим отрицательный результат - арифметика модуля не завелась
 		return false;
 	// Если секретный ключ не установлен
 	if(!this->_secret)
@@ -1180,7 +1178,7 @@ bool nts::sign::Rsa::prepare() noexcept {
 		return true;
 	// Если арифметика по сомножителям не завелась
 	if(!this->_field1.start(this->_prime1) || !this->_field2.start(this->_prime2))
-		// Выводим отказ
+		// Выводим отрицательный результат - арифметика сомножителей не завелась
 		return false;
 	// Новому ключу нужна свежая пара ослепления
 	this->_uses = 0;
@@ -1210,18 +1208,18 @@ bool nts::sign::Rsa::renew(math::integer_t & raised1, math::integer_t & inverse1
 	for(size_t i = 0; (i < BLINDING) && !found; i++){
 		// Берём случайные числа на разряд короче сомножителей: они заведомо меньше их
 		if(!blind1.random(this->_prime1.bits() - 1) || !blind2.random(this->_prime2.bits() - 1))
-			// Выводим отказ
+			// Выводим отрицательный результат - случайность не выработана
 			return false;
 		// Числа годны, когда ненулевые и обратимые: обращение идёт за постоянное время
 		found = (!blind1.zero() && !blind2.zero() && this->_field1.invert(blind1, reverse1) && this->_field2.invert(blind2, reverse2));
 	}
 	// Если ослепляющие числа не найдены
 	if(!found)
-		// Выводим отказ
+		// Выводим отрицательный результат - ослепление не найдено
 		return false;
 	// Возводим ослепляющие числа в открытую степень по сомножителям
 	if(!this->_field1.power(blind1, this->_exponent, false, power1) || !this->_field2.power(blind2, this->_exponent, false, power2))
-		// Выводим отказ
+		// Выводим отрицательный результат - ослепление не возведено
 		return false;
 	// Переводим пару в область Монтгомери: умножение на неё - одно умножение Монтгомери
 	return (this->_field1.enter(power1, raised1) && this->_field1.enter(reverse1, inverse1) && this->_field2.enter(power2, raised2) && this->_field2.enter(reverse2, inverse2));
@@ -1251,12 +1249,12 @@ bool nts::sign::Rsa::blinded(const bool stored, const math::integer_t & part1, c
 			this->_uses = 0;
 		// Если свежая пара не выработалась
 		if(!this->renew(raised1, inverse1, raised2, inverse2))
-			// Выводим отказ
+			// Выводим отрицательный результат - пара не выработана
 			return false;
 	// Иначе пара обновляется квадратами: (r²)^e = (r^e)², (r²)⁻¹ = (r⁻¹)²
 	} else if(!this->_field1.multiply(raised1, raised1, raised1) || !this->_field1.multiply(inverse1, inverse1, inverse1) ||
 	          !this->_field2.multiply(raised2, raised2, raised2) || !this->_field2.multiply(inverse2, inverse2, inverse2))
-		// Выводим отказ
+		// Выводим отрицательный результат - пара не обновлена
 		return false;
 	// Если пара хранимая
 	if(stored)
@@ -1266,17 +1264,17 @@ bool nts::sign::Rsa::blinded(const bool stored, const math::integer_t & part1, c
 	math::integer_t blinded1, blinded2;
 	// Ослепляем вычеты: сомножитель в области, оттого множитель R сокращается одним умножением
 	if(!this->_field1.multiply(part1, raised1, blinded1) || !this->_field2.multiply(part2, raised2, blinded2))
-		// Выводим отказ
+		// Выводим отрицательный результат - вычеты не ослеплены
 		return false;
 	// Степени по сомножителям
 	math::integer_t power1, power2;
 	// Возводим ослеплённые вычеты в секретные степени за постоянное время
 	if(!this->_field1.power(blinded1, this->_exponent1, true, power1) || !this->_field2.power(blinded2, this->_exponent2, true, power2))
-		// Выводим отказ
+		// Выводим отрицательный результат - возведение не выполнено
 		return false;
 	// Снимаем ослепление: секретная степень открытой степени ослепляющего числа есть само число
 	if(!this->_field1.multiply(power1, inverse1, power1) || !this->_field2.multiply(power2, inverse2, power2))
-		// Выводим отказ
+		// Выводим отрицательный результат - ослепление не снято
 		return false;
 	// Собираем итог по китайской теореме об остатках
 	return this->garner(power1, power2, result);
@@ -1292,19 +1290,19 @@ bool nts::sign::Rsa::blinded(const bool stored, const math::integer_t & part1, c
 bool nts::sign::Rsa::decipher(const view_t & input, uint8_t * output) const noexcept {
 	// Если секретного ключа нет либо места нет
 	if(!this->_secret || (output == nullptr))
-		// Выводим отказ
+		// Выводим отрицательный результат - расшифрование невозможно
 		return false;
 	// Входное число
 	math::integer_t value;
 	// Разбираем входное число: оно обязано быть меньше модуля
 	if(!value.load(input) || (value.compare(this->_modulus) >= 0))
-		// Выводим отказ
+		// Выводим отрицательный результат - число не разобрано
 		return false;
 	// Вычеты числа по сомножителям
 	math::integer_t part1, part2;
 	// Приводим число по сомножителям за постоянное время
 	if(!this->_field1.reduce(value, part1) || !this->_field2.reduce(value, part2))
-		// Выводим отказ
+		// Выводим отрицательный результат - число не приведено
 		return false;
 	// Забираем хранимую пару ослепления, когда она свободна: занятую другим потоком не ждём
 	const bool stored = !this->_busy.exchange(true, std::memory_order_acquire);
@@ -1320,13 +1318,13 @@ bool nts::sign::Rsa::decipher(const view_t & input, uint8_t * output) const noex
 		this->_busy.store(false, std::memory_order_release);
 	// Если действие не удалось
 	if(!done)
-		// Выводим отказ
+		// Выводим отрицательный результат - действие не выполнено
 		return false;
 	// Проверка итога
 	math::integer_t check;
 	// Возводим итог в открытую степень: расхождение со значением выдаёт сбой вычисления, и итог не выдаётся
 	if(!this->_field.power(result, this->_exponent, false, check) || !check.equal(value))
-		// Выводим отказ
+		// Выводим отрицательный результат - проверка не выполнена
 		return false;
 	// Выводим итог записи
 	return result.store(output, this->size());
@@ -1346,7 +1344,7 @@ bool nts::sign::Rsa::decipher(const view_t & input, uint8_t * output) const noex
 bool nts::sign::Rsa::make(const scheme_t scheme, const digest::hash_t algorithm, const view_t & digest, uint8_t * signature, const size_t salt, const view_t & random) const noexcept {
 	// Если секретного ключа нет либо места нет
 	if(!this->_secret || (signature == nullptr))
-		// Выводим отказ
+		// Выводим отрицательный результат - подпись невозможна
 		return false;
 	// Длина записи DigestInfo
 	size_t size = 0;
@@ -1361,7 +1359,7 @@ bool nts::sign::Rsa::make(const scheme_t scheme, const digest::hash_t algorithm,
 	const size_t hash = (bare ? digest.size : digest::length(algorithm));
 	// Если алгоритм недопустим либо хеш не той длины
 	if((!bare && (info == nullptr)) || (hash == 0) || (hash > HASH_SIZE) || (hash != digest.size) || (digest.data == nullptr))
-		// Выводим отказ
+		// Выводим отрицательный результат - параметры негодны
 		return false;
 	// Размер модуля в байтах
 	const size_t modulus = this->size();
@@ -1377,7 +1375,7 @@ bool nts::sign::Rsa::make(const scheme_t scheme, const digest::hash_t algorithm,
 		case static_cast <uint8_t> (scheme_t::PKCS1): {
 			// Раздел 9.2 RFC 8017: модуль обязан вмещать запись с дополнением в одиннадцать байтов
 			if(modulus < (size + hash + 11))
-				// Выводим отказ
+				// Выводим отрицательный результат - модуль мал
 				return false;
 			// Записываем разделитель после ведущего нуля
 			encoded[1] = 0x01;
@@ -1414,11 +1412,11 @@ bool nts::sign::Rsa::make(const scheme_t scheme, const digest::hash_t algorithm,
 			const size_t salted = ((salt == SIZE_MAX) ? hash : salt);
 			// Если соль подана, её длина обязана равняться заказанной
 			if((random.size > 0) && ((random.size != salted) || (random.data == nullptr)))
-				// Выводим отказ
+				// Выводим отрицательный результат - соль не той длины
 				return false;
 			// Шаг 3 раздела 9.1.1 RFC 8017: сообщение обязано вмещать хеш, соль и два байта
 			if(length < (hash + salted + 2))
-				// Выводим отказ
+				// Выводим отрицательный результат - сообщение велико
 				return false;
 			// Соль подписи
 			uint8_t seasoning[math::INTEGER_SIZE];
@@ -1432,7 +1430,7 @@ bool nts::sign::Rsa::make(const scheme_t scheme, const digest::hash_t algorithm,
 					seasoning[i] = random.data[i];
 			// Если соль вырабатывается случайно
 			} else if((salted > 0) && !entropy::bytes(seasoning, salted))
-				// Выводим отказ
+				// Выводим отрицательный результат - соль не выработана
 				return false;
 			// Хеш соли с хешем сообщения
 			uint8_t hashed[HASH_SIZE];
@@ -1440,7 +1438,7 @@ bool nts::sign::Rsa::make(const scheme_t scheme, const digest::hash_t algorithm,
 			if(!::salted(algorithm, digest, seasoning, salted, hashed)){
 				// Затираем соль
 				wipe(seasoning, sizeof(seasoning));
-				// Выводим отказ
+				// Выводим отрицательный результат - соль не применена
 				return false;
 			}
 			// Длина блока данных
@@ -1459,7 +1457,7 @@ bool nts::sign::Rsa::make(const scheme_t scheme, const digest::hash_t algorithm,
 			uint8_t mask[math::INTEGER_SIZE];
 			// Вырабатываем маску блока данных
 			if(!mgf1(algorithm, hashed, hash, mask, block))
-				// Выводим отказ
+				// Выводим отрицательный результат - маска не выработана
 				return false;
 			/**
 			 * Выполняем наложение маски на блок данных
@@ -1480,7 +1478,7 @@ bool nts::sign::Rsa::make(const scheme_t scheme, const digest::hash_t algorithm,
 		} break;
 		// Если схема иная
 		default:
-			// Выводим отказ
+			// Выводим отрицательный результат - схема не поддержана
 			return false;
 	}
 	// Выполняем секретное действие над закодированным сообщением
@@ -1504,7 +1502,7 @@ bool nts::sign::Rsa::make(const scheme_t scheme, const digest::hash_t algorithm,
 bool nts::sign::Rsa::check(const scheme_t scheme, const digest::hash_t algorithm, const view_t & digest, const view_t & signature, const size_t salt) const noexcept {
 	// Если открытого ключа нет
 	if(!this->_public)
-		// Выводим отказ
+		// Выводим отрицательный результат - проверка невозможна
 		return false;
 	// Длина записи DigestInfo
 	size_t size = 0;
@@ -1518,13 +1516,13 @@ bool nts::sign::Rsa::check(const scheme_t scheme, const digest::hash_t algorithm
 	const size_t modulus = this->size();
 	// Если алгоритм недопустим, хеш либо подпись не той длины
 	if((!bare && (info == nullptr)) || (hash == 0) || (hash > HASH_SIZE) || (hash != digest.size) || (digest.data == nullptr) || (signature.size != modulus) || (signature.data == nullptr))
-		// Выводим отказ
+		// Выводим отрицательный результат - параметры негодны
 		return false;
 	// Закодированное сообщение из подписи
 	uint8_t encoded[math::INTEGER_SIZE];
 	// Выполняем открытое действие над подписью
 	if(!this->encipher(signature, encoded))
-		// Выводим отказ
+		// Выводим отрицательный результат - действие не выполнено
 		return false;
 	/**
 	 * Определяем схему подписи
@@ -1534,7 +1532,7 @@ bool nts::sign::Rsa::check(const scheme_t scheme, const digest::hash_t algorithm
 		case static_cast <uint8_t> (scheme_t::PKCS1): {
 			// Если модуль не вмещает запись с дополнением
 			if(modulus < (size + hash + 11))
-				// Выводим отказ
+				// Выводим отрицательный результат - модуль мал
 				return false;
 			// Ожидаемое закодированное сообщение
 			uint8_t expected[math::INTEGER_SIZE] = {};
@@ -1576,29 +1574,29 @@ bool nts::sign::Rsa::check(const scheme_t scheme, const digest::hash_t algorithm
 			const size_t salted = ((salt == SIZE_MAX) ? hash : salt);
 			// Если сообщение не вмещает хеш, соль и два байта
 			if(length < (hash + salted + 2))
-				// Выводим отказ
+				// Выводим отрицательный результат - сообщение мало
 				return false;
 			// Если сообщение короче модуля, ведущие байты обязаны быть нулями
 			if((length < modulus) && (encoded[0] != 0))
-				// Выводим отказ
+				// Выводим отрицательный результат - ведущие байты не нулевые
 				return false;
 			// Начало закодированного сообщения внутри итога открытого действия
 			const uint8_t * message = (encoded + (modulus - length));
 			// Если завершающий байт не тот
 			if(message[length - 1] != 0xBC)
-				// Выводим отказ
+				// Выводим отрицательный результат - завершающий байт не тот
 				return false;
 			// Длина блока данных
 			const size_t block = (length - hash - 1);
 			// Если разряды старшего байта сверх числа разрядов сообщения не нулевые
 			if((message[0] & static_cast <uint8_t> (0xFF << (8 - ((8 * length) - bits)))) != 0)
-				// Выводим отказ
+				// Выводим отрицательный результат - лишние разряды не нулевые
 				return false;
 			// Маска блока данных
 			uint8_t mask[math::INTEGER_SIZE];
 			// Вырабатываем маску блока данных по хешу из сообщения
 			if(!mgf1(algorithm, message + block, hash, mask, block))
-				// Выводим отказ
+				// Выводим отрицательный результат - маска не выработана
 				return false;
 			// Блок данных
 			uint8_t data[math::INTEGER_SIZE];
@@ -1620,19 +1618,19 @@ bool nts::sign::Rsa::check(const scheme_t scheme, const digest::hash_t algorithm
 				padding |= data[i];
 			// Если дополнение не нулевое либо разделитель не тот
 			if((padding != 0) || (data[block - salted - 1] != 0x01))
-				// Выводим отказ
+				// Выводим отрицательный результат - дополнение не сошлось
 				return false;
 			// Хеш соли с хешем сообщения
 			uint8_t hashed[HASH_SIZE];
 			// Вырабатываем хеш соли из блока данных с хешем сообщения
 			if(!::salted(algorithm, digest, data + (block - salted), salted, hashed))
-				// Выводим отказ
+				// Выводим отрицательный результат - хеш не выработан
 				return false;
 			// Выводим итог сличения хешей
 			return (match(hashed, message + block, hash) != 0);
 		}
 	}
-	// Выводим отказ
+	// Выводим отрицательный результат - хеши не сошлись
 	return false;
 }
 /**
@@ -1650,7 +1648,7 @@ bool nts::sign::Rsa::check(const scheme_t scheme, const digest::hash_t algorithm
 bool nts::sign::Rsa::encrypt(const scheme_t scheme, const digest::hash_t algorithm, const view_t & message, uint8_t * output, const view_t & label, const view_t & random) const noexcept {
 	// Если открытого ключа нет либо места нет
 	if(!this->_public || (output == nullptr) || ((message.data == nullptr) && (message.size > 0)))
-		// Выводим отказ
+		// Выводим отрицательный результат - шифрование невозможно
 		return false;
 	// Размер модуля в байтах
 	const size_t modulus = this->size();
@@ -1664,13 +1662,13 @@ bool nts::sign::Rsa::encrypt(const scheme_t scheme, const digest::hash_t algorit
 		case static_cast <uint8_t> (scheme_t::PKCS1): {
 			// Раздел 7.2.1 RFC 8017: сообщение не длиннее модуля без одиннадцати байтов
 			if(message.size > (modulus - 11))
-				// Выводим отказ
+				// Выводим отрицательный результат - сообщение велико
 				return false;
 			// Длина дополнения
 			const size_t padding = (modulus - message.size - 3);
 			// Если дополнение подано, его длина обязана равняться нужной
 			if((random.size > 0) && ((random.size != padding) || (random.data == nullptr)))
-				// Выводим отказ
+				// Выводим отрицательный результат - дополнение не той длины
 				return false;
 			// Записываем признак вида блока после ведущего нуля
 			encoded[1] = 0x02;
@@ -1682,7 +1680,7 @@ bool nts::sign::Rsa::encrypt(const scheme_t scheme, const digest::hash_t algorit
 				if(random.size > 0){
 					// Поданный байт дополнения обязан быть ненулевым
 					if(random.data[i] == 0)
-						// Выводим отказ
+						// Выводим отрицательный результат - нулевое дополнение
 						return false;
 					// Записываем поданный байт дополнения
 					encoded[2 + i] = random.data[i];
@@ -1694,7 +1692,7 @@ bool nts::sign::Rsa::encrypt(const scheme_t scheme, const digest::hash_t algorit
 					do {
 						// Вырабатываем случайный байт
 						if(!entropy::bytes(encoded + 2 + i, 1))
-							// Выводим отказ
+							// Выводим отрицательный результат - случайность не выработана
 							return false;
 					} while(encoded[2 + i] == 0);
 				}
@@ -1714,15 +1712,15 @@ bool nts::sign::Rsa::encrypt(const scheme_t scheme, const digest::hash_t algorit
 			const size_t hash = digest::length(algorithm);
 			// Если алгоритм недопустим
 			if((prefix(algorithm, size) == nullptr) || (hash == 0) || (hash > HASH_SIZE))
-				// Выводим отказ
+				// Выводим отрицательный результат - алгоритм не поддержан
 				return false;
 			// Раздел 7.1.1 RFC 8017: сообщение не длиннее модуля без двух хешей и двух байтов
 			if((modulus < ((2 * hash) + 2)) || (message.size > (modulus - (2 * hash) - 2)))
-				// Выводим отказ
+				// Выводим отрицательный результат - шифротекст не по размеру
 				return false;
 			// Если затравка подана, её длина обязана равняться длине хеша
 			if((random.size > 0) && ((random.size != hash) || (random.data == nullptr)))
-				// Выводим отказ
+				// Выводим отрицательный результат - затравка не той длины
 				return false;
 			// Длина блока данных
 			const size_t block = (modulus - hash - 1);
@@ -1730,7 +1728,7 @@ bool nts::sign::Rsa::encrypt(const scheme_t scheme, const digest::hash_t algorit
 			uint8_t * data = (encoded + 1 + hash);
 			// Вырабатываем хеш метки в начало блока данных
 			if(!digest::hash(algorithm, label, data, HASH_SIZE))
-				// Выводим отказ
+				// Выводим отрицательный результат - хеш не выработан
 				return false;
 			// Записываем разделитель перед сообщением
 			data[block - message.size - 1] = 0x01;
@@ -1752,7 +1750,7 @@ bool nts::sign::Rsa::encrypt(const scheme_t scheme, const digest::hash_t algorit
 					seed[i] = random.data[i];
 			// Если затравка вырабатывается случайно
 			} else if(!entropy::bytes(seed, hash))
-				// Выводим отказ
+				// Выводим отрицательный результат - затравка не выработана
 				return false;
 			// Маска
 			uint8_t mask[math::INTEGER_SIZE];
@@ -1760,7 +1758,7 @@ bool nts::sign::Rsa::encrypt(const scheme_t scheme, const digest::hash_t algorit
 			if(!mgf1(algorithm, seed, hash, mask, block)){
 				// Затираем закодированное сообщение
 				wipe(encoded, sizeof(encoded));
-				// Выводим отказ
+				// Выводим отрицательный результат - маска не выработана
 				return false;
 			}
 			/**
@@ -1773,7 +1771,7 @@ bool nts::sign::Rsa::encrypt(const scheme_t scheme, const digest::hash_t algorit
 			if(!mgf1(algorithm, data, block, mask, hash)){
 				// Затираем закодированное сообщение
 				wipe(encoded, sizeof(encoded));
-				// Выводим отказ
+				// Выводим отрицательный результат - сообщение не дополнено
 				return false;
 			}
 			/**
@@ -1787,7 +1785,7 @@ bool nts::sign::Rsa::encrypt(const scheme_t scheme, const digest::hash_t algorit
 		} break;
 		// Если схема иная
 		default:
-			// Выводим отказ
+			// Выводим отрицательный результат - схема не поддержана
 			return false;
 	}
 	// Выполняем открытое действие над закодированным сообщением
@@ -1816,13 +1814,13 @@ bool nts::sign::Rsa::decrypt(const scheme_t scheme, const digest::hash_t algorit
 	const size_t modulus = this->size();
 	// Если секретного ключа нет, места нет либо шифротекст не размером в модуль
 	if(!this->_secret || (output == nullptr) || (input.size != modulus) || (input.data == nullptr))
-		// Выводим отказ
+		// Выводим отрицательный результат - расшифрование невозможно
 		return false;
 	// Закодированное сообщение
 	uint8_t encoded[math::INTEGER_SIZE];
 	// Выполняем секретное действие над шифротекстом
 	if(!this->decipher(input, encoded))
-		// Выводим отказ
+		// Выводим отрицательный результат - действие не выполнено
 		return false;
 	// Маска верности дополнения
 	uint64_t good = 0;
@@ -1840,7 +1838,7 @@ bool nts::sign::Rsa::decrypt(const scheme_t scheme, const digest::hash_t algorit
 			if(modulus < 11){
 				// Затираем закодированное сообщение
 				wipe(encoded, sizeof(encoded));
-				// Выводим отказ
+				// Выводим отрицательный результат - модуль не вмещает дополнение
 				return false;
 			}
 			// Проверяем ведущий ноль и признак вида блока
@@ -1874,7 +1872,7 @@ bool nts::sign::Rsa::decrypt(const scheme_t scheme, const digest::hash_t algorit
 			if((prefix(algorithm, count) == nullptr) || (hash == 0) || (hash > HASH_SIZE) || (modulus < ((2 * hash) + 2))){
 				// Затираем закодированное сообщение
 				wipe(encoded, sizeof(encoded));
-				// Выводим отказ
+				// Выводим отрицательный результат - параметры негодны
 				return false;
 			}
 			// Длина блока данных
@@ -1887,7 +1885,7 @@ bool nts::sign::Rsa::decrypt(const scheme_t scheme, const digest::hash_t algorit
 			if(!digest::hash(algorithm, label, labelled, sizeof(labelled)) || !mgf1(algorithm, data, block, mask, hash)){
 				// Затираем закодированное сообщение
 				wipe(encoded, sizeof(encoded));
-				// Выводим отказ
+				// Выводим отрицательный результат - хеш метки не выработан
 				return false;
 			}
 			/**
@@ -1900,7 +1898,7 @@ bool nts::sign::Rsa::decrypt(const scheme_t scheme, const digest::hash_t algorit
 			if(!mgf1(algorithm, seed, hash, mask, block)){
 				// Затираем закодированное сообщение
 				wipe(encoded, sizeof(encoded));
-				// Выводим отказ
+				// Выводим отрицательный результат - маска не выработана
 				return false;
 			}
 			/**
@@ -1942,7 +1940,7 @@ bool nts::sign::Rsa::decrypt(const scheme_t scheme, const digest::hash_t algorit
 		default: {
 			// Затираем закодированное сообщение
 			wipe(encoded, sizeof(encoded));
-			// Выводим отказ
+			// Выводим отрицательный результат - схема не поддержана
 			return false;
 		}
 	}

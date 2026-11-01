@@ -252,6 +252,7 @@ namespace {
 	 *
 	 */
 	static const uint8_t DOWNGRADE[2][8] = {
+		// Строка «DOWNGRD» с окончанием 01 и 00: понижение до изданий 1.2 и 1.1
 		{0x44, 0x4F, 0x57, 0x4E, 0x47, 0x52, 0x44, 0x01},
 		{0x44, 0x4F, 0x57, 0x4E, 0x47, 0x52, 0x44, 0x00}
 	};
@@ -270,6 +271,7 @@ namespace {
 	 *
 	 */
 	static const uint8_t RETRY[32] = {
+		// Хеш SHA-256 строки «HelloRetryRequest» по байтам записи
 		0xCF, 0x21, 0xAD, 0x74, 0xE5, 0x9A, 0x61, 0x11,
 		0xBE, 0x1D, 0x8C, 0x02, 0x1E, 0x65, 0xB8, 0x91,
 		0xC2, 0xA2, 0x11, 0x16, 0x7A, 0xBB, 0x8C, 0x5E,
@@ -283,6 +285,7 @@ namespace {
 	 * решение 19)
 	 */
 	static const extension::scheme_t SCHEMES[] = {
+		// Классические схемы по умолчанию: ECDSA, RSA-PSS, ED25519, RSA PKCS #1
 		extension::scheme_t::ECDSA_SECP256R1_SHA256, extension::scheme_t::ECDSA_SECP384R1_SHA384,
 		extension::scheme_t::ECDSA_SECP521R1_SHA512,
 		extension::scheme_t::RSA_PSS_RSAE_SHA256, extension::scheme_t::RSA_PSS_RSAE_SHA384,
@@ -299,6 +302,9 @@ namespace {
 	 * Издание TLS 1.1 в кодах TLS: изданию DTLS 1.0 (RFC 4347) отвечает именно оно
 	 */
 	static constexpr uint16_t ANCIENT = 0x0302;
+	/**
+	 * Издание TLS 1.3 в кодах TLS
+	 */
 	static constexpr uint16_t MODERN = 0x0304;
 
 	/**
@@ -310,9 +316,13 @@ namespace {
 	 * Метки порождающей функции издания TLS 1.2: раздел 4 RFC 7627, разделы 6.3 и 7.4.9 RFC 5246
 	 */
 	static const char * EXTENDED = "extended master secret";
+	// Метка главного секрета
 	static const char * MASTER = "master secret";
+	// Метка расширения ключа
 	static const char * EXPANSION = "key expansion";
+	// Метка завершения рукопожатия клиента
 	static const char * CLIENT_FINISHED = "client finished";
+	// Метка завершения рукопожатия сервера
 	static const char * SERVER_FINISHED = "server finished";
 
 	/**
@@ -348,16 +358,17 @@ namespace {
 	 * Опознаватели алгоритмов подписи RSASSA-PKCS1-v1_5 по хешу: RFC 8017
 	 */
 	static const char * PKCS1_SHA256 = "1.2.840.113549.1.1.11";
+	// Опознаватель sha384WithRSAEncryption
 	static const char * PKCS1_SHA384 = "1.2.840.113549.1.1.12";
+	// Опознаватель sha512WithRSAEncryption
 	static const char * PKCS1_SHA512 = "1.2.840.113549.1.1.13";
 
 	/**
-	 * @brief Метод переложения сообщения рукопожатия в обвязку DTLS
+	 * @brief Функция переложения сообщения рукопожатия в обвязку DTLS
 	 *
 	 * @param message  сообщение рукопожатия вместе с обвязкой TLS
 	 * @param sequence порядковый номер сообщения поверх дейтаграмм
 	 * @param result   накопитель, в который помещается сообщение в обвязке DTLS
-	 *
 	 * @return         признак успешности переложения
 	 *
 	 * @details Раздел 4.2.6 RFC 6347: переписка ведётся сообщениями с номером, нулевым
@@ -382,13 +393,13 @@ namespace {
 		// Кусок покрывает сообщение целиком
 		fragment.length = fragment.size;
 		/**
-		 * Выполняем перехват ошибок работы с памятью
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Занимаем место под обвязку DTLS и тело сообщения
 			result.assign(datagram::DATAGRAM_FRAGMENT_HEADER + fragment.size, 0);
 		/**
-		 * Если памяти под сообщение не хватило
+		 * Выполняем перехват ошибок
 		 */
 		} catch(const bad_alloc &) {
 			// Выводим отказ переложения
@@ -404,11 +415,10 @@ namespace {
 		return true;
 	}
 	/**
-	 * @brief Метод проверки наличия наборов шифрования издания в перечне
+	 * @brief Функция проверки наличия наборов шифрования издания в перечне
 	 *
 	 * @param suites проверяемый перечень наборов шифрования
 	 * @param legacy разыскиваются ли наборы издания TLS 1.2, а не 1.3
-	 *
 	 * @return       признак того, что хоть один набор издания в перечне есть
 	 *
 	 * @note Неведомые наборы (GREASE) изданию не принадлежат и не считаются
@@ -428,19 +438,17 @@ namespace {
 		return false;
 	}
 	/**
-	 * @brief Метод проверки наличия набора шифрования в перечне
+	 * @brief Функция проверки наличия набора шифрования в перечне
 	 *
 	 * @param suites проверяемый перечень наборов шифрования
 	 * @param suite  разыскиваемый набор шифрования
-	 *
 	 * @return       признак того, что набор в перечне есть
 	 *
 	 */
 	/**
-	 * @brief Метод проверки годности набора шифрования изданию 1.1
+	 * @brief Функция проверки годности набора шифрования изданию 1.1
 	 *
 	 * @param suite проверяемый набор
-	 *
 	 * @return      признак годности: набор издания 1.2 с CBC и HMAC-SHA1 (раздел 1.2 RFC 5246: AEAD и SHA-256 ввели изданием 1.2)
 	 *
 	 */
@@ -449,10 +457,9 @@ namespace {
 		return (protect::legacy(suite) && (protect::mac(suite) == digest::hash_t::SHA1));
 	}
 	/**
-	 * @brief Метод проверки наличия наборов, годных изданию 1.1
+	 * @brief Функция проверки наличия наборов, годных изданию 1.1
 	 *
 	 * @param suites проверяемый перечень
-	 *
 	 * @return       признак наличия
 	 *
 	 */
@@ -469,6 +476,14 @@ namespace {
 		// Выводим признак отсутствия
 		return false;
 	}
+	/**
+	 * @brief Функция проверки вхождения набора шифрования в перечень
+	 *
+	 * @param suites проверяемый перечень
+	 * @param suite  искомый набор шифрования
+	 * @return       признак вхождения набора в перечень
+	 *
+	 */
 	static bool listed(const vector <protect::suite_t> & suites, const protect::suite_t suite) noexcept {
 		/**
 		 * Выполняем перебор наборов шифрования перечня
@@ -483,10 +498,9 @@ namespace {
 		return false;
 	}
 	/**
-	 * @brief Метод проверки принадлежности схемы подписи к RSASSA-PKCS1-v1_5
+	 * @brief Функция проверки принадлежности схемы подписи к RSASSA-PKCS1-v1_5
 	 *
 	 * @param scheme проверяемая схема подписи
-	 *
 	 * @return       признак схемы PKCS #1 v1.5, изданию TLS 1.3 запрещённой
 	 *
 	 */
@@ -495,10 +509,9 @@ namespace {
 		return ((scheme == extension::scheme_t::RSA_PKCS1_SHA256) || (scheme == extension::scheme_t::RSA_PKCS1_SHA384) || (scheme == extension::scheme_t::RSA_PKCS1_SHA512));
 	}
 	/**
-	 * @brief Метод проверки пригодности схемы подписи изданию TLS 1.2
+	 * @brief Функция проверки пригодности схемы подписи изданию TLS 1.2
 	 *
 	 * @param scheme проверяемая схема подписи
-	 *
 	 * @return       признак того, что схема подписи ведома и не принадлежит ветви ГОСТ
 	 *
 	 * @details Раздел 7.4.1.4.1 RFC 5246 и раздел 4.2.3 RFC 8446: изданию TLS 1.2 годны ECDSA,
@@ -529,10 +542,9 @@ namespace {
 		return false;
 	}
 	/**
-	 * @brief Метод получения опознавателя алгоритма подписи RSASSA-PKCS1-v1_5 по схеме
+	 * @brief Функция получения опознавателя алгоритма подписи RSASSA-PKCS1-v1_5 по схеме
 	 *
 	 * @param scheme схема подписи PKCS #1 v1.5
-	 *
 	 * @return       опознаватель алгоритма подписи либо nullptr у чужой схемы
 	 *
 	 */
@@ -558,6 +570,7 @@ namespace {
 	 * велит принимать опознаватели до 128 байтов и ключи до 64 байтов
 	 */
 	static constexpr size_t IDENTITY = 128;
+	// Предел длины ключа заранее разделённого ключа
 	static constexpr size_t PRESHARED = 64;
 
 	/**
@@ -578,12 +591,11 @@ namespace {
 	static const char * USAGE = "2.5.29.15";
 
 	/**
-	 * @brief Метод составления общего значения обмена наборов PSK
+	 * @brief Функция составления общего значения обмена наборов PSK
 	 *
 	 * @param other  первая половина общего значения: общее значение кривой у ECDHE_PSK, нули длиною в ключ у PSK
 	 * @param key    заранее разделённый ключ
 	 * @param result накопитель, в который помещается общее значение
-	 *
 	 * @return       отказ составителя полей
 	 *
 	 * @details Раздел 2 RFC 4279 и раздел 3.2 RFC 5489: premaster = len(other) ‖ other ‖
@@ -622,13 +634,13 @@ namespace {
 		// Получаем составленное общее значение
 		const view_t composed = composer.data();
 		/**
-		 * Выполняем перенос общего значения: накопитель занимает память
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Переносим составленное общее значение
 			result.assign(composed.data, composed.data + composed.size);
 		/**
-		 * Если памяти под общее значение не хватило
+		 * Выполняем перехват ошибок
 		 */
 		} catch(const bad_alloc &) {
 			// Выводим отказ нехватки памяти
@@ -638,10 +650,9 @@ namespace {
 		return field::error_t::NONE;
 	}
 	/**
-	 * @brief Метод проверки того, что набор шифрования требует мимолётных ключей на кривой
+	 * @brief Функция проверки того, что набор шифрования требует мимолётных ключей на кривой
 	 *
 	 * @param suite проверяемый набор шифрования
-	 *
 	 * @return      признак того, что обмен набора идёт через ECDHE
 	 *
 	 */
@@ -652,10 +663,9 @@ namespace {
 		return ((exchange == protect::exchange_t::ECDHE) || (exchange == protect::exchange_t::ECDHE_PSK));
 	}
 	/**
-	 * @brief Метод проверки того, что набор шифрования ведёт рукопожатие заранее разделённым ключом
+	 * @brief Функция проверки того, что набор шифрования ведёт рукопожатие заранее разделённым ключом
 	 *
 	 * @param suite проверяемый набор шифрования
-	 *
 	 * @return      признак набора PSK либо ECDHE_PSK
 	 *
 	 */
@@ -801,6 +811,7 @@ namespace {
 	 *
 	 */
 	static const placement_t PLACEMENTS[] = {
+		// Места расширений, признаваемых движком, среди сообщений сервера
 		{static_cast <uint16_t> (extension::type_t::NAME),      PLACE_GUARDED},
 		{static_cast <uint16_t> (extension::type_t::STATUS),    PLACE_REQUEST},
 		{static_cast <uint16_t> (extension::type_t::TIMESTAMPS), PLACE_REQUEST},
@@ -826,11 +837,10 @@ namespace {
 	};
 
 	/**
-	 * @brief Метод получения мест, в которых расширению идти дозволено
+	 * @brief Функция получения мест, в которых расширению идти дозволено
 	 *
 	 * @param type   вид расширения, места которого запрашиваются
 	 * @param result место, в которое помещается набор дозволенных мест
-	 *
 	 * @return       признак того, что вид расширения движку известен
 	 *
 	 */
@@ -853,10 +863,9 @@ namespace {
 	// Затирание областей памяти берётся из открытого API библиотеки
 	using nts::sys::wipe;
 	/**
-	 * @brief Метод получения места стороны связи в наборах связи
+	 * @brief Функция получения места стороны связи в наборах связи
 	 *
 	 * @param side сторона связи, место которой запрашивается
-	 *
 	 * @return     место стороны связи в наборах связи
 	 *
 	 */
@@ -865,11 +874,10 @@ namespace {
 		return ((side == session::side_t::CLIENT) ? 0 : 1);
 	}
 	/**
-	 * @brief Метод перевода отказа модуля полей в отказ связи
+	 * @brief Функция перевода отказа модуля полей в отказ связи
 	 *
 	 * @param error    отказ модуля полей
 	 * @param fallback отказ связи, которым отвечается всякий отказ модуля, кроме нехватки памяти
-	 *
 	 * @return         отказ связи, отвечающий отказу модуля
 	 *
 	 * @note Нехватка памяти переводится в нехватку памяти связи: выдавать её за отказ
@@ -885,11 +893,10 @@ namespace {
 		return ((error == field::error_t::MEMORY) ? context::error_t::MEMORY : fallback);
 	}
 	/**
-	 * @brief Метод перевода отказа модуля записи в отказ связи
+	 * @brief Функция перевода отказа модуля записи в отказ связи
 	 *
 	 * @param error    отказ модуля записи
 	 * @param fallback отказ связи, которым отвечается всякий отказ модуля, кроме нехватки памяти
-	 *
 	 * @return         отказ связи, отвечающий отказу модуля
 	 *
 	 * @note Нехватка памяти переводится в нехватку памяти связи: выдавать её за отказ
@@ -905,11 +912,10 @@ namespace {
 		return ((error == record::error_t::MEMORY) ? context::error_t::MEMORY : fallback);
 	}
 	/**
-	 * @brief Метод перевода отказа модуля защиты записей в отказ связи
+	 * @brief Функция перевода отказа модуля защиты записей в отказ связи
 	 *
 	 * @param error    отказ модуля защиты записей
 	 * @param fallback отказ связи, которым отвечается всякий отказ модуля, кроме нехватки памяти
-	 *
 	 * @return         отказ связи, отвечающий отказу модуля
 	 *
 	 * @note Нехватка памяти переводится в нехватку памяти связи: выдавать её за отказ
@@ -925,11 +931,10 @@ namespace {
 		return ((error == protect::error_t::MEMORY) ? context::error_t::MEMORY : fallback);
 	}
 	/**
-	 * @brief Метод перевода отказа модуля сообщений рукопожатия в отказ связи
+	 * @brief Функция перевода отказа модуля сообщений рукопожатия в отказ связи
 	 *
 	 * @param error    отказ модуля сообщений рукопожатия
 	 * @param fallback отказ связи, которым отвечается всякий отказ модуля, кроме нехватки памяти
-	 *
 	 * @return         отказ связи, отвечающий отказу модуля
 	 *
 	 * @note Нехватка памяти переводится в нехватку памяти связи: выдавать её за отказ
@@ -945,11 +950,10 @@ namespace {
 		return ((error == handshake::error_t::MEMORY) ? context::error_t::MEMORY : fallback);
 	}
 	/**
-	 * @brief Метод перевода отказа модуля приветствий в отказ связи
+	 * @brief Функция перевода отказа модуля приветствий в отказ связи
 	 *
 	 * @param error    отказ модуля приветствий
 	 * @param fallback отказ связи, которым отвечается всякий отказ модуля, кроме нехватки памяти
-	 *
 	 * @return         отказ связи, отвечающий отказу модуля
 	 *
 	 * @note Нехватка памяти переводится в нехватку памяти связи: выдавать её за отказ
@@ -965,11 +969,10 @@ namespace {
 		return ((error == hello::error_t::MEMORY) ? context::error_t::MEMORY : fallback);
 	}
 	/**
-	 * @brief Метод перевода отказа модуля сообщений в отказ связи
+	 * @brief Функция перевода отказа модуля сообщений в отказ связи
 	 *
 	 * @param error    отказ модуля сообщений
 	 * @param fallback отказ связи, которым отвечается всякий отказ модуля, кроме нехватки памяти
-	 *
 	 * @return         отказ связи, отвечающий отказу модуля
 	 *
 	 * @note Нехватка памяти переводится в нехватку памяти связи: выдавать её за отказ
@@ -985,11 +988,10 @@ namespace {
 		return ((error == message::error_t::MEMORY) ? context::error_t::MEMORY : fallback);
 	}
 	/**
-	 * @brief Метод перевода отказа модуля расширений в отказ связи
+	 * @brief Функция перевода отказа модуля расширений в отказ связи
 	 *
 	 * @param error    отказ модуля расширений
 	 * @param fallback отказ связи, которым отвечается всякий отказ модуля, кроме нехватки памяти
-	 *
 	 * @return         отказ связи, отвечающий отказу модуля
 	 *
 	 * @note Нехватка памяти переводится в нехватку памяти связи: выдавать её за отказ
@@ -1005,11 +1007,10 @@ namespace {
 		return ((error == extension::error_t::MEMORY) ? context::error_t::MEMORY : fallback);
 	}
 	/**
-	 * @brief Метод перевода отказа модуля сертификатов в отказ связи
+	 * @brief Функция перевода отказа модуля сертификатов в отказ связи
 	 *
 	 * @param error    отказ модуля сертификатов
 	 * @param fallback отказ связи, которым отвечается всякий отказ модуля, кроме нехватки памяти
-	 *
 	 * @return         отказ связи, отвечающий отказу модуля
 	 *
 	 * @note Нехватка памяти переводится в нехватку памяти связи: выдавать её за отказ
@@ -1025,11 +1026,10 @@ namespace {
 		return ((error == x509::error_t::MEMORY) ? context::error_t::MEMORY : fallback);
 	}
 	/**
-	 * @brief Метод выбора описания извещения по отказу связи
+	 * @brief Функция выбора описания извещения по отказу связи
 	 *
 	 * @param error    отказ, которым связь обрывается
 	 * @param fallback описание извещения, отправляемого при всяком отказе, кроме нехватки памяти
-	 *
 	 * @return         описание извещения, отвечающее отказу связи
 	 *
 	 * @note Раздел 6.2 RFC 8446 велит на свои беды отвечать извещением о внутреннем
@@ -1041,11 +1041,10 @@ namespace {
 		return ((error == context::error_t::MEMORY) ? alert::description_t::INTERNAL : fallback);
 	}
 	/**
-	 * @brief Метод составления записи перечня расширений
+	 * @brief Функция составления записи перечня расширений
 	 *
 	 * @param extensions составляемый перечень расширений
 	 * @param result     накопитель, в который складывается запись перечня
-	 *
 	 * @return           отказ составления записи перечня
 	 *
 	 * @note Нехватка памяти отличается от прочих отказов составления: связь отвечает
@@ -1099,13 +1098,13 @@ namespace {
 		// Получаем составленную запись перечня расширений
 		const view_t data = builder.data();
 		/**
-		 * Выполняем перехват ошибок работы с памятью
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Выполняем перенос составленной записи перечня в накопитель
 			result.assign(data.data, data.data + data.size);
 		/**
-		 * Если памяти под запись перечня расширений не хватило
+		 * Выполняем перехват ошибок
 		 */
 		} catch(const std::bad_alloc &) {
 			// Выводим отказ нехватки памяти
@@ -1156,11 +1155,10 @@ namespace {
 	static constexpr size_t AFTERMATH = 131072;
 
 	/**
-	 * @brief Метод проверки того, что срок билета возобновления связи вышел
+	 * @brief Функция проверки того, что срок билета возобновления связи вышел
 	 *
 	 * @param ticket проверяемый билет возобновления связи
 	 * @param moment миг, которым судится срок билета
-	 *
 	 * @return       признак того, что срок билета вышел
 	 *
 	 * @note Часов связь не читает: миг подаётся ей настройкой. Не заданный миг судить
@@ -1176,11 +1174,10 @@ namespace {
 		return ((moment < ticket.moment) || ((moment - ticket.moment) > static_cast <int64_t> (ticket.lifetime)));
 	}
 	/**
-	 * @brief Метод суждения о давности первичного удостоверения собеседника
+	 * @brief Функция суждения о давности первичного удостоверения собеседника
 	 *
 	 * @param authenticated миг первичного удостоверения в секундах, ноль - неизвестный
 	 * @param moment        миг суждения в секундах, ноль - неизвестный
-	 *
 	 * @return              признак того, что удостоверение старше дозволенного
 	 *
 	 */
@@ -1193,12 +1190,11 @@ namespace {
 		return ((moment < authenticated) || ((moment - authenticated) > AUTHENTICATION));
 	}
 	/**
-	 * @brief Метод извлечения тела расширения из записи перечня расширений
+	 * @brief Функция извлечения тела расширения из записи перечня расширений
 	 *
 	 * @param data   разбираемая запись перечня расширений
 	 * @param type   разыскиваемый вид расширения
 	 * @param result просмотр, в который помещается тело найденного расширения
-	 *
 	 * @return       признак того, что расширение в перечне объявлено
 	 *
 	 */
@@ -1245,11 +1241,10 @@ namespace {
 		return false;
 	}
 	/**
-	 * @brief Метод разыскания расширения в записи перечня расширений
+	 * @brief Функция разыскания расширения в записи перечня расширений
 	 *
 	 * @param data разбираемая запись перечня расширений
 	 * @param type разыскиваемый вид расширения
-	 *
 	 * @return     признак того, что расширение в перечне объявлено
 	 *
 	 */
@@ -1260,11 +1255,10 @@ namespace {
 		return announced(data, type, content);
 	}
 	/**
-	 * @brief Метод перечисления видов расширений записи перечня расширений
+	 * @brief Функция перечисления видов расширений записи перечня расширений
 	 *
 	 * @param data   разбираемая запись перечня расширений
 	 * @param result перечень, в который помещаются виды объявленных расширений
-	 *
 	 * @return       отказ разбора перечня расширений
 	 *
 	 * @note Тела расширений здесь не читаются: перечисляются лишь их виды
@@ -1289,7 +1283,7 @@ namespace {
 		// Устанавливаем разбираемое содержимое перечня расширений
 		reader.start(body);
 		/**
-		 * Выполняем перехват ошибок работы с памятью
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			/**
@@ -1312,7 +1306,7 @@ namespace {
 				result.push_back(static_cast <uint16_t> (item));
 			}
 		/**
-		 * Если памяти под перечень видов расширений не хватило
+		 * Выполняем перехват ошибок
 		 */
 		} catch(const std::bad_alloc &) {
 			// Выводим отказ нехватки памяти
@@ -1322,10 +1316,9 @@ namespace {
 		return context::error_t::NONE;
 	}
 	/**
-	 * @brief Метод проверки известности группы обмена ключами связи
+	 * @brief Функция проверки известности группы обмена ключами связи
 	 *
 	 * @param group проверяемая группа обмена ключами
-	 *
 	 * @return      признак того, что обмен по группе связь вести умеет
 	 *
 	 */
@@ -1334,10 +1327,9 @@ namespace {
 		return ((extension::curve(group) != nullptr) || extension::hybrid(group) || (extension::finite(group) > 0));
 	}
 	/**
-	 * @brief Метод получения механизма инкапсуляции гибридной группы
+	 * @brief Функция получения механизма инкапсуляции гибридной группы
 	 *
 	 * @param group гибридная группа обмена ключами
-	 *
 	 * @return      механизм ML-KEM гибрида
 	 *
 	 */
@@ -1346,10 +1338,9 @@ namespace {
 		return ((group == extension::group_t::SECP384R1MLKEM1024) ? agreement::kem_t::MLKEM1024 : agreement::kem_t::MLKEM768);
 	}
 	/**
-	 * @brief Метод получения классической половины гибридной группы
+	 * @brief Функция получения классической половины гибридной группы
 	 *
 	 * @param group гибридная группа обмена ключами
-	 *
 	 * @return      группа кривой: X25519, secp256r1 либо secp384r1
 	 *
 	 */
@@ -1370,10 +1361,9 @@ namespace {
 		return extension::group_t::X25519;
 	}
 	/**
-	 * @brief Метод получения длины доли классической половины гибрида
+	 * @brief Функция получения длины доли классической половины гибрида
 	 *
 	 * @param group гибридная группа обмена ключами
-	 *
 	 * @return      длина доли кривой: 32 у X25519, 65 и 97 у точек NIST в несжатом виде
 	 *
 	 */
@@ -1382,10 +1372,9 @@ namespace {
 		return extension::length(curveof(group));
 	}
 	/**
-	 * @brief Метод получения порядка половин гибрида
+	 * @brief Функция получения порядка половин гибрида
 	 *
 	 * @param group гибридная группа обмена ключами
-	 *
 	 * @return      признак того, что доля ML-KEM идёт впереди (X25519MLKEM768); у гибридов NIST впереди кривая
 	 *
 	 */
@@ -1394,10 +1383,9 @@ namespace {
 		return (group == extension::group_t::X25519MLKEM768);
 	}
 	/**
-	 * @brief Метод проверки принадлежности группы обмена классической ветви
+	 * @brief Функция проверки принадлежности группы обмена классической ветви
 	 *
 	 * @param group проверяемая группа обмена ключами
-	 *
 	 * @return      признак того, что доля ключа группы идёт записью RFC 8446
 	 *
 	 */
@@ -1421,10 +1409,9 @@ namespace {
 		return (extension::finite(group) > 0);
 	}
 	/**
-	 * @brief Метод определения рода группы обмена ключами для умолчания долей ключа
+	 * @brief Функция определения рода группы обмена ключами для умолчания долей ключа
 	 *
 	 * @param group группа обмена ключами
-	 *
 	 * @return      0 у кривых ГОСТ, 1 у гибридов с ML-KEM, 2 у классических кривых; -1 у прочих: группы конечного поля и неведомые долей по умолчанию не получают
 	 *
 	 */
@@ -1449,10 +1436,9 @@ namespace {
 		return -1;
 	}
 	/**
-	 * @brief Метод проверки принадлежности группы обмена кривым Монтгомери
+	 * @brief Функция проверки принадлежности группы обмена кривым Монтгомери
 	 *
 	 * @param group проверяемая группа обмена ключами
-	 *
 	 * @return      признак того, что доля ключа группы есть первая координата точки по RFC 7748 (X25519, X448)
 	 *
 	 */
@@ -1461,11 +1447,10 @@ namespace {
 		return ((group == extension::group_t::X25519) || (group == extension::group_t::X448));
 	}
 	/**
-	 * @brief Метод проверки допустимости группы обмена изданию протокола
+	 * @brief Функция проверки допустимости группы обмена изданию протокола
 	 *
 	 * @param group  проверяемая группа обмена ключами
 	 * @param legacy признак издания TLS 1.2
-	 *
 	 * @return       признак того, что группу изданием выбирать дозволено
 	 *
 	 * @details Реестр IANA групп TLS: secp256k1 изданием 1.3 не допускается (RFC 8446 знает лишь
@@ -1486,7 +1471,7 @@ namespace {
 		return true;
 	}
 	/**
-	 * @brief Метод переноса области байтов в обратном порядке
+	 * @brief Функция переноса области байтов в обратном порядке
 	 *
 	 * @param source переносимая область байтов
 	 * @param result место, в которое помещается перенесённая область
@@ -1502,11 +1487,10 @@ namespace {
 			result[i] = source[size - i - 1];
 	}
 	/**
-	 * @brief Метод извлечения опознавателя именованной кривой ключа EC
+	 * @brief Функция извлечения опознавателя именованной кривой ключа EC
 	 *
 	 * @param key    ключ сертификата
 	 * @param result место, в которое помещается опознаватель кривой
-	 *
 	 * @return       отказ извлечения опознавателя: KEY у негодных настроек, MEMORY у нехватки памяти
 	 *
 	 */
@@ -1533,11 +1517,10 @@ namespace {
 		return ((outcome == asn1::error_t::NONE) ? x509::error_t::NONE : x509::error_t::KEY);
 	}
 	/**
-	 * @brief Метод проверки пригодности ключа сертификата подписи владения
+	 * @brief Функция проверки пригодности ключа сертификата подписи владения
 	 *
 	 * @param key      ключ сертификата
 	 * @param suitable место, в которое помещается признак пригодности ключа
-	 *
 	 * @return         отказ нехватки памяти при разборе ключа, иначе NONE
 	 *
 	 */
@@ -1578,13 +1561,12 @@ namespace {
 		return context::error_t::NONE;
 	}
 	/**
-	 * @brief Метод проверки соответствия схемы подписи ключу сертификата
+	 * @brief Функция проверки соответствия схемы подписи ключу сертификата
 	 *
 	 * @param scheme проверяемая схема подписи
 	 * @param key    ключ сертификата
 	 * @param memory место, в которое помещается признак нехватки памяти при разборе
 	 * @param loose  судится ли схема правилами издания TLS 1.2: кривая ECDSA любая
-	 *
 	 * @return       признак того, что схема подписи ключу отвечает
 	 *
 	 * @details Раздел 7.4.1.4.1 RFC 5246: в издании 1.2 схема ECDSA именует лишь хеш, а
@@ -1715,7 +1697,6 @@ namespace {
  *
  * @param error       отказ, которым связь обрывается
  * @param description описание извещения, отправляемого собеседнику
- *
  * @return            отказ, которым связь оборвана
  *
  */
@@ -1767,6 +1748,7 @@ nts::internal::Exchange::~Exchange() noexcept {
 void nts::internal::Engine::shred() noexcept {
 	// Состояния HPKE зашифрованного приветствия: ключ AEAD и нонс ECH оборванной связи ни к чему
 	this->_sealer.clear();
+	// Выполняем сброс состояния HPKE получателя
 	this->_opener.clear();
 	// Выполняем сброс секретов связи
 	this->_secrets.clear();
@@ -1906,7 +1888,6 @@ context::error_t nts::internal::Engine::declining() noexcept {
  *
  * @param type вид содержимого отправляемой записи
  * @param data содержимое отправляемой записи
- *
  * @return     отказ складывания записи в накопитель
  *
  */
@@ -1916,7 +1897,7 @@ context::error_t nts::internal::Engine::emit(const record::type_t type, const vi
 	// Получаем сторону связи, отправляющую запись
 	const session::side_t side = (this->_server ? session::side_t::SERVER : session::side_t::CLIENT);
 	/**
-	 * Выполняем складывание записи в накопитель
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		/**
@@ -1968,7 +1949,7 @@ context::error_t nts::internal::Engine::emit(const record::type_t type, const vi
 					// Выводим ошибку
 					return failure;
 			}
-			// Выводим успешность
+			// Сообщаем об успешной отправке частями
 			return context::error_t::NONE;
 		}
 		/**
@@ -2017,7 +1998,7 @@ context::error_t nts::internal::Engine::emit(const record::type_t type, const vi
 			this->_wire.insert(this->_wire.end(), records.data, records.data + records.size);
 		}
 	/**
-	 * Если памяти под накопитель не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -2030,7 +2011,6 @@ context::error_t nts::internal::Engine::emit(const record::type_t type, const vi
  * @brief Метод получения уровня защиты, на котором идут сообщения стороны
  *
  * @param side сторона связи, уровень которой запрашивается
- *
  * @return     уровень защиты сообщений стороны по поре её ключей
  *
  */
@@ -2058,7 +2038,6 @@ context::level_t nts::internal::Engine::layer(const session::side_t side) const 
  * @brief Метод сохранения значений направлений уровня защиты для выдачи наружу
  *
  * @param level уровень защиты, значения которого сохраняются
- *
  * @return      отказ сохранения значений направлений
  *
  */
@@ -2101,6 +2080,7 @@ context::error_t nts::internal::Engine::store(const context::level_t level) noex
 			const size_t place = ((level == context::level_t::HANDSHAKE) ? 1 : 2);
 			// Метки журнала секретов по уровням и сторонам
 			static const char * LABELS[2][2] = {
+				// Метки прикладного уровня и его сторон
 				{"CLIENT_HANDSHAKE_TRAFFIC_SECRET", "SERVER_HANDSHAKE_TRAFFIC_SECRET"},
 				{"CLIENT_TRAFFIC_SECRET_0", "SERVER_TRAFFIC_SECRET_0"}
 			};
@@ -2144,7 +2124,6 @@ context::error_t nts::internal::Engine::store(const context::level_t level) noex
  *
  * @param type вид отправляемого сообщения рукопожатия
  * @param body тело отправляемого сообщения рукопожатия
- *
  * @return     отказ отправки сообщения рукопожатия
  *
  */
@@ -2228,8 +2207,7 @@ context::error_t nts::internal::Engine::send(const handshake::type_t type, const
  */
 context::error_t nts::internal::Engine::refresh() noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: тело смены ключей занимает память
-	 * на всяком шаге, и всякий такой шаг вправе ответить нехваткой памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		/**
@@ -2278,7 +2256,7 @@ context::error_t nts::internal::Engine::refresh() noexcept {
 		// Выводим успешность согласования ключевого материала
 		return context::error_t::NONE;
 	/**
-	 * Если памяти под смены ключей не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -2314,7 +2292,6 @@ context::error_t nts::internal::Engine::hashing() noexcept {
  *
  * @param group группа обмена, гибрид с инкапсуляцией ключа
  * @param peer  доля клиента: ключ инкапсуляции и точка кривой
- *
  * @return      отказ выработки доли
  *
  */
@@ -2325,15 +2302,18 @@ context::error_t nts::internal::Engine::encapsulating(const extension::group_t g
 		return context::error_t::GROUP;
 	// Механизм инкапсуляции, кривая и порядок половин гибрида
 	const agreement::kem_t kem = kemof(group);
+	// Кривая классической половины гибрида
 	const extension::group_t half = curveof(group);
+	// Длины шифртекста ML-KEM, общего значения и точки кривой
 	const size_t opened = agreement::encapsulation(kem), cipher = agreement::ciphertext(kem), point = curvelength(group);
+	// Место доли ML-KEM: впереди либо за точкой кривой
 	const size_t kemat = (kemfirst(group) ? 0 : point);
 	// Если доля клиента не той длины
 	if((peer.data == nullptr) || (peer.size != (opened + point)))
 		// Выходим с ошибкой обмена
 		return context::error_t::EXCHANGE;
 	/**
-	 * Выполняем перехват ошибок памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Пара обмена сервера
@@ -2342,6 +2322,7 @@ context::error_t nts::internal::Engine::encapsulating(const extension::group_t g
 		item.group = group;
 		// Кривая NIST классической половины и длина её секрета
 		curve::curve_t curve;
+		// Длина секрета кривой: 32 у X25519, размер кривой у NIST
 		size_t scalar = agreement::X25519_SIZE;
 		// Если половина - кривая NIST, берём её параметры
 		if(half != extension::group_t::X25519){
@@ -2354,19 +2335,25 @@ context::error_t nts::internal::Engine::encapsulating(const extension::group_t g
 		}
 		// Секрет кривой, доля сервера (шифртекст и точка порядком гибрида) и общее значение ML-KEM
 		item.secret.assign(scalar, 0);
+		// Занимаем место под шифртекст ML-KEM и точку кривой
 		item.opened.assign(cipher + point, 0);
+		// Занимаем место под общее значение ML-KEM
 		item.shared.assign(agreement::MLKEM_SHARED, 0);
 		// Если инкапсуляцию на ключе клиента провести не удалось
 		if(!agreement::encapsulate(kem, view_t(peer.data + kemat, opened), item.opened.data() + (kemfirst(group) ? 0 : point), item.shared.data())){
+			// Затираем общее значение ML-KEM
 			this->purge(item.shared.data(), item.shared.size());
+			// Выводим отказ обмена
 			return context::error_t::EXCHANGE;
 		}
 		// Если половина - X25519
 		if(half == extension::group_t::X25519){
 			// Если секрет и точку X25519 выработать не удалось
 			if(!entropy::bytes(item.secret.data(), item.secret.size()) || !agreement::x25519(view_t(item.secret.data(), item.secret.size()), item.opened.data() + (kemfirst(group) ? cipher : 0))){
+				// Затираем секрет кривой
 				this->purge(item.secret.data(), item.secret.size());
 				this->purge(item.shared.data(), item.shared.size());
+				// Выводим отказ обмена
 				return context::error_t::EXCHANGE;
 			}
 		// Если половина - кривая NIST
@@ -2375,23 +2362,32 @@ context::error_t nts::internal::Engine::encapsulating(const extension::group_t g
 			uint8_t raw[math::NUMBER_SIZE * 2];
 			// Если пару кривой породить не удалось
 			if(!agreement::generate(curve, item.secret.data(), raw)){
+				// Затираем секрет кривой
 				this->purge(item.secret.data(), item.secret.size());
 				this->purge(item.shared.data(), item.shared.size());
+				// Выводим отказ обмена
 				return context::error_t::EXCHANGE;
 			}
 			// Кодируем точку в несжатом виде
 			const size_t at = (kemfirst(group) ? cipher : 0);
+			// Признак несжатого вида точки
 			item.opened[at] = 0x04;
+			// Переносим координаты точки младшим байтом вперёд
 			reverse(raw, item.opened.data() + at + 1, scalar);
 			reverse(raw + scalar, item.opened.data() + at + 1 + scalar, scalar);
+			// Затираем коды точки
 			this->purge(raw, sizeof(raw));
 		}
 		// Запоминаем пару и группу
 		this->_exchanges.push_back(::move(item));
+		// Запоминаем группу обмена
 		this->_group = group;
-		// Выводим успешность
+		// Сообщаем об успешном запоминании пары
 		return context::error_t::NONE;
 	// Если памяти не хватило
+	/**
+	 * Выполняем перехват ошибок
+	 */
 	} catch(const bad_alloc &) {
 		// Выводим ошибку памяти
 		return context::error_t::MEMORY;
@@ -2404,7 +2400,6 @@ context::error_t nts::internal::Engine::encapsulating(const extension::group_t g
  * @param key    открытый мимолётный ключ собеседника в записи протокола
  * @param result место, в которое помещается общее значение
  * @param length место, в которое помещается длина общего значения
- *
  * @return       отказ выработки общего значения
  *
  */
@@ -2430,12 +2425,15 @@ context::error_t nts::internal::Engine::agree(const extension::group_t group, co
 	if(extension::hybrid(group)){
 		// Механизм инкапсуляции, кривая и порядок половин гибрида
 		const agreement::kem_t kem = kemof(group);
+		// Кривая классической половины гибрида
 		const extension::group_t half = curveof(group);
+		// Длины доли ML-KEM, секрета декапсуляции и точки кривой
 		const size_t opened = agreement::encapsulation(kem), secret = agreement::decapsulation(kem), cipher = agreement::ciphertext(kem), point = curvelength(group);
 		// Сервер отвечал (общее значение ML-KEM уже есть) либо клиент распаковывает
 		const bool responded = !own->shared.empty();
 		// Длина доли ML-KEM у собеседника и её место, место доли кривой
 		const size_t kemlength = (responded ? opened : cipher);
+		// Место доли ML-KEM и доли кривой: порядок половин гибрида
 		const size_t kemat = (kemfirst(group) ? 0 : point), curveat = (kemfirst(group) ? kemlength : 0);
 		// Если доля собеседника не той длины
 		if((key.data == nullptr) || (key.size != (kemlength + point)))
@@ -2443,10 +2441,13 @@ context::error_t nts::internal::Engine::agree(const extension::group_t group, co
 			return context::error_t::EXCHANGE;
 		// Общее значение: у X25519MLKEM768 ML-KEM впереди, у гибридов NIST впереди кривая
 		const size_t curveshared = ((half == extension::group_t::X25519) ? agreement::X25519_SIZE : (point - 1) / 2);
+		// Место общего значения ML-KEM в выходном буфере
 		uint8_t * kemout = (result + (kemfirst(group) ? 0 : curveshared));
+		// Место общего значения кривой в выходном буфере
 		uint8_t * curveout = (result + (kemfirst(group) ? agreement::MLKEM_SHARED : 0));
 		// Если сервер отвечал, общее значение ML-KEM уже выработано
 		if(responded)
+			// Переносим готовое общее значение ML-KEM
 			::memcpy(kemout, own->shared.data(), agreement::MLKEM_SHARED);
 		// Если распаковать шифртекст не удалось
 		else if(!agreement::decapsulate(kem, view_t(own->secret.data(), secret), view_t(key.data + kemat, cipher), kemout))
@@ -2454,6 +2455,7 @@ context::error_t nts::internal::Engine::agree(const extension::group_t group, co
 			return context::error_t::EXCHANGE;
 		// Секрет кривой: у сервера весь секрет, у клиента - за ключом декапсуляции
 		const uint8_t * scalar = (responded ? own->secret.data() : (own->secret.data() + secret));
+		// Длина секрета кривой: без секрета декапсуляции у клиента
 		const size_t scalarsize = (responded ? own->secret.size() : (own->secret.size() - secret));
 		// Точка собеседника
 		const uint8_t * peer = (key.data + curveat);
@@ -2461,7 +2463,9 @@ context::error_t nts::internal::Engine::agree(const extension::group_t group, co
 		if(half == extension::group_t::X25519){
 			// Если общее значение X25519 выработать не удалось
 			if(!agreement::x25519(view_t(scalar, agreement::X25519_SIZE), view_t(peer, agreement::X25519_SIZE), curveout)){
+				// Затираем выходной буфер
 				this->purge(result, agreement::MLKEM_SHARED + agreement::X25519_SIZE);
+				// Выводим отказ обмена
 				return context::error_t::EXCHANGE;
 			}
 		// Если половина - кривая NIST
@@ -2470,31 +2474,38 @@ context::error_t nts::internal::Engine::agree(const extension::group_t group, co
 			curve::curve_t curve;
 			// Если параметры кривой не найдены либо точка не в несжатом виде
 			if(!curve::parameters(extension::curve(half), curve) || (peer[0] != 0x04) || (curve.size() != curveshared)){
+				// Затираем выходной буфер
 				this->purge(result, agreement::MLKEM_SHARED + curveshared);
+				// Выводим отказ обмена
 				return context::error_t::EXCHANGE;
 			}
 			// Точка младшим байтом вперёд
 			uint8_t raw[math::NUMBER_SIZE * 2];
+			// Переносим координату X младшим байтом вперёд
 			reverse(peer + 1, raw, curveshared);
 			reverse(peer + 1 + curveshared, raw + curveshared, curveshared);
 			// Общее значение младшим байтом вперёд
 			uint8_t little[math::NUMBER_SIZE];
 			// Если общее значение кривой выработать не удалось
 			if(!agreement::ecdhe(curve, view_t(scalar, scalarsize), view_t(raw, curveshared * 2), little)){
+				// Затираем выходной буфер
 				this->purge(raw, sizeof(raw));
 				this->purge(result, agreement::MLKEM_SHARED + curveshared);
+				// Выводим отказ обмена
 				return context::error_t::EXCHANGE;
 			}
 			// Переводим в старший байт вперёд, как велит RFC 8446 для кривых NIST
 			reverse(little, curveout, curveshared);
+			// Затираем общее значение кривой
 			this->purge(little, sizeof(little));
 			this->purge(raw, sizeof(raw));
 		}
 		// Длина общего значения
 		length = (agreement::MLKEM_SHARED + curveshared);
-		// Выводим успешность
+		// Сообщаем об успешном заведении гибридной пары
 		return context::error_t::NONE;
 	}
+	// Если доля собеседника негодной длины
 	if((key.data == nullptr) || (key.size == 0) || (key.size != extension::length(group)))
 		// Выводим отказ негодной длины открытого ключа собеседника
 		return context::error_t::EXCHANGE;
@@ -2597,7 +2608,6 @@ context::error_t nts::internal::Engine::agree(const extension::group_t group, co
  *
  * @param group группа обмена, выбранная собеседником
  * @param key   открытый мимолётный ключ собеседника в записи протокола
- *
  * @return      отказ вывода ключей рукопожатия
  *
  */
@@ -2607,9 +2617,7 @@ context::error_t nts::internal::Engine::derive(const extension::group_t group, c
 		// Выводим отказ группы вне издания
 		return context::error_t::GROUP;
 	/**
-	 * Выполняем перехват ошибок работы с памятью: тело вывода ключевого материала
-	 * занимает память на всяком шаге, и всякий такой шаг вправе ответить нехваткой
-	 * памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		/**
@@ -2725,7 +2733,7 @@ context::error_t nts::internal::Engine::derive(const extension::group_t group, c
 		// Выводим успешность вывода ключей рукопожатия связи
 		return context::error_t::NONE;
 	/**
-	 * Если памяти под вывода ключевого материала не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -2740,9 +2748,7 @@ context::error_t nts::internal::Engine::derive(const extension::group_t group, c
  */
 context::error_t nts::internal::Engine::mature() noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: тело вывода ключей прикладных
-	 * данных занимает память на всяком шаге, и всякий такой шаг вправе ответить
-	 * нехваткой памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Место, в которое помещается хеш переписки рукопожатия
@@ -2775,7 +2781,7 @@ context::error_t nts::internal::Engine::mature() noexcept {
 		// Выводим успешность вывода ключей прикладных данных связи
 		return context::error_t::NONE;
 	/**
-	 * Если памяти под вывода ключей прикладных данных не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -2790,9 +2796,7 @@ context::error_t nts::internal::Engine::mature() noexcept {
  */
 context::error_t nts::internal::Engine::earliest() noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: тело вывода ключей упреждающих
-	 * данных занимает память на всяком шаге, и всякий такой шаг вправе ответить
-	 * нехваткой памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		/**
@@ -2876,7 +2880,7 @@ context::error_t nts::internal::Engine::earliest() noexcept {
 		// Выводим успешность заведения защиты записей упреждающих данных
 		return context::error_t::NONE;
 	/**
-	 * Если памяти под вывода ключей упреждающих данных не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -2887,14 +2891,12 @@ context::error_t nts::internal::Engine::earliest() noexcept {
  * @brief Метод выработки мимолётной пары ключей своей стороны
  *
  * @param group группа обмена, для которой вырабатывается пара ключей
- *
  * @return      отказ выработки мимолётной пары ключей
  *
  */
 context::error_t nts::internal::Engine::exchange(const extension::group_t group) noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: тело обмена ключами занимает
-	 * память на всяком шаге, и всякий такой шаг вправе ответить нехваткой памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Вырабатываемая мимолётная пара ключей
@@ -2922,8 +2924,11 @@ context::error_t nts::internal::Engine::exchange(const extension::group_t group)
 		if(extension::hybrid(group)){
 			// Механизм инкапсуляции, кривая и порядок половин гибрида
 			const agreement::kem_t kem = kemof(group);
+			// Кривая классической половины гибрида
 			const extension::group_t half = curveof(group);
+			// Длины доли ML-KEM, секрета декапсуляции и точки кривой
 			const size_t opened = agreement::encapsulation(kem), secret = agreement::decapsulation(kem), point = curvelength(group);
+			// Место доли ML-KEM и доли кривой: порядок половин гибрида
 			const size_t kemat = (kemfirst(group) ? 0 : point), curveat = (kemfirst(group) ? opened : 0);
 			// Кривая NIST классической половины
 			curve::curve_t curve;
@@ -2935,17 +2940,22 @@ context::error_t nts::internal::Engine::exchange(const extension::group_t group)
 				scalar = curve.size();
 			// Секрет: ключ декапсуляции и секрет кривой; доля: ключ инкапсуляции и точка порядком гибрида
 			item.secret.assign(secret + scalar, 0);
+			// Занимаем место под долю: ключ инкапсуляции и точка кривой
 			item.opened.assign(opened + point, 0);
 			// Если пару ML-KEM породить не удалось
 			if(!agreement::generate(kem, item.opened.data() + kemat, item.secret.data())){
+				// Затираем секрет пары
 				this->purge(item.secret.data(), item.secret.size());
+				// Выводим отказ обмена
 				return context::error_t::EXCHANGE;
 			}
 			// Если половина - X25519
 			if(half == extension::group_t::X25519){
 				// Если секрет и точку X25519 выработать не удалось
 				if(!entropy::bytes(item.secret.data() + secret, agreement::X25519_SIZE) || !agreement::x25519(view_t(item.secret.data() + secret, agreement::X25519_SIZE), item.opened.data() + curveat)){
+					// Затираем секрет пары
 					this->purge(item.secret.data(), item.secret.size());
+					// Выводим отказ обмена
 					return context::error_t::EXCHANGE;
 				}
 			// Если половина - кривая NIST: точка в несжатом виде 04 ‖ X ‖ Y старшим байтом вперёд
@@ -2954,13 +2964,17 @@ context::error_t nts::internal::Engine::exchange(const extension::group_t group)
 				uint8_t raw[math::NUMBER_SIZE * 2];
 				// Если пару кривой породить не удалось
 				if((half != curveof(group)) || !agreement::generate(curve, item.secret.data() + secret, raw)){
+					// Затираем секрет пары
 					this->purge(item.secret.data(), item.secret.size());
+					// Выводим отказ обмена
 					return context::error_t::EXCHANGE;
 				}
 				// Кодируем точку
 				item.opened[curveat] = 0x04;
+				// Переносим координату X младшим байтом вперёд
 				reverse(raw, item.opened.data() + curveat + 1, scalar);
 				reverse(raw + scalar, item.opened.data() + curveat + 1 + scalar, scalar);
+				// Затираем коды точки
 				this->purge(raw, sizeof(raw));
 			}
 		} else if(montgomery(group)){
@@ -3049,7 +3063,7 @@ context::error_t nts::internal::Engine::exchange(const extension::group_t group)
 		// Выводим успешность выработки мимолётной пары ключей
 		return context::error_t::NONE;
 	/**
-	 * Если памяти под обмена ключами не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -3064,8 +3078,7 @@ context::error_t nts::internal::Engine::exchange(const extension::group_t group)
  */
 context::error_t nts::internal::Engine::greeting() noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: тело приветствия клиента занимает
-	 * память на всяком шаге, и всякий такой шаг вправе ответить нехваткой памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Отказ связи, отвечающий отказу модуля
@@ -3562,7 +3575,7 @@ context::error_t nts::internal::Engine::greeting() noexcept {
 			this->_ech = ech_t::GREASED;
 		}
 		/**
-		 * Выполняем перехват ошибок работы с памятью
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Выполняем сброс прежнего перечня предложенных расширений
@@ -3582,7 +3595,7 @@ context::error_t nts::internal::Engine::greeting() noexcept {
 				}
 			}
 		/**
-		 * Если памяти под перечень предложенных расширений не хватило
+		 * Выполняем перехват ошибок
 		 */
 		} catch(const std::bad_alloc &) {
 			// Выводим отказ нехватки памяти
@@ -3623,13 +3636,13 @@ context::error_t nts::internal::Engine::greeting() noexcept {
 		// Накопитель, в котором приветствие клиента правится привязкой билета
 		vector <uint8_t> message;
 		/**
-		 * Выполняем перенос составленного приветствия клиента
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Выполняем перенос составленного приветствия в накопитель
 			message.assign(data.data, data.data + data.size);
 		/**
-		 * Если памяти под приветствие не хватило
+		 * Выполняем перехват ошибок
 		 */
 		} catch(const bad_alloc &) {
 			// Выводим отказ нехватки памяти
@@ -3699,7 +3712,7 @@ context::error_t nts::internal::Engine::greeting() noexcept {
 		// Выводим итог заведения защиты записей упреждающих данных
 		return this->earliest();
 	/**
-	 * Если памяти под приветствия клиента не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -3711,14 +3724,12 @@ context::error_t nts::internal::Engine::greeting() noexcept {
  *
  * @param session опознаватель связи, повторяемый за приветствием клиента
  * @param retry   признак того, что отправляется просьба о повторе приветствия
- *
  * @return        отказ отправки приветствия сервера
  *
  */
 context::error_t nts::internal::Engine::answer(const vector <uint8_t> & session, const bool retry) noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: тело приветствия сервера занимает
-	 * память на всяком шаге, и всякий такой шаг вправе ответить нехваткой памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Отказ связи, отвечающий отказу модуля
@@ -3838,7 +3849,7 @@ context::error_t nts::internal::Engine::answer(const vector <uint8_t> & session,
 		// Выводим итог отправки приветствия сервера
 		return this->send(handshake::type_t::SERVER, view_t(body.data(), body.size()));
 	/**
-	 * Если памяти под приветствия сервера не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -3853,9 +3864,7 @@ context::error_t nts::internal::Engine::answer(const vector <uint8_t> & session,
  */
 context::error_t nts::internal::Engine::authenticate() noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: тело подтверждения подлинности
-	 * занимает память на всяком шаге, и всякий такой шаг вправе ответить нехваткой
-	 * памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Отказ связи, отвечающий отказу модуля
@@ -4046,7 +4055,7 @@ context::error_t nts::internal::Engine::authenticate() noexcept {
 		// Выводим итог отправки подписи владения ключом
 		return this->send(handshake::type_t::VERIFY, view_t(body.data(), body.size()));
 	/**
-	 * Если памяти под подтверждения подлинности не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -4061,9 +4070,7 @@ context::error_t nts::internal::Engine::authenticate() noexcept {
  */
 context::error_t nts::internal::Engine::complete() noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: тело завершения рукопожатия
-	 * занимает память на всяком шаге, и всякий такой шаг вправе ответить нехваткой
-	 * памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Получаем сторону связи, которую ведёт модуль
@@ -4087,7 +4094,7 @@ context::error_t nts::internal::Engine::complete() noexcept {
 		// Выводим итог отправки завершения рукопожатия своей стороной
 		return this->send(handshake::type_t::FINISHED, view_t(completion, width));
 	/**
-	 * Если памяти под завершения рукопожатия не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -4098,15 +4105,12 @@ context::error_t nts::internal::Engine::complete() noexcept {
  * @brief Метод разбора принятого запроса подлинности клиента
  *
  * @param body тело принятого сообщения запроса подлинности
- *
  * @return     отказ разбора запроса подлинности
  *
  */
 context::error_t nts::internal::Engine::requesting(const view_t & body) noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: тело разбора запроса подлинности
-	 * занимает память на всяком шаге, и всякий такой шаг вправе ответить нехваткой
-	 * памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Объект разборщика тела запроса подлинности клиента
@@ -4272,7 +4276,7 @@ context::error_t nts::internal::Engine::requesting(const view_t & body) noexcept
 				return failure;
 		}
 		/**
-		 * Выполняем перехват ошибок работы с памятью
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			/**
@@ -4282,7 +4286,7 @@ context::error_t nts::internal::Engine::requesting(const view_t & body) noexcept
 			 */
 			this->_binding.assign(binding.data, binding.data + binding.size);
 		/**
-		 * Если памяти под опознаватель запроса не хватило
+		 * Выполняем перехват ошибок
 		 */
 		} catch(const bad_alloc &) {
 			// Выводим отказ нехватки памяти
@@ -4291,7 +4295,7 @@ context::error_t nts::internal::Engine::requesting(const view_t & body) noexcept
 		// Выводим успешность разбора запроса подлинности клиента
 		return context::error_t::NONE;
 	/**
-	 * Если памяти под разбора запроса подлинности не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -4302,15 +4306,12 @@ context::error_t nts::internal::Engine::requesting(const view_t & body) noexcept
  * @brief Метод разбора принятой цепочки сертификатов собеседника
  *
  * @param body тело принятого сообщения цепочки сертификатов
- *
  * @return     отказ разбора цепочки сертификатов
  *
  */
 context::error_t nts::internal::Engine::chain(const view_t & body) noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: тело разбора цепочки сертификатов
-	 * занимает память на всяком шаге, и всякий такой шаг вправе ответить нехваткой
-	 * памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Разбираемое сообщение цепочки сертификатов
@@ -4374,7 +4375,7 @@ context::error_t nts::internal::Engine::chain(const view_t & body) noexcept {
 			}
 		}
 		/**
-		 * Выполняем перенос цепочки сертификатов собеседника
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Выполняем сброс прежней цепочки сертификатов собеседника
@@ -4389,7 +4390,7 @@ context::error_t nts::internal::Engine::chain(const view_t & body) noexcept {
 				this->_peer.push_back(vector <uint8_t> (data.data, data.data + data.size));
 			}
 		/**
-		 * Если памяти под цепочку сертификатов не хватило
+		 * Выполняем перехват ошибок
 		 */
 		} catch(const bad_alloc &) {
 			// Выводим отказ нехватки памяти
@@ -4511,7 +4512,7 @@ context::error_t nts::internal::Engine::chain(const view_t & body) noexcept {
 		// Выводим успешность разбора цепочки сертификатов собеседника
 		return context::error_t::NONE;
 	/**
-	 * Если памяти под разбора цепочки сертификатов не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -4523,7 +4524,6 @@ context::error_t nts::internal::Engine::chain(const view_t & body) noexcept {
  *
  * @param body   тело принятого сообщения сжатой цепочки сертификатов
  * @param result накопитель, в который помещается тело цепочки после распаковки
- *
  * @return       отказ распаковки цепочки сертификатов
  *
  */
@@ -4583,8 +4583,7 @@ context::error_t nts::internal::Engine::unpack(const view_t & body, vector <uint
 	// Признак успешности распаковки у потребителя
 	bool inflated = false;
 	/**
-	 * Выполняем перехват ошибок работы с памятью: распаковка ведётся вызовом
-	 * потребителя, и нехватка памяти в нём есть нехватка памяти связи
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Выполняем сброс накопителя цепочки после распаковки
@@ -4592,14 +4591,13 @@ context::error_t nts::internal::Engine::unpack(const view_t & body, vector <uint
 		// Выполняем распаковку цепочки вызовом потребителя
 		inflated = codec->decompress(packed, static_cast <size_t> (length), result, codec->context);
 	/**
-	 * Если памяти под распаковку не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
 		return context::error_t::MEMORY;
 	/**
-	 * Если вызов потребителя оборвался чем-то иным: чужое исключение сквозь noexcept
-	 * связи пройти не вправе, и отвечается оно отказом распаковки
+	 * Выполняем перехват ошибок
 	 */
 	} catch(...) {
 		// Выводим отказ непригодности сжатой цепочки сертификатов
@@ -4621,7 +4619,6 @@ context::error_t nts::internal::Engine::unpack(const view_t & body, vector <uint
  * @brief Метод разбора принятого запроса состояния сертификата
  *
  * @param data тело расширения запроса состояния сертификата
- *
  * @return     отказ разбора запроса состояния
  *
  */
@@ -4665,7 +4662,6 @@ context::error_t nts::internal::Engine::inquiry(const view_t & data) noexcept {
  * @brief Метод разбора принятого ответа о состоянии сертификата собеседника
  *
  * @param data тело расширения записи цепочки с ответом о состоянии
- *
  * @return     отказ разбора либо проверки ответа о состоянии
  *
  */
@@ -4694,13 +4690,13 @@ context::error_t nts::internal::Engine::stapled(const view_t & data) noexcept {
 		// Выводим отказ разбора ответа о состоянии
 		return context::error_t::STATUS;
 	/**
-	 * Выполняем перенос ответа о состоянии
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Переносим запись ответа в накопитель
 		this->_status.assign(response.data, response.data + response.size);
 	/**
-	 * Если памяти под ответ не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -4832,7 +4828,6 @@ context::error_t nts::internal::Engine::stapled(const view_t & data) noexcept {
  * @param body      тело сообщения цепочки сертификатов
  * @param result    накопитель, в который помещается тело сжатого сообщения
  * @param algorithm место, в которое помещается выбранный алгоритм, ноль без сжатия
- *
  * @return          отказ сжатия цепочки сертификатов
  *
  */
@@ -4873,21 +4868,19 @@ context::error_t nts::internal::Engine::squeeze(const vector <uint8_t> & body, v
 	// Признак успешности сжатия у потребителя
 	bool squeezed = false;
 	/**
-	 * Выполняем перехват ошибок работы с памятью: сжатие ведётся вызовом потребителя,
-	 * и нехватка памяти в нём есть нехватка памяти связи
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Выполняем сжатие цепочки вызовом потребителя
 		squeezed = codec->compress(view_t(body.data(), body.size()), packed, codec->context);
 	/**
-	 * Если памяти под сжатие не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
 		return context::error_t::MEMORY;
 	/**
-	 * Если вызов потребителя оборвался чем-то иным: чужое исключение сквозь noexcept
-	 * связи пройти не вправе, и отвечается оно отказом сжатия
+	 * Выполняем перехват ошибок
 	 */
 	} catch(...) {
 		// Запоминаем отказ сжатия у потребителя
@@ -4905,7 +4898,7 @@ context::error_t nts::internal::Engine::squeeze(const vector <uint8_t> & body, v
 	// Отказ, которым ответил составитель полей
 	field::error_t failure = field::error_t::NONE;
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Записываем опознаватель алгоритма сжатия
@@ -4933,7 +4926,7 @@ context::error_t nts::internal::Engine::squeeze(const vector <uint8_t> & body, v
 		// Переносим тело сжатой цепочки в накопитель
 		result.assign(data.data, data.data + data.size);
 	/**
-	 * Если памяти под тело сжатой цепочки не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -4950,7 +4943,6 @@ context::error_t nts::internal::Engine::squeeze(const vector <uint8_t> & body, v
  * @param content   подписываемое содержимое
  * @param scheme    место, в которое помещается выбранная схема подписи
  * @param signature накопитель, в который помещается подпись в записи протокола
- *
  * @return          отказ выработки подписи
  *
  */
@@ -4966,6 +4958,9 @@ context::error_t nts::internal::Engine::signing(const view_t & content, extensio
 		// Выводим итог выработки подписи изданием 1.1
 		return this->engraving(content, signature);
 	}
+	/**
+	 * Выполняем перехват ошибок
+	 */
 	try {
 		// Отказ связи, отвечающий отказу модуля
 		context::error_t failure = context::error_t::NONE;
@@ -5067,6 +5062,7 @@ context::error_t nts::internal::Engine::signing(const view_t & content, extensio
 			 */
 			// Отказ разворота записи подписи
 			failure = translate(message::reverse(view_t(signature, gost.size()), reversed), context::error_t::SIGNATURE);
+			// Если разворот записи подписи отказал
 			if(failure != context::error_t::NONE)
 				// Выводим отказ разворота записи подписи
 				return failure;
@@ -5247,7 +5243,7 @@ context::error_t nts::internal::Engine::signing(const view_t & content, extensio
 		// Выводим успешность выработки подписи
 		return context::error_t::NONE;
 	/**
-	 * Если памяти под выработку подписи не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -5255,21 +5251,19 @@ context::error_t nts::internal::Engine::signing(const view_t & content, extensio
 	}
 }
 /**
- * @brief Метод проверки подписи содержимого ключом сертификата собеседника
+ * @brief Функция проверки подписи содержимого ключом сертификата собеседника
  *
  * @param scheme    объявленная собеседником схема подписи
  * @param content   подписанное содержимое
  * @param signature подпись в записи протокола
- *
  * @return          отказ проверки подписи
  *
  */
 /**
- * @brief Метод разбора записи сведений об открытом ключе собеседника
+ * @brief Функция разбора записи сведений об открытом ключе собеседника
  *
  * @param der    запись SubjectPublicKeyInfo DER
  * @param result место, в которое помещаются сведения об открытом ключе
- *
  * @return       признак успешности разбора
  *
  * @details Раздел 2 RFC 7250: при согласованном виде RawPublicKey запись цепочки
@@ -5342,6 +5336,9 @@ context::error_t nts::internal::Engine::checking(const extension::scheme_t schem
 	if(this->_ancient)
 		// Выводим итог проверки подписи изданием 1.1
 		return this->engraved(content, signature);
+	/**
+	 * Выполняем перехват ошибок
+	 */
 	try {
 		// Отказ связи, отвечающий отказу модуля
 		context::error_t failure = context::error_t::NONE;
@@ -5470,7 +5467,7 @@ context::error_t nts::internal::Engine::checking(const extension::scheme_t schem
 		// Выводим успешность проверки подписи
 		return context::error_t::NONE;
 	/**
-	 * Если памяти под проверку подписи не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -5481,15 +5478,12 @@ context::error_t nts::internal::Engine::checking(const extension::scheme_t schem
  * @brief Метод проверки принятой подписи владения ключом
  *
  * @param body тело принятого сообщения подписи владения ключом
- *
  * @return     отказ проверки подписи владения ключом
  *
  */
 context::error_t nts::internal::Engine::possession(const view_t & body) noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: тело разбора подписи владения
-	 * ключом занимает память на всяком шаге, и всякий такой шаг вправе ответить
-	 * нехваткой памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Отказ связи, отвечающий отказу модуля
@@ -5523,7 +5517,7 @@ context::error_t nts::internal::Engine::possession(const view_t & body) noexcept
 		// Выводим итог проверки подписи владения ключом собеседника
 		return this->checking(verify.scheme, view_t(content.data(), content.size()), verify.signature);
 	/**
-	 * Если памяти под разбора подписи владения ключом не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -5534,15 +5528,12 @@ context::error_t nts::internal::Engine::possession(const view_t & body) noexcept
  * @brief Метод проверки принятого завершения рукопожатия
  *
  * @param body тело принятого сообщения завершения рукопожатия
- *
  * @return     отказ проверки завершения рукопожатия
  *
  */
 context::error_t nts::internal::Engine::confirm(const view_t & body) noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: тело разбора завершения
-	 * рукопожатия занимает память на всяком шаге, и всякий такой шаг вправе ответить
-	 * нехваткой памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Получаем сторону связи собеседника
@@ -5573,7 +5564,7 @@ context::error_t nts::internal::Engine::confirm(const view_t & body) noexcept {
 		// Выводим успешность проверки завершения рукопожатия
 		return context::error_t::NONE;
 	/**
-	 * Если памяти под разбора завершения рукопожатия не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -5586,7 +5577,6 @@ context::error_t nts::internal::Engine::confirm(const view_t & body) noexcept {
  * @param extensions перечень расширений принятого приветствия клиента
  * @param proposed   перечень наборов шифрования, предложенных клиентом
  * @param message    принятое приветствие клиента вместе с обвязкой
- *
  * @return           отказ разбора предложения заранее разделённых ключей
  *
  */
@@ -5598,18 +5588,24 @@ context::error_t nts::internal::Engine::offered(const vector <hello::extension_t
 	 * втором предложении нет, а ступень секретов оставалась бы заведённой его ключом
 	 */
 	this->_shared = false;
+	// Выполняем сброс места выбранного ключа в предложении
 	this->_chosen = 0;
+	// Выполняем сброс предела упреждающих данных билета
 	this->_granted = 0;
+	// Выполняем сброс признака отвергнутого возрастом упреждения
 	this->_misaged = false;
+	// Выполняем сброс набора шифрования билета
 	this->_ticket = protect::suite_t::NONE;
+	// Выполняем сброс прикладного протокола выдавшей билет связи
 	this->_previous.clear();
+	// Выполняем сброс своих прикладных настроек выдавшей билет связи
 	this->_bequest.clear();
+	// Выполняем сброс настроек собеседника выдавшей билет связи
 	this->_heritage.clear();
+	// Выполняем сброс значений расписания ключей
 	this->_secrets.clear();
 	/**
-	 * Выполняем перехват ошибок работы с памятью: тело разбора предложения ключей
-	 * занимает память на всяком шаге, и всякий такой шаг вправе ответить нехваткой
-	 * памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Отказ связи, отвечающий отказу модуля
@@ -5821,7 +5817,7 @@ context::error_t nts::internal::Engine::offered(const vector <hello::extension_t
 		// Запоминаем набор шифрования признанного билета
 		this->_ticket = this->_store[found].suite;
 		/**
-		 * Выполняем перехват ошибок работы с памятью
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Запоминаем прикладной протокол связи, выдавшей признанный билет
@@ -5833,7 +5829,7 @@ context::error_t nts::internal::Engine::offered(const vector <hello::extension_t
 			// Запоминаем прикладные настройки собеседника выдавшей билет связи
 			this->_heritage = this->_store[found].obtained;
 		/**
-		 * Если памяти под прикладной протокол не хватило
+		 * Выполняем перехват ошибок
 		 */
 		} catch(const bad_alloc &) {
 			// Выводим отказ нехватки памяти
@@ -5846,7 +5842,7 @@ context::error_t nts::internal::Engine::offered(const vector <hello::extension_t
 		// Выводим успешность разбора предложения заранее разделённых ключей
 		return context::error_t::NONE;
 	/**
-	 * Если памяти под разбора предложения ключей не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти, которым связь обрывается
@@ -5858,15 +5854,12 @@ context::error_t nts::internal::Engine::offered(const vector <hello::extension_t
  *
  * @param body    тело принятого приветствия клиента
  * @param message принятое приветствие клиента вместе с обвязкой
- *
  * @return        отказ разбора приветствия клиента
  *
  */
 context::error_t nts::internal::Engine::incoming(const view_t & body, const view_t & message) noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: тело разбора приветствия клиента
-	 * занимает память на всяком шаге, и всякий такой шаг вправе ответить нехваткой
-	 * памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Отказ связи, отвечающий отказу модуля
@@ -5975,13 +5968,13 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 				// Выводим отказ разбора расширения приветствия
 				return this->dismissing(failure, blame(failure, alert::description_t::DECODE));
 			/**
-			 * Выполняем перехват ошибок работы с памятью
+			 * Выполняем перехват ошибок
 			 */
 			try {
 				// Переносим принятую метку возврата состояния сервера
 				this->_label.assign(label.data, label.data + label.size);
 			/**
-			 * Если памяти под метку возврата состояния не хватило
+			 * Выполняем перехват ошибок
 			 */
 			} catch(const std::bad_alloc &) {
 				// Выводим отказ нехватки памяти
@@ -6029,6 +6022,7 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 		const bool primeval = ((this->_transport == context::transport_t::DATAGRAMS) && (this->_lowest <= ANCIENT) && archaical(this->_suites));
 		// Признак того, что заголовок приветствия несёт издание DTLS 1.0 (RFC 4347)
 		const bool oldest = ((this->_transport == context::transport_t::DATAGRAMS) && (greeting.version == this->eldest()));
+		// Признак того, что издание заголовка дозволено связи
 		const bool declared = ((this->_transport == context::transport_t::DATAGRAMS) ? (((greeting.version >> 8) == 0xFE) && ((greeting.version <= datagram::DATAGRAM_LEGACY) || (primeval && oldest))) : (greeting.version >= LEGACY));
 		// Поверх дейтаграмм заголовок приветствия судится всегда, и с перечнем изданий тоже (раздел 5.3 RFC 9147)
 		if((this->_transport == context::transport_t::DATAGRAMS) && !declared)
@@ -6076,6 +6070,9 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 			 */
 			// Признак того, что клиент предложил издание DTLS 1.0
 			bool primal = false;
+			/**
+			 * Выполняем перебор изданий, предложенных клиентом
+			 */
 			for(size_t i = 0; i < versions.size(); i++){
 				// Запоминаем предложение клиентом издания DTLS 1.0
 				primal = (primal || (versions[i] == this->eldest()));
@@ -6265,7 +6262,7 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 				// Выводим отказ разбора расширения приветствия
 				return this->abort(failure, blame(failure, alert::description_t::DECODE));
 			/**
-			 * Выполняем перехват ошибок работы с памятью
+			 * Выполняем перехват ошибок
 			 */
 			try {
 				/**
@@ -6275,7 +6272,7 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 				 */
 				this->_name.assign(reinterpret_cast <const char *> (host.data), host.size);
 			/**
-			 * Если памяти под имя запрашиваемого узла не хватило
+			 * Выполняем перехват ошибок
 			 */
 			} catch(const std::bad_alloc &) {
 				// Выводим отказ нехватки памяти
@@ -6316,7 +6313,7 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 					// Выводим отказ разбора расширения приветствия
 					return this->abort(failure, blame(failure, alert::description_t::DECODE));
 				/**
-				 * Выполняем перехват ошибок работы с памятью
+				 * Выполняем перехват ошибок
 				 */
 				try {
 					/**
@@ -6336,7 +6333,7 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 						}
 					}
 				/**
-				 * Если памяти под название протокола не хватило
+				 * Выполняем перехват ошибок
 				 */
 				} catch(const std::bad_alloc &) {
 					// Выводим отказ нехватки памяти
@@ -6412,13 +6409,13 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 				// Если прикладные настройки согласованы
 				if(this->_settled){
 					/**
-					 * Выполняем перехват ошибок работы с памятью
+					 * Выполняем перехват ошибок
 					 */
 					try {
 						// Запоминаем свои настройки выбранного протокола
 						this->_applied.assign(applied.data, applied.data + applied.size);
 					/**
-					 * Если памяти под настройки не хватило
+					 * Выполняем перехват ошибок
 					 */
 					} catch(const std::bad_alloc &) {
 						// Выводим отказ нехватки памяти
@@ -6448,13 +6445,13 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 				// Выводим отказ отсутствия обязательного расширения
 				return this->abort(context::error_t::PARAMETERS, alert::description_t::MISSING);
 			/**
-			 * Выполняем перехват ошибок работы с памятью
+			 * Выполняем перехват ошибок
 			 */
 			try {
 				// Переносим параметры переноса собеседника как есть
 				this->_received.assign(extension->data.data, extension->data.data + extension->data.size);
 			/**
-			 * Если памяти под параметры переноса не хватило
+			 * Выполняем перехват ошибок
 			 */
 			} catch(const std::bad_alloc &) {
 				// Выводим отказ нехватки памяти
@@ -6642,13 +6639,13 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 				// Запоминаем приём упреждающих данных клиента
 				this->_accepted = true;
 				/**
-				 * Выполняем перехват ошибок работы с памятью
+				 * Выполняем перехват ошибок
 				 */
 				try {
 					// Черновик draft-vvv-tls-alps: настройки клиента при принятом упреждении наследуются от билета
 					this->_obtained = this->_heritage;
 				/**
-				 * Если памяти под настройки не хватило
+				 * Выполняем перехват ошибок
 				 */
 				} catch(const std::bad_alloc &) {
 					// Выводим отказ нехватки памяти
@@ -6928,6 +6925,7 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 				// Ограничиваем приём договорённой длиной
 				this->_incoming = this->_outgoing;
 		}
+		// Если имя запрашиваемого узла заведено
 		if(!this->_name.empty())
 			// Объявляем клиенту приём имени запрашиваемого узла
 			items.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::NAME), view_t(nullptr, 0)));
@@ -7166,7 +7164,7 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 		// Выводим успешность разбора приветствия клиента
 		return context::error_t::NONE;
 	/**
-	 * Если памяти под разбора приветствия клиента не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти, которым связь обрывается
@@ -7178,15 +7176,12 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
  *
  * @param body    тело принятого приветствия сервера
  * @param message принятое приветствие сервера вместе с обвязкой
- *
  * @return        отказ разбора приветствия сервера
  *
  */
 context::error_t nts::internal::Engine::outgoing(const view_t & body, const view_t & message) noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: тело разбора приветствия сервера
-	 * занимает память на всяком шаге, и всякий такой шаг вправе ответить нехваткой
-	 * памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Отказ связи, отвечающий отказу модуля
@@ -7328,11 +7323,12 @@ context::error_t nts::internal::Engine::outgoing(const view_t & body, const view
 			} else return this->abort(context::error_t::MESSAGE, alert::description_t::EXTENSION);
 		}
 		/**
-		 * Раздел 4.2.1 RFC 8446 велит клиенту сверять расширение издания ПРЕЖДЕ разбора
-		 * всего прочего в приветствии сервера, а раздел 9.2 требует расширения этого и от
-		 * просьбы о повторе приветствия. Оттого сверка и стоит выше разветвления на
-		 * приветствие и просьбу: ниже она просьбу о повторе не задевала бы вовсе, и связь
-		 * шла бы по ней на новый круг, издания так и не сверив
+		 * @brief Функция поиска расширения приветствия по его виду
+		 *
+		 * @param extensions перечень расширений приветствия
+		 * @param type       разыскиваемый вид расширения
+		 * @return           найденное расширение либо nullptr
+		 *
 		 */
 		// Разыскиваем расширение издания протокола
 		const hello::extension_t * item = hello::extension(answer.extensions, static_cast <uint16_t> (extension::type_t::VERSIONS));
@@ -7438,7 +7434,7 @@ context::error_t nts::internal::Engine::outgoing(const view_t & body, const view
 			// Если метка возврата состояния сервера просьбой объявлена
 			if(label != nullptr){
 				/**
-				 * Выполняем перехват ошибок работы с памятью
+				 * Выполняем перехват ошибок
 				 */
 				try {
 					/**
@@ -7448,7 +7444,7 @@ context::error_t nts::internal::Engine::outgoing(const view_t & body, const view
 					 */
 					this->_cookie.assign(label->data.data, label->data.data + label->data.size);
 				/**
-				 * Если памяти под метку возврата состояния не хватило
+				 * Выполняем перехват ошибок
 				 */
 				} catch(const std::bad_alloc &) {
 					// Выводим отказ нехватки памяти
@@ -7494,6 +7490,7 @@ context::error_t nts::internal::Engine::outgoing(const view_t & body, const view
 					// Затираем общее значение доли
 					this->purge(this->_exchanges[i].shared.data(), this->_exchanges[i].shared.size());
 				}
+				// Выполняем сброс мимолётных пар ключей своей стороны
 				this->_exchanges.clear();
 				// Выполняем выработку мимолётной пары ключей на выбранной кривой
 				error = this->exchange(group);
@@ -7618,7 +7615,7 @@ context::error_t nts::internal::Engine::outgoing(const view_t & body, const view
 		// Выводим успешность разбора приветствия сервера
 		return context::error_t::NONE;
 	/**
-	 * Если памяти под разбора приветствия сервера не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти, которым связь обрывается
@@ -7629,15 +7626,12 @@ context::error_t nts::internal::Engine::outgoing(const view_t & body, const view
  * @brief Метод смены ключевого материала направления связи
  *
  * @param side сторона, чьё направление связи сменяется
- *
  * @return     отказ смены ключевого материала направления
  *
  */
 context::error_t nts::internal::Engine::rotate(const session::side_t side) noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: тело смены ключей направления
-	 * занимает память на всяком шаге, и всякий такой шаг вправе ответить нехваткой
-	 * памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Если значение направления связи сменить не удалось
@@ -7682,7 +7676,7 @@ context::error_t nts::internal::Engine::rotate(const session::side_t side) noexc
 		// Выводим успешность установки ключевого материала направления связи
 		return context::error_t::NONE;
 	/**
-	 * Если памяти под смены ключей направления не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -7693,14 +7687,12 @@ context::error_t nts::internal::Engine::rotate(const session::side_t side) noexc
  * @brief Метод разбора принятой смены ключевого материала
  *
  * @param body тело принятого сообщения смены ключевого материала
- *
  * @return     отказ разбора смены ключевого материала
  *
  */
 context::error_t nts::internal::Engine::renew(const view_t & body) noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: тело разбора смены ключей занимает
-	 * память на всяком шаге, и всякий такой шаг вправе ответить нехваткой памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Если связь ещё не установлена либо оборвана: закрывшему свою передачу приём открыт
@@ -7751,7 +7743,7 @@ context::error_t nts::internal::Engine::renew(const view_t & body) noexcept {
 		// Выводим успешность разбора смены ключевого материала
 		return context::error_t::NONE;
 	/**
-	 * Если памяти под разбора смены ключей не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти, которым связь обрывается
@@ -7766,9 +7758,7 @@ context::error_t nts::internal::Engine::renew(const view_t & body) noexcept {
  */
 context::error_t nts::internal::Engine::keeping() noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: тело вывода значения возобновления
-	 * занимает память на всяком шаге, и всякий такой шаг вправе ответить нехваткой
-	 * памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Место, в которое помещается хеш переписки рукопожатия
@@ -7784,7 +7774,7 @@ context::error_t nts::internal::Engine::keeping() noexcept {
 		// Выводим успешность вывода значения возобновления связи
 		return context::error_t::NONE;
 	/**
-	 * Если памяти под вывода значения возобновления не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -7795,14 +7785,12 @@ context::error_t nts::internal::Engine::keeping() noexcept {
  * @brief Метод разбора принятого билета возобновления связи
  *
  * @param body тело принятого сообщения билета
- *
  * @return     отказ разбора билета возобновления связи
  *
  */
 context::error_t nts::internal::Engine::accept(const view_t & body) noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: тело разбора билета занимает
-	 * память на всяком шаге, и всякий такой шаг вправе ответить нехваткой памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Отказ связи, отвечающий отказу модуля
@@ -7883,7 +7871,7 @@ context::error_t nts::internal::Engine::accept(const view_t & body) noexcept {
 			// Выводим отказ вывода ключа билета возобновления связи
 			return this->abort(context::error_t::SCHEDULE, alert::description_t::INTERNAL);
 		/**
-		 * Выполняем складывание принятого билета возобновления связи
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Запоминаем прикладной протокол связи, принявшей билет
@@ -7918,7 +7906,7 @@ context::error_t nts::internal::Engine::accept(const view_t & body) noexcept {
 			// Добавляем принятый билет в перечень билетов связи
 			this->_tickets.push_back(::move(item));
 		/**
-		 * Если памяти под билет не хватило
+		 * Выполняем перехват ошибок
 		 */
 		} catch(const bad_alloc &) {
 			// Выполняем затирание ключа принятого билета
@@ -7931,7 +7919,7 @@ context::error_t nts::internal::Engine::accept(const view_t & body) noexcept {
 		// Выводим успешность разбора билета возобновления связи
 		return context::error_t::NONE;
 	/**
-	 * Если памяти под разбора билета не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти, которым связь обрывается
@@ -7942,14 +7930,12 @@ context::error_t nts::internal::Engine::accept(const view_t & body) noexcept {
  * @brief Метод разбора принятого извещения
  *
  * @param data принятое извещение
- *
  * @return     отказ разбора принятого извещения
  *
  */
 context::error_t nts::internal::Engine::notice(const view_t & data) noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: тело разбора извещения занимает
-	 * память на всяком шаге, и всякий такой шаг вправе ответить нехваткой памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Разбираемое извещение собеседника
@@ -8011,7 +7997,7 @@ context::error_t nts::internal::Engine::notice(const view_t & data) noexcept {
 		// Выводим успешность разбора извещения собеседника
 		return context::error_t::NONE;
 	/**
-	 * Если памяти под разбора извещения не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти, которым связь обрывается
@@ -8024,15 +8010,12 @@ context::error_t nts::internal::Engine::notice(const view_t & data) noexcept {
  * @param type    вид принятого сообщения рукопожатия
  * @param body    тело принятого сообщения рукопожатия
  * @param message принятое сообщение рукопожатия вместе с обвязкой
- *
  * @return        отказ разбора сообщения рукопожатия
  *
  */
 context::error_t nts::internal::Engine::handle(const handshake::type_t type, const view_t & body, const view_t & message) noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: тело разбора сообщения рукопожатия
-	 * занимает память на всяком шаге, и всякий такой шаг вправе ответить нехваткой
-	 * памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Отказ связи, отвечающий отказу модуля
@@ -8155,13 +8138,13 @@ context::error_t nts::internal::Engine::handle(const handshake::type_t type, con
 						// Выводим отказ объявления непрошенного расширения
 						return this->abort(context::error_t::EXTENSION, alert::description_t::EXTENSION);
 					/**
-					 * Выполняем перехват ошибок работы с памятью
+					 * Выполняем перехват ошибок
 					 */
 					try {
 						// Запоминаем настройки клиента
 						this->_obtained.assign(stated.data, stated.data + stated.size);
 					/**
-					 * Если памяти под настройки не хватило
+					 * Выполняем перехват ошибок
 					 */
 					} catch(const std::bad_alloc &) {
 						// Выводим отказ нехватки памяти
@@ -8273,13 +8256,13 @@ context::error_t nts::internal::Engine::handle(const handshake::type_t type, con
 						// Выводим отказ негодного расширения
 						return this->abort(context::error_t::MESSAGE, alert::description_t::PARAMETER);
 					/**
-					 * Выполняем перехват ошибок работы с памятью
+					 * Выполняем перехват ошибок
 					 */
 					try {
 						// Запоминаем запасные конфигурации как записаны
 						this->_retries.assign(retrying.data, retrying.data + retrying.size);
 					/**
-					 * Если памяти под конфигурации не хватило
+					 * Выполняем перехват ошибок
 					 */
 					} catch(const std::bad_alloc &) {
 						// Выводим отказ нехватки памяти
@@ -8302,13 +8285,13 @@ context::error_t nts::internal::Engine::handle(const handshake::type_t type, con
 				// Если параметры переноса сервером объявлены
 				if(carried){
 					/**
-					 * Выполняем перехват ошибок работы с памятью
+					 * Выполняем перехват ошибок
 					 */
 					try {
 						// Переносим параметры переноса собеседника как есть
 						this->_received.assign(transport.data, transport.data + transport.size);
 					/**
-					 * Если памяти под параметры переноса не хватило
+					 * Выполняем перехват ошибок
 					 */
 					} catch(const std::bad_alloc &) {
 						// Выводим отказ нехватки памяти
@@ -8335,7 +8318,7 @@ context::error_t nts::internal::Engine::handle(const handshake::type_t type, con
 				// Если упреждающие данные приняты, прикладные настройки наследуются от билета
 				if(this->_accepted){
 					/**
-					 * Выполняем перехват ошибок работы с памятью
+					 * Выполняем перехват ошибок
 					 */
 					try {
 						// Наследуем свои настройки от билета
@@ -8343,7 +8326,7 @@ context::error_t nts::internal::Engine::handle(const handshake::type_t type, con
 						// Наследуем настройки сервера от билета
 						this->_obtained = this->_resume.obtained;
 					/**
-					 * Если памяти под настройки не хватило
+					 * Выполняем перехват ошибок
 					 */
 					} catch(const std::bad_alloc &) {
 						// Выводим отказ нехватки памяти
@@ -8388,13 +8371,13 @@ context::error_t nts::internal::Engine::handle(const handshake::type_t type, con
 						// Выводим отказ отсутствия общего прикладного протокола
 						return this->abort(context::error_t::PROTOCOL, alert::description_t::PROTOCOL);
 					/**
-					 * Выполняем перехват ошибок работы с памятью
+					 * Выполняем перехват ошибок
 					 */
 					try {
 						// Запоминаем выбранный сторонами прикладной протокол
 						this->_protocol = ::move(selected);
 					/**
-					 * Если памяти под название протокола не хватило
+					 * Выполняем перехват ошибок
 					 */
 					} catch(const std::bad_alloc &) {
 						// Выводим отказ нехватки памяти
@@ -8454,7 +8437,7 @@ context::error_t nts::internal::Engine::handle(const handshake::type_t type, con
 						// Выводим отказ негодного расширения
 						return this->abort(context::error_t::MESSAGE, alert::description_t::PARAMETER);
 					/**
-					 * Выполняем перехват ошибок работы с памятью
+					 * Выполняем перехват ошибок
 					 */
 					try {
 						// Запоминаем свои настройки выбранного протокола
@@ -8462,7 +8445,7 @@ context::error_t nts::internal::Engine::handle(const handshake::type_t type, con
 						// Запоминаем настройки сервера
 						this->_obtained.assign(offered.data, offered.data + offered.size);
 					/**
-					 * Если памяти под настройки не хватило
+					 * Выполняем перехват ошибок
 					 */
 					} catch(const std::bad_alloc &) {
 						// Выводим отказ нехватки памяти
@@ -8632,6 +8615,7 @@ context::error_t nts::internal::Engine::handle(const handshake::type_t type, con
 				if(this->_server && !this->_peer.empty() && !this->_machine.certified())
 					// Выводим отказ завершения без подписи владения
 					return this->abort(context::error_t::ORDER, alert::description_t::UNEXPECTED);
+				// Проверяем завершение рукопожатия собеседника
 				error = this->confirm(body);
 				// Если завершение рукопожатия собеседника не сошлось
 				if(error != context::error_t::NONE)
@@ -8762,7 +8746,7 @@ context::error_t nts::internal::Engine::handle(const handshake::type_t type, con
 		// Выводим успешность разбора сообщения рукопожатия
 		return context::error_t::NONE;
 	/**
-	 * Если памяти под разбора сообщения рукопожатия не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти, которым связь обрывается
@@ -8861,14 +8845,13 @@ const string & nts::internal::Engine::protocol() const noexcept {
  */
 void nts::internal::Engine::profiles(const vector <uint16_t> & profiles) noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: перечень занимает память, а
-	 * установщик отказа не выводит, и нехватка памяти помнится до заведения связи
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Переносим перечень предлагаемых профилей защиты RTP
 		this->_srtps = profiles;
 	/**
-	 * Если памяти под перечень профилей не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Сбрасываем перечень предлагаемых профилей защиты RTP
@@ -8904,8 +8887,7 @@ void nts::internal::Engine::inquire(const bool inquire) noexcept {
  */
 void nts::internal::Engine::staple(const vector <uint8_t> & response, const size_t index) noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: ответы занимают память, а
-	 * установщик отказа не выводит, и нехватка памяти помнится до заведения связи
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		/**
@@ -8928,7 +8910,7 @@ void nts::internal::Engine::staple(const vector <uint8_t> & response, const size
 			// Снимаем пустой ответ с конца перечня
 			this->_staples.pop_back();
 	/**
-	 * Если памяти под ответы не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Запоминаем нехватку памяти до заведения связи
@@ -8953,14 +8935,13 @@ void nts::internal::Engine::timestamps(const bool request) noexcept {
  */
 void nts::internal::Engine::timestamps(const vector <uint8_t> & list) noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: установщик отказа не выводит, и
-	 * нехватка памяти помнится до заведения связи
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Запоминаем перечень меток времени
 		this->_stamps = list;
 	/**
-	 * Если памяти под перечень не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выполняем сброс перечня
@@ -8987,14 +8968,13 @@ const vector <uint8_t> & nts::internal::Engine::timestamps() const noexcept {
  */
 void nts::internal::Engine::authorities(const vector <vector <uint8_t>> & names) noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: установщик отказа не выводит, и
-	 * нехватка памяти помнится до заведения связи
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Запоминаем перечень доверенных центров
 		this->_trusted = names;
 	/**
-	 * Если памяти под перечень не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выполняем сброс перечня
@@ -9066,7 +9046,7 @@ context::error_t nts::internal::Engine::announcing() noexcept {
 		outcome = builder.bytes(view_t(ZEROS, padding));
 	// Если заполнение записано
 	if(outcome == field::error_t::NONE)
-		// Закрываем заполнение
+		// Закрываем запись заполнения нулями
 		outcome = builder.close();
 	// Если сообщение составить не удалось
 	if(outcome != field::error_t::NONE)
@@ -9082,8 +9062,8 @@ context::error_t nts::internal::Engine::announcing() noexcept {
  *
  * @param value  присланный предел длины принимаемой собеседником записи
  * @param legacy признак издания 1.2: предел без октета вида содержимого
- *
  * @return       результат работы: NONE при успехе либо ошибка с отправленным извещением
+ *
  */
 context::error_t nts::internal::Engine::bounding(const uint16_t value, const bool legacy) noexcept {
 	/**
@@ -9111,7 +9091,7 @@ context::error_t nts::internal::Engine::bounding(const uint16_t value, const boo
 	}
 	// Отмечаем действующее расширение
 	this->_sizing = 1;
-	// Выводим успешность
+	// Сообщаем об успешном применении предела
 	return context::error_t::NONE;
 }
 /**
@@ -9119,8 +9099,8 @@ context::error_t nts::internal::Engine::bounding(const uint16_t value, const boo
  *
  * @param code   присланный код длины: 1…4 для 2^9…2^12 байтов
  * @param legacy признак издания 1.2: длина без октета вида содержимого
- *
  * @return       результат работы: NONE при успехе либо ошибка с отправленным извещением
+ *
  */
 context::error_t nts::internal::Engine::fragmenting(const uint8_t code, const bool legacy) noexcept {
 	/**
@@ -9137,23 +9117,24 @@ context::error_t nts::internal::Engine::fragmenting(const uint8_t code, const bo
 	this->_outgoing = length;
 	// Переносим предел собеседника переносу дейтаграммами: записи режутся по нему (RFC 8449, RFC 6066)
 	this->_flight.limit(this->_outgoing);
+	// Применяем длину и к приёму записей
 	this->_incoming = length;
 	// Отмечаем действующее расширение
 	this->_sizing = 2;
-	// Выводим успешность
+	// Сообщаем об успешном применении длины
 	return context::error_t::NONE;
 }
 /**
  * @brief Метод разбора сервером пределов длины записи, предложенных приветствием клиента (RFC 8449, RFC 6066)
  *
  * @param greeting приветствие клиента
- *
  * @return         результат работы: NONE при успехе либо ошибка с отправленным извещением
+ *
  */
 context::error_t nts::internal::Engine::sizing(const hello::client_t & greeting) noexcept {
 	// Пределы над дейтаграммами не договариваются: там длину записи диктует MTU полёта
 	if(this->_transport == context::transport_t::DATAGRAMS)
-		// Выводим успешность
+		// Сообщаем, что разбор не требуется
 		return context::error_t::NONE;
 	// Расширение предела record_size_limit клиента
 	const hello::extension_t * bound = hello::extension(greeting.extensions, static_cast <uint16_t> (extension::type_t::LIMIT));
@@ -9183,6 +9164,7 @@ context::error_t nts::internal::Engine::sizing(const hello::client_t & greeting)
 		const uint16_t own = static_cast <uint16_t> (record::RECORD_PLAINTEXT + (this->_legacy ? 0 : 1));
 		// Составляем тело ответного расширения
 		this->_sized[0] = static_cast <uint8_t> (own >> 8);
+		// Младший байт предела на приём
 		this->_sized[1] = static_cast <uint8_t> (own & 0xFF);
 		/**
 		 * Раздел 5 RFC 8449: сервер, поддерживающий record_size_limit, отвечает лишь им,
@@ -9214,18 +9196,18 @@ context::error_t nts::internal::Engine::sizing(const hello::client_t & greeting)
 		this->_fragmenting = code;
 		// Составляем тело ответного расширения: тот же код
 		this->_sized[0] = code;
+		// Младший байт кода - ноль
 		this->_sized[1] = 0;
 		// Отмечаем действующее расширение
 		this->_sizing = 2;
 	}
-	// Выводим успешность
+	// Сообщаем об успешном разборе пределов
 	return context::error_t::NONE;
 }
 /**
  * @brief Метод отправки запроса сердцебиения (RFC 6520)
  *
  * @param payload нагрузка запроса
- *
  * @return        отказ отправки
  *
  */
@@ -9243,7 +9225,7 @@ context::error_t nts::internal::Engine::heartbeat(const view_t & payload) noexce
 		// Выводим отказ предела
 		return context::error_t::LIMIT;
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Сообщение сердцебиения: вид, длина нагрузки, нагрузка, заполнение
@@ -9252,6 +9234,7 @@ context::error_t nts::internal::Engine::heartbeat(const view_t & payload) noexce
 		message[0] = 0x01;
 		// Длина нагрузки старшим байтом вперёд
 		message[1] = static_cast <uint8_t> (payload.size >> 8);
+		// Младший байт длины нагрузки
 		message[2] = static_cast <uint8_t> (payload.size & 0xFF);
 		// Если нагрузка есть
 		if(payload.size > 0)
@@ -9259,7 +9242,7 @@ context::error_t nts::internal::Engine::heartbeat(const view_t & payload) noexce
 			::memcpy(message.data() + 3, payload.data, payload.size);
 		// Заполнение: случайные байты (раздел 4 RFC 6520)
 		if(!entropy::bytes(message.data() + 3 + payload.size, HEARTBEAT_PADDING))
-			// Выводим отказ
+			// Выводим отрицательный результат - заполнение не выработано
 			return context::error_t::SETTINGS;
 		// Запоминаем нагрузку в пути
 		this->_pulse.assign(message.begin() + 3, message.begin() + 3 + payload.size);
@@ -9272,7 +9255,7 @@ context::error_t nts::internal::Engine::heartbeat(const view_t & payload) noexce
 		// Выводим итог
 		return error;
 	/**
-	 * Если памяти не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -9312,7 +9295,6 @@ size_t nts::internal::Engine::heartroom() noexcept {
  * @brief Метод разбора принятой записи сердцебиения (RFC 6520)
  *
  * @param content открытое содержимое записи вида 24
- *
  * @return        отказ разбора
  *
  */
@@ -9350,7 +9332,7 @@ context::error_t nts::internal::Engine::pulse(const view_t & content) noexcept {
 				// Выводим успешность: запись уронена
 				return context::error_t::NONE;
 			/**
-			 * Выполняем перехват ошибок работы с памятью
+			 * Выполняем перехват ошибок
 			 */
 			try {
 				// Ответ сердцебиения
@@ -9359,6 +9341,7 @@ context::error_t nts::internal::Engine::pulse(const view_t & content) noexcept {
 				message[0] = 0x02;
 				// Длина нагрузки
 				message[1] = content.data[1];
+				// Младший байт длины нагрузки слово в слово
 				message[2] = content.data[2];
 				// Если нагрузка есть
 				if(length > 0)
@@ -9371,7 +9354,7 @@ context::error_t nts::internal::Engine::pulse(const view_t & content) noexcept {
 				// Складываем ответ
 				return this->emit(record::type_t::HEARTBEAT, view_t(message.data(), message.size()));
 			/**
-			 * Если памяти не хватило
+			 * Выполняем перехват ошибок
 			 */
 			} catch(const bad_alloc &) {
 				// Выводим отказ нехватки памяти
@@ -9391,13 +9374,14 @@ context::error_t nts::internal::Engine::pulse(const view_t & content) noexcept {
 			}
 		} break;
 	}
-	// Выводим успешность
+	// Сообщаем об успешном разборе записи
 	return context::error_t::NONE;
 }
 /**
  * @brief Метод получения предела длины открытого содержимого отправляемой записи
  *
  * @return предел в байтах: объявленный собеседником либо предел протокола
+ *
  */
 size_t nts::internal::Engine::ceiling() const noexcept {
 	// Выводим предел отправки
@@ -9407,6 +9391,7 @@ size_t nts::internal::Engine::ceiling() const noexcept {
  * @brief Метод получения предела длины открытого содержимого принимаемой записи
  *
  * @return предел в байтах: свой объявленный и подтверждённый либо предел протокола
+ *
  */
 size_t nts::internal::Engine::threshold() const noexcept {
 	// Выводим предел приёма
@@ -9440,7 +9425,6 @@ const vector <vector <uint8_t>> & nts::internal::Engine::statuses() const noexce
  * @param result  место, в которое помещается экспортируемый материал
  * @param size    требуемая длина экспортируемого материала в байтах
  * @param early   признак раннего вывода из значения раннего экспорта
- *
  * @return        отказ вывода экспортируемого материала
  *
  */
@@ -9505,14 +9489,13 @@ void nts::internal::Engine::verification(const bool verify, const int64_t leeway
 	// Запоминаем дозволенный люфт сроков ответа
 	this->_leeway = ((leeway < 0) ? -leeway : leeway);
 	/**
-	 * Выполняем перехват ошибок работы с памятью: запас занимает память, а
-	 * установщик отказа не выводит, и нехватка памяти помнится до заведения связи
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Переносим запас доверенных сертификатов
 		this->_anchors = store;
 	/**
-	 * Если памяти под запас не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Запоминаем нехватку памяти до заведения связи
@@ -9537,8 +9520,7 @@ nts::ocsp::status_t nts::internal::Engine::certified() const noexcept {
  */
 void nts::internal::Engine::suites(const vector <protect::suite_t> & suites) noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: установщик отказа не выводит, и
-	 * нехватка памяти помнится до заведения связи
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Если предлагаемые наборы шифрования переданы
@@ -9549,7 +9531,7 @@ void nts::internal::Engine::suites(const vector <protect::suite_t> & suites) noe
 			this->_catalog = suites;
 		}
 	/**
-	 * Если памяти под предлагаемые наборы шифрования не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выполняем сброс предлагаемые наборы шифрования
@@ -9566,8 +9548,7 @@ void nts::internal::Engine::suites(const vector <protect::suite_t> & suites) noe
  */
 void nts::internal::Engine::groups(const vector <extension::group_t> & groups) noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: установщик отказа не выводит, и
-	 * нехватка памяти помнится до заведения связи
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Если предлагаемые кривые обмена ключами переданы
@@ -9575,7 +9556,7 @@ void nts::internal::Engine::groups(const vector <extension::group_t> & groups) n
 			// Запоминаем предлагаемые кривые обмена ключами
 			this->_groups = groups;
 	/**
-	 * Если памяти под предлагаемые кривые обмена ключами не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выполняем сброс предлагаемые кривые обмена ключами
@@ -9592,14 +9573,13 @@ void nts::internal::Engine::groups(const vector <extension::group_t> & groups) n
  */
 void nts::internal::Engine::shares(const vector <extension::group_t> & shares) noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: перечень занимает память, а
-	 * установщик отказа не выводит, и нехватка памяти помнится до заведения связи
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Устанавливаем перечень групп долей ключа: пустой перечень возвращает умолчание
 		this->_shares = shares;
 	/**
-	 * Если памяти под перечень не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выполняем сброс групп долей ключа
@@ -9616,8 +9596,7 @@ void nts::internal::Engine::shares(const vector <extension::group_t> & shares) n
  */
 void nts::internal::Engine::schemes(const vector <extension::scheme_t> & schemes) noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: перечень занимает память, а
-	 * установщик отказа не выводит, и нехватка памяти помнится до заведения связи
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Если перечень схем подписи не пуст
@@ -9625,7 +9604,7 @@ void nts::internal::Engine::schemes(const vector <extension::scheme_t> & schemes
 			// Устанавливаем перечень признаваемых схем подписи
 			this->_signatures = schemes;
 	/**
-	 * Если памяти под перечень не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выполняем сброс схем подписи связи
@@ -9683,14 +9662,13 @@ const vector <nts::extension::scheme_t> & nts::internal::Engine::schemes() const
  */
 void nts::internal::Engine::codecs(const vector <context::codec_t> & codecs, const size_t inflation) noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: перечень занимает память, а
-	 * установщик отказа не выводит, и нехватка памяти помнится до заведения связи
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Устанавливаем перечень алгоритмов сжатия: пустой перечень выключает сжатие
 		this->_codecs = codecs;
 	/**
-	 * Если памяти под перечень не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выполняем сброс алгоритмов сжатия
@@ -9709,7 +9687,6 @@ void nts::internal::Engine::codecs(const vector <context::codec_t> & codecs, con
  * @brief Метод получения алгоритма сжатия цепочки сертификатов направления
  *
  * @param direction направление связи относительно своей стороны
- *
  * @return          опознаватель алгоритма по RFC 8879, ноль у несжатой цепочки
  *
  */
@@ -9725,8 +9702,7 @@ uint16_t nts::internal::Engine::compression(const context::direction_t direction
  */
 void nts::internal::Engine::credential(const context::credential_t & credential) noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: установщик отказа не выводит, и
-	 * нехватка памяти помнится до заведения связи
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Если прежняя подлинность несёт секретный ключ
@@ -9736,7 +9712,7 @@ void nts::internal::Engine::credential(const context::credential_t & credential)
 		// Запоминаем подлинность своей стороны связи
 		this->_credential = credential;
 	/**
-	 * Если памяти под подлинность своей стороны связи не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выполняем сброс подлинность своей стороны связи
@@ -9749,7 +9725,6 @@ void nts::internal::Engine::credential(const context::credential_t & credential)
  * @brief Метод получения подготовленного секретного ключа своей подлинности
  *
  * @param result место, в которое помещается указатель на подготовленный ключ
- *
  * @return       отказ подготовки ключа
  *
  */
@@ -9771,7 +9746,7 @@ context::error_t nts::internal::Engine::signer(const keys::Signer *& result) noe
 	}
 	// Запоминаем указатель на подготовленный ключ
 	result = this->_credential.signer.get();
-	// Выводим успешность
+	// Сообщаем об успешной выдаче ключа
 	return context::error_t::NONE;
 }
 /**
@@ -9782,14 +9757,13 @@ context::error_t nts::internal::Engine::signer(const keys::Signer *& result) noe
  */
 void nts::internal::Engine::name(const string & name) noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: установщик отказа не выводит, и
-	 * нехватка памяти помнится до заведения связи
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Запоминаем имя узла, запрашиваемое у сервера
 		this->_name = name;
 	/**
-	 * Если памяти под имя узла, запрашиваемое у сервера не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выполняем сброс имя узла, запрашиваемое у сервера
@@ -9806,14 +9780,13 @@ void nts::internal::Engine::name(const string & name) noexcept {
  */
 void nts::internal::Engine::protocols(const vector <string> & protocols) noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: установщик отказа не выводит, и
-	 * нехватка памяти помнится до заведения связи
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Запоминаем предлагаемые прикладные протоколы связи
 		this->_protocols = protocols;
 	/**
-	 * Если памяти под предлагаемые прикладные протоколы связи не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выполняем сброс предлагаемые прикладные протоколы связи
@@ -9831,8 +9804,7 @@ void nts::internal::Engine::protocols(const vector <string> & protocols) noexcep
  */
 void nts::internal::Engine::settings(const string & protocol, const vector <uint8_t> & value) noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: установщик отказа не выводит, и
-	 * нехватка памяти помнится до заведения связи
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		/**
@@ -9856,7 +9828,7 @@ void nts::internal::Engine::settings(const string & protocol, const vector <uint
 		// Объявляем настройки протокола
 		this->_settings.push_back(item);
 	/**
-	 * Если памяти под прикладные настройки связи не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выполняем сброс объявленных настроек
@@ -9912,7 +9884,6 @@ uint16_t nts::internal::Engine::codepoint() const noexcept {
  *
  * @param protocol прикладной протокол, настройки которого ищутся
  * @param result   место, в которое помещаются найденные настройки
- *
  * @return         признак того, что настройки для протокола объявлены
  *
  */
@@ -9936,7 +9907,6 @@ bool nts::internal::Engine::pick(const string & protocol, view_t & result) const
  * @brief Метод сличения состояния прикладных настроек связи с билетом
  *
  * @param ticket билет, с которым сличается состояние
- *
  * @return       признак того, что состояние равно билетному
  *
  */
@@ -9967,7 +9937,7 @@ bool nts::internal::Engine::inheritable(const context::ticket_t & ticket) const 
  */
 context::error_t nts::internal::Engine::stating() noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Перечень расширений, объявляемых клиентом под защитой
@@ -9987,7 +9957,7 @@ context::error_t nts::internal::Engine::stating() noexcept {
 		// Выводим итог отправки сообщения
 		return this->send(handshake::type_t::EXTENSIONS, view_t(extensions.data(), extensions.size()));
 	/**
-	 * Если памяти под сообщение не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -10002,14 +9972,13 @@ context::error_t nts::internal::Engine::stating() noexcept {
  */
 void nts::internal::Engine::cookie(const vector <uint8_t> & cookie) noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: установщик отказа не выводит, и
-	 * нехватка памяти помнится до заведения связи
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Запоминаем метку возврата состояния, выдаваемую просьбой о повторе
 		this->_cookie = cookie;
 	/**
-	 * Если памяти под метку возврата состояния не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выполняем сброс метку возврата состояния
@@ -10063,14 +10032,13 @@ void nts::internal::Engine::lifetime(const uint32_t lifetime) noexcept {
  */
 void nts::internal::Engine::resume(const context::ticket_t & ticket) noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: установщик отказа не выводит, и
-	 * нехватка памяти помнится до заведения связи
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Запоминаем билет, предъявляемый на возобновление связи
 		this->_resume = ticket;
 	/**
-	 * Если памяти под билет возобновления связи не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выполняем сброс билет возобновления связи
@@ -10087,14 +10055,13 @@ void nts::internal::Engine::resume(const context::ticket_t & ticket) noexcept {
  */
 void nts::internal::Engine::resume(const vector <context::ticket_t> & tickets) noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: установщик отказа не выводит, и
-	 * нехватка памяти помнится до заведения связи
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Запоминаем билеты, признаваемые на возобновление связи
 		this->_store = tickets;
 	/**
-	 * Если памяти под признаваемые билеты возобновления связи не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выполняем сброс признаваемые билеты возобновления связи
@@ -10162,7 +10129,6 @@ void nts::internal::Engine::renewal(const bool automatic, const uint64_t records
  * @brief Метод получения счётчика записей направления связи
  *
  * @param incoming запрашивается ли направление собеседника
- *
  * @return         число записей направления на текущих ключах
  *
  */
@@ -10235,14 +10201,13 @@ context::transport_t nts::internal::Engine::transport() const noexcept {
  */
 void nts::internal::Engine::parameters(const vector <uint8_t> & parameters) noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: установщик отказа не выводит, и
-	 * нехватка памяти помнится до заведения связи
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Запоминаем свои параметры переноса QUIC
 		this->_parameters = parameters;
 	/**
-	 * Если памяти под параметры переноса не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выполняем сброс своих параметров переноса
@@ -10276,7 +10241,6 @@ bool nts::internal::Engine::acquired() const noexcept {
  *
  * @param level уровень защиты, на котором сообщения приняты
  * @param data  принятые сообщения рукопожатия без обвязки записей
- *
  * @return      отказ разбора принятых сообщений
  *
  */
@@ -10370,7 +10334,6 @@ context::error_t nts::internal::Engine::push(const context::level_t level, const
  * @brief Метод получения сообщений рукопожатия, отправляемых на уровне защиты
  *
  * @param level уровень защиты, сообщения которого запрашиваются
- *
  * @return      накопленные сообщения рукопожатия уровня
  *
  */
@@ -10412,7 +10375,6 @@ void nts::internal::Engine::consume(const context::level_t level, const size_t s
  * @param direction направление связи относительно своей стороны
  * @param result    место, в которое помещается значение направления
  * @param size      место, в которое помещается длина значения по хешу набора
- *
  * @return          признак того, что значение уровня уже выведено
  *
  */
@@ -10456,7 +10418,6 @@ bool nts::internal::Engine::secret(const context::level_t level, const context::
  * @brief Метод получения уровня защиты, ключи которого готовы направлению
  *
  * @param direction направление связи относительно своей стороны
- *
  * @return          наивысший уровень защиты, ключи которого у направления есть
  *
  */
@@ -10658,14 +10619,13 @@ context::error_t nts::internal::Engine::start() noexcept {
 		// Выводим отказ настроек связи
 		return context::error_t::SETTINGS;
 	/**
-	 * Выполняем перехват ошибок работы с памятью: наборы связи берутся из настройки заново -
-	 * прежнее заведение поверх дейтаграмм отсеивало наборы без маски номера записи
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Восстанавливаем наборы из настройки
 		this->_suites = this->_catalog;
 	/**
-	 * Если памяти под наборы не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -10681,7 +10641,7 @@ context::error_t nts::internal::Engine::start() noexcept {
 			// Выводим отказ нехватки настроек связи
 			return context::error_t::SETTINGS;
 		/**
-		 * Выполняем перехват ошибок работы с памятью
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Наборы шифрования, у которых есть маска номера записи
@@ -10700,7 +10660,7 @@ context::error_t nts::internal::Engine::start() noexcept {
 			// Заменяем предложение наборов оставленными
 			this->_suites = ::move(suites);
 		/**
-		 * Если памяти под наборы шифрования не хватило
+		 * Выполняем перехват ошибок
 		 */
 		} catch(const bad_alloc &) {
 			// Выводим отказ нехватки памяти
@@ -10756,13 +10716,13 @@ context::error_t nts::internal::Engine::start() noexcept {
 		// Выводим успешность заведения связи: сервер ждёт приветствия клиента
 		return context::error_t::NONE;
 	/**
-	 * Выполняем заведение опознавателя связи, доставшегося от предыдущих изданий
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Занимаем место под опознаватель связи: по профилю отпечатка - той же длины, что у обозревателя
 		this->_session.assign((this->_profiled ? this->_profile.session.size() : hello::HELLO_SESSION), 0);
 	/**
-	 * Если памяти под опознаватель связи не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -10785,7 +10745,7 @@ context::error_t nts::internal::Engine::start() noexcept {
 	 */
 	vector <extension::group_t> shares;
 	/**
-	 * Выполняем перехват ошибок работы с памятью: перечень групп долей занимает память
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Если группы долей назначены потребителем
@@ -10821,7 +10781,7 @@ context::error_t nts::internal::Engine::start() noexcept {
 			}
 		}
 	/**
-	 * Если памяти под перечень групп долей не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -10919,18 +10879,25 @@ void nts::internal::Engine::clear() noexcept {
 	this->_outgoing = record::RECORD_PLAINTEXT;
 	// Переносим предел собеседника переносу дейтаграммами: записи режутся по нему (RFC 8449, RFC 6066)
 	this->_flight.limit(this->_outgoing);
+	// Выполняем сброс предела длины принимаемых записей
 	this->_incoming = record::RECORD_PLAINTEXT;
 	// Выполняем сброс признака действующего расширения предела и присланных клиентом значений
 	this->_sizing = 0;
+	// Сбрасываем присланное клиентом значение record_size_limit
 	this->_bounding = 0;
+	// Сбрасываем присланный клиентом код max_fragment_length
 	this->_fragmenting = 0;
 	// Выполняем сброс признака предложенного heartbeat
 	this->_heartbeating = false;
+	// Сбрасываем дозволение слать собеседнику запросы сердцебиения
 	this->_permitted = false;
 	// Сбрасываем свой режим heartbeat
 	this->_answering = false;
+	// Сбрасываем признак запроса сердцебиения в пути
 	this->_beating = false;
+	// Сбрасываем число принятых ответов на свои запросы сердцебиения
 	this->_pulses = 0;
+	// Сбрасываем нагрузку запроса сердцебиения в пути
 	this->_pulse.clear();
 	// Выполняем сброс признака запроса меток времени сертификата собеседником
 	this->_stamped = false;
@@ -11090,10 +11057,13 @@ void nts::internal::Engine::clear() noexcept {
 	this->_retries.clear();
 	// Выполняем сброс признаков сервера
 	this->_echaccepted = false;
+	// Сбрасываем признак отказа сервером ECH
 	this->_echrejected = false;
+	// Сбрасываем признак разбора восстановленного внутреннего приветствия
 	this->_unshrouding = false;
 	// Выполняем сброс состояний HPKE
 	this->_sealer.clear();
+	// Выполняем сброс состояния HPKE получателя
 	this->_opener.clear();
 	// Выполняем затирание случайного значения внутреннего приветствия
 	this->purge(this->_innerandom, sizeof(this->_innerandom));
@@ -11160,7 +11130,6 @@ void nts::internal::Engine::clear() noexcept {
  * @brief Метод подачи связи принятых байтов
  *
  * @param data принятые байты связи
- *
  * @return     отказ разбора принятых байтов
  *
  */
@@ -11190,6 +11159,7 @@ context::error_t nts::internal::Engine::push(const view_t & data) noexcept {
 	 */
 	// Отказ нехватки памяти под накопитель записей
 	failure = translate(this->_records.push(data), context::error_t::MEMORY);
+	// Если накопить запись не удалось
 	if(failure != context::error_t::NONE)
 		// Выводим отказ нехватки памяти под накопитель записей
 		return this->abort(failure, blame(failure, alert::description_t::INTERNAL));
@@ -11342,13 +11312,13 @@ context::error_t nts::internal::Engine::push(const view_t & data) noexcept {
 			// Иначе содержимое записи переносится в накопитель открытого содержимого
 			} else {
 				/**
-				 * Выполняем перенос содержимого записи: накопитель занимает память
+				 * Выполняем перехват ошибок
 				 */
 				try {
 					// Выполняем перенос содержимого записи в накопитель открытого содержимого
 					this->_opened.assign(this->_plain.begin() + static_cast <ptrdiff_t> (before), this->_plain.end());
 				/**
-				 * Если памяти под накопитель не хватило
+				 * Выполняем перехват ошибок
 				 */
 				} catch(const bad_alloc &) {
 					// Отзываем содержимое записи из накопителя прикладных данных
@@ -11458,6 +11428,7 @@ context::error_t nts::internal::Engine::push(const view_t & data) noexcept {
 				 */
 				// Отказ нехватки памяти под накопитель сообщений
 				failure = translate(this->_messages.push(content), context::error_t::MEMORY);
+				// Если накопить сообщение не удалось
 				if(failure != context::error_t::NONE)
 					// Выводим отказ нехватки памяти под накопитель сообщений
 					return this->abort(failure, blame(failure, alert::description_t::INTERNAL));
@@ -11558,14 +11529,13 @@ context::error_t nts::internal::Engine::push(const view_t & data) noexcept {
 				 */
 				if(!inplace){
 					/**
-					 * Выполняем перенос принятых прикладных данных в накопитель
+					 * Выполняем перехват ошибок
 					 */
 					try {
 						// Выполняем перенос принятых прикладных данных в накопитель
 						this->_plain.insert(this->_plain.end(), content.data, content.data + content.size);
 					/**
-					 * Запись уже снята с накопителя и порядковый номер продвинут: молча
-					 * потерять её содержимое нельзя, связь обрывается
+					 * Выполняем перехват ошибок
 					 */
 					} catch(const bad_alloc &) {
 						// Выводим отказ нехватки памяти
@@ -11579,7 +11549,7 @@ context::error_t nts::internal::Engine::push(const view_t & data) noexcept {
 				error = this->pulse(content);
 				// Если связь оборвана
 				if(error != context::error_t::NONE)
-					// Выводим отказ
+					// Выводим отрицательный результат - связь оборвана сердцебиением
 					return error;
 			} break;
 			/**
@@ -11645,15 +11615,12 @@ void nts::internal::Engine::consume(const size_t size) noexcept {
  * @brief Метод отправки прикладных данных собеседнику
  *
  * @param data отправляемые прикладные данные
- *
  * @return     отказ отправки прикладных данных
  *
  */
 context::error_t nts::internal::Engine::write(const view_t & data) noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: тело отправки прикладных данных
-	 * занимает память на всяком шаге, и всякий такой шаг вправе ответить нехваткой
-	 * памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		/**
@@ -11737,7 +11704,7 @@ context::error_t nts::internal::Engine::write(const view_t & data) noexcept {
 		// Выводим итог смены ключей своего направления по счётчику записей
 		return this->refreshing();
 	/**
-	 * Если памяти под отправки прикладных данных не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -11748,7 +11715,6 @@ context::error_t nts::internal::Engine::write(const view_t & data) noexcept {
  * @brief Метод получения принятых прикладных данных
  *
  * @param result накопитель, в который переносятся принятые данные
- *
  * @return       отказ получения принятых прикладных данных
  *
  */
@@ -11774,15 +11740,12 @@ context::error_t nts::internal::Engine::read(vector <uint8_t> & result) noexcept
  * @brief Метод смены ключевого материала своего направления связи
  *
  * @param request признак просьбы к собеседнику сменить свои ключи в ответ
- *
  * @return        отказ смены ключевого материала своего направления
  *
  */
 context::error_t nts::internal::Engine::update(const bool request) noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: тело смены ключевого материала
-	 * занимает память на всяком шаге, и всякий такой шаг вправе ответить нехваткой
-	 * памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Отказ связи, отвечающий отказу модуля
@@ -11861,7 +11824,7 @@ context::error_t nts::internal::Engine::update(const bool request) noexcept {
 		// Выводим итог смены ключевого материала своего направления связи
 		return this->rotate(side);
 	/**
-	 * Если памяти под смены ключевого материала не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -11885,8 +11848,7 @@ context::error_t nts::internal::Engine::issue() noexcept {
 	 */
 	uint8_t secret[schedule::SCHEDULE_WIDEST];
 	/**
-	 * Выполняем перехват ошибок работы с памятью: тело выдачи билета занимает память
-	 * на всяком шаге, и всякий такой шаг вправе ответить нехваткой памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Отказ связи, отвечающий отказу модуля
@@ -11926,6 +11888,7 @@ context::error_t nts::internal::Engine::issue() noexcept {
 		 * RFC 8446 велит разводить ключи билетов одной связи именно им
 		 */
 		const uint8_t nonce[4] = {
+			// Байты неповторимого значения старшим байтом вперёд
 			static_cast <uint8_t> ((this->_tickets.size() >> 24) & 0xFF),
 			static_cast <uint8_t> ((this->_tickets.size() >> 16) & 0xFF),
 			static_cast <uint8_t> ((this->_tickets.size() >> 8) & 0xFF),
@@ -12025,7 +11988,7 @@ context::error_t nts::internal::Engine::issue() noexcept {
 			return this->abort(context::error_t::ORDER, alert::description_t::UNEXPECTED);
 		}
 		/**
-		 * Выполняем складывание выданного билета возобновления связи
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Запоминаем прикладной протокол связи, выдающей билет
@@ -12043,7 +12006,7 @@ context::error_t nts::internal::Engine::issue() noexcept {
 			// Добавляем выданный билет в перечень билетов связи
 			this->_tickets.push_back(::move(item));
 		/**
-		 * Если памяти под билет не хватило
+		 * Выполняем перехват ошибок
 		 */
 		} catch(const bad_alloc &) {
 			// Выполняем затирание ключа выданного билета
@@ -12060,7 +12023,7 @@ context::error_t nts::internal::Engine::issue() noexcept {
 		// Выводим успешность выдачи билета возобновления связи
 		return context::error_t::NONE;
 	/**
-	 * Если памяти под выдачи билета не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Затираем ключ билета: выделение ниже вывода ключа могло бросить, оставив его в кадре
@@ -12087,8 +12050,7 @@ const vector <context::ticket_t> & nts::internal::Engine::tickets() const noexce
  */
 context::error_t nts::internal::Engine::close() noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: тело закрытия связи занимает
-	 * память на всяком шаге, и всякий такой шаг вправе ответить нехваткой памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Если связь не заведена
@@ -12127,7 +12089,7 @@ context::error_t nts::internal::Engine::close() noexcept {
 		// Выводим успешность закрытия связи
 		return context::error_t::NONE;
 	/**
-	 * Если памяти под закрытия связи не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -12140,14 +12102,12 @@ context::error_t nts::internal::Engine::close() noexcept {
  * @param type    вид принятого сообщения рукопожатия
  * @param body    тело принятого сообщения рукопожатия
  * @param message принятое сообщение рукопожатия вместе с обвязкой
- *
  * @return        отказ разбора сообщения рукопожатия
  *
  */
 context::error_t nts::internal::Engine::legacy(const handshake::type_t type, const view_t & body, const view_t & message) noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: тело разбора сообщения рукопожатия
-	 * занимает память на всяком шаге, и всякий такой шаг вправе ответить нехваткой памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Если принята просьба о пересогласовании HelloRequest
@@ -12460,13 +12420,13 @@ context::error_t nts::internal::Engine::legacy(const handshake::type_t type, con
 						return this->abort(context::error_t::MESSAGE, alert::description_t::DECODE);
 				}
 				/**
-				 * Выполняем перехват ошибок работы с памятью
+				 * Выполняем перехват ошибок
 				 */
 				try {
 					// Запоминаем протокол связи, выбранный клиентом
 					this->_protocol.assign(reinterpret_cast <const char *> (selected.data), selected.size);
 				/**
-				 * Если памяти под название протокола не хватило
+				 * Выполняем перехват ошибок
 				 */
 				} catch(const std::bad_alloc &) {
 					// Выводим отказ нехватки памяти
@@ -12550,7 +12510,7 @@ context::error_t nts::internal::Engine::legacy(const handshake::type_t type, con
 		// Выводим успешность разбора сообщения рукопожатия
 		return context::error_t::NONE;
 	/**
-	 * Если памяти под разбор сообщения рукопожатия не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти, которым связь обрывается
@@ -12562,14 +12522,12 @@ context::error_t nts::internal::Engine::legacy(const handshake::type_t type, con
  *
  * @param greeting разобранное приветствие клиента
  * @param message  принятое приветствие клиента вместе с обвязкой
- *
  * @return         отказ ответа на приветствие клиента
  *
  */
 context::error_t nts::internal::Engine::welcome(const hello::client_t & greeting, const view_t & message) noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: тело ответа на приветствие занимает
-	 * память на всяком шаге, и всякий такой шаг вправе ответить нехваткой памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Отказ связи, отвечающий отказу модуля
@@ -13195,7 +13153,7 @@ context::error_t nts::internal::Engine::welcome(const hello::client_t & greeting
 		// Выводим успешность ответа на приветствие клиента
 		return context::error_t::NONE;
 	/**
-	 * Если памяти под ответ на приветствие клиента не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти, которым связь обрывается
@@ -13207,14 +13165,12 @@ context::error_t nts::internal::Engine::welcome(const hello::client_t & greeting
  *
  * @param answer  разобранное приветствие сервера
  * @param message принятое приветствие сервера вместе с обвязкой
- *
  * @return        отказ разбора приветствия сервера
  *
  */
 context::error_t nts::internal::Engine::greeted(const hello::server_t & answer, const view_t & message) noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: тело разбора приветствия сервера
-	 * занимает память на всяком шаге, и всякий такой шаг вправе ответить нехваткой памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Отказ связи, отвечающий отказу модуля
@@ -13226,6 +13182,7 @@ context::error_t nts::internal::Engine::greeted(const hello::server_t & answer, 
 		 */
 		// Признак того, что сервер выбрал издание DTLS 1.0 (RFC 4347), дозволенное связи
 		const bool oldest = ((this->_transport == context::transport_t::DATAGRAMS) && (this->_lowest <= ANCIENT) && (answer.version == this->eldest()) && archaical(this->_suites));
+		// Если издание заголовка ответа дозволено связи не было
 		if((this->_transport == context::transport_t::LEVELS) || ((this->_lowest > LEGACY) && !oldest) || ((answer.version != this->elder()) && !oldest) || ((answer.version == this->elder()) && (this->_highest < LEGACY)))
 			// Выводим отказ несовпадения издания протокола
 			return this->abort(context::error_t::VERSION, alert::description_t::VERSION);
@@ -13272,6 +13229,7 @@ context::error_t nts::internal::Engine::greeted(const hello::server_t & answer, 
 		if(suitable && oldest && !archaic(suite))
 			// Выводим отказ набора
 			return this->abort(context::error_t::SUITE, alert::description_t::PARAMETER);
+		// Если набор не из перечня, а профиль обязует его исполнить
 		if(!suitable && this->_profiled && this->carried(answer.suite))
 			// Выводим отказ исполнения профиля
 			return this->abort(context::error_t::PROFILE, alert::description_t::PARAMETER);
@@ -13286,6 +13244,9 @@ context::error_t nts::internal::Engine::greeted(const hello::server_t & answer, 
 		 */
 		// Признак того, что сервер ответил расширением heartbeat: без ответа расширение не согласовано (раздел 2 RFC 6520)
 		bool beating = false;
+		/**
+		 * Выполняем перебор расширений приветствия сервера
+		 */
 		for(size_t i = 0; i < answer.extensions.size(); i++){
 			// Вид очередного расширения приветствия сервера
 			const uint16_t type = answer.extensions[i].type;
@@ -13463,13 +13424,13 @@ context::error_t nts::internal::Engine::greeted(const hello::server_t & answer, 
 						// Берём первый объявленный
 						selected = advertised.front();
 					/**
-					 * Выполняем перехват ошибок работы с памятью
+					 * Выполняем перехват ошибок
 					 */
 					try {
 						// Запоминаем протокол связи
 						this->_protocol = ::move(selected);
 					/**
-					 * Если памяти под название протокола не хватило
+					 * Выполняем перехват ошибок
 					 */
 					} catch(const std::bad_alloc &) {
 						// Выводим отказ нехватки памяти
@@ -13499,13 +13460,13 @@ context::error_t nts::internal::Engine::greeted(const hello::server_t & answer, 
 					// При возобновлении перечень не хранится: сертификата в сокращённом рукопожатии нет
 					if(!this->_resumed){
 						/**
-						 * Выполняем перехват ошибок работы с памятью
+						 * Выполняем перехват ошибок
 						 */
 						try {
 							// Запоминаем перечень меток времени как записан
 							this->_timestamps.assign(data.data, data.data + data.size);
 						/**
-						 * Если памяти под перечень не хватило
+						 * Выполняем перехват ошибок
 						 */
 						} catch(const std::bad_alloc &) {
 							// Выводим отказ нехватки памяти
@@ -13560,8 +13521,11 @@ context::error_t nts::internal::Engine::greeted(const hello::server_t & answer, 
 		}
 		// Если heartbeat предлагался, а сервер не ответил: расширение не согласовано - записи вида 24 неожиданны, запросы не шлются и не принимаются
 		if(this->_heartbeating && !beating){
+			// Снимаем признак предложенного heartbeat
 			this->_heartbeating = false;
+			// Снимаем свой режим ответов на запросы heartbeat
 			this->_answering = false;
+			// Снимаем дозволение приёма записей heartbeat
 			this->_permitted = false;
 		}
 		/**
@@ -13642,7 +13606,7 @@ context::error_t nts::internal::Engine::greeted(const hello::server_t & answer, 
 		// Выводим успешность разбора приветствия сервера
 		return context::error_t::NONE;
 	/**
-	 * Если памяти под разбор приветствия сервера не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти, которым связь обрывается
@@ -13653,7 +13617,6 @@ context::error_t nts::internal::Engine::greeted(const hello::server_t & answer, 
  * @brief Метод разбора расширения записей точек кривой издания TLS 1.2
  *
  * @param data тело расширения записей точек кривой
- *
  * @return     отказ разбора расширения либо отсутствия несжатой записи
  *
  */
@@ -13723,7 +13686,6 @@ context::error_t nts::internal::Engine::presenting() noexcept {
  * @brief Метод разбора принятой цепочки сертификатов издания TLS 1.2
  *
  * @param body тело принятого сообщения цепочки сертификатов
- *
  * @return     отказ разбора цепочки сертификатов
  *
  */
@@ -13743,7 +13705,7 @@ context::error_t nts::internal::Engine::presented(const view_t & body) noexcept 
 	// Устанавливаем разбираемый перечень сертификатов
 	reader.start(list);
 	/**
-	 * Выполняем перенос цепочки сертификатов собеседника
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Выполняем сброс прежней цепочки сертификатов собеседника
@@ -13762,7 +13724,7 @@ context::error_t nts::internal::Engine::presented(const view_t & body) noexcept 
 			this->_peer.push_back(vector <uint8_t> (data.data, data.data + data.size));
 		}
 	/**
-	 * Если памяти под цепочку сертификатов не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -13839,8 +13801,7 @@ context::error_t nts::internal::Engine::presented(const view_t & body) noexcept 
  */
 context::error_t nts::internal::Engine::agreeing() noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: тело обмена ключами занимает память
-	 * на всяком шаге, и всякий такой шаг вправе ответить нехваткой памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Способ обмена ключами набора
@@ -13951,7 +13912,7 @@ context::error_t nts::internal::Engine::agreeing() noexcept {
 		// Выводим итог отправки обмена ключами сервера
 		return this->send(handshake::type_t::AGREEMENT, builder.data());
 	/**
-	 * Если памяти под обмен ключами не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -13962,14 +13923,12 @@ context::error_t nts::internal::Engine::agreeing() noexcept {
  * @brief Метод разбора принятого обмена ключами сервера издания TLS 1.2
  *
  * @param body тело принятого сообщения обмена ключами сервера
- *
  * @return     отказ разбора обмена ключами сервера
  *
  */
 context::error_t nts::internal::Engine::agreed(const view_t & body) noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: тело разбора обмена ключами занимает
-	 * память на всяком шаге, и всякий такой шаг вправе ответить нехваткой памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Объект разборщика тела обмена ключами сервера
@@ -14127,14 +14086,13 @@ context::error_t nts::internal::Engine::agreed(const view_t & body) noexcept {
 			return failure;
 		}
 		/**
-		 * Выполняем перенос общего значения: главный секрет выводится лишь за обменом
-		 * ключами клиента, ибо хеш переписки берётся с ним включительно (раздел 4 RFC 7627)
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Переносим общее значение обмена ключами
 			this->_premaster.assign(shared, shared + length);
 		/**
-		 * Если памяти под общее значение не хватило
+		 * Выполняем перехват ошибок
 		 */
 		} catch(const bad_alloc &) {
 			// Выполняем затирание общего значения
@@ -14147,16 +14105,13 @@ context::error_t nts::internal::Engine::agreed(const view_t & body) noexcept {
 		// Выводим успешность разбора обмена ключами сервера
 		return context::error_t::NONE;
 	/**
-	 * Если памяти под разбор обмена ключами не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
 		return context::error_t::MEMORY;
 	/**
-	 * Вызов потребителя по заранее разделённому ключу (advise/respond) вправе бросить не
-	 * только bad_alloc; чужое исключение сквозь noexcept связи пройти не вправе - тот же
-	 * довод, что у распаковки цепочки, где catch(...) закалён явно, - и отвечается оно
-	 * отказом обмена ключами
+	 * Выполняем перехват ошибок
 	 */
 	} catch(...) {
 		// Выводим отказ обмена ключами: чужое исключение из вызова потребителя PSK
@@ -14171,8 +14126,7 @@ context::error_t nts::internal::Engine::agreed(const view_t & body) noexcept {
  */
 context::error_t nts::internal::Engine::demanding() noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: тело запроса подлинности занимает
-	 * память на всяком шаге, и всякий такой шаг вправе ответить нехваткой памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Объект составителя тела запроса подлинности
@@ -14242,7 +14196,7 @@ context::error_t nts::internal::Engine::demanding() noexcept {
 		// Выводим итог отправки запроса подлинности клиента
 		return this->send(handshake::type_t::REQUEST, builder.data());
 	/**
-	 * Если памяти под запрос подлинности не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -14253,7 +14207,6 @@ context::error_t nts::internal::Engine::demanding() noexcept {
  * @brief Метод разбора принятого запроса подлинности клиента издания TLS 1.2
  *
  * @param body тело принятого сообщения запроса подлинности
- *
  * @return     отказ разбора запроса подлинности
  *
  */
@@ -14322,8 +14275,7 @@ context::error_t nts::internal::Engine::demanded(const view_t & body) noexcept {
  */
 context::error_t nts::internal::Engine::exchanging() noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: тело обмена ключами занимает память
-	 * на всяком шаге, и всякий такой шаг вправе ответить нехваткой памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Способ обмена ключами набора
@@ -14471,7 +14423,7 @@ context::error_t nts::internal::Engine::exchanging() noexcept {
 		// Выводим итог вывода ключевого материала связи
 		return expanded;
 	/**
-	 * Если памяти под обмен ключами не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -14482,14 +14434,12 @@ context::error_t nts::internal::Engine::exchanging() noexcept {
  * @brief Метод разбора принятого обмена ключами клиента издания TLS 1.2
  *
  * @param body тело принятого сообщения обмена ключами клиента
- *
  * @return     отказ разбора обмена ключами клиента
  *
  */
 context::error_t nts::internal::Engine::exchanged(const view_t & body) noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: тело разбора обмена ключами занимает
-	 * память на всяком шаге, и всякий такой шаг вправе ответить нехваткой памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Объект разборщика тела обмена ключами клиента
@@ -14672,16 +14622,13 @@ context::error_t nts::internal::Engine::exchanged(const view_t & body) noexcept 
 		// Выводим итог разбора обмена ключами клиента
 		return failure;
 	/**
-	 * Если памяти под разбор обмена ключами не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
 		return context::error_t::MEMORY;
 	/**
-	 * Вызов потребителя по заранее разделённому ключу (advise/respond) вправе бросить не
-	 * только bad_alloc; чужое исключение сквозь noexcept связи пройти не вправе - тот же
-	 * довод, что у распаковки цепочки, где catch(...) закалён явно, - и отвечается оно
-	 * отказом обмена ключами
+	 * Выполняем перехват ошибок
 	 */
 	} catch(...) {
 		// Выводим отказ обмена ключами: чужое исключение из вызова потребителя PSK
@@ -14692,7 +14639,6 @@ context::error_t nts::internal::Engine::exchanged(const view_t & body) noexcept 
  * @brief Метод вывода главного секрета и ключевого материала издания TLS 1.2
  *
  * @param premaster общее значение обмена ключами сторон
- *
  * @return          отказ вывода ключевого материала
  *
  */
@@ -14746,8 +14692,7 @@ context::error_t nts::internal::Engine::expanding(const view_t & premaster) noex
  */
 context::error_t nts::internal::Engine::attesting() noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: тело подписи владения ключом занимает
-	 * память на всяком шаге, и всякий такой шаг вправе ответить нехваткой памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Схема подписи владения ключом
@@ -14783,7 +14728,7 @@ context::error_t nts::internal::Engine::attesting() noexcept {
 		// Выводим итог отправки подписи владения ключом
 		return this->send(handshake::type_t::VERIFY, builder.data());
 	/**
-	 * Если памяти под подпись владения ключом не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -14794,7 +14739,6 @@ context::error_t nts::internal::Engine::attesting() noexcept {
  * @brief Метод проверки принятой подписи владения ключом клиента издания TLS 1.2
  *
  * @param body тело принятого сообщения подписи владения ключом
- *
  * @return     отказ проверки подписи владения ключом
  *
  */
@@ -14883,7 +14827,6 @@ context::error_t nts::internal::Engine::finishing() noexcept {
  * @brief Метод проверки принятого завершения рукопожатия издания TLS 1.2
  *
  * @param body тело принятого сообщения завершения рукопожатия
- *
  * @return     отказ проверки завершения рукопожатия
  *
  */
@@ -15009,8 +14952,7 @@ context::error_t nts::internal::Engine::keying() noexcept {
  */
 context::error_t nts::internal::Engine::granting() noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: тело билета занимает память на всяком
-	 * шаге, и всякий такой шаг вправе ответить нехваткой памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Накопитель, в который помещаются октеты билета сеанса
@@ -15110,7 +15052,7 @@ context::error_t nts::internal::Engine::granting() noexcept {
 		// Выводим успешность отправки билета сеанса
 		return context::error_t::NONE;
 	/**
-	 * Если памяти под билет сеанса не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -15121,7 +15063,6 @@ context::error_t nts::internal::Engine::granting() noexcept {
  * @brief Метод разбора клиентом принятого билета сеанса NewSessionTicket
  *
  * @param body тело принятого сообщения билета
- *
  * @return     отказ разбора билета сеанса
  *
  */
@@ -15147,7 +15088,7 @@ context::error_t nts::internal::Engine::granted(const view_t & body) noexcept {
 		// Выводим успешность разбора: хранить нечего
 		return context::error_t::NONE;
 	/**
-	 * Выполняем складывание принятого билета сеанса
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Устанавливаем набор шифрования связи, выдавшей билет
@@ -15169,7 +15110,7 @@ context::error_t nts::internal::Engine::granted(const view_t & body) noexcept {
 		// Переносим главный секрет ключом билета
 		this->_promise.secret.assign(this->_keys->master, this->_keys->master + sizeof(this->_keys->master));
 	/**
-	 * Если памяти под билет не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -15185,7 +15126,6 @@ context::error_t nts::internal::Engine::granted(const view_t & body) noexcept {
  * @param chained  предложен ли клиентом порядок «шифрование, затем имитовставка»
  * @param host     имя узла, запрошенное приветствием клиента
  * @param state    распечатанное состояние билета
- *
  * @return         признак того, что связь возобновляется билетом
  *
  */
@@ -15259,7 +15199,7 @@ bool nts::internal::Engine::recalling(const hello::client_t & greeting, const bo
 	// Если подлинность клиента унаследована
 	if(state.verified){
 		/**
-		 * Выполняем перенос сертификата клиента: цепочка занимает память
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Выполняем сброс прежней цепочки собеседника
@@ -15267,7 +15207,7 @@ bool nts::internal::Engine::recalling(const hello::client_t & greeting, const bo
 			// Переносим сертификат клиента цепочкой собеседника
 			this->_peer.push_back(state.leaf);
 		/**
-		 * Если памяти под цепочку не хватило: билет негоден, рукопожатие полное
+		 * Выполняем перехват ошибок
 		 */
 		} catch(const bad_alloc &) {
 			// Выполняем сброс цепочки собеседника
@@ -15326,8 +15266,7 @@ context::error_t nts::internal::Engine::concluding() noexcept {
  */
 void nts::internal::Engine::psk(const context::psk_t & psk) noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: установщик отказа не выводит, и
-	 * нехватка памяти помнится до заведения связи
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Если прежний ключ задан
@@ -15337,7 +15276,7 @@ void nts::internal::Engine::psk(const context::psk_t & psk) noexcept {
 		// Запоминаем настройки заранее разделённого ключа
 		this->_psk = psk;
 	/**
-	 * Если памяти под настройки не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выполняем сброс настроек заранее разделённого ключа
@@ -15374,7 +15313,6 @@ bool nts::internal::Engine::greased() const noexcept {
  * @brief Метод получения значения GREASE места связи
  *
  * @param place место значения GREASE
- *
  * @return      значение вида 0x?A?A, выведенное из зерна связи
  *
  */
@@ -15412,8 +15350,7 @@ bool nts::internal::Engine::grease() const noexcept {
  */
 void nts::internal::Engine::wiping(const vector <context::wiping_t> & classes) noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: установщик отказа не выводит, и
-	 * нехватка памяти помнится до заведения связи
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Запоминаем классы затирания
@@ -15443,7 +15380,7 @@ void nts::internal::Engine::wiping(const vector <context::wiping_t> & classes) n
 			}
 		}
 	/**
-	 * Если памяти под перечень классов не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Сбрасываем перечень классов
@@ -15470,7 +15407,6 @@ const vector <context::wiping_t> & nts::internal::Engine::wiping() const noexcep
  * @brief Метод проверки, есть ли набор шифрования среди наборов профиля отпечатка
  *
  * @param suite набор шифрования по проводу
- *
  * @return      признак того, что набор есть в профиле
  *
  */
@@ -15491,7 +15427,6 @@ bool nts::internal::Engine::carried(const uint16_t suite) const noexcept {
  * @brief Метод установки профиля отпечатка, по которому складывается приветствие клиента
  *
  * @param profile профиль отпечатка, снятый с приветствия обозревателя
- *
  * @return        отказ установки
  *
  */
@@ -15509,7 +15444,7 @@ context::error_t nts::internal::Engine::profile(const fingerprint::profile_t & p
 		// Выводим отказ настроек связи
 		return context::error_t::SETTINGS;
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Наборы профиля, ведомые связи, в порядке профиля
@@ -15537,6 +15472,7 @@ context::error_t nts::internal::Engine::profile(const fingerprint::profile_t & p
 			return context::error_t::SETTINGS;
 		// Группы, доли и схемы профиля, ведомые связи, в порядке профиля
 		vector <extension::group_t> groups, shares;
+		// Схемы подписи профиля, ведомые связи
 		vector <extension::scheme_t> schemes;
 		// Прикладные протоколы профиля
 		vector <string> protocols;
@@ -15545,7 +15481,9 @@ context::error_t nts::internal::Engine::profile(const fingerprint::profile_t & p
 		// Признак запроса состояния сертификата в профиле
 		// Точка кода ALPS профиля и пустые настройки его протоколов: переносятся после проверок
 		uint16_t codepoint = 0;
+		// Настройки прикладных протоколов ALPS профиля
 		vector <setting_t> settings;
+		// Признак запроса состояния сертификата в профиле
 		bool inquiring = false;
 		/**
 		 * Выполняем перебор расширений профиля
@@ -15734,7 +15672,7 @@ context::error_t nts::internal::Engine::profile(const fingerprint::profile_t & p
 		// Выводим успешность установки профиля
 		return context::error_t::NONE;
 	/**
-	 * Если памяти под профиль не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -15745,7 +15683,6 @@ context::error_t nts::internal::Engine::profile(const fingerprint::profile_t & p
  * @brief Метод установки конфигураций ECH клиенту
  *
  * @param configs перечень ECHConfigList байтами
- *
  * @return        отказ установки
  *
  */
@@ -15763,7 +15700,7 @@ context::error_t nts::internal::Engine::ech(const view_t & configs) noexcept {
 		// Выводим отказ настроек связи
 		return context::error_t::SETTINGS;
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Разобранные конфигурации
@@ -15796,7 +15733,7 @@ context::error_t nts::internal::Engine::ech(const view_t & configs) noexcept {
 		// Выводим успешность установки
 		return context::error_t::NONE;
 	/**
-	 * Если памяти под конфигурации не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -15810,7 +15747,6 @@ context::error_t nts::internal::Engine::ech(const view_t & configs) noexcept {
  * @param name   публичное имя конфигурации
  * @param id     опознаватель конфигурации
  * @param length наибольшая длина имени для заполнения клиента
- *
  * @return       отказ установки
  *
  */
@@ -15826,7 +15762,6 @@ context::error_t nts::internal::Engine::ech(const view_t & secret, const string 
  * @param name   публичное имя конфигурации
  * @param id     опознаватель конфигурации
  * @param length наибольшая длина имени для заполнения клиента
- *
  * @return       отказ установки
  *
  */
@@ -15841,7 +15776,6 @@ context::error_t nts::internal::Engine::ech(const hpke::kem_t kem, const view_t 
  * @param name   публичное имя конфигурации
  * @param id     опознаватель конфигурации
  * @param length наибольшая длина имени
- *
  * @return       отказ установки
  *
  */
@@ -15857,7 +15791,6 @@ context::error_t nts::internal::Engine::retain(const view_t & secret, const stri
  * @param name   публичное имя конфигурации
  * @param id     опознаватель конфигурации
  * @param length наибольшая длина имени
- *
  * @return       отказ установки
  *
  */
@@ -15873,7 +15806,6 @@ context::error_t nts::internal::Engine::retain(const hpke::kem_t kem, const view
  * @param id         опознаватель конфигурации
  * @param length     наибольшая длина имени
  * @param advertised признак объявления конфигурации в перечне
- *
  * @return           отказ установки
  *
  */
@@ -15890,7 +15822,6 @@ context::error_t nts::internal::Engine::serving(const view_t & secret, const str
  * @param id         опознаватель конфигурации
  * @param length     наибольшая длина имени
  * @param advertised признак объявления конфигурации в перечне
- *
  * @return           отказ установки
  *
  */
@@ -15919,7 +15850,7 @@ context::error_t nts::internal::Engine::serving(const hpke::kem_t kem, const vie
 			replaced = i;
 	}
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Служимая конфигурация
@@ -15991,7 +15922,7 @@ context::error_t nts::internal::Engine::serving(const hpke::kem_t kem, const vie
 		// Выводим успешность установки
 		return context::error_t::NONE;
 	/**
-	 * Если памяти под ключ не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -16043,13 +15974,12 @@ const vector <uint8_t> & nts::internal::Engine::retries() const noexcept {
  *
  * @param greeting приветствие, сложенное движком: становится внешним
  * @param storage  хранилище тел расширений внешнего приветствия
- *
  * @return         отказ складывания
  *
  */
 context::error_t nts::internal::Engine::shrouding(hello::client_t & greeting, const bool resume, vector <vector <uint8_t>> & storage) noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Расширение ECH внутреннего вида
@@ -16309,7 +16239,7 @@ context::error_t nts::internal::Engine::shrouding(hello::client_t & greeting, co
 		// Выводим успешность складывания
 		return context::error_t::NONE;
 	/**
-	 * Если памяти под приветствие не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -16321,13 +16251,12 @@ context::error_t nts::internal::Engine::shrouding(hello::client_t & greeting, co
  *
  * @param answer  разобранное приветствие сервера
  * @param message приветствие сервера вместе с обвязкой
- *
  * @return        отказ суждения
  *
  */
 context::error_t nts::internal::Engine::confirming(const hello::server_t & answer, const view_t & message) noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Признак просьбы о повторе
@@ -16452,7 +16381,7 @@ context::error_t nts::internal::Engine::confirming(const hello::server_t & answe
 		// Выводим успешность суждения
 		return context::error_t::NONE;
 	/**
-	 * Если памяти под суждение не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -16466,13 +16395,12 @@ context::error_t nts::internal::Engine::confirming(const hello::server_t & answe
  * @param body     тело внешнего приветствия
  * @param accepted место, в которое помещается признак принятия
  * @param inner    накопитель, в который помещается тело восстановленного внутреннего приветствия
- *
  * @return         отказ раскрытия
  *
  */
 context::error_t nts::internal::Engine::unshrouding(const hello::client_t & greeting, const view_t & body, bool & accepted, vector <uint8_t> & inner) noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// ECH не принят, пока не доказано обратное
@@ -16654,7 +16582,7 @@ context::error_t nts::internal::Engine::unshrouding(const hello::client_t & gree
 		// Выводим успешность раскрытия
 		return context::error_t::NONE;
 	/**
-	 * Если памяти под раскрытие не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -16666,13 +16594,12 @@ context::error_t nts::internal::Engine::unshrouding(const hello::client_t & gree
  *
  * @param body  тело сообщения сервера с местом подтверждения
  * @param retry признак просьбы о повторе
- *
  * @return      отказ вписывания
  *
  */
 context::error_t nts::internal::Engine::marking(vector <uint8_t> & body, const bool retry) noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Место подтверждения: у приветствия - хвост случайного значения, у просьбы - хвост тела (расширение последнее)
@@ -16712,7 +16639,7 @@ context::error_t nts::internal::Engine::marking(vector <uint8_t> & body, const b
 		// Выводим успешность вписывания
 		return context::error_t::NONE;
 	/**
-	 * Если памяти под подтверждение не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -16750,13 +16677,12 @@ const vector <uint8_t> & nts::internal::Engine::received() const noexcept {
  * @param secret     тело расширения заранее разделённых ключей при предъявлении билета
  * @param resume     признак предъявления билета возобновления
  * @param storage    хранилище тел расширений, сложенных по профилю
- *
  * @return           отказ складывания приветствия
  *
  */
 context::error_t nts::internal::Engine::imitate(hello::client_t & greeting, const vector <uint8_t> & name, const vector <uint8_t> & protocols, const vector <uint8_t> & algorithms, const vector <uint8_t> & modes, const vector <uint8_t> & secret, const bool resume, vector <vector <uint8_t>> & storage) noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Заполнение по RFC 7685
@@ -16773,6 +16699,7 @@ context::error_t nts::internal::Engine::imitate(hello::client_t & greeting, cons
 		size_t place = 0;
 		// Сбрасываем предложенные пределы длины записи: их заново диктует профиль
 		this->_bounded = 0;
+		// Сбрасываем предложенный код длины записи max_fragment_length
 		this->_fragmented = 0;
 		// Поверх записей издание приветствия берётся из профиля; поверх дейтаграмм - своё
 		if(this->_transport != context::transport_t::DATAGRAMS)
@@ -17111,7 +17038,7 @@ context::error_t nts::internal::Engine::imitate(hello::client_t & greeting, cons
 		// Выводим успешность складывания
 		return context::error_t::NONE;
 	/**
-	 * Если памяти под приветствие не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -17142,7 +17069,6 @@ void nts::internal::Engine::vault(const vector <uint8_t> & secret) noexcept {
  * @brief Метод суждения клиента о сокращённом рукопожатии по первому сообщению за приветствием сервера
  *
  * @param resumed сокращённое ли рукопожатие
- *
  * @return        отказ вывода ключевого материала возобновлённой связи
  *
  */
@@ -17212,10 +17138,16 @@ void nts::internal::Engine::keylog(const char * label, const view_t & secret) co
  */
 void nts::internal::Engine::pinned(const view_t & pinned) noexcept {
 	// Выполняем перехват ошибок работы с памятью
+	/**
+	 * Выполняем перехват ошибок
+	 */
 	try {
 		// Запоминаем закреплённый ключ
 		this->_pinned.assign(pinned.data, pinned.data + pinned.size);
 	// Если памяти под ключ не хватило
+	/**
+	 * Выполняем перехват ошибок
+	 */
 	} catch(const bad_alloc &) {
 		// Оставляем ключ пустым
 		this->_pinned.clear();
@@ -17236,7 +17168,6 @@ nts::extension::cert_t nts::internal::Engine::certtype() const noexcept {
  *
  * @param lowest  наименьшее дозволенное издание: 0x0303 либо 0x0304
  * @param highest наибольшее дозволенное издание: 0x0303 либо 0x0304
- *
  * @return        отказ установки пределов издания протокола
  *
  */
@@ -17341,7 +17272,6 @@ uint16_t nts::internal::Engine::eldest() const noexcept {
  * @brief Метод выработки хеша переписки изданием 1.1: MD5 ‖ SHA-1 накопленных сообщений
  *
  * @param result место в 36 байтов, в которое помещается хеш
- *
  * @return       признак успешности выработки
  *
  */
@@ -17359,7 +17289,6 @@ bool nts::internal::Engine::archive(uint8_t * result) const noexcept {
  * @param seed   семя
  * @param result место, в которое помещается последовательность
  * @param size   длина последовательности
- *
  * @return       признак успешности выработки
  *
  */
@@ -17372,7 +17301,6 @@ bool nts::internal::Engine::sequencing(const view_t & key, const view_t & label,
  *
  * @param result место, в которое помещается хеш
  * @param size   место, в которое помещается длина хеша
- *
  * @return       признак успешности выработки
  *
  */
@@ -17394,13 +17322,12 @@ bool nts::internal::Engine::digesting(uint8_t * result, size_t & size) const noe
  *
  * @param content   подписываемое содержимое
  * @param signature накопитель, в который помещается подпись
- *
  * @return          отказ выработки подписи
  *
  */
 context::error_t nts::internal::Engine::engraving(const view_t & content, vector <uint8_t> & signature) noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Подготовленный ключ своей подлинности
@@ -17427,7 +17354,7 @@ context::error_t nts::internal::Engine::engraving(const view_t & content, vector
 			if(!rsa.make(sign::scheme_t::PKCS1, digest::hash_t::NONE, view_t(digest, sizeof(digest)), signature.data(), SIZE_MAX, view_t()))
 				// Выводим отказ выработки подписи
 				return context::error_t::SIGNATURE;
-			// Выводим успешность
+			// Сообщаем об успешной выработке подписи
 			return context::error_t::NONE;
 		}
 		// Если ключ не ECDSA
@@ -17458,10 +17385,10 @@ context::error_t nts::internal::Engine::engraving(const view_t & content, vector
 			return context::error_t::SIGNATURE;
 		// Усекаем подпись до записанной длины
 		signature.resize(written);
-		// Выводим успешность
+		// Сообщаем об успешной выработке подписи
 		return context::error_t::NONE;
 	/**
-	 * Если памяти под подпись не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -17473,7 +17400,6 @@ context::error_t nts::internal::Engine::engraving(const view_t & content, vector
  *
  * @param content   подписанное содержимое
  * @param signature проверяемая подпись
- *
  * @return          отказ проверки подписи
  *
  */
@@ -17510,13 +17436,12 @@ context::error_t nts::internal::Engine::engraved(const view_t & content, const v
  *
  * @param message  сообщение рукопожатия вместе с обвязкой TLS
  * @param sequence порядковый номер сообщения поверх дейтаграмм
- *
  * @return         отказ ведения переписки
  *
  */
 context::error_t nts::internal::Engine::chronicle(const view_t & message, const uint16_t sequence) noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Если переписка ведётся записями: сообщение ложится в обвязке TLS
@@ -17547,7 +17472,7 @@ context::error_t nts::internal::Engine::chronicle(const view_t & message, const 
 		// Добавляем сообщение в обвязке DTLS к переписке подряд
 		this->_history.insert(this->_history.end(), shaped.begin(), shaped.end());
 	/**
-	 * Если памяти под переписку не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти
@@ -17561,7 +17486,6 @@ context::error_t nts::internal::Engine::chronicle(const view_t & message, const 
  *
  * @param error       отказ, которым связь оборвалась бы
  * @param description описание извещения, которым связь оборвалась бы
- *
  * @return            отказ обрыва связи либо NONE у молчаливого отброса
  *
  */
@@ -17587,14 +17511,12 @@ context::error_t nts::internal::Engine::dismissing(const context::error_t error,
  * @brief Метод отправки просьбы о подтверждении адреса HelloVerifyRequest
  *
  * @param greeting разобранное первое приветствие клиента без метки
- *
  * @return         отказ отправки просьбы
  *
  */
 context::error_t nts::internal::Engine::querying(const hello::client_t & greeting) noexcept {
 	/**
-	 * Выполняем перехват ошибок работы с памятью: тело просьбы занимает память на
-	 * всяком шаге, и всякий такой шаг вправе ответить нехваткой памяти
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Отказ связи, отвечающий отказу модуля
@@ -17657,7 +17579,7 @@ context::error_t nts::internal::Engine::querying(const hello::client_t & greetin
 		// Выводим успешность отправки просьбы
 		return context::error_t::NONE;
 	/**
-	 * Если памяти под просьбу не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти, которым связь обрывается
@@ -17668,7 +17590,6 @@ context::error_t nts::internal::Engine::querying(const hello::client_t & greetin
  * @brief Метод разбора клиентом просьбы о подтверждении адреса HelloVerifyRequest
  *
  * @param body тело принятой просьбы
- *
  * @return     отказ разбора просьбы
  *
  */
@@ -17698,13 +17619,13 @@ context::error_t nts::internal::Engine::queried(const view_t & body) noexcept {
 		// Выводим отказ разбора просьбы
 		return this->abort(context::error_t::MESSAGE, alert::description_t::DECODE);
 	/**
-	 * Выполняем перехват ошибок работы с памятью
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		// Запоминаем метку возврата состояния
 		this->_token.assign(label.data, label.data + label.size);
 	/**
-	 * Если памяти под метку не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выводим отказ нехватки памяти, которым связь обрывается
@@ -17760,7 +17681,6 @@ context::error_t nts::internal::Engine::switched() noexcept {
  *
  * @param side  сторона связи, чьё направление заводится
  * @param level уровень защиты, ключи которого кладутся в пору
- *
  * @return      отказ заведения поры ключей
  *
  */
@@ -17802,7 +17722,6 @@ context::error_t nts::internal::Engine::adopt(const session::side_t side, const 
  * @brief Метод разбора принятой дейтаграммы
  *
  * @param data принятая дейтаграмма
- *
  * @return     отказ разбора дейтаграммы
  *
  */
@@ -17828,6 +17747,7 @@ context::error_t nts::internal::Engine::receive(const view_t & data) noexcept {
 		vector <opened_t> & records;
 		/**
 		 * @brief Деструктор: затирание содержимого снятых записей
+		 *
 		 */
 		~guard_t() noexcept {
 			/**
@@ -17961,6 +17881,7 @@ context::error_t nts::internal::Engine::receive(const view_t & data) noexcept {
 					// Переходим к следующей записи
 					continue;
 				}
+				// Если запись не годная открытая просьба о повторе
 				if((records[i].epoch != 0) || (content.size != 1) || (content.data[0] != 0x01)){
 					// Раздел 4.1.2.7 RFC 6347: негодная открытая запись ничем не подписана и роняется молча на любой ступени - иначе одна поддельная дейтаграмма убивала бы рукопожатие
 					this->_flight.discard(datagram::reason_t::PLAIN);
@@ -18045,6 +17966,7 @@ context::error_t nts::internal::Engine::receive(const view_t & data) noexcept {
 					// Переходим к следующей записи
 					continue;
 				}
+				// Если запись пришла раньше установления либо после закрытия связи
 				if((this->_state != context::state_t::ESTABLISHED) && (this->_state != context::state_t::CLOSED)){
 					// Считаем отброшенную запись
 					this->_flight.discard(datagram::reason_t::PREMATURE);
@@ -18052,13 +17974,13 @@ context::error_t nts::internal::Engine::receive(const view_t & data) noexcept {
 					continue;
 				}
 				/**
-				 * Выполняем складывание принятых прикладных данных в накопитель
+				 * Выполняем перехват ошибок
 				 */
 				try {
 					// Выполняем перенос принятых прикладных данных в накопитель
 					this->_plain.insert(this->_plain.end(), content.data, content.data + content.size);
 				/**
-				 * Если памяти под прикладные данные не хватило
+				 * Выполняем перехват ошибок
 				 */
 				} catch(const bad_alloc &) {
 					// Выводим отказ нехватки памяти
@@ -18081,7 +18003,7 @@ context::error_t nts::internal::Engine::receive(const view_t & data) noexcept {
 				error = this->pulse(content);
 				// Если связь оборвана
 				if(error != context::error_t::NONE)
-					// Выводим отказ
+					// Выводим отрицательный результат - дейтаграммная связь оборвана сердцебиением
 					return error;
 			} break;
 			// Если принята запись неведомого содержимого
@@ -18216,7 +18138,6 @@ context::error_t nts::internal::Engine::elapsed() noexcept {
  * @brief Метод учёта итога повторной передачи залпа
  *
  * @param outcome отказ, которым ответил перенос
- *
  * @return        отказ повторной передачи: TIMEOUT по исчерпании попыток
  *
  */
@@ -18292,7 +18213,6 @@ uint64_t nts::internal::Engine::discarded() const noexcept {
  * @brief Метод получения числа отброшенного по причине
  *
  * @param reason причина отброса
- *
  * @return       число отброшенного по причине
  *
  */
@@ -18304,7 +18224,6 @@ uint64_t nts::internal::Engine::discarded(const datagram::reason_t reason) const
  * @brief Метод установки адреса собеседника для метки возврата состояния
  *
  * @param address адрес либо иной опознаватель собеседника
- *
  * @return        признак того, что адрес принят
  *
  */
@@ -18382,8 +18301,7 @@ nts::internal::Engine::Engine(const bool server) noexcept :
 	// Выполняем обнуление признаков готовности значений направлений
 	::memset(this->_ready, 0, sizeof(this->_ready));
 	/**
-	 * Выполняем перехват ошибок работы с памятью: перечни умолчаний занимают память,
-	 * а конструктор отказа не выводит, и нехватка памяти помнится до заведения связи
+	 * Выполняем перехват ошибок
 	 */
 	try {
 		/**
@@ -18395,7 +18313,9 @@ nts::internal::Engine::Engine(const bool server) noexcept :
 		 */
 		// Классы затирания памяти связи по умолчанию - только секреты (намеренное решение 20)
 		this->_wiping = {context::wiping_t::SECRETS};
+		// Наборы шифрования по умолчанию: AEAD впереди, за ними CBC классики
 		this->_suites = {
+			// Наборы TLS 1.3 по умолчанию: AES-256-GCM и ChaCha20-Poly1305
 			protect::suite_t::AES_256_GCM_SHA384, protect::suite_t::CHACHA20_POLY1305_SHA256,
 			protect::suite_t::AES_128_GCM_SHA256,
 			protect::suite_t::ECDHE_ECDSA_AES_256_GCM_SHA384, protect::suite_t::ECDHE_ECDSA_CHACHA20_POLY1305_SHA256,
@@ -18420,13 +18340,14 @@ nts::internal::Engine::Engine(const bool server) noexcept :
 		 * умолчание, и потребитель заменяет его целиком своим перечнем
 		 */
 		this->_groups = {
+			// Группы по умолчанию: гибрид впереди, за ним X25519 и кривые NIST
 			extension::group_t::X25519MLKEM768, extension::group_t::X25519,
 			extension::group_t::SECP256R1, extension::group_t::SECP384R1
 		};
 		// Схемы подписи по умолчанию: лишь классические, схемы ГОСТ объявляет потребитель
 		this->_signatures.assign(SCHEMES, SCHEMES + (sizeof(SCHEMES) / sizeof(extension::scheme_t)));
 	/**
-	 * Если памяти под перечни умолчаний не хватило
+	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
 		// Выполняем сброс наборов шифрования связи

@@ -12,8 +12,13 @@
  * @email forman@anyks.com
  * @site https://anyks.com
  *
+ * \~russian
  * @brief Модуль хеш-функции RIPEMD-160 (Доббертин, Босселарс, Пренел)
  *
+ * \~english
+ * @brief Module of the hash function RIPEMD-160 (Dobbertin, Bosselaers, Preneel)
+ *
+ * \~
  * @copyright Copyright © 2026
  *
  */
@@ -72,20 +77,20 @@ namespace nts {
 		/**
 		 * \~russian
 		 * @brief Хеш-функция RIPEMD-160
+		 *
 		 * @details Сообщение подаётся вызовами update кусками произвольного размера, а
 		 *          выработанный хеш снимается вызовом finish. Повторное хеширование
 		 *          требует вызова reset: finish оставляет объект в завершённом состоянии
 		 *
 		 * \~english
 		 * @brief The RIPEMD-160 hash function
+		 *
 		 * @details The message is fed by the calls of update by the chunks of an arbitrary size,
 		 *          and the produced hash is taken by the call of finish. A repeated hashing requires
 		 *          the call of reset: finish leaves the object in the finished state
-		 *
 		 * \~russian
 		 * @note Состояние и накопитель незавершённого блока затираются при снятии хеша
 		 *       и при разрушении объекта
-		 *
 		 * \~english
 		 * @note The state and the accumulator of the unfinished block are wiped
 		 *       at the taking of the hash and at the destruction of the object
@@ -115,6 +120,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the parsing of a block of the message
+				 *
 				 * @param block the block being parsed: the accumulator or the chunk of the message itself
 				 *
 				 * \~
@@ -139,6 +145,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of feeding a chunk of the message
+				 *
 				 * @param data the chunk of the message being fed
 				 *
 				 * \~
@@ -150,7 +157,6 @@ namespace nts {
 				 *
 				 * @param result место, в которое записывается хеш
 				 * @param size   размер места в байтах, не меньше длины хеша
-				 *
 				 * @return       признак успешности снятия хеша
 				 *
 				 * @note Повторное снятие без сброса отвергается: состояние после снятия
@@ -158,10 +164,13 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of taking the produced hash
+				 *
 				 * @param result the place the hash is written into
 				 * @param size   the size of the place in bytes, not less than the length of the hash
 				 * @return       the flag of the success of the taking of the hash
-				 * @note A repeated taking without a reset is refused: the state after the taking is wiped
+				 *
+				 * @note A repeated taking without a reset is refused: the state after the taking is
+				 *       wiped
 				 *
 				 * \~
 				 */
@@ -191,16 +200,16 @@ namespace nts {
 
 		/**
 		 * \~russian
-		 * @brief Метод выработки хеша RIPEMD-160 целого сообщения
+		 * @brief Функция выработки хеша RIPEMD-160 целого сообщения
 		 *
 		 * @param data   хешируемое сообщение
 		 * @param result место, в которое записывается хеш
 		 * @param size   размер места в байтах, не меньше длины хеша
-		 *
 		 * @return       признак успешности выработки хеша
 		 *
 		 * \~english
-		 * @brief Method of the production of the RIPEMD-160 hash of a whole message
+		 * @brief Function of the production of the RIPEMD-160 hash of a whole message
+		 *
 		 * @param data   the message being hashed
 		 * @param result the place the hash is written into
 		 * @param size   the size of the place in bytes, not less than the length of the hash

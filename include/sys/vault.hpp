@@ -81,6 +81,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Information about the sheltering of the storage memory
+		 *
 		 * @note The flags report what has happened IN FACT, not what was asked for: not every
 		 *       system is able to do it, and the right to forbid the swapping is besides limited
 		 *       (RLIMIT_MEMLOCK). A silent lowering of the sheltering is worse than an honest refusal;
@@ -104,7 +105,7 @@ namespace nts {
 			 *
 			 * \~
 			 */
-			Shelter() noexcept : hidden(false), wired(false), forked(false) {}
+			Shelter() noexcept;
 		} shelter_t;
 		/**
 		 * \~russian
@@ -133,11 +134,25 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Class of the sheltered storage of the key material
+		 *
 		 * @details The storage is one per process. The memory is taken from the system by chunks
 		 *          directly, bypassing the heap: the chunk is forbidden to swap, hidden from the
 		 *          memory dumps, and a child process gets it wiped. The chunks are cut into pieces
 		 *          for the requests, a released piece is wiped and given to the next request; the
 		 *          chunks are never returned to the system
+		 *
+		 * @note Deliberate decisions:
+		 *       1. The storage is common per process, and not own at each connection: the right to forbid
+		 *       the swapping is limited by the RLIMIT_MEMLOCK limit (at Linux the default is 64 KB
+		 *       or 8 MB), and a page per connection would exhaust it at a dozen of connections.
+		 *       One chunk of 64 KB holds the key material of hundreds of connections
+		 *       2. The lowering of the shelter by the default is not a failure, but an honest report of shelter():
+		 *       the library works also where the swap ban is not given, but it does not keep quiet about
+		 *       it. The one for whom the lowering is impermissible calls demand(true) - then
+		 *       a chunk without the swap ban is not accepted and the request is answered with a refusal
+		 *       3. The released piece is wiped by the volatile writing at the moment
+		 *       of the release, and not at the repeated giving: between the release and the giving
+		 *       the key must not lie open for a single moment
 		 *
 		 * \~
 		 */
@@ -166,12 +181,13 @@ namespace nts {
 					 *
 					 * \~english
 					 * @brief Constructor
+					 *
 					 * @param offset the offset of the piece from the beginning of the chunk
 					 * @param size   the length of the piece in bytes
 					 *
 					 * \~
 					 */
-					Span(const size_t offset, const size_t size) noexcept : offset(offset), size(size) {}
+					Span(const size_t offset, const size_t size) noexcept;
 				} span_t;
 				/**
 				 * \~russian
@@ -200,7 +216,7 @@ namespace nts {
 					 *
 					 * \~
 					 */
-					Chunk() noexcept : base(nullptr), size(0) {}
+					Chunk() noexcept;
 				} chunk_t;
 			private:
 				// Признак того, что понижение укрытия отвечается отказом
@@ -223,6 +239,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the taking of a chunk from the system
+				 *
 				 * @param size the minimum length of the chunk in bytes
 				 * @return     the flag of the chunk being taken and accepted
 				 *
@@ -238,6 +255,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the storage of the process
+				 *
 				 * @return the storage of the process
 				 *
 				 * \~
@@ -253,6 +271,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the taking of a piece of the sheltered memory
+				 *
 				 * @param size the length of the piece in bytes
 				 * @return     the address of the piece or nullptr on a refusal
 				 *
@@ -268,6 +287,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the return of a piece of the sheltered memory with the wiping
+				 *
 				 * @param data the address of the piece given by take()
 				 * @param size the length of the piece in bytes passed to take()
 				 *
@@ -284,6 +304,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the wiping of the whole memory of the storage
+				 *
 				 * @details Called at the child process after the fork where the system does not give
 				 *          the wiped memory itself; the pieces remain given but empty
 				 *
@@ -299,6 +320,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the information about the sheltering of the storage
+				 *
 				 * @return the worst over all the chunks: a flag is set only if it is set at every one
 				 *
 				 * \~
@@ -316,6 +338,10 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of checking whether an address belongs to the storage
+				 *
+				 * @details To the consumer - to make sure the bytes of the key lie in the sheltered memory
+				 *          (for example, `secret.data()` of the ticket); to the checks - to pin this
+				 *
 				 * @param data the address being checked
 				 * @return     the flag of the address lying inside a chunk of the storage
 				 *
@@ -330,6 +356,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the number of the chunks taken from the system
+				 *
 				 * @return the number of the chunks
 				 *
 				 * \~
@@ -344,6 +371,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of setting the demand of the sheltering
+				 *
 				 * @param mode the flag of a chunk without the swap prohibition being not accepted
 				 *
 				 * \~
@@ -357,6 +385,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the demand of the sheltering
+				 *
 				 * @return the flag of a chunk without the swap prohibition being not accepted
 				 *
 				 * \~
@@ -394,6 +423,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Class of a piece of the sheltered memory
+		 *
 		 * @details Owns a piece of the storage: created by reserve(), wiped by wipe(), returned by
 		 *          release() or by the destruction. There is no copying, a secret has one owner;
 		 *          the move is allowed
@@ -416,6 +446,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the reservation of the piece
+				 *
 				 * @param size the length of the piece in bytes
 				 * @return     the flag of the piece being reserved and zeroed
 				 *
@@ -451,6 +482,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the address of the piece
+				 *
 				 * @return the address of the piece or nullptr if the piece is not reserved
 				 *
 				 * \~
@@ -464,6 +496,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the address of the piece
+				 *
 				 * @return the address of the piece or nullptr if the piece is not reserved
 				 *
 				 * \~
@@ -477,6 +510,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the length of the piece
+				 *
 				 * @return the length of the piece in bytes
 				 *
 				 * \~
@@ -492,6 +526,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Move operator
+				 *
 				 * @param other the piece being moved; empty after the move
 				 * @return      the current piece
 				 *
@@ -506,11 +541,13 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Move constructor
+				 *
 				 * @param other the piece being moved; empty after the move
 				 *
 				 * \~
 				 */
 				Secret(Secret && other) noexcept;
+			public:
 				/**
 				 * \~russian
 				 * @brief Копирование запрещено: у тайны один владелец
@@ -521,6 +558,19 @@ namespace nts {
 				 * \~
 				 */
 				Secret(const Secret &) = delete;
+				/**
+				 * \~russian
+				 * @brief Оператор Копирование запрещено: у тайны один владелец
+				 *
+				 * @return текущий участок
+				 *
+				 * \~english
+				 * @brief Operator — Copying prohibited: a secret has only one owner
+				 *
+				 * @return the current piece
+				 *
+				 * \~
+				 */
 				Secret & operator = (const Secret &) = delete;
 			public:
 				/**
@@ -532,7 +582,7 @@ namespace nts {
 				 *
 				 * \~
 				 */
-				Secret() noexcept : _data(nullptr), _size(0) {}
+				Secret() noexcept;
 				/**
 				 * \~russian
 				 * @brief Деструктор
@@ -554,6 +604,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Allocator of the containers of the language over the sheltered storage
+		 *
 		 * @details Gives the containers of the standard library the memory of the storage; the
 		 *          deallocation wipes. A refusal of the storage turns into bad_alloc, as at the
 		 *          ordinary allocator
@@ -563,7 +614,7 @@ namespace nts {
 		template <typename T>
 		class Allocator {
 			public:
-				// Тип значения распределителя
+				// Тип значения распределителя (имя задано стандартом: allocator_traits)
 				typedef T value_type;
 			public:
 				/**
@@ -575,6 +626,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the allocation of the memory
+				 *
 				 * @param count the number of the values
 				 * @return      the address of the memory
 				 *
@@ -603,6 +655,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the deallocation of the memory with the wiping
+				 *
 				 * @param data  the address of the memory
 				 * @param count the number of the values
 				 *
@@ -624,6 +677,7 @@ namespace nts {
 				 */
 				template <typename U>
 				bool operator == (const Allocator <U> &) const noexcept { return true; }
+				// Объявляем шаблон оператора сличения
 				template <typename U>
 				bool operator != (const Allocator <U> &) const noexcept { return false; }
 			public:
@@ -637,6 +691,7 @@ namespace nts {
 				 * \~
 				 */
 				Allocator() noexcept = default;
+				// Объявляем шаблон конструктора копирования
 				template <typename U>
 				Allocator(const Allocator <U> &) noexcept {}
 		};

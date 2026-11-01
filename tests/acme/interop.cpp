@@ -68,10 +68,9 @@ static const char * PEBBLE = "https://localhost:14000/dir";
  */
 namespace {
 	/**
-	 * @brief Метод чтения файла целиком
+	 * @brief Функция чтения файла целиком
 	 *
 	 * @param path путь к читаемому файлу
-	 *
 	 * @return     содержимое файла
 	 *
 	 */
@@ -86,10 +85,9 @@ namespace {
 		return stream.str();
 	}
 	/**
-	 * @brief Метод получения просмотра строки
+	 * @brief Функция получения просмотра строки
 	 *
 	 * @param text строка, на которую заводится просмотр
-	 *
 	 * @return     просмотр строки
 	 *
 	 */
@@ -98,10 +96,9 @@ namespace {
 		return view_t(reinterpret_cast <const uint8_t *> (text.data()), text.size());
 	}
 	/**
-	 * @brief Метод запуска команды интерпретатора
+	 * @brief Функция запуска команды интерпретатора
 	 *
 	 * @param command запускаемая команда
-	 *
 	 * @return        код ответа команды
 	 *
 	 */
@@ -138,7 +135,6 @@ namespace {
 		 * @brief Метод получения пути к файлу песочницы
 		 *
 		 * @param name имя файла
-		 *
 		 * @return     путь к файлу песочницы
 		 *
 		 */
@@ -185,20 +181,20 @@ namespace {
 		std::string body;
 	} answer_t;
 	/**
-	 * @brief Метод выполнения запроса HTTP к эталонному серверу
+	 * @brief Функция выполнения запроса HTTP к эталонному серверу
 	 *
 	 * @param sandbox песочница файлов проверки
 	 * @param method  метод запроса: GET либо POST
 	 * @param url     адрес запроса
 	 * @param body    тело запроса, пустое у запроса GET
 	 * @param result  ответ сервера
-	 *
 	 * @return        признак того, что ответ получен
 	 *
 	 */
 	static bool http(const sandbox_t & sandbox, const std::string & method, const std::string & url, const std::string & body, answer_t & result) {
 		// Файлы заголовков и тела ответа
 		const std::string headers = sandbox.file("headers.txt");
+		// Файл тела ответа
 		const std::string content = sandbox.file("body.txt");
 		// Команда запроса
 		std::string command = "curl -sk -A ants-acme -o " + content + " -D " + headers + " -X " + method;
@@ -250,7 +246,9 @@ namespace {
 				const size_t end = head.find('\n', position);
 				// Извлекаем значение заголовка
 				result.nonce = head.substr(position, ((end == std::string::npos) ? end : (end - position)));
-				// Убираем возврат каретки
+				/**
+				 * Убираем возврат каретки
+				 */
 				while(!result.nonce.empty() && ((result.nonce.back() == '\r') || (result.nonce.back() == ' ')))
 					// Усекаем значение
 					result.nonce.pop_back();
@@ -273,7 +271,9 @@ namespace {
 				const size_t end = head.find('\n', position);
 				// Извлекаем значение заголовка
 				result.location = head.substr(position, ((end == std::string::npos) ? end : (end - position)));
-				// Убираем возврат каретки
+				/**
+				 * Убираем возврат каретки
+				 */
 				while(!result.location.empty() && ((result.location.back() == '\r') || (result.location.back() == ' ')))
 					// Усекаем значение
 					result.location.pop_back();
@@ -285,7 +285,7 @@ namespace {
 		return true;
 	}
 	/**
-	 * @brief Метод выполнения запроса ACME к эталонному серверу
+	 * @brief Функция выполнения запроса ACME к эталонному серверу
 	 *
 	 * @param sandbox песочница файлов проверки
 	 * @param url     адрес ресурса запроса
@@ -295,12 +295,13 @@ namespace {
 	 * @param payload полезная нагрузка запроса
 	 * @param signer  подготовленный секретный ключ учётной записи
 	 * @param result  ответ сервера
-	 *
 	 * @return        признак того, что ответ получен и подпись принята
 	 *
 	 */
 	static bool call(const sandbox_t & sandbox, const std::string & url, std::string & nonce, const std::string & kid, const keys::key_t & key, const std::string & payload, const keys::signer_t & signer, answer_t & result) {
-		// Выполняем запрос с повтором по отказу badNonce, как велит раздел 6.5 RFC 8555
+		/**
+		 * Выполняем запрос с повтором по отказу badNonce, как велит раздел 6.5 RFC 8555
+		 */
 		for(size_t attempt = 0; attempt < 3; attempt++){
 			// Собираем тело запроса
 			std::string body;
@@ -335,7 +336,7 @@ namespace {
 TEST(AcmeInteropTest, Pebble) {
 	// Если эталонный сервер недоступен: проверка пропускается
 	if(shell(std::string("curl -sk --max-time 3 ") + PEBBLE + " >/dev/null 2>&1") != 0)
-		// Пропускаем проверку
+		// Пропускаем: эталонный сервер Pebble недоступен
 		GTEST_SKIP() << "Сервер Pebble недоступен по адресу " << PEBBLE;
 	// Заводим песочницу файлов проверки
 	sandbox_t sandbox;
@@ -351,6 +352,7 @@ TEST(AcmeInteropTest, Pebble) {
 	}
 	// Готовим ключ подписи учётной записи
 	keys::signer_t signer;
+	// Подготовка подписанта учётной записи обязана удаться
 	ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/ca-ec.key"))), keys::error_t::NONE);
 	// Разбираем каталог службы
 	acme::directory_t directory;
@@ -383,6 +385,7 @@ TEST(AcmeInteropTest, Pebble) {
 	{
 		// Полезная нагрузка заведения записи
 		std::string payload;
+		// Полезная нагрузка заведения записи с единственным контактом
 		acme::newAccount({"mailto:admin@example.org"}, true, false, payload);
 		// Ответ сервера
 		answer_t answer;
@@ -396,6 +399,7 @@ TEST(AcmeInteropTest, Pebble) {
 		kid = answer.location;
 		// Разбираем ответ записи
 		acme::account_t account;
+		// Разбор ответа записи обязан удаться
 		ASSERT_EQ(account.parse(view(answer.body)), acme::error_t::NONE) << answer.body;
 		// Состояние записи - valid
 		ASSERT_EQ(account.status, "valid");
@@ -404,10 +408,12 @@ TEST(AcmeInteropTest, Pebble) {
 	}
 	// Заводим заказ
 	std::string orderUrl;
+	// Контекст заказа сертификата
 	acme::order_t order;
 	{
 		// Полезная нагрузка заведения заказа
 		std::string payload;
+		// Полезная нагрузка заказа сертификата для имени example.org
 		ASSERT_EQ(acme::newOrder({{acme::identifier_t::DNS, "example.org"}}, payload), acme::error_t::NONE);
 		// Ответ сервера
 		answer_t answer;
@@ -445,7 +451,9 @@ TEST(AcmeInteropTest, Pebble) {
 	}
 	// Ищем испытание dns-01: Pebble резолвит его моком DNS сам
 	const acme::challenge_t * challenge = nullptr;
-	// Выполняем обход испытаний записи
+	/**
+	 * Выполняем обход испытаний записи
+	 */
 	for(size_t position = 0; position < authorization.challenges.size(); position++){
 		// Если испытание dns-01
 		if(authorization.challenges[position].type.compare("dns-01") == 0)
@@ -455,12 +463,14 @@ TEST(AcmeInteropTest, Pebble) {
 	// Испытание dns-01 обязано быть
 	ASSERT_TRUE(challenge != nullptr);
 	// Вырабатываем полномочный ключ испытания: мок DNS Pebble отвечает им сам
-	std::string authorization_key;
-	ASSERT_EQ(acme::keyAuthorization(challenge->token, key, authorization_key), acme::error_t::NONE);
+	std::string authorizationKey;
+	// Полномочный ключ испытания dns-01 вырабатывается из жетона и ключа записи
+	ASSERT_EQ(acme::keyAuthorization(challenge->token, key, authorizationKey), acme::error_t::NONE);
 	// Отвечаем на испытание
 	{
 		// Полезная нагрузка ответа на испытание
 		std::string payload;
+		// Полезная нагрузка пустого ответа на испытание
 		acme::answer(payload);
 		// Ответ сервера
 		answer_t answer;
@@ -477,14 +487,17 @@ TEST(AcmeInteropTest, Pebble) {
 	{
 		// Состояние записи полномочий
 		std::string status;
-		// Выполняем опрос записи до итогового состояния
+		/**
+		 * Выполняем опрос записи до итогового состояния
+		 */
 		for(size_t attempt = 0; attempt < 10; attempt++){
 			// Ответ сервера
 			answer_t answer;
 			// Запрашиваем запись полномочий
 			ASSERT_TRUE(call(sandbox, order.authorizations[0], nonce, kid, key, "", signer, answer));
-			// Разбираем запись
+			// Разбираем запись полномочий из ответа сервера
 			acme::authorization_t current;
+			// Разбор записи полномочий обязан удаться
 			ASSERT_EQ(current.parse(view(answer.body)), acme::error_t::NONE) << answer.body;
 			// Обновляем метку новизны
 			nonce = answer.nonce;
@@ -519,6 +532,7 @@ TEST(AcmeInteropTest, Pebble) {
 		ASSERT_EQ(reference.parse(view_t(referenceBlocks[0].data.data(), referenceBlocks[0].data.size())), x509::error_t::NONE);
 		// Готовим ключ подписи владельца
 		keys::signer_t leafSigner;
+		// Подготовка подписанта владельца обязана удаться
 		ASSERT_EQ(leafSigner.prepare(view(slurp(std::string(CORPUS) + "/leaf-ec.key"))), keys::error_t::NONE);
 		// Имя владельца сертификата
 		x509::name_t subject;
@@ -553,6 +567,7 @@ TEST(AcmeInteropTest, Pebble) {
 	{
 		// Полезная нагрузка завершения заказа
 		std::string payload;
+		// Полезная нагрузка завершения заказа запросом CSR
 		acme::finalize(view_t(csr.data(), csr.size()), payload);
 		// Ответ сервера
 		answer_t answer;
@@ -566,7 +581,9 @@ TEST(AcmeInteropTest, Pebble) {
 	// Ждём выдачи сертификата опросом заказа
 	std::string certificateUrl;
 	{
-		// Выполняем опрос заказа до выдачи
+		/**
+		 * Выполняем опрос заказа до выдачи
+		 */
 		for(size_t attempt = 0; attempt < 10; attempt++){
 			// Ответ сервера
 			answer_t answer;
@@ -574,6 +591,7 @@ TEST(AcmeInteropTest, Pebble) {
 			ASSERT_TRUE(call(sandbox, orderUrl, nonce, kid, key, "", signer, answer));
 			// Разбираем заказ
 			acme::order_t current;
+			// Разбор заказа обязан удаться
 			ASSERT_EQ(current.parse(view(answer.body)), acme::error_t::NONE) << answer.body;
 			// Обновляем метку новизны
 			nonce = answer.nonce;
@@ -612,11 +630,13 @@ TEST(AcmeInteropTest, Pebble) {
 	{
 		// Разбираем запись PEM
 		std::vector <pem::block_t> blocks;
+		// Разбор цепочки PEM выданного сертификата
 		ASSERT_EQ(pem::decode(certificate, blocks), pem::error_t::NONE);
 		// Цепочка не пуста
 		ASSERT_FALSE(blocks.empty());
 		// Разбираем сертификат владельца
 		x509::certificate_t leaf;
+		// Разбор сертификата владельца обязан удаться
 		ASSERT_EQ(leaf.parse(view_t(blocks[0].data.data(), blocks[0].data.size())), x509::error_t::NONE);
 		// Сертификат несёт дополнительное имя example.org: служба пишет идентификатор в SAN
 		const x509::extension_t * san = leaf.extension("2.5.29.17");
@@ -624,10 +644,13 @@ TEST(AcmeInteropTest, Pebble) {
 		ASSERT_TRUE(san != nullptr);
 		// Разбираем дополнительные имена владельца
 		std::vector <x509::alternative_t> alternatives;
+		// Разбор дополнительных имён владельца обязан удаться
 		ASSERT_EQ(x509::alternatives(*san, alternatives), x509::error_t::NONE);
 		// Имя example.org обязано быть среди дополнительных
 		bool found = false;
-		// Выполняем обход дополнительных имён
+		/**
+		 * Выполняем обход дополнительных имён
+		 */
 		for(size_t position = 0; position < alternatives.size(); position++){
 			// Если имя доменное и совпало
 			if((alternatives[position].kind == x509::kind_t::DNS) && (alternatives[position].value.compare("example.org") == 0))
@@ -641,9 +664,11 @@ TEST(AcmeInteropTest, Pebble) {
 	{
 		// Разбираем запись PEM сертификата в DER
 		std::vector <pem::block_t> blocks;
+		// Разбор записи PEM сертификата в DER
 		ASSERT_EQ(pem::decode(certificate, blocks), pem::error_t::NONE);
 		// Полезная нагрузка отзыва
 		std::string payload;
+		// Полезная нагрузка отзыва сертификата с причиной 4 (прекращение действия)
 		acme::revokeCert(view_t(blocks[0].data.data(), blocks[0].data.size()), 4, payload);
 		// Ответ сервера
 		answer_t answer;

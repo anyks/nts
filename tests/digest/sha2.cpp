@@ -1,15 +1,22 @@
 /**
- * @file: sha2.cpp
- * @date: 2026-09-04
- * @license: GPL-3.0
+ * @file sha2.cpp
+ * @date 2026-09-04
  *
- * @telegram: @forman
- * @author: Yuriy Lobarev
- * @phone: +7 (910) 983-95-90
- * @email: forman@anyks.com
- * @site: https://anyks.com
+ * @license{GPL-3.0}
  *
- * @copyright: Copyright © 2026
+ * @author Yuriy Lobarev
+ *
+ * @telegram{forman}
+ * @phone{+7 (910) 983-95-90}
+ *
+ * @email forman@anyks.com
+ * @site https://anyks.com
+ *
+ * @brief Исходный файл проверок модуля дайджеста SHA-2: контрольные примеры,
+ *        миллион символов, чужие хеши и пути
+ *
+ * @copyright Copyright © 2026
+ *
  */
 
 /**
@@ -33,11 +40,10 @@
 using namespace nts;
 
 /**
- * @brief Метод записи хеша шестнадцатеричной строкой
+ * @brief Функция записи хеша шестнадцатеричной строкой
  *
  * @param data байты хеша
  * @param size число байтов хеша
- *
  * @return     запись хеша строчными шестнадцатеричными знаками
  *
  */
@@ -60,11 +66,10 @@ static std::string text(const uint8_t * data, const size_t size) {
 }
 
 /**
- * @brief Метод выработки хеша целого сообщения строкой
+ * @brief Функция выработки хеша целого сообщения строкой
  *
  * @param type    разновидность хеша
  * @param message хешируемое сообщение
- *
  * @return        запись хеша шестнадцатеричной строкой
  *
  */
@@ -100,6 +105,7 @@ TEST(Sha2Test, Abc){
 TEST(Sha2Test, Alignment) {
 	// Все разновидности SHA-2 и их независимые эталоны
 	const digest::sha_t types[] = {digest::sha_t::SHA224, digest::sha_t::SHA256, digest::sha_t::SHA384, digest::sha_t::SHA512};
+	// Эталоны разновидностей для сообщения 257 байтов
 	const char * expected[] = {
 		"18e30b6ab754291770ae234bbd0832f0c5fcc29ec53f04451c11e7c3",
 		"54acfbfedc4d8da40f76f275e1a98f10af8ef1fb9fb39e5a67a00aabcbe6597c",
@@ -108,29 +114,49 @@ TEST(Sha2Test, Alignment) {
 	};
 	// Выравнивание начала позволяет проверить все смещения внутри слова
 	alignas(8) uint8_t input[264], output[80];
-	// Перебираем машинный и переносимый пути
+	/**
+	 * Перебираем машинный и переносимый пути
+	 */
 	for(size_t path = 0; path < 2; path++){
-		// Перебираем разновидности хеша
+		/**
+		 * Перебираем разновидности хеша
+		 */
 		for(size_t type = 0; type < (sizeof(types) / sizeof(types[0])); type++){
-			// Перебираем смещения внутри восьмибайтового слова
+			/**
+			 * Перебираем смещения внутри восьмибайтового слова
+			 */
 			for(size_t offset = 0; offset < 8; offset++){
-				// Заполняем сообщение полным рядом байтов и хвостом
+				/**
+				 * Заполняем сообщение полным рядом байтов и хвостом
+				 */
 				for(size_t i = 0; i < 257; i++)
+					// Записываем очередной байт ряда со смещением
 					input[offset + i] = static_cast <uint8_t> (i);
 				// Обрамление итога должно сохраниться после записи хеша
-				memset(output, 0xA5, sizeof(output));
+				::memset(output, 0xA5, sizeof(output));
+				// Включаем или глушим машинные команды по номеру пути
 				machine::allow(path == 0);
+				// Считаем хеш сообщения по смещённым адресам в остаток места
 				const bool valid = digest::sha2(types[type], view_t(input + offset, 257), output + offset, sizeof(output) - offset);
 				// Возвращаем машинные команды до проверок, способных завершить тест
 				machine::allow(true);
+				// Хеш по смещённым адресам обязан посчитаться
 				ASSERT_TRUE(valid);
+				// Длина итога — номер разновидности хеша
 				const size_t size = static_cast <size_t> (types[type]);
+				// Итог совпадает с независимым эталоном
 				ASSERT_EQ(text(output + offset, size), expected[type]);
-				// Проверяем нетронутый префикс
+				/**
+				 * Проверяем нетронутый префикс
+				 */
 				for(size_t i = 0; i < offset; i++)
+					// Префикс до итога нетронут
 					ASSERT_EQ(output[i], 0xA5);
-				// Проверяем нетронутый хвост
+				/**
+				 * Проверяем нетронутый хвост
+				 */
 				for(size_t i = (offset + size); i < sizeof(output); i++)
+					// Хвост после итога нетронут
 					ASSERT_EQ(output[i], 0xA5);
 			}
 		}

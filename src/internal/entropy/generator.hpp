@@ -24,10 +24,10 @@
  *
  */
 
+#ifndef __ANTS_ENTROPY_GENERATOR__
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_ENTROPY_GENERATOR__
 #define __ANTS_ENTROPY_GENERATOR__
 
 /**
@@ -121,7 +121,7 @@ namespace nts {
 				~Generator() noexcept;
 		} generator_t;
 		/**
-		 * @brief Метод получения порождателя текущего потока
+		 * @brief Функция получения порождателя текущего потока
 		 *
 		 * @return порождатель случайных байтов текущего потока
 		 *
@@ -130,4 +130,4 @@ namespace nts {
 	};
 };
 
-#endif // __ANTS_ENTROPY_GENERATOR__
+#endif

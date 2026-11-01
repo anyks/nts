@@ -51,10 +51,9 @@ static const char * CORPUS = ANTS_CORPUS;
  */
 namespace {
 	/**
-	 * @brief Метод чтения файла целиком
+	 * @brief Функция чтения файла целиком
 	 *
 	 * @param path путь к читаемому файлу
-	 *
 	 * @return     содержимое файла
 	 *
 	 */
@@ -65,10 +64,9 @@ namespace {
 		return std::vector <uint8_t> ((std::istreambuf_iterator <char> (file)), std::istreambuf_iterator <char> ());
 	}
 	/**
-	 * @brief Метод получения просмотра набора байтов
+	 * @brief Функция получения просмотра набора байтов
 	 *
 	 * @param data набор байтов
-	 *
 	 * @return     просмотр набора
 	 *
 	 */
@@ -106,20 +104,25 @@ TEST(LmsTest, Refusals) {
 	const std::vector <uint8_t> message = slurp(std::string(CORPUS) + "/lms/message.bin");
 	// Подпись контрольного примера
 	const std::vector <uint8_t> signature = slurp(std::string(CORPUS) + "/lms/signature.bin");
-	// Подделанная подпись: байт внутри звена цепочки нижнего уровня
+	// Подделанная подпись: копия контрольной
 	std::vector <uint8_t> forged(signature);
+	// Портим байт внутри звена цепочки нижнего уровня
 	forged[forged.size() - 200] ^= 0x01;
 	// Подделка обязана отказать
 	ASSERT_FALSE(sign::lms::verify(view(key), view(forged), view(signature)));
-	// Подделанное сообщение обязано отказать
+	// Подделанное сообщение: копия контрольного
 	std::vector <uint8_t> altered(message);
+	// Портим первый байт сообщения
 	altered[0] ^= 0x01;
+	// Проверка порченого сообщения обязана отказать
 	ASSERT_FALSE(sign::lms::verify(view(key), view(altered), view(signature)));
 	// Усечённая подпись обязана отказать
 	ASSERT_FALSE(sign::lms::verify(view(key), view(message), view_t(signature.data(), signature.size() - 1)));
-	// Чужой открытый ключ обязан отказать
+	// Чужой открытый ключ: копия контрольного
 	std::vector <uint8_t> alien(key);
+	// Портим последний байт открытого ключа
 	alien[alien.size() - 1] ^= 0x01;
+	// Проверка чужим ключом обязана отказать
 	ASSERT_FALSE(sign::lms::verify(view(alien), view(message), view(signature)));
 	// Непереданные записи обязаны отказать
 	ASSERT_FALSE(sign::lms::verify(view_t(nullptr, 0), view(message), view(signature)));
@@ -149,8 +152,10 @@ TEST(LmsTest, SingleLevel) {
 	const view_t sig1(signature.data() + 4 + lmsLength + 56, lmsLength);
 	// Одноуровневая подпись обязана сойтись
 	ASSERT_TRUE(sign::lms::verify(pub1, view(message), sig1));
-	// Подделка байта пути Меркла обязана отказать
+	// Подделанная подпись: копия звена нижнего уровня
 	std::vector <uint8_t> forged(sig1.data, sig1.data + sig1.size);
+	// Портим байт пути Меркла
 	forged[forged.size() - 10] ^= 0x40;
+	// Проверка с порченым путём Меркла обязана отказать
 	ASSERT_FALSE(sign::lms::verify(pub1, view(message), view(forged)));
 }

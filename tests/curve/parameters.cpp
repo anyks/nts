@@ -47,6 +47,7 @@ using namespace nts;
  * Опознаватели известных наборов параметров эллиптических кривых
  */
 static const char * IDENTIFIERS[] = {
+	// Тестовый набор tc26 на 256 битов
 	"1.2.643.7.1.2.1.2.0",
 	"1.2.643.2.2.35.0",
 	"1.2.643.7.1.2.1.1.1",
@@ -203,30 +204,53 @@ TEST(ParametersTest, Failures) {
  *
  */
 TEST(ParametersTest, Deferred) {
+	// Опознаватели кривых набора
 	static const char * OIDS[] = {"1.3.132.0.35", "1.3.132.0.10"};
+	// Размеры полей кривых набора
 	static const size_t SIZES[] = {66, 32};
+	/**
+	 * Выполняем перебор кривых набора
+	 */
 	for(size_t i = 0; i < 2; i++){
+		// Устанавливаемая кривая
 		curve::curve_t curve;
+		// Устанавливаем кривую по опознавателю
 		ASSERT_TRUE(curve::parameters(std::string(OIDS[i]), curve)) << OIDS[i];
+		// Размер поля совпадает с эталоном
 		ASSERT_EQ(curve.size(), SIZES[i]) << OIDS[i];
 		ASSERT_EQ(curve.order().size(), SIZES[i]) << OIDS[i];
+		// Секреты и открытые части двух сторон обмена
 		uint8_t secretA[math::NUMBER_SIZE], keyA[math::NUMBER_SIZE * 2], secretB[math::NUMBER_SIZE], keyB[math::NUMBER_SIZE * 2];
+		// Генерируем пару первой стороны
 		ASSERT_TRUE(agreement::generate(curve, secretA, keyA)) << OIDS[i];
 		ASSERT_TRUE(agreement::generate(curve, secretB, keyB)) << OIDS[i];
+		// Общие секреты сторон
 		uint8_t sharedA[math::NUMBER_SIZE], sharedB[math::NUMBER_SIZE];
+		// Вычисляем общий секрет первой стороной
 		ASSERT_TRUE(agreement::ecdhe(curve, view_t(secretA, SIZES[i]), view_t(keyB, SIZES[i] * 2), sharedA)) << OIDS[i];
 		ASSERT_TRUE(agreement::ecdhe(curve, view_t(secretB, SIZES[i]), view_t(keyA, SIZES[i] * 2), sharedB)) << OIDS[i];
+		// Общие секреты сторон совпадают
 		ASSERT_EQ(::memcmp(sharedA, sharedB, SIZES[i]), 0) << OIDS[i];
+		// Подписывающий модуль кривой
 		sign::ecdsa_t ecdsa;
+		// Запускаем модуль на кривой
 		ASSERT_TRUE(ecdsa.start(curve)) << OIDS[i];
+		// Секрет подписи
 		uint8_t secret[math::NUMBER_SIZE];
+		// Генерируем секрет подписи
 		ASSERT_TRUE(ecdsa.generate(secret, SIZES[i])) << OIDS[i];
+		// Эталонный хеш
 		uint8_t digest[64];
+		// Заполняем эталонный хеш случайными байтами
 		ASSERT_TRUE(entropy::bytes(digest, sizeof(digest))) << OIDS[i];
+		// Место подписи
 		uint8_t signature[math::NUMBER_SIZE * 2];
+		// Подписываем эталонный хеш
 		ASSERT_TRUE(ecdsa.make(digest::hash_t::SHA512, view_t(digest, sizeof(digest)), signature)) << OIDS[i];
 		ASSERT_TRUE(ecdsa.check(view_t(digest, sizeof(digest)), view_t(signature, SIZES[i] * 2))) << OIDS[i];
+		// Портим один бит подписи
 		signature[3] ^= 0x01;
+		// Порченая подпись не проходит проверку
 		ASSERT_FALSE(ecdsa.check(view_t(digest, sizeof(digest)), view_t(signature, SIZES[i] * 2))) << OIDS[i];
 	}
 }
@@ -245,45 +269,79 @@ TEST(ParametersTest, Prepared) {
 	static const char * OID = "1.2.643.7.1.2.1.2.3";
 	// Две установки одного набора
 	curve::curve_t first, second;
+	// Первая установка по опознавателю
 	ASSERT_TRUE(curve::parameters(OID, first));
 	ASSERT_TRUE(curve::parameters(OID, second));
 	ASSERT_TRUE(first.ready() && second.ready());
+	// Размер поля совпадает с эталоном набора
 	ASSERT_EQ(first.size(), static_cast <size_t> (64));
 	ASSERT_EQ(first.cofactor(), static_cast <uint64_t> (4));
 	// Образующие точки установленных кривых совпадают слово в слово
 	curve::point_t one, two;
+	// Образующая точка первой установки
 	first.base(one);
+	// Образующая точка второй установки
 	second.base(two);
+	// Образующие точки совпадают слово в слово
 	ASSERT_EQ(::memcmp(&one, &two, sizeof(one)), 0);
 	// Значения набора GC512C (id-tc26-gost-3410-2012-512-paramSetC) от старшего байта к младшему
 	static const char * P = "fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffdc7";
+	// Коэффициент A кривой
 	static const char * A = "dc9203e514a721875485a529d2c722fb187bc8980eb866644de41c68e143064546e861c0e2c9edd92ade71f46fcf50ff2ad97f951fda9f2a2eb6546f39689bd3";
+	// Коэффициент B кривой
 	static const char * B = "b4c4ee28cebc6c2c8ac12952cf37f16ac7efb6a9f69f4b57ffda2e4f0de5ade038cbc2fff719d2c18de0284b8bfef3b52b8cc7a5f5bf0a3c8d2319a5312557e1";
+	// Порядок подгруппы
 	static const char * N = "3fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc98cdba46506ab004c33a9ff5147502cc8eda9e7a769a12694623cef47f023ed";
+	// Координата X точки основания
 	static const char * GX = "e2e31edfc23de7bdebe241ce593ef5de2295b7a9cbaef021d385f7074cea043aa27272a7ae602bf2a7b9033db9ed3610c6fb85487eae97aac5bc7928c1950148";
+	// Координата Y точки основания
 	static const char * GY = "f5ce40d95b5eb899abbccff5911cb8577939804d6527378b8c108c3d2090ff9be18e2d33e3021ed2ef32d85822423b6304f726aa854bae07d0396e9a9addc40f";
+	// Буферы образующих значений
 	uint8_t p[64], a[64], b[64], n[64], gx[64], gy[64];
+	// Тексты образующих значений
 	const char * texts[6] = {P, A, B, N, GX, GY};
+	// Приёмники разобранных значений
 	uint8_t * places[6] = {p, a, b, n, gx, gy};
+	/**
+	 * Перебираем образующие значения набора
+	 */
 	for(size_t k = 0; k < 6; k++)
+		/**
+		 * Перебираем байты очередного значения
+		 */
 		for(size_t i = 0; i < 64; i++){ unsigned v = 0; ::sscanf(texts[k] + i * 2, "%2x", &v); places[k][i] = static_cast <uint8_t> (v); }
 	// Заведение кривой значениями извне: проверка точки основания идёт целиком
 	curve::curve_t manual;
+	// Момент перед заведением кривой значениями
 	const auto before = std::chrono::steady_clock::now();
+	// Заводим кривую значениями извне
 	ASSERT_TRUE(manual.start(view_t(p, 64), view_t(a, 64), view_t(b, 64), view_t(n, 64), view_t(gx, 64), view_t(gy, 64), 4));
+	// Длительность одного заведения в микросекундах
 	const double alone = std::chrono::duration <double, std::micro> (std::chrono::steady_clock::now() - before).count();
 	// Кривая, заведённая значениями, совпадает с установленной по опознавателю
 	manual.base(two);
+	// Образующая точка заведённой кривой совпадает с установленной
 	ASSERT_EQ(::memcmp(&one, &two, sizeof(one)), 0);
 	// Пятьдесят установок по опознавателю: лучшее из трёх повторов
 	double copies = 1e300;
+	/**
+	 * Выполняем повторы замера
+	 */
 	for(size_t r = 0; r < 3; r++){
+		// Фиксируем момент начала повтора
 		const auto start = std::chrono::steady_clock::now();
+		/**
+		 * Выполняем пятьдесят установок по опознавателю
+		 */
 		for(size_t i = 0; i < 50; i++){
+			// Копия заведённой кривой
 			curve::curve_t copy;
+			// Установка по опознавателю отдаёт копию
 			ASSERT_TRUE(curve::parameters(OID, copy));
 		}
+		// Длительность повтора в микросекундах
 		const double spent = std::chrono::duration <double, std::micro> (std::chrono::steady_clock::now() - start).count();
+		// Запоминаем лучшую длительность
 		if(spent < copies) copies = spent;
 	}
 	/**

@@ -38,10 +38,9 @@
 using namespace nts;
 
 /**
- * @brief Метод разбора шестнадцатеричной строки в байты
+ * @brief Функция разбора шестнадцатеричной строки в байты
  *
  * @param text разбираемая строка
- *
  * @return     разобранные байты
  *
  */
@@ -58,11 +57,10 @@ static std::vector <uint8_t> bytes(const std::string & text) {
 	return result;
 }
 /**
- * @brief Метод записи байтов шестнадцатеричной строкой
+ * @brief Функция записи байтов шестнадцатеричной строкой
  *
  * @param data байты
  * @param size число байтов
- *
  * @return     запись строчными шестнадцатеричными знаками
  *
  */
@@ -92,12 +90,15 @@ TEST(DesTest, Single){
 	cipher::des_t cipher;
 	// Устанавливаем ключ DES
 	const std::vector <uint8_t> key = bytes("133457799bbcdff1");
+	// Ключ длиной 8 байт принимается
 	ASSERT_TRUE(cipher.key(view_t(key.data(), key.size())));
 	// Готовность шифра
 	ASSERT_TRUE(cipher.ready());
 	// Зашифровываем блок
 	const std::vector <uint8_t> plain = bytes("0123456789abcdef");
+	// Буферы выходного зашифрованного и восстановленного блоков
 	uint8_t sealed[8], opened[8];
+	// Шифруем блок с получением шифроблока
 	ASSERT_TRUE(cipher.encrypt(plain.data(), sealed));
 	// Проверяем зашифрованный блок
 	ASSERT_EQ(text(sealed, sizeof(sealed)), "85e813540f0ab405");
@@ -115,10 +116,13 @@ TEST(DesTest, Triple){
 	cipher::des_t cipher;
 	// Устанавливаем ключ 3DES
 	const std::vector <uint8_t> key = bytes("0123456789abcdef23456789abcdef01456789abcdef0123");
+	// Ключ 3DES длиной 24 байта принимается
 	ASSERT_TRUE(cipher.key(view_t(key.data(), key.size())));
 	// Зашифровываем блок
 	const std::vector <uint8_t> plain = bytes("5468652071756666");
+	// Буферы выходного зашифрованного и восстановленного блоков
 	uint8_t sealed[8], opened[8];
+	// Шифруем блок с получением шифроблока
 	ASSERT_TRUE(cipher.encrypt(plain.data(), sealed));
 	// Проверяем зашифрованный блок (сверено с OpenSSL)
 	ASSERT_EQ(text(sealed, sizeof(sealed)), "56646d6f47b094c4");
@@ -130,13 +134,21 @@ TEST(DesTest, Triple){
 	 * При равных трёх ключах 3DES совпадает с одиночным DES
 	 */
 	const std::vector <uint8_t> single = bytes("133457799bbcdff1");
+	// Тот же ключ, повторённый трижды для режима 3DES
 	const std::vector <uint8_t> triple = bytes("133457799bbcdff1133457799bbcdff1133457799bbcdff1");
+	// Входной блок классического вектора DES
 	const std::vector <uint8_t> block = bytes("0123456789abcdef");
+	// Пара шифров: одиночный DES и 3DES с тройным ключом
 	cipher::des_t one, three;
+	// Устанавливаем одиночный ключ
 	ASSERT_TRUE(one.key(view_t(single.data(), single.size())));
+	// Устанавливаем тройной ключ
 	ASSERT_TRUE(three.key(view_t(triple.data(), triple.size())));
+	// Буферы зашифрованного блока каждым из шифров
 	uint8_t first[8], second[8];
+	// Шифруем блок одиночным DES
 	ASSERT_TRUE(one.encrypt(block.data(), first));
+	// Шифруем тот же блок 3DES
 	ASSERT_TRUE(three.encrypt(block.data(), second));
 	// Проверяем тождество
 	ASSERT_EQ(::memcmp(first, second, sizeof(first)), 0);
@@ -151,22 +163,30 @@ TEST(DesTest, Chaining){
 	cipher::des_t cipher;
 	// Устанавливаем ключ 3DES
 	const std::vector <uint8_t> key = bytes("0123456789abcdef23456789abcdef01456789abcdef0123");
+	// Ключ 3DES длиной 24 байта принимается
 	ASSERT_TRUE(cipher.key(view_t(key.data(), key.size())));
 	// Режим простой замены с зацеплением
 	cipher::chaining_t chaining;
 	// Запускаем режим с синхропосылкой
 	const std::vector <uint8_t> iv = bytes("0123456789abcdef");
+	// Режим запущен на шифре 3DES с заданной синхропосылкой
 	ASSERT_TRUE(chaining.start(cipher::block_t(cipher), view_t(iv.data(), iv.size())));
 	// Зашифровываем сообщение из двух блоков
 	const std::vector <uint8_t> plain = bytes("0123456789abcdeffedcba9876543210");
+	// Буфер шифротекста длиной исходного сообщения
 	std::vector <uint8_t> sealed(plain.size());
+	// Зашифровка сообщения целиком в режиме с зацеплением
 	ASSERT_TRUE(chaining.encrypt(view_t(plain.data(), plain.size()), sealed.data()));
 	// Проверяем зашифрованное сообщение (сверено с OpenSSL)
 	ASSERT_EQ(text(sealed.data(), sealed.size()), "4eba739c998bcb600601c393382098d8");
 	// Расшифровываем сообщение обратно
+	// Режим расшифрования на том же шифре и той же синхропосылке
 	cipher::chaining_t back;
+	// Режим запущен на шифре 3DES с заданной синхропосылкой
 	ASSERT_TRUE(back.start(cipher::block_t(cipher), view_t(iv.data(), iv.size())));
+	// Буфер восстановленного текста длиной шифротекста
 	std::vector <uint8_t> opened(plain.size());
+	// Расшифровка шифротекста обратно
 	ASSERT_TRUE(back.decrypt(view_t(sealed.data(), sealed.size()), opened.data()));
 	// Проверяем расшифрованное сообщение
 	ASSERT_EQ(text(opened.data(), opened.size()), "0123456789abcdeffedcba9876543210");
@@ -178,13 +198,16 @@ TEST(DesTest, Chaining){
 TEST(DesTest, Refusals){
 	// Шифр без ключа
 	cipher::des_t cipher;
+	// Входной нулевой блок и буфер результата
 	uint8_t block[8] = {0}, result[8];
 	// Без ключа шифр не готов и отказывает
 	ASSERT_FALSE(cipher.ready());
+	// Шифрование без ключа отвергается
 	EXPECT_FALSE(cipher.encrypt(block, result));
 	EXPECT_FALSE(cipher.decrypt(block, result));
 	// Ключ неподходящей длины отвергается
 	const std::vector <uint8_t> shorty = bytes("133457799bbcdff1");
+	// Ключ короче 8 байт отвергается
 	EXPECT_FALSE(cipher.key(view_t(shorty.data(), 7)));
 	EXPECT_FALSE(cipher.key(view_t(shorty.data(), 16)));
 	EXPECT_FALSE(cipher.key(view_t(nullptr, 8)));
@@ -196,6 +219,7 @@ TEST(DesTest, Refusals){
 	EXPECT_FALSE(cipher.encrypt(block, nullptr));
 	// Затирание сбрасывает готовность
 	cipher.clear();
+	// После затирания готовность сброшена
 	EXPECT_FALSE(cipher.ready());
 	EXPECT_FALSE(cipher.encrypt(block, result));
 }

@@ -1,15 +1,22 @@
 /**
- * @file: sm3.cpp
- * @date: 2026-10-04
- * @license: GPL-3.0
+ * @file sm3.cpp
+ * @date 2026-10-04
  *
- * @telegram: @forman
- * @author: Yuriy Lobarev
- * @phone: +7 (910) 983-95-90
- * @email: forman@anyks.com
- * @site: https://anyks.com
+ * @license{GPL-3.0}
  *
- * @copyright: Copyright © 2026
+ * @author Yuriy Lobarev
+ *
+ * @telegram{forman}
+ * @phone{+7 (910) 983-95-90}
+ *
+ * @email forman@anyks.com
+ * @site https://anyks.com
+ *
+ * @brief Исходный файл проверок модуля дайджеста SM3: контрольные примеры,
+ *        куски, хешер и отказы
+ *
+ * @copyright Copyright © 2026
+ *
  */
 
 /**
@@ -31,11 +38,10 @@
 using namespace nts;
 
 /**
- * @brief Метод записи хеша шестнадцатеричной строкой
+ * @brief Функция записи хеша шестнадцатеричной строкой
  *
  * @param data байты хеша
  * @param size число байтов хеша
- *
  * @return     запись хеша строчными шестнадцатеричными знаками
  *
  */
@@ -58,10 +64,9 @@ static std::string text(const uint8_t * data, const size_t size) {
 }
 
 /**
- * @brief Метод выработки хеша целого сообщения строкой
+ * @brief Функция выработки хеша целого сообщения строкой
  *
  * @param message хешируемое сообщение
- *
  * @return        запись хеша шестнадцатеричной строкой
  *
  */

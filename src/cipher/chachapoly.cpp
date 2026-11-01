@@ -59,7 +59,7 @@ namespace {
 	// Затирание областей памяти берётся из открытого API библиотеки
 	using nts::sys::wipe;
 	/**
-	 * @brief Метод записи слова в 64 разряда от младшего байта
+	 * @brief Функция записи слова в 64 разряда от младшего байта
 	 *
 	 * @param value записываемое слово
 	 * @param data  место, в которое записываются байты
@@ -74,12 +74,11 @@ namespace {
 			data[i] = static_cast <uint8_t> (value >> (i * 8));
 	}
 	/**
-	 * @brief Метод сличения двух областей байтов за постоянное время
+	 * @brief Функция сличения двух областей байтов за постоянное время
 	 *
 	 * @param first  первая область
 	 * @param second вторая область
 	 * @param size   размер областей
-	 *
 	 * @return       признак совпадения областей
 	 *
 	 */
@@ -101,7 +100,6 @@ namespace {
  * @brief Метод дополнения имитовставки нулями до целого блока
  *
  * @param size длина поданных байтов, по которой считается дополнение
- *
  * @return     признак успешности дополнения
  *
  */
@@ -121,7 +119,6 @@ bool nts::cipher::Chachapoly::pad(const uint64_t size) noexcept {
  * @brief Метод вычисления метки целостности по накопленному потоку
  *
  * @param result место в 16 байтов, в которое записывается метка
- *
  * @return       признак успешности вычисления
  *
  */
@@ -191,7 +188,6 @@ bool nts::cipher::Chachapoly::reset() noexcept {
  * @brief Метод перехода потока к данным
  *
  * @param direction направление потока: единица - зашифрование, двойка - расшифрование
- *
  * @return          признак допустимости перехода
  *
  */
@@ -254,8 +250,7 @@ size_t nts::cipher::Chachapoly::size() const noexcept {
  * @brief Метод запуска режима
  *
  * @param key   ключ в 32 байта
- * @param nonce начальное заполнение в 12 байтов
- *
+ * @param nonce начальное заполнение в 12 байтов либо в 24 байта (XChaCha20-Poly1305, draft-irtf-cfrg-xchacha)
  * @return      признак успешности запуска
  *
  */
@@ -299,7 +294,6 @@ bool nts::cipher::Chachapoly::start(const view_t & key, const view_t & nonce) no
  * @brief Метод смены начального заполнения у запущенного режима
  *
  * @param nonce начальное заполнение в 12 байтов
- *
  * @return      признак успешности смены
  *
  */
@@ -339,7 +333,6 @@ void nts::cipher::Chachapoly::clear() noexcept {
  * @brief Метод подачи связанных данных потока
  *
  * @param associated связанные данные, защищаемые лишь меткой
- *
  * @return           признак успешности подачи
  *
  */
@@ -368,7 +361,6 @@ bool nts::cipher::Chachapoly::associate(const view_t & associated) noexcept {
  *
  * @param source открытый текст
  * @param result место, в которое записывается шифртекст той же длины
- *
  * @return       признак успешности зашифрования
  *
  */
@@ -409,7 +401,6 @@ bool nts::cipher::Chachapoly::encrypt(const view_t & source, uint8_t * result) n
  *
  * @param source шифртекст
  * @param result место, в которое записывается открытый текст той же длины
- *
  * @return       признак успешности расшифрования
  *
  */
@@ -451,7 +442,6 @@ bool nts::cipher::Chachapoly::decrypt(const view_t & source, uint8_t * result) n
  * @brief Метод завершения поточного зашифрования выработкой метки
  *
  * @param tag место, в которое записывается метка в 16 байтов
- *
  * @return    признак успешности завершения; поток закрывается
  *
  */
@@ -473,7 +463,6 @@ bool nts::cipher::Chachapoly::finish(uint8_t * tag) noexcept {
  * @brief Метод завершения поточного расшифрования сличением метки
  *
  * @param tag проверяемая метка в 16 байтов
- *
  * @return    признак схождения метки за постоянное время; поток закрывается
  *
  */
@@ -511,7 +500,6 @@ bool nts::cipher::Chachapoly::verify(const view_t & tag) noexcept {
  * @param source     открытый текст
  * @param result     место, в которое записывается шифртекст той же длины
  * @param tag        место, в которое записывается метка в 16 байтов
- *
  * @return           признак успешности зашифрования
  *
  */
@@ -550,7 +538,6 @@ bool nts::cipher::Chachapoly::encrypt(const view_t & associated, const view_t & 
  * @param source     шифртекст
  * @param result     место, в которое записывается открытый текст той же длины
  * @param tag        проверяемая метка в 16 байтов
- *
  * @return           признак схождения метки; при расхождении открытый текст не тронут
  *
  */

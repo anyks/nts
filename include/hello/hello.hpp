@@ -22,7 +22,6 @@
  *        and of the greeting of the server
  *
  * \~
- *
  * @copyright Copyright © 2026
  *
  */
@@ -73,11 +72,13 @@ namespace nts {
 	 *
 	 * \~english
 	 * @brief Namespace of the greetings of the handshake of the TLS protocol
+	 *
 	 * @details The sections 4.1.2 and 4.1.3 of RFC 8446: by the greetings the parties announce their
 	 *          capabilities to each other, while everything by which the TLS 1.3 edition differs from
 	 *          the previous ones is moved into the extensions. The fields of the greetings inherited
 	 *          from the previous editions are parsed here, but are interpreted only as much as the
 	 *          protocol requires it.
+	 *
 	 * @note The extensions are parsed only down to the type and the body: the bodies of the extensions
 	 *       are parsed by the parsers of their type, each by its own section
 	 *
@@ -104,6 +105,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Greatest length of the identifier of a connection of a greeting in bytes
+		 *
 		 * @details The section 4.1.2 of RFC 8446: the identifier is inherited from the previous editions
 		 *          and has no purpose of its own in the TLS 1.3 edition, but the protocol limits its length
 		 *
@@ -119,6 +121,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Greatest length of the cookie of a greeting over datagrams in bytes
+		 *
 		 * @details The section 4.2.1 of RFC 6347: the cookie field of a greeting of the client carries a one-byte length
 		 *
 		 * \~
@@ -135,15 +138,25 @@ namespace nts {
 		 * \~
 		 */
 		enum class error_t : uint8_t {
+			// Отказа нет
 			NONE      = 0x00, /*!< \~russian Отказа нет \~english There is no failure \~ */
+			// Тело приветствия оборвано посреди поля
 			HUNGRY    = 0x01, /*!< \~russian Тело приветствия оборвано посреди поля \~english The body of the greeting is cut off in the middle of a field \~ */
+			// Опознаватель связи длиннее дозволенного
 			SESSION   = 0x02, /*!< \~russian Опознаватель связи длиннее дозволенного \~english The identifier of the connection is longer than allowed \~ */
+			// Перечень наборов шифрования пуст либо оборван
 			SUITE     = 0x03, /*!< \~russian Перечень наборов шифрования пуст либо оборван \~english The list of the cipher suites is empty or is cut off \~ */
+			// Перечень способов сжатия пуст
 			METHOD    = 0x04, /*!< \~russian Перечень способов сжатия пуст \~english The list of the methods of the compression is empty \~ */
+			// Расширение оборвано либо объявлено дважды
 			EXTENSION = 0x05, /*!< \~russian Расширение оборвано либо объявлено дважды \~english An extension is cut off or is declared twice \~ */
+			// За телом приветствия идут лишние байты
 			TRAILING  = 0x06, /*!< \~russian За телом приветствия идут лишние байты \~english There are extra bytes behind the body of the greeting \~ */
+			// Составляемое поле в свою длину не входит
 			LENGTH    = 0x07, /*!< \~russian Составляемое поле в свою длину не входит \~english A field being composed does not fit into its length \~ */
+			// Памяти под итог не хватило
 			MEMORY    = 0x08, /*!< \~russian Памяти под итог не хватило \~english There was not enough memory for the outcome \~ */
+			// Метка возврата состояния приветствия поверх дейтаграмм длиннее 255 байтов
 			COOKIE    = 0x09  /*!< \~russian Метка возврата состояния приветствия поверх дейтаграмм длиннее 255 байтов \~english The cookie of a greeting over datagrams is longer than 255 bytes \~ */
 		};
 
@@ -156,6 +169,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Extension of a greeting of the handshake
+		 *
 		 * @note The body of an extension looks inside the parsed greeting and lives exactly as long as
 		 *       the parsed byte area lives
 		 *
@@ -170,13 +184,12 @@ namespace nts {
 			 * \~russian
 			 * @brief Конструктор
 			 *
-			 *
 			 * \~english
 			 * @brief Constructor
 			 *
 			 * \~
 			 */
-			Extension() noexcept : type(0) {}
+			Extension() noexcept;
 			/**
 			 * \~russian
 			 * @brief Конструктор
@@ -186,12 +199,13 @@ namespace nts {
 			 *
 			 * \~english
 			 * @brief Constructor
+			 *
 			 * @param type the type of the extension of the greeting
 			 * @param data the body of the extension of the greeting
 			 *
 			 * \~
 			 */
-			Extension(const uint16_t type, const view_t & data) noexcept : type(type), data(data) {}
+			Extension(const uint16_t type, const view_t & data) noexcept;
 		} extension_t;
 
 		/**
@@ -202,6 +216,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Greeting of the client
+		 *
 		 * @details The section 4.1.2 of RFC 8446
 		 *
 		 * \~
@@ -225,7 +240,6 @@ namespace nts {
 			 * \~russian
 			 * @brief Конструктор
 			 *
-			 *
 			 * \~english
 			 * @brief Constructor
 			 *
@@ -242,6 +256,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Greeting of the server
+		 *
 		 * @details The section 4.1.3 of RFC 8446
 		 *
 		 * \~
@@ -263,7 +278,6 @@ namespace nts {
 			 * \~russian
 			 * @brief Конструктор
 			 *
-			 *
 			 * \~english
 			 * @brief Constructor
 			 *
@@ -274,15 +288,15 @@ namespace nts {
 
 		/**
 		 * \~russian
-		 * @brief Метод поиска расширения приветствия по его виду
+		 * @brief Функция поиска расширения приветствия по его виду
 		 *
 		 * @param extensions перечень расширений приветствия
 		 * @param type       разыскиваемый вид расширения
-		 *
 		 * @return           найденное расширение либо nullptr
 		 *
 		 * \~english
-		 * @brief Method of the search of an extension of a greeting by its type
+		 * @brief Function of the search of an extension of a greeting by its type
+		 *
 		 * @param extensions the list of the extensions of the greeting
 		 * @param type       the type of the extension being searched for
 		 * @return           the found extension or nullptr
@@ -292,10 +306,9 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ const extension_t * extension(const vector <extension_t> & extensions, const uint16_t type) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод проверки того, что приветствие сервера есть просьба о повторе
+		 * @brief Функция проверки того, что приветствие сервера есть просьба о повторе
 		 *
 		 * @param hello проверяемое приветствие сервера
-		 *
 		 * @return      признак того, что сервер просит повторить приветствие клиента
 		 *
 		 * @details Раздел 4.1.3 RFC 8446: просьба о повторе приветствия передаётся тем же
@@ -303,9 +316,11 @@ namespace nts {
 		 *          назначенным случайным значением
 		 *
 		 * \~english
-		 * @brief Method of checking that a greeting of the server is a request of a repetition
+		 * @brief Function of checking that a greeting of the server is a request of a repetition
+		 *
 		 * @param hello the greeting of the server being checked
 		 * @return      the flag of the server asking to repeat the greeting of the client
+		 *
 		 * @details The section 4.1.3 of RFC 8446: the request of a repetition of the greeting is
 		 *          transmitted by the same message as the greeting of the server itself and differs only
 		 *          by the beforehand appointed random value
@@ -315,20 +330,21 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ bool retry(const server_t & hello) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод разбора тела приветствия клиента
+		 * @brief Функция разбора тела приветствия клиента
 		 *
 		 * @param data   разбираемое тело приветствия клиента
 		 * @param result приветствие, в которое помещается итог разбора
-		 *
 		 * @return       отказ разбора приветствия клиента
 		 *
 		 * @note Тела расширений смотрят внутрь разбираемой области байтов
 		 *
 		 * \~english
-		 * @brief Method of the parsing of the body of a greeting of the client
+		 * @brief Function of the parsing of the body of a greeting of the client
+		 *
 		 * @param data   the body of the greeting of the client being parsed
 		 * @param result the greeting the outcome of the parsing is put into
 		 * @return       the failure of the parsing of the greeting of the client
+		 *
 		 * @note The bodies of the extensions look inside the byte area being parsed
 		 *
 		 * \~
@@ -336,12 +352,11 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ error_t parse(const view_t & data, client_t & result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод разбора тела приветствия клиента с учётом переноса
+		 * @brief Функция разбора тела приветствия клиента с учётом переноса
 		 *
 		 * @param data     разбираемое тело приветствия клиента
 		 * @param result   приветствие, в которое помещается итог разбора
 		 * @param datagram признак приветствия поверх дейтаграмм: за опознавателем связи идёт метка возврата состояния
-		 *
 		 * @return         отказ разбора приветствия клиента
 		 *
 		 * @details Раздел 4.2.1 RFC 6347 и раздел 5.3 RFC 9147: приветствие клиента поверх
@@ -350,11 +365,13 @@ namespace nts {
 		 *          HelloVerifyRequest
 		 *
 		 * \~english
-		 * @brief Method of the parsing of the body of a greeting of the client with regard to the transport
+		 * @brief Function of the parsing of the body of a greeting of the client with regard to the transport
+		 *
 		 * @param data     the body of the greeting of the client being parsed
 		 * @param result   the greeting the outcome of the parsing is put into
 		 * @param datagram the flag of a greeting over datagrams: the cookie follows the session identifier
 		 * @return         the failure of the parsing of the greeting of the client
+		 *
 		 * @details The section 4.2.1 of RFC 6347 and the section 5.3 of RFC 9147: a greeting of the client
 		 *          over datagrams carries the cookie with a one-byte length after the session identifier;
 		 *          at DTLS 1.3 it is empty, at DTLS 1.2 it repeats the cookie from the HelloVerifyRequest
@@ -364,20 +381,21 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ error_t parse(const view_t & data, client_t & result, const bool datagram) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод разбора тела приветствия сервера
+		 * @brief Функция разбора тела приветствия сервера
 		 *
 		 * @param data   разбираемое тело приветствия сервера
 		 * @param result приветствие, в которое помещается итог разбора
-		 *
 		 * @return       отказ разбора приветствия сервера
 		 *
 		 * @note Тела расширений смотрят внутрь разбираемой области байтов
 		 *
 		 * \~english
-		 * @brief Method of the parsing of the body of a greeting of the server
+		 * @brief Function of the parsing of the body of a greeting of the server
+		 *
 		 * @param data   the body of the greeting of the server being parsed
 		 * @param result the greeting the outcome of the parsing is put into
 		 * @return       the failure of the parsing of the greeting of the server
+		 *
 		 * @note The bodies of the extensions look inside the byte area being parsed
 		 *
 		 * \~
@@ -385,15 +403,15 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ error_t parse(const view_t & data, server_t & result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод составления тела приветствия клиента
+		 * @brief Функция составления тела приветствия клиента
 		 *
 		 * @param hello  составляемое приветствие клиента
 		 * @param result накопитель, в конец которого дописывается тело приветствия
-		 *
 		 * @return       отказ составления приветствия клиента
 		 *
 		 * \~english
-		 * @brief Method of the composition of the body of a greeting of the client
+		 * @brief Function of the composition of the body of a greeting of the client
+		 *
 		 * @param hello  the greeting of the client being composed
 		 * @param result the accumulator the body of the greeting is appended to the end of
 		 * @return       the failure of the composition of the greeting of the client
@@ -403,16 +421,16 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ error_t build(const client_t & hello, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод составления тела приветствия клиента с учётом переноса
+		 * @brief Функция составления тела приветствия клиента с учётом переноса
 		 *
 		 * @param hello    составляемое приветствие клиента
 		 * @param result   накопитель, в конец которого дописывается тело приветствия
 		 * @param datagram признак приветствия поверх дейтаграмм: за опознавателем связи пишется метка возврата состояния
-		 *
 		 * @return         отказ составления приветствия клиента: COOKIE у метки длиннее 255 байтов
 		 *
 		 * \~english
-		 * @brief Method of the composition of the body of a greeting of the client with regard to the transport
+		 * @brief Function of the composition of the body of a greeting of the client with regard to the transport
+		 *
 		 * @param hello    the greeting of the client being composed
 		 * @param result   the accumulator the body of the greeting is appended to the end of
 		 * @param datagram the flag of a greeting over datagrams: the cookie is written after the session identifier
@@ -423,15 +441,15 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ error_t build(const client_t & hello, vector <uint8_t> & result, const bool datagram) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод составления тела приветствия сервера
+		 * @brief Функция составления тела приветствия сервера
 		 *
 		 * @param hello  составляемое приветствие сервера
 		 * @param result накопитель, в конец которого дописывается тело приветствия
-		 *
 		 * @return       отказ составления приветствия сервера
 		 *
 		 * \~english
-		 * @brief Method of the composition of the body of a greeting of the server
+		 * @brief Function of the composition of the body of a greeting of the server
+		 *
 		 * @param hello  the greeting of the server being composed
 		 * @param result the accumulator the body of the greeting is appended to the end of
 		 * @return       the failure of the composition of the greeting of the server

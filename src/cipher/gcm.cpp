@@ -166,6 +166,9 @@
 		 * Атрибут цели не нужен
 		 */
 		#define __ANTS_GHASH_TARGET__
+	/**
+	 * Иначе команды расширений разрешаем одной функции
+	 */
 	#else
 		/**
 		 * Разрешаем команды расширений одной функции
@@ -186,6 +189,9 @@
 		 * Атрибут цели слитого ядра не нужен
 		 */
 		#define __ANTS_FUSED_TARGET__
+	/**
+	 * Иначе команды расширений слитого ядра разрешаем одной функции
+	 */
 	#else
 		/**
 		 * Разрешаем команды расширений слитого ядра одной функции
@@ -230,7 +236,7 @@ namespace {
 	 */
 	#if defined(__ANTS_GHASH_X86__)
 		/**
-		 * @brief Метод перестановки байтов блока от старшего к младшему
+		 * @brief Функция перестановки байтов блока от старшего к младшему
 		 *
 		 * @details Блок GCM читается от старшего байта, а команда умножения без переносов
 		 *          считает слова от младшего: после перестановки разряды многочлена идут
@@ -239,7 +245,6 @@ namespace {
 		 *          возмещается ключом, хранимым сдвинутым на разряд влево
 		 *
 		 * @param value переставляемые байты
-		 *
 		 * @return      байты в обратном порядке
 		 *
 		 */
@@ -251,10 +256,9 @@ namespace {
 
 
 	/**
-	 * @brief Метод чтения слова в 64 разряда от старшего байта
+	 * @brief Функция чтения слова в 64 разряда от старшего байта
 	 *
 	 * @param data читаемые байты
-	 *
 	 * @return     прочитанное слово
 	 *
 	 */
@@ -272,7 +276,7 @@ namespace {
 	}
 
 	/**
-	 * @brief Метод записи слова в 64 разряда от старшего байта
+	 * @brief Функция записи слова в 64 разряда от старшего байта
 	 *
 	 * @param value записываемое слово
 	 * @param data  место, в которое записываются байты
@@ -288,12 +292,11 @@ namespace {
 	}
 
 	/**
-	 * @brief Метод сличения двух областей байтов за постоянное время
+	 * @brief Функция сличения двух областей байтов за постоянное время
 	 *
 	 * @param first  первая область
 	 * @param second вторая область
 	 * @param size   размер областей
-	 *
 	 * @return       признак совпадения областей
 	 *
 	 */
@@ -310,7 +313,7 @@ namespace {
 		return (difference == 0);
 	}
 	/**
-	 * @brief Метод сложения целых блоков в накопитель умножением по байтовой таблице
+	 * @brief Функция сложения целых блоков в накопитель умножением по байтовой таблице
 	 *
 	 * @details Накопитель держится двумя словами в регистрах на все блоки: блок складывается
 	 *          с ним словами, и байты суммы дают пятнадцать шагов сдвига с приведением по
@@ -368,7 +371,7 @@ namespace {
 	 */
 	#if defined(__ANTS_GHASH_ARM__)
 		/**
-		 * @brief Метод записи ключа хеширования с отражёнными разрядами байтов
+		 * @brief Функция записи ключа хеширования с отражёнными разрядами байтов
 		 *
 		 * @param key    ключ хеширования
 		 * @param mirror место под три слова: отражённый ключ и сумма его половин
@@ -381,7 +384,7 @@ namespace {
 			mirror[2] = (mirror[0] ^ mirror[1]);
 		}
 		/**
-		 * @brief Метод умножения значения на ключ хеширования командой PMULL
+		 * @brief Функция умножения значения на ключ хеширования командой PMULL
 		 *
 		 * @param mirror ключ хеширования с отражёнными разрядами байтов
 		 * @param value  умножаемое значение, заменяемое произведением
@@ -427,7 +430,7 @@ namespace {
 			vst1q_u8(value, vrbitq_u8(vreinterpretq_u8_u64(low)));
 		}
 		/**
-		 * @brief Метод неприведённого умножения двух отражённых многочленов
+		 * @brief Функция неприведённого умножения двух отражённых многочленов
 		 *
 		 * @param a    первый множитель
 		 * @param b    второй множитель
@@ -450,7 +453,7 @@ namespace {
 			high = veorq_u64(high, veorq_u64(p2, vextq_u64(p1, vdupq_n_u64(0), 1)));
 		}
 		/**
-		 * @brief Метод сложения восьми блоков в накопитель одним приведением командой PMULL
+		 * @brief Функция сложения восьми блоков в накопитель одним приведением командой PMULL
 		 *
 		 * @param powers      степени ключа хеширования от четвёртой до первой, отражённые
 		 * @param accumulator накопитель многочлена, заменяемый итогом
@@ -490,7 +493,7 @@ namespace {
 			vst1q_u8(accumulator, vrbitq_u8(vreinterpretq_u8_u64(low)));
 		}
 		/**
-		 * @brief Метод слитого хода режима: гамма счётчика AES и хеш GHASH по восемь блоков в одном проходе
+		 * @brief Функция слитого хода режима: гамма счётчика AES и хеш GHASH по восемь блоков в одном проходе
 		 *
 		 * @param keys        расписание ключа зашифрования AES
 		 * @param rounds      число кругов AES
@@ -512,7 +515,9 @@ namespace {
 			const uint8x16_t base = vld1q_u8(counter);
 			// Шаги счётчика в переставленном слове: единица, двойка и четвёрка в старшем байте слова
 			const uint32x4_t step1 = vsetq_lane_u32(0x01000000U, vdupq_n_u32(0), 3);
+			// Двойной шаг счётчика
 			const uint32x4_t step2 = vaddq_u32(step1, step1);
+			// Сдвоенный шаг счётчика
 			const uint32x4_t step4 = vaddq_u32(step2, step2);
 			// Младшие 32 разряда счётчика числом
 			uint32_t tail = ((static_cast <uint32_t> (counter[12]) << 24) | (static_cast <uint32_t> (counter[13]) << 16) | (static_cast <uint32_t> (counter[14]) << 8) | static_cast <uint32_t> (counter[15]));
@@ -525,9 +530,11 @@ namespace {
 			for(size_t c = 0; c < chunks; c++){
 				// При расшифровании хеш берётся от шифртекста до снятия гаммы
 				if(!sealing)
+				// Складываем источник с накопителем хеша
 				aggregateArm(powers, accumulator, source);
 				// При зашифровании хеш берётся от шифртекста прежней восьмёрки
 				else if(c > 0)
+				// Складываем шифртекст прежней восьмёрки с накопителем
 				aggregateArm(powers, accumulator, result - 128);
 				// Восемь блоков счётчика
 				uint8x16_t s0, s1, s2, s3, s4, s5, s6, s7;
@@ -542,28 +549,45 @@ namespace {
 				if((tail & 0xFFU) < 0xF8U){
 					// Переставленный счётчик восьмёрки
 					const uint32x4_t c0 = vaddq_u32(vsetq_lane_u32(__builtin_bswap32(tail), vreinterpretq_u32_u8(base), 3), step1);
+					// Счётчик восьмёрки со сдвигом на шаг
 					const uint32x4_t c1 = vaddq_u32(c0, step1);
+					// Счётчик восьмёрки со сдвигом на два шага
 					const uint32x4_t c2 = vaddq_u32(c0, step2);
+					// Счётчик восьмёрки со сдвигом на три шага
 					const uint32x4_t c3 = vaddq_u32(c1, step2);
 					// Собираем восемь блоков счётчика сложениями
 					s0 = vreinterpretq_u8_u32(c0);
+					// второй блок счётчика сложением
 					s1 = vreinterpretq_u8_u32(c1);
+					// третий блок счётчика сложением
 					s2 = vreinterpretq_u8_u32(c2);
+					// четвёртый блок счётчика сложением
 					s3 = vreinterpretq_u8_u32(c3);
+					// пятый блок счётчика сложением
 					s4 = vreinterpretq_u8_u32(vaddq_u32(c0, step4));
+					// шестой блок счётчика сложением
 					s5 = vreinterpretq_u8_u32(vaddq_u32(c1, step4));
+					// седьмой блок счётчика сложением
 					s6 = vreinterpretq_u8_u32(vaddq_u32(c2, step4));
+					// восьмой блок счётчика сложением
 					s7 = vreinterpretq_u8_u32(vaddq_u32(c3, step4));
 				// Иначе младший байт переполняется внутри восьмёрки
 				} else {
 					// Собираем восемь блоков счётчика по одному
 					s0 = vreinterpretq_u8_u32(vsetq_lane_u32(__builtin_bswap32(tail + 1), vreinterpretq_u32_u8(base), 3));
+					// второй блок счётчика через скаляр
 					s1 = vreinterpretq_u8_u32(vsetq_lane_u32(__builtin_bswap32(tail + 2), vreinterpretq_u32_u8(base), 3));
+					// третий блок счётчика через скаляр
 					s2 = vreinterpretq_u8_u32(vsetq_lane_u32(__builtin_bswap32(tail + 3), vreinterpretq_u32_u8(base), 3));
+					// четвёртый блок счётчика через скаляр
 					s3 = vreinterpretq_u8_u32(vsetq_lane_u32(__builtin_bswap32(tail + 4), vreinterpretq_u32_u8(base), 3));
+					// пятый блок счётчика через скаляр
 					s4 = vreinterpretq_u8_u32(vsetq_lane_u32(__builtin_bswap32(tail + 5), vreinterpretq_u32_u8(base), 3));
+					// шестой блок счётчика через скаляр
 					s5 = vreinterpretq_u8_u32(vsetq_lane_u32(__builtin_bswap32(tail + 6), vreinterpretq_u32_u8(base), 3));
+					// седьмой блок счётчика через скаляр
 					s6 = vreinterpretq_u8_u32(vsetq_lane_u32(__builtin_bswap32(tail + 7), vreinterpretq_u32_u8(base), 3));
+					// восьмой блок счётчика через скаляр
 					s7 = vreinterpretq_u8_u32(vsetq_lane_u32(__builtin_bswap32(tail + 8), vreinterpretq_u32_u8(base), 3));
 				}
 				// Продвигаем счётчик на восемь блоков
@@ -574,13 +598,21 @@ namespace {
 				for(size_t round = 0; (round + 1) < rounds; round++){
 					// Ключ круга
 					const uint8x16_t key = vld1q_u8(keys + (round * 16));
+					// первый блок на круге подстановки
 					s0 = vaesmcq_u8(vaeseq_u8(s0, key));
+					// второй блок на круге подстановки
 					s1 = vaesmcq_u8(vaeseq_u8(s1, key));
+					// третий блок на круге подстановки
 					s2 = vaesmcq_u8(vaeseq_u8(s2, key));
+					// четвёртый блок на круге подстановки
 					s3 = vaesmcq_u8(vaeseq_u8(s3, key));
+					// пятый блок на круге подстановки
 					s4 = vaesmcq_u8(vaeseq_u8(s4, key));
+					// шестой блок на круге подстановки
 					s5 = vaesmcq_u8(vaeseq_u8(s5, key));
+					// седьмой блок на круге подстановки
 					s6 = vaesmcq_u8(vaeseq_u8(s6, key));
+					// восьмой блок на круге подстановки
 					s7 = vaesmcq_u8(vaeseq_u8(s7, key));
 				}
 				// Накладываем гамму на источник
@@ -594,15 +626,20 @@ namespace {
 				vst1q_u8(result + 112, veorq_u8(veorq_u8(vaeseq_u8(s7, final), last), vld1q_u8(source + 112)));
 				// Переходим к следующей восьмёрке
 				source += 128;
+				// Сдвигаем место записи итога на восьмёрку
 				result += 128;
 			}
 			// При зашифровании хеш последней восьмёрки шифртекста берётся после цикла
 			if(sealing)
+			// Складываем шифртекст последней восьмёрки с накопителем
 			aggregateArm(powers, accumulator, result - 128);
 			// Записываем продвинутый счётчик
 			counter[12] = static_cast <uint8_t> (tail >> 24);
+			// Записываем продвинутый счётчик дальше
 			counter[13] = static_cast <uint8_t> (tail >> 16);
+			// Записываем продвинутый счётчик ещё дальше
 			counter[14] = static_cast <uint8_t> (tail >> 8);
+			// Записываем младший байт продвинутого счётчика
 			counter[15] = static_cast <uint8_t> (tail);
 		}
 	/**
@@ -610,7 +647,7 @@ namespace {
 	 */
 	#elif defined(__ANTS_GHASH_X86__)
 		/**
-		 * @brief Метод записи ключа хеширования в виде под команду PCLMULQDQ
+		 * @brief Функция записи ключа хеширования в виде под команду PCLMULQDQ
 		 *
 		 * @details Байты переставляются от старшего к младшему, и ключ сдвигается на разряд
 		 *          влево с приведением вынесенного разряда по многочлену поля: так сдвиг
@@ -636,7 +673,7 @@ namespace {
 			twist[2] = (twist[0] ^ twist[1]);
 		}
 		/**
-		 * @brief Метод умножения Карацубы двух переставленных многочленов без приведения
+		 * @brief Функция умножения Карацубы двух переставленных многочленов без приведения
 		 *
 		 * @details Три команды умножения вместо четырёх: произведения младших половин,
 		 *          старших половин и сумм половин; средние произведения копятся порознь и
@@ -659,7 +696,7 @@ namespace {
 			middle = _mm_xor_si128(middle, _mm_clmulepi64_si128(_mm_xor_si128(a, _mm_shuffle_epi32(a, 0x4E)), ab, 0x00));
 		}
 		/**
-		 * @brief Метод приведения суммы произведений по многочлену поля в переставленном виде
+		 * @brief Функция приведения суммы произведений по многочлену поля в переставленном виде
 		 *
 		 * @details Средние произведения Карацубы складываются с крайними и делятся между
 		 *          половинами, затем старшая половина сворачивается в младшую: умножение
@@ -669,7 +706,6 @@ namespace {
 		 * @param low    сумма произведений младших половин
 		 * @param high   сумма произведений старших половин
 		 * @param middle сумма произведений сумм половин
-		 *
 		 * @return       приведённое произведение с переставленными байтами
 		 *
 		 */
@@ -706,7 +742,7 @@ namespace {
 			return _mm_xor_si128(shifted, high);
 		}
 		/**
-		 * @brief Метод умножения значения на ключ хеширования командой PCLMULQDQ
+		 * @brief Функция умножения значения на ключ хеширования командой PCLMULQDQ
 		 *
 		 * @param twist сдвинутый ключ хеширования с суммой половин
 		 * @param value умножаемое значение в порядке GCM, заменяемое произведением
@@ -723,7 +759,7 @@ namespace {
 			_mm_storeu_si128(reinterpret_cast <__m128i *> (value), swap(reduceX86(low, high, middle)));
 		}
 		/**
-		 * @brief Метод сложения восьми блоков в накопитель одним приведением командой PCLMULQDQ
+		 * @brief Функция сложения восьми блоков в накопитель одним приведением командой PCLMULQDQ
 		 *
 		 * @param powers      степени ключа хеширования от восьмой до первой, сдвинутые, с суммами половин
 		 * @param accumulator накопитель многочлена, заменяемый итогом
@@ -749,9 +785,9 @@ namespace {
 		/**
 		 * Если собиратель семейства GCC под x86-64: ядро сложения восьмёрок на ассемблере
 		 */
-		#if (defined(__GNUC__) || defined(__clang__)) && defined(__x86_64__)
+		#if(defined(__GNUC__) || defined(__clang__)) && defined(__x86_64__)
 			/**
-			 * @brief Метод сложения восьмёрок блоков в накопитель ядром на ассемблере с кодировкой VEX
+			 * @brief Функция сложения восьмёрок блоков в накопитель ядром на ассемблере с кодировкой VEX
 			 *
 			 * @details Восьмёрки идут циклом внутри вставки конвейером, как у gcm_ghash_avx OpenSSL:
 			 *          блок множится на степень ключа умножением Карацубы тремя командами, суммы
@@ -891,7 +927,7 @@ namespace {
 			}
 		#endif
 		/**
-		 * @brief Метод слитого хода режима: гамма счётчика AES-NI и хеш GHASH по восемь блоков в одном проходе
+		 * @brief Функция слитого хода режима: гамма счётчика AES-NI и хеш GHASH по восемь блоков в одном проходе
 		 *
 		 * @param keys        расписание ключа зашифрования AES
 		 * @param rounds      число кругов AES
@@ -913,7 +949,9 @@ namespace {
 			const __m128i head = _mm_and_si128(_mm_loadu_si128(reinterpret_cast <const __m128i *> (counter)), _mm_set_epi32(0, -1, -1, -1));
 			// Шаги счётчика в переставленном слове: единица, двойка и четвёрка в старшем байте слова
 			const __m128i step1 = _mm_set_epi32(0x01000000, 0, 0, 0);
+			// Двойной шаг счётчика
 			const __m128i step2 = _mm_add_epi32(step1, step1);
+			// Сдвоенный шаг счётчика
 			const __m128i step4 = _mm_add_epi32(step2, step2);
 			// Младшие 32 разряда счётчика числом
 			uint32_t tail = ((static_cast <uint32_t> (counter[12]) << 24) | (static_cast <uint32_t> (counter[13]) << 16) | (static_cast <uint32_t> (counter[14]) << 8) | static_cast <uint32_t> (counter[15]));
@@ -926,9 +964,11 @@ namespace {
 			for(size_t c = 0; c < chunks; c++){
 				// При расшифровании хеш берётся от шифртекста до снятия гаммы
 				if(!sealing)
+				// Складываем источник с накопителем хеша
 				aggregateX86(powers, accumulator, source);
 				// При зашифровании хеш берётся от шифртекста прежней восьмёрки
 				else if(c > 0)
+				// Складываем шифртекст прежней восьмёрки с накопителем
 				aggregateX86(powers, accumulator, result - 128);
 				// Восемь блоков счётчика
 				__m128i s0, s1, s2, s3, s4, s5, s6, s7;
@@ -943,28 +983,45 @@ namespace {
 				if((tail & 0xFFU) < 0xF8U){
 					// Переставленный счётчик восьмёрки
 					const __m128i c0 = _mm_add_epi32(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__builtin_bswap32(tail)), 0, 0, 0)), step1);
+					// Счётчик восьмёрки со сдвигом на шаг
 					const __m128i c1 = _mm_add_epi32(c0, step1);
+					// Счётчик восьмёрки со сдвигом на два шага
 					const __m128i c2 = _mm_add_epi32(c0, step2);
+					// Счётчик восьмёрки со сдвигом на три шага
 					const __m128i c3 = _mm_add_epi32(c1, step2);
 					// Собираем восемь блоков счётчика сложениями под первым ключом
 					s0 = _mm_xor_si128(c0, first);
+					// второй блок счётчика под первым ключом
 					s1 = _mm_xor_si128(c1, first);
+					// третий блок счётчика под первым ключом
 					s2 = _mm_xor_si128(c2, first);
+					// четвёртый блок счётчика под первым ключом
 					s3 = _mm_xor_si128(c3, first);
+					// пятый блок счётчика под первым ключом
 					s4 = _mm_xor_si128(_mm_add_epi32(c0, step4), first);
+					// шестой блок счётчика под первым ключом
 					s5 = _mm_xor_si128(_mm_add_epi32(c1, step4), first);
+					// седьмой блок счётчика под первым ключом
 					s6 = _mm_xor_si128(_mm_add_epi32(c2, step4), first);
+					// восьмой блок счётчика под первым ключом
 					s7 = _mm_xor_si128(_mm_add_epi32(c3, step4), first);
 				// Иначе младший байт переполняется внутри восьмёрки
 				} else {
 					// Собираем восемь блоков счётчика по одному под первым ключом
 					s0 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__builtin_bswap32(tail + 1)), 0, 0, 0)), first);
+					// второй блок счётчика через скаляр
 					s1 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__builtin_bswap32(tail + 2)), 0, 0, 0)), first);
+					// третий блок счётчика через скаляр
 					s2 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__builtin_bswap32(tail + 3)), 0, 0, 0)), first);
+					// четвёртый блок счётчика через скаляр
 					s3 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__builtin_bswap32(tail + 4)), 0, 0, 0)), first);
+					// пятый блок счётчика через скаляр
 					s4 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__builtin_bswap32(tail + 5)), 0, 0, 0)), first);
+					// шестой блок счётчика через скаляр
 					s5 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__builtin_bswap32(tail + 6)), 0, 0, 0)), first);
+					// седьмой блок счётчика через скаляр
 					s6 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__builtin_bswap32(tail + 7)), 0, 0, 0)), first);
+					// восьмой блок счётчика через скаляр
 					s7 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__builtin_bswap32(tail + 8)), 0, 0, 0)), first);
 				}
 				// Продвигаем счётчик на восемь блоков
@@ -975,13 +1032,21 @@ namespace {
 				for(size_t round = 1; round < rounds; round++){
 					// Ключ круга
 					const __m128i key = _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys + (round * 16)));
+					// первый блок на круге подстановки
 					s0 = _mm_aesenc_si128(s0, key);
+					// второй блок на круге подстановки
 					s1 = _mm_aesenc_si128(s1, key);
+					// третий блок на круге подстановки
 					s2 = _mm_aesenc_si128(s2, key);
+					// четвёртый блок на круге подстановки
 					s3 = _mm_aesenc_si128(s3, key);
+					// пятый блок на круге подстановки
 					s4 = _mm_aesenc_si128(s4, key);
+					// шестой блок на круге подстановки
 					s5 = _mm_aesenc_si128(s5, key);
+					// седьмой блок на круге подстановки
 					s6 = _mm_aesenc_si128(s6, key);
+					// восьмой блок на круге подстановки
 					s7 = _mm_aesenc_si128(s7, key);
 				}
 				// Накладываем гамму на источник
@@ -995,15 +1060,20 @@ namespace {
 				_mm_storeu_si128(reinterpret_cast <__m128i *> (result + 112), _mm_xor_si128(_mm_aesenclast_si128(s7, last), _mm_loadu_si128(reinterpret_cast <const __m128i *> (source + 112))));
 				// Переходим к следующей восьмёрке
 				source += 128;
+				// Сдвигаем место записи итога на восьмёрку
 				result += 128;
 			}
 			// При зашифровании хеш последней восьмёрки шифртекста берётся после цикла
 			if(sealing)
+			// Складываем шифртекст последней восьмёрки с накопителем
 			aggregateX86(powers, accumulator, result - 128);
 			// Записываем продвинутый счётчик
 			counter[12] = static_cast <uint8_t> (tail >> 24);
+			// Записываем продвинутый счётчик дальше
 			counter[13] = static_cast <uint8_t> (tail >> 16);
+			// Записываем продвинутый счётчик ещё дальше
 			counter[14] = static_cast <uint8_t> (tail >> 8);
+			// Записываем младший байт продвинутого счётчика
 			counter[15] = static_cast <uint8_t> (tail);
 		}
 	#endif
@@ -1012,7 +1082,7 @@ namespace {
 	 */
 	#if defined(__ANTS_GCM_STITCH__)
 		/**
-		 * @brief Метод слитого хода целых восьмёрок сшитым ядром на ассемблере
+		 * @brief Функция слитого хода целых восьмёрок сшитым ядром на ассемблере
 		 *
 		 * @details Ядро из порождателя tools/cipher/gcm.py хеширует на каждой восьмёрке прежнюю
 		 *          (при зашифровании - итог прошлой, при расшифровании - исходные данные текущей)
@@ -1029,7 +1099,6 @@ namespace {
 		 * @param source      исходные данные
 		 * @param result      место под итог
 		 * @param chunks      число восьмёрок: не меньше одной
-		 *
 		 * @return            признак успешности хода
 		 *
 		 */
@@ -1048,8 +1117,11 @@ namespace {
 				const uint32_t tail = (((static_cast <uint32_t> (counter[12]) << 24) | (static_cast <uint32_t> (counter[13]) << 16) | (static_cast <uint32_t> (counter[14]) << 8) | static_cast <uint32_t> (counter[15])) + 8U);
 				// Записываем продвинутый счётчик
 				counter[12] = static_cast <uint8_t> (tail >> 24);
+				// Записываем продвинутый счётчик дальше
 				counter[13] = static_cast <uint8_t> (tail >> 16);
+				// Записываем продвинутый счётчик ещё дальше
 				counter[14] = static_cast <uint8_t> (tail >> 8);
+				// Записываем младший байт продвинутого счётчика
 				counter[15] = static_cast <uint8_t> (tail);
 				// Первая восьмёрка пройдена
 				first = 1;
@@ -1062,8 +1134,13 @@ namespace {
 				#if defined(__aarch64__)
 					// Выполняем ход ядром AArch64: при зашифровании хешируется прежняя восьмёрка итога, при расшифровании - исходные данные
 					kernel::stitchArm(block.schedule, block.rounds, counter, powers, accumulator, frame, (sealing ? result : source), source + (first * 128), result + (first * 128), chunks - first);
+				/**
+				 * Иначе ход выполняется ядром x86-64
+				 */
 				#else
-					// Выполняем ход ядром x86-64: при зашифровании хешируется прежняя восьмёрка итога, при расшифровании - исходные данные
+					/**
+					 * Выполняем ход ядром x86-64: при зашифровании хешируется прежняя восьмёрка итога, при расшифровании - исходные данные
+					 */
 					kernel::stitchX86(block.schedule, block.rounds, counter, powers, accumulator, frame, (sealing ? result : source), source + (first * 128), result + (first * 128), chunks - first);
 				#endif
 				// Выполняем затирание кадра
@@ -1077,8 +1154,13 @@ namespace {
 				#if defined(__aarch64__)
 					// Хешируем последнюю восьмёрку итога командой PMULL
 					aggregateArm(powers, accumulator, result + ((chunks - 1) * 128));
+				/**
+				 * Иначе хеширование идёт командой PCLMULQDQ
+				 */
 				#else
-					// Хешируем последнюю восьмёрку итога командой PCLMULQDQ
+					/**
+					 * Хешируем последнюю восьмёрку итога командой PCLMULQDQ
+					 */
 					aggregateX86(powers, accumulator, result + ((chunks - 1) * 128));
 				#endif
 			}
@@ -1091,12 +1173,11 @@ namespace {
 /**
  * @brief Метод слитого хода режима: гамма счётчика AES и хеш по восемь блоков в одном проходе
  *
- * @param sealing признак зашифрования
+ * @param sealing признак зашифрования: хеш берётся от итога, при расшифровании - от источника
  * @param source  источник целыми восьмёрками блоков
- * @param result  место под итог той же длины
+ * @param result  место, в которое записывается итог той же длины
  * @param chunks  число восьмёрок блоков
- *
- * @return        признак того, что ход выполнен
+ * @return        признак того, что ход выполнен: без расписания ключа AES либо команд машины - отказ, и путь идёт порознь
  *
  */
 bool nts::cipher::Gcm::travel(const bool sealing, const uint8_t * source, uint8_t * result, const size_t chunks) noexcept {
@@ -1123,6 +1204,9 @@ bool nts::cipher::Gcm::travel(const bool sealing, const uint8_t * source, uint8_
 			#endif
 			// Выполняем слитый ход командами ARMv8
 			fusedArm(this->_block.schedule, this->_block.rounds, this->_counter, this->_powers, this->_accumulator, sealing, source, result, chunks);
+		/**
+		 * Иначе слитый ход выполняется командами x86-64
+		 */
 		#else
 			/**
 			 * Если есть сшитое ядро на ассемблере, а машина несёт кодировку VEX и MOVBE
@@ -1138,10 +1222,17 @@ bool nts::cipher::Gcm::travel(const bool sealing, const uint8_t * source, uint8_
 		#endif
 		// Выводим успешность слитого хода
 		return true;
+	/**
+	 * Иначе ветви машинного умножения нет
+	 */
 	#else
+		// Довод способа без ветви машины не используется
 		(void) sealing;
+		// Довод источника без ветви машины не используется
 		(void) source;
+		// Довод итога без ветви машины не используется
 		(void) result;
+		// Довод числа восьмёрок без ветви машины не используется
 		(void) chunks;
 		// Выводим отказ слитого хода: ветви машины нет
 		return false;
@@ -1213,7 +1304,6 @@ void nts::cipher::Gcm::multiply(uint8_t * value) const noexcept {
  * @param accumulator накопитель многочлена, заменяемый итогом
  * @param blocks      восьмёрки блоков подряд
  * @param count       число восьмёрок: не меньше одной
- *
  * @return            признак того, что машина умножает командами и восьмёрки сложены
  *
  */
@@ -1242,7 +1332,7 @@ bool nts::cipher::Gcm::aggregate(uint8_t * accumulator, const uint8_t * blocks, 
 			/**
 			 * Если есть ядро на ассемблере
 			 */
-			#if (defined(__GNUC__) || defined(__clang__)) && defined(__x86_64__)
+			#if(defined(__GNUC__) || defined(__clang__)) && defined(__x86_64__)
 				// Если машина несёт кодировку VEX
 				if(machine::has(machine::feature_t::AVX)){
 					// Выполняем сложение восьмёрок ядром одним вызовом
@@ -1375,7 +1465,6 @@ void nts::cipher::Gcm::absorb(const uint8_t * data, const size_t size) noexcept 
  *
  * @param source накладываемые данные
  * @param result место, в которое записывается итог наложения
- *
  * @return       признак успешности наложения
  *
  */
@@ -1437,8 +1526,11 @@ bool nts::cipher::Gcm::cover(const view_t & source, uint8_t * result) noexcept {
 			const uint32_t tail = ((static_cast <uint32_t> (this->_counter[12]) << 24) | (static_cast <uint32_t> (this->_counter[13]) << 16) | (static_cast <uint32_t> (this->_counter[14]) << 8) | static_cast <uint32_t> (this->_counter[15])) + static_cast <uint32_t> (count);
 			// Записываем сдвинутый счётчик от старшего байта
 			this->_counter[12] = static_cast <uint8_t> (tail >> 24);
+			// Записываем сдвинутый счётчик дальше
 			this->_counter[13] = static_cast <uint8_t> (tail >> 16);
+			// Записываем сдвинутый счётчик ещё дальше
 			this->_counter[14] = static_cast <uint8_t> (tail >> 8);
+			// Записываем младший байт сдвинутого счётчика
 			this->_counter[15] = static_cast <uint8_t> (tail);
 		// Иначе гамма вырабатывается по одному блоку
 		} else {
@@ -1552,7 +1644,6 @@ void nts::cipher::Gcm::digest(uint8_t * result) noexcept {
  * @brief Метод вычисления метки целостности по накопленному потоку
  *
  * @param result место в 16 байтов, в которое записывается метка
- *
  * @return       признак успешности вычисления
  *
  */
@@ -1609,7 +1700,6 @@ void nts::cipher::Gcm::reset() noexcept {
  * @brief Метод перехода потока к данным
  *
  * @param direction направление потока: единица - зашифрование, двойка - расшифрование
- *
  * @return          признак допустимости перехода
  *
  */
@@ -1683,7 +1773,6 @@ size_t nts::cipher::Gcm::size() const noexcept {
  * @param block блочный шифр с блоком в 16 байтов и установленным ключом
  * @param nonce начальное заполнение любой ненулевой длины, 12 байтов - прямой путь
  * @param size  длина метки целостности от 4 до 16 байтов, ноль - 16
- *
  * @return      признак успешности запуска
  *
  */
@@ -1760,6 +1849,9 @@ bool nts::cipher::Gcm::start(const block_t & block, const view_t & nonce, const 
 	 * Выполняем выработку остальных кратных сложением кратных разрядов
 	 */
 	for(size_t i = 2; i < 256; i <<= 1){
+		/**
+		 * Перебираем слагаемые внутри степени двойки
+		 */
 		for(size_t j = 1; j < i; j++){
 			// Складываем кратные разрядов
 			this->_table[i + j][0] = (this->_table[i][0] ^ this->_table[j][0]);
@@ -1817,8 +1909,13 @@ bool nts::cipher::Gcm::start(const block_t & block, const view_t & nonce, const 
 				#if defined(__ANTS_GHASH_ARM__)
 					// Записываем степень отражённой: восьмая идёт первой
 					mirrorArm(power, this->_powers[7 - i]);
+				/**
+				 * Иначе запись идёт ветвью машинного умножения PCLMULQDQ
+				 */
 				#else
-					// Записываем степень сдвинутой с суммой половин: восьмая идёт первой
+					/**
+					 * Записываем степень сдвинутой с суммой половин: восьмая идёт первой
+					 */
 					twistX86(power, this->_powers[7 - i]);
 				#endif
 			}
@@ -1835,8 +1932,7 @@ bool nts::cipher::Gcm::start(const block_t & block, const view_t & nonce, const 
  * @brief Метод смены начального заполнения у запущенного режима
  *
  * @param nonce начальное заполнение любой ненулевой длины, 12 байтов - прямой путь
- *
- * @return      признак успешности смены
+ * @return      признак успешности смены: отказ у незапущенного режима либо пустого заполнения
  *
  */
 bool nts::cipher::Gcm::restart(const view_t & nonce) noexcept {
@@ -1912,7 +2008,6 @@ void nts::cipher::Gcm::clear() noexcept {
  * @brief Метод подачи связанных данных потока
  *
  * @param associated связанные данные, защищаемые лишь меткой
- *
  * @return           признак успешности подачи
  *
  */
@@ -1928,8 +2023,9 @@ bool nts::cipher::Gcm::associate(const view_t & associated) noexcept {
 	// Переводим поток на связанные данные
 	// Раздел 5.2.1.1 NIST SP 800-38D: присоединённые данные не длиннее 2^64 - 1 разрядов - до поглощения, иначе поглотились бы байты сверх предела
 	if((this->_associated + static_cast <uint64_t> (associated.size)) >= GCM_ASSOCIATED)
-		// Выводим отказ
+		// Выводим отрицательный результат - присоединённые данные выходят за предел
 		return false;
+	// Переводим поток на связанные данные
 	this->_stage = 1;
 	// Выполняем сложение связанных данных в накопитель
 	this->absorb(associated.data, associated.size);
@@ -1943,7 +2039,6 @@ bool nts::cipher::Gcm::associate(const view_t & associated) noexcept {
  *
  * @param source открытый текст
  * @param result место, в которое записывается шифртекст той же длины
- *
  * @return       признак успешности зашифрования
  *
  */
@@ -1964,9 +2059,10 @@ bool nts::cipher::Gcm::encrypt(const view_t & source, uint8_t * result) noexcept
 	if((this->_sealed + static_cast <uint64_t> (source.size)) > GCM_MOST){
 		// Останавливаем шифрование
 		this->_stage = 3;
-		// Выводим отказ
+		// Выводим отрицательный результат - переход к зашифрованию недопустим
 		return false;
 	}
+	// Если поток перевести к зашифрованию не удалось
 	if(!this->proceed(1))
 		// Выводим отказ зашифрования
 		return false;
@@ -2001,7 +2097,6 @@ bool nts::cipher::Gcm::encrypt(const view_t & source, uint8_t * result) noexcept
  *
  * @param source шифртекст
  * @param result место, в которое записывается открытый текст той же длины
- *
  * @return       признак успешности расшифрования
  *
  */
@@ -2013,7 +2108,7 @@ bool nts::cipher::Gcm::decrypt(const view_t & source, uint8_t * result) noexcept
 	if((this->_sealed + static_cast <uint64_t> (source.size)) > GCM_MOST){
 		// Останавливаем шифрование
 		this->_stage = 3;
-		// Выводим отказ
+		// Выводим отрицательный результат - расшифровка выходит за предел
 		return false;
 	}
 	// Если режим не готов
@@ -2057,7 +2152,6 @@ bool nts::cipher::Gcm::decrypt(const view_t & source, uint8_t * result) noexcept
  * @brief Метод завершения поточного зашифрования выработкой метки
  *
  * @param tag место, в которое записывается метка установленной длины
- *
  * @return    признак успешности завершения; поток закрывается
  *
  */
@@ -2092,7 +2186,6 @@ bool nts::cipher::Gcm::finish(uint8_t * tag) noexcept {
  * @brief Метод завершения поточного расшифрования сличением метки
  *
  * @param tag проверяемая метка установленной длины
- *
  * @return    признак схождения метки за постоянное время; поток закрывается
  *
  */
@@ -2130,7 +2223,6 @@ bool nts::cipher::Gcm::verify(const view_t & tag) noexcept {
  * @param source     открытый текст
  * @param result     место, в которое записывается шифртекст той же длины
  * @param tag        место, в которое записывается метка установленной длины
- *
  * @return           признак успешности зашифрования
  *
  */
@@ -2167,14 +2259,13 @@ bool nts::cipher::Gcm::encrypt(const view_t & associated, const view_t & source,
  * @param source     шифртекст
  * @param result     место, в которое записывается открытый текст той же длины
  * @param tag        проверяемая метка установленной длины
- *
  * @return           признак схождения метки; при расхождении открытый текст не тронут
  *
  */
 bool nts::cipher::Gcm::decrypt(const view_t & associated, const view_t & source, uint8_t * result, const view_t & tag) noexcept {
 	// Раздел 5.2.1.1 NIST SP 800-38D: предел открытого текста и у одновызовного пути - поточный decrypt() здесь минуется
 	if(static_cast <uint64_t> (source.size) > GCM_MOST)
-		// Выводим отказ
+		// Выводим отрицательный результат - открытый текст выходит за предел
 		return false;
 	// Если режим не готов либо метка не установленной длины
 	if(!this->_ready || (tag.data == nullptr) || (tag.size != this->_size))

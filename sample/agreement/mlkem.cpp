@@ -53,7 +53,7 @@ using namespace nts;
  */
 namespace {
 	/**
-	 * @brief Метод печати области байтов шестнадцатеричной записью
+	 * @brief Функция печати области байтов шестнадцатеричной записью
 	 *
 	 * @param title подпись
 	 * @param data  область байтов
@@ -79,13 +79,13 @@ namespace {
  *
  * @param argc число доводов
  * @param argv доводы
- *
  * @return     код завершения: нуль при успехе
  *
  */
 int main(int argc, char * argv[]) noexcept {
 	// Доводы образцу не нужны
 	(void) argc;
+	// Не используем параметры приложения
 	(void) argv;
 	// Механизм ML-KEM-768 (уровень стойкости 3)
 	const agreement::kem_t kem = agreement::kem_t::MLKEM768;

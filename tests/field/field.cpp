@@ -271,11 +271,10 @@ TEST(FieldTest, Remainder){
 }
 
 /**
- * @brief Метод составления вложенных полей при отмеренном запасе выделений
+ * @brief Функция составления вложенных полей при отмеренном запасе выделений
  *
  * @param data   область байтов, записываемая внутрь вложенного поля
  * @param intact признак схождения составленной записи с ожидаемой
- *
  * @return       отказ, которым завершился первый несостоявшийся шаг
  *
  */
@@ -372,12 +371,24 @@ TEST(FieldTest, Starved){
  * законно лишь по снятию отравы с области памяти
  */
 #if defined(__has_feature)
+	/**
+	 * Опрашиваем поддержку наблюдателя адресов у собирателя
+	 */
 	#if __has_feature(address_sanitizer)
 		#include <sanitizer/asan_interface.h>
+		/**
+		 * Наблюдатель есть: снятие отравы области памяти перед чтением накопителя
+		 */
 		#define ANTS_FIELD_UNPOISON(data, size) ASAN_UNPOISON_MEMORY_REGION(data, size)
 	#endif
 #endif
+/**
+ * Макрос не выставлен: наблюдателя адресов в сборке нет
+ */
 #if !defined(ANTS_FIELD_UNPOISON)
+	/**
+	 * Наблюдателя нет: снятие отравы вырождается в пустое действие
+	 */
 	#define ANTS_FIELD_UNPOISON(data, size) ((void) 0)
 #endif
 

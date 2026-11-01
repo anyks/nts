@@ -57,6 +57,7 @@ namespace {
 	 * Начальные значения BLAKE2b
 	 */
 	static const uint64_t IV64[8] = {
+		// Первые четыре слова вектора инициализации SHA-512
 		0x6A09E667F3BCC908ULL, 0xBB67AE8584CAA73BULL, 0x3C6EF372FE94F82BULL, 0xA54FF53A5F1D36F1ULL,
 		0x510E527FADE682D1ULL, 0x9B05688C2B3E6C1FULL, 0x1F83D9ABFB41BD6BULL, 0x5BE0CD19137E2179ULL
 	};
@@ -64,12 +65,14 @@ namespace {
 	 * Начальные значения BLAKE2s
 	 */
 	static const uint32_t IV32[8] = {
+		// Слова вектора инициализации SHA-256
 		0x6A09E667, 0xBB67AE85, 0x3C6EF372, 0xA54FF53A, 0x510E527F, 0x9B05688C, 0x1F83D9AB, 0x5BE0CD19
 	};
 	/**
 	 * Перестановки слов сообщения по кругам
 	 */
 	static const uint8_t SIGMA[12][16] = {
+		// Круг 0: тождественная перестановка
 		{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
 		{14, 10, 4, 8, 9, 15, 13, 6, 1, 12, 0, 2, 11, 7, 5, 3},
 		{11, 8, 12, 0, 5, 2, 15, 13, 10, 14, 3, 6, 7, 1, 9, 4},
@@ -84,12 +87,11 @@ namespace {
 		{14, 10, 4, 8, 9, 15, 13, 6, 1, 12, 0, 2, 11, 7, 5, 3}
 	};
 	/**
-	 * @brief Метод кругового сдвига слова вправо в заданной ширине
+	 * @brief Функция кругового сдвига слова вправо в заданной ширине
 	 *
 	 * @param word  сдвигаемое слово
 	 * @param count число разрядов сдвига
 	 * @param wide  признак ширины в 64 разряда
-	 *
 	 * @return      сдвинутое слово
 	 *
 	 */
@@ -104,11 +106,10 @@ namespace {
 		return static_cast <uint64_t> ((narrow >> count) | (narrow << (32 - count)));
 	}
 	/**
-	 * @brief Метод чтения слова сообщения от младшего байта
+	 * @brief Функция чтения слова сообщения от младшего байта
 	 *
 	 * @param data байты слова
 	 * @param wide признак ширины в 64 разряда
-	 *
 	 * @return     слово
 	 *
 	 */
@@ -125,7 +126,7 @@ namespace {
 		return result;
 	}
 	/**
-	 * @brief Метод смешивания четырёх слов рабочего вектора
+	 * @brief Функция смешивания четырёх слов рабочего вектора
 	 *
 	 * @param v    рабочий вектор
 	 * @param a    место первого слова
@@ -228,76 +229,43 @@ void nts::digest::Blake2::compress(const bool last) noexcept {
 	wipe(v, sizeof(v));
 }
 /**
- * \~russian
  * @brief Метод получения разновидности хеша
  *
  * @return разновидность хеша
  *
- * \~english
- * @brief Method of the obtaining of the kind of the hash
- *
- * @return kind of the hash
- *
- * \~
  */
 nts::digest::blake_t nts::digest::Blake2::type() const noexcept {
 	// Выводим разновидность
 	return this->_type;
 }
 /**
- * \~russian
  * @brief Метод получения длины итога
  *
  * @return длина итога в байтах
  *
- * \~english
- * @brief Method of the obtaining of the length of the result
- *
- * @return length of the result in bytes
- *
- * \~
  */
 size_t nts::digest::Blake2::length() const noexcept {
 	// Выводим длину итога
 	return this->_length;
 }
 /**
- * \~russian
  * @brief Метод получения размера блока разновидности
  *
  * @return размер блока в байтах
  *
- * \~english
- * @brief Method of the obtaining of the block size of the kind
- *
- * @return block size in bytes
- *
- * \~
  */
 size_t nts::digest::Blake2::block() const noexcept {
 	// Выводим размер блока
 	return ((this->_type == blake_t::BLAKE2B) ? 128 : ((this->_type == blake_t::BLAKE2S) ? 64 : 0));
 }
 /**
- * \~russian
  * @brief Метод заведения хеша
  *
  * @param type   разновидность
- * @param length длина итога в байтах
+ * @param length длина итога в байтах от 1 до наибольшей у разновидности
  * @param key    ключ имитовставки либо пустой вид
- *
  * @return       признак того, что хеш заведён
  *
- * \~english
- * @brief Method of the start of the hash
- *
- * @param type   kind
- * @param length length of the result in bytes
- * @param key    key of the MAC or an empty view
- *
- * @return       sign that the hash is started
- *
- * \~
  */
 bool nts::digest::Blake2::start(const blake_t type, const size_t length, const view_t & key) noexcept {
 	// Наибольшая длина итога и ключа разновидности
@@ -319,6 +287,7 @@ bool nts::digest::Blake2::start(const blake_t type, const size_t length, const v
 	this->_size = 0;
 	// Сбрасываем счётчик байтов
 	this->_count[0] = 0;
+	// Сбрасываем старшую половину счётчика байтов
 	this->_count[1] = 0;
 	// Признак ширины слов
 	const bool wide = (type == blake_t::BLAKE2B);
@@ -343,21 +312,11 @@ bool nts::digest::Blake2::start(const blake_t type, const size_t length, const v
 	return true;
 }
 /**
- * \~russian
  * @brief Метод подачи куска сообщения
  *
  * @param data кусок сообщения
- *
  * @return     признак того, что кусок поглощён
  *
- * \~english
- * @brief Method of the feeding of a piece of the message
- *
- * @param data piece of the message
- *
- * @return     sign that the piece is absorbed
- *
- * \~
  */
 bool nts::digest::Blake2::update(const view_t & data) noexcept {
 	// Если хеш не заведён либо итог уже снят
@@ -398,23 +357,12 @@ bool nts::digest::Blake2::update(const view_t & data) noexcept {
 	return true;
 }
 /**
- * \~russian
  * @brief Метод снятия итога
  *
  * @param result место, в которое помещается итог
- * @param size   длина места
+ * @param size   длина места: ровно длина итога
+ * @return       признак того, что итог снят; повторное снятие отвергается
  *
- * @return       признак того, что итог снят
- *
- * \~english
- * @brief Method of the taking of the result
- *
- * @param result place into which the result is put
- * @param size   length of the place
- *
- * @return       sign that the result is taken
- *
- * \~
  */
 bool nts::digest::Blake2::finish(uint8_t * result, const size_t size) noexcept {
 	// Если хеш не заведён, итог снят, место не передано либо длина не сходится
@@ -447,13 +395,8 @@ bool nts::digest::Blake2::finish(uint8_t * result, const size_t size) noexcept {
 	return true;
 }
 /**
- * \~russian
  * @brief Конструктор: хеш не заведён
  *
- * \~english
- * @brief Constructor: the hash is not started
- *
- * \~
  */
 nts::digest::Blake2::Blake2() noexcept : _type(blake_t::NONE), _finished(true), _length(0), _size(0) {
 	// Обнуляем состояние
@@ -464,13 +407,8 @@ nts::digest::Blake2::Blake2() noexcept : _type(blake_t::NONE), _finished(true), 
 	::memset(this->_block, 0, sizeof(this->_block));
 }
 /**
- * \~russian
  * @brief Деструктор: состояние затирается
  *
- * \~english
- * @brief Destructor: the state is wiped
- *
- * \~
  */
 nts::digest::Blake2::~Blake2() noexcept {
 	// Выполняем затирание состояния
@@ -479,40 +417,26 @@ nts::digest::Blake2::~Blake2() noexcept {
 	wipe(this->_block, sizeof(this->_block));
 }
 /**
- * \~russian
- * @brief Метод хеширования сообщения за один вызов
+ * @brief Функция хеширования сообщения за один вызов
  *
  * @param type   разновидность
  * @param key    ключ имитовставки либо пустой вид
  * @param data   сообщение
  * @param result место, в которое помещается итог
- * @param size   длина итога в байтах
- *
+ * @param size   длина итога в байтах от 1 до наибольшей у разновидности
  * @return       признак того, что итог вычислен
  *
- * \~english
- * @brief Method of the hashing of a message by one call
- *
- * @param type   kind
- * @param key    key of the MAC or an empty view
- * @param data   message
- * @param result place into which the result is put
- * @param size   length of the result in bytes
- *
- * @return       sign that the result is computed
- *
- * \~
  */
 bool nts::digest::blake2(const blake_t type, const view_t & key, const view_t & data, uint8_t * result, const size_t size) noexcept {
 	// Объект хеширования
 	blake2_t hasher;
 	// Если хеш завести не удалось
 	if(!hasher.start(type, size, key))
-		// Выводим отказ
+		// Выводим отрицательный результат - хеш завести не удалось
 		return false;
 	// Если сообщение подать не удалось
 	if(!hasher.update(data))
-		// Выводим отказ
+		// Выводим отрицательный результат - сообщение подать не удалось
 		return false;
 	// Выводим итог снятия
 	return hasher.finish(result, size);

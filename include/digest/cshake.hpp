@@ -21,7 +21,6 @@
  *        cSHAKE and the message authentication codes KMAC by SP 800-185
  *
  * \~
- *
  * @copyright Copyright © 2026
  *
  */
@@ -70,7 +69,7 @@ namespace nts {
 	namespace digest {
 		/**
 		 * \~russian
-		 * @brief Метод вычисления cSHAKE за один вызов
+		 * @brief Функция вычисления cSHAKE за один вызов
 		 *
 		 * @param type   разновидность функции: SHAKE128 либо SHAKE256
 		 * @param data   сообщение
@@ -78,7 +77,6 @@ namespace nts {
 		 * @param custom настройка S, задаваемая потребителем
 		 * @param result место, в которое помещается итог
 		 * @param size   длина итога в байтах
-		 *
 		 * @return       признак того, что итог вычислен
 		 *
 		 * @details Раздел 3 SP 800-185: при непустом имени либо настройке сообщению
@@ -87,7 +85,8 @@ namespace nts {
 		 *          есть ровно SHAKE той же разновидности
 		 *
 		 * \~english
-		 * @brief Method of the computation of cSHAKE by one call
+		 * @brief Function of the computation of cSHAKE by one call
+		 *
 		 * @param type   kind of the function: SHAKE128 or SHAKE256
 		 * @param data   message
 		 * @param name   the function name N; empty together with an empty customization gives exactly SHAKE
@@ -95,6 +94,7 @@ namespace nts {
 		 * @param result place into which the result is put
 		 * @param size   length of the result in bytes
 		 * @return       sign that the result is computed
+		 *
 		 * @details The section 3 of SP 800-185: at a non-empty name or customization the message
 		 *          is preceded by the record bytepad(encode_string(N) ‖ encode_string(S), rate),
 		 *          and the padding goes by the byte 0x04 instead of 0x1F; at both empty the
@@ -105,7 +105,7 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ bool cshake(const sha3_t type, const view_t & data, const view_t & name, const view_t & custom, uint8_t * result, const size_t size) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод вычисления имитовставки KMAC за один вызов
+		 * @brief Функция вычисления имитовставки KMAC за один вызов
 		 *
 		 * @param type   разновидность функции: SHAKE128 либо SHAKE256
 		 * @param key    ключ имитовставки
@@ -113,7 +113,6 @@ namespace nts {
 		 * @param custom настройка S, задаваемая потребителем
 		 * @param result место, в которое помещается имитовставка
 		 * @param size   длина имитовставки в байтах
-		 *
 		 * @return       признак того, что имитовставка вычислена
 		 *
 		 * @details Раздел 4 SP 800-185: KMAC есть cSHAKE с именем «KMAC» от сообщения
@@ -121,7 +120,8 @@ namespace nts {
 		 *          имитовставки в разрядах
 		 *
 		 * \~english
-		 * @brief Method of the computation of the message authentication code KMAC by one call
+		 * @brief Function of the computation of the message authentication code KMAC by one call
+		 *
 		 * @param type   kind of the function: SHAKE128 or SHAKE256
 		 * @param key    the key of the message authentication code
 		 * @param data   message
@@ -129,6 +129,7 @@ namespace nts {
 		 * @param result place into which the message authentication code is put
 		 * @param size   length of the message authentication code in bytes
 		 * @return       sign that the message authentication code is computed
+		 *
 		 * @details The section 4 of SP 800-185: KMAC is cSHAKE with the name «KMAC» of the
 		 *          message bytepad(encode_string(K), rate) ‖ X ‖ right_encode(L), where L is
 		 *          the length of the code in bits
@@ -138,7 +139,7 @@ namespace nts {
 		__ANTS_SHARED_EXPORT__ bool kmac(const sha3_t type, const view_t & key, const view_t & data, const view_t & custom, uint8_t * result, const size_t size) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод вычисления имитовставки KMAC переменной длины за один вызов
+		 * @brief Функция вычисления имитовставки KMAC переменной длины за один вызов
 		 *
 		 * @param type   разновидность функции: SHAKE128 либо SHAKE256
 		 * @param key    ключ имитовставки
@@ -146,14 +147,14 @@ namespace nts {
 		 * @param custom настройка S, задаваемая потребителем
 		 * @param result место, в которое помещается имитовставка
 		 * @param size   длина имитовставки в байтах
-		 *
 		 * @return       признак того, что имитовставка вычислена
 		 *
 		 * @details Раздел 4 SP 800-185: KMACXOF отличается от KMAC записью right_encode(0)
 		 *          на месте длины итога, и итоги разной длины у него совпадают в начале
 		 *
 		 * \~english
-		 * @brief Method of the computation of the message authentication code KMAC of a variable length by one call
+		 * @brief Function of the computation of the message authentication code KMAC of a variable length by one call
+		 *
 		 * @param type   kind of the function: SHAKE128 or SHAKE256
 		 * @param key    the key of the message authentication code
 		 * @param data   message
@@ -161,6 +162,7 @@ namespace nts {
 		 * @param result place into which the message authentication code is put
 		 * @param size   length of the message authentication code in bytes
 		 * @return       sign that the message authentication code is computed
+		 *
 		 * @details The section 4 of SP 800-185: KMACXOF differs from KMAC by the record
 		 *          right_encode(0) in the place of the length of the result, and its results
 		 *          of different lengths coincide at the beginning

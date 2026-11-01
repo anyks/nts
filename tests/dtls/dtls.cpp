@@ -73,10 +73,9 @@ static const char * CORPUS = ANTS_CORPUS;
  */
 namespace {
 	/**
-	 * @brief Метод разбора области байтов из шестнадцатеричной записи
+	 * @brief Функция разбора области байтов из шестнадцатеричной записи
 	 *
 	 * @param text шестнадцатеричная запись области байтов
-	 *
 	 * @return     разобранная область байтов
 	 *
 	 */
@@ -93,10 +92,9 @@ namespace {
 		return result;
 	}
 	/**
-	 * @brief Метод чтения файла набора целиком
+	 * @brief Функция чтения файла набора целиком
 	 *
 	 * @param name имя файла набора
-	 *
 	 * @return     содержимое файла набора
 	 *
 	 */
@@ -113,11 +111,10 @@ namespace {
 		return result;
 	}
 	/**
-	 * @brief Метод составления подлинности стороны из ключей набора
+	 * @brief Функция составления подлинности стороны из ключей набора
 	 *
 	 * @param name   имя ключа набора
 	 * @param result подлинность, в которую помещается итог
-	 *
 	 * @return       признак успешности составления подлинности
 	 *
 	 */
@@ -179,18 +176,17 @@ namespace {
 		}
 	} bond_t;
 	/**
-	 * @brief Метод снятия всех готовых дейтаграмм стороны
+	 * @brief Функция снятия всех готовых дейтаграмм стороны
 	 *
 	 * @param from   связь стороны, отдающей дейтаграммы
 	 * @param result перечень, в который помещаются дейтаграммы
-	 *
 	 * @return       признак успешности снятия
 	 *
 	 */
 	template <typename T>
 	bool drain(T & from, vector <vector <uint8_t>> & result) noexcept {
 		/**
-		 * Выполняем перехват ошибок работы с памятью
+		 * Выполняем перехват ошибок
 		 */
 		try {
 			/**
@@ -205,7 +201,7 @@ namespace {
 				from.consume(data.size);
 			}
 		/**
-		 * Если памяти под дейтаграммы не хватило
+		 * Выполняем перехват ошибок
 		 */
 		} catch(const bad_alloc &) {
 			// Выводим отказ снятия
@@ -215,13 +211,12 @@ namespace {
 		return true;
 	}
 	/**
-	 * @brief Метод переноса дейтаграмм от одной стороны к другой по описанному пути
+	 * @brief Функция переноса дейтаграмм от одной стороны к другой по описанному пути
 	 *
 	 * @param from      связь стороны, отдающей дейтаграммы
 	 * @param to        связь стороны, принимающей дейтаграммы
 	 * @param bond      описание пути между сторонами
 	 * @param direction направление переноса: ноль от клиента, единица от сервера
-	 *
 	 * @return          признак того, что хоть одна дейтаграмма снята со стороны
 	 *
 	 * @note Потери считаются по направлениям: одна пара дейтаграмм на круг иначе теряла
@@ -281,13 +276,12 @@ namespace {
 		return true;
 	}
 	/**
-	 * @brief Метод проведения связи сторон до тишины: перенос дейтаграмм и ход часов
+	 * @brief Функция проведения связи сторон до тишины: перенос дейтаграмм и ход часов
 	 *
 	 * @param client связь стороны клиента
 	 * @param server связь стороны сервера
 	 * @param bond   описание пути между сторонами
 	 * @param rounds предел кругов переноса
-	 *
 	 * @return       число кругов, ушедших на перенос
 	 *
 	 */
@@ -335,7 +329,7 @@ namespace {
 		return round;
 	}
 	/**
-	 * @brief Метод настройки сторон связи под перенос дейтаграммами
+	 * @brief Функция настройки сторон связи под перенос дейтаграммами
 	 *
 	 * @param client     связь стороны клиента
 	 * @param server     связь стороны сервера
@@ -373,12 +367,11 @@ namespace {
 		}
 	}
 	/**
-	 * @brief Метод обмена прикладными данными в обе стороны
+	 * @brief Функция обмена прикладными данными в обе стороны
 	 *
 	 * @param client связь стороны клиента
 	 * @param server связь стороны сервера
 	 * @param bond   описание пути между сторонами
-	 *
 	 * @return       признак того, что обе стороны прочли отправленное
 	 *
 	 */
@@ -411,12 +404,11 @@ namespace {
 		return true;
 	}
 	/**
-	 * @brief Метод получения значения направления связи стороны
+	 * @brief Функция получения значения направления связи стороны
 	 *
 	 * @param context   связь стороны
 	 * @param level     уровень защиты значения
 	 * @param direction направление связи относительно стороны
-	 *
 	 * @return          значение направления либо пустой перечень
 	 *
 	 */
@@ -434,12 +426,11 @@ namespace {
 		return vector <uint8_t> (buffer, buffer + size);
 	}
 	/**
-	 * @brief Метод составления открытой записи с куском сообщения рукопожатия
+	 * @brief Функция составления открытой записи с куском сообщения рукопожатия
 	 *
 	 * @param type     вид сообщения рукопожатия
 	 * @param body     тело сообщения рукопожатия
 	 * @param sequence порядковый номер сообщения и записи
-	 *
 	 * @return         дейтаграмма с открытой записью
 	 *
 	 */
@@ -478,13 +469,12 @@ namespace {
 		return result;
 	}
 	/**
-	 * @brief Метод вывода ключей поры из значения направления
+	 * @brief Функция вывода ключей поры из значения направления
 	 *
 	 * @param suite      набор шифрования
 	 * @param secret     значение направления
 	 * @param protection защита записей, которой ставится ключевой материал
 	 * @param sn         место, в которое помещается ключ шифрования номера
-	 *
 	 * @return           признак успешности вывода ключей
 	 *
 	 */
@@ -503,7 +493,7 @@ namespace {
 		return protection.start(suite, view_t(key, protect::key(suite)), view_t(iv, protect::block(suite)));
 	}
 	/**
-	 * @brief Метод составления защищённой записи снаружи из значения направления
+	 * @brief Функция составления защищённой записи снаружи из значения направления
 	 *
 	 * @param suite    набор шифрования
 	 * @param secret   значение направления отправителя
@@ -511,7 +501,6 @@ namespace {
 	 * @param sequence порядковый номер записи
 	 * @param type     вид содержимого записи
 	 * @param content  открытое содержимое записи
-	 *
 	 * @return         дейтаграмма с защищённой записью, пустая при отказе
 	 *
 	 */
@@ -548,14 +537,13 @@ namespace {
 		return result;
 	}
 	/**
-	 * @brief Метод вскрытия защищённой записи снаружи из значения направления
+	 * @brief Функция вскрытия защищённой записи снаружи из значения направления
 	 *
 	 * @param suite   набор шифрования
 	 * @param secret  значение направления отправителя
 	 * @param data    дейтаграмма с защищённой записью
 	 * @param type    место, в которое помещается вид содержимого
 	 * @param content накопитель, в который помещается открытое содержимое
-	 *
 	 * @return        признак успешности вскрытия
 	 *
 	 */
@@ -594,7 +582,7 @@ namespace {
 		return (protection.open(view_t(associated.data(), associated.size()), sequence, view_t(data.data() + header.length, header.size), type, content) == protect::error_t::NONE);
 	}
 	/**
-	 * @brief Метод составления защищённой записи с куском сообщения рукопожатия
+	 * @brief Функция составления защищённой записи с куском сообщения рукопожатия
 	 *
 	 * @param suite    набор шифрования
 	 * @param secret   значение направления отправителя
@@ -603,7 +591,6 @@ namespace {
 	 * @param type     вид сообщения рукопожатия
 	 * @param body     тело сообщения
 	 * @param message  порядковый номер сообщения
-	 *
 	 * @return         дейтаграмма с защищённой записью
 	 *
 	 */
@@ -630,12 +617,11 @@ namespace {
 		return seal(suite, secret, epoch, sequence, record::type_t::HANDSHAKE, content);
 	}
 	/**
-	 * @brief Метод проведения сторон до повторного приветствия клиента с меткой
+	 * @brief Функция проведения сторон до повторного приветствия клиента с меткой
 	 *
 	 * @param client связь стороны клиента
 	 * @param server связь стороны сервера
 	 * @param bond   описание пути между сторонами
-	 *
 	 * @return       признак того, что повторное приветствие доставлено серверу
 	 *
 	 */
@@ -1357,7 +1343,7 @@ TEST(DtlsTest, Mtu){
 	ASSERT_LE(plain.largest, static_cast <size_t> (300));
 	// Принятые данные
 	vector <uint8_t> received;
-	// Читаем данные
+	// Читаем данные, собранные из дроблённых записей
 	ASSERT_EQ(server.read(received), context::error_t::NONE);
 	// Данные дошли целиком
 	ASSERT_EQ(received, bulk);
@@ -1413,7 +1399,7 @@ TEST(DtlsTest, Replay){
 		ASSERT_EQ(server.discarded(datagram::reason_t::REPLAY), replays + 1);
 		// Принятые данные
 		vector <uint8_t> received;
-		// Читаем данные
+		// Читаем данные первой подачи записи
 		ASSERT_EQ(server.read(received), context::error_t::NONE);
 		// Данные приняты единожды
 		ASSERT_EQ(string(received.begin(), received.end()), "replay");
@@ -1457,7 +1443,7 @@ TEST(DtlsTest, Replay){
 		ASSERT_EQ(server.push(view_t(crafted.data(), crafted.size())), context::error_t::NONE);
 		// Запись снята по восстановленному номеру
 		ASSERT_EQ(server.read(received), context::error_t::NONE);
-		// Проверяем данные
+		// Снятые данные совпадают с зашифрованными
 		ASSERT_EQ(received, data);
 		// Ничего нового не отброшено
 		ASSERT_EQ(server.discarded(), before + 1);
@@ -1532,7 +1518,7 @@ TEST(DtlsTest, KeyUpdate){
 		vector <uint8_t> received;
 		// Данные прежней поры прочтены после смены ключей чтения
 		ASSERT_EQ(server.read(received), context::error_t::NONE);
-		// Проверяем данные
+		// Данные прежней поры не искажены
 		ASSERT_EQ(string(received.begin(), received.end()), "old");
 		// Сервер подтвердил и ответил своей сменой
 		ASSERT_GT(server.output().size, static_cast <size_t> (0));
@@ -1556,15 +1542,15 @@ TEST(DtlsTest, KeyUpdate){
 		ASSERT_EQ(client.output().data[0] & 0x03, 0x00);
 		// Переносим данные
 		converse(client, server, bond);
-		// Читаем данные
+		// Читаем данные новой поры
 		ASSERT_EQ(server.read(received), context::error_t::NONE);
-		// Проверяем данные
+		// Данные новой поры дошли без искажений
 		ASSERT_EQ(string(received.begin(), received.end()), "new");
 		// Запоздалая запись прежней поры читается прежними ключами
 		ASSERT_EQ(server.push(view_t(late.data(), late.size())), context::error_t::NONE);
 		// Читаем запоздалые данные
 		ASSERT_EQ(server.read(received), context::error_t::NONE);
-		// Проверяем данные
+		// Запоздалые данные прежней поры не искажены
 		ASSERT_EQ(string(received.begin(), received.end()), "late");
 		// Данные сервера новой порой
 		ASSERT_EQ(server.write(view_t(reinterpret_cast <const uint8_t *> ("back"), 4)), context::error_t::NONE);
@@ -1572,9 +1558,9 @@ TEST(DtlsTest, KeyUpdate){
 		ASSERT_EQ(server.output().data[0] & 0x03, 0x00);
 		// Переносим данные
 		converse(client, server, bond);
-		// Читаем данные
+		// Читаем ответные данные сервера
 		ASSERT_EQ(client.read(received), context::error_t::NONE);
-		// Проверяем данные
+		// Ответные данные сервера не искажены
 		ASSERT_EQ(string(received.begin(), received.end()), "back");
 		// Ничего не отброшено
 		ASSERT_EQ(server.discarded(), static_cast <uint64_t> (0));
@@ -1776,9 +1762,9 @@ TEST(DtlsTest, Discard){
 	ASSERT_EQ(server.push(view_t(datagram.data(), datagram.size())), context::error_t::NONE);
 	// Принятые данные
 	vector <uint8_t> received;
-	// Читаем данные
+	// Читаем целую запись
 	ASSERT_EQ(server.read(received), context::error_t::NONE);
-	// Проверяем данные
+	// Целая запись дошла без искажений
 	ASSERT_EQ(string(received.begin(), received.end()), "intact");
 	// Ничего лишнего не отброшено
 	ASSERT_EQ(server.discarded(), before + 6);
@@ -1824,7 +1810,7 @@ TEST(DtlsTest, Discard){
 	ASSERT_EQ(patient.state(), context::state_t::HANDSHAKE);
 	// Данных до завершения нет
 	vector <uint8_t> got;
-	// Читаем данные
+	// Данных до завершения связи не выдаётся
 	ASSERT_EQ(patient.read(got), context::error_t::NONE);
 	// Пусто
 	ASSERT_TRUE(got.empty());
@@ -1838,7 +1824,7 @@ TEST(DtlsTest, Discard){
 	ASSERT_TRUE(patient.established());
 	// Отложенная запись разобрана по приходу ключей
 	ASSERT_EQ(patient.read(got), context::error_t::NONE);
-	// Проверяем данные
+	// Отложенные данные клиента прочтены целиком
 	ASSERT_EQ(string(got.begin(), got.end()), "early");
 	// Ничего не отброшено
 	ASSERT_EQ(patient.discarded(), static_cast <uint64_t> (0));
@@ -2130,7 +2116,7 @@ TEST(DtlsTest, Starved){
 				converse(client, server, bond);
 				// Если связь установлена
 				if(client.established() && server.established()){
-					// Отправляем данные
+					// Пишем прикладные данные при ограниченном запасе выделений
 					written = client.write(view_t(reinterpret_cast <const uint8_t *> ("starved datagram payload"), 24));
 					// Переносим данные
 					converse(client, server, bond);
@@ -2919,6 +2905,7 @@ TEST(DtlsTest, Asymmetric){
 	ASSERT_EQ(broad.mtu(), datagram::DATAGRAM_LONGEST);
 	// Размер под сообщения SCTP: тоже сверху ограничен
 	broad.mtu(20000);
+	// Запрошенный размер прижат к наибольшей принимаемой дейтаграмме
 	ASSERT_EQ(broad.mtu(), datagram::DATAGRAM_LONGEST);
 	// Заводим сервер
 	ASSERT_EQ(broad.start(), context::error_t::NONE);
@@ -2932,7 +2919,7 @@ TEST(DtlsTest, Asymmetric){
 	ASSERT_TRUE(wide.established() && broad.established());
 	// Длинные данные сервера
 	const vector <uint8_t> bulk(40000, 0xA5);
-	// Отправляем данные
+	// Пишем данные длиннее наибольшей принимаемой дейтаграммы
 	ASSERT_EQ(broad.write(view_t(bulk.data(), bulk.size())), context::error_t::NONE);
 	// Дейтаграммы данных
 	vector <vector <uint8_t>> datagrams;
@@ -2953,7 +2940,7 @@ TEST(DtlsTest, Asymmetric){
 	}
 	// Принятые данные
 	vector <uint8_t> received;
-	// Читаем данные
+	// Читаем данные, собранные из трёх записей
 	ASSERT_EQ(wide.read(received), context::error_t::NONE);
 	// Данные дошли целиком
 	ASSERT_EQ(received, bulk);
@@ -3021,7 +3008,7 @@ TEST(DtlsTest, Output){
 	ASSERT_EQ(taken, static_cast <size_t> (4));
 	// Принятые данные
 	vector <uint8_t> received;
-	// Читаем данные
+	// Читаем данные четырёх записей, ушедших каждая своей дейтаграммой
 	ASSERT_EQ(server.read(received), context::error_t::NONE);
 	// Ни одно слово не потеряно
 	ASSERT_EQ(string(received.begin(), received.end()), "firstsecondthirdfourth");
@@ -3032,38 +3019,71 @@ TEST(DtlsTest, Output){
  * обязаны быть заданы, иначе метка на нулевом ключе HMAC поколения «на одно назад» принималась бы
  */
 TEST(DtlsTest, CookieForgery){
+	// Полёт дейтаграмм с меткой возврата состояния
 	internal::flight_t flight;
+	// Адрес клиента, для которого выпускается метка
 	const uint8_t address[6] = {10, 0, 0, 1, 0x1F, 0x90};
+	// Адрес полёту задан
 	ASSERT_TRUE(flight.address(view_t(address, sizeof(address))));
+	// Секрет потребителя метки
 	flight.stamp(vector <uint8_t> {'s', 'e', 'c', 'r', 'e', 't'});
+	// Подготовка полёта после задания секрета проходит
 	ASSERT_TRUE(flight.prepare());
+	// Имитация ClientHello для выпуска метки
 	uint8_t hello[40];
-	for(size_t i = 0; i < sizeof(hello); i++)
+	/**
+	 * Заполняем имитацию ClientHello возрастающими байтами
+	 */
+	for(size_t i = 0; i < sizeof(hello); i++){
+		// Очередной байт имитации привета равен его смещению
 		hello[i] = static_cast <uint8_t> (i);
+	}
+	// Буфер метки возврата состояния
 	vector <uint8_t> label;
+	// Метка на привете выпускается
 	ASSERT_EQ(flight.stamp(view_t(hello, sizeof(hello)), label), context::error_t::NONE);
+	// Своей метке полёт доверяет
 	EXPECT_TRUE(flight.verify(view_t(label.data(), label.size())));
 	// Подделка: поколение 0xFF, HMAC на нулевом ключе
+	// Дайджест привета, каким его видит подделка на нулевом ключе HMAC
 	uint8_t digest[32];
+	// SHA-256 имитации ClientHello — основа подделываемой метки
 	ASSERT_TRUE(digest::hash(digest::hash_t::SHA256, view_t(hello, sizeof(hello)), digest, sizeof(digest)));
+	// Нулевой ключ поколения «на одно назад»
 	uint8_t zero[32] = {0};
+	// Покрываемый блок подделки: поколение, дайджест, адрес клиента
 	uint8_t covered[1 + 32 + 6];
+	// Поколение 0xFF — ещё не выданное
 	covered[0] = 0xFF;
+	// Дайджест привета в покрываемый блок
 	::memcpy(covered + 1, digest, 32);
+	// Адрес клиента в покрываемый блок
 	::memcpy(covered + 33, address, 6);
+	// Подделываемый HMAC поколения 0xFF
 	uint8_t mac[32];
+	// HMAC поколения 0xFF на нулевом ключе над покрываемым блоком
 	ASSERT_TRUE(digest::hmac(digest::hash_t::SHA256, view_t(zero, 32), view_t(covered, sizeof(covered)), mac, 32));
+	// Поддельная метка: поколение, дайджест, HMAC
 	vector <uint8_t> forged;
+	// Поколение подделки
 	forged.push_back(0xFF);
+	// Дайджест привета в подделку
 	forged.insert(forged.end(), digest, digest + 32);
+	// Поддельный HMAC в метку
 	forged.insert(forged.end(), mac, mac + 32);
+	// Подделка с чужим поколением отвергается
 	EXPECT_FALSE(flight.verify(view_t(forged.data(), forged.size())));
+	// Метка без дайджеста: поколение и HMAC
 	vector <uint8_t> token;
+	// Поколение метки без дайджеста
 	token.push_back(0xFF);
+	// HMAC метки без дайджеста
 	token.insert(token.end(), mac, mac + 32);
+	// Метка без дайджеста привета отвергается
 	EXPECT_FALSE(flight.verify(view_t(token.data(), token.size()), view_t(hello, sizeof(hello))));
 	// Метка прежнего поколения после смены поколения остаётся годной
 	flight.restamp();
+	// Метка, выпущенная до смены поколения, проверяется по прежнему секрету
 	EXPECT_TRUE(flight.verify(view_t(label.data(), label.size())));
 }
 
@@ -3214,7 +3234,7 @@ TEST(DtlsTest, Openssl){
 			ASSERT_EQ(client.discarded(), static_cast <uint64_t> (0));
 			// Данные серверу
 			const string request = "ants over dtls13 " + std::to_string(s) + " " + std::to_string(g) + "\n";
-			// Отправляем данные
+			// Пишем запрос серверу openssl поверх установленной связи DTLS 1.3
 			ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
 			// Отправляем дейтаграммы
 			relay(client, fd, peer, 1);
@@ -3339,7 +3359,7 @@ TEST(DtlsTest, Openssl){
 					server.elapsed();
 				// Если связь установлена
 				if(server.established())
-					// Читаем данные
+					// Читаем прикладные данные клиента openssl
 					(void) server.read(plaintext);
 			}
 			// Если связь не сложилась: openssl 4.1 не читает защиту записей рукопожатия нашего сервера (разбор отдельный)

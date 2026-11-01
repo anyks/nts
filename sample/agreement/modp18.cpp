@@ -53,7 +53,7 @@ using namespace nts;
  */
 namespace {
 	/**
-	 * @brief Метод вывода области байтов шестнадцатеричной записью
+	 * @brief Функция вывода области байтов шестнадцатеричной записью
 	 *
 	 * @param title заголовок выводимой области байтов
 	 * @param data  выводимая область байтов
@@ -79,7 +79,6 @@ namespace {
  *
  * @param argc длина массива параметров
  * @param argv массив параметров
- *
  * @return     код выхода из приложения
  *
  */
@@ -92,6 +91,7 @@ int main(int argc, char * argv[]) noexcept {
 	const view_t prime = agreement::prime3526(18);
 	// Образующая группы modp18 равна двум
 	const uint8_t gen[1] = {2};
+	// Представление образующей видом
 	const view_t generator(gen, sizeof(gen));
 	// Если модуль группы modp18 не найден
 	if(prime.data == nullptr){
@@ -111,6 +111,7 @@ int main(int argc, char * argv[]) noexcept {
 	 *
 	 * @details Показатель берётся случайными байтами длиной exponent3526(18), старший
 	 *          разряд выставляется; открытый ключ есть 2^x mod p длиной в модуль
+	 *
 	 */
 	if(!agreement::pairffdhe(prime, generator, length, secretA.data(), keyA.data())){
 		// Выводим сообщение об отказе порождения пары
@@ -135,6 +136,7 @@ int main(int argc, char * argv[]) noexcept {
 	 * @details Общее значение есть Y^x mod p: встречный открытый ключ возводится в свой
 	 *          показатель, и у обеих сторон выходит одно значение. Встречный ключ сверяется
 	 *          прежде выработки: 1 < Y < p − 1, а значения 1 и p − 1 отвергаются как вырожденные
+	 *
 	 */
 	if(!agreement::ffdhe(prime, generator, view_t(secretA.data(), secretA.size()), view_t(keyB.data(), keyB.size()), sharedA.data())){
 		// Выводим сообщение об отказе выработки общего значения

@@ -21,7 +21,6 @@
  *        signature Ed25519 according to RFC 8032
  *
  * \~
- *
  * @copyright Copyright © 2026
  *
  */
@@ -85,12 +84,15 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Electronic signature Ed25519 according to RFC 8032
+		 *
 		 * @details The key of the signature is thirty two bytes of a seed, from which the scalar
 		 *          and the prefix are derived by the hash SHA-512. The key of the check is thirty
 		 *          two bytes of a compressed point. The signature is sixty four bytes: the compressed
 		 *          point R and the scalar S in a row, both with the junior byte ahead.
+		 *
 		 * @note The signature is deterministic: it requires no random number, and a repetition of
 		 *       the production on a single key and message gives the same signature
+		 *
 		 * @note The production of the signature goes in a constant time by the key; the check of the
 		 *       signature touches no secrets and may go in a variable time
 		 *
@@ -143,6 +145,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the size of a signature
+				 *
 				 * @return the size of a signature in bytes
 				 *
 				 * \~
@@ -163,7 +166,9 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the upper limit of the length of a signature in the written form
+				 *
 				 * @return the upper limit of the length of a signature in bytes, zero without a key
+				 *
 				 * @details The method size gives the length of a raw signature the place for make is
 				 *          allocated by, while limit gives the greatest length of a signature in the form
 				 *          it goes outside in: it is not exceeded at any value of the signature, like
@@ -190,15 +195,16 @@ namespace nts {
 				 * @brief Метод установки ключа подписи
 				 *
 				 * @param secret зерно ключа подписи длиной в тридцать два байта
-				 *
-				 * @return признак успешности установки ключа подписи
+				 * @return       признак успешности установки ключа подписи
 				 *
 				 * @note Ключ проверки подписи вырабатывается из ключа подписи сразу же
 				 *
 				 * \~english
 				 * @brief Method of setting the key of the signature
+				 *
 				 * @param secret the seed of the key of the signature of a length of thirty two bytes
-				 * @return the flag of the success of the setting of the key of the signature
+				 * @return       the flag of the success of the setting of the key of the signature
+				 *
 				 * @note The key of the check of the signature is produced from the key of the signature at once
 				 *
 				 * \~
@@ -210,8 +216,7 @@ namespace nts {
 				 *
 				 * @param secret место, в которое записывается зерно ключа подписи длиной в тридцать два байта
 				 * @param size   размер места ключа подписи
-				 *
-				 * @return признак успешности порождения ключа подписи
+				 * @return       признак успешности порождения ключа подписи
 				 *
 				 * @details Зерно берётся из источника случайности целиком по разделу 5.1.5 RFC 8032:
 				 *          тридцать два случайных байта без всякого приведения, из них скаляр и
@@ -224,13 +229,16 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the generation of a long-term key of the signature
+				 *
 				 * @param secret the place the seed of the key of the signature of a length of thirty two bytes is written into
 				 * @param size   the size of the place of the key of the signature
-				 * @return the flag of the success of the generation of the key of the signature
+				 * @return       the flag of the success of the generation of the key of the signature
+				 *
 				 * @details The seed is taken from the source of the randomness entirely according to the
 				 *          section 5.1.5 of RFC 8032: thirty two random bytes without any reduction, the
 				 *          scalar and the prefix are derived from them the same way as at secret. The size
 				 *          of the place must equal thirty two bytes
+				 *
 				 * @note The generated key is set into the module the same way as at secret: the key of
 				 *       the check of the signature is produced at once. A refusal of the source of the
 				 *       randomness answers by a refusal of the generation, the former state of the module
@@ -244,8 +252,7 @@ namespace nts {
 				 * @brief Метод установки ключа проверки подписи
 				 *
 				 * @param key сжатая точка ключа проверки подписи длиной в тридцать два байта
-				 *
-				 * @return признак успешности установки ключа проверки подписи
+				 * @return    признак успешности установки ключа проверки подписи
 				 *
 				 * @note Точка, не лежащая на кривой либо записанная неканонически, отвергается
 				 *
@@ -255,8 +262,10 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of setting the key of the check of the signature
+				 *
 				 * @param key the compressed point of the key of the check of the signature of a length of thirty two bytes
-				 * @return the flag of the success of the setting of the key of the check of the signature
+				 * @return    the flag of the success of the setting of the key of the check of the signature
+				 *
 				 * @note A point not lying on the curve or written non-canonically is rejected
 				 *
 				 * @note If the signing key is already set, the public key is derived from it: the given one
@@ -272,14 +281,14 @@ namespace nts {
 				 *
 				 * @param result место, в которое записывается сжатая точка ключа проверки подписи
 				 * @param size   размер места, не меньше тридцати двух байтов
-				 *
-				 * @return признак успешности получения ключа проверки подписи
+				 * @return       признак успешности получения ключа проверки подписи
 				 *
 				 * \~english
 				 * @brief Method of getting the key of the check of the signature
+				 *
 				 * @param result the place the compressed point of the key of the check of the signature is written into
 				 * @param size   the size of the place, not less than thirty two bytes
-				 * @return the flag of the success of the getting of the key of the check of the signature
+				 * @return       the flag of the success of the getting of the key of the check of the signature
 				 *
 				 * \~
 				 */
@@ -291,17 +300,18 @@ namespace nts {
 				 *
 				 * @param message подписываемое сообщение целиком
 				 * @param result  место, в которое помещается подпись длиной в шестьдесят четыре байта
-				 *
-				 * @return признак успешности выработки подписи
+				 * @return        признак успешности выработки подписи
 				 *
 				 * @details Раздел 5.1.6 RFC 8032: подписывается само сообщение, а не его хеш -
 				 *          хеш SHA-512 берётся внутри дважды, с приставкой и с точкой R
 				 *
 				 * \~english
 				 * @brief Method of the production of a signature
+				 *
 				 * @param message the message being signed as a whole
 				 * @param result  the place the signature of a length of sixty four bytes is put into
-				 * @return the flag of the success of the production of the signature
+				 * @return        the flag of the success of the production of the signature
+				 *
 				 * @details The section 5.1.6 of RFC 8032: the message itself is signed, not its hash -
 				 *          the hash SHA-512 is taken inside twice, with the prefix and with the point R
 				 *
@@ -314,8 +324,7 @@ namespace nts {
 				 *
 				 * @param message   подписанное сообщение целиком
 				 * @param signature проверяемая подпись длиной в шестьдесят четыре байта
-				 *
-				 * @return признак того, что подпись сошлась
+				 * @return          признак того, что подпись сошлась
 				 *
 				 * @details Раздел 5.1.7 RFC 8032: скаляр S, не меньший порядка подгруппы, и
 				 *          точка R, записанная неканонически либо не лежащая на кривой,
@@ -323,9 +332,11 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the check of a signature
+				 *
 				 * @param message   the signed message as a whole
 				 * @param signature the signature being checked of a length of sixty four bytes
-				 * @return the flag of the signature having converged
+				 * @return          the flag of the signature having converged
+				 *
 				 * @details The section 5.1.7 of RFC 8032: the scalar S not less than the order of the
 				 *          subgroup and the point R written non-canonically or not lying on the curve
 				 *          are rejected before any arithmetic
@@ -338,7 +349,6 @@ namespace nts {
 				 * \~russian
 				 * @brief Конструктор
 				 *
-				 *
 				 * \~english
 				 * @brief Constructor
 				 *
@@ -348,7 +358,6 @@ namespace nts {
 				/**
 				 * \~russian
 				 * @brief Деструктор
-				 *
 				 *
 				 * \~english
 				 * @brief Destructor

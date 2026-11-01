@@ -22,7 +22,6 @@
  *        according to FIPS 205
  *
  * \~
- *
  * @copyright Copyright © 2026
  *
  */
@@ -88,6 +87,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Electronic signature SLH-DSA according to FIPS 205
+		 *
 		 * @details A hypertree of d XMSS trees of the height h′ each over a FORS
 		 *          forest: the signature is R ‖ k × (sk ‖ path) FORS ‖ d XMSS
 		 *          signatures. The key of the signature is four values of n bytes:
@@ -98,6 +98,7 @@ namespace nts {
 		 *          the context in TLS is empty. Twelve parameter sets: SHA2 or
 		 *          SHAKE by the security categories 1, 3 and 5 in the small (s)
 		 *          and fast (f) variants.
+		 *
 		 * @note The production of the signature goes in a constant time by the key
 		 *       in the part of secret values; the check of the signature touches
 		 *       no secrets and may go in a variable time
@@ -116,18 +117,31 @@ namespace nts {
 				 * \~
 				 */
 				enum class set_t : uint8_t {
+					// Набор не установлен
 					NONE        = 0x00, /*!< \~russian Набор не установлен \~english The set is not set \~ */
+					// SLH-DSA-SHA2-128s
 					SHA2_128S   = 0x01, /*!< \~russian SLH-DSA-SHA2-128s \~english SLH-DSA-SHA2-128s \~ */
+					// SLH-DSA-SHAKE-128s
 					SHAKE_128S  = 0x02, /*!< \~russian SLH-DSA-SHAKE-128s \~english SLH-DSA-SHAKE-128s \~ */
+					// SLH-DSA-SHA2-128f
 					SHA2_128F   = 0x03, /*!< \~russian SLH-DSA-SHA2-128f \~english SLH-DSA-SHA2-128f \~ */
+					// SLH-DSA-SHAKE-128f
 					SHAKE_128F  = 0x04, /*!< \~russian SLH-DSA-SHAKE-128f \~english SLH-DSA-SHAKE-128f \~ */
+					// SLH-DSA-SHA2-192s
 					SHA2_192S   = 0x05, /*!< \~russian SLH-DSA-SHA2-192s \~english SLH-DSA-SHA2-192s \~ */
+					// SLH-DSA-SHAKE-192s
 					SHAKE_192S  = 0x06, /*!< \~russian SLH-DSA-SHAKE-192s \~english SLH-DSA-SHAKE-192s \~ */
+					// SLH-DSA-SHA2-192f
 					SHA2_192F   = 0x07, /*!< \~russian SLH-DSA-SHA2-192f \~english SLH-DSA-SHA2-192f \~ */
+					// SLH-DSA-SHAKE-192f
 					SHAKE_192F  = 0x08, /*!< \~russian SLH-DSA-SHAKE-192f \~english SLH-DSA-SHAKE-192f \~ */
+					// SLH-DSA-SHA2-256s
 					SHA2_256S   = 0x09, /*!< \~russian SLH-DSA-SHA2-256s \~english SLH-DSA-SHA2-256s \~ */
+					// SLH-DSA-SHAKE-256s
 					SHAKE_256S  = 0x0A, /*!< \~russian SLH-DSA-SHAKE-256s \~english SLH-DSA-SHAKE-256s \~ */
+					// SLH-DSA-SHA2-256f
 					SHA2_256F   = 0x0B, /*!< \~russian SLH-DSA-SHA2-256f \~english SLH-DSA-SHA2-256f \~ */
+					// SLH-DSA-SHAKE-256f
 					SHAKE_256F  = 0x0C  /*!< \~russian SLH-DSA-SHAKE-256f \~english SLH-DSA-SHAKE-256f \~ */
 				};
 			private:
@@ -160,6 +174,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the parameter set of the key
+				 *
 				 * @return the parameter set of the key, NONE without a key
 				 *
 				 * \~
@@ -173,6 +188,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the size of the signature
+				 *
 				 * @return the size of the signature in bytes, zero without a key
 				 *
 				 * \~
@@ -186,6 +202,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the upper bound of the signature length in the written form
+				 *
 				 * @return the upper bound of the signature length in bytes, zero without a key
 				 *
 				 * \~
@@ -207,11 +224,11 @@ namespace nts {
 				 * @brief Метод получения размера зерна порождения набора в байтах
 				 *
 				 * @param set набор параметров
-				 *
 				 * @return    размер зерна порождения в байтах (3n), ноль у несуществующего набора
 				 *
 				 * \~english
 				 * @brief Method of getting the size of the generation seed of the set in bytes
+				 *
 				 * @param set the parameter set
 				 * @return    the size of the generation seed in bytes (3n), zero at a nonexistent set
 				 *
@@ -223,11 +240,11 @@ namespace nts {
 				 * @brief Метод получения размера ключа подписи набора в байтах
 				 *
 				 * @param set набор параметров
-				 *
 				 * @return    размер ключа подписи в байтах (4n), ноль у несуществующего набора
 				 *
 				 * \~english
 				 * @brief Method of getting the size of the key of the signature of the set in bytes
+				 *
 				 * @param set the parameter set
 				 * @return    the size of the key of the signature in bytes (4n), zero at a nonexistent set
 				 *
@@ -239,11 +256,11 @@ namespace nts {
 				 * @brief Метод получения размера ключа проверки набора в байтах
 				 *
 				 * @param set набор параметров
-				 *
 				 * @return    размер ключа проверки в байтах (2n), ноль у несуществующего набора
 				 *
 				 * \~english
 				 * @brief Method of getting the size of the key of the check of the set in bytes
+				 *
 				 * @param set the parameter set
 				 * @return    the size of the key of the check in bytes (2n), zero at a nonexistent set
 				 *
@@ -255,11 +272,11 @@ namespace nts {
 				 * @brief Метод получения размера подписи набора в байтах
 				 *
 				 * @param set набор параметров
-				 *
 				 * @return    размер подписи в байтах, ноль у несуществующего набора
 				 *
 				 * \~english
 				 * @brief Method of getting the size of the signature of the set in bytes
+				 *
 				 * @param set the parameter set
 				 * @return    the size of the signature in bytes, zero at a nonexistent set
 				 *
@@ -275,7 +292,6 @@ namespace nts {
 				 * @param seed   зерно выработки длиной 3n байтов: SK.seed ‖ SK.prf ‖ PK.seed
 				 * @param key    место, в которое помещается ключ проверки PK.seed ‖ PK.root
 				 * @param secret место, в которое помещается ключ подписи SK.seed ‖ SK.prf ‖ PK.seed ‖ PK.root
-				 *
 				 * @return       признак успешности порождения ключа
 				 *
 				 * @details Раздел 10.1 FIPS 205: корень PK.root вычисляется вершиной
@@ -284,11 +300,13 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the generation of a long-term key of the signature from a seed
+				 *
 				 * @param set    the parameter set
 				 * @param seed   the generation seed of a length of 3n bytes: SK.seed ‖ SK.prf ‖ PK.seed
 				 * @param key    the place the key of the check PK.seed ‖ PK.root is put into
 				 * @param secret the place the key of the signature SK.seed ‖ SK.prf ‖ PK.seed ‖ PK.root is put into
 				 * @return       the flag of the success of the key generation
+				 *
 				 * @details Section 10.1 of FIPS 205: the root PK.root is computed by
 				 *          the top of the upper layer tree from the seed - the same
 				 *          seed gives the same key
@@ -303,7 +321,6 @@ namespace nts {
 				 * @param set    набор параметров
 				 * @param key    место, в которое помещается ключ проверки PK.seed ‖ PK.root
 				 * @param secret место, в которое помещается ключ подписи SK.seed ‖ SK.prf ‖ PK.seed ‖ PK.root
-				 *
 				 * @return       признак успешности порождения ключа
 				 *
 				 * @details Зерно выработки берётся из источника случайности целиком;
@@ -311,10 +328,12 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the generation of a long-term key of the signature from the source of randomness
+				 *
 				 * @param set    the parameter set
 				 * @param key    the place the key of the check PK.seed ‖ PK.root is put into
 				 * @param secret the place the key of the signature SK.seed ‖ SK.prf ‖ PK.seed ‖ PK.root is put into
 				 * @return       the flag of the success of the key generation
+				 *
 				 * @details The generation seed is taken from the source of randomness
 				 *          entirely; a refusal of the source answers by a refusal of
 				 *          the generation
@@ -328,7 +347,6 @@ namespace nts {
 				 *
 				 * @param set    набор параметров ключа
 				 * @param secret запись ключа подписи SK.seed ‖ SK.prf ‖ PK.seed ‖ PK.root по набору
-				 *
 				 * @return       признак успешности установки ключа подписи
 				 *
 				 * @details Ключ проверки выводится из записи ключа подписи сразу же:
@@ -337,9 +355,11 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of setting the key of the signature
+				 *
 				 * @param set    the parameter set of the key
 				 * @param secret the record of the key of the signature SK.seed ‖ SK.prf ‖ PK.seed ‖ PK.root per set
 				 * @return       the flag of the success of the setting of the key of the signature
+				 *
 				 * @details The key of the check is derived from the record of the key
 				 *          of the signature at once: the root PK.root is computed anew
 				 *          from SK.seed and PK.seed and collated with the written one,
@@ -354,11 +374,11 @@ namespace nts {
 				 *
 				 * @param set набор параметров ключа
 				 * @param key запись ключа проверки PK.seed ‖ PK.root по набору
-				 *
 				 * @return    признак успешности установки ключа проверки подписи
 				 *
 				 * \~english
 				 * @brief Method of setting the key of the check of the signature
+				 *
 				 * @param set the parameter set of the key
 				 * @param key the record of the key of the check PK.seed ‖ PK.root per set
 				 * @return    the flag of the success of the setting of the key of the check
@@ -372,11 +392,11 @@ namespace nts {
 				 *
 				 * @param result место, в которое записывается ключ проверки PK.seed ‖ PK.root по набору
 				 * @param size   размер места, не меньше размера ключа проверки набора
-				 *
 				 * @return       признак успешности получения ключа проверки подписи
 				 *
 				 * \~english
 				 * @brief Method of getting the key of the check of the signature
+				 *
 				 * @param result the place the key of the check PK.seed ‖ PK.root per set is written into
 				 * @param size   the size of the place, not less than the size of the public key of the set
 				 * @return       the flag of the success of the getting of the key of the check
@@ -392,7 +412,6 @@ namespace nts {
 				 * @param message подписываемое сообщение целиком
 				 * @param context контекст подписи, до 255 байтов, в TLS пустой
 				 * @param result  место, в которое помещается подпись R ‖ FORS ‖ HT по набору
-				 *
 				 * @return        признак успешности выработки подписи
 				 *
 				 * @details Раздел 10.2 FIPS 205: случайность opt_rand берётся из
@@ -401,10 +420,12 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the production of a signature with randomness from the source
+				 *
 				 * @param message the message being signed as a whole
 				 * @param context the context of the signature, up to 255 bytes, empty in TLS
 				 * @param result  the place the signature R ‖ FORS ‖ HT per set is put into
 				 * @return        the flag of the success of the production of the signature
+				 *
 				 * @details Section 10.2 of FIPS 205: the randomness opt_rand is taken
 				 *          from the source entirely, therefore a repetition of the
 				 *          production on a single key and message gives different
@@ -421,7 +442,6 @@ namespace nts {
 				 * @param message подписываемое сообщение целиком
 				 * @param context контекст подписи, до 255 байтов, в TLS пустой
 				 * @param result  место, в которое помещается подпись R ‖ FORS ‖ HT по набору
-				 *
 				 * @return        признак успешности выработки подписи
 				 *
 				 * @details Раздел 10.2 FIPS 205: случайность opt_rand подаётся извне,
@@ -432,11 +452,13 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the production of a signature with a given randomness
+				 *
 				 * @param rnd     the randomness of the signature, the first n bytes are read
 				 * @param message the message being signed as a whole
 				 * @param context the context of the signature, up to 255 bytes, empty in TLS
 				 * @param result  the place the signature R ‖ FORS ‖ HT per set is put into
 				 * @return        the flag of the success of the production of the signature
+				 *
 				 * @details Section 10.2 of FIPS 205: the randomness opt_rand is given
 				 *          from the outside, therefore on the same rnd, key and message
 				 *          the same signature comes out; thirty two zero bytes give
@@ -453,7 +475,6 @@ namespace nts {
 				 * @param message   подписанное сообщение целиком
 				 * @param context   контекст подписи, до 255 байтов, в TLS пустой
 				 * @param signature проверяемая подпись R ‖ FORS ‖ HT по набору
-				 *
 				 * @return          признак того, что подпись сошлась
 				 *
 				 * @details Раздел 10.3 FIPS 205: длина записи обязана равняться
@@ -462,10 +483,12 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the check of a signature
+				 *
 				 * @param message   the signed message as a whole
 				 * @param context   the context of the signature, up to 255 bytes, empty in TLS
 				 * @param signature the signature being checked R ‖ FORS ‖ HT per set
 				 * @return          the flag of the signature having converged
+				 *
 				 * @details Section 10.3 of FIPS 205: the length of the record must be
 				 *          equal to the size of the signature of the set, and the
 				 *          hypertree must converge with the root of the key of the check

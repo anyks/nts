@@ -1,5 +1,5 @@
 /**
- * @file openssh.cpp
+ * @file ssh.cpp
  * @date 2026-10-10
  *
  * @license{LicenseRef-A-NTS-1.0}
@@ -36,7 +36,7 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <keys/openssh.hpp>
+#include <keys/ssh.hpp>
 #include <sign/ed25519.hpp>
 
 /**
@@ -55,7 +55,7 @@ using namespace nts;
  */
 namespace {
 	/**
-	 * @brief Метод вывода области байтов шестнадцатеричной записью
+	 * @brief Функция вывода области байтов шестнадцатеричной записью
 	 *
 	 * @param title заголовок выводимой области байтов
 	 * @param data  выводимая область байтов
@@ -81,7 +81,6 @@ namespace {
  *
  * @param argc длина массива параметров
  * @param argv массив параметров
- *
  * @return     код выхода из приложения
  *
  */
@@ -92,7 +91,9 @@ int main(int argc, char * argv[]) noexcept {
 	(void) argv;
 	// Ключ подписи Ed25519 образца
 	keys::key_t key;
+	// Назначаем вид ключа подписи Ed25519
 	key.kind = keys::kind_t::ED25519;
+	// Отводим место под секретный ключ
 	key.d.assign(32, 0);
 	// Объект электронной подписи Ed25519 для порождения пары
 	sign::ed25519_t sign;
@@ -101,6 +102,7 @@ int main(int argc, char * argv[]) noexcept {
 	 *
 	 * @details Зерно ключа подписи берётся из источника случайности, открытый ключ
 	 *          проверки вырабатывается из него сразу же
+	 *
 	 */
 	if(!sign.generate(key.d.data(), key.d.size())){
 		// Выводим сообщение об отказе порождения ключа
@@ -110,6 +112,7 @@ int main(int argc, char * argv[]) noexcept {
 	}
 	// Выполняем получение открытого ключа проверки подписи
 	key.key.assign(32, 0);
+	// Если открытый ключ проверки получить не удалось
 	if(!sign.key(key.key.data(), key.key.size())){
 		// Выводим сообщение об отказе получения ключа
 		cout << "Получить ключ проверки не удалось" << endl;
@@ -125,8 +128,9 @@ int main(int argc, char * argv[]) noexcept {
 	 *
 	 * @details При пустом пароле ciphername и kdfname равны «none», и блок секретных
 	 *          ключей идёт открытым текстом
+	 *
 	 */
-	if(!keys::openssh::encode(key, "образец@ants", view_t(), record)){
+	if(!keys::ssh::encode(key, "образец@ants", view_t(), record)){
 		// Выводим сообщение об отказе записи ключа
 		cout << "Записать ключ openssh-key-v1 не удалось" << endl;
 		// Выходим из приложения с признаком отказа
@@ -136,9 +140,10 @@ int main(int argc, char * argv[]) noexcept {
 	::print("Запись ключа       ", record.data(), 16);
 	// Разобранный ключ и его комментарий
 	keys::key_t parsed;
+	// Комментарий записи ключа
 	string comment;
 	// Выполняем разбор записи ключа openssh-key-v1
-	if(!keys::openssh::decode(view_t(record.data(), record.size()), view_t(), parsed, comment)){
+	if(!keys::ssh::decode(view_t(record.data(), record.size()), view_t(), parsed, comment)){
 		// Выводим сообщение об отказе разбора ключа
 		cout << "Разобрать ключ openssh-key-v1 не удалось" << endl;
 		// Выходим из приложения с признаком отказа
@@ -154,9 +159,9 @@ int main(int argc, char * argv[]) noexcept {
 		return EXIT_FAILURE;
 	}
 	// Выводим строку authorized_keys открытого ключа
-	cout << "authorized_keys    : " << keys::openssh::publish(key, "образец@ants") << endl;
+	cout << "authorized_keys    : " << keys::ssh::publish(key, "образец@ants") << endl;
 	// Выводим отпечаток ключа SHA256
-	cout << "Отпечаток ключа    : " << keys::openssh::fingerprint(key) << endl;
+	cout << "Отпечаток ключа    : " << keys::ssh::fingerprint(key) << endl;
 	// Место, в которое помещается строка known_hosts
 	string line;
 	/**
@@ -164,8 +169,9 @@ int main(int argc, char * argv[]) noexcept {
 	 *
 	 * @details Открытая запись есть «хозяин тип ключ комментарий»: хозяин идёт
 	 *          открытым текстом, как у всякой записи до OpenSSH 4.0
+	 *
 	 */
-	if(!keys::openssh::knownHosts("example.com", key, "узел образца", false, line)){
+	if(!keys::ssh::knownHosts("example.com", key, "узел образца", false, line)){
 		// Выводим сообщение об отказе сборки записи
 		cout << "Собрать запись known_hosts не удалось" << endl;
 		// Выходим из приложения с признаком отказа
@@ -174,16 +180,16 @@ int main(int argc, char * argv[]) noexcept {
 	// Выводим открытую запись known_hosts
 	cout << "known_hosts открытая  : " << line << endl;
 	// Сведения о разобранной записи known_hosts
-	keys::openssh::known_host_t host;
+	keys::ssh::known_host_t host;
 	// Выполняем разбор открытой записи known_hosts
-	if(!keys::openssh::knownHosts(line, host)){
+	if(!keys::ssh::knownHosts(line, host)){
 		// Выводим сообщение об отказе разбора записи
 		cout << "Разобрать запись known_hosts не удалось" << endl;
 		// Выходим из приложения с признаком отказа
 		return EXIT_FAILURE;
 	}
 	// Если хозяин записи не свёлся с собою
-	if(!keys::openssh::knownHostsMatch(host, "example.com")){
+	if(!keys::ssh::knownHostsMatch(host, "example.com")){
 		// Выводим сообщение о расхождении хозяина
 		cout << "Хозяин открытой записи не свёлся" << endl;
 		// Выходим из приложения с признаком отказа
@@ -195,8 +201,9 @@ int main(int argc, char * argv[]) noexcept {
 	 * @details Хешированная запись есть «|1|base64(соль)|base64(HMAC-SHA1(соль, хозяин))
 	 *          тип ключ»: хозяин открытым текстом в ней не идёт, и перечень узлов
 	 *          по такому файлу не собрать
+	 *
 	 */
-	if(!keys::openssh::knownHosts("example.com", key, "", true, line)){
+	if(!keys::ssh::knownHosts("example.com", key, "", true, line)){
 		// Выводим сообщение об отказе сборки записи
 		cout << "Собрать хешированную запись не удалось" << endl;
 		// Выходим из приложения с признаком отказа
@@ -205,16 +212,16 @@ int main(int argc, char * argv[]) noexcept {
 	// Выводим хешированную запись known_hosts
 	cout << "known_hosts хешем     : " << line << endl;
 	// Сведения о разобранной хешированной записи
-	keys::openssh::known_host_t hashed;
+	keys::ssh::known_host_t hashed;
 	// Выполняем разбор хешированной записи known_hosts
-	if(!keys::openssh::knownHosts(line, hashed)){
+	if(!keys::ssh::knownHosts(line, hashed)){
 		// Выводим сообщение об отказе разбора записи
 		cout << "Разобрать хешированную запись не удалось" << endl;
 		// Выходим из приложения с признаком отказа
 		return EXIT_FAILURE;
 	}
 	// Если хозяин хешированной записи не свёлся с собою
-	if(!keys::openssh::knownHostsMatch(hashed, "example.com")){
+	if(!keys::ssh::knownHostsMatch(hashed, "example.com")){
 		// Выводим сообщение о расхождении хозяина
 		cout << "Хозяин хешированной записи не свёлся" << endl;
 		// Выходим из приложения с признаком отказа
@@ -223,7 +230,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Выводим сообщение о сверке хозяина хешированной записи
 	cout << "Сверка хозяина     : хозяин свёлся под хешем HMAC-SHA1" << endl;
 	// Если чужой хозяин не отвергнут
-	if(keys::openssh::knownHostsMatch(hashed, "other.com")){
+	if(keys::ssh::knownHostsMatch(hashed, "other.com")){
 		// Выводим сообщение о неотвержении чужого хозяина
 		cout << "Чужой хозяин не отвергнут" << endl;
 		// Выходим из приложения с признаком отказа

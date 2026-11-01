@@ -21,7 +21,6 @@
  *        of 128 bits according to RFC 1321
  *
  * \~
- *
  * @copyright Copyright © 2026
  *
  */
@@ -84,12 +83,15 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Hashing according to RFC 1321
+		 *
 		 * @details The message is fed by the calls of update by the chunks of an arbitrary size,
 		 *          and the produced hash is taken by the call of finish. A repeated hashing requires
 		 *          the call of reset: finish leaves the object in the finished state
+		 *
 		 * @note MD5 has no collision resistance and must not serve as a cryptographic protection;
 		 *       it is kept for the protocols that require it: the HTTP authentication according to
 		 *       RFC 7616 stands on it
+		 *
 		 * @note The hashing does not allocate memory and raises no exceptions; the state is wiped
 		 *       at the taking of the hash and at the destruction of the object
 		 *
@@ -118,6 +120,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the parsing of a block of the message
+				 *
 				 * @param block the block being parsed: the accumulator or the chunk of the message itself
 				 *
 				 * \~
@@ -142,6 +145,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of feeding a chunk of the message
+				 *
 				 * @param data the chunk of the message being fed
 				 *
 				 * \~
@@ -153,7 +157,6 @@ namespace nts {
 				 *
 				 * @param result место, в которое записывается хеш
 				 * @param size   размер места в байтах, не меньше длины хеша
-				 *
 				 * @return       признак успешности снятия хеша
 				 *
 				 * @note Повторное снятие без сброса отвергается: состояние после снятия
@@ -161,10 +164,13 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of taking the produced hash
+				 *
 				 * @param result the place the hash is written into
 				 * @param size   the size of the place in bytes, not less than the length of the hash
 				 * @return       the flag of the success of the taking of the hash
-				 * @note A repeated taking without a reset is refused: the state after the taking is wiped
+				 *
+				 * @note A repeated taking without a reset is refused: the state after the taking is
+				 *       wiped
 				 *
 				 * \~
 				 */
@@ -194,16 +200,16 @@ namespace nts {
 
 		/**
 		 * \~russian
-		 * @brief Метод выработки хеша MD5 целого сообщения
+		 * @brief Функция выработки хеша MD5 целого сообщения
 		 *
 		 * @param data   хешируемое сообщение
 		 * @param result место, в которое записывается хеш
 		 * @param size   размер места в байтах, не меньше длины хеша
-		 *
 		 * @return       признак успешности выработки хеша
 		 *
 		 * \~english
-		 * @brief Method of the production of the MD5 hash of a whole message
+		 * @brief Function of the production of the MD5 hash of a whole message
+		 *
 		 * @param data   the message being hashed
 		 * @param result the place the hash is written into
 		 * @param size   the size of the place in bytes, not less than the length of the hash

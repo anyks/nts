@@ -21,7 +21,6 @@
  *        encoding, of the names, of the validity, of the public key info and of the extensions
  *
  * \~
- *
  * @copyright Copyright © 2026
  *
  */
@@ -53,7 +52,6 @@
  * @brief Main namespace
  *
  * \~
- *
  */
 namespace nts {
 	/**
@@ -74,6 +72,7 @@ namespace nts {
 	 *
 	 * \~english
 	 * @brief Namespace of the X.509 certificate module
+	 *
 	 * @details The parsing follows RFC 5280 on top of the ASN.1 module and, like it,
 	 *          copies nothing beyond the necessary: the binary fields are given out as
 	 *          views inside the encoding being parsed, and the lifetime of the encoding
@@ -82,7 +81,6 @@ namespace nts {
 	 *          are not part of this module: it only parses the encoding and extracts its fields.
 	 *
 	 * \~
-	 *
 	 */
 	namespace x509 {
 		/**
@@ -93,7 +91,6 @@ namespace nts {
 		 * @brief Reason of a certificate parsing failure
 		 *
 		 * \~
-		 *
 		 */
 		/**
 		 * Намеренное решение: windows.h объявляет DUPLICATE макросом (0x06), и потребитель
@@ -101,23 +98,38 @@ namespace nts {
 		 * Имя значения не меняется ради потребителя: макрос снимается на время перечня
 		 * и возвращается следом - чужие заголовки, идущие после, его не теряют
 		 */
-		#pragma push_macro("DUPLICATE")
+		// Сохраняем действующее определение макроса DUPLICATE перед его снятием
+		_Pragma("push_macro(\"DUPLICATE\")")
 		#undef DUPLICATE
+		// Объявляем перечисление отказов разбора
 		enum class error_t : uint8_t {
+			// Отказа не произошло
 			NONE      = 0x00, /*!< \~russian Отказа не произошло \~english No failure has occurred \~ */
+			// Запись не отвечает правилам кодировки DER
 			ENCODING  = 0x01, /*!< \~russian Запись не отвечает правилам кодировки DER \~english The record does not meet the rules of the DER encoding \~ */
+			// Состав записи не отвечает устройству сертификата
 			STRUCTURE = 0x02, /*!< \~russian Состав записи не отвечает устройству сертификата \~english The composition of the record does not meet the structure of a certificate \~ */
+			// Издание сертификата не поддерживается либо записано неверно
 			VERSION   = 0x03, /*!< \~russian Издание сертификата не поддерживается либо записано неверно \~english The version of the certificate is not supported or is written incorrectly \~ */
+			// Порядковый номер сертификата записан неверно
 			SERIAL    = 0x04, /*!< \~russian Порядковый номер сертификата записан неверно \~english The serial number of the certificate is written incorrectly \~ */
+			// Имя записано неверно
 			NAME      = 0x05, /*!< \~russian Имя записано неверно \~english The name is written incorrectly \~ */
+			// Срок действия записан неверно
 			VALIDITY  = 0x06, /*!< \~russian Срок действия записан неверно \~english The validity period is written incorrectly \~ */
+			// Сведения об открытом ключе записаны неверно
 			KEY       = 0x07, /*!< \~russian Сведения об открытом ключе записаны неверно \~english The information about the public key is written incorrectly \~ */
+			// Расширение записано неверно
 			EXTENSION = 0x08, /*!< \~russian Расширение записано неверно \~english The extension is written incorrectly \~ */
+			// Расширение либо признак имени встретились дважды
 			DUPLICATE = 0x09, /*!< \~russian Расширение либо признак имени встретились дважды \~english An extension or an attribute of a name was met twice \~ */
+			// Не удалось выделить память под разобранные сведения
 			MEMORY    = 0x0A, /*!< \~russian Не удалось выделить память под разобранные сведения \~english It was not possible to allocate memory for the parsed information \~ */
+			// Подпись не сошлась либо непригодна для проверки
 			SIGNATURE = 0x0B  /*!< \~russian Подпись не сошлась либо непригодна для проверки \~english The signature has not converged or is unsuitable for the check \~ */
 		};
-		#pragma pop_macro("DUPLICATE")
+		// Возвращаем сохранённое определение макроса DUPLICATE
+		_Pragma("pop_macro(\"DUPLICATE\")")
 
 		/**
 		 * \~russian
@@ -127,11 +139,13 @@ namespace nts {
 		 * @brief Version of a certificate
 		 *
 		 * \~
-		 *
 		 */
 		enum class version_t : uint8_t {
+			// Первое издание, расширений не имеет
 			V1 = 0x00, /*!< \~russian Первое издание, расширений не имеет \~english First version, has no extensions \~ */
+			// Второе издание, добавлены опознаватели издателя и владельца
 			V2 = 0x01, /*!< \~russian Второе издание, добавлены опознаватели издателя и владельца \~english Second version, the identifiers of the issuer and of the subject are added \~ */
+			// Третье издание, добавлены расширения
 			V3 = 0x02 /*!< \~russian Третье издание, добавлены расширения \~english Third version, the extensions are added \~ */
 		};
 
@@ -143,14 +157,19 @@ namespace nts {
 		 * @brief Kind of a name in the subject alternative names
 		 *
 		 * \~
-		 *
 		 */
 		enum class kind_t : uint8_t {
+			// Имя иного вида, отдаётся записью как есть
 			OTHER     = 0x00, /*!< \~russian Имя иного вида, отдаётся записью как есть \~english A name of another kind, given as the record as is \~ */
+			// Адрес электронной почты
 			EMAIL     = 0x01, /*!< \~russian Адрес электронной почты \~english E-mail address \~ */
+			// Доменное имя
 			DNS       = 0x02, /*!< \~russian Доменное имя \~english Domain name \~ */
+			// Отличительное имя
 			DIRECTORY = 0x03, /*!< \~russian Отличительное имя \~english Distinguished name \~ */
+			// Единый указатель ресурса
 			URI       = 0x04, /*!< \~russian Единый указатель ресурса \~english Uniform resource identifier \~ */
+			// Адрес сети
 			ADDRESS   = 0x05 /*!< \~russian Адрес сети \~english Network address \~ */
 		};
 
@@ -163,21 +182,30 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Purpose of the public key
+		 *
 		 * @details The values correspond to the bits of the bit string of the key usage
 		 *          extension in the order given by RFC 5280.
 		 *
 		 * \~
-		 *
 		 */
 		enum class usage_t : uint16_t {
+			// Проверка подписи
 			SIGNATURE  = 0x0080, /*!< \~russian Проверка подписи \~english Signature verification \~ */
+			// Неотрекаемость от содержимого
 			CONTENT    = 0x0040, /*!< \~russian Неотрекаемость от содержимого \~english Non-repudiation of the content \~ */
+			// Шифрование ключа
 			ENCIPHER   = 0x0020, /*!< \~russian Шифрование ключа \~english Key encipherment \~ */
+			// Шифрование данных
 			DATA       = 0x0010, /*!< \~russian Шифрование данных \~english Data encipherment \~ */
+			// Согласование ключа
 			AGREEMENT  = 0x0008, /*!< \~russian Согласование ключа \~english Key agreement \~ */
+			// Подписывание сертификатов
 			CERTIFICATE= 0x0004, /*!< \~russian Подписывание сертификатов \~english Signing of certificates \~ */
+			// Подписывание списков отзыва
 			REVOCATION = 0x0002, /*!< \~russian Подписывание списков отзыва \~english Signing of revocation lists \~ */
+			// Только шифрование при согласовании ключа
 			ENCIPHER_ONLY = 0x0001, /*!< \~russian Только шифрование при согласовании ключа \~english Encipherment only during the key agreement \~ */
+			// Только расшифровывание при согласовании ключа
 			DECIPHER_ONLY = 0x8000 /*!< \~russian Только расшифровывание при согласовании ключа \~english Decipherment only during the key agreement \~ */
 		};
 
@@ -189,7 +217,6 @@ namespace nts {
 		 * @brief Attribute of a name
 		 *
 		 * \~
-		 *
 		 */
 		typedef struct __ANTS_SHARED_EXPORT__ Attribute {
 			// Вид записи значения признака
@@ -202,14 +229,12 @@ namespace nts {
 			 * \~russian
 			 * @brief Конструктор
 			 *
-			 *
 			 * \~english
 			 * @brief Constructor
 			 *
 			 * \~
-			 *
 			 */
-			Attribute() noexcept : type(asn1::tag_t::UTF8_STRING) {}
+			Attribute() noexcept;
 		} attribute_t;
 
 		/**
@@ -224,6 +249,7 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Distinguished name
+		 *
 		 * @details A name consists of a set of parts, each of which carries one or more
 		 *          attributes. A part of several attributes is used rarely but does occur,
 		 *          and it cannot be reduced to a single attribute: the order of the
@@ -231,7 +257,6 @@ namespace nts {
 		 *          parts themselves is significant.
 		 *
 		 * \~
-		 *
 		 */
 		typedef struct __ANTS_SHARED_EXPORT__ Name {
 			// Просмотр записи имени целиком
@@ -248,7 +273,6 @@ namespace nts {
 		 * @brief Alternative name of the subject
 		 *
 		 * \~
-		 *
 		 */
 		typedef struct __ANTS_SHARED_EXPORT__ Alternative {
 			// Вид имени
@@ -261,14 +285,12 @@ namespace nts {
 			 * \~russian
 			 * @brief Конструктор
 			 *
-			 *
 			 * \~english
 			 * @brief Constructor
 			 *
 			 * \~
-			 *
 			 */
-			Alternative() noexcept : kind(kind_t::OTHER) {}
+			Alternative() noexcept;
 		} alternative_t;
 
 		/**
@@ -279,7 +301,6 @@ namespace nts {
 		 * @brief Extension of a certificate
 		 *
 		 * \~
-		 *
 		 */
 		typedef struct __ANTS_SHARED_EXPORT__ Extension {
 			// Признак обязательности расширения
@@ -292,14 +313,12 @@ namespace nts {
 			 * \~russian
 			 * @brief Конструктор
 			 *
-			 *
 			 * \~english
 			 * @brief Constructor
 			 *
 			 * \~
-			 *
 			 */
-			Extension() noexcept : critical(false) {}
+			Extension() noexcept;
 		} extension_t;
 
 		/**
@@ -310,7 +329,6 @@ namespace nts {
 		 * @brief Public key info
 		 *
 		 * \~
-		 *
 		 */
 		typedef struct __ANTS_SHARED_EXPORT__ Key {
 			// Число неиспользуемых разрядов последнего байта ключа
@@ -327,14 +345,12 @@ namespace nts {
 			 * \~russian
 			 * @brief Конструктор
 			 *
-			 *
 			 * \~english
 			 * @brief Constructor
 			 *
 			 * \~
-			 *
 			 */
-			Key() noexcept : unused(0) {}
+			Key() noexcept;
 		} key_t;
 
 		/**
@@ -346,11 +362,11 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief X.509 certificate
+		 *
 		 * @details The object keeps the parsed info of the certificate and the views
 		 *          inside the encoding being parsed. The encoding must outlive the object.
 		 *
 		 * \~
-		 *
 		 */
 		typedef class __ANTS_SHARED_EXPORT__ Certificate {
 			private:
@@ -401,15 +417,25 @@ namespace nts {
 				vector <extension_t> _extensions;
 			private:
 				/**
+				 * \~russian
 				 * @brief Метод разбора отличительного имени
 				 *
 				 * @param element элемент записи имени
 				 * @param result  объект имени, в который производится разбор
 				 * @return        причина отказа либо error_t::NONE
 				 *
+				 * \~english
+				 * @brief Method of parsing the distinguished name
+				 *
+				 * @param element the element of the record of the name
+				 * @param result  the object of the name the parsing is performed into
+				 * @return        the reason of the failure or error_t::NONE
+				 *
+				 * \~
 				 */
 				error_t name(const asn1::element_t & element, name_t & result) noexcept;
 				/**
+				 * \~russian
 				 * @brief Метод разбора опознавателя алгоритма
 				 *
 				 * @param element элемент записи опознавателя алгоритма
@@ -417,6 +443,15 @@ namespace nts {
 				 * @param params  просмотр, в который помещается запись настроек алгоритма
 				 * @return        причина отказа либо error_t::NONE
 				 *
+				 * \~english
+				 * @brief Method of parsing the identifier of the algorithm
+				 *
+				 * @param element the element of the record of the identifier of the algorithm
+				 * @param oid     the string the identifier of the algorithm is put into
+				 * @param params  the view the record of the settings of the algorithm is put into
+				 * @return        the reason of the failure or error_t::NONE
+				 *
+				 * \~
 				 */
 				error_t identifier(const asn1::element_t & element, string & oid, view_t & params) noexcept;
 			public:
@@ -432,11 +467,14 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of parsing a certificate encoding
+				 *
 				 * @param data the view of the certificate encoding being parsed
 				 * @return     the reason of the failure or error_t::NONE
 				 *
-				 * \~
+				 * @note The views of the parsed fields point inside the passed encoding,
+				 *       therefore the encoding must outlive the object of the certificate
 				 *
+				 * \~
 				 */
 				error_t parse(const view_t & data) noexcept;
 				/**
@@ -447,7 +485,6 @@ namespace nts {
 				 * @brief Method of clearing the parsed info
 				 *
 				 * \~
-				 *
 				 */
 				void clear() noexcept;
 			public:
@@ -459,10 +496,10 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the reason of the last failure
+				 *
 				 * @return the reason of the last failure
 				 *
 				 * \~
-				 *
 				 */
 				error_t err() const noexcept;
 				/**
@@ -473,10 +510,10 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the version of the certificate
+				 *
 				 * @return the version of the certificate
 				 *
 				 * \~
-				 *
 				 */
 				version_t release() const noexcept;
 				/**
@@ -491,10 +528,14 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the signed part of the certificate
+				 *
 				 * @return the view of the signed part of the certificate
 				 *
-				 * \~
+				 * @note The signature is put over the encoding of this part, and not over its meaning,
+				 *       therefore it should be checked by this view, and not by the newly
+				 *       assembled encoding of the parsed fields
 				 *
+				 * \~
 				 */
 				const view_t & body() const noexcept;
 				/**
@@ -505,10 +546,10 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the serial number of the certificate
+				 *
 				 * @return the view of the serial number of the certificate
 				 *
 				 * \~
-				 *
 				 */
 				const view_t & number() const noexcept;
 				/**
@@ -520,11 +561,11 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the signature of the certificate
+				 *
 				 * @param unused the number of unused bits in the last byte of the signature
 				 * @return       the view of the signature encoding
 				 *
 				 * \~
-				 *
 				 */
 				const view_t & sign(uint8_t & unused) const noexcept;
 				/**
@@ -535,10 +576,10 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the identifier of the signature algorithm
+				 *
 				 * @return the identifier of the signature algorithm
 				 *
 				 * \~
-				 *
 				 */
 				const string & algorithms() const noexcept;
 				/**
@@ -549,6 +590,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the encoding of the parameters of the signature algorithm
+				 *
 				 * @return the view of the encoding of the parameters (RSASSA-PSS-params at id-RSASSA-PSS) or an empty view
 				 *
 				 * \~
@@ -562,10 +604,10 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the name of the issuer of the certificate
+				 *
 				 * @return the name of the issuer of the certificate
 				 *
 				 * \~
-				 *
 				 */
 				const name_t & issuers() const noexcept;
 				/**
@@ -576,10 +618,10 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the name of the subject of the certificate
+				 *
 				 * @return the name of the subject of the certificate
 				 *
 				 * \~
-				 *
 				 */
 				const name_t & subjects() const noexcept;
 				/**
@@ -591,11 +633,11 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the validity of the certificate
+				 *
 				 * @param before the beginning of the validity in seconds since the epoch
 				 * @param after  the end of the validity in seconds since the epoch
 				 *
 				 * \~
-				 *
 				 */
 				void validity(int64_t & before, int64_t & after) const noexcept;
 				/**
@@ -606,10 +648,10 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the public key info
+				 *
 				 * @return the public key info
 				 *
 				 * \~
-				 *
 				 */
 				const key_t & key() const noexcept;
 				/**
@@ -620,10 +662,10 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the set of the extensions of the certificate
+				 *
 				 * @return the set of the extensions of the certificate
 				 *
 				 * \~
-				 *
 				 */
 				const vector <extension_t> & extension() const noexcept;
 				/**
@@ -635,11 +677,11 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of finding an extension of the certificate by its identifier
+				 *
 				 * @param oid the identifier of the extension being sought
 				 * @return    the extension of the certificate or nullptr
 				 *
 				 * \~
-				 *
 				 */
 				const extension_t * extension(const string & oid) const noexcept;
 				/**
@@ -662,7 +704,6 @@ namespace nts {
 				 * @return    the extension of the certificate or nullptr
 				 *
 				 * \~
-				 *
 				 */
 				const extension_t * extension(const char * oid) const noexcept;
 			public:
@@ -674,26 +715,23 @@ namespace nts {
 				 * @brief Constructor of a certificate
 				 *
 				 * \~
-				 *
 				 */
 				Certificate() noexcept;
 				/**
 				 * \~russian
 				 * @brief Деструктор
 				 *
-				 *
 				 * \~english
 				 * @brief Destructor
 				 *
 				 * \~
-				 *
 				 */
-				~Certificate() noexcept {}
+				~Certificate() noexcept;
 		} certificate_t;
 
 		/**
 		 * \~russian
-		 * @brief Метод поиска признака имени по опознавателю
+		 * @brief Функция поиска признака имени по опознавателю
 		 *
 		 * @param name имя, в котором ведётся поиск
 		 * @param oid  опознаватель разыскиваемого признака
@@ -703,18 +741,21 @@ namespace nts {
 		 *       единожды, и выбор одного из нескольких — дело вызывающего
 		 *
 		 * \~english
-		 * @brief Method of finding an attribute of a name by its identifier
+		 * @brief Function of finding an attribute of a name by its identifier
+		 *
 		 * @param name the name the search is performed in
 		 * @param oid  the identifier of the attribute being sought
 		 * @return     the attribute of the name or nullptr
 		 *
-		 * \~
+		 * @note The first attribute is given: the identifier may occur in the name not
+		 *       once, and the choice of one out of several is the business of the caller
 		 *
+		 * \~
 		 */
 		__ANTS_SHARED_EXPORT__ const attribute_t * attribute(const name_t & name, const string & oid) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод сборки записи имени в виде строки
+		 * @brief Функция сборки записи имени в виде строки
 		 *
 		 * @param name   имя, запись которого собирается
 		 * @param result строка, в которую помещается результат
@@ -725,18 +766,22 @@ namespace nts {
 		 *       сличение ведётся по разобранным признакам
 		 *
 		 * \~english
-		 * @brief Method of building the notation of a name as a string
+		 * @brief Function of building the notation of a name as a string
+		 *
 		 * @param name   the name whose notation is being built
 		 * @param result the string the result is put into
 		 * @return       the reason of the failure or error_t::NONE
 		 *
-		 * \~
+		 * @note The notation is built according to RFC 4514 from the last component to the first.
+		 *       It is intended for the reading by a human and is unfit for the comparison of the names:
+		 *       the comparison is conducted by the parsed attributes
 		 *
+		 * \~
 		 */
 		__ANTS_SHARED_EXPORT__ error_t text(const name_t & name, string & result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод извлечения основных ограничений сертификата
+		 * @brief Функция извлечения основных ограничений сертификата
 		 *
 		 * @param extension расширение основных ограничений
 		 * @param authority признак принадлежности сертификата удостоверяющему центру
@@ -744,135 +789,139 @@ namespace nts {
 		 * @return          причина отказа либо error_t::NONE
 		 *
 		 * \~english
-		 * @brief Method of getting the basic constraints of a certificate
+		 * @brief Function of getting the basic constraints of a certificate
+		 *
 		 * @param extension the extension of the basic constraints
 		 * @param authority the flag of the certificate belonging to a certification authority
 		 * @param depth     the maximum depth of the chain or minus one
 		 * @return          the reason of the failure or error_t::NONE
 		 *
 		 * \~
-		 *
 		 */
 		__ANTS_SHARED_EXPORT__ error_t constraints(const extension_t & extension, bool & authority, int64_t & depth) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод извлечения назначения открытого ключа
+		 * @brief Функция извлечения назначения открытого ключа
 		 *
 		 * @param extension расширение назначения ключа
 		 * @param result    набор разрядов назначения ключа
 		 * @return          причина отказа либо error_t::NONE
 		 *
 		 * \~english
-		 * @brief Method of getting the usage of the public key
+		 * @brief Function of getting the usage of the public key
+		 *
 		 * @param extension the extension of the key usage
 		 * @param result    the set of the bits of the key usage
 		 * @return          the reason of the failure or error_t::NONE
 		 *
 		 * \~
-		 *
 		 */
 		__ANTS_SHARED_EXPORT__ error_t usage(const extension_t & extension, uint16_t & result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод проверки критичных расширений сертификата на известность
+		 * @brief Функция проверки критичных расширений сертификата на известность
 		 *
 		 * @param certificate проверяемый сертификат
 		 * @return            признак того, что все критичные расширения известны библиотеке
+		 *
 		 * @details Раздел 4.2 RFC 5280: сертификат с критичным расширением, которого проверяющий не
 		 *          понимает, отвергается. Известны: subjectKeyIdentifier, keyUsage, subjectAltName,
 		 *          basicConstraints, authorityKeyIdentifier, extendedKeyUsage
 		 *
 		 * \~english
-		 * @brief Method of checking the critical extensions of a certificate for being known
+		 * @brief Function of checking the critical extensions of a certificate for being known
+		 *
 		 * @param certificate the certificate being checked
 		 * @return            the flag of all the critical extensions being known to the library
+		 *
 		 * @details The section 4.2 of RFC 5280: a certificate with a critical extension the verifier does not
 		 *          understand is rejected. Known: subjectKeyIdentifier, keyUsage, subjectAltName,
 		 *          basicConstraints, authorityKeyIdentifier, extendedKeyUsage
 		 *
 		 * \~
-		 *
 		 */
 		__ANTS_SHARED_EXPORT__ bool recognized(const certificate_t & certificate) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод проверки стойкости алгоритма подписи
+		 * @brief Функция проверки стойкости алгоритма подписи
 		 *
 		 * @param algorithm  опознаватель алгоритма подписи
 		 * @param parameters запись настроек алгоритма подписи либо пустой просмотр
 		 * @return           признак слабой подписи: хеш MD2/MD4/MD5/SHA-1, у RSASSA-PSS - по настройкам (без них SHA-1)
+		 *
 		 * @details RFC 9155 выводит SHA-1 из подписей; политика единая для цепочки доверия и
 		 *          ответов OCSP: примитив проверки подписи SHA-1 сам по себе принимает,
 		 *          политика доверия строже примитива
 		 *
 		 * \~english
-		 * @brief Method of checking the strength of a signature algorithm
+		 * @brief Function of checking the strength of a signature algorithm
+		 *
 		 * @param algorithm  the identifier of the signature algorithm
 		 * @param parameters the encoding of the parameters of the algorithm or an empty view
 		 * @return           the flag of a weak signature: an MD2/MD4/MD5/SHA-1 hash, for RSASSA-PSS by the parameters (SHA-1 without them)
+		 *
 		 * @details RFC 9155 deprecates SHA-1 in signatures; the policy is common for the chain of
 		 *          the trust and for the OCSP responses: the primitive itself accepts SHA-1,
 		 *          the trust policy is stricter than the primitive
 		 *
 		 * \~
-		 *
 		 */
 		__ANTS_SHARED_EXPORT__ bool weak(const string & algorithm, const view_t & parameters) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод проверки стойкости открытого ключа
+		 * @brief Функция проверки стойкости открытого ключа
 		 *
 		 * @param key сведения об открытом ключе
 		 * @return    признак слабого ключа: RSA короче 2048 разрядов (SP 800-131A) либо не разбираемый
 		 *
 		 * \~english
-		 * @brief Method of checking the strength of a public key
+		 * @brief Function of checking the strength of a public key
+		 *
 		 * @param key the info of the public key
 		 * @return    the flag of a weak key: RSA shorter than 2048 bits (SP 800-131A) or unparsable
 		 *
 		 * \~
-		 *
 		 */
 		__ANTS_SHARED_EXPORT__ bool weak(const key_t & key) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод проверки стойкости сертификата как звена доверия
+		 * @brief Функция проверки стойкости сертификата как звена доверия
 		 *
 		 * @param certificate проверяемый сертификат
 		 * @param anchor      признак якоря: самоподпись якоря не судится, ключ судится всегда
 		 * @return            признак слабого звена: подпись хешем MD5/SHA-1 либо ключ RSA короче 2048 разрядов
 		 *
 		 * \~english
-		 * @brief Method of checking the strength of a certificate as a link of the trust
+		 * @brief Function of checking the strength of a certificate as a link of the trust
+		 *
 		 * @param certificate the certificate being checked
 		 * @param anchor      the flag of an anchor: the self-signature of an anchor is not judged, the key always is
 		 * @return            the flag of a weak link: a signature with an MD5/SHA-1 hash or an RSA key shorter than 2048 bits
 		 *
 		 * \~
-		 *
 		 */
 		__ANTS_SHARED_EXPORT__ bool weak(const certificate_t & certificate, const bool anchor) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод извлечения расширенного назначения открытого ключа
+		 * @brief Функция извлечения расширенного назначения открытого ключа
 		 *
 		 * @param extension расширение расширенного назначения ключа
 		 * @param result    набор опознавателей назначения ключа
 		 * @return          причина отказа либо error_t::NONE
 		 *
 		 * \~english
-		 * @brief Method of getting the extended usage of the public key
+		 * @brief Function of getting the extended usage of the public key
+		 *
 		 * @param extension the extension of the extended key usage
 		 * @param result    the set of the identifiers of the key usage
 		 * @return          the reason of the failure or error_t::NONE
 		 *
 		 * \~
-		 *
 		 */
 		__ANTS_SHARED_EXPORT__ error_t purpose(const extension_t & extension, vector <string> & result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод извлечения дополнительных имён владельца
+		 * @brief Функция извлечения дополнительных имён владельца
 		 *
 		 * @param extension расширение дополнительных имён
 		 * @param result    набор дополнительных имён
@@ -882,60 +931,65 @@ namespace nts {
 		 *       это дело модуля работы с сетью, а не разборщика сертификата
 		 *
 		 * \~english
-		 * @brief Method of getting the alternative names of the subject
+		 * @brief Function of getting the alternative names of the subject
+		 *
 		 * @param extension the extension of the alternative names
 		 * @param result    the set of the alternative names
 		 * @return          the reason of the failure or error_t::NONE
 		 *
-		 * \~
+		 * @note The network address is given by the encoding as it is, without the conversion into a string: the conversion
+		 *       is the business of the network module, and not of the certificate parser
 		 *
+		 * \~
 		 */
 		__ANTS_SHARED_EXPORT__ error_t alternatives(const extension_t & extension, vector <alternative_t> & result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод извлечения ограничений имён издателя
+		 * @brief Функция извлечения ограничений имён издателя
 		 *
 		 * @param extension расширение nameConstraints (2.5.29.30)
 		 * @param permitted дозволенные поддеревья имён
 		 * @param excluded  запрещённые поддеревья имён
 		 * @return          причина отказа либо error_t::NONE
+		 *
 		 * @details Раздел 4.2.1.10 RFC 5280: поддеревья с minimum либо maximum отвергаются как
 		 *          неразбираемые (EXTENSION) - их стандарт велит не выпускать
 		 *
 		 * \~english
-		 * @brief Method of getting the name constraints of an issuer
+		 * @brief Function of getting the name constraints of an issuer
+		 *
 		 * @param extension the nameConstraints extension (2.5.29.30)
 		 * @param permitted the permitted subtrees of the names
 		 * @param excluded  the excluded subtrees of the names
 		 * @return          the reason of the failure or error_t::NONE
+		 *
 		 * @details The section 4.2.1.10 of RFC 5280: the subtrees with minimum or maximum are rejected as
 		 *          unparseable (EXTENSION) - the standard orders not to issue them
 		 *
 		 * \~
-		 *
 		 */
 		__ANTS_SHARED_EXPORT__ error_t constraints(const extension_t & extension, vector <alternative_t> & permitted, vector <alternative_t> & excluded) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод извлечения опознавателя ключа владельца
+		 * @brief Функция извлечения опознавателя ключа владельца
 		 *
 		 * @param extension расширение опознавателя ключа владельца
 		 * @param result    просмотр, в который помещается опознаватель ключа
 		 * @return          причина отказа либо error_t::NONE
 		 *
 		 * \~english
-		 * @brief Method of getting the subject key identifier
+		 * @brief Function of getting the subject key identifier
+		 *
 		 * @param extension the extension of the subject key identifier
 		 * @param result    the view the key identifier is put into
 		 * @return          the reason of the failure or error_t::NONE
 		 *
 		 * \~
-		 *
 		 */
 		__ANTS_SHARED_EXPORT__ error_t subjectKey(const extension_t & extension, view_t & result) noexcept;
 		/**
 		 * \~russian
-		 * @brief Метод извлечения опознавателя ключа издателя
+		 * @brief Функция извлечения опознавателя ключа издателя
 		 *
 		 * @param extension расширение опознавателя ключа издателя
 		 * @param result    просмотр, в который помещается опознаватель ключа
@@ -946,13 +1000,17 @@ namespace nts {
 		 *       остаётся пустым
 		 *
 		 * \~english
-		 * @brief Method of getting the authority key identifier
+		 * @brief Function of getting the authority key identifier
+		 *
 		 * @param extension the extension of the authority key identifier
 		 * @param result    the view the key identifier is put into
 		 * @return          the reason of the failure or error_t::NONE
 		 *
-		 * \~
+		 * @note The extension carries three optional fields, and the key identifier among them
+		 *       may be absent altogether. Its absence is not counted as a failure: the view
+		 *       remains empty
 		 *
+		 * \~
 		 */
 		__ANTS_SHARED_EXPORT__ error_t authorityKey(const extension_t & extension, view_t & result) noexcept;
 	};

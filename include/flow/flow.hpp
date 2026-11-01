@@ -22,7 +22,6 @@
  *        protected by
  *
  * \~
- *
  * @copyright Copyright © 2026
  *
  */
@@ -73,10 +72,12 @@ namespace nts {
 	 *
 	 * \~english
 	 * @brief Namespace of the course of the handshake of the TLS protocol
+	 *
 	 * @details The section 4.4.1 of RFC 8446: the messages of the handshake go in a set order, and a
 	 *          party which has received a message out of its turn is obliged to abort the connection.
 	 *          This order is one and the same at both parties: both see the same transcript and differ
 	 *          only by who sends which message.
+	 *
 	 * @note The course of the handshake itself neither composes nor parses anything: it only answers
 	 *       whether a message is entitled to go now, and names the epoch of the keys the records are
 	 *       protected by
@@ -94,10 +95,15 @@ namespace nts {
 		 * \~
 		 */
 		enum class error_t : uint8_t {
+			// Отказа нет
 			NONE   = 0x00, /*!< \~russian Отказа нет \~english There is no failure \~ */
+			// Ход рукопожатия не заведён либо уже прерван
 			STATE  = 0x01, /*!< \~russian Ход рукопожатия не заведён либо уже прерван \~english The course of the handshake is not set up or is already aborted \~ */
+			// Сообщение пришло не в свой черёд
 			ORDER  = 0x02, /*!< \~russian Сообщение пришло не в свой черёд \~english The message has come out of its turn \~ */
+			// Эта сторона слать такое сообщение не вправе
 			SIDE   = 0x03, /*!< \~russian Эта сторона слать такое сообщение не вправе \~english This side is not entitled to send such a message \~ */
+			// Просьба о повторе приветствия объявлена дважды
 			REPEAT = 0x04  /*!< \~russian Просьба о повторе приветствия объявлена дважды \~english The request of a repetition of the greeting is declared twice \~ */
 		};
 
@@ -111,8 +117,11 @@ namespace nts {
 		 * \~
 		 */
 		enum class role_t : uint8_t {
+			// Роль стороны не установлена
 			NONE   = 0x00, /*!< \~russian Роль стороны не установлена \~english The role of the side is not set \~ */
+			// Сторона ведёт связь клиентом
 			CLIENT = 0x01, /*!< \~russian Сторона ведёт связь клиентом \~english The side conducts the connection as a client \~ */
+			// Сторона ведёт связь сервером
 			SERVER = 0x02  /*!< \~russian Сторона ведёт связь сервером \~english The side conducts the connection as a server \~ */
 		};
 
@@ -125,14 +134,18 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Epochs of the keys the records are protected by
+		 *
 		 * @details The section 2 of RFC 8446: the records are protected by three different key materials
 		 *          in a row, and every next one replaces the previous one not simultaneously at both parties
 		 *
 		 * \~
 		 */
 		enum class epoch_t : uint8_t {
+			// Записи идут без защиты
 			PLAIN       = 0x00, /*!< \~russian Записи идут без защиты \~english The records go without a protection \~ */
+			// Записи защищены ключами рукопожатия
 			HANDSHAKE   = 0x01, /*!< \~russian Записи защищены ключами рукопожатия \~english The records are protected by the keys of the handshake \~ */
+			// Записи защищены ключами прикладных данных
 			APPLICATION = 0x02  /*!< \~russian Записи защищены ключами прикладных данных \~english The records are protected by the keys of the application data \~ */
 		};
 
@@ -144,22 +157,35 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Stages of the course of the handshake
+		 *
 		 * @details A stage names the message which the course of the handshake awaits next
 		 *
 		 * \~
 		 */
 		enum class stage_t : uint8_t {
+			// Ход рукопожатия ещё не заведён
 			NONE        = 0x00, /*!< \~russian Ход рукопожатия ещё не заведён \~english The course of the handshake is not set up yet \~ */
+			// Ожидается приветствие клиента
 			GREETING    = 0x01, /*!< \~russian Ожидается приветствие клиента \~english The greeting of the client is awaited \~ */
+			// Ожидается приветствие сервера
 			ANSWER      = 0x02, /*!< \~russian Ожидается приветствие сервера \~english The greeting of the server is awaited \~ */
+			// Ожидаются защищённые расширения
 			EXTENSIONS  = 0x03, /*!< \~russian Ожидаются защищённые расширения \~english The encrypted extensions are awaited \~ */
+			// Ожидается запрос сертификата либо цепочка сервера
 			CREDENTIALS = 0x04, /*!< \~russian Ожидается запрос сертификата либо цепочка сервера \~english The request of a certificate or the chain of the server is awaited \~ */
+			// Ожидается подпись владения ключом сервера
 			VERIFY      = 0x05, /*!< \~russian Ожидается подпись владения ключом сервера \~english The signature of the possession of the key of the server is awaited \~ */
+			// Ожидается завершение рукопожатия сервером
 			COMPLETION  = 0x06, /*!< \~russian Ожидается завершение рукопожатия сервером \~english The completion of the handshake by the server is awaited \~ */
+			// Ожидается ответ клиента на запрос сертификата
 			ANSWERING   = 0x07, /*!< \~russian Ожидается ответ клиента на запрос сертификата \~english The answer of the client to the request of a certificate is awaited \~ */
+			// Ожидается подпись владения ключом клиента
 			CONFIRMING  = 0x08, /*!< \~russian Ожидается подпись владения ключом клиента \~english The signature of the possession of the key of the client is awaited \~ */
+			// Ожидается завершение рукопожатия клиентом
 			FINISHING   = 0x09, /*!< \~russian Ожидается завершение рукопожатия клиентом \~english The completion of the handshake by the client is awaited \~ */
+			// Рукопожатие завершено, связь установлена
 			ESTABLISHED = 0x0A, /*!< \~russian Рукопожатие завершено, связь установлена \~english The handshake is completed, the connection is established \~ */
+			// Ход рукопожатия прерван отказом
 			FAILED      = 0x0B  /*!< \~russian Ход рукопожатия прерван отказом \~english The course of the handshake is aborted by a failure \~ */
 		};
 
@@ -178,11 +204,13 @@ namespace nts {
 		 *
 		 * \~english
 		 * @brief Course of the handshake of a connection
+		 *
 		 * @details The messages are declared to the course of the handshake by a call of accept in the
 		 *          order in which they have passed over the connection, and each of them is either
 		 *          accepted or rejected together with the whole handshake. The course of the handshake at
 		 *          that moves the epoch of the keys of every side by itself: one and the same record sent
 		 *          before and after the completion is protected by different keys.
+		 *
 		 * @note The course of the handshake is identical at both parties: the client and the server see one
 		 *       and the same transcript, and they are distinguished only by who sends which message
 		 *
@@ -222,6 +250,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the role of the side conducting the course of the handshake
+				 *
 				 * @return the role of the side of the connection
 				 *
 				 * \~
@@ -235,6 +264,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the stage the handshake has reached
+				 *
 				 * @return the stage of the course of the handshake
 				 *
 				 * \~
@@ -248,6 +278,7 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of checking the completeness of the handshake
+				 *
 				 * @return the flag of the handshake being completed and the connection being established
 				 *
 				 * \~
@@ -266,7 +297,9 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of checking the authentication by the client
+				 *
 				 * @return the flag of the client having confirmed the possession of the key of the certificate
+				 *
 				 * @details The section 4.4.2 of RFC 8446: the authenticity of the client is confirmed only when
 				 *          the server has requested it, while the client has sent a non-empty chain of the
 				 *          certificates and has signed the possession of its key. An empty chain means that no
@@ -280,7 +313,6 @@ namespace nts {
 				 * @brief Метод получения поры ключей стороны связи
 				 *
 				 * @param side сторона, чья пора ключей запрашивается
-				 *
 				 * @return     пора ключей записей, отправляемых этой стороной
 				 *
 				 * @details Поры сторон сменяются не разом: сторона переходит к ключам прикладных
@@ -289,8 +321,10 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of getting the epoch of the keys of a side of the connection
+				 *
 				 * @param side the side whose epoch of the keys is being requested
 				 * @return     the epoch of the keys of the records sent by this side
+				 *
 				 * @details The epochs of the sides do not change simultaneously: a side passes to the keys of
 				 *          the application data having sent its completion of the handshake, while its peer
 				 *          does so only having sent its own
@@ -304,11 +338,11 @@ namespace nts {
 				 * @brief Метод заведения хода рукопожатия
 				 *
 				 * @param role роль стороны, ведущей ход рукопожатия
-				 *
 				 * @return     признак успешности заведения хода рукопожатия
 				 *
 				 * \~english
 				 * @brief Method of the setting up of the course of the handshake
+				 *
 				 * @param role the role of the side conducting the course of the handshake
 				 * @return     the flag of the success of the setting up of the course of the handshake
 				 *
@@ -332,7 +366,6 @@ namespace nts {
 				 *
 				 * @param type вид объявляемого сообщения рукопожатия
 				 * @param side сторона, отправившая объявляемое сообщение
-				 *
 				 * @return     отказ объявления сообщения рукопожатия
 				 *
 				 * @details Сообщение объявляется и той стороной, что его отправила, и той, что
@@ -341,9 +374,11 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the declaration of a message of the handshake
+				 *
 				 * @param type the type of the message of the handshake being declared
 				 * @param side the side which has sent the message being declared
 				 * @return     the failure of the declaration of the message of the handshake
+				 *
 				 * @details A message is declared both by the party which has sent it and by the one which has
 				 *          received it: the course of the handshake is the same at both. A failure means that
 				 *          the handshake is aborted and there is nothing to continue it with
@@ -364,7 +399,9 @@ namespace nts {
 				 *
 				 * \~english
 				 * @brief Method of the declaration of a request of a repetition of the greeting of the client
+				 *
 				 * @return the failure of the declaration of the request of a repetition of the greeting
+				 *
 				 * @details The section 4.1.4 of RFC 8446: a request of a repetition of the greeting goes by the
 				 *          same message as the greeting of the server, and to distinguish them by the parsing of
 				 *          the body is the business of the layer above. The request is declared right after the
@@ -377,7 +414,6 @@ namespace nts {
 				/**
 				 * \~russian
 				 * @brief Конструктор
-				 *
 				 *
 				 * \~english
 				 * @brief Constructor
