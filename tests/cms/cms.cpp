@@ -1488,6 +1488,79 @@ TEST(CmsTest, DeepRefusals) {
 }
 
 /**
+ * @brief Проверка совместного отвержения порченых записей CMS с OpenSSL
+ *
+ */
+TEST(CmsTest, OpensslRefusals) {
+	// Если эталон OpenSSL недоступен
+	if(shell("openssl version >/dev/null 2>&1") != 0)
+		// Пропускаем интероп без эталона
+		GTEST_SKIP() << "openssl cms is not available";
+	// Песочница файлов проверки
+	sandbox_t sandbox;
+	// Запись сертификата подписывающего и набор блоков PEM
+	std::string text;
+	// Набор блоков PEM
+	std::vector <pem::block_t> blocks;
+	// Сертификат подписывающего
+	x509::certificate_t certificate;
+	// Разбираем сертификат набора
+	load(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
+	// Подготовленный ключ подписи
+	keys::signer_t signer;
+	// Готовим ключ подписи из записи набора
+	ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/leaf-rsa.key"))), keys::error_t::NONE);
+	// Подписанная запись
+	std::vector <uint8_t> record;
+	// Собираем годную подписанную запись
+	ASSERT_EQ(cms::sign({view(blocks[0].data)}, certificate.issuers().element, certificate.number(), view(std::string("CMS openssl refusal")), signer, digest::hash_t::SHA256, record), cms::error_t::NONE);
+	// Обрезанная запись ровно половинной длины
+	const std::vector <uint8_t> truncated(record.begin(), record.begin() + (record.size() / 2));
+	// Путь к обрезанной записи
+	const std::string shorty = sandbox.file("truncated.der");
+	// Записываем обрезанную запись
+	sandbox.spill("truncated.der", truncated);
+	// Разборщик подписанной записи
+	cms::signed_t signed_;
+	// Проверяем отказ нашего разборщика на обрезке
+	ASSERT_NE(signed_.parse(view(truncated)), cms::error_t::NONE);
+	// Проверяем отказ OpenSSL на той же обрезке
+	ASSERT_NE(shell("openssl cms -cmsout -inform DER -in " + shorty + " -noout 2>/dev/null"), 0);
+	// Запись с подменённым видом содержимого
+	std::vector <uint8_t> foreign = record;
+	// Опознаватель подписанного содержимого PKCS #7
+	const uint8_t signedOid[] = {0x06, 0x09, 0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x07, 0x02};
+	// Смещение опознавателя в записи
+	size_t at = std::string::npos;
+	/**
+	 * Выполняем поиск опознавателя подписанного содержимого
+	 */
+	for(size_t i = 0; (i + sizeof(signedOid)) <= foreign.size(); i++){
+		// Если опознаватель найден
+		if(::memcmp(foreign.data() + i, signedOid, sizeof(signedOid)) == 0){
+			// Запоминаем смещение опознавателя
+			at = i;
+			// Завершаем поиск
+			break;
+		}
+	}
+	// Проверяем наличие опознавателя
+	ASSERT_NE(at, std::string::npos);
+	// Подменяем signedData на envelopedData без замены содержимого
+	foreign[at + sizeof(signedOid) - 1] = 0x03;
+	// Путь к записи с чужим видом содержимого
+	const std::string alien = sandbox.file("foreign.der");
+	// Записываем порченую запись
+	sandbox.spill("foreign.der", foreign);
+	// Разборщик записи с чужим видом содержимого
+	cms::signed_t foreignSigned;
+	// Проверяем отказ нашего разборщика на чужом виде содержимого
+	ASSERT_EQ(foreignSigned.parse(view(foreign)), cms::error_t::STRUCTURE);
+	// Проверяем отказ OpenSSL на несоответствии вида и содержимого
+	ASSERT_NE(shell("openssl cms -cmsout -inform DER -in " + alien + " -noout 2>/dev/null"), 0);
+}
+
+/**
  * @brief Проверка отказов сборки цепочки сертификатов
  *
  */

@@ -936,6 +936,65 @@ TEST(CmpTest, DeepRefusals) {
 }
 
 /**
+ * @brief Проверка совместного отвержения порченой записи CMP с OpenSSL
+ *
+ */
+TEST(CmpTest, OpensslRefusals) {
+	// Если эталон с поддержкой CMP недоступен
+	if(shell("openssl cmp -help >/dev/null 2>&1") != 0)
+		// Пропускаем интероп без эталона
+		GTEST_SKIP() << "openssl cmp is not available";
+	// Пароль общего секрета
+	static const char * PASSWORD = "12345";
+	// Песочница файлов проверки
+	sandbox_t sandbox;
+	// Запись сертификата и набор блоков PEM
+	std::string text;
+	// Набор блоков PEM
+	std::vector <pem::block_t> blocks;
+	// Сертификат владельца
+	x509::certificate_t certificate;
+	// Разбираем сертификат набора
+	load(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
+	// Записи имён отправителя и получателя
+	std::vector <uint8_t> sender, recipient;
+	// Собираем имена отправителя и получателя
+	nameOf("cmp-test", sender);
+	nameOf("ca-rsa", recipient);
+	// Запись шаблона сертификата
+	std::vector <uint8_t> certTemplate;
+	// Собираем шаблон сертификата
+	ASSERT_EQ(cmp::certTemplate(certificate.subjects().element, certificate.key().element, certTemplate), cmp::error_t::NONE);
+	// Запись запроса инициализации
+	std::vector <uint8_t> record;
+	// Собираем годный запрос ir с защитой PBM
+	ASSERT_EQ(cmp::request(cmp::body_t::IR, view(sender), view(recipient), {view(certTemplate)}, view(std::string("client1")), view(std::string(PASSWORD)), digest::hash_t::SHA256, record), cmp::error_t::NONE);
+	// Обрезанная запись ровно половинной длины
+	const std::vector <uint8_t> truncated(record.begin(), record.begin() + (record.size() / 2));
+	// Путь к обрезанной записи
+	const std::string shorty = sandbox.file("truncated.der");
+	// Записываем обрезанную запись
+	sandbox.spill("truncated.der", truncated);
+	// Разборщик сообщения
+	cmp::message_t parsed;
+	// Проверяем отказ нашего разборщика на обрезке
+	ASSERT_NE(parsed.parse(view(truncated)), cmp::error_t::NONE);
+	// Путь к журналу эталона
+	const std::string log = sandbox.file("log.txt");
+	// Передаём обрезанный запрос мок-серверу OpenSSL
+	const int rc = shell("openssl cmp -use_mock_srv -reqin " + shorty +
+		" -cmd ir -newkey " + CORPUS + "/leaf-rsa.key -subject \"/CN=cmp-test\"" +
+		" -secret pass:" + PASSWORD + " -ref client1 -srv_ref MockSrv -srv_secret pass:" + PASSWORD +
+		" -srvcert " + CORPUS + "/ca-rsa.crt -certout " + sandbox.file("cert.pem") + " -batch 2>" + log);
+	// Проверяем отказ OpenSSL на обрезанной записи
+	ASSERT_NE(rc, 0);
+	// Читаем журнал эталона
+	const std::string report = slurp(log);
+	// Отказ обязан относиться к разбору PKIMessage, а не к проверке защиты
+	ASSERT_NE(report.find("cannot read PKIMessage"), std::string::npos) << report;
+}
+
+/**
  * @brief Проверка круговой сборки и разбора запроса p10cr (PKCS #10)
  *
  */

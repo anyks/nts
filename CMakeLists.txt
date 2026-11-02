@@ -41,6 +41,28 @@ SET(CMAKE_BUILD_SANITIZE_LIST "address,undefined" CACHE STRING "Sanitizers enabl
 # Указываем что нужно собрать набор проверок
 option(CMAKE_BUILD_TESTS "Build unit tests" OFF)
 
+##
+ # Указываем что нужно собрать ворошители с управлением от покрытия
+ #
+ # @note Ворошители живут в наборе проверок и требуют санитайзеры: находкой
+ #       считается не только отказ разбора, но и нарушение памяти или арифметики
+ ##
+option(CMAKE_BUILD_LIBFUZZER "Build coverage-guided parser fuzzers" OFF)
+
+# Если сборка ворошителей с управлением от покрытия запрошена
+if (CMAKE_BUILD_LIBFUZZER)
+    # Ворошители используют проверочную копию библиотеки под санитайзерами
+    if (NOT CMAKE_BUILD_TESTS OR NOT CMAKE_BUILD_SANITIZE)
+        # Сообщаем о недостающих частях конфигурации
+        message(FATAL_ERROR "CMAKE_BUILD_LIBFUZZER requires CMAKE_BUILD_TESTS and CMAKE_BUILD_SANITIZE")
+    endif()
+    # Инструментирование ворошителя поддерживают обе линейки собирателя Clang
+    if (NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        # Сообщаем о неподходящем собирателе
+        message(FATAL_ERROR "CMAKE_BUILD_LIBFUZZER requires Clang with libFuzzer instrumentation")
+    endif()
+endif()
+
 # Указываем что нужно собрать динамическую библиотеку вместо статической
 option(CMAKE_SHARED_BUILD_LIB "Build shared library instead of static one" OFF)
 
@@ -619,6 +641,15 @@ if (CMAKE_BUILD_TESTS)
          #       заново
          ##
         SET(GCC_COVERAGE_COMPILE_FLAGS ${GCC_COVERAGE_COMPILE_FLAGS} -fsanitize=${CMAKE_BUILD_SANITIZE_LIST} -fno-omit-frame-pointer -g)
+        # Если запрошены ворошители с управлением от покрытия
+        if (CMAKE_BUILD_LIBFUZZER)
+            ##
+             # Инструментируем саму библиотеку без подключения runtime: точки покрытия
+             # внутри разборщиков нужны ворошителю, а его входная точка подключается
+             # только к исполняемым файлам ворошителей
+             ##
+            SET(GCC_COVERAGE_COMPILE_FLAGS ${GCC_COVERAGE_COMPILE_FLAGS} -fsanitize=fuzzer-no-link)
+        endif()
         # Дополняем зависимости линковки проверок рантаймом санитайзеров
         SET(GCC_COVERAGE_LIBS ${GCC_COVERAGE_LIBS} -fsanitize=${CMAKE_BUILD_SANITIZE_LIST})
 

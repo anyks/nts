@@ -201,6 +201,7 @@ cmake --build. -j
 | `CMAKE_SHARED_BUILD_LIB` | `OFF` | Собирать динамическую библиотеку вместо статической |
 | `CMAKE_BUILD_TESTS` | `OFF` | Собирать набор проверок (требуется Google Test) |
 | `CMAKE_BUILD_SANITIZE` | `OFF` | Собирать проверки под санитайзерами |
+| `CMAKE_BUILD_LIBFUZZER` | `OFF` | Собирать ворошители разборщиков с управлением от покрытия (требуются `CMAKE_BUILD_TESTS`, `CMAKE_BUILD_SANITIZE` и Clang) |
 | `CMAKE_BUILD_SAMPLES` | `OFF` | Собирать образцы работы с библиотекой |
 | `CMAKE_BUILD_BENCHMARKS` | `OFF` | Собирать набор замеров |
 | `CMAKE_BENCHMARK_OPENSSL` | `ON` | Сличать замеры с эталоном OpenSSL, если он в системе есть |
@@ -737,6 +738,35 @@ CBC, голый обмен RSA, заранее разделённые ключи
 
 Зерно ворошителя задано числом: находка его повторима, тогда как случайное зерно
 давало бы находку, которую нельзя ни воспроизвести, ни закрепить проверкой.
+
+Отдельный режим `CMAKE_BUILD_LIBFUZZER=ON` добавляет пять целей с управлением от
+покрытия: `fuzzer_asn1`, `fuzzer_keys`, `fuzzer_x509`, `fuzzer_cms` и `fuzzer_cmp`.
+Санитайзеры при нём обязательны, поэтому сборка всегда отдельная:
+
+```bash
+cmake -S . -B build-fuzz -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+  -DCMAKE_BUILD_TESTS=ON -DCMAKE_BUILD_COVERAGE=OFF \
+  -DCMAKE_BUILD_SANITIZE=ON -DCMAKE_BUILD_LIBFUZZER=ON
+cmake --build build-fuzz --target fuzzer_asn1 fuzzer_keys fuzzer_x509 fuzzer_cms fuzzer_cmp -j
+ctest --test-dir build-fuzz --output-on-failure -R '^fuzzer_(asn1|keys|x509|cms|cmp)$'
+```
+
+Стартовые записи DER лежат в `tests/fuzzer/corpus`, а рабочий корпус копируется в
+каталог сборки и пополняется там. Повторимая проверка делает 1024 запуска каждой
+цели с зерном 1, пределами входа 64 КБ, памяти 2 ГБ и десятью секундами на один вход. Длительная
+сессия запускается непосредственно, например:
+
+```bash
+ASAN_OPTIONS=abort_on_error=1 \
+UBSAN_OPTIONS=halt_on_error=1:abort_on_error=1:print_stacktrace=1 \
+build-fuzz/tests/fuzzer/fuzzer_keys build-fuzz/tests/fuzzer/corpus/keys \
+  -max_total_time=60 -max_len=65536 -timeout=10 -rss_limit_mb=2048
+```
+
+Аварийный вход libFuzzer сохраняет отдельным файлом: его место — в соответствующем
+каталоге стартового корпуса и в постоянной регрессионной проверке. На macOS сборка
+ведётся Apple Clang; недостающий в Xcode runtime libFuzzer берётся из пакета
+`llvm` Homebrew, а ASan/UBSan остаются от Xcode.
 
 ## Метка возврата состояния
 
