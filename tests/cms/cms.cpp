@@ -1679,6 +1679,8 @@ TEST(CmsTest, Starved) {
 	std::vector <uint8_t> record;
 	// Собираем подписанное сообщение
 	ASSERT_EQ(cms::sign(certificates, certificate.issuers().element, certificate.number(), view(std::string(CONTENT)), signer, digest::hash_t::SHA256, record), cms::error_t::NONE);
+	// Просмотр содержимого без временной строки: выделения начинаются уже внутри сборки
+	const view_t content(reinterpret_cast <const uint8_t *> (CONTENT), ::strlen(CONTENT));
 	// Признак того, что нехватка памяти хоть раз объявлена отказом
 	bool starved = false;
 	/**
@@ -1694,7 +1696,7 @@ TEST(CmsTest, Starved) {
 			// Отмеряем запас выделений на время сборки
 			starve::ration_t ration(budget);
 			// Выполняем сборку подписанного сообщения при отмеренном запасе
-			built = cms::sign(certificates, certificate.issuers().element, certificate.number(), view(std::string(CONTENT)), signer, digest::hash_t::SHA256, made);
+			built = cms::sign(certificates, certificate.issuers().element, certificate.number(), content, signer, digest::hash_t::SHA256, made);
 		}
 		// Проверяем, что сборка ответила успехом либо отказом памяти
 		ASSERT_TRUE((built == cms::error_t::NONE) || (built == cms::error_t::MEMORY)) << "запас " << budget << ", отказ сборки " << static_cast <int> (built);

@@ -65,7 +65,19 @@ using namespace nts;
  */
 static int shell(const std::string & command) {
 	// Запускаем команду с пустым входом
-	return ::system((command + " </dev/null").c_str());
+	/**
+	 * Для cmd.exe пустое устройство называется NUL
+	 */
+	#if defined(_WIN32)
+		// Пустое устройство cmd.exe называется NUL
+		return ::system((command + " <NUL").c_str());
+	/**
+	 * Для POSIX пустое устройство называется /dev/null
+	 */
+	#else
+		// Пустое устройство POSIX называется /dev/null
+		return ::system((command + " </dev/null").c_str());
+	#endif
 }
 /**
  * Пароль ко всем зашифрованным ключам набора: кириллица в UTF-8, десять октетов
@@ -473,7 +485,19 @@ namespace {
 			 */
 			Sandbox() {
 				// Образец имени временного каталога
-				char pattern[] = "/tmp/ants-keys-XXXXXX";
+				/**
+				 * Для Windows путь виден одинаково из CRT и родного OpenSSL
+				 */
+				#if defined(_WIN32)
+					// Каталог, одинаково видимый из CRT и родного OpenSSL
+					char pattern[] = "C:/Windows/Temp/ants-keys-XXXXXX";
+				/**
+				 * Для остальных систем используется каталог POSIX
+				 */
+				#else
+					// Каталог временных файлов POSIX
+					char pattern[] = "/tmp/ants-keys-XXXXXX";
+				#endif
 				// Если временный каталог создан
 				if(::mkdtemp(pattern) != nullptr)
 					// Запоминаем путь к каталогу
@@ -1071,6 +1095,115 @@ TEST(KeysTest, Openssl){
 	ASSERT_EQ(keys::decode(corpus("rsa2048.pub.pem"), view_t(), opened), keys::error_t::NONE);
 	// Проверяем совпадение открытых частей
 	ASSERT_TRUE(alike(key, opened));
+}
+
+/**
+ * @brief Проверка совместного отвержения порченых записей с OpenSSL
+ *
+ */
+TEST(KeysTest, OpensslRefusals){
+	// Временный каталог порченых записей
+	sandbox_t sandbox;
+	// Проверяем создание временного каталога
+	ASSERT_TRUE(sandbox.ready());
+	// Эталонный OpenSSL из родной среды исполнения
+	const std::string tool("openssl");
+	// Пустое устройство для подавления вывода эталона
+	/**
+	 * Для cmd.exe пустое устройство называется NUL
+	 */
+	#if defined(_WIN32)
+		// Пустое устройство cmd.exe
+		const std::string nullDevice("NUL");
+	/**
+	 * Для POSIX пустое устройство называется /dev/null
+	 */
+	#else
+		// Пустое устройство POSIX
+		const std::string nullDevice("/dev/null");
+	#endif
+	// Секретный ключ Ed448
+	keys::key_t secret;
+	// Проверяем разбор секретного ключа Ed448
+	ASSERT_EQ(keys::decode(corpus("ed448.key"), view_t(), secret), keys::error_t::NONE);
+	// Разобранный ключ для отказов
+	keys::key_t key;
+	// Запись PrivateKeyInfo Ed448 с запрещёнными настройками алгоритма
+	asn1::writer_t writer;
+	// Открываем набор PrivateKeyInfo
+	writer.open(asn1::tag_t::SEQUENCE);
+	// Записываем издание записи
+	writer.integer(0);
+	// Открываем набор алгоритма
+	writer.open(asn1::tag_t::SEQUENCE);
+	// Записываем опознаватель Ed448
+	writer.oid("1.3.101.113");
+	// Записываем запрещённые пустые настройки
+	writer.nothing();
+	// Закрываем набор алгоритма
+	writer.close();
+	// Записываем зерно во внутренней строке байтов
+	asn1::writer_t seed;
+	// Записываем зерно Ed448
+	seed.octets(view(secret.d));
+	// Записываем CurvePrivateKey во внешней строке байтов
+	writer.octets(seed.data());
+	// Закрываем набор PrivateKeyInfo
+	writer.close();
+	// Путь к записи с настройками
+	const std::string parameters = sandbox.file("parameters.der");
+	// Записываем порченую запись
+	ASSERT_TRUE(spill(parameters, std::vector <uint8_t> (writer.data().data, writer.data().data + writer.data().size)));
+	// Проверяем отказ нашего разборщика
+	ASSERT_EQ(keys::decodePrivateKeyInfo(writer.data(), key), keys::error_t::ALGORITHM);
+	// Проверяем отказ OpenSSL на тех же настройках
+	ASSERT_NE(shell(tool + " pkey -inform DER -in " + parameters + " -noout >" + nullDevice + " 2>&1"), 0);
+	// Годная запись PrivateKeyInfo Ed448
+	std::vector <uint8_t> der;
+	// Записываем годный секретный ключ
+	ASSERT_EQ(keys::encodePrivateKeyInfo(secret, der), keys::error_t::NONE);
+	// Оборванная запись ровно половинной длины
+	const std::vector <uint8_t> truncated(der.begin(), der.begin() + (der.size() / 2));
+	// Путь к оборванной записи
+	const std::string shorty = sandbox.file("truncated.der");
+	// Записываем оборванную запись
+	ASSERT_TRUE(spill(shorty, truncated));
+	// Проверяем отказ нашего разборщика на обрезке
+	ASSERT_NE(keys::decodePrivateKeyInfo(view(truncated), key), keys::error_t::NONE);
+	// Проверяем отказ OpenSSL на той же обрезке
+	ASSERT_NE(shell(tool + " pkey -inform DER -in " + shorty + " -noout >" + nullDevice + " 2>&1"), 0);
+	// Запись PKCS #12 с чужим видом содержимого
+	std::vector <uint8_t> foreign = bytes(corpus("test.p12"));
+	// Опознаватель данных PKCS #7
+	const uint8_t data[] = {0x06, 0x09, 0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x07, 0x01};
+	// Смещение опознавателя данных
+	size_t at = std::string::npos;
+	/**
+	 * Выполняем поиск опознавателя данных в записи
+	 */
+	for(size_t i = 0; (i + sizeof(data)) <= foreign.size(); i++){
+		// Если опознаватель найден
+		if(::memcmp(foreign.data() + i, data, sizeof(data)) == 0){
+			// Запоминаем смещение опознавателя
+			at = i;
+			// Завершаем поиск
+			break;
+		}
+	}
+	// Проверяем наличие опознавателя
+	ASSERT_NE(at, std::string::npos);
+	// Портим последний байт опознавателя данных
+	foreign[at + sizeof(data) - 1] = 0x02;
+	// Путь к записи с чужим видом содержимого
+	const std::string alien = sandbox.file("foreign.p12");
+	// Записываем порченую запись PKCS #12
+	ASSERT_TRUE(spill(alien, foreign));
+	// Цепочка сертификатов
+	std::vector <std::vector <uint8_t>> chain;
+	// Проверяем отказ нашего разборщика на чужом виде содержимого
+	ASSERT_EQ(keys::decodePkcs12(view(foreign), view("secret"), key, chain), keys::error_t::STRUCTURE);
+	// Проверяем отказ OpenSSL на той же записи PKCS #12
+	ASSERT_NE(shell(tool + " pkcs12 -in " + alien + " -passin pass:secret -noout >" + nullDevice + " 2>&1"), 0);
 }
 
 /**
@@ -2949,24 +3082,36 @@ TEST(KeysTest, Ed448){
 		sandbox_t sandbox;
 		// Проверяем создание временного каталога
 		ASSERT_TRUE(sandbox.ready());
+		// Эталонный OpenSSL из родной среды исполнения
+		const std::string tool("openssl");
+		// Путь к изданию эталона
+		const std::string edition = sandbox.file("openssl.version");
+		// Снимаем издание эталона
+		ASSERT_EQ(shell(tool + " version > " + edition + " 2>&1"), 0);
+		// Читаем издание эталона
+		const std::string version = slurp(edition);
+		// Если эталон строит PKCS #12 на устаревших RC2/3DES вместо PBES2/AES
+		if(version.find("OpenSSL 1.") == 0)
+			// Пропускаем интероп со старой схемой защиты PKCS #12
+			GTEST_SKIP() << "openssl с устаревшей схемой PKCS #12: " << version;
 		// Проверяем запись нашего секретного ключа DER
 		ASSERT_TRUE(spill(sandbox.file("secret.der"), der));
 		// Проверяем запись нашего открытого ключа DER
 		ASSERT_TRUE(spill(sandbox.file("public.der"), spki));
 		// Проверяем принятие нашего секретного ключа OpenSSL
-		ASSERT_EQ(shell("openssl pkey -inform DER -in " + sandbox.file("secret.der") + " -noout"), 0);
+		ASSERT_EQ(shell(tool + " pkey -inform DER -in " + sandbox.file("secret.der") + " -noout"), 0);
 		// Проверяем принятие нашего открытого ключа OpenSSL
-		ASSERT_EQ(shell("openssl pkey -pubin -inform DER -in " + sandbox.file("public.der") + " -noout"), 0);
+		ASSERT_EQ(shell(tool + " pkey -pubin -inform DER -in " + sandbox.file("public.der") + " -noout"), 0);
 		// Проверяем запись нашего секретного ключа PEM для упаковки PKCS #12
 		ASSERT_EQ(keys::encode(secret, keys::container_t::PRIVATE, text, view_t()), keys::error_t::NONE);
 		// Записываем наш секретный ключ PEM
 		ASSERT_TRUE(spill(sandbox.file("secret.pem"), text));
 		// Вырабатываем эталонный открытый ключ OpenSSL из нашего секретного
-		ASSERT_EQ(shell("openssl pkey -in " + sandbox.file("secret.pem") + " -pubout -outform DER -out " + sandbox.file("openssl.der")), 0);
+		ASSERT_EQ(shell(tool + " pkey -in " + sandbox.file("secret.pem") + " -pubout -outform DER -out " + sandbox.file("openssl.der")), 0);
 		// Проверяем побайтовое совпадение открытого ключа с OpenSSL
 		ASSERT_EQ(spki, bytes(slurp(sandbox.file("openssl.der"))));
 		// Упаковываем наш ключ и сертификат Ed448 в PKCS #12 средствами OpenSSL
-		ASSERT_EQ(shell("openssl pkcs12 -export -inkey " + sandbox.file("secret.pem") + " -in " + std::string(CORPUS) + "/ed448.crt -passout pass:secret -out " + sandbox.file("ed448.p12")), 0);
+		ASSERT_EQ(shell(tool + " pkcs12 -export -inkey " + sandbox.file("secret.pem") + " -in " + std::string(CORPUS) + "/ed448.crt -passout pass:secret -out " + sandbox.file("ed448.p12")), 0);
 		// Цепочка сертификатов из PKCS #12
 		std::vector <std::vector <uint8_t>> chain;
 		// Проверяем разбор нашего ключа из PKCS #12

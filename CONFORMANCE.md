@@ -9382,6 +9382,27 @@ mpint делает SSH), rsa-sha2-256/512 (PKCS #1 v1.5); шифры chacha20-po
     PKCS #7, поэтому несходство подтверждается перебором вариантов; 10 прогонов CMS
     подряд зелёные. Обычный ctest 116/116 (581.60 сек), llvm-cov ctest 116/116
     (320.83 сек), свип 415 файлов - новых ошибок нет.
+    **Круг 129 (01.11.2026)**: фаззинг и отрицательный интероп кодеков ключей.
+    FuzzerTest.Parsers теперь подаёт каждую из 2048 повторимых случайных областей и пустой
+    вход не только в ASN.1/X.509/CMS/CMP, но и в decodePrivateKeyInfo (включая
+    OneAsymmetricKey), decodeSubjectPublicKeyInfo, decodeEncryptedPrivateKeyInfo и
+    decodePkcs12; FuzzerTest.Emptiness проверяет отказы всех четырёх разборщиков.
+    KeysTest.OpensslRefusals подтверждает совместное отвержение с OpenSSL 3.6.3 обрезанного
+    PKCS #8, запрещённых параметров Ed448 и чужого опознавателя содержимого PKCS #12.
+    Хвост после DER OpenSSL принимает, поэтому в общие отказы он не включён - наш более
+    строгий разбор оставлен. FuzzerTest 6/6, KeysTest 30/30, полный ctest 116/116
+    (571.37 сек), свип 415 файлов - новых ошибок нет.
+    **Круг 130 (02.11.2026)**: свежий OpenSSL 4.0.0-dev собран вне живого дерева;
+    KeysTest 30/30, CmsTest 31/31, CmpTest 34/34, InteropTest 4/4, Tls12Test 40/40,
+    Dtls12Test 22/22, EchTest.Openssl против релизного 4.0.0 зелёные. В master серверного
+    ECH нет, поэтому для ECH использован релизный эталон. Добавлена перегрузка
+    Writer::oid(const char *) со сборкой std::string внутри try/catch: преобразование
+    больше не завершает процесс при нехватке памяти на libstdc++; Starved CMS/CMP
+    восстановлены. Песочница ключей Windows переведена на C:/Windows/Temp и NUL,
+    recv в GreaseTest приведён к char *, старый PKCS #12 OpenSSL 1.1 пропускается
+    с явной причиной. Полный ctest 116/116: локально 656.63 сек, FreeBSD 426.04,
+    Astra 436.93, MinGW 309.33, MSVC x86_64 472.13, Xeon 426.20, Эльбрус 842.84;
+    ARM64-стенд недоступен.
 Обвязка SSH - mpint, name-list, KDF §7.2 HASH(K ‖ H ‖ X ‖ session_id), сертификаты OpenSSH, kex-strict, ext-info, агент -
 живёт в AWH, не в A-NTS.
 

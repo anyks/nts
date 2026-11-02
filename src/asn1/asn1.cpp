@@ -1600,6 +1600,31 @@ bool nts::asn1::Writer::bits(const view_t & value, const uint8_t unused) noexcep
  * @return      признак успешности записи
  *
  */
+bool nts::asn1::Writer::oid(const char * value) noexcept {
+	/**
+	 * Выполняем перехват ошибок
+	 */
+	try {
+		// Переводим запись в строку уже под защитой от нехватки памяти
+		return this->oid(string(value));
+	// Если памяти под строку не хватило
+	/**
+	 * Выполняем перехват ошибок
+	 */
+	} catch(const bad_alloc &) {
+		// Запоминаем причину отказа
+		this->_error = error_t::MEMORY;
+		// Выводим отказ записи
+		return false;
+	}
+}
+/**
+ * @brief Метод записи опознавателя объекта
+ *
+ * @param value запись опознавателя через точку
+ * @return      признак успешности записи
+ *
+ */
 bool nts::asn1::Writer::oid(const string & value) noexcept {
 	// Если запись уже завершилась отказом
 	if(this->_error != error_t::NONE)

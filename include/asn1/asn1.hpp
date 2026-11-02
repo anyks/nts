@@ -943,6 +943,22 @@ namespace nts {
 				bool oid(const string & value) noexcept;
 				/**
 				 * \~russian
+				 * @brief Метод записи опознавателя объекта
+				 *
+				 * @param value запись опознавателя через точку
+				 * @return      признак успешности записи
+				 *
+				 * \~english
+				 * @brief Method of writing an object identifier
+				 *
+				 * @param value the dotted notation of the identifier
+				 * @return      the flag of the success of the writing
+				 *
+				 * \~
+				 */
+				bool oid(const char * value) noexcept;
+				/**
+				 * \~russian
 				 * @brief Метод записи времени
 				 *
 				 * @param type  вид записи времени

@@ -1758,7 +1758,7 @@ TEST(GreaseTest, OpensslGrease){
 	// Накопитель приветствия
 	uint8_t buffer[16384];
 	// Принимаем приветствие клиента с провода до разбора
-	const ssize_t received = ::recv(fd, buffer, sizeof(buffer), 0);
+	const ssize_t received = ::recv(fd, reinterpret_cast <char *> (buffer), sizeof(buffer), 0);
 	// Проверяем приём
 	ASSERT_GT(received, 0);
 	// Байты приветствия

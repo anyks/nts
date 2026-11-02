@@ -38,6 +38,7 @@
 #include <identity.hpp>
 #include <gost.hpp>
 #include <pem/pem.hpp>
+#include <keys/keys.hpp>
 #include <x509/x509.hpp>
 #include <x509/crl.hpp>
 #include <x509/request.hpp>
@@ -320,6 +321,18 @@ namespace {
 		asn1::Reader reader(data);
 		// Выполняем обход записи ASN.1 во всю её глубину
 		walk(reader, 0);
+		// Разбираемый ключ и цепочка сертификатов
+		keys::key_t key;
+		// Цепочка сертификатов записи PKCS #12
+		vector <vector <uint8_t>> certificates;
+		// Выполняем разбор PrivateKeyInfo и OneAsymmetricKey
+		keys::decodePrivateKeyInfo(data, key);
+		// Выполняем разбор SubjectPublicKeyInfo
+		keys::decodeSubjectPublicKeyInfo(data, key);
+		// Выполняем разбор EncryptedPrivateKeyInfo с паролем ворошителя
+		keys::decodeEncryptedPrivateKeyInfo(data, view_t(reinterpret_cast <const uint8_t *> ("secret"), 6), key);
+		// Выполняем разбор записи PKCS #12 с паролем ворошителя
+		keys::decodePkcs12(data, view_t(reinterpret_cast <const uint8_t *> ("secret"), 6), key, certificates);
 		// Разбираемый сертификат стороны связи
 		x509::certificate_t certificate;
 		// Выполняем разбор сертификата стороны связи
@@ -643,6 +656,18 @@ TEST(FuzzerTest, Storage){
 TEST(FuzzerTest, Emptiness){
 	// Область байтов, у которой нет ни начала, ни длины
 	const view_t empty(nullptr, 0);
+	// Разбираемый ключ и цепочка сертификатов
+	keys::key_t key;
+	// Цепочка сертификатов записи PKCS #12
+	vector <vector <uint8_t>> certificates;
+	// Проверяем отказ разбора PrivateKeyInfo
+	ASSERT_NE(keys::decodePrivateKeyInfo(empty, key), keys::error_t::NONE);
+	// Проверяем отказ разбора SubjectPublicKeyInfo
+	ASSERT_NE(keys::decodeSubjectPublicKeyInfo(empty, key), keys::error_t::NONE);
+	// Проверяем отказ разбора EncryptedPrivateKeyInfo
+	ASSERT_NE(keys::decodeEncryptedPrivateKeyInfo(empty, view_t(reinterpret_cast <const uint8_t *> ("secret"), 6), key), keys::error_t::NONE);
+	// Проверяем отказ разбора записи PKCS #12
+	ASSERT_NE(keys::decodePkcs12(empty, view_t(reinterpret_cast <const uint8_t *> ("secret"), 6), key, certificates), keys::error_t::NONE);
 	// Разбираемый сертификат стороны связи
 	x509::certificate_t certificate;
 	/**
