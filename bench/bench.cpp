@@ -86,6 +86,20 @@
 #include <datagram/datagram.hpp>
 #include <protect/protect.hpp>
 #include <digest/hash.hpp>
+#include <digest/sha3.hpp>
+#include <digest/sm3.hpp>
+#include <digest/ripemd.hpp>
+#include <digest/umac.hpp>
+#include <cipher/sm4.hpp>
+#include <cipher/ccm.hpp>
+#include <cipher/des.hpp>
+#include <sign/ed25519.hpp>
+#include <sign/ed448.hpp>
+#include <sign/sm2.hpp>
+#include <sign/slhdsa.hpp>
+#include <agreement/x448.hpp>
+#include <agreement/mlkem.hpp>
+#include <agreement/ffdhe.hpp>
 #include <ocsp/ocsp.hpp>
 
 /**
@@ -102,6 +116,7 @@
 	 */
 	#include <openssl/evp.h>
 	#include <openssl/ec.h>
+	#include <openssl/provider.h>
 	#include <openssl/rand.h>
 	#include <openssl/rsa.h>
 	#include <openssl/ssl.h>
@@ -810,7 +825,7 @@ int main(int argc, char * argv[]) noexcept {
 		digest::streebog(digest::type_t::SHORT, view_t(data.data(), data.size()), hash, 32);
 	});
 	// Выполняем замер полосы хеширования «Стрибог» с длиной хеша 512 разрядов
-	band("Стрибог-512", 16, VOLUME, [&data, &hash]() noexcept -> void {
+	const double streebogLong = band("Стрибог-512", 16, VOLUME, [&data, &hash]() noexcept -> void {
 		// Выполняем хеширование области байтов
 		digest::streebog(digest::type_t::LONG, view_t(data.data(), data.size()), hash, 64);
 	});
@@ -823,6 +838,35 @@ int main(int argc, char * argv[]) noexcept {
 	const double sha512 = band("SHA-512 своя", 16, VOLUME, [&data, &hash]() noexcept -> void {
 		// Выполняем хеширование области байтов
 		digest::sha2(digest::sha_t::SHA512, view_t(data.data(), data.size()), hash, 64);
+	});
+	/**
+	 * Замеряемая работа обязана удаваться: молчаливый отказ меряется мгновением
+	 */
+	if(!digest::sha3(digest::sha3_t::SHA3_256, view_t(data.data(), data.size()), hash, 32) || !digest::sm3(view_t(data.data(), data.size()), hash, 32) || !digest::ripemd160(view_t(data.data(), data.size()), hash, 20)){
+		// Выводим сообщение об отказе хеширования области байтов
+		cout << "Выработать хеш SHA-3, SM3 либо RIPEMD области байтов не удалось" << endl;
+		// Выходим из приложения с признаком отказа
+		return EXIT_FAILURE;
+	}
+	// Выполняем замер полосы хеширования SHA3-256 своей работы
+	const double sha3 = band("SHA3-256 своя", 16, VOLUME, [&data, &hash]() noexcept -> void {
+		// Выполняем хеширование области байтов
+		digest::sha3(digest::sha3_t::SHA3_256, view_t(data.data(), data.size()), hash, 32);
+	});
+	// Выполняем замер полосы хеширования SHA3-512 своей работы
+	const double sha3long = band("SHA3-512 своя", 16, VOLUME, [&data, &hash]() noexcept -> void {
+		// Выполняем хеширование области байтов
+		digest::sha3(digest::sha3_t::SHA3_512, view_t(data.data(), data.size()), hash, 64);
+	});
+	// Выполняем замер полосы хеширования SM3 своей работы
+	const double sm3 = band("SM3 своя", 16, VOLUME, [&data, &hash]() noexcept -> void {
+		// Выполняем хеширование области байтов
+		digest::sm3(view_t(data.data(), data.size()), hash, 32);
+	});
+	// Выполняем замер полосы хеширования RIPEMD-160 своей работы
+	const double ripemd = band("RIPEMD-160 своя", 16, VOLUME, [&data, &hash]() noexcept -> void {
+		// Выполняем хеширование области байтов
+		digest::ripemd160(view_t(data.data(), data.size()), hash, 20);
 	});
 	// Ключ блочного шифрования области байтов
 	uint8_t key[32];
@@ -951,6 +995,90 @@ int main(int argc, char * argv[]) noexcept {
 		// Выполняем шифрование области байтов с проверкой целостности
 		chachapoly.encrypt(view_t(nullptr, 0), view_t(data.data(), data.size()), result.data(), tag);
 	});
+	/**
+	 * Замеряемая работа обязана удаваться: молчаливый отказ меряется мгновением
+	 */
+	if(!digest::umac(view_t(key, digest::UMAC_KEY), view_t(nonce, sizeof(nonce)), view_t(data.data(), data.size()), tag, digest::UMAC_128)){
+		// Выводим сообщение об отказе выработки имитовставки
+		cout << "Выработать имитовставку UMAC области байтов не удалось" << endl;
+		// Выходим из приложения с признаком отказа
+		return EXIT_FAILURE;
+	}
+	// Выполняем замер полосы выработки имитовставки UMAC-128: эталон UMAC не несёт
+	band("UMAC-128", 8, VOLUME, [&key, &nonce, &data, &tag]() noexcept -> void {
+		// Выполняем выработку имитовставки области байтов
+		digest::umac(view_t(key, digest::UMAC_KEY), view_t(nonce, sizeof(nonce)), view_t(data.data(), data.size()), tag, digest::UMAC_128);
+	});
+	// Объект блочного шифра SM4
+	cipher::sm4_t sm4;
+	// Если ключ блочного шифра SM4 установить не удалось
+	if(!sm4.key(view_t(key, cipher::SM4_KEY))){
+		// Выводим сообщение об отказе установки ключа
+		cout << "Установить ключ блочного шифра SM4 не удалось" << endl;
+		// Выходим из приложения с признаком отказа
+		return EXIT_FAILURE;
+	}
+	// Описание базового алгоритма блочного шифрования SM4
+	const cipher::block_t sm4Base(sm4);
+	// Режим шифрования с проверкой целостности на шифре SM4
+	cipher::gcm_t sm4Galois;
+	// Если режим шифрования с проверкой целостности на SM4 завести не удалось
+	if(!sm4Galois.start(sm4Base, view_t(seed, 12)) || !sm4Galois.encrypt(view_t(nullptr, 0), view_t(data.data(), data.size()), result.data(), tag)){
+		// Выводим сообщение об отказе шифрования с проверкой целостности
+		cout << "Завести шифрование с проверкой целостности SM4-GCM не удалось" << endl;
+		// Выходим из приложения с признаком отказа
+		return EXIT_FAILURE;
+	}
+	// Выполняем замер полосы шифрования SM4-GCM своей работы: эталон SM4-GCM не несёт
+	band("SM4-GCM своя", 8, VOLUME, [&sm4Galois, &sm4Base, &seed, &data, &result, &tag]() noexcept -> void {
+		// Выполняем заведение режима шифрования с проверкой целостности
+		sm4Galois.start(sm4Base, view_t(seed, 12));
+		// Выполняем шифрование области байтов с проверкой целостности
+		sm4Galois.encrypt(view_t(nullptr, 0), view_t(data.data(), data.size()), result.data(), tag);
+	});
+	// Режим шифрования с проверкой целостности CCM на шифре AES
+	cipher::ccm_t ccm;
+	// Если режим CCM завести не удалось
+	if(!ccm.start(standard, view_t(seed, 12)) || !ccm.encrypt(view_t(nullptr, 0), view_t(data.data(), data.size()), result.data(), tag)){
+		// Выводим сообщение об отказе шифрования с проверкой целостности
+		cout << "Завести шифрование с проверкой целостности AES-256-CCM не удалось" << endl;
+		// Выходим из приложения с признаком отказа
+		return EXIT_FAILURE;
+	}
+	// Выполняем замер полосы шифрования AES-256-CCM своей работы
+	const double ccmAead = band("AES-256-CCM своя", 8, VOLUME, [&ccm, &standard, &seed, &data, &result, &tag]() noexcept -> void {
+		// Выполняем заведение режима шифрования с проверкой целостности
+		ccm.start(standard, view_t(seed, 12));
+		// Выполняем шифрование области байтов с проверкой целостности
+		ccm.encrypt(view_t(nullptr, 0), view_t(data.data(), data.size()), result.data(), tag);
+	});
+	// Объект блочного шифра 3DES
+	cipher::des_t des;
+	// Если ключ блочного шифра 3DES установить не удалось
+	if(!des.key(view_t(key, cipher::DES3_KEY))){
+		// Выводим сообщение об отказе установки ключа
+		cout << "Установить ключ блочного шифра 3DES не удалось" << endl;
+		// Выходим из приложения с признаком отказа
+		return EXIT_FAILURE;
+	}
+	// Описание базового алгоритма блочного шифрования 3DES
+	const cipher::block_t desBase(des);
+	// Режим сцепления блоков на шифре 3DES
+	cipher::chaining_t desChaining;
+	// Если режим сцепления блоков на 3DES завести не удалось
+	if(!desChaining.start(desBase, view_t(seed, cipher::DES_BLOCK)) || !desChaining.encrypt(view_t(data.data(), data.size()), result.data())){
+		// Выводим сообщение об отказе шифрования
+		cout << "Завести шифрование DES-EDE3-CBC не удалось" << endl;
+		// Выходим из приложения с признаком отказа
+		return EXIT_FAILURE;
+	}
+	// Выполняем замер полосы шифрования DES-EDE3-CBC своей работы
+	const double desCbc = band("DES-EDE3-CBC своя", 8, VOLUME, [&desChaining, &desBase, &seed, &data, &result]() noexcept -> void {
+		// Выполняем заведение режима сцепления блоков
+		desChaining.start(desBase, view_t(seed, cipher::DES_BLOCK));
+		// Выполняем шифрование области байтов
+		desChaining.encrypt(view_t(data.data(), data.size()), result.data());
+	});
 	// Объект блочного шифра «Магма»
 	cipher::magma_t magma;
 	// Если ключ блочного шифра «Магма» установить не удалось
@@ -975,7 +1103,7 @@ int main(int argc, char * argv[]) noexcept {
 		return EXIT_FAILURE;
 	}
 	// Выполняем замер полосы поточного шифрования «Магма»
-	band("Магма-CTR", 8, VOLUME, [&sequence, &data, &result]() noexcept -> void {
+	const double magmaStream = band("Магма-CTR", 8, VOLUME, [&sequence, &data, &result]() noexcept -> void {
 		// Выполняем поточное шифрование области байтов
 		sequence.encrypt(view_t(data.data(), data.size()), result.data());
 	});
@@ -997,7 +1125,7 @@ int main(int argc, char * argv[]) noexcept {
 		return EXIT_FAILURE;
 	}
 	// Выполняем замер полосы шифрования с проверкой целостности на шифре «Магма»
-	band("Магма-MGM", 8, VOLUME, [&assurance, &little, &grain, &data, &result, &tag]() noexcept -> void {
+	const double magmaSealed = band("Магма-MGM", 8, VOLUME, [&assurance, &little, &grain, &data, &result, &tag]() noexcept -> void {
 		// Выполняем заведение режима шифрования с проверкой целостности
 		assurance.start(little, view_t(grain, sizeof(grain)));
 		// Выполняем шифрование области байтов с проверкой целостности
@@ -1155,6 +1283,63 @@ int main(int argc, char * argv[]) noexcept {
 		// Выполняем выработку общего ключа VKO
 		agreement::vko(curve, view_t(owned, sizeof(owned)), view_t(x, sizeof(x)), view_t(y, sizeof(y)), view_t(material, sizeof(material)), shared, sizeof(shared));
 	});
+	// Секреты и открытые ключи X448 обеих сторон
+	uint8_t x448Secret[agreement::X448_SIZE], x448Key[agreement::X448_SIZE], x448Peer[agreement::X448_SIZE], x448Shared[agreement::X448_SIZE];
+	/**
+	 * Замеряемая работа обязана удаваться: молчаливый отказ меряется мгновением
+	 */
+	if(!agreement::pair448(x448Secret, x448Key) || !agreement::pair448(x448Shared, x448Peer) || !agreement::x448(view_t(x448Secret, sizeof(x448Secret)), view_t(x448Peer, sizeof(x448Peer)), x448Shared)){
+		// Выводим сообщение об отказе обмена ключами
+		cout << "Выполнить обмен ключами X448 не удалось" << endl;
+		// Выходим из приложения с признаком отказа
+		return EXIT_FAILURE;
+	}
+	// Выполняем замер числа обменов ключами X448 за секунду
+	const double x448Exchange = count("Обмен ключами X448", 200, [&x448Secret, &x448Peer, &x448Shared]() noexcept -> void {
+		// Выполняем выработку общего значения обмена
+		agreement::x448(view_t(x448Secret, sizeof(x448Secret)), view_t(x448Peer, sizeof(x448Peer)), x448Shared);
+	});
+	// Секреты и открытые ключи FFDHE modp2048: модуль в 256 байтов
+	uint8_t ffdheSecretA[256], ffdheSecretB[256], ffdheKeyA[256], ffdheKeyB[256], ffdheShared[256];
+	// Длина показателя группы modp2048: показатель короче модуля, как у всякой стороны связи
+	const size_t ffdheLength = agreement::exponent(256);
+	/**
+	 * Замеряемая работа обязана удаваться: молчаливый отказ меряется мгновением
+	 */
+	if(!agreement::pairffdhe(256, ffdheSecretA, ffdheKeyA) || !agreement::pairffdhe(256, ffdheSecretB, ffdheKeyB) || !agreement::ffdhe(256, view_t(ffdheSecretA, ffdheLength), view_t(ffdheKeyB, sizeof(ffdheKeyB)), ffdheShared)){
+		// Выводим сообщение об отказе обмена ключами
+		cout << "Выполнить обмен ключами FFDHE-2048 не удалось" << endl;
+		// Выходим из приложения с признаком отказа
+		return EXIT_FAILURE;
+	}
+	// Выполняем замер числа обменов ключами FFDHE modp2048 за секунду
+	const double ffdheExchange = count("Обмен ключами FFDHE-2048", 100, [&ffdheSecretA, &ffdheKeyB, &ffdheShared, &ffdheLength]() noexcept -> void {
+		// Выполняем выработку общего значения обмена
+		agreement::ffdhe(256, view_t(ffdheSecretA, ffdheLength), view_t(ffdheKeyB, sizeof(ffdheKeyB)), ffdheShared);
+	});
+	// Механизм упаковки ML-KEM-768
+	constexpr agreement::kem_t kem = agreement::kem_t::MLKEM768;
+	// Ключ упаковки, ключ распаковки и шифртекст упаковки ML-KEM-768
+	uint8_t kemKey[1184], kemSecret[2400], kemCipher[1088], kemShared[32];
+	/**
+	 * Замеряемая работа обязана удаваться: молчаливый отказ меряется мгновением
+	 */
+	if(!agreement::generate(kem, kemKey, kemSecret) || !agreement::encapsulate(kem, view_t(kemKey, sizeof(kemKey)), kemCipher, kemShared) || !agreement::decapsulate(kem, view_t(kemSecret, sizeof(kemSecret)), view_t(kemCipher, sizeof(kemCipher)), kemShared)){
+		// Выводим сообщение об отказе упаковки
+		cout << "Выполнить упаковку ML-KEM-768 не удалось" << endl;
+		// Выходим из приложения с признаком отказа
+		return EXIT_FAILURE;
+	}
+	// Выполняем замер числа упаковок ML-KEM-768 за секунду
+	const double mlkemSealing = count("ML-KEM-768 упаковка", 200, [&kemKey, &kemCipher, &kemShared]() noexcept -> void {
+		// Выполняем упаковку свежего секрета на ключе получателя
+		agreement::encapsulate(agreement::kem_t::MLKEM768, view_t(kemKey, sizeof(kemKey)), kemCipher, kemShared);
+	});
+	// Выполняем замер числа распаковок ML-KEM-768 за секунду
+	const double mlkemOpening = count("ML-KEM-768 распаковка", 200, [&kemSecret, &kemCipher, &kemShared]() noexcept -> void {
+		// Выполняем распаковку секрета закрытым ключом получателя
+		agreement::decapsulate(agreement::kem_t::MLKEM768, view_t(kemSecret, sizeof(kemSecret)), view_t(kemCipher, sizeof(kemCipher)), kemShared);
+	});
 	// Ключ RSA-2048 для замера подписи и сличения
 	sign::rsa_t rsa;
 	// Если ключ RSA породить не удалось
@@ -1203,6 +1388,120 @@ int main(int argc, char * argv[]) noexcept {
 	const double mldsaChecking = count("ML-DSA-65 сличение", 500, [&mldsa, &hash, &mldsaSignature]() noexcept -> void {
 		// Выполняем сличение подписи ML-DSA-65 с пустым контекстом
 		mldsa.check(view_t(hash, 32), view_t(nullptr, 0), view_t(mldsaSignature, sizeof(mldsaSignature)));
+	});
+	// Объект электронной подписи Ed25519
+	sign::ed25519_t ed25519;
+	// Зерно ключа подписи Ed25519
+	uint8_t ed25519Secret[sign::ed25519_t::KEY_SIZE];
+	// Подпись Ed25519
+	uint8_t ed25519Sealing[sign::ed25519_t::SIGNATURE_SIZE];
+	/**
+	 * Замеряемая работа обязана удаваться: молчаливый отказ меряется мгновением
+	 */
+	if(!ed25519.generate(ed25519Secret, sizeof(ed25519Secret)) || !ed25519.make(view_t(hash, 32), ed25519Sealing) || !ed25519.check(view_t(hash, 32), view_t(ed25519Sealing, sizeof(ed25519Sealing)))){
+		// Выводим сообщение об отказе подписи
+		cout << "Породить ключ либо подписать Ed25519 не удалось" << endl;
+		// Выходим из приложения с признаком отказа
+		return EXIT_FAILURE;
+	}
+	// Выполняем замер числа подписей Ed25519 за секунду: детерминированная подпись сообщения
+	const double ed25519Signing = count("Ed25519 подпись", 200, [&ed25519, &hash, &ed25519Sealing]() noexcept -> void {
+		// Выполняем подпись хеша области байтов
+		ed25519.make(view_t(hash, 32), ed25519Sealing);
+	});
+	// Выполняем замер числа сличений подписи Ed25519 за секунду
+	const double ed25519Checking = count("Ed25519 сличение", 2000, [&ed25519, &hash, &ed25519Sealing]() noexcept -> void {
+		// Выполняем сличение подписи
+		ed25519.check(view_t(hash, 32), view_t(ed25519Sealing, sizeof(ed25519Sealing)));
+	});
+	// Объект электронной подписи Ed448
+	sign::ed448_t ed448;
+	// Зерно ключа подписи Ed448
+	uint8_t ed448Secret[sign::ed448_t::KEY_SIZE];
+	// Подпись Ed448
+	uint8_t ed448Sealing[sign::ed448_t::SIGNATURE_SIZE];
+	/**
+	 * Замеряемая работа обязана удаваться: молчаливый отказ меряется мгновением
+	 */
+	if(!ed448.generate(ed448Secret, sizeof(ed448Secret)) || !ed448.make(view_t(hash, 32), ed448Sealing) || !ed448.check(view_t(hash, 32), view_t(ed448Sealing, sizeof(ed448Sealing)))){
+		// Выводим сообщение об отказе подписи
+		cout << "Породить ключ либо подписать Ed448 не удалось" << endl;
+		// Выходим из приложения с признаком отказа
+		return EXIT_FAILURE;
+	}
+	// Выполняем замер числа подписей Ed448 за секунду: детерминированная подпись сообщения
+	const double ed448Signing = count("Ed448 подпись", 100, [&ed448, &hash, &ed448Sealing]() noexcept -> void {
+		// Выполняем подпись хеша области байтов
+		ed448.make(view_t(hash, 32), ed448Sealing);
+	});
+	// Выполняем замер числа сличений подписи Ed448 за секунду
+	const double ed448Checking = count("Ed448 сличение", 1000, [&ed448, &hash, &ed448Sealing]() noexcept -> void {
+		// Выполняем сличение подписи
+		ed448.check(view_t(hash, 32), view_t(ed448Sealing, sizeof(ed448Sealing)));
+	});
+	// Параметры кривой curveSM2
+	curve::curve_t sm2Curve;
+	// Объект электронной подписи SM2
+	sign::sm2_t sm2;
+	// Опознаватель подписывающего по умолчанию из GB/T 32918.2
+	const uint8_t SM2_ID[] = {'1', '2', '3', '4', '5', '6', '7', '8', '1', '2', '3', '4', '5', '6', '7', '8'};
+	// Ключ подписи SM2
+	uint8_t sm2Secret[32];
+	// Случайность выработки подписи SM2
+	uint8_t sm2Random[32];
+	// Подпись SM2
+	uint8_t sm2Sealing[64];
+	// Выполняем выработку ключа и случайности подписи SM2
+	entropy::bytes(sm2Secret, sizeof(sm2Secret));
+	// Выполняем выработку случайности подписи SM2
+	entropy::bytes(sm2Random, sizeof(sm2Random));
+	/**
+	 * Замеряемая работа обязана удаваться: молчаливый отказ меряется мгновением
+	 */
+	if(!curve::parameters("1.2.156.10197.1.301", sm2Curve) || !sm2.start(sm2Curve) || !sm2.secret(view_t(sm2Secret, sizeof(sm2Secret)), view_t(SM2_ID, sizeof(SM2_ID))) || !sm2.make(view_t(hash, 32), view_t(sm2Random, sizeof(sm2Random)), sm2Sealing) || !sm2.check(view_t(hash, 32), view_t(sm2Sealing, sizeof(sm2Sealing)))){
+		// Выводим сообщение об отказе подписи
+		cout << "Завести подпись SM2 не удалось" << endl;
+		// Выходим из приложения с признаком отказа
+		return EXIT_FAILURE;
+	}
+	// Выполняем замер числа подписей SM2 за секунду: случайность выработки подаётся снаружи
+	const double sm2Signing = count("SM2 подпись", 200, [&sm2, &hash, &sm2Random, &sm2Sealing]() noexcept -> void {
+		// Выполняем подпись хеша области байтов
+		sm2.make(view_t(hash, 32), view_t(sm2Random, sizeof(sm2Random)), sm2Sealing);
+	});
+	// Выполняем замер числа сличений подписи SM2 за секунду
+	const double sm2Checking = count("SM2 сличение", 1000, [&sm2, &hash, &sm2Sealing]() noexcept -> void {
+		// Выполняем сличение подписи
+		sm2.check(view_t(hash, 32), view_t(sm2Sealing, sizeof(sm2Sealing)));
+	});
+	// Набор подписи SLH-DSA
+	const sign::slhdsa_t::set_t slhSet = sign::slhdsa_t::set_t::SHA2_128S;
+	// Объект электронной подписи SLH-DSA
+	sign::slhdsa_t slhdsa;
+	// Ключ проверки, ключ подписи и подпись SLH-DSA
+	vector <uint8_t> slhKey(sign::slhdsa_t::publicSize(slhSet)), slhSecret(sign::slhdsa_t::secretSize(slhSet)), slhSealing(sign::slhdsa_t::signatureSize(slhSet));
+	/**
+	 * Замеряемая работа обязана удаваться: молчаливый отказ меряется мгновением
+	 *
+	 * @details Порождение заполняет лишь места ключей, а состояние модуля не занимает:
+	 *          ключ подписи устанавливается отдельным вызовом
+	 *
+	 */
+	if(!slhdsa.generate(slhSet, slhKey.data(), slhSecret.data()) || !slhdsa.secret(slhSet, view_t(slhSecret.data(), slhSecret.size())) || !slhdsa.make(view_t(hash, 32), view_t(), slhSealing.data()) || !slhdsa.check(view_t(hash, 32), view_t(), view_t(slhSealing.data(), slhSealing.size()))){
+		// Выводим сообщение об отказе подписи
+		cout << "Породить ключ либо подписать SLH-DSA не удалось" << endl;
+		// Выходим из приложения с признаком отказа
+		return EXIT_FAILURE;
+	}
+	// Выполняем замер числа подписей SLH-DSA за секунду: тысячи хешей на одну подпись
+	const double slhSigning = count("SLH-DSA-128s подпись", 20, [&slhdsa, &hash, &slhSealing]() noexcept -> void {
+		// Выполняем подпись хеша области байтов
+		slhdsa.make(view_t(hash, 32), view_t(), slhSealing.data());
+	});
+	// Выполняем замер числа сличений подписи SLH-DSA за секунду
+	const double slhChecking = count("SLH-DSA-128s сличение", 100, [&slhdsa, &hash, &slhSealing]() noexcept -> void {
+		// Выполняем сличение подписи
+		slhdsa.check(view_t(hash, 32), view_t(), view_t(slhSealing.data(), slhSealing.size()));
 	});
 	// Подлинность стороны сервера
 	context::credential_t credentials;
@@ -1835,6 +2134,82 @@ int main(int argc, char * argv[]) noexcept {
 			// Выполняем хеширование области байтов
 			::EVP_Digest(data.data(), data.size(), hash, &length, ::EVP_sha512(), nullptr);
 		});
+		// Замеры SHA3-256 эталона: у эталона без этого хеша замеров нет
+		double sha3Ref = 0.;
+		// Хеш SHA3-256 эталона из провайдера
+		EVP_MD * sha3Method = ::EVP_MD_fetch(nullptr, "SHA3-256", nullptr);
+		// Если хеш SHA3-256 у эталона нашёлся
+		if(sha3Method != nullptr){
+			// Выполняем замер полосы хеширования SHA3-256 эталона
+			sha3Ref = band("SHA3-256", 16, VOLUME, [&data, &hash, &sha3Method]() noexcept -> void {
+				// Длина выработанного хеша области байтов
+				unsigned int length = 0;
+				// Выполняем хеширование области байтов
+				::EVP_Digest(data.data(), data.size(), hash, &length, sha3Method, nullptr);
+			});
+			// Освобождаем хеш SHA3-256 эталона
+			::EVP_MD_free(sha3Method);
+		} else {
+			// Выводим примету отсутствия SHA3-256 у эталона
+			cout << "У эталона SHA3-256 нет, сличение пропускается" << endl;
+		}
+		// Замеры SHA3-512 эталона: у эталона без этого хеша замеров нет
+		double sha3longRef = 0.;
+		// Хеш SHA3-512 эталона из провайдера
+		EVP_MD * sha3longMethod = ::EVP_MD_fetch(nullptr, "SHA3-512", nullptr);
+		// Если хеш SHA3-512 у эталона нашёлся
+		if(sha3longMethod != nullptr){
+			// Выполняем замер полосы хеширования SHA3-512 эталона
+			sha3longRef = band("SHA3-512", 16, VOLUME, [&data, &hash, &sha3longMethod]() noexcept -> void {
+				// Длина выработанного хеша области байтов
+				unsigned int length = 0;
+				// Выполняем хеширование области байтов
+				::EVP_Digest(data.data(), data.size(), hash, &length, sha3longMethod, nullptr);
+			});
+			// Освобождаем хеш SHA3-512 эталона
+			::EVP_MD_free(sha3longMethod);
+		} else {
+			// Выводим примету отсутствия SHA3-512 у эталона
+			cout << "У эталона SHA3-512 нет, сличение пропускается" << endl;
+		}
+		// Замеры SM3 эталона: у эталона без этого хеша замеров нет
+		double sm3Ref = 0.;
+		// Хеш SM3 эталона из провайдера
+		EVP_MD * sm2Method = ::EVP_MD_fetch(nullptr, "SM3", nullptr);
+		// Если хеш SM3 у эталона нашёлся
+		if(sm2Method != nullptr){
+			// Выполняем замер полосы хеширования SM3 эталона
+			sm3Ref = band("SM3", 16, VOLUME, [&data, &hash, &sm2Method]() noexcept -> void {
+				// Длина выработанного хеша области байтов
+				unsigned int length = 0;
+				// Выполняем хеширование области байтов
+				::EVP_Digest(data.data(), data.size(), hash, &length, sm2Method, nullptr);
+			});
+			// Освобождаем хеш SM3 эталона
+			::EVP_MD_free(sm2Method);
+		} else {
+			// Выводим примету отсутствия SM3 у эталона
+			cout << "У эталона SM3 нет, сличение пропускается" << endl;
+		}
+		// Замеры RIPEMD-160 эталона: у эталона без этого хеша замеров нет
+		double ripemdRef = 0.;
+		// Хеш RIPEMD-160 эталона из провайдера
+		EVP_MD * ripemdMethod = ::EVP_MD_fetch(nullptr, "RIPEMD160", nullptr);
+		// Если хеш RIPEMD-160 у эталона нашёлся
+		if(ripemdMethod != nullptr){
+			// Выполняем замер полосы хеширования RIPEMD-160 эталона
+			ripemdRef = band("RIPEMD-160", 16, VOLUME, [&data, &hash, &ripemdMethod]() noexcept -> void {
+				// Длина выработанного хеша области байтов
+				unsigned int length = 0;
+				// Выполняем хеширование области байтов
+				::EVP_Digest(data.data(), data.size(), hash, &length, ripemdMethod, nullptr);
+			});
+			// Освобождаем хеш RIPEMD-160 эталона
+			::EVP_MD_free(ripemdMethod);
+		} else {
+			// Выводим примету отсутствия RIPEMD-160 у эталона
+			cout << "У эталона RIPEMD-160 нет, сличение пропускается" << endl;
+		}
 		// Объект поточного шифрования эталона
 		EVP_CIPHER_CTX * context = ::EVP_CIPHER_CTX_new();
 		// Выполняем замер полосы поточного шифрования AES-256-CTR
@@ -1885,6 +2260,78 @@ int main(int argc, char * argv[]) noexcept {
 			// Выполняем извлечение имитовставки шифрования
 			::EVP_CIPHER_CTX_ctrl(context, EVP_CTRL_AEAD_GET_TAG, 16, tag);
 		});
+		// Замеры AES-256-CCM эталона: у эталона без этого шифра замеров нет
+		double ccmRef = 0.;
+		// Шифр AES-256-CCM эталона из провайдера
+		EVP_CIPHER * ccmMethod = ::EVP_CIPHER_fetch(nullptr, "AES-256-CCM", nullptr);
+		// Если шифр AES-256-CCM у эталона нашёлся
+		if(ccmMethod != nullptr){
+			// Выполняем замер полосы шифрования с проверкой целостности AES-256-CCM эталона
+			ccmRef = band("AES-256-CCM", 8, VOLUME, [&context, &ccmMethod, &key, &seed, &data, &result, &tag]() noexcept -> void {
+				// Длина зашифрованной области байтов
+				int length = 0;
+				// Выполняем заведение шифрования без ключа: сперва длина имитовставки
+				::EVP_EncryptInit_ex(context, ccmMethod, nullptr, nullptr, nullptr);
+				// Назначаем имитовставке шестнадцать байтов
+				::EVP_CIPHER_CTX_ctrl(context, EVP_CTRL_AEAD_SET_TAG, 16, nullptr);
+				// Выполняем заведение шифрования с ключом и вектором замены
+				::EVP_EncryptInit_ex(context, nullptr, nullptr, key, seed);
+				// Выполняем шифрование области байтов
+				::EVP_EncryptUpdate(context, result.data(), &length, data.data(), static_cast <int> (data.size()));
+				// Выполняем завершение шифрования области байтов
+				::EVP_EncryptFinal_ex(context, result.data() + length, &length);
+				// Выполняем извлечение имитовставки шифрования
+				::EVP_CIPHER_CTX_ctrl(context, EVP_CTRL_AEAD_GET_TAG, 16, tag);
+			});
+			// Освобождаем шифр AES-256-CCM эталона
+			::EVP_CIPHER_free(ccmMethod);
+		} else {
+			// Выводим примету отсутствия AES-256-CCM у эталона
+			cout << "У эталона AES-256-CCM нет, сличение пропускается" << endl;
+		}
+		// Замеры AES-256-CBC эталона: у эталона без этого шифра замеров нет
+		double cbcRef = 0.;
+		// Шифр AES-256-CBC эталона из провайдера
+		EVP_CIPHER * cbcMethod = ::EVP_CIPHER_fetch(nullptr, "AES-256-CBC", nullptr);
+		// Если шифр AES-256-CBC у эталона нашёлся
+		if(cbcMethod != nullptr){
+			// Выполняем замер полосы шифрования AES-256-CBC эталона
+			cbcRef = band("AES-256-CBC", 8, VOLUME, [&context, &cbcMethod, &key, &seed, &data, &result]() noexcept -> void {
+				// Длина зашифрованной области байтов
+				int length = 0;
+				// Выполняем заведение шифрования области байтов: вектор замены в шестнадцать байтов
+				::EVP_EncryptInit_ex(context, cbcMethod, nullptr, key, seed);
+				// Выполняем шифрование области байтов
+				::EVP_EncryptUpdate(context, result.data(), &length, data.data(), static_cast <int> (data.size()));
+				// Выполняем завершение шифрования области байтов
+				::EVP_EncryptFinal_ex(context, result.data() + length, &length);
+			});
+			// Освобождаем шифр AES-256-CBC эталона
+			::EVP_CIPHER_free(cbcMethod);
+		}
+		// Замеры DES-EDE3-CBC эталона: у эталона без этого шифра замеров нет
+		double desRef = 0.;
+		// Шифр DES-EDE3-CBC эталона из провайдера
+		EVP_CIPHER * desMethod = ::EVP_CIPHER_fetch(nullptr, "DES-EDE3-CBC", nullptr);
+		// Если шифр DES-EDE3-CBC у эталона нашёлся
+		if(desMethod != nullptr){
+			// Выполняем замер полосы шифрования DES-EDE3-CBC эталона
+			desRef = band("DES-EDE3-CBC", 8, VOLUME, [&context, &desMethod, &key, &nonce, &data, &result]() noexcept -> void {
+				// Длина зашифрованной области байтов
+				int length = 0;
+				// Выполняем заведение шифрования области байтов: ключ в двадцать четыре байта, вектор в восемь
+				::EVP_EncryptInit_ex(context, desMethod, nullptr, key, nonce);
+				// Выполняем шифрование области байтов
+				::EVP_EncryptUpdate(context, result.data(), &length, data.data(), static_cast <int> (data.size()));
+				// Выполняем завершение шифрования области байтов
+				::EVP_EncryptFinal_ex(context, result.data() + length, &length);
+			});
+			// Освобождаем шифр DES-EDE3-CBC эталона
+			::EVP_CIPHER_free(desMethod);
+		} else {
+			// Выводим примету отсутствия DES-EDE3-CBC у эталона
+			cout << "У эталона DES-EDE3-CBC нет, сличение пропускается" << endl;
+		}
 		// Выполняем освобождение объекта поточного шифрования эталона
 		::EVP_CIPHER_CTX_free(context);
 		// Ключевая пара кривой P-256 эталона
@@ -2009,6 +2456,166 @@ int main(int argc, char * argv[]) noexcept {
 			// Выводим примету отсутствия ML-DSA у эталона
 			cout << "У эталона ML-DSA нет, сличение пропускается" << endl;
 		}
+		// Замеры Ed25519 эталона: у эталона без Ed25519 замеров нет
+		double ed25519SignRef = 0., ed25519VerifyRef = 0.;
+		// Ключевая пара Ed25519 эталона
+		EVP_PKEY * ed25519Key = ::EVP_PKEY_Q_keygen(nullptr, nullptr, "ED25519");
+		// Если ключевая пара Ed25519 эталона выработалась
+		if(ed25519Key != nullptr){
+			// Объект работы с подписью Ed25519 эталона: без хеша, сообщение целиком
+			EVP_MD_CTX * ed25519Digest = ::EVP_MD_CTX_new();
+			// Подпись Ed25519 эталона и её длина
+			uint8_t ed25519Sealing[64];
+			// Запоминаем длину подписи Ed25519
+			size_t ed25519Length = sizeof(ed25519Sealing);
+			// Выполняем замер числа подписей Ed25519 эталона за секунду
+			ed25519SignRef = count("Ed25519 подпись", 200, [&ed25519Digest, &ed25519Key, &hash, &ed25519Sealing, &ed25519Length]() noexcept -> void {
+				// Длина подписи
+				ed25519Length = sizeof(ed25519Sealing);
+				// Выполняем заведение выработки подписи Ed25519 эталона
+				::EVP_DigestSignInit(ed25519Digest, nullptr, nullptr, nullptr, ed25519Key);
+				// Выполняем подпись Ed25519 эталона
+				::EVP_DigestSign(ed25519Digest, ed25519Sealing, &ed25519Length, hash, 32);
+			});
+			// Выполняем замер числа сличений подписи Ed25519 эталона за секунду
+			ed25519VerifyRef = count("Ed25519 сличение", 2000, [&ed25519Digest, &ed25519Key, &hash, &ed25519Sealing, &ed25519Length]() noexcept -> void {
+				// Выполняем заведение сличения подписи Ed25519 эталона
+				::EVP_DigestVerifyInit(ed25519Digest, nullptr, nullptr, nullptr, ed25519Key);
+				// Выполняем сличение подписи Ed25519 эталона
+				::EVP_DigestVerify(ed25519Digest, ed25519Sealing, ed25519Length, hash, 32);
+			});
+			// Выполняем освобождение объектов Ed25519 эталона
+			::EVP_MD_CTX_free(ed25519Digest);
+			// Освобождаем ключевую пару Ed25519 эталона
+			::EVP_PKEY_free(ed25519Key);
+		} else {
+			// Выводим примету отсутствия Ed25519 у эталона
+			cout << "У эталона Ed25519 нет, сличение пропускается" << endl;
+		}
+		// Замеры Ed448 эталона: у эталона без Ed448 замеров нет
+		double ed448SignRef = 0., ed448VerifyRef = 0.;
+		// Ключевая пара Ed448 эталона
+		EVP_PKEY * ed448Key = ::EVP_PKEY_Q_keygen(nullptr, nullptr, "ED448");
+		// Если ключевая пара Ed448 эталона выработалась
+		if(ed448Key != nullptr){
+			// Объект работы с подписью Ed448 эталона: без хеша, сообщение целиком
+			EVP_MD_CTX * ed448Digest = ::EVP_MD_CTX_new();
+			// Подпись Ed448 эталона и её длина
+			uint8_t ed448Sealing[114];
+			// Запоминаем длину подписи Ed448
+			size_t ed448Length = sizeof(ed448Sealing);
+			// Выполняем замер числа подписей Ed448 эталона за секунду
+			ed448SignRef = count("Ed448 подпись", 100, [&ed448Digest, &ed448Key, &hash, &ed448Sealing, &ed448Length]() noexcept -> void {
+				// Длина подписи
+				ed448Length = sizeof(ed448Sealing);
+				// Выполняем заведение выработки подписи Ed448 эталона
+				::EVP_DigestSignInit(ed448Digest, nullptr, nullptr, nullptr, ed448Key);
+				// Выполняем подпись Ed448 эталона
+				::EVP_DigestSign(ed448Digest, ed448Sealing, &ed448Length, hash, 32);
+			});
+			// Выполняем замер числа сличений подписи Ed448 эталона за секунду
+			ed448VerifyRef = count("Ed448 сличение", 1000, [&ed448Digest, &ed448Key, &hash, &ed448Sealing, &ed448Length]() noexcept -> void {
+				// Выполняем заведение сличения подписи Ed448 эталона
+				::EVP_DigestVerifyInit(ed448Digest, nullptr, nullptr, nullptr, ed448Key);
+				// Выполняем сличение подписи Ed448 эталона
+				::EVP_DigestVerify(ed448Digest, ed448Sealing, ed448Length, hash, 32);
+			});
+			// Выполняем освобождение объектов Ed448 эталона
+			::EVP_MD_CTX_free(ed448Digest);
+			// Освобождаем ключевую пару Ed448 эталона
+			::EVP_PKEY_free(ed448Key);
+		} else {
+			// Выводим примету отсутствия Ed448 у эталона
+			cout << "У эталона Ed448 нет, сличение пропускается" << endl;
+		}
+		// Замеры SM2 эталона: у эталона без SM2 замеров нет
+		double sm2SignRef = 0., sm2VerifyRef = 0.;
+		// Ключевая пара SM2 эталона
+		EVP_PKEY * sm2Key = ::EVP_PKEY_Q_keygen(nullptr, nullptr, "SM2");
+		// Хеш SM3 эталона из провайдера
+		EVP_MD * sm3Method = ::EVP_MD_fetch(nullptr, "SM3", nullptr);
+		// Если ключевая пара SM2 и хеш SM3 эталона выработались
+		if((sm2Key != nullptr) && (sm3Method != nullptr)){
+			// Объект работы с подписью SM2 эталона
+			EVP_MD_CTX * sm2Digest = ::EVP_MD_CTX_new();
+			// Подпись SM2 эталона и её длина
+			uint8_t sm2Sealing[72];
+			// Запоминаем длину подписи SM2
+			size_t sm2Length = sizeof(sm2Sealing);
+			// Выполняем замер числа подписей SM2 эталона за секунду: опознаватель ставится всякий раз заново
+			sm2SignRef = count("SM2 подпись", 200, [&sm2Digest, &sm2Key, &sm3Method, &hash, &sm2Sealing, &sm2Length, &SM2_ID]() noexcept -> void {
+				// Объект параметров подписи SM2 эталона
+				EVP_PKEY_CTX * sm2Params = nullptr;
+				// Длина подписи
+				sm2Length = sizeof(sm2Sealing);
+				// Выполняем заведение выработки подписи SM2 с хешем SM3
+				::EVP_DigestSignInit(sm2Digest, &sm2Params, sm3Method, nullptr, sm2Key);
+				// Вяжем опознаватель подписывающего с подписью
+				::EVP_PKEY_CTX_set1_id(sm2Params, SM2_ID, sizeof(SM2_ID));
+				// Выполняем подпись SM2 эталона
+				::EVP_DigestSign(sm2Digest, sm2Sealing, &sm2Length, hash, 32);
+			});
+			// Выполняем замер числа сличений подписи SM2 эталона за секунду
+			sm2VerifyRef = count("SM2 сличение", 1000, [&sm2Digest, &sm2Key, &sm3Method, &hash, &sm2Sealing, &sm2Length, &SM2_ID]() noexcept -> void {
+				// Объект параметров сличения SM2 эталона
+				EVP_PKEY_CTX * sm2Params = nullptr;
+				// Выполняем заведение сличения подписи SM2 с хешем SM3
+				::EVP_DigestVerifyInit(sm2Digest, &sm2Params, sm3Method, nullptr, sm2Key);
+				// Вяжем опознаватель подписывающего со сличением
+				::EVP_PKEY_CTX_set1_id(sm2Params, SM2_ID, sizeof(SM2_ID));
+				// Выполняем сличение подписи SM2 эталона
+				::EVP_DigestVerify(sm2Digest, sm2Sealing, sm2Length, hash, 32);
+			});
+			// Выполняем освобождение объектов SM2 эталона
+			::EVP_MD_CTX_free(sm2Digest);
+			// Освобождаем ключевую пару SM2 эталона
+			::EVP_PKEY_free(sm2Key);
+			// Освобождаем хеш SM3 эталона
+			::EVP_MD_free(sm3Method);
+		} else {
+			// Выводим примету отсутствия SM2 у эталона
+			cout << "У эталона SM2 нет, сличение пропускается" << endl;
+			// Освобождаем выработанные ключ и хеш эталона
+			::EVP_PKEY_free(sm2Key);
+			// Освобождаем выработанные ключ и хеш эталона
+			::EVP_MD_free(sm3Method);
+		}
+		// Замеры SLH-DSA эталона: у эталона без SLH-DSA замеров нет
+		double slhSignRef = 0., slhVerifyRef = 0.;
+		// Ключевая пара SLH-DSA эталона
+		EVP_PKEY * slhPair = ::EVP_PKEY_Q_keygen(nullptr, nullptr, "SLH-DSA-SHA2-128s");
+		// Если ключевая пара SLH-DSA эталона выработалась
+		if(slhPair != nullptr){
+			// Объект работы с подписью SLH-DSA эталона: без хеша, сообщение целиком
+			EVP_MD_CTX * slhDigest = ::EVP_MD_CTX_new();
+			// Подпись SLH-DSA эталона и её длина
+			vector <uint8_t> slhSealing(7856, 0);
+			// Запоминаем длину подписи SLH-DSA
+			size_t slhLength = slhSealing.size();
+			// Выполняем замер числа подписей SLH-DSA эталона за секунду
+			slhSignRef = count("SLH-DSA-128s подпись", 20, [&slhDigest, &slhPair, &hash, &slhSealing, &slhLength]() noexcept -> void {
+				// Длина подписи
+				slhLength = slhSealing.size();
+				// Выполняем заведение выработки подписи SLH-DSA эталона
+				::EVP_DigestSignInit(slhDigest, nullptr, nullptr, nullptr, slhPair);
+				// Выполняем подпись SLH-DSA эталона
+				::EVP_DigestSign(slhDigest, slhSealing.data(), &slhLength, hash, 32);
+			});
+			// Выполняем замер числа сличений подписи SLH-DSA эталона за секунду
+			slhVerifyRef = count("SLH-DSA-128s сличение", 100, [&slhDigest, &slhPair, &hash, &slhSealing, &slhLength]() noexcept -> void {
+				// Выполняем заведение сличения подписи SLH-DSA эталона
+				::EVP_DigestVerifyInit(slhDigest, nullptr, nullptr, nullptr, slhPair);
+				// Выполняем сличение подписи SLH-DSA эталона
+				::EVP_DigestVerify(slhDigest, slhSealing.data(), slhLength, hash, 32);
+			});
+			// Выполняем освобождение объектов SLH-DSA эталона
+			::EVP_MD_CTX_free(slhDigest);
+			// Освобождаем ключевую пару SLH-DSA эталона
+			::EVP_PKEY_free(slhPair);
+		} else {
+			// Выводим примету отсутствия SLH-DSA у эталона
+			cout << "У эталона SLH-DSA нет, сличение пропускается" << endl;
+		}
 		// Место, в которое помещается общее значение обмена эталона
 		vector <uint8_t> common(32, 0);
 		// Выполняем замер числа обменов ключами эталона за секунду
@@ -2052,6 +2659,299 @@ int main(int argc, char * argv[]) noexcept {
 			// Выполняем освобождение объекта обмена ключами эталона
 			::EVP_PKEY_CTX_free(exchange);
 		});
+		// Ключевая пара X448 эталона
+		EVP_PKEY * twin = ::EVP_PKEY_Q_keygen(nullptr, nullptr, "X448");
+		// Если ключевую пару X448 эталона выработать не удалось
+		if(twin == nullptr){
+			// Выводим сообщение об отказе выработки пары
+			cout << "Выработать ключевую пару X448 эталона не удалось" << endl;
+			// Выходим из приложения с признаком отказа
+			return EXIT_FAILURE;
+		}
+		// Место, в которое помещается общее значение обмена X448 эталона
+		vector <uint8_t> twinned(56, 0);
+		// Выполняем замер числа обменов ключами X448 эталона за секунду
+		const double x448Ref = count("Обмен ключами X448", 200, [&twin, &twinned]() noexcept -> void {
+			// Длина общего значения обмена эталона
+			size_t size = twinned.size();
+			// Объект обмена ключами эталона
+			EVP_PKEY_CTX * exchange = ::EVP_PKEY_CTX_new(twin, nullptr);
+			// Выполняем заведение обмена ключами эталона
+			::EVP_PKEY_derive_init(exchange);
+			// Устанавливаем открытый ключ встречной стороны обмена
+			::EVP_PKEY_derive_set_peer(exchange, twin);
+			// Выполняем выработку общего значения обмена
+			::EVP_PKEY_derive(exchange, twinned.data(), &size);
+			// Выполняем освобождение объекта обмена ключами эталона
+			::EVP_PKEY_CTX_free(exchange);
+		});
+		// Выполняем освобождение ключевой пары X448 эталона
+		::EVP_PKEY_free(twin);
+		/**
+		 * Замеры упаковки ML-KEM-768 эталона: сама упаковка появилась у эталона
+		 * с издания 3.5, младшие издания её не знают
+		 */
+#if OPENSSL_VERSION_NUMBER >= 0x30500000L
+		// Замеры упаковки ML-KEM-768 эталона
+		double mlkemSealRef = 0., mlkemOpenRef = 0.;
+		// Ключевая пара ML-KEM-768 эталона
+		EVP_PKEY * kemPair = ::EVP_PKEY_Q_keygen(nullptr, nullptr, "ML-KEM-768");
+		// Если ключевая пара ML-KEM-768 эталона выработалась
+		if(kemPair != nullptr){
+			// Шифртекст упаковки и секрет эталона
+			vector <uint8_t> kemCipher(1088, 0), kemShared(32, 0);
+			// Запоминаем длины шифртекста и секрета
+			size_t kemCipherLength = kemCipher.size(), kemSharedLength = kemShared.size();
+			// Выполняем замер числа упаковок ML-KEM-768 эталона за секунду
+			mlkemSealRef = count("ML-KEM-768 упаковка", 200, [&kemPair, &kemCipher, &kemCipherLength, &kemShared, &kemSharedLength]() noexcept -> void {
+				// Длины шифртекста и секрета
+				kemCipherLength = kemCipher.size();
+				kemSharedLength = kemShared.size();
+				// Объект упаковки эталона
+				EVP_PKEY_CTX * encapsulation = ::EVP_PKEY_CTX_new(kemPair, nullptr);
+				// Выполняем заведение упаковки эталона
+				::EVP_PKEY_encapsulate_init(encapsulation, nullptr);
+				// Выполняем упаковку секрета на ключе получателя
+				::EVP_PKEY_encapsulate(encapsulation, kemCipher.data(), &kemCipherLength, kemShared.data(), &kemSharedLength);
+				// Выполняем освобождение объекта упаковки эталона
+				::EVP_PKEY_CTX_free(encapsulation);
+			});
+			// Выполняем замер числа распаковок ML-KEM-768 эталона за секунду
+			mlkemOpenRef = count("ML-KEM-768 распаковка", 200, [&kemPair, &kemCipher, &kemCipherLength, &kemShared]() noexcept -> void {
+				// Длина секрета
+				size_t kemSecretLength = kemShared.size();
+				// Объект распаковки эталона
+				EVP_PKEY_CTX * decapsulation = ::EVP_PKEY_CTX_new(kemPair, nullptr);
+				// Выполняем заведение распаковки эталона
+				::EVP_PKEY_decapsulate_init(decapsulation, nullptr);
+				// Выполняем распаковку секрета закрытым ключом получателя
+				::EVP_PKEY_decapsulate(decapsulation, kemShared.data(), &kemSecretLength, kemCipher.data(), kemCipherLength);
+				// Выполняем освобождение объекта распаковки эталона
+				::EVP_PKEY_CTX_free(decapsulation);
+			});
+			// Освобождаем ключевую пару ML-KEM-768 эталона
+			::EVP_PKEY_free(kemPair);
+		} else {
+			// Выводим примету отсутствия ML-KEM у эталона
+			cout << "У эталона ML-KEM нет, сличение пропускается" << endl;
+		}
+		/**
+		 * Младшие издания эталона упаковки ML-KEM не знают: сличения нет
+		 */
+#else
+		// Замеры упаковки ML-KEM-768 без нового эталона: сличения нет
+		const double mlkemSealRef = 0., mlkemOpenRef = 0.;
+#endif
+		// Замеры обмена ключами FFDHE-2048 эталона: группа ffdhe2048 равна modp2048 из RFC 3526
+		double ffdheRef = 0.;
+		// Объект порождения ключей группы ffdhe2048 эталона
+		EVP_PKEY_CTX * dhFrame = ::EVP_PKEY_CTX_new_id(EVP_PKEY_DH, nullptr);
+		// Если группу ffdhe2048 у эталона завести удалось
+		if((dhFrame != nullptr) && (::EVP_PKEY_keygen_init(dhFrame) > 0) && (::EVP_PKEY_CTX_set_group_name(dhFrame, "ffdhe2048") > 0)){
+			// Ключевые пары сторон обмена эталона
+			EVP_PKEY * dhA = nullptr, * dhB = nullptr;
+			// Выполняем порождение ключевой пары первой стороны
+			::EVP_PKEY_generate(dhFrame, &dhA);
+			// Выполняем порождение ключевой пары второй стороны
+			::EVP_PKEY_generate(dhFrame, &dhB);
+			// Место, в которое помещается общее значение обмена эталона
+			vector <uint8_t> dhShared(256, 0);
+			// Если обе ключевые пары выработались
+			if((dhA != nullptr) && (dhB != nullptr)){
+				// Выполняем замер числа обменов ключами FFDHE-2048 эталона за секунду
+				ffdheRef = count("Обмен ключами FFDHE-2048", 100, [&dhA, &dhB, &dhShared]() noexcept -> void {
+					// Длина общего значения обмена эталона
+					size_t size = dhShared.size();
+					// Объект обмена ключами эталона
+					EVP_PKEY_CTX * exchange = ::EVP_PKEY_CTX_new(dhA, nullptr);
+					// Выполняем заведение обмена ключами эталона
+					::EVP_PKEY_derive_init(exchange);
+					// Устанавливаем открытый ключ встречной стороны обмена
+					::EVP_PKEY_derive_set_peer(exchange, dhB);
+					// Выполняем выработку общего значения обмена
+					::EVP_PKEY_derive(exchange, dhShared.data(), &size);
+					// Выполняем освобождение объекта обмена ключами эталона
+					::EVP_PKEY_CTX_free(exchange);
+				});
+			}
+			// Освобождаем ключевые пары сторон обмена эталона
+			::EVP_PKEY_free(dhA);
+			// Освобождаем ключевые пары сторон обмена эталона
+			::EVP_PKEY_free(dhB);
+		} else {
+			// Выводим примету отсутствия группы ffdhe2048 у эталона
+			cout << "У эталона группы ffdhe2048 нет, сличение пропускается" << endl;
+		}
+		// Выполняем освобождение объекта порождения ключей группы эталона
+		::EVP_PKEY_CTX_free(dhFrame);
+		// Замеры ГОСТ у эталона: провайдер gostprov есть не везде, лишь на стендах с ним (Astra)
+		double streebogRef = 0., streebogLongRef = 0., kuznyechikCtrRef = 0., kuznyechikMgmRef = 0., magmaCtrRef = 0., magmaMgmRef = 0., gostSignRef = 0., gostVerifyRef = 0.;
+		// Провайдер ГОСТ эталона
+		OSSL_PROVIDER * gostprov = ::OSSL_PROVIDER_load(nullptr, "gostprov");
+		// Если провайдер ГОСТ у эталона нашёлся
+		if(gostprov != nullptr){
+			// Хеш Стрибог-256 эталона из провайдера ГОСТ
+			EVP_MD * streebogMethod = ::EVP_MD_fetch(nullptr, "md_gost12_256", nullptr);
+			// Если хеш Стрибог-256 у эталона нашёлся
+			if(streebogMethod != nullptr){
+				// Выполняем замер полосы хеширования Стрибог-256 эталона
+				streebogRef = band("Стрибог-256", 16, VOLUME, [&data, &hash, &streebogMethod]() noexcept -> void {
+					// Длина выработанного хеша области байтов
+					unsigned int length = 0;
+					// Выполняем хеширование области байтов
+					::EVP_Digest(data.data(), data.size(), hash, &length, streebogMethod, nullptr);
+				});
+				// Освобождаем хеш Стрибог-256 эталона
+				::EVP_MD_free(streebogMethod);
+			}
+			// Хеш Стрибог-512 эталона из провайдера ГОСТ
+			EVP_MD * streebogLongMethod = ::EVP_MD_fetch(nullptr, "md_gost12_512", nullptr);
+			// Если хеш Стрибог-512 у эталона нашёлся
+			if(streebogLongMethod != nullptr){
+				// Выполняем замер полосы хеширования Стрибог-512 эталона
+				streebogLongRef = band("Стрибог-512", 16, VOLUME, [&data, &hash, &streebogLongMethod]() noexcept -> void {
+					// Длина выработанного хеша области байтов
+					unsigned int length = 0;
+					// Выполняем хеширование области байтов
+					::EVP_Digest(data.data(), data.size(), hash, &length, streebogLongMethod, nullptr);
+				});
+				// Освобождаем хеш Стрибог-512 эталона
+				::EVP_MD_free(streebogLongMethod);
+			}
+			// Объект шифрования эталона
+			EVP_CIPHER_CTX * gostContext = ::EVP_CIPHER_CTX_new();
+			// Шифр Кузнечик-CTR эталона из провайдера ГОСТ
+			EVP_CIPHER * kuznyechikCtrMethod = ::EVP_CIPHER_fetch(nullptr, "kuznyechik-ctr", nullptr);
+			// Если шифр Кузнечик-CTR у эталона нашёлся
+			if(kuznyechikCtrMethod != nullptr){
+				// Выполняем замер полосы поточного шифрования Кузнечик-CTR эталона
+				kuznyechikCtrRef = band("Кузнечик-CTR", 8, VOLUME, [&gostContext, &kuznyechikCtrMethod, &key, &seed, &data, &result]() noexcept -> void {
+					// Длина зашифрованной области байтов
+					int length = 0;
+					// Выполняем заведение поточного шифрования: вектор замены в шестнадцать байтов
+					::EVP_EncryptInit_ex(gostContext, kuznyechikCtrMethod, nullptr, key, seed);
+					// Выполняем поточное шифрование области байтов
+					::EVP_EncryptUpdate(gostContext, result.data(), &length, data.data(), static_cast <int> (data.size()));
+				});
+				// Освобождаем шифр Кузнечик-CTR эталона
+				::EVP_CIPHER_free(kuznyechikCtrMethod);
+			}
+			// Шифр Кузнечик-MGM эталона из провайдера ГОСТ
+			EVP_CIPHER * kuznyechikMgmMethod = ::EVP_CIPHER_fetch(nullptr, "kuznyechik-mgm", nullptr);
+			// Если шифр Кузнечик-MGM у эталона нашёлся
+			if(kuznyechikMgmMethod != nullptr){
+				// Выполняем замер полосы шифрования с проверкой целостности Кузнечик-MGM эталона
+				kuznyechikMgmRef = band("Кузнечик-MGM", 8, VOLUME, [&gostContext, &kuznyechikMgmMethod, &key, &seed, &data, &result, &tag]() noexcept -> void {
+					// Длина зашифрованной области байтов
+					int length = 0;
+					// Выполняем заведение шифрования области байтов
+					::EVP_EncryptInit_ex(gostContext, kuznyechikMgmMethod, nullptr, key, seed);
+					// Выполняем шифрование области байтов
+					::EVP_EncryptUpdate(gostContext, result.data(), &length, data.data(), static_cast <int> (data.size()));
+					// Выполняем завершение шифрования области байтов
+					::EVP_EncryptFinal_ex(gostContext, result.data() + length, &length);
+					// Выполняем извлечение имитовставки шифрования
+					::EVP_CIPHER_CTX_ctrl(gostContext, EVP_CTRL_AEAD_GET_TAG, 16, tag);
+				});
+				// Освобождаем шифр Кузнечик-MGM эталона
+				::EVP_CIPHER_free(kuznyechikMgmMethod);
+			}
+			// Шифр Магма-CTR эталона из провайдера ГОСТ
+			EVP_CIPHER * magmaCtrMethod = ::EVP_CIPHER_fetch(nullptr, "magma-ctr", nullptr);
+			// Если шифр Магма-CTR у эталона нашёлся
+			if(magmaCtrMethod != nullptr){
+				// Выполняем замер полосы поточного шифрования Магма-CTR эталона
+				magmaCtrRef = band("Магма-CTR", 8, VOLUME, [&gostContext, &magmaCtrMethod, &key, &nonce, &data, &result]() noexcept -> void {
+					// Длина зашифрованной области байтов
+					int length = 0;
+					// Выполняем заведение поточного шифрования: вектор замены в восемь байтов
+					::EVP_EncryptInit_ex(gostContext, magmaCtrMethod, nullptr, key, nonce);
+					// Выполняем поточное шифрование области байтов
+					::EVP_EncryptUpdate(gostContext, result.data(), &length, data.data(), static_cast <int> (data.size()));
+				});
+				// Освобождаем шифр Магма-CTR эталона
+				::EVP_CIPHER_free(magmaCtrMethod);
+			}
+			// Шифр Магма-MGM эталона из провайдера ГОСТ
+			EVP_CIPHER * magmaMgmMethod = ::EVP_CIPHER_fetch(nullptr, "magma-mgm", nullptr);
+			// Если шифр Магма-MGM у эталона нашёлся
+			if(magmaMgmMethod != nullptr){
+				// Выполняем замер полосы шифрования с проверкой целостности Магма-MGM эталона
+				magmaMgmRef = band("Магма-MGM", 8, VOLUME, [&gostContext, &magmaMgmMethod, &key, &nonce, &data, &result, &tag]() noexcept -> void {
+					// Длина зашифрованной области байтов
+					int length = 0;
+					// Выполняем заведение шифрования области байтов
+					::EVP_EncryptInit_ex(gostContext, magmaMgmMethod, nullptr, key, nonce);
+					// Выполняем шифрование области байтов
+					::EVP_EncryptUpdate(gostContext, result.data(), &length, data.data(), static_cast <int> (data.size()));
+					// Выполняем завершение шифрования области байтов
+					::EVP_EncryptFinal_ex(gostContext, result.data() + length, &length);
+					// Выполняем извлечение имитовставки шифрования: у Магмы она вдвое короче
+					::EVP_CIPHER_CTX_ctrl(gostContext, EVP_CTRL_AEAD_GET_TAG, 8, tag);
+				});
+				// Освобождаем шифр Магма-MGM эталона
+				::EVP_CIPHER_free(magmaMgmMethod);
+			}
+			// Выполняем освобождение объекта шифрования эталона
+			::EVP_CIPHER_CTX_free(gostContext);
+			/**
+			 * Подпись ГОСТ 34.10-2012 у эталона: та же кривая CryptoPro-A, что и у нашей
+			 * строки подписи, ключ порождается по образцу щупа gostbench.c
+			 */
+			EVP_PKEY_CTX * gostKeygen = ::EVP_PKEY_CTX_new_from_name(nullptr, "gost2012_256", nullptr);
+			// Если объект порождения ключа ГОСТ у эталона завёлся
+			if((gostKeygen != nullptr) && (::EVP_PKEY_keygen_init(gostKeygen) > 0) && (::EVP_PKEY_CTX_ctrl_str(gostKeygen, "paramset", "A") > 0)){
+				// Ключевая пара ГОСТ эталона
+				EVP_PKEY * gostPair = nullptr;
+				// Выполняем порождение ключевой пары ГОСТ эталона
+				if(::EVP_PKEY_keygen(gostKeygen, &gostPair) > 0){
+					// Объект работы с подписью ГОСТ эталона
+					EVP_PKEY_CTX * gostSigning = ::EVP_PKEY_CTX_new_from_pkey(nullptr, gostPair, nullptr);
+					// Объект работы со сличением ГОСТ эталона
+					EVP_PKEY_CTX * gostChecking = ::EVP_PKEY_CTX_new_from_pkey(nullptr, gostPair, nullptr);
+					// Подпись ГОСТ эталона и её длина
+					uint8_t gostSealing[128];
+					// Запоминаем длину подписи ГОСТ
+					size_t gostLength = sizeof(gostSealing);
+					// Выполняем заведение выработки подписи ГОСТ эталона
+					::EVP_PKEY_sign_init(gostSigning);
+					// Выполняем выработку подписи ГОСТ эталона для сличения
+					::EVP_PKEY_sign(gostSigning, gostSealing, &gostLength, hash, 32);
+					// Выполняем замер числа подписей ГОСТ эталона за секунду
+					gostSignRef = count("ГОСТ 34.10 подпись", 200, [&gostSigning, &hash, &gostSealing, &gostLength]() noexcept -> void {
+						// Длина подписи
+						gostLength = sizeof(gostSealing);
+						// Выполняем подпись хеша ГОСТ эталона
+						::EVP_PKEY_sign(gostSigning, gostSealing, &gostLength, hash, 32);
+					});
+					// Выполняем заведение сличения подписи ГОСТ эталона
+					::EVP_PKEY_verify_init(gostChecking);
+					// Выполняем замер числа сличений подписи ГОСТ эталона за секунду
+					gostVerifyRef = count("ГОСТ 34.10 сличение", 200, [&gostChecking, &hash, &gostSealing, &gostLength]() noexcept -> void {
+						// Выполняем сличение подписи ГОСТ эталона
+						::EVP_PKEY_verify(gostChecking, gostSealing, gostLength, hash, 32);
+					});
+					// Выполняем освобождение объектов подписи ГОСТ эталона
+					::EVP_PKEY_CTX_free(gostSigning);
+					// Выполняем освобождение объектов подписи ГОСТ эталона
+					::EVP_PKEY_CTX_free(gostChecking);
+					// Освобождаем ключевую пару ГОСТ эталона
+					::EVP_PKEY_free(gostPair);
+				}
+				// Выполняем освобождение объекта порождения ключа ГОСТ эталона
+				::EVP_PKEY_CTX_free(gostKeygen);
+			} else {
+				// Выводим примету отсутствия подписи ГОСТ у эталона
+				cout << "У эталона подписи ГОСТ нет, сличение пропускается" << endl;
+				// Выполняем освобождение объекта порождения ключа ГОСТ эталона
+				::EVP_PKEY_CTX_free(gostKeygen);
+			}
+			// Выполняем выгрузку провайдера ГОСТ эталона
+			::OSSL_PROVIDER_unload(gostprov);
+		} else {
+			// Выводим примету отсутствия провайдера ГОСТ у эталона
+			cout << "Провайдера ГОСТ у эталона нет, сличение ГОСТ пропускается" << endl;
+		}
 		/**
 		 * Рукопожатие TLS 1.3 эталона в памяти парой BIO обеими сторонами в одном потоке:
 		 * X25519, AES-128-GCM, без проверки доверия цепочке, как и у нас
@@ -2360,8 +3260,8 @@ int main(int argc, char * argv[]) noexcept {
 		relation("Поточное шифрование", stream, aes);
 		// Выводим отношение замеров шифрования с целостностью
 		relation("Шифрование с целостностью", sealed, gcm);
-		// Выводим отношение замеров AES-256-CBC к поточному эталону
-		relation("AES-256-CBC против AES-256-CTR эталона", cbc, aes);
+		// Выводим отношение замеров шифрования AES-256-CBC к эталону
+		relation("AES-256-CBC против эталона", cbc, cbcRef);
 		// Выводим отношение замеров AES-256-GCM к эталону
 		relation("AES-256-GCM против эталона", aead, gcm);
 		// Выводим отношение замеров ChaCha20 к эталону
@@ -2390,6 +3290,58 @@ int main(int argc, char * argv[]) noexcept {
 		relation("ML-DSA-65 подпись против эталона", mldsaSigning, mldsaSignRef);
 		// Выводим отношение сличения подписи ML-DSA-65 к эталону
 		relation("ML-DSA-65 сличение против эталона", mldsaChecking, mldsaVerifyRef);
+		// Выводим отношение замеров хеширования SHA3-256 к эталону
+		relation("SHA3-256 против эталона", sha3, sha3Ref);
+		// Выводим отношение замеров хеширования SHA3-512 к эталону
+		relation("SHA3-512 против эталона", sha3long, sha3longRef);
+		// Выводим отношение замеров хеширования SM3 к эталону
+		relation("SM3 против эталона", sm3, sm3Ref);
+		// Выводим отношение замеров хеширования RIPEMD-160 к эталону
+		relation("RIPEMD-160 против эталона", ripemd, ripemdRef);
+		// Выводим отношение замеров шифрования AES-256-CCM к эталону
+		relation("AES-256-CCM против эталона", ccmAead, ccmRef);
+		// Выводим отношение замеров шифрования DES-EDE3-CBC к эталону
+		relation("DES-EDE3-CBC против эталона", desCbc, desRef);
+		// Выводим отношение подписи Ed25519 к эталону
+		relation("Ed25519 подпись против эталона", ed25519Signing, ed25519SignRef);
+		// Выводим отношение сличения подписи Ed25519 к эталону
+		relation("Ed25519 сличение против эталона", ed25519Checking, ed25519VerifyRef);
+		// Выводим отношение подписи Ed448 к эталону
+		relation("Ed448 подпись против эталона", ed448Signing, ed448SignRef);
+		// Выводим отношение сличения подписи Ed448 к эталону
+		relation("Ed448 сличение против эталона", ed448Checking, ed448VerifyRef);
+		// Выводим отношение подписи SM2 к эталону
+		relation("SM2 подпись против эталона", sm2Signing, sm2SignRef);
+		// Выводим отношение сличения подписи SM2 к эталону
+		relation("SM2 сличение против эталона", sm2Checking, sm2VerifyRef);
+		// Выводим отношение подписи SLH-DSA к эталону
+		relation("SLH-DSA-128s подпись против эталона", slhSigning, slhSignRef);
+		// Выводим отношение сличения подписи SLH-DSA к эталону
+		relation("SLH-DSA-128s сличение против эталона", slhChecking, slhVerifyRef);
+		// Выводим отношение замеров обмена ключами X448 к эталону
+		relation("X448 против эталона", x448Exchange, x448Ref);
+		// Выводим отношение упаковки ML-KEM-768 к эталону
+		relation("ML-KEM-768 упаковка против эталона", mlkemSealing, mlkemSealRef);
+		// Выводим отношение распаковки ML-KEM-768 к эталону
+		relation("ML-KEM-768 распаковка против эталона", mlkemOpening, mlkemOpenRef);
+		// Выводим отношение замеров обмена ключами FFDHE-2048 к эталону
+		relation("FFDHE-2048 против эталона", ffdheExchange, ffdheRef);
+		// Выводим отношение замеров хеширования Стрибог-256 к ГОСТ-эталону
+		relation("Стрибог-256 против ГОСТ-эталона", streebog, streebogRef);
+		// Выводим отношение замеров хеширования Стрибог-512 к ГОСТ-эталону
+		relation("Стрибог-512 против ГОСТ-эталона", streebogLong, streebogLongRef);
+		// Выводим отношение замеров поточного шифрования Кузнечик-CTR к ГОСТ-эталону
+		relation("Кузнечик-CTR против ГОСТ-эталона", stream, kuznyechikCtrRef);
+		// Выводим отношение замеров шифрования Кузнечик-MGM к ГОСТ-эталону
+		relation("Кузнечик-MGM против ГОСТ-эталона", sealed, kuznyechikMgmRef);
+		// Выводим отношение замеров поточного шифрования Магма-CTR к ГОСТ-эталону
+		relation("Магма-CTR против ГОСТ-эталона", magmaStream, magmaCtrRef);
+		// Выводим отношение замеров шифрования Магма-MGM к ГОСТ-эталону
+		relation("Магма-MGM против ГОСТ-эталона", magmaSealed, magmaMgmRef);
+		// Выводим отношение подписи ГОСТ 34.10 к ГОСТ-эталону
+		relation("ГОСТ 34.10 подпись против ГОСТ-эталона", signing, gostSignRef);
+		// Выводим отношение сличения подписи ГОСТ 34.10 к ГОСТ-эталону
+		relation("ГОСТ 34.10 сличение против ГОСТ-эталона", checking, gostVerifyRef);
 		relation("TLS 1.3 умолчания против эталона", shakeDefaults, shakeDefaultsRef);
 		relation("TLS 1.3 умолчания к серверу эталона против эталона", shakeCross, shakeDefaultsRef);
 		relation("TLS 1.3 рукопожатие ECDSA против эталона", shakeEcdsa, shakeEcdsaRef);
@@ -2438,6 +3390,48 @@ int main(int argc, char * argv[]) noexcept {
 		(void) mldsaSigning;
 		// Не используем замер сличения ML-DSA-65 при отключённом сличении
 		(void) mldsaChecking;
+		// Замеры хеширования SHA-3 без эталона сравнивать не с чем
+		(void) sha3;
+		// Замеры хеширования SHA-3 без эталона сравнивать не с чем
+		(void) sha3long;
+		// Замеры хеширования SM3 без эталона сравнивать не с чем
+		(void) sm3;
+		// Замеры хеширования RIPEMD-160 без эталона сравнивать не с чем
+		(void) ripemd;
+		// Замеры шифрования AES-256-CCM без эталона сравнивать не с чем
+		(void) ccmAead;
+		// Замеры шифрования DES-EDE3-CBC без эталона сравнивать не с чем
+		(void) desCbc;
+		// Замеры подписи Ed25519 без эталона сравнивать не с чем
+		(void) ed25519Signing;
+		// Замеры сличения Ed25519 без эталона сравнивать не с чем
+		(void) ed25519Checking;
+		// Замеры подписи Ed448 без эталона сравнивать не с чем
+		(void) ed448Signing;
+		// Замеры сличения Ed448 без эталона сравнивать не с чем
+		(void) ed448Checking;
+		// Замеры подписи SM2 без эталона сравнивать не с чем
+		(void) sm2Signing;
+		// Замеры сличения SM2 без эталона сравнивать не с чем
+		(void) sm2Checking;
+		// Замеры подписи SLH-DSA без эталона сравнивать не с чем
+		(void) slhSigning;
+		// Замеры сличения SLH-DSA без эталона сравнивать не с чем
+		(void) slhChecking;
+		// Замеры обмена ключами X448 без эталона сравнивать не с чем
+		(void) x448Exchange;
+		// Замеры упаковки ML-KEM-768 без эталона сравнивать не с чем
+		(void) mlkemSealing;
+		// Замеры распаковки ML-KEM-768 без эталона сравнивать не с чем
+		(void) mlkemOpening;
+		// Замеры обмена ключами FFDHE-2048 без эталона сравнивать не с чем
+		(void) ffdheExchange;
+		// Замеры Стрибог-512 без эталона сравнивать не с чем
+		(void) streebogLong;
+		// Замеры Магма-CTR без эталона сравнивать не с чем
+		(void) magmaStream;
+		// Замеры Магма-MGM без эталона сравнивать не с чем
+		(void) magmaSealed;
 		// Не используем замер обмена ключами при отключённом сличении
 		(void) exchange;
 		// Не используем замер рукопожатий умолчаниями при отключённом сличении

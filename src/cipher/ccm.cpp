@@ -223,6 +223,28 @@ namespace {
 		}
 		// Позиция чтения открытого текста
 		size_t offset = 0;
+		// Если базовый шифр несёт цепочку сцепления, целые блоки текста идут ею
+		if(block.chain != nullptr){
+			// Временное место шифрблоков цепочки: имитовставка читается из накопителя
+			uint8_t scratch[256];
+			// Число целых блоков открытого текста
+			const size_t whole = (source.size & ~static_cast <size_t> (0xF));
+			/**
+			 * Выполняем прогон цепочки сцепления кусками по шестнадцать блоков
+			 */
+			while(offset < whole){
+				// Длина очередного куска цепочки
+				const size_t piece = (((whole - offset) < sizeof(scratch)) ? (whole - offset) : sizeof(scratch));
+				// Если очередной кусок цепочки не прошёл, дальше ведёт общий путь
+				if(!block.chain(block.cipher, accumulator, source.data + offset, piece, scratch))
+					// Выходим из прогона цепочки
+					break;
+				// Сдвигаем позицию чтения открытого текста
+				offset += piece;
+			}
+			// Выполняем затирание временного места шифрблоков
+			wipe(scratch, sizeof(scratch));
+		}
 		/**
 		 * Выполняем разбор целых блоков открытого текста
 		 */
@@ -291,6 +313,28 @@ namespace {
 		uint64_t number = 1;
 		// Позиция чтения сообщения
 		size_t offset = 0;
+		// Если поле номера блока занимает четыре байта и шифр несёт слитную гамму, целые блоки идут ею
+		if((width == 4) && (block.stream != nullptr)){
+			// Число целых блоков сообщения
+			const size_t whole = (source.size & ~static_cast <size_t> (0xF));
+			/**
+			 * Выполняем наложение гаммы кусками по шестьдесят четыре блока
+			 */
+			while(offset < whole){
+				// Число блоков в очередном куске гаммы
+				const size_t blocks = (((whole - offset) >> 4) > 64) ? 64 : ((whole - offset) >> 4);
+				// Собираем блок счётчика начала очередного куска
+				counter(nonce, length, width, number, item);
+				// Если очередной кусок гаммы не прошёл, дальше ведёт общий путь
+				if(!block.stream(block.cipher, item, blocks, source.data + offset, result + offset))
+					// Выходим из наложения слитной гаммы
+					break;
+				// Сдвигаем позицию чтения сообщения
+				offset += (blocks << 4);
+				// Увеличиваем номер блока счётчика
+				number += blocks;
+			}
+		}
 		/**
 		 * Выполняем наложение гаммы по блокам сообщения
 		 */

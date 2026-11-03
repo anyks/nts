@@ -306,6 +306,38 @@ namespace nts {
 				bool stream(const uint8_t * counter, const size_t blocks, const uint8_t * source, uint8_t * result) const noexcept;
 				/**
 				 * \~russian
+				 * @brief Метод зашифрования сообщения цепочкой сцепления блоков
+				 *
+				 * @param record регистр сдвига: на входе прежнее заполнение, на выходе последний шифрблок
+				 * @param source зашифровываемое сообщение, кратно блоку
+				 * @param size   длина сообщения в байтах
+				 * @param result место, в которое помещается шифртекст: может совпадать с сообщением
+				 * @return       признак успешности зашифрования: без команд машины цепочки нет
+				 *
+				 * @details Цепочка сцепления ведётся командами машины без поблочного вызова:
+				 *          регистр лежит в векторе, сложение с сообщением и круги шифра идут
+				 *          одним проходом, оттого общий путь режима с его копиями блока
+				 *          обходится стороной
+				 *
+				 * \~english
+				 * @brief Method of the encryption of a message by the chain of the block chaining
+				 *
+				 * @param record the shift register: the former filling on entering, the last cipher block on leaving
+				 * @param source the message being encrypted, a multiple of the block
+				 * @param size   the length of the message in bytes
+				 * @param result the place the cipher text is written into: may coincide with the message
+				 * @return       the flag of the success of the encryption: without the machine instructions there is no chain
+				 *
+				 * @details The chaining is led by the machine instructions without the per-block
+				 *          call: the register lies in a vector, the addition with the message and
+				 *          the rounds of the cipher go in one pass, so the common path of the
+				 *          mode with its copies of the block is bypassed
+				 *
+				 * \~
+				 */
+				bool chain(uint8_t * record, const uint8_t * source, const size_t size, uint8_t * result) const noexcept;
+				/**
+				 * \~russian
 				 * @brief Метод получения расписания ключа зашифрования для слитых ядер режимов
 				 *
 				 * @return расписание ключа: ключей на один больше числа кругов, по шестнадцать байтов; пусто без ключа либо без команд машины

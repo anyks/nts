@@ -963,6 +963,88 @@ namespace {
 		store(d0, result + 48), store(d1, result + 52), store(d2, result + 56), store(d3, result + 60);
 	}
 	/**
+	 * Если есть ветвь команд AES расширения ARMv8
+	 */
+	#if defined(__ANTS_AES_ARM__)
+		/**
+		 * @brief Функция зашифрования сообщения цепочкой сцепления командами AESE и AESMC
+		 *
+		 * @param keys   раундовые ключи байтами в порядке памяти
+		 * @param rounds число раундов
+		 * @param record регистр сдвига: на входе прежнее заполнение, на выходе последний шифрблок
+		 * @param source зашифровываемое сообщение
+		 * @param size   длина сообщения в байтах
+		 * @param result место, в которое записывается шифртекст
+		 *
+		 */
+		static __ANTS_AES_TARGET__ void chainArm(const uint8_t * keys, const size_t rounds, uint8_t * record, const uint8_t * source, const size_t size, uint8_t * result) noexcept {
+			// Регистр сцепления держится вектором на весь проход
+			uint8x16_t state = vld1q_u8(record);
+			// Число блоков сообщения
+			const size_t blocks = size >> 4;
+			/**
+			 * Выполняем перебор блоков сообщения
+			 */
+			for(size_t b = 0; b < blocks; b++){
+				// Складываем блок сообщения с регистром сцепления
+				state = veorq_u8(state, vld1q_u8(source + (b << 4)));
+				/**
+				 * Выполняем внутренние раунды: подстановка со сдвигом и ключом, затем перемешивание
+				 */
+				for(size_t round = 0; (round + 1) < rounds; round++)
+				// Выполняем раунд командами AESE и AESMC
+				state = vaesmcq_u8(vaeseq_u8(state, vld1q_u8(keys + (round * 16))));
+				// Выполняем последний раунд без перемешивания и складываем с последним ключом
+				state = veorq_u8(vaeseq_u8(state, vld1q_u8(keys + ((rounds - 1) * 16))), vld1q_u8(keys + (rounds * 16)));
+				// Записываем шифрблок на место итога
+				vst1q_u8(result + (b << 4), state);
+			}
+			// Записываем последний шифрблок в регистр сцепления
+			vst1q_u8(record, state);
+		}
+	#endif
+	/**
+	 * Если есть ветвь команд AES-NI
+	 */
+	#if defined(__ANTS_AES_X86__)
+		/**
+		 * @brief Функция зашифрования сообщения цепочкой сцепления командами AES-NI
+		 *
+		 * @param keys   раундовые ключи байтами в порядке памяти
+		 * @param rounds число раундов
+		 * @param record регистр сдвига: на входе прежнее заполнение, на выходе последний шифрблок
+		 * @param source зашифровываемое сообщение
+		 * @param size   длина сообщения в байтах
+		 * @param result место, в которое записывается шифртекст
+		 *
+		 */
+		static __ANTS_AES_TARGET__ void chainX86(const uint8_t * keys, const size_t rounds, uint8_t * record, const uint8_t * source, const size_t size, uint8_t * result) noexcept {
+			// Регистр сцепления держится вектором на весь проход
+			__m128i state = _mm_loadu_si128(reinterpret_cast <const __m128i *> (record));
+			// Число блоков сообщения
+			const size_t blocks = size >> 4;
+			/**
+			 * Выполняем перебор блоков сообщения
+			 */
+			for(size_t b = 0; b < blocks; b++){
+				// Складываем блок сообщения с регистром сцепления
+				state = _mm_xor_si128(state, _mm_loadu_si128(reinterpret_cast <const __m128i *> (source + (b << 4))));
+				/**
+				 * Выполняем внутренние раунды: подстановка со сдвигом и ключом, затем перемешивание
+				 */
+				for(size_t round = 0; (round + 1) < rounds; round++)
+				// Выполняем раунд командами AESENC
+				state = _mm_aesenc_si128(state, _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys + (round * 16))));
+				// Выполняем последний раунд без перемешивания и складываем с последним ключом
+				state = _mm_aesenclast_si128(state, _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys + (rounds * 16))));
+				// Записываем шифрблок на место итога
+				_mm_storeu_si128(reinterpret_cast <__m128i *> (result + (b << 4)), state);
+			}
+			// Записываем последний шифрблок в регистр сцепления
+			_mm_storeu_si128(reinterpret_cast <__m128i *> (record), state);
+		}
+	#endif
+	/**
 	 * @brief Функция выработки гаммы таблицами: по четыре блоков счётчика разом
 	 *
 	 * @details Счётчики собираются словами, а гамма накладывается на слова исходных данных
@@ -1762,6 +1844,59 @@ bool nts::cipher::Aes::stream(const uint8_t * counter, const size_t blocks, cons
 	}
 	// Выводим успешность выработки гаммы
 	return true;
+}
+/**
+ * @brief Метод зашифрования сообщения цепочкой сцепления блоков
+ *
+ * @param record регистр сдвига: на входе прежнее заполнение, на выходе последний шифрблок
+ * @param source зашифровываемое сообщение
+ * @param size   длина сообщения в байтах
+ * @param result место, в которое помещается шифртекст
+ * @return       признак успешности зашифрования: без команд машины цепочки нет
+ *
+ */
+bool nts::cipher::Aes::chain(uint8_t * record, const uint8_t * source, const size_t size, uint8_t * result) const noexcept {
+	// Если ключ не установлен либо регистр не передан
+	if(!this->_ready || (record == nullptr))
+		// Выводим отказ зашифрования
+		return false;
+	// Если длина сообщения не кратна блоку
+	if((size & 0xF) != 0)
+		// Выводим отказ зашифрования
+		return false;
+	// Если сообщение пусто, регистр сцепления не меняется
+	if(size == 0)
+		// Выводим успешность зашифрования
+		return true;
+	// Если места не переданы
+	if((source == nullptr) || (result == nullptr))
+		// Выводим отказ зашифрования
+		return false;
+	/**
+	 * Если есть ветвь команд AES расширения ARMv8
+	 */
+	#if defined(__ANTS_AES_ARM__)
+	// Если машина шифрует командами
+	if(machine::has(machine::feature_t::AES)){
+		// Выполняем зашифрование цепочкой командами
+		chainArm(this->_sealing, this->_rounds, record, source, size, result);
+		// Выводим успешность зашифрования
+		return true;
+	}
+	/**
+	 * Если есть ветвь команд AES-NI
+	 */
+	#elif defined(__ANTS_AES_X86__)
+	// Если машина шифрует командами
+	if(machine::has(machine::feature_t::AES)){
+		// Выполняем зашифрование цепочкой командами
+		chainX86(this->_sealing, this->_rounds, record, source, size, result);
+		// Выводим успешность зашифрования
+		return true;
+	}
+	#endif
+	// Без команд машины цепочки нет: режим ведёт сообщение общим путём
+	return false;
 }
 /**
  * @brief Метод получения расписания ключа зашифрования для слитых ядер режимов

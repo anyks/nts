@@ -200,6 +200,21 @@ namespace {
 		return reinterpret_cast <const aes_t *> (cipher)->stream(counter, blocks, source, result);
 	}
 	/**
+	 * @brief Функция зашифрования сообщения цепочкой сцепления шифром AES
+	 *
+	 * @param cipher объект блочного шифра
+	 * @param record регистр сдвига
+	 * @param source зашифровываемое сообщение
+	 * @param size   длина сообщения в байтах
+	 * @param result место, в которое помещается шифртекст
+	 * @return       признак успешности зашифрования
+	 *
+	 */
+	static bool chainAes(const void * cipher, uint8_t * record, const uint8_t * source, const size_t size, uint8_t * result) noexcept {
+		// Выполняем зашифрование цепочкой сцепления шифром AES
+		return reinterpret_cast <const aes_t *> (cipher)->chain(record, source, size, result);
+	}
+	/**
 	 * @brief Функция зашифрования блока шифром SM4
 	 *
 	 * @param cipher объект блочного шифра
@@ -312,7 +327,7 @@ namespace {
  *
  */
 nts::cipher::Block::Block() noexcept :
-	size(0), cipher(nullptr), encrypt(nullptr), decrypt(nullptr), stream(nullptr), batch(nullptr), schedule(nullptr), rounds(0) {}
+	size(0), cipher(nullptr), encrypt(nullptr), decrypt(nullptr), stream(nullptr), batch(nullptr), chain(nullptr), schedule(nullptr), rounds(0) {}
 /**
  * @brief Конструктор
  *
@@ -320,7 +335,7 @@ nts::cipher::Block::Block() noexcept :
  *
  */
 nts::cipher::Block::Block(const magma_t & cipher) noexcept :
-	size(MAGMA_BLOCK), cipher(&cipher), encrypt(&encryptMagma), decrypt(&decryptMagma), stream(nullptr), batch(&batchMagma), schedule(nullptr), rounds(0) {}
+	size(MAGMA_BLOCK), cipher(&cipher), encrypt(&encryptMagma), decrypt(&decryptMagma), stream(nullptr), batch(&batchMagma), chain(nullptr), schedule(nullptr), rounds(0) {}
 /**
  * @brief Конструктор
  *
@@ -328,7 +343,7 @@ nts::cipher::Block::Block(const magma_t & cipher) noexcept :
  *
  */
 nts::cipher::Block::Block(const kuznyechik_t & cipher) noexcept :
-	size(KUZNYECHIK_BLOCK), cipher(&cipher), encrypt(&encryptKuznyechik), decrypt(&decryptKuznyechik), stream(nullptr), batch(&batchKuznyechik), schedule(nullptr), rounds(0) {}
+	size(KUZNYECHIK_BLOCK), cipher(&cipher), encrypt(&encryptKuznyechik), decrypt(&decryptKuznyechik), stream(nullptr), batch(&batchKuznyechik), chain(nullptr), schedule(nullptr), rounds(0) {}
 /**
  * @brief Конструктор
  *
@@ -336,7 +351,7 @@ nts::cipher::Block::Block(const kuznyechik_t & cipher) noexcept :
  *
  */
 nts::cipher::Block::Block(const aes_t & cipher) noexcept :
-	size(AES_BLOCK), cipher(&cipher), encrypt(&encryptAes), decrypt(&decryptAes), stream(&streamAes), batch(&batchAes), schedule(cipher.schedule()), rounds(cipher.rounds()) {}
+	size(AES_BLOCK), cipher(&cipher), encrypt(&encryptAes), decrypt(&decryptAes), stream(&streamAes), batch(&batchAes), chain(&chainAes), schedule(cipher.schedule()), rounds(cipher.rounds()) {}
 /**
  * @brief Конструктор
  *
@@ -344,7 +359,7 @@ nts::cipher::Block::Block(const aes_t & cipher) noexcept :
  *
  */
 nts::cipher::Block::Block(const sm4_t & cipher) noexcept :
-	size(SM4_BLOCK), cipher(&cipher), encrypt(&encryptSm4), decrypt(&decryptSm4), stream(nullptr), batch(nullptr), schedule(nullptr), rounds(0) {}
+	size(SM4_BLOCK), cipher(&cipher), encrypt(&encryptSm4), decrypt(&decryptSm4), stream(nullptr), batch(nullptr), chain(nullptr), schedule(nullptr), rounds(0) {}
 /**
  * @brief Конструктор
  *
@@ -352,7 +367,7 @@ nts::cipher::Block::Block(const sm4_t & cipher) noexcept :
  *
  */
 nts::cipher::Block::Block(const des_t & cipher) noexcept :
-	size(DES_BLOCK), cipher(&cipher), encrypt(&encryptDes), decrypt(&decryptDes), stream(nullptr), batch(nullptr), schedule(nullptr), rounds(0) {}
+	size(DES_BLOCK), cipher(&cipher), encrypt(&encryptDes), decrypt(&decryptDes), stream(nullptr), batch(nullptr), chain(nullptr), schedule(nullptr), rounds(0) {}
 /**
  * @brief Метод проверки готовности режима к работе
  *
@@ -955,6 +970,10 @@ bool nts::cipher::Chaining::encrypt(const view_t & source, uint8_t * result) noe
 	if((source.size % this->_block.size) != 0)
 		// Выводим отказ зашифрования
 		return false;
+	// Если базовый шифр несёт цепочку сцепления целиком и она прошла
+	if((this->_block.chain != nullptr) && this->_block.chain(this->_block.cipher, this->_register, source.data, source.size, result))
+		// Выводим успешность зашифрования
+		return true;
 	/**
 	 * Выполняем перебор блоков зашифровываемого сообщения
 	 */
