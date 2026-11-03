@@ -10,6 +10,9 @@ target_compile_options(${TEST_FUZZER_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS}
 # Подключаем каталог общих заголовочных файлов набора проверок
 target_include_directories(${TEST_FUZZER_NAME} PRIVATE "${ANTS_ROOT}/tests")
 
+# Устанавливаем путь к набору проверочных ключей
+target_compile_definitions(${TEST_FUZZER_NAME} PRIVATE ANTS_CORPUS="${ANTS_ROOT}/tests/corpus")
+
 # Выполняем подключение зависимостей цели проверок
 target_link_libraries(${TEST_FUZZER_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
 
@@ -56,10 +59,19 @@ if (CMAKE_BUILD_LIBFUZZER)
         add_executable(${target} "${CMAKE_CURRENT_SOURCE_DIR}/libfuzzer/${name}.cpp")
         # Включаем санитайзеры и инструментирование входной точки
         target_compile_options(${target} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
+        # Подключаем каталог общих заголовочных файлов набора проверок
+        target_include_directories(${target} PRIVATE "${ANTS_ROOT}/tests")
         # Подключаем проверочную библиотеку и runtime ворошителя
         target_link_libraries(${target} ${ANTS_LIB_NAME}_test Threads::Threads ${GCC_COVERAGE_LIBS} ${ANTS_LIBFUZZER_LINK})
+        # Ворошителю состояний запрещаем перечитывать корпус: на macOS путь
+        # RereadOutputCorpus смешанного runtime падает с container-overflow
+        set(ANTS_FUZZER_RELOAD)
+        if (name STREQUAL "state")
+            # Отключаем только перечитывание, не проверки памяти самой библиотеки
+            set(ANTS_FUZZER_RELOAD -reload=0)
+        endif()
         # Регистрируем ограниченный повторимый прогон стартового корпуса
-        add_test(NAME ${target} COMMAND ${target} "${CMAKE_CURRENT_BINARY_DIR}/corpus/${name}" -runs=1024 -seed=1 -max_len=65536 -timeout=10 -rss_limit_mb=2048)
+        add_test(NAME ${target} COMMAND ${target} "${CMAKE_CURRENT_BINARY_DIR}/corpus/${name}" -runs=1024 -seed=1 -max_len=65536 -timeout=10 -rss_limit_mb=2048 ${ANTS_FUZZER_RELOAD})
         # Останавливаем прогон на первой находке санитайзеров
         set_tests_properties(${target} PROPERTIES ENVIRONMENT "ASAN_OPTIONS=abort_on_error=1;UBSAN_OPTIONS=halt_on_error=1:abort_on_error=1:print_stacktrace=1")
     endfunction()
@@ -73,5 +85,13 @@ if (CMAKE_BUILD_LIBFUZZER)
     add_parser_fuzzer(cms)
     # Добавляем ворошитель сообщений управления сертификатами
     add_parser_fuzzer(cmp)
+    # Добавляем ворошитель записей и сообщений рукопожатия TLS
+    add_parser_fuzzer(tls)
+    # Добавляем ворошитель записей и кусков сообщений DTLS
+    add_parser_fuzzer(dtls)
+    # Добавляем ворошитель имён и сообщений рукопожатия Noise
+    add_parser_fuzzer(noise)
+    # Добавляем ворошитель машин состояний TLS и DTLS
+    add_parser_fuzzer(state)
 endif()
 

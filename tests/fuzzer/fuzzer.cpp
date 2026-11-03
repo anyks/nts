@@ -32,6 +32,11 @@
  */
 
 /**
+ * Стандартные заголовочные файлы
+ */
+#include <fstream>
+
+/**
  * Подключаем заголовочные файлы проекта
  */
 #include <main.hpp>
@@ -46,6 +51,7 @@
 #include <cmp/cmp.hpp>
 #include <jws/jws.hpp>
 #include <acme/acme.hpp>
+#include <openssl.hpp>
 #include <alert/alert.hpp>
 #include <hello/hello.hpp>
 #include <record/record.hpp>
@@ -60,6 +66,50 @@
  *
  */
 namespace {
+	/**
+	 * Путь к проверочным ключам
+	 */
+	static const char * CORPUS = ANTS_CORPUS;
+	/**
+	 * @brief Функция чтения файла проверочного ключа целиком
+	 *
+	 * @param name имя файла проверочного ключа
+	 * @return     содержимое файла проверочного ключа
+	 *
+	 */
+	vector <uint8_t> keydata(const string & name) noexcept {
+		// Открываем файл проверочного ключа
+		std::ifstream file(std::string(CORPUS) + "/" + name, std::ios::binary);
+		// Накопитель содержимого файла
+		vector <uint8_t> result;
+		// Если файл открыт
+		if(file.is_open())
+			// Считываем файл целиком
+			result.assign(std::istreambuf_iterator <char> (file), std::istreambuf_iterator <char> ());
+		// Выводим содержимое файла
+		return result;
+	}
+	/**
+	 * @brief Функция составления подлинности из ключей ec256
+	 *
+	 * @param result подлинность, в которую помещаются ключ и цепочка
+	 * @return       признак успешности составления подлинности
+	 *
+	 */
+	bool keyfile(context::credential_t & result) noexcept {
+		// Считываем секретный ключ ec256
+		result.secret = keydata("ec256.pem");
+		// Считываем сертификат ec256
+		const vector <uint8_t> text = keydata("ec256.crt");
+		// Если ключ либо сертификат не прочитан
+		if(result.secret.empty() || text.empty())
+			// Выводим отказ чтения
+			return false;
+		// Очищаем цепочку сертификатов
+		result.chain.clear();
+		// Разбираем цепочку сертификатов
+		return (pem::certificates(std::string(text.begin(), text.end()), result.chain) == pem::error_t::NONE);
+	}
 	/**
 	 * @brief Направление передачи байтов между сторонами связи
 	 *
@@ -536,6 +586,81 @@ TEST(FuzzerTest, Corruption){
 		 */
 		ASSERT_FALSE(established[(side == 0) ? 1 : 0]) << "место " << target << " разряд " << static_cast <uint16_t> (mask);
 	}
+}
+
+/**
+ * Проверка совместного отвержения записи с неизвестным видом содержимого с OpenSSL
+ */
+TEST(FuzzerTest, OpensslRefusals){
+	/**
+	 * Под Windows порождённые процессы OpenSSL оснастка не ведёт
+	 */
+	#if !defined(_WIN32)
+		// Подлинность стороны сервера
+		context::credential_t credentials;
+		// Читаем классическую подлинность ec256, чтобы отказ зависел только от записи
+		ASSERT_TRUE(keyfile(credentials));
+		// Потоки байтов направлений передачи
+		vector <uint8_t> streams[2];
+		// Признаки установленности связи сторонами
+		bool established[2] = {false, false};
+		// Проводим чистое рукопожатие сторон связи
+		converse(credentials, course_t::NONE, 0, 0, streams, 4096, established);
+		// Проверяем установленность связи сторонами
+		ASSERT_TRUE(established[0] && established[1]);
+		// Порченый поток сервера с неизвестным видом содержимого первой записи
+		vector <uint8_t> damaged = streams[1];
+		// Проверяем наличие первой записи потока сервера
+		ASSERT_FALSE(damaged.empty());
+		// Подменяем вид содержимого записи значением вне реестра
+		damaged[0] = 0x19;
+		// Связь клиента, получающая порченую запись
+		client::context_t client;
+		// Объявляем ГОСТ в настройках клиента, как и в исходной связи
+		gosting(client);
+		// Заводим клиента
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		// Подаём порченую запись клиенту
+		client.push(view_t(damaged.data(), damaged.size()));
+		// Проверяем обрыв связи с диагностикой разбора
+		ASSERT_EQ(client.state(), context::state_t::FAILED);
+		// Проверяем наличие отказа разбора записи
+		ASSERT_NE(client.error(), context::error_t::NONE);
+		// Порт локального повтора порченого потока
+		uint16_t port = 0;
+		// Заводим слушающий сокет повтора
+		const int listener = harbour(port);
+		// Проверяем заведение слушающего сокета
+		ASSERT_GE(listener, 0);
+		// Журнал OpenSSL с уникальным именем по порту
+		const string log = "/tmp/ants-fuzzer-openssl-" + std::to_string(port) + ".log";
+		// Запускаем клиента OpenSSL на порченый поток
+		ASSERT_TRUE(launch("openssl s_client -connect 127.0.0.1:" + std::to_string(port) + " -tls1_3 </dev/null >" + log + " 2>&1", log, log + ".pid"));
+		// Сторож процесса OpenSSL
+		sentinel_t sentinel(log + ".pid");
+		// Принимаем подключение OpenSSL
+		const int fd = greeted(listener);
+		// Проверяем принятие подключения
+		ASSERT_GE(fd, 0);
+		// Отправляем ровно тот же порченый поток, который отвергнут A-NTS
+		ASSERT_EQ(sending(fd, damaged.data(), damaged.size()), static_cast <ssize_t> (damaged.size()));
+		// Закрываем принятое подключение
+		closing(fd);
+		// Закрываем слушающий сокет
+		closing(listener);
+		// Журнал завершившегося OpenSSL
+		string report;
+		// Ждём завершения OpenSSL
+		ASSERT_TRUE(settle(log, report)) << report;
+		// Проверяем отказ разбора неизвестного вида содержимого, а не конфигурационную ошибку
+		ASSERT_NE(report.find("unexpected message"), std::string::npos) << report;
+	/**
+	 * Пропускаем проверку на Windows: локальный процесс OpenSSL там не запускается
+	 */
+	#else
+		// Пропускаем проверку на Windows: локальный процесс OpenSSL там не запускается
+		GTEST_SKIP();
+	#endif
 }
 
 /**
