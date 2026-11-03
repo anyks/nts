@@ -63,10 +63,10 @@ if (CMAKE_BUILD_LIBFUZZER)
         target_include_directories(${target} PRIVATE "${ANTS_ROOT}/tests")
         # Подключаем проверочную библиотеку и runtime ворошителя
         target_link_libraries(${target} ${ANTS_LIB_NAME}_test Threads::Threads ${GCC_COVERAGE_LIBS} ${ANTS_LIBFUZZER_LINK})
-        # Ворошителю состояний запрещаем перечитывать корпус: на macOS путь
+        # Ворошителю состояний и сличителю запрещаем перечитывать корпус: на macOS путь
         # RereadOutputCorpus смешанного runtime падает с container-overflow
         set(ANTS_FUZZER_RELOAD)
-        if (name STREQUAL "state")
+        if ((name STREQUAL "state") OR (name STREQUAL "differential"))
             # Отключаем только перечитывание, не проверки памяти самой библиотеки
             set(ANTS_FUZZER_RELOAD -reload=0)
         endif()
@@ -93,5 +93,20 @@ if (CMAKE_BUILD_LIBFUZZER)
     add_parser_fuzzer(noise)
     # Добавляем ворошитель машин состояний TLS и DTLS
     add_parser_fuzzer(state)
+    # Ищем эталон OpenSSL 3 для сличителя машин состояний
+    find_package(OpenSSL 3.0)
+    # Если эталон OpenSSL в системе найден
+    if (OPENSSL_FOUND)
+        # Добавляем сличитель машин состояний TLS и DTLS с эталоном OpenSSL
+        add_parser_fuzzer(differential)
+        # Передаём сличителю путь к набору проверочных ключей
+        target_compile_definitions(fuzzer_differential PRIVATE ANTS_CORPUS="${ANTS_ROOT}/tests/corpus")
+        # Подключаем эталон OpenSSL к сличителю машин состояний
+        target_link_libraries(fuzzer_differential OpenSSL::SSL OpenSSL::Crypto)
+    # Если эталона OpenSSL в системе нет
+    else()
+        # Сообщаем о пропуске сличителя без эталона
+        message(STATUS "Differential fuzzer OpenSSL reference: No")
+    endif (OPENSSL_FOUND)
 endif()
 
