@@ -1027,15 +1027,15 @@ namespace {
 			 * Выполняем перебор блоков сообщения
 			 */
 			for(size_t b = 0; b < blocks; b++){
-				// Складываем блок сообщения с регистром сцепления
-				state = _mm_xor_si128(state, _mm_loadu_si128(reinterpret_cast <const __m128i *> (source + (b << 4))));
+				// Складываем блок сообщения с регистром сцепления и первым раундовым ключом
+				state = _mm_xor_si128(_mm_xor_si128(state, _mm_loadu_si128(reinterpret_cast <const __m128i *> (source + (b << 4)))), _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys)));
 				/**
-				 * Выполняем внутренние раунды: подстановка со сдвигом и ключом, затем перемешивание
+				 * Выполняем внутренние раунды командой AESENC
 				 */
-				for(size_t round = 0; (round + 1) < rounds; round++)
-				// Выполняем раунд командами AESENC
+				for(size_t round = 1; round < rounds; round++)
+				// Выполняем очередной раунд
 				state = _mm_aesenc_si128(state, _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys + (round * 16))));
-				// Выполняем последний раунд без перемешивания и складываем с последним ключом
+				// Выполняем последний раунд командой AESENCLAST
 				state = _mm_aesenclast_si128(state, _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys + (rounds * 16))));
 				// Записываем шифрблок на место итога
 				_mm_storeu_si128(reinterpret_cast <__m128i *> (result + (b << 4)), state);

@@ -84,9 +84,15 @@ endif (NOT MSVC)
  # Правило это касается и статической сборки: набор вывозимых наружу символов обязан
  # быть одним и тем же у обоих видов библиотеки, иначе потребитель, собранный с одной,
  # перестаёт собираться с другой
+ #
+ # Эльбрус (lcc) при скрытой видимости устраняет из объектника и неозванные функции
+ # без вывоза наружу: ссылки бенчмарка на них не разрешаются. Видимость на нём
+ # остаётся принятой по умолчанию
  ##
-SET(CMAKE_CXX_VISIBILITY_PRESET hidden)
-SET(CMAKE_VISIBILITY_INLINES_HIDDEN ON)
+if(NOT CMAKE_SYSTEM_PROCESSOR MATCHES "e2k")
+    SET(CMAKE_CXX_VISIBILITY_PRESET hidden)
+    SET(CMAKE_VISIBILITY_INLINES_HIDDEN ON)
+endif()
 
 # Находим Doxygen
 find_package(Doxygen QUIET)
