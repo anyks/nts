@@ -350,6 +350,7 @@ if (CMAKE_CURVE_TABLES)
         "${CMAKE_CURRENT_SOURCE_DIR}/src/sys/wipe.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/sys/machine.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/math/number.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/math/field25519.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/field/field.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/curve/curve.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/curve/parameters.cpp"
@@ -368,6 +369,12 @@ if (CMAKE_CURVE_TABLES)
     target_compile_definitions(nts_tables_bootstrap PUBLIC ANTS_STATICLIB)
     target_link_libraries(nts-tables nts_tables_bootstrap)
 
+    # Добавляем цель программы вычисления кратных точки основания Эдвардсовой кривой
+    add_executable(nts-sign-tables "${CMAKE_CURRENT_SOURCE_DIR}/tools/sign-tables.cpp")
+
+    # Выполняем подключение зависимостей программы вычисления кратных Эдвардсовой кривой
+    target_link_libraries(nts-sign-tables nts_tables_bootstrap)
+
     # Устанавливаем место вычисленного исходного файла кратных
     SET(CURVE_TABLES_SOURCE "${CMAKE_CURRENT_BINARY_DIR}/generated/tables.cpp")
 
@@ -378,6 +385,19 @@ if (CMAKE_CURVE_TABLES)
         COMMAND nts-tables > ${CURVE_TABLES_SOURCE}
         DEPENDS nts-tables
         COMMENT "Precomputing the multiples of the base point"
+        VERBATIM
+    )
+
+    # Устанавливаем место вычисленного исходного файла кратных Эдвардсовой кривой
+    SET(SIGN_TABLES_SOURCE "${CMAKE_CURRENT_BINARY_DIR}/generated/sign-tables.cpp")
+
+    # Добавляем правило вычисления кратных точки основания Эдвардсовой кривой
+    add_custom_command(
+        OUTPUT ${SIGN_TABLES_SOURCE}
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/generated"
+        COMMAND nts-sign-tables > ${SIGN_TABLES_SOURCE}
+        DEPENDS nts-sign-tables
+        COMMENT "Precomputing the multiples of the Edwards base point"
         VERBATIM
     )
 
@@ -396,12 +416,26 @@ if (CMAKE_CURVE_TABLES)
     # Добавляем вычисленный исходный файл кратных в состав библиотеки
     SET(SOURCE_FILES ${SOURCE_FILES} ${CURVE_TABLES_SOURCE})
 
+    ##
+     # Заводим цель вычисления кратных Эдвардсовой кривой отдельно от самих библиотек:
+     # вычисленный файл входит в состав ДВУХ библиотек - самой и её проверочной копии
+     ##
+    add_custom_target(nts_sign_tables DEPENDS ${SIGN_TABLES_SOURCE})
+
+    # Помечаем вычисленный исходный файл кратных Эдвардсовой кривой вырабатываемым
+    set_source_files_properties(${SIGN_TABLES_SOURCE} PROPERTIES GENERATED TRUE)
+
+    # Добавляем вычисленный исходный файл кратных Эдвардсовой кривой в состав библиотеки
+    SET(SOURCE_FILES ${SOURCE_FILES} ${SIGN_TABLES_SOURCE})
+
     # Выводим сообщение о заготовке кратных точки основания
     message(STATUS "Base point tables: precomputed at the build time\n")
 # Если кратные точки основания не заготавливаются
 else (CMAKE_CURVE_TABLES)
     # Добавляем пустые кратные точки основания в состав библиотеки
     SET(SOURCE_FILES ${SOURCE_FILES} "${CMAKE_CURRENT_SOURCE_DIR}/src/curve/tables.cpp")
+    # Добавляем пустые кратные точки основания Эдвардсовой кривой в состав библиотеки
+    SET(SOURCE_FILES ${SOURCE_FILES} "${CMAKE_CURRENT_SOURCE_DIR}/src/sign/tables.cpp")
     # Выводим сообщение об отсутствии заготовки
     message(STATUS "Base point tables: none, the general multiplication is used\n")
 endif (CMAKE_CURVE_TABLES)
