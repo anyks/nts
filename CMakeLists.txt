@@ -352,6 +352,7 @@ if (CMAKE_CURVE_TABLES)
         "${CMAKE_CURRENT_SOURCE_DIR}/src/sys/machine.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/math/number.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/math/field25519.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/math/field448.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/field/field.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/curve/curve.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/curve/parameters.cpp"

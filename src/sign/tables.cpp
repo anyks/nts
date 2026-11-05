@@ -37,3 +37,13 @@ const nts::sign::comb_t * nts::sign::prepared() noexcept {
 	// Выводим отсутствие заготовленной гребёнки
 	return nullptr;
 }
+/**
+ * @brief Метод поиска заготовленной гребёнки кратных точки основания Ed448
+ *
+ * @return nullptr: кратные не заготовлены сборкой
+ *
+ */
+const nts::sign::comb448_t * nts::sign::prepared448() noexcept {
+	// Выводим отсутствие заготовленной гребёнки
+	return nullptr;
+}
