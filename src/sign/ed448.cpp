@@ -16,10 +16,12 @@
  *
  * @section Намеренные решения
  *
- * 1. Поле кривой 2^448 - 2^224 - 1 и порядок подгруппы взяты у общего модуля чисел
- *    библиотеки: он выполняет сложение, вычитание, умножение и обращение Монтгомери
- *    за постоянное время, а своё поле с особыми переносами обошлось бы сотнями строк
- *    ради того же итога. Записи там идут от старшего байта, оттого на границе разворот.
+ * 1. Поле кривой 2^448 - 2^224 - 1 взято у выделенного модуля field448: элемент
+ *    хранится восемью конечностями по пятьдесят шесть разрядов, сведение произведения
+ *    идёт тождеством 2^448 = 2^224 + 1, и переносная раскладка быстрее общей
+ *    арифметики Монтгомери втрое (круг 136). Порядок подгруппы L остаётся у общего
+ *    модуля чисел: своё приведение по L обошлось бы сотнями строк ради того же итога.
+ *    Записи порядка идут от старшего байта, оттого на границе разворот.
  *
  * 2. Точки кривой держатся в расширенных координатах (X, Y, Z, T) со сложением и
  *    удвоением по разделу 5.2.4 RFC 8032 при коэффициенте a = 1. Сложение на
@@ -41,17 +43,28 @@
  * 5. Разбор сжатой точки отвергает вторую координату, записанную не меньшей модуля,
  *    и первую координату, обратившуюся в ноль при поставленном разряде знака: обе
  *    записи не каноничны, и раздел 5.2.3 RFC 8032 велит их отвергать. Корень первой
- *    координаты берётся возведением в степень (p + 1) / 4, ибо поле сравнимо с тремя
- *    по модулю четырёх.
+ *    координаты берётся возведением в степень (p + 1) / 4 цепочкой поля, ибо поле
+ *    сравнимо с тремя по модулю четырёх.
  *
  * @copyright Copyright © 2026
  *
  */
 
 /**
+ * Автовекторизация gcc ломает цепочки переносов развёрнутых ядер арифметики (см.
+ * math/number.cpp): ключ ставится на весь файл, clang и lcc сюда не входят
+ */
+#if defined(__GNUC__) && !defined(__clang__) && !defined(__e2k__)
+	#pragma GCC optimize("no-tree-vectorize")
+#endif
+
+/**
  * Подключаем заголовочные файлы проекта
  */
 #include <sign/ed448.hpp>
+#include <math/number.hpp>
+#include <math/field448.hpp>
+#include <internal/math/field448.hpp>
 #include <digest/sha3.hpp>
 #include <entropy/entropy.hpp>
 #include <sys/wipe.hpp>
@@ -82,23 +95,6 @@ namespace {
 	 *
 	 */
 	static constexpr size_t DIGEST = 114;
-
-	/**
-	 * @brief Модуль поля кривой 2^448 - 2^224 - 1, записанный от старшего байта
-	 *
-	 * @details Поле занимает четыреста сорок восемь разрядов - пятьдесят шесть байтов
-	 *
-	 */
-	static const uint8_t FIELD[] = {
-		// Записываем модуль поля от старшего байта
-		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-		0xFF, 0xFF, 0xFF, 0xFE, 0xFF, 0xFF, 0xFF, 0xFF,
-		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
-	};
 
 	/**
 	 * @brief Порядок подгруппы точек кривой L, записанный от старшего байта
@@ -182,33 +178,23 @@ namespace {
 	 */
 	typedef struct Point {
 		// Координаты точки
-		math::number_t x, y, z, t;
+		math::field448::element_t x, y, z, t;
 	} point_t;
 
 	// Затирание областей памяти берётся из открытого API библиотеки
 	using nts::sys::wipe;
 
 	/**
-	 * @brief Арифметика поля кривой, заведённая один раз
-	 *
-	 * @return арифметика поля кривой
+	 * @brief Пространство имён арифметики поля кривой
 	 *
 	 */
-	static const math::modulus_t & field() noexcept {
-		// Арифметика поля кривой
-		static math::modulus_t arithmetic;
-		// Признак заведения арифметики
-		static bool ready = arithmetic.start(view_t(FIELD, sizeof(FIELD)));
-		// Подавляем предупреждение о неиспользуемом значении
-		(void) ready;
-		// Выводим арифметику поля кривой
-		return arithmetic;
-	}
+	using namespace nts::math::field448;
+
 	/**
 	 * @brief Функция разворота записи числа
 	 *
 	 * @param source разворачиваемая запись числа
-	 * @param result место, в которое помещается развёрнутая запись числа
+	 * @param result место, в которое помещается развёрнутая запись
 	 * @param size   длина записи числа в байтах
 	 *
 	 */
@@ -221,40 +207,29 @@ namespace {
 			result[i] = source[size - i - 1];
 	}
 	/**
-	 * @brief Функция разбора константы поля, записанной младшим байтом вперёд
-	 *
-	 * @param source запись константы младшим байтом вперёд
-	 * @param result место, в которое помещается число в области Монтгомери
+	 * @brief Функция заведения коэффициента кривой элементом поля
 	 *
 	 * @details Константа записана пятьюдесятью семью байтами со старшим нулевым байтом:
-	 *          значение координаты меньше поля и укладывается в пятьдесят шесть байтов,
-	 *          оттого разбираются лишь младшие пятьдесят шесть
+	 *          значение коэффициента меньше поля и укладывается в пятьдесят шесть байтов,
+	 *          оттого разбираются лишь младшие пятьдесят шесть. Сложение зовёт коэффициент
+	 *          на всяком шаге лестницы, оттого он заведуется один раз, а не разбирается
+	 *          из записи при всяком сложении
+	 *
+	 * @return коэффициент кривой элементом поля
 	 *
 	 */
-	static void load(const uint8_t * source, math::number_t & result) noexcept {
-		// Развёрнутая запись константы
-		uint8_t buffer[RECORD];
-		// Выполняем разворот записи константы от старшего байта
-		reverse(source, buffer, RECORD);
-		// Выполняем разбор константы: значение укладывается в пятьдесят шесть байтов
-		field().load(view_t(buffer + 1, RECORD - 1), result);
-		// Выполняем приведение константы в область Монтгомери
-		field().enter(result, result);
-		// Выполняем затирание развёрнутой записи
-		wipe(buffer, sizeof(buffer));
-	}
-	/**
-	 * @brief Функция получения машинного слова поля в области Монтгомери
-	 *
-	 * @param value  машинное слово
-	 * @param result место, в которое помещается число в области Монтгомери
-	 *
-	 */
-	static void word(const uint64_t value, math::number_t & result) noexcept {
-		// Записываем машинное слово
-		field().word(value, result);
-		// Выполняем приведение числа в область Монтгомери
-		field().enter(result, result);
+	static const element_t & coefficient() noexcept {
+		// Коэффициент кривой, заведённый один раз
+		static const element_t item = []() noexcept {
+			// Разбираемый коэффициент
+			element_t value;
+			// Выполняем разбор коэффициента: значение укладывается в пятьдесят шесть байтов
+			math::field448::load(COEFFICIENT, value);
+			// Выводим разобранный коэффициент
+			return value;
+		}();
+		// Выводим коэффициент кривой
+		return item;
 	}
 	/**
 	 * @brief Функция получения нейтральной точки
@@ -264,13 +239,13 @@ namespace {
 	 */
 	static void neutral(point_t & result) noexcept {
 		// Первая координата нейтральной точки - ноль
-		word(0, result.x);
+		zero(result.x);
 		// Вторая координата нейтральной точки - единица
-		word(1, result.y);
+		one(result.y);
 		// Знаменатель нейтральной точки - единица
-		word(1, result.z);
+		one(result.z);
 		// Произведение координат нейтральной точки - ноль
-		word(0, result.t);
+		zero(result.t);
 	}
 	/**
 	 * @brief Функция получения точки основания
@@ -279,16 +254,14 @@ namespace {
 	 *
 	 */
 	static void base(point_t & result) noexcept {
-		// Арифметика поля кривой
-		const math::modulus_t & arithmetic = field();
 		// Выполняем разбор первой координаты точки основания
-		load(BASE_X, result.x);
+		math::field448::load(BASE_X, result.x);
 		// Выполняем разбор второй координаты точки основания
-		load(BASE_Y, result.y);
+		math::field448::load(BASE_Y, result.y);
 		// Знаменатель точки основания - единица
-		word(1, result.z);
+		one(result.z);
 		// Произведение координат точки основания
-		arithmetic.multiply(result.x, result.y, result.t);
+		kernel::multiply(result.x, result.y, result.t);
 	}
 	/**
 	 * @brief Функция сложения точек кривой
@@ -302,64 +275,60 @@ namespace {
 	 *
 	 */
 	static void add(const point_t & first, const point_t & second, point_t & result) noexcept {
-		// Арифметика поля кривой
-		const math::modulus_t & arithmetic = field();
 		// Промежуточные значения сложения
-		math::number_t a, b, c, d, e, f, g, h, item;
+		element_t a, b, c, d, e, f, g, h, item;
 		// Вырабатываем произведение первых координат
-		arithmetic.multiply(first.x, second.x, a);
+		kernel::multiply(first.x, second.x, a);
 		// Вырабатываем произведение вторых координат
-		arithmetic.multiply(first.y, second.y, b);
+		kernel::multiply(first.y, second.y, b);
 		// Вырабатываем произведение четвёртых координат
-		arithmetic.multiply(first.t, second.t, c);
-		// Загружаем коэффициент кривой
-		load(COEFFICIENT, item);
+		kernel::multiply(first.t, second.t, c);
 		// Вырабатываем произведение четвёртых координат на коэффициент
-		arithmetic.multiply(c, item, c);
+		kernel::multiply(c, coefficient(), c);
 		// Вырабатываем произведение знаменателей
-		arithmetic.multiply(first.z, second.z, d);
+		kernel::multiply(first.z, second.z, d);
 		// Вырабатываем сумму координат первого слагаемого
-		arithmetic.add(first.x, first.y, e);
+		kernel::plus(first.x, first.y, e);
 		// Вырабатываем сумму координат второго слагаемого
-		arithmetic.add(second.x, second.y, item);
+		kernel::plus(second.x, second.y, item);
 		// Вырабатываем произведение сумм координат
-		arithmetic.multiply(e, item, e);
+		kernel::multiply(e, item, e);
 		// Вычитаем из произведения сумм произведение первых координат
-		arithmetic.subtract(e, a, e);
+		kernel::minus(e, a, e);
 		// Вычитаем из произведения сумм произведение вторых координат
-		arithmetic.subtract(e, b, e);
+		kernel::minus(e, b, e);
 		// Вырабатываем разность произведений знаменателей и четвёртых координат
-		arithmetic.subtract(d, c, f);
+		kernel::minus(d, c, f);
 		// Вырабатываем сумму произведений знаменателей и четвёртых координат
-		arithmetic.add(d, c, g);
+		kernel::plus(d, c, g);
 		// Вычитаем из произведения вторых координат произведение первых: коэффициент a равен единице
-		arithmetic.subtract(b, a, h);
+		kernel::minus(b, a, h);
 		// Первая координата суммы точек
-		arithmetic.multiply(e, f, result.x);
+		kernel::multiply(e, f, result.x);
 		// Вторая координата суммы точек
-		arithmetic.multiply(g, h, result.y);
+		kernel::multiply(g, h, result.y);
 		// Четвёртая координата суммы точек
-		arithmetic.multiply(e, h, result.t);
+		kernel::multiply(e, h, result.t);
 		// Знаменатель суммы точек
-		arithmetic.multiply(f, g, result.z);
+		kernel::multiply(f, g, result.z);
 		// Выполняем затирание промежуточных значений сложения
-		wipe(item.words, sizeof(item.words));
+		wipe(&item, sizeof(item));
 		// Выполняем затирание промежуточных значений сложения
-		wipe(h.words, sizeof(h.words));
+		wipe(&h, sizeof(h));
 		// Выполняем затирание промежуточных значений сложения
-		wipe(g.words, sizeof(g.words));
+		wipe(&g, sizeof(g));
 		// Выполняем затирание промежуточных значений сложения
-		wipe(f.words, sizeof(f.words));
+		wipe(&f, sizeof(f));
 		// Выполняем затирание промежуточных значений сложения
-		wipe(e.words, sizeof(e.words));
+		wipe(&e, sizeof(e));
 		// Выполняем затирание промежуточных значений сложения
-		wipe(d.words, sizeof(d.words));
+		wipe(&d, sizeof(d));
 		// Выполняем затирание промежуточных значений сложения
-		wipe(c.words, sizeof(c.words));
+		wipe(&c, sizeof(c));
 		// Выполняем затирание промежуточных значений сложения
-		wipe(b.words, sizeof(b.words));
+		wipe(&b, sizeof(b));
 		// Выполняем затирание промежуточных значений сложения
-		wipe(a.words, sizeof(a.words));
+		wipe(&a, sizeof(a));
 	}
 	/**
 	 * @brief Функция удвоения точки кривой
@@ -371,77 +340,52 @@ namespace {
 	 *
 	 */
 	static void twice(const point_t & value, point_t & result) noexcept {
-		// Арифметика поля кривой
-		const math::modulus_t & arithmetic = field();
 		// Промежуточные значения удвоения
-		math::number_t a, b, c, e, f, g, h;
+		element_t a, b, c, e, f, g, h;
 		// Вырабатываем квадрат первой координаты
-		arithmetic.square(value.x, a);
+		kernel::square(value.x, a);
 		// Вырабатываем квадрат второй координаты
-		arithmetic.square(value.y, b);
+		kernel::square(value.y, b);
 		// Вырабатываем квадрат знаменателя
-		arithmetic.square(value.z, c);
+		kernel::square(value.z, c);
 		// Вырабатываем удвоенный квадрат знаменателя
-		arithmetic.add(c, c, c);
+		kernel::plus(c, c, c);
 		// Вырабатываем сумму координат
-		arithmetic.add(value.x, value.y, e);
+		kernel::plus(value.x, value.y, e);
 		// Вырабатываем квадрат суммы координат
-		arithmetic.square(e, e);
+		kernel::square(e, e);
 		// Вычитаем из квадрата суммы квадрат первой координаты
-		arithmetic.subtract(e, a, e);
+		kernel::minus(e, a, e);
 		// Вычитаем из квадрата суммы квадрат второй координаты
-		arithmetic.subtract(e, b, e);
+		kernel::minus(e, b, e);
 		// Вырабатываем сумму квадрата первой координаты и квадрата второй: коэффициент a равен единице
-		arithmetic.add(a, b, g);
+		kernel::plus(a, b, g);
 		// Вырабатываем разность этой суммы и удвоенного квадрата знаменателя
-		arithmetic.subtract(g, c, f);
+		kernel::minus(g, c, f);
 		// Вырабатываем разность квадрата первой координаты и квадрата второй
-		arithmetic.subtract(a, b, h);
+		kernel::minus(a, b, h);
 		// Первая координата удвоенной точки
-		arithmetic.multiply(e, f, result.x);
+		kernel::multiply(e, f, result.x);
 		// Вторая координата удвоенной точки
-		arithmetic.multiply(g, h, result.y);
+		kernel::multiply(g, h, result.y);
 		// Четвёртая координата удвоенной точки
-		arithmetic.multiply(e, h, result.t);
+		kernel::multiply(e, h, result.t);
 		// Знаменатель удвоенной точки
-		arithmetic.multiply(f, g, result.z);
+		kernel::multiply(f, g, result.z);
 		// Выполняем затирание промежуточных значений удвоения
-		wipe(h.words, sizeof(h.words));
+		wipe(&h, sizeof(h));
 		// Выполняем затирание промежуточных значений удвоения
-		wipe(g.words, sizeof(g.words));
+		wipe(&g, sizeof(g));
 		// Выполняем затирание промежуточных значений удвоения
-		wipe(f.words, sizeof(f.words));
+		wipe(&f, sizeof(f));
 		// Выполняем затирание промежуточных значений удвоения
-		wipe(e.words, sizeof(e.words));
+		wipe(&e, sizeof(e));
 		// Выполняем затирание промежуточных значений удвоения
-		wipe(c.words, sizeof(c.words));
+		wipe(&c, sizeof(c));
 		// Выполняем затирание промежуточных значений удвоения
-		wipe(b.words, sizeof(b.words));
+		wipe(&b, sizeof(b));
 		// Выполняем затирание промежуточных значений удвоения
-		wipe(a.words, sizeof(a.words));
-	}
-	/**
-	 * @brief Функция условного обмена чисел по маске
-	 *
-	 * @param first  первое обмениваемое число
-	 * @param second второе обмениваемое число
-	 * @param flag   признак обмена: ноль либо единица
-	 *
-	 */
-	static void swap(math::number_t & first, math::number_t & second, const uint64_t flag) noexcept {
-		// Маска обмена: все разряды по признаку
-		const uint64_t mask = (0 - flag);
-		/**
-		 * Выполняем перебор слов чисел
-		 */
-		for(size_t i = 0; i < math::NUMBER_WORDS; i++){
-			// Разность слов обмениваемых чисел
-			const uint64_t item = (mask & (first.words[i] ^ second.words[i]));
-			// Обмениваем очередное слово первого числа
-			first.words[i] ^= item;
-			// Обмениваем очередное слово второго числа
-			second.words[i] ^= item;
-		}
+		wipe(&a, sizeof(a));
 	}
 	/**
 	 * @brief Функция условного обмена точек
@@ -453,13 +397,13 @@ namespace {
 	 */
 	static void exchange(point_t & first, point_t & second, const uint64_t flag) noexcept {
 		// Выполняем условный обмен первых координат
-		swap(first.x, second.x, flag);
+		math::field448::swap(first.x, second.x, flag);
 		// Выполняем условный обмен вторых координат
-		swap(first.y, second.y, flag);
+		math::field448::swap(first.y, second.y, flag);
 		// Выполняем условный обмен знаменателей
-		swap(first.z, second.z, flag);
+		math::field448::swap(first.z, second.z, flag);
 		// Выполняем условный обмен четвёртых координат
-		swap(first.t, second.t, flag);
+		math::field448::swap(first.t, second.t, flag);
 	}
 	/**
 	 * @brief Функция умножения точки на скаляр за постоянное время
@@ -520,50 +464,38 @@ namespace {
 	 *
 	 */
 	static void encode(const point_t & point, uint8_t * result) noexcept {
-		// Арифметика поля кривой
-		const math::modulus_t & arithmetic = field();
 		// Обратный знаменатель и приведённые координаты
-		math::number_t inverse, x, y;
+		element_t inverse, x, y;
 		// Выполняем обращение знаменателя
-		arithmetic.invert(point.z, inverse);
+		math::field448::invert(point.z, inverse);
 		// Выполняем приведение первой координаты
-		arithmetic.multiply(point.x, inverse, x);
+		kernel::multiply(point.x, inverse, x);
 		// Выполняем приведение второй координаты
-		arithmetic.multiply(point.y, inverse, y);
-		// Выполняем вывод приведённых координат из области Монтгомери
-		arithmetic.leave(x, x);
-		// Выполняем вывод приведённых координат из области Монтгомери
-		arithmetic.leave(y, y);
+		kernel::multiply(point.y, inverse, y);
 		// Запись первой координаты
-		uint8_t buffer[RECORD];
-		// Развёрнутая запись координаты
-		uint8_t stored[RECORD];
-		// Выполняем запись первой координаты от старшего байта
-		arithmetic.store(x, stored, RECORD);
-		// Выполняем разворот записи первой координаты младшим байтом вперёд
-		reverse(stored, buffer, RECORD);
-		// Выполняем запись второй координаты от старшего байта
-		arithmetic.store(y, stored, RECORD);
-		// Выполняем разворот записи второй координаты младшим байтом вперёд
-		reverse(stored, result, RECORD);
-		// Дописываем младший разряд первой координаты знаком в старший разряд записи
-		result[RECORD - 1] |= static_cast <uint8_t> ((buffer[0] & 1) << 7);
-		// Выполняем затирание развёрнутой записи
-		wipe(stored, sizeof(stored));
+		uint8_t buffer[SIZE];
+		// Выполняем запись первой координаты младшим байтом вперёд
+		math::field448::store(x, buffer);
+		// Выполняем запись второй координаты младшим байтом вперёд
+		math::field448::store(y, result);
+		// Дописываем младший разряд первой координаты знаком в последний байт записи
+		result[RECORD - 1] = static_cast <uint8_t> ((buffer[0] & 1) << 7);
 		// Выполняем затирание записи первой координаты
 		wipe(buffer, sizeof(buffer));
 		// Выполняем затирание приведённых координат
-		wipe(y.words, sizeof(y.words));
+		wipe(&y, sizeof(y));
 		// Выполняем затирание приведённых координат
-		wipe(x.words, sizeof(x.words));
+		wipe(&x, sizeof(x));
 		// Выполняем затирание обратного знаменателя
-		wipe(inverse.words, sizeof(inverse.words));
+		wipe(&inverse, sizeof(inverse));
 	}
 	/**
 	 * @brief Функция разбора точки из сжатой записи
 	 *
 	 * @details Раздел 5.2.3 RFC 8032: первая координата восстанавливается корнем из
-	 *          (y^2 - 1) / (d * y^2 - 1) со знаком из старшего разряда записи
+	 *          (y^2 - 1) / (d * y^2 - 1) со знаком из старшего разряда записи; вторая
+	 *          координата отвергается, коли её запись не меньше модуля, - запись после
+	 *          приведения обязана сойтись с поданной байт в байт
 	 *
 	 * @param data   разбираемая запись длиной в пятьдесят семь байтов
 	 * @param result место, в которое помещается разобранная точка
@@ -571,117 +503,94 @@ namespace {
 	 *
 	 */
 	static bool decode(const uint8_t * data, point_t & result) noexcept {
-		// Арифметика поля кривой
-		const math::modulus_t & arithmetic = field();
 		// Разряд знака первой координаты
 		const uint8_t flag = (data[RECORD - 1] >> 7);
-		// Развёрнутая запись второй координаты
-		uint8_t buffer[RECORD];
-		// Выполняем разворот записи второй координаты от старшего байта
-		reverse(data, buffer, RECORD);
-		// Сбрасываем разряд знака в развёрнутой записи
-		buffer[0] &= 0x7F;
+		// Запись приведённой координаты
+		uint8_t buffer[SIZE];
 		// Выполняем разбор второй координаты: значение укладывается в пятьдесят шесть байтов
-		if(!arithmetic.load(view_t(buffer + 1, RECORD - 1), result.y))
+		math::field448::load(data, result.y);
+		// Выполняем запись второй координаты после приведения
+		math::field448::store(result.y, buffer);
+		// Накопленное различие записей второй координаты
+		uint8_t difference = 0;
+		/**
+		 * Выполняем перебор байтов записи второй координаты
+		 */
+		for(size_t i = 0; i < SIZE; i++)
+			// Накапливаем различие очередной записи и поданной
+			difference = static_cast <uint8_t> (difference | (buffer[i] ^ data[i]));
+		// Если различие не обратилось в ноль: запись не меньше модуля
+		if(difference != 0)
 			// Выводим отказ разбора точки: вторая координата не меньше модуля
 			return false;
-		// Выполняем приведение второй координаты в область Монтгомери
-		arithmetic.enter(result.y, result.y);
 		// Промежуточные значения восстановления первой координаты
-		math::number_t u, v, x, check, one;
+		element_t u, v, x, check, negative, unit;
 		// Единица поля
-		word(1, one);
+		one(unit);
+		// Ноль поля для противоположных значений
+		zero(negative);
 		// Вырабатываем квадрат второй координаты
-		arithmetic.square(result.y, u);
+		kernel::square(result.y, u);
 		// Загружаем коэффициент кривой
-		load(COEFFICIENT, v);
+		v = coefficient();
 		// Вырабатываем произведение коэффициента на квадрат второй координаты
-		arithmetic.multiply(v, u, v);
+		kernel::multiply(v, u, v);
 		// Вырабатываем числитель: квадрат второй координаты без единицы
-		arithmetic.subtract(u, one, u);
+		kernel::minus(u, unit, u);
 		// Вырабатываем знаменатель: произведение без единицы
-		arithmetic.subtract(v, one, v);
+		kernel::minus(v, unit, v);
 		// Вырабатываем обратный знаменатель
-		arithmetic.invert(v, check);
+		math::field448::invert(v, check);
 		// Вырабатываем отношение числителя к знаменателю
-		arithmetic.multiply(u, check, x);
-		// Показатель корня (p + 1) / 4 = 2^446 - 2^222, записанный от старшего байта
-		static const uint8_t EXPONENT[] = {
-			// Записываем показатель корня от старшего байта
-			0x3F, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-			0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-			0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-			0xFF, 0xFF, 0xFF, 0xFF, 0xC0, 0x00, 0x00, 0x00,
-			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-		};
-		// Возводим отношение в степень (p + 1) / 4
-		math::number_t power;
-		// Выполняем разбор показателя
-		if(!arithmetic.load(view_t(EXPONENT, sizeof(EXPONENT)), power))
-			// Выводим отказ разбора точки
-			return false;
-		// Выполняем возведение в степень
-		arithmetic.power(x, power, x);
+		kernel::multiply(u, check, x);
+		// Извлекаем корень возведением в степень (p + 1) / 4
+		math::field448::root(x, x);
 		// Вырабатываем квадрат возможной первой координаты
-		arithmetic.square(x, check);
+		kernel::square(x, check);
 		// Вырабатываем произведение квадрата на знаменатель
-		arithmetic.multiply(check, v, check);
+		kernel::multiply(check, v, check);
 		// Если квадрат не сошёлся с числителем
-		if(!arithmetic.equal(check, u)){
-			// Противоположный числитель
-			math::number_t negative;
-			// Вырабатываем противоположный числитель
-			word(0, negative);
-			// Вычитаем числитель из нуля
-			arithmetic.subtract(negative, u, negative);
+		if(!math::field448::equal(check, u)){
+			// Вычитаем числитель из нуля: противоположный числитель
+			kernel::minus(negative, u, negative);
 			// Если квадрат не сошёлся и с противоположным числителем
-			if(!arithmetic.equal(check, negative))
+			if(!math::field448::equal(check, negative))
 				// Выводим отказ разбора точки: корня нет, точка не на кривой
 				return false;
 		}
-		// Запись первой координаты от старшего байта
-		uint8_t stored[RECORD];
-		// Выполняем вывод первой координаты из области Монтгомери
-		arithmetic.leave(x, check);
-		// Выполняем запись первой координаты
-		arithmetic.store(check, stored, RECORD);
-		// Выполняем разворот записи первой координаты младшим байтом вперёд
-		reverse(stored, buffer, RECORD);
+		// Выполняем запись первой координаты младшим байтом вперёд
+		math::field448::store(x, buffer);
 		// Если первая координата обратилась в ноль при поставленном разряде знака
-		if(arithmetic.zero(x) && (flag == 1))
+		if(math::field448::nil(x) && (flag == 1))
 			// Выводим отказ разбора точки: запись не канонична
 			return false;
 		// Если младший разряд первой координаты не сошёлся со знаком
 		if((buffer[0] & 1) != flag){
-			// Вырабатываем противоположную первую координату
-			word(0, check);
-			// Вычитаем первую координату из нуля
-			arithmetic.subtract(check, x, x);
+			// Обнуляем служебное значение для вычитания
+			zero(check);
+			// Вычитаем первую координату из нуля: противоположная первая координата
+			kernel::minus(check, x, x);
 		}
 		// Записываем первую координату точки
 		result.x = x;
 		// Знаменатель разобранной точки - единица
-		word(1, result.z);
+		one(result.z);
 		// Произведение координат разобранной точки
-		arithmetic.multiply(result.x, result.y, result.t);
-		// Выполняем затирание промежуточных значений
-		wipe(stored, sizeof(stored));
+		kernel::multiply(result.x, result.y, result.t);
 		// Выполняем затирание промежуточных значений
 		wipe(buffer, sizeof(buffer));
 		// Выполняем затирание промежуточных значений
-		wipe(power.words, sizeof(power.words));
+		wipe(&negative, sizeof(negative));
 		// Выполняем затирание промежуточных значений
-		wipe(one.words, sizeof(one.words));
+		wipe(&unit, sizeof(unit));
 		// Выполняем затирание промежуточных значений
-		wipe(check.words, sizeof(check.words));
+		wipe(&check, sizeof(check));
 		// Выполняем затирание промежуточных значений
-		wipe(x.words, sizeof(x.words));
+		wipe(&x, sizeof(x));
 		// Выполняем затирание промежуточных значений
-		wipe(v.words, sizeof(v.words));
+		wipe(&v, sizeof(v));
 		// Выполняем затирание промежуточных значений
-		wipe(u.words, sizeof(u.words));
+		wipe(&u, sizeof(u));
 		// Выводим успешность разбора точки
 		return true;
 	}
