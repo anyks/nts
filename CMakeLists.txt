@@ -283,6 +283,7 @@ SET(SOURCE_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/noise/handshake.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/noise/kem.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/math/field25519.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/math/field448.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/agreement/vko.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/hpke/hpke.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ech/ech.cpp"
