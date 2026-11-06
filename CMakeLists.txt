@@ -210,6 +210,7 @@ SET(SOURCE_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/sys/wipe.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/sys/vault.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/sys/log.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/sys/version.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/field/field.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/asn1/asn1.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/x509/x509.cpp"
@@ -249,6 +250,7 @@ SET(SOURCE_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/cipher/blowfish.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/cipher/magma.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/cipher/mode.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/codec/base64.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/cipher/ccm.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/cipher/mgm.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/cipher/gcm.cpp"
@@ -590,6 +592,20 @@ endif (CMAKE_CIPHER_COMPACT)
 # Устанавливаем имя библиотеки
 SET(ANTS_LIB_NAME ${PROJECT_NAME})
 
+##
+ # Определения версии для программного договора: строка и числа берутся из строки
+ # project() и нигде больше не повторяются. Сводное число удобно воротам условной
+ # компиляции потребителя: #if ANTS_VERSION_NUMBER >= 1000000
+ ##
+math(EXPR ANTS_VERSION_NUMBER "${PROJECT_VERSION_MAJOR} * 1000000 + ${PROJECT_VERSION_MINOR} * 1000 + ${PROJECT_VERSION_PATCH}")
+SET(ANTS_VERSION_DEFINES
+    ANTS_VERSION="${PROJECT_VERSION}"
+    ANTS_VERSION_MAJOR=${PROJECT_VERSION_MAJOR}
+    ANTS_VERSION_MINOR=${PROJECT_VERSION_MINOR}
+    ANTS_VERSION_PATCH=${PROJECT_VERSION_PATCH}
+    ANTS_VERSION_NUMBER=${ANTS_VERSION_NUMBER}
+)
+
 # Если нужно собрать динамическую библиотеку
 if (CMAKE_SHARED_BUILD_LIB)
     # Добавляем динамическую библиотеку
@@ -624,6 +640,9 @@ target_include_directories(${ANTS_LIB_NAME} PUBLIC
 
 # Требуемый стандарт языка доезжает до потребителя цели
 target_compile_features(${ANTS_LIB_NAME} PUBLIC cxx_std_17)
+
+# Версия доезжает до потребителя цели: макросы видны и в заголовках, и в условной компиляции
+target_compile_definitions(${ANTS_LIB_NAME} PUBLIC ${ANTS_VERSION_DEFINES})
 
 # Потоки: замок укрытого хранилища (std::mutex) и обработчик разветвления (pthread_atfork)
 find_package(Threads REQUIRED)
@@ -709,6 +728,8 @@ if (CMAKE_BUILD_TESTS)
     add_library(${ANTS_LIB_NAME}_test STATIC ${SOURCE_FILES})
     # Проверочная копия библиотеки всегда статическая: признак доезжает до проверок и при сборке DLL
     target_compile_definitions(${ANTS_LIB_NAME}_test PUBLIC ANTS_STATICLIB)
+    # Версия доезжает и до проверочной копии: она собирается из тех же источников
+    target_compile_definitions(${ANTS_LIB_NAME}_test PUBLIC ${ANTS_VERSION_DEFINES})
 
     # Если кратные точки основания заготавливаются при сборке
     if (CMAKE_CURVE_TABLES)
@@ -1236,6 +1257,16 @@ if (${CMAKE_BUILD_SAMPLES})
     # Указываем что нужно собрать приложение укрытого хранилища ключевого материала
     option(CMAKE_BUILD_VAULT_APP_SAMPLE "Build sheltered key storage app sample" ON)
 
+    # Устанавливаем название приложение издания библиотеки
+    SET(VERSION_APP_NAME sys-version)
+    # Указываем что нужно собрать приложение издания библиотеки
+    option(CMAKE_BUILD_VERSION_APP_SAMPLE "Build library edition app sample" ON)
+
+    # Устанавливаем название приложение кодирования основания 64
+    SET(BASE64_APP_NAME codec-base64)
+    # Указываем что нужно собрать приложение кодирования основания 64
+    option(CMAKE_BUILD_BASE64_APP_SAMPLE "Build base 64 codec app sample" ON)
+
     # Устанавливаем название приложения стока журнала
     SET(LOG_APP_NAME sys-log)
     # Указываем что нужно собрать приложение стока журнала
@@ -1561,6 +1592,30 @@ if (${CMAKE_BUILD_SAMPLES})
         # Выводим сообщение о сборке образца
         message(STATUS "Build sample VAULT: No")
     endif (${CMAKE_BUILD_VAULT_APP_SAMPLE})
+
+    # Если нужно собрать образец издания библиотеки
+    if (${CMAKE_BUILD_VERSION_APP_SAMPLE})
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample VERSION: Yes")
+        # Выполняем создание приложения издания библиотеки
+        add_sample(${VERSION_APP_NAME} sample/sys/version.cpp sys)
+    # Если образец издания библиотеки собирать не нужно
+    else()
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample VERSION: No")
+    endif (${CMAKE_BUILD_VERSION_APP_SAMPLE})
+
+    # Если нужно собрать образец кодирования основания 64
+    if (${CMAKE_BUILD_BASE64_APP_SAMPLE})
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample BASE64: Yes")
+        # Выполняем создание приложения кодирования основания 64
+        add_sample(${BASE64_APP_NAME} sample/codec/base64.cpp codec)
+    # Если образец кодирования основания 64 собирать не нужно
+    else()
+        # Выводим сообщение о сборке образца
+        message(STATUS "Build sample BASE64: No")
+    endif (${CMAKE_BUILD_BASE64_APP_SAMPLE})
 
     # Если нужно собрать образец затирания памяти с тайнами
     if (${CMAKE_BUILD_WIPE_APP_SAMPLE})

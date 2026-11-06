@@ -208,7 +208,13 @@ namespace nts {
 		 */
 		typedef struct __ANTS_SHARED_EXPORT__ Recipient {
 			/**
-			 * Вид сведений о получателе: RSA либо KEM
+			 * \~russian
+			 * @brief Вид сведений о получателе: RSA либо KEM
+			 *
+			 * \~english
+			 * @brief The kind of the recipient information: RSA or KEM
+			 *
+			 * \~
 			 */
 			enum class kind_t : uint8_t {
 				/*!< \~russian Передача ключа по RSA \~english Key transport by RSA \~ */

@@ -960,23 +960,6 @@ namespace nts {
 
 		/**
 		 * \~russian
-		 * @brief Функция сборки заголовка сообщения
-		 *
-		 * @param sender    запись GeneralName отправителя (пустая - «NULL»-имя)
-		 * @param recipient запись GeneralName получателя
-		 * @param result    место, в которое помещается заголовок
-		 *
-		 * \~english
-		 * @brief Function of building a message header
-		 *
-		 * @param sender    the GeneralName record of the sender (empty is the "NULL" name)
-		 * @param recipient the GeneralName record of the recipient
-		 * @param result    the place the header is put into
-		 *
-		 * \~
-		 */
-		/**
-		 * \~russian
 		 * @brief Функция сборки записи GeneralName вида directoryName
 		 *
 		 * @param name   запись имени X.501 (просмотр element из name_t)
