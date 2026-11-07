@@ -97,6 +97,11 @@ namespace nts {
 		 *       длины сообщения, и поточная подача без заранее известной длины режиму
 		 *       не подлежит. Метка сличается за постоянное время
 		 *
+		 * @note У AES с командами машины имитовставка CBC-MAC и гамма счётчика идут
+		 *       одним слитным проходом: круги гаммы следующего блока заполняют
+		 *       ожидания кругов имитовставки текущего, и второго прохода по
+		 *       сообщению не выходит
+		 *
 		 * \~english
 		 * @brief CCM authenticated encryption mode
 		 *
@@ -115,6 +120,11 @@ namespace nts {
 		 *       tag depends on the length of the message, and a streaming feeding without a
 		 *       length known in advance is not subject to the mode. The tag is compared in
 		 *       constant time
+		 *
+		 * @note With AES carrying machine instructions the CBC-MAC authentication code and
+		 *       the counter gamma go in a single fused pass: the rounds of the gamma of the
+		 *       next block fill the waits of the rounds of the authentication code of the
+		 *       current one, and no second pass over the message comes out
 		 *
 		 * \~
 		 */

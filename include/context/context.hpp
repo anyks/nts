@@ -396,6 +396,10 @@ namespace nts {
 			 * @note Подготовку надлежит повторять после всякой смены ключа либо цепочки: связь
 			 *       сличает отпечаток и устаревшую подготовку не использует, а готовит ключ сама
 			 *
+			 * @note Разделение подготовки касается подлинности, установленной credential():
+			 *       кандидат отклика выбора подлинности по имени узла готовится заново всяким
+			 *       полным рукопожатием, и его отпечаток никто не сличает
+			 *
 			 * \~english
 			 * @brief Method of preparing the secret key for the work
 			 *
@@ -416,6 +420,10 @@ namespace nts {
 			 * @note The preparation is to be repeated after every change of the key or of the chain: a
 			 *       connection compares the stamp and does not use an outdated preparation, but prepares
 			 *       the key itself
+			 *
+			 * @note The sharing of the preparation concerns the authenticity set by credential():
+			 *       a candidate of the response of the choice of the authenticity by the host name is
+			 *       prepared anew by every full handshake, and its stamp is compared by no one
 			 *
 			 * \~
 			 */

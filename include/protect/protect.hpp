@@ -254,6 +254,16 @@ namespace nts {
 			ECDHE_RSA_AES_128_CBC_SHA            = 0xC013, /*!< \~russian TLS 1.2: ECDHE с подписью RSA, AES-128-CBC, HMAC-SHA1 (RFC 8422) \~english TLS 1.2: ECDHE with an RSA signature, AES-128-CBC, HMAC-SHA1 (RFC 8422) \~ */
 			// TLS 1.2: ECDHE с подписью RSA, AES-256-CBC, HMAC-SHA1 (RFC 8422)
 			ECDHE_RSA_AES_256_CBC_SHA            = 0xC014, /*!< \~russian TLS 1.2: ECDHE с подписью RSA, AES-256-CBC, HMAC-SHA1 (RFC 8422) \~english TLS 1.2: ECDHE with an RSA signature, AES-256-CBC, HMAC-SHA1 (RFC 8422) \~ */
+			// TLS 1.2: DHE с подписью RSA, AES-128-GCM, PRF на SHA-256 (раздел A.5 RFC 5246)
+			DHE_RSA_AES_128_GCM_SHA256           = 0x009E, /*!< \~russian TLS 1.2: DHE с подписью RSA, AES-128-GCM, PRF на SHA-256 (раздел A.5 RFC 5246) \~english TLS 1.2: DHE with an RSA signature, AES-128-GCM, the PRF on SHA-256 (the appendix A.5 of RFC 5246) \~ */
+			// TLS 1.2: DHE с подписью RSA, AES-256-GCM, PRF на SHA-384 (раздел A.5 RFC 5246)
+			DHE_RSA_AES_256_GCM_SHA384           = 0x009F, /*!< \~russian TLS 1.2: DHE с подписью RSA, AES-256-GCM, PRF на SHA-384 (раздел A.5 RFC 5246) \~english TLS 1.2: DHE with an RSA signature, AES-256-GCM, the PRF on SHA-384 (the appendix A.5 of RFC 5246) \~ */
+			// TLS 1.2: DHE с подписью RSA, ChaCha20-Poly1305, PRF на SHA-256 (RFC 7905)
+			DHE_RSA_CHACHA20_POLY1305_SHA256     = 0xCCAA, /*!< \~russian TLS 1.2: DHE с подписью RSA, ChaCha20-Poly1305, PRF на SHA-256 (RFC 7905) \~english TLS 1.2: DHE with an RSA signature, ChaCha20-Poly1305, the PRF on SHA-256 (RFC 7905) \~ */
+			// TLS 1.2: DHE с подписью RSA, AES-128-CBC, HMAC-SHA1 (раздел A.5 RFC 5246)
+			DHE_RSA_AES_128_CBC_SHA              = 0x0033, /*!< \~russian TLS 1.2: DHE с подписью RSA, AES-128-CBC, HMAC-SHA1 (раздел A.5 RFC 5246) \~english TLS 1.2: DHE with an RSA signature, AES-128-CBC, HMAC-SHA1 (the appendix A.5 of RFC 5246) \~ */
+			// TLS 1.2: DHE с подписью RSA, AES-256-CBC, HMAC-SHA1 (раздел A.5 RFC 5246)
+			DHE_RSA_AES_256_CBC_SHA              = 0x0039, /*!< \~russian TLS 1.2: DHE с подписью RSA, AES-256-CBC, HMAC-SHA1 (раздел A.5 RFC 5246) \~english TLS 1.2: DHE with an RSA signature, AES-256-CBC, HMAC-SHA1 (the appendix A.5 of RFC 5246) \~ */
 			// TLS 1.2: обмен ключами RSA, AES-128-CBC, HMAC-SHA1 (раздел A.5 RFC 5246)
 			RSA_AES_128_CBC_SHA                  = 0x002F, /*!< \~russian TLS 1.2: обмен ключами RSA, AES-128-CBC, HMAC-SHA1 (раздел A.5 RFC 5246) \~english TLS 1.2: the RSA key exchange, AES-128-CBC, HMAC-SHA1 (the appendix A.5 of RFC 5246) \~ */
 			// TLS 1.2: обмен ключами RSA, AES-256-CBC, HMAC-SHA1 (раздел A.5 RFC 5246)
@@ -328,6 +338,8 @@ namespace nts {
 			NONE      = 0x00, /*!< \~russian Набор обмена ключами издания 1.2 не ведёт \~english The suite does not conduct the key exchange of the 1.2 edition \~ */
 			// Мимолётные ключи на кривой с подписью сертификатом
 			ECDHE     = 0x01, /*!< \~russian Мимолётные ключи на кривой с подписью сертификатом \~english Ephemeral keys on a curve with a signature by the certificate \~ */
+			// Мимолётные ключи конечного поля с подписью сертификатом
+			DHE       = 0x05, /*!< \~russian Мимолётные ключи конечного поля с подписью сертификатом \~english Ephemeral keys of a finite field with a signature by the certificate \~ */
 			// Шифрование общего значения ключом RSA сертификата
 			RSA       = 0x02, /*!< \~russian Шифрование общего значения ключом RSA сертификата \~english The encryption of the shared value by the RSA key of the certificate \~ */
 			// Заранее разделённый ключ без сертификата

@@ -9591,6 +9591,81 @@ TEST(ContextTest, ExportingLegacy){
 }
 
 /**
+ * Проверка наборов обмена ключами конечного поля изданием TLS 1.2 (раздел 7.4.3 RFC 5246)
+ */
+TEST(ContextTest, FiniteLegacy){
+	// Подлинность стороны сервера из корпуса: наборам DHE_RSA нужен ключ RSA
+	context::credential_t credentials;
+	// Читаем подлинность из файлов корпуса
+	ASSERT_TRUE(keyed("rsa2048.pem", "rsa2048.crt", credentials));
+	// Перечень наборов обмена ключами конечного поля
+	const vector <protect::suite_t> offered = {
+		protect::suite_t::DHE_RSA_AES_256_GCM_SHA384, protect::suite_t::DHE_RSA_AES_128_GCM_SHA256,
+		protect::suite_t::DHE_RSA_CHACHA20_POLY1305_SHA256, protect::suite_t::DHE_RSA_AES_256_CBC_SHA
+	};
+	// Перечень групп конечного поля RFC 7919
+	const vector <extension::group_t> fields = {extension::group_t::FFDHE2048, extension::group_t::FFDHE3072};
+	// Связь стороны клиента: лишь издание 1.2
+	client::context_t client;
+	// Ограничиваем клиента изданием TLS 1.2
+	ASSERT_EQ(client.versions(0x0303, 0x0303), context::error_t::NONE);
+	// Предлагаем клиенту наборы обмена ключами конечного поля
+	client.suites(offered);
+	// Объявляем клиенту группы конечного поля
+	client.groups(fields);
+	// Связь стороны сервера: лишь издание 1.2
+	server::context_t server;
+	// Ограничиваем сервер изданием TLS 1.2
+	ASSERT_EQ(server.versions(0x0303, 0x0303), context::error_t::NONE);
+	// Ведём серверу наборы обмена ключами конечного поля
+	server.suites(offered);
+	// Объявляем серверу группы конечного поля
+	server.groups(fields);
+	// Устанавливаем подлинность стороны сервера
+	server.credential(credentials);
+	// Заводим связь
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	// Проводим рукопожатие сторон
+	converse(client, server);
+	// Связь установлена обеими сторонами
+	ASSERT_TRUE(client.established());
+	ASSERT_TRUE(server.established());
+	// Стороны сошлись на наборе обмена конечного поля
+	ASSERT_EQ(client.suite(), protect::suite_t::DHE_RSA_AES_256_GCM_SHA384);
+	// Наборы шифрования сторон связи сходятся
+	ASSERT_EQ(client.suite(), server.suite());
+	// Прикладные данные, отправляемые клиентом
+	const string request = "Запрос прикладного протокола";
+	// Выполняем отправку прикладных данных клиентом
+	ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
+	// Перекачиваем записи между сторонами
+	pump(client, server);
+	// Накопитель, в который помещаются принятые прикладные данные
+	vector <uint8_t> received;
+	// Выполняем получение принятых сервером прикладных данных
+	ASSERT_EQ(server.read(received), context::error_t::NONE);
+	// Проверяем схождение принятых данных с отправленными
+	ASSERT_EQ(string(received.begin(), received.end()), request);
+	// Прикладные данные, отправляемые сервером
+	const string answer = "Ответ прикладного протокола";
+	// Выполняем отправку прикладных данных сервером
+	ASSERT_EQ(server.write(view_t(reinterpret_cast <const uint8_t *> (answer.data()), answer.size())), context::error_t::NONE);
+	// Перекачиваем записи между сторонами
+	pump(client, server);
+	// Выполняем получение принятых клиентом прикладных данных
+	ASSERT_EQ(client.read(received), context::error_t::NONE);
+	// Проверяем схождение принятых данных с отправленными
+	ASSERT_EQ(string(received.begin(), received.end()), answer);
+	// Закрываем связь
+	ASSERT_EQ(client.close(), context::error_t::NONE);
+	// Перекачиваем записи между сторонами
+	pump(client, server);
+	// Сервер закрыл связь
+	ASSERT_EQ(server.state(), context::state_t::CLOSED);
+}
+
+/**
  * Проверка согласования профиля защиты RTP изданием 1.3 (RFC 5764)
  */
 TEST(ContextTest, Srtp){

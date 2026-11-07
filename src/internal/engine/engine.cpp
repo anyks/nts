@@ -650,17 +650,17 @@ namespace {
 		return field::error_t::NONE;
 	}
 	/**
-	 * @brief Функция проверки того, что набор шифрования требует мимолётных ключей на кривой
+	 * @brief Функция проверки того, что набор шифрования ведёт обмен мимолётными ключами с сообщением обмена сервера
 	 *
 	 * @param suite проверяемый набор шифрования
-	 * @return      признак того, что обмен набора идёт через ECDHE
+	 * @return      признак того, что обмен набора идёт мимолётными ключами на кривой либо в конечном поле
 	 *
 	 */
-	static bool curved(const protect::suite_t suite) noexcept {
+	static bool ephemeral(const protect::suite_t suite) noexcept {
 		// Способ обмена ключами набора
 		const protect::exchange_t exchange = protect::exchange(suite);
 		// Выводим признак обмена мимолётными ключами
-		return ((exchange == protect::exchange_t::ECDHE) || (exchange == protect::exchange_t::ECDHE_PSK));
+		return ((exchange == protect::exchange_t::ECDHE) || (exchange == protect::exchange_t::DHE) || (exchange == protect::exchange_t::ECDHE_PSK));
 	}
 	/**
 	 * @brief Функция проверки того, что набор шифрования ведёт рукопожатие заранее разделённым ключом
@@ -1455,7 +1455,8 @@ namespace {
 	 *
 	 * @details Реестр IANA групп TLS: secp256k1 изданием 1.3 не допускается (RFC 8446 знает лишь
 	 *          secp256r1, secp384r1, secp521r1, x25519, x448 и группы RFC 7919); группы конечного
-	 *          поля изданием 1.2 требуют наборов DHE, которых связь не ведёт
+	 *          поля изданию 1.2 дают наборы DHE записью параметров раздела 7.4.3 RFC 5246,
+	 *          изданию 1.3 - доли ключа раздела 4.2.8 RFC 8446
 	 *
 	 */
 	static bool fitting(const extension::group_t group, const bool legacy) noexcept {
@@ -1463,12 +1464,38 @@ namespace {
 		if(group == extension::group_t::SECP256K1)
 			// Выводим допустимость по изданию
 			return legacy;
-		// Если группа - конечное поле, она годна лишь изданию 1.3
-		if(extension::finite(group) > 0)
-			// Выводим допустимость по изданию
-			return !legacy;
-		// Прочие группы годны обоим изданиям
+		// Прочие группы годны обоим изданиям: кривые - точками, конечные поля - наборами DHE либо долями ключа
 		return true;
+	}
+	/**
+	 * @brief Функция розыска группы конечного поля RFC 7919 по модулю и генератору
+	 *
+	 * @param modulus   модуль группы от старшего байта
+	 * @param generator генератор группы
+	 * @return          группа конечного поля либо NONE у неведомого поля
+	 *
+	 */
+	static extension::group_t finiteof(const view_t & modulus, const view_t & generator) noexcept {
+		// Генератор всех групп RFC 7919 равен двум
+		if((modulus.data == nullptr) || (modulus.size == 0) || (generator.size != 1) || (generator.data == nullptr) || (generator.data[0] != 0x02))
+			// Выводим отсутствие группы
+			return extension::group_t::NONE;
+		/**
+		 * Выполняем перебор длин модулей групп RFC 7919
+		 */
+		for(const size_t size : {256, 384, 512, 768, 1024}){
+			// Модуль группы RFC 7919
+			const view_t known = agreement::prime(size);
+			// Если модуль совпал длиною и значением
+			if((known.size == modulus.size) && (::memcmp(known.data, modulus.data, modulus.size) == 0))
+				// Выводим группу по длине модуля
+				return ((size == 256) ? extension::group_t::FFDHE2048 :
+					((size == 384) ? extension::group_t::FFDHE3072 :
+					((size == 512) ? extension::group_t::FFDHE4096 :
+					((size == 768) ? extension::group_t::FFDHE6144 : extension::group_t::FFDHE8192))));
+		}
+		// Выводим отсутствие группы: поле неведомо связи
+		return extension::group_t::NONE;
 	}
 	/**
 	 * @brief Функция переноса области байтов в обратном порядке
@@ -12267,7 +12294,7 @@ context::error_t nts::internal::Engine::legacy(const handshake::type_t type, con
 					// Выводим отказ разбора цепочки: негодная запись - decode_error, непригодный сертификат - bad_certificate
 					return this->abort(error, blame(error, ((error == context::error_t::MESSAGE) ? alert::description_t::DECODE : alert::description_t::BADCERT)));
 				// Переходим к ожидаемому следующим сообщению: у обмена RSA обмена ключами сервера нет (раздел 7.4.3 RFC 5246)
-				this->_phase = (this->_server ? phase_t::PREMASTER : (this->_stapling ? phase_t::STATUS : (curved(this->_suite) ? phase_t::AGREEMENT : phase_t::REQUEST)));
+				this->_phase = (this->_server ? phase_t::PREMASTER : (this->_stapling ? phase_t::STATUS : (ephemeral(this->_suite) ? phase_t::AGREEMENT : phase_t::REQUEST)));
 			} break;
 			// Если принят билет сеанса
 			case static_cast <uint8_t> (handshake::type_t::TICKET): {
@@ -12302,7 +12329,7 @@ context::error_t nts::internal::Engine::legacy(const handshake::type_t type, con
 					// Выводим отказ разбора состояния сертификата
 					return this->abort(error, blame(error, alert::description_t::STATUS));
 				// Переходим к ожиданию обмена ключами сервера либо запроса подлинности у обмена RSA
-				this->_phase = (curved(this->_suite) ? phase_t::AGREEMENT : phase_t::REQUEST);
+				this->_phase = (ephemeral(this->_suite) ? phase_t::AGREEMENT : phase_t::REQUEST);
 			} break;
 			// Если принят обмен ключами сервера
 			case static_cast <uint8_t> (handshake::type_t::AGREEMENT): {
@@ -12326,7 +12353,7 @@ context::error_t nts::internal::Engine::legacy(const handshake::type_t type, con
 			// Если принят запрос подлинности клиента
 			case static_cast <uint8_t> (handshake::type_t::REQUEST): {
 				// Раздел 7.3 RFC 5246: запрос идёт за обменом ключами сервера; у чистого PSK обмен необязателен (раздел 2 RFC 4279); у наборов без мимолётных ключей объявленное состояние сертификата слать необязательно (раздел 8 RFC 6066)
-				if(this->_server || ((this->_phase != phase_t::REQUEST) && !((this->_phase == phase_t::AGREEMENT) && (protect::exchange(this->_suite) == protect::exchange_t::PSK)) && !((this->_phase == phase_t::STATUS) && !curved(this->_suite))))
+				if(this->_server || ((this->_phase != phase_t::REQUEST) && !((this->_phase == phase_t::AGREEMENT) && (protect::exchange(this->_suite) == protect::exchange_t::PSK)) && !((this->_phase == phase_t::STATUS) && !ephemeral(this->_suite))))
 					// Выводим отказ сообщения не в свой черёд
 					return this->abort(context::error_t::ORDER, alert::description_t::UNEXPECTED);
 				// Раздел 2 RFC 4279 и раздел 3.2 RFC 5489: при наборах PSK сервер запроса подлинности не шлёт
@@ -12347,7 +12374,7 @@ context::error_t nts::internal::Engine::legacy(const handshake::type_t type, con
 			// Если принят конец приветствия сервера
 			case static_cast <uint8_t> (handshake::type_t::DONE): {
 				// Раздел 7.3 RFC 5246: конец приветствия идёт за обменом ключами либо за запросом подлинности; у чистого PSK обмен необязателен; у наборов без мимолётных ключей объявленное состояние сертификата необязательно (раздел 8 RFC 6066)
-				if(this->_server || ((this->_phase != phase_t::REQUEST) && (this->_phase != phase_t::DONE) && !((this->_phase == phase_t::AGREEMENT) && (protect::exchange(this->_suite) == protect::exchange_t::PSK)) && !((this->_phase == phase_t::STATUS) && !curved(this->_suite))))
+				if(this->_server || ((this->_phase != phase_t::REQUEST) && (this->_phase != phase_t::DONE) && !((this->_phase == phase_t::AGREEMENT) && (protect::exchange(this->_suite) == protect::exchange_t::PSK)) && !((this->_phase == phase_t::STATUS) && !ephemeral(this->_suite))))
 					// Выводим отказ сообщения не в свой черёд
 					return this->abort(context::error_t::ORDER, alert::description_t::UNEXPECTED);
 				// Раздел 7.4.5 RFC 5246: тело конца приветствия пусто
@@ -12928,33 +12955,47 @@ context::error_t nts::internal::Engine::welcome(const hello::client_t & greeting
 			return this->abort(context::error_t::ETM, alert::description_t::HANDSHAKE);
 		// Сбрасываем выбранную кривую обмена ключами
 		this->_group = extension::group_t::NONE;
-		// Если набор шифрования требует мимолётных ключей на кривой, а рукопожатие полное
-		if(!this->_resumed && curved(this->_suite)){
+		// Если набор шифрования требует мимолётных ключей, а рукопожатие полное
+		if(!this->_resumed && ephemeral(this->_suite)){
 			// Разыскиваем расширение перечня кривых обмена ключами
 			extension = hello::extension(greeting.extensions, static_cast <uint16_t> (extension::type_t::GROUPS));
-			/**
-			 * Раздел 5.1.1 RFC 8422: без перечня кривых серверу не узнать, какую кривую клиент
-			 * примет; обмен ECDHE без общей кривой невозможен
-			 */
-			if(extension == nullptr)
-				// Выводим отказ отсутствия кривых обмена ключами
-				return this->abort(context::error_t::GROUP, alert::description_t::HANDSHAKE);
 			// Перечень кривых обмена ключами, поддерживаемых клиентом
 			vector <extension::group_t> supported;
-			// Отказ разбора расширения приветствия
-			failure = translate(extension::groups(extension->data, supported), context::error_t::MESSAGE);
-			// Если перечень кривых обмена ключами разобрать не удалось
-			if(failure != context::error_t::NONE)
-				// Выводим отказ разбора расширения приветствия
-				return this->abort(failure, blame(failure, alert::description_t::DECODE));
+			// Если расширение перечня кривых найдено
+			if(extension != nullptr){
+				// Отказ разбора расширения приветствия
+				failure = translate(extension::groups(extension->data, supported), context::error_t::MESSAGE);
+				// Если перечень кривых обмена ключами разобрать не удалось
+				if(failure != context::error_t::NONE)
+					// Выводим отказ разбора расширения приветствия
+					return this->abort(failure, blame(failure, alert::description_t::DECODE));
+			}
+			/**
+			 * Раздел 5.1.1 RFC 8422: без перечня кривых серверу не узнать, какую кривую клиент
+			 * примет; обмен ECDHE без общей кривой невозможен. Раздел 4 RFC 7919: перечень
+			 * может не прийти вовсе - клиент тем выбор не ограничил, и набору DHE сервер
+			 * вправе взять группу конечного поля своим порядком
+			 */
+			if((extension == nullptr) && (protect::exchange(this->_suite) != protect::exchange_t::DHE))
+				// Выводим отказ отсутствия кривых обмена ключами
+				return this->abort(context::error_t::GROUP, alert::description_t::HANDSHAKE);
+			// Признак того, что набор ведёт обмен ключами конечного поля
+			const bool fielded = (protect::exchange(this->_suite) == protect::exchange_t::DHE);
 			/**
 			 * Выполняем перебор кривых обмена ключами, предлагаемых связью: выбор идёт порядком сервера
 			 */
 			for(size_t i = 0; (i < this->_groups.size()) && (this->_group == extension::group_t::NONE); i++){
-				// Изданию TLS 1.2 годны лишь классические кривые RFC 8422: X25519, X448, кривые NIST и secp256k1; конечное поле без наборов DHE не годно
-				if(!classic(this->_groups[i]) || !fitting(this->_groups[i], true))
-					// Переходим к следующей кривой обмена ключами
+				// Изданию TLS 1.2 наборами DHE годны конечные поля RFC 7919, наборами ECDHE - классические кривые RFC 8422: X25519, X448, кривые NIST и secp256k1
+				if(fielded ? (extension::finite(this->_groups[i]) == 0) : (!classic(this->_groups[i]) || !fitting(this->_groups[i], true)))
+					// Переходим к следующей группе обмена ключами
 					continue;
+				// Если перечня у клиента не было, выбор идёт одним порядком сервера
+				if(extension == nullptr){
+					// Запоминаем выбранную группу обмена ключами
+					this->_group = this->_groups[i];
+					// Переходим к следующей группе обмена ключами
+					continue;
+				}
 				/**
 				 * Выполняем перебор кривых обмена ключами, поддерживаемых клиентом
 				 */
@@ -13194,7 +13235,7 @@ context::error_t nts::internal::Engine::welcome(const hello::client_t & greeting
 		 * (RFC 5489) и у PSK с подсказкой (раздел 2 RFC 4279); у обмена RSA и у PSK без
 		 * подсказки его нет
 		 */
-		if(curved(this->_suite) || ((protect::exchange(this->_suite) == protect::exchange_t::PSK) && !this->_psk.identity.empty())){
+		if(ephemeral(this->_suite) || ((protect::exchange(this->_suite) == protect::exchange_t::PSK) && !this->_psk.identity.empty())){
 			// Выполняем отправку обмена ключами сервера
 			failure = this->agreeing();
 			// Если обмен ключами сервера отправить не удалось
@@ -13910,28 +13951,75 @@ context::error_t nts::internal::Engine::agreeing() noexcept {
 			return failure;
 		// Открытая часть мимолётной пары ключей своей стороны
 		const vector <uint8_t> & opened = this->_exchanges.back().opened;
-		// Раздел 5.4 RFC 8422: точка идёт с однобайтовой длиной
-		if(opened.empty() || (opened.size() > 255))
-			// Выводим отказ негодной длины точки
-			return context::error_t::EXCHANGE;
-		// Записываем вид параметров named_curve
-		outcome = builder.number(0x03, 1);
-		// Если вид параметров named_curve записан
-		if(outcome == field::error_t::NONE)
-			// Записываем именованную кривую обмена ключами
-			outcome = builder.number(static_cast <uint32_t> (this->_group), 2);
-		// Если именованная кривая записана
-		if(outcome == field::error_t::NONE)
-			// Занимаем место под длину точки
-			outcome = builder.open(1);
-		// Если место под длину точки занято
-		if(outcome == field::error_t::NONE)
-			// Записываем точку своей мимолётной пары
-			outcome = builder.bytes(view_t(opened.data(), opened.size()));
-		// Если точка записана
-		if(outcome == field::error_t::NONE)
-			// Проставляем длину точки
-			outcome = builder.close();
+		// Если набор ведёт обмен ключами конечного поля
+		if(exchange == protect::exchange_t::DHE){
+			// Модуль группы конечного поля
+			const view_t modulus = agreement::prime(extension::finite(this->_group));
+			// Генератор групп RFC 7919: два от старшего байта
+			const uint8_t generator[] = {0x02};
+			// Раздел 7.4.3 RFC 5246: модуль, генератор и открытый ключ идут с двухбайтовыми длинами
+			if((modulus.data == nullptr) || (modulus.size == 0) || opened.empty() || (opened.size() != modulus.size))
+				// Выводим отказ негодной длины доли
+				return context::error_t::EXCHANGE;
+			// Занимаем место под длину модуля
+			outcome = builder.open(2);
+			// Если место под длину модуля занято
+			if(outcome == field::error_t::NONE)
+				// Записываем модуль группы
+				outcome = builder.bytes(modulus);
+			// Если модуль записан
+			if(outcome == field::error_t::NONE)
+				// Проставляем длину модуля
+				outcome = builder.close();
+			// Если модуль записан
+			if(outcome == field::error_t::NONE)
+				// Занимаем место под длину генератора
+				outcome = builder.open(2);
+			// Если место под длину генератора занято
+			if(outcome == field::error_t::NONE)
+				// Записываем генератор группы
+				outcome = builder.bytes(view_t(generator, sizeof(generator)));
+			// Если генератор записан
+			if(outcome == field::error_t::NONE)
+				// Проставляем длину генератора
+				outcome = builder.close();
+			// Если генератор записан
+			if(outcome == field::error_t::NONE)
+				// Занимаем место под длину открытого ключа
+				outcome = builder.open(2);
+			// Если место под длину открытого ключа занято
+			if(outcome == field::error_t::NONE)
+				// Записываем открытый ключ своей мимолётной пары
+				outcome = builder.bytes(view_t(opened.data(), opened.size()));
+			// Если открытый ключ записан
+			if(outcome == field::error_t::NONE)
+				// Проставляем длину открытого ключа
+				outcome = builder.close();
+		// Иначе набор ведёт обмен ключами на кривой
+		} else {
+			// Раздел 5.4 RFC 8422: точка идёт с однобайтовой длиной
+			if(opened.empty() || (opened.size() > 255))
+				// Выводим отказ негодной длины точки
+				return context::error_t::EXCHANGE;
+			// Записываем вид параметров named_curve
+			outcome = builder.number(0x03, 1);
+			// Если вид параметров named_curve записан
+			if(outcome == field::error_t::NONE)
+				// Записываем именованную кривую обмена ключами
+				outcome = builder.number(static_cast <uint32_t> (this->_group), 2);
+			// Если именованная кривая записана
+			if(outcome == field::error_t::NONE)
+				// Занимаем место под длину точки
+				outcome = builder.open(1);
+			// Если место под длину точки занято
+			if(outcome == field::error_t::NONE)
+				// Записываем точку своей мимолётной пары
+				outcome = builder.bytes(view_t(opened.data(), opened.size()));
+			// Если точка записана
+			if(outcome == field::error_t::NONE)
+				// Проставляем длину точки
+				outcome = builder.close();
+		}
 		// Если параметры обмена ключами составить не удалось
 		if(outcome != field::error_t::NONE)
 			// Выводим отказ составления параметров обмена ключами
@@ -14045,30 +14133,89 @@ context::error_t nts::internal::Engine::agreed(const view_t & body) noexcept {
 				// Выводим итог: лишние байты - отказ разбора
 				return ((scanner.left() > 0) ? context::error_t::MESSAGE : context::error_t::NONE);
 		}
-		// Вид параметров обмена ключами
-		uint32_t kind = 0;
-		// Если вид параметров прочитать не удалось
-		if(scanner.number(kind, 1) != field::error_t::NONE)
-			// Выводим отказ разбора обмена ключами сервера
-			return context::error_t::MESSAGE;
-		// Раздел 5.4 RFC 8422: связь ведёт лишь именованные кривые
-		if(kind != 0x03)
-			// Выводим отказ чужого вида параметров обмена
-			return context::error_t::GROUP;
-		// Именованная кривая обмена ключами
-		uint32_t named = 0;
-		// Если именованную кривую прочитать не удалось
-		if(scanner.number(named, 2) != field::error_t::NONE)
-			// Выводим отказ разбора обмена ключами сервера
-			return context::error_t::MESSAGE;
-		// Точка мимолётной пары сервера
+		// Группа обмена ключами, выбранная сервером
+		extension::group_t group = extension::group_t::NONE;
+		// Доля открытого ключа сервера: точка кривой либо ключ конечного поля
 		view_t point;
-		// Если точку прочитать не удалось
-		if(scanner.vector(point, 1) != field::error_t::NONE)
-			// Выводим отказ разбора обмена ключами сервера
-			return context::error_t::MESSAGE;
-		// Смещение параметров обмена ключами: за подсказкой у ECDHE_PSK
-		const size_t start = (scanner.offset() - (4 + point.size));
+		// Смещение параметров обмена ключами в теле сообщения
+		size_t start = 0;
+		// Если набор ведёт обмен ключами конечного поля
+		if(exchange == protect::exchange_t::DHE){
+			// Модуль, генератор и открытый ключ сервера
+			view_t modulus, generator, share;
+			// Раздел 7.4.3 RFC 5246: всякое поле идёт с двухбайтовой длиной
+			if((scanner.vector(modulus, 2) != field::error_t::NONE) || (scanner.vector(generator, 2) != field::error_t::NONE) || (scanner.vector(share, 2) != field::error_t::NONE))
+				// Выводим отказ разбора обмена ключами сервера
+				return context::error_t::MESSAGE;
+			// Смещение параметров обмена ключами: у DHE подсказки заранее разделённого ключа не бывает, шесть байтов уходит на длины полей
+			start = (scanner.offset() - (modulus.size + generator.size + share.size + 6));
+			// Раздел 7.4.3 RFC 5246: параметры обязаны задавать именованную группу RFC 7919
+			group = finiteof(modulus, generator);
+			// Признак того, что группа связью предлагалась
+			bool offered = false;
+			/**
+			 * Выполняем перебор групп обмена ключами, предлагаемых связью
+			 */
+			for(size_t i = 0; (i < this->_groups.size()) && !offered; i++)
+				// Запоминаем совпадение выбранной группы с предложенной
+				offered = (group == this->_groups[i]);
+			// Если группа неведома либо вне предложения связи
+			if((group == extension::group_t::NONE) || !offered)
+				// Выводим отказ группы вне предложения связи
+				return context::error_t::GROUP;
+			// Доля сервера идёт длиною в модуль группы
+			if(share.size != extension::finite(group))
+				// Выводим отказ негодной длины доли
+				return context::error_t::EXCHANGE;
+			// Запоминаем долю открытого ключа сервера
+			point = share;
+		// Иначе набор ведёт обмен ключами на кривой
+		} else {
+			// Вид параметров обмена ключами
+			uint32_t kind = 0;
+			// Если вид параметров прочитать не удалось
+			if(scanner.number(kind, 1) != field::error_t::NONE)
+				// Выводим отказ разбора обмена ключами сервера
+				return context::error_t::MESSAGE;
+			// Раздел 5.4 RFC 8422: связь ведёт лишь именованные кривые
+			if(kind != 0x03)
+				// Выводим отказ чужого вида параметров обмена
+				return context::error_t::GROUP;
+			// Именованная кривая обмена ключами
+			uint32_t named = 0;
+			// Если именованную кривую прочитать не удалось
+			if(scanner.number(named, 2) != field::error_t::NONE)
+				// Выводим отказ разбора обмена ключами сервера
+				return context::error_t::MESSAGE;
+			// Если точку прочитать не удалось
+			if(scanner.vector(point, 1) != field::error_t::NONE)
+				// Выводим отказ разбора обмена ключами сервера
+				return context::error_t::MESSAGE;
+			// Смещение параметров обмена ключами: за подсказкой у ECDHE_PSK
+			start = (scanner.offset() - (4 + point.size));
+			// Запоминаем кривую обмена ключами, выбранную сервером
+			group = static_cast <extension::group_t> (named);
+			// Признак того, что кривая связью предлагалась
+			bool offered = false;
+			/**
+			 * Выполняем перебор кривых обмена ключами, предлагаемых связью
+			 */
+			for(size_t i = 0; (i < this->_groups.size()) && !offered; i++)
+				// Запоминаем совпадение выбранной кривой с предложенной
+				offered = (group == this->_groups[i]);
+			// Раздел 5.4 RFC 8422: кривая обязана быть из предложенных и вестись связью
+			if(!offered || !classic(group))
+				// Выводим отказ кривой вне предложения связи
+				return context::error_t::GROUP;
+			/**
+			 * Раздел 5.4 RFC 8422: точка идёт длиною своей кривой и лишь несжатой записью 0x04 у
+			 * кривых NIST; сжатая либо чужая точка отвергается illegal_parameter прежде подписи -
+			 * подпись над негодной точкой сверять незачем
+			 */
+			if(!classic(group) || !fitting(group, true) || (point.size != extension::length(group)) || (!montgomery(group) && (point.data[0] != 0x04)))
+				// Выводим отказ негодной записи точки
+				return context::error_t::EXCHANGE;
+		}
 		// Длина параметров обмена ключами
 		const size_t width = scanner.offset();
 		// Схема подписи обмена ключами
@@ -14092,35 +14239,13 @@ context::error_t nts::internal::Engine::agreed(const view_t & body) noexcept {
 				// Выводим отказ разбора обмена ключами сервера
 				return context::error_t::MESSAGE;
 		}
-		// Кривая обмена ключами, выбранная сервером
-		const extension::group_t group = static_cast <extension::group_t> (named);
-		// Признак того, что кривая связью предлагалась
-		bool offered = false;
-		/**
-		 * Выполняем перебор кривых обмена ключами, предлагаемых связью
-		 */
-		for(size_t i = 0; (i < this->_groups.size()) && !offered; i++)
-			// Запоминаем совпадение выбранной кривой с предложенной
-			offered = (group == this->_groups[i]);
-		// Раздел 5.4 RFC 8422: кривая обязана быть из предложенных и вестись связью
-		if(!offered || !classic(group))
-			// Выводим отказ кривой вне предложения связи
-			return context::error_t::GROUP;
-		/**
-		 * Раздел 5.4 RFC 8422: точка идёт длиною своей кривой и лишь несжатой записью 0x04 у
-		 * кривых NIST; сжатая либо чужая точка отвергается illegal_parameter прежде подписи -
-		 * подпись над негодной точкой сверять незачем
-		 */
-		if(!classic(group) || !fitting(group, true) || (point.size != extension::length(group)) || (!montgomery(group) && (point.data[0] != 0x04)))
-			// Выводим отказ негодной записи точки
-			return context::error_t::EXCHANGE;
 		// Отказ разбора обмена ключами
 		context::error_t failure = context::error_t::NONE;
 		// Если обмен подписывается сертификатом
-		if(exchange == protect::exchange_t::ECDHE){
+		if(exchange != protect::exchange_t::ECDHE_PSK){
 			// Накопитель, в который складывается подписанное содержимое
 			vector <uint8_t> content;
-			// Раздел 5.4 RFC 8422: подписаны случайные значения клиента и сервера и параметры обмена
+			// Раздел 7.4.3 RFC 5246 и раздел 5.4 RFC 8422: подписаны случайные значения клиента и сервера и параметры обмена
 			content.insert(content.end(), this->_random, this->_random + sizeof(this->_random));
 			// Добавляем случайное значение сервера
 			content.insert(content.end(), this->_foreign, this->_foreign + sizeof(this->_foreign));
@@ -14135,7 +14260,7 @@ context::error_t nts::internal::Engine::agreed(const view_t & body) noexcept {
 		}
 		// Выполняем сброс мимолётных пар ключей своей стороны: доли издания 1.3 более не нужны
 		this->_exchanges.clear();
-		// Выполняем выработку мимолётной пары ключей на выбранной кривой
+		// Выполняем выработку мимолётной пары ключей на выбранной группе
 		failure = this->exchange(group);
 		// Если мимолётную пару ключей выработать не удалось
 		if(failure != context::error_t::NONE)
@@ -14383,28 +14508,47 @@ context::error_t nts::internal::Engine::exchanging() noexcept {
 				// Выводим отказ составления обмена ключами клиента
 				return translate(outcome, context::error_t::MESSAGE);
 		}
-		// Если набор шифрования требует мимолётных ключей на кривой
-		if(curved(this->_suite)){
+		// Если набор шифрования требует мимолётных ключей
+		if(ephemeral(this->_suite)){
 			// Если мимолётной пары ключей либо общего значения обмена нет
 			if(this->_exchanges.empty() || this->_premaster.empty())
 				// Выводим отказ отсутствия ключа обмена
 				return context::error_t::EXCHANGE;
 			// Открытая часть мимолётной пары ключей своей стороны
 			const vector <uint8_t> & opened = this->_exchanges.back().opened;
-			// Раздел 5.7 RFC 8422: точка идёт с однобайтовой длиной
-			if(opened.empty() || (opened.size() > 255))
-				// Выводим отказ негодной длины точки
-				return context::error_t::EXCHANGE;
-			// Занимаем место под длину точки
-			outcome = builder.open(1);
-			// Если место под длину точки занято
-			if(outcome == field::error_t::NONE)
-				// Записываем точку своей мимолётной пары
-				outcome = builder.bytes(view_t(opened.data(), opened.size()));
-			// Если точка записана
-			if(outcome == field::error_t::NONE)
-				// Проставляем длину точки
-				outcome = builder.close();
+			// Если набор ведёт обмен ключами конечного поля
+			if(exchange == protect::exchange_t::DHE){
+				// Раздел 7.4.7.2 RFC 5246: открытый ключ идёт с двухбайтовой длиной
+				if(opened.empty() || (opened.size() > 0xFFFF))
+					// Выводим отказ негодной длины доли
+					return context::error_t::EXCHANGE;
+				// Занимаем место под длину открытого ключа
+				outcome = builder.open(2);
+				// Если место под длину открытого ключа занято
+				if(outcome == field::error_t::NONE)
+					// Записываем открытый ключ своей мимолётной пары
+					outcome = builder.bytes(view_t(opened.data(), opened.size()));
+				// Если открытый ключ записан
+				if(outcome == field::error_t::NONE)
+					// Проставляем длину открытого ключа
+					outcome = builder.close();
+			// Иначе набор ведёт обмен ключами на кривой
+			} else {
+				// Раздел 5.7 RFC 8422: точка идёт с однобайтовой длиной
+				if(opened.empty() || (opened.size() > 255))
+					// Выводим отказ негодной длины точки
+					return context::error_t::EXCHANGE;
+				// Занимаем место под длину точки
+				outcome = builder.open(1);
+				// Если место под длину точки занято
+				if(outcome == field::error_t::NONE)
+					// Записываем точку своей мимолётной пары
+					outcome = builder.bytes(view_t(opened.data(), opened.size()));
+				// Если точка записана
+				if(outcome == field::error_t::NONE)
+					// Проставляем длину точки
+					outcome = builder.close();
+			}
 			// Если обмен ключами клиента составить не удалось
 			if(outcome != field::error_t::NONE)
 				// Выводим отказ составления обмена ключами клиента
@@ -14578,25 +14722,27 @@ context::error_t nts::internal::Engine::exchanged(const view_t & body) noexcept 
 					return context::error_t::EXCHANGE;
 			}
 		}
-		// Общее значение обмена: общее значение кривой либо расшифрованное значение RSA
+		// Общее значение обмена: общее значение кривой, конечного поля либо расшифрованное значение RSA
 		vector <uint8_t> other;
-		// Если набор шифрования требует мимолётных ключей на кривой
-		if(curved(this->_suite)){
-			// Точка мимолётной пары клиента
-			view_t point;
-			// Раздел 5.7 RFC 8422: точка с однобайтовой длиной без лишних байтов
-			if((scanner.vector(point, 1) != field::error_t::NONE) || (scanner.left() > 0))
+		// Если набор шифрования требует мимолётных ключей
+		if(ephemeral(this->_suite)){
+			// Доля открытого ключа клиента
+			view_t share;
+			// Длина поля длины доли: два байта у конечного поля, один у точки кривой
+			const size_t width = ((exchange == protect::exchange_t::DHE) ? 2 : 1);
+			// Раздел 7.4.7.2 RFC 5246 и раздел 5.7 RFC 8422: доля со своей длиной без лишних байтов
+			if((scanner.vector(share, width) != field::error_t::NONE) || (scanner.left() > 0))
 				// Выводим отказ разбора обмена ключами клиента
 				return context::error_t::MESSAGE;
 			// Место, в которое помещается общее значение обмена ключами
 			uint8_t shared[agreement::MLKEM_SHARED + agreement::FFDHE_MOST];
 			// Длина общего значения обмена ключами
 			size_t length = 0;
-			// Выполняем выработку общего значения обмена ключами на кривой, выбранной сервером
-			failure = this->agree(this->_group, point, shared, length);
+			// Выполняем выработку общего значения обмена ключами на группе, выбранной сервером
+			failure = this->agree(this->_group, share, shared, length);
 			// Если общее значение выработано
 			if(failure == context::error_t::NONE)
-				// Переносим общее значение кривой
+				// Переносим общее значение обмена
 				other.assign(shared, shared + length);
 			// Выполняем затирание общего значения
 			this->purge(shared, sizeof(shared));

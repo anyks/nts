@@ -269,7 +269,7 @@ namespace {
 		exchange_t exchange;
 		// Хеш имитовставки набора CBC, NONE у наборов AEAD
 		digest::hash_t mac;
-	} SAMPLES[32] = {
+	} SAMPLES[37] = {
 		// Наборы ГОСТ с построением TLSTREE и режимом MGM
 		{suite_t::KUZNYECHIK_MGM_L,         false, false, {0xF800000000000000ULL, 0xFFFFFFF000000000ULL, 0xFFFFFFFFFFFFE000ULL}, 0xFFFFFFFFFFFFFFFFULL, 16, 32, 16, digest::hash_t::STREEBOG256, false, false, signer_t::NONE, exchange_t::NONE, digest::hash_t::NONE},
 		{suite_t::MAGMA_MGM_L,              false, false, {0xFFE0000000000000ULL, 0xFFFFFFFFC0000000ULL, 0xFFFFFFFFFFFFFF80ULL}, 0xFFFFFFFFFFFFFFFFULL, 8,  32, 8,  digest::hash_t::STREEBOG256, false, false, signer_t::NONE, exchange_t::NONE, digest::hash_t::NONE},
@@ -311,6 +311,11 @@ namespace {
 		{suite_t::ECDHE_ECDSA_AES_256_CBC_SHA,          true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 32, 20, digest::hash_t::SHA256, true, false, signer_t::ECDSA, exchange_t::ECDHE,     digest::hash_t::SHA1},
 		{suite_t::ECDHE_RSA_AES_128_CBC_SHA,            true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 16, 20, digest::hash_t::SHA256, true, false, signer_t::RSA,   exchange_t::ECDHE,     digest::hash_t::SHA1},
 		{suite_t::ECDHE_RSA_AES_256_CBC_SHA,            true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 32, 20, digest::hash_t::SHA256, true, false, signer_t::RSA,   exchange_t::ECDHE,     digest::hash_t::SHA1},
+		{suite_t::DHE_RSA_AES_128_GCM_SHA256,           true, false, {0ULL, 0ULL, 0ULL}, CLASSIC_LIMIT, LEGACY_SALT, 16, CLASSIC_TAG, digest::hash_t::SHA256, true, false, signer_t::RSA, exchange_t::DHE, digest::hash_t::NONE},
+		{suite_t::DHE_RSA_AES_256_GCM_SHA384,           true, false, {0ULL, 0ULL, 0ULL}, CLASSIC_LIMIT, LEGACY_SALT, 32, CLASSIC_TAG, digest::hash_t::SHA384, true, false, signer_t::RSA, exchange_t::DHE, digest::hash_t::NONE},
+		{suite_t::DHE_RSA_CHACHA20_POLY1305_SHA256,     true, true,  {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, CLASSIC_VECTOR, 32, CLASSIC_TAG, digest::hash_t::SHA256, true, false, signer_t::RSA, exchange_t::DHE, digest::hash_t::NONE},
+		{suite_t::DHE_RSA_AES_128_CBC_SHA,              true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 16, 20, digest::hash_t::SHA256, true, false, signer_t::RSA, exchange_t::DHE, digest::hash_t::SHA1},
+		{suite_t::DHE_RSA_AES_256_CBC_SHA,              true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 32, 20, digest::hash_t::SHA256, true, false, signer_t::RSA, exchange_t::DHE, digest::hash_t::SHA1},
 		{suite_t::RSA_AES_128_CBC_SHA,                  true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 16, 20, digest::hash_t::SHA256, true, false, signer_t::RSA,   exchange_t::RSA,       digest::hash_t::SHA1},
 		{suite_t::RSA_AES_256_CBC_SHA,                  true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 32, 20, digest::hash_t::SHA256, true, false, signer_t::RSA,   exchange_t::RSA,       digest::hash_t::SHA1},
 		{suite_t::RSA_AES_128_CBC_SHA256,               true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 16, 32, digest::hash_t::SHA256, true, false, signer_t::RSA,   exchange_t::RSA,       digest::hash_t::SHA256},
