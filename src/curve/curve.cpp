@@ -312,7 +312,7 @@ namespace {
 	 *       прежней сборкой: ядер на MULX у них нет, а вторая сборка тех же формул стоила им 1…2 %
 	 *
 	 */
-	static bool extended(const math::Modulus::layout_t & layout) noexcept {
+	static bool mulxReady(const math::Modulus::layout_t & layout) noexcept {
 		/**
 		 * Ядра на MULX и ADCX/ADOX есть лишь под x86-64 с GCC и clang и лишь у простого P-256
 		 */
@@ -1877,7 +1877,7 @@ void nts::curve::Curve::twice(const point_t & value, point_t & result) const noe
 	// Формула идёт встраиваемой арифметикой по числу слов поля, прочие ширины - общим путём
 	if(words == 4){
 		// На четырёх словах у простого P-256 путь выбирается по признаку MULX и ADCX/ADOX у машины, снятому один раз
-		if(extended(this->_field.layout()))
+		if(mulxReady(this->_field.layout()))
 			// Выполняем удвоение встраиваемой арифметикой с ядрами MULX и ADCX/ADOX
 			twicing(Fast <4, true> {this->_field.layout()}, this->_shortened, this->_first, value, result);
 		else twicing(Fast <4> {this->_field.layout()}, this->_shortened, this->_first, value, result);
@@ -1900,7 +1900,7 @@ void nts::curve::Curve::attach(const point_t & first, const point_t & second, po
 	// Формула идёт встраиваемой арифметикой по числу слов поля, прочие ширины - общим путём
 	if(words == 4){
 		// На четырёх словах у простого P-256 путь выбирается по признаку MULX и ADCX/ADOX у машины, снятому один раз
-		if(extended(this->_field.layout()))
+		if(mulxReady(this->_field.layout()))
 			// Выполняем сложение встраиваемой арифметикой с ядрами MULX и ADCX/ADOX
 			attachment(Fast <4, true> {this->_field.layout()}, first, second, result);
 		else attachment(Fast <4> {this->_field.layout()}, first, second, result);
@@ -1923,7 +1923,7 @@ void nts::curve::Curve::join(const point_t & first, const point_t & second, poin
 	// Формула идёт встраиваемой арифметикой по числу слов поля, прочие ширины - общим путём
 	if(words == 4){
 		// На четырёх словах у простого P-256 путь выбирается по признаку MULX и ADCX/ADOX у машины, снятому один раз
-		if(extended(this->_field.layout()))
+		if(mulxReady(this->_field.layout()))
 			// Выполняем сложение встраиваемой арифметикой с ядрами MULX и ADCX/ADOX
 			junction(Fast <4, true> {this->_field.layout()}, first, second, result);
 		else junction(Fast <4> {this->_field.layout()}, first, second, result);
@@ -1946,7 +1946,7 @@ void nts::curve::Curve::add(const point_t & first, const point_t & second, point
 	// Формула идёт встраиваемой арифметикой по числу слов поля, прочие ширины - общим путём
 	if(words == 4){
 		// На четырёх словах у простого P-256 путь выбирается по признаку MULX и ADCX/ADOX у машины, снятому один раз
-		if(extended(this->_field.layout()))
+		if(mulxReady(this->_field.layout()))
 			// Выполняем сложение встраиваемой арифметикой с ядрами MULX и ADCX/ADOX
 			summation(Fast <4, true> {this->_field.layout()}, this->_shortened, this->_first, first, second, result);
 		else summation(Fast <4> {this->_field.layout()}, this->_shortened, this->_first, first, second, result);
@@ -1971,7 +1971,7 @@ void nts::curve::Curve::multiply(const point_t & value, const math::number_t & f
 	// Умножение идёт встраиваемой арифметикой по числу слов поля, прочие ширины - общим путём
 	if(words == 4){
 		// На четырёх словах у простого P-256 путь выбирается по признаку MULX и ADCX/ADOX у машины, снятому один раз
-		if(extended(this->_field.layout()))
+		if(mulxReady(this->_field.layout()))
 			// Выполняем умножение встраиваемой арифметикой с ядрами MULX и ADCX/ADOX
 			multiplication(Fast <4, true> {this->_field.layout()}, this->_shortened, this->_first, value, factor, bits, result);
 		else multiplication(Fast <4> {this->_field.layout()}, this->_shortened, this->_first, value, factor, bits, result);
@@ -2005,7 +2005,7 @@ void nts::curve::Curve::product(const math::number_t & factor, point_t & result)
 	// Умножение идёт встраиваемой арифметикой по числу слов заготовки, прочие ширины - общим путём
 	if(multiples->words == 4){
 		// На четырёх словах у простого P-256 путь выбирается по признаку MULX и ADCX/ADOX у машины, снятому один раз
-		if(extended(this->_field.layout()))
+		if(mulxReady(this->_field.layout()))
 			// Выполняем умножение встраиваемой арифметикой с ядрами MULX и ADCX/ADOX
 			production(Fast <4, true> {this->_field.layout()}, multiples, this->_unit, factor, result);
 		else production(Fast <4> {this->_field.layout()}, multiples, this->_unit, factor, result);

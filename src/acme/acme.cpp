@@ -123,7 +123,7 @@ namespace nts {
 				 * @return       признак успешности разбора
 				 *
 				 */
-				bool string(value_t & result) {
+				bool text(value_t & result) {
 					// Если строки нет
 					if((this->_position >= this->_text.size) || (this->_text.data[this->_position] != '"'))
 						// Выводим отказ разбора
@@ -323,7 +323,7 @@ namespace nts {
 								// Пропускаем промежуток
 								this->gap();
 								// Если имени нет
-								if(!this->string(name))
+								if(!this->text(name))
 									// Выводим отказ разбора
 									return false;
 								// Пропускаем промежуток
@@ -406,7 +406,7 @@ namespace nts {
 						// Строка
 						case '"':
 							// Выводим итог разбора строки
-							return this->string(result);
+							return this->text(result);
 						// Булево значение true
 						case 't': {
 							// Если записи значения нет

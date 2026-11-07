@@ -2401,7 +2401,10 @@ namespace nts {
 				 * модуля; оттого указатели объявлены изменяемыми с ранним запретом. Берутся при MULX и
 				 * ADCX/ADOX у машины по признаку, снятому вызывающим (curve.cpp): на Xeon E5-2630 v4 умножение
 				 * цепочкой 30,8 → 24,9 нс при 25,8 у ecp_nistz256_mul_mont, квадрат 23,0 → 22,0 при 20,6.
-				 * Под ASan без оптимизации и при ANTS_NO_MACHINE не собираются.
+				 * Под ASan без оптимизации и при ANTS_NO_MACHINE не собираются. GCC младше девятой
+				 * версии цепочки переносов ADX не собирает распределением регистров (базовый
+				 * GCC 8.3 DragonFly 6.4): там ветка закрыта порогом версии, и кривые идут
+				 * переносимыми ядрами на C++.
 				 *
 				 * Ядра модуля вида 2^256 - c (кривые ГОСТ CryptoPro-A и ТК26 на 256 разрядов) на тех же
 				 * командах (круг 61, 01.10.2026): произведение по одному слову второго сомножителя двумя
@@ -2414,7 +2417,7 @@ namespace nts {
 				 * цепочкой 34,3 → 29,9 нс (ядро на mulq → на MULX), квадрат 28,3 → 24,8; удвоение точки
 				 * 262 → 221, полное сложение 450 → 343, смешанное 354 → 287, умножение точки 95,8 → 81,3 мкс
 				 */
-				#if !defined(__ANTS_ASAN_UNOPTIMIZED__) && !defined(ANTS_NO_MACHINE)
+				#if !defined(__ANTS_ASAN_UNOPTIMIZED__) && !defined(ANTS_NO_MACHINE) && (defined(__clang__) || !defined(__GNUC__) || (__GNUC__ >= 9))
 					/**
 					 * Признак наличия ядер P-256 и модуля вида 2^256 - c на MULX и ADCX/ADOX
 					 */
@@ -3103,16 +3106,15 @@ namespace nts {
 					"addq  %%rbx, %%r8\n\t" "adcq  $0, %%r9\n\t" "adcq  $0, %%r10\n\t" "adcq  $0, %%r11\n\t" "adcq  $0, %%r12\n\t"
 					"adcq  $0, %%r13\n\t" "adcq  $0, %%r14\n\t" "adcq  $0, %%r15\n\t" "adcq  $0, %%rdx\n\t" "negq  %%rdx\n\t"
 					"cmovncq (%[r]), %%r8\n\t" "cmovncq 8(%[r]), %%r9\n\t" "cmovncq 16(%[r]), %%r10\n\t" "cmovncq 24(%[r]), %%r11\n\t" "cmovncq 32(%[r]), %%r12\n\t"
-					"cmovncq 40(%[r]), %%r13\n\t" "cmovncq 48(%[r]), %%r14\n\t" "cmovncq 56(%[r]), %%r15\n\t" "movq  %%r8, %[h0]\n\t"
-					"movq  %%r9, %[h1]\n\t"
-					"movq  %%r10, %[h2]\n\t"
-					"movq  %%r11, %[h3]\n\t"
-					"movq  %%r12, %[h4]\n\t"
-					"movq  %%r13, %[h5]\n\t"
-					"movq  %%r14, %[h6]\n\t"
-					"movq  %%r15, %[h7]\n\t"
-						: [h0] "=m" (result[0]), [h1] "=m" (result[1]), [h2] "=m" (result[2]), [h3] "=m" (result[3]), [h4] "=m" (result[4]), [h5] "=m" (result[5]), [h6] "=m" (result[6]), [h7] "=m" (result[7])
-						: [r] "r" (wide), "b" (tail)
+					"cmovncq 40(%[r]), %%r13\n\t" "cmovncq 48(%[r]), %%r14\n\t" "cmovncq 56(%[r]), %%r15\n\t" "movq  %%r8, (%[h])\n\t"
+					"movq  %%r9, 8(%[h])\n\t"
+					"movq  %%r10, 16(%[h])\n\t"
+					"movq  %%r11, 24(%[h])\n\t"
+					"movq  %%r12, 32(%[h])\n\t"
+					"movq  %%r13, 40(%[h])\n\t"
+					"movq  %%r14, 48(%[h])\n\t"
+					"movq  %%r15, 56(%[h])\n\t"
+						: : [r] "r" (wide), [h] "r" (result), "b" (tail)
 						: "rax", "rcx", "rdx", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15", "cc", "memory"
 					);
 				}

@@ -2427,6 +2427,72 @@ namespace nts {
 					 */
 					typedef uint64_t element_t[4];
 					/**
+					 * @brief Функция сложения слов с переносом
+					 *
+					 * @details У GCC девятой версии и выше и у clang цепочка переносов идёт интринсиком
+					 *          _addcarry_u64, которого у младших GCC нет вовсе (базовый GCC 8.3
+					 *          DragonFly 6.4): там сумма собирается широким словом
+					 *
+					 * @param carry  входящий перенос: младший разряд
+					 * @param first  первое слагаемое слово
+					 * @param second второе слагаемое слово
+					 * @param result место, в которое помещается сумма слов
+					 * @return       исходящий перенос: младший разряд
+					 *
+					 */
+					static __ANTS_INLINE__ unsigned char carry64(const unsigned char carry, const uint64_t first, const uint64_t second, unsigned long long * const result) noexcept {
+						/**
+						 * У clang и GCC от девятой версии цепочка идёт интринсиком переноса
+						 */
+						#if defined(__clang__) || !defined(__GNUC__) || (__GNUC__ >= 9)
+							// Выводим перенос сложением с командой переноса
+							return _addcarry_u64(carry, first, second, result);
+						/**
+						 * У младших GCC сумма собирается широким словом
+						 */
+						#else
+							// Сумма широким словом: исходящий перенос - старшее слово суммы
+							const math::wide_t item = (static_cast <math::wide_t> (first) + second + (carry & 1));
+							// Записываем младшее слово суммы
+							(*result) = static_cast <uint64_t> (item);
+							// Выводим старший разряд суммы исходящим переносом
+							return static_cast <unsigned char> ((item >> 64) & 1);
+						#endif
+					}
+					/**
+					 * @brief Функция вычитания слов с заёмом
+					 *
+					 * @details У GCC девятой версии и выше и у clang цепочка заёмов идёт интринсиком
+					 *          _subborrow_u64, отсутствующим у младших GCC: там разность собирается
+					 *          широким словом, и заём даёт старшее слово, заполненное единицами
+					 *
+					 * @param borrow входящий заём: младший разряд
+					 * @param first  уменьшаемое слово
+					 * @param second вычитаемое слово
+					 * @param result место, в которое помещается разность слов
+					 * @return       исходящий заём: младший разряд
+					 *
+					 */
+					static __ANTS_INLINE__ unsigned char borrow64(const unsigned char borrow, const uint64_t first, const uint64_t second, unsigned long long * const result) noexcept {
+						/**
+						 * У clang и GCC от девятой версии цепочка идёт интринсиком заёма
+						 */
+						#if defined(__clang__) || !defined(__GNUC__) || (__GNUC__ >= 9)
+							// Выводим заём вычитанием с командой заёма
+							return _subborrow_u64(borrow, first, second, result);
+						/**
+						 * У младших GCC разность собирается широким словом
+						 */
+						#else
+							// Разность широким словом: при уходе за ноль старшее слово заполняется единицами
+							const math::wide_t item = (static_cast <math::wide_t> (first) - second - (borrow & 1));
+							// Записываем младшее слово разности
+							(*result) = static_cast <uint64_t> (item);
+							// Выводим старший разряд разности исходящим заёмом
+							return static_cast <unsigned char> ((item >> 64) & 1);
+						#endif
+					}
+					/**
 					 * @brief Нуль в памяти: источник для ADCX/ADOX, продвигающих лишь перенос
 					 *
 					 * @details Все четырнадцать регистров общего назначения заняты накопителями,
@@ -2658,13 +2724,13 @@ namespace nts {
 						// Перенос сверх 2^256 сворачивается множителем 38
 						carry = (static_cast <uint64_t> (item >> 64) * 38);
 						// Прибавляем свёрнутый перенос цепочкой переносов
-						unsigned char flag = _addcarry_u64(0, h0, carry, reinterpret_cast <unsigned long long *> (&h0));
+						unsigned char flag = carry64(0, h0, carry, reinterpret_cast <unsigned long long *> (&h0));
 						// Прибавляем перенос ко второму слову
-						flag = _addcarry_u64(flag, h1, 0, reinterpret_cast <unsigned long long *> (&h1));
+						flag = carry64(flag, h1, 0, reinterpret_cast <unsigned long long *> (&h1));
 						// Прибавляем перенос к третьему слову
-						flag = _addcarry_u64(flag, h2, 0, reinterpret_cast <unsigned long long *> (&h2));
+						flag = carry64(flag, h2, 0, reinterpret_cast <unsigned long long *> (&h2));
 						// Прибавляем перенос к старшему слову
-						flag = _addcarry_u64(flag, h3, 0, reinterpret_cast <unsigned long long *> (&h3));
+						flag = carry64(flag, h3, 0, reinterpret_cast <unsigned long long *> (&h3));
 						// Перенос из старшего слова сворачивается ещё раз
 						h0 += ((0 - static_cast <uint64_t> (flag)) & 38);
 						// Записываем слова произведения
@@ -2688,21 +2754,21 @@ namespace nts {
 						// Слова суммы
 						uint64_t h0, h1, h2, h3;
 						// Складываем слова цепочкой переносов
-						unsigned char flag = _addcarry_u64(0, first[0], second[0], reinterpret_cast <unsigned long long *> (&h0));
+						unsigned char flag = carry64(0, first[0], second[0], reinterpret_cast <unsigned long long *> (&h0));
 						// Складываем вторые слова
-						flag = _addcarry_u64(flag, first[1], second[1], reinterpret_cast <unsigned long long *> (&h1));
+						flag = carry64(flag, first[1], second[1], reinterpret_cast <unsigned long long *> (&h1));
 						// Складываем третьи слова
-						flag = _addcarry_u64(flag, first[2], second[2], reinterpret_cast <unsigned long long *> (&h2));
+						flag = carry64(flag, first[2], second[2], reinterpret_cast <unsigned long long *> (&h2));
 						// Складываем старшие слова
-						flag = _addcarry_u64(flag, first[3], second[3], reinterpret_cast <unsigned long long *> (&h3));
+						flag = carry64(flag, first[3], second[3], reinterpret_cast <unsigned long long *> (&h3));
 						// Перенос сверх 2^256 сворачивается множителем 38 цепочкой переносов
-						flag = _addcarry_u64(0, h0, ((0 - static_cast <uint64_t> (flag)) & 38), reinterpret_cast <unsigned long long *> (&h0));
+						flag = carry64(0, h0, ((0 - static_cast <uint64_t> (flag)) & 38), reinterpret_cast <unsigned long long *> (&h0));
 						// Прибавляем свёрнутый перенос ко второму слову
-						flag = _addcarry_u64(flag, h1, 0, reinterpret_cast <unsigned long long *> (&h1));
+						flag = carry64(flag, h1, 0, reinterpret_cast <unsigned long long *> (&h1));
 						// Прибавляем свёрнутый перенос к третьему слову
-						flag = _addcarry_u64(flag, h2, 0, reinterpret_cast <unsigned long long *> (&h2));
+						flag = carry64(flag, h2, 0, reinterpret_cast <unsigned long long *> (&h2));
 						// Прибавляем свёрнутый перенос к старшему слову
-						flag = _addcarry_u64(flag, h3, 0, reinterpret_cast <unsigned long long *> (&h3));
+						flag = carry64(flag, h3, 0, reinterpret_cast <unsigned long long *> (&h3));
 						// Перенос из старшего слова сворачивается ещё раз
 						h0 += ((0 - static_cast <uint64_t> (flag)) & 38);
 						// Записываем слова суммы
@@ -2726,21 +2792,21 @@ namespace nts {
 						// Слова разности
 						uint64_t h0, h1, h2, h3;
 						// Вычитаем слова цепочкой заёмов
-						unsigned char flag = _subborrow_u64(0, first[0], second[0], reinterpret_cast <unsigned long long *> (&h0));
+						unsigned char flag = borrow64(0, first[0], second[0], reinterpret_cast <unsigned long long *> (&h0));
 						// Вычитаем вторые слова
-						flag = _subborrow_u64(flag, first[1], second[1], reinterpret_cast <unsigned long long *> (&h1));
+						flag = borrow64(flag, first[1], second[1], reinterpret_cast <unsigned long long *> (&h1));
 						// Вычитаем третьи слова
-						flag = _subborrow_u64(flag, first[2], second[2], reinterpret_cast <unsigned long long *> (&h2));
+						flag = borrow64(flag, first[2], second[2], reinterpret_cast <unsigned long long *> (&h2));
 						// Вычитаем старшие слова
-						flag = _subborrow_u64(flag, first[3], second[3], reinterpret_cast <unsigned long long *> (&h3));
+						flag = borrow64(flag, first[3], second[3], reinterpret_cast <unsigned long long *> (&h3));
 						// Заём за ноль сворачивается вычитанием 38 цепочкой заёмов
-						flag = _subborrow_u64(0, h0, ((0 - static_cast <uint64_t> (flag)) & 38), reinterpret_cast <unsigned long long *> (&h0));
+						flag = borrow64(0, h0, ((0 - static_cast <uint64_t> (flag)) & 38), reinterpret_cast <unsigned long long *> (&h0));
 						// Вычитаем свёрнутый заём из второго слова
-						flag = _subborrow_u64(flag, h1, 0, reinterpret_cast <unsigned long long *> (&h1));
+						flag = borrow64(flag, h1, 0, reinterpret_cast <unsigned long long *> (&h1));
 						// Вычитаем свёрнутый заём из третьего слова
-						flag = _subborrow_u64(flag, h2, 0, reinterpret_cast <unsigned long long *> (&h2));
+						flag = borrow64(flag, h2, 0, reinterpret_cast <unsigned long long *> (&h2));
 						// Вычитаем свёрнутый заём из старшего слова
-						flag = _subborrow_u64(flag, h3, 0, reinterpret_cast <unsigned long long *> (&h3));
+						flag = borrow64(flag, h3, 0, reinterpret_cast <unsigned long long *> (&h3));
 						// Заём из старшего слова сворачивается ещё раз
 						h0 -= ((0 - static_cast <uint64_t> (flag)) & 38);
 						// Записываем слова разности
@@ -2795,25 +2861,25 @@ namespace nts {
 						// Разряд 2^255 как 19 плюс 19: сравнение с модулем тем же сложением
 						uint64_t item = ((static_cast <uint64_t> (static_cast <int64_t> (a3) >> 63) & 19) + 19);
 						// Прибавляем цепочкой переносов
-						unsigned char flag = _addcarry_u64(0, a0, item, reinterpret_cast <unsigned long long *> (&a0));
+						unsigned char flag = carry64(0, a0, item, reinterpret_cast <unsigned long long *> (&a0));
 						// Прибавляем перенос ко второму слову
-						flag = _addcarry_u64(flag, a1, 0, reinterpret_cast <unsigned long long *> (&a1));
+						flag = carry64(flag, a1, 0, reinterpret_cast <unsigned long long *> (&a1));
 						// Прибавляем перенос к третьему слову
-						flag = _addcarry_u64(flag, a2, 0, reinterpret_cast <unsigned long long *> (&a2));
+						flag = carry64(flag, a2, 0, reinterpret_cast <unsigned long long *> (&a2));
 						// Прибавляем перенос к старшему слову
-						_addcarry_u64(flag, top, 0, reinterpret_cast <unsigned long long *> (&top));
+						carry64(flag, top, 0, reinterpret_cast <unsigned long long *> (&top));
 						// Старшее слово без разряда 2^255
 						a3 = ((top << 1) >> 1);
 						// Если разряда 2^255 нет, девятнадцать вычитается обратно
 						item = (static_cast <uint64_t> (~(static_cast <int64_t> (top) >> 63)) & 19);
 						// Вычитаем цепочкой заёмов
-						flag = _subborrow_u64(0, a0, item, reinterpret_cast <unsigned long long *> (&a0));
+						flag = borrow64(0, a0, item, reinterpret_cast <unsigned long long *> (&a0));
 						// Вычитаем второе слово
-						flag = _subborrow_u64(flag, a1, 0, reinterpret_cast <unsigned long long *> (&a1));
+						flag = borrow64(flag, a1, 0, reinterpret_cast <unsigned long long *> (&a1));
 						// Вычитаем третье слово
-						flag = _subborrow_u64(flag, a2, 0, reinterpret_cast <unsigned long long *> (&a2));
+						flag = borrow64(flag, a2, 0, reinterpret_cast <unsigned long long *> (&a2));
 						// Вычитаем старшее слово
-						_subborrow_u64(flag, a3, 0, reinterpret_cast <unsigned long long *> (&a3));
+						borrow64(flag, a3, 0, reinterpret_cast <unsigned long long *> (&a3));
 						// Слова записи
 						const uint64_t items[4] = {a0, a1, a2, a3};
 						/**

@@ -35,6 +35,11 @@
  */
 #if (defined(__x86_64__) || defined(__i386__)) && (defined(__clang__) || defined(__GNUC__)) && !defined(ANTS_NO_MACHINE)
 #include <immintrin.h>
+/**
+ * Разрешаем векторные команды одной функции: чек ключа -mavx2 утилитой сторонней
+ * сборки может не пройти, и атрибут держит команды при функции сам
+ */
+#define __ANTS_BASE64_TARGET__ __attribute__((target("avx2")))
 
 /**
  * @brief Функция кодирования двадцати четырёх байтов тридцатью двумя знаками командами AVX2
@@ -51,7 +56,7 @@
  * @param alphabet алфавит записи
  *
  */
-void nts::codec::encode24(const uint8_t * data, uint8_t * result, const alphabet_t alphabet) noexcept {
+__ANTS_BASE64_TARGET__ void nts::codec::encode24(const uint8_t * data, uint8_t * result, const alphabet_t alphabet) noexcept {
 	// Блок с запасом: байты кодируемого блока идут со сдвигом на четыре байта
 	uint8_t bulk[36] = {};
 	// Переносим кодируемые байты в блок со сдвигом

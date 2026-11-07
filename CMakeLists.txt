@@ -372,6 +372,16 @@ if (CMAKE_CURVE_TABLES)
      # программа вычисления кратных под Windows не связывается
      ##
     target_compile_definitions(nts_tables_bootstrap PUBLIC ANTS_STATICLIB)
+    # Развернутые ядра на ассемблере требуют оптимизации: без нее GCC не собирает
+    # распределение регистров (asm operand has impossible constraints), а сборки
+    # сторонних утилит идут с пустым CMAKE_BUILD_TYPE - цели вычисления кратных
+    # несут свой уровень оптимизации
+    target_compile_options(nts_tables_bootstrap PRIVATE
+        $<$<CXX_COMPILER_ID:MSVC>:/O2>
+        $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-O2>)
+    target_compile_options(nts-tables PRIVATE
+        $<$<CXX_COMPILER_ID:MSVC>:/O2>
+        $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-O2>)
     target_link_libraries(nts-tables nts_tables_bootstrap)
 
     # Добавляем цель программы вычисления кратных точки основания Эдвардсовой кривой
@@ -379,6 +389,9 @@ if (CMAKE_CURVE_TABLES)
 
     # Выполняем подключение зависимостей программы вычисления кратных Эдвардсовой кривой
     target_link_libraries(nts-sign-tables nts_tables_bootstrap)
+    target_compile_options(nts-sign-tables PRIVATE
+        $<$<CXX_COMPILER_ID:MSVC>:/O2>
+        $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-O2>)
 
     # Устанавливаем место вычисленного исходного файла кратных
     SET(CURVE_TABLES_SOURCE "${CMAKE_CURRENT_BINARY_DIR}/generated/tables.cpp")

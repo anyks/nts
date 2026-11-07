@@ -146,28 +146,33 @@ namespace nts {
 		 * \~russian
 		 * @brief Место гребёнки кратных точки основания
 		 *
-		 * @details Точка кривой в словах конечностей поля: элемент поля несёт свой
-		 *          конструктор и литералом из слов не собирается, а место гребёнки -
-		 *          данные, и записывается словами напрямую
+		 * @details Точка места в суммарно-разностном виде со знаменателем единица:
+		 *          сумма второй координаты с первой, их разность и удвоенное
+		 *          произведение координат с коэффициентом кривой. Место гребёнки -
+		 *          данные, и записывается словами напрямую: три значения вместо
+		 *          четырёх координат точки, и сложение места с накопителем идёт
+		 *          семью умножениями вместо девяти
 		 *
 		 * \~english
 		 * @brief A place of the comb of the multiples of the base point
 		 *
-		 * @details A point of the curve in the words of the field limbs: an element of the
-		 *          field carries its own constructor and is not assembled by a literal of
-		 *          words, while a place of the comb is data and is written by words directly
+		 * @details A place point in the additive difference form with the unit
+		 *          denominator: the sum of the second coordinate with the first one,
+		 *          their difference and the doubled product of the coordinates with
+		 *          the curve coefficient. A place of the comb is data and is written
+		 *          by words directly: three values instead of four point coordinates,
+		 *          and the addition of a place to the accumulator takes seven
+		 *          multiplications instead of nine
 		 *
 		 * \~
 		 */
 		typedef struct Comb {
-			// Слова первой координаты точки места
-			uint64_t x[math::field25519::LIMBS];
-			// Слова второй координаты точки места
-			uint64_t y[math::field25519::LIMBS];
-			// Слова знаменателя точки места
-			uint64_t z[math::field25519::LIMBS];
-			// Слова произведения координат точки места
-			uint64_t t[math::field25519::LIMBS];
+			// Слова суммы координат точки места: вторая с первой
+			uint64_t plus[math::field25519::LIMBS];
+			// Слова разности координат точки места: вторая без первой
+			uint64_t minus[math::field25519::LIMBS];
+			// Слова удвоенного произведения координат точки места с коэффициентом кривой
+			uint64_t crossed[math::field25519::LIMBS];
 		} comb_t;
 		/**
 		 * \~russian
