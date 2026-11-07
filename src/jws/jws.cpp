@@ -33,6 +33,7 @@
 #include <sign/ecdsa.hpp>
 #include <sign/ed25519.hpp>
 #include <sys/wipe.hpp>
+#include <internal/codec/base64.hpp>
 
 /**
  * Стандартные заголовочные файлы
@@ -227,76 +228,13 @@ namespace nts {
 		 * @details Служебная версия декодирования для разборщиков с причиной отказа:
 		 *          нехватка памяти выбрасывается исключением, чтобы вызывающий ответил
 		 *          отказом памяти, а не отказом записи; публичная unbase64url это
-		 *          исключение перехватывает и отвечает признаком отказа
+		 *          исключение перехватывает и отвечает признаком отказа. Заполнители
+		 *          отвергаются: раздел 2 RFC 7515 велит запись без них
 		 *
 		 */
 		static bool decode(const view_t & text, vector <uint8_t> & result){
-			// Очищаем набор байтов перед декодированием записи
-			result.clear();
-			// Если запись пуста
-			if((text.size == 0))
-				// Выводим успешность разбора
-				return true;
-			// Если длина записи не отвечает кодировке без заполнителей
-			if((text.size % 4) == 1)
-				// Выводим отказ разбора
-				return false;
-			// Занимаем место под итог
-			result.reserve(text.size / 4 * 3 + 3);
-			// Накопитель разрядов
-			uint32_t accumulator = 0;
-			// Число разрядов в накопителе
-			uint8_t bits = 0;
-			/**
-			 * Выполняем обход символов записи
-			 */
-			for(size_t position = 0; position < text.size; position++){
-				// Символ записи
-				const uint8_t symbol = text.data[position];
-				// Значение символа в алфавите
-				uint8_t value = 0;
-				// Символ заглавной буквы
-				if((symbol >= 'A') && (symbol <= 'Z'))
-					// Вычисляем значение символа
-					value = symbol - 'A';
-				// Символ строчной буквы
-				else if((symbol >= 'a') && (symbol <= 'z'))
-					// Вычисляем значение символа
-					value = symbol - 'a' + 26;
-				// Символ цифры
-				else if((symbol >= '0') && (symbol <= '9'))
-					// Вычисляем значение символа
-					value = symbol - '0' + 52;
-				// Символ '-'
-				else if(symbol == '-')
-					// Вычисляем значение символа
-					value = 62;
-				// Символ '_'
-				else if(symbol == '_')
-					// Вычисляем значение символа
-					value = 63;
-				// Символ чужой: заполнители и прочие отвергаются
-				else
-					// Выводим отказ разбора
-					return false;
-				// Накапливаем разряды символа
-				accumulator = (accumulator << 6) | value;
-				// Считаем разряды в накопителе
-				bits += 6;
-				// Если в накопителе набрался байт
-				if(bits >= 8){
-					// Сбрасываем считанные разряды
-					bits -= 8;
-					// Выводим байт
-					result.push_back(static_cast <uint8_t> (accumulator >> bits));
-				}
-			}
-			// Если в накопителе остались ненулевые разряды: запись порчена
-			if((bits != 0) && ((accumulator & ((1u << bits) - 1u)) != 0))
-				// Выводим отказ разбора
-				return false;
-			// Выводим успешность разбора
-			return true;
+			// Выводим итог разбора кодеком с пробросом нехватки памяти вызывающему
+			return codec::rawDecode(text, result, codec::alphabet_t::URL, false, false);
 		}
 		/**
 		 * @brief Функция кодирования записи base64url
@@ -311,48 +249,8 @@ namespace nts {
 		 *
 		 */
 		static void encodeBase64url(const view_t & data, string & result){
-			// Алфавит кодировки base64url по разделу 5 RFC 4648
-			static const char alphabet[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
-			// Очищаем строку перед кодированием в base64url
-			result.clear();
-			// Занимаем место под итог
-			result.reserve((data.size + 2) / 3 * 4);
-			// Позиция разбора данных
-			size_t position = 0;
-			/**
-			 * Выполняем кодирование полных троек байтов
-			 */
-			for(; position + 3 <= data.size; position += 3){
-				// Тройка байтов
-				const uint32_t triple = (static_cast <uint32_t> (data.data[position]) << 16) | (static_cast <uint32_t> (data.data[position + 1]) << 8) | data.data[position + 2];
-				// Выводим четыре символа тройки
-				result += alphabet[(triple >> 18) & 0x3F];
-				// Выводим второй символ тройки
-				result += alphabet[(triple >> 12) & 0x3F];
-				// Выводим третий символ тройки
-				result += alphabet[(triple >> 6) & 0x3F];
-				// Выводим четвёртый символ тройки
-				result += alphabet[triple & 0x3F];
-			}
-			// Если остались два байта
-			if(position + 2 == data.size){
-				// Пара байтов
-				const uint32_t couple = (static_cast <uint32_t> (data.data[position]) << 16) | (static_cast <uint32_t> (data.data[position + 1]) << 8);
-				// Выводим три символа пары
-				result += alphabet[(couple >> 18) & 0x3F];
-				// Выводим второй символ пары
-				result += alphabet[(couple >> 12) & 0x3F];
-				// Выводим третий символ пары
-				result += alphabet[(couple >> 6) & 0x3F];
-			// Если остался один байт
-			} else if(position + 1 == data.size){
-				// Байт
-				const uint32_t single = static_cast <uint32_t> (data.data[position]) << 16;
-				// Выводим два символа байта
-				result += alphabet[(single >> 18) & 0x3F];
-				// Выводим второй символ байта
-				result += alphabet[(single >> 12) & 0x3F];
-			}
+			// Выполняем кодирование кодеком с пробросом нехватки памяти вызывающему
+			codec::rawEncode(data, result, false, codec::alphabet_t::URL);
 		}
 
 		/**

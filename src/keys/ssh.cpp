@@ -32,6 +32,7 @@
  */
 #include <keys/ssh.hpp>
 #include <sys/wipe.hpp>
+#include <codec/base64.hpp>
 #include <digest/bcrypt.hpp>
 #include <digest/hmac.hpp>
 #include <digest/sha2.hpp>
@@ -378,48 +379,12 @@ namespace {
 	 *
 	 */
 	string base64Encode(const uint8_t * data, const size_t size) noexcept {
-		/**
-		 * Выполняем перехват ошибок
-		 */
-		try {
-			// Накопитель строки base64
-			string result = "";
-			// Если данные переданы верно
-			if((data != nullptr) && (size > 0)){
-				// Алфавит base64
-				static const char ALPHABET[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-				// Занимаем место под строку по её пределу
-				result.reserve((size + 2) / 3 * 4);
-				/**
-				 * Проходим по данным тройками байтов
-				 */
-				for(size_t i = 0; i < size; i += 3){
-					// Собираем тройку байтов в число
-					uint32_t digits = (static_cast <uint32_t> (data[i]) << 16);
-					// Если второй байт есть
-					if((i + 1) < size)
-						// Добавляем второй байт
-						digits |= static_cast <uint32_t> (data[i + 1]) << 8;
-					// Если третий байт есть
-					if((i + 2) < size)
-						// Добавляем третий байт
-						digits |= static_cast <uint32_t> (data[i + 2]);
-					// Записываем четыре знака base64
-					result.push_back(ALPHABET[(digits >> 18) & 63]);
-					result.push_back(ALPHABET[(digits >> 12) & 63]);
-					result.push_back(((i + 1) < size) ? ALPHABET[(digits >> 6) & 63] : '=');
-					result.push_back(((i + 2) < size) ? ALPHABET[digits & 63] : '=');
-				}
-			}
-			// Выводим строку base64
-			return result;
-		/**
-		 * Выполняем перехват ошибок
-		 */
-		} catch(const bad_alloc &) {
-			// Выводим отказ нехватки памяти
-			return "";
-		}
+		// Накопитель строки base64
+		string result;
+		// Кодируем данные кодеком: нехватка памяти отвечает пустой строкой
+		codec::encode(view_t(data, size), result);
+		// Выводим строку base64
+		return result;
 	}
 	/**
 	 * @brief Функция декодирования base64
@@ -430,73 +395,8 @@ namespace {
 	 *
 	 */
 	bool base64Decode(const string & text, vector <uint8_t> & data) noexcept {
-		/**
-		 * Выполняем перехват ошибок
-		 */
-		try {
-			// Таблица разбора знаков base64
-			static const int8_t TABLE[256] = {
-				// Знаки вне алфавита разбора дают отказ
-				-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-				-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-				-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,62,-1,-1,-1,63,
-				52,53,54,55,56,57,58,59,60,61,-1,-1,-1,-2,-1,-1,
-				-1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,
-				15,16,17,18,19,20,21,22,23,24,25,-1,-1,-1,-1,-1,
-				-1,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,
-				41,42,43,44,45,46,47,48,49,50,51,-1,-1,-1,-1,-1,
-				-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-				-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-				-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-				-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-				-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-				-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-				-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-				-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1
-			};
-			// Сбрасываем накопитель байтов
-			data.clear();
-			// Занимаем место под байты по их пределу
-			data.reserve(text.size() * 3 / 4);
-			// Число накопленных битов
-			int32_t bits = 0;
-			// Накопитель разбираемого числа
-			uint32_t digits = 0;
-			/**
-			 * Проходим по знакам строки
-			 */
-			for(const char letter : text){
-				// Разбираем знак по таблице
-				const int8_t symbol = TABLE[static_cast <uint8_t> (letter)];
-				// Если знак - дополнение '='
-				if(symbol == -2)
-					// Дополнение завершает строку
-					break;
-				// Если знак чужой
-				if(symbol < 0)
-					// Выводим отказ разбора
-					return false;
-				// Добавляем шесть битов знака
-				digits = ((digits << 6) | static_cast <uint32_t> (symbol));
-				// Считаем накопленные биты
-				bits += 6;
-				// Если байт набран
-				if(bits >= 8){
-					// Считаем остаток битов
-					bits -= 8;
-					// Записываем набранный байт
-					data.push_back(static_cast <uint8_t> (digits >> bits));
-				}
-			}
-			// Выводим признак успешности разбора
-			return true;
-		/**
-		 * Выполняем перехват ошибок
-		 */
-		} catch(const bad_alloc &) {
-			// Выводим отказ нехватки памяти
-			return false;
-		}
+		// Выводим итог разбора кодеком: нехватка памяти отвечает отказом
+		return codec::decode(view_t(reinterpret_cast <const uint8_t *> (text.data()), text.size()), data);
 	}
 	/**
 	 * @brief Функция разбора секретного блока ed25519
@@ -668,13 +568,9 @@ string nts::keys::ssh::fingerprint(const key_t & key) noexcept {
 		// Завершаем хеш
 		sha.finish(hash, sizeof(hash));
 		// Отпечаток в base64 без дополнения
-		string b64 = ::base64Encode(hash, sizeof(hash));
-		/**
-		 * Пока в конце знаки дополнения
-		 */
-		while(!b64.empty() && b64.back() == '=')
-			// Убираем знак дополнения
-			b64.pop_back();
+		string b64;
+		// Кодируем отпечаток кодеком без заполнения записи
+		codec::encode(view_t(hash, sizeof(hash)), b64, false);
 		// Выводим отпечаток с меткой алгоритма
 		return ("SHA256:" + b64);
 	/**

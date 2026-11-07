@@ -12985,8 +12985,8 @@ context::error_t nts::internal::Engine::welcome(const hello::client_t & greeting
 			 * Выполняем перебор кривых обмена ключами, предлагаемых связью: выбор идёт порядком сервера
 			 */
 			for(size_t i = 0; (i < this->_groups.size()) && (this->_group == extension::group_t::NONE); i++){
-				// Изданию TLS 1.2 наборами DHE годны конечные поля RFC 7919, наборами ECDHE - классические кривые RFC 8422: X25519, X448, кривые NIST и secp256k1
-				if(fielded ? (extension::finite(this->_groups[i]) == 0) : (!classic(this->_groups[i]) || !fitting(this->_groups[i], true)))
+				// Изданию TLS 1.2 наборами DHE годны конечные поля RFC 7919, наборами ECDHE - лишь кривые RFC 8422: X25519, X448, кривые NIST и secp256k1; конечное поле точкой кривой не бывает
+				if(fielded ? (extension::finite(this->_groups[i]) == 0) : ((extension::finite(this->_groups[i]) > 0) || !classic(this->_groups[i]) || !fitting(this->_groups[i], true)))
 					// Переходим к следующей группе обмена ключами
 					continue;
 				// Если перечня у клиента не было, выбор идёт одним порядком сервера
@@ -14203,8 +14203,8 @@ context::error_t nts::internal::Engine::agreed(const view_t & body) noexcept {
 			for(size_t i = 0; (i < this->_groups.size()) && !offered; i++)
 				// Запоминаем совпадение выбранной кривой с предложенной
 				offered = (group == this->_groups[i]);
-			// Раздел 5.4 RFC 8422: кривая обязана быть из предложенных и вестись связью
-			if(!offered || !classic(group))
+			// Раздел 5.4 RFC 8422: кривая обязана быть из предложенных и вестись связью; конечное поле точкой кривой не бывает
+			if(!offered || !classic(group) || (extension::finite(group) > 0))
 				// Выводим отказ кривой вне предложения связи
 				return context::error_t::GROUP;
 			/**

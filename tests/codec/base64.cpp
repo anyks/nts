@@ -115,6 +115,12 @@ TEST(Base64Test, Refusals) {
 	// Ненулевые отброшенные разряды
 	ASSERT_FALSE(codec::decode(view_t(reinterpret_cast <const uint8_t *> ("Zh=="), 4), bytes));
 	ASSERT_FALSE(codec::decode(view_t(reinterpret_cast <const uint8_t *> ("Zn/"), 3), bytes));
+	// Заполнение отвергается целиком при запрете: издания вроде RFC 7515 велит запись без него
+	ASSERT_FALSE(codec::decode(view_t(reinterpret_cast <const uint8_t *> ("Zg=="), 4), bytes, codec::alphabet_t::STANDARD, false, false));
+	// Запись без заполнения разбирается и при запрете
+	ASSERT_TRUE(codec::decode(view_t(reinterpret_cast <const uint8_t *> ("Zg"), 2), bytes, codec::alphabet_t::STANDARD, false, false));
+	// Сличаем байты
+	ASSERT_EQ(bytes, vector <uint8_t>({'f'}));
 	// Место наполняется разбором
 	ASSERT_TRUE(codec::decode(view_t(reinterpret_cast <const uint8_t *> ("Zm9v"), 4), bytes));
 	// Место непусто до отказа
@@ -176,26 +182,31 @@ TEST(Base64Test, Roundtrip) {
  *
  */
 TEST(Base64Test, Paths) {
-	// Запись машинного пути
-	string machine;
 	// Данные череды
-	vector <uint8_t> data(300);
+	vector <uint8_t> data(480);
 	/**
 	 * Выполняем перебор байтов данных
 	 */
 	for(size_t i = 0; i < data.size(); i++)
 		// Очередной байт череды
 		data[i] = static_cast <uint8_t> (i * 61);
-	// Кодируем данные машинным путём
-	ASSERT_TRUE(codec::encode(view_t(data.data(), data.size()), machine));
-	// Запрещаем машинные команды
-	machine::allow(false);
-	// Запись переносимого пути
-	string carried;
-	// Кодируем данные переносимым путём
-	ASSERT_TRUE(codec::encode(view_t(data.data(), data.size()), carried));
-	// Возобновляем машинные команды
-	machine::allow(true);
-	// Пути обязаны сойтись знак в знак
-	ASSERT_EQ(machine, carried);
+	/**
+	 * Выполняем перебор длин: шаг двадцать четыре байта векторного ядра, граница шага и длинный вход
+	 */
+	for(const size_t size : {static_cast <size_t> (24), static_cast <size_t> (25), static_cast <size_t> (300), static_cast <size_t> (480)}){
+		// Запись машинного пути
+		string machine;
+		// Кодируем данные машинным путём
+		ASSERT_TRUE(codec::encode(view_t(data.data(), size), machine)) << "длина " << size;
+		// Запрещаем машинные команды
+		machine::allow(false);
+		// Запись переносимого пути
+		string carried;
+		// Кодируем данные переносимым путём
+		ASSERT_TRUE(codec::encode(view_t(data.data(), size), carried)) << "длина " << size;
+		// Возобновляем машинные команды
+		machine::allow(true);
+		// Пути обязаны сойтись знак в знак
+		ASSERT_EQ(machine, carried) << "длина " << size;
+	}
 }

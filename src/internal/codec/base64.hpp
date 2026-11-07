@@ -45,6 +45,7 @@
  */
 #include <sys/global.hpp>
 #include <codec/base64.hpp>
+#include <sys/machine.hpp>
 
 /**
  * @brief Основное пространство имён
@@ -141,6 +142,56 @@ namespace nts {
 		};
 
 		/**
+		 * @brief Служебная функция кодирования основания 64 с пробросом нехватки памяти
+		 *
+		 * @param data     кодируемые данные
+		 * @param result   строка, в которую помещается запись
+		 * @param padding  признак заполнения записи знаками «=» до кратности четырём
+		 * @param alphabet алфавит записи
+		 * @return         признак успешности кодирования
+		 *
+		 * @details Тело открытого кодирования без перехвата исключений: нехватка памяти
+		 *          уходит вызывающему исключением, чтобы сборщики записей ответили
+		 *          отказом памяти, а не молча собрали запись с пустой частью. Открытые
+		 *          encode и decode перехватывают это исключение сами
+		 *
+		 */
+		bool rawEncode(const view_t & data, string & result, const bool padding, const alphabet_t alphabet);
+		/**
+		 * @brief Служебная функция разбора записи основания 64 с пробросом нехватки памяти
+		 *
+		 * @param text     разбираемая запись
+		 * @param result   место, в которое помещаются разобранные байты
+		 * @param alphabet алфавит записи
+		 * @param spaces   признак пропуска пробельных знаков записи
+		 * @param padding  признак допущения знаков «=» в хвосте записи
+		 * @return         признак успешности разбора
+		 *
+		 * @details Тело открытого разбора без перехвата исключений: нехватка памяти
+		 *          уходит вызывающему исключением, чтобы разборщики записей ответили
+		 *          отказом памяти, а не приняли порчу за отказ записи. Открытые encode
+		 *          и decode перехватывают это исключение сами
+		 *
+		 */
+		bool rawDecode(const view_t & text, vector <uint8_t> & result, const alphabet_t alphabet, const bool spaces, const bool padding);
+		/**
+		 * Файл ядра base64avx.cpp собирается с ключом -mavx2 одним, потому ядро
+		 * объявлено здесь внешней связью и зовётся лишь при признаке AVX2 машины
+		 */
+		#if (defined(__x86_64__) || defined(__i386__)) && (defined(__clang__) || defined(__GNUC__)) && !defined(ANTS_NO_MACHINE)
+			/**
+			 * @brief Функция кодирования двадцати четырёх байтов тридцатью двумя знаками командами AVX2
+			 *
+			 * @param data     кодируемые двадцать четыре байта
+			 * @param result   место, в которое помещаются тридцать два знака
+			 * @param alphabet алфавит записи
+			 *
+			 */
+			void encode24(const uint8_t * data, uint8_t * result, const alphabet_t alphabet) noexcept;
+		#endif
+
+
+		/**
 		 * Компиляционные стены машинных ядер: x86-64 требует SSSE3, ARM64 - NEON основания
 		 */
 #if((defined(__x86_64__) && defined(__SSSE3__)) || (defined(__aarch64__) && defined(__ARM_NEON))) && !defined(ANTS_NO_MACHINE)
@@ -220,7 +271,7 @@ namespace nts {
 				// Сжатие пар в шестнадцать байтов
 					const __m128i digits = _mm_sub_epi8(letters, _mm_and_si128(_mm_set1_epi8(75), edge52));
 					// Хвост из двух значений: знак «+» с разрядом чётности значения
-					const __m128i tail = _mm_or_si128(_mm_set1_epi8(0x2B), _mm_and_si128(_mm_slli_epi8(groups, 2), _mm_set1_epi8(4)));
+					const __m128i tail = _mm_or_si128(_mm_set1_epi8(0x2B), _mm_and_si128(_mm_set1_epi8(4), _mm_cmpeq_epi8(_mm_and_si128(groups, _mm_set1_epi8(1)), _mm_set1_epi8(1))));
 				// Шестёрки разрядов транспонированной перестановкой
 					// Хвост подменяет переведённые знаки на пороге шестидесяти двух
 					const __m128i fixed = _mm_or_si128(_mm_andnot_si128(edge62, digits), _mm_and_si128(edge62, tail));

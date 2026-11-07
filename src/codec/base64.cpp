@@ -122,7 +122,66 @@ namespace {
 		// Выводим признак принадлежности знака к пробельным
 		return ((letter == ' ') || (letter == '\t') || (letter == '\r') || (letter == '\n') || (letter == '\v') || (letter == '\f'));
 	}
+/**
+ * @brief Функция шага полных блоков кодирования
+ *
+ * @details Векторное ядро AVX2 кодирует двадцать четыре байта за шаг, прочие
+ *          ядра - двенадцать; шаг спрашивается до разбора входа, чтобы запись
+ *          завелась точной длиной
+ *
+ * @return число байтов шага: двадцать четыре либо двенадцать
+ *
+ */
+static size_t stepping() noexcept {
+	/**
+	 * x86-64 спрашивает команды AVX2 у машины на исполнении
+	 */
+	#if (defined(__x86_64__) || defined(__i386__)) && (defined(__clang__) || defined(__GNUC__)) && !defined(ANTS_NO_MACHINE)
+		// Шаг двадцать четыре байта при векторном ядре машины
+		return (::nts::machine::has(::nts::machine::feature_t::AVX2) ? 24 : 12);
+	/**
+	 * Прочие машины шагают двенадцатью байтами
+	 */
+	#else
+		// Выводим шаг переносимого и двенадцатибайтового хода
+		return 12;
+	#endif
+}
+/**
+ * @brief Функция кодирования полного блока выбранного шага
+ *
+ * @param step     шаг блока из функции шага
+ * @param data     кодируемые байты шага
+ * @param result   место, в которое помещаются знаки шага
+ * @param alphabet алфавит записи
+ *
+ */
+static void dispatchWide(const size_t step, const uint8_t * data, uint8_t * result, const codec::alphabet_t alphabet) noexcept {
+	/**
+	 * Шаг двадцать четыре байта достаётся лишь векторному ядру AVX2
+	 */
+	#if (defined(__x86_64__) || defined(__i386__)) && (defined(__clang__) || defined(__GNUC__)) && !defined(ANTS_NO_MACHINE)
+		// Векторное ядро несётся при шаге двадцать четыре
+		if(step == 24)
+			// Кодируем блок векторным ядром
+			encode24(data, result, alphabet);
+		// Прочие шаги кодируются двенадцатибайтовым ядром
+		else
+			// Кодируем блок выбранным ядром
+			dispatch(data, result, alphabet);
+	/**
+	 * Без векторного ядра всякий шаг кодируется двенадцатью байтами
+	 */
+	#else
+		// Шаг без векторного ядра всегда двенадцать байтов
+		(void)step;
+		// Кодируем блок выбранным ядром
+		dispatch(data, result, alphabet);
+	#endif
+}
 };
+
+
 
 /**
  * @brief Метод кодирования основания 64
@@ -143,31 +202,60 @@ bool nts::codec::encode(const view_t & data, string & result, const bool padding
 	 * Выполняем перебор попыток кодирования
 	 */
 	try {
-		// Очистка прежней записи
+		// Выводим итог служебного кодирования
+		return rawEncode(data, result, padding, alphabet);
+	}
+	/**
+	 * Выполняем перехват нехватки памяти
+	 */
+	catch(const std::bad_alloc &){
+		// Затираем недописанную запись
+		wipe(result.data(), result.size());
+		// Очищаем запись
 		result.clear();
-		// Число полных блоков по двенадцать байтов
-		const size_t blocks = (data.size / 12);
-		// Число байтов хвоста
-		const size_t rest = (data.size - (12 * blocks));
-		// Остаётся один либо два байта
-		const size_t odd = (rest % 3);
-		// Полная длина записи: блоки, тройки и кусок с заполнением либо без
-		const size_t total = ((blocks * 16) + ((rest / 3) * 4) + ((odd != 0) ? ((odd + 1) + ((padding) ? (3 - odd) : 0)) : 0));
-		// Запись заводится точной длиной: знаки пишутся прямо в неё
-		result.resize(total);
-		// Счётчик знаков записи
-		size_t written = 0;
-		/**
-		 * Выполняем перебор полных блоков: блок кодирует выбранное ядро
-		 */
-		for(size_t i = 0; i < blocks; i++){
-			// Кодируем блок выбранным ядром
-			dispatch(data.data + (12 * i), reinterpret_cast <uint8_t *> (result.data()) + written, alphabet);
-			// Шестнадцать знаков записано
-			written += 16;
-		}
-		// Хвост входа до одиннадцати байтов переносимым ходом
-		const uint8_t * tail = data.data + (12 * blocks);
+		// Выводим отказ кодирования
+		return false;
+	}
+}
+
+/**
+ * @brief Служебный метод кодирования основания 64 с пробросом нехватки памяти
+ *
+ * @param data     кодируемые данные
+ * @param result   строка, в которую помещается запись
+ * @param padding  признак заполнения записи знаками «=» до кратности четырём
+ * @param alphabet алфавит записи
+ * @return         признак успешности кодирования
+ *
+ */
+bool nts::codec::rawEncode(const view_t & data, string & result, const bool padding, const alphabet_t alphabet) {
+	// Очистка прежней записи
+	result.clear();
+	// Шаг полных блоков: двадцать четыре байта при векторном ядре AVX2, иначе двенадцать
+	const size_t step = stepping();
+	// Число полных блоков шага
+	const size_t blocks = (data.size / step);
+	// Число байтов хвоста
+	const size_t rest = (data.size - (step * blocks));
+	// Остаётся один либо два байта
+	const size_t odd = (rest % 3);
+	// Полная длина записи: блоки, тройки и кусок с заполнением либо без
+	const size_t total = ((blocks * ((step * 4) / 3)) + ((rest / 3) * 4) + ((odd != 0) ? ((odd + 1) + ((padding) ? (3 - odd) : 0)) : 0));
+	// Запись заводится точной длиной: знаки пишутся прямо в неё
+	result.resize(total);
+	// Счётчик знаков записи
+	size_t written = 0;
+	/**
+	 * Выполняем перебор полных блоков: блок кодирует выбранное ядро
+	 */
+	for(size_t i = 0; i < blocks; i++){
+		// Кодируем блок выбранным ядром
+		dispatchWide(step, data.data + (step * i), reinterpret_cast <uint8_t *> (result.data()) + written, alphabet);
+		// Знаки шага записаны
+		written += ((step * 4) / 3);
+	}
+	// Хвост входа до двадцати трёх байтов переносимым ходом
+	const uint8_t * tail = data.data + (step * blocks);
 		/**
 		 * Выполняем перебор полных троек хвоста
 		 */
@@ -206,18 +294,6 @@ bool nts::codec::encode(const view_t & data, string & result, const bool padding
 		if(written != total)
 			// Выводим отказ кодирования
 			return false;
-	}
-	/**
-	 * Выполняем перехват нехватки памяти
-	 */
-	catch(const std::bad_alloc &){
-		// Затираем недописанную запись
-		wipe(result.data(), result.size());
-		// Очищаем запись
-		result.clear();
-		// Выводим отказ кодирования
-		return false;
-	}
 	// Выводим успешность кодирования
 	return true;
 }
@@ -248,19 +324,47 @@ static bool failure(vector <uint8_t> & result) noexcept {
  * @return         признак успешности разбора
  *
  */
-bool nts::codec::decode(const view_t & text, vector <uint8_t> & result, const alphabet_t alphabet, const bool spaces) noexcept {
+bool nts::codec::decode(const view_t & text, vector <uint8_t> & result, const alphabet_t alphabet, const bool spaces, const bool padding) noexcept {
 	// Если запись передана без данных при ненулевой длине
 	if((text.data == nullptr) && (text.size != 0))
 		// Выводим отказ разбора
 		return false;
-	// Таблица обратных номеров знаков выбранного алфавита
-	const Table & table = ((alphabet == alphabet_t::URL) ? POINTERS : NUMBERS);
 	/**
 	 * Выполняем перебор попыток разбора
 	 */
 	try {
-		// Очистка прежнего места
+		// Выводим итог служебного разбора
+		return rawDecode(text, result, alphabet, spaces, padding);
+	}
+	/**
+	 * Выполняем перехват нехватки памяти
+	 */
+	catch(const std::bad_alloc &){
+		// Затираем недоразобранные байты
+		wipe(result.data(), result.size());
+		// Очищаем место
 		result.clear();
+		// Выводим отказ разбора
+		return false;
+	}
+}
+
+/**
+ * @brief Служебный метод разбора записи основания 64 с пробросом нехватки памяти
+ *
+ * @param text     разбираемая запись
+ * @param result   место, в которое помещаются разобранные байты
+ * @param alphabet алфавит записи
+ * @param spaces   признак пропуска пробельных знаков записи
+ * @param padding  признак допущения знаков «=» в хвосте записи
+ * @return         признак успешности разбора
+ *
+ */
+bool nts::codec::rawDecode(const view_t & text, vector <uint8_t> & result, const alphabet_t alphabet, const bool spaces, const bool padding) {
+	// Таблица обратных номеров знаков выбранного алфавита
+	const Table & table = ((alphabet == alphabet_t::URL) ? POINTERS : NUMBERS);
+	// Очистка прежнего места
+	result.clear();
 		// Байты по три на всякие четыре знака
 		result.reserve(((text.size / 4) + 1) * 3);
 		// Накопитель тройки байтов
@@ -275,8 +379,8 @@ bool nts::codec::decode(const view_t & text, vector <uint8_t> & result, const al
 		for(size_t i = 0; i < text.size; i++){
 			// Очередной знак записи
 			const char letter = text.data[i];
-			// Знак заполнения
-			if(letter == '='){
+			// Знак заполнения при допущенном заполнении
+			if((letter == '=') && padding){
 				// Считаем знак заполнения
 				filled++;
 				// Продолжаем перебор
@@ -332,18 +436,6 @@ bool nts::codec::decode(const view_t & text, vector <uint8_t> & result, const al
 			for(size_t i = 0; i < (gathered - 1); i++)
 				// Выписываем очередной байт остатка от старших разрядов накопителя
 				result.push_back(static_cast <uint8_t> ((accumulator >> ((6 * gathered) - (8 * (i + 1)))) & 0xFF));
-	}
-	/**
-	 * Выполняем перехват нехватки памяти
-	 */
-	catch(const std::bad_alloc &){
-		// Затираем недоразобранные байты
-		wipe(result.data(), result.size());
-		// Очищаем место
-		result.clear();
-		// Выводим отказ разбора
-		return false;
-	}
 	// Выводим успешность разбора
 	return true;
 }

@@ -128,12 +128,15 @@ namespace nts {
 		 *          заполнения и ненулевые отброшенные разряды отвергаются. Запись без
 		 *          заполнения принимается, коли её длина даёт два либо три по модулю
 		 *          четырёх; длина с остатком один отвергается. Пробельные знаки
-		 *          пропускаются, коли это заказано
+		 *          пропускаются, коли это заказано. Заполнение отвергается целиком,
+		 *          коли это заказано: издания вроде RFC 7515 и RFC 9106 велит запись
+		 *          без заполнителей, и всякий знак «=» в ней - порча
 		 *
 		 * @param text     разбираемая запись
 		 * @param result   место, в которое помещаются разобранные байты
 		 * @param alphabet алфавит записи
 		 * @param spaces   признак пропуска пробельных знаков записи
+		 * @param padding  признак допущения знаков «=» в хвосте записи
 		 * @return         признак успешности разбора
 		 *
 		 * \~english
@@ -143,16 +146,20 @@ namespace nts {
 		 *          count of the padding and the non-zero discarded digits are rejected.
 		 *          A record without the padding is accepted when its length leaves two or
 		 *          three modulo four; a length with the remainder of one is rejected.
-		 *          The whitespace signs are skipped when that is ordered
+		 *          The whitespace signs are skipped when that is ordered. The padding is
+		 *          rejected wholly when that is ordered: the editions like RFC 7515 and
+		 *          RFC 9106 order the record without the padding signs, and every «=»
+		 *          in it is a corruption
 		 *
 		 * @param text     the record being parsed
 		 * @param result   the place the parsed bytes are put into
 		 * @param alphabet the alphabet of the record
 		 * @param spaces   the flag of the skipping of the whitespace signs of the record
+		 * @param padding  the flag of the admission of the «=» signs in the tail of the record
 		 * @return         the success flag of the parsing
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool decode(const view_t & text, vector <uint8_t> & result, const alphabet_t alphabet = alphabet_t::STANDARD, const bool spaces = false) noexcept;
+		__ANTS_SHARED_EXPORT__ bool decode(const view_t & text, vector <uint8_t> & result, const alphabet_t alphabet = alphabet_t::STANDARD, const bool spaces = false, const bool padding = true) noexcept;
 	};
 };

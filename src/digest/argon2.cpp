@@ -48,6 +48,7 @@
  */
 #include <digest/argon2.hpp>
 #include <digest/blake2.hpp>
+#include <internal/codec/base64.hpp>
 #include <sys/wipe.hpp>
 
 /**
@@ -355,10 +356,6 @@ namespace {
 			block.words[i] = octet(data + (i * 8));
 	}
 	/**
-	 * Алфавит base64
-	 */
-	static const char * ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-	/**
 	 * @brief Функция записи байтов в base64 без дополнения
 	 *
 	 * @param data   байты
@@ -366,24 +363,12 @@ namespace {
 	 *
 	 */
 	static void enbase(const vector <uint8_t> & data, string & result) {
-		/**
-		 * Выполняем перебор троек байтов
-		 */
-		for(size_t i = 0; i < data.size(); i += 3){
-			// Число байтов в тройке
-			const size_t count = (((data.size() - i) < 3) ? (data.size() - i) : 3);
-			// Двадцать четыре разряда тройки
-			uint32_t triple = (static_cast <uint32_t> (data[i]) << 16);
-			// Второй байт при наличии
-			if(count > 1) triple |= (static_cast <uint32_t> (data[i + 1]) << 8);
-			if(count > 2) triple |= static_cast <uint32_t> (data[i + 2]);
-			// Знаки: по шесть разрядов, без дополнения
-			result.push_back(ALPHABET[(triple >> 18) & 0x3F]);
-			result.push_back(ALPHABET[(triple >> 12) & 0x3F]);
-			// Третий знак при наличии второго байта
-			if(count > 1) result.push_back(ALPHABET[(triple >> 6) & 0x3F]);
-			if(count > 2) result.push_back(ALPHABET[triple & 0x3F]);
-		}
+		// Знаки кода во временной строке: кодек очищает место, а строка PHC собирается дописыванием
+		string encoded;
+		// Выполняем кодирование кодеком с пробросом нехватки памяти вызывающему
+		codec::rawEncode(view_t(data.data(), data.size()), encoded, false, codec::alphabet_t::STANDARD);
+		// Дописываем знаки к собираемой строке
+		result += encoded;
 	}
 	/**
 	 * @brief Функция разбора base64 без дополнения
@@ -394,48 +379,8 @@ namespace {
 	 *
 	 */
 	static bool debase(const string & text, vector <uint8_t> & result) {
-		// Накопитель разрядов
-		uint32_t buffer = 0;
-		// Число разрядов в накопителе
-		size_t bits = 0;
-		// Сбрасываем байты
-		result.clear();
-		// Остаток знаков по модулю четыре не может быть единицей
-		if((text.size() % 4) == 1)
-			// Отвергаем строку
-			return false;
-		/**
-		 * Выполняем перебор знаков
-		 */
-		for(size_t i = 0; i < text.size(); i++){
-			// Знак
-			const char c = text[i];
-			// Значение знака
-			int value = -1;
-			// Прописные знаки
-			if((c >= 'A') && (c <= 'Z')) value = (c - 'A');
-			else if((c >= 'a') && (c <= 'z')) value = (c - 'a' + 26);
-			else if((c >= '0') && (c <= '9')) value = (c - '0' + 52);
-			else if(c == '+') value = 62;
-			else if(c == '/') value = 63;
-			// Если знак чужой (в том числе дополнение «=»)
-			if(value < 0)
-				// Отвергаем строку
-				return false;
-			// Складываем шесть разрядов
-			buffer = ((buffer << 6) | static_cast <uint32_t> (value));
-			// Пополняем счётчик разрядов
-			bits += 6;
-			// Если набрался байт
-			if(bits >= 8){
-				// Убрали байт из накопителя
-				bits -= 8;
-				// Выводим набравшийся байт
-				result.push_back(static_cast <uint8_t> ((buffer >> bits) & 0xFF));
-			}
-		}
-		// Оставшиеся разряды обязаны быть нулевыми
-		return ((buffer & ((1u << bits) - 1)) == 0);
+		// Выводим итог разбора кодеком с пробросом нехватки памяти вызывающему
+		return codec::rawDecode(view_t(reinterpret_cast <const uint8_t *> (text.data()), text.size()), result, codec::alphabet_t::STANDARD, false, false);
 	}
 	/**
 	 * @brief Функция разбора десятичного числа без знака

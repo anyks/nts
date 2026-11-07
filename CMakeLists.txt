@@ -251,6 +251,7 @@ SET(SOURCE_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/cipher/magma.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/cipher/mode.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/codec/base64.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/codec/base64avx.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/cipher/ccm.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/cipher/mgm.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/cipher/gcm.cpp"
@@ -483,6 +484,29 @@ if (CMAKE_CIPHER_CARRYLESS)
         endif (CARRYLESS_X86_FLAG)
     endif (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64|ARM64")
 endif (CMAKE_CIPHER_CARRYLESS)
+
+##
+ # Векторное ядро кодека основания 64: двадцать четыре байта за шаг командами AVX2
+ #
+ # @note Ключ даётся одному файлу ядра: оно же несёт команды vzeroupper в эпилогах,
+ #       безвредные лишь машинам с AVX, потому ядро и живёт отдельно от кодека
+ ##
+
+# Подключаем проверку пригодности ключей собирателя
+include(CheckCXXCompilerFlag)
+
+# Если сборка ведётся под x86-64
+if (CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64|AMD64")
+    # Выполняем проверку пригодности ключа векторных команд
+    check_cxx_compiler_flag("-mavx2" AVX2_BASE64_FLAG)
+    # Если ключ векторных команд собирателем принят
+    if (AVX2_BASE64_FLAG)
+        # Отпускаем файлу ядра векторные команды одним файлом
+        set_source_files_properties(src/codec/base64avx.cpp PROPERTIES COMPILE_OPTIONS "-mavx2")
+        # Выводим сообщение о векторном ядре кодека
+        message(STATUS "Base64 codec: AVX2\n")
+    endif (AVX2_BASE64_FLAG)
+endif (CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64|AMD64")
 
 ##
  # Оснащаем сборку метками контроля потока управления
