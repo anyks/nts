@@ -145,7 +145,15 @@ namespace nts {
 			// Имя сертификата нарушает ограничения имён издателя (раздел 4.2.1.10 RFC 5280) либо ограничения не разобрать
 			CONSTRAINED = 0x0D, /*!< \~russian Имя сертификата нарушает ограничения имён издателя (раздел 4.2.1.10 RFC 5280) либо ограничения не разобрать \~english A name of a certificate violates the name constraints of an issuer (the section 4.2.1.10 of RFC 5280) or the constraints cannot be parsed \~ */
 			// Звено цепочки подписано хешем MD5/SHA-1 либо несёт ключ RSA короче 2048 разрядов: стойкости на цепочку доверия недостаёт (RFC 9155, SP 800-131A)
-			WEAK        = 0x0E  /*!< \~russian Звено цепочки подписано хешем MD5/SHA-1 либо несёт ключ RSA короче 2048 разрядов: стойкости на цепочку доверия недостаёт (RFC 9155, SP 800-131A) \~english A link of the chain is signed with an MD5/SHA-1 hash or carries an RSA key shorter than 2048 bits: the strength does not suffice for a chain of the trust (RFC 9155, SP 800-131A) \~ */
+			WEAK        = 0x0E, /*!< \~russian Звено цепочки подписано хешем MD5/SHA-1 либо несёт ключ RSA короче 2048 разрядов: стойкости на цепочку доверия недостаёт (RFC 9155, SP 800-131A) \~english A link of the chain is signed with an MD5/SHA-1 hash or carries an RSA key shorter than 2048 bits: the strength does not suffice for a chain of the trust (RFC 9155, SP 800-131A) \~ */
+			// Сертификат отозван списком отзыва своего издателя (раздел 5 RFC 5280)
+			REVOKED     = 0x0F, /*!< \~russian Сертификат отозван списком отзыва своего издателя (раздел 5 RFC 5280) \~english The certificate is revoked by the revocation list of its issuer (the section 5 of RFC 5280) \~ */
+			// Списка отзыва для издателя звена в запасе нет: запас списками владеет, а этому издателю списка не подали
+			MISSING     = 0x10, /*!< \~russian Списка отзыва для издателя звена в запасе нет: запас списками владеет, а этому издателю списка не подали \~english There is no revocation list for the issuer of a link in the store: the store owns the lists, but none has been given for this issuer \~ */
+			// Список отзыва издателя просрочен: миг проверки ушёл за nextUpdate
+			OUTDATED    = 0x11, /*!< \~russian Список отзыва издателя просрочен: миг проверки ушёл за nextUpdate \~english The revocation list of the issuer is outdated: the moment of the check has gone beyond the nextUpdate \~ */
+			// Список отзыва издателю не отвечает: подпись списка не сошлась с ключом издателя
+			FORGED      = 0x12  /*!< \~russian Список отзыва издателю не отвечает: подпись списка не сошлась с ключом издателя \~english The revocation list does not correspond to the issuer: the signature of the list has not converged with the key of the issuer \~ */
 		};
 
 		/**
@@ -167,6 +175,8 @@ namespace nts {
 			private:
 				// Записи доверенных сертификатов запаса
 				vector <vector <uint8_t>> _chain;
+				// Записи списков отзыва запаса в DER
+				vector <vector <uint8_t>> _lists;
 			public:
 				/**
 				 * \~russian
@@ -220,6 +230,69 @@ namespace nts {
 				 * \~
 				 */
 				bool add(const view_t & certificate) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод добавления списка отзыва в запас
+				 *
+				 * @param list запись добавляемого списка отзыва в DER
+				 * @return     признак успешности добавления списка
+				 *
+				 * @note Список разбирается при добавлении: непригодной записью запас доверия
+				 *       пополнять нечего
+				 *
+				 * @note Поданный список включает проверку отзыва всей цепочки: запас без
+				 *       списков отзыва не проверяет вовсе, а запас со списками требует список
+				 *       каждому издателю звеньев цепочки и отвечает отказом MISSING, если
+				 *       издателю списка не подали (раздел 6.1 RFC 5280)
+				 *
+				 * \~english
+				 * @brief Method of the addition of a revocation list to the store
+				 *
+				 * @param list the record of the revocation list being added in DER
+				 * @return     the flag of the success of the addition of the list
+				 *
+				 * @note The list is parsed at the addition: there is no point in replenishing the store
+				 *       of the trust by an unsuitable record
+				 *
+				 * @note A given list turns on the check of the revocation of the whole chain: a store
+				 *       without revocation lists does not check it at all, while a store with the
+				 *       lists requires a list to every issuer of the links of the chain and answers
+				 *       by the MISSING failure when no list has been given to an issuer
+				 *       (the section 6.1 of RFC 5280)
+				 *
+				 * \~
+				 */
+				bool addList(const view_t & list) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения числа списков отзыва запаса
+				 *
+				 * @return число списков отзыва запаса
+				 *
+				 * \~english
+				 * @brief Method of getting the number of the revocation lists of the store
+				 *
+				 * @return the number of the revocation lists of the store
+				 *
+				 * \~
+				 */
+				size_t lists() const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод получения списка отзыва запаса
+				 *
+				 * @param index место запрашиваемого списка в запасе
+				 * @return      запись запрашиваемого списка отзыва
+				 *
+				 * \~english
+				 * @brief Method of getting a revocation list of the store
+				 *
+				 * @param index the place of the requested list in the store
+				 * @return      the record of the requested revocation list
+				 *
+				 * \~
+				 */
+				view_t list(const size_t index) const noexcept;
 				/**
 				 * \~russian
 				 * @brief Метод сброса запаса доверенных сертификатов
@@ -289,8 +362,10 @@ namespace nts {
 		 *          совпадение издателя с владельцем следующего, право издавать сертификаты и
 		 *          подпись, - а замыкается она сертификатом из запаса доверенных
 		 *
-		 * @note Списки отзыва здесь не проверяются: они добываются по сети, а модуль ввода и
-		 *       вывода не ведёт вовсе
+		 * @note Списки отзыва проверяются лишь поданными в запас вызовом addList: запас без
+		 *       списков отзыва не проверяет вовсе, а запас со списками требует список каждому
+		 *       издателю звеньев цепочки. Ядро ввода и вывода модуль по-прежнему не ведёт:
+		 *       список добывает и подаёт потребитель
 		 *
 		 * \~english
 		 * @brief Function of the check of a chain of the certificates by a store of the trusted ones
@@ -304,8 +379,10 @@ namespace nts {
 		 *          coincidence of the issuer with the subject of the next one, the right to issue the
 		 *          certificates and the signature — and it is closed by a certificate from the store
 		 *
-		 * @note The revocation lists are not checked here: they are obtained over a network, and the module
-		 *       does not lead the input and the output at all
+		 * @note The revocation lists are checked only by the ones given into the store by the addList
+		 *       call: a store without the revocation lists does not check them at all, while a store
+		 *       with the lists requires a list to every issuer of the links of the chain. The module
+		 *       still does not lead the input and the output: the consumer obtains and gives a list
 		 *
 		 * \~
 		 */

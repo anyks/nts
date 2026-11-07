@@ -1607,6 +1607,40 @@ namespace nts {
 				void psk(const context::psk_t & psk) noexcept;
 				/**
 				 * \~russian
+				 * @brief Метод установки выбора подлинности по имени узла из приветствия клиента
+				 *
+				 * @param select настройки выбора: вызов respond «дано имя - подлинность, общая подлинность либо отказ» и указатель контекста потребителя
+				 *
+				 * @details Раздел 3 RFC 6066: сервер, держащий несколько имён одним слушателем, выбирает подлинность по имени узла, предъявленному клиентом расширением server_name. Вызов звучит один раз за полное рукопожатие - после разбора приветствия клиента и до составления ответа сервера, - а при возобновлении связи заранее разделённым ключом либо билетом не звучит вовсе: возобновляемая связь подлинности сертификатом не подтверждает
+				 *
+				 * @details Итог LEAVE оставляет подлинность, установленную вызовом credential; итог GIVEN берёт выданную вызовом - она годна лишь этой связи, годность её (читаемость своего сертификата и соответствие ему ключа) проверяется, и негодная обрывает рукопожатие громким отказом; итог REFUSE обрывает рукопожатие извещением unrecognized_name (112) и отказом NAME
+				 *
+				 * @note Имя передаётся вызову тем порядком, каким его прислал клиент: приведение регистра и подбор маски - дело потребителя, ведущего перечень имён. Клиент без расширения server_name даёт вызову пустое имя
+				 *
+				 * @note Подмена не меняет согласованные пределы изданий, наборы, группы и схемы связи; прошивки состояния и метки времени, установленные для прежней цепочки вызовами status и timestamps, снимаются
+				 *
+				 * @note При принятом ECH выбор идёт по имени внутреннего приветствия, при отвергнутом - по наружному
+				 *
+				 * \~english
+				 * @brief Method of setting the selection of the authenticity by the name of the host from the greeting of the client
+				 *
+				 * @param select the settings of the selection: the respond call «given the name - the authenticity, the common authenticity or a refusal» and the pointer of the context of the consumer
+				 *
+				 * @details The section 3 of RFC 6066: a server holding several names by one listener selects the authenticity by the name of the host presented by the client by the server_name extension. The call sounds once per a full handshake - after the parsing of the greeting of the client and before the composition of the answer of the server, - and at a resumption of the connection by a pre-shared key or by a ticket it does not sound at all: a resumed connection does not confirm the authenticity by a certificate
+				 *
+				 * @details The LEAVE outcome leaves the authenticity set by the credential call; the GIVEN outcome takes the one given by the call - it is valid for this connection only, its validity (the readability of one's own certificate and the correspondence of the key to it) is checked, and an invalid one tears the handshake by a loud refusal; the REFUSE outcome tears the handshake by the unrecognized_name alert (112) and by the NAME failure
+				 *
+				 * @note The name is passed to the call by the same order the client has sent it by: the reduction of the case and the selection of a mask are the business of the consumer keeping the list of the names. A client without the server_name extension gives an empty name to the call
+				 *
+				 * @note The substitution does not change the agreed limits of the editions, the suites, the groups and the schemes of the connection; the status staplings and the timestamps set for the former chain by the status and timestamps calls are taken off
+				 *
+				 * @note At an accepted ECH the selection goes by the name of the inner greeting, at a rejected one - by the outer one
+				 *
+				 * \~
+				 */
+				void select(const context::select_t & select) noexcept;
+				/**
+				 * \~russian
 				 * @brief Метод установки требования порядка «шифрование, затем имитовставка» RFC 7366
 				 *
 				 * @param required обязателен ли порядок encrypt_then_mac при наборе CBC

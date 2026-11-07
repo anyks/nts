@@ -487,6 +487,71 @@ namespace {
 			continue;
 	}
 	/**
+	 * @brief Виды поведения отклика выбора подлинности по имени узла
+	 *
+	 */
+	enum class answer_t : uint8_t {
+		COMMON  = 0x00, // Оставить настроенную подлинность (LEAVE)
+		NAMED   = 0x01, // Выдать подлинность по имени (GIVEN)
+		REFUSED = 0x02, // Отказаться вести имя (REFUSE)
+		SPOILED = 0x03  // Выдать подлинность с испорченным секретным ключом (GIVEN)
+	};
+	/**
+	 * @brief Настройки отклика выбора подлинности по имени узла
+	 *
+	 */
+	typedef struct Selecting {
+		// Имя узла, на которое выдаётся подлинность
+		const char * name;
+		// Подлинность, выдаваемая по имени
+		const context::credential_t * named;
+		// Вид поведения отклика
+		answer_t answer;
+		// Имя, последний раз предъявленное отклику
+		string asked;
+	} selecting_t;
+	/**
+	 * @brief Отклик выбора подлинности сервера по имени узла для пинов
+	 *
+	 * @param name       имя узла, предъявленное клиентом
+	 * @param credential накопитель выдаваемой подлинности
+	 * @param context    настройки отклика
+	 * @return           итог выбора подлинности
+	 *
+	 */
+	context::select_t::outcome_t answering(const string & name, context::credential_t & credential, void * context) noexcept {
+		// Настройки отклика выбора
+		selecting_t & settings = * static_cast <selecting_t *> (context);
+		// Запоминаем имя, предъявленное отклику
+		settings.asked = name;
+		// Если настройки велит выдавать подлинность по имени и имя сошлось
+		if((settings.answer == answer_t::NAMED) || (settings.answer == answer_t::SPOILED)){
+			// Если имя не то, по которому выдаётся подлинность
+			if(name.compare(settings.name) != 0)
+				// Выводим исход «оставить настроенную подлинность»
+				return context::select_t::outcome_t::LEAVE;
+			// Если выдан порченый секретный ключ
+			if(settings.answer == answer_t::SPOILED){
+				// Переносим цепочку сертификатов подлинности
+				credential.chain = settings.named->chain;
+				// Выдаём секретный ключ негодной длины: подготовка подлинности обязана провалиться
+				credential.secret.assign(4, 0);
+				// Выводим исход «взять выданную подлинность»
+				return context::select_t::outcome_t::GIVEN;
+			}
+			// Переносим подлинность целиком
+			credential = * settings.named;
+			// Выводим исход «взять выданную подлинность»
+			return context::select_t::outcome_t::GIVEN;
+		}
+		// Если настройки велит отказываться вести имя
+		if(settings.answer == answer_t::REFUSED)
+			// Выводим исход «оборвать рукопожатие»
+			return context::select_t::outcome_t::REFUSE;
+		// Выводим исход «оставить настроенную подлинность»
+		return context::select_t::outcome_t::LEAVE;
+	}
+	/**
 	 * @brief Виды нарушений договора связи при нехватке памяти
 	 *
 	 */
@@ -777,6 +842,184 @@ TEST(ContextTest, Mutual){
 	ASSERT_EQ(server.peer().size(), static_cast <size_t> (1));
 	// Проверяем схождение принятого сертификата с отправленным
 	ASSERT_EQ(server.peer()[0], second.chain[0]);
+}
+
+/**
+ * Проверка выбора подлинности сервера по имени узла из приветствия клиента
+ */
+TEST(ContextTest, Selection){
+	// Общая подлинность слушателя
+	context::credential_t common;
+	// Выполняем выработку общей подлинности слушателя
+	ASSERT_TRUE(identity("anyks.com", common));
+	// Подлинность, выдаваемая по имени узла
+	context::credential_t named;
+	// Выполняем выработку подлинности, выдаваемой по имени узла
+	ASSERT_TRUE(identity("shop.example.com", named));
+	// Настройки отклика выбора подлинности
+	selecting_t settings;
+	// Устанавливаем имя, по которому выдаётся подлинность
+	settings.name = "shop.example.com";
+	// Устанавливаем подлинность, выдаваемую по имени
+	settings.named = &named;
+	/**
+	 * Выполняем перебор исходов выбора: точное имя выдаёт именованную подлинность, чужое имя и имя без расширения оставляют общую
+	 */
+	for(size_t i = 0; i < 3; i++){
+		// Предъявляемое клиентом имя узла: вторая связь приходит вовсе без имени
+		const char * visited = ((i == 0) ? "shop.example.com" : ((i == 1) ? "other.example.com" : nullptr));
+		// Вид поведения отклика: выдача по имени
+		settings.answer = answer_t::NAMED;
+		// Связи сторон
+		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента
+		gosting(client);
+		// Связь стороны сервера
+		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера
+		gosting(server);
+		// Устанавливаем общую подлинность слушателя
+		server.credential(common);
+		// Устанавливаем выбор подлинности по имени узла
+		server.select(context::select_t(answering, &settings));
+		// Если имя клиентом предъявляется
+		if(visited != nullptr)
+			// Устанавливаем имя узла, предъявляемое клиентом
+			client.name(visited);
+		// Выполняем заведение связи стороны сервера
+		ASSERT_EQ(server.start(), context::error_t::NONE);
+		// Выполняем заведение связи стороны клиента
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		// Выполняем проведение рукопожатия сторон связи
+		converse(client, server);
+		// Проверяем установленность связи стороной клиента
+		ASSERT_TRUE(client.established());
+		// Проверяем установленность связи стороной сервера
+		ASSERT_TRUE(server.established());
+		// Проверяем имя, предъявленное отклику выбора
+		ASSERT_EQ(settings.asked, ((visited != nullptr) ? visited : ""));
+		// Проверяем получение клиентом цепочки сертификатов сервера
+		ASSERT_EQ(client.peer().size(), static_cast <size_t> (1));
+		// Проверяем выданность именованной подлинности по точному имени и общей по прочим
+		ASSERT_EQ(client.peer()[0], ((i == 0) ? named.chain[0] : common.chain[0]));
+	}
+}
+
+/**
+ * Проверка выбора подлинности по имени узла при рукопожатии издания TLS 1.2
+ */
+TEST(ContextTest, SelectionLegacy){
+	// Общая подлинность слушателя из корпуса: наборы издания 1.2 просят ECDSA/RSA
+	context::credential_t common;
+	// Выполняем чтение общей подлинности слушателя
+	ASSERT_TRUE(keyed("rsa2048.pem", "rsa2048.crt", common));
+	// Подлинность, выдаваемая по имени узла, из корпуса
+	context::credential_t named;
+	// Выполняем чтение подлинности, выдаваемой по имени узла
+	ASSERT_TRUE(keyed("ec256.pem", "ec256.crt", named));
+	// Настройки отклика выбора подлинности
+	selecting_t settings;
+	// Устанавливаем имя, по которому выдаётся подлинность
+	settings.name = "shop.example.com";
+	// Устанавливаем подлинность, выдаваемую по имени
+	settings.named = &named;
+	// Устанавливаем вид поведения отклика: выдача по имени
+	settings.answer = answer_t::NAMED;
+	// Связи сторон
+	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента
+	gosting(client);
+	// Связь стороны сервера
+	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера
+	gosting(server);
+	// Ограничиваем издание связи TLS 1.2 у клиента
+	ASSERT_EQ(client.versions(0x0303, 0x0303), context::error_t::NONE);
+	// Ограничиваем издание связи TLS 1.2 у сервера
+	ASSERT_EQ(server.versions(0x0303, 0x0303), context::error_t::NONE);
+	// Устанавливаем общую подлинность слушателя
+	server.credential(common);
+	// Устанавливаем выбор подлинности по имени узла
+	server.select(context::select_t(answering, &settings));
+	// Устанавливаем имя узла, предъявляемое клиентом
+	client.name("shop.example.com");
+	// Выполняем заведение связи стороны сервера
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	// Выполняем заведение связи стороны клиента
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	// Выполняем проведение рукопожатия сторон связи
+	converse(client, server);
+	// Проверяем отсутствие отказа заведения связи стороной сервера
+	ASSERT_EQ(server.error(), context::error_t::NONE);
+	// Проверяем отсутствие отказа заведения связи стороной клиента
+	ASSERT_EQ(client.error(), context::error_t::NONE);
+	// Проверяем установленность связи стороной клиента
+	ASSERT_TRUE(client.established());
+	// Проверяем установленность связи стороной сервера
+	ASSERT_TRUE(server.established());
+	// Проверяем издание связи
+	ASSERT_EQ(client.version(), static_cast <uint16_t> (0x0303));
+	// Проверяем имя, предъявленное отклику выбора
+	ASSERT_EQ(settings.asked, "shop.example.com");
+	// Проверяем выдачу именованной подлинности по точному имени
+	ASSERT_EQ(client.peer().size(), static_cast <size_t> (1));
+	// Проверяем схождение принятого сертификата с именованным
+	ASSERT_EQ(client.peer()[0], named.chain[0]);
+}
+
+/**
+ * Проверка обрыва рукопожатия отказом выбора подлинности и негодной выданной подлинностью
+ */
+TEST(ContextTest, SelectionRefusals){
+	// Общая подлинность слушателя
+	context::credential_t common;
+	// Выполняем выработку общей подлинности слушателя
+	ASSERT_TRUE(identity("anyks.com", common));
+	// Подлинность, выдаваемая по имени узла
+	context::credential_t named;
+	// Выполняем выработку подлинности, выдаваемой по имени узла
+	ASSERT_TRUE(identity("shop.example.com", named));
+	// Настройки отклика выбора подлинности
+	selecting_t settings;
+	// Устанавливаем имя, по которому выдаётся подлинность
+	settings.name = "shop.example.com";
+	// Устанавливаем подлинность, выдаваемую по имени
+	settings.named = &named;
+	// Отказы выбора подлинности, ожидаемые по видам поведения отклика
+	const context::error_t expected[] = {context::error_t::NAME, context::error_t::SIGNATURE};
+	/**
+	 * Выполняем перебор видов поведения отклика: отказ вести имя и порченый выданный ключ
+	 */
+	for(size_t i = 0; i < 2; i++){
+		// Устанавливаем вид поведения отклика
+		settings.answer = ((i == 0) ? answer_t::REFUSED : answer_t::SPOILED);
+		// Связи сторон
+		client::context_t client;
+		// Объявляем ГОСТ в настройках связи стороны клиента
+		gosting(client);
+		// Связь стороны сервера
+		server::context_t server;
+		// Объявляем ГОСТ в настройках связи стороны сервера
+		gosting(server);
+		// Устанавливаем общую подлинность слушателя
+		server.credential(common);
+		// Устанавливаем выбор подлинности по имени узла
+		server.select(context::select_t(answering, &settings));
+		// Устанавливаем имя узла, предъявляемое клиентом
+		client.name("shop.example.com");
+		// Выполняем заведение связи стороны сервера
+		ASSERT_EQ(server.start(), context::error_t::NONE);
+		// Выполняем заведение связи стороны клиента
+		ASSERT_EQ(client.start(), context::error_t::NONE);
+		// Выполняем проведение рукопожатия сторон связи
+		converse(client, server);
+		// Проверяем неустановленность связи сторон
+		ASSERT_FALSE(client.established() || server.established());
+		// Проверяем отказ выбора подлинности стороной сервера
+		ASSERT_EQ(server.error(), expected[i]);
+		// Проверяем получение клиентом фатального извещения
+		ASSERT_EQ(client.error(), context::error_t::ALERT);
+	}
 }
 
 /**

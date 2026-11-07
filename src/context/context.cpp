@@ -750,6 +750,21 @@ nts::context::Psk::Psk() noexcept : respond(nullptr), advise(nullptr), context(n
  * @brief Конструктор
  *
  */
+nts::context::Select::Select() noexcept : respond(nullptr), context(nullptr) {}
+
+/**
+ * @brief Конструктор
+ *
+ * @param respond вызов выбора подлинности по имени узла
+ * @param context указатель контекста потребителя
+ *
+ */
+nts::context::Select::Select(respond_t respond, void * context) noexcept : respond(respond), context(context) {}
+
+/**
+ * @brief Конструктор
+ *
+ */
 nts::context::Keylog::Keylog() noexcept : log(nullptr), context(nullptr) {}
 
 /**

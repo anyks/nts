@@ -83,6 +83,7 @@
  */
 #include <trust/trust.hpp>
 #include <x509/signature.hpp>
+#include <x509/crl.hpp>
 
 /**
  * Используем стандартное пространство имён
@@ -1085,6 +1086,110 @@ namespace {
 		// Выводим успешность проверки срока действия сертификата
 		return error_t::NONE;
 	}
+	/**
+	 * @brief Функция проверки отзыва сертификата списком его издателя
+	 *
+	 * @param item   проверяемое звено цепочки
+	 * @param issuer издатель проверяемого звена: следующее звено цепочки
+	 * @param store  запас доверенных сертификатов и списков отзыва
+	 * @param moment миг проверки в секундах от начала эпохи
+	 * @return       отказ проверки отзыва звена
+	 *
+	 */
+	static error_t revoking(const x509::certificate_t & item, const x509::certificate_t & issuer, const store_t & store, const int64_t moment) noexcept {
+		/**
+		 * Запас без списков отзыва отзыва не проверяет вовсе: списков не подали, и вменять
+		 * звену чужую провину нечем
+		 */
+		if(store.lists() == 0)
+			// Выводим успешность проверки отзыва
+			return error_t::NONE;
+		// Имя владельца издателя звена
+		string subject;
+		// Итог разбора имени, о нехватке памяти под который отвечает свой отказ
+		const x509::error_t owned = x509::text(issuer.subjects(), subject);
+		// Если памяти под разбор имени не хватило
+		if(owned == x509::error_t::MEMORY)
+			// Выводим отказ нехватки памяти
+			return error_t::MEMORY;
+		// Если имя владельца издателя получить не удалось
+		if(owned != x509::error_t::NONE)
+			// Выводим отказ разбора имени
+			return error_t::PARSE;
+		/**
+		 * Выполняем перебор списков отзыва запаса
+		 */
+		for(size_t i = 0; i < store.lists(); i++){
+			// Объект разбора очередного списка отзыва
+			x509::crl_t list;
+			// Итог разбора, о нехватке памяти под который отвечает свой отказ
+			const x509::error_t parsed = list.parse(store.list(i));
+			// Если памяти под разбор списка не хватило
+			if(parsed == x509::error_t::MEMORY)
+				// Выводим отказ нехватки памяти
+				return error_t::MEMORY;
+			// Если список запаса разобрать не удалось
+			if(parsed != x509::error_t::NONE)
+				// Переходим к следующему списку отзыва запаса
+				continue;
+			// Имя издателя очередного списка отзыва
+			string named;
+			// Итог разбора имени, о нехватке памяти под который отвечает свой отказ
+			const x509::error_t listed = x509::text(list.issuers(), named);
+			// Если памяти под разбор имени не хватило
+			if(listed == x509::error_t::MEMORY)
+				// Выводим отказ нехватки памяти
+				return error_t::MEMORY;
+			// Если имя издателя списка получить не удалось
+			if(listed != x509::error_t::NONE)
+				// Переходим к следующему списку отзыва запаса
+				continue;
+			// Если издатель списка с издателем звена разошёлся
+			if(named.compare(subject) != 0)
+				// Переходим к следующему списку отзыва запаса
+				continue;
+			/**
+			 * Список издателя звена найден: раздел 5 RFC 5280 велит списку быть подписанным
+			 * тем же ключом, каким подписаны сертификаты издателя
+			 */
+			// Итог проверки подписи списка ключом издателя звена
+			const x509::error_t attested = x509::verify(list, issuer.key());
+			// Если памяти под проверку подписи не хватило
+			if(attested == x509::error_t::MEMORY)
+				// Выводим отказ нехватки памяти
+				return error_t::MEMORY;
+			// Если подпись списка с ключом издателя не сошлась
+			if(attested != x509::error_t::NONE)
+				// Выводим отказ подписи списка отзыва
+				return error_t::FORGED;
+			// Дата издания списка и дата следующего списка
+			int64_t updated = 0, upcoming = 0;
+			// Выполняем получение дат списка отзыва
+			list.updates(updated, upcoming);
+			// Если миг проверки ушёл за дату следующего списка: список просрочен
+			if((upcoming != 0) && (moment > upcoming))
+				// Выводим отказ просрочки списка отзыва
+				return error_t::OUTDATED;
+			/**
+			 * Выполняем перебор отозванных списком серийных номеров: списание ведётся номером
+			 * записи сертификата, отозванной издателем списка
+			 */
+			for(size_t j = 0; j < list.revoked().size(); j++){
+				// Серийный номер очередной отозванной записи
+				const view_t & revoked = list.revoked()[j].serial;
+				// Серийный номер проверяемого звена
+				const view_t & number = item.number();
+				// Если серийный номер звена с отозванным сошёлся
+				if((revoked.size == number.size) && ((revoked.size == 0) || (::memcmp(revoked.data, number.data, revoked.size) == 0)))
+					// Выводим отказ отзыва сертификата
+					return error_t::REVOKED;
+			}
+			// Серийного номера звена в списке издателя нет: звено не отозвано
+			return error_t::NONE;
+		}
+		// Списка издателя звена в запасе не подали: проверка отзыва включена, а списка нет
+		return error_t::MISSING;
+	}
 };
 
 /**
@@ -1156,6 +1261,70 @@ bool nts::trust::Store::add(const view_t & certificate) noexcept {
 void nts::trust::Store::clear() noexcept {
 	// Выполняем сброс запаса доверенных сертификатов
 	this->_chain.clear();
+	// Выполняем сброс запаса списков отзыва
+	this->_lists.clear();
+}
+/**
+ * @brief Метод добавления списка отзыва в запас
+ *
+ * @param list запись добавляемого списка отзыва в DER
+ * @return     признак успешности добавления списка
+ *
+ */
+bool nts::trust::Store::addList(const view_t & list) noexcept {
+	// Если запись добавляемого списка не передана
+	if((list.data == nullptr) || (list.size == 0))
+		// Выводим отказ добавления списка в запас
+		return false;
+	// Объект разбора добавляемого списка отзыва
+	x509::crl_t item;
+	/**
+	 * Список разбирается при добавлении: непригодной записью запас доверия пополнять
+	 * нечего, а узнать о её непригодности посреди проверки цепочки поздно
+	 */
+	if(item.parse(list) != x509::error_t::NONE)
+		// Выводим отказ добавления списка в запас
+		return false;
+	/**
+	 * Выполняем перехват ошибок
+	 */
+	try {
+		// Добавляем запись списка отзыва в запас
+		this->_lists.push_back(vector <uint8_t> (list.data, list.data + list.size));
+	/**
+	 * Выполняем перехват ошибок
+	 */
+	} catch(const bad_alloc &) {
+		// Выводим отказ добавления списка в запас
+		return false;
+	}
+	// Выводим успешность добавления списка в запас
+	return true;
+}
+/**
+ * @brief Метод получения числа списков отзыва запаса
+ *
+ * @return число списков отзыва запаса
+ *
+ */
+size_t nts::trust::Store::lists() const noexcept {
+	// Выводим число списков отзыва запаса
+	return this->_lists.size();
+}
+/**
+ * @brief Метод получения списка отзыва запаса
+ *
+ * @param index место запрашиваемого списка в запасе
+ * @return      запись запрашиваемого списка отзыва
+ *
+ */
+view_t nts::trust::Store::list(const size_t index) const noexcept {
+	// Если запрашиваемого списка в запасе нет
+	if(index >= this->_lists.size())
+		// Выводим пустую запись списка отзыва
+		return view_t();
+	// Выводим запись запрашиваемого списка отзыва запаса
+	return view_t(this->_lists[index].data(), this->_lists[index].size());
 }
 /**
  * @brief Функция проверки цепочки сертификатов запасом доверенных
@@ -1339,6 +1508,12 @@ nts::trust::error_t nts::trust::verify(const vector <vector <uint8_t>> & chain, 
 		if(attested != x509::error_t::NONE)
 			// Выводим отказ схождения подписи сертификата
 			return error_t::SIGNATURE;
+		// Итог проверки отзыва звена списком его издателя
+		const error_t recalled = revoking(items[i], items[i + 1], store, moment);
+		// Если звено отозвано либо список его издателя негоден
+		if(recalled != error_t::NONE)
+			// Выводим отказ отзыва звена цепочки
+			return recalled;
 	}
 	// Получаем последний сертификат проверяемой цепочки
 	const x509::certificate_t & last = items[items.size() - 1];
@@ -1448,6 +1623,12 @@ nts::trust::error_t nts::trust::verify(const vector <vector <uint8_t>> & chain, 
 		if(anchored != x509::error_t::NONE)
 			// Переходим к следующему доверенному сертификату запаса
 			continue;
+		// Итог проверки отзыва последнего звена списком его издателя-якоря
+		const error_t recalled = revoking(last, anchor, store, moment);
+		// Если последнее звено отозвано либо список его издателя негоден
+		if(recalled != error_t::NONE)
+			// Выводим отказ отзыва последнего звена цепочки
+			return recalled;
 		// Выводим успешность проверки цепочки сертификатов
 		return error_t::NONE;
 	}

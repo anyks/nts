@@ -6604,6 +6604,15 @@ context::error_t nts::internal::Engine::incoming(const view_t & body, const view
 		if(this->_machine.accept(handshake::type_t::CLIENT, session::side_t::CLIENT) != flow::error_t::NONE)
 			// Выводим отказ объявления сообщения не в свой черёд
 			return this->abort(context::error_t::ORDER, alert::description_t::UNEXPECTED);
+		// Если связь не возобновлена заранее разделённым ключом либо билетом: подлинность подтверждается сертификатом
+		if(!this->_shared){
+			// Отказ выбора подлинности сервера по имени узла приветствия
+			failure = this->choosing();
+			// Если выбор подлинности обрывал рукопожатие
+			if(failure != context::error_t::NONE)
+				// Выводим отказ выбора подлинности
+				return failure;
+		}
 		// Если упреждающие данные клиентом предложены
 		if(hello::extension(greeting.extensions, static_cast <uint16_t> (extension::type_t::EARLY)) != nullptr){
 			/**
@@ -9721,6 +9730,57 @@ void nts::internal::Engine::credential(const context::credential_t & credential)
 		this->_starved = true;
 	}
 }
+
+/**
+ * @brief Метод выбора подлинности сервера по имени узла из принятого приветствия
+ *
+ * @return отказ выбора подлинности по имени узла
+ *
+ */
+context::error_t nts::internal::Engine::choosing() noexcept {
+	// Если выбор подлинности по имени потребителем не задан
+	if(this->_select.respond == nullptr)
+		// Выводим успешность выбора: подлинность остаётся настроенной
+		return context::error_t::NONE;
+	// Подлинность, выданная потребителем по имени узла
+	context::credential_t candidate;
+	// Итог выбора потребителя по предъявленному имени узла
+	const context::select_t::outcome_t outcome = this->_select.respond(this->_name, candidate, this->_select.context);
+	// Если потребитель отказался вести имя узла
+	if(outcome == context::select_t::outcome_t::REFUSE)
+		// Раздел 3 RFC 6066: нежелание сервера вести имя отвечается извещением unrecognized_name
+		return this->abort(context::error_t::NAME, alert::description_t::NAME);
+	// Если потребитель оставил настроенную подлинность
+	if(outcome != context::select_t::outcome_t::GIVEN)
+		// Выводим успешность выбора: подлинность остаётся настроенной
+		return context::error_t::NONE;
+	// Если выданная подлинность не несёт цепочки своего сертификата
+	if(candidate.chain.empty()){
+		// Выполняем затирание выданного секретного ключа
+		this->purge(candidate.secret.data(), candidate.secret.size());
+		// Выводим отказ негодной выданной подлинности
+		return this->abort(context::error_t::CERTIFICATE, alert::description_t::INTERNAL);
+	}
+	// Отказ подготовки выданной подлинности
+	const context::error_t failure = candidate.prepare();
+	// Если выданную подлинность подготовить не удалось: ключ не читается либо сертификату не отвечает
+	if(failure != context::error_t::NONE){
+		// Выполняем затирание выданного секретного ключа
+		this->purge(candidate.secret.data(), candidate.secret.size());
+		// Выводим отказ негодной выданной подлинности
+		return this->abort(failure, alert::description_t::INTERNAL);
+	}
+	// Устанавливаем выданную подлинность своей стороны связи: прежний ключ затирается установкой
+	this->credential(candidate);
+	// Выполняем затирание выданного секретного ключа
+	this->purge(candidate.secret.data(), candidate.secret.size());
+	// Снимаем прошивки состояния, привязанные к прежней цепочке своего сертификата
+	this->_staples.clear();
+	// Снимаем метки времени, привязанные к прежней цепочке своего сертификата
+	this->_stamps.clear();
+	// Выводим успешность выбора подлинности
+	return context::error_t::NONE;
+}
 /**
  * @brief Метод получения подготовленного секретного ключа своей подлинности
  *
@@ -12784,6 +12844,15 @@ context::error_t nts::internal::Engine::welcome(const hello::client_t & greeting
 			// Выполняем сброс состояния билета с затиранием главного секрета
 			recalled.clear();
 		}
+		// Если рукопожатие полное: подлинность выбирается по имени узла приветствия
+		if(!this->_resumed){
+			// Отказ выбора подлинности сервера по имени узла приветствия
+			failure = this->choosing();
+			// Если выбор подлинности обрывал рукопожатие
+			if(failure != context::error_t::NONE)
+				// Выводим отказ выбора подлинности
+				return failure;
+		}
 		// Алгоритм подписи ключа своего сертификата: NONE у сервера без сертификата
 		protect::signer_t signer = protect::signer_t::NONE;
 		// Если своя подлинность у сервера есть
@@ -15281,6 +15350,29 @@ void nts::internal::Engine::psk(const context::psk_t & psk) noexcept {
 	} catch(const bad_alloc &) {
 		// Выполняем сброс настроек заранее разделённого ключа
 		this->_psk = context::psk_t();
+		// Запоминаем, что настройкам связи памяти не хватило
+		this->_starved = true;
+	}
+}
+/**
+ * @brief Метод установки выбора подлинности сервера по имени узла
+ *
+ * @param select настройки выбора подлинности по имени узла
+ *
+ */
+void nts::internal::Engine::select(const context::select_t & select) noexcept {
+	/**
+	 * Выполняем перехват ошибок
+	 */
+	try {
+		// Запоминаем настройки выбора подлинности по имени узла
+		this->_select = select;
+	/**
+	 * Выполняем перехват ошибок
+	 */
+	} catch(const bad_alloc &) {
+		// Выполняем сброс настроек выбора подлинности по имени узла
+		this->_select = context::select_t();
 		// Запоминаем, что настройкам связи памяти не хватило
 		this->_starved = true;
 	}

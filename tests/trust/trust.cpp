@@ -1502,6 +1502,36 @@ static bool corpus(const char * name, vector <vector <uint8_t>> & result) {
 	return (pem::certificates(text, result) == pem::error_t::NONE);
 }
 /**
+ * @brief Функция чтения списка отзыва из файла набора образцов
+ *
+ * @param name   имя файла набора образцов
+ * @param result тело записи списка отзыва в кодировке DER
+ * @return       признак успешности чтения списка отзыва
+ *
+ */
+static bool listing(const char * name, vector <uint8_t> & result) {
+	// Путь к файлу набора образцов
+	const string path = string(ANTS_CORPUS) + "/" + name;
+	// Открываем файл набора образцов
+	ifstream file(path, ios::binary);
+	// Если файл открыть не удалось
+	if(!file.is_open())
+		// Выводим отказ чтения списка отзыва
+		return false;
+	// Считываем содержимое файла целиком
+	const string text((istreambuf_iterator <char> (file)), istreambuf_iterator <char> ());
+	// Разобранные записи текста
+	vector <pem::block_t> blocks;
+	// Если записи разобрать не удалось либо их нет
+	if((pem::decode(text, blocks) != pem::error_t::NONE) || blocks.empty())
+		// Выводим отказ чтения списка отзыва
+		return false;
+	// Переносим тело первой записи как запись списка отзыва
+	result = blocks.front().data;
+	// Выводим успешность чтения списка отзыва
+	return true;
+}
+/**
  * Проверка доверия цепочке ML-DSA набора образцов: подписи звеньев и корня по
  * FIPS 204, разбор сертификатов RFC 9881 без параметров у открытых ключей
  */
@@ -2323,4 +2353,108 @@ TEST(TrustTest, RootedPattern){
 	ASSERT_TRUE(make("anyks.com..", "anyks.com..", subject, vector <uint8_t> (), options_t (), common));
 	// Проверяем отказ сличения имени узла с негодным общим именем владельца
 	EXPECT_EQ(trust::belongs(view_t(common.data(), common.size()), "anyks.com"), trust::error_t::NAME);
+}
+
+/**
+ * Проверка отзыва цепочки сертификатов списками издателя: поданный список включает
+ * проверку отзыва, отозванный лист отторгается, чистый принимается, просрочка и
+ * порча списка отторгают, отсутствие списка у издателя - отказ, запас без списков
+ * отзыва не проверяет вовсе
+ */
+TEST(TrustTest, Revocation){
+	// Запись корня издателя набора
+	vector <vector <uint8_t>> root;
+	// Выполняем чтение корня издателя набора
+	ASSERT_TRUE(corpus("ca-crlrev.crt", root));
+	// Запись отозванного листа набора
+	vector <vector <uint8_t>> revoked;
+	// Выполняем чтение отозванного листа набора
+	ASSERT_TRUE(corpus("leaf-revoked.crt", revoked));
+	// Запись чистого листа набора
+	vector <vector <uint8_t>> clean;
+	// Выполняем чтение чистого листа набора
+	ASSERT_TRUE(corpus("leaf-clean.crt", clean));
+	// Запись списка отзыва корня набора
+	vector <uint8_t> crl;
+	// Выполняем чтение списка отзыва корня набора
+	ASSERT_TRUE(listing("ca-crlrev.crl", crl));
+	// Миг проверки внутри срока действия списка отзыва (10.11.2026)
+	constexpr int64_t INSIDE = 1794268800;
+	// Миг проверки за сроком действия списка отзыва (01.06.2037)
+	constexpr int64_t LATER = 2127427200;
+	// Цепочка из отозванного листа
+	const vector <vector <uint8_t>> torn = {revoked.front()};
+	// Цепочка из чистого листа
+	const vector <vector <uint8_t>> whole = {clean.front()};
+	// Запас без списков отзыва: отзыва нет вовсе
+	{
+		// Запас доверенных сертификатов
+		trust::store_t store;
+		// Выполняем добавление корня издателя в запас доверенных
+		ASSERT_TRUE(store.add(view_t(root.front().data(), root.front().size())));
+		// Проверяем, что запас списков отзыва не ведёт
+		ASSERT_EQ(store.lists(), static_cast <size_t> (0));
+		// Отозванный лист без списков принимается: отзыв не проверяется
+		EXPECT_EQ(trust::verify(torn, store, INSIDE), trust::error_t::NONE);
+	}
+	// Запас со списком издателя: отзыв проверяется
+	{
+		// Запас доверенных сертификатов
+		trust::store_t store;
+		// Выполняем добавление корня издателя в запас доверенных
+		ASSERT_TRUE(store.add(view_t(root.front().data(), root.front().size())));
+		// Выполняем добавление списка отзыва корня в запас
+		ASSERT_TRUE(store.addList(view_t(crl.data(), crl.size())));
+		// Проверяем число списков отзыва запаса
+		ASSERT_EQ(store.lists(), static_cast <size_t> (1));
+		// Проверяем чтение записи списка отзыва запаса
+		EXPECT_EQ(store.list(0).size, crl.size());
+		// Отозванный лист отторгается списком издателя
+		EXPECT_EQ(trust::verify(torn, store, INSIDE), trust::error_t::REVOKED);
+		// Чистый лист принимается списком издателя
+		EXPECT_EQ(trust::verify(whole, store, INSIDE), trust::error_t::NONE);
+		// Миг за сроком действия списка: даже чистый лист отторгается просрочкой
+		EXPECT_EQ(trust::verify(whole, store, LATER), trust::error_t::OUTDATED);
+	}
+	// Запас с испорченным списком: подпись списка с ключом издателя не сходится
+	{
+		// Запись испорченного списка отзыва: последний байт подписи перевёрнут
+		vector <uint8_t> broken(crl);
+		// Переворачиваем последний байт записи списка отзыва
+		broken.back() ^= 0xFF;
+		// Запас доверенных сертификатов
+		trust::store_t store;
+		// Выполняем добавление корня издателя в запас доверенных
+		ASSERT_TRUE(store.add(view_t(root.front().data(), root.front().size())));
+		// Выполняем добавление испорченного списка отзыва в запас: разбор записи проходит
+		ASSERT_TRUE(store.addList(view_t(broken.data(), broken.size())));
+		// Чистый лист отторгается негодной подписью списка издателя
+		EXPECT_EQ(trust::verify(whole, store, INSIDE), trust::error_t::FORGED);
+	}
+	// Запас со списком чужого издателя: списки поданы, а этому издателю списка не подали
+	{
+		// Запись списка отзыва чужого издателя
+		vector <uint8_t> foreign;
+		// Выполняем чтение списка отзыва чужого издателя
+		ASSERT_TRUE(listing("ca-rsa.crl", foreign));
+		// Запас доверенных сертификатов
+		trust::store_t store;
+		// Выполняем добавление корня издателя в запас доверенных
+		ASSERT_TRUE(store.add(view_t(root.front().data(), root.front().size())));
+		// Выполняем добавление чужого списка отзыва в запас
+		ASSERT_TRUE(store.addList(view_t(foreign.data(), foreign.size())));
+		// Чистый лист отторгается отсутствием списка у своего издателя
+		EXPECT_EQ(trust::verify(whole, store, INSIDE), trust::error_t::MISSING);
+	}
+	// Негодные записи списка отзыва в запас не попадают
+	{
+		// Запас доверенных сертификатов
+		trust::store_t store;
+		// Пустая запись списка отзыва не добавляется
+		EXPECT_FALSE(store.addList(view_t()));
+		// Запись мусора списком отзыва не добавляется
+		EXPECT_FALSE(store.addList(view_t(reinterpret_cast <const uint8_t *> ("not-a-crl"), 9)));
+		// Проверяем, что запас списков отзыва пуст
+		EXPECT_EQ(store.lists(), static_cast <size_t> (0));
+	}
 }

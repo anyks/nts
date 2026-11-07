@@ -763,6 +763,18 @@ void nts::server::Context::psk(const context::psk_t & psk) noexcept {
 		this->_engine->psk(psk);
 }
 /**
+ * @brief Метод установки выбора подлинности по имени узла из приветствия клиента
+ *
+ * @param select настройки выбора подлинности: вызов «дано имя - подлинность, общая подлинность либо отказ»
+ *
+ */
+void nts::server::Context::select(const context::select_t & select) noexcept {
+	// Если ведение связи заведено
+	if(this->_engine != nullptr)
+		// Выполняем установку выбора подлинности по имени узла
+		this->_engine->select(select);
+}
+/**
  * @brief Метод установки требования порядка «шифрование, затем имитовставка» RFC 7366
  *
  * @param required обязателен ли порядок encrypt_then_mac при наборе CBC

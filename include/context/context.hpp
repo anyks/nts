@@ -180,7 +180,9 @@ namespace nts {
 			// Зашифрованное приветствие ECH отвергнуто сервером: рукопожатие сложилось по публичному имени и оборвано извещением ech_required, запасные конфигурации сервера - в retry(); либо конфигурации ECH негодны
 			ECH         = 0x22, /*!< \~russian Зашифрованное приветствие ECH отвергнуто сервером: рукопожатие сложилось по публичному имени и оборвано извещением ech_required, запасные конфигурации сервера - в retry(); либо конфигурации ECH негодны \~english The encrypted client hello ECH has been rejected by the server: the handshake has completed by the public name and has been aborted by the ech_required alert, the retry configurations of the server are in retry(); or the ECH configurations are invalid \~ */
 			// Перечень меток времени сертификата собеседника сложен не по правилам (RFC 6962)
-			TIMESTAMPS  = 0x23  /*!< \~russian Перечень меток времени сертификата собеседника сложен не по правилам (RFC 6962) \~english The list of the certificate timestamps of the peer is composed not by the rules (RFC 6962) \~ */
+			TIMESTAMPS  = 0x23, /*!< \~russian Перечень меток времени сертификата собеседника сложен не по правилам (RFC 6962) \~english The list of the certificate timestamps of the peer is composed not by the rules (RFC 6962) \~ */
+			// Выбор подлинности сервера по имени узла отказан потребителем (RFC 6066)
+			NAME        = 0x24  /*!< \~russian Выбор подлинности сервера по имени узла отказан потребителем (RFC 6066) \~english The selection of the authenticity of the server by the name of the host has been refused by the consumer (RFC 6066) \~ */
 		};
 
 		/**
@@ -671,6 +673,144 @@ namespace nts {
 			 */
 			~Psk() noexcept;
 		} psk_t;
+		/**
+		 * \~russian
+		 * @brief Выбор подлинности сервера по имени узла
+		 *
+		 * @details Раздел 3 RFC 6066 велит серверу выбирать подлинность по имени узла,
+		 *          предъявленному клиентом расширением server_name. Сервер держит много
+		 *          имён одним контекстом, оттого не хранит подлинности, а отвечает на
+		 *          предъявленное имя вызовом «дано имя - подлинность, общая подлинность
+		 *          либо отказ». Вызов звучит один раз за полное рукопожатие - после
+		 *          разбора приветствия клиента и до составления ответа сервера, - а при
+		 *          возобновлении связи заранее разделённым ключом либо билетом не звучит
+		 *          вовсе: возобновляемая связь подлинности сертификатом не подтверждает
+		 *
+		 * @note Имя передаётся вызову тем порядком, каким его прислал клиент: приведение
+		 *       регистра и подбор маски по имени - дело потребителя, ведущего перечень имён
+		 *
+		 * @note Подлинность, выданная вызовом, годна лишь этой связи: настройки остальных
+		 *       связей слушателя она не меняет. Выданная подлинность проверяется на годность
+		 *       (читаемость своего сертификата и соответствие ему ключа), и негодная обрывает
+		 *       рукопожатие громким отказом, а не молчаливо оставляет общую
+		 *
+		 * @note Отказ выбора (REFUSE) обрывает рукопожатие извещением unrecognized_name,
+		 *       как велит раздел 3 RFC 6066 серверу, не желающему вести имя
+		 *
+		 * @note При принятом ECH вызов звучит по имени внутреннего приветствия, при
+		 *       отвергнутом - по наружному: выбирает то приветствие, которым связь ведётся
+		 *
+		 * \~english
+		 * @brief Selection of the authenticity of the server by the name of the host
+		 *
+		 * @details The section 3 of RFC 6066 tells the server to select the authenticity by
+		 *          the name of the host presented by the client by the server_name extension.
+		 *          The server holds many names by one context, hence it does not store the
+		 *          authenticities but answers the presented name by the call «given the name -
+		 *          the authenticity, the common authenticity or a refusal». The call sounds
+		 *          once per a full handshake - after the parsing of the greeting of the client
+		 *          and before the composition of the answer of the server, - and at a
+		 *          resumption of the connection by a pre-shared key or by a ticket it does not
+		 *          sound at all: a resumed connection does not confirm the authenticity by a
+		 *          certificate
+		 *
+		 * @note The name is passed to the call by the same order the client has sent it by:
+		 *          the reduction of the case and the selection of a mask by the name are the
+		 *          business of the consumer keeping the list of the names
+		 *
+		 * @note The authenticity given by the call is valid for this connection only: it does
+		 *          not change the settings of the other connections of the listener. The given
+		 *          authenticity is checked for a validity (the readability of one's own
+		 *          certificate and the correspondence of the key to it), and an invalid one
+		 *          tears the handshake by a loud refusal but does not silently leave the
+		 *          common one
+		 *
+		 * @note A refusal of the selection (REFUSE) tears the handshake by the
+		 *          unrecognized_name alert, as the section 3 of RFC 6066 tells a server
+		 *          unwilling to lead the name
+		 *
+		 * @note At an accepted ECH the call sounds by the name of the inner greeting, at a
+		 *          rejected one - by the outer one: the greeting the connection is led by
+		 *          selects
+		 *
+		 * \~
+		 */
+		typedef struct __ANTS_SHARED_EXPORT__ Select {
+			/**
+			 * \~russian
+			 * @brief Итог выбора подлинности
+			 *
+			 * \~english
+			 * @brief Outcome of the selection of the authenticity
+			 *
+			 * \~
+			 */
+			enum class outcome_t : uint8_t {
+				// Оставить настроенную подлинность связи
+				LEAVE  = 0, /*!< \~russian Оставить настроенную подлинность связи \~english Leave the configured authenticity of the connection \~ */
+				// Взять подлинность, выданную вызовом
+				GIVEN  = 1, /*!< \~russian Взять подлинность, выданную вызовом \~english Take the authenticity given by the call \~ */
+				// Оборвать рукопожатие именем, вести которое потребитель отказался
+				REFUSE = 2  /*!< \~russian Оборвать рукопожатие именем, вести которое потребитель отказался \~english Tear the handshake by the name the consumer has refused to lead \~ */
+			};
+			/**
+			 * \~russian
+			 * @brief Вызов сервера: подлинность по имени узла, предъявленному клиентом
+			 *
+			 * @param name       имя узла, как его прислал клиент; пустое имя - расширения
+			 *                   server_name в приветствии не было
+			 * @param credential накопитель, в который помещается выданная подлинность
+			 *                   при исходе GIVEN
+			 * @param context    указатель контекста потребителя
+			 * @return           итог выбора: LEAVE оставляет настроенную подлинность,
+			 *                   GIVEN берёт выданную, REFUSE обрывает рукопожатие
+			 *
+			 * \~english
+			 * @brief Call of the server: the authenticity by the name of the host presented by the client
+			 *
+			 * @param name       the name of the host as the client has sent it; an empty name -
+			 *                   there was no server_name extension in the greeting
+			 * @param credential the accumulator the given authenticity is put into at the
+			 *                   GIVEN outcome
+			 * @param context    the pointer of the context of the consumer
+			 * @return           the outcome of the selection: LEAVE leaves the configured
+			 *                   authenticity, GIVEN takes the given one, REFUSE tears the
+			 *                   handshake
+			 *
+			 * \~
+			 */
+			typedef outcome_t (* respond_t)(const string & name, credential_t & credential, void * context);
+			// Выбор подлинности по имени узла
+			respond_t respond;
+			// Указатель контекста потребителя, передаваемый вызову как есть
+			void * context;
+			/**
+			 * \~russian
+			 * @brief Конструктор
+			 *
+			 * \~english
+			 * @brief Constructor
+			 *
+			 * \~
+			 */
+			Select() noexcept;
+			/**
+			 * \~russian
+			 * @brief Конструктор
+			 *
+			 * @param respond вызов выбора подлинности по имени узла
+			 * @param context указатель контекста потребителя
+			 *
+			 * \~english
+			 * @brief Constructor
+			 *
+			 * @param respond the call of the selection of the authenticity by the name of the host
+			 * @param context the pointer of the context of the consumer
+			 *
+			 * \~
+			 */
+			Select(respond_t respond, void * context) noexcept;
+		} select_t;
 		/**
 		 * \~russian
 		 * @brief Билет возобновления связи
