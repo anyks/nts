@@ -39,7 +39,21 @@
  * byte: за подпиской заголовков библиотеки на пространство std имя двоится со
  * std::byte, потому системные заголовки подключаются раньше всех прочих
  */
-#if defined(ANTS_BENCH_OPENSSL) && defined(_WIN32)
+#if (defined(ANTS_BENCH_OPENSSL) || defined(ANTS_BENCH_BORINGSSL)) && defined(_WIN32)
+	/**
+	 * Заголовки BoringSSL не выносят полного <windows.h>: его широкие определения
+	 * ломают склейку имён в макросах эталона, оттого окна отсекаются до худых
+	 */
+	#ifdef ANTS_BENCH_BORINGSSL
+		/**
+		 * Отсекаем широкую часть <windows.h>: сокеты и окна остаются, прочее уходит
+		 */
+		#define WIN32_LEAN_AND_MEAN
+		/**
+		 * Отключаем макросы минимумов и максимумов: они портят вызовы std
+		 */
+		#define NOMINMAX
+	#endif
 	#include <winsock2.h>
 	#include <windows.h>
 #endif
@@ -108,18 +122,23 @@
 #include "lz77.hpp"
 
 /**
- * Если сличение с эталоном OpenSSL включено
+ * Если сличение с эталоном включено: OpenSSL системной поставки либо BoringSSL из клона
  */
-#ifdef ANTS_BENCH_OPENSSL
+#if defined(ANTS_BENCH_OPENSSL) || defined(ANTS_BENCH_BORINGSSL)
 	/**
 	 * Подключаем заголовочные файлы эталона
 	 */
 	#include <openssl/evp.h>
 	#include <openssl/ec.h>
-	#include <openssl/provider.h>
 	#include <openssl/rand.h>
 	#include <openssl/rsa.h>
 	#include <openssl/ssl.h>
+	/**
+	 * Провайдеры есть лишь у OpenSSL: BoringSSL их не знает, заголовка у него нет
+	 */
+	#ifdef ANTS_BENCH_OPENSSL
+		#include <openssl/provider.h>
+	#endif
 #endif
 
 /**
@@ -781,6 +800,185 @@ namespace {
 		// Выводим итог снятия защиты
 		return (opener.unwrap(sequence, record::version_t::TLS12, record::type_t::APPLICATION, view_t(sealed.data(), sealed.size()), opened) == protect::error_t::NONE);
 	}
+	/**
+	 * Ниже стоят посредники добычи алгоритмов эталона: OpenSSL выкупает хеши и шифры из
+	 * провайдера по имени, а BoringSSL провайдеров не имеет и отдаёт готовые указатели,
+	 * и лишних алгоритмов у него просто нет - тогда посредник возвращает пусто, и сличение
+	 * этой строки само собой пропускается
+	 */
+	#if defined(ANTS_BENCH_OPENSSL) || defined(ANTS_BENCH_BORINGSSL)
+		/**
+		 * @brief Функция добычи хеша эталона по имени
+		 *
+		 * @param name имя хеша
+		 * @return     хеш эталона либо пусто, коли эталон этого хеша не знает
+		 *
+		 */
+		const EVP_MD * hashMethod(const char * const name) noexcept {
+		/**
+		 * У BoringSSL хеши отдаются готовыми указателями по имени
+		 */
+		#ifdef ANTS_BENCH_BORINGSSL
+			// Возвращаем готовый хеш SHA3-256
+			if(::strcmp(name, "SHA3-256") == 0)
+				// Выводим готовый хеш SHA3-256
+				return ::EVP_sha3_256();
+			// Если заказан хеш SHA3-512
+			if(::strcmp(name, "SHA3-512") == 0)
+				// Выводим готовый хеш SHA3-512
+				return ::EVP_sha3_512();
+			// Выводим пусто: SM3 и RIPEMD-160 эталон не знает
+			return nullptr;
+		/**
+		 * У OpenSSL хеш выкупается из провайдера по имени
+		 */
+		#else
+			// Выводим хеш, выкупленный из провайдера по имени
+			return ::EVP_MD_fetch(nullptr, name, nullptr);
+		#endif
+		}
+		/**
+		 * @brief Функция освобождения хеша эталона
+		 *
+		 * @param method добытый хеш эталона
+		 *
+		 */
+		void hashRelease(const EVP_MD * method) noexcept {
+		/**
+		 * Готовые хеши BoringSSL принадлежат самому эталону
+		 */
+		#ifdef ANTS_BENCH_BORINGSSL
+			// Готовые хеши принадлежат самому эталону: освобождения не требуется
+			(void) method;
+		/**
+		 * Выкупленный у провайдера OpenSSL хеш освобождается сам
+		 */
+		#else
+			// Освобождаем хеш, выкупленный из провайдера
+			::EVP_MD_free(const_cast <EVP_MD *> (method));
+		#endif
+		}
+		/**
+		 * @brief Функция добычи шифра эталона по имени
+		 *
+		 * @param name имя шифра
+		 * @return     шифр эталона либо пусто, коли эталон этого шифра не знает
+		 *
+		 */
+		const EVP_CIPHER * cipherMethod(const char * const name) noexcept {
+		/**
+		 * У BoringSSL шифры отдаются готовыми указателями по имени
+		 */
+		#ifdef ANTS_BENCH_BORINGSSL
+			// Если заказан шифр AES-256-CBC
+			if(::strcmp(name, "AES-256-CBC") == 0)
+				// Выводим готовый шифр AES-256-CBC
+				return ::EVP_aes_256_cbc();
+			// Если заказан шифр DES-EDE3-CBC
+			if(::strcmp(name, "DES-EDE3-CBC") == 0)
+				// Выводим готовый шифр DES-EDE3-CBC
+				return ::EVP_des_ede3_cbc();
+			// Выводим пусто: CCM эталон не знает
+			return nullptr;
+		/**
+		 * У OpenSSL шифр выкупается из провайдера по имени
+		 */
+		#else
+			// Выводим шифр, выкупленный из провайдера по имени
+			return ::EVP_CIPHER_fetch(nullptr, name, nullptr);
+		#endif
+		}
+		/**
+		 * @brief Функция освобождения шифра эталона
+		 *
+		 * @param cipher добытый шифр эталона
+		 *
+		 */
+		void cipherRelease(const EVP_CIPHER * cipher) noexcept {
+		/**
+		 * Готовые шифры BoringSSL принадлежат самому эталону
+		 */
+		#ifdef ANTS_BENCH_BORINGSSL
+			// Готовые шифры принадлежат самому эталону: освобождения не требуется
+			(void) cipher;
+		/**
+		 * Выкупленный у провайдера OpenSSL шифр освобождается сам
+		 */
+		#else
+			// Освобождаем шифр, выкупленный из провайдера
+			::EVP_CIPHER_free(const_cast <EVP_CIPHER *> (cipher));
+		#endif
+		}
+		/**
+		 * @brief Функция выработки ключевой пары эталона по имени вида
+		 *
+		 * @param kind  имя вида ключевой пары
+		 * @param curve имя кривой для видов на кривой
+		 * @return      ключевая пара эталона либо пусто, коли вида у эталона нет
+		 *
+		 */
+		EVP_PKEY * pairGenerate(const char * const kind, const char * const curve = nullptr) noexcept {
+		/**
+		 * У BoringSSL пара вырабатывается через объект порождения по номеру вида
+		 */
+		#ifdef ANTS_BENCH_BORINGSSL
+			// Номера видов ключей по именам: ED448, X448, SM2 и SLH-DSA у эталона нет
+			const pair <const char *, int> kinds[] = {
+				{"EC", EVP_PKEY_EC}, {"ED25519", EVP_PKEY_ED25519}, {"X25519", EVP_PKEY_X25519},
+				{"ML-DSA-65", EVP_PKEY_ML_DSA_65}, {"ML-KEM-768", EVP_PKEY_ML_KEM_768}};
+			// Номер вида ключа либо ноль, коли вида у эталона нет
+			int type = 0;
+			/**
+			 * Выполняем подбор номера вида ключа по имени
+			 */
+			for(const auto & fitting : kinds)
+				// Если имя вида ключа совпало
+				if(::strcmp(fitting.first, kind) == 0)
+					// Запоминаем номер вида ключа
+					type = fitting.second;
+			// Если вида ключа у эталона нет
+			if(type == 0)
+				// Выводим пусто: вида ключа эталон не знает
+				return nullptr;
+			// Объект порождения ключевой пары эталона
+			EVP_PKEY_CTX * frame = ::EVP_PKEY_CTX_new_id(type, nullptr);
+			// Если порождение заведено и подготовлено
+			if((frame != nullptr) && (::EVP_PKEY_keygen_init(frame) > 0)){
+				// Если названа кривая вида на кривой
+				if((curve != nullptr) && (::EVP_PKEY_CTX_set_ec_paramgen_curve_nid(frame, NID_X9_62_prime256v1) <= 0)){
+					// Освобождаем объект порождения ключевой пары
+					::EVP_PKEY_CTX_free(frame);
+					// Выводим пусто: кривую назначить не удалось
+					return nullptr;
+				}
+				// Ключевая пара эталона
+				EVP_PKEY * result = nullptr;
+				// Если ключевую пару выработать не удалось
+				if(::EVP_PKEY_keygen(frame, &result) <= 0)
+					// Очищаем несостоявшуюся пару
+					result = nullptr;
+				// Освобождаем объект порождения ключевой пары
+				::EVP_PKEY_CTX_free(frame);
+				// Выводим выработанную ключевую пару
+				return result;
+			}
+			// Освобождаем несостоявшийся объект порождения
+			::EVP_PKEY_CTX_free(frame);
+			// Выводим пусто: порождение ключевой пары не завелось
+			return nullptr;
+		/**
+		 * У OpenSSL пара вырабатывается одним вызовом по имени вида и кривой
+		 */
+		#else
+			// Если названа кривая вида на кривой
+			if(curve != nullptr)
+				// Выводим пару, выработанную по имени вида и кривой
+				return ::EVP_PKEY_Q_keygen(nullptr, nullptr, kind, curve);
+			// Выводим пару, выработанную по имени одного вида
+			return ::EVP_PKEY_Q_keygen(nullptr, nullptr, kind);
+		#endif
+		}
+	#endif
 };
 
 /**
@@ -2117,9 +2315,23 @@ int main(int argc, char * argv[]) noexcept {
 	/**
 	 * Если сличение с эталоном OpenSSL включено
 	 */
-	#ifdef ANTS_BENCH_OPENSSL
+	/**
+	 * Если сличение с эталоном включено сборкой
+	 */
+	#if defined(ANTS_BENCH_OPENSSL) || defined(ANTS_BENCH_BORINGSSL)
+		/**
+		 * Заголовок различается по эталону: имя библиотеки у каждого своё
+		 */
+		#ifdef ANTS_BENCH_BORINGSSL
+		// Выводим заголовок замеров работы эталона
+		cout << endl << "Замеры эталона BoringSSL" << endl << endl;
+		/**
+		 * У OpenSSL заголовок несёт текст издания
+		 */
+		#else
 		// Выводим заголовок замеров работы эталона
 		cout << endl << "Замеры эталона OpenSSL " << OPENSSL_VERSION_TEXT << endl << endl;
+		#endif
 		// Выполняем замер полосы хеширования SHA-256
 		const double sha = band("SHA-256", 16, VOLUME, [&data, &hash]() noexcept -> void {
 			// Длина выработанного хеша области байтов
@@ -2136,8 +2348,8 @@ int main(int argc, char * argv[]) noexcept {
 		});
 		// Замеры SHA3-256 эталона: у эталона без этого хеша замеров нет
 		double sha3Ref = 0.;
-		// Хеш SHA3-256 эталона из провайдера
-		EVP_MD * sha3Method = ::EVP_MD_fetch(nullptr, "SHA3-256", nullptr);
+		// Хеш SHA3-256 эталона
+		const EVP_MD * sha3Method = hashMethod("SHA3-256");
 		// Если хеш SHA3-256 у эталона нашёлся
 		if(sha3Method != nullptr){
 			// Выполняем замер полосы хеширования SHA3-256 эталона
@@ -2148,15 +2360,15 @@ int main(int argc, char * argv[]) noexcept {
 				::EVP_Digest(data.data(), data.size(), hash, &length, sha3Method, nullptr);
 			});
 			// Освобождаем хеш SHA3-256 эталона
-			::EVP_MD_free(sha3Method);
+			hashRelease(sha3Method);
 		} else {
 			// Выводим примету отсутствия SHA3-256 у эталона
 			cout << "У эталона SHA3-256 нет, сличение пропускается" << endl;
 		}
 		// Замеры SHA3-512 эталона: у эталона без этого хеша замеров нет
 		double sha3longRef = 0.;
-		// Хеш SHA3-512 эталона из провайдера
-		EVP_MD * sha3longMethod = ::EVP_MD_fetch(nullptr, "SHA3-512", nullptr);
+		// Хеш SHA3-512 эталона
+		const EVP_MD * sha3longMethod = hashMethod("SHA3-512");
 		// Если хеш SHA3-512 у эталона нашёлся
 		if(sha3longMethod != nullptr){
 			// Выполняем замер полосы хеширования SHA3-512 эталона
@@ -2167,15 +2379,15 @@ int main(int argc, char * argv[]) noexcept {
 				::EVP_Digest(data.data(), data.size(), hash, &length, sha3longMethod, nullptr);
 			});
 			// Освобождаем хеш SHA3-512 эталона
-			::EVP_MD_free(sha3longMethod);
+			hashRelease(sha3longMethod);
 		} else {
 			// Выводим примету отсутствия SHA3-512 у эталона
 			cout << "У эталона SHA3-512 нет, сличение пропускается" << endl;
 		}
 		// Замеры SM3 эталона: у эталона без этого хеша замеров нет
 		double sm3Ref = 0.;
-		// Хеш SM3 эталона из провайдера
-		EVP_MD * sm2Method = ::EVP_MD_fetch(nullptr, "SM3", nullptr);
+		// Хеш SM3 эталона
+		const EVP_MD * sm2Method = hashMethod("SM3");
 		// Если хеш SM3 у эталона нашёлся
 		if(sm2Method != nullptr){
 			// Выполняем замер полосы хеширования SM3 эталона
@@ -2186,15 +2398,15 @@ int main(int argc, char * argv[]) noexcept {
 				::EVP_Digest(data.data(), data.size(), hash, &length, sm2Method, nullptr);
 			});
 			// Освобождаем хеш SM3 эталона
-			::EVP_MD_free(sm2Method);
+			hashRelease(sm2Method);
 		} else {
 			// Выводим примету отсутствия SM3 у эталона
 			cout << "У эталона SM3 нет, сличение пропускается" << endl;
 		}
 		// Замеры RIPEMD-160 эталона: у эталона без этого хеша замеров нет
 		double ripemdRef = 0.;
-		// Хеш RIPEMD-160 эталона из провайдера
-		EVP_MD * ripemdMethod = ::EVP_MD_fetch(nullptr, "RIPEMD160", nullptr);
+		// Хеш RIPEMD-160 эталона
+		const EVP_MD * ripemdMethod = hashMethod("RIPEMD160");
 		// Если хеш RIPEMD-160 у эталона нашёлся
 		if(ripemdMethod != nullptr){
 			// Выполняем замер полосы хеширования RIPEMD-160 эталона
@@ -2205,7 +2417,7 @@ int main(int argc, char * argv[]) noexcept {
 				::EVP_Digest(data.data(), data.size(), hash, &length, ripemdMethod, nullptr);
 			});
 			// Освобождаем хеш RIPEMD-160 эталона
-			::EVP_MD_free(ripemdMethod);
+			hashRelease(ripemdMethod);
 		} else {
 			// Выводим примету отсутствия RIPEMD-160 у эталона
 			cout << "У эталона RIPEMD-160 нет, сличение пропускается" << endl;
@@ -2238,6 +2450,35 @@ int main(int argc, char * argv[]) noexcept {
 			// Выполняем извлечение имитовставки шифрования
 			::EVP_CIPHER_CTX_ctrl(context, EVP_CTRL_GCM_GET_TAG, 16, tag);
 		});
+		/**
+		 * У OpenSSL оба шифра ChaCha20 идут через EVP_CIPHER, у BoringSSL же есть лишь
+		 * AEAD-интерфейс: поточный ChaCha20 эталон наружу не отдаёт - сличение пропускается,
+		 * а ChaCha20-Poly1305 замеряется запечатыванием AEAD
+		 */
+	#ifdef ANTS_BENCH_BORINGSSL
+		// Замер поточного шифрования ChaCha20 эталона: сличения нет
+		const double chachaRef = 0.;
+		// Контекст запечатывания ChaCha20-Poly1305 эталона
+		EVP_AEAD_CTX chachaFrame;
+		// Накопитель запечатывания с местом под имитовставку
+		vector <uint8_t> chachaSealed(VOLUME + 16, 0);
+		// Выполняем замер полосы шифрования с проверкой целостности ChaCha20-Poly1305 эталона
+		const double chachapolyRef = (::EVP_AEAD_CTX_init(&chachaFrame, ::EVP_aead_chacha20_poly1305(), key, sizeof(key), 16, nullptr) == 1)
+			? band("ChaCha20-Poly1305", 8, VOLUME, [&chachaFrame, &seed, &data, &chachaSealed]() noexcept -> void {
+				// Длина зашифрованной области байтов с имитовставкой
+				size_t length = chachaSealed.size();
+				// Выполняем запечатывание области байтов
+				::EVP_AEAD_CTX_seal(&chachaFrame, chachaSealed.data(), &length, chachaSealed.size(), seed, 12, data.data(), data.size(), nullptr, 0);
+			})
+			: 0.;
+		// Выполняем освобождение контекста запечатывания эталона
+		::EVP_AEAD_CTX_cleanup(&chachaFrame);
+		// Выводим примету отсутствия поточного ChaCha20 у эталона
+		cout << "У эталона поточного ChaCha20 нет, сличение пропускается" << endl;
+		/**
+		 * У OpenSSL оба шифра ChaCha20 идут через EVP_CIPHER
+		 */
+	#else
 		// Выполняем замер полосы поточного шифрования ChaCha20 эталона
 		const double chachaRef = band("ChaCha20", 8, VOLUME, [&context, &key, &seed, &data, &result]() noexcept -> void {
 			// Длина зашифрованной области байтов
@@ -2260,10 +2501,11 @@ int main(int argc, char * argv[]) noexcept {
 			// Выполняем извлечение имитовставки шифрования
 			::EVP_CIPHER_CTX_ctrl(context, EVP_CTRL_AEAD_GET_TAG, 16, tag);
 		});
+	#endif
 		// Замеры AES-256-CCM эталона: у эталона без этого шифра замеров нет
 		double ccmRef = 0.;
-		// Шифр AES-256-CCM эталона из провайдера
-		EVP_CIPHER * ccmMethod = ::EVP_CIPHER_fetch(nullptr, "AES-256-CCM", nullptr);
+		// Шифр AES-256-CCM эталона
+		const EVP_CIPHER * ccmMethod = cipherMethod("AES-256-CCM");
 		// Если шифр AES-256-CCM у эталона нашёлся
 		if(ccmMethod != nullptr){
 			// Выполняем замер полосы шифрования с проверкой целостности AES-256-CCM эталона
@@ -2284,15 +2526,15 @@ int main(int argc, char * argv[]) noexcept {
 				::EVP_CIPHER_CTX_ctrl(context, EVP_CTRL_AEAD_GET_TAG, 16, tag);
 			});
 			// Освобождаем шифр AES-256-CCM эталона
-			::EVP_CIPHER_free(ccmMethod);
+			cipherRelease(ccmMethod);
 		} else {
 			// Выводим примету отсутствия AES-256-CCM у эталона
 			cout << "У эталона AES-256-CCM нет, сличение пропускается" << endl;
 		}
 		// Замеры AES-256-CBC эталона: у эталона без этого шифра замеров нет
 		double cbcRef = 0.;
-		// Шифр AES-256-CBC эталона из провайдера
-		EVP_CIPHER * cbcMethod = ::EVP_CIPHER_fetch(nullptr, "AES-256-CBC", nullptr);
+		// Шифр AES-256-CBC эталона
+		const EVP_CIPHER * cbcMethod = cipherMethod("AES-256-CBC");
 		// Если шифр AES-256-CBC у эталона нашёлся
 		if(cbcMethod != nullptr){
 			// Выполняем замер полосы шифрования AES-256-CBC эталона
@@ -2307,12 +2549,12 @@ int main(int argc, char * argv[]) noexcept {
 				::EVP_EncryptFinal_ex(context, result.data() + length, &length);
 			});
 			// Освобождаем шифр AES-256-CBC эталона
-			::EVP_CIPHER_free(cbcMethod);
+			cipherRelease(cbcMethod);
 		}
 		// Замеры DES-EDE3-CBC эталона: у эталона без этого шифра замеров нет
 		double desRef = 0.;
-		// Шифр DES-EDE3-CBC эталона из провайдера
-		EVP_CIPHER * desMethod = ::EVP_CIPHER_fetch(nullptr, "DES-EDE3-CBC", nullptr);
+		// Шифр DES-EDE3-CBC эталона
+		const EVP_CIPHER * desMethod = cipherMethod("DES-EDE3-CBC");
 		// Если шифр DES-EDE3-CBC у эталона нашёлся
 		if(desMethod != nullptr){
 			// Выполняем замер полосы шифрования DES-EDE3-CBC эталона
@@ -2327,7 +2569,7 @@ int main(int argc, char * argv[]) noexcept {
 				::EVP_EncryptFinal_ex(context, result.data() + length, &length);
 			});
 			// Освобождаем шифр DES-EDE3-CBC эталона
-			::EVP_CIPHER_free(desMethod);
+			cipherRelease(desMethod);
 		} else {
 			// Выводим примету отсутствия DES-EDE3-CBC у эталона
 			cout << "У эталона DES-EDE3-CBC нет, сличение пропускается" << endl;
@@ -2335,7 +2577,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Выполняем освобождение объекта поточного шифрования эталона
 		::EVP_CIPHER_CTX_free(context);
 		// Ключевая пара кривой P-256 эталона
-		EVP_PKEY * pair = ::EVP_PKEY_Q_keygen(nullptr, nullptr, "EC", "P-256");
+		EVP_PKEY * pair = pairGenerate("EC", "P-256");
 		// Если ключевую пару кривой эталона выработать не удалось
 		if(pair == nullptr){
 			// Выводим сообщение об отказе выработки пары ключей
@@ -2347,25 +2589,38 @@ int main(int argc, char * argv[]) noexcept {
 		vector <uint8_t> sealing(128, 0);
 		// Длина выработанной подписи эталона
 		size_t length = sealing.size();
+		/**
+		 * Хеш подписи P-256 у эталона: BoringSSL требует явного хеша, OpenSSL берёт умолчание
+		 */
+		#ifdef ANTS_BENCH_BORINGSSL
+		// Явный хеш SHA-256 подписи P-256 эталона
+		const EVP_MD * ecMethod = ::EVP_sha256();
+		/**
+		 * У OpenSSL пустой хеш означает умолчание - для P-256 это тот же SHA-256
+		 */
+	#else
+		// Пустой хеш подписи P-256: эталон берёт умолчание
+		const EVP_MD * ecMethod = nullptr;
+	#endif
 		// Объект работы с подписью эталона
 		EVP_MD_CTX * digest = ::EVP_MD_CTX_new();
 		// Выполняем замер числа подписей эталона за секунду
-		const double ecdsa = count("ECDSA P-256 подпись", 200, [&digest, &pair, &hash, &sealing, &length]() noexcept -> void {
+		const double ecdsa = count("ECDSA P-256 подпись", 200, [&digest, &pair, &hash, &sealing, &length, &ecMethod]() noexcept -> void {
 			// Восстанавливаем длину места под подпись эталона
 			length = sealing.size();
 			// Выполняем заведение выработки подписи эталона
-			::EVP_DigestSignInit(digest, nullptr, nullptr, nullptr, pair);
+			::EVP_DigestSignInit(digest, nullptr, ecMethod, nullptr, pair);
 			// Выполняем выработку подписи эталона
 			::EVP_DigestSign(digest, sealing.data(), &length, hash, 32);
 		});
 		// Выполняем выработку подписи эталона для сличения
-		::EVP_DigestSignInit(digest, nullptr, nullptr, nullptr, pair);
+		::EVP_DigestSignInit(digest, nullptr, ecMethod, nullptr, pair);
 		// Выполняем выработку подписи эталона
 		::EVP_DigestSign(digest, sealing.data(), &length, hash, 32);
 		// Выполняем замер числа сличений подписи эталона за секунду
-		const double verify = count("ECDSA P-256 сличение", 200, [&digest, &pair, &hash, &sealing, &length]() noexcept -> void {
+		const double verify = count("ECDSA P-256 сличение", 200, [&digest, &pair, &hash, &sealing, &length, &ecMethod]() noexcept -> void {
 			// Выполняем заведение сличения подписи эталона
-			::EVP_DigestVerifyInit(digest, nullptr, nullptr, nullptr, pair);
+			::EVP_DigestVerifyInit(digest, nullptr, ecMethod, nullptr, pair);
 			// Выполняем сличение подписи эталона
 			::EVP_DigestVerify(digest, sealing.data(), length, hash, 32);
 		});
@@ -2418,7 +2673,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Замеры ML-DSA-65 эталона: у эталона без ML-DSA замеров нет
 		double mldsaGenerateRef = 0., mldsaSignRef = 0., mldsaVerifyRef = 0.;
 		// Ключевая пара ML-DSA-65 эталона
-		EVP_PKEY * mldsaKey = ::EVP_PKEY_Q_keygen(nullptr, nullptr, "ML-DSA-65");
+		EVP_PKEY * mldsaKey = pairGenerate("ML-DSA-65");
 		// Если ключевая пара ML-DSA эталона выработалась
 		if(mldsaKey != nullptr){
 			// Объект работы с подписью ML-DSA эталона: без хеша, сообщение целиком
@@ -2430,7 +2685,7 @@ int main(int argc, char * argv[]) noexcept {
 			// Выполняем замер порождения ключа ML-DSA-65 эталона за секунду
 			mldsaGenerateRef = count("ML-DSA-65 порождение ключа", 100, []() noexcept -> void {
 				// Выполняем порождение ключевой пары ML-DSA-65 эталона
-				::EVP_PKEY_free(::EVP_PKEY_Q_keygen(nullptr, nullptr, "ML-DSA-65"));
+				::EVP_PKEY_free(pairGenerate("ML-DSA-65"));
 			});
 			// Выполняем замер числа подписей ML-DSA-65 эталона за секунду
 			mldsaSignRef = count("ML-DSA-65 подпись", 200, [&mldsaDigest, &mldsaKey, &hash, &mldsaSealing, &mldsaLength]() noexcept -> void {
@@ -2459,7 +2714,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Замеры Ed25519 эталона: у эталона без Ed25519 замеров нет
 		double ed25519SignRef = 0., ed25519VerifyRef = 0.;
 		// Ключевая пара Ed25519 эталона
-		EVP_PKEY * ed25519Key = ::EVP_PKEY_Q_keygen(nullptr, nullptr, "ED25519");
+		EVP_PKEY * ed25519Key = pairGenerate("ED25519");
 		// Если ключевая пара Ed25519 эталона выработалась
 		if(ed25519Key != nullptr){
 			// Объект работы с подписью Ed25519 эталона: без хеша, сообщение целиком
@@ -2495,7 +2750,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Замеры Ed448 эталона: у эталона без Ed448 замеров нет
 		double ed448SignRef = 0., ed448VerifyRef = 0.;
 		// Ключевая пара Ed448 эталона
-		EVP_PKEY * ed448Key = ::EVP_PKEY_Q_keygen(nullptr, nullptr, "ED448");
+		EVP_PKEY * ed448Key = pairGenerate("ED448");
 		// Если ключевая пара Ed448 эталона выработалась
 		if(ed448Key != nullptr){
 			// Объект работы с подписью Ed448 эталона: без хеша, сообщение целиком
@@ -2530,10 +2785,15 @@ int main(int argc, char * argv[]) noexcept {
 		}
 		// Замеры SM2 эталона: у эталона без SM2 замеров нет
 		double sm2SignRef = 0., sm2VerifyRef = 0.;
+		/**
+		 * SM2 живёт лишь у OpenSSL с провайдером: у BoringSSL ни кривой, ни вяжущего
+		 * опознаватель вызова нет - сличение пропускается
+		 */
+	#ifndef ANTS_BENCH_BORINGSSL
 		// Ключевая пара SM2 эталона
-		EVP_PKEY * sm2Key = ::EVP_PKEY_Q_keygen(nullptr, nullptr, "SM2");
-		// Хеш SM3 эталона из провайдера
-		EVP_MD * sm3Method = ::EVP_MD_fetch(nullptr, "SM3", nullptr);
+		EVP_PKEY * sm2Key = pairGenerate("SM2");
+		// Хеш SM3 эталона
+		const EVP_MD * sm3Method = hashMethod("SM3");
 		// Если ключевая пара SM2 и хеш SM3 эталона выработались
 		if((sm2Key != nullptr) && (sm3Method != nullptr)){
 			// Объект работы с подписью SM2 эталона
@@ -2571,19 +2831,26 @@ int main(int argc, char * argv[]) noexcept {
 			// Освобождаем ключевую пару SM2 эталона
 			::EVP_PKEY_free(sm2Key);
 			// Освобождаем хеш SM3 эталона
-			::EVP_MD_free(sm3Method);
+			hashRelease(sm3Method);
 		} else {
 			// Выводим примету отсутствия SM2 у эталона
 			cout << "У эталона SM2 нет, сличение пропускается" << endl;
 			// Освобождаем выработанные ключ и хеш эталона
 			::EVP_PKEY_free(sm2Key);
 			// Освобождаем выработанные ключ и хеш эталона
-			::EVP_MD_free(sm3Method);
+			hashRelease(sm3Method);
 		}
+		/**
+		 * У BoringSSL кривой SM2 нет - выводим примету и пропускаем сличение
+		 */
+	#else
+		// Выводим примету отсутствия SM2 у эталона BoringSSL
+		cout << "У эталона SM2 нет, сличение пропускается" << endl;
+	#endif
 		// Замеры SLH-DSA эталона: у эталона без SLH-DSA замеров нет
 		double slhSignRef = 0., slhVerifyRef = 0.;
 		// Ключевая пара SLH-DSA эталона
-		EVP_PKEY * slhPair = ::EVP_PKEY_Q_keygen(nullptr, nullptr, "SLH-DSA-SHA2-128s");
+		EVP_PKEY * slhPair = pairGenerate("SLH-DSA-SHA2-128s");
 		// Если ключевая пара SLH-DSA эталона выработалась
 		if(slhPair != nullptr){
 			// Объект работы с подписью SLH-DSA эталона: без хеша, сообщение целиком
@@ -2636,7 +2903,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Выполняем освобождение ключевой пары кривой эталона
 		::EVP_PKEY_free(pair);
 		// Ключевая пара X25519 эталона
-		EVP_PKEY * mont = ::EVP_PKEY_Q_keygen(nullptr, nullptr, "X25519");
+		EVP_PKEY * mont = pairGenerate("X25519");
 		// Если ключевую пару X25519 эталона выработать не удалось
 		if(mont == nullptr){
 			// Выводим сообщение об отказе выработки пары ключей
@@ -2659,43 +2926,44 @@ int main(int argc, char * argv[]) noexcept {
 			// Выполняем освобождение объекта обмена ключами эталона
 			::EVP_PKEY_CTX_free(exchange);
 		});
-		// Ключевая пара X448 эталона
-		EVP_PKEY * twin = ::EVP_PKEY_Q_keygen(nullptr, nullptr, "X448");
-		// Если ключевую пару X448 эталона выработать не удалось
-		if(twin == nullptr){
-			// Выводим сообщение об отказе выработки пары
-			cout << "Выработать ключевую пару X448 эталона не удалось" << endl;
-			// Выходим из приложения с признаком отказа
-			return EXIT_FAILURE;
-		}
+		// Ключевая пара X448 эталона: BoringSSL кривой не знает, сличение пропускается
+		EVP_PKEY * twin = pairGenerate("X448");
 		// Место, в которое помещается общее значение обмена X448 эталона
 		vector <uint8_t> twinned(56, 0);
-		// Выполняем замер числа обменов ключами X448 эталона за секунду
-		const double x448Ref = count("Обмен ключами X448", 200, [&twin, &twinned]() noexcept -> void {
-			// Длина общего значения обмена эталона
-			size_t size = twinned.size();
-			// Объект обмена ключами эталона
-			EVP_PKEY_CTX * exchange = ::EVP_PKEY_CTX_new(twin, nullptr);
-			// Выполняем заведение обмена ключами эталона
-			::EVP_PKEY_derive_init(exchange);
-			// Устанавливаем открытый ключ встречной стороны обмена
-			::EVP_PKEY_derive_set_peer(exchange, twin);
-			// Выполняем выработку общего значения обмена
-			::EVP_PKEY_derive(exchange, twinned.data(), &size);
-			// Выполняем освобождение объекта обмена ключами эталона
-			::EVP_PKEY_CTX_free(exchange);
-		});
+		// Замер обмена X448 эталона: ноль, коли кривой у эталона нет
+		double x448Ref = 0.;
+		// Если ключевую пару X448 эталона выработать удалось
+		if(twin != nullptr){
+			// Выполняем замер числа обменов ключами X448 эталона за секунду
+			x448Ref = count("Обмен ключами X448", 200, [&twin, &twinned]() noexcept -> void {
+				// Длина общего значения обмена эталона
+				size_t size = twinned.size();
+				// Объект обмена ключами эталона
+				EVP_PKEY_CTX * exchange = ::EVP_PKEY_CTX_new(twin, nullptr);
+				// Выполняем заведение обмена ключами эталона
+				::EVP_PKEY_derive_init(exchange);
+				// Устанавливаем открытый ключ встречной стороны обмена
+				::EVP_PKEY_derive_set_peer(exchange, twin);
+				// Выполняем выработку общего значения обмена
+				::EVP_PKEY_derive(exchange, twinned.data(), &size);
+				// Выполняем освобождение объекта обмена ключами эталона
+				::EVP_PKEY_CTX_free(exchange);
+			});
+		} else {
+			// Выводим примету отсутствия X448 у эталона
+			cout << "У эталона X448 нет, сличение пропускается" << endl;
+		}
 		// Выполняем освобождение ключевой пары X448 эталона
 		::EVP_PKEY_free(twin);
 		/**
-		 * Замеры упаковки ML-KEM-768 эталона: сама упаковка появилась у эталона
-		 * с издания 3.5, младшие издания её не знают
+		 * Замеры упаковки ML-KEM-768 эталона: у OpenSSL сама упаковка появилась с издания
+		 * 3.5, младшие издания её не знают, а BoringSSL знает всегда - но своим номером вида
 		 */
-#if OPENSSL_VERSION_NUMBER >= 0x30500000L
+#if (OPENSSL_VERSION_NUMBER >= 0x30500000L) || defined(ANTS_BENCH_BORINGSSL)
 		// Замеры упаковки ML-KEM-768 эталона
 		double mlkemSealRef = 0., mlkemOpenRef = 0.;
 		// Ключевая пара ML-KEM-768 эталона
-		EVP_PKEY * kemPair = ::EVP_PKEY_Q_keygen(nullptr, nullptr, "ML-KEM-768");
+		EVP_PKEY * kemPair = pairGenerate("ML-KEM-768");
 		// Если ключевая пара ML-KEM-768 эталона выработалась
 		if(kemPair != nullptr){
 			// Шифртекст упаковки и секрет эталона
@@ -2744,6 +3012,10 @@ int main(int argc, char * argv[]) noexcept {
 #endif
 		// Замеры обмена ключами FFDHE-2048 эталона: группа ffdhe2048 равна modp2048 из RFC 3526
 		double ffdheRef = 0.;
+		/**
+		 * Named-группы обмена есть лишь у OpenSSL: у BoringSSL способа завести группу нет
+		 */
+	#ifndef ANTS_BENCH_BORINGSSL
 		// Объект порождения ключей группы ffdhe2048 эталона
 		EVP_PKEY_CTX * dhFrame = ::EVP_PKEY_CTX_new_id(EVP_PKEY_DH, nullptr);
 		// Если группу ffdhe2048 у эталона завести удалось
@@ -2784,8 +3056,19 @@ int main(int argc, char * argv[]) noexcept {
 		}
 		// Выполняем освобождение объекта порождения ключей группы эталона
 		::EVP_PKEY_CTX_free(dhFrame);
+		/**
+		 * У BoringSSL группы не заводятся: выводим примету и пропускаем сличение
+		 */
+	#else
+		// Выводим примету отсутствия named-групп у эталона BoringSSL
+		cout << "У эталона группы ffdhe2048 нет, сличение пропускается" << endl;
+	#endif
 		// Замеры ГОСТ у эталона: провайдер gostprov есть не везде, лишь на стендах с ним (Astra)
 		double streebogRef = 0., streebogLongRef = 0., kuznyechikCtrRef = 0., kuznyechikMgmRef = 0., magmaCtrRef = 0., magmaMgmRef = 0., gostSignRef = 0., gostVerifyRef = 0.;
+		/**
+		 * Провайдеры есть лишь у OpenSSL: ГОСТ живёт в провайдере gostprov на стендах с ним
+		 */
+	#ifndef ANTS_BENCH_BORINGSSL
 		// Провайдер ГОСТ эталона
 		OSSL_PROVIDER * gostprov = ::OSSL_PROVIDER_load(nullptr, "gostprov");
 		// Если провайдер ГОСТ у эталона нашёлся
@@ -2953,6 +3236,13 @@ int main(int argc, char * argv[]) noexcept {
 			cout << "Провайдера ГОСТ у эталона нет, сличение ГОСТ пропускается" << endl;
 		}
 		/**
+		 * У BoringSSL провайдеров нет вовсе: выводим примету и пропускаем сличение
+		 */
+	#else
+		// Выводим примету отсутствия провайдеров у эталона BoringSSL
+		cout << "Провайдеров ГОСТ у эталона BoringSSL нет, сличение ГОСТ пропускается" << endl;
+	#endif
+		/**
 		 * Рукопожатие TLS 1.3 эталона в памяти парой BIO обеими сторонами в одном потоке:
 		 * X25519, AES-128-GCM, без проверки доверия цепочке, как и у нас
 		 */
@@ -3016,9 +3306,23 @@ int main(int argc, char * argv[]) noexcept {
 			// Назначаем серверу группу обмена X25519
 			::SSL_CTX_set1_groups_list(sctx, "X25519");
 			::SSL_CTX_set1_groups_list(cctx, "X25519");
+		/**
+		 * У BoringSSL наборы издания 1.3 назначаются списком шифров
+		 */
+		#ifdef ANTS_BENCH_BORINGSSL
+			// Назначаем серверу набор AES-128-GCM: у BoringSSL наборы проходят списком шифров
+			::SSL_CTX_set_cipher_list(sctx, "TLS_AES_128_GCM_SHA256");
+			// Назначаем клиенту набор AES-128-GCM тем же списком шифров
+			::SSL_CTX_set_cipher_list(cctx, "TLS_AES_128_GCM_SHA256");
+		/**
+		 * У OpenSSL набор издания 1.3 назначается отдельным вызовом
+		 */
+		#else
 			// Назначаем серверу набор AES-128-GCM
 			::SSL_CTX_set_ciphersuites(sctx, "TLS_AES_128_GCM_SHA256");
+			// Назначаем клиенту набор AES-128-GCM
 			::SSL_CTX_set_ciphersuites(cctx, "TLS_AES_128_GCM_SHA256");
+		#endif
 			// Отключаем проверку доверия цепочке у клиента
 			::SSL_CTX_set_verify(cctx, SSL_VERIFY_NONE, nullptr);
 			// Отключаем билеты состояния серверу
@@ -3353,11 +3657,22 @@ int main(int argc, char * argv[]) noexcept {
 		 * нет ни на одной: чтобы сличить сами алгоритмы, а не оснастку под них, эталон
 		 * запускается с отключённым ускорением
 		 */
+	#ifdef ANTS_BENCH_BORINGSSL
+		// Выводим примету отсутствия переключателя ускорения у эталона BoringSSL
+		cout << endl << "Эталон здесь идёт машинными командами ускорения; у BoringSSL" << endl;
+		// Выводим примету отсутствия переключателя ускорения у эталона BoringSSL
+		cout << "переключателя ускорения нет, сличение идёт как есть" << endl;
+		/**
+		 * У OpenSSL ускорение отключается переменной окружения
+		 */
+	#else
+		// Выводим примету машинных команд ускорения эталона
 		cout << endl << "Эталон здесь идёт машинными командами ускорения. Для сличения самих" << endl;
 		// Выводим способ отключения ускорения эталона
 		cout << "алгоритмов запускать замеры так: OPENSSL_armcap=0 (ARM) либо" << endl;
 		// Выводим способ отключения ускорения эталона
 		cout << "OPENSSL_ia32cap=~0x200000200000000 (x86-64)" << endl;
+	#endif
 	/**
 	 * Сличение с эталоном отключено сборкой: замеры своей работы остаются без отношений к эталону
 	 */

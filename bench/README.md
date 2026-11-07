@@ -22,9 +22,27 @@ cmake --build build-release --target bench -j
 |---|---|---|
 | `CMAKE_BUILD_BENCHMARKS` | `OFF` | Собирать набор замеров |
 | `CMAKE_BENCHMARK_OPENSSL` | `ON` | Сличать замеры с эталоном OpenSSL, если он в системе есть |
+| `CMAKE_BENCHMARK_BORINGSSL` | пусто | Путь к клону BoringSSL со сборкой `build/` внутри: второй эталон вместо системного OpenSSL |
 
 Эталона в системе может и не быть: тогда набор соберётся без сличения и покажет одни
-свои замеры.
+свои замеры. Заданный путь `CMAKE_BENCHMARK_BORINGSSL` заменяет системный OpenSSL:
+двух эталонов в одном приложении быть не может - их символы слились бы при сборке.
+
+Второй эталон собирается отдельно, вне дерева библиотеки:
+
+```bash
+git clone --depth 1 https://boringssl.googlesource.com/boringssl third_party/boringssl
+cmake -GNinja -B third_party/boringssl/build -DCMAKE_BUILD_TYPE=Release
+ninja -C third_party/boringssl/build crypto ssl
+cmake -S . -B build-boring -DCMAKE_BUILD_TYPE=Release -DCMAKE_BUILD_BENCHMARKS=ON \
+      -DCMAKE_BENCHMARK_BORINGSSL="$PWD/third_party/boringssl"
+cmake --build build-boring --target bench -j
+```
+
+Сборке BoringSSL нужен Go (генератор машинного кода). У BoringSSL нет провайдеров,
+SM3, RIPEMD-160, CCM, поточного ChaCha20 (есть лишь AEAD-интерфейс), Ed448, X448,
+SM2, SLH-DSA и named-групп FFDHE - эти строки сличения печатают пропуск с приметой;
+наборы TLS 1.3 назначаются списком шифров, а подпись ECDSA требует явного хеша.
 
 ## Правила замера
 

@@ -14137,35 +14137,48 @@ context::error_t nts::internal::Engine::agreed(const view_t & body) noexcept {
 		extension::group_t group = extension::group_t::NONE;
 		// Доля открытого ключа сервера: точка кривой либо ключ конечного поля
 		view_t point;
+		// Модуль и образующая поля обмена сервера: заполняются лишь у конечного поля
+		view_t modulus, generator;
 		// Смещение параметров обмена ключами в теле сообщения
 		size_t start = 0;
 		// Если набор ведёт обмен ключами конечного поля
 		if(exchange == protect::exchange_t::DHE){
-			// Модуль, генератор и открытый ключ сервера
-			view_t modulus, generator, share;
+			// Открытый ключ сервера
+			view_t share;
 			// Раздел 7.4.3 RFC 5246: всякое поле идёт с двухбайтовой длиной
 			if((scanner.vector(modulus, 2) != field::error_t::NONE) || (scanner.vector(generator, 2) != field::error_t::NONE) || (scanner.vector(share, 2) != field::error_t::NONE))
 				// Выводим отказ разбора обмена ключами сервера
 				return context::error_t::MESSAGE;
 			// Смещение параметров обмена ключами: у DHE подсказки заранее разделённого ключа не бывает, шесть байтов уходит на длины полей
 			start = (scanner.offset() - (modulus.size + generator.size + share.size + 6));
-			// Раздел 7.4.3 RFC 5246: параметры обязаны задавать именованную группу RFC 7919
+			// Раздел 7.4.3 RFC 5246: параметры именованной группы RFC 7919 распознаются по значению
 			group = finiteof(modulus, generator);
-			// Признак того, что группа связью предлагалась
-			bool offered = false;
+			// Если параметры задают именованную группу RFC 7919
+			if(group != extension::group_t::NONE){
+				// Признак того, что группа связью предлагалась
+				bool offered = false;
+				/**
+				 * Выполняем перебор групп обмена ключами, предлагаемых связью
+				 */
+				for(size_t i = 0; (i < this->_groups.size()) && !offered; i++)
+					// Запоминаем совпадение выбранной группы с предложенной
+					offered = (group == this->_groups[i]);
+				// Если группа вне предложения связи
+				if(!offered)
+					// Выводим отказ группы вне предложения связи
+					return context::error_t::GROUP;
+				// Доля сервера идёт длиною в модуль группы
+				if(share.size != extension::finite(group))
+					// Выводим отказ негодной длины доли
+					return context::error_t::EXCHANGE;
 			/**
-			 * Выполняем перебор групп обмена ключами, предлагаемых связью
+			 * Раздел 4 RFC 7919: перечень групп клиента выбор сервера не сковывает - встречные
+			 * серверы ведут поле своим порядком (modp RFC 3526 у openssl, свой dhparam), оттого
+			 * неопознанные параметры принимаются полем своего состава: модуль 2048-8192 разрядов
+			 * долей стола полей движка, доля - длиною в модуль
 			 */
-			for(size_t i = 0; (i < this->_groups.size()) && !offered; i++)
-				// Запоминаем совпадение выбранной группы с предложенной
-				offered = (group == this->_groups[i]);
-			// Если группа неведома либо вне предложения связи
-			if((group == extension::group_t::NONE) || !offered)
-				// Выводим отказ группы вне предложения связи
-				return context::error_t::GROUP;
-			// Доля сервера идёт длиною в модуль группы
-			if(share.size != extension::finite(group))
-				// Выводим отказ негодной длины доли
+			} else if((modulus.size < 256) || (modulus.size > 1024) || (share.size != modulus.size))
+				// Выводим отказ негодного поля обмена ключами
 				return context::error_t::EXCHANGE;
 			// Запоминаем долю открытого ключа сервера
 			point = share;
@@ -14260,24 +14273,79 @@ context::error_t nts::internal::Engine::agreed(const view_t & body) noexcept {
 		}
 		// Выполняем сброс мимолётных пар ключей своей стороны: доли издания 1.3 более не нужны
 		this->_exchanges.clear();
-		// Выполняем выработку мимолётной пары ключей на выбранной группе
-		failure = this->exchange(group);
-		// Если мимолётную пару ключей выработать не удалось
-		if(failure != context::error_t::NONE)
-			// Выводим отказ выработки мимолётной пары ключей
-			return failure;
+		/**
+		 * Поле своего состава ведётся по своему модулю и образующей: именованные группы - порядком таблицы
+		 */
+		if(group == extension::group_t::NONE){
+			// Мимолётная пара ключей своей стороны по полю сервера
+			exchange_t item;
+			/**
+			 * Выполняем перехват ошибок
+			 */
+			try {
+				// Секретный показатель длиною в модуль поля
+				item.secret.assign(modulus.size, 0);
+				// Открытый ключ длиною в модуль поля
+				item.opened.assign(modulus.size, 0);
+			/**
+			 * Выполняем перехват ошибок
+			 */
+			} catch(const bad_alloc &) {
+				// Выводим отказ нехватки памяти
+				return context::error_t::MEMORY;
+			}
+			// Выполняем порождение мимолётной пары ключей по модулю и образующей сервера
+			if(!agreement::pairffdhe(modulus, generator, modulus.size, item.secret.data(), item.opened.data()))
+				// Выводим отказ порождения пары ключей поля
+				return context::error_t::EXCHANGE;
+			/**
+			 * Выполняем перехват ошибок
+			 */
+			try {
+				// Запоминаем мимолётную пару ключей своей стороны
+				this->_exchanges.push_back(::move(item));
+			/**
+			 * Выполняем перехват ошибок
+			 */
+			} catch(const bad_alloc &) {
+				// Выводим отказ нехватки памяти
+				return context::error_t::MEMORY;
+			}
+		// Именованная группа ведётся порядком таблицы движка
+		} else {
+			// Выполняем выработку мимолётной пары ключей на выбранной группе
+			failure = this->exchange(group);
+			// Если мимолётную пару ключей выработать не удалось
+			if(failure != context::error_t::NONE)
+				// Выводим отказ выработки мимолётной пары ключей
+				return failure;
+		}
 		// Место, в которое помещается общее значение обмена ключами
 		uint8_t shared[agreement::MLKEM_SHARED + agreement::FFDHE_MOST];
 		// Длина общего значения обмена ключами
 		size_t length = 0;
-		// Выполняем выработку общего значения обмена ключами
-		failure = this->agree(group, point, shared, length);
-		// Если общее значение выработать не удалось
-		if(failure != context::error_t::NONE){
-			// Выполняем затирание общего значения
-			this->purge(shared, sizeof(shared));
-			// Выводим отказ выработки общего значения
-			return failure;
+		// Если сервер вёл поле своего состава: общее значение выводится по модулю и образующей сервера
+		if(group == extension::group_t::NONE){
+			// Выполняем выработку общего значения по модулю и образующей сервера
+			if(!agreement::ffdhe(modulus, generator, view_t(this->_exchanges.back().secret.data(), this->_exchanges.back().secret.size()), point, shared)){
+				// Выполняем затирание общего значения
+				this->purge(shared, sizeof(shared));
+				// Выводим отказ выработки общего значения
+				return context::error_t::EXCHANGE;
+			}
+			// Длина общего значения - длина модуля поля
+			length = modulus.size;
+		// Иначе общее значение выводится порядком таблицы движка
+		} else {
+			// Выполняем выработку общего значения обмена ключами
+			failure = this->agree(group, point, shared, length);
+			// Если общее значение выработать не удалось
+			if(failure != context::error_t::NONE){
+				// Выполняем затирание общего значения
+				this->purge(shared, sizeof(shared));
+				// Выводим отказ выработки общего значения
+				return failure;
+			}
 		}
 		/**
 		 * Выполняем перехват ошибок

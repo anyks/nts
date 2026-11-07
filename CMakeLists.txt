@@ -842,8 +842,11 @@ if (${CMAKE_BUILD_BENCHMARKS})
     # Указываем каталог для исполняемого файла набора замеров
     set_target_properties(bench PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bench)
 
-    # Если замеры нужно сличать с эталоном OpenSSL
-    if (${CMAKE_BENCHMARK_OPENSSL})
+    # Путь к клону BoringSSL со сборкой внутри: второй эталон замеров вместо системного OpenSSL
+    set(CMAKE_BENCHMARK_BORINGSSL "" CACHE PATH "BoringSSL checkout with build/libcrypto.a inside")
+
+    # Если замеры нужно сличать с эталоном OpenSSL и BoringSSL не заказан вторым эталоном
+    if (${CMAKE_BENCHMARK_OPENSSL} AND "${CMAKE_BENCHMARK_BORINGSSL}" STREQUAL "")
         # Выполняем поиск эталона OpenSSL
         find_package(OpenSSL)
 
@@ -861,6 +864,32 @@ if (${CMAKE_BUILD_BENCHMARKS})
             message(STATUS "Benchmark reference OpenSSL: No")
         endif (OPENSSL_FOUND)
     endif (${CMAKE_BENCHMARK_OPENSSL})
+
+    # Если заказано сличение замеров с эталоном BoringSSL
+    if (NOT "${CMAKE_BENCHMARK_BORINGSSL}" STREQUAL "")
+        # Если библиотеки эталона BoringSSL собраны
+        if (EXISTS "${CMAKE_BENCHMARK_BORINGSSL}/build/libcrypto.a" AND EXISTS "${CMAKE_BENCHMARK_BORINGSSL}/build/libssl.a")
+            # Выводим сообщение о сличении замеров с эталоном
+            message(STATUS "Benchmark reference BoringSSL: ${CMAKE_BENCHMARK_BORINGSSL}")
+            # Подключаем заголовочные файлы эталона к приложению набора замеров
+            target_include_directories(bench PRIVATE "${CMAKE_BENCHMARK_BORINGSSL}/include")
+            # Объявляем сборке набора замеров наличие эталона BoringSSL
+            target_compile_definitions(bench PRIVATE ANTS_BENCH_BORINGSSL)
+            # Выполняем подключение потоков: сборка BoringSSL держит свои нити
+            find_package(Threads)
+            # Выполняем подключение эталона к приложению набора замеров
+            target_link_libraries(bench "${CMAKE_BENCHMARK_BORINGSSL}/build/libssl.a"
+                                        "${CMAKE_BENCHMARK_BORINGSSL}/build/libcrypto.a" Threads::Threads)
+            # Под Windows эталон BoringSSL зовёт сокеты: их библиотека идёт следом, иначе линковщик её не спросит
+            if (WIN32)
+                target_link_libraries(bench ws2_32)
+            endif ()
+        # Если библиотеки эталона BoringSSL не собраны
+        else()
+            # Выводим сообщение об отсутствии собранного эталона BoringSSL
+            message(FATAL_ERROR "BoringSSL libraries not built: ${CMAKE_BENCHMARK_BORINGSSL}/build/libcrypto.a")
+        endif ()
+    endif ()
 endif (${CMAKE_BUILD_BENCHMARKS})
 
 # Указываем что нужно собрать образцы работы с библиотекой

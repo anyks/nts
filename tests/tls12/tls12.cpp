@@ -296,6 +296,23 @@ namespace {
 	 */
 	static const extension::group_t GROUPS[] = {extension::group_t::X25519, extension::group_t::SECP256R1, extension::group_t::SECP384R1};
 	/**
+	 * Наборы шифрования конечного поля издания TLS 1.2
+	 */
+	static const struct {
+		// Набор шифрования
+		protect::suite_t suite;
+		// Имя набора у openssl
+		const char * title;
+		// Имя ключа набора, отвечающего набору
+		const char * key;
+	} DHES[] = {
+		// Первая запись: DHE с подписью RSA, AES-256-GCM, ключ rsa2048
+		{protect::suite_t::DHE_RSA_AES_256_GCM_SHA384,           "DHE-RSA-AES256-GCM-SHA384",     "rsa2048"},
+		{protect::suite_t::DHE_RSA_AES_128_GCM_SHA256,           "DHE-RSA-AES128-GCM-SHA256",     "rsa2048"},
+		{protect::suite_t::DHE_RSA_CHACHA20_POLY1305_SHA256,     "DHE-RSA-CHACHA20-POLY1305",     "rsa2048"},
+		{protect::suite_t::DHE_RSA_AES_256_CBC_SHA,              "DHE-RSA-AES256-SHA",            "rsa2048"}
+	};
+	/**
 	 * @brief Функция настройки сторон под набор, группу и подлинность
 	 *
 	 * @param client     связь стороны клиента
@@ -1965,6 +1982,117 @@ TEST(Tls12Test, Openssl){
 			::remove(log.c_str());
 		}
 	}
+	/**
+	 * Выполняем перебор наборов конечного поля: наш клиент против s_server с DHE издания 1.2.
+	 * Раздел 4 RFC 7919 оставляет выбор поля серверу: временные параметры s_server по умолчанию
+	 * это modp2048 RFC 3526, с dhparam - собственное поле сервера; именованную группу RFC 7919
+	 * s_server изданием 1.2 не выбирает, оттого клиент принимает поле любого состава
+	 */
+	 // Путь к собственному полю сервера для опыта с dhparam
+	const std::string own = "/tmp/ants-tls12-dh2048.pem";
+	// Признак готовности собственного поля сервера
+	const bool fielded = (shell(std::string("openssl dhparam -out ") + own + " 2048 >/dev/null 2>&1") == 0);
+	/**
+	 * Выполняем перебор наборов шифрования конечного поля
+	 */
+	for(size_t s = 0; s < (sizeof(DHES) / sizeof(DHES[0])); s++){
+		// Если набор недоступен openssl
+		if(shell(std::string("openssl ciphers -s -tls1_2 ") + DHES[s].title + " >/dev/null 2>&1") != 0){
+			// Сообщаем о пропуске вслух
+			std::cout << "openssl без " << DHES[s].title << ": сличение пропущено" << std::endl;
+			// Переходим к следующему набору
+			continue;
+		}
+		// Подлинность стороны
+		context::credential_t credential;
+		// Составляем подлинность
+		ASSERT_TRUE(identity(DHES[s].key, credential));
+		// Пути к сертификату и ключу
+		const std::string crt = std::string(CORPUS) + "/" + DHES[s].key + ".crt", key = std::string(CORPUS) + "/" + DHES[s].key + ".pem";
+		/**
+		 * Выполняем два опыта поля: временное поле сервера по умолчанию и собственное dhparam
+		 */
+		for(size_t d = 0; d < 2; d++){
+			// Если собственное поле не выработано, опыт с ним пропускается
+			if((d == 1) && !fielded){
+				// Сообщаем о пропуске вслух
+				std::cout << "openssl не выработал dhparam: опыт с собственным полем пропущен" << std::endl;
+				// Выходим из перебора опытов поля
+				break;
+			}
+			// Свободный порт
+			const uint16_t number = vacant(false);
+			// Проверяем наличие порта
+			ASSERT_NE(number, 0);
+			// Журнал сервера openssl
+			const std::string log = "/tmp/ants-tls12-server-" + std::to_string(number) + ".log";
+			// Заводим сервер openssl: поле ведётся сервером своим порядком, перечня групп клиенту не нужно
+			ASSERT_TRUE(launch("openssl s_server" + accepting(toolkit, number) + " -tls1_2 -no_ticket -cert " + crt + " -key " + key + " -Verify 1 -CAfile " + crt + ((d == 1) ? (" -dhparam " + own) : std::string()) + " -cipher " + DHES[s].title + " -www" + once(toolkit) + " </dev/null >" + log + " 2>&1", log, log + ".pid"));
+			// Сторож сервера openssl: снимается по номеру и при отказе посреди проверки
+			sentinel_t sentinel(log + ".pid");
+			// Подключаемся к серверу openssl
+			const int fd = dial(number);
+			// Проверяем подключение
+			ASSERT_GE(fd, 0) << "порт " << number;
+			// Связь стороны клиента
+			client::context_t client;
+			// Наборы клиента
+			client.suites(vector <protect::suite_t> {DHES[s].suite});
+			// Группы клиента: именованная группа конечного поля объявляется, поле своего состава принимается вне перечня
+			client.groups(vector <extension::group_t> {extension::group_t::FFDHE2048, extension::group_t::SECP256R1, extension::group_t::SECP384R1});
+			// Подлинность клиента тем же ключом
+			client.credential(credential);
+			// Имя узла
+			client.name("localhost");
+			// Заводим клиента
+			ASSERT_EQ(client.start(), context::error_t::NONE);
+			/**
+			 * Выполняем передачу байтов до установления связи
+			 */
+			for(size_t i = 0; (i < 8) && !client.established() && (client.state() != context::state_t::FAILED); i++)
+				// Передаём байты
+				relay(client, fd);
+			// Проверяем установленность связи
+			ASSERT_TRUE(client.established()) << DHES[s].title << " поле " << ((d == 1) ? "dhparam" : "умолчание") << " отказ " << static_cast <int> (client.error()) << " извещение " << static_cast <int> (client.alert().description);
+			// Издание 1.2
+			ASSERT_EQ(client.version(), static_cast <uint16_t> (0x0303));
+			// Проверяем набор
+			ASSERT_EQ(client.suite(), DHES[s].suite);
+			// Запрос HTTP серверу openssl
+			const string request = "GET / HTTP/1.0\r\n\r\n";
+			// Отправляем запрос
+			ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
+			// Накопитель ответа
+			vector <uint8_t> answer;
+			/**
+			 * Выполняем передачу байтов до получения ответа
+			 */
+			for(size_t i = 0; (i < 16) && answer.empty(); i++){
+				// Передаём байты
+				relay(client, fd);
+				// Читаем принятые данные
+				ASSERT_EQ(client.read(answer), context::error_t::NONE);
+			}
+			// Текст ответа
+			const string text(answer.begin(), answer.end());
+			// Проверяем, что ответ HTTP получен
+			ASSERT_NE(text.find("HTTP/1.0 200"), string::npos) << DHES[s].title << " поле " << ((d == 1) ? "dhparam" : "умолчание");
+			// Сервер openssl видит издание 1.2
+			ASSERT_NE(text.find("TLSv1.2"), string::npos) << text;
+			// Закрываем сокет
+			closing(fd);
+			// Снимаем сервер до удаления журнала: иначе отметка завершения воссоздаст файл
+			sentinel.halt();
+			// Журнал сервера
+			std::string journal;
+			// Дожидаемся отметки завершения снятого сервера
+			(void) settle(log, journal);
+			// Удаляем журнал
+			::remove(log.c_str());
+		}
+	}
+	// Удаляем собственное поле опыта
+	::remove(own.c_str());
 	/**
 	 * Выполняем перебор наборов шифрования: s_client -tls1_2 против нашего сервера
 	 */
