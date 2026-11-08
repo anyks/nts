@@ -60,6 +60,10 @@
 #include <digest/sha3.hpp>
 #include <entropy/entropy.hpp>
 #include <sys/wipe.hpp>
+#include <internal/digest/keccak.hpp>
+#if defined(__ANTS_KECCAK_X4__) && defined(__x86_64__)
+	#include <sys/machine.hpp>
+#endif
 
 /**
  * @brief Служебные объекты модуля
@@ -443,6 +447,144 @@ namespace {
 		}
 	}
 
+	static inline uint64_t laneLoad(const uint8_t * data) noexcept {
+		// Полоса из восьми байтов
+		uint64_t lane = 0;
+		/**
+		 * Выполняем перебор байтов полосы
+		 */
+		for(size_t i = 0; i < 8; i++)
+			// Складываем очередной байт полосы
+			lane |= (static_cast <uint64_t> (data[i]) << (i * 8));
+		// Выводим полосу
+		return lane;
+	}
+	/**
+	 * @brief Функция записи полосы байтами от младшего
+	 *
+	 * @param lane   полоса
+	 * @param result место, в которое помещаются байты полосы
+	 *
+	 */
+	static inline void laneStore(const uint64_t lane, uint8_t * result) noexcept {
+		/**
+		 * Выполняем перебор байтов полосы
+		 */
+		for(size_t i = 0; i < 8; i++)
+			// Записываем очередной байт полосы
+			result[i] = static_cast <uint8_t> (lane >> (i * 8));
+	}
+	/**
+	 * @brief Функция проверки готовности параллельного ядра губок
+	 *
+	 * @return признак готовности ядра четырёх состояний
+	 *
+	 * @note Ядро несёт векторные команды: на ARM64 они входят в архитектуру, на x86-64
+	 *       спрашивается AVX2 у машины на исполнении
+	 *
+	 */
+	#if defined(__ANTS_KECCAK_X4__)
+		static bool sponges4() noexcept {
+			// Если архитектура x86-64
+			#if defined(__x86_64__)
+				// Выводим признак команд AVX2 машины
+				return machine::has(machine::feature_t::AVX2);
+			/**
+			 * Прочие архитектуры с параллельным ядром готовы всегда
+			 */
+			#else
+				// Выводим готовность параллельного ядра
+				return true;
+			#endif
+		}
+	#endif
+
+	#if defined(__ANTS_KECCAK_X4__)
+		/**
+		 * @brief Функция параллельной выборки четырёх многочленов матрицы в области NTT
+		 *
+		 * @details Четыре губки SHAKE128 переставляются разом параллельным ядром: каждая губка
+		 *          поглощает зерно с парой индексов и выжимает блоки по 168 байтов, пока каждая
+		 *          не наберёт 256 коэффициентов - закончившие раньше читают лишние блоки в никуда,
+		 *          чтобы перестановки шли общие (та же дисциплина, что у выборки матрицы ML-KEM)
+		 *
+		 * @param rho     зерно матрицы ρ
+		 * @param indices пары индексов четырёх губок: ρ ‖ столбец ‖ строка
+		 * @param polys   место, в которое помещаются четыре многочлена подряд
+		 *
+		 */
+		static void expandA4(const uint8_t * rho, const uint8_t indices[4][2], int32_t * const polys) noexcept {
+			// Состояния четырёх губок
+			uint64_t states[4][25];
+			// Обнуляем состояния
+			::memset(states, 0, sizeof(states));
+			/**
+			 * Выполняем поглощение зерна и индексов каждой губкой: полосы 0…3 - зерно, полоса 4 - пара индексов
+			 */
+			for(size_t k = 0; k < 4; k++){
+				/**
+				 * Выполняем перебор полос зерна
+				 */
+				for(size_t i = 0; i < 4; i++)
+					// Складываем очередную полосу зерна
+					states[k][i] ^= laneLoad(rho + (i * 8));
+				// Складываем пару индексов матрицы
+				states[k][4] ^= (indices[k][0] | (static_cast <uint64_t> (indices[k][1]) << 8));
+			}
+			/**
+			 * Выполняем дополнение домена функций переменного выхода: байт 0x1F на смещении тридцать четыре и разряд 0x80 в конце полосы скорости 168
+			 */
+			for(size_t k = 0; k < 4; k++){
+				// Байт начала дополнения
+				states[k][34 / 8] ^= (0x1FULL << ((34 % 8) * 8));
+				// Разряд окончания дополнения
+				states[k][(168 - 1) / 8] ^= (0x80ULL << (((168 - 1) % 8) * 8));
+			}
+			// Выполняем перестановку четырёх состояний
+			digest::kernel::keccak4(states);
+			// Число набранных коэффициентов каждой губки
+			size_t counts[4] = {0, 0, 0, 0};
+			// Блоки выжимания
+			uint8_t blocks[4][168];
+			/**
+			 * Выполняем выжимание блоков и разбор троек, пока какая-то губка не набрала многочлен
+			 */
+			while((counts[0] < N) || (counts[1] < N) || (counts[2] < N) || (counts[3] < N)){
+				/**
+				 * Выполняем выжимание блока каждой губкой
+				 */
+				for(size_t k = 0; k < 4; k++)
+					/**
+					 * Выполняем перебор полос блока
+					 */
+					for(size_t i = 0; i < (168 / 8); i++)
+						// Записываем очередную полосу блока
+						laneStore(states[k][i], blocks[k] + (i * 8));
+				// Выполняем перестановку четырёх состояний
+				digest::kernel::keccak4(states);
+				/**
+				 * Выполняем разбор троек байтов блока каждой губкой
+				 */
+				for(size_t k = 0; k < 4; k++){
+					/**
+					 * Выполняем перебор троек блока
+					 */
+					for(size_t i = 0; (i < sizeof(blocks[k])) && (counts[k] < N); i += 3){
+						// Коэффициент из трёх байтов, 23 разряда без старшего разряда третьего байта
+						const uint32_t value = ((static_cast <uint32_t> (blocks[k][i])) | (static_cast <uint32_t> (blocks[k][i + 1]) << 8) | ((static_cast <uint32_t> (blocks[k][i + 2]) & 0x7F) << 16));
+						// Коэффициент меньше модуля принимается в многочлен
+						if(value < Q)
+							// Записываем коэффициент
+							polys[(k * N) + counts[k]++] = static_cast <int32_t> (value);
+					}
+				}
+			}
+			// Выполняем затирание состояний
+			sys::wipe(states, sizeof(states));
+			// Выполняем затирание блоков
+			sys::wipe(blocks, sizeof(blocks));
+		}
+	#endif
 	/**
 	 * @brief Функция отклоняющей выборки многочлена матрицы в области NTT
 	 *
@@ -494,6 +636,64 @@ namespace {
 		(void) count;
 	}
 
+	/**
+	 * @brief Функция выборки матрицы целиком: четыре губки параллельным ядром, хвост по одной
+	 *
+	 * @param rho     зерно матрицы ρ
+	 * @param rows    число строк матрицы k
+	 * @param columns число столбцов матрицы l
+	 * @param stride  шаг строки приёмника в многочленах: у плоского буфера l, у массива полной ширины - наибольшая размерность
+	 * @param matrix  место, в которое помещаются многочлены матрицы строками подряд
+	 *
+	 */
+	static void matrixExpand(const uint8_t * rho, const size_t rows, const size_t columns, const size_t stride, int32_t * const matrix) noexcept {
+		#if defined(__ANTS_KECCAK_X4__)
+			// Если параллельное ядро губок готово
+			if(sponges4()){
+				/**
+				 * Выполняем перебор строк матрицы
+				 */
+				for(size_t row = 0; row < rows; row++){
+					/**
+					 * Выполняем перебор четвёрок столбцов
+					 */
+					for(size_t group = 0; (group + 4) <= columns; group += 4){
+						// Пары индексов губок: зерно || столбец || строка
+						uint8_t indices[4][2];
+						/**
+						 * Заполняем пары индексов
+						 */
+						for(size_t j = 0; j < 4; j++){
+							// Первый индекс пары - столбец
+							indices[j][0] = static_cast <uint8_t> (group + j);
+							// Второй индекс пары - строка
+							indices[j][1] = static_cast <uint8_t> (row);
+						}
+						// Выбираем четыре многочлена разом
+						expandA4(rho, indices, matrix + (((row * stride) + group) * N));
+					}
+					/**
+					 * Выполняем перебор хвостовых столбцов
+					 */
+					for(size_t column = (columns - (columns % 4)); column < columns; column++)
+						// Выбираем многочлен одной губкой
+						expandA(rho, static_cast <uint8_t> (row), static_cast <uint8_t> (column), matrix + (((row * stride) + column) * N));
+				}
+				// Выводим из функции
+				return;
+			}
+		#endif
+		/**
+		 * Выполняем перебор строк матрицы
+		 */
+		for(size_t row = 0; row < rows; row++)
+			/**
+			 * Выполняем перебор столбцов матрицы
+			 */
+			for(size_t column = 0; column < columns; column++)
+				// Многочлен матрицы из зерна ρ
+				expandA(rho, static_cast <uint8_t> (row), static_cast <uint8_t> (column), matrix + (((row * stride) + column) * N));
+	}
 	/**
 	 * @brief Функция выборки многочлена секрета с коэффициентами из [−η, η]
 	 *
@@ -1163,13 +1363,8 @@ namespace {
 		/**
 		 * Выполняем перебор
 		 */
-		for(size_t row = 0; row < p.k; row++)
-			/**
-			 * Выполняем перебор
-			 */
-			for(size_t column = 0; column < p.l; column++)
-				// Многочлен матрицы из зерна ρ
-				expandA(rho, static_cast <uint8_t> (row), static_cast <uint8_t> (column), matrix[row][column]);
+		// Матрица из зерна ρ: четыре губки разом, хвост по одной
+		matrixExpand(rho, p.k, p.l, 7, &matrix[0][0][0]);
 		// Секретные векторы s1 и s2
 		int32_t s1[7][N], s2[8][N];
 		/**
@@ -1405,13 +1600,8 @@ namespace {
 		/**
 		 * Выполняем перебор
 		 */
-		for(size_t row = 0; row < p.k; row++)
-			/**
-			 * Выполняем перебор
-			 */
-			for(size_t column = 0; column < p.l; column++)
-				// Многочлен матрицы из зерна ρ
-				expandA(rho, static_cast <uint8_t> (row), static_cast <uint8_t> (column), matrix + (((row * p.l) + column) * N));
+		// Матрица из зерна ρ: четыре губки разом, хвост по одной
+		matrixExpand(rho, p.k, p.l, p.l, matrix);
 		// Счётчик попыток подписи
 		uint16_t attempt = 0;
 		// Признак готовности подписи
