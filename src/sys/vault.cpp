@@ -290,7 +290,7 @@ void * sys::Vault::take(const size_t size) noexcept {
 	// Округляем длину участка вверх до выравнивания
 	const size_t length = (((size + VAULT_ALIGN - 1) / VAULT_ALIGN) * VAULT_ALIGN);
 	// Берём замок хранилища
-	const lock_guard <mutex> lock(this->_lock);
+	const lock_guard <std::mutex> lock(this->_lock);
 	/**
 	 * Ищем свободный участок первой подходящей длины; не найдя - берём новый кусок и ищем
 	 * повторно: новый кусок лежит последним, и повторный поиск найдёт его
@@ -351,7 +351,7 @@ void sys::Vault::give(void * data, const size_t size) noexcept {
 	// Адрес участка
 	uint8_t * address = static_cast <uint8_t *> (data);
 	// Берём замок хранилища
-	const lock_guard <mutex> lock(this->_lock);
+	const lock_guard <std::mutex> lock(this->_lock);
 	/**
 	 * Выполняем перебор кусков
 	 */
@@ -430,7 +430,7 @@ sys::shelter_t sys::Vault::shelter() const noexcept {
 	// Сведения об укрытии: без кусков признаки подняты - понижения не было
 	shelter_t result;
 	// Берём замок хранилища
-	const lock_guard <mutex> lock(this->_lock);
+	const lock_guard <std::mutex> lock(this->_lock);
 	// Поднимаем признаки
 	result.hidden = result.wired = result.forked = true;
 	/**
@@ -462,7 +462,7 @@ bool sys::Vault::owns(const void * data) const noexcept {
 	// Проверяемый адрес
 	const uint8_t * address = static_cast <const uint8_t *> (data);
 	// Берём замок хранилища
-	const lock_guard <mutex> lock(this->_lock);
+	const lock_guard <std::mutex> lock(this->_lock);
 	/**
 	 * Выполняем перебор кусков
 	 */
@@ -483,7 +483,7 @@ bool sys::Vault::owns(const void * data) const noexcept {
  */
 size_t sys::Vault::chunks() const noexcept {
 	// Берём замок хранилища
-	const lock_guard <mutex> lock(this->_lock);
+	const lock_guard <std::mutex> lock(this->_lock);
 	// Выводим число кусков
 	return this->_chunks.size();
 }
@@ -495,7 +495,7 @@ size_t sys::Vault::chunks() const noexcept {
  */
 void sys::Vault::demand(const bool mode) noexcept {
 	// Берём замок хранилища
-	const lock_guard <mutex> lock(this->_lock);
+	const lock_guard <std::mutex> lock(this->_lock);
 	// Запоминаем требование укрытия
 	this->_demand = mode;
 }
@@ -507,7 +507,7 @@ void sys::Vault::demand(const bool mode) noexcept {
  */
 bool sys::Vault::demand() const noexcept {
 	// Берём замок хранилища
-	const lock_guard <mutex> lock(this->_lock);
+	const lock_guard <std::mutex> lock(this->_lock);
 	// Выводим требование укрытия
 	return this->_demand;
 }

@@ -228,7 +228,7 @@ namespace nts {
 				vector <chunk_t> _chunks;
 			private:
 				// Замок хранилища: связи живут в разных потоках
-				mutable mutex _lock;
+				mutable std::mutex _lock;
 			private:
 				/**
 				 * \~russian

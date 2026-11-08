@@ -124,6 +124,19 @@
 	 * Признак общего векторного пути
 	 */
 	#define __ANTS_MLKEM_VECTOR__
+/**
+ * Ветвь NEON на ARM64: расширение вечно доступно на этой архитектуре
+ */
+#elif defined(__aarch64__) && defined(__ARM_NEON) && !defined(_MSC_VER) && !defined(ANTS_NO_MACHINE)
+	#include <arm_neon.h>
+	/**
+	 * Признаки векторного пути: команды NEON
+	 */
+	#define __ANTS_MLKEM_NEON__
+	/**
+	 * Признак общего векторного пути
+	 */
+	#define __ANTS_MLKEM_VECTOR__
 #endif
 
 /**
@@ -133,6 +146,10 @@
 #include <digest/sha3.hpp>
 #include <entropy/entropy.hpp>
 #include <sys/wipe.hpp>
+#include <internal/digest/keccak.hpp>
+#if defined(__ANTS_KECCAK_X4__) && defined(__x86_64__)
+	#include <sys/machine.hpp>
+#endif
 
 /**
  * @brief Служебные объекты модуля
@@ -276,6 +293,86 @@ namespace {
 		static inline vec_t vevenodd32(const vec_t value) noexcept { return __builtin_e2k_qppermb(value, value, vwords(0x0f0e0d0c07060504ULL, 0x0b0a090803020100ULL)); }
 		// Переплетение младших половин 32-разрядных мест двух векторов в 16-разрядные места
 		static inline vec_t vinterleave16(const vec_t even, const vec_t odd) noexcept { return __builtin_e2k_qppermb(odd, even, vwords(0x1d1c0d0c19180908ULL, 0x1514050411100100ULL)); }
+	/**
+	 * Ветвь векторной прослойки NEON: те же операции над 128-разрядными векторами,
+	 * результат каждой сводится к раскладке SSE2 по местам
+	 */
+	#elif defined(__ANTS_MLKEM_NEON__)
+		/**
+		 * Вектор в 128 разрядов: восемь 16-разрядных мест
+		 */
+		typedef int16x8_t vec_t;
+		// Загрузка вектора
+		static inline vec_t vload(const void * data) noexcept { return vld1q_s16(reinterpret_cast <const int16_t *> (data)); }
+		// Записываем вектор
+		static inline void vstore(void * result, const vec_t value) noexcept { vst1q_s16(reinterpret_cast <int16_t *> (result), value); }
+		// Заполнение всех мест одним значением
+		static inline vec_t vset16(const int16_t value) noexcept { return vdupq_n_s16(value); }
+		// Заполняем все 32-разрядные места одним значением
+		static inline vec_t vset32(const int32_t value) noexcept { return vreinterpretq_s16_s32(vdupq_n_s32(value)); }
+		// Произведения 16-разрядных мест: младшие половины
+		static inline vec_t vmullo16(const vec_t first, const vec_t second) noexcept { return vmulq_s16(first, second); }
+		// Старшие половины произведений 16-разрядных мест
+		static inline vec_t vmulhi16(const vec_t first, const vec_t second) noexcept {
+			// Полные произведения половин вектора в 32 разрядах
+			const int32x4_t low = vmull_s16(vget_low_s16(first), vget_low_s16(second));
+			const int32x4_t high = vmull_s16(vget_high_s16(first), vget_high_s16(second));
+			// Выводим старшие половины сужением произведений
+			return vcombine_s16(vshrn_n_s32(low, 16), vshrn_n_s32(high, 16));
+		}
+		// Суммы произведений соседних мест в 32 разрядах
+		static inline vec_t vmadd16(const vec_t first, const vec_t second) noexcept {
+			// Полные произведения половин вектора в 32 разрядах
+			const int32x4_t low = vmull_s16(vget_low_s16(first), vget_low_s16(second));
+			const int32x4_t high = vmull_s16(vget_high_s16(first), vget_high_s16(second));
+			// Выводим суммы соседних произведений половин вектора
+			return vreinterpretq_s16_s32(vcombine_s32(vpadd_s32(vget_low_s32(low), vget_high_s32(low)), vpadd_s32(vget_low_s32(high), vget_high_s32(high))));
+		}
+		// Суммы 16-разрядных мест
+		static inline vec_t vadd16(const vec_t first, const vec_t second) noexcept { return vaddq_s16(first, second); }
+		// Разности 16-разрядных мест
+		static inline vec_t vsub16(const vec_t first, const vec_t second) noexcept { return vsubq_s16(first, second); }
+		// Суммы 32-разрядных мест
+		static inline vec_t vadd32(const vec_t first, const vec_t second) noexcept { return vreinterpretq_s16_s32(vaddq_s32(vreinterpretq_s32_s16(first), vreinterpretq_s32_s16(second))); }
+		// Разности 32-разрядных мест
+		static inline vec_t vsub32(const vec_t first, const vec_t second) noexcept { return vreinterpretq_s16_s32(vsubq_s32(vreinterpretq_s32_s16(first), vreinterpretq_s32_s16(second))); }
+		// Арифметические сдвиги 16-разрядных мест вправо
+		static inline vec_t vsra16(const vec_t value, const int count) noexcept { return vshlq_s16(value, vdupq_n_s16(-count)); }
+		// Арифметические сдвиги 32-разрядных мест вправо
+		static inline vec_t vsra32(const vec_t value, const int count) noexcept { return vreinterpretq_s16_s32(vshlq_s32(vreinterpretq_s32_s16(value), vdupq_n_s32(-count))); }
+		// Поразрядные операции
+		static inline vec_t vand(const vec_t first, const vec_t second) noexcept { return vandq_s16(first, second); }
+		// Перестановка соседних 16-разрядных мест: смена порядка слов внутри 32-разрядных мест
+		static inline vec_t vswap16(const vec_t value) noexcept { return vrev32q_s16(value); }
+		// Младшие 64-разрядные половины двух векторов рядом
+		static inline vec_t vlow64(const vec_t first, const vec_t second) noexcept {
+			// В старшую половину первого ставим младшую половину второго
+			return vreinterpretq_s16_u64(vsetq_lane_u64(vgetq_lane_u64(vreinterpretq_u64_s16(second), 0), vreinterpretq_u64_s16(first), 1));
+		}
+		// Старшие 64-разрядные половины двух векторов рядом
+		static inline vec_t vhigh64(const vec_t first, const vec_t second) noexcept {
+			// В младшую половину второго ставим старшую половину первого
+			return vreinterpretq_s16_u64(vsetq_lane_u64(vgetq_lane_u64(vreinterpretq_u64_s16(first), 1), vreinterpretq_u64_s16(second), 0));
+		}
+		// Переплетение младших пар 32-разрядных мест двух векторов
+		static inline vec_t vlow32(const vec_t first, const vec_t second) noexcept {
+			return vreinterpretq_s16_s32(vzip1q_s32(vreinterpretq_s32_s16(first), vreinterpretq_s32_s16(second)));
+		}
+		// Переплетение старших пар 32-разрядных мест двух векторов
+		static inline vec_t vhigh32(const vec_t first, const vec_t second) noexcept {
+			return vreinterpretq_s16_s32(vzip2q_s32(vreinterpretq_s32_s16(first), vreinterpretq_s32_s16(second)));
+		}
+		// Чётные 32-разрядные места вперёд, нечётные назад
+		static inline vec_t vevenodd32(const vec_t value) noexcept {
+			// Номера байтов мест 0, 2, 1, 3 по порядку
+			const uint8x16_t indices = {0, 1, 2, 3, 8, 9, 10, 11, 4, 5, 6, 7, 12, 13, 14, 15};
+			// Выводим перестановку байтов таблицей
+			return vreinterpretq_s16_u8(vqtbl1q_u8(vreinterpretq_u8_s16(value), indices));
+		}
+		// Переплетение младших половин 32-разрядных мест двух векторов в 16-разрядные места: старшие половины мест пусты
+		static inline vec_t vinterleave16(const vec_t even, const vec_t odd) noexcept {
+			return vreinterpretq_s16_s32(vorrq_s32(vreinterpretq_s32_s16(even), vshlq_n_s32(vreinterpretq_s32_s16(odd), 16)));
+		}
 	#endif
 	/**
 	 * Векторная арифметика кольца поверх прослойки
@@ -1399,6 +1496,64 @@ namespace {
 	 * @param poly   место, в которое помещается многочлен
 	 *
 	 */
+	/**
+	 * @brief Функция чтения полосы из байтов от младшего
+	 *
+	 * @param data байты полосы
+	 * @return     полоса
+	 *
+	 */
+	static inline uint64_t laneLoad(const uint8_t * data) noexcept {
+		// Полоса из восьми байтов
+		uint64_t lane = 0;
+		/**
+		 * Выполняем перебор байтов полосы
+		 */
+		for(size_t i = 0; i < 8; i++)
+			// Складываем очередной байт полосы
+			lane |= (static_cast <uint64_t> (data[i]) << (i * 8));
+		// Выводим полосу
+		return lane;
+	}
+	/**
+	 * @brief Функция записи полосы байтами от младшего
+	 *
+	 * @param lane   полоса
+	 * @param result место, в которое помещаются байты полосы
+	 *
+	 */
+	static inline void laneStore(const uint64_t lane, uint8_t * result) noexcept {
+		/**
+		 * Выполняем перебор байтов полосы
+		 */
+		for(size_t i = 0; i < 8; i++)
+			// Записываем очередной байт полосы
+			result[i] = static_cast <uint8_t> (lane >> (i * 8));
+	}
+	/**
+	 * @brief Функция проверки готовности параллельного ядра губок
+	 *
+	 * @return признак готовности ядра четырёх состояний
+	 *
+	 * @note Ядро несёт векторные команды: на ARM64 они входят в архитектуру, на x86-64
+	 *       спрашивается AVX2 у машины на исполнении
+	 *
+	 */
+	#if defined(__ANTS_KECCAK_X4__)
+		static bool sponges4() noexcept {
+			// Если архитектура x86-64
+			#if defined(__x86_64__)
+				// Выводим признак команд AVX2 машины
+				return machine::has(machine::feature_t::AVX2);
+			/**
+			 * Прочие архитектуры с параллельным ядром готовы всегда
+			 */
+			#else
+				// Выводим готовность параллельного ядра
+				return true;
+			#endif
+		}
+	#endif
 	static void sampling(const uint8_t * rho, const uint8_t row, const uint8_t column, poly_t & poly) noexcept {
 		// Поток SHAKE128 над ρ || столбец || строка
 		digest::keccak_t xof(digest::sha3_t::SHAKE128);
@@ -1441,6 +1596,98 @@ namespace {
 		}
 	}
 	/**
+	 * @brief Функция параллельной выборки четырёх элементов матрицы
+	 *
+	 * @details Четыре губки SHAKE128 переставляются разом параллельным ядром: каждая губка
+	 *          поглощает зерно с парой индексов и выжимает блоки по 168 байтов, пока каждая
+	 *          не наберёт 256 коэффициентов - закончившие раньше читают лишние блоки в никуда,
+	 *          чтобы перестановки шли общие
+	 *
+	 * @param rho     зерно матрицы
+	 * @param indices пары индексов четырёх губок: зерно || первый || второй
+	 * @param polys   место, в которое помещаются многочлены
+	 *
+	 */
+	#if defined(__ANTS_KECCAK_X4__)
+		static void sampling4(const uint8_t * rho, const uint8_t indices[4][2], poly_t * polys) noexcept {
+			// Состояния четырёх губок
+			uint64_t states[4][25];
+			// Обнуляем состояния
+			::memset(states, 0, sizeof(states));
+			/**
+			 * Выполняем поглощение зерна и индексов каждой губкой: полосы 0…3 - зерно, полоса 4 - пара индексов
+			 */
+			for(size_t k = 0; k < 4; k++){
+				/**
+				 * Выполняем перебор полос зерна
+				 */
+				for(size_t i = 0; i < (SEED / 8); i++)
+					// Складываем очередную полосу зерна
+					states[k][i] ^= laneLoad(rho + (i * 8));
+				// Складываем пару индексов матрицы
+				states[k][SEED / 8] ^= (indices[k][0] | (static_cast <uint64_t> (indices[k][1]) << 8));
+			}
+			/**
+			 * Выполняем дополнение домена функций переменного выхода: байт 0x1F на смещении тридцать четыре и разряд 0x80 в конце полосы скорости 168
+			 */
+			for(size_t k = 0; k < 4; k++){
+				// Байт начала дополнения
+				states[k][34 / 8] ^= (0x1FULL << ((34 % 8) * 8));
+				// Разряд окончания дополнения
+				states[k][(168 - 1) / 8] ^= (0x80ULL << (((168 - 1) % 8) * 8));
+			}
+			// Выполняем перестановку четырёх состояний
+			digest::kernel::keccak4(states);
+			// Число набранных коэффициентов каждой губки
+			size_t counts[4] = {0, 0, 0, 0};
+			// Блоки выжимания
+			uint8_t blocks[4][168];
+			/**
+			 * Выполняем выжимание блоков и разбор троек, пока какая-то губка не набрала многочлен
+			 */
+			while((counts[0] < N) || (counts[1] < N) || (counts[2] < N) || (counts[3] < N)){
+				/**
+				 * Выполняем выжимание блока каждой губкой
+				 */
+				for(size_t k = 0; k < 4; k++)
+					/**
+					 * Выполняем перебор полос блока
+					 */
+					for(size_t i = 0; i < (168 / 8); i++)
+						// Записываем очередную полосу блока
+						laneStore(states[k][i], blocks[k] + (i * 8));
+				// Выполняем перестановку четырёх состояний
+				digest::kernel::keccak4(states);
+				/**
+				 * Выполняем разбор троек байтов блока каждой губкой
+				 */
+				for(size_t k = 0; k < 4; k++){
+					/**
+					 * Выполняем перебор троек блока
+					 */
+					for(size_t at = 0; (at < sizeof(blocks[k])) && (counts[k] < N); at += 3){
+						// Первый претендент
+						const uint16_t first = static_cast <uint16_t> (blocks[k][at] | ((blocks[k][at + 1] & 0x0F) << 8));
+						// Второй претендент
+						const uint16_t second = static_cast <uint16_t> ((blocks[k][at + 1] >> 4) | (blocks[k][at + 2] << 4));
+						// Если первый претендент годен
+						if(first < Q)
+							// Записываем коэффициент
+							polys[k].values[counts[k]++] = static_cast <int16_t> (first);
+						// Если второй претендент годен и место есть
+						if((second < Q) && (counts[k] < N))
+							// Записываем коэффициент
+							polys[k].values[counts[k]++] = static_cast <int16_t> (second);
+					}
+				}
+			}
+			// Выполняем затирание состояний
+			wipe(states, sizeof(states));
+			// Выполняем затирание блоков
+			wipe(blocks, sizeof(blocks));
+		}
+	#endif
+	/**
 	 * @brief Функция выборки многочлена из центрированного биномиального распределения
 	 *
 	 * @param sigma зерно выборки
@@ -1449,17 +1696,15 @@ namespace {
 	 * @param poly  место, в которое помещается многочлен
 	 *
 	 */
-	static void binomial(const uint8_t * sigma, const uint8_t nonce, const size_t eta, poly_t & poly) noexcept {
-		// Байты псевдослучайного потока: 64·η байтов
-		uint8_t bytes[64 * 3];
-		// Функция переменного выхода потока
-		digest::keccak_t prf(digest::sha3_t::SHAKE256);
-		// Поглощаем затравку
-		prf.update(view_t(sigma, SEED));
-		// Поглощаем порядковый номер
-		prf.update(view_t(&nonce, 1));
-		// Выжимаем поток
-		prf.squeeze(bytes, 64 * eta);
+	/**
+	 * @brief Функция разбора байтов потока в многочлен биномиального распределения
+	 *
+	 * @param stream байты псевдослучайного потока
+	 * @param eta    параметр распределения
+	 * @param poly   место, в которое помещается многочлен
+	 *
+	 */
+	static void binomialParse(const uint8_t * stream, const size_t eta, poly_t & poly) noexcept {
 		// Если η равно двум
 		if(eta == 2){
 			/**
@@ -1469,7 +1714,7 @@ namespace {
 			 */
 			for(size_t i = 0; i < (N / 2); i++){
 				// Очередной байт потока
-				const uint32_t byte = bytes[i];
+				const uint32_t byte = stream[i];
 				// Суммы соседних разрядов по парам: по два разряда на пару
 				const uint32_t sums = ((byte & 0x55) + ((byte >> 1) & 0x55));
 				// Первый коэффициент: разность сумм первой и второй пары
@@ -1485,7 +1730,7 @@ namespace {
 			 */
 			for(size_t i = 0; i < (N / 4); i++){
 				// Очередные три байта потока одним словом
-				const uint32_t word = (static_cast <uint32_t> (bytes[3 * i]) | (static_cast <uint32_t> (bytes[(3 * i) + 1]) << 8) | (static_cast <uint32_t> (bytes[(3 * i) + 2]) << 16));
+				const uint32_t word = (static_cast <uint32_t> (stream[3 * i]) | (static_cast <uint32_t> (stream[(3 * i) + 1]) << 8) | (static_cast <uint32_t> (stream[(3 * i) + 2]) << 16));
 				// Суммы троек разрядов: по три разряда на тройку
 				const uint32_t sums = ((word & 0x00249249) + ((word >> 1) & 0x00249249) + ((word >> 2) & 0x00249249));
 				/**
@@ -1501,9 +1746,113 @@ namespace {
 				}
 			}
 		}
-		// Выполняем затирание байтов потока
-		wipe(bytes, sizeof(bytes));
 	}
+	/**
+	 * @brief Функция выборки многочлена из центрированного биномиального распределения
+	 *
+	 * @param sigma зерно выборки
+	 * @param nonce номер выборки
+	 * @param eta   параметр распределения
+	 * @param poly  место, в которое помещается многочлен
+	 *
+	 */
+	static void binomial(const uint8_t * sigma, const uint8_t nonce, const size_t eta, poly_t & poly) noexcept {
+		// Байты псевдослучайного потока: 64·η байтов
+		uint8_t stream[64 * 3];
+		// Функция переменного выхода потока
+		digest::keccak_t prf(digest::sha3_t::SHAKE256);
+		// Поглощаем затравку
+		prf.update(view_t(sigma, SEED));
+		// Поглощаем порядковый номер
+		prf.update(view_t(&nonce, 1));
+		// Выжимаем поток
+		prf.squeeze(stream, 64 * eta);
+		// Разбираем поток в многочлен
+		binomialParse(stream, eta, poly);
+		// Выполняем затирание байтов потока
+		wipe(stream, sizeof(stream));
+	}
+	/**
+	 * @brief Функция параллельной выборки четырёх многочленов из центрированного биномиального распределения
+	 *
+	 * @details Четыре губки SHAKE256 переставляются разом параллельным ядром: каждая губка
+	 *          поглощает зерно со своим номером и выжимает 64·η байтов потока
+	 *
+	 * @param sigma  зерно выборки
+	 * @param nonces номера четырёх выборок
+	 * @param eta    параметр распределения
+	 * @param polys  место, в которое помещаются многочлены
+	 *
+	 */
+	#if defined(__ANTS_KECCAK_X4__)
+		static void binomial4(const uint8_t * sigma, const uint8_t * nonces, const size_t eta, poly_t * polys) noexcept {
+			// Состояния четырёх губок
+			uint64_t states[4][25];
+			// Обнуляем состояния
+			::memset(states, 0, sizeof(states));
+			/**
+			 * Выполняем поглощение зерна и номера каждой губкой: полосы 0…3 - зерно, младший байт полосы 4 - номер
+			 */
+			for(size_t k = 0; k < 4; k++){
+				/**
+				 * Выполняем перебор полос зерна
+				 */
+				for(size_t i = 0; i < (SEED / 8); i++)
+					// Складываем очередную полосу зерна
+					states[k][i] ^= laneLoad(sigma + (i * 8));
+				// Складываем номер выборки
+				states[k][SEED / 8] ^= nonces[k];
+			}
+			/**
+			 * Выполняем дополнение домена функций переменного выхода: байт 0x1F на смещении тридцать три и разряд 0x80 в конце полосы скорости 136
+			 */
+			for(size_t k = 0; k < 4; k++){
+				// Байт начала дополнения
+				states[k][33 / 8] ^= (0x1FULL << ((33 % 8) * 8));
+				// Разряд окончания дополнения
+				states[k][(136 - 1) / 8] ^= (0x80ULL << (((136 - 1) % 8) * 8));
+			}
+			// Выполняем перестановку четырёх состояний
+			digest::kernel::keccak4(states);
+			// Байты потоков: 64·η байтов каждой губки
+			uint8_t streams[4][64 * 3];
+			/**
+			 * Выполняем выжимание первого блока каждой губкой
+			 */
+			for(size_t k = 0; k < 4; k++)
+				/**
+				 * Выполняем перебор полос блока
+				 */
+				for(size_t i = 0; i < (136 / 8); i++)
+					// Записываем очередную полосу блока
+					laneStore(states[k][i], streams[k] + (i * 8));
+			// Если η равно трём: поток длиннее блока, дожимаем хвосты
+			if(eta == 3){
+				// Выполняем перестановку четырёх состояний
+				digest::kernel::keccak4(states);
+				/**
+				 * Выполняем выжимание хвостов потоков
+				 */
+				for(size_t k = 0; k < 4; k++)
+					/**
+					 * Выполняем перебор полос хвоста
+					 */
+					for(size_t i = 0; i < 7; i++)
+						// Записываем очередную полосу хвоста
+						laneStore(states[k][i], streams[k] + 136 + (i * 8));
+			}
+			/**
+			 * Выполняем разбор потоков в многочлены
+			 */
+			for(size_t k = 0; k < 4; k++)
+				// Разбираем поток губки
+				binomialParse(streams[k], eta, polys[k]);
+			// Выполняем затирание состояний
+			wipe(states, sizeof(states));
+			// Выполняем затирание потоков
+			wipe(streams, sizeof(streams));
+		}
+	#endif
 	/**
 	 * @brief Функция хеширования G: SHA3-512
 	 *
@@ -1545,27 +1894,98 @@ namespace {
 		const uint8_t * rho = (key + (sample.k * POLY));
 		// Вектор r в области NTT, подготовленный к умножению
 		twisted_t r[K];
+		// Многочлены вектора r
+		poly_t random[K];
 		/**
 		 * Выполняем выборку вектора r
 		 */
+		#if defined(__ANTS_KECCAK_X4__)
+			// Если параллельное ядро губок готово
+			if((sample.k == K) && sponges4()){
+				// Номера выборок вектора
+				const uint8_t nonces[K] = {0, 1, 2, 3};
+				// Выбираем четыре многочлена разом
+				binomial4(seed, nonces, sample.eta1, random);
+			} else {
+		#endif
+			/**
+			 * Выполняем перебор мест вектора
+			 */
+			for(size_t i = 0; i < sample.k; i++)
+				// Выбираем многочлен
+				binomial(seed, static_cast <uint8_t> (i), sample.eta1, random[i]);
+		#if defined(__ANTS_KECCAK_X4__)
+			}
+		#endif
+		/**
+		 * Выполняем перевод вектора r в область NTT и подготовку к умножению
+		 */
 		for(size_t i = 0; i < sample.k; i++){
-			// Многочлен r_i
-			poly_t poly;
-			// Выбираем многочлен
-			binomial(seed, static_cast <uint8_t> (i), sample.eta1, poly);
 			// Переводим в область NTT
-			forward(poly);
+			forward(random[i]);
 			// Готовим к умножению
-			prepare(poly, r[i]);
+			prepare(random[i], r[i]);
 			// Выполняем затирание многочлена
-			wipe(poly.values, sizeof(poly.values));
+			wipe(random[i].values, sizeof(random[i].values));
 		}
+		// Вектор шума e1
+		poly_t noise[K];
+		/**
+		 * Выполняем выборку вектора шума e1
+		 */
+		#if defined(__ANTS_KECCAK_X4__)
+			// Если параллельное ядро губок готово
+			if((sample.k == K) && sponges4()){
+				// Номера выборок шума
+				const uint8_t nonces[K] = {static_cast <uint8_t> (sample.k), static_cast <uint8_t> (sample.k + 1), static_cast <uint8_t> (sample.k + 2), static_cast <uint8_t> (sample.k + 3)};
+				// Выбираем четыре многочлена разом
+				binomial4(seed, nonces, sample.eta2, noise);
+			} else {
+		#endif
+			/**
+			 * Выполняем перебор мест вектора
+			 */
+			for(size_t i = 0; i < sample.k; i++)
+				// Выбираем шум
+				binomial(seed, static_cast <uint8_t> (sample.k + i), sample.eta2, noise[i]);
+		#if defined(__ANTS_KECCAK_X4__)
+			}
+		#endif
 		// Вектор u
 		poly_t u[K];
 		/**
 		 * Выполняем вычисление u = A^T r + e1
 		 */
 		for(size_t i = 0; i < sample.k; i++){
+			// Элементы строки A^T: многочлены A[j][i]
+			poly_t a[K];
+			#if defined(__ANTS_KECCAK_X4__)
+				// Если параллельное ядро губок готово
+				if((sample.k == K) && sponges4()){
+					// Пары индексов губок: зерно || колонка i || строка j
+					uint8_t indices[K][2];
+					/**
+					 * Заполняем пары индексов
+					 */
+					for(size_t j = 0; j < K; j++){
+						// Первый индекс пары
+						indices[j][0] = static_cast <uint8_t> (i);
+						// Второй индекс пары
+						indices[j][1] = static_cast <uint8_t> (j);
+					}
+					// Выбираем четыре элемента разом
+					sampling4(rho, indices, a);
+				} else {
+			#endif
+				/**
+				 * Выполняем перебор столбцов
+				 */
+				for(size_t j = 0; j < sample.k; j++)
+					// Выбираем элемент транспонированной матрицы
+					sampling(rho, static_cast <uint8_t> (j), static_cast <uint8_t> (i), a[j]);
+			#if defined(__ANTS_KECCAK_X4__)
+				}
+			#endif
 			// Накопитель произведений
 			wide_t wide;
 			// Обнуляем накопитель
@@ -1573,30 +1993,21 @@ namespace {
 			/**
 			 * Выполняем перебор столбцов
 			 */
-			for(size_t j = 0; j < sample.k; j++){
-				// Элемент матрицы A[j][i]: транспонирование
-				poly_t a;
-				// Выбираем элемент
-				sampling(rho, static_cast <uint8_t> (j), static_cast <uint8_t> (i), a);
+			for(size_t j = 0; j < sample.k; j++)
 				// Накапливаем произведение
-				multiply(a, r[j], wide);
-			}
+				multiply(a[j], r[j], wide);
 			// Приводим накопитель
 			settle(wide, u[i]);
 			// Переводим из области NTT
 			inverse(u[i]);
-			// Шум e1
-			poly_t e;
-			// Выбираем шум
-			binomial(seed, static_cast <uint8_t> (sample.k + i), sample.eta2, e);
 			/**
 			 * Выполняем сложение с шумом
 			 */
 			for(size_t c = 0; c < N; c++)
 				// Складываем коэффициенты
-				u[i].values[c] = once(u[i].values[c] + e.values[c]);
+				u[i].values[c] = once(u[i].values[c] + noise[i].values[c]);
 			// Выполняем затирание шума: вместе с u и матрицей он раскрывает r
-			wipe(e.values, sizeof(e.values));
+			wipe(noise[i].values, sizeof(noise[i].values));
 		}
 		// Накопитель произведений t^T r
 		wide_t wide;
@@ -1811,26 +2222,95 @@ bool nts::agreement::generate(const kem_t kem, const view_t & seed, uint8_t * ke
 	/**
 	 * Выполняем выборку секрета
 	 */
+	#if defined(__ANTS_KECCAK_X4__)
+		// Если параллельное ядро губок готово
+		if((sample.k == K) && sponges4()){
+			// Номера выборок секрета
+			const uint8_t nonces[K] = {0, 1, 2, 3};
+			// Выбираем четыре многочлена разом
+			binomial4(sigma, nonces, sample.eta1, s);
+		} else {
+	#endif
+		/**
+		 * Выполняем перебор мест вектора
+		 */
+		for(size_t i = 0; i < sample.k; i++)
+			// Выбираем многочлен
+			binomial(sigma, static_cast <uint8_t> (i), sample.eta1, s[i]);
+	#if defined(__ANTS_KECCAK_X4__)
+		}
+	#endif
+	/**
+	 * Выполняем перевод секрета в область NTT и подготовку к умножению
+	 */
 	for(size_t i = 0; i < sample.k; i++){
-		// Выбираем многочлен
-		binomial(sigma, static_cast <uint8_t> (i), sample.eta1, s[i]);
 		// Переводим в область NTT
 		forward(s[i]);
 		// Готовим к умножению
 		prepare(s[i], prepared[i]);
 	}
+	// Вектор шума e
+	poly_t noises[K];
+	/**
+	 * Выполняем выборку вектора шума
+	 */
+	#if defined(__ANTS_KECCAK_X4__)
+		// Если параллельное ядро губок готово
+		if((sample.k == K) && sponges4()){
+			// Номера выборок шума
+			const uint8_t nonces[K] = {static_cast <uint8_t> (sample.k), static_cast <uint8_t> (sample.k + 1), static_cast <uint8_t> (sample.k + 2), static_cast <uint8_t> (sample.k + 3)};
+			// Выбираем четыре многочлена разом
+			binomial4(sigma, nonces, sample.eta1, noises);
+		} else {
+	#endif
+		/**
+		 * Выполняем перебор мест вектора
+		 */
+		for(size_t i = 0; i < sample.k; i++)
+			// Выбираем шум
+			binomial(sigma, static_cast <uint8_t> (sample.k + i), sample.eta1, noises[i]);
+	#if defined(__ANTS_KECCAK_X4__)
+		}
+	#endif
 	// Длина ключа инкапсуляции
 	const size_t length = encapsulation(kem);
 	/**
 	 * Выполняем вычисление t = A s + e
 	 */
 	for(size_t i = 0; i < sample.k; i++){
-		// Многочлен t_i
-		poly_t t;
-		// Выбираем шум e_i
-		binomial(sigma, static_cast <uint8_t> (sample.k + i), sample.eta1, t);
+		// Многочлен t_i: шум e_i в области NTT
+		poly_t t = noises[i];
 		// Переводим шум в область NTT
 		forward(t);
+		// Элементы строки матрицы A: многочлены A[i][j]
+		poly_t a[K];
+		#if defined(__ANTS_KECCAK_X4__)
+			// Если параллельное ядро губок готово
+			if((sample.k == K) && sponges4()){
+				// Пары индексов губок: зерно || колонка j || строка i
+				uint8_t indices[K][2];
+				/**
+				 * Заполняем пары индексов
+				 */
+				for(size_t j = 0; j < K; j++){
+					// Первый индекс пары
+					indices[j][0] = static_cast <uint8_t> (j);
+					// Второй индекс пары
+					indices[j][1] = static_cast <uint8_t> (i);
+				}
+				// Выбираем четыре элемента разом
+				sampling4(rho, indices, a);
+			} else {
+		#endif
+			/**
+			 * Выполняем перебор столбцов
+			 */
+			for(size_t j = 0; j < sample.k; j++)
+				// Выбираем элемент матрицы
+				sampling(rho, static_cast <uint8_t> (i), static_cast <uint8_t> (j), a[j]);
+		#if defined(__ANTS_KECCAK_X4__)
+			}
+		#endif
 		// Накопитель произведений строки
 		wide_t wide;
 		// Обнуляем накопитель
@@ -1838,14 +2318,9 @@ bool nts::agreement::generate(const kem_t kem, const view_t & seed, uint8_t * ke
 		/**
 		 * Выполняем перебор столбцов
 		 */
-		for(size_t j = 0; j < sample.k; j++){
-			// Элемент матрицы A[i][j]
-			poly_t a;
-			// Выбираем элемент
-			sampling(rho, static_cast <uint8_t> (i), static_cast <uint8_t> (j), a);
+		for(size_t j = 0; j < sample.k; j++)
 			// Накапливаем произведение
-			multiply(a, prepared[j], wide);
-		}
+			multiply(a[j], prepared[j], wide);
 		// Произведение строки на секрет
 		poly_t product;
 		// Приводим накопитель
@@ -1860,6 +2335,8 @@ bool nts::agreement::generate(const kem_t kem, const view_t & seed, uint8_t * ke
 		encode(t, key + (i * POLY));
 		// Записываем многочлен s_i в ключ декапсуляции
 		encode(s[i], secret + (i * POLY));
+		// Выполняем затирание шума и строки матрицы
+		wipe(noises[i].values, sizeof(noises[i].values));
 	}
 	// Записываем зерно ρ в ключ инкапсуляции
 	::memcpy(key + (sample.k * POLY), rho, SEED);
